@@ -214,6 +214,8 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
     :: Num (TensorOf n r)
     => TensorOf n r -> TensorOf n r -> TensorOf n r
   tmult = (*)
+  tscaleByScalar :: KnownNat n => TensorOf n r -> r -> TensorOf n r
+  tscaleByScalar v s = v `tmult` tkonst0N (tshape v) (tscalar s)
 
 type ADReady r =
   ( Tensor r, HasPrimal r, Tensor (Primal r), Show r
@@ -326,10 +328,13 @@ instance Tensor Double where
   treshape = treshapeR
   tbuild = tbuildNR
   tbuild1 = tbuild1R
+  tmap0N = tmap0NR
+  tzipWith0N = tzipWith0NR
   tgather = tgatherNR
   tgather1 = tgather1R
   tscalar = tscalarR
   tunScalar = tunScalarR
+  tscaleByScalar = tscaleByScalarR
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
@@ -357,15 +362,13 @@ instance Tensor Float where
   treshape = treshapeR
   tbuild = tbuildNR
   tbuild1 = tbuild1R
-  -- TODO: low priority: implement for speed and use for ADVal, too
-  -- tmap = tmapR
-  -- tmap0N = tmap0NR
-  -- tzipWith = tzipWithR
-  -- tzipWith0N = tzipWith0NR
+  tmap0N = tmap0NR
+  tzipWith0N = tzipWith0NR
   tgather = tgatherNR
   tgather1 = tgather1R
   tscalar = tscalarR
   tunScalar = tunScalarR
+  tscaleByScalar = tscaleByScalarR
 
 {- These instances are increasingly breaking stuff, so disabled:
 

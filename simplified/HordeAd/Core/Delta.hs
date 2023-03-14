@@ -515,7 +515,9 @@ buildFinMaps s0 deltaDt =
           eval1 s (tscatter1R sh (tfromListR [tscalarR c]) (\_ -> ix)) d
             -- equivalent: eval1 s (updateR (tkonst0NR sh 0) [(ix, c)]) d
         Sum0 sh d -> eval1 s (tkonst0NR sh c) d
-        Dot0 v vd -> eval1 s (liftVR (LA.scale c) v) vd
+        Dot0 v vd -> eval1 s (tscaleByScalarR v c) vd
+                     -- too slow: eval1 s (v * tkonst0N (tshape v) c) vd
+                     -- too slow: eval1 s (tmap0N (* (tscalar c)) v) vd
         UnScalar0 d -> eval1 s (OR.scalar c) d
 
       addToArray :: OR.Array n r -> OT.Array r -> OT.Array r
