@@ -39,7 +39,7 @@ import HordeAd.Internal.TensorOps
 -- In principle, this instance is only useful for comparative tests,
 -- though for code without build/map/etc., it should be equivalent
 -- to going via Ast.
-instance ADNum Double => Tensor (ADVal Double) where
+instance Tensor (ADVal Double) where
   type TensorOf n (ADVal Double) = ADVal (OR.Array n Double)
   type IntOf (ADVal Double) = Int
 
@@ -78,7 +78,7 @@ instance ADNum Double => Tensor (ADVal Double) where
   tscalar = scalar
   tunScalar = unScalar
 
-instance ADNum Float => Tensor (ADVal Float) where
+instance Tensor (ADVal Float) where
   type TensorOf n (ADVal Float) = ADVal (OR.Array n Float)
   type IntOf (ADVal Float) = Int
 
@@ -110,7 +110,7 @@ instance ADNum Float => Tensor (ADVal Float) where
   tscalar = scalar
   tunScalar = unScalar
 
-instance ADNum Double => HasPrimal (ADVal Double) where
+instance HasPrimal (ADVal Double) where
   type ScalarOf (ADVal Double) = Double
   type Primal (ADVal Double) = Double
   type DualOf n (ADVal Double) = Dual (OR.Array n Double)
@@ -126,7 +126,7 @@ instance ADNum Double => HasPrimal (ADVal Double) where
   tfromR = from1X
   tfromD = fromX1
 
-instance ADNum Float => HasPrimal (ADVal Float) where
+instance HasPrimal (ADVal Float) where
   type ScalarOf (ADVal Float) = Float
   type Primal (ADVal Float) = Float
   type DualOf n (ADVal Float) = Dual (OR.Array n Float)
@@ -290,19 +290,21 @@ unScalar (D u u') = dD (tunScalar u) (dUnScalar0 u')
 -- For now, we interpret only in the concrete ADVal instance,
 -- which is the only interpretation needed for anything apart from tests.
 
-type AstEnv r = IM.IntMap (AstVar (ADVal (OT.Array r)))
+type AstEnv r = IM.IntMap (AstVar (DynamicTensor (ADVal r)))
 
 data AstVar a =
     AstVarR a
   | AstVarI Int
  deriving Show
 
-extendEnvR :: (ADNum r, KnownNat n, TensorOf n r ~ OR.Array n r)
-           => AstVarName (OR.Array n r) -> ADVal (OR.Array n r)
+extendEnvR :: forall n r.
+              ( HasPrimal (ADVal r), KnownNat n
+              , TensorOf n (ADVal r) ~ ADVal (TensorOf n r) )
+           => AstVarName (TensorOf n r) -> ADVal (TensorOf n r)
            -> AstEnv r -> AstEnv r
 extendEnvR v@(AstVarName var) d =
   IM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
-                   var (AstVarR $ from1X d)
+                   var (AstVarR $ tfromR d)
 
 extendEnvI :: AstVarName Int -> Int
            -> AstEnv r -> AstEnv r
@@ -332,10 +334,10 @@ interpretLambdaIndexToIndex
 interpretLambdaIndexToIndex f env (vars, asts) =
   \ix -> fmap (f (extendEnvVars vars ix env)) asts
 
-class InterpretAst r where
+class DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r) => InterpretAst r where
   interpretAst
     :: forall n. (ADNum r, KnownNat n)
-    => AstEnv r -> Ast n r -> ADVal (OR.Array n r)
+    => AstEnv r -> Ast n r -> ADVal (TensorOf n r)
 
 instance InterpretAst Double where
  interpretAst = interpretAstRec
@@ -352,16 +354,16 @@ instance InterpretAst Double where
 -- e.g., to differentiate directly, and so we'd first interpret it in itself,
 -- simplifying, and its primal part in OR.Array.
    interpretAstPrimal
-     :: (ADNum r, KnownNat n, r ~ Double)
+     :: (KnownNat n, r ~ Double)
      => AstEnv r
-     -> AstPrimalPart n r -> OR.Array n r
+     -> AstPrimalPart n r -> TensorOf n r
    interpretAstPrimal env (AstPrimalPart v) =
      toArray $ tprimalPart $ interpretAstRec env v
 
    interpretAstRec
-     :: forall n r. (ADNum r, KnownNat n, r ~ Double)
+     :: forall n r. (KnownNat n, r ~ Double)
      => AstEnv r
-     -> Ast n r -> ADVal (OR.Array n r)
+     -> Ast n r -> ADVal (TensorOf n r)
    interpretAstRec env = \case
      AstVar _sh (AstVarName var) -> case IM.lookup var env of
        Just (AstVarR d) -> tfromD d
@@ -415,7 +417,7 @@ instance InterpretAst Double where
      AstFromDynamic{} ->
        error "interpretAst: AstFromDynamic is not for library users"
 
-   interpretAstInt :: forall r. (ADNum r, r ~ Double)
+   interpretAstInt :: forall r. r ~ Double
                    => AstEnv r
                    -> AstInt r -> Int
    interpretAstInt env = \case
@@ -435,7 +437,7 @@ instance InterpretAst Double where
      AstMinIndex1 v -> tminIndex0 $ interpretAstRec env v
      AstMaxIndex1 v -> tmaxIndex0 $ interpretAstRec env v
 
-   interpretAstBool :: (ADNum r, r ~ Double)
+   interpretAstBool :: r ~ Double
                     => AstEnv r
                     -> AstBool r -> Bool
    interpretAstBool env = \case
@@ -466,14 +468,14 @@ instance InterpretAst Float where
    interpretAstPrimal
      :: (KnownNat n, r ~ Float)
      => AstEnv r
-     -> AstPrimalPart n r -> OR.Array n r
+     -> AstPrimalPart n r -> TensorOf n r
    interpretAstPrimal env (AstPrimalPart v) =
      toArray $ tprimalPart $ interpretAstRec env v
 
    interpretAstRec
-     :: forall n r. (ADNum r, KnownNat n, r ~ Float)
+     :: forall n r. (KnownNat n, r ~ Float)
      => AstEnv r
-     -> Ast n r -> ADVal (OR.Array n r)
+     -> Ast n r -> ADVal (TensorOf n r)
    interpretAstRec env = \case
      AstVar _sh (AstVarName var) -> case IM.lookup var env of
        Just (AstVarR d) -> tfromD d
