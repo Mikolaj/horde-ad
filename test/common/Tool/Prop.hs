@@ -9,7 +9,6 @@ import Test.Tasty
 import Test.Tasty.QuickCheck
 
 import HordeAd
-import HordeAd.Core.DualClass (Dual)
 
 -- Checks if 2 numbers are close enough.
 close1 :: forall r. (Ord r, Fractional r)

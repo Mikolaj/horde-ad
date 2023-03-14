@@ -12,7 +12,7 @@ import           Control.Exception (assert)
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
 
-import HordeAd.Core.DualNumber
+import HordeAd
 import MnistData
 
 -- | Fully connected neural network for the MNIST digit classification task.

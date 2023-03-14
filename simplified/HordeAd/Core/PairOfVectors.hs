@@ -24,8 +24,8 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric)
 
-import HordeAd.Core.DualClass (Dual, dFromX1)
-import HordeAd.Core.DualNumber
+import HordeAd.Core.DualClass2 (dFromX1)
+import HordeAd.Core.DualNumber2
 import HordeAd.Core.TensorClass
 
 -- These are optimized as "pair of vectors" representing vectors of @ADVal@

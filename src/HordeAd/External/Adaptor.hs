@@ -23,7 +23,6 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
-import HordeAd.Core.DualClass (Dual)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors

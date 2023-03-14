@@ -13,7 +13,13 @@ import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd
+import HordeAd.Core.ADValTensor
+import HordeAd.Core.Ast
+import HordeAd.Core.DualClass (dFromX1)
+import HordeAd.Core.DualNumber
+import HordeAd.Core.Engine
+import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorClass
 
 import Tool.EqEpsilon
 
@@ -40,6 +46,16 @@ testTrees = [ -- Tensor tests
             , testCase "concatBuild" testConcatBuild
             ]
 
+
+at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
+{-# INLINE at0 #-}
+at0 ADInputs{..} i = dD (inputPrimal0 V.! i) (inputDual0 V.! i)
+
+at1 :: forall n r d. (KnownNat n, ADModeAndNum d r, TensorOf n r ~ OR.Array n r)
+    =>  ADInputs d r -> Int -> ADVal d (OR.Array n r)
+{-# INLINE at1 #-}
+at1 ADInputs{..} i = dD (tfromD $ inputPrimal1 V.! i)
+                        (dFromX1 $ inputDual1 V.! i)
 
 -- * Tensor tests
 

@@ -5,12 +5,12 @@
 module HordeAd
   ( module HordeAd.Core.ADValTensor
   , module HordeAd.Core.Ast
-  , module HordeAd.Core.DualNumber
-  , module HordeAd.Core.Engine
+  , module HordeAd.Core.DualNumber2
+  , module HordeAd.Core.Engine2
   , module HordeAd.Core.PairOfVectors
   , module HordeAd.Core.SizedIndex
   , module HordeAd.Core.TensorClass
-  , module HordeAd.External.Adaptor
+  , module HordeAd.External.Adaptor2
   , module HordeAd.External.Optimizer
   ) where
 
@@ -18,10 +18,10 @@ import Prelude ()
 
 import HordeAd.Core.ADValTensor
 import HordeAd.Core.Ast
-import HordeAd.Core.DualNumber
-import HordeAd.Core.Engine
+import HordeAd.Core.DualNumber2
+import HordeAd.Core.Engine2
 import HordeAd.Core.PairOfVectors
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
-import HordeAd.External.Adaptor
+import HordeAd.External.Adaptor2
 import HordeAd.External.Optimizer

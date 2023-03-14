@@ -14,9 +14,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.DualNumber
-import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (ADInputs, at1, at2)
+import HordeAd
 import MnistData
 
 fcnnMnistLen2 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])

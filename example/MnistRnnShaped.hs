@@ -17,7 +17,7 @@ import           GHC.TypeLits (type (*))
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA
 
-import HordeAd.Core.DualNumber
+import HordeAd
 import MnistData
 
 zeroStateS

@@ -18,7 +18,7 @@ import           GHC.TypeLits (type (*), type (+), type (<=), type Div)
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA
 
-import HordeAd.Core.DualNumber
+import HordeAd
 import MnistData
 
 -- Due to subtraction complicating posititive number type inference,

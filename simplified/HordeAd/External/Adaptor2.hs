@@ -1,7 +1,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-module HordeAd.External.Adaptor
+module HordeAd.External.Adaptor2
   ( Adaptable, AdaptableScalar
   , AdaptableDomains(toDomains, nParams, nScalars)
   , RandomDomains(randomVals)
@@ -22,9 +22,10 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
-import HordeAd.Core.DualClass (Dual, inputConstant)
-import HordeAd.Core.DualNumber
-import HordeAd.Core.Engine
+import HordeAd.Core.DualClass2 (inputConstant)
+import HordeAd.Core.DualNumber2
+import HordeAd.Core.Engine2
+import HordeAd.Core.PairOfVectors
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
 

@@ -10,7 +10,10 @@ import           Data.Boolean
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd
+import HordeAd.Core.ADValTensor
+import HordeAd.Core.Ast
+import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorClass
 
 import TestAdaptorSimplified (assertEqualUpToEpsilon', rev', t128, t48)
 

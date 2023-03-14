@@ -26,7 +26,6 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 
-import HordeAd.Core.DualClass (Dual)
 import HordeAd.Core.DualNumber
 
 -- These are optimized as "pair of vectors" representing vectors of @ADVal@

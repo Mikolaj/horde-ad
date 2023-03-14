@@ -11,10 +11,16 @@ import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd
+import HordeAd.Core.ADValTensor
+import HordeAd.Core.Ast
+import HordeAd.Core.DualNumber
+import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorClass
+import HordeAd.External.Adaptor
 
 import TestAdaptorSimplified
   (assertEqualUpToEpsilon', assertEqualUpToEpsilonShorter, rev', t128, t16, t48)
+
 import Tool.EqEpsilon
 
 testTrees :: [TestTree]

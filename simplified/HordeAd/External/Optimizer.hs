@@ -10,8 +10,8 @@ import Prelude
 
 import Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.DualNumber
-import HordeAd.Core.Engine
+import HordeAd.Core.DualNumber2
+import HordeAd.Core.Engine2
 import HordeAd.Core.PairOfVectors (ADInputs, makeADInputs)
 import HordeAd.External.OptimizerTools
 

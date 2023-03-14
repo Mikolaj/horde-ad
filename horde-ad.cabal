@@ -504,12 +504,16 @@ library horde-ad-simplified
                       HordeAd.Core.AstVectorize
                       HordeAd.Core.Delta
                       HordeAd.Core.DualClass
+                      HordeAd.Core.DualClass2
                       HordeAd.Core.DualNumber
+                      HordeAd.Core.DualNumber2
                       HordeAd.Core.Engine
+                      HordeAd.Core.Engine2
                       HordeAd.Core.PairOfVectors
                       HordeAd.Core.SizedIndex
                       HordeAd.Core.TensorClass
                       HordeAd.External.Adaptor
+                      HordeAd.External.Adaptor2
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.OrthotopeOrphanInstances

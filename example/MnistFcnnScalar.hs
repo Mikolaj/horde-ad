@@ -12,9 +12,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.DualNumber
-import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (ADInputs, at0)
+import HordeAd
 import MnistData
 
 -- | Compute the output of a neuron, without applying activation function,

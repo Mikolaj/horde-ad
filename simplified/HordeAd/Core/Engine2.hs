@@ -3,10 +3,8 @@
 -- in "HordeAd.Core.DualNumber". Together with that module, this forms
 -- the basic high-level API of the horde-ad library. Optimizers, etc.,
 -- are add-ons.
-module HordeAd.Core.Engine
-  ( ADInputs(..)
-  , makeADInputs, nullADInputs
-  , -- * The most often used part of the high-level API
+module HordeAd.Core.Engine2
+  ( -- * The most often used part of the high-level API
     revOnDomainsFun, revOnDomains, fwdOnDomains, valueOnDomains
   , -- * The less often used part of the high-level API
     valueGeneral
@@ -31,35 +29,11 @@ import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta (derivativeFromDelta, gradientFromDelta, toInputId)
-import HordeAd.Core.DualClass
-  (Dual, HasInputs (..), dFrom1X, dInput0, dInput1, dummyDual, packDeltaDt)
-import HordeAd.Core.DualNumber
+import HordeAd.Core.DualClass2
+  (HasInputs (..), dFrom1X, dInput0, dInput1, dummyDual, packDeltaDt)
+import HordeAd.Core.DualNumber2
+import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
 import HordeAd.Core.TensorClass
-
-
-data ADInputs d r = ADInputs
-  { inputPrimal0 :: Domain0 r
-  , inputDual0   :: Data.Vector.Vector (Dual d r)
-  , inputPrimal1 :: Domain1 r
-  , inputDual1   :: Data.Vector.Vector (Dual d (DynamicTensor r))
-  }
-
-makeADInputs
-  :: Domains r
-  -> ( Data.Vector.Vector (Dual d r)
-     , Data.Vector.Vector (Dual d (DynamicTensor r)) )
-  -> ADInputs d r
-{-# INLINE makeADInputs #-}
-makeADInputs Domains{..} (vs0, vs1)
-  = ADInputs domains0 vs0 domains1 vs1
-
-inputsToDomains :: ADInputs d r -> Domains r
-inputsToDomains ADInputs{..} =
-  Domains inputPrimal0 inputPrimal1
-
-nullADInputs :: Numeric r => ADInputs d r -> Bool
-nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
-
 
 -- * Evaluation that ignores the dual part of the dual numbers.
 -- It's intended for efficiently calculating the value of the function only.

@@ -19,7 +19,6 @@ import           Test.Tasty.QuickCheck
   (Arbitrary, Property, choose, forAll, property, testProperty)
 
 import HordeAd
-import HordeAd.Core.DualClass (Dual)
 import HordeAd.Internal.TensorOps (tindex0D)
 
 import Tool.EqEpsilon

@@ -14,8 +14,14 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd
+import HordeAd.Core.ADValTensor
+import HordeAd.Core.Ast
 import HordeAd.Core.DualClass (inputConstant)
+import HordeAd.Core.DualNumber
+import HordeAd.Core.Engine
+import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorClass
+import HordeAd.External.Adaptor
 
 import Tool.EqEpsilon
 
