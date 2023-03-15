@@ -378,17 +378,18 @@ interpretLambdaI f env (var, ast) =
   \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIndexToIndex
-  :: (AstEnv r -> AstInt r -> IntOf r)
-  -> AstEnv r -> (AstVarList m, AstIndex p r) -> IndexOf m r
+  :: (AstEnv r -> AstInt q -> IntOf r)
+  -> AstEnv r -> (AstVarList m, AstIndex p q) -> IndexOf m r
   -> IndexOf p r
 {-# INLINE interpretLambdaIndexToIndex #-}
 interpretLambdaIndexToIndex f env (vars, asts) =
   \ix -> fmap (f (extendEnvVars vars ix env)) asts
 
-class DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r) => InterpretAst r where
+class DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
+      => InterpretAst r where
   interpretAst
-    :: forall n. (ADTensor r, KnownNat n)
-    => AstEnv r -> Ast n r -> ADVal (TensorOf n r)
+    :: forall n. KnownNat n
+    => AstEnv r -> Ast n (ScalarOf r) -> ADVal (TensorOf n r)
 
 instance InterpretAst Double where
  interpretAst = interpretAstRec

@@ -338,7 +338,7 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: (ADNum r, InterpretAst r)
+  let f :: (ADNum r, InterpretAst r, ScalarOf r ~ r)
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (fooNoGoAst (AstVar [5] (AstVarName 0)))
@@ -455,7 +455,7 @@ barReluAst x = relu1 @n @(AstScalar r) $ bar (x, relu1 x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
-  let f :: (ADNum r, InterpretAst r)
+  let f :: (ADNum r, InterpretAst r, ScalarOf r ~ r)
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (barReluAst (AstVar [] (AstVarName 0)))
@@ -465,7 +465,7 @@ testBarReluAst0 =
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
-  let f :: (ADNum r, InterpretAst r)
+  let f :: (ADNum r, InterpretAst r, ScalarOf r ~ r)
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (barReluAst (AstVar [5] (AstVarName 0)))
@@ -480,7 +480,7 @@ konstReluAst x = tsum0 $ relu1 $ tkonst0N (7 :$ ZS) x
 
 testKonstReluAst :: Assertion
 testKonstReluAst =
-  let f :: (ADNum r, InterpretAst r)
+  let f :: (ADNum r, InterpretAst r, ScalarOf r ~ r)
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (konstReluAst (AstVar [] (AstVarName 0)))
