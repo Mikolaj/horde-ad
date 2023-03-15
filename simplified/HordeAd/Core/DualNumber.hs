@@ -14,7 +14,7 @@ module HordeAd.Core.DualNumber
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
   , addParameters, dotParameters
-  , logistic, square, squaredDifference, scale, constant, relu
+  , logistic, square, squaredDifference, scale, constant
   , sumElements10, index10, minimum0, maximum0, altSumElements10
   , (<.>!), (<.>!!)
   , softMax, lossCrossEntropy, lossCrossEntropyV, lossSoftMaxCrossEntropyV
@@ -22,7 +22,7 @@ module HordeAd.Core.DualNumber
   , softMaxV, build1POPL, build1Elementwise, build1Closure, build1
   , map1POPL, map1Elementwise
   , -- * Re-exports
-    IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
+    IsPrimal (..), IsPrimalAndHasInputs
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   ) where
 
@@ -31,7 +31,6 @@ import Prelude
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
-import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -105,8 +104,8 @@ type ADNum r =
   , Show r
   , Show (Dual (OT.Array r))
   , HasRanks r
-  , IsPrimalAndHasFeatures r r
-  , IsPrimalAndHasFeatures (OT.Array r) r
+  , IsPrimalWithScalar r r
+  , IsPrimalWithScalar (OT.Array r) r
   , IsPrimalR r
   , RealFloat (Vector r)
   , Tensor r
@@ -308,13 +307,14 @@ scale a (D u u') = dD (a * u) (dScale a u')
 constant :: IsPrimal a => a -> ADVal a
 constant a = dD a dZero
 
+{-
 relu
   :: (ADNum r, IsPrimalAndHasFeatures a r)
   => ADVal a -> ADVal a
 relu v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
   in scale oneIfGtZero v
-
+-}
 
 -- Operations resulting in a scalar
 

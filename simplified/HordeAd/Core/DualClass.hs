@@ -27,7 +27,7 @@
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
-    IsPrimal(..), IsPrimalR(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
+    IsPrimal(..), IsPrimalR(..), IsPrimalWithScalar, IsPrimalAndHasInputs
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual
   , -- * Internal operations, exposed for tests, debugging and experiments
@@ -40,7 +40,7 @@ import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
-import           Data.MonoTraversable (Element, MonoFunctor)
+import           Data.MonoTraversable (Element)
 import qualified Data.Strict.Vector as Data.Vector
 import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
@@ -59,15 +59,11 @@ import HordeAd.Core.TensorClass
 -- at an unknown rank, with the given differentiation mode
 -- and underlying scalar.
 type IsPrimalWithScalar a r =
-  (IsPrimal a, MonoFunctor a, Element a ~ r)
-
--- | A shorthand for a useful set of constraints.
-type IsPrimalAndHasFeatures a r =
-  (IsPrimalWithScalar a r, RealFloat a)
+  (IsPrimal a, Element a ~ r)
 
 -- | A shorthand for a useful set of constraints.
 type IsPrimalAndHasInputs a r =
-  (IsPrimalAndHasFeatures a r, HasInputs a)
+  (IsPrimalWithScalar a r, HasInputs a)
 
 
 -- * Class definitions
