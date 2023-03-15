@@ -8,7 +8,7 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.DualNumber
   ( ADVal, dD, pattern D
-  , ADNum, TensorIsArray(..)
+  , ADNum, ADTensor, TensorIsArray(..)
   , fromX1, from1X
   , Vec, vecToV, vToVec
   , SNat(..), staticNatValue, staticNatFromProxy
@@ -116,6 +116,22 @@ type ADNum r =
   , DynamicTensor r ~ OT.Array r
   , HasPrimal r
   , HasInputs r
+  )
+
+type ADTensor r =
+  ( Dual r ~ Delta0 r
+  , Show r
+  , Show (Dual (OT.Array r))
+  , IsPrimal r
+  , IsPrimal (TensorOf 0 r)
+  , IsPrimal (TensorOf 1 r)
+  , HasRanks r
+  , HasInputs r
+  , RealFloat (Vector r)
+  , Tensor r
+  , TensorIsArray r
+  , HasPrimal r
+  , IntOf r ~ Int
   )
 
 class TensorIsArray r where
