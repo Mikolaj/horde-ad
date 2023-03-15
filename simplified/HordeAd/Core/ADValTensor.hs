@@ -110,6 +110,40 @@ instance Tensor (ADVal Float) where
   tscalar = scalar
   tunScalar = unScalar
 
+instance (ADNum r, IsPrimal (AstScalar r), IsPrimalA r)
+         => Tensor (ADVal (AstScalar r)) where
+  type TensorOf n (ADVal (AstScalar r)) = ADVal (Ast n r)
+  type IntOf (ADVal (AstScalar r)) = AstInt r
+
+  tshape = shape @(AstScalar r)
+  tminIndex0 (D u _) = AstMinIndex1 u
+  tmaxIndex0 (D u _) = AstMaxIndex1 u
+  tfloor (D u _) = AstIntFloor u
+
+  tindex = indexZ
+  tsum = sum'
+  tsum0 = tscalar . sum0
+  tdot0 u v = tscalar $ dot0 u v
+  tfromIndex0 i = tconstant $ AstConstInt i
+  tscatter = scatterNClosure
+
+  tfromList = fromList
+--  tfromList0N = fromList0N
+  tfromVector = fromVector
+--  tfromVector0N = fromVector0N
+  tkonst = konst
+--  tkonst0N sh = konst0N sh . unScalar
+  tappend = append
+  tslice = slice
+  treverse = reverse'
+  ttranspose = transpose
+  treshape = reshape
+  tbuild1 = build1
+  tgather = gatherNClosure
+
+  tscalar = scalar
+  tunScalar = unScalar
+
 instance HasPrimal (ADVal Double) where
   type ScalarOf (ADVal Double) = Double
   type Primal (ADVal Double) = Double
@@ -142,6 +176,24 @@ instance HasPrimal (ADVal Float) where
   taddD = (+)
   tfromR = from1X
   tfromD = fromX1
+
+instance (ADNum r, IsPrimal (AstScalar r), IsPrimalA r)
+         => HasPrimal (ADVal (AstScalar r)) where
+  type ScalarOf (ADVal (AstScalar r)) = r
+  type Primal (ADVal (AstScalar r)) = AstScalar r
+  type DualOf n (ADVal (AstScalar r)) = Dual (Ast n r)
+  tconst t = dD (AstConst t) dZero
+  tconstant t = dD t dZero
+  tprimalPart (D u _) = u
+  tdualPart (D _ u') = u'
+  tD = dD
+  type DynamicTensor (ADVal (AstScalar r)) = ADVal (AstDynamic r)
+  tdummyD = undefined  -- not used for dual numbers
+  tisDummyD = undefined  -- not used for dual numbers
+  taddD (D u u') (D v v') = dD (AstDynamicPlus u v) (dAdd u' v')
+  tfromR = from1X
+  tfromD = fromX1
+
 
 -- * ADVal combinators generalizing ranked tensor operations
 

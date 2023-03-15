@@ -121,15 +121,11 @@ type ADNum r =
 type ADTensor r =
   ( Dual r ~ Delta0 r
   , Show r
-  , Show (Dual (OT.Array r))
   , IsPrimal r
   , IsPrimal (TensorOf 0 r)
   , IsPrimal (TensorOf 1 r)
   , HasRanks r
-  , HasInputs r
-  , RealFloat (Vector r)
   , Tensor r
-  , TensorIsArray r
   , HasPrimal r
   )
 
@@ -145,12 +141,12 @@ instance TensorIsArray Float where
   toArray = id
   fromArray = id
 
-fromX1 :: forall n r. (ADNum r, KnownNat n)
-       => ADVal (OT.Array r) -> ADVal (TensorOf n r)
+fromX1 :: forall n r. (ADTensor r, KnownNat n)
+       => ADVal (DynamicTensor r) -> ADVal (TensorOf n r)
 fromX1 (D u u') = dDnotShared (tfromD u) (dFromX1 u')
 
-from1X :: (ADNum r, KnownNat n)
-       => ADVal (TensorOf n r) -> ADVal (OT.Array r)
+from1X :: (ADTensor r, KnownNat n)
+       => ADVal (TensorOf n r) -> ADVal (DynamicTensor r)
 from1X (D u u') = dDnotShared (tfromR u) (dFrom1X u')
 
 -- Shims to reuse the tests for ordinary vectors.

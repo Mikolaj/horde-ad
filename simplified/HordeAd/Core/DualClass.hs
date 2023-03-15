@@ -27,7 +27,8 @@
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
-    IsPrimal(..), IsPrimalR(..), IsPrimalWithScalar, IsPrimalAndHasInputs
+    IsPrimal(..), IsPrimalR(..), IsPrimalA (..)
+  , IsPrimalWithScalar, IsPrimalAndHasInputs
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual
   , -- * Internal operations, exposed for tests, debugging and experiments
@@ -41,8 +42,10 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
-import           GHC.TypeLits (KnownNat, type (+))
+import           Data.Type.Equality ((:~:) (Refl))
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -286,6 +289,16 @@ instance IsPrimal Float where
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
 
+instance IsPrimal (AstScalar r) where
+  dZero = Zero0
+  dScale = Scale0
+  dAdd = Add0
+  recordSharing d = case d of
+    Zero0 -> d
+    Input0{} -> d
+    Let0{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDelta0 d
+
 -- | This is a trivial and so a pure instance.
 instance IsPrimal (OT.Array r) where
   dZero = undefined
@@ -317,7 +330,7 @@ instance IsPrimalR Float where
     _ -> wrapDelta1 d
 
 -- TODO: should this manage sharing of the terms?
-instance IsPrimalA Double where
+instance (Show r, Numeric r) => IsPrimalA r where
   dZeroA = Zero1
   dScaleA = Scale1
   dAddA = Add1
@@ -327,6 +340,14 @@ instance IsPrimalA Double where
     FromX1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
+
+instance IsPrimal (AstDynamic r) where
+  dZero = undefined
+  dScale = undefined
+  dAdd (From1X @n1 d1) (From1X @n2 d2) = case sameNat (Proxy @n1) (Proxy @n2) of
+    Just Refl -> From1X $ Add1 d1 d2
+    _ -> error "dAdd (IsPrimal (AstDynamic r)): summand types don't match"
+  recordSharing = id
 
 instance HasInputs Double where
   packDeltaDt t _tsh = DeltaDt0 t
