@@ -243,9 +243,10 @@ reshape sh (D u u') = dD (treshape sh u) (dReshape1 (tshape u) sh u')
 
 build1, _build1Closure
   :: (ADTensor r, KnownNat n, IsPrimal (TensorOf (1 + n) r))
-  => Int -> (Int -> ADVal (TensorOf n r))
+  => Int -> (IntOf r -> ADVal (TensorOf n r))
   -> ADVal (TensorOf (1 + n) r)
-build1 k f = fromList $ map f [0 .. k - 1]  -- element-wise (POPL) version
+build1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
+               -- element-wise (POPL) version
 
 -- Strangely, this variant slows down simplifiedOnlyTest 3 times. Perhaps
 -- that's because k is very low and the f functions are simple enough.

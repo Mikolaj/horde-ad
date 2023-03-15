@@ -204,7 +204,7 @@ class HasRanks (d :: ADMode) r where
             => ShapeInt n -> ShapeInt m -> Dual d (TensorOf n r)
             -> Dual d (TensorOf m r)
   dBuild1 :: KnownNat n
-          => Int -> (Int -> Dual d (TensorOf n r))
+          => Int -> (IntOf r -> Dual d (TensorOf n r))
           -> Dual d (TensorOf (1 + n) r)
 --  dGatherZ1 :: (KnownNat p, KnownNat n)
 --           => (Int -> IndexOf p r)

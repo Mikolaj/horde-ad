@@ -203,7 +203,7 @@ class HasRanks r where
             => ShapeInt n -> ShapeInt m -> Dual (TensorOf n r)
             -> Dual (TensorOf m r)
   dBuild1 :: KnownNat n
-          => Int -> (Int -> Dual (TensorOf n r))
+          => Int -> (IntOf r -> Dual (TensorOf n r))
           -> Dual (TensorOf (1 + n) r)
 --  dGatherZ1 :: (KnownNat p, KnownNat n)
 --           => (Int -> IndexOf p r)

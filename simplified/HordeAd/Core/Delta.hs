@@ -209,7 +209,7 @@ data Delta1 :: Nat -> Type -> Type where
            => ShapeInt n -> ShapeInt m -> Delta1 n r -> Delta1 m r
     -- ^ Change the shape of the tensor from the first to the second.
   Build1 :: KnownNat n
-         => Int -> (Int -> Delta1 n r) -> Delta1 (1 + n) r
+         => Int -> (IntOf r -> Delta1 n r) -> Delta1 (1 + n) r
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
 
@@ -604,8 +604,8 @@ buildFinMaps s0 deltaDt =
           in eval1 s (ttranspose perm_reversed c) d
         Reshape1 sh _sh' d -> eval1 s (treshape sh c) d
         Build1 n f ->
-          foldl' (\s2 i -> eval1 s2 (tindex c (fromIntegral i :. ZI)) (f i))
-                 s [0 .. n - 1]
+          foldl' (\s2 i -> eval1 s2 (tindex c (i :. ZI)) (f i))
+                 s (fromIntegral <$> [0 .. n - 1])
 --        Gather1 f sh d _n -> eval1 s (tscatter1R f c sh) d
         GatherZ _sh d f shd -> eval1 s (tscatter shd c f) d
 --        Scatter1 f n d _sh -> eval1 s (tgatherZ1R n c f) d
@@ -751,7 +751,7 @@ buildDerivative dim0 dim1 deltaTopLevel
         Transpose1 perm d -> ttranspose perm <$> eval1 d
         Reshape1 _sh sh' d -> treshape sh' <$> eval1 d
         Build1 n f -> do
-          l <- mapM (eval1 . f) [0 .. n - 1]
+          l <- mapM (eval1 . f . fromIntegral) [0 .. n - 1]
           return $! tfromList l
 --        Gather1 f _sh d k -> do
 --          t <- eval1 d

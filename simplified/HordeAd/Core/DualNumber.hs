@@ -131,7 +131,6 @@ type ADTensor r =
   , Tensor r
   , TensorIsArray r
   , HasPrimal r
-  , IntOf r ~ Int
   )
 
 class TensorIsArray r where
