@@ -43,6 +43,7 @@ import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import qualified Data.Strict.Vector as Data.Vector
 import           GHC.TypeLits (KnownNat, type (+))
+import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
@@ -86,13 +87,13 @@ type IsPrimalAndHasInputs a r =
 type family Dual a = result | result -> a where
   Dual Double = Delta0 Double
   Dual Float = Delta0 Float
--- TODO:  Dual (Ast 0 r) = Delta0 (Ast 0 r)  -- newtype?
+  Dual (AstScalar r) = Delta0 (AstScalar r)
   Dual (OT.Array Double) = DeltaX Double
   Dual (OT.Array Float) = DeltaX Float
   Dual (OR.Array n Double) = Delta1 n Double
   Dual (OR.Array n Float) = Delta1 n Float
-  Dual (AstDynamic r) = DeltaX (Ast 0 r)
-  Dual (Ast n r) = Delta1 n (Ast 0 r)
+  Dual (AstDynamic r) = DeltaX (AstScalar r)
+  Dual (Ast n r) = Delta1 n (AstScalar r)
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
 newtype DummyDual r = DummyDual ()
@@ -430,18 +431,18 @@ instance HasRanks Float where
 
   dFrom1X = From1X
 
-instance HasRanks (Ast 0 r) where
-  dInput0 = undefined  --- no rank 0 terms
-  dIndex0 = undefined
-  dSum0 = undefined
-  dDot0 = undefined
-  dUnScalar0 = undefined
+instance (Show r, Numeric r) => HasRanks (AstScalar r) where
+  dInput0 = Input0
+  dIndex0 = Index0
+  dSum0 = Sum0
+  dDot0 = Dot0
+  dUnScalar0 = UnScalar0
 
   dInput1 = Input1
 --  dIndex1 = Index1
   dIndexN = IndexN
   dSum1 = Sum1
-  dScalar1 = undefined  -- TODO: Scalar1
+  dScalar1 = Scalar1
   dFromList1 = FromList1
   dFromVector1 = FromVector1
 --  dFromList01 = FromList01

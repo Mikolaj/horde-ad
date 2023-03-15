@@ -274,7 +274,7 @@ testGatherSimp22 = do
   resetVarCOunter
   let !t1 = gatherReshape22 $ AstVar [6, 2] (AstVarName 0)
   resetVarCOunter
-  let !t2 = treshape @(Ast 0 Float) @2 @2 [2, 6]
+  let !t2 = treshape @(AstScalar Float) @2 @2 [2, 6]
             $ AstVar [6, 2] (AstVarName 0)
   length (show t1) @?= 129
   length (show t2) @?= 36
@@ -290,7 +290,7 @@ testGatherSimp23 = do
             $ AstVar [6, 2] (AstVarName 0)
   resetVarCOunter
   let !t2 = (\t -> tbuild1 4 (\i ->
-              treshape @(Ast 0 Float) @2 @2 [2, 6]
+              treshape @(AstScalar Float) @2 @2 [2, 6]
                 (t * tkonst0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (AstVarName 0)
   length (show t1) @?= 246
@@ -356,7 +356,7 @@ testGatherSimp33 = do
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
   resetVarCOunter
   let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
-                            (treshape @(Ast 0 Float) @10 [8, 16] t))
+                            (treshape @(AstScalar Float) @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
   length (show t1) @?= 1077
   length (show t2) @?= 531
@@ -372,7 +372,7 @@ testGatherSimp34 = do
   resetVarCOunter
   let !t2 = (\t -> tbuild1 4 (\i ->
               (\t' -> tmatmul2 (treshape [6, 8] (tconst t48))
-                               (treshape @(Ast 0 Float) @10 [8, 16] t'))
+                               (treshape @(AstScalar Float) @10 [8, 16] t'))
                 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
   length (show t1) @?= 858

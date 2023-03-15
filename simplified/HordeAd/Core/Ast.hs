@@ -8,7 +8,8 @@
 module HordeAd.Core.Ast
   ( AstIndex, AstVarList
   , AstVarName(..)
-  , Ast(..), AstPrimalPart(..), AstDynamic(..), AstInt(..), AstBool(..)
+  , Ast(..), AstPrimalPart(..), AstDynamic(..), AstScalar(..)
+  , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , astCond
   , shapeAst, lengthAst
@@ -119,6 +120,9 @@ data AstDynamic :: Type -> Type where
                  => Ast n r -> AstDynamic r
 
 deriving instance (Show r, Numeric r) => Show (AstDynamic r)
+
+newtype AstScalar r = AstScalar {unAstScalar :: Ast 0 r}
+ deriving Show
 
 newtype AstVarName t = AstVarName Int
  deriving Eq
@@ -238,6 +242,21 @@ instance KnownNat n => OrdB (AstPrimalPart n r) where
   v >* u = AstRel GtOp [unAstPrimalPart v, unAstPrimalPart u]
   v >=* u = AstRel GeqOp [unAstPrimalPart v, unAstPrimalPart u]
 
+type instance BooleanOf (AstScalar r) = AstBool r
+
+instance IfB (AstScalar r) where
+  ifB b v w = AstScalar $ astCond b (unAstScalar v) (unAstScalar w)
+
+instance EqB (AstScalar r) where
+  v ==* u = AstRel EqOp [unAstScalar v, unAstScalar u]
+  v /=* u = AstRel NeqOp [unAstScalar v, unAstScalar u]
+
+instance OrdB (AstScalar r) where
+  v <* u = AstRel LsOp [unAstScalar v, unAstScalar u]
+  v <=* u = AstRel LeqOp [unAstScalar v, unAstScalar u]
+  v >* u = AstRel GtOp [unAstScalar v, unAstScalar u]
+  v >=* u = AstRel GeqOp [unAstScalar v, unAstScalar u]
+
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
 instance Eq (Ast n r) where
   _ == _ = error "Ast: can't evaluate terms for Eq"
@@ -322,6 +341,23 @@ deriving instance Fractional (Ast n r) => Fractional (AstPrimalPart n r)
 deriving instance Floating (Ast n r) => Floating (AstPrimalPart n r)
 deriving instance RealFrac (Ast n r) => RealFrac (AstPrimalPart n r)
 deriving instance RealFloat (Ast n r) => RealFloat (AstPrimalPart n r)
+
+instance Eq (AstScalar r) where
+  _ == _ = error "AstScalar: can't evaluate terms for Eq"
+
+instance Ord (Ast 0 r) => Ord (AstScalar r) where
+  max (AstScalar u) (AstScalar v) =
+    AstScalar (AstOp MaxOp [u, v])
+  min (AstScalar u) (AstScalar v) =
+    AstScalar (AstOp MinOp [u, v])
+  _ <= _ = error "AstScalar: can't evaluate terms for Ord"
+
+deriving instance Num (Ast 0 r) => Num (AstScalar r)
+deriving instance Real (Ast 0 r) => Real (AstScalar r)
+deriving instance Fractional (Ast 0 r) => Fractional (AstScalar r)
+deriving instance Floating (Ast 0 r) => Floating (AstScalar r)
+deriving instance RealFrac (Ast 0 r) => RealFrac (AstScalar r)
+deriving instance RealFloat (Ast 0 r) => RealFloat (AstScalar r)
 
 instance Eq (AstInt r) where
   _ == _ = error "AstInt: can't evaluate terms for Eq"

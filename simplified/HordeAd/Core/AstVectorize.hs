@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
 {-# OPTIONS_GHC -freduction-depth=10000 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
@@ -28,9 +29,9 @@ import HordeAd.Internal.SizedList
 -- * Ast instances of Tensor (and Primal) that use vectorization
 
 instance (RealFloat r, Floating (Vector r), Show r, Numeric r)
-         => Tensor (Ast 0 r) where
-  type TensorOf n (Ast 0 r) = Ast n r
-  type IntOf (Ast 0 r) = AstInt r
+         => Tensor (AstScalar r) where
+  type TensorOf n (AstScalar r) = Ast n r
+  type IntOf (AstScalar r) = AstInt r
 
   tshape = shapeAst
   tminIndex0 = AstMinIndex1
@@ -44,9 +45,7 @@ instance (RealFloat r, Floating (Vector r), Show r, Numeric r)
   tscatter sh t f = AstScatter sh t (funToAstIndex f)  -- introduces new vars
 
   tfromList = AstFromList
-  tfromList0N sh = AstReshape sh . AstFromList
   tfromVector = AstFromVector
-  tfromVector0N sh = AstReshape sh . AstFromVector
   tkonst = AstKonst
   tappend = AstAppend
   tslice = AstSlice
@@ -56,8 +55,8 @@ instance (RealFloat r, Floating (Vector r), Show r, Numeric r)
   tbuild1 = astBuild1
   tgather sh t f = AstGatherZ sh t (funToAstIndex f)  -- introduces new vars
 
-  tscalar = id  -- Ast confuses the two ranks
-  tunScalar = id
+  tscalar = unAstScalar
+  tunScalar = AstScalar
 
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
@@ -87,11 +86,7 @@ instance (RealFloat r, Floating (Vector r), Show r, Numeric r)
                     $ funToAstIndex f  -- this introduces new variable names
 
   tfromList = AstPrimalPart . AstFromList . map unAstPrimalPart
-  tfromList0N sh =
-    AstPrimalPart . AstReshape sh . AstFromList . map unAstPrimalPart
   tfromVector = AstPrimalPart . AstFromVector . V.map unAstPrimalPart
-  tfromVector0N sh =
-    AstPrimalPart . AstReshape sh . AstFromVector . V.map unAstPrimalPart
   tkonst k = AstPrimalPart . AstKonst k . unAstPrimalPart
   tappend u v =
     AstPrimalPart $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
@@ -110,16 +105,16 @@ instance (RealFloat r, Floating (Vector r), Show r, Numeric r)
   tscalar = id
   tunScalar = id
 
-instance HasPrimal (Ast 0 r) where
-  type ScalarOf (Ast 0 r) = r
-  type Primal (Ast 0 r) = AstPrimalPart 0 r
-  type DualOf n (Ast 0 r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
+instance HasPrimal (AstScalar r) where
+  type ScalarOf (AstScalar r) = r
+  type Primal (AstScalar r) = AstPrimalPart 0 r
+  type DualOf n (AstScalar r) = ()  -- TODO: data AstDualPart: dAdd, dkonst1
   tconst = AstConstant . AstPrimalPart . AstConst
   tconstant = AstConstant
   tprimalPart = AstPrimalPart
   tdualPart = error "TODO"
   tD = error "TODO"
-  type DynamicTensor (Ast 0 r) = AstDynamic r
+  type DynamicTensor (AstScalar r) = AstDynamic r
   tdummyD = AstDynamicDummy
   tisDummyD t = case t of
     AstDynamicDummy -> True

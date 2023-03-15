@@ -111,7 +111,7 @@ fooNoGoAst v =
   in tbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, tindex v [ix]))
        + astCond (AstBoolOp AndOp  -- now much simplier, but kept for testing
-                             [ tindex @(Ast 0 r) @1 v [ix * 2] <=* 0
+                             [ tindex @(AstScalar r) @1 v [ix * 2] <=* 0
                              , (>*) @(AstInt r) 6 (abs ix) ])
                  r (5 * r))
      / tslice 1 3 (tmap0N (\x -> astCond (x >* r) r x) v)
@@ -266,7 +266,7 @@ testPoly00 f input expected = do
           (\adinputs -> tunScalar $
              interpretAst (IM.singleton 0
                              (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
-                          (f (AstVar [] (AstVarName 0))))
+                          (unAstScalar $ f (AstScalar $ AstVar [] (AstVarName 0))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains 1
@@ -294,7 +294,7 @@ testPoly01 f outSize input expected = do
           (\adinputs ->
              interpretAst (IM.singleton 0
                              (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
-                          (f (AstVar [] (AstVarName 0))))
+                          (f (AstScalar $ AstVar [] (AstVarName 0))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains dt
@@ -351,7 +351,7 @@ testPolyn f sh input expected = do
           (\adinputs ->
              interpretAst (IM.singleton 0
                              (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
-                          (f (AstVar [] (AstVarName 0))))
+                          (f (AstScalar $ AstVar [] (AstVarName 0))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains dt

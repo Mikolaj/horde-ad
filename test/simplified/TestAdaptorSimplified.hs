@@ -451,7 +451,7 @@ barReluAst
   :: forall n r.
      (KnownNat n, Numeric r, RealFloat r, Floating (Vector r), Show r)
   => Ast n r -> Ast n r
-barReluAst x = relu1 @n @(Ast 0 r) $ bar (x, relu1 x)
+barReluAst x = relu1 @n @(AstScalar r) $ bar (x, relu1 x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
