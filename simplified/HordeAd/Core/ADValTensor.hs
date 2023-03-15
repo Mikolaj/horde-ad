@@ -13,7 +13,7 @@ module HordeAd.Core.ADValTensor
   ) where
 
 
-import Prelude
+import Prelude hiding ((<*))
 
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Ranked as ORB
@@ -468,7 +468,7 @@ instance InterpretAst Double where
 
    interpretAstInt :: forall r. r ~ Double
                    => AstEnv r
-                   -> AstInt r -> Int
+                   -> AstInt r -> IntOf r
    interpretAstInt env = \case
      AstIntVar (AstVarName var) -> case IM.lookup var env of
        Just AstVarR{} ->
@@ -580,7 +580,7 @@ instance InterpretAst Float where
 
    interpretAstInt :: forall r. r ~ Float
                    => AstEnv r
-                   -> AstInt r -> Int
+                   -> AstInt r -> IntOf r
    interpretAstInt env = \case
      AstIntVar (AstVarName var) -> case IM.lookup var env of
        Just AstVarR{} ->
@@ -647,7 +647,8 @@ interpretAstOp _ opCode args =
   error $ "interpretAstOp: wrong number of arguments"
           ++ show (opCode, length args)
 
-interpretAstIntOp :: (AstInt r -> Int) -> OpCodeInt -> [AstInt r] -> Int
+interpretAstIntOp :: Integral b
+                  => (c -> b) -> OpCodeInt -> [c] -> b
 {-# INLINE interpretAstIntOp #-}
 interpretAstIntOp f PlusIntOp [u, v] = f u + f v
 interpretAstIntOp f MinusIntOp [u, v] = f u - f v
@@ -663,24 +664,25 @@ interpretAstIntOp _ opCodeInt args =
   error $ "interpretAstIntOp: wrong number of arguments"
           ++ show (opCodeInt, length args)
 
-interpretAstBoolOp :: (AstBool r -> Bool) -> OpCodeBool -> [AstBool r]
-                   -> Bool
+interpretAstBoolOp :: Boolean b
+                   => (c -> b) -> OpCodeBool -> [c] -> b
 {-# INLINE interpretAstBoolOp #-}
-interpretAstBoolOp f NotOp [u] = not $ f u
-interpretAstBoolOp f AndOp [u, v] = f u && f v
-interpretAstBoolOp f OrOp [u, v] = f u || f v
+interpretAstBoolOp f NotOp [u] = notB $ f u
+interpretAstBoolOp f AndOp [u, v] = f u &&* f v
+interpretAstBoolOp f OrOp [u, v] = f u ||* f v
 interpretAstBoolOp _ opCodeBool args =
   error $ "interpretAstBoolOp: wrong number of arguments"
           ++ show (opCodeBool, length args)
 
-interpretAstRelOp :: Ord b => (a -> b) -> OpCodeRel -> [a] -> Bool
+interpretAstRelOp :: (EqB b, OrdB b)
+                  => (a -> b) -> OpCodeRel -> [a] -> BooleanOf b
 {-# INLINE interpretAstRelOp #-}
-interpretAstRelOp f EqOp [u, v] = f u == f v
-interpretAstRelOp f NeqOp [u, v] = f u /= f v
-interpretAstRelOp f LeqOp [u, v] = f u <= f v
-interpretAstRelOp f GeqOp [u, v] = f u >= f v
-interpretAstRelOp f LsOp [u, v] = f u < f v
-interpretAstRelOp f GtOp [u, v] = f u > f v
+interpretAstRelOp f EqOp [u, v] = f u ==* f v
+interpretAstRelOp f NeqOp [u, v] = f u /=* f v
+interpretAstRelOp f LeqOp [u, v] = f u <=* f v
+interpretAstRelOp f GeqOp [u, v] = f u >=* f v
+interpretAstRelOp f LsOp [u, v] = f u <* f v
+interpretAstRelOp f GtOp [u, v] = f u >* f v
 interpretAstRelOp _ opCodeRel args =
   error $ "interpretAstRelOp: wrong number of arguments"
           ++ show (opCodeRel, length args)
