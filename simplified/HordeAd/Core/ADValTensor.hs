@@ -73,7 +73,7 @@ instance Tensor (ADVal Double) where
   ttranspose = transpose
   treshape = reshape
   tbuild1 = build1
-  tgather = gatherNClosure  -- for simplicity, out of bounds indexing permitted
+  tgather = gatherNClosure
 
   tscalar = scalar
   tunScalar = unScalar
@@ -105,7 +105,7 @@ instance Tensor (ADVal Float) where
   ttranspose = transpose
   treshape = reshape
   tbuild1 = build1
-  tgather = gatherNClosure  -- for simplicity, out of bounds indexing permitted
+  tgather = gatherNClosure
 
   tscalar = scalar
   tunScalar = unScalar

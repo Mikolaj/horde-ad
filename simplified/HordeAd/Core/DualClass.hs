@@ -357,7 +357,13 @@ instance KnownNat n => HasInputs (OR.Array n Float) where
   inputConstant r tsh = OR.constant (OR.shapeL tsh) r
 
 instance (Tensor (AstScalar r), KnownNat n) => HasInputs (Ast n r) where
-  packDeltaDt t tsh = undefined  -- TODO: DeltaDt1 t  variable instead?
+  packDeltaDt t tsh =
+    let sh = tshape t
+        sh' = tshape tsh
+    in assert (sh == sh'
+               `blame` "packDeltaDt: dt and codomain differ in shape: "
+               `swith` (sh, sh'))
+       $ DeltaDt1 t
   inputConstant r tsh = tkonst0N (tshape tsh) (tscalar r)
 
 -- | This is an impure instance. See above.
