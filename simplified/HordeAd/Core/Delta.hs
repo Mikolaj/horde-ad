@@ -166,10 +166,11 @@ data Delta1 :: Nat -> Type -> Type where
 --         => Delta1 (1 + n) r -> Int -> Int -> Delta1 n r
     -- ^ The sub-tensors at the given index of the outermost dimension.
     -- The second integer is the length of the dimension.
-  IndexN :: (KnownNat n, KnownNat m)
+  IndexZ :: (KnownNat n, KnownNat m)
          => Delta1 (m + n) r -> IndexOf m r -> ShapeInt (m + n) -> Delta1 n r
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. The operation fails if index is out of bounds.
+    -- If index is out of bounds, the result is defined and is 0.
   Sum1 :: KnownNat n
        => Int -> Delta1 (1 + n) r -> Delta1 n r
     -- ^ Add element tensors along the outermost dimension.
@@ -211,31 +212,36 @@ data Delta1 :: Nat -> Type -> Type where
          => Int -> (Int -> Delta1 n r) -> Delta1 (1 + n) r
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
---  Gather1 :: (KnownNat p, KnownNat n)
---          => (Int -> IndexOf p r)
---          -> ShapeInt (p + n) -> Delta1 (p + n) r
---          -> Int -> Delta1 (1 + n) r
+
+--  GatherZ1 :: (KnownNat p, KnownNat n)
+--           => (Int -> IndexOf p r)
+--           -> ShapeInt (p + n) -> Delta1 (p + n) r
+--           -> Int -> Delta1 (1 + n) r
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const Z) [] (Scalar1 d) k@ is equivalent
     -- to @Konst01 [k] d@. If an index of length @p@ is out of bounds,
     -- tensor 0 is chosen instead or projecting (and similarly in @GatherN@).
-  GatherN :: (KnownNat m, KnownNat p, KnownNat n)
+    -- The semantics of the operation permits index out of bounds
+    -- and the result of such indexing is zero.
+  GatherZ :: (KnownNat m, KnownNat p, KnownNat n)
           => ShapeInt (m + n) -> Delta1 (p + n) r
           -> (IndexOf m r -> IndexOf p r)
           -> ShapeInt (p + n)
           -> Delta1 (m + n) r
---  Scatter1 :: (KnownNat p, KnownNat n)
---           => (Int -> IndexOf p r)
---           -> Int -> Delta1 (1 + n) r
---           -> ShapeInt (p + n) -> Delta1 (p + n) r
+--  ScatterZ1 :: (KnownNat p, KnownNat n)
+--            => (Int -> IndexOf p r)
+--            -> Int -> Delta1 (1 + n) r
+--            -> ShapeInt (p + n) -> Delta1 (p + n) r
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
     -- so that, e.g, @Scatter1 5 (const Z) (Konst01 [5] d) []@ is equivalent
     -- to @5 * d@. If an index of length @p@ is out of bounds, no tensor
     -- is added at such an index (and similarly in @ScatterN@).
-  ScatterN :: (KnownNat m, KnownNat p, KnownNat n)
+    -- The semantics of the operation permits index out of bounds
+    -- and then no tensors is added at such an index.
+  ScatterZ :: (KnownNat m, KnownNat p, KnownNat n)
            => ShapeInt (p + n) -> Delta1 (m + n) r
            -> (IndexOf m r -> IndexOf p r)
            -> ShapeInt (m + n)
@@ -563,8 +569,8 @@ buildFinMaps s0 deltaDt =
 --                                     , OR.reshape (1 : rest) c
 --                                     , OR.constant (len - ix - 1 : rest) 0 ])
 --                     d  -- TODO: optimize for input case
-        IndexN d ix sh -> eval1 s (tscatter sh (tfromList [c]) (\_ -> ix)) d
-          -- equivalent: eval1 s (updateNR (tkonst0NR sh 0) [(ixs, c)]) d
+        IndexZ d ix sh -> eval1 s (tscatter sh (tfromList [c]) (\_ -> ix)) d
+          -- equivalent: eval1 s (updateNR (tkonst0NR sh 0) [(ix, c)]) d
         Sum1 n d -> eval1 s (tkonst n c) d
         Scalar1 d -> eval0 s (tunScalar c) d
         FromList1 ld ->
@@ -601,9 +607,9 @@ buildFinMaps s0 deltaDt =
           foldl' (\s2 i -> eval1 s2 (tindex c (fromIntegral i :. ZI)) (f i))
                  s [0 .. n - 1]
 --        Gather1 f sh d _n -> eval1 s (tscatter1R f c sh) d
-        GatherN _sh d f shd -> eval1 s (tscatter shd c f) d
+        GatherZ _sh d f shd -> eval1 s (tscatter shd c f) d
 --        Scatter1 f n d _sh -> eval1 s (tgatherZ1R n c f) d
-        ScatterN _sh d f shd -> eval1 s (tgather shd c f) d
+        ScatterZ _sh d f shd -> eval1 s (tgather shd c f) d
 
         FromX1 @n2 (From1X @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
@@ -720,7 +726,7 @@ buildDerivative dim0 dim1 deltaTopLevel
             _ -> error "buildDerivative: corrupted nMap"
 
 --        Index1 d ix _len -> (`tindex1R` ix) <$> eval1 d
-        IndexN d ixs _len -> (`tindex` ixs) <$> eval1 d
+        IndexZ d ix _len -> (`tindex` ix) <$> eval1 d
         Sum1 _ d -> tsum <$> eval1 d
         Scalar1 d -> tscalar <$> eval0 d
         FromList1 lsd -> do
@@ -750,13 +756,13 @@ buildDerivative dim0 dim1 deltaTopLevel
 --        Gather1 f _sh d k -> do
 --          t <- eval1 d
 --          return $! tgather1R k t f
-        GatherN sh d f _shd -> do
+        GatherZ sh d f _shd -> do
           t <- eval1 d
           return $! tgather sh t f
 --        Scatter1 f _k d sh -> do
 --          t <- eval1 d
 --          return $! tscatter1R f t sh
-        ScatterN sh d f _shd ->  do
+        ScatterZ sh d f _shd ->  do
           t <- eval1 d
           return $! tscatter sh t f
 

@@ -159,11 +159,7 @@ indexZ :: forall m n r.
           (ADTensor r, IsPrimal (TensorOf n r), KnownNat m, KnownNat n)
        => ADVal (TensorOf (m + n) r) -> IndexOf m r
        -> ADVal (TensorOf n r)
-indexZ (D u u') ix =
-  let sh = tshape u
-  in if ixInBounds (indexToList ix) (shapeToList sh)
-     then dD (tindex u ix) (dIndexN u' ix sh)
-     else dD (tkonst0N (dropShape @m sh) 0) dZero
+indexZ (D u u') ix = dD (tindex u ix) (dIndexZ u' ix (tshape u))
 
 sum' :: (ADTensor r, IsPrimal (TensorOf n r), KnownNat n)
      => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf n r)
@@ -184,7 +180,7 @@ scatterNClosure :: ( ADTensor r, IsPrimal (TensorOf (p + n) r)
                 -> (IndexOf m r -> IndexOf p r)
                 -> ADVal (TensorOf (p + n) r)
 scatterNClosure sh (D u u') f =
-  dD (tscatter sh u f) (dScatterN sh u' f (tshape u))
+  dD (tscatter sh u f) (dScatterZ sh u' f (tshape u))
 
 fromList :: (ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
          => [ADVal (TensorOf n r)]
@@ -266,7 +262,7 @@ gatherNClosure :: ( ADTensor r, IsPrimal (TensorOf (m + n) r)
                -> (IndexOf m r -> IndexOf p r)
                -> ADVal (TensorOf (m + n) r)
 gatherNClosure sh (D u u') f =
-  dD (tgather sh u f) (dGatherN sh u' f (tshape u))
+  dD (tgather sh u f) (dGatherZ sh u' f (tshape u))
 
 scalar :: ADTensor r => ADVal r -> ADVal (TensorOf 0 r)
 scalar (D u u') = dD (tscalar u) (dScalar1 u')

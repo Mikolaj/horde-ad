@@ -360,13 +360,13 @@ tgatherZ1R k t f =
 --
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
-tscatterNR :: forall m p n r.
-             ( KnownNat m, KnownNat p, KnownNat n, NumAndDebug r
-             , Num (Vector r) )
-          => ShapeInt (p + n) -> OR.Array (m + n) r
-          -> (IndexInt m -> IndexInt p)
-          -> OR.Array (p + n) r
-tscatterNR sh t f =
+tscatterZR :: forall m p n r.
+              ( KnownNat m, KnownNat p, KnownNat n, NumAndDebug r
+              , Num (Vector r) )
+           => ShapeInt (p + n) -> OR.Array (m + n) r
+           -> (IndexInt m -> IndexInt p)
+           -> OR.Array (p + n) r
+tscatterZR sh t f =
   let (shm', shn) = splitAt (valueOf @m) $ OR.shapeL t
       s = product shm'
       shm = listShapeToShape shm'
@@ -383,10 +383,10 @@ tscatterNR sh t f =
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OR.fromVector
 -- or optimize tscatterNR and instantiate it instead
-tscatter1R :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
-           => ShapeInt (p + n) -> OR.Array (1 + n) r -> (Int -> IndexInt p)
-           -> OR.Array (p + n) r
-tscatter1R sh t f =
+tscatterZ1R :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
+            => ShapeInt (p + n) -> OR.Array (1 + n) r -> (Int -> IndexInt p)
+            -> OR.Array (p + n) r
+tscatterZ1R sh t f =
   V.sum $ V.imap (\i ti ->
                    let ix2 = f i
                    in if ixInBounds (indexToList ix2) (shapeToList sh)

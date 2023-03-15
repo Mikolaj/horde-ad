@@ -167,9 +167,9 @@ class HasRanks (d :: ADMode) r where
   dUnScalar0 :: Dual d (TensorOf 0 r) -> Dual d r
 
   dInput1 :: InputId (OR.Array n r) -> Dual d (TensorOf n r)
---  dIndex1 :: KnownNat n
+--  dIndexZ1 :: KnownNat n
 --         => Dual d (TensorOf (1 + n) r) -> Int -> Int -> Dual d (TensorOf n r)
-  dIndexN :: (KnownNat n, KnownNat m)
+  dIndexZ :: (KnownNat n, KnownNat m)
           => Dual d (TensorOf (m + n) r) -> IndexOf m r -> ShapeInt (m + n)
           -> Dual d (TensorOf n r)
   dSum1 :: KnownNat n
@@ -206,20 +206,20 @@ class HasRanks (d :: ADMode) r where
   dBuild1 :: KnownNat n
           => Int -> (Int -> Dual d (TensorOf n r))
           -> Dual d (TensorOf (1 + n) r)
---  dGather1 :: (KnownNat p, KnownNat n)
+--  dGatherZ1 :: (KnownNat p, KnownNat n)
 --           => (Int -> IndexOf p r)
 --           -> ShapeInt (p + n) -> Dual d (TensorOf (p + n) r)
 --           -> Int -> Dual d (TensorOf (1 + n) r)
-  dGatherN :: (KnownNat m, KnownNat p, KnownNat n)
+  dGatherZ :: (KnownNat m, KnownNat p, KnownNat n)
            => ShapeInt (m + n) -> Dual d (TensorOf (p + n) r)
            -> (IndexOf m r -> IndexOf p r)
            -> ShapeInt (p + n)
            -> Dual d (TensorOf (m + n) r)
---  dScatter1 :: (KnownNat p, KnownNat n)
+--  dScatterZ1 :: (KnownNat p, KnownNat n)
 --            => (Int -> IndexOf p r)
 --            -> Int -> Dual d (TensorOf (1 + n) r)
 --            -> ShapeInt (p + n) -> Dual d (TensorOf (p + n) r)
-  dScatterN :: (KnownNat m, KnownNat p, KnownNat n)
+  dScatterZ :: (KnownNat m, KnownNat p, KnownNat n)
             => ShapeInt (p + n) -> Dual d (TensorOf (m + n) r)
             -> (IndexOf m r -> IndexOf p r)
             -> ShapeInt (m + n)
@@ -355,7 +355,7 @@ instance HasRanks 'ADModeGradient Double where
 
   dInput1 = Input1
 --  dIndex1 = Index1
-  dIndexN = IndexN
+  dIndexZ = IndexZ
   dSum1 = Sum1
   dScalar1 = Scalar1
   dFromList1 = FromList1
@@ -371,9 +371,9 @@ instance HasRanks 'ADModeGradient Double where
   dReshape1 = Reshape1
   dBuild1 = Build1
 --  dGather1 = Gather1
-  dGatherN = GatherN
+  dGatherZ = GatherZ
 --  dScatter1 = Scatter1
-  dScatterN = ScatterN
+  dScatterZ = ScatterZ
 
   dFromX1 = FromX1
 
@@ -388,7 +388,7 @@ instance HasRanks 'ADModeGradient Float where
 
   dInput1 = Input1
 --  dIndex1 = Index1
-  dIndexN = IndexN
+  dIndexZ = IndexZ
   dSum1 = Sum1
   dScalar1 = Scalar1
   dFromList1 = FromList1
@@ -404,9 +404,9 @@ instance HasRanks 'ADModeGradient Float where
   dReshape1 = Reshape1
   dBuild1 = Build1
 --  dGather1 = Gather1
-  dGatherN = GatherN
+  dGatherZ = GatherZ
 --  dScatter1 = Scatter1
-  dScatterN = ScatterN
+  dScatterZ = ScatterZ
 
   dFromX1 = FromX1
 
@@ -455,7 +455,7 @@ instance HasRanks 'ADModeDerivative Double where
 
   dInput1 = undefined
 --  dIndex1 d ix _ = tindexZ1R d ix
-  dIndexN d ixs _ = tindexZR d ixs
+  dIndexZ d ixs _ = tindexZR d ixs
   dSum1 _ = tsumR
   dScalar1 = OR.scalar
   dFromList1 = tfromListR
@@ -471,9 +471,9 @@ instance HasRanks 'ADModeDerivative Double where
   dReshape1 _sh = treshapeR
   dBuild1 = tbuild1R
 --  dGather1 f _sh u k = tgatherZ1R k u f
-  dGatherN sh d f _shd = tgatherZR sh d f
+  dGatherZ sh d f _shd = tgatherZR sh d f
 --  dScatter1 f _n = tscatter1R f
-  dScatterN sh d f _shd = tscatterNR sh d f
+  dScatterZ sh d f _shd = tscatterZR sh d f
 
   dFromX1 = tfromD
 
@@ -487,8 +487,8 @@ instance HasRanks 'ADModeDerivative Float where
   dUnScalar0 = OR.unScalar
 
   dInput1 = undefined
---  dIndex1 d ix _ = tindex1R d ix
-  dIndexN d ixs _ = tindexZR d ixs
+--  dIndex1 d ix _ = tindexZ1R d ix
+  dIndexZ d ixs _ = tindexZR d ixs
   dSum1 _ = tsumR
   dScalar1 = OR.scalar
   dFromList1 = tfromListR
@@ -504,13 +504,14 @@ instance HasRanks 'ADModeDerivative Float where
   dReshape1 _sh = treshapeR
   dBuild1 = tbuild1R
 --  dGather1 f _sh u k = tgatherZ1R k u f
-  dGatherN sh d f _shd = tgatherZR sh d f
+  dGatherZ sh d f _shd = tgatherZR sh d f
 --  dScatter1 f _n = tscatter1R f
-  dScatterN sh d f _shd = tscatterNR sh d f
+  dScatterZ sh d f _shd = tscatterZR sh d f
 
   dFromX1 = tfromD
 
   dFrom1X = tfromR
+
 
 -- * Another alternative instance: only the objective function's value computed
 
@@ -554,7 +555,7 @@ instance HasRanks 'ADModeValue r where
 
   dInput1 = undefined
 --  dIndex1 _ _ _ = DummyDual ()
-  dIndexN _ _ _ = DummyDual ()
+  dIndexZ _ _ _ = DummyDual ()
   dSum1 _ _ = DummyDual ()
   dScalar1 _ = DummyDual ()
   dFromList1 _ = DummyDual ()
@@ -570,9 +571,9 @@ instance HasRanks 'ADModeValue r where
   dReshape1 _ _ _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
 --  dGather1 _ _ _ _ = DummyDual ()
-  dGatherN _ _ _ _ = DummyDual ()
+  dGatherZ _ _ _ _ = DummyDual ()
 --  dScatter1 _ _ _ _ = DummyDual ()
-  dScatterN _ _ _ _ = DummyDual ()
+  dScatterZ _ _ _ _ = DummyDual ()
 
   dFromX1 _ = DummyDual ()
 

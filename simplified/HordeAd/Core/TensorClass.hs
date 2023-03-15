@@ -309,8 +309,8 @@ instance Tensor Double where
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
-  tscatter = tscatterNR
-  tscatter1 = tscatter1R
+  tscatter = tscatterZR
+  tscatter1 = tscatterZ1R
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -343,8 +343,8 @@ instance Tensor Float where
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
-  tscatter = tscatterNR
-  tscatter1 = tscatter1R
+  tscatter = tscatterZR
+  tscatter1 = tscatterZ1R
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
