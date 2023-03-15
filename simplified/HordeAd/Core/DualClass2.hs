@@ -45,7 +45,7 @@ import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import qualified Data.Strict.Vector as Data.Vector
 import           GHC.TypeLits (KnownNat, type (+))
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Delta
@@ -325,8 +325,17 @@ instance HasInputs Float where
   packDeltaDt t _tsh = DeltaDt0 t
   inputConstant r _tsh = r
 
-instance (Numeric r, KnownNat n, ScalarOf r ~ r)
-         => HasInputs (OR.Array n r) where
+instance KnownNat n => HasInputs (OR.Array n Double) where
+  packDeltaDt t tsh =
+    let sh = OR.shapeL t
+        sh' = OR.shapeL tsh
+    in assert (sh == sh'
+               `blame` "packDeltaDt: dt and codomain differ in shape: "
+               `swith` (sh, sh'))
+       $ DeltaDt1 t
+  inputConstant r tsh = OR.constant (OR.shapeL tsh) r
+
+instance KnownNat n => HasInputs (OR.Array n Float) where
   packDeltaDt t tsh =
     let sh = OR.shapeL t
         sh' = OR.shapeL tsh

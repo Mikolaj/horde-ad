@@ -301,7 +301,7 @@ nullDomains Domains{..} =
 data DeltaDt r =
     DeltaDt0 r (Delta0 r)
   | forall n. KnownNat n
-    => DeltaDt1 (OR.Array n (ScalarOf r)) (Delta1 n r)
+    => DeltaDt1 (TensorOf n r) (Delta1 n r)
 
 -- | The state of evaluation. It consists of several maps.
 -- The maps indexed by input identifiers and node identifiers
@@ -625,7 +625,7 @@ buildFinMaps s0 deltaDt =
 
       s1 = case deltaDt of
         DeltaDt0 dt deltaTopLevel -> eval0 s0 dt deltaTopLevel
-        DeltaDt1 dt deltaTopLevel -> eval1 s0 (tconst dt) deltaTopLevel
+        DeltaDt1 dt deltaTopLevel -> eval1 s0 dt deltaTopLevel
   in evalFromnMap s1
 
 {-# SPECIALIZE buildFinMaps
