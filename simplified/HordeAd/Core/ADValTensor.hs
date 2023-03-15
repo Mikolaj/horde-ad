@@ -615,6 +615,119 @@ instance InterpretAst Float where
        let f = interpretAstInt env
        in interpretAstRelOp f opCodeRel args
 
+instance (ADNum q, IsPrimal (AstScalar q), IsPrimalA q)
+         => InterpretAst (AstScalar q) where
+ interpretAst = interpretAstRec
+  where
+-- We could duplicate interpretAst to save some time (sadly, we can't
+-- interpret Ast uniformly in any Tensor and HasPrimal instance due to typing,
+-- so we can't just use an instance of interpretation to OR.Array for that),
+-- but it's not a huge saving, because all dual parts are gone before
+-- we do any differentiation and they are mostly symbolic, so don't even
+-- double the amount of tensor computation performed. The biggest problem is
+-- allocation of tensors, but they are mostly shared with the primal part.
+--
+-- A more interesting case is if we want to use Ast for something else,
+-- e.g., to differentiate directly, and so we'd first interpret it in itself,
+-- simplifying, and its primal part in OR.Array.
+   interpretAstPrimal
+     :: (KnownNat n, r ~ AstScalar q)
+     => AstEnv r
+     -> AstPrimalPart n q -> TensorOf n r
+   interpretAstPrimal env (AstPrimalPart v) =
+     tprimalPart $ interpretAstRec env v
+
+   interpretAstRec
+     :: forall n r. (KnownNat n, r ~ AstScalar q)
+     => AstEnv r
+     -> Ast n q -> ADVal (TensorOf n r)
+   interpretAstRec env = \case
+     AstVar _sh (AstVarName var) -> case IM.lookup var env of
+       Just (AstVarR d) -> tfromD d
+       Just AstVarI{} ->
+         error $ "interpretAstRec: type mismatch for Var" ++ show var
+       Nothing -> error $ "interpretAstRec: unknown variable Var" ++ show var
+     AstOp opCode args ->
+       interpretAstOp (interpretAstRec env) opCode args
+     AstConst a -> tconst a
+     AstConstant a -> tconstant $ interpretAstPrimal env a
+     AstConstInt i -> tfromIndex0 $ interpretAstInt env i
+     AstIndexZ v is -> tindex (interpretAstRec env v) (fmap (interpretAstInt env) is)
+       -- if index is out of bounds, the operations returns with an undefined
+       -- value of the correct rank and shape; this is needed, because
+       -- vectorization can produce out of bound indexing from code where
+       -- the indexing is guarded by conditionals
+     AstSum v -> tsum (interpretAstRec env v)
+       -- TODO: recognize when sum0 may be used instead, which is much cheaper
+       -- or should I do that in Delta instead? no, because tsum0R is cheaper, too
+       -- TODO: recognize dot0 patterns and speed up their evaluation
+     AstScatter sh v (vars, ix) ->
+       tscatter sh (interpretAstRec env v)
+                   (interpretLambdaIndexToIndex interpretAstInt env (vars, ix))
+     AstFromList l -> tfromList (map (interpretAstRec env) l)
+     AstFromVector l -> tfromVector (V.map (interpretAstRec env) l)
+     AstKonst k v -> tkonst k (interpretAstRec env v)
+     AstAppend x y -> tappend (interpretAstRec env x) (interpretAstRec env y)
+     AstSlice i k v -> tslice i k (interpretAstRec env v)
+     AstReverse v -> treverse (interpretAstRec env v)
+     AstTranspose perm v -> ttranspose perm $ interpretAstRec env v
+     AstReshape sh v -> treshape sh (interpretAstRec env v)
+     -- We can't partially evaluate this, because env maps variables to terms
+     -- and so we don't know what floats to put into the resulting tensor.
+     -- AstBuild1 k (var, AstConstant r) ->
+     AstBuild1 k (var, v) ->
+       tbuild1 k (interpretLambdaI interpretAstRec env (var, v))
+       -- to be used only in tests
+     AstGatherZ sh v (vars, ix) ->
+       tgather sh (interpretAstRec env v)
+                  (interpretLambdaIndexToIndex interpretAstInt env (vars, ix))
+       -- the operation accept out of bounds indexes,
+       -- for the same reason ordinary indexing does, see above
+       -- TODO: currently we store the function on tape, because it doesn't
+       -- cause recomputation of the gradient per-cell, unlike storing the build
+       -- function on tape; for GPUs and libraries that don't understand Haskell
+       -- closures, we cneck if the expressions involve tensor operations
+       -- too hard for GPUs and, if not, we can store the AST expression
+       -- on tape and translate it to whatever backend sooner or later;
+       -- and if yes, fall back to POPL pre-computation that, unfortunately,
+       -- leads to a tensor of deltas
+     AstFromDynamic{} ->
+       error "interpretAst: AstFromDynamic is not for library users"
+
+   interpretAstInt :: forall r. r ~ AstScalar q
+                   => AstEnv r
+                   -> AstInt q -> IntOf r
+   interpretAstInt env = \case
+     AstIntVar (AstVarName var) -> case IM.lookup var env of
+       Just AstVarR{} ->
+         error $ "interpretAstInt: type mismatch for Var" ++ show var
+       Just (AstVarI i) -> i
+       Nothing -> error $ "interpretAstInt: unknown variable Var" ++ show var
+     AstIntOp opCodeInt args ->
+       interpretAstIntOp (interpretAstInt env) opCodeInt args
+     AstIntConst a -> fromIntegral a
+     AstIntFloor v -> let u = interpretAstPrimal env (AstPrimalPart v)
+                      in tfloor @r u
+     AstIntCond b a1 a2 -> ifB (interpretAstBool env b)
+                               (interpretAstInt env a1)
+                               (interpretAstInt env a2)
+     AstMinIndex1 v -> tminIndex0 $ interpretAstRec env v
+     AstMaxIndex1 v -> tmaxIndex0 $ interpretAstRec env v
+
+   interpretAstBool :: r ~ AstScalar q
+                    => AstEnv r
+                    -> AstBool q -> BooleanOf r
+   interpretAstBool env = \case
+     AstBoolOp opCodeBool args ->
+       interpretAstBoolOp (interpretAstBool env) opCodeBool args
+     AstBoolConst a -> if a then true else false
+     AstRel opCodeRel args ->
+       let f v = interpretAstPrimal env (AstPrimalPart v)
+       in interpretAstRelOp f opCodeRel args
+     AstRelInt opCodeRel args ->
+       let f = interpretAstInt env
+       in interpretAstRelOp f opCodeRel args
+
 interpretAstOp :: RealFloat b
                => (c -> b) -> OpCode -> [c] -> b
 {-# INLINE interpretAstOp #-}
