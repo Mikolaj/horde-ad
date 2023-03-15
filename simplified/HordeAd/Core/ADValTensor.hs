@@ -339,12 +339,14 @@ unScalar (D u u') = dD (tunScalar u) (dUnScalar0 u')
 -- For now, we interpret only in the concrete ADVal instance,
 -- which is the only interpretation needed for anything apart from tests.
 
-type AstEnv r = IM.IntMap (AstVar (DynamicTensor (ADVal r)))
+type AstEnv r = IM.IntMap (AstVar r)
 
-data AstVar a =
-    AstVarR a
-  | AstVarI Int
- deriving Show
+data AstVar r =
+    AstVarR (DynamicTensor (ADVal r))
+  | AstVarI (IntOf r)
+
+deriving instance (Show (DynamicTensor (ADVal r)), Show (IntOf r))
+                  => Show (AstVar r)
 
 extendEnvR :: forall n r.
               ( HasPrimal (ADVal r), KnownNat n
@@ -355,30 +357,30 @@ extendEnvR v@(AstVarName var) d =
   IM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstVarR $ tfromR d)
 
-extendEnvI :: AstVarName Int -> Int
+extendEnvI :: AstVarName Int -> IntOf r
            -> AstEnv r -> AstEnv r
 extendEnvI v@(AstVarName var) i =
   IM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show v)
                    var (AstVarI i)
 
-extendEnvVars :: AstVarList m -> IndexInt m
+extendEnvVars :: AstVarList m -> IndexOf m r
               -> AstEnv r -> AstEnv r
 extendEnvVars vars ix env =
   let assocs = zip (sizedListToList vars) (indexToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
 interpretLambdaI
-  :: (AstEnv r -> Ast n r -> b)
-  -> AstEnv r -> (AstVarName Int, Ast n r) -> Int
+  :: (AstEnv r -> a -> b)
+  -> AstEnv r -> (AstVarName Int, a) -> IntOf r
   -> b
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env (var, ast) =
   \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIndexToIndex
-  :: (AstEnv r -> AstInt r -> Int)
-  -> AstEnv r -> (AstVarList m, AstIndex p r) -> IndexInt m
-  -> IndexInt p
+  :: (AstEnv r -> AstInt r -> IntOf r)
+  -> AstEnv r -> (AstVarList m, AstIndex p r) -> IndexOf m r
+  -> IndexOf p r
 {-# INLINE interpretLambdaIndexToIndex #-}
 interpretLambdaIndexToIndex f env (vars, asts) =
   \ix -> fmap (f (extendEnvVars vars ix env)) asts
@@ -445,9 +447,9 @@ instance InterpretAst Double where
      AstTranspose perm v -> ttranspose perm $ interpretAstRec env v
      AstReshape sh v -> treshape sh (interpretAstRec env v)
      AstBuild1 k (var, AstConstant r) ->
-       tconstant $ fromArray
+       tconst
        $ OR.ravel . ORB.fromVector [k] . V.generate k
-       $ \j -> toArray $ tprimalPart $ interpretLambdaI interpretAstRec env (var, AstConstant r) j
+       $ toArray . interpretLambdaI interpretAstPrimal env (var, r)
      AstBuild1 k (var, v) -> tbuild1 k (interpretLambdaI interpretAstRec env (var, v))
        -- to be used only in tests
      AstGatherZ sh v (vars, ix) ->
@@ -488,11 +490,11 @@ instance InterpretAst Double where
 
    interpretAstBool :: r ~ Double
                     => AstEnv r
-                    -> AstBool r -> Bool
+                    -> AstBool r -> BooleanOf r
    interpretAstBool env = \case
      AstBoolOp opCodeBool args ->
        interpretAstBoolOp (interpretAstBool env) opCodeBool args
-     AstBoolConst a -> a
+     AstBoolConst a -> if a then true else false
      AstRel opCodeRel args ->
        let f v = interpretAstPrimal env (AstPrimalPart v)
        in interpretAstRelOp f opCodeRel args
@@ -557,9 +559,9 @@ instance InterpretAst Float where
      AstTranspose perm v -> ttranspose perm $ interpretAstRec env v
      AstReshape sh v -> treshape sh (interpretAstRec env v)
      AstBuild1 k (var, AstConstant r) ->
-       tconstant $ fromArray
+       tconst
        $ OR.ravel . ORB.fromVector [k] . V.generate k
-       $ \j -> toArray $ tprimalPart $ interpretLambdaI interpretAstRec env (var, AstConstant r) j
+       $ toArray . interpretLambdaI interpretAstPrimal env (var, r)
      AstBuild1 k (var, v) -> tbuild1 k (interpretLambdaI interpretAstRec env (var, v))
        -- to be used only in tests
      AstGatherZ sh v (vars, ix) ->
@@ -600,11 +602,11 @@ instance InterpretAst Float where
 
    interpretAstBool :: r ~ Float
                     => AstEnv r
-                    -> AstBool r -> Bool
+                    -> AstBool r -> BooleanOf r
    interpretAstBool env = \case
      AstBoolOp opCodeBool args ->
        interpretAstBoolOp (interpretAstBool env) opCodeBool args
-     AstBoolConst a -> a
+     AstBoolConst a -> if a then true else false
      AstRel opCodeRel args ->
        let f v = interpretAstPrimal env (AstPrimalPart v)
        in interpretAstRelOp f opCodeRel args
