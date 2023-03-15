@@ -49,10 +49,6 @@ type IndexOf n r = Index n (IntOf r)
 -- Ord and Num operations and numeric superclasses.
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
--- The @VectorNumeric@ superclass is for @IntOf@ and potential interoperability
--- (TODO: add coversions between VectorOf and TensorOf to facilitate this)
--- but all its operations have straightforwardly generalized analogues below.
--- Eventually, we'll remove @VectorNumeric@ or define it in terms of @Tensor@.
 class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
       , Integral (IntOf r) )
       => Tensor r where

@@ -27,8 +27,7 @@ import HordeAd.Internal.SizedList
 
 -- * Ast instances of Tensor (and Primal) that use vectorization
 
-instance ( Numeric r, RealFloat r, RealFloat (Vector r)
-         , Show r, Numeric r )  -- needed only to display errors properly
+instance (RealFloat r, Floating (Vector r), Show r, Numeric r)
          => Tensor (Ast 0 r) where
   type TensorOf n (Ast 0 r) = Ast n r
   type IntOf (Ast 0 r) = AstInt r
@@ -70,8 +69,7 @@ astBuild1 :: (KnownNat n, Show r, Numeric r, Num (Vector r))
           => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
 astBuild1 k f = build1Vectorize k $ funToAstI f
 
-instance ( Numeric r, RealFloat r, RealFloat (Vector r)
-         , Show r, Numeric r )
+instance (RealFloat r, Floating (Vector r), Show r, Numeric r)
          => Tensor (AstPrimalPart 0 r) where
   type TensorOf n (AstPrimalPart 0 r) = AstPrimalPart n r
   type IntOf (AstPrimalPart 0 r) = AstInt r
