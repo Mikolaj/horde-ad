@@ -22,6 +22,7 @@ import Prelude
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           Data.Kind (Type)
+import           Data.MonoTraversable (Element)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
@@ -123,6 +124,8 @@ deriving instance (Show r, Numeric r) => Show (AstDynamic r)
 
 newtype AstScalar r = AstScalar {unAstScalar :: Ast 0 r}
  deriving Show
+
+type instance Element (Ast n r) = AstScalar r
 
 newtype AstVarName t = AstVarName Int
  deriving Eq
