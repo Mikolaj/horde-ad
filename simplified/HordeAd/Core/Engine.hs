@@ -28,8 +28,7 @@ import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta (derivativeFromDelta, gradientFromDelta, toInputId)
-import HordeAd.Core.DualClass
-  (Dual, HasInputs (..), dFrom1X, dInput0, dInput1, packDeltaDt)
+import HordeAd.Core.DualClass (Dual, dFrom1X, dInput0, dInput1)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorClass
 
@@ -59,7 +58,7 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 -- * Evaluation that computes gradients.
 
 revOnADInputsFun
-  :: (ADNum r, IsPrimalAndHasInputs a r)
+  :: (ADNum r, IsPrimalWithScalar a r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> ADInputs r
@@ -78,7 +77,7 @@ revOnADInputsFun dt f inputs@ADInputs{..} =
      in (gradient, v)
 
 revOnADInputs
-  :: (ADNum r, IsPrimalAndHasInputs a r)
+  :: (ADNum r, IsPrimalWithScalar a r)
   => a
   -> (ADInputs r -> ADVal a)
   -> ADInputs r
@@ -91,7 +90,7 @@ revOnADInputs = revOnADInputsFun . Just
 -- Also, as of now, @revOnDomains@ is restricted to objective functions with scalar
 -- codomains, while VJP is fully general.
 revOnDomainsFun
-  :: (ADNum r, IsPrimalAndHasInputs a r)
+  :: (ADNum r, IsPrimalWithScalar a r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -102,7 +101,7 @@ revOnDomainsFun dt f parameters =
   in revOnADInputsFun dt f inputs
 
 revOnDomains
-  :: (ADNum r, IsPrimalAndHasInputs a r)
+  :: (ADNum r, IsPrimalWithScalar a r)
   => a
   -> (ADInputs r -> ADVal a)
   -> Domains r

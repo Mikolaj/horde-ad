@@ -27,17 +27,15 @@
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
-    IsPrimal(..), IsPrimalR(..), IsPrimalA (..)
-  , IsPrimalWithScalar, IsPrimalAndHasInputs
+    IsPrimal(..), IsPrimalR(..), IsPrimalA (..), IsPrimalWithScalar
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
-    Dual, HasRanks(..), HasInputs(..), dummyDual
+    Dual, HasRanks(..), dummyDual
   , -- * Internal operations, exposed for tests, debugging and experiments
     unsafeGetFreshId
   ) where
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
@@ -63,10 +61,6 @@ import HordeAd.Core.TensorClass
 -- and underlying scalar.
 type IsPrimalWithScalar a r =
   (IsPrimal a, Element a ~ r)
-
--- | A shorthand for a useful set of constraints.
-type IsPrimalAndHasInputs a r =
-  (IsPrimalWithScalar a r, HasInputs a)
 
 
 -- * Class definitions
@@ -108,6 +102,7 @@ class IsPrimal a where
   dScale :: a -> Dual a -> Dual a
   dAdd :: Dual a -> Dual a -> Dual a
   recordSharing :: Dual a -> Dual a
+  packDeltaDt :: Either (Element a, a) a -> Dual a -> DeltaDt (Element a)
 
 -- | Part 1/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class and assert it
@@ -121,6 +116,9 @@ class IsPrimalR r where
         => Dual (OR.Array n r) -> Dual (OR.Array n r)
         -> Dual (OR.Array n r)
   recordSharingR :: Dual (OR.Array n r) -> Dual (OR.Array n r)
+  packDeltaDtR :: KnownNat n
+               => Either (r, OR.Array n r) (OR.Array n r) -> Dual (OR.Array n r)
+               -> DeltaDt r
 
 -- | Part 2/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class.
@@ -130,6 +128,7 @@ instance (IsPrimalR r, KnownNat n)
   dScale = dScaleR
   dAdd = dAddR
   recordSharing = recordSharingR
+  packDeltaDt = packDeltaDtR
 
 -- An analogous hack for Ast.
 class IsPrimalA r where
@@ -139,6 +138,9 @@ class IsPrimalA r where
   dAddA :: KnownNat n
         => Dual (Ast n r) -> Dual (Ast n r) -> Dual (Ast n r)
   recordSharingA :: Dual (Ast n r) -> Dual (Ast n r)
+  packDeltaDtA :: KnownNat n
+               => Either (AstScalar r, Ast n r) (Ast n r) -> Dual (Ast n r)
+               -> DeltaDt (AstScalar r)
 
 instance (IsPrimalA r, KnownNat n)
          => IsPrimal (Ast n r) where
@@ -146,13 +148,7 @@ instance (IsPrimalA r, KnownNat n)
   dScale = dScaleA
   dAdd = dAddA
   recordSharing = recordSharingA
-
--- | Assuming that the type argument is the primal component of dual numbers
--- this class makes available
--- the additional operations of delta-input and of packing a delta expression
--- and a dt parameter for computing its gradient.
-class HasInputs a where
-  packDeltaDt :: Either (Element a, a) a -> Dual a -> DeltaDt (Element a)
+  packDeltaDt = packDeltaDtA
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
@@ -275,6 +271,7 @@ instance IsPrimal Double where
     Input0{} -> d
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
+  packDeltaDt et = DeltaDt0 (either fst id et)
 
 -- | This is an impure instance. See above.
 instance IsPrimal Float where
@@ -287,6 +284,7 @@ instance IsPrimal Float where
     Input0{} -> d
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
+  packDeltaDt et = DeltaDt0 (either fst id et)
 
 instance IsPrimal (AstScalar r) where
   dZero = Zero0
@@ -297,6 +295,7 @@ instance IsPrimal (AstScalar r) where
     Input0{} -> d
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
+  packDeltaDt et = DeltaDt0 (either fst id et)
 
 -- | This is a trivial and so a pure instance.
 instance IsPrimal (OT.Array r) where
@@ -304,6 +303,7 @@ instance IsPrimal (OT.Array r) where
   dScale = undefined
   dAdd = undefined
   recordSharing = id
+  packDeltaDt = undefined
 
 -- | This is an impure instance. See above.
 instance IsPrimalR Double where
@@ -316,6 +316,8 @@ instance IsPrimalR Double where
     FromX1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
+  packDeltaDtR (Left (r, tsh)) = DeltaDt1 (tkonst0N (tshape tsh) (tscalar r))
+  packDeltaDtR (Right t) = DeltaDt1 t
 
 instance IsPrimalR Float where
   dZeroR = Zero1
@@ -327,9 +329,11 @@ instance IsPrimalR Float where
     FromX1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
+  packDeltaDtR (Left (r, tsh)) = DeltaDt1 (tkonst0N (tshape tsh) (tscalar r))
+  packDeltaDtR (Right t) = DeltaDt1 t
 
 -- TODO: should this manage sharing of the terms?
-instance (Show r, Numeric r) => IsPrimalA r where
+instance (Show r, Numeric r, Tensor (AstScalar r)) => IsPrimalA r where
   dZeroA = Zero1
   dScaleA = Scale1
   dAddA = Add1
@@ -339,6 +343,8 @@ instance (Show r, Numeric r) => IsPrimalA r where
     FromX1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
+  packDeltaDtA (Left (r, tsh)) = DeltaDt1 (tkonst0N (tshape tsh) (tscalar r))
+  packDeltaDtA (Right t) = DeltaDt1 t
 
 instance IsPrimal (AstDynamic r) where
   dZero = undefined
@@ -347,24 +353,7 @@ instance IsPrimal (AstDynamic r) where
     Just Refl -> From1X $ Add1 d1 d2
     _ -> error "dAdd (IsPrimal (AstDynamic r)): summand types don't match"
   recordSharing = id
-
-instance HasInputs Double where
-  packDeltaDt et = DeltaDt0 (either fst id et)
-
-instance HasInputs Float where
-  packDeltaDt et = DeltaDt0 (either fst id et)
-
-instance KnownNat n => HasInputs (OR.Array n Double) where
-  packDeltaDt (Left (r, tsh)) = DeltaDt1 (tkonst0N (tshape tsh) (tscalar r))
-  packDeltaDt (Right t) = DeltaDt1 t
-
-instance KnownNat n => HasInputs (OR.Array n Float) where
-  packDeltaDt (Left (r, tsh)) = DeltaDt1 (tkonst0N (tshape tsh) (tscalar r))
-  packDeltaDt (Right t) = DeltaDt1 t
-
-instance (Tensor (AstScalar r), KnownNat n) => HasInputs (Ast n r) where
-  packDeltaDt (Left (r, tsh)) = DeltaDt1 (tkonst0N (tshape tsh) (tscalar r))
-  packDeltaDt (Right t) = DeltaDt1 t
+  packDeltaDt = undefined
 
 -- | This is an impure instance. See above.
 instance HasRanks Double where

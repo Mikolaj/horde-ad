@@ -125,6 +125,7 @@ deriving instance (Show r, Numeric r) => Show (AstDynamic r)
 newtype AstScalar r = AstScalar {unAstScalar :: Ast 0 r}
  deriving Show
 
+type instance Element (AstScalar r) = AstScalar r
 type instance Element (Ast n r) = AstScalar r
 
 newtype AstVarName t = AstVarName Int

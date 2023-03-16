@@ -22,7 +22,7 @@ module HordeAd.Core.DualNumber
   , softMaxV, build1POPL, build1Elementwise, build1Closure, build1
   , map1POPL, map1Elementwise
   , -- * Re-exports
-    IsPrimal (..), IsPrimalAndHasInputs
+    IsPrimal (..), IsPrimalWithScalar
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   ) where
 
@@ -115,7 +115,6 @@ type ADNum r =
   , TensorIsArray r
   , DynamicTensor r ~ OT.Array r
   , HasPrimal r
-  , HasInputs r
   )
 
 type ADTensor r =
