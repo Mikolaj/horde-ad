@@ -138,7 +138,13 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tconcat :: KnownNat n
           => [TensorOf (1 + n) r] -> TensorOf (1 + n) r
   tconcat = foldr1 tappend
-  tslice :: KnownNat n => Int -> Int -> TensorOf (1 + n) r -> TensorOf (1 + n) r
+  tslice :: KnownNat n
+         => Int -> Int -> TensorOf (1 + n) r -> TensorOf (1 + n) r
+  tuncons :: KnownNat n
+          => TensorOf (1 + n) r -> Maybe (TensorOf n r, TensorOf (1 + n) r)
+  tuncons v = if tlength v == 0
+              then Nothing
+              else Just (v ! [0], tslice 1 (tlength v - 1) v)
   treverse :: KnownNat n => TensorOf (1 + n) r -> TensorOf (1 + n) r
   ttr :: KnownNat n => TensorOf (2 + n) r -> TensorOf (2 + n) r
   ttr = ttranspose [1, 0]
