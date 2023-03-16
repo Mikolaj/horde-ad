@@ -65,18 +65,17 @@ testTrees =
 
 rev' :: forall a r n m.
         ( KnownNat n, KnownNat m, ADNum r, ADReady r, InterpretAst r
-        , a ~ OR.Array m r, ScalarOf r ~ r
-        , IsPrimalWithScalar (OR.Array m r) r
-        , TensorOf n r ~ OR.Array n r, TensorOf m r ~ OR.Array m r
-        , TensorOf n (ADVal r)
-          ~ ADVal (OR.Array n r)
-        , TensorOf m (ADVal r)
-          ~ ADVal (OR.Array m r)
+        , a ~ TensorOf m r, ScalarOf r ~ r, Scalar (TensorOf n r) ~ r
+        , IsPrimalWithScalar (TensorOf m r) r
+        , Value (ADVal (TensorOf n r)) ~ TensorOf n r
+        , Adaptable (ADVal (TensorOf n r))
+        , TensorOf n (ADVal r) ~ ADVal (TensorOf n r)
+        , TensorOf m (ADVal r) ~ ADVal (TensorOf m r)
         , ADReady (ADVal r) )
      => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
-     -> OR.Array n r
+     -> TensorOf n r
      -> ( TensorOf m r, a, a, a, a, a
-        , OR.Array n r, OR.Array n r, OR.Array n r, OR.Array n r, OR.Array n r
+        , TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r
         , Ast m r, Ast m r )
 rev' f vals =
   let value0 = f vals
@@ -87,7 +86,7 @@ rev' f vals =
       h :: ADReady x
         => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
         -> (Ast m r -> Ast m r) -> ADInputs r
-        -> ADVal (OR.Array m r)
+        -> ADVal (TensorOf m r)
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseADInputs vals inputs) IM.empty

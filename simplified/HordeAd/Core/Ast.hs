@@ -29,6 +29,7 @@ import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 
 -- * Ast definitions
@@ -50,7 +51,7 @@ type AstVarList n = SizedList n (AstVarName Int)
 -- to be differentiated.
 data Ast :: Nat -> Type -> Type where
   -- To permit defining objective functions in Ast, not just constants:
-  AstVar :: ShapeInt n -> AstVarName (OR.Array n r) -> Ast n r
+  AstVar :: ShapeInt n -> AstVarName (TensorOf n r) -> Ast n r
 
   -- For the numeric classes:
   AstOp :: OpCode -> [Ast n r] -> Ast n r

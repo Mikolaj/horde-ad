@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module HordeAd.External.Adaptor
-  ( Adaptable, AdaptableScalar
+  ( Adaptable, AdaptableScalar, Scalar
   , AdaptableDomains(toDomains, nParams, nScalars)
   , RandomDomains(randomVals)
   , AdaptableInputs(Value), parseDomains, parseADInputs

@@ -401,10 +401,6 @@ instance InterpretAst Double where
 -- we do any differentiation and they are mostly symbolic, so don't even
 -- double the amount of tensor computation performed. The biggest problem is
 -- allocation of tensors, but they are mostly shared with the primal part.
---
--- A more interesting case is if we want to use Ast for something else,
--- e.g., to differentiate directly, and so we'd first interpret it in itself,
--- simplifying, and its primal part in OR.Array.
    interpretAstPrimal
      :: (KnownNat n, r ~ Double)
      => AstEnv r
@@ -513,10 +509,6 @@ instance InterpretAst Float where
 -- we do any differentiation and they are mostly symbolic, so don't even
 -- double the amount of tensor computation performed. The biggest problem is
 -- allocation of tensors, but they are mostly shared with the primal part.
---
--- A more interesting case is if we want to use Ast for something else,
--- e.g., to differentiate directly, and so we'd first interpret it in itself,
--- simplifying, and its primal part in OR.Array.
    interpretAstPrimal
      :: (KnownNat n, r ~ Float)
      => AstEnv r
@@ -626,10 +618,6 @@ instance (ADNum q, IsPrimal (AstScalar q), IsPrimalA q)
 -- we do any differentiation and they are mostly symbolic, so don't even
 -- double the amount of tensor computation performed. The biggest problem is
 -- allocation of tensors, but they are mostly shared with the primal part.
---
--- A more interesting case is if we want to use Ast for something else,
--- e.g., to differentiate directly, and so we'd first interpret it in itself,
--- simplifying, and its primal part in OR.Array.
    interpretAstPrimal
      :: (KnownNat n, r ~ AstScalar q)
      => AstEnv r

@@ -58,6 +58,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
@@ -95,7 +96,7 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
-          -> (AstVarName (OR.Array n r), Ast m r)
+          -> (AstVarName (TensorOf n r), Ast m r)
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
