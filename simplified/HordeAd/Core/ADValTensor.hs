@@ -393,6 +393,9 @@ class InterpretAst a where
     => AstEnv a -> Ast n (ScalarOf a) -> TensorOf n a
 
 instance InterpretAst (ADVal Double) where
+ interpretAst
+   :: forall n0 a. (KnownNat n0, a ~ ADVal Double)
+   => AstEnv a -> Ast n0 (ScalarOf a) -> TensorOf n0 a
  interpretAst = interpretAstRec
   where
 -- We could duplicate interpretAst to save some time (sadly, we can't
@@ -403,14 +406,14 @@ instance InterpretAst (ADVal Double) where
 -- double the amount of tensor computation performed. The biggest problem is
 -- allocation of tensors, but they are mostly shared with the primal part.
    interpretAstPrimal
-     :: (KnownNat n, a ~ ADVal Double, r ~ Primal a)
+     :: forall n. KnownNat n
      => AstEnv a
-     -> AstPrimalPart n (ScalarOf a) -> TensorOf n r
+     -> AstPrimalPart n (ScalarOf a) -> TensorOf n (Primal a)
    interpretAstPrimal env (AstPrimalPart v) =
      toArray $ tprimalPart $ interpretAstRec env v
 
    interpretAstRec
-     :: forall n a. (KnownNat n, a ~ ADVal Double)
+     :: forall n. KnownNat n
      => AstEnv a
      -> Ast n (ScalarOf a) -> TensorOf n a
    interpretAstRec env = \case
@@ -466,9 +469,8 @@ instance InterpretAst (ADVal Double) where
      AstFromDynamic{} ->
        error "interpretAst: AstFromDynamic is not for library users"
 
-   interpretAstInt :: (a ~ ADVal Double, r ~ Primal a)
-                   => AstEnv a
-                   -> AstInt (ScalarOf a) -> IntOf r
+   interpretAstInt :: AstEnv a
+                   -> AstInt (ScalarOf a) -> IntOf (Primal a)
    interpretAstInt env = \case
      AstIntVar (AstVarName var) -> case IM.lookup var env of
        Just AstVarR{} ->
@@ -486,9 +488,8 @@ instance InterpretAst (ADVal Double) where
      AstMinIndex1 v -> tminIndex0 $ interpretAstRec env v
      AstMaxIndex1 v -> tmaxIndex0 $ interpretAstRec env v
 
-   interpretAstBool :: (a ~ ADVal Double, r ~ ScalarOf a)
-                    => AstEnv a
-                    -> AstBool (ScalarOf a) -> BooleanOf r
+   interpretAstBool :: AstEnv a
+                    -> AstBool (ScalarOf a) -> BooleanOf (Primal a)
    interpretAstBool env = \case
      AstBoolOp opCodeBool args ->
        interpretAstBoolOp (interpretAstBool env) opCodeBool args
@@ -501,6 +502,9 @@ instance InterpretAst (ADVal Double) where
        in interpretAstRelOp f opCodeRel args
 
 instance InterpretAst (ADVal Float) where
+ interpretAst
+   :: forall n0 a. (KnownNat n0, a ~ ADVal Float)
+   => AstEnv a -> Ast n0 (ScalarOf a) -> TensorOf n0 a
  interpretAst = interpretAstRec
   where
 -- We could duplicate interpretAst to save some time (sadly, we can't
@@ -511,14 +515,14 @@ instance InterpretAst (ADVal Float) where
 -- double the amount of tensor computation performed. The biggest problem is
 -- allocation of tensors, but they are mostly shared with the primal part.
    interpretAstPrimal
-     :: (KnownNat n, a ~ ADVal Float, r ~ Primal a)
+     :: forall n. KnownNat n
      => AstEnv a
-     -> AstPrimalPart n (ScalarOf a) -> TensorOf n r
+     -> AstPrimalPart n (ScalarOf a) -> TensorOf n (Primal a)
    interpretAstPrimal env (AstPrimalPart v) =
      toArray $ tprimalPart $ interpretAstRec env v
 
    interpretAstRec
-     :: forall n a. (KnownNat n, a ~ ADVal Float)
+     :: forall n. KnownNat n
      => AstEnv a
      -> Ast n (ScalarOf a) -> TensorOf n a
    interpretAstRec env = \case
@@ -574,9 +578,8 @@ instance InterpretAst (ADVal Float) where
      AstFromDynamic{} ->
        error "interpretAst: AstFromDynamic is not for library users"
 
-   interpretAstInt :: (a ~ ADVal Float, r ~ Primal a)
-                   => AstEnv a
-                   -> AstInt (ScalarOf a) -> IntOf r
+   interpretAstInt :: AstEnv a
+                   -> AstInt (ScalarOf a) -> IntOf (Primal a)
    interpretAstInt env = \case
      AstIntVar (AstVarName var) -> case IM.lookup var env of
        Just AstVarR{} ->
@@ -594,9 +597,8 @@ instance InterpretAst (ADVal Float) where
      AstMinIndex1 v -> tminIndex0 $ interpretAstRec env v
      AstMaxIndex1 v -> tmaxIndex0 $ interpretAstRec env v
 
-   interpretAstBool :: (a ~ ADVal Float, r ~ Primal a)
-                    => AstEnv a
-                    -> AstBool (ScalarOf a) -> BooleanOf r
+   interpretAstBool :: AstEnv a
+                    -> AstBool (ScalarOf a) -> BooleanOf (Primal a)
    interpretAstBool env = \case
      AstBoolOp opCodeBool args ->
        interpretAstBoolOp (interpretAstBool env) opCodeBool args
@@ -611,6 +613,9 @@ instance InterpretAst (ADVal Float) where
 instance ( ADTensor (Ast0 q)
          , Numeric q, Show q, Floating (Vector q), RealFloat q )
          => InterpretAst (ADVal (Ast0 q)) where
+ interpretAst
+   :: forall n0 a. (KnownNat n0, a ~ ADVal (Ast0 q))
+   => AstEnv a -> Ast n0 (ScalarOf a) -> TensorOf n0 a
  interpretAst = interpretAstRec
   where
 -- We could duplicate interpretAst to save some time (sadly, we can't
@@ -621,14 +626,14 @@ instance ( ADTensor (Ast0 q)
 -- double the amount of tensor computation performed. The biggest problem is
 -- allocation of tensors, but they are mostly shared with the primal part.
    interpretAstPrimal
-     :: (KnownNat n, a ~ ADVal (Ast0 q), r ~ Primal a)
+     :: forall n. KnownNat n
      => AstEnv a
-     -> AstPrimalPart n (ScalarOf a) -> TensorOf n r
+     -> AstPrimalPart n (ScalarOf a) -> TensorOf n (Primal a)
    interpretAstPrimal env (AstPrimalPart v) =
      tprimalPart $ interpretAstRec env v
 
    interpretAstRec
-     :: forall n a. (KnownNat n, a ~ ADVal (Ast0 q))
+     :: forall n. KnownNat n
      => AstEnv a
      -> Ast n (ScalarOf a) -> TensorOf n a
    interpretAstRec env = \case
@@ -684,9 +689,8 @@ instance ( ADTensor (Ast0 q)
      AstFromDynamic{} ->
        error "interpretAst: AstFromDynamic is not for library users"
 
-   interpretAstInt :: (a ~ ADVal (Ast0 q), r ~ Primal a)
-                   => AstEnv a
-                   -> AstInt (ScalarOf a) -> IntOf r
+   interpretAstInt :: AstEnv a
+                   -> AstInt (ScalarOf a) -> IntOf (Primal a)
    interpretAstInt env = \case
      AstIntVar (AstVarName var) -> case IM.lookup var env of
        Just AstVarR{} ->
@@ -704,9 +708,8 @@ instance ( ADTensor (Ast0 q)
      AstMinIndex1 v -> tminIndex0 $ interpretAstRec env v
      AstMaxIndex1 v -> tmaxIndex0 $ interpretAstRec env v
 
-   interpretAstBool :: (a ~ ADVal (Ast0 q), r ~ Primal a)
-                    => AstEnv a
-                    -> AstBool (ScalarOf a) -> BooleanOf r
+   interpretAstBool :: AstEnv a
+                    -> AstBool (ScalarOf a) -> BooleanOf (Primal a)
    interpretAstBool env = \case
      AstBoolOp opCodeBool args ->
        interpretAstBoolOp (interpretAstBool env) opCodeBool args
