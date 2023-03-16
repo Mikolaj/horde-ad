@@ -453,6 +453,7 @@ class HasPrimal r where
   tdummyD :: DynamicTensor r
   tisDummyD :: DynamicTensor r -> Bool
   taddD :: DynamicTensor r -> DynamicTensor r -> DynamicTensor r
+  tshapeD :: DynamicTensor r -> [Int]
   tfromR :: KnownNat n
          => TensorOf n r -> DynamicTensor r
   tfromD :: KnownNat n
@@ -471,6 +472,7 @@ instance HasPrimal Double where
   tdummyD = dummyTensor
   tisDummyD = isTensorDummy
   taddD = (+)
+  tshapeD = OT.shapeL
   tfromR = Data.Array.Convert.convert
   tfromD = Data.Array.Convert.convert
 
@@ -487,6 +489,7 @@ instance HasPrimal Float where
   tdummyD = dummyTensor
   tisDummyD = isTensorDummy
   taddD = (+)
+  tshapeD = OT.shapeL
   tfromR = Data.Array.Convert.convert
   tfromD = Data.Array.Convert.convert
 

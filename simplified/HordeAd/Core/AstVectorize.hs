@@ -105,7 +105,7 @@ instance (RealFloat r, Floating (Vector r), Show r, Numeric r)
   tscalar = id
   tunScalar = id
 
-instance HasPrimal (AstScalar r) where
+instance (Show r, Numeric r) => HasPrimal (AstScalar r) where
   type ScalarOf (AstScalar r) = r
   type Primal (AstScalar r) = AstPrimalPart 0 r
   type DualOf n (AstScalar r) = ()  -- TODO: data AstDualPart: dAdd, dkonst1
@@ -120,6 +120,10 @@ instance HasPrimal (AstScalar r) where
     AstDynamicDummy -> True
     _ -> False
   taddD = AstDynamicPlus
+  tshapeD t = case t of
+    AstDynamicDummy -> []
+    AstDynamicPlus t1 _t2 -> tshapeD t1
+    AstDynamicFrom v -> shapeToList $ shapeAst v
   tfromR = AstDynamicFrom
   tfromD = AstFromDynamic
 
@@ -137,6 +141,7 @@ instance HasPrimal (AstPrimalPart 0 r) where
   tdummyD = undefined
   tisDummyD = undefined
   taddD = undefined
+  tshapeD = undefined
   tfromR = undefined
   tfromD = undefined
 

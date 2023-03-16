@@ -8,6 +8,7 @@ import Prelude
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -83,7 +84,8 @@ testBar =
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
-fooD :: forall r n. (ADNum r, KnownNat n)
+fooD :: forall r n. ( IsPrimal (OR.Array n r), KnownNat n, Numeric r
+                    , RealFloat r, Floating (Vector r) )
      => [ADVal (OR.Array n r)] -> ADVal (OR.Array n r)
 fooD [x, y, z] =
   let w = x * sin y

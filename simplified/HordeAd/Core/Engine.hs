@@ -27,7 +27,8 @@ import           GHC.TypeLits (SomeNat (..), someNatVal)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
-import HordeAd.Core.Delta (derivativeFromDelta, gradientFromDelta, toInputId)
+import HordeAd.Core.Delta
+  (Delta0, derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass (Dual, dFrom1X, dInput0, dInput1)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorClass
@@ -58,7 +59,7 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 -- * Evaluation that computes gradients.
 
 revOnADInputsFun
-  :: (ADNum r, IsPrimalWithScalar a r)
+  :: (ADTensor r, IsPrimalWithScalar a r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> ADInputs r
@@ -77,7 +78,7 @@ revOnADInputsFun dt f inputs@ADInputs{..} =
      in (gradient, v)
 
 revOnADInputs
-  :: (ADNum r, IsPrimalWithScalar a r)
+  :: (ADTensor r, IsPrimalWithScalar a r)
   => a
   -> (ADInputs r -> ADVal a)
   -> ADInputs r
@@ -90,7 +91,7 @@ revOnADInputs = revOnADInputsFun . Just
 -- Also, as of now, @revOnDomains@ is restricted to objective functions with scalar
 -- codomains, while VJP is fully general.
 revOnDomainsFun
-  :: (ADNum r, IsPrimalWithScalar a r)
+  :: (ADTensor r, IsPrimalWithScalar a r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -101,7 +102,7 @@ revOnDomainsFun dt f parameters =
   in revOnADInputsFun dt f inputs
 
 revOnDomains
-  :: (ADNum r, IsPrimalWithScalar a r)
+  :: (ADTensor r, IsPrimalWithScalar a r)
   => a
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -114,7 +115,7 @@ revOnDomains = revOnDomainsFun . Just
 -- for a fast variant.
 
 slowFwdOnADInputs
-  :: ADNum r
+  :: (ADTensor r, Dual r ~ Delta0 r)
   => ADInputs r
   -> (ADInputs r -> ADVal r)
   -> Domains r
@@ -129,7 +130,7 @@ slowFwdOnADInputs inputs@ADInputs{..} f ds =
 
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
-  :: ADNum r
+  :: (ADTensor r, Dual r ~ Delta0 r)
   => Domains r
   -> (ADInputs r -> ADVal r)
   -> Domains r
@@ -143,7 +144,7 @@ slowFwdOnDomains parameters f ds =
 -- * Additional mechanisms
 
 prettyPrintDf
-  :: ADNum r
+  :: (ADTensor r, Show (Dual r))
   => (ADInputs r -> ADVal r)
   -> Domains r
   -> String
@@ -154,13 +155,13 @@ prettyPrintDf f parameters =
   in ppShow deltaTopLevel
 
 generateDeltaInputs
-  :: forall r. ADNum r
+  :: forall r. ADTensor r
   => Domains r
   -> ( Data.Vector.Vector (Dual r)
-     , Data.Vector.Vector (Dual (OT.Array r)) )
+     , Data.Vector.Vector (Dual (DynamicTensor r)) )
 generateDeltaInputs Domains{..} =
-  let arrayToInput :: Int -> OT.Array r -> Dual (OT.Array r)
-      arrayToInput i t = case someNatVal $ toInteger $ length $ OT.shapeL t of
+  let arrayToInput :: Int -> DynamicTensor r -> Dual (DynamicTensor r)
+      arrayToInput i t = case someNatVal $ toInteger $ length $ tshapeD t of
         Just (SomeNat (_ :: Proxy n)) ->
           dFrom1X $ dInput1 @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"

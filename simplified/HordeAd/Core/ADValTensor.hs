@@ -23,6 +23,7 @@ import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
+import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
@@ -110,7 +111,7 @@ instance Tensor (ADVal Float) where
   tscalar = scalar
   tunScalar = unScalar
 
-instance (ADNum r, IsPrimal (AstScalar r), IsPrimalA r)
+instance (ADTensor (AstScalar r), Numeric r, Show r, Num (Vector r))
          => Tensor (ADVal (AstScalar r)) where
   type TensorOf n (ADVal (AstScalar r)) = ADVal (Ast n r)
   type IntOf (ADVal (AstScalar r)) = AstInt r
@@ -157,6 +158,7 @@ instance HasPrimal (ADVal Double) where
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
+  tshapeD (D u _) = OT.shapeL u
   tfromR = from1X
   tfromD = fromX1
 
@@ -174,10 +176,11 @@ instance HasPrimal (ADVal Float) where
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
+  tshapeD (D u _) = OT.shapeL u
   tfromR = from1X
   tfromD = fromX1
 
-instance (ADNum r, IsPrimal (AstScalar r), IsPrimalA r)
+instance (ADTensor (AstScalar r), Numeric r, Show r)
          => HasPrimal (ADVal (AstScalar r)) where
   type ScalarOf (ADVal (AstScalar r)) = r
   type Primal (ADVal (AstScalar r)) = AstScalar r
@@ -191,6 +194,7 @@ instance (ADNum r, IsPrimal (AstScalar r), IsPrimalA r)
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD (D u u') (D v v') = dD (AstDynamicPlus u v) (dAdd u' v')
+  tshapeD (D u _) = tshapeD u
   tfromR = from1X
   tfromD = fromX1
 
@@ -317,7 +321,8 @@ gatherNClosure :: ( ADTensor r, IsPrimal (TensorOf (m + n) r)
 gatherNClosure sh (D u u') f =
   dD (tgather sh u f) (dGatherZ sh u' f (tshape u))
 
-scalar :: ADTensor r => ADVal r -> ADVal (TensorOf 0 r)
+scalar :: (ADTensor r, IsPrimal (TensorOf 0 r))
+       => ADVal r -> ADVal (TensorOf 0 r)
 scalar (D u u') = dD (tscalar u) (dScalar1 u')
 
 unScalar :: ADTensor r => ADVal (TensorOf 0 r) -> ADVal r
@@ -607,7 +612,8 @@ instance InterpretAst Float where
        let f = interpretAstInt env
        in interpretAstRelOp f opCodeRel args
 
-instance (ADNum q, IsPrimal (AstScalar q), IsPrimalA q)
+instance ( ADTensor (AstScalar q), Numeric q, Show q, Floating (Vector q)
+         , RealFloat q )
          => InterpretAst (AstScalar q) where
  interpretAst = interpretAstRec
   where

@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module HordeAd.External.Adaptor
-  ( Adaptable, AdaptableScalar, Scalar
+  ( Adaptable, Scalar
   , AdaptableDomains(toDomains, nParams, nScalars)
   , RandomDomains(randomVals)
   , AdaptableInputs(Value), parseDomains, parseADInputs
@@ -29,7 +29,7 @@ import HordeAd.Internal.TensorOps
 
 rev :: forall a vals r advals.
        ( r ~ Scalar vals, vals ~ Value advals
-       , ADNum r, IsPrimalWithScalar a r
+       , ADTensor r, IsPrimalWithScalar a r
        , Adaptable advals )
     => (advals -> ADVal a) -> vals
     -> vals
@@ -38,7 +38,7 @@ rev f vals = revDtFun f vals Nothing
 -- This version additionally takes the sensitivity parameter.
 revDt :: forall a vals r advals.
          ( r ~ Scalar vals, vals ~ Value advals
-         , ADNum r, IsPrimalWithScalar a r
+         , ADTensor r, IsPrimalWithScalar a r
          , Adaptable advals )
       => (advals -> ADVal a) -> vals -> a
       -> vals
@@ -47,7 +47,7 @@ revDt f vals dt = revDtFun f vals (Just dt)
 -- This version additionally takes a function producing sensitivity parameter.
 revDtFun :: forall a vals r advals.
             ( r ~ Scalar vals, vals ~ Value advals
-            , ADNum r, IsPrimalWithScalar a r
+            , ADTensor r, IsPrimalWithScalar a r
             , Adaptable advals )
          => (advals -> ADVal a) -> vals -> Maybe a
          -> vals
@@ -60,24 +60,17 @@ type Adaptable advals =
   ( AdaptableDomains (Value advals)
   , AdaptableInputs (Scalar (Value advals)) advals )
 
-type AdaptableScalar d r =
-  ( Scalar r ~ r, Value (ADVal r) ~ r
-  , ADNum r, Adaptable (ADVal r)
-  , Random r )
-
 -- TODO: merge these two classes. Is it even possible?
 -- Bonus points if no AllowAmbiguousTypes nor UndecidableInstances
 -- have to be added.
 class AdaptableDomains vals where
   type Scalar vals
-  toDomains :: (Numeric (Scalar vals), Tensor (Scalar vals))
+  toDomains :: Tensor (Scalar vals)
             => vals -> Domains (Scalar vals)
-  fromDomains :: Numeric (Scalar vals)
-              => vals -> Domains (Scalar vals)
+  fromDomains :: vals -> Domains (Scalar vals)
               -> (vals, Domains (Scalar vals))
   nParams :: vals -> Int
-  nScalars :: Numeric (Scalar vals)
-              => vals -> Int
+  nScalars :: vals -> Int
 
 class RandomDomains vals where
   randomVals
@@ -91,7 +84,7 @@ class AdaptableInputs r advals where
   fromADInputs :: Value advals -> ADInputs r -> (advals, ADInputs r)
 
 parseDomains
-  :: (AdaptableDomains vals, Numeric (Scalar vals), Tensor (Scalar vals))
+  :: (AdaptableDomains vals, Tensor (Scalar vals))
   => vals -> Domains (Scalar vals) -> vals
 parseDomains aInit domains =
   let (vals, rest) = fromDomains aInit domains
@@ -117,8 +110,7 @@ instance RandomDomains Double where
   randomVals range = randomR (- range, range)
     -- note that unlike in hmatrix the range is closed from the top
 
-instance ADNum Double
-         => AdaptableInputs Double (ADVal Double) where
+instance AdaptableInputs Double (ADVal Double) where
   type Value (ADVal Double) = Double
   fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
@@ -140,8 +132,7 @@ instance AdaptableDomains Float where
 instance RandomDomains Float where
   randomVals range = randomR (- range, range)
 
-instance ADNum Float
-         => AdaptableInputs Float (ADVal Float) where
+instance AdaptableInputs Float (ADVal Float) where
   type Value (ADVal Float) = Float
   fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
@@ -174,7 +165,7 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
     in (arr, g2)
 -}
 
-instance (KnownNat n, DynamicTensor r ~ OT.Array r)
+instance (Numeric r, KnownNat n, DynamicTensor r ~ OT.Array r)
          => AdaptableDomains (OR.Array n r) where
   type Scalar (OR.Array n r) = r
   toDomains a =
@@ -195,7 +186,7 @@ instance KnownNat n
         arr = OR.fromVector undefined $ createRandomVector (OR.size undefined) g1  -- TODO
     in (arr, g2)
 
-instance ( ADNum r, KnownNat n, TensorOf n r ~ OR.Array n r
+instance ( ADTensor r, KnownNat n, TensorOf n r ~ OR.Array n r
          , DynamicTensor r ~ OT.Array r )
          => AdaptableInputs r (ADVal (OR.Array n r)) where
   type Value (ADVal (OR.Array n r)) = OR.Array n r

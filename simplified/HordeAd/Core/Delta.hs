@@ -73,7 +73,6 @@ import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Generics (Generic)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
-import           Numeric.LinearAlgebra (Numeric)
 import           Text.Show.Functions ()
 
 import HordeAd.Core.SizedIndex
@@ -146,7 +145,7 @@ data Delta0 :: Type -> Type where
        => TensorOf n r -> Delta1 n r -> Delta0 r
   UnScalar0 :: Delta1 0 r -> Delta0 r
 
-deriving instance (Show (IntOf r), Show r, Numeric r) => Show (Delta0 r)
+deriving instance (Show (IntOf r), Show r) => Show (Delta0 r)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 -- The comments refer to the ordinary (forward) semantics of the terms,
@@ -248,13 +247,13 @@ data Delta1 :: Nat -> Type -> Type where
 
   FromX1 :: forall n r. DeltaX r -> Delta1 n r
 
-deriving instance (Show (IntOf r), Show r, Numeric r) => Show (Delta1 n r)
+deriving instance (Show (IntOf r), Show r) => Show (Delta1 n r)
 
 data DeltaX :: Type -> Type where
   From1X :: forall n r. KnownNat n
          => Delta1 n r -> DeltaX r
 
-deriving instance (Show (IntOf r), Show r, Numeric r) => Show (DeltaX r)
+deriving instance (Show (IntOf r), Show r) => Show (DeltaX r)
 
 -- * Delta expression identifiers
 
@@ -290,8 +289,7 @@ data Domains r = Domains
   }
   deriving Generic
 
-deriving instance ( Show r, Numeric r
-                  , Show (TensorOf 1 r), Show (DynamicTensor r) )
+deriving instance (Show (TensorOf 1 r), Show (DynamicTensor r))
                   => Show (Domains r)
 
 deriving instance (NFData (TensorOf 1 r), NFData (DynamicTensor r))
@@ -409,7 +407,7 @@ data DeltaBinding r =
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
-  :: forall r. (Numeric r, Tensor r, HasPrimal r)
+  :: forall r. (Tensor r, HasPrimal r)
   => Int -> Int -> DeltaDt r
   -> Domains r
 gradientFromDelta dim0 dim1 deltaDt =
@@ -443,7 +441,7 @@ gradientFromDelta dim0 dim1 deltaDt =
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> DeltaDt Double -> Domains Double #-}
 
-buildFinMaps :: forall r. (Numeric r, Tensor r, HasPrimal r)
+buildFinMaps :: forall r. (Tensor r, HasPrimal r)
              => EvalState r -> DeltaDt r -> EvalState r
 buildFinMaps s0 deltaDt =
   -- The first argument is the evaluation state being modified,
@@ -657,7 +655,7 @@ buildFinMaps s0 deltaDt =
 -- to compute it's dual number result) and along the direction vector(s)
 -- given in the last parameter called @ds@.
 derivativeFromDelta
-  :: (Numeric r, Tensor r, HasPrimal r)
+  :: (Tensor r, HasPrimal r)
   => Int -> Int -> Delta0 r -> Domains r -> r
 derivativeFromDelta dim0 dim1 deltaTopLevel ds =
   runST $ buildDerivative dim0 dim1 deltaTopLevel ds
@@ -666,7 +664,7 @@ derivativeFromDelta dim0 dim1 deltaTopLevel ds =
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
-  :: forall s r. (Numeric r, Tensor r, HasPrimal r)
+  :: forall s r. (Tensor r, HasPrimal r)
   => Int -> Int -> Delta0 r -> Domains r
   -> ST s r
 buildDerivative dim0 dim1 deltaTopLevel
