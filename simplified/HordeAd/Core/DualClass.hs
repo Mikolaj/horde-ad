@@ -44,7 +44,7 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
-import           Numeric.LinearAlgebra (Numeric)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
@@ -102,7 +102,7 @@ class IsPrimal a where
   dScale :: a -> Dual a -> Dual a
   dAdd :: Dual a -> Dual a -> Dual a
   recordSharing :: Dual a -> Dual a
-  packDeltaDt :: Either (Element a, a) a -> Dual a -> DeltaDt (Element a)
+  packDeltaDt :: Either a a -> Dual a -> DeltaDt (Element a)
 
 -- | Part 1/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class and assert it
@@ -117,7 +117,7 @@ class IsPrimalR r where
         -> Dual (OR.Array n r)
   recordSharingR :: Dual (OR.Array n r) -> Dual (OR.Array n r)
   packDeltaDtR :: KnownNat n
-               => Either (r, OR.Array n r) (OR.Array n r) -> Dual (OR.Array n r)
+               => Either (OR.Array n r) (OR.Array n r) -> Dual (OR.Array n r)
                -> DeltaDt r
 
 -- | Part 2/2 of a hack to squeeze the ranked tensors rank,
@@ -139,7 +139,7 @@ class IsPrimalA r where
         => Dual (Ast n r) -> Dual (Ast n r) -> Dual (Ast n r)
   recordSharingA :: Dual (Ast n r) -> Dual (Ast n r)
   packDeltaDtA :: KnownNat n
-               => Either (AstScalar r, Ast n r) (Ast n r) -> Dual (Ast n r)
+               => Either (Ast n r) (Ast n r) -> Dual (Ast n r)
                -> DeltaDt (AstScalar r)
 
 instance (IsPrimalA r, KnownNat n)
@@ -271,7 +271,7 @@ instance IsPrimal Double where
     Input0{} -> d
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
-  packDeltaDt et = DeltaDt0 (either fst id et)
+  packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
 -- | This is an impure instance. See above.
 instance IsPrimal Float where
@@ -284,9 +284,9 @@ instance IsPrimal Float where
     Input0{} -> d
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
-  packDeltaDt et = DeltaDt0 (either fst id et)
+  packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
-instance IsPrimal (AstScalar r) where
+instance (Numeric r, Num (Vector r)) => IsPrimal (AstScalar r) where
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
@@ -295,7 +295,7 @@ instance IsPrimal (AstScalar r) where
     Input0{} -> d
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
-  packDeltaDt et = DeltaDt0 (either fst id et)
+  packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
 -- | This is a trivial and so a pure instance.
 instance IsPrimal (OT.Array r) where
@@ -316,7 +316,7 @@ instance IsPrimalR Double where
     FromX1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
-  packDeltaDtR (Left (r, tsh)) = DeltaDt1 (tkonst0N (tshape tsh) (tscalar r))
+  packDeltaDtR (Left tsh) = DeltaDt1 (tkonst0N (tshape tsh) 1)
   packDeltaDtR (Right t) = DeltaDt1 t
 
 instance IsPrimalR Float where
@@ -329,7 +329,7 @@ instance IsPrimalR Float where
     FromX1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
-  packDeltaDtR (Left (r, tsh)) = DeltaDt1 (tkonst0N (tshape tsh) (tscalar r))
+  packDeltaDtR (Left tsh) = DeltaDt1 (tconst $ tkonst0N (tshape tsh) 1)
   packDeltaDtR (Right t) = DeltaDt1 t
 
 -- TODO: should this manage sharing of the terms?
@@ -343,7 +343,7 @@ instance (Show r, Numeric r, Tensor (AstScalar r)) => IsPrimalA r where
     FromX1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
-  packDeltaDtA (Left (r, tsh)) = DeltaDt1 (tkonst0N (tshape tsh) (tscalar r))
+  packDeltaDtA (Left tsh) = DeltaDt1 (tkonst0N (tshape tsh) 1)
   packDeltaDtA (Right t) = DeltaDt1 t
 
 instance IsPrimal (AstDynamic r) where
