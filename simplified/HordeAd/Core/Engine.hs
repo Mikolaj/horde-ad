@@ -60,7 +60,7 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 
 revOnADInputsFun
   :: (ADNum r, IsPrimalAndHasInputs a r)
-  => (a -> a)
+  => Maybe a
   -> (ADInputs r -> ADVal a)
   -> ADInputs r
   -> (Domains r, a)
@@ -73,7 +73,7 @@ revOnADInputsFun dt f inputs@ADInputs{..} =
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started
       !(D v deltaTopLevel) = f inputs
-      deltaDt = packDeltaDt (dt v) v deltaTopLevel
+      deltaDt = packDeltaDt (maybe (Left (1, v)) Right dt) deltaTopLevel
   in let gradient = gradientFromDelta dim0 dim1 deltaDt
      in (gradient, v)
 
@@ -84,7 +84,7 @@ revOnADInputs
   -> ADInputs r
   -> (Domains r, a)
 {-# INLINE revOnADInputs #-}
-revOnADInputs = revOnADInputsFun . const
+revOnADInputs = revOnADInputsFun . Just
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newbies may have trouble understanding it.
@@ -92,7 +92,7 @@ revOnADInputs = revOnADInputsFun . const
 -- codomains, while VJP is fully general.
 revOnDomainsFun
   :: (ADNum r, IsPrimalAndHasInputs a r)
-  => (a -> a)
+  => Maybe a
   -> (ADInputs r -> ADVal a)
   -> Domains r
   -> (Domains r, a)
@@ -107,7 +107,7 @@ revOnDomains
   -> (ADInputs r -> ADVal a)
   -> Domains r
   -> (Domains r, a)
-revOnDomains = revOnDomainsFun . const
+revOnDomains = revOnDomainsFun . Just
 
 
 -- * The slow evaluation for derivatives that uses the same

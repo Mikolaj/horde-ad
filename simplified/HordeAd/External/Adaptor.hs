@@ -22,7 +22,6 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
-import HordeAd.Core.DualClass (inputConstant)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorClass
@@ -34,7 +33,7 @@ rev :: forall a vals r advals.
        , Adaptable advals )
     => (advals -> ADVal a) -> vals
     -> vals
-rev f vals = revDtFun f vals (inputConstant 1)
+rev f vals = revDtFun f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
 revDt :: forall a vals r advals.
@@ -43,14 +42,14 @@ revDt :: forall a vals r advals.
          , Adaptable advals )
       => (advals -> ADVal a) -> vals -> a
       -> vals
-revDt f vals dt = revDtFun f vals (const dt)
+revDt f vals dt = revDtFun f vals (Just dt)
 
 -- This version additionally takes a function producing sensitivity parameter.
 revDtFun :: forall a vals r advals.
             ( r ~ Scalar vals, vals ~ Value advals
             , ADNum r, IsPrimalAndHasInputs a r
             , Adaptable advals )
-         => (advals -> ADVal a) -> vals -> (a -> a)
+         => (advals -> ADVal a) -> vals -> Maybe a
          -> vals
 revDtFun f vals dt =
   let g inputs = f $ parseADInputs vals inputs

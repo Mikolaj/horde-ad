@@ -152,8 +152,7 @@ instance (IsPrimalA r, KnownNat n)
 -- the additional operations of delta-input and of packing a delta expression
 -- and a dt parameter for computing its gradient.
 class HasInputs a where
-  packDeltaDt :: a -> a -> Dual a -> DeltaDt (Element a)
-  inputConstant :: Element a -> a -> a
+  packDeltaDt :: Either (Element a, a) a -> Dual a -> DeltaDt (Element a)
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
@@ -350,42 +349,22 @@ instance IsPrimal (AstDynamic r) where
   recordSharing = id
 
 instance HasInputs Double where
-  packDeltaDt t _tsh = DeltaDt0 t
-  inputConstant r _tsh = r
+  packDeltaDt et = DeltaDt0 (either fst id et)
 
 instance HasInputs Float where
-  packDeltaDt t _tsh = DeltaDt0 t
-  inputConstant r _tsh = r
+  packDeltaDt et = DeltaDt0 (either fst id et)
 
 instance KnownNat n => HasInputs (OR.Array n Double) where
-  packDeltaDt t tsh =
-    let sh = OR.shapeL t
-        sh' = OR.shapeL tsh
-    in assert (sh == sh'
-               `blame` "packDeltaDt: dt and codomain differ in shape: "
-               `swith` (sh, sh'))
-       $ DeltaDt1 t
-  inputConstant r tsh = OR.constant (OR.shapeL tsh) r
+  packDeltaDt (Left (r, tsh)) = DeltaDt1 (tkonst0N (tshape tsh) (tscalar r))
+  packDeltaDt (Right t) = DeltaDt1 t
 
 instance KnownNat n => HasInputs (OR.Array n Float) where
-  packDeltaDt t tsh =
-    let sh = OR.shapeL t
-        sh' = OR.shapeL tsh
-    in assert (sh == sh'
-               `blame` "packDeltaDt: dt and codomain differ in shape: "
-               `swith` (sh, sh'))
-       $ DeltaDt1 t
-  inputConstant r tsh = OR.constant (OR.shapeL tsh) r
+  packDeltaDt (Left (r, tsh)) = DeltaDt1 (tkonst0N (tshape tsh) (tscalar r))
+  packDeltaDt (Right t) = DeltaDt1 t
 
 instance (Tensor (AstScalar r), KnownNat n) => HasInputs (Ast n r) where
-  packDeltaDt t tsh =
-    let sh = tshape t
-        sh' = tshape tsh
-    in assert (sh == sh'
-               `blame` "packDeltaDt: dt and codomain differ in shape: "
-               `swith` (sh, sh'))
-       $ DeltaDt1 t
-  inputConstant r tsh = tkonst0N (tshape tsh) (tscalar r)
+  packDeltaDt (Left (r, tsh)) = DeltaDt1 (tkonst0N (tshape tsh) (tscalar r))
+  packDeltaDt (Right t) = DeltaDt1 t
 
 -- | This is an impure instance. See above.
 instance HasRanks Double where

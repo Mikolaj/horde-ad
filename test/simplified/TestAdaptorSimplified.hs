@@ -16,7 +16,6 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd.Core.ADValTensor
 import HordeAd.Core.Ast
-import HordeAd.Core.DualClass (inputConstant)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
@@ -81,7 +80,7 @@ rev' :: forall a r n m.
         , Ast m r, Ast m r )
 rev' f vals =
   let value0 = f vals
-      dt = inputConstant @a 1
+      dt = Nothing
       g inputs = f $ parseADInputs vals inputs
       (advalGrad, value1) = revOnDomainsFun dt g (toDomains vals)
       gradient1 = parseDomains vals advalGrad
