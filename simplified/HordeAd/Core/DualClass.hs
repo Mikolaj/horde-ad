@@ -80,13 +80,13 @@ type IsPrimalWithScalar a r =
 type family Dual a = result | result -> a where
   Dual Double = Delta0 Double
   Dual Float = Delta0 Float
-  Dual (AstScalar r) = Delta0 (AstScalar r)
+  Dual (Ast0 r) = Delta0 (Ast0 r)
   Dual (OT.Array Double) = DeltaX Double
   Dual (OT.Array Float) = DeltaX Float
   Dual (OR.Array n Double) = Delta1 n Double
   Dual (OR.Array n Float) = Delta1 n Float
-  Dual (AstDynamic r) = DeltaX (AstScalar r)
-  Dual (Ast n r) = Delta1 n (AstScalar r)
+  Dual (AstDynamic r) = DeltaX (Ast0 r)
+  Dual (Ast n r) = Delta1 n (Ast0 r)
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
 newtype DummyDual r = DummyDual ()
@@ -140,7 +140,7 @@ class IsPrimalA r where
   recordSharingA :: Dual (Ast n r) -> Dual (Ast n r)
   packDeltaDtA :: KnownNat n
                => Either (Ast n r) (Ast n r) -> Dual (Ast n r)
-               -> DeltaDt (AstScalar r)
+               -> DeltaDt (Ast0 r)
 
 instance (IsPrimalA r, KnownNat n)
          => IsPrimal (Ast n r) where
@@ -286,7 +286,7 @@ instance IsPrimal Float where
     _ -> wrapDelta0 d
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
-instance (Numeric r, Num (Vector r)) => IsPrimal (AstScalar r) where
+instance (Numeric r, Num (Vector r)) => IsPrimal (Ast0 r) where
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
@@ -333,7 +333,7 @@ instance IsPrimalR Float where
   packDeltaDtR (Right t) = DeltaDt1 t
 
 -- TODO: should this manage sharing of the terms?
-instance (Show r, Numeric r, Tensor (AstScalar r)) => IsPrimalA r where
+instance (Show r, Numeric r, Tensor (Ast0 r)) => IsPrimalA r where
   dZeroA = Zero1
   dScaleA = Scale1
   dAddA = Add1
@@ -422,7 +422,7 @@ instance HasRanks Float where
 
   dFrom1X = From1X
 
-instance (Show r, Numeric r) => HasRanks (AstScalar r) where
+instance (Show r, Numeric r) => HasRanks (Ast0 r) where
   dInput0 = Input0
   dIndex0 = Index0
   dSum0 = Sum0

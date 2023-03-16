@@ -8,7 +8,7 @@
 module HordeAd.Core.Ast
   ( AstIndex, AstVarList
   , AstVarName(..)
-  , Ast(..), AstPrimalPart(..), AstDynamic(..), AstScalar(..)
+  , Ast(..), AstPrimalPart(..), AstDynamic(..), Ast0(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , astCond
@@ -123,11 +123,11 @@ data AstDynamic :: Type -> Type where
 
 deriving instance (Show r, Numeric r) => Show (AstDynamic r)
 
-newtype AstScalar r = AstScalar {unAstScalar :: Ast 0 r}
+newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
  deriving Show
 
-type instance Element (AstScalar r) = AstScalar r
-type instance Element (Ast n r) = AstScalar r
+type instance Element (Ast0 r) = Ast0 r
+type instance Element (Ast n r) = Ast0 r
 
 newtype AstVarName t = AstVarName Int
  deriving Eq
@@ -247,20 +247,20 @@ instance KnownNat n => OrdB (AstPrimalPart n r) where
   v >* u = AstRel GtOp [unAstPrimalPart v, unAstPrimalPart u]
   v >=* u = AstRel GeqOp [unAstPrimalPart v, unAstPrimalPart u]
 
-type instance BooleanOf (AstScalar r) = AstBool r
+type instance BooleanOf (Ast0 r) = AstBool r
 
-instance IfB (AstScalar r) where
-  ifB b v w = AstScalar $ astCond b (unAstScalar v) (unAstScalar w)
+instance IfB (Ast0 r) where
+  ifB b v w = Ast0 $ astCond b (unAst0 v) (unAst0 w)
 
-instance EqB (AstScalar r) where
-  v ==* u = AstRel EqOp [unAstScalar v, unAstScalar u]
-  v /=* u = AstRel NeqOp [unAstScalar v, unAstScalar u]
+instance EqB (Ast0 r) where
+  v ==* u = AstRel EqOp [unAst0 v, unAst0 u]
+  v /=* u = AstRel NeqOp [unAst0 v, unAst0 u]
 
-instance OrdB (AstScalar r) where
-  v <* u = AstRel LsOp [unAstScalar v, unAstScalar u]
-  v <=* u = AstRel LeqOp [unAstScalar v, unAstScalar u]
-  v >* u = AstRel GtOp [unAstScalar v, unAstScalar u]
-  v >=* u = AstRel GeqOp [unAstScalar v, unAstScalar u]
+instance OrdB (Ast0 r) where
+  v <* u = AstRel LsOp [unAst0 v, unAst0 u]
+  v <=* u = AstRel LeqOp [unAst0 v, unAst0 u]
+  v >* u = AstRel GtOp [unAst0 v, unAst0 u]
+  v >=* u = AstRel GeqOp [unAst0 v, unAst0 u]
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
 instance Eq (Ast n r) where
@@ -347,22 +347,22 @@ deriving instance Floating (Ast n r) => Floating (AstPrimalPart n r)
 deriving instance RealFrac (Ast n r) => RealFrac (AstPrimalPart n r)
 deriving instance RealFloat (Ast n r) => RealFloat (AstPrimalPart n r)
 
-instance Eq (AstScalar r) where
-  _ == _ = error "AstScalar: can't evaluate terms for Eq"
+instance Eq (Ast0 r) where
+  _ == _ = error "Ast0: can't evaluate terms for Eq"
 
-instance Ord (Ast 0 r) => Ord (AstScalar r) where
-  max (AstScalar u) (AstScalar v) =
-    AstScalar (AstOp MaxOp [u, v])
-  min (AstScalar u) (AstScalar v) =
-    AstScalar (AstOp MinOp [u, v])
-  _ <= _ = error "AstScalar: can't evaluate terms for Ord"
+instance Ord (Ast 0 r) => Ord (Ast0 r) where
+  max (Ast0 u) (Ast0 v) =
+    Ast0 (AstOp MaxOp [u, v])
+  min (Ast0 u) (Ast0 v) =
+    Ast0 (AstOp MinOp [u, v])
+  _ <= _ = error "Ast0: can't evaluate terms for Ord"
 
-deriving instance Num (Ast 0 r) => Num (AstScalar r)
-deriving instance Real (Ast 0 r) => Real (AstScalar r)
-deriving instance Fractional (Ast 0 r) => Fractional (AstScalar r)
-deriving instance Floating (Ast 0 r) => Floating (AstScalar r)
-deriving instance RealFrac (Ast 0 r) => RealFrac (AstScalar r)
-deriving instance RealFloat (Ast 0 r) => RealFloat (AstScalar r)
+deriving instance Num (Ast 0 r) => Num (Ast0 r)
+deriving instance Real (Ast 0 r) => Real (Ast0 r)
+deriving instance Fractional (Ast 0 r) => Fractional (Ast0 r)
+deriving instance Floating (Ast 0 r) => Floating (Ast0 r)
+deriving instance RealFrac (Ast 0 r) => RealFrac (Ast0 r)
+deriving instance RealFloat (Ast 0 r) => RealFloat (Ast0 r)
 
 instance Eq (AstInt r) where
   _ == _ = error "AstInt: can't evaluate terms for Eq"

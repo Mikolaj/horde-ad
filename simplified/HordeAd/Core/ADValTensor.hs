@@ -111,12 +111,12 @@ instance Tensor (ADVal Float) where
   tscalar = scalar
   tunScalar = unScalar
 
-instance (ADTensor (AstScalar r), Numeric r, Show r, Num (Vector r))
-         => Tensor (ADVal (AstScalar r)) where
-  type TensorOf n (ADVal (AstScalar r)) = ADVal (Ast n r)
-  type IntOf (ADVal (AstScalar r)) = AstInt r
+instance (ADTensor (Ast0 r), Numeric r, Show r, Num (Vector r))
+         => Tensor (ADVal (Ast0 r)) where
+  type TensorOf n (ADVal (Ast0 r)) = ADVal (Ast n r)
+  type IntOf (ADVal (Ast0 r)) = AstInt r
 
-  tshape = shape @(AstScalar r)
+  tshape = shape @(Ast0 r)
   tminIndex0 (D u _) = AstMinIndex1 u
   tmaxIndex0 (D u _) = AstMaxIndex1 u
   tfloor (D u _) = AstIntFloor u
@@ -180,17 +180,17 @@ instance HasPrimal (ADVal Float) where
   tfromR = from1X
   tfromD = fromX1
 
-instance (ADTensor (AstScalar r), Numeric r, Show r)
-         => HasPrimal (ADVal (AstScalar r)) where
-  type ScalarOf (ADVal (AstScalar r)) = r
-  type Primal (ADVal (AstScalar r)) = AstScalar r
-  type DualOf n (ADVal (AstScalar r)) = Dual (Ast n r)
+instance (ADTensor (Ast0 r), Numeric r, Show r)
+         => HasPrimal (ADVal (Ast0 r)) where
+  type ScalarOf (ADVal (Ast0 r)) = r
+  type Primal (ADVal (Ast0 r)) = Ast0 r
+  type DualOf n (ADVal (Ast0 r)) = Dual (Ast n r)
   tconst t = dD (AstConst t) dZero
   tconstant t = dD t dZero
   tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
   tD = dD
-  type DynamicTensor (ADVal (AstScalar r)) = ADVal (AstDynamic r)
+  type DynamicTensor (ADVal (Ast0 r)) = ADVal (AstDynamic r)
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD (D u u') (D v v') = dD (AstDynamicPlus u v) (dAdd u' v')
@@ -608,9 +608,9 @@ instance InterpretAst (ADVal Float) where
        let f = interpretAstInt env
        in interpretAstRelOp f opCodeRel args
 
-instance ( ADTensor (AstScalar q)
+instance ( ADTensor (Ast0 q)
          , Numeric q, Show q, Floating (Vector q), RealFloat q )
-         => InterpretAst (ADVal (AstScalar q)) where
+         => InterpretAst (ADVal (Ast0 q)) where
  interpretAst = interpretAstRec
   where
 -- We could duplicate interpretAst to save some time (sadly, we can't
@@ -621,14 +621,14 @@ instance ( ADTensor (AstScalar q)
 -- double the amount of tensor computation performed. The biggest problem is
 -- allocation of tensors, but they are mostly shared with the primal part.
    interpretAstPrimal
-     :: (KnownNat n, a ~ ADVal (AstScalar q), r ~ Primal a)
+     :: (KnownNat n, a ~ ADVal (Ast0 q), r ~ Primal a)
      => AstEnv a
      -> AstPrimalPart n (ScalarOf a) -> TensorOf n r
    interpretAstPrimal env (AstPrimalPart v) =
      tprimalPart $ interpretAstRec env v
 
    interpretAstRec
-     :: forall n a. (KnownNat n, a ~ ADVal (AstScalar q))
+     :: forall n a. (KnownNat n, a ~ ADVal (Ast0 q))
      => AstEnv a
      -> Ast n (ScalarOf a) -> TensorOf n a
    interpretAstRec env = \case
@@ -684,7 +684,7 @@ instance ( ADTensor (AstScalar q)
      AstFromDynamic{} ->
        error "interpretAst: AstFromDynamic is not for library users"
 
-   interpretAstInt :: (a ~ ADVal (AstScalar q), r ~ Primal a)
+   interpretAstInt :: (a ~ ADVal (Ast0 q), r ~ Primal a)
                    => AstEnv a
                    -> AstInt (ScalarOf a) -> IntOf r
    interpretAstInt env = \case
@@ -704,7 +704,7 @@ instance ( ADTensor (AstScalar q)
      AstMinIndex1 v -> tminIndex0 $ interpretAstRec env v
      AstMaxIndex1 v -> tmaxIndex0 $ interpretAstRec env v
 
-   interpretAstBool :: (a ~ ADVal (AstScalar q), r ~ Primal a)
+   interpretAstBool :: (a ~ ADVal (Ast0 q), r ~ Primal a)
                     => AstEnv a
                     -> AstBool (ScalarOf a) -> BooleanOf r
    interpretAstBool env = \case

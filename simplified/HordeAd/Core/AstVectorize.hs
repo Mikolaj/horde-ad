@@ -29,9 +29,9 @@ import HordeAd.Internal.SizedList
 -- * Ast instances of Tensor (and Primal) that use vectorization
 
 instance (RealFloat r, Floating (Vector r), Show r, Numeric r)
-         => Tensor (AstScalar r) where
-  type TensorOf n (AstScalar r) = Ast n r
-  type IntOf (AstScalar r) = AstInt r
+         => Tensor (Ast0 r) where
+  type TensorOf n (Ast0 r) = Ast n r
+  type IntOf (Ast0 r) = AstInt r
 
   tshape = shapeAst
   tminIndex0 = AstMinIndex1
@@ -55,8 +55,8 @@ instance (RealFloat r, Floating (Vector r), Show r, Numeric r)
   tbuild1 = astBuild1
   tgather sh t f = AstGatherZ sh t (funToAstIndex f)  -- introduces new vars
 
-  tscalar = unAstScalar
-  tunScalar = AstScalar
+  tscalar = unAst0
+  tunScalar = Ast0
 
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
@@ -105,16 +105,16 @@ instance (RealFloat r, Floating (Vector r), Show r, Numeric r)
   tscalar = id
   tunScalar = id
 
-instance (Show r, Numeric r) => HasPrimal (AstScalar r) where
-  type ScalarOf (AstScalar r) = r
-  type Primal (AstScalar r) = AstPrimalPart 0 r
-  type DualOf n (AstScalar r) = ()  -- TODO: data AstDualPart: dAdd, dkonst1
+instance (Show r, Numeric r) => HasPrimal (Ast0 r) where
+  type ScalarOf (Ast0 r) = r
+  type Primal (Ast0 r) = AstPrimalPart 0 r
+  type DualOf n (Ast0 r) = ()  -- TODO: data AstDualPart: dAdd, dkonst1
   tconst = AstConstant . AstPrimalPart . AstConst
   tconstant = AstConstant
   tprimalPart = AstPrimalPart
   tdualPart = error "TODO"
   tD = error "TODO"
-  type DynamicTensor (AstScalar r) = AstDynamic r
+  type DynamicTensor (Ast0 r) = AstDynamic r
   tdummyD = AstDynamicDummy
   tisDummyD t = case t of
     AstDynamicDummy -> True
