@@ -108,7 +108,7 @@ fcnnMnistLoss1 widthHidden widthHidden2 (datum, target) inputs =
 -- and the trained parameters.
 fcnnMnistTest1
   :: forall r. ADModeAndNum 'ADModeValue r
-  => Int -> Int -> [MnistData r] -> (Domain0 r, Domain1 r) -> r
+  => Int -> Int -> [MnistData r] -> (Vector r, Domain1 r) -> r
 fcnnMnistTest1 widthHidden widthHidden2 dataList (params0, params1) =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =

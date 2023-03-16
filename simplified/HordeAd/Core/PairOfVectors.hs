@@ -22,7 +22,6 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
-import           Numeric.LinearAlgebra (Numeric)
 
 import HordeAd.Core.DualClass2 (dFromX1)
 import HordeAd.Core.DualNumber2
@@ -52,12 +51,18 @@ inputsToDomains :: ADInputs d r -> Domains r
 inputsToDomains ADInputs{..} =
   Domains inputPrimal0 inputPrimal1
 
-nullADInputs :: Numeric r => ADInputs d r -> Bool
+nullADInputs :: Tensor r => ADInputs d r -> Bool
 nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 
+{- This is to slow:
 at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
 {-# INLINE at0 #-}
-at0 ADInputs{..} i = dD (inputPrimal0 V.! i) (inputDual0 V.! i)
+at0 ADInputs{..} i = dD (tunScalar $ inputPrimal0 ! (singletonIndex i))
+                        (inputDual0 V.! i)
+-}
+at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
+{-# INLINE at0 #-}
+at0 ADInputs{..} i = D (OR.toVector inputPrimal0 V.! i) (inputDual0 V.! i)
 
 at1 :: forall n r d. (KnownNat n, ADModeAndNum d r, TensorOf n r ~ OR.Array n r)
     =>  ADInputs d r -> Int -> ADVal d (OR.Array n r)
@@ -76,7 +81,7 @@ ifoldlDual' f a ADInputs{..} = do
       g !acc i valX =
         let !b = dD valX (inputDual0 V.! i)
         in f acc i b
-  V.ifoldl' g a inputPrimal0
+  V.ifoldl' g a $ OR.toVector inputPrimal0
 
 foldlDual' :: forall a d r. ADModeAndNum d r
             => (a -> ADVal d r -> a)
@@ -89,4 +94,4 @@ foldlDual' f a ADInputs{..} = do
       g !acc i valX =
         let !b = dD valX (inputDual0 V.! i)
         in f acc b
-  V.ifoldl' g a inputPrimal0
+  V.ifoldl' g a $ OR.toVector inputPrimal0

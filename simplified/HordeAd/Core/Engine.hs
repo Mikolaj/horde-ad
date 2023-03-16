@@ -19,11 +19,11 @@ module HordeAd.Core.Engine
 import Prelude
 
 import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.RankedS as OR
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (SomeNat (..), someNatVal)
-import           Numeric.LinearAlgebra (Numeric)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
@@ -52,7 +52,7 @@ inputsToDomains :: ADInputs r -> Domains r
 inputsToDomains ADInputs{..} =
   Domains inputPrimal0 inputPrimal1
 
-nullADInputs :: Numeric r => ADInputs r -> Bool
+nullADInputs :: Tensor r => ADInputs r -> Bool
 nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 
 -- * Evaluation that computes gradients.
@@ -67,7 +67,7 @@ revOnADInputsFun
 -- in client code, so the bloat is limited.
 {-# INLINE revOnADInputsFun #-}
 revOnADInputsFun dt f inputs@ADInputs{..} =
-  let dim0 = V.length inputPrimal0
+  let dim0 = tlength inputPrimal0
       dim1 = V.length inputPrimal1
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started
@@ -121,7 +121,7 @@ slowFwdOnADInputs
   -> (r, r)
 {-# INLINE slowFwdOnADInputs #-}
 slowFwdOnADInputs inputs@ADInputs{..} f ds =
-  let dim0 = V.length inputPrimal0
+  let dim0 = tlength inputPrimal0
       dim1 = V.length inputPrimal1
       !(D v deltaTopLevel) = f inputs
   in let derivative = derivativeFromDelta dim0 dim1 deltaTopLevel ds
@@ -164,7 +164,7 @@ generateDeltaInputs Domains{..} =
         Just (SomeNat (_ :: Proxy n)) ->
           dFrom1X $ dInput1 @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
-      !v0 = V.generate (V.length domains0) (dInput0 . toInputId)
+      !v0 = V.generate (tlength domains0) (dInput0 . toInputId)
       !v1 = V.imap arrayToInput domains1
   in (v0, v1)
 {-# SPECIALIZE generateDeltaInputs
@@ -189,7 +189,7 @@ initializerFixed seed range (nParams0, lParams1, _, _) =
       createRandomVector n seedV =
         LA.scale (2 * range)
         $ LA.randomVector seedV LA.Uniform n - LA.scalar 0.5
-      domains0 = createRandomVector nParams0 seed
+      domains0 = OR.fromVector [nParams0] $ createRandomVector nParams0 seed
       domains1 =
         V.imap (\i sz ->
                   OT.fromVector [sz]

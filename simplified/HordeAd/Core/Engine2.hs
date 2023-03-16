@@ -14,12 +14,14 @@ module HordeAd.Core.Engine2
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdOnADInputs, slowFwdOnDomains
   , prettyPrintDf
-  , domainsFrom01, domainsFrom0V, listsToParameters, listsToParameters4
+  , domainsFromD01, domainsFrom01, domainsFrom0V
+  , listsToParameters, listsToParameters4, domainsD0
   ) where
 
 import Prelude
 
 import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.RankedS as OR
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -40,21 +42,21 @@ import HordeAd.Core.TensorClass
 
 -- The general case, needed for old hacky tests using only scalars.
 valueGeneral
-  :: Numeric r
+  :: Tensor r
   => (ADInputs 'ADModeValue r -> a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
 {-# INLINE valueGeneral #-}
 valueGeneral f domains@Domains{..} =
-  let replicateDummy p = V.replicate (V.length p) dummyDual
+  let replicateDummy len = V.replicate len dummyDual
       inputs = makeADInputs domains
-                            ( replicateDummy domains0  -- dummy
-                            , replicateDummy domains1 )
+                            ( replicateDummy (tlength domains0)  -- dummy
+                            , replicateDummy (V.length domains1) )
   in f inputs
 
 valueOnDomains
-  :: Numeric r
+  :: Tensor r
   => (ADInputs 'ADModeValue r -> ADVal 'ADModeValue a)
   -> Domains r
   -> a
@@ -77,7 +79,7 @@ revOnADInputsFun
 -- in client code, so the bloat is limited.
 {-# INLINE revOnADInputsFun #-}
 revOnADInputsFun dt f inputs@ADInputs{..} =
-  let dim0 = V.length inputPrimal0
+  let dim0 = tlength inputPrimal0
       dim1 = V.length inputPrimal1
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started
@@ -131,7 +133,7 @@ slowFwdOnADInputs
   -> (r, r)
 {-# INLINE slowFwdOnADInputs #-}
 slowFwdOnADInputs inputs@ADInputs{..} f ds =
-  let dim0 = V.length inputPrimal0
+  let dim0 = tlength inputPrimal0
       dim1 = V.length inputPrimal1
       !(D v deltaTopLevel) = f inputs
   in let derivative = derivativeFromDelta dim0 dim1 deltaTopLevel ds
@@ -169,7 +171,8 @@ fwdOnADInputs inputs f =
 -- can't declare it, because it needs to remain injective.
 fwdOnDomains
   :: ( Numeric r, Dual 'ADModeDerivative r ~ r
-     , Dual 'ADModeDerivative (DynamicTensor r) ~ DynamicTensor r )
+     , Dual 'ADModeDerivative (DynamicTensor r) ~ DynamicTensor r
+     , TensorOf 1 r ~ OR.Array 1 r )
   => Domains r
   -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
   -> Domains r  -- ds
@@ -178,7 +181,7 @@ fwdOnDomains parameters f Domains{..} =
   let inputs =
         makeADInputs
           parameters
-          (V.convert domains0, domains1)  -- ds
+          (V.convert (OR.toVector domains0), domains1)  -- ds
   in fwdOnADInputs inputs f
 
 
@@ -206,7 +209,7 @@ generateDeltaInputs Domains{..} =
         Just (SomeNat (_ :: Proxy n)) ->
           dFrom1X $ dInput1 @'ADModeGradient @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
-      !v0 = V.generate (V.length domains0) (dInput0 . toInputId)
+      !v0 = V.generate (tlength domains0) (dInput0 . toInputId)
       !v1 = V.imap arrayToInput domains1
   in (v0, v1)
 {-# SPECIALIZE generateDeltaInputs
@@ -231,7 +234,7 @@ initializerFixed seed range (nParams0, lParams1, _, _) =
       createRandomVector n seedV =
         LA.scale (2 * range)
         $ LA.randomVector seedV LA.Uniform n - LA.scalar 0.5
-      domains0 = createRandomVector nParams0 seed
+      domains0 = OR.fromVector [nParams0] $ createRandomVector nParams0 seed
       domains1 =
         V.imap (\i sz ->
                   OT.fromVector [sz]
@@ -250,19 +253,27 @@ initializerFixed01 seed range (nParams0, lParams1) =
 
 -- * Simplified version compatibility shims
 
-domainsFrom01 :: Domain0 r -> Domain1 r -> Domains r
-domainsFrom01 = Domains
+domainsFromD01 :: Domain0 r -> Domain1 r -> Domains r
+domainsFromD01 = Domains
 
-domainsFrom0V :: (Numeric r, DynamicTensor r ~ OT.Array r)
-              => Domain0 r -> Data.Vector.Vector (Vector r) -> Domains r
-domainsFrom0V rs vs = Domains rs (V.map (\v -> OT.fromVector [V.length v] v) vs)
+domainsFrom01 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r)
+              => Vector r -> Domain1 r -> Domains r
+domainsFrom01 v0 = Domains (OR.fromVector [V.length v0] v0)
 
-listsToParameters :: (Numeric r, DynamicTensor r ~ OT.Array r)
+domainsFrom0V :: ( Numeric r, DynamicTensor r ~ OT.Array r
+                 , TensorOf 1 r ~ OR.Array 1 r )
+              => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
+domainsFrom0V v0 vs =
+  domainsFrom01 v0 (V.map (\v -> OT.fromVector [V.length v] v) vs)
+
+listsToParameters :: ( Numeric r, DynamicTensor r ~ OT.Array r
+                     , TensorOf 1 r ~ OR.Array 1 r )
                   => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
-  domainsFrom0V
-    (V.fromList a0)
-    (V.singleton (V.fromList a1))
+  domainsFrom0V (V.fromList a0) (V.singleton (V.fromList a1))
 
 listsToParameters4 :: ([Double], [Double], [Double], [Double]) -> Domains Double
 listsToParameters4 (a0, a1, _a2, _aX) = listsToParameters (a0, a1)
+
+domainsD0 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r) => Domains r -> Vector r
+domainsD0 = OR.toVector . domains0

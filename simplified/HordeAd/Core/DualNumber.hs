@@ -13,7 +13,7 @@ module HordeAd.Core.DualNumber
   , Vec, vecToV, vToVec
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
-  , addParameters, dotParameters
+--  , addParameters, dotParameters
   , logistic, square, squaredDifference, scale, constant
   , sumElements10, index10, minimum0, maximum0, altSumElements10
   , (<.>!), (<.>!!)
@@ -23,7 +23,7 @@ module HordeAd.Core.DualNumber
   , map1POPL, map1Elementwise
   , -- * Re-exports
     IsPrimal (..), IsPrimalWithScalar
-  , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
+  , Domain0, Domain1, Domains(..), emptyDomain0, nullDomains
   ) where
 
 import Prelude
@@ -36,9 +36,9 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as LA
 
-import HordeAd.Core.Delta (Delta0, Domain0, Domain1, Domains (..), nullDomains)
+import HordeAd.Core.Delta
+  (Delta0, Domain0, Domain1, Domains (..), emptyDomain0, nullDomains)
 import HordeAd.Core.DualClass
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
@@ -187,7 +187,7 @@ addNotShared (D u u') (D v v') = dDnotShared (u + v) (dAdd u' v')
 multNotShared :: (Num a, IsPrimal a) => ADVal a -> ADVal a -> ADVal a
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
-
+{-
 addParameters :: (Numeric r, Num (Vector r), DynamicTensor r ~ OT.Array r)
               => Domains r -> Domains r -> Domains r
 addParameters (Domains a0 a1) (Domains b0 b1) =
@@ -203,7 +203,7 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
       if isTensorDummy v1 || isTensorDummy u1
       then 0
       else OT.toVector v1 LA.<.> OT.toVector u1) a1 b1)
-
+-}
 
 -- * Numeric instances for ADVal
 

@@ -51,7 +51,7 @@ module HordeAd.Core.Delta
   , -- * Delta expression identifiers
     NodeId(..), InputId, toInputId
   , -- * Evaluation of the delta expressions
-    DeltaDt (..), Domain0, Domain1, Domains(..), nullDomains
+    DeltaDt (..), Domain0, Domain1, Domains(..), emptyDomain0, nullDomains
   , gradientFromDelta, derivativeFromDelta
   ) where
 
@@ -74,7 +74,7 @@ import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Generics (Generic)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
 import           Text.Show.Functions ()
 
 import HordeAd.Core.SizedIndex
@@ -279,7 +279,7 @@ toInputId i = assert (i >= 0) $ InputId i
 
 -- | Helper definitions to shorten type signatures. @Domains@, among other
 -- roles, is the internal representation of domains of objective functions.
-type Domain0 r = Vector r
+type Domain0 r = TensorOf 1 r
 
 -- To store shaped tensor we use untyped tensors instead of vectors
 -- to prevent frequent linearization of tensors (e.g., after transpose).
@@ -291,14 +291,19 @@ data Domains r = Domains
   }
   deriving Generic
 
-deriving instance (Show r, Numeric r, Show (DynamicTensor r))
+deriving instance ( Show r, Numeric r
+                  , Show (TensorOf 1 r), Show (DynamicTensor r) )
                   => Show (Domains r)
 
-deriving instance NFData (DynamicTensor r) => NFData (Domains r)
+deriving instance (NFData (TensorOf 1 r), NFData (DynamicTensor r))
+                  => NFData (Domains r)
 
-nullDomains :: Numeric r => Domains r -> Bool
+emptyDomain0 :: Tensor r => Domain0 r
+emptyDomain0 = tzero (singletonShape 0)
+
+nullDomains :: Tensor r => Domains r -> Bool
 nullDomains Domains{..} =
-  V.null domains0 && V.null domains1
+  tlength domains0 == 0 && V.null domains1
 
 -- | The main input of the differentiation functions:
 -- the delta expression to be differentiated and the dt perturbation
@@ -433,8 +438,9 @@ gradientFromDelta dim0 dim1 deltaDt =
   -- Eval.
   in let EvalState{iMap0, iMap1} = buildFinMaps s0 deltaDt
 
-  -- Extract results.
-  in Domains (V.fromList $ EM.elems iMap0) (V.fromList $ EM.elems iMap1)
+     -- Extract results.
+     in Domains (tfromList0N (singletonShape dim0) (EM.elems iMap0))
+                (V.fromList $ EM.elems iMap1)
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> DeltaDt Double -> Domains Double #-}
 
@@ -674,7 +680,8 @@ buildDerivative dim0 dim1 deltaTopLevel
         Zero0 -> return 0
         Input0 (InputId i) ->
           if i < dim0
-          then return $! domains0 V.! i
+          then return $! tunScalar
+                         $ domains0 ! (singletonIndex $ fromIntegral i)
           else error "derivativeFromDelta.eval': wrong index for an input"
         Scale0 k d -> (k *) <$> eval0 d
         Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)

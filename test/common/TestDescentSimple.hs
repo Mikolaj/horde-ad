@@ -4,6 +4,7 @@ module TestDescentSimple (testTrees) where
 import Prelude
 
 import qualified Data.Vector.Generic as V
+import           Numeric.LinearAlgebra (Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -19,11 +20,11 @@ gdSimpleShow :: HasDelta r
              => r
              -> (ADInputs 'ADModeGradient r
                  -> ADVal 'ADModeGradient r)
-             -> Domain0 r
+             -> Vector r
              -> Int
              -> ([r], r)
 gdSimpleShow gamma f initVec n =
-  let res = domains0 $ gdSimple gamma f n (domainsFrom01 initVec V.empty)
+  let res = domainsD0 $ gdSimple gamma f n (domainsFrom01 initVec V.empty)
       (_, v) = revOnDomains 1 f (domainsFrom01 res V.empty)
   in (V.toList res, v)
 
@@ -150,7 +151,7 @@ nnXorLossTotal factivation inputs =
       n34 = n3 + n4
   in n12 + n34
 
-ws, ws2 :: Domain0 Float
+ws, ws2 :: Vector Float
 ws = let w = [0.37, 0.28, 0.19] in V.fromList $ w ++ w ++ w
 ws2 = let w = [-1.37, 2.28, -0.19] in V.fromList $ w ++ w ++ w
 

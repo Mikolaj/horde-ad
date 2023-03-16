@@ -9,6 +9,7 @@ import           Control.Arrow ((&&&))
 import           Control.Monad (foldM)
 import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
+import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
@@ -41,7 +42,7 @@ sgdShow :: HasDelta r
         => r
         -> (a -> ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
         -> [a]  -- ^ training data
-        -> Domain0 r  -- ^ initial parameters
+        -> Vector r  -- ^ initial parameters
         -> r
 sgdShow gamma f trainData params0Init =
   let result = fst $ sgd gamma f trainData (domainsFrom01 params0Init V.empty)
@@ -99,12 +100,12 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        testData <- loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: Domain0 Double -> (Int, [MnistData Double])
-                    -> IO (Domain0 Double)
+       let runBatch :: Vector Double -> (Int, [MnistData Double])
+                    -> IO (Vector Double)
            runBatch !params0 (k, chunk) = do
              let f = trainWithLoss widthHidden widthHidden2
                  !res =
-                   domains0 . fst
+                   domainsD0 . fst
                    $ sgd gamma f chunk (domainsFrom01 params0 V.empty)
                  !trainScore = fcnnMnistTest0 widthHidden widthHidden2 chunk res
                  !testScore =
@@ -114,7 +115,7 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
              hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> Domain0 Double -> IO (Domain0 Double)
+       let runEpoch :: Int -> Vector Double -> IO (Vector Double)
            runEpoch n params0 | n > epochs = return params0
            runEpoch n params0 = do
              hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -162,13 +163,13 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        testData <- loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: (Domain0 Double, Domain1 Double)
+       let runBatch :: (Vector Double, Domain1 Double)
                     -> (Int, [MnistData Double])
-                    -> IO (Domain0 Double, Domain1 Double)
+                    -> IO (Vector Double, Domain1 Double)
            runBatch (!params0, !params1) (k, chunk) = do
              let f = trainWithLoss widthHidden widthHidden2
                  (resS, resV) =
-                   (domains0 &&& domains1) . fst
+                   (domainsD0 &&& domains1) . fst
                    $ sgd gamma f chunk (domainsFrom01 params0 params1)
                  res = (resS, resV)
                  !trainScore = fcnnMnistTest1
@@ -180,8 +181,8 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
              hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (Domain0 Double, Domain1 Double)
-                    -> IO (Domain0 Double, Domain1 Double)
+       let runEpoch :: Int -> (Vector Double, Domain1 Double)
+                    -> IO (Vector Double, Domain1 Double)
            runEpoch n params2 | n > epochs = return params2
            runEpoch n params2 = do
              hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -191,7 +192,7 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              !res <- foldM runBatch params2 chunks
              runEpoch (succ n) res
            domain = domainsFrom0V params0Init params1Init
-       res <- runEpoch 1 (domains0 domain, domains1 domain)
+       res <- runEpoch 1 (domainsD0 domain, domains1 domain)
        let testErrorFinal =
              1 - fcnnMnistTest1 widthHidden widthHidden2 testData res
        testErrorFinal @?~ expected

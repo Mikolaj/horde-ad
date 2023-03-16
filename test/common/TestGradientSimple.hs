@@ -44,7 +44,7 @@ revOnDomains0
   -> ([r], r)
 revOnDomains0 f deltaInput =
   let (!results, !v) =
-        first domains0
+        first domainsD0
         $ revOnDomains 1 f (domainsFrom01 (V.fromList deltaInput) V.empty)
   in (V.toList results, v)
 
@@ -224,7 +224,7 @@ fooMap1 r =
 
 testMap1Elementwise :: Assertion
 testMap1Elementwise =
-  (domains0 $ fst
+  (domainsD0 $ fst
    $ revOnDomains
        (vToVec $ LA.konst 1 130)
          -- 1 wrong due to fragility of hmatrix optimization
@@ -321,10 +321,10 @@ atanOldReadme = sumElementsOfADVals . atanOldReadmeInputs
 -- but it's a vector of scalar parameters, not a single parameter
 -- of rank 1).
 atanOldReadmeDReverse :: HasDelta r
-                      => Domain0 r -> (Domain0 r, r)
+                      => Vector r -> (Vector r, r)
 atanOldReadmeDReverse ds =
   let (!result, !v) =
-        first domains0
+        first domainsD0
         $ revOnDomains 1 atanOldReadme (domainsFrom01 ds V.empty)
   in (result, v)
 
@@ -554,7 +554,7 @@ dRev0 f x =
   let g adInputs = f $ adInputs `at0` 0
       (domains, val) =
         revOnDomains 1 g (domainsFrom01 (V.singleton x) V.empty)
-      gradient0 = domains0 domains
+      gradient0 = domainsD0 domains
   in (gradient0 V.! 0, val)
 
 quickCheckTestBuild

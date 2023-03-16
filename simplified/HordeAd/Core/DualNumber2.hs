@@ -24,7 +24,7 @@ module HordeAd.Core.DualNumber2
   , -- * Re-exports
     ADMode(..)
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
-  , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
+  , Domain0, Domain1, Domains(..), emptyDomain0, nullDomains
   ) where
 
 import Prelude
@@ -40,7 +40,8 @@ import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
-import HordeAd.Core.Delta (Delta0, Domain0, Domain1, Domains (..), nullDomains)
+import HordeAd.Core.Delta
+  (Delta0, Domain0, Domain1, Domains (..), emptyDomain0, nullDomains)
 import HordeAd.Core.DualClass2
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
@@ -183,17 +184,19 @@ multNotShared :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a -> ADVal d a
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 
-addParameters :: (Numeric r, Num (Vector r), DynamicTensor r ~ OT.Array r)
+addParameters :: ( Numeric r, Num (Vector r), DynamicTensor r ~ OT.Array r
+                 , Num (TensorOf 1 r) )
               => Domains r -> Domains r -> Domains r
 addParameters (Domains a0 a1) (Domains b0 b1) =
   Domains (a0 + b0)
           (V.zipWith (+) a1 b1)
 
 -- Dot product and sum respective ranks and then sum it all.
-dotParameters :: (Numeric r, DynamicTensor r ~ OT.Array r)
-              => Domains r -> Domains r -> r
+dotParameters
+  :: (Numeric r, DynamicTensor r ~ OT.Array r, TensorOf 1 r ~ OR.Array 1 r)
+  => Domains r -> Domains r -> r
 dotParameters (Domains a0 a1) (Domains b0 b1) =
-  a0 LA.<.> b0
+  a0 `tdot0R` b0
   + V.sum (V.zipWith (\v1 u1 ->
       if isTensorDummy v1 || isTensorDummy u1
       then 0

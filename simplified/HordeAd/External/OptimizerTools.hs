@@ -11,6 +11,7 @@ import Prelude
 
 import           Control.Monad.ST.Strict (runST)
 import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.RankedS as OR
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -18,16 +19,17 @@ import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.Delta (Domains (..))
 import HordeAd.Core.TensorClass
-import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
+import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2, liftVT2)
 import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient
-  :: (Numeric r, Floating (Vector r), DynamicTensor r ~ OT.Array r)
+  :: ( Numeric r, Floating (Vector r)
+     , DynamicTensor r ~ OT.Array r, TensorOf 1 r ~ OR.Array 1 r )
   => r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma (Domains params0 params1)
                          (Domains gradient0 gradient1) =
   let updateVector i r = i - LA.scale gamma r
-      !params0New = updateVector params0 gradient0
+      !params0New = liftVR2 updateVector params0 gradient0
       update1 i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVT2 updateVector i r
@@ -78,18 +80,20 @@ data StateAdam r = StateAdam
   }
 
 -- The arguments are just sample params0, for dimensions.
-zeroParameters :: (Numeric r, DynamicTensor r ~ OT.Array r)
-               => Domains r -> Domains r
+zeroParameters
+  :: (Numeric r, DynamicTensor r ~ OT.Array r, TensorOf 1 r ~ OR.Array 1 r)
+  => Domains r -> Domains r
 zeroParameters Domains{..} =
   let zeroVector v = runST $ do
         vThawed <- V.thaw v
         VM.set vThawed 0
         V.unsafeFreeze vThawed
-  in Domains (zeroVector domains0)
+  in Domains (liftVR zeroVector domains0)
              (V.map (\a -> OT.constant (OT.shapeL a) 0) domains1)
 
-initialStateAdam :: (Numeric r, DynamicTensor r ~ OT.Array r)
-                 => Domains r -> StateAdam r
+initialStateAdam
+  :: (Numeric r, DynamicTensor r ~ OT.Array r, TensorOf 1 r ~ OR.Array 1 r)
+  => Domains r -> StateAdam r
 initialStateAdam parameters0 =
   let zeroP = zeroParameters parameters0
   in StateAdam
@@ -123,7 +127,8 @@ liftArray43 f m1 m2 m3 m4 =
 
 updateWithGradientAdam
   :: forall r.
-     (Numeric r, Floating r, Floating (Vector r), DynamicTensor r ~ OT.Array r)
+     ( Numeric r, Floating r, Floating (Vector r)
+     , DynamicTensor r ~ OT.Array r, TensorOf 1 r ~ OR.Array 1 r )
   => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
   -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..}
@@ -150,15 +155,19 @@ updateWithGradientAdam ArgsAdam{..}
                  / (sqrt vANew + LA.scalar epsilon) )  -- the @scalar@ is safe
                       -- @addConstant@ would be better, but it's not exposed
       (!mAdam0New, !vAdam0New, !params0New) =
-        updateVector mAdam0 vAdam0 params0 gradient0
+        updateVector (OR.toVector mAdam0) (OR.toVector vAdam0)
+                     (OR.toVector params0) (OR.toVector gradient0)
       update1 mA vA p g = if isTensorDummy g  -- eval didn't update it
                           then (mA, vA, p)
                           else liftArray43 updateVector mA vA p g
       (!mAdam1New, !vAdam1New, !params1New) =
         V.unzip3 $ V.zipWith4 update1 mAdam1 vAdam1 params1 gradient1
-  in ( Domains params0New params1New
-     , StateAdam { tAdam = tAdamNew
-                 , mAdam = Domains mAdam0New mAdam1New
-                 , vAdam = Domains vAdam0New vAdam1New
-                 }
+  in ( Domains (OR.fromVector [V.length params0New] params0New) params1New
+     , StateAdam
+         { tAdam = tAdamNew
+         , mAdam = Domains (OR.fromVector [V.length mAdam0New] mAdam0New)
+                           mAdam1New
+         , vAdam = Domains (OR.fromVector [V.length vAdam0New] vAdam0New)
+                           vAdam1New
+         }
      )

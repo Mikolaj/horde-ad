@@ -16,7 +16,8 @@ module HordeAd.Core.Engine
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdOnADInputs, slowFwdOnDomains
   , prettyPrintDf
-  , domainsFrom01, domainsFrom0V, listsToParameters, listsToParameters4
+  , domainsFromD01, domainsFrom01, domainsFrom0V
+  , listsToParameters, listsToParameters4, domainsD0
   ) where
 
 import Prelude
@@ -256,8 +257,11 @@ initializerFixed01 seed range (nParams0, lParams1) =
 
 -- * Simplified version compatibility shims
 
+domainsFromD01 :: Domain0 r -> Domain1 r -> Domains r
+domainsFromD01 params0 params1 = Domains params0 params1 V.empty V.empty
+
 domainsFrom01 :: Domain0 r -> Domain1 r -> Domains r
-domainsFrom01 params0 params1 = Domains params0 params1 V.empty V.empty
+domainsFrom01 = domainsFromD01
 
 domainsFrom0V :: Domain0 r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V rs vs = Domains rs vs V.empty V.empty
@@ -276,3 +280,6 @@ listsToParameters4 (a0, a1, a2, aX) =
                 else V.singleton $ LA.matrix 1 a2)
     (if null aX then Data.Vector.empty
                 else V.singleton $ OT.fromList [length aX] aX)
+
+domainsD0 :: Domains r -> Vector r
+domainsD0 = domains0

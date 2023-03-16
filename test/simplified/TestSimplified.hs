@@ -51,7 +51,8 @@ testTrees = [ -- Tensor tests
 
 at0 :: ADNum r => ADInputs r -> Int -> ADVal r
 {-# INLINE at0 #-}
-at0 ADInputs{..} i = dD (inputPrimal0 V.! i) (inputDual0 V.! i)
+at0 ADInputs{..} i = dD (tunScalar $ inputPrimal0 ! (singletonIndex i))
+                        (inputDual0 V.! i)
 
 at1 :: forall n r. (KnownNat n, ADNum r, TensorOf n r ~ OR.Array n r)
     => ADInputs r -> Int -> ADVal (OR.Array n r)
@@ -59,12 +60,17 @@ at1 :: forall n r. (KnownNat n, ADNum r, TensorOf n r ~ OR.Array n r)
 at1 ADInputs{..} i = dD (tfromD $ inputPrimal1 V.! i)
                         (dFromX1 $ inputDual1 V.! i)
 
-domainsFrom01 :: Domain0 r -> Domain1 r -> Domains r
-domainsFrom01 = Domains
+domainsFrom01 :: (Numeric r, Tensor r) => Vector r -> Domain1 r -> Domains r
+domainsFrom01 v0 =
+  Domains (tfromList0N (singletonShape (V.length v0)) (V.toList v0))
 
-domainsFrom0V :: (Numeric r, DynamicTensor r ~ OT.Array r)
-              => Domain0 r -> Data.Vector.Vector (Vector r) -> Domains r
-domainsFrom0V rs vs = Domains rs (V.map (\v -> OT.fromVector [V.length v] v) vs)
+domainsFrom0V :: (Numeric r, DynamicTensor r ~ OT.Array r, Tensor r)
+              => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
+domainsFrom0V v0 vs =
+  domainsFrom01 v0 (V.map (\v -> OT.fromVector [V.length v] v) vs)
+
+domainsD0 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r) => Domains r -> Vector r
+domainsD0 = OR.toVector . domains0
 
 
 -- * Tensor tests
@@ -367,7 +373,7 @@ testPolyn f sh input expected = do
 -- (adaptors), so the testing glue is tedious:
 testBarADVal :: Assertion
 testBarADVal =
-  (domains0 $ fst
+  (domainsD0 $ fst
    $ revOnDomains
        42.2
        (\adinputs -> barADVal (adinputs `at0` 0, adinputs `at0` 1))
@@ -423,7 +429,7 @@ testNestedBuildIndex =
 
 testBarReluADVal :: Assertion
 testBarReluADVal =
-  (domains0 $ fst
+  (domainsD0 $ fst
    $ revOnDomains
        42.2
        (\adinputs -> tunScalar $ barRelu (tscalar $ adinputs `at0` 0))
@@ -432,7 +438,7 @@ testBarReluADVal =
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
-  (domains0 $ fst
+  (domainsD0 $ fst
    $ revOnDomains
        42.2
        (\adinputs -> tunScalar $
@@ -459,7 +465,7 @@ testBarReluAst1 =
 
 testKonstReluAst :: Assertion
 testKonstReluAst =
-  (domains0 $ fst
+  (domainsD0 $ fst
    $ revOnDomains
        42.2
        (\adinputs -> tunScalar $

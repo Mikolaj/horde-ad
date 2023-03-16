@@ -151,7 +151,7 @@ fcnnMnistLoss0 widthHidden widthHidden2 (datum, target) inputs =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 fcnnMnistTest0 :: forall r. ADModeAndNum 'ADModeValue r
-               => Int -> Int -> [MnistData r] -> Domain0 r
+               => Int -> Int -> [MnistData r] -> Vector r
                -> r
 fcnnMnistTest0 widthHidden widthHidden2 inputs params0 =
   let matchesLabels :: MnistData r -> Bool
@@ -164,4 +164,4 @@ fcnnMnistTest0 widthHidden widthHidden2 inputs params0 =
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE fcnnMnistTest0 :: Int -> Int -> [MnistData Double] -> Domain0 Double -> Double #-}
+{-# SPECIALIZE fcnnMnistTest0 :: Int -> Int -> [MnistData Double] -> Vector Double -> Double #-}
