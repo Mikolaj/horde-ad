@@ -62,7 +62,6 @@ import           Control.Exception.Assert.Sugar
 import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.List (foldl', sort)
@@ -156,7 +155,7 @@ deriving instance (Show (IntOf r), Show r, Numeric r) => Show (Delta0 r)
 -- provides a different semantics.
 data Delta1 :: Nat -> Type -> Type where
   Zero1 :: Delta1 n r
-  Input1 :: InputId (OR.Array n r) -> Delta1 n r
+  Input1 :: InputId (TensorOf n r) -> Delta1 n r
   Scale1 :: Show (TensorOf n r)
          => TensorOf n r -> Delta1 n r -> Delta1 n r
   Add1 :: Delta1 n r -> Delta1 n r -> Delta1 n r

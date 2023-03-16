@@ -163,7 +163,7 @@ class HasRanks r where
         => TensorOf n r -> Dual (TensorOf n r) -> Dual r
   dUnScalar0 :: Dual (TensorOf 0 r) -> Dual r
 
-  dInput1 :: InputId (OR.Array n r) -> Dual (TensorOf n r)
+  dInput1 :: InputId (TensorOf n r) -> Dual (TensorOf n r)
 --  dIndexZ1 :: KnownNat n
 --         => Dual (TensorOf (1 + n) r) -> Int -> Int -> Dual (TensorOf n r)
   dIndexZ :: (KnownNat n, KnownNat m)
