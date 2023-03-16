@@ -443,10 +443,10 @@ concatBuild :: (ADReady r, KnownNat n)
             => TensorOf (1 + n) r -> TensorOf (3 + n) r
 concatBuild r =
   tbuild1 7 (\i ->
-    tappend (tappend (tbuild1 5 (const r))  -- TODO: i should work
-                     (tbuild1 1 (\j -> tmap0N (* tfromIndex0 (j - i)) r)))
-            (tbuild1 13 (\_k ->
-               tsum $ ttr $ tkonst (tlength r) (tslice 0 1 r))))
+    tconcat [ tbuild1 5 (const r)  -- TODO: i should work
+            , tbuild1 1 (\j -> tmap0N (* tfromIndex0 (j - i)) r)
+            , tbuild1 13 (\_k ->
+                tsum $ ttr $ tkonst (tlength r) (tslice 0 1 r)) ])
 -- TODO: reject via types or accept with type obligations:
 --    tappend (tappend (tbuild1 (1 + i) (\_j -> tscalar r))  -- TODO: i should work
 --                     (tkonst0N [1] (tfromIndex0 i)))

@@ -594,8 +594,9 @@ buildFinMaps s0 deltaDt =
         Slice1 i n d len -> case tshape c of
           n' :$ rest ->
             assert (n' == n `blame` (n', n)) $
-            eval1 s (tappend (tzero (i :$ rest))
-                             (tappend c (tzero (len - i - n :$ rest))))
+            eval1 s (tconcat [ tzero (i :$ rest)
+                             , c
+                             , tzero (len - i - n :$ rest) ])
                     d
           ZS -> error "eval1: slicing a 0-dimensional tensor"
         Reverse1 d -> eval1 s (treverse c) d
