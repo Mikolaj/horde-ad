@@ -65,8 +65,8 @@ testTrees =
 
 rev' :: forall a r n m.
         ( KnownNat n, KnownNat m, Floating (Vector r), ADTensor r, ADReady r
-        , InterpretAst r
-        , a ~ TensorOf m r, ScalarOf r ~ r, Scalar (TensorOf n r) ~ r
+        , InterpretAst (ADVal r), a ~ TensorOf m r
+        , ScalarOf (ADVal r) ~ r, Scalar (TensorOf n r) ~ r
         , IsPrimalWithScalar (TensorOf m r) r
         , Value (ADVal (TensorOf n r)) ~ TensorOf n r
         , Adaptable (ADVal (TensorOf n r))
@@ -340,8 +340,10 @@ fooNoGoAst v =
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
   let f :: ( ADTensor r, Show r, Numeric r, Floating (Vector r)
-           , TensorOf 1 r ~ OR.Array 1 r, InterpretAst r
-           , ScalarOf r ~ r )
+           , TensorOf 1 r ~ OR.Array 1 r, InterpretAst (ADVal r)
+           , TensorOf 1 (ADVal r) ~ ADVal (TensorOf 1 r)
+           , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
+           , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (fooNoGoAst (AstVar [5] (AstVarName 0)))
@@ -459,8 +461,10 @@ barReluAst x = relu1 @n @(AstScalar r) $ bar (x, relu1 x)
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
   let f :: ( ADTensor r, Show r, Numeric r, Floating (Vector r)
-           , TensorOf 0 r ~ OR.Array 0 r, InterpretAst r
-           , ScalarOf r ~ r )
+           , TensorOf 0 r ~ OR.Array 0 r, InterpretAst (ADVal r)
+           , TensorOf 0 (ADVal r) ~ ADVal (TensorOf 0 r)
+           , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
+           , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (barReluAst (AstVar [] (AstVarName 0)))
@@ -471,8 +475,10 @@ testBarReluAst0 =
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
   let f :: ( ADTensor r, Show r, Numeric r, Floating (Vector r)
-           , TensorOf 1 r ~ OR.Array 1 r, InterpretAst r
-           , ScalarOf r ~ r )
+           , TensorOf 1 r ~ OR.Array 1 r, InterpretAst (ADVal r)
+           , TensorOf 1 (ADVal r) ~ ADVal (TensorOf 1 r)
+           , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
+           , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (barReluAst (AstVar [5] (AstVarName 0)))
@@ -488,8 +494,10 @@ konstReluAst x = tsum0 $ relu1 $ tkonst0N (7 :$ ZS) x
 testKonstReluAst :: Assertion
 testKonstReluAst =
   let f :: ( ADTensor r, Show r, Numeric r, Floating (Vector r)
-           , TensorOf 0 r ~ OR.Array 0 r, InterpretAst r
-           , ScalarOf r ~ r )
+           , TensorOf 0 r ~ OR.Array 0 r, InterpretAst (ADVal r)
+           , TensorOf 0 (ADVal r) ~ ADVal (TensorOf 0 r)
+           , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
+           , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (konstReluAst (AstVar [] (AstVarName 0)))
