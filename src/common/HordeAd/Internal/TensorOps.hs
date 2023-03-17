@@ -217,8 +217,9 @@ tmaximum0R
 tmaximum0R = LA.maxElement . OR.toVector
 
 tfromListR
-  :: (KnownNat n, Numeric r)
+  :: forall n r. (KnownNat n, Numeric r)
   => [OR.Array n r] -> OR.Array (1 + n) r
+tfromListR [] = OR.fromList (replicate (valueOf @n + 1) 0) []
 tfromListR l = OR.ravel $ ORB.fromList [length l] l
 
 tfromList0NR
@@ -227,8 +228,9 @@ tfromList0NR
 tfromList0NR sh = OR.fromList (shapeToList sh)
 
 tfromVectorR
-  :: (KnownNat n, Numeric r)
+  :: forall n r. (KnownNat n, Numeric r)
   => Data.Vector.Vector (OR.Array n r) -> OR.Array (1 + n) r
+tfromVectorR l | V.null l = OR.fromList (replicate (valueOf @n + 1) 0) []
 tfromVectorR l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
 
 tfromVector0NR
@@ -237,8 +239,9 @@ tfromVector0NR
 tfromVector0NR sh l = OR.fromVector (shapeToList sh) $ V.convert l
 
 tkonstR
-  :: (KnownNat n, Numeric r)
+  :: forall n r. (KnownNat n, Numeric r)
   => Int -> OR.Array n r -> OR.Array (1 + n) r
+tkonstR 0 _u = OR.fromList (replicate (valueOf @n + 1) 0) []
 tkonstR s u = OR.ravel $ ORB.constant [s] u
 
 tkonst0NR
@@ -288,8 +291,9 @@ tbuildNR sh0 f0 =
   in buildSh (takeShape @m @n sh0) f0
 
 tbuild1R
-  :: (KnownNat n, Numeric r)
+  :: forall n r. (KnownNat n, Numeric r)
   => Int -> (Int -> OR.Array n r) -> OR.Array (1 + n) r
+tbuild1R 0 _ = OR.fromList (replicate (valueOf @n + 1) 0) []
 tbuild1R k f = OR.ravel $ ORB.fromList [k]
                $ map f [0 .. k - 1]  -- hope this fuses
 
@@ -320,9 +324,10 @@ tgatherNR sh t f =
           | i <- [0 .. s - 1] ]
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
-tgather1R :: (KnownNat p, KnownNat n, Show r, Numeric r)
+tgather1R :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
           => Int -> OR.Array (p + n) r -> (Int -> IndexInt p)
           -> OR.Array (1 + n) r
+tgather1R 0 _ _ = OR.fromList (replicate (valueOf @n + 1) 0) []
 tgather1R k t f =
   let l = map (\i -> t `tindexNR` f i) [0 .. k - 1]
   in OR.ravel $ ORB.fromList [k] l
@@ -344,9 +349,10 @@ tgatherZR sh t f =
           | i <- [0 .. s - 1] ]
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
-tgatherZ1R :: (KnownNat p, KnownNat n, Show r, Numeric r)
+tgatherZ1R :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
            => Int -> OR.Array (p + n) r -> (Int -> IndexInt p)
            -> OR.Array (1 + n) r
+tgatherZ1R 0 _ _ = OR.fromList (replicate (valueOf @n + 1) 0) []
 tgatherZ1R k t f =
   let l = map (\i -> t `tindexZR` f i) [0 .. k - 1]
   in OR.ravel $ ORB.fromList [k] l
