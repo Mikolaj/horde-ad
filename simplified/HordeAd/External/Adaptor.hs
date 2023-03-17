@@ -22,6 +22,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
+import HordeAd.Core.Ast
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorClass
@@ -142,6 +143,17 @@ instance AdaptableInputs Float (ADVal Float) where
       Nothing -> error "fromADInputs in AdaptableInputs Float"
     Nothing -> error "fromADInputs in AdaptableInputs Float"
 
+instance (RealFloat r, Show r, Numeric r, Floating (Vector r))
+         => AdaptableInputs (Ast0 r) (ADVal (Ast0 r)) where
+  type Value (ADVal (Ast0 r)) = Ast0 r
+  fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
+    Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
+      Just (aDual, restDual) ->
+        ( dD (tunScalar aPrimal) aDual
+        , inputs {inputPrimal0 = restPrimal, inputDual0 = restDual} )
+      Nothing -> error "fromADInputs in AdaptableInputs (Ast0 r)"
+    Nothing -> error "fromADInputs in AdaptableInputs (Ast0 r)"
+
 {- TODO: requires IncoherentInstances no matter what pragma I stick in
 -- A special case, because for @Double@ we have faster @randomVals@,
 -- though the quality of randomness is worse (going through a single @Int@).
@@ -190,6 +202,17 @@ instance ( ADTensor r, KnownNat n, TensorOf n r ~ OR.Array n r
          , DynamicTensor r ~ OT.Array r )
          => AdaptableInputs r (ADVal (OR.Array n r)) where
   type Value (ADVal (OR.Array n r)) = OR.Array n r
+  fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
+    Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
+      Just (aDual, restDual) ->
+        ( fromX1 @n $ dD aPrimal aDual
+        , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
+      Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
+    Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
+
+instance (KnownNat n, RealFloat r, Show r, Numeric r, Floating (Vector r))
+         => AdaptableInputs (Ast0 r) (ADVal (Ast n r)) where
+  type Value (ADVal (Ast n r)) = Ast n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
