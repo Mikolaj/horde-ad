@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedLists #-}
 module TestAdaptorSimplified
-  ( testTrees, rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShorter
+  ( testTrees, rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
+  , assertEqualUpToEpsilonShorter
   , t16, t16b, t48, t128, t128b, t128c
   ) where
 
@@ -65,19 +66,20 @@ testTrees =
 
 rev' :: forall a r n m.
         ( KnownNat n, KnownNat m, Floating (Vector r), ADTensor r, ADReady r
-        , InterpretAst (ADVal r), a ~ TensorOf m r
-        , ScalarOf (ADVal r) ~ r, Scalar (TensorOf n r) ~ r
+        , InterpretAst (ADVal r), InterpretAst r, a ~ TensorOf m r
+        , ScalarOf r ~ r, ScalarOf (ADVal r) ~ r
         , IsPrimalWithScalar (TensorOf m r) r
-        , Value (ADVal (TensorOf n r)) ~ TensorOf n r
         , Adaptable (ADVal (TensorOf n r))
         , TensorOf n (ADVal r) ~ ADVal (TensorOf n r)
         , TensorOf m (ADVal r) ~ ADVal (TensorOf m r)
-        , ADReady (ADVal r) )
+        , ADReady (ADVal r), TensorOf n r ~ OR.Array n r )
      => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
      -> TensorOf n r
      -> ( TensorOf m r, a, a, a, a, a
         , TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r
-        , Ast m r, Ast m r )
+        , Ast m r, Ast m r
+        , a, a, a, a
+        , TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r )
 rev' f vals =
   let value0 = f vals
       dt = Nothing
@@ -111,23 +113,51 @@ rev' f vals =
       astSimp =
         simplifyAst $ snd
         $ funToAstR (tshape vals) (unAstPrimalPart . f . AstPrimalPart)
+      -- Here comes the part with Ast gradients.
+      hAst :: ADReady x
+           => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
+           -> (Ast m r -> Ast m r) -> ADInputs (Ast0 r)
+           -> ADVal (Ast m r)
+      hAst fx1 fx2 gx inputs =
+        let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
+            env = extendEnvR var (parseADInputs (AstConst vals) inputs) IM.empty
+        in interpretAst env (gx ast)
+      (astGradAst, value2Ast) =
+        revAstOnDomains (hAst id id id) (toDomains vals) dt
+      gradient2Ast = parseDomains vals astGradAst
+      (astSimpleAst, value3Ast) =
+        revAstOnDomains (hAst id id simplifyAst) (toDomains vals) dt
+      gradient3Ast = parseDomains vals astSimpleAst
+      (astPrimalAst, value4Ast) =
+        revAstOnDomains (hAst unAstPrimalPart AstPrimalPart id)
+                        (toDomains vals) dt
+      gradient4Ast = parseDomains vals astPrimalAst
+      (astPSimpleAst, value5Ast) =
+        revAstOnDomains (hAst unAstPrimalPart AstPrimalPart simplifyAst)
+                        (toDomains vals) dt
+      gradient5Ast = parseDomains vals astPSimpleAst
   in ( value0, value1, value2, value3, value4, value5
      , gradient1, gradient2, gradient3, gradient4, gradient5
-     , astVectSimp, astSimp )
+     , astVectSimp, astSimp
+     , value2Ast, value3Ast, value4Ast, value5Ast
+     , gradient2Ast, gradient3Ast, gradient4Ast, gradient5Ast )
 
 assertEqualUpToEpsilon'
     :: ( AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b
        , KnownNat m, Show r, Numeric r, Num (Vector r), HasCallStack )
     => z  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
-    -> (b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r)
+    -> ( b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r
+       , b, b, b, b, a, a, a, a )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
     errMargin expected
     ( value0, value1, value2, value3, value4, value5
     , gradient1, gradient2, gradient3, gradient4, gradient5
-    , astVectSimp, astSimp ) = do
+    , astVectSimp, astSimp
+    , value2Ast, value3Ast, value4Ast, value5Ast
+    , gradient2Ast, gradient3Ast, gradient4Ast, gradient5Ast) = do
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
@@ -138,6 +168,52 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
   assertEqualUpToEpsilonWithMark "Grad NotVect" errMargin expected gradient4
   assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
+  assertEqualUpToEpsilonWithMark "Val Ast Vectorized" errMargin value0 value2Ast
+  assertEqualUpToEpsilonWithMark "Val Ast Vect+Simp" errMargin value0 value3Ast
+  assertEqualUpToEpsilonWithMark "Val Ast NotVect" errMargin value0 value4Ast
+  assertEqualUpToEpsilonWithMark "Val Ast Simplified" errMargin value0 value5Ast
+  assertEqualUpToEpsilonWithMark "Grad Ast Vectorized"
+                                 errMargin expected gradient2Ast
+  assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp"
+                                 errMargin expected gradient3Ast
+  assertEqualUpToEpsilonWithMark "Grad Ast NotVect"
+                                 errMargin expected gradient4Ast
+  assertEqualUpToEpsilonWithMark "Grad Ast Simplified"
+                                 errMargin expected gradient5Ast
+  -- No Eq instance, so let's compare the text.
+  show (simplifyAst astVectSimp) @?= show astVectSimp
+  show (simplifyAst astSimp) @?= show astSimp
+
+assertEqualUpToEpsilonShort
+    :: ( AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b
+       , KnownNat m, Show r, Numeric r, Num (Vector r), HasCallStack )
+    => z  -- ^ error margin (i.e., the epsilon)
+    -> a  -- ^ expected value
+    -> ( b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r
+       , b, b, b, b, a, a, a, a )
+         -- ^ actual values
+    -> Assertion
+assertEqualUpToEpsilonShort
+    errMargin expected
+    ( value0, value1, value2, value3, _value4, value5
+    , gradient1, gradient2, gradient3, _gradient4, gradient5
+    , astVectSimp, astSimp
+    , value2Ast, value3Ast, _value4Ast, value5Ast
+    , gradient2Ast, gradient3Ast, _gradient4Ast, gradient5Ast) = do
+  assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
+  assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
+  assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
+  assertEqualUpToEpsilonWithMark "Val Simplified" errMargin value0 value5
+  assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
+  assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
+  assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
+  assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
+  assertEqualUpToEpsilonWithMark "Val Ast Vectorized" errMargin value0 value2Ast
+  assertEqualUpToEpsilonWithMark "Val Ast Vect+Simp" errMargin value0 value3Ast
+  assertEqualUpToEpsilonWithMark "Grad Ast Vectorized"
+                                 errMargin expected gradient2Ast
+  assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp"
+                                 errMargin expected gradient3Ast
   -- No Eq instance, so let's compare the text.
   show (simplifyAst astVectSimp) @?= show astVectSimp
   show (simplifyAst astSimp) @?= show astSimp
@@ -147,13 +223,16 @@ assertEqualUpToEpsilonShorter
        , KnownNat m, Show r, Numeric r, Num (Vector r), HasCallStack )
     => z  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
-    -> (b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r)   -- ^ actual values
+    -> ( b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r
+       , b, b, b, b, a, a, a, a )  -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShorter
     errMargin expected
     ( value0, value1, value2, value3, _value4, value5
     , gradient1, gradient2, gradient3, _gradient4, gradient5
-    , astVectSimp, astSimp ) = do
+    , astVectSimp, astSimp
+    , _value2Ast, _value3Ast, _value4Ast, _value5Ast
+    , _gradient2Ast, _gradient3Ast, _gradient4Ast, _gradient5Ast) = do
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
