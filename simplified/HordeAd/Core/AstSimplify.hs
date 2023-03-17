@@ -231,7 +231,7 @@ simplifyStepNonIndex t = case t of
   AstGatherZ _ v0 (Z, ix) -> AstIndexZ v0 ix
   AstGatherZ sh v0 (_, ZI) -> astKonstN sh v0
   AstGatherZ {} -> t
-  AstFromDynamic{} -> t  -- TODO
+  AstFromDynamic v -> astFromDynamic v  -- this always eliminates AstDynamic
 
 astIndexZ
   :: forall m n r.
@@ -294,11 +294,11 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     let perm3 = permCycle $ valueOf @m + 1
     in astSum $ astIndex (astTranspose perm3 v) ix
   AstConstInt{} ->
-    error "astIndexZOrStepOnly: impossible pattern needlessly required"
+    error "astIndex: impossible pattern needlessly required"
   -- AstScatter sh v (Z, ix2) -> ifB (ix2 ==* ix) v 0
   -- AstScatter sh v (vars2, ZI) ->
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
-  AstScatter{} -> error "astIndexZOrStepOnly: AstScatter TODO"
+  AstScatter{} -> error "astIndex: AstScatter TODO"
     -- probably a new normal form is needed, and not even index(scatter)
     -- but, to express vectorization, gather(scatter)
   AstFromList l | AstIntConst i <- i1 ->
@@ -346,7 +346,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     in astIndex @m1 @n w rest1
   AstGatherZ{} ->
     error "astIndex: AstGatherZ: impossible pattern needlessly required"
-  AstFromDynamic{} -> AstIndexZ v0 ix  -- TODO
+  AstFromDynamic{} -> error "astIndex: AstFromDynamic should simplify away"
 
 astConstant :: AstPrimalPart n r -> Ast n r
 astConstant (AstPrimalPart (AstConstant t)) = astConstant t
@@ -450,8 +450,7 @@ astSlice i k (AstFromList l) = astFromList $ take k (drop i l)
 astSlice i k (AstFromVector l) = astFromVector $ V.take k (V.drop i l)
 astSlice _i k (AstKonst _k2 v) = astKonst k v
 astSlice i k w@(AstAppend (u :: Ast (1 + n) r) (v :: Ast (1 + n) r)) =
-  -- GHC 9.4.4 and 9.2.6 with the plugins demans so much verbiage ^^^
-  -- TODO: test with 9.6 ASAP.
+  -- GHC 9.2.7 -- 9.6.1 with the plugins demand so much verbiage ^^^
   -- It seems this is caused by only having (1 + n) in the type
   -- signature and + not being injective. Quite hopless in cases
   -- where swithing to n -> n is not an option. Perhaps it fixes itself
@@ -554,7 +553,7 @@ astGatherZOrStepOnly
 astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
   case (sh0, (vars0, ix0)) of
     _ | any (`intVarInAst` v0) vars0 ->
-      error $ "astGatherZOrStepOnly: gather vars in v0: "
+      error $ "astGather: gather vars in v0: "
               ++ show (vars0, v0)
     (_, (Z, _)) -> astIndex v0 ix0
     (sh, (_, ZI)) -> astKonstN sh v0
@@ -582,7 +581,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
         (restN, iN) = unsnocIndex1 ix0
         (varsN, varN) = unsnocSized1 vars0
     _ ->
-      error "astGatherZOrStepOnly: impossible pattern needlessly required"
+      error "astGather: impossible pattern needlessly required"
  where
   astIndex :: forall m' n'. (KnownNat m', KnownNat n')
            => Ast (m' + n') r -> AstIndex m' r -> Ast n' r
@@ -624,8 +623,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
          $ astGather sh5 (astTransposeAsGather perm3 v) (vars4, ix4)
              -- TODO: why is simplification not idempotent without AsGather?
     AstConstInt{} ->
-      error "astGatherCase: impossible pattern needlessly required"
-    AstScatter{} -> error "astGatherCase: AstScatter TODO"
+      error "astGather: impossible pattern needlessly required"
+    AstScatter{} -> error "astGather: AstScatter TODO"
     AstFromList l | AstIntConst i <- i4 ->
       astGather sh4 (l !! i) (vars4, rest4)
     AstFromList{} | gatherFromNF vars4 ix4 -> AstGatherZ sh4 v4 (vars4, ix4)
@@ -690,7 +689,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
         LTI -> composedGather
         EQI -> assimilatedGather
         GTI -> gcastWith (flipCompare @p' @m2) assimilatedGather
-    AstFromDynamic{} -> AstGatherZ sh4 v4 (vars4, ix4)  -- TODO
+    AstFromDynamic{} -> error "astGather: AstFromDynamic should simplify away"
 
 gatherFromNF :: forall m p r. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) r -> Bool
@@ -710,6 +709,16 @@ gatherFromNF vars (i :. rest) = case cmpNat (Proxy @p) (Proxy @m) of
 
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
 flipCompare = unsafeCoerce Refl
+
+astFromDynamic :: forall n r. KnownNat n
+               => AstDynamic r -> Ast n r
+astFromDynamic AstDynamicDummy = error "astFromDynamic: AstDynamicDummy"
+astFromDynamic (AstDynamicPlus u v) =
+  AstOp PlusOp [astFromDynamic u, astFromDynamic v]
+astFromDynamic (AstDynamicFrom @n2 t) =
+  case sameNat (Proxy @n) (Proxy @n2) of
+    Just Refl -> t
+    _ -> error "astFromDynamic: different rank expected and uncovered"
 
 {-
 -- TODO: To apply this to astGatherZ. we'd need to take the last variable
@@ -851,7 +860,7 @@ simplifyAst t = case t of
   AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
   AstGatherZ sh v (vars, ix) ->
     astGatherZ sh (simplifyAst v) (vars, fmap simplifyAstInt ix)
-  AstFromDynamic{} -> t  -- TODO
+  AstFromDynamic v -> astFromDynamic v  -- this always eliminates AstDynamic
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether

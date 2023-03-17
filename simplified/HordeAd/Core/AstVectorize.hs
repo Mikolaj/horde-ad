@@ -148,10 +148,6 @@ instance HasPrimal (AstPrimalPart 0 r) where
 
 -- * Vectorization
 
--- TODO: due to 2 missing cases, it still sometimes fails, that is, produces
--- the main @AstBuild1@, perhaps in many copies nested in other terms.
--- But there is hope it can always succeed for terms that shaped tensors
--- would type-check (ranked tensors are not fussy enough).
 -- | The application @build1Vectorize k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, that is, rewrites it to a term
 -- with the same value, but not containing the outermost @AstBuild1@
