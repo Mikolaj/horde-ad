@@ -64,7 +64,7 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 
 -- * Evaluation that computes gradients.
 
--- A new version that produced the gradient function, which can then be
+-- A new version that produced the gradient function, which can be
 -- applied multiple times to input and dt. The second component
 -- of the result is the objective function value, inefficiently
 -- computed, only for testing.
@@ -72,14 +72,31 @@ revAstOnDomains
   :: forall r n.
      ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
      , Floating (Vector r), Show r, Numeric r )
-  => Int -> [[Int]]
-  -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
+  => (ADInputs (Ast0 r) -> ADVal (Ast n r))
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 -- The functions in which @revAstOnDomains@ inlines are not inlined
 -- themselves in client code, so the bloat is limited.
 {-# INLINE revAstOnDomains #-}
-revAstOnDomains dim0 shapes1 f =
+revAstOnDomains f parameters dt =
+  let dim0 = tlength $ domains0 parameters
+      shapes1 = map tshapeD $ V.toList $ domains1 parameters
+  in revAstOnDomainsEval dim0 (length shapes1)
+                         (revAstOnDomainsFun dim0 shapes1 f)
+                         parameters dt
+
+revAstOnDomainsFun
+  :: forall r n.
+     (ADTensor r, KnownNat n, Floating (Vector r), Show r, Numeric r)
+  => Int -> [[Int]]
+  -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
+  -> ( AstVarName (TensorOf 1 r)
+     , [AstDynamicVarName r]
+     , AstVarName (TensorOf n r)
+     , Domains (Ast0 r)
+     , Ast n r )
+{-# INLINE revAstOnDomainsFun #-}
+revAstOnDomainsFun dim0 shapes1 f =
   let (var0, ast0) = funToAstR (singletonShape dim0) id
       (vars1, asts1) = unzip $ map funToAstD shapes1
       domains = Domains ast0 (V.fromList asts1)
@@ -88,26 +105,41 @@ revAstOnDomains dim0 shapes1 f =
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D vAst deltaTopLevel) = f varInputs
-      shv = tshape vAst
-      (varDt, astDt) = funToAstR shv id
+      (varDt, astDt) = funToAstR (tshape vAst) id
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
   in let gradientAst = gradientFromDelta dim0 (length shapes1) deltaDt
-     in \parameters dt ->
-       let len0 = tlength $ domains0 parameters
-           len1 = V.length $ domains1 parameters
-           !_A = assert (len0 == dim0 && len1 == length shapes1) ()
-           env0 = extendEnvR var0 (domains0 parameters) IM.empty
-           env1 = foldr (\(AstDynamicVarName var, v) ->
-                           extendEnvR var (tfromD v)) env0
-                  $ zip vars1 $ V.toList $ domains1 parameters
-           dtValue = case dt of
-             Just a -> a
-             Nothing -> tkonst0N shv 1
-           envDt = extendEnvR varDt dtValue env1
-           gradientDomain =
-             Domains (interpretAst envDt $ domains0 gradientAst)
-                     (V.map (interpretAstDynamic envDt) $ domains1 gradientAst)
-       in (gradientDomain, interpretAst env1 vAst)
+     in (var0, vars1, varDt, gradientAst, vAst)
+
+revAstOnDomainsEval
+  :: forall r n.
+     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
+     , Floating (Vector r), Show r, Numeric r )
+  => Int -> Int
+  -> ( AstVarName (TensorOf 1 r)
+     , [AstDynamicVarName r]
+     , AstVarName (TensorOf n r)
+     , Domains (Ast0 r)
+     , Ast n r )
+  -> Domains r -> Maybe (TensorOf n r)
+  -> (Domains r, TensorOf n r)
+{-# INLINE revAstOnDomainsEval #-}
+revAstOnDomainsEval dim0 dim1
+                    (var0, vars1, varDt, gradientAst, vAst)
+                    parameters dt =
+  let !_A0 = assert (dim0 == tlength (domains0 parameters)) ()
+      !_A1 = assert (dim1 == V.length (domains1 parameters)) ()
+      env0 = extendEnvR var0 (domains0 parameters) IM.empty
+      env1 = foldr (\(AstDynamicVarName var, v) ->
+                      extendEnvR var (tfromD v)) env0
+             $ zip vars1 $ V.toList $ domains1 parameters
+      dtValue = case dt of
+        Just a -> a
+        Nothing -> tkonst0N (tshape vAst) 1
+      envDt = extendEnvR varDt dtValue env1
+      gradientDomain =
+        Domains (interpretAst envDt $ domains0 gradientAst)
+                (V.map (interpretAstDynamic envDt) $ domains1 gradientAst)
+  in (gradientDomain, interpretAst env1 vAst)
 
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
