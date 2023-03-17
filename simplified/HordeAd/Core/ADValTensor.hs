@@ -391,6 +391,8 @@ class InterpretAst a where
   interpretAst
     :: forall n. KnownNat n
     => AstEnv a -> Ast n (ScalarOf a) -> TensorOf n a
+  interpretAstDynamic
+    :: AstEnv a -> AstDynamic (ScalarOf a) -> DynamicTensor a
 
 -- These are several copies of exactly the same code, past the instantiated
 -- interpretAst signature. See if any workaround from
@@ -471,8 +473,7 @@ instance InterpretAst (ADVal Double) where
        -- on tape and translate it to whatever backend sooner or later;
        -- and if yes, fall back to POPL pre-computation that, unfortunately,
        -- leads to a tensor of deltas
-     AstFromDynamic{} ->
-       error "interpretAst: AstFromDynamic is not for library users"
+     AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
                    -> AstInt (ScalarOf a) -> IntOf (Primal a)
@@ -505,6 +506,19 @@ instance InterpretAst (ADVal Double) where
      AstRelInt opCodeRel args ->
        let f = interpretAstInt env
        in interpretAstRelOp f opCodeRel args
+ interpretAstDynamic
+   :: forall a. a ~ ADVal Double
+   => AstEnv a -> AstDynamic (ScalarOf a) -> DynamicTensor a
+ interpretAstDynamic = interpretAstDynamicRec
+  where
+   interpretAstDynamicRec
+     :: AstEnv a
+     -> AstDynamic (ScalarOf a) -> DynamicTensor a
+   interpretAstDynamicRec env = \case
+     AstDynamicDummy -> error "interpretAstDynamic: AstDynamicDummy"
+     AstDynamicPlus v u ->
+       interpretAstDynamicRec env v `taddD` interpretAstDynamicRec env u
+     AstDynamicFrom w -> tfromR $ interpretAst env w
 
 instance InterpretAst (ADVal Float) where
  interpretAst
@@ -580,8 +594,7 @@ instance InterpretAst (ADVal Float) where
        -- on tape and translate it to whatever backend sooner or later;
        -- and if yes, fall back to POPL pre-computation that, unfortunately,
        -- leads to a tensor of deltas
-     AstFromDynamic{} ->
-       error "interpretAst: AstFromDynamic is not for library users"
+     AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
                    -> AstInt (ScalarOf a) -> IntOf (Primal a)
@@ -614,6 +627,19 @@ instance InterpretAst (ADVal Float) where
      AstRelInt opCodeRel args ->
        let f = interpretAstInt env
        in interpretAstRelOp f opCodeRel args
+ interpretAstDynamic
+   :: forall a. a ~ ADVal Float
+   => AstEnv a -> AstDynamic (ScalarOf a) -> DynamicTensor a
+ interpretAstDynamic = interpretAstDynamicRec
+  where
+   interpretAstDynamicRec
+     :: AstEnv a
+     -> AstDynamic (ScalarOf a) -> DynamicTensor a
+   interpretAstDynamicRec env = \case
+     AstDynamicDummy -> error "interpretAstDynamic: AstDynamicDummy"
+     AstDynamicPlus v u ->
+       interpretAstDynamicRec env v `taddD` interpretAstDynamicRec env u
+     AstDynamicFrom w -> tfromR $ interpretAst env w
 
 instance ( ADTensor (Ast0 q)
          , Numeric q, Show q, Floating (Vector q), RealFloat q )
@@ -691,8 +717,7 @@ instance ( ADTensor (Ast0 q)
        -- on tape and translate it to whatever backend sooner or later;
        -- and if yes, fall back to POPL pre-computation that, unfortunately,
        -- leads to a tensor of deltas
-     AstFromDynamic{} ->
-       error "interpretAst: AstFromDynamic is not for library users"
+     AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
                    -> AstInt (ScalarOf a) -> IntOf (Primal a)
@@ -725,6 +750,19 @@ instance ( ADTensor (Ast0 q)
      AstRelInt opCodeRel args ->
        let f = interpretAstInt env
        in interpretAstRelOp f opCodeRel args
+ interpretAstDynamic
+   :: forall a. a ~ ADVal (Ast0 q)
+   => AstEnv a -> AstDynamic (ScalarOf a) -> DynamicTensor a
+ interpretAstDynamic = interpretAstDynamicRec
+  where
+   interpretAstDynamicRec
+     :: AstEnv a
+     -> AstDynamic (ScalarOf a) -> DynamicTensor a
+   interpretAstDynamicRec env = \case
+     AstDynamicDummy -> error "interpretAstDynamic: AstDynamicDummy"
+     AstDynamicPlus v u ->
+       interpretAstDynamicRec env v `taddD` interpretAstDynamicRec env u
+     AstDynamicFrom w -> tfromR $ interpretAst env w
 
 instance InterpretAst Double where
  interpretAst
@@ -800,8 +838,7 @@ instance InterpretAst Double where
        -- on tape and translate it to whatever backend sooner or later;
        -- and if yes, fall back to POPL pre-computation that, unfortunately,
        -- leads to a tensor of deltas
-     AstFromDynamic{} ->
-       error "interpretAst: AstFromDynamic is not for library users"
+     AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
                    -> AstInt (ScalarOf a) -> IntOf (Primal a)
@@ -834,6 +871,19 @@ instance InterpretAst Double where
      AstRelInt opCodeRel args ->
        let f = interpretAstInt env
        in interpretAstRelOp f opCodeRel args
+ interpretAstDynamic
+   :: forall a. a ~ Double
+   => AstEnv a -> AstDynamic (ScalarOf a) -> DynamicTensor a
+ interpretAstDynamic = interpretAstDynamicRec
+  where
+   interpretAstDynamicRec
+     :: AstEnv a
+     -> AstDynamic (ScalarOf a) -> DynamicTensor a
+   interpretAstDynamicRec env = \case
+     AstDynamicDummy -> error "interpretAstDynamic: AstDynamicDummy"
+     AstDynamicPlus v u ->
+       interpretAstDynamicRec env v `taddD` interpretAstDynamicRec env u
+     AstDynamicFrom w -> tfromR $ interpretAst env w
 
 instance InterpretAst Float where
  interpretAst
@@ -909,8 +959,7 @@ instance InterpretAst Float where
        -- on tape and translate it to whatever backend sooner or later;
        -- and if yes, fall back to POPL pre-computation that, unfortunately,
        -- leads to a tensor of deltas
-     AstFromDynamic{} ->
-       error "interpretAst: AstFromDynamic is not for library users"
+     AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
                    -> AstInt (ScalarOf a) -> IntOf (Primal a)
@@ -943,6 +992,19 @@ instance InterpretAst Float where
      AstRelInt opCodeRel args ->
        let f = interpretAstInt env
        in interpretAstRelOp f opCodeRel args
+ interpretAstDynamic
+   :: forall a. a ~ Float
+   => AstEnv a -> AstDynamic (ScalarOf a) -> DynamicTensor a
+ interpretAstDynamic = interpretAstDynamicRec
+  where
+   interpretAstDynamicRec
+     :: AstEnv a
+     -> AstDynamic (ScalarOf a) -> DynamicTensor a
+   interpretAstDynamicRec env = \case
+     AstDynamicDummy -> error "interpretAstDynamic: AstDynamicDummy"
+     AstDynamicPlus v u ->
+       interpretAstDynamicRec env v `taddD` interpretAstDynamicRec env u
+     AstDynamicFrom w -> tfromR $ interpretAst env w
 
 interpretAstOp :: RealFloat b
                => (c -> b) -> OpCode -> [c] -> b
