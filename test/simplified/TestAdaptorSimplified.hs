@@ -198,8 +198,8 @@ assertEqualUpToEpsilonShort
     ( value0, value1, value2, value3, _value4, value5
     , gradient1, gradient2, gradient3, _gradient4, gradient5
     , astVectSimp, astSimp
-    , value2Ast, value3Ast, _value4Ast, value5Ast
-    , gradient2Ast, gradient3Ast, _gradient4Ast, gradient5Ast) = do
+    , value2Ast, value3Ast, _value4Ast, _value5Ast
+    , gradient2Ast, gradient3Ast, _gradient4Ast, _gradient5Ast) = do
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
@@ -465,7 +465,7 @@ nestedBuildMap r =
 
 testNestedBuildMap1 :: Assertion
 testNestedBuildMap1 =
-  assertEqualUpToEpsilonShorter 1e-10
+  assertEqualUpToEpsilonShort 1e-10
     107.25984443006627
     (rev' @(OR.Array 1 Double) nestedBuildMap 1.1)
 
@@ -494,7 +494,7 @@ nestedSumBuild v =
 
 testNestedSumBuild :: Assertion
 testNestedSumBuild =
-  assertEqualUpToEpsilonShorter 1e-8
+  assertEqualUpToEpsilonShort 1e-8
     (OR.fromList [5] [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612])
     (rev' @(OR.Array 1 Double) nestedSumBuild (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
@@ -527,7 +527,7 @@ testBarReluADVal =
 
 testBarReluADVal3 :: Assertion
 testBarReluADVal3 =
-  assertEqualUpToEpsilon' 1e-10
+  assertEqualUpToEpsilonShort 1e-10
     (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
     (rev' @(OR.Array 3 Double) barRelu (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
@@ -678,7 +678,7 @@ testRecycled =
 
 testRecycled1 :: Assertion
 testRecycled1 =
-  assertEqualUpToEpsilonShorter 1e-6
+  assertEqualUpToEpsilonShort 1e-6
     348356.9278600814
     (rev' @(OR.Array 5 Double) (recycled . tunScalar) 0.0000001)
 
