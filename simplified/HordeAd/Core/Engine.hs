@@ -7,7 +7,7 @@ module HordeAd.Core.Engine
   ( ADInputs(..)
   , makeADInputs, nullADInputs
   , -- * The most often used part of the high-level API
-    revOnDomains
+    revAstOnDomains, revOnDomains
   , -- * Operations exposed not for the library users but add-on makers
     revOnADInputs
   , generateDeltaInputs, initializerFixed, initializerFixed01
@@ -18,19 +18,25 @@ module HordeAd.Core.Engine
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
 import           Data.Proxy (Proxy)
+import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (SomeNat (..), someNatVal)
+import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
+import HordeAd.Core.ADValTensor
+import HordeAd.Core.Ast
 import HordeAd.Core.Delta
   (Delta0, derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass (Dual, dFrom1X, dInput0, dInput1)
 import HordeAd.Core.DualNumber
+import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
 data ADInputs r = ADInputs
@@ -58,6 +64,53 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 
 -- * Evaluation that computes gradients.
 
+-- A new version that produced the gradient function, which can then be
+-- applied multiple times to input and dt. The second component
+-- of the result is the objective function value, inefficiently
+-- computed, only for testing.
+revAstOnDomains
+  :: forall r n.
+     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
+     , Floating (Vector r), Show r, Numeric r )
+  => Int -> [[Int]]
+  -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
+  -> Domains r -> Maybe (TensorOf n r)
+  -> (Domains r, TensorOf n r)
+-- The functions in which @revAstOnDomains@ inlines are not inlined
+-- themselves in client code, so the bloat is limited.
+{-# INLINE revAstOnDomains #-}
+revAstOnDomains dim0 shapes1 f =
+  let (var0, ast0) = funToAstR (singletonShape dim0) id
+      (vars1, asts1) = unzip $ map funToAstD shapes1
+      domains = Domains ast0 (V.fromList asts1)
+      deltaInputs = generateDeltaInputs domains
+      varInputs = makeADInputs domains deltaInputs
+      -- Evaluate completely after terms constructed, to free memory
+      -- before gradientFromDelta allocates new memory and new FFI is started.
+      !(D vAst deltaTopLevel) = f varInputs
+      shv = tshape vAst
+      (varDt, astDt) = funToAstR shv id
+      deltaDt = packDeltaDt (Right astDt) deltaTopLevel
+  in let gradientAst = gradientFromDelta dim0 (length shapes1) deltaDt
+     in \parameters dt ->
+       let len0 = tlength $ domains0 parameters
+           len1 = V.length $ domains1 parameters
+           !_A = assert (len0 == dim0 && len1 == length shapes1) ()
+           env0 = extendEnvR var0 (domains0 parameters) IM.empty
+           env1 = foldr (\(AstDynamicVarName var, v) ->
+                           extendEnvR var (tfromD v)) env0
+                  $ zip vars1 $ V.toList $ domains1 parameters
+           dtValue = case dt of
+             Just a -> a
+             Nothing -> tkonst0N shv 1
+           envDt = extendEnvR varDt dtValue env1
+           gradientDomain =
+             Domains (interpretAst envDt $ domains0 gradientAst)
+                     (V.map (interpretAstDynamic envDt) $ domains1 gradientAst)
+       in (gradientDomain, interpretAst env1 vAst)
+
+-- The old versions that use the fixed input and dt to compute gradient
+-- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
   :: (ADTensor r, IsPrimalWithScalar a r)
   => Maybe a
@@ -71,16 +124,14 @@ revOnADInputs dt f inputs@ADInputs{..} =
   let dim0 = tlength inputPrimal0
       dim1 = V.length inputPrimal1
       -- Evaluate completely after terms constructed, to free memory
-      -- before evaluation allocates new memory and new FFI is started
+      -- before evaluation allocates new memory and new FFI is started.
       !(D v deltaTopLevel) = f inputs
       deltaDt = packDeltaDt (maybe (Left v) Right dt) deltaTopLevel
   in let gradient = gradientFromDelta dim0 dim1 deltaDt
      in (gradient, v)
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
--- names, but newbies may have trouble understanding it.
--- Also, as of now, @revOnDomains@ is restricted to objective functions with scalar
--- codomains, while VJP is fully general.
+-- names, but newcomers may have trouble understanding them.
 revOnDomains
   :: (ADTensor r, IsPrimalWithScalar a r)
   => Maybe a
@@ -93,8 +144,9 @@ revOnDomains dt f parameters =
   in revOnADInputs dt f inputs
 
 
--- * The slow evaluation for derivatives that uses the same
--- delta expressions as for gradients. See @fwdOnDomains@
+-- * The slow evaluation producing objective function derivatives
+
+-- It uses the same delta expressions as for gradients. See @fwdOnDomains@
 -- for a fast variant.
 
 slowFwdOnADInputs

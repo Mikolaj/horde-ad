@@ -7,7 +7,7 @@
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
   ( AstIndex, AstVarList
-  , AstVarName(..)
+  , AstVarName(..), AstDynamicVarName(..)
   , Ast(..), AstPrimalPart(..), AstDynamic(..), Ast0(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
@@ -135,6 +135,9 @@ newtype AstVarName t = AstVarName Int
 -- An unlawful instance to prevent spam when tracing and debugging.
 instance Show (AstVarName t) where
   show (AstVarName n) = "Var" ++ show n
+
+data AstDynamicVarName r =
+  forall n. KnownNat n => AstDynamicVarName (AstVarName (TensorOf n r))
 
 -- In AstInt and AstBool, the Ast terms are morally AstPrimalPart,
 -- since their derivative part is not used.

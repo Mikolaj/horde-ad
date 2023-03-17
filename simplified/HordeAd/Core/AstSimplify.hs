@@ -16,7 +16,7 @@
 -- The combinator can also be used to simplify a whole term, bottom-up.
 module HordeAd.Core.AstSimplify
   ( simplifyPermutation
-  , funToAstR, funToAstI, funToAstIndex
+  , funToAstR, funToAstD, funToAstI, funToAstIndex
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
   , astSum, astScatter, astFromList, astFromVector, astKonst
@@ -101,6 +101,18 @@ funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
 funToAstR sh f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return (freshAstVar, f (AstVar sh freshAstVar))
+
+-- The "fun"ction in this case is fixed to be @id@.
+funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
+{-# NOINLINE funToAstD #-}
+funToAstD sh = unsafePerformIO $ do
+  AstVarName freshId <- unsafeGetFreshAstVar
+  return $! case someNatVal $ toInteger $ length sh of
+    Just (SomeNat (_proxy :: Proxy p)) ->
+      let shn = listShapeToShape @p sh
+          varName = AstVarName @(TensorOf p r) freshId
+      in (AstDynamicVarName varName, AstDynamicFrom $ AstVar shn varName)
+    Nothing -> error "funToAstD: impossible someNatVal error"
 
 funToAstI :: (AstInt r -> t) -> (AstVarName Int, t)
 {-# NOINLINE funToAstI #-}

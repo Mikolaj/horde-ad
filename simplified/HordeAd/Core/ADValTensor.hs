@@ -8,7 +8,7 @@
 -- (and safely impure) API in "HordeAd.Core.DualClass". The other part
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.ADValTensor
-  ( InterpretAst(..), AstVar(..), funToAstR, simplifyAst, extendEnvR
+  ( InterpretAst(..), AstVar(..), funToAstR, funToAstD, simplifyAst, extendEnvR
   , resetVarCOunter
   ) where
 

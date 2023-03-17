@@ -279,8 +279,9 @@ toInputId i = assert (i >= 0) $ InputId i
 -- roles, is the internal representation of domains of objective functions.
 type Domain0 r = TensorOf 1 r
 
--- To store shaped tensor we use untyped tensors instead of vectors
--- to prevent frequent linearization of tensors (e.g., after transpose).
+-- To store ranked tensors (or Ast terms) we use their untyped versions
+-- instead of, e.g,. the unerlying vectors of the tensors,
+-- to prevent frequent linearization of the tensors (e.g., after transpose).
 type Domain1 r = Data.Vector.Vector (DynamicTensor r)
 
 data Domains r = Domains
