@@ -82,7 +82,7 @@ rev' f vals =
   let value0 = f vals
       dt = Nothing
       g inputs = f $ parseADInputs vals inputs
-      (advalGrad, value1) = revOnDomainsFun dt g (toDomains vals)
+      (advalGrad, value1) = revOnDomains dt g (toDomains vals)
       gradient1 = parseDomains vals advalGrad
       h :: ADReady x
         => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
@@ -92,20 +92,20 @@ rev' f vals =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseADInputs vals inputs) IM.empty
         in interpretAst env (gx ast)
-      (astGrad, value2) = revOnDomainsFun dt (h id id id) (toDomains vals)
+      (astGrad, value2) = revOnDomains dt (h id id id) (toDomains vals)
       gradient2 = parseDomains vals astGrad
       (astSimple, value3) =
-        revOnDomainsFun dt (h id id simplifyAst) (toDomains vals)
+        revOnDomains dt (h id id simplifyAst) (toDomains vals)
       gradient3 = parseDomains vals astSimple
       (astPrimal, value4) =
-        revOnDomainsFun dt (h unAstPrimalPart AstPrimalPart id)
-                           (toDomains vals)
+        revOnDomains dt (h unAstPrimalPart AstPrimalPart id)
+                        (toDomains vals)
           -- use the AstPrimalPart instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradient4 = parseDomains vals astPrimal
       (astPSimple, value5) =
-        revOnDomainsFun dt (h unAstPrimalPart AstPrimalPart simplifyAst)
-                           (toDomains vals)
+        revOnDomains dt (h unAstPrimalPart AstPrimalPart simplifyAst)
+                        (toDomains vals)
       gradient5 = parseDomains vals astPSimple
       astVectSimp = simplifyAst $ snd $ funToAstR (tshape vals) f
       astSimp =

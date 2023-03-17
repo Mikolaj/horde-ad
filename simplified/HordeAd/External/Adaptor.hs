@@ -53,7 +53,7 @@ revDtFun :: forall a vals r advals.
          -> vals
 revDtFun f vals dt =
   let g inputs = f $ parseADInputs vals inputs
-  in parseDomains vals $ fst $ revOnDomainsFun dt g (toDomains vals)
+  in parseDomains vals $ fst $ revOnDomains dt g (toDomains vals)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 type Adaptable advals =

@@ -271,14 +271,14 @@ testPoly00 f input expected = do
       domainsExpected =
         domainsFrom01 (V.singleton expected) V.empty
       (astGrad, astValue) =
-        revOnDomains 1
+        revOnDomains Nothing
           (\adinputs -> tunScalar $
              interpretAst (IM.singleton 0
                              (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
                           (unAst0 $ f (Ast0 $ AstVar [] (AstVarName 0))))
           domainsInput
       (advalGrad, advalValue) =
-        revOnDomains 1
+        revOnDomains (Just 1)
           (\adinputs -> f $ adinputs `at0` 0)
           domainsInput
       val = f input
@@ -299,14 +299,14 @@ testPoly01 f outSize input expected = do
       dt = vToVec $ LA.konst 1 outSize
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
       (astGrad, astValue) =
-        revOnDomains dt
+        revOnDomains (Just dt)
           (\adinputs ->
              interpretAst (IM.singleton 0
                              (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
                           (f (Ast0 $ AstVar [] (AstVarName 0))))
           domainsInput
       (advalGrad, advalValue) =
-        revOnDomains dt
+        revOnDomains (Just dt)
           (\adinputs -> f $ adinputs `at0` 0)
           domainsInput
       val = f input
@@ -327,14 +327,14 @@ testPoly11 f outSize input expected = do
       dt = vToVec $ LA.konst 1 outSize
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
       (astGrad, astValue) =
-        revOnDomains dt
+        revOnDomains (Just dt)
           (\adinputs ->
              interpretAst (IM.singleton 0
                              (AstVarR $ from1X $ at1 @1 adinputs 0))
                           (f (AstVar [length input] (AstVarName 0))))
           domainsInput
       (advalGrad, advalValue) =
-        revOnDomains dt
+        revOnDomains (Just dt)
           (\adinputs -> f $ adinputs `at1` 0)
           domainsInput
       val = f (vToVec $ V.fromList input)
@@ -356,14 +356,14 @@ testPolyn f sh input expected = do
       dt = OR.fromVector sh $ LA.konst 1 $ product sh
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
       (astGrad, astValue) =
-        revOnDomains dt
+        revOnDomains (Just dt)
           (\adinputs ->
              interpretAst (IM.singleton 0
                              (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
                           (f (Ast0 $ AstVar [] (AstVarName 0))))
           domainsInput
       (advalGrad, advalValue) =
-        revOnDomains dt
+        revOnDomains (Just dt)
           (\adinputs -> f $ adinputs `at0` 0)
           domainsInput
       val = f input
@@ -378,7 +378,7 @@ testBarADVal :: Assertion
 testBarADVal =
   (domainsD0 $ fst
    $ revOnDomains
-       42.2
+       (Just 42.2)
        (\adinputs -> barADVal (adinputs `at0` 0, adinputs `at0` 1))
        (domainsFrom01 (V.fromList [1.1 :: Double, 3]) V.empty))
   @?~ V.fromList [11.49618087412679,-135.68959896367525]
@@ -401,7 +401,7 @@ testFooNoGoAst :: Assertion
 testFooNoGoAst =
   (domains1 $ fst
    $ revOnDomains
-       (vToVec $ LA.konst 1 3)
+       (Just $ vToVec $ LA.konst 1 3)
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
           interpretAst (IM.singleton 0
@@ -434,7 +434,7 @@ testBarReluADVal :: Assertion
 testBarReluADVal =
   (domainsD0 $ fst
    $ revOnDomains
-       42.2
+       (Just 42.2)
        (\adinputs -> tunScalar $ barRelu (tscalar $ adinputs `at0` 0))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
@@ -443,7 +443,7 @@ testBarReluAst0 :: Assertion
 testBarReluAst0 =
   (domainsD0 $ fst
    $ revOnDomains
-       42.2
+       (Just 42.2)
        (\adinputs -> tunScalar $
           interpretAst (IM.singleton 0
                           (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
@@ -455,7 +455,7 @@ testBarReluAst1 :: Assertion
 testBarReluAst1 =
   (domains1 $ fst
    $ revOnDomains
-       (vToVec $ LA.konst 1 5)
+       (Just $ vToVec $ LA.konst 1 5)
          -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
           interpretAst (IM.singleton 0
@@ -470,7 +470,7 @@ testKonstReluAst :: Assertion
 testKonstReluAst =
   (domainsD0 $ fst
    $ revOnDomains
-       42.2
+       (Just 42.2)
        (\adinputs -> tunScalar $
           interpretAst (IM.singleton 0
                           (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
@@ -501,7 +501,7 @@ testF3 = do
         domainsFrom0V V.empty (V.singleton (V.fromList expected))
       dt = tscalar 1
       (astGrad, astValue) =
-        revOnDomains dt
+        revOnDomains (Just dt)
           (\adinputs ->
              interpretAst (IM.singleton 0
                              (AstVarR $ from1X $ at1 @1 adinputs 0))

@@ -7,9 +7,9 @@ module HordeAd.Core.Engine
   ( ADInputs(..)
   , makeADInputs, nullADInputs
   , -- * The most often used part of the high-level API
-    revOnDomainsFun, revOnDomains
+    revOnDomains
   , -- * Operations exposed not for the library users but add-on makers
-    revOnADInputsFun, revOnADInputs
+    revOnADInputs
   , generateDeltaInputs, initializerFixed, initializerFixed01
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdOnADInputs, slowFwdOnDomains
@@ -58,7 +58,7 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 
 -- * Evaluation that computes gradients.
 
-revOnADInputsFun
+revOnADInputs
   :: (ADTensor r, IsPrimalWithScalar a r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
@@ -66,8 +66,8 @@ revOnADInputsFun
   -> (Domains r, a)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
-{-# INLINE revOnADInputsFun #-}
-revOnADInputsFun dt f inputs@ADInputs{..} =
+{-# INLINE revOnADInputs #-}
+revOnADInputs dt f inputs@ADInputs{..} =
   let dim0 = tlength inputPrimal0
       dim1 = V.length inputPrimal1
       -- Evaluate completely after terms constructed, to free memory
@@ -77,37 +77,20 @@ revOnADInputsFun dt f inputs@ADInputs{..} =
   in let gradient = gradientFromDelta dim0 dim1 deltaDt
      in (gradient, v)
 
-revOnADInputs
-  :: (ADTensor r, IsPrimalWithScalar a r)
-  => a
-  -> (ADInputs r -> ADVal a)
-  -> ADInputs r
-  -> (Domains r, a)
-{-# INLINE revOnADInputs #-}
-revOnADInputs = revOnADInputsFun . Just
-
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newbies may have trouble understanding it.
 -- Also, as of now, @revOnDomains@ is restricted to objective functions with scalar
 -- codomains, while VJP is fully general.
-revOnDomainsFun
+revOnDomains
   :: (ADTensor r, IsPrimalWithScalar a r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> Domains r
   -> (Domains r, a)
-revOnDomainsFun dt f parameters =
+revOnDomains dt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
-  in revOnADInputsFun dt f inputs
-
-revOnDomains
-  :: (ADTensor r, IsPrimalWithScalar a r)
-  => a
-  -> (ADInputs r -> ADVal a)
-  -> Domains r
-  -> (Domains r, a)
-revOnDomains = revOnDomainsFun . Just
+  in revOnADInputs dt f inputs
 
 
 -- * The slow evaluation for derivatives that uses the same
