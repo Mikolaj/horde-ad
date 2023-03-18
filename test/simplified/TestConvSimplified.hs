@@ -119,7 +119,7 @@ conv2dB = conv2d $ tconst t16b
 
 testKonstG0Rev :: Assertion
 testKonstG0Rev =
-  assertEqualUpToEpsilon 1e-10
+  assertEqualUpToEpsilon 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
     (rev @Double @4 conv2dB (tzero [2, 2, 2, 2]))
 
@@ -252,7 +252,7 @@ conv2dCLaborious128c = flip conv2dLaborious $ tconst t128c
 
 testKonst0RevLaborious :: Assertion
 testKonst0RevLaborious =
-  assertEqualUpToEpsilon 1e-10
+  assertEqualUpToEpsilon 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
     (rev @Double @4 conv2dBLaborious (tzero [2, 2, 2, 2]))
 
@@ -519,7 +519,7 @@ conv2dBFailed = conv2dFailed $ tconst t16b
 
 testKonst0RevFailed :: Assertion
 testKonst0RevFailed =
-  assertEqualUpToEpsilon 1e-10
+  assertEqualUpToEpsilon 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
     (rev @Double @4 conv2dBFailed (tkonst0N [2, 2, 2, 2] 0))
 

@@ -523,7 +523,7 @@ testBarReluADValDt :: Assertion
 testBarReluADValDt =
   assertEqualUpToEpsilon 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @Double @0 (barRelu @(ADVal (Ast0 Double))) (OR.fromList [] [1.1]) 42.2)
+    (revDt @Double @0 barRelu (OR.fromList [] [1.1]) 42.2)
 
 testBarReluADVal :: Assertion
 testBarReluADVal =

@@ -6,7 +6,7 @@ module HordeAd.External.Adaptor
   , AdaptableDomains(toDomains, nParams, nScalars)
   , RandomDomains(randomVals)
   , AdaptableInputs(Value), parseDomains, parseADInputs
-  , revL, rev, revDt, crev, crevDt
+  , revL, revDtL, rev, revDt, crev, crevDt
   ) where
 
 import Prelude
@@ -16,6 +16,7 @@ import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
 import           Data.List (foldl')
+import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -24,6 +25,8 @@ import           System.Random
 
 import HordeAd.Core.ADValTensor
 import HordeAd.Core.Ast
+import HordeAd.Core.Delta (gradientFromDelta)
+import HordeAd.Core.DualClass (dFromVector1, dScalar1)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
@@ -31,54 +34,66 @@ import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
 
 revL
-  :: forall r n vals advals.
-     ( Numeric r, Show r, Floating (Vector r)
-     , KnownNat n, ScalarOf r ~ r, InterpretAst r
-     , AdaptableInputs (Ast0 r) advals, AdaptableDomains vals
-     , ADTensor r, r ~ Scalar vals, vals ~ Value advals )
-  => (advals -> ADVal (Ast n r)) -> [vals] -> [vals]
-revL _ [] = []
-revL f vals@(val0 : _) =
-  let g inputs = f $ parseADInputs val0 inputs
-      parameters0 = toDomains val0
-      dim0 = tlength $ domains0 parameters0
-      shapes1 = map tshapeD $ V.toList $ domains1 parameters0
-      gradientAst = revAstOnDomainsFun dim0 shapes1 g
-      h val = parseDomains val0 $ fst
+  :: forall r n vals astvals.
+     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
+     , Floating (Vector r), Show r, Numeric r
+     , FromDomainsAst astvals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ ValueAst astvals )
+  => (astvals -> Ast n r) -> [vals] -> [vals]
+revL f valsAll = revDtL f valsAll Nothing
+
+revDtL
+  :: forall r n vals astvals.
+     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
+     , Floating (Vector r), Show r, Numeric r
+     , FromDomainsAst astvals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ ValueAst astvals )
+  => (astvals -> Ast n r) -> [vals] -> Maybe (TensorOf n r) -> [vals]
+revDtL _ [] _ = []
+revDtL f valsAll@(vals : _) dt =
+  let parameters = toDomains vals
+      dim0 = tlength $ domains0 parameters
+      shapes1 = map tshapeD $ V.toList $ domains1 parameters
+      (var0, ast0) = funToAstR (singletonShape dim0) id
+      (vars1, asts1) = unzip $ map funToAstD shapes1
+      domains = Domains ast0 (V.fromList asts1)
+      deltaInputs = generateDeltaInputs domains
+      varInputs = makeADInputs domains deltaInputs
+      dual0 = dD ast0 (dFromVector1 $ V.map dScalar1 $ inputDual0 varInputs)
+      env0 = extendEnvR var0 dual0 IM.empty
+      env1 = foldr (\(AstDynamicVarName var, (u, u')) ->
+                      extendEnvR var (tfromD $ dD u u')) env0
+             $ zip vars1 $ V.toList
+             $ V.zip (inputPrimal1 varInputs) (inputDual1 varInputs)
+      ast = f $ parseDomainsAst vals domains
+      (D vAst deltaTopLevel) = interpretAst env1 ast
+      (varDt, astDt) = funToAstR (tshape vAst) id
+      deltaDt = packDeltaDt (Right astDt) deltaTopLevel
+      gradientAst = gradientFromDelta dim0 (length shapes1) deltaDt
+      h val = parseDomains val $ fst
               $ revAstOnDomainsEval dim0 (length shapes1)
-                                    gradientAst
-                                    (toDomains val) Nothing
-  in map h vals
+                                    (var0, vars1, varDt, gradientAst, vAst)
+                                    (toDomains val) dt
+  in map h valsAll
 
 rev
-  :: forall r n vals advals.
-     ( Numeric r, Show r, Floating (Vector r)
-     , KnownNat n, ScalarOf r ~ r, InterpretAst r
-     , AdaptableInputs (Ast0 r) advals, AdaptableDomains vals
-     , ADTensor r, r ~ Scalar vals, vals ~ Value advals )
-  => (advals -> ADVal (Ast n r)) -> vals -> vals
-rev f vals = revDtMaybe f vals Nothing
+  :: forall r n vals astvals.
+     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
+     , Floating (Vector r), Show r, Numeric r
+     , FromDomainsAst astvals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ ValueAst astvals )
+  => (astvals -> Ast n r) -> vals -> vals
+rev f vals = head $ revL f [vals]
 
 -- This version additionally takes the sensitivity parameter.
 revDt
-  :: forall r n vals advals.
-     ( Numeric r, Show r, Floating (Vector r)
-     , KnownNat n, ScalarOf r ~ r, InterpretAst r
-     , AdaptableInputs (Ast0 r) advals, AdaptableDomains vals
-     , ADTensor r, r ~ Scalar vals, vals ~ Value advals )
-  => (advals -> ADVal (Ast n r)) -> vals -> TensorOf n r -> vals
-revDt f vals dt = revDtMaybe f vals (Just dt)
-
-revDtMaybe
-  :: forall r n vals advals.
+  :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
      , Floating (Vector r), Show r, Numeric r
-     , AdaptableInputs (Ast0 r) advals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value advals )
-  => (advals -> ADVal (Ast n r)) -> vals -> Maybe (TensorOf n r) -> vals
-revDtMaybe f vals dt =
-  let g inputs = f $ parseADInputs vals inputs
-  in parseDomains vals $ fst $ revAstOnDomains g (toDomains vals) dt
+     , FromDomainsAst astvals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ ValueAst astvals )
+  => (astvals -> Ast n r) -> vals -> TensorOf n r -> vals
+revDt f vals dt = head $ revDtL f [vals] (Just dt)
 
 -- Old version of the three functions, with constant, fixed inputs and dt.
 crev :: forall a vals r advals.
