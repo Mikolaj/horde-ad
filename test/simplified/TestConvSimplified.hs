@@ -121,7 +121,7 @@ testKonstG0Rev :: Assertion
 testKonstG0Rev =
   assertEqualUpToEpsilon 1e-10
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @(OR.Array 4 Double) conv2dB (tzero [2, 2, 2, 2]))
+    (rev @Double @4 conv2dB (tzero [2, 2, 2, 2]))
 
 testKonstG0Tiny1 :: Assertion
 testKonstG0Tiny1 =
@@ -254,7 +254,7 @@ testKonst0RevLaborious :: Assertion
 testKonst0RevLaborious =
   assertEqualUpToEpsilon 1e-10
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @(OR.Array 4 Double) conv2dBLaborious (tzero [2, 2, 2, 2]))
+    (rev @Double @4 conv2dBLaborious (tzero [2, 2, 2, 2]))
 
 testKonst0Tiny1Laborious :: Assertion
 testKonst0Tiny1Laborious =
@@ -521,7 +521,7 @@ testKonst0RevFailed :: Assertion
 testKonst0RevFailed =
   assertEqualUpToEpsilon 1e-10
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @(OR.Array 4 Double) conv2dBFailed (tkonst0N [2, 2, 2, 2] 0))
+    (rev @Double @4 conv2dBFailed (tkonst0N [2, 2, 2, 2] 0))
 
 testKonst0Tiny1Failed :: Assertion
 testKonst0Tiny1Failed =

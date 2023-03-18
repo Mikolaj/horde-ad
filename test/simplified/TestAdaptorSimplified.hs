@@ -274,7 +274,7 @@ testFoo :: Assertion
 testFoo =
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (rev @Double foo (1.1, 2.2, 3.3))
+    (crev @Double foo (1.1, 2.2, 3.3))
 
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =
@@ -285,7 +285,7 @@ testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-9
     (3.1435239435581166,-1.1053869545195814)
-    (rev (bar @(ADVal Double)) (1.1, 2.2))
+    (crev (bar @(ADVal Double)) (1.1, 2.2))
 
 barADVal :: forall r. (IsPrimal r, RealFloat r)
          => (ADVal r, ADVal r) -> ADVal r
@@ -295,7 +295,7 @@ testBarADVal :: Assertion
 testBarADVal =
   assertEqualUpToEpsilon 1e-9
     (11.49618087412679,-135.68959896367525)
-    (revDt (barADVal @Double) (1.1, 3) 42.2)
+    (crevDt (barADVal @Double) (1.1, 3) 42.2)
 
 barADVal2 :: forall r a. (a ~ ADVal r, r ~ Double)
           => (a, a, a) -> a
@@ -330,7 +330,7 @@ testBaz :: Assertion
 testBaz =
   assertEqualUpToEpsilon 1e-9
     (0, -5219.20995030263, 2782.276274462047)
-    (rev baz (1.1, 2.2, 3.3))
+    (crev baz (1.1, 2.2, 3.3))
 
 -- If terms are numbered and @z@ is, wrongly, decorated with number 0,
 -- here @fooConstant@ is likely to clash with @z@, since it was numbered
@@ -346,7 +346,7 @@ testBazRenumbered :: Assertion
 testBazRenumbered =
   assertEqualUpToEpsilon 1e-9
     (0, -5219.20995030263, 2783.276274462047)
-    (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
+    (crev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
@@ -361,7 +361,7 @@ testFooD :: Assertion
 testFooD =
   assertEqualUpToEpsilon 1e-10
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
-    (rev fooD [1.1 :: Double, 2.2, 3.3])
+    (crev fooD [1.1 :: Double, 2.2, 3.3])
 
 fooBuild1 :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 fooBuild1 v =
@@ -377,7 +377,7 @@ testFooBuildDt :: Assertion
 testFooBuildDt =
   assertEqualUpToEpsilon 1e-10
     (OR.fromList [4] [-189890.46351219364,-233886.08744601303,-222532.22669716467,-206108.68889329425])
-    (revDt @(OR.Array 1 Double) fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]) (OR.constant [3] 42))
+    (revDt @Double @1 fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]) (OR.constant [3] 42))
 
 testFooBuild :: Assertion
 testFooBuild =
@@ -428,7 +428,7 @@ testFooNoGoAst =
                          (fooNoGoAst (AstVar [5] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
-       (rev @(OR.Array 1 Double) f
+       (crev @(OR.Array 1 Double) f
              (OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
 fooNoGo :: forall r. ADReady r
@@ -517,7 +517,7 @@ testBarReluADValDt :: Assertion
 testBarReluADValDt =
   assertEqualUpToEpsilon 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @(OR.Array 0 Double) barRelu (OR.fromList [] [1.1]) 42.2)
+    (revDt @Double @0 (barRelu @(ADVal (Ast0 Double))) (OR.fromList [] [1.1]) 42.2)
 
 testBarReluADVal :: Assertion
 testBarReluADVal =
@@ -549,7 +549,7 @@ testBarReluAst0 =
                          (barReluAst (AstVar [] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [] [191.20462646925841])
-       (revDt @(OR.Array 0 Double) f (OR.fromList [] [1.1]) 42.2)
+       (crevDt @(OR.Array 0 Double) f (OR.fromList [] [1.1]) 42.2)
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
@@ -563,7 +563,7 @@ testBarReluAst1 =
                          (barReluAst (AstVar [5] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
-       (rev @(OR.Array 1 Double) f (OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
+       (crev @(OR.Array 1 Double) f (OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
 
 konstReluAst
   :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
@@ -582,7 +582,7 @@ testKonstReluAst =
                          (konstReluAst (AstVar [] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [] [295.4])
-       (revDt @(OR.Array 0 Double) f (OR.fromList [] [1.1]) 42.2)
+       (crevDt @(OR.Array 0 Double) f (OR.fromList [] [1.1]) 42.2)
 
 
 -- * Tests by TomS
@@ -594,7 +594,7 @@ testF1 :: Assertion
 testF1 =
   assertEqualUpToEpsilon 1e-10
     45.0
-    (rev @Double f1 1.1)
+    (crev @Double f1 1.1)
 
 testF11 :: Assertion
 testF11 =
@@ -616,7 +616,7 @@ testF2 :: Assertion
 testF2 =
   assertEqualUpToEpsilon 1e-10
     470
-    (rev @Double f2 1.1)
+    (crev @Double f2 1.1)
 
 testF21 :: Assertion
 testF21 =
@@ -656,7 +656,7 @@ testBraidedBuilds :: Assertion
 testBraidedBuilds =
   assertEqualUpToEpsilon 1e-10
     4.0
-    (rev @(OR.Array 2 Double) braidedBuilds 3.4)
+    (crev @(OR.Array 2 Double) braidedBuilds 3.4)
 
 testBraidedBuilds1 :: Assertion
 testBraidedBuilds1 =
@@ -674,7 +674,7 @@ testRecycled :: Assertion
 testRecycled =
   assertEqualUpToEpsilon 1e-6
     348356.9278600814
-    (rev @(OR.Array 5 Double) recycled 0.0000001)
+    (crev @(OR.Array 5 Double) recycled 0.0000001)
 
 testRecycled1 :: Assertion
 testRecycled1 =
@@ -697,7 +697,7 @@ testConcatBuild :: Assertion
 testConcatBuild =
   assertEqualUpToEpsilon 1e-10
     126.0
-    (rev @(OR.Array 2 Double) concatBuild 3.4)
+    (crev @(OR.Array 2 Double) concatBuild 3.4)
 
 testConcatBuild1 :: Assertion
 testConcatBuild1 =

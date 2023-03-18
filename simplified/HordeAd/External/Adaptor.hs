@@ -6,7 +6,7 @@ module HordeAd.External.Adaptor
   , AdaptableDomains(toDomains, nParams, nScalars)
   , RandomDomains(randomVals)
   , AdaptableInputs(Value), parseDomains, parseADInputs
-  , rev, revDt
+  , revL, rev, revDt, crev, crevDt
   ) where
 
 import Prelude
@@ -22,36 +22,80 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
+import HordeAd.Core.ADValTensor
 import HordeAd.Core.Ast
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
 
-rev :: forall a vals r advals.
+revL
+  :: forall r n vals advals.
+     ( Numeric r, Show r, Floating (Vector r)
+     , KnownNat n, ScalarOf r ~ r, InterpretAst r
+     , AdaptableInputs (Ast0 r) advals, AdaptableDomains vals
+     , ADTensor r, r ~ Scalar vals, vals ~ Value advals )
+  => (advals -> ADVal (Ast n r)) -> [vals] -> [vals]
+revL _ [] = []
+revL f (val : vals) =
+  let r = rev f val
+  in r : revL f vals
+
+rev
+  :: forall r n vals advals.
+     ( Numeric r, Show r, Floating (Vector r)
+     , KnownNat n, ScalarOf r ~ r, InterpretAst r
+     , AdaptableInputs (Ast0 r) advals, AdaptableDomains vals
+     , ADTensor r, r ~ Scalar vals, vals ~ Value advals )
+  => (advals -> ADVal (Ast n r)) -> vals -> vals
+rev f vals = revDtMaybe f vals Nothing
+
+-- This version additionally takes the sensitivity parameter.
+revDt
+  :: forall r n vals advals.
+     ( Numeric r, Show r, Floating (Vector r)
+     , KnownNat n, ScalarOf r ~ r, InterpretAst r
+     , AdaptableInputs (Ast0 r) advals, AdaptableDomains vals
+     , ADTensor r, r ~ Scalar vals, vals ~ Value advals )
+  => (advals -> ADVal (Ast n r)) -> vals -> TensorOf n r -> vals
+revDt f vals dt = revDtMaybe f vals (Just dt)
+
+revDtMaybe
+  :: forall r n vals advals.
+     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
+     , Floating (Vector r), Show r, Numeric r
+     , AdaptableInputs (Ast0 r) advals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ Value advals )
+  => (advals -> ADVal (Ast n r)) -> vals -> Maybe (TensorOf n r) -> vals
+revDtMaybe f vals dt =
+  let g inputs = f $ parseADInputs vals inputs
+  in parseDomains vals $ fst $ revAstOnDomains g (toDomains vals) dt
+
+-- Old version of the three functions, with constant, fixed inputs and dt.
+crev :: forall a vals r advals.
        ( r ~ Scalar vals, vals ~ Value advals
        , ADTensor r, IsPrimalWithScalar a r
        , Adaptable advals )
     => (advals -> ADVal a) -> vals
     -> vals
-rev f vals = revDtMaybe f vals Nothing
+crev f vals = crevDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
-revDt :: forall a vals r advals.
+crevDt :: forall a vals r advals.
          ( r ~ Scalar vals, vals ~ Value advals
          , ADTensor r, IsPrimalWithScalar a r
          , Adaptable advals )
       => (advals -> ADVal a) -> vals -> a
       -> vals
-revDt f vals dt = revDtMaybe f vals (Just dt)
+crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
-revDtMaybe :: forall a vals r advals.
+crevDtMaybe :: forall a vals r advals.
             ( r ~ Scalar vals, vals ~ Value advals
             , ADTensor r, IsPrimalWithScalar a r
             , Adaptable advals )
          => (advals -> ADVal a) -> vals -> Maybe a
          -> vals
-revDtMaybe f vals dt =
+crevDtMaybe f vals dt =
   let g inputs = f $ parseADInputs vals inputs
   in parseDomains vals $ fst $ revOnDomains dt g (toDomains vals)
 
