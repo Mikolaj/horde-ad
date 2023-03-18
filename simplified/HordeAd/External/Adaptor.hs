@@ -144,7 +144,7 @@ instance AdaptableInputs Float (ADVal Float) where
 
 instance (RealFloat r, Show r, Numeric r, Floating (Vector r))
          => AdaptableInputs (Ast0 r) (ADVal (Ast0 r)) where
-  type Value (ADVal (Ast0 r)) = Ast0 r
+  type Value (ADVal (Ast0 r)) = r
   fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
       Just (aDual, restDual) ->
@@ -211,7 +211,7 @@ instance ( ADTensor r, KnownNat n, TensorOf n r ~ OR.Array n r
 
 instance (KnownNat n, RealFloat r, Show r, Numeric r, Floating (Vector r))
          => AdaptableInputs (Ast0 r) (ADVal (Ast n r)) where
-  type Value (ADVal (Ast n r)) = Ast n r
+  type Value (ADVal (Ast n r)) = OR.Array n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->

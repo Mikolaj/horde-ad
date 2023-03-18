@@ -120,7 +120,7 @@ rev' f vals =
            -> ADVal (Ast m r)
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
-            env = extendEnvR var (parseADInputs (AstConst vals) inputs) IM.empty
+            env = extendEnvR var (parseADInputs vals inputs) IM.empty
         in interpretAst env (gx ast)
       (astGradAst, value2Ast) =
         revAstOnDomains (hAst id id id) (toDomains vals) dt
