@@ -9,7 +9,7 @@ module HordeAd.Core.Engine
   , -- * The most often used part of the high-level API
     revAstOnDomains, revOnDomains
   , -- * Operations exposed not for the library users but add-on makers
-    revOnADInputs
+    revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
   , generateDeltaInputs, initializerFixed, initializerFixed01
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdOnADInputs, slowFwdOnDomains

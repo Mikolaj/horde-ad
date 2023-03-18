@@ -37,9 +37,17 @@ revL
      , ADTensor r, r ~ Scalar vals, vals ~ Value advals )
   => (advals -> ADVal (Ast n r)) -> [vals] -> [vals]
 revL _ [] = []
-revL f (val : vals) =
-  let r = rev f val
-  in r : revL f vals
+revL f vals@(val0 : _) =
+  let g inputs = f $ parseADInputs val0 inputs
+      parameters0 = toDomains val0
+      dim0 = tlength $ domains0 parameters0
+      shapes1 = map tshapeD $ V.toList $ domains1 parameters0
+      gradientAst = revAstOnDomainsFun dim0 shapes1 g
+      h val = parseDomains val0 $ fst
+              $ revAstOnDomainsEval dim0 (length shapes1)
+                                    gradientAst
+                                    (toDomains val) Nothing
+  in map h vals
 
 rev
   :: forall r n vals advals.
