@@ -35,6 +35,14 @@ import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
+instance (RealFloat r, Floating (Vector r), Numeric r, Show r, KnownNat n)
+         => IfB (ADVal (Ast n r)) where
+  ifB b v w = tindex (tfromList [v, w]) (singletonIndex $ ifB b 0 1)
+
+instance (RealFloat r, Floating (Vector r), Numeric r, Show r)
+         => IfB (ADVal (Ast0 r)) where
+  ifB b v w = tunScalar $ ifB b (tscalar v) (tscalar w)
+
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, which vectorizes and finally interpret in ADVal.
 -- In principle, this instance is only useful for comparative tests,

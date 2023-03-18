@@ -26,7 +26,7 @@ module HordeAd.Core.DualNumber
   , Domain0, Domain1, Domains(..), emptyDomain0, nullDomains
   ) where
 
-import Prelude
+import Prelude hiding ((<*))
 
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
@@ -60,20 +60,26 @@ data ADVal a = D a (Dual a)
 
 deriving instance (Show a, Show (Dual a)) => Show (ADVal a)
 
-type instance BooleanOf (ADVal a) = Bool
+type instance BooleanOf (ADVal a) = BooleanOf a
 
-instance IfB (ADVal a) where
+instance IfB (ADVal Double) where
   ifB b v w = if b then v else w
 
-instance Eq a => EqB (ADVal a) where
-  (==*) = (==)
-  (/=*) = (/=)
+instance IfB (ADVal Float) where
+  ifB b v w = if b then v else w
 
-instance Ord a => OrdB (ADVal a) where
-  (<*) = (<)
-  (<=*) = (<=)
-  (>*) = (>)
-  (>=*) = (>=)
+instance IfB (ADVal (OR.Array n r)) where
+  ifB b v w = if b then v else w
+
+instance EqB a => EqB (ADVal a) where
+  D u _ ==* D v _ = u ==* v
+  D u _ /=* D v _ = u /=* v
+
+instance OrdB a => OrdB (ADVal a) where
+  D u _ <* D v _ = u <* v
+  D u _ <=* D v _ = u <=* v
+  D u _ >* D v _ = u >* v
+  D u _ >=* D v _ = u >=* v
 
 -- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
 -- information, if applicable for the differentiation mode in question.
