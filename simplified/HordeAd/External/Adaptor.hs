@@ -34,7 +34,7 @@ rev :: forall a vals r advals.
        , Adaptable advals )
     => (advals -> ADVal a) -> vals
     -> vals
-rev f vals = revDtFun f vals Nothing
+rev f vals = revDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
 revDt :: forall a vals r advals.
@@ -43,16 +43,15 @@ revDt :: forall a vals r advals.
          , Adaptable advals )
       => (advals -> ADVal a) -> vals -> a
       -> vals
-revDt f vals dt = revDtFun f vals (Just dt)
+revDt f vals dt = revDtMaybe f vals (Just dt)
 
--- This version additionally takes a function producing sensitivity parameter.
-revDtFun :: forall a vals r advals.
+revDtMaybe :: forall a vals r advals.
             ( r ~ Scalar vals, vals ~ Value advals
             , ADTensor r, IsPrimalWithScalar a r
             , Adaptable advals )
          => (advals -> ADVal a) -> vals -> Maybe a
          -> vals
-revDtFun f vals dt =
+revDtMaybe f vals dt =
   let g inputs = f $ parseADInputs vals inputs
   in parseDomains vals $ fst $ revOnDomains dt g (toDomains vals)
 
