@@ -178,8 +178,9 @@ parseADInputs aInit inputs =
   let (advals, rest) = fromADInputs aInit inputs
   in assert (nullADInputs rest) advals
 
-instance FromDomainsAst (Ast0 Double) where
-  type ValueAst (Ast0 Double) = Double
+instance (Scalar r ~ r, Show r, Numeric r, Num (Vector r))
+         => FromDomainsAst (Ast0 r) where
+  type ValueAst (Ast0 r) = r
   fromDomainsAst _aInit (Domains v0 v1) = case tuncons v0 of
     Just (a, rest) -> (tunScalar a, Domains rest v1)
     Nothing -> error "fromDomainsAst in FromDomainsAst Double"
@@ -206,12 +207,6 @@ instance AdaptableInputs Double (ADVal Double) where
         , inputs {inputPrimal0 = restPrimal, inputDual0 = restDual} )
       Nothing -> error "fromADInputs in AdaptableInputs Double"
     Nothing -> error "fromADInputs in AdaptableInputs Double"
-
-instance FromDomainsAst (Ast0 Float) where
-  type ValueAst (Ast0 Float) = Float
-  fromDomainsAst _aInit (Domains v0 v1) = case tuncons v0 of
-    Just (a, rest) -> (tunScalar a, Domains rest v1)
-    Nothing -> error "fromDomainsAst in FromDomainsAst Float"
 
 instance AdaptableDomains Float where
   type Scalar Float = Float
