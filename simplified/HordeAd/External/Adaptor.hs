@@ -6,7 +6,9 @@ module HordeAd.External.Adaptor
   , AdaptableDomains(toDomains, nParams, nScalars)
   , RandomDomains(randomVals)
   , AdaptableInputs(Value), parseDomains, parseADInputs
-  , revL, revDtL, rev, revDt, crev, crevDt
+  , revL, revDtMaybeL, rev, revDt
+  , srevL, srevDtMaybeL, srev, srevDt
+  , crev, crevDt
   ) where
 
 import Prelude
@@ -33,6 +35,8 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
 
+-- These only work with non-scalar codomain. A fully general version
+-- is possible, but the user has to write many more type applications.
 revL
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
@@ -40,17 +44,17 @@ revL
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> [vals] -> [vals]
-revL f valsAll = revDtL f valsAll Nothing
+revL f valsAll = revDtMaybeL f valsAll Nothing
 
-revDtL
+revDtMaybeL
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
      , Floating (Vector r), Show r, Numeric r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> [vals] -> Maybe (TensorOf n r) -> [vals]
-revDtL _ [] _ = []
-revDtL f valsAll@(vals : _) dt =
+revDtMaybeL _ [] _ = []
+revDtMaybeL f valsAll@(vals : _) dt =
   let parameters = toDomains vals
       dim0 = tlength $ domains0 parameters
       shapes1 = map tshapeD $ V.toList $ domains1 parameters
@@ -93,7 +97,46 @@ revDt
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> vals -> TensorOf n r -> vals
-revDt f vals dt = head $ revDtL f [vals] (Just dt)
+revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
+
+-- Versions that work with scalar codomain.
+srevL
+  :: forall r vals astvals.
+     ( ADTensor r, InterpretAst r, ScalarOf r ~ r
+     , Floating (Vector r), Show r, Numeric r, RealFloat r
+     , FromDomainsAst astvals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ ValueAst astvals )
+  => (astvals -> Ast0 r) -> [vals] -> [vals]
+srevL f valsAll = revL (tscalar . f) valsAll
+
+srevDtMaybeL
+  :: forall r vals astvals.
+     ( ADTensor r, InterpretAst r, ScalarOf r ~ r
+     , Floating (Vector r), Show r, Numeric r, RealFloat r
+     , FromDomainsAst astvals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ ValueAst astvals )
+  => (astvals -> Ast0 r) -> [vals] -> Maybe r -> [vals]
+srevDtMaybeL _ [] _ = []
+srevDtMaybeL f valsAll dt = revDtMaybeL (tscalar . f) valsAll (tscalar <$> dt)
+
+srev
+  :: forall r vals astvals.
+     ( ADTensor r, InterpretAst r, ScalarOf r ~ r
+     , Floating (Vector r), Show r, Numeric r, RealFloat r
+     , FromDomainsAst astvals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ ValueAst astvals )
+  => (astvals -> Ast0 r) -> vals -> vals
+srev f vals = rev (tscalar . f) vals
+
+-- This version additionally takes the sensitivity parameter.
+srevDt
+  :: forall r vals astvals.
+     ( ADTensor r, InterpretAst r, ScalarOf r ~ r
+     , Floating (Vector r), Show r, Numeric r, RealFloat r
+     , FromDomainsAst astvals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ ValueAst astvals )
+  => (astvals -> Ast0 r) -> vals -> r -> vals
+srevDt f vals dt = revDt (tscalar . f) vals (tscalar dt)
 
 -- Old version of the three functions, with constant, fixed inputs and dt.
 crev :: forall a vals r advals.

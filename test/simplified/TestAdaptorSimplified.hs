@@ -280,7 +280,7 @@ testFoo :: Assertion
 testFoo =
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (crev @Double foo (1.1, 2.2, 3.3))
+    (srev @Double foo (1.1, 2.2, 3.3))
 
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =
@@ -600,7 +600,7 @@ testF1 :: Assertion
 testF1 =
   assertEqualUpToEpsilon 1e-10
     45.0
-    (crev @Double f1 1.1)
+    (srev @Double f1 1.1)
 
 testF11 :: Assertion
 testF11 =
@@ -622,7 +622,7 @@ testF2 :: Assertion
 testF2 =
   assertEqualUpToEpsilon 1e-10
     470
-    (crev @Double f2 1.1)
+    (srev @Double f2 1.1)
 
 testF21 :: Assertion
 testF21 =
