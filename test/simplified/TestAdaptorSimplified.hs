@@ -662,7 +662,7 @@ testBraidedBuilds :: Assertion
 testBraidedBuilds =
   assertEqualUpToEpsilon 1e-10
     4.0
-    (crev @(OR.Array 2 Double) braidedBuilds 3.4)
+    (rev @Double @2 braidedBuilds 3.4)
 
 testBraidedBuilds1 :: Assertion
 testBraidedBuilds1 =
@@ -680,7 +680,7 @@ testRecycled :: Assertion
 testRecycled =
   assertEqualUpToEpsilon 1e-6
     348356.9278600814
-    (crev @(OR.Array 5 Double) recycled 0.0000001)
+    (rev @Double @5 recycled 0.0000001)
 
 testRecycled1 :: Assertion
 testRecycled1 =
@@ -703,7 +703,7 @@ testConcatBuild :: Assertion
 testConcatBuild =
   assertEqualUpToEpsilon 1e-10
     126.0
-    (crev @(OR.Array 2 Double) concatBuild 3.4)
+    (rev @Double @2 concatBuild 3.4)
 
 testConcatBuild1 :: Assertion
 testConcatBuild1 =
