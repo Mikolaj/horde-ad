@@ -35,11 +35,11 @@ import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
-instance (RealFloat r, Floating (Vector r), Numeric r, Show r, KnownNat n)
+instance (Num (Vector r), Numeric r, Show r, KnownNat n)
          => IfB (ADVal (Ast n r)) where
   ifB b v w = tindex (tfromList [v, w]) (singletonIndex $ ifB b 0 1)
 
-instance (RealFloat r, Floating (Vector r), Numeric r, Show r)
+instance (Num (Vector r), Numeric r, Show r)
          => IfB (ADVal (Ast0 r)) where
   ifB b v w = tunScalar $ ifB b (tscalar v) (tscalar w)
 

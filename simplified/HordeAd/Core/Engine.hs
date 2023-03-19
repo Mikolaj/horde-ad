@@ -71,7 +71,7 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 revAstOnDomains
   :: forall r n.
      ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), Show r, Numeric r )
+     , Num (Vector r), Show r, Numeric r )
   => (ADInputs (Ast0 r) -> ADVal (Ast n r))
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
@@ -87,7 +87,7 @@ revAstOnDomains f parameters dt =
 
 revAstOnDomainsFun
   :: forall r n.
-     (ADTensor r, KnownNat n, Floating (Vector r), Show r, Numeric r)
+     (KnownNat n, Num (Vector r), Show r, Numeric r)
   => Int -> [[Int]]
   -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
   -> ( AstVarName (TensorOf 1 r)
@@ -113,7 +113,7 @@ revAstOnDomainsFun dim0 shapes1 f =
 revAstOnDomainsEval
   :: forall r n.
      ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), Show r, Numeric r )
+     , Num (Vector r), Show r, Numeric r )
   => Int -> Int
   -> ( AstVarName (TensorOf 1 r)
      , [AstDynamicVarName r]

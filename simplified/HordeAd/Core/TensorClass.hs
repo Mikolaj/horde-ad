@@ -49,8 +49,7 @@ type IndexOf n r = Index n (IntOf r)
 -- Ord and Num operations and numeric superclasses.
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
-class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
-      , Integral (IntOf r) )
+class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
       => Tensor r where
   type TensorOf (n :: Nat) r = result | result -> n r
   type IntOf r
@@ -73,9 +72,9 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tmaxIndex :: KnownNat n => TensorOf n r -> IndexOf n r
   tmaxIndex t = fromLinearIdx (fmap fromIntegral $ tshape t)
                               (tmaxIndex0 (tflatten t))
-  tfloor :: TensorOf 0 r -> IntOf r
+  tfloor :: RealFrac r => TensorOf 0 r -> IntOf r
   default tfloor  -- a more narrow type to rule out Ast
-    :: IntOf r ~ Int => TensorOf 0 r -> IntOf r
+    :: (IntOf r ~ Int, RealFrac r) => TensorOf 0 r -> IntOf r
   tfloor = floor . tunScalar
 
   -- Typically scalar codomain, often tensor reduction
@@ -223,9 +222,10 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tscaleByScalar v s = v `tmult` tkonst0N (tshape v) (tscalar s)
 
 type ADReady r =
-  ( Tensor r, HasPrimal r, Tensor (Primal r), Show r
-  , Numeric (ScalarOf r), RealFloat (ScalarOf r)
-  , ( RealFloat (TensorOf 2 r), RealFloat (TensorOf 3 r)
+  ( Tensor r, HasPrimal r, Tensor (Primal r), Show r, RealFloat r
+  , RealFloat (Primal r), Numeric (ScalarOf r), RealFloat (ScalarOf r)
+  , ( RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
+    , RealFloat (TensorOf 2 r), RealFloat (TensorOf 3 r)
     , RealFloat (TensorOf 4 r), RealFloat (TensorOf 5 r)
     , RealFloat (TensorOf 6 r), RealFloat (TensorOf 7 r)
     , RealFloat (TensorOf 8 r), RealFloat (TensorOf 9 r)

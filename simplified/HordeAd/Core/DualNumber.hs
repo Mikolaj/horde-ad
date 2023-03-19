@@ -113,6 +113,7 @@ type ADNum r =
   , IsPrimalWithScalar r r
   , IsPrimalWithScalar (OT.Array r) r
   , IsPrimalR r
+  , RealFloat r
   , RealFloat (Vector r)
   , Tensor r
   , TensorOf 0 r ~ OR.Array 0 r

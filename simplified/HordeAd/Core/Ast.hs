@@ -293,7 +293,7 @@ instance Fractional (OR.Array n r) => Fractional (Ast n r) where
   recip v = AstOp RecipOp [v]
   fromRational = AstConstant . AstPrimalPart . AstConst . fromRational
 
-instance Floating (OR.Array n r) => Floating (Ast n r) where
+instance (Floating (OR.Array n r)) => Floating (Ast n r) where
   pi = AstConstant $ AstPrimalPart $ AstConst pi
   exp u = AstOp ExpOp [u]
   log u = AstOp LogOp [u]
