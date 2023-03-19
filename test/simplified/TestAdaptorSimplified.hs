@@ -703,7 +703,7 @@ testConcatBuild :: Assertion
 testConcatBuild =
   assertEqualUpToEpsilon 1e-10
     126.0
-    (rev @Double @2 concatBuild 3.4)
+    (rev @(OR.Array 2 Double) @Double @2 @(Ast 2 Double) concatBuild 3.4)
 
 testConcatBuild1 :: Assertion
 testConcatBuild1 =
