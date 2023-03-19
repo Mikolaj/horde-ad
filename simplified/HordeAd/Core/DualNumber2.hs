@@ -236,8 +236,7 @@ instance (Real a, IsPrimal d a) => Real (ADVal d a) where
 
 instance (Fractional a, IsPrimal d a) => Fractional (ADVal d a) where
   D u u' / D v v' =
-    let recipSq = recip (v * v)  -- ensure sharing; also elsewhere
-    in dD (u / v) (dAdd (dScale (v * recipSq) u') (dScale (- u * recipSq) v'))
+    dD (u / v) (dAdd (dScale (recip v) u') (dScale (- u / (v * v)) v'))
   recip (D v v') =
     let minusRecipSq = - recip (v * v)
     in dD (recip v) (dScale minusRecipSq v')
