@@ -509,7 +509,6 @@ library horde-ad-simplified
                       HordeAd.Core.DualNumber2
                       HordeAd.Core.Engine
                       HordeAd.Core.Engine2
-                      HordeAd.Core.PairOfVectors
                       HordeAd.Core.SizedIndex
                       HordeAd.Core.TensorADVal
                       HordeAd.Core.TensorAst

@@ -25,7 +25,6 @@ import           System.Random
 import HordeAd.Core.DualClass2 (inputConstant)
 import HordeAd.Core.DualNumber2
 import HordeAd.Core.Engine2
-import HordeAd.Core.PairOfVectors
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
 

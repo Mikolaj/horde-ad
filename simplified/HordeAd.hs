@@ -7,7 +7,6 @@ module HordeAd
   , module HordeAd.Core.AstInterpret
   , module HordeAd.Core.DualNumber2
   , module HordeAd.Core.Engine2
-  , module HordeAd.Core.PairOfVectors
   , module HordeAd.Core.SizedIndex
   , module HordeAd.Core.TensorClass
   , module HordeAd.External.Adaptor2
@@ -20,7 +19,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.DualNumber2
 import HordeAd.Core.Engine2
-import HordeAd.Core.PairOfVectors
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor2

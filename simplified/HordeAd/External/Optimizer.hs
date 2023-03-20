@@ -12,7 +12,6 @@ import Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber2
 import HordeAd.Core.Engine2
-import HordeAd.Core.PairOfVectors (ADInputs, makeADInputs)
 import HordeAd.External.OptimizerTools
 
 -- | Simple Gradient Descent.

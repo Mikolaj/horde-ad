@@ -16,6 +16,9 @@ module HordeAd.Core.Engine2
   , prettyPrintDf
   , domainsFromD01, domainsFrom01, domainsFrom0V
   , listsToParameters, listsToParameters4, domainsD0
+  , ADInputs(..)
+  , makeADInputs, nullADInputs, at0, at1
+  , ifoldlDual', foldlDual'
   ) where
 
 import Prelude
@@ -25,17 +28,86 @@ import qualified Data.Array.RankedS as OR
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (SomeNat (..), someNatVal)
+import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta (derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass2
-  (HasInputs (..), dFrom1D, dInput0, dInput1, dummyDual, packDeltaDt)
+  (HasInputs (..), dFrom1D, dFromD1, dInput0, dInput1, dummyDual, packDeltaDt)
 import HordeAd.Core.DualNumber2
-import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
 import HordeAd.Core.TensorClass
+
+-- These are optimized as "pair of vectors" representing vectors of @ADVal@
+-- in an efficient way (especially, or only, with gradient descent,
+-- where the vectors are reused in some ways).
+
+data ADInputs d r = ADInputs
+  { inputPrimal0 :: Domain0 r
+  , inputDual0   :: Data.Vector.Vector (Dual d r)
+  , inputPrimal1 :: Domain1 r
+  , inputDual1   :: Data.Vector.Vector (Dual d (DynamicTensor r))
+  }
+
+makeADInputs
+  :: Domains r
+  -> ( Data.Vector.Vector (Dual d r)
+     , Data.Vector.Vector (Dual d (DynamicTensor r)) )
+  -> ADInputs d r
+{-# INLINE makeADInputs #-}
+makeADInputs Domains{..} (vs0, vs1)
+  = ADInputs domains0 vs0 domains1 vs1
+
+inputsToDomains :: ADInputs d r -> Domains r
+inputsToDomains ADInputs{..} =
+  Domains inputPrimal0 inputPrimal1
+
+nullADInputs :: Tensor r => ADInputs d r -> Bool
+nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
+
+{- This is to slow:
+at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
+{-# INLINE at0 #-}
+at0 ADInputs{..} i = dD (tunScalar $ inputPrimal0 ! (singletonIndex i))
+                        (inputDual0 V.! i)
+-}
+at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
+{-# INLINE at0 #-}
+at0 ADInputs{..} i = D (OR.toVector inputPrimal0 V.! i) (inputDual0 V.! i)
+
+at1 :: forall n r d. (KnownNat n, ADModeAndNum d r, TensorOf n r ~ OR.Array n r)
+    =>  ADInputs d r -> Int -> ADVal d (OR.Array n r)
+{-# INLINE at1 #-}
+at1 ADInputs{..} i = dD (tfromD $ inputPrimal1 V.! i)
+                        (dFromD1 $ inputDual1 V.! i)
+
+ifoldlDual' :: forall a d r. ADModeAndNum d r
+             => (a -> Int -> ADVal d r -> a)
+             -> a
+             -> ADInputs d r
+             -> a
+{-# INLINE ifoldlDual' #-}
+ifoldlDual' f a ADInputs{..} = do
+  let g :: a -> Int -> r -> a
+      g !acc i valX =
+        let !b = dD valX (inputDual0 V.! i)
+        in f acc i b
+  V.ifoldl' g a $ OR.toVector inputPrimal0
+
+foldlDual' :: forall a d r. ADModeAndNum d r
+            => (a -> ADVal d r -> a)
+            -> a
+            -> ADInputs d r
+            -> a
+{-# INLINE foldlDual' #-}
+foldlDual' f a ADInputs{..} = do
+  let g :: a -> Int -> r -> a
+      g !acc i valX =
+        let !b = dD valX (inputDual0 V.! i)
+        in f acc b
+  V.ifoldl' g a $ OR.toVector inputPrimal0
+
 
 -- * Evaluation that ignores the dual part of the dual numbers.
 -- It's intended for efficiently calculating the value of the function only.
