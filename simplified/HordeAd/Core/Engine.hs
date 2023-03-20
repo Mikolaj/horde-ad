@@ -138,7 +138,10 @@ revAstOnDomainsEval dim0 dim1
       envDt = extendEnvR varDt dtValue env1
       gradientDomain =
         Domains (interpretAst envDt $ domains0 gradientAst)
-                (V.map (interpretAstDynamic envDt) $ domains1 gradientAst)
+                (V.map (\t -> case t of
+                         AstDynamicDummy -> tdummyD
+                         _ -> interpretAstDynamic envDt t)
+                 $ domains1 gradientAst)
   in (gradientDomain, interpretAst env1 vAst)
 
 -- The old versions that use the fixed input and dt to compute gradient
