@@ -107,7 +107,7 @@ srevL
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast0 r) -> [vals] -> [vals]
-srevL f valsAll = revL (tscalar . f) valsAll
+srevL f = revL (tscalar . f)
 
 srevDtMaybeL
   :: forall r vals astvals.
@@ -126,7 +126,7 @@ srev
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast0 r) -> vals -> vals
-srev f vals = rev (tscalar . f) vals
+srev f = rev (tscalar . f)
 
 -- This version additionally takes the sensitivity parameter.
 srevDt

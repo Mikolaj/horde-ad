@@ -58,6 +58,7 @@
 # - ignore: {name: Use let}
 # - ignore: {name: Use const, within: SpecialModule} # Only within certain modules
 - ignore: {name: Use camelCase}
+- ignore: {name: Redundant lambda}
 
 
 # Define some custom infix operators

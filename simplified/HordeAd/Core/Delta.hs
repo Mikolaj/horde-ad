@@ -529,7 +529,7 @@ buildFinMaps s0 deltaDt =
             _ -> error "buildFinMaps: corrupted nMap"
 -}
         Index0 d ix sh ->
-          eval1 s (tscatter1 sh (tfromList [tscalar c]) (\_ -> ix)) d
+          eval1 s (tscatter1 sh (tfromList [tscalar c]) (const ix)) d
             -- equivalent: eval1 s (updateR (tkonst0NR sh 0) [(ix, c)]) d
         Sum0 sh d -> eval1 s (tkonst0N sh (tscalar c)) d
         Dot0 v vd -> eval1 s (tscaleByScalar v c) vd
@@ -573,7 +573,7 @@ buildFinMaps s0 deltaDt =
 --                                     , OR.reshape (1 : rest) c
 --                                     , OR.constant (len - ix - 1 : rest) 0 ])
 --                     d  -- TODO: optimize for input case
-        IndexZ d ix sh -> eval1 s (tscatter sh (tfromList [c]) (\_ -> ix)) d
+        IndexZ d ix sh -> eval1 s (tscatter sh (tfromList [c]) (const ix)) d
           -- equivalent: eval1 s (updateNR (tkonst0NR sh 0) [(ix, c)]) d
         Sum1 n d -> eval1 s (tkonst n c) d
         Scalar1 d -> eval0 s (tunScalar c) d
@@ -679,7 +679,7 @@ buildDerivative dim0 dim1 deltaTopLevel
         Input0 (InputId i) ->
           if i < dim0
           then return $! tunScalar
-                         $ domains0 ! (singletonIndex $ fromIntegral i)
+                         $ domains0 ! singletonIndex (fromIntegral i)
           else error "derivativeFromDelta.eval': wrong index for an input"
         Scale0 k d -> (k *) <$> eval0 d
         Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)
@@ -714,7 +714,7 @@ buildDerivative dim0 dim1 deltaTopLevel
           if i < dim1
           then return $! tfromD $ domains1 V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
-        Scale1 k d -> (tmult k) <$> eval1 d
+        Scale1 k d -> tmult k <$> eval1 d
         Add1 d e -> liftM2 tadd (eval1 d) (eval1 e)
         Let1 n d -> do
           nm <- readSTRef nMap

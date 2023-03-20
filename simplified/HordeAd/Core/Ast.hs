@@ -484,7 +484,7 @@ intVarInAst var = \case
   AstSum v -> intVarInAst var v
   AstConstInt k -> intVarInAstInt var k
   AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
-  AstScatter _ v (vars, ix) -> all (var /=) vars && intVarInIndex var ix
+  AstScatter _ v (vars, ix) -> notElem var vars && intVarInIndex var ix
                                || intVarInAst var v
   AstFromVector vl -> any (intVarInAst var) $ V.toList vl
   AstKonst _ v -> intVarInAst var v
@@ -494,7 +494,7 @@ intVarInAst var = \case
   AstTranspose _ v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
   AstBuild1 _ (var2, v) -> var /= var2 && intVarInAst var v
-  AstGatherZ _ v (vars, ix) -> all (var /=) vars && intVarInIndex var ix
+  AstGatherZ _ v (vars, ix) -> notElem var vars && intVarInIndex var ix
                                || intVarInAst var v
   AstFromDynamic v -> intVarInAstDynamic var v
 
@@ -541,7 +541,7 @@ substitute1Ast i var v1 = case v1 of
   AstSum v -> AstSum (substitute1Ast i var v)
   AstConstInt i2 -> AstConstInt $ substitute1AstInt i var i2
   AstScatter sh v (vars, ix) ->
-    if any (== var) vars
+    if elem var vars
     then AstScatter sh (substitute1Ast i var v) (vars, ix)
     else AstScatter sh (substitute1Ast i var v)
                        (vars, fmap (substitute1AstInt i var) ix)
@@ -558,7 +558,7 @@ substitute1Ast i var v1 = case v1 of
     then v1
     else AstBuild1 k (var2, substitute1Ast i var v)
   AstGatherZ sh v (vars, ix) ->
-    if any (== var) vars
+    if elem var vars
     then AstGatherZ sh (substitute1Ast i var v) (vars, ix)
     else AstGatherZ sh (substitute1Ast i var v)
                        (vars, fmap (substitute1AstInt i var) ix)
