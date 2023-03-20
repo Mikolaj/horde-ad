@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedLists, UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -22,7 +22,6 @@ import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.AstVectorize ()
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber hiding (build1)
 import HordeAd.Core.SizedIndex

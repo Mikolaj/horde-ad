@@ -23,14 +23,13 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
-import HordeAd.Core.AstVectorize ()
 import HordeAd.Core.DualNumber hiding (build1)
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal (ADTensor)
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 
---TODO:remove
+-- TODO:remove
 class TensorIsArray r where
   toArray :: TensorOf n r -> OR.Array n r
 
