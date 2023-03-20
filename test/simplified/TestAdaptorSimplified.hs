@@ -21,7 +21,7 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorADVal (ADTensor, from1D)
+import HordeAd.Core.TensorADVal (ADTensor)
 import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor
 
@@ -446,13 +446,14 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: ( ADTensor r, Show r, Numeric r, RealFloat r, Floating (Vector r)
+  let f :: ( Tensor (ADVal r), Show r, Numeric r, RealFloat r
+           , Floating (Vector r)
            , TensorOf 1 r ~ OR.Array 1 r, InterpretAst (ADVal r)
            , TensorOf 1 (ADVal r) ~ ADVal (TensorOf 1 r)
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
-      f x = interpretAst (IM.singleton 0 (AstVarR $ from1D x))
+      f x = interpretAst (IM.singleton 0 (AstVarR $ tfromR x))
                          (fooNoGoAst (AstVar [5] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
@@ -567,13 +568,14 @@ barReluAst x = relu1 @n @(Ast0 r) $ bar (x, relu1 x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
-  let f :: ( ADTensor r, Show r, Numeric r, RealFloat r, Floating (Vector r)
+  let f :: ( Tensor (ADVal r), Show r, Numeric r, RealFloat r
+           , Floating (Vector r)
            , TensorOf 0 r ~ OR.Array 0 r, InterpretAst (ADVal r)
            , TensorOf 0 (ADVal r) ~ ADVal (TensorOf 0 r)
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
-      f x = interpretAst (IM.singleton 0 (AstVarR $ from1D x))
+      f x = interpretAst (IM.singleton 0 (AstVarR $ tfromR x))
                          (barReluAst (AstVar [] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [] [191.20462646925841])
@@ -581,13 +583,14 @@ testBarReluAst0 =
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
-  let f :: ( ADTensor r, Show r, Numeric r, RealFloat r, Floating (Vector r)
+  let f :: ( Tensor (ADVal r), Show r, Numeric r, RealFloat r
+           , Floating (Vector r)
            , TensorOf 1 r ~ OR.Array 1 r, InterpretAst (ADVal r)
            , TensorOf 1 (ADVal r) ~ ADVal (TensorOf 1 r)
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
-      f x = interpretAst (IM.singleton 0 (AstVarR $ from1D x))
+      f x = interpretAst (IM.singleton 0 (AstVarR $ tfromR x))
                          (barReluAst (AstVar [5] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
@@ -600,13 +603,14 @@ konstReluAst x = tsum0 $ relu1 $ tkonst0N (7 :$ ZS) x
 
 testKonstReluAst :: Assertion
 testKonstReluAst =
-  let f :: ( ADTensor r, Show r, Numeric r, RealFloat r, Floating (Vector r)
+  let f :: ( Tensor (ADVal r), Show r, Numeric r, RealFloat r
+           , Floating (Vector r)
            , TensorOf 0 r ~ OR.Array 0 r, InterpretAst (ADVal r)
            , TensorOf 0 (ADVal r) ~ ADVal (TensorOf 0 r)
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
-      f x = interpretAst (IM.singleton 0 (AstVarR $ from1D x))
+      f x = interpretAst (IM.singleton 0 (AstVarR $ tfromR x))
                          (konstReluAst (AstVar [] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [] [295.4])

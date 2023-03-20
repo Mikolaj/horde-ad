@@ -32,7 +32,7 @@ import HordeAd.Core.DualClass (dFromVector1, dScalar1)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorADVal (ADTensor, fromD1)
+import HordeAd.Core.TensorADVal (ADTensor)
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
 
@@ -343,14 +343,16 @@ instance KnownNat n
         arr = OR.fromVector undefined $ createRandomVector (OR.size undefined) g1  -- TODO
     in (arr, g2)
 
-instance ( ADTensor r, KnownNat n, TensorOf n r ~ OR.Array n r
-         , DynamicTensor r ~ OD.Array r )
+instance ( Tensor (ADVal r), KnownNat n, TensorOf n r ~ OR.Array n r
+         , TensorOf n (ADVal r) ~ ADVal (OR.Array n r)
+         , DynamicTensor r ~ OD.Array r
+         , DynamicTensor (ADVal r) ~ ADVal (OD.Array r) )
          => AdaptableInputs r (ADVal (OR.Array n r)) where
   type Value (ADVal (OR.Array n r)) = OR.Array n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
-        ( fromD1 @n $ dD aPrimal aDual
+        ( tfromD @(ADVal r) @n $ dD aPrimal aDual
         , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
       Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
@@ -361,7 +363,7 @@ instance (KnownNat n, Show r, Numeric r, Num (Vector r))
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
-        ( fromD1 @n $ dD aPrimal aDual
+        ( tfromD @(ADVal (Ast0 r)) @n $ dD aPrimal aDual
         , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
       Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
