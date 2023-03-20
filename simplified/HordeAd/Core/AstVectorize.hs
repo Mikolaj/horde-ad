@@ -58,6 +58,27 @@ instance (Num (Vector r), Show r, Numeric r)
   tscalar = unAst0
   tunScalar = Ast0
 
+  type ScalarOf (Ast0 r) = r
+  type Primal (Ast0 r) = AstPrimalPart 0 r
+  type DualOf n (Ast0 r) = ()  -- TODO: data AstDualPart: dAdd, dkonst1
+  tconst = AstConstant . AstPrimalPart . AstConst
+  tconstant = AstConstant
+  tprimalPart = AstPrimalPart
+  tdualPart = error "TODO"
+  tD = error "TODO"
+  type DynamicTensor (Ast0 r) = AstDynamic r
+  tdummyD = AstDynamicDummy
+  tisDummyD t = case t of
+    AstDynamicDummy -> True
+    _ -> False
+  taddD = AstDynamicPlus
+  tshapeD t = case t of
+    AstDynamicDummy -> []
+    AstDynamicPlus t1 _t2 -> tshapeD t1
+    AstDynamicFrom v -> shapeToList $ shapeAst v
+  tfromR = AstDynamicFrom
+  tfromD = AstFromDynamic
+
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
 -- Due to how the Ast instance of Tensor is defined above, vectorization
@@ -105,29 +126,6 @@ instance (Num (Vector r), Show r, Numeric r)
   tscalar = id
   tunScalar = id
 
-instance (Show r, Numeric r) => HasPrimal (Ast0 r) where
-  type ScalarOf (Ast0 r) = r
-  type Primal (Ast0 r) = AstPrimalPart 0 r
-  type DualOf n (Ast0 r) = ()  -- TODO: data AstDualPart: dAdd, dkonst1
-  tconst = AstConstant . AstPrimalPart . AstConst
-  tconstant = AstConstant
-  tprimalPart = AstPrimalPart
-  tdualPart = error "TODO"
-  tD = error "TODO"
-  type DynamicTensor (Ast0 r) = AstDynamic r
-  tdummyD = AstDynamicDummy
-  tisDummyD t = case t of
-    AstDynamicDummy -> True
-    _ -> False
-  taddD = AstDynamicPlus
-  tshapeD t = case t of
-    AstDynamicDummy -> []
-    AstDynamicPlus t1 _t2 -> tshapeD t1
-    AstDynamicFrom v -> shapeToList $ shapeAst v
-  tfromR = AstDynamicFrom
-  tfromD = AstFromDynamic
-
-instance HasPrimal (AstPrimalPart 0 r) where
   type ScalarOf (AstPrimalPart 0 r) = r
   type Primal (AstPrimalPart 0 r) = AstPrimalPart 0 r
   type DualOf n (AstPrimalPart 0 r) = ()

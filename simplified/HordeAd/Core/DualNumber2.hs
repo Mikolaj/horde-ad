@@ -116,7 +116,6 @@ type ADModeAndNum (d :: ADMode) r =
   , IntOf r ~ Int
   , TensorIsArray r
   , DynamicTensor r ~ OD.Array r
-  , HasPrimal r
   )
 
 class TensorIsArray r where

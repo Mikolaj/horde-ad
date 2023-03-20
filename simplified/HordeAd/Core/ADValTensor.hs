@@ -40,7 +40,6 @@ type ADTensor r =
   ( IsPrimal r
   , HasRanks r
   , Tensor r
-  , HasPrimal r
   )
 
 class TensorIsArray r where
@@ -107,6 +106,22 @@ instance Tensor (ADVal Double) where
   tscalar = scalar
   tunScalar = unScalar
 
+  type ScalarOf (ADVal Double) = Double
+  type Primal (ADVal Double) = Double
+  type DualOf n (ADVal Double) = Dual (OR.Array n Double)
+  tconst t = dD t dZero
+  tconstant t = dD (toArray t) dZero
+  tprimalPart (D u _) = fromArray u
+  tdualPart (D _ u') = u'
+  tD u = dD (toArray u)
+  type DynamicTensor (ADVal Double) = ADVal (OD.Array Double)
+  tdummyD = undefined  -- not used for dual numbers
+  tisDummyD = undefined  -- not used for dual numbers
+  taddD = (+)
+  tshapeD (D u _) = OD.shapeL u
+  tfromR = from1D
+  tfromD = fromD1
+
 instance Tensor (ADVal Float) where
   type TensorOf n (ADVal Float) = ADVal (OR.Array n Float)
   type IntOf (ADVal Float) = Int
@@ -138,6 +153,23 @@ instance Tensor (ADVal Float) where
 
   tscalar = scalar
   tunScalar = unScalar
+
+  type ScalarOf (ADVal Float) = Float
+  type Primal (ADVal Float) = Float
+  type DualOf n (ADVal Float) = Dual (OR.Array n Float)
+  tconst t = dD t dZero
+  tconstant t = dD (toArray t) dZero
+  tprimalPart (D u _) = fromArray u
+  tdualPart (D _ u') = u'
+  tD u = dD (toArray u)
+  -- TODO: if ever used, define, if not, use an Error type
+  type DynamicTensor (ADVal Float) = ADVal (OD.Array Float)
+  tdummyD = undefined  -- not used for dual numbers
+  tisDummyD = undefined  -- not used for dual numbers
+  taddD = (+)
+  tshapeD (D u _) = OD.shapeL u
+  tfromR = from1D
+  tfromD = fromD1
 
 instance (ADTensor (Ast0 r), Numeric r, Show r, Num (Vector r))
          => Tensor (ADVal (Ast0 r)) where
@@ -173,43 +205,6 @@ instance (ADTensor (Ast0 r), Numeric r, Show r, Num (Vector r))
   tscalar = scalar
   tunScalar = unScalar
 
-instance HasPrimal (ADVal Double) where
-  type ScalarOf (ADVal Double) = Double
-  type Primal (ADVal Double) = Double
-  type DualOf n (ADVal Double) = Dual (OR.Array n Double)
-  tconst t = dD t dZero
-  tconstant t = dD (toArray t) dZero
-  tprimalPart (D u _) = fromArray u
-  tdualPart (D _ u') = u'
-  tD u = dD (toArray u)
-  type DynamicTensor (ADVal Double) = ADVal (OD.Array Double)
-  tdummyD = undefined  -- not used for dual numbers
-  tisDummyD = undefined  -- not used for dual numbers
-  taddD = (+)
-  tshapeD (D u _) = OD.shapeL u
-  tfromR = from1D
-  tfromD = fromD1
-
-instance HasPrimal (ADVal Float) where
-  type ScalarOf (ADVal Float) = Float
-  type Primal (ADVal Float) = Float
-  type DualOf n (ADVal Float) = Dual (OR.Array n Float)
-  tconst t = dD t dZero
-  tconstant t = dD (toArray t) dZero
-  tprimalPart (D u _) = fromArray u
-  tdualPart (D _ u') = u'
-  tD u = dD (toArray u)
-  -- TODO: if ever used, define, if not, use an Error type
-  type DynamicTensor (ADVal Float) = ADVal (OD.Array Float)
-  tdummyD = undefined  -- not used for dual numbers
-  tisDummyD = undefined  -- not used for dual numbers
-  taddD = (+)
-  tshapeD (D u _) = OD.shapeL u
-  tfromR = from1D
-  tfromD = fromD1
-
-instance (ADTensor (Ast0 r), Numeric r, Show r)
-         => HasPrimal (ADVal (Ast0 r)) where
   type ScalarOf (ADVal (Ast0 r)) = r
   type Primal (ADVal (Ast0 r)) = Ast0 r
   type DualOf n (ADVal (Ast0 r)) = Dual (Ast n r)
@@ -367,8 +362,7 @@ from1D (D u u') = dDnotShared (tfromR u) (dFrom1D u')
 
 -- * Interpretation of Ast in ADVal
 
--- We are very close to being able to interpret Ast in any Tensor
--- and HasPrimal instance.
+-- We are very close to being able to interpret Ast in any Tensor instance.
 -- However, this proves impossible, because we'd need to adorn interpretAst
 -- with constraints like RealFloat (Tensor n r) for all @n@ in use,
 -- which includes, e.g., @m + p@, where @m@ and @p@ are not mentioned
@@ -388,7 +382,7 @@ data AstVar a =
 
 deriving instance (Show (DynamicTensor a), Show (IntOf a)) => Show (AstVar a)
 
-extendEnvR :: forall n a. (HasPrimal a, KnownNat n)
+extendEnvR :: forall n a. (Tensor a, KnownNat n)
            => AstVarName (TensorOf n (ScalarOf a)) -> TensorOf n a
            -> AstEnv a -> AstEnv a
 extendEnvR v@(AstVarName var) d =
@@ -442,7 +436,7 @@ instance InterpretAst (ADVal Double) where
  interpretAst = interpretAstRec
   where
 -- We could duplicate interpretAst to save some time (sadly, we can't
--- interpret Ast uniformly in any Tensor and HasPrimal instance due to typing,
+-- interpret Ast uniformly in any Tensor instance due to typing,
 -- so we can't just use an instance of interpretation to OR.Array for that),
 -- but it's not a huge saving, because all dual parts are gone before
 -- we do any differentiation and they are mostly symbolic, so don't even
@@ -564,7 +558,7 @@ instance InterpretAst (ADVal Float) where
  interpretAst = interpretAstRec
   where
 -- We could duplicate interpretAst to save some time (sadly, we can't
--- interpret Ast uniformly in any Tensor and HasPrimal instance due to typing,
+-- interpret Ast uniformly in any Tensor instance due to typing,
 -- so we can't just use an instance of interpretation to OR.Array for that),
 -- but it's not a huge saving, because all dual parts are gone before
 -- we do any differentiation and they are mostly symbolic, so don't even
@@ -688,7 +682,7 @@ instance ( ADTensor (Ast0 q)
  interpretAst = interpretAstRec
   where
 -- We could duplicate interpretAst to save some time (sadly, we can't
--- interpret Ast uniformly in any Tensor and HasPrimal instance due to typing,
+-- interpret Ast uniformly in any Tensor instance due to typing,
 -- so we can't just use an instance of interpretation to OR.Array for that),
 -- but it's not a huge saving, because all dual parts are gone before
 -- we do any differentiation and they are mostly symbolic, so don't even
@@ -810,7 +804,7 @@ instance InterpretAst Double where
  interpretAst = interpretAstRec
   where
 -- We could duplicate interpretAst to save some time (sadly, we can't
--- interpret Ast uniformly in any Tensor and HasPrimal instance due to typing,
+-- interpret Ast uniformly in any Tensor instance due to typing,
 -- so we can't just use an instance of interpretation to OR.Array for that),
 -- but it's not a huge saving, because all dual parts are gone before
 -- we do any differentiation and they are mostly symbolic, so don't even
@@ -932,7 +926,7 @@ instance InterpretAst Float where
  interpretAst = interpretAstRec
   where
 -- We could duplicate interpretAst to save some time (sadly, we can't
--- interpret Ast uniformly in any Tensor and HasPrimal instance due to typing,
+-- interpret Ast uniformly in any Tensor instance due to typing,
 -- so we can't just use an instance of interpretation to OR.Array for that),
 -- but it's not a huge saving, because all dual parts are gone before
 -- we do any differentiation and they are mostly symbolic, so don't even

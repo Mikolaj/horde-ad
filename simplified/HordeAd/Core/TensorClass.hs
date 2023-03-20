@@ -7,10 +7,9 @@
 -- (and safely impure) API in "HordeAd.Core.DualClass". The other part
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
-  ( IndexOf, ShapeInt, Tensor(..), HasPrimal(..), ADReady
+  ( IndexOf, ShapeInt, Tensor(..), ADReady
   , scale1, relu1, reluLeaky1
   ) where
-
 
 import Prelude
 
@@ -199,6 +198,9 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
 
+
+  -- ** No serviceable parts beyond this point ** --
+
   -- Needed to avoid Num (TensorOf n r) constraints all over the place
   -- and also wrong shape in @0@ with ranked (not shaped) tensors.
   tzero :: KnownNat n
@@ -219,8 +221,34 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tscaleByScalar :: KnownNat n => TensorOf n r -> r -> TensorOf n r
   tscaleByScalar v s = v `tmult` tkonst0N (tshape v) (tscalar s)
 
+  -- The primal/dual distinction
+  type ScalarOf r
+  type Primal r
+  type DualOf (n :: Nat) r
+  tconst :: KnownNat n => OR.Array n (ScalarOf r) -> TensorOf n r
+  tconstant :: KnownNat n => TensorOf n (Primal r) -> TensorOf n r
+  tprimalPart :: TensorOf n r -> TensorOf n (Primal r)
+  tdualPart :: TensorOf n r -> DualOf n r
+  tD :: KnownNat n => TensorOf n (Primal r) -> DualOf n r -> TensorOf n r
+  -- TODO: we'd probably also need dZero, dIndex0 and all others;
+  -- basically DualOf a needs to have IsPrimal and HasRanks instances
+  -- (and HasInputs?)
+  -- TODO: if DualOf is supposed to be user-visible, we needed
+  -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
+
+  -- The untyped versions of the tensor, to put many ranks in one vector
+  type DynamicTensor r = result | result -> r
+  tdummyD :: DynamicTensor r
+  tisDummyD :: DynamicTensor r -> Bool
+  taddD :: DynamicTensor r -> DynamicTensor r -> DynamicTensor r
+  tshapeD :: DynamicTensor r -> [Int]
+  tfromR :: KnownNat n
+         => TensorOf n r -> DynamicTensor r
+  tfromD :: KnownNat n
+         => DynamicTensor r -> TensorOf n r
+
 type ADReady r =
-  ( Tensor r, HasPrimal r, Tensor (Primal r), Show r, RealFloat r
+  ( Tensor r, Tensor (Primal r), Show r, RealFloat r
   , RealFloat (Primal r), Numeric (ScalarOf r), RealFloat (ScalarOf r)
   , ( RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
     , RealFloat (TensorOf 2 r), RealFloat (TensorOf 3 r)
@@ -338,6 +366,21 @@ instance Tensor Double where
   tscalar = tscalarR
   tunScalar = tunScalarR
   tscaleByScalar = tscaleByScalarR
+  type ScalarOf Double = Double
+  type Primal Double = Double
+  type DualOf n Double = ()
+  tconst = id
+  tconstant = id
+  tprimalPart = id
+  tdualPart _ = ()
+  tD u _ = u
+  type DynamicTensor Double = OD.Array Double
+  tdummyD = dummyTensor
+  tisDummyD = isTensorDummy
+  taddD = (+)
+  tshapeD = OD.shapeL
+  tfromR = Data.Array.Convert.convert
+  tfromD = Data.Array.Convert.convert
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
@@ -372,6 +415,21 @@ instance Tensor Float where
   tscalar = tscalarR
   tunScalar = tunScalarR
   tscaleByScalar = tscaleByScalarR
+  type ScalarOf Float = Float
+  type Primal Float = Float
+  type DualOf n Float = ()
+  tconst = id
+  tconstant = id
+  tprimalPart = id
+  tdualPart _ = ()
+  tD u _ = u
+  type DynamicTensor Float = OD.Array Float
+  tdummyD = dummyTensor
+  tisDummyD = isTensorDummy
+  taddD = (+)
+  tshapeD = OD.shapeL
+  tfromR = Data.Array.Convert.convert
+  tfromD = Data.Array.Convert.convert
 
 {- These instances are increasingly breaking stuff, so disabled:
 
@@ -425,71 +483,6 @@ instance Tensor r
   type ScalarOf (a -> r) = ScalarOf r
   tconst = tconst
 -}
-
--- * HasPrimal class and instances for all relevant types
-
--- We could accept any @RealFloat@ instead of @Primal a@, but then
--- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
--- Also, the stricter typing is likely to catch real errors most of the time,
--- not just sloppy omission ofs explicit coercions.
-class HasPrimal r where
-  type ScalarOf r
-  type Primal r
-  type DualOf (n :: Nat) r
-  tconst :: KnownNat n => OR.Array n (ScalarOf r) -> TensorOf n r
-  tconstant :: KnownNat n => TensorOf n (Primal r) -> TensorOf n r
-  tprimalPart :: TensorOf n r -> TensorOf n (Primal r)
-  tdualPart :: TensorOf n r -> DualOf n r
-  tD :: KnownNat n => TensorOf n (Primal r) -> DualOf n r -> TensorOf n r
-  -- TODO: we'd probably also need dZero, dIndex0 and all others;
-  -- basically DualOf a needs to have IsPrimal and HasRanks instances
-  -- (and HasInputs?)
-  -- TODO: if DualOf is supposed to be user-visible, we needed
-  -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
-
-  type DynamicTensor r = result | result -> r
-  tdummyD :: DynamicTensor r
-  tisDummyD :: DynamicTensor r -> Bool
-  taddD :: DynamicTensor r -> DynamicTensor r -> DynamicTensor r
-  tshapeD :: DynamicTensor r -> [Int]
-  tfromR :: KnownNat n
-         => TensorOf n r -> DynamicTensor r
-  tfromD :: KnownNat n
-         => DynamicTensor r -> TensorOf n r
-
-instance HasPrimal Double where
-  type ScalarOf Double = Double
-  type Primal Double = Double
-  type DualOf n Double = ()
-  tconst = id
-  tconstant = id
-  tprimalPart = id
-  tdualPart _ = ()
-  tD u _ = u
-  type DynamicTensor Double = OD.Array Double
-  tdummyD = dummyTensor
-  tisDummyD = isTensorDummy
-  taddD = (+)
-  tshapeD = OD.shapeL
-  tfromR = Data.Array.Convert.convert
-  tfromD = Data.Array.Convert.convert
-
-instance HasPrimal Float where
-  type ScalarOf Float = Float
-  type Primal Float = Float
-  type DualOf n Float = ()
-  tconst = id
-  tconstant = id
-  tprimalPart = id
-  tdualPart _ = ()
-  tD u _ = u
-  type DynamicTensor Float = OD.Array Float
-  tdummyD = dummyTensor
-  tisDummyD = isTensorDummy
-  taddD = (+)
-  tshapeD = OD.shapeL
-  tfromR = Data.Array.Convert.convert
-  tfromD = Data.Array.Convert.convert
 
 
 -- * Odds and ends

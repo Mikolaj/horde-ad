@@ -315,7 +315,7 @@ instance ( Tensor r, Numeric r, Show r, Num (Vector r), KnownNat n
     Just (a, rest) -> (ttoRankedOrDummy (tshape aInit) a, Domains v0 rest)
     Nothing -> error "fromDomainsAst in FromDomainsAst (OR.Array n r)"
 
-ttoRankedOrDummy :: (Tensor r, HasPrimal r, KnownNat n)
+ttoRankedOrDummy :: (Tensor r, KnownNat n)
                  => ShapeInt n -> DynamicTensor r -> TensorOf n r
 ttoRankedOrDummy sh x = if tisDummyD x
                         then tzero sh

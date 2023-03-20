@@ -118,7 +118,6 @@ type ADNum r =
   , TensorOf 1 r ~ OR.Array 1 r
   , IntOf r ~ Int
   , DynamicTensor r ~ OD.Array r
-  , HasPrimal r
   )
 
 -- Shims to reuse the tests for ordinary vectors.

@@ -58,11 +58,10 @@ data Ast :: Nat -> Type -> Type where
   -- For the numeric classes:
   AstOp :: OpCode -> [Ast n r] -> Ast n r
 
-  -- For HasPrimal class:
+  -- For Tensor class:
   AstConst :: OR.Array n r -> Ast n r
   AstConstant :: AstPrimalPart n r -> Ast n r
 
-  -- For Tensor class:
   AstIndexZ :: forall m n r. KnownNat m
             => Ast (m + n) r -> AstIndex m r -> Ast n r
     -- first ix is for outermost dimension; empty index means identity,
