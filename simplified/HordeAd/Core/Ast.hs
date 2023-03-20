@@ -27,7 +27,8 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
+import           GHC.TypeLits
+  (KnownNat, Nat, OrderingI (..), cmpNat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 
 import HordeAd.Core.SizedIndex
@@ -277,25 +278,29 @@ instance Ord (OR.Array n r) => Ord (Ast n r) where
   -- Unfortunately, the others can't be made to return @AstBool@.
   _ <= _ = error "Ast: can't evaluate terms for Ord"
 
-instance Num (OR.Array n r) => Num (Ast n r) where
+instance (Num (OR.Array n r), KnownNat n) => Num (Ast n r) where
   u + v = AstOp PlusOp [u, v]
   u - v = AstOp MinusOp [u, v]
   u * v = AstOp TimesOp [u, v]
   negate u = AstOp NegateOp [u]
   abs v = AstOp AbsOp [v]
   signum v = AstOp SignumOp [v]
-  fromInteger = AstConstant . AstPrimalPart . AstConst . fromInteger
+  fromInteger = case cmpNat (Proxy @n) (Proxy @2) of
+    LTI -> AstConstant . AstPrimalPart . AstConst . fromInteger
+      -- there is hope that for rank 1 hmatrix copes with the wrong shape
+      -- and that neither orthotope nor hode-ad crashes before that
+    _ ->  error "fromInteger (Ast n r): ambiguous shape"
 
-instance Real (OR.Array n r) => Real (Ast n r) where
+instance (Real (OR.Array n r), KnownNat n) => Real (Ast n r) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance Fractional (OR.Array n r) => Fractional (Ast n r) where
+instance (Fractional (OR.Array n r), KnownNat n) => Fractional (Ast n r) where
   u / v = AstOp DivideOp  [u, v]
   recip v = AstOp RecipOp [v]
   fromRational = AstConstant . AstPrimalPart . AstConst . fromRational
 
-instance (Floating (OR.Array n r)) => Floating (Ast n r) where
+instance (Floating (OR.Array n r), KnownNat n) => Floating (Ast n r) where
   pi = AstConstant $ AstPrimalPart $ AstConst pi
   exp u = AstOp ExpOp [u]
   log u = AstOp LogOp [u]
@@ -315,12 +320,12 @@ instance (Floating (OR.Array n r)) => Floating (Ast n r) where
   acosh u = AstOp AcoshOp [u]
   atanh u = AstOp AtanhOp [u]
 
-instance RealFrac (OR.Array n r) => RealFrac (Ast n r) where
+instance (RealFrac (OR.Array n r), KnownNat n) => RealFrac (Ast n r) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
+instance (RealFloat (OR.Array n r), KnownNat n) => RealFloat (Ast n r) where
   atan2 u v = AstOp Atan2Op [u, v]
   -- We can be selective here and omit the other methods,
   -- most of which don't even have a differentiable codomain.
