@@ -34,7 +34,7 @@ import HordeAd.Core.ADValTensor
 import HordeAd.Core.Ast
 import HordeAd.Core.Delta
   (Delta0, derivativeFromDelta, gradientFromDelta, toInputId)
-import HordeAd.Core.DualClass (Dual, dFrom1X, dInput0, dInput1)
+import HordeAd.Core.DualClass (Dual, dFrom1D, dInput0, dInput1)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
@@ -233,7 +233,7 @@ generateDeltaInputs Domains{..} =
   let arrayToInput :: Int -> DynamicTensor r -> Dual (DynamicTensor r)
       arrayToInput i t = case someNatVal $ toInteger $ length $ tshapeD t of
         Just (SomeNat (_ :: Proxy n)) ->
-          dFrom1X $ dInput1 @r @n $ toInputId i
+          dFrom1D $ dInput1 @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
       !v0 = V.generate (tlength domains0) (dInput0 . toInputId)
       !v1 = V.imap arrayToInput domains1

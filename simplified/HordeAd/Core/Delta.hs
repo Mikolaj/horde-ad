@@ -47,7 +47,7 @@
 -- to understand.
 module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta0 (..), Delta1 (..), DeltaX (..)
+    Delta0 (..), Delta1 (..), DeltaD (..)
   , -- * Delta expression identifiers
     NodeId(..), InputId, toInputId
   , -- * Evaluation of the delta expressions
@@ -245,15 +245,15 @@ data Delta1 :: Nat -> Type -> Type where
            -> ShapeInt (m + n)
            -> Delta1 (p + n) r
 
-  FromX1 :: forall n r. DeltaX r -> Delta1 n r
+  FromD1 :: forall n r. DeltaD r -> Delta1 n r
 
 deriving instance (Show (IntOf r), Show r) => Show (Delta1 n r)
 
-data DeltaX :: Type -> Type where
-  From1X :: forall n r. KnownNat n
-         => Delta1 n r -> DeltaX r
+data DeltaD :: Type -> Type where
+  From1D :: forall n r. KnownNat n
+         => Delta1 n r -> DeltaD r
 
-deriving instance (Show (IntOf r), Show r) => Show (DeltaX r)
+deriving instance (Show (IntOf r), Show r) => Show (DeltaD r)
 
 -- * Delta expression identifiers
 
@@ -554,7 +554,7 @@ buildFinMaps s0 deltaDt =
         Let1 n d ->
           assert (case d of
                     Zero1 -> False
-                    FromX1{} -> False
+                    FromD1{} -> False
                     Let1{} -> False  -- wasteful and nonsensical
                     _ -> True)
           $ case EM.lookup n $ nMap s of
@@ -616,10 +616,10 @@ buildFinMaps s0 deltaDt =
 --        Scatter1 f n d _sh -> eval1 s (tgatherZ1R n c f) d
         ScatterZ _sh d f shd -> eval1 s (tgather shd c f) d
 
-        FromX1 @n2 (From1X @n1 d) ->
+        FromD1 @n2 (From1D @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
             Just Refl -> eval1 s c d
-            _ -> error "buildFinMaps: different ranks in FromX1(From1X)"
+            _ -> error "buildFinMaps: different ranks in FromD1(From1D)"
 
       evalFromnMap :: EvalState r -> EvalState r
       evalFromnMap s@EvalState{nMap, dMap0, dMap1} =
@@ -772,9 +772,9 @@ buildDerivative dim0 dim1 deltaTopLevel
           t <- eval1 d
           return $! tscatter sh t f
 
-        FromX1 @n2 (From1X @n1 d) ->
+        FromD1 @n2 (From1D @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
             Just Refl -> eval1 d
-            _ -> error "buildDerivative: different ranks in FromX1(From1X)"
+            _ -> error "buildDerivative: different ranks in FromD1(From1D)"
 
   eval0 deltaTopLevel

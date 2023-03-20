@@ -96,7 +96,7 @@ data ADMode =
 type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeGradient Double = Delta0 Double
   Dual 'ADModeGradient Float = Delta0 Float
-  Dual 'ADModeGradient (OD.Array r) = DeltaX r
+  Dual 'ADModeGradient (OD.Array r) = DeltaD r
   Dual 'ADModeGradient (OR.Array n r) = Delta1 n r
 -- not injective:  Dual 'ADModeDerivative r = r
   Dual 'ADModeDerivative Double = Double
@@ -225,10 +225,10 @@ class HasRanks (d :: ADMode) r where
             -> ShapeInt (m + n)
             -> Dual d (TensorOf (p + n) r)
 
-  dFromX1 :: KnownNat n
+  dFromD1 :: KnownNat n
           => Dual d (DynamicTensor r) -> Dual d (TensorOf n r)
 
-  dFrom1X :: KnownNat n
+  dFrom1D :: KnownNat n
           => Dual d (TensorOf n r) -> Dual d (DynamicTensor r)
 
 -- * Backprop gradient method instances
@@ -302,7 +302,7 @@ instance IsPrimalR 'ADModeGradient Double where
   recordSharingR d = case d of
     Zero1 -> d
     Input1{} -> d
-    FromX1{} -> d
+    FromD1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
 
@@ -313,7 +313,7 @@ instance IsPrimalR 'ADModeGradient Float where
   recordSharingR d = case d of
     Zero1 -> d
     Input1{} -> d
-    FromX1{} -> d
+    FromD1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
 
@@ -375,9 +375,9 @@ instance HasRanks 'ADModeGradient Double where
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
 
-  dFromX1 = FromX1
+  dFromD1 = FromD1
 
-  dFrom1X = From1X
+  dFrom1D = From1D
 
 instance HasRanks 'ADModeGradient Float where
   dInput0 = Input0
@@ -408,9 +408,9 @@ instance HasRanks 'ADModeGradient Float where
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
 
-  dFromX1 = FromX1
+  dFromD1 = FromD1
 
-  dFrom1X = From1X
+  dFrom1D = From1D
 
 -- * Alternative instance: forward derivatives computed on the spot
 
@@ -475,9 +475,9 @@ instance HasRanks 'ADModeDerivative Double where
 --  dScatter1 f _n = tscatter1R f
   dScatterZ sh d f _shd = tscatterZR sh d f
 
-  dFromX1 = tfromD
+  dFromD1 = tfromD
 
-  dFrom1X = tfromR
+  dFrom1D = tfromR
 
 instance HasRanks 'ADModeDerivative Float where
   dInput0 = undefined
@@ -508,9 +508,9 @@ instance HasRanks 'ADModeDerivative Float where
 --  dScatter1 f _n = tscatter1R f
   dScatterZ sh d f _shd = tscatterZR sh d f
 
-  dFromX1 = tfromD
+  dFromD1 = tfromD
 
-  dFrom1X = tfromR
+  dFrom1D = tfromR
 
 
 -- * Another alternative instance: only the objective function's value computed
@@ -575,9 +575,9 @@ instance HasRanks 'ADModeValue r where
 --  dScatter1 _ _ _ _ = DummyDual ()
   dScatterZ _ _ _ _ = DummyDual ()
 
-  dFromX1 _ = DummyDual ()
+  dFromD1 _ = DummyDual ()
 
-  dFrom1X _ = DummyDual ()
+  dFrom1D _ = DummyDual ()
 
 -- * Counter handling
 

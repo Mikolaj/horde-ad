@@ -23,7 +23,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 
-import HordeAd.Core.DualClass2 (dFromX1)
+import HordeAd.Core.DualClass2 (dFromD1)
 import HordeAd.Core.DualNumber2
 import HordeAd.Core.TensorClass
 
@@ -68,7 +68,7 @@ at1 :: forall n r d. (KnownNat n, ADModeAndNum d r, TensorOf n r ~ OR.Array n r)
     =>  ADInputs d r -> Int -> ADVal d (OR.Array n r)
 {-# INLINE at1 #-}
 at1 ADInputs{..} i = dD (tfromD $ inputPrimal1 V.! i)
-                        (dFromX1 $ inputDual1 V.! i)
+                        (dFromD1 $ inputDual1 V.! i)
 
 ifoldlDual' :: forall a d r. ADModeAndNum d r
              => (a -> Int -> ADVal d r -> a)

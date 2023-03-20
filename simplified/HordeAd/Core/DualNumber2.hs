@@ -9,7 +9,7 @@
 module HordeAd.Core.DualNumber2
   ( ADVal, dD, pattern D, Dual
   , ADModeAndNum, HasDelta, TensorIsArray(..)
-  , fromX1, from1X
+  , fromD1, from1D
   , Vec, vecToV, vToVec
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
@@ -136,13 +136,13 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
                   , HasInputs r
                   , Dual 'ADModeGradient r ~ Delta0 r )
 
-fromX1 :: forall n d r. (ADModeAndNum d r, KnownNat n)
+fromD1 :: forall n d r. (ADModeAndNum d r, KnownNat n)
        => ADVal d (OD.Array r) -> ADVal d (TensorOf n r)
-fromX1 (D u u') = dDnotShared (tfromD u) (dFromX1 u')
+fromD1 (D u u') = dDnotShared (tfromD u) (dFromD1 u')
 
-from1X :: (ADModeAndNum d r, KnownNat n)
+from1D :: (ADModeAndNum d r, KnownNat n)
        => ADVal d (TensorOf n r) -> ADVal d (OD.Array r)
-from1X (D u u') = dDnotShared (tfromR u) (dFrom1X u')
+from1D (D u u') = dDnotShared (tfromR u) (dFrom1D u')
 
 -- Shims to reuse the tests for ordinary vectors.
 type Vec r = OR.Array 1 r

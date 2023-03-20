@@ -81,11 +81,11 @@ type family Dual a = result | result -> a where
   Dual Double = Delta0 Double
   Dual Float = Delta0 Float
   Dual (Ast0 r) = Delta0 (Ast0 r)
-  Dual (OD.Array Double) = DeltaX Double
-  Dual (OD.Array Float) = DeltaX Float
+  Dual (OD.Array Double) = DeltaD Double
+  Dual (OD.Array Float) = DeltaD Float
   Dual (OR.Array n Double) = Delta1 n Double
   Dual (OR.Array n Float) = Delta1 n Float
-  Dual (AstDynamic r) = DeltaX (Ast0 r)
+  Dual (AstDynamic r) = DeltaD (Ast0 r)
   Dual (Ast n r) = Delta1 n (Ast0 r)
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
@@ -222,10 +222,10 @@ class HasRanks r where
             -> ShapeInt (m + n)
             -> Dual (TensorOf (p + n) r)
 
-  dFromX1 :: KnownNat n
+  dFromD1 :: KnownNat n
           => Dual (DynamicTensor r) -> Dual (TensorOf n r)
 
-  dFrom1X :: KnownNat n
+  dFrom1D :: KnownNat n
           => Dual (TensorOf n r) -> Dual (DynamicTensor r)
 
 -- * Backprop gradient method instances
@@ -313,7 +313,7 @@ instance IsPrimalR Double where
   recordSharingR d = case d of
     Zero1 -> d
     Input1{} -> d
-    FromX1{} -> d
+    FromD1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
   packDeltaDtR (Left tsh) = DeltaDt1 (tkonst0N (tshape tsh) 1)
@@ -326,7 +326,7 @@ instance IsPrimalR Float where
   recordSharingR d = case d of
     Zero1 -> d
     Input1{} -> d
-    FromX1{} -> d
+    FromD1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
   packDeltaDtR (Left tsh) = DeltaDt1 (tconst $ tkonst0N (tshape tsh) 1)
@@ -340,7 +340,7 @@ instance (Show r, Numeric r, Tensor (Ast0 r)) => IsPrimalA r where
   recordSharingA d = case d of
     Zero1 -> d
     Input1{} -> d
-    FromX1{} -> d
+    FromD1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
   packDeltaDtA (Left tsh) = DeltaDt1 (tkonst0N (tshape tsh) 1)
@@ -349,8 +349,8 @@ instance (Show r, Numeric r, Tensor (Ast0 r)) => IsPrimalA r where
 instance IsPrimal (AstDynamic r) where
   dZero = undefined
   dScale = undefined
-  dAdd (From1X @n1 d1) (From1X @n2 d2) = case sameNat (Proxy @n1) (Proxy @n2) of
-    Just Refl -> From1X $ Add1 d1 d2
+  dAdd (From1D @n1 d1) (From1D @n2 d2) = case sameNat (Proxy @n1) (Proxy @n2) of
+    Just Refl -> From1D $ Add1 d1 d2
     _ -> error "dAdd (IsPrimal (AstDynamic r)): summand types don't match"
   recordSharing = id
   packDeltaDt = undefined
@@ -385,9 +385,9 @@ instance HasRanks Double where
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
 
-  dFromX1 = FromX1
+  dFromD1 = FromD1
 
-  dFrom1X = From1X
+  dFrom1D = From1D
 
 instance HasRanks Float where
   dInput0 = Input0
@@ -418,9 +418,9 @@ instance HasRanks Float where
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
 
-  dFromX1 = FromX1
+  dFromD1 = FromD1
 
-  dFrom1X = From1X
+  dFrom1D = From1D
 
 instance (Show r, Numeric r) => HasRanks (Ast0 r) where
   dInput0 = Input0
@@ -451,9 +451,9 @@ instance (Show r, Numeric r) => HasRanks (Ast0 r) where
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
 
-  dFromX1 = FromX1
+  dFromD1 = FromD1
 
-  dFrom1X = From1X
+  dFrom1D = From1D
 
 -- * Counter handling
 

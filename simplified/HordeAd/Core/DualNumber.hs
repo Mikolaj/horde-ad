@@ -9,7 +9,7 @@
 module HordeAd.Core.DualNumber
   ( ADVal, dD, pattern D
   , ADTensor, TensorIsArray(..)
-  , fromX1, from1X
+  , fromD1, from1D
   , Vec, vecToV, vToVec
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
@@ -143,13 +143,13 @@ instance TensorIsArray Float where
   toArray = id
   fromArray = id
 
-fromX1 :: forall n r. (ADTensor r, KnownNat n)
+fromD1 :: forall n r. (ADTensor r, KnownNat n)
        => ADVal (DynamicTensor r) -> ADVal (TensorOf n r)
-fromX1 (D u u') = dDnotShared (tfromD u) (dFromX1 u')
+fromD1 (D u u') = dDnotShared (tfromD u) (dFromD1 u')
 
-from1X :: (ADTensor r, KnownNat n)
+from1D :: (ADTensor r, KnownNat n)
        => ADVal (TensorOf n r) -> ADVal (DynamicTensor r)
-from1X (D u u') = dDnotShared (tfromR u) (dFrom1X u')
+from1D (D u u') = dDnotShared (tfromR u) (dFrom1D u')
 
 -- Shims to reuse the tests for ordinary vectors.
 type Vec r = OR.Array 1 r

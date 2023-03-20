@@ -167,8 +167,8 @@ instance HasPrimal (ADVal Double) where
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
   tshapeD (D u _) = OD.shapeL u
-  tfromR = from1X
-  tfromD = fromX1
+  tfromR = from1D
+  tfromD = fromD1
 
 instance HasPrimal (ADVal Float) where
   type ScalarOf (ADVal Float) = Float
@@ -185,8 +185,8 @@ instance HasPrimal (ADVal Float) where
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
   tshapeD (D u _) = OD.shapeL u
-  tfromR = from1X
-  tfromD = fromX1
+  tfromR = from1D
+  tfromD = fromD1
 
 instance (ADTensor (Ast0 r), Numeric r, Show r)
          => HasPrimal (ADVal (Ast0 r)) where
@@ -203,8 +203,8 @@ instance (ADTensor (Ast0 r), Numeric r, Show r)
   tisDummyD = undefined  -- not used for dual numbers
   taddD (D u u') (D v v') = dD (AstDynamicPlus u v) (dAdd u' v')
   tshapeD (D u _) = tshapeD u
-  tfromR = from1X
-  tfromD = fromX1
+  tfromR = from1D
+  tfromD = fromD1
 
 
 -- * ADVal combinators generalizing ranked tensor operations

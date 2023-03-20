@@ -433,7 +433,7 @@ testFooNoGoAst =
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
-      f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
+      f x = interpretAst (IM.singleton 0 (AstVarR $ from1D x))
                          (fooNoGoAst (AstVar [5] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
@@ -554,7 +554,7 @@ testBarReluAst0 =
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
-      f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
+      f x = interpretAst (IM.singleton 0 (AstVarR $ from1D x))
                          (barReluAst (AstVar [] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [] [191.20462646925841])
@@ -568,7 +568,7 @@ testBarReluAst1 =
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
-      f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
+      f x = interpretAst (IM.singleton 0 (AstVarR $ from1D x))
                          (barReluAst (AstVar [5] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
@@ -587,7 +587,7 @@ testKonstReluAst =
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
-      f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
+      f x = interpretAst (IM.singleton 0 (AstVarR $ from1D x))
                          (konstReluAst (AstVar [] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [] [295.4])

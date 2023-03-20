@@ -240,7 +240,7 @@ instance ( ADModeAndNum d r, KnownNat n, TensorOf n r ~ OR.Array n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
-        ( fromX1 @n $ dD aPrimal aDual
+        ( fromD1 @n $ dD aPrimal aDual
         , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
       Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
