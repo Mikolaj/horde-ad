@@ -12,8 +12,8 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd.Core.ADValTensor
 import HordeAd.Core.Ast
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass

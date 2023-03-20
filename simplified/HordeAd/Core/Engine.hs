@@ -30,13 +30,14 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
-import HordeAd.Core.ADValTensor
 import HordeAd.Core.Ast
+import HordeAd.Core.AstInterpret
 import HordeAd.Core.Delta
   (Delta0, derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass (Dual, dFrom1D, dInput0, dInput1)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorADVal (ADTensor)
 import HordeAd.Core.TensorClass
 
 data ADInputs r = ADInputs

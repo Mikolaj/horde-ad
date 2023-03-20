@@ -16,11 +16,12 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd.Core.ADValTensor
 import HordeAd.Core.Ast
+import HordeAd.Core.AstInterpret
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorADVal (ADTensor, from1D)
 import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor
 

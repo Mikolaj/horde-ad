@@ -25,13 +25,14 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
-import HordeAd.Core.ADValTensor
 import HordeAd.Core.Ast
+import HordeAd.Core.AstInterpret
 import HordeAd.Core.Delta (gradientFromDelta)
 import HordeAd.Core.DualClass (dFromVector1, dScalar1)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorADVal (ADTensor, fromD1)
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
 

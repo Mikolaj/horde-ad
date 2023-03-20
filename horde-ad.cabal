@@ -498,8 +498,8 @@ library horde-ad-simplified
       buildable: True
 
     exposed-modules:  HordeAd
-                      HordeAd.Core.ADValTensor
                       HordeAd.Core.Ast
+                      HordeAd.Core.AstInterpret
                       HordeAd.Core.AstSimplify
                       HordeAd.Core.AstVectorize
                       HordeAd.Core.Delta
@@ -511,6 +511,8 @@ library horde-ad-simplified
                       HordeAd.Core.Engine2
                       HordeAd.Core.PairOfVectors
                       HordeAd.Core.SizedIndex
+                      HordeAd.Core.TensorADVal
+                      HordeAd.Core.TensorAst
                       HordeAd.Core.TensorClass
                       HordeAd.External.Adaptor
                       HordeAd.External.Adaptor2

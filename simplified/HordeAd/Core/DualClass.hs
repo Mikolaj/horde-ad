@@ -48,9 +48,9 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.AstVectorize ()
 import HordeAd.Core.Delta
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
 
 -- * Abbreviations to export (not used anywhere below)
