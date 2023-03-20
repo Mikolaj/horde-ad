@@ -24,8 +24,8 @@ module HordeAd.Core.DualNumber
 import Prelude
 
 import qualified Data.Array.Convert
-import qualified Data.Array.Dynamic as OTB
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.Dynamic as ODB
+import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import           Data.Array.Shape (DivRoundUp)
 import qualified Data.Array.Shaped as OSB
@@ -122,7 +122,7 @@ dotParameters (Domains a0 a1 a2 aX) (Domains b0 b1 b2 bX) =
   + V.sum (V.zipWith (\vX uX ->
       if isTensorDummy vX || isTensorDummy uX
       then 0
-      else OT.toVector vX LA.<.> OT.toVector uX) aX bX)
+      else OD.toVector vX LA.<.> OD.toVector uX) aX bX)
 
 
 -- * General operations, for any tensor rank
@@ -234,8 +234,8 @@ sumElements10 (D u u') = dD (LA.sumElements u) (dSumElements10 u' (V.length u))
 sumElements20 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d r
 sumElements20 (D u u') = dD (LA.sumElements u) (dSumElements20 u' (LA.size u))
 
-sumElementsX0 :: ADModeAndNum d r => ADVal d (OT.Array r) -> ADVal d r
-sumElementsX0 (D u u') = dD (tsum0D u) (dSumElementsX0 u' (OT.shapeL u))
+sumElementsX0 :: ADModeAndNum d r => ADVal d (OD.Array r) -> ADVal d r
+sumElementsX0 (D u u') = dD (tsum0D u) (dSumElementsX0 u' (OD.shapeL u))
 
 sumElementsS0 :: (ADModeAndNum d r, OS.Shape sh)
               => ADVal d (OS.Array sh r) -> ADVal d r
@@ -248,8 +248,8 @@ index10 (D u u') ix = dD (u V.! ix) (dIndex10 u' ix (V.length u))
 index20 :: ADModeAndNum d r => ADVal d (Matrix r) -> (Int, Int) -> ADVal d r
 index20 (D u u') ix = dD (u `LA.atIndex` ix) (dIndex20 u' ix (LA.size u))
 
-indexX0 :: ADModeAndNum d r => ADVal d (OT.Array r) -> [Int] -> ADVal d r
-indexX0 (D u u') ix = dD (u `tindex0D` ix) (dIndexX0 u' ix (OT.shapeL u))
+indexX0 :: ADModeAndNum d r => ADVal d (OD.Array r) -> [Int] -> ADVal d r
+indexX0 (D u u') ix = dD (u `tindex0D` ix) (dIndexX0 u' ix (OD.shapeL u))
 
 -- Passing the index via type application, as in @indexS@,
 -- would guarantee it's in bounds, but would require it to be statically
@@ -298,8 +298,8 @@ infixr 8 <.>$
        -> ADVal d r
 (<.>$) d e = fromS1 d <.>! fromS1 e
 
-fromX0 :: ADModeAndNum d r => ADVal d (OT.Array r) -> ADVal d r
-fromX0 (D u u') = dD (OT.unScalar u) (dFromX0 u')
+fromX0 :: ADModeAndNum d r => ADVal d (OD.Array r) -> ADVal d r
+fromX0 (D u u') = dD (OD.unScalar u) (dFromX0 u')
 
 fromS0 :: ADModeAndNum d r => ADVal d (OS.Array '[] r) -> ADVal d r
 fromS0 (D u u') = dD (OS.unScalar u) (dFromS0 u')
@@ -401,8 +401,8 @@ infixr 8 #>!!
        -> ADVal d (Vector r)
 (#>!!) (D u u') v = dD (u LA.#> v) (dMD_V1 u' v)
 
-fromX1 :: ADModeAndNum d r => ADVal d (OT.Array r) -> ADVal d (Vector r)
-fromX1 (D u u') = dD (OT.toVector u) (dFromX1 u')
+fromX1 :: ADModeAndNum d r => ADVal d (OD.Array r) -> ADVal d (Vector r)
+fromX1 (D u u') = dD (OD.toVector u) (dFromX1 u')
 
 fromS1 :: forall len d r. (KnownNat len, ADModeAndNum d r)
        => ADVal d (OS.Array '[len] r) -> ADVal d (Vector r)
@@ -416,9 +416,9 @@ flatten1 (D u u') = let (rows, cols) = LA.size u
                     in dD (LA.flatten u) (dFlatten1 rows cols u')
 
 flattenX1 :: ADModeAndNum d r
-          => ADVal d (OT.Array r) -> ADVal d (Vector r)
-flattenX1 (D u u') = let sh = OT.shapeL u
-                     in dD (OT.toVector u) (dFlattenX1 sh u')
+          => ADVal d (OD.Array r) -> ADVal d (Vector r)
+flattenX1 (D u u') = let sh = OD.shapeL u
+                     in dD (OD.toVector u) (dFlattenX1 sh u')
 
 flattenS1 :: (ADModeAndNum d r, OS.Shape sh)
           => ADVal d (OS.Array sh r) -> ADVal d (Vector r)
@@ -607,9 +607,9 @@ asColumn2 :: ADModeAndNum d r
           => ADVal d (Vector r) -> Int -> ADVal d (Matrix r)
 asColumn2 (D u u') n = dD (LA.fromColumns $ replicate n u) (dAsColumn2 u')
 
-fromX2 :: ADModeAndNum d r => ADVal d (OT.Array r) -> ADVal d (Matrix r)
-fromX2 (D u u') = case OT.shapeL u of
-  [_, cols] -> dD (LA.reshape cols $ OT.toVector u) (dFromX2 u')
+fromX2 :: ADModeAndNum d r => ADVal d (OD.Array r) -> ADVal d (Matrix r)
+fromX2 (D u u') = case OD.shapeL u of
+  [_, cols] -> dD (LA.reshape cols $ OD.toVector u) (dFromX2 u')
   dims -> error $ "fromX2: the tensor has wrong dimensions " ++ show dims
 
 fromS2 :: forall rows cols d r.
@@ -760,85 +760,85 @@ map2Closure f d@(D v _) =
 -- * Operations resulting in an arbitrary untyped tensor
 
 fromListX :: ADModeAndNum d r
-          => OT.ShapeL -> [ADVal d r] -> ADVal d (OT.Array r)
-fromListX sh l = dD (OT.fromList sh $ map (\(D u _) -> u) l)
+          => OD.ShapeL -> [ADVal d r] -> ADVal d (OD.Array r)
+fromListX sh l = dD (OD.fromList sh $ map (\(D u _) -> u) l)
                     (dFromListX sh $ map (\(D _ u') -> u') l)
 
 fromVectorX :: ADModeAndNum d r
-            => OT.ShapeL -> Data.Vector.Vector (ADVal d r)
-            -> ADVal d (OT.Array r)
-fromVectorX sh v = dD (OT.fromVector sh $ V.convert $ V.map (\(D u _) -> u) v)
+            => OD.ShapeL -> Data.Vector.Vector (ADVal d r)
+            -> ADVal d (OD.Array r)
+fromVectorX sh v = dD (OD.fromVector sh $ V.convert $ V.map (\(D u _) -> u) v)
                       (dFromVectorX sh $ V.map (\(D _ u') -> u') v)
 
 konstX :: ADModeAndNum d r
-       => ADVal d r -> OT.ShapeL -> ADVal d (OT.Array r)
-konstX (D u u') sh = dD (OT.constant sh u) (dKonstX u' sh)
+       => ADVal d r -> OD.ShapeL -> ADVal d (OD.Array r)
+konstX (D u u') sh = dD (OD.constant sh u) (dKonstX u' sh)
 
 appendX :: ADModeAndNum d r
-        => ADVal d (OT.Array r) -> ADVal d (OT.Array r)
-        -> ADVal d (OT.Array r)
+        => ADVal d (OD.Array r) -> ADVal d (OD.Array r)
+        -> ADVal d (OD.Array r)
 appendX (D u u') (D v v') =
-  dD (u `OT.append` v) (dAppendX u' (head $ OT.shapeL u) v')
+  dD (u `OD.append` v) (dAppendX u' (head $ OD.shapeL u) v')
 
 sliceX :: ADModeAndNum d r
-       => Int -> Int -> ADVal d (OT.Array r) -> ADVal d (OT.Array r)
-sliceX i n (D u u') = dD (OT.slice [(i, n)] u)
-                         (dSliceX i n u' (head $ OT.shapeL u))
+       => Int -> Int -> ADVal d (OD.Array r) -> ADVal d (OD.Array r)
+sliceX i n (D u u') = dD (OD.slice [(i, n)] u)
+                         (dSliceX i n u' (head $ OD.shapeL u))
 
 indexX :: ADModeAndNum d r
-       => ADVal d (OT.Array r) -> Int -> ADVal d (OT.Array r)
-indexX (D u u') ix = dD (OT.index u ix)
-                        (dIndexX u' ix (head $ OT.shapeL u))
+       => ADVal d (OD.Array r) -> Int -> ADVal d (OD.Array r)
+indexX (D u u') ix = dD (OD.index u ix)
+                        (dIndexX u' ix (head $ OD.shapeL u))
 
 ravelFromListX :: ADModeAndNum d r
-               => OT.ShapeL -> [ADVal d (OT.Array r)] -> ADVal d (OT.Array r)
+               => OD.ShapeL -> [ADVal d (OD.Array r)] -> ADVal d (OD.Array r)
 ravelFromListX sh ld =
   let (lu, lu') = unzip $ map (\(D u u') -> (u, u')) ld
-  in dD (OT.ravel $ OTB.fromList [head sh] lu) (dRavelFromListX sh lu')
+  in dD (OD.ravel $ ODB.fromList [head sh] lu) (dRavelFromListX sh lu')
 
 unravelToListX :: ADModeAndNum d r
-               => ADVal d (OT.Array r) -> [ADVal d (OT.Array r)]
-unravelToListX (D v v') = case OT.shapeL v of
+               => ADVal d (OD.Array r) -> [ADVal d (OD.Array r)]
+unravelToListX (D v v') = case OD.shapeL v of
   k : _ -> let g ix p = dD p (dIndexX v' ix k)
-           in imap g $ OTB.toList $ OT.unravel v
+           in imap g $ ODB.toList $ OD.unravel v
   [] -> error "unravelToListX: wrong tensor dimensions"  -- catch early
 
 mapOuterX :: ADModeAndNum d r
-     => (ADVal d (OT.Array r) -> ADVal d (OT.Array r))
-     -> ADVal d (OT.Array r)
-     -> ADVal d (OT.Array r)
-mapOuterX f d@(D u _) = ravelFromListX (OT.shapeL u) $ map f $ unravelToListX d
+     => (ADVal d (OD.Array r) -> ADVal d (OD.Array r))
+     -> ADVal d (OD.Array r)
+     -> ADVal d (OD.Array r)
+mapOuterX f d@(D u _) = ravelFromListX (OD.shapeL u) $ map f $ unravelToListX d
 
 zipWithOuterX :: ADModeAndNum d r
-         => OT.ShapeL
-         -> (ADVal d (OT.Array r) -> ADVal d (OT.Array r)
-             -> ADVal d (OT.Array r))
-         -> ADVal d (OT.Array r) -> ADVal d (OT.Array r)
-         -> ADVal d (OT.Array r)
+         => OD.ShapeL
+         -> (ADVal d (OD.Array r) -> ADVal d (OD.Array r)
+             -> ADVal d (OD.Array r))
+         -> ADVal d (OD.Array r) -> ADVal d (OD.Array r)
+         -> ADVal d (OD.Array r)
 zipWithOuterX sh f d e =  -- sh needed in case tensors empty
   ravelFromListX sh $ zipWith f (unravelToListX d) (unravelToListX e)
 
 reshapeX :: ADModeAndNum d r
-         => OT.ShapeL -> ADVal d (OT.Array r) -> ADVal d (OT.Array r)
-reshapeX sh' (D u u') = dD (OT.reshape sh' u) (dReshapeX (OT.shapeL u) sh' u')
+         => OD.ShapeL -> ADVal d (OD.Array r) -> ADVal d (OD.Array r)
+reshapeX sh' (D u u') = dD (OD.reshape sh' u) (dReshapeX (OD.shapeL u) sh' u')
 
-from0X :: ADModeAndNum d r => ADVal d r -> ADVal d (OT.Array r)
-from0X (D u u') = dD (OT.scalar u) (dFrom0X u')
+from0X :: ADModeAndNum d r => ADVal d r -> ADVal d (OD.Array r)
+from0X (D u u') = dD (OD.scalar u) (dFrom0X u')
 
-from1X :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (OT.Array r)
-from1X (D u u') = dD (OT.fromVector [V.length u] u) (dFrom1X u')
+from1X :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (OD.Array r)
+from1X (D u u') = dD (OD.fromVector [V.length u] u) (dFrom1X u')
 
-from2X :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (OT.Array r)
-from2X (D u u') = dD (OT.fromVector [LA.rows u, LA.cols u] $ LA.flatten u)
+from2X :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (OD.Array r)
+from2X (D u u') = dD (OD.fromVector [LA.rows u, LA.cols u] $ LA.flatten u)
                      (dFrom2X u' (LA.cols u))
 
 fromSX :: forall sh d r. (ADModeAndNum d r, OS.Shape sh)
-       => ADVal d (OS.Array sh r) -> ADVal d (OT.Array r)
+       => ADVal d (OS.Array sh r) -> ADVal d (OD.Array r)
 fromSX (D u u') = dD (Data.Array.Convert.convert u) (dFromSX u')
 
 buildXElementwise, buildXClosure, buildX
   :: ADModeAndNum d r
-  => OT.ShapeL -> ([Int] -> ADVal d r) -> ADVal d (OT.Array r)
+  => OD.ShapeL -> ([Int] -> ADVal d r) -> ADVal d (OD.Array r)
 buildXElementwise sh f =
   let s = product sh
       ixs = [fromLinearIdx2 sh i | i <- [0 .. s - 1]]
@@ -849,19 +849,19 @@ buildXClosure sh f =
       h i = let D _ u' = f i in u'
       s = product sh
       ixs = [fromLinearIdx2 sh i | i <- [0 .. s - 1]]
-  in dD (OT.fromList sh $ map g ixs) (dBuildX sh h)
+  in dD (OD.fromList sh $ map g ixs) (dBuildX sh h)
 
 buildX = buildXClosure
 
 mapXElementwise, mapXClosure
   :: ADModeAndNum d r
-  => (ADVal d r -> ADVal d r) -> ADVal d (OT.Array r)
-  -> ADVal d (OT.Array r)
+  => (ADVal d r -> ADVal d r) -> ADVal d (OD.Array r)
+  -> ADVal d (OD.Array r)
 mapXElementwise f d@(D v _) =
-  buildXElementwise (OT.shapeL v) $ \i -> f (indexX0 d i)
+  buildXElementwise (OD.shapeL v) $ \i -> f (indexX0 d i)
 
 mapXClosure f d@(D v _) =
-  buildXClosure (OT.shapeL v) $ \i -> f (indexX0 d i)
+  buildXClosure (OD.shapeL v) $ \i -> f (indexX0 d i)
 
 
 #if defined(VERSION_ghc_typelits_natnormalise)
@@ -969,7 +969,7 @@ from2S :: (KnownNat rows, KnownNat cols, ADModeAndNum d r)
 from2S (D u u') = dD (OS.fromVector $ LA.flatten u) (dFrom2S Proxy u')
 
 fromXS :: (ADModeAndNum d r, OS.Shape sh)
-       => ADVal d (OT.Array r) -> ADVal d (OS.Array sh r)
+       => ADVal d (OD.Array r) -> ADVal d (OS.Array sh r)
 fromXS (D u u') = dD (Data.Array.Convert.convert u) (dFromXS u')
 
 -- TODO: generalize to arbitrary permutations of arbitrarily many ranks using https://hackage.haskell.org/package/orthotope/docs/Data-Array-ShapedS.html#v:transpose

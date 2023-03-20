@@ -15,7 +15,7 @@ import Prelude
 
 import           Control.Exception (assert)
 import qualified Data.Array.Convert
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.List (foldl')
 import qualified Data.Strict.IntMap as IM
@@ -321,7 +321,7 @@ ttoRankedOrDummy sh x = if tisDummyD x
                         then tzero sh
                         else tfromD x
 
-instance (Numeric r, KnownNat n, DynamicTensor r ~ OT.Array r)
+instance (Numeric r, KnownNat n, DynamicTensor r ~ OD.Array r)
          => AdaptableDomains (OR.Array n r) where
   type Scalar (OR.Array n r) = r
   toDomains a =
@@ -343,7 +343,7 @@ instance KnownNat n
     in (arr, g2)
 
 instance ( ADTensor r, KnownNat n, TensorOf n r ~ OR.Array n r
-         , DynamicTensor r ~ OT.Array r )
+         , DynamicTensor r ~ OD.Array r )
          => AdaptableInputs r (ADVal (OR.Array n r)) where
   type Value (ADVal (OR.Array n r)) = OR.Array n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of

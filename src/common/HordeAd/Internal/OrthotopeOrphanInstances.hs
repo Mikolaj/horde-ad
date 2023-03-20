@@ -10,7 +10,7 @@ import Prelude
 
 import           Data.Array.Convert (Convert)
 import qualified Data.Array.Convert
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.Internal as OI
 import qualified Data.Array.Internal.DynamicG as DG
 import qualified Data.Array.Internal.DynamicS as DS
@@ -28,17 +28,17 @@ import           Numeric.LinearAlgebra.Data (arctan2)
 
 liftVT :: Numeric r
        => (Vector r -> Vector r)
-       -> OT.Array r -> OT.Array r
-liftVT op t = OT.fromVector (OT.shapeL t) $ op $ OT.toVector t
+       -> OD.Array r -> OD.Array r
+liftVT op t = OD.fromVector (OD.shapeL t) $ op $ OD.toVector t
 
 liftVT2 :: Numeric r
         => (Vector r -> Vector r -> Vector r)
-        -> OT.Array r -> OT.Array r -> OT.Array r
+        -> OD.Array r -> OD.Array r -> OD.Array r
 liftVT2 op t u =
-  let sh = case OT.shapeL t of
-        [] -> OT.shapeL u
+  let sh = case OD.shapeL t of
+        [] -> OD.shapeL u
         sh' -> sh'
-  in OT.fromVector sh $ OT.toVector t `op` OT.toVector u
+  in OD.fromVector sh $ OD.toVector t `op` OD.toVector u
 
 liftVR :: (Numeric r, KnownNat n)
        => (Vector r -> Vector r)
@@ -83,14 +83,14 @@ instance (Ord r, Numeric r) => OrdB (OR.Array n r) where
   (>=*) = (>=)
 
 -- These constraints force @UndecidableInstances@.
-instance (Num (Vector r), Numeric r) => Num (OT.Array r) where
+instance (Num (Vector r), Numeric r) => Num (OD.Array r) where
   (+) = liftVT2 (+)
   (-) = liftVT2 (-)
   (*) = liftVT2 (*)
   negate = liftVT negate
   abs = liftVT abs
   signum = liftVT signum
-  fromInteger = OT.constant [] . fromInteger  -- often fails and there's no fix
+  fromInteger = OD.constant [] . fromInteger  -- often fails and there's no fix
 
 instance (Num (Vector r), KnownNat n, Numeric r) => Num (OR.Array n r) where
   (+) = liftVR2 (+)
@@ -114,10 +114,10 @@ instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
   fromInteger = OS.constant . fromInteger
 
 instance (Num (Vector r), Numeric r, Fractional r)
-         => Fractional (OT.Array r) where
+         => Fractional (OD.Array r) where
   (/) = liftVT2 (/)
   recip = liftVT recip
-  fromRational = OT.constant [] . fromRational
+  fromRational = OD.constant [] . fromRational
 
 instance (Num (Vector r), KnownNat n, Numeric r, Fractional r)
          => Fractional (OR.Array n r) where
@@ -135,8 +135,8 @@ instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
   fromRational = OS.constant . fromRational
 
 instance (Floating (Vector r), Numeric r, Floating r)
-         => Floating (OT.Array r) where
-  pi = OT.constant [] pi
+         => Floating (OD.Array r) where
+  pi = OD.constant [] pi
   exp = liftVT exp
   log = liftVT log
   sqrt = liftVT sqrt
@@ -201,7 +201,7 @@ instance (Floating (Vector r), OS.Shape sh, Numeric r, Floating r)
   atanh = liftVS atanh
 
 instance (Real (Vector r), Numeric r, Ord r)
-         => Real (OT.Array r) where
+         => Real (OD.Array r) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
@@ -219,7 +219,7 @@ instance (Real (Vector r), OS.Shape sh, Numeric r, Ord r)
     -- very low priority, since these are all extremely not continuous
 
 instance (RealFrac (Vector r), Numeric r, Fractional r, Ord r)
-         => RealFrac (OT.Array r) where
+         => RealFrac (OD.Array r) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
@@ -237,7 +237,7 @@ instance (RealFrac (Vector r), OS.Shape sh, Numeric r, Fractional r, Ord r)
   properFraction = undefined
 
 instance (RealFloat (Vector r), Numeric r, Floating r, Ord r)
-         => RealFloat (OT.Array r) where
+         => RealFloat (OD.Array r) where
   atan2 = liftVT2 atan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
@@ -257,14 +257,14 @@ instance (RealFloat (Vector r), OS.Shape sh, Numeric r, Floating r, Ord r)
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
 
-type instance Element (OT.Array r) = r
+type instance Element (OD.Array r) = r
 
 type instance Element (OR.Array n r) = r
 
 type instance Element (OS.Array sh r) = r
 
-instance Numeric r => MonoFunctor (OT.Array r) where
-  omap = OT.mapA
+instance Numeric r => MonoFunctor (OD.Array r) where
+  omap = OD.mapA
 
 instance Numeric r => MonoFunctor (OR.Array n r) where
   omap = OR.mapA
@@ -272,7 +272,7 @@ instance Numeric r => MonoFunctor (OR.Array n r) where
 instance (OS.Shape sh, Numeric r) => MonoFunctor (OS.Array sh r) where
   omap = OS.mapA
 
-instance (a ~ b) => Convert (OR.Array n a) (OT.Array b) where
+instance (a ~ b) => Convert (OR.Array n a) (OD.Array b) where
   convert (RS.A (RG.A sh t)) = DS.A (DG.A sh t)
 
 

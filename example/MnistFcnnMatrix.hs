@@ -9,7 +9,7 @@ module MnistFcnnMatrix where
 import Prelude
 
 import           Control.Exception (assert)
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)
@@ -17,7 +17,7 @@ import           Numeric.LinearAlgebra (Vector)
 import HordeAd
 import MnistData
 
-fcnnMnistLen2 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+fcnnMnistLen2 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
 fcnnMnistLen2 widthHidden widthHidden2 =
   ( 0
   , [widthHidden, widthHidden2, sizeMnistLabelInt]

@@ -6,7 +6,7 @@ module TestMnistRNN (testTrees, shortTestForCITrees) where
 import Prelude
 
 import           Control.Monad (foldM)
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl', unfoldr)
 import qualified Data.Vector.Generic as V
@@ -137,7 +137,7 @@ sgdTestCase :: String
             -> (a
                 -> ADInputs 'ADModeGradient Double
                 -> ADVal 'ADModeGradient Double)
-            -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+            -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
             -> IO [a]
             -> Double
             -> TestTree
@@ -156,7 +156,7 @@ sgdTestCaseAlt :: String
             -> (a
                 -> ADInputs 'ADModeGradient Double
                 -> ADVal 'ADModeGradient Double)
-            -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+            -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
             -> IO [a]
             -> [Double]
             -> TestTree
@@ -207,7 +207,7 @@ feedbackTestCase :: String
                  -> (a
                      -> ADInputs 'ADModeGradient Double
                      -> ADVal 'ADModeGradient Double)
-                 -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+                 -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
                  -> [a]
                  -> [Double]
                  -> TestTree
@@ -366,7 +366,7 @@ testMnistRNNL2 width inputs parameters =
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
 
-lenMnistRNNL :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+lenMnistRNNL :: Int -> Int -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
 lenMnistRNNL width nLayers =
   ( 0
   , [width, 10] ++ replicate (nLayers - 1) width
@@ -384,7 +384,7 @@ mnistTestCaseRNN
       -> ADInputs 'ADModeGradient Double
       -> ADVal 'ADModeGradient Double)
   -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
-  -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
+  -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OD.ShapeL]))
   -> Int
   -> Int
   -> Double
@@ -605,7 +605,7 @@ mnistTestCaseRNNB
       -> ADInputs 'ADModeGradient Double
       -> ADVal 'ADModeGradient Double)
   -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
-  -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
+  -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OD.ShapeL]))
   -> Int
   -> Int
   -> Double
@@ -778,7 +778,7 @@ mnistTestCaseRNNO
   -> (forall out_width' sizeMnistWidth'.
          SNat out_width'
       -> SNat sizeMnistWidth'
-      -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
+      -> (Int, [Int], [(Int, Int)], [OD.ShapeL]))
   -> Double
   -> TestTree
 mnistTestCaseRNNO out_width@MkSNat batch_size@MkSNat

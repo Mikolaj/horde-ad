@@ -19,7 +19,7 @@ module HordeAd.Core.Engine
 import Prelude
 
 import           Control.Exception.Assert.Sugar
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.IntMap as IM
@@ -241,7 +241,7 @@ generateDeltaInputs Domains{..} =
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
   -> ( Data.Vector.Vector (Dual Double)
-     , Data.Vector.Vector (Dual (OT.Array Double)) ) #-}
+     , Data.Vector.Vector (Dual (OD.Array Double)) ) #-}
 
 -- | Initialize parameters using a uniform distribution with a fixed range
 -- taken from an argument.
@@ -263,7 +263,7 @@ initializerFixed seed range (nParams0, lParams1, _, _) =
       domains0 = OR.fromVector [nParams0] $ createRandomVector nParams0 seed
       domains1 =
         V.imap (\i sz ->
-                  OT.fromVector [sz]
+                  OD.fromVector [sz]
                   $ createRandomVector sz (seed + sz + i)) vParams1
       totalParams = nParams0
                     + V.sum vParams1

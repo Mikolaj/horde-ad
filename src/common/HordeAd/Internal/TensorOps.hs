@@ -10,7 +10,7 @@ import Prelude
 import           Control.Arrow (first, second)
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.Convert
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Internal
 import qualified Data.Array.Internal.DynamicG
@@ -37,13 +37,13 @@ import HordeAd.Internal.OrthotopeOrphanInstances (liftVR)
 
 type IndexInt n = Index n Int
 
-dummyTensor :: Numeric r => OT.Array r
+dummyTensor :: Numeric r => OD.Array r
 dummyTensor =  -- an inconsistent tensor array
   Data.Array.Internal.DynamicS.A
   $ Data.Array.Internal.DynamicG.A []
   $ Data.Array.Internal.T [] (-1) V.empty
 
-isTensorDummy :: OT.Array r -> Bool
+isTensorDummy :: OD.Array r -> Bool
 isTensorDummy (Data.Array.Internal.DynamicS.A
                  (Data.Array.Internal.DynamicG.A _
                     (Data.Array.Internal.T _ (-1) _))) = True
@@ -62,24 +62,24 @@ toMatrixOrDummy size x = if LA.size x == (0, 0)
                          else x
 
 toDynamicOrDummy :: Numeric r
-                 => OT.ShapeL -> OT.Array r -> OT.Array r
+                 => OD.ShapeL -> OD.Array r -> OD.Array r
 toDynamicOrDummy sh x = if isTensorDummy x
-                        then OT.constant sh 0
+                        then OD.constant sh 0
                         else x
 
 toRankedOrDummy :: (Numeric r, KnownNat n)
-                => OT.ShapeL -> OT.Array r -> OR.Array n r
+                => OD.ShapeL -> OD.Array r -> OR.Array n r
 toRankedOrDummy sh x = if isTensorDummy x
                        then OR.constant sh 0
                        else Data.Array.Convert.convert x
 
 toShapedOrDummy :: (Numeric r, OS.Shape sh)
-                => OT.Array r -> OS.Array sh r
+                => OD.Array r -> OS.Array sh r
 toShapedOrDummy x = if isTensorDummy x
                     then OS.constant 0
                     else Data.Array.Convert.convert x
 
-tindex0D :: Numeric r => OT.Array r -> [Int] -> r
+tindex0D :: Numeric r => OD.Array r -> [Int] -> r
 tindex0D (Data.Array.Internal.DynamicS.A
             (Data.Array.Internal.DynamicG.A _
                Data.Array.Internal.T{..})) is =
@@ -90,7 +90,7 @@ tindex0D (Data.Array.Internal.DynamicS.A
 updateR :: (Numeric a, KnownNat n)
         => OR.Array n a -> [(IndexInt n, a)] -> OR.Array n a
 updateR arr upd = Data.Array.Convert.convert
-                  $ OT.update (Data.Array.Convert.convert arr)
+                  $ OD.update (Data.Array.Convert.convert arr)
                   $ map (first indexToList) upd
 
 -- TODO: try to weave a similar magic as in tindex0R
@@ -113,14 +113,14 @@ updateNR arr upd =
 
 tsum0D
   :: Numeric r
-  => OT.Array r -> r
+  => OD.Array r -> r
 tsum0D (Data.Array.Internal.DynamicS.A (Data.Array.Internal.DynamicG.A sh t)) =
   LA.sumElements $ Data.Array.Internal.toUnorderedVectorT sh t
 
 tkonst0ND
   :: Numeric r
-  => ShapeInt n -> r -> OT.Array r
-tkonst0ND sh = OT.constant (shapeToList sh)
+  => ShapeInt n -> r -> OD.Array r
+tkonst0ND sh = OD.constant (shapeToList sh)
 
 tshapeR
   :: KnownNat n

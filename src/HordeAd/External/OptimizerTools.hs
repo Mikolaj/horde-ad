@@ -11,7 +11,7 @@ module HordeAd.External.OptimizerTools
 import Prelude
 
 import           Control.Monad.ST.Strict (runST)
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Element, Matrix, Numeric, Vector)
@@ -60,7 +60,7 @@ minimumGradient (Domains gradient0 gradient1 gradient2 gradientX) =
            (min (if V.null gradient2 then 0
                  else V.minimum (V.map LA.minElement gradient2))
                 (if V.null gradientX then 0
-                 else V.minimum (V.map OT.minimumA gradientX))))
+                 else V.minimum (V.map OD.minimumA gradientX))))
 
 maximumGradient :: (Ord r, Numeric r) => Domains r -> r
 maximumGradient (Domains gradient0 gradient1 gradient2 gradientX) =
@@ -70,7 +70,7 @@ maximumGradient (Domains gradient0 gradient1 gradient2 gradientX) =
            (max (if V.null gradient2 then 0
                  else V.maximum (V.map LA.maxElement gradient2))
                 (if V.null gradientX then 0
-                 else V.maximum (V.map OT.maximumA gradientX))))
+                 else V.maximum (V.map OD.maximumA gradientX))))
 
 data ArgsAdam r = ArgsAdam
   { alpha   :: r
@@ -106,7 +106,7 @@ zeroParameters Domains{..} =
   in Domains (zeroVector domains0)
              (V.map zeroVector domains1)
              (V.map (liftMatrix zeroVector) domains2)
-             (V.map (\a -> OT.constant (OT.shapeL a) 0) domainsX)
+             (V.map (\a -> OD.constant (OD.shapeL a) 0) domainsX)
                 -- fast allright
 
 initialStateAdam :: Numeric r
@@ -144,7 +144,7 @@ liftMatrix43 f m1 m2 m3 m4 =
      else error $ "nonconformant matrices in liftMatrix43: "
                   ++ show (LA.size m1, LA.size m2, LA.size m3, LA.size m4)
 
--- TOOD: make sure this is not worse that OT.zipWith3A when transposing
+-- TOOD: make sure this is not worse that OD.zipWith3A when transposing
 -- between each application or that we never encounter such situations
 --
 -- | Application of a vector function on the flattened arrays elements.
@@ -152,20 +152,20 @@ liftArray43 :: ( Numeric a, Numeric b, Numeric c, Numeric d
                , Numeric x, Numeric y, Numeric z )
             => (Vector a -> Vector b -> Vector c -> Vector d
                 -> (Vector x, Vector y, Vector z))
-            -> OT.Array a -> OT.Array b -> OT.Array c -> OT.Array d
-            -> (OT.Array x, OT.Array y, OT.Array z)
+            -> OD.Array a -> OD.Array b -> OD.Array c -> OD.Array d
+            -> (OD.Array x, OD.Array y, OD.Array z)
 liftArray43 f m1 m2 m3 m4 =
-  let sz = OT.shapeL m1
-  in if sz == OT.shapeL m2 && sz == OT.shapeL m3 && sz == OT.shapeL m4
-     then let (vx, vy, vz) = f (OT.toVector m1) (OT.toVector m2)
-                               (OT.toVector m3) (OT.toVector m4)
-          in ( OT.fromVector sz vx
-             , OT.fromVector sz vy
-             , OT.fromVector sz vz
+  let sz = OD.shapeL m1
+  in if sz == OD.shapeL m2 && sz == OD.shapeL m3 && sz == OD.shapeL m4
+     then let (vx, vy, vz) = f (OD.toVector m1) (OD.toVector m2)
+                               (OD.toVector m3) (OD.toVector m4)
+          in ( OD.fromVector sz vx
+             , OD.fromVector sz vy
+             , OD.fromVector sz vz
              )
      else error
           $ "nonconformant arrays in liftArray43: "
-            ++ show (OT.shapeL m1, OT.shapeL m2, OT.shapeL m3, OT.shapeL m4)
+            ++ show (OD.shapeL m1, OD.shapeL m2, OD.shapeL m3, OD.shapeL m4)
 
 updateWithGradientAdam
   :: forall r. (Numeric r, Floating r, Floating (Vector r))

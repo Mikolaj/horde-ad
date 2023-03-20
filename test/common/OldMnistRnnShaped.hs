@@ -10,7 +10,7 @@ module OldMnistRnnShaped where
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape
 import qualified Data.Array.Shaped as OSB
@@ -119,7 +119,7 @@ rnnMnistZeroS out_width@MkSNat
 rnnMnistLenS
   :: forall out_width sizeMnistWidth.
      SNat out_width -> SNat sizeMnistWidth
-  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+  -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
 rnnMnistLenS MkSNat MkSNat =
   ( 0
   , []

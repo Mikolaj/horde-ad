@@ -8,7 +8,7 @@ import Prelude
 import           Control.Arrow ((&&&))
 import           Control.DeepSeq
 import           Control.Monad (foldM, when)
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import           Data.Coerce (coerce)
 import           Data.List (foldl')
 import           Data.List.Index (imap)
@@ -347,7 +347,7 @@ sgdBatchForward
   -> (a -> ADInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double)
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
-  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+  -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
   -> (Domains Double, Double)
 sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go seed0 trainingData parameters0 0
@@ -461,7 +461,7 @@ sgdBatchFastForward
   -> (a -> ADInputs 'ADModeDerivative Double -> ADVal 'ADModeDerivative Double)
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
-  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+  -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
   -> (Domains Double, Double)
 sgdBatchFastForward seed0 batchSize gamma f trainingData
                     parameters0 nParameters =

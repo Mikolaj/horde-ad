@@ -13,7 +13,7 @@ import Prelude
 
 import           Control.Exception (assert)
 import qualified Data.Array.Convert
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
@@ -211,7 +211,7 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
     in (arr, g2)
 -}
 
-instance (KnownNat n, DynamicTensor r ~ OT.Array r)
+instance (KnownNat n, DynamicTensor r ~ OD.Array r)
          => AdaptableDomains (OR.Array n r) where
   type Scalar (OR.Array n r) = r
   toDomains a =
@@ -233,7 +233,7 @@ instance KnownNat n
     in (arr, g2)
 
 instance ( ADModeAndNum d r, KnownNat n, TensorOf n r ~ OR.Array n r
-         , DynamicTensor r ~ OT.Array r )
+         , DynamicTensor r ~ OD.Array r )
          => AdaptableInputs r (ADVal d (OR.Array n r)) where
   type Value (ADVal d (OR.Array n r)) = OR.Array n r
   type Mode (ADVal d (OR.Array n r)) = d

@@ -39,7 +39,7 @@ module HordeAd.Core.DualClass2
 import Prelude
 
 import           Control.Exception.Assert.Sugar
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element, MonoFunctor)
@@ -96,12 +96,12 @@ data ADMode =
 type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeGradient Double = Delta0 Double
   Dual 'ADModeGradient Float = Delta0 Float
-  Dual 'ADModeGradient (OT.Array r) = DeltaX r
+  Dual 'ADModeGradient (OD.Array r) = DeltaX r
   Dual 'ADModeGradient (OR.Array n r) = Delta1 n r
 -- not injective:  Dual 'ADModeDerivative r = r
   Dual 'ADModeDerivative Double = Double
   Dual 'ADModeDerivative Float = Float
-  Dual 'ADModeDerivative (OT.Array r) = OT.Array r
+  Dual 'ADModeDerivative (OD.Array r) = OD.Array r
   Dual 'ADModeDerivative (OR.Array n r) = OR.Array n r
   Dual 'ADModeValue a = DummyDual a
 
@@ -288,7 +288,7 @@ instance IsPrimal 'ADModeGradient Float where
     _ -> wrapDelta0 d
 
 -- | This is a trivial and so a pure instance.
-instance IsPrimal 'ADModeGradient (OT.Array r) where
+instance IsPrimal 'ADModeGradient (OD.Array r) where
   dZero = undefined
   dScale = undefined
   dAdd = undefined
@@ -426,8 +426,8 @@ instance IsPrimal 'ADModeDerivative Float where
   dAdd d e = d + e
   recordSharing = id
 
-instance Num (OT.Array r)
-         => IsPrimal 'ADModeDerivative (OT.Array r) where
+instance Num (OD.Array r)
+         => IsPrimal 'ADModeDerivative (OD.Array r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
@@ -533,7 +533,7 @@ instance IsPrimal 'ADModeValue (Vector r) where
   dAdd _ _ = DummyDual ()
   recordSharing = id
 
-instance IsPrimal 'ADModeValue (OT.Array r) where
+instance IsPrimal 'ADModeValue (OD.Array r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()

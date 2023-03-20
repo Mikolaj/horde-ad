@@ -11,7 +11,7 @@ module OldMnistFcnnShaped where
 import Prelude
 
 import           Control.Exception (assert)
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
@@ -57,7 +57,7 @@ fcnnMnistLayersS MkSNat MkSNat factivationHidden datum
 fcnnMnistLenS
   :: forall widthHidden widthHidden2.
       SNat widthHidden -> SNat widthHidden2
-  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+  -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
 fcnnMnistLenS MkSNat MkSNat =
   ( 0
   , []

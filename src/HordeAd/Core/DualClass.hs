@@ -45,8 +45,8 @@ module HordeAd.Core.DualClass
 import Prelude
 
 import qualified Data.Array.Convert
-import qualified Data.Array.Dynamic as OTB
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.Dynamic as ODB
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
@@ -119,7 +119,7 @@ type ADModeAndNum (d :: ADMode) r =
   , IsPrimalAndHasFeatures d r r
   , IsPrimalAndHasFeatures d (Vector r) r
   , IsPrimalAndHasFeatures d (Matrix r) r
-  , IsPrimalAndHasFeatures d (OT.Array r) r
+  , IsPrimalAndHasFeatures d (OD.Array r) r
   -- This fragment is for @OS.Array@ and it's irregular, because we can't
   -- mention @sh@ and so fully apply the type constructor.
   , IsPrimalS d r  -- TODO: Floating (OS.Array sh r), MonoFunctor
@@ -157,14 +157,14 @@ type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeGradient Float = Delta0 Float
   Dual 'ADModeGradient (Vector r) = Delta1 r
   Dual 'ADModeGradient (Matrix r) = Delta2 r
-  Dual 'ADModeGradient (OT.Array r) = DeltaX r
+  Dual 'ADModeGradient (OD.Array r) = DeltaX r
   Dual 'ADModeGradient (OS.Array sh r) = DeltaS sh r
 -- not injective:  Dual 'ADModeDerivative r = r
   Dual 'ADModeDerivative Double = Double
   Dual 'ADModeDerivative Float = Float
   Dual 'ADModeDerivative (Vector r) = Vector r
   Dual 'ADModeDerivative (Matrix r) = Matrix r
-  Dual 'ADModeDerivative (OT.Array r) = OT.Array r
+  Dual 'ADModeDerivative (OD.Array r) = OD.Array r
   Dual 'ADModeDerivative (OS.Array sh r) = OS.Array sh r
   Dual 'ADModeValue a = DummyDual a
 
@@ -216,12 +216,12 @@ class HasInputs a where
 class HasRanks (d :: ADMode) r where
   dSumElements10 :: Dual d (Vector r) -> Int -> Dual d r
   dSumElements20 :: Dual d (Matrix r) -> (Int, Int) -> Dual d r
-  dSumElementsX0 :: Dual d (OT.Array r) -> [Int] -> Dual d r
+  dSumElementsX0 :: Dual d (OD.Array r) -> [Int] -> Dual d r
   dIndex10 :: Dual d (Vector r) -> Int -> Int -> Dual d r
   dIndex20 :: Dual d (Matrix r) -> (Int, Int) -> (Int, Int) -> Dual d r
-  dIndexX0 :: Dual d (OT.Array r) -> [Int] -> [Int] -> Dual d r
+  dIndexX0 :: Dual d (OD.Array r) -> [Int] -> [Int] -> Dual d r
   dDot0 :: Vector r -> Dual d (Vector r) -> Dual d r
-  dFromX0 :: Dual d (OT.Array r) -> Dual d r
+  dFromX0 :: Dual d (OD.Array r) -> Dual d r
   dFromS0 :: Dual d (OS.Array '[] r) -> Dual d r
 
   dFromList1 :: [Dual d r] -> Dual d (Vector r)
@@ -233,12 +233,12 @@ class HasRanks (d :: ADMode) r where
   dSumColumns1 :: Dual d (Matrix r) -> Int -> Dual d (Vector r)
   dM_VD1 :: Matrix r -> Dual d (Vector r) -> Dual d (Vector r)
   dMD_V1 :: Dual d (Matrix r) -> Vector r -> Dual d (Vector r)
-  dFromX1 :: Dual d (OT.Array r) -> Dual d (Vector r)
+  dFromX1 :: Dual d (OD.Array r) -> Dual d (Vector r)
   dFromS1 :: KnownNat len
           => Dual d (OS.Array '[len] r) -> Dual d (Vector r)
   dReverse1 :: Dual d (Vector r) -> Dual d (Vector r)
   dFlatten1 :: Int -> Int -> Dual d (Matrix r) -> Dual d (Vector r)
-  dFlattenX1 :: OT.ShapeL -> Dual d (OT.Array r) -> Dual d (Vector r)
+  dFlattenX1 :: OD.ShapeL -> Dual d (OD.Array r) -> Dual d (Vector r)
   dFlattenS1 :: OS.Shape sh
              => Dual d (OS.Array sh r) -> Dual d (Vector r)
   dBuild1 :: RealFrac r => Int -> (Int -> Dual d r) -> Dual d (Vector r)
@@ -260,7 +260,7 @@ class HasRanks (d :: ADMode) r where
   dColumnSlice2 :: Int -> Int -> Dual d (Matrix r) -> Int -> Dual d (Matrix r)
   dAsRow2 :: Dual d (Vector r) -> Dual d (Matrix r)
   dAsColumn2 :: Dual d (Vector r) -> Dual d (Matrix r)
-  dFromX2 :: Dual d (OT.Array r) -> Dual d (Matrix r)
+  dFromX2 :: Dual d (OD.Array r) -> Dual d (Matrix r)
   dFromS2 :: (KnownNat rows, KnownNat cols)
           => Dual d (OS.Array '[rows, cols] r) -> Dual d (Matrix r)
 
@@ -271,24 +271,24 @@ class HasRanks (d :: ADMode) r where
   dBuild2 :: RealFrac r
           => (Int, Int) -> ((Int, Int) -> Dual d r) -> Dual d (Matrix r)
 
-  dFromListX :: OT.ShapeL -> [Dual d r] -> Dual d (OT.Array r)
-  dFromVectorX :: OT.ShapeL -> Data.Vector.Vector (Dual d r)
-               -> Dual d (OT.Array r)
-  dKonstX :: Dual d r -> OT.ShapeL -> Dual d (OT.Array r)
-  dAppendX :: Dual d (OT.Array r) -> Int -> Dual d (OT.Array r)
-           -> Dual d (OT.Array r)
-  dSliceX :: Int -> Int -> Dual d (OT.Array r) -> Int -> Dual d (OT.Array r)
-  dIndexX :: Dual d (OT.Array r) -> Int -> Int -> Dual d (OT.Array r)
-  dRavelFromListX :: OT.ShapeL -> [Dual d (OT.Array r)] -> Dual d (OT.Array r)
-  dReshapeX :: OT.ShapeL -> OT.ShapeL -> Dual d (OT.Array r)
-            -> Dual d (OT.Array r)
-  dFrom0X :: Dual d r -> Dual d (OT.Array r)
-  dFrom1X :: Dual d (Vector r) -> Dual d (OT.Array r)
-  dFrom2X :: Dual d (Matrix r) -> Int -> Dual d (OT.Array r)
+  dFromListX :: OD.ShapeL -> [Dual d r] -> Dual d (OD.Array r)
+  dFromVectorX :: OD.ShapeL -> Data.Vector.Vector (Dual d r)
+               -> Dual d (OD.Array r)
+  dKonstX :: Dual d r -> OD.ShapeL -> Dual d (OD.Array r)
+  dAppendX :: Dual d (OD.Array r) -> Int -> Dual d (OD.Array r)
+           -> Dual d (OD.Array r)
+  dSliceX :: Int -> Int -> Dual d (OD.Array r) -> Int -> Dual d (OD.Array r)
+  dIndexX :: Dual d (OD.Array r) -> Int -> Int -> Dual d (OD.Array r)
+  dRavelFromListX :: OD.ShapeL -> [Dual d (OD.Array r)] -> Dual d (OD.Array r)
+  dReshapeX :: OD.ShapeL -> OD.ShapeL -> Dual d (OD.Array r)
+            -> Dual d (OD.Array r)
+  dFrom0X :: Dual d r -> Dual d (OD.Array r)
+  dFrom1X :: Dual d (Vector r) -> Dual d (OD.Array r)
+  dFrom2X :: Dual d (Matrix r) -> Int -> Dual d (OD.Array r)
   dFromSX :: OS.Shape sh
-          => Dual d (OS.Array sh r) -> Dual d (OT.Array r)
+          => Dual d (OS.Array sh r) -> Dual d (OD.Array r)
 
-  dBuildX :: OT.ShapeL -> ([Int] -> Dual d r) -> Dual d (OT.Array r)
+  dBuildX :: OD.ShapeL -> ([Int] -> Dual d r) -> Dual d (OD.Array r)
 
   dFromListS :: OS.Shape sh
              => [Dual d r] -> Dual d (OS.Array sh r)
@@ -316,7 +316,7 @@ class HasRanks (d :: ADMode) r where
   dFrom2S :: (KnownNat rows, KnownNat cols)
           => Proxy cols
           -> Dual d (Matrix r) -> Dual d (OS.Array '[rows, cols] r)
-  dFromXS :: OS.Shape sh => Dual d (OT.Array r) -> Dual d (OS.Array sh r)
+  dFromXS :: OS.Shape sh => Dual d (OD.Array r) -> Dual d (OS.Array sh r)
 
   dBuildS :: OS.Shape sh => ([Int] -> Dual d r) -> Dual d (OS.Array sh r)
 
@@ -399,7 +399,7 @@ instance IsPrimal 'ADModeGradient (Matrix r) where
     _ -> wrapDelta2 d
 
 -- | This is an impure instance. See above.
-instance IsPrimal 'ADModeGradient (OT.Array r) where
+instance IsPrimal 'ADModeGradient (OD.Array r) where
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
@@ -436,7 +436,7 @@ instance HasInputs (Matrix r) where
   dInput = Input2
   packDeltaDt = DeltaDt2
 
-instance HasInputs (OT.Array r) where
+instance HasInputs (OD.Array r) where
   dInput = InputX
   packDeltaDt = DeltaDtX
 
@@ -550,8 +550,8 @@ instance Num (Matrix r)
   dAdd d e = d + e
   recordSharing = id
 
-instance Num (OT.Array r)
-         => IsPrimal 'ADModeDerivative (OT.Array r) where
+instance Num (OD.Array r)
+         => IsPrimal 'ADModeDerivative (OD.Array r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
@@ -574,7 +574,7 @@ instance ( Numeric r, Num (Vector r)
   dIndex20 d ix _ = d `LA.atIndex` ix
   dIndexX0 d ix _ = d `tindex0D` ix
   dDot0 = (LA.<.>)
-  dFromX0 = OT.unScalar
+  dFromX0 = OD.unScalar
   dFromS0 = OS.unScalar
   dFromList1 = V.fromList
   dFromVector1 = V.convert
@@ -585,11 +585,11 @@ instance ( Numeric r, Num (Vector r)
   dMD_V1 = (LA.#>)
   dSumRows1 dm _cols = V.fromList $ map LA.sumElements $ LA.toRows dm
   dSumColumns1 dm _rows = V.fromList $ map LA.sumElements $ LA.toColumns dm
-  dFromX1 = OT.toVector
+  dFromX1 = OD.toVector
   dFromS1 = OS.toVector
   dReverse1 = V.reverse
   dFlatten1 _rows _cols = LA.flatten
-  dFlattenX1 _sh = OT.toVector
+  dFlattenX1 _sh = OD.toVector
   dFlattenS1 = OS.toVector
   dBuild1 n f = LA.build n (f . floor)
   dFromList2 (rows, cols) = rows LA.>< cols
@@ -606,8 +606,8 @@ instance ( Numeric r, Num (Vector r)
   dColumnAppend2 d _k e = d LA.||| e
   dRowSlice2 i n d _rows = LA.takeRows n $ LA.dropRows i d
   dColumnSlice2 i n d _cols = LA.takeColumns n $ LA.dropColumns i d
-  dFromX2 d = case OT.shapeL d of
-    [_rows, cols] -> LA.reshape cols $ OT.toVector d
+  dFromX2 d = case OD.shapeL d of
+    [_rows, cols] -> LA.reshape cols $ OD.toVector d
     _ -> error "dFromX2: wrong tensor dimensions"
   dFromS2 d = case OS.shapeL d of
     [_rows, cols] -> LA.reshape cols $ OS.toVector d
@@ -617,19 +617,19 @@ instance ( Numeric r, Num (Vector r)
   dReshape2 = LA.reshape
   dConv2 = LA.conv2
   dBuild2 n f = LA.build n (\i j -> f (floor i, floor j))
-  dFromListX = OT.fromList
-  dFromVectorX sh = OT.fromVector sh . V.convert
-  dKonstX d sh = OT.constant sh d
-  dAppendX d _k e = d `OT.append` e
-  dSliceX i n d _len = OT.slice [(i, n)] d
-  dIndexX d ix _len = OT.index d ix
-  dRavelFromListX sh ld = OT.ravel $ OTB.fromList [head sh] ld
-  dReshapeX _sh = OT.reshape
-  dFrom0X = OT.scalar
-  dFrom1X d = OT.fromVector [V.length d] d
-  dFrom2X d cols = OT.fromVector [LA.rows d, cols] $ LA.flatten d
+  dFromListX = OD.fromList
+  dFromVectorX sh = OD.fromVector sh . V.convert
+  dKonstX d sh = OD.constant sh d
+  dAppendX d _k e = d `OD.append` e
+  dSliceX i n d _len = OD.slice [(i, n)] d
+  dIndexX d ix _len = OD.index d ix
+  dRavelFromListX sh ld = OD.ravel $ ODB.fromList [head sh] ld
+  dReshapeX _sh = OD.reshape
+  dFrom0X = OD.scalar
+  dFrom1X d = OD.fromVector [V.length d] d
+  dFrom2X d cols = OD.fromVector [LA.rows d, cols] $ LA.flatten d
   dFromSX = Data.Array.Convert.convert
-  dBuildX = OT.generate
+  dBuildX = OD.generate
 #if defined(VERSION_ghc_typelits_natnormalise)
   dFromListS = OS.fromList
   dFromVectorS = OS.fromVector . V.convert
@@ -673,7 +673,7 @@ instance IsPrimal 'ADModeValue (Matrix r) where
   dAdd _ _ = DummyDual ()
   recordSharing = id
 
-instance IsPrimal 'ADModeValue (OT.Array r) where
+instance IsPrimal 'ADModeValue (OD.Array r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()

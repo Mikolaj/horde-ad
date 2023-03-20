@@ -22,7 +22,7 @@ module HordeAd.Core.Engine
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
@@ -190,7 +190,7 @@ generateDeltaInputs
   -> ( Data.Vector.Vector (Dual 'ADModeGradient r)
      , Data.Vector.Vector (Dual 'ADModeGradient (Vector r))
      , Data.Vector.Vector (Dual 'ADModeGradient (Matrix r))
-     , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array r)) )
+     , Data.Vector.Vector (Dual 'ADModeGradient (OD.Array r)) )
 generateDeltaInputs Domains{..} =
   let intToInput :: forall a v.
                     (IsPrimalAndHasInputs 'ADModeGradient a r, V.Vector v a)
@@ -206,7 +206,7 @@ generateDeltaInputs Domains{..} =
   -> ( Data.Vector.Vector (Dual 'ADModeGradient Double)
      , Data.Vector.Vector (Dual 'ADModeGradient (Vector Double))
      , Data.Vector.Vector (Dual 'ADModeGradient (Matrix Double))
-     , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array Double)) ) #-}
+     , Data.Vector.Vector (Dual 'ADModeGradient (OD.Array Double)) ) #-}
 
 -- | Initialize parameters using a uniform distribution with a fixed range
 -- taken from an argument.
@@ -218,7 +218,7 @@ generateDeltaInputs Domains{..} =
 -- A rule of thumb range for weights is @sqrt(6 / (F_in + F_out))@,
 -- where @F_in + F_out@ is the sum of inputs and outputs of the largest level.
 -- See https://github.com/pytorch/pytorch/issues/15314 and their newer code.
-initializerFixed :: Int -> Double -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+initializerFixed :: Int -> Double -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
                  -> ((Int, Int, Int, Int), Int, Double, Domains Double)
 initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
   let vParams1 = V.fromList lParams1
@@ -237,7 +237,7 @@ initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
       domainsX =
         V.imap (\i sh ->
                   let sz = product sh
-                  in OT.fromVector sh
+                  in OD.fromVector sh
                      $ createRandomVector sz (seed + sz + i)) vParamsX
       totalParams = nParams0
                     + V.sum vParams1
@@ -266,7 +266,7 @@ domainsFrom01 = domainsFromD01
 domainsFrom0V :: Domain0 r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V rs vs = Domains rs vs V.empty V.empty
 
-listsToParameters :: forall r. (OT.Storable r)
+listsToParameters :: forall r. (OD.Storable r)
                   => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
   domainsFrom01 (V.fromList a0) (V.singleton $ V.fromList a1)
@@ -279,7 +279,7 @@ listsToParameters4 (a0, a1, a2, aX) =
     (if null a2 then Data.Vector.empty
                 else V.singleton $ LA.matrix 1 a2)
     (if null aX then Data.Vector.empty
-                else V.singleton $ OT.fromList [length aX] aX)
+                else V.singleton $ OD.fromList [length aX] aX)
 
 domainsD0 :: Domains r -> Vector r
 domainsD0 = domains0

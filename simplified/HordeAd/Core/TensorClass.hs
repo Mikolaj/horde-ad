@@ -15,7 +15,7 @@ module HordeAd.Core.TensorClass
 import Prelude
 
 import qualified Data.Array.Convert
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
@@ -466,11 +466,11 @@ instance HasPrimal Double where
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
-  type DynamicTensor Double = OT.Array Double
+  type DynamicTensor Double = OD.Array Double
   tdummyD = dummyTensor
   tisDummyD = isTensorDummy
   taddD = (+)
-  tshapeD = OT.shapeL
+  tshapeD = OD.shapeL
   tfromR = Data.Array.Convert.convert
   tfromD = Data.Array.Convert.convert
 
@@ -483,11 +483,11 @@ instance HasPrimal Float where
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
-  type DynamicTensor Float = OT.Array Float
+  type DynamicTensor Float = OD.Array Float
   tdummyD = dummyTensor
   tisDummyD = isTensorDummy
   taddD = (+)
-  tshapeD = OT.shapeL
+  tshapeD = OD.shapeL
   tfromR = Data.Array.Convert.convert
   tfromD = Data.Array.Convert.convert
 

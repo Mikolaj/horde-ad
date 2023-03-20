@@ -10,7 +10,7 @@ module HordeAd.External.OptimizerTools
 import Prelude
 
 import           Control.Monad.ST.Strict (runST)
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
@@ -24,7 +24,7 @@ import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient
   :: ( Numeric r, Floating (Vector r)
-     , DynamicTensor r ~ OT.Array r, TensorOf 1 r ~ OR.Array 1 r )
+     , DynamicTensor r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r )
   => r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma (Domains params0 params1)
                          (Domains gradient0 gradient1) =
@@ -47,13 +47,13 @@ minimumGradient :: (Ord r, Numeric r) => Domains r -> r
 minimumGradient (Domains gradient0 gradient1) =
   min (if V.null gradient0 then 0 else LA.minElement gradient0)
       (if V.null gradient1 then 0
-       else V.minimum (V.map OT.minimumA gradient1))
+       else V.minimum (V.map OD.minimumA gradient1))
 
 maximumGradient :: (Ord r, Numeric r) => Domains r -> r
 maximumGradient (Domains gradient0 gradient1) =
   max (if V.null gradient0 then 0 else LA.maxElement gradient0)
       (if V.null gradient1 then 0
-       else V.maximum (V.map OT.maximumA gradient1))
+       else V.maximum (V.map OD.maximumA gradient1))
 -}
 
 data ArgsAdam r = ArgsAdam
@@ -81,7 +81,7 @@ data StateAdam r = StateAdam
 
 -- The arguments are just sample params0, for dimensions.
 zeroParameters
-  :: (Numeric r, DynamicTensor r ~ OT.Array r, TensorOf 1 r ~ OR.Array 1 r)
+  :: (Numeric r, DynamicTensor r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r)
   => Domains r -> Domains r
 zeroParameters Domains{..} =
   let zeroVector v = runST $ do
@@ -89,10 +89,10 @@ zeroParameters Domains{..} =
         VM.set vThawed 0
         V.unsafeFreeze vThawed
   in Domains (liftVR zeroVector domains0)
-             (V.map (\a -> OT.constant (OT.shapeL a) 0) domains1)
+             (V.map (\a -> OD.constant (OD.shapeL a) 0) domains1)
 
 initialStateAdam
-  :: (Numeric r, DynamicTensor r ~ OT.Array r, TensorOf 1 r ~ OR.Array 1 r)
+  :: (Numeric r, DynamicTensor r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r)
   => Domains r -> StateAdam r
 initialStateAdam parameters0 =
   let zeroP = zeroParameters parameters0
@@ -102,7 +102,7 @@ initialStateAdam parameters0 =
        , vAdam = zeroP
        }
 
--- TOOD: make sure this is not worse that OT.zipWith3A when transposing
+-- TOOD: make sure this is not worse that OD.zipWith3A when transposing
 -- between each application or that we never encounter such situations
 --
 -- | Application of a vector function on the flattened arrays elements.
@@ -110,25 +110,25 @@ liftArray43 :: ( Numeric a, Numeric b, Numeric c, Numeric d
                , Numeric x, Numeric y, Numeric z )
             => (Vector a -> Vector b -> Vector c -> Vector d
                 -> (Vector x, Vector y, Vector z))
-            -> OT.Array a -> OT.Array b -> OT.Array c -> OT.Array d
-            -> (OT.Array x, OT.Array y, OT.Array z)
+            -> OD.Array a -> OD.Array b -> OD.Array c -> OD.Array d
+            -> (OD.Array x, OD.Array y, OD.Array z)
 liftArray43 f m1 m2 m3 m4 =
-  let sz = OT.shapeL m1
-  in if sz == OT.shapeL m2 && sz == OT.shapeL m3 && sz == OT.shapeL m4
-     then let (vx, vy, vz) = f (OT.toVector m1) (OT.toVector m2)
-                               (OT.toVector m3) (OT.toVector m4)
-          in ( OT.fromVector sz vx
-             , OT.fromVector sz vy
-             , OT.fromVector sz vz
+  let sz = OD.shapeL m1
+  in if sz == OD.shapeL m2 && sz == OD.shapeL m3 && sz == OD.shapeL m4
+     then let (vx, vy, vz) = f (OD.toVector m1) (OD.toVector m2)
+                               (OD.toVector m3) (OD.toVector m4)
+          in ( OD.fromVector sz vx
+             , OD.fromVector sz vy
+             , OD.fromVector sz vz
              )
      else error
           $ "nonconformant arrays in liftArray43: "
-            ++ show (OT.shapeL m1, OT.shapeL m2, OT.shapeL m3, OT.shapeL m4)
+            ++ show (OD.shapeL m1, OD.shapeL m2, OD.shapeL m3, OD.shapeL m4)
 
 updateWithGradientAdam
   :: forall r.
      ( Numeric r, Floating r, Floating (Vector r)
-     , DynamicTensor r ~ OT.Array r, TensorOf 1 r ~ OR.Array 1 r )
+     , DynamicTensor r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r )
   => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
   -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..}

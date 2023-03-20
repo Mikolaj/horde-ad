@@ -29,7 +29,7 @@ module HordeAd.Core.DualNumber2
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           Data.MonoTraversable (MonoFunctor (omap))
@@ -104,10 +104,10 @@ dDnotShared = D
 type ADModeAndNum (d :: ADMode) r =
   ( Numeric r
   , Show r
-  , Show (Dual d (OT.Array r))
+  , Show (Dual d (OD.Array r))
   , HasRanks d r
   , IsPrimalAndHasFeatures d r r
-  , IsPrimalAndHasFeatures d (OT.Array r) r
+  , IsPrimalAndHasFeatures d (OD.Array r) r
   , IsPrimalR d r
   , RealFloat (Vector r)
   , Tensor r
@@ -115,7 +115,7 @@ type ADModeAndNum (d :: ADMode) r =
   , TensorOf 1 r ~ OR.Array 1 r
   , IntOf r ~ Int
   , TensorIsArray r
-  , DynamicTensor r ~ OT.Array r
+  , DynamicTensor r ~ OD.Array r
   , HasPrimal r
   )
 
@@ -137,11 +137,11 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
                   , Dual 'ADModeGradient r ~ Delta0 r )
 
 fromX1 :: forall n d r. (ADModeAndNum d r, KnownNat n)
-       => ADVal d (OT.Array r) -> ADVal d (TensorOf n r)
+       => ADVal d (OD.Array r) -> ADVal d (TensorOf n r)
 fromX1 (D u u') = dDnotShared (tfromD u) (dFromX1 u')
 
 from1X :: (ADModeAndNum d r, KnownNat n)
-       => ADVal d (TensorOf n r) -> ADVal d (OT.Array r)
+       => ADVal d (TensorOf n r) -> ADVal d (OD.Array r)
 from1X (D u u') = dDnotShared (tfromR u) (dFrom1X u')
 
 -- Shims to reuse the tests for ordinary vectors.
@@ -184,7 +184,7 @@ multNotShared :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a -> ADVal d a
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 
-addParameters :: ( Numeric r, Num (Vector r), DynamicTensor r ~ OT.Array r
+addParameters :: ( Numeric r, Num (Vector r), DynamicTensor r ~ OD.Array r
                  , Num (TensorOf 1 r) )
               => Domains r -> Domains r -> Domains r
 addParameters (Domains a0 a1) (Domains b0 b1) =
@@ -193,14 +193,14 @@ addParameters (Domains a0 a1) (Domains b0 b1) =
 
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters
-  :: (Numeric r, DynamicTensor r ~ OT.Array r, TensorOf 1 r ~ OR.Array 1 r)
+  :: (Numeric r, DynamicTensor r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r)
   => Domains r -> Domains r -> r
 dotParameters (Domains a0 a1) (Domains b0 b1) =
   a0 `tdot0R` b0
   + V.sum (V.zipWith (\v1 u1 ->
       if isTensorDummy v1 || isTensorDummy u1
       then 0
-      else OT.toVector v1 LA.<.> OT.toVector u1) a1 b1)
+      else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
 
 
 -- * Numeric instances for ADVal

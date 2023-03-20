@@ -4,7 +4,7 @@ module Tool.Shared
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Char
@@ -28,8 +28,8 @@ class HasShape a where
 instance (VS.Storable a) => HasShape (VS.Vector a) where
   shapeL = (: []) . VS.length
 
-instance HasShape (OT.Array a) where
-  shapeL = OT.shapeL
+instance HasShape (OD.Array a) where
+  shapeL = OD.shapeL
 
 instance HasShape (LA.Matrix a) where
   shapeL matrix = [LA.rows matrix, LA.cols matrix]
@@ -47,8 +47,8 @@ class Linearizable a b | a -> b where
 instance (VS.Storable a) => Linearizable (VS.Vector a) a where
   linearize = VS.toList
 
-instance (VS.Storable a) => Linearizable (OT.Array a) a where
-  linearize = OT.toList
+instance (VS.Storable a) => Linearizable (OD.Array a) a where
+  linearize = OD.toList
 
 instance (VS.Storable a, OS.Shape sh) => Linearizable (OS.Array sh a) a where
   linearize = OS.toList

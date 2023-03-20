@@ -15,7 +15,7 @@ module HordeAd.Core.ADValTensor
 
 import Prelude hiding ((<*))
 
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
@@ -162,11 +162,11 @@ instance HasPrimal (ADVal Double) where
   tprimalPart (D u _) = fromArray u
   tdualPart (D _ u') = u'
   tD u = dD (toArray u)
-  type DynamicTensor (ADVal Double) = ADVal (OT.Array Double)
+  type DynamicTensor (ADVal Double) = ADVal (OD.Array Double)
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
-  tshapeD (D u _) = OT.shapeL u
+  tshapeD (D u _) = OD.shapeL u
   tfromR = from1X
   tfromD = fromX1
 
@@ -180,11 +180,11 @@ instance HasPrimal (ADVal Float) where
   tdualPart (D _ u') = u'
   tD u = dD (toArray u)
   -- TODO: if ever used, define, if not, use an Error type
-  type DynamicTensor (ADVal Float) = ADVal (OT.Array Float)
+  type DynamicTensor (ADVal Float) = ADVal (OD.Array Float)
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
-  tshapeD (D u _) = OT.shapeL u
+  tshapeD (D u _) = OD.shapeL u
   tfromR = from1X
   tfromD = fromX1
 

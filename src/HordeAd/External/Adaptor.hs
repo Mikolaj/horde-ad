@@ -14,7 +14,7 @@ import Prelude
 
 import           Control.Exception (assert)
 import qualified Data.Array.Convert
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl', unzip4)
 import           Data.Proxy (Proxy (Proxy))
@@ -218,27 +218,27 @@ instance ADModeAndNum d r
       Nothing -> error "fromADInputs in AdaptableInputs (Matrix r)"
     Nothing -> error "fromADInputs in AdaptableInputs (Matrix r)"
 
-instance AdaptableDomains (OT.Array r) where
-  type Scalar (OT.Array r) = r
+instance AdaptableDomains (OD.Array r) where
+  type Scalar (OD.Array r) = r
   toDomains a = Domains V.empty V.empty V.empty (V.singleton a)
   fromDomains aInit (Domains v0 v1 v2 vX) = case V.uncons vX of
     Just (a, rest) ->
-      (toDynamicOrDummy (OT.shapeL aInit) a, Domains v0 v1 v2 rest)
-    Nothing -> error "fromDomains in AdaptableDomains (OT.Array r)"
+      (toDynamicOrDummy (OD.shapeL aInit) a, Domains v0 v1 v2 rest)
+    Nothing -> error "fromDomains in AdaptableDomains (OD.Array r)"
   nParams _ = 1
-  nScalars = OT.size
+  nScalars = OD.size
 
 instance ADModeAndNum d r
-         => AdaptableInputs r (ADVal d (OT.Array r)) where
-  type Value (ADVal d (OT.Array r)) = OT.Array r
-  type Mode (ADVal d (OT.Array r)) = d
+         => AdaptableInputs r (ADVal d (OD.Array r)) where
+  type Value (ADVal d (OD.Array r)) = OD.Array r
+  type Mode (ADVal d (OD.Array r)) = d
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimalX of
     Just (aPrimal, restPrimal) -> case V.uncons inputDualX of
       Just (aDual, restDual) ->
         ( dD aPrimal aDual
         , inputs {inputPrimalX = restPrimal, inputDualX = restDual} )
-      Nothing -> error "fromADInputs in AdaptableInputs (OT.Array r)"
-    Nothing -> error "fromADInputs in AdaptableInputs (OT.Array r)"
+      Nothing -> error "fromADInputs in AdaptableInputs (OD.Array r)"
+    Nothing -> error "fromADInputs in AdaptableInputs (OD.Array r)"
 
 {- TODO: requires IncoherentInstances no matter what pragma I stick in
 -- A special case, because for @Double@ we have faster @randomVals@,

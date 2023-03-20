@@ -53,8 +53,8 @@ import           Control.Exception (assert)
 import           Control.Monad (liftM2, unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.Convert
-import qualified Data.Array.Dynamic as OTB
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.Dynamic as ODB
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
@@ -140,10 +140,10 @@ data Delta0 r =
 
   | SumElements10 (Delta1 r) Int  -- ^ see Note [SumElements10]
   | SumElements20 (Delta2 r) (Int, Int)
-  | SumElementsX0 (DeltaX r) OT.ShapeL
+  | SumElementsX0 (DeltaX r) OD.ShapeL
   | Index10 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
   | Index20 (Delta2 r) (Int, Int) (Int, Int)
-  | IndexX0 (DeltaX r) [Int] OT.ShapeL
+  | IndexX0 (DeltaX r) [Int] OD.ShapeL
 
   | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements10 (Scale1 v vd) n
 
@@ -182,7 +182,7 @@ data Delta1 r =
     -- unsorted and undocumented yet
   | Reverse1 (Delta1 r)
   | Flatten1 Int Int (Delta2 r)
-  | FlattenX1 OT.ShapeL (DeltaX r)
+  | FlattenX1 OD.ShapeL (DeltaX r)
   | forall sh. OS.Shape sh
     => FlattenS1 (DeltaS sh r)
   | Build1 Int (Int -> Delta0 r)
@@ -234,14 +234,14 @@ deriving instance (Show r, Numeric r) => Show (Delta2 r)
 -- Warning: not tested enough nor benchmarked.
 data DeltaX r =
     ZeroX
-  | InputX (InputId (OT.Array r))
-  | ScaleX (OT.Array r) (DeltaX r)
+  | InputX (InputId (OD.Array r))
+  | ScaleX (OD.Array r) (DeltaX r)
   | AddX (DeltaX r) (DeltaX r)
   | LetX NodeId (DeltaX r)
 
-  | FromListX OT.ShapeL [Delta0 r]
-  | FromVectorX OT.ShapeL (Data.Vector.Vector (Delta0 r))
-  | KonstX (Delta0 r) OT.ShapeL  -- ^ size; needed only for forward derivative
+  | FromListX OD.ShapeL [Delta0 r]
+  | FromVectorX OD.ShapeL (Data.Vector.Vector (Delta0 r))
+  | KonstX (Delta0 r) OD.ShapeL  -- ^ size; needed only for forward derivative
   | AppendX (DeltaX r) Int (DeltaX r)
       -- ^ Append two arrays along the outermost dimension.
       -- All dimensions, except the outermost, must be the same.
@@ -253,10 +253,10 @@ data DeltaX r =
   | IndexX (DeltaX r) Int Int
       -- ^ The sub-tensors at the given index of the outermost dimension.
       -- The second integer is the length of the dimension.
-  | RavelFromListX OT.ShapeL [DeltaX r]
+  | RavelFromListX OD.ShapeL [DeltaX r]
       -- ^ Create a tensor from a list treated as the outermost dimension.
       -- The shape argument is necessary in case the list is empty.
-  | ReshapeX OT.ShapeL OT.ShapeL (DeltaX r)
+  | ReshapeX OD.ShapeL OD.ShapeL (DeltaX r)
       -- ^ Change the shape of the tensor from the first to the second.
 
   | From0X (Delta0 r)
@@ -265,7 +265,7 @@ data DeltaX r =
   | forall sh. OS.Shape sh
     => FromSX (DeltaS sh r)
 
-  | BuildX OT.ShapeL ([Int] -> Delta0 r)
+  | BuildX OD.ShapeL ([Int] -> Delta0 r)
 
 deriving instance (Show r, Numeric r) => Show (DeltaX r)
 
@@ -353,7 +353,7 @@ type Domain2 r = Data.Vector.Vector (Matrix r)
 
 -- To store shaped tensor we use untyped tensors instead of vectors
 -- to prevent frequent linearization of tensors (e.g., after transpose).
-type DomainX r = Data.Vector.Vector (OT.Array r)
+type DomainX r = Data.Vector.Vector (OD.Array r)
 
 data Domains r = Domains
   { domains0 :: Domain0 r
@@ -375,7 +375,7 @@ data DeltaDt r =
     DeltaDt0 r (Delta0 r)
   | DeltaDt1 (Vector r) (Delta1 r)
   | DeltaDt2 (Matrix r) (Delta2 r)
-  | DeltaDtX (OT.Array r) (DeltaX r)
+  | DeltaDtX (OD.Array r) (DeltaX r)
   | forall sh. OS.Shape sh
     => DeltaDtS (OS.Array sh r) (DeltaS sh r)
 
@@ -388,9 +388,9 @@ data DeltaBinding r =
     DeltaBinding0 (DeltaId r) (Delta0 r)
   | DeltaBinding1 (DeltaId (Vector r)) (Delta1 r)
   | DeltaBinding2 (DeltaId (Matrix r)) (Delta2 r)
-  | DeltaBindingX (DeltaId (OT.Array r)) (DeltaX r)
+  | DeltaBindingX (DeltaId (OD.Array r)) (DeltaX r)
   | forall sh. OS.Shape sh
-    => DeltaBindingS (DeltaId (OT.Array r)) (DeltaS sh r)
+    => DeltaBindingS (DeltaId (OD.Array r)) (DeltaS sh r)
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
 -- in function 'derivativeFromDelta'. However, we are usually more
@@ -487,15 +487,15 @@ initializeFinMaps
   -> ST s ( Data.Vector.Storable.Mutable.MVector s r
           , Data.Vector.Mutable.MVector s (Vector r)
           , Data.Vector.Mutable.MVector s (Matrix r)
-          , Data.Vector.Mutable.MVector s (OT.Array r)
+          , Data.Vector.Mutable.MVector s (OD.Array r)
           , STRefU s (DeltaId r)
           , STRefU s (DeltaId (Vector r))
           , STRefU s (DeltaId (Matrix r))
-          , STRefU s (DeltaId (OT.Array r))
+          , STRefU s (DeltaId (OD.Array r))
           , STRef s (Data.Vector.Storable.Mutable.MVector s r)
           , STRef s (Data.Vector.Mutable.MVector s (Vector r))
           , STRef s (Data.Vector.Mutable.MVector s (MO.MatrixOuter r))
-          , STRef s (Data.Vector.Mutable.MVector s (OT.Array r))
+          , STRef s (Data.Vector.Mutable.MVector s (OD.Array r))
           , STRefU s Int
           , STRefU s Int
           , STRefU s Int
@@ -546,7 +546,7 @@ buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
                      , Data.Vector.Mutable.MVector s (Matrix r)
-                     , Data.Vector.Mutable.MVector s (OT.Array r) )
+                     , Data.Vector.Mutable.MVector s (OD.Array r) )
 buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
   ( iMap0, iMap1, iMap2, iMapX
    ,didCur0, didCur1, didCur2, didCurX
@@ -559,9 +559,9 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
       addToVector c = \v -> if V.null v then c else v + c
       addToMatrix :: Matrix r -> Matrix r -> Matrix r
       addToMatrix c = \v -> if LA.rows v <= 0 then c else v + c
-      addToArray :: OT.Array r -> OT.Array r -> OT.Array r
+      addToArray :: OD.Array r -> OD.Array r -> OD.Array r
       addToArray c = \v -> if isTensorDummy v then c else v + c
-      addToArrayS :: OS.Shape sh => OS.Array sh r -> OT.Array r -> OT.Array r
+      addToArrayS :: OS.Shape sh => OS.Array sh r -> OD.Array r -> OD.Array r
       addToArrayS c = \v -> let cs = Data.Array.Convert.convert c
                             in if isTensorDummy v
                                then cs
@@ -639,7 +639,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
 
         SumElements10 d n -> eval1 (LA.konst c n) d
         SumElements20 d (rows, cols) -> eval2 (MO.konst c rows cols) d
-        SumElementsX0 d sh -> evalX (OT.constant sh c) d
+        SumElementsX0 d sh -> evalX (OD.constant sh c) d
         Index10 Zero1 _ _ -> return ()  -- shortcut
         Index10 (Input1 (InputId i)) ix k -> do
           let f v = if V.null v
@@ -683,12 +683,12 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
               m = LA.accum mInit const [(ix, c)]  -- TODO: or flip const?
               mo = MO.MatrixOuter (Just m) Nothing Nothing
           eval2 mo d
-        IndexX0 d ix sh -> evalX (OT.constant sh 0 `OT.update` [(ix, c)]) d
+        IndexX0 d ix sh -> evalX (OD.constant sh 0 `OD.update` [(ix, c)]) d
           -- TODO: perhaps inline eval2 and evalX, just as for Index10
 
         Dot0 v vd -> eval1 (LA.scale c v) vd
 
-        FromX0 d -> evalX (OT.scalar c) d
+        FromX0 d -> evalX (OD.scalar c) d
         FromS0 d -> evalS (OS.scalar c) d
 
       eval1 :: Vector r -> Delta1 r -> ST s ()
@@ -740,7 +740,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 (MO.toRows (MO.MatrixOuter (Just m) (Just c) Nothing))
         MD_V1 md row -> eval2 (MO.MatrixOuter Nothing (Just c) (Just row)) md
 
-        FromX1 d -> evalX (OT.fromVector [V.length c] c) d
+        FromX1 d -> evalX (OD.fromVector [V.length c] c) d
         FromS1 d -> evalS (OS.fromVector c) d
 
         Reverse1 d -> eval1 (V.reverse c) d
@@ -748,7 +748,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           eval2 (MO.MatrixOuter (Just $ rows LA.>< cols $ V.toList c)
                                 Nothing Nothing)
                 d
-        FlattenX1 sh d -> evalX (OT.fromVector sh c) d
+        FlattenX1 sh d -> evalX (OD.fromVector sh c) d
         FlattenS1 d -> evalS (OS.fromVector c) d
         Build1 _n f -> V.imapM_ (\i c0 -> eval0 c0 (f i)) c
 
@@ -825,7 +825,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         AsRow2 dRow -> eval1 (sum $ MO.toRows c) dRow
         AsColumn2 dCol -> eval1 (sum $ MO.toColumns c) dCol
 
-        FromX2 d -> evalX (OT.fromVector [MO.rows c, MO.cols c]
+        FromX2 d -> evalX (OD.fromVector [MO.rows c, MO.cols c]
                                          (V.concat $ MO.toRows c)) d
         FromS2 d -> evalS (OS.fromVector $ V.concat $ MO.toRows c) d
 
@@ -842,7 +842,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           Numeric.LinearAlgebra.Devel.mapMatrixWithIndexM_
             (\rowsCols c0 -> eval0 c0 (f rowsCols)) moc
 
-      evalX :: OT.Array r -> DeltaX r -> ST s ()
+      evalX :: OD.Array r -> DeltaX r -> ST s ()
       evalX !c = \case
         ZeroX -> return ()
         InputX (InputId i) ->
@@ -876,45 +876,45 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             _ -> error "buildFinMaps: corrupted nMap"
 
         FromListX _sh lsd -> do
-          let vc = OT.toVector c
+          let vc = OD.toVector c
           imapM_ (\i d -> eval0 (vc V.! i) d) lsd
         FromVectorX _sh lsd -> do
-          let vc = OT.toVector c
+          let vc = OD.toVector c
           V.imapM_ (\i d -> eval0 (vc V.! i) d) lsd
         KonstX d _sh -> eval0 (tsum0D c) d
-        AppendX d k e -> case OT.shapeL c of
-          n : _ -> evalX (OT.slice [(0, k)] c) d
-                   >> evalX (OT.slice [(k, n - k)] c) e
+        AppendX d k e -> case OD.shapeL c of
+          n : _ -> evalX (OD.slice [(0, k)] c) d
+                   >> evalX (OD.slice [(k, n - k)] c) e
           [] -> error "evalX: appending a 0-dimensional tensor"
-        SliceX i n d len -> case OT.shapeL c of
+        SliceX i n d len -> case OD.shapeL c of
           n' : rest ->
             assert (n' == n) $
-            evalX (OT.concatOuter [ OT.constant (i : rest) 0
+            evalX (OD.concatOuter [ OD.constant (i : rest) 0
                                   , c
-                                  , OT.constant (len - i - n : rest) 0 ])
+                                  , OD.constant (len - i - n : rest) 0 ])
                   d
           [] -> error "evalX: slicing a 0-dimensional tensor"
         IndexX d ix len ->
-          let rest = OT.shapeL c
-          in evalX (OT.concatOuter [ OT.constant (ix : rest) 0
-                                   , OT.reshape (1 : rest) c
-                                   , OT.constant (len - ix - 1 : rest) 0 ])
+          let rest = OD.shapeL c
+          in evalX (OD.concatOuter [ OD.constant (ix : rest) 0
+                                   , OD.reshape (1 : rest) c
+                                   , OD.constant (len - ix - 1 : rest) 0 ])
                    d  -- TODO: optimize for input case
         RavelFromListX _ ld -> do
-          let lc = OTB.toList $ OT.unravel c
+          let lc = ODB.toList $ OD.unravel c
           mapM_ (uncurry evalX) (zip lc ld)
-        ReshapeX sh _sh' d -> evalX (OT.reshape sh c) d
+        ReshapeX sh _sh' d -> evalX (OD.reshape sh c) d
 
-        From0X d -> eval0 (OT.unScalar c) d
-        From1X d -> eval1 (OT.toVector c) d
+        From0X d -> eval0 (OD.unScalar c) d
+        From1X d -> eval1 (OD.toVector c) d
         From2X d cols ->
-          eval2 (MO.MatrixOuter (Just $ LA.reshape cols $ OT.toVector c)
+          eval2 (MO.MatrixOuter (Just $ LA.reshape cols $ OD.toVector c)
                                 Nothing Nothing)
                 d
         FromSX d -> evalS (Data.Array.Convert.convert c) d
 
         BuildX sh f ->
-          V.imapM_ (\i c0 -> eval0 c0 (f $ fromLinearIdx2 sh i)) $ OT.toVector c
+          V.imapM_ (\i c0 -> eval0 c0 (f $ fromLinearIdx2 sh i)) $ OD.toVector c
 
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
@@ -1039,7 +1039,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
   -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
           , Data.Vector.Mutable.MVector s (Vector Double)
           , Data.Vector.Mutable.MVector s (Matrix Double)
-          , Data.Vector.Mutable.MVector s (OT.Array Double) ) #-}
+          , Data.Vector.Mutable.MVector s (OD.Array Double) ) #-}
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,
@@ -1119,7 +1119,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
         Dot0 vc vd -> (<.>) vc <$> eval1 vd
 
-        FromX0 d -> OT.unScalar <$> evalX d
+        FromX0 d -> OD.unScalar <$> evalX d
         FromS0 d -> OS.unScalar <$> evalS d
 
       eval1 :: Delta1 r -> ST s (Vector r)
@@ -1172,12 +1172,12 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         M_VD1 m dRow -> (LA.#>) m <$> eval1 dRow
         MD_V1 md row -> flip (LA.#>) row <$> eval2 md
 
-        FromX1 d -> OT.toVector <$> evalX d
+        FromX1 d -> OD.toVector <$> evalX d
         FromS1 d -> OS.toVector <$> evalS d
 
         Reverse1 d -> V.reverse <$> eval1 d
         Flatten1 _rows _cols d -> LA.flatten <$> eval2 d
-        FlattenX1 _sh d -> OT.toVector <$> evalX d
+        FlattenX1 _sh d -> OD.toVector <$> evalX d
         FlattenS1 d -> OS.toVector <$> evalS d
         Build1 n f -> do
           l <- mapM (eval0 . f) [0 .. n - 1]
@@ -1244,8 +1244,8 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
         FromX2 d -> do
           t <- evalX d
-          case OT.shapeL t of
-            [_rows, cols] -> return $! LA.reshape cols $ OT.toVector t
+          case OD.shapeL t of
+            [_rows, cols] -> return $! LA.reshape cols $ OD.toVector t
             _ -> error "eval2: wrong tensor dimensions"
         FromS2 d -> do
           t <- evalS d
@@ -1262,7 +1262,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
                $ [(i1, j1) | i1 <- [0 .. rows - 1], j1 <- [0 .. cols - 1]]
           return $! (rows LA.>< cols) l
 
-      evalX :: DeltaX r -> ST s (OT.Array r)
+      evalX :: DeltaX r -> ST s (OD.Array r)
       evalX = \case
         ZeroX -> return 0
         InputX (InputId i) ->
@@ -1297,33 +1297,33 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
         FromListX sh lsd -> do
           l <- mapM eval0 lsd
-          return $! OT.fromList sh l
+          return $! OD.fromList sh l
         FromVectorX sh lsd -> do
           v <- V.mapM eval0 lsd
-          return $! OT.fromVector sh $ V.convert v
-        KonstX d sh -> OT.constant sh <$> eval0 d
-        AppendX d _k e -> liftM2 OT.append (evalX d) (evalX e)
-        SliceX i n d _len -> OT.slice [(i, n)] <$> evalX d
-        IndexX d ix _len -> flip OT.index ix <$> evalX d
+          return $! OD.fromVector sh $ V.convert v
+        KonstX d sh -> OD.constant sh <$> eval0 d
+        AppendX d _k e -> liftM2 OD.append (evalX d) (evalX e)
+        SliceX i n d _len -> OD.slice [(i, n)] <$> evalX d
+        IndexX d ix _len -> flip OD.index ix <$> evalX d
         RavelFromListX sh ld -> do
           la <- mapM evalX ld
-          return $! OT.ravel $ OTB.fromList [head sh] la
-        ReshapeX _sh sh' d -> OT.reshape sh' <$> evalX d
+          return $! OD.ravel $ ODB.fromList [head sh] la
+        ReshapeX _sh sh' d -> OD.reshape sh' <$> evalX d
 
-        From0X d -> OT.scalar <$> eval0 d
+        From0X d -> OD.scalar <$> eval0 d
         From1X d -> do
           v <- eval1 d
-          return $! OT.fromVector [V.length v] v
+          return $! OD.fromVector [V.length v] v
         From2X d cols -> do
           l <- eval2 d
-          return $! OT.fromVector [LA.rows l, cols] $ LA.flatten l
+          return $! OD.fromVector [LA.rows l, cols] $ LA.flatten l
         FromSX d -> Data.Array.Convert.convert <$> evalS d
 
         BuildX sh f -> do
           let s = product sh
           l <- mapM (eval0 . f)
                $ [fromLinearIdx2 sh i | i <- [0 .. s - 1]]
-          return $! OT.fromList sh l
+          return $! OD.fromList sh l
 
       evalS :: forall sh. OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
       evalS = \case

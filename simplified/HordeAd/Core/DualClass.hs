@@ -36,7 +36,7 @@ module HordeAd.Core.DualClass
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element)
@@ -81,8 +81,8 @@ type family Dual a = result | result -> a where
   Dual Double = Delta0 Double
   Dual Float = Delta0 Float
   Dual (Ast0 r) = Delta0 (Ast0 r)
-  Dual (OT.Array Double) = DeltaX Double
-  Dual (OT.Array Float) = DeltaX Float
+  Dual (OD.Array Double) = DeltaX Double
+  Dual (OD.Array Float) = DeltaX Float
   Dual (OR.Array n Double) = Delta1 n Double
   Dual (OR.Array n Float) = Delta1 n Float
   Dual (AstDynamic r) = DeltaX (Ast0 r)
@@ -298,7 +298,7 @@ instance (Numeric r, Num (Vector r)) => IsPrimal (Ast0 r) where
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
 -- | This is a trivial and so a pure instance.
-instance IsPrimal (OT.Array r) where
+instance IsPrimal (OD.Array r) where
   dZero = undefined
   dScale = undefined
   dAdd = undefined

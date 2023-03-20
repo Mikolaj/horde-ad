@@ -508,14 +508,14 @@ buildFinMaps s0 deltaDt =
         Index0 (Input1 (InputId i)) ixs' sh ->
           let ixs = indexToList ixs'
               f v = if isTensorDummy v
-                    then tkonst0ND sh 0 `OT.update` [(ixs, c)]
-                    else v `OT.update` [(ixs, v `tindex0D` ixs + c)]
+                    then tkonst0ND sh 0 `OD.update` [(ixs, c)]
+                    else v `OD.update` [(ixs, v `tindex0D` ixs + c)]
           in s {iMap1 = EM.adjust f (InputId i) $ iMap1 s}
         Index0 (Let1 n d) ixs' sh ->
           let ixs = indexToList ixs'
           in case EM.lookup n $ nMap s of
             Just (DeltaBinding1 _) ->
-              let f v = v `OT.update` [(ixs, v `tindex0D` ixs + c)]
+              let f v = v `OD.update` [(ixs, v `tindex0D` ixs + c)]
               in s {dMap1 = EM.adjust f n $ dMap1 s}
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,
@@ -523,7 +523,7 @@ buildFinMaps s0 deltaDt =
                 -- so it's only several times faster (same allocation,
                 -- but not adding to each cell of @v@).
             Nothing ->
-              let v = tkonst0ND sh 0 `OT.update` [(ixs, c)]
+              let v = tkonst0ND sh 0 `OD.update` [(ixs, c)]
               in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
                    , dMap1 = EM.insert n v $ dMap1 s }
             _ -> error "buildFinMaps: corrupted nMap"

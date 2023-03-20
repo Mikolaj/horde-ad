@@ -12,7 +12,7 @@ module OldMnistCnnShaped where
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
@@ -110,7 +110,7 @@ convMnistLenS
   -> SNat h -> SNat w
   -> SNat c_out
   -> SNat n_hidden
-  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+  -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
 convMnistLenS MkSNat MkSNat MkSNat MkSNat MkSNat MkSNat =
   ( 0
   , []

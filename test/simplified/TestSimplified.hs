@@ -3,7 +3,7 @@ module TestSimplified (testTrees) where
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import qualified Data.Strict.IntMap as IM
@@ -66,10 +66,10 @@ domainsFrom01 :: (Numeric r, Tensor r) => Vector r -> Domain1 r -> Domains r
 domainsFrom01 v0 =
   Domains (tfromList0N (singletonShape (V.length v0)) (V.toList v0))
 
-domainsFrom0V :: (Numeric r, DynamicTensor r ~ OT.Array r, Tensor r)
+domainsFrom0V :: (Numeric r, DynamicTensor r ~ OD.Array r, Tensor r)
               => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
-  domainsFrom01 v0 (V.map (\v -> OT.fromVector [V.length v] v) vs)
+  domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
 domainsD0 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r) => Domains r -> Vector r
 domainsD0 = OR.toVector . domains0

@@ -20,7 +20,7 @@ module HordeAd.Core.Engine2
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -202,10 +202,10 @@ generateDeltaInputs
   :: forall r. HasDelta r
   => Domains r
   -> ( Data.Vector.Vector (Dual 'ADModeGradient r)
-     , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array r)) )
+     , Data.Vector.Vector (Dual 'ADModeGradient (OD.Array r)) )
 generateDeltaInputs Domains{..} =
-  let arrayToInput :: Int -> OT.Array r -> Dual 'ADModeGradient (OT.Array r)
-      arrayToInput i t = case someNatVal $ toInteger $ length $ OT.shapeL t of
+  let arrayToInput :: Int -> OD.Array r -> Dual 'ADModeGradient (OD.Array r)
+      arrayToInput i t = case someNatVal $ toInteger $ length $ OD.shapeL t of
         Just (SomeNat (_ :: Proxy n)) ->
           dFrom1X $ dInput1 @'ADModeGradient @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
@@ -215,7 +215,7 @@ generateDeltaInputs Domains{..} =
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
   -> ( Data.Vector.Vector (Dual 'ADModeGradient Double)
-     , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array Double)) ) #-}
+     , Data.Vector.Vector (Dual 'ADModeGradient (OD.Array Double)) ) #-}
 
 -- | Initialize parameters using a uniform distribution with a fixed range
 -- taken from an argument.
@@ -237,7 +237,7 @@ initializerFixed seed range (nParams0, lParams1, _, _) =
       domains0 = OR.fromVector [nParams0] $ createRandomVector nParams0 seed
       domains1 =
         V.imap (\i sz ->
-                  OT.fromVector [sz]
+                  OD.fromVector [sz]
                   $ createRandomVector sz (seed + sz + i)) vParams1
       totalParams = nParams0
                     + V.sum vParams1
@@ -260,13 +260,13 @@ domainsFrom01 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r)
               => Vector r -> Domain1 r -> Domains r
 domainsFrom01 v0 = Domains (OR.fromVector [V.length v0] v0)
 
-domainsFrom0V :: ( Numeric r, DynamicTensor r ~ OT.Array r
+domainsFrom0V :: ( Numeric r, DynamicTensor r ~ OD.Array r
                  , TensorOf 1 r ~ OR.Array 1 r )
               => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
-  domainsFrom01 v0 (V.map (\v -> OT.fromVector [V.length v] v) vs)
+  domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
-listsToParameters :: ( Numeric r, DynamicTensor r ~ OT.Array r
+listsToParameters :: ( Numeric r, DynamicTensor r ~ OD.Array r
                      , TensorOf 1 r ~ OR.Array 1 r )
                   => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =

@@ -8,7 +8,7 @@ import Prelude
 
 import           Control.Arrow (first)
 import           Control.Monad (foldM)
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
@@ -55,7 +55,7 @@ depth0 = 16
 num_hidden0 = 64
 final_image_size = 10  -- if size was not increased: 7, see below
 
-lenMnistCNN :: Int -> Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+lenMnistCNN :: Int -> Int -> Int -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
 lenMnistCNN final_image_sz depth num_hidden =
   ( depth + depth
   , [num_hidden, sizeMnistLabelInt]
@@ -514,7 +514,7 @@ convMnistTestCaseCNNO
       -> SNat h -> SNat w
       -> SNat c_out
       -> SNat n_hidden'
-      -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
+      -> (Int, [Int], [(Int, Int)], [OD.ShapeL]))
   -> Double
   -> Double
   -> TestTree
@@ -807,22 +807,22 @@ comparisonTests volume =
                        (parseADInputs valsInit adinputs)
             paramsToT (Domains p0 p1 p2 _) =
               let qX = V.fromList
-                    [ OT.fromVector [depth, 1, 5, 5]
+                    [ OD.fromVector [depth, 1, 5, 5]
                       $ V.concat $ map LA.flatten
                       $ take depth $ V.toList p2
-                    , OT.fromVector [depth] $ V.take depth p0
-                    , OT.fromVector [depth, depth, 5, 5]
+                    , OD.fromVector [depth] $ V.take depth p0
+                    , OD.fromVector [depth, depth, 5, 5]
                       $ V.concat $ map LA.flatten
                       $ take (depth * depth) (drop depth $ V.toList p2)
-                    , OT.fromVector [depth] $ V.drop depth p0
+                    , OD.fromVector [depth] $ V.drop depth p0
                     , let m = p2 V.! (depth + depth * depth)
-                      in OT.fromVector [num_hidden, LA.cols m]
+                      in OD.fromVector [num_hidden, LA.cols m]
                          $ LA.flatten m
-                    , OT.fromVector [num_hidden] $ p1 V.! 0
-                    , OT.fromVector [sizeMnistLabelInt, num_hidden]
+                    , OD.fromVector [num_hidden] $ p1 V.! 0
+                    , OD.fromVector [sizeMnistLabelInt, num_hidden]
                       $ LA.flatten
                       $ p2 V.! (depth + depth * depth + 1)
-                    , OT.fromVector [sizeMnistLabelInt] $ p1 V.! 1
+                    , OD.fromVector [sizeMnistLabelInt] $ p1 V.! 1
                     ]
               in Domains V.empty V.empty V.empty qX
             parametersT = paramsToT parameters

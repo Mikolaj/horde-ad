@@ -28,7 +28,7 @@ module HordeAd.Core.DualNumber
 
 import Prelude hiding ((<*))
 
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           Data.Proxy (Proxy (Proxy))
@@ -108,10 +108,10 @@ type ADNum r =
   ( Dual r ~ Delta0 r
   , Numeric r
   , Show r
-  , Show (Dual (OT.Array r))
+  , Show (Dual (OD.Array r))
   , HasRanks r
   , IsPrimalWithScalar r r
-  , IsPrimalWithScalar (OT.Array r) r
+  , IsPrimalWithScalar (OD.Array r) r
   , IsPrimalR r
   , RealFloat r
   , RealFloat (Vector r)
@@ -120,7 +120,7 @@ type ADNum r =
   , TensorOf 1 r ~ OR.Array 1 r
   , IntOf r ~ Int
   , TensorIsArray r
-  , DynamicTensor r ~ OT.Array r
+  , DynamicTensor r ~ OD.Array r
   , HasPrimal r
   )
 
@@ -191,21 +191,21 @@ multNotShared :: (Num a, IsPrimal a) => ADVal a -> ADVal a -> ADVal a
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 {-
-addParameters :: (Numeric r, Num (Vector r), DynamicTensor r ~ OT.Array r)
+addParameters :: (Numeric r, Num (Vector r), DynamicTensor r ~ OD.Array r)
               => Domains r -> Domains r -> Domains r
 addParameters (Domains a0 a1) (Domains b0 b1) =
   Domains (a0 + b0)
           (V.zipWith (+) a1 b1)
 
 -- Dot product and sum respective ranks and then sum it all.
-dotParameters :: (Numeric r, DynamicTensor r ~ OT.Array r)
+dotParameters :: (Numeric r, DynamicTensor r ~ OD.Array r)
               => Domains r -> Domains r -> r
 dotParameters (Domains a0 a1) (Domains b0 b1) =
   a0 LA.<.> b0
   + V.sum (V.zipWith (\v1 u1 ->
       if isTensorDummy v1 || isTensorDummy u1
       then 0
-      else OT.toVector v1 LA.<.> OT.toVector u1) a1 b1)
+      else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
 -}
 
 -- * Numeric instances for ADVal

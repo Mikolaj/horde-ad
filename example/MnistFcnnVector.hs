@@ -9,7 +9,7 @@ module MnistFcnnVector where
 import Prelude
 
 import           Control.Exception (assert)
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)
@@ -35,7 +35,7 @@ sumConstantDataL x weights =
       f v = v <.>!! vToVec x
   in fromList1 $ map f weights
 
-afcnnMnistLen1 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+afcnnMnistLen1 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
 afcnnMnistLen1 widthHidden widthHidden2 =
   ( 0
   , replicate widthHidden sizeMnistGlyphInt ++ [widthHidden]

@@ -19,7 +19,7 @@ module HordeAd.Core.PairOfVectors
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -40,7 +40,7 @@ data ADInputs d r = ADInputs
   , inputPrimal2 :: Domain2 r
   , inputDual2   :: Data.Vector.Vector (Dual d (Matrix r))
   , inputPrimalX :: DomainX r
-  , inputDualX   :: Data.Vector.Vector (Dual d (OT.Array r))
+  , inputDualX   :: Data.Vector.Vector (Dual d (OD.Array r))
   }
 
 makeADInputs
@@ -48,7 +48,7 @@ makeADInputs
   -> ( Data.Vector.Vector (Dual d r)
      , Data.Vector.Vector (Dual d (Vector r))
      , Data.Vector.Vector (Dual d (Matrix r))
-     , Data.Vector.Vector (Dual d (OT.Array r)) )
+     , Data.Vector.Vector (Dual d (OD.Array r)) )
   -> ADInputs d r
 {-# INLINE makeADInputs #-}
 makeADInputs Domains{..} (vs0, vs1, vs2, vsX)
@@ -74,7 +74,7 @@ at2 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d (Matrix r)
 {-# INLINE at2 #-}
 at2 ADInputs{..} i = dD (inputPrimal2 V.! i) (inputDual2 V.! i)
 
-atX :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d (OT.Array r)
+atX :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d (OD.Array r)
 {-# INLINE atX #-}
 atX ADInputs{..} i = dD (inputPrimalX V.! i) (inputDualX V.! i)
 

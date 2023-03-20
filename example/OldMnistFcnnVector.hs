@@ -11,7 +11,7 @@ module OldMnistFcnnVector where
 import Prelude
 
 import           Control.Exception (assert)
-import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)
@@ -51,7 +51,7 @@ sumConstantDataL x offset inputs width =
       f i = sumConstantDataV x (offset + i) inputs
   in fromVector1 $ V.generate width f
 
-fcnnMnistLen1 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+fcnnMnistLen1 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
 fcnnMnistLen1 widthHidden widthHidden2 =
   ( 0
   , replicate widthHidden sizeMnistGlyphInt ++ [widthHidden]
