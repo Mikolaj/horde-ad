@@ -25,6 +25,7 @@ module HordeAd.Core.SizedIndex
 import Prelude
 
 import Control.Arrow (first)
+import Control.Exception.Assert.Sugar
 import Data.Array.Internal (valueOf)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
@@ -245,34 +246,45 @@ shapeToList (Shape l) = sizedListToList l
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing
 -- at a scalar. It may point at the start of a larger tensor instead.
-toLinearIdx :: forall m n i. (Num i, KnownNat m, KnownNat n)
-            => Shape (m + n) i -> Index m i -> i
+--
+-- If any of the dimensions is 0 or if rank is 0, the result will be 0,
+-- which is fine, that's pointing at the start of the empty buffer.
+toLinearIdx :: forall m n i j. (Integral i, Num j, KnownNat m, KnownNat n)
+            => Shape (m + n) i -> Index m j -> j
 toLinearIdx = \sh idx -> go sh idx 0
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
     go :: forall m1 n1. (KnownNat m1, KnownNat n1)
-       => Shape (m1 + n1) i -> Index m1 i -> i -> i
-    go sh ZI tensidx = sizeShape sh * tensidx
-    go (n :$ sh) (i :. idx) tensidx = go sh idx (n * tensidx + i)
+       => Shape (m1 + n1) i -> Index m1 j -> j -> j
+    go sh ZI tensidx = fromIntegral (sizeShape sh) * tensidx
+    go (n :$ sh) (i :. idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
 -- multidimensional index. Here we require an index pointing at a scalar.
-fromLinearIdx :: (Integral i, KnownNat n) => Shape n i -> i -> Index n i
-fromLinearIdx = \sh lin -> snd (go sh lin)
+--
+-- If any of the dimensions is 0, the linear index has to be 0
+-- and a fake index with correct length but lots of zeroes is produced,
+-- because it doesn't matter, because it's going to point at the start
+-- of the empty buffer anyway.
+fromLinearIdx :: forall n i j. (Integral i, Integral j, KnownNat n)
+              => Shape n i -> j -> Index n j
+fromLinearIdx sh0 lin0 = snd (go sh0 lin0)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
-    go :: (Integral i, KnownNat n) => Shape n i -> i -> (i, Index n i)
+    go :: KnownNat n1 => Shape n1 i -> j -> (j, Index n1 j)
     go ZS n = (n, ZI)
+    go (0 :$ sh) _ = assert (lin0 == 0) $
+      (0, 0 :. zeroOf sh)
     go (n :$ sh) lin =
       let (tensLin, idxInTens) = go sh lin
-          (tensLin', i) = tensLin `quotRem` n
+          (tensLin', i) = tensLin `quotRem` fromIntegral n
       in (tensLin', i :. idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers)
-zeroOf :: (Num i, KnownNat n) => Shape n i -> Index n i
+zeroOf :: (Num j, KnownNat n) => Shape n i -> Index n j
 zeroOf ZS = ZI
 zeroOf (_ :$ sh) = 0 :. zeroOf sh

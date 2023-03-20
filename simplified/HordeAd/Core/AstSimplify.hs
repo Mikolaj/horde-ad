@@ -167,9 +167,8 @@ astReshapeAsGather shOut v = unsafePerformIO $ do
       ix :: AstIndex m r
       ix = listToIndex $ map AstIntVar varList
       asts :: AstIndex p r
-      asts = let i = toLinearIdx @m @0 (fmap AstIntConst shOut) ix
-             in fmap simplifyAstInt
-                $ fromLinearIdx (fmap AstIntConst shIn) i
+      asts = let i = toLinearIdx @m @0 shOut ix
+             in fmap simplifyAstInt $ fromLinearIdx shIn i
                   -- we generate these, so we simplify
   return $! astGatherZ @m @0 shOut v (vars, asts)
 

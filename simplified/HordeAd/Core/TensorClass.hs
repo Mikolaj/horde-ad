@@ -64,14 +64,12 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tlength v = case tshape v of
     ZS -> error "tlength: impossible pattern needlessly required"
     k :$ _ -> k
-  tminIndex0 :: TensorOf 1 r -> IntOf r
+  tminIndex0 :: TensorOf 1 r -> IntOf r  -- partial
   tminIndex :: KnownNat n => TensorOf n r -> IndexOf n r
-  tminIndex t = fromLinearIdx (fmap fromIntegral $ tshape t)
-                              (tminIndex0 (tflatten t))
-  tmaxIndex0 :: TensorOf 1 r -> IntOf r
+  tminIndex t = fromLinearIdx (tshape t) (tminIndex0 (tflatten t))
+  tmaxIndex0 :: TensorOf 1 r -> IntOf r  -- partial
   tmaxIndex :: KnownNat n => TensorOf n r -> IndexOf n r
-  tmaxIndex t = fromLinearIdx (fmap fromIntegral $ tshape t)
-                              (tmaxIndex0 (tflatten t))
+  tmaxIndex t = fromLinearIdx (tshape t) (tmaxIndex0 (tflatten t))
   tfloor :: RealFrac r => TensorOf 0 r -> IntOf r
   default tfloor  -- a more narrow type to rule out Ast
     :: (IntOf r ~ Int, RealFrac r) => TensorOf 0 r -> IntOf r
@@ -115,7 +113,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
             -> (IntOf r -> IndexOf p r)
             -> TensorOf (p + n) r
   tscatter1 sh v f = tscatter @r @1 sh v
-                                    (\(i :. ZI) -> f i)
+                              (\(i :. ZI) -> f i)
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
