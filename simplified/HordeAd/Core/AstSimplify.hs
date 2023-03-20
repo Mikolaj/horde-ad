@@ -377,6 +377,7 @@ astFromList l =
   let unConstant (AstConstant (AstPrimalPart t)) = Just t
       unConstant _ = Nothing
   in case mapM unConstant l of
+    Just [] -> AstConstant $ AstPrimalPart $ AstFromList []
     Just l2 ->
       astConstant $ AstPrimalPart $ astFromList l2
     Nothing ->
@@ -393,6 +394,7 @@ astFromVector l =
   let unConstant (AstConstant (AstPrimalPart t)) = Just t
       unConstant _ = Nothing
   in case V.mapM unConstant l of
+    Just l2 | V.null l2 -> AstConstant $ AstPrimalPart $ AstFromVector l2
     Just l2 ->
       astConstant $ AstPrimalPart $ astFromVector l2
     Nothing ->
