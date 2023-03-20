@@ -23,6 +23,7 @@ import TestAdaptorSimplified
   ( assertEqualUpToEpsilon'
   , assertEqualUpToEpsilonShort
   , assertEqualUpToEpsilonShorter
+  , relu1
   , rev'
   , t128
   , t16

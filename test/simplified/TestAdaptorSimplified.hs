@@ -3,6 +3,7 @@ module TestAdaptorSimplified
   ( testTrees, rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , assertEqualUpToEpsilonShorter
   , t16, t16b, t48, t128, t128b, t128c
+  , scale1, relu1, reluLeaky1
   ) where
 
 import Prelude
@@ -270,6 +271,23 @@ t128b = OR.reshape [4, 2, 4, 4] t128
 
 t128c :: (Numeric r, Fractional r) => OR.Array 4 r
 t128c = OR.reshape [2, 2, 8, 4] t128
+
+scale1 :: (ADReady r, KnownNat n, Num (TensorOf n r))
+       => TensorOf n (Primal r) -> TensorOf n r -> TensorOf n r
+scale1 a d = tconstant a * d
+
+relu1, reluLeaky1
+  :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
+  => TensorOf n r -> TensorOf n r
+relu1 v =
+  let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0)
+                           (tprimalPart v)
+  in scale1 oneIfGtZero v
+
+reluLeaky1 v =
+  let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0.01)
+                           (tprimalPart v)
+  in scale1 oneIfGtZero v
 
 
 -- * Tensor tests

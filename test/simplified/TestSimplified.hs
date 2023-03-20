@@ -195,6 +195,18 @@ reluAst1 v =
                    (tprimalPart v)
   in scale1 oneIfGtZero v
 
+scale1 :: (ADReady r, KnownNat n, Num (TensorOf n r))
+       => TensorOf n (Primal r) -> TensorOf n r -> TensorOf n r
+scale1 a d = tconstant a * d
+
+relu1
+  :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
+  => TensorOf n r -> TensorOf n r
+relu1 v =
+  let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0)
+                           (tprimalPart v)
+  in scale1 oneIfGtZero v
+
 
 -- * Tests by TomS
 

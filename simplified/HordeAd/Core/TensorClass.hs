@@ -8,7 +8,6 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
   ( IndexOf, ShapeInt, Tensor(..), ADReady
-  , scale1, relu1, reluLeaky1
   ) where
 
 import Prelude
@@ -483,23 +482,3 @@ instance Tensor r
   type ScalarOf (a -> r) = ScalarOf r
   tconst = tconst
 -}
-
-
--- * Odds and ends
-
-scale1 :: (ADReady r, KnownNat n, Num (TensorOf n r))
-       => TensorOf n (Primal r) -> TensorOf n r -> TensorOf n r
-scale1 a d = tconstant a * d
-
-relu1, reluLeaky1
-  :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
-  => TensorOf n r -> TensorOf n r
-relu1 v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0)
-                           (tprimalPart v)
-  in scale1 oneIfGtZero v
-
-reluLeaky1 v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0.01)
-                           (tprimalPart v)
-  in scale1 oneIfGtZero v
