@@ -23,9 +23,11 @@ import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 
 import HordeAd.Core.SizedIndex
@@ -433,10 +435,14 @@ shapeAst v1 = case v1 of
   AstConstInt _i -> ZS
   AstScatter sh _ _ -> sh
   AstFromList l -> case l of
-    [] -> error "shapeAst: AstFromList with no arguments"
+    [] -> case sameNat (Proxy @n) (Proxy @1) of
+      Just Refl -> singletonShape 0  -- the only case where we can guess sh
+      _ -> error "shapeAst: AstFromList with no arguments"
     t : _ -> length l :$ shapeAst t
   AstFromVector l -> case V.toList l of
-    [] -> error "shapeAst: AstFromVector with no arguments"
+    [] -> case sameNat (Proxy @n) (Proxy @1) of
+      Just Refl -> singletonShape 0
+      _ ->  error "shapeAst: AstFromVector with no arguments"
     t : _ -> V.length l :$ shapeAst t
   AstKonst s v -> s :$ shapeAst v
   AstAppend x y -> case shapeAst x of

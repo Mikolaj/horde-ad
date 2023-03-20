@@ -62,6 +62,9 @@ testTrees =
   , testCase "2recycled1" testRecycled1
   , testCase "2concatBuild" testConcatBuild
   , testCase "2concatBuild1" testConcatBuild1
+  , testCase "2emptyArgs0" testEmptyArgs0
+  , testCase "2emptyArgs1" testEmptyArgs1
+  , testCase "2emptyArgs4" testEmptyArgs4
   ]
 
 rev' :: forall a r n m.
@@ -719,3 +722,44 @@ _concatBuild2 _r =
     -- TODO: use classes Cond and Bool: if i == j then tfromIndex0 i else r
    tfromIndex0 i
       -- need to prove that i + 1 + (13 - i) = 14
+
+emptyArgs :: forall r. ADReady r => TensorOf 1 r -> TensorOf 1 r
+emptyArgs t =
+  tfromList @r @0 []
+  - tfromList0N (tshape @r (tfromList [])) []
+  - treshape @r @1 [0] (tfromList [])
+  - tgather1 0 (tfromList []) (:. ZI)
+  - tsum (tgather1 0 (tfromList []) (const ZI))
+  - tsum (tgather @r @2 (0 :$ 0 :$ ZS) (tfromList []) (const (0 :. ZI)))
+  - tsum (tgather @r @2 @0 @1 [0, 0] (tfromList []) (const [0]))
+  - tsum (treshape @r @1 [0, 0] (tfromList []))
+  - tindex (tfromList0N (0 :$ 0 :$ ZS) []) (42 :. ZI)
+  - tindex (tfromList0N (0 :$ tshape @r (tfromList [])) []) (42 :. ZI)
+  - tsum (tfromList0N (0 :$ tshape @r (tfromList [])) [])
+  * tsum (tfromList [ tsum (tfromList0N (0 :$ tshape @r (tfromList [])) [])
+                    , treshape @r @1 [0] $ tfromList [] ])
+  / tflatten (ttr (tgather1 0 t (const ZI)))
+  + tbuild1 0 (\i -> t ! [fromIntegral (trank t) `quot` i] / tfromIndex0 i)
+  -- - tsum (tbuild @r @2 (0 :$ 0 :$ ZS) (const 73))
+  -- - tsum (tbuild @r @1 (0 :$ 0 :$ ZS) (const $ tfromList []))
+       -- these fail and rightly so; TODO: make them fail earlier
+
+testEmptyArgs0 :: Assertion
+testEmptyArgs0 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [0] [])
+    (rev' @(OR.Array 1 Double) emptyArgs (OR.fromList [0] []))
+
+testEmptyArgs1 :: Assertion
+testEmptyArgs1 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1] [0])
+    (rev' @(OR.Array 1 Double) emptyArgs (OR.fromList [1] [0.24]))
+
+testEmptyArgs4 :: Assertion
+testEmptyArgs4 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1] [0])
+    (rev' @(OR.Array 1 Double)
+          (\t -> tbuild [2, 5, 11, 0] (const $ emptyArgs t))
+          (OR.fromList [1] [0.24]))

@@ -301,14 +301,14 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     -- probably a new normal form is needed, and not even index(scatter)
     -- but, to express vectorization, gather(scatter)
   AstFromList l | AstIntConst i <- i1 ->
-    astIndex (l !! i) rest1
+    astIndex (if length l > i then l !! i else 0) rest1
   AstFromList{} | ZI <- rest1 ->  -- normal form
     AstIndexZ v0 ix
   AstFromList l ->
     AstIndexZ (astFromList $ map (`astIndexRec` rest1) l)
               (singletonIndex i1)
   AstFromVector l | AstIntConst i <- i1 ->
-    astIndex (l V.! i) rest1
+    astIndex (if V.length l > i then l V.! i else 0) rest1
   AstFromVector{} | ZI <- rest1 ->  -- normal form
     AstIndexZ v0 ix
   AstFromVector l ->
@@ -376,7 +376,7 @@ astFromList l =
   let unConstant (AstConstant (AstPrimalPart t)) = Just t
       unConstant _ = Nothing
   in case mapM unConstant l of
-    Just [] -> AstConstant $ AstPrimalPart $ AstFromList []
+    Just [] -> AstFromList []
     Just l2 ->
       astConstant $ AstPrimalPart $ astFromList l2
     Nothing ->
@@ -393,7 +393,7 @@ astFromVector l =
   let unConstant (AstConstant (AstPrimalPart t)) = Just t
       unConstant _ = Nothing
   in case V.mapM unConstant l of
-    Just l2 | V.null l2 -> AstConstant $ AstPrimalPart $ AstFromVector l2
+    Just l2 | V.null l2 -> AstFromVector l2
     Just l2 ->
       astConstant $ AstPrimalPart $ astFromVector l2
     Nothing ->
@@ -627,14 +627,14 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       error "astGather: impossible pattern needlessly required"
     AstScatter{} -> error "astGather: AstScatter TODO"
     AstFromList l | AstIntConst i <- i4 ->
-      astGather sh4 (l !! i) (vars4, rest4)
+      astGather sh4 (if length l > i then l !! i else 0) (vars4, rest4)
     AstFromList{} | gatherFromNF vars4 ix4 -> AstGatherZ sh4 v4 (vars4, ix4)
     AstFromList l ->
       let f v = astGatherRec sh4 v (vars4, rest4)
       in astGather sh4 (astFromList $ map f l)
                    (vars4, i4 :. sizedListToIndex (fmap AstIntVar vars4))
     AstFromVector l | AstIntConst i <- i4 ->
-      astGather sh4 (l V.! i) (vars4, rest4)
+      astGather sh4 (if V.length l > i then l V.! i else 0) (vars4, rest4)
     AstFromVector{} | gatherFromNF vars4 ix4 -> AstGatherZ sh4 v4 (vars4, ix4)
     AstFromVector l ->
       let f v = astGatherRec sh4 v (vars4, rest4)

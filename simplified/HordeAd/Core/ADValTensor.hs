@@ -462,6 +462,7 @@ instance InterpretAst (ADVal Double) where
      AstReverse v -> treverse (interpretAstRec env v)
      AstTranspose perm v -> ttranspose perm $ interpretAstRec env v
      AstReshape sh v -> treshape sh (interpretAstRec env v)
+     AstBuild1 0 (_, v) -> tfromList0N (0 :$ tshape v) []
      AstBuild1 k (var, AstConstant r) ->
        tconst
        $ OR.ravel . ORB.fromVector [k] . V.generate k
@@ -583,6 +584,7 @@ instance InterpretAst (ADVal Float) where
      AstReverse v -> treverse (interpretAstRec env v)
      AstTranspose perm v -> ttranspose perm $ interpretAstRec env v
      AstReshape sh v -> treshape sh (interpretAstRec env v)
+     AstBuild1 0 (_, v) -> tfromList0N (0 :$ tshape v) []
      AstBuild1 k (var, AstConstant r) ->
        tconst
        $ OR.ravel . ORB.fromVector [k] . V.generate k
@@ -706,6 +708,7 @@ instance ( ADTensor (Ast0 q)
      AstReverse v -> treverse (interpretAstRec env v)
      AstTranspose perm v -> ttranspose perm $ interpretAstRec env v
      AstReshape sh v -> treshape sh (interpretAstRec env v)
+     AstBuild1 0 (_, v) -> tfromList0N (0 :$ tshape v) []
      -- We can't partially evaluate this, because env maps variables to terms
      -- and so we don't know what floats to put into the resulting tensor.
      -- AstBuild1 k (var, AstConstant r) ->
@@ -827,6 +830,7 @@ instance InterpretAst Double where
      AstReverse v -> treverse (interpretAstRec env v)
      AstTranspose perm v -> ttranspose perm $ interpretAstRec env v
      AstReshape sh v -> treshape sh (interpretAstRec env v)
+     AstBuild1 0 (_, v) -> tfromList0N (0 :$ tshape v) []
      AstBuild1 k (var, AstConstant r) ->
        tconst
        $ OR.ravel . ORB.fromVector [k] . V.generate k
@@ -948,6 +952,7 @@ instance InterpretAst Float where
      AstReverse v -> treverse (interpretAstRec env v)
      AstTranspose perm v -> ttranspose perm $ interpretAstRec env v
      AstReshape sh v -> treshape sh (interpretAstRec env v)
+     AstBuild1 0 (_, v) -> tfromList0N (0 :$ tshape v) []
      AstBuild1 k (var, AstConstant r) ->
        tconst
        $ OR.ravel . ORB.fromVector [k] . V.generate k

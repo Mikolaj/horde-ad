@@ -23,10 +23,12 @@ import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl')
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Map as M
 import qualified Data.Strict.Vector as Data.Vector
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+))
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
@@ -190,9 +192,11 @@ tindex0R (Data.Array.Internal.RankedS.A
     -- to avoid linearizing @values@, we do everything in unsized way
 
 tsumR
-  :: (KnownNat n, Numeric r, Num (Vector r))
+  :: forall n r. (KnownNat n, Numeric r, Num (Vector r))
   => OR.Array (1 + n) r -> OR.Array n r
-tsumR = ORB.sumA . OR.unravel
+tsumR t = case OR.shapeL t of
+  0 : sh -> OR.constant sh 0  -- the shape is known from sh, so no ambiguity
+  _ -> ORB.sumA $ OR.unravel t
 
 tsum0R
   :: Numeric r
@@ -219,7 +223,10 @@ tmaximum0R = LA.maxElement . OR.toVector
 tfromListR
   :: forall n r. (KnownNat n, Numeric r)
   => [OR.Array n r] -> OR.Array (1 + n) r
-tfromListR [] = OR.fromList (replicate (valueOf @n + 1) 0) []
+tfromListR [] =
+  case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> OR.fromList [0] []  -- the only case where we can guess sh
+    _ ->  error "tfromListR: shape ambiguity, no arguments"
 tfromListR l = OR.ravel $ ORB.fromList [length l] l
 
 tfromList0NR
@@ -230,7 +237,10 @@ tfromList0NR sh = OR.fromList (shapeToList sh)
 tfromVectorR
   :: forall n r. (KnownNat n, Numeric r)
   => Data.Vector.Vector (OR.Array n r) -> OR.Array (1 + n) r
-tfromVectorR l | V.null l = OR.fromList (replicate (valueOf @n + 1) 0) []
+tfromVectorR l | V.null l =
+  case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> OR.fromList [0] []
+    _ ->  error "tfromVectorR: shape ambiguity, no arguments"
 tfromVectorR l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
 
 tfromVector0NR
@@ -241,7 +251,7 @@ tfromVector0NR sh l = OR.fromVector (shapeToList sh) $ V.convert l
 tkonstR
   :: forall n r. (KnownNat n, Numeric r)
   => Int -> OR.Array n r -> OR.Array (1 + n) r
-tkonstR 0 _u = OR.fromList (replicate (valueOf @n + 1) 0) []
+tkonstR 0 u = OR.fromList (0 : OR.shapeL u) []
 tkonstR s u = OR.ravel $ ORB.constant [s] u
 
 tkonst0NR
@@ -280,10 +290,12 @@ tbuildNR
   :: forall m n r. (KnownNat m, KnownNat n, Numeric r)
   => ShapeInt (m + n) -> (IndexInt m -> OR.Array n r) -> OR.Array (m + n) r
 tbuildNR sh0 f0 =
-  let buildSh :: KnownNat m1
+  let buildSh :: forall m1. KnownNat m1
               => ShapeInt m1 -> (IndexInt m1 -> OR.Array n r)
               -> OR.Array (m1 + n) r
       buildSh ZS f = f ZI
+      buildSh (0 :$ sh) _ =
+        OR.fromList (0 : shapeToList sh ++ shapeToList (dropShape @m @n sh0)) []
       buildSh (k :$ sh) f =
         let g i = buildSh sh (\ix -> f (i :. ix))
         in OR.ravel $ ORB.fromList [k]
@@ -293,7 +305,7 @@ tbuildNR sh0 f0 =
 tbuild1R
   :: forall n r. (KnownNat n, Numeric r)
   => Int -> (Int -> OR.Array n r) -> OR.Array (1 + n) r
-tbuild1R 0 _ = OR.fromList (replicate (valueOf @n + 1) 0) []
+tbuild1R 0 _ = tfromListR []  -- if we applied f, we'd change strictness
 tbuild1R k f = OR.ravel $ ORB.fromList [k]
                $ map f [0 .. k - 1]  -- hope this fuses
 
@@ -327,7 +339,7 @@ tgatherNR sh t f =
 tgather1R :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
           => Int -> OR.Array (p + n) r -> (Int -> IndexInt p)
           -> OR.Array (1 + n) r
-tgather1R 0 _ _ = OR.fromList (replicate (valueOf @n + 1) 0) []
+tgather1R 0 t _ = OR.fromList (0 : drop (valueOf @p) (OR.shapeL t)) []
 tgather1R k t f =
   let l = map (\i -> t `tindexNR` f i) [0 .. k - 1]
   in OR.ravel $ ORB.fromList [k] l
@@ -352,7 +364,7 @@ tgatherZR sh t f =
 tgatherZ1R :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
            => Int -> OR.Array (p + n) r -> (Int -> IndexInt p)
            -> OR.Array (1 + n) r
-tgatherZ1R 0 _ _ = OR.fromList (replicate (valueOf @n + 1) 0) []
+tgatherZ1R 0 t _ = OR.fromList (0 : drop (valueOf @p) (OR.shapeL t)) []
 tgatherZ1R k t f =
   let l = map (\i -> t `tindexZR` f i) [0 .. k - 1]
   in OR.ravel $ ORB.fromList [k] l
@@ -392,13 +404,15 @@ tscatterZR sh t f =
 tscatterZ1R :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
             => ShapeInt (p + n) -> OR.Array (1 + n) r -> (Int -> IndexInt p)
             -> OR.Array (p + n) r
-tscatterZ1R sh t f =
-  V.sum $ V.imap (\i ti ->
-                   let ix2 = f i
-                   in if ixInBounds (indexToList ix2) (shapeToList sh)
-                      then updateNR (tkonst0NR sh 0) [(ix2, ti)]
-                      else tkonst0NR sh 0)
-        $ ORB.toVector $ OR.unravel t
+tscatterZ1R sh t f = case OR.shapeL t of
+  0 : _ -> OR.constant (shapeToList sh) 0
+  _ ->
+    V.sum $ V.imap (\i ti ->
+                     let ix2 = f i
+                     in if ixInBounds (indexToList ix2) (shapeToList sh)
+                        then updateNR (tkonst0NR sh 0) [(ix2, ti)]
+                        else tkonst0NR sh 0)
+          $ ORB.toVector $ OR.unravel t
 
 tscalarR
   :: Numeric r
