@@ -7,9 +7,7 @@
 -- (and safely impure) API in "HordeAd.Core.DualClass". The other part
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.DualNumber
-  ( ADVal, dD, pattern D
-  , ADTensor, TensorIsArray(..)
-  , fromD1, from1D
+  ( ADVal, dD, pattern D, dDnotShared
   , Vec, vecToV, vToVec
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
@@ -119,37 +117,9 @@ type ADNum r =
   , TensorOf 0 r ~ OR.Array 0 r
   , TensorOf 1 r ~ OR.Array 1 r
   , IntOf r ~ Int
-  , TensorIsArray r
   , DynamicTensor r ~ OD.Array r
   , HasPrimal r
   )
-
-type ADTensor r =
-  ( IsPrimal r
-  , HasRanks r
-  , Tensor r
-  , HasPrimal r
-  )
-
-class TensorIsArray r where
-  toArray :: TensorOf n r -> OR.Array n r
-  fromArray :: OR.Array n r -> TensorOf n r
-
-instance TensorIsArray Double where
-  toArray = id
-  fromArray = id
-
-instance TensorIsArray Float where
-  toArray = id
-  fromArray = id
-
-fromD1 :: forall n r. (ADTensor r, KnownNat n)
-       => ADVal (DynamicTensor r) -> ADVal (TensorOf n r)
-fromD1 (D u u') = dDnotShared (tfromD u) (dFromD1 u')
-
-from1D :: (ADTensor r, KnownNat n)
-       => ADVal (TensorOf n r) -> ADVal (DynamicTensor r)
-from1D (D u u') = dDnotShared (tfromR u) (dFrom1D u')
 
 -- Shims to reuse the tests for ordinary vectors.
 type Vec r = OR.Array 1 r

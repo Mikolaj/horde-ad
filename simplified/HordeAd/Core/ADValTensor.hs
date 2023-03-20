@@ -9,6 +9,7 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.ADValTensor
   ( InterpretAst(..), AstVar(..), funToAstR, funToAstD, simplifyAst, extendEnvR
+  , ADTensor, fromD1, from1D
   , resetVarCOunter
   ) where
 
@@ -34,6 +35,25 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
+
+type ADTensor r =
+  ( IsPrimal r
+  , HasRanks r
+  , Tensor r
+  , HasPrimal r
+  )
+
+class TensorIsArray r where
+  toArray :: TensorOf n r -> OR.Array n r
+  fromArray :: OR.Array n r -> TensorOf n r
+
+instance TensorIsArray Double where
+  toArray = id
+  fromArray = id
+
+instance TensorIsArray Float where
+  toArray = id
+  fromArray = id
 
 instance (Num (Vector r), Numeric r, Show r, KnownNat n)
          => IfB (ADVal (Ast n r)) where
@@ -335,6 +355,14 @@ scalar (D u u') = dD (tscalar u) (dScalar1 u')
 
 unScalar :: ADTensor r => ADVal (TensorOf 0 r) -> ADVal r
 unScalar (D u u') = dD (tunScalar u) (dUnScalar0 u')
+
+fromD1 :: forall n r. (ADTensor r, KnownNat n)
+       => ADVal (DynamicTensor r) -> ADVal (TensorOf n r)
+fromD1 (D u u') = dDnotShared (tfromD u) (dFromD1 u')
+
+from1D :: (ADTensor r, KnownNat n)
+       => ADVal (TensorOf n r) -> ADVal (DynamicTensor r)
+from1D (D u u') = dDnotShared (tfromR u) (dFrom1D u')
 
 
 -- * Interpretation of Ast in ADVal
