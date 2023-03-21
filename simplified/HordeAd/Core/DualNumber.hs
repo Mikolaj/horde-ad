@@ -177,6 +177,10 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
       else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
 -}
 
+constantADVal :: IsPrimal a => a -> ADVal a
+constantADVal a = dD a dZero
+
+
 -- * Numeric instances for ADVal
 
 -- These two instances are now required for the Tensor instance.
@@ -265,9 +269,6 @@ instance (RealFloat a, IsPrimal a) => RealFloat (ADVal a) where
 -- * Legacy operations needed to re-use vector differentiation tests
 
 -- General operations, for any tensor rank
-
-constantADVal :: IsPrimal a => a -> ADVal a
-constantADVal a = dD a dZero
 
 logistic :: (Floating a, IsPrimal a) => ADVal a -> ADVal a
 logistic (D u u') =
