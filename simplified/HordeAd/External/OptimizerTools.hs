@@ -26,34 +26,34 @@ updateWithGradient
   :: ( Numeric r, Floating (Vector r)
      , DynamicTensor r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r )
   => r -> Domains r -> Domains r -> Domains r
-updateWithGradient gamma (Domains params0 params1)
-                         (Domains gradient0 gradient1) =
+updateWithGradient gamma (Domains params0 paramsR)
+                         (Domains gradient0 gradientR) =
   let updateVector i r = i - LA.scale gamma r
       !params0New = liftVR2 updateVector params0 gradient0
-      update1 i r = if isTensorDummy r  -- eval didn't update it, would crash
+      updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVT2 updateVector i r
-      !params1New = V.zipWith update1 params1 gradient1
-  in Domains params0New params1New
+      !paramsRNew = V.zipWith updateR paramsR gradientR
+  in Domains params0New paramsRNew
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
 
 {-
 gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool
-gradientIsNil (Domains gradient0 gradient1) =
+gradientIsNil (Domains gradient0 gradientR) =
   V.all (== 0) gradient0
-  && V.all isTensorDummy gradient1
+  && V.all isTensorDummy gradientR
 
 minimumGradient :: (Ord r, Numeric r) => Domains r -> r
-minimumGradient (Domains gradient0 gradient1) =
+minimumGradient (Domains gradient0 gradientR) =
   min (if V.null gradient0 then 0 else LA.minElement gradient0)
-      (if V.null gradient1 then 0
-       else V.minimum (V.map OD.minimumA gradient1))
+      (if V.null gradientR then 0
+       else V.minimum (V.map OD.minimumA gradientR))
 
 maximumGradient :: (Ord r, Numeric r) => Domains r -> r
-maximumGradient (Domains gradient0 gradient1) =
+maximumGradient (Domains gradient0 gradientR) =
   max (if V.null gradient0 then 0 else LA.maxElement gradient0)
-      (if V.null gradient1 then 0
-       else V.maximum (V.map OD.maximumA gradient1))
+      (if V.null gradientR then 0
+       else V.maximum (V.map OD.maximumA gradientR))
 -}
 
 data ArgsAdam r = ArgsAdam
@@ -89,7 +89,7 @@ zeroParameters Domains{..} =
         VM.set vThawed 0
         V.unsafeFreeze vThawed
   in Domains (liftVR zeroVector domains0)
-             (V.map (\a -> OD.constant (OD.shapeL a) 0) domains1)
+             (V.map (\a -> OD.constant (OD.shapeL a) 0) domainsR)
 
 initialStateAdam
   :: (Numeric r, DynamicTensor r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r)
@@ -133,11 +133,11 @@ updateWithGradientAdam
   -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..}
                        StateAdam{ tAdam
-                                , mAdam = Domains mAdam0 mAdam1
-                                , vAdam = Domains vAdam0 vAdam1
+                                , mAdam = Domains mAdam0 mAdamR
+                                , vAdam = Domains vAdam0 vAdamR
                                 }
-                       (Domains params0 params1)
-                       (Domains gradient0 gradient1) =
+                       (Domains params0 paramsR)
+                       (Domains gradient0 gradientR) =
   let tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
@@ -157,17 +157,17 @@ updateWithGradientAdam ArgsAdam{..}
       (!mAdam0New, !vAdam0New, !params0New) =
         updateVector (OR.toVector mAdam0) (OR.toVector vAdam0)
                      (OR.toVector params0) (OR.toVector gradient0)
-      update1 mA vA p g = if isTensorDummy g  -- eval didn't update it
+      updateR mA vA p g = if isTensorDummy g  -- eval didn't update it
                           then (mA, vA, p)
                           else liftArray43 updateVector mA vA p g
-      (!mAdam1New, !vAdam1New, !params1New) =
-        V.unzip3 $ V.zipWith4 update1 mAdam1 vAdam1 params1 gradient1
-  in ( Domains (OR.fromVector [V.length params0New] params0New) params1New
+      (!mAdamRNew, !vAdamRNew, !paramsRNew) =
+        V.unzip3 $ V.zipWith4 updateR mAdamR vAdamR paramsR gradientR
+  in ( Domains (OR.fromVector [V.length params0New] params0New) paramsRNew
      , StateAdam
          { tAdam = tAdamNew
          , mAdam = Domains (OR.fromVector [V.length mAdam0New] mAdam0New)
-                           mAdam1New
+                           mAdamRNew
          , vAdam = Domains (OR.fromVector [V.length vAdam0New] vAdam0New)
-                           vAdam1New
+                           vAdamRNew
          }
      )

@@ -21,7 +21,7 @@ module HordeAd.Core.DualNumber
   , map1POPL, map1Elementwise
   , -- * Re-exports
     IsPrimal (..), IsPrimalWithScalar
-  , Domain0, Domain1, Domains(..), emptyDomain0, nullDomains
+  , Domain0, DomainR, Domains(..), emptyDomain0, nullDomains
   ) where
 
 import Prelude hiding ((<*))
@@ -36,7 +36,7 @@ import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Delta
-  (Delta0, Domain0, Domain1, Domains (..), emptyDomain0, nullDomains)
+  (Delta0, Domain0, DomainR, Domains (..), emptyDomain0, nullDomains)
 import HordeAd.Core.DualClass
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
@@ -396,39 +396,39 @@ lossSoftMaxCrossEntropyV target (D u u') =
         (dDot0 (softMaxU - target) u')
 
 
--- Operations resulting in a vector (really, a rank 1 OR.Array)
+-- Operations resulting in a vector (really, a OR.Array)
 
 -- @1@ means rank one, so the dual component represents a vector.
 fromList1 :: ADNum r
           => [ADVal r] -> ADVal (Vec r)
 fromList1 l =
   dD (tfromListR $ map (\(D u _) -> tscalarR u) l)
-     (dFromList1 $ map (\(D _ u') -> dScalar1 u') l)
+     (dFromListR $ map (\(D _ u') -> dScalarR u') l)
 
 fromVector1 :: ADNum r
             => Data.Vector.Vector (ADVal r) -> ADVal (Vec r)
 fromVector1 l =
   dD (tfromVectorR
       $ V.convert $ V.map (\(D u _) -> tscalarR u) l)  -- hope it fuses
-     (dFromVector1
-      $ V.map (\(D _ u') -> dScalar1 u') l)
+     (dFromVectorR
+      $ V.map (\(D _ u') -> dScalarR u') l)
 
 konst1 :: ADNum r => ADVal r -> Int -> ADVal (Vec r)
 konst1 (D u u') n =
-  dD (tkonstR n (tscalarR u)) (dKonst1 n (dScalar1 u'))
+  dD (tkonstR n (tscalarR u)) (dKonstR n (dScalarR u'))
 
 append1 :: ADNum r
         => ADVal (Vec r) -> ADVal (Vec r) -> ADVal (Vec r)
 append1 (D u u') (D v v') = dD (tappendR u v)
-                               (dAppend1 u' (head $ OR.shapeL u) v')
+                               (dAppendR u' (head $ OR.shapeL u) v')
 
 slice1 :: ADNum r
        => Int -> Int -> ADVal (Vec r) -> ADVal (Vec r)
 slice1 i k (D u u') = dD (tsliceR i k u)
-                         (dSlice1 i k u' (head $ OR.shapeL u))
+                         (dSliceR i k u' (head $ OR.shapeL u))
 
 reverse1 :: ADNum r => ADVal (Vec r) -> ADVal (Vec r)
-reverse1 (D u u') = dD (treverseR u) (dReverse1 u')
+reverse1 (D u u') = dD (treverseR u) (dReverseR u')
 
 -- TODO: define Enum instance of (AstInt r) to enable AST for this.
 -- No padding; remaining areas ignored.
@@ -467,7 +467,7 @@ build1Closure n f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
   in dD (OR.fromList [n] $ map g [0 .. n - 1])
-        (dBuild1 n (dScalar1 . h))
+        (dBuildR n (dScalarR . h))
 
 build1
   :: ADNum r

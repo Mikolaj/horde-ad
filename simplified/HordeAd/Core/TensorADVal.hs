@@ -112,8 +112,8 @@ instance Tensor (ADVal Double) where
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
   tshapeD (D u _) = OD.shapeL u
-  tfromR = from1D
-  tfromD = fromD1
+  tfromR = fromR
+  tfromD = fromD
 
 instance Tensor (ADVal Float) where
   type TensorOf n (ADVal Float) = ADVal (OR.Array n Float)
@@ -161,8 +161,8 @@ instance Tensor (ADVal Float) where
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
   tshapeD (D u _) = OD.shapeL u
-  tfromR = from1D
-  tfromD = fromD1
+  tfromR = fromR
+  tfromD = fromD
 
 instance (ADTensor (Ast0 r), Numeric r, Show r, Num (Vector r))
          => Tensor (ADVal (Ast0 r)) where
@@ -211,8 +211,8 @@ instance (ADTensor (Ast0 r), Numeric r, Show r, Num (Vector r))
   tisDummyD = undefined  -- not used for dual numbers
   taddD (D u u') (D v v') = dD (AstDynamicPlus u v) (dAdd u' v')
   tshapeD (D u _) = tshapeD u
-  tfromR = from1D
-  tfromD = fromD1
+  tfromR = fromR
+  tfromD = fromD
 
 
 -- * ADVal combinators generalizing ranked tensor operations
@@ -235,7 +235,7 @@ indexZ (D u u') ix = dD (tindex u ix) (dIndexZ u' ix (tshape u))
 
 sum' :: (ADTensor r, IsPrimal (TensorOf n r), KnownNat n)
      => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf n r)
-sum' (D u u') = dD (tsum u) (dSum1 (tlength u) u')
+sum' (D u u') = dD (tsum u) (dSumR (tlength u) u')
 
 sum0 :: (ADTensor r, KnownNat n)
      => ADVal (TensorOf n r) -> ADVal r
@@ -260,7 +260,7 @@ fromList :: (ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
 fromList lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
   dD (tfromList $ map (\(D u _) -> u) lu)
-     (dFromList1 $ map (\(D _ u') -> u') lu)
+     (dFromListR $ map (\(D _ u') -> u') lu)
 
 --fromList0N :: (ADTensor r, KnownNat n)
 --           => ShapeInt n -> [ADVal r]
@@ -274,7 +274,7 @@ fromVector :: (ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
            -> ADVal (TensorOf (1 + n) r)
 fromVector lu =
   dD (tfromVector $ V.map (\(D u _) -> u) lu)
-     (dFromVector1 $ V.map (\(D _ u') -> u') lu)
+     (dFromVectorR $ V.map (\(D _ u') -> u') lu)
 
 --fromVector0N :: (ADTensor r, KnownNat n)
 --             => ShapeInt n -> Data.Vector.Vector (ADVal r)
@@ -285,7 +285,7 @@ fromVector lu =
 
 konst :: (ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
       => Int -> ADVal (TensorOf n r) -> ADVal (TensorOf (1 + n) r)
-konst k (D u u') = dD (tkonst k u) (dKonst1 k u')
+konst k (D u u') = dD (tkonst k u) (dKonstR k u')
 
 --konst0N :: (ADTensor r, KnownNat n)
 --        => ShapeInt n -> ADVal r -> ADVal (TensorOf n r)
@@ -294,24 +294,24 @@ konst k (D u u') = dD (tkonst k u) (dKonst1 k u')
 append :: (ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
        => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf (1 + n) r)
        -> ADVal (TensorOf (1 + n) r)
-append (D u u') (D v v') = dD (tappend u v) (dAppend1 u' (tlength u) v')
+append (D u u') (D v v') = dD (tappend u v) (dAppendR u' (tlength u) v')
 
 slice :: (ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
       => Int -> Int -> ADVal (TensorOf (1 + n) r)
       -> ADVal (TensorOf (1 + n) r)
-slice i k (D u u') = dD (tslice i k u) (dSlice1 i k u' (tlength u))
+slice i k (D u u') = dD (tslice i k u) (dSliceR i k u' (tlength u))
 
 reverse' :: (ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
          => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf (1 + n) r)
-reverse' (D u u') = dD (treverse u) (dReverse1 u')
+reverse' (D u u') = dD (treverse u) (dReverseR u')
 
 transpose :: (ADTensor r, IsPrimal (TensorOf n r), KnownNat n)
           => Permutation -> ADVal (TensorOf n r) -> ADVal (TensorOf n r)
-transpose perm (D u u') = dD (ttranspose perm u) (dTranspose1 perm u')
+transpose perm (D u u') = dD (ttranspose perm u) (dTransposeR perm u')
 
 reshape :: (ADTensor r, IsPrimal (TensorOf m r), KnownNat m, KnownNat n)
         => ShapeInt m -> ADVal (TensorOf n r) -> ADVal (TensorOf m r)
-reshape sh (D u u') = dD (treshape sh u) (dReshape1 (tshape u) sh u')
+reshape sh (D u u') = dD (treshape sh u) (dReshapeR (tshape u) sh u')
 
 build1, _build1Closure
   :: (ADTensor r, KnownNat n, IsPrimal (TensorOf (1 + n) r))
@@ -325,7 +325,7 @@ build1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
 _build1Closure k f =  -- stores closures on tape
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
-  in dD (tbuild1 k g) (dBuild1 k h)
+  in dD (tbuild1 k g) (dBuildR k h)
 
 -- Note that if any index is out of bounds, the result of that particular
 -- projection is defined and is 0 (but beware of vectorization).
@@ -339,15 +339,15 @@ gatherNClosure sh (D u u') f =
 
 scalar :: (ADTensor r, IsPrimal (TensorOf 0 r))
        => ADVal r -> ADVal (TensorOf 0 r)
-scalar (D u u') = dD (tscalar u) (dScalar1 u')
+scalar (D u u') = dD (tscalar u) (dScalarR u')
 
 unScalar :: ADTensor r => ADVal (TensorOf 0 r) -> ADVal r
 unScalar (D u u') = dD (tunScalar u) (dUnScalar0 u')
 
-fromD1 :: forall n r. (ADTensor r, KnownNat n)
+fromD :: forall n r. (ADTensor r, KnownNat n)
        => ADVal (DynamicTensor r) -> ADVal (TensorOf n r)
-fromD1 (D u u') = dDnotShared (tfromD u) (dFromD1 u')
+fromD (D u u') = dDnotShared (tfromD u) (dFromD u')
 
-from1D :: (ADTensor r, KnownNat n)
+fromR :: (ADTensor r, KnownNat n)
        => ADVal (TensorOf n r) -> ADVal (DynamicTensor r)
-from1D (D u u') = dDnotShared (tfromR u) (dFrom1D u')
+fromR (D u u') = dDnotShared (tfromR u) (dFromR u')

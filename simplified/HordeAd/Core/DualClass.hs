@@ -83,10 +83,10 @@ type family Dual a = result | result -> a where
   Dual (Ast0 r) = Delta0 (Ast0 r)
   Dual (OD.Array Double) = DeltaD Double
   Dual (OD.Array Float) = DeltaD Float
-  Dual (OR.Array n Double) = Delta1 n Double
-  Dual (OR.Array n Float) = Delta1 n Float
+  Dual (OR.Array n Double) = DeltaR n Double
+  Dual (OR.Array n Float) = DeltaR n Float
   Dual (AstDynamic r) = DeltaD (Ast0 r)
-  Dual (Ast n r) = Delta1 n (Ast0 r)
+  Dual (Ast n r) = DeltaR n (Ast0 r)
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
 newtype DummyDual r = DummyDual ()
@@ -163,44 +163,44 @@ class HasRanks r where
         => TensorOf n r -> Dual (TensorOf n r) -> Dual r
   dUnScalar0 :: Dual (TensorOf 0 r) -> Dual r
 
-  dInput1 :: InputId (TensorOf n r) -> Dual (TensorOf n r)
+  dInputR :: InputId (TensorOf n r) -> Dual (TensorOf n r)
 --  dIndexZ1 :: KnownNat n
 --         => Dual (TensorOf (1 + n) r) -> Int -> Int -> Dual (TensorOf n r)
   dIndexZ :: (KnownNat n, KnownNat m)
           => Dual (TensorOf (m + n) r) -> IndexOf m r -> ShapeInt (m + n)
           -> Dual (TensorOf n r)
-  dSum1 :: KnownNat n
+  dSumR :: KnownNat n
         => Int -> Dual (TensorOf (1 + n) r) -> Dual (TensorOf n r)
-  dScalar1 :: Dual r -> Dual (TensorOf 0 r)
-  dFromList1 :: KnownNat n
+  dScalarR :: Dual r -> Dual (TensorOf 0 r)
+  dFromListR :: KnownNat n
              => [Dual (TensorOf n r)]
              -> Dual (TensorOf (1 + n) r)
-  dFromVector1 :: KnownNat n
+  dFromVectorR :: KnownNat n
                => Data.Vector.Vector (Dual (TensorOf n r))
                -> Dual (TensorOf (1 + n) r)
---  dFromList01 :: KnownNat n
+--  dFromList0R :: KnownNat n
 --              => ShapeInt n -> [Dual r] -> Dual (TensorOf n r)
---  dFromVector01 :: KnownNat n
+--  dFromVector0R :: KnownNat n
 --                => ShapeInt n -> Data.Vector.Vector (Dual r)
 --                -> Dual (TensorOf n r)
-  dKonst1 :: KnownNat n
+  dKonstR :: KnownNat n
           => Int -> Dual (TensorOf n r) -> Dual (TensorOf (1 + n) r)
---  dKonst01 :: KnownNat n
+--  dKonst0R :: KnownNat n
 --           => ShapeInt n -> Dual r -> Dual (TensorOf n r)
-  dAppend1 :: KnownNat n
+  dAppendR :: KnownNat n
            => Dual (TensorOf (1 + n) r) -> Int -> Dual (TensorOf (1 + n) r)
            -> Dual (TensorOf (1 + n) r)
-  dSlice1 :: KnownNat n
+  dSliceR :: KnownNat n
           => Int -> Int -> Dual (TensorOf (1 + n) r) -> Int
           -> Dual (TensorOf (1 + n) r)
-  dReverse1 :: KnownNat n
+  dReverseR :: KnownNat n
             => Dual (TensorOf (1 + n) r) -> Dual (TensorOf (1 + n) r)
-  dTranspose1 :: KnownNat n
+  dTransposeR :: KnownNat n
               => Permutation -> Dual (TensorOf n r) -> Dual (TensorOf n r)
-  dReshape1 :: (KnownNat n, KnownNat m)
+  dReshapeR :: (KnownNat n, KnownNat m)
             => ShapeInt n -> ShapeInt m -> Dual (TensorOf n r)
             -> Dual (TensorOf m r)
-  dBuild1 :: KnownNat n
+  dBuildR :: KnownNat n
           => Int -> (IntOf r -> Dual (TensorOf n r))
           -> Dual (TensorOf (1 + n) r)
 --  dGatherZ1 :: (KnownNat p, KnownNat n)
@@ -222,10 +222,10 @@ class HasRanks r where
             -> ShapeInt (m + n)
             -> Dual (TensorOf (p + n) r)
 
-  dFromD1 :: KnownNat n
+  dFromD :: KnownNat n
           => Dual (DynamicTensor r) -> Dual (TensorOf n r)
 
-  dFrom1D :: KnownNat n
+  dFromR :: KnownNat n
           => Dual (TensorOf n r) -> Dual (DynamicTensor r)
 
 -- * Backprop gradient method instances
@@ -307,50 +307,50 @@ instance IsPrimal (OD.Array r) where
 
 -- | This is an impure instance. See above.
 instance IsPrimalR Double where
-  dZeroR = Zero1
-  dScaleR = Scale1
-  dAddR = Add1
+  dZeroR = ZeroR
+  dScaleR = ScaleR
+  dAddR = AddR
   recordSharingR d = case d of
-    Zero1 -> d
-    Input1{} -> d
-    FromD1{} -> d
-    Let1{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDelta1 d
-  packDeltaDtR (Left tsh) = DeltaDt1 (tkonst0N (tshape tsh) 1)
-  packDeltaDtR (Right t) = DeltaDt1 t
+    ZeroR -> d
+    InputR{} -> d
+    FromD{} -> d
+    LetR{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaR d
+  packDeltaDtR (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
+  packDeltaDtR (Right t) = DeltaDtR t
 
 instance IsPrimalR Float where
-  dZeroR = Zero1
-  dScaleR = Scale1
-  dAddR = Add1
+  dZeroR = ZeroR
+  dScaleR = ScaleR
+  dAddR = AddR
   recordSharingR d = case d of
-    Zero1 -> d
-    Input1{} -> d
-    FromD1{} -> d
-    Let1{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDelta1 d
-  packDeltaDtR (Left tsh) = DeltaDt1 (tconst $ tkonst0N (tshape tsh) 1)
-  packDeltaDtR (Right t) = DeltaDt1 t
+    ZeroR -> d
+    InputR{} -> d
+    FromD{} -> d
+    LetR{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaR d
+  packDeltaDtR (Left tsh) = DeltaDtR (tconst $ tkonst0N (tshape tsh) 1)
+  packDeltaDtR (Right t) = DeltaDtR t
 
 -- TODO: should this manage sharing of the terms?
 instance (Show r, Numeric r, Tensor (Ast0 r)) => IsPrimalA r where
-  dZeroA = Zero1
-  dScaleA = Scale1
-  dAddA = Add1
+  dZeroA = ZeroR
+  dScaleA = ScaleR
+  dAddA = AddR
   recordSharingA d = case d of
-    Zero1 -> d
-    Input1{} -> d
-    FromD1{} -> d
-    Let1{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDelta1 d
-  packDeltaDtA (Left tsh) = DeltaDt1 (tkonst0N (tshape tsh) 1)
-  packDeltaDtA (Right t) = DeltaDt1 t
+    ZeroR -> d
+    InputR{} -> d
+    FromD{} -> d
+    LetR{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaR d
+  packDeltaDtA (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
+  packDeltaDtA (Right t) = DeltaDtR t
 
 instance IsPrimal (AstDynamic r) where
   dZero = undefined
   dScale = undefined
-  dAdd (From1D @n1 d1) (From1D @n2 d2) = case sameNat (Proxy @n1) (Proxy @n2) of
-    Just Refl -> From1D $ Add1 d1 d2
+  dAdd (FromR @n1 d1) (FromR @n2 d2) = case sameNat (Proxy @n1) (Proxy @n2) of
+    Just Refl -> FromR $ AddR d1 d2
     _ -> error "dAdd (IsPrimal (AstDynamic r)): summand types don't match"
   recordSharing = id
   packDeltaDt = undefined
@@ -363,31 +363,31 @@ instance HasRanks Double where
   dDot0 = Dot0
   dUnScalar0 = UnScalar0
 
-  dInput1 = Input1
+  dInputR = InputR
 --  dIndex1 = Index1
   dIndexZ = IndexZ
-  dSum1 = Sum1
-  dScalar1 = Scalar1
-  dFromList1 = FromList1
-  dFromVector1 = FromVector1
---  dFromList01 = FromList01
---  dFromVector01 = FromVector01
-  dKonst1 = Konst1
---  dKonst01 = Konst01
-  dAppend1 = Append1
-  dSlice1 = Slice1
-  dReverse1 = Reverse1
-  dTranspose1 = Transpose1
-  dReshape1 = Reshape1
-  dBuild1 = Build1
+  dSumR = SumR
+  dScalarR = ScalarR
+  dFromListR = FromListR
+  dFromVectorR = FromVectorR
+--  dFromList0R = FromList0R
+--  dFromVector0R = FromVector0R
+  dKonstR = KonstR
+--  dKonst0R = Konst0R
+  dAppendR = AppendR
+  dSliceR = SliceR
+  dReverseR = ReverseR
+  dTransposeR = TransposeR
+  dReshapeR = ReshapeR
+  dBuildR = BuildR
 --  dGather1 = Gather1
   dGatherZ = GatherZ
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
 
-  dFromD1 = FromD1
+  dFromD = FromD
 
-  dFrom1D = From1D
+  dFromR = FromR
 
 instance HasRanks Float where
   dInput0 = Input0
@@ -396,31 +396,31 @@ instance HasRanks Float where
   dDot0 = Dot0
   dUnScalar0 = UnScalar0
 
-  dInput1 = Input1
+  dInputR = InputR
 --  dIndex1 = Index1
   dIndexZ = IndexZ
-  dSum1 = Sum1
-  dScalar1 = Scalar1
-  dFromList1 = FromList1
-  dFromVector1 = FromVector1
---  dFromList01 = FromList01
---  dFromVector01 = FromVector01
-  dKonst1 = Konst1
---  dKonst01 = Konst01
-  dAppend1 = Append1
-  dSlice1 = Slice1
-  dReverse1 = Reverse1
-  dTranspose1 = Transpose1
-  dReshape1 = Reshape1
-  dBuild1 = Build1
+  dSumR = SumR
+  dScalarR = ScalarR
+  dFromListR = FromListR
+  dFromVectorR = FromVectorR
+--  dFromList0R = FromList0R
+--  dFromVector0R = FromVector0R
+  dKonstR = KonstR
+--  dKonst0R = Konst0R
+  dAppendR = AppendR
+  dSliceR = SliceR
+  dReverseR = ReverseR
+  dTransposeR = TransposeR
+  dReshapeR = ReshapeR
+  dBuildR = BuildR
 --  dGather1 = Gather1
   dGatherZ = GatherZ
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
 
-  dFromD1 = FromD1
+  dFromD = FromD
 
-  dFrom1D = From1D
+  dFromR = FromR
 
 instance (Show r, Numeric r) => HasRanks (Ast0 r) where
   dInput0 = Input0
@@ -429,31 +429,31 @@ instance (Show r, Numeric r) => HasRanks (Ast0 r) where
   dDot0 = Dot0
   dUnScalar0 = UnScalar0
 
-  dInput1 = Input1
+  dInputR = InputR
 --  dIndex1 = Index1
   dIndexZ = IndexZ
-  dSum1 = Sum1
-  dScalar1 = Scalar1
-  dFromList1 = FromList1
-  dFromVector1 = FromVector1
---  dFromList01 = FromList01
---  dFromVector01 = FromVector01
-  dKonst1 = Konst1
---  dKonst01 = Konst01
-  dAppend1 = Append1
-  dSlice1 = Slice1
-  dReverse1 = Reverse1
-  dTranspose1 = Transpose1
-  dReshape1 = Reshape1
-  dBuild1 = Build1
+  dSumR = SumR
+  dScalarR = ScalarR
+  dFromListR = FromListR
+  dFromVectorR = FromVectorR
+--  dFromList0R = FromList0R
+--  dFromVector0R = FromVector0R
+  dKonstR = KonstR
+--  dKonst0R = Konst0R
+  dAppendR = AppendR
+  dSliceR = SliceR
+  dReverseR = ReverseR
+  dTransposeR = TransposeR
+  dReshapeR = ReshapeR
+  dBuildR = BuildR
 --  dGather1 = Gather1
   dGatherZ = GatherZ
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
 
-  dFromD1 = FromD1
+  dFromD = FromD
 
-  dFrom1D = From1D
+  dFromR = FromR
 
 -- * Counter handling
 
@@ -492,8 +492,8 @@ wrapDelta0 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! Let0 (NodeId n) d
 
-wrapDelta1 :: Delta1 n r -> Delta1 n r
-{-# NOINLINE wrapDelta1 #-}
-wrapDelta1 !d = unsafePerformIO $ do
+wrapDeltaR :: DeltaR n r -> DeltaR n r
+{-# NOINLINE wrapDeltaR #-}
+wrapDeltaR !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! Let1 (NodeId n) d
+  return $! LetR (NodeId n) d

@@ -24,7 +24,7 @@ module HordeAd.Core.DualNumber2
   , -- * Re-exports
     ADMode(..)
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
-  , Domain0, Domain1, Domains(..), emptyDomain0, nullDomains
+  , Domain0, DomainR, Domain1, domains1, Domains(..), emptyDomain0, nullDomains
   ) where
 
 import Prelude
@@ -41,11 +41,16 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.Delta
-  (Delta0, Domain0, Domain1, Domains (..), emptyDomain0, nullDomains)
+  (Delta0, Domain0, DomainR, Domains (..), emptyDomain0, nullDomains)
 import HordeAd.Core.DualClass2
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
+
+type Domain1 r = DomainR r
+
+domains1 :: Domains r -> Domain1 r
+domains1 = domainsR
 
 -- * The main dual number type
 
@@ -137,11 +142,11 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
 
 fromX1 :: forall n d r. (ADModeAndNum d r, KnownNat n)
        => ADVal d (OD.Array r) -> ADVal d (TensorOf n r)
-fromX1 (D u u') = dDnotShared (tfromD u) (dFromD1 u')
+fromX1 (D u u') = dDnotShared (tfromD u) (dFromD u')
 
 from1X :: (ADModeAndNum d r, KnownNat n)
        => ADVal d (TensorOf n r) -> ADVal d (OD.Array r)
-from1X (D u u') = dDnotShared (tfromR u) (dFrom1D u')
+from1X (D u u') = dDnotShared (tfromR u) (dFromR u')
 
 -- Shims to reuse the tests for ordinary vectors.
 type Vec r = OR.Array 1 r
@@ -420,39 +425,39 @@ lossSoftMaxCrossEntropyV target (D u u') =
         (dDot0 (softMaxU - target) u')
 
 
--- Operations resulting in a vector (really, a rank 1 OR.Array)
+-- Operations resulting in a vector (really, a OR.Array)
 
 -- @1@ means rank one, so the dual component represents a vector.
 fromList1 :: ADModeAndNum d r
           => [ADVal d r] -> ADVal d (Vec r)
 fromList1 l =
   dD (tfromListR $ map (\(D u _) -> tscalarR u) l)
-     (dFromList1 $ map (\(D _ u') -> dScalar1 u') l)
+     (dFromListR $ map (\(D _ u') -> dScalarR u') l)
 
 fromVector1 :: ADModeAndNum d r
             => Data.Vector.Vector (ADVal d r) -> ADVal d (Vec r)
 fromVector1 l =
   dD (tfromVectorR
       $ V.convert $ V.map (\(D u _) -> tscalarR u) l)  -- hope it fuses
-     (dFromVector1
-      $ V.map (\(D _ u') -> dScalar1 u') l)
+     (dFromVectorR
+      $ V.map (\(D _ u') -> dScalarR u') l)
 
 konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vec r)
 konst1 (D u u') n =
-  dD (tkonstR n (tscalarR u)) (dKonst1 n (dScalar1 u'))
+  dD (tkonstR n (tscalarR u)) (dKonstR n (dScalarR u'))
 
 append1 :: ADModeAndNum d r
         => ADVal d (Vec r) -> ADVal d (Vec r) -> ADVal d (Vec r)
 append1 (D u u') (D v v') = dD (tappendR u v)
-                               (dAppend1 u' (head $ OR.shapeL u) v')
+                               (dAppendR u' (head $ OR.shapeL u) v')
 
 slice1 :: ADModeAndNum d r
        => Int -> Int -> ADVal d (Vec r) -> ADVal d (Vec r)
 slice1 i k (D u u') = dD (tsliceR i k u)
-                         (dSlice1 i k u' (head $ OR.shapeL u))
+                         (dSliceR i k u' (head $ OR.shapeL u))
 
 reverse1 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d (Vec r)
-reverse1 (D u u') = dD (treverseR u) (dReverse1 u')
+reverse1 (D u u') = dD (treverseR u) (dReverseR u')
 
 -- TODO: define Enum instance of (AstInt r) to enable AST for this.
 -- No padding; remaining areas ignored.
@@ -491,7 +496,7 @@ build1Closure n f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
   in dD (OR.fromList [n] $ map g [0 .. n - 1])
-        (dBuild1 n (dScalar1 . h))
+        (dBuildR n (dScalarR . h))
 
 build1
   :: ADModeAndNum d r

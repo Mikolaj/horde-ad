@@ -17,7 +17,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
-import HordeAd.Core.DualClass (dFromD1)
+import HordeAd.Core.DualClass (dFromD)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
@@ -61,9 +61,9 @@ at1 :: forall n r. ( KnownNat n, ADTensor r, IsPrimal (TensorOf n r)
     => ADInputs r -> Int -> ADVal (OR.Array n r)
 {-# INLINE at1 #-}
 at1 ADInputs{..} i = dD (tfromD $ inputPrimal1 V.! i)
-                        (dFromD1 $ inputDual1 V.! i)
+                        (dFromD $ inputDual1 V.! i)
 
-domainsFrom01 :: (Numeric r, Tensor r) => Vector r -> Domain1 r -> Domains r
+domainsFrom01 :: (Numeric r, Tensor r) => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 =
   Domains (tfromList0N (singletonShape (V.length v0)) (V.toList v0))
 
@@ -353,8 +353,8 @@ testPoly11 f outSize input expected = do
       val = f (vToVec $ V.fromList input)
   astValue @?~ val
   advalValue @?~ val
-  domains1 astGrad @?~ domains1 domainsExpected
-  domains1 advalGrad @?~ domains1 domainsExpected
+  domainsR astGrad @?~ domainsR domainsExpected
+  domainsR advalGrad @?~ domainsR domainsExpected
 
 testPolyn
   :: (KnownNat n, r ~ Double)
@@ -412,7 +412,7 @@ testFooMap =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  (domains1 $ fst
+  (domainsR $ fst
    $ revOnDomains
        (Just $ vToVec $ LA.konst 1 3)
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
@@ -423,7 +423,7 @@ testFooNoGoAst =
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
-  @?~ domains1 (domainsFrom0V V.empty (V.singleton (V.fromList [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])))
+  @?~ domainsR (domainsFrom0V V.empty (V.singleton (V.fromList [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])))
 
 testNestedBuildMap :: Assertion
 testNestedBuildMap =
@@ -466,7 +466,7 @@ testBarReluAst0 =
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
-  (domains1 $ fst
+  (domainsR $ fst
    $ revOnDomains
        (Just $ vToVec $ LA.konst 1 5)
          -- "1" wrong due to fragility of hmatrix and tensor numeric instances
@@ -477,7 +477,7 @@ testBarReluAst1 =
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
-  @?~ domains1 (domainsFrom0V V.empty (V.singleton (V.fromList [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])))
+  @?~ domainsR (domainsFrom0V V.empty (V.singleton (V.fromList [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])))
 
 testKonstReluAst :: Assertion
 testKonstReluAst =
@@ -522,7 +522,7 @@ testF3 = do
           domainsInput
       val = f3 $ OR.fromList [] input
   let _ = astValue @?~ val
-  let _ = domains1 astGrad @?~ domains1 domainsExpected
+  let _ = domainsR astGrad @?~ domainsR domainsExpected
   return ()  -- dummy instance for -> and Ast rewrites don't remove -> yet
 -}
 

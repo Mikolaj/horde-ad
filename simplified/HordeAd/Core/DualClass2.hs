@@ -97,7 +97,7 @@ type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeGradient Double = Delta0 Double
   Dual 'ADModeGradient Float = Delta0 Float
   Dual 'ADModeGradient (OD.Array r) = DeltaD r
-  Dual 'ADModeGradient (OR.Array n r) = Delta1 n r
+  Dual 'ADModeGradient (OR.Array n r) = DeltaR n r
 -- not injective:  Dual 'ADModeDerivative r = r
   Dual 'ADModeDerivative Double = Double
   Dual 'ADModeDerivative Float = Float
@@ -166,44 +166,44 @@ class HasRanks (d :: ADMode) r where
         => TensorOf n r -> Dual d (TensorOf n r) -> Dual d r
   dUnScalar0 :: Dual d (TensorOf 0 r) -> Dual d r
 
-  dInput1 :: InputId (OR.Array n r) -> Dual d (TensorOf n r)
+  dInputR :: InputId (OR.Array n r) -> Dual d (TensorOf n r)
 --  dIndexZ1 :: KnownNat n
 --         => Dual d (TensorOf (1 + n) r) -> Int -> Int -> Dual d (TensorOf n r)
   dIndexZ :: (KnownNat n, KnownNat m)
           => Dual d (TensorOf (m + n) r) -> IndexOf m r -> ShapeInt (m + n)
           -> Dual d (TensorOf n r)
-  dSum1 :: KnownNat n
+  dSumR :: KnownNat n
         => Int -> Dual d (TensorOf (1 + n) r) -> Dual d (TensorOf n r)
-  dScalar1 :: Dual d r -> Dual d (TensorOf 0 r)
-  dFromList1 :: KnownNat n
+  dScalarR :: Dual d r -> Dual d (TensorOf 0 r)
+  dFromListR :: KnownNat n
              => [Dual d (TensorOf n r)]
              -> Dual d (TensorOf (1 + n) r)
-  dFromVector1 :: KnownNat n
+  dFromVectorR :: KnownNat n
                => Data.Vector.Vector (Dual d (TensorOf n r))
                -> Dual d (TensorOf (1 + n) r)
---  dFromList01 :: KnownNat n
+--  dFromList0R :: KnownNat n
 --              => ShapeInt n -> [Dual d r] -> Dual d (TensorOf n r)
---  dFromVector01 :: KnownNat n
+--  dFromVector0R :: KnownNat n
 --                => ShapeInt n -> Data.Vector.Vector (Dual d r)
 --                -> Dual d (TensorOf n r)
-  dKonst1 :: KnownNat n
+  dKonstR :: KnownNat n
           => Int -> Dual d (TensorOf n r) -> Dual d (TensorOf (1 + n) r)
---  dKonst01 :: KnownNat n
+--  dKonst0R :: KnownNat n
 --           => ShapeInt n -> Dual d r -> Dual d (TensorOf n r)
-  dAppend1 :: KnownNat n
+  dAppendR :: KnownNat n
            => Dual d (TensorOf (1 + n) r) -> Int -> Dual d (TensorOf (1 + n) r)
            -> Dual d (TensorOf (1 + n) r)
-  dSlice1 :: KnownNat n
+  dSliceR :: KnownNat n
           => Int -> Int -> Dual d (TensorOf (1 + n) r) -> Int
           -> Dual d (TensorOf (1 + n) r)
-  dReverse1 :: KnownNat n
+  dReverseR :: KnownNat n
             => Dual d (TensorOf (1 + n) r) -> Dual d (TensorOf (1 + n) r)
-  dTranspose1 :: KnownNat n
+  dTransposeR :: KnownNat n
               => Permutation -> Dual d (TensorOf n r) -> Dual d (TensorOf n r)
-  dReshape1 :: (KnownNat n, KnownNat m)
+  dReshapeR :: (KnownNat n, KnownNat m)
             => ShapeInt n -> ShapeInt m -> Dual d (TensorOf n r)
             -> Dual d (TensorOf m r)
-  dBuild1 :: KnownNat n
+  dBuildR :: KnownNat n
           => Int -> (IntOf r -> Dual d (TensorOf n r))
           -> Dual d (TensorOf (1 + n) r)
 --  dGatherZ1 :: (KnownNat p, KnownNat n)
@@ -225,10 +225,10 @@ class HasRanks (d :: ADMode) r where
             -> ShapeInt (m + n)
             -> Dual d (TensorOf (p + n) r)
 
-  dFromD1 :: KnownNat n
+  dFromD :: KnownNat n
           => Dual d (DynamicTensor r) -> Dual d (TensorOf n r)
 
-  dFrom1D :: KnownNat n
+  dFromR :: KnownNat n
           => Dual d (TensorOf n r) -> Dual d (DynamicTensor r)
 
 -- * Backprop gradient method instances
@@ -296,26 +296,26 @@ instance IsPrimal 'ADModeGradient (OD.Array r) where
 
 -- | This is an impure instance. See above.
 instance IsPrimalR 'ADModeGradient Double where
-  dZeroR = Zero1
-  dScaleR = Scale1
-  dAddR = Add1
+  dZeroR = ZeroR
+  dScaleR = ScaleR
+  dAddR = AddR
   recordSharingR d = case d of
-    Zero1 -> d
-    Input1{} -> d
-    FromD1{} -> d
-    Let1{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDelta1 d
+    ZeroR -> d
+    InputR{} -> d
+    FromD{} -> d
+    LetR{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaR d
 
 instance IsPrimalR 'ADModeGradient Float where
-  dZeroR = Zero1
-  dScaleR = Scale1
-  dAddR = Add1
+  dZeroR = ZeroR
+  dScaleR = ScaleR
+  dAddR = AddR
   recordSharingR d = case d of
-    Zero1 -> d
-    Input1{} -> d
-    FromD1{} -> d
-    Let1{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDelta1 d
+    ZeroR -> d
+    InputR{} -> d
+    FromD{} -> d
+    LetR{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaR d
 
 instance HasInputs Double where
   packDeltaDt t _tsh = DeltaDt0 t
@@ -332,7 +332,7 @@ instance KnownNat n => HasInputs (OR.Array n Double) where
     in assert (sh == sh'
                `blame` "packDeltaDt: dt and codomain differ in shape: "
                `swith` (sh, sh'))
-       $ DeltaDt1 t
+       $ DeltaDtR t
   inputConstant r tsh = OR.constant (OR.shapeL tsh) r
 
 instance KnownNat n => HasInputs (OR.Array n Float) where
@@ -342,7 +342,7 @@ instance KnownNat n => HasInputs (OR.Array n Float) where
     in assert (sh == sh'
                `blame` "packDeltaDt: dt and codomain differ in shape: "
                `swith` (sh, sh'))
-       $ DeltaDt1 t
+       $ DeltaDtR t
   inputConstant r tsh = OR.constant (OR.shapeL tsh) r
 
 -- | This is an impure instance. See above.
@@ -353,31 +353,31 @@ instance HasRanks 'ADModeGradient Double where
   dDot0 = Dot0
   dUnScalar0 = UnScalar0
 
-  dInput1 = Input1
+  dInputR = InputR
 --  dIndex1 = Index1
   dIndexZ = IndexZ
-  dSum1 = Sum1
-  dScalar1 = Scalar1
-  dFromList1 = FromList1
-  dFromVector1 = FromVector1
---  dFromList01 = FromList01
---  dFromVector01 = FromVector01
-  dKonst1 = Konst1
---  dKonst01 = Konst01
-  dAppend1 = Append1
-  dSlice1 = Slice1
-  dReverse1 = Reverse1
-  dTranspose1 = Transpose1
-  dReshape1 = Reshape1
-  dBuild1 = Build1
+  dSumR = SumR
+  dScalarR = ScalarR
+  dFromListR = FromListR
+  dFromVectorR = FromVectorR
+--  dFromList0R = FromList0R
+--  dFromVector0R = FromVector0R
+  dKonstR = KonstR
+--  dKonst0R = Konst0R
+  dAppendR = AppendR
+  dSliceR = SliceR
+  dReverseR = ReverseR
+  dTransposeR = TransposeR
+  dReshapeR = ReshapeR
+  dBuildR = BuildR
 --  dGather1 = Gather1
   dGatherZ = GatherZ
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
 
-  dFromD1 = FromD1
+  dFromD = FromD
 
-  dFrom1D = From1D
+  dFromR = FromR
 
 instance HasRanks 'ADModeGradient Float where
   dInput0 = Input0
@@ -386,31 +386,31 @@ instance HasRanks 'ADModeGradient Float where
   dDot0 = Dot0
   dUnScalar0 = UnScalar0
 
-  dInput1 = Input1
+  dInputR = InputR
 --  dIndex1 = Index1
   dIndexZ = IndexZ
-  dSum1 = Sum1
-  dScalar1 = Scalar1
-  dFromList1 = FromList1
-  dFromVector1 = FromVector1
---  dFromList01 = FromList01
---  dFromVector01 = FromVector01
-  dKonst1 = Konst1
---  dKonst01 = Konst01
-  dAppend1 = Append1
-  dSlice1 = Slice1
-  dReverse1 = Reverse1
-  dTranspose1 = Transpose1
-  dReshape1 = Reshape1
-  dBuild1 = Build1
+  dSumR = SumR
+  dScalarR = ScalarR
+  dFromListR = FromListR
+  dFromVectorR = FromVectorR
+--  dFromList0R = FromList0R
+--  dFromVector0R = FromVector0R
+  dKonstR = KonstR
+--  dKonst0R = Konst0R
+  dAppendR = AppendR
+  dSliceR = SliceR
+  dReverseR = ReverseR
+  dTransposeR = TransposeR
+  dReshapeR = ReshapeR
+  dBuildR = BuildR
 --  dGather1 = Gather1
   dGatherZ = GatherZ
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
 
-  dFromD1 = FromD1
+  dFromD = FromD
 
-  dFrom1D = From1D
+  dFromR = FromR
 
 -- * Alternative instance: forward derivatives computed on the spot
 
@@ -453,31 +453,31 @@ instance HasRanks 'ADModeDerivative Double where
   dDot0 = tdot0R
   dUnScalar0 = OR.unScalar
 
-  dInput1 = undefined
+  dInputR = undefined
 --  dIndex1 d ix _ = tindexZ1R d ix
   dIndexZ d ixs _ = tindexZR d ixs
-  dSum1 _ = tsumR
-  dScalar1 = OR.scalar
-  dFromList1 = tfromListR
-  dFromVector1 = tfromVectorR
---  dFromList01 = tfromList0NR
---  dFromVector01 = tfromVector0NR
-  dKonst1 = tkonstR
---  dKonst01 = tkonst0NR
-  dAppend1 d _k = tappendR d
-  dSlice1 i n d _len = tsliceR i n d
-  dReverse1 = treverseR
-  dTranspose1 = ttransposeR
-  dReshape1 _sh = treshapeR
-  dBuild1 = tbuild1R
+  dSumR _ = tsumR
+  dScalarR = OR.scalar
+  dFromListR = tfromListR
+  dFromVectorR = tfromVectorR
+--  dFromList0R = tfromList0NR
+--  dFromVector0R = tfromVector0NR
+  dKonstR = tkonstR
+--  dKonst0R = tkonst0NR
+  dAppendR d _k = tappendR d
+  dSliceR i n d _len = tsliceR i n d
+  dReverseR = treverseR
+  dTransposeR = ttransposeR
+  dReshapeR _sh = treshapeR
+  dBuildR = tbuild1R
 --  dGather1 f _sh u k = tgatherZ1R k u f
   dGatherZ sh d f _shd = tgatherZR sh d f
 --  dScatter1 f _n = tscatter1R f
   dScatterZ sh d f _shd = tscatterZR sh d f
 
-  dFromD1 = tfromD
+  dFromD = tfromD
 
-  dFrom1D = tfromR
+  dFromR = tfromR
 
 instance HasRanks 'ADModeDerivative Float where
   dInput0 = undefined
@@ -486,31 +486,31 @@ instance HasRanks 'ADModeDerivative Float where
   dDot0 = tdot0R
   dUnScalar0 = OR.unScalar
 
-  dInput1 = undefined
+  dInputR = undefined
 --  dIndex1 d ix _ = tindexZ1R d ix
   dIndexZ d ixs _ = tindexZR d ixs
-  dSum1 _ = tsumR
-  dScalar1 = OR.scalar
-  dFromList1 = tfromListR
-  dFromVector1 = tfromVectorR
---  dFromList01 = tfromList0NR
---  dFromVector01 = tfromVector0NR
-  dKonst1 = tkonstR
---  dKonst01 = tkonst0NR
-  dAppend1 d _k = tappendR d
-  dSlice1 i n d _len = tsliceR i n d
-  dReverse1 = treverseR
-  dTranspose1 = ttransposeR
-  dReshape1 _sh = treshapeR
-  dBuild1 = tbuild1R
+  dSumR _ = tsumR
+  dScalarR = OR.scalar
+  dFromListR = tfromListR
+  dFromVectorR = tfromVectorR
+--  dFromList0R = tfromList0NR
+--  dFromVector0R = tfromVector0NR
+  dKonstR = tkonstR
+--  dKonst0R = tkonst0NR
+  dAppendR d _k = tappendR d
+  dSliceR i n d _len = tsliceR i n d
+  dReverseR = treverseR
+  dTransposeR = ttransposeR
+  dReshapeR _sh = treshapeR
+  dBuildR = tbuild1R
 --  dGather1 f _sh u k = tgatherZ1R k u f
   dGatherZ sh d f _shd = tgatherZR sh d f
 --  dScatter1 f _n = tscatter1R f
   dScatterZ sh d f _shd = tscatterZR sh d f
 
-  dFromD1 = tfromD
+  dFromD = tfromD
 
-  dFrom1D = tfromR
+  dFromR = tfromR
 
 
 -- * Another alternative instance: only the objective function's value computed
@@ -553,31 +553,31 @@ instance HasRanks 'ADModeValue r where
   dDot0 _ _ = DummyDual ()
   dUnScalar0 _ = DummyDual ()
 
-  dInput1 = undefined
+  dInputR = undefined
 --  dIndex1 _ _ _ = DummyDual ()
   dIndexZ _ _ _ = DummyDual ()
-  dSum1 _ _ = DummyDual ()
-  dScalar1 _ = DummyDual ()
-  dFromList1 _ = DummyDual ()
-  dFromVector1 _ = DummyDual ()
---  dFromList01 _ _ = DummyDual ()
---  dFromVector01 _ _ = DummyDual ()
-  dKonst1 _ _ = DummyDual ()
---  dKonst01 _ _ = DummyDual ()
-  dAppend1 _ _ _ = DummyDual ()
-  dSlice1 _ _ _ _ = DummyDual ()
-  dReverse1 _ = DummyDual ()
-  dTranspose1 _ _ = DummyDual ()
-  dReshape1 _ _ _ = DummyDual ()
-  dBuild1 _ _ = DummyDual ()
+  dSumR _ _ = DummyDual ()
+  dScalarR _ = DummyDual ()
+  dFromListR _ = DummyDual ()
+  dFromVectorR _ = DummyDual ()
+--  dFromList0R _ _ = DummyDual ()
+--  dFromVector0R _ _ = DummyDual ()
+  dKonstR _ _ = DummyDual ()
+--  dKonst0R _ _ = DummyDual ()
+  dAppendR _ _ _ = DummyDual ()
+  dSliceR _ _ _ _ = DummyDual ()
+  dReverseR _ = DummyDual ()
+  dTransposeR _ _ = DummyDual ()
+  dReshapeR _ _ _ = DummyDual ()
+  dBuildR _ _ = DummyDual ()
 --  dGather1 _ _ _ _ = DummyDual ()
   dGatherZ _ _ _ _ = DummyDual ()
 --  dScatter1 _ _ _ _ = DummyDual ()
   dScatterZ _ _ _ _ = DummyDual ()
 
-  dFromD1 _ = DummyDual ()
+  dFromD _ = DummyDual ()
 
-  dFrom1D _ = DummyDual ()
+  dFromR _ = DummyDual ()
 
 -- * Counter handling
 
@@ -616,8 +616,8 @@ wrapDelta0 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! Let0 (NodeId n) d
 
-wrapDelta1 :: Delta1 n r -> Delta1 n r
-{-# NOINLINE wrapDelta1 #-}
-wrapDelta1 !d = unsafePerformIO $ do
+wrapDeltaR :: DeltaR n r -> DeltaR n r
+{-# NOINLINE wrapDeltaR #-}
+wrapDeltaR !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! Let1 (NodeId n) d
+  return $! LetR (NodeId n) d

@@ -28,7 +28,7 @@ import           System.Random
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.Delta (gradientFromDelta)
-import HordeAd.Core.DualClass (dFromVector1, dScalar1)
+import HordeAd.Core.DualClass (dFromVectorR, dScalarR)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
@@ -58,13 +58,13 @@ revDtMaybeL _ [] _ = []
 revDtMaybeL f valsAll@(vals : _) dt =
   let parameters = toDomains vals
       dim0 = tlength $ domains0 parameters
-      shapes1 = map tshapeD $ V.toList $ domains1 parameters
+      shapes1 = map tshapeD $ V.toList $ domainsR parameters
       (var0, ast0) = funToAstR (singletonShape dim0) id
       (vars1, asts1) = unzip $ map funToAstD shapes1
       domains = Domains ast0 (V.fromList asts1)
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
-      dual0 = dD ast0 (dFromVector1 $ V.map dScalar1 $ inputDual0 varInputs)
+      dual0 = dD ast0 (dFromVectorR $ V.map dScalarR $ inputDual0 varInputs)
       env0 = extendEnvR var0 dual0 IM.empty
       env1 = foldr (\(AstDynamicVarName var, (u, u')) ->
                       extendEnvR var (tfromD $ dD u u')) env0
@@ -397,8 +397,8 @@ instance AdaptableDomains a
   nParams = sum . map nParams
   nScalars = sum . map nScalars
 
-domainsToQuadruple :: Domains r -> (Domain0 r, Domain1 r)
-domainsToQuadruple Domains{..} = (domains0, domains1)
+domainsToQuadruple :: Domains r -> (Domain0 r, DomainR r)
+domainsToQuadruple Domains{..} = (domains0, domainsR)
 
 instance AdaptableInputs r a
          => AdaptableInputs r [a] where

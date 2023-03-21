@@ -34,7 +34,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.Delta
   (Delta0, derivativeFromDelta, gradientFromDelta, toInputId)
-import HordeAd.Core.DualClass (Dual, dFrom1D, dInput0, dInput1)
+import HordeAd.Core.DualClass (Dual, dFromR, dInput0, dInputR)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal (ADTensor)
@@ -43,7 +43,7 @@ import HordeAd.Core.TensorClass
 data ADInputs r = ADInputs
   { inputPrimal0 :: Domain0 r
   , inputDual0   :: Data.Vector.Vector (Dual r)
-  , inputPrimal1 :: Domain1 r
+  , inputPrimal1 :: DomainR r
   , inputDual1   :: Data.Vector.Vector (Dual (DynamicTensor r))
   }
 
@@ -54,7 +54,7 @@ makeADInputs
   -> ADInputs r
 {-# INLINE makeADInputs #-}
 makeADInputs Domains{..} (vs0, vs1)
-  = ADInputs domains0 vs0 domains1 vs1
+  = ADInputs domains0 vs0 domainsR vs1
 
 inputsToDomains :: ADInputs r -> Domains r
 inputsToDomains ADInputs{..} =
@@ -81,7 +81,7 @@ revAstOnDomains
 {-# INLINE revAstOnDomains #-}
 revAstOnDomains f parameters dt =
   let dim0 = tlength $ domains0 parameters
-      shapes1 = map tshapeD $ V.toList $ domains1 parameters
+      shapes1 = map tshapeD $ V.toList $ domainsR parameters
   in revAstOnDomainsEval dim0 (length shapes1)
                          (revAstOnDomainsFun dim0 shapes1 f)
                          parameters dt
@@ -128,11 +128,11 @@ revAstOnDomainsEval dim0 dim1
                     (var0, vars1, varDt, gradientAst, vAst)
                     parameters dt =
   let !_A0 = assert (dim0 == tlength (domains0 parameters)) ()
-      !_A1 = assert (dim1 == V.length (domains1 parameters)) ()
+      !_A1 = assert (dim1 == V.length (domainsR parameters)) ()
       env0 = extendEnvR var0 (domains0 parameters) IM.empty
       env1 = foldr (\(AstDynamicVarName var, v) ->
                       extendEnvR var (tfromD v)) env0
-             $ zip vars1 $ V.toList $ domains1 parameters
+             $ zip vars1 $ V.toList $ domainsR parameters
       dtValue = case dt of
         Just a -> a
         Nothing -> tkonst0N (tshape vAst) 1
@@ -142,7 +142,7 @@ revAstOnDomainsEval dim0 dim1
                 (V.map (\t -> case t of
                          AstDynamicDummy -> tdummyD
                          _ -> interpretAstDynamic envDt t)
-                 $ domains1 gradientAst)
+                 $ domainsR gradientAst)
   in (gradientDomain, interpretAst env1 vAst)
 
 -- The old versions that use the fixed input and dt to compute gradient
@@ -234,10 +234,10 @@ generateDeltaInputs Domains{..} =
   let arrayToInput :: Int -> DynamicTensor r -> Dual (DynamicTensor r)
       arrayToInput i t = case someNatVal $ toInteger $ length $ tshapeD t of
         Just (SomeNat (_ :: Proxy n)) ->
-          dFrom1D $ dInput1 @r @n $ toInputId i
+          dFromR $ dInputR @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
       !v0 = V.generate (tlength domains0) (dInput0 . toInputId)
-      !v1 = V.imap arrayToInput domains1
+      !v1 = V.imap arrayToInput domainsR
   in (v0, v1)
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
@@ -262,7 +262,7 @@ initializerFixed seed range (nParams0, lParams1, _, _) =
         LA.scale (2 * range)
         $ LA.randomVector seedV LA.Uniform n - LA.scalar 0.5
       domains0 = OR.fromVector [nParams0] $ createRandomVector nParams0 seed
-      domains1 =
+      domainsR =
         V.imap (\i sz ->
                   OD.fromVector [sz]
                   $ createRandomVector sz (seed + sz + i)) vParams1

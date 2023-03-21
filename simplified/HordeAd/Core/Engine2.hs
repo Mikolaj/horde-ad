@@ -35,7 +35,7 @@ import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta (derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass2
-  (HasInputs (..), dFrom1D, dFromD1, dInput0, dInput1, dummyDual, packDeltaDt)
+  (HasInputs (..), dFromD, dFromR, dInput0, dInputR, dummyDual, packDeltaDt)
 import HordeAd.Core.DualNumber2
 import HordeAd.Core.TensorClass
 
@@ -46,7 +46,7 @@ import HordeAd.Core.TensorClass
 data ADInputs d r = ADInputs
   { inputPrimal0 :: Domain0 r
   , inputDual0   :: Data.Vector.Vector (Dual d r)
-  , inputPrimal1 :: Domain1 r
+  , inputPrimal1 :: DomainR r
   , inputDual1   :: Data.Vector.Vector (Dual d (DynamicTensor r))
   }
 
@@ -57,7 +57,7 @@ makeADInputs
   -> ADInputs d r
 {-# INLINE makeADInputs #-}
 makeADInputs Domains{..} (vs0, vs1)
-  = ADInputs domains0 vs0 domains1 vs1
+  = ADInputs domains0 vs0 domainsR vs1
 
 inputsToDomains :: ADInputs d r -> Domains r
 inputsToDomains ADInputs{..} =
@@ -80,7 +80,7 @@ at1 :: forall n r d. (KnownNat n, ADModeAndNum d r, TensorOf n r ~ OR.Array n r)
     =>  ADInputs d r -> Int -> ADVal d (OR.Array n r)
 {-# INLINE at1 #-}
 at1 ADInputs{..} i = dD (tfromD $ inputPrimal1 V.! i)
-                        (dFromD1 $ inputDual1 V.! i)
+                        (dFromD $ inputDual1 V.! i)
 
 ifoldlDual' :: forall a d r. ADModeAndNum d r
              => (a -> Int -> ADVal d r -> a)
@@ -124,7 +124,7 @@ valueGeneral f domains@Domains{..} =
   let replicateDummy len = V.replicate len dummyDual
       inputs = makeADInputs domains
                             ( replicateDummy (tlength domains0)  -- dummy
-                            , replicateDummy (V.length domains1) )
+                            , replicateDummy (V.length domainsR) )
   in f inputs
 
 valueOnDomains
@@ -253,7 +253,7 @@ fwdOnDomains parameters f Domains{..} =
   let inputs =
         makeADInputs
           parameters
-          (V.convert (OR.toVector domains0), domains1)  -- ds
+          (V.convert (OR.toVector domains0), domainsR)  -- ds
   in fwdOnADInputs inputs f
 
 
@@ -279,10 +279,10 @@ generateDeltaInputs Domains{..} =
   let arrayToInput :: Int -> OD.Array r -> Dual 'ADModeGradient (OD.Array r)
       arrayToInput i t = case someNatVal $ toInteger $ length $ OD.shapeL t of
         Just (SomeNat (_ :: Proxy n)) ->
-          dFrom1D $ dInput1 @'ADModeGradient @r @n $ toInputId i
+          dFromR $ dInputR @'ADModeGradient @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
       !v0 = V.generate (tlength domains0) (dInput0 . toInputId)
-      !v1 = V.imap arrayToInput domains1
+      !v1 = V.imap arrayToInput domainsR
   in (v0, v1)
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
@@ -307,7 +307,7 @@ initializerFixed seed range (nParams0, lParams1, _, _) =
         LA.scale (2 * range)
         $ LA.randomVector seedV LA.Uniform n - LA.scalar 0.5
       domains0 = OR.fromVector [nParams0] $ createRandomVector nParams0 seed
-      domains1 =
+      domainsR =
         V.imap (\i sz ->
                   OD.fromVector [sz]
                   $ createRandomVector sz (seed + sz + i)) vParams1
@@ -325,11 +325,11 @@ initializerFixed01 seed range (nParams0, lParams1) =
 
 -- * Simplified version compatibility shims
 
-domainsFromD01 :: Domain0 r -> Domain1 r -> Domains r
+domainsFromD01 :: Domain0 r -> DomainR r -> Domains r
 domainsFromD01 = Domains
 
 domainsFrom01 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r)
-              => Vector r -> Domain1 r -> Domains r
+              => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 = Domains (OR.fromVector [V.length v0] v0)
 
 domainsFrom0V :: ( Numeric r, DynamicTensor r ~ OD.Array r

@@ -263,8 +263,8 @@ instance AdaptableDomains a
   nParams = sum . map nParams
   nScalars = sum . map nScalars
 
-domainsToQuadruple :: Domains r -> (Domain0 r, Domain1 r)
-domainsToQuadruple Domains{..} = (domains0, domains1)
+domainsToQuadruple :: Domains r -> (Domain0 r, DomainR r)
+domainsToQuadruple Domains{..} = (domains0, domainsR)
 
 instance AdaptableInputs r a
          => AdaptableInputs r [a] where
