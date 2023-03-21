@@ -21,6 +21,7 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
@@ -33,7 +34,7 @@ import           Text.Show.Pretty (ppShow)
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.Delta
-  (Delta0, derivativeFromDelta, gradientFromDelta, toInputId)
+  (ForwardDerivative (..), derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass (Dual, dFromR, dInput0, dInputR)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
@@ -186,11 +187,11 @@ revOnDomains dt f parameters =
 -- for a fast variant.
 
 slowFwdOnADInputs
-  :: (ADTensor r, Dual r ~ Delta0 r)
+  :: (ADTensor r, Element a ~ r, ForwardDerivative a)
   => ADInputs r
-  -> (ADInputs r -> ADVal r)
+  -> (ADInputs r -> ADVal a)
   -> Domains r
-  -> (r, r)
+  -> (a, a)
 {-# INLINE slowFwdOnADInputs #-}
 slowFwdOnADInputs inputs@ADInputs{..} f ds =
   let dim0 = tlength inputPrimal0
@@ -201,11 +202,11 @@ slowFwdOnADInputs inputs@ADInputs{..} f ds =
 
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
-  :: (ADTensor r, Dual r ~ Delta0 r)
+  :: (ADTensor r, Element a ~ r, ForwardDerivative a)
   => Domains r
-  -> (ADInputs r -> ADVal r)
+  -> (ADInputs r -> ADVal a)
   -> Domains r
-  -> (r, r)
+  -> (a, a)
 slowFwdOnDomains parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs

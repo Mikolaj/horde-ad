@@ -52,7 +52,8 @@ module HordeAd.Core.Delta
     NodeId(..), InputId, toInputId, Dual
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, DomainR, Domains(..), emptyDomain0, nullDomains
-  , gradientFromDelta, derivativeFromDelta
+  , gradientFromDelta
+  , ForwardDerivative (..)
   ) where
 
 import Prelude
@@ -68,6 +69,7 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
+import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
@@ -75,6 +77,7 @@ import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Generics (Generic)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Text.Show.Functions ()
 
 import HordeAd.Core.Ast
@@ -290,7 +293,7 @@ type family Dual a = result | result -> a where
   Dual (Ast n r) = DeltaR n (Ast0 r)
 
 
--- * Evaluation of the delta expressions
+-- * Reverse pass, transpose/evaluation of the delta expressions
 
 -- | Helper definitions to shorten type signatures. @Domains@, among other
 -- roles, is the internal representation of domains of objective functions.
@@ -659,10 +662,15 @@ buildFinMaps s0 deltaDt =
 {-# SPECIALIZE buildFinMaps
   :: EvalState Double -> DeltaDt Double -> EvalState Double #-}
 
+
+-- * Forward derivative computation from the delta expressions
+
 -- Unlike @buildFinMaps@, the following is simpler written in ST
 -- than with explicit passing of state, because changing the state here
 -- is really an irritating side effect, while in @buildFinMaps@ it's building
 -- the result. Perhaps this can be simplified completely differently.
+
+-- This code is full of hacks (DeltaDt0 and ST). Rewrites welcome.
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,
@@ -672,21 +680,61 @@ buildFinMaps s0 deltaDt =
 -- represented by the parameters of the objective function and used
 -- to compute it's dual number result) and along the direction vector(s)
 -- given in the last parameter called @ds@.
-derivativeFromDelta
-  :: Tensor r
-  => Int -> Int -> Delta0 r -> Domains r -> r
-derivativeFromDelta dim0 dimR deltaTopLevel ds =
-  runST $ buildDerivative dim0 dimR deltaTopLevel ds
+class ForwardDerivative a where
+  derivativeFromDelta
+    :: (Tensor r, Element a ~ r)
+    => Int -> Int -> Dual a -> Domains r -> a
+
+instance ForwardDerivative Double where
+  derivativeFromDelta dim0 dimR deltaTopLevel ds =
+    case runST $ buildDerivative dim0 dimR
+                                 (DeltaDt0 0 deltaTopLevel) ds of
+      DeltaDt0 res _ -> res
+      DeltaDtR{} -> error "derivativeFromDelta"
+
+instance ForwardDerivative Float where
+  derivativeFromDelta dim0 dimR deltaTopLevel ds =
+    case runST $ buildDerivative dim0 dimR
+                                 (DeltaDt0 0 deltaTopLevel) ds of
+      DeltaDt0 res _ -> res
+      DeltaDtR{} -> error "derivativeFromDelta"
+
+instance ForwardDerivative (Ast0 r) where
+  derivativeFromDelta dim0 dimR deltaTopLevel ds =
+    case runST $ buildDerivative dim0 dimR
+                                 (DeltaDt0 0 deltaTopLevel) ds of
+      DeltaDt0 res _ -> res
+      DeltaDtR{} -> error "derivativeFromDelta"
+
+instance ( Num (TensorOf n r), KnownNat n, TensorOf n r ~ OR.Array n r
+         , Dual (OR.Array n r) ~ DeltaR n r )
+         => ForwardDerivative (OR.Array n r) where
+  derivativeFromDelta dim0 dimR deltaTopLevel ds =
+    case runST $ buildDerivative dim0 dimR
+                                 (DeltaDtR 0 deltaTopLevel) ds of
+      DeltaDtR @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
+        Just Refl -> res
+        _ -> error "derivativeFromDelta"
+      DeltaDt0{} -> error "derivativeFromDelta"
+
+instance (Numeric r, Num (Vector r), KnownNat n, TensorOf n (Ast0 r) ~ Ast n r)
+         => ForwardDerivative (Ast n r) where
+  derivativeFromDelta dim0 dimR deltaTopLevel ds =
+    case runST $ buildDerivative dim0 dimR
+                                 (DeltaDtR 0 deltaTopLevel) ds of
+      DeltaDtR @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
+        Just Refl -> res
+        _ -> error "derivativeFromDelta"
+      DeltaDt0{} -> error "derivativeFromDelta"
 
 -- | This mimics 'buildFinMaps', but in reverse. Perhaps this can be
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
   :: forall s r. Tensor r
-  => Int -> Int -> Delta0 r -> Domains r
-  -> ST s r
-buildDerivative dim0 dimR deltaTopLevel
-                Domains{..} = do
+  => Int -> Int -> DeltaDt r -> Domains r
+  -> ST s (DeltaDt r)
+buildDerivative dim0 dimR deltaDt Domains{..} = do
   dMap0 <- newSTRef EM.empty
   dMapR <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
@@ -794,4 +842,10 @@ buildDerivative dim0 dimR deltaTopLevel
             Just Refl -> evalR d
             _ -> error "buildDerivative: different ranks in FromD(FromR)"
 
-  eval0 deltaTopLevel
+  -- A hack to fit both argument delta and, afterwards, the result in a type
+  -- that does not reflect either.
+  case deltaDt of
+    DeltaDt0 _dt deltaTopLevel ->
+      flip DeltaDt0 Zero0 <$> eval0 deltaTopLevel
+    DeltaDtR _dt deltaTopLevel ->
+      flip DeltaDtR ZeroR <$> evalR deltaTopLevel

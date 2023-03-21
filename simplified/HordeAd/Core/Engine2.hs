@@ -12,7 +12,7 @@ module HordeAd.Core.Engine2
     revOnADInputsFun, revOnADInputs, fwdOnADInputs
   , generateDeltaInputs, initializerFixed, initializerFixed01
   , -- * Internal operations, exposed, e.g., for tests
-    slowFwdOnADInputs, slowFwdOnDomains
+    slowFwdOnDomains
   , prettyPrintDf
   , domainsFromD01, domainsFrom01, domainsFrom0V
   , listsToParameters, listsToParameters4, domainsD0
@@ -33,7 +33,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
-import HordeAd.Core.Delta (derivativeFromDelta, gradientFromDelta, toInputId)
+import HordeAd.Core.Delta (gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass2
   (HasInputs (..), dFromD, dFromR, dInput0, dInputR, dummyDual, packDeltaDt)
 import HordeAd.Core.DualNumber2
@@ -193,36 +193,16 @@ revOnDomains
 revOnDomains = revOnDomainsFun . const
 
 
--- * The slow evaluation for derivatives that uses the same
--- delta expressions as for gradients. See @fwdOnDomains@
--- for a fast variant.
-
-slowFwdOnADInputs
-  :: HasDelta r
-  => ADInputs 'ADModeGradient r
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
-  -> Domains r
-  -> (r, r)
-{-# INLINE slowFwdOnADInputs #-}
-slowFwdOnADInputs inputs@ADInputs{..} f ds =
-  let dim0 = tlength inputPrimal0
-      dim1 = V.length inputPrimal1
-      !(D v deltaTopLevel) = f inputs
-  in let derivative = derivativeFromDelta dim0 dim1 deltaTopLevel ds
-     in (derivative, v)
-
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
-  :: HasDelta r
+  :: ( Numeric r, Dual 'ADModeDerivative r ~ r
+     , Dual 'ADModeDerivative (DynamicTensor r) ~ DynamicTensor r
+     , TensorOf 1 r ~ OR.Array 1 r )
   => Domains r
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
   -> Domains r
-  -> (r, r)
-slowFwdOnDomains parameters f ds =
-  let deltaInputs = generateDeltaInputs parameters
-      inputs = makeADInputs parameters deltaInputs
-  in slowFwdOnADInputs inputs f ds
-
+  -> (Dual 'ADModeDerivative a, a)
+slowFwdOnDomains = fwdOnDomains
 
 -- * Evaluation for efficiently computing forward derivatives.
 
