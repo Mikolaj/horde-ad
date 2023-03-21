@@ -29,7 +29,7 @@ module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
     IsPrimal(..), IsPrimalR(..), IsPrimalA (..), IsPrimalWithScalar
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
-    Dual, HasRanks(..), dummyDual
+    Dual, HasRanks(..)
   , -- * Internal operations, exposed for tests, debugging and experiments
     unsafeGetFreshId
   ) where
@@ -57,43 +57,12 @@ import HordeAd.Core.TensorClass
 
 -- | The intended semantics (not fully enforced by the constraint in isolation)
 -- is that the second type is the primal component of a dual number type
--- at an unknown rank, with the given differentiation mode
--- and underlying scalar.
+-- at an unknown rank with the given underlying scalar.
 type IsPrimalWithScalar a r =
   (IsPrimal a, Element a ~ r)
 
 
 -- * Class definitions
-
--- | The type family that enumerates all possible \"ranks\" for each
--- automatic differentiation mode. The second type argument is meant
--- to be the primal component of dual numbers. The result is the dual component.
---
--- Rank 0 is troublesome because, in derivative mode, the dual component
--- is not the primal component wrapped in a datatype or newtype constructor.
--- This makes impossible a representation of primal and dual components as
--- the primal plus the type constructor for creating the dual.
---
--- Rank S is troublesome because of the extra type parameter @sh@ representing
--- a shape. This is another obstacle to a dual number representation via
--- a single-argument type constructor.
-type family Dual a = result | result -> a where
-  Dual Double = Delta0 Double
-  Dual Float = Delta0 Float
-  Dual (Ast0 r) = Delta0 (Ast0 r)
-  Dual (OD.Array Double) = DeltaD Double
-  Dual (OD.Array Float) = DeltaD Float
-  Dual (OR.Array n Double) = DeltaR n Double
-  Dual (OR.Array n Float) = DeltaR n Float
-  Dual (AstDynamic r) = DeltaD (Ast0 r)
-  Dual (Ast n r) = DeltaR n (Ast0 r)
-
--- A bit more verbose, but a bit faster than @data@, perhaps by chance.
-newtype DummyDual r = DummyDual ()
-  deriving Show
-
-dummyDual :: DummyDual r
-dummyDual = DummyDual ()
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.

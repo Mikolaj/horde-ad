@@ -48,7 +48,7 @@ import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 
-import HordeAd.Core.Delta
+import HordeAd.Core.Delta hiding (Dual)
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps

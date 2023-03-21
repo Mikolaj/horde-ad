@@ -49,7 +49,7 @@ module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), DeltaR (..), DeltaD (..)
   , -- * Delta expression identifiers
-    NodeId(..), InputId, toInputId
+    NodeId(..), InputId, toInputId, Dual
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, DomainR, Domains(..), emptyDomain0, nullDomains
   , gradientFromDelta, derivativeFromDelta
@@ -61,7 +61,9 @@ import           Control.DeepSeq (NFData)
 import           Control.Exception.Assert.Sugar
 import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
+import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
+import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.List (foldl', sort)
@@ -75,6 +77,7 @@ import           GHC.Generics (Generic)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Text.Show.Functions ()
 
+import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
@@ -255,7 +258,8 @@ data DeltaD :: Type -> Type where
 
 deriving instance (Show (IntOf r), Show r) => Show (DeltaD r)
 
--- * Delta expression identifiers
+
+-- * Related datatypes and classes
 
 newtype NodeId = NodeId {fromNodeId :: Int}
   deriving newtype Enum
@@ -271,6 +275,19 @@ newtype InputId a = InputId Int
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
 toInputId :: Int -> InputId a
 toInputId i = assert (i >= 0) $ InputId i
+
+-- | The type family that to each basic differentiable type
+-- assignes its delta expression type.
+type family Dual a = result | result -> a where
+  Dual Double = Delta0 Double
+  Dual Float = Delta0 Float
+  Dual (Ast0 r) = Delta0 (Ast0 r)
+  Dual (OD.Array Double) = DeltaD Double
+  Dual (OD.Array Float) = DeltaD Float
+  Dual (OR.Array n Double) = DeltaR n Double
+  Dual (OR.Array n Float) = DeltaR n Float
+  Dual (AstDynamic r) = DeltaD (Ast0 r)
+  Dual (Ast n r) = DeltaR n (Ast0 r)
 
 
 -- * Evaluation of the delta expressions
