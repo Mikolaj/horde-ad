@@ -34,19 +34,6 @@ type ADTensor r =
   , Tensor r
   )
 
---TODO:remove
-class TensorIsArray r where
-  toArray :: TensorOf n r -> OR.Array n r
-  fromArray :: OR.Array n r -> TensorOf n r
-
-instance TensorIsArray Double where
-  toArray = id
-  fromArray = id
-
-instance TensorIsArray Float where
-  toArray = id
-  fromArray = id
-
 instance (Num (Vector r), Numeric r, Show r, KnownNat n)
          => IfB (ADVal (Ast n r)) where
   ifB b v w = tindex (tfromList [v, w]) (singletonIndex $ ifB b 0 1)
@@ -103,10 +90,10 @@ instance Tensor (ADVal Double) where
   type Primal (ADVal Double) = Double
   type DualOf n (ADVal Double) = Dual (OR.Array n Double)
   tconst t = dD t dZero
-  tconstant t = dD (toArray t) dZero
-  tprimalPart (D u _) = fromArray u
+  tconstant t = dD t dZero
+  tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
-  tD u = dD (toArray u)
+  tD u = dD u
   type DynamicTensor (ADVal Double) = ADVal (OD.Array Double)
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
@@ -151,10 +138,10 @@ instance Tensor (ADVal Float) where
   type Primal (ADVal Float) = Float
   type DualOf n (ADVal Float) = Dual (OR.Array n Float)
   tconst t = dD t dZero
-  tconstant t = dD (toArray t) dZero
-  tprimalPart (D u _) = fromArray u
+  tconstant t = dD t dZero
+  tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
-  tD u = dD (toArray u)
+  tD u = dD u
   -- TODO: if ever used, define, if not, use an Error type
   type DynamicTensor (ADVal Float) = ADVal (OD.Array Float)
   tdummyD = undefined  -- not used for dual numbers
