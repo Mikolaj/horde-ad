@@ -48,7 +48,7 @@ quickCheckTest0 txt f fArg =
 
 -- A quick check to compare the derivatives and values of 2 given functions.
 cmpTwo
-  :: (d ~ 'ADModeDerivative, Dual d r ~ r, ADModeAndNum d r)
+  :: (HasDelta r, d ~ 'ADModeGradient)
   => (ADInputs d r -> ADVal d r)
   -> (ADInputs d r -> ADVal d r)
   -> Domains r
@@ -57,11 +57,11 @@ cmpTwo
   -> Domains r
   -> Property
 cmpTwo f1 f2 params1 params2 ds1 ds2 =
-  close2 (fwdOnDomains params1 f1 ds1) (fwdOnDomains params2 f2 ds2)
+  close2 (slowFwdOnDomains params1 f1 ds1) (slowFwdOnDomains params2 f2 ds2)
 
 -- A quick check to compare the derivatives and values of 2 given functions.
 cmpTwoSimple
-  :: (d ~ 'ADModeDerivative, Dual d r ~ r, ADModeAndNum d r)
+  :: (HasDelta r, d ~ 'ADModeGradient)
   => (ADInputs d r -> ADVal d r)
   -> (ADInputs d r -> ADVal d r)
   -> Domains r
@@ -80,16 +80,13 @@ qcPropDom :: (forall d r. (ADModeAndNum d r, r ~ Double)
           -> Double
           -> Property
 qcPropDom f args ds perturbation dt =
-  let ff@(derivative, ffValue) = fwdOnDomains args f ds
+  let (derivative, ffValue) = slowFwdOnDomains args f ds
       (derivativeAtPerturbation, valueAtPerturbation) =
-        fwdOnDomains args f perturbation
+        slowFwdOnDomains args f perturbation
       (gradient, revValue) = revOnDomains dt f args
-      res = slowFwdOnDomains args f ds
   in
-    -- Two forward derivative implementations agree fully:
-    res === ff
     -- Objective function value from gradients is the same.
-    .&&. ffValue == revValue
+    ffValue == revValue
     -- Gradients and derivatives agree.
     .&&. close1 (dt * derivative)
                 (dotParameters gradient ds)

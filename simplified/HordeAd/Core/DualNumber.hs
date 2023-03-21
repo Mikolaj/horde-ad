@@ -22,6 +22,7 @@ module HordeAd.Core.DualNumber
   , -- * Re-exports
     IsPrimal (..), IsPrimalWithScalar
   , Domain0, DomainR, Domains(..), emptyDomain0, nullDomains
+  , ADNum
   ) where
 
 import Prelude hiding ((<*))

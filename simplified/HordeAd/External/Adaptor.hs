@@ -8,7 +8,7 @@ module HordeAd.External.Adaptor
   , AdaptableInputs(Value), parseDomains, parseADInputs
   , revL, revDtMaybeL, rev, revDt
   , srevL, srevDtMaybeL, srev, srevDt
-  , crev, crevDt
+  , crev, crevDt, fwd
   ) where
 
 import Prelude
@@ -27,7 +27,7 @@ import           System.Random
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
-import HordeAd.Core.Delta (gradientFromDelta)
+import HordeAd.Core.Delta (ForwardDerivative, gradientFromDelta)
 import HordeAd.Core.DualClass (dFromVectorR, dScalarR)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -166,6 +166,17 @@ crevDtMaybe :: forall a vals r advals.
 crevDtMaybe f vals dt =
   let g inputs = f $ parseADInputs vals inputs
   in parseDomains vals $ fst $ revOnDomains dt g (toDomains vals)
+
+-- This takes the sensitivity parameter, by convention.
+fwd :: forall a vals r advals.
+       ( ForwardDerivative a, r ~ Scalar vals, vals ~ Value advals
+       , ADTensor r, IsPrimalWithScalar a r
+       , Adaptable advals )
+    => (advals -> ADVal a) -> vals -> vals
+    -> a
+fwd f x ds =
+  let g inputs = f $ parseADInputs ds inputs
+  in fst $ slowFwdOnDomains (toDomains x) g (toDomains ds)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 type Adaptable advals =

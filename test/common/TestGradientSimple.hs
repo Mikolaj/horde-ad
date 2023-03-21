@@ -28,7 +28,6 @@ testTrees = [ testDReverse0
             , testDReverse1
             , testCase "map1Elementwise" testMap1Elementwise
             , testDForward
-            , testDFastForward
             , quickCheckForwardAndBackward
             , oldReadmeTests
             , oldReadmeTestsV
@@ -240,19 +239,6 @@ testDForward =
         in testCase txt $ do
           let res = slowFwdOnDomains vp f vp
           res @?~ expected)
-    [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
-    , ( "atanOldReadme", atanOldReadme, ([1.1, 2.2, 3.3], [])
-      , (7.662345305800865, 4.9375516951604155) )
-    , ( "vatanOldReadme", vatanOldReadme, ([], [1.1, 2.2, 3.3])
-      , (7.662345305800865, 4.9375516951604155) )
-    ]
-
-testDFastForward :: TestTree
-testDFastForward =
- testGroup "Simple fwdOnDomains application tests" $
-  map (\(txt, f, v, expected) ->
-        let vp = listsToParameters v
-        in testCase txt $ fwdOnDomains vp f vp @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanOldReadme", atanOldReadme, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
