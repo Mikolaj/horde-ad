@@ -29,17 +29,6 @@ import HordeAd.Core.TensorADVal (ADTensor)
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 
--- TODO:remove
-class TensorIsArray r where
-  toArray :: TensorOf n r -> OR.Array n r
-
-instance TensorIsArray Double where
-  toArray = id
-
-instance TensorIsArray Float where
-  toArray = id
-
-
 -- * Interpretation of Ast in ADVal
 
 -- We are very close to being able to interpret Ast in any Tensor instance.
@@ -127,7 +116,7 @@ instance InterpretAst (ADVal Double) where
      => AstEnv a
      -> AstPrimalPart n (ScalarOf a) -> TensorOf n (Primal a)
    interpretAstPrimal env (AstPrimalPart v) =
-     toArray $ tprimalPart $ interpretAstRec env v
+     tprimalPart $ interpretAstRec env v
 
    interpretAstRec
      :: forall n. KnownNat n
@@ -168,7 +157,7 @@ instance InterpretAst (ADVal Double) where
      AstBuild1 k (var, AstConstant r) ->
        tconst
        $ OR.ravel . ORB.fromVector [k] . V.generate k
-       $ toArray . interpretLambdaI interpretAstPrimal env (var, r)
+       $ interpretLambdaI interpretAstPrimal env (var, r)
      AstBuild1 k (var, v) -> tbuild1 k (interpretLambdaI interpretAstRec env (var, v))
        -- to be used only in tests
      AstGatherZ sh v (vars, ix) ->
@@ -249,7 +238,7 @@ instance InterpretAst (ADVal Float) where
      => AstEnv a
      -> AstPrimalPart n (ScalarOf a) -> TensorOf n (Primal a)
    interpretAstPrimal env (AstPrimalPart v) =
-     toArray $ tprimalPart $ interpretAstRec env v
+     tprimalPart $ interpretAstRec env v
 
    interpretAstRec
      :: forall n. KnownNat n
@@ -290,7 +279,7 @@ instance InterpretAst (ADVal Float) where
      AstBuild1 k (var, AstConstant r) ->
        tconst
        $ OR.ravel . ORB.fromVector [k] . V.generate k
-       $ toArray . interpretLambdaI interpretAstPrimal env (var, r)
+       $ interpretLambdaI interpretAstPrimal env (var, r)
      AstBuild1 k (var, v) -> tbuild1 k (interpretLambdaI interpretAstRec env (var, v))
        -- to be used only in tests
      AstGatherZ sh v (vars, ix) ->
@@ -495,7 +484,7 @@ instance InterpretAst Double where
      => AstEnv a
      -> AstPrimalPart n (ScalarOf a) -> TensorOf n (Primal a)
    interpretAstPrimal env (AstPrimalPart v) =
-     toArray $ tprimalPart $ interpretAstRec env v
+     tprimalPart $ interpretAstRec env v
 
    interpretAstRec
      :: forall n. KnownNat n
@@ -536,7 +525,7 @@ instance InterpretAst Double where
      AstBuild1 k (var, AstConstant r) ->
        tconst
        $ OR.ravel . ORB.fromVector [k] . V.generate k
-       $ toArray . interpretLambdaI interpretAstPrimal env (var, r)
+       $ interpretLambdaI interpretAstPrimal env (var, r)
      AstBuild1 k (var, v) -> tbuild1 k (interpretLambdaI interpretAstRec env (var, v))
        -- to be used only in tests
      AstGatherZ sh v (vars, ix) ->
@@ -617,7 +606,7 @@ instance InterpretAst Float where
      => AstEnv a
      -> AstPrimalPart n (ScalarOf a) -> TensorOf n (Primal a)
    interpretAstPrimal env (AstPrimalPart v) =
-     toArray $ tprimalPart $ interpretAstRec env v
+     tprimalPart $ interpretAstRec env v
 
    interpretAstRec
      :: forall n. KnownNat n
@@ -658,7 +647,7 @@ instance InterpretAst Float where
      AstBuild1 k (var, AstConstant r) ->
        tconst
        $ OR.ravel . ORB.fromVector [k] . V.generate k
-       $ toArray . interpretLambdaI interpretAstPrimal env (var, r)
+       $ interpretLambdaI interpretAstPrimal env (var, r)
      AstBuild1 k (var, v) -> tbuild1 k (interpretLambdaI interpretAstRec env (var, v))
        -- to be used only in tests
      AstGatherZ sh v (vars, ix) ->
