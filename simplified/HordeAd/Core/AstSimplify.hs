@@ -89,7 +89,7 @@ unsafeAstVarCounter = unsafePerformIO (newCounter 1)
 -- Only for tests, e.g., to ensure show applied to terms has stable length.
 -- Tests using this need to be run with -ftest_seq to avoid variable confusion.
 resetVarCOunter :: IO ()
-resetVarCOunter = writeIORefU unsafeAstVarCounter 1
+resetVarCOunter = writeIORefU unsafeAstVarCounter 1000
 
 unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
