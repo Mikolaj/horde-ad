@@ -23,5 +23,5 @@ import HordeAd.Core.Engine hiding (ADInputs, revOnADInputs, revOnDomains)
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor
-import HordeAd.External.CommonRankedOps hiding (constant, scale)
+import HordeAd.External.CommonRankedOps hiding (constant, logistic, scale)
 import HordeAd.External.Optimizer

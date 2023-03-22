@@ -60,6 +60,7 @@ instance (Num (Vector r), Show r, Numeric r)
   tscale0 (AstPrimalPart r) (Ast0 t) = Ast0 (r * t)
   tprimalPart = AstPrimalPart
   tdualPart = AstDualPart
+  tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
   tD = AstD
   type DynamicTensor (Ast0 r) = AstDynamic r
   tdummyD = AstDynamicDummy
@@ -130,6 +131,7 @@ instance (Num (Vector r), Show r, Numeric r)
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
+  tScale _ _ = ()
   -- TODO: if ever used, define, if not, use an Error type
   type DynamicTensor (AstPrimalPart 0 r) = Maybe r
   tdummyD = undefined

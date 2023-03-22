@@ -44,3 +44,15 @@ reluLeaky v =
   let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0.01)
                            (tprimalPart v)
   in scale oneIfGtZero v
+
+-- TODO: verify how faster a dedicated Tensor method would be
+logistic :: forall r n. (Tensor r, KnownNat n, Floating (TensorOf n (Primal r)))
+         => TensorOf n r -> TensorOf n r
+logistic d =
+  let y = recip (1 + exp (- tprimalPart d))
+  in tD y (tScale @r (y * (1 - y)) $ tdualPart d)
+
+-- TODO: and especially here try a faster approach
+logistic0 :: (Tensor r, Floating (TensorOf 0 (Primal r)))
+          => r -> r
+logistic0 = tunScalar . logistic . tscalar

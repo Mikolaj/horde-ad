@@ -12,7 +12,7 @@ module HordeAd.Core.DualNumber
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , logistic, square, squaredDifference
+  , square, squaredDifference
   , sumElements10, index10, minimum0, maximum0, altSumElements10
   , (<.>!), (<.>!!)
   , softMax, lossCrossEntropy, lossCrossEntropyV, lossSoftMaxCrossEntropyV
@@ -270,11 +270,6 @@ instance (RealFloat a, IsPrimal a) => RealFloat (ADVal a) where
 -- * Legacy operations needed to re-use vector differentiation tests
 
 -- General operations, for any tensor rank
-
-logistic :: (Floating a, IsPrimal a) => ADVal a -> ADVal a
-logistic (D u u') =
-  let y = recip (1 + exp (- u))
-  in dD y (dScale (y * (1 - y)) u')
 
 -- Optimized and more clearly written @u ** 2@.
 square :: (Num a, IsPrimal a) => ADVal a -> ADVal a

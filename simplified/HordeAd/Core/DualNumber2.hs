@@ -14,7 +14,7 @@ module HordeAd.Core.DualNumber2
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
   , addParameters, dotParameters
-  , logistic, square, squaredDifference
+  , square, squaredDifference
   , sumElements10, index10, minimum0, maximum0, altSumElements10
   , (<.>!), (<.>!!)
   , softMax, lossCrossEntropy, lossCrossEntropyV, lossSoftMaxCrossEntropyV
@@ -30,7 +30,7 @@ module HordeAd.Core.DualNumber2
   , domainsFromD01, domainsFrom01, domainsFrom0V
   , listsToParameters, listsToParameters4, domainsD0
   , valueGeneral, valueOnDomains, revOnADInputs, revOnDomains
-  , scale, constant
+  , constant, scale, logistic
   ) where
 
 import Prelude
@@ -282,11 +282,6 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
 constantADVal :: IsPrimal d a => a -> ADVal d a
 constantADVal a = dD a dZero
 
-logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
-logistic (D u u') =
-  let y = recip (1 + exp (- u))
-  in dD y (dScale (y * (1 - y)) u')
-
 -- Optimized and more clearly written @u ** 2@.
 square :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a
 square (D u u') = dD (u * u) (dScale (2 * u) u')
@@ -493,3 +488,8 @@ scale a (D u u') = dD (a * u) (dScale a u')
 
 constant :: IsPrimal d a => a -> ADVal d a
 constant a = dD a dZero
+
+logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
+logistic (D u u') =
+  let y = recip (1 + exp (- u))
+  in dD y (dScale (y * (1 - y)) u')

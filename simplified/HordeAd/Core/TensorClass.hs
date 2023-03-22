@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Dual numbers and various operations on them, arithmetic and related
@@ -230,6 +230,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tprimalPart :: TensorOf n r -> TensorOf n (Primal r)
   tdualPart :: TensorOf n r -> DualOf n r
   tD :: KnownNat n => TensorOf n (Primal r) -> DualOf n r -> TensorOf n r
+  tScale :: KnownNat n => TensorOf n (Primal r) -> DualOf n r -> DualOf n r
   -- TODO: we'd probably also need dZero, dIndex0 and all others;
   -- basically DualOf a needs to have IsPrimal and HasRanks instances
   -- (and HasInputs?)
@@ -375,6 +376,7 @@ instance Tensor Double where
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
+  tScale _ _ = ()
   type DynamicTensor Double = OD.Array Double
   tdummyD = dummyTensor
   tisDummyD = isTensorDummy
@@ -425,6 +427,7 @@ instance Tensor Float where
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
+  tScale _ _ = ()
   type DynamicTensor Float = OD.Array Float
   tdummyD = dummyTensor
   tisDummyD = isTensorDummy

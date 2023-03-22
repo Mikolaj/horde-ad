@@ -157,7 +157,7 @@ fcnnMnistTest0 widthHidden widthHidden2 inputs params0 =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let nn = inline (fcnnMnist0 @'ADModeValue)
-                        logistic softMax
+                        logistic0 softMax
                         widthHidden widthHidden2 glyph
             v = V.map (\(D r _) -> r)
                 $ valueGeneral nn (domainsFrom01 params0 V.empty)

@@ -94,6 +94,7 @@ instance Tensor (ADVal Double) where
   tscale0 r (D u u') = dD (r * u) (dScale r u')
   tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
+  tScale = dScale
   tD u = dD u
   type DynamicTensor (ADVal Double) = ADVal (OD.Array Double)
   tdummyD = undefined  -- not used for dual numbers
@@ -143,6 +144,7 @@ instance Tensor (ADVal Float) where
   tscale0 r (D u u') = dD (r * u) (dScale r u')
   tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
+  tScale = dScale
   tD u = dD u
   -- TODO: if ever used, define, if not, use an Error type
   type DynamicTensor (ADVal Float) = ADVal (OD.Array Float)
@@ -195,6 +197,7 @@ instance (ADTensor (Ast0 r), Numeric r, Show r, Num (Vector r))
   tscale0 r (D u u') = dD (r * u) (dScale r u')
   tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
+  tScale = dScale
   tD = dD
   type DynamicTensor (ADVal (Ast0 r)) = ADVal (AstDynamic r)
   tdummyD = undefined  -- not used for dual numbers
