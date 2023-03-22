@@ -18,6 +18,7 @@ module HordeAd.Core.Engine
   , prettyPrintDf
   , domainsFromD01, domainsFrom01, domainsFrom0V
   , listsToParameters, listsToParameters4, domainsD0
+  , constant0, scale0, relu0
   ) where
 
 import Prelude
@@ -283,3 +284,13 @@ listsToParameters4 (a0, a1, a2, aX) =
 
 domainsD0 :: Domains r -> Vector r
 domainsD0 = domains0
+
+constant0 :: IsPrimal d a => a -> ADVal d a
+constant0 = constant
+
+scale0 :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
+scale0 = scale
+
+relu0 :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+      => ADVal d a -> ADVal d a
+relu0 = relu

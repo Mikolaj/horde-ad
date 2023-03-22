@@ -120,7 +120,7 @@ freluX :: ADInputs 'ADModeGradient Float
        -> ADVal 'ADModeGradient Float
 freluX inputs =
   let x = at0 inputs 0
-  in relu x
+  in relu0 x
 
 testDReverse0 :: TestTree
 testDReverse0 = testGroup "Simple revOnDomains application tests" $

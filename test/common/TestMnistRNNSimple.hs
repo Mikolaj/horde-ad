@@ -212,7 +212,7 @@ ar2Sin yLast s inputs =
       phi1 = at0 inputs 1
       phi2 = at0 inputs 2
       yLastLast = index10 s 0  -- dummy vector for compatibility
-      y = c + scale yLast phi1 + phi2 * yLastLast
+      y = c + scale0 yLast phi1 + phi2 * yLastLast
   in (y, constant $ vToVec $ V.singleton yLast)
 
 ar2SinLoss :: ADModeAndNum d r

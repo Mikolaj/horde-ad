@@ -214,7 +214,7 @@ fcnnMnistLossRelu ::
                 -> ADInputs 'ADModeGradient Double
                 -> ADVal 'ADModeGradient Double
 fcnnMnistLossRelu widthHidden widthHidden2 (xs, targ) vec =
-  let res = fcnnMnist0 relu softMax widthHidden widthHidden2 xs vec
+  let res = fcnnMnist0 relu0 softMax widthHidden widthHidden2 xs vec
   in lossCrossEntropy targ res
 
 dumbMnistTests :: TestTree

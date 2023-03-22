@@ -135,7 +135,7 @@ nnXorLoss :: ADModeAndNum d Float
           -> Float -> Float -> Float -> ADInputs d Float
           -> ADVal d Float
 nnXorLoss factivation x y targ inputs =
-  let res = nnXor factivation (constant x) (constant y) inputs
+  let res = nnXor factivation (constant0 x) (constant0 y) inputs
   in squaredDifference targ res
 
 nnXorLossTotal :: ADModeAndNum d Float
@@ -176,10 +176,10 @@ xorTests = testGroup "XOR neural net tests"
       let res = gdSimpleShow 0.01 (nnXorLossTotal logistic) ws2 50000
       res @?~ ([-5.276363,5.5221853,2.641188,-5.2796497,5.2037635,-2.8858855,-7.5792775,7.997162,3.5127592],6.759104e-3)
   -- the same, but relu for the first hidden layer instead of tanh
-  , testCase "0.1 relu ws 5000" $ do
-      let res = gdSimpleShow 0.1 (nnXorLossTotal relu) ws 5000  -- no cookie
+  , testCase "0.1 relu0 ws 5000" $ do
+      let res = gdSimpleShow 0.1 (nnXorLossTotal relu0) ws 5000  -- no cookie
       res @?~ ([0.18908867,0.14627013,0.25409937,0.2798127,0.21643773,0.22213355,8.865212e-2,-5.99097e-2,0.4907815],0.9999999)
-  , testCase "0.01 relu ws2 50000" $ do
-      let res = gdSimpleShow 0.01 (nnXorLossTotal relu) ws2 50000  -- no cookie
+  , testCase "0.01 relu0 ws2 50000" $ do
+      let res = gdSimpleShow 0.01 (nnXorLossTotal relu0) ws2 50000  -- no cookie
       res @?~ ([-1.3572536,2.3245132,-0.14548694,-1.3912132,2.2069085,-0.2630923,-1.4252249,2.2264564,-0.22221938],1.0)
   ]

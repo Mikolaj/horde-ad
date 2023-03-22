@@ -14,7 +14,7 @@ module HordeAd.Core.DualNumber2
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
   , addParameters, dotParameters
-  , logistic, square, squaredDifference, scale, constant, relu
+  , logistic, square, squaredDifference
   , sumElements10, index10, minimum0, maximum0, altSumElements10
   , (<.>!), (<.>!!)
   , softMax, lossCrossEntropy, lossCrossEntropyV, lossSoftMaxCrossEntropyV
@@ -30,13 +30,13 @@ module HordeAd.Core.DualNumber2
   , domainsFromD01, domainsFrom01, domainsFrom0V
   , listsToParameters, listsToParameters4, domainsD0
   , valueGeneral, valueOnDomains, revOnADInputs, revOnDomains
+  , scale, constant
   ) where
 
 import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
-import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -90,7 +90,9 @@ type IsPrimalAndHasFeatures (d :: ADMode) a r =
 type IsPrimalAndHasInputs (d :: ADMode) a r =
   DualClass.IsPrimalWithScalar a r
 
-type ADModeAndNum (d :: ADMode) r = (DualNumber.ADNum r, ForwardDerivative r )
+type ADModeAndNum (d :: ADMode) r =
+  ( DualNumber.ADNum r, ForwardDerivative r, Primal (DualNumber.ADVal r) ~ r
+  , Tensor (DualNumber.ADVal r) )
 
 type HasDelta r = ( ADModeAndNum 'ADModeGradient r
                   , Dual r ~ Delta0 r )
@@ -293,20 +295,6 @@ squaredDifference :: (Num a, IsPrimal d a)
                   => a -> ADVal d a -> ADVal d a
 squaredDifference targ res = square $ res - constantADVal targ
 
-scale :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
-scale a (D u u') = dD (a * u) (dScale a u')
-
-constant :: IsPrimal d a => a -> ADVal d a
-constant a = dD a dZero
-
-relu
-  :: (Num a, MonoFunctor a, ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
-  => ADVal d a -> ADVal d a
-relu v@(D u _) =
-  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
-  in scale oneIfGtZero v
-
-
 -- Operations resulting in a scalar
 
 sumElements10 :: ADModeAndNum d r
@@ -496,3 +484,12 @@ map1Elementwise f d@(D u _) =
     -- equivalent to
     -- @fromVector1 . map1POPL f . rank1toVector
     --   where rank1toVector d@(D v _v') = V.generate (llength d) (lindex0 d)@
+
+-- These can't be easily generalized to non-ADVal without causing
+-- typing problems where this special variant is used, so it has to stay
+-- for the sake of old tests.
+scale :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
+scale a (D u u') = dD (a * u) (dScale a u')
+
+constant :: IsPrimal d a => a -> ADVal d a
+constant a = dD a dZero
