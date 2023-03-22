@@ -77,7 +77,7 @@ synthLossSquared :: ADModeAndNum d r
                  -> ADVal d r
 synthLossSquared factivation x ps1 ps2 ps3 targ =
   let y = inline synthValue factivation (x / 1000) ps1 ps2 ps3
-  in squaredDifference (targ / 10000) y  -- smaller target to overcome @tanh@ clamping
+  in squaredDifference0 (targ / 10000) y  -- smaller target to overcome @tanh@ clamping
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
 sumResultsDual :: forall d r a. (ADModeAndNum d r, Storable a)

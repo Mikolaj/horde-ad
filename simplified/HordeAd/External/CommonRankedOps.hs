@@ -56,3 +56,22 @@ logistic d =
 logistic0 :: (Tensor r, Floating (TensorOf 0 (Primal r)))
           => r -> r
 logistic0 = tunScalar . logistic . tscalar
+
+-- TODO: verify how faster a @x * x@ version would be
+-- Optimized and more clearly written @u ** 2@.
+square :: forall r n. (Tensor r, KnownNat n, Num (TensorOf n (Primal r)))
+       => TensorOf n r -> TensorOf n r
+square d = let u = tprimalPart d
+               u' = tdualPart d
+           in tD (u * u) (tScale @r (2 * u) u')
+
+squaredDifference
+  :: (Tensor r, KnownNat n, Num (TensorOf n r), Num (TensorOf n (Primal r)))
+  => TensorOf n (Primal r) -> TensorOf n r -> TensorOf n r
+squaredDifference targ res = square $ res - tconstant targ
+
+squaredDifference0
+  :: (Tensor r, Tensor (Primal r))
+  => Primal r -> r -> r
+squaredDifference0 targ res =
+  tunScalar $ squaredDifference (tscalar targ) (tscalar res)

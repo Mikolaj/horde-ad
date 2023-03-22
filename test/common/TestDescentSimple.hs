@@ -136,7 +136,7 @@ nnXorLoss :: ADModeAndNum d Float
           -> ADVal d Float
 nnXorLoss factivation x y targ inputs =
   let res = nnXor factivation (constant0 x) (constant0 y) inputs
-  in squaredDifference targ res
+  in squaredDifference0 targ res
 
 nnXorLossTotal :: ADModeAndNum d Float
                => (ADVal d Float -> ADVal d Float)

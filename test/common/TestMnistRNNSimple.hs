@@ -198,7 +198,7 @@ nnSinRNNLossV :: ADModeAndNum d r
               -> ADVal d r
 nnSinRNNLossV (xs, target) inputs =
   let result = zeroState 30 (unrollLast' fcfcrnnV) xs inputs
-  in squaredDifference target result
+  in squaredDifference0 target result
 
 -- Autoregressive model with degree 2
 
@@ -221,7 +221,7 @@ ar2SinLoss :: ADModeAndNum d r
            -> ADVal d r
 ar2SinLoss (xs, target) inputs =
   let result = zeroState 30 (unrollLast' ar2Sin) xs inputs
-  in squaredDifference target result
+  in squaredDifference0 target result
 
 sinRNNTests :: TestTree
 sinRNNTests = testGroup "Sine RNN tests"

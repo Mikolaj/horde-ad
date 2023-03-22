@@ -14,7 +14,6 @@ module HordeAd.Core.DualNumber2
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
   , addParameters, dotParameters
-  , square, squaredDifference
   , sumElements10, index10, minimum0, maximum0, altSumElements10
   , (<.>!), (<.>!!)
   , softMax, lossCrossEntropy, lossCrossEntropyV, lossSoftMaxCrossEntropyV
@@ -276,19 +275,6 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
       else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
 
 -- * Legacy operations needed to re-use vector differentiation tests
-
--- General operations, for any tensor rank
-
-constantADVal :: IsPrimal d a => a -> ADVal d a
-constantADVal a = dD a dZero
-
--- Optimized and more clearly written @u ** 2@.
-square :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a
-square (D u u') = dD (u * u) (dScale (2 * u) u')
-
-squaredDifference :: (Num a, IsPrimal d a)
-                  => a -> ADVal d a -> ADVal d a
-squaredDifference targ res = square $ res - constantADVal targ
 
 -- Operations resulting in a scalar
 

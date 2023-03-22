@@ -23,7 +23,7 @@ close2 (a1, b1) (a2, b2) = close1 a1 a2 .&&. close1 b1 b2
 quad :: ADModeAndNum d r
      => ADVal d r -> ADVal d r -> ADVal d r
 quad x y =
-  let x2 = square x
+  let x2 = x * x
       y2 = y * y
       tmp = x2 + y2
   in tmp + 5

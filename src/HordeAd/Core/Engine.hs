@@ -18,7 +18,7 @@ module HordeAd.Core.Engine
   , prettyPrintDf
   , domainsFromD01, domainsFrom01, domainsFrom0V
   , listsToParameters, listsToParameters4, domainsD0
-  , constant0, scale0, relu0, logistic0
+  , constant0, scale0, relu0, logistic0, squaredDifference0
   ) where
 
 import Prelude
@@ -297,3 +297,7 @@ relu0 = relu
 
 logistic0 :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
 logistic0 = logistic
+
+squaredDifference0 :: (Num a, IsPrimal d a)
+                   => a -> ADVal d a -> ADVal d a
+squaredDifference0 = squaredDifference
