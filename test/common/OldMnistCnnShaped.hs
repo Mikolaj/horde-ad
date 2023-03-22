@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
-{-# OPTIONS_GHC -freduction-depth=10000 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Shaped tensor-based implementation of Convolutional Neural Network

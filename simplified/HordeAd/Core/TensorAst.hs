@@ -1,6 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
-{-# OPTIONS_GHC -freduction-depth=10000 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
