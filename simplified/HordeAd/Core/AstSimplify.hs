@@ -229,6 +229,7 @@ simplifyStepNonIndex t = case t of
   AstGatherZ _ v0 (Z, ix) -> AstIndexZ v0 ix
   AstGatherZ sh v0 (_, ZI) -> astKonstN sh v0
   AstGatherZ {} -> t
+  AstD{} -> t  -- TODO
   AstFromDynamic v -> astFromDynamic v  -- this always eliminates AstDynamic
 
 astIndexZ
@@ -344,6 +345,9 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     in astIndex @m1 @n w rest1
   AstGatherZ{} ->
     error "astIndex: AstGatherZ: impossible pattern needlessly required"
+  AstD (AstPrimalPart u) (AstDualPart u') ->
+    AstD (AstPrimalPart $ astIndexRec u ix)
+         (AstDualPart $ astIndexRec u' ix)
   AstFromDynamic{} -> error "astIndex: AstFromDynamic should simplify away"
 
 astConstant :: AstPrimalPart n r -> Ast n r
@@ -689,6 +693,9 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
         LTI -> composedGather
         EQI -> assimilatedGather
         GTI -> gcastWith (flipCompare @p' @m2) assimilatedGather
+    AstD (AstPrimalPart u) (AstDualPart u') ->
+      AstD (AstPrimalPart $ astGatherRec sh4 u (vars4, ix4))
+           (AstDualPart $ astGatherRec sh4 u' (vars4, ix4))
     AstFromDynamic{} -> error "astGather: AstFromDynamic should simplify away"
 
 gatherFromNF :: forall m p r. (KnownNat m, KnownNat p)
@@ -860,6 +867,8 @@ simplifyAst t = case t of
   AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
   AstGatherZ sh v (vars, ix) ->
     astGatherZ sh (simplifyAst v) (vars, fmap simplifyAstInt ix)
+  AstD u (AstDualPart u') -> AstD (simplifyAstPrimal u)
+                                  (AstDualPart $ simplifyAst u')
   AstFromDynamic v -> astFromDynamic v  -- this always eliminates AstDynamic
 
 -- Integer terms need to be simplified, because they are sometimes

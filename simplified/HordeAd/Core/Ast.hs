@@ -8,7 +8,7 @@
 module HordeAd.Core.Ast
   ( AstIndex, AstVarList
   , AstVarName(..), AstDynamicVarName(..)
-  , Ast(..), AstPrimalPart(..), AstDynamic(..), Ast0(..)
+  , Ast(..), AstPrimalPart(..), AstDualPart(..), AstDynamic(..), Ast0(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , astCond
@@ -103,6 +103,7 @@ data Ast :: Nat -> Type -> Type where
     -- variable; out of bounds indexing is permitted
     -- the case with many variables emerges from vectorizing the simpler case;
     -- out of bounds indexing is permitted
+  AstD :: AstPrimalPart n r -> AstDualPart n r -> Ast n r
   AstFromDynamic :: AstDynamic r -> Ast n r
 
   -- Spurious, but can be re-enabled at any time:
@@ -114,6 +115,9 @@ data Ast :: Nat -> Type -> Type where
 deriving instance (Show r, Numeric r) => Show (Ast n r)
 
 newtype AstPrimalPart n r = AstPrimalPart {unAstPrimalPart :: Ast n r}
+ deriving Show
+
+newtype AstDualPart n r = AstDualPart {unAstDualPart :: Ast n r}
  deriving Show
 
 data AstDynamic :: Type -> Type where
@@ -455,6 +459,7 @@ shapeAst v1 = case v1 of
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$ shapeAst v
   AstGatherZ sh _v (_vars, _ix) -> sh
+  AstD (AstPrimalPart u) _ -> shapeAst u
   AstFromDynamic v -> listShapeToShape $ shapeAstDynamic v
 
 shapeAstDynamic :: (Show r, Numeric r)
@@ -495,6 +500,8 @@ intVarInAst var = \case
   AstBuild1 _ (var2, v) -> var /= var2 && intVarInAst var v
   AstGatherZ _ v (vars, ix) -> notElem var vars && intVarInIndex var ix
                                || intVarInAst var v
+  AstD (AstPrimalPart u) (AstDualPart u') ->
+    intVarInAst var u || intVarInAst var u'
   AstFromDynamic v -> intVarInAstDynamic var v
 
 intVarInAstDynamic :: AstVarName Int -> AstDynamic r -> Bool
@@ -561,6 +568,9 @@ substitute1Ast i var v1 = case v1 of
     then AstGatherZ sh (substitute1Ast i var v) (vars, ix)
     else AstGatherZ sh (substitute1Ast i var v)
                        (vars, fmap (substitute1AstInt i var) ix)
+  AstD (AstPrimalPart u) (AstDualPart u') ->
+    AstD (AstPrimalPart $ substitute1Ast i var u)
+         (AstDualPart $ substitute1Ast i var u')
   AstFromDynamic v -> AstFromDynamic $ substitute1AstDynamic i var v
 
 substitute1AstDynamic

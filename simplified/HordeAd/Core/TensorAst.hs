@@ -54,13 +54,13 @@ instance (Num (Vector r), Show r, Numeric r)
 
   type ScalarOf (Ast0 r) = r
   type Primal (Ast0 r) = AstPrimalPart 0 r
-  type DualOf n (Ast0 r) = ()  -- TODO: data AstDualPart: dAdd, dkonst1
+  type DualOf n (Ast0 r) = AstDualPart n r
   tconst = AstConstant . AstPrimalPart . AstConst
   tconstant = AstConstant
   tscale0 (AstPrimalPart r) (Ast0 t) = Ast0 (r * t)
   tprimalPart = AstPrimalPart
-  tdualPart = error "TODO"
-  tD = error "TODO"
+  tdualPart = AstDualPart
+  tD = AstD
   type DynamicTensor (Ast0 r) = AstDynamic r
   tdummyD = AstDynamicDummy
   tisDummyD t = case t of
@@ -125,11 +125,11 @@ instance (Num (Vector r), Show r, Numeric r)
   type Primal (AstPrimalPart 0 r) = AstPrimalPart 0 r
   type DualOf n (AstPrimalPart 0 r) = ()
   tconst = AstPrimalPart . AstConst
-  tconstant = AstPrimalPart . AstConstant
-  tscale0 (AstPrimalPart r) (AstPrimalPart t) = AstPrimalPart (r * t)
+  tconstant = id
+  tscale0 r d = r * d
   tprimalPart = id
-  tdualPart = error "TODO"
-  tD = error "TODO"
+  tdualPart _ = ()
+  tD u _ = u
   -- TODO: if ever used, define, if not, use an Error type
   type DynamicTensor (AstPrimalPart 0 r) = Maybe r
   tdummyD = undefined

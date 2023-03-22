@@ -173,6 +173,8 @@ instance InterpretAst (ADVal Double) where
        -- on tape and translate it to whatever backend sooner or later;
        -- and if yes, fall back to POPL pre-computation that, unfortunately,
        -- leads to a tensor of deltas
+     AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
+                                   (tdualPart $ interpretAstRec env u')
      AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
@@ -295,6 +297,8 @@ instance InterpretAst (ADVal Float) where
        -- on tape and translate it to whatever backend sooner or later;
        -- and if yes, fall back to POPL pre-computation that, unfortunately,
        -- leads to a tensor of deltas
+     AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
+                                   (tdualPart $ interpretAstRec env u')
      AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
@@ -419,6 +423,8 @@ instance ( ADTensor (Ast0 q)
        -- on tape and translate it to whatever backend sooner or later;
        -- and if yes, fall back to POPL pre-computation that, unfortunately,
        -- leads to a tensor of deltas
+     AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
+                                   (tdualPart $ interpretAstRec env u')
      AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
@@ -541,6 +547,8 @@ instance InterpretAst Double where
        -- on tape and translate it to whatever backend sooner or later;
        -- and if yes, fall back to POPL pre-computation that, unfortunately,
        -- leads to a tensor of deltas
+     AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
+                                   (tdualPart $ interpretAstRec env u')
      AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
@@ -663,6 +671,8 @@ instance InterpretAst Float where
        -- on tape and translate it to whatever backend sooner or later;
        -- and if yes, fall back to POPL pre-computation that, unfortunately,
        -- leads to a tensor of deltas
+     AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
+                                   (tdualPart $ interpretAstRec env u')
      AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a

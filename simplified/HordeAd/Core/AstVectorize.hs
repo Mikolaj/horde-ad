@@ -158,6 +158,9 @@ build1V k (var, v00) =
       astGatherStep (k :$ sh)
                     (build1VOccurenceUnknown k (var, v))
                     (var ::: vars, AstIntVar var :. ix)
+    AstD (AstPrimalPart u) (AstDualPart u') ->
+      AstD (AstPrimalPart $ build1VOccurenceUnknown k (var, u))
+           (AstDualPart $ build1VOccurenceUnknown k (var, u'))
     AstFromDynamic{} -> error "build1V: AstFromDynamic is not for library users"
 
 -- | The application @build1VIndex k (var, v, ix)@ vectorizes
