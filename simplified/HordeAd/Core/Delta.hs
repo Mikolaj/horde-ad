@@ -552,7 +552,7 @@ buildFinMaps s0 deltaDt =
           evalR s (tscatter1 sh (tfromList [tscalar c]) (const ix)) d
             -- equivalent: evalR s (updateR (tkonst0NR sh 0) [(ix, c)]) d
         Sum0 sh d -> evalR s (tkonst0N sh (tscalar c)) d
-        Dot0 v vd -> evalR s (tscaleByScalar v c) vd
+        Dot0 v vd -> evalR s (tscaleByScalar c v) vd
                      -- too slow: evalR s (v * tkonst0N (tshape v) c) vd
                      -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
         UnScalar0 d -> evalR s (tscalar c) d

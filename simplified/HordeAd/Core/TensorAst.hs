@@ -58,6 +58,7 @@ instance (Num (Vector r), Show r, Numeric r)
   type DualOf n (Ast0 r) = ()  -- TODO: data AstDualPart: dAdd, dkonst1
   tconst = AstConstant . AstPrimalPart . AstConst
   tconstant = AstConstant
+  tscale0 (AstPrimalPart r) (Ast0 t) = Ast0 (r * t)
   tprimalPart = AstPrimalPart
   tdualPart = error "TODO"
   tD = error "TODO"
@@ -126,6 +127,7 @@ instance (Num (Vector r), Show r, Numeric r)
   type DualOf n (AstPrimalPart 0 r) = ()
   tconst = AstPrimalPart . AstConst
   tconstant = AstPrimalPart . AstConstant
+  tscale0 (AstPrimalPart r) (AstPrimalPart t) = AstPrimalPart (r * t)
   tprimalPart = id
   tdualPart = error "TODO"
   tD = error "TODO"

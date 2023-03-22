@@ -425,8 +425,8 @@ tunScalarR
 tunScalarR = OR.unScalar
 
 tscaleByScalarR :: (Numeric r, KnownNat n)
-                => OR.Array n r -> r -> OR.Array n r
-tscaleByScalarR v s = liftVR (LA.scale s) v
+                => r -> OR.Array n r -> OR.Array n r
+tscaleByScalarR s v = liftVR (LA.scale s) v
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.

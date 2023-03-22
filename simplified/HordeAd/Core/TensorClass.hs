@@ -217,8 +217,8 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
     :: Num (TensorOf n r)
     => TensorOf n r -> TensorOf n r -> TensorOf n r
   tmult = (*)
-  tscaleByScalar :: KnownNat n => TensorOf n r -> r -> TensorOf n r
-  tscaleByScalar v s = v `tmult` tkonst0N (tshape v) (tscalar s)
+  tscaleByScalar :: KnownNat n => r -> TensorOf n r -> TensorOf n r
+  tscaleByScalar s v = v `tmult` tkonst0N (tshape v) (tscalar s)
 
   -- The primal/dual distinction
   type ScalarOf r
@@ -226,6 +226,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   type DualOf (n :: Nat) r
   tconst :: KnownNat n => OR.Array n (ScalarOf r) -> TensorOf n r
   tconstant :: KnownNat n => TensorOf n (Primal r) -> TensorOf n r
+  tscale0 :: Primal r -> r -> r
   tprimalPart :: TensorOf n r -> TensorOf n (Primal r)
   tdualPart :: TensorOf n r -> DualOf n r
   tD :: KnownNat n => TensorOf n (Primal r) -> DualOf n r -> TensorOf n r
@@ -370,6 +371,7 @@ instance Tensor Double where
   type DualOf n Double = ()
   tconst = id
   tconstant = id
+  tscale0 r d = r * d
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
@@ -419,6 +421,7 @@ instance Tensor Float where
   type DualOf n Float = ()
   tconst = id
   tconstant = id
+  tscale0 r d = r * d
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u

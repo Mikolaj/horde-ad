@@ -91,6 +91,7 @@ instance Tensor (ADVal Double) where
   type DualOf n (ADVal Double) = Dual (OR.Array n Double)
   tconst t = dD t dZero
   tconstant t = dD t dZero
+  tscale0 r (D u u') = dD (r * u) (dScale r u')
   tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
   tD u = dD u
@@ -139,6 +140,7 @@ instance Tensor (ADVal Float) where
   type DualOf n (ADVal Float) = Dual (OR.Array n Float)
   tconst t = dD t dZero
   tconstant t = dD t dZero
+  tscale0 r (D u u') = dD (r * u) (dScale r u')
   tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
   tD u = dD u
@@ -190,6 +192,7 @@ instance (ADTensor (Ast0 r), Numeric r, Show r, Num (Vector r))
   type DualOf n (ADVal (Ast0 r)) = Dual (Ast n r)
   tconst t = dD (AstConst t) dZero
   tconstant t = dD t dZero
+  tscale0 r (D u u') = dD (r * u) (dScale r u')
   tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
   tD = dD
