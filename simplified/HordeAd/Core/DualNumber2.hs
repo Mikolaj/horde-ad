@@ -16,9 +16,9 @@ module HordeAd.Core.DualNumber2
   , addParameters, dotParameters
   , sumElements10, index10, minimum0, maximum0
   , (<.>!), (<.>!!)
-  , fromList1, fromVector1, konst1, append1, slice1, reverse1, maxPool1
-  , softMaxV, build1POPL, build1Elementwise, build1Closure, build1
-  , map1POPL, map1Elementwise
+  , fromList1, fromVector1, konst1, append1, slice1, reverse1
+  , build1Elementwise, build1Closure
+  , map1Elementwise
   , -- * Re-exports
     ADMode(..)
   , IsPrimal, IsPrimalWithScalar, IsPrimalAndHasFeatures, IsPrimalAndHasInputs
@@ -95,6 +95,7 @@ type ADModeAndNum (d :: ADMode) r =
   , Primal (DualNumber.ADVal r) ~ r
   , Tensor (DualNumber.ADVal r)
   , TensorOf 1 (DualNumber.ADVal r) ~ DualNumber.ADVal (Vec r)
+  , Fractional (TensorOf 0 (DualNumber.ADVal r))
   )
 
 type HasDelta r = ( ADModeAndNum 'ADModeGradient r
@@ -278,6 +279,7 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
       then 0
       else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
 
+
 -- * Legacy operations needed to re-use vector differentiation tests
 
 -- Operations resulting in a scalar
@@ -326,36 +328,16 @@ slice1 = tslice
 reverse1 :: Tensor r => TensorOf 1 r -> TensorOf 1 r
 reverse1 = treverse
 
--- TODO: define Enum instance of (AstInt r) to enable AST for this.
--- No padding; remaining areas ignored.
-maxPool1 :: ( TensorOf 1 (DualNumber.ADVal r) ~ DualNumber.ADVal (Vec r)
-            , ADModeAndNum d r )
-         => Int -> Int -> ADVal d (Vec r) -> ADVal d (Vec r)
-maxPool1 ksize stride v@(D u _) =
-  let slices = [slice1 i ksize v | i <- [0, stride .. tsizeR u - ksize]]
-  in fromList1 $ map (maximum0 @1) slices
-
-softMaxV :: ( TensorOf 1 (DualNumber.ADVal r) ~ DualNumber.ADVal (Vec r)
-            , ADModeAndNum d r )
-         => ADVal d (Vec r) -> ADVal d (Vec r)
-softMaxV d@(D u _) =
-  let expU = exp d  -- shared in 2 places, though cse may do this for us
-      sumExpU = sumElements10 expU
-  in konst1 (recip sumExpU) (tsizeR u) * expU
-
 
 -- Build and map variants
-
-build1POPL :: Int -> (Int -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
-build1POPL n f = V.fromList $ map f [0 .. n - 1]
 
 -- Fake rank 1. This is still an array of delta expressions, thinly wrapped,
 -- instead of a single delta expression representing an array.
 -- We gain a little by storing the primal part in an unboxed vector.
 build1Elementwise
-  :: ADModeAndNum d r
-  => Int -> (Int -> ADVal d r) -> ADVal d (Vec r)
-build1Elementwise n f = fromList1 $ map f [0 .. n - 1]
+  :: Tensor r
+  => Int -> (Int -> r) -> TensorOf 1 r
+build1Elementwise n f = tfromList $ map (tscalar . f) [0 .. n - 1]
   -- equivalent to @fromVector1 $ build1POPL n f@
 
 build1Closure
@@ -367,24 +349,14 @@ build1Closure n f =
   in dD (OR.fromList [n] $ map g [0 .. n - 1])
         (dBuildR n (dScalarR . h))
 
-build1
-  :: ADModeAndNum d r
-  => Int -> (Int -> ADVal d r) -> ADVal d (Vec r)
-build1 = build1Closure
-
-map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
-         -> Data.Vector.Vector (ADVal d r)
-map1POPL = V.map
-
 map1Elementwise
-  :: ( TensorOf 1 (DualNumber.ADVal r) ~ DualNumber.ADVal (Vec r)
-     , ADModeAndNum d r )
-  => (ADVal d r -> ADVal d r) -> ADVal d (Vec r) -> ADVal d (Vec r)
-map1Elementwise f d@(D u _) =
-  build1Elementwise (tsizeR u) $ \i -> f (index10 d i)
+  :: Tensor r
+  => (r -> r) -> TensorOf 1 r -> TensorOf 1 r
+map1Elementwise f = tmap1 (tscalar . f . tunScalar)
     -- equivalent to
     -- @fromVector1 . map1POPL f . rank1toVector
     --   where rank1toVector d@(D v _v') = V.generate (llength d) (lindex0 d)@
+
 
 -- These can't be easily generalized to non-ADVal without causing
 -- typing problems where this special variant is used, so it has to stay

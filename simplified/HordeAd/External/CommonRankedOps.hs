@@ -108,3 +108,17 @@ lossSoftMaxCrossEntropyV target d =
           (tdualPart $ (tconstant (softMaxU - target)) `tdot0` d)
             -- TODO: probably defining tDot0 would lead to a faster
             -- tDot0 (softMaxU - target) u'
+
+-- No padding; remaining areas ignored.
+maxPool1 :: Tensor r
+         => Int -> Int -> TensorOf 1 r -> TensorOf 1 r
+maxPool1 ksize stride v =
+  let slices = [tslice i ksize v | i <- [0, stride .. tlength v - ksize]]
+  in tfromList $ map tmaximum slices
+
+softMaxV :: ( Tensor r, KnownNat n
+            , Floating (TensorOf n r), Fractional (TensorOf 0 r) )
+         => TensorOf n r -> TensorOf n r
+softMaxV d =
+  let expU = exp d  -- shared in 2 places, though cse may do this for us
+  in tkonst0N (tshape d) (recip $ tsum0 expU) * expU

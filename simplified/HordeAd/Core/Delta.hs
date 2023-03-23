@@ -769,7 +769,7 @@ buildDerivative dim0 dimR deltaDt Domains{..} = do
         Index0 d ixs _ -> tunScalar . flip tindex ixs <$> evalR d
         Sum0 _ ZeroR ->  return 0
         Sum0 _ d -> tunScalar . tsum0 <$> evalR d
-        Dot0 v ZeroR ->  return 0
+        Dot0 _ ZeroR ->  return 0
         Dot0 v d -> tunScalar . tdot0 v <$> evalR d
         UnScalar0 ZeroR -> return 0
         UnScalar0 d -> tunScalar <$> evalR d
