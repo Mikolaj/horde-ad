@@ -765,21 +765,30 @@ buildDerivative dim0 dimR deltaDt Domains{..} = do
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
+        Index0 ZeroR _ _ -> return 0
         Index0 d ixs _ -> tunScalar . flip tindex ixs <$> evalR d
+        Sum0 _ ZeroR ->  return 0
         Sum0 _ d -> tunScalar . tsum0 <$> evalR d
+        Dot0 v ZeroR ->  return 0
         Dot0 v d -> tunScalar . tdot0 v <$> evalR d
+        UnScalar0 ZeroR -> return 0
         UnScalar0 d -> tunScalar <$> evalR d
 
       evalR :: forall n. KnownNat n
             => DeltaR n r -> ST s (TensorOf n r)
       evalR = \case
         ZeroR -> return $! tzero $ listShapeToShape $ replicate (valueOf @n) 1
-          -- wrong shape, but it often works
+          -- TODO: wrong shape but it often works and the special cases
+          -- for ZeroR help, but the real solution would be shaped tensors
+          -- or simplification of delta terms
         InputR (InputId i) ->
           if i < dimR
           then return $! tfromD $ domainsR V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
+        ScaleR _ ZeroR -> evalR ZeroR
         ScaleR k d -> tmult k <$> evalR d
+        AddR ZeroR e -> evalR e
+        AddR d ZeroR -> evalR d
         AddR d e -> liftM2 tadd (evalR d) (evalR e)
         LetR n d -> do
           nm <- readSTRef nMap
