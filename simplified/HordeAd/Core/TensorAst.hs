@@ -51,6 +51,7 @@ instance (Num (Vector r), Show r, Numeric r)
 
   tscalar = unAst0
   tunScalar = Ast0
+    -- due to injective type families, we have to distinguish Ast0 and Ast 0
 
   type ScalarOf (Ast0 r) = r
   type Primal (Ast0 r) = AstPrimalPart 0 r
@@ -121,6 +122,8 @@ instance (Num (Vector r), Show r, Numeric r)
 
   tscalar = id
   tunScalar = id
+    -- identifying AstPrimalPart 0 with primal part scalars lets us avoid
+    -- adding a lot of constraints to ADReady
 
   type ScalarOf (AstPrimalPart 0 r) = r
   type Primal (AstPrimalPart 0 r) = AstPrimalPart 0 r

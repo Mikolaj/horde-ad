@@ -220,7 +220,7 @@ build1VIndexNormalForm k (var, v1, i1) = case v1 of
              f v = build1VOccurenceUnknown k (var, v)
              t :: Ast (1 + n) r
              t = astFromList $ map f l
-         in astGatherStep (k :$ dropShape (shapeAst t)) t
+         in astGatherStep (k :$ tailShape (shapeAst v1)) t
                           (var ::: Z, i1 :. AstIntVar var :. ZI)
     else
       AstIndexZ (astFromList $ map (\v ->
@@ -231,7 +231,7 @@ build1VIndexNormalForm k (var, v1, i1) = case v1 of
              f v = build1VOccurenceUnknown k (var, v)
              t :: Ast (1 + n) r
              t = astFromVector $ V.map f l
-         in astGatherStep (k :$ dropShape (shapeAst t)) t
+         in astGatherStep (k :$ tailShape (shapeAst v1)) t
                           (var ::: Z, i1 :. AstIntVar var :. ZI)
     else
       AstIndexZ (astFromVector $ V.map (\v ->
