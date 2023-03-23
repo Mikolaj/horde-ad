@@ -308,36 +308,23 @@ infixr 8 <.>!!
 -- Operations resulting in a vector (really, a OR.Array)
 
 -- @1@ means rank one, so the dual component represents a vector.
-fromList1 :: ADModeAndNum d r
-          => [ADVal d r] -> ADVal d (Vec r)
-fromList1 l =
-  dD (tfromListR $ map (\(D u _) -> tscalarR u) l)
-     (dFromListR $ map (\(D _ u') -> dScalarR u') l)
+fromList1 :: Tensor r => [r] -> TensorOf 1 r
+fromList1 = tfromList . map tscalar
 
-fromVector1 :: ADModeAndNum d r
-            => Data.Vector.Vector (ADVal d r) -> ADVal d (Vec r)
-fromVector1 l =
-  dD (tfromVectorR
-      $ V.convert $ V.map (\(D u _) -> tscalarR u) l)  -- hope it fuses
-     (dFromVectorR
-      $ V.map (\(D _ u') -> dScalarR u') l)
+fromVector1 :: Tensor r => Data.Vector.Vector r -> TensorOf 1 r
+fromVector1 = tfromVector . V.map tscalar
 
-konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vec r)
-konst1 (D u u') n =
-  dD (tkonstR n (tscalarR u)) (dKonstR n (dScalarR u'))
+konst1 :: Tensor r => r -> Int -> TensorOf 1 r
+konst1 d n = tkonst n (tscalar d)
 
-append1 :: ADModeAndNum d r
-        => ADVal d (Vec r) -> ADVal d (Vec r) -> ADVal d (Vec r)
-append1 (D u u') (D v v') = dD (tappendR u v)
-                               (dAppendR u' (head $ OR.shapeL u) v')
+append1 :: Tensor r => TensorOf 1 r -> TensorOf 1 r -> TensorOf 1 r
+append1 = tappend
 
-slice1 :: ADModeAndNum d r
-       => Int -> Int -> ADVal d (Vec r) -> ADVal d (Vec r)
-slice1 i k (D u u') = dD (tsliceR i k u)
-                         (dSliceR i k u' (head $ OR.shapeL u))
+slice1 :: Tensor r => Int -> Int -> TensorOf 1 r -> TensorOf 1 r
+slice1 = tslice
 
-reverse1 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d (Vec r)
-reverse1 (D u u') = dD (treverseR u) (dReverseR u')
+reverse1 :: Tensor r => TensorOf 1 r -> TensorOf 1 r
+reverse1 = treverse
 
 -- TODO: define Enum instance of (AstInt r) to enable AST for this.
 -- No padding; remaining areas ignored.
