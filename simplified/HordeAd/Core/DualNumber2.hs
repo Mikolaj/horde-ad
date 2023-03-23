@@ -15,7 +15,7 @@ module HordeAd.Core.DualNumber2
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
   , addParameters, dotParameters
   , sumElements10, index10, minimum0, maximum0
-  , (<.>!), (<.>!!), lossSoftMaxCrossEntropyV
+  , (<.>!), (<.>!!)
   , fromList1, fromVector1, konst1, append1, slice1, reverse1, maxPool1
   , softMaxV, build1POPL, build1Elementwise, build1Closure, build1
   , map1POPL, map1Elementwise
@@ -303,25 +303,6 @@ infixr 8 <.>!
 infixr 8 <.>!!
 (<.>!!) :: Tensor r => TensorOf 1 r -> TensorOf 1 (Primal r) -> r
 (<.>!!) u s = (<.>!) u (tconstant s)
-
--- Note that this is equivalent to a composition of softMax and cross entropy
--- only when @target@ is one-hot. Otherwise, results vary wildly. In our
--- rendering of the MNIST data all labels are one-hot.
-lossSoftMaxCrossEntropyV
-  :: ADModeAndNum d r
-  => Vec r -> ADVal d (Vec r) -> ADVal d r
-lossSoftMaxCrossEntropyV target (D u u') =
-  -- The following protects from underflows, overflows and exploding gradients
-  -- and is required by the QuickCheck test in TestMnistCNN.
-  -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
-  -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
-  let expU = exp (u - OR.constant [tsizeR u] (tminimum0R u))
-      sumExpU = tsum0R expU
-      recipSum = recip sumExpU
--- not exposed: softMaxU = LA.scaleRecip sumExpU expU
-      softMaxU =  OR.constant [tsizeR expU] recipSum * expU
-  in dD (negate $ log softMaxU `tdot0R` target)  -- TODO: avoid: log . exp
-        (dDot0 (softMaxU - target) u')
 
 
 -- Operations resulting in a vector (really, a OR.Array)

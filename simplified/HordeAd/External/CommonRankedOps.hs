@@ -82,3 +82,29 @@ lossCrossEntropyV :: (Tensor r, KnownNat n, Floating (TensorOf n r))
                   -> r
 lossCrossEntropyV targ res =
   negate $ tunScalar $ log res `tdot0` (tconstant targ)
+
+-- Note that this is equivalent to a composition of softMax and cross entropy
+-- only when @target@ is one-hot. Otherwise, results vary wildly. In our
+-- rendering of the MNIST data all labels are one-hot.
+lossSoftMaxCrossEntropyV
+  :: ( Tensor r, Tensor (Primal r), KnownNat n
+     , Floating (TensorOf n (Primal r))
+     , Fractional (TensorOf 0 (Primal r)) )
+  => TensorOf n (Primal r) -> TensorOf n r -> r
+lossSoftMaxCrossEntropyV target d =
+  -- The following protects from underflows, overflows and exploding gradients
+  -- and is required by the QuickCheck test in TestMnistCNN.
+  -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
+  -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
+  let u = tprimalPart d
+      expU = exp (u - tkonst0N (tshape u) (tminimum u))
+      sumExpU = tsum0 expU
+      recipSum = recip sumExpU
+-- not exposed: softMaxU = LA.scaleRecip sumExpU expU
+      softMaxU = tscaleByScalar (tunScalar recipSum) expU
+  in tunScalar
+     $ tD (negate $ log softMaxU `tdot0` target)
+            -- TODO: avoid: log . exp
+          (tdualPart $ (tconstant (softMaxU - target)) `tdot0` d)
+            -- TODO: probably defining tDot0 would lead to a faster
+            -- tDot0 (softMaxU - target) u'
