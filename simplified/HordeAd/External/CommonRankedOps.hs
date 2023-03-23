@@ -75,3 +75,10 @@ squaredDifference0
   => Primal r -> r -> r
 squaredDifference0 targ res =
   tunScalar $ squaredDifference (tscalar targ) (tscalar res)
+
+lossCrossEntropyV :: (Tensor r, KnownNat n, Floating (TensorOf n r))
+                  => TensorOf n (Primal r)
+                  -> TensorOf n r
+                  -> r
+lossCrossEntropyV targ res =
+  negate $ tunScalar $ log res `tdot0` (tconstant targ)

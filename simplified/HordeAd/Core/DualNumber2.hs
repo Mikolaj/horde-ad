@@ -14,9 +14,8 @@ module HordeAd.Core.DualNumber2
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
   , addParameters, dotParameters
-  , sumElements10, index10, minimum0, maximum0, altSumElements10
-  , (<.>!), (<.>!!)
-  , softMax, lossCrossEntropy, lossCrossEntropyV, lossSoftMaxCrossEntropyV
+  , sumElements10, index10, minimum0, maximum0
+  , (<.>!), (<.>!!), lossSoftMaxCrossEntropyV
   , fromList1, fromVector1, konst1, append1, slice1, reverse1, maxPool1
   , softMaxV, build1POPL, build1Elementwise, build1Closure, build1
   , map1POPL, map1Elementwise
@@ -29,7 +28,8 @@ module HordeAd.Core.DualNumber2
   , domainsFromD01, domainsFrom01, domainsFrom0V
   , listsToParameters, listsToParameters4, domainsD0
   , valueGeneral, valueOnDomains, revOnADInputs, revOnDomains
-  , constant, scale, logistic
+  , constant, scale, logistic, altSumElements10
+  , softMax, lossCrossEntropy
   ) where
 
 import Prelude
@@ -90,8 +90,12 @@ type IsPrimalAndHasInputs (d :: ADMode) a r =
   DualClass.IsPrimalWithScalar a r
 
 type ADModeAndNum (d :: ADMode) r =
-  ( DualNumber.ADNum r, ForwardDerivative r, Primal (DualNumber.ADVal r) ~ r
-  , Tensor (DualNumber.ADVal r) )
+  ( DualNumber.ADNum r
+  , ForwardDerivative r
+  , Primal (DualNumber.ADVal r) ~ r
+  , Tensor (DualNumber.ADVal r)
+  , TensorOf 1 (DualNumber.ADVal r) ~ DualNumber.ADVal (Vec r)
+  )
 
 type HasDelta r = ( ADModeAndNum 'ADModeGradient r
                   , Dual r ~ Delta0 r )
@@ -278,82 +282,27 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
 
 -- Operations resulting in a scalar
 
-sumElements10 :: ADModeAndNum d r
-              => ADVal d (Vec r) -> ADVal d r
-sumElements10 (D u u') = dD (tsum0R u) (dSum0 (tshapeR u) u')
+sumElements10 :: Tensor r => TensorOf 1 r -> r
+sumElements10 = tunScalar . tsum
 
-index10 :: ADModeAndNum d r => ADVal d (Vec r) -> Int -> ADVal d r
-index10 (D u u') ix = dD (u `tindex0R` singletonIndex ix)
-                         (dIndex0 u' (singletonIndex ix) (tshapeR u))
+index10 :: Tensor r => TensorOf 1 r -> Int -> r
+index10 d ix = tunScalar $ d ! (singletonIndex $ fromIntegral ix)
 
-minimum0 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
-minimum0 (D u u') =
-  let ix = tminIndexR u
-  in dD (OR.unScalar $ tindex1R u ix)
-        (dIndex0 u' (singletonIndex ix) (flattenShape (tshapeR u)))
+minimum0 :: (KnownNat n, Tensor r) => TensorOf n r -> r
+minimum0 = tunScalar . tminimum
 
-maximum0 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
-maximum0 (D u u') =
-  let ix = tmaxIndexR u
-  in dD (OR.unScalar $ tindex1R u ix)
-        (dIndex0 u' (singletonIndex ix) (flattenShape (tshapeR u)))
-
-foldl'0 :: ADModeAndNum d r
-        => (ADVal d r -> ADVal d r -> ADVal d r)
-        -> ADVal d r -> ADVal d (Vec r)
-        -> ADVal d r
-foldl'0 f uu' (D v v') =
-  let g !acc ix p =
-        f (dD p (dIndex0 v' (singletonIndex ix) (flattenShape (tshapeR v)))) acc
-  in V.ifoldl' g uu' (OR.toVector v)
-
-altSumElements10 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
-altSumElements10 = foldl'0 (+) 0
+maximum0 :: (KnownNat n, Tensor r) => TensorOf n r -> r
+maximum0 = tunScalar . tmaximum
 
 -- | Dot product.
 infixr 8 <.>!
-(<.>!) :: ADModeAndNum d r
-       => ADVal d (Vec r) -> ADVal d (Vec r) -> ADVal d r
-(<.>!) (D u u') (D v v') = dD (tdot0R u v)
-                              (dAdd (dDot0 v u') (dDot0 u v'))
+(<.>!) :: Tensor r => TensorOf 1 r -> TensorOf 1 r -> r
+(<.>!) u v = tunScalar $ tdot0 u v
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
-(<.>!!) :: ADModeAndNum d r
-        => ADVal d (Vec r) -> Vec r -> ADVal d r
-(<.>!!) (D u u') v = dD (tdot0R u v) (dDot0 v u')
-
-sumElementsVectorOfDual
-  :: ADModeAndNum d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
-sumElementsVectorOfDual = V.foldl' (+) 0
-
-softMax :: ADModeAndNum d r
-        => Data.Vector.Vector (ADVal d r)
-        -> Data.Vector.Vector (ADVal d r)
-softMax us =
-  let expUs = V.map exp us  -- used twice below, so named, to enable sharing
-      sumExpUs = sumElementsVectorOfDual expUs
-  in V.map (\r -> r * recip sumExpUs) expUs
-
--- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropy :: forall d r. ADModeAndNum d r
-                 => Vector r
-                 -> Data.Vector.Vector (ADVal d r)
-                 -> ADVal d r
-lossCrossEntropy targ res =
-  let f :: ADVal d r -> Int -> ADVal d r -> ADVal d r
-      f !acc i d = acc + scaleADVal (targ V.! i) (log d)
-  in negate $ V.ifoldl' f 0 res
-
-scaleADVal :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
-scaleADVal a (D u u') = dD (a * u) (dScale a u')
-
--- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyV :: ADModeAndNum d r
-                  => Vec r
-                  -> ADVal d (Vec r)
-                  -> ADVal d r
-lossCrossEntropyV targ res = negate $ log res <.>!! targ
+(<.>!!) :: Tensor r => TensorOf 1 r -> TensorOf 1 (Primal r) -> r
+(<.>!!) u s = (<.>!) u (tconstant s)
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
@@ -411,13 +360,15 @@ reverse1 (D u u') = dD (treverseR u) (dReverseR u')
 
 -- TODO: define Enum instance of (AstInt r) to enable AST for this.
 -- No padding; remaining areas ignored.
-maxPool1 :: ADModeAndNum d r
+maxPool1 :: ( TensorOf 1 (DualNumber.ADVal r) ~ DualNumber.ADVal (Vec r)
+            , ADModeAndNum d r )
          => Int -> Int -> ADVal d (Vec r) -> ADVal d (Vec r)
 maxPool1 ksize stride v@(D u _) =
   let slices = [slice1 i ksize v | i <- [0, stride .. tsizeR u - ksize]]
-  in fromList1 $ map maximum0 slices
+  in fromList1 $ map (maximum0 @1) slices
 
-softMaxV :: ADModeAndNum d r
+softMaxV :: ( TensorOf 1 (DualNumber.ADVal r) ~ DualNumber.ADVal (Vec r)
+            , ADModeAndNum d r )
          => ADVal d (Vec r) -> ADVal d (Vec r)
 softMaxV d@(D u _) =
   let expU = exp d  -- shared in 2 places, though cse may do this for us
@@ -458,7 +409,8 @@ map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
 map1POPL = V.map
 
 map1Elementwise
-  :: ADModeAndNum d r
+  :: ( TensorOf 1 (DualNumber.ADVal r) ~ DualNumber.ADVal (Vec r)
+     , ADModeAndNum d r )
   => (ADVal d r -> ADVal d r) -> ADVal d (Vec r) -> ADVal d (Vec r)
 map1Elementwise f d@(D u _) =
   build1Elementwise (tsizeR u) $ \i -> f (index10 d i)
@@ -479,3 +431,40 @@ logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
 logistic (D u u') =
   let y = recip (1 + exp (- u))
   in dD y (dScale (y * (1 - y)) u')
+
+foldl'0 :: ADModeAndNum d r
+        => (ADVal d r -> ADVal d r -> ADVal d r)
+        -> ADVal d r -> ADVal d (Vec r)
+        -> ADVal d r
+foldl'0 f uu' (D v v') =
+  let g !acc ix p =
+        f (dD p (dIndex0 v' (singletonIndex ix) (flattenShape (tshapeR v)))) acc
+  in V.ifoldl' g uu' (OR.toVector v)
+
+altSumElements10 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
+altSumElements10 = foldl'0 (+) 0
+
+sumElementsVectorOfDual
+  :: ADModeAndNum d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
+sumElementsVectorOfDual = V.foldl' (+) 0
+
+softMax :: ADModeAndNum d r
+        => Data.Vector.Vector (ADVal d r)
+        -> Data.Vector.Vector (ADVal d r)
+softMax us =
+  let expUs = V.map exp us  -- used twice below, so named, to enable sharing
+      sumExpUs = sumElementsVectorOfDual expUs
+  in V.map (\r -> r * recip sumExpUs) expUs
+
+scaleADVal :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
+scaleADVal a (D u u') = dD (a * u) (dScale a u')
+
+-- In terms of hmatrix: @-(log res <.> targ)@.
+lossCrossEntropy :: forall d r. ADModeAndNum d r
+                 => Vector r
+                 -> Data.Vector.Vector (ADVal d r)
+                 -> ADVal d r
+lossCrossEntropy targ res =
+  let f :: ADVal d r -> Int -> ADVal d r -> ADVal d r
+      f !acc i d = acc + scaleADVal (targ V.! i) (log d)
+  in negate $ V.ifoldl' f 0 res
