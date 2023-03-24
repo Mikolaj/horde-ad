@@ -42,6 +42,22 @@ testTrees =
   , testCase "gatherTransposeBuild33" testGatherTransposeBuild33
   , testCase "gatherSimp33" testGatherSimp33
   , testCase "gatherSimp34" testGatherSimp34
+
+  , testCase "scatterNested1" testScatterNested1
+  , testCase "scatterNestedBuild1" testScatterNestedBuild1
+  , testCase "scatter1" testScatter1
+  , testCase "scatterBuild1" testScatterBuild1
+  , testCase "scatterSimp1" testScatterSimp1
+  , testCase "scatterNested2" testScatterNested2
+  , testCase "scatterNestedBuild2" testScatterNestedBuild2
+  , testCase "scatter2" testScatter2
+  , testCase "scatterBuild2" testScatterBuild2
+  , testCase "scatterSimp2" testScatterSimp2
+  , testCase "scatterNested12" testScatterNested12
+  , testCase "scatterNestedBuild12" testScatterNestedBuild12
+  , testCase "scatter12" testScatter12
+  , testCase "scatterBuild12" testScatterBuild12
+  , testCase "scatterSimp12" testScatterSimp12
   ]
 
 gatherNested1 :: forall r. ADReady r
@@ -379,3 +395,202 @@ testGatherSimp34 = do
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
   length (show t2) @?= 802
   length (show (simplifyAst @Float t2)) @?= 7200
+
+-- scatters instead of gathers
+
+scatterNested1 :: forall r. ADReady r
+              => TensorOf 2 r -> TensorOf 1 r
+scatterNested1 t =
+  tscatter @r @2
+          (2 :$ ZS)
+          (tscatter @r @1
+                   (4 :$ 2 :$ ZS) t
+                   (\(k3 :. ZI) -> k3 :. ZI))
+          (\(i1 :. i2 :. ZI) -> i2 `quot` (1 + i1) :. ZI)
+
+testScatterNested1 :: Assertion
+testScatterNested1 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 1 Double) scatterNested1
+                               (tkonst 7 $ tfromList [0, 1]))
+
+testScatterNestedBuild1 :: Assertion
+testScatterNestedBuild1 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 2 Double)
+          (\t -> tbuild1 5 (\i ->
+             ifB (i >* 2) (scatterNested1 t) (t ! [i])))
+          (tkonst 7 $ tfromList [0, 1]))
+
+scatter1 :: forall r. ADReady r
+        => TensorOf 2 r -> TensorOf 1 r
+scatter1 t =
+  tscatter @r @2
+          (2 :$ ZS)
+          t
+          (\(i1 :. i2 :. ZI) -> i2 + 2 * i1 :. ZI)
+
+testScatter1 :: Assertion
+testScatter1 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 1 Double) scatter1
+                               (tkonst 7 $ tfromList [0, 1]))
+
+testScatterBuild1 :: Assertion
+testScatterBuild1 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [3.0,3.0,1.0,1.0,1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 2 Double)
+          (\t -> tbuild1 5 (\i ->
+             ifB (i >* 2) (scatter1 t) (t ! [i])))
+          (tkonst 7 $ tfromList [0, 1]))
+
+testScatterSimp1 :: Assertion
+testScatterSimp1 = do
+  resetVarCOunter
+  let !t1 = scatterNested1 $ AstVar [7, 2] (AstVarName 0)
+  length (show t1) @?= 199
+  resetVarCOunter
+  let !t2 = scatter1 $ AstVar [7, 2] (AstVarName 0)
+  length (show t2) @?= 149
+  length (show (simplifyAst @Float t1)) @?= 199
+  length (show (simplifyAst @Float t2)) @?= 149
+
+scatterNested2 :: forall r. ADReady r
+              => TensorOf 2 r -> TensorOf 2 r
+scatterNested2 t =
+  tscatter @r @4
+          (2 :$ 3 :$ ZS)
+          (tscatter @r @1
+                   (2 :$ 3 :$ 4 :$ 2 :$ ZS) t
+                   (\(k1 :. ZI) -> k1 :. k1 :. k1 :. ZI))
+          (\(i1 :. i2 :. _i3 :. i4 :. ZI) -> i1 + i2 :. i4 + i1 :. ZI)
+
+testScatterNested2 :: Assertion
+testScatterNested2 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 2 Double) scatterNested2
+                               (tkonst 7 $ tfromList [0, 1]))
+
+testScatterNestedBuild2 :: Assertion
+testScatterNestedBuild2 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [6.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 3 Double)
+          (\t -> tbuild1 4 (\i ->
+             scatterNested2 (t * tkonst0N [7, 2] (tfromIndex0 i))))
+          (tkonst 7 $ tfromList [0, 1]))
+
+scatter2 :: forall r. ADReady r
+        => TensorOf 2 r -> TensorOf 2 r
+scatter2 t =
+  tscatter @r @2
+          (2 :$ 3 :$ ZS)
+          t
+          (\(i1 :. i2 :. ZI) -> i1 + i2 + i1 + i2 :. i1 :. ZI)
+
+testScatter2 :: Assertion
+testScatter2 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 2 Double) scatter2
+                               (tkonst 7 $ tfromList [0, 1]))
+
+testScatterBuild2 :: Assertion
+testScatterBuild2 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 3 Double)
+          (\t -> tbuild1 4 (\i ->
+             scatter2 (t * tkonst0N [7, 2] (tfromIndex0 i))))
+          (tkonst 7 $ tfromList [0, 1]))
+
+testScatterSimp2 :: Assertion
+testScatterSimp2 = do
+  resetVarCOunter
+  let !t1 = scatterNested2 $ AstVar [7, 2] (AstVarName 0)
+  length (show t1) @?= 279
+  resetVarCOunter
+  let !t2 = scatter2 $ AstVar [7, 2] (AstVarName 0)
+  length (show t2) @?= 211
+  length (show (simplifyAst @Float t1)) @?= 279
+  length (show (simplifyAst @Float t2)) @?= 211
+
+scatterNested12 :: forall r. ADReady r
+               => TensorOf 2 r -> TensorOf 2 r
+scatterNested12 t =
+  tscatter @r @2
+          (2 :$ 4 :$ ZS)
+          (tscatter @r @2
+                   (2 :$ 3 :$ 4 :$ ZS) t
+                   (\(k1 :. k2 :. ZI) -> k1 :. k2 + k1 :. k1 :. ZI))
+          (\(i1 :. _i2 :. ZI) -> i1 + i1 :. ZI)
+
+testScatterNested12 :: Assertion
+testScatterNested12 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 2 Double) scatterNested12
+                               (tkonst 7 $ tfromList [0, 1]))
+
+testScatterNestedBuild12 :: Assertion
+testScatterNestedBuild12 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 2 Double)
+          (\t -> tindex (tbuild1 5 (\i ->
+             ifB (i >* 2) (scatterNested12 t)
+                          (ttranspose [1, 0] $ tkonst 4 $ t ! [i]))) [1])
+          (tkonst 7 $ tfromList [0, 1]))
+
+scatter12 :: forall r. ADReady r
+         => TensorOf 2 r -> TensorOf 2 r
+scatter12 t =
+  tscatter @r @2
+          (2 :$ 4 :$ ZS)
+          t
+          (\(i1 :. k3 :. ZI) -> i1 + i1 + i1 + k3 :. i1 :. ZI)
+
+testScatter12 :: Assertion
+testScatter12 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 2 Double) scatter12
+                               (tkonst 7 $ tfromList [0, 1]))
+
+testScatterBuild12 :: Assertion
+testScatterBuild12 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 2 Double)
+          (\t -> tindex (tbuild1 5 (\i ->
+             ifB (i >* 2) (scatter12 t)
+                          (ttranspose [1, 0] $ tkonst 4 $ t ! [i]))) [1])
+          (tkonst 7 $ tfromList [0, 1]))
+
+testScatterSimp12 :: Assertion
+testScatterSimp12 = do
+  resetVarCOunter
+  let !t1 = scatterNested12 $ AstVar [7, 2] (AstVarName 0)
+  length (show t1) @?= 251
+  resetVarCOunter
+  let !t2 = scatter12 $ AstVar [7, 2] (AstVarName 0)
+  length (show t2) @?= 211
+  length (show (simplifyAst @Float t1)) @?= 251
+  length (show (simplifyAst @Float t2)) @?= 211
