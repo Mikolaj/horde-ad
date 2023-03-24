@@ -294,12 +294,11 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     in astSum $ astIndex (astTranspose perm3 v) ix
   AstConstInt{} ->
     error "astIndex: impossible pattern needlessly required"
-  -- AstScatter sh v (Z, ix2) -> ifB (ix2 ==* ix) v 0
+  -- AstScatter sh v (Z, ix2) -> ifB (ix2 ==* ixHead) (index v ixTail) 0
   -- AstScatter sh v (vars2, ZI) ->
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
-  AstScatter{} -> error "astIndex: AstScatter TODO"
-    -- probably a new normal form is needed, and not even index(scatter)
-    -- but, to express vectorization, gather(scatter)
+  AstScatter{} ->  -- nothing can be simplified at all, so this is a normal form
+    AstIndexZ v0 ix
   AstFromList l | AstIntConst i <- i1 ->
     astIndex (if length l > i then l !! i else 0) rest1
   AstFromList{} | ZI <- rest1 ->  -- normal form
@@ -362,6 +361,7 @@ astSum (AstConstant (AstPrimalPart v)) =
 astSum (AstReverse v) = AstSum v
 astSum v = AstSum v
 
+-- TODO: fuse scatters, scatter and sum, perhaps more (fromList?)
 astScatter :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
            => ShapeInt (p + n) -> Ast (m + n) r
            -> (AstVarList m, AstIndex p r)
@@ -628,7 +628,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
              -- TODO: why is simplification not idempotent without AsGather?
     AstConstInt{} ->
       error "astGather: impossible pattern needlessly required"
-    AstScatter{} -> error "astGather: AstScatter TODO"
+    AstScatter{} ->  -- probably nothing can be simplified; a normal form
+      AstGatherZ sh4 v4 (vars4, ix4)
     AstFromList l | AstIntConst i <- i4 ->
       astGather sh4 (if length l > i then l !! i else 0) (vars4, rest4)
     AstFromList{} | gatherFromNF vars4 ix4 -> AstGatherZ sh4 v4 (vars4, ix4)

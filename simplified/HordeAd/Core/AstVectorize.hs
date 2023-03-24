@@ -12,7 +12,7 @@ import           Control.Exception.Assert.Sugar
 import           Control.Monad (when)
 import           Data.IORef
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+), type (-))
+import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
@@ -170,16 +170,20 @@ build1V k (var, v00) =
 -- We try to push indexing down as far as needed to eliminate any occurences
 -- of @var@ from @v@ (but not necessarily from @ix@), which is enough
 -- to replace @AstBuild1@ with @AstGatherZ@ and so complete
--- the vectorization. If @var@ occurs only in the first (outermost)
--- element of @ix@, we attempt to simplify the term even more than that.
+-- the vectorization.
 --
 -- This pushing down is performed by alternating steps of simplification,
 -- in @astIndexStep@, that eliminated indexing from the top of a term
 -- position (except two permissible normal forms) and vectorization,
 -- @build1VOccurenceUnknown@, that recursively goes down under constructors
--- until it encounter indexing again.
--- We have to do this in lockstep so that we simplify terms only as much
--- as needed to vectorize.
+-- until it encounter indexing again. We have to do this in lockstep
+-- so that we simplify terms only as much as needed to vectorize.
+--
+-- If simplification can't proceed, which means that we reached one of the few
+-- normal forms wrt simplification, we invoke the pure desperation rule (D)
+-- which produces large tensors, which are hard to simplify even when
+-- eventually proven unnecessary. The rule changes the index to a gather
+-- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r, Num (Vector r))
   => Int -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
@@ -191,53 +195,23 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
                               v0 1
   in if intVarInAst var v0
      then case astIndexStep v0 ix of  -- push deeper
-       AstIndexZ v1 (i1 :. ZI) | intVarInAst var v1 -> traceRule $
-         build1VIndexNormalForm k (var, v1, i1)
+       AstIndexZ v1 ZI -> traceRule $
+         build1VOccurenceUnknown k (var, v1)
+       v@(AstIndexZ v1 ix1) -> traceRule $
+         let ruleD = astGatherStep (k :$ dropShape (shapeAst v1))
+                                   (build1V k (var, v1))
+                                   (var ::: Z, AstIntVar var :. ix1)
+         in if intVarInAst var v1
+            then case (v1, ix1) of  -- try to avoid ruleD if not a normal form
+              (AstFromList{}, _ :. ZI) -> ruleD
+              (AstFromVector{}, _ :. ZI) -> ruleD
+              (AstScatter{}, _) -> ruleD
+              _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
+            else build1VOccurenceUnknown k (var, v)  -- shortcut
        v -> traceRule $
          build1VOccurenceUnknown k (var, v)  -- peel off yet another constructor
      else traceRule $
             astGatherStep (k :$ dropShape (shapeAst v0)) v0 (var ::: Z, ix)
-
--- I analyze here all the possible normal forms with indexing on top
--- in the hard case where the build variable appears in v1
--- (in the easy case they are covered by general rules).
-build1VIndexNormalForm
-  :: forall n r. (KnownNat n, Show r, Numeric r, Num (Vector r))
-  => Int -> (AstVarName Int, Ast n r, AstInt r)  -- n + 1 breaks plugins
-  -> Ast n r
-build1VIndexNormalForm k (var, v1, i1) = case v1 of
-  AstFromList l ->
-    if intVarInAstInt var i1
-    then -- This is pure desperation. I build separately for each list element,
-         -- instead of picking the right element for each build iteration
-         -- (which to pick depends on the build variable).
-         -- There's no other reduction left to perform and hope the build
-         -- vanishes. The astGatherStep is applicable via a trick based
-         -- on making the variable not occur freely in its argument term
-         -- by binding the variable in nested gathers (or by reducing it away).
-         -- By the inductive invariant, this succeeds.
-         let f :: Ast (n - 1) r -> Ast n r
-             f v = build1VOccurenceUnknown k (var, v)
-             t :: Ast (1 + n) r
-             t = astFromList $ map f l
-         in astGatherStep (k :$ tailShape (shapeAst v1)) t
-                          (var ::: Z, i1 :. AstIntVar var :. ZI)
-    else
-      AstIndexZ (astFromList $ map (\v ->
-        build1VOccurenceUnknown k (var, v)) l) (singletonIndex i1)
-  AstFromVector l ->
-    if intVarInAstInt var i1
-    then let f :: Ast (n - 1) r -> Ast n r
-             f v = build1VOccurenceUnknown k (var, v)
-             t :: Ast (1 + n) r
-             t = astFromVector $ V.map f l
-         in astGatherStep (k :$ tailShape (shapeAst v1)) t
-                          (var ::: Z, i1 :. AstIntVar var :. ZI)
-    else
-      AstIndexZ (astFromVector $ V.map (\v ->
-        build1VOccurenceUnknown k (var, v)) l) (singletonIndex i1)
-  _ -> error $ "build1VIndexNormalForm: not a normal form"
-               ++ show (k, var, v1, i1)
 
 
 -- * Rule tracing machinery
