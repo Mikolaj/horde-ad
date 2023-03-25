@@ -10,14 +10,12 @@ import Prelude
 
 import Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.DualNumber (ADVal)
-import HordeAd.Core.DualNumber2 hiding
-  (ADInputs, ADVal, revOnADInputs, revOnDomains)
+import HordeAd.Core.DualNumber (ADNum, ADVal, Domains)
 import HordeAd.Core.Engine
 import HordeAd.External.OptimizerTools
 
 -- | Simple Gradient Descent.
-gdSimple :: forall r. HasDelta r
+gdSimple :: forall r. ADNum r
          => r
          -> (ADInputs r -> ADVal r)
          -> Int  -- ^ requested number of iterations
@@ -38,7 +36,7 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
     in go (pred n) parametersNew
 
 -- | Stochastic Gradient Descent.
-sgd :: forall r a. HasDelta r
+sgd :: forall r a. ADNum r
     => r
     -> (a -> ADInputs r -> ADVal r)
     -> [a]  -- ^ training data
@@ -64,7 +62,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   -> Domains Double
   -> (Domains Double, Double) #-}
 
-sgdAdam :: forall r a. HasDelta r
+sgdAdam :: forall r a. ADNum r
         => (a -> ADInputs r -> ADVal r)
         -> [a]
         -> Domains r
@@ -72,7 +70,7 @@ sgdAdam :: forall r a. HasDelta r
         -> (Domains r, StateAdam r)
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
-sgdAdamArgs :: forall r a. HasDelta r
+sgdAdamArgs :: forall r a. ADNum r
             => ArgsAdam r
             -> (a -> ADInputs r -> ADVal r)
             -> [a]
