@@ -549,6 +549,7 @@ library exampleLibrarySimplified
       buildable: True
 
     exposed-modules:  MnistData
+                      MnistFcnnRanked1
                       MnistFcnnScalar
                       MnistFcnnVector
                       OldMnistFcnnVector

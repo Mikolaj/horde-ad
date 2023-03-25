@@ -93,6 +93,7 @@ type ADModeAndNum (d :: ADMode) r =
   ( DualNumber.ADNum r
   , ForwardDerivative r
   , Primal (DualNumber.ADVal r) ~ r
+  , ScalarOf (DualNumber.ADVal r) ~ r
   , Tensor (DualNumber.ADVal r)
   , TensorOf 1 (DualNumber.ADVal r) ~ DualNumber.ADVal (Vec r)
   , Fractional (TensorOf 0 (DualNumber.ADVal r))

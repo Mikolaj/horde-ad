@@ -81,7 +81,7 @@ sgdAdamArgs argsAdam f trainingData parameters0 stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
   deltaInputs = generateDeltaInputs parameters0
-  go :: [a] -> Domains r-> StateAdam r -> (Domains r, StateAdam r)
+  go :: [a] -> Domains r -> StateAdam r -> (Domains r, StateAdam r)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) parameters stateAdam =
     let inputs = makeADInputs parameters deltaInputs
