@@ -67,6 +67,7 @@ testTrees =
   , testCase "2emptyArgs0" testEmptyArgs0
   , testCase "2emptyArgs1" testEmptyArgs1
   , testCase "2emptyArgs4" testEmptyArgs4
+  , blowupTests
   ]
 
 rev' :: forall a r n m.
@@ -786,3 +787,42 @@ testEmptyArgs4 =
     (rev' @(OR.Array 1 Double)
           (\t -> tbuild [2, 5, 11, 0] (const $ emptyArgs t))
           (OR.fromList [1] [0.24]))
+
+-- Catastrophic loss of sharing prevented.
+fblowup :: forall r. ADReady r => Int -> TensorOf 1 r -> TensorOf 0 r
+fblowup k inputs =
+  let blowup :: Int -> TensorOf 0 r -> TensorOf 0 r
+      blowup 0 y = y
+      blowup n y =
+        let ysum = y + y
+            yscaled = 0.499999985 * ysum
+              -- without the scaling we'd get NaN at once
+        in blowup (pred n) yscaled
+      y0 = (inputs ! [0]) / (inputs ! [1])
+  in blowup k y0
+
+-- Catastrophic loss of sharing prevented also with non-trivial multiplication.
+fblowupMult :: forall r. ADReady r => Int -> TensorOf 1 r -> TensorOf 0 r
+fblowupMult k inputs =
+  let blowup :: Int -> TensorOf 0 r -> TensorOf 0 r
+      blowup 0 y = y
+      blowup n y =
+        let ysum = y + y * y / (y - 0.000000001)
+            yscaled = sqrt $ 0.499999985 * 0.499999985 * ysum * ysum
+              -- without the scaling we'd get NaN at once
+        in blowup (pred n) yscaled
+      y0 = (inputs ! [0]) * (inputs ! [1])
+  in blowup k y0
+
+-- TODO: should do 1000000 in a few seconds
+blowupTests :: TestTree
+blowupTests = testGroup "Catastrophic blowup avoidance tests"
+  [ testCase "blowup 15" $ do
+      assertEqualUpToEpsilon' 1e-10
+        (OR.fromList [2] [0.3333331833333646,-0.22222212222224305])
+        (rev' @(OR.Array 0 Double) (fblowup 15) (OR.fromList [2] [2, 3]))
+  , testCase "blowupMult 3" $ do
+      assertEqualUpToEpsilon' 1e-10
+        (OR.fromList [2] [2.999999730000007,1.9999998200000046])
+        (rev' @(OR.Array 0 Double) (fblowupMult 3) (OR.fromList [2] [2, 3]))
+  ]
