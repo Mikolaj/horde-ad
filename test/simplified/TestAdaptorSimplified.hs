@@ -152,9 +152,9 @@ rev' f vals =
      , gradient9, gradient2Ast, gradient3Ast, gradient4Ast, gradient5Ast )
 
 assertEqualUpToEpsilon'
-    :: ( AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b
+    :: ( AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon b
        , KnownNat m, Show r, Numeric r, Num (Vector r), HasCallStack )
-    => z  -- ^ error margin (i.e., the epsilon)
+    => Rational  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
     -> ( b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r
        , b, b, b, b, b, a, a, a, a, a )
@@ -196,9 +196,9 @@ assertEqualUpToEpsilon'
   show (simplifyAst astSimp) @?= show astSimp
 
 assertEqualUpToEpsilonShort
-    :: ( AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b
+    :: ( AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon b
        , KnownNat m, Show r, Numeric r, Num (Vector r), HasCallStack )
-    => z  -- ^ error margin (i.e., the epsilon)
+    => Rational  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
     -> ( b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r
        , b, b, b, b, b, a, a, a, a, a )
@@ -230,9 +230,9 @@ assertEqualUpToEpsilonShort
   show (simplifyAst astSimp) @?= show astSimp
 
 assertEqualUpToEpsilonShorter
-    :: ( AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b
+    :: ( AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon b
        , KnownNat m, Show r, Numeric r, Num (Vector r), HasCallStack )
-    => z  -- ^ error margin (i.e., the epsilon)
+    => Rational  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
     -> ( b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r
        , b, b, b, b, b, a, a, a, a, a )  -- ^ actual values

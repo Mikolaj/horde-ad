@@ -94,15 +94,16 @@ assert_shape make_assert expected actual =
 --
 -- If the prefix is the empty string (i.e., @\"\"@), then the prefix is omitted
 -- and only the expected and actual values are output.
-assert_close_eps :: (Num a, Ord a, Show a, HasCallStack)
+assert_close_eps :: (Real a, Show a, HasCallStack)
                    => String -- ^ The message prefix
                    -> String -- ^ The message suffix
-                   -> a      -- ^ The error margin
+                   -> Rational  -- ^ The error margin
                    -> a      -- ^ The expected value
                    -> a      -- ^ The actual value
                    -> Assertion
 assert_close_eps preface epilogue eqEpsilon expected actual = do
-  assertBool (message eqEpsilon) (abs (expected-actual) <= eqEpsilon)
+  assertBool (message eqEpsilon)
+             (realToFrac (abs (expected - actual)) <= eqEpsilon)
   where
     msg = "expected: " ++ show expected ++ "\n but got: " ++ show actual
     message errorMargin =
@@ -118,19 +119,19 @@ assert_close_eps preface epilogue eqEpsilon expected actual = do
 -- AssertEqualUpToEpsilon class
 ----------------------------------------------------------------------------
 
-class (Fractional z, Show a) => AssertEqualUpToEpsilon z a | a -> z where
+class Show a => AssertEqualUpToEpsilon a where
 
   assertEqualUpToEpsilonWithMsg
     :: String  -- ^ message suffix
-    -> z       -- ^ error margin (i.e., the epsilon)
+    -> Rational  -- ^ error margin (i.e., the epsilon)
     -> a       -- ^ expected value
     -> a       -- ^ actual value
     -> Assertion
 
 assertEqualUpToEpsilonWithMark
-  :: (AssertEqualUpToEpsilon z a, HasCallStack)
+  :: (AssertEqualUpToEpsilon a, HasCallStack)
   => String  -- ^ message suffix's prefix
-  -> z  -- ^ error margin (i.e., the epsilon)
+  -> Rational  -- ^ error margin (i.e., the epsilon)
   -> a  -- ^ expected value
   -> a  -- ^ actual value
   -> Assertion
@@ -143,52 +144,52 @@ assertEqualUpToEpsilonWithMark mark error_margin expected actual =
        expected actual
 
 assertEqualUpToEpsilon
-  :: (AssertEqualUpToEpsilon z a, HasCallStack)
-  => z  -- ^ error margin (i.e., the epsilon)
+  :: (AssertEqualUpToEpsilon a, HasCallStack)
+  => Rational  -- ^ error margin (i.e., the epsilon)
   -> a  -- ^ expected value
   -> a  -- ^ actual value
   -> Assertion
 assertEqualUpToEpsilon = assertEqualUpToEpsilonWithMark ""
 
-instance AssertEqualUpToEpsilon Double Double where
+instance AssertEqualUpToEpsilon Double where
   assertEqualUpToEpsilonWithMsg = assert_close_eps ""
 
-instance AssertEqualUpToEpsilon Float Float where
+instance AssertEqualUpToEpsilon Float where
   assertEqualUpToEpsilonWithMsg = assert_close_eps ""
 
-instance (AssertEqualUpToEpsilon z a,
-          AssertEqualUpToEpsilon z b)
-         => AssertEqualUpToEpsilon z (a,b) where
+instance (AssertEqualUpToEpsilon a,
+          AssertEqualUpToEpsilon b)
+         => AssertEqualUpToEpsilon (a,b) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2) (a1,a2) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2
 
-instance (AssertEqualUpToEpsilon z a,
-          AssertEqualUpToEpsilon z b,
-          AssertEqualUpToEpsilon z c)
-         => AssertEqualUpToEpsilon z (a,b,c) where
+instance (AssertEqualUpToEpsilon a,
+          AssertEqualUpToEpsilon b,
+          AssertEqualUpToEpsilon c)
+         => AssertEqualUpToEpsilon (a,b,c) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3) (a1,a2,a3) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3
 
-instance (AssertEqualUpToEpsilon z a,
-          AssertEqualUpToEpsilon z b,
-          AssertEqualUpToEpsilon z c,
-          AssertEqualUpToEpsilon z d)
-         => AssertEqualUpToEpsilon z (a,b,c,d) where
+instance (AssertEqualUpToEpsilon a,
+          AssertEqualUpToEpsilon b,
+          AssertEqualUpToEpsilon c,
+          AssertEqualUpToEpsilon d)
+         => AssertEqualUpToEpsilon (a,b,c,d) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4) (a1,a2,a3,a4) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e4 a4
 
-instance (AssertEqualUpToEpsilon z a,
-          AssertEqualUpToEpsilon z b,
-          AssertEqualUpToEpsilon z c,
-          AssertEqualUpToEpsilon z d,
-          AssertEqualUpToEpsilon z e)
-         => AssertEqualUpToEpsilon z (a,b,c,d,e) where
+instance (AssertEqualUpToEpsilon a,
+          AssertEqualUpToEpsilon b,
+          AssertEqualUpToEpsilon c,
+          AssertEqualUpToEpsilon d,
+          AssertEqualUpToEpsilon e)
+         => AssertEqualUpToEpsilon (a,b,c,d,e) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5) (a1,a2,a3,a4,a5) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
@@ -196,13 +197,13 @@ instance (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e4 a4 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e5 a5
 
-instance (AssertEqualUpToEpsilon z a,
-          AssertEqualUpToEpsilon z b,
-          AssertEqualUpToEpsilon z c,
-          AssertEqualUpToEpsilon z d,
-          AssertEqualUpToEpsilon z e,
-          AssertEqualUpToEpsilon z f)
-         => AssertEqualUpToEpsilon z (a,b,c,d,e,f) where
+instance (AssertEqualUpToEpsilon a,
+          AssertEqualUpToEpsilon b,
+          AssertEqualUpToEpsilon c,
+          AssertEqualUpToEpsilon d,
+          AssertEqualUpToEpsilon e,
+          AssertEqualUpToEpsilon f)
+         => AssertEqualUpToEpsilon (a,b,c,d,e,f) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6) (a1,a2,a3,a4,a5,a6) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
@@ -211,14 +212,14 @@ instance (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e5 a5 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e6 a6
 
-instance (AssertEqualUpToEpsilon z a,
-          AssertEqualUpToEpsilon z b,
-          AssertEqualUpToEpsilon z c,
-          AssertEqualUpToEpsilon z d,
-          AssertEqualUpToEpsilon z e,
-          AssertEqualUpToEpsilon z f,
-          AssertEqualUpToEpsilon z g)
-         => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g) where
+instance (AssertEqualUpToEpsilon a,
+          AssertEqualUpToEpsilon b,
+          AssertEqualUpToEpsilon c,
+          AssertEqualUpToEpsilon d,
+          AssertEqualUpToEpsilon e,
+          AssertEqualUpToEpsilon f,
+          AssertEqualUpToEpsilon g)
+         => AssertEqualUpToEpsilon (a,b,c,d,e,f,g) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7) (a1,a2,a3,a4,a5,a6,a7) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
@@ -228,15 +229,15 @@ instance (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e6 a6 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e7 a7
 
-instance (AssertEqualUpToEpsilon z a,
-          AssertEqualUpToEpsilon z b,
-          AssertEqualUpToEpsilon z c,
-          AssertEqualUpToEpsilon z d,
-          AssertEqualUpToEpsilon z e,
-          AssertEqualUpToEpsilon z f,
-          AssertEqualUpToEpsilon z g,
-          AssertEqualUpToEpsilon z h)
-         => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g,h) where
+instance (AssertEqualUpToEpsilon a,
+          AssertEqualUpToEpsilon b,
+          AssertEqualUpToEpsilon c,
+          AssertEqualUpToEpsilon d,
+          AssertEqualUpToEpsilon e,
+          AssertEqualUpToEpsilon f,
+          AssertEqualUpToEpsilon g,
+          AssertEqualUpToEpsilon h)
+         => AssertEqualUpToEpsilon (a,b,c,d,e,f,g,h) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8) (a1,a2,a3,a4,a5,a6,a7,a8) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
@@ -247,16 +248,16 @@ instance (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e7 a7 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e8 a8
 
-instance (AssertEqualUpToEpsilon z a,
-          AssertEqualUpToEpsilon z b,
-          AssertEqualUpToEpsilon z c,
-          AssertEqualUpToEpsilon z d,
-          AssertEqualUpToEpsilon z e,
-          AssertEqualUpToEpsilon z f,
-          AssertEqualUpToEpsilon z g,
-          AssertEqualUpToEpsilon z h,
-          AssertEqualUpToEpsilon z i)
-         => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g,h,i) where
+instance (AssertEqualUpToEpsilon a,
+          AssertEqualUpToEpsilon b,
+          AssertEqualUpToEpsilon c,
+          AssertEqualUpToEpsilon d,
+          AssertEqualUpToEpsilon e,
+          AssertEqualUpToEpsilon f,
+          AssertEqualUpToEpsilon g,
+          AssertEqualUpToEpsilon h,
+          AssertEqualUpToEpsilon i)
+         => AssertEqualUpToEpsilon (a,b,c,d,e,f,g,h,i) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8,e9) (a1,a2,a3,a4,a5,a6,a7,a8,a9) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
@@ -268,17 +269,17 @@ instance (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e8 a8 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e9 a9
 
-instance (AssertEqualUpToEpsilon z a,
-          AssertEqualUpToEpsilon z b,
-          AssertEqualUpToEpsilon z c,
-          AssertEqualUpToEpsilon z d,
-          AssertEqualUpToEpsilon z e,
-          AssertEqualUpToEpsilon z f,
-          AssertEqualUpToEpsilon z g,
-          AssertEqualUpToEpsilon z h,
-          AssertEqualUpToEpsilon z i,
-          AssertEqualUpToEpsilon z j)
-         => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g,h,i,j) where
+instance (AssertEqualUpToEpsilon a,
+          AssertEqualUpToEpsilon b,
+          AssertEqualUpToEpsilon c,
+          AssertEqualUpToEpsilon d,
+          AssertEqualUpToEpsilon e,
+          AssertEqualUpToEpsilon f,
+          AssertEqualUpToEpsilon g,
+          AssertEqualUpToEpsilon h,
+          AssertEqualUpToEpsilon i,
+          AssertEqualUpToEpsilon j)
+         => AssertEqualUpToEpsilon (a,b,c,d,e,f,g,h,i,j) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8,e9,e10) (a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1  a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2  a2 >>
@@ -291,23 +292,23 @@ instance (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e9  a9 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e10 a10
 
-instance (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a)
-         => AssertEqualUpToEpsilon z (OS.Array sh1 a) where
+instance (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon a)
+         => AssertEqualUpToEpsilon (OS.Array sh1 a) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilonWithMsg msg eqEpsilon)
                 (linearize expected)
                 (linearize actual)
 
-instance (VS.Storable a, AssertEqualUpToEpsilon z a)
-         => AssertEqualUpToEpsilon z (OR.Array n a) where
+instance (VS.Storable a, AssertEqualUpToEpsilon a)
+         => AssertEqualUpToEpsilon (OR.Array n a) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilonWithMsg msg eqEpsilon)
                 (linearize expected)
                 (linearize actual)
 
 instance {-# OVERLAPPABLE #-}
-         (Fractional z, Show a, HasShape a, Linearizable a b, AssertEqualUpToEpsilon z b)
-         => AssertEqualUpToEpsilon z a where
+         (Show a, HasShape a, Linearizable a b, AssertEqualUpToEpsilon b)
+         => AssertEqualUpToEpsilon a where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon =
     assert_shape (assertEqualUpToEpsilonWithMsg msg eqEpsilon)
 
@@ -316,7 +317,7 @@ instance {-# OVERLAPPABLE #-}
 ----------------------------------------------------------------------------
 
 -- | Asserts that the specified actual floating point value is close to at least one of the expected values.
-assertCloseElem :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
+assertCloseElem :: forall a. (Real a, Fractional a, Show a, HasCallStack)
                 => String   -- ^ The message prefix
                 -> [a]      -- ^ The expected values
                 -> a        -- ^ The actual value
@@ -332,7 +333,7 @@ assertCloseElem preface expected actual = do
     go_assert eqEps (h:t) =
       if abs (h-actual) <= fromRational eqEps then assert_close_eps msg "" (fromRational eqEps) h actual else go_assert eqEps t
 
-assertClose :: (AssertEqualUpToEpsilon z a, HasCallStack)
+assertClose :: (AssertEqualUpToEpsilon a, HasCallStack)
       => a -- ^ The expected value
       -> a -- ^ The actual value
       -> Assertion
@@ -341,7 +342,7 @@ assertClose expected actual = do
   assertEqualUpToEpsilon (fromRational eqEpsilon) expected actual
 
 infix 1 @?~
-(@?~) :: (AssertEqualUpToEpsilon z a, HasCallStack)
+(@?~) :: (AssertEqualUpToEpsilon a, HasCallStack)
       => a -- ^ The actual value
       -> a -- ^ The expected value
       -> Assertion

@@ -353,7 +353,7 @@ convMnistTestCaseCNNT
      ( 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
      , HasDelta r, ADModeAndNum 'ADModeValue r
-     , Random r, PrintfArg r, AssertEqualUpToEpsilon r r )
+     , Random r, PrintfArg r, AssertEqualUpToEpsilon r )
   => SNat kheight_minus_1 -> SNat kwidth_minus_1
   -> SNat n_hidden
   -> SNat out_channels
