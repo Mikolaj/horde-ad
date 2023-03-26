@@ -108,7 +108,8 @@ assert_close_eps preface epilogue eqEpsilon expected actual = do
     msg = "expected: " ++ show expected ++ "\n but got: " ++ show actual
     message errorMargin =
       (if null preface then "" else preface ++ "\n")
-      ++ msg ++ "\n (maximum margin of error: " ++ show errorMargin ++ ")"
+      ++ msg ++ "\n (maximum margin of error: "
+      ++ show (realToFrac errorMargin :: Double) ++ ")"
       ++ (if null epilogue
              || (lowercase epilogue == lowercase preface)
              || (lowercase epilogue == lowercase msg)
