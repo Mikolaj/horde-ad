@@ -149,7 +149,7 @@ revAstOnDomainsEval dim0 dim1
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
-  :: (ADTensor r, IsPrimalWithScalar a r)
+  :: (Tensor r, IsPrimalWithScalar a r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> ADInputs r
@@ -187,7 +187,7 @@ revOnDomains dt f parameters =
 -- for a fast variant.
 
 slowFwdOnADInputs
-  :: (ADTensor r, Element a ~ r, ForwardDerivative a)
+  :: (Tensor r, Element a ~ r, ForwardDerivative a)
   => ADInputs r
   -> (ADInputs r -> ADVal a)
   -> Domains r

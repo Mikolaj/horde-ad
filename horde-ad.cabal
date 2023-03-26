@@ -667,10 +667,12 @@ test-suite simplifiedOnlyTest
                       TestConvSimplified
                       TestGatherSimplified
                       TestHighRankSimplified
+                      TestMnistFCNNR
                       TestSimplified
 
     build-depends:
       , horde-ad-simplified
+      , exampleLibrarySimplified
       , testCommonLibrarySimplified
 
       , base
@@ -678,7 +680,9 @@ test-suite simplifiedOnlyTest
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , hmatrix
+      , ilist
       , orthotope
+      , random
       , strict-containers
       , tasty >= 1.0
       , tasty-hunit

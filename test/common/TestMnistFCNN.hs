@@ -46,6 +46,7 @@ shortTestForCITrees :: [TestTree]
 shortTestForCITrees = [ dumbMnistTests
                       , shortCIMnistTests
                       ]
+
 mnistTestCase2VA
   :: String
   -> Int

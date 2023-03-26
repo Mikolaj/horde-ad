@@ -13,6 +13,7 @@ import qualified TestConvSimplified
 import qualified TestGatherSimplified
 import qualified TestGradientSimple
 import qualified TestHighRankSimplified
+import qualified TestMnistFCNNR
 import qualified TestSimplified
 import           Tool.EqEpsilon
 
@@ -34,4 +35,5 @@ tests = testGroup "Only special tests for simplified horde-ad" $
   ++ TestConvSimplified.testTrees
   ++ TestAdaptorSimplified.testTrees
   ++ TestSimplified.testTrees
+  ++ TestMnistFCNNR.testTrees
   ++ [TestGradientSimple.finalCounter]

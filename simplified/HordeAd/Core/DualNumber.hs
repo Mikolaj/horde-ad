@@ -36,7 +36,7 @@ import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Delta
-  (Delta0, Domain0, DomainR, Domains (..), emptyDomain0, nullDomains)
+  (Domain0, DomainR, Domains (..), emptyDomain0, nullDomains)
 import HordeAd.Core.DualClass
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
@@ -103,8 +103,7 @@ dDnotShared = D
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
 type ADNum r =
-  ( Dual r ~ Delta0 r
-  , Numeric r
+  ( Numeric r
   , Show r
   , Show (Dual (OD.Array r))
   , HasRanks r
