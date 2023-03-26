@@ -5,7 +5,7 @@ module HordeAd.External.Adaptor
   ( Adaptable, Scalar
   , AdaptableDomains(toDomains, nParams, nScalars)
   , RandomDomains(randomVals)
-  , AdaptableInputs(Value), parseDomains, parseADInputs
+  , AdaptableInputs(Value), parseDomains, parseDomainsAst, parseADInputs
   , revL, revDtMaybeL, rev, revDt
   , srevL, srevDtMaybeL, srev, srevDt
   , crev, crevDt, fwd

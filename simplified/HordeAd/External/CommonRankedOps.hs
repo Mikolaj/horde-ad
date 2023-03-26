@@ -47,14 +47,17 @@ reluLeaky v =
   in scale oneIfGtZero v
 
 -- TODO: verify how faster a dedicated Tensor method would be
-logistic :: forall r n. (Tensor r, KnownNat n, Floating (TensorOf n (Primal r)))
+logistic :: forall r n.
+            ( Tensor r, Tensor (Primal r), KnownNat n
+            , Floating (TensorOf n (Primal r)) )
          => TensorOf n r -> TensorOf n r
 logistic d =
-  let y = recip (1 + exp (- tprimalPart d))
-  in tD y (tScale @r (y * (1 - y)) $ tdualPart d)
+  let sh = tshape d
+      y = recip (tkonst0N sh 1 + exp (- tprimalPart d))
+  in tD y (tScale @r (y * (tkonst0N sh 1 - y)) $ tdualPart d)
 
 -- TODO: and especially here try a faster approach
-logistic0 :: (Tensor r, Floating (TensorOf 0 (Primal r)))
+logistic0 :: (Tensor r, Tensor (Primal r), Floating (TensorOf 0 (Primal r)))
           => r -> r
 logistic0 = tunScalar . logistic . tscalar
 
