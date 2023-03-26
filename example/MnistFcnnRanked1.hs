@@ -72,12 +72,19 @@ afcnnMnistLoss1
   :: ADReady r
   => Int -> Int -> MnistData (ScalarOf r) -> ADFcnnMnist1Parameters r
   -> r
-afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) adparams =
+afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
   let datum1 = tconst $ OR.fromVector [sizeMnistGlyphInt] datum
-      result = inline afcnnMnist1 logistic softMaxV
-                                  widthHidden widthHidden2 datum1 adparams
       target1 = tconst $ OR.fromVector [sizeMnistLabelInt] target
-  in lossCrossEntropyV target1 result
+  in afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum1, target1)
+
+afcnnMnistLoss1TensorData
+  :: ADReady r
+  => Int -> Int -> (TensorOf 1 r, TensorOf 1 r) -> ADFcnnMnist1Parameters r
+  -> r
+afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
+  let result = inline afcnnMnist1 logistic softMaxV
+                                  widthHidden widthHidden2 datum adparams
+  in lossCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.

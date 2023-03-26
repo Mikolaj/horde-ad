@@ -21,6 +21,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
+import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor
 import HordeAd.External.Optimizer
@@ -183,23 +184,33 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        let shapes1 = map (: []) nParams1
            (vars1, asts1) = unzip $ map funToAstD shapes1
            doms = Domains (AstConst emptyR) (V.fromList asts1)
-           ast :: MnistData r -> Ast 0 r
-           ast mnist = tscalar
-                       $ MnistFcnnRanked1.afcnnMnistLoss1
-                           widthHidden widthHidden2 mnist
-                           (parseDomainsAst valsInit doms)
+           (varGlyph, astGlyph) =
+             funToAstR (singletonShape sizeMnistGlyphInt) id
+           (varLabel, astLabel) =
+             funToAstR (singletonShape sizeMnistLabelInt) id
+           ast :: Ast 0 r
+           ast = tscalar
+                 $ MnistFcnnRanked1.afcnnMnistLoss1TensorData
+                     widthHidden widthHidden2 (astGlyph, astLabel)
+                     (parseDomainsAst valsInit doms)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
            runBatch !domains (k, chunk) = do
              let f :: MnistData r -> ADInputs r -> ADVal r
-                 f mnist adinputs =
+                 f (glyph, label) adinputs =
                    let env1 = foldr (\(AstDynamicVarName var, (u, u')) ->
                                 extendEnvR var (tfromD $ dD u u')) IM.empty
                               $ zip vars1 $ V.toList
                               $ V.zip (inputPrimal1 adinputs)
                                       (inputDual1 adinputs)
-                   in tunScalar $ interpretAst env1 (ast mnist)
+                       envMnist =
+                         extendEnvR varGlyph
+                           (tconst $ OR.fromVector [sizeMnistGlyphInt] glyph)
+                         $ extendEnvR varLabel
+                             (tconst $ OR.fromVector [sizeMnistLabelInt] label)
+                             env1
+                   in tunScalar $ interpretAst envMnist ast
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
                  testScore = ftest testData res
