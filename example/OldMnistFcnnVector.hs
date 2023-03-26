@@ -102,7 +102,7 @@ fcnnMnistLoss1
 fcnnMnistLoss1 widthHidden widthHidden2 (datum, target) inputs =
   let result = inline fcnnMnist1 logistic softMaxV
                                  widthHidden widthHidden2 datum inputs
-  in lossCrossEntropyV (vToVec target) result
+  in lossCrossEntropyV (constant $ vToVec target) result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.

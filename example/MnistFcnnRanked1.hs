@@ -76,7 +76,7 @@ afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) adparams =
   let datum1 = tconst $ OR.fromVector [sizeMnistGlyphInt] datum
       result = inline afcnnMnist1 logistic softMaxV
                                   widthHidden widthHidden2 datum1 adparams
-      target1 = OR.fromVector [sizeMnistLabelInt] target
+      target1 = tconst $ OR.fromVector [sizeMnistLabelInt] target
   in lossCrossEntropyV target1 result
 
 -- | A function testing the neural network given testing set of inputs

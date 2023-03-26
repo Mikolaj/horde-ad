@@ -6,9 +6,8 @@ module HordeAd.External.CommonRankedOps
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
-import           Data.Boolean
-import           GHC.TypeLits (KnownNat)
+import Data.Boolean
+import GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.TensorClass
 
@@ -81,11 +80,10 @@ squaredDifference0 targ res =
   tunScalar $ squaredDifference (tscalar targ) (tscalar res)
 
 lossCrossEntropyV :: (Tensor r, KnownNat n, Floating (TensorOf n r))
-                  => OR.Array n (ScalarOf r)
+                  => TensorOf n r
                   -> TensorOf n r
                   -> r
-lossCrossEntropyV targ res =
-  negate $ tunScalar $ log res `tdot0` (tconst targ)
+lossCrossEntropyV targ res = negate $ tunScalar $ log res `tdot0` targ
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
