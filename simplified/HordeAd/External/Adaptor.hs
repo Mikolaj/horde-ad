@@ -62,6 +62,7 @@ revDtMaybeL f valsAll@(vals : _) dt =
       (var0, ast0) = funToAstR (singletonShape dim0) id
       (vars1, asts1) = unzip $ map funToAstD shapes1
       domains = Domains ast0 (V.fromList asts1)
+      ast = f $ parseDomainsAst vals domains
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       dual0 = dD ast0 (dFromVectorR $ V.map dScalarR $ inputDual0 varInputs)
@@ -70,7 +71,6 @@ revDtMaybeL f valsAll@(vals : _) dt =
                       extendEnvR var (tfromD $ dD u u')) env0
              $ zip vars1 $ V.toList
              $ V.zip (inputPrimal1 varInputs) (inputDual1 varInputs)
-      ast = f $ parseDomainsAst vals domains
       (D vAst deltaTopLevel) = interpretAst env1 ast
       (varDt, astDt) = funToAstR (tshape vAst) id
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
