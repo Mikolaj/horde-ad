@@ -19,7 +19,7 @@ module HordeAd.Core.AstSimplify
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
   , astSum, astScatter, astFromList, astFromVector, astKonst
-  , astAppend, astSlice, astReverse
+  , astAppend, astSlice, astReverse, astFromDynamic
   , astIntCond
   , simplifyAst
   , substituteAst, substituteAstInt, substituteAstBool

@@ -74,7 +74,7 @@ instance (Num (Vector r), Show r, Numeric r)
     AstDynamicPlus t1 _t2 -> tshapeD t1
     AstDynamicFrom v -> shapeToList $ shapeAst v
   tfromR = AstDynamicFrom
-  tfromD = AstFromDynamic
+  tfromD = astFromDynamic
 
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
