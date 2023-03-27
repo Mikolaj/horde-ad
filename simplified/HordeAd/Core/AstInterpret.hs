@@ -269,6 +269,11 @@ instance InterpretAst (ADVal Float) where
        -- value of the correct rank and shape; this is needed, because
        -- vectorization can produce out of bound indexing from code where
        -- the indexing is guarded by conditionals
+     AstSum v@(AstOp TimesOp [t, u]) ->
+       case sameNat (Proxy @n) (Proxy @0) of
+         Just Refl -> tdot0 (interpretAstRec env t) (interpretAstRec env u)
+           -- TODO: do as a term rewrite using an extended set of terms?
+         _ -> tsum (interpretAstRec env v)
      AstSum v -> tsum (interpretAstRec env v)
        -- TODO: recognize when sum0 may be used instead, which is much cheaper
        -- or should I do that in Delta instead? no, because tsum0R is cheaper, too
@@ -395,6 +400,11 @@ instance ( ADTensor (Ast0 q)
        -- value of the correct rank and shape; this is needed, because
        -- vectorization can produce out of bound indexing from code where
        -- the indexing is guarded by conditionals
+     AstSum v@(AstOp TimesOp [t, u]) ->
+       case sameNat (Proxy @n) (Proxy @0) of
+         Just Refl -> tdot0 (interpretAstRec env t) (interpretAstRec env u)
+           -- TODO: do as a term rewrite using an extended set of terms?
+         _ -> tsum (interpretAstRec env v)
      AstSum v -> tsum (interpretAstRec env v)
        -- TODO: recognize when sum0 may be used instead, which is much cheaper
        -- or should I do that in Delta instead? no, because tsum0R is cheaper, too
@@ -519,6 +529,11 @@ instance InterpretAst Double where
        -- value of the correct rank and shape; this is needed, because
        -- vectorization can produce out of bound indexing from code where
        -- the indexing is guarded by conditionals
+     AstSum v@(AstOp TimesOp [t, u]) ->
+       case sameNat (Proxy @n) (Proxy @0) of
+         Just Refl -> tdot0 (interpretAstRec env t) (interpretAstRec env u)
+           -- TODO: do as a term rewrite using an extended set of terms?
+         _ -> tsum (interpretAstRec env v)
      AstSum v -> tsum (interpretAstRec env v)
        -- TODO: recognize when sum0 may be used instead, which is much cheaper
        -- or should I do that in Delta instead? no, because tsum0R is cheaper, too
@@ -643,6 +658,11 @@ instance InterpretAst Float where
        -- value of the correct rank and shape; this is needed, because
        -- vectorization can produce out of bound indexing from code where
        -- the indexing is guarded by conditionals
+     AstSum v@(AstOp TimesOp [t, u]) ->
+       case sameNat (Proxy @n) (Proxy @0) of
+         Just Refl -> tdot0 (interpretAstRec env t) (interpretAstRec env u)
+           -- TODO: do as a term rewrite using an extended set of terms?
+         _ -> tsum (interpretAstRec env v)
      AstSum v -> tsum (interpretAstRec env v)
        -- TODO: recognize when sum0 may be used instead, which is much cheaper
        -- or should I do that in Delta instead? no, because tsum0R is cheaper, too
