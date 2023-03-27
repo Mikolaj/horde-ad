@@ -289,7 +289,7 @@ testGatherSimp22 :: Assertion
 testGatherSimp22 = do
   resetVarCOunter
   let !t1 = gatherReshape22 $ AstVar [6, 2] (AstVarName 0)
-  length (show t1) @?= 129
+  length (show t1) @?= 36
   length (show (simplifyAst @Float t1)) @?= 347
   resetVarCOunter
   let !t2 = treshape @(Ast0 Float) @2 @2 [2, 6]

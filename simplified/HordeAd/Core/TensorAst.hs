@@ -45,7 +45,7 @@ instance (Num (Vector r), Show r, Numeric r)
   tslice = AstSlice
   treverse = AstReverse
   ttranspose = AstTranspose
-  treshape = AstReshape
+  treshape = astReshape
   tbuild1 = astBuild1
   tgather sh t f = AstGatherZ sh t (funToAstIndex f)  -- introduces new vars
 
@@ -111,7 +111,7 @@ instance (Num (Vector r), Show r, Numeric r)
   tslice i k = AstPrimalPart . AstSlice i k  . unAstPrimalPart
   treverse = AstPrimalPart . AstReverse . unAstPrimalPart
   ttranspose perm = AstPrimalPart . AstTranspose perm . unAstPrimalPart
-  treshape sh = AstPrimalPart . AstReshape sh  . unAstPrimalPart
+  treshape sh = AstPrimalPart . astReshape sh  . unAstPrimalPart
   tbuild1 k f = AstPrimalPart $ AstBuild1 k
                 $ funToAstI  -- this introduces new variable names
                 $ unAstPrimalPart . f
