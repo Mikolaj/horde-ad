@@ -62,7 +62,7 @@ fcnnMnistLoss2
   => MnistData r -> ADInputs d r -> ADVal d r
 fcnnMnistLoss2 (datum, target) inputs =
   let result = inline fcnnMnist2 logistic softMaxV datum inputs
-  in lossCrossEntropyV (constant target) result
+  in lossCrossEntropyV target result
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function, using fused

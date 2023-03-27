@@ -328,10 +328,10 @@ lossCrossEntropy targ res =
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropyV :: ADModeAndNum d r
-                  => ADVal d (Vector r)
+                  => Vector r
                   -> ADVal d (Vector r)
                   -> ADVal d r
-lossCrossEntropyV targ res = negate $ log res <.>! targ
+lossCrossEntropyV targ res = negate $ log res <.>!! targ
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our

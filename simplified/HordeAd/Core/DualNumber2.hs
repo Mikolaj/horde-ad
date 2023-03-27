@@ -29,7 +29,7 @@ module HordeAd.Core.DualNumber2
   , listsToParameters, listsToParameters4, domainsD0
   , valueGeneral, valueOnDomains, revOnADInputs, revOnDomains
   , constant, scale, logistic, altSumElements10
-  , softMax, lossCrossEntropy
+  , softMax, lossCrossEntropy, lossCrossEntropyV
   ) where
 
 import Prelude
@@ -54,7 +54,8 @@ import           HordeAd.Core.Delta
   )
 import           HordeAd.Core.DualClass hiding (IsPrimal, IsPrimalWithScalar)
 import qualified HordeAd.Core.DualClass as DualClass
-import           HordeAd.Core.DualNumber (dD, dDnotShared, pattern D)
+import           HordeAd.Core.DualNumber
+  (dD, dDnotShared, lossCrossEntropyV, pattern D)
 import qualified HordeAd.Core.DualNumber as DualNumber
 import qualified HordeAd.Core.Engine as Engine
 import           HordeAd.Core.SizedIndex
