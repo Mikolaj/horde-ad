@@ -309,7 +309,7 @@ testPoly01 f outSize input expected = do
         domainsFrom01 (V.singleton input) V.empty
       domainsExpected =
         domainsFrom01 (V.singleton expected) V.empty
-      dt = vToVec $ LA.konst 1 outSize
+      dt = OR.constant [outSize] 1
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
       (astGrad, astValue) =
         revOnDomains (Just dt)
@@ -337,7 +337,7 @@ testPoly11 f outSize input expected = do
         domainsFrom0V V.empty (V.singleton (V.fromList input))
       domainsExpected =
         domainsFrom0V V.empty (V.singleton (V.fromList expected))
-      dt = vToVec $ LA.konst 1 outSize
+      dt = OR.constant [outSize] 1
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
       (astGrad, astValue) =
         revOnDomains (Just dt)
@@ -350,7 +350,7 @@ testPoly11 f outSize input expected = do
         revOnDomains (Just dt)
           (\adinputs -> f $ adinputs `at1` 0)
           domainsInput
-      val = f (vToVec $ V.fromList input)
+      val = f (OR.fromList [length input] input)
   astValue @?~ val
   advalValue @?~ val
   domainsR astGrad @?~ domainsR domainsExpected
@@ -414,7 +414,7 @@ testFooNoGoAst :: Assertion
 testFooNoGoAst =
   (domainsR $ fst
    $ revOnDomains
-       (Just $ vToVec $ LA.konst 1 3)
+       (Just $ OR.constant [3] 1)
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
           interpretAst (IM.singleton 0
@@ -467,8 +467,8 @@ testBarReluAst0 =
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
   (domainsR $ fst
-   $ revOnDomains
-       (Just $ vToVec $ LA.konst 1 5)
+   $ revOnDomains @Double @(OR.Array 1 Double)
+       (Just $ OR.constant [5] 1)
          -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
           interpretAst (IM.singleton 0

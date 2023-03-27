@@ -23,7 +23,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
-import HordeAd.Core.DualNumber hiding (build1)
+import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps

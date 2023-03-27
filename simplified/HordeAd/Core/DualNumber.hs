@@ -8,16 +8,9 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.DualNumber
   ( ADVal, dD, pattern D, dDnotShared
-  , Vec, vecToV, vToVec
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , sumElements10, index10, minimum0, maximum0, altSumElements10
-  , (<.>!), (<.>!!)
-  , softMax, lossCrossEntropy, lossCrossEntropyV, lossSoftMaxCrossEntropyV
-  , fromList1, fromVector1, konst1, append1, slice1, reverse1, maxPool1
-  , softMaxV, build1POPL, build1Elementwise, build1Closure, build1
-  , map1POPL, map1Elementwise
   , -- * Re-exports
     IsPrimal (..), IsPrimalWithScalar
   , Domain0, DomainR, Domains(..), emptyDomain0, nullDomains
@@ -30,17 +23,13 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Delta
   (Domain0, DomainR, Domains (..), emptyDomain0, nullDomains)
 import HordeAd.Core.DualClass
-import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
-import HordeAd.Internal.TensorOps
 
 -- * The main dual number type
 
@@ -98,10 +87,6 @@ dDnotShared = D
 
 -- * Auxiliary definitions
 
--- | A mega-shorthand for a bundle of connected type constraints.
--- The @Scalar@ in the name means that the second argument is the underlying
--- scalar type of a well behaved (wrt the differentiation mode in the first
--- argument) collection of primal and dual components of dual numbers.
 type ADNum r =
   ( Numeric r
   , Show r
@@ -118,15 +103,6 @@ type ADNum r =
   , IntOf r ~ Int
   , DynamicTensor r ~ OD.Array r
   )
-
--- Shims to reuse the tests for ordinary vectors.
-type Vec r = OR.Array 1 r
-
-vecToV :: Numeric r => Vec r -> Vector r
-vecToV = OR.toVector
-
-vToVec :: Numeric r => Vector r  -> Vec r
-vToVec v = OR.fromVector [V.length v] v
 
 -- All this is not needed in the simplified version, except for compilation
 -- with the common test code.
@@ -259,196 +235,3 @@ instance (RealFloat a, IsPrimal a) => RealFloat (ADVal a) where
   isDenormalized (D u _) = isDenormalized u
   isNegativeZero (D u _) = isNegativeZero u
   isIEEE (D u _) = isIEEE u
-
-
--- * Legacy operations needed to re-use vector differentiation tests
-
--- Operations resulting in a scalar
-
-sumElements10 :: ADNum r
-              => ADVal (Vec r) -> ADVal r
-sumElements10 (D u u') = dD (tsum0R u) (dSum0 (tshapeR u) u')
-
-index10 :: ADNum r => ADVal (Vec r) -> Int -> ADVal r
-index10 (D u u') ix = dD (u `tindex0R` singletonIndex ix)
-                         (dIndex0 u' (singletonIndex ix) (tshapeR u))
-
-minimum0 :: ADNum r => ADVal (Vec r) -> ADVal r
-minimum0 (D u u') =
-  let ix = tminIndexR u
-  in dD (OR.unScalar $ tindex1R u ix)
-        (dIndex0 u' (singletonIndex ix) (flattenShape (tshapeR u)))
-
-maximum0 :: ADNum r => ADVal (Vec r) -> ADVal r
-maximum0 (D u u') =
-  let ix = tmaxIndexR u
-  in dD (OR.unScalar $ tindex1R u ix)
-        (dIndex0 u' (singletonIndex ix) (flattenShape (tshapeR u)))
-
-foldl'0 :: ADNum r
-        => (ADVal r -> ADVal r -> ADVal r)
-        -> ADVal r -> ADVal (Vec r)
-        -> ADVal r
-foldl'0 f uu' (D v v') =
-  let g !acc ix p =
-        f (dD p (dIndex0 v' (singletonIndex ix) (flattenShape (tshapeR v)))) acc
-  in V.ifoldl' g uu' (OR.toVector v)
-
-altSumElements10 :: ADNum r => ADVal (Vec r) -> ADVal r
-altSumElements10 = foldl'0 (+) 0
-
--- | Dot product.
-infixr 8 <.>!
-(<.>!) :: ADNum r
-       => ADVal (Vec r) -> ADVal (Vec r) -> ADVal r
-(<.>!) (D u u') (D v v') = dD (tdot0R u v)
-                              (dAdd (dDot0 v u') (dDot0 u v'))
-
--- | Dot product with a constant vector.
-infixr 8 <.>!!
-(<.>!!) :: ADNum r
-        => ADVal (Vec r) -> Vec r -> ADVal r
-(<.>!!) (D u u') v = dD (tdot0R u v) (dDot0 v u')
-
-sumElementsVectorOfDual
-  :: ADNum r => Data.Vector.Vector (ADVal r) -> ADVal r
-sumElementsVectorOfDual = V.foldl' (+) 0
-
-softMax :: ADNum r
-        => Data.Vector.Vector (ADVal r)
-        -> Data.Vector.Vector (ADVal r)
-softMax us =
-  let expUs = V.map exp us  -- used twice below, so named, to enable sharing
-      sumExpUs = sumElementsVectorOfDual expUs
-  in V.map (\r -> r * recip sumExpUs) expUs
-
--- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropy :: forall r. ADNum r
-                 => Vector r
-                 -> Data.Vector.Vector (ADVal r)
-                 -> ADVal r
-lossCrossEntropy targ res =
-  let f :: ADVal r -> Int -> ADVal r -> ADVal r
-      f !acc i d = acc + scaleADVal (targ V.! i) (log d)
-  in negate $ V.ifoldl' f 0 res
-
-scaleADVal :: (Num a, IsPrimal a) => a -> ADVal a -> ADVal a
-scaleADVal a (D u u') = dD (a * u) (dScale a u')
-
--- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyV :: ADNum r
-                  => Vec r
-                  -> ADVal (Vec r)
-                  -> ADVal r
-lossCrossEntropyV targ res = negate $ log res <.>!! targ
-
--- Note that this is equivalent to a composition of softMax and cross entropy
--- only when @target@ is one-hot. Otherwise, results vary wildly. In our
--- rendering of the MNIST data all labels are one-hot.
-lossSoftMaxCrossEntropyV
-  :: ADNum r
-  => Vec r -> ADVal (Vec r) -> ADVal r
-lossSoftMaxCrossEntropyV target (D u u') =
-  -- The following protects from underflows, overflows and exploding gradients
-  -- and is required by the QuickCheck test in TestMnistCNN.
-  -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
-  -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
-  let expU = exp (u - OR.constant [tsizeR u] (tminimum0R u))
-      sumExpU = tsum0R expU
-      recipSum = recip sumExpU
--- not exposed: softMaxU = LA.scaleRecip sumExpU expU
-      softMaxU =  OR.constant [tsizeR expU] recipSum * expU
-  in dD (negate $ log softMaxU `tdot0R` target)  -- TODO: avoid: log . exp
-        (dDot0 (softMaxU - target) u')
-
-
--- Operations resulting in a vector (really, a OR.Array)
-
--- @1@ means rank one, so the dual component represents a vector.
-fromList1 :: ADNum r
-          => [ADVal r] -> ADVal (Vec r)
-fromList1 l =
-  dD (tfromListR $ map (\(D u _) -> tscalarR u) l)
-     (dFromListR $ map (\(D _ u') -> dScalarR u') l)
-
-fromVector1 :: ADNum r
-            => Data.Vector.Vector (ADVal r) -> ADVal (Vec r)
-fromVector1 l =
-  dD (tfromVectorR
-      $ V.convert $ V.map (\(D u _) -> tscalarR u) l)  -- hope it fuses
-     (dFromVectorR
-      $ V.map (\(D _ u') -> dScalarR u') l)
-
-konst1 :: ADNum r => ADVal r -> Int -> ADVal (Vec r)
-konst1 (D u u') n =
-  dD (tkonstR n (tscalarR u)) (dKonstR n (dScalarR u'))
-
-append1 :: ADNum r
-        => ADVal (Vec r) -> ADVal (Vec r) -> ADVal (Vec r)
-append1 (D u u') (D v v') = dD (tappendR u v)
-                               (dAppendR u' (head $ OR.shapeL u) v')
-
-slice1 :: ADNum r
-       => Int -> Int -> ADVal (Vec r) -> ADVal (Vec r)
-slice1 i k (D u u') = dD (tsliceR i k u)
-                         (dSliceR i k u' (head $ OR.shapeL u))
-
-reverse1 :: ADNum r => ADVal (Vec r) -> ADVal (Vec r)
-reverse1 (D u u') = dD (treverseR u) (dReverseR u')
-
--- TODO: define Enum instance of (AstInt r) to enable AST for this.
--- No padding; remaining areas ignored.
-maxPool1 :: ADNum r
-         => Int -> Int -> ADVal (Vec r) -> ADVal (Vec r)
-maxPool1 ksize stride v@(D u _) =
-  let slices = [slice1 i ksize v | i <- [0, stride .. tsizeR u - ksize]]
-  in fromList1 $ map maximum0 slices
-
-softMaxV :: ADNum r
-         => ADVal (Vec r) -> ADVal (Vec r)
-softMaxV d@(D u _) =
-  let expU = exp d  -- shared in 2 places, though cse may do this for us
-      sumExpU = sumElements10 expU
-  in konst1 (recip sumExpU) (tsizeR u) * expU
-
-
--- Build and map variants
-
-build1POPL :: Int -> (Int -> ADVal r) -> Data.Vector.Vector (ADVal r)
-build1POPL n f = V.fromList $ map f [0 .. n - 1]
-
--- Fake rank 1. This is still an array of delta expressions, thinly wrapped,
--- instead of a single delta expression representing an array.
--- We gain a little by storing the primal part in an unboxed vector.
-build1Elementwise
-  :: ADNum r
-  => Int -> (Int -> ADVal r) -> ADVal (Vec r)
-build1Elementwise n f = fromList1 $ map f [0 .. n - 1]
-  -- equivalent to @fromVector1 $ build1POPL n f@
-
-build1Closure
-  :: ADNum r
-  => Int -> (Int -> ADVal r) -> ADVal (Vec r)
-build1Closure n f =
-  let g i = let D u _ = f i in u
-      h i = let D _ u' = f i in u'
-  in dD (OR.fromList [n] $ map g [0 .. n - 1])
-        (dBuildR n (dScalarR . h))
-
-build1
-  :: ADNum r
-  => Int -> (Int -> ADVal r) -> ADVal (Vec r)
-build1 = build1Closure
-
-map1POPL :: (ADVal r -> ADVal r) -> Data.Vector.Vector (ADVal r)
-         -> Data.Vector.Vector (ADVal r)
-map1POPL = V.map
-
-map1Elementwise
-  :: ADNum r
-  => (ADVal r -> ADVal r) -> ADVal (Vec r) -> ADVal (Vec r)
-map1Elementwise f d@(D u _) =
-  build1Elementwise (tsizeR u) $ \i -> f (index10 d i)
-    -- equivalent to
-    -- @fromVector1 . map1POPL f . rank1toVector
-    --   where rank1toVector d@(D v _v') = V.generate (llength d) (lindex0 d)@

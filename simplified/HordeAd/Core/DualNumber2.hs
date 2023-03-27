@@ -54,8 +54,7 @@ import           HordeAd.Core.Delta
   )
 import           HordeAd.Core.DualClass hiding (IsPrimal, IsPrimalWithScalar)
 import qualified HordeAd.Core.DualClass as DualClass
-import           HordeAd.Core.DualNumber
-  (dD, dDnotShared, lossCrossEntropyV, pattern D)
+import           HordeAd.Core.DualNumber (dD, dDnotShared, pattern D)
 import qualified HordeAd.Core.DualNumber as DualNumber
 import qualified HordeAd.Core.Engine as Engine
 import           HordeAd.Core.SizedIndex
@@ -410,3 +409,10 @@ lossCrossEntropy targ res =
   let f :: ADVal d r -> Int -> ADVal d r -> ADVal d r
       f !acc i d = acc + scaleADVal (targ V.! i) (log d)
   in negate $ V.ifoldl' f 0 res
+
+-- In terms of hmatrix: @-(log res <.> targ)@.
+lossCrossEntropyV :: ADModeAndNum d r
+                  => Vec r
+                  -> ADVal d (Vec r)
+                  -> ADVal d r
+lossCrossEntropyV targ res = negate $ log res <.>!! targ
