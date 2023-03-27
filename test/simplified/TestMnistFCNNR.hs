@@ -19,6 +19,7 @@ import           Text.Printf
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta (gradientFromDelta)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine

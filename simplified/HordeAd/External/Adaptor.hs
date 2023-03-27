@@ -27,6 +27,7 @@ import           System.Random
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta (ForwardDerivative, gradientFromDelta)
 import HordeAd.Core.DualClass (dFromVectorR, dScalarR)
 import HordeAd.Core.DualNumber

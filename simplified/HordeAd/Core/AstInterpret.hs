@@ -8,8 +8,7 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.AstInterpret
   ( InterpretAst(..), AstEnv, AstVar(..)
-  , funToAstR, funToAstD, simplifyAst, extendEnvR
-  , resetVarCOunter
+  , extendEnvR
   ) where
 
 import Prelude hiding ((<*))
@@ -23,27 +22,13 @@ import           GHC.TypeLits (KnownNat, sameNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal ()
-import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 
 -- * Interpretation of Ast in ADVal
-
--- We are very close to being able to interpret Ast in any Tensor instance.
--- However, this proves impossible, because we'd need to adorn interpretAst
--- with constraints like RealFloat (Tensor n r) for all @n@ in use,
--- which includes, e.g., @m + p@, where @m@ and @p@ are not mentioned
--- nor can be deduced from the signature of interpretAst.
--- I don't know if we could hack around by creating and explicitly
--- passing the relevant dictionaries. Users of the library may find
--- similar problems in large enough programs, so developing a technique
--- for that would be useful.
--- For now, we interpret only in the concrete ADVal instance,
--- which is the only interpretation needed for anything apart from tests.
 
 type AstEnv a = IM.IntMap (AstVar a)
 
@@ -122,14 +107,14 @@ instance Evidence Float where
 
 class InterpretAst a where
   interpretAst
-    :: forall n. KnownNat n
+    :: KnownNat n
     => AstEnv a -> Ast n (ScalarOf a) -> TensorOf n a
   interpretAstDynamic
     :: AstEnv a -> AstDynamic (ScalarOf a) -> DynamicTensor a
 
 instance Evidence a => InterpretAst a where
  interpretAst
-   :: forall n. KnownNat n
+   :: KnownNat n
    => AstEnv a -> Ast n (ScalarOf a) -> TensorOf n a
  interpretAst = interpretAstRec
 
@@ -137,14 +122,22 @@ instance Evidence a => InterpretAst a where
    :: AstEnv a -> AstDynamic (ScalarOf a) -> DynamicTensor a
  interpretAstDynamic = interpretAstDynamicRec
 
--- TODO: Try to use the instance for Primal a instead of using this instance
--- and then ignoring the dual part.
+-- TODO: the following is false. Make it true.
+-- Note that this uses the @Primal a@ instance of @InterpretAst@,
+-- which makes this simpler and more performant than projecting
+-- the result from an @a@ instance.
 interpretAstPrimal
-  :: forall n a. (KnownNat n, Evidence a)
+  :: (KnownNat n, Evidence a)
   => AstEnv a
   -> AstPrimalPart n (ScalarOf a) -> TensorOf n (Primal a)
 interpretAstPrimal env (AstPrimalPart v) =
   tprimalPart $ interpretAstRec env v
+-- interpretAstRec @n @(Primal a) (IM.map tprimalPart env) v
+-- TODO: but both Dual and AstEnv are strict, so in both cases
+-- we can't avoid wasted computation. Benchmark lazy AstEnv
+-- once we have tests with many vars.
+-- TODO: constrain types (we are down one level here) and then special case
+   -- AstBuild1 k (var, AstConstant v) ->
 
 interpretAstRec
   :: forall n a. (KnownNat n, Evidence a)

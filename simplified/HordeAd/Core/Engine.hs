@@ -33,6 +33,7 @@ import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
   (ForwardDerivative (..), derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass (Dual, dFromR, dInput0, dInputR)
