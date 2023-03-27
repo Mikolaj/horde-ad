@@ -230,7 +230,6 @@ simplifyStepNonIndex t = case t of
   AstGatherZ sh v0 (_, ZI) -> astKonstN sh v0
   AstGatherZ {} -> t
   AstD{} -> t  -- TODO
-  AstFromDynamic v -> astFromDynamic v  -- this always eliminates AstDynamic
 
 astIndexZ
   :: forall m n r.
@@ -347,7 +346,6 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstD (AstPrimalPart u) (AstDualPart u') ->
     AstD (AstPrimalPart $ astIndexRec u ix)
          (AstDualPart $ astIndexRec u' ix)
-  AstFromDynamic{} -> error "astIndex: AstFromDynamic should simplify away"
 
 astConstant :: AstPrimalPart n r -> Ast n r
 astConstant (AstPrimalPart (AstConstant t)) = astConstant t
@@ -697,7 +695,6 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     AstD (AstPrimalPart u) (AstDualPart u') ->
       AstD (AstPrimalPart $ astGatherRec sh4 u (vars4, ix4))
            (AstDualPart $ astGatherRec sh4 u' (vars4, ix4))
-    AstFromDynamic{} -> error "astGather: AstFromDynamic should simplify away"
 
 gatherFromNF :: forall m p r. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) r -> Bool
@@ -870,7 +867,6 @@ simplifyAst t = case t of
     astGatherZ sh (simplifyAst v) (vars, fmap simplifyAstInt ix)
   AstD u (AstDualPart u') -> AstD (simplifyAstPrimal u)
                                   (AstDualPart $ simplifyAst u')
-  AstFromDynamic v -> astFromDynamic v  -- this always eliminates AstDynamic
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether

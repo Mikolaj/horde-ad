@@ -183,7 +183,6 @@ instance InterpretAst (ADVal Double) where
        -- leads to a tensor of deltas
      AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
                                    (tdualPart $ interpretAstRec env u')
-     AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
                    -> AstInt (ScalarOf a) -> IntOf (Primal a)
@@ -312,7 +311,6 @@ instance InterpretAst (ADVal Float) where
        -- leads to a tensor of deltas
      AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
                                    (tdualPart $ interpretAstRec env u')
-     AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
                    -> AstInt (ScalarOf a) -> IntOf (Primal a)
@@ -443,7 +441,6 @@ instance ( ADTensor (Ast0 q)
        -- leads to a tensor of deltas
      AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
                                    (tdualPart $ interpretAstRec env u')
-     AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
                    -> AstInt (ScalarOf a) -> IntOf (Primal a)
@@ -572,7 +569,6 @@ instance InterpretAst Double where
        -- leads to a tensor of deltas
      AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
                                    (tdualPart $ interpretAstRec env u')
-     AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
                    -> AstInt (ScalarOf a) -> IntOf (Primal a)
@@ -701,7 +697,6 @@ instance InterpretAst Float where
        -- leads to a tensor of deltas
      AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
                                    (tdualPart $ interpretAstRec env u')
-     AstFromDynamic t -> tfromD $ interpretAstDynamic env t
 
    interpretAstInt :: AstEnv a
                    -> AstInt (ScalarOf a) -> IntOf (Primal a)

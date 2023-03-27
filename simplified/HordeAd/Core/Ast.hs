@@ -104,7 +104,6 @@ data Ast :: Nat -> Type -> Type where
     -- the case with many variables emerges from vectorizing the simpler case;
     -- out of bounds indexing is permitted
   AstD :: AstPrimalPart n r -> AstDualPart n r -> Ast n r
-  AstFromDynamic :: AstDynamic r -> Ast n r
 
   -- Spurious, but can be re-enabled at any time:
 --  AstBuildN :: forall m n r.
@@ -460,14 +459,6 @@ shapeAst v1 = case v1 of
   AstBuild1 k (_var, v) -> k :$ shapeAst v
   AstGatherZ sh _v (_vars, _ix) -> sh
   AstD (AstPrimalPart u) _ -> shapeAst u
-  AstFromDynamic v -> listShapeToShape $ shapeAstDynamic v
-
-shapeAstDynamic :: (Show r, Numeric r)
-                => AstDynamic r -> [Int]
-shapeAstDynamic v1 = case v1 of
-  AstDynamicDummy -> []
-  AstDynamicPlus v _u -> shapeAstDynamic v
-  AstDynamicFrom w -> shapeToList $ shapeAst w
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int
@@ -502,13 +493,6 @@ intVarInAst var = \case
                                || intVarInAst var v
   AstD (AstPrimalPart u) (AstDualPart u') ->
     intVarInAst var u || intVarInAst var u'
-  AstFromDynamic v -> intVarInAstDynamic var v
-
-intVarInAstDynamic :: AstVarName Int -> AstDynamic r -> Bool
-intVarInAstDynamic var = \case
-  AstDynamicDummy -> False
-  AstDynamicPlus v u -> intVarInAstDynamic var v || intVarInAstDynamic var u
-  AstDynamicFrom w -> intVarInAst var w
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -571,16 +555,6 @@ substitute1Ast i var v1 = case v1 of
   AstD (AstPrimalPart u) (AstDualPart u') ->
     AstD (AstPrimalPart $ substitute1Ast i var u)
          (AstDualPart $ substitute1Ast i var u')
-  AstFromDynamic v -> AstFromDynamic $ substitute1AstDynamic i var v
-
-substitute1AstDynamic
-  :: (Show r, Numeric r)
-  => AstInt r -> AstVarName Int -> AstDynamic r -> AstDynamic r
-substitute1AstDynamic i var v1 = case v1 of
-  AstDynamicDummy -> v1
-  AstDynamicPlus v u -> AstDynamicPlus (substitute1AstDynamic i var v)
-                                       (substitute1AstDynamic i var u)
-  AstDynamicFrom w -> AstDynamicFrom $ substitute1Ast i var w
 
 substitute1AstInt :: (Show r, Numeric r)
                   => AstInt r -> AstVarName Int -> AstInt r -> AstInt r
