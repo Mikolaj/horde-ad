@@ -69,6 +69,7 @@ type IsPrimalWithScalar a r =
 class IsPrimal a where
   dZero :: Dual a
   dScale :: a -> Dual a -> Dual a
+  dScaleByScalar :: a -> Int -> Dual a -> Dual a
   dAdd :: Dual a -> Dual a -> Dual a
   recordSharing :: Dual a -> Dual a
   packDeltaDt :: Either a a -> Dual a -> DeltaDt (Element a)
@@ -81,6 +82,9 @@ class IsPrimalR r where
   dZeroR :: KnownNat n => Dual (OR.Array n r)
   dScaleR :: KnownNat n
           => OR.Array n r -> Dual (OR.Array n r) -> Dual (OR.Array n r)
+  dScaleByScalarR :: KnownNat n
+                  => OR.Array n r -> Int -> Dual (OR.Array n r)
+                  -> Dual (OR.Array n r)
   dAddR :: KnownNat n
         => Dual (OR.Array n r) -> Dual (OR.Array n r)
         -> Dual (OR.Array n r)
@@ -95,6 +99,7 @@ instance (IsPrimalR r, KnownNat n)
          => IsPrimal (OR.Array n r) where
   dZero = dZeroR
   dScale = dScaleR
+  dScaleByScalar = dScaleByScalarR
   dAdd = dAddR
   recordSharing = recordSharingR
   packDeltaDt = packDeltaDtR
@@ -104,6 +109,8 @@ class IsPrimalA r where
   dZeroA :: KnownNat n => Dual (Ast n r)
   dScaleA :: KnownNat n
           => Ast n r -> Dual (Ast n r) -> Dual (Ast n r)
+  dScaleByScalarA :: KnownNat n
+                  => Ast n r -> Int -> Dual (Ast n r) -> Dual (Ast n r)
   dAddA :: KnownNat n
         => Dual (Ast n r) -> Dual (Ast n r) -> Dual (Ast n r)
   recordSharingA :: Dual (Ast n r) -> Dual (Ast n r)
@@ -115,6 +122,7 @@ instance (IsPrimalA r, KnownNat n)
          => IsPrimal (Ast n r) where
   dZero = dZeroA
   dScale = dScaleA
+  dScaleByScalar = dScaleByScalarA
   dAdd = dAddA
   recordSharing = recordSharingA
   packDeltaDt = packDeltaDtA
@@ -234,6 +242,7 @@ class HasRanks r where
 instance IsPrimal Double where
   dZero = Zero0
   dScale = Scale0
+  dScaleByScalar _ c = Scale0 (fromIntegral c)
   dAdd = Add0
   recordSharing d = case d of
     Zero0 -> d
@@ -247,6 +256,7 @@ instance IsPrimal Float where
   -- Identical as above:
   dZero = Zero0
   dScale = Scale0
+  dScaleByScalar _ c = Scale0 (fromIntegral c)
   dAdd = Add0
   recordSharing d = case d of
     Zero0 -> d
@@ -258,6 +268,7 @@ instance IsPrimal Float where
 instance (Numeric r, Num (Vector r)) => IsPrimal (Ast0 r) where
   dZero = Zero0
   dScale = Scale0
+  dScaleByScalar _ c = Scale0 (fromIntegral c)
   dAdd = Add0
   recordSharing d = case d of
     Zero0 -> d
@@ -270,6 +281,7 @@ instance (Numeric r, Num (Vector r)) => IsPrimal (Ast0 r) where
 instance IsPrimal (OD.Array r) where
   dZero = undefined
   dScale = undefined
+  dScaleByScalar = undefined
   dAdd = undefined
   recordSharing = id
   packDeltaDt = undefined
@@ -278,6 +290,7 @@ instance IsPrimal (OD.Array r) where
 instance IsPrimalR Double where
   dZeroR = ZeroR
   dScaleR = ScaleR
+  dScaleByScalarR tsh c = ScaleR (OR.constant (OR.shapeL tsh) (fromIntegral c))
   dAddR = AddR
   recordSharingR d = case d of
     ZeroR -> d
@@ -291,6 +304,7 @@ instance IsPrimalR Double where
 instance IsPrimalR Float where
   dZeroR = ZeroR
   dScaleR = ScaleR
+  dScaleByScalarR tsh c = ScaleR (OR.constant (OR.shapeL tsh) (fromIntegral c))
   dAddR = AddR
   recordSharingR d = case d of
     ZeroR -> d
@@ -305,6 +319,8 @@ instance IsPrimalR Float where
 instance (Show r, Numeric r, Tensor (Ast0 r)) => IsPrimalA r where
   dZeroA = ZeroR
   dScaleA = ScaleR
+  dScaleByScalarA tsh c =
+    ScaleR (tkonst0N (tshape tsh) (tscalar $ fromIntegral c))
   dAddA = AddR
   recordSharingA d = case d of
     ZeroR -> d
@@ -318,6 +334,7 @@ instance (Show r, Numeric r, Tensor (Ast0 r)) => IsPrimalA r where
 instance IsPrimal (AstDynamic r) where
   dZero = undefined
   dScale = undefined
+  dScaleByScalar = undefined
   dAdd (FromR @n1 d1) (FromR @n2 d2) = case sameNat (Proxy @n1) (Proxy @n2) of
     Just Refl -> FromR $ AddR d1 d2
     _ -> error "dAdd (IsPrimal (AstDynamic r)): summand types don't match"
