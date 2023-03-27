@@ -330,9 +330,9 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                         $ domainsR parameters
                  envMnist =
                    extendEnvR varGlyph
-                     (tconst $ OR.fromVector [sizeMnistGlyphInt] glyph)
+                     (OR.fromVector [sizeMnistGlyphInt] glyph)
                    $ extendEnvR varLabel
-                       (tconst $ OR.fromVector [sizeMnistLabelInt] label)
+                       (OR.fromVector [sizeMnistLabelInt] label)
                        env1
                  gradients =
                    Domains emptyR

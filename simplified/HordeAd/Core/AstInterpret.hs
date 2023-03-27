@@ -134,7 +134,7 @@ instance InterpretAst (ADVal Double) where
      AstOp opCode args ->
        interpretAstOp (interpretAstRec env) opCode args
      AstConst a -> tconst a
-     AstConstant a -> tconst $ interpretAstPrimal env a
+     AstConstant a -> tconstant $ interpretAstPrimal env a
      AstConstInt i -> tfromIndex0 $ interpretAstInt env i
      AstIndexZ v is -> tindex (interpretAstRec env v) (fmap (interpretAstInt env) is)
        -- if index is out of bounds, the operations returns with an undefined
@@ -263,7 +263,7 @@ instance InterpretAst (ADVal Float) where
      AstOp opCode args ->
        interpretAstOp (interpretAstRec env) opCode args
      AstConst a -> tconst a
-     AstConstant a -> tconst $ interpretAstPrimal env a
+     AstConstant a -> tconstant $ interpretAstPrimal env a
      AstConstInt i -> tfromIndex0 $ interpretAstInt env i
      AstIndexZ v is -> tindex (interpretAstRec env v) (fmap (interpretAstInt env) is)
        -- if index is out of bounds, the operations returns with an undefined
@@ -523,7 +523,7 @@ instance InterpretAst Double where
      AstOp opCode args ->
        interpretAstOp (interpretAstRec env) opCode args
      AstConst a -> tconst a
-     AstConstant a -> tconst $ interpretAstPrimal env a
+     AstConstant a -> tconstant $ interpretAstPrimal env a
      AstConstInt i -> tfromIndex0 $ interpretAstInt env i
      AstIndexZ v is -> tindex (interpretAstRec env v) (fmap (interpretAstInt env) is)
        -- if index is out of bounds, the operations returns with an undefined
@@ -652,7 +652,7 @@ instance InterpretAst Float where
      AstOp opCode args ->
        interpretAstOp (interpretAstRec env) opCode args
      AstConst a -> tconst a
-     AstConstant a -> tconst $ interpretAstPrimal env a
+     AstConstant a -> tconstant $ interpretAstPrimal env a
      AstConstInt i -> tfromIndex0 $ interpretAstInt env i
      AstIndexZ v is -> tindex (interpretAstRec env v) (fmap (interpretAstInt env) is)
        -- if index is out of bounds, the operations returns with an undefined
