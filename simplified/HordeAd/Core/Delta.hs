@@ -82,6 +82,7 @@ import           Text.Show.Functions ()
 
 import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
 
 -- * Abstract syntax trees of the delta expressions
@@ -461,6 +462,8 @@ gradientFromDelta dim0 dimR deltaDt =
                 (V.fromList $ EM.elems iMapR)
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> DeltaDt Double -> Domains Double #-}
+{-# SPECIALIZE gradientFromDelta
+  :: Int -> Int -> DeltaDt (Ast0 Double) -> Domains (Ast0 Double) #-}
 
 buildFinMaps :: forall r. Tensor r
              => EvalState r -> DeltaDt r -> EvalState r
@@ -658,9 +661,10 @@ buildFinMaps s0 deltaDt =
         DeltaDt0 dt deltaTopLevel -> eval0 s0 dt deltaTopLevel
         DeltaDtR dt deltaTopLevel -> evalR s0 dt deltaTopLevel
   in evalFromnMap s1
-
 {-# SPECIALIZE buildFinMaps
   :: EvalState Double -> DeltaDt Double -> EvalState Double #-}
+{-# SPECIALIZE buildFinMaps
+  :: EvalState (Ast0 Double) -> DeltaDt (Ast0 Double) -> EvalState (Ast0 Double) #-}
 
 
 -- * Forward derivative computation from the delta expressions

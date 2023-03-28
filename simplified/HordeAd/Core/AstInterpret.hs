@@ -311,3 +311,112 @@ interpretAstRelOp f GtOp [u, v] = f u >* f v
 interpretAstRelOp _ opCodeRel args =
   error $ "interpretAstRelOp: wrong number of arguments"
           ++ show (opCodeRel, length args)
+
+
+
+{-# SPECIALIZE interpretAstPrimal
+  :: KnownNat n
+  => AstEnv (ADVal Double)
+  -> AstPrimalPart n Double -> TensorOf n Double #-}
+{-# SPECIALIZE interpretAstPrimal
+  :: KnownNat n
+  => AstEnv (ADVal Float)
+  -> AstPrimalPart n Float -> TensorOf n Float #-}
+{-# SPECIALIZE interpretAstPrimal
+  :: KnownNat n
+  => AstEnv (ADVal (Ast0 Double))
+  -> AstPrimalPart n Double -> TensorOf n (Ast0 Double) #-}
+{-# SPECIALIZE interpretAstPrimal
+  :: KnownNat n
+  => AstEnv (ADVal (Ast0 Float))
+  -> AstPrimalPart n Float -> TensorOf n (Ast0 Float) #-}
+{-# SPECIALIZE interpretAstPrimal
+  :: KnownNat n
+  => AstEnv Double
+  -> AstPrimalPart n Double -> TensorOf n Double #-}
+{-# SPECIALIZE interpretAstPrimal
+  :: KnownNat n
+  => AstEnv Float
+  -> AstPrimalPart n Float -> TensorOf n Float #-}
+
+{-# SPECIALIZE interpretAst
+  :: KnownNat n
+  => AstEnv (ADVal Double)
+  -> Ast n Double -> TensorOf n (ADVal Double) #-}
+{-# SPECIALIZE interpretAst
+  :: KnownNat n
+  => AstEnv (ADVal Float)
+  -> Ast n Float -> TensorOf n (ADVal Float) #-}
+{-# SPECIALIZE interpretAst
+  :: KnownNat n
+  => AstEnv (ADVal (Ast0 Double))
+  -> Ast n Double -> TensorOf n (ADVal (Ast0 Double)) #-}
+{-# SPECIALIZE interpretAst
+  :: KnownNat n
+  => AstEnv (ADVal (Ast0 Float))
+  -> Ast n Float -> TensorOf n (ADVal (Ast0 Float)) #-}
+{-# SPECIALIZE interpretAst
+  :: KnownNat n
+  => AstEnv Double
+  -> Ast n Double -> TensorOf n Double #-}
+{-# SPECIALIZE interpretAst
+  :: KnownNat n
+  => AstEnv Float
+  -> Ast n Float -> TensorOf n Float #-}
+
+{-# SPECIALIZE interpretAstInt
+  :: AstEnv (ADVal Double)
+  -> AstInt Double -> Int #-}
+{-# SPECIALIZE interpretAstInt
+  :: AstEnv (ADVal Float)
+  -> AstInt Float -> Int #-}
+{-# SPECIALIZE interpretAstInt
+  :: AstEnv (ADVal (Ast0 Double))
+  -> AstInt Double -> AstInt Double #-}
+{-# SPECIALIZE interpretAstInt
+  :: AstEnv (ADVal (Ast0 Float))
+  -> AstInt Float -> AstInt Float #-}
+{-# SPECIALIZE interpretAstInt
+  :: AstEnv Double
+  -> AstInt Double -> Int #-}
+{-# SPECIALIZE interpretAstInt
+  :: AstEnv Float
+  -> AstInt Float -> Int #-}
+
+{-# SPECIALIZE interpretAstBool
+  :: AstEnv (ADVal Double)
+  -> AstBool Double -> Bool #-}
+{-# SPECIALIZE interpretAstBool
+  :: AstEnv (ADVal Float)
+  -> AstBool Float -> Bool #-}
+{-# SPECIALIZE interpretAstBool
+  :: AstEnv (ADVal (Ast0 Double))
+  -> AstBool Double -> AstBool Double #-}
+{-# SPECIALIZE interpretAstBool
+  :: AstEnv (ADVal (Ast0 Float))
+  -> AstBool Float -> AstBool Float #-}
+{-# SPECIALIZE interpretAstBool
+  :: AstEnv Double
+  -> AstBool Double -> Bool #-}
+{-# SPECIALIZE interpretAstBool
+  :: AstEnv Float
+  -> AstBool Float -> Bool #-}
+
+{-# SPECIALIZE interpretAstDynamic
+  :: AstEnv (ADVal Double)
+  -> AstDynamic Double -> DynamicTensor (ADVal Double) #-}
+{-# SPECIALIZE interpretAstDynamic
+  :: AstEnv (ADVal Float)
+  -> AstDynamic Float -> DynamicTensor (ADVal Float) #-}
+{-# SPECIALIZE interpretAstDynamic
+  :: AstEnv (ADVal (Ast0 Double))
+  -> AstDynamic Double -> DynamicTensor (ADVal (Ast0 Double)) #-}
+{-# SPECIALIZE interpretAstDynamic
+  :: AstEnv (ADVal (Ast0 Float))
+  -> AstDynamic Float -> DynamicTensor (ADVal (Ast0 Float)) #-}
+{-# SPECIALIZE interpretAstDynamic
+  :: AstEnv Double
+  -> AstDynamic Double -> DynamicTensor Double #-}
+{-# SPECIALIZE interpretAstDynamic
+  :: AstEnv Float
+  -> AstDynamic Float -> DynamicTensor Float #-}
