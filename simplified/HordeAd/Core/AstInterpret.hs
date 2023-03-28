@@ -7,8 +7,8 @@
 -- (and safely impure) API in "HordeAd.Core.DualClass". The other part
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.AstInterpret
-  ( InterpretAst(..), AstEnv, AstVar(..)
-  , extendEnvR
+  ( InterpretAst, interpretAst, interpretAstDynamic
+  , AstEnv, AstVar(..), extendEnvR
   ) where
 
 import Prelude hiding ((<*))
@@ -105,22 +105,7 @@ instance Evidence Double where
 instance Evidence Float where
   ev _ = (Refl, Dict, Dict, Dict)
 
-class InterpretAst a where
-  interpretAst
-    :: KnownNat n
-    => AstEnv a -> Ast n (ScalarOf a) -> TensorOf n a
-  interpretAstDynamic
-    :: AstEnv a -> AstDynamic (ScalarOf a) -> DynamicTensor a
-
-instance Evidence a => InterpretAst a where
- interpretAst
-   :: KnownNat n
-   => AstEnv a -> Ast n (ScalarOf a) -> TensorOf n a
- interpretAst = interpretAstRec
-
- interpretAstDynamic
-   :: AstEnv a -> AstDynamic (ScalarOf a) -> DynamicTensor a
- interpretAstDynamic = interpretAstDynamicRec
+type InterpretAst a = Evidence a
 
 -- TODO: the following is false. Make it true.
 -- Note that this uses the @Primal a@ instance of @InterpretAst@,
@@ -131,55 +116,55 @@ interpretAstPrimal
   => AstEnv a
   -> AstPrimalPart n (ScalarOf a) -> TensorOf n (Primal a)
 interpretAstPrimal env (AstPrimalPart v) =
-  tprimalPart $ interpretAstRec env v
--- interpretAstRec @n @(Primal a) (IM.map tprimalPart env) v
+  tprimalPart $ interpretAst env v
+-- interpretAst @n @(Primal a) (IM.map tprimalPart env) v
 -- TODO: but both Dual and AstEnv are strict, so in both cases
 -- we can't avoid wasted computation. Benchmark lazy AstEnv
 -- once we have tests with many vars.
 -- TODO: constrain types (we are down one level here) and then special case
    -- AstBuild1 k (var, AstConstant v) ->
 
-interpretAstRec
+interpretAst
   :: forall n a. (KnownNat n, Evidence a)
   => AstEnv a
   -> Ast n (ScalarOf a) -> TensorOf n a
-interpretAstRec env | (_, Dict, _, _) <- ev @a @n Proxy = \case
+interpretAst env | (_, Dict, _, _) <- ev @a @n Proxy = \case
   AstVar _sh (AstVarName var) -> case IM.lookup var env of
     Just (AstVarR d) -> tfromD d
     Just AstVarI{} ->
-      error $ "interpretAstRec: type mismatch for Var" ++ show var
-    Nothing -> error $ "interpretAstRec: unknown variable Var" ++ show var
+      error $ "interpretAst: type mismatch for Var" ++ show var
+    Nothing -> error $ "interpretAst: unknown variable Var" ++ show var
   AstOp opCode args ->
-    interpretAstOp (interpretAstRec env) opCode args
+    interpretAstOp (interpretAst env) opCode args
   AstConst a -> tconst a
   AstConstant a -> tconstant $ interpretAstPrimal env a
   AstConstInt i -> tfromIndex0 $ interpretAstInt env i
   AstIndexZ v is ->
-    tindex (interpretAstRec env v) (fmap (interpretAstInt env) is)
+    tindex (interpretAst env v) (fmap (interpretAstInt env) is)
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
   AstSum v@(AstOp TimesOp [t, u]) ->
     case sameNat (Proxy @n) (Proxy @0) of
-      Just Refl -> tdot0 (interpretAstRec env t) (interpretAstRec env u)
+      Just Refl -> tdot0 (interpretAst env t) (interpretAst env u)
         -- TODO: do as a term rewrite using an extended set of terms?
-      _ -> tsum (interpretAstRec env v)
-  AstSum v -> tsum (interpretAstRec env v)
+      _ -> tsum (interpretAst env v)
+  AstSum v -> tsum (interpretAst env v)
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
     -- is cheaper, too
   AstScatter sh v (vars, ix) ->
-    tscatter sh (interpretAstRec env v)
+    tscatter sh (interpretAst env v)
                 (interpretLambdaIndexToIndex interpretAstInt env (vars, ix))
-  AstFromList l -> tfromList (map (interpretAstRec env) l)
-  AstFromVector l -> tfromVector (V.map (interpretAstRec env) l)
-  AstKonst k v -> tkonst k (interpretAstRec env v)
-  AstAppend x y -> tappend (interpretAstRec env x) (interpretAstRec env y)
-  AstSlice i k v -> tslice i k (interpretAstRec env v)
-  AstReverse v -> treverse (interpretAstRec env v)
-  AstTranspose perm v -> ttranspose perm $ interpretAstRec env v
-  AstReshape sh v -> treshape sh (interpretAstRec env v)
+  AstFromList l -> tfromList (map (interpretAst env) l)
+  AstFromVector l -> tfromVector (V.map (interpretAst env) l)
+  AstKonst k v -> tkonst k (interpretAst env v)
+  AstAppend x y -> tappend (interpretAst env x) (interpretAst env y)
+  AstSlice i k v -> tslice i k (interpretAst env v)
+  AstReverse v -> treverse (interpretAst env v)
+  AstTranspose perm v -> ttranspose perm $ interpretAst env v
+  AstReshape sh v -> treshape sh (interpretAst env v)
   AstBuild1 0 (_, v) -> tfromList0N (0 :$ tshape v) []
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
@@ -190,10 +175,10 @@ interpretAstRec env | (_, Dict, _, _) <- ev @a @n Proxy = \case
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
   AstBuild1 k (var, v) ->
-    tbuild1 k (interpretLambdaI interpretAstRec env (var, v))
+    tbuild1 k (interpretLambdaI interpretAst env (var, v))
     -- to be used only in tests
   AstGatherZ sh v (vars, ix) ->
-    tgather sh (interpretAstRec env v)
+    tgather sh (interpretAst env v)
                (interpretLambdaIndexToIndex interpretAstInt env (vars, ix))
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
@@ -206,7 +191,7 @@ interpretAstRec env | (_, Dict, _, _) <- ev @a @n Proxy = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
   AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
-                                (tdualPart $ interpretAstRec env u')
+                                (tdualPart $ interpretAst env u')
 
 interpretAstInt :: Evidence a
                 => AstEnv a
@@ -225,8 +210,8 @@ interpretAstInt env = \case
   AstIntCond b a1 a2 -> ifB (interpretAstBool env b)
                             (interpretAstInt env a1)
                             (interpretAstInt env a2)
-  AstMinIndex1 v -> tminIndex0 $ interpretAstRec env v
-  AstMaxIndex1 v -> tmaxIndex0 $ interpretAstRec env v
+  AstMinIndex1 v -> tminIndex0 $ interpretAst env v
+  AstMaxIndex1 v -> tmaxIndex0 $ interpretAst env v
 
 interpretAstBool :: forall a. Evidence a
                  => AstEnv a
@@ -242,14 +227,14 @@ interpretAstBool env = \case
     let f = interpretAstInt env
     in interpretAstRelOp f opCodeRel args
 
-interpretAstDynamicRec
+interpretAstDynamic
   :: Evidence a
   => AstEnv a
   -> AstDynamic (ScalarOf a) -> DynamicTensor a
-interpretAstDynamicRec env = \case
+interpretAstDynamic env = \case
   AstDynamicDummy -> error "interpretAstDynamic: AstDynamicDummy"
   AstDynamicPlus v u ->
-    interpretAstDynamicRec env v `taddD` interpretAstDynamicRec env u
+    interpretAstDynamic env v `taddD` interpretAstDynamic env u
   AstDynamicFrom w -> tfromR $ interpretAst env w
 
 interpretAstOp :: RealFloat b
