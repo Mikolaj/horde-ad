@@ -87,6 +87,7 @@ build1V k (var, v00) =
   in case v0 of
     AstVar{} ->
       error "build1V: AstVar can't have free int variables"
+    AstLet{} -> error "TODO"
 
     AstOp opCode args -> traceRule $
       AstOp opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args

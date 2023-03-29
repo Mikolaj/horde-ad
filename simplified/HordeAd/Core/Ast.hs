@@ -54,6 +54,9 @@ type AstVarList n = SizedList n (AstVarName Int)
 data Ast :: Nat -> Type -> Type where
   -- To permit defining objective functions in Ast, not just constants:
   AstVar :: ShapeInt n -> AstVarName (TensorOf n r) -> Ast n r
+  AstLet :: KnownNat n
+         => AstVarName (TensorOf n r) -> Ast n r -> Ast m r
+         -> Ast m r
 
   -- For the numeric classes:
   AstOp :: OpCode -> [Ast n r] -> Ast n r
@@ -427,6 +430,7 @@ shapeAst :: forall n r. (KnownNat n, Show r, Numeric r)
          => Ast n r -> ShapeInt n
 shapeAst v1 = case v1 of
   AstVar sh _var -> sh
+  AstLet _ _ v -> shapeAst v
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
@@ -472,6 +476,7 @@ lengthAst v1 = case shapeAst v1 of
 intVarInAst :: AstVarName Int -> Ast n r -> Bool
 intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
+  AstLet _ u v -> intVarInAst var u || intVarInAst var v
   AstOp _ l -> any (intVarInAst var) l
   AstConst{} -> False
   AstConstant (AstPrimalPart v) -> intVarInAst var v
@@ -522,6 +527,8 @@ substitute1Ast :: (Show r, Numeric r)
                => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
 substitute1Ast i var v1 = case v1 of
   AstVar _sh _var -> v1
+  AstLet varFloat u v ->
+    AstLet varFloat (substitute1Ast i var u) (substitute1Ast i var v)
   AstOp opCode args -> AstOp opCode $ map (substitute1Ast i var) args
   AstConst _a -> v1
   AstConstant (AstPrimalPart a) ->

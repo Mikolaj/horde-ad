@@ -52,8 +52,10 @@ logistic :: forall r n.
          => TensorOf n r -> TensorOf n r
 logistic d =
   let sh = tshape d
-      y = recip (tkonst0N sh 1 + exp (- tprimalPart d))
-  in tD y (tScale @r (y * (tkonst0N sh 1 - y)) $ tdualPart d)
+      y0 = recip (tkonst0N sh 1 + exp (- tprimalPart d))
+  in tlet (tconstant y0)  -- we don't have tletPrimal
+     $ \y1 -> let y = tprimalPart y1
+              in tD y (tScale @r (y * (tkonst0N sh 1 - y)) $ tdualPart d)
 
 -- TODO: and especially here try a faster approach
 logistic0 :: (Tensor r, Tensor (Primal r), Floating (TensorOf 0 (Primal r)))
@@ -122,5 +124,5 @@ softMaxV :: ( Tensor r, KnownNat n
             , Floating (TensorOf n r), Fractional (TensorOf 0 r) )
          => TensorOf n r -> TensorOf n r
 softMaxV d =
-  let expU = exp d  -- shared in 2 places, though cse may do this for us
-  in tkonst0N (tshape d) (recip $ tsum0 expU) * expU
+  let expU0 = exp d
+  in tlet expU0 $ \expU -> tkonst0N (tshape d) (recip $ tsum0 expU) * expU

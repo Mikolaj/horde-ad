@@ -52,6 +52,11 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   type TensorOf (n :: Nat) r = result | result -> n r
   type IntOf r
 
+  tlet :: KnownNat n
+       => TensorOf n r -> (TensorOf n r -> TensorOf m r)
+       -> TensorOf m r
+  tlet a f = f a
+
   -- Integer codomain
   tshape :: KnownNat n => TensorOf n r -> ShapeInt n
   trank :: forall n. KnownNat n => TensorOf n r -> Int

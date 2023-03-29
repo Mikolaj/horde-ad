@@ -210,6 +210,7 @@ simplifyStepNonIndex
   => Ast n r -> Ast n r
 simplifyStepNonIndex t = case t of
   AstVar{} -> t
+  AstLet{} -> t
   AstOp{} -> t
   AstConst{} -> t
   AstConstant v -> astConstant v
@@ -275,6 +276,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
      astGather = if stepOnly then astGatherStep else astGatherZ
  in case v0 of
   AstVar{} -> AstIndexZ v0 ix
+  AstLet var u v -> AstLet var u (astIndexRec v ix)
   AstOp opCode args ->
     AstOp opCode (map (`astIndexRec` ix) args)
   AstConst t ->
@@ -325,7 +327,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     in astIndex v (ii :. rest1)
   AstReverse v ->
     let iRev = simplifyAstInt (AstIntOp MinusIntOp
-                                         [AstIntConst (lengthAst v - 1), i1])
+                                        [AstIntConst (lengthAst v - 1), i1])
     in astIndex v (iRev :. rest1)
   AstTranspose perm v | valueOf @m >= length perm ->
     astIndex v (permutePrefixIndex perm ix)
@@ -605,6 +607,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 (_, ZI) = astKonstN sh4 v4  -- not really possible
   astGatherCase sh4 v4 (vars4, ix4@(i4 :. rest4)) = case v4 of
     AstVar{} -> AstGatherZ sh4 v4 (vars4, ix4)
+    AstLet var u v -> AstLet var u (astGatherCase sh4 v (vars4, ix4))
     AstOp opCode args ->
       AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     AstConst{} ->  -- free variables possible, so can't compute the tensor
@@ -826,6 +829,7 @@ simplifyAst
   => Ast n r -> Ast n r
 simplifyAst t = case t of
   AstVar{} -> t
+  AstLet var u v -> AstLet var (simplifyAst u) (simplifyAst v)
   AstOp opCode args -> AstOp opCode (map simplifyAst args)
     -- We do not simplify, e.g., addition or multiplication by zero.
     -- There are too many cases and values are often unknown.

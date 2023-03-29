@@ -27,6 +27,8 @@ instance (Num (Vector r), Show r, Numeric r)
   type TensorOf n (Ast0 r) = Ast n r
   type IntOf (Ast0 r) = AstInt r
 
+  tlet a f = astLetFun a f
+
   tshape = shapeAst
   tminIndex0 = AstMinIndex1
   tmaxIndex0 = AstMaxIndex1
@@ -46,7 +48,7 @@ instance (Num (Vector r), Show r, Numeric r)
   treverse = AstReverse
   ttranspose = AstTranspose
   treshape = astReshape
-  tbuild1 = astBuild1
+  tbuild1 = astBuild1Fun
   tgather sh t f = AstGatherZ sh t (funToAstIndex f)  -- introduces new vars
 
   tscalar = unAst0
@@ -76,20 +78,31 @@ instance (Num (Vector r), Show r, Numeric r)
   tfromR = AstDynamicFrom
   tfromD = astFromDynamic
 
+astLetFun :: (KnownNat n, Show r, Numeric r, Num (Vector r))
+          => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
+astLetFun a f =
+  let sh = tshape a
+      (var, ast) = funToAstR sh f
+  in AstLet var a ast
+
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
 -- Due to how the Ast instance of Tensor is defined above, vectorization
 -- works bottom-up, which removes the need to backtrack in the vectorization
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
-astBuild1 :: (KnownNat n, Show r, Numeric r, Num (Vector r))
-          => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
-astBuild1 k f = build1Vectorize k $ funToAstI f
+astBuild1Fun :: (KnownNat n, Show r, Numeric r, Num (Vector r))
+             => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
+astBuild1Fun k f = build1Vectorize k $ funToAstI f
 
 instance (Num (Vector r), Show r, Numeric r)
          => Tensor (AstPrimalPart 0 r) where
   type TensorOf n (AstPrimalPart 0 r) = AstPrimalPart n r
   type IntOf (AstPrimalPart 0 r) = AstInt r
+
+  tlet a f =
+    AstPrimalPart
+    $ astLetFun (unAstPrimalPart a) (unAstPrimalPart . f . AstPrimalPart)
 
   tshape = shapeAst . unAstPrimalPart
   tminIndex0 = AstMinIndex1 . unAstPrimalPart

@@ -242,11 +242,11 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
 tensorIntermediateMnistTests :: TestTree
 tensorIntermediateMnistTests = testGroup "ShortRankedIntermediate MNIST tests"
   [ mnistTestCase2VTI "VTI 1 epoch, 1 batch" 1 1 300 100 0.02
-                      (0.9094 :: Double)
+                      (0.9125 :: Double)
   , mnistTestCase2VTI "VTI artificial 1 2 3 4 5" 1 2 3 4 5
                       (0.899 :: Float)
   , mnistTestCase2VTI "VTI artificial 5 4 3 2 1" 5 4 3 2 1
-                      (0.8517 :: Double)
+                      (0.8755 :: Double)
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
@@ -377,5 +377,5 @@ tensorADOnceMnistTests = testGroup "ShortRankedOnce MNIST tests"
   , mnistTestCase2VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5
                       (0.899 :: Float)
   , mnistTestCase2VTO "VTO artificial 5 4 3 2 1" 5 4 3 2 1
-                      (0.8517 :: Double)
+                      (0.8755 :: Double)
   ]

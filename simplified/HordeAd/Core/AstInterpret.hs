@@ -134,6 +134,8 @@ interpretAst env | (_, Dict, _, _) <- ev @a @n Proxy = \case
     Just AstVarI{} ->
       error $ "interpretAst: type mismatch for Var" ++ show var
     Nothing -> error $ "interpretAst: unknown variable Var" ++ show var
+  AstLet (AstVarName var) u v ->
+    interpretAst (IM.insert var (AstVarR $ tfromR $ interpretAst env u) env) v
   AstOp opCode args ->
     interpretAstOp (interpretAst env) opCode args
   AstConst a -> tconst a

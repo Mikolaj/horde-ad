@@ -17,7 +17,7 @@ sumTrainableInputsL
   :: forall r. Tensor r
   => TensorOf 1 r -> [TensorOf 1 r]
   -> TensorOf 1 r
-sumTrainableInputsL x weights =
+sumTrainableInputsL x0 weights = tlet x0 $ \x ->
   let f :: TensorOf 1 r -> TensorOf 0 r
       f v = v `tdot0` x
   in tfromList $ map f weights
