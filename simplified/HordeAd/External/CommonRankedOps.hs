@@ -50,7 +50,7 @@ logistic :: forall r n.
             ( Tensor r, Tensor (Primal r), KnownNat n
             , Floating (TensorOf n (Primal r)) )
          => TensorOf n r -> TensorOf n r
-logistic d =
+logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
   let sh = tshape d
       y0 = recip (tkonst0N sh 1 + exp (- tprimalPart d))
   in tlet (tconstant y0)  -- we don't have tletPrimal
