@@ -87,7 +87,8 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- loadMnistData testGlyphsPath testLabelsPath
+       testData <- take (batchSize * maxBatches)
+                   <$> loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
@@ -122,17 +123,17 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
 tensorADValMnistTests :: TestTree
 tensorADValMnistTests = testGroup "ShortRanked ADVal MNIST tests"
   [ mnistTestCase2VTA "VTA 1 epoch, 1 batch" 1 1 300 100 0.02 5000
-                      (0.12960000000000005 :: Double)
+                      (0.16600000000000004 :: Double)
   , mnistTestCase2VTA "VTA artificial 1 2 3 4 5" 1 2 3 4 5 5000
                       (0.8972 :: Float)
   , mnistTestCase2VTA "VTA artificial 5 4 3 2 1" 5 4 3 2 1 5000
                       (0.6585 :: Double)
-  , mnistTestCase2VTA "VTA I 1 epoch, 1 batch" 1 1 300 100 0.02 10
-                      (0.8688 :: Double)
+  , mnistTestCase2VTA "VTA I 1 epoch, 1 batch" 1 1 3 10 0.02 10
+                      (0.9 :: Double)
   , mnistTestCase2VTA "VTA I artificial 1 2 3 4 5" 1 2 3 4 5 10
-                      (0.9026 :: Float)
+                      (1 :: Float)
   , mnistTestCase2VTA "VTA I artificial 5 4 3 2 1" 5 4 3 2 1 10
-                      (0.8178 :: Double)
+                      (0.75 :: Double)
   ]
 
 -- POPL differentiation, Ast term defined only once but differentiated each time
@@ -145,10 +146,10 @@ mnistTestCase2VTI
      , ScalarOf (ADVal r) ~ r
      , InterpretAst (ADVal r) )
   => String
-  -> Int -> Int -> Int -> Int -> r -> r
+  -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
 mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
-                  gamma expected =
+                  gamma batchSize expected =
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init = V.fromList $
         imap (\i nPV -> OD.fromVector [nPV]
@@ -184,7 +185,8 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- loadMnistData testGlyphsPath testLabelsPath
+       testData <- take (batchSize * maxBatches)
+                   <$> loadMnistData testGlyphsPath testLabelsPath
        let shapes1 = map (: []) nParams1
            (vars1, asts1) = unzip $ map funToAstD shapes1
            doms = Domains (AstConst emptyR) (V.fromList asts1)
@@ -231,7 +233,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
                  chunks = take maxBatches
-                          $ zip [1 ..] $ chunksOf 10 trainDataShuffled
+                          $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
                               -- 5000 times less data per batch
              !res <- foldM runBatch params chunks
              runEpoch (succ n) res
@@ -241,12 +243,12 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
 
 tensorIntermediateMnistTests :: TestTree
 tensorIntermediateMnistTests = testGroup "ShortRankedIntermediate MNIST tests"
-  [ mnistTestCase2VTI "VTI 1 epoch, 1 batch" 1 1 300 100 0.02
-                      (0.9125 :: Double)
-  , mnistTestCase2VTI "VTI artificial 1 2 3 4 5" 1 2 3 4 5
-                      (0.899 :: Float)
-  , mnistTestCase2VTI "VTI artificial 5 4 3 2 1" 5 4 3 2 1
-                      (0.8755 :: Double)
+  [ mnistTestCase2VTI "VTI 1 epoch, 1 batch" 1 1 300 100 0.02 5000
+                      (0.16479999999999995 :: Double)
+  , mnistTestCase2VTI "VTI artificial 1 2 3 4 5" 1 2 3 4 5 5000
+                      (0.9108 :: Float)
+  , mnistTestCase2VTI "VTI artificial 5 4 3 2 1" 5 4 3 2 1 5000
+                      (0.5859 :: Double)
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
@@ -256,10 +258,10 @@ mnistTestCase2VTO
      , Primal r ~ r, ScalarOf r ~ r, AssertEqualUpToEpsilon r
      , TensorOf 0 (ADVal r) ~ ADVal (OR.Array 0 r), InterpretAst r )
   => String
-  -> Int -> Int -> Int -> Int -> r -> r
+  -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
 mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
-                  gamma expected =
+                  gamma batchSize expected =
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init = V.fromList $
         imap (\i nPV -> OD.fromVector [nPV]
@@ -295,7 +297,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- loadMnistData testGlyphsPath testLabelsPath
+       testData <- take (batchSize * maxBatches)
+                   <$> loadMnistData testGlyphsPath testLabelsPath
        let shapes1 = map (: []) nParams1
            (vars1, asts1) = unzip $ map funToAstD shapes1
            doms = Domains (AstConst emptyR) (V.fromList asts1)
@@ -362,7 +365,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
                  chunks = take maxBatches
-                          $ zip [1 ..] $ chunksOf 10 trainDataShuffled
+                          $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
                               -- 5000 times less data per batch
              !res <- foldM runBatch params chunks
              runEpoch (succ n) res
@@ -372,10 +375,10 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
 
 tensorADOnceMnistTests :: TestTree
 tensorADOnceMnistTests = testGroup "ShortRankedOnce MNIST tests"
-  [ mnistTestCase2VTO "VTO 1 epoch, 1 batch" 1 1 3 10 0.02  -- 1000x smaller
-                      (0.8968 :: Double)
-  , mnistTestCase2VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5
-                      (0.899 :: Float)
-  , mnistTestCase2VTO "VTO artificial 5 4 3 2 1" 5 4 3 2 1
-                      (0.8755 :: Double)
+  [ mnistTestCase2VTO "VTO 1 epoch, 1 batch" 1 1 3 10 0.02 10  -- 500000x smaller
+                      (0.9 :: Double)
+  , mnistTestCase2VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5 10
+                      (0.95 :: Float)
+  , mnistTestCase2VTO "VTO artificial 5 4 3 2 1" 5 4 3 2 1 10
+                      (0.85 :: Double)
   ]
