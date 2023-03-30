@@ -45,10 +45,9 @@ extendEnvR v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstVarR $ tfromR d)
 
-extendEnvI :: AstVarName Int -> IntOf a
-           -> AstEnv a -> AstEnv a
-extendEnvI v@(AstVarName var) i =
-  EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show v)
+extendEnvI :: AstVarId -> IntOf a -> AstEnv a -> AstEnv a
+extendEnvI var i =
+  EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
                    var (AstVarI i)
 
 extendEnvVars :: AstVarList m -> IndexOf m a
@@ -58,9 +57,7 @@ extendEnvVars vars ix env =
   in foldr (uncurry extendEnvI) env assocs
 
 interpretLambdaI
-  :: (AstEnv c -> a -> b)
-  -> AstEnv c -> (AstVarName Int, a) -> IntOf c
-  -> b
+  :: (AstEnv c -> a -> b) -> AstEnv c -> (AstVarId, a) -> IntOf c -> b
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env (var, ast) =
   \i -> f (extendEnvI var i env) ast
@@ -199,7 +196,7 @@ interpretAstInt :: Evidence a
                 => AstEnv a
                 -> AstInt (ScalarOf a) -> IntOf (Primal a)
 interpretAstInt env = \case
-  AstIntVar (AstVarName var) -> case EM.lookup var env of
+  AstIntVar var -> case EM.lookup var env of
     Just AstVarR{} ->
       error $ "interpretAstInt: type mismatch for Var" ++ show var
     Just (AstVarI i) -> i

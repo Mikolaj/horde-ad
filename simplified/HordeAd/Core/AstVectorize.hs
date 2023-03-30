@@ -31,7 +31,7 @@ import HordeAd.Internal.SizedList
 -- the total number of @AstBuild1@ occuring in the term.
 build1Vectorize
   :: (KnownNat n, Show r, Numeric r, Num (Vector r))
-  => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+  => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
 build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
@@ -64,7 +64,7 @@ astTr = AstTranspose [1, 0]
 -- @var@ occurs in @v@.
 build1VOccurenceUnknown
   :: (KnownNat n, Show r, Numeric r, Num (Vector r))
-  => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+  => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
 build1VOccurenceUnknown k (var, v0) =
   let traceRule = mkTraceRule "build1VOcc" (AstBuild1 k (var, v0)) v0 1
   in if intVarInAst var v0
@@ -77,7 +77,7 @@ build1VOccurenceUnknown k (var, v0) =
 -- @var@ occurs in @v@.
 build1V
   :: (KnownNat n, Show r, Numeric r, Num (Vector r))
-  => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+  => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
 build1V k (var, v00) =
   let v0 = simplifyStepNonIndex v00
       bv = AstBuild1 k (var, v0)
@@ -186,7 +186,7 @@ build1V k (var, v00) =
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r, Num (Vector r))
-  => Int -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
+  => Int -> (AstVarId, Ast (m + n) r, AstIndex m r)
   -> Ast (1 + n) r
 build1VIndex k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
 build1VIndex k (var, v0, ix@(_ :. _)) =

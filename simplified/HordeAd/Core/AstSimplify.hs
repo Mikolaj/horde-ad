@@ -90,23 +90,22 @@ unsafeAstVarCounter = unsafePerformIO (newCounter 1)
 resetVarCOunter :: IO ()
 resetVarCOunter = writeIORefU unsafeAstVarCounter 1000
 
-unsafeGetFreshAstVar :: IO (AstVarName a)
+unsafeGetFreshAstVar :: IO AstVarId
 {-# INLINE unsafeGetFreshAstVar #-}
-unsafeGetFreshAstVar = AstVarName . intToAstVarId
-                       <$> atomicAddCounter_ unsafeAstVarCounter 1
+unsafeGetFreshAstVar = intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
           -> (AstVarName (TensorOf n r), Ast m r)
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
+  freshAstVar <- AstVarName <$> unsafeGetFreshAstVar
   return (freshAstVar, f (AstVar sh freshAstVar))
 
 -- The "fun"ction in this case is fixed to be @id@.
 funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
 {-# NOINLINE funToAstD #-}
 funToAstD sh = unsafePerformIO $ do
-  AstVarName freshId <- unsafeGetFreshAstVar
+  freshId <- unsafeGetFreshAstVar
   return $! case someNatVal $ toInteger $ length sh of
     Just (SomeNat (_proxy :: Proxy p)) ->
       let shn = listShapeToShape @p sh
@@ -114,11 +113,11 @@ funToAstD sh = unsafePerformIO $ do
       in (AstDynamicVarName varName, AstDynamicFrom $ AstVar shn varName)
     Nothing -> error "funToAstD: impossible someNatVal error"
 
-funToAstI :: (AstInt r -> t) -> (AstVarName Int, t)
+funToAstI :: (AstInt r -> t) -> (AstVarId, t)
 {-# NOINLINE funToAstI #-}
 funToAstI f = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return (freshAstVar, f (AstIntVar freshAstVar))
+  freshId <- unsafeGetFreshAstVar
+  return (freshId, f (AstIntVar freshId))
 
 funToAstIndex :: forall m p r. KnownNat m
               => (AstIndex m r -> AstIndex p r) -> (AstVarList m, AstIndex p r)
@@ -765,7 +764,7 @@ astFromDynamic (AstDynamicFrom @n2 t) =
 -- matching on @i1@ as opposed to on @v@.
 gatherSimplify
   :: (KnownNat n, Show r, Numeric r)
-  => Int -> AstVarName Int -> Ast (1 + n) r -> AstInt r
+  => Int -> AstVarId -> Ast (1 + n) r -> AstInt r
   -> Maybe (Ast (1 + n) r)
 gatherSimplify k var v0 i1 =
   case i1 of
@@ -1070,13 +1069,13 @@ simplifyAstBoolOp opCodeBool arg = AstBoolOp opCodeBool arg
 
 -- We have to simplify after substitution or simplifying is not idempotent.
 substituteAst :: (Show r, Numeric r, KnownNat n, Num (Vector r))
-              => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
+              => AstInt r -> AstVarId -> Ast n r -> Ast n r
 substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
 
 substituteAstInt :: (Show r, Numeric r, Num (Vector r))
-                 => AstInt r -> AstVarName Int -> AstInt r -> AstInt r
+                 => AstInt r -> AstVarId -> AstInt r -> AstInt r
 substituteAstInt i var i2 = simplifyAstInt $ substitute1AstInt i var i2
 
 substituteAstBool :: (Show r, Numeric r, Num (Vector r))
-                  => AstInt r -> AstVarName Int -> AstBool r -> AstBool r
+                  => AstInt r -> AstVarId -> AstBool r -> AstBool r
 substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1

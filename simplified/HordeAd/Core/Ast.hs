@@ -38,7 +38,7 @@ import HordeAd.Internal.SizedList
 
 type AstIndex n r = Index n (AstInt r)
 
-type AstVarList n = SizedList n (AstVarName Int)
+type AstVarList n = SizedList n AstVarId
 
 -- We use here @ShapeInt@ for simplicity. @Shape n (AstInt r)@ gives
 -- more expressiveness, but leads to irregular tensors,
@@ -94,7 +94,7 @@ data Ast :: Nat -> Type -> Type where
              => ShapeInt m -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
   AstBuild1 :: KnownNat n
-            => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+            => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
     -- indicates a failure in vectorization, but may be recoverable later on
   AstGatherZ :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
              => ShapeInt (m + n) -> Ast (p + n) r
@@ -134,6 +134,10 @@ newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
 type instance Element (Ast0 r) = Ast0 r
 type instance Element (Ast n r) = Ast0 r
 
+-- We avoid adding a phantom type denoting the underlying scalar,
+-- because the type families over tensor ranks make quanitified constraints
+-- impossible and so the phantom type leads to passing explicit (and implicit)
+-- type equality proofs around.
 newtype AstVarId = AstVarId Int
  deriving (Eq, Show, Enum)
 
@@ -153,7 +157,7 @@ data AstDynamicVarName :: Type -> Type where
 
 -- The argument is the underlying scalar.
 data AstInt :: Type -> Type where
-  AstIntVar :: AstVarName Int -> AstInt r
+  AstIntVar :: AstVarId -> AstInt r
   AstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
   AstIntConst :: Int -> AstInt r
   AstIntFloor :: AstPrimalPart 0 r -> AstInt r
@@ -473,7 +477,7 @@ lengthAst v1 = case shapeAst v1 of
 
 -- * Variable occurence detection
 
-intVarInAst :: AstVarName Int -> Ast n r -> Bool
+intVarInAst :: AstVarId -> Ast n r -> Bool
 intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
   AstLet _ u v -> intVarInAst var u || intVarInAst var v
@@ -499,7 +503,7 @@ intVarInAst var = \case
   AstD (AstPrimalPart u) (AstDualPart u') ->
     intVarInAst var u || intVarInAst var u'
 
-intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
+intVarInAstInt :: AstVarId -> AstInt r -> Bool
 intVarInAstInt var = \case
   AstIntVar var2 -> var == var2  -- the only int variable not in binder position
   AstIntOp _ l -> any (intVarInAstInt var) l
@@ -510,21 +514,21 @@ intVarInAstInt var = \case
   AstMinIndex1 (AstPrimalPart v) -> intVarInAst var v
   AstMaxIndex1 (AstPrimalPart v) -> intVarInAst var v
 
-intVarInAstBool :: AstVarName Int -> AstBool r -> Bool
+intVarInAstBool :: AstVarId -> AstBool r -> Bool
 intVarInAstBool var = \case
   AstBoolOp _ l -> any (intVarInAstBool var) l
   AstBoolConst{} -> False
   AstRel _ l -> any (intVarInAst var . unAstPrimalPart) l
   AstRelInt _ l  -> any (intVarInAstInt var) l
 
-intVarInIndex :: AstVarName Int -> AstIndex n r -> Bool
+intVarInIndex :: AstVarId -> AstIndex n r -> Bool
 intVarInIndex var = any (intVarInAstInt var)
 
 
 -- * Substitution
 
 substitute1Ast :: (Show r, Numeric r)
-               => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
+               => AstInt r -> AstVarId -> Ast n r -> Ast n r
 substitute1Ast i var v1 = case v1 of
   AstVar _sh _var -> v1
   AstLet varFloat u v ->
@@ -564,7 +568,7 @@ substitute1Ast i var v1 = case v1 of
          (AstDualPart $ substitute1Ast i var u')
 
 substitute1AstInt :: (Show r, Numeric r)
-                  => AstInt r -> AstVarName Int -> AstInt r -> AstInt r
+                  => AstInt r -> AstVarId -> AstInt r -> AstInt r
 substitute1AstInt i var i2 = case i2 of
   AstIntVar var2 -> if var == var2 then i else i2
   AstIntOp opCodeInt args ->
@@ -581,7 +585,7 @@ substitute1AstInt i var i2 = case i2 of
     AstMaxIndex1 $ AstPrimalPart $ substitute1Ast i var v
 
 substitute1AstBool :: (Show r, Numeric r)
-                   => AstInt r -> AstVarName Int -> AstBool r -> AstBool r
+                   => AstInt r -> AstVarId -> AstBool r -> AstBool r
 substitute1AstBool i var b1 = case b1 of
   AstBoolOp opCodeBool args ->
     AstBoolOp opCodeBool $ map (substitute1AstBool i var) args
