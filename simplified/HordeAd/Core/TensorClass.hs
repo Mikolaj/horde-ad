@@ -73,7 +73,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tmaxIndex0 :: TensorOf 1 r -> IntOf r  -- partial
   tmaxIndex :: KnownNat n => TensorOf n r -> IndexOf n r
   tmaxIndex t = fromLinearIdx (tshape t) (tmaxIndex0 (tflatten t))
-  tfloor :: RealFrac r => TensorOf 0 r -> IntOf r
+  tfloor :: TensorOf 0 r -> IntOf r
   default tfloor  -- a more narrow type to rule out Ast
     :: (IntOf r ~ Int, RealFrac r) => TensorOf 0 r -> IntOf r
   tfloor = floor . tunScalar
@@ -106,7 +106,6 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tfromIndex0 = tscalar . fromIntegral
   tfromIndex1 :: IndexOf n r -> TensorOf 1 r
   tfromIndex1 = tfromList . map tfromIndex0 . indexToList
-  -- TODO: scatter doesn't yet vectorize, so it's only for internal use
   tscatter :: (KnownNat m, KnownNat n, KnownNat p)
            => ShapeInt (p + n) -> TensorOf (m + n) r
            -> (IndexOf m r -> IndexOf p r)

@@ -26,7 +26,6 @@ import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
-import HordeAd.Internal.TensorOps
 
 type ADTensor r =
   ( IsPrimal r
@@ -42,26 +41,22 @@ instance (Num (Vector r), Numeric r, Show r)
          => IfB (ADVal (Ast0 r)) where
   ifB b v w = tunScalar $ ifB b (tscalar v) (tscalar w)
 
--- Not that this instance doesn't do vectorization. To enable it,
--- use the Ast instance, which vectorizes and finally interpret in ADVal.
--- In principle, this instance is only useful for comparative tests,
--- though for code without build/map/etc., it should be equivalent
--- to going via Ast.
+-- We should really only have one @ADVal r@ instance, but typing problems caused
+-- by ranks (and probably too strict injectivity checks) make us copy the code.
+-- Not that these instances don't do vectorization. To enable it,
+-- use the Ast instance and only then interpret in ADVal.
+-- In any case, the first instances here are only used for tests.
+-- Only the @ADVal (Ast0 r)@ instance is used in the codebase,
+-- in particular, to satisfy the constraints needed for the interpretation
+-- of @Ast@ in @ADVal (Ast0 r)@.
 instance Tensor (ADVal Double) where
   type TensorOf n (ADVal Double) = ADVal (OR.Array n Double)
   type IntOf (ADVal Double) = Int
 
-  -- Here and elsewhere I can't use methods of the @r@ instance of @Tensor@
-  -- (the one implemented as @OR.Array n r@). Therefore, I inline them
-  -- manually. There is probably no solution to that (2 parameters to Tensor
-  -- would solve this, but we'd need infinitely many instances
-  -- for @ADVal (OR.Array n r)@ and @OR.Array n r@). As a workaround,
-  -- the methods are defined as calls to tensor functions provided elsewhere,
-  -- so there is no code duplication.
-  tshape = shape
-  tminIndex0 (D u _) = tminIndexR u
-  tmaxIndex0 (D u _) = tmaxIndexR u
-  tfloor (D u _) = floor $ tunScalarR u
+  tshape (D u _) = tshape u
+  tminIndex0 (D u _) = tminIndex0 u
+  tmaxIndex0 (D u _) = tmaxIndex0 u
+  tfloor (D u _) = tfloor u
 
   tindex = indexZ
   tsum = sum'
@@ -88,19 +83,19 @@ instance Tensor (ADVal Double) where
 
   type ScalarOf (ADVal Double) = Double
   type Primal (ADVal Double) = Double
-  type DualOf n (ADVal Double) = Dual (OR.Array n Double)
+  type DualOf n (ADVal Double) = Dual (TensorOf n Double)
   tconst t = dD t dZero
   tconstant t = dD t dZero
   tscale0 r (D u u') = dD (r * u) (dScale r u')
   tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
   tScale = dScale
-  tD u = dD u
+  tD = dD
   type DynamicTensor (ADVal Double) = ADVal (OD.Array Double)
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
-  tshapeD (D u _) = OD.shapeL u
+  tshapeD (D u _) = tshapeD u
   tfromR = fromR
   tfromD = fromD
 
@@ -108,10 +103,10 @@ instance Tensor (ADVal Float) where
   type TensorOf n (ADVal Float) = ADVal (OR.Array n Float)
   type IntOf (ADVal Float) = Int
 
-  tshape = shape
-  tminIndex0 (D u _) = tminIndexR u
-  tmaxIndex0 (D u _) = tmaxIndexR u
-  tfloor (D u _) = floor $ tunScalarR u
+  tshape (D u _) = tshape u
+  tminIndex0 (D u _) = tminIndex0 u
+  tmaxIndex0 (D u _) = tmaxIndex0 u
+  tfloor (D u _) = tfloor u
 
   tindex = indexZ
   tsum = sum'
@@ -138,20 +133,19 @@ instance Tensor (ADVal Float) where
 
   type ScalarOf (ADVal Float) = Float
   type Primal (ADVal Float) = Float
-  type DualOf n (ADVal Float) = Dual (OR.Array n Float)
+  type DualOf n (ADVal Float) = Dual (TensorOf n Float)
   tconst t = dD t dZero
   tconstant t = dD t dZero
   tscale0 r (D u u') = dD (r * u) (dScale r u')
   tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
   tScale = dScale
-  tD u = dD u
-  -- TODO: if ever used, define, if not, use an Error type
+  tD = dD
   type DynamicTensor (ADVal Float) = ADVal (OD.Array Float)
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
-  tshapeD (D u _) = OD.shapeL u
+  tshapeD (D u _) = tshapeD u
   tfromR = fromR
   tfromD = fromD
 
@@ -160,16 +154,16 @@ instance (ADTensor (Ast0 r), Numeric r, Show r, Num (Vector r))
   type TensorOf n (ADVal (Ast0 r)) = ADVal (Ast n r)
   type IntOf (ADVal (Ast0 r)) = AstInt r
 
-  tshape = shape @(Ast0 r)
-  tminIndex0 (D u _) = AstMinIndex1 $ AstPrimalPart u
-  tmaxIndex0 (D u _) = AstMaxIndex1 $ AstPrimalPart u
-  tfloor (D u _) = AstIntFloor $ AstPrimalPart u
+  tshape (D u _) = tshape u
+  tminIndex0 (D u _) = tminIndex0 u
+  tmaxIndex0 (D u _) = tmaxIndex0 u
+  tfloor (D u _) = tfloor u
 
   tindex = indexZ
   tsum = sum'
   tsum0 = tscalar . sum0
   tdot0 u v = tscalar $ dot0 u v
-  tfromIndex0 i = tconstant $ AstConstInt i
+  tfromIndex0 = tconstant . tfromIndex0
   tscatter = scatterNClosure
 
   tfromList = fromList
@@ -191,8 +185,8 @@ instance (ADTensor (Ast0 r), Numeric r, Show r, Num (Vector r))
 
   type ScalarOf (ADVal (Ast0 r)) = r
   type Primal (ADVal (Ast0 r)) = Ast0 r
-  type DualOf n (ADVal (Ast0 r)) = Dual (Ast n r)
-  tconst t = dD (AstConst t) dZero
+  type DualOf n (ADVal (Ast0 r)) = Dual (TensorOf n (Ast0 r))
+  tconst t = dD (tconst t) dZero
   tconstant t = dD t dZero
   tscale0 r (D u u') = dD (r * u) (dScale r u')
   tprimalPart (D u _) = u
@@ -209,10 +203,6 @@ instance (ADTensor (Ast0 r), Numeric r, Show r, Num (Vector r))
 
 
 -- * ADVal combinators generalizing ranked tensor operations
-
-shape :: (ADTensor r, KnownNat n)
-      => ADVal (TensorOf n r) -> ShapeInt n
-shape (D u _) = tshape u
 
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
 -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
