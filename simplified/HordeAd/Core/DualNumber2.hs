@@ -346,7 +346,7 @@ build1Closure
   => Int -> (Int -> ADVal d r) -> ADVal d (Vec r)
 build1Closure n f =
   let g i = let D u _ = f i in u
-      h i = let D _ u' = f i in u'
+      h i = let D _ u' = f $ fromIntegral i in u'
   in dD (OR.fromList [n] $ map g [0 .. n - 1])
         (dBuildR n (dScalarR . h))
 
@@ -379,7 +379,8 @@ foldl'0 :: ADModeAndNum d r
         -> ADVal d r
 foldl'0 f uu' (D v v') =
   let g !acc ix p =
-        f (dD p (dIndex0 v' (singletonIndex ix) (flattenShape (tshapeR v)))) acc
+        f (dD p (dIndex0 v' (singletonIndex $ fromIntegral ix)
+                            (flattenShape (tshapeR v)))) acc
   in V.ifoldl' g uu' (OR.toVector v)
 
 altSumElements10 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r

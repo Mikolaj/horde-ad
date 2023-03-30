@@ -20,6 +20,7 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, sameNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
@@ -372,10 +373,10 @@ interpretAstRelOp _ opCodeRel args =
 
 {-# SPECIALIZE interpretAstInt
   :: AstEnv (ADVal Double)
-  -> AstInt Double -> Int #-}
+  -> AstInt Double -> CInt #-}
 {-# SPECIALIZE interpretAstInt
   :: AstEnv (ADVal Float)
-  -> AstInt Float -> Int #-}
+  -> AstInt Float -> CInt #-}
 {-# SPECIALIZE interpretAstInt
   :: AstEnv (ADVal (Ast0 Double))
   -> AstInt Double -> AstInt Double #-}
@@ -384,10 +385,10 @@ interpretAstRelOp _ opCodeRel args =
   -> AstInt Float -> AstInt Float #-}
 {-# SPECIALIZE interpretAstInt
   :: AstEnv Double
-  -> AstInt Double -> Int #-}
+  -> AstInt Double -> CInt #-}
 {-# SPECIALIZE interpretAstInt
   :: AstEnv Float
-  -> AstInt Float -> Int #-}
+  -> AstInt Float -> CInt #-}
 
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal Double)

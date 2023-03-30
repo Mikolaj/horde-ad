@@ -21,6 +21,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Boolean
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
+import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
@@ -66,6 +67,21 @@ liftVS2 :: (Numeric r, OS.Shape sh)
         => (Vector r -> Vector r -> Vector r)
         -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
 liftVS2 op t u = OS.fromVector $ OS.toVector t `op` OS.toVector u
+
+type instance BooleanOf CInt = Bool
+
+instance IfB CInt where
+  ifB b v w = if b then v else w
+
+instance EqB CInt where
+  (==*) = (==)
+  (/=*) = (/=)
+
+instance OrdB CInt where
+  (<*) = (<)
+  (<=*) = (<=)
+  (>*) = (>)
+  (>=*) = (>=)
 
 type instance BooleanOf (OR.Array n r) = Bool
 

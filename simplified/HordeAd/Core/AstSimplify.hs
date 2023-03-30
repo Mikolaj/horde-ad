@@ -281,7 +281,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstOp opCode args ->
     AstOp opCode (map (`astIndexRec` ix) args)
   AstConst t ->
-    let unConst (AstIntConst i) (Just l) = Just $ i : l
+    let unConst (AstIntConst i) (Just l) = Just $ fromIntegral i : l
         unConst _ _ = Nothing
     in case foldr unConst (Just []) ix of
       Just ixInt -> AstConst $ tindexZR t $ listToIndex ixInt

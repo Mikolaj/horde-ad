@@ -19,6 +19,7 @@ import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 
@@ -75,7 +76,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tmaxIndex t = fromLinearIdx (tshape t) (tmaxIndex0 (tflatten t))
   tfloor :: TensorOf 0 r -> IntOf r
   default tfloor  -- a more narrow type to rule out Ast
-    :: (IntOf r ~ Int, RealFrac r) => TensorOf 0 r -> IntOf r
+    :: (IntOf r ~ CInt, RealFrac r) => TensorOf 0 r -> IntOf r
   tfloor = floor . tunScalar
 
   -- Typically scalar codomain, often tensor reduction
@@ -102,7 +103,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tmaximum t = t ! tmaxIndex t
   tfromIndex0 :: IntOf r -> TensorOf 0 r
   default tfromIndex0  -- the more narrow type rules out Ast
-    :: IntOf r ~ Int => IntOf r -> TensorOf 0 r
+    :: IntOf r ~ CInt => IntOf r -> TensorOf 0 r
   tfromIndex0 = tscalar . fromIntegral
   tfromIndex1 :: IndexOf n r -> TensorOf 1 r
   tfromIndex1 = tfromList . map tfromIndex0 . indexToList
@@ -340,7 +341,7 @@ type ADReady r =
 -- For vectorization, go through Ast and valueOnDomains.
 instance Tensor Double where
   type TensorOf n Double = OR.Array n Double
-  type IntOf Double = Int
+  type IntOf Double = CInt
   tshape = tshapeR
   tminIndex0 = tminIndexR
   tmaxIndex0 = tmaxIndexR
@@ -391,7 +392,7 @@ instance Tensor Double where
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
-  type IntOf Float = Int
+  type IntOf Float = CInt
   tshape = tshapeR
   tminIndex0 = tminIndexR
   tmaxIndex0 = tmaxIndexR

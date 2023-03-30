@@ -18,6 +18,7 @@ import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
@@ -51,7 +52,7 @@ instance (Num (Vector r), Numeric r, Show r)
 -- of @Ast@ in @ADVal (Ast0 r)@.
 instance Tensor (ADVal Double) where
   type TensorOf n (ADVal Double) = ADVal (OR.Array n Double)
-  type IntOf (ADVal Double) = Int
+  type IntOf (ADVal Double) = CInt
 
   tshape (D u _) = tshape u
   tminIndex0 (D u _) = tminIndex0 u
@@ -101,7 +102,7 @@ instance Tensor (ADVal Double) where
 
 instance Tensor (ADVal Float) where
   type TensorOf n (ADVal Float) = ADVal (OR.Array n Float)
-  type IntOf (ADVal Float) = Int
+  type IntOf (ADVal Float) = CInt
 
   tshape (D u _) = tshape u
   tminIndex0 (D u _) = tminIndex0 u

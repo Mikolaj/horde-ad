@@ -23,6 +23,7 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           Data.Proxy (Proxy (Proxy))
+import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
@@ -100,7 +101,7 @@ type ADNum r =
   , Tensor r
   , TensorOf 0 r ~ OR.Array 0 r
   , TensorOf 1 r ~ OR.Array 1 r
-  , IntOf r ~ Int
+  , IntOf r ~ CInt
   , DynamicTensor r ~ OD.Array r
   )
 

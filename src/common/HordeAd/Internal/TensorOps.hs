@@ -28,6 +28,7 @@ import qualified Data.Strict.Map as M
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
@@ -35,7 +36,7 @@ import qualified Numeric.LinearAlgebra as LA
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR)
 
-type IndexInt n = Index n Int
+type IndexInt n = Index n CInt
 
 dummyTensor :: Numeric r => OD.Array r
 dummyTensor =  -- an inconsistent tensor array
@@ -91,7 +92,7 @@ updateR :: (Numeric a, KnownNat n)
         => OR.Array n a -> [(IndexInt n, a)] -> OR.Array n a
 updateR arr upd = Data.Array.Convert.convert
                   $ OD.update (Data.Array.Convert.convert arr)
-                  $ map (first indexToList) upd
+                  $ map (first (map fromIntegral . indexToList)) upd
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
@@ -107,7 +108,7 @@ updateNR arr upd =
   in let sh = listShapeToShape shRaw
          f t (ix, u) =
            let v = OR.toVector u
-               i = toLinearIdx @m @n sh ix
+               i = fromIntegral $ toLinearIdx @m @n sh ix
            in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
      in OR.fromVector shRaw (foldl' f values upd)
 
@@ -139,16 +140,17 @@ tlengthR u = case OR.shapeL u of
 
 tminIndexR
   :: Numeric r
-  => OR.Array 1 r -> Int
-tminIndexR = LA.minIndex . OR.toVector
+  => OR.Array 1 r -> CInt
+tminIndexR = fromIntegral . LA.minIndex . OR.toVector
 
 tmaxIndexR
   :: Numeric r
-  => OR.Array 1 r -> Int
-tmaxIndexR = LA.maxIndex . OR.toVector
+  => OR.Array 1 r -> CInt
+tmaxIndexR = fromIntegral . LA.maxIndex . OR.toVector
 
-ixInBounds :: [Int] -> [Int] -> Bool
-ixInBounds ix sh = and $ zipWith (\i dim -> 0 <= i && i < dim) ix sh
+ixInBounds :: [CInt] -> [Int] -> Bool
+ixInBounds ix sh =
+  and $ zipWith (\i dim -> 0 <= i && i < fromIntegral dim) ix sh
 
 tindexNR
   :: forall m n r. (KnownNat m, Show r, Numeric r)
@@ -157,7 +159,7 @@ tindexNR v@(Data.Array.Internal.RankedS.A
               (Data.Array.Internal.RankedG.A sh
                  Data.Array.Internal.T{strides, offset, values})) ix =
   let l = indexToList ix
-      linear = offset + sum (zipWith (*) l strides)
+      linear = offset + sum (zipWith (*) (map fromIntegral l) strides)
       plen = valueOf @m  -- length of prefix being indexed out of
       !_A = assert (ixInBounds l sh `blame` (ix, sh, v)) ()
   in
@@ -178,8 +180,8 @@ tindexZR v ix =
 
 tindex1R
   :: Numeric r
-  => OR.Array (1 + n) r -> Int -> OR.Array n r
-tindex1R = OR.index
+  => OR.Array (1 + n) r -> CInt -> OR.Array n r
+tindex1R t i = OR.index t (fromIntegral i)
 
 -- TODO: optimize to tindex1R for n == 0
 tindex0R
@@ -188,7 +190,8 @@ tindex0R
 tindex0R (Data.Array.Internal.RankedS.A
             (Data.Array.Internal.RankedG.A _
                Data.Array.Internal.T{..})) ix =
-  values V.! (offset + sum (zipWith (*) (indexToList ix) strides))
+  values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
+                                        strides))
     -- to avoid linearizing @values@, we do everything in unsized way
 
 tsumR
@@ -299,15 +302,15 @@ tbuildNR sh0 f0 =
       buildSh (k :$ sh) f =
         let g i = buildSh sh (\ix -> f (i :. ix))
         in OR.ravel $ ORB.fromList [k]
-           $ map g [0 .. k - 1]
+           $ map g [0 .. fromIntegral k - 1]
   in buildSh (takeShape @m @n sh0) f0
 
 tbuild1R
   :: forall n r. (KnownNat n, Numeric r)
-  => Int -> (Int -> OR.Array n r) -> OR.Array (1 + n) r
+  => Int -> (CInt -> OR.Array n r) -> OR.Array (1 + n) r
 tbuild1R 0 _ = tfromListR []  -- if we applied f, we'd change strictness
 tbuild1R k f = OR.ravel $ ORB.fromList [k]
-               $ map f [0 .. k - 1]  -- hope this fuses
+               $ map f [0 .. fromIntegral k - 1]  -- hope this fuses
 
 tmap0NR
   :: Numeric r
@@ -333,15 +336,15 @@ tgatherNR sh t f =
   let shm = takeShape @m sh
       s = sizeShape shm
       l = [ OR.toVector $ t `tindexNR` f (fromLinearIdx shm i)
-          | i <- [0 .. s - 1] ]
+          | i <- [0 .. fromIntegral s - 1] ]
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
 tgather1R :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
-          => Int -> OR.Array (p + n) r -> (Int -> IndexInt p)
+          => Int -> OR.Array (p + n) r -> (CInt -> IndexInt p)
           -> OR.Array (1 + n) r
 tgather1R 0 t _ = OR.fromList (0 : drop (valueOf @p) (OR.shapeL t)) []
 tgather1R k t f =
-  let l = map (\i -> t `tindexNR` f i) [0 .. k - 1]
+  let l = map (\i -> t `tindexNR` f i) [0 .. fromIntegral k - 1]
   in OR.ravel $ ORB.fromList [k] l
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
@@ -358,15 +361,15 @@ tgatherZR sh t f =
   let shm = takeShape @m sh
       s = sizeShape shm
       l = [ OR.toVector $ t `tindexZR` f (fromLinearIdx shm i)
-          | i <- [0 .. s - 1] ]
+          | i <- [0 .. fromIntegral s - 1] ]
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
 tgatherZ1R :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
-           => Int -> OR.Array (p + n) r -> (Int -> IndexInt p)
+           => Int -> OR.Array (p + n) r -> (CInt -> IndexInt p)
            -> OR.Array (1 + n) r
 tgatherZ1R 0 t _ = OR.fromList (0 : drop (valueOf @p) (OR.shapeL t)) []
 tgatherZ1R k t f =
-  let l = map (\i -> t `tindexZR` f i) [0 .. k - 1]
+  let l = map (\i -> t `tindexZR` f i) [0 .. fromIntegral k - 1]
   in OR.ravel $ ORB.fromList [k] l
 
 -- Performance depends a lot on the number and size of tensors.
@@ -393,22 +396,24 @@ tscatterZR sh t f =
         in if ixInBounds (indexToList ix2) (shapeToList sh)
            then M.insertWith (++) ix2 [OR.toVector $ t `tindexNR` ix]
            else id
-      ivs = foldr g M.empty [fromLinearIdx shm i | i <- [0 .. s - 1]]
+      ivs = foldr g M.empty [ fromLinearIdx shm i
+                            | i <- [0 .. fromIntegral s - 1] ]
   in updateNR (tkonst0NR sh 0) $ map (second $ OR.fromVector shn . sum)
                                $ M.assocs ivs
+
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OR.fromVector
 -- or optimize tscatterNR and instantiate it instead
 tscatterZ1R :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
-            => ShapeInt (p + n) -> OR.Array (1 + n) r -> (Int -> IndexInt p)
+            => ShapeInt (p + n) -> OR.Array (1 + n) r -> (CInt -> IndexInt p)
             -> OR.Array (p + n) r
 tscatterZ1R sh t f = case OR.shapeL t of
   0 : _ -> OR.constant (shapeToList sh) 0
   _ ->
     V.sum $ V.imap (\i ti ->
-                     let ix2 = f i
+                     let ix2 = f $ fromIntegral i
                      in if ixInBounds (indexToList ix2) (shapeToList sh)
                         then updateNR (tkonst0NR sh 0) [(ix2, ti)]
                         else tkonst0NR sh 0)
