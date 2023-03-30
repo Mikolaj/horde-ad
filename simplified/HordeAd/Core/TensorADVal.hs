@@ -161,9 +161,9 @@ instance (ADTensor (Ast0 r), Numeric r, Show r, Num (Vector r))
   type IntOf (ADVal (Ast0 r)) = AstInt r
 
   tshape = shape @(Ast0 r)
-  tminIndex0 (D u _) = AstMinIndex1 u
-  tmaxIndex0 (D u _) = AstMaxIndex1 u
-  tfloor (D u _) = AstIntFloor u
+  tminIndex0 (D u _) = AstMinIndex1 $ AstPrimalPart u
+  tmaxIndex0 (D u _) = AstMaxIndex1 $ AstPrimalPart u
+  tfloor (D u _) = AstIntFloor $ AstPrimalPart u
 
   tindex = indexZ
   tsum = sum'

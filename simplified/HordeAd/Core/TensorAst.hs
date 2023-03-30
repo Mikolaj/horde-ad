@@ -30,9 +30,9 @@ instance (Num (Vector r), Show r, Numeric r)
   tlet a f = astLetFun a f
 
   tshape = shapeAst
-  tminIndex0 = AstMinIndex1
-  tmaxIndex0 = AstMaxIndex1
-  tfloor = AstIntFloor
+  tminIndex0 = AstMinIndex1 . AstPrimalPart
+  tmaxIndex0 = AstMaxIndex1 . AstPrimalPart
+  tfloor = AstIntFloor . AstPrimalPart
 
   tindex = AstIndexZ
   tsum = AstSum
@@ -105,9 +105,9 @@ instance (Num (Vector r), Show r, Numeric r)
     $ astLetFun (unAstPrimalPart a) (unAstPrimalPart . f . AstPrimalPart)
 
   tshape = shapeAst . unAstPrimalPart
-  tminIndex0 = AstMinIndex1 . unAstPrimalPart
-  tmaxIndex0 = AstMaxIndex1 . unAstPrimalPart
-  tfloor = AstIntFloor . unAstPrimalPart
+  tminIndex0 = AstMinIndex1
+  tmaxIndex0 = AstMaxIndex1
+  tfloor = AstIntFloor
 
   tindex v ix = AstPrimalPart $ AstIndexZ (unAstPrimalPart v) ix
   tsum = AstPrimalPart . AstSum . unAstPrimalPart

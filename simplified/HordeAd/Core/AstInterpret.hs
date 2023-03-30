@@ -207,13 +207,12 @@ interpretAstInt env = \case
   AstIntOp opCodeInt args ->
     interpretAstIntOp (interpretAstInt env) opCodeInt args
   AstIntConst a -> fromIntegral a
-  AstIntFloor v -> let u = interpretAstPrimal env (AstPrimalPart v)
-                   in tfloor u
+  AstIntFloor v -> tfloor $ interpretAstPrimal env v
   AstIntCond b a1 a2 -> ifB (interpretAstBool env b)
                             (interpretAstInt env a1)
                             (interpretAstInt env a2)
-  AstMinIndex1 v -> tminIndex0 $ interpretAst env v
-  AstMaxIndex1 v -> tmaxIndex0 $ interpretAst env v
+  AstMinIndex1 v -> tminIndex0 $ interpretAstPrimal env v
+  AstMaxIndex1 v -> tmaxIndex0 $ interpretAstPrimal env v
 
 interpretAstBool :: forall a. Evidence a
                  => AstEnv a
@@ -223,7 +222,7 @@ interpretAstBool env = \case
     interpretAstBoolOp (interpretAstBool env) opCodeBool args
   AstBoolConst a -> if a then true else false
   AstRel @n opCodeRel args | (Refl, _, Dict, Dict) <- ev @a @n Proxy ->
-    let f v = interpretAstPrimal env (AstPrimalPart v)
+    let f v = interpretAstPrimal env v
     in interpretAstRelOp f opCodeRel args
   AstRelInt opCodeRel args ->
     let f = interpretAstInt env

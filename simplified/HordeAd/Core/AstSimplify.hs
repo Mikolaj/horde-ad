@@ -807,10 +807,10 @@ astIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
 astIntCond (AstBoolConst b) v w = if b then v else w
 astIntCond b v w = AstIntCond b v w
 
-astMinIndex1 :: Ast 1 r -> AstInt r
+astMinIndex1 :: AstPrimalPart 1 r -> AstInt r
 astMinIndex1 = AstMinIndex1
 
-astMaxIndex1 :: Ast 1 r -> AstInt r
+astMaxIndex1 :: AstPrimalPart 1 r -> AstInt r
 astMaxIndex1 = AstMaxIndex1
 
 
@@ -882,13 +882,13 @@ simplifyAstInt t = case t of
   AstIntOp opCodeInt args ->
     simplifyAstIntOp opCodeInt (map simplifyAstInt args)
   AstIntConst{} -> t
-  AstIntFloor v -> AstIntFloor $ simplifyAst v
+  AstIntFloor v -> AstIntFloor $ simplifyAstPrimal v
     -- Equality of floats is suspect, so no attempt to simplify.
   AstIntCond b a1 a2 -> astIntCond (simplifyAstBool b)
                                    (simplifyAstInt a1)
                                    (simplifyAstInt a2)
-  AstMinIndex1 v -> astMinIndex1 $ simplifyAst v
-  AstMaxIndex1 v -> astMaxIndex1 $ simplifyAst v
+  AstMinIndex1 v -> astMinIndex1 $ simplifyAstPrimal v
+  AstMaxIndex1 v -> astMaxIndex1 $ simplifyAstPrimal v
 
 simplifyAstBool :: (Show r, Numeric r, Num (Vector r))
                 => AstBool r -> AstBool r
@@ -896,7 +896,7 @@ simplifyAstBool t = case t of
   AstBoolOp opCodeBool args ->
     simplifyAstBoolOp opCodeBool (map simplifyAstBool args)
   AstBoolConst{} -> t
-  AstRel opCodeRel args -> AstRel opCodeRel (map simplifyAst args)
+  AstRel opCodeRel args -> AstRel opCodeRel (map simplifyAstPrimal args)
     -- these are primal part expressions, so never vectorized but potentially
     -- large, so we simplify and ignore them
   AstRelInt opCodeRel args -> AstRelInt opCodeRel (map simplifyAstInt args)

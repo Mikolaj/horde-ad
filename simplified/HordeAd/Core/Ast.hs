@@ -47,8 +47,6 @@ type AstVarList n = SizedList n (AstVarName Int)
 -- to the type level, we'd recover some of the expressiveness, while retaining
 -- statically known (type-parameterized) shapes.
 
--- TODO: consider sharing Ast expressions, both within the primal part
--- and between primal and dual
 -- | AST for a tensor of rank n and elements r that is meant
 -- to be differentiated.
 data Ast :: Nat -> Type -> Type where
@@ -146,27 +144,22 @@ instance Show (AstVarName t) where
 data AstDynamicVarName r =
   forall n. KnownNat n => AstDynamicVarName (AstVarName (TensorOf n r))
 
--- In AstInt and AstBool, the Ast terms are morally AstPrimalPart,
--- since their derivative part is not used.
--- TODO: introduce AstPrimalPart explicitly when convenient, e.g.,
--- as soon as AstPrimalPart gets more constructors.
-
 -- The argument is the underlying scalar.
 data AstInt :: Type -> Type where
   AstIntVar :: AstVarName Int -> AstInt r
   AstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
   AstIntConst :: Int -> AstInt r
-  AstIntFloor :: Ast 0 r -> AstInt r
+  AstIntFloor :: AstPrimalPart 0 r -> AstInt r
   AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
-  AstMinIndex1 :: Ast 1 r -> AstInt r
-  AstMaxIndex1 :: Ast 1 r -> AstInt r
+  AstMinIndex1 :: AstPrimalPart 1 r -> AstInt r
+  AstMaxIndex1 :: AstPrimalPart 1 r -> AstInt r
 deriving instance (Show r, Numeric r) => Show (AstInt r)
 
 data AstBool :: Type -> Type where
   AstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
   AstBoolConst :: Bool -> AstBool r
   AstRel :: KnownNat n
-         => OpCodeRel -> [Ast n r] -> AstBool r
+         => OpCodeRel -> [AstPrimalPart n r] -> AstBool r
   AstRelInt :: OpCodeRel -> [AstInt r] -> AstBool r
 deriving instance (Show r, Numeric r) => Show (AstBool r)
 
@@ -233,14 +226,14 @@ astCond b v w = AstIndexZ (AstFromList [v, w])
                           (singletonIndex $ AstIntCond b 0 1)
 
 instance KnownNat n => EqB (Ast n r) where
-  v ==* u = AstRel EqOp [v, u]
-  v /=* u = AstRel NeqOp [v, u]
+  v ==* u = AstRel EqOp [AstPrimalPart v, AstPrimalPart u]
+  v /=* u = AstRel NeqOp [AstPrimalPart v, AstPrimalPart u]
 
 instance KnownNat n => OrdB (Ast n r) where
-  v <* u = AstRel LsOp [v, u]
-  v <=* u = AstRel LeqOp [v, u]
-  v >* u = AstRel GtOp [v, u]
-  v >=* u = AstRel GeqOp [v, u]
+  v <* u = AstRel LsOp [AstPrimalPart v, AstPrimalPart u]
+  v <=* u = AstRel LeqOp [AstPrimalPart v, AstPrimalPart u]
+  v >* u = AstRel GtOp [AstPrimalPart v, AstPrimalPart u]
+  v >=* u = AstRel GeqOp [AstPrimalPart v, AstPrimalPart u]
 
 type instance BooleanOf (AstPrimalPart n r) = AstBool r
 
@@ -248,14 +241,14 @@ instance KnownNat n => IfB (AstPrimalPart n r) where
   ifB b v w = AstPrimalPart $ astCond b (unAstPrimalPart v) (unAstPrimalPart w)
 
 instance KnownNat n => EqB (AstPrimalPart n r) where
-  v ==* u = AstRel EqOp [unAstPrimalPart v, unAstPrimalPart u]
-  v /=* u = AstRel NeqOp [unAstPrimalPart v, unAstPrimalPart u]
+  v ==* u = AstRel EqOp [v, u]
+  v /=* u = AstRel NeqOp [v, u]
 
 instance KnownNat n => OrdB (AstPrimalPart n r) where
-  v <* u = AstRel LsOp [unAstPrimalPart v, unAstPrimalPart u]
-  v <=* u = AstRel LeqOp [unAstPrimalPart v, unAstPrimalPart u]
-  v >* u = AstRel GtOp [unAstPrimalPart v, unAstPrimalPart u]
-  v >=* u = AstRel GeqOp [unAstPrimalPart v, unAstPrimalPart u]
+  v <* u = AstRel LsOp [v, u]
+  v <=* u = AstRel LeqOp [v, u]
+  v >* u = AstRel GtOp [v, u]
+  v >=* u = AstRel GeqOp [v, u]
 
 type instance BooleanOf (Ast0 r) = AstBool r
 
@@ -263,14 +256,14 @@ instance IfB (Ast0 r) where
   ifB b v w = Ast0 $ astCond b (unAst0 v) (unAst0 w)
 
 instance EqB (Ast0 r) where
-  v ==* u = AstRel EqOp [unAst0 v, unAst0 u]
-  v /=* u = AstRel NeqOp [unAst0 v, unAst0 u]
+  v ==* u = AstRel EqOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
+  v /=* u = AstRel NeqOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
 
 instance OrdB (Ast0 r) where
-  v <* u = AstRel LsOp [unAst0 v, unAst0 u]
-  v <=* u = AstRel LeqOp [unAst0 v, unAst0 u]
-  v >* u = AstRel GtOp [unAst0 v, unAst0 u]
-  v >=* u = AstRel GeqOp [unAst0 v, unAst0 u]
+  v <* u = AstRel LsOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
+  v <=* u = AstRel LeqOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
+  v >* u = AstRel GtOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
+  v >=* u = AstRel GeqOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
 instance Eq (Ast n r) where
@@ -504,17 +497,17 @@ intVarInAstInt var = \case
   AstIntVar var2 -> var == var2  -- the only int variable not in binder position
   AstIntOp _ l -> any (intVarInAstInt var) l
   AstIntConst{} -> False
-  AstIntFloor v -> intVarInAst var v
+  AstIntFloor (AstPrimalPart v) -> intVarInAst var v
   AstIntCond b x y ->
     intVarInAstBool var b || intVarInAstInt var x || intVarInAstInt var y
-  AstMinIndex1 v -> intVarInAst var v
-  AstMaxIndex1 v -> intVarInAst var v
+  AstMinIndex1 (AstPrimalPart v) -> intVarInAst var v
+  AstMaxIndex1 (AstPrimalPart v) -> intVarInAst var v
 
 intVarInAstBool :: AstVarName Int -> AstBool r -> Bool
 intVarInAstBool var = \case
   AstBoolOp _ l -> any (intVarInAstBool var) l
   AstBoolConst{} -> False
-  AstRel _ l -> any (intVarInAst var) l
+  AstRel _ l -> any (intVarInAst var . unAstPrimalPart) l
   AstRelInt _ l  -> any (intVarInAstInt var) l
 
 intVarInIndex :: AstVarName Int -> AstIndex n r -> Bool
@@ -570,12 +563,15 @@ substitute1AstInt i var i2 = case i2 of
   AstIntOp opCodeInt args ->
     AstIntOp opCodeInt $ map (substitute1AstInt i var) args
   AstIntConst _a -> i2
-  AstIntFloor v -> AstIntFloor $ substitute1Ast i var v
+  AstIntFloor (AstPrimalPart v) ->
+    AstIntFloor $ AstPrimalPart $ substitute1Ast i var v
   AstIntCond b a1 a2 ->
     AstIntCond (substitute1AstBool i var b)
                (substitute1AstInt i var a1) (substitute1AstInt i var a2)
-  AstMinIndex1 v -> AstMinIndex1 (substitute1Ast i var v)
-  AstMaxIndex1 v -> AstMaxIndex1 (substitute1Ast i var v)
+  AstMinIndex1 (AstPrimalPart v) ->
+    AstMinIndex1 $ AstPrimalPart $ substitute1Ast i var v
+  AstMaxIndex1 (AstPrimalPart v) ->
+    AstMaxIndex1 $ AstPrimalPart $ substitute1Ast i var v
 
 substitute1AstBool :: (Show r, Numeric r)
                    => AstInt r -> AstVarName Int -> AstBool r -> AstBool r
@@ -584,6 +580,7 @@ substitute1AstBool i var b1 = case b1 of
     AstBoolOp opCodeBool $ map (substitute1AstBool i var) args
   AstBoolConst _a -> b1
   AstRel opCodeRel args ->
-    AstRel opCodeRel $ map (substitute1Ast i var) args
+    AstRel opCodeRel
+    $ map (AstPrimalPart . substitute1Ast i var . unAstPrimalPart) args
   AstRelInt opCodeRel args ->
     AstRelInt opCodeRel $ map (substitute1AstInt i var) args

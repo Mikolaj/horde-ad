@@ -192,7 +192,8 @@ reluAst1 v =
   let oneIfGtZero =
         tmap0N @(AstPrimalPart 0 r)
                    (\(AstPrimalPart x) ->
-                      AstPrimalPart $ astCond (AstRel GtOp [x, 0]) 1 0)
+                      AstPrimalPart
+                      $ astCond (AstRel GtOp [AstPrimalPart x, 0]) 1 0)
                    (tprimalPart v)
   in scale1 oneIfGtZero v
 
