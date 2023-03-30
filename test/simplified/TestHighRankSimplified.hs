@@ -507,7 +507,7 @@ concatBuild :: (ADReady r, KnownNat n)
 concatBuild r =
   tbuild1 7 (\i ->
     tconcat [ tbuild1 5 (const r)  -- TODO: i should work
-            , tbuild1 1 (\j -> tmap0N (* tfromIndex0 (j - i)) r)
+            , tbuild1 1 (\j -> tmap0N (* (tfromIndex0 j - tfromIndex0 i)) r)
             , tbuild1 13 (\_k ->
                 tsum $ ttr $ tkonst (tlength r) (tslice 0 1 r)) ])
 -- TODO: reject via types or accept with type obligations:
