@@ -126,12 +126,12 @@ interpretAst
   => AstEnv a
   -> Ast n (ScalarOf a) -> TensorOf n a
 interpretAst env | (_, Dict, _, _) <- ev @a @n Proxy = \case
-  AstVar _sh (AstVarName var) -> case EM.lookup var env of
+  AstVar _sh var -> case EM.lookup var env of
     Just (AstVarR d) -> tfromD d
     Just AstVarI{} ->
       error $ "interpretAst: type mismatch for Var" ++ show var
     Nothing -> error $ "interpretAst: unknown variable Var" ++ show var
-  AstLet (AstVarName var) u v ->
+  AstLet var u v ->
     interpretAst (EM.insert var (AstVarR $ tfromR $ interpretAst env u) env) v
   AstOp opCode args ->
     interpretAstOp (interpretAst env) opCode args

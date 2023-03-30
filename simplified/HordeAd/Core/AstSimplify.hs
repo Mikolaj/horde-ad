@@ -98,8 +98,8 @@ funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
           -> (AstVarName (TensorOf n r), Ast m r)
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ do
-  freshAstVar <- AstVarName <$> unsafeGetFreshAstVar
-  return (freshAstVar, f (AstVar sh freshAstVar))
+  freshId <- unsafeGetFreshAstVar
+  return (AstVarName freshId, f (AstVar sh freshId))
 
 -- The "fun"ction in this case is fixed to be @id@.
 funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
@@ -110,7 +110,7 @@ funToAstD sh = unsafePerformIO $ do
     Just (SomeNat (_proxy :: Proxy p)) ->
       let shn = listShapeToShape @p sh
           varName = AstVarName @(TensorOf p r) freshId
-      in (AstDynamicVarName varName, AstDynamicFrom $ AstVar shn varName)
+      in (AstDynamicVarName varName, AstDynamicFrom $ AstVar shn freshId)
     Nothing -> error "funToAstD: impossible someNatVal error"
 
 funToAstI :: (AstInt r -> t) -> (AstVarId, t)

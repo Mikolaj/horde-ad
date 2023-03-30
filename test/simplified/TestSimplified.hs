@@ -289,7 +289,7 @@ testPoly00 f input expected = do
           (\adinputs -> tunScalar $
              interpretAst (EM.singleton (intToAstVarId 0)
                              (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
-                          (unAst0 $ f (Ast0 $ AstVar [] (AstVarName (intToAstVarId 0)))))
+                          (unAst0 $ f (Ast0 $ AstVar [] (intToAstVarId 0))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains (Just 1)
@@ -317,7 +317,7 @@ testPoly01 f outSize input expected = do
           (\adinputs ->
              interpretAst (EM.singleton (intToAstVarId 0)
                              (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
-                          (f (Ast0 $ AstVar [] (AstVarName (intToAstVarId 0)))))
+                          (f (Ast0 $ AstVar [] (intToAstVarId 0))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains (Just dt)
@@ -345,7 +345,7 @@ testPoly11 f outSize input expected = do
           (\adinputs ->
              interpretAst (EM.singleton (intToAstVarId 0)
                              (AstVarR $ tfromR $ at1 @1 adinputs 0))
-                          (f (AstVar [length input] (AstVarName (intToAstVarId 0)))))
+                          (f (AstVar [length input] (intToAstVarId 0))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains (Just dt)
@@ -374,7 +374,7 @@ testPolyn f sh input expected = do
           (\adinputs ->
              interpretAst (EM.singleton (intToAstVarId 0)
                              (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
-                          (f (Ast0 $ AstVar [] (AstVarName (intToAstVarId 0)))))
+                          (f (Ast0 $ AstVar [] (intToAstVarId 0))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains (Just dt)
@@ -420,7 +420,7 @@ testFooNoGoAst =
        (\adinputs ->
           interpretAst (EM.singleton (intToAstVarId 0)
                           (AstVarR $ tfromR $ at1 @1 adinputs 0))
-                        (fooNoGoAst (AstVar [5] (AstVarName (intToAstVarId 0)))))
+                        (fooNoGoAst (AstVar [5] (intToAstVarId 0))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
@@ -461,7 +461,7 @@ testBarReluAst0 =
        (\adinputs -> tunScalar $
           interpretAst (EM.singleton (intToAstVarId 0)
                           (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
-                        (barReluAst (AstVar [] (AstVarName (intToAstVarId 0)))))
+                        (barReluAst (AstVar [] (intToAstVarId 0))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
 
@@ -474,7 +474,7 @@ testBarReluAst1 =
        (\adinputs ->
           interpretAst (EM.singleton (intToAstVarId 0)
                           (AstVarR $ tfromR $ at1 @1 adinputs 0))
-                       (barReluAst (AstVar [5] (AstVarName (intToAstVarId 0)))))
+                       (barReluAst (AstVar [5] (intToAstVarId 0))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
@@ -488,7 +488,7 @@ testKonstReluAst =
        (\adinputs -> tunScalar $
           interpretAst (EM.singleton (intToAstVarId 0)
                           (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
-                        (konstReluAst (AstVar [] (AstVarName (intToAstVarId 0)))))
+                        (konstReluAst (AstVar [] (intToAstVarId 0))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [295.4]
 
@@ -519,7 +519,7 @@ testF3 = do
           (\adinputs ->
              interpretAst (EM.singleton (intToAstVarId 0)
                              (AstVarR $ tfromR $ at1 @1 adinputs 0))
-                          (f3 (AstVar [] (AstVarName (intToAstVarId 0)))))
+                          (f3 (AstVar [] (intToAstVarId 0))))
           domainsInput
       val = f3 $ OR.fromList [] input
   let _ = astValue @?~ val

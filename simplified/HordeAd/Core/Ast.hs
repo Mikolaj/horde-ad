@@ -51,10 +51,9 @@ type AstVarList n = SizedList n AstVarId
 -- to be differentiated.
 data Ast :: Nat -> Type -> Type where
   -- To permit defining objective functions in Ast, not just constants:
-  AstVar :: ShapeInt n -> AstVarName (TensorOf n r) -> Ast n r
+  AstVar :: ShapeInt n -> AstVarId -> Ast n r
   AstLet :: KnownNat n
-         => AstVarName (TensorOf n r) -> Ast n r -> Ast m r
-         -> Ast m r
+         => AstVarId -> Ast n r -> Ast m r -> Ast m r
 
   -- For the numeric classes:
   AstOp :: OpCode -> [Ast n r] -> Ast n r

@@ -82,7 +82,7 @@ astLetFun :: (KnownNat n, Show r, Numeric r, Num (Vector r))
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
 astLetFun a f =
   let sh = tshape a
-      (var, ast) = funToAstR sh f
+      (AstVarName var, ast) = funToAstR sh f
   in AstLet var a ast
 
 -- This is a vectorizing combinator that also simplifies
