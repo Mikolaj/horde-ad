@@ -138,17 +138,17 @@ type instance Element (Ast n r) = Ast0 r
 -- impossible and so the phantom type leads to passing explicit (and implicit)
 -- type equality proofs around.
 newtype AstVarId = AstVarId Int
- deriving (Eq, Show, Enum)
+ deriving (Eq, Enum)
+
+-- An unlawful instance to prevent spam when tracing and debugging.
+instance Show AstVarId where
+  show (AstVarId k) = "Var" ++ show k
 
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
 newtype AstVarName t = AstVarName AstVarId
- deriving Eq
-
--- An unlawful instance to prevent spam when tracing and debugging.
-instance Show (AstVarName t) where
-  show (AstVarName n) = "Var" ++ show n
+ deriving (Eq, Show)
 
 data AstDynamicVarName :: Type -> Type where
   AstDynamicVarName :: KnownNat n
