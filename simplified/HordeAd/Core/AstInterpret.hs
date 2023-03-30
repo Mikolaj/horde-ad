@@ -8,11 +8,13 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.AstInterpret
   ( InterpretAst, interpretAst, interpretAstDynamic
-  , AstEnv, AstVar(..), extendEnvR
+  , AstEnv, extendEnvR
+  , AstEnvElem(AstVarR)  -- for a test only
   ) where
 
 import Prelude hiding ((<*))
 
+import           Control.Exception.Assert.Sugar
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
 import           Data.Proxy (Proxy (Proxy))
@@ -30,13 +32,14 @@ import HordeAd.Internal.SizedList
 
 -- * Interpretation of Ast in ADVal
 
-type AstEnv a = EM.EnumMap AstVarId (AstVar a)
+type AstEnv a = EM.EnumMap AstVarId (AstEnvElem a)
 
-data AstVar a =
+data AstEnvElem a =
     AstVarR (DynamicTensor a)
   | AstVarI (IntOf a)
 
-deriving instance (Show (DynamicTensor a), Show (IntOf a)) => Show (AstVar a)
+deriving instance (Show (DynamicTensor a), Show (IntOf a))
+                  => Show (AstEnvElem a)
 
 extendEnvR :: forall n a. (Tensor a, KnownNat n)
            => AstVarName (TensorOf n (ScalarOf a)) -> TensorOf n a
@@ -234,6 +237,11 @@ interpretAstDynamic env = \case
   AstDynamicPlus v u ->
     interpretAstDynamic env v `taddD` interpretAstDynamic env u
   AstDynamicFrom w -> tfromR $ interpretAst env w
+  AstDynamicVar sh var -> case EM.lookup var env of
+    Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ d
+    Just AstVarI{} ->
+      error $ "interpretAstDynamic: type mismatch for Var" ++ show var
+    Nothing -> error $ "interpretAstDynamic: unknown variable Var" ++ show var
 
 interpretAstOp :: RealFloat b
                => (c -> b) -> OpCode -> [c] -> b

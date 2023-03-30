@@ -124,6 +124,8 @@ data AstDynamic :: Type -> Type where
   AstDynamicPlus :: AstDynamic r -> AstDynamic r -> AstDynamic r
   AstDynamicFrom :: KnownNat n
                  => Ast n r -> AstDynamic r
+  AstDynamicVar :: KnownNat n
+                => ShapeInt n -> AstVarId -> AstDynamic r
 
 deriving instance (Show r, Numeric r) => Show (AstDynamic r)
 

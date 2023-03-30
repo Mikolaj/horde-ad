@@ -116,10 +116,10 @@ testGatherBuild1 =
 
 testGatherSimp1 :: Assertion
 testGatherSimp1 = do
-  resetVarCOunter
+  resetVarCounter
   let !t1 = gatherNested1 $ AstVar [7, 2] (intToAstVarId 0)
   length (show t1) @?= 174
-  resetVarCOunter
+  resetVarCounter
   let !t2 = gather1 $ AstVar [7, 2] (intToAstVarId 0)
   length (show t2) @?= 123
   length (show (simplifyAst @Float t1))
@@ -181,10 +181,10 @@ testGatherBuild2 =
 
 testGatherSimp2 :: Assertion
 testGatherSimp2 = do
-  resetVarCOunter
+  resetVarCounter
   let !t1 = gatherNested2 $ AstVar [7, 2] (intToAstVarId 0)
   length (show t1) @?= 318
-  resetVarCOunter
+  resetVarCounter
   let !t2 = gather2 $ AstVar [7, 2] (intToAstVarId 0)
   length (show t2) @?= 211
   length (show (simplifyAst @Float t1))
@@ -248,10 +248,10 @@ testGatherBuild12 =
 
 testGatherSimp12 :: Assertion
 testGatherSimp12 = do
-  resetVarCOunter
+  resetVarCounter
   let !t1 = gatherNested12 $ AstVar [7, 2] (intToAstVarId 0)
   length (show t1) @?= 290
-  resetVarCOunter
+  resetVarCounter
   let !t2 = gather12 $ AstVar [7, 2] (intToAstVarId 0)
   length (show t2) @?= 211
   length (show (simplifyAst @Float t1))
@@ -287,11 +287,11 @@ testGatherReshapeBuild22 =
 -- TODO: try to lower the gap down to zero
 testGatherSimp22 :: Assertion
 testGatherSimp22 = do
-  resetVarCOunter
+  resetVarCounter
   let !t1 = gatherReshape22 $ AstVar [6, 2] (intToAstVarId 0)
   length (show t1) @?= 36
   length (show (simplifyAst @Float t1)) @?= 347
-  resetVarCOunter
+  resetVarCounter
   let !t2 = treshape @(Ast0 Float) @2 @2 [2, 6]
             $ AstVar [6, 2] (intToAstVarId 0)
   length (show t2) @?= 36
@@ -299,14 +299,14 @@ testGatherSimp22 = do
 
 testGatherSimp23 :: Assertion
 testGatherSimp23 = do
-  resetVarCOunter
+  resetVarCounter
   let !t1 = (\t -> tbuild1 4 (\i ->
               gatherReshape22
                 (t * tkonst0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 0)
   length (show t1) @?= 252
   length (show (simplifyAst @Float t1)) @?= 2435
-  resetVarCOunter
+  resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               treshape @(Ast0 Float) @2 @2 [2, 6]
                 (t * tkonst0N [6, 2] (tfromIndex0 i))))
@@ -367,12 +367,12 @@ testGatherTransposeBuild33 =
 -- Still, probably impossible to lower the gap to zero.
 testGatherSimp33 :: Assertion
 testGatherSimp33 = do
-  resetVarCOunter
+  resetVarCounter
   let !t1 = gatherTranspose33
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 0)
   length (show t1) @?= 1077
   length (show (simplifyAst @Float t1)) @?= 6554
-  resetVarCOunter
+  resetVarCounter
   let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
                             (treshape @(Ast0 Float) @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 0)
@@ -381,13 +381,13 @@ testGatherSimp33 = do
 
 testGatherSimp34 :: Assertion
 testGatherSimp34 = do
-  resetVarCOunter
+  resetVarCounter
   let !t1 = (\t -> tbuild1 4 (\i ->
              gatherTranspose33 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 0)
   length (show t1) @?= 864
   length (show (simplifyAst @Float t1)) @?= 35352
-  resetVarCOunter
+  resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               (\t' -> tmatmul2 (treshape [6, 8] (tconst t48))
                                (treshape @(Ast0 Float) @10 [8, 16] t'))
@@ -454,10 +454,10 @@ testScatterBuild1 =
 
 testScatterSimp1 :: Assertion
 testScatterSimp1 = do
-  resetVarCOunter
+  resetVarCounter
   let !t1 = scatterNested1 $ AstVar [7, 2] (intToAstVarId 0)
   length (show t1) @?= 199
-  resetVarCOunter
+  resetVarCounter
   let !t2 = scatter1 $ AstVar [7, 2] (intToAstVarId 0)
   length (show t2) @?= 149
   length (show (simplifyAst @Float t1)) @?= 199
@@ -519,10 +519,10 @@ testScatterBuild2 =
 
 testScatterSimp2 :: Assertion
 testScatterSimp2 = do
-  resetVarCOunter
+  resetVarCounter
   let !t1 = scatterNested2 $ AstVar [7, 2] (intToAstVarId 0)
   length (show t1) @?= 279
-  resetVarCOunter
+  resetVarCounter
   let !t2 = scatter2 $ AstVar [7, 2] (intToAstVarId 0)
   length (show t2) @?= 211
   length (show (simplifyAst @Float t1)) @?= 279
@@ -586,10 +586,10 @@ testScatterBuild12 =
 
 testScatterSimp12 :: Assertion
 testScatterSimp12 = do
-  resetVarCOunter
+  resetVarCounter
   let !t1 = scatterNested12 $ AstVar [7, 2] (intToAstVarId 0)
   length (show t1) @?= 251
-  resetVarCOunter
+  resetVarCounter
   let !t2 = scatter12 $ AstVar [7, 2] (intToAstVarId 0)
   length (show t2) @?= 211
   length (show (simplifyAst @Float t1)) @?= 251

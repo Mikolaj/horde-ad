@@ -75,6 +75,7 @@ instance (Num (Vector r), Show r, Numeric r)
     AstDynamicDummy -> []
     AstDynamicPlus t1 _t2 -> tshapeD t1
     AstDynamicFrom v -> shapeToList $ shapeAst v
+    AstDynamicVar sh _ -> shapeToList sh
   tfromR = AstDynamicFrom
   tfromD = astFromDynamic
 

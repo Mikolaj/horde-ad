@@ -23,7 +23,7 @@ module HordeAd.Core.AstSimplify
   , astIntCond
   , simplifyAst
   , substituteAst, substituteAstInt, substituteAstBool
-  , resetVarCOunter
+  , resetVarCounter
   ) where
 
 import Prelude
@@ -87,25 +87,26 @@ unsafeAstVarCounter = unsafePerformIO (newCounter 1)
 
 -- Only for tests, e.g., to ensure show applied to terms has stable length.
 -- Tests using this need to be run with -ftest_seq to avoid variable confusion.
-resetVarCOunter :: IO ()
-resetVarCOunter = writeIORefU unsafeAstVarCounter 1000
+resetVarCounter :: IO ()
+resetVarCounter = writeIORefU unsafeAstVarCounter 1000
 
-unsafeGetFreshAstVar :: IO AstVarId
-{-# INLINE unsafeGetFreshAstVar #-}
-unsafeGetFreshAstVar = intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
+unsafeGetFreshAstVarId :: IO AstVarId
+{-# INLINE unsafeGetFreshAstVarId #-}
+unsafeGetFreshAstVarId =
+  intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
           -> (AstVarName (TensorOf n r), Ast m r)
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVar
+  freshId <- unsafeGetFreshAstVarId
   return (AstVarName freshId, f (AstVar sh freshId))
 
 -- The "fun"ction in this case is fixed to be @id@.
 funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
 {-# NOINLINE funToAstD #-}
 funToAstD sh = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVar
+  freshId <- unsafeGetFreshAstVarId
   return $! case someNatVal $ toInteger $ length sh of
     Just (SomeNat (_proxy :: Proxy p)) ->
       let shn = listShapeToShape @p sh
@@ -116,14 +117,14 @@ funToAstD sh = unsafePerformIO $ do
 funToAstI :: (AstInt r -> t) -> (AstVarId, t)
 {-# NOINLINE funToAstI #-}
 funToAstI f = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVar
+  freshId <- unsafeGetFreshAstVarId
   return (freshId, f (AstIntVar freshId))
 
 funToAstIndex :: forall m p r. KnownNat m
               => (AstIndex m r -> AstIndex p r) -> (AstVarList m, AstIndex p r)
 {-# NOINLINE funToAstIndex #-}
 funToAstIndex f = unsafePerformIO $ do
-  varList <- replicateM (valueOf @m) unsafeGetFreshAstVar
+  varList <- replicateM (valueOf @m) unsafeGetFreshAstVarId
   return (listToSized varList, f (listToIndex $ map AstIntVar varList))
 
 
@@ -159,7 +160,7 @@ astReshapeAsGather
   => ShapeInt m -> Ast p r -> Ast m r
 {-# NOINLINE astReshapeAsGather #-}
 astReshapeAsGather shOut v = unsafePerformIO $ do
-  varList <- replicateM (lengthShape shOut) unsafeGetFreshAstVar
+  varList <- replicateM (lengthShape shOut) unsafeGetFreshAstVarId
   let shIn = shapeAst v
       vars :: AstVarList m
       vars = listToSized varList
@@ -181,7 +182,7 @@ astTransposeAsGather
 {-# NOINLINE astTransposeAsGather #-}
 astTransposeAsGather perm v = unsafePerformIO $ do
   let p = length perm
-  varList <- replicateM p unsafeGetFreshAstVar
+  varList <- replicateM p unsafeGetFreshAstVarId
   return $! case someNatVal $ toInteger p of
     Just (SomeNat (_proxy :: Proxy p)) ->
       let vars :: AstVarList p
@@ -544,7 +545,7 @@ astGatherStep sh v (vars, ix) =
 
 -- Assumption: vars0 don't not occur in v0. The assumption only holds
 -- when newly generated variables are fresh, which is the case as long
--- as resetVarCOunter is not used. The assumption makes it easier to spot
+-- as resetVarCounter is not used. The assumption makes it easier to spot
 -- bugs or corruption, hence we assert it in the code below.
 --
 -- The v0 term is already at least one step simplified,
@@ -727,6 +728,10 @@ astFromDynamic (AstDynamicFrom @n2 t) =
   case sameNat (Proxy @n) (Proxy @n2) of
     Just Refl -> t
     _ -> error "astFromDynamic: different rank expected and uncovered"
+astFromDynamic (AstDynamicVar @n2 sh var) =
+  case sameNat (Proxy @n) (Proxy @n2) of
+    Just Refl -> AstVar sh var
+    _ -> error "astFromDynamic: different var rank expected and uncovered"
 
 {-
 -- TODO: To apply this to astGatherZ. we'd need to take the last variable
