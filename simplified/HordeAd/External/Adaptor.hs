@@ -17,8 +17,8 @@ import           Control.Exception (assert)
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import qualified Data.EnumMap.Strict as EM
 import           Data.List (foldl')
-import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -67,7 +67,7 @@ revDtMaybeL f valsAll@(vals : _) dt =
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       dual0 = dD ast0 (dFromVectorR $ V.map dScalarR $ inputDual0 varInputs)
-      env0 = extendEnvR var0 dual0 IM.empty
+      env0 = extendEnvR var0 dual0 EM.empty
       env1 = foldr (\(AstDynamicVarName var, (u, u')) ->
                       extendEnvR var (tfromD $ dD u u')) env0
              $ zip vars1 $ V.toList

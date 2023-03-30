@@ -92,7 +92,8 @@ resetVarCOunter = writeIORefU unsafeAstVarCounter 1000
 
 unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
-unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
+unsafeGetFreshAstVar = AstVarName . intToAstVarId
+                       <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
           -> (AstVarName (TensorOf n r), Ast m r)

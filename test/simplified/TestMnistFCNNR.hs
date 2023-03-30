@@ -7,8 +7,8 @@ import Prelude
 import           Control.Monad (foldM, unless)
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import qualified Data.EnumMap.Strict as EM
 import           Data.List.Index (imap)
-import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
@@ -206,7 +206,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> ADInputs r -> ADVal r
                  f (glyph, label) adinputs =
                    let env1 = foldr (\(AstDynamicVarName var, (u, u')) ->
-                                extendEnvR var (tfromD $ dD u u')) IM.empty
+                                extendEnvR var (tfromD $ dD u u')) EM.empty
                               $ zip vars1 $ V.toList
                               $ V.zip (inputPrimal1 adinputs)
                                       (inputDual1 adinputs)
@@ -317,7 +317,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
              -> AstEnv (ADVal (Ast0 r))
              -> AstEnv (ADVal (Ast0 r))
            g (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
-           envg = foldr g IM.empty
+           envg = foldr g EM.empty
                   $ zip vars1 $ V.toList
                   $ V.zipWith dD (inputPrimal1 varInputs) (inputDual1 varInputs)
            envMnistg = extendEnvR varGlyph (tconstant astGlyph)
@@ -329,7 +329,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            go [] parameters = parameters
            go ((glyph, label) : rest) parameters =
              let env1 = foldr (\(AstDynamicVarName var, v) ->
-                          extendEnvR var (tfromD v)) IM.empty
+                          extendEnvR var (tfromD v)) EM.empty
                         $ zip vars1 $ V.toList
                         $ domainsR parameters
                  envMnist =

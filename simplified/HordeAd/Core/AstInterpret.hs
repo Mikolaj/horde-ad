@@ -14,8 +14,8 @@ module HordeAd.Core.AstInterpret
 import Prelude hiding ((<*))
 
 import           Data.Boolean
+import qualified Data.EnumMap.Strict as EM
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.IntMap as IM
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat)
@@ -30,7 +30,7 @@ import HordeAd.Internal.SizedList
 
 -- * Interpretation of Ast in ADVal
 
-type AstEnv a = IM.IntMap (AstVar a)
+type AstEnv a = EM.EnumMap AstVarId (AstVar a)
 
 data AstVar a =
     AstVarR (DynamicTensor a)
@@ -42,13 +42,13 @@ extendEnvR :: forall n a. (Tensor a, KnownNat n)
            => AstVarName (TensorOf n (ScalarOf a)) -> TensorOf n a
            -> AstEnv a -> AstEnv a
 extendEnvR v@(AstVarName var) d =
-  IM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
+  EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstVarR $ tfromR d)
 
 extendEnvI :: AstVarName Int -> IntOf a
            -> AstEnv a -> AstEnv a
 extendEnvI v@(AstVarName var) i =
-  IM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show v)
+  EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show v)
                    var (AstVarI i)
 
 extendEnvVars :: AstVarList m -> IndexOf m a
@@ -117,7 +117,7 @@ interpretAstPrimal
   -> AstPrimalPart n (ScalarOf a) -> TensorOf n (Primal a)
 interpretAstPrimal env (AstPrimalPart v) =
   tprimalPart $ interpretAst env v
--- interpretAst @n @(Primal a) (IM.map tprimalPart env) v
+-- interpretAst @n @(Primal a) (EM.map tprimalPart env) v
 -- TODO: but both Dual and AstEnv are strict, so in both cases
 -- we can't avoid wasted computation. Benchmark lazy AstEnv
 -- once we have tests with many vars.
@@ -129,13 +129,13 @@ interpretAst
   => AstEnv a
   -> Ast n (ScalarOf a) -> TensorOf n a
 interpretAst env | (_, Dict, _, _) <- ev @a @n Proxy = \case
-  AstVar _sh (AstVarName var) -> case IM.lookup var env of
+  AstVar _sh (AstVarName var) -> case EM.lookup var env of
     Just (AstVarR d) -> tfromD d
     Just AstVarI{} ->
       error $ "interpretAst: type mismatch for Var" ++ show var
     Nothing -> error $ "interpretAst: unknown variable Var" ++ show var
   AstLet (AstVarName var) u v ->
-    interpretAst (IM.insert var (AstVarR $ tfromR $ interpretAst env u) env) v
+    interpretAst (EM.insert var (AstVarR $ tfromR $ interpretAst env u) env) v
   AstOp opCode args ->
     interpretAstOp (interpretAst env) opCode args
   AstConst a -> tconst a
@@ -199,7 +199,7 @@ interpretAstInt :: Evidence a
                 => AstEnv a
                 -> AstInt (ScalarOf a) -> IntOf (Primal a)
 interpretAstInt env = \case
-  AstIntVar (AstVarName var) -> case IM.lookup var env of
+  AstIntVar (AstVarName var) -> case EM.lookup var env of
     Just AstVarR{} ->
       error $ "interpretAstInt: type mismatch for Var" ++ show var
     Just (AstVarI i) -> i

@@ -6,7 +6,7 @@ import Prelude
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
-import qualified Data.Strict.IntMap as IM
+import qualified Data.EnumMap.Strict as EM
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
@@ -287,9 +287,9 @@ testPoly00 f input expected = do
       (astGrad, astValue) =
         revOnDomains Nothing
           (\adinputs -> tunScalar $
-             interpretAst (IM.singleton 0
+             interpretAst (EM.singleton (intToAstVarId 0)
                              (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
-                          (unAst0 $ f (Ast0 $ AstVar [] (AstVarName 0))))
+                          (unAst0 $ f (Ast0 $ AstVar [] (AstVarName (intToAstVarId 0)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains (Just 1)
@@ -315,9 +315,9 @@ testPoly01 f outSize input expected = do
       (astGrad, astValue) =
         revOnDomains (Just dt)
           (\adinputs ->
-             interpretAst (IM.singleton 0
+             interpretAst (EM.singleton (intToAstVarId 0)
                              (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
-                          (f (Ast0 $ AstVar [] (AstVarName 0))))
+                          (f (Ast0 $ AstVar [] (AstVarName (intToAstVarId 0)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains (Just dt)
@@ -343,9 +343,9 @@ testPoly11 f outSize input expected = do
       (astGrad, astValue) =
         revOnDomains (Just dt)
           (\adinputs ->
-             interpretAst (IM.singleton 0
+             interpretAst (EM.singleton (intToAstVarId 0)
                              (AstVarR $ tfromR $ at1 @1 adinputs 0))
-                          (f (AstVar [length input] (AstVarName 0))))
+                          (f (AstVar [length input] (AstVarName (intToAstVarId 0)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains (Just dt)
@@ -372,9 +372,9 @@ testPolyn f sh input expected = do
       (astGrad, astValue) =
         revOnDomains (Just dt)
           (\adinputs ->
-             interpretAst (IM.singleton 0
+             interpretAst (EM.singleton (intToAstVarId 0)
                              (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
-                          (f (Ast0 $ AstVar [] (AstVarName 0))))
+                          (f (Ast0 $ AstVar [] (AstVarName (intToAstVarId 0)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains (Just dt)
@@ -418,9 +418,9 @@ testFooNoGoAst =
        (Just $ OR.constant [3] 1)
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
-          interpretAst (IM.singleton 0
+          interpretAst (EM.singleton (intToAstVarId 0)
                           (AstVarR $ tfromR $ at1 @1 adinputs 0))
-                        (fooNoGoAst (AstVar [5] (AstVarName 0))))
+                        (fooNoGoAst (AstVar [5] (AstVarName (intToAstVarId 0)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
@@ -459,9 +459,9 @@ testBarReluAst0 =
    $ revOnDomains
        (Just 42.2)
        (\adinputs -> tunScalar $
-          interpretAst (IM.singleton 0
+          interpretAst (EM.singleton (intToAstVarId 0)
                           (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
-                        (barReluAst (AstVar [] (AstVarName 0))))
+                        (barReluAst (AstVar [] (AstVarName (intToAstVarId 0)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
 
@@ -472,9 +472,9 @@ testBarReluAst1 =
        (Just $ OR.constant [5] 1)
          -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
-          interpretAst (IM.singleton 0
+          interpretAst (EM.singleton (intToAstVarId 0)
                           (AstVarR $ tfromR $ at1 @1 adinputs 0))
-                       (barReluAst (AstVar [5] (AstVarName 0))))
+                       (barReluAst (AstVar [5] (AstVarName (intToAstVarId 0)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
@@ -486,9 +486,9 @@ testKonstReluAst =
    $ revOnDomains
        (Just 42.2)
        (\adinputs -> tunScalar $
-          interpretAst (IM.singleton 0
+          interpretAst (EM.singleton (intToAstVarId 0)
                           (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
-                        (konstReluAst (AstVar [] (AstVarName 0))))
+                        (konstReluAst (AstVar [] (AstVarName (intToAstVarId 0)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [295.4]
 
@@ -517,9 +517,9 @@ testF3 = do
       (astGrad, astValue) =
         revOnDomains (Just dt)
           (\adinputs ->
-             interpretAst (IM.singleton 0
+             interpretAst (EM.singleton (intToAstVarId 0)
                              (AstVarR $ tfromR $ at1 @1 adinputs 0))
-                          (f3 (AstVar [] (AstVarName 0))))
+                          (f3 (AstVar [] (AstVarName (intToAstVarId 0)))))
           domainsInput
       val = f3 $ OR.fromList [] input
   let _ = astValue @?~ val

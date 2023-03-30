@@ -677,6 +677,7 @@ test-suite simplifiedOnlyTest
 
       , base
       , Boolean
+      , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , hmatrix

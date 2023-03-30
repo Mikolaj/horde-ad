@@ -21,9 +21,9 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import qualified Data.EnumMap.Strict as EM
 import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy)
-import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
@@ -131,7 +131,7 @@ revAstOnDomainsEval dim0 dim1
                     parameters dt =
   let !_A0 = assert (dim0 == tlength (domains0 parameters)) ()
       !_A1 = assert (dim1 == V.length (domainsR parameters)) ()
-      env0 = extendEnvR var0 (domains0 parameters) IM.empty
+      env0 = extendEnvR var0 (domains0 parameters) EM.empty
       env1 = foldr (\(AstDynamicVarName var, v) ->
                       extendEnvR var (tfromD v)) env0
              $ zip vars1 $ V.toList $ domainsR parameters

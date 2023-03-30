@@ -117,10 +117,10 @@ testGatherBuild1 =
 testGatherSimp1 :: Assertion
 testGatherSimp1 = do
   resetVarCOunter
-  let !t1 = gatherNested1 $ AstVar [7, 2] (AstVarName 0)
+  let !t1 = gatherNested1 $ AstVar [7, 2] (AstVarName (intToAstVarId 0))
   length (show t1) @?= 174
   resetVarCOunter
-  let !t2 = gather1 $ AstVar [7, 2] (AstVarName 0)
+  let !t2 = gather1 $ AstVar [7, 2] (AstVarName (intToAstVarId 0))
   length (show t2) @?= 123
   length (show (simplifyAst @Float t1))
     @?= length (show (simplifyAst @Float t2))
@@ -182,10 +182,10 @@ testGatherBuild2 =
 testGatherSimp2 :: Assertion
 testGatherSimp2 = do
   resetVarCOunter
-  let !t1 = gatherNested2 $ AstVar [7, 2] (AstVarName 0)
+  let !t1 = gatherNested2 $ AstVar [7, 2] (AstVarName (intToAstVarId 0))
   length (show t1) @?= 318
   resetVarCOunter
-  let !t2 = gather2 $ AstVar [7, 2] (AstVarName 0)
+  let !t2 = gather2 $ AstVar [7, 2] (AstVarName (intToAstVarId 0))
   length (show t2) @?= 211
   length (show (simplifyAst @Float t1))
     @?= length (show (simplifyAst @Float t2))
@@ -249,10 +249,10 @@ testGatherBuild12 =
 testGatherSimp12 :: Assertion
 testGatherSimp12 = do
   resetVarCOunter
-  let !t1 = gatherNested12 $ AstVar [7, 2] (AstVarName 0)
+  let !t1 = gatherNested12 $ AstVar [7, 2] (AstVarName (intToAstVarId 0))
   length (show t1) @?= 290
   resetVarCOunter
-  let !t2 = gather12 $ AstVar [7, 2] (AstVarName 0)
+  let !t2 = gather12 $ AstVar [7, 2] (AstVarName (intToAstVarId 0))
   length (show t2) @?= 211
   length (show (simplifyAst @Float t1))
     @?= length (show (simplifyAst @Float t2))
@@ -288,12 +288,12 @@ testGatherReshapeBuild22 =
 testGatherSimp22 :: Assertion
 testGatherSimp22 = do
   resetVarCOunter
-  let !t1 = gatherReshape22 $ AstVar [6, 2] (AstVarName 0)
+  let !t1 = gatherReshape22 $ AstVar [6, 2] (AstVarName (intToAstVarId 0))
   length (show t1) @?= 36
   length (show (simplifyAst @Float t1)) @?= 347
   resetVarCOunter
   let !t2 = treshape @(Ast0 Float) @2 @2 [2, 6]
-            $ AstVar [6, 2] (AstVarName 0)
+            $ AstVar [6, 2] (AstVarName (intToAstVarId 0))
   length (show t2) @?= 36
   length (show (simplifyAst @Float t2)) @?= 347
 
@@ -303,14 +303,14 @@ testGatherSimp23 = do
   let !t1 = (\t -> tbuild1 4 (\i ->
               gatherReshape22
                 (t * tkonst0N [6, 2] (tfromIndex0 i))))
-            $ AstVar [6, 2] (AstVarName 0)
+            $ AstVar [6, 2] (AstVarName (intToAstVarId 0))
   length (show t1) @?= 252
   length (show (simplifyAst @Float t1)) @?= 2435
   resetVarCOunter
   let !t2 = (\t -> tbuild1 4 (\i ->
               treshape @(Ast0 Float) @2 @2 [2, 6]
                 (t * tkonst0N [6, 2] (tfromIndex0 i))))
-            $ AstVar [6, 2] (AstVarName 0)
+            $ AstVar [6, 2] (AstVarName (intToAstVarId 0))
   length (show t2) @?= 252
   length (show (simplifyAst @Float t2)) @?= 2435
 
@@ -369,13 +369,13 @@ testGatherSimp33 :: Assertion
 testGatherSimp33 = do
   resetVarCOunter
   let !t1 = gatherTranspose33
-            $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
+            $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName (intToAstVarId 0))
   length (show t1) @?= 1077
   length (show (simplifyAst @Float t1)) @?= 6554
   resetVarCOunter
   let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
                             (treshape @(Ast0 Float) @10 [8, 16] t))
-            $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
+            $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName (intToAstVarId 0))
   length (show t2) @?= 531
   length (show (simplifyAst @Float t2)) @?= 1703
 
@@ -384,7 +384,7 @@ testGatherSimp34 = do
   resetVarCOunter
   let !t1 = (\t -> tbuild1 4 (\i ->
              gatherTranspose33 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
-            $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
+            $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName (intToAstVarId 0))
   length (show t1) @?= 864
   length (show (simplifyAst @Float t1)) @?= 35352
   resetVarCOunter
@@ -392,7 +392,7 @@ testGatherSimp34 = do
               (\t' -> tmatmul2 (treshape [6, 8] (tconst t48))
                                (treshape @(Ast0 Float) @10 [8, 16] t'))
                 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
-            $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
+            $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName (intToAstVarId 0))
   length (show t2) @?= 802
   length (show (simplifyAst @Float t2)) @?= 7200
 
@@ -455,10 +455,10 @@ testScatterBuild1 =
 testScatterSimp1 :: Assertion
 testScatterSimp1 = do
   resetVarCOunter
-  let !t1 = scatterNested1 $ AstVar [7, 2] (AstVarName 0)
+  let !t1 = scatterNested1 $ AstVar [7, 2] (AstVarName (intToAstVarId 0))
   length (show t1) @?= 199
   resetVarCOunter
-  let !t2 = scatter1 $ AstVar [7, 2] (AstVarName 0)
+  let !t2 = scatter1 $ AstVar [7, 2] (AstVarName (intToAstVarId 0))
   length (show t2) @?= 149
   length (show (simplifyAst @Float t1)) @?= 199
   length (show (simplifyAst @Float t2)) @?= 149
@@ -520,10 +520,10 @@ testScatterBuild2 =
 testScatterSimp2 :: Assertion
 testScatterSimp2 = do
   resetVarCOunter
-  let !t1 = scatterNested2 $ AstVar [7, 2] (AstVarName 0)
+  let !t1 = scatterNested2 $ AstVar [7, 2] (AstVarName (intToAstVarId 0))
   length (show t1) @?= 279
   resetVarCOunter
-  let !t2 = scatter2 $ AstVar [7, 2] (AstVarName 0)
+  let !t2 = scatter2 $ AstVar [7, 2] (AstVarName (intToAstVarId 0))
   length (show t2) @?= 211
   length (show (simplifyAst @Float t1)) @?= 279
   length (show (simplifyAst @Float t2)) @?= 211
@@ -587,10 +587,10 @@ testScatterBuild12 =
 testScatterSimp12 :: Assertion
 testScatterSimp12 = do
   resetVarCOunter
-  let !t1 = scatterNested12 $ AstVar [7, 2] (AstVarName 0)
+  let !t1 = scatterNested12 $ AstVar [7, 2] (AstVarName (intToAstVarId 0))
   length (show t1) @?= 251
   resetVarCOunter
-  let !t2 = scatter12 $ AstVar [7, 2] (AstVarName 0)
+  let !t2 = scatter12 $ AstVar [7, 2] (AstVarName (intToAstVarId 0))
   length (show t2) @?= 211
   length (show (simplifyAst @Float t1)) @?= 251
   length (show (simplifyAst @Float t2)) @?= 211

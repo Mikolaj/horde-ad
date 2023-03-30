@@ -7,7 +7,7 @@
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
   ( AstIndex, AstVarList
-  , AstVarName(..), AstDynamicVarName(..)
+  , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
   , Ast(..), AstPrimalPart(..), AstDualPart(..), AstDynamic(..), Ast0(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
@@ -134,15 +134,22 @@ newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
 type instance Element (Ast0 r) = Ast0 r
 type instance Element (Ast n r) = Ast0 r
 
-newtype AstVarName t = AstVarName Int
+newtype AstVarId = AstVarId Int
+ deriving (Eq, Show, Enum)
+
+intToAstVarId :: Int -> AstVarId
+intToAstVarId = AstVarId
+
+newtype AstVarName t = AstVarName AstVarId
  deriving Eq
 
 -- An unlawful instance to prevent spam when tracing and debugging.
 instance Show (AstVarName t) where
   show (AstVarName n) = "Var" ++ show n
 
-data AstDynamicVarName r =
-  forall n. KnownNat n => AstDynamicVarName (AstVarName (TensorOf n r))
+data AstDynamicVarName :: Type -> Type where
+  AstDynamicVarName :: KnownNat n
+                    => AstVarName (TensorOf n r) -> AstDynamicVarName r
 
 -- The argument is the underlying scalar.
 data AstInt :: Type -> Type where

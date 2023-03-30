@@ -10,7 +10,7 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
-import qualified Data.Strict.IntMap as IM
+import qualified Data.EnumMap.Strict as EM
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty
@@ -102,7 +102,7 @@ rev' f vals =
         -> ADVal (TensorOf m r)
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
-            env = extendEnvR var (parseADInputs vals inputs) IM.empty
+            env = extendEnvR var (parseADInputs vals inputs) EM.empty
         in interpretAst env (gx ast)
       (astGrad, value2) = revOnDomains dt (h id id id) (toDomains vals)
       gradient2 = parseDomains vals astGrad
@@ -130,7 +130,7 @@ rev' f vals =
            -> ADVal (Ast m r)
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
-            env = extendEnvR var (parseADInputs vals inputs) IM.empty
+            env = extendEnvR var (parseADInputs vals inputs) EM.empty
         in interpretAst env (gx ast)
       (astGradAst, value2Ast) =
         revAstOnDomains (hAst id id id) (toDomains vals) dt
@@ -454,8 +454,8 @@ testFooNoGoAst =
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
-      f x = interpretAst (IM.singleton 0 (AstVarR $ tfromR x))
-                         (fooNoGoAst (AstVar [5] (AstVarName 0)))
+      f x = interpretAst (EM.singleton (intToAstVarId 0) (AstVarR $ tfromR x))
+                         (fooNoGoAst (AstVar [5] (AstVarName (intToAstVarId 0))))
   in assertEqualUpToEpsilon 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
        (crev @(OR.Array 1 Double) f
@@ -575,8 +575,8 @@ testBarReluAst0 =
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
-      f x = interpretAst (IM.singleton 0 (AstVarR $ tfromR x))
-                         (barReluAst (AstVar [] (AstVarName 0)))
+      f x = interpretAst (EM.singleton (intToAstVarId 0) (AstVarR $ tfromR x))
+                         (barReluAst (AstVar [] (AstVarName (intToAstVarId 0))))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [] [191.20462646925841])
        (crevDt @(OR.Array 0 Double) f (OR.fromList [] [1.1]) 42.2)
@@ -589,8 +589,8 @@ testBarReluAst1 =
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
-      f x = interpretAst (IM.singleton 0 (AstVarR $ tfromR x))
-                         (barReluAst (AstVar [5] (AstVarName 0)))
+      f x = interpretAst (EM.singleton (intToAstVarId 0) (AstVarR $ tfromR x))
+                         (barReluAst (AstVar [5] (AstVarName (intToAstVarId 0))))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
        (crev @(OR.Array 1 Double) f (OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
@@ -608,8 +608,8 @@ testKonstReluAst =
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
-      f x = interpretAst (IM.singleton 0 (AstVarR $ tfromR x))
-                         (konstReluAst (AstVar [] (AstVarName 0)))
+      f x = interpretAst (EM.singleton (intToAstVarId 0) (AstVarR $ tfromR x))
+                         (konstReluAst (AstVar [] (AstVarName (intToAstVarId 0))))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [] [295.4])
        (crevDt @(OR.Array 0 Double) f (OR.fromList [] [1.1]) 42.2)
