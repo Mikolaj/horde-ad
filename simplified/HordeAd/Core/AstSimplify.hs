@@ -111,7 +111,7 @@ funToAstD sh = unsafePerformIO $ do
     Just (SomeNat (_proxy :: Proxy p)) ->
       let shn = listShapeToShape @p sh
           varName = AstVarName @(TensorOf p r) freshId
-      in (AstDynamicVarName varName, AstDynamicFrom $ AstVar shn freshId)
+      in (AstDynamicVarName varName, AstDynamicVar shn freshId)
     Nothing -> error "funToAstD: impossible someNatVal error"
 
 funToAstI :: (AstInt r -> t) -> (AstVarId, t)
