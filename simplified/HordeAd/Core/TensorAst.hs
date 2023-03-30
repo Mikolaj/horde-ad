@@ -36,7 +36,7 @@ instance (Num (Vector r), Show r, Numeric r)
 
   tindex = AstIndexZ
   tsum = AstSum
-  tfromIndex0 = AstConstant . AstPrimalPart . AstConstInt
+  tfromIndex0 = AstConstant . AstPrimalPart . AstConstInt0
     -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = AstScatter sh t (funToAstIndex f)  -- introduces new vars
 
@@ -112,7 +112,7 @@ instance (Num (Vector r), Show r, Numeric r)
 
   tindex v ix = AstPrimalPart $ AstIndexZ (unAstPrimalPart v) ix
   tsum = AstPrimalPart . AstSum . unAstPrimalPart
-  tfromIndex0 = AstPrimalPart . AstConstInt
+  tfromIndex0 = AstPrimalPart . AstConstInt0
     -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = AstPrimalPart $ AstScatter sh (unAstPrimalPart t)
                     $ funToAstIndex f  -- this introduces new variable names

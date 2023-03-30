@@ -68,7 +68,7 @@ data Ast :: Nat -> Type -> Type where
     -- if index is out of bounds, the result is defined and is 0;
     -- however, vectorization is permitted to change the value
   AstSum :: Ast (1 + n) r -> Ast n r
-  AstConstInt :: AstInt r -> Ast 0 r
+  AstConstInt0 :: AstInt r -> Ast 0 r
     -- needed, because toInteger and so fromIntegral is not defined for Ast
   AstScatter :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
              => ShapeInt (p + n) -> Ast (m + n) r
@@ -405,7 +405,7 @@ instance Enum (AstInt r) where
   fromEnum = undefined  -- do we need to define out own Enum for this?
 
 -- Warning: this class lacks toInteger, which also makes it impossible
--- to include AstInt in Ast via fromIntegral, hence AstConstInt.
+-- to include AstInt in Ast via fromIntegral, hence AstConstInt0.
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
@@ -443,7 +443,7 @@ shapeAst v1 = case v1 of
   AstConstant (AstPrimalPart a) -> shapeAst a
   AstIndexZ v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
-  AstConstInt _i -> ZS
+  AstConstInt0 _i -> ZS
   AstScatter sh _ _ -> sh
   AstFromList l -> case l of
     [] -> case sameNat (Proxy @n) (Proxy @1) of
@@ -487,7 +487,7 @@ intVarInAst var = \case
   AstConstant (AstPrimalPart v) -> intVarInAst var v
   AstIndexZ v ix -> intVarInAst var v || intVarInIndex var ix
   AstSum v -> intVarInAst var v
-  AstConstInt k -> intVarInAstInt var k
+  AstConstInt0 k -> intVarInAstInt var k
   AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
   AstScatter _ v (vars, ix) -> notElem var vars && intVarInIndex var ix
                                || intVarInAst var v
@@ -541,7 +541,7 @@ substitute1Ast i var v1 = case v1 of
   AstIndexZ v is ->
     AstIndexZ (substitute1Ast i var v) (fmap (substitute1AstInt i var) is)
   AstSum v -> AstSum (substitute1Ast i var v)
-  AstConstInt i2 -> AstConstInt $ substitute1AstInt i var i2
+  AstConstInt0 i2 -> AstConstInt0 $ substitute1AstInt i var i2
   AstScatter sh v (vars, ix) ->
     if elem var vars
     then AstScatter sh (substitute1Ast i var v) (vars, ix)

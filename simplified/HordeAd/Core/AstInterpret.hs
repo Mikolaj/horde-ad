@@ -140,7 +140,7 @@ interpretAst env | (_, Dict, _, _) <- ev @a @n Proxy = \case
     interpretAstOp (interpretAst env) opCode args
   AstConst a -> tconst a
   AstConstant a -> tconstant $ interpretAstPrimal env a
-  AstConstInt i -> tfromIndex0 $ interpretAstInt env i
+  AstConstInt0 i -> tfromIndex0 $ interpretAstInt env i
   AstIndexZ v is ->
     tindex (interpretAst env v) (fmap (interpretAstInt env) is)
       -- if index is out of bounds, the operations returns with an undefined

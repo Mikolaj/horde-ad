@@ -98,7 +98,7 @@ build1V k (var, v00) =
       AstConstant $ AstPrimalPart bv
       -- This is very fast when interpreted in a smart way, but constant
       -- character needs to be exposed for nested cases.
-      -- We don't vectorize under AstConstant, because vectorizing AstConstInt
+      -- We don't vectorize under AstConstant, because vectorizing AstConstInt0
       -- is laborious. The bad consequence is that the AstBuild1 terms
       -- prevent fusion of the terms they contain with the terms outside.
       -- Fortunately this can't gridlock occurences of integer variables,
@@ -118,7 +118,7 @@ build1V k (var, v00) =
       -- we may just pick the right element of a AstFromList
     AstSum v -> traceRule $
       astSum $ astTr $ build1V k (var, v)
-    AstConstInt{} -> traceRule
+    AstConstInt0{} -> traceRule
       bv  -- vectorizing this would require mapping all AstInt operations
           -- to Ast operations, including RemIntOp, AstIntCond, etc.,
           -- so this is a big effort for a minor feature and handling recursive

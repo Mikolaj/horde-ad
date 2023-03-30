@@ -217,7 +217,7 @@ simplifyStepNonIndex t = case t of
   AstConstant v -> astConstant v
   AstIndexZ{} -> t
   AstSum v -> astSum v
-  AstConstInt i -> AstConstInt $ simplifyAstInt i
+  AstConstInt0 i -> AstConstInt0 $ simplifyAstInt i
   AstScatter sh v (vars2, ix2) -> astScatter sh v (vars2, ix2)
   AstFromList l -> astFromList l
   AstFromVector l -> astFromVector l
@@ -294,7 +294,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstSum v ->  -- almost neutral; transposition is likely to fuse away
     let perm3 = permCycle $ valueOf @m + 1
     in astSum $ astIndex (astTranspose perm3 v) ix
-  AstConstInt{} ->
+  AstConstInt0{} ->
     error "astIndex: impossible pattern needlessly required"
   -- AstScatter sh v (Z, ix2) -> ifB (ix2 ==* ixHead) (index v ixTail) 0
   -- AstScatter sh v (vars2, ZI) ->
@@ -628,7 +628,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       in astSum $ astTransposeAsGather perm4  -- TODO: inline and simplify less
          $ astGather sh5 (astTransposeAsGather perm3 v) (vars4, ix4)
              -- TODO: why is simplification not idempotent without AsGather?
-    AstConstInt{} ->
+    AstConstInt0{} ->
       error "astGather: impossible pattern needlessly required"
     AstScatter{} ->  -- probably nothing can be simplified; a normal form
       AstGatherZ sh4 v4 (vars4, ix4)
@@ -842,7 +842,7 @@ simplifyAst t = case t of
   AstConstant v -> astConstant (simplifyAstPrimal v)
   AstIndexZ v ix -> astIndexZ (simplifyAst v) (fmap simplifyAstInt ix)
   AstSum v -> astSum (simplifyAst v)
-  AstConstInt i -> AstConstInt $ simplifyAstInt i
+  AstConstInt0 i -> AstConstInt0 $ simplifyAstInt i
   AstScatter sh v (var, ix) ->
     astScatter sh (simplifyAst v) (var, fmap simplifyAstInt ix)
   AstFromList l -> astFromList (map simplifyAst l)
