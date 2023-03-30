@@ -126,11 +126,7 @@ instance (Num (Vector r), Show r, Numeric r)
   treverse = AstPrimalPart . AstReverse . unAstPrimalPart
   ttranspose perm = AstPrimalPart . AstTranspose perm . unAstPrimalPart
   treshape sh = AstPrimalPart . astReshape sh  . unAstPrimalPart
-  tbuild1 k f = AstPrimalPart $ AstBuild1 k
-                $ funToAstI  -- this introduces new variable names
-                $ unAstPrimalPart . f
-                -- TODO: $ AstConstant . f
-                -- that's the correct one, but unvectorized tests fail with it
+  tbuild1 k f = AstPrimalPart $ astBuild1Fun k (unAstPrimalPart . f)
   tgather sh t f = AstPrimalPart $ AstGatherZ sh (unAstPrimalPart t)
                    $ funToAstIndex f  -- this introduces new variable names
 

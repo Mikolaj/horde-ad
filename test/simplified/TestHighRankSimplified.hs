@@ -451,13 +451,13 @@ testReluSimp = do
   resetVarCounter
   let !t1 = barRelu10xSlower
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (intToAstVarId 0)
-  length (show t1) @?= 24841
-  length (show (simplifyAst @Float @10 t1)) @?= 21405
+  length (show t1) @?= 32041
+  length (show (simplifyAst @Float @10 t1)) @?= 24861
   resetVarCounter
   let !t2 = barRelu
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (intToAstVarId 0)
-  length (show t2) @?= 21161
-  length (show (simplifyAst @Float @10 t2)) @?= 21405
+  length (show t2) @?= 28361
+  length (show (simplifyAst @Float @10 t2)) @?= 24861
 
 testBarReluADVal320 :: Assertion
 testBarReluADVal320 =
