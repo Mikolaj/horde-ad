@@ -110,19 +110,19 @@ rev' f vals =
         revOnDomains dt (h id id simplifyAst) (toDomains vals)
       gradient3 = parseDomains vals astSimple
       (astPrimal, value4) =
-        revOnDomains dt (h unAstPrimalPart AstPrimalPart id)
+        revOnDomains dt (h unAstNoVectorize AstNoVectorize id)
                         (toDomains vals)
-          -- use the AstPrimalPart instance that does no vectorization
+          -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradient4 = parseDomains vals astPrimal
       (astPSimple, value5) =
-        revOnDomains dt (h unAstPrimalPart AstPrimalPart simplifyAst)
+        revOnDomains dt (h unAstNoVectorize AstNoVectorize simplifyAst)
                         (toDomains vals)
       gradient5 = parseDomains vals astPSimple
       astVectSimp = simplifyAst $ snd $ funToAstR (tshape vals) f
       astSimp =
         simplifyAst $ snd
-        $ funToAstR (tshape vals) (unAstPrimalPart . f . AstPrimalPart)
+        $ funToAstR (tshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady x
            => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
@@ -139,11 +139,11 @@ rev' f vals =
         revAstOnDomains (hAst id id simplifyAst) (toDomains vals) dt
       gradient3Ast = parseDomains vals astSimpleAst
       (astPrimalAst, value4Ast) =
-        revAstOnDomains (hAst unAstPrimalPart AstPrimalPart id)
+        revAstOnDomains (hAst unAstNoVectorize AstNoVectorize id)
                         (toDomains vals) dt
       gradient4Ast = parseDomains vals astPrimalAst
       (astPSimpleAst, value5Ast) =
-        revAstOnDomains (hAst unAstPrimalPart AstPrimalPart simplifyAst)
+        revAstOnDomains (hAst unAstNoVectorize AstNoVectorize simplifyAst)
                         (toDomains vals) dt
       gradient5Ast = parseDomains vals astPSimpleAst
   in ( value0, value1, value2, value3, value4, value5

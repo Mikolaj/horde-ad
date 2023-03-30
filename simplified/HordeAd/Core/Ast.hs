@@ -8,7 +8,8 @@
 module HordeAd.Core.Ast
   ( AstIndex, AstVarList
   , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
-  , Ast(..), AstPrimalPart(..), AstDualPart(..), AstDynamic(..), Ast0(..)
+  , Ast(..), AstNoVectorize(..), AstPrimalPart(..), AstDualPart(..)
+  , AstDynamic(..), Ast0(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , astCond
@@ -112,6 +113,9 @@ data Ast :: Nat -> Type -> Type where
     -- into these for better performance on some hardware
 
 deriving instance (Show r, Numeric r) => Show (Ast n r)
+
+newtype AstNoVectorize n r = AstNoVectorize {unAstNoVectorize :: Ast n r}
+ deriving Show
 
 newtype AstPrimalPart n r = AstPrimalPart {unAstPrimalPart :: Ast n r}
  deriving Show
@@ -237,6 +241,28 @@ astCond b (AstConstant (AstPrimalPart v)) (AstConstant (AstPrimalPart w)) =
 astCond b v w = AstIndexZ (AstFromList [v, w])
                           (singletonIndex $ AstIntCond b 0 1)
 
+type instance BooleanOf (AstNoVectorize n r) = AstBool r
+
+instance KnownNat n => IfB (AstNoVectorize n r) where
+  ifB b v w = AstNoVectorize $ astCond b (unAstNoVectorize v)
+                                         (unAstNoVectorize w)
+
+instance KnownNat n => EqB (AstNoVectorize n r) where
+  v ==* u = AstRel EqOp [ AstPrimalPart $ unAstNoVectorize v
+                        , AstPrimalPart $ unAstNoVectorize u ]
+  v /=* u = AstRel NeqOp [ AstPrimalPart $ unAstNoVectorize v
+                         , AstPrimalPart $ unAstNoVectorize u ]
+
+instance KnownNat n => OrdB (AstNoVectorize n r) where
+  v <* u = AstRel LsOp [ AstPrimalPart $ unAstNoVectorize v
+                       , AstPrimalPart $ unAstNoVectorize u ]
+  v <=* u = AstRel LeqOp [ AstPrimalPart $ unAstNoVectorize v
+                         , AstPrimalPart $ unAstNoVectorize u ]
+  v >* u = AstRel GtOp [ AstPrimalPart $ unAstNoVectorize v
+                       , AstPrimalPart $ unAstNoVectorize u ]
+  v >=* u = AstRel GeqOp [ AstPrimalPart $ unAstNoVectorize v
+                         , AstPrimalPart $ unAstNoVectorize u ]
+
 instance KnownNat n => EqB (Ast n r) where
   v ==* u = AstRel EqOp [AstPrimalPart v, AstPrimalPart u]
   v /=* u = AstRel NeqOp [AstPrimalPart v, AstPrimalPart u]
@@ -344,6 +370,23 @@ instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
   isDenormalized = undefined
   isNegativeZero = undefined
   isIEEE = undefined
+
+instance Eq (AstNoVectorize n r) where
+  _ == _ = error "AstNoVectorize: can't evaluate terms for Eq"
+
+instance Ord (Ast n r) => Ord (AstNoVectorize n r) where
+  max (AstNoVectorize u) (AstNoVectorize v) =
+    AstNoVectorize (AstOp MaxOp [u, v])
+  min (AstNoVectorize u) (AstNoVectorize v) =
+    AstNoVectorize (AstOp MinOp [u, v])
+  _ <= _ = error "AstNoVectorize: can't evaluate terms for Ord"
+
+deriving instance Num (Ast n r) => Num (AstNoVectorize n r)
+deriving instance Real (Ast n r) => Real (AstNoVectorize n r)
+deriving instance Fractional (Ast n r) => Fractional (AstNoVectorize n r)
+deriving instance Floating (Ast n r) => Floating (AstNoVectorize n r)
+deriving instance RealFrac (Ast n r) => RealFrac (AstNoVectorize n r)
+deriving instance RealFloat (Ast n r) => RealFloat (AstNoVectorize n r)
 
 instance Eq (AstPrimalPart n r) where
   _ == _ = error "AstPrimalPart: can't evaluate terms for Eq"

@@ -157,3 +157,63 @@ instance (Num (Vector r), Show r, Numeric r)
   tshapeD = undefined
   tfromR = undefined
   tfromD = undefined
+
+instance (Num (Vector r), Show r, Numeric r)
+         => Tensor (AstNoVectorize 0 r) where
+  type TensorOf n (AstNoVectorize 0 r) = AstNoVectorize n r
+  type IntOf (AstNoVectorize 0 r) = AstInt r
+
+  tlet a f =
+    AstNoVectorize
+    $ astLetFun (unAstNoVectorize a) (unAstNoVectorize . f . AstNoVectorize)
+
+  tshape = shapeAst . unAstNoVectorize
+  tminIndex0 = AstMinIndex1 . AstPrimalPart . unAstNoVectorize
+  tmaxIndex0 = AstMaxIndex1 . AstPrimalPart . unAstNoVectorize
+  tfloor = AstIntFloor . AstPrimalPart . unAstNoVectorize
+
+  tindex v ix = AstNoVectorize $ AstIndexZ (unAstNoVectorize v) ix
+  tsum = AstNoVectorize . AstSum . unAstNoVectorize
+  tfromIndex0 = AstNoVectorize . AstConstInt0
+    -- toInteger is not defined for Ast, hence a special implementation
+  tscatter sh t f = AstNoVectorize $ AstScatter sh (unAstNoVectorize t)
+                    $ funToAstIndex f  -- this introduces new variable names
+
+  tfromList = AstNoVectorize . AstFromList . map unAstNoVectorize
+  tfromVector = AstNoVectorize . AstFromVector . V.map unAstNoVectorize
+  tkonst k = AstNoVectorize . AstKonst k . unAstNoVectorize
+  tappend u v =
+    AstNoVectorize $ AstAppend (unAstNoVectorize u) (unAstNoVectorize v)
+  tslice i k = AstNoVectorize . AstSlice i k  . unAstNoVectorize
+  treverse = AstNoVectorize . AstReverse . unAstNoVectorize
+  ttranspose perm = AstNoVectorize . AstTranspose perm . unAstNoVectorize
+  treshape sh = AstNoVectorize . astReshape sh  . unAstNoVectorize
+  tbuild1 k f = AstNoVectorize $ AstBuild1 k
+                $ funToAstI  -- this introduces new variable names
+                $ unAstNoVectorize . f
+                -- TODO: $ AstConstant . f
+                -- that's the correct one, but unvectorized tests fail with it
+  tgather sh t f = AstNoVectorize $ AstGatherZ sh (unAstNoVectorize t)
+                   $ funToAstIndex f  -- this introduces new variable names
+
+  tscalar = id
+  tunScalar = id
+
+  type ScalarOf (AstNoVectorize 0 r) = r
+  type Primal (AstNoVectorize 0 r) = AstNoVectorize 0 r
+  type DualOf n (AstNoVectorize 0 r) = ()
+  tconst = AstNoVectorize . AstConst
+  tconstant = id
+  tscale0 r d = r * d
+  tprimalPart = id
+  tdualPart _ = ()
+  tD u _ = u
+  tScale _ _ = ()
+  -- TODO: if ever used, define, if not, use an Error type
+  type DynamicTensor (AstNoVectorize 0 r) = Either r r
+  tdummyD = undefined
+  tisDummyD = undefined
+  taddD = undefined
+  tshapeD = undefined
+  tfromR = undefined
+  tfromD = undefined
