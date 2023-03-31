@@ -42,7 +42,7 @@ import HordeAd.Internal.TensorOps
 revL
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), Show r, Numeric r, RealFloat r
+     , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> [vals] -> [vals]
@@ -51,7 +51,7 @@ revL f valsAll = revDtMaybeL f valsAll Nothing
 revDtMaybeL
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), Show r, Numeric r, RealFloat r
+     , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> [vals] -> Maybe (TensorOf n r) -> [vals]
@@ -85,7 +85,7 @@ revDtMaybeL f valsAll@(vals : _) dt =
 rev
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), Show r, Numeric r, RealFloat r
+     , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> vals -> vals
@@ -95,7 +95,7 @@ rev f vals = head $ revL f [vals]
 revDt
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), Show r, Numeric r, RealFloat r
+     , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> vals -> TensorOf n r -> vals
@@ -105,7 +105,7 @@ revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 srevL
   :: forall r vals astvals.
      ( ADTensor r, InterpretAst r, ScalarOf r ~ r
-     , Floating (Vector r), Show r, Numeric r, RealFloat r
+     , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast0 r) -> [vals] -> [vals]
@@ -114,7 +114,7 @@ srevL f = revL (tscalar . f)
 srevDtMaybeL
   :: forall r vals astvals.
      ( ADTensor r, InterpretAst r, ScalarOf r ~ r
-     , Floating (Vector r), Show r, Numeric r, RealFloat r
+     , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast0 r) -> [vals] -> Maybe r -> [vals]
@@ -124,7 +124,7 @@ srevDtMaybeL f valsAll dt = revDtMaybeL (tscalar . f) valsAll (tscalar <$> dt)
 srev
   :: forall r vals astvals.
      ( ADTensor r, InterpretAst r, ScalarOf r ~ r
-     , Floating (Vector r), Show r, Numeric r, RealFloat r
+     , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast0 r) -> vals -> vals
@@ -134,7 +134,7 @@ srev f = rev (tscalar . f)
 srevDt
   :: forall r vals astvals.
      ( ADTensor r, InterpretAst r, ScalarOf r ~ r
-     , Floating (Vector r), Show r, Numeric r, RealFloat r
+     , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast0 r) -> vals -> r -> vals
@@ -211,9 +211,7 @@ class AdaptableInputs r advals where
   fromADInputs :: Value advals -> ADInputs r -> (advals, ADInputs r)
 
 parseDomainsAst
-  :: ( FromDomainsAst astvals
-     , Numeric (Scalar (ValueAst astvals)), Show (Scalar (ValueAst astvals))
-     , Num (Vector (Scalar (ValueAst astvals))) )
+  :: (FromDomainsAst astvals, ShowAstSimplify (Scalar (ValueAst astvals)))
   => ValueAst astvals -> Domains (Ast0 (Scalar (ValueAst astvals)))
   -> astvals
 parseDomainsAst aInit domains =
@@ -234,7 +232,7 @@ parseADInputs aInit inputs =
   let (advals, rest) = fromADInputs aInit inputs
   in assert (nullADInputs rest) advals
 
-instance (Scalar r ~ r, Show r, Numeric r, Num (Vector r))
+instance (Scalar r ~ r, ShowAstSimplify r)
          => FromDomainsAst (Ast0 r) where
   type ValueAst (Ast0 r) = r
   fromDomainsAst _aInit (Domains v0 v1) = case tuncons v0 of
@@ -286,7 +284,7 @@ instance AdaptableInputs Float (ADVal Float) where
       Nothing -> error "fromADInputs in AdaptableInputs Float"
     Nothing -> error "fromADInputs in AdaptableInputs Float"
 
-instance (Show r, Numeric r, Num (Vector r))
+instance ShowAstSimplify r
          => AdaptableInputs (Ast0 r) (ADVal (Ast0 r)) where
   type Value (ADVal (Ast0 r)) = r
   fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
@@ -320,8 +318,7 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
     in (arr, g2)
 -}
 
-instance ( Tensor r, Numeric r, Show r, Num (Vector r), KnownNat n
-         , TensorOf n r ~ OR.Array n r )
+instance (Tensor r, ShowAstSimplify r, KnownNat n, TensorOf n r ~ OR.Array n r)
          => FromDomainsAst (Ast n r) where
   type ValueAst (Ast n r) = OR.Array n r
   fromDomainsAst aInit (Domains v0 v1) = case V.uncons v1 of
@@ -369,7 +366,7 @@ instance ( Tensor (ADVal r), KnownNat n, TensorOf n r ~ OR.Array n r
       Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
 
-instance (KnownNat n, Show r, Numeric r, Num (Vector r))
+instance (KnownNat n, ShowAstSimplify r)
          => AdaptableInputs (Ast0 r) (ADVal (Ast n r)) where
   type Value (ADVal (Ast n r)) = OR.Array n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of

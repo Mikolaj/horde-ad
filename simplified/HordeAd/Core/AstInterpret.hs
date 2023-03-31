@@ -22,7 +22,7 @@ import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, sameNat)
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.DualNumber
@@ -83,8 +83,8 @@ data Dict c a where
 
 class ( Tensor a, Tensor (Primal a)
       , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a)
-      , Numeric (ScalarOf a), Show (ScalarOf a), RealFloat (Primal a)
-      , Num (Vector (ScalarOf a)), IntOf (Primal a) ~ IntOf a
+      , ShowAst (ScalarOf a), Num (Vector (ScalarOf a)), RealFloat (Primal a)
+      , IntOf (Primal a) ~ IntOf a
       , BooleanOf (Primal a) ~ BooleanOf (IntOf a) )
       => Evidence a where
   ev :: forall n. KnownNat n
@@ -98,7 +98,7 @@ instance Evidence (ADVal Double) where
   ev _ = (Refl, Dict, Dict, Dict)
 instance Evidence (ADVal Float) where
   ev _ = (Refl, Dict, Dict, Dict)
-instance (Numeric r, Show r, RealFloat r, Floating (Vector r))
+instance (ShowAst r, RealFloat r, Floating (Vector r))
          => Evidence (ADVal (Ast0 r)) where
   ev _ = (Refl, Dict, Dict, Dict)
 instance Evidence Double where

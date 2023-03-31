@@ -12,7 +12,6 @@ import Prelude
 
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
-import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
@@ -22,7 +21,7 @@ import HordeAd.Core.TensorClass
 
 -- * Ast instances of Tensor (and Primal) that use vectorization
 
-instance (Num (Vector r), Show r, Numeric r)
+instance ShowAstSimplify r
          => Tensor (Ast0 r) where
   type TensorOf n (Ast0 r) = Ast n r
   type IntOf (Ast0 r) = AstInt r
@@ -79,7 +78,7 @@ instance (Num (Vector r), Show r, Numeric r)
   tfromR = AstDynamicFrom
   tfromD = astFromDynamic
 
-astLetFun :: (KnownNat n, Show r, Numeric r, Num (Vector r))
+astLetFun :: (KnownNat n, ShowAstSimplify r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
 astLetFun a f =
   let sh = tshape a
@@ -92,11 +91,11 @@ astLetFun a f =
 -- works bottom-up, which removes the need to backtrack in the vectorization
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
-astBuild1Fun :: (KnownNat n, Show r, Numeric r, Num (Vector r))
+astBuild1Fun :: (KnownNat n, ShowAstSimplify r)
              => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
 astBuild1Fun k f = build1Vectorize k $ funToAstI f
 
-instance (Num (Vector r), Show r, Numeric r)
+instance ShowAstSimplify r
          => Tensor (AstPrimalPart 0 r) where
   type TensorOf n (AstPrimalPart 0 r) = AstPrimalPart n r
   type IntOf (AstPrimalPart 0 r) = AstInt r
@@ -154,7 +153,7 @@ instance (Num (Vector r), Show r, Numeric r)
   tfromR = undefined
   tfromD = undefined
 
-instance (Num (Vector r), Show r, Numeric r)
+instance ShowAstSimplify r
          => Tensor (AstNoVectorize 0 r) where
   type TensorOf n (AstNoVectorize 0 r) = AstNoVectorize n r
   type IntOf (AstNoVectorize 0 r) = AstInt r

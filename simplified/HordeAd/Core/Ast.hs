@@ -6,7 +6,7 @@
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
-  ( AstIndex, AstVarList
+  ( ShowAst, AstIndex, AstVarList
   , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
   , Ast(..), AstNoVectorize(..), AstPrimalPart(..), AstDualPart(..)
   , AstDynamic(..), Ast0(..)
@@ -36,6 +36,8 @@ import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 
 -- * Ast definitions
+
+type ShowAst r = (Show r, Numeric r)
 
 type AstIndex n r = Index n (AstInt r)
 

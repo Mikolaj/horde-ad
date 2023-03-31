@@ -27,7 +27,6 @@ import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
-import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
@@ -73,8 +72,7 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 -- computed, only for testing.
 revAstOnDomains
   :: forall r n.
-     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
-     , Num (Vector r), Show r, Numeric r )
+     (ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r, ShowAstSimplify r)
   => (ADInputs (Ast0 r) -> ADVal (Ast n r))
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
@@ -89,8 +87,7 @@ revAstOnDomains f parameters dt =
                          parameters dt
 
 revAstOnDomainsFun
-  :: forall r n.
-     (KnownNat n, Num (Vector r), Show r, Numeric r)
+  :: forall r n. (KnownNat n, ShowAstSimplify r)
   => Int -> [[Int]]
   -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
   -> ( AstVarName (TensorOf 1 r)
@@ -115,8 +112,7 @@ revAstOnDomainsFun dim0 shapes1 f =
 
 revAstOnDomainsEval
   :: forall r n.
-     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
-     , Num (Vector r), Show r, Numeric r )
+     (ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r, ShowAstSimplify r)
   => Int -> Int
   -> ( AstVarName (TensorOf 1 r)
      , [AstDynamicVarName r]

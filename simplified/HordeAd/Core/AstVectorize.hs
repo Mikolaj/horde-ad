@@ -14,7 +14,6 @@ import qualified Data.Array.RankedS as OR
 import           Data.IORef
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
-import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -31,7 +30,7 @@ import HordeAd.Internal.SizedList
 -- constructor and not increasing (and potentially decreasing)
 -- the total number of @AstBuild1@ occuring in the term.
 build1Vectorize
-  :: (KnownNat n, Show r, Numeric r, Num (Vector r))
+  :: (KnownNat n, ShowAstSimplify r)
   => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
 build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -64,7 +63,7 @@ astTr = AstTranspose [1, 0]
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
 -- @var@ occurs in @v@.
 build1VOccurenceUnknown
-  :: (KnownNat n, Show r, Numeric r, Num (Vector r))
+  :: (KnownNat n, ShowAstSimplify r)
   => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
 build1VOccurenceUnknown k (var, v0) =
   let traceRule = mkTraceRule "build1VOcc" (AstBuild1 k (var, v0)) v0 1
@@ -77,7 +76,7 @@ build1VOccurenceUnknown k (var, v0) =
 -- the term @AstBuild1 k (var, v)@, where it's known that
 -- @var@ occurs in @v@.
 build1V
-  :: (KnownNat n, Show r, Numeric r, Num (Vector r))
+  :: (KnownNat n, ShowAstSimplify r)
   => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
 build1V k (var, v00) =
   let v0 = simplifyStepNonIndex v00
@@ -172,7 +171,7 @@ build1V k (var, v00) =
 -- eventually proven unnecessary. The rule changes the index to a gather
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
-  :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r, Num (Vector r))
+  :: forall m n r. (KnownNat m, KnownNat n, ShowAstSimplify r)
   => Int -> (AstVarId, Ast (m + n) r, AstIndex m r)
   -> Ast (1 + n) r
 build1VIndex k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
@@ -227,8 +226,8 @@ ellipsisString width full = let cropped = take width full
                                then cropped
                                else take (width - 3) cropped ++ "..."
 
-mkTraceRule :: (KnownNat n, Show r, Numeric r, Show ca)
-            => String -> Ast n r -> ca -> Int -> Ast n r -> Ast n r
+mkTraceRule :: (KnownNat n, ShowAstSimplify r)
+            => String -> Ast n r -> Ast m r -> Int -> Ast n r -> Ast n r
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = traceWidth

@@ -154,7 +154,7 @@ rev' f vals =
 
 assertEqualUpToEpsilon'
     :: ( AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon b
-       , KnownNat m, Show r, Numeric r, Num (Vector r), HasCallStack )
+       , KnownNat m, ShowAstSimplify r, HasCallStack )
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
     -> ( b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r
@@ -198,7 +198,7 @@ assertEqualUpToEpsilon'
 
 assertEqualUpToEpsilonShort
     :: ( AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon b
-       , KnownNat m, Show r, Numeric r, Num (Vector r), HasCallStack )
+       , KnownNat m, ShowAstSimplify r, HasCallStack )
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
     -> ( b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r
@@ -232,7 +232,7 @@ assertEqualUpToEpsilonShort
 
 assertEqualUpToEpsilonShorter
     :: ( AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon b
-       , KnownNat m, Show r, Numeric r, Num (Vector r), HasCallStack )
+       , KnownNat m, ShowAstSimplify r, HasCallStack )
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
     -> ( b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r
@@ -432,7 +432,7 @@ barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
-fooNoGoAst :: forall r. (Show r, Numeric r, RealFloat r, Floating (Vector r))
+fooNoGoAst :: forall r. (ShowAst r, RealFloat r, Floating (Vector r))
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
   let r = tsum0 v
@@ -448,7 +448,7 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: ( Show r, Numeric r, RealFloat r, Floating (Vector r)
+  let f :: ( ShowAst r, RealFloat r, Floating (Vector r)
            , TensorOf 1 r ~ OR.Array 1 r, InterpretAst (ADVal r)
            , TensorOf 1 (ADVal r) ~ ADVal (TensorOf 1 r)
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
@@ -563,13 +563,13 @@ testBarReluADVal3 =
 
 barReluAst
   :: forall n r.
-     (KnownNat n, Numeric r, RealFloat r, Floating (Vector r), Show r)
+     (KnownNat n, ShowAst r, RealFloat r, Floating (Vector r))
   => Ast n r -> Ast n r
 barReluAst x = relu1 @n @(Ast0 r) $ bar (x, relu1 x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
-  let f :: ( Show r, Numeric r, RealFloat r, Floating (Vector r)
+  let f :: ( ShowAst r, RealFloat r, Floating (Vector r)
            , TensorOf 0 r ~ OR.Array 0 r, InterpretAst (ADVal r)
            , TensorOf 0 (ADVal r) ~ ADVal (TensorOf 0 r)
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
@@ -583,7 +583,7 @@ testBarReluAst0 =
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
-  let f :: ( Show r, Numeric r, RealFloat r, Floating (Vector r)
+  let f :: ( ShowAst r, RealFloat r, Floating (Vector r)
            , TensorOf 1 r ~ OR.Array 1 r, InterpretAst (ADVal r)
            , TensorOf 1 (ADVal r) ~ ADVal (TensorOf 1 r)
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
@@ -596,13 +596,13 @@ testBarReluAst1 =
        (crev @(OR.Array 1 Double) f (OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
 
 konstReluAst
-  :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
+  :: forall r. (ShowAst r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
 konstReluAst x = tsum0 $ relu1 $ tkonst0N (7 :$ ZS) x
 
 testKonstReluAst :: Assertion
 testKonstReluAst =
-  let f :: ( Show r, Numeric r, RealFloat r, Floating (Vector r)
+  let f :: ( ShowAst r, RealFloat r, Floating (Vector r)
            , TensorOf 0 r ~ OR.Array 0 r, InterpretAst (ADVal r)
            , TensorOf 0 (ADVal r) ~ ADVal (TensorOf 0 r)
            , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)

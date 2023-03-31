@@ -20,9 +20,9 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, type (+))
-import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstSimplify (ShowAstSimplify)
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
@@ -34,11 +34,11 @@ type ADTensor r =
   , Tensor r
   )
 
-instance (Num (Vector r), Numeric r, Show r, KnownNat n)
+instance (KnownNat n, ShowAstSimplify r)
          => IfB (ADVal (Ast n r)) where
   ifB b v w = tindex (tfromList [v, w]) (singletonIndex $ ifB b 0 1)
 
-instance (Num (Vector r), Numeric r, Show r)
+instance ShowAstSimplify r
          => IfB (ADVal (Ast0 r)) where
   ifB b v w = tunScalar $ ifB b (tscalar v) (tscalar w)
 
@@ -150,7 +150,7 @@ instance Tensor (ADVal Float) where
   tfromR = fromR
   tfromD = fromD
 
-instance (ADTensor (Ast0 r), Numeric r, Show r, Num (Vector r))
+instance (ADTensor (Ast0 r), ShowAstSimplify r)
          => Tensor (ADVal (Ast0 r)) where
   type TensorOf n (ADVal (Ast0 r)) = ADVal (Ast n r)
   type IntOf (ADVal (Ast0 r)) = AstInt r

@@ -21,7 +21,7 @@ module HordeAd.Core.AstSimplify
   , astConstant, astSum, astScatter, astFromList, astFromVector, astKonst
   , astAppend, astSlice, astReverse, astFromDynamic
   , astIntCond
-  , simplifyAst
+  , ShowAstSimplify, simplifyAst
   , substituteAst, substituteAstInt, substituteAstBool
   , resetVarCounter
   ) where
@@ -60,6 +60,9 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
+
+type ShowAstSimplify r = (ShowAst r, Num (Vector r))
+
 
 -- * Permutation operations
 
@@ -156,7 +159,7 @@ funToAstIndex f = unsafePerformIO $ do
 -- where term size blowup can't be avoided, because the index has to be
 -- normalized between each reshape.
 astReshapeAsGather
-  :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r, Num (Vector r))
+  :: forall p m r. (KnownNat p, KnownNat m, ShowAstSimplify r)
   => ShapeInt m -> Ast p r -> Ast m r
 {-# NOINLINE astReshapeAsGather #-}
 astReshapeAsGather shOut v = unsafePerformIO $ do
@@ -177,7 +180,7 @@ astReshapeAsGather shOut v = unsafePerformIO $ do
 -- and nesting with reshape and gather they don't fuse, which is when
 -- this function is invoked.
 astTransposeAsGather
-  :: forall n r. (KnownNat n, Show r, Numeric r, Num (Vector r))
+  :: forall n r. (KnownNat n, ShowAstSimplify r)
   => Permutation -> Ast n r -> Ast n r
 {-# NOINLINE astTransposeAsGather #-}
 astTransposeAsGather perm v = unsafePerformIO $ do
@@ -207,7 +210,7 @@ astTransposeAsGather perm v = unsafePerformIO $ do
 -- (many steps if guaranteed net beneficial).
 -- AstInt and AstBool terms are simplified fully.
 simplifyStepNonIndex
-  :: (Show r, Numeric r, KnownNat n, Num (Vector r))
+  :: (KnownNat n, ShowAstSimplify r)
   => Ast n r -> Ast n r
 simplifyStepNonIndex t = case t of
   AstVar{} -> t
@@ -235,13 +238,13 @@ simplifyStepNonIndex t = case t of
 
 astIndexZ
   :: forall m n r.
-     (KnownNat m, KnownNat n, Show r, Numeric r, Num (Vector r))
+     (KnownNat m, KnownNat n, ShowAstSimplify r)
   => Ast (m + n) r -> AstIndex m r -> Ast n r
 astIndexZ = astIndexZOrStepOnly False
 
 astIndexStep
   :: forall m n r.
-     (KnownNat m, KnownNat n, Show r, Numeric r, Num (Vector r))
+     (KnownNat m, KnownNat n, ShowAstSimplify r)
   => Ast (m + n) r -> AstIndex m r -> Ast n r
 astIndexStep v ix = astIndexZOrStepOnly True (simplifyStepNonIndex v)
                                              (fmap simplifyAstInt ix)
@@ -256,7 +259,7 @@ astIndexStep v ix = astIndexZOrStepOnly True (simplifyStepNonIndex v)
 -- either from full recursive simplification or from astIndexStep.
 astIndexZOrStepOnly
   :: forall m n r.
-     (KnownNat m, KnownNat n, Show r, Numeric r, Num (Vector r))
+     (KnownNat m, KnownNat n, ShowAstSimplify r)
   => Bool -> Ast (m + n) r -> AstIndex m r -> Ast n r
 astIndexZOrStepOnly stepOnly (AstIndexZ v ix) ZI =
   astIndexZOrStepOnly stepOnly v ix  -- no non-indexing constructor yet revealed
@@ -445,7 +448,7 @@ astAppend (AstFromVector l1) (AstFromList l2) = astFromList $ V.toList l1 ++ l2
 astAppend (AstFromVector l1) (AstFromVector l2) = astFromVector $ l1 V.++ l2
 astAppend u v = AstAppend u v
 
-astSlice :: forall n r. (KnownNat n, Show r, Numeric r, Num (Vector r))
+astSlice :: forall n r. (KnownNat n, ShowAstSimplify r)
          => Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
 astSlice i k (AstConst t) = AstConst $ tsliceR i k t
 astSlice i k (AstConstant (AstPrimalPart v)) =
@@ -471,7 +474,7 @@ astSlice i k (AstGatherZ (_ :$ sh') v (var ::: vars, ix)) =
   in astGatherZ (k :$ sh') v (var ::: vars, ix2)
 astSlice i k v = AstSlice i k v
 
-astReverse :: forall n r. (KnownNat n, Show r, Numeric r, Num (Vector r))
+astReverse :: forall n r. (KnownNat n, ShowAstSimplify r)
            => Ast (1 + n) r -> Ast (1 + n) r
 astReverse (AstConst t) = AstConst $ treverseR t
 astReverse (AstConstant (AstPrimalPart v)) =
@@ -512,7 +515,7 @@ astTranspose perm0 t0 = case (perm0, t0) of
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
 -- if full simplification is required.
-astReshape :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
+astReshape :: forall p m r. (KnownNat p, KnownNat m, ShowAstSimplify r)
            => ShapeInt m -> Ast p r -> Ast m r
 astReshape shOut (AstConst t) = AstConst $ OR.reshape (shapeToList shOut) t
 astReshape shOut (AstConstant (AstPrimalPart v)) =
@@ -528,15 +531,13 @@ astReshape shOut v =
     _ -> AstReshape shOut v
 
 astGatherZ
-  :: forall m n p r.
-     (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r, Num (Vector r))
+  :: forall m n p r. (KnownNat m, KnownNat p, KnownNat n, ShowAstSimplify r)
   => ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
   -> Ast (m + n) r
 astGatherZ = astGatherZOrStepOnly False
 
 astGatherStep
-  :: forall m n p r.
-     (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r, Num (Vector r))
+  :: forall m n p r. (KnownNat m, KnownNat p, KnownNat n, ShowAstSimplify r)
   => ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
   -> Ast (m + n) r
 astGatherStep sh v (vars, ix) =
@@ -551,8 +552,7 @@ astGatherStep sh v (vars, ix) =
 -- The v0 term is already at least one step simplified,
 -- either from full recursive simplification or from astGatherStep.
 astGatherZOrStepOnly
-  :: forall m n p r.
-     (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r, Num (Vector r))
+  :: forall m n p r. (KnownNat m, KnownNat p, KnownNat n, ShowAstSimplify r)
   => Bool -> ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
   -> Ast (m + n) r
 astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
@@ -822,7 +822,7 @@ astMaxIndex1 = AstMaxIndex1
 -- * The simplifying bottom-up pass
 
 simplifyAstPrimal
-  :: (Show r, Numeric r, KnownNat n, Num (Vector r))
+  :: (ShowAstSimplify r, KnownNat n)
   => AstPrimalPart n r -> AstPrimalPart n r
 simplifyAstPrimal (AstPrimalPart t) = AstPrimalPart $ simplifyAst t
 
@@ -830,7 +830,7 @@ simplifyAstPrimal (AstPrimalPart t) = AstPrimalPart $ simplifyAst t
 -- is visited and each combinator applied. The most exhaustive and costly
 -- variants of each combinator are used, e.g., astIndexZ.
 simplifyAst
-  :: (Show r, Numeric r, KnownNat n, Num (Vector r))
+  :: (ShowAstSimplify r, KnownNat n)
   => Ast n r -> Ast n r
 simplifyAst t = case t of
   AstVar{} -> t
@@ -880,7 +880,7 @@ simplifyAst t = case t of
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether
 -- dual terms can be simplified in turn.
-simplifyAstInt :: (Show r, Numeric r, Num (Vector r))
+simplifyAstInt :: ShowAstSimplify r
                => AstInt r -> AstInt r
 simplifyAstInt t = case t of
   AstIntVar{} -> t
@@ -895,7 +895,7 @@ simplifyAstInt t = case t of
   AstMinIndex1 v -> astMinIndex1 $ simplifyAstPrimal v
   AstMaxIndex1 v -> astMaxIndex1 $ simplifyAstPrimal v
 
-simplifyAstBool :: (Show r, Numeric r, Num (Vector r))
+simplifyAstBool :: ShowAstSimplify r
                 => AstBool r -> AstBool r
 simplifyAstBool t = case t of
   AstBoolOp opCodeBool args ->
@@ -1073,14 +1073,14 @@ simplifyAstBoolOp OrOp [b, AstBoolConst False] = b
 simplifyAstBoolOp opCodeBool arg = AstBoolOp opCodeBool arg
 
 -- We have to simplify after substitution or simplifying is not idempotent.
-substituteAst :: (Show r, Numeric r, KnownNat n, Num (Vector r))
+substituteAst :: (KnownNat n, ShowAstSimplify r)
               => AstInt r -> AstVarId -> Ast n r -> Ast n r
 substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
 
-substituteAstInt :: (Show r, Numeric r, Num (Vector r))
+substituteAstInt :: ShowAstSimplify r
                  => AstInt r -> AstVarId -> AstInt r -> AstInt r
 substituteAstInt i var i2 = simplifyAstInt $ substitute1AstInt i var i2
 
-substituteAstBool :: (Show r, Numeric r, Num (Vector r))
+substituteAstBool :: ShowAstSimplify r
                   => AstInt r -> AstVarId -> AstBool r -> AstBool r
 substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1

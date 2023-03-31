@@ -114,7 +114,7 @@ fooMap1 r =
   in tmap0N (\x -> x * tscalar r + 5) v
 
 -- This uses raw AST instead of sufficiently polymorphic code.
-fooNoGoAst :: forall r. (Show r, Numeric r, RealFloat r, Floating (Vector r))
+fooNoGoAst :: forall r. (ShowAst r, RealFloat r, Floating (Vector r))
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
   let r = tsum0 v
@@ -174,19 +174,18 @@ barRelu
 barRelu x = relu1 $ bar (x, relu1 x)
 
 barReluAst
-  :: (KnownNat n, Numeric r, RealFloat r, Floating (Vector r), Show r)
+  :: (KnownNat n, ShowAst r, RealFloat r, Floating (Vector r))
   => Ast n r -> Ast n r
 barReluAst x = relu1 $ bar (x, reluAst1 x)
 
 konstReluAst
-  :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
+  :: forall r. (ShowAst r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
 konstReluAst x = tsum0 $ reluAst1 @1 $ tkonst0N [7] x
 
 reluAst1
   :: forall n r.
-     ( KnownNat n, Numeric r, RealFloat r, Floating (Vector r)
-     , Show r )
+     (KnownNat n, ShowAst r, RealFloat r, Floating (Vector r))
   => Ast n r -> Ast n r
 reluAst1 v =
   let oneIfGtZero =
