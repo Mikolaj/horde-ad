@@ -715,13 +715,9 @@ testRecycled1 =
 concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =
   tbuild1 7 (\i ->
-    tappend (tappend (tbuild1 5 (\_j -> tscalar r))  -- TODO: i should work
+    tappend (tappend (tbuild1 5 (\_j -> tscalar r))
                      (tkonst 1 (tfromIndex0 i)))
             (tbuild1 13 (\_k -> tscalar r)))
--- TODO: reject via types or accept with type obligations:
---    tappend (tappend (tbuild1 (1 + i) (\_j -> tscalar r))  -- TODO: i should work
---                     (tkonst0N [1] (tfromIndex0 i)))
---            (tbuild1 (13 - i) (\_k -> tscalar r)))
 
 testConcatBuild :: Assertion
 testConcatBuild =
@@ -734,15 +730,6 @@ testConcatBuild1 =
   assertEqualUpToEpsilon' 1e-10
     126.0
     (rev' @(OR.Array 2 Double) (concatBuild . tunScalar) 3.4)
-
--- TODO:
-_concatBuild2 :: ADReady r => r -> TensorOf 2 r
-_concatBuild2 _r =
--- TODO: tbuild0N (7, 14) (\ (i,j)
-  tbuild1 7 $ \i -> tbuild1 14 $ \_j ->
-    -- TODO: use classes Cond and Bool: if i == j then tfromIndex0 i else r
-   tfromIndex0 i
-      -- need to prove that i + 1 + (13 - i) = 14
 
 emptyArgs :: forall r. ADReady r => TensorOf 1 r -> TensorOf 1 r
 emptyArgs t =

@@ -96,12 +96,8 @@ build1V k (var, v00) =
       error "build1V: AstConst can't have free int variables"
     AstConstant (AstPrimalPart v) -> traceRule $
       astConstant $ AstPrimalPart $ build1V k (var, v)
-    AstIndexZ v is -> traceRule $
-      build1VIndex k (var, v, is)
-      -- @var@ is in @v@ or @is@; TODO: simplify is first or even fully
-      -- evaluate (may involve huge data processing) if contains no vars
-      -- and then some things simplify a lot, e.g., if constant index,
-      -- we may just pick the right element of a AstFromList
+    AstIndexZ v ix -> traceRule $
+      build1VIndex k (var, v, ix)  -- @var@ is in @v@ or @ix@
     AstSum v -> traceRule $
       astSum $ astTr $ build1V k (var, v)
     AstConstInt0 (AstIntVar var2) -> traceRule $
@@ -131,10 +127,6 @@ build1V k (var, v00) =
       astTr $ astSlice i s $ astTr $ build1V k (var, v)
     AstReverse v -> traceRule $
       astTr $ astReverse $ astTr $ build1V k (var, v)
-      -- that's because @build1 k (f . g) == map1 f (build1 k g)@
-      -- and @map1 f == transpose . f . transpose@
-      -- TODO: though only for some f; check and fail early;
-      -- probably only f that don't change shapes or ranks at least
     AstTranspose perm v -> traceRule $
       astTranspose (simplifyPermutation $ 0 : map succ perm)
                    (build1V k (var, v))

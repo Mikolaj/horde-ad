@@ -186,8 +186,6 @@ instance ShowAstSimplify r
   tbuild1 k f = AstNoVectorize $ AstBuild1 k
                 $ funToAstI  -- this introduces new variable names
                 $ unAstNoVectorize . f
-                -- TODO: $ AstConstant . f
-                -- that's the correct one, but unvectorized tests fail with it
   tgather sh t f = AstNoVectorize $ AstGatherZ sh (unAstNoVectorize t)
                    $ funToAstIndex f  -- this introduces new variable names
 

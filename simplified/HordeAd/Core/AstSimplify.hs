@@ -234,7 +234,7 @@ simplifyStepNonIndex t = case t of
   AstGatherZ _ v0 (Z, ix) -> AstIndexZ v0 ix
   AstGatherZ sh v0 (_, ZI) -> astKonstN sh v0
   AstGatherZ {} -> t
-  AstD{} -> t  -- TODO
+  AstD{} -> t
 
 astIndexZ
   :: forall m n r.

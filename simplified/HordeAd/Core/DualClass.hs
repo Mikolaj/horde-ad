@@ -315,7 +315,6 @@ instance IsPrimalR Float where
   packDeltaDtR (Left tsh) = DeltaDtR (tconst $ tkonst0N (tshape tsh) 1)
   packDeltaDtR (Right t) = DeltaDtR t
 
--- TODO: should this manage sharing of the terms?
 instance (Show r, Numeric r, Tensor (Ast0 r)) => IsPrimalA r where
   dZeroA = ZeroR
   dScaleA = ScaleR

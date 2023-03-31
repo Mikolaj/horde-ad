@@ -284,7 +284,6 @@ testGatherReshapeBuild22 =
              gatherReshape22 (t * tkonst0N [6, 2] (tfromIndex0 i))))
           (tkonst 6 $ tfromList [0, 1]))
 
--- TODO: try to lower the gap down to zero
 testGatherSimp22 :: Assertion
 testGatherSimp22 = do
   resetVarCounter
