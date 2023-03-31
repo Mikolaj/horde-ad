@@ -108,22 +108,18 @@ instance Evidence Float where
 
 type InterpretAst a = Evidence a
 
--- TODO: the following is false. Make it true.
--- Note that this uses the @Primal a@ instance of @InterpretAst@,
--- which makes this simpler and more performant than projecting
--- the result from an @a@ instance.
+-- Strict environment and strict ADVal and Delta make this is hard to optimize.
+-- Either the environment has to be traverse to remove the dual parts or
+-- the dual part needs to be needlessly computed.
+-- However, with correct sharing and large tensors, the overall cost
+-- is negligible, so we optimize only minimally.
 interpretAstPrimal
-  :: (KnownNat n, Evidence a)
+  :: forall n a. (KnownNat n, Evidence a)
   => AstEnv a
   -> AstPrimalPart n (ScalarOf a) -> TensorOf n (Primal a)
-interpretAstPrimal env (AstPrimalPart v) =
-  tprimalPart $ interpretAst env v
--- interpretAst @n @(Primal a) (EM.map tprimalPart env) v
--- TODO: but both Dual and AstEnv are strict, so in both cases
--- we can't avoid wasted computation. Benchmark lazy AstEnv
--- once we have tests with many vars.
--- TODO: constrain types (we are down one level here) and then special case
-   -- AstBuild1 k (var, AstConstant v) ->
+interpretAstPrimal env (AstPrimalPart v1) = case v1 of
+  AstD u _-> interpretAstPrimal env u
+  _ -> tprimalPart $ interpretAst env v1
 
 interpretAst
   :: forall n a. (KnownNat n, Evidence a)
@@ -172,7 +168,8 @@ interpretAst env | (_, Dict, _, _) <- ev @a @n Proxy = \case
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
   -- not to concrete numbers (and so Primal a is not equal to ScalarOf a).
-  -- However, this matters only for POPL AD, not JAX AD.
+  -- However, this matters only for POPL AD, not JAX AD and also it matters
+  -- only with no vectorization of, at least, constant (primal-only) terms.
   -- AstBuild1 k (var, AstConstant v) ->
   --   tconst
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
