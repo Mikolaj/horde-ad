@@ -17,6 +17,7 @@ import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
+import           Data.Kind (Constraint, Type)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
@@ -253,23 +254,22 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tfromD :: KnownNat n
          => DynamicTensor r -> TensorOf n r
 
+type Many (f :: Type -> Constraint) r = (f (TensorOf 0 r), f (TensorOf 1 r), f (TensorOf 2 r), f (TensorOf 3 r), f (TensorOf 4 r), f (TensorOf 5 r), f (TensorOf 6 r), f (TensorOf 7 r), f (TensorOf 8 r), f (TensorOf 9 r), f (TensorOf 10 r), f (TensorOf 11 r), f (TensorOf 12 r))
+
 type ADReady r =
   ( Tensor r, Tensor (Primal r), Show r, RealFloat r
   , RealFloat (Primal r), Numeric (ScalarOf r), RealFloat (ScalarOf r)
-  , ( RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
-    , RealFloat (TensorOf 2 r), RealFloat (TensorOf 3 r)
-    , RealFloat (TensorOf 4 r), RealFloat (TensorOf 5 r)
-    , RealFloat (TensorOf 6 r), RealFloat (TensorOf 7 r)
-    , RealFloat (TensorOf 8 r), RealFloat (TensorOf 9 r)
-    , RealFloat (TensorOf 10 r), RealFloat (TensorOf 11 r)
-    , RealFloat (TensorOf 12 r) )
-  , ( RealFloat (TensorOf 0 (Primal r)), RealFloat (TensorOf 1 (Primal r))
-    , RealFloat (TensorOf 2 (Primal r)), RealFloat (TensorOf 3 (Primal r))
-    , RealFloat (TensorOf 4 (Primal r)), RealFloat (TensorOf 5 (Primal r))
-    , RealFloat (TensorOf 6 (Primal r)), RealFloat (TensorOf 7 (Primal r))
-    , RealFloat (TensorOf 8 (Primal r)), RealFloat (TensorOf 9 (Primal r))
-    , RealFloat (TensorOf 10 (Primal r)), RealFloat (TensorOf 11 (Primal r))
-    , RealFloat (TensorOf 12 (Primal r)) )
+  , Many RealFloat r
+  , Many RealFloat (Primal r)
+  , IfB r, IfB (IntOf r)
+  , Many IfB r
+  , Many IfB (Primal r)
+  , EqB r, EqB (IntOf r)
+  , Many EqB r
+  , Many EqB (Primal r)
+  , OrdB r, OrdB (IntOf r)
+  , Many OrdB r
+  , Many OrdB (Primal r)
   , Boolean (BooleanOf r)
   , ( BooleanOf r ~ BooleanOf (TensorOf 0 r)
     , BooleanOf r ~ BooleanOf (TensorOf 1 r)
@@ -298,39 +298,6 @@ type ADReady r =
     , BooleanOf r ~ BooleanOf (TensorOf 11 (Primal r))
     , BooleanOf r ~ BooleanOf (TensorOf 12 (Primal r)) )
   , BooleanOf r ~ BooleanOf (IntOf r)  -- placing this last gives better errors
-  , IfB r, IfB (IntOf r)
-  , ( IfB (TensorOf 0 r), IfB (TensorOf 1 r), IfB (TensorOf 2 r)
-    , IfB (TensorOf 3 r), IfB (TensorOf 4 r), IfB (TensorOf 5 r)
-    , IfB (TensorOf 6 r), IfB (TensorOf 7 r), IfB (TensorOf 8 r)
-    , IfB (TensorOf 9 r), IfB (TensorOf 10 r), IfB (TensorOf 11 r)
-    , IfB (TensorOf 12 r) )
-  , ( IfB (TensorOf 0 (Primal r)), IfB (TensorOf 1 (Primal r)), IfB (TensorOf 2 (Primal r))
-    , IfB (TensorOf 3 (Primal r)), IfB (TensorOf 4 (Primal r)), IfB (TensorOf 5 (Primal r))
-    , IfB (TensorOf 6 (Primal r)), IfB (TensorOf 7 (Primal r)), IfB (TensorOf 8 (Primal r))
-    , IfB (TensorOf 9 (Primal r)), IfB (TensorOf 10 (Primal r)), IfB (TensorOf 11 (Primal r))
-    , IfB (TensorOf 12 (Primal r)) )
-  , EqB r, EqB (IntOf r)
-  , ( EqB (TensorOf 0 r), EqB (TensorOf 1 r), EqB (TensorOf 2 r)
-    , EqB (TensorOf 3 r), EqB (TensorOf 4 r), EqB (TensorOf 5 r)
-    , EqB (TensorOf 6 r), EqB (TensorOf 7 r), EqB (TensorOf 8 r)
-    , EqB (TensorOf 9 r), EqB (TensorOf 10 r), EqB (TensorOf 11 r)
-    , EqB (TensorOf 12 r) )
-  , ( EqB (TensorOf 0 (Primal r)), EqB (TensorOf 1 (Primal r)), EqB (TensorOf 2 (Primal r))
-    , EqB (TensorOf 3 (Primal r)), EqB (TensorOf 4 (Primal r)), EqB (TensorOf 5 (Primal r))
-    , EqB (TensorOf 6 (Primal r)), EqB (TensorOf 7 (Primal r)), EqB (TensorOf 8 (Primal r))
-    , EqB (TensorOf 9 (Primal r)), EqB (TensorOf 10 (Primal r)), EqB (TensorOf 11 (Primal r))
-    , EqB (TensorOf 12 (Primal r)) )
-  , OrdB r, OrdB (IntOf r)
-  , ( OrdB (TensorOf 0 r), OrdB (TensorOf 1 r), OrdB (TensorOf 2 r)
-    , OrdB (TensorOf 3 r), OrdB (TensorOf 4 r), OrdB (TensorOf 5 r)
-    , OrdB (TensorOf 6 r), OrdB (TensorOf 7 r), OrdB (TensorOf 8 r)
-    , OrdB (TensorOf 9 r), OrdB (TensorOf 10 r), OrdB (TensorOf 11 r)
-    , OrdB (TensorOf 12 r) )
-  , ( OrdB (TensorOf 0 (Primal r)), OrdB (TensorOf 1 (Primal r)), OrdB (TensorOf 2 (Primal r))
-    , OrdB (TensorOf 3 (Primal r)), OrdB (TensorOf 4 (Primal r)), OrdB (TensorOf 5 (Primal r))
-    , OrdB (TensorOf 6 (Primal r)), OrdB (TensorOf 7 (Primal r)), OrdB (TensorOf 8 (Primal r))
-    , OrdB (TensorOf 9 (Primal r)), OrdB (TensorOf 10 (Primal r)), OrdB (TensorOf 11 (Primal r))
-    , OrdB (TensorOf 12 (Primal r)) )
   )
   -- any of the @BooleanOf r ~ ...@ lines above breaks GHC <= 9.0.2
 
