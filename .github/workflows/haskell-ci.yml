@@ -178,12 +178,12 @@ jobs:
           # $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortTestForCI --test-show-details=direct
           $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest --test-show-details=direct -ftest_seq
       - name: prod benches
+        if: ${{ false }}  # disable for now
         run: |
-          if: ${{ false }}  # disable for now
           $CABAL v2-bench $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortProdForCI
       - name: mnist benches
+        if: ${{ false }}  # disable for now
         run: |
-          if: ${{ false }}  # disable for now
           $CABAL v2-bench $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortMnistForCI
       - name: cabal check
         run: |
