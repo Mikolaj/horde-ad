@@ -1,11 +1,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Dual numbers and various operations on them, arithmetic and related
--- to tensors (vectors, matrices and others). This is a part of
--- the high-level API of the horde-ad library, defined using the mid-level
--- (and safely impure) API in "HordeAd.Core.DualClass". The other part
--- of the high-level API is in "HordeAd.Core.Engine".
+-- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
 module HordeAd.Core.AstInterpret
   ( InterpretAst, interpretAst, interpretAstDynamic
   , AstEnv, extendEnvR
@@ -31,14 +27,11 @@ import HordeAd.Core.TensorADVal ()
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 
--- * Interpretation of Ast in ADVal
-
 type AstEnv a = EM.EnumMap AstVarId (AstEnvElem a)
 
 data AstEnvElem a =
     AstVarR (DynamicTensor a)
   | AstVarI (IntOf a)
-
 deriving instance (Show (DynamicTensor a), Show (IntOf a))
                   => Show (AstEnvElem a)
 
@@ -54,14 +47,14 @@ extendEnvI var i =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
                    var (AstVarI i)
 
-extendEnvVars :: AstVarList m -> IndexOf m a
-              -> AstEnv a -> AstEnv a
+extendEnvVars :: AstVarList m -> IndexOf m a -> AstEnv a -> AstEnv a
 extendEnvVars vars ix env =
   let assocs = zip (sizedListToList vars) (indexToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
 interpretLambdaI
-  :: (AstEnv c -> a -> b) -> AstEnv c -> (AstVarId, a) -> IntOf c -> b
+  :: (AstEnv c -> a -> TensorOf n c) -> AstEnv c -> (AstVarId, a) -> IntOf c
+  -> TensorOf n c
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env (var, ast) =
   \i -> f (extendEnvI var i env) ast
@@ -121,13 +114,14 @@ interpretAstPrimal env (AstPrimalPart v1) = case v1 of
   AstD u _-> interpretAstPrimal env u
   _ -> tprimalPart $ interpretAst env v1
 
+
 interpretAst
   :: forall n a. (KnownNat n, Evidence a)
   => AstEnv a
   -> Ast n (ScalarOf a) -> TensorOf n a
 interpretAst env | (_, Dict, _, _) <- ev @a @n Proxy = \case
-  AstVar _sh var -> case EM.lookup var env of
-    Just (AstVarR d) -> tfromD d
+  AstVar sh var -> case EM.lookup var env of
+    Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ tfromD d
     Just AstVarI{} ->
       error $ "interpretAst: type mismatch for Var" ++ show var
     Nothing -> error $ "interpretAst: unknown variable Var" ++ show var
@@ -316,6 +310,245 @@ interpretAstRelOp _ opCodeRel args =
   error $ "interpretAstRelOp: wrong number of arguments"
           ++ show (opCodeRel, length args)
 
+
+{-
+This (see the simplified signatures of the last four functions)
+is 10% slower in tests dominated by interpretation (e.g., no Ast sharing
+or code with no or tiny tensors) without the INLINEs and 5% slower
+with the INLINEs:
+
+interpretAst
+  :: forall n a. (KnownNat n, Evidence a)
+  => AstEnv a
+  -> Ast n (ScalarOf a) -> TensorOf n a
+interpretAst env | (_, Dict, _, _) <- ev @a @n Proxy = \case
+  AstVar sh var -> case EM.lookup var env of
+    Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ tfromD d
+    Just AstVarI{} ->
+      error $ "interpretAst: type mismatch for Var" ++ show var
+    Nothing -> error $ "interpretAst: unknown variable Var" ++ show var
+  AstLet var u v ->
+    interpretAst (EM.insert var (AstVarR $ tfromR $ interpretAst env u) env) v
+  AstOp opCode args -> interpretAstOp opCode $ map (interpretAst env) args
+  AstConstInt0 i -> tfromIndex0 $ interpretAstInt env i
+  AstIndexZ v is ->
+    tindex (interpretAst env v) (fmap (interpretAstInt env) is)
+      -- if index is out of bounds, the operations returns with an undefined
+      -- value of the correct rank and shape; this is needed, because
+      -- vectorization can produce out of bound indexing from code where
+      -- the indexing is guarded by conditionals
+  AstSum v@(AstOp TimesOp [t, u]) ->
+    case sameNat (Proxy @n) (Proxy @0) of
+      Just Refl -> tdot0 (interpretAst env t) (interpretAst env u)
+        -- TODO: do as a term rewrite using an extended set of terms?
+      _ -> tsum (interpretAst env v)
+  AstSum v -> tsum (interpretAst env v)
+    -- TODO: recognize when sum0 may be used instead, which is much cheaper
+    -- or should I do that in Delta instead? no, because tsum0R
+    -- is cheaper, too
+  AstScatter sh v (vars, ix) ->
+    tscatter sh (interpretAst env v)
+                (interpretLambdaIndexToIndex interpretAstInt env (vars, ix))
+  AstFromList l -> tfromList (map (interpretAst env) l)
+  AstFromVector l -> tfromVector (V.map (interpretAst env) l)
+  AstKonst k v -> tkonst k (interpretAst env v)
+  AstAppend x y -> tappend (interpretAst env x) (interpretAst env y)
+  AstSlice i k v -> tslice i k (interpretAst env v)
+  AstReverse v -> treverse (interpretAst env v)
+  AstTranspose perm v -> ttranspose perm $ interpretAst env v
+  AstReshape sh v -> treshape sh (interpretAst env v)
+  AstBuild1 0 (_, v) -> tfromList0N (0 :$ tshape v) []
+  -- The following can't be, in general, so partially evaluated, because v
+  -- may contain variables that the evironment sends to terms,
+  -- not to concrete numbers (and so Primal a is not equal to ScalarOf a).
+  -- However, this matters only for POPL AD, not JAX AD and also it matters
+  -- only with no vectorization of, at least, constant (primal-only) terms.
+  -- AstBuild1 k (var, AstConstant v) ->
+  --   tconst
+  --   $ OR.ravel . ORB.fromVector [k] . V.generate k
+  --   $ interpretLambdaI interpretAstPrimal env (var, v)
+  AstBuild1 k (var, v) ->
+    tbuild1 k (interpretLambdaI interpretAst env (var, v))
+    -- to be used only in tests
+  AstGatherZ sh v (vars, ix) ->
+    tgather sh (interpretAst env v)
+               (interpretLambdaIndexToIndex interpretAstInt env (vars, ix))
+    -- the operation accepts out of bounds indexes,
+    -- for the same reason ordinary indexing does, see above
+    -- TODO: currently we store the function on tape, because it doesn't
+    -- cause recomputation of the gradient per-cell, unlike storing the build
+    -- function on tape; for GPUs and libraries that don't understand Haskell
+    -- closures, we can check if the expressions involve tensor operations
+    -- too hard for GPUs and, if not, we can store the AST expression
+    -- on tape and translate it to whatever backend sooner or later;
+    -- and if yes, fall back to POPL pre-computation that, unfortunately,
+    -- leads to a tensor of deltas
+  AstConst a -> tconst a
+  AstConstant a -> tconstant $ interpretAstPrimal env a
+  AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
+                                (tdualPart $ interpretAst env u')
+
+interpretAstInt :: Evidence a
+                => AstEnv a
+                -> AstInt (ScalarOf a) -> IntOf (Primal a)
+interpretAstInt env = \case
+  AstIntVar var -> case EM.lookup var env of
+    Just AstVarR{} ->
+      error $ "interpretAstInt: type mismatch for Var" ++ show var
+    Just (AstVarI i) -> i
+    Nothing -> error $ "interpretAstInt: unknown variable Var" ++ show var
+  AstIntOp opCodeInt args ->
+    interpretAstIntOp opCodeInt $ map (interpretAstInt env) args
+  AstIntConst a -> fromIntegral a
+  AstIntFloor v -> tfloor $ interpretAstPrimal env v
+  AstIntCond b a1 a2 -> ifB (interpretAstBool env b)
+                            (interpretAstInt env a1)
+                            (interpretAstInt env a2)
+  AstMinIndex1 v -> tminIndex0 $ interpretAstPrimal env v
+  AstMaxIndex1 v -> tmaxIndex0 $ interpretAstPrimal env v
+
+interpretAstBool :: forall a. Evidence a
+                 => AstEnv a
+                 -> AstBool (ScalarOf a) -> BooleanOf (Primal a)
+interpretAstBool env = \case
+  AstBoolOp opCodeBool args ->
+    interpretAstBoolOp opCodeBool $ map (interpretAstBool env) args
+  AstBoolConst a -> if a then true else false
+  AstRel @n opCodeRel args | (Refl, _, Dict, Dict) <- ev @a @n Proxy ->
+    interpretAstRelOp opCodeRel $ map (interpretAstPrimal env) args
+  AstRelInt opCodeRel args ->
+    interpretAstRelOp opCodeRel $ map (interpretAstInt env) args
+
+interpretAstDynamic
+  :: Evidence a
+  => AstEnv a
+  -> AstDynamic (ScalarOf a) -> DynamicTensor a
+interpretAstDynamic env = \case
+  AstDynamicDummy -> error "interpretAstDynamic: AstDynamicDummy"
+  AstDynamicPlus v u ->
+    interpretAstDynamic env v `taddD` interpretAstDynamic env u
+  AstDynamicFrom w -> tfromR $ interpretAst env w
+  AstDynamicVar sh var -> case EM.lookup var env of
+    Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ d
+    Just AstVarI{} ->
+      error $ "interpretAstDynamic: type mismatch for Var" ++ show var
+    Nothing -> error $ "interpretAstDynamic: unknown variable Var" ++ show var
+
+interpretAstOp :: RealFloat a
+               => OpCode -> [a] -> a
+{-# INLINE interpretAstOp #-}
+interpretAstOp PlusOp [u, v] = u + v
+interpretAstOp MinusOp [u, v] = u - v
+interpretAstOp TimesOp [u, v] = u * v
+interpretAstOp NegateOp [u] = negate u
+interpretAstOp AbsOp [u] = abs u
+interpretAstOp SignumOp [u] = signum u
+interpretAstOp DivideOp [u, v] = u / v
+interpretAstOp RecipOp [u] = recip u
+interpretAstOp ExpOp [u] = exp u
+interpretAstOp LogOp [u] = log u
+interpretAstOp SqrtOp [u] = sqrt u
+interpretAstOp PowerOp [u, v] = u ** v
+interpretAstOp LogBaseOp [u, v] = logBase u v
+interpretAstOp SinOp [u] = sin u
+interpretAstOp CosOp [u] = cos u
+interpretAstOp TanOp [u] = tan u
+interpretAstOp AsinOp [u] = asin u
+interpretAstOp AcosOp [u] = acos u
+interpretAstOp AtanOp [u] = atan u
+interpretAstOp SinhOp [u] = sinh u
+interpretAstOp CoshOp [u] = cosh u
+interpretAstOp TanhOp [u] = tanh u
+interpretAstOp AsinhOp [u] = asinh u
+interpretAstOp AcoshOp [u] = acosh u
+interpretAstOp AtanhOp [u] = atanh u
+interpretAstOp Atan2Op [u, v] = atan2 u v
+interpretAstOp MaxOp [u, v] = max u v
+interpretAstOp MinOp [u, v] = min u v
+interpretAstOp opCode args =
+  error $ "interpretAstOp: wrong number of arguments"
+          ++ show (opCode, length args)
+
+interpretAstIntOp :: Integral a
+                  => OpCodeInt -> [a] -> a
+{-# INLINE interpretAstIntOp #-}
+interpretAstIntOp PlusIntOp [u, v] = u + v
+interpretAstIntOp MinusIntOp [u, v] = u - v
+interpretAstIntOp TimesIntOp [u, v] = u * v
+interpretAstIntOp NegateIntOp [u] = negate u
+interpretAstIntOp AbsIntOp [u] = abs u
+interpretAstIntOp SignumIntOp [u] = signum u
+interpretAstIntOp MaxIntOp [u, v] = max u v
+interpretAstIntOp MinIntOp [u, v] = min u v
+interpretAstIntOp QuotIntOp [u, v] = quot u v
+interpretAstIntOp RemIntOp [u, v] = rem u v
+interpretAstIntOp opCodeInt args =
+  error $ "interpretAstIntOp: wrong number of arguments"
+          ++ show (opCodeInt, length args)
+
+interpretAstBoolOp :: Boolean b
+                   => OpCodeBool -> [b] -> b
+{-# INLINE interpretAstBoolOp #-}
+interpretAstBoolOp NotOp [u] = notB u
+interpretAstBoolOp AndOp [u, v] = u &&* v
+interpretAstBoolOp OrOp [u, v] = u ||* v
+interpretAstBoolOp opCodeBool args =
+  error $ "interpretAstBoolOp: wrong number of arguments"
+          ++ show (opCodeBool, length args)
+
+interpretAstRelOp :: (EqB b, OrdB b)
+                  => OpCodeRel -> [b] -> BooleanOf b
+{-# INLINE interpretAstRelOp #-}
+interpretAstRelOp EqOp [u, v] = u ==* v
+interpretAstRelOp NeqOp [u, v] = u /=* v
+interpretAstRelOp LeqOp [u, v] = u <=* v
+interpretAstRelOp GeqOp [u, v] = u >=* v
+interpretAstRelOp LsOp [u, v] = u <* v
+interpretAstRelOp GtOp [u, v] = u >* v
+interpretAstRelOp opCodeRel args =
+  error $ "interpretAstRelOp: wrong number of arguments"
+          ++ show (opCodeRel, length args)
+
+{-# SPECIALIZE interpretAstOp
+  :: OpCode -> [(ADVal Double)] -> (ADVal Double) #-}
+{-# SPECIALIZE interpretAstOp
+  :: OpCode -> [(ADVal Float)] -> (ADVal Float) #-}
+{-# SPECIALIZE interpretAstOp
+  :: OpCode -> [(ADVal (Ast0 Double))] -> (ADVal (Ast0 Double)) #-}
+{-# SPECIALIZE interpretAstOp
+  :: OpCode -> [(ADVal (Ast0 Float))] -> (ADVal (Ast0 Float)) #-}
+{-# SPECIALIZE interpretAstOp
+  :: OpCode -> [Double] -> Double #-}
+{-# SPECIALIZE interpretAstOp
+  :: OpCode -> [Float] -> Float #-}
+
+{-# SPECIALIZE interpretAstIntOp
+  :: OpCodeInt -> [Int] -> Int #-}
+{-# SPECIALIZE interpretAstIntOp
+  :: OpCodeInt -> [AstInt Double] -> AstInt Double #-}
+{-# SPECIALIZE interpretAstIntOp
+  :: OpCodeInt -> [AstInt Float] -> AstInt Float #-}
+
+{-# SPECIALIZE interpretAstBoolOp
+  :: OpCodeBool -> [Bool] -> Bool #-}
+{-# SPECIALIZE interpretAstBoolOp
+  :: OpCodeBool -> [AstBool Double] -> AstBool Double #-}
+{-# SPECIALIZE interpretAstBoolOp
+  :: OpCodeBool -> [AstBool Float] -> AstBool Float #-}
+
+{-# SPECIALIZE interpretAstRelOp
+  :: OpCodeRel -> [ADVal Double] -> Bool #-}
+{-# SPECIALIZE interpretAstRelOp
+  :: OpCodeRel -> [ADVal Float] -> Bool #-}
+{-# SPECIALIZE interpretAstRelOp
+  :: OpCodeRel -> [ADVal (Ast0 Double)] -> AstBool Double #-}
+{-# SPECIALIZE interpretAstRelOp
+  :: OpCodeRel -> [ADVal (Ast0 Float)] -> AstBool Float #-}
+{-# SPECIALIZE interpretAstRelOp
+  :: OpCodeRel -> [Double] -> Bool #-}
+{-# SPECIALIZE interpretAstRelOp
+  :: OpCodeRel -> [Float] -> Bool #-}
+-}
 
 
 {-# SPECIALIZE interpretAstPrimal

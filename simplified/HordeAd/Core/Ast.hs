@@ -2,9 +2,10 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
--- higher order operations such as build and map, but can be used
--- for arbitrary code transformations at the cost of limiting
--- expressiveness of transformed fragments to what AST captures.
+-- higher order operations such as build and map and for producing reusable
+-- gradients, but can be used for arbitrary code transformations
+-- at the cost of limiting expressiveness of transformed fragments
+-- to what AST captures.
 module HordeAd.Core.Ast
   ( ShowAst, AstIndex, AstVarList
   , Ast(..), AstNoVectorize(..), AstPrimalPart(..), AstDualPart(..)
@@ -201,7 +202,7 @@ type instance BooleanOf (Ast n r) = AstBool r
 instance KnownNat n => IfB (Ast n r) where
   ifB = astCond
 
--- No simplification at this point, so constant boolean unlikely,
+-- No simplification yet done at this point, so constant boolean unlikely,
 -- but it's a constant time simplification, so no harm done.
 astCond :: KnownNat n
         => AstBool r -> Ast n r -> Ast n r -> Ast n r
@@ -434,7 +435,7 @@ instance Real (AstInt r) where
 
 instance Enum (AstInt r) where
   toEnum = AstIntConst
-  fromEnum = undefined  -- do we need to define out own Enum for this?
+  fromEnum = undefined  -- do we need to define our own Enum for this?
 
 -- Warning: this class lacks toInteger, which also makes it impossible
 -- to include AstInt in Ast via fromIntegral, hence AstConstInt0.

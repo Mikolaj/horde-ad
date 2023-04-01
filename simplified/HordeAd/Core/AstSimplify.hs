@@ -1,18 +1,17 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Term-simplifying combinators corresponding to the Ast constructors.
--- They simplify only on the basis of inspecting the roots of their
+-- | Term-simplifying combinators corresponding to the Ast constructors
+-- and complete bottom-up simplifying functions. The former
+-- simplify only on the basis of inspecting the roots of their
 -- argument term trees. If the arguments get modified as a result,
 -- the modified forms are again inspected and may be simplified.
--- However, no unbounded depth inspection nor simplification of terms
--- takes place. This limited simplification is enough to uncover redexes
+-- The latter traverse and simplify the whole term.
+-- The limited simplification via combinators is enough to uncover redexes
 -- for the vectorization rules to fire and to undo some of the complication
 -- introduced by vectorization. The intention is to leave as much
 -- of the original terms provided by the user as possible while making
 -- sure everything introduced by vectorization is maximally simplified.
---
--- The combinator can also be used to simplify a whole term, bottom-up.
 module HordeAd.Core.AstSimplify
   ( simplifyPermutation
   , funToAstR, funToAstD, funToAstI, funToAstIndex
@@ -879,7 +878,7 @@ simplifyAst t = case t of
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether
--- dual terms can be simplified in turn.
+-- a tensor terms can be simplified in turn.
 simplifyAstInt :: ShowAstSimplify r
                => AstInt r -> AstInt r
 simplifyAstInt t = case t of
@@ -889,9 +888,8 @@ simplifyAstInt t = case t of
   AstIntConst{} -> t
   AstIntFloor v -> AstIntFloor $ simplifyAstPrimal v
     -- Equality of floats is suspect, so no attempt to simplify.
-  AstIntCond b a1 a2 -> astIntCond (simplifyAstBool b)
-                                   (simplifyAstInt a1)
-                                   (simplifyAstInt a2)
+  AstIntCond b a1 a2 ->
+    astIntCond (simplifyAstBool b) (simplifyAstInt a1) (simplifyAstInt a2)
   AstMinIndex1 v -> astMinIndex1 $ simplifyAstPrimal v
   AstMaxIndex1 v -> astMaxIndex1 $ simplifyAstPrimal v
 
@@ -902,8 +900,7 @@ simplifyAstBool t = case t of
     simplifyAstBoolOp opCodeBool (map simplifyAstBool args)
   AstBoolConst{} -> t
   AstRel opCodeRel args -> AstRel opCodeRel (map simplifyAstPrimal args)
-    -- these are primal part expressions, so never vectorized but potentially
-    -- large, so we simplify and ignore them
+    -- these expressions are potentially large, so we simplify and ignore them
   AstRelInt opCodeRel args -> AstRelInt opCodeRel (map simplifyAstInt args)
     -- TODO: evaluate if arguments are constants
 

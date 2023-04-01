@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Vectorization of the build operation in Ast.
+-- | Vectorization of @Ast@, eliminating the @build1@ operation.
 module HordeAd.Core.AstVectorize
   ( build1Vectorize, traceRuleEnabledRef
   ) where
@@ -80,10 +80,12 @@ build1V
   => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
 build1V k (var, v00) =
   let v0 = simplifyStepNonIndex v00
+        -- Almost surely the term will be transformed, so it can just
+        -- as well we one-step simplified first (many steps if redexes
+        -- get uncovered and so the simplification requires only constant
+        -- look-ahead, but has a guaranteed net benefit).
       bv = AstBuild1 k (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
-  -- Almost surely the term will be transformed, so it can just as well
-  -- we one-step simplified first (many steps if guaranteed net beneficial).
   in case v0 of
     AstVar{} ->
       error "build1V: AstVar can't have free int variables"
@@ -106,9 +108,6 @@ build1V k (var, v00) =
       astScatter (k :$ sh)
                  (build1VOccurenceUnknown k (var, v))
                  (var ::: vars, AstIntVar var :. ix)
-        -- note that this is only the easier half of vectorization of scatter;
-        -- the harder half requires simplification and probably a new
-        -- normal form
 
     AstFromList l -> traceRule $
       astTr $ astFromList (map (\v -> build1VOccurenceUnknown k (var, v)) l)
