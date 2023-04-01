@@ -136,9 +136,17 @@ class HasRanks r where
           => Dual (TensorOf n r) -> IndexOf n r -> ShapeInt n -> Dual r
   dSum0 :: KnownNat n
         => ShapeInt n -> Dual (TensorOf n r) -> Dual r
+--  dScatterZ1 :: (KnownNat p, KnownNat n)
+--            => (Int -> IndexOf p r)
+--            -> Int -> Dual (TensorOf (1 + n) r)
+--            -> ShapeInt (p + n) -> Dual (TensorOf (p + n) r)
+  dScatterZ :: (KnownNat m, KnownNat p, KnownNat n)
+            => ShapeInt (p + n) -> Dual (TensorOf (m + n) r)
+            -> (IndexOf m r -> IndexOf p r)
+            -> ShapeInt (m + n)
+            -> Dual (TensorOf (p + n) r)
   dDot0 :: KnownNat n
         => TensorOf n r -> Dual (TensorOf n r) -> Dual r
-  dUnScalar0 :: Dual (TensorOf 0 r) -> Dual r
 
   dInputR :: InputId (TensorOf n r) -> Dual (TensorOf n r)
 --  dIndexZ1 :: KnownNat n
@@ -189,19 +197,10 @@ class HasRanks r where
            -> (IndexOf m r -> IndexOf p r)
            -> ShapeInt (p + n)
            -> Dual (TensorOf (m + n) r)
---  dScatterZ1 :: (KnownNat p, KnownNat n)
---            => (Int -> IndexOf p r)
---            -> Int -> Dual (TensorOf (1 + n) r)
---            -> ShapeInt (p + n) -> Dual (TensorOf (p + n) r)
-  dScatterZ :: (KnownNat m, KnownNat p, KnownNat n)
-            => ShapeInt (p + n) -> Dual (TensorOf (m + n) r)
-            -> (IndexOf m r -> IndexOf p r)
-            -> ShapeInt (m + n)
-            -> Dual (TensorOf (p + n) r)
+  dUnScalar0 :: Dual (TensorOf 0 r) -> Dual r
 
   dFromD :: KnownNat n
           => Dual (DynamicTensor r) -> Dual (TensorOf n r)
-
   dFromR :: KnownNat n
           => Dual (TensorOf n r) -> Dual (DynamicTensor r)
 
@@ -352,7 +351,8 @@ instance HasRanks Double where
 --  dIndex1 = Index1
   dIndexZ = IndexZ
   dSumR = SumR
-  dScalarR = ScalarR
+--  dScatter1 = Scatter1
+  dScatterZ = ScatterZ
   dFromListR = FromListR
   dFromVectorR = FromVectorR
 --  dFromList0R = FromList0R
@@ -367,11 +367,9 @@ instance HasRanks Double where
   dBuildR = BuildR
 --  dGather1 = Gather1
   dGatherZ = GatherZ
---  dScatter1 = Scatter1
-  dScatterZ = ScatterZ
+  dScalarR = ScalarR
 
   dFromD = FromD
-
   dFromR = FromR
 
 instance HasRanks Float where
@@ -385,7 +383,8 @@ instance HasRanks Float where
 --  dIndex1 = Index1
   dIndexZ = IndexZ
   dSumR = SumR
-  dScalarR = ScalarR
+--  dScatter1 = Scatter1
+  dScatterZ = ScatterZ
   dFromListR = FromListR
   dFromVectorR = FromVectorR
 --  dFromList0R = FromList0R
@@ -400,11 +399,9 @@ instance HasRanks Float where
   dBuildR = BuildR
 --  dGather1 = Gather1
   dGatherZ = GatherZ
---  dScatter1 = Scatter1
-  dScatterZ = ScatterZ
+  dScalarR = ScalarR
 
   dFromD = FromD
-
   dFromR = FromR
 
 instance (Show r, Numeric r) => HasRanks (Ast0 r) where
@@ -418,7 +415,8 @@ instance (Show r, Numeric r) => HasRanks (Ast0 r) where
 --  dIndex1 = Index1
   dIndexZ = IndexZ
   dSumR = SumR
-  dScalarR = ScalarR
+--  dScatter1 = Scatter1
+  dScatterZ = ScatterZ
   dFromListR = FromListR
   dFromVectorR = FromVectorR
 --  dFromList0R = FromList0R
@@ -433,11 +431,9 @@ instance (Show r, Numeric r) => HasRanks (Ast0 r) where
   dBuildR = BuildR
 --  dGather1 = Gather1
   dGatherZ = GatherZ
---  dScatter1 = Scatter1
-  dScatterZ = ScatterZ
+  dScalarR = ScalarR
 
   dFromD = FromD
-
   dFromR = FromR
 
 -- * Counter handling

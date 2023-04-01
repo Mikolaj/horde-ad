@@ -90,15 +90,15 @@ instance Tensor (ADVal Double) where
   tscale0 r (D u u') = dD (r * u) (dScale r u')
   tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
-  tScale = dScale
   tD = dD
+  tScale = dScale
   type DynamicTensor (ADVal Double) = ADVal (OD.Array Double)
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
   tshapeD (D u _) = tshapeD u
-  tfromR = fromR
   tfromD = fromD
+  tfromR = fromR
 
 instance Tensor (ADVal Float) where
   type TensorOf n (ADVal Float) = ADVal (OR.Array n Float)
@@ -140,15 +140,15 @@ instance Tensor (ADVal Float) where
   tscale0 r (D u u') = dD (r * u) (dScale r u')
   tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
-  tScale = dScale
   tD = dD
+  tScale = dScale
   type DynamicTensor (ADVal Float) = ADVal (OD.Array Float)
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
   tshapeD (D u _) = tshapeD u
-  tfromR = fromR
   tfromD = fromD
+  tfromR = fromR
 
 instance (ADTensor (Ast0 r), ShowAstSimplify r)
          => Tensor (ADVal (Ast0 r)) where
@@ -192,18 +192,27 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
   tscale0 r (D u u') = dD (r * u) (dScale r u')
   tprimalPart (D u _) = u
   tdualPart (D _ u') = u'
-  tScale = dScale
   tD = dD
+  tScale = dScale
   type DynamicTensor (ADVal (Ast0 r)) = ADVal (AstDynamic r)
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD (D u u') (D v v') = dD (AstDynamicPlus u v) (dAdd u' v')
   tshapeD (D u _) = tshapeD u
-  tfromR = fromR
   tfromD = fromD
+  tfromR = fromR
 
 
 -- * ADVal combinators generalizing ranked tensor operations
+
+sum0 :: (ADTensor r, KnownNat n)
+     => ADVal (TensorOf n r) -> ADVal r
+sum0 (D u u') = dD (tunScalar $ tsum0 u) (dSum0 (tshape u) u')
+
+dot0 :: (ADTensor r, KnownNat n)
+     => ADVal (TensorOf n r) -> ADVal (TensorOf n r) -> ADVal r
+dot0 (D u u') (D v v') = dD (tunScalar $ tdot0 u v)
+                            (dAdd (dDot0 v u') (dDot0 u v'))
 
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
 -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
@@ -220,15 +229,6 @@ indexZ (D u u') ix = dD (tindex u ix) (dIndexZ u' ix (tshape u))
 sum' :: (ADTensor r, IsPrimal (TensorOf n r), KnownNat n)
      => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf n r)
 sum' (D u u') = dD (tsum u) (dSumR (tlength u) u')
-
-sum0 :: (ADTensor r, KnownNat n)
-     => ADVal (TensorOf n r) -> ADVal r
-sum0 (D u u') = dD (tunScalar $ tsum0 u) (dSum0 (tshape u) u')
-
-dot0 :: (ADTensor r, KnownNat n)
-     => ADVal (TensorOf n r) -> ADVal (TensorOf n r) -> ADVal r
-dot0 (D u u') (D v v') = dD (tunScalar $ tdot0 u v)
-                            (dAdd (dDot0 v u') (dDot0 u v'))
 
 scatterNClosure :: ( ADTensor r, IsPrimal (TensorOf (p + n) r)
                    , KnownNat m, KnownNat p, KnownNat n )

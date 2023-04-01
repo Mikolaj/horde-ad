@@ -223,6 +223,52 @@ tmaximum0R
   => OR.Array 1 r -> r
 tmaximum0R = LA.maxElement . OR.toVector
 
+-- Performance depends a lot on the number and size of tensors.
+-- If tensors are not tiny, memory taken by underlying vectors matters most
+-- and this implementation is probbaly optimal in this respect
+-- (the only new vectors are created by LA.vjoin, but this is done on demand).
+-- TODO: optimize updateNR and make it consume and forget arguments
+-- one by one to make the above true
+--
+-- Note how ix being in bounds is checked. The semantics of the operation
+-- permits index out of bounds and then no tensors is added at such an index.
+tscatterZR :: forall m p n r.
+              ( KnownNat m, KnownNat p, KnownNat n, NumAndDebug r
+              , Num (Vector r) )
+           => ShapeInt (p + n) -> OR.Array (m + n) r
+           -> (IndexInt m -> IndexInt p)
+           -> OR.Array (p + n) r
+tscatterZR sh t f =
+  let (shm', shn) = splitAt (valueOf @m) $ OR.shapeL t
+      s = product shm'
+      shm = listShapeToShape shm'
+      g ix =
+        let ix2 = f ix
+        in if ixInBounds (indexToList ix2) (shapeToList sh)
+           then M.insertWith (++) ix2 [OR.toVector $ t `tindexNR` ix]
+           else id
+      ivs = foldr g M.empty [ fromLinearIdx shm i
+                            | i <- [0 .. fromIntegral s - 1] ]
+  in updateNR (tkonst0NR sh 0) $ map (second $ OR.fromVector shn . sum)
+                               $ M.assocs ivs
+
+-- TODO: update in place in ST or with a vector builder, but that requires
+-- building the underlying value vector with crafty index computations
+-- and then freezing it and calling OR.fromVector
+-- or optimize tscatterNR and instantiate it instead
+tscatterZ1R :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
+            => ShapeInt (p + n) -> OR.Array (1 + n) r -> (CInt -> IndexInt p)
+            -> OR.Array (p + n) r
+tscatterZ1R sh t f = case OR.shapeL t of
+  0 : _ -> OR.constant (shapeToList sh) 0
+  _ ->
+    V.sum $ V.imap (\i ti ->
+                     let ix2 = f $ fromIntegral i
+                     in if ixInBounds (indexToList ix2) (shapeToList sh)
+                        then updateNR (tkonst0NR sh 0) [(ix2, ti)]
+                        else tkonst0NR sh 0)
+          $ ORB.toVector $ OR.unravel t
+
 tfromListR
   :: forall n r. (KnownNat n, Numeric r)
   => [OR.Array n r] -> OR.Array (1 + n) r
@@ -371,53 +417,6 @@ tgatherZ1R 0 t _ = OR.fromList (0 : drop (valueOf @p) (OR.shapeL t)) []
 tgatherZ1R k t f =
   let l = map (\i -> t `tindexZR` f i) [0 .. fromIntegral k - 1]
   in OR.ravel $ ORB.fromList [k] l
-
--- Performance depends a lot on the number and size of tensors.
--- If tensors are not tiny, memory taken by underlying vectors matters most
--- and this implementation is probbaly optimal in this respect
--- (the only new vectors are created by LA.vjoin, but this is done on demand).
--- TODO: optimize updateNR and make it consume and forget arguments
--- one by one to make the above true
---
--- Note how ix being in bounds is checked. The semantics of the operation
--- permits index out of bounds and then no tensors is added at such an index.
-tscatterZR :: forall m p n r.
-              ( KnownNat m, KnownNat p, KnownNat n, NumAndDebug r
-              , Num (Vector r) )
-           => ShapeInt (p + n) -> OR.Array (m + n) r
-           -> (IndexInt m -> IndexInt p)
-           -> OR.Array (p + n) r
-tscatterZR sh t f =
-  let (shm', shn) = splitAt (valueOf @m) $ OR.shapeL t
-      s = product shm'
-      shm = listShapeToShape shm'
-      g ix =
-        let ix2 = f ix
-        in if ixInBounds (indexToList ix2) (shapeToList sh)
-           then M.insertWith (++) ix2 [OR.toVector $ t `tindexNR` ix]
-           else id
-      ivs = foldr g M.empty [ fromLinearIdx shm i
-                            | i <- [0 .. fromIntegral s - 1] ]
-  in updateNR (tkonst0NR sh 0) $ map (second $ OR.fromVector shn . sum)
-                               $ M.assocs ivs
-
-
--- TODO: update in place in ST or with a vector builder, but that requires
--- building the underlying value vector with crafty index computations
--- and then freezing it and calling OR.fromVector
--- or optimize tscatterNR and instantiate it instead
-tscatterZ1R :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
-            => ShapeInt (p + n) -> OR.Array (1 + n) r -> (CInt -> IndexInt p)
-            -> OR.Array (p + n) r
-tscatterZ1R sh t f = case OR.shapeL t of
-  0 : _ -> OR.constant (shapeToList sh) 0
-  _ ->
-    V.sum $ V.imap (\i ti ->
-                     let ix2 = f $ fromIntegral i
-                     in if ixInBounds (indexToList ix2) (shapeToList sh)
-                        then updateNR (tkonst0NR sh 0) [(ix2, ti)]
-                        else tkonst0NR sh 0)
-          $ ORB.toVector $ OR.unravel t
 
 tscalarR
   :: Numeric r

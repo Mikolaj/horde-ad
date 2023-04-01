@@ -179,8 +179,11 @@ data DeltaR :: Nat -> Type -> Type where
   SumR :: KnownNat n
        => Int -> DeltaR (1 + n) r -> DeltaR n r
     -- ^ Add element tensors along the outermost dimension.
-  ScalarR :: Delta0 r -> DeltaR 0 r
-    -- ^ Conversion between rank 0 and R (ranked tensors).
+  ScatterZ :: (KnownNat m, KnownNat p, KnownNat n)
+           => ShapeInt (p + n) -> DeltaR (m + n) r
+           -> (IndexOf m r -> IndexOf p r)
+           -> ShapeInt (m + n)
+           -> DeltaR (p + n) r
   FromListR :: KnownNat n
             => [DeltaR n r] -> DeltaR (1 + n) r
     -- ^ Create a tensor from a list treated as the outermost dimension.
@@ -246,11 +249,8 @@ data DeltaR :: Nat -> Type -> Type where
     -- is added at such an index (and similarly in @ScatterN@).
     -- The semantics of the operation permits index out of bounds
     -- and then no tensors is added at such an index.
-  ScatterZ :: (KnownNat m, KnownNat p, KnownNat n)
-           => ShapeInt (p + n) -> DeltaR (m + n) r
-           -> (IndexOf m r -> IndexOf p r)
-           -> ShapeInt (m + n)
-           -> DeltaR (p + n) r
+  ScalarR :: Delta0 r -> DeltaR 0 r
+    -- ^ Conversion between rank 0 and R (ranked tensors).
 
   FromD :: forall n r. DeltaD r -> DeltaR n r
 
@@ -562,10 +562,8 @@ buildFinMaps s0 deltaDt =
 
       addToArray :: KnownNat n
                  => TensorOf n r -> DynamicTensor r -> DynamicTensor r
-      addToArray c = \v -> let cs = tfromR c
-                           in if tisDummyD v
-                              then cs
-                              else taddD v cs
+      addToArray c v = let cs = tfromR c
+                       in if tisDummyD v then cs else taddD v cs
       evalR :: forall n. KnownNat n
             => EvalState r -> TensorOf n r -> DeltaR n r -> EvalState r
       evalR s !c = \case
@@ -599,7 +597,8 @@ buildFinMaps s0 deltaDt =
         IndexZ d ix sh -> evalR s (tscatter sh (tfromList [c]) (const ix)) d
           -- equivalent: evalR s (updateNR (tkonst0NR sh 0) [(ix, c)]) d
         SumR n d -> evalR s (tkonst n c) d
-        ScalarR d -> eval0 s (tunScalar c) d
+--        Scatter1 f n d _sh -> evalR s (tgatherZ1R n c f) d
+        ScatterZ _sh d f shd -> evalR s (tgather shd c f) d
         FromListR ld ->
           ifoldl' (\s2 i d2 ->
             evalR s2 (tindex c (fromIntegral i :. ZI)) d2) s ld
@@ -636,8 +635,7 @@ buildFinMaps s0 deltaDt =
                  s (fromIntegral <$> [0 .. n - 1])
 --        Gather1 f sh d _n -> evalR s (tscatter1R f c sh) d
         GatherZ _sh d f shd -> evalR s (tscatter shd c f) d
---        Scatter1 f n d _sh -> evalR s (tgatherZ1R n c f) d
-        ScatterZ _sh d f shd -> evalR s (tgather shd c f) d
+        ScalarR d -> eval0 s (tunScalar c) d
 
         FromD @n2 (FromR @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
@@ -812,7 +810,12 @@ buildDerivative dim0 dimR deltaDt Domains{..} = do
 --        Index1 d ix _len -> (`tindex1R` ix) <$> evalR d
         IndexZ d ix _len -> (`tindex` ix) <$> evalR d
         SumR _ d -> tsum <$> evalR d
-        ScalarR d -> tscalar <$> eval0 d
+--        Scatter1 f _k d sh -> do
+--          t <- evalR d
+--          return $! tscatter1R f t sh
+        ScatterZ sh d f _shd ->  do
+          t <- evalR d
+          return $! tscatter sh t f
         FromListR lsd -> do
           l <- mapM evalR lsd
           return $! tfromList l
@@ -843,12 +846,7 @@ buildDerivative dim0 dimR deltaDt Domains{..} = do
         GatherZ sh d f _shd -> do
           t <- evalR d
           return $! tgather sh t f
---        Scatter1 f _k d sh -> do
---          t <- evalR d
---          return $! tscatter1R f t sh
-        ScatterZ sh d f _shd ->  do
-          t <- evalR d
-          return $! tscatter sh t f
+        ScalarR d -> tscalar <$> eval0 d
 
         FromD @n2 (FromR @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of

@@ -249,10 +249,10 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tisDummyD :: DynamicTensor r -> Bool
   taddD :: DynamicTensor r -> DynamicTensor r -> DynamicTensor r
   tshapeD :: DynamicTensor r -> [Int]
-  tfromR :: KnownNat n
-         => TensorOf n r -> DynamicTensor r
   tfromD :: KnownNat n
          => DynamicTensor r -> TensorOf n r
+  tfromR :: KnownNat n
+         => TensorOf n r -> DynamicTensor r
 
 type Many (f :: Type -> Constraint) r = (f (TensorOf 0 r), f (TensorOf 1 r), f (TensorOf 2 r), f (TensorOf 3 r), f (TensorOf 4 r), f (TensorOf 5 r), f (TensorOf 6 r), f (TensorOf 7 r), f (TensorOf 8 r), f (TensorOf 9 r), f (TensorOf 10 r), f (TensorOf 11 r), f (TensorOf 12 r))
 
@@ -354,8 +354,8 @@ instance Tensor Double where
   tisDummyD = isTensorDummy
   taddD = (+)
   tshapeD = OD.shapeL
-  tfromR = Data.Array.Convert.convert
   tfromD = Data.Array.Convert.convert
+  tfromR = Data.Array.Convert.convert
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
@@ -405,8 +405,8 @@ instance Tensor Float where
   tisDummyD = isTensorDummy
   taddD = (+)
   tshapeD = OD.shapeL
-  tfromR = Data.Array.Convert.convert
   tfromD = Data.Array.Convert.convert
+  tfromR = Data.Array.Convert.convert
 
 {- These instances are increasingly breaking stuff, so disabled:
 

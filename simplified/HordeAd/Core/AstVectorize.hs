@@ -91,21 +91,17 @@ build1V k (var, v00) =
 
     AstOp opCode args -> traceRule $
       AstOp opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
-
-    AstConst{} ->
-      error "build1V: AstConst can't have free int variables"
-    AstConstant (AstPrimalPart v) -> traceRule $
-      astConstant $ AstPrimalPart $ build1V k (var, v)
-    AstIndexZ v ix -> traceRule $
-      build1VIndex k (var, v, ix)  -- @var@ is in @v@ or @ix@
-    AstSum v -> traceRule $
-      astSum $ astTr $ build1V k (var, v)
     AstConstInt0 (AstIntVar var2) -> traceRule $
       if var == var2
       then AstConst $ OR.mapA fromIntegral $ OR.iota @Int k  -- TODO: Enum r
       else error "build1V: AstConstInt0 contains no free int variables"
     AstConstInt0{} ->
       error "build1V: only tfromIndex0 of variables is supported at this time"
+
+    AstIndexZ v ix -> traceRule $
+      build1VIndex k (var, v, ix)  -- @var@ is in @v@ or @ix@
+    AstSum v -> traceRule $
+      astSum $ astTr $ build1V k (var, v)
     AstScatter sh v (vars, ix) -> traceRule $
       astScatter (k :$ sh)
                  (build1VOccurenceUnknown k (var, v))
@@ -137,6 +133,11 @@ build1V k (var, v00) =
       astGatherStep (k :$ sh)
                     (build1VOccurenceUnknown k (var, v))
                     (var ::: vars, AstIntVar var :. ix)
+
+    AstConst{} ->
+      error "build1V: AstConst can't have free int variables"
+    AstConstant (AstPrimalPart v) -> traceRule $
+      astConstant $ AstPrimalPart $ build1V k (var, v)
     AstD (AstPrimalPart u) (AstDualPart u') ->
       AstD (AstPrimalPart $ build1VOccurenceUnknown k (var, u))
            (AstDualPart $ build1VOccurenceUnknown k (var, u'))

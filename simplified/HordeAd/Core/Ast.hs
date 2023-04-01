@@ -7,9 +7,9 @@
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
   ( ShowAst, AstIndex, AstVarList
-  , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
   , Ast(..), AstNoVectorize(..), AstPrimalPart(..), AstDualPart(..)
   , AstDynamic(..), Ast0(..)
+  , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , astCond
@@ -46,9 +46,6 @@ type AstVarList n = SizedList n AstVarId
 -- We use here @ShapeInt@ for simplicity. @Shape n (AstInt r)@ gives
 -- more expressiveness, but leads to irregular tensors,
 -- especially after vectorization, and prevents statically known shapes.
--- However, if we switched to @Data.Array.Shaped@ and moved most of the shapes
--- to the type level, we'd recover some of the expressiveness, while retaining
--- statically known (type-parameterized) shapes.
 
 -- | AST for a tensor of rank n and elements r that is meant
 -- to be differentiated.
@@ -60,19 +57,16 @@ data Ast :: Nat -> Type -> Type where
 
   -- For the numeric classes:
   AstOp :: OpCode -> [Ast n r] -> Ast n r
+  AstConstInt0 :: AstInt r -> Ast 0 r
+    -- needed, because toInteger and so fromIntegral is not defined for Ast
 
-  -- For Tensor class:
-  AstConst :: OR.Array n r -> Ast n r
-  AstConstant :: AstPrimalPart n r -> Ast n r
-
+  -- For the Tensor class:
   AstIndexZ :: forall m n r. KnownNat m
             => Ast (m + n) r -> AstIndex m r -> Ast n r
     -- first ix is for outermost dimension; empty index means identity,
-    -- if index is out of bounds, the result is defined and is 0;
-    -- however, vectorization is permitted to change the value
+    -- if index is out of bounds, the result is defined and is 0,
+    -- but vectorization is permitted to change the value
   AstSum :: Ast (1 + n) r -> Ast n r
-  AstConstInt0 :: AstInt r -> Ast 0 r
-    -- needed, because toInteger and so fromIntegral is not defined for Ast
   AstScatter :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
              => ShapeInt (p + n) -> Ast (m + n) r
              -> (AstVarList m, AstIndex p r)
@@ -91,29 +85,20 @@ data Ast :: Nat -> Type -> Type where
   AstReverse :: KnownNat n
              => Ast (1 + n) r -> Ast (1 + n) r
   AstTranspose :: Permutation -> Ast n r -> Ast n r
-    -- emerges from vectorizing AstTr
   AstReshape :: KnownNat n
              => ShapeInt m -> Ast n r -> Ast m r
-    -- emerges from vectorizing AstFlatten
   AstBuild1 :: KnownNat n
             => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
-    -- indicates a failure in vectorization, but may be recoverable later on
   AstGatherZ :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
              => ShapeInt (m + n) -> Ast (p + n) r
              -> (AstVarList m, AstIndex p r)
              -> Ast (m + n) r
-    -- emerges from vectorizing AstIndexZ applied to a term with no build
-    -- variable; out of bounds indexing is permitted
-    -- the case with many variables emerges from vectorizing the simpler case;
     -- out of bounds indexing is permitted
+
+  -- For the forbidden half of the Tensor class:
+  AstConst :: OR.Array n r -> Ast n r
+  AstConstant :: AstPrimalPart n r -> Ast n r
   AstD :: AstPrimalPart n r -> AstDualPart n r -> Ast n r
-
-  -- Spurious, but can be re-enabled at any time:
---  AstBuildN :: forall m n r.
---               ShapeInt (m + n) -> (AstVarList m, Ast n r) -> Ast (m + n) r
-    -- not needed for anythihg, but an extra pass may join nested AstBuild1
-    -- into these for better performance on some hardware
-
 deriving instance (Show r, Numeric r) => Show (Ast n r)
 
 newtype AstNoVectorize n r = AstNoVectorize {unAstNoVectorize :: Ast n r}
@@ -132,7 +117,6 @@ data AstDynamic :: Type -> Type where
                  => Ast n r -> AstDynamic r
   AstDynamicVar :: KnownNat n
                 => ShapeInt n -> AstVarId -> AstDynamic r
-
 deriving instance (Show r, Numeric r) => Show (AstDynamic r)
 
 newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
@@ -210,22 +194,7 @@ data OpCodeRel =
  deriving Show
 
 
--- * Unlawful instances of AST types; they are lawful modulo evaluation
-
-type instance BooleanOf (AstInt r) = AstBool r
-
-instance IfB (AstInt r) where
-  ifB = AstIntCond
-
-instance EqB (AstInt r) where
-  v ==* u = AstRelInt EqOp [v, u]
-  v /=* u = AstRelInt NeqOp [v, u]
-
-instance OrdB (AstInt r) where
-  v <* u = AstRelInt LsOp [v, u]
-  v <=* u = AstRelInt LeqOp [v, u]
-  v >* u = AstRelInt GtOp [v, u]
-  v >=* u = AstRelInt GeqOp [v, u]
+-- * Unlawful boolean package instances of AST types; they are lawful modulo evaluation
 
 type instance BooleanOf (Ast n r) = AstBool r
 
@@ -242,6 +211,16 @@ astCond b (AstConstant (AstPrimalPart v)) (AstConstant (AstPrimalPart w)) =
                                           (singletonIndex $ AstIntCond b 0 1)
 astCond b v w = AstIndexZ (AstFromList [v, w])
                           (singletonIndex $ AstIntCond b 0 1)
+
+instance KnownNat n => EqB (Ast n r) where
+  v ==* u = AstRel EqOp [AstPrimalPart v, AstPrimalPart u]
+  v /=* u = AstRel NeqOp [AstPrimalPart v, AstPrimalPart u]
+
+instance KnownNat n => OrdB (Ast n r) where
+  v <* u = AstRel LsOp [AstPrimalPart v, AstPrimalPart u]
+  v <=* u = AstRel LeqOp [AstPrimalPart v, AstPrimalPart u]
+  v >* u = AstRel GtOp [AstPrimalPart v, AstPrimalPart u]
+  v >=* u = AstRel GeqOp [AstPrimalPart v, AstPrimalPart u]
 
 type instance BooleanOf (AstNoVectorize n r) = AstBool r
 
@@ -264,16 +243,6 @@ instance KnownNat n => OrdB (AstNoVectorize n r) where
                        , AstPrimalPart $ unAstNoVectorize u ]
   v >=* u = AstRel GeqOp [ AstPrimalPart $ unAstNoVectorize v
                          , AstPrimalPart $ unAstNoVectorize u ]
-
-instance KnownNat n => EqB (Ast n r) where
-  v ==* u = AstRel EqOp [AstPrimalPart v, AstPrimalPart u]
-  v /=* u = AstRel NeqOp [AstPrimalPart v, AstPrimalPart u]
-
-instance KnownNat n => OrdB (Ast n r) where
-  v <* u = AstRel LsOp [AstPrimalPart v, AstPrimalPart u]
-  v <=* u = AstRel LeqOp [AstPrimalPart v, AstPrimalPart u]
-  v >* u = AstRel GtOp [AstPrimalPart v, AstPrimalPart u]
-  v >=* u = AstRel GeqOp [AstPrimalPart v, AstPrimalPart u]
 
 type instance BooleanOf (AstPrimalPart n r) = AstBool r
 
@@ -304,6 +273,24 @@ instance OrdB (Ast0 r) where
   v <=* u = AstRel LeqOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
   v >* u = AstRel GtOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
   v >=* u = AstRel GeqOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
+
+type instance BooleanOf (AstInt r) = AstBool r
+
+instance IfB (AstInt r) where
+  ifB = AstIntCond
+
+instance EqB (AstInt r) where
+  v ==* u = AstRelInt EqOp [v, u]
+  v /=* u = AstRelInt NeqOp [v, u]
+
+instance OrdB (AstInt r) where
+  v <* u = AstRelInt LsOp [v, u]
+  v <=* u = AstRelInt LeqOp [v, u]
+  v >* u = AstRelInt GtOp [v, u]
+  v >=* u = AstRelInt GeqOp [v, u]
+
+
+-- * Unlawful numeric instances of AST types; they are lawful modulo evaluation
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
 instance Eq (Ast n r) where
@@ -484,11 +471,9 @@ shapeAst v1 = case v1 of
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
-  AstConst a -> listShapeToShape $ OR.shapeL a
-  AstConstant (AstPrimalPart a) -> shapeAst a
+  AstConstInt0 _i -> ZS
   AstIndexZ v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
-  AstConstInt0 _i -> ZS
   AstScatter sh _ _ -> sh
   AstFromList l -> case l of
     [] -> case sameNat (Proxy @n) (Proxy @1) of
@@ -512,6 +497,8 @@ shapeAst v1 = case v1 of
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$ shapeAst v
   AstGatherZ sh _v (_vars, _ix) -> sh
+  AstConst a -> listShapeToShape $ OR.shapeL a
+  AstConstant (AstPrimalPart a) -> shapeAst a
   AstD (AstPrimalPart u) _ -> shapeAst u
 
 -- Length of the outermost dimension.
@@ -528,14 +515,12 @@ intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
   AstLet _ u v -> intVarInAst var u || intVarInAst var v
   AstOp _ l -> any (intVarInAst var) l
-  AstConst{} -> False
-  AstConstant (AstPrimalPart v) -> intVarInAst var v
+  AstConstInt0 k -> intVarInAstInt var k
   AstIndexZ v ix -> intVarInAst var v || intVarInIndex var ix
   AstSum v -> intVarInAst var v
-  AstConstInt0 k -> intVarInAstInt var k
-  AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
   AstScatter _ v (vars, ix) -> notElem var vars && intVarInIndex var ix
                                || intVarInAst var v
+  AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
   AstFromVector vl -> any (intVarInAst var) $ V.toList vl
   AstKonst _ v -> intVarInAst var v
   AstAppend v u -> intVarInAst var v || intVarInAst var u
@@ -546,6 +531,8 @@ intVarInAst var = \case
   AstBuild1 _ (var2, v) -> var /= var2 && intVarInAst var v
   AstGatherZ _ v (vars, ix) -> notElem var vars && intVarInIndex var ix
                                || intVarInAst var v
+  AstConst{} -> False
+  AstConstant (AstPrimalPart v) -> intVarInAst var v
   AstD (AstPrimalPart u) (AstDualPart u') ->
     intVarInAst var u || intVarInAst var u'
 
@@ -580,13 +567,10 @@ substitute1Ast i var v1 = case v1 of
   AstLet varFloat u v ->
     AstLet varFloat (substitute1Ast i var u) (substitute1Ast i var v)
   AstOp opCode args -> AstOp opCode $ map (substitute1Ast i var) args
-  AstConst _a -> v1
-  AstConstant (AstPrimalPart a) ->
-    AstConstant (AstPrimalPart $ substitute1Ast i var a)
+  AstConstInt0 i2 -> AstConstInt0 $ substitute1AstInt i var i2
   AstIndexZ v is ->
     AstIndexZ (substitute1Ast i var v) (fmap (substitute1AstInt i var) is)
   AstSum v -> AstSum (substitute1Ast i var v)
-  AstConstInt0 i2 -> AstConstInt0 $ substitute1AstInt i var i2
   AstScatter sh v (vars, ix) ->
     if elem var vars
     then AstScatter sh (substitute1Ast i var v) (vars, ix)
@@ -609,6 +593,9 @@ substitute1Ast i var v1 = case v1 of
     then AstGatherZ sh (substitute1Ast i var v) (vars, ix)
     else AstGatherZ sh (substitute1Ast i var v)
                        (vars, fmap (substitute1AstInt i var) ix)
+  AstConst _a -> v1
+  AstConstant (AstPrimalPart a) ->
+    AstConstant (AstPrimalPart $ substitute1Ast i var a)
   AstD (AstPrimalPart u) (AstDualPart u') ->
     AstD (AstPrimalPart $ substitute1Ast i var u)
          (AstDualPart $ substitute1Ast i var u')

@@ -135,8 +135,6 @@ interpretAst env | (_, Dict, _, _) <- ev @a @n Proxy = \case
     interpretAst (EM.insert var (AstVarR $ tfromR $ interpretAst env u) env) v
   AstOp opCode args ->
     interpretAstOp (interpretAst env) opCode args
-  AstConst a -> tconst a
-  AstConstant a -> tconstant $ interpretAstPrimal env a
   AstConstInt0 i -> tfromIndex0 $ interpretAstInt env i
   AstIndexZ v is ->
     tindex (interpretAst env v) (fmap (interpretAstInt env) is)
@@ -190,6 +188,8 @@ interpretAst env | (_, Dict, _, _) <- ev @a @n Proxy = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
+  AstConst a -> tconst a
+  AstConstant a -> tconstant $ interpretAstPrimal env a
   AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
                                 (tdualPart $ interpretAst env u')
 

@@ -62,8 +62,8 @@ instance ShowAstSimplify r
   tscale0 (AstPrimalPart r) (Ast0 t) = Ast0 (r * t)
   tprimalPart = AstPrimalPart
   tdualPart = AstDualPart
-  tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
   tD = AstD
+  tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
   type DynamicTensor (Ast0 r) = AstDynamic r
   tdummyD = AstDynamicDummy
   tisDummyD t = case t of
@@ -75,8 +75,8 @@ instance ShowAstSimplify r
     AstDynamicPlus t1 _t2 -> tshapeD t1
     AstDynamicFrom v -> shapeToList $ shapeAst v
     AstDynamicVar sh _ -> shapeToList sh
-  tfromR = AstDynamicFrom
   tfromD = astFromDynamic
+  tfromR = AstDynamicFrom
 
 astLetFun :: (KnownNat n, ShowAstSimplify r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
@@ -150,8 +150,8 @@ instance ShowAstSimplify r
   tisDummyD = undefined
   taddD = undefined
   tshapeD = undefined
-  tfromR = undefined
   tfromD = undefined
+  tfromR = undefined
 
 instance ShowAstSimplify r
          => Tensor (AstNoVectorize 0 r) where
@@ -208,5 +208,5 @@ instance ShowAstSimplify r
   tisDummyD = undefined
   taddD = undefined
   tshapeD = undefined
-  tfromR = undefined
   tfromD = undefined
+  tfromR = undefined
