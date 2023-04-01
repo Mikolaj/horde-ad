@@ -52,7 +52,7 @@ import           HordeAd.Core.Delta
   , emptyDomain0
   , nullDomains
   )
-import           HordeAd.Core.DualClass hiding (IsPrimal, IsPrimalWithScalar)
+import           HordeAd.Core.DualClass hiding (IsPrimal)
 import qualified HordeAd.Core.DualClass as DualClass
 import           HordeAd.Core.DualNumber (dD, dDnotShared, pattern D)
 import qualified HordeAd.Core.DualNumber as DualNumber
@@ -81,13 +81,13 @@ type IsPrimal (d :: ADMode) a =
   DualClass.IsPrimal a
 
 type IsPrimalWithScalar (d :: ADMode) a r =
-  DualClass.IsPrimalWithScalar a r
+  DualNumber.IsPrimalWithScalar a r
 
 type IsPrimalAndHasFeatures (d :: ADMode) a r =
-  DualClass.IsPrimalWithScalar a r
+  DualNumber.IsPrimalWithScalar a r
 
 type IsPrimalAndHasInputs (d :: ADMode) a r =
-  DualClass.IsPrimalWithScalar a r
+  DualNumber.IsPrimalWithScalar a r
 
 type ADModeAndNum (d :: ADMode) r =
   ( DualNumber.ADNum r
@@ -118,7 +118,7 @@ valueGeneral f parameters =
   in f inputs
 
 valueOnDomains
-  :: (ADTensor r, DualClass.IsPrimalWithScalar a r)
+  :: (ADTensor r, DualNumber.IsPrimalWithScalar a r)
   => (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
   -> a
@@ -129,7 +129,7 @@ valueOnDomains f parameters =
   in snd $ Engine.revOnADInputs Nothing f inputs
 
 revOnADInputs
-  :: (ADTensor r, DualClass.IsPrimalWithScalar a r)
+  :: (ADTensor r, DualNumber.IsPrimalWithScalar a r)
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Engine.ADInputs r
@@ -142,7 +142,7 @@ revOnADInputs = Engine.revOnADInputs  . Just
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: (ADTensor r, DualClass.IsPrimalWithScalar a r)
+  :: (ADTensor r, DualNumber.IsPrimalWithScalar a r)
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Domains r

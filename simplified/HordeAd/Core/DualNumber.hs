@@ -22,6 +22,7 @@ import Prelude hiding ((<*))
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
+import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy (Proxy))
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, Nat, natVal)
@@ -87,6 +88,12 @@ dDnotShared = D
 
 
 -- * Auxiliary definitions
+
+-- | The intended semantics (not fully enforced by the constraint in isolation)
+-- is that the second type is the primal component of a dual number type
+-- at an unknown rank with the given underlying scalar.
+type IsPrimalWithScalar a r =
+  (IsPrimal a, Element a ~ r)
 
 type ADNum r =
   ( Numeric r

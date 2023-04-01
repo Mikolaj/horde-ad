@@ -27,7 +27,7 @@
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
-    IsPrimal(..), IsPrimalR(..), IsPrimalA (..), IsPrimalWithScalar
+    IsPrimal(..), IsPrimalR(..), IsPrimalA (..)
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..)
   , -- * Internal operations, exposed for tests, debugging and experiments
@@ -52,15 +52,6 @@ import HordeAd.Core.Delta
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
-
--- * Abbreviations to export (not used anywhere below)
-
--- | The intended semantics (not fully enforced by the constraint in isolation)
--- is that the second type is the primal component of a dual number type
--- at an unknown rank with the given underlying scalar.
-type IsPrimalWithScalar a r =
-  (IsPrimal a, Element a ~ r)
-
 
 -- * Class definitions
 
