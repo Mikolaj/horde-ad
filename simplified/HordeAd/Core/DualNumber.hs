@@ -1,11 +1,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Dual numbers and various operations on them, arithmetic and related
--- to tensors (vectors, matrices and others). This is a part of
--- the high-level API of the horde-ad library, defined using the mid-level
--- (and safely impure) API in "HordeAd.Core.DualClass". The other part
--- of the high-level API is in "HordeAd.Core.Engine".
+-- | Dual numbers and arithmetic operations on them. This is a part of
+-- the mid-level API of the horde-ad library, together with
+-- the safely impure "HordeAd.Core.DualClass".
 module HordeAd.Core.DualNumber
   ( ADVal, dD, pattern D, dDnotShared
   , SNat(..), staticNatValue, staticNatFromProxy

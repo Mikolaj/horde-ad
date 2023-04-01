@@ -1,7 +1,7 @@
--- | The implementation of calculating gradient, derivative and value
--- of an objective function defined on dual numbers, as defined
--- in "HordeAd.Core.DualNumber". Together with that module, this forms
--- the basic high-level API of the horde-ad library. Optimizers, etc.,
+-- | The implementation of calculating gradient and derivative
+-- of an objective function expressed wtih the `Tensor` class.
+-- Together with "HordeAd.Core.TensorClass", this forms the basic
+-- high-level API of the horde-ad library. Adaptors, optimizers, etc.,
 -- are add-ons.
 module HordeAd.Core.Engine
   ( ADInputs(..)
@@ -63,6 +63,7 @@ inputsToDomains ADInputs{..} =
 
 nullADInputs :: Tensor r => ADInputs r -> Bool
 nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
+
 
 -- * Evaluation that computes gradients.
 
@@ -181,7 +182,7 @@ revOnDomains dt f parameters =
 -- * The slow evaluation producing objective function derivatives
 
 -- It uses the same delta expressions as for gradients. See @fwdOnDomains@
--- for a fast variant.
+-- for a fast variant (TODO: not ported from the old code yet).
 
 slowFwdOnADInputs
   :: (Tensor r, Element a ~ r, ForwardDerivative a)

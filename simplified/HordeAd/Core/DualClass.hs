@@ -1,12 +1,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | The class defining dual components of dual numbers and
--- the dual number type itself, hiding its constructor, but exposing
--- a couple of smart constructors.
---
--- This module defines the relevant classes, type families,
--- constraints and instances for the dual numbers data structure.
+-- | The classes generalizing delta expressions and exposing them
+-- in a more polymorphic way.
 -- This is a mid-level API ("HordeAd.Core.Delta" is low level)
 -- used to define types and operations in "HordeAd.Core.DualNumber"
 -- that is the foundation of the high-level API.
@@ -15,10 +11,10 @@
 -- property. The property is an order of per-node integer identifiers
 -- that represents data dependencies and sharing. The low-level API
 -- depends on this property, but is completely isolated from the impurity.
--- The high-level API invokes the impurity through smart constructors,
--- but can't observe any impure behaviour. Neither can any other module
--- in the package, except for the testing modules that import
--- testing-exclusive operations and instances.
+-- The high-level API introducess the impurity but can't observe
+-- any impure behaviour. Neither can any other module in the package,
+-- except for the testing modules that import testing-exclusive operations
+-- and instances.
 --
 -- @Show@ is such a testing-only instance and so should be used
 -- only in debugging or testing. Similarly, instances such as @Eq@
@@ -195,12 +191,12 @@ class HasRanks r where
   dFromR :: KnownNat n
           => Dual (TensorOf n r) -> Dual (DynamicTensor r)
 
--- * Backprop gradient method instances
 
--- | This is an impure
--- instance, because 'recordSharing' adorns terms with an @Int@ identifier
--- from a counter that is afterwards incremented (and never changed
--- in any other way).
+-- * Delta expression method instances
+
+-- | This is an impure instance, because 'recordSharing' adorns terms
+-- with an @Int@ identifier from a counter that is afterwards incremented
+-- (and never changed in any other way).
 --
 -- The identifiers are not part of any non-internal module API
 -- and the impure counter that gets incremented is not exposed
@@ -426,6 +422,7 @@ instance (Show r, Numeric r) => HasRanks (Ast0 r) where
 
   dFromD = FromD
   dFromR = FromR
+
 
 -- * Counter handling
 

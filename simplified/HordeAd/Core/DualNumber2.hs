@@ -1,11 +1,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Dual numbers and various operations on them, arithmetic and related
--- to tensors (vectors, matrices and others). This is a part of
--- the high-level API of the horde-ad library, defined using the mid-level
--- (and safely impure) API in "HordeAd.Core.DualClass". The other part
--- of the high-level API is in "HordeAd.Core.Engine".
+-- | This is a shim module provided exclusively to use old tests.
 module HordeAd.Core.DualNumber2
   ( ADVal, dD, pattern D, Dual
   , ADModeAndNum, HasDelta

@@ -3,13 +3,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The second component of our rendition of dual numbers:
 -- delta expressions, with their semantics.
--- Neel Krishnaswami calls them \"sparse vector expressions\",
--- and indeed even in the simplest case of an objective function
--- defined on scalars only, the codomain of the function that computes
--- gradients from such delta expressions is a set of vectors, because
--- the gradient of an @R^n@ to @R@ function is an @R^n@ vector.
 --
--- A delta expression can also be viewed as a concise representation
+-- A delta expression can be viewed as a concise representation
 -- of a linear map (which is the derivative of the objective function)
 -- and its evaluation on a given argument as an adjoint (in the algebraic
 -- sense) of the linear map applied to that argument. Since linear maps
@@ -30,14 +25,6 @@
 -- access to parameters with something cheaper and more uniform.
 -- A lot of the remaining additional structure is for introducing
 -- and reducing dimensions (ranks).
---
--- This is an internal low-level API, while the module @DualClass@
--- is an intermediate mid-level API that generates 'NodeId' identifiers
--- and provides a generalization to other kinds of second components
--- of dual numbers, e.g., the same as primal component for fast computation
--- of forward derivatives (because @derivativeFromDelta@ below,
--- computing derivatives from delta-expressions, is slow once
--- the expressions grow large enough to affect cache misses).
 --
 -- This simplified rendering of the library now contains two ranks:
 -- scalars and (ranked) tensors. However, most haddocks and code comments
