@@ -1,11 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Dual numbers and various operations on them, arithmetic and related
--- to tensors (vectors, matrices and others). This is a part of
--- the high-level API of the horde-ad library, defined using the mid-level
--- (and safely impure) API in "HordeAd.Core.DualClass". The other part
--- of the high-level API is in "HordeAd.Core.Engine".
+-- | A class containing array operations, with some extra algebraic operations
+-- and dual numbers operations added in. This is a part of the high-level
+-- API of the horde-ad library.
 module HordeAd.Core.TensorClass
   ( IndexOf, ShapeInt, Tensor(..), ADReady
   ) where
@@ -254,6 +252,9 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tfromR :: KnownNat n
          => TensorOf n r -> DynamicTensor r
 
+
+-- * The giga-contraint
+
 type Many (f :: Type -> Constraint) r = (f (TensorOf 0 r), f (TensorOf 1 r), f (TensorOf 2 r), f (TensorOf 3 r), f (TensorOf 4 r), f (TensorOf 5 r), f (TensorOf 6 r), f (TensorOf 7 r), f (TensorOf 8 r), f (TensorOf 9 r), f (TensorOf 10 r), f (TensorOf 11 r), f (TensorOf 12 r))
 
 type ADReady r =
@@ -301,11 +302,9 @@ type ADReady r =
   )
   -- any of the @BooleanOf r ~ ...@ lines above breaks GHC <= 9.0.2
 
--- * Tensor class instances for arrays
 
--- These instances are a faster way to get an objective function value.
--- However, they don't do vectorization, so won't work on GPU, ArrayFire, etc.
--- For vectorization, go through Ast and valueOnDomains.
+-- * Tensor class instances for concrete arrays
+
 instance Tensor Double where
   type TensorOf n Double = OR.Array n Double
   type IntOf Double = CInt

@@ -1,6 +1,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+-- | This is an adaptor from user-defined objective functions
+-- with complicated domains to the restricted from of functions
+-- that the AD machinery can efficiently differentiate.
 module HordeAd.External.Adaptor
   ( Adaptable, Scalar
   , AdaptableDomains(toDomains, nParams, nScalars)

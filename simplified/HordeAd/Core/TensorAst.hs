@@ -1,9 +1,9 @@
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
--- | Vectorization of the build operation in Ast.
+-- | 'Tensor' class instances for 'Ast' terms. Some of these instances
+-- vectorize any terms starting with 'build1' and so eliminated the constructor.
 module HordeAd.Core.TensorAst
   (
   ) where
@@ -18,8 +18,6 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstVectorize
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
-
--- * Ast instances of Tensor (and Primal) that use vectorization
 
 instance ShowAstSimplify r
          => Tensor (Ast0 r) where

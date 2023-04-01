@@ -2,11 +2,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
--- | Dual numbers and various operations on them, arithmetic and related
--- to tensors (vectors, matrices and others). This is a part of
--- the high-level API of the horde-ad library, defined using the mid-level
--- (and safely impure) API in "HordeAd.Core.DualClass". The other part
--- of the high-level API is in "HordeAd.Core.Engine".
+-- | 'Tensor' class instances for dual number. The dual numbers are built
+-- either from concrete floats or from 'Ast' term.
 module HordeAd.Core.TensorADVal
   ( ADTensor
   ) where
@@ -34,6 +31,28 @@ type ADTensor r =
   , Tensor r
   )
 
+type instance BooleanOf (ADVal a) = BooleanOf a
+
+instance EqB a => EqB (ADVal a) where
+  D u _ ==* D v _ = u ==* v
+  D u _ /=* D v _ = u /=* v
+
+instance OrdB a => OrdB (ADVal a) where
+  D u _ <* D v _ = u <* v
+  D u _ <=* D v _ = u <=* v
+  D u _ >* D v _ = u >* v
+  D u _ >=* D v _ = u >=* v
+
+instance IfB (ADVal Double) where
+  ifB b v w = if b then v else w
+
+instance IfB (ADVal Float) where
+  ifB b v w = if b then v else w
+
+instance IfB (ADVal (OR.Array n r)) where
+  ifB b v w = if b then v else w
+
+-- This requires the Tensor instance, hence the definitions must be here.
 instance (KnownNat n, ShowAstSimplify r)
          => IfB (ADVal (Ast n r)) where
   ifB b v w = tindex (tfromList [v, w]) (singletonIndex $ ifB b 0 1)
