@@ -353,7 +353,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     AstD (AstPrimalPart $ astIndexRec u ix)
          (AstDualPart $ astIndexRec u' ix)
 
-astSum :: (KnownNat n, Numeric r, Num (Vector r))
+astSum :: (KnownNat n, ShowAstSimplify r)
        => Ast (1 + n) r -> Ast n r
 astSum (AstConst t) = AstConst $ tsumR t
 astSum (AstConstant (AstPrimalPart v)) =
@@ -764,7 +764,7 @@ astFromDynamic (AstDynamicVar @n2 sh var) =
 -- @var@ does not occur in @v@ but occurs in @i1@. This is done by pattern
 -- matching on @i1@ as opposed to on @v@.
 gatherSimplify
-  :: (KnownNat n, Show r, Numeric r)
+  :: (KnownNat n, ShowAst r)
   => Int -> AstVarId -> Ast (1 + n) r -> AstInt r
   -> Maybe (Ast (1 + n) r)
 gatherSimplify k var v0 i1 =
@@ -788,7 +788,7 @@ gatherSimplify k var v0 i1 =
 -- still crashes with illegal parameters.
 -- This function is so complex in order to guarantee that even though
 -- vectorization changes tensor values, it doesn't change their shapes.
-astSliceLax :: (KnownNat n, Show r, Numeric r)
+astSliceLax :: (KnownNat n, ShowAst r)
             => Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
 astSliceLax i k v =
   let len = lengthAst v

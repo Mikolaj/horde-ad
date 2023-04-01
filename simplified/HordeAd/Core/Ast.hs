@@ -99,7 +99,7 @@ data Ast :: Nat -> Type -> Type where
   AstConst :: OR.Array n r -> Ast n r
   AstConstant :: AstPrimalPart n r -> Ast n r
   AstD :: AstPrimalPart n r -> AstDualPart n r -> Ast n r
-deriving instance (Show r, Numeric r) => Show (Ast n r)
+deriving instance ShowAst r => Show (Ast n r)
 
 newtype AstNoVectorize n r = AstNoVectorize {unAstNoVectorize :: Ast n r}
  deriving Show
@@ -117,7 +117,7 @@ data AstDynamic :: Type -> Type where
                  => Ast n r -> AstDynamic r
   AstDynamicVar :: KnownNat n
                 => ShapeInt n -> AstVarId -> AstDynamic r
-deriving instance (Show r, Numeric r) => Show (AstDynamic r)
+deriving instance ShowAst r => Show (AstDynamic r)
 
 newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
  deriving Show
@@ -155,7 +155,7 @@ data AstInt :: Type -> Type where
   AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
   AstMinIndex1 :: AstPrimalPart 1 r -> AstInt r
   AstMaxIndex1 :: AstPrimalPart 1 r -> AstInt r
-deriving instance (Show r, Numeric r) => Show (AstInt r)
+deriving instance ShowAst r => Show (AstInt r)
 
 data AstBool :: Type -> Type where
   AstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
@@ -163,7 +163,7 @@ data AstBool :: Type -> Type where
   AstRel :: KnownNat n
          => OpCodeRel -> [AstPrimalPart n r] -> AstBool r
   AstRelInt :: OpCodeRel -> [AstInt r] -> AstBool r
-deriving instance (Show r, Numeric r) => Show (AstBool r)
+deriving instance ShowAst r => Show (AstBool r)
 
 -- Copied from the outlining mechanism deleted in
 -- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
@@ -463,7 +463,7 @@ instance Boolean (AstBool r) where
 -- only one path and fail if it doesn't contain enough information
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
-shapeAst :: forall n r. (KnownNat n, Show r, Numeric r)
+shapeAst :: forall n r. (KnownNat n, ShowAst r)
          => Ast n r -> ShapeInt n
 shapeAst v1 = case v1 of
   AstVar sh _var -> sh
@@ -502,7 +502,7 @@ shapeAst v1 = case v1 of
   AstD (AstPrimalPart u) _ -> shapeAst u
 
 -- Length of the outermost dimension.
-lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int
+lengthAst :: (KnownNat n, ShowAst r) => Ast (1 + n) r -> Int
 lengthAst v1 = case shapeAst v1 of
   ZS -> error "lengthAst: impossible pattern needlessly required"
   k :$ _ -> k
@@ -560,7 +560,7 @@ intVarInIndex var = any (intVarInAstInt var)
 
 -- * Substitution
 
-substitute1Ast :: (Show r, Numeric r)
+substitute1Ast :: ShowAst r
                => AstInt r -> AstVarId -> Ast n r -> Ast n r
 substitute1Ast i var v1 = case v1 of
   AstVar _sh _var -> v1
@@ -600,7 +600,7 @@ substitute1Ast i var v1 = case v1 of
     AstD (AstPrimalPart $ substitute1Ast i var u)
          (AstDualPart $ substitute1Ast i var u')
 
-substitute1AstInt :: (Show r, Numeric r)
+substitute1AstInt :: ShowAst r
                   => AstInt r -> AstVarId -> AstInt r -> AstInt r
 substitute1AstInt i var i2 = case i2 of
   AstIntVar var2 -> if var == var2 then i else i2
@@ -617,7 +617,7 @@ substitute1AstInt i var i2 = case i2 of
   AstMaxIndex1 (AstPrimalPart v) ->
     AstMaxIndex1 $ AstPrimalPart $ substitute1Ast i var v
 
-substitute1AstBool :: (Show r, Numeric r)
+substitute1AstBool :: ShowAst r
                    => AstInt r -> AstVarId -> AstBool r -> AstBool r
 substitute1AstBool i var b1 = case b1 of
   AstBoolOp opCodeBool args ->
