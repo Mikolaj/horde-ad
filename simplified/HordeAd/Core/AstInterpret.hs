@@ -71,6 +71,10 @@ interpretLambdaIndexToIndex f env (vars, asts) =
 -- to the inability to quantify constraints containing type families, see
 -- https://gitlab.haskell.org/ghc/ghc/-/issues/14860 and
 -- https://gitlab.haskell.org/ghc/ghc/-/issues/16365.
+--
+-- This is 5% slower in tests dominated by interpretation (e.g., no Ast sharing
+-- or code with no or tiny tensors) than duplicating the code 5 times.
+-- A bit less slow with two evi* instead of one.
 data Dict c a where
   Dict :: c a => Dict c a
 
@@ -80,24 +84,31 @@ class ( Tensor a, Tensor (Primal a)
       , IntOf (Primal a) ~ IntOf a
       , BooleanOf (Primal a) ~ BooleanOf (IntOf a) )
       => Evidence a where
-  ev :: forall n. KnownNat n
-     => Proxy a
-     -> ( BooleanOf (TensorOf n (Primal a)) :~: BooleanOf (IntOf a)
-        , Dict RealFloat (TensorOf n a)
-        , Dict EqB (TensorOf n (Primal a))
-        , Dict OrdB (TensorOf n (Primal a)) )
+  evi1 :: forall n. KnownNat n
+       => Proxy a
+       -> Dict RealFloat (TensorOf n a)
+  evi2 :: forall n. KnownNat n
+       => Proxy a
+       -> ( BooleanOf (TensorOf n (Primal a)) :~: BooleanOf (IntOf a)
+          , Dict EqB (TensorOf n (Primal a))
+          , Dict OrdB (TensorOf n (Primal a)) )
 
 instance Evidence (ADVal Double) where
-  ev _ = (Refl, Dict, Dict, Dict)
+  evi1 _ = Dict
+  evi2 _ = (Refl, Dict, Dict)
 instance Evidence (ADVal Float) where
-  ev _ = (Refl, Dict, Dict, Dict)
+  evi1 _ = Dict
+  evi2 _ = (Refl, Dict, Dict)
 instance (ShowAst r, RealFloat r, Floating (Vector r))
          => Evidence (ADVal (Ast0 r)) where
-  ev _ = (Refl, Dict, Dict, Dict)
+  evi1 _ = Dict
+  evi2 _ = (Refl, Dict, Dict)
 instance Evidence Double where
-  ev _ = (Refl, Dict, Dict, Dict)
+  evi1 _ = Dict
+  evi2 _ = (Refl, Dict, Dict)
 instance Evidence Float where
-  ev _ = (Refl, Dict, Dict, Dict)
+  evi1 _ = Dict
+  evi2 _ = (Refl, Dict, Dict)
 
 type InterpretAst a = Evidence a
 
@@ -114,12 +125,11 @@ interpretAstPrimal env (AstPrimalPart v1) = case v1 of
   AstD u _-> interpretAstPrimal env u
   _ -> tprimalPart $ interpretAst env v1
 
-
 interpretAst
   :: forall n a. (KnownNat n, Evidence a)
   => AstEnv a
   -> Ast n (ScalarOf a) -> TensorOf n a
-interpretAst env | (_, Dict, _, _) <- ev @a @n Proxy = \case
+interpretAst env | Dict <- evi1 @a @n Proxy = \case
   AstVar sh var -> case EM.lookup var env of
     Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ tfromD d
     Just AstVarI{} ->
@@ -213,7 +223,7 @@ interpretAstBool env = \case
   AstBoolOp opCodeBool args ->
     interpretAstBoolOp (interpretAstBool env) opCodeBool args
   AstBoolConst a -> if a then true else false
-  AstRel @n opCodeRel args | (Refl, _, Dict, Dict) <- ev @a @n Proxy ->
+  AstRel @n opCodeRel args | (Refl, Dict, Dict) <- evi2 @a @n Proxy ->
     let f v = interpretAstPrimal env v
     in interpretAstRelOp f opCodeRel args
   AstRelInt opCodeRel args ->
