@@ -192,14 +192,14 @@ instance ShowAstSimplify r
 
   type ScalarOf (AstNoVectorize 0 r) = r
   type Primal (AstNoVectorize 0 r) = AstNoVectorize 0 r
-  type DualOf n (AstNoVectorize 0 r) = ()
-  tconst = AstNoVectorize . AstConst
-  tconstant = id
+  type DualOf n (AstNoVectorize 0 r) = AstDualPart n r
+  tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
+  tconstant = AstNoVectorize . AstConstant . AstPrimalPart . unAstNoVectorize
   tscale0 r d = r * d
   tprimalPart = id
-  tdualPart _ = ()
-  tD u _ = u
-  tScale _ _ = ()
+  tdualPart = AstDualPart . unAstNoVectorize
+  tD u u' = AstNoVectorize $ AstD (AstPrimalPart $ unAstNoVectorize u) u'
+  tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
   -- TODO: if ever used, define, if not, use an Error type
   type DynamicTensor (AstNoVectorize 0 r) = Either r r
   tdummyD = undefined
