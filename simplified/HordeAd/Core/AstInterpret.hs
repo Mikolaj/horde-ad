@@ -134,8 +134,8 @@ interpretAst env | Dict <- evi1 @a @n Proxy = \case
   AstVar sh var -> case EM.lookup var env of
     Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ tfromD d
     Just AstVarI{} ->
-      error $ "interpretAst: type mismatch for Var" ++ show var
-    Nothing -> error $ "interpretAst: unknown variable Var" ++ show var
+      error $ "interpretAst: type mismatch for " ++ show var
+    Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
     interpretAst (EM.insert var (AstVarR $ tfromR $ interpretAst env u) env) v
   AstOp opCode args ->
@@ -204,9 +204,9 @@ interpretAstInt :: Evidence a
 interpretAstInt env = \case
   AstIntVar var -> case EM.lookup var env of
     Just AstVarR{} ->
-      error $ "interpretAstInt: type mismatch for Var" ++ show var
+      error $ "interpretAstInt: type mismatch for " ++ show var
     Just (AstVarI i) -> i
-    Nothing -> error $ "interpretAstInt: unknown variable Var" ++ show var
+    Nothing -> error $ "interpretAstInt: unknown variable " ++ show var
   AstIntOp opCodeInt args ->
     interpretAstIntOp (interpretAstInt env) opCodeInt args
   AstIntConst a -> fromIntegral a
@@ -243,8 +243,8 @@ interpretAstDynamic env = \case
   AstDynamicVar sh var -> case EM.lookup var env of
     Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ d
     Just AstVarI{} ->
-      error $ "interpretAstDynamic: type mismatch for Var" ++ show var
-    Nothing -> error $ "interpretAstDynamic: unknown variable Var" ++ show var
+      error $ "interpretAstDynamic: type mismatch for " ++ show var
+    Nothing -> error $ "interpretAstDynamic: unknown variable " ++ show var
 
 interpretAstOp :: RealFloat b
                => (c -> b) -> OpCode -> [c] -> b
@@ -336,8 +336,8 @@ interpretAst env | (_, Dict, _, _) <- ev @a @n Proxy = \case
   AstVar sh var -> case EM.lookup var env of
     Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ tfromD d
     Just AstVarI{} ->
-      error $ "interpretAst: type mismatch for Var" ++ show var
-    Nothing -> error $ "interpretAst: unknown variable Var" ++ show var
+      error $ "interpretAst: type mismatch for " ++ show var
+    Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
     interpretAst (EM.insert var (AstVarR $ tfromR $ interpretAst env u) env) v
   AstOp opCode args -> interpretAstOp opCode $ map (interpretAst env) args
@@ -405,9 +405,9 @@ interpretAstInt :: Evidence a
 interpretAstInt env = \case
   AstIntVar var -> case EM.lookup var env of
     Just AstVarR{} ->
-      error $ "interpretAstInt: type mismatch for Var" ++ show var
+      error $ "interpretAstInt: type mismatch for " ++ show var
     Just (AstVarI i) -> i
-    Nothing -> error $ "interpretAstInt: unknown variable Var" ++ show var
+    Nothing -> error $ "interpretAstInt: unknown variable " ++ show var
   AstIntOp opCodeInt args ->
     interpretAstIntOp opCodeInt $ map (interpretAstInt env) args
   AstIntConst a -> fromIntegral a
@@ -442,8 +442,8 @@ interpretAstDynamic env = \case
   AstDynamicVar sh var -> case EM.lookup var env of
     Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ d
     Just AstVarI{} ->
-      error $ "interpretAstDynamic: type mismatch for Var" ++ show var
-    Nothing -> error $ "interpretAstDynamic: unknown variable Var" ++ show var
+      error $ "interpretAstDynamic: type mismatch for " ++ show var
+    Nothing -> error $ "interpretAstDynamic: unknown variable " ++ show var
 
 interpretAstOp :: RealFloat a
                => OpCode -> [a] -> a

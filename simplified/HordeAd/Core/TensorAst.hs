@@ -119,10 +119,10 @@ instance ShowAstSimplify r
   tkonst k = AstPrimalPart . AstKonst k . unAstPrimalPart
   tappend u v =
     AstPrimalPart $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
-  tslice i k = AstPrimalPart . AstSlice i k  . unAstPrimalPart
+  tslice i k = AstPrimalPart . AstSlice i k . unAstPrimalPart
   treverse = AstPrimalPart . AstReverse . unAstPrimalPart
   ttranspose perm = AstPrimalPart . AstTranspose perm . unAstPrimalPart
-  treshape sh = AstPrimalPart . astReshape sh  . unAstPrimalPart
+  treshape sh = AstPrimalPart . astReshape sh . unAstPrimalPart
   tbuild1 k f = AstPrimalPart $ astBuild1Fun k (unAstPrimalPart . f)
   tgather sh t f = AstPrimalPart $ AstGatherZ sh (unAstPrimalPart t)
                    $ funToAstIndex f  -- this introduces new variable names
@@ -177,10 +177,10 @@ instance ShowAstSimplify r
   tkonst k = AstNoVectorize . AstKonst k . unAstNoVectorize
   tappend u v =
     AstNoVectorize $ AstAppend (unAstNoVectorize u) (unAstNoVectorize v)
-  tslice i k = AstNoVectorize . AstSlice i k  . unAstNoVectorize
+  tslice i k = AstNoVectorize . AstSlice i k . unAstNoVectorize
   treverse = AstNoVectorize . AstReverse . unAstNoVectorize
   ttranspose perm = AstNoVectorize . AstTranspose perm . unAstNoVectorize
-  treshape sh = AstNoVectorize . astReshape sh  . unAstNoVectorize
+  treshape sh = AstNoVectorize . astReshape sh . unAstNoVectorize
   tbuild1 k f = AstNoVectorize $ AstBuild1 k
                 $ funToAstI  -- this introduces new variable names
                 $ unAstNoVectorize . f
