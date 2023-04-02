@@ -56,7 +56,6 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
@@ -98,7 +97,7 @@ unsafeGetFreshAstVarId =
   intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
-          -> (AstVarName (TensorOf n r), Ast m r)
+          -> (AstVarName (OR.Array n r), Ast m r)
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
@@ -112,7 +111,7 @@ funToAstD sh = unsafePerformIO $ do
   return $! case someNatVal $ toInteger $ length sh of
     Just (SomeNat (_proxy :: Proxy p)) ->
       let shn = listShapeToShape @p sh
-          varName = AstVarName @(TensorOf p r) freshId
+          varName = AstVarName @(OR.Array p r) freshId
       in (AstDynamicVarName varName, AstDynamicVar shn freshId)
     Nothing -> error "funToAstD: impossible someNatVal error"
 

@@ -11,6 +11,7 @@ module HordeAd.Core.AstInterpret
 import Prelude hiding ((<*))
 
 import           Control.Exception.Assert.Sugar
+import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
 import           Data.Proxy (Proxy (Proxy))
@@ -36,7 +37,7 @@ deriving instance (Show (DynamicTensor a), Show (IntOf a))
                   => Show (AstEnvElem a)
 
 extendEnvR :: forall n a. (Tensor a, KnownNat n)
-           => AstVarName (TensorOf n (ScalarOf a)) -> TensorOf n a
+           => AstVarName (OR.Array n (ScalarOf a)) -> TensorOf n a
            -> AstEnv a -> AstEnv a
 extendEnvR v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)

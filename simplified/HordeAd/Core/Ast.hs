@@ -33,7 +33,6 @@ import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 
 -- * Ast definitions
@@ -145,7 +144,7 @@ newtype AstVarName t = AstVarName AstVarId
 
 data AstDynamicVarName :: Type -> Type where
   AstDynamicVarName :: KnownNat n
-                    => AstVarName (TensorOf n r) -> AstDynamicVarName r
+                    => AstVarName (OR.Array n r) -> AstDynamicVarName r
 
 -- The argument is the underlying scalar.
 data AstInt :: Type -> Type where

@@ -91,9 +91,9 @@ revAstOnDomainsFun
   :: forall r n. (KnownNat n, ShowAstSimplify r)
   => Int -> [[Int]]
   -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
-  -> ( AstVarName (TensorOf 1 r)
+  -> ( AstVarName (OR.Array 1 r)
      , [AstDynamicVarName r]
-     , AstVarName (TensorOf n r)
+     , AstVarName (OR.Array n r)
      , Domains (Ast0 r)
      , Ast n r )
 {-# INLINE revAstOnDomainsFun #-}
@@ -115,9 +115,9 @@ revAstOnDomainsEval
   :: forall r n.
      (ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r, ShowAstSimplify r)
   => Int -> Int
-  -> ( AstVarName (TensorOf 1 r)
+  -> ( AstVarName (OR.Array 1 r)
      , [AstDynamicVarName r]
-     , AstVarName (TensorOf n r)
+     , AstVarName (OR.Array n r)
      , Domains (Ast0 r)
      , Ast n r )
   -> Domains r -> Maybe (TensorOf n r)
