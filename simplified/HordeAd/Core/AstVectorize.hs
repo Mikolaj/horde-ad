@@ -184,6 +184,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
               (AstFromList{}, _ :. ZI) -> ruleD
               (AstFromVector{}, _ :. ZI) -> ruleD
               (AstScatter{}, _) -> ruleD
+              (AstAppend{}, _) -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
             else build1VOccurenceUnknown k (var, v)  -- shortcut
        v -> traceRule $

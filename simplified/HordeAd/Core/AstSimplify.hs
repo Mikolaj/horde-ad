@@ -309,12 +309,18 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
               (singletonIndex i1)
   AstKonst _k v ->
     astIndex v rest1
-  AstAppend v w ->
+  AstAppend{} ->
+    {- We can't do the following, because we can get, e.g., division
+       by zero in the index in the counterfactual branch and sometimes
+       all branches are materialized. Similarly for gather of append
+       and see the TODO there.
     let vlen = AstIntConst $ lengthAst v
         ix2 = simplifyAstInt (AstIntOp MinusIntOp [i1, vlen]) :. rest1
     in case simplifyAstBool $ AstRelInt LsOp [i1, vlen] of
       AstBoolConst b -> if b then astIndex v ix else astIndex w ix2
       bExpr -> astCond bExpr (astIndexRec v ix) (astIndexRec w ix2)
+    -}
+    AstIndexZ v0 ix
   AstSlice i _k v ->
     let ii = simplifyAstInt (AstIntOp PlusIntOp [i1, AstIntConst i])
     in astIndex v (ii :. rest1)
@@ -637,9 +643,15 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       in astGather sh4 (astFromVector $ V.map f l)
                    (vars4, i4 :. sizedListToIndex (fmap AstIntVar vars4))
     AstKonst _k v -> astGather sh4 v (vars4, rest4)
-    AstAppend v w ->
-      -- We can't express append as gather, because AstFromList needs
-      -- arguments of the same shape, so here we need to inline a lot of code.
+    AstAppend{} ->
+      {- This is wrong, see astIndexZOrStepOnly:
+         We can't express append as gather, because AstFromList needs
+         arguments of the same shape, so here we need to inline a lot of code.
+         TODO: The normal form is not acceptable, because fusion is halted
+         and can't get inside AstAppend, unlike inside AstFromList.
+         Let's see if we can do the same trick as with AstFromList
+         and get all the remaining indexes inside AstGatherZ.
+         BTW, probably fusion is halted also due to NF with AstScatter.
       let vlen = AstIntConst $ lengthAst v
           iw = simplifyAstInt (AstIntOp MinusIntOp [i4, vlen])
           v2 = astGatherRec sh4 v (vars4, i4 :. rest4)
@@ -651,6 +663,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
         b -> astGather sh4 (astFromList [v2, w2])
                        (vars4, AstIntCond b 0 1
                                :. sizedListToIndex (fmap AstIntVar vars4))
+      -}
+      AstGatherZ sh4 v4 (vars4, ix4)
     AstSlice i _k v ->
       let ii = simplifyAstInt (AstIntOp PlusIntOp [i4, AstIntConst i])
       in astGather sh4 v (vars4, ii :. rest4)

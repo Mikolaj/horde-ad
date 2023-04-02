@@ -512,12 +512,6 @@ nestedSumBuild v =
              , tindex v [ix2]
              , tsum (tbuild1 3 (\ix7 ->
                  tsum (tkonst 5 (tfromIndex0 ix7))))
--- dynamic shapes:
---             , tsum (tbuild1 3 (\ix7 ->
---                 tsum (tkonst0N [ix2 + 1] (tfromIndex0 ix7))))
--- irregular array:
---             , tsum (tbuild1 3 (\ix7 ->
---                 tsum (tkonst0N [ix2 + ix7 + 1] 2.4)))
              ]))))
   + tbuild1 13 (\ix ->
       nestedBuildMap (tsum0 v) `tindex` [min ix 4])

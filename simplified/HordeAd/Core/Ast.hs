@@ -13,10 +13,10 @@ module HordeAd.Core.Ast
   , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
-  , astCond
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool, intVarInIndex
   , substitute1Ast, substitute1AstInt, substitute1AstBool
+  , astCond  -- only for tests
   ) where
 
 import Prelude
