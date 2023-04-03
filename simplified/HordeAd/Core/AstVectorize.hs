@@ -10,7 +10,6 @@ import Prelude
 
 import           Control.Exception.Assert.Sugar
 import           Control.Monad (when)
-import qualified Data.Array.RankedS as OR
 import           Data.IORef
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
@@ -93,12 +92,8 @@ build1V k (var, v00) =
 
     AstOp opCode args -> traceRule $
       AstOp opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
-    AstConstInt0 (AstIntVar var2) -> traceRule $
-      if var == var2
-      then AstConst $ OR.mapA fromIntegral $ OR.iota @Int k  -- TODO: Enum r
-      else error "build1V: AstConstInt0 contains no free int variables"
-    AstConstInt0{} ->
-      error "build1V: only tfromIndex0 of variables is supported at this time"
+    AstIota ->
+      error "build1V: AstIota can't have free int variables"
 
     AstIndexZ v ix -> traceRule $
       build1VIndex k (var, v, ix)  -- @var@ is in @v@ or @ix@

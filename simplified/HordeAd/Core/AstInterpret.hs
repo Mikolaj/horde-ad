@@ -54,11 +54,20 @@ extendEnvVars vars ix env =
   in foldr (uncurry extendEnvI) env assocs
 
 interpretLambdaI
-  :: (AstEnv c -> a -> TensorOf n c) -> AstEnv c -> (AstVarId, a) -> IntOf c
+  :: (AstEnv c -> Ast n (ScalarOf c) -> TensorOf n c)
+  -> AstEnv c -> (AstVarId, Ast n (ScalarOf c)) -> IntOf c
   -> TensorOf n c
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env (var, ast) =
   \i -> f (extendEnvI var i env) ast
+
+interpretLambdaIndex
+  :: (AstEnv a -> Ast n (ScalarOf a) -> TensorOf n a)
+  -> AstEnv a -> (AstVarList m, Ast n (ScalarOf a)) -> IndexOf m a
+  -> TensorOf n a
+{-# INLINE interpretLambdaIndex #-}
+interpretLambdaIndex f env (vars, ast) =
+  \ix -> f (extendEnvVars vars ix env) ast
 
 interpretLambdaIndexToIndex
   :: (AstEnv a -> AstInt q -> IntOf a)
@@ -140,7 +149,8 @@ interpretAst env | Dict <- evi1 @a @n Proxy = \case
     interpretAst (EM.insert var (AstVarR $ tfromR $ interpretAst env u) env) v
   AstOp opCode args ->
     interpretAstOp (interpretAst env) opCode args
-  AstConstInt0 i -> tfromIndex0 $ interpretAstInt env i
+  AstIota -> error "interpretAst: bare AstIota, most likely a bug"
+  AstIndexZ AstIota (i :. ZI) -> tfromIndex0 $ interpretAstInt env i
   AstIndexZ v is ->
     tindex (interpretAst env v) (fmap (interpretAstInt env) is)
       -- if index is out of bounds, the operations returns with an undefined
@@ -163,6 +173,9 @@ interpretAst env | Dict <- evi1 @a @n Proxy = \case
   AstFromVector l -> tfromVector (V.map (interpretAst env) l)
   AstKonst k v -> tkonst k (interpretAst env v)
   AstAppend x y -> tappend (interpretAst env x) (interpretAst env y)
+  AstSlice i k AstIota ->
+    interpretAst env
+    $ AstConst $ OR.fromList [k] $ map fromIntegral [i .. i + k - 1]
   AstSlice i k v -> tslice i k (interpretAst env v)
   AstReverse v -> treverse (interpretAst env v)
   AstTranspose perm v -> ttranspose perm $ interpretAst env v
@@ -179,7 +192,9 @@ interpretAst env | Dict <- evi1 @a @n Proxy = \case
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
   AstBuild1 k (var, v) ->
     tbuild1 k (interpretLambdaI interpretAst env (var, v))
-    -- to be used only in tests
+      -- to be used only in tests
+  AstGatherZ sh AstIota (vars, (i :. ZI)) ->
+    tbuild sh (interpretLambdaIndex interpretAst env (vars, tfromIndex0 i))
   AstGatherZ sh v (vars, ix) ->
     tgather sh (interpretAst env v)
                (interpretLambdaIndexToIndex interpretAstInt env (vars, ix))

@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestHighRankSimplified (testTrees) where
 
-import Prelude
+import Prelude hiding ((<*))
 
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
@@ -70,7 +70,7 @@ testTrees =
   , testCase "3braidedBuilds1" testBraidedBuilds1
   , testCase "3recycled" testRecycled
   , testCase "3recycled1" testRecycled1
-  , testCase "3concatBuild" testConcatBuild
+  , testCase "3concatBuild0" testConcatBuild0
   , testCase "3concatBuild1" testConcatBuild1
   ]
 
@@ -502,23 +502,32 @@ testRecycled1 =
     (tfromList0N (5 :$ 4 :$ 2 :$ ZS) [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
     (rev' @(OR.Array 7 Double) recycled (tkonst0N [5, 4, 2] 0.0002))
 
-concatBuild :: (ADReady r, KnownNat n)
+concatBuild :: ( ADReady r, KnownNat n, OrdB (TensorOf (1 + n) r)
+               , BooleanOf (TensorOf (1 + n) r) ~ BooleanOf (IntOf r) )
             => TensorOf (1 + n) r -> TensorOf (3 + n) r
 concatBuild r =
   tbuild1 7 (\i ->
     tconcat [ tbuild1 5 (const r)
-            , tbuild1 1 (\j -> tmap0N (* (tfromIndex0 j - tfromIndex0 i)) r)
+            , tbuild1 1 (\j -> tmap0N (* tfromIndex0 (j - i)) r)
+            , tbuild1 11 (\j ->
+                tmap0N (* (tfromIndex0
+                  (125 * (j `rem` (abs (signum i + abs i) + 1))
+                   + max j (i `quot` (j + 1)) * tfloor (tsum0 r)
+                   - ifB (r <* r &&* i <* j)
+                         (tminIndex0 (tflatten r))
+                         (tfloor $ tsum0 $ r ! ((i * j) `rem` 7 :. ZI))))) r)
             , tbuild1 13 (\_k ->
                 tsum $ ttr $ tkonst (tlength r) (tslice 0 1 r)) ])
 
-testConcatBuild :: Assertion
-testConcatBuild =
+testConcatBuild0 :: Assertion
+testConcatBuild0 =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [7] [651.0,14.0,14.0,14.0,14.0,14.0,14.0])
-    (rev' @(OR.Array 3 Double) concatBuild (tkonst 7 3.4))
+    (OR.fromList [7] [17070.0,16433.0,16433.0,16433.0,16433.0,16433.0,16433.0])
+    (rev' @(OR.Array 3 Double) concatBuild
+       (OR.fromList [7] [0.651,0.14,0.3414,-0.14,0.0014,0.0020014,0.9999]))
 
 testConcatBuild1 :: Assertion
 testConcatBuild1 =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [3,1,2,2,1,2,2] [287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0])
+    (OR.fromList [3,1,2,2,1,2,2] [392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0])
     (rev' @(OR.Array 9 Double) concatBuild t48)

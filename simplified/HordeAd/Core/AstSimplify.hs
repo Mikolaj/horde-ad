@@ -214,7 +214,7 @@ simplifyStepNonIndex t = case t of
   AstVar{} -> t
   AstLet{} -> t
   AstOp{} -> t
-  AstConstInt0 i -> AstConstInt0 $ simplifyAstInt i
+  AstIota -> t
   AstIndexZ{} -> t
   AstSum v -> astSum v
   AstScatter sh v (vars2, ix2) -> astScatter sh v (vars2, ix2)
@@ -281,8 +281,10 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstLet var u v -> AstLet var u (astIndexRec v ix)
   AstOp opCode args ->
     AstOp opCode (map (`astIndexRec` ix) args)
-  AstConstInt0{} ->
-    error "astIndex: impossible pattern needlessly required"
+  AstIota | AstIntConst i <- i1 -> case sameNat (Proxy @m) (Proxy @1) of
+    Just Refl -> AstConst $ OR.scalar $ fromIntegral i
+    _ -> error "astIndex: AstIota: impossible pattern needlessly required"
+  AstIota -> AstIndexZ v0 ix
   AstIndexZ v ix2 ->
     astIndex v (appendIndex ix2 ix)
   AstSum v ->  -- almost neutral; transposition is likely to fuse away
@@ -611,8 +613,11 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     AstLet var u v -> AstLet var u (astGatherCase sh4 v (vars4, ix4))
     AstOp opCode args ->
       AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
-    AstConstInt0{} ->
-      error "astGather: impossible pattern needlessly required"
+    AstIota | AstIntConst i <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
+      Just Refl -> astKonstN sh4 $ AstConst $ OR.scalar $ fromIntegral i
+      _ -> error "astGather: AstIota: impossible pattern needlessly required"
+    AstIota ->  -- probably nothing can be simplified; a normal form
+      AstGatherZ sh4 v4 (vars4, ix4)
     AstIndexZ v2 ix2 -> case (v2, ix2) of
       (AstFromList{}, i2 :. ZI) -> astGather sh4 v2 (vars4, i2 :. ix4)
       (AstFromVector{}, i2 :. ZI) -> astGather sh4 v2 (vars4, i2 :. ix4)
@@ -850,7 +855,7 @@ simplifyAst t = case t of
   AstOp opCode args -> AstOp opCode (map simplifyAst args)
     -- We do not simplify, e.g., addition or multiplication by zero.
     -- There are too many cases and values are often unknown.
-  AstConstInt0 i -> AstConstInt0 $ simplifyAstInt i
+  AstIota -> t
   AstIndexZ v ix -> astIndexZ (simplifyAst v) (fmap simplifyAstInt ix)
   AstSum v -> astSum (simplifyAst v)
   AstScatter sh v (var, ix) ->

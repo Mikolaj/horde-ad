@@ -33,7 +33,8 @@ instance ShowAstSimplify r
 
   tindex = AstIndexZ
   tsum = AstSum
-  tfromIndex0 = AstConstant . AstPrimalPart . AstConstInt0
+  tfromIndex0 i = AstConstant $ AstPrimalPart
+                  $ AstIndexZ AstIota (singletonIndex i)
     -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = AstScatter sh t (funToAstIndex f)  -- introduces new vars
 
@@ -109,7 +110,8 @@ instance ShowAstSimplify r
 
   tindex v ix = AstPrimalPart $ AstIndexZ (unAstPrimalPart v) ix
   tsum = AstPrimalPart . AstSum . unAstPrimalPart
-  tfromIndex0 = AstPrimalPart . AstConstInt0
+  tfromIndex0 i = AstPrimalPart
+                  $ AstIndexZ AstIota (singletonIndex i)
     -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = AstPrimalPart $ AstScatter sh (unAstPrimalPart t)
                     $ funToAstIndex f  -- this introduces new variable names
@@ -167,7 +169,8 @@ instance ShowAstSimplify r
 
   tindex v ix = AstNoVectorize $ AstIndexZ (unAstNoVectorize v) ix
   tsum = AstNoVectorize . AstSum . unAstNoVectorize
-  tfromIndex0 = AstNoVectorize . AstConstInt0
+  tfromIndex0 i = AstNoVectorize $ AstConstant $ AstPrimalPart
+                  $ AstIndexZ AstIota (singletonIndex i)
     -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = AstNoVectorize $ AstScatter sh (unAstNoVectorize t)
                     $ funToAstIndex f  -- this introduces new variable names

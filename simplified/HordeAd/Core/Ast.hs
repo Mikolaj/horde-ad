@@ -57,7 +57,7 @@ data Ast :: Nat -> Type -> Type where
 
   -- For the numeric classes:
   AstOp :: OpCode -> [Ast n r] -> Ast n r
-  AstConstInt0 :: AstInt r -> Ast 0 r
+  AstIota :: Ast 1 r
     -- needed, because toInteger and so fromIntegral is not defined for Ast
 
   -- For the Tensor class:
@@ -437,7 +437,7 @@ instance Enum (AstInt r) where
   fromEnum = undefined  -- do we need to define our own Enum for this?
 
 -- Warning: this class lacks toInteger, which also makes it impossible
--- to include AstInt in Ast via fromIntegral, hence AstConstInt0.
+-- to include AstInt in Ast via fromIntegral, hence AstIota.
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
@@ -471,7 +471,7 @@ shapeAst v1 = case v1 of
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
-  AstConstInt0 _i -> ZS
+  AstIota -> singletonShape (maxBound :: Int)  -- ought to be enough
   AstIndexZ v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
   AstScatter sh _ _ -> sh
@@ -515,7 +515,7 @@ intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
   AstLet _ u v -> intVarInAst var u || intVarInAst var v
   AstOp _ l -> any (intVarInAst var) l
-  AstConstInt0 k -> intVarInAstInt var k
+  AstIota -> False
   AstIndexZ v ix -> intVarInAst var v || intVarInIndex var ix
   AstSum v -> intVarInAst var v
   AstScatter _ v (vars, ix) -> notElem var vars && intVarInIndex var ix
@@ -567,7 +567,7 @@ substitute1Ast i var v1 = case v1 of
   AstLet varFloat u v ->
     AstLet varFloat (substitute1Ast i var u) (substitute1Ast i var v)
   AstOp opCode args -> AstOp opCode $ map (substitute1Ast i var) args
-  AstConstInt0 i2 -> AstConstInt0 $ substitute1AstInt i var i2
+  AstIota -> v1
   AstIndexZ v is ->
     AstIndexZ (substitute1Ast i var v) (fmap (substitute1AstInt i var) is)
   AstSum v -> AstSum (substitute1Ast i var v)
