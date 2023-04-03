@@ -31,6 +31,7 @@ import HordeAd.Internal.SizedList
 build1Vectorize
   :: (KnownNat n, ShowAstSimplify r)
   => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
+{-# NOINLINE build1Vectorize #-}
 build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
@@ -216,6 +217,7 @@ ellipsisString width full = let cropped = take width full
 
 mkTraceRule :: (KnownNat n, ShowAstSimplify r)
             => String -> Ast n r -> Ast m r -> Int -> Ast n r -> Ast n r
+{-# NOINLINE mkTraceRule #-}
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = traceWidth
