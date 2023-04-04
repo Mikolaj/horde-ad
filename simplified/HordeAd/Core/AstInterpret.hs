@@ -10,10 +10,12 @@ module HordeAd.Core.AstInterpret
 
 import Prelude hiding ((<*))
 
+import           Control.Arrow (second)
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
+import           Data.List (mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -53,29 +55,34 @@ extendEnvVars vars ix env =
   let assocs = zip (sizedListToList vars) (indexToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
+-- Memo is completely reset, because environment changes.
 interpretLambdaI
-  :: (AstEnv c -> Ast n (ScalarOf c) -> TensorOf n c)
+  :: (AstEnv c -> AstMemo c -> Ast n (ScalarOf c) -> (AstMemo c, TensorOf n c))
   -> AstEnv c -> (AstVarId, Ast n (ScalarOf c)) -> IntOf c
   -> TensorOf n c
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env (var, ast) =
-  \i -> f (extendEnvI var i env) ast
+  \i -> snd $ f (extendEnvI var i env) EM.empty ast
 
+-- Memo is completely reset, because environment changes.
 interpretLambdaIndex
-  :: (AstEnv a -> Ast n (ScalarOf a) -> TensorOf n a)
+  :: (AstEnv a -> AstMemo a -> Ast n (ScalarOf a) -> (AstMemo a, TensorOf n a))
   -> AstEnv a -> (AstVarList m, Ast n (ScalarOf a)) -> IndexOf m a
   -> TensorOf n a
 {-# INLINE interpretLambdaIndex #-}
 interpretLambdaIndex f env (vars, ast) =
-  \ix -> f (extendEnvVars vars ix env) ast
+  \ix -> snd $ f (extendEnvVars vars ix env) EM.empty ast
 
+-- Memo is completely reset, because environment changes.
 interpretLambdaIndexToIndex
-  :: (AstEnv a -> AstInt q -> IntOf a)
+  :: KnownNat p
+  => (AstEnv a -> AstMemo a -> AstInt q -> (AstMemo a, IntOf a))
   -> AstEnv a -> (AstVarList m, AstIndex p q) -> IndexOf m a
   -> IndexOf p a
 {-# INLINE interpretLambdaIndexToIndex #-}
 interpretLambdaIndexToIndex f env (vars, asts) =
-  \ix -> fmap (f (extendEnvVars vars ix env)) asts
+  \ix -> listToIndex $ snd
+         $ mapAccumR (f (extendEnvVars vars ix env)) EM.empty (indexToList asts)
 
 -- This horror (and some lesser horrors elsewhere) are required due
 -- to the inability to quantify constraints containing type families, see
@@ -122,6 +129,8 @@ instance Evidence Float where
 
 type InterpretAst a = Evidence a
 
+type AstMemo a = EM.EnumMap NodeId (DynamicTensor a)
+
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
 -- Either the environment has to be traverse to remove the dual parts or
 -- the dual part needs to be needlessly computed.
@@ -129,58 +138,84 @@ type InterpretAst a = Evidence a
 -- is negligible, so we optimize only minimally.
 interpretAstPrimal
   :: forall n a. (KnownNat n, Evidence a)
-  => AstEnv a
-  -> AstPrimalPart n (ScalarOf a) -> TensorOf n (Primal a)
-interpretAstPrimal env (AstPrimalPart v1) = case v1 of
-  AstD u _-> interpretAstPrimal env u
-  _ -> tprimalPart $ interpretAst env v1
+  => AstEnv a -> AstMemo a
+  -> AstPrimalPart n (ScalarOf a) -> (AstMemo a, TensorOf n (Primal a))
+interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
+  AstD u _-> interpretAstPrimal env memo u
+  _ -> second tprimalPart $ interpretAst env memo v1
 
 interpretAst
   :: forall n a. (KnownNat n, Evidence a)
-  => AstEnv a
-  -> Ast n (ScalarOf a) -> TensorOf n a
-interpretAst env | Dict <- evi1 @a @n Proxy = \case
+  => AstEnv a -> AstMemo a
+  -> Ast n (ScalarOf a) -> (AstMemo a, TensorOf n a)
+interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
   AstVar sh var -> case EM.lookup var env of
-    Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ tfromD d
+    Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ (memo, tfromD d)
     Just AstVarI{} ->
       error $ "interpretAst: type mismatch for " ++ show var
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
-    interpretAst (EM.insert var (AstVarR $ tfromR $ interpretAst env u) env) v
-  AstLetGlobal _ v -> interpretAst env v  -- TODO use a memo table
-  AstOp opCode args -> interpretAstOp opCode $ map (interpretAst env) args
+    let (memo2, t) = interpretAst env memo u
+    in interpretAst (EM.insert var (AstVarR $ tfromR t) env) memo2 v
+      -- It's OK not to reset memo2, because all occurences of this AstLet
+      -- terms outside of functions are going to be interpreted the same
+      -- and functions reset memo.
+  AstLetGlobal n v ->
+    case EM.lookup n memo of
+      Nothing -> let (memo2, t) = interpretAst env memo v
+                 in (EM.insert n (tfromR t) memo2, t)
+      Just res -> (memo, tfromD res)
+  AstOp opCode args ->
+    let (memo2, args2) = mapAccumR (interpretAst env) memo args
+    in (memo2, interpretAstOp opCode args2)
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"
-  AstIndexZ AstIota (i :. ZI) -> tfromIndex0 $ interpretAstInt env i
-  AstIndexZ v is ->
-    tindex (interpretAst env v) (fmap (interpretAstInt env) is)
+  AstIndexZ AstIota (i :. ZI) -> second tfromIndex0 $ interpretAstInt env memo i
+  AstIndexZ v ix ->
+    let (memo2, v2) = interpretAst env memo v
+        (memo3, ix3) = mapAccumR (interpretAstInt env) memo2 (indexToList ix)
+    in (memo3, tindex v2 $ listToIndex ix3)
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
   AstSum v@(AstOp TimesOp [t, u]) ->
     case sameNat (Proxy @n) (Proxy @0) of
-      Just Refl -> tdot0 (interpretAst env t) (interpretAst env u)
-        -- TODO: do as a term rewrite using an extended set of terms?
-      _ -> tsum (interpretAst env v)
-  AstSum v -> tsum (interpretAst env v)
+      Just Refl ->
+        let (memo1, t1) = interpretAst env memo t
+            (memo2, t2) = interpretAst env memo1 u
+        in (memo2, tdot0 t1 t2)
+          -- TODO: do as a term rewrite using an extended set of terms?
+          -- rather not, because rewrite breaks sharing
+          -- TODO2: handle AstSum (AstLetR (AstOp ...
+      _ -> second tsum (interpretAst env memo v)
+  AstSum v -> second tsum (interpretAst env memo v)
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
     -- is cheaper, too
   AstScatter sh v (vars, ix) ->
-    tscatter sh (interpretAst env v)
-                (interpretLambdaIndexToIndex interpretAstInt env (vars, ix))
-  AstFromList l -> tfromList (map (interpretAst env) l)
-  AstFromVector l -> tfromVector (V.map (interpretAst env) l)
-  AstKonst k v -> tkonst k (interpretAst env v)
-  AstAppend x y -> tappend (interpretAst env x) (interpretAst env y)
+    let (memo1, t1) = interpretAst env memo v
+        f2 = interpretLambdaIndexToIndex interpretAstInt env (vars, ix)
+    in (memo1, tscatter sh t1 f2)
+  AstFromList l ->
+    let (memo2, l2) = mapAccumR (interpretAst env) memo l
+    in (memo2, tfromList l2)
+  AstFromVector l ->
+    let (memo2, l2) = mapAccumR (interpretAst env) memo (V.toList l)
+    in (memo2, tfromVector $ V.fromList l2)
+      -- TODO: emulate mapAccum using mapM?
+  AstKonst k v -> second (tkonst k) (interpretAst env memo v)
+  AstAppend x y ->
+    let (memo1, t1) = interpretAst env memo x
+        (memo2, t2) = interpretAst env memo1 y
+    in (memo2, tappend t1 t2)
   AstSlice i k AstIota ->
-    interpretAst env
+    interpretAst env memo
     $ AstConst $ OR.fromList [k] $ map fromIntegral [i .. i + k - 1]
-  AstSlice i k v -> tslice i k (interpretAst env v)
-  AstReverse v -> treverse (interpretAst env v)
-  AstTranspose perm v -> ttranspose perm $ interpretAst env v
-  AstReshape sh v -> treshape sh (interpretAst env v)
-  AstBuild1 0 (_, v) -> tfromList0N (0 :$ tshape v) []
+  AstSlice i k v -> second (tslice i k) (interpretAst env memo v)
+  AstReverse v -> second treverse (interpretAst env memo v)
+  AstTranspose perm v -> second (ttranspose perm) $ interpretAst env memo v
+  AstReshape sh v -> second (treshape sh) (interpretAst env memo v)
+  AstBuild1 0 (_, v) -> (memo, tfromList0N (0 :$ tshape v) [])
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
   -- not to concrete numbers (and so Primal a is not equal to ScalarOf a).
@@ -189,15 +224,17 @@ interpretAst env | Dict <- evi1 @a @n Proxy = \case
   -- AstBuild1 k (var, AstConstant v) ->
   --   tconst
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
-  --   $ interpretLambdaI interpretAstPrimal env (var, v)
+  --   $ interpretLambdaI interpretAstPrimal env memo (var, v)
   AstBuild1 k (var, v) ->
-    tbuild1 k (interpretLambdaI interpretAst env (var, v))
+    (memo, tbuild1 k (interpretLambdaI interpretAst env (var, v)))
       -- to be used only in tests
   AstGatherZ sh AstIota (vars, (i :. ZI)) ->
-    tbuild sh (interpretLambdaIndex interpretAst env (vars, tfromIndex0 i))
+    ( memo
+    , tbuild sh (interpretLambdaIndex interpretAst env (vars, tfromIndex0 i)) )
   AstGatherZ sh v (vars, ix) ->
-    tgather sh (interpretAst env v)
-               (interpretLambdaIndexToIndex interpretAstInt env (vars, ix))
+    let (memo1, t1) = interpretAst env memo v
+        f2 = interpretLambdaIndexToIndex interpretAstInt env (vars, ix)
+    in (memo1, tgather sh t1 f2)
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
     -- TODO: currently we store the function on tape, because it doesn't
@@ -208,53 +245,63 @@ interpretAst env | Dict <- evi1 @a @n Proxy = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstConst a -> tconst a
-  AstConstant a -> tconstant $ interpretAstPrimal env a
-  AstD u (AstDualPart u') -> tD (interpretAstPrimal env u)
-                                (tdualPart $ interpretAst env u')
+  AstConst a -> (memo, tconst a)
+  AstConstant a -> second tconstant $ interpretAstPrimal env memo a
+  AstD u (AstDualPart u') ->
+    let (memo1, t1) = interpretAstPrimal env memo u
+        (memo2, t2) = second tdualPart $ interpretAst env memo1 u'
+    in (memo2, tD t1 t2)
 
 interpretAstInt :: Evidence a
-                => AstEnv a
-                -> AstInt (ScalarOf a) -> IntOf (Primal a)
-interpretAstInt env = \case
+                => AstEnv a -> AstMemo a
+                -> AstInt (ScalarOf a) -> (AstMemo a, IntOf (Primal a))
+interpretAstInt env memo = \case
   AstIntVar var -> case EM.lookup var env of
     Just AstVarR{} ->
       error $ "interpretAstInt: type mismatch for " ++ show var
-    Just (AstVarI i) -> i
+    Just (AstVarI i) -> (memo, i)
     Nothing -> error $ "interpretAstInt: unknown variable " ++ show var
   AstIntOp opCodeInt args ->
-    interpretAstIntOp opCodeInt $ map (interpretAstInt env) args
-  AstIntConst a -> fromIntegral a
-  AstIntFloor v -> tfloor $ interpretAstPrimal env v
-  AstIntCond b a1 a2 -> ifB (interpretAstBool env b)
-                            (interpretAstInt env a1)
-                            (interpretAstInt env a2)
-  AstMinIndex1 v -> tminIndex0 $ interpretAstPrimal env v
-  AstMaxIndex1 v -> tmaxIndex0 $ interpretAstPrimal env v
+    let (memo2, args2) = mapAccumR (interpretAstInt env) memo args
+    in (memo2, interpretAstIntOp opCodeInt args2)
+  AstIntConst a -> (memo, fromIntegral a)
+  AstIntFloor v -> second tfloor $ interpretAstPrimal env memo v
+  AstIntCond b a1 a2 ->
+    let (memo1, b1) = interpretAstBool env memo b
+        (memo2, t2) = interpretAstInt env memo1 a1
+        (memo3, t3) = interpretAstInt env memo2 a2
+    in (memo3, ifB b1 t2 t3)
+  AstMinIndex1 v -> second tminIndex0 $ interpretAstPrimal env memo v
+  AstMaxIndex1 v -> second tmaxIndex0 $ interpretAstPrimal env memo v
 
 interpretAstBool :: forall a. Evidence a
-                 => AstEnv a
-                 -> AstBool (ScalarOf a) -> BooleanOf (Primal a)
-interpretAstBool env = \case
+                 => AstEnv a -> AstMemo a
+                 -> AstBool (ScalarOf a) -> (AstMemo a, BooleanOf (Primal a))
+interpretAstBool env memo = \case
   AstBoolOp opCodeBool args ->
-    interpretAstBoolOp opCodeBool $ map (interpretAstBool env) args
-  AstBoolConst a -> if a then true else false
+    let (memo2, args2) = mapAccumR (interpretAstBool env) memo args
+    in (memo2, interpretAstBoolOp opCodeBool args2)
+  AstBoolConst a -> (memo, if a then true else false)
   AstRel @n opCodeRel args | (Refl, Dict, Dict) <- evi2 @a @n Proxy ->
-    interpretAstRelOp opCodeRel $ map (interpretAstPrimal env) args
+    let (memo2, args2) =  mapAccumR (interpretAstPrimal env) memo args
+    in (memo2, interpretAstRelOp opCodeRel args2)
   AstRelInt opCodeRel args ->
-    interpretAstRelOp opCodeRel $ map (interpretAstInt env) args
+    let (memo2, args2) = mapAccumR (interpretAstInt env) memo args
+    in (memo2, interpretAstRelOp opCodeRel args2)
 
 interpretAstDynamic
   :: Evidence a
-  => AstEnv a
-  -> AstDynamic (ScalarOf a) -> DynamicTensor a
-interpretAstDynamic env = \case
+  => AstEnv a -> AstMemo a
+  -> AstDynamic (ScalarOf a) -> (AstMemo a, DynamicTensor a)
+interpretAstDynamic env memo = \case
   AstDynamicDummy -> error "interpretAstDynamic: AstDynamicDummy"
   AstDynamicPlus v u ->
-    interpretAstDynamic env v `taddD` interpretAstDynamic env u
-  AstDynamicFrom w -> tfromR $ interpretAst env w
+    let (memo1, t1) = interpretAstDynamic env memo v
+        (memo2, t2) = interpretAstDynamic env memo1 u
+    in (memo2, t1 `taddD` t2)
+  AstDynamicFrom w -> second tfromR $ interpretAst env memo w
   AstDynamicVar sh var -> case EM.lookup var env of
-    Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ d
+    Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ (memo, d)
     Just AstVarI{} ->
       error $ "interpretAstDynamic: type mismatch for " ++ show var
     Nothing -> error $ "interpretAstDynamic: unknown variable " ++ show var
@@ -338,110 +385,110 @@ interpretAstRelOp opCodeRel args =
 
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal Double)
-  -> AstPrimalPart n Double -> TensorOf n Double #-}
+  => AstEnv (ADVal Double) -> AstMemo (ADVal Double)
+  -> AstPrimalPart n Double -> (AstMemo (ADVal Double), TensorOf n Double) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal Float)
-  -> AstPrimalPart n Float -> TensorOf n Float #-}
+  => AstEnv (ADVal Float) -> AstMemo (ADVal Float)
+  -> AstPrimalPart n Float -> (AstMemo (ADVal Float), TensorOf n Float) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal (Ast0 Double))
-  -> AstPrimalPart n Double -> TensorOf n (Ast0 Double) #-}
+  => AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
+  -> AstPrimalPart n Double -> (AstMemo (ADVal (Ast0 Double)), TensorOf n (Ast0 Double)) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal (Ast0 Float))
-  -> AstPrimalPart n Float -> TensorOf n (Ast0 Float) #-}
+  => AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
+  -> AstPrimalPart n Float -> (AstMemo (ADVal (Ast0 Float)), TensorOf n (Ast0 Float)) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv Double
-  -> AstPrimalPart n Double -> TensorOf n Double #-}
+  => AstEnv Double -> AstMemo Double
+  -> AstPrimalPart n Double -> (AstMemo Double, TensorOf n Double) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv Float
-  -> AstPrimalPart n Float -> TensorOf n Float #-}
+  => AstEnv Float -> AstMemo Float
+  -> AstPrimalPart n Float -> (AstMemo Float, TensorOf n Float) #-}
 
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv (ADVal Double)
-  -> Ast n Double -> TensorOf n (ADVal Double) #-}
+  => AstEnv (ADVal Double) -> AstMemo (ADVal Double)
+  -> Ast n Double -> (AstMemo (ADVal Double), TensorOf n (ADVal Double)) #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv (ADVal Float)
-  -> Ast n Float -> TensorOf n (ADVal Float) #-}
+  => AstEnv (ADVal Float) -> AstMemo (ADVal Float)
+  -> Ast n Float -> (AstMemo (ADVal Float), TensorOf n (ADVal Float)) #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv (ADVal (Ast0 Double))
-  -> Ast n Double -> TensorOf n (ADVal (Ast0 Double)) #-}
+  => AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
+  -> Ast n Double -> (AstMemo (ADVal (Ast0 Double)), TensorOf n (ADVal (Ast0 Double))) #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv (ADVal (Ast0 Float))
-  -> Ast n Float -> TensorOf n (ADVal (Ast0 Float)) #-}
+  => AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
+  -> Ast n Float -> (AstMemo (ADVal (Ast0 Float)), TensorOf n (ADVal (Ast0 Float))) #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv Double
-  -> Ast n Double -> TensorOf n Double #-}
+  => AstEnv Double -> AstMemo Double
+  -> Ast n Double -> (AstMemo Double, TensorOf n Double) #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv Float
-  -> Ast n Float -> TensorOf n Float #-}
+  => AstEnv Float -> AstMemo Float
+  -> Ast n Float -> (AstMemo Float, TensorOf n Float) #-}
 
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal Double)
-  -> AstInt Double -> CInt #-}
+  :: AstEnv (ADVal Double) -> AstMemo (ADVal Double)
+  -> AstInt Double -> (AstMemo (ADVal Double), CInt) #-}
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal Float)
-  -> AstInt Float -> CInt #-}
+  :: AstEnv (ADVal Float) -> AstMemo (ADVal Float)
+  -> AstInt Float -> (AstMemo (ADVal Float), CInt) #-}
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal (Ast0 Double))
-  -> AstInt Double -> AstInt Double #-}
+  :: AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
+  -> AstInt Double -> (AstMemo (ADVal (Ast0 Double)), AstInt Double) #-}
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal (Ast0 Float))
-  -> AstInt Float -> AstInt Float #-}
+  :: AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
+  -> AstInt Float -> (AstMemo (ADVal (Ast0 Float)), AstInt Float) #-}
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv Double
-  -> AstInt Double -> CInt #-}
+  :: AstEnv Double -> AstMemo Double
+  -> AstInt Double -> (AstMemo Double, CInt) #-}
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv Float
-  -> AstInt Float -> CInt #-}
+  :: AstEnv Float -> AstMemo Float
+  -> AstInt Float -> (AstMemo Float, CInt) #-}
 
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal Double)
-  -> AstBool Double -> Bool #-}
+  :: AstEnv (ADVal Double) -> AstMemo (ADVal Double)
+  -> AstBool Double -> (AstMemo (ADVal Double), Bool) #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal Float)
-  -> AstBool Float -> Bool #-}
+  :: AstEnv (ADVal Float) -> AstMemo (ADVal Float)
+  -> AstBool Float -> (AstMemo (ADVal Float), Bool) #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal (Ast0 Double))
-  -> AstBool Double -> AstBool Double #-}
+  :: AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
+  -> AstBool Double -> (AstMemo (ADVal (Ast0 Double)), AstBool Double) #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal (Ast0 Float))
-  -> AstBool Float -> AstBool Float #-}
+  :: AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
+  -> AstBool Float -> (AstMemo (ADVal (Ast0 Float)), AstBool Float) #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv Double
-  -> AstBool Double -> Bool #-}
+  :: AstEnv Double -> AstMemo Double
+  -> AstBool Double -> (AstMemo Double, Bool) #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv Float
-  -> AstBool Float -> Bool #-}
+  :: AstEnv Float -> AstMemo Float
+  -> AstBool Float -> (AstMemo Float, Bool) #-}
 
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal Double)
-  -> AstDynamic Double -> DynamicTensor (ADVal Double) #-}
+  :: AstEnv (ADVal Double) -> AstMemo (ADVal Double)
+  -> AstDynamic Double -> (AstMemo (ADVal Double), DynamicTensor (ADVal Double)) #-}
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal Float)
-  -> AstDynamic Float -> DynamicTensor (ADVal Float) #-}
+  :: AstEnv (ADVal Float) -> AstMemo (ADVal Float)
+  -> AstDynamic Float -> (AstMemo (ADVal Float), DynamicTensor (ADVal Float)) #-}
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal (Ast0 Double))
-  -> AstDynamic Double -> DynamicTensor (ADVal (Ast0 Double)) #-}
+  :: AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
+  -> AstDynamic Double -> (AstMemo (ADVal (Ast0 Double)), DynamicTensor (ADVal (Ast0 Double))) #-}
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal (Ast0 Float))
-  -> AstDynamic Float -> DynamicTensor (ADVal (Ast0 Float)) #-}
+  :: AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
+  -> AstDynamic Float -> (AstMemo (ADVal (Ast0 Float)), DynamicTensor (ADVal (Ast0 Float))) #-}
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv Double
-  -> AstDynamic Double -> DynamicTensor Double #-}
+  :: AstEnv Double -> AstMemo Double
+  -> AstDynamic Double -> (AstMemo Double, DynamicTensor Double) #-}
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv Float
-  -> AstDynamic Float -> DynamicTensor Float #-}
+  :: AstEnv Float -> AstMemo Float
+  -> AstDynamic Float -> (AstMemo Float, DynamicTensor Float) #-}
 
 {-# SPECIALIZE interpretAstOp
   :: OpCode -> [(ADVal Double)] -> (ADVal Double) #-}

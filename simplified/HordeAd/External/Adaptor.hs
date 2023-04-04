@@ -75,7 +75,7 @@ revDtMaybeL f valsAll@(vals : _) dt =
                       extendEnvR var (tfromD $ dD u u')) env0
              $ zip vars1 $ V.toList
              $ V.zip (inputPrimal1 varInputs) (inputDual1 varInputs)
-      (D vAst deltaTopLevel) = interpretAst env1 ast
+      (_, (D vAst deltaTopLevel)) = interpretAst env1 EM.empty ast
       (varDt, astDt) = funToAstR (tshape vAst) id
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
       gradientAst = gradientFromDelta dim0 (length shapes1) deltaDt

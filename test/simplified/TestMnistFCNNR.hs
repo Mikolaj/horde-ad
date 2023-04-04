@@ -8,6 +8,7 @@ import           Control.Monad (foldM, unless)
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
+import           Data.List (mapAccumR)
 import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as LA
@@ -216,7 +217,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                          $ extendEnvR varLabel
                              (tconst $ OR.fromVector [sizeMnistLabelInt] label)
                              env1
-                   in tunScalar $ interpretAst envMnist ast
+                   in tunScalar $ snd $ interpretAst envMnist EM.empty ast
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -322,7 +323,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                   $ V.zipWith dD (inputPrimal1 varInputs) (inputDual1 varInputs)
            envMnistg = extendEnvR varGlyph (tconstant astGlyph)
                        $ extendEnvR varLabel (tconstant astLabel) envg
-           (D vAst deltaTopLevel) = tunScalar $ interpretAst envMnistg ast
+           D vAst deltaTopLevel =
+             tunScalar $ snd $ interpretAst envMnistg EM.empty ast
            deltaDt = packDeltaDt (Left vAst) deltaTopLevel
            gradientAst = gradientFromDelta 0 (length shapes1) deltaDt
            go :: [MnistData r] -> Domains r -> Domains r
@@ -338,12 +340,13 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                    $ extendEnvR varLabel
                        (OR.fromVector [sizeMnistLabelInt] label)
                        env1
-                 gradients =
-                   Domains emptyR
-                           (V.map (\t -> case t of
-                              AstDynamicDummy -> tdummyD
-                              _ -> interpretAstDynamic envMnist t)
-                            $ domainsR gradientAst)
+                 fd memo = \case
+                   AstDynamicDummy -> (memo, tdummyD)
+                   t -> interpretAstDynamic envMnist memo t
+                 (_memo1, l1) = mapAccumR fd EM.empty
+                                          (V.toList $ domainsR gradientAst)
+
+                 gradients = Domains emptyR (V.fromList l1)
              in go rest (updateWithGradient gamma parameters gradients)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.

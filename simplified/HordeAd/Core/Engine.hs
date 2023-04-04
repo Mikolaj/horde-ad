@@ -22,6 +22,7 @@ import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
+import           Data.List (mapAccumR)
 import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -136,13 +137,15 @@ revAstOnDomainsEval dim0 dim1
         Just a -> a
         Nothing -> tkonst0N (tshape vAst) 1
       envDt = extendEnvR varDt dtValue env1
-      gradientDomain =
-        Domains (interpretAst envDt $ domains0 gradientAst)
-                (V.map (\t -> case t of
-                         AstDynamicDummy -> tdummyD
-                         _ -> interpretAstDynamic envDt t)
-                 $ domainsR gradientAst)
-  in (gradientDomain, interpretAst env1 vAst)
+      (memo0, d0) = interpretAst envDt EM.empty $ domains0 gradientAst
+      fd memo = \case
+        AstDynamicDummy -> (memo, tdummyD)
+        t -> interpretAstDynamic envDt memo t
+      (memo1, l1) = mapAccumR fd memo0 (V.toList $ domainsR gradientAst)
+        -- TODO: emulate mapAccumR on vectors
+      (_memo2, v2) = interpretAst env1 memo1 vAst
+      gradientDomain = Domains d0 (V.fromList l1)
+  in (gradientDomain, v2)
 
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
