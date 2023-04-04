@@ -53,10 +53,10 @@ type ShapeInt n = Shape n Int
 newtype Index n i = Index (SizedList n i)
   deriving (Eq, Ord)
 
--- This is pretty controversion and only lawful when OverloadedLists
--- is enabled. However, it's much more readable when tracing and debugging.
+-- This is only lawful when OverloadedLists is enabled.
+-- However, it's much more readable when tracing and debugging.
 instance Show i => Show (Index n i) where
-  showsPrec d l = showsPrec d (indexToList l)
+  showsPrec d (Index l) = showsPrec d l
 
 pattern ZI :: forall n i. () => n ~ 0 => Index n i
 pattern ZI = Index Z
@@ -164,10 +164,10 @@ sizedListToIndex = Index
 newtype Shape n i = Shape (SizedList n i)
   deriving Eq
 
--- This is pretty controversion and only lawful when OverloadedLists
--- is enabled. However, it's much more readable when tracing and debugging.
+-- This is only lawful when OverloadedLists is enabled.
+-- However, it's much more readable when tracing and debugging.
 instance Show i => Show (Shape n i) where
-  showsPrec d l = showsPrec d (shapeToList l)
+  showsPrec d (Shape l) = showsPrec d l
 
 pattern ZS :: forall n i. () => n ~ 0 => Shape n i
 pattern ZS = Shape Z
