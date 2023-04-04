@@ -252,6 +252,11 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tfromR :: KnownNat n
          => TensorOf n r -> DynamicTensor r
 
+  -- The global @let@ operations (poor man's data-reify).
+  tlet0 :: r -> r
+  tlet0 = id
+  tletR :: TensorOf n r -> TensorOf n r
+  tletR = id
 
 -- * The giga-contraint
 

@@ -464,7 +464,8 @@ buildFinMaps s0 deltaDt =
         Zero0 -> s
         Input0 i -> s {iMap0 = EM.adjust (+ c) i $ iMap0 s}
         Scale0 k d -> eval0 s (k * c) d
-        Add0 d e -> eval0 (eval0 s c d) c e
+        Add0 d e -> let cShared = tlet0 c
+                    in eval0 (eval0 s cShared d) cShared e
         Let0 n d ->
           -- In this context, by construction, @d@ is the dual component
           -- of a dual number term. Let's say that, at this point, evaluation
@@ -553,12 +554,13 @@ buildFinMaps s0 deltaDt =
                        in if tisDummyD v then cs else taddD v cs
       evalR :: forall n. KnownNat n
             => EvalState r -> TensorOf n r -> DeltaR n r -> EvalState r
-      evalR s !c = \case
+      evalR s !c = let cShared = tletR c
+                   in \case
         ZeroR -> s
         InputR (InputId i) ->
           s {iMapR = EM.adjust (addToArray c) (InputId i) $ iMapR s}
         ScaleR k d -> evalR s (k `tmult` c) d
-        AddR d e -> evalR (evalR s c d) c e
+        AddR d e -> evalR (evalR s cShared d) cShared e
         LetR n d ->
           assert (case d of
                     ZeroR -> False
@@ -588,10 +590,10 @@ buildFinMaps s0 deltaDt =
         ScatterZ _sh d f shd -> evalR s (tgather shd c f) d
         FromListR ld ->
           ifoldl' (\s2 i d2 ->
-            evalR s2 (tindex c (fromIntegral i :. ZI)) d2) s ld
+            evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) s ld
         FromVectorR ld ->
           V.ifoldl' (\s2 i d2 ->
-            evalR s2 (tindex c (fromIntegral i :. ZI)) d2) s ld
+            evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) s ld
 --        FromList0R _sh lsd ->  -- lsd is a list of scalar delta expressions
 --          let cv = OR.toVector c
 --          in ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
@@ -601,8 +603,8 @@ buildFinMaps s0 deltaDt =
         KonstR _n d -> evalR s (tsum c) d
 --        Konst0R _ d -> eval0 s (tsum0R c) d
         AppendR d k e -> case tshape c of
-          n :$ _ -> let s2 = evalR s (tslice 0 k c) d
-                    in evalR s2 (tslice k (n - k) c) e
+          n :$ _ -> let s2 = evalR s (tslice 0 k cShared) d
+                    in evalR s2 (tslice k (n - k) cShared) e
           ZS -> error "evalR: appending a 0-dimensional tensor"
         SliceR i n d len -> case tshape c of
           n' :$ rest ->
@@ -618,7 +620,7 @@ buildFinMaps s0 deltaDt =
           in evalR s (ttranspose perm_reversed c) d
         ReshapeR sh _sh' d -> evalR s (treshape sh c) d
         BuildR n f ->
-          foldl' (\s2 i -> evalR s2 (tindex c (i :. ZI)) (f i))
+          foldl' (\s2 i -> evalR s2 (tindex cShared (i :. ZI)) (f i))
                  s (fromIntegral <$> [0 .. n - 1])
 --        Gather1 f sh d _n -> evalR s (tscatter1R f c sh) d
         GatherZ _sh d f shd -> evalR s (tscatter shd c f) d
