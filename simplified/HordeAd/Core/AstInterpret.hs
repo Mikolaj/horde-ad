@@ -147,6 +147,7 @@ interpretAst env | Dict <- evi1 @a @n Proxy = \case
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
     interpretAst (EM.insert var (AstVarR $ tfromR $ interpretAst env u) env) v
+  AstLetGlobal _ v -> interpretAst env v  -- TODO use a memo table
   AstOp opCode args ->
     interpretAstOp (interpretAst env) opCode args
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"

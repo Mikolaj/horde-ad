@@ -10,8 +10,10 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
+import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
+import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
@@ -77,12 +79,35 @@ instance ShowAstSimplify r
   tfromD = astFromDynamic
   tfromR = AstDynamicFrom
 
+  tlet0 = astLet0Fun
+  tletR = astLetRFun
+
 astLetFun :: (KnownNat n, ShowAstSimplify r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
 astLetFun a f =
   let sh = tshape a
       (AstVarName var, ast) = funToAstR sh f
   in AstLet var a ast
+
+unsafeGlobalCounter :: Counter
+{-# NOINLINE unsafeGlobalCounter #-}
+unsafeGlobalCounter = unsafePerformIO (newCounter 100000000)
+
+unsafeGetFreshId :: IO Int
+{-# INLINE unsafeGetFreshId #-}
+unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
+
+astLet0Fun :: Ast0 r -> Ast0 r
+{-# NOINLINE astLet0Fun #-}
+astLet0Fun t = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! Ast0 $ AstLetGlobal (NodeId n) (unAst0 t)
+
+astLetRFun :: Ast m r -> Ast m r
+{-# NOINLINE astLetRFun #-}
+astLetRFun t = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! AstLetGlobal (NodeId n) t
 
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
@@ -153,6 +178,9 @@ instance ShowAstSimplify r
   tfromD = undefined
   tfromR = undefined
 
+  tlet0 = AstPrimalPart . astLetRFun . unAstPrimalPart
+  tletR = AstPrimalPart . astLetRFun . unAstPrimalPart
+
 instance ShowAstSimplify r
          => Tensor (AstNoVectorize 0 r) where
   type TensorOf n (AstNoVectorize 0 r) = AstNoVectorize n r
@@ -211,3 +239,6 @@ instance ShowAstSimplify r
   tshapeD = undefined
   tfromD = undefined
   tfromR = undefined
+
+  tlet0 = AstNoVectorize . astLetRFun . unAstNoVectorize
+  tletR = AstNoVectorize . astLetRFun . unAstNoVectorize

@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DerivingStrategies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
@@ -7,7 +7,7 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( ShowAst, AstIndex, AstVarList
+  ( ShowAst, AstIndex, AstVarList, NodeId(..)
   , Ast(..), AstNoVectorize(..), AstPrimalPart(..), AstDualPart(..)
   , AstDynamic(..), Ast0(..)
   , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
@@ -43,6 +43,13 @@ type AstIndex n r = Index n (AstInt r)
 
 type AstVarList n = SizedList n AstVarId
 
+newtype NodeId = NodeId {fromNodeId :: Int}
+ deriving newtype Enum
+   -- No Eq instance to limit hacks.
+
+instance Show NodeId where
+  show (NodeId n) = show n  -- to keep debug printouts readable
+
 -- We use here @ShapeInt@ for simplicity. @Shape n (AstInt r)@ gives
 -- more expressiveness, but leads to irregular tensors,
 -- especially after vectorization, and prevents statically known shapes.
@@ -54,6 +61,7 @@ data Ast :: Nat -> Type -> Type where
   AstVar :: ShapeInt n -> AstVarId -> Ast n r
   AstLet :: KnownNat n
          => AstVarId -> Ast n r -> Ast m r -> Ast m r
+  AstLetGlobal :: NodeId -> Ast m r -> Ast m r
 
   -- For the numeric classes:
   AstOp :: OpCode -> [Ast n r] -> Ast n r
@@ -468,6 +476,7 @@ shapeAst :: forall n r. (KnownNat n, ShowAst r)
 shapeAst v1 = case v1 of
   AstVar sh _var -> sh
   AstLet _ _ v -> shapeAst v
+  AstLetGlobal _ v -> shapeAst v
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
@@ -514,6 +523,7 @@ intVarInAst :: AstVarId -> Ast n r -> Bool
 intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
   AstLet _ u v -> intVarInAst var u || intVarInAst var v
+  AstLetGlobal _ v -> intVarInAst var v
   AstOp _ l -> any (intVarInAst var) l
   AstIota -> False
   AstIndexZ v ix -> intVarInAst var v || intVarInIndex var ix
@@ -566,6 +576,10 @@ substitute1Ast i var v1 = case v1 of
   AstVar _sh _var -> v1
   AstLet varFloat u v ->
     AstLet varFloat (substitute1Ast i var u) (substitute1Ast i var v)
+  AstLetGlobal _ v -> substitute1Ast i var v
+    -- substitution breaks global sharing
+    -- TODO: here and in all term transformations (but not in interpretAst)
+    -- start by building a graph and replacing all AstLetGlobal with AstLet
   AstOp opCode args -> AstOp opCode $ map (substitute1Ast i var) args
   AstIota -> v1
   AstIndexZ v is ->

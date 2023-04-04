@@ -36,7 +36,7 @@ module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), DeltaR (..), DeltaD (..)
   , -- * Delta expression identifiers
-    NodeId(..), InputId, toInputId, Dual
+    InputId, toInputId, Dual
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, DomainR, Domains(..), emptyDomain0, nullDomains
   , gradientFromDelta
@@ -252,16 +252,9 @@ deriving instance (Show (IntOf r), Show r) => Show (DeltaD r)
 
 -- * Related datatypes and classes
 
-newtype NodeId = NodeId {fromNodeId :: Int}
-  deriving newtype Enum
-    -- No Eq instance to limit hacks outside this module.
-
-instance Show NodeId where
-  show (NodeId n) = show n  -- to keep debug printouts readable
-
 newtype InputId a = InputId Int
-  deriving (Show, Enum)
-    -- No Eq instance to limit hacks outside this module.
+ deriving (Show, Enum)
+   -- No Eq instance to limit hacks outside this module.
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
 toInputId :: Int -> InputId a
