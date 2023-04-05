@@ -89,7 +89,17 @@ build1V k (var, v00) =
   in case v0 of
     AstVar{} ->
       error "build1V: AstVar can't have free int variables"
-    AstLet{} -> error "TODO"
+    AstLet var2 u v ->
+      let sh = shapeAst u
+          projection = AstIndexZ (AstVar (k :$ sh) var2) (AstIntVar var :. ZI)
+          v2 = substitute1Ast (Left projection) var2 v
+            -- we use the substitution that does not simplify, which is sad,
+            -- because very low hanging fruits may be left hanging, but we
+            -- don't want to simplify the whole term; a better alternative
+            -- would be a substitution that only simplifies the touched
+            -- terms with one step lookahead, as normally when vectorizing
+      in AstLet var2 (build1VOccurenceUnknown k (var, u))
+                     (build1VOccurenceUnknown k (var, v2))
     AstLetGlobal _ v -> build1V k (var, v)
                           -- vectorization breaks global sharing
 
