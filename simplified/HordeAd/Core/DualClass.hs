@@ -59,6 +59,7 @@ class IsPrimal a where
   dScaleByScalar :: a -> Int -> Dual a -> Dual a
   dAdd :: Dual a -> Dual a -> Dual a
   recordSharing :: Dual a -> Dual a
+  recordSharingPrimal :: a -> a
   packDeltaDt :: Either a a -> Dual a -> DeltaDt (Element a)
 
 -- | Part 1/2 of a hack to squeeze the ranked tensors rank,
@@ -76,6 +77,7 @@ class IsPrimalR r where
         => Dual (OR.Array n r) -> Dual (OR.Array n r)
         -> Dual (OR.Array n r)
   recordSharingR :: Dual (OR.Array n r) -> Dual (OR.Array n r)
+  recordSharingPrimalR :: OR.Array n r -> OR.Array n r
   packDeltaDtR :: KnownNat n
                => Either (OR.Array n r) (OR.Array n r) -> Dual (OR.Array n r)
                -> DeltaDt r
@@ -89,6 +91,7 @@ instance (IsPrimalR r, KnownNat n)
   dScaleByScalar = dScaleByScalarR
   dAdd = dAddR
   recordSharing = recordSharingR
+  recordSharingPrimal = recordSharingPrimalR
   packDeltaDt = packDeltaDtR
 
 -- An analogous hack for Ast.
@@ -101,6 +104,7 @@ class IsPrimalA r where
   dAddA :: KnownNat n
         => Dual (Ast n r) -> Dual (Ast n r) -> Dual (Ast n r)
   recordSharingA :: Dual (Ast n r) -> Dual (Ast n r)
+  recordSharingPrimalA :: Ast n r -> Ast n r
   packDeltaDtA :: KnownNat n
                => Either (Ast n r) (Ast n r) -> Dual (Ast n r)
                -> DeltaDt (Ast0 r)
@@ -112,6 +116,7 @@ instance (IsPrimalA r, KnownNat n)
   dScaleByScalar = dScaleByScalarA
   dAdd = dAddA
   recordSharing = recordSharingA
+  recordSharingPrimal = recordSharingPrimalA
   packDeltaDt = packDeltaDtA
 
 -- | The class provides methods required for the second type parameter
@@ -235,6 +240,7 @@ instance IsPrimal Double where
     Input0{} -> d
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
+  recordSharingPrimal = id
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
 -- | This is an impure instance. See above.
@@ -249,9 +255,10 @@ instance IsPrimal Float where
     Input0{} -> d
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
+  recordSharingPrimal = id
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
-instance (Numeric r, Num (Vector r)) => IsPrimal (Ast0 r) where
+instance (Show r, Numeric r, Num (Vector r)) => IsPrimal (Ast0 r) where
   dZero = Zero0
   dScale = Scale0
   dScaleByScalar _ c = Scale0 (fromIntegral c)
@@ -261,6 +268,7 @@ instance (Numeric r, Num (Vector r)) => IsPrimal (Ast0 r) where
     Input0{} -> d
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
+  recordSharingPrimal = tlet0
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
 -- | This is a trivial and so a pure instance.
@@ -270,6 +278,7 @@ instance IsPrimal (OD.Array r) where
   dScaleByScalar = undefined
   dAdd = undefined
   recordSharing = id
+  recordSharingPrimal = id
   packDeltaDt = undefined
 
 -- | This is an impure instance. See above.
@@ -284,6 +293,7 @@ instance IsPrimalR Double where
     FromD{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
+  recordSharingPrimalR = id
   packDeltaDtR (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
   packDeltaDtR (Right t) = DeltaDtR t
 
@@ -298,6 +308,7 @@ instance IsPrimalR Float where
     FromD{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
+  recordSharingPrimalR = id
   packDeltaDtR (Left tsh) = DeltaDtR (tconst $ tkonst0N (tshape tsh) 1)
   packDeltaDtR (Right t) = DeltaDtR t
 
@@ -313,6 +324,7 @@ instance (Show r, Numeric r, Tensor (Ast0 r)) => IsPrimalA r where
     FromD{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
+  recordSharingPrimalA = tletR
   packDeltaDtA (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
   packDeltaDtA (Right t) = DeltaDtR t
 
@@ -324,6 +336,7 @@ instance IsPrimal (AstDynamic r) where
     Just Refl -> FromR $ AddR d1 d2
     _ -> error "dAdd (IsPrimal (AstDynamic r)): summand types don't match"
   recordSharing = id
+  recordSharingPrimal = id
   packDeltaDt = undefined
 
 -- | This is an impure instance. See above.

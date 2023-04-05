@@ -157,9 +157,12 @@ instance Ord a => Ord (ADVal a) where
 instance (Num a, IsPrimal a) => Num (ADVal a) where
   D u u' + D v v' = dD (u + v) (dAdd u' v')
   D u u' - D v v' = dD (u - v) (dAdd u' (dScaleByScalar v (-1) v'))
-  D u u' * D v v' = dD (u * v) (dAdd (dScale v u') (dScale u v'))
+  D ue u' * D ve v' = let u = recordSharingPrimal ue
+                          v = recordSharingPrimal ve
+                      in dD (u * v) (dAdd (dScale v u') (dScale u v'))
   negate (D v v') = dD (negate v) (dScaleByScalar v (-1) v')
-  abs (D v v') = dD (abs v) (dScale (signum v) v')
+  abs (D ve v') = let v = recordSharingPrimal ve
+                  in dD (abs v) (dScale (signum v) v')
   signum (D v _) = dD (signum v) dZero
   fromInteger = constantADVal . fromInteger
 
@@ -168,37 +171,55 @@ instance (Real a, IsPrimal a) => Real (ADVal a) where
     -- very low priority, since these are all extremely not continuous
 
 instance (Fractional a, IsPrimal a) => Fractional (ADVal a) where
-  D u u' / D v v' =
-    dD (u / v) (dAdd (dScale (recip v) u') (dScale (- u / (v * v)) v'))
-  recip (D v v') =
-    let minusRecipSq = - recip (v * v)
+  D ue u' / D ve v' =
+    let u = recordSharingPrimal ue
+        v = recordSharingPrimal ve
+    in dD (u / v) (dAdd (dScale (recip v) u') (dScale (- u / (v * v)) v'))
+  recip (D ve v') =
+    let v = recordSharingPrimal ve
+        minusRecipSq = - recip (v * v)
     in dD (recip v) (dScale minusRecipSq v')
   fromRational = constantADVal . fromRational
 
 instance (Floating a, IsPrimal a) => Floating (ADVal a) where
   pi = constantADVal pi
-  exp (D u u') = let expU = exp u
-                 in dD expU (dScale expU u')
-  log (D u u') = dD (log u) (dScale (recip u) u')
-  sqrt (D u u') = let sqrtU = sqrt u
-                  in dD sqrtU (dScale (recip (sqrtU + sqrtU)) u')
-  D u u' ** D v v' = dD (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
-                                       (dScale ((u ** v) * log u) v'))
+  exp (D ue u') = let expU = recordSharingPrimal $ exp ue
+                  in dD expU (dScale expU u')
+  log (D ue u') = let u = recordSharingPrimal ue
+                  in dD (log u) (dScale (recip u) u')
+  sqrt (D ue u') = let sqrtU = recordSharingPrimal $ sqrt ue
+                   in dD sqrtU (dScale (recip (sqrtU + sqrtU)) u')
+  D ue u' ** D ve v' =
+    let u = recordSharingPrimal ue
+        v = recordSharingPrimal ve
+    in dD (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
+                         (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x
-  sin (D u u') = dD (sin u) (dScale (cos u) u')
-  cos (D u u') = dD (cos u) (dScale (- (sin u)) u')
-  tan (D u u') = let cosU = cos u
-                 in dD (tan u) (dScale (recip (cosU * cosU)) u')
-  asin (D u u') = dD (asin u) (dScale (recip (sqrt (1 - u*u))) u')
-  acos (D u u') = dD (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
-  atan (D u u') = dD (atan u) (dScale (recip (1 + u*u)) u')
-  sinh (D u u') = dD (sinh u) (dScale (cosh u) u')
-  cosh (D u u') = dD (cosh u) (dScale (sinh u) u')
-  tanh (D u u') = let y = tanh u
-                  in dD y (dScale (1 - y * y) u')
-  asinh (D u u') = dD (asinh u) (dScale (recip (sqrt (1 + u*u))) u')
-  acosh (D u u') = dD (acosh u) (dScale (recip (sqrt (u*u - 1))) u')
-  atanh (D u u') = dD (atanh u) (dScale (recip (1 - u*u)) u')
+  sin (D ue u') = let u = recordSharingPrimal ue
+                  in dD (sin u) (dScale (cos u) u')
+  cos (D ue u') = let u = recordSharingPrimal ue
+                  in dD (cos u) (dScale (- (sin u)) u')
+  tan (D ue u') = let u = recordSharingPrimal ue
+                      cosU = recordSharingPrimal $ cos u
+                  in dD (tan u) (dScale (recip (cosU * cosU)) u')
+  asin (D ue u') = let u = recordSharingPrimal ue
+                   in dD (asin u) (dScale (recip (sqrt (1 - u*u))) u')
+  acos (D ue u') = let u = recordSharingPrimal ue
+                   in dD (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
+  atan (D ue u') = let u = recordSharingPrimal ue
+                   in dD (atan u) (dScale (recip (1 + u*u)) u')
+  sinh (D ue u') = let u = recordSharingPrimal ue
+                   in dD (sinh u) (dScale (cosh u) u')
+  cosh (D ue u') = let u = recordSharingPrimal ue
+                   in dD (cosh u) (dScale (sinh u) u')
+  tanh (D ue u') = let y = recordSharingPrimal $ tanh ue
+                   in dD y (dScale (1 - y * y) u')
+  asinh (D ue u') = let u = recordSharingPrimal ue
+                    in dD (asinh u) (dScale (recip (sqrt (1 + u*u))) u')
+  acosh (D ue u') = let u = recordSharingPrimal ue
+                    in dD (acosh u) (dScale (recip (sqrt (u*u - 1))) u')
+  atanh (D ue u') = let u = recordSharingPrimal ue
+                    in dD (atanh u) (dScale (recip (1 - u*u)) u')
 
 instance (RealFrac a, IsPrimal a) => RealFrac (ADVal a) where
   properFraction = undefined
@@ -206,8 +227,10 @@ instance (RealFrac a, IsPrimal a) => RealFrac (ADVal a) where
     -- so we can't implement this (nor RealFracB from Boolean package).
 
 instance (RealFloat a, IsPrimal a) => RealFloat (ADVal a) where
-  atan2 (D u u') (D v v') =
-    let t = 1 / (u * u + v * v)
+  atan2 (D ue u') (D ve v') =
+    let u = recordSharingPrimal ue
+        v = recordSharingPrimal ve
+        t = 1 / (u * u + v * v)
     in dD (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
   floatRadix (D u _) = floatRadix u
   floatDigits (D u _) = floatDigits u

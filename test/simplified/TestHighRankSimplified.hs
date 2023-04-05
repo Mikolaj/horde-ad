@@ -214,8 +214,8 @@ fooBuild5 v =
   let r = tsum v
       v' = tkonst0N (tailShape $ tshape v) $ tminimum $ tflatten v
   in tbuild1 2 $ \ix ->
-       r * foo ( 3
-               , 5 * r
+       r * foo ( tkonst0N (tailShape $ tshape v) 3
+               , tscaleByScalar 5 r
                , r * v')
        + bar (r, tindex v [min 1 (ix + 1)])  -- index not out of bounds
 
