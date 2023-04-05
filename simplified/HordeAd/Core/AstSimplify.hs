@@ -339,10 +339,10 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstReshape sh v ->
     astIndex (astReshapeAsGather sh v) ix
   AstBuild1 _n2 (var2, v) ->
-    astIndex (substituteAst i1 var2 v) rest1
+    astIndex (substituteAst @0 (Right i1) var2 v) rest1
   AstGatherZ _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
   AstGatherZ (_ :$ sh') v (var2 ::: vars, ix2) ->
-    let ix3 = fmap (substituteAstInt i1 var2) ix2
+    let ix3 = fmap (substituteAstInt @0 (Right i1) var2) ix2
         w :: Ast (m1 + n) r
         w = unsafeCoerce $ astGather sh' v (vars, ix3)
     in astIndex @m1 @n w rest1
@@ -474,7 +474,7 @@ astSlice i k w@(AstAppend (u :: Ast (1 + n) r) (v :: Ast (1 + n) r)) =
         | otherwise -> AstSlice @n i k w  -- cheap iff fits in one
 astSlice i k (AstGatherZ (_ :$ sh') v (var ::: vars, ix)) =
   let ivar = AstIntOp PlusIntOp [AstIntVar var, AstIntConst i]
-      ix2 = fmap (substituteAstInt ivar var) ix
+      ix2 = fmap (substituteAstInt @0 (Right ivar) var) ix
   in astGatherZ (k :$ sh') v (var ::: vars, ix2)
 astSlice i k v = AstSlice i k v
 
@@ -489,7 +489,7 @@ astReverse (AstKonst k v) = AstKonst k v
 astReverse (AstReverse v) = v
 astReverse (AstGatherZ sh@(k :$ _) v (var ::: vars, ix)) =
   let ivar = AstIntOp MinusIntOp [AstIntConst k, AstIntVar var]
-      ix2 = fmap (substituteAstInt ivar var) ix
+      ix2 = fmap (substituteAstInt @0 (Right ivar) var) ix
   in astGatherZ sh v (var ::: vars, ix2)
 astReverse v = AstReverse v
 
@@ -691,8 +691,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     AstGatherZ @m2 @n2 _sh2 v2 (vars2, ix2) ->
       let subst :: AstIndex m7 r -> AstVarList m7 -> AstInt r -> AstInt r
           subst ix vars i =
-            foldr (uncurry substituteAstInt) i
-                  (zipSized (indexToSizedList ix) vars)
+            foldr (uncurry (substituteAstInt @0)) i
+                  (zipSized (fmap Right $ indexToSizedList ix) vars)
           composedGather :: p' <= m2 => Ast (m' + n') r
           composedGather =
             let (vars2p, vars22) = splitAt_Sized @p' @(m2 - p') vars2
@@ -1093,14 +1093,17 @@ simplifyAstBoolOp OrOp [b, AstBoolConst False] = b
 simplifyAstBoolOp opCodeBool arg = AstBoolOp opCodeBool arg
 
 -- We have to simplify after substitution or simplifying is not idempotent.
-substituteAst :: (KnownNat n, ShowAstSimplify r)
-              => AstInt r -> AstVarId -> Ast n r -> Ast n r
+substituteAst :: forall m n r. (ShowAstSimplify r, KnownNat m, KnownNat n)
+              => Either (Ast m r) (AstInt r) -> AstVarId -> Ast n r
+              -> Ast n r
 substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
 
-substituteAstInt :: ShowAstSimplify r
-                 => AstInt r -> AstVarId -> AstInt r -> AstInt r
+substituteAstInt :: forall m r. (ShowAstSimplify r, KnownNat m)
+                 => Either (Ast m r) (AstInt r) -> AstVarId -> AstInt r
+                 -> AstInt r
 substituteAstInt i var i2 = simplifyAstInt $ substitute1AstInt i var i2
 
-substituteAstBool :: ShowAstSimplify r
-                  => AstInt r -> AstVarId -> AstBool r -> AstBool r
+substituteAstBool :: forall m r. (ShowAstSimplify r, KnownNat m)
+                  => Either (Ast m r) (AstInt r) -> AstVarId -> AstBool r
+                  -> AstBool r
 substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1

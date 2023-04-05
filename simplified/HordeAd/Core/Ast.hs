@@ -21,8 +21,10 @@ module HordeAd.Core.Ast
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
+import           Data.Either (fromLeft, fromRight)
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy (Proxy))
@@ -570,12 +572,22 @@ intVarInIndex var = any (intVarInAstInt var)
 
 -- * Substitution
 
-substitute1Ast :: ShowAst r
-               => AstInt r -> AstVarId -> Ast n r -> Ast n r
+-- The Either is a hack until we merge Ast and AstInt.
+substitute1Ast :: forall m n r. (ShowAst r, KnownNat m, KnownNat n)
+               => Either (Ast m r) (AstInt r) -> AstVarId -> Ast n r
+               -> Ast n r
 substitute1Ast i var v1 = case v1 of
-  AstVar _sh _var -> v1
-  AstLet varFloat u v ->
-    AstLet varFloat (substitute1Ast i var u) (substitute1Ast i var v)
+  AstVar sh var2 ->
+    if var == var2
+    then case sameNat (Proxy @m) (Proxy @n) of
+      Just Refl -> let t = fromLeft (error "substitute1Ast: Var") i
+                   in assert (shapeAst t == sh) t
+      _ -> error "substitute1Ast: n"
+    else v1
+  AstLet var2 u v ->
+    if var == var2
+    then v1
+    else AstLet var2 (substitute1Ast i var u) (substitute1Ast i var v)
   AstLetGlobal _ v -> substitute1Ast i var v
     -- substitution breaks global sharing
     -- TODO: here and in all term transformations (but not in interpretAst)
@@ -614,10 +626,13 @@ substitute1Ast i var v1 = case v1 of
     AstD (AstPrimalPart $ substitute1Ast i var u)
          (AstDualPart $ substitute1Ast i var u')
 
-substitute1AstInt :: ShowAst r
-                  => AstInt r -> AstVarId -> AstInt r -> AstInt r
+substitute1AstInt :: forall m r. (ShowAst r, KnownNat m)
+                  => Either (Ast m r) (AstInt r) -> AstVarId -> AstInt r
+                  -> AstInt r
 substitute1AstInt i var i2 = case i2 of
-  AstIntVar var2 -> if var == var2 then i else i2
+  AstIntVar var2 -> if var == var2
+                    then fromRight (error "substitute1AstInt: Var") i
+                    else i2
   AstIntOp opCodeInt args ->
     AstIntOp opCodeInt $ map (substitute1AstInt i var) args
   AstIntConst _a -> i2
@@ -631,8 +646,9 @@ substitute1AstInt i var i2 = case i2 of
   AstMaxIndex1 (AstPrimalPart v) ->
     AstMaxIndex1 $ AstPrimalPart $ substitute1Ast i var v
 
-substitute1AstBool :: ShowAst r
-                   => AstInt r -> AstVarId -> AstBool r -> AstBool r
+substitute1AstBool :: forall m r. (ShowAst r, KnownNat m)
+                   => Either (Ast m r) (AstInt r) -> AstVarId -> AstBool r
+                   -> AstBool r
 substitute1AstBool i var b1 = case b1 of
   AstBoolOp opCodeBool args ->
     AstBoolOp opCodeBool $ map (substitute1AstBool i var) args
