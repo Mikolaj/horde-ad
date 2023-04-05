@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
 module TestAdaptorSimplified
   ( testTrees, rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
-  , assertEqualUpToEpsilonShorter
   , t16, t16b, t48, t128, t128b, t128c
   , scale1, relu1, reluLeaky1
   ) where
@@ -227,33 +226,6 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp"
                                  errMargin expected gradient3Ast
   -- No Eq instance, so let's compare the text.
-  show (simplifyAst astVectSimp) @?= show astVectSimp
-  show (simplifyAst astSimp) @?= show astSimp
-
-assertEqualUpToEpsilonShorter
-    :: ( AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon b
-       , KnownNat m, ShowAstSimplify r, HasCallStack )
-    => Rational  -- ^ error margin (i.e., the epsilon)
-    -> a  -- ^ expected value
-    -> ( b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r
-       , b, b, b, b, b, a, a, a, a, a )  -- ^ actual values
-    -> Assertion
-assertEqualUpToEpsilonShorter
-    errMargin expected
-    ( value0, value1, value2, value3, _value4, value5
-    , gradient1, gradient2, gradient3, _gradient4, gradient5
-    , astVectSimp, astSimp
-    , _value9, _value2Ast, _value3Ast, _value4Ast, _value5Ast
-    , _gradient9
-    , _gradient2Ast, _gradient3Ast, _gradient4Ast, _gradient5Ast) = do
-  assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
-  assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
-  assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
-  assertEqualUpToEpsilonWithMark "Val Simplified" errMargin value0 value5
-  assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
-  assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
-  assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
-  assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
   show (simplifyAst astVectSimp) @?= show astVectSimp
   show (simplifyAst astSimp) @?= show astSimp
 
@@ -486,10 +458,10 @@ nestedBuildMap :: forall r. ADReady r => TensorOf 0 r -> TensorOf 1 r
 nestedBuildMap r =
   let w = tkonst0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
       v' = tkonst0N [177] r :: TensorOf 1 r
-      nestedMap x = tmap0N (x /) (w x)
+      nestedMap x = tletR $ tmap0N (x /) (w x)
       variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' (ix + iy :. ZI))
-      doublyBuild = tbuild1 5 (tminimum . variableLengthBuild)
-  in tmap0N (\x -> x * tsum0
+      doublyBuild = tletR $ tbuild1 5 (tminimum . variableLengthBuild)
+  in tmap0N (\x -> tletR $ x * tsum0
                          (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
                           + fooBuild1 (nestedMap x)
                           / fooMap1 x)
@@ -497,26 +469,26 @@ nestedBuildMap r =
 
 testNestedBuildMap1 :: Assertion
 testNestedBuildMap1 =
-  assertEqualUpToEpsilonShort 1e-10
+  assertEqualUpToEpsilon' 1e-10
     107.25984443006627
     (rev' @(OR.Array 1 Double) nestedBuildMap 1.1)
 
 nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedSumBuild v =
-  tbuild1 13 (\ix ->
-    tsum (tbuild1 4 (\ix2 ->
+  tletR (tbuild1 13 (\ix ->
+    tletR $ tsum (tbuild1 4 (\ix2 ->
       flip tindex [ix2]
-        (tbuild1 5 (\ _ -> tsum v)
+        (tbuild1 5 (\ _ -> tletR $ tsum v)
          * tfromList
              [ tfromIndex0 ix
-             , tsum (tbuild1 9 tfromIndex0)
-             , tsum (tbuild1 6 (\_ -> tsum v))
+             , tletR $ tsum (tbuild1 9 tfromIndex0)
+             , tletR $ tsum (tbuild1 6 (\_ -> tsum v))
              , tindex v [ix2]
              , tsum (tbuild1 3 (\ix7 ->
                  tsum (tkonst 5 (tfromIndex0 ix7))))
-             ]))))
-  + tbuild1 13 (\ix ->
-      nestedBuildMap (tsum0 v) `tindex` [min ix 4])
+             ])))))
+  + tletR (tbuild1 13 (\ix ->
+      tletR $ nestedBuildMap (tsum0 v) `tindex` [min ix 4]))
 
 testNestedSumBuild :: Assertion
 testNestedSumBuild =
@@ -553,7 +525,7 @@ testBarReluADVal =
 
 testBarReluADVal3 :: Assertion
 testBarReluADVal3 =
-  assertEqualUpToEpsilonShort 1e-10
+  assertEqualUpToEpsilon' 1e-10
     (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
     (rev' @(OR.Array 3 Double) barRelu (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
