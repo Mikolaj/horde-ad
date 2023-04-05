@@ -458,10 +458,10 @@ nestedBuildMap :: forall r. ADReady r => TensorOf 0 r -> TensorOf 1 r
 nestedBuildMap r =
   let w = tkonst0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
       v' = tkonst0N [177] r :: TensorOf 1 r
-      nestedMap x = tletR $ tmap0N (x /) (w x)
+      nestedMap x0 = tlet x0 $ \x -> tmap0N (x /) (w x)
       variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' (ix + iy :. ZI))
-      doublyBuild = tletR $ tbuild1 5 (tminimum . variableLengthBuild)
-  in tmap0N (\x -> tletR $ x * tsum0
+      doublyBuild = tbuild1 5 (tminimum . variableLengthBuild)
+  in tmap0N (\x0 -> tlet x0 $ \x -> x * tsum0
                          (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
                           + fooBuild1 (nestedMap x)
                           / fooMap1 x)
@@ -474,25 +474,26 @@ testNestedBuildMap1 =
     (rev' @(OR.Array 1 Double) nestedBuildMap 1.1)
 
 nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
-nestedSumBuild v =
-  tletR (tbuild1 13 (\ix ->
+nestedSumBuild v0 = tlet v0 $ \v ->
+ tlet (tsum (tbuild1 9 tfromIndex0)) (\tbtf ->
+  (tbuild1 13 (\ix ->
     tletR $ tsum (tbuild1 4 (\ix2 ->
       flip tindex [ix2]
-        (tbuild1 5 (\ _ -> tletR $ tsum v)
+        (tlet (tsum v) $ \tsumv -> tbuild1 5 (\ _ -> tsumv)
          * tfromList
              [ tfromIndex0 ix
-             , tletR $ tsum (tbuild1 9 tfromIndex0)
+             , tbtf
              , tletR $ tsum (tbuild1 6 (\_ -> tsum v))
              , tindex v [ix2]
              , tsum (tbuild1 3 (\ix7 ->
                  tsum (tkonst 5 (tfromIndex0 ix7))))
-             ])))))
-  + tletR (tbuild1 13 (\ix ->
-      tletR $ nestedBuildMap (tsum0 v) `tindex` [min ix 4]))
+             ]))))))
+ + tlet (nestedBuildMap (tsum0 v)) (\nbmt -> (tbuild1 13 (\ix ->
+     nbmt `tindex` [min ix 4])))
 
 testNestedSumBuild :: Assertion
 testNestedSumBuild =
-  assertEqualUpToEpsilonShort 1e-8
+  assertEqualUpToEpsilon' 1e-8
     (OR.fromList [5] [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612])
     (rev' @(OR.Array 1 Double) nestedSumBuild (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
@@ -671,8 +672,8 @@ testBraidedBuilds1 =
 recycled :: ADReady r
          => r -> TensorOf 5 r
 recycled r =
-  tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ ->
-    nestedSumBuild (tkonst0N [7] (tscalar r))
+  tlet (nestedSumBuild (tkonst0N [7] (tscalar r))) $ \nsb ->
+    tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ -> nsb
 
 testRecycled :: Assertion
 testRecycled =
@@ -682,7 +683,7 @@ testRecycled =
 
 testRecycled1 :: Assertion
 testRecycled1 =
-  assertEqualUpToEpsilonShort 1e-6
+  assertEqualUpToEpsilon' 1e-6
     348356.9278600814
     (rev' @(OR.Array 5 Double) (recycled . tunScalar) 0.0000001)
 
@@ -759,12 +760,13 @@ fblowup k inputs =
       y0 = (inputs ! [0]) / (inputs ! [1])
   in blowup k y0
 
-fblowupLet :: forall r. ADReady r => Int -> TensorOf 1 r -> TensorOf 0 r
-fblowupLet k inputs =
+fblowupLet :: forall r. ADReady r
+           => IntOf r -> Int -> TensorOf 1 r -> TensorOf 0 r
+fblowupLet i k inputs =
   let blowup :: Int -> TensorOf 0 r -> TensorOf 0 r
-      blowup 0 y = y
+      blowup 0 y = y - tfromIndex0 i
       blowup n y1 = tlet y1 $ \y ->
-        let ysum = y + y
+        let ysum = y + y - tfromIndex0 i
             yscaled = 0.499999985 * ysum
               -- without the scaling we'd get NaN at once
         in blowup (pred n) yscaled
@@ -784,17 +786,18 @@ fblowupMult k inputs =
       y0 = (inputs ! [0]) * (inputs ! [1])
   in blowup k y0
 
-fblowupMultLet :: forall r. ADReady r => Int -> TensorOf 1 r -> TensorOf 0 r
-fblowupMultLet k inputs =
+fblowupMultLet :: forall r. ADReady r
+               => IntOf r -> Int -> TensorOf 1 r -> TensorOf 0 r
+fblowupMultLet i k inputs =
   let blowup :: Int -> TensorOf 0 r -> TensorOf 0 r
       blowup 0 y = y
       blowup n y1 = tlet y1 $ \y ->
-        let ysum0 = y + y * y / (y - 0.000000001)
+        let ysum0 = y + y * y / (y - 0.000001)
             yscaled = tlet ysum0 $ \ysum ->
                         sqrt $ 0.499999985 * 0.499999985 * ysum * ysum
               -- without the scaling we'd get NaN at once
-        in blowup (pred n) yscaled
-      y0 = (inputs ! [0]) * (inputs ! [1])
+        in blowup (pred n) yscaled - tfromIndex0 i
+      y0 = (inputs ! [i `rem` 2]) * (inputs ! [1])
   in blowup k y0
 
 -- TODO: should do 1000000 in a few seconds
@@ -807,11 +810,18 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   , testCase "blowupLet 15" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [0.3333331833333646,-0.22222212222224305])
-        (rev' @(OR.Array 0 Double) (fblowupLet 15) (OR.fromList [2] [2, 3]))
+        (rev' @(OR.Array 0 Double) (fblowupLet 0 15) (OR.fromList [2] [2, 3]))
   , testCase "blowupLet 10000" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [0.33323334833020163,-0.22215556555346774])
-        (rev' @(OR.Array 0 Double) (fblowupLet 10000) (OR.fromList [2] [2, 3]))
+        (rev' @(OR.Array 0 Double) (fblowupLet 0 10000)
+                                   (OR.fromList [2] [2, 3]))
+  , testCase "blowupLet tbuild1" $ do
+      assertEqualUpToEpsilon' 1e-10
+        (OR.fromList [2] [33.332333348316844,-22.221555565544556])
+        (rev' @(OR.Array 1 Double)
+              (\intputs -> tbuild1 100 (\i -> fblowupLet i 1000 intputs))
+              (OR.fromList [2] [2, 3]))
   , testCase "blowupMult 5" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [2.9999995500000267,1.9999997000000178])
@@ -819,9 +829,17 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   , testCase "blowupMultLet 5" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [2.9999995500000267,1.9999997000000178])
-        (rev' @(OR.Array 0 Double) (fblowupMultLet 5) (OR.fromList [2] [2, 3]))
+        (rev' @(OR.Array 0 Double) (fblowupMultLet 0 5)
+                                   (OR.fromList [2] [2, 3]))
   , testCase "blowupMultLet 10000" $ do
       assertEqualUpToEpsilon' 1e-10
-        (OR.fromList [2] [2.999100134971461,1.9994000899809738])
-        (rev' @(OR.Array 0 Double) (fblowupMultLet 10000) (OR.fromList [2] [2, 3]))
+        (OR.fromList [2] [2.9991001345552233,1.999400089703482])
+        (rev' @(OR.Array 0 Double) (fblowupMultLet 0 10000)
+                                   (OR.fromList [2] [2, 3]))
+  , testCase "blowupMultLet tbuild1" $ do
+      assertEqualUpToEpsilon' 1e-10
+        (OR.fromList [2] [14.999547940541992,39.998796798841916])
+        (rev' @(OR.Array 1 Double)
+              (\intputs -> tbuild1 100 (\i -> fblowupMultLet i 1000 intputs))
+              (OR.fromList [2] [0.2, 0.3]))
   ]
