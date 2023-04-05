@@ -787,6 +787,18 @@ fblowup k inputs =
       y0 = (inputs ! [0]) / (inputs ! [1])
   in blowup k y0
 
+fblowupLet :: forall r. ADReady r => Int -> TensorOf 1 r -> TensorOf 0 r
+fblowupLet k inputs =
+  let blowup :: Int -> TensorOf 0 r -> TensorOf 0 r
+      blowup 0 y = y
+      blowup n y1 = tlet y1 $ \y ->
+        let ysum = y + y
+            yscaled = 0.499999985 * ysum
+              -- without the scaling we'd get NaN at once
+        in blowup (pred n) yscaled
+      y0 = (inputs ! [0]) / (inputs ! [1])
+  in blowup k y0
+
 -- Catastrophic loss of sharing prevented also with non-trivial multiplication.
 fblowupMult :: forall r. ADReady r => Int -> TensorOf 1 r -> TensorOf 0 r
 fblowupMult k inputs =
@@ -800,6 +812,19 @@ fblowupMult k inputs =
       y0 = (inputs ! [0]) * (inputs ! [1])
   in blowup k y0
 
+fblowupMultLet :: forall r. ADReady r => Int -> TensorOf 1 r -> TensorOf 0 r
+fblowupMultLet k inputs =
+  let blowup :: Int -> TensorOf 0 r -> TensorOf 0 r
+      blowup 0 y = y
+      blowup n y1 = tlet y1 $ \y ->
+        let ysum0 = y + y * y / (y - 0.000000001)
+            yscaled = tlet ysum0 $ \ysum ->
+                        sqrt $ 0.499999985 * 0.499999985 * ysum * ysum
+              -- without the scaling we'd get NaN at once
+        in blowup (pred n) yscaled
+      y0 = (inputs ! [0]) * (inputs ! [1])
+  in blowup k y0
+
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
 blowupTests = testGroup "Catastrophic blowup avoidance tests"
@@ -807,8 +832,24 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [0.3333331833333646,-0.22222212222224305])
         (rev' @(OR.Array 0 Double) (fblowup 15) (OR.fromList [2] [2, 3]))
-  , testCase "blowupMult 3" $ do
+  , testCase "blowupLet 15" $ do
       assertEqualUpToEpsilon' 1e-10
-        (OR.fromList [2] [2.999999730000007,1.9999998200000046])
-        (rev' @(OR.Array 0 Double) (fblowupMult 3) (OR.fromList [2] [2, 3]))
+        (OR.fromList [2] [0.3333331833333646,-0.22222212222224305])
+        (rev' @(OR.Array 0 Double) (fblowupLet 15) (OR.fromList [2] [2, 3]))
+  , testCase "blowupLet 10000" $ do
+      assertEqualUpToEpsilon' 1e-10
+        (OR.fromList [2] [0.33323334833020163,-0.22215556555346774])
+        (rev' @(OR.Array 0 Double) (fblowupLet 10000) (OR.fromList [2] [2, 3]))
+  , testCase "blowupMult 5" $ do
+      assertEqualUpToEpsilon' 1e-10
+        (OR.fromList [2] [2.9999995500000267,1.9999997000000178])
+        (rev' @(OR.Array 0 Double) (fblowupMult 5) (OR.fromList [2] [2, 3]))
+  , testCase "blowupMultLet 5" $ do
+      assertEqualUpToEpsilon' 1e-10
+        (OR.fromList [2] [2.9999995500000267,1.9999997000000178])
+        (rev' @(OR.Array 0 Double) (fblowupMultLet 5) (OR.fromList [2] [2, 3]))
+  , testCase "blowupMultLet 10000" $ do
+      assertEqualUpToEpsilon' 1e-10
+        (OR.fromList [2] [2.999100134971461,1.9994000899809738])
+        (rev' @(OR.Array 0 Double) (fblowupMultLet 10000) (OR.fromList [2] [2, 3]))
   ]
