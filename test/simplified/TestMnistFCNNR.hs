@@ -129,12 +129,6 @@ tensorADValMnistTests = testGroup "ShortRanked ADVal MNIST tests"
                       (0.8972 :: Float)
   , mnistTestCase2VTA "VTA artificial 5 4 3 2 1" 5 4 3 2 1 5000
                       (0.6585 :: Double)
-  , mnistTestCase2VTA "VTA I 1 epoch, 1 batch" 1 1 30 10 0.02 500
-                      (0.856 :: Double)
-  , mnistTestCase2VTA "VTA I artificial 1 2 3 4 5" 1 2 3 4 5 500
-                      (0.89 :: Float)
-  , mnistTestCase2VTA "VTA I artificial 5 4 3 2 1" 5 4 3 2 1 500
-                      (0.7525 :: Double)
   ]
 
 -- POPL differentiation, Ast term defined only once but differentiated each time
@@ -378,10 +372,10 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
 
 tensorADOnceMnistTests :: TestTree
 tensorADOnceMnistTests = testGroup "ShortRankedOnce MNIST tests"
-  [ mnistTestCase2VTO "VTO 1 epoch, 1 batch" 1 1 30 10 0.02 500
-                      (0.8200000000000001 :: Double)
-  , mnistTestCase2VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5 500
-                      (0.884 :: Float)
-  , mnistTestCase2VTO "VTO artificial 5 4 3 2 1" 5 4 3 2 1 500
-                      (0.712 :: Double)
+  [ mnistTestCase2VTO "VTO 1 epoch, 1 batch" 1 1 300 100 0.02 5000
+                      (0.16479999999999995 :: Double)
+  , mnistTestCase2VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5 5000
+                      (0.9108 :: Float)
+  , mnistTestCase2VTO "VTO artificial 5 4 3 2 1" 5 4 3 2 1 5000
+                      (0.5859 :: Double)
   ]

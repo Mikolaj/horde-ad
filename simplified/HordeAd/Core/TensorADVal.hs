@@ -230,8 +230,11 @@ sum0 (D u u') = dD (tunScalar $ tsum0 u) (dSum0 (tshape u) u')
 
 dot0 :: (ADTensor r, KnownNat n)
      => ADVal (TensorOf n r) -> ADVal (TensorOf n r) -> ADVal r
-dot0 (D u u') (D v v') = dD (tunScalar $ tdot0 u v)
-                            (dAdd (dDot0 v u') (dDot0 u v'))
+dot0 (D u u') (D v v') =
+  let uShared = tletR u  -- TODO: try tlet instead and benchmark
+      vShared = tletR v
+  in dD (tunScalar $ tdot0 uShared vShared)
+        (dAdd (dDot0 vShared u') (dDot0 uShared v'))
 
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
 -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
