@@ -165,6 +165,24 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
       Nothing -> let (memo2, t) = interpretAst env memo v
                  in (EM.insert n (tfromR t) memo2, t)
       Just res -> (memo, tfromD res)
+  AstOp TimesOp args@[v, AstReshape _ (AstKonst @m _ s)] ->
+    case sameNat (Proxy @m) (Proxy @0) of
+      Just Refl ->
+        let (memo1, t1) = interpretAst env memo v
+            (memo2, t2) = interpretAst env memo1 s
+        in (memo2, tscaleByScalar (tunScalar t2) t1)
+      _ ->
+        let (memo2, args2) = mapAccumR (interpretAst env) memo args
+        in (memo2, interpretAstOp TimesOp args2)
+  AstOp TimesOp args@[v, AstKonst @m _ s] ->
+    case sameNat (Proxy @m) (Proxy @0) of
+      Just Refl ->
+        let (memo1, t1) = interpretAst env memo v
+            (memo2, t2) = interpretAst env memo1 s
+        in (memo2, tscaleByScalar (tunScalar t2) t1)
+      _ ->
+        let (memo2, args2) = mapAccumR (interpretAst env) memo args
+        in (memo2, interpretAstOp TimesOp args2)
   AstOp opCode args ->
     let (memo2, args2) = mapAccumR (interpretAst env) memo args
     in (memo2, interpretAstOp opCode args2)
@@ -186,8 +204,15 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
         in (memo2, tdot0 t1 t2)
           -- TODO: do as a term rewrite using an extended set of terms?
           -- rather not, because rewrite breaks sharing
-          -- TODO2: handle AstSum (AstLetR (AstOp ...
       _ -> second tsum (interpretAst env memo v)
+  {- AstSum v@(AstLetGlobal _ (AstOp TimesOp [t, u])) ->
+    -- We sacrifice sharing for speed. Questionable and doesn't seem to help.
+    case sameNat (Proxy @n) (Proxy @0) of
+      Just Refl ->
+        let (memo1, t1) = interpretAst env memo t
+            (memo2, t2) = interpretAst env memo1 u
+        in (memo2, tdot0 t1 t2)
+      _ -> second tsum (interpretAst env memo v) -}
   AstSum v -> second tsum (interpretAst env memo v)
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
