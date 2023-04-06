@@ -146,7 +146,7 @@ srevDt f vals dt = revDt (tscalar . f) vals (tscalar dt)
 -- Old version of the three functions, with constant, fixed inputs and dt.
 crev :: forall a vals r advals.
        ( r ~ Scalar vals, vals ~ Value advals
-       , ADTensor r, IsPrimalWithScalar a r
+       , ADTensor r, DynamicTensor r, IsPrimalWithScalar a r
        , Adaptable advals )
     => (advals -> ADVal a) -> vals
     -> vals
@@ -155,7 +155,7 @@ crev f vals = crevDtMaybe f vals Nothing
 -- This version additionally takes the sensitivity parameter.
 crevDt :: forall a vals r advals.
          ( r ~ Scalar vals, vals ~ Value advals
-         , ADTensor r, IsPrimalWithScalar a r
+         , ADTensor r, DynamicTensor r, IsPrimalWithScalar a r
          , Adaptable advals )
       => (advals -> ADVal a) -> vals -> a
       -> vals
@@ -163,7 +163,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe :: forall a vals r advals.
             ( r ~ Scalar vals, vals ~ Value advals
-            , ADTensor r, IsPrimalWithScalar a r
+            , ADTensor r, DynamicTensor r, IsPrimalWithScalar a r
             , Adaptable advals )
          => (advals -> ADVal a) -> vals -> Maybe a
          -> vals
@@ -174,7 +174,7 @@ crevDtMaybe f vals dt =
 -- This takes the sensitivity parameter, by convention.
 fwd :: forall a vals r advals.
        ( ForwardDerivative a, r ~ Scalar vals, vals ~ Value advals
-       , ADTensor r, IsPrimalWithScalar a r
+       , ADTensor r, DynamicTensor r, IsPrimalWithScalar a r
        , Adaptable advals )
     => (advals -> ADVal a) -> vals -> vals
     -> a
@@ -328,7 +328,7 @@ instance (Tensor r, ShowAstSimplify r, KnownNat n, TensorOf n r ~ OR.Array n r)
     Just (a, rest) -> (ttoRankedOrDummy (tshape aInit) a, Domains v0 rest)
     Nothing -> error "fromDomainsAst in FromDomainsAst (OR.Array n r)"
 
-ttoRankedOrDummy :: (Tensor r, KnownNat n)
+ttoRankedOrDummy :: (Tensor r, DynamicTensor r, KnownNat n)
                  => ShapeInt n -> DTensorOf r -> TensorOf n r
 ttoRankedOrDummy sh x = if disDummy x
                         then tzero sh

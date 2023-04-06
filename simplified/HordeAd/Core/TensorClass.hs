@@ -5,7 +5,7 @@
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
-  ( IndexOf, ShapeInt, Tensor(..), ADReady
+  ( IndexOf, ShapeInt, Tensor(..), DynamicTensor(..), ADReady
   ) where
 
 import Prelude
@@ -240,23 +240,25 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   -- (and HasInputs?)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
-
-  -- The untyped versions of the tensor, to put many ranks in one vector
-  type DTensorOf r = result | result -> r
-  ddummy :: DTensorOf r
-  disDummy :: DTensorOf r -> Bool
-  taddD :: DTensorOf r -> DTensorOf r -> DTensorOf r
-  tshapeD :: DTensorOf r -> [Int]
   tfromD :: KnownNat n
          => DTensorOf r -> TensorOf n r
-  tfromR :: KnownNat n
-         => TensorOf n r -> DTensorOf r
 
   -- The global @let@ operations (poor man's data-reify).
   tlet0 :: r -> r
   tlet0 = id
   tletR :: TensorOf n r -> TensorOf n r
   tletR = id
+
+ -- The untyped versions of the tensor, to put many ranks in one vector
+class DynamicTensor r where
+
+  type DTensorOf r = result | result -> r
+  ddummy :: DTensorOf r
+  disDummy :: DTensorOf r -> Bool
+  taddD :: DTensorOf r -> DTensorOf r -> DTensorOf r
+  tshapeD :: DTensorOf r -> [Int]
+  tfromR :: KnownNat n
+         => TensorOf n r -> DTensorOf r
 
 
 -- * The giga-constraint
@@ -354,12 +356,14 @@ instance Tensor Double where
   tdualPart _ = ()
   tD u _ = u
   tScale _ _ = ()
+  tfromD = Data.Array.Convert.convert
+
+instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
   ddummy = dummyTensor
   disDummy = isTensorDummy
   taddD = (+)
   tshapeD = OD.shapeL
-  tfromD = Data.Array.Convert.convert
   tfromR = Data.Array.Convert.convert
 
 instance Tensor Float where
@@ -405,12 +409,14 @@ instance Tensor Float where
   tdualPart _ = ()
   tD u _ = u
   tScale _ _ = ()
+  tfromD = Data.Array.Convert.convert
+
+instance DynamicTensor Float where
   type DTensorOf Float = OD.Array Float
   ddummy = dummyTensor
   disDummy = isTensorDummy
   taddD = (+)
   tshapeD = OD.shapeL
-  tfromD = Data.Array.Convert.convert
   tfromR = Data.Array.Convert.convert
 
 {- These instances are increasingly breaking stuff, so disabled:

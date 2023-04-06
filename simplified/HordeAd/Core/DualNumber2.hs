@@ -91,6 +91,7 @@ type ADModeAndNum (d :: ADMode) r =
   , Primal (DualNumber.ADVal r) ~ r
   , ScalarOf (DualNumber.ADVal r) ~ r
   , Tensor (DualNumber.ADVal r)
+  , DynamicTensor (DualNumber.ADVal r)
   , TensorOf 1 (DualNumber.ADVal r) ~ DualNumber.ADVal (Vec r)
   , Fractional (TensorOf 0 (DualNumber.ADVal r))
   )
@@ -102,7 +103,7 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
 
 -- The general case, needed for old hacky tests using only scalars.
 valueGeneral
-  :: forall r a. ADTensor r
+  :: forall r a. (ADTensor r, DynamicTensor r)
   => (Engine.ADInputs r -> a)
   -> Domains r
   -> a
@@ -114,7 +115,7 @@ valueGeneral f parameters =
   in f inputs
 
 valueOnDomains
-  :: (ADTensor r, DualNumber.IsPrimalWithScalar a r)
+  :: (ADTensor r, DynamicTensor r, DualNumber.IsPrimalWithScalar a r)
   => (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
   -> a
@@ -125,7 +126,7 @@ valueOnDomains f parameters =
   in snd $ Engine.revOnADInputs Nothing f inputs
 
 revOnADInputs
-  :: (ADTensor r, DualNumber.IsPrimalWithScalar a r)
+  :: (ADTensor r, DynamicTensor r, DualNumber.IsPrimalWithScalar a r)
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Engine.ADInputs r
@@ -138,7 +139,7 @@ revOnADInputs = Engine.revOnADInputs  . Just
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: (ADTensor r, DualNumber.IsPrimalWithScalar a r)
+  :: (ADTensor r, DynamicTensor r, DualNumber.IsPrimalWithScalar a r)
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Domains r

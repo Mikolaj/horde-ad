@@ -65,6 +65,13 @@ instance ShowAstSimplify r
   tdualPart = AstDualPart
   tD = AstD
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
+  tfromD = astFromDynamic
+
+  tlet0 = astLet0Fun
+  tletR = astLetRFun
+
+instance ShowAstSimplify r
+         => DynamicTensor (Ast0 r) where
   type DTensorOf (Ast0 r) = AstDynamic r
   ddummy = AstDynamicDummy
   disDummy t = case t of
@@ -76,11 +83,7 @@ instance ShowAstSimplify r
     AstDynamicPlus t1 _t2 -> tshapeD t1
     AstDynamicFrom v -> shapeToList $ shapeAst v
     AstDynamicVar sh _ -> shapeToList sh
-  tfromD = astFromDynamic
   tfromR = AstDynamicFrom
-
-  tlet0 = astLet0Fun
-  tletR = astLetRFun
 
 astLetFun :: (KnownNat n, ShowAstSimplify r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
@@ -172,14 +175,7 @@ instance ShowAstSimplify r
   tdualPart _ = ()
   tD u _ = u
   tScale _ _ = ()
-  -- TODO: if ever used, define, if not, use an Error type
-  type DTensorOf (AstPrimalPart 0 r) = Maybe r
-  ddummy = undefined
-  disDummy = undefined
-  taddD = undefined
-  tshapeD = undefined
   tfromD = undefined
-  tfromR = undefined
 
   tlet0 = AstPrimalPart . astLetRFun . unAstPrimalPart
   tletR = AstPrimalPart . astLetRFun . unAstPrimalPart
@@ -235,13 +231,7 @@ instance ShowAstSimplify r
   tD u u' = AstNoVectorize $ AstD (AstPrimalPart $ unAstNoVectorize u) u'
   tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
   -- TODO: if ever used, define, if not, use an Error type
-  type DTensorOf (AstNoVectorize 0 r) = Either r r
-  ddummy = undefined
-  disDummy = undefined
-  taddD = undefined
-  tshapeD = undefined
   tfromD = undefined
-  tfromR = undefined
 
   tlet0 = AstNoVectorize . astLetRFun . unAstNoVectorize
   tletR = AstNoVectorize . astLetRFun . unAstNoVectorize

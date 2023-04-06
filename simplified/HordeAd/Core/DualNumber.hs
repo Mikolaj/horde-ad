@@ -85,6 +85,7 @@ type ADNum r =
   , TensorOf 0 r ~ OR.Array 0 r
   , TensorOf 1 r ~ OR.Array 1 r
   , IntOf r ~ CInt
+  , DynamicTensor r
   , DTensorOf r ~ OD.Array r
   )
 

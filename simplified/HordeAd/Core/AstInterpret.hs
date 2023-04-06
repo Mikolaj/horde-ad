@@ -38,7 +38,7 @@ data AstEnvElem a =
 deriving instance (Show (DTensorOf a), Show (IntOf a))
                   => Show (AstEnvElem a)
 
-extendEnvR :: forall n a. (Tensor a, KnownNat n)
+extendEnvR :: forall n a. (DynamicTensor a, KnownNat n)
            => AstVarName (OR.Array n (ScalarOf a)) -> TensorOf n a
            -> AstEnv a -> AstEnv a
 extendEnvR v@(AstVarName var) d =
@@ -95,7 +95,7 @@ interpretLambdaIndexToIndex f env (vars, asts) =
 data Dict c a where
   Dict :: c a => Dict c a
 
-class ( Tensor a, Tensor (Primal a)
+class ( Tensor a, Tensor (Primal a), DynamicTensor a
       , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a)
       , ShowAst (ScalarOf a), Num (Vector (ScalarOf a)), RealFloat (Primal a)
       , IntOf (Primal a) ~ IntOf a

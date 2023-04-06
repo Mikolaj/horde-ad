@@ -409,7 +409,7 @@ data DeltaBinding r =
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
-  :: forall r. Tensor r
+  :: forall r. (Tensor r, DynamicTensor r)
   => Int -> Int -> DeltaDt r
   -> Domains r
 gradientFromDelta dim0 dimR deltaDt =
@@ -445,7 +445,7 @@ gradientFromDelta dim0 dimR deltaDt =
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> DeltaDt (Ast0 Double) -> Domains (Ast0 Double) #-}
 
-buildFinMaps :: forall r. Tensor r
+buildFinMaps :: forall r. (Tensor r, DynamicTensor r)
              => EvalState r -> DeltaDt r -> EvalState r
 buildFinMaps s0 deltaDt =
   -- The first argument is the evaluation state being modified,
@@ -666,7 +666,7 @@ buildFinMaps s0 deltaDt =
 -- given in the last parameter called @ds@.
 class ForwardDerivative a where
   derivativeFromDelta
-    :: (Tensor r, Element a ~ r)
+    :: (Tensor r, DynamicTensor r, Element a ~ r)
     => Int -> Int -> Dual a -> Domains r -> a
 
 instance ForwardDerivative Double where
@@ -715,7 +715,7 @@ instance (Numeric r, Num (Vector r), KnownNat n, TensorOf n (Ast0 r) ~ Ast n r)
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
-  :: forall s r. Tensor r
+  :: forall s r. (Tensor r, DynamicTensor r)
   => Int -> Int -> DeltaDt r -> Domains r
   -> ST s (DeltaDt r)
 buildDerivative dim0 dimR deltaDt Domains{..} = do
