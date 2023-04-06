@@ -84,6 +84,7 @@ instance ShowAstSimplify r
 
 astLetFun :: (KnownNat n, ShowAstSimplify r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
+astLetFun a@AstVar{} f = f a
 astLetFun a f =
   let sh = tshape a
       (AstVarName var, ast) = funToAstR sh f
@@ -99,12 +100,14 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 
 astLet0Fun :: Ast0 r -> Ast0 r
 {-# NOINLINE astLet0Fun #-}
+astLet0Fun t@(Ast0 AstLetGlobal{}) = t
 astLet0Fun t = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! Ast0 $ AstLetGlobal (NodeId n) (unAst0 t)
 
 astLetRFun :: Ast m r -> Ast m r
 {-# NOINLINE astLetRFun #-}
+astLetRFun t@AstLetGlobal{} = t
 astLetRFun t = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! AstLetGlobal (NodeId n) t
