@@ -15,7 +15,7 @@ import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
-import           Data.List (mapAccumR)
+import           Data.List (foldl1', mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -334,9 +334,9 @@ interpretAstDynamic env memo = \case
 interpretAstOp :: RealFloat a
                => OpCode -> [a] -> a
 {-# INLINE interpretAstOp #-}
-interpretAstOp PlusOp [u, v] = u + v
+interpretAstOp PlusOp l = foldl1' (+) l  -- @sum@ breaks by adding +0 at the end
 interpretAstOp MinusOp [u, v] = u - v
-interpretAstOp TimesOp [u, v] = u * v
+interpretAstOp TimesOp l = foldl1' (*) l
 interpretAstOp NegateOp [u] = negate u
 interpretAstOp AbsOp [u] = abs u
 interpretAstOp SignumOp [u] = signum u
@@ -369,9 +369,9 @@ interpretAstOp opCode args =
 interpretAstIntOp :: Integral a
                   => OpCodeInt -> [a] -> a
 {-# INLINE interpretAstIntOp #-}
-interpretAstIntOp PlusIntOp [u, v] = u + v
+interpretAstIntOp PlusIntOp l = foldl1' (+) l
 interpretAstIntOp MinusIntOp [u, v] = u - v
-interpretAstIntOp TimesIntOp [u, v] = u * v
+interpretAstIntOp TimesIntOp l = foldl1' (*) l
 interpretAstIntOp NegateIntOp [u] = negate u
 interpretAstIntOp AbsIntOp [u] = abs u
 interpretAstIntOp SignumIntOp [u] = signum u
