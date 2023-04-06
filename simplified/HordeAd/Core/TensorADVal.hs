@@ -112,8 +112,8 @@ instance Tensor (ADVal Double) where
   tD = dD
   tScale = dScale
   type DynamicTensor (ADVal Double) = ADVal (OD.Array Double)
-  tdummyD = undefined  -- not used for dual numbers
-  tisDummyD = undefined  -- not used for dual numbers
+  ddummy = undefined  -- not used for dual numbers
+  disDummy = undefined  -- not used for dual numbers
   taddD = (+)
   tshapeD (D u _) = tshapeD u
   tfromD = fromD
@@ -162,8 +162,8 @@ instance Tensor (ADVal Float) where
   tD = dD
   tScale = dScale
   type DynamicTensor (ADVal Float) = ADVal (OD.Array Float)
-  tdummyD = undefined  -- not used for dual numbers
-  tisDummyD = undefined  -- not used for dual numbers
+  ddummy = undefined  -- not used for dual numbers
+  disDummy = undefined  -- not used for dual numbers
   taddD = (+)
   tshapeD (D u _) = tshapeD u
   tfromD = fromD
@@ -214,8 +214,8 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
   tD = dD
   tScale = dScale
   type DynamicTensor (ADVal (Ast0 r)) = ADVal (AstDynamic r)
-  tdummyD = undefined  -- not used for dual numbers
-  tisDummyD = undefined  -- not used for dual numbers
+  ddummy = undefined  -- not used for dual numbers
+  disDummy = undefined  -- not used for dual numbers
   taddD (D u u') (D v v') = dD (AstDynamicPlus u v) (dAdd u' v')
   tshapeD (D u _) = tshapeD u
   tfromD = fromD

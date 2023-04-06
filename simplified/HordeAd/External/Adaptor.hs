@@ -330,7 +330,7 @@ instance (Tensor r, ShowAstSimplify r, KnownNat n, TensorOf n r ~ OR.Array n r)
 
 ttoRankedOrDummy :: (Tensor r, KnownNat n)
                  => ShapeInt n -> DynamicTensor r -> TensorOf n r
-ttoRankedOrDummy sh x = if tisDummyD x
+ttoRankedOrDummy sh x = if disDummy x
                         then tzero sh
                         else tfromD x
 

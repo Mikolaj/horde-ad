@@ -66,8 +66,8 @@ instance ShowAstSimplify r
   tD = AstD
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
   type DynamicTensor (Ast0 r) = AstDynamic r
-  tdummyD = AstDynamicDummy
-  tisDummyD t = case t of
+  ddummy = AstDynamicDummy
+  disDummy t = case t of
     AstDynamicDummy -> True
     _ -> False
   taddD = AstDynamicPlus
@@ -174,8 +174,8 @@ instance ShowAstSimplify r
   tScale _ _ = ()
   -- TODO: if ever used, define, if not, use an Error type
   type DynamicTensor (AstPrimalPart 0 r) = Maybe r
-  tdummyD = undefined
-  tisDummyD = undefined
+  ddummy = undefined
+  disDummy = undefined
   taddD = undefined
   tshapeD = undefined
   tfromD = undefined
@@ -236,8 +236,8 @@ instance ShowAstSimplify r
   tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
   -- TODO: if ever used, define, if not, use an Error type
   type DynamicTensor (AstNoVectorize 0 r) = Either r r
-  tdummyD = undefined
-  tisDummyD = undefined
+  ddummy = undefined
+  disDummy = undefined
   taddD = undefined
   tshapeD = undefined
   tfromD = undefined

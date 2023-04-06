@@ -243,8 +243,8 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
 
   -- The untyped versions of the tensor, to put many ranks in one vector
   type DynamicTensor r = result | result -> r
-  tdummyD :: DynamicTensor r
-  tisDummyD :: DynamicTensor r -> Bool
+  ddummy :: DynamicTensor r
+  disDummy :: DynamicTensor r -> Bool
   taddD :: DynamicTensor r -> DynamicTensor r -> DynamicTensor r
   tshapeD :: DynamicTensor r -> [Int]
   tfromD :: KnownNat n
@@ -354,8 +354,8 @@ instance Tensor Double where
   tD u _ = u
   tScale _ _ = ()
   type DynamicTensor Double = OD.Array Double
-  tdummyD = dummyTensor
-  tisDummyD = isTensorDummy
+  ddummy = dummyTensor
+  disDummy = isTensorDummy
   taddD = (+)
   tshapeD = OD.shapeL
   tfromD = Data.Array.Convert.convert
@@ -405,8 +405,8 @@ instance Tensor Float where
   tD u _ = u
   tScale _ _ = ()
   type DynamicTensor Float = OD.Array Float
-  tdummyD = dummyTensor
-  tisDummyD = isTensorDummy
+  ddummy = dummyTensor
+  disDummy = isTensorDummy
   taddD = (+)
   tshapeD = OD.shapeL
   tfromD = Data.Array.Convert.convert

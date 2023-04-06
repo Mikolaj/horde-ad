@@ -428,7 +428,7 @@ gradientFromDelta dim0 dimR deltaDt =
                       -- 0 is the correct value; below is a dummy value
             iMapR = EM.fromDistinctAscList
                     $ zip [toInputId 0 ..]
-                          (replicate dimR (tdummyD :: DynamicTensor r))
+                          (replicate dimR (ddummy :: DynamicTensor r))
             dMap0 = EM.empty
             dMapR = EM.empty
             nMap = EM.empty
@@ -544,7 +544,7 @@ buildFinMaps s0 deltaDt =
       addToArray :: KnownNat n
                  => TensorOf n r -> DynamicTensor r -> DynamicTensor r
       addToArray c v = let cs = tfromR c
-                       in if tisDummyD v then cs else taddD v cs
+                       in if disDummy v then cs else taddD v cs
       evalR :: forall n. KnownNat n
             => EvalState r -> TensorOf n r -> DeltaR n r -> EvalState r
       evalR s !c = let cShared = tletR c
