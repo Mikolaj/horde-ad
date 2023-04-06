@@ -217,7 +217,7 @@ fromX1 (D u u') = dDnotShared (tfromD u) (dFromD u')
 
 from1X :: (ADModeAndNum d r, KnownNat n)
        => ADVal d (TensorOf n r) -> ADVal d (OD.Array r)
-from1X (D u u') = dDnotShared (tfromR u) (dFromR u')
+from1X (D u u') = dDnotShared (dfromR u) (dFromR u')
 
 -- Shims to reuse the tests for ordinary vectors.
 type Vec r = OR.Array 1 r

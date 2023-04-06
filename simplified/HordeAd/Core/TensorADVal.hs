@@ -117,9 +117,9 @@ instance DynamicTensor (ADVal Double) where
   type DTensorOf (ADVal Double) = ADVal (OD.Array Double)
   ddummy = undefined  -- not used for dual numbers
   disDummy = undefined  -- not used for dual numbers
-  taddD = (+)
-  tshapeD (D u _) = tshapeD u
-  tfromR = fromR
+  dadd = (+)
+  dshape (D u _) = dshape u
+  dfromR = fromR
 
 instance Tensor (ADVal Float) where
   type TensorOf n (ADVal Float) = ADVal (OR.Array n Float)
@@ -169,9 +169,9 @@ instance DynamicTensor (ADVal Float) where
   type DTensorOf (ADVal Float) = ADVal (OD.Array Float)
   ddummy = undefined  -- not used for dual numbers
   disDummy = undefined  -- not used for dual numbers
-  taddD = (+)
-  tshapeD (D u _) = tshapeD u
-  tfromR = fromR
+  dadd = (+)
+  dshape (D u _) = dshape u
+  dfromR = fromR
 
 instance (ADTensor (Ast0 r), ShowAstSimplify r)
          => Tensor (ADVal (Ast0 r)) where
@@ -224,9 +224,9 @@ instance ShowAstSimplify r
   type DTensorOf (ADVal (Ast0 r)) = ADVal (AstDynamic r)
   ddummy = undefined  -- not used for dual numbers
   disDummy = undefined  -- not used for dual numbers
-  taddD (D u u') (D v v') = dD (AstDynamicPlus u v) (dAdd u' v')
-  tshapeD (D u _) = tshapeD u
-  tfromR = fromR
+  dadd (D u u') (D v v') = dD (dadd u v) (dAdd u' v')
+  dshape (D u _) = dshape u
+  dfromR = fromR
 
 
 -- * ADVal combinators generalizing ranked tensor operations
@@ -363,4 +363,4 @@ fromD (D u u') = dDnotShared (tfromD u) (dFromD u')
 
 fromR :: (ADTensor r, DynamicTensor r, KnownNat n)
        => ADVal (TensorOf n r) -> ADVal (DTensorOf r)
-fromR (D u u') = dDnotShared (tfromR u) (dFromR u')
+fromR (D u u') = dDnotShared (dfromR u) (dFromR u')

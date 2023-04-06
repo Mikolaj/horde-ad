@@ -287,7 +287,7 @@ testPoly00 f input expected = do
         revOnDomains Nothing
           (\adinputs -> tunScalar $ snd $
              interpretAst (EM.singleton (intToAstVarId 0)
-                             (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
+                             (AstVarR $ dfromR $ tscalar $ adinputs `at0` 0))
                           EM.empty
                           (unAst0 $ f (Ast0 $ AstVar [] (intToAstVarId 0))))
           domainsInput
@@ -316,7 +316,7 @@ testPoly01 f outSize input expected = do
         revOnDomains (Just dt)
           (\adinputs -> snd $
              interpretAst (EM.singleton (intToAstVarId 0)
-                             (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
+                             (AstVarR $ dfromR $ tscalar $ adinputs `at0` 0))
                           EM.empty
                           (f (Ast0 $ AstVar [] (intToAstVarId 0))))
           domainsInput
@@ -345,7 +345,7 @@ testPoly11 f outSize input expected = do
         revOnDomains (Just dt)
           (\adinputs -> snd $
              interpretAst (EM.singleton (intToAstVarId 0)
-                             (AstVarR $ tfromR $ at1 @1 adinputs 0))
+                             (AstVarR $ dfromR $ at1 @1 adinputs 0))
                           EM.empty
                           (f (AstVar [length input] (intToAstVarId 0))))
           domainsInput
@@ -375,7 +375,7 @@ testPolyn f sh input expected = do
         revOnDomains (Just dt)
           (\adinputs -> snd $
              interpretAst (EM.singleton (intToAstVarId 0)
-                             (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
+                             (AstVarR $ dfromR $ tscalar $ adinputs `at0` 0))
                           EM.empty
                           (f (Ast0 $ AstVar [] (intToAstVarId 0))))
           domainsInput
@@ -422,7 +422,7 @@ testFooNoGoAst =
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs -> snd $
           interpretAst (EM.singleton (intToAstVarId 0)
-                          (AstVarR $ tfromR $ at1 @1 adinputs 0))
+                          (AstVarR $ dfromR $ at1 @1 adinputs 0))
                        EM.empty
                        (fooNoGoAst (AstVar [5] (intToAstVarId 0))))
        (domainsFrom0V V.empty
@@ -464,7 +464,7 @@ testBarReluAst0 =
        (Just 42.2)
        (\adinputs -> tunScalar $ snd $
           interpretAst (EM.singleton (intToAstVarId 0)
-                          (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
+                          (AstVarR $ dfromR $ tscalar $ adinputs `at0` 0))
                        EM.empty
                        (barReluAst (AstVar [] (intToAstVarId 0))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
@@ -478,7 +478,7 @@ testBarReluAst1 =
          -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs -> snd $
           interpretAst (EM.singleton (intToAstVarId 0)
-                          (AstVarR $ tfromR $ at1 @1 adinputs 0))
+                          (AstVarR $ dfromR $ at1 @1 adinputs 0))
                        EM.empty
                        (barReluAst (AstVar [5] (intToAstVarId 0))))
        (domainsFrom0V V.empty
@@ -493,7 +493,7 @@ testKonstReluAst =
        (Just 42.2)
        (\adinputs -> tunScalar $ snd $
           interpretAst (EM.singleton (intToAstVarId 0)
-                          (AstVarR $ tfromR $ tscalar $ adinputs `at0` 0))
+                          (AstVarR $ dfromR $ tscalar $ adinputs `at0` 0))
                        EM.empty
                        (konstReluAst (AstVar [] (intToAstVarId 0))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
@@ -525,7 +525,7 @@ testF3 = do
         revOnDomains (Just dt)
           (\adinputs ->
              interpretAst (EM.singleton (intToAstVarId 0)
-                             (AstVarR $ tfromR $ at1 @1 adinputs 0))
+                             (AstVarR $ dfromR $ at1 @1 adinputs 0))
                           (f3 (AstVar [] (intToAstVarId 0))))
           domainsInput
       val = f3 $ OR.fromList [] input

@@ -83,7 +83,7 @@ revAstOnDomains
 {-# INLINE revAstOnDomains #-}
 revAstOnDomains f parameters dt =
   let dim0 = tlength $ domains0 parameters
-      shapes1 = map tshapeD $ V.toList $ domainsR parameters
+      shapes1 = map dshape $ V.toList $ domainsR parameters
   in revAstOnDomainsEval dim0 (length shapes1)
                          (revAstOnDomainsFun dim0 shapes1 f)
                          parameters dt
@@ -234,7 +234,7 @@ generateDeltaInputs
      , Data.Vector.Vector (Dual (DTensorOf r)) )
 generateDeltaInputs Domains{..} =
   let arrayToInput :: Int -> DTensorOf r -> Dual (DTensorOf r)
-      arrayToInput i t = case someNatVal $ toInteger $ length $ tshapeD t of
+      arrayToInput i t = case someNatVal $ toInteger $ length $ dshape t of
         Just (SomeNat (_ :: Proxy n)) ->
           dFromR $ dInputR @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"

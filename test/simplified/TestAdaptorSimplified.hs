@@ -427,7 +427,7 @@ testFooNoGoAst =
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = snd
-            $ interpretAst (EM.singleton (intToAstVarId 0) (AstVarR $ tfromR x))
+            $ interpretAst (EM.singleton (intToAstVarId 0) (AstVarR $ dfromR x))
                            EM.empty
                            (fooNoGoAst (AstVar [5] (intToAstVarId 0)))
   in assertEqualUpToEpsilon 1e-6
@@ -545,7 +545,7 @@ testBarReluAst0 =
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = snd
-            $ interpretAst (EM.singleton (intToAstVarId 0) (AstVarR $ tfromR x))
+            $ interpretAst (EM.singleton (intToAstVarId 0) (AstVarR $ dfromR x))
                            EM.empty
                            (barReluAst (AstVar [] (intToAstVarId 0)))
   in assertEqualUpToEpsilon 1e-10
@@ -561,7 +561,7 @@ testBarReluAst1 =
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = snd
-            $ interpretAst (EM.singleton (intToAstVarId 0) (AstVarR $ tfromR x))
+            $ interpretAst (EM.singleton (intToAstVarId 0) (AstVarR $ dfromR x))
                            EM.empty
                            (barReluAst (AstVar [5] (intToAstVarId 0)))
   in assertEqualUpToEpsilon 1e-10
@@ -582,7 +582,7 @@ testKonstReluAst =
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = snd
-            $ interpretAst (EM.singleton (intToAstVarId 0) (AstVarR $ tfromR x))
+            $ interpretAst (EM.singleton (intToAstVarId 0) (AstVarR $ dfromR x))
                            EM.empty
                            (konstReluAst (AstVar [] (intToAstVarId 0)))
   in assertEqualUpToEpsilon 1e-10

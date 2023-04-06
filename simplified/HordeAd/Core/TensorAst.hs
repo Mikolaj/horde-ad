@@ -77,13 +77,13 @@ instance ShowAstSimplify r
   disDummy t = case t of
     AstDynamicDummy -> True
     _ -> False
-  taddD = AstDynamicPlus
-  tshapeD t = case t of
+  dadd = AstDynamicPlus
+  dshape t = case t of
     AstDynamicDummy -> []
-    AstDynamicPlus t1 _t2 -> tshapeD t1
+    AstDynamicPlus t1 _t2 -> dshape t1
     AstDynamicFrom v -> shapeToList $ shapeAst v
     AstDynamicVar sh _ -> shapeToList sh
-  tfromR = AstDynamicFrom
+  dfromR = AstDynamicFrom
 
 astLetFun :: (KnownNat n, ShowAstSimplify r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r

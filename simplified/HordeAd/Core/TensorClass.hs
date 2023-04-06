@@ -255,9 +255,9 @@ class DynamicTensor r where
   type DTensorOf r = result | result -> r
   ddummy :: DTensorOf r
   disDummy :: DTensorOf r -> Bool
-  taddD :: DTensorOf r -> DTensorOf r -> DTensorOf r
-  tshapeD :: DTensorOf r -> [Int]
-  tfromR :: KnownNat n
+  dadd :: DTensorOf r -> DTensorOf r -> DTensorOf r
+  dshape :: DTensorOf r -> [Int]
+  dfromR :: KnownNat n
          => TensorOf n r -> DTensorOf r
 
 
@@ -362,9 +362,9 @@ instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
   ddummy = dummyTensor
   disDummy = isTensorDummy
-  taddD = (+)
-  tshapeD = OD.shapeL
-  tfromR = Data.Array.Convert.convert
+  dadd = (+)
+  dshape = OD.shapeL
+  dfromR = Data.Array.Convert.convert
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
@@ -415,9 +415,9 @@ instance DynamicTensor Float where
   type DTensorOf Float = OD.Array Float
   ddummy = dummyTensor
   disDummy = isTensorDummy
-  taddD = (+)
-  tshapeD = OD.shapeL
-  tfromR = Data.Array.Convert.convert
+  dadd = (+)
+  dshape = OD.shapeL
+  dfromR = Data.Array.Convert.convert
 
 {- These instances are increasingly breaking stuff, so disabled:
 

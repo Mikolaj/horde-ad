@@ -543,8 +543,8 @@ buildFinMaps s0 deltaDt =
 
       addToArray :: KnownNat n
                  => TensorOf n r -> DTensorOf r -> DTensorOf r
-      addToArray c v = let cs = tfromR c
-                       in if disDummy v then cs else taddD v cs
+      addToArray c v = let cs = dfromR c
+                       in if disDummy v then cs else dadd v cs
       evalR :: forall n. KnownNat n
             => EvalState r -> TensorOf n r -> DeltaR n r -> EvalState r
       evalR s !c = let cShared = tletR c
@@ -562,10 +562,10 @@ buildFinMaps s0 deltaDt =
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBindingR _) ->
-                let cs = tfromR c
-                in s {dMapR = EM.adjust (taddD cs) n $ dMapR s}
+                let cs = dfromR c
+                in s {dMapR = EM.adjust (dadd cs) n $ dMapR s}
               Nothing ->
-                let cs = tfromR c
+                let cs = dfromR c
                 in s { nMap = EM.insert n (DeltaBindingR d) $ nMap s
                      , dMapR = EM.insert n cs $ dMapR s }
               _ -> error "buildFinMaps: corrupted nMap"
@@ -785,7 +785,7 @@ buildDerivative dim0 dimR deltaDt Domains{..} = do
               nmNew <- readSTRef nMap
               dm <- readSTRef dMapR
               writeSTRef nMap $! EM.insert n (DeltaBindingR d) nmNew
-              writeSTRef dMapR $! EM.insert n (tfromR c) dm
+              writeSTRef dMapR $! EM.insert n (dfromR c) dm
               return c
             _ -> error "buildDerivative: corrupted nMap"
 

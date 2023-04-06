@@ -43,7 +43,7 @@ extendEnvR :: forall n a. (DynamicTensor a, KnownNat n)
            -> AstEnv a -> AstEnv a
 extendEnvR v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
-                   var (AstVarR $ tfromR d)
+                   var (AstVarR $ dfromR d)
 
 extendEnvI :: AstVarId -> IntOf a -> AstEnv a -> AstEnv a
 extendEnvI var i =
@@ -150,20 +150,20 @@ interpretAst
   -> Ast n (ScalarOf a) -> (AstMemo a, TensorOf n a)
 interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
   AstVar sh var -> case EM.lookup var env of
-    Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ (memo, tfromD d)
+    Just (AstVarR d) -> assert (shapeToList sh == dshape d) $ (memo, tfromD d)
     Just AstVarI{} ->
       error $ "interpretAst: type mismatch for " ++ show var
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
     let (memo2, t) = interpretAst env memo u
-    in interpretAst (EM.insert var (AstVarR $ tfromR t) env) memo2 v
+    in interpretAst (EM.insert var (AstVarR $ dfromR t) env) memo2 v
       -- It's OK not to reset memo2, because all occurences of this AstLet
       -- terms outside of functions are going to be interpreted the same
       -- and functions reset memo.
   AstLetGlobal n v ->
     case EM.lookup n memo of
       Nothing -> let (memo2, t) = interpretAst env memo v
-                 in (EM.insert n (tfromR t) memo2, t)
+                 in (EM.insert n (dfromR t) memo2, t)
       Just res -> (memo, tfromD res)
   AstOp TimesOp args@[v, AstReshape _ (AstKonst @m _ s)] ->
     case sameNat (Proxy @m) (Proxy @0) of
@@ -323,10 +323,10 @@ interpretAstDynamic env memo = \case
   AstDynamicPlus v u ->
     let (memo1, t1) = interpretAstDynamic env memo v
         (memo2, t2) = interpretAstDynamic env memo1 u
-    in (memo2, t1 `taddD` t2)
-  AstDynamicFrom w -> second tfromR $ interpretAst env memo w
+    in (memo2, t1 `dadd` t2)
+  AstDynamicFrom w -> second dfromR $ interpretAst env memo w
   AstDynamicVar sh var -> case EM.lookup var env of
-    Just (AstVarR d) -> assert (shapeToList sh == tshapeD d) $ (memo, d)
+    Just (AstVarR d) -> assert (shapeToList sh == dshape d) $ (memo, d)
     Just AstVarI{} ->
       error $ "interpretAstDynamic: type mismatch for " ++ show var
     Nothing -> error $ "interpretAstDynamic: unknown variable " ++ show var
