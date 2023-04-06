@@ -46,13 +46,13 @@ data ADInputs r = ADInputs
   { inputPrimal0 :: Domain0 r
   , inputDual0   :: Data.Vector.Vector (Dual r)
   , inputPrimal1 :: DomainR r
-  , inputDual1   :: Data.Vector.Vector (Dual (DynamicTensor r))
+  , inputDual1   :: Data.Vector.Vector (Dual (DTensorOf r))
   }
 
 makeADInputs
   :: Domains r
   -> ( Data.Vector.Vector (Dual r)
-     , Data.Vector.Vector (Dual (DynamicTensor r)) )
+     , Data.Vector.Vector (Dual (DTensorOf r)) )
   -> ADInputs r
 {-# INLINE makeADInputs #-}
 makeADInputs Domains{..} (vs0, vs1)
@@ -231,9 +231,9 @@ generateDeltaInputs
   :: forall r. ADTensor r
   => Domains r
   -> ( Data.Vector.Vector (Dual r)
-     , Data.Vector.Vector (Dual (DynamicTensor r)) )
+     , Data.Vector.Vector (Dual (DTensorOf r)) )
 generateDeltaInputs Domains{..} =
-  let arrayToInput :: Int -> DynamicTensor r -> Dual (DynamicTensor r)
+  let arrayToInput :: Int -> DTensorOf r -> Dual (DTensorOf r)
       arrayToInput i t = case someNatVal $ toInteger $ length $ tshapeD t of
         Just (SomeNat (_ :: Proxy n)) ->
           dFromR $ dInputR @r @n $ toInputId i

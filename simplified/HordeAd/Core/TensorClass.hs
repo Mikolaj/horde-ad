@@ -242,15 +242,15 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
   -- The untyped versions of the tensor, to put many ranks in one vector
-  type DynamicTensor r = result | result -> r
-  ddummy :: DynamicTensor r
-  disDummy :: DynamicTensor r -> Bool
-  taddD :: DynamicTensor r -> DynamicTensor r -> DynamicTensor r
-  tshapeD :: DynamicTensor r -> [Int]
+  type DTensorOf r = result | result -> r
+  ddummy :: DTensorOf r
+  disDummy :: DTensorOf r -> Bool
+  taddD :: DTensorOf r -> DTensorOf r -> DTensorOf r
+  tshapeD :: DTensorOf r -> [Int]
   tfromD :: KnownNat n
-         => DynamicTensor r -> TensorOf n r
+         => DTensorOf r -> TensorOf n r
   tfromR :: KnownNat n
-         => TensorOf n r -> DynamicTensor r
+         => TensorOf n r -> DTensorOf r
 
   -- The global @let@ operations (poor man's data-reify).
   tlet0 :: r -> r
@@ -258,7 +258,8 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tletR :: TensorOf n r -> TensorOf n r
   tletR = id
 
--- * The giga-contraint
+
+-- * The giga-constraint
 
 type Many (f :: Type -> Constraint) r = (f (TensorOf 0 r), f (TensorOf 1 r), f (TensorOf 2 r), f (TensorOf 3 r), f (TensorOf 4 r), f (TensorOf 5 r), f (TensorOf 6 r), f (TensorOf 7 r), f (TensorOf 8 r), f (TensorOf 9 r), f (TensorOf 10 r), f (TensorOf 11 r), f (TensorOf 12 r))
 
@@ -353,7 +354,7 @@ instance Tensor Double where
   tdualPart _ = ()
   tD u _ = u
   tScale _ _ = ()
-  type DynamicTensor Double = OD.Array Double
+  type DTensorOf Double = OD.Array Double
   ddummy = dummyTensor
   disDummy = isTensorDummy
   taddD = (+)
@@ -404,7 +405,7 @@ instance Tensor Float where
   tdualPart _ = ()
   tD u _ = u
   tScale _ _ = ()
-  type DynamicTensor Float = OD.Array Float
+  type DTensorOf Float = OD.Array Float
   ddummy = dummyTensor
   disDummy = isTensorDummy
   taddD = (+)

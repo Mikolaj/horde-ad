@@ -85,7 +85,7 @@ type ADNum r =
   , TensorOf 0 r ~ OR.Array 0 r
   , TensorOf 1 r ~ OR.Array 1 r
   , IntOf r ~ CInt
-  , DynamicTensor r ~ OD.Array r
+  , DTensorOf r ~ OD.Array r
   )
 
 -- All this is not needed in the simplified version, except for compilation
@@ -119,14 +119,14 @@ multNotShared :: (Num a, IsPrimal a) => ADVal a -> ADVal a -> ADVal a
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 {-
-addParameters :: (Numeric r, Num (Vector r), DynamicTensor r ~ OD.Array r)
+addParameters :: (Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r)
               => Domains r -> Domains r -> Domains r
 addParameters (Domains a0 a1) (Domains b0 b1) =
   Domains (a0 + b0)
           (V.zipWith (+) a1 b1)
 
 -- Dot product and sum respective ranks and then sum it all.
-dotParameters :: (Numeric r, DynamicTensor r ~ OD.Array r)
+dotParameters :: (Numeric r, DTensorOf r ~ OD.Array r)
               => Domains r -> Domains r -> r
 dotParameters (Domains a0 a1) (Domains b0 b1) =
   a0 LA.<.> b0

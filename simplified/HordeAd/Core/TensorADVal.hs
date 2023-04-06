@@ -111,7 +111,7 @@ instance Tensor (ADVal Double) where
   tdualPart (D _ u') = u'
   tD = dD
   tScale = dScale
-  type DynamicTensor (ADVal Double) = ADVal (OD.Array Double)
+  type DTensorOf (ADVal Double) = ADVal (OD.Array Double)
   ddummy = undefined  -- not used for dual numbers
   disDummy = undefined  -- not used for dual numbers
   taddD = (+)
@@ -161,7 +161,7 @@ instance Tensor (ADVal Float) where
   tdualPart (D _ u') = u'
   tD = dD
   tScale = dScale
-  type DynamicTensor (ADVal Float) = ADVal (OD.Array Float)
+  type DTensorOf (ADVal Float) = ADVal (OD.Array Float)
   ddummy = undefined  -- not used for dual numbers
   disDummy = undefined  -- not used for dual numbers
   taddD = (+)
@@ -213,7 +213,7 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
   tdualPart (D _ u') = u'
   tD = dD
   tScale = dScale
-  type DynamicTensor (ADVal (Ast0 r)) = ADVal (AstDynamic r)
+  type DTensorOf (ADVal (Ast0 r)) = ADVal (AstDynamic r)
   ddummy = undefined  -- not used for dual numbers
   disDummy = undefined  -- not used for dual numbers
   taddD (D u u') (D v v') = dD (AstDynamicPlus u v) (dAdd u' v')
@@ -351,9 +351,9 @@ unScalar :: ADTensor r => ADVal (TensorOf 0 r) -> ADVal r
 unScalar (D u u') = dD (tunScalar u) (dUnScalar0 u')
 
 fromD :: forall n r. (ADTensor r, KnownNat n)
-       => ADVal (DynamicTensor r) -> ADVal (TensorOf n r)
+       => ADVal (DTensorOf r) -> ADVal (TensorOf n r)
 fromD (D u u') = dDnotShared (tfromD u) (dFromD u')
 
 fromR :: (ADTensor r, KnownNat n)
-       => ADVal (TensorOf n r) -> ADVal (DynamicTensor r)
+       => ADVal (TensorOf n r) -> ADVal (DTensorOf r)
 fromR (D u u') = dDnotShared (tfromR u) (dFromR u')

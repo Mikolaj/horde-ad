@@ -48,7 +48,7 @@ mnistTestCase2VTA
      , Primal r ~ r, ScalarOf r ~ r, AssertEqualUpToEpsilon r
      , TensorOf 0 (ADVal r) ~ ADVal (OR.Array 0 r)
      , TensorOf 1 (ADVal r) ~ ADVal (OR.Array 1 r)
-     , DynamicTensor (ADVal r) ~ ADVal (OD.Array r)
+     , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , Primal (ADVal r) ~ r, ScalarOf (ADVal r) ~ r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -137,7 +137,7 @@ mnistTestCase2VTI
      ( ADReady r, ADReady (ADVal r), ADReady (Ast0 r), ADNum r, PrintfArg r
      , Primal r ~ r, ScalarOf r ~ r, AssertEqualUpToEpsilon r
      , TensorOf 0 (ADVal r) ~ ADVal (OR.Array 0 r)
-     , DynamicTensor (ADVal r) ~ ADVal (OD.Array r)
+     , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , ScalarOf (ADVal r) ~ r
      , InterpretAst (ADVal r) )
   => String

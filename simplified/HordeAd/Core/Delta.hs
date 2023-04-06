@@ -283,7 +283,7 @@ type Domain0 r = TensorOf 1 r
 -- To store ranked tensors (or Ast terms) we use their untyped versions
 -- instead of, e.g,. the unerlying vectors of the tensors,
 -- to prevent frequent linearization of the tensors (e.g., after transpose).
-type DomainR r = Data.Vector.Vector (DynamicTensor r)
+type DomainR r = Data.Vector.Vector (DTensorOf r)
 
 data Domains r = Domains
   { domains0 :: Domain0 r
@@ -291,10 +291,10 @@ data Domains r = Domains
   }
   deriving Generic
 
-deriving instance (Show (TensorOf 1 r), Show (DynamicTensor r))
+deriving instance (Show (TensorOf 1 r), Show (DTensorOf r))
                   => Show (Domains r)
 
-deriving instance (NFData (TensorOf 1 r), NFData (DynamicTensor r))
+deriving instance (NFData (TensorOf 1 r), NFData (DTensorOf r))
                   => NFData (Domains r)
 
 emptyDomain0 :: Tensor r => Domain0 r
@@ -330,7 +330,7 @@ data EvalState r = EvalState
       -- (finally copied to the vector representing the rank 0 portion
       -- of the gradient of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , iMapR :: EM.EnumMap (InputId (DynamicTensor r)) (DynamicTensor r)
+  , iMapR :: EM.EnumMap (InputId (DTensorOf r)) (DTensorOf r)
       -- ^ eventually, cotangents of objective function inputs of rank R;
       -- (eventually copied to the vector representing the rank R portion
       -- of the gradient of the objective function);
@@ -338,7 +338,7 @@ data EvalState r = EvalState
   , dMap0 :: EM.EnumMap NodeId r
       -- ^ eventually, cotangents of non-input subterms of rank 0 indexed
       -- by their node identifiers
-  , dMapR :: EM.EnumMap NodeId (DynamicTensor r)
+  , dMapR :: EM.EnumMap NodeId (DTensorOf r)
       -- ^ eventually, cotangents of non-input subterms of rank R indexed
       -- by their node identifiers
   , nMap  :: EM.EnumMap NodeId (DeltaBinding r)
@@ -428,7 +428,7 @@ gradientFromDelta dim0 dimR deltaDt =
                       -- 0 is the correct value; below is a dummy value
             iMapR = EM.fromDistinctAscList
                     $ zip [toInputId 0 ..]
-                          (replicate dimR (ddummy :: DynamicTensor r))
+                          (replicate dimR (ddummy :: DTensorOf r))
             dMap0 = EM.empty
             dMapR = EM.empty
             nMap = EM.empty
@@ -542,7 +542,7 @@ buildFinMaps s0 deltaDt =
         UnScalar0 d -> evalR s (tscalar c) d
 
       addToArray :: KnownNat n
-                 => TensorOf n r -> DynamicTensor r -> DynamicTensor r
+                 => TensorOf n r -> DTensorOf r -> DTensorOf r
       addToArray c v = let cs = tfromR c
                        in if disDummy v then cs else taddD v cs
       evalR :: forall n. KnownNat n
@@ -779,7 +779,7 @@ buildDerivative dim0 dimR deltaDt Domains{..} = do
           case EM.lookup n nm of
             Just (DeltaBindingR _) -> do
               dm <- readSTRef dMapR
-              return $! tfromD (dm EM.! n :: DynamicTensor r)
+              return $! tfromD (dm EM.! n :: DTensorOf r)
             Nothing -> do
               c <- evalR d
               nmNew <- readSTRef nMap

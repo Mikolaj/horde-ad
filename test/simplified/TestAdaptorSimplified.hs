@@ -423,7 +423,7 @@ testFooNoGoAst =
   let f :: ( ShowAst r, RealFloat r, Floating (Vector r)
            , TensorOf 1 r ~ OR.Array 1 r, InterpretAst (ADVal r)
            , TensorOf 1 (ADVal r) ~ ADVal (TensorOf 1 r)
-           , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
+           , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = snd
@@ -541,7 +541,7 @@ testBarReluAst0 =
   let f :: ( ShowAst r, RealFloat r, Floating (Vector r)
            , TensorOf 0 r ~ OR.Array 0 r, InterpretAst (ADVal r)
            , TensorOf 0 (ADVal r) ~ ADVal (TensorOf 0 r)
-           , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
+           , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = snd
@@ -557,7 +557,7 @@ testBarReluAst1 =
   let f :: ( ShowAst r, RealFloat r, Floating (Vector r)
            , TensorOf 1 r ~ OR.Array 1 r, InterpretAst (ADVal r)
            , TensorOf 1 (ADVal r) ~ ADVal (TensorOf 1 r)
-           , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
+           , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = snd
@@ -578,7 +578,7 @@ testKonstReluAst =
   let f :: ( ShowAst r, RealFloat r, Floating (Vector r)
            , TensorOf 0 r ~ OR.Array 0 r, InterpretAst (ADVal r)
            , TensorOf 0 (ADVal r) ~ ADVal (TensorOf 0 r)
-           , DynamicTensor (ADVal r) ~ ADVal (DynamicTensor r)
+           , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
            , ScalarOf (ADVal r) ~ r )
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = snd

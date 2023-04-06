@@ -67,7 +67,7 @@ domainsFrom01 :: (Numeric r, Tensor r) => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 =
   Domains (tfromList0N (singletonShape (V.length v0)) (V.toList v0))
 
-domainsFrom0V :: (Numeric r, DynamicTensor r ~ OD.Array r, Tensor r)
+domainsFrom0V :: (Numeric r, DTensorOf r ~ OD.Array r, Tensor r)
               => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
   domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)

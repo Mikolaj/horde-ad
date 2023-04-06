@@ -190,13 +190,13 @@ domainsFrom01 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r)
               => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 = Domains (OR.fromVector [V.length v0] v0)
 
-domainsFrom0V :: ( Numeric r, DynamicTensor r ~ OD.Array r
+domainsFrom0V :: ( Numeric r, DTensorOf r ~ OD.Array r
                  , TensorOf 1 r ~ OR.Array 1 r )
               => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
   domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
-listsToParameters :: ( Numeric r, DynamicTensor r ~ OD.Array r
+listsToParameters :: ( Numeric r, DTensorOf r ~ OD.Array r
                      , TensorOf 1 r ~ OR.Array 1 r )
                   => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
@@ -258,7 +258,7 @@ multNotShared :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a -> ADVal d a
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 
-addParameters :: ( Numeric r, Num (Vector r), DynamicTensor r ~ OD.Array r
+addParameters :: ( Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r
                  , Num (TensorOf 1 r) )
               => Domains r -> Domains r -> Domains r
 addParameters (Domains a0 a1) (Domains b0 b1) =
@@ -267,7 +267,7 @@ addParameters (Domains a0 a1) (Domains b0 b1) =
 
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters
-  :: (Numeric r, DynamicTensor r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r)
+  :: (Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r)
   => Domains r -> Domains r -> r
 dotParameters (Domains a0 a1) (Domains b0 b1) =
   a0 `tdot0R` b0

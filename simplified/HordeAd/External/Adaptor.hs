@@ -329,12 +329,12 @@ instance (Tensor r, ShowAstSimplify r, KnownNat n, TensorOf n r ~ OR.Array n r)
     Nothing -> error "fromDomainsAst in FromDomainsAst (OR.Array n r)"
 
 ttoRankedOrDummy :: (Tensor r, KnownNat n)
-                 => ShapeInt n -> DynamicTensor r -> TensorOf n r
+                 => ShapeInt n -> DTensorOf r -> TensorOf n r
 ttoRankedOrDummy sh x = if disDummy x
                         then tzero sh
                         else tfromD x
 
-instance (Numeric r, KnownNat n, DynamicTensor r ~ OD.Array r)
+instance (Numeric r, KnownNat n, DTensorOf r ~ OD.Array r)
          => AdaptableDomains (OR.Array n r) where
   type Scalar (OR.Array n r) = r
   toDomains a =
@@ -357,8 +357,8 @@ instance KnownNat n
 
 instance ( Tensor (ADVal r), KnownNat n, TensorOf n r ~ OR.Array n r
          , TensorOf n (ADVal r) ~ ADVal (OR.Array n r)
-         , DynamicTensor r ~ OD.Array r
-         , DynamicTensor (ADVal r) ~ ADVal (OD.Array r) )
+         , DTensorOf r ~ OD.Array r
+         , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
          => AdaptableInputs r (ADVal (OR.Array n r)) where
   type Value (ADVal (OR.Array n r)) = OR.Array n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of

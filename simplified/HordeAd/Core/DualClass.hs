@@ -192,9 +192,9 @@ class HasRanks r where
   dUnScalar0 :: Dual (TensorOf 0 r) -> Dual r
 
   dFromD :: KnownNat n
-          => Dual (DynamicTensor r) -> Dual (TensorOf n r)
+          => Dual (DTensorOf r) -> Dual (TensorOf n r)
   dFromR :: KnownNat n
-          => Dual (TensorOf n r) -> Dual (DynamicTensor r)
+          => Dual (TensorOf n r) -> Dual (DTensorOf r)
 
 
 -- * Delta expression method instances

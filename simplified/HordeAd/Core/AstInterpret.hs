@@ -33,9 +33,9 @@ import HordeAd.Internal.SizedList
 type AstEnv a = EM.EnumMap AstVarId (AstEnvElem a)
 
 data AstEnvElem a =
-    AstVarR (DynamicTensor a)
+    AstVarR (DTensorOf a)
   | AstVarI (IntOf a)
-deriving instance (Show (DynamicTensor a), Show (IntOf a))
+deriving instance (Show (DTensorOf a), Show (IntOf a))
                   => Show (AstEnvElem a)
 
 extendEnvR :: forall n a. (Tensor a, KnownNat n)
@@ -129,7 +129,7 @@ instance Evidence Float where
 
 type InterpretAst a = Evidence a
 
-type AstMemo a = EM.EnumMap NodeId (DynamicTensor a)
+type AstMemo a = EM.EnumMap NodeId (DTensorOf a)
 
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
 -- Either the environment has to be traverse to remove the dual parts or
@@ -317,7 +317,7 @@ interpretAstBool env memo = \case
 interpretAstDynamic
   :: Evidence a
   => AstEnv a -> AstMemo a
-  -> AstDynamic (ScalarOf a) -> (AstMemo a, DynamicTensor a)
+  -> AstDynamic (ScalarOf a) -> (AstMemo a, DTensorOf a)
 interpretAstDynamic env memo = \case
   AstDynamicDummy -> error "interpretAstDynamic: AstDynamicDummy"
   AstDynamicPlus v u ->
@@ -498,22 +498,22 @@ interpretAstRelOp opCodeRel args =
 
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv (ADVal Double) -> AstMemo (ADVal Double)
-  -> AstDynamic Double -> (AstMemo (ADVal Double), DynamicTensor (ADVal Double)) #-}
+  -> AstDynamic Double -> (AstMemo (ADVal Double), DTensorOf (ADVal Double)) #-}
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv (ADVal Float) -> AstMemo (ADVal Float)
-  -> AstDynamic Float -> (AstMemo (ADVal Float), DynamicTensor (ADVal Float)) #-}
+  -> AstDynamic Float -> (AstMemo (ADVal Float), DTensorOf (ADVal Float)) #-}
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
-  -> AstDynamic Double -> (AstMemo (ADVal (Ast0 Double)), DynamicTensor (ADVal (Ast0 Double))) #-}
+  -> AstDynamic Double -> (AstMemo (ADVal (Ast0 Double)), DTensorOf (ADVal (Ast0 Double))) #-}
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
-  -> AstDynamic Float -> (AstMemo (ADVal (Ast0 Float)), DynamicTensor (ADVal (Ast0 Float))) #-}
+  -> AstDynamic Float -> (AstMemo (ADVal (Ast0 Float)), DTensorOf (ADVal (Ast0 Float))) #-}
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv Double -> AstMemo Double
-  -> AstDynamic Double -> (AstMemo Double, DynamicTensor Double) #-}
+  -> AstDynamic Double -> (AstMemo Double, DTensorOf Double) #-}
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv Float -> AstMemo Float
-  -> AstDynamic Float -> (AstMemo Float, DynamicTensor Float) #-}
+  -> AstDynamic Float -> (AstMemo Float, DTensorOf Float) #-}
 
 {-# SPECIALIZE interpretAstOp
   :: OpCode -> [(ADVal Double)] -> (ADVal Double) #-}
