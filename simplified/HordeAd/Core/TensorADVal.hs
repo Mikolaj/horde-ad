@@ -13,6 +13,7 @@ import Prelude hiding ((<*))
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
+import           Data.List (foldl1')
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
@@ -198,6 +199,10 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
 
   tscalar = scalar
   tunScalar = unScalar
+
+  tsumOfList [w] = w
+  tsumOfList l = dD (tsumOfList $ map (\(D u _) -> u) l)
+                    (foldl1' dAdd $ map (\(D _ u') -> u') l)
 
   type ScalarOf (ADVal (Ast0 r)) = r
   type Primal (ADVal (Ast0 r)) = Ast0 r

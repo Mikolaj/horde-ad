@@ -105,6 +105,8 @@ build1V k (var, v00) =
 
     AstOp opCode args -> traceRule $
       AstOp opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
+    AstSumOfList args -> traceRule $
+      AstSumOfList $ map (\v -> build1VOccurenceUnknown k (var, v)) args
     AstIota ->
       error "build1V: AstIota can't have free int variables"
 

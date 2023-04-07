@@ -768,7 +768,7 @@ buildDerivative dim0 dimR deltaDt Domains{..} = do
         ScaleR k d -> tmult k <$> evalR d
         AddR ZeroR e -> evalR e
         AddR d ZeroR -> evalR d
-        AddR d e -> liftM2 tadd (evalR d) (evalR e)
+        AddR d e -> liftM2 (\u v -> tsumOfList [u, v]) (evalR d) (evalR e)
         LetR n d -> do
           nm <- readSTRef nMap
           case EM.lookup n nm of

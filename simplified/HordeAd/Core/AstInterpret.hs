@@ -187,6 +187,9 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
   AstOp opCode args ->
     let (memo2, args2) = mapAccumR (interpretAst env) memo args
     in (memo2, interpretAstOp opCode args2)
+  AstSumOfList args ->
+    let (memo2, args2) = mapAccumR (interpretAst env) memo args
+    in (memo2, tsumOfList args2)
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"
   AstIndexZ AstIota (i :. ZI) -> second tfromIndex0 $ interpretAstInt env memo i
   AstIndexZ v ix ->
@@ -322,14 +325,13 @@ interpretAstDynamic
 interpretAstDynamic env memo = \case
   AstDynamic [] -> (memo, ddummy)
   AstDynamic [w] -> second dfromR $ interpretAst env memo w
-  AstDynamic l -> second dfromR $ interpretAst env memo $ AstOp PlusOp l
+  AstDynamic l -> second dfromR $ interpretAst env memo $ tsumOfList l
 
 interpretAstOp :: RealFloat a
                => OpCode -> [a] -> a
 {-# INLINE interpretAstOp #-}
-interpretAstOp PlusOp l = foldl1' (+) l  -- @sum@ breaks by adding +0 at the end
 interpretAstOp MinusOp [u, v] = u - v
-interpretAstOp TimesOp l = foldl1' (*) l
+interpretAstOp TimesOp [u, v] = u * v
 interpretAstOp NegateOp [u] = negate u
 interpretAstOp AbsOp [u] = abs u
 interpretAstOp SignumOp [u] = signum u
@@ -362,9 +364,9 @@ interpretAstOp opCode args =
 interpretAstIntOp :: Integral a
                   => OpCodeInt -> [a] -> a
 {-# INLINE interpretAstIntOp #-}
-interpretAstIntOp PlusIntOp l = foldl1' (+) l
+interpretAstIntOp PlusIntOp l = foldl1' (+) l  -- TODO: use or remove
 interpretAstIntOp MinusIntOp [u, v] = u - v
-interpretAstIntOp TimesIntOp l = foldl1' (*) l
+interpretAstIntOp TimesIntOp l = foldl1' (*) l  -- TODO: use or remove
 interpretAstIntOp NegateIntOp [u] = negate u
 interpretAstIntOp AbsIntOp [u] = abs u
 interpretAstIntOp SignumIntOp [u] = signum u

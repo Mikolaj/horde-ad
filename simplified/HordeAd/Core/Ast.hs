@@ -67,6 +67,7 @@ data Ast :: Nat -> Type -> Type where
 
   -- For the numeric classes:
   AstOp :: OpCode -> [Ast n r] -> Ast n r
+  AstSumOfList :: [Ast n r] -> Ast n r
   AstIota :: Ast 1 r
     -- needed, because toInteger and so fromIntegral is not defined for Ast
 
@@ -174,7 +175,7 @@ deriving instance ShowAst r => Show (AstBool r)
 -- Copied from the outlining mechanism deleted in
 -- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
 data OpCode =
-    PlusOp | MinusOp | TimesOp | NegateOp | AbsOp | SignumOp
+    MinusOp | TimesOp | NegateOp | AbsOp | SignumOp
   | DivideOp | RecipOp
   | ExpOp | LogOp | SqrtOp | PowerOp | LogBaseOp
   | SinOp | CosOp | TanOp | AsinOp | AcosOp | AtanOp
@@ -309,9 +310,14 @@ instance Ord (OR.Array n r) => Ord (Ast n r) where
   _ <= _ = error "Ast: can't evaluate terms for Ord"
 
 instance Num (OR.Array n r) => Num (Ast n r) where
-  u + v = AstOp PlusOp [u, v]
+  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
+  u + AstSumOfList l = AstSumOfList (u : l)
+  AstSumOfList l + u = AstSumOfList (u : l)
+  u + v = AstSumOfList [u, v]
   u - v = AstOp MinusOp [u, v]
   u * v = AstOp TimesOp [u, v]
+    -- no hacks like for AstSumOfList, because when tscaleByScalar
+    -- is reconstructed, it looks for the binary form
   negate u = AstOp NegateOp [u]
   abs v = AstOp AbsOp [v]
   signum v = AstOp SignumOp [v]
@@ -426,7 +432,7 @@ instance Ord (AstInt r) where
   _ <= _ = error "AstInt: can't evaluate terms for Ord"
 
 instance Num (AstInt r) where
-  u + v = AstIntOp PlusIntOp [u, v]
+  u + v = AstIntOp PlusIntOp [u, v]  -- simplification relies on binary form
   u - v = AstIntOp MinusIntOp [u, v]
   u * v = AstIntOp TimesIntOp [u, v]
   negate u = AstIntOp NegateIntOp [u]
@@ -478,6 +484,9 @@ shapeAst v1 = case v1 of
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
+  AstSumOfList args -> case args of
+    [] -> error "shapeAst: AstSumOfList with no arguments"
+    t : _ -> shapeAst t
   AstIota -> singletonShape (maxBound :: Int)  -- ought to be enough
   AstIndexZ v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
@@ -523,6 +532,7 @@ intVarInAst var = \case
   AstLet _ u v -> intVarInAst var u || intVarInAst var v
   AstLetGlobal _ v -> intVarInAst var v
   AstOp _ l -> any (intVarInAst var) l
+  AstSumOfList l -> any (intVarInAst var) l
   AstIota -> False
   AstIndexZ v ix -> intVarInAst var v || intVarInIndex var ix
   AstSum v -> intVarInAst var v
@@ -589,6 +599,7 @@ substitute1Ast i var v1 = case v1 of
     -- TODO: here and in all term transformations (but not in interpretAst)
     -- start by building a graph and replacing all AstLetGlobal with AstLet
   AstOp opCode args -> AstOp opCode $ map (substitute1Ast i var) args
+  AstSumOfList args -> AstSumOfList $ map (substitute1Ast i var) args
   AstIota -> v1
   AstIndexZ v is ->
     AstIndexZ (substitute1Ast i var v) (fmap (substitute1AstInt i var) is)

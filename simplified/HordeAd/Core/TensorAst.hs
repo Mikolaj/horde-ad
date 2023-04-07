@@ -57,6 +57,9 @@ instance ShowAstSimplify r
   tunScalar = Ast0
     -- due to injective type families, we have to distinguish Ast0 and Ast 0
 
+  tsumOfList [w] = w
+  tsumOfList l = AstSumOfList l
+
   type ScalarOf (Ast0 r) = r
   type Primal (Ast0 r) = AstPrimalPart 0 r
   type DualOf n (Ast0 r) = AstDualPart n r
@@ -173,6 +176,9 @@ instance ShowAstSimplify r
     -- identifying AstPrimalPart 0 with primal part scalars lets us avoid
     -- adding a lot of constraints to ADReady
 
+  tsumOfList [w] = w
+  tsumOfList l = AstPrimalPart . AstSumOfList . map unAstPrimalPart $ l
+
   type ScalarOf (AstPrimalPart 0 r) = r
   type Primal (AstPrimalPart 0 r) = AstPrimalPart 0 r
   type DualOf n (AstPrimalPart 0 r) = ()
@@ -227,6 +233,9 @@ instance ShowAstSimplify r
 
   tscalar = id
   tunScalar = id
+
+  tsumOfList [w] = w
+  tsumOfList l = AstNoVectorize . AstSumOfList . map unAstNoVectorize $ l
 
   type ScalarOf (AstNoVectorize 0 r) = r
   type Primal (AstNoVectorize 0 r) = AstNoVectorize 0 r

@@ -209,12 +209,12 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tzero :: KnownNat n
         => ShapeInt n -> TensorOf n r
   tzero sh = tkonst0N sh 0
-  tadd :: KnownNat n
-       => TensorOf n r -> TensorOf n r -> TensorOf n r
-  default tadd
+  tsumOfList :: KnownNat n
+             => [TensorOf n r] -> TensorOf n r  -- TODO: declare nonempty
+  default tsumOfList
     :: Num (TensorOf n r)
-    => TensorOf n r -> TensorOf n r -> TensorOf n r
-  tadd = (+)
+    => [TensorOf n r] -> TensorOf n r
+  tsumOfList = sum
   tmult :: KnownNat n
         => TensorOf n r -> TensorOf n r -> TensorOf n r
   default tmult

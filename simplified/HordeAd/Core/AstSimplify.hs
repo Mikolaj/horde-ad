@@ -215,6 +215,7 @@ simplifyStepNonIndex t = case t of
   AstLet{} -> t
   AstLetGlobal{} -> t
   AstOp{} -> t
+  AstSumOfList{} -> t
   AstIota -> t
   AstIndexZ{} -> t
   AstSum v -> astSum v
@@ -283,6 +284,8 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstLetGlobal _ v -> astIndexRec v ix  -- simplification breaks global sharing
   AstOp opCode args ->
     AstOp opCode (map (`astIndexRec` ix) args)
+  AstSumOfList args ->
+    AstSumOfList (map (`astIndexRec` ix) args)
   AstIota | AstIntConst i <- i1 -> case sameNat (Proxy @m) (Proxy @1) of
     Just Refl -> AstConst $ OR.scalar $ fromIntegral i
     _ -> error "astIndex: AstIota: impossible pattern needlessly required"
@@ -617,6 +620,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                           -- simplification breaks global sharing
     AstOp opCode args ->
       AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
+    AstSumOfList args ->
+      AstSumOfList (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     AstIota | AstIntConst i <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
       Just Refl -> astKonstN sh4 $ AstConst $ OR.scalar $ fromIntegral i
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
@@ -743,7 +748,7 @@ astFromDynamic (AstDynamic @n2 l) =
   case sameNat (Proxy @n) (Proxy @n2) of
     Just Refl -> case l of
       [w] -> w
-      _ -> AstOp PlusOp l
+      _ -> AstSumOfList l
     _ -> error "astFromDynamic: different rank expected and uncovered"
 
 {-
@@ -854,6 +859,7 @@ simplifyAst t = case t of
   AstLet var u v -> AstLet var (simplifyAst u) (simplifyAst v)
   AstLetGlobal n v -> AstLetGlobal n (simplifyAst v)
   AstOp opCode args -> AstOp opCode (map simplifyAst args)
+  AstSumOfList args -> AstSumOfList (map simplifyAst args)
     -- We do not simplify, e.g., addition or multiplication by zero.
     -- There are too many cases and values are often unknown.
   AstIota -> t
