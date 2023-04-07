@@ -115,10 +115,10 @@ instance Tensor (ADVal Double) where
 
 instance DynamicTensor (ADVal Double) where
   type DTensorOf (ADVal Double) = ADVal (OD.Array Double)
-  ddummy = undefined  -- not used for dual numbers
-  disDummy = undefined  -- not used for dual numbers
+  ddummy = undefined
+  disDummy = undefined
   daddR = undefined
-  dshape (D u _) = dshape u
+  dshape = undefined
   dfromR = fromR
 
 instance Tensor (ADVal Float) where
@@ -170,7 +170,7 @@ instance DynamicTensor (ADVal Float) where
   ddummy = undefined  -- not used for dual numbers
   disDummy = undefined  -- not used for dual numbers
   daddR = undefined
-  dshape (D u _) = dshape u
+  dshape = undefined
   dfromR = fromR
 
 instance (ADTensor (Ast0 r), ShowAstSimplify r)
@@ -222,10 +222,10 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
 instance ShowAstSimplify r
          => DynamicTensor (ADVal (Ast0 r)) where
   type DTensorOf (ADVal (Ast0 r)) = ADVal (AstDynamic r)
-  ddummy = undefined  -- not used for dual numbers
-  disDummy = undefined  -- not used for dual numbers
+  ddummy = undefined
+  disDummy = undefined
   daddR = undefined
-  dshape (D u _) = dshape u
+  dshape = undefined
   dfromR = fromR
 
 

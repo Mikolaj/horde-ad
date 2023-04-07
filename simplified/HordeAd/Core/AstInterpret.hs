@@ -150,7 +150,8 @@ interpretAst
   -> Ast n (ScalarOf a) -> (AstMemo a, TensorOf n a)
 interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
   AstVar sh var -> case EM.lookup var env of
-    Just (AstVarR d) -> assert (shapeToList sh == dshape d) $ (memo, tfromD d)
+    Just (AstVarR d) -> let t = tfromD d
+                        in assert (sh == tshape t) $ (memo, t)
     Just AstVarI{} ->
       error $ "interpretAst: type mismatch for " ++ show var
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
