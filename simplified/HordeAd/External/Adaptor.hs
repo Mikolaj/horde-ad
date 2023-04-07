@@ -38,7 +38,6 @@ import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal (ADTensor)
 import HordeAd.Core.TensorClass
-import HordeAd.Internal.TensorOps
 
 -- These only work with non-scalar codomain. A fully general version
 -- is possible, but the user has to write many more type applications.
@@ -334,13 +333,14 @@ ttoRankedOrDummy sh x = if disDummy x
                         then tzero sh
                         else tfromD x
 
-instance (Numeric r, KnownNat n, DTensorOf r ~ OD.Array r)
+instance ( Numeric r, KnownNat n, Tensor r, DummyTensor r
+         , TensorOf n r ~ OR.Array n r, DTensorOf r ~ OD.Array r )
          => AdaptableDomains (OR.Array n r) where
   type Scalar (OR.Array n r) = r
   toDomains a =
     Domains emptyDomain0 (V.singleton (Data.Array.Convert.convert a))
   fromDomains aInit (Domains v0 v1) = case V.uncons v1 of
-    Just (a, rest) -> (toRankedOrDummy (OR.shapeL aInit) a, Domains v0 rest)
+    Just (a, rest) -> (ttoRankedOrDummy (tshape aInit) a, Domains v0 rest)
     Nothing -> error "fromDomains in AdaptableDomains (OR.Array n r)"
   nParams _ = 1
   nScalars = OR.size

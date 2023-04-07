@@ -68,12 +68,6 @@ toDynamicOrDummy sh x = if isTensorDummy x
                         then OD.constant sh 0
                         else x
 
-toRankedOrDummy :: (Numeric r, KnownNat n)
-                => OD.ShapeL -> OD.Array r -> OR.Array n r
-toRankedOrDummy sh x = if isTensorDummy x
-                       then OR.constant sh 0
-                       else Data.Array.Convert.convert x
-
 toShapedOrDummy :: (Numeric r, OS.Shape sh)
                 => OD.Array r -> OS.Array sh r
 toShapedOrDummy x = if isTensorDummy x
