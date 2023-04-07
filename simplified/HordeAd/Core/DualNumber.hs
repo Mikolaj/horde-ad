@@ -77,7 +77,6 @@ type ADNum r =
   , Show (Dual (OD.Array r))
   , HasRanks r
   , IsPrimalWithScalar r r
-  , IsPrimalWithScalar (OD.Array r) r
   , IsPrimalR r
   , RealFloat r
   , RealFloat (Vector r)

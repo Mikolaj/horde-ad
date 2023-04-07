@@ -32,14 +32,11 @@ module HordeAd.Core.DualClass
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element)
-import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality ((:~:) (Refl))
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -271,16 +268,6 @@ instance (Show r, Numeric r, Num (Vector r)) => IsPrimal (Ast0 r) where
   recordSharingPrimal = tlet0
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
--- | This is a trivial and so a pure instance.
-instance IsPrimal (OD.Array r) where
-  dZero = undefined
-  dScale = undefined
-  dScaleByScalar = undefined
-  dAdd = undefined
-  recordSharing = id
-  recordSharingPrimal = id
-  packDeltaDt = undefined
-
 -- | This is an impure instance. See above.
 instance IsPrimalR Double where
   dZeroR = ZeroR
@@ -327,17 +314,6 @@ instance (Show r, Numeric r, Tensor (Ast0 r)) => IsPrimalA r where
   recordSharingPrimalA = tletR
   packDeltaDtA (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
   packDeltaDtA (Right t) = DeltaDtR t
-
-instance IsPrimal (AstDynamic r) where
-  dZero = undefined
-  dScale = undefined
-  dScaleByScalar = undefined
-  dAdd (FromR @n1 d1) (FromR @n2 d2) = case sameNat (Proxy @n1) (Proxy @n2) of
-    Just Refl -> FromR $ AddR d1 d2
-    _ -> error "dAdd (IsPrimal (AstDynamic r)): summand types don't match"
-  recordSharing = id
-  recordSharingPrimal = id
-  packDeltaDt = undefined
 
 -- | This is an impure instance. See above.
 instance HasRanks Double where

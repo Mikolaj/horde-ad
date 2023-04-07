@@ -201,7 +201,8 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> ADInputs r -> ADVal r
                  f (glyph, label) adinputs =
                    let env1 = foldr (\(AstDynamicVarName var, (u, u')) ->
-                                extendEnvR var (tfromD $ dD u u')) EM.empty
+                                extendEnvR var (tfromD $ dDnotShared u u'))
+                                           EM.empty
                               $ zip vars1 $ V.toList
                               $ V.zip (inputPrimal1 adinputs)
                                       (inputDual1 adinputs)
@@ -314,7 +315,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            g (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
            envg = foldr g EM.empty
                   $ zip vars1 $ V.toList
-                  $ V.zipWith dD (inputPrimal1 varInputs) (inputDual1 varInputs)
+                  $ V.zipWith dDnotShared (inputPrimal1 varInputs)
+                                          (inputDual1 varInputs)
            envMnistg = extendEnvR varGlyph (tconstant astGlyph)
                        $ extendEnvR varLabel (tconstant astLabel) envg
            D vAst deltaTopLevel =

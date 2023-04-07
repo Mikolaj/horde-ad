@@ -72,7 +72,7 @@ revDtMaybeL f valsAll@(vals : _) dt =
       dual0 = dD ast0 (dFromVectorR $ V.map dScalarR $ inputDual0 varInputs)
       env0 = extendEnvR var0 dual0 EM.empty
       env1 = foldr (\(AstDynamicVarName var, (u, u')) ->
-                      extendEnvR var (tfromD $ dD u u')) env0
+                      extendEnvR var (tfromD $ dDnotShared u u')) env0
              $ zip vars1 $ V.toList
              $ V.zip (inputPrimal1 varInputs) (inputDual1 varInputs)
       (_, (D vAst deltaTopLevel)) = interpretAst env1 EM.empty ast
@@ -352,7 +352,8 @@ instance KnownNat n
           LA.scale (2 * range)
           $ V.fromListN n (randoms seed) - LA.scalar 0.5
         (g1, g2) = split g
-        arr = OR.fromVector undefined $ createRandomVector (OR.size undefined) g1  -- TODO
+        arr = OR.fromVector undefined
+              $ createRandomVector (OR.size undefined) g1  -- TODO
     in (arr, g2)
 
 instance ( Tensor (ADVal r), KnownNat n, TensorOf n r ~ OR.Array n r
@@ -364,7 +365,7 @@ instance ( Tensor (ADVal r), KnownNat n, TensorOf n r ~ OR.Array n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
-        ( tfromD @(ADVal r) @n $ dD aPrimal aDual
+        ( tfromD @(ADVal r) @n $ dDnotShared aPrimal aDual
         , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
       Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
@@ -375,7 +376,7 @@ instance (KnownNat n, ShowAstSimplify r)
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
-        ( tfromD @(ADVal (Ast0 r)) @n $ dD aPrimal aDual
+        ( tfromD @(ADVal (Ast0 r)) @n $ dDnotShared aPrimal aDual
         , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
       Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
