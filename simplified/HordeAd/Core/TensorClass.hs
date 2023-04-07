@@ -255,7 +255,8 @@ class DynamicTensor r where
   type DTensorOf r = result | result -> r
   ddummy :: DTensorOf r
   disDummy :: DTensorOf r -> Bool
-  dadd :: DTensorOf r -> DTensorOf r -> DTensorOf r
+  daddR :: forall n. KnownNat n
+        => TensorOf n r -> DTensorOf r -> DTensorOf r
   dshape :: DTensorOf r -> [Int]
   dfromR :: KnownNat n
          => TensorOf n r -> DTensorOf r
@@ -362,7 +363,7 @@ instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
   ddummy = dummyTensor
   disDummy = isTensorDummy
-  dadd = (+)
+  daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
   dfromR = Data.Array.Convert.convert
 
@@ -415,7 +416,7 @@ instance DynamicTensor Float where
   type DTensorOf Float = OD.Array Float
   ddummy = dummyTensor
   disDummy = isTensorDummy
-  dadd = (+)
+  daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
   dfromR = Data.Array.Convert.convert
 

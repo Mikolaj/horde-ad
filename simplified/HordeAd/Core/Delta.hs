@@ -541,17 +541,13 @@ buildFinMaps s0 deltaDt =
                      -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
         UnScalar0 d -> evalR s (tscalar c) d
 
-      addToArray :: KnownNat n
-                 => TensorOf n r -> DTensorOf r -> DTensorOf r
-      addToArray c v = let cs = dfromR c
-                       in if disDummy v then cs else dadd v cs
       evalR :: forall n. KnownNat n
             => EvalState r -> TensorOf n r -> DeltaR n r -> EvalState r
       evalR s !c = let cShared = tletR c
                    in \case
         ZeroR -> s
         InputR (InputId i) ->
-          s {iMapR = EM.adjust (addToArray c) (InputId i) $ iMapR s}
+          s {iMapR = EM.adjust (daddR c) (InputId i) $ iMapR s}
         ScaleR k d -> evalR s (k `tmult` c) d
         AddR d e -> evalR (evalR s cShared d) cShared e
         LetR n d ->
@@ -562,8 +558,7 @@ buildFinMaps s0 deltaDt =
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBindingR _) ->
-                let cs = dfromR c
-                in s {dMapR = EM.adjust (dadd cs) n $ dMapR s}
+                s {dMapR = EM.adjust (daddR c) n $ dMapR s}
               Nothing ->
                 let cs = dfromR c
                 in s { nMap = EM.insert n (DeltaBindingR d) $ nMap s

@@ -319,17 +319,9 @@ interpretAstDynamic
   => AstEnv a -> AstMemo a
   -> AstDynamic (ScalarOf a) -> (AstMemo a, DTensorOf a)
 interpretAstDynamic env memo = \case
-  AstDynamicDummy -> error "interpretAstDynamic: AstDynamicDummy"
-  AstDynamicPlus v u ->
-    let (memo1, t1) = interpretAstDynamic env memo v
-        (memo2, t2) = interpretAstDynamic env memo1 u
-    in (memo2, t1 `dadd` t2)
-  AstDynamicFrom w -> second dfromR $ interpretAst env memo w
-  AstDynamicVar sh var -> case EM.lookup var env of
-    Just (AstVarR d) -> assert (shapeToList sh == dshape d) $ (memo, d)
-    Just AstVarI{} ->
-      error $ "interpretAstDynamic: type mismatch for " ++ show var
-    Nothing -> error $ "interpretAstDynamic: unknown variable " ++ show var
+  AstDynamic [] -> (memo, ddummy)
+  AstDynamic [w] -> second dfromR $ interpretAst env memo w
+  AstDynamic l -> second dfromR $ interpretAst env memo $ AstOp PlusOp l
 
 interpretAstOp :: RealFloat a
                => OpCode -> [a] -> a

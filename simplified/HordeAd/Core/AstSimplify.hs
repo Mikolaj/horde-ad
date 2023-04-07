@@ -112,7 +112,7 @@ funToAstD sh = unsafePerformIO $ do
     Just (SomeNat (_proxy :: Proxy p)) ->
       let shn = listShapeToShape @p sh
           varName = AstVarName @(OR.Array p r) freshId
-      in (AstDynamicVarName varName, AstDynamicVar shn freshId)
+      in (AstDynamicVarName varName, AstDynamic [AstVar shn freshId])
     Nothing -> error "funToAstD: impossible someNatVal error"
 
 funToAstI :: (AstInt r -> t) -> (AstVarId, t)
@@ -738,17 +738,13 @@ flipCompare = unsafeCoerce Refl
 
 astFromDynamic :: forall n r. KnownNat n
                => AstDynamic r -> Ast n r
-astFromDynamic AstDynamicDummy = error "astFromDynamic: AstDynamicDummy"
-astFromDynamic (AstDynamicPlus u v) =
-  AstOp PlusOp [astFromDynamic u, astFromDynamic v]
-astFromDynamic (AstDynamicFrom @n2 t) =
+astFromDynamic (AstDynamic []) = error "astFromDynamic: dummy"
+astFromDynamic (AstDynamic @n2 l) =
   case sameNat (Proxy @n) (Proxy @n2) of
-    Just Refl -> t
+    Just Refl -> case l of
+      [w] -> w
+      _ -> AstOp PlusOp l
     _ -> error "astFromDynamic: different rank expected and uncovered"
-astFromDynamic (AstDynamicVar @n2 sh var) =
-  case sameNat (Proxy @n) (Proxy @n2) of
-    Just Refl -> AstVar sh var
-    _ -> error "astFromDynamic: different var rank expected and uncovered"
 
 {-
 -- TODO: To apply this to astGatherZ. we'd need to take the last variable

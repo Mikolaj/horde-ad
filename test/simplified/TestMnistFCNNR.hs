@@ -334,9 +334,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                    $ extendEnvR varLabel
                        (OR.fromVector [sizeMnistLabelInt] label)
                        env1
-                 fd memo = \case
-                   AstDynamicDummy -> (memo, ddummy)
-                   t -> interpretAstDynamic envMnist memo t
+                 fd memo t = interpretAstDynamic envMnist memo t
                  (_memo1, l1) = mapAccumR fd EM.empty
                                           (V.toList $ domainsR gradientAst)
 
@@ -377,5 +375,5 @@ tensorADOnceMnistTests = testGroup "ShortRankedOnce MNIST tests"
   , mnistTestCase2VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5 5000
                       (0.9108 :: Float)
   , mnistTestCase2VTO "VTO artificial 5 4 3 2 1" 5 4 3 2 1 5000
-                      (0.5859 :: Double)
+                      (0.8304 :: Double)
   ]

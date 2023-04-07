@@ -11,8 +11,10 @@ module HordeAd.Core.TensorAst
 import Prelude
 
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
+import           Data.Proxy (Proxy (Proxy))
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+))
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
@@ -73,17 +75,21 @@ instance ShowAstSimplify r
 instance ShowAstSimplify r
          => DynamicTensor (Ast0 r) where
   type DTensorOf (Ast0 r) = AstDynamic r
-  ddummy = AstDynamicDummy
+  ddummy = AstDynamic @0 []
   disDummy t = case t of
-    AstDynamicDummy -> True
+    AstDynamic [] -> True
     _ -> False
-  dadd = AstDynamicPlus
+  daddR :: forall n q. (KnownNat n, q ~ (Ast0 r))
+        => TensorOf n q -> DTensorOf q -> DTensorOf q
+  daddR r (AstDynamic []) = AstDynamic [r]
+  daddR r (AstDynamic @n2 l) =
+    case sameNat (Proxy @n) (Proxy @n2) of
+      Just Refl -> AstDynamic (r : l)
+      _ -> error "daddR: type mismatch"
   dshape t = case t of
-    AstDynamicDummy -> []
-    AstDynamicPlus t1 _t2 -> dshape t1
-    AstDynamicFrom v -> shapeToList $ shapeAst v
-    AstDynamicVar sh _ -> shapeToList sh
-  dfromR = AstDynamicFrom
+    AstDynamic [] -> []
+    AstDynamic (v : _) -> shapeToList $ shapeAst v
+  dfromR r = AstDynamic [r]
 
 astLetFun :: (KnownNat n, ShowAstSimplify r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
