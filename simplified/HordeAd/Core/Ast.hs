@@ -123,7 +123,7 @@ newtype AstDualPart n r = AstDualPart {unAstDualPart :: Ast n r}
 
 data AstDynamic :: Type -> Type where
   AstDynamic :: KnownNat n
-             => [Ast n r] -> AstDynamic r  -- interpreting the list as a sum
+             => Ast n r -> AstDynamic r
 deriving instance ShowAst r => Show (AstDynamic r)
 
 newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}

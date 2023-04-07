@@ -57,7 +57,6 @@ instance ShowAstSimplify r
   tunScalar = Ast0
     -- due to injective type families, we have to distinguish Ast0 and Ast 0
 
-  tsumOfList [w] = w
   tsumOfList l = AstSumOfList l
 
   type ScalarOf (Ast0 r) = r
@@ -77,24 +76,26 @@ instance ShowAstSimplify r
 
 instance DynamicTensor (Ast0 r) where
   type DTensorOf (Ast0 r) = AstDynamic r
-  dfromR r = AstDynamic [r]
+  dfromR r = AstDynamic r
 
 instance ShowAst r
          => DummyTensor (Ast0 r) where
-  ddummy = AstDynamic @0 []
+  ddummy = AstDynamic AstIota
   disDummy t = case t of
-    AstDynamic [] -> True
+    AstDynamic AstIota -> True
     _ -> False
   daddR :: forall n q. (KnownNat n, q ~ (Ast0 r))
         => TensorOf n q -> DTensorOf q -> DTensorOf q
-  daddR r (AstDynamic []) = AstDynamic [r]
-  daddR r (AstDynamic @n2 l) =
+  daddR r (AstDynamic AstIota) = AstDynamic r
+  daddR r (AstDynamic @n2 (AstSumOfList l)) =
     case sameNat (Proxy @n) (Proxy @n2) of
-      Just Refl -> AstDynamic (r : l)
+      Just Refl -> AstDynamic (AstSumOfList (r : l))
       _ -> error "daddR: type mismatch"
-  dshape t = case t of
-    AstDynamic [] -> []
-    AstDynamic (v : _) -> shapeToList $ shapeAst v
+  daddR r (AstDynamic @n2 v) =
+    case sameNat (Proxy @n) (Proxy @n2) of
+      Just Refl -> AstDynamic (AstSumOfList [r, v])
+      _ -> error "daddR: type mismatch"
+  dshape (AstDynamic v) = shapeToList $ shapeAst v
 
 astLetFun :: (KnownNat n, ShowAstSimplify r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
@@ -176,7 +177,6 @@ instance ShowAstSimplify r
     -- identifying AstPrimalPart 0 with primal part scalars lets us avoid
     -- adding a lot of constraints to ADReady
 
-  tsumOfList [w] = w
   tsumOfList l = AstPrimalPart . AstSumOfList . map unAstPrimalPart $ l
 
   type ScalarOf (AstPrimalPart 0 r) = r
@@ -234,7 +234,6 @@ instance ShowAstSimplify r
   tscalar = id
   tunScalar = id
 
-  tsumOfList [w] = w
   tsumOfList l = AstNoVectorize . AstSumOfList . map unAstNoVectorize $ l
 
   type ScalarOf (AstNoVectorize 0 r) = r

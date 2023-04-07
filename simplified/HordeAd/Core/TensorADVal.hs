@@ -200,7 +200,6 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
   tscalar = scalar
   tunScalar = unScalar
 
-  tsumOfList [w] = w
   tsumOfList l = dD (tsumOfList $ map (\(D u _) -> u) l)
                     (foldl1' dAdd $ map (\(D _ u') -> u') l)
 

@@ -112,7 +112,7 @@ funToAstD sh = unsafePerformIO $ do
     Just (SomeNat (_proxy :: Proxy p)) ->
       let shn = listShapeToShape @p sh
           varName = AstVarName @(OR.Array p r) freshId
-      in (AstDynamicVarName varName, AstDynamic [AstVar shn freshId])
+      in (AstDynamicVarName varName, AstDynamic (AstVar shn freshId))
     Nothing -> error "funToAstD: impossible someNatVal error"
 
 funToAstI :: (AstInt r -> t) -> (AstVarId, t)
@@ -743,12 +743,10 @@ flipCompare = unsafeCoerce Refl
 
 astFromDynamic :: forall n r. KnownNat n
                => AstDynamic r -> Ast n r
-astFromDynamic (AstDynamic []) = error "astFromDynamic: dummy"
-astFromDynamic (AstDynamic @n2 l) =
+astFromDynamic (AstDynamic AstIota) = error "astFromDynamic: dummy"
+astFromDynamic (AstDynamic @n2 v) =
   case sameNat (Proxy @n) (Proxy @n2) of
-    Just Refl -> case l of
-      [w] -> w
-      _ -> AstSumOfList l
+    Just Refl -> v
     _ -> error "astFromDynamic: different rank expected and uncovered"
 
 {-

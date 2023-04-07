@@ -323,9 +323,8 @@ interpretAstDynamic
   => AstEnv a -> AstMemo a
   -> AstDynamic (ScalarOf a) -> (AstMemo a, DTensorOf a)
 interpretAstDynamic env memo = \case
-  AstDynamic [] -> (memo, ddummy)
-  AstDynamic [w] -> second dfromR $ interpretAst env memo w
-  AstDynamic l -> second dfromR $ interpretAst env memo $ tsumOfList l
+  AstDynamic AstIota -> (memo, ddummy)
+  AstDynamic w -> second dfromR $ interpretAst env memo w
 
 interpretAstOp :: RealFloat a
                => OpCode -> [a] -> a
