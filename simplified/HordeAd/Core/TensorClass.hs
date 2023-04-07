@@ -5,7 +5,7 @@
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
-  ( IndexOf, ShapeInt, Tensor(..), DynamicTensor(..), ADReady
+  ( IndexOf, ShapeInt, Tensor(..), DynamicTensor(..), DummyTensor(..), ADReady
   ) where
 
 import Prelude
@@ -251,15 +251,16 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
 
  -- The untyped versions of the tensor, to put many ranks in one vector
 class DynamicTensor r where
-
   type DTensorOf r = result | result -> r
+  dfromR :: KnownNat n
+         => TensorOf n r -> DTensorOf r
+
+class DummyTensor r where
   ddummy :: DTensorOf r
   disDummy :: DTensorOf r -> Bool
   daddR :: forall n. KnownNat n
         => TensorOf n r -> DTensorOf r -> DTensorOf r
   dshape :: DTensorOf r -> [Int]
-  dfromR :: KnownNat n
-         => TensorOf n r -> DTensorOf r
 
 
 -- * The giga-constraint
@@ -361,11 +362,13 @@ instance Tensor Double where
 
 instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
+  dfromR = Data.Array.Convert.convert
+
+instance DummyTensor Double where
   ddummy = dummyTensor
   disDummy = isTensorDummy
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
-  dfromR = Data.Array.Convert.convert
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
@@ -414,11 +417,13 @@ instance Tensor Float where
 
 instance DynamicTensor Float where
   type DTensorOf Float = OD.Array Float
+  dfromR = Data.Array.Convert.convert
+
+instance DummyTensor Float where
   ddummy = dummyTensor
   disDummy = isTensorDummy
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
-  dfromR = Data.Array.Convert.convert
 
 {- These instances are increasingly breaking stuff, so disabled:
 

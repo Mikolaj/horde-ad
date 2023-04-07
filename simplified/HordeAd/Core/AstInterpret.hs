@@ -316,7 +316,7 @@ interpretAstBool env memo = \case
     in (memo2, interpretAstRelOp opCodeRel args2)
 
 interpretAstDynamic
-  :: Evidence a
+  :: (Evidence a, DummyTensor a)
   => AstEnv a -> AstMemo a
   -> AstDynamic (ScalarOf a) -> (AstMemo a, DTensorOf a)
 interpretAstDynamic env memo = \case
@@ -489,18 +489,6 @@ interpretAstRelOp opCodeRel args =
   :: AstEnv Float -> AstMemo Float
   -> AstBool Float -> (AstMemo Float, Bool) #-}
 
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal Double) -> AstMemo (ADVal Double)
-  -> AstDynamic Double -> (AstMemo (ADVal Double), DTensorOf (ADVal Double)) #-}
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal Float) -> AstMemo (ADVal Float)
-  -> AstDynamic Float -> (AstMemo (ADVal Float), DTensorOf (ADVal Float)) #-}
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
-  -> AstDynamic Double -> (AstMemo (ADVal (Ast0 Double)), DTensorOf (ADVal (Ast0 Double))) #-}
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
-  -> AstDynamic Float -> (AstMemo (ADVal (Ast0 Float)), DTensorOf (ADVal (Ast0 Float))) #-}
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv Double -> AstMemo Double
   -> AstDynamic Double -> (AstMemo Double, DTensorOf Double) #-}

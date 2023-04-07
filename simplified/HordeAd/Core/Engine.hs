@@ -74,7 +74,8 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 -- computed, only for testing.
 revAstOnDomains
   :: forall r n.
-     (ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r, ShowAstSimplify r)
+     ( ADTensor r, InterpretAst r, DummyTensor r
+     , KnownNat n, ScalarOf r ~ r, ShowAstSimplify r )
   => (ADInputs (Ast0 r) -> ADVal (Ast n r))
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
@@ -114,7 +115,8 @@ revAstOnDomainsFun dim0 shapes1 f =
 
 revAstOnDomainsEval
   :: forall r n.
-     (ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r, ShowAstSimplify r)
+     ( ADTensor r, InterpretAst r, DummyTensor r, KnownNat n, ScalarOf r ~ r
+     , ShowAstSimplify r )
   => Int -> Int
   -> ( AstVarName (OR.Array 1 r)
      , [AstDynamicVarName r]
@@ -148,7 +150,7 @@ revAstOnDomainsEval dim0 dim1
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
-  :: (Tensor r, DynamicTensor r, IsPrimalWithScalar a r)
+  :: (Tensor r, DynamicTensor r, DummyTensor r, IsPrimalWithScalar a r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> ADInputs r
@@ -169,7 +171,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: (ADTensor r, DynamicTensor r, IsPrimalWithScalar a r)
+  :: (ADTensor r, DynamicTensor r, DummyTensor r, IsPrimalWithScalar a r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -201,7 +203,8 @@ slowFwdOnADInputs inputs@ADInputs{..} f ds =
 
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
-  :: (ADTensor r, DynamicTensor r, Element a ~ r, ForwardDerivative a)
+  :: ( ADTensor r, DynamicTensor r, DummyTensor r, Element a ~ r
+     , ForwardDerivative a )
   => Domains r
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -215,7 +218,7 @@ slowFwdOnDomains parameters f ds =
 -- * Additional mechanisms
 
 prettyPrintDf
-  :: (ADTensor r, DynamicTensor r, Show (Dual r))
+  :: (ADTensor r, DummyTensor r, Show (Dual r))
   => (ADInputs r -> ADVal r)
   -> Domains r
   -> String
@@ -226,7 +229,7 @@ prettyPrintDf f parameters =
   in ppShow deltaTopLevel
 
 generateDeltaInputs
-  :: forall r. (ADTensor r, DynamicTensor r)
+  :: forall r. (ADTensor r, DummyTensor r)
   => Domains r
   -> ( Data.Vector.Vector (Dual r)
      , Data.Vector.Vector (Dual (DTensorOf r)) )

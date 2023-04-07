@@ -44,7 +44,7 @@ import HordeAd.Internal.TensorOps
 -- is possible, but the user has to write many more type applications.
 revL
   :: forall r n vals astvals.
-     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
+     ( ADTensor r, InterpretAst r, DummyTensor r, KnownNat n, ScalarOf r ~ r
      , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
@@ -53,7 +53,7 @@ revL f valsAll = revDtMaybeL f valsAll Nothing
 
 revDtMaybeL
   :: forall r n vals astvals.
-     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
+     ( ADTensor r, InterpretAst r, DummyTensor r, KnownNat n, ScalarOf r ~ r
      , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
@@ -87,7 +87,7 @@ revDtMaybeL f valsAll@(vals : _) dt =
 
 rev
   :: forall r n vals astvals.
-     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
+     ( ADTensor r, InterpretAst r, DummyTensor r, KnownNat n, ScalarOf r ~ r
      , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
@@ -97,7 +97,7 @@ rev f vals = head $ revL f [vals]
 -- This version additionally takes the sensitivity parameter.
 revDt
   :: forall r n vals astvals.
-     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
+     ( ADTensor r, InterpretAst r, DummyTensor r, KnownNat n, ScalarOf r ~ r
      , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
@@ -107,7 +107,7 @@ revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 -- Versions that work with scalar codomain.
 srevL
   :: forall r vals astvals.
-     ( ADTensor r, InterpretAst r, ScalarOf r ~ r
+     ( ADTensor r, InterpretAst r, DummyTensor r, ScalarOf r ~ r
      , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
@@ -116,7 +116,7 @@ srevL f = revL (tscalar . f)
 
 srevDtMaybeL
   :: forall r vals astvals.
-     ( ADTensor r, InterpretAst r, ScalarOf r ~ r
+     ( ADTensor r, InterpretAst r, DummyTensor r, ScalarOf r ~ r
      , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
@@ -126,7 +126,7 @@ srevDtMaybeL f valsAll dt = revDtMaybeL (tscalar . f) valsAll (tscalar <$> dt)
 
 srev
   :: forall r vals astvals.
-     ( ADTensor r, InterpretAst r, ScalarOf r ~ r
+     ( ADTensor r, InterpretAst r, DummyTensor r, ScalarOf r ~ r
      , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
@@ -136,7 +136,7 @@ srev f = rev (tscalar . f)
 -- This version additionally takes the sensitivity parameter.
 srevDt
   :: forall r vals astvals.
-     ( ADTensor r, InterpretAst r, ScalarOf r ~ r
+     ( ADTensor r, InterpretAst r, DummyTensor r, ScalarOf r ~ r
      , Floating (Vector r), ShowAst r, RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
@@ -146,7 +146,7 @@ srevDt f vals dt = revDt (tscalar . f) vals (tscalar dt)
 -- Old version of the three functions, with constant, fixed inputs and dt.
 crev :: forall a vals r advals.
        ( r ~ Scalar vals, vals ~ Value advals
-       , ADTensor r, DynamicTensor r, IsPrimalWithScalar a r
+       , ADTensor r, DynamicTensor r, DummyTensor r, IsPrimalWithScalar a r
        , Adaptable advals )
     => (advals -> ADVal a) -> vals
     -> vals
@@ -155,7 +155,7 @@ crev f vals = crevDtMaybe f vals Nothing
 -- This version additionally takes the sensitivity parameter.
 crevDt :: forall a vals r advals.
          ( r ~ Scalar vals, vals ~ Value advals
-         , ADTensor r, DynamicTensor r, IsPrimalWithScalar a r
+         , ADTensor r, DynamicTensor r, DummyTensor r, IsPrimalWithScalar a r
          , Adaptable advals )
       => (advals -> ADVal a) -> vals -> a
       -> vals
@@ -163,7 +163,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe :: forall a vals r advals.
             ( r ~ Scalar vals, vals ~ Value advals
-            , ADTensor r, DynamicTensor r, IsPrimalWithScalar a r
+            , ADTensor r, DynamicTensor r, DummyTensor r, IsPrimalWithScalar a r
             , Adaptable advals )
          => (advals -> ADVal a) -> vals -> Maybe a
          -> vals
@@ -174,7 +174,7 @@ crevDtMaybe f vals dt =
 -- This takes the sensitivity parameter, by convention.
 fwd :: forall a vals r advals.
        ( ForwardDerivative a, r ~ Scalar vals, vals ~ Value advals
-       , ADTensor r, DynamicTensor r, IsPrimalWithScalar a r
+       , ADTensor r, DynamicTensor r, DummyTensor r, IsPrimalWithScalar a r
        , Adaptable advals )
     => (advals -> ADVal a) -> vals -> vals
     -> a
@@ -328,7 +328,7 @@ instance (Tensor r, ShowAstSimplify r, KnownNat n, TensorOf n r ~ OR.Array n r)
     Just (a, rest) -> (ttoRankedOrDummy (tshape aInit) a, Domains v0 rest)
     Nothing -> error "fromDomainsAst in FromDomainsAst (OR.Array n r)"
 
-ttoRankedOrDummy :: (Tensor r, DynamicTensor r, KnownNat n)
+ttoRankedOrDummy :: (Tensor r, DummyTensor r, KnownNat n)
                  => ShapeInt n -> DTensorOf r -> TensorOf n r
 ttoRankedOrDummy sh x = if disDummy x
                         then tzero sh

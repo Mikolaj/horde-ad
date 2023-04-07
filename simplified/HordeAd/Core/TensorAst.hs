@@ -72,9 +72,12 @@ instance ShowAstSimplify r
   tlet0 = astLet0Fun
   tletR = astLetRFun
 
-instance ShowAstSimplify r
-         => DynamicTensor (Ast0 r) where
+instance DynamicTensor (Ast0 r) where
   type DTensorOf (Ast0 r) = AstDynamic r
+  dfromR r = AstDynamic [r]
+
+instance ShowAst r
+         => DummyTensor (Ast0 r) where
   ddummy = AstDynamic @0 []
   disDummy t = case t of
     AstDynamic [] -> True
@@ -89,7 +92,6 @@ instance ShowAstSimplify r
   dshape t = case t of
     AstDynamic [] -> []
     AstDynamic (v : _) -> shapeToList $ shapeAst v
-  dfromR r = AstDynamic [r]
 
 astLetFun :: (KnownNat n, ShowAstSimplify r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
