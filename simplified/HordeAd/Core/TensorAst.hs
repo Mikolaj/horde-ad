@@ -12,6 +12,7 @@ import Prelude
 
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Proxy (Proxy (Proxy))
+import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
@@ -69,10 +70,12 @@ instance ShowAstSimplify r
   tdualPart = AstDualPart
   tD = AstD
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
-  tfromD = astFromDynamic
 
   tlet0 = astLet0Fun
   tletR = astLetRFun
+
+  tfromD = astFromDynamic
+  tletVectorOfDynamic a f = astLetVectorOfDynamicFun a f
 
 instance DynamicTensor (Ast0 r) where
   type DTensorOf (Ast0 r) = AstDynamic r
@@ -104,6 +107,19 @@ astLetFun a f =
   let sh = tshape a
       (AstVarName var, ast) = funToAstR sh f
   in AstLet var a ast
+
+astLetVectorOfDynamicFun
+  :: ShowAstSimplify r
+  => Data.Vector.Vector (AstDynamic r)
+  -> (Data.Vector.Vector (AstDynamic r) -> Ast m r)
+  -> Ast m r
+astLetVectorOfDynamicFun a f =
+  let genVar (AstDynamic t) =
+        let sh = tshape t
+            (AstVarName var, ast) = funToAstR sh id
+        in (var, AstDynamic ast)
+      (vars, asts) = V.unzip $ V.map genVar a
+  in AstLetVectorOfDynamic vars a (f asts)
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -189,10 +205,12 @@ instance ShowAstSimplify r
   tdualPart _ = ()
   tD u _ = u
   tScale _ _ = ()
-  tfromD = undefined
 
   tlet0 = AstPrimalPart . astLetRFun . unAstPrimalPart
   tletR = AstPrimalPart . astLetRFun . unAstPrimalPart
+
+  tfromD = undefined
+  tletVectorOfDynamic = undefined
 
 instance ShowAstSimplify r
          => Tensor (AstNoVectorize 0 r) where
@@ -246,8 +264,9 @@ instance ShowAstSimplify r
   tdualPart = AstDualPart . unAstNoVectorize
   tD u u' = AstNoVectorize $ AstD (AstPrimalPart $ unAstNoVectorize u) u'
   tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
-  -- TODO: if ever used, define, if not, use an Error type
-  tfromD = undefined
 
   tlet0 = AstNoVectorize . astLetRFun . unAstNoVectorize
   tletR = AstNoVectorize . astLetRFun . unAstNoVectorize
+
+  tfromD = undefined
+  tletVectorOfDynamic = undefined

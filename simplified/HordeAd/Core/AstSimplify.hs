@@ -235,6 +235,7 @@ simplifyStepNonIndex t = case t of
   AstConst{} -> t
   AstConstant v -> astConstant v
   AstD{} -> t
+  AstLetVectorOfDynamic{} -> t
 
 astIndexZ
   :: forall m n r.
@@ -363,6 +364,8 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstD (AstPrimalPart u) (AstDualPart u') ->
     AstD (AstPrimalPart $ astIndexRec u ix)
          (AstDualPart $ astIndexRec u' ix)
+  AstLetVectorOfDynamic vars l v ->
+    AstLetVectorOfDynamic vars l (astIndexRec v ix)
 
 astSum :: (KnownNat n, ShowAstSimplify r)
        => Ast (1 + n) r -> Ast n r
@@ -721,6 +724,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     AstD (AstPrimalPart u) (AstDualPart u') ->
       AstD (AstPrimalPart $ astGatherRec sh4 u (vars4, ix4))
            (AstDualPart $ astGatherRec sh4 u' (vars4, ix4))
+    AstLetVectorOfDynamic vars l v ->
+      AstLetVectorOfDynamic vars l (astGatherCase sh4 v (vars4, ix4))
 
 gatherFromNF :: forall m p r. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) r -> Bool
@@ -898,6 +903,9 @@ simplifyAst t = case t of
   AstConstant v -> astConstant (simplifyAstPrimal v)
   AstD u (AstDualPart u') -> AstD (simplifyAstPrimal u)
                                   (AstDualPart $ simplifyAst u')
+  AstLetVectorOfDynamic vars l v ->
+    let simp (AstDynamic u) = AstDynamic $ simplifyAst u
+    in AstLetVectorOfDynamic vars (V.map simp l) (simplifyAst v)
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether

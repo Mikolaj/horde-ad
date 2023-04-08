@@ -110,6 +110,11 @@ data Ast :: Nat -> Type -> Type where
   AstConst :: OR.Array n r -> Ast n r
   AstConstant :: AstPrimalPart n r -> Ast n r
   AstD :: AstPrimalPart n r -> AstDualPart n r -> Ast n r
+  AstLetVectorOfDynamic
+    :: Data.Vector.Vector AstVarId
+    -> Data.Vector.Vector (AstDynamic r)
+    -> Ast m r
+    -> Ast m r
 deriving instance ShowAst r => Show (Ast n r)
 
 newtype AstNoVectorize n r = AstNoVectorize {unAstNoVectorize :: Ast n r}
@@ -516,6 +521,7 @@ shapeAst v1 = case v1 of
   AstConst a -> listShapeToShape $ OR.shapeL a
   AstConstant (AstPrimalPart a) -> shapeAst a
   AstD (AstPrimalPart u) _ -> shapeAst u
+  AstLetVectorOfDynamic _ _ v -> shapeAst v
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, ShowAst r) => Ast (1 + n) r -> Int
@@ -553,6 +559,9 @@ intVarInAst var = \case
   AstConstant (AstPrimalPart v) -> intVarInAst var v
   AstD (AstPrimalPart u) (AstDualPart u') ->
     intVarInAst var u || intVarInAst var u'
+  AstLetVectorOfDynamic vars l v ->
+    notElem var vars && any (\(AstDynamic t) -> intVarInAst var t) l
+    || intVarInAst var v
 
 intVarInAstInt :: AstVarId -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -632,6 +641,11 @@ substitute1Ast i var v1 = case v1 of
   AstD (AstPrimalPart u) (AstDualPart u') ->
     AstD (AstPrimalPart $ substitute1Ast i var u)
          (AstDualPart $ substitute1Ast i var u')
+  AstLetVectorOfDynamic vars l v ->
+    let subst (AstDynamic t) = AstDynamic $ substitute1Ast i var t
+    in if elem var vars
+       then AstLetVectorOfDynamic vars (V.map subst l) v
+       else AstLetVectorOfDynamic vars (V.map subst l) (substitute1Ast i var v)
 
 substitute1AstInt :: forall m r. (ShowAst r, KnownNat m)
                   => Either (Ast m r) (AstInt r) -> AstVarId -> AstInt r

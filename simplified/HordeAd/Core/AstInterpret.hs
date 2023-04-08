@@ -280,6 +280,13 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     let (memo1, t1) = interpretAstPrimal env memo u
         (memo2, t2) = second tdualPart $ interpretAst env memo1 u'
     in (memo2, tD t1 t2)
+  AstLetVectorOfDynamic vars l v ->
+    let (memo2, l2) = mapAccumR (\memo1 (AstDynamic t) ->
+                                   second dfromR $ interpretAst env memo1 t)
+                                memo l
+        env2 = V.foldr (\(var, d) -> EM.insert var (AstVarR d))
+                       env (V.zip vars l2)
+    in interpretAst env2 memo2 v
 
 interpretAstInt :: Evidence a
                 => AstEnv a -> AstMemo a

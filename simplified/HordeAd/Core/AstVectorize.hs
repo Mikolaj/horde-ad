@@ -150,6 +150,18 @@ build1V k (var, v00) =
     AstD (AstPrimalPart u) (AstDualPart u') ->
       AstD (AstPrimalPart $ build1VOccurenceUnknown k (var, u))
            (AstDualPart $ build1VOccurenceUnknown k (var, u'))
+    AstLetVectorOfDynamic vars l v ->
+      -- Here substitution traverses @v@ term tree @length vars@ times.
+      let vect (AstDynamic u) = AstDynamic $ build1VOccurenceUnknown k (var, u)
+          subst (var1, AstDynamic u1) =
+            let sh = shapeAst u1
+                projection = AstIndexZ (AstVar (k :$ sh) var1)
+                                       (AstIntVar var :. ZI)
+            in substitute1Ast (Left projection) var1
+          v2 = V.foldr subst v (V.zip vars l)
+            -- we use the substitution that does not simplify
+      in AstLetVectorOfDynamic
+           vars (V.map vect l) (build1VOccurenceUnknown k (var, v2))
 
 -- | The application @build1VIndex k (var, v, ix)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ v ix)@, where it's unknown whether
