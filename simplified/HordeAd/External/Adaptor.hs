@@ -228,7 +228,7 @@ parseDomains aInit domains =
   let (vals, rest) = fromDomains aInit domains
   in assert (nullDomains rest) vals
 
-parseADInputs :: (AdaptableInputs r advals, Tensor r)
+parseADInputs :: (AdaptableInputs r advals, Tensor r, DynamicTensor r)
               => Value advals -> ADInputs r
               -> advals
 parseADInputs aInit inputs =
@@ -335,7 +335,7 @@ ttoRankedOrDummy sh x = if disDummy x
                         then tzero sh
                         else tfromD x
 
-instance ( Numeric r, KnownNat n, Tensor r, DummyTensor r
+instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DummyTensor r
          , TensorOf n r ~ OR.Array n r, DTensorOf r ~ OD.Array r )
          => AdaptableDomains (OR.Array n r) where
   type Scalar (OR.Array n r) = r
@@ -394,7 +394,7 @@ instance FromDomainsAst a
         (l, restAll) = foldl' f ([], source) lInit
     in (reverse l, restAll)
 
-instance AdaptableDomains a
+instance (AdaptableDomains a, DynamicTensor (Scalar a))
          => AdaptableDomains [a] where
   type Scalar [a] = Scalar a
   toDomains l =
@@ -432,7 +432,8 @@ instance ( r ~ Scalar (ValueAst a), r ~ Scalar (ValueAst b)
         (b, bRest) = fromDomainsAst bInit aRest
     in ((a, b), bRest)
 
-instance ( r ~ Scalar a, r ~ Scalar b
+instance ( DynamicTensor r
+         , r ~ Scalar a, r ~ Scalar b
          , AdaptableDomains a
          , AdaptableDomains b ) => AdaptableDomains (a, b) where
   type Scalar (a, b) = Scalar a
@@ -468,7 +469,8 @@ instance ( r ~ Scalar (ValueAst a), r ~ Scalar (ValueAst b)
         (c, rest) = fromDomainsAst cInit bRest
     in ((a, b, c), rest)
 
-instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
+instance ( DynamicTensor r
+         , r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
          , AdaptableDomains a
          , AdaptableDomains b
          , AdaptableDomains c ) => AdaptableDomains (a, b, c) where
@@ -512,7 +514,8 @@ instance ( r ~ Scalar (ValueAst a), r ~ Scalar (ValueAst b)
         (d, rest) = fromDomainsAst dInit cRest
     in ((a, b, c, d), rest)
 
-instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
+instance ( DynamicTensor r
+         , r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
          , AdaptableDomains a
          , AdaptableDomains b
          , AdaptableDomains c
@@ -621,7 +624,7 @@ instance FromDomainsAst a
     Just a -> let (a2, rest) = fromDomainsAst a source
               in (Just a2, rest)
 
-instance AdaptableDomains a
+instance (AdaptableDomains a, DynamicTensor (Scalar a))
          => AdaptableDomains (Maybe a) where
   type Scalar (Maybe a) = Scalar a
   toDomains e = case e of

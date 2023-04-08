@@ -524,7 +524,6 @@ library horde-ad-simplified
         assert-failure
       , base >= 4.14 && < 99
       , Boolean
-      , deepseq
       , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise

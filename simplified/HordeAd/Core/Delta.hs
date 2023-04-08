@@ -46,7 +46,6 @@ module HordeAd.Core.Delta
 
 import Prelude
 
-import           Control.DeepSeq (NFData)
 import           Control.Exception.Assert.Sugar
 import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
@@ -63,7 +62,6 @@ import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.Generics (Generic)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Text.Show.Functions ()
@@ -286,27 +284,22 @@ type Domain0 r = TensorOf 1 r
 -- to prevent frequent linearization of the tensors (e.g., after transpose).
 type DomainR r = Data.Vector.Vector (DTensorOf r)
 
-data Domains r = Domains
-  { domains0 :: Domain0 r
-  , domainsR :: DomainR r
-  }
-  deriving Generic
+type Domains r = Data.Vector.Vector (DTensorOf r)
 
-mkDomains :: Domain0 r -> DomainR r -> Domains r
-mkDomains = Domains
+domains0 :: Tensor r => Domains r -> Domain0 r
+domains0 v = tfromD $ v V.! 0
 
-deriving instance (Show (TensorOf 1 r), Show (DTensorOf r))
-                  => Show (Domains r)
+domainsR :: Domains r -> DomainR r
+domainsR v = V.slice 1 (V.length v - 1) v
 
-deriving instance (NFData (TensorOf 1 r), NFData (DTensorOf r))
-                  => NFData (Domains r)
+mkDomains :: DynamicTensor r => Domain0 r -> DomainR r -> Domains r
+mkDomains t = V.cons (dfromR t)
 
 emptyDomain0 :: Tensor r => Domain0 r
 emptyDomain0 = tzero (singletonShape 0)
 
 nullDomains :: Tensor r => Domains r -> Bool
-nullDomains Domains{..} =
-  tlength domains0 == 0 && V.null domainsR
+nullDomains params = tlength (domains0 params) == 0 && V.null (domainsR params)
 
 -- | The main input of the differentiation functions:
 -- the delta expression to be differentiated and the dt perturbation
@@ -442,8 +435,8 @@ gradientFromDelta dim0 dimR deltaDt =
   in let EvalState{iMap0, iMapR} = buildFinMaps s0 deltaDt
 
      -- Extract results.
-     in Domains (tfromList0N (singletonShape dim0) (EM.elems iMap0))
-                (V.fromList $ EM.elems iMapR)
+     in mkDomains (tfromList0N (singletonShape dim0) (EM.elems iMap0))
+                  (V.fromList $ EM.elems iMapR)
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> DeltaDt Double -> Domains Double #-}
 {-# SPECIALIZE gradientFromDelta
@@ -717,7 +710,7 @@ buildDerivative
   :: forall s r. (Tensor r, DynamicTensor r)
   => Int -> Int -> DeltaDt r -> Domains r
   -> ST s (DeltaDt r)
-buildDerivative dim0 dimR deltaDt Domains{..} = do
+buildDerivative dim0 dimR deltaDt params = do
   dMap0 <- newSTRef EM.empty
   dMapR <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
@@ -727,7 +720,7 @@ buildDerivative dim0 dimR deltaDt Domains{..} = do
         Input0 (InputId i) ->
           if i < dim0
           then return $! tunScalar
-                         $ domains0 ! singletonIndex (fromIntegral i)
+                         $ (domains0 params) ! singletonIndex (fromIntegral i)
           else error "derivativeFromDelta.eval': wrong index for an input"
         Scale0 k d -> (k *) <$> eval0 d
         Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)
@@ -766,7 +759,7 @@ buildDerivative dim0 dimR deltaDt Domains{..} = do
           -- or simplification of delta terms
         InputR (InputId i) ->
           if i < dimR
-          then return $! tfromD $ domainsR V.! i
+          then return $! tfromD $ (domainsR params) V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
         ScaleR _ ZeroR -> evalR ZeroR
         ScaleR k d -> tmult k <$> evalR d

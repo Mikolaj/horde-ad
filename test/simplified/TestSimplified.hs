@@ -63,16 +63,19 @@ at1 :: forall n r. ( KnownNat n, ADTensor r, IsPrimal (TensorOf n r)
 at1 ADInputs{..} i = dD (tfromD $ inputPrimal1 V.! i)
                         (dFromD $ inputDual1 V.! i)
 
-domainsFrom01 :: (Numeric r, Tensor r) => Vector r -> DomainR r -> Domains r
+domainsFrom01 :: (Numeric r, Tensor r, DynamicTensor r)
+              => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 =
   mkDomains (tfromList0N (singletonShape (V.length v0)) (V.toList v0))
 
-domainsFrom0V :: (Numeric r, DTensorOf r ~ OD.Array r, Tensor r)
-              => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
+domainsFrom0V
+  :: (Numeric r, DTensorOf r ~ OD.Array r, Tensor r, DynamicTensor r)
+  => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
   domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
-domainsD0 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r) => Domains r -> Vector r
+domainsD0 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r, Tensor r)
+          => Domains r -> Vector r
 domainsD0 = OR.toVector . domains0
 
 

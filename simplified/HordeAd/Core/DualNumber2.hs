@@ -192,21 +192,21 @@ foldlDual' f a Engine.ADInputs{..} = do
         in f acc b
   V.ifoldl' g a $ OR.toVector inputPrimal0
 
-domainsFromD01 :: Domain0 r -> DomainR r -> Domains r
+domainsFromD01 :: DynamicTensor r => Domain0 r -> DomainR r -> Domains r
 domainsFromD01 = mkDomains
 
-domainsFrom01 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r)
+domainsFrom01 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r, DynamicTensor r)
               => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 = mkDomains (OR.fromVector [V.length v0] v0)
 
 domainsFrom0V :: ( Numeric r, DTensorOf r ~ OD.Array r
-                 , TensorOf 1 r ~ OR.Array 1 r )
+                 , TensorOf 1 r ~ OR.Array 1 r, DynamicTensor r )
               => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
   domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
 listsToParameters :: ( Numeric r, DTensorOf r ~ OD.Array r
-                     , TensorOf 1 r ~ OR.Array 1 r )
+                     , TensorOf 1 r ~ OR.Array 1 r, DynamicTensor r )
                   => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
   domainsFrom0V (V.fromList a0) (V.singleton (V.fromList a1))
@@ -214,7 +214,8 @@ listsToParameters (a0, a1) =
 listsToParameters4 :: ([Double], [Double], [Double], [Double]) -> Domains Double
 listsToParameters4 (a0, a1, _a2, _aX) = listsToParameters (a0, a1)
 
-domainsD0 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r) => Domains r -> Vector r
+domainsD0 :: Tensor r
+          => (Numeric r, TensorOf 1 r ~ OR.Array 1 r) => Domains r -> Vector r
 domainsD0 = OR.toVector . domains0
 
 -- * Auxiliary definitions
@@ -268,7 +269,7 @@ multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 
 addParameters :: ( Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r
-                 , Num (TensorOf 1 r) )
+                 , Tensor r, DynamicTensor r)
               => Domains r -> Domains r -> Domains r
 addParameters paramsA paramsB =
   mkDomains (domains0 paramsA + domains0 paramsB)
@@ -276,7 +277,8 @@ addParameters paramsA paramsB =
 
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters
-  :: (Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r)
+  :: Tensor r
+  => (Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r)
   => Domains r -> Domains r -> r
 dotParameters paramsA paramsB =
   domains0 paramsA `tdot0R` domains0 paramsB

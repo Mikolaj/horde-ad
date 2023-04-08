@@ -50,7 +50,8 @@ data ADInputs r = ADInputs
   }
 
 makeADInputs
-  :: Domains r
+  :: Tensor r
+  => Domains r
   -> ( Data.Vector.Vector (Dual r)
      , Data.Vector.Vector (Dual (DTensorOf r)) )
   -> ADInputs r
@@ -58,11 +59,11 @@ makeADInputs
 makeADInputs params (vs0, vs1)
   = ADInputs (domains0 params) vs0 (domainsR params) vs1
 
-inputsToDomains :: ADInputs r -> Domains r
+inputsToDomains :: DynamicTensor r => ADInputs r -> Domains r
 inputsToDomains ADInputs{..} =
   mkDomains inputPrimal0 inputPrimal1
 
-nullADInputs :: Tensor r => ADInputs r -> Bool
+nullADInputs :: (Tensor r, DynamicTensor r) => ADInputs r -> Bool
 nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 
 
@@ -264,8 +265,8 @@ initializerFixed seed range (nParams0, lParams1, _, _) =
       createRandomVector n seedV =
         LA.scale (2 * range)
         $ LA.randomVector seedV LA.Uniform n - LA.scalar 0.5
-      domains0 = OR.fromVector [nParams0] $ createRandomVector nParams0 seed
-      domainsR =
+      dom0 = OR.fromVector [nParams0] $ createRandomVector nParams0 seed
+      domR =
         V.imap (\i sz ->
                   OD.fromVector [sz]
                   $ createRandomVector sz (seed + sz + i)) vParams1
@@ -274,7 +275,7 @@ initializerFixed seed range (nParams0, lParams1, _, _) =
   in ( (nParams0, V.length vParams1)
      , totalParams
      , range
-     , mkDomains domains0 domainsR )
+     , mkDomains dom0 domR )
 
 initializerFixed01 :: Int -> Double -> (Int, [Int])
                    -> ((Int, Int), Int, Double, Domains Double)
