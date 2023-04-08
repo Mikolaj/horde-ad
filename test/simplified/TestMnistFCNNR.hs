@@ -117,7 +117,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
              !res <- foldM runBatch params chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (Domains emptyR params1Init)
+       res <- runEpoch 1 (mkDomains emptyR params1Init)
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
@@ -153,7 +153,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                           - LA.scalar 0.5)
              nParams1
       emptyR = OR.fromList [0] []
-      domainsInit = Domains emptyR params1Init
+      domainsInit = mkDomains emptyR params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -184,7 +184,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let shapes1 = map (: []) nParams1
            (vars1, asts1) = unzip $ map funToAstD shapes1
-           doms = Domains (AstConst emptyR) (V.fromList asts1)
+           doms = mkDomains (AstConst emptyR) (V.fromList asts1)
            (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
@@ -266,7 +266,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                           - LA.scalar 0.5)
              nParams1
       emptyR = OR.fromList [0] []
-      domainsInit = Domains emptyR params1Init
+      domainsInit = mkDomains emptyR params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -297,7 +297,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let shapes1 = map (: []) nParams1
            (vars1, asts1) = unzip $ map funToAstD shapes1
-           doms = Domains (AstConst emptyR) (V.fromList asts1)
+           doms = mkDomains (AstConst emptyR) (V.fromList asts1)
            (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
@@ -340,7 +340,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                  (_memo1, l1) = mapAccumR fd EM.empty
                                           (V.toList $ domainsR gradientAst)
 
-                 gradients = Domains emptyR (V.fromList l1)
+                 gradients = mkDomains emptyR (V.fromList l1)
              in go rest (updateWithGradient gamma parameters gradients)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.

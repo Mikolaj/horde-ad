@@ -55,12 +55,12 @@ makeADInputs
      , Data.Vector.Vector (Dual (DTensorOf r)) )
   -> ADInputs r
 {-# INLINE makeADInputs #-}
-makeADInputs Domains{..} (vs0, vs1)
-  = ADInputs domains0 vs0 domainsR vs1
+makeADInputs params (vs0, vs1)
+  = ADInputs (domains0 params) vs0 (domainsR params) vs1
 
 inputsToDomains :: ADInputs r -> Domains r
 inputsToDomains ADInputs{..} =
-  Domains inputPrimal0 inputPrimal1
+  mkDomains inputPrimal0 inputPrimal1
 
 nullADInputs :: Tensor r => ADInputs r -> Bool
 nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
@@ -102,7 +102,7 @@ revAstOnDomainsFun
 revAstOnDomainsFun dim0 shapes1 f =
   let (var0, ast0) = funToAstR (singletonShape dim0) id
       (vars1, asts1) = unzip $ map funToAstD shapes1
-      domains = Domains ast0 (V.fromList asts1)
+      domains = mkDomains ast0 (V.fromList asts1)
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
@@ -144,7 +144,7 @@ revAstOnDomainsEval dim0 dim1
       (memo1, l1) = mapAccumR fd memo0 (V.toList $ domainsR gradientAst)
         -- TODO: emulate mapAccumR on vectors
       (_memo2, v2) = interpretAst env1 memo1 vAst
-      gradientDomain = Domains d0 (V.fromList l1)
+      gradientDomain = mkDomains d0 (V.fromList l1)
   in (gradientDomain, v2)
 
 -- The old versions that use the fixed input and dt to compute gradient
@@ -233,14 +233,14 @@ generateDeltaInputs
   => Domains r
   -> ( Data.Vector.Vector (Dual r)
      , Data.Vector.Vector (Dual (DTensorOf r)) )
-generateDeltaInputs Domains{..} =
+generateDeltaInputs params =
   let arrayToInput :: Int -> DTensorOf r -> Dual (DTensorOf r)
       arrayToInput i t = case someNatVal $ toInteger $ length $ dshape t of
         Just (SomeNat (_ :: Proxy n)) ->
           dFromR $ dInputR @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
-      !v0 = V.generate (tlength domains0) (dInput0 . toInputId)
-      !v1 = V.imap arrayToInput domainsR
+      !v0 = V.generate (tlength $ domains0 params) (dInput0 . toInputId)
+      !v1 = V.imap arrayToInput (domainsR params)
   in (v0, v1)
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
@@ -274,7 +274,7 @@ initializerFixed seed range (nParams0, lParams1, _, _) =
   in ( (nParams0, V.length vParams1)
      , totalParams
      , range
-     , Domains{..} )
+     , mkDomains domains0 domainsR )
 
 initializerFixed01 :: Int -> Double -> (Int, [Int])
                    -> ((Int, Int), Int, Double, Domains Double)

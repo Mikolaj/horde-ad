@@ -17,7 +17,7 @@ import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
-import HordeAd.Core.Delta (Domains (..))
+import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2, liftVT2)
 import HordeAd.Internal.TensorOps (isTensorDummy)
@@ -26,15 +26,18 @@ updateWithGradient
   :: ( Numeric r, Floating (Vector r)
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r )
   => r -> Domains r -> Domains r -> Domains r
-updateWithGradient gamma (Domains params0 paramsR)
-                         (Domains gradient0 gradientR) =
-  let updateVector i r = i - LA.scale gamma r
+updateWithGradient gamma params gradient =
+  let params0 = domains0 params
+      paramsR = domainsR params
+      gradient0 = domains0 gradient
+      gradientR = domainsR gradient
+      updateVector i r = i - LA.scale gamma r
       !params0New = liftVR2 updateVector params0 gradient0
       updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVT2 updateVector i r
       !paramsRNew = V.zipWith updateR paramsR gradientR
-  in Domains params0New paramsRNew
+  in mkDomains params0New paramsRNew
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
 
 {-
@@ -83,13 +86,13 @@ data StateAdam r = StateAdam
 zeroParameters
   :: (Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r)
   => Domains r -> Domains r
-zeroParameters Domains{..} =
+zeroParameters params =
   let zeroVector v = runST $ do
         vThawed <- V.thaw v
         VM.set vThawed 0
         V.unsafeFreeze vThawed
-  in Domains (liftVR zeroVector domains0)
-             (V.map (\a -> OD.constant (OD.shapeL a) 0) domainsR)
+  in mkDomains (liftVR zeroVector (domains0 params))
+               (V.map (\a -> OD.constant (OD.shapeL a) 0) (domainsR params))
 
 initialStateAdam
   :: (Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r)
@@ -131,14 +134,17 @@ updateWithGradientAdam
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r )
   => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
   -> (Domains r, StateAdam r)
-updateWithGradientAdam ArgsAdam{..}
-                       StateAdam{ tAdam
-                                , mAdam = Domains mAdam0 mAdamR
-                                , vAdam = Domains vAdam0 vAdamR
-                                }
-                       (Domains params0 paramsR)
-                       (Domains gradient0 gradientR) =
-  let tAdamNew = tAdam + 1
+updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
+                       params gradient =
+  let mAdam0 = domains0 mAdam
+      mAdamR = domainsR mAdam
+      vAdam0 = domains0 vAdam
+      vAdamR = domainsR vAdam
+      params0 = domains0 params
+      paramsR = domainsR params
+      gradient0 = domains0 gradient
+      gradientR = domainsR gradient
+      tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
       updateVector :: Vector r -> Vector r
@@ -162,12 +168,12 @@ updateWithGradientAdam ArgsAdam{..}
                           else liftArray43 updateVector mA vA p g
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         V.unzip3 $ V.zipWith4 updateR mAdamR vAdamR paramsR gradientR
-  in ( Domains (OR.fromVector [V.length params0New] params0New) paramsRNew
+  in ( mkDomains (OR.fromVector [V.length params0New] params0New) paramsRNew
      , StateAdam
          { tAdam = tAdamNew
-         , mAdam = Domains (OR.fromVector [V.length mAdam0New] mAdam0New)
-                           mAdamRNew
-         , vAdam = Domains (OR.fromVector [V.length vAdam0New] vAdam0New)
-                           vAdamRNew
+         , mAdam = mkDomains (OR.fromVector [V.length mAdam0New] mAdam0New)
+                             mAdamRNew
+         , vAdam = mkDomains (OR.fromVector [V.length vAdam0New] vAdam0New)
+                             vAdamRNew
          }
      )

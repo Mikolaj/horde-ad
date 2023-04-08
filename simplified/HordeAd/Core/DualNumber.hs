@@ -11,7 +11,8 @@ module HordeAd.Core.DualNumber
 --  , addParameters, dotParameters
   , -- * Re-exports
     IsPrimal (..), IsPrimalWithScalar
-  , Domain0, DomainR, Domains(..), emptyDomain0, nullDomains
+  , Domain0, DomainR, Domains
+  , domains0, domainsR, mkDomains, emptyDomain0, nullDomains
   , ADNum
   ) where
 
@@ -26,7 +27,15 @@ import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Delta
-  (Domain0, DomainR, Domains (..), emptyDomain0, nullDomains)
+  ( Domain0
+  , DomainR
+  , Domains
+  , domains0
+  , domainsR
+  , emptyDomain0
+  , mkDomains
+  , nullDomains
+  )
 import HordeAd.Core.DualClass
 import HordeAd.Core.TensorClass
 

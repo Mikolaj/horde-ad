@@ -65,7 +65,7 @@ at1 ADInputs{..} i = dD (tfromD $ inputPrimal1 V.! i)
 
 domainsFrom01 :: (Numeric r, Tensor r) => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 =
-  Domains (tfromList0N (singletonShape (V.length v0)) (V.toList v0))
+  mkDomains (tfromList0N (singletonShape (V.length v0)) (V.toList v0))
 
 domainsFrom0V :: (Numeric r, DTensorOf r ~ OD.Array r, Tensor r)
               => Vector r -> Data.Vector.Vector (Vector r) -> Domains r

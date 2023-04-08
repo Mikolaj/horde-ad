@@ -18,7 +18,9 @@ module HordeAd.Core.DualNumber2
   , -- * Re-exports
     ADMode(..)
   , IsPrimal, IsPrimalWithScalar, IsPrimalAndHasFeatures, IsPrimalAndHasInputs
-  , Domain0, DomainR, Domain1, domains1, Domains(..), emptyDomain0, nullDomains
+  , Domain0, DomainR, Domains
+  , domains0, domainsR, mkDomains, emptyDomain0, nullDomains
+  , Domain1, domains1
   , ADInputs
   , at0, at1, ifoldlDual', foldlDual'
   , domainsFromD01, domainsFrom01, domainsFrom0V
@@ -43,9 +45,12 @@ import           HordeAd.Core.Delta
   ( Delta0
   , Domain0
   , DomainR
-  , Domains (..)
+  , Domains
   , ForwardDerivative
+  , domains0
+  , domainsR
   , emptyDomain0
+  , mkDomains
   , nullDomains
   )
 import           HordeAd.Core.DualClass hiding (IsPrimal)
@@ -188,11 +193,11 @@ foldlDual' f a Engine.ADInputs{..} = do
   V.ifoldl' g a $ OR.toVector inputPrimal0
 
 domainsFromD01 :: Domain0 r -> DomainR r -> Domains r
-domainsFromD01 = Domains
+domainsFromD01 = mkDomains
 
 domainsFrom01 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r)
               => Vector r -> DomainR r -> Domains r
-domainsFrom01 v0 = Domains (OR.fromVector [V.length v0] v0)
+domainsFrom01 v0 = mkDomains (OR.fromVector [V.length v0] v0)
 
 domainsFrom0V :: ( Numeric r, DTensorOf r ~ OD.Array r
                  , TensorOf 1 r ~ OR.Array 1 r )
@@ -265,20 +270,21 @@ multNotShared (D u u') (D v v') =
 addParameters :: ( Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r
                  , Num (TensorOf 1 r) )
               => Domains r -> Domains r -> Domains r
-addParameters (Domains a0 a1) (Domains b0 b1) =
-  Domains (a0 + b0)
-          (V.zipWith (+) a1 b1)
+addParameters paramsA paramsB =
+  mkDomains (domains0 paramsA + domains0 paramsB)
+            (V.zipWith (+) (domainsR paramsA) (domainsR paramsB))
 
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters
   :: (Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r)
   => Domains r -> Domains r -> r
-dotParameters (Domains a0 a1) (Domains b0 b1) =
-  a0 `tdot0R` b0
+dotParameters paramsA paramsB =
+  domains0 paramsA `tdot0R` domains0 paramsB
   + V.sum (V.zipWith (\v1 u1 ->
       if isTensorDummy v1 || isTensorDummy u1
       then 0
-      else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
+      else OD.toVector v1 LA.<.> OD.toVector u1)
+          (domainsR paramsA) (domainsR paramsB))
 
 
 -- * Legacy operations needed to re-use vector differentiation tests

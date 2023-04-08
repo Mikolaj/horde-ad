@@ -38,7 +38,8 @@ module HordeAd.Core.Delta
   , -- * Delta expression identifiers
     InputId, toInputId, Dual
   , -- * Evaluation of the delta expressions
-    DeltaDt (..), Domain0, DomainR, Domains(..), emptyDomain0, nullDomains
+    DeltaDt (..), Domain0, DomainR, Domains
+  , domains0, domainsR, mkDomains, emptyDomain0, nullDomains
   , gradientFromDelta
   , ForwardDerivative (..)
   ) where
@@ -290,6 +291,9 @@ data Domains r = Domains
   , domainsR :: DomainR r
   }
   deriving Generic
+
+mkDomains :: Domain0 r -> DomainR r -> Domains r
+mkDomains = Domains
 
 deriving instance (Show (TensorOf 1 r), Show (DTensorOf r))
                   => Show (Domains r)
