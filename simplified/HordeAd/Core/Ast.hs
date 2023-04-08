@@ -509,7 +509,7 @@ shapeAst v1 = case v1 of
       yi :$ _ -> xi + yi :$ xsh
   AstSlice _n k v -> k :$ tailShape (shapeAst v)
   AstReverse v -> shapeAst v
-  AstTranspose perm v -> permutePrefixShape perm (shapeAst v)
+  AstTranspose perm v -> backpermutePrefixShape perm (shapeAst v)
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$ shapeAst v
   AstGatherZ sh _v (_vars, _ix) -> sh

@@ -151,10 +151,10 @@ astTransposeAsGather perm v = unsafePerformIO $ do
           asts = permutePrefixIndex perm intVars
       in case cmpNat (Proxy @p) (Proxy @n) of
            EQI -> astGatherZ @p @(n - p)
-                             (permutePrefixShape perm (shapeAst v)) v
+                             (backpermutePrefixShape perm (shapeAst v)) v
                              (vars, asts)
            LTI -> astGatherZ @p @(n - p)
-                             (permutePrefixShape perm (shapeAst v)) v
+                             (backpermutePrefixShape perm (shapeAst v)) v
                              (vars, asts)
            _ -> error "astTransposeAsGather: permutation longer than rank"
     Nothing -> error "astTransposeAsGather: impossible someNatVal error"
@@ -511,12 +511,12 @@ astTranspose perm0 t0 = case (perm0, t0) of
     let perm2Matched =
           perm2
           ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
-        perm = simplifyPermutation $ permutePrefixList perm1 perm2Matched
+        perm = simplifyPermutation $ backpermutePrefixList perm1 perm2Matched
     in astTranspose perm t
       -- this rule can be disabled to test fusion of gathers.
   (perm1, AstGatherZ @m sh v (vars, ix)) | length perm1 <= valueOf @m ->
-    AstGatherZ (permutePrefixShape perm1 sh) v
-               (permutePrefixSized perm1 vars, ix)
+    AstGatherZ (backpermutePrefixShape perm1 sh) v
+               (backpermutePrefixSized perm1 vars, ix)
   (perm, u) -> AstTranspose perm u
 
 -- Beware, this does not do full simplification, which often requires

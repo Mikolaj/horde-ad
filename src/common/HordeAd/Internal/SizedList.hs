@@ -6,7 +6,7 @@ module HordeAd.Internal.SizedList
   ( SizedList(..)
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
-  , permutePrefixSized, backPermutePrefixSized, permutePrefixList
+  , backpermutePrefixSized, permutePrefixSized, backpermutePrefixList
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , sizedListCompare, listToSized, sizedListToList
   , Permutation
@@ -132,40 +132,34 @@ reverseSized l = go l Z
   go Z acc = acc
   go (x ::: xs) acc = go xs (x ::: acc)
 
--- As in orthotope, a permutation lists indices into the list to permute.
+-- | As in orthotope, we usually backpermute, in which case a permutation lists
+-- indices into the list to permute. However, we use the same type for
+-- an occasional forward permutation.
 type Permutation = [Int]
 
 -- This permutes a prefix of the sized list of the length of the permutation.
 -- The rest of the sized list is left intact.
+backpermutePrefixSized :: forall n i. KnownNat n
+                       => Permutation -> SizedList n i -> SizedList n i
+backpermutePrefixSized p ix =
+  if valueOf @n < length p
+  then error "backpermutePrefixSized: cannot permute a list shorter than permutation"
+  else listToSized $ backpermutePrefixList p $ sizedListToList ix
+
+backpermutePrefixList :: Permutation -> [i] -> [i]
+backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
+
 permutePrefixSized :: forall n i. KnownNat n
                    => Permutation -> SizedList n i -> SizedList n i
 permutePrefixSized p ix =
   if valueOf @n < length p
-  then
-    error "permutePrefixSized: cannot permute a list shorter than permutation"
-  else (listToSized :: [i] -> SizedList n i)
-       $ permutePrefixList p
-       $ sizedListToList ix
-
-permutePrefixList :: Permutation -> [i] -> [i]
-permutePrefixList p l = map (l !!) p ++ drop (length p) l
-
--- The permutes in inverse.
-backPermutePrefixSized :: forall n i. KnownNat n
-                       => Permutation -> SizedList n i -> SizedList n i
-backPermutePrefixSized p ix =
-  if valueOf @n < length p
-  then
-    error
-      "backPermutePrefixSized: cannot permute a list shorter than permutation"
-  else (listToSized :: [i] -> SizedList n i)
-       $ backPermutePrefixList p
-       $ sizedListToList ix
+  then error "permutePrefixSized: cannot permute a list shorter than permutation"
+  else listToSized $ permutePrefixList p $ sizedListToList ix
 
 -- Boxed vector is not that bad, because we move pointers around,
 -- but don't follow them. Storable vectors wouldn't work for Ast.
-backPermutePrefixList :: Permutation -> [i] -> [i]
-backPermutePrefixList p l = V.toList $ Data.Vector.fromList l V.// zip p l
+permutePrefixList :: Permutation -> [i] -> [i]
+permutePrefixList p l = V.toList $ Data.Vector.fromList l V.// zip p l
 
 -- | Pairwise comparison of two sized list values.
 -- The comparison function is invoked once for each rank

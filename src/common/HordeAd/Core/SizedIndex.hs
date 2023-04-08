@@ -16,7 +16,7 @@ module HordeAd.Core.SizedIndex
   , Shape, pattern (:$), pattern ZS
   , singletonShape, appendShape, tailShape, takeShape, dropShape, splitAt_Shape
   , lengthShape, sizeShape, flattenShape
-  , permutePrefixShape
+  , backpermutePrefixShape
   , listShapeToShape, shapeToList
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx, zeroOf
@@ -143,7 +143,7 @@ zipWith_Index f (Index l1) (Index l2) = Index $ zipWith_Sized f l1 l2
 -- of the shape of the projected tensor.
 permutePrefixIndex :: forall n i. KnownNat n
                    => Permutation -> Index n i -> Index n i
-permutePrefixIndex p (Index ix) = Index $ backPermutePrefixSized p ix
+permutePrefixIndex p (Index ix) = Index $ permutePrefixSized p ix
 
 listToIndex :: KnownNat n => [i] -> Index n i
 listToIndex = Index . listToSized
@@ -228,9 +228,9 @@ sizeShape (n :$ sh) = n * sizeShape sh
 flattenShape :: (Num i, KnownNat n) => Shape n i -> Shape 1 i
 flattenShape = singletonShape . sizeShape
 
-permutePrefixShape :: forall n i. KnownNat n
-                   => Permutation -> Shape n i -> Shape n i
-permutePrefixShape p (Shape ix) = Shape $ permutePrefixSized p ix
+backpermutePrefixShape :: forall n i. KnownNat n
+                       => Permutation -> Shape n i -> Shape n i
+backpermutePrefixShape p (Shape ix) = Shape $ backpermutePrefixSized p ix
 
 -- Warning: do not pass a list of strides to this function.
 listShapeToShape :: KnownNat n => [i] -> Shape n i
