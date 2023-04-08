@@ -535,7 +535,7 @@ lengthAst v1 = case shapeAst v1 of
 intVarInAst :: AstVarId -> Ast n r -> Bool
 intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
-  AstLet _ u v -> intVarInAst var u || intVarInAst var v
+  AstLet var2 u v -> intVarInAst var u || var /= var2 && intVarInAst var v
   AstLetGlobal _ v -> intVarInAst var v
   AstOp _ l -> any (intVarInAst var) l
   AstSumOfList l -> any (intVarInAst var) l
@@ -560,8 +560,8 @@ intVarInAst var = \case
   AstD (AstPrimalPart u) (AstDualPart u') ->
     intVarInAst var u || intVarInAst var u'
   AstLetVectorOfDynamic vars l v ->
-    notElem var vars && any (\(AstDynamic t) -> intVarInAst var t) l
-    || intVarInAst var v
+    any (\(AstDynamic t) -> intVarInAst var t) l
+    || notElem var vars && intVarInAst var v
 
 intVarInAstInt :: AstVarId -> AstInt r -> Bool
 intVarInAstInt var = \case
