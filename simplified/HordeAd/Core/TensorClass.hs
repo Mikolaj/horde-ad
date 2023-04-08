@@ -246,6 +246,9 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tlet0 = id
   tletR :: TensorOf n r -> TensorOf n r
   tletR = id
+  tregister :: TensorOf n r -> [(Int, DTensorOf r)]
+            -> ([(Int, DTensorOf r)], TensorOf n r)
+  tregister r l = (l, tletR r)
 
   -- Conversion
   tfromD :: KnownNat n

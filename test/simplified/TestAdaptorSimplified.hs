@@ -30,7 +30,8 @@ import Tool.EqEpsilon
 testTrees :: [TestTree]
 testTrees =
   [ -- Tensor tests
-    testCase "2foo" testFoo
+    testCase "2zero" testZero
+  , testCase "2foo" testFoo
   , testCase "2bar" testBar
   , testCase "2barADVal" testBarADVal
   , testCase "2baz old to force fooConstant" testBaz
@@ -266,6 +267,12 @@ reluLeaky1 v =
 
 
 -- * Tensor tests
+
+testZero :: Assertion
+testZero =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList @Double @0 [] [0])
+    (rev' @(OR.Array 0 Double) (const 3) 42)
 
 foo :: RealFloat a => (a,a,a) -> a
 foo (x,y,z) =

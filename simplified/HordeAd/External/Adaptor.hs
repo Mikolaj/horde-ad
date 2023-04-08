@@ -78,10 +78,15 @@ revDtMaybeL f valsAll@(vals : _) dt =
       (_, (D vAst deltaTopLevel)) = interpretAst env1 EM.empty ast
       (varDt, astDt) = funToAstR (tshape vAst) id
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
-      gradientAst = gradientFromDelta dim0 (length shapes1) deltaDt
+      (gradientAst, astBindings) =
+        gradientFromDelta dim0 (length shapes1) deltaDt
+      bindToLet g (i, AstDynamic t) =
+        AstVectorOfDynamicLet (intToAstVarId i) t g
+      letGradientAst =
+        foldl' bindToLet (AstVectorOfDynamic gradientAst) astBindings
       h val = parseDomains val $ fst
               $ revAstOnDomainsEval
-                  (AstDynamicVarName var0 : vars1, varDt, gradientAst, vAst)
+                  (AstDynamicVarName var0 : vars1, varDt, letGradientAst, vAst)
                   (toDomains val) dt
   in map h valsAll
 

@@ -8,7 +8,7 @@ import           Control.Monad (foldM, unless)
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
-import           Data.List (mapAccumR)
+import           Data.List (foldl')
 import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as LA
@@ -322,7 +322,12 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            D vAst deltaTopLevel =
              tunScalar $ snd $ interpretAst envMnistg EM.empty ast
            deltaDt = packDeltaDt (Left vAst) deltaTopLevel
-           gradientAst = gradientFromDelta 0 (length shapes1) deltaDt
+           (gradientAst, astBindings) =
+             gradientFromDelta 0 (length shapes1) deltaDt
+           bindToLet gr (i, AstDynamic t) =
+             AstVectorOfDynamicLet (intToAstVarId i) t gr
+           letGradientAst =
+             foldl' bindToLet (AstVectorOfDynamic gradientAst) astBindings
            go :: [MnistData r] -> Domains r -> Domains r
            go [] parameters = parameters
            go ((glyph, label) : rest) parameters =
@@ -336,9 +341,9 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                    $ extendEnvR varLabel
                        (OR.fromVector [sizeMnistLabelInt] label)
                        env1
-                 fd memo t = interpretAstDynamicDummy envMnist memo t
-                 (_memo1, l1) = mapAccumR fd EM.empty (V.toList gradientAst)
-                 gradients = V.fromList l1
+                 (_memo1, gradients) =
+                   interpretAstVectorOfDynamicDummy
+                     envMnist EM.empty letGradientAst
              in go rest (updateWithGradient gamma parameters gradients)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.

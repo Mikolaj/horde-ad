@@ -18,11 +18,10 @@ module HordeAd.Core.Engine
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
-import           Data.List (mapAccumR)
+import           Data.List (foldl')
 import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -95,7 +94,7 @@ revAstOnDomainsFun
   -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
   -> ( [AstDynamicVarName r]
      , AstVarName (OR.Array n r)
-     , Domains (Ast0 r)
+     , AstVectorOfDynamic r
      , Ast n r )
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun dim0 shapes1 f =
@@ -109,8 +108,13 @@ revAstOnDomainsFun dim0 shapes1 f =
       !(D vAst deltaTopLevel) = f varInputs
       (varDt, astDt) = funToAstR (tshape vAst) id
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
-  in let gradientAst = gradientFromDelta dim0 (length shapes1) deltaDt
-     in (AstDynamicVarName var0 : vars1, varDt, gradientAst, vAst)
+  in let (gradientAst, astBindings) =
+           gradientFromDelta dim0 (length shapes1) deltaDt
+         bindToLet g (i, AstDynamic t) =
+           AstVectorOfDynamicLet (intToAstVarId i) t g
+         letGradientAst =
+           foldl' bindToLet (AstVectorOfDynamic gradientAst) astBindings
+     in (AstDynamicVarName var0 : vars1, varDt, letGradientAst, vAst)
 
 revAstOnDomainsEval
   :: forall r n.
@@ -118,12 +122,12 @@ revAstOnDomainsEval
      , ShowAstSimplify r )
   => ( [AstDynamicVarName r]
      , AstVarName (OR.Array n r)
-     , Domains (Ast0 r)
+     , AstVectorOfDynamic r
      , Ast n r )
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
-revAstOnDomainsEval (vars, varDt, gradientAst, vAst)
+revAstOnDomainsEval (vars, varDt, letGradientAst, vAst)
                     parameters dt =
   let env1 = foldr (\(AstDynamicVarName var, v) ->
                       extendEnvR var (tfromD v)) EM.empty
@@ -132,11 +136,11 @@ revAstOnDomainsEval (vars, varDt, gradientAst, vAst)
         Just a -> a
         Nothing -> tkonst0N (tshape vAst) 1
       envDt = extendEnvR varDt dtValue env1
-      fd memo t = interpretAstDynamicDummy envDt memo t
-      (memo1, l1) = mapAccumR fd EM.empty (V.toList gradientAst)
+      (memo1, l1) = interpretAstVectorOfDynamicDummy
+                      envDt EM.empty letGradientAst
         -- TODO: emulate mapAccumR on vectors
       (_memo2, v2) = interpretAst env1 memo1 vAst
-      gradientDomain = V.fromList l1
+      gradientDomain = l1
   in (gradientDomain, v2)
 
 -- The old versions that use the fixed input and dt to compute gradient
@@ -157,7 +161,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
       -- before evaluation allocates new memory and new FFI is started.
       !(D v deltaTopLevel) = f inputs
       deltaDt = packDeltaDt (maybe (Left v) Right dt) deltaTopLevel
-  in let gradient = gradientFromDelta dim0 dim1 deltaDt
+  in let (gradient, _) = gradientFromDelta dim0 dim1 deltaDt
      in (gradient, v)
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative

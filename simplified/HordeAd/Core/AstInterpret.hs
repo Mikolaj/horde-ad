@@ -3,7 +3,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
 module HordeAd.Core.AstInterpret
-  ( InterpretAst, interpretAst, interpretAstDynamicDummy
+  ( InterpretAst, interpretAst
+  , interpretAstVectorOfDynamicDummy, interpretAstDynamicDummy
   , AstEnv, extendEnvR
   , AstEnvElem(AstVarR)  -- for a test only
   ) where
@@ -350,6 +351,18 @@ interpretAstDynamicDummy
 interpretAstDynamicDummy env memo = \case
   AstDynamic AstIota -> (memo, ddummy)
   AstDynamic w -> second dfromR $ interpretAst env memo w
+
+interpretAstVectorOfDynamicDummy
+  :: (Evidence a, DummyTensor a)
+  => AstEnv a -> AstMemo a
+  -> AstVectorOfDynamic (ScalarOf a)
+  -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
+interpretAstVectorOfDynamicDummy env memo = \case
+  AstVectorOfDynamic l -> mapAccumR (interpretAstDynamicDummy env) memo l
+  AstVectorOfDynamicLet var u v ->
+    let (memo2, t) = interpretAst env memo u
+    in interpretAstVectorOfDynamicDummy (EM.insert var (AstVarR $ dfromR t) env)
+                                        memo2 v
 
 interpretAstOp :: RealFloat a
                => OpCode -> [a] -> a

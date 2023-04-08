@@ -62,6 +62,7 @@ import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import           GHC.Exts (inline)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Text.Show.Functions ()
@@ -322,24 +323,25 @@ data DeltaDt r =
 -- 3. key `member` dMap0 == nMap!key is DeltaBinding0
 -- 4. key `member` dMapR == nMap!key is DeltaBindingR
 data EvalState r = EvalState
-  { iMap0 :: EM.EnumMap (InputId r) r
+  { iMap0       :: EM.EnumMap (InputId r) r
       -- ^ eventually, cotangents of objective function inputs of rank 0
       -- (finally copied to the vector representing the rank 0 portion
       -- of the gradient of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , iMapR :: EM.EnumMap (InputId (DTensorOf r)) (DTensorOf r)
+  , iMapR       :: EM.EnumMap (InputId (DTensorOf r)) (DTensorOf r)
       -- ^ eventually, cotangents of objective function inputs of rank R;
       -- (eventually copied to the vector representing the rank R portion
       -- of the gradient of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap0 :: EM.EnumMap NodeId r
+  , dMap0       :: EM.EnumMap NodeId r
       -- ^ eventually, cotangents of non-input subterms of rank 0 indexed
       -- by their node identifiers
-  , dMapR :: EM.EnumMap NodeId (DTensorOf r)
+  , dMapR       :: EM.EnumMap NodeId (DTensorOf r)
       -- ^ eventually, cotangents of non-input subterms of rank R indexed
       -- by their node identifiers
-  , nMap  :: EM.EnumMap NodeId (DeltaBinding r)
+  , nMap        :: EM.EnumMap NodeId (DeltaBinding r)
       -- ^ nodes left to be evaluated
+  , astBindings :: [(Int, DTensorOf r)]
   }
 
 -- | Nodes left to be evaluated.
@@ -408,7 +410,7 @@ data DeltaBinding r =
 gradientFromDelta
   :: forall r. (Tensor r, DynamicTensor r, DummyTensor r)
   => Int -> Int -> DeltaDt r
-  -> Domains r
+  -> (Domains r, [(Int, DTensorOf r)])
 gradientFromDelta dim0 dimR deltaDt =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
@@ -429,18 +431,20 @@ gradientFromDelta dim0 dimR deltaDt =
             dMap0 = EM.empty
             dMapR = EM.empty
             nMap = EM.empty
+            astBindings = []
         in EvalState {..}
 
   -- Eval.
-  in let EvalState{iMap0, iMapR} = buildFinMaps s0 deltaDt
+  in let EvalState{..} = buildFinMaps s0 deltaDt
 
      -- Extract results.
-     in mkDomains (tfromList0N (singletonShape dim0) (EM.elems iMap0))
-                  (V.fromList $ EM.elems iMapR)
+     in ( mkDomains (tfromList0N (singletonShape dim0) (EM.elems iMap0))
+                    (V.fromList $ EM.elems iMapR)
+        , astBindings )
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> Int -> DeltaDt Double -> Domains Double #-}
+  :: Int -> Int -> DeltaDt Double -> (Domains Double, [(Int, DTensorOf Double)]) #-}
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> Int -> DeltaDt (Ast0 Double) -> Domains (Ast0 Double) #-}
+  :: Int -> Int -> DeltaDt (Ast0 Double) -> (Domains (Ast0 Double), [(Int, DTensorOf (Ast0 Double))]) #-}
 
 buildFinMaps :: forall r. (Tensor r, DynamicTensor r, DummyTensor r)
              => EvalState r -> DeltaDt r -> EvalState r
@@ -454,8 +458,11 @@ buildFinMaps s0 deltaDt =
         Zero0 -> s
         Input0 i -> s {iMap0 = EM.adjust (+ c) i $ iMap0 s}
         Scale0 k d -> eval0 s (k * c) d
-        Add0 d e -> let cShared = tlet0 c
-                    in eval0 (eval0 s cShared d) cShared e
+        Add0 d e -> let (abShared, cSharedRaw) =
+                          inline tregister (tscalar c) (astBindings s)
+                        cShared = tunScalar cSharedRaw
+                        sShared = s {astBindings = abShared}
+                    in eval0 (eval0 sShared cShared d) cShared e
         Let0 n d ->
           -- In this context, by construction, @d@ is the dual component
           -- of a dual number term. Let's say that, at this point, evaluation
@@ -540,13 +547,15 @@ buildFinMaps s0 deltaDt =
 
       evalR :: forall n. KnownNat n
             => EvalState r -> TensorOf n r -> DeltaR n r -> EvalState r
-      evalR s !c = let cShared = tletR c
+      evalR s !c = let (abShared, cShared) =
+                         inline tregister c (astBindings s)
+                       sShared = s {astBindings = abShared}
                    in \case
         ZeroR -> s
         InputR (InputId i) ->
           s {iMapR = EM.adjust (daddR c) (InputId i) $ iMapR s}
         ScaleR k d -> evalR s (k `tmult` c) d
-        AddR d e -> evalR (evalR s cShared d) cShared e
+        AddR d e -> evalR (evalR sShared cShared d) cShared e
         LetR n d ->
           assert (case d of
                     ZeroR -> False
@@ -575,10 +584,10 @@ buildFinMaps s0 deltaDt =
         ScatterZ _sh d f shd -> evalR s (tgather shd c f) d
         FromListR ld ->
           ifoldl' (\s2 i d2 ->
-            evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) s ld
+            evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) sShared ld
         FromVectorR ld ->
           V.ifoldl' (\s2 i d2 ->
-            evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) s ld
+            evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) sShared ld
 --        FromList0R _sh lsd ->  -- lsd is a list of scalar delta expressions
 --          let cv = OR.toVector c
 --          in ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
@@ -588,7 +597,7 @@ buildFinMaps s0 deltaDt =
         KonstR _n d -> evalR s (tsum c) d
 --        Konst0R _ d -> eval0 s (tsum0R c) d
         AppendR d k e -> case tshape c of
-          n :$ _ -> let s2 = evalR s (tslice 0 k cShared) d
+          n :$ _ -> let s2 = evalR sShared (tslice 0 k cShared) d
                     in evalR s2 (tslice k (n - k) cShared) e
           ZS -> error "evalR: appending a 0-dimensional tensor"
         SliceR i n d len -> case tshape c of
@@ -606,7 +615,7 @@ buildFinMaps s0 deltaDt =
         ReshapeR sh _sh' d -> evalR s (treshape sh c) d
         BuildR n f ->
           foldl' (\s2 i -> evalR s2 (tindex cShared (i :. ZI)) (f i))
-                 s (fromIntegral <$> [0 .. n - 1])
+                 sShared (fromIntegral <$> [0 .. n - 1])
 --        Gather1 f sh d _n -> evalR s (tscatter1R f c sh) d
         GatherZ _sh d f shd -> evalR s (tscatter shd c f) d
         ScalarR d -> eval0 s (tunScalar c) d
