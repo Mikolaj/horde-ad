@@ -601,7 +601,7 @@ substitute1Ast i var v1 = case v1 of
     else v1
   AstLet var2 u v ->
     if var == var2
-    then v1
+    then AstLet var2 (substitute1Ast i var u) v
     else AstLet var2 (substitute1Ast i var u) (substitute1Ast i var v)
   AstLetGlobal _ v -> substitute1Ast i var v
     -- substitution breaks global sharing
