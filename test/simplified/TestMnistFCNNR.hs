@@ -337,10 +337,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                        (OR.fromVector [sizeMnistLabelInt] label)
                        env1
                  fd memo t = interpretAstDynamicDummy envMnist memo t
-                 (_memo1, l1) = mapAccumR fd EM.empty
-                                          (V.toList $ domainsR gradientAst)
-
-                 gradients = mkDomains emptyR (V.fromList l1)
+                 (_memo1, l1) = mapAccumR fd EM.empty (V.toList gradientAst)
+                 gradients = V.fromList l1
              in go rest (updateWithGradient gamma parameters gradients)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.

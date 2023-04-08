@@ -80,9 +80,9 @@ revDtMaybeL f valsAll@(vals : _) dt =
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
       gradientAst = gradientFromDelta dim0 (length shapes1) deltaDt
       h val = parseDomains val $ fst
-              $ revAstOnDomainsEval dim0 (length shapes1)
-                                    (var0, vars1, varDt, gradientAst, vAst)
-                                    (toDomains val) dt
+              $ revAstOnDomainsEval
+                  (AstDynamicVarName var0 : vars1, varDt, gradientAst, vAst)
+                  (toDomains val) dt
   in map h valsAll
 
 rev

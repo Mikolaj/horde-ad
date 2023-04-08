@@ -86,16 +86,14 @@ revAstOnDomains
 revAstOnDomains f parameters dt =
   let dim0 = tlength $ domains0 parameters
       shapes1 = map dshape $ V.toList $ domainsR parameters
-  in revAstOnDomainsEval dim0 (length shapes1)
-                         (revAstOnDomainsFun dim0 shapes1 f)
+  in revAstOnDomainsEval (revAstOnDomainsFun dim0 shapes1 f)
                          parameters dt
 
 revAstOnDomainsFun
   :: forall r n. (KnownNat n, ShowAstSimplify r)
   => Int -> [[Int]]
   -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
-  -> ( AstVarName (OR.Array 1 r)
-     , [AstDynamicVarName r]
+  -> ( [AstDynamicVarName r]
      , AstVarName (OR.Array n r)
      , Domains (Ast0 r)
      , Ast n r )
@@ -112,40 +110,33 @@ revAstOnDomainsFun dim0 shapes1 f =
       (varDt, astDt) = funToAstR (tshape vAst) id
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
   in let gradientAst = gradientFromDelta dim0 (length shapes1) deltaDt
-     in (var0, vars1, varDt, gradientAst, vAst)
+     in (AstDynamicVarName var0 : vars1, varDt, gradientAst, vAst)
 
 revAstOnDomainsEval
   :: forall r n.
      ( ADTensor r, InterpretAst r, DummyTensor r, KnownNat n, ScalarOf r ~ r
      , ShowAstSimplify r )
-  => Int -> Int
-  -> ( AstVarName (OR.Array 1 r)
-     , [AstDynamicVarName r]
+  => ( [AstDynamicVarName r]
      , AstVarName (OR.Array n r)
      , Domains (Ast0 r)
      , Ast n r )
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
-revAstOnDomainsEval dim0 dim1
-                    (var0, vars1, varDt, gradientAst, vAst)
+revAstOnDomainsEval (vars, varDt, gradientAst, vAst)
                     parameters dt =
-  let !_A0 = assert (dim0 == tlength (domains0 parameters)) ()
-      !_A1 = assert (dim1 == V.length (domainsR parameters)) ()
-      env0 = extendEnvR var0 (domains0 parameters) EM.empty
-      env1 = foldr (\(AstDynamicVarName var, v) ->
-                      extendEnvR var (tfromD v)) env0
-             $ zip vars1 $ V.toList $ domainsR parameters
+  let env1 = foldr (\(AstDynamicVarName var, v) ->
+                      extendEnvR var (tfromD v)) EM.empty
+             $ zip vars $ V.toList parameters
       dtValue = case dt of
         Just a -> a
         Nothing -> tkonst0N (tshape vAst) 1
       envDt = extendEnvR varDt dtValue env1
-      (memo0, d0) = interpretAst envDt EM.empty $ domains0 gradientAst
       fd memo t = interpretAstDynamicDummy envDt memo t
-      (memo1, l1) = mapAccumR fd memo0 (V.toList $ domainsR gradientAst)
+      (memo1, l1) = mapAccumR fd EM.empty (V.toList gradientAst)
         -- TODO: emulate mapAccumR on vectors
       (_memo2, v2) = interpretAst env1 memo1 vAst
-      gradientDomain = mkDomains d0 (V.fromList l1)
+      gradientDomain = V.fromList l1
   in (gradientDomain, v2)
 
 -- The old versions that use the fixed input and dt to compute gradient
