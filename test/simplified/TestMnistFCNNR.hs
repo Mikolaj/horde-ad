@@ -336,7 +336,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                    $ extendEnvR varLabel
                        (OR.fromVector [sizeMnistLabelInt] label)
                        env1
-                 fd memo t = interpretAstDynamic envMnist memo t
+                 fd memo t = interpretAstDynamicDummy envMnist memo t
                  (_memo1, l1) = mapAccumR fd EM.empty
                                           (V.toList $ domainsR gradientAst)
 

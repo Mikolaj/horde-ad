@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
 module HordeAd.Core.AstInterpret
-  ( InterpretAst, interpretAst, interpretAstDynamic
+  ( InterpretAst, interpretAst, interpretAstDynamicDummy
   , AstEnv, extendEnvR
   , AstEnvElem(AstVarR)  -- for a test only
   ) where
@@ -17,6 +17,7 @@ import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
 import           Data.List (foldl1', mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
+import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
@@ -281,12 +282,29 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
         (memo2, t2) = second tdualPart $ interpretAst env memo1 u'
     in (memo2, tD t1 t2)
   AstLetVectorOfDynamic vars l v ->
-    let (memo2, l2) = mapAccumR (\memo1 (AstDynamic t) ->
-                                   second dfromR $ interpretAst env memo1 t)
-                                memo l
+    let (memo2, l2) = interpretAstVectorOfDynamic env memo l
         env2 = V.foldr (\(var, d) -> EM.insert var (AstVarR d))
                        env (V.zip vars l2)
     in interpretAst env2 memo2 v
+
+interpretAstDynamic
+  :: Evidence a
+  => AstEnv a -> AstMemo a
+  -> AstDynamic (ScalarOf a) -> (AstMemo a, DTensorOf a)
+interpretAstDynamic env memo = \case
+  AstDynamic w -> second dfromR $ interpretAst env memo w
+
+interpretAstVectorOfDynamic
+  :: Evidence a
+  => AstEnv a -> AstMemo a
+  -> AstVectorOfDynamic (ScalarOf a)
+  -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
+interpretAstVectorOfDynamic env memo = \case
+  AstVectorOfDynamic l -> mapAccumR (interpretAstDynamic env) memo l
+  AstVectorOfDynamicLet var u v ->
+    let (memo2, t) = interpretAst env memo u
+    in interpretAstVectorOfDynamic (EM.insert var (AstVarR $ dfromR t) env)
+                                   memo2 v
 
 interpretAstInt :: Evidence a
                 => AstEnv a -> AstMemo a
@@ -325,11 +343,11 @@ interpretAstBool env memo = \case
     let (memo2, args2) = mapAccumR (interpretAstInt env) memo args
     in (memo2, interpretAstRelOp opCodeRel args2)
 
-interpretAstDynamic
+interpretAstDynamicDummy
   :: (Evidence a, DummyTensor a)
   => AstEnv a -> AstMemo a
   -> AstDynamic (ScalarOf a) -> (AstMemo a, DTensorOf a)
-interpretAstDynamic env memo = \case
+interpretAstDynamicDummy env memo = \case
   AstDynamic AstIota -> (memo, ddummy)
   AstDynamic w -> second dfromR $ interpretAst env memo w
 

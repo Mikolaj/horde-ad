@@ -119,7 +119,7 @@ astLetVectorOfDynamicFun a f =
             (AstVarName var, ast) = funToAstR sh id
         in (var, AstDynamic ast)
       (vars, asts) = V.unzip $ V.map genVar a
-  in AstLetVectorOfDynamic vars a (f asts)
+  in AstLetVectorOfDynamic vars (AstVectorOfDynamic a) (f asts)
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}

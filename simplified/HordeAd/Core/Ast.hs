@@ -9,13 +9,14 @@
 module HordeAd.Core.Ast
   ( ShowAst, AstIndex, AstVarList, NodeId(..)
   , Ast(..), AstNoVectorize(..), AstPrimalPart(..), AstDualPart(..)
-  , AstDynamic(..), Ast0(..)
+  , AstDynamic(..), AstVectorOfDynamic(..), Ast0(..)
   , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool, intVarInIndex
-  , substitute1Ast, substitute1AstInt, substitute1AstBool
+  , substitute1Ast, substitute1AstVectorOfDynamic
+  , substitute1AstInt, substitute1AstBool
   , astCond  -- only for tests
   ) where
 
@@ -112,7 +113,7 @@ data Ast :: Nat -> Type -> Type where
   AstD :: AstPrimalPart n r -> AstDualPart n r -> Ast n r
   AstLetVectorOfDynamic
     :: Data.Vector.Vector AstVarId
-    -> Data.Vector.Vector (AstDynamic r)
+    -> AstVectorOfDynamic r
     -> Ast m r
     -> Ast m r
 deriving instance ShowAst r => Show (Ast n r)
@@ -130,6 +131,14 @@ data AstDynamic :: Type -> Type where
   AstDynamic :: KnownNat n
              => Ast n r -> AstDynamic r
 deriving instance ShowAst r => Show (AstDynamic r)
+
+data AstVectorOfDynamic :: Type -> Type where
+  AstVectorOfDynamic
+    :: Data.Vector.Vector (AstDynamic r) -> AstVectorOfDynamic r
+  AstVectorOfDynamicLet
+    :: KnownNat n
+    => AstVarId -> Ast n r -> AstVectorOfDynamic r -> AstVectorOfDynamic r
+deriving instance ShowAst r => Show (AstVectorOfDynamic r)
 
 newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
  deriving Show
@@ -560,8 +569,13 @@ intVarInAst var = \case
   AstD (AstPrimalPart u) (AstDualPart u') ->
     intVarInAst var u || intVarInAst var u'
   AstLetVectorOfDynamic vars l v ->
-    any (\(AstDynamic t) -> intVarInAst var t) l
-    || notElem var vars && intVarInAst var v
+    intVarInAstVectorOfDynamic var l || notElem var vars && intVarInAst var v
+
+intVarInAstVectorOfDynamic :: AstVarId -> AstVectorOfDynamic r -> Bool
+intVarInAstVectorOfDynamic var = \case
+  AstVectorOfDynamic l -> any (\(AstDynamic t) -> intVarInAst var t) l
+  AstVectorOfDynamicLet var2 u v ->
+    intVarInAst var u || var /= var2 && intVarInAstVectorOfDynamic var v
 
 intVarInAstInt :: AstVarId -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -642,10 +656,29 @@ substitute1Ast i var v1 = case v1 of
     AstD (AstPrimalPart $ substitute1Ast i var u)
          (AstDualPart $ substitute1Ast i var u')
   AstLetVectorOfDynamic vars l v ->
-    let subst (AstDynamic t) = AstDynamic $ substitute1Ast i var t
-    in if elem var vars
-       then AstLetVectorOfDynamic vars (V.map subst l) v
-       else AstLetVectorOfDynamic vars (V.map subst l) (substitute1Ast i var v)
+    if elem var vars
+    then AstLetVectorOfDynamic vars (substitute1AstVectorOfDynamic i var l) v
+    else AstLetVectorOfDynamic vars (substitute1AstVectorOfDynamic i var l)
+                                    (substitute1Ast i var v)
+
+substitute1AstDynamic
+  :: (ShowAst r, KnownNat m)
+  => Either (Ast m r) (AstInt r) -> AstVarId -> AstDynamic r
+  -> AstDynamic r
+substitute1AstDynamic i var (AstDynamic t) = AstDynamic $ substitute1Ast i var t
+
+substitute1AstVectorOfDynamic
+  :: (ShowAst r, KnownNat m)
+  => Either (Ast m r) (AstInt r) -> AstVarId -> AstVectorOfDynamic r
+  -> AstVectorOfDynamic r
+substitute1AstVectorOfDynamic i var v1 = case v1 of
+  AstVectorOfDynamic l ->
+    AstVectorOfDynamic $ V.map (substitute1AstDynamic i var) l
+  AstVectorOfDynamicLet var2 u v ->
+    if var == var2
+    then AstVectorOfDynamicLet var2 (substitute1Ast i var u) v
+    else AstVectorOfDynamicLet var2 (substitute1Ast i var u)
+                                    (substitute1AstVectorOfDynamic i var v)
 
 substitute1AstInt :: forall m r. (ShowAst r, KnownNat m)
                   => Either (Ast m r) (AstInt r) -> AstVarId -> AstInt r

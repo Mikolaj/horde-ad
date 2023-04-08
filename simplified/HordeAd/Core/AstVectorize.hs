@@ -11,6 +11,7 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import           Control.Monad (when)
 import           Data.IORef
+import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
@@ -152,16 +153,44 @@ build1V k (var, v00) =
            (AstDualPart $ build1VOccurenceUnknown k (var, u'))
     AstLetVectorOfDynamic vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
-      let vect (AstDynamic u) = AstDynamic $ build1VOccurenceUnknown k (var, u)
-          subst (var1, AstDynamic u1) =
+      let subst (var1, AstDynamic u1) =
             let sh = shapeAst u1
                 projection = AstIndexZ (AstVar (k :$ sh) var1)
                                        (AstIntVar var :. ZI)
             in substitute1Ast (Left projection) var1
-          v2 = V.foldr subst v (V.zip vars l)
+          v2 = V.foldr subst v (V.zip vars (unwrapVectorOfDynamic l))
             -- we use the substitution that does not simplify
       in AstLetVectorOfDynamic
-           vars (V.map vect l) (build1VOccurenceUnknown k (var, v2))
+           vars (build1VOccurenceUnknownVectorOfDynamic k (var, l))
+                (build1VOccurenceUnknown k (var, v2))
+
+unwrapVectorOfDynamic
+  :: AstVectorOfDynamic r -> Data.Vector.Vector (AstDynamic r)
+unwrapVectorOfDynamic = \case
+  AstVectorOfDynamic l -> l
+  AstVectorOfDynamicLet _ _ v -> unwrapVectorOfDynamic v
+
+build1VOccurenceUnknownDynamic
+  :: ShowAstSimplify r
+  => Int -> (AstVarId, AstDynamic r) -> AstDynamic r
+build1VOccurenceUnknownDynamic k (var, AstDynamic u) =
+  AstDynamic $ build1VOccurenceUnknown k (var, u)
+
+build1VOccurenceUnknownVectorOfDynamic
+  :: ShowAstSimplify r
+  => Int -> (AstVarId, AstVectorOfDynamic r) -> AstVectorOfDynamic r
+build1VOccurenceUnknownVectorOfDynamic k (var, v0) = case v0 of
+  AstVectorOfDynamic l ->
+    AstVectorOfDynamic
+    $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
+  AstVectorOfDynamicLet var2 u v ->
+    let sh = shapeAst u
+        projection = AstIndexZ (AstVar (k :$ sh) var2) (AstIntVar var :. ZI)
+        v2 = substitute1AstVectorOfDynamic (Left projection) var2 v
+          -- we use the substitution that does not simplify
+    in AstVectorOfDynamicLet
+         var2 (build1VOccurenceUnknown k (var, u))
+              (build1VOccurenceUnknownVectorOfDynamic k (var, v2))
 
 -- | The application @build1VIndex k (var, v, ix)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ v ix)@, where it's unknown whether

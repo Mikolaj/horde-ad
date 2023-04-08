@@ -904,8 +904,20 @@ simplifyAst t = case t of
   AstD u (AstDualPart u') -> AstD (simplifyAstPrimal u)
                                   (AstDualPart $ simplifyAst u')
   AstLetVectorOfDynamic vars l v ->
-    let simp (AstDynamic u) = AstDynamic $ simplifyAst u
-    in AstLetVectorOfDynamic vars (V.map simp l) (simplifyAst v)
+    AstLetVectorOfDynamic vars (simplifyAstVectorOfDynamic l) (simplifyAst v)
+
+simplifyAstDynamic
+  :: ShowAstSimplify r
+  => AstDynamic r -> AstDynamic r
+simplifyAstDynamic (AstDynamic u) = AstDynamic $ simplifyAst u
+
+simplifyAstVectorOfDynamic
+  :: ShowAstSimplify r
+  => AstVectorOfDynamic r -> AstVectorOfDynamic r
+simplifyAstVectorOfDynamic = \case
+  AstVectorOfDynamic l -> AstVectorOfDynamic $ V.map simplifyAstDynamic l
+  AstVectorOfDynamicLet var u v ->
+    AstVectorOfDynamicLet var (simplifyAst u) (simplifyAstVectorOfDynamic v)
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether

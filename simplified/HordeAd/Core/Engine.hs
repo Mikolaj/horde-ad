@@ -141,7 +141,7 @@ revAstOnDomainsEval dim0 dim1
         Nothing -> tkonst0N (tshape vAst) 1
       envDt = extendEnvR varDt dtValue env1
       (memo0, d0) = interpretAst envDt EM.empty $ domains0 gradientAst
-      fd memo t = interpretAstDynamic envDt memo t
+      fd memo t = interpretAstDynamicDummy envDt memo t
       (memo1, l1) = mapAccumR fd memo0 (V.toList $ domainsR gradientAst)
         -- TODO: emulate mapAccumR on vectors
       (_memo2, v2) = interpretAst env1 memo1 vAst
