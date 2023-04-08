@@ -73,6 +73,7 @@ instance ShowAstSimplify r
 
   tlet0 = astLet0Fun
   tletR = astLetRFun
+  tregister = astRegisterFun
 
   tfromD = astFromDynamic
   tletVectorOfDynamic a f = astLetVectorOfDynamicFun a f
@@ -143,6 +144,13 @@ astLetRFun t = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! AstLetGlobal (NodeId n) t
 
+astRegisterFun :: (ShowAst r, KnownNat n)
+               => Ast n r -> [(Int, AstDynamic r)]
+               -> ([(Int, AstDynamic r)], Ast n r)
+astRegisterFun r l = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return ((n, AstDynamic r) : l, AstVar (shapeAst r) (intToAstVarId n))
+
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
 -- Due to how the Ast instance of Tensor is defined above, vectorization
@@ -208,6 +216,7 @@ instance ShowAstSimplify r
 
   tlet0 = AstPrimalPart . astLetRFun . unAstPrimalPart
   tletR = AstPrimalPart . astLetRFun . unAstPrimalPart
+  tregister = undefined
 
   tfromD = undefined
   tletVectorOfDynamic = undefined
@@ -267,6 +276,7 @@ instance ShowAstSimplify r
 
   tlet0 = AstNoVectorize . astLetRFun . unAstNoVectorize
   tletR = AstNoVectorize . astLetRFun . unAstNoVectorize
+  tregister = undefined
 
   tfromD = undefined
   tletVectorOfDynamic = undefined
