@@ -22,7 +22,6 @@ import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
-import           GHC.Exts (inline)
 import           GHC.TypeLits (KnownNat, sameNat)
 import           Numeric.LinearAlgebra (Vector)
 
@@ -160,10 +159,8 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
     let (memo2, t) = interpretAst env memo u
-        (l, r) = inline tregister t []
-        (memo3, w) = interpretAst (EM.insert var (AstVarR $ dfromR r) env)
-                                  memo2 v
-    in (memo3, inline tletWrap l w)
+        r = tletR t
+    in interpretAst (EM.insert var (AstVarR $ dfromR r) env) memo2 v
       -- It's OK not to reset memo2, because all occurences of this AstLet
       -- terms outside of functions are going to be interpreted the same
       -- and functions reset memo.

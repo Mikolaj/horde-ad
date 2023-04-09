@@ -213,6 +213,9 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
   tdualPart (D _ u') = u'
   tD = dD
   tScale = dScale
+
+  tletR (D u u') = dD (tletR u) u'
+
   tfromD = fromD
 
 instance ShowAstSimplify r

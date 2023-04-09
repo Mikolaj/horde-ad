@@ -101,7 +101,8 @@ class IsPrimalA r where
   dAddA :: KnownNat n
         => Dual (Ast n r) -> Dual (Ast n r) -> Dual (Ast n r)
   recordSharingA :: Dual (Ast n r) -> Dual (Ast n r)
-  recordSharingPrimalA :: Ast n r -> Ast n r
+  recordSharingPrimalA :: KnownNat n
+                          => Ast n r -> Ast n r
   packDeltaDtA :: KnownNat n
                => Either (Ast n r) (Ast n r) -> Dual (Ast n r)
                -> DeltaDt (Ast0 r)

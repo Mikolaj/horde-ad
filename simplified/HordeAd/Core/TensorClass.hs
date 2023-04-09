@@ -244,7 +244,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   -- The global @let@ operations (poor man's data-reify).
   tlet0 :: r -> r
   tlet0 = id
-  tletR :: TensorOf n r -> TensorOf n r
+  tletR :: KnownNat n => TensorOf n r -> TensorOf n r
   tletR = id
   tregister :: KnownNat n
             => TensorOf n r -> [(Int, DTensorOf r)]
