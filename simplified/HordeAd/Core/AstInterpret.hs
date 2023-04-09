@@ -168,24 +168,24 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
       Nothing -> let (memo2, t) = interpretAst env memo v
                  in (EM.insert n (dfromR t) memo2, t)
       Just res -> (memo, tfromD res)
-  AstOp TimesOp args@[v, AstReshape _ (AstKonst @m _ s)] ->
-    case sameNat (Proxy @m) (Proxy @0) of
-      Just Refl ->
+  AstOp TimesOp [v, AstReshape _ (AstKonst @m _ s)]
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo v
             (memo2, t2) = interpretAst env memo1 s
         in (memo2, tscaleByScalar (tunScalar t2) t1)
-      _ ->
-        let (memo2, args2) = mapAccumR (interpretAst env) memo args
-        in (memo2, interpretAstOp TimesOp args2)
-  AstOp TimesOp args@[v, AstKonst @m _ s] ->
-    case sameNat (Proxy @m) (Proxy @0) of
-      Just Refl ->
+  AstOp TimesOp [v, AstLet var u (AstReshape sh (AstKonst @m k s))]
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
+        interpretAst env memo
+          (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstKonst @m k s)]))
+  AstOp TimesOp [v, AstKonst @m _ s]
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo v
             (memo2, t2) = interpretAst env memo1 s
         in (memo2, tscaleByScalar (tunScalar t2) t1)
-      _ ->
-        let (memo2, args2) = mapAccumR (interpretAst env) memo args
-        in (memo2, interpretAstOp TimesOp args2)
+  AstOp TimesOp [v, AstLet var u (AstKonst @m k s)]
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
+        interpretAst env memo
+          (AstLet var u (AstOp TimesOp [v, AstKonst @m k s]))
   AstOp opCode args ->
     let (memo2, args2) = mapAccumR (interpretAst env) memo args
     in (memo2, interpretAstOp opCode args2)
@@ -202,17 +202,17 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
-  AstSum v@(AstOp TimesOp [t, u]) ->
-    case sameNat (Proxy @n) (Proxy @0) of
-      Just Refl ->
+  AstSum (AstOp TimesOp [t, u])
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo t
             (memo2, t2) = interpretAst env memo1 u
         in (memo2, tdot0 t1 t2)
           -- TODO: do as a term rewrite using an extended set of terms?
           -- rather not, because rewrite breaks sharing
-      _ -> second tsum (interpretAst env memo v)
+  AstSum (AstLet var v (AstOp TimesOp [t, u])) ->
+    interpretAst env memo (AstLet var v (AstSum (AstOp TimesOp [t, u])))
   {- AstSum v@(AstLetGlobal _ (AstOp TimesOp [t, u])) ->
-    -- We sacrifice sharing for speed. Questionable and doesn't seem to help.
+    -- We sacrifice global sharing for speed. Doesn't seem to help.
     case sameNat (Proxy @n) (Proxy @0) of
       Just Refl ->
         let (memo1, t1) = interpretAst env memo t
