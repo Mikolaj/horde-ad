@@ -147,6 +147,8 @@ astLetRFun t = unsafePerformIO $ do
 astRegisterFun :: (ShowAst r, KnownNat n)
                => Ast n r -> [(Int, AstDynamic r)]
                -> ([(Int, AstDynamic r)], Ast n r)
+astRegisterFun r@AstVar{} l = (l, r)
+astRegisterFun r@AstLetGlobal{} l = (l, r)
 astRegisterFun r l = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return ((n, AstDynamic r) : l, AstVar (shapeAst r) (intToAstVarId n))
