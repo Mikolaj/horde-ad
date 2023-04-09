@@ -11,6 +11,7 @@ module HordeAd.Core.TensorAst
 import Prelude
 
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
+import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
@@ -74,6 +75,9 @@ instance ShowAstSimplify r
   tlet0 = astLet0Fun
   tletR = astLetRFun
   tregister = astRegisterFun
+  tletWrap l u =
+    let bindToLet g (i, AstDynamic t) = AstLet (intToAstVarId i) t g
+    in foldl' bindToLet u l
 
   tfromD = astFromDynamic
   tletVectorOfDynamic a f = astLetVectorOfDynamicFun a f

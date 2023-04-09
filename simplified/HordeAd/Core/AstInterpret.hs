@@ -22,6 +22,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
+import           GHC.Exts (inline)
 import           GHC.TypeLits (KnownNat, sameNat)
 import           Numeric.LinearAlgebra (Vector)
 
@@ -159,7 +160,10 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
     let (memo2, t) = interpretAst env memo u
-    in interpretAst (EM.insert var (AstVarR $ dfromR t) env) memo2 v
+        (l, r) = inline tregister t []
+        (memo3, w) = interpretAst (EM.insert var (AstVarR $ dfromR r) env)
+                                  memo2 v
+    in (memo3, inline tletWrap l w)
       -- It's OK not to reset memo2, because all occurences of this AstLet
       -- terms outside of functions are going to be interpreted the same
       -- and functions reset memo.
@@ -167,7 +171,7 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     case EM.lookup n memo of
       Nothing -> let (memo2, t) = interpretAst env memo v
                  in (EM.insert n (dfromR t) memo2, t)
-      Just res -> (memo, tfromD res)
+      Just res -> (memo, tfromD res)  -- TODO: call tletR, but with argument n
   AstOp TimesOp [v, AstReshape _ (AstKonst @m _ s)]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo v
@@ -306,6 +310,7 @@ interpretAstVectorOfDynamic env memo = \case
     let (memo2, t) = interpretAst env memo u
     in interpretAstVectorOfDynamic (EM.insert var (AstVarR $ dfromR t) env)
                                    memo2 v
+      -- TODO: preserve let, as in AstLet case
 
 interpretAstInt :: Evidence a
                 => AstEnv a -> AstMemo a
@@ -363,6 +368,7 @@ interpretAstVectorOfDynamicDummy env memo = \case
     let (memo2, t) = interpretAst env memo u
     in interpretAstVectorOfDynamicDummy (EM.insert var (AstVarR $ dfromR t) env)
                                         memo2 v
+      -- TODO: preserve let, as in AstLet case
 
 interpretAstOp :: RealFloat a
                => OpCode -> [a] -> a
