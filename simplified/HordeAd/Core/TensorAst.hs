@@ -104,12 +104,14 @@ instance ShowAst r
   dshape (AstDynamic v) = shapeToList $ shapeAst v
   type DomainsOf (Ast0 r) = AstVectorOfDynamic r
   tletVectorOfDynamic = astLetVectorOfDynamicFun
+  dmkDomains = AstVectorOfDynamic
+  dletDomains = astLetDomainsFun
 
-astLetFun :: (KnownNat n, ShowAstSimplify r)
+astLetFun :: (KnownNat n, ShowAst r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
 astLetFun a@AstVar{} f = f a
 astLetFun a f =
-  let sh = tshape a
+  let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh f
   in AstLet var a ast
 
@@ -126,6 +128,15 @@ astLetVectorOfDynamicFun a f =
         in (var, AstDynamic ast)
       (vars, asts) = V.unzip $ V.map genVar (unwrapVectorOfDynamic a)
   in AstLetVectorOfDynamic vars a (f $ AstVectorOfDynamic asts)
+
+astLetDomainsFun :: (KnownNat n, ShowAst r)
+                 => Ast n r -> (Ast n r -> AstVectorOfDynamic r)
+                 -> AstVectorOfDynamic r
+astLetDomainsFun a@AstVar{} f = f a
+astLetDomainsFun a f =
+  let sh = shapeAst a
+      (AstVarName var, ast) = funToAstR sh id
+  in AstVectorOfDynamicLet var a (f ast)
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
