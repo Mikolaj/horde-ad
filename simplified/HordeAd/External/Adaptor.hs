@@ -78,10 +78,7 @@ revDtMaybeL f valsAll@(vals : _) dt =
       (_, (D vAst deltaTopLevel)) = interpretAst env1 EM.empty ast
       (varDt, astDt) = funToAstR (tshape vAst) id
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
-      (gradientAst, astBindings) =
-        gradientFromDelta dim0 (length shapes1) deltaDt
-      bindToLet g (i, AstDynamic t) = AstDomainsLet (intToAstVarId i) t g
-      letGradientAst = foldl' bindToLet (AstDomains gradientAst) astBindings
+      letGradientAst = gradientFromDelta dim0 (length shapes1) deltaDt
       h val = parseDomains val $ fst
               $ revAstOnDomainsEval
                   (AstDynamicVarName var0 : vars1, varDt, letGradientAst, vAst)
@@ -150,7 +147,7 @@ srevDt f vals dt = revDt (tscalar . f) vals (tscalar dt)
 crev :: forall a vals r advals.
        ( r ~ Scalar vals, vals ~ Value advals
        , ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
-       , Adaptable advals )
+       , Adaptable advals, DomainsOf r ~ Domains r )
     => (advals -> ADVal a) -> vals
     -> vals
 crev f vals = crevDtMaybe f vals Nothing
@@ -159,17 +156,18 @@ crev f vals = crevDtMaybe f vals Nothing
 crevDt :: forall a vals r advals.
          ( r ~ Scalar vals, vals ~ Value advals
          , ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
-         , Adaptable advals )
+         , Adaptable advals, DomainsOf r ~ Domains r )
       => (advals -> ADVal a) -> vals -> a
       -> vals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
-crevDtMaybe :: forall a vals r advals.
-            ( r ~ Scalar vals, vals ~ Value advals
-            , ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
-            , Adaptable advals )
-         => (advals -> ADVal a) -> vals -> Maybe a
-         -> vals
+crevDtMaybe
+  :: forall a vals r advals.
+     ( r ~ Scalar vals, vals ~ Value advals
+     , ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
+     , Adaptable advals, DomainsOf r ~ Domains r )
+  => (advals -> ADVal a) -> vals -> Maybe a
+  -> vals
 crevDtMaybe f vals dt =
   let g inputs = f $ parseADInputs vals inputs
   in parseDomains vals $ fst $ revOnDomains dt g (toDomains vals)

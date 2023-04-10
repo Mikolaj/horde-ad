@@ -110,7 +110,7 @@ valueGeneral f parameters =
 
 valueOnDomains
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , DualNumber.IsPrimalWithScalar a r )
+     , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r )
   => (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
   -> a
@@ -122,7 +122,7 @@ valueOnDomains f parameters =
 
 revOnADInputs
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , DualNumber.IsPrimalWithScalar a r )
+     , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r )
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Engine.ADInputs r
@@ -136,7 +136,7 @@ revOnADInputs = Engine.revOnADInputs  . Just
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , DualNumber.IsPrimalWithScalar a r )
+     , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r )
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Domains r

@@ -84,6 +84,7 @@ type ADNum r =
   , DynamicTensor r
   , DomainsTensor r
   , DTensorOf r ~ OD.Array r
+  , DomainsOf r ~ Domains r
   )
 
 -- All this is not needed in the simplified version, except for compilation

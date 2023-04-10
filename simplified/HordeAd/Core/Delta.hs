@@ -383,7 +383,7 @@ data DeltaBinding r =
 gradientFromDelta
   :: forall r. (Tensor r, DynamicTensor r, DomainsTensor r)
   => Int -> Int -> DeltaDt r
-  -> (Domains r, [(Int, DTensorOf r)])
+  -> DomainsOf r
 gradientFromDelta dim0 dimR deltaDt =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
@@ -406,18 +406,18 @@ gradientFromDelta dim0 dimR deltaDt =
             nMap = EM.empty
             astBindings = []
         in EvalState {..}
-
-  -- Eval.
-  in let EvalState{..} = buildFinMaps s0 deltaDt
-
-     -- Extract results.
-     in ( mkDomains (tfromList0N (singletonShape dim0) (EM.elems iMap0))
-                    (V.fromList $ EM.elems iMapR)
-        , astBindings )
+  in let -- Eval.
+         EvalState{..} = buildFinMaps s0 deltaDt
+         -- Extract results.
+         gradient =
+           dmkDomains
+           $ mkDomains (tfromList0N (singletonShape dim0) (EM.elems iMap0))
+                       (V.fromList $ EM.elems iMapR)
+     in dletWrap astBindings gradient
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> Int -> DeltaDt Double -> (Domains Double, [(Int, DTensorOf Double)]) #-}
+  :: Int -> Int -> DeltaDt Double -> DomainsOf Double #-}
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> Int -> DeltaDt (Ast0 Double) -> (Domains (Ast0 Double), [(Int, DTensorOf (Ast0 Double))]) #-}
+  :: Int -> Int -> DeltaDt (Ast0 Double) -> DomainsOf (Ast0 Double) #-}
 
 buildFinMaps :: forall r. (Tensor r, DynamicTensor r, DomainsTensor r)
              => EvalState r -> DeltaDt r -> EvalState r

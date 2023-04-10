@@ -281,8 +281,6 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
             => TensorOf n r -> [(Int, DTensorOf r)]
             -> ([(Int, DTensorOf r)], TensorOf n r)
   tregister r l = (l, r)
-  tletWrap :: [(Int, DTensorOf r)] -> TensorOf n r -> TensorOf n r
-  tletWrap _l u = u
 
   -- Conversion
   tfromD :: KnownNat n
@@ -314,6 +312,8 @@ class DomainsTensor r where
        => TensorOf n r -> (TensorOf n r -> DomainsOf r)
        -> DomainsOf r
   dlet a f = f a
+  dletWrap :: [(Int, DTensorOf r)] -> DomainsOf r -> DomainsOf r
+  dletWrap _l u = u
 
 
 -- * The giga-constraint

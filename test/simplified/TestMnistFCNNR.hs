@@ -8,7 +8,6 @@ import           Control.Monad (foldM, unless)
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
-import           Data.List (foldl')
 import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as LA
@@ -322,11 +321,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            D vAst deltaTopLevel =
              tunScalar $ snd $ interpretAst envMnistg EM.empty ast
            deltaDt = packDeltaDt (Left vAst) deltaTopLevel
-           (gradientAst, astBindings) =
-             gradientFromDelta 0 (length shapes1) deltaDt
-           bindToLet gr (i, AstDynamic t) = AstDomainsLet (intToAstVarId i) t gr
-           letGradientAst =
-             foldl' bindToLet (AstDomains gradientAst) astBindings
+           letGradientAst = gradientFromDelta 0 (length shapes1) deltaDt
            go :: [MnistData r] -> Domains r -> Domains r
            go [] parameters = parameters
            go ((glyph, label) : rest) parameters =

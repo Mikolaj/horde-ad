@@ -21,7 +21,6 @@ import Prelude
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
-import           Data.List (foldl')
 import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -108,10 +107,7 @@ revAstOnDomainsFun dim0 shapes1 f =
       !(D vAst deltaTopLevel) = f varInputs
       (varDt, astDt) = funToAstR (tshape vAst) id
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
-  in let (gradientAst, astBindings) =
-           gradientFromDelta dim0 (length shapes1) deltaDt
-         bindToLet g (i, AstDynamic t) = AstDomainsLet (intToAstVarId i) t g
-         letGradientAst = foldl' bindToLet (AstDomains gradientAst) astBindings
+  in let letGradientAst = gradientFromDelta dim0 (length shapes1) deltaDt
      in (AstDynamicVarName var0 : vars1, varDt, letGradientAst, vAst)
 
 revAstOnDomainsEval
@@ -143,7 +139,8 @@ revAstOnDomainsEval (vars, varDt, letGradientAst, vAst)
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
-  :: (Tensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r)
+  :: ( Tensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
+     , DomainsOf r ~ Domains r )
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> ADInputs r
@@ -158,13 +155,14 @@ revOnADInputs dt f inputs@ADInputs{..} =
       -- before evaluation allocates new memory and new FFI is started.
       !(D v deltaTopLevel) = f inputs
       deltaDt = packDeltaDt (maybe (Left v) Right dt) deltaTopLevel
-  in let (gradient, _) = gradientFromDelta dim0 dim1 deltaDt
+  in let gradient = gradientFromDelta dim0 dim1 deltaDt
      in (gradient, v)
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: (ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r)
+  :: ( ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
+     , DomainsOf r ~ Domains r )
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> Domains r
