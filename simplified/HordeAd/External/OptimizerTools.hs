@@ -17,7 +17,6 @@ import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
-import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2, liftVT2)
 import HordeAd.Internal.TensorOps (isTensorDummy)

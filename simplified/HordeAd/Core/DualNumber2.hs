@@ -41,18 +41,7 @@ import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
-import           HordeAd.Core.Delta
-  ( Delta0
-  , Domain0
-  , DomainR
-  , Domains
-  , ForwardDerivative
-  , domains0
-  , domainsR
-  , emptyDomain0
-  , mkDomains
-  , nullDomains
-  )
+import           HordeAd.Core.Delta (Delta0, ForwardDerivative)
 import           HordeAd.Core.DualClass hiding (IsPrimal)
 import qualified HordeAd.Core.DualClass as DualClass
 import           HordeAd.Core.DualNumber (dD, dDnotShared, pattern D)

@@ -38,8 +38,7 @@ module HordeAd.Core.Delta
   , -- * Delta expression identifiers
     InputId, toInputId, Dual
   , -- * Evaluation of the delta expressions
-    DeltaDt (..), Domain0, DomainR, Domains
-  , domains0, domainsR, mkDomains, emptyDomain0, nullDomains
+    DeltaDt (..)
   , gradientFromDelta
   , ForwardDerivative (..)
   ) where
@@ -275,32 +274,6 @@ type family Dual a = result | result -> a where
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions
-
--- | Helper definitions to shorten type signatures. @Domains@, among other
--- roles, is the internal representation of domains of objective functions.
-type Domain0 r = TensorOf 1 r
-
--- To store ranked tensors (or Ast terms) we use their untyped versions
--- instead of, e.g,. the unerlying vectors of the tensors,
--- to prevent frequent linearization of the tensors (e.g., after transpose).
-type DomainR r = Data.Vector.Vector (DTensorOf r)
-
-type Domains r = Data.Vector.Vector (DTensorOf r)
-
-domains0 :: Tensor r => Domains r -> Domain0 r
-domains0 v = tfromD $ v V.! 0
-
-domainsR :: Domains r -> DomainR r
-domainsR v = V.slice 1 (V.length v - 1) v
-
-mkDomains :: DynamicTensor r => Domain0 r -> DomainR r -> Domains r
-mkDomains t = V.cons (dfromR t)
-
-emptyDomain0 :: Tensor r => Domain0 r
-emptyDomain0 = tzero (singletonShape 0)
-
-nullDomains :: Tensor r => Domains r -> Bool
-nullDomains params = tlength (domains0 params) == 0 && V.null (domainsR params)
 
 -- | The main input of the differentiation functions:
 -- the delta expression to be differentiated and the dt perturbation

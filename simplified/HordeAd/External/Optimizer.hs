@@ -10,8 +10,9 @@ import Prelude
 
 import Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.DualNumber (ADNum, ADVal, Domains)
+import HordeAd.Core.DualNumber (ADNum, ADVal)
 import HordeAd.Core.Engine
+import HordeAd.Core.TensorClass
 import HordeAd.External.OptimizerTools
 
 -- | Simple Gradient Descent.
