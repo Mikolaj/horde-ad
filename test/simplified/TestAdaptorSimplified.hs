@@ -312,9 +312,9 @@ testFooPP = do
     @?= "\\s0 x2 x3 x4 -> atan2 x4 (x2 * sin x3) + x4 * (x2 * sin x3)"
   "\\" ++ unwords varsPPD ++ " -> "
        ++ printAstDomainsDebug renames letGradientAst
-    @?= "\\s0 x2 x3 x4 dt -> dlet (x4 * dt) (\\x6 -> dlet (negate (x4 * (tconst 1.0 / (x4 * x4 + tletR<4> (x2 * tletR<1> (sin x3)) * tletR<4> (x2 * tletR<1> (sin x3))))) * dt) (\\x7 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tletR<1> (sin x3) * x7 + tletR<2> (sin x3) * x6), dfromR (cos x3 * (x2 * x7) + cos x3 * (x2 * x6)), dfromR ((tletR<4> (x2 * tletR<1> (sin x3)) * (tconst 1.0 / (x4 * x4 + tletR<4> (x2 * tletR<1> (sin x3)) * tletR<4> (x2 * tletR<1> (sin x3))))) * dt + tletR<3> (x2 * tletR<2> (sin x3)) * dt)])))"
+    @?= "\\s0 x2 x3 x4 dt -> dlet (x4 * dt) (\\x6 -> dlet (negate (x4 * (tconst 1.0 / (x4 * x4 + tletR4 (x2 * tletR1 (sin x3)) * tletR4 (x2 * tletR1 (sin x3))))) * dt) (\\x7 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tletR1 (sin x3) * x7 + tletR2 (sin x3) * x6), dfromR (cos x3 * (x2 * x7) + cos x3 * (x2 * x6)), dfromR ((tletR4 (x2 * tletR1 (sin x3)) * (tconst 1.0 / (x4 * x4 + tletR4 (x2 * tletR1 (sin x3)) * tletR4 (x2 * tletR1 (sin x3))))) * dt + tletR3 (x2 * tletR2 (sin x3)) * dt)])))"
   "\\" ++ unwords varsPP ++ " -> " ++ printAstDebug renames vAst
-    @?= "\\s0 x2 x3 x4 -> atan2 x4 (tletR<4> (x2 * tletR<1> (sin x3))) + x4 * tletR<3> (x2 * tletR<2> (sin x3))"
+    @?= "\\s0 x2 x3 x4 -> atan2 x4 (tletR4 (x2 * tletR1 (sin x3))) + x4 * tletR3 (x2 * tletR2 (sin x3))"
 
 fooLet :: forall r n. (RealFloat (TensorOf n r), Tensor r, KnownNat n)
        => (TensorOf n r, TensorOf n r, TensorOf n r) -> TensorOf n r
@@ -349,9 +349,9 @@ testFooLetPP = do
     @?= "\\s0 x2 x3 x4 -> atan2 x4 (x2 * sin x3) + x4 * (x2 * sin x3)"
   "\\" ++ unwords varsPPD
        ++ " -> " ++ printAstDomainsDebug renames letGradientAst
-    @?= "\\s0 x2 x3 x4 dt -> dlet (negate (x4 * (tconst 1.0 / (x4 * x4 + tletR<2> (x2 * tletR<1> (sin x3)) * tletR<2> (x2 * tletR<1> (sin x3))))) * dt + x4 * dt) (\\x7 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tletR<1> (sin x3) * x7), dfromR (cos x3 * (x2 * x7)), dfromR ((tletR<2> (x2 * tletR<1> (sin x3)) * (tconst 1.0 / (x4 * x4 + tletR<2> (x2 * tletR<1> (sin x3)) * tletR<2> (x2 * tletR<1> (sin x3))))) * dt + tletR<2> (x2 * tletR<1> (sin x3)) * dt)]))"
+    @?= "\\s0 x2 x3 x4 dt -> dlet (negate (x4 * (tconst 1.0 / (x4 * x4 + tletR2 (x2 * tletR1 (sin x3)) * tletR2 (x2 * tletR1 (sin x3))))) * dt + x4 * dt) (\\x7 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tletR1 (sin x3) * x7), dfromR (cos x3 * (x2 * x7)), dfromR ((tletR2 (x2 * tletR1 (sin x3)) * (tconst 1.0 / (x4 * x4 + tletR2 (x2 * tletR1 (sin x3)) * tletR2 (x2 * tletR1 (sin x3))))) * dt + tletR2 (x2 * tletR1 (sin x3)) * dt)]))"
   "\\" ++ unwords varsPP ++ " -> " ++ printAstDebug renames vAst
-    @?= "\\s0 x2 x3 x4 -> atan2 x4 (tletR<2> (x2 * tletR<1> (sin x3))) + x4 * tletR<2> (x2 * tletR<1> (sin x3))"
+    @?= "\\s0 x2 x3 x4 -> atan2 x4 (tletR2 (x2 * tletR1 (sin x3))) + x4 * tletR2 (x2 * tletR1 (sin x3))"
 
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =

@@ -760,7 +760,7 @@ printAst cfg d = \case
   AstLetGlobal n v ->
     if displayGlobalLets cfg
     then printPrefixOp printAst cfg d
-                       ("tletR<" ++ show (fromEnum n - 100000000) ++ ">") [v]
+                       ("tletR" ++ show (fromEnum n - 100000000)) [v]
            -- this won't parse anyway, so we don't add parens
     else printAst cfg d v
   AstOp opCode args -> printAstOp cfg d opCode args
