@@ -149,6 +149,7 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 astLet0Fun :: Ast0 r -> Ast0 r
 {-# NOINLINE astLet0Fun #-}
 astLet0Fun t@(Ast0 AstLetGlobal{}) = t
+astLet0Fun t@(Ast0 AstVar{}) = t
 astLet0Fun t = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! Ast0 $ AstLetGlobal (NodeId n) (unAst0 t)
@@ -156,6 +157,7 @@ astLet0Fun t = unsafePerformIO $ do
 astLetRFun :: Ast m r -> Ast m r
 {-# NOINLINE astLetRFun #-}
 astLetRFun t@AstLetGlobal{} = t
+astLetRFun t@AstVar{} = t
 astLetRFun t = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! AstLetGlobal (NodeId n) t
