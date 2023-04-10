@@ -11,7 +11,6 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import           Control.Monad (when)
 import           Data.IORef
-import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
@@ -163,12 +162,6 @@ build1V k (var, v00) =
       in AstLetVectorOfDynamic
            vars (build1VOccurenceUnknownVectorOfDynamic k (var, l))
                 (build1VOccurenceUnknown k (var, v2))
-
-unwrapVectorOfDynamic
-  :: AstVectorOfDynamic r -> Data.Vector.Vector (AstDynamic r)
-unwrapVectorOfDynamic = \case
-  AstVectorOfDynamic l -> l
-  AstVectorOfDynamicLet _ _ v -> unwrapVectorOfDynamic v
 
 build1VOccurenceUnknownDynamic
   :: ShowAstSimplify r

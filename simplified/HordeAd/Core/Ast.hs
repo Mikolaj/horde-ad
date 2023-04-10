@@ -9,7 +9,7 @@
 module HordeAd.Core.Ast
   ( ShowAst, AstIndex, AstVarList, NodeId(..)
   , Ast(..), AstNoVectorize(..), AstPrimalPart(..), AstDualPart(..)
-  , AstDynamic(..), AstVectorOfDynamic(..), Ast0(..)
+  , AstDynamic(..), AstVectorOfDynamic(..), unwrapVectorOfDynamic, Ast0(..)
   , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
@@ -136,6 +136,12 @@ data AstVectorOfDynamic :: Type -> Type where
     :: KnownNat n
     => AstVarId -> Ast n r -> AstVectorOfDynamic r -> AstVectorOfDynamic r
 deriving instance ShowAst r => Show (AstVectorOfDynamic r)
+
+unwrapVectorOfDynamic
+  :: AstVectorOfDynamic r -> Data.Vector.Vector (AstDynamic r)
+unwrapVectorOfDynamic = \case
+  AstVectorOfDynamic l -> l
+  AstVectorOfDynamicLet _ _ v -> unwrapVectorOfDynamic v
 
 newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
  deriving Show

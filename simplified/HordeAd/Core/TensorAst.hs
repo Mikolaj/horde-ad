@@ -13,7 +13,6 @@ import Prelude
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
@@ -80,7 +79,6 @@ instance ShowAstSimplify r
     in foldl' bindToLet u l
 
   tfromD = astFromDynamic
-  tletVectorOfDynamic a f = astLetVectorOfDynamicFun a f
 
 instance DynamicTensor (Ast0 r) where
   type DTensorOf (Ast0 r) = AstDynamic r
@@ -104,6 +102,8 @@ instance ShowAst r
       Just Refl -> AstDynamic (AstSumOfList [r, v])
       _ -> error "daddR: type mismatch"
   dshape (AstDynamic v) = shapeToList $ shapeAst v
+  type DomainsOf (Ast0 r) = AstVectorOfDynamic r
+  tletVectorOfDynamic = astLetVectorOfDynamicFun
 
 astLetFun :: (KnownNat n, ShowAstSimplify r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
@@ -114,17 +114,18 @@ astLetFun a f =
   in AstLet var a ast
 
 astLetVectorOfDynamicFun
-  :: ShowAstSimplify r
-  => Data.Vector.Vector (AstDynamic r)
-  -> (Data.Vector.Vector (AstDynamic r) -> Ast m r)
+  :: forall m r. ShowAst r
+  => AstVectorOfDynamic r
+  -> (AstVectorOfDynamic r -> Ast m r)
   -> Ast m r
 astLetVectorOfDynamicFun a f =
-  let genVar (AstDynamic t) =
-        let sh = tshape t
+  let genVar :: AstDynamic r -> (AstVarId, AstDynamic r)
+      genVar (AstDynamic t) =
+        let sh = shapeAst t
             (AstVarName var, ast) = funToAstR sh id
         in (var, AstDynamic ast)
-      (vars, asts) = V.unzip $ V.map genVar a
-  in AstLetVectorOfDynamic vars (AstVectorOfDynamic a) (f asts)
+      (vars, asts) = V.unzip $ V.map genVar (unwrapVectorOfDynamic a)
+  in AstLetVectorOfDynamic vars a (f $ AstVectorOfDynamic asts)
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -216,7 +217,6 @@ instance ShowAstSimplify r
   tregister = undefined
 
   tfromD = undefined
-  tletVectorOfDynamic = undefined
 
 instance ShowAstSimplify r
          => Tensor (AstNoVectorize 0 r) where
@@ -276,4 +276,3 @@ instance ShowAstSimplify r
   tregister = undefined
 
   tfromD = undefined
-  tletVectorOfDynamic = undefined

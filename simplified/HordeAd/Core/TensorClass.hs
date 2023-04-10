@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
+{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | A class containing array operations, with some extra algebraic operations
@@ -287,11 +287,6 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   -- Conversion
   tfromD :: KnownNat n
          => DTensorOf r -> TensorOf n r
-  tletVectorOfDynamic
-    :: Data.Vector.Vector (DTensorOf r)
-    -> (Data.Vector.Vector (DTensorOf r) -> TensorOf n r)
-    -> TensorOf n r
-  tletVectorOfDynamic a f = f a
 
  -- The untyped versions of the tensor, to put many ranks in one vector
 class DynamicTensor r where
@@ -305,6 +300,12 @@ class DummyTensor r where
   daddR :: forall n. KnownNat n
         => TensorOf n r -> DTensorOf r -> DTensorOf r
   dshape :: DTensorOf r -> [Int]
+  type DomainsOf r
+  tletVectorOfDynamic
+    :: DomainsOf r
+    -> (DomainsOf r -> TensorOf n r)
+    -> TensorOf n r
+  tletVectorOfDynamic a f = f a
 
 
 -- * The giga-constraint
@@ -413,6 +414,7 @@ instance DummyTensor Double where
   disDummy = isTensorDummy
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
+  type DomainsOf Double = Domains Double
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
@@ -468,6 +470,7 @@ instance DummyTensor Float where
   disDummy = isTensorDummy
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
+  type DomainsOf Float = Domains Float
 
 {- These instances are increasingly breaking stuff, so disabled:
 
