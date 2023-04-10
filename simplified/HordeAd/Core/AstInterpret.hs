@@ -367,8 +367,11 @@ interpretAstDomainsDummy env memo = \case
                                 memo2 v
       -- TODO: preserve let, as in AstLet case
 
+-- TODO: when the code again compiles with GHC >= 9.6, check whether
+-- these INLINEs are still needed (removal causes 10% slowdown ATM).
 interpretAstOp :: RealFloat a
                => OpCode -> [a] -> a
+{-# INLINE interpretAstOp #-}
 interpretAstOp MinusOp [u, v] = u - v
 interpretAstOp TimesOp [u, v] = u * v
 interpretAstOp NegateOp [u] = negate u
@@ -402,6 +405,7 @@ interpretAstOp opCode args =
 
 interpretAstIntOp :: Integral a
                   => OpCodeInt -> [a] -> a
+{-# INLINE interpretAstIntOp #-}
 interpretAstIntOp PlusIntOp l = foldl1' (+) l  -- TODO: use or remove
 interpretAstIntOp MinusIntOp [u, v] = u - v
 interpretAstIntOp TimesIntOp l = foldl1' (*) l  -- TODO: use or remove
@@ -418,6 +422,7 @@ interpretAstIntOp opCodeInt args =
 
 interpretAstBoolOp :: Boolean b
                    => OpCodeBool -> [b] -> b
+{-# INLINE interpretAstBoolOp #-}
 interpretAstBoolOp NotOp [u] = notB u
 interpretAstBoolOp AndOp [u, v] = u &&* v
 interpretAstBoolOp OrOp [u, v] = u ||* v
@@ -573,3 +578,10 @@ interpretAstRelOp opCodeRel args =
   :: OpCodeRel -> [Double] -> Bool #-}
 {-# SPECIALIZE interpretAstRelOp
   :: OpCodeRel -> [Float] -> Bool #-}
+
+{-# SPECIALIZE interpretAstRelOp
+  :: OpCodeRel -> [CInt] -> Bool #-}
+{-# SPECIALIZE interpretAstRelOp
+  :: OpCodeRel -> [AstInt Double] -> AstBool Double #-}
+{-# SPECIALIZE interpretAstRelOp
+  :: OpCodeRel -> [AstInt Float] -> AstBool Float #-}
