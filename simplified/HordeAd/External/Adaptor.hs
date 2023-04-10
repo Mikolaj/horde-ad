@@ -9,7 +9,7 @@ module HordeAd.External.Adaptor
   , AdaptableDomains(toDomains, nParams, nScalars)
   , RandomDomains(randomVals)
   , AdaptableInputs(Value), parseDomains, parseDomainsAst, parseADInputs
-  , revL, revDtMaybeL, rev, revDt
+  , revL, revDtMaybeL, revDtFun, rev, revDt
   , srevL, srevDtMaybeL, srev, srevDt
   , crev, crevDt, fwd
   ) where
@@ -60,6 +60,23 @@ revDtMaybeL
   => (astvals -> Ast n r) -> [vals] -> Maybe (TensorOf n r) -> [vals]
 revDtMaybeL _ [] _ = []
 revDtMaybeL f valsAll@(vals : _) dt =
+  let asts4 = revDtFun f vals
+      h val = parseDomains val $ fst
+              $ revAstOnDomainsEval asts4 (toDomains val) dt
+  in map h valsAll
+
+revDtFun
+  :: forall r n vals astvals.
+     ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
+     , Floating (Vector r), ShowAst r, RealFloat r
+     , FromDomainsAst astvals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ ValueAst astvals )
+  => (astvals -> Ast n r) -> vals
+  -> ( [AstDynamicVarName r]
+     , AstVarName (OR.Array n r)
+     , AstDomains r
+     , Ast n r )
+revDtFun f vals =
   let parameters = toDomains vals
       dim0 = tlength $ domains0 parameters
       shapes1 = map dshape $ V.toList $ domainsR parameters
@@ -79,11 +96,7 @@ revDtMaybeL f valsAll@(vals : _) dt =
       (varDt, astDt) = funToAstR (tshape vAst) id
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
       letGradientAst = gradientFromDelta dim0 (length shapes1) deltaDt
-      h val = parseDomains val $ fst
-              $ revAstOnDomainsEval
-                  (AstDynamicVarName var0 : vars1, varDt, letGradientAst, vAst)
-                  (toDomains val) dt
-  in map h valsAll
+  in (AstDynamicVarName var0 : vars1, varDt, letGradientAst, vAst)
 
 rev
   :: forall r n vals astvals.
