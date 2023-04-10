@@ -22,6 +22,7 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal (ADTensor)
+import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor
 
@@ -32,6 +33,9 @@ testTrees =
   [ -- Tensor tests
     testCase "2zero" testZero
   , testCase "2foo" testFoo
+  , testCase "2fooPP" testFooPP
+  , testCase "2fooLet" testFooLet
+  , testCase "2fooLetPP" testFooLetPP
   , testCase "2bar" testBar
   , testCase "2barADVal" testBarADVal
   , testCase "2baz old to force fooConstant" testBaz
@@ -274,16 +278,71 @@ testZero =
     (OR.fromList @Double @0 [] [0])
     (rev' @(OR.Array 0 Double) (const 3) 42)
 
-foo :: RealFloat a => (a,a,a) -> a
-foo (x,y,z) =
+foo :: RealFloat a => (a, a, a) -> a
+foo (x, y, z) =
   let w = x * sin y
   in atan2 z w + z * w
 
 testFoo :: Assertion
-testFoo =
+testFoo = do
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
     (srev @Double foo (1.1, 2.2, 3.3))
+
+testFooPP :: Assertion
+testFooPP = do
+  resetVarCounter >> resetIdCounter
+  let fooT = foo @(Ast 0 Double)
+      foo3 x = fooT (x, x, x)
+      (AstVarName var3, ast3) = funToAstR ZS foo3
+  "\\" ++ printAstVar var3 "" ++ " -> " ++ printAstSimple ast3
+    @?= "\\x1 -> atan2 x1 (x1 * sin x1) + x1 * (x1 * sin x1)"
+  resetVarCounter >> resetIdCounter
+  let (vars, AstVarName varDt, letGradientAst, vAst) = revDtFun fooT (4, 5, 6)
+      varsPP = map (\(AstDynamicVarName (AstVarName var)) -> printAstVar var "")
+                   vars
+      varsPPD = varsPP ++ [printAstVar varDt ""]
+  "\\" ++ unwords varsPPD ++ " -> " ++ printAstDomainsSimple letGradientAst
+    @?= "\\x1 x2 x3 x4 x5 -> dlet (x4 * x5) (\\x6 -> dlet (negate (x4 * (tconst 1.0 / (x4 * x4 + (x2 * sin x3) * (x2 * sin x3)))) * x5) (\\x7 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (sin x3 * x7 + sin x3 * x6), dfromR (cos x3 * (x2 * x7) + cos x3 * (x2 * x6)), dfromR (((x2 * sin x3) * (tconst 1.0 / (x4 * x4 + (x2 * sin x3) * (x2 * sin x3)))) * x5 + (x2 * sin x3) * x5)])))"
+  "\\" ++ unwords varsPP ++ " -> " ++ printAstSimple vAst
+    @?= "\\x1 x2 x3 x4 -> atan2 x4 (x2 * sin x3) + x4 * (x2 * sin x3)"
+  "\\" ++ unwords varsPPD ++ " -> " ++ printAstDomainsDebug letGradientAst
+    @?= "\\x1 x2 x3 x4 x5 -> dlet (x4 * x5) (\\x6 -> dlet (negate (x4 * (tconst 1.0 / (x4 * x4 + tletR<4> (x2 * tletR<1> (sin x3)) * tletR<4> (x2 * tletR<1> (sin x3))))) * x5) (\\x7 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tletR<1> (sin x3) * x7 + tletR<2> (sin x3) * x6), dfromR (cos x3 * (x2 * x7) + cos x3 * (x2 * x6)), dfromR ((tletR<4> (x2 * tletR<1> (sin x3)) * (tconst 1.0 / (x4 * x4 + tletR<4> (x2 * tletR<1> (sin x3)) * tletR<4> (x2 * tletR<1> (sin x3))))) * x5 + tletR<3> (x2 * tletR<2> (sin x3)) * x5)])))"
+  "\\" ++ unwords varsPP ++ " -> " ++ printAstDebug vAst
+    @?= "\\x1 x2 x3 x4 -> atan2 x4 (tletR<4> (x2 * tletR<1> (sin x3))) + x4 * tletR<3> (x2 * tletR<2> (sin x3))"
+
+fooLet :: forall r n. (RealFloat (TensorOf n r), Tensor r, KnownNat n)
+       => (TensorOf n r, TensorOf n r, TensorOf n r) -> TensorOf n r
+fooLet (x, y, z) = tlet @r @n (x * sin y) $ \w -> atan2 z w + z * w
+
+testFooLet :: Assertion
+testFooLet = do
+  assertEqualUpToEpsilon 1e-10
+    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+    (rev @Double @0 fooLet (1.1, 2.2, 3.3))
+
+testFooLetPP :: Assertion
+testFooLetPP = do
+  resetVarCounter >> resetIdCounter
+  let fooLetT = fooLet @(Ast0 Double)
+      fooLet3 x = fooLetT (x, x, x)
+      (AstVarName var3, ast3) = funToAstR ZS fooLet3
+  "\\" ++ printAstVar var3 "" ++ " -> " ++ printAstSimple ast3
+    @?= "\\x1 -> tlet (x1 * sin x1) (\\x2 -> atan2 x1 x2 + x1 * x2)"
+  resetVarCounter >> resetIdCounter
+  let (vars, AstVarName varDt, letGradientAst, vAst) =
+        revDtFun fooLetT (4, 5, 6)
+      varsPP = map (\(AstDynamicVarName (AstVarName var)) -> printAstVar var "")
+                   vars
+      varsPPD = varsPP ++ [printAstVar varDt ""]
+  "\\" ++ unwords varsPPD ++ " -> " ++ printAstDomainsSimple letGradientAst
+    @?= "\\x1 x2 x3 x4 x5 -> dlet (negate (x4 * (tconst 1.0 / (x4 * x4 + (x2 * sin x3) * (x2 * sin x3)))) * x5 + x4 * x5) (\\x7 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (sin x3 * x7), dfromR (cos x3 * (x2 * x7)), dfromR (((x2 * sin x3) * (tconst 1.0 / (x4 * x4 + (x2 * sin x3) * (x2 * sin x3)))) * x5 + (x2 * sin x3) * x5)]))"
+  "\\" ++ unwords varsPP ++ " -> " ++ printAstSimple vAst
+    @?= "\\x1 x2 x3 x4 -> atan2 x4 (x2 * sin x3) + x4 * (x2 * sin x3)"
+  "\\" ++ unwords varsPPD ++ " -> " ++ printAstDomainsDebug letGradientAst
+    @?= "\\x1 x2 x3 x4 x5 -> dlet (negate (x4 * (tconst 1.0 / (x4 * x4 + tletR<2> (x2 * tletR<1> (sin x3)) * tletR<2> (x2 * tletR<1> (sin x3))))) * x5 + x4 * x5) (\\x7 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tletR<1> (sin x3) * x7), dfromR (cos x3 * (x2 * x7)), dfromR ((tletR<2> (x2 * tletR<1> (sin x3)) * (tconst 1.0 / (x4 * x4 + tletR<2> (x2 * tletR<1> (sin x3)) * tletR<2> (x2 * tletR<1> (sin x3))))) * x5 + tletR<2> (x2 * tletR<1> (sin x3)) * x5)]))"
+  "\\" ++ unwords varsPP ++ " -> " ++ printAstDebug vAst
+    @?= "\\x1 x2 x3 x4 -> atan2 x4 (tletR<2> (x2 * tletR<1> (sin x3))) + x4 * tletR<2> (x2 * tletR<1> (sin x3))"
 
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =

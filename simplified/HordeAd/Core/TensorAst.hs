@@ -5,12 +5,13 @@
 -- | 'Tensor' class instances for 'Ast' terms. Some of these instances
 -- vectorize any terms starting with 'build1' and so eliminated the constructor.
 module HordeAd.Core.TensorAst
-  (
+  ( resetIdCounter
   ) where
 
 import Prelude
 
-import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
+import           Data.IORef.Unboxed
+  (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
@@ -141,6 +142,9 @@ astDomainsLetFun a f =
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
 unsafeGlobalCounter = unsafePerformIO (newCounter 100000001)
+
+resetIdCounter :: IO ()
+resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
 unsafeGetFreshId :: IO Int
 {-# INLINE unsafeGetFreshId #-}
