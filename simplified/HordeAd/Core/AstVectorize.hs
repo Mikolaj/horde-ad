@@ -11,6 +11,7 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import           Control.Monad (when)
 import           Data.IORef
+import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
@@ -36,19 +37,20 @@ build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
       startTerm = AstBuild1 k (var, v0)
+      renames = IM.fromList [(1, "s0")]
   when enabled $ do
     writeIORef traceNestingLevel 0
     hPutStrLnFlush stderr $
       "\n"
       ++ "START of vectorization for term "
-      ++ ellipsisString width (printAstSimple startTerm)
+      ++ ellipsisString width (printAstSimple renames startTerm)
       ++ "\n"
   let !endTerm = build1VOccurenceUnknown k (var, v0)
   when enabled $ do
     hPutStrLnFlush stderr $
       "\n"
       ++ "END of vectorization yields "
-      ++ ellipsisString width (printAstSimple endTerm)
+      ++ ellipsisString width (printAstSimple renames endTerm)
       ++ "\n"
   let !_A = assert (shapeAst startTerm == shapeAst endTerm
                    `blame` "build1Vectorize: term shape changed"
@@ -266,8 +268,10 @@ mkTraceRule :: (KnownNat n, ShowAstSimplify r)
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = traceWidth
+      renames = IM.fromList [(1, "s0")]
       constructorName =
-        unwords $ take nwords $ words $ take 20 $ printAstSimple caseAnalysed
+        unwords $ take nwords $ words $ take 20
+        $ printAstSimple renames caseAnalysed
       ruleName = prefix ++ "." ++ constructorName
       ruleNamePadded = take 20 $ ruleName ++ repeat ' '
   when enabled $ do
@@ -275,8 +279,8 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
     modifyIORef' traceNestingLevel succ
     let paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
     -- Force in the correct order:
-    let !stringFrom = printAstSimple from
-    let !stringTo = printAstSimple to
+    let !stringFrom = printAstSimple renames from
+    let !stringTo = printAstSimple renames to
     hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
                             ++ " sends " ++ padString width stringFrom
                             ++ " to " ++ padString width stringTo

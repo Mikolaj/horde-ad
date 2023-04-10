@@ -31,6 +31,8 @@ import           Data.Either (fromLeft, fromRight)
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy (Proxy))
+import           Data.Strict.IntMap (IntMap)
+import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -712,92 +714,101 @@ substitute1AstBool i var b1 = case b1 of
 
 -- Modeled after https://github.com/VMatthijs/CHAD/blob/755fc47e1f8d1c3d91455f123338f44a353fc265/src/TargetLanguage.hs#L335.
 
-printAstVarId :: String -> AstVarId -> ShowS
-printAstVarId prefix var =
-  showString $ prefix ++ show (fromEnum var - 100000000)
+printAstVarId :: String -> IntMap String -> AstVarId -> ShowS
+printAstVarId prefix renames var =
+  let n = fromEnum var - 100000000
+  in showString $ case IM.lookup n renames of
+    Nothing -> prefix ++ show n
+    Just name -> name
 
-printAstVar :: AstVarId -> ShowS
+printAstVar :: IntMap String -> AstVarId -> ShowS
 printAstVar = printAstVarId "x"
 
-printAstIntVar :: AstVarId -> ShowS
+printAstIntVar :: IntMap String -> AstVarId -> ShowS
 printAstIntVar = printAstVarId "i"
 
-printAstSimple :: ShowAst r => Ast n r -> String
-printAstSimple t = printAst False 0 t ""
+printAstSimple :: ShowAst r => IntMap String -> Ast n r -> String
+printAstSimple renames t = printAst (PrintConfig False renames) 0 t ""
 
-printAstDebug :: ShowAst r => Ast n r -> String
-printAstDebug t = printAst True 0 t ""
+printAstDebug :: ShowAst r => IntMap String -> Ast n r -> String
+printAstDebug renames t = printAst (PrintConfig True renames) 0 t ""
+
+data PrintConfig = PrintConfig
+  { displayGlobalLets :: Bool
+  , varRenames        :: IntMap String
+  }
 
 -- Precedences used are as in Haskell.
 --
--- If @global@ is off, typing this in should result
+-- If @displayGlobalLets@ is off, typing this in should result
 -- in a program with the same semantics (though GHC may require
 -- some extra type applications), but no global sharing.
--- If @global@ is on, this won't parse.
-printAst :: ShowAst r => Bool -> Int -> Ast n r -> ShowS
-printAst global d = \case
-  AstVar _sh var -> printAstVar var
+-- If @displayGlobalLets@ is on, this won't parse.
+printAst :: ShowAst r => PrintConfig -> Int -> Ast n r -> ShowS
+printAst cfg d = \case
+  AstVar _sh var -> printAstVar (varRenames cfg) var
   AstLet var u v ->
     showParen (d > 10)
     $ showString "tlet "
-      . printAst global 11 u
+      . printAst cfg 11 u
       . showString " "
       . (showParen True
          $ showString "\\"
-           . printAstVar var
+           . printAstVar (varRenames cfg) var
            . showString " -> "
-           . printAst global 0 v)
+           . printAst cfg 0 v)
   AstLetGlobal n v ->
-    if global
-    then printPrefixOp printAst global d
+    if displayGlobalLets cfg
+    then printPrefixOp printAst cfg d
                        ("tletR<" ++ show (fromEnum n - 100000000) ++ ">") [v]
            -- this won't parse anyway, so we don't add parens
-    else printAst global d v
-  AstOp opCode args -> printAstOp global d opCode args
+    else printAst cfg d v
+  AstOp opCode args -> printAstOp cfg d opCode args
   AstSumOfList [] -> error "printAst: empty AstSumOfList"
   AstSumOfList (left : args) ->
-    let rs = map (\arg -> showString " + " . printAst global 7 arg) args
+    let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
     in showParen (d > 6)
-       $ printAst global 7 left
+       $ printAst cfg 7 left
          . foldr (.) id rs
   AstIota -> showString "tiota"  -- TODO: no surface syntax, so no roundtrip
   AstIndexZ AstIota (i :. ZI) ->
-    printPrefixOp printAstInt global d "tfromIndex0" [i]
+    printPrefixOp printAstInt cfg d "tfromIndex0" [i]
   AstIndexZ v ix ->
     showParen (d > 9)
-    $ printAst global 10 v
+    $ printAst cfg 10 v
       . showString " ! "
-      . showListWith (printAstInt global 0) (indexToList ix)
-  AstSum v -> printPrefixOp printAst global d "tsum" [v]
+      . showListWith (printAstInt cfg 0) (indexToList ix)
+  AstSum v -> printPrefixOp printAst cfg d "tsum" [v]
   AstScatter sh v (vars, ix) ->
     showParen (d > 10)
     $ showString ("tscatter " ++ show sh ++ " ")
-      . printAst global 11 v
+      . printAst cfg 11 v
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith printAstIntVar (sizedListToList vars)
+           . showListWith (printAstIntVar (varRenames cfg))
+                          (sizedListToList vars)
            . showString " -> "
-           . showListWith (printAstInt global 0) (indexToList ix))
+           . showListWith (printAstInt cfg 0) (indexToList ix))
   AstFromList l ->
     showParen (d > 10)
     $ showString "tfromList "
-      . showListWith (printAst global 0) l
+      . showListWith (printAst cfg 0) l
   AstFromVector l ->
     showParen (d > 10)
     $ showString "tfromVector "
       . (showParen True
          $ showString "fromList "
-           . showListWith (printAst global 0) (V.toList l))
-  AstKonst k v -> printPrefixOp printAst global d ("tkonst " ++ show k) [v]
-  AstAppend x y -> printPrefixOp printAst global d "tappend" [x, y]
-  AstSlice i k v -> printPrefixOp printAst global d
+           . showListWith (printAst cfg 0) (V.toList l))
+  AstKonst k v -> printPrefixOp printAst cfg d ("tkonst " ++ show k) [v]
+  AstAppend x y -> printPrefixOp printAst cfg d "tappend" [x, y]
+  AstSlice i k v -> printPrefixOp printAst cfg d
                                   ("tslice " ++ show i ++ " " ++ show k) [v]
-  AstReverse v -> printPrefixOp printAst global d "treverse" [v]
+  AstReverse v -> printPrefixOp printAst cfg d "treverse" [v]
   AstTranspose perm v ->
-    printPrefixOp printAst global d ("ttranspose " ++ show perm) [v]
+    printPrefixOp printAst cfg d ("ttranspose " ++ show perm) [v]
   AstReshape sh v ->
-    printPrefixOp printAst global d ("treshape " ++ show sh) [v]
+    printPrefixOp printAst cfg d ("treshape " ++ show sh) [v]
   AstBuild1 k (var, v) ->
     showParen (d > 10)
     $ showString "tbuild1 "
@@ -805,19 +816,20 @@ printAst global d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . printAstVar var
+           . printAstVar (varRenames cfg) var
            . showString " -> "
-           . printAst global 0 v)
+           . printAst cfg 0 v)
   AstGatherZ sh v (vars, ix) ->
     showParen (d > 10)
     $ showString ("tgather " ++ show sh ++ " ")
-      . printAst global 11 v
+      . printAst cfg 11 v
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith printAstIntVar (sizedListToList vars)
+           . showListWith (printAstIntVar (varRenames cfg))
+                          (sizedListToList vars)
            . showString " -> "
-           . showListWith (printAstInt global 0) (indexToList ix))
+           . showListWith (printAstInt cfg 0) (indexToList ix))
   AstConst a ->
     showParen (d > 10)
     $ showString "tconst "
@@ -825,21 +837,21 @@ printAst global d = \case
         then shows $ head $ OR.toList a
         else showParen True
              $ shows a
-  AstConstant (AstPrimalPart (AstConst a)) -> printAst global d (AstConst a)
+  AstConstant (AstPrimalPart (AstConst a)) -> printAst cfg d (AstConst a)
   AstConstant (AstPrimalPart a) ->
-    printPrefixOp printAst global d "tconstant" [a]
+    printPrefixOp printAst cfg d "tconstant" [a]
   AstD (AstPrimalPart u) (AstDualPart u') ->
-    printPrefixOp printAst global d "tD" [u, u']
+    printPrefixOp printAst cfg d "tD" [u, u']
   AstLetDomains vars l v ->
     showParen (d > 10)
     $ showString "tletDomains "
-      . printAstDomains global 11 l
+      . printAstDomains cfg 11 l
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith printAstVar (V.toList vars)
+           . showListWith (printAstVar (varRenames cfg)) (V.toList vars)
            . showString " -> "
-           . printAst global 0 v)
+           . printAst cfg 0 v)
       -- TODO: this does not roundtrip yet
 
 -- Differs from standard only in the space after comma.
@@ -850,149 +862,152 @@ showListWith showx (x:xs) s = '[' : showx x (showl xs)
   showl []     = ']' : s
   showl (y:ys) = ", " ++ showx y (showl ys)
 
-printAstDynamic :: ShowAst r => Bool -> Int -> AstDynamic r -> ShowS
-printAstDynamic global d (AstDynamic v) =
-  printPrefixOp printAst global d "dfromR" [v]
+printAstDynamic :: ShowAst r => PrintConfig -> Int -> AstDynamic r -> ShowS
+printAstDynamic cfg d (AstDynamic v) =
+  printPrefixOp printAst cfg d "dfromR" [v]
 
-printAstDomainsSimple :: ShowAst r => AstDomains r -> String
-printAstDomainsSimple t = printAstDomains False 0 t ""
+printAstDomainsSimple :: ShowAst r => IntMap String -> AstDomains r -> String
+printAstDomainsSimple renames t =
+  printAstDomains (PrintConfig False renames) 0 t ""
 
-printAstDomainsDebug :: ShowAst r => AstDomains r -> String
-printAstDomainsDebug t = printAstDomains True 0 t ""
+printAstDomainsDebug :: ShowAst r => IntMap String -> AstDomains r -> String
+printAstDomainsDebug renames t =
+  printAstDomains (PrintConfig True renames) 0 t ""
 
 printAstDomains :: ShowAst r
-                => Bool -> Int -> AstDomains r -> ShowS
-printAstDomains global d = \case
+                => PrintConfig -> Int -> AstDomains r -> ShowS
+printAstDomains cfg d = \case
   AstDomains l ->
     showParen (d > 10)
     $ showString "dmkDomains "
       . (showParen True
          $ showString "fromList "
-           . showListWith (printAstDynamic global 0) (V.toList l))
+           . showListWith (printAstDynamic cfg 0) (V.toList l))
   AstDomainsLet var u v ->
     showParen (d > 10)
     $ showString "dlet "
-      . printAst global 11 u
+      . printAst cfg 11 u
       . showString " "
       . (showParen True
          $ showString "\\"
-           . printAstVar var
+           . printAstVar (varRenames cfg) var
            . showString " -> "
-           . printAstDomains global 0 v)
+           . printAstDomains cfg 0 v)
 
-printAstInt :: ShowAst r => Bool -> Int -> AstInt r -> ShowS
-printAstInt global d = \case
-  AstIntVar var -> printAstIntVar var
-  AstIntOp opCode args -> printAstIntOp global d opCode args
+printAstInt :: ShowAst r => PrintConfig -> Int -> AstInt r -> ShowS
+printAstInt cfg d = \case
+  AstIntVar var -> printAstIntVar (varRenames cfg) var
+  AstIntOp opCode args -> printAstIntOp cfg d opCode args
   AstIntConst a -> shows a
-  AstIntFloor (AstPrimalPart v) -> printPrefixOp printAst global d "floor" [v]
+  AstIntFloor (AstPrimalPart v) -> printPrefixOp printAst cfg d "floor" [v]
   AstIntCond b a1 a2 ->
     showParen (d > 10)
     $ showString "ifB "
-      . printAstBool global 11 b
+      . printAstBool cfg 11 b
       . showString " "
-      . printAstInt global 11 a1
+      . printAstInt cfg 11 a1
       . showString " "
-      . printAstInt global 11 a2
+      . printAstInt cfg 11 a2
   AstMinIndex1 (AstPrimalPart v) ->
-    printPrefixOp printAst global d "tminIndex0" [v]
+    printPrefixOp printAst cfg d "tminIndex0" [v]
   AstMaxIndex1 (AstPrimalPart v) ->
-    printPrefixOp printAst global d "tmaxIndex0" [v]
+    printPrefixOp printAst cfg d "tmaxIndex0" [v]
 
-printAstBool :: ShowAst r => Bool -> Int -> AstBool r -> ShowS
-printAstBool global d = \case
-  AstBoolOp opCode args -> printAstBoolOp global d opCode args
+printAstBool :: ShowAst r => PrintConfig -> Int -> AstBool r -> ShowS
+printAstBool cfg d = \case
+  AstBoolOp opCode args -> printAstBoolOp cfg d opCode args
   AstBoolConst a -> shows a
-  AstRel opCode args -> printAstRelOp printAst global d opCode
+  AstRel opCode args -> printAstRelOp printAst cfg d opCode
                         $ map unAstPrimalPart args
-  AstRelInt opCode args -> printAstRelOp printAstInt global d opCode args
+  AstRelInt opCode args -> printAstRelOp printAstInt cfg d opCode args
 
-printAstOp :: ShowAst r => Bool -> Int -> OpCode -> [Ast n r] -> ShowS
-printAstOp global d opCode args = case (opCode, args) of
-  (MinusOp, [u, v]) -> printBinaryOp printAst global d u (6, " - ") v
-  (TimesOp, [u, v]) -> printBinaryOp printAst global d u (7, " * ") v
-  (NegateOp, [u]) -> printPrefixOp printAst global d "negate" [u]
-  (AbsOp, [u]) -> printPrefixOp printAst global d "abs" [u]
-  (SignumOp, [u]) -> printPrefixOp printAst global d "signum" [u]
-  (DivideOp, [u, v]) -> printBinaryOp printAst global d u (7, " / ") v
-  (RecipOp, [u]) -> printPrefixOp printAst global d "recip" [u]
-  (ExpOp, [u]) -> printPrefixOp printAst global d "exp" [u]
-  (LogOp, [u]) -> printPrefixOp printAst global d "log" [u]
-  (SqrtOp, [u]) -> printPrefixOp printAst global d "sqrt" [u]
-  (PowerOp, [u, v]) -> printBinaryOp printAst global d u (8, " ** ") v
-  (LogBaseOp, [u, v]) -> printPrefixOp printAst global d "logBase" [u, v]
-  (SinOp, [u]) -> printPrefixOp printAst global d "sin" [u]
-  (CosOp, [u]) -> printPrefixOp printAst global d "cos" [u]
-  (TanOp, [u]) -> printPrefixOp printAst global d "tan" [u]
-  (AsinOp, [u]) -> printPrefixOp printAst global d "asin" [u]
-  (AcosOp, [u]) -> printPrefixOp printAst global d "acos" [u]
-  (AtanOp, [u]) -> printPrefixOp printAst global d "atan" [u]
-  (SinhOp, [u]) -> printPrefixOp printAst global d "sinh" [u]
-  (CoshOp, [u]) -> printPrefixOp printAst global d "cosh" [u]
-  (TanhOp, [u]) -> printPrefixOp printAst global d "tanh" [u]
-  (AsinhOp, [u]) -> printPrefixOp printAst global d "asinh" [u]
-  (AcoshOp, [u]) -> printPrefixOp printAst global d "acosh" [u]
-  (AtanhOp, [u]) -> printPrefixOp printAst global d "atanh" [u]
-  (Atan2Op, [u, v]) -> printPrefixOp printAst global d "atan2" [u, v]
-  (MaxOp, [u, v]) -> printPrefixOp printAst global d "max" [u, v]
-  (MinOp, [u, v]) -> printPrefixOp printAst global d "min" [u, v]
+printAstOp :: ShowAst r => PrintConfig -> Int -> OpCode -> [Ast n r] -> ShowS
+printAstOp cfg d opCode args = case (opCode, args) of
+  (MinusOp, [u, v]) -> printBinaryOp printAst cfg d u (6, " - ") v
+  (TimesOp, [u, v]) -> printBinaryOp printAst cfg d u (7, " * ") v
+  (NegateOp, [u]) -> printPrefixOp printAst cfg d "negate" [u]
+  (AbsOp, [u]) -> printPrefixOp printAst cfg d "abs" [u]
+  (SignumOp, [u]) -> printPrefixOp printAst cfg d "signum" [u]
+  (DivideOp, [u, v]) -> printBinaryOp printAst cfg d u (7, " / ") v
+  (RecipOp, [u]) -> printPrefixOp printAst cfg d "recip" [u]
+  (ExpOp, [u]) -> printPrefixOp printAst cfg d "exp" [u]
+  (LogOp, [u]) -> printPrefixOp printAst cfg d "log" [u]
+  (SqrtOp, [u]) -> printPrefixOp printAst cfg d "sqrt" [u]
+  (PowerOp, [u, v]) -> printBinaryOp printAst cfg d u (8, " ** ") v
+  (LogBaseOp, [u, v]) -> printPrefixOp printAst cfg d "logBase" [u, v]
+  (SinOp, [u]) -> printPrefixOp printAst cfg d "sin" [u]
+  (CosOp, [u]) -> printPrefixOp printAst cfg d "cos" [u]
+  (TanOp, [u]) -> printPrefixOp printAst cfg d "tan" [u]
+  (AsinOp, [u]) -> printPrefixOp printAst cfg d "asin" [u]
+  (AcosOp, [u]) -> printPrefixOp printAst cfg d "acos" [u]
+  (AtanOp, [u]) -> printPrefixOp printAst cfg d "atan" [u]
+  (SinhOp, [u]) -> printPrefixOp printAst cfg d "sinh" [u]
+  (CoshOp, [u]) -> printPrefixOp printAst cfg d "cosh" [u]
+  (TanhOp, [u]) -> printPrefixOp printAst cfg d "tanh" [u]
+  (AsinhOp, [u]) -> printPrefixOp printAst cfg d "asinh" [u]
+  (AcoshOp, [u]) -> printPrefixOp printAst cfg d "acosh" [u]
+  (AtanhOp, [u]) -> printPrefixOp printAst cfg d "atanh" [u]
+  (Atan2Op, [u, v]) -> printPrefixOp printAst cfg d "atan2" [u, v]
+  (MaxOp, [u, v]) -> printPrefixOp printAst cfg d "max" [u, v]
+  (MinOp, [u, v]) -> printPrefixOp printAst cfg d "min" [u, v]
   _ -> error $ "printAstOp: wrong number of arguments"
                ++ show (opCode, length args)
 
-printPrefixOp :: (Bool -> Int -> a -> ShowS)
-              -> Bool -> Int -> String -> [a]
+printPrefixOp :: (PrintConfig -> Int -> a -> ShowS)
+              -> PrintConfig -> Int -> String -> [a]
               -> ShowS
 {-# INLINE printPrefixOp #-}
-printPrefixOp pr global d funcname args =
-  let rs = map (\arg -> showString " " . pr global 11 arg) args
+printPrefixOp pr cfg d funcname args =
+  let rs = map (\arg -> showString " " . pr cfg 11 arg) args
   in showParen (d > 10)
      $ showString funcname
        . foldr (.) id rs
 
-printBinaryOp :: (Bool -> Int -> a -> ShowS)
-              -> Bool -> Int -> a -> (Int, String) -> a
+printBinaryOp :: (PrintConfig -> Int -> a -> ShowS)
+              -> PrintConfig -> Int -> a -> (Int, String) -> a
               -> ShowS
 {-# INLINE printBinaryOp #-}
-printBinaryOp pr global d left (prec, opstr) right =
+printBinaryOp pr cfg d left (prec, opstr) right =
   showParen (d > prec)
-  $ pr global (prec + 1) left
+  $ pr cfg (prec + 1) left
     . showString opstr
-    . pr global (prec + 1) right
+    . pr cfg (prec + 1) right
 
-printAstIntOp :: ShowAst r => Bool -> Int -> OpCodeInt -> [AstInt r] -> ShowS
-printAstIntOp global d opCode args = case (opCode, args) of
-  (PlusIntOp, [u, v]) -> printBinaryOp printAstInt global d u (6, " + ") v
-  (MinusIntOp, [u, v]) -> printBinaryOp printAstInt global d u (6, " - ") v
-  (TimesIntOp, [u, v]) -> printBinaryOp printAstInt global d u (7, " * ") v
-  (NegateIntOp, [u]) -> printPrefixOp printAstInt global d "negate" [u]
-  (AbsIntOp, [u]) -> printPrefixOp printAstInt global d "abs" [u]
-  (SignumIntOp, [u]) -> printPrefixOp printAstInt global d "signum" [u]
-  (MaxIntOp, [u, v]) -> printPrefixOp printAstInt global d "max" [u, v]
-  (MinIntOp, [u, v]) -> printPrefixOp printAstInt global d "min" [u, v]
-  (QuotIntOp, [u, v]) -> printPrefixOp printAstInt global d "quot" [u, v]
-  (RemIntOp, [u, v]) -> printPrefixOp printAstInt global d "rem" [u, v]
+printAstIntOp :: ShowAst r
+              => PrintConfig -> Int -> OpCodeInt -> [AstInt r] -> ShowS
+printAstIntOp cfg d opCode args = case (opCode, args) of
+  (PlusIntOp, [u, v]) -> printBinaryOp printAstInt cfg d u (6, " + ") v
+  (MinusIntOp, [u, v]) -> printBinaryOp printAstInt cfg d u (6, " - ") v
+  (TimesIntOp, [u, v]) -> printBinaryOp printAstInt cfg d u (7, " * ") v
+  (NegateIntOp, [u]) -> printPrefixOp printAstInt cfg d "negate" [u]
+  (AbsIntOp, [u]) -> printPrefixOp printAstInt cfg d "abs" [u]
+  (SignumIntOp, [u]) -> printPrefixOp printAstInt cfg d "signum" [u]
+  (MaxIntOp, [u, v]) -> printPrefixOp printAstInt cfg d "max" [u, v]
+  (MinIntOp, [u, v]) -> printPrefixOp printAstInt cfg d "min" [u, v]
+  (QuotIntOp, [u, v]) -> printPrefixOp printAstInt cfg d "quot" [u, v]
+  (RemIntOp, [u, v]) -> printPrefixOp printAstInt cfg d "rem" [u, v]
   _ -> error $ "printAstIntOp: wrong number of arguments"
                ++ show (opCode, length args)
 
 printAstBoolOp
-  :: ShowAst r => Bool -> Int -> OpCodeBool -> [AstBool r] -> ShowS
-printAstBoolOp global d opCode args = case (opCode, args) of
-  (NotOp, [u]) -> printPrefixOp printAstBool global d "not" [u]
-  (AndOp, [u, v]) -> printBinaryOp printAstBool global d u (3, " && ") v
-  (OrOp, [u, v]) -> printBinaryOp printAstBool global d u (2, " || ") v
+  :: ShowAst r => PrintConfig -> Int -> OpCodeBool -> [AstBool r] -> ShowS
+printAstBoolOp cfg d opCode args = case (opCode, args) of
+  (NotOp, [u]) -> printPrefixOp printAstBool cfg d "not" [u]
+  (AndOp, [u, v]) -> printBinaryOp printAstBool cfg d u (3, " && ") v
+  (OrOp, [u, v]) -> printBinaryOp printAstBool cfg d u (2, " || ") v
   _ -> error $ "printAstBoolOp: wrong number of arguments"
                ++ show (opCode, length args)
 
-printAstRelOp :: (Bool -> Int -> a -> ShowS)
-              -> Bool -> Int -> OpCodeRel -> [a]
+printAstRelOp :: (PrintConfig -> Int -> a -> ShowS)
+              -> PrintConfig -> Int -> OpCodeRel -> [a]
               -> ShowS
 {-# INLINE printAstRelOp #-}
-printAstRelOp pr global d opCode args = case (opCode, args) of
-  (EqOp, [u, v]) -> printBinaryOp pr global d u (4, " ==* ") v
-  (NeqOp, [u, v]) -> printBinaryOp pr global d u (4, " /=* ") v
-  (LeqOp, [u, v]) -> printBinaryOp pr global d u (4, " <=* ") v
-  (GeqOp, [u, v]) -> printBinaryOp pr global d u (4, " >=* ") v
-  (LsOp, [u, v]) -> printBinaryOp pr global d u (4, " <* ") v
-  (GtOp, [u, v]) -> printBinaryOp pr global d u (4, " >* ") v
+printAstRelOp pr cfg d opCode args = case (opCode, args) of
+  (EqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " ==* ") v
+  (NeqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " /=* ") v
+  (LeqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " <=* ") v
+  (GeqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " >=* ") v
+  (LsOp, [u, v]) -> printBinaryOp pr cfg d u (4, " <* ") v
+  (GtOp, [u, v]) -> printBinaryOp pr cfg d u (4, " >* ") v
   _ -> error $ "printAstRelOp: wrong number of arguments"
                ++ show (opCode, length args)
