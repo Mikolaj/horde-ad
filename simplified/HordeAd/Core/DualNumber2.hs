@@ -97,7 +97,7 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
 
 -- The general case, needed for old hacky tests using only scalars.
 valueGeneral
-  :: forall r a. (ADTensor r, DummyTensor r)
+  :: forall r a. (ADTensor r, DomainsTensor r)
   => (Engine.ADInputs r -> a)
   -> Domains r
   -> a
@@ -109,7 +109,7 @@ valueGeneral f parameters =
   in f inputs
 
 valueOnDomains
-  :: ( ADTensor r, DynamicTensor r, DummyTensor r
+  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
      , DualNumber.IsPrimalWithScalar a r )
   => (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
@@ -121,7 +121,7 @@ valueOnDomains f parameters =
   in snd $ Engine.revOnADInputs Nothing f inputs
 
 revOnADInputs
-  :: ( ADTensor r, DynamicTensor r, DummyTensor r
+  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
      , DualNumber.IsPrimalWithScalar a r )
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
@@ -135,7 +135,7 @@ revOnADInputs = Engine.revOnADInputs  . Just
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: ( ADTensor r, DynamicTensor r, DummyTensor r
+  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
      , DualNumber.IsPrimalWithScalar a r )
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)

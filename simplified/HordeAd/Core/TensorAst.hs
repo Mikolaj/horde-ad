@@ -85,7 +85,7 @@ instance DynamicTensor (Ast0 r) where
   dfromR r = AstDynamic r
 
 instance ShowAst r
-         => DummyTensor (Ast0 r) where
+         => DomainsTensor (Ast0 r) where
   ddummy = AstDynamic AstIota
   disDummy t = case t of
     AstDynamic AstIota -> True

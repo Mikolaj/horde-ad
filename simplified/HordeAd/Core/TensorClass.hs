@@ -7,7 +7,7 @@
 module HordeAd.Core.TensorClass
   ( Domain0, DomainR, Domains
   , domains0, domainsR, mkDomains, emptyDomain0, nullDomains
-  , IndexOf, ShapeInt, Tensor(..), DynamicTensor(..), DummyTensor(..), ADReady
+  , IndexOf, ShapeInt, Tensor(..), DynamicTensor(..), DomainsTensor(..), ADReady
   ) where
 
 import Prelude
@@ -294,7 +294,7 @@ class DynamicTensor r where
   dfromR :: KnownNat n
          => TensorOf n r -> DTensorOf r
 
-class DummyTensor r where
+class DomainsTensor r where
   ddummy :: DTensorOf r
   disDummy :: DTensorOf r -> Bool
   daddR :: forall n. KnownNat n
@@ -409,7 +409,7 @@ instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
   dfromR = Data.Array.Convert.convert
 
-instance DummyTensor Double where
+instance DomainsTensor Double where
   ddummy = dummyTensor
   disDummy = isTensorDummy
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
@@ -465,7 +465,7 @@ instance DynamicTensor Float where
   type DTensorOf Float = OD.Array Float
   dfromR = Data.Array.Convert.convert
 
-instance DummyTensor Float where
+instance DomainsTensor Float where
   ddummy = dummyTensor
   disDummy = isTensorDummy
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d

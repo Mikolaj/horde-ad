@@ -381,7 +381,7 @@ data DeltaBinding r =
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
-  :: forall r. (Tensor r, DynamicTensor r, DummyTensor r)
+  :: forall r. (Tensor r, DynamicTensor r, DomainsTensor r)
   => Int -> Int -> DeltaDt r
   -> (Domains r, [(Int, DTensorOf r)])
 gradientFromDelta dim0 dimR deltaDt =
@@ -419,7 +419,7 @@ gradientFromDelta dim0 dimR deltaDt =
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> DeltaDt (Ast0 Double) -> (Domains (Ast0 Double), [(Int, DTensorOf (Ast0 Double))]) #-}
 
-buildFinMaps :: forall r. (Tensor r, DynamicTensor r, DummyTensor r)
+buildFinMaps :: forall r. (Tensor r, DynamicTensor r, DomainsTensor r)
              => EvalState r -> DeltaDt r -> EvalState r
 buildFinMaps s0 deltaDt =
   -- The first argument is the evaluation state being modified,

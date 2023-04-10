@@ -73,7 +73,7 @@ testTrees =
 
 rev' :: forall a r n m.
         ( KnownNat n, KnownNat m, Floating (Vector r), ADTensor r, ADReady r
-        , InterpretAst (ADVal r), InterpretAst r, DummyTensor r
+        , InterpretAst (ADVal r), InterpretAst r, DomainsTensor r
         , a ~ TensorOf m r, ScalarOf r ~ r, ScalarOf (ADVal r) ~ r
         , IsPrimalWithScalar (TensorOf m r) r
         , Adaptable (ADVal (TensorOf n r))
