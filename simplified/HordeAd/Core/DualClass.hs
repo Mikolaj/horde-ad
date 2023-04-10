@@ -418,7 +418,7 @@ instance (Show r, Numeric r) => HasRanks (Ast0 r) where
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
-unsafeGlobalCounter = unsafePerformIO (newCounter 100000000)
+unsafeGlobalCounter = unsafePerformIO (newCounter 100000001)
 
 -- | Do not use; this is exposed only for special low level tests,
 -- similarly as the @Show@ instance.

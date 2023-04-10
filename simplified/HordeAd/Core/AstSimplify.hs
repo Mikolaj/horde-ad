@@ -14,7 +14,7 @@
 -- sure everything introduced by vectorization is maximally simplified.
 module HordeAd.Core.AstSimplify
   ( simplifyPermutation
-  , funToAstR, funToAstD, funToAstI, funToAstIndex
+  , astRegisterFun, funToAstR, funToAstD, funToAstI, funToAstIndex
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
   , astConstant, astSum, astScatter, astFromList, astFromVector, astKonst
@@ -84,17 +84,26 @@ permBackCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
 {-# NOINLINE unsafeAstVarCounter #-}
-unsafeAstVarCounter = unsafePerformIO (newCounter 1)
+unsafeAstVarCounter = unsafePerformIO (newCounter 100000001)
 
 -- Only for tests, e.g., to ensure show applied to terms has stable length.
 -- Tests using this need to be run with -ftest_seq to avoid variable confusion.
 resetVarCounter :: IO ()
-resetVarCounter = writeIORefU unsafeAstVarCounter 1000
+resetVarCounter = writeIORefU unsafeAstVarCounter 100000001
 
 unsafeGetFreshAstVarId :: IO AstVarId
 {-# INLINE unsafeGetFreshAstVarId #-}
 unsafeGetFreshAstVarId =
   intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
+
+astRegisterFun :: (ShowAst r, KnownNat n)
+               => Ast n r -> [(Int, AstDynamic r)]
+               -> ([(Int, AstDynamic r)], Ast n r)
+astRegisterFun r@AstVar{} l = (l, r)
+astRegisterFun r@AstLetGlobal{} l = (l, r)
+astRegisterFun r l = unsafePerformIO $ do
+  n <- unsafeGetFreshAstVarId
+  return ((fromEnum n, AstDynamic r) : l, AstVar (shapeAst r) n)
 
 funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
           -> (AstVarName (OR.Array n r), Ast m r)

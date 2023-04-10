@@ -47,11 +47,8 @@ type AstIndex n r = Index n (AstInt r)
 type AstVarList n = SizedList n AstVarId
 
 newtype NodeId = NodeId {fromNodeId :: Int}
- deriving newtype Enum
+ deriving newtype (Show, Enum)
    -- No Eq instance to limit hacks.
-
-instance Show NodeId where
-  show (NodeId n) = show n  -- to keep debug printouts readable
 
 -- We use here @ShapeInt@ for simplicity. @Shape n (AstInt r)@ gives
 -- more expressiveness, but leads to irregular tensors,
@@ -151,11 +148,7 @@ type instance Element (Ast n r) = Ast0 r
 -- impossible and so the phantom type leads to passing explicit (and implicit)
 -- type equality proofs around.
 newtype AstVarId = AstVarId Int
- deriving (Eq, Enum)
-
--- An unlawful instance to prevent spam when tracing and debugging.
-instance Show AstVarId where
-  show (AstVarId k) = "Var" ++ show k
+ deriving (Eq, Show, Enum)
 
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId

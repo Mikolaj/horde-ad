@@ -128,7 +128,7 @@ astLetVectorOfDynamicFun a f =
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
-unsafeGlobalCounter = unsafePerformIO (newCounter 100000000)
+unsafeGlobalCounter = unsafePerformIO (newCounter 100000001)
 
 unsafeGetFreshId :: IO Int
 {-# INLINE unsafeGetFreshId #-}
@@ -147,15 +147,6 @@ astLetRFun t@AstLetGlobal{} = t
 astLetRFun t = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! AstLetGlobal (NodeId n) t
-
-astRegisterFun :: (ShowAst r, KnownNat n)
-               => Ast n r -> [(Int, AstDynamic r)]
-               -> ([(Int, AstDynamic r)], Ast n r)
-astRegisterFun r@AstVar{} l = (l, r)
-astRegisterFun r@AstLetGlobal{} l = (l, r)
-astRegisterFun r l = unsafePerformIO $ do
-  n <- unsafeGetFreshId
-  return ((n, AstDynamic r) : l, AstVar (shapeAst r) (intToAstVarId n))
 
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
