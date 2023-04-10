@@ -68,15 +68,18 @@ simplifyPermutation :: Permutation -> Permutation
 simplifyPermutation perm =
   map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
 
+-- A representation of a cycle backpermutation.
+backpermCycle :: Int -> Permutation
+backpermCycle 0 = []
+backpermCycle 1 = []
+backpermCycle n = [k `mod` n | k <- [1 .. n]]
+
+-- A representation of a cycle permutation.
+-- TODO: make sure and state if it's reverse to the above and, if not, why.
 permCycle :: Int -> Permutation
 permCycle 0 = []
 permCycle 1 = []
-permCycle n = [k `mod` n | k <- [1 .. n]]
-
-permBackCycle :: Int -> Permutation
-permBackCycle 0 = []
-permBackCycle 1 = []
-permBackCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
+permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
 
 
 -- * Generating variables names
@@ -303,7 +306,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstIndexZ v ix2 ->
     astIndex v (appendIndex ix2 ix)
   AstSum v ->  -- almost neutral; transposition is likely to fuse away
-    let perm3 = permCycle $ valueOf @m + 1
+    let perm3 = backpermCycle $ valueOf @m + 1
     in astSum $ astIndex (astTranspose perm3 v) ix
   -- AstScatter sh v (Z, ix2) -> ifB (ix2 ==* ixHead) (index v ixTail) 0
   -- AstScatter sh v (vars2, ZI) ->
@@ -645,8 +648,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       _ ->  -- AstVar, AstConst
         AstGatherZ sh4 v4 (vars4, ix4)
     AstSum v ->
-      let perm3 = permCycle $ valueOf @p' + 1
-          perm4 = permBackCycle $ valueOf @m' + 1
+      let perm3 = backpermCycle $ valueOf @p' + 1
+          perm4 = permCycle $ valueOf @m' + 1
           (sh41, sh42) = splitAt_Shape @m' sh4
           sh5 = appendShape sh41 (lengthAst v :$ sh42)
       in astSum $ astTransposeAsGather perm4  -- TODO: inline and simplify less
