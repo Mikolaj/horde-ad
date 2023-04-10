@@ -4,7 +4,7 @@
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
 module HordeAd.Core.AstInterpret
   ( InterpretAst, interpretAst
-  , interpretAstVectorOfDynamicDummy, interpretAstDynamicDummy
+  , interpretAstDomainsDummy, interpretAstDynamicDummy
   , AstEnv, extendEnvR
   , AstEnvElem(AstVarR)  -- for a test only
   ) where
@@ -283,8 +283,8 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     let (memo1, t1) = interpretAstPrimal env memo u
         (memo2, t2) = second tdualPart $ interpretAst env memo1 u'
     in (memo2, tD t1 t2)
-  AstLetVectorOfDynamic vars l v ->
-    let (memo2, l2) = interpretAstVectorOfDynamic env memo l
+  AstLetDomains vars l v ->
+    let (memo2, l2) = interpretAstDomains env memo l
         env2 = V.foldr (\(var, d) -> EM.insert var (AstVarR d))
                        env (V.zip vars l2)
     in interpretAst env2 memo2 v
@@ -296,17 +296,17 @@ interpretAstDynamic
 interpretAstDynamic env memo = \case
   AstDynamic w -> second dfromR $ interpretAst env memo w
 
-interpretAstVectorOfDynamic
+interpretAstDomains
   :: Evidence a
   => AstEnv a -> AstMemo a
-  -> AstVectorOfDynamic (ScalarOf a)
+  -> AstDomains (ScalarOf a)
   -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
-interpretAstVectorOfDynamic env memo = \case
-  AstVectorOfDynamic l -> mapAccumR (interpretAstDynamic env) memo l
-  AstVectorOfDynamicLet var u v ->
+interpretAstDomains env memo = \case
+  AstDomains l -> mapAccumR (interpretAstDynamic env) memo l
+  AstDomainsLet var u v ->
     let (memo2, t) = interpretAst env memo u
-    in interpretAstVectorOfDynamic (EM.insert var (AstVarR $ dfromR t) env)
-                                   memo2 v
+    in interpretAstDomains (EM.insert var (AstVarR $ dfromR t) env)
+                           memo2 v
       -- TODO: preserve let, as in AstLet case
 
 interpretAstInt :: Evidence a
@@ -354,17 +354,17 @@ interpretAstDynamicDummy env memo = \case
   AstDynamic AstIota -> (memo, ddummy)
   AstDynamic w -> second dfromR $ interpretAst env memo w
 
-interpretAstVectorOfDynamicDummy
+interpretAstDomainsDummy
   :: (Evidence a, DomainsTensor a)
   => AstEnv a -> AstMemo a
-  -> AstVectorOfDynamic (ScalarOf a)
+  -> AstDomains (ScalarOf a)
   -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
-interpretAstVectorOfDynamicDummy env memo = \case
-  AstVectorOfDynamic l -> mapAccumR (interpretAstDynamicDummy env) memo l
-  AstVectorOfDynamicLet var u v ->
+interpretAstDomainsDummy env memo = \case
+  AstDomains l -> mapAccumR (interpretAstDynamicDummy env) memo l
+  AstDomainsLet var u v ->
     let (memo2, t) = interpretAst env memo u
-    in interpretAstVectorOfDynamicDummy (EM.insert var (AstVarR $ dfromR t) env)
-                                        memo2 v
+    in interpretAstDomainsDummy (EM.insert var (AstVarR $ dfromR t) env)
+                                memo2 v
       -- TODO: preserve let, as in AstLet case
 
 interpretAstOp :: RealFloat a

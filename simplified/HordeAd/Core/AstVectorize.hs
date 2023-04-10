@@ -150,18 +150,17 @@ build1V k (var, v00) =
     AstD (AstPrimalPart u) (AstDualPart u') ->
       AstD (AstPrimalPart $ build1VOccurenceUnknown k (var, u))
            (AstDualPart $ build1VOccurenceUnknown k (var, u'))
-    AstLetVectorOfDynamic vars l v ->
+    AstLetDomains vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
       let subst (var1, AstDynamic u1) =
             let sh = shapeAst u1
                 projection = AstIndexZ (AstVar (k :$ sh) var1)
                                        (AstIntVar var :. ZI)
             in substitute1Ast (Left projection) var1
-          v2 = V.foldr subst v (V.zip vars (unwrapVectorOfDynamic l))
+          v2 = V.foldr subst v (V.zip vars (unwrapAstDomains l))
             -- we use the substitution that does not simplify
-      in AstLetVectorOfDynamic
-           vars (build1VOccurenceUnknownVectorOfDynamic k (var, l))
-                (build1VOccurenceUnknown k (var, v2))
+      in AstLetDomains vars (build1VOccurenceUnknownDomains k (var, l))
+                            (build1VOccurenceUnknown k (var, v2))
 
 build1VOccurenceUnknownDynamic
   :: ShowAstSimplify r
@@ -169,21 +168,19 @@ build1VOccurenceUnknownDynamic
 build1VOccurenceUnknownDynamic k (var, AstDynamic u) =
   AstDynamic $ build1VOccurenceUnknown k (var, u)
 
-build1VOccurenceUnknownVectorOfDynamic
+build1VOccurenceUnknownDomains
   :: ShowAstSimplify r
-  => Int -> (AstVarId, AstVectorOfDynamic r) -> AstVectorOfDynamic r
-build1VOccurenceUnknownVectorOfDynamic k (var, v0) = case v0 of
-  AstVectorOfDynamic l ->
-    AstVectorOfDynamic
-    $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
-  AstVectorOfDynamicLet var2 u v ->
+  => Int -> (AstVarId, AstDomains r) -> AstDomains r
+build1VOccurenceUnknownDomains k (var, v0) = case v0 of
+  AstDomains l ->
+    AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
+  AstDomainsLet var2 u v ->
     let sh = shapeAst u
         projection = AstIndexZ (AstVar (k :$ sh) var2) (AstIntVar var :. ZI)
-        v2 = substitute1AstVectorOfDynamic (Left projection) var2 v
+        v2 = substitute1AstDomains (Left projection) var2 v
           -- we use the substitution that does not simplify
-    in AstVectorOfDynamicLet
-         var2 (build1VOccurenceUnknown k (var, u))
-              (build1VOccurenceUnknownVectorOfDynamic k (var, v2))
+    in AstDomainsLet var2 (build1VOccurenceUnknown k (var, u))
+                          (build1VOccurenceUnknownDomains k (var, v2))
 
 -- | The application @build1VIndex k (var, v, ix)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ v ix)@, where it's unknown whether

@@ -102,10 +102,10 @@ instance ShowAst r
       Just Refl -> AstDynamic (AstSumOfList [r, v])
       _ -> error "daddR: type mismatch"
   dshape (AstDynamic v) = shapeToList $ shapeAst v
-  type DomainsOf (Ast0 r) = AstVectorOfDynamic r
-  tletVectorOfDynamic = astLetVectorOfDynamicFun
-  dmkDomains = AstVectorOfDynamic
-  dletDomains = astLetDomainsFun
+  type DomainsOf (Ast0 r) = AstDomains r
+  tletDomains = astLetDomainsFun
+  dmkDomains = AstDomains
+  dlet = astDomainsLetFun
 
 astLetFun :: (KnownNat n, ShowAst r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
@@ -115,28 +115,28 @@ astLetFun a f =
       (AstVarName var, ast) = funToAstR sh f
   in AstLet var a ast
 
-astLetVectorOfDynamicFun
+astLetDomainsFun
   :: forall m r. ShowAst r
-  => AstVectorOfDynamic r
-  -> (AstVectorOfDynamic r -> Ast m r)
+  => AstDomains r
+  -> (AstDomains r -> Ast m r)
   -> Ast m r
-astLetVectorOfDynamicFun a f =
+astLetDomainsFun a f =
   let genVar :: AstDynamic r -> (AstVarId, AstDynamic r)
       genVar (AstDynamic t) =
         let sh = shapeAst t
             (AstVarName var, ast) = funToAstR sh id
         in (var, AstDynamic ast)
-      (vars, asts) = V.unzip $ V.map genVar (unwrapVectorOfDynamic a)
-  in AstLetVectorOfDynamic vars a (f $ AstVectorOfDynamic asts)
+      (vars, asts) = V.unzip $ V.map genVar (unwrapAstDomains a)
+  in AstLetDomains vars a (f $ AstDomains asts)
 
-astLetDomainsFun :: (KnownNat n, ShowAst r)
-                 => Ast n r -> (Ast n r -> AstVectorOfDynamic r)
-                 -> AstVectorOfDynamic r
-astLetDomainsFun a@AstVar{} f = f a
-astLetDomainsFun a f =
+astDomainsLetFun :: (KnownNat n, ShowAst r)
+                 => Ast n r -> (Ast n r -> AstDomains r)
+                 -> AstDomains r
+astDomainsLetFun a@AstVar{} f = f a
+astDomainsLetFun a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh id
-  in AstVectorOfDynamicLet var a (f ast)
+  in AstDomainsLet var a (f ast)
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}

@@ -80,10 +80,8 @@ revDtMaybeL f valsAll@(vals : _) dt =
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
       (gradientAst, astBindings) =
         gradientFromDelta dim0 (length shapes1) deltaDt
-      bindToLet g (i, AstDynamic t) =
-        AstVectorOfDynamicLet (intToAstVarId i) t g
-      letGradientAst =
-        foldl' bindToLet (AstVectorOfDynamic gradientAst) astBindings
+      bindToLet g (i, AstDynamic t) = AstDomainsLet (intToAstVarId i) t g
+      letGradientAst = foldl' bindToLet (AstDomains gradientAst) astBindings
       h val = parseDomains val $ fst
               $ revAstOnDomainsEval
                   (AstDynamicVarName var0 : vars1, varDt, letGradientAst, vAst)

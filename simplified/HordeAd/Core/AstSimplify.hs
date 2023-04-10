@@ -247,7 +247,7 @@ simplifyStepNonIndex t = case t of
   AstConst{} -> t
   AstConstant v -> astConstant v
   AstD{} -> t
-  AstLetVectorOfDynamic{} -> t
+  AstLetDomains{} -> t
 
 astIndexZ
   :: forall m n r.
@@ -376,8 +376,8 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstD (AstPrimalPart u) (AstDualPart u') ->
     AstD (AstPrimalPart $ astIndexRec u ix)
          (AstDualPart $ astIndexRec u' ix)
-  AstLetVectorOfDynamic vars l v ->
-    AstLetVectorOfDynamic vars l (astIndexRec v ix)
+  AstLetDomains vars l v ->
+    AstLetDomains vars l (astIndexRec v ix)
 
 astSum :: (KnownNat n, ShowAstSimplify r)
        => Ast (1 + n) r -> Ast n r
@@ -736,8 +736,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     AstD (AstPrimalPart u) (AstDualPart u') ->
       AstD (AstPrimalPart $ astGatherRec sh4 u (vars4, ix4))
            (AstDualPart $ astGatherRec sh4 u' (vars4, ix4))
-    AstLetVectorOfDynamic vars l v ->
-      AstLetVectorOfDynamic vars l (astGatherCase sh4 v (vars4, ix4))
+    AstLetDomains vars l v ->
+      AstLetDomains vars l (astGatherCase sh4 v (vars4, ix4))
 
 gatherFromNF :: forall m p r. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) r -> Bool
@@ -915,21 +915,21 @@ simplifyAst t = case t of
   AstConstant v -> astConstant (simplifyAstPrimal v)
   AstD u (AstDualPart u') -> AstD (simplifyAstPrimal u)
                                   (AstDualPart $ simplifyAst u')
-  AstLetVectorOfDynamic vars l v ->
-    AstLetVectorOfDynamic vars (simplifyAstVectorOfDynamic l) (simplifyAst v)
+  AstLetDomains vars l v ->
+    AstLetDomains vars (simplifyAstDomains l) (simplifyAst v)
 
 simplifyAstDynamic
   :: ShowAstSimplify r
   => AstDynamic r -> AstDynamic r
 simplifyAstDynamic (AstDynamic u) = AstDynamic $ simplifyAst u
 
-simplifyAstVectorOfDynamic
+simplifyAstDomains
   :: ShowAstSimplify r
-  => AstVectorOfDynamic r -> AstVectorOfDynamic r
-simplifyAstVectorOfDynamic = \case
-  AstVectorOfDynamic l -> AstVectorOfDynamic $ V.map simplifyAstDynamic l
-  AstVectorOfDynamicLet var u v ->
-    AstVectorOfDynamicLet var (simplifyAst u) (simplifyAstVectorOfDynamic v)
+  => AstDomains r -> AstDomains r
+simplifyAstDomains = \case
+  AstDomains l -> AstDomains $ V.map simplifyAstDynamic l
+  AstDomainsLet var u v ->
+    AstDomainsLet var (simplifyAst u) (simplifyAstDomains v)
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether

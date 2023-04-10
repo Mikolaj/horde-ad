@@ -94,7 +94,7 @@ revAstOnDomainsFun
   -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
   -> ( [AstDynamicVarName r]
      , AstVarName (OR.Array n r)
-     , AstVectorOfDynamic r
+     , AstDomains r
      , Ast n r )
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun dim0 shapes1 f =
@@ -110,10 +110,8 @@ revAstOnDomainsFun dim0 shapes1 f =
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
   in let (gradientAst, astBindings) =
            gradientFromDelta dim0 (length shapes1) deltaDt
-         bindToLet g (i, AstDynamic t) =
-           AstVectorOfDynamicLet (intToAstVarId i) t g
-         letGradientAst =
-           foldl' bindToLet (AstVectorOfDynamic gradientAst) astBindings
+         bindToLet g (i, AstDynamic t) = AstDomainsLet (intToAstVarId i) t g
+         letGradientAst = foldl' bindToLet (AstDomains gradientAst) astBindings
      in (AstDynamicVarName var0 : vars1, varDt, letGradientAst, vAst)
 
 revAstOnDomainsEval
@@ -122,7 +120,7 @@ revAstOnDomainsEval
      , ShowAstSimplify r )
   => ( [AstDynamicVarName r]
      , AstVarName (OR.Array n r)
-     , AstVectorOfDynamic r
+     , AstDomains r
      , Ast n r )
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
@@ -136,8 +134,7 @@ revAstOnDomainsEval (vars, varDt, letGradientAst, vAst)
         Just a -> a
         Nothing -> tkonst0N (tshape vAst) 1
       envDt = extendEnvR varDt dtValue env1
-      (memo1, l1) = interpretAstVectorOfDynamicDummy
-                      envDt EM.empty letGradientAst
+      (memo1, l1) = interpretAstDomainsDummy envDt EM.empty letGradientAst
         -- TODO: emulate mapAccumR on vectors
       (_memo2, v2) = interpretAst env1 memo1 vAst
       gradientDomain = l1

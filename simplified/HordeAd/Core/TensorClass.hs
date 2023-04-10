@@ -301,20 +301,19 @@ class DomainsTensor r where
         => TensorOf n r -> DTensorOf r -> DTensorOf r
   dshape :: DTensorOf r -> [Int]
   type DomainsOf r
-  tletVectorOfDynamic
-    :: DomainsOf r
-    -> (DomainsOf r -> TensorOf n r)
-    -> TensorOf n r
-  tletVectorOfDynamic a f = f a
+  tletDomains :: DomainsOf r
+              -> (DomainsOf r -> TensorOf n r)
+              -> TensorOf n r
+  tletDomains a f = f a
   dmkDomains :: Data.Vector.Vector (DTensorOf r) -> DomainsOf r
   default dmkDomains
     :: Data.Vector.Vector (DTensorOf r) ~ DomainsOf r
     => Data.Vector.Vector (DTensorOf r) -> DomainsOf r
   dmkDomains = id
-  dletDomains :: KnownNat n
-              => TensorOf n r -> (TensorOf n r -> DomainsOf r)
-              -> DomainsOf r
-  dletDomains a f = f a
+  dlet :: KnownNat n
+       => TensorOf n r -> (TensorOf n r -> DomainsOf r)
+       -> DomainsOf r
+  dlet a f = f a
 
 
 -- * The giga-constraint

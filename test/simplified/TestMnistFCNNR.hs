@@ -324,10 +324,9 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            deltaDt = packDeltaDt (Left vAst) deltaTopLevel
            (gradientAst, astBindings) =
              gradientFromDelta 0 (length shapes1) deltaDt
-           bindToLet gr (i, AstDynamic t) =
-             AstVectorOfDynamicLet (intToAstVarId i) t gr
+           bindToLet gr (i, AstDynamic t) = AstDomainsLet (intToAstVarId i) t gr
            letGradientAst =
-             foldl' bindToLet (AstVectorOfDynamic gradientAst) astBindings
+             foldl' bindToLet (AstDomains gradientAst) astBindings
            go :: [MnistData r] -> Domains r -> Domains r
            go [] parameters = parameters
            go ((glyph, label) : rest) parameters =
@@ -342,8 +341,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                        (OR.fromVector [sizeMnistLabelInt] label)
                        env1
                  (_memo1, gradients) =
-                   interpretAstVectorOfDynamicDummy
-                     envMnist EM.empty letGradientAst
+                   interpretAstDomainsDummy envMnist EM.empty letGradientAst
              in go rest (updateWithGradient gamma parameters gradients)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
