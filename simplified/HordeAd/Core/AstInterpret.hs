@@ -369,7 +369,6 @@ interpretAstVectorOfDynamicDummy env memo = \case
 
 interpretAstOp :: RealFloat a
                => OpCode -> [a] -> a
-{-# INLINE interpretAstOp #-}
 interpretAstOp MinusOp [u, v] = u - v
 interpretAstOp TimesOp [u, v] = u * v
 interpretAstOp NegateOp [u] = negate u
@@ -403,7 +402,6 @@ interpretAstOp opCode args =
 
 interpretAstIntOp :: Integral a
                   => OpCodeInt -> [a] -> a
-{-# INLINE interpretAstIntOp #-}
 interpretAstIntOp PlusIntOp l = foldl1' (+) l  -- TODO: use or remove
 interpretAstIntOp MinusIntOp [u, v] = u - v
 interpretAstIntOp TimesIntOp l = foldl1' (*) l  -- TODO: use or remove
@@ -420,7 +418,6 @@ interpretAstIntOp opCodeInt args =
 
 interpretAstBoolOp :: Boolean b
                    => OpCodeBool -> [b] -> b
-{-# INLINE interpretAstBoolOp #-}
 interpretAstBoolOp NotOp [u] = notB u
 interpretAstBoolOp AndOp [u, v] = u &&* v
 interpretAstBoolOp OrOp [u, v] = u ||* v
@@ -430,7 +427,6 @@ interpretAstBoolOp opCodeBool args =
 
 interpretAstRelOp :: (EqB b, OrdB b)
                   => OpCodeRel -> [b] -> BooleanOf b
-{-# INLINE interpretAstRelOp #-}
 interpretAstRelOp EqOp [u, v] = u ==* v
 interpretAstRelOp NeqOp [u, v] = u /=* v
 interpretAstRelOp LeqOp [u, v] = u <=* v
