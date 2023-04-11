@@ -44,13 +44,17 @@ import qualified Numeric.LinearAlgebra as LA
 import           HordeAd.Core.Delta (Delta0, ForwardDerivative)
 import           HordeAd.Core.DualClass hiding (IsPrimal)
 import qualified HordeAd.Core.DualClass as DualClass
-import           HordeAd.Core.DualNumber (dD, dDnotShared, pattern D)
+import           HordeAd.Core.DualNumber (dD, dDnotShared)
 import qualified HordeAd.Core.DualNumber as DualNumber
 import qualified HordeAd.Core.Engine as Engine
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorADVal (ADTensor)
 import           HordeAd.Core.TensorClass
 import           HordeAd.Internal.TensorOps
+
+pattern D :: a -> Dual a -> DualNumber.ADVal a
+pattern D u u' <- DualNumber.D u u'
+{-# COMPLETE D #-}
 
 type Domain1 r = DomainR r
 
@@ -147,7 +151,7 @@ revOnDomains = Engine.revOnDomains . Just
 
 at0 :: ADModeAndNum d r => Engine.ADInputs r -> Int -> ADVal d r
 {-# INLINE at0 #-}
-at0 Engine.ADInputs{..} i = D (OR.toVector inputPrimal0 V.! i) (inputDual0 V.! i)
+at0 Engine.ADInputs{..} i = dD (OR.toVector inputPrimal0 V.! i) (inputDual0 V.! i)
 
 at1 :: forall n r d. (KnownNat n, ADModeAndNum d r, TensorOf n r ~ OR.Array n r)
     => Engine.ADInputs r -> Int -> ADVal d (OR.Array n r)
@@ -211,11 +215,11 @@ domainsD0 = OR.toVector . domains0
 
 fromX1 :: forall n d r. (ADModeAndNum d r, KnownNat n)
        => ADVal d (OD.Array r) -> ADVal d (TensorOf n r)
-fromX1 (D u u') = dDnotShared (tfromD u) (dFromD u')
+fromX1 (DualNumber.D u u') = dDnotShared (tfromD u) (dFromD u')
 
 from1X :: (ADModeAndNum d r, KnownNat n)
        => ADVal d (TensorOf n r) -> ADVal d (OD.Array r)
-from1X (D u u') = dDnotShared (dfromR u) (dFromR u')
+from1X (DualNumber.D u u') = dDnotShared (dfromR u) (dFromR u')
 
 -- Shims to reuse the tests for ordinary vectors.
 type Vec r = OR.Array 1 r
@@ -245,16 +249,16 @@ staticNatFromProxy Proxy = MkSNat
 -- The resulting term may not have sharing information inside,
 -- but is ready to be shared as a whole.
 ensureToplevelSharing :: IsPrimal d a => ADVal d a -> ADVal d a
-ensureToplevelSharing (D u u') = dD u u'
+ensureToplevelSharing (DualNumber.D u u') = dD u u'
 
 scaleNotShared :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
-scaleNotShared a (D u u') = dDnotShared (a * u) (dScale a u')
+scaleNotShared a (DualNumber.D u u') = dDnotShared (a * u) (dScale a u')
 
 addNotShared :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a -> ADVal d a
-addNotShared (D u u') (D v v') = dDnotShared (u + v) (dAdd u' v')
+addNotShared (DualNumber.D u u') (DualNumber.D v v') = dDnotShared (u + v) (dAdd u' v')
 
 multNotShared :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a -> ADVal d a
-multNotShared (D u u') (D v v') =
+multNotShared (DualNumber.D u u') (DualNumber.D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 
 addParameters :: ( Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r
@@ -342,8 +346,8 @@ build1Closure
   :: ADModeAndNum d r
   => Int -> (Int -> ADVal d r) -> ADVal d (Vec r)
 build1Closure n f =
-  let g i = let D u _ = f i in u
-      h i = let D _ u' = f $ fromIntegral i in u'
+  let g i = let DualNumber.D u _ = f i in u
+      h i = let DualNumber.D _ u' = f $ fromIntegral i in u'
   in dD (OR.fromList [n] $ map g [0 .. n - 1])
         (dBuildR n (dScalarR . h))
 
@@ -360,13 +364,13 @@ map1Elementwise f = tmap1 (tscalar . f . tunScalar)
 -- typing problems where this special variant is used, so it has to stay
 -- for the sake of old tests.
 scale :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
-scale a (D u u') = dD (a * u) (dScale a u')
+scale a (DualNumber.D u u') = dD (a * u) (dScale a u')
 
 constant :: IsPrimal d a => a -> ADVal d a
 constant a = dD a dZero
 
 logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
-logistic (D u u') =
+logistic (DualNumber.D u u') =
   let y = recip (1 + exp (- u))
   in dD y (dScale (y * (1 - y)) u')
 
@@ -374,7 +378,7 @@ foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
         -> ADVal d r -> ADVal d (Vec r)
         -> ADVal d r
-foldl'0 f uu' (D v v') =
+foldl'0 f uu' (DualNumber.D v v') =
   let g !acc ix p =
         f (dD p (dIndex0 v' (singletonIndex $ fromIntegral ix)
                             (flattenShape (tshapeR v)))) acc
@@ -396,7 +400,7 @@ softMax us =
   in V.map (\r -> r * recip sumExpUs) expUs
 
 scaleADVal :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
-scaleADVal a (D u u') = dD (a * u) (dScale a u')
+scaleADVal a (DualNumber.D u u') = dD (a * u) (dScale a u')
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropy :: forall d r. ADModeAndNum d r
