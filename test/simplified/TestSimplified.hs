@@ -53,15 +53,15 @@ testTrees = [ -- Tensor tests
 at0 :: ADTensor r => ADInputs r -> Int -> ADVal r
 {-# INLINE at0 #-}
 at0 ADInputs{..} i =
-  dD (tunScalar $ inputPrimal0 ! singletonIndex (fromIntegral i))
-     (inputDual0 V.! i)
+  dD emptyADShare (tunScalar $ inputPrimal0 ! singletonIndex (fromIntegral i))
+              (inputDual0 V.! i)
 
 at1 :: forall n r. ( KnownNat n, ADTensor r, IsPrimal (TensorOf n r)
                    , TensorOf n r ~ OR.Array n r )
     => ADInputs r -> Int -> ADVal (OR.Array n r)
 {-# INLINE at1 #-}
-at1 ADInputs{..} i = dD (tfromD $ inputPrimal1 V.! i)
-                        (dFromD $ inputDual1 V.! i)
+at1 ADInputs{..} i = dD emptyADShare (tfromD $ inputPrimal1 V.! i)
+                                 (dFromD $ inputDual1 V.! i)
 
 domainsFrom01 :: (Numeric r, Tensor r, DynamicTensor r)
               => Vector r -> DomainR r -> Domains r

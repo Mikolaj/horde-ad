@@ -98,17 +98,19 @@ revAstOnDomainsFun
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun dim0 shapes1 f =
   let (var0, ast0) = funToAstR (singletonShape dim0) id
-      (vars1, asts1) = unzip $ map funToAstD shapes1
+      -- Add @seq@ to fix the numbering of variables for pretty-printing.
+      (vars1, asts1) = var0 `seq` unzip (map funToAstD shapes1)
       domains = mkDomains ast0 (V.fromList asts1)
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D vAst deltaTopLevel) = f varInputs
+      !(D astBindings0 vAst deltaTopLevel) = f varInputs
       (varDt, astDt) = funToAstR (tshape vAst) id
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
-  in let letGradientAst = gradientFromDelta dim0 (length shapes1) deltaDt
-     in (AstDynamicVarName var0 : vars1, varDt, letGradientAst, vAst)
+  in let letGradientAst =
+           gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
+     in (AstDynamicVarName var0 : vars1, varDt, letGradientAst, tletWrap astBindings0 vAst)
 
 revAstOnDomainsEval
   :: forall r n.
@@ -153,10 +155,10 @@ revOnADInputs dt f inputs@ADInputs{..} =
       dim1 = V.length inputPrimal1
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
-      !(D v deltaTopLevel) = f inputs
+      !(D astBindings0 v deltaTopLevel) = f inputs
       deltaDt = packDeltaDt (maybe (Left v) Right dt) deltaTopLevel
-  in let gradient = gradientFromDelta dim0 dim1 deltaDt
-     in (gradient, v)
+  in let gradient = gradientFromDelta astBindings0 dim0 dim1 deltaDt
+     in (gradient, letWrapPrimal astBindings0 v)
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
@@ -188,7 +190,7 @@ slowFwdOnADInputs
 slowFwdOnADInputs inputs@ADInputs{..} f ds =
   let dim0 = tlength inputPrimal0
       dim1 = V.length inputPrimal1
-      !(D v deltaTopLevel) = f inputs
+      !(D _ v deltaTopLevel) = f inputs  -- TODO: _
   in let derivative = derivativeFromDelta dim0 dim1 deltaTopLevel ds
      in (derivative, v)
 
@@ -216,7 +218,7 @@ prettyPrintDf
 prettyPrintDf f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
-      !(D _ deltaTopLevel) = f inputs
+      !(D _ _ deltaTopLevel) = f inputs
   in ppShow deltaTopLevel
 
 generateDeltaInputs

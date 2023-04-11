@@ -39,16 +39,17 @@ import HordeAd.Core.TensorClass
 -- can be any containers of scalars. The primal component has the type
 -- given as the second type argument and the dual component (with the type
 -- determined by the type faimly @Dual@) is defined elsewhere.
-data ADVal a = D a (Dual a)
+data ADVal a = D (ADShare (Element a)) a (Dual a)
 
-deriving instance (Show a, Show (Dual a)) => Show (ADVal a)
+deriving instance (Show a, Show (ADShare (Element a)), Show (Dual a))
+                  => Show (ADVal a)
 
 -- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
 -- information, if applicable for the differentiation mode in question.
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
-dD :: IsPrimal a => a -> Dual a -> ADVal a
-dD a dual = D a (recordSharing dual)
+dD :: IsPrimal a => ADShare (Element a) -> a -> Dual a -> ADVal a
+dD l a dual = D l a (recordSharing dual)
 
 -- | This a not so smart constructor for 'D' of 'ADVal' that does not record
 -- sharing information. If used in contexts where sharing may occur,
@@ -56,7 +57,7 @@ dD a dual = D a (recordSharing dual)
 -- in backpropagation phase. In contexts without sharing, it saves
 -- some evaluation time and memory (in term structure, but even more
 -- in the per-node data stored while evaluating).
-dDnotShared :: a -> Dual a -> ADVal a
+dDnotShared :: ADShare (Element a) -> a -> Dual a -> ADVal a
 dDnotShared = D
 
 
@@ -106,17 +107,18 @@ staticNatFromProxy Proxy = MkSNat
 -- The resulting term may not have sharing information inside,
 -- but is ready to be shared as a whole.
 ensureToplevelSharing :: IsPrimal a => ADVal a -> ADVal a
-ensureToplevelSharing (D u u') = dD u u'
+ensureToplevelSharing (D l u u') = dD l u u'
 
 scaleNotShared :: (Num a, IsPrimal a) => a -> ADVal a -> ADVal a
-scaleNotShared a (D u u') = dDnotShared (a * u) (dScale a u')
+scaleNotShared a (D l u u') = dDnotShared l (a * u) (dScale a u')
 
 addNotShared :: (Num a, IsPrimal a) => ADVal a -> ADVal a -> ADVal a
-addNotShared (D u u') (D v v') = dDnotShared (u + v) (dAdd u' v')
+addNotShared (D l1 u u') (D l2 v v') =
+  dDnotShared (l1 `mergeADShare` l2) (u + v) (dAdd u' v')
 
 multNotShared :: (Num a, IsPrimal a) => ADVal a -> ADVal a -> ADVal a
-multNotShared (D u u') (D v v') =
-  dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
+multNotShared (D l1 u u') (D l2 v v') =
+  dDnotShared (l1 `mergeADShare` l2) (u * v) (dAdd (dScale v u') (dScale u v'))
 {-
 addParameters :: (Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r)
               => Domains r -> Domains r -> Domains r
@@ -136,33 +138,38 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
 -}
 
 constantADVal :: IsPrimal a => a -> ADVal a
-constantADVal a = dD a dZero
+constantADVal a = dD emptyADShare a dZero
 
 
 -- * Numeric instances for ADVal
 
 -- These two instances are now required for the Tensor instance.
+-- Note that for term types @a@ this is invalid without an extra let
+-- containing the first field of @D@. However, for terms this is invalid
+-- anyway, because they require interpretation before they can be compared.
 instance Eq a => Eq (ADVal a) where
-  D u _ == D v _ = u == v
-  D u _ /= D v _ = u /= v
+  D _ u _ == D _ v _ = u == v
+  D _ u _ /= D _ v _ = u /= v
 
 instance Ord a => Ord (ADVal a) where
-  compare (D u _) (D v _) = compare u v
-  D u _ < D v _ = u < v
-  D u _ <= D v _ = u <= v
-  D u _ > D v _ = u > v
-  D u _ >= D v _ = u >= v
+  compare (D _ u _) (D _ v _) = compare u v
+  D _ u _ < D _ v _ = u < v
+  D _ u _ <= D _ v _ = u <= v
+  D _ u _ > D _ v _ = u > v
+  D _ u _ >= D _ v _ = u >= v
 
 instance (Num a, IsPrimal a) => Num (ADVal a) where
-  D u u' + D v v' = dD (u + v) (dAdd u' v')
-  D u u' - D v v' = dD (u - v) (dAdd u' (dScaleByScalar v (-1) v'))
-  D ue u' * D ve v' = let u = recordSharingPrimal ue
-                          v = recordSharingPrimal ve
-                      in dD (u * v) (dAdd (dScale v u') (dScale u v'))
-  negate (D v v') = dD (negate v) (dScaleByScalar v (-1) v')
-  abs (D ve v') = let v = recordSharingPrimal ve
-                  in dD (abs v) (dScale (signum v) v')
-  signum (D v _) = dD (signum v) dZero
+  D l1 u u' + D l2 v v' = dD (l1 `mergeADShare` l2) (u + v) (dAdd u' v')
+  D l1 u u' - D l2 v v' =
+    dD (l1 `mergeADShare` l2) (u - v) (dAdd u' (dScaleByScalar v (-1) v'))
+  D l1 ue u' * D l2 ve v' =
+    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        (l4, v) = recordSharingPrimal ve l3
+    in dD l4 (u * v) (dAdd (dScale v u') (dScale u v'))
+  negate (D l v v') = dD l (negate v) (dScaleByScalar v (-1) v')
+  abs (D l ve v') = let (l2, v) = recordSharingPrimal ve l
+                    in dD l2 (abs v) (dScale (signum v) v')
+  signum (D l v _) = dD l (signum v) dZero
   fromInteger = constantADVal . fromInteger
 
 instance (Real a, IsPrimal a) => Real (ADVal a) where
@@ -170,55 +177,56 @@ instance (Real a, IsPrimal a) => Real (ADVal a) where
     -- very low priority, since these are all extremely not continuous
 
 instance (Fractional a, IsPrimal a) => Fractional (ADVal a) where
-  D ue u' / D ve v' =
-    let u = recordSharingPrimal ue
-        v = recordSharingPrimal ve
-    in dD (u / v) (dAdd (dScale (recip v) u') (dScale (- u / (v * v)) v'))
-  recip (D ve v') =
-    let v = recordSharingPrimal ve
+  D l1 ue u' / D l2 ve v' =
+    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        (l4, v) = recordSharingPrimal ve l3
+    in dD l4 (u / v)
+          (dAdd (dScale (recip v) u') (dScale (- u / (v * v)) v'))
+  recip (D l ve v') =
+    let (l2, v) = recordSharingPrimal ve l
         minusRecipSq = - recip (v * v)
-    in dD (recip v) (dScale minusRecipSq v')
+    in dD l2 (recip v) (dScale minusRecipSq v')
   fromRational = constantADVal . fromRational
 
 instance (Floating a, IsPrimal a) => Floating (ADVal a) where
   pi = constantADVal pi
-  exp (D ue u') = let expU = recordSharingPrimal $ exp ue
-                  in dD expU (dScale expU u')
-  log (D ue u') = let u = recordSharingPrimal ue
-                  in dD (log u) (dScale (recip u) u')
-  sqrt (D ue u') = let sqrtU = recordSharingPrimal $ sqrt ue
-                   in dD sqrtU (dScale (recip (sqrtU + sqrtU)) u')
-  D ue u' ** D ve v' =
-    let u = recordSharingPrimal ue
-        v = recordSharingPrimal ve
-    in dD (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
-                         (dScale ((u ** v) * log u) v'))
+  exp (D l ue u') = let (l2, expU) = recordSharingPrimal (exp ue) l
+                    in dD l2 expU (dScale expU u')
+  log (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+                    in dD l2 (log u) (dScale (recip u) u')
+  sqrt (D l ue u') = let (l2, sqrtU) = recordSharingPrimal (sqrt ue) l
+                     in dD l2 sqrtU (dScale (recip (sqrtU + sqrtU)) u')
+  D l1 ue u' ** D l2 ve v' =
+    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        (l4, v) = recordSharingPrimal ve l3
+    in dD l4 (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
+                            (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x
-  sin (D ue u') = let u = recordSharingPrimal ue
-                  in dD (sin u) (dScale (cos u) u')
-  cos (D ue u') = let u = recordSharingPrimal ue
-                  in dD (cos u) (dScale (- (sin u)) u')
-  tan (D ue u') = let u = recordSharingPrimal ue
-                      cosU = recordSharingPrimal $ cos u
-                  in dD (tan u) (dScale (recip (cosU * cosU)) u')
-  asin (D ue u') = let u = recordSharingPrimal ue
-                   in dD (asin u) (dScale (recip (sqrt (1 - u*u))) u')
-  acos (D ue u') = let u = recordSharingPrimal ue
-                   in dD (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
-  atan (D ue u') = let u = recordSharingPrimal ue
-                   in dD (atan u) (dScale (recip (1 + u*u)) u')
-  sinh (D ue u') = let u = recordSharingPrimal ue
-                   in dD (sinh u) (dScale (cosh u) u')
-  cosh (D ue u') = let u = recordSharingPrimal ue
-                   in dD (cosh u) (dScale (sinh u) u')
-  tanh (D ue u') = let y = recordSharingPrimal $ tanh ue
-                   in dD y (dScale (1 - y * y) u')
-  asinh (D ue u') = let u = recordSharingPrimal ue
-                    in dD (asinh u) (dScale (recip (sqrt (1 + u*u))) u')
-  acosh (D ue u') = let u = recordSharingPrimal ue
-                    in dD (acosh u) (dScale (recip (sqrt (u*u - 1))) u')
-  atanh (D ue u') = let u = recordSharingPrimal ue
-                    in dD (atanh u) (dScale (recip (1 - u*u)) u')
+  sin (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+                    in dD l2 (sin u) (dScale (cos u) u')
+  cos (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+                    in dD l2 (cos u) (dScale (- (sin u)) u')
+  tan (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+                        (l3, cosU) = recordSharingPrimal (cos u) l2
+                    in dD l3 (tan u) (dScale (recip (cosU * cosU)) u')
+  asin (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+                     in dD l2 (asin u) (dScale (recip (sqrt (1 - u*u))) u')
+  acos (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+                     in dD l2 (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
+  atan (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+                     in dD l2 (atan u) (dScale (recip (1 + u*u)) u')
+  sinh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+                     in dD l2 (sinh u) (dScale (cosh u) u')
+  cosh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+                     in dD l2 (cosh u) (dScale (sinh u) u')
+  tanh (D l ue u') = let (l2, y) = recordSharingPrimal (tanh ue) l
+                     in dD l2 y (dScale (1 - y * y) u')
+  asinh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+                      in dD l2 (asinh u) (dScale (recip (sqrt (1 + u*u))) u')
+  acosh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+                      in dD l2 (acosh u) (dScale (recip (sqrt (u*u - 1))) u')
+  atanh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+                      in dD l2 (atanh u) (dScale (recip (1 - u*u)) u')
 
 instance (RealFrac a, IsPrimal a) => RealFrac (ADVal a) where
   properFraction = undefined
@@ -226,18 +234,21 @@ instance (RealFrac a, IsPrimal a) => RealFrac (ADVal a) where
     -- so we can't implement this (nor RealFracB from Boolean package).
 
 instance (RealFloat a, IsPrimal a) => RealFloat (ADVal a) where
-  atan2 (D ue u') (D ve v') =
-    let u = recordSharingPrimal ue
-        v = recordSharingPrimal ve
+  atan2 (D l1 ue u') (D l2 ve v') =
+    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        (l4, v) = recordSharingPrimal ve l3
         t = 1 / (u * u + v * v)
-    in dD (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
-  floatRadix (D u _) = floatRadix u
-  floatDigits (D u _) = floatDigits u
-  floatRange (D u _) = floatRange u
-  decodeFloat (D u _) = decodeFloat u
-  encodeFloat i j = D (encodeFloat i j) dZero
-  isNaN (D u _) = isNaN u
-  isInfinite (D u _) = isInfinite u
-  isDenormalized (D u _) = isDenormalized u
-  isNegativeZero (D u _) = isNegativeZero u
-  isIEEE (D u _) = isIEEE u
+    in dD l4 (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
+  -- Note that for term types @a@ this is invalid without an extra let
+  -- containing the first field of @D@. However, for terms this unimplemented
+  -- anyway, for unrelated reasons.
+  floatRadix (D _ u _) = floatRadix u
+  floatDigits (D _ u _) = floatDigits u
+  floatRange (D _ u _) = floatRange u
+  decodeFloat (D _ u _) = decodeFloat u
+  encodeFloat i j = D emptyADShare (encodeFloat i j) dZero
+  isNaN (D _ u _) = isNaN u
+  isInfinite (D _ u _) = isInfinite u
+  isDenormalized (D _ u _) = isDenormalized u
+  isNegativeZero (D _ u _) = isNegativeZero u
+  isIEEE (D _ u _) = isIEEE u

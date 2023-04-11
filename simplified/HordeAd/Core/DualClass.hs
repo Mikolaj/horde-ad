@@ -41,6 +41,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
@@ -56,7 +57,8 @@ class IsPrimal a where
   dScaleByScalar :: a -> Int -> Dual a -> Dual a
   dAdd :: Dual a -> Dual a -> Dual a
   recordSharing :: Dual a -> Dual a
-  recordSharingPrimal :: a -> a
+  recordSharingPrimal :: a -> ADShare (Element a) -> (ADShare (Element a), a)
+  letWrapPrimal :: ADShare (Element a) -> a -> a
   packDeltaDt :: Either a a -> Dual a -> DeltaDt (Element a)
 
 -- | Part 1/2 of a hack to squeeze the ranked tensors rank,
@@ -74,7 +76,9 @@ class IsPrimalR r where
         => Dual (OR.Array n r) -> Dual (OR.Array n r)
         -> Dual (OR.Array n r)
   recordSharingR :: Dual (OR.Array n r) -> Dual (OR.Array n r)
-  recordSharingPrimalR :: OR.Array n r -> OR.Array n r
+  recordSharingPrimalR :: OR.Array n r -> ADShare r
+                       -> (ADShare r, OR.Array n r)
+  letWrapPrimalR :: ADShare r -> OR.Array n r -> OR.Array n r
   packDeltaDtR :: KnownNat n
                => Either (OR.Array n r) (OR.Array n r) -> Dual (OR.Array n r)
                -> DeltaDt r
@@ -89,6 +93,7 @@ instance (IsPrimalR r, KnownNat n)
   dAdd = dAddR
   recordSharing = recordSharingR
   recordSharingPrimal = recordSharingPrimalR
+  letWrapPrimal = letWrapPrimalR
   packDeltaDt = packDeltaDtR
 
 -- An analogous hack for Ast.
@@ -102,7 +107,9 @@ class IsPrimalA r where
         => Dual (Ast n r) -> Dual (Ast n r) -> Dual (Ast n r)
   recordSharingA :: Dual (Ast n r) -> Dual (Ast n r)
   recordSharingPrimalA :: KnownNat n
-                          => Ast n r -> Ast n r
+                       => Ast n r -> ADShare (Ast0 r)
+                       -> (ADShare (Ast0 r), Ast n r)
+  letWrapPrimalA :: ADShare (Ast0 r) -> Ast n r -> Ast n r
   packDeltaDtA :: KnownNat n
                => Either (Ast n r) (Ast n r) -> Dual (Ast n r)
                -> DeltaDt (Ast0 r)
@@ -115,6 +122,7 @@ instance (IsPrimalA r, KnownNat n)
   dAdd = dAddA
   recordSharing = recordSharingA
   recordSharingPrimal = recordSharingPrimalA
+  letWrapPrimal = letWrapPrimalA
   packDeltaDt = packDeltaDtA
 
 -- | The class provides methods required for the second type parameter
@@ -238,7 +246,8 @@ instance IsPrimal Double where
     Input0{} -> d
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
-  recordSharingPrimal = id
+  recordSharingPrimal r l = (l, r)
+  letWrapPrimal _ r = r
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
 -- | This is an impure instance. See above.
@@ -253,7 +262,8 @@ instance IsPrimal Float where
     Input0{} -> d
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
-  recordSharingPrimal = id
+  recordSharingPrimal r l = (l, r)
+  letWrapPrimal _ r = r
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
 instance (Show r, Numeric r, Num (Vector r)) => IsPrimal (Ast0 r) where
@@ -266,7 +276,9 @@ instance (Show r, Numeric r, Num (Vector r)) => IsPrimal (Ast0 r) where
     Input0{} -> d
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
-  recordSharingPrimal = tlet0
+  recordSharingPrimal r l = let (l2, r2) = astRegisterADShare (unAst0 r) l
+                            in (l2, Ast0 r2)
+  letWrapPrimal l r = Ast0 $ tletWrap l (unAst0 r)
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
 -- | This is an impure instance. See above.
@@ -281,7 +293,8 @@ instance IsPrimalR Double where
     FromD{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
-  recordSharingPrimalR = id
+  recordSharingPrimalR r l = (l, r)
+  letWrapPrimalR _ r = r
   packDeltaDtR (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
   packDeltaDtR (Right t) = DeltaDtR t
 
@@ -296,7 +309,8 @@ instance IsPrimalR Float where
     FromD{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
-  recordSharingPrimalR = id
+  recordSharingPrimalR r l = (l, r)
+  letWrapPrimalR _ r = r
   packDeltaDtR (Left tsh) = DeltaDtR (tconst $ tkonst0N (tshape tsh) 1)
   packDeltaDtR (Right t) = DeltaDtR t
 
@@ -312,7 +326,8 @@ instance (Show r, Numeric r, Tensor (Ast0 r)) => IsPrimalA r where
     FromD{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
-  recordSharingPrimalA = tletR
+  recordSharingPrimalA = astRegisterADShare
+  letWrapPrimalA = tletWrap
   packDeltaDtA (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
   packDeltaDtA (Right t) = DeltaDtR t
 

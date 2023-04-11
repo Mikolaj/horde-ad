@@ -5,19 +5,16 @@
 -- | 'Tensor' class instances for 'Ast' terms. Some of these instances
 -- vectorize any terms starting with 'build1' and so eliminated the constructor.
 module HordeAd.Core.TensorAst
-  ( resetIdCounter
+  (
   ) where
 
 import Prelude
 
-import           Data.IORef.Unboxed
-  (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
-import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
@@ -72,9 +69,10 @@ instance ShowAstSimplify r
   tD = AstD
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-  tlet0 = astLet0Fun
-  tletR = astLetRFun
   tregister = astRegisterFun
+  tletWrap l u =
+    let bindToLet g (i, AstDynamic t) = AstLet (intToAstVarId i) t g
+    in foldl' bindToLet u (assocsADShare l)
 
   tfromD = astFromDynamic
 
@@ -139,33 +137,6 @@ astDomainsLetFun a f =
       (AstVarName var, ast) = funToAstR sh id
   in AstDomainsLet var a (f ast)
 
-unsafeGlobalCounter :: Counter
-{-# NOINLINE unsafeGlobalCounter #-}
-unsafeGlobalCounter = unsafePerformIO (newCounter 100000001)
-
-resetIdCounter :: IO ()
-resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
-
-unsafeGetFreshId :: IO Int
-{-# INLINE unsafeGetFreshId #-}
-unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
-
-astLet0Fun :: Ast0 r -> Ast0 r
-{-# NOINLINE astLet0Fun #-}
-astLet0Fun t@(Ast0 AstLetGlobal{}) = t
-astLet0Fun t@(Ast0 AstVar{}) = t
-astLet0Fun t = unsafePerformIO $ do
-  n <- unsafeGetFreshId
-  return $! Ast0 $ AstLetGlobal (NodeId n) (unAst0 t)
-
-astLetRFun :: Ast m r -> Ast m r
-{-# NOINLINE astLetRFun #-}
-astLetRFun t@AstLetGlobal{} = t
-astLetRFun t@AstVar{} = t
-astLetRFun t = unsafePerformIO $ do
-  n <- unsafeGetFreshId
-  return $! AstLetGlobal (NodeId n) t
-
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
 -- Due to how the Ast instance of Tensor is defined above, vectorization
@@ -229,9 +200,8 @@ instance ShowAstSimplify r
   tD u _ = u
   tScale _ _ = ()
 
-  tlet0 = AstPrimalPart . astLetRFun . unAstPrimalPart
-  tletR = AstPrimalPart . astLetRFun . unAstPrimalPart
   tregister = undefined
+  tletWrap = undefined
 
   tfromD = undefined
 
@@ -288,8 +258,7 @@ instance ShowAstSimplify r
   tD u u' = AstNoVectorize $ AstD (AstPrimalPart $ unAstNoVectorize u) u'
   tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-  tlet0 = AstNoVectorize . astLetRFun . unAstNoVectorize
-  tletR = AstNoVectorize . astLetRFun . unAstNoVectorize
   tregister = undefined
+  tletWrap = undefined
 
   tfromD = undefined

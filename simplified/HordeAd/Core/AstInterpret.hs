@@ -160,13 +160,15 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
     let (memo2, t) = interpretAst env memo u
-        r = tletR t
-    in interpretAst (EM.insert var (AstVarR $ dfromR r) env) memo2 v
+    in ( memo2
+       , tlet t (\w ->
+           snd $ interpretAst (EM.insert var (AstVarR $ dfromR w) env)
+                                         memo2 v) )  -- TODO: snd; env/state?
   AstLetGlobal n v ->
     case EM.lookup n memo of
       Nothing -> let (memo2, t) = interpretAst env memo v
                  in (EM.insert n (dfromR t) memo2, t)
-      Just res -> (memo, tfromD res)  -- TODO: call tletR, but with argument n
+      Just res -> (memo, tfromD res)
   AstOp TimesOp [v, AstReshape _ (AstKonst @m _ s)]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo v

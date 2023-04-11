@@ -81,22 +81,28 @@ revDtFun f vals =
       dim0 = tlength $ domains0 parameters
       shapes1 = map dshape $ V.toList $ domainsR parameters
       (var0, ast0) = funToAstR (singletonShape dim0) id
-      (vars1, asts1) = unzip $ map funToAstD shapes1
+      -- Add @seq@ to fix the numbering of variables for pretty-printing.
+      (vars1, asts1) = var0 `seq` unzip (map funToAstD shapes1)
       domains = mkDomains ast0 (V.fromList asts1)
       ast = f $ parseDomainsAst vals domains
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
-      dual0 = dD ast0 (dFromVectorR $ V.map dScalarR $ inputDual0 varInputs)
+      dual0 = dD emptyADShare
+                 ast0
+                 (dFromVectorR $ V.map dScalarR $ inputDual0 varInputs)
       env0 = extendEnvR var0 dual0 EM.empty
       env1 = foldr (\(AstDynamicVarName var, (u, u')) ->
-                      extendEnvR var (tfromD $ dDnotShared u u')) env0
+                      extendEnvR var (tfromD $ dDnotShared emptyADShare u u'))
+                   env0
              $ zip vars1 $ V.toList
              $ V.zip (inputPrimal1 varInputs) (inputDual1 varInputs)
-      (_, (D vAst deltaTopLevel)) = interpretAst env1 EM.empty ast
+      (_, (D astBindings0 vAst deltaTopLevel)) = interpretAst env1 EM.empty ast
       (varDt, astDt) = funToAstR (tshape vAst) id
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
-      letGradientAst = gradientFromDelta dim0 (length shapes1) deltaDt
-  in (AstDynamicVarName var0 : vars1, varDt, letGradientAst, vAst)
+      letGradientAst =
+        gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
+  in ( AstDynamicVarName var0 : vars1, varDt
+     , letGradientAst, tletWrap astBindings0 vAst )
 
 rev
   :: forall r n vals astvals.
@@ -274,7 +280,7 @@ instance AdaptableInputs Double (ADVal Double) where
   fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
       Just (aDual, restDual) ->
-        ( dD (tunScalar aPrimal) aDual
+        ( dD emptyADShare (tunScalar aPrimal) aDual
         , inputs {inputPrimal0 = restPrimal, inputDual0 = restDual} )
       Nothing -> error "fromADInputs in AdaptableInputs Double"
     Nothing -> error "fromADInputs in AdaptableInputs Double"
@@ -296,7 +302,7 @@ instance AdaptableInputs Float (ADVal Float) where
   fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
       Just (aDual, restDual) ->
-        ( dD (tunScalar aPrimal) aDual
+        ( dD emptyADShare (tunScalar aPrimal) aDual
         , inputs {inputPrimal0 = restPrimal, inputDual0 = restDual} )
       Nothing -> error "fromADInputs in AdaptableInputs Float"
     Nothing -> error "fromADInputs in AdaptableInputs Float"
@@ -307,7 +313,7 @@ instance ShowAstSimplify r
   fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
       Just (aDual, restDual) ->
-        ( dD (tunScalar aPrimal) aDual
+        ( dD emptyADShare (tunScalar aPrimal) aDual
         , inputs {inputPrimal0 = restPrimal, inputDual0 = restDual} )
       Nothing -> error "fromADInputs in AdaptableInputs (Ast0 r)"
     Nothing -> error "fromADInputs in AdaptableInputs (Ast0 r)"
@@ -382,7 +388,7 @@ instance ( Tensor (ADVal r), KnownNat n, TensorOf n r ~ OR.Array n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
-        ( tfromD @(ADVal r) @n $ dDnotShared aPrimal aDual
+        ( tfromD @(ADVal r) @n $ dDnotShared emptyADShare aPrimal aDual
         , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
       Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
@@ -393,7 +399,7 @@ instance (KnownNat n, ShowAstSimplify r)
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
-        ( tfromD @(ADVal (Ast0 r)) @n $ dDnotShared aPrimal aDual
+        ( tfromD @(ADVal (Ast0 r)) @n $ dDnotShared emptyADShare aPrimal aDual
         , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
       Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"

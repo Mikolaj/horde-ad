@@ -14,7 +14,8 @@
 -- sure everything introduced by vectorization is maximally simplified.
 module HordeAd.Core.AstSimplify
   ( simplifyPermutation
-  , astRegisterFun, funToAstR, funToAstD, funToAstI, funToAstIndex
+  , astRegisterFun, astRegisterADShare
+  , funToAstR, funToAstD, funToAstI, funToAstIndex
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
   , astConstant, astSum, astScatter, astFromList, astFromVector, astKonst
@@ -56,6 +57,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
@@ -102,11 +104,23 @@ unsafeGetFreshAstVarId =
 astRegisterFun :: (ShowAst r, KnownNat n)
                => Ast n r -> [(Int, AstDynamic r)]
                -> ([(Int, AstDynamic r)], Ast n r)
-astRegisterFun r@AstVar{} l = (l, r)
-astRegisterFun r@AstLetGlobal{} l = (l, r)
+{-# NOINLINE astRegisterFun #-}
+astRegisterFun !r@AstVar{} !l = (l, r)
 astRegisterFun r l = unsafePerformIO $ do
   n <- unsafeGetFreshAstVarId
-  return ((fromEnum n, AstDynamic r) : l, AstVar (shapeAst r) n)
+  let !r2 = AstVar (shapeAst r) n
+  return ((fromEnum n, AstDynamic r) : l, r2)
+
+astRegisterADShare :: (ShowAst r, KnownNat n, DTensorOf (Ast0 r) ~ AstDynamic r)
+                   => Ast n r -> ADShare (Ast0 r)
+                   -> (ADShare (Ast0 r), Ast n r)
+{-# NOINLINE astRegisterADShare #-}
+astRegisterADShare !r@AstVar{} !l = (l, r)
+astRegisterADShare r l = unsafePerformIO $ do
+  n <- unsafeGetFreshAstVarId
+  let !l2 = insertADShare (fromEnum n) (AstDynamic r) l
+      !r2 = AstVar (shapeAst r) n
+  return (l2, r2)
 
 funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
           -> (AstVarName (OR.Array n r), Ast m r)

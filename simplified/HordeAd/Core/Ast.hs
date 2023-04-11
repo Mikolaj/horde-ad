@@ -146,6 +146,7 @@ newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
 
 type instance Element (Ast0 r) = Ast0 r
 type instance Element (Ast n r) = Ast0 r
+type instance Element (AstDynamic r) = Ast0 r
 
 -- We avoid adding a phantom type denoting the underlying scalar,
 -- because the type families over tensor ranks make quanitified constraints
