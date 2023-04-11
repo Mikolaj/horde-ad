@@ -57,34 +57,35 @@ extendEnvVars vars ix env =
   let assocs = zip (sizedListToList vars) (indexToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
--- Memo is completely reset, because environment changes.
+-- Extensions to @memo@, one created for each iteration of the function,
+-- are forgotten instead of returned, because they would differ
+-- for each iteration, with differently extended environment,
+-- and also because the created function is not expected to return a @memo@.
 interpretLambdaI
-  :: (AstEnv c -> AstMemo c -> Ast n (ScalarOf c) -> (AstMemo c, TensorOf n c))
-  -> AstEnv c -> (AstVarId, Ast n (ScalarOf c)) -> IntOf c
-  -> TensorOf n c
+  :: (AstEnv a -> AstMemo a -> Ast n (ScalarOf a) -> (AstMemo a, TensorOf n a))
+  -> AstEnv a -> AstMemo a -> (AstVarId, Ast n (ScalarOf a)) -> IntOf a
+  -> TensorOf n a
 {-# INLINE interpretLambdaI #-}
-interpretLambdaI f env (var, ast) =
-  \i -> snd $ f (extendEnvI var i env) EM.empty ast
+interpretLambdaI f env memo (var, ast) =
+  \i -> snd $ f (extendEnvI var i env) memo ast
 
--- Memo is completely reset, because environment changes.
 interpretLambdaIndex
   :: (AstEnv a -> AstMemo a -> Ast n (ScalarOf a) -> (AstMemo a, TensorOf n a))
-  -> AstEnv a -> (AstVarList m, Ast n (ScalarOf a)) -> IndexOf m a
+  -> AstEnv a -> AstMemo a -> (AstVarList m, Ast n (ScalarOf a)) -> IndexOf m a
   -> TensorOf n a
 {-# INLINE interpretLambdaIndex #-}
-interpretLambdaIndex f env (vars, ast) =
-  \ix -> snd $ f (extendEnvVars vars ix env) EM.empty ast
+interpretLambdaIndex f env memo (vars, ast) =
+  \ix -> snd $ f (extendEnvVars vars ix env) memo ast
 
--- Memo is completely reset, because environment changes.
 interpretLambdaIndexToIndex
   :: KnownNat p
   => (AstEnv a -> AstMemo a -> AstInt q -> (AstMemo a, IntOf a))
-  -> AstEnv a -> (AstVarList m, AstIndex p q) -> IndexOf m a
+  -> AstEnv a -> AstMemo a -> (AstVarList m, AstIndex p q) -> IndexOf m a
   -> IndexOf p a
 {-# INLINE interpretLambdaIndexToIndex #-}
-interpretLambdaIndexToIndex f env (vars, asts) =
+interpretLambdaIndexToIndex f env memo (vars, asts) =
   \ix -> listToIndex $ snd
-         $ mapAccumR (f (extendEnvVars vars ix env)) EM.empty (indexToList asts)
+         $ mapAccumR (f (extendEnvVars vars ix env)) memo (indexToList asts)
 
 -- This horror (and some lesser horrors elsewhere) are required due
 -- to the inability to quantify constraints containing type families, see
@@ -161,9 +162,6 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     let (memo2, t) = interpretAst env memo u
         r = tletR t
     in interpretAst (EM.insert var (AstVarR $ dfromR r) env) memo2 v
-      -- It's OK not to reset memo2, because all occurences of this AstLet
-      -- terms outside of functions are going to be interpreted the same
-      -- and functions reset memo.
   AstLetGlobal n v ->
     case EM.lookup n memo of
       Nothing -> let (memo2, t) = interpretAst env memo v
@@ -226,7 +224,7 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     -- is cheaper, too
   AstScatter sh v (vars, ix) ->
     let (memo1, t1) = interpretAst env memo v
-        f2 = interpretLambdaIndexToIndex interpretAstInt env (vars, ix)
+        f2 = interpretLambdaIndexToIndex interpretAstInt env memo (vars, ix)
     in (memo1, tscatter sh t1 f2)
   AstFromList l ->
     let (memo2, l2) = mapAccumR (interpretAst env) memo l
@@ -258,14 +256,15 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env memo (var, v)
   AstBuild1 k (var, v) ->
-    (memo, tbuild1 k (interpretLambdaI interpretAst env (var, v)))
+    (memo, tbuild1 k (interpretLambdaI interpretAst env memo (var, v)))
       -- to be used only in tests
   AstGatherZ sh AstIota (vars, (i :. ZI)) ->
     ( memo
-    , tbuild sh (interpretLambdaIndex interpretAst env (vars, tfromIndex0 i)) )
+    , tbuild sh (interpretLambdaIndex interpretAst env memo
+                                      (vars, tfromIndex0 i)) )
   AstGatherZ sh v (vars, ix) ->
     let (memo1, t1) = interpretAst env memo v
-        f2 = interpretLambdaIndexToIndex interpretAstInt env (vars, ix)
+        f2 = interpretLambdaIndexToIndex interpretAstInt env memo (vars, ix)
     in (memo1, tgather sh t1 f2)
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
