@@ -552,13 +552,13 @@ nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedSumBuild v0 = tlet v0 $ \v ->
  tlet (tsum (tbuild1 9 tfromIndex0)) (\tbtf ->
   (tbuild1 13 (\ix ->
-    tletR $ tsum (tbuild1 4 (\ix2 ->
+    tsum (tbuild1 4 (\ix2 ->
       flip tindex [ix2]
         (tlet (tsum v) $ \tsumv -> tbuild1 5 (\ _ -> tsumv)
          * tfromList
              [ tfromIndex0 ix
              , tbtf
-             , tletR $ tsum (tbuild1 6 (\_ -> tsum v))
+             , tsum (tbuild1 6 (\_ -> tsum v))
              , tindex v [ix2]
              , tsum (tbuild1 3 (\ix7 ->
                  tsum (tkonst 5 (tfromIndex0 ix7))))
