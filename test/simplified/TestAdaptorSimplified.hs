@@ -969,13 +969,13 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
                                    (OR.fromList [2] [2, 3]))
   , testCase "blowupMultLet 10000" $ do
       assertEqualUpToEpsilon' 1e-10
-        (OR.fromList [2] [2.9997300120201995,1.9998200080134665])  -- [2.9991001345552233,1.999400089703482])
-        (rev' @(OR.Array 0 Double) (fblowupMultLet 0 3000)  -- !!! 10000
+        (OR.fromList [2] [2.9991001345552233,1.999400089703482])
+        (rev' @(OR.Array 0 Double) (fblowupMultLet 0 10000)
                                    (OR.fromList [2] [2, 3]))
   , testCase "blowupMultLet tbuild1" $ do
       assertEqualUpToEpsilon' 1e-10
-        (OR.fromList [2] [14.99995479189822,39.999879676311515])  -- [14.999547940541992,39.998796798841916])
+        (OR.fromList [2] [14.999547940541992,39.998796798841916])
         (rev' @(OR.Array 1 Double)
-              (\intputs -> tbuild1 100 (\i -> fblowupMultLet i 100 intputs))  -- !!! 1000
+              (\intputs -> tbuild1 100 (\i -> fblowupMultLet i 1000 intputs))
               (OR.fromList [2] [0.2, 0.3]))
   ]

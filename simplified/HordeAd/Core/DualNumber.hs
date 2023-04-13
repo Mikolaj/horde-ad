@@ -138,7 +138,7 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
 -}
 
 constantADVal :: IsPrimal a => a -> ADVal a
-constantADVal a = dD emptyADShare a dZero
+constantADVal a = dDnotShared emptyADShare a dZero
 
 
 -- * Numeric instances for ADVal

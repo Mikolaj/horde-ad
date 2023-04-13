@@ -19,13 +19,16 @@ import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
+import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Constraint, Type)
 import           Data.List (foldl')
+import           Data.Maybe (fromMaybe)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
+import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.TensorOps
@@ -58,150 +61,88 @@ emptyDomain0 = tzero (singletonShape 0)
 nullDomains :: Tensor r => Domains r -> Bool
 nullDomains params = tlength (domains0 params) == 0 && V.null (domainsR params)
 
+unsafeGlobalCounter :: Counter
+{-# NOINLINE unsafeGlobalCounter #-}
+unsafeGlobalCounter = unsafePerformIO (newCounter 0)
+
+unsafeGetFreshId :: IO Int
+{-# INLINE unsafeGetFreshId #-}
+unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
+
 -- Data invariant: the list is reverse-sorted wrt keys.
 -- This permits not inspecting too long a prefix of the list, usually,
 -- which is crucial for performance. The strictness is crucial for correctness
 -- in the presence of impurity for generating fresh variables.
-data ADShare r = ADShareNil | ADShareCons !Int !(DTensorOf r) !(ADShare r)
+-- The first integer field permits something akin to pointer equality
+-- but with less false negatives, because it's stable.
+data ADShare r = ADShareNil | ADShareCons !Int !Int !(DTensorOf r) !(ADShare r)
 deriving instance Show (DTensorOf r) => Show (ADShare r)
 
 emptyADShare :: ADShare r
 emptyADShare = ADShareNil
 
-insertADShare :: Int -> DTensorOf r -> ADShare r -> ADShare r
-insertADShare !i !t !s =
-  let insertList !l2@(ADShareCons key2 x2 rest2) =
-        case compare i key2 of
-          EQ -> l2  -- the lists only ever grow and only in fresh/unique way,
-                    -- so identical key means identical payload
-          LT -> ADShareCons key2 x2 $ insertList rest2
-          GT -> ADShareCons i t l2
-      insertList ADShareNil = ADShareCons i t ADShareNil
-  in insertList s
+insertADShare :: forall r. Int -> DTensorOf r -> ADShare r -> ADShare r
+insertADShare !key !t !s =
+  -- The Maybe over-engineering ensures that we never refresh an id
+  -- unnecessarily. In theory, when merging alternating equal lists
+  -- with different ids, this improves runtime from quadratic to linear,
+  -- but we apparently don't have such tests or they are too small,
+  -- so this causes a couple percent overhead instead.
+  let insertAD :: ADShare r -> Maybe (ADShare r)
+      insertAD ADShareNil = Just $ ADShareCons (- key) key t ADShareNil
+      insertAD l2@(ADShareCons _id2 key2 t2 rest2) =
+        case compare key key2 of
+          EQ -> Nothing
+                  -- the lists only ever grow and only in fresh/unique way,
+                  -- so identical key means identical payload
+          LT -> case insertAD rest2 of
+            Nothing -> Nothing
+            Just l3 -> Just $ freshInsertADShare key2 t2 l3
+          GT -> Just $ freshInsertADShare key t l2
+  in fromMaybe s (insertAD s)
 
-mergeADShare :: ADShare r -> ADShare r -> ADShare r
-mergeADShare !l1@(ADShareCons key1 x1 rest1) !l2@(ADShareCons key2 x2 rest2) =
-  case compare key1 key2 of
-    EQ -> ADShareCons key1 x1 $ mergeADShare rest1 rest2
-    LT -> ADShareCons key2 x2 $ mergeADShare l1 rest2
-    GT -> ADShareCons key1 x1 $ mergeADShare rest1 l2
-mergeADShare l ADShareNil = l
-mergeADShare ADShareNil l = l
+freshInsertADShare :: Int -> DTensorOf r -> ADShare r -> ADShare r
+{-# NOINLINE freshInsertADShare #-}
+freshInsertADShare !key !t !s = unsafePerformIO $ do
+  id0 <- unsafeGetFreshId
+  return $! ADShareCons id0 key t s
+
+mergeADShare :: forall r. ADShare r -> ADShare r -> ADShare r
+mergeADShare !s1 !s2 =
+  let mergeAD :: ADShare r -> ADShare r -> Maybe (ADShare r)
+      mergeAD ADShareNil ADShareNil = Nothing
+      mergeAD l ADShareNil = Just l
+      mergeAD ADShareNil l = Just l
+      mergeAD l1@(ADShareCons id1 key1 t1 rest1)
+              l2@(ADShareCons id2 key2 t2 rest2) =
+        if id1 == id2
+        then -- This assert is quadratic, so can only be enabled when debugging:
+             -- assert (_lengthADShare l1 == _lengthADShare l2) $
+             Nothing
+               -- the lists only ever grow and only in fresh/unique way,
+               -- so an identical id means the rest is the same
+        else case compare key1 key2 of
+          EQ -> case mergeAD rest1 rest2 of
+             Nothing -> Nothing
+             Just l3 -> Just $ freshInsertADShare key2 t2 l3
+          LT -> case mergeAD l1 rest2 of
+             Nothing -> Just l2
+             Just l3 -> Just $ freshInsertADShare key2 t2 l3
+          GT -> case mergeAD rest1 l2 of
+             Nothing -> Just l1
+             Just l3 -> Just $ freshInsertADShare key1 t1 l3
+  in fromMaybe s1 (mergeAD s1 s2)
 
 flattenADShare :: [ADShare r] -> ADShare r
 flattenADShare = foldl' mergeADShare emptyADShare
 
 assocsADShare :: ADShare r -> [(Int, DTensorOf r)]
 assocsADShare ADShareNil = []
-assocsADShare (ADShareCons key1 x1 rest1) = (key1, x1) : assocsADShare rest1
+assocsADShare (ADShareCons _ key t rest) = (key, t) : assocsADShare rest
 
-_lengthADShare :: ADShare r -> Int
-_lengthADShare ADShareNil = 0
-_lengthADShare (ADShareCons _ _ rest) = 1 + _lengthADShare rest
-
-{-
--- but better to express the strictness already in the type
-
--- Data invariant: the list is reverse-sorted wrt keys and strict.
--- This permits not inspecting too long a prefix of the list, usually,
--- which is crucial for performance. Keeping the order and the bangs
--- also ensures stritnessw, which is crucial for correctness
--- in the presence of impurity for generating fresh variables.
-newtype ADShare r =
-  ADShare {unADShare :: [(Int, DTensorOf r)]}
-deriving instance Show (DTensorOf r) => Show (ADShare r)
-
-emptyADShare :: ADShare r
-emptyADShare = ADShare []
-
-insertADShare :: Int -> DTensorOf r -> ADShare r -> ADShare r
-insertADShare !i !t (ADShare s) =
-  let insertList !l2@((key2, x2) : rest2) =
-        case compare i key2 of
-          EQ -> l2
-          LT -> (key2, x2) : insertList rest2
-          GT -> (i, t) : l2
-      insertList [] = [(i, t)]
-  in ADShare $ insertList s
-
-mergeADShare :: ADShare r -> ADShare r -> ADShare r
-mergeADShare (ADShare s1) (ADShare s2) =
-  let mergeLists !l1@((key1, x1) : rest1) !l2@((key2, x2) : rest2) =
-        case compare key1 key2 of
-         EQ -> l1  -- the lists only ever grow and only in fresh/unique way,
-                   -- so an identical key means the rest is the same
-         LT -> (key2, x2) : mergeLists l1 rest2
-         GT -> (key1, x1) : mergeLists rest1 l2
-      mergeLists l [] = l
-      mergeLists [] l = l
-  in ADShare $ mergeLists s1 s2
-
-flattenADShare :: [ADShare r] -> ADShare r
-flattenADShare ls = foldl' mergeADShare emptyADShare ls
-
-assocsADShare :: ADShare r -> [(Int, DTensorOf r)]
-assocsADShare = unADShare
-
--- better than these below, but still breaks tests and performance
-newtype ADShare r = ADShare {unADShare :: EM.EnumMap Int (DTensorOf r)}
-deriving instance Show (DTensorOf r) => Show (ADShare r)
-
-emptyADShare :: ADShare r
-emptyADShare = ADShare EM.empty
-
-insertADShare :: Int -> DTensorOf r -> ADShare r -> ADShare r
-insertADShare !i !t (ADShare !s) = ADShare $ EM.insert i t s
-
-mergeADShare :: ADShare r -> ADShare r -> ADShare r
-mergeADShare (ADShare !s1) (ADShare !s2) = ADShare $ EM.union s1 s2
-
-flattenADShare :: [ADShare r] -> ADShare r
-flattenADShare !ls = ADShare $ EM.unions $ map unADShare ls
-
-assocsADShare :: ADShare r -> [(Int, DTensorOf r)]
-assocsADShare (ADShare !s) = EM.toDescList s
-
--- OOM in blowupLet 3000
-newtype ADShare r =
-  ADShare {unADShare :: [(Int, DTensorOf r)]}
-deriving instance Show (DTensorOf r) => Show (ADShare r)
-
-emptyADShare :: ADShare r
-emptyADShare = ADShare []
-
-insertADShare :: Int -> DTensorOf r -> ADShare r -> ADShare r
-insertADShare !i !t (ADShare !s) = ADShare $ (i, t) : s
-
-mergeADShare :: ADShare r -> ADShare r -> ADShare r
-mergeADShare (ADShare !s1) (ADShare !s2) = let !_ = length s1 + length s2
-                                           in ADShare $ s1 ++ s2
-
-flattenADShare :: [ADShare r] -> ADShare r
-flattenADShare !ls = let !_ = sum $ map (length . unADShare) ls
-                     in ADShare $ concatMap unADShare ls
-
-assocsADShare :: ADShare r -> [(Int, DTensorOf r)]
-assocsADShare = EM.toDescList . EM.fromList . unADShare
-
--- no benefit from strict elements
-newtype ADShare r = ADShare {unADShare :: IM.IntMap (DTensorOf r)}
-deriving instance Show (DTensorOf r) => Show (ADShare r)
-
-emptyADShare :: ADShare r
-emptyADShare = ADShare IM.empty
-
-insertADShare :: Int -> DTensorOf r -> ADShare r -> ADShare r
-insertADShare !i !t (ADShare !s) = ADShare $ IM.insert i t s
-
-mergeADShare :: ADShare r -> ADShare r -> ADShare r
-mergeADShare (ADShare !s1) (ADShare !s2) = ADShare $ IM.union s1 s2
-
-flattenADShare :: [ADShare r] -> ADShare r
-flattenADShare !ls = ADShare $ IM.unions $ map unADShare ls
-
-assocsADShare :: ADShare r -> [(Int, DTensorOf r)]
-assocsADShare (ADShare !s) = IM.toDescList s
--}
+_lengthADShare :: Int -> ADShare r -> Int
+_lengthADShare acc ADShareNil = acc
+_lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
 
 
 -- * Tensor class definition
