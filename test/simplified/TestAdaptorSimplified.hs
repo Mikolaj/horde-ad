@@ -111,7 +111,7 @@ rev' f vals =
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseADInputs vals inputs) EM.empty
-        in snd $ interpretAst env EM.empty (gx ast)
+        in snd $ interpretAst env emptyMemo (gx ast)
       (astGrad, value2) = revOnDomains dt (h id id id) (toDomains vals)
       gradient2 = parseDomains vals astGrad
       (astSimple, value3) =
@@ -139,7 +139,7 @@ rev' f vals =
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseADInputs vals inputs) EM.empty
-        in snd $ interpretAst env EM.empty (gx ast)
+        in snd $ interpretAst env emptyMemo (gx ast)
       (astGradAst, value2Ast) =
         revAstOnDomains (hAst id id id) (toDomains vals) dt
       gradient2Ast = parseDomains vals astGradAst
@@ -530,7 +530,7 @@ testFooNoGoAst =
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
-                           EM.empty
+                           emptyMemo
                            (fooNoGoAst (AstVar [5] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
@@ -648,7 +648,7 @@ testBarReluAst0 =
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
-                           EM.empty
+                           emptyMemo
                            (barReluAst (AstVar [] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [] [191.20462646925841])
@@ -664,7 +664,7 @@ testBarReluAst1 =
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
-                           EM.empty
+                           emptyMemo
                            (barReluAst (AstVar [5] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
@@ -685,7 +685,7 @@ testKonstReluAst =
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
-                           EM.empty
+                           emptyMemo
                            (konstReluAst (AstVar [] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [] [295.4])

@@ -213,7 +213,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                          $ extendEnvR varLabel
                              (tconst $ OR.fromVector [sizeMnistLabelInt] label)
                              env1
-                   in tunScalar $ snd $ interpretAst envMnist EM.empty ast
+                   in tunScalar $ snd $ interpretAst envMnist emptyMemo ast
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -322,7 +322,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            envMnistg = extendEnvR varGlyph (tconstant astGlyph)
                        $ extendEnvR varLabel (tconstant astLabel) envg
            D astBindings0 vAst deltaTopLevel =
-             tunScalar $ snd $ interpretAst envMnistg EM.empty ast
+             tunScalar $ snd $ interpretAst envMnistg emptyMemo ast
            deltaDt = packDeltaDt (Left vAst) deltaTopLevel
            letGradientAst =
              gradientFromDelta astBindings0 0 (length shapes1) deltaDt
@@ -340,7 +340,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                        (OR.fromVector [sizeMnistLabelInt] label)
                        env1
                  (_memo1, gradients) =
-                   interpretAstDomainsDummy envMnist EM.empty letGradientAst
+                   interpretAstDomainsDummy envMnist emptyMemo letGradientAst
              in go rest (updateWithGradient gamma parameters gradients)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.

@@ -239,7 +239,6 @@ simplifyStepNonIndex
 simplifyStepNonIndex t = case t of
   AstVar{} -> t
   AstLet{} -> t
-  AstLetGlobal{} -> t
   AstOp{} -> t
   AstSumOfList{} -> t
   AstIota -> t
@@ -308,7 +307,6 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
  in case v0 of
   AstVar{} -> AstIndexZ v0 ix
   AstLet var u v -> AstLet var u (astIndexRec v ix)
-  AstLetGlobal _ v -> astIndexRec v ix  -- simplification breaks global sharing
   AstOp opCode args ->
     AstOp opCode (map (`astIndexRec` ix) args)
   AstSumOfList args ->
@@ -645,8 +643,6 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 (vars4, ix4@(i4 :. rest4)) = case v4 of
     AstVar{} -> AstGatherZ sh4 v4 (vars4, ix4)
     AstLet var u v -> AstLet var u (astGatherCase sh4 v (vars4, ix4))
-    AstLetGlobal _ v -> astGatherCase sh4 v (vars4, ix4)
-                          -- simplification breaks global sharing
     AstOp opCode args ->
       AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     AstSumOfList args ->
@@ -886,7 +882,6 @@ simplifyAst
 simplifyAst t = case t of
   AstVar{} -> t
   AstLet var u v -> AstLet var (simplifyAst u) (simplifyAst v)
-  AstLetGlobal n v -> AstLetGlobal n (simplifyAst v)
   AstOp opCode args -> AstOp opCode (map simplifyAst args)
   AstSumOfList args -> AstSumOfList (map simplifyAst args)
     -- We do not simplify, e.g., addition or multiplication by zero.

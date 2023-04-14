@@ -291,7 +291,7 @@ testPoly00 f input expected = do
           (\adinputs -> tunScalar $ snd $
              interpretAst (EM.singleton (intToAstVarId 100000000)
                              (AstVarR $ dfromR $ tscalar $ adinputs `at0` 0))
-                          EM.empty
+                          emptyMemo
                           (unAst0 $ f (Ast0 $ AstVar [] (intToAstVarId 100000000))))
           domainsInput
       (advalGrad, advalValue) =
@@ -320,7 +320,7 @@ testPoly01 f outSize input expected = do
           (\adinputs -> snd $
              interpretAst (EM.singleton (intToAstVarId 100000000)
                              (AstVarR $ dfromR $ tscalar $ adinputs `at0` 0))
-                          EM.empty
+                          emptyMemo
                           (f (Ast0 $ AstVar [] (intToAstVarId 100000000))))
           domainsInput
       (advalGrad, advalValue) =
@@ -349,7 +349,7 @@ testPoly11 f outSize input expected = do
           (\adinputs -> snd $
              interpretAst (EM.singleton (intToAstVarId 100000000)
                              (AstVarR $ dfromR $ at1 @1 adinputs 0))
-                          EM.empty
+                          emptyMemo
                           (f (AstVar [length input] (intToAstVarId 100000000))))
           domainsInput
       (advalGrad, advalValue) =
@@ -379,7 +379,7 @@ testPolyn f sh input expected = do
           (\adinputs -> snd $
              interpretAst (EM.singleton (intToAstVarId 100000000)
                              (AstVarR $ dfromR $ tscalar $ adinputs `at0` 0))
-                          EM.empty
+                          emptyMemo
                           (f (Ast0 $ AstVar [] (intToAstVarId 100000000))))
           domainsInput
       (advalGrad, advalValue) =
@@ -426,7 +426,7 @@ testFooNoGoAst =
        (\adinputs -> snd $
           interpretAst (EM.singleton (intToAstVarId 100000000)
                           (AstVarR $ dfromR $ at1 @1 adinputs 0))
-                       EM.empty
+                       emptyMemo
                        (fooNoGoAst (AstVar [5] (intToAstVarId 100000000))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
@@ -468,7 +468,7 @@ testBarReluAst0 =
        (\adinputs -> tunScalar $ snd $
           interpretAst (EM.singleton (intToAstVarId 100000000)
                           (AstVarR $ dfromR $ tscalar $ adinputs `at0` 0))
-                       EM.empty
+                       emptyMemo
                        (barReluAst (AstVar [] (intToAstVarId 100000000))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
@@ -482,7 +482,7 @@ testBarReluAst1 =
        (\adinputs -> snd $
           interpretAst (EM.singleton (intToAstVarId 100000000)
                           (AstVarR $ dfromR $ at1 @1 adinputs 0))
-                       EM.empty
+                       emptyMemo
                        (barReluAst (AstVar [5] (intToAstVarId 100000000))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
@@ -497,7 +497,7 @@ testKonstReluAst =
        (\adinputs -> tunScalar $ snd $
           interpretAst (EM.singleton (intToAstVarId 100000000)
                           (AstVarR $ dfromR $ tscalar $ adinputs `at0` 0))
-                       EM.empty
+                       emptyMemo
                        (konstReluAst (AstVar [] (intToAstVarId 100000000))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [295.4]

@@ -96,7 +96,7 @@ revDtFun f vals =
                    env0
              $ zip vars1 $ V.toList
              $ V.zip (inputPrimal1 varInputs) (inputDual1 varInputs)
-      (_, (D astBindings0 vAst deltaTopLevel)) = interpretAst env1 EM.empty ast
+      (_, (D astBindings0 vAst deltaTopLevel)) = interpretAst env1 emptyMemo ast
       (varDt, astDt) = funToAstR (tshape vAst) id
       deltaDt = packDeltaDt (Right astDt) deltaTopLevel
       letGradientAst =

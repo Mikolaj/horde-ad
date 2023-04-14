@@ -132,7 +132,7 @@ revAstOnDomainsEval (vars, varDt, letGradientAst, vAst)
         Just a -> a
         Nothing -> tkonst0N (tshape vAst) 1
       envDt = extendEnvR varDt dtValue env1
-      (memo1, l1) = interpretAstDomainsDummy envDt EM.empty letGradientAst
+      (memo1, l1) = interpretAstDomainsDummy envDt emptyMemo letGradientAst
         -- TODO: emulate mapAccumR on vectors
       (_memo2, v2) = interpretAst env1 memo1 vAst
       gradientDomain = l1

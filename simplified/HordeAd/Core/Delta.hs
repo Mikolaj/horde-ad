@@ -36,7 +36,7 @@ module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), DeltaR (..), DeltaD (..)
   , -- * Delta expression identifiers
-    InputId, toInputId, Dual
+    NodeId (..), InputId, toInputId, Dual
   , -- * Evaluation of the delta expressions
     DeltaDt (..)
   , gradientFromDelta
@@ -72,6 +72,10 @@ import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
 
 -- * Abstract syntax trees of the delta expressions
+
+newtype NodeId = NodeId Int
+ deriving newtype (Show, Enum)
+   -- No Eq instance to limit hacks.
 
 -- | For each choice of the underlying scalar type @r@,
 -- we have several primitive differentiable types based on the scalar:

@@ -1,4 +1,4 @@
-{-# LANGUAGE DerivingStrategies, UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
@@ -7,7 +7,7 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( ShowAst, AstIndex, AstVarList, NodeId(..)
+  ( ShowAst, AstIndex, AstVarList
   , Ast(..), AstNoVectorize(..), AstPrimalPart(..), AstDualPart(..)
   , AstDynamic(..), AstDomains(..), unwrapAstDomains, Ast0(..)
   , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
@@ -51,10 +51,6 @@ type AstIndex n r = Index n (AstInt r)
 
 type AstVarList n = SizedList n AstVarId
 
-newtype NodeId = NodeId {fromNodeId :: Int}
- deriving newtype (Show, Enum)
-   -- No Eq instance to limit hacks.
-
 -- We use here @ShapeInt@ for simplicity. @Shape n (AstInt r)@ gives
 -- more expressiveness, but leads to irregular tensors,
 -- especially after vectorization, and prevents statically known shapes.
@@ -66,7 +62,6 @@ data Ast :: Nat -> Type -> Type where
   AstVar :: ShapeInt n -> AstVarId -> Ast n r
   AstLet :: KnownNat n
          => AstVarId -> Ast n r -> Ast m r -> Ast m r
-  AstLetGlobal :: NodeId -> Ast m r -> Ast m r
 
   -- For the numeric classes:
   AstOp :: OpCode -> [Ast n r] -> Ast n r
@@ -483,7 +478,6 @@ shapeAst :: forall n r. (KnownNat n, ShowAst r)
 shapeAst v1 = case v1 of
   AstVar sh _var -> sh
   AstLet _ _ v -> shapeAst v
-  AstLetGlobal _ v -> shapeAst v
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
@@ -534,7 +528,6 @@ intVarInAst :: AstVarId -> Ast n r -> Bool
 intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
   AstLet var2 u v -> intVarInAst var u || var /= var2 && intVarInAst var v
-  AstLetGlobal _ v -> intVarInAst var v
   AstOp _ l -> any (intVarInAst var) l
   AstSumOfList l -> any (intVarInAst var) l
   AstIota -> False
@@ -606,10 +599,6 @@ substitute1Ast i var v1 = case v1 of
     if var == var2
     then AstLet var2 (substitute1Ast i var u) v
     else AstLet var2 (substitute1Ast i var u) (substitute1Ast i var v)
-  AstLetGlobal _ v -> substitute1Ast i var v
-    -- substitution breaks global sharing
-    -- TODO: here and in all term transformations (but not in interpretAst)
-    -- start by building a graph and replacing all AstLetGlobal with AstLet
   AstOp opCode args -> AstOp opCode $ map (substitute1Ast i var) args
   AstSumOfList args -> AstSumOfList $ map (substitute1Ast i var) args
   AstIota -> v1
@@ -726,16 +715,11 @@ printAstDebug :: ShowAst r => IntMap String -> Ast n r -> String
 printAstDebug renames t = printAst (PrintConfig True renames) 0 t ""
 
 data PrintConfig = PrintConfig
-  { displayGlobalLets :: Bool
-  , varRenames        :: IntMap String
+  { _preserveSharingInfo :: Bool  -- TODO
+  , varRenames           :: IntMap String
   }
 
 -- Precedences used are as in Haskell.
---
--- If @displayGlobalLets@ is off, typing this in should result
--- in a program with the same semantics (though GHC may require
--- some extra type applications), but no global sharing.
--- If @displayGlobalLets@ is on, this won't parse.
 printAst :: ShowAst r => PrintConfig -> Int -> Ast n r -> ShowS
 printAst cfg d = \case
   AstVar _sh var -> printAstVar (varRenames cfg) var
@@ -749,12 +733,6 @@ printAst cfg d = \case
            . printAstVar (varRenames cfg) var
            . showString " -> "
            . printAst cfg 0 v)
-  AstLetGlobal n v ->
-    if displayGlobalLets cfg
-    then printPrefixOp printAst cfg d
-                       ("tletR" ++ show (fromEnum n - 100000000)) [v]
-           -- this won't parse anyway, so we don't add parens
-    else printAst cfg d v
   AstOp opCode args -> printAstOp cfg d opCode args
   AstSumOfList [] -> error "printAst: empty AstSumOfList"
   AstSumOfList (left : args) ->

@@ -5,7 +5,7 @@
 module HordeAd.Core.AstInterpret
   ( InterpretAst, interpretAst
   , interpretAstDomainsDummy, interpretAstDynamicDummy
-  , AstEnv, extendEnvR
+  , AstEnv, extendEnvR, AstMemo, emptyMemo
   , AstEnvElem(AstVarR)  -- for a test only
   ) where
 
@@ -132,7 +132,10 @@ instance Evidence Float where
 
 type InterpretAst a = Evidence a
 
-type AstMemo a = EM.EnumMap NodeId (DTensorOf a)
+type AstMemo a = ()
+
+emptyMemo :: AstMemo a
+emptyMemo = ()
 
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
 -- Either the environment has to be traverse to remove the dual parts or
@@ -164,11 +167,6 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
        , tlet t (\w ->
            snd $ interpretAst (EM.insert var (AstVarR $ dfromR w) env)
                                          memo2 v) )  -- TODO: snd; env/state?
-  AstLetGlobal n v ->
-    case EM.lookup n memo of
-      Nothing -> let (memo2, t) = interpretAst env memo v
-                 in (EM.insert n (dfromR t) memo2, t)
-      Just res -> (memo, tfromD res)
   AstOp TimesOp [v, AstReshape _ (AstKonst @m _ s)]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo v
@@ -212,14 +210,6 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
           -- rather not, because rewrite breaks sharing
   AstSum (AstLet var v (AstOp TimesOp [t, u])) ->
     interpretAst env memo (AstLet var v (AstSum (AstOp TimesOp [t, u])))
-  {- AstSum v@(AstLetGlobal _ (AstOp TimesOp [t, u])) ->
-    -- We sacrifice global sharing for speed. Doesn't seem to help.
-    case sameNat (Proxy @n) (Proxy @0) of
-      Just Refl ->
-        let (memo1, t1) = interpretAst env memo t
-            (memo2, t2) = interpretAst env memo1 u
-        in (memo2, tdot0 t1 t2)
-      _ -> second tsum (interpretAst env memo v) -}
   AstSum v -> second tsum (interpretAst env memo v)
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
