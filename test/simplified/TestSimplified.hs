@@ -23,6 +23,7 @@ import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal (ADTensor)
 import HordeAd.Core.TensorClass
+import HordeAd.External.CommonRankedOps
 
 import Tool.EqEpsilon
 
@@ -174,21 +175,21 @@ nestedBuildIndex v =
 barRelu
   :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
   => TensorOf n r -> TensorOf n r
-barRelu x = relu1 $ bar (x, relu1 x)
+barRelu x = relu $ bar (x, relu x)
 
 barReluAst
   :: (KnownNat n, ShowAst r, RealFloat r, Floating (Vector r))
   => Ast n r -> Ast n r
-barReluAst x = relu1 $ bar (x, reluAst1 x)
+barReluAst x = relu $ bar (x, reluAst1 x)
 
 konstReluAst
-  :: forall r. (ShowAst r, RealFloat r, RealFloat (Vector r))
+  :: forall r. (ShowAst r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
 konstReluAst x = tsum0 $ reluAst1 @1 $ tkonst0N [7] x
 
 reluAst1
   :: forall n r.
-     (KnownNat n, ShowAst r, RealFloat r, Floating (Vector r))
+     (KnownNat n, ShowAst r, Floating (Vector r))
   => Ast n r -> Ast n r
 reluAst1 v =
   let oneIfGtZero =
@@ -197,19 +198,7 @@ reluAst1 v =
                       AstPrimalPart
                       $ astCond (AstRel GtOp [AstPrimalPart x, 0]) 1 0)
                    (tprimalPart v)
-  in scale1 oneIfGtZero v
-
-scale1 :: (ADReady r, KnownNat n, Num (TensorOf n r))
-       => TensorOf n (Primal r) -> TensorOf n r -> TensorOf n r
-scale1 a d = tconstant a * d
-
-relu1
-  :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
-  => TensorOf n r -> TensorOf n r
-relu1 v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0)
-                           (tprimalPart v)
-  in scale1 oneIfGtZero v
+  in scale oneIfGtZero v
 
 
 -- * Tests by TomS

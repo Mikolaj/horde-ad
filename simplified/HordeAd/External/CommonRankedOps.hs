@@ -25,8 +25,8 @@ scale0 :: Tensor r
        => Primal r -> r -> r
 scale0 = tscale0
 
-scale :: (r ~ Primal d, Tensor d, KnownNat n)
-      => TensorOf n r -> TensorOf n d -> TensorOf n d
+scale :: (Tensor d, KnownNat n)
+      => TensorOf n (Primal d) -> TensorOf n d -> TensorOf n d
 scale a d = tconstant a `tmult` d
 
 relu0

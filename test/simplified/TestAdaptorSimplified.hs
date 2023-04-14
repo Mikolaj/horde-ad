@@ -2,7 +2,6 @@
 module TestAdaptorSimplified
   ( testTrees, rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , t16, t16b, t48, t128, t128b, t128c
-  , scale1, relu1, reluLeaky1
   ) where
 
 import Prelude
@@ -25,6 +24,7 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal (ADTensor)
 import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor
+import HordeAd.External.CommonRankedOps
 
 import Tool.EqEpsilon
 
@@ -253,23 +253,6 @@ t128b = OR.reshape [4, 2, 4, 4] t128
 
 t128c :: (Numeric r, Fractional r) => OR.Array 4 r
 t128c = OR.reshape [2, 2, 8, 4] t128
-
-scale1 :: (ADReady r, KnownNat n, Num (TensorOf n r))
-       => TensorOf n (Primal r) -> TensorOf n r -> TensorOf n r
-scale1 a d = tconstant a * d
-
-relu1, reluLeaky1
-  :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
-  => TensorOf n r -> TensorOf n r
-relu1 v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0)
-                           (tprimalPart v)
-  in scale1 oneIfGtZero v
-
-reluLeaky1 v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0.01)
-                           (tprimalPart v)
-  in scale1 oneIfGtZero v
 
 
 -- * Tensor tests
@@ -590,7 +573,7 @@ testNestedBuildIndex =
 barRelu
   :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
   => TensorOf n r -> TensorOf n r
-barRelu x = relu1 $ bar (x, relu1 x)
+barRelu x = relu $ bar (x, relu x)
 
 testBarReluADValDt :: Assertion
 testBarReluADValDt =
@@ -614,7 +597,7 @@ barReluAst
   :: forall n r.
      (KnownNat n, ShowAst r, RealFloat r, Floating (Vector r))
   => Ast n r -> Ast n r
-barReluAst x = relu1 @n @(Ast0 r) $ bar (x, relu1 x)
+barReluAst x = relu @n @(Ast0 r) $ bar (x, relu x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
@@ -651,7 +634,7 @@ testBarReluAst1 =
 konstReluAst
   :: forall r. (ShowAst r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
-konstReluAst x = tsum0 $ relu1 $ tkonst0N (7 :$ ZS) x
+konstReluAst x = tsum0 $ relu $ tkonst0N (7 :$ ZS) x
 
 testKonstReluAst :: Assertion
 testKonstReluAst =

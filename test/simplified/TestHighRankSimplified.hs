@@ -18,16 +18,10 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor
+import HordeAd.External.CommonRankedOps
 
 import TestAdaptorSimplified
-  ( assertEqualUpToEpsilon'
-  , assertEqualUpToEpsilonShort
-  , relu1
-  , rev'
-  , t128
-  , t16
-  , t48
-  )
+  (assertEqualUpToEpsilon', assertEqualUpToEpsilonShort, rev', t128, t16, t48)
 
 import Tool.EqEpsilon
 
@@ -419,7 +413,7 @@ barRelu
   :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
   => TensorOf n r -> TensorOf n r
 barRelu x = let t = tkonst0N (tshape x) 0.001 * x
-            in relu1 $ bar (t, relu1 t)
+            in relu $ bar (t, relu t)
 
 testBarReluADValDt :: Assertion
 testBarReluADValDt =
@@ -443,7 +437,7 @@ barRelu10xSlower
   :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
   => TensorOf n r -> TensorOf n r
 barRelu10xSlower x = let t = tmap0N (* 0.001) x
-                     in relu1 $ bar (t, relu1 t)
+                     in relu $ bar (t, relu t)
 
 testReluSimp :: Assertion
 testReluSimp = do
