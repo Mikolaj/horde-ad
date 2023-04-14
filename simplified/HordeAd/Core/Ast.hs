@@ -17,7 +17,7 @@ module HordeAd.Core.Ast
   , intVarInAst, intVarInAstInt, intVarInAstBool, intVarInIndex
   , substitute1Ast, substitute1AstDomains
   , substitute1AstInt, substitute1AstBool
-  , printAstVar, printAstIntVar
+  , printAstVarId
   , printAstSimple, printAstPretty, printAstDomainsSimple, printAstDomainsPretty
   , astCond  -- only for tests
   ) where
@@ -695,40 +695,48 @@ substitute1AstBool i var b1 = case b1 of
 
 -- Modeled after https://github.com/VMatthijs/CHAD/blob/755fc47e1f8d1c3d91455f123338f44a353fc265/src/TargetLanguage.hs#L335.
 
-printAstVarId :: String -> IntMap String -> AstVarId -> ShowS
-printAstVarId prefix renames var =
+printAstVarIdGeneric :: String -> PrintConfig -> AstVarId -> ShowS
+printAstVarIdGeneric prefix cfg var =
   let n = fromEnum var - 100000000
-  in showString $ case IM.lookup n renames of
+  in showString $ case IM.lookup n (varRenames cfg) of
     Nothing -> prefix ++ show n
     Just name -> name
 
-printAstVar :: IntMap String -> AstVarId -> ShowS
-printAstVar = printAstVarId "x"
+printAstVar :: PrintConfig -> AstVarId -> ShowS
+printAstVar = printAstVarIdGeneric "x"
 
-printAstIntVar :: IntMap String -> AstVarId -> ShowS
-printAstIntVar = printAstVarId "i"
+printAstIntVar :: PrintConfig -> AstVarId -> ShowS
+printAstIntVar = printAstVarIdGeneric "i"
+
+printAstVarId :: IntMap String -> AstVarId -> String
+printAstVarId renames var = printAstVar (defaulPrintConfig False renames) var ""
 
 printAstSimple :: ShowAst r => IntMap String -> Ast n r -> String
-printAstSimple renames t = printAst (PrintConfig False renames) 0 t ""
+printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
 
 printAstPretty :: ShowAst r => IntMap String -> Ast n r -> String
-printAstPretty renames t = printAst (PrintConfig True renames) 0 t ""
+printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
 
 data PrintConfig = PrintConfig
   { prettifyLosingSharing :: Bool
   , varRenames            :: IntMap String
   }
 
+defaulPrintConfig :: Bool -> IntMap String -> PrintConfig
+defaulPrintConfig prettifyLosingSharing renames =
+  let varRenames = renames `IM.union` IM.fromList [(1, "s0"), (2, "dt")]
+  in PrintConfig {..}
+
 -- Precedences used are as in Haskell.
 printAst :: ShowAst r => PrintConfig -> Int -> Ast n r -> ShowS
 printAst cfg d = \case
-  AstVar _sh var -> printAstVar (varRenames cfg) var
+  AstVar _sh var -> printAstVar cfg var
   AstLet var u v ->
     if prettifyLosingSharing cfg
     then
       showParen (d > 0)
       $ showString "let "
-        . printAstVar (varRenames cfg) var
+        . printAstVar cfg var
         . showString " = "
         . printAst cfg 0 u
         . showString " in "
@@ -740,7 +748,7 @@ printAst cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVar (varRenames cfg) var
+             . printAstVar cfg var
              . showString " -> "
              . printAst cfg 0 v)
   AstOp opCode args -> printAstOp cfg d opCode args
@@ -766,7 +774,7 @@ printAst cfg d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith (printAstIntVar (varRenames cfg))
+           . showListWith (printAstIntVar cfg)
                           (sizedListToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (indexToList ix))
@@ -796,7 +804,7 @@ printAst cfg d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . printAstVar (varRenames cfg) var
+           . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
   AstGatherZ sh v (vars, ix) ->
@@ -806,7 +814,7 @@ printAst cfg d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith (printAstIntVar (varRenames cfg))
+           . showListWith (printAstIntVar cfg)
                           (sizedListToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (indexToList ix))
@@ -829,7 +837,7 @@ printAst cfg d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith (printAstVar (varRenames cfg)) (V.toList vars)
+           . showListWith (printAstVar cfg) (V.toList vars)
            . showString " -> "
            . printAst cfg 0 v)
       -- TODO: this does not roundtrip yet
@@ -848,11 +856,11 @@ printAstDynamic cfg d (AstDynamic v) =
 
 printAstDomainsSimple :: ShowAst r => IntMap String -> AstDomains r -> String
 printAstDomainsSimple renames t =
-  printAstDomains (PrintConfig False renames) 0 t ""
+  printAstDomains (defaulPrintConfig False renames) 0 t ""
 
 printAstDomainsPretty :: ShowAst r => IntMap String -> AstDomains r -> String
 printAstDomainsPretty renames t =
-  printAstDomains (PrintConfig True renames) 0 t ""
+  printAstDomains (defaulPrintConfig True renames) 0 t ""
 
 printAstDomains :: ShowAst r
                 => PrintConfig -> Int -> AstDomains r -> ShowS
@@ -868,7 +876,7 @@ printAstDomains cfg d = \case
     then
       showParen (d > 0)
       $ showString "let "
-        . printAstVar (varRenames cfg) var
+        . printAstVar cfg var
         . showString " = "
         . printAst cfg 0 u
         . showString " in "
@@ -880,13 +888,13 @@ printAstDomains cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVar (varRenames cfg) var
+             . printAstVar cfg var
              . showString " -> "
              . printAstDomains cfg 0 v)
 
 printAstInt :: ShowAst r => PrintConfig -> Int -> AstInt r -> ShowS
 printAstInt cfg d = \case
-  AstIntVar var -> printAstIntVar (varRenames cfg) var
+  AstIntVar var -> printAstIntVar cfg var
   AstIntOp opCode args -> printAstIntOp cfg d opCode args
   AstIntConst a -> shows a
   AstIntFloor (AstPrimalPart v) -> printPrefixOp printAst cfg d "floor" [v]

@@ -15,7 +15,7 @@
 module HordeAd.Core.AstSimplify
   ( simplifyPermutation
   , astRegisterFun, astRegisterADShare
-  , funToAstR, funToAstD, funToAstI, funToAstIndex
+  , funToAstR, funToAstRsh, funToAstD, funToAstI, funToAstIndex
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
   , astConstant, astSum, astScatter, astFromList, astFromVector, astKonst
@@ -128,6 +128,15 @@ funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
 funToAstR sh f = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   return (AstVarName freshId, f (AstVar sh freshId))
+
+funToAstRsh :: (Ast n r -> Ast m r)
+            -> (AstVarName (OR.Array n r), ShapeInt n -> Ast m r)
+{-# NOINLINE funToAstRsh #-}
+funToAstRsh f = unsafePerformIO $ do
+  -- We have to take the @f@ argument, even if it's always @id@,
+  -- for the impure value not to be improperly shared between calls.
+  freshId <- unsafeGetFreshAstVarId
+  return (AstVarName freshId, \sh -> f (AstVar sh freshId))
 
 -- The "fun"ction in this case is fixed to be @id@.
 funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)

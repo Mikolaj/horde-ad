@@ -91,43 +91,40 @@ revAstOnDomainsFun
   :: forall r n. (KnownNat n, ShowAstSimplify r)
   => Int -> [[Int]]
   -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
-  -> ( [AstDynamicVarName r]
-     , AstVarName (OR.Array n r)
-     , AstDomains r
-     , Ast n r )
+  -> ( AstDynamicVarName r, [AstDynamicVarName r], AstVarName (OR.Array n r)
+     , AstDomains r, Ast n r )
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun dim0 shapes1 f =
   let (var0, ast0) = funToAstR (singletonShape dim0) id
-      -- Add @seq@ to fix the numbering of variables for pretty-printing.
-      (vars1, asts1) = var0 `seq` unzip (map funToAstD shapes1)
-      domains = mkDomains ast0 (V.fromList asts1)
+      -- Added @seq@ to fix the numbering of variables for pretty-printing.
+      (varDt, astDt) = var0 `seq` funToAstRsh id
+      !(!vars1, asts1) = varDt `seq` unzip (map funToAstD shapes1) in
+  let domains = mkDomains ast0 (V.fromList asts1)
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D astBindings0 vAst deltaTopLevel) = f varInputs
-      (varDt, astDt) = funToAstR (tshape vAst) id
-      deltaDt = packDeltaDt (Right astDt) deltaTopLevel
+      deltaDt = packDeltaDt (Right $ astDt (tshape vAst)) deltaTopLevel
   in let letGradientAst =
            gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
-     in (AstDynamicVarName var0 : vars1, varDt, letGradientAst, tletWrap astBindings0 vAst)
+     in ( AstDynamicVarName var0, vars1, varDt, letGradientAst
+        , tletWrap astBindings0 vAst )
 
 revAstOnDomainsEval
   :: forall r n.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
      , ShowAstSimplify r )
-  => ( [AstDynamicVarName r]
-     , AstVarName (OR.Array n r)
-     , AstDomains r
-     , Ast n r )
+  => ( AstDynamicVarName r, [AstDynamicVarName r], AstVarName (OR.Array n r)
+     , AstDomains r, Ast n r )
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
-revAstOnDomainsEval (vars, varDt, letGradientAst, vAst)
+revAstOnDomainsEval (var0, vars1, varDt, letGradientAst, vAst)
                     parameters dt =
   let env1 = foldr (\(AstDynamicVarName var, v) ->
                       extendEnvR var (tfromD v)) EM.empty
-             $ zip vars $ V.toList parameters
+             $ zip (var0 : vars1) $ V.toList parameters
       dtValue = case dt of
         Just a -> a
         Nothing -> tkonst0N (tshape vAst) 1

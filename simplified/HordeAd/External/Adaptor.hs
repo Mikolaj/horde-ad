@@ -72,18 +72,17 @@ revDtFun
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> vals
-  -> ( [AstDynamicVarName r]
-     , AstVarName (OR.Array n r)
-     , AstDomains r
-     , Ast n r )
+  -> ( AstDynamicVarName r, [AstDynamicVarName r], AstVarName (OR.Array n r)
+     , AstDomains r, Ast n r )
 revDtFun f vals =
   let parameters = toDomains vals
       dim0 = tlength $ domains0 parameters
       shapes1 = map dshape $ V.toList $ domainsR parameters
       (var0, ast0) = funToAstR (singletonShape dim0) id
-      -- Add @seq@ to fix the numbering of variables for pretty-printing.
-      (vars1, asts1) = var0 `seq` unzip (map funToAstD shapes1)
-      domains = mkDomains ast0 (V.fromList asts1)
+      -- Added @seq@ to fix the numbering of variables for pretty-printing.
+      (varDt, astDt) = var0 `seq` funToAstRsh id
+      !(!vars1, asts1) = varDt `seq` unzip (map funToAstD shapes1) in
+  let domains = mkDomains ast0 (V.fromList asts1)
       ast = f $ parseDomainsAst vals domains
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
@@ -97,11 +96,10 @@ revDtFun f vals =
              $ zip vars1 $ V.toList
              $ V.zip (inputPrimal1 varInputs) (inputDual1 varInputs)
       (_, (D astBindings0 vAst deltaTopLevel)) = interpretAst env1 emptyMemo ast
-      (varDt, astDt) = funToAstR (tshape vAst) id
-      deltaDt = packDeltaDt (Right astDt) deltaTopLevel
+      deltaDt = packDeltaDt (Right $ astDt (tshape vAst)) deltaTopLevel
       letGradientAst =
         gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
-  in ( AstDynamicVarName var0 : vars1, varDt
+  in ( AstDynamicVarName var0, vars1, varDt
      , letGradientAst, tletWrap astBindings0 vAst )
 
 rev
