@@ -708,7 +708,7 @@ buildDerivative dim0 dimR deltaDt params = do
         Input0 (InputId i) ->
           if i < dim0
           then return $! tunScalar
-                         $ (domains0 params) ! singletonIndex (fromIntegral i)
+                         $ domains0 params ! singletonIndex (fromIntegral i)
           else error "derivativeFromDelta.eval': wrong index for an input"
         Scale0 k d -> (k *) <$> eval0 d
         Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)
