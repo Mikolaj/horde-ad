@@ -78,10 +78,10 @@ revDtFun f vals =
   let parameters = toDomains vals
       dim0 = tlength $ domains0 parameters
       shapes1 = map dshape $ V.toList $ domainsR parameters
-      (var0, ast0) = funToAstR (singletonShape dim0) id
-      -- Added @seq@ to fix the numbering of variables for pretty-printing.
-      (varDt, astDt) = var0 `seq` funToAstRsh id
-      !(!vars1, asts1) = varDt `seq` unzip (map funToAstD shapes1) in
+      -- Bangs and the compound function to fix the numbering of variables
+      -- for pretty-printing and prevent sharing the impure values/effects.
+      !(!(!var0, ast0), (varDt, astDt), (vars1, asts1)) =
+        funToAstAll (singletonShape dim0) shapes1 in
   let domains = mkDomains ast0 (V.fromList asts1)
       ast = f $ parseDomainsAst vals domains
       deltaInputs = generateDeltaInputs domains

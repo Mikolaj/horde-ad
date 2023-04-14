@@ -15,7 +15,7 @@
 module HordeAd.Core.AstSimplify
   ( simplifyPermutation
   , astRegisterFun, astRegisterADShare
-  , funToAstR, funToAstRsh, funToAstD, funToAstI, funToAstIndex
+  , funToAstR, funToAstD, funToAstAll, funToAstI, funToAstIndex
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
   , astConstant, astSum, astScatter, astFromList, astFromVector, astKonst
@@ -122,26 +122,28 @@ astRegisterADShare r l = unsafePerformIO $ do
       !r2 = AstVar (shapeAst r) freshId
   return (l2, r2)
 
-funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
-          -> (AstVarName (OR.Array n r), Ast m r)
-{-# NOINLINE funToAstR #-}
-funToAstR sh f = unsafePerformIO $ do
+funToAstRIO :: ShapeInt n -> (Ast n r -> Ast m r)
+            -> IO (AstVarName (OR.Array n r), Ast m r)
+{-# INLINE funToAstRIO #-}
+funToAstRIO sh f = do
   freshId <- unsafeGetFreshAstVarId
   return (AstVarName freshId, f (AstVar sh freshId))
 
-funToAstRsh :: (Ast n r -> Ast m r)
-            -> (AstVarName (OR.Array n r), ShapeInt n -> Ast m r)
-{-# NOINLINE funToAstRsh #-}
-funToAstRsh f = unsafePerformIO $ do
-  -- We have to take the @f@ argument, even if it's always @id@,
-  -- for the impure value not to be improperly shared between calls.
+funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
+          -> (AstVarName (OR.Array n r), Ast m r)
+{-# NOINLINE funToAstR #-}
+funToAstR sh f = unsafePerformIO $ funToAstRIO sh f
+
+funToAstRshIO :: IO (AstVarName (OR.Array n r), ShapeInt n -> Ast n r)
+{-# INLINE funToAstRshIO #-}
+funToAstRshIO = do
   freshId <- unsafeGetFreshAstVarId
-  return (AstVarName freshId, \sh -> f (AstVar sh freshId))
+  return (AstVarName freshId, \sh -> AstVar sh freshId)
 
 -- The "fun"ction in this case is fixed to be @id@.
-funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
-{-# NOINLINE funToAstD #-}
-funToAstD sh = unsafePerformIO $ do
+funToAstDIO :: forall r. [Int] -> IO (AstDynamicVarName r, AstDynamic r)
+{-# INLINE funToAstDIO #-}
+funToAstDIO sh = do
   freshId <- unsafeGetFreshAstVarId
   return $! case someNatVal $ toInteger $ length sh of
     Just (SomeNat (_proxy :: Proxy p)) ->
@@ -149,6 +151,21 @@ funToAstD sh = unsafePerformIO $ do
           varName = AstVarName @(OR.Array p r) freshId
       in (AstDynamicVarName varName, AstDynamic (AstVar shn freshId))
     Nothing -> error "funToAstD: impossible someNatVal error"
+
+funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
+{-# NOINLINE funToAstD #-}
+funToAstD sh = unsafePerformIO $ funToAstDIO sh
+
+funToAstAll :: ShapeInt m -> [[Int]]
+            -> ( (AstVarName (OR.Array m r), Ast m r)
+               , (AstVarName (OR.Array n r), ShapeInt n -> Ast n r)
+               , ([AstDynamicVarName r], [AstDynamic r]) )
+{-# NOINLINE funToAstAll #-}
+funToAstAll sh shapes1 = unsafePerformIO $ do
+  v0 <- funToAstRIO sh id
+  vDt <- funToAstRshIO
+  v1 <- unzip <$> (mapM funToAstDIO shapes1)
+  return (v0, vDt, v1)
 
 funToAstI :: (AstInt r -> t) -> (AstVarId, t)
 {-# NOINLINE funToAstI #-}
