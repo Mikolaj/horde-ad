@@ -106,13 +106,20 @@ instance ShowAst r
     let bindToLet g (i, AstDynamic t) = AstDomainsLet (intToAstVarId i) t g
     in foldl' bindToLet u l
 
-astLetFun :: (KnownNat n, ShowAst r)
+astLetFun :: forall n m r. (KnownNat n, KnownNat m, ShowAst r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
 astLetFun a@AstVar{} f = f a
 astLetFun a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh f
-  in AstLet var a ast
+  in case ast of
+    AstVar _ var2 ->
+      if var2 == var
+      then case sameNat (Proxy @n) (Proxy @m) of
+        Just Refl -> a
+        _ -> error "astLetFun: rank mismatch"
+      else ast
+    _ -> AstLet var a ast
 
 astLetDomainsFun
   :: forall m r. ShowAst r
