@@ -71,7 +71,7 @@ instance ShowAstSimplify r
 
   tregister = astRegisterFun
   tletWrap l u =
-    let bindToLet g (i, AstDynamic t) = AstLet (intToAstVarId i) t g
+    let bindToLet g (var, AstDynamic t) = AstLet var t g
     in foldl' bindToLet u (assocsADShare l)
 
   tfromD = astFromDynamic
@@ -103,7 +103,7 @@ instance ShowAst r
   dmkDomains = AstDomains
   dlet = astDomainsLetFun
   dletWrap l u =
-    let bindToLet g (i, AstDynamic t) = AstDomainsLet (intToAstVarId i) t g
+    let bindToLet g (var, AstDynamic t) = AstDomainsLet var t g
     in foldl' bindToLet u l
 
 astLetFun :: forall n m r. (KnownNat n, KnownNat m, ShowAst r)

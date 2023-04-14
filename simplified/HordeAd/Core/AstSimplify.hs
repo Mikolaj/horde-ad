@@ -102,14 +102,14 @@ unsafeGetFreshAstVarId =
   intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 astRegisterFun :: (ShowAst r, KnownNat n)
-               => Ast n r -> [(Int, AstDynamic r)]
-               -> ([(Int, AstDynamic r)], Ast n r)
+               => Ast n r -> [(AstVarId, AstDynamic r)]
+               -> ([(AstVarId, AstDynamic r)], Ast n r)
 {-# NOINLINE astRegisterFun #-}
 astRegisterFun !r@AstVar{} !l = (l, r)
 astRegisterFun r l = unsafePerformIO $ do
-  n <- unsafeGetFreshAstVarId
-  let !r2 = AstVar (shapeAst r) n
-  return ((fromEnum n, AstDynamic r) : l, r2)
+  freshId <- unsafeGetFreshAstVarId
+  let !r2 = AstVar (shapeAst r) freshId
+  return ((freshId, AstDynamic r) : l, r2)
 
 astRegisterADShare :: (ShowAst r, KnownNat n, DTensorOf (Ast0 r) ~ AstDynamic r)
                    => Ast n r -> ADShare (Ast0 r)
@@ -117,9 +117,9 @@ astRegisterADShare :: (ShowAst r, KnownNat n, DTensorOf (Ast0 r) ~ AstDynamic r)
 {-# NOINLINE astRegisterADShare #-}
 astRegisterADShare !r@AstVar{} !l = (l, r)
 astRegisterADShare r l = unsafePerformIO $ do
-  n <- unsafeGetFreshAstVarId
-  let !l2 = insertADShare (fromEnum n) (AstDynamic r) l
-      !r2 = AstVar (shapeAst r) n
+  freshId <- unsafeGetFreshAstVarId
+  let !l2 = insertADShare freshId (AstDynamic r) l
+      !r2 = AstVar (shapeAst r) freshId
   return (l2, r2)
 
 funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)

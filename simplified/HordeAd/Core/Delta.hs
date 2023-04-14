@@ -314,7 +314,7 @@ data EvalState r = EvalState
       -- by their node identifiers
   , nMap        :: EM.EnumMap NodeId (DeltaBinding r)
       -- ^ nodes left to be evaluated
-  , astBindings :: [(Int, DTensorOf r)]
+  , astBindings :: [(AstVarId, DTensorOf r)]
   }
 
 -- | Nodes left to be evaluated.

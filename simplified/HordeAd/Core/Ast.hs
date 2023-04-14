@@ -41,6 +41,7 @@ import           Numeric.LinearAlgebra (Numeric)
 
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.SizedList
+import HordeAd.Internal.TensorOps
 
 -- * Ast definitions
 
@@ -147,16 +148,6 @@ newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
 type instance Element (Ast0 r) = Ast0 r
 type instance Element (Ast n r) = Ast0 r
 type instance Element (AstDynamic r) = Ast0 r
-
--- We avoid adding a phantom type denoting the underlying scalar,
--- because the type families over tensor ranks make quanitified constraints
--- impossible and so the phantom type leads to passing explicit (and implicit)
--- type equality proofs around.
-newtype AstVarId = AstVarId Int
- deriving (Eq, Show, Enum)
-
-intToAstVarId :: Int -> AstVarId
-intToAstVarId = AstVarId
 
 newtype AstVarName t = AstVarName AstVarId
  deriving (Eq, Show)

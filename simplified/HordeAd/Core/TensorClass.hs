@@ -75,13 +75,14 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 -- in the presence of impurity for generating fresh variables.
 -- The first integer field permits something akin to pointer equality
 -- but with less false negatives, because it's stable.
-data ADShare r = ADShareNil | ADShareCons !Int !Int !(DTensorOf r) !(ADShare r)
+data ADShare r = ADShareNil
+               | ADShareCons !Int !AstVarId !(DTensorOf r) !(ADShare r)
 deriving instance Show (DTensorOf r) => Show (ADShare r)
 
 emptyADShare :: ADShare r
 emptyADShare = ADShareNil
 
-insertADShare :: forall r. Int -> DTensorOf r -> ADShare r -> ADShare r
+insertADShare :: forall r. AstVarId -> DTensorOf r -> ADShare r -> ADShare r
 insertADShare !key !t !s =
   -- The Maybe over-engineering ensures that we never refresh an id
   -- unnecessarily. In theory, when merging alternating equal lists
@@ -89,7 +90,7 @@ insertADShare !key !t !s =
   -- but we apparently don't have such tests or they are too small,
   -- so this causes a couple percent overhead instead.
   let insertAD :: ADShare r -> Maybe (ADShare r)
-      insertAD ADShareNil = Just $ ADShareCons (- key) key t ADShareNil
+      insertAD ADShareNil = Just $ ADShareCons (- fromEnum key) key t ADShareNil
       insertAD l2@(ADShareCons _id2 key2 t2 rest2) =
         case compare key key2 of
           EQ -> Nothing
@@ -101,7 +102,7 @@ insertADShare !key !t !s =
           GT -> Just $ freshInsertADShare key t l2
   in fromMaybe s (insertAD s)
 
-freshInsertADShare :: Int -> DTensorOf r -> ADShare r -> ADShare r
+freshInsertADShare :: AstVarId -> DTensorOf r -> ADShare r -> ADShare r
 {-# NOINLINE freshInsertADShare #-}
 freshInsertADShare !key !t !s = unsafePerformIO $ do
   id0 <- unsafeGetFreshId
@@ -136,7 +137,7 @@ mergeADShare !s1 !s2 =
 flattenADShare :: [ADShare r] -> ADShare r
 flattenADShare = foldl' mergeADShare emptyADShare
 
-assocsADShare :: ADShare r -> [(Int, DTensorOf r)]
+assocsADShare :: ADShare r -> [(AstVarId, DTensorOf r)]
 assocsADShare ADShareNil = []
 assocsADShare (ADShareCons _ key t rest) = (key, t) : assocsADShare rest
 
@@ -363,8 +364,8 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
 
   -- Operations for delayed let bindings creation
   tregister :: KnownNat n
-            => TensorOf n r -> [(Int, DTensorOf r)]
-            -> ([(Int, DTensorOf r)], TensorOf n r)
+            => TensorOf n r -> [(AstVarId, DTensorOf r)]
+            -> ([(AstVarId, DTensorOf r)], TensorOf n r)
   tregister r l = (l, r)
   tletWrap :: ADShare r -> TensorOf n r -> TensorOf n r
   tletWrap _l u = u
@@ -399,7 +400,7 @@ class DomainsTensor r where
        => TensorOf n r -> (TensorOf n r -> DomainsOf r)
        -> DomainsOf r
   dlet a f = f a
-  dletWrap :: [(Int, DTensorOf r)] -> DomainsOf r -> DomainsOf r
+  dletWrap :: [(AstVarId, DTensorOf r)] -> DomainsOf r -> DomainsOf r
   dletWrap _l u = u
 
 

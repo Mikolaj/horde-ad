@@ -36,6 +36,16 @@ import qualified Numeric.LinearAlgebra as LA
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR)
 
+-- We avoid adding a phantom type denoting the underlying scalar,
+-- because the type families over tensor ranks make quanitified constraints
+-- impossible and so the phantom type leads to passing explicit (and implicit)
+-- type equality proofs around.
+newtype AstVarId = AstVarId Int
+ deriving (Eq, Ord, Show, Enum)
+
+intToAstVarId :: Int -> AstVarId
+intToAstVarId = AstVarId
+
 type IndexInt n = Index n CInt
 
 dummyTensor :: Numeric r => OD.Array r
