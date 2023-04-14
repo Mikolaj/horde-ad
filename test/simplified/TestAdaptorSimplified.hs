@@ -314,7 +314,10 @@ testFooPP = do
 
 fooLet :: forall r n. (RealFloat (TensorOf n r), Tensor r, KnownNat n)
        => (TensorOf n r, TensorOf n r, TensorOf n r) -> TensorOf n r
-fooLet (x, y, z) = tlet @r @n (x * sin y) $ \w -> atan2 z w + z * w
+fooLet (x, y, z) =
+  let w0 = x * sin y
+  in tlet w0 $ \w ->
+     atan2 z w + z * w
 
 testFooLet :: Assertion
 testFooLet = do

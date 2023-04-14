@@ -18,7 +18,7 @@ module HordeAd.Core.Ast
   , substitute1Ast, substitute1AstDomains
   , substitute1AstInt, substitute1AstBool
   , printAstVar, printAstIntVar
-  , printAstSimple, printAstDebug, printAstDomainsSimple, printAstDomainsDebug
+  , printAstSimple, printAstPretty, printAstDomainsSimple, printAstDomainsPretty
   , astCond  -- only for tests
   ) where
 
@@ -711,12 +711,12 @@ printAstIntVar = printAstVarId "i"
 printAstSimple :: ShowAst r => IntMap String -> Ast n r -> String
 printAstSimple renames t = printAst (PrintConfig False renames) 0 t ""
 
-printAstDebug :: ShowAst r => IntMap String -> Ast n r -> String
-printAstDebug renames t = printAst (PrintConfig True renames) 0 t ""
+printAstPretty :: ShowAst r => IntMap String -> Ast n r -> String
+printAstPretty renames t = printAst (PrintConfig True renames) 0 t ""
 
 data PrintConfig = PrintConfig
-  { _preserveSharingInfo :: Bool  -- TODO
-  , varRenames           :: IntMap String
+  { prettifyLosingSharing :: Bool
+  , varRenames            :: IntMap String
   }
 
 -- Precedences used are as in Haskell.
@@ -724,15 +724,25 @@ printAst :: ShowAst r => PrintConfig -> Int -> Ast n r -> ShowS
 printAst cfg d = \case
   AstVar _sh var -> printAstVar (varRenames cfg) var
   AstLet var u v ->
-    showParen (d > 10)
-    $ showString "tlet "
-      . printAst cfg 11 u
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . printAstVar (varRenames cfg) var
-           . showString " -> "
-           . printAst cfg 0 v)
+    if prettifyLosingSharing cfg
+    then
+      showParen (d > 0)
+      $ showString "let "
+        . printAstVar (varRenames cfg) var
+        . showString " = "
+        . printAst cfg 0 u
+        . showString " in "
+        . printAst cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "tlet "
+        . printAst cfg 11 u
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstVar (varRenames cfg) var
+             . showString " -> "
+             . printAst cfg 0 v)
   AstOp opCode args -> printAstOp cfg d opCode args
   AstSumOfList [] -> error "printAst: empty AstSumOfList"
   AstSumOfList (left : args) ->
@@ -840,8 +850,8 @@ printAstDomainsSimple :: ShowAst r => IntMap String -> AstDomains r -> String
 printAstDomainsSimple renames t =
   printAstDomains (PrintConfig False renames) 0 t ""
 
-printAstDomainsDebug :: ShowAst r => IntMap String -> AstDomains r -> String
-printAstDomainsDebug renames t =
+printAstDomainsPretty :: ShowAst r => IntMap String -> AstDomains r -> String
+printAstDomainsPretty renames t =
   printAstDomains (PrintConfig True renames) 0 t ""
 
 printAstDomains :: ShowAst r
@@ -854,15 +864,25 @@ printAstDomains cfg d = \case
          $ showString "fromList "
            . showListWith (printAstDynamic cfg 0) (V.toList l))
   AstDomainsLet var u v ->
-    showParen (d > 10)
-    $ showString "dlet "
-      . printAst cfg 11 u
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . printAstVar (varRenames cfg) var
-           . showString " -> "
-           . printAstDomains cfg 0 v)
+    if prettifyLosingSharing cfg
+    then
+      showParen (d > 0)
+      $ showString "let "
+        . printAstVar (varRenames cfg) var
+        . showString " = "
+        . printAst cfg 0 u
+        . showString " in "
+        . printAstDomains cfg 0 v
+    else
+      showParen (d > 10)
+      $ showString "dlet "
+        . printAst cfg 11 u
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstVar (varRenames cfg) var
+             . showString " -> "
+             . printAstDomains cfg 0 v)
 
 printAstInt :: ShowAst r => PrintConfig -> Int -> AstInt r -> ShowS
 printAstInt cfg d = \case
