@@ -288,20 +288,28 @@ testFooPP = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\x1 -> atan2 x1 (x1 * sin x1) + x1 * (x1 * sin x1)"
   resetVarCounter
-  let ( AstDynamicVarName (AstVarName var0), vars1, AstVarName varDt
-       ,letGradientAst, vAst ) =
+  let (var0, varDt, vars1, letGradientAst, vAst) =
         revDtFun fooT (4, 5, 6)
-      varsPPD = map (printAstVarId renames)
+      (varsPPD, varsPP) = ppVars renames (var0, varDt, vars1)
+  "\\" ++ varsPPD
+       ++ " -> " ++ printAstDomainsSimple renames letGradientAst
+    @?= "\\s0 dt x y z -> dlet (sin y) (\\x6 -> dlet (x * x6) (\\x7 -> dlet (sin y) (\\x8 -> dlet (x * x8) (\\x9 -> dlet (z * dt) (\\x10 -> dlet (negate (z * (tconst 1.0 / (z * z + x7 * x7))) * dt) (\\x11 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x6 * x11 + x8 * x10), dfromR (cos y * (x * x11) + cos y * (x * x10)), dfromR ((x7 * (tconst 1.0 / (z * z + x7 * x7))) * dt + x9 * dt)])))))))"
+  "\\" ++ varsPP ++ " -> " ++ printAstSimple renames vAst
+    @?= "\\s0 x y z -> tlet (sin y) (\\x6 -> tlet (x * x6) (\\x7 -> tlet (sin y) (\\x8 -> tlet (x * x8) (\\x9 -> atan2 z x7 + z * x9))))"
+
+ppVars :: IM.IntMap String
+       -> ( AstDynamicVarName r
+          , AstVarName (OR.Array n r)
+          , [AstDynamicVarName r] )
+       -> (String, String)
+ppVars renames (AstDynamicVarName (AstVarName var0), AstVarName varDt, vars1) =
+  let varsPPD = map (printAstVarId renames)
                 $ var0 : varDt
                   : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
       varsPP = map (printAstVarId renames)
                $ var0
                  : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-  "\\" ++ unwords varsPPD
-       ++ " -> " ++ printAstDomainsSimple renames letGradientAst
-    @?= "\\s0 dt x y z -> dlet (sin y) (\\x6 -> dlet (x * x6) (\\x7 -> dlet (sin y) (\\x8 -> dlet (x * x8) (\\x9 -> dlet (z * dt) (\\x10 -> dlet (negate (z * (tconst 1.0 / (z * z + x7 * x7))) * dt) (\\x11 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x6 * x11 + x8 * x10), dfromR (cos y * (x * x11) + cos y * (x * x10)), dfromR ((x7 * (tconst 1.0 / (z * z + x7 * x7))) * dt + x9 * dt)])))))))"
-  "\\" ++ unwords varsPP ++ " -> " ++ printAstSimple renames vAst
-    @?= "\\s0 x y z -> tlet (sin y) (\\x6 -> tlet (x * x6) (\\x7 -> tlet (sin y) (\\x8 -> tlet (x * x8) (\\x9 -> atan2 z x7 + z * x9))))"
+  in (unwords varsPPD, unwords varsPP)
 
 fooLet :: forall r n. (RealFloat (TensorOf n r), Tensor r, KnownNat n)
        => (TensorOf n r, TensorOf n r, TensorOf n r) -> TensorOf n r
@@ -328,19 +336,13 @@ testFooLetPP = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\x1 -> tlet (x1 * sin x1) (\\x2 -> atan2 x1 x2 + x1 * x2)"
   resetVarCounter
-  let ( AstDynamicVarName (AstVarName var0), vars1, AstVarName varDt
-       ,letGradientAst, vAst ) =
+  let (var0, varDt, vars1, letGradientAst, vAst) =
         revDtFun fooLetT (4, 5, 6)
-      varsPPD = map (printAstVarId renames)
-                $ var0 : varDt
-                  : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-      varsPP = map (printAstVarId renames)
-               $ var0
-                 : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-  "\\" ++ unwords varsPPD
+      (varsPPD, varsPP) = ppVars renames (var0, varDt, vars1)
+  "\\" ++ varsPPD
        ++ " -> " ++ printAstDomainsSimple renames letGradientAst
     @?= "\\s0 dt x y z -> dlet (sin y) (\\x7 -> dlet (x * x7) (\\x8 -> dlet (negate (z * (tconst 1.0 / (z * z + x8 * x8))) * dt + z * dt) (\\x9 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x7 * x9), dfromR (cos y * (x * x9)), dfromR ((x8 * (tconst 1.0 / (z * z + x8 * x8))) * dt + x8 * dt)]))))"
-  "\\" ++ unwords varsPP ++ " -> " ++ printAstSimple renames vAst
+  "\\" ++ varsPP ++ " -> " ++ printAstSimple renames vAst
     @?= "\\s0 x y z -> tlet (sin y) (\\x7 -> tlet (x * x7) (\\x8 -> atan2 z x8 + z * x8))"
 
 testReluPP :: Assertion
@@ -355,19 +357,13 @@ testReluPP = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\x1 -> tconstant (tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i2, i3] -> [ifB (x1 ! [i2, i3] <=* tconst 0.0) 0 1])) * x1"
   resetVarCounter
-  let ( AstDynamicVarName (AstVarName var0), vars1, AstVarName varDt
-       ,letGradientAst, vAst ) =
+  let (var0, varDt, vars1, letGradientAst, vAst) =
         revDtFun reluT (OR.constant [3, 4] 4)
-      varsPPD = map (printAstVarId renames)
-                $ var0 : varDt
-                  : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-      varsPP = map (printAstVarId renames)
-               $ var0
-                 : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-  "\\" ++ unwords varsPPD
+      (varsPPD, varsPP) = ppVars renames (var0, varDt, vars1)
+  "\\" ++ varsPPD
        ++ " -> " ++ printAstDomainsSimple renames letGradientAst
     @?= "\\s0 dt x3 -> dlet (tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i6, i7] -> [ifB (x3 ! [i6, i7] <=* tconst 0.0) 0 1])) (\\x8 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x8 * dt)]))"
-  "\\" ++ unwords varsPP ++ " -> " ++ printAstSimple renames vAst
+  "\\" ++ varsPP ++ " -> " ++ printAstSimple renames vAst
     @?= "\\s0 x3 -> tlet (tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i6, i7] -> [ifB (x3 ! [i6, i7] <=* tconst 0.0) 0 1])) (\\x8 -> x8 * x3)"
 
 testReluPP2 :: Assertion
@@ -383,26 +379,13 @@ testReluPP2 = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\x1 -> tconstant (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i2] -> [ifB (x1 ! [i2] * tconst 7.0 <=* tconst 0.0) 0 1])) * (x1 * tkonst 5 (tconst 7.0))"
   resetVarCounter
-<<<<<<< Updated upstream
-  let ( AstDynamicVarName (AstVarName var0), vars1, AstVarName varDt
-       ,letGradientAst, vAst ) =
-        revDtFun reluT2 (42, (OR.constant [5] 128))
-      varsPPD = map (printAstVarId renames)
-                $ var0 : varDt
-                  : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-      varsPP = map (printAstVarId renames)
-               $ var0
-                 : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-  "\\" ++ unwords varsPPD
-=======
   let (var0, varDt, vars1, letGradientAst, vAst) =
         revDtFun reluT2 ((OR.constant [5] 128), 42)
       (varsPPD, varsPP) = ppVars renames (var0, varDt, vars1)
   "\\" ++ varsPPD
->>>>>>> Stashed changes
        ++ " -> " ++ printAstDomainsSimple renames letGradientAst
     @?= "\\s0 dt x3 -> dlet (tkonst 5 (s0 ! [0])) (\\x6 -> dlet (x3 * x6) (\\x7 -> dlet (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (tlet (s0 ! [0]) (\\x12 -> tlet (x3 ! [i5]) (\\x13 -> x13 * x12)) <=* tconst 0.0) 0 1])) (\\x8 -> dlet (x8 * dt) (\\x9 -> dlet (tscatter [1] (tfromList [tsum (x3 * x9)]) (\\[i10] -> [0])) (\\x11 -> dmkDomains (fromList [dfromR (tfromList [tconst 0.0 + x11 ! [0]]), dfromR (x6 * x9)]))))))"
-  "\\" ++ unwords varsPP ++ " -> " ++ printAstSimple renames vAst
+  "\\" ++ varsPP ++ " -> " ++ printAstSimple renames vAst
     @?= "\\s0 x3 -> tlet (tkonst 5 (s0 ! [0])) (\\x6 -> tlet (x3 * x6) (\\x7 -> tlet (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (tlet (s0 ! [0]) (\\x12 -> tlet (x3 ! [i5]) (\\x13 -> x13 * x12)) <=* tconst 0.0) 0 1])) (\\x8 -> x8 * x7)))"
 
 bar :: forall a. RealFloat a => (a, a) -> a
@@ -932,19 +915,13 @@ fblowupPP = do
   resetVarCounter
   let renames = IM.empty
       fblowupT = fblowup @(Ast0 Double) 1
-  let ( AstDynamicVarName (AstVarName var0), vars1, AstVarName varDt
-       ,letGradientAst, vAst ) =
+  let (var0, varDt, vars1, letGradientAst, vAst) =
         revDtFun fblowupT (OR.constant [4] 4)
-      varsPPD = map (printAstVarId renames)
-                $ var0 : varDt
-                  : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-      varsPP = map (printAstVarId renames)
-               $ var0
-                 : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-  length ("\\" ++ unwords varsPPD
+      (varsPPD, varsPP) = ppVars renames (var0, varDt, vars1)
+  length ("\\" ++ varsPPD
        ++ " -> " ++ printAstDomainsSimple renames letGradientAst)
     @?= length "\\s0 x2 dt -> dlet (x2 ! [0]) (\\x4 -> dlet (x2 ! [1]) (\\x5 -> dlet (x2 ! [0]) (\\x6 -> dlet (x2 ! [1]) (\\x7 -> dlet (tconst 0.499999985) (\\x8 -> dlet ((x4 / x5 + x6 / x7) - tconstant (tfromIndex0 0)) (\\x9 -> dlet (x8 * dt) (\\x10 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tscatter [4] (tfromList [recip x5 * x10]) (\\[i14] -> [0]) + tscatter [4] (tfromList [negate (x4 / (x5 * x5)) * x10]) (\\[i13] -> [1]) + tscatter [4] (tfromList [recip x7 * x10]) (\\[i12] -> [0]) + tscatter [4] (tfromList [negate (x6 / (x7 * x7)) * x10]) (\\[i11] -> [1]))]))))))))"
-  length ("\\" ++ unwords varsPP ++ " -> " ++ printAstSimple renames vAst)
+  length ("\\" ++ varsPP ++ " -> " ++ printAstSimple renames vAst)
     @?= length "\\s0 x2 -> tlet (x2 ! [0]) (\\x4 -> tlet (x2 ! [1]) (\\x5 -> tlet (x2 ! [0]) (\\x6 -> tlet (x2 ! [1]) (\\x7 -> tlet (tconst 0.499999985) (\\x8 -> tlet ((x4 / x5 + x6 / x7) - tconstant (tfromIndex0 0)) (\\x9 -> x8 * x9 - tconstant (tfromIndex0 0)))))))"
 
 fblowupLetPP :: Assertion
@@ -952,19 +929,13 @@ fblowupLetPP = do
   resetVarCounter
   let renames = IM.empty
       fblowupLetT = fblowupLet @(Ast0 Double) 0 1
-  let ( AstDynamicVarName (AstVarName var0), vars1, AstVarName varDt
-       ,letGradientAst, vAst ) =
+  let (var0, varDt, vars1, letGradientAst, vAst) =
         revDtFun fblowupLetT (OR.constant [4] 4)
-      varsPPD = map (printAstVarId renames)
-                $ var0 : varDt
-                  : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-      varsPP = map (printAstVarId renames)
-               $ var0
-                 : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-  length ("\\" ++ unwords varsPPD
+      (varsPPD, varsPP) = ppVars renames (var0, varDt, vars1)
+  length ("\\" ++ varsPPD
        ++ " -> " ++ printAstDomainsSimple renames letGradientAst)
     @?= length "\\s0 x2 dt -> dlet (x2 ! [0]) (\\x5 -> dlet (x2 ! [1]) (\\x6 -> dlet (x5 / x6) (\\x7 -> dlet (tconst 0.499999985) (\\x8 -> dlet ((x7 + x7) - tconstant (tfromIndex0 0)) (\\x9 -> dlet (x8 * dt) (\\x10 -> dlet (x10 + x10) (\\x11 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tscatter [4] (tfromList [recip x6 * x11]) (\\[i13] -> [0]) + tscatter [4] (tfromList [negate (x5 / (x6 * x6)) * x11]) (\\[i12] -> [1]))]))))))))"
-  length ("\\" ++ unwords varsPP ++ " -> " ++ printAstSimple renames vAst)
+  length ("\\" ++ varsPP ++ " -> " ++ printAstSimple renames vAst)
     @?= length "\\s0 x2 -> tlet (x2 ! [0]) (\\x5 -> tlet (x2 ! [1]) (\\x6 -> tlet (x5 / x6) (\\x7 -> tlet (tconst 0.499999985) (\\x8 -> tlet ((x7 + x7) - tconstant (tfromIndex0 0)) (\\x9 -> x8 * x9 - tconstant (tfromIndex0 0))))))"
 
 -- TODO: should do 1000000 in a few seconds

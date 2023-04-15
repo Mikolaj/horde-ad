@@ -91,7 +91,7 @@ revAstOnDomainsFun
   :: forall r n. (KnownNat n, ShowAstSimplify r)
   => Int -> [[Int]]
   -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
-  -> ( AstDynamicVarName r, [AstDynamicVarName r], AstVarName (OR.Array n r)
+  -> ( AstDynamicVarName r, AstVarName (OR.Array n r), [AstDynamicVarName r]
      , AstDomains r, Ast n r )
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun dim0 shapes1 f =
@@ -108,19 +108,19 @@ revAstOnDomainsFun dim0 shapes1 f =
       deltaDt = packDeltaDt (Right $ astDt (tshape vAst)) deltaTopLevel
   in let letGradientAst =
            gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
-     in ( AstDynamicVarName var0, vars1, varDt, letGradientAst
+     in ( AstDynamicVarName var0, varDt, vars1, letGradientAst
         , tletWrap astBindings0 vAst )
 
 revAstOnDomainsEval
   :: forall r n.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
      , ShowAstSimplify r )
-  => ( AstDynamicVarName r, [AstDynamicVarName r], AstVarName (OR.Array n r)
+  => ( AstDynamicVarName r, AstVarName (OR.Array n r), [AstDynamicVarName r]
      , AstDomains r, Ast n r )
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
-revAstOnDomainsEval (var0, vars1, varDt, letGradientAst, vAst)
+revAstOnDomainsEval (var0, varDt, vars1, letGradientAst, vAst)
                     parameters dt =
   let env1 = foldr (\(AstDynamicVarName var, v) ->
                       extendEnvR var (tfromD v)) EM.empty
