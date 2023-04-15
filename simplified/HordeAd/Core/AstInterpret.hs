@@ -360,11 +360,11 @@ interpretAstDomainsDummy env memo = \case
 
 -- TODO: when the code again compiles with GHC >= 9.6, check whether
 -- these INLINEs are still needed (removal causes 10% slowdown ATM).
-interpretAstOp :: RealFloat a
-               => OpCode -> [a] -> a
+interpretAstOp :: (RealFloat (TensorOf n r), Tensor r, KnownNat n)
+               => OpCode -> [TensorOf n r] -> TensorOf n r
 {-# INLINE interpretAstOp #-}
 interpretAstOp MinusOp [u, v] = u - v
-interpretAstOp TimesOp [u, v] = u * v
+interpretAstOp TimesOp [u, v] = u `tmult` v
 interpretAstOp NegateOp [u] = negate u
 interpretAstOp AbsOp [u] = abs u
 interpretAstOp SignumOp [u] = signum u
@@ -530,6 +530,7 @@ interpretAstRelOp opCodeRel args =
   :: AstEnv Float -> AstMemo Float
   -> AstDynamic Float -> (AstMemo Float, DTensorOf Float) #-}
 
+{- outdated and inlined anyway:
 {-# SPECIALIZE interpretAstOp
   :: OpCode -> [(ADVal Double)] -> (ADVal Double) #-}
 {-# SPECIALIZE interpretAstOp
@@ -542,7 +543,9 @@ interpretAstRelOp opCodeRel args =
   :: OpCode -> [Double] -> Double #-}
 {-# SPECIALIZE interpretAstOp
   :: OpCode -> [Float] -> Float #-}
+-}
 
+{- make compilation even longer and inlined anyway:
 {-# SPECIALIZE interpretAstIntOp
   :: OpCodeInt -> [Int] -> Int #-}
 {-# SPECIALIZE interpretAstIntOp
@@ -556,6 +559,7 @@ interpretAstRelOp opCodeRel args =
   :: OpCodeBool -> [AstBool Double] -> AstBool Double #-}
 {-# SPECIALIZE interpretAstBoolOp
   :: OpCodeBool -> [AstBool Float] -> AstBool Float #-}
+-}
 
 {-# SPECIALIZE interpretAstRelOp
   :: OpCodeRel -> [ADVal Double] -> Bool #-}
