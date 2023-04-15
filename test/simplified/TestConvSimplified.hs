@@ -16,7 +16,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor
 import HordeAd.Internal.TensorOps
 
-import Tool.EqEpsilon
+import EqEpsilon
 
 import TestAdaptorSimplified (assertEqualUpToEpsilon', rev', t128b, t128c, t16b)
 

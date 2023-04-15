@@ -1,4 +1,4 @@
-module Tool.Prop
+module Prop
   ( listsToParameters, cmpTwo, cmpTwoSimple
   , qcPropDom, quickCheckTest0, fquad, quad
   ) where

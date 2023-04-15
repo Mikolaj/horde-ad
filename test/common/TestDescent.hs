@@ -12,8 +12,8 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Internal.TensorOps
-import Tool.EqEpsilon
-import Tool.Prop (quad)
+import EqEpsilon
+import Prop (quad)
 
 testTrees :: [TestTree]
 testTrees = [gdTestsRecord]

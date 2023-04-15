@@ -19,7 +19,7 @@ import HordeAd.External.OptimizerTools
 import MnistData
 import OldMnistFcnnVector
 
-import Tool.EqEpsilon
+import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ sinRNNTests

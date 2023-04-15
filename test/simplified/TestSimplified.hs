@@ -25,7 +25,7 @@ import HordeAd.Core.TensorADVal (ADTensor)
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 
-import Tool.EqEpsilon
+import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ -- Tensor tests

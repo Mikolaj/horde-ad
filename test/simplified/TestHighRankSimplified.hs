@@ -23,7 +23,7 @@ import HordeAd.External.CommonRankedOps
 import TestAdaptorSimplified
   (assertEqualUpToEpsilon', assertEqualUpToEpsilonShort, rev', t128, t16, t48)
 
-import Tool.EqEpsilon
+import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees =

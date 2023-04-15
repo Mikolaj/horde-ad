@@ -1,5 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
-module Tool.EqEpsilon
+module EqEpsilon
   ( EqEpsilon, setEpsilonEq
   , AssertEqualUpToEpsilon(..)
   , assertEqualUpToEpsilonWithMark, assertEqualUpToEpsilon
@@ -17,7 +17,7 @@ import           System.IO.Unsafe
 import           Test.Tasty.HUnit
 import           Test.Tasty.Options
 
-import Tool.Shared
+import Shared
 
 newtype EqEpsilon = EqEpsilon Rational
   deriving (Typeable, Num, Fractional)

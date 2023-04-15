@@ -225,9 +225,9 @@ library testCommonLibrary
     import:           options
 
     -- Modules exported by the library.
-    exposed-modules:  Tool.Prop
-                      Tool.Shared
-                      Tool.EqEpsilon
+    exposed-modules:  Prop
+                      Shared
+                      EqEpsilon
                       TestConditionalSynth
                       TestDescentSimple
                       TestGradientSimple
@@ -271,7 +271,7 @@ library testCommonLibrary
   }
 
     -- Directories containing source files.
-    hs-source-dirs:   test/common
+    hs-source-dirs:   test/common test/tool
 
 -- These tests don't require any dataset, so can be enabled in Hackage package.
 -- This is fully contained in shortTestForCI, so CI doesn't need to run it
@@ -600,9 +600,9 @@ library testToolLibrarySimplified
     else
       buildable: True
 
-    exposed-modules:  Tool.Prop
-                      Tool.Shared
-                      Tool.EqEpsilon
+    exposed-modules:  Prop
+                      Shared
+                      EqEpsilon
 
     build-depends:
       , horde-ad-simplified
@@ -615,7 +615,7 @@ library testToolLibrarySimplified
       , tasty-quickcheck
       , vector
 
-    hs-source-dirs:   test/common
+    hs-source-dirs:   test/tool
 
 library testCommonLibrarySimplified
     import:           options
@@ -639,7 +639,6 @@ library testCommonLibrarySimplified
       , base
       , hmatrix
       , ilist
-      , orthotope
       , random
       , storable-tuple
       , strict-containers
@@ -668,6 +667,7 @@ test-suite shortTestForCISimplified
 
     build-depends:
       , testCommonLibrarySimplified
+      , testToolLibrarySimplified
 
       , base
       , tasty >= 1.0
@@ -690,6 +690,7 @@ test-suite extremelyLongTestSimplified
 
     build-depends:
       , testCommonLibrarySimplified
+      , testToolLibrarySimplified
 
       , base
       , tasty >= 1.0

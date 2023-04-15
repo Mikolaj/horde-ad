@@ -25,7 +25,7 @@ import MnistData
 import MnistRnnShaped
 import OldMnistRnnShaped
 
-import Tool.EqEpsilon
+import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ sinRNNTests

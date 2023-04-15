@@ -20,7 +20,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import HordeAd
 import OldMnistFcnnVector
 
-import Tool.EqEpsilon
+import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ conditionalSynthTests

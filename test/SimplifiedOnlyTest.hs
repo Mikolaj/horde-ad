@@ -14,7 +14,7 @@ import qualified TestGatherSimplified
 import qualified TestHighRankSimplified
 import qualified TestMnistFCNNR
 import qualified TestSimplified
-import           Tool.EqEpsilon
+import           EqEpsilon
 
 main :: IO ()
 main = do

@@ -26,7 +26,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor
 import HordeAd.External.CommonRankedOps
 
-import Tool.EqEpsilon
+import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees =

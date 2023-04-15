@@ -19,7 +19,7 @@ import qualified TestDescentSimple
 import qualified TestGradientSimple
 import qualified TestMnistFCNNSimple
 import qualified TestMnistRNNSimple
-import           Tool.EqEpsilon
+import           EqEpsilon
 
 #if defined(VERSION_ghc_typelits_natnormalise)
 import qualified TestDescent

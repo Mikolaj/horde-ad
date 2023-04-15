@@ -21,8 +21,8 @@ import           Test.Tasty.QuickCheck
 import HordeAd
 import HordeAd.Internal.TensorOps (tindex0D)
 
-import Tool.EqEpsilon
-import Tool.Prop
+import EqEpsilon
+import Prop
 
 import Disparity (costVolume)
 

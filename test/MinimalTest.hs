@@ -16,7 +16,7 @@ import           Test.Tasty.Runners
 
 import qualified TestDescentSimple
 import qualified TestGradientSimple
-import           Tool.EqEpsilon
+import           EqEpsilon
 
 #if defined(VERSION_ghc_typelits_natnormalise)
 import qualified TestDescent

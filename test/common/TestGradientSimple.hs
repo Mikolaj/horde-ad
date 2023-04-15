@@ -20,8 +20,8 @@ import           Text.Printf
 import HordeAd
 import HordeAd.Core.DualClass (unsafeGetFreshId)
 
-import Tool.EqEpsilon
-import Tool.Prop
+import EqEpsilon
+import Prop
 
 testTrees :: [TestTree]
 testTrees = [ testDReverse0

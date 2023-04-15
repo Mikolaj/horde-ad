@@ -1,4 +1,4 @@
-module Tool.Shared
+module Shared
   ( lowercase, HasShape (shapeL), Linearizable (linearize)
   ) where
 

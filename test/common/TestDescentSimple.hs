@@ -9,8 +9,8 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import Tool.EqEpsilon
-import Tool.Prop (fquad)
+import EqEpsilon
+import Prop (fquad)
 
 testTrees :: [TestTree]
 testTrees = [ gdSimpleTests

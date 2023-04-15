@@ -12,7 +12,7 @@ import qualified TestDescentSimple
 import qualified TestGradientSimple
 import qualified TestMnistFCNNSimple
 import qualified TestMnistRNNSimple
-import           Tool.EqEpsilon
+import           EqEpsilon
 
 --import qualified TestDescent
 --import qualified TestGradient

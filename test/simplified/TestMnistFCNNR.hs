@@ -29,7 +29,7 @@ import HordeAd.External.Adaptor
 import HordeAd.External.Optimizer
 import HordeAd.External.OptimizerTools
 
-import Tool.EqEpsilon
+import EqEpsilon
 
 import           MnistData
 import qualified MnistFcnnRanked1
