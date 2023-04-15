@@ -22,6 +22,7 @@ import           GHC.TypeLits (KnownNat, type (+))
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
+import HordeAd.Core.Delta
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
@@ -211,6 +212,15 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
   tsumOfList lu = dD (flattenADShare $ map ((\(D l _ _) -> l)) lu)
                      (tsumOfList $ map (\(D _ u _) -> u) lu)
                      (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
+  tmult (D l1 ue ZeroR) (D l2 ve v') =
+    let (l3, u) = astRegisterADShare ue $ l1 `mergeADShare` l2
+        (l4, v) = astRegisterADShare ve l3
+    in dD l4 (u * v) (dScale u v')
+  tmult (D l1 ue u') (D l2 ve ZeroR) =
+    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        (l4, v) = recordSharingPrimal ve l3
+    in dD l4 (u * v) (dScale v u')
+  tmult d e = d * e
 
   type ScalarOf (ADVal (Ast0 r)) = r
   type Primal (ADVal (Ast0 r)) = Ast0 r

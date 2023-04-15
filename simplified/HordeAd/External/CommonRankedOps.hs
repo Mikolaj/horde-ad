@@ -28,6 +28,10 @@ scale0 = tscale0
 scale :: (Tensor d, KnownNat n)
       => TensorOf n (Primal d) -> TensorOf n d -> TensorOf n d
 scale a d = tconstant a `tmult` d
+-- This should be faster, but is slower even before `tmult` is optimized
+-- for the scaling case. This may be caused by the lets repeated
+-- both in primal part and the D constructor.
+-- scale a d = tD (a * tprimalPart d) (tScale @r a (tdualPart d))
 
 relu0
   :: forall r. ADReady r
