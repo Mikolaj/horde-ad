@@ -21,7 +21,7 @@ module HordeAd.Core.AstSimplify
   , astConstant, astSum, astScatter, astFromList, astFromVector, astKonst
   , astAppend, astSlice, astReverse, astFromDynamic
   , astIntCond
-  , ShowAstSimplify, simplifyAst
+  , ShowAstSimplify, simplifyAst, simplifyAstDomains
   , substituteAst, substituteAstInt, substituteAstBool
   , resetVarCounter
   ) where
