@@ -62,7 +62,7 @@ instance ShowAstSimplify r
   type Primal (Ast0 r) = AstPrimalPart 0 r
   type DualOf n (Ast0 r) = AstDualPart n r
   tconst = AstConstant . AstPrimalPart . AstConst
-  tconstant = AstConstant
+  tconstant = astConstant
   tscale0 (AstPrimalPart r) (Ast0 t) = Ast0 (r * t)
   tprimalPart = AstPrimalPart
   tdualPart = AstDualPart
@@ -258,7 +258,7 @@ instance ShowAstSimplify r
   type Primal (AstNoVectorize 0 r) = AstNoVectorize 0 r
   type DualOf n (AstNoVectorize 0 r) = AstDualPart n r
   tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
-  tconstant = AstNoVectorize . AstConstant . AstPrimalPart . unAstNoVectorize
+  tconstant = AstNoVectorize . astConstant . AstPrimalPart . unAstNoVectorize
   tscale0 r d = r * d
   tprimalPart = id
   tdualPart = AstDualPart . unAstNoVectorize

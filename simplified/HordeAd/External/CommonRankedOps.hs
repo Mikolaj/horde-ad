@@ -42,12 +42,12 @@ relu, reluLeaky
   :: forall n r. (ADReady r, KnownNat n)
   => TensorOf n r -> TensorOf n r
 relu v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0)
+  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0 1)
                            (tprimalPart v)
   in scale oneIfGtZero v
 
 reluLeaky v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0.01)
+  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.01 1)
                            (tprimalPart v)
   in scale oneIfGtZero v
 
