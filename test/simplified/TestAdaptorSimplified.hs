@@ -38,6 +38,8 @@ testTrees =
   , testCase "2fooLetPP" testFooLetPP
   , testCase "2reluPP" testReluPP
   , testCase "2reluPP2" testReluPP2
+  , testCase "2reluMaxPP" testReluMaxPP
+  , testCase "2reluMaxPP2" testReluMaxPP2
   , testCase "2bar" testBar
   , testCase "2barADVal" testBarADVal
   , testCase "2baz old to force fooConstant" testBaz
@@ -55,6 +57,9 @@ testTrees =
   , testCase "2barReluADValDt" testBarReluADValDt
   , testCase "2barReluADVal" testBarReluADVal
   , testCase "2barReluADVal3" testBarReluADVal3
+  , testCase "2barReluADValMaxDt" testBarReluADValMaxDt
+  , testCase "2barReluADValMax" testBarReluADValMax
+  , testCase "2barReluADValMax3" testBarReluADValMax3
   , testCase "2barReluAst0" testBarReluAst0
   , testCase "2barReluAst1" testBarReluAst1
   , testCase "2konstReluAst" testKonstReluAst
@@ -388,6 +393,53 @@ testReluPP2 = do
   length ("\\" ++ varsPP ++ " -> " ++ printAstSimple renames vAst)
     @?= length "\\s0 x3 -> tlet (tkonst 5 (s0 ! [0])) (\\x6 -> tlet (x3 * x6) (\\x7 -> tlet (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (tlet (s0 ! [0]) (\\x12 -> tlet (x3 ! [i5]) (\\x13 -> x13 * x12)) <=* tconst 0.0) 0 1])) (\\x8 -> x8 * x7)))"
 
+reluMax :: forall n r. (ADReady r, KnownNat n)
+        => TensorOf n r -> TensorOf n r
+reluMax v = tmap0N (maxB 0) v
+
+testReluMaxPP :: Assertion
+testReluMaxPP = do
+  resetVarCounter
+  let renames = IM.empty
+      renamesNull = IM.fromList [(1, "x1"), (2, "i2")]
+      reluT :: TensorOf 2 (Ast0 Double) -> TensorOf 2 (Ast0 Double)
+      reluT = reluMax
+      (AstVarName var3, ast3) = funToAstR [3, 4] reluT
+  "\\" ++ printAstVarId renamesNull var3
+       ++ " -> " ++ printAstSimple renamesNull ast3
+    @?= "\\x1 -> tgather [3,4] (tfromList [tconstant (tkonst 3 (tkonst 4 (tconst 0.0))), x1]) (\\[i2, i3] -> [ifB (tconst 0.0 >=* x1 ! [i2, i3]) 0 1, i2, i3])"
+  resetVarCounter
+  let (var0, varDt, vars1, letGradientAst, vAst) =
+        revDtFun reluT (OR.constant [3, 4] 4)
+      (varsPPD, varsPP) = ppVars renames (var0, varDt, vars1)
+  "\\" ++ varsPPD
+       ++ " -> " ++ printAstDomainsSimple renames letGradientAst
+    @?= "\\s0 dt x3 -> dlet (tscatter [2,3,4] dt (\\[i8, i9] -> [ifB (tconst 0.0 >=* x3 ! [i8, i9]) 0 1, i8, i9])) (\\x10 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x10 ! [1])]))"
+  "\\" ++ varsPP ++ " -> " ++ printAstSimple renames vAst
+    @?= "\\s0 x3 -> tgather [3,4] (tfromList [tkonst 3 (tkonst 4 (tconst 0.0)), x3]) (\\[i6, i7] -> [ifB (tconst 0.0 >=* x3 ! [i6, i7]) 0 1, i6, i7])"
+
+testReluMaxPP2 :: Assertion
+testReluMaxPP2 = do
+  resetVarCounter
+  let renames = IM.empty
+      renamesNull = IM.fromList [(1, "x1"), (2, "i2")]
+      reluT2 :: (TensorOf 1 (Ast0 Double), Ast0 Double)
+             -> TensorOf 1 (Ast0 Double)
+      reluT2 (t, r) = reluMax (t * tkonst 5 (tscalar r))
+      (AstVarName var3, ast3) = funToAstR [5] (\t -> reluT2 (t, 7))
+  "\\" ++ printAstVarId renamesNull var3
+       ++ " -> " ++ printAstSimple renamesNull ast3
+    @?= "\\x1 -> tgather [5] (tfromList [tconstant (tkonst 5 (tconst 0.0)), x1 * tkonst 5 (tconst 7.0)]) (\\[i2] -> [ifB (tconst 0.0 >=* x1 ! [i2] * tconst 7.0) 0 1, i2])"
+  resetVarCounter
+  let (var0, varDt, vars1, letGradientAst, vAst) =
+        revDtFun reluT2 ((OR.constant [5] 128), 42)
+      (varsPPD, varsPP) = ppVars renames (var0, varDt, vars1)
+  length ("\\" ++ varsPPD
+       ++ " -> " ++ printAstDomainsSimple renames letGradientAst)
+    @?= length "\\s0 dt x3 -> dlet (tkonst 5 (s0 ! [0])) (\\x5 -> dlet (tscatter [2,5] dt (\\[i7] -> [ifB (tconst 0.0 >=* tlet (s0 ! [0]) (\\x12 -> tlet (x3 ! [i7]) (\\x13 -> x13 * x12))) 0 1, i7])) (\\x8 -> dlet (x8 ! [1]) (\\x9 -> dlet (tscatter [1] (tfromList [tsum (x3 * x9)]) (\\[i10] -> [0])) (\\x11 -> dmkDomains (fromList [dfromR (tfromList [tconst 0.0 + x11 ! [0]]), dfromR (x5 * x9)])))))"
+  length ("\\" ++ varsPP ++ " -> " ++ printAstSimple renames vAst)
+    @?= length "\\s0 x3 -> tlet (tkonst 5 (s0 ! [0])) (\\x5 -> tgather [5] (tfromList [tkonst 5 (tconst 0.0), x3 * x5]) (\\[i6] -> [ifB (tconst 0.0 >=* tlet (s0 ! [0]) (\\x14 -> tlet (x3 ! [i6]) (\\x15 -> x15 * x14))) 0 1, i6]))"
+
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =
   let w = foo (x, y, x) * sin y
@@ -639,6 +691,29 @@ testBarReluADVal3 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
     (rev' @(OR.Array 3 Double) barRelu (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
+
+barReluMax
+  :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
+  => TensorOf n r -> TensorOf n r
+barReluMax x = reluMax $ bar (x, reluMax x)
+
+testBarReluADValMaxDt :: Assertion
+testBarReluADValMaxDt =
+  assertEqualUpToEpsilon 1e-10
+    (OR.fromList [] [191.20462646925841])
+    (revDt @Double @0 barReluMax (OR.fromList [] [1.1]) 42.2)
+
+testBarReluADValMax :: Assertion
+testBarReluADValMax =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [] [4.5309153191767395])
+    (rev' @(OR.Array 0 Double) barReluMax (OR.fromList [] [1.1]))
+
+testBarReluADValMax3 :: Assertion
+testBarReluADValMax3 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
+    (rev' @(OR.Array 3 Double) barReluMax (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 barReluAst
   :: forall n r.
