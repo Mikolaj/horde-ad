@@ -844,15 +844,21 @@ printAst cfg d = \case
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
-showListWith _     []     s = "[]" ++ s
-showListWith showx (x:xs) s = '[' : showx x (showl xs)
+showListWith = showCollectionWith "[" "]"
+
+showCollectionWith :: String -> String -> (a -> ShowS) -> [a] -> ShowS
+showCollectionWith start end _     []     s = start ++ end ++ s
+showCollectionWith start end showx (x:xs) s = start ++ showx x (showl xs)
  where
-  showl []     = ']' : s
+  showl []     = end ++ s
   showl (y:ys) = ", " ++ showx y (showl ys)
 
 printAstDynamic :: ShowAst r => PrintConfig -> Int -> AstDynamic r -> ShowS
 printAstDynamic cfg d (AstDynamic v) =
   printPrefixOp printAst cfg d "dfromR" [v]
+
+printAstUnDynamic :: ShowAst r => PrintConfig -> Int -> AstDynamic r -> ShowS
+printAstUnDynamic cfg d (AstDynamic v) = printAst cfg d v
 
 printAstDomainsSimple :: ShowAst r => IntMap String -> AstDomains r -> String
 printAstDomainsSimple renames t =
@@ -866,11 +872,15 @@ printAstDomains :: ShowAst r
                 => PrintConfig -> Int -> AstDomains r -> ShowS
 printAstDomains cfg d = \case
   AstDomains l ->
-    showParen (d > 10)
-    $ showString "dmkDomains "
-      . (showParen True
-         $ showString "fromList "
-           . showListWith (printAstDynamic cfg 0) (V.toList l))
+    if prettifyLosingSharing cfg
+    then
+      showCollectionWith "(" ")" (printAstUnDynamic cfg 0) (V.toList l)
+    else
+      showParen (d > 10)
+      $ showString "dmkDomains "
+        . (showParen True
+           $ showString "fromList "
+             . showListWith (printAstDynamic cfg 0) (V.toList l))
   AstDomainsLet var u v ->
     if prettifyLosingSharing cfg
     then
