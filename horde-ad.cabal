@@ -539,7 +539,7 @@ library horde-ad-simplified
 
     hs-source-dirs:   simplified src/common
 
-library exampleLibrarySimplified
+library oldExampleLibrarySimplified
     import:           options
 
     if flag(release)
@@ -548,7 +548,6 @@ library exampleLibrarySimplified
       buildable: True
 
     exposed-modules:  MnistData
-                      MnistFcnnRanked1
                       MnistFcnnScalar
                       MnistFcnnVector
                       OldMnistFcnnVector
@@ -568,7 +567,32 @@ library exampleLibrarySimplified
 
     hs-source-dirs:   example
 
-library testCommonLibrarySimplified
+library exampleLibrarySimplified
+    import:           options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    exposed-modules:  MnistData
+                      MnistFcnnRanked1
+
+    build-depends:
+      , horde-ad-simplified
+
+      , base
+      , bytestring
+      , hmatrix
+      , mnist-idx
+      , orthotope
+      , random
+      , vector
+      , zlib
+
+    hs-source-dirs:   example
+
+library testToolLibrarySimplified
     import:           options
 
     if flag(release)
@@ -579,14 +603,37 @@ library testCommonLibrarySimplified
     exposed-modules:  Tool.Prop
                       Tool.Shared
                       Tool.EqEpsilon
-                      TestConditionalSynth
+
+    build-depends:
+      , horde-ad-simplified
+
+      , base
+      , hmatrix
+      , orthotope
+      , tasty >= 1.0
+      , tasty-hunit
+      , tasty-quickcheck
+      , vector
+
+    hs-source-dirs:   test/common
+
+library testCommonLibrarySimplified
+    import:           options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    exposed-modules:  TestConditionalSynth
                       TestDescentSimple
                       TestGradientSimple
                       TestMnistFCNNSimple
                       TestMnistRNNSimple
 
     build-depends:
-      , exampleLibrarySimplified
+      , testToolLibrarySimplified
+      , oldExampleLibrarySimplified
       , horde-ad-simplified
 
       , base
@@ -672,7 +719,7 @@ test-suite simplifiedOnlyTest
     build-depends:
       , horde-ad-simplified
       , exampleLibrarySimplified
-      , testCommonLibrarySimplified
+      , testToolLibrarySimplified
 
       , base
       , Boolean
