@@ -13,7 +13,6 @@ module HordeAd.Core.Engine
   , generateDeltaInputs, initializerFixed, initializerFixed01
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdOnADInputs, slowFwdOnDomains
-  , prettyPrintDf
   ) where
 
 import Prelude
@@ -27,7 +26,6 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import qualified Numeric.LinearAlgebra as LA
-import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
@@ -208,17 +206,6 @@ slowFwdOnDomains parameters f ds =
 
 
 -- * Additional mechanisms
-
-prettyPrintDf
-  :: (ADTensor r, DomainsTensor r, Show (Dual r))
-  => (ADInputs r -> ADVal r)
-  -> Domains r
-  -> String
-prettyPrintDf f parameters =
-  let deltaInputs = generateDeltaInputs parameters
-      inputs = makeADInputs parameters deltaInputs
-      !(D _ _ deltaTopLevel) = f inputs
-  in ppShow deltaTopLevel
 
 generateDeltaInputs
   :: forall r. (ADTensor r, DomainsTensor r)

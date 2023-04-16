@@ -25,7 +25,7 @@ module HordeAd.Core.DualNumber2
   , at0, at1, ifoldlDual', foldlDual'
   , domainsFromD01, domainsFrom01, domainsFrom0V
   , listsToParameters, listsToParameters4, domainsD0
-  , valueGeneral, valueOnDomains, revOnADInputs, revOnDomains
+  , valueGeneral, valueOnDomains, revOnADInputs, revOnDomains, prettyPrintDf
   , constant, scale, logistic, altSumElements10
   , softMax, lossCrossEntropy, lossCrossEntropyV
   ) where
@@ -41,6 +41,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
+import           Text.Show.Pretty (ppShow)
 
 import           HordeAd.Core.Delta (Delta0, ForwardDerivative)
 import           HordeAd.Core.DualClass hiding (IsPrimal)
@@ -147,6 +148,17 @@ revOnDomains
   -> Domains r
   -> (Domains r, a)
 revOnDomains = Engine.revOnDomains . Just
+
+prettyPrintDf
+  :: (ADTensor r, DomainsTensor r, Show (Dual r))
+  => (Engine.ADInputs r -> DualNumber.ADVal r)
+  -> Domains r
+  -> String
+prettyPrintDf f parameters =
+  let deltaInputs = Engine.generateDeltaInputs parameters
+      inputs = Engine.makeADInputs parameters deltaInputs
+      !(DualNumber.D _ _ deltaTopLevel) = f inputs
+  in ppShow deltaTopLevel
 
 -- * Simplified version compatibility shims
 
