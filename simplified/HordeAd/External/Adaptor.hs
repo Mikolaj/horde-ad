@@ -72,15 +72,14 @@ revDtFun
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> vals
-  -> ( AstVarName (OR.Array 1 r), AstVarName (OR.Array n r), [AstDynamicVarName r]
-     , AstDomains r, Ast n r )
+  -> ADAstArtifact6 n r
 revDtFun f vals =
   let parameters = toDomains vals
       dim0 = tlength $ domains0 parameters
       shapes1 = map dshape $ V.toList $ domainsR parameters
       -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !(!(!var0, ast0), (varDt, astDt), (vars1, asts1)) =
+      !(!(!var0, varDt, vars1), (ast0, astDt, asts1)) =
         funToAstAll (singletonShape dim0) shapes1 in
   let domains = mkDomains ast0 (V.fromList asts1)
       ast = f $ parseDomainsAst vals domains
@@ -99,8 +98,7 @@ revDtFun f vals =
       deltaDt = packDeltaDt (Right $ astDt (tshape vAst)) deltaTopLevel
       letGradientAst =
         gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
-  in ( var0, varDt, vars1
-     , letGradientAst, tletWrap astBindings0 vAst )
+  in ((var0, varDt, vars1), letGradientAst, tletWrap astBindings0 vAst)
 
 rev
   :: forall r n vals astvals.

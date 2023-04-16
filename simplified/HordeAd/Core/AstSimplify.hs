@@ -15,7 +15,9 @@
 module HordeAd.Core.AstSimplify
   ( simplifyPermutation
   , astRegisterFun, astRegisterADShare
-  , funToAstR, funToAstD, funToAstAll, funToAstI, funToAstIndex
+  , funToAstR, funToAstD
+  , ADAstVarNames, ADAstVars, funToAstAll
+  , funToAstI, funToAstIndex
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
   , astConstant, astSum, astScatter, astFromList, astFromVector, astKonst
@@ -156,16 +158,21 @@ funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
 {-# NOINLINE funToAstD #-}
 funToAstD sh = unsafePerformIO $ funToAstDIO sh
 
-funToAstAll :: ShapeInt 1 -> [[Int]]
-            -> ( (AstVarName (OR.Array 1 r), Ast 1 r)
-               , (AstVarName (OR.Array n r), ShapeInt n -> Ast n r)
-               , ([AstDynamicVarName r], [AstDynamic r]) )
+type ADAstVarNames n r = ( AstVarName (OR.Array 1 r)
+                         , AstVarName (OR.Array n r)
+                         , [AstDynamicVarName r] )
+
+type ADAstVars n r = ( Ast 1 r
+                     , ShapeInt n -> Ast n r
+                     , [AstDynamic r] )
+
+funToAstAll :: ShapeInt 1 -> [[Int]] -> (ADAstVarNames n r, ADAstVars n r)
 {-# NOINLINE funToAstAll #-}
 funToAstAll sh shapes1 = unsafePerformIO $ do
-  v0 <- funToAstRIO sh id
-  vDt <- funToAstRshIO
-  v1 <- unzip <$> (mapM funToAstDIO shapes1)
-  return (v0, vDt, v1)
+  (vn0, v0) <- funToAstRIO sh id
+  (vnDt, vDt) <- funToAstRshIO
+  (vn1, v1) <- unzip <$> (mapM funToAstDIO shapes1)
+  return ((vn0, vnDt, vn1), (v0, vDt, v1))
 
 funToAstI :: (AstInt r -> t) -> (AstVarId, t)
 {-# NOINLINE funToAstI #-}

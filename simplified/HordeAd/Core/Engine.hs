@@ -7,7 +7,7 @@ module HordeAd.Core.Engine
   ( ADInputs(..)
   , makeADInputs, nullADInputs
   , -- * The most often used part of the high-level API
-    revAstOnDomains, revOnDomains
+    ADAstArtifact6, revAstOnDomains, revOnDomains
   , -- * Operations exposed not for the library users but add-on makers
     revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
   , generateDeltaInputs, initializerFixed, initializerFixed01
@@ -91,13 +91,12 @@ revAstOnDomainsFun
   :: forall r n. (KnownNat n, ShowAstSimplify r)
   => Int -> [[Int]]
   -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
-  -> ( AstVarName (OR.Array 1 r), AstVarName (OR.Array n r), [AstDynamicVarName r]
-     , AstDomains r, Ast n r )
+  -> ADAstArtifact6 n r
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun dim0 shapes1 f =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !(!(!var0, ast0), (varDt, astDt), (vars1, asts1)) =
+      !(!(!var0, varDt, vars1), (ast0, astDt, asts1)) =
         funToAstAll (singletonShape dim0) shapes1 in
   let domains = mkDomains ast0 (V.fromList asts1)
       deltaInputs = generateDeltaInputs domains
@@ -108,19 +107,19 @@ revAstOnDomainsFun dim0 shapes1 f =
       deltaDt = packDeltaDt (Right $ astDt (tshape vAst)) deltaTopLevel
   in let letGradientAst =
            gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
-     in ( var0, varDt, vars1, letGradientAst
-        , tletWrap astBindings0 vAst )
+     in ((var0, varDt, vars1), letGradientAst, tletWrap astBindings0 vAst)
+
+-- This is the artifact from step 6) of our full pipeline.
+type ADAstArtifact6 n r = (ADAstVarNames n r, AstDomains r, Ast n r)
 
 revAstOnDomainsEval
   :: forall r n.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
      , ShowAstSimplify r )
-  => ( AstVarName (OR.Array 1 r), AstVarName (OR.Array n r), [AstDynamicVarName r]
-     , AstDomains r, Ast n r )
-  -> Domains r -> Maybe (TensorOf n r)
+  => ADAstArtifact6 n r -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
-revAstOnDomainsEval (var0, varDt, vars1, letGradientAst, vAst)
+revAstOnDomainsEval ((var0, varDt, vars1), letGradientAst, vAst)
                     parameters dt =
   let env1 = foldr (\(AstDynamicVarName var, v) ->
                       extendEnvR var (tfromD v)) EM.empty
