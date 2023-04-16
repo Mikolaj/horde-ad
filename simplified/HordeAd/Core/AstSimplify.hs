@@ -15,15 +15,13 @@
 module HordeAd.Core.AstSimplify
   ( simplifyPermutation
   , astRegisterFun, astRegisterADShare
-  , funToAstR, funToAstD
-  , ADAstVarNames, ADAstVars, funToAstAll
-  , funToAstI, funToAstIndex
+  , funToAstR, funToAstD, ADAstVars, funToAstAll, funToAstI, funToAstIndex
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
   , astConstant, astSum, astScatter, astFromList, astFromVector, astKonst
   , astAppend, astSlice, astReverse, astFromDynamic
   , astIntCond
-  , ShowAstSimplify, simplifyAst, simplifyAstDomains
+  , ShowAstSimplify, simplifyArtifact6, simplifyAst, simplifyAstDomains
   , substituteAst, substituteAstInt, substituteAstBool
   , resetVarCounter
   ) where
@@ -157,10 +155,6 @@ funToAstDIO sh = do
 funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
 {-# NOINLINE funToAstD #-}
 funToAstD sh = unsafePerformIO $ funToAstDIO sh
-
-type ADAstVarNames n r = ( AstVarName (OR.Array 1 r)
-                         , AstVarName (OR.Array n r)
-                         , [AstDynamicVarName r] )
 
 type ADAstVars n r = ( Ast 1 r
                      , ShapeInt n -> Ast n r
@@ -900,6 +894,11 @@ astMaxIndex1 = AstMaxIndex1
 
 
 -- * The simplifying bottom-up pass
+
+simplifyArtifact6 :: (ShowAstSimplify r, KnownNat n)
+                  => ADAstArtifact6 n r -> ADAstArtifact6 n r
+simplifyArtifact6 (vars, gradient, primal) =
+  (vars, simplifyAstDomains gradient, simplifyAst primal)
 
 simplifyAstPrimal
   :: (ShowAstSimplify r, KnownNat n)

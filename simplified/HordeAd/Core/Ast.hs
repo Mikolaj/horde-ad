@@ -7,7 +7,8 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( ShowAst, AstIndex, AstVarList
+  ( ADAstVarNames, ADAstArtifact6
+  , ShowAst, AstIndex, AstVarList
   , Ast(..), AstNoVectorize(..), AstPrimalPart(..), AstDualPart(..)
   , AstDynamic(..), AstDomains(..), unwrapAstDomains, Ast0(..)
   , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
@@ -19,6 +20,8 @@ module HordeAd.Core.Ast
   , substitute1AstInt, substitute1AstBool
   , printAstVarId
   , printAstSimple, printAstPretty, printAstDomainsSimple, printAstDomainsPretty
+  , printGradient6Simple, printGradient6Pretty
+  , printPrimal6Simple, printPrimal6Pretty
   , astCond  -- only for tests
   ) where
 
@@ -44,6 +47,13 @@ import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
 -- * Ast definitions
+
+type ADAstVarNames n r = ( AstVarName (OR.Array 1 r)
+                         , AstVarName (OR.Array n r)
+                         , [AstDynamicVarName r] )
+
+-- The artifact from step 6) of our full pipeline.
+type ADAstArtifact6 n r = (ADAstVarNames n r, AstDomains r, Ast n r)
 
 type ShowAst r = (Show r, Numeric r)
 
@@ -695,6 +705,11 @@ substitute1AstBool i var b1 = case b1 of
 
 -- Modeled after https://github.com/VMatthijs/CHAD/blob/755fc47e1f8d1c3d91455f123338f44a353fc265/src/TargetLanguage.hs#L335.
 
+data PrintConfig = PrintConfig
+  { prettifyLosingSharing :: Bool
+  , varRenames            :: IntMap String
+  }
+
 printAstVarIdGeneric :: String -> PrintConfig -> AstVarId -> ShowS
 printAstVarIdGeneric prefix cfg var =
   let n = fromEnum var - 100000000
@@ -707,20 +722,6 @@ printAstVar = printAstVarIdGeneric "x"
 
 printAstIntVar :: PrintConfig -> AstVarId -> ShowS
 printAstIntVar = printAstVarIdGeneric "i"
-
-printAstVarId :: IntMap String -> AstVarId -> String
-printAstVarId renames var = printAstVar (defaulPrintConfig False renames) var ""
-
-printAstSimple :: ShowAst r => IntMap String -> Ast n r -> String
-printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
-
-printAstPretty :: ShowAst r => IntMap String -> Ast n r -> String
-printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
-
-data PrintConfig = PrintConfig
-  { prettifyLosingSharing :: Bool
-  , varRenames            :: IntMap String
-  }
 
 defaulPrintConfig :: Bool -> IntMap String -> PrintConfig
 defaulPrintConfig prettifyLosingSharing renames =
@@ -859,14 +860,6 @@ printAstDynamic cfg d (AstDynamic v) =
 
 printAstUnDynamic :: ShowAst r => PrintConfig -> Int -> AstDynamic r -> ShowS
 printAstUnDynamic cfg d (AstDynamic v) = printAst cfg d v
-
-printAstDomainsSimple :: ShowAst r => IntMap String -> AstDomains r -> String
-printAstDomainsSimple renames t =
-  printAstDomains (defaulPrintConfig False renames) 0 t ""
-
-printAstDomainsPretty :: ShowAst r => IntMap String -> AstDomains r -> String
-printAstDomainsPretty renames t =
-  printAstDomains (defaulPrintConfig True renames) 0 t ""
 
 printAstDomains :: ShowAst r
                 => PrintConfig -> Int -> AstDomains r -> ShowS
@@ -1019,3 +1012,55 @@ printAstRelOp pr cfg d opCode args = case (opCode, args) of
   (GtOp, [u, v]) -> printBinaryOp pr cfg d u (4, " >* ") v
   _ -> error $ "printAstRelOp: wrong number of arguments"
                ++ show (opCode, length args)
+
+printAstVarId :: IntMap String -> AstVarId -> String
+printAstVarId renames var = printAstVar (defaulPrintConfig False renames) var ""
+
+printAstSimple :: ShowAst r => IntMap String -> Ast n r -> String
+printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
+
+printAstPretty :: ShowAst r => IntMap String -> Ast n r -> String
+printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
+
+
+printAstDomainsSimple :: ShowAst r => IntMap String -> AstDomains r -> String
+printAstDomainsSimple renames t =
+  printAstDomains (defaulPrintConfig False renames) 0 t ""
+
+printAstDomainsPretty :: ShowAst r => IntMap String -> AstDomains r -> String
+printAstDomainsPretty renames t =
+  printAstDomains (defaulPrintConfig True renames) 0 t ""
+
+printGradient6Simple :: ShowAst r
+                     => IntMap String -> ADAstArtifact6 n r -> String
+printGradient6Simple renames
+                     ((AstVarName var0, AstVarName varDt, vars1), gradient, _) =
+  let vars1UnD = map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
+      varsPP = map (printAstVarId renames) $ var0 : varDt : vars1UnD
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstDomainsSimple renames gradient
+
+printGradient6Pretty :: ShowAst r
+                     => IntMap String -> ADAstArtifact6 n r -> String
+printGradient6Pretty renames
+                     ((AstVarName var0, AstVarName varDt, vars1), gradient, _) =
+  let vars1UnD = map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
+      varsPP = map (printAstVarId renames) $ var0 : varDt : vars1UnD
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstDomainsPretty renames gradient
+
+printPrimal6Simple :: ShowAst r
+                   => IntMap String -> ADAstArtifact6 n r -> String
+printPrimal6Simple renames ((AstVarName var0, _, vars1), _, primal) =
+  let vars1UnD = map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
+      varsPP = map (printAstVarId renames) $ var0 : vars1UnD
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstSimple renames primal
+
+printPrimal6Pretty :: ShowAst r
+                   => IntMap String -> ADAstArtifact6 n r -> String
+printPrimal6Pretty renames ((AstVarName var0, _, vars1), _, primal) =
+  let vars1UnD = map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
+      varsPP = map (printAstVarId renames) $ var0 : vars1UnD
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstPretty renames primal

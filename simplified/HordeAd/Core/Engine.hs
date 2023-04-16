@@ -7,7 +7,7 @@ module HordeAd.Core.Engine
   ( ADInputs(..)
   , makeADInputs, nullADInputs
   , -- * The most often used part of the high-level API
-    ADAstArtifact6, revAstOnDomains, revOnDomains
+    revAstOnDomains, revOnDomains
   , -- * Operations exposed not for the library users but add-on makers
     revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
   , generateDeltaInputs, initializerFixed, initializerFixed01
@@ -109,9 +109,6 @@ revAstOnDomainsFun dim0 shapes1 f =
            gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
      in ((var0, varDt, vars1), letGradientAst, tletWrap astBindings0 vAst)
 
--- This is the artifact from step 6) of our full pipeline.
-type ADAstArtifact6 n r = (ADAstVarNames n r, AstDomains r, Ast n r)
-
 revAstOnDomainsEval
   :: forall r n.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
@@ -119,18 +116,18 @@ revAstOnDomainsEval
   => ADAstArtifact6 n r -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
-revAstOnDomainsEval ((var0, varDt, vars1), letGradientAst, vAst)
+revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal)
                     parameters dt =
   let env1 = foldr (\(AstDynamicVarName var, v) ->
                       extendEnvR var (tfromD v)) EM.empty
              $ zip (AstDynamicVarName var0 : vars1) $ V.toList parameters
       dtValue = case dt of
         Just a -> a
-        Nothing -> tkonst0N (tshape vAst) 1
+        Nothing -> tkonst0N (tshape primal) 1
       envDt = extendEnvR varDt dtValue env1
-      (memo1, l1) = interpretAstDomainsDummy envDt emptyMemo letGradientAst
+      (memo1, l1) = interpretAstDomainsDummy envDt emptyMemo gradient
         -- TODO: emulate mapAccumR on vectors
-      (_memo2, v2) = interpretAst env1 memo1 vAst
+      (_memo2, v2) = interpretAst env1 memo1 primal
       gradientDomain = l1
   in (gradientDomain, v2)
 
