@@ -33,7 +33,12 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
-  (ForwardDerivative (..), derivativeFromDelta, gradientFromDelta, toInputId)
+  ( DeltaR
+  , ForwardDerivative (..)
+  , derivativeFromDelta
+  , gradientFromDelta
+  , toInputId
+  )
 import HordeAd.Core.DualClass (Dual, dFromR, dInput0, dInputR)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
@@ -83,7 +88,7 @@ revAstOnDomains
 {-# INLINE revAstOnDomains #-}
 revAstOnDomains f parameters =
   revAstOnDomainsEval
-    (revAstOnDomainsFun (\varInputs _ _ -> f varInputs) parameters)
+    (fst $ revAstOnDomainsFun (\varInputs _ _ -> f varInputs) parameters)
     parameters
 
 revAstOnDomainsFun
@@ -92,7 +97,7 @@ revAstOnDomainsFun
       -> (ADAstVarNames n r, ADAstVars n r)
       -> ADVal (Ast n r))
   -> Domains r
-  -> ADAstArtifact6 n r
+  -> (ADAstArtifact6 n r, DeltaR n (Ast0 r))
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun f parameters0 =
   let dim0 = tlength $ domains0 parameters0
@@ -109,7 +114,7 @@ revAstOnDomainsFun f parameters0 =
       !(D astBindings0 primalBody deltaTopLevel) = f varInputs domains v6
       deltaDt = packDeltaDt (Right $ astDt (tshape primalBody)) deltaTopLevel
   in let gradient = gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
-     in (vars, gradient, tletWrap astBindings0 primalBody )
+     in ((vars, gradient, tletWrap astBindings0 primalBody), deltaTopLevel)
 
 revAstOnDomainsEval
   :: forall r n.

@@ -32,7 +32,7 @@ import           System.Random
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
-import HordeAd.Core.Delta (ForwardDerivative)
+import HordeAd.Core.Delta (DeltaR, ForwardDerivative)
 import HordeAd.Core.DualClass (dFromVectorR, dScalarR)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -60,7 +60,7 @@ revDtMaybeL
   => (astvals -> Ast n r) -> [vals] -> Maybe (TensorOf n r) -> [vals]
 revDtMaybeL _ [] _ = []
 revDtMaybeL f valsAll@(vals : _) dt =
-  let asts4 = revDtFun f vals
+  let asts4 = fst $ revDtFun f vals
       h val = parseDomains val $ fst
               $ revAstOnDomainsEval asts4 (toDomains val) dt
   in map h valsAll
@@ -72,7 +72,7 @@ revDtFun
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> vals
-  -> ADAstArtifact6 n r
+  -> (ADAstArtifact6 n r, DeltaR n (Ast0 r))
 {-# INLINE revDtFun #-}
 revDtFun f vals =
   let parameters0 = toDomains vals
