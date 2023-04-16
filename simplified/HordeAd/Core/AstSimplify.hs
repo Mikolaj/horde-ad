@@ -156,8 +156,8 @@ funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
 {-# NOINLINE funToAstD #-}
 funToAstD sh = unsafePerformIO $ funToAstDIO sh
 
-funToAstAll :: ShapeInt m -> [[Int]]
-            -> ( (AstVarName (OR.Array m r), Ast m r)
+funToAstAll :: ShapeInt 1 -> [[Int]]
+            -> ( (AstVarName (OR.Array 1 r), Ast 1 r)
                , (AstVarName (OR.Array n r), ShapeInt n -> Ast n r)
                , ([AstDynamicVarName r], [AstDynamic r]) )
 {-# NOINLINE funToAstAll #-}

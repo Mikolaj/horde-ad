@@ -303,11 +303,11 @@ testFooPP = do
     @?= "\\s0 x y z -> tlet (sin y) (\\x6 -> tlet (x * x6) (\\x7 -> tlet (sin y) (\\x8 -> tlet (x * x8) (\\x9 -> atan2 z x7 + z * x9))))"
 
 ppVars :: IM.IntMap String
-       -> ( AstDynamicVarName r
+       -> ( AstVarName (OR.Array 1 r)
           , AstVarName (OR.Array n r)
           , [AstDynamicVarName r] )
        -> (String, String)
-ppVars renames (AstDynamicVarName (AstVarName var0), AstVarName varDt, vars1) =
+ppVars renames (AstVarName var0, AstVarName varDt, vars1) =
   let varsPPD = map (printAstVarId renames)
                 $ var0 : varDt
                   : map (\(AstDynamicVarName (AstVarName var)) -> var) vars1

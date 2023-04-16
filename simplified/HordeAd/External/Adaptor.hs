@@ -72,7 +72,7 @@ revDtFun
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> vals
-  -> ( AstDynamicVarName r, AstVarName (OR.Array n r), [AstDynamicVarName r]
+  -> ( AstVarName (OR.Array 1 r), AstVarName (OR.Array n r), [AstDynamicVarName r]
      , AstDomains r, Ast n r )
 revDtFun f vals =
   let parameters = toDomains vals
@@ -99,7 +99,7 @@ revDtFun f vals =
       deltaDt = packDeltaDt (Right $ astDt (tshape vAst)) deltaTopLevel
       letGradientAst =
         gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
-  in ( AstDynamicVarName var0, varDt, vars1
+  in ( var0, varDt, vars1
      , letGradientAst, tletWrap astBindings0 vAst )
 
 rev
