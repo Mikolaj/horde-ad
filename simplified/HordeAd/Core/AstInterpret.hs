@@ -186,6 +186,10 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
         interpretAst env memo
           (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstKonst @m k s)]))
+  AstOp TimesOp [v, AstReshape sh (AstLet var u (AstKonst @m k s))]
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
+        interpretAst env memo
+          (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstKonst @m k s)]))
   AstOp TimesOp [v, AstKonst @m _ s]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo v
@@ -218,8 +222,11 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
         in (memo2, tdot0 t1 t2)
           -- TODO: do as a term rewrite using an extended set of terms?
           -- rather not, because rewrite breaks sharing
-  AstSum (AstLet var v (AstOp TimesOp [t, u])) ->
-    interpretAst env memo (AstLet var v (AstSum (AstOp TimesOp [t, u])))
+  AstSum (AstReshape _sh t)
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+        let (memo1, t1) = interpretAst env memo t
+        in (memo1, tsum0 t1)
+  AstSum (AstLet var v t) -> interpretAst env memo (AstLet var v (AstSum t))
   AstSum v -> second tsum (interpretAst env memo v)
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
@@ -235,6 +242,12 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     let (memo2, l2) = mapAccumR (interpretAst env) memo (V.toList l)
     in (memo2, tfromVector $ V.fromList l2)
       -- TODO: emulate mapAccum using mapM?
+  AstReshape sh (AstKonst @m _ s)
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
+        let (memo1, t1) = interpretAst env memo s
+        in (memo1, tkonst0N sh t1)
+  AstReshape sh (AstLet var v t) ->
+    interpretAst env memo (AstLet var v (AstReshape sh t))
   AstKonst k v -> second (tkonst k) (interpretAst env memo v)
   AstAppend x y ->
     let (memo1, t1) = interpretAst env memo x
