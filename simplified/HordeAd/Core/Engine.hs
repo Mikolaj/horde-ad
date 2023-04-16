@@ -81,33 +81,35 @@ revAstOnDomains
 -- The functions in which @revAstOnDomains@ inlines are not inlined
 -- themselves in client code, so the bloat is limited.
 {-# INLINE revAstOnDomains #-}
-revAstOnDomains f parameters dt =
-  let dim0 = tlength $ domains0 parameters
-      shapes1 = map dshape $ V.toList $ domainsR parameters
-  in revAstOnDomainsEval (revAstOnDomainsFun dim0 shapes1 f)
-                         parameters dt
+revAstOnDomains f parameters =
+  revAstOnDomainsEval
+    (revAstOnDomainsFun (\varInputs _ _ -> f varInputs) parameters)
+    parameters
 
 revAstOnDomainsFun
-  :: forall r n. (KnownNat n, ShowAstSimplify r)
-  => Int -> [[Int]]
-  -> (ADInputs (Ast0 r) -> ADVal (Ast n r))
+  :: forall r n. (KnownNat n, Tensor r, DomainsTensor r, ShowAstSimplify r)
+  => (ADInputs (Ast0 r) -> Domains (Ast0 r)
+      -> (ADAstVarNames n r, ADAstVars n r)
+      -> ADVal (Ast n r))
+  -> Domains r
   -> ADAstArtifact6 n r
 {-# INLINE revAstOnDomainsFun #-}
-revAstOnDomainsFun dim0 shapes1 f =
-  let -- Bangs and the compound function to fix the numbering of variables
+revAstOnDomainsFun f parameters0 =
+  let dim0 = tlength $ domains0 parameters0
+      shapes1 = map dshape $ V.toList $ domainsR parameters0
+      -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !(!(!var0, varDt, vars1), (ast0, astDt, asts1)) =
+      !v6@(!vars@(!_, _, _), (ast0, astDt, asts1)) =
         funToAstAll (singletonShape dim0) shapes1 in
   let domains = mkDomains ast0 (V.fromList asts1)
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D astBindings0 vAst deltaTopLevel) = f varInputs
-      deltaDt = packDeltaDt (Right $ astDt (tshape vAst)) deltaTopLevel
-  in let letGradientAst =
-           gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
-     in ((var0, varDt, vars1), letGradientAst, tletWrap astBindings0 vAst)
+      !(D astBindings0 primalBody deltaTopLevel) = f varInputs domains v6
+      deltaDt = packDeltaDt (Right $ astDt (tshape primalBody)) deltaTopLevel
+  in let gradient = gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
+     in (vars, gradient, tletWrap astBindings0 primalBody )
 
 revAstOnDomainsEval
   :: forall r n.
@@ -125,11 +127,10 @@ revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal)
         Just a -> a
         Nothing -> tkonst0N (tshape primal) 1
       envDt = extendEnvR varDt dtValue env1
-      (memo1, l1) = interpretAstDomainsDummy envDt emptyMemo gradient
-        -- TODO: emulate mapAccumR on vectors
-      (_memo2, v2) = interpretAst env1 memo1 primal
-      gradientDomain = l1
-  in (gradientDomain, v2)
+      (memo1, gradientDomain) =
+        interpretAstDomainsDummy envDt emptyMemo gradient
+      primalTensor = snd $ interpretAst env1 memo1 primal
+  in (gradientDomain, primalTensor)
 
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.

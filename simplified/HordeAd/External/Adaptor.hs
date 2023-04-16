@@ -32,7 +32,7 @@ import           System.Random
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
-import HordeAd.Core.Delta (ForwardDerivative, gradientFromDelta)
+import HordeAd.Core.Delta (ForwardDerivative)
 import HordeAd.Core.DualClass (dFromVectorR, dScalarR)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -73,18 +73,22 @@ revDtFun
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> vals
   -> ADAstArtifact6 n r
+{-# INLINE revDtFun #-}
 revDtFun f vals =
-  let parameters = toDomains vals
-      dim0 = tlength $ domains0 parameters
-      shapes1 = map dshape $ V.toList $ domainsR parameters
-      -- Bangs and the compound function to fix the numbering of variables
-      -- for pretty-printing and prevent sharing the impure values/effects.
-      !(!(!var0, varDt, vars1), (ast0, astDt, asts1)) =
-        funToAstAll (singletonShape dim0) shapes1 in
-  let domains = mkDomains ast0 (V.fromList asts1)
-      ast = f $ parseDomainsAst vals domains
-      deltaInputs = generateDeltaInputs domains
-      varInputs = makeADInputs domains deltaInputs
+  let parameters0 = toDomains vals
+  in revAstOnDomainsFun (revDtInterpret vals f) parameters0
+
+revDtInterpret
+  :: forall r n vals astvals.
+     ( InterpretAst r, KnownNat n, ScalarOf r ~ r, Floating (Vector r)
+     , ShowAst r, RealFloat r, FromDomainsAst astvals
+     , r ~ Scalar vals, vals ~ ValueAst astvals )
+  => vals -> (astvals -> Ast n r) -> ADInputs (Ast0 r) -> Domains (Ast0 r)
+  -> (ADAstVarNames n r, ADAstVars n r)
+  -> ADVal (Ast n r)
+{-# INLINE revDtInterpret #-}
+revDtInterpret vals f varInputs domains ((var0, _, vars1), (ast0, _, _)) =
+  let ast = f $ parseDomainsAst vals domains
       dual0 = dD emptyADShare
                  ast0
                  (dFromVectorR $ V.map dScalarR $ inputDual0 varInputs)
@@ -94,11 +98,7 @@ revDtFun f vals =
                    env0
              $ zip vars1 $ V.toList
              $ V.zip (inputPrimal1 varInputs) (inputDual1 varInputs)
-      (_, (D astBindings0 vAst deltaTopLevel)) = interpretAst env1 emptyMemo ast
-      deltaDt = packDeltaDt (Right $ astDt (tshape vAst)) deltaTopLevel
-      letGradientAst =
-        gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
-  in ((var0, varDt, vars1), letGradientAst, tletWrap astBindings0 vAst)
+  in snd $ interpretAst env1 emptyMemo ast
 
 rev
   :: forall r n vals astvals.
