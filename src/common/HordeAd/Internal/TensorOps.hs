@@ -203,7 +203,9 @@ tsumR
   => OR.Array (1 + n) r -> OR.Array n r
 tsumR t = case OR.shapeL t of
   0 : sh -> OR.constant sh 0  -- the shape is known from sh, so no ambiguity
-  _ -> ORB.sumA $ OR.unravel t
+  _ -> case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> OR.scalar $ tsum0R t
+    _ -> ORB.sumA $ OR.unravel t
 
 tsum0R
   :: Numeric r
@@ -305,7 +307,9 @@ tkonstR
   :: forall n r. (KnownNat n, Numeric r)
   => Int -> OR.Array n r -> OR.Array (1 + n) r
 tkonstR 0 u = OR.fromList (0 : OR.shapeL u) []
-tkonstR s u = OR.ravel $ ORB.constant [s] u
+tkonstR s u = case sameNat (Proxy @n) (Proxy @0) of
+  Just Refl -> OR.constant [s] (OR.unScalar u)
+  _ -> OR.ravel $ ORB.constant [s] u
 
 tkonst0NR
   :: (KnownNat n, Numeric r)
