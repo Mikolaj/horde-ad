@@ -18,6 +18,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
+import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
@@ -341,14 +342,14 @@ testReluPP = do
   "\\" ++ printAstVarId renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\x1 -> tconstant (tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i2, i3] -> [ifB (x1 ! [i2, i3] <=* tconst 0.0) 0 1])) * x1"
-  resetVarCounter
+  resetVarCounter >> resetIdCounter
   let (artifact6, deltas) = revDtFun reluT (OR.constant [3, 4] 4)
   printGradient6Simple renames artifact6
     @?= "\\s0 dt x3 -> dlet (tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i6, i7] -> [ifB (x3 ! [i6, i7] <=* tconst 0.0) 0 1])) (\\x8 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x8 * dt)]))"
   printPrimal6Simple renames artifact6
     @?= "\\s0 x3 -> tlet (tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i6, i7] -> [ifB (x3 ! [i6, i7] <=* tconst 0.0) 0 1])) (\\x8 -> x8 * x3)"
   show deltas
-    @?= "LetR 100000003 (ScaleR (AstVar [3,4] (AstVarId 100000008)) (FromD (FromR (FromD (FromR (InputR (InputId 0)))))))"
+    @?= "LetR 100000003 (ScaleR (AstVar [3,4] (AstVarId 100000008)) (InputR (InputId 0)))"
 
 testReluPP2 :: Assertion
 testReluPP2 = do
@@ -370,8 +371,8 @@ testReluPP2 = do
     @?= length "\\s0 x3 -> tlet (tkonst 5 (s0 ! [0])) (\\x6 -> tlet (x3 * x6) (\\x7 -> tlet (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (tlet (s0 ! [0]) (\\x12 -> tlet (x3 ! [i5]) (\\x13 -> x13 * x12)) <=* tconst 0.0) 0 1])) (\\x8 -> x8 * x7)))"
   length (printGradient6Pretty renames (simplifyArtifact6 artifact6))
     @?= length "\\s0 dt x3 -> let x6 = tkonst 5 (s0 ! [0]) in let x7 = tconstant (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB ((let x12 = x3 ! [i5] in let x13 = s0 ! [0] in x12 * x13) <=* tconst 0.0) 0 1])) in let x8 = x3 * x6 in let x9 = x7 * dt in let x11 = tscatter [1] (tkonst 1 (tsum (x3 * x9))) (\\[i10] -> [0]) in (tkonst 1 (tconst 0.0 + x11 ! [0]), x6 * x9)"
-  show deltas
-    @?= "LetR 100000013 (ScaleR (AstVar [5] (AstVarId 100000008)) (LetR 100000012 (AddR (ScaleR (AstVar [5] (AstVarId 100000006)) (FromD (FromR (FromD (FromR (InputR (InputId 0))))))) (ScaleR (AstVar [5] (AstVarId 100000003)) (LetR 100000011 (ReshapeR [5] [5] (LetR 100000010 (KonstR 5 (LetR 100000009 (ScalarR (Let0 100000008 (UnScalar0 (LetR 100000007 (IndexZ (FromD (FromR (LetR 100000006 (FromVectorR [ScalarR (Input0 (InputId 0))])))) [AstIntConst 0] [1]))))))))))))))"
+  length (show deltas)
+    @?= length "LetR 100000013 (ScaleR (AstVar [5] (AstVarId 100000008)) (LetR 100000012 (AddR (ScaleR (AstVar [5] (AstVarId 100000006)) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000003)) (LetR 100000011 (ReshapeR [5] [5] (LetR 100000010 (KonstR 5 (LetR 100000009 (ScalarR (Let0 100000008 (UnScalar0 (LetR 100000007 (IndexZ (LetR 100000006 (FromVectorR [ScalarR (Input0 (InputId 0))])) [AstIntConst 0] [1]))))))))))))))"
 
 reluMax :: forall n r. (ADReady r, KnownNat n)
         => TensorOf n r -> TensorOf n r
@@ -395,7 +396,7 @@ testReluMaxPP = do
   printPrimal6Simple renames artifact6
     @?= "\\s0 x3 -> tgather [3,4] (tfromList [tkonst 3 (tkonst 4 (tconst 0.0)), x3]) (\\[i6, i7] -> [ifB (tconst 0.0 >=* x3 ! [i6, i7]) 0 1, i6, i7])"
   show deltas
-    @?= "LetR 100000021 (GatherZ [3,4] (LetR 100000020 (FromListR [ZeroR,FromD (FromR (FromD (FromR (InputR (InputId 0)))))])) <function> [2,3,4])"
+    @?= "LetR 100000021 (GatherZ [3,4] (LetR 100000020 (FromListR [ZeroR,InputR (InputId 0)])) <function> [2,3,4])"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do
@@ -416,7 +417,7 @@ testReluMaxPP2 = do
   length (printPrimal6Simple renames artifact6)
     @?= length "\\s0 x3 -> tlet (tkonst 5 (s0 ! [0])) (\\x5 -> tgather [5] (tfromList [tkonst 5 (tconst 0.0), x3 * x5]) (\\[i6] -> [ifB (tconst 0.0 >=* tlet (s0 ! [0]) (\\x14 -> tlet (x3 ! [i6]) (\\x15 -> x15 * x14))) 0 1, i6]))"
   show deltas
-    @?= "LetR 100000033 (GatherZ [5] (LetR 100000032 (FromListR [ZeroR,LetR 100000031 (AddR (ScaleR (AstVar [5] (AstVarId 100000005)) (FromD (FromR (FromD (FromR (InputR (InputId 0))))))) (ScaleR (AstVar [5] (AstVarId 100000003)) (LetR 100000030 (ReshapeR [5] [5] (LetR 100000029 (KonstR 5 (LetR 100000028 (ScalarR (Let0 100000027 (UnScalar0 (LetR 100000026 (IndexZ (FromD (FromR (LetR 100000025 (FromVectorR [ScalarR (Input0 (InputId 0))])))) [AstIntConst 0] [1]))))))))))))])) <function> [2,5])"
+    @?= "LetR 100000033 (GatherZ [5] (LetR 100000032 (FromListR [ZeroR,LetR 100000031 (AddR (ScaleR (AstVar [5] (AstVarId 100000005)) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000003)) (LetR 100000030 (ReshapeR [5] [5] (LetR 100000029 (KonstR 5 (LetR 100000028 (ScalarR (Let0 100000027 (UnScalar0 (LetR 100000026 (IndexZ (LetR 100000025 (FromVectorR [ScalarR (Input0 (InputId 0))])) [AstIntConst 0] [1]))))))))))))])) <function> [2,5])"
 
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =

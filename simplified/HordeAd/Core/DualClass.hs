@@ -27,16 +27,19 @@ module HordeAd.Core.DualClass
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..)
   , -- * Internal operations, exposed for tests, debugging and experiments
-    unsafeGetFreshId
+    unsafeGetFreshId, resetIdCounter
   ) where
 
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
+import           Data.IORef.Unboxed
+  (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.MonoTraversable (Element)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
-import           GHC.TypeLits (KnownNat, type (+))
+import           Data.Type.Equality ((:~:) (Refl))
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -361,7 +364,12 @@ instance HasRanks Double where
   dGatherZ = GatherZ
   dScalarR = ScalarR
 
-  dFromD = FromD
+  dFromD :: forall n2. KnownNat n2
+         => Dual (DTensorOf Double) -> Dual (TensorOf n2 Double)
+  dFromD (FromR @n1 d) =
+    case sameNat (Proxy @n1) (Proxy @n2) of
+      Just Refl -> d
+      _ -> error "dFromD: different ranks in FromD(FromR)"
   dFromR = FromR
 
 instance HasRanks Float where
@@ -393,7 +401,12 @@ instance HasRanks Float where
   dGatherZ = GatherZ
   dScalarR = ScalarR
 
-  dFromD = FromD
+  dFromD :: forall n2. KnownNat n2
+         => Dual (DTensorOf Float) -> Dual (TensorOf n2 Float)
+  dFromD (FromR @n1 d) =
+    case sameNat (Proxy @n1) (Proxy @n2) of
+      Just Refl -> d
+      _ -> error "dFromD: different ranks in FromD(FromR)"
   dFromR = FromR
 
 instance (Show r, Numeric r) => HasRanks (Ast0 r) where
@@ -425,7 +438,12 @@ instance (Show r, Numeric r) => HasRanks (Ast0 r) where
   dGatherZ = GatherZ
   dScalarR = ScalarR
 
-  dFromD = FromD
+  dFromD :: forall n2. KnownNat n2
+         => Dual (DTensorOf (Ast0 r)) -> Dual (TensorOf n2 (Ast0 r))
+  dFromD (FromR @n1 d) =
+    case sameNat (Proxy @n1) (Proxy @n2) of
+      Just Refl -> d
+      _ -> error "dFromD: different ranks in FromD(FromR)"
   dFromR = FromR
 
 
@@ -455,6 +473,11 @@ unsafeGlobalCounter = unsafePerformIO (newCounter 100000001)
 unsafeGetFreshId :: IO Int
 {-# INLINE unsafeGetFreshId #-}
 unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
+
+-- Only for tests, e.g., to ensure show applied to terms has stable length.
+-- Tests using this need to be run with -ftest_seq to avoid variable confusion.
+resetIdCounter :: IO ()
+resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
 -- The following functions are the only places, except for global
 -- variable definitions, that contain `unsafePerformIO'.

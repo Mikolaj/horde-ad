@@ -110,9 +110,9 @@ revAstOnDomainsFun f parameters0 =
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D astBindings0 primalBody deltaTopLevel) = f varInputs domains v6
-      deltaDt = packDeltaDt (Right $ astDt (tshape primalBody)) deltaTopLevel
-  in let gradient = gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
-     in ((vars, gradient, tletWrap astBindings0 primalBody), deltaTopLevel)
+      deltaDt = packDeltaDt (Right $ astDt (tshape primalBody)) deltaTopLevel in
+  let gradient = gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
+  in ((vars, gradient, tletWrap astBindings0 primalBody), deltaTopLevel)
 
 revAstOnDomainsEval
   :: forall r n.
@@ -153,9 +153,9 @@ revOnADInputs dt f inputs@ADInputs{..} =
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D astBindings0 v deltaTopLevel) = f inputs
-      deltaDt = packDeltaDt (maybe (Left v) Right dt) deltaTopLevel
-  in let gradient = gradientFromDelta astBindings0 dim0 dim1 deltaDt
-     in (gradient, letWrapPrimal astBindings0 v)
+      deltaDt = packDeltaDt (maybe (Left v) Right dt) deltaTopLevel in
+  let gradient = gradientFromDelta astBindings0 dim0 dim1 deltaDt
+  in (gradient, letWrapPrimal astBindings0 v)
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
@@ -187,9 +187,9 @@ slowFwdOnADInputs
 slowFwdOnADInputs inputs@ADInputs{..} f ds =
   let dim0 = tlength inputPrimal0
       dim1 = V.length inputPrimal1
-      !(D _ v deltaTopLevel) = f inputs  -- TODO: _
-  in let derivative = derivativeFromDelta dim0 dim1 deltaTopLevel ds
-     in (derivative, v)
+      !(D _ v deltaTopLevel) = f inputs in  -- TODO: _
+  let derivative = derivativeFromDelta dim0 dim1 deltaTopLevel ds
+  in (derivative, v)
 
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
