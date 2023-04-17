@@ -8,13 +8,14 @@ import           Test.Tasty
 import           Test.Tasty.Options
 import           Test.Tasty.Runners
 
+import           EqEpsilon
 import qualified TestAdaptorSimplified
 import qualified TestConvSimplified
 import qualified TestGatherSimplified
 import qualified TestHighRankSimplified
 import qualified TestMnistFCNNR
+import qualified TestMnistRNNR
 import qualified TestSimplified
-import           EqEpsilon
 
 main :: IO ()
 main = do
@@ -35,3 +36,4 @@ tests = testGroup "Only special tests for simplified horde-ad" $
   ++ TestAdaptorSimplified.testTrees
   ++ TestSimplified.testTrees
   ++ TestMnistFCNNR.testTrees
+  ++ TestMnistRNNR.testTrees

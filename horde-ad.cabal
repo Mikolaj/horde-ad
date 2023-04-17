@@ -577,6 +577,7 @@ library exampleLibrarySimplified
 
     exposed-modules:  MnistData
                       MnistFcnnRanked1
+                      MnistRnnRanked2
 
     build-depends:
       , horde-ad-simplified
@@ -715,6 +716,7 @@ test-suite simplifiedOnlyTest
                       TestGatherSimplified
                       TestHighRankSimplified
                       TestMnistFCNNR
+                      TestMnistRNNR
                       TestSimplified
 
     build-depends:
