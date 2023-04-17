@@ -41,6 +41,10 @@ testTrees =
   , testCase "2reluPP2" testReluPP2
   , testCase "2reluMaxPP" testReluMaxPP
   , testCase "2reluMaxPP2" testReluMaxPP2
+  , testCase "2dot1PP" testDot1PP
+  , testCase "2dot2PP" testDot2PP
+  , testCase "2matmul1PP" testMatmul1PP
+  , testCase "2matmul2PP" testMatmul2PP
   , testCase "2bar" testBar
   , testCase "2barADVal" testBarADVal
   , testCase "2baz old to force fooConstant" testBaz
@@ -418,6 +422,60 @@ testReluMaxPP2 = do
     @?= length "\\s0 x3 -> tlet (tkonst 5 (s0 ! [0])) (\\x5 -> tgather [5] (tfromList [tkonst 5 (tconst 0.0), x3 * x5]) (\\[i6] -> [ifB (tconst 0.0 >=* tlet (s0 ! [0]) (\\x14 -> tlet (x3 ! [i6]) (\\x15 -> x15 * x14))) 0 1, i6]))"
   show deltas
     @?= "LetR 100000033 (GatherZ [5] (LetR 100000032 (FromListR [ZeroR,LetR 100000031 (AddR (ScaleR (AstVar [5] (AstVarId 100000005)) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000003)) (LetR 100000030 (ReshapeR [5] [5] (LetR 100000029 (KonstR 5 (LetR 100000028 (ScalarR (Let0 100000027 (UnScalar0 (LetR 100000026 (IndexZ (LetR 100000025 (FromVectorR [ScalarR (Input0 (InputId 0))])) [AstIntConst 0] [1]))))))))))))])) <function> [2,5])"
+
+testDot1PP :: Assertion
+testDot1PP = do
+  resetVarCounter
+  let renames = IM.empty
+      (artifact6, _) =
+        revDtFun (uncurry (tdot0 @(Ast0 Double) @1))
+                 ( OR.fromList [3] [1 .. 3]
+                 , OR.fromList [7] [1 .. 7] )
+  printGradient6Simple renames artifact6
+    @?= "\\s0 dt x3 x4 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x4 * tkonst 7 dt), dfromR (x3 * tkonst 3 dt)])"
+  printPrimal6Simple renames artifact6
+    @?= "\\s0 x3 x4 -> tsum (x3 * x4)"
+
+testDot2PP :: Assertion
+testDot2PP = do
+  resetVarCounter
+  let renames = IM.empty
+      (artifact6, _) =
+        revDtFun (uncurry (tdot0 @(Ast0 Double) @2))
+                 ( OR.fromList [2,3] [1 .. 6]
+                 , OR.fromList [4,5] [1 .. 20] )
+  length (printGradient6Simple renames artifact6)
+    @?= length "\\s0 dt x3 x4 -> dlet (treshape [6] x3) (\\x5 -> dlet (treshape [20] x4) (\\x6 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (treshape [2,3] (x6 * tkonst 20 dt)), dfromR (treshape [4,5] (x5 * tkonst 6 dt))])))"
+  length (printPrimal6Simple renames artifact6)
+    @?= length "\\s0 x3 x4 -> tlet (treshape [6] x3) (\\x5 -> tlet (treshape [20] x4) (\\x6 -> tsum (x5 * x6)))"
+
+testMatmul1PP :: Assertion
+testMatmul1PP = do
+  resetVarCounter
+  let renames = IM.empty
+      (artifact6, _) =
+        revDtFun (uncurry tmatmul1) ( OR.fromList [2,3] [1 :: Double .. 6]
+                                    , OR.fromList [7] [1 .. 7] )
+  printGradient6Simple renames artifact6
+    @?= "\\s0 dt x3 x4 -> dlet (tkonst 2 x4) (\\x6 -> dlet (ttranspose [1,0] (tkonst 7 dt)) (\\x7 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x6 * x7), dfromR (tsum (x3 * x7))])))"
+  printPrimal6Simple renames artifact6
+    @?= "\\s0 x3 x4 -> tlet (tkonst 2 x4) (\\x6 -> tsum (ttranspose [1,0] (x6 * x3)))"
+
+testMatmul2PP :: Assertion
+testMatmul2PP = do
+  resetVarCounter
+  let renames = IM.empty
+      (artifact6, _) =
+        revDtFun (uncurry tmatmul2) ( OR.fromList [2,3] [1 :: Double .. 6]
+                                    , OR.fromList [4,5] [1 .. 20] )
+  length (printGradient6Simple renames artifact6)
+    @?= length "\\s0 dt x3 x4 -> dlet (ttranspose [1,0] (tkonst 5 x3)) (\\x7 -> dlet (tkonst 2 (ttranspose [1,0] x4)) (\\x8 -> dlet (ttranspose [0,2,1] (ttranspose [1,0] (tkonst 3 dt))) (\\x9 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tsum (ttranspose [1,0] (x8 * x9))), dfromR (ttranspose [1,0] (tsum (x7 * x9)))]))))"
+  length (printPrimal6Simple renames artifact6)
+    @?= length "\\s0 x3 x4 -> tlet (ttranspose [1,0] (tkonst 5 x3)) (\\x7 -> tlet (tkonst 2 (ttranspose [1,0] x4)) (\\x8 -> tsum (ttranspose [1,0] (ttranspose [0,2,1] (x7 * x8)))))"
+  length (printGradient6Pretty renames (simplifyArtifact6 artifact6))
+    @?= length "\\s0 dt x3 x4 -> let x7 = tgather [2,5,3] x3 (\\[i10, i11] -> [i10]) in let x8 = tkonst 2 (tgather [5,4] x4 (\\[i12, i13] -> [i13, i12])) in let x9 = tgather [2,5,3] dt (\\[i14, i15, i16] -> [i14, i15]) in (tfromList [], tsum (tgather [5,2,4] x8 (\\[i17, i18] -> [i18, i17]) * tgather [5,2,4] x9 (\\[i17, i18] -> [i18, i17])), tsum (tgather [2,3,5] x7 (\\[i21, i22, i23] -> [i21, i23, i22]) * tgather [2,3,5] x9 (\\[i21, i22, i23] -> [i21, i23, i22])))"
+  length (printPrimal6Pretty renames (simplifyArtifact6 artifact6))
+    @?= length "\\s0 x3 x4 -> let x7 = tgather [2,5,3] x3 (\\[i27, i28] -> [i27]) in let x8 = tkonst 2 (tgather [5,4] x4 (\\[i29, i30] -> [i30, i29])) in tsum (tgather [3,2,5] x7 (\\[i31, i32, i33] -> [i32, i33, i31]) * tgather [3,2,5] x8 (\\[i31, i32, i33] -> [i32, i33, i31]))"
 
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =
