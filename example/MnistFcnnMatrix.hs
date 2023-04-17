@@ -51,7 +51,7 @@ fcnnMnist2 factivationHidden factivationOutput datum inputs =
       hiddenLayer1 = weightsL0 #>!! datum + biasesV0
       nonlinearLayer1 = factivationHidden hiddenLayer1
       hiddenLayer2 = weightsL1 #>! nonlinearLayer1 + biasesV1
-      nonlinearLayer2 =factivationHidden hiddenLayer2
+      nonlinearLayer2 = factivationHidden hiddenLayer2
       outputLayer = weightsL2 #>! nonlinearLayer2 + biasesV2
   in factivationOutput outputLayer
 
