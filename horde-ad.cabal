@@ -577,6 +577,7 @@ library exampleLibrarySimplified
 
     exposed-modules:  MnistData
                       MnistFcnnRanked1
+                      MnistFcnnRanked2
                       MnistRnnRanked2
 
     build-depends:
