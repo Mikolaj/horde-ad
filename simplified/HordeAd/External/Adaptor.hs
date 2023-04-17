@@ -76,7 +76,9 @@ revDtFun
 {-# INLINE revDtFun #-}
 revDtFun f vals =
   let parameters0 = toDomains vals
-  in revAstOnDomainsFun (revDtInterpret vals f) parameters0
+      dim0 = tlength $ domains0 parameters0
+      shapes1 = map dshape $ V.toList $ domainsR parameters0
+  in revAstOnDomainsFun dim0 shapes1 (revDtInterpret vals f)
 
 revDtInterpret
   :: forall r n vals astvals.
@@ -89,15 +91,15 @@ revDtInterpret
 {-# INLINE revDtInterpret #-}
 revDtInterpret vals f varInputs domains ((var0, _, vars1), (ast0, _, _)) =
   let ast = f $ parseDomainsAst vals domains
-      dual0 = dD emptyADShare
-                 ast0
-                 (dFromVectorR $ V.map dScalarR $ inputDual0 varInputs)
-      env0 = extendEnvR var0 dual0 EM.empty
-      env1 = foldr (\(AstDynamicVarName var, (u, u')) ->
-                      extendEnvR var (tfromD $ dDnotShared emptyADShare u u'))
-                   env0
+      d0 = dD emptyADShare
+              ast0
+              (dFromVectorR $ V.map dScalarR $ inputDual0 varInputs)
+      env0 = extendEnvR var0 d0 EM.empty
+      env1 = foldr extendEnvD env0
              $ zip vars1 $ V.toList
-             $ V.zip (inputPrimal1 varInputs) (inputDual1 varInputs)
+             $ V.zipWith (dDnotShared emptyADShare)
+                         (inputPrimal1 varInputs)
+                         (inputDual1 varInputs)
   in snd $ interpretAst env1 emptyMemo ast
 
 rev

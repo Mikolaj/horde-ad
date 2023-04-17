@@ -84,23 +84,23 @@ revAstOnDomains
 -- The functions in which @revAstOnDomains@ inlines are not inlined
 -- themselves in client code, so the bloat is limited.
 {-# INLINE revAstOnDomains #-}
-revAstOnDomains f parameters =
-  revAstOnDomainsEval
-    (fst $ revAstOnDomainsFun (\varInputs _ _ -> f varInputs) parameters)
-    parameters
+revAstOnDomains f parameters dt =
+  let dim0 = tlength $ domains0 parameters
+      shapes1 = map dshape $ V.toList $ domainsR parameters
+  in revAstOnDomainsEval
+       (fst $ revAstOnDomainsFun dim0 shapes1 (\varInputs _ _ -> f varInputs))
+       parameters dt
 
 revAstOnDomainsFun
-  :: forall r n. (KnownNat n, Tensor r, DomainsTensor r, ShowAstSimplify r)
-  => (ADInputs (Ast0 r) -> Domains (Ast0 r)
+  :: forall r n. (KnownNat n, ShowAstSimplify r)
+  => Int -> [[Int]]
+  -> (ADInputs (Ast0 r) -> Domains (Ast0 r)
       -> (ADAstVarNames n r, ADAstVars n r)
       -> ADVal (Ast n r))
-  -> Domains r
   -> (ADAstArtifact6 n r, DeltaR n (Ast0 r))
 {-# INLINE revAstOnDomainsFun #-}
-revAstOnDomainsFun f parameters0 =
-  let dim0 = tlength $ domains0 parameters0
-      shapes1 = map dshape $ V.toList $ domainsR parameters0
-      -- Bangs and the compound function to fix the numbering of variables
+revAstOnDomainsFun dim0 shapes1 f =
+  let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
       !v6@(!vars@(!_, _, _), (ast0, astDt, asts1)) =
         funToAstAll (singletonShape dim0) shapes1 in
@@ -121,10 +121,8 @@ revAstOnDomainsEval
   => ADAstArtifact6 n r -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
-revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal)
-                    parameters dt =
-  let env1 = foldr (\(AstDynamicVarName var, v) ->
-                      extendEnvR var (tfromD v)) EM.empty
+revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
+  let env1 = foldr extendEnvD EM.empty
              $ zip (AstDynamicVarName var0 : vars1) $ V.toList parameters
       dtValue = case dt of
         Just a -> a

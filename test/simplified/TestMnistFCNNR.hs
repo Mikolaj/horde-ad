@@ -20,7 +20,6 @@ import           Text.Printf
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
-import HordeAd.Core.Delta (gradientFromDelta)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
@@ -198,15 +197,12 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
            runBatch !domains (k, chunk) = do
              let f :: MnistData r -> ADInputs r -> ADVal r
-                 f (glyph, label) adinputs =
-                   let env1 = foldr (\(AstDynamicVarName var, (u, u')) ->
-                                extendEnvR
-                                  var
-                                  (tfromD $ dDnotShared emptyADShare u u'))
-                                  EM.empty
+                 f (glyph, label) varInputs =
+                   let env1 = foldr extendEnvD EM.empty
                               $ zip vars1 $ V.toList
-                              $ V.zip (inputPrimal1 adinputs)
-                                      (inputDual1 adinputs)
+                              $ V.zipWith (dDnotShared emptyADShare)
+                                          (inputPrimal1 varInputs)
+                                          (inputDual1 varInputs)
                        envMnist =
                          extendEnvR varGlyph
                            (tconst $ OR.fromVector [sizeMnistGlyphInt] glyph)
@@ -297,51 +293,47 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let shapes1 = map (: []) nParams1
-           (vars1, asts1) = unzip $ map funToAstD shapes1
-           doms = mkDomains (AstConst emptyR) (V.fromList asts1)
            (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
              funToAstR (singletonShape sizeMnistLabelInt) id
-           ast :: Ast 0 r
-           ast = tscalar
-                 $ MnistFcnnRanked1.afcnnMnistLoss1TensorData
-                     widthHidden widthHidden2 (astGlyph, astLabel)
-                     (parseDomainsAst valsInit doms)
-           deltaInputs = generateDeltaInputs doms
-           varInputs = makeADInputs doms deltaInputs
-           g :: (AstDynamicVarName r, ADVal (AstDynamic r))
-             -> AstEnv (ADVal (Ast0 r))
-             -> AstEnv (ADVal (Ast0 r))
-           g (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
-           envg = foldr g EM.empty
-                  $ zip vars1 $ V.toList
-                  $ V.zipWith (dDnotShared emptyADShare)
-                              (inputPrimal1 varInputs)
-                              (inputDual1 varInputs)
-           envMnistg = extendEnvR varGlyph (tconstant astGlyph)
-                       $ extendEnvR varLabel (tconstant astLabel) envg
-           D astBindings0 vAst deltaTopLevel =
-             tunScalar $ snd $ interpretAst envMnistg emptyMemo ast
-           deltaDt = packDeltaDt (Left vAst) deltaTopLevel
-           letGradientAst =
-             gradientFromDelta astBindings0 0 (length shapes1) deltaDt
+           inputVars = [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
+           fInterpret
+             :: ADInputs (Ast0 r) -> Domains (Ast0 r)
+             -> (ADAstVarNames n r, ADAstVars n r)
+             -> ADVal (Ast 0 r)
+           {-# INLINE fInterpret #-}
+           fInterpret varInputs domains ((_, _, vars1), _) =
+             -- TODO: with larger examples benchmark if not working in rank 0
+             -- is costly (tscalar below)
+             let ast :: Ast 0 r
+                 ast = tscalar
+                       $ MnistFcnnRanked1.afcnnMnistLoss1TensorData
+                           widthHidden widthHidden2 (astGlyph, astLabel)
+                           (parseDomainsAst valsInit domains)
+                 vars1AndInput = vars1 ++ inputVars
+                 env1 = foldr extendEnvD EM.empty
+                        $ zip vars1AndInput
+                        $ V.toList (V.zipWith (dDnotShared emptyADShare)
+                                              (inputPrimal1 varInputs)
+                                              (inputDual1 varInputs))
+                          ++ [ dfromR $ tconstant astGlyph
+                             , dfromR $ tconstant astLabel ]
+             in snd $ interpretAst env1 emptyMemo ast
+           (((var0Again, varDtAgain, vars1Again), gradient, primal), _) =
+             revAstOnDomainsFun 0 shapes1 fInterpret
+           vars1AndInputAgain = vars1Again ++ inputVars
+           vars = (var0Again, varDtAgain, vars1AndInputAgain)
            go :: [MnistData r] -> Domains r -> Domains r
            go [] parameters = parameters
            go ((glyph, label) : rest) parameters =
-             let env1 = foldr (\(AstDynamicVarName var, v) ->
-                          extendEnvR var (tfromD v)) EM.empty
-                        $ zip vars1 $ V.toList
-                        $ domainsR parameters
-                 envMnist =
-                   extendEnvR varGlyph
-                     (OR.fromVector [sizeMnistGlyphInt] glyph)
-                   $ extendEnvR varLabel
-                       (OR.fromVector [sizeMnistLabelInt] label)
-                       env1
-                 (_memo1, gradients) =
-                   interpretAstDomainsDummy envMnist emptyMemo letGradientAst
-             in go rest (updateWithGradient gamma parameters gradients)
+             let glyphD = OD.fromVector [sizeMnistGlyphInt] glyph
+                 labelD = OD.fromVector [sizeMnistLabelInt] label
+                 parametersAndInput = parameters `V.snoc` glyphD `V.snoc` labelD
+                 gradientDomain =
+                   fst $ revAstOnDomainsEval (vars, gradient, primal)
+                                             parametersAndInput Nothing
+             in go rest (updateWithGradient gamma parameters gradientDomain)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)

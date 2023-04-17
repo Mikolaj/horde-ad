@@ -5,7 +5,7 @@
 module HordeAd.Core.AstInterpret
   ( InterpretAst, interpretAst
   , interpretAstDomainsDummy, interpretAstDynamicDummy
-  , AstEnv, extendEnvR, AstMemo, emptyMemo
+  , AstEnv, extendEnvR, extendEnvD, AstMemo, emptyMemo
   , AstEnvElem(AstVarR)  -- for a test only
   ) where
 
@@ -46,6 +46,11 @@ extendEnvR :: forall n a. (DynamicTensor a, KnownNat n)
 extendEnvR v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstVarR $ dfromR d)
+
+extendEnvD :: (DynamicTensor a, Tensor a)
+           => (AstDynamicVarName (ScalarOf a), DTensorOf a) -> AstEnv a
+           -> AstEnv a
+extendEnvD (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
 
 extendEnvI :: AstVarId -> IntOf a -> AstEnv a -> AstEnv a
 extendEnvI var i =
