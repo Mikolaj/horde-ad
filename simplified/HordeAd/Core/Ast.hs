@@ -725,7 +725,7 @@ printAstIntVar = printAstVarIdGeneric "i"
 
 defaulPrintConfig :: Bool -> IntMap String -> PrintConfig
 defaulPrintConfig prettifyLosingSharing renames =
-  let varRenames = renames `IM.union` IM.fromList [(1, "s0"), (2, "dt")]
+  let varRenames = renames `IM.union` IM.fromList [(1, "s0"), (2, "dret")]
   in PrintConfig {..}
 
 -- Precedences used are as in Haskell.
