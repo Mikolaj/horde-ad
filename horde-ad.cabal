@@ -225,9 +225,9 @@ library testCommonLibrary
     import:           options
 
     -- Modules exported by the library.
-    exposed-modules:  Prop
+    exposed-modules:  EqEpsilon
+                      Prop
                       Shared
-                      EqEpsilon
                       TestConditionalSynth
                       TestDescentSimple
                       TestGradientSimple
@@ -602,14 +602,16 @@ library testToolLibrarySimplified
     else
       buildable: True
 
-    exposed-modules:  Prop
-                      Shared
+    exposed-modules:  CrossTesting
                       EqEpsilon
+                      Prop
+                      Shared
 
     build-depends:
       , horde-ad-simplified
 
       , base
+      , enummapset
       , hmatrix
       , orthotope
       , tasty >= 1.0

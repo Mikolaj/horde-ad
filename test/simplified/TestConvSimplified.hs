@@ -16,9 +16,8 @@ import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor
 import HordeAd.Internal.TensorOps
 
+import CrossTesting
 import EqEpsilon
-
-import TestAdaptorSimplified (assertEqualUpToEpsilon', rev', t128b, t128c, t16b)
 
 testTrees :: [TestTree]
 testTrees =
