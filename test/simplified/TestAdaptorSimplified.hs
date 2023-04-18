@@ -121,10 +121,10 @@ testFooPP = do
     @?= "\\x1 -> atan2 x1 (x1 * sin x1) + x1 * (x1 * sin x1)"
   resetVarCounter
   let (artifact6, _) = revDtFun fooT (4, 5, 6)
-  printGradient6Simple renames artifact6
-    @?= "\\s0 dret x y z -> dlet (sin y) (\\x6 -> dlet (x * x6) (\\x7 -> dlet (recip (z * z + x7 * x7)) (\\x8 -> dlet (sin y) (\\x9 -> dlet (x * x9) (\\x10 -> dlet (z * dret) (\\x11 -> dlet (negate (z * x8) * dret) (\\x12 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x6 * x12 + x9 * x11), dfromR (cos y * (x * x12) + cos y * (x * x11)), dfromR ((x7 * x8) * dret + x10 * dret)]))))))))"
-  printPrimal6Simple renames artifact6
-    @?= "\\s0 x y z -> tlet (sin y) (\\x6 -> tlet (x * x6) (\\x7 -> tlet (recip (z * z + x7 * x7)) (\\x8 -> tlet (sin y) (\\x9 -> tlet (x * x9) (\\x10 -> atan2 z x7 + z * x10)))))"
+  length (printGradient6Simple renames artifact6)
+    @?= length "\\s0 dret x y z -> dlet (sin y) (\\x6 -> dlet (x * x6) (\\x7 -> dlet (recip (z * z + x7 * x7)) (\\x8 -> dlet (sin y) (\\x9 -> dlet (x * x9) (\\x10 -> dlet (z * dret) (\\x11 -> dlet (negate (z * x8) * dret) (\\x12 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x6 * x12 + x9 * x11), dfromR (cos y * (x * x12) + cos y * (x * x11)), dfromR ((x7 * x8) * dret + x10 * dret)]))))))))"
+  length (printPrimal6Simple renames artifact6)
+    @?= length "\\s0 x y z -> tlet (sin y) (\\x6 -> tlet (x * x6) (\\x7 -> tlet (recip (z * z + x7 * x7)) (\\x8 -> tlet (sin y) (\\x9 -> tlet (x * x9) (\\x10 -> atan2 z x7 + z * x10)))))"
 
 fooLet :: forall r n. (RealFloat (TensorOf n r), Tensor r, KnownNat n)
        => (TensorOf n r, TensorOf n r, TensorOf n r) -> TensorOf n r
@@ -291,13 +291,13 @@ testMatmul2PP = do
         revDtFun (uncurry tmatmul2) ( OR.fromList [2,3] [1 :: Double .. 6]
                                     , OR.fromList [4,5] [1 .. 20] )
   length (printGradient6Simple renames artifact6)
-    @?= length "\\s0 dret x3 x4 -> dlet (ttranspose [1,0] (tkonst 5 x3)) (\\x7 -> dlet (tkonst 2 (ttranspose [1,0] x4)) (\\x8 -> dlet (ttranspose [0,2,1] (ttranspose [1,0] (tkonst 3 dret))) (\\x9 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tsum (ttranspose [1,0] (x8 * x9))), dfromR (ttranspose [1,0] (tsum (x7 * x9)))]))))"
+    @?= length "\\s0 dret x3 x4 -> dlet (tkonst 2 x4) (\\x7 -> dlet (ttranspose [1,2,0] (tkonst 5 x3)) (\\x8 -> dlet (ttranspose [1,0] (tkonst 3 dret)) (\\x9 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tsum (ttranspose [2,0,1] (x7 * x9))), dfromR (tsum (x8 * x9))]))))"
   length (printPrimal6Simple renames artifact6)
-    @?= length "\\s0 x3 x4 -> tlet (ttranspose [1,0] (tkonst 5 x3)) (\\x7 -> tlet (tkonst 2 (ttranspose [1,0] x4)) (\\x8 -> tsum (ttranspose [1,0] (ttranspose [0,2,1] (x7 * x8)))))"
+    @?= length "\\s0 x3 x4 -> tlet (tkonst 2 x4) (\\x7 -> tlet (ttranspose [1,2,0] (tkonst 5 x3)) (\\x8 -> tsum (ttranspose [1,0] (x8 * x7))))"
   length (printGradient6Pretty renames (simplifyArtifact6 artifact6))
-    @?= length "\\s0 dret x3 x4 -> let x7 = tgather [2,5,3] x3 (\\[i10, i11] -> [i10]) in let x8 = tkonst 2 (tgather [5,4] x4 (\\[i12, i13] -> [i13, i12])) in let x9 = tgather [2,5,3] dret (\\[i14, i15, i16] -> [i14, i15]) in (tfromList [], tsum (tgather [5,2,4] x8 (\\[i17, i18] -> [i18, i17]) * tgather [5,2,4] x9 (\\[i17, i18] -> [i18, i17])), tsum (tgather [2,3,5] x7 (\\[i21, i22, i23] -> [i21, i23, i22]) * tgather [2,3,5] x9 (\\[i21, i22, i23] -> [i21, i23, i22])))"
+    @?= length "\\s0 dret x3 x4 -> let x7 = tkonst 2 x4 in let x8 = tgather [2,3,5] x3 (\\[i10, i11, i12] -> [i10, i11]) in let x9 = tgather [2,3,5] dret (\\[i13, i14] -> [i13]) in (tfromList [], tsum (ttranspose [2,0,1] (x7 * x9)), tsum (x8 * x9))"
   length (printPrimal6Pretty renames (simplifyArtifact6 artifact6))
-    @?= length "\\s0 x3 x4 -> let x7 = tgather [2,5,3] x3 (\\[i27, i28] -> [i27]) in let x8 = tkonst 2 (tgather [5,4] x4 (\\[i29, i30] -> [i30, i29])) in tsum (tgather [3,2,5] x7 (\\[i31, i32, i33] -> [i32, i33, i31]) * tgather [3,2,5] x8 (\\[i31, i32, i33] -> [i32, i33, i31]))"
+    @?= length "\\s0 x3 x4 -> let x7 = tkonst 2 x4 in let x8 = tgather [2,3,5] x3 (\\[i15, i16, i17] -> [i15, i16]) in tsum (ttranspose [1,0] (x8 * x7))"
 
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =

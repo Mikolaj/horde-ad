@@ -230,7 +230,7 @@ flattenShape = singletonShape . sizeShape
 
 backpermutePrefixShape :: forall n i. KnownNat n
                        => Permutation -> Shape n i -> Shape n i
-backpermutePrefixShape p (Shape ix) = Shape $ backpermutePrefixSized p ix
+backpermutePrefixShape p (Shape is) = Shape $ backpermutePrefixSized p is
 
 -- Warning: do not pass a list of strides to this function.
 listShapeToShape :: KnownNat n => [i] -> Shape n i

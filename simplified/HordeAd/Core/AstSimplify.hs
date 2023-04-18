@@ -550,27 +550,40 @@ astReverse (AstGatherZ sh@(k :$ _) v (var ::: vars, ix)) =
   in astGatherZ sh v (var ::: vars, ix2)
 astReverse v = AstReverse v
 
+isVar :: Ast n r -> Bool
+isVar AstVar{} = True
+isVar _ = False
+
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astTransposeAsGather needs to be called in addition
 -- if full simplification is required.
-astTranspose :: forall n r. KnownNat n
+astTranspose :: forall n r. (ShowAstSimplify r, KnownNat n)
              => Permutation -> Ast n r -> Ast n r
 astTranspose perm0 t0 = case (perm0, t0) of
   ([], t) -> t
-  (perm, AstConst t) ->
-    AstConst $ ttransposeR perm t
-  (perm, AstConstant (AstPrimalPart v)) ->
-    astConstant $ AstPrimalPart $ astTranspose perm v
+  (perm, AstLet var u v) -> AstLet var u (astTranspose perm v)
+  (perm, AstOp opCode args) | not $ all isVar args ->
+    AstOp opCode (map (astTranspose perm) args)
+  (perm, AstSumOfList args) | not $ all isVar args ->
+    AstSumOfList (map (astTranspose perm) args)
+  (perm, AstSum v) -> astSum $ astTranspose (0 : map succ perm) v
   (perm1, AstTranspose perm2 t) ->
     let perm2Matched =
           perm2
           ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
         perm = simplifyPermutation $ backpermutePrefixList perm1 perm2Matched
     in astTranspose perm t
-      -- this rule can be disabled to test fusion of gathers.
+      -- this rule can be disabled to test fusion of gathers
+  -- Note that the following would be wrong, becuase transpose really
+  -- changes the linearisation order, while reshape only modifies indexing:
+  -- (perm, AstReshape sh v) -> astReshape (backpermutePrefixShape perm sh) v
   (perm1, AstGatherZ @m sh v (vars, ix)) | length perm1 <= valueOf @m ->
     AstGatherZ (backpermutePrefixShape perm1 sh) v
                (backpermutePrefixSized perm1 vars, ix)
+  (perm, AstConst t) ->
+    AstConst $ ttransposeR perm t
+  (perm, AstConstant (AstPrimalPart v)) ->
+    astConstant $ AstPrimalPart $ astTranspose perm v
   (perm, u) -> AstTranspose perm u
 
 -- Beware, this does not do full simplification, which often requires
@@ -582,7 +595,7 @@ astReshape shOut (AstConst t) = AstConst $ OR.reshape (shapeToList shOut) t
 astReshape shOut (AstConstant (AstPrimalPart v)) =
   astConstant $ AstPrimalPart $ astReshape shOut v
 astReshape shOut (AstReshape _ v) = astReshape shOut v
-  -- this rule can be disabled to test fusion of gathers.
+  -- this rule can be disabled to test fusion of gathers
 astReshape shOut v =
   let shIn = shapeAst v
   in case sameNat (Proxy @p) (Proxy @m) of
@@ -935,6 +948,10 @@ simplifyAst t = case t of
     case astTranspose (simplifyPermutation perm) v of
       AstTranspose perm2 v2 ->  -- no luck, let's try simplifying the argument
         case astTranspose perm2 (simplifyAst v2) of
+          u@(AstTranspose _ AstVar{}) -> u  -- normal form
+          u@(AstTranspose _ AstScatter{}) -> u  -- normal form
+          u@(AstTranspose _ (AstOp _ args)) | all isVar args -> u  -- nf
+          u@(AstTranspose _ (AstSumOfList args)) | all isVar args -> u  -- nf
           AstTranspose perm3 v3 ->  -- nope, let's express all as gather
             astTransposeAsGather perm3 v3
               -- this is expensive, but the only way to guarantee
