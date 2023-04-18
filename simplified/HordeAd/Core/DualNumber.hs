@@ -182,7 +182,7 @@ instance (Fractional a, IsPrimal a) => Fractional (ADVal a) where
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         (l4, v) = recordSharingPrimal ve l3
     in dD l4 (u / v)
-          (dAdd (dScale (recip v) u') (dScale (- u / (v * v)) v'))
+             (dAdd (dScale (recip v) u') (dScale (- u / (v * v)) v'))
   recip (D l ve v') =
     let (l2, v) = recordSharingPrimal ve l
         minusRecipSq = - recip (v * v)
@@ -238,8 +238,8 @@ instance (RealFloat a, IsPrimal a) => RealFloat (ADVal a) where
   atan2 (D l1 ue u') (D l2 ve v') =
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         (l4, v) = recordSharingPrimal ve l3
-        t = 1 / (u * u + v * v)
-    in dD l4 (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
+        (l5, t) = recordSharingPrimal (recip (u * u + v * v)) l4
+    in dD l5 (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
   -- Note that for term types @a@ this is invalid without an extra let
   -- containing the first field of @D@. However, for terms this unimplemented
   -- anyway, for unrelated reasons.

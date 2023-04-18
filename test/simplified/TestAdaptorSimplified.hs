@@ -122,9 +122,9 @@ testFooPP = do
   resetVarCounter
   let (artifact6, _) = revDtFun fooT (4, 5, 6)
   printGradient6Simple renames artifact6
-    @?= "\\s0 dt x y z -> dlet (sin y) (\\x6 -> dlet (x * x6) (\\x7 -> dlet (sin y) (\\x8 -> dlet (x * x8) (\\x9 -> dlet (z * dt) (\\x10 -> dlet (negate (z * (tconst 1.0 / (z * z + x7 * x7))) * dt) (\\x11 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x6 * x11 + x8 * x10), dfromR (cos y * (x * x11) + cos y * (x * x10)), dfromR ((x7 * (tconst 1.0 / (z * z + x7 * x7))) * dt + x9 * dt)])))))))"
+    @?= "\\s0 dt x y z -> dlet (sin y) (\\x6 -> dlet (x * x6) (\\x7 -> dlet (recip (z * z + x7 * x7)) (\\x8 -> dlet (sin y) (\\x9 -> dlet (x * x9) (\\x10 -> dlet (z * dt) (\\x11 -> dlet (negate (z * x8) * dt) (\\x12 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x6 * x12 + x9 * x11), dfromR (cos y * (x * x12) + cos y * (x * x11)), dfromR ((x7 * x8) * dt + x10 * dt)]))))))))"
   printPrimal6Simple renames artifact6
-    @?= "\\s0 x y z -> tlet (sin y) (\\x6 -> tlet (x * x6) (\\x7 -> tlet (sin y) (\\x8 -> tlet (x * x8) (\\x9 -> atan2 z x7 + z * x9))))"
+    @?= "\\s0 x y z -> tlet (sin y) (\\x6 -> tlet (x * x6) (\\x7 -> tlet (recip (z * z + x7 * x7)) (\\x8 -> tlet (sin y) (\\x9 -> tlet (x * x9) (\\x10 -> atan2 z x7 + z * x10)))))"
 
 fooLet :: forall r n. (RealFloat (TensorOf n r), Tensor r, KnownNat n)
        => (TensorOf n r, TensorOf n r, TensorOf n r) -> TensorOf n r
@@ -153,9 +153,9 @@ testFooLetPP = do
   resetVarCounter
   let (artifact6, _)= revDtFun fooLetT (4, 5, 6)
   printGradient6Simple renames artifact6
-    @?= "\\s0 dt x y z -> dlet (sin y) (\\x7 -> dlet (x * x7) (\\x8 -> dlet (negate (z * (tconst 1.0 / (z * z + x8 * x8))) * dt + z * dt) (\\x9 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x7 * x9), dfromR (cos y * (x * x9)), dfromR ((x8 * (tconst 1.0 / (z * z + x8 * x8))) * dt + x8 * dt)]))))"
+    @?= "\\s0 dt x y z -> dlet (sin y) (\\x7 -> dlet (x * x7) (\\x8 -> dlet (recip (z * z + x8 * x8)) (\\x9 -> dlet (negate (z * x9) * dt + z * dt) (\\x10 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (x7 * x10), dfromR (cos y * (x * x10)), dfromR ((x8 * x9) * dt + x8 * dt)])))))"
   printPrimal6Simple renames artifact6
-    @?= "\\s0 x y z -> tlet (sin y) (\\x7 -> tlet (x * x7) (\\x8 -> atan2 z x8 + z * x8))"
+    @?= "\\s0 x y z -> tlet (sin y) (\\x7 -> tlet (x * x7) (\\x8 -> tlet (recip (z * z + x8 * x8)) (\\x9 -> atan2 z x8 + z * x8)))"
 
 testReluPP :: Assertion
 testReluPP = do
