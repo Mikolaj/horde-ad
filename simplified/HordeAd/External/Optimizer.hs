@@ -8,10 +8,15 @@ module HordeAd.External.Optimizer
 
 import Prelude
 
-import Numeric.LinearAlgebra (Vector)
+import qualified Data.Array.DynamicS as OD
+import qualified Data.Array.RankedS as OR
+import           Data.MonoTraversable (Element)
+import qualified Data.Strict.Vector as Data.Vector
+import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.DualNumber (ADNum, ADVal)
 import HordeAd.Core.Engine
+import HordeAd.Core.TensorADVal (ADTensor)
 import HordeAd.Core.TensorClass
 import HordeAd.External.OptimizerTools
 
@@ -37,7 +42,11 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
     in go (pred n) parametersNew
 
 -- | Stochastic Gradient Descent.
-sgd :: forall r a. ADNum r
+sgd :: forall r a.
+       ( Numeric r, Floating (Vector r), ADTensor r
+       , DynamicTensor r, DomainsTensor r, Element r ~ r
+       , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r
+       , DomainsOf r ~ Data.Vector.Vector (OD.Array r) )
     => r
     -> (a -> ADInputs r -> ADVal r)
     -> [a]  -- ^ training data
@@ -63,15 +72,23 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   -> Domains Double
   -> (Domains Double, Double) #-}
 
-sgdAdam :: forall r a. ADNum r
-        => (a -> ADInputs r -> ADVal r)
+sgdAdam :: forall r a.
+           ( Numeric r, Floating r, Floating (Vector r), ADTensor r
+           , DynamicTensor r, DomainsTensor r, Element r ~ r
+           , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r
+           , DomainsOf r ~ Data.Vector.Vector (OD.Array r) )
+       => (a -> ADInputs r -> ADVal r)
         -> [a]
         -> Domains r
         -> StateAdam r
         -> (Domains r, StateAdam r)
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
-sgdAdamArgs :: forall r a. ADNum r
+sgdAdamArgs :: forall r a.
+               ( Numeric r, Floating r, Floating (Vector r), ADTensor r
+               , DynamicTensor r, DomainsTensor r, Element r ~ r
+               , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r
+               , DomainsOf r ~ Data.Vector.Vector (OD.Array r) )
             => ArgsAdam r
             -> (a -> ADInputs r -> ADVal r)
             -> [a]
