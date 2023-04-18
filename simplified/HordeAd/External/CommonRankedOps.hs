@@ -39,17 +39,15 @@ relu0
 relu0 x = ifB (x >* 0) x 0
 
 relu, reluLeaky
-  :: forall n r. (ADReady r, KnownNat n)
+  :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
   => TensorOf n r -> TensorOf n r
 relu v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0 1)
-                           (tprimalPart v)
-  in scale oneIfGtZero v
+  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0 1) v
+  in oneIfGtZero * v
 
 reluLeaky v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.01 1)
-                           (tprimalPart v)
-  in scale oneIfGtZero v
+  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.01 1) v
+  in oneIfGtZero * v
 
 -- TODO: verify how faster a dedicated Tensor method would be
 logistic :: forall r n.
