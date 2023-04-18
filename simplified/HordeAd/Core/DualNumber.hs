@@ -236,9 +236,10 @@ instance (RealFrac a, IsPrimal a) => RealFrac (ADVal a) where
 
 instance (RealFloat a, IsPrimal a) => RealFloat (ADVal a) where
   atan2 (D l1 ue u') (D l2 ve v') =
-    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        (l4, v) = recordSharingPrimal ve l3
-        (l5, t) = recordSharingPrimal (recip (u * u + v * v)) l4
+    -- The bangs below are neccessary for GHC 9.2.7.
+    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
+    let !(!l4, v) = recordSharingPrimal ve l3 in
+    let !(!l5, t) = recordSharingPrimal (recip (u * u + v * v)) l4
     in dD l5 (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
   -- Note that for term types @a@ this is invalid without an extra let
   -- containing the first field of @D@. However, for terms this unimplemented
