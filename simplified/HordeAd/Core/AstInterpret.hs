@@ -177,11 +177,17 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
       error $ "interpretAst: type mismatch for " ++ show var
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
-    let (memo2, t) = interpretAst env memo u
-    in ( memo2
-       , tlet t (\w ->
-           snd $ interpretAst (EM.insert var (AstVarR $ dfromR w) env)
-                                         memo2 v) )  -- TODO: snd; env/state?
+    -- This optimization is probably sound, because there is no mechanism
+    -- that would nest lets with the same variable. If that proves false,
+    -- let's refresh let variables whenever substituting into let bodies.
+    if EM.member var env
+    then interpretAst env memo v
+    else let (memo1, t) = interpretAst env memo u
+         in ( memo1
+            , tlet t (\w ->
+                snd $ interpretAst (EM.insert var (AstVarR $ dfromR w) env)
+                                              memo1 v) )
+                                                -- TODO: snd; env/state?
   AstOp TimesOp [v, AstReshape _ (AstKonst @m _ s)]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo v
