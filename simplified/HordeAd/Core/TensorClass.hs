@@ -209,13 +209,14 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tsum0 :: KnownNat n => TensorOf n r -> TensorOf 0 r
   tsum0 = tsum . tflatten
   tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf 0 r
-  tdot0 t u = tsum (tflatten t `tmult` tflatten u)
+  tdot0 t u = tsum (tflatten t * tflatten u)
   tmatmul1 :: TensorOf 2 r -> TensorOf 1 r -> TensorOf 1 r
   tmatmul1 m v = tbuild1 (tlength m) (\i -> tdot0 v (m ! [i]))
--- how to generalize (#69)? these equivalent definitions generalize differently:
--- tmatmul1 m v = tbuild1 (tlength m) (\i -> tsum (v * m ! [i]))
+-- How to generalize (#69)? these equivalent definitions generalize differently
+-- and the two tmatmul2 variants differ in what transpositions get multiplied.
 -- tmatmul1 m v = tflatten $ tmap1 (tkonst 1 . tdot0 v) m
   tmatmul2 :: TensorOf 2 r -> TensorOf 2 r -> TensorOf 2 r
+-- tmatmul2 m1 m2 = tbuild1 (tlength m1) (\i -> tmatmul1 m2 (m1 ! [i]))
   tmatmul2 m1 m2 = tmap1 (tmatmul1 (ttr m2)) m1
   tminimum :: KnownNat n => TensorOf n r -> TensorOf 0 r
   tminimum t = t ! tminIndex t
