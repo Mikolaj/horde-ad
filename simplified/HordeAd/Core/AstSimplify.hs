@@ -18,8 +18,8 @@ module HordeAd.Core.AstSimplify
   , funToAstR, funToAstD, ADAstVars, funToAstAll, funToAstI, funToAstIndex
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
-  , astConstant, astSum, astScatter, astFromList, astFromVector, astKonst
-  , astAppend, astSlice, astReverse, astFromDynamic
+  , astLet, astSum, astScatter, astFromList, astFromVector, astKonst
+  , astAppend, astSlice, astReverse, astFromDynamic, astConstant, astDomainsLet
   , astIntCond
   , ShowAstSimplify, simplifyArtifact6, simplifyAst6, simplifyAstDomains6
   , substituteAst, substituteAstInt, substituteAstBool
@@ -266,7 +266,7 @@ simplifyStepNonIndex
   => Ast n r -> Ast n r
 simplifyStepNonIndex t = case t of
   AstVar{} -> t
-  AstLet{} -> t
+  AstLet var u v -> astLet var u v
   AstOp{} -> t
   AstSumOfList{} -> t
   AstIota -> t
@@ -289,6 +289,22 @@ simplifyStepNonIndex t = case t of
   AstConstant v -> astConstant v
   AstD{} -> t
   AstLetDomains{} -> t
+
+astLet :: forall n m r. (KnownNat m, KnownNat n, ShowAst r)
+       => AstVarId -> Ast n r -> Ast m r -> Ast m r
+astLet var u@AstVar{} v = substitute1Ast (Left u) var v
+  -- we use the substitution that does not simplify, which is sad,
+  -- because very low hanging fruits may be left hanging, but we
+  -- don't want to simplify the whole term; a better alternative
+  -- would be a substitution that only simplifies the touched
+  -- terms with one step lookahead, as normally when vectorizing
+astLet var u v@(AstVar _ var2) =
+  if var2 == var
+  then case sameNat (Proxy @n) (Proxy @m) of
+    Just Refl -> u
+    _ -> error "astLet: rank mismatch"
+  else v
+astLet var u v = AstLet var u v
 
 astIndexZ
   :: forall m n r.
@@ -334,7 +350,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
      astGather = if stepOnly then astGatherStep else astGatherZ
  in case v0 of
   AstVar{} -> AstIndexZ v0 ix
-  AstLet var u v -> AstLet var u (astIndexRec v ix)
+  AstLet var u v -> astLet var u (astIndexRec v ix)
   AstOp opCode args ->
     AstOp opCode (map (`astIndexRec` ix) args)
   AstSumOfList args ->
@@ -562,7 +578,7 @@ astTranspose :: forall n r. (ShowAstSimplify r, KnownNat n)
              => Permutation -> Ast n r -> Ast n r
 astTranspose perm0 t0 = case (perm0, t0) of
   ([], t) -> t
-  (perm, AstLet var u v) -> AstLet var u (astTranspose perm v)
+  (perm, AstLet var u v) -> astLet var u (astTranspose perm v)
   (perm, AstOp opCode args) | not $ all isVar args ->
     AstOp opCode (map (astTranspose perm) args)
   (perm, AstSumOfList args) | not $ all isVar args ->
@@ -683,7 +699,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 (_, ZI) = astKonstN sh4 v4  -- not really possible
   astGatherCase sh4 v4 (vars4, ix4@(i4 :. rest4)) = case v4 of
     AstVar{} -> AstGatherZ sh4 v4 (vars4, ix4)
-    AstLet var u v -> AstLet var u (astGatherCase sh4 v (vars4, ix4))
+    AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
     AstOp opCode args ->
       AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     AstSumOfList args ->
@@ -896,6 +912,16 @@ astConstant :: AstPrimalPart n r -> Ast n r
 astConstant (AstPrimalPart (AstConstant t)) = astConstant t
 astConstant v = AstConstant v
 
+astDomainsLet :: forall n r. (KnownNat n, ShowAst r)
+              => AstVarId -> Ast n r -> AstDomains r -> AstDomains r
+astDomainsLet var u@AstVar{} v = substitute1AstDomains (Left u) var v
+  -- we use the substitution that does not simplify, which is sad,
+  -- because very low hanging fruits may be left hanging, but we
+  -- don't want to simplify the whole term; a better alternative
+  -- would be a substitution that only simplifies the touched
+  -- terms with one step lookahead, as normally when vectorizing
+astDomainsLet var u v = AstDomainsLet var u v
+
 astIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
 astIntCond (AstBoolConst b) v w = if b then v else w
 astIntCond b v w = AstIntCond b v w
@@ -1030,7 +1056,7 @@ simplifyAst
   => Ast n r -> Ast n r
 simplifyAst t = case t of
   AstVar{} -> t
-  AstLet var u v -> AstLet var (simplifyAst u) (simplifyAst v)
+  AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   AstOp opCode args -> AstOp opCode (map simplifyAst args)
   AstSumOfList args -> AstSumOfList (map simplifyAst args)
     -- We do not simplify, e.g., addition or multiplication by zero.
@@ -1091,7 +1117,7 @@ simplifyAstDomains
 simplifyAstDomains = \case
   AstDomains l -> AstDomains $ V.map simplifyAstDynamic l
   AstDomainsLet var u v ->
-    AstDomainsLet var (simplifyAst u) (simplifyAstDomains v)
+    astDomainsLet var (simplifyAst u) (simplifyAstDomains v)
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether

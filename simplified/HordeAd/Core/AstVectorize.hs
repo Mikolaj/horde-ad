@@ -100,7 +100,7 @@ build1V k (var, v00) =
             -- don't want to simplify the whole term; a better alternative
             -- would be a substitution that only simplifies the touched
             -- terms with one step lookahead, as normally when vectorizing
-      in AstLet var2 (build1VOccurenceUnknown k (var, u))
+      in astLet var2 (build1VOccurenceUnknown k (var, u))
                      (build1VOccurenceUnknown k (var, v2))
 
     AstOp opCode args -> traceRule $
@@ -179,7 +179,7 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
         projection = AstIndexZ (AstVar (k :$ sh) var2) (AstIntVar var :. ZI)
         v2 = substitute1AstDomains (Left projection) var2 v
           -- we use the substitution that does not simplify
-    in AstDomainsLet var2 (build1VOccurenceUnknown k (var, u))
+    in astDomainsLet var2 (build1VOccurenceUnknown k (var, u))
                           (build1VOccurenceUnknownDomains k (var, v2))
 
 -- | The application @build1VIndex k (var, v, ix)@ vectorizes

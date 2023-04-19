@@ -71,6 +71,9 @@ instance ShowAstSimplify r
 
   tregister = astRegisterFun
   tletWrap l u =
+    -- We can't use astLet here, because it may inline, while the same
+    -- let is present at the top level of the dual number and so we lose
+    -- sharing that is not visible in this restricted context.
     let bindToLet g (var, AstDynamic t) = AstLet var t g
     in foldl' bindToLet u (assocsADShare l)
 
@@ -106,20 +109,13 @@ instance ShowAst r
     let bindToLet g (var, AstDynamic t) = AstDomainsLet var t g
     in foldl' bindToLet u l
 
-astLetFun :: forall n m r. (KnownNat n, KnownNat m, ShowAst r)
+astLetFun :: (KnownNat n, KnownNat m, ShowAst r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
 astLetFun a@AstVar{} f = f a
 astLetFun a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh f
-  in case ast of
-    AstVar _ var2 ->
-      if var2 == var
-      then case sameNat (Proxy @n) (Proxy @m) of
-        Just Refl -> a
-        _ -> error "astLetFun: rank mismatch"
-      else ast
-    _ -> AstLet var a ast
+  in astLet var a ast
 
 astLetDomainsFun
   :: forall m r. ShowAst r

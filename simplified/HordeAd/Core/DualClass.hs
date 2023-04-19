@@ -112,7 +112,8 @@ class IsPrimalA r where
   recordSharingPrimalA :: KnownNat n
                        => Ast n r -> ADShare (Ast0 r)
                        -> (ADShare (Ast0 r), Ast n r)
-  letWrapPrimalA :: ADShare (Ast0 r) -> Ast n r -> Ast n r
+  letWrapPrimalA :: KnownNat n
+                 => ADShare (Ast0 r) -> Ast n r -> Ast n r
   packDeltaDtA :: KnownNat n
                => Either (Ast n r) (Ast n r) -> Dual (Ast n r)
                -> DeltaDt (Ast0 r)
