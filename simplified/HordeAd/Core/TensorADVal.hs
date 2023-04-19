@@ -231,8 +231,11 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
   tscale0 r (D l u u') = dD l (r * u) (dScale r u')
   tprimalPart (D l u _) = tletWrap l u
   tdualPart (D l _ u') = (l, u')
+  tD (AstLetADShare l1 v) (l, delta) = dD (l1 `mergeADShare` l) v delta
   tD ast (l, delta) = dD l ast delta
-  tScale s (l, delta) = (l, dScale s delta)
+  tScale (AstLetADShare l1 v) (l, delta) =
+    (l1 `mergeADShare` l, dScale v delta)
+  tScale ast (l, delta) = (l, dScale ast delta)
 
   tfromD = fromD
 

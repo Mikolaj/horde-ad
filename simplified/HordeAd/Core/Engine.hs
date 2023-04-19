@@ -112,7 +112,10 @@ revAstOnDomainsFun dim0 shapes1 f =
       !(D astBindings0 primalBody deltaTopLevel) = f varInputs domains v6
       deltaDt = packDeltaDt (Right $ astDt (tshape primalBody)) deltaTopLevel in
   let gradient = gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
-  in ((vars, gradient, tletWrap astBindings0 primalBody), deltaTopLevel)
+  in ( ( vars
+       , unletAstDomains6 gradient
+       , unletAst6 $ tletWrap astBindings0 primalBody )
+     , deltaTopLevel )
 
 revAstOnDomainsEval
   :: forall r n.
@@ -153,7 +156,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
       !(D astBindings0 v deltaTopLevel) = f inputs
       deltaDt = packDeltaDt (maybe (Left v) Right dt) deltaTopLevel in
   let gradient = gradientFromDelta astBindings0 dim0 dim1 deltaDt
-  in (gradient, letWrapPrimal astBindings0 v)
+  in (gradient, v)
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.

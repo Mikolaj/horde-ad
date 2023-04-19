@@ -43,6 +43,7 @@ import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
@@ -72,6 +73,11 @@ data Ast :: Nat -> Type -> Type where
   AstVar :: ShapeInt n -> AstVarId -> Ast n r
   AstLet :: KnownNat n
          => AstVarId -> Ast n r -> Ast m r -> Ast m r
+  AstLetADShare :: KnownNat m
+                => ADShare (Ast0 r) -> Ast m r -> Ast m r
+   -- there are mixed local/global lets, because they can be identical
+   -- to the lets stored in the D constructor and so should not be inlined
+   -- even in trivial cases until the transpose pass eliminates D
 
   -- For the numeric classes:
   AstOp :: OpCode -> [Ast n r] -> Ast n r
@@ -120,27 +126,33 @@ data Ast :: Nat -> Type -> Type where
   AstD :: AstPrimalPart n r -> AstDualPart n r -> Ast n r
   AstLetDomains :: Data.Vector.Vector AstVarId -> AstDomains r -> Ast m r
                 -> Ast m r
-deriving instance ShowAst r => Show (Ast n r)
+deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
+                  => Show (Ast n r)
 
 newtype AstNoVectorize n r = AstNoVectorize {unAstNoVectorize :: Ast n r}
- deriving Show
+deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
+                  => Show (AstNoVectorize n r)
 
 newtype AstPrimalPart n r = AstPrimalPart {unAstPrimalPart :: Ast n r}
- deriving Show
+deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
+                  => Show (AstPrimalPart n r)
 
 newtype AstDualPart n r = AstDualPart {unAstDualPart :: Ast n r}
- deriving Show
+deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
+                  => Show (AstDualPart n r)
 
 data AstDynamic :: Type -> Type where
   AstDynamic :: KnownNat n
              => Ast n r -> AstDynamic r
-deriving instance ShowAst r => Show (AstDynamic r)
+deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
+                  => Show (AstDynamic r)
 
 data AstDomains :: Type -> Type where
   AstDomains :: Data.Vector.Vector (AstDynamic r) -> AstDomains r
   AstDomainsLet :: KnownNat n
                 => AstVarId -> Ast n r -> AstDomains r -> AstDomains r
-deriving instance ShowAst r => Show (AstDomains r)
+deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
+                  => Show (AstDomains r)
 
 unwrapAstDomains :: AstDomains r -> Data.Vector.Vector (AstDynamic r)
 unwrapAstDomains = \case
@@ -148,7 +160,8 @@ unwrapAstDomains = \case
   AstDomainsLet _ _ v -> unwrapAstDomains v
 
 newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
- deriving Show
+deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
+                  => Show (Ast0 r)
 
 type instance Element (Ast0 r) = Ast0 r
 type instance Element (Ast n r) = Ast0 r
@@ -170,7 +183,8 @@ data AstInt :: Type -> Type where
   AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
   AstMinIndex1 :: AstPrimalPart 1 r -> AstInt r
   AstMaxIndex1 :: AstPrimalPart 1 r -> AstInt r
-deriving instance ShowAst r => Show (AstInt r)
+deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
+                  => Show (AstInt r)
 
 data AstBool :: Type -> Type where
   AstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
@@ -178,7 +192,8 @@ data AstBool :: Type -> Type where
   AstRel :: KnownNat n
          => OpCodeRel -> [AstPrimalPart n r] -> AstBool r
   AstRelInt :: OpCodeRel -> [AstInt r] -> AstBool r
-deriving instance ShowAst r => Show (AstBool r)
+deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
+                  => Show (AstBool r)
 
 -- Copied from the outlining mechanism deleted in
 -- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
@@ -488,6 +503,7 @@ shapeAst :: forall n r. (KnownNat n, ShowAst r)
 shapeAst v1 = case v1 of
   AstVar sh _var -> sh
   AstLet _ _ v -> shapeAst v
+  AstLetADShare _ v-> shapeAst v
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
@@ -538,6 +554,7 @@ intVarInAst :: AstVarId -> Ast n r -> Bool
 intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
   AstLet var2 u v -> intVarInAst var u || var /= var2 && intVarInAst var v
+  AstLetADShare{} -> error "intVarInAst: AstLetADShare"
   AstOp _ l -> any (intVarInAst var) l
   AstSumOfList l -> any (intVarInAst var) l
   AstIota -> False
@@ -609,6 +626,7 @@ substitute1Ast i var v1 = case v1 of
     if var == var2
     then AstLet var2 (substitute1Ast i var u) v
     else AstLet var2 (substitute1Ast i var u) (substitute1Ast i var v)
+  AstLetADShare{} -> error "substitute1Ast: AstLetADShare"
   AstOp opCode args -> AstOp opCode $ map (substitute1Ast i var) args
   AstSumOfList args -> AstSumOfList $ map (substitute1Ast i var) args
   AstIota -> v1
@@ -752,6 +770,7 @@ printAst cfg d = \case
              . printAstVar cfg var
              . showString " -> "
              . printAst cfg 0 v)
+  AstLetADShare{} -> error "printAst: AstLetADShare"
   AstOp opCode args -> printAstOp cfg d opCode args
   AstSumOfList [] -> error "printAst: empty AstSumOfList"
   AstSumOfList (left : args) ->

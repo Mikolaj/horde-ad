@@ -70,12 +70,12 @@ instance ShowAstSimplify r
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
   tregister = astRegisterFun
-  tletWrap l u =
-    -- We can't use astLet here, because it may inline, while the same
-    -- let is present at the top level of the dual number and so we lose
+  tletWrap = AstLetADShare
+    -- We can't use astLet here, because it may inline a let that is
+    -- present at the top level of the dual number and so we'd lose
     -- sharing that is not visible in this restricted context.
-    let bindToLet g (var, AstDynamic t) = AstLet var t g
-    in foldl' bindToLet u (assocsADShare l)
+    -- To make sure astLet is not used on these, we mark them with
+    -- a special constructor that also makes comparing lets cheap.
 
   tfromD = astFromDynamic
 

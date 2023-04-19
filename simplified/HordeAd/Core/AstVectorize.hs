@@ -102,6 +102,7 @@ build1V k (var, v00) =
             -- terms with one step lookahead, as normally when vectorizing
       in astLet var2 (build1VOccurenceUnknown k (var, u))
                      (build1VOccurenceUnknown k (var, v2))
+    AstLetADShare{} -> error "build1V: AstLetADShare"
 
     AstOp opCode args -> traceRule $
       AstOp opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args

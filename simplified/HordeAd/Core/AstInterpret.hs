@@ -189,6 +189,7 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
                 snd $ interpretAst (EM.insert var (AstVarR $ dfromR w) env)
                                               memo1 v) )
                                                 -- TODO: snd; env/state?
+  AstLetADShare{} -> error "interpretAst: AstLetADShare"
   AstOp TimesOp [v, AstReshape _ (AstKonst @m _ s)]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo v

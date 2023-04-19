@@ -22,6 +22,7 @@ module HordeAd.Core.AstSimplify
   , astAppend, astSlice, astReverse, astFromDynamic, astConstant, astDomainsLet
   , astIntCond
   , ShowAstSimplify, simplifyArtifact6, simplifyAst6, simplifyAstDomains6
+  , unletAstDomains6, unletAst6
   , substituteAst, substituteAstInt, substituteAstBool
   , resetVarCounter
   ) where
@@ -34,7 +35,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.EnumSet as ES
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
-import           Data.List (dropWhileEnd)
+import           Data.List (dropWhileEnd, foldl')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -62,7 +63,8 @@ import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
-type ShowAstSimplify r = (ShowAst r, Num (Vector r))
+type ShowAstSimplify r =
+  (ShowAst r, Num (Vector r), DTensorOf (Ast0 r) ~ AstDynamic r)
 
 
 -- * Permutation operations
@@ -267,6 +269,7 @@ simplifyStepNonIndex
 simplifyStepNonIndex t = case t of
   AstVar{} -> t
   AstLet var u v -> astLet var u v
+  AstLetADShare{} -> error "simplifyStepNonIndex: AstLetADShare"
   AstOp{} -> t
   AstSumOfList{} -> t
   AstIota -> t
@@ -351,6 +354,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
  in case v0 of
   AstVar{} -> AstIndexZ v0 ix
   AstLet var u v -> astLet var u (astIndexRec v ix)
+  AstLetADShare{} -> error "astIndexZOrStepOnly: AstLetADShare"
   AstOp opCode args ->
     AstOp opCode (map (`astIndexRec` ix) args)
   AstSumOfList args ->
@@ -700,6 +704,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 (vars4, ix4@(i4 :. rest4)) = case v4 of
     AstVar{} -> AstGatherZ sh4 v4 (vars4, ix4)
     AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
+    AstLetADShare{} -> error "astGatherCase: AstLetADShare"
     AstOp opCode args ->
       AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     AstSumOfList args ->
@@ -943,12 +948,23 @@ simplifyArtifact6 (vars, gradient, primal) =
 simplifyAst6
   :: (ShowAstSimplify r, KnownNat n)
   => Ast n r -> Ast n r
-simplifyAst6 = simplifyAst . unletAst ES.empty
+simplifyAst6 = simplifyAst  -- . unletAst6
 
 simplifyAstDomains6
   :: ShowAstSimplify r
   => AstDomains r -> AstDomains r
-simplifyAstDomains6 = simplifyAstDomains . unletAstDomains ES.empty
+simplifyAstDomains6 = simplifyAstDomains  -- . unletAstDomains6
+
+unletAst6
+  :: (ShowAstSimplify r, KnownNat n)
+  => Ast n r -> Ast n r
+unletAst6 = unletAst ES.empty
+
+unletAstDomains6
+  :: ShowAstSimplify r
+  => AstDomains r -> AstDomains r
+unletAstDomains6 = unletAstDomains ES.empty
+
 
 -- * The nested let simplifying bottom-up pass
 
@@ -971,6 +987,9 @@ unletAst letSet t = case t of
     then unletAst letSet v
     else let letSet2 = ES.insert var letSet
          in AstLet var (unletAst letSet u) (unletAst letSet2 v)
+  AstLetADShare l v ->
+    let bindToLet g (var, AstDynamic u) = AstLet var u g
+    in unletAst letSet $ foldl' bindToLet v (assocsADShare l)
   AstOp opCode args -> AstOp opCode (map (unletAst letSet) args)
   AstSumOfList args -> AstSumOfList (map (unletAst letSet) args)
   AstIota -> t
@@ -1057,6 +1076,7 @@ simplifyAst
 simplifyAst t = case t of
   AstVar{} -> t
   AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
+  AstLetADShare{} -> error "simplifyAst: AstLetADShare"
   AstOp opCode args -> AstOp opCode (map simplifyAst args)
   AstSumOfList args -> AstSumOfList (map simplifyAst args)
     -- We do not simplify, e.g., addition or multiplication by zero.
