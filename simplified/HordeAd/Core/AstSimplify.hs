@@ -21,7 +21,7 @@ module HordeAd.Core.AstSimplify
   , astConstant, astSum, astScatter, astFromList, astFromVector, astKonst
   , astAppend, astSlice, astReverse, astFromDynamic
   , astIntCond
-  , ShowAstSimplify, simplifyArtifact6, simplifyAst, simplifyAstDomains
+  , ShowAstSimplify, simplifyArtifact6, simplifyAst6, simplifyAstDomains6
   , substituteAst, substituteAstInt, substituteAstBool
   , resetVarCounter
   ) where
@@ -31,6 +31,7 @@ import Prelude
 import           Control.Monad (replicateM)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
+import qualified Data.EnumSet as ES
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.List (dropWhileEnd)
@@ -906,12 +907,115 @@ astMaxIndex1 :: AstPrimalPart 1 r -> AstInt r
 astMaxIndex1 = AstMaxIndex1
 
 
--- * The simplifying bottom-up pass
+-- * Simplification pass applied to code with eliminated nested lets
 
 simplifyArtifact6 :: (ShowAstSimplify r, KnownNat n)
                   => ADAstArtifact6 n r -> ADAstArtifact6 n r
 simplifyArtifact6 (vars, gradient, primal) =
-  (vars, simplifyAstDomains gradient, simplifyAst primal)
+  (vars, simplifyAstDomains6 gradient, simplifyAst6 primal)
+
+simplifyAst6
+  :: (ShowAstSimplify r, KnownNat n)
+  => Ast n r -> Ast n r
+simplifyAst6 = simplifyAst . unletAst ES.empty
+
+simplifyAstDomains6
+  :: ShowAstSimplify r
+  => AstDomains r -> AstDomains r
+simplifyAstDomains6 = simplifyAstDomains . unletAstDomains ES.empty
+
+-- * The nested let simplifying bottom-up pass
+
+unletAstPrimal
+  :: (ShowAstSimplify r, KnownNat n)
+  => ES.EnumSet AstVarId -> AstPrimalPart n r -> AstPrimalPart n r
+unletAstPrimal letSet (AstPrimalPart t) = AstPrimalPart $ unletAst letSet t
+
+unletAst
+  :: (ShowAstSimplify r, KnownNat n)
+  => ES.EnumSet AstVarId -> Ast n r -> Ast n r
+unletAst letSet t = case t of
+  AstVar{} -> t
+  AstLet var u v ->
+    -- This optimization is probably sound, because there is no mechanism
+    -- that would nest lets with the same variable. If that proves false,
+    -- let's refresh let variables whenever substituting into let bodies.
+    -- See the same assumption in AstInterpret.
+    if var `ES.member` letSet
+    then unletAst letSet v
+    else let letSet2 = ES.insert var letSet
+         in AstLet var (unletAst letSet u) (unletAst letSet2 v)
+  AstOp opCode args -> AstOp opCode (map (unletAst letSet) args)
+  AstSumOfList args -> AstSumOfList (map (unletAst letSet) args)
+  AstIota -> t
+  AstIndexZ v ix -> AstIndexZ (unletAst letSet v) (fmap (unletAstInt letSet) ix)
+  AstSum v -> AstSum (unletAst letSet v)
+  AstScatter sh v (var, ix) ->
+    AstScatter sh (unletAst letSet v) (var, fmap (unletAstInt letSet) ix)
+  AstFromList l -> AstFromList (map (unletAst letSet) l)
+  AstFromVector l -> AstFromVector (V.map (unletAst letSet) l)
+  AstKonst k v -> AstKonst k (unletAst letSet v)
+  AstAppend x y -> AstAppend (unletAst letSet x) (unletAst letSet y)
+  AstSlice i k v -> AstSlice i k (unletAst letSet v)
+  AstReverse v -> AstReverse (unletAst letSet v)
+  AstTranspose perm v -> AstTranspose perm (unletAst letSet v)
+  AstReshape sh v -> AstReshape sh (unletAst letSet v)
+  AstBuild1 k (var, v) -> AstBuild1 k (var, unletAst letSet v)
+  AstGatherZ sh v (vars, ix) ->
+    AstGatherZ sh (unletAst letSet v) (vars, fmap (unletAstInt letSet) ix)
+  AstConst{} -> t
+  AstConstant v -> AstConstant (unletAstPrimal letSet v)
+  AstD u (AstDualPart u') -> AstD (unletAstPrimal letSet u)
+                                  (AstDualPart $ unletAst letSet u')
+  AstLetDomains vars l v ->
+    let letSet2 = letSet `ES.union` ES.fromList (V.toList vars)
+    in AstLetDomains vars (unletAstDomains letSet l) (unletAst letSet2 v)
+
+unletAstDynamic
+  :: ShowAstSimplify r
+  => ES.EnumSet AstVarId -> AstDynamic r -> AstDynamic r
+unletAstDynamic letSet (AstDynamic u) = AstDynamic $ unletAst letSet u
+
+unletAstDomains
+  :: ShowAstSimplify r
+  => ES.EnumSet AstVarId -> AstDomains r -> AstDomains r
+unletAstDomains letSet = \case
+  AstDomains l -> AstDomains $ V.map (unletAstDynamic letSet) l
+  AstDomainsLet var u v ->
+    if var `ES.member` letSet
+    then unletAstDomains letSet v
+    else let letSet2 = ES.insert var letSet
+         in AstDomainsLet var (unletAst letSet u) (unletAstDomains letSet2 v)
+
+-- Integer terms need to be simplified, because they are sometimes
+-- created by vectorization and can be a deciding factor in whether
+-- a tensor terms can be simplified in turn.
+unletAstInt :: ShowAstSimplify r
+            => ES.EnumSet AstVarId -> AstInt r -> AstInt r
+unletAstInt letSet t = case t of
+  AstIntVar{} -> t
+  AstIntOp opCodeInt args -> AstIntOp opCodeInt (map (unletAstInt letSet) args)
+  AstIntConst{} -> t
+  AstIntFloor v -> AstIntFloor $ unletAstPrimal letSet v
+  AstIntCond b a1 a2 ->
+    AstIntCond
+      (unletAstBool letSet b) (unletAstInt letSet a1) (unletAstInt letSet a2)
+  AstMinIndex1 v -> AstMinIndex1 $ unletAstPrimal letSet v
+  AstMaxIndex1 v -> AstMaxIndex1 $ unletAstPrimal letSet v
+
+unletAstBool :: ShowAstSimplify r
+             => ES.EnumSet AstVarId -> AstBool r -> AstBool r
+unletAstBool letSet t = case t of
+  AstBoolOp opCodeBool args ->
+    AstBoolOp opCodeBool (map (unletAstBool letSet) args)
+  AstBoolConst{} -> t
+  AstRel opCodeRel args ->
+    AstRel opCodeRel (map (unletAstPrimal letSet) args)
+  AstRelInt opCodeRel args ->
+    AstRelInt opCodeRel (map (unletAstInt letSet) args)
+
+
+-- * The simplifying bottom-up pass
 
 simplifyAstPrimal
   :: (ShowAstSimplify r, KnownNat n)

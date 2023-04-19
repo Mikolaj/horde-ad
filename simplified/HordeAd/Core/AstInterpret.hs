@@ -180,6 +180,7 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     -- This optimization is probably sound, because there is no mechanism
     -- that would nest lets with the same variable. If that proves false,
     -- let's refresh let variables whenever substituting into let bodies.
+    -- See the same assumption in AstSimplify.
     if EM.member var env
     then interpretAst env memo v
     else let (memo1, t) = interpretAst env memo u

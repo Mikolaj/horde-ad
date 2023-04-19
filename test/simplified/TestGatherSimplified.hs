@@ -122,8 +122,8 @@ testGatherSimp1 = do
   resetVarCounter
   let !t2 = gather1 $ AstVar [7, 2] (intToAstVarId 100000000)
   length (show t2) @?= 189
-  length (show (simplifyAst @Float t1))
-    @?= length (show (simplifyAst @Float t2))
+  length (show (simplifyAst6 @Float t1))
+    @?= length (show (simplifyAst6 @Float t2))
 
 gatherNested2 :: forall r. ADReady r
               => TensorOf 2 r -> TensorOf 2 r
@@ -187,8 +187,8 @@ testGatherSimp2 = do
   resetVarCounter
   let !t2 = gather2 $ AstVar [7, 2] (intToAstVarId 100000000)
   length (show t2) @?= 314
-  length (show (simplifyAst @Float t1))
-    @?= length (show (simplifyAst @Float t2))
+  length (show (simplifyAst6 @Float t1))
+    @?= length (show (simplifyAst6 @Float t2))
 
 gatherNested12 :: forall r. ADReady r
                => TensorOf 2 r -> TensorOf 2 r
@@ -254,8 +254,8 @@ testGatherSimp12 = do
   resetVarCounter
   let !t2 = gather12 $ AstVar [7, 2] (intToAstVarId 100000000)
   length (show t2) @?= 314
-  length (show (simplifyAst @Float t1))
-    @?= length (show (simplifyAst @Float t2))
+  length (show (simplifyAst6 @Float t1))
+    @?= length (show (simplifyAst6 @Float t2))
 
 gatherReshape22 :: forall r. ADReady r
                 => TensorOf 2 r -> TensorOf 2 r
@@ -289,12 +289,12 @@ testGatherSimp22 = do
   resetVarCounter
   let !t1 = gatherReshape22 $ AstVar [6, 2] (intToAstVarId 100000000)
   length (show t1) @?= 52
-  length (show (simplifyAst @Float t1)) @?= 437
+  length (show (simplifyAst6 @Float t1)) @?= 437
   resetVarCounter
   let !t2 = treshape @(Ast0 Float) @2 @2 [2, 6]
             $ AstVar [6, 2] (intToAstVarId 100000000)
   length (show t2) @?= 52
-  length (show (simplifyAst @Float t2)) @?= 437
+  length (show (simplifyAst6 @Float t2)) @?= 437
 
 testGatherSimp23 :: Assertion
 testGatherSimp23 = do
@@ -304,14 +304,14 @@ testGatherSimp23 = do
                 (t * tkonst0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
   length (show t1) @?= 266
-  length (show (simplifyAst @Float t1)) @?= 1772
+  length (show (simplifyAst6 @Float t1)) @?= 1772
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               treshape @(Ast0 Float) @2 @2 [2, 6]
                 (t * tkonst0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
   length (show t2) @?= 266
-  length (show (simplifyAst @Float t2)) @?= 1772
+  length (show (simplifyAst6 @Float t2)) @?= 1772
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -370,13 +370,13 @@ testGatherSimp33 = do
   let !t1 = gatherTranspose33
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t1) @?= 1093
-  length (show (simplifyAst @Float t1)) @?= 7390
+  length (show (simplifyAst6 @Float t1)) @?= 7390
   resetVarCounter
   let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
                             (treshape @(Ast0 Float) @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t2) @?= 505
-  length (show (simplifyAst @Float t2)) @?= 1993
+  length (show (simplifyAst6 @Float t2)) @?= 1993
 
 testGatherSimp34 :: Assertion
 testGatherSimp34 = do
@@ -385,7 +385,7 @@ testGatherSimp34 = do
              gatherTranspose33 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t1) @?= 913
-  length (show (simplifyAst @Float t1)) @?= 26218
+  length (show (simplifyAst6 @Float t1)) @?= 26218
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               (\t' -> tmatmul2 (treshape [6, 8] (tconst t48))
@@ -393,7 +393,7 @@ testGatherSimp34 = do
                 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t2) @?= 772
-  length (show (simplifyAst @Float t2)) @?= 5518
+  length (show (simplifyAst6 @Float t2)) @?= 5518
 
 -- scatters instead of gathers
 
@@ -459,8 +459,8 @@ testScatterSimp1 = do
   resetVarCounter
   let !t2 = scatter1 $ AstVar [7, 2] (intToAstVarId 100000000)
   length (show t2) @?= 213
-  length (show (simplifyAst @Float t1)) @?= 287
-  length (show (simplifyAst @Float t2)) @?= 213
+  length (show (simplifyAst6 @Float t1)) @?= 287
+  length (show (simplifyAst6 @Float t2)) @?= 213
 
 scatterNested2 :: forall r. ADReady r
               => TensorOf 2 r -> TensorOf 2 r
@@ -524,8 +524,8 @@ testScatterSimp2 = do
   resetVarCounter
   let !t2 = scatter2 $ AstVar [7, 2] (intToAstVarId 100000000)
   length (show t2) @?= 314
-  length (show (simplifyAst @Float t1)) @?= 441
-  length (show (simplifyAst @Float t2)) @?= 314
+  length (show (simplifyAst6 @Float t1)) @?= 441
+  length (show (simplifyAst6 @Float t2)) @?= 314
 
 scatterNested12 :: forall r. ADReady r
                => TensorOf 2 r -> TensorOf 2 r
@@ -591,5 +591,5 @@ testScatterSimp12 = do
   resetVarCounter
   let !t2 = scatter12 $ AstVar [7, 2] (intToAstVarId 100000000)
   length (show t2) @?= 314
-  length (show (simplifyAst @Float t1)) @?= 389
-  length (show (simplifyAst @Float t2)) @?= 314
+  length (show (simplifyAst6 @Float t1)) @?= 389
+  length (show (simplifyAst6 @Float t2)) @?= 314

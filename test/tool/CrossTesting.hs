@@ -58,7 +58,7 @@ rev' f vals =
       (astGrad, value2) = revOnDomains dt (h id id id) (toDomains vals)
       gradient2 = parseDomains vals astGrad
       (astSimple, value3) =
-        revOnDomains dt (h id id simplifyAst) (toDomains vals)
+        revOnDomains dt (h id id simplifyAst6) (toDomains vals)
       gradient3 = parseDomains vals astSimple
       (astPrimal, value4) =
         revOnDomains dt (h unAstNoVectorize AstNoVectorize id)
@@ -67,12 +67,12 @@ rev' f vals =
           -- and then interpret the results as the Ast instance
       gradient4 = parseDomains vals astPrimal
       (astPSimple, value5) =
-        revOnDomains dt (h unAstNoVectorize AstNoVectorize simplifyAst)
+        revOnDomains dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
                         (toDomains vals)
       gradient5 = parseDomains vals astPSimple
-      astVectSimp = simplifyAst $ snd $ funToAstR (tshape vals) f
+      astVectSimp = simplifyAst6 $ snd $ funToAstR (tshape vals) f
       astSimp =
-        simplifyAst $ snd
+        simplifyAst6 $ snd
         $ funToAstR (tshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady x
@@ -87,14 +87,14 @@ rev' f vals =
         revAstOnDomains (hAst id id id) (toDomains vals) dt
       gradient2Ast = parseDomains vals astGradAst
       (astSimpleAst, value3Ast) =
-        revAstOnDomains (hAst id id simplifyAst) (toDomains vals) dt
+        revAstOnDomains (hAst id id simplifyAst6) (toDomains vals) dt
       gradient3Ast = parseDomains vals astSimpleAst
       (astPrimalAst, value4Ast) =
         revAstOnDomains (hAst unAstNoVectorize AstNoVectorize id)
                         (toDomains vals) dt
       gradient4Ast = parseDomains vals astPrimalAst
       (astPSimpleAst, value5Ast) =
-        revAstOnDomains (hAst unAstNoVectorize AstNoVectorize simplifyAst)
+        revAstOnDomains (hAst unAstNoVectorize AstNoVectorize simplifyAst6)
                         (toDomains vals) dt
       gradient5Ast = parseDomains vals astPSimpleAst
   in ( value0, value1, value2, value3, value4, value5
@@ -144,8 +144,8 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Val ADVal Ast" errMargin value0 value9
   assertEqualUpToEpsilonWithMark "Grad ADVal Ast" errMargin expected gradient9
   -- No Eq instance, so let's compare the text.
-  show (simplifyAst astVectSimp) @?= show astVectSimp
-  show (simplifyAst astSimp) @?= show astSimp
+  show (simplifyAst6 astVectSimp) @?= show astVectSimp
+  show (simplifyAst6 astSimp) @?= show astSimp
 
 assertEqualUpToEpsilonShort
     :: ( AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon b
@@ -178,8 +178,8 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp"
                                  errMargin expected gradient3Ast
   -- No Eq instance, so let's compare the text.
-  show (simplifyAst astVectSimp) @?= show astVectSimp
-  show (simplifyAst astSimp) @?= show astSimp
+  show (simplifyAst6 astVectSimp) @?= show astVectSimp
+  show (simplifyAst6 astSimp) @?= show astSimp
 
 t16 :: (Numeric r, Fractional r) => OR.Array 5 r
 t16 = OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
