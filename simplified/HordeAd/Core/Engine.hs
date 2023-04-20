@@ -28,6 +28,7 @@ import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta

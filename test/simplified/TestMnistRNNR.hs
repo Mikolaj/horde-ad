@@ -18,8 +18,8 @@ import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
-import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex

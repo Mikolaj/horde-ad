@@ -21,6 +21,7 @@ import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, type (+))
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
 import HordeAd.Core.DualClass

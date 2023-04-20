@@ -13,28 +13,23 @@
 -- of the original terms provided by the user as possible while making
 -- sure everything introduced by vectorization is maximally simplified.
 module HordeAd.Core.AstSimplify
-  ( simplifyPermutation
-  , astRegisterFun, astRegisterADShare
-  , funToAstR, funToAstD, ADAstVars, funToAstAll, funToAstI, funToAstIndex
+  ( ShowAstSimplify
+  , simplifyPermutation
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
   , astLet, astSum, astScatter, astFromList, astFromVector, astKonst
   , astAppend, astSlice, astReverse, astFromDynamic, astConstant, astDomainsLet
   , astIntCond
-  , ShowAstSimplify, simplifyArtifact6, simplifyAst6, simplifyAstDomains6
+  , simplifyArtifact6, simplifyAst6, simplifyAstDomains6
   , unletAstDomains6, unletAst6
   , substituteAst, substituteAstInt, substituteAstBool
-  , resetVarCounter
   ) where
 
 import Prelude
 
-import           Control.Monad (replicateM)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.EnumSet as ES
-import           Data.IORef.Unboxed
-  (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.List (dropWhileEnd, foldl')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -58,130 +53,13 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstFreshId
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
 type ShowAstSimplify r = (ShowAst r, Num (Vector r))
-
-
--- * Permutation operations
-
-simplifyPermutation :: Permutation -> Permutation
-simplifyPermutation perm =
-  map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
-
--- A representation of a cycle backpermutation.
-backpermCycle :: Int -> Permutation
-backpermCycle 0 = []
-backpermCycle 1 = []
-backpermCycle n = [k `mod` n | k <- [1 .. n]]
-
--- A representation of a cycle permutation.
--- TODO: make sure and state if it's reverse to the above and, if not, why.
-permCycle :: Int -> Permutation
-permCycle 0 = []
-permCycle 1 = []
-permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
-
-
--- * Generating variables names
-
--- Impure but in the most trivial way (only ever incremented counter).
-unsafeAstVarCounter :: Counter
-{-# NOINLINE unsafeAstVarCounter #-}
-unsafeAstVarCounter = unsafePerformIO (newCounter 100000001)
-
--- Only for tests, e.g., to ensure show applied to terms has stable length.
--- Tests using this need to be run with -ftest_seq to avoid variable confusion.
-resetVarCounter :: IO ()
-resetVarCounter = writeIORefU unsafeAstVarCounter 100000001
-
-unsafeGetFreshAstVarId :: IO AstVarId
-{-# INLINE unsafeGetFreshAstVarId #-}
-unsafeGetFreshAstVarId =
-  intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
-
-astRegisterFun :: (ShowAst r, KnownNat n)
-               => Ast n r -> [(AstVarId, AstDynamic r)]
-               -> ([(AstVarId, AstDynamic r)], Ast n r)
-{-# NOINLINE astRegisterFun #-}
-astRegisterFun !r@AstVar{} !l = (l, r)
-astRegisterFun r l = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
-  let !r2 = AstVar (shapeAst r) freshId
-  return ((freshId, AstDynamic r) : l, r2)
-
-astRegisterADShare :: (ShowAst r, KnownNat n)
-                   => Ast n r -> ADShare (Ast0 r)
-                   -> (ADShare (Ast0 r), Ast n r)
-{-# NOINLINE astRegisterADShare #-}
-astRegisterADShare !r@AstVar{} !l = (l, r)
-astRegisterADShare r l = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
-  let !l2 = insertADShare freshId (AstDynamic r) l
-      !r2 = AstVar (shapeAst r) freshId
-  return (l2, r2)
-
-funToAstRIO :: ShapeInt n -> (Ast n r -> Ast m r)
-            -> IO (AstVarName (OR.Array n r), Ast m r)
-{-# INLINE funToAstRIO #-}
-funToAstRIO sh f = do
-  freshId <- unsafeGetFreshAstVarId
-  return (AstVarName freshId, f (AstVar sh freshId))
-
-funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
-          -> (AstVarName (OR.Array n r), Ast m r)
-{-# NOINLINE funToAstR #-}
-funToAstR sh f = unsafePerformIO $ funToAstRIO sh f
-
-funToAstRshIO :: IO (AstVarName (OR.Array n r), ShapeInt n -> Ast n r)
-{-# INLINE funToAstRshIO #-}
-funToAstRshIO = do
-  freshId <- unsafeGetFreshAstVarId
-  return (AstVarName freshId, \sh -> AstVar sh freshId)
-
--- The "fun"ction in this case is fixed to be @id@.
-funToAstDIO :: forall r. [Int] -> IO (AstDynamicVarName r, AstDynamic r)
-{-# INLINE funToAstDIO #-}
-funToAstDIO sh = do
-  freshId <- unsafeGetFreshAstVarId
-  return $! case someNatVal $ toInteger $ length sh of
-    Just (SomeNat (_proxy :: Proxy p)) ->
-      let shn = listShapeToShape @p sh
-          varName = AstVarName @(OR.Array p r) freshId
-      in (AstDynamicVarName varName, AstDynamic (AstVar shn freshId))
-    Nothing -> error "funToAstD: impossible someNatVal error"
-
-funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
-{-# NOINLINE funToAstD #-}
-funToAstD sh = unsafePerformIO $ funToAstDIO sh
-
-type ADAstVars n r = ( Ast 1 r
-                     , ShapeInt n -> Ast n r
-                     , [AstDynamic r] )
-
-funToAstAll :: ShapeInt 1 -> [[Int]] -> (ADAstVarNames n r, ADAstVars n r)
-{-# NOINLINE funToAstAll #-}
-funToAstAll sh shapes1 = unsafePerformIO $ do
-  (vn0, v0) <- funToAstRIO sh id
-  (vnDt, vDt) <- funToAstRshIO
-  (vn1, v1) <- unzip <$> (mapM funToAstDIO shapes1)
-  return ((vn0, vnDt, vn1), (v0, vDt, v1))
-
-funToAstI :: (AstInt r -> t) -> (AstVarId, t)
-{-# NOINLINE funToAstI #-}
-funToAstI f = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
-  return (freshId, f (AstIntVar freshId))
-
-funToAstIndex :: forall m p r. KnownNat m
-              => (AstIndex m r -> AstIndex p r) -> (AstVarList m, AstIndex p r)
-{-# NOINLINE funToAstIndex #-}
-funToAstIndex f = unsafePerformIO $ do
-  varList <- replicateM (valueOf @m) unsafeGetFreshAstVarId
-  return (listToSized varList, f (listToIndex $ map AstIntVar varList))
 
 
 -- * Expressing operations as Gather; introduces new variable names
@@ -196,22 +74,19 @@ astTransposeAsGather
 {-# NOINLINE astTransposeAsGather #-}
 astTransposeAsGather perm v = unsafePerformIO $ do
   let p = length perm
-  varList <- replicateM p unsafeGetFreshAstVarId
-  return $! case someNatVal $ toInteger p of
-    Just (SomeNat (_proxy :: Proxy p)) ->
-      let vars :: AstVarList p
-          vars = listToSized varList
-          intVars = listToIndex $ map AstIntVar varList
-          asts :: AstIndex p r
-          asts = permutePrefixIndex perm intVars
-      in case cmpNat (Proxy @p) (Proxy @n) of
-           EQI -> astGatherZ @p @(n - p)
-                             (backpermutePrefixShape perm (shapeAst v)) v
-                             (vars, asts)
-           LTI -> astGatherZ @p @(n - p)
-                             (backpermutePrefixShape perm (shapeAst v)) v
-                             (vars, asts)
-           _ -> error "astTransposeAsGather: permutation longer than rank"
+  case someNatVal $ toInteger p of
+    Just (SomeNat (_proxy :: Proxy p)) -> do
+      (vars, ix) <- funToAstIndexIO p id
+      let asts :: AstIndex p r
+          asts = permutePrefixIndex perm ix
+      return $! case cmpNat (Proxy @p) (Proxy @n) of
+        EQI -> astGatherZ @p @(n - p)
+                          (backpermutePrefixShape perm (shapeAst v)) v
+                          (vars, asts)
+        LTI -> astGatherZ @p @(n - p)
+                          (backpermutePrefixShape perm (shapeAst v)) v
+                          (vars, asts)
+        _ -> error "astTransposeAsGather: permutation longer than rank"
     Nothing -> error "astTransposeAsGather: impossible someNatVal error"
 
 -- This generates big terms that don't simplify well,
@@ -244,17 +119,33 @@ astReshapeAsGather
   => ShapeInt m -> Ast p r -> Ast m r
 {-# NOINLINE astReshapeAsGather #-}
 astReshapeAsGather shOut v = unsafePerformIO $ do
-  varList <- replicateM (lengthShape shOut) unsafeGetFreshAstVarId
+  (vars, ix) <- funToAstIndexIO (lengthShape shOut) id
   let shIn = shapeAst v
-      vars :: AstVarList m
-      vars = listToSized varList
-      ix :: AstIndex m r
-      ix = listToIndex $ map AstIntVar varList
       asts :: AstIndex p r
       asts = let i = toLinearIdx @m @0 shOut ix
              in fmap simplifyAstInt $ fromLinearIdx shIn i
                   -- we generate these, so we simplify
   return $! astGatherZ @m @0 shOut v (vars, asts)
+
+
+-- * Permutation operations
+
+simplifyPermutation :: Permutation -> Permutation
+simplifyPermutation perm =
+  map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
+
+-- A representation of a cycle backpermutation.
+backpermCycle :: Int -> Permutation
+backpermCycle 0 = []
+backpermCycle 1 = []
+backpermCycle n = [k `mod` n | k <- [1 .. n]]
+
+-- A representation of a cycle permutation.
+-- TODO: make sure and state if it's reverse to the above and, if not, why.
+permCycle :: Int -> Permutation
+permCycle 0 = []
+permCycle 1 = []
+permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
 
 
 -- * The simplifying combinators

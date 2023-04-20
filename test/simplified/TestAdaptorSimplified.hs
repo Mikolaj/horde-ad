@@ -16,6 +16,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualClass

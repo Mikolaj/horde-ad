@@ -44,7 +44,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.AstSimplify
+import HordeAd.Core.AstFreshId
 import HordeAd.Core.Delta
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
