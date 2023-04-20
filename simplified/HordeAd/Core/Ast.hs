@@ -611,6 +611,11 @@ intVarInIndex var = any (intVarInAstInt var)
 
 -- * Substitution
 
+-- TODO: We assume no variable is shared between a binding and its nested binding
+-- and nobody substitutes into variables that are bound.
+-- This keeps the substitution code simple, because we never need to compare
+-- variables to any variable in the bindings.
+--
 -- The Either is a hack until we merge Ast and AstInt.
 substitute1Ast :: forall m n r. (ShowAst r, KnownNat m, KnownNat n)
                => Either (Ast m r) (AstInt r) -> AstVarId -> Ast n r
@@ -624,9 +629,7 @@ substitute1Ast i var v1 = case v1 of
       _ -> error "substitute1Ast: n"
     else v1
   AstLet var2 u v ->
-    if var == var2
-    then AstLet var2 (substitute1Ast i var u) v
-    else AstLet var2 (substitute1Ast i var u) (substitute1Ast i var v)
+    AstLet var2 (substitute1Ast i var u) (substitute1Ast i var v)
   AstLetADShare{} -> error "substitute1Ast: AstLetADShare"
   AstOp opCode args -> AstOp opCode $ map (substitute1Ast i var) args
   AstSumOfList args -> AstSumOfList $ map (substitute1Ast i var) args
@@ -635,10 +638,8 @@ substitute1Ast i var v1 = case v1 of
     AstIndexZ (substitute1Ast i var v) (fmap (substitute1AstInt i var) is)
   AstSum v -> AstSum (substitute1Ast i var v)
   AstScatter sh v (vars, ix) ->
-    if elem var vars
-    then AstScatter sh (substitute1Ast i var v) (vars, ix)
-    else AstScatter sh (substitute1Ast i var v)
-                       (vars, fmap (substitute1AstInt i var) ix)
+    AstScatter sh (substitute1Ast i var v)
+                  (vars, fmap (substitute1AstInt i var) ix)
   AstFromList l -> AstFromList $ map (substitute1Ast i var) l
   AstFromVector l -> AstFromVector $ V.map (substitute1Ast i var) l
   AstKonst s v -> AstKonst s (substitute1Ast i var v)
@@ -647,15 +648,10 @@ substitute1Ast i var v1 = case v1 of
   AstReverse v -> AstReverse (substitute1Ast i var v)
   AstTranspose perm v -> AstTranspose perm (substitute1Ast i var v)
   AstReshape sh v -> AstReshape sh (substitute1Ast i var v)
-  AstBuild1 k (var2, v) ->
-    if var == var2
-    then v1
-    else AstBuild1 k (var2, substitute1Ast i var v)
+  AstBuild1 k (var2, v) -> AstBuild1 k (var2, substitute1Ast i var v)
   AstGatherZ sh v (vars, ix) ->
-    if elem var vars
-    then AstGatherZ sh (substitute1Ast i var v) (vars, ix)
-    else AstGatherZ sh (substitute1Ast i var v)
-                       (vars, fmap (substitute1AstInt i var) ix)
+    AstGatherZ sh (substitute1Ast i var v)
+                  (vars, fmap (substitute1AstInt i var) ix)
   AstConst _a -> v1
   AstConstant (AstPrimalPart a) ->
     AstConstant (AstPrimalPart $ substitute1Ast i var a)
@@ -663,10 +659,8 @@ substitute1Ast i var v1 = case v1 of
     AstD (AstPrimalPart $ substitute1Ast i var u)
          (AstDualPart $ substitute1Ast i var u')
   AstLetDomains vars l v ->
-    if elem var vars
-    then AstLetDomains vars (substitute1AstDomains i var l) v
-    else AstLetDomains vars (substitute1AstDomains i var l)
-                            (substitute1Ast i var v)
+    AstLetDomains vars (substitute1AstDomains i var l)
+                       (substitute1Ast i var v)
 
 substitute1AstDynamic
   :: (ShowAst r, KnownNat m)
@@ -681,10 +675,8 @@ substitute1AstDomains
 substitute1AstDomains i var v1 = case v1 of
   AstDomains l -> AstDomains $ V.map (substitute1AstDynamic i var) l
   AstDomainsLet var2 u v ->
-    if var == var2
-    then AstDomainsLet var2 (substitute1Ast i var u) v
-    else AstDomainsLet var2 (substitute1Ast i var u)
-                            (substitute1AstDomains i var v)
+    AstDomainsLet var2 (substitute1Ast i var u)
+                       (substitute1AstDomains i var v)
 
 substitute1AstInt :: forall m r. (ShowAst r, KnownNat m)
                   => Either (Ast m r) (AstInt r) -> AstVarId -> AstInt r
