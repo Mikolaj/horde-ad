@@ -52,6 +52,12 @@ extendEnvD :: (DynamicTensor a, Tensor a)
            -> AstEnv a
 extendEnvD (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
 
+extendEnvDId :: AstVarId -> DTensorOf a -> AstEnv a
+             -> AstEnv a
+extendEnvDId var d =
+  EM.insertWithKey (\_ _ _ -> error $ "extendEnvDId: duplicate " ++ show var)
+                   var (AstVarR d)
+
 extendEnvI :: AstVarId -> IntOf a -> AstEnv a -> AstEnv a
 extendEnvI var i =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
@@ -177,20 +183,11 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
       error $ "interpretAst: type mismatch for " ++ show var
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
-    -- This optimization is sound, because there is no mechanism
-    -- that would nest lets with the same variable (e.g., our lets always
-    -- bind fresh variables at creation time and we never substitute
-    -- a term into the same term). If that changes, let's refresh
-    -- let variables whenever substituting into let bodies.
-    -- See the same assumption in AstSimplify.
-    if EM.member var env
-    then interpretAst env memo v
-    else let (memo1, t) = interpretAst env memo u
-         in ( memo1
-            , tlet t (\w ->
-                snd $ interpretAst (EM.insert var (AstVarR $ dfromR w) env)
-                                              memo1 v) )
-                                                -- TODO: snd; env/state?
+    -- We assume there are no nested lets with the same variable.
+    let (memo1, t) = interpretAst env memo u
+        env2 w = extendEnvR (AstVarName var) w env
+    in (memo1, tlet t (\w -> snd $ interpretAst (env2 w) memo1 v))
+         -- TODO: snd; env/state?
   AstLetADShare{} -> error "interpretAst: AstLetADShare"
   AstOp TimesOp [v, AstReshape _ (AstKonst @m _ s)]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
@@ -199,6 +196,10 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
         in (memo2, tscaleByScalar (tunScalar t2) t1)
   AstOp TimesOp [v, AstLet var u (AstReshape sh (AstKonst @m k s))]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
+        -- The intVarInAst check is needed, because although variable
+        -- capture is impossible, because we don't create nested lets
+        -- with the same variable, we could create such nested lets
+        -- if we omitted this check.
         interpretAst env memo
           (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstKonst @m k s)]))
   AstOp TimesOp [v, AstReshape sh (AstLet var u (AstKonst @m k s))]
@@ -314,8 +315,7 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     in (memo2, tD t1 t2)
   AstLetDomains vars l v ->
     let (memo2, l2) = interpretAstDomains env memo l
-        env2 = V.foldr (\(var, d) -> EM.insert var (AstVarR d))
-                       env (V.zip vars l2)
+        env2 = V.foldr (\(var, d) -> extendEnvDId var d) env (V.zip vars l2)
     in interpretAst env2 memo2 v
 
 interpretAstDynamic
@@ -334,8 +334,8 @@ interpretAstDomains env memo = \case
   AstDomains l -> mapAccumR (interpretAstDynamic env) memo l
   AstDomainsLet var u v ->
     let (memo2, t) = interpretAst env memo u
-    in interpretAstDomains (EM.insert var (AstVarR $ dfromR t) env)
-                           memo2 v
+        env2 = extendEnvR (AstVarName var) t env
+    in interpretAstDomains env2 memo2 v
       -- TODO: preserve let, as in AstLet case
 
 interpretAstInt :: Evidence a
@@ -392,8 +392,8 @@ interpretAstDomainsDummy env memo = \case
   AstDomains l -> mapAccumR (interpretAstDynamicDummy env) memo l
   AstDomainsLet var u v ->
     let (memo2, t) = interpretAst env memo u
-    in interpretAstDomainsDummy (EM.insert var (AstVarR $ dfromR t) env)
-                                memo2 v
+        env2 = extendEnvR (AstVarName var) t env
+    in interpretAstDomains env2 memo2 v
       -- TODO: preserve let, as in AstLet case
 
 -- TODO: when the code again compiles with GHC >= 9.6, check whether
