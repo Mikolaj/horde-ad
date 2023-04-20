@@ -63,8 +63,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
-type ShowAstSimplify r =
-  (ShowAst r, Num (Vector r), DTensorOf (Ast0 r) ~ AstDynamic r)
+type ShowAstSimplify r = (ShowAst r, Num (Vector r))
 
 
 -- * Permutation operations
@@ -114,7 +113,7 @@ astRegisterFun r l = unsafePerformIO $ do
   let !r2 = AstVar (shapeAst r) freshId
   return ((freshId, AstDynamic r) : l, r2)
 
-astRegisterADShare :: (ShowAst r, KnownNat n, DTensorOf (Ast0 r) ~ AstDynamic r)
+astRegisterADShare :: (ShowAst r, KnownNat n)
                    => Ast n r -> ADShare (Ast0 r)
                    -> (ADShare (Ast0 r), Ast n r)
 {-# NOINLINE astRegisterADShare #-}

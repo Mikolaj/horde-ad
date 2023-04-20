@@ -32,6 +32,7 @@ import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           Data.Either (fromLeft, fromRight)
 import           Data.Kind (Type)
+import           Data.List (foldl', intersperse)
 import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Strict.IntMap (IntMap)
@@ -56,7 +57,7 @@ type ADAstVarNames n r = ( AstVarName (OR.Array 1 r)
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 n r = (ADAstVarNames n r, AstDomains r, Ast n r)
 
-type ShowAst r = (Show r, Numeric r)
+type ShowAst r = (Show r, Numeric r, DTensorOf (Ast0 r) ~ AstDynamic r)
 
 type AstIndex n r = Index n (AstInt r)
 
@@ -747,30 +748,38 @@ defaulPrintConfig prettifyLosingSharing renames =
   in PrintConfig {..}
 
 -- Precedences used are as in Haskell.
-printAst :: ShowAst r => PrintConfig -> Int -> Ast n r -> ShowS
+printAst :: forall n r. ShowAst r => PrintConfig -> Int -> Ast n r -> ShowS
 printAst cfg d = \case
   AstVar _sh var -> printAstVar cfg var
-  AstLet var u v ->
+  t@(AstLet var0 u0 v0) ->
     if prettifyLosingSharing cfg
-    then
-      showParen (d > 0)
-      $ showString "let "
-        . printAstVar cfg var
-        . showString " = "
-        . printAst cfg 0 u
-        . showString " in "
-        . printAst cfg 0 v
+    then let collect :: Ast n r -> ([(ShowS, ShowS)], ShowS)
+             collect (AstLet var u v) =
+               let name = printAstVar cfg var
+                   uPP = printAst cfg 0 u
+                   (rest, corePP) = collect v
+               in ((name, uPP) : rest, corePP)
+             collect v = ([], printAst cfg 0 v)
+             (pairs, core) = collect t
+         in showParen (d > 0)
+            $ showString "let "
+              . foldr (.) id (intersperse (showString " ; ")
+                  [name . showString " = " . uPP | (name, uPP) <- pairs])
+              . showString " in "
+              . core
     else
       showParen (d > 10)
       $ showString "tlet "
-        . printAst cfg 11 u
+        . printAst cfg 11 u0
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVar cfg var
+             . printAstVar cfg var0
              . showString " -> "
-             . printAst cfg 0 v)
-  AstLetADShare{} -> error "printAst: AstLetADShare"
+             . printAst cfg 0 v0)
+  AstLetADShare l v ->
+    let bindToLet g (var, AstDynamic u) = AstLet var u g
+    in printAst cfg d $ foldl' bindToLet v (assocsADShare l)
   AstOp opCode args -> printAstOp cfg d opCode args
   AstSumOfList [] -> error "printAst: empty AstSumOfList"
   AstSumOfList (left : args) ->
@@ -880,7 +889,7 @@ printAstDynamic cfg d (AstDynamic v) =
 printAstUnDynamic :: ShowAst r => PrintConfig -> Int -> AstDynamic r -> ShowS
 printAstUnDynamic cfg d (AstDynamic v) = printAst cfg d v
 
-printAstDomains :: ShowAst r
+printAstDomains :: forall r. ShowAst r
                 => PrintConfig -> Int -> AstDomains r -> ShowS
 printAstDomains cfg d = \case
   AstDomains l ->
@@ -893,26 +902,32 @@ printAstDomains cfg d = \case
         . (showParen True
            $ showString "fromList "
              . showListWith (printAstDynamic cfg 0) (V.toList l))
-  AstDomainsLet var u v ->
+  t@(AstDomainsLet var0 u0 v0) ->
     if prettifyLosingSharing cfg
-    then
-      showParen (d > 0)
-      $ showString "let "
-        . printAstVar cfg var
-        . showString " = "
-        . printAst cfg 0 u
-        . showString " in "
-        . printAstDomains cfg 0 v
+    then let collect :: AstDomains r -> ([(ShowS, ShowS)], ShowS)
+             collect (AstDomainsLet var u v) =
+               let name = printAstVar cfg var
+                   uPP = printAst cfg 0 u
+                   (rest, corePP) = collect v
+               in ((name, uPP) : rest, corePP)
+             collect v = ([], printAstDomains cfg 0 v)
+             (pairs, core) = collect t
+         in showParen (d > 0)
+            $ showString "let "
+              . foldr (.) id (intersperse (showString " ; ")
+                  [name . showString " = " . uPP | (name, uPP) <- pairs])
+              . showString " in "
+              . core
     else
       showParen (d > 10)
       $ showString "dlet "
-        . printAst cfg 11 u
+        . printAst cfg 11 u0
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVar cfg var
+             . printAstVar cfg var0
              . showString " -> "
-             . printAstDomains cfg 0 v)
+             . printAstDomains cfg 0 v0)
 
 printAstInt :: ShowAst r => PrintConfig -> Int -> AstInt r -> ShowS
 printAstInt cfg d = \case
