@@ -551,18 +551,21 @@ lengthAst v1 = case shapeAst v1 of
 
 -- * Variable occurence detection
 
+-- We assume no variable is shared between a binding and its nested binding
+-- and nobody asks about occurences of variables that are bound.
+-- This keeps the occurence checking code simple, because we never need
+-- to compare variables to any variable in the bindings.
 intVarInAst :: AstVarId -> Ast n r -> Bool
 intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
-  AstLet var2 u v -> intVarInAst var u || var /= var2 && intVarInAst var v
+  AstLet _var2 u v -> intVarInAst var u || intVarInAst var v
   AstLetADShare{} -> error "intVarInAst: AstLetADShare"
   AstOp _ l -> any (intVarInAst var) l
   AstSumOfList l -> any (intVarInAst var) l
   AstIota -> False
   AstIndexZ v ix -> intVarInAst var v || intVarInIndex var ix
   AstSum v -> intVarInAst var v
-  AstScatter _ v (vars, ix) -> notElem var vars && intVarInIndex var ix
-                               || intVarInAst var v
+  AstScatter _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
   AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
   AstFromVector vl -> any (intVarInAst var) $ V.toList vl
   AstKonst _ v -> intVarInAst var v
@@ -571,21 +574,18 @@ intVarInAst var = \case
   AstReverse v -> intVarInAst var v
   AstTranspose _ v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
-  AstBuild1 _ (var2, v) -> var /= var2 && intVarInAst var v
-  AstGatherZ _ v (vars, ix) -> notElem var vars && intVarInIndex var ix
-                               || intVarInAst var v
+  AstBuild1 _ (_var2, v) -> intVarInAst var v
+  AstGatherZ _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
   AstConst{} -> False
   AstConstant (AstPrimalPart v) -> intVarInAst var v
   AstD (AstPrimalPart u) (AstDualPart u') ->
     intVarInAst var u || intVarInAst var u'
-  AstLetDomains vars l v ->
-    intVarInAstDomains var l || notElem var vars && intVarInAst var v
+  AstLetDomains _vars l v -> intVarInAstDomains var l || intVarInAst var v
 
 intVarInAstDomains :: AstVarId -> AstDomains r -> Bool
 intVarInAstDomains var = \case
   AstDomains l -> any (\(AstDynamic t) -> intVarInAst var t) l
-  AstDomainsLet var2 u v ->
-    intVarInAst var u || var /= var2 && intVarInAstDomains var v
+  AstDomainsLet _var2 u v -> intVarInAst var u || intVarInAstDomains var v
 
 intVarInAstInt :: AstVarId -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -611,7 +611,7 @@ intVarInIndex var = any (intVarInAstInt var)
 
 -- * Substitution
 
--- TODO: We assume no variable is shared between a binding and its nested binding
+-- We assume no variable is shared between a binding and its nested binding
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
