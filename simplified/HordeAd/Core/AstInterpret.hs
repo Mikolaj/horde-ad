@@ -177,9 +177,11 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
       error $ "interpretAst: type mismatch for " ++ show var
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
-    -- This optimization is probably sound, because there is no mechanism
-    -- that would nest lets with the same variable. If that proves false,
-    -- let's refresh let variables whenever substituting into let bodies.
+    -- This optimization is sound, because there is no mechanism
+    -- that would nest lets with the same variable (e.g., our lets always
+    -- bind fresh variables at creation time and we never substitute
+    -- a term into the same term). If that changes, let's refresh
+    -- let variables whenever substituting into let bodies.
     -- See the same assumption in AstSimplify.
     if EM.member var env
     then interpretAst env memo v
