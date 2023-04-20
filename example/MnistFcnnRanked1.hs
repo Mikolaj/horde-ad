@@ -13,15 +13,6 @@ import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData
 
-sumTrainableInputsL
-  :: forall r. Tensor r
-  => TensorOf 1 r -> [TensorOf 1 r]
-  -> TensorOf 1 r
-sumTrainableInputsL x0 weights = tlet x0 $ \x ->
-  let f :: TensorOf 1 r -> TensorOf 0 r
-      f v = v `tdot0` x
-  in tfromList $ map f weights
-
 afcnnMnistLen1 :: Int -> Int -> [Int]
 afcnnMnistLen1 widthHidden widthHidden2 =
   replicate widthHidden sizeMnistGlyphInt ++ [widthHidden]
@@ -38,6 +29,15 @@ type ADFcnnMnist1Parameters r =
     , TensorOf 1 r )  -- length @sizeMnistLabelInt@
   )
 
+listMatmul1
+  :: forall r. Tensor r
+  => TensorOf 1 r -> [TensorOf 1 r]
+  -> TensorOf 1 r
+listMatmul1 x0 weights = tlet x0 $ \x ->
+  let f :: TensorOf 1 r -> TensorOf 0 r
+      f v = v `tdot0` x
+  in tfromList $ map f weights
+
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.
 -- The output layer uses a different activation function.
@@ -48,8 +48,7 @@ type ADFcnnMnist1Parameters r =
 afcnnMnist1 :: ADReady r
             => (TensorOf 1 r -> TensorOf 1 r)
             -> (TensorOf 1 r -> TensorOf 1 r)
-            -> Int
-            -> Int
+            -> Int -> Int
             -> TensorOf 1 r
             -> ADFcnnMnist1Parameters r
             -> TensorOf 1 r
@@ -59,11 +58,11 @@ afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
                     && length hidden == widthHidden
                     && length hidden2 == widthHidden2) ()
 -- TODO: disabled for tests:  && length readout == sizeMnistLabelInt) ()
-      hiddenLayer1 = sumTrainableInputsL datum hidden + bias
+      hiddenLayer1 = listMatmul1 datum hidden + bias
       nonlinearLayer1 = factivationHidden hiddenLayer1
-      hiddenLayer2 = sumTrainableInputsL nonlinearLayer1 hidden2 + bias2
+      hiddenLayer2 = listMatmul1 nonlinearLayer1 hidden2 + bias2
       nonlinearLayer2 = factivationHidden hiddenLayer2
-      outputLayer = sumTrainableInputsL nonlinearLayer2 readout + biasr
+      outputLayer = listMatmul1 nonlinearLayer2 readout + biasr
   in factivationOutput outputLayer
 
 -- | The neural network applied to concrete activation functions
@@ -90,7 +89,8 @@ afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
 -- and the trained parameters.
 afcnnMnistTest1
   :: forall r. (ADReady r, Numeric r)
-  => Int -> Int -> [MnistData (ScalarOf r)]
+  => Int -> Int
+  -> [MnistData (ScalarOf r)]
   -> ((ADFcnnMnist1Parameters r
        -> TensorOf 1 r)
       -> Vector r)
