@@ -745,83 +745,98 @@ tensorADOnceMnistTests2 = testGroup "ShortRankedOnce2 MNIST tests"
 tensorMnistTestsPP :: TestTree
 tensorMnistTestsPP = testGroup "PP tests for Short Ranked MNIST tests"
   [ testCase "VTOPP" testVTOPP
+  , testCase "VTOPPNonLin" testVTOPPNonLin
   , testCase "VT2OPP" testVT2OPP
+  , testCase "VT2OPPNonLin" testVT2OPPNonLin
   ]
+
+valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters Double
+valsInitVTOPP =
+  ( ( replicate 3 (OR.fromList [3] [1, 2, 3])
+    , OR.fromList [3] [1, 2, 3] )
+  , ( replicate 4 (OR.fromList [4] [1, 2, 3, 4])
+    , OR.fromList [4] [1, 2, 3, 4] )
+  , ( replicate 5 (OR.fromList [5] [1, 2, 3, 4, 5])
+    , OR.fromList [5] [1, 2, 3, 4, 5] ) )
 
 testVTOPP :: Assertion
 testVTOPP = do
   resetVarCounter
   let renames = IM.empty
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters Double
-      valsInit =
-        ( ( replicate 2 (OR.fromList [2] [1, 2])
-          , OR.fromList [2] [1, 2] )
-        , ( replicate 3 (OR.fromList [3] [1, 2, 3])
-          , OR.fromList [3] [1, 2, 3] )
-        , ( replicate 4 (OR.fromList [4] [1, 2, 3, 4])
-          , OR.fromList [4] [1, 2, 3, 4] ) )
       blackGlyph = AstKonst sizeMnistGlyphInt 7
       afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (Ast0 Double)
               -> TensorOf 1 (Ast0 Double)
-      afcnn2T = MnistFcnnRanked1.afcnnMnist1 id id 2 3 blackGlyph
+      afcnn2T = MnistFcnnRanked1.afcnnMnist1 id id 3 4 blackGlyph
+      (artifact6, _) = revDtFun afcnn2T valsInitVTOPP
+  printGradient6Pretty renames artifact6
+    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 -> let x21 = tkonst 784 (tconst 7.0) ; x22 = tfromList [tsum (x3 * x21), tsum (x4 * x21), tsum (x5 * x21)] + x6 ; x23 = tfromList [tsum (x7 * x22), tsum (x8 * x22), tsum (x9 * x22), tsum (x10 * x22)] + x11 ; x24 = dret ! [4] ; x25 = dret ! [3] ; x26 = dret ! [2] ; x27 = dret ! [1] ; x28 = dret ! [0] ; x29 = x12 * tkonst 5 x28 + x13 * tkonst 5 x27 + x14 * tkonst 5 x26 + x15 * tkonst 5 x25 + x16 * tkonst 5 x24 ; x30 = x29 ! [3] ; x31 = x29 ! [2] ; x32 = x29 ! [1] ; x33 = x29 ! [0] ; x34 = x7 * tkonst 4 x33 + x8 * tkonst 4 x32 + x9 * tkonst 4 x31 + x10 * tkonst 4 x30 ; x35 = x34 ! [2] ; x36 = x34 ! [1] ; x37 = x34 ! [0] in (tfromList [], x21 * tkonst 784 x37, x21 * tkonst 784 x36, x21 * tkonst 784 x35, x34, x22 * tkonst 3 x33, x22 * tkonst 3 x32, x22 * tkonst 3 x31, x22 * tkonst 3 x30, x29, x23 * tkonst 4 x28, x23 * tkonst 4 x27, x23 * tkonst 4 x26, x23 * tkonst 4 x25, x23 * tkonst 4 x24, dret)"
+  printPrimal6Pretty renames artifact6
+    @?= "\\s0 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 -> let x21 = tkonst 784 (tconst 7.0) ; x22 = tfromList [tsum (x3 * x21), tsum (x4 * x21), tsum (x5 * x21)] + x6 ; x23 = tfromList [tsum (x7 * x22), tsum (x8 * x22), tsum (x9 * x22), tsum (x10 * x22)] + x11 in tfromList [tsum (x12 * x23), tsum (x13 * x23), tsum (x14 * x23), tsum (x15 * x23), tsum (x16 * x23)] + x17"
+  printGradient6Pretty renames (simplifyArtifact6 artifact6)
+    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 -> let x21 = tconstant (tkonst 784 (tconst 7.0)) ; x22 = tfromList [tsum (x3 * x21), tsum (x4 * x21), tsum (x5 * x21)] + x6 ; x23 = tfromList [tsum (x7 * x22), tsum (x8 * x22), tsum (x9 * x22), tsum (x10 * x22)] + x11 ; x24 = dret ! [4] ; x25 = dret ! [3] ; x26 = dret ! [2] ; x27 = dret ! [1] ; x28 = dret ! [0] ; x29 = x12 * tkonst 5 x28 + x13 * tkonst 5 x27 + x14 * tkonst 5 x26 + x15 * tkonst 5 x25 + x16 * tkonst 5 x24 ; x30 = x29 ! [3] ; x31 = x29 ! [2] ; x32 = x29 ! [1] ; x33 = x29 ! [0] ; x34 = x7 * tkonst 4 x33 + x8 * tkonst 4 x32 + x9 * tkonst 4 x31 + x10 * tkonst 4 x30 ; x35 = x34 ! [2] ; x36 = x34 ! [1] ; x37 = x34 ! [0] in (tfromList [], x21 * tkonst 784 x37, x21 * tkonst 784 x36, x21 * tkonst 784 x35, x34, x22 * tkonst 3 x33, x22 * tkonst 3 x32, x22 * tkonst 3 x31, x22 * tkonst 3 x30, x29, x23 * tkonst 4 x28, x23 * tkonst 4 x27, x23 * tkonst 4 x26, x23 * tkonst 4 x25, x23 * tkonst 4 x24, dret)"
+  printPrimal6Pretty renames (simplifyArtifact6 artifact6)
+    @?= "\\s0 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 -> let x21 = tconstant (tkonst 784 (tconst 7.0)) ; x22 = tfromList [tsum (x3 * x21), tsum (x4 * x21), tsum (x5 * x21)] + x6 ; x23 = tfromList [tsum (x7 * x22), tsum (x8 * x22), tsum (x9 * x22), tsum (x10 * x22)] + x11 in tfromList [tsum (x12 * x23), tsum (x13 * x23), tsum (x14 * x23), tsum (x15 * x23), tsum (x16 * x23)] + x17"
+
+testVTOPPNonLin :: Assertion
+testVTOPPNonLin = do
+  resetVarCounter
+  let renames = IM.empty
+      blackGlyph = AstKonst sizeMnistGlyphInt 7
       afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters (Ast0 Double)
                     -> TensorOf 1 (Ast0 Double)
       afcnn2TnonLin =
-        MnistFcnnRanked1.afcnnMnist1 logistic softMaxV 2 3 blackGlyph
-  resetVarCounter
-  let (artifact6, _) = revDtFun afcnn2T valsInit
-  printGradient6Pretty renames artifact6
-    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> let x18 = tkonst 784 (tconst 7.0) ; x19 = tfromList [tsum (x3 * x18), tsum (x4 * x18)] + x5 ; x20 = tfromList [tsum (x6 * x19), tsum (x7 * x19), tsum (x8 * x19)] + x9 ; x21 = dret ! [3] ; x22 = dret ! [2] ; x23 = dret ! [1] ; x24 = dret ! [0] ; x25 = x10 * tkonst 4 x24 + x11 * tkonst 4 x23 + x12 * tkonst 4 x22 + x13 * tkonst 4 x21 ; x26 = x25 ! [2] ; x27 = x25 ! [1] ; x28 = x25 ! [0] ; x29 = x6 * tkonst 3 x28 + x7 * tkonst 3 x27 + x8 * tkonst 3 x26 ; x30 = x29 ! [1] ; x31 = x29 ! [0] in (tfromList [], x18 * tkonst 784 x31, x18 * tkonst 784 x30, x29, x19 * tkonst 2 x28, x19 * tkonst 2 x27, x19 * tkonst 2 x26, x25, x20 * tkonst 3 x24, x20 * tkonst 3 x23, x20 * tkonst 3 x22, x20 * tkonst 3 x21, dret)"
-  printPrimal6Pretty renames artifact6
-    @?= "\\s0 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> let x18 = tkonst 784 (tconst 7.0) ; x19 = tfromList [tsum (x3 * x18), tsum (x4 * x18)] + x5 ; x20 = tfromList [tsum (x6 * x19), tsum (x7 * x19), tsum (x8 * x19)] + x9 in tfromList [tsum (x10 * x20), tsum (x11 * x20), tsum (x12 * x20), tsum (x13 * x20)] + x14"
-  printGradient6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> let x18 = tconstant (tkonst 784 (tconst 7.0)) ; x19 = tfromList [tsum (x3 * x18), tsum (x4 * x18)] + x5 ; x20 = tfromList [tsum (x6 * x19), tsum (x7 * x19), tsum (x8 * x19)] + x9 ; x21 = dret ! [3] ; x22 = dret ! [2] ; x23 = dret ! [1] ; x24 = dret ! [0] ; x25 = x10 * tkonst 4 x24 + x11 * tkonst 4 x23 + x12 * tkonst 4 x22 + x13 * tkonst 4 x21 ; x26 = x25 ! [2] ; x27 = x25 ! [1] ; x28 = x25 ! [0] ; x29 = x6 * tkonst 3 x28 + x7 * tkonst 3 x27 + x8 * tkonst 3 x26 ; x30 = x29 ! [1] ; x31 = x29 ! [0] in (tfromList [], x18 * tkonst 784 x31, x18 * tkonst 784 x30, x29, x19 * tkonst 2 x28, x19 * tkonst 2 x27, x19 * tkonst 2 x26, x25, x20 * tkonst 3 x24, x20 * tkonst 3 x23, x20 * tkonst 3 x22, x20 * tkonst 3 x21, dret)"
-  printPrimal6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> let x18 = tconstant (tkonst 784 (tconst 7.0)) ; x19 = tfromList [tsum (x3 * x18), tsum (x4 * x18)] + x5 ; x20 = tfromList [tsum (x6 * x19), tsum (x7 * x19), tsum (x8 * x19)] + x9 in tfromList [tsum (x10 * x20), tsum (x11 * x20), tsum (x12 * x20), tsum (x13 * x20)] + x14"
-  resetVarCounter
-  let (artifact6nonLin, _) = revDtFun afcnn2TnonLin valsInit
+        MnistFcnnRanked1.afcnnMnist1 logistic softMaxV 3 4 blackGlyph
+      (artifact6nonLin, _) = revDtFun afcnn2TnonLin valsInitVTOPP
   printGradient6Pretty renames artifact6nonLin
-    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> let x23 = tkonst 784 (tconst 7.0) ; x24 = tfromList [tsum (x3 * x23), tsum (x4 * x23)] + x5 ; x27 = let x25 = exp (negate x24) ; x26 = tkonst 2 (tconst 1.0) + x25 in recip x26 ; x28 = tkonst 2 (tconst 1.0) - x27 ; x29 = x27 * x28 ; x30 = tfromList [tsum (x6 * x27), tsum (x7 * x27), tsum (x8 * x27)] + x9 ; x33 = let x31 = exp (negate x30) ; x32 = tkonst 3 (tconst 1.0) + x31 in recip x32 ; x34 = tkonst 3 (tconst 1.0) - x33 ; x35 = x33 * x34 ; x36 = exp (tfromList [tsum (x10 * x33), tsum (x11 * x33), tsum (x12 * x33), tsum (x13 * x33)] + x14) ; x37 = tsum x36 ; x38 = tkonst 4 (recip x37) ; x39 = x36 * (tkonst 4 (negate (recip (x37 * x37)) * tsum (x36 * dret)) + x38 * dret) ; x40 = x39 ! [3] ; x41 = x39 ! [2] ; x42 = x39 ! [1] ; x43 = x39 ! [0] ; x44 = x10 * tkonst 4 x43 + x11 * tkonst 4 x42 + x12 * tkonst 4 x41 + x13 * tkonst 4 x40 ; x45 = x33 * (x30 * x44) ; x46 = x35 * x44 ; x47 = x46 ! [2] ; x48 = x46 ! [1] ; x49 = x46 ! [0] ; x50 = x6 * tkonst 3 x49 + x7 * tkonst 3 x48 + x8 * tkonst 3 x47 ; x51 = x27 * (x24 * x50) ; x52 = x29 * x50 ; x53 = x52 ! [1] ; x54 = x52 ! [0] in (tfromList [], x23 * tkonst 784 x54, x23 * tkonst 784 x53, x52, x27 * tkonst 2 x49, x27 * tkonst 2 x48, x27 * tkonst 2 x47, x46, x33 * tkonst 3 x43, x33 * tkonst 3 x42, x33 * tkonst 3 x41, x33 * tkonst 3 x40, x39)"
+    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 -> let x26 = tkonst 784 (tconst 7.0) ; x27 = tfromList [tsum (x3 * x26), tsum (x4 * x26), tsum (x5 * x26)] + x6 ; x30 = let x28 = exp (negate x27) ; x29 = tkonst 3 (tconst 1.0) + x28 in recip x29 ; x31 = tkonst 3 (tconst 1.0) - x30 ; x32 = x30 * x31 ; x33 = tfromList [tsum (x7 * x30), tsum (x8 * x30), tsum (x9 * x30), tsum (x10 * x30)] + x11 ; x36 = let x34 = exp (negate x33) ; x35 = tkonst 4 (tconst 1.0) + x34 in recip x35 ; x37 = tkonst 4 (tconst 1.0) - x36 ; x38 = x36 * x37 ; x39 = exp (tfromList [tsum (x12 * x36), tsum (x13 * x36), tsum (x14 * x36), tsum (x15 * x36), tsum (x16 * x36)] + x17) ; x40 = tsum x39 ; x41 = tkonst 5 (recip x40) ; x42 = x39 * (tkonst 5 (negate (recip (x40 * x40)) * tsum (x39 * dret)) + x41 * dret) ; x43 = x42 ! [4] ; x44 = x42 ! [3] ; x45 = x42 ! [2] ; x46 = x42 ! [1] ; x47 = x42 ! [0] ; x48 = x12 * tkonst 5 x47 + x13 * tkonst 5 x46 + x14 * tkonst 5 x45 + x15 * tkonst 5 x44 + x16 * tkonst 5 x43 ; x49 = x36 * (x33 * x48) ; x50 = x38 * x48 ; x51 = x50 ! [3] ; x52 = x50 ! [2] ; x53 = x50 ! [1] ; x54 = x50 ! [0] ; x55 = x7 * tkonst 4 x54 + x8 * tkonst 4 x53 + x9 * tkonst 4 x52 + x10 * tkonst 4 x51 ; x56 = x30 * (x27 * x55) ; x57 = x32 * x55 ; x58 = x57 ! [2] ; x59 = x57 ! [1] ; x60 = x57 ! [0] in (tfromList [], x26 * tkonst 784 x60, x26 * tkonst 784 x59, x26 * tkonst 784 x58, x57, x30 * tkonst 3 x54, x30 * tkonst 3 x53, x30 * tkonst 3 x52, x30 * tkonst 3 x51, x50, x36 * tkonst 4 x47, x36 * tkonst 4 x46, x36 * tkonst 4 x45, x36 * tkonst 4 x44, x36 * tkonst 4 x43, x42)"
   printPrimal6Pretty renames artifact6nonLin
-    @?= "\\s0 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> let x23 = tkonst 784 (tconst 7.0) ; x24 = tfromList [tsum (x3 * x23), tsum (x4 * x23)] + x5 ; x27 = let x25 = exp (negate x24) ; x26 = tkonst 2 (tconst 1.0) + x25 in recip x26 ; x28 = tkonst 2 (tconst 1.0) - x27 ; x29 = x27 * x28 ; x30 = tfromList [tsum (x6 * x27), tsum (x7 * x27), tsum (x8 * x27)] + x9 ; x33 = let x31 = exp (negate x30) ; x32 = tkonst 3 (tconst 1.0) + x31 in recip x32 ; x34 = tkonst 3 (tconst 1.0) - x33 ; x35 = x33 * x34 ; x36 = exp (tfromList [tsum (x10 * x33), tsum (x11 * x33), tsum (x12 * x33), tsum (x13 * x33)] + x14) ; x37 = tsum x36 ; x38 = tkonst 4 (recip x37) in x38 * x36"
+    @?= "\\s0 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 -> let x26 = tkonst 784 (tconst 7.0) ; x27 = tfromList [tsum (x3 * x26), tsum (x4 * x26), tsum (x5 * x26)] + x6 ; x30 = let x28 = exp (negate x27) ; x29 = tkonst 3 (tconst 1.0) + x28 in recip x29 ; x31 = tkonst 3 (tconst 1.0) - x30 ; x32 = x30 * x31 ; x33 = tfromList [tsum (x7 * x30), tsum (x8 * x30), tsum (x9 * x30), tsum (x10 * x30)] + x11 ; x36 = let x34 = exp (negate x33) ; x35 = tkonst 4 (tconst 1.0) + x34 in recip x35 ; x37 = tkonst 4 (tconst 1.0) - x36 ; x38 = x36 * x37 ; x39 = exp (tfromList [tsum (x12 * x36), tsum (x13 * x36), tsum (x14 * x36), tsum (x15 * x36), tsum (x16 * x36)] + x17) ; x40 = tsum x39 ; x41 = tkonst 5 (recip x40) in x41 * x39"
   printGradient6Pretty renames (simplifyArtifact6 artifact6nonLin)
-    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> let x23 = tconstant (tkonst 784 (tconst 7.0)) ; x24 = tfromList [tsum (x3 * x23), tsum (x4 * x23)] + x5 ; x27 = let x25 = exp (negate x24) ; x26 = tconstant (tkonst 2 (tconst 1.0)) + x25 in recip x26 ; x28 = tconstant (tkonst 2 (tconst 1.0)) - x27 ; x29 = x27 * x28 ; x30 = tfromList [tsum (x6 * x27), tsum (x7 * x27), tsum (x8 * x27)] + x9 ; x33 = let x31 = exp (negate x30) ; x32 = tconstant (tkonst 3 (tconst 1.0)) + x31 in recip x32 ; x34 = tconstant (tkonst 3 (tconst 1.0)) - x33 ; x35 = x33 * x34 ; x36 = exp (tfromList [tsum (x10 * x33), tsum (x11 * x33), tsum (x12 * x33), tsum (x13 * x33)] + x14) ; x37 = tsum x36 ; x38 = tkonst 4 (recip x37) ; x39 = x36 * (tkonst 4 (negate (recip (x37 * x37)) * tsum (x36 * dret)) + x38 * dret) ; x40 = x39 ! [3] ; x41 = x39 ! [2] ; x42 = x39 ! [1] ; x43 = x39 ! [0] ; x44 = x10 * tkonst 4 x43 + x11 * tkonst 4 x42 + x12 * tkonst 4 x41 + x13 * tkonst 4 x40 ; x45 = x33 * (x30 * x44) ; x46 = x35 * x44 ; x47 = x46 ! [2] ; x48 = x46 ! [1] ; x49 = x46 ! [0] ; x50 = x6 * tkonst 3 x49 + x7 * tkonst 3 x48 + x8 * tkonst 3 x47 ; x51 = x27 * (x24 * x50) ; x52 = x29 * x50 ; x53 = x52 ! [1] ; x54 = x52 ! [0] in (tfromList [], x23 * tkonst 784 x54, x23 * tkonst 784 x53, x52, x27 * tkonst 2 x49, x27 * tkonst 2 x48, x27 * tkonst 2 x47, x46, x33 * tkonst 3 x43, x33 * tkonst 3 x42, x33 * tkonst 3 x41, x33 * tkonst 3 x40, x39)"
+    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 -> let x26 = tconstant (tkonst 784 (tconst 7.0)) ; x27 = tfromList [tsum (x3 * x26), tsum (x4 * x26), tsum (x5 * x26)] + x6 ; x30 = let x28 = exp (negate x27) ; x29 = tconstant (tkonst 3 (tconst 1.0)) + x28 in recip x29 ; x31 = tconstant (tkonst 3 (tconst 1.0)) - x30 ; x32 = x30 * x31 ; x33 = tfromList [tsum (x7 * x30), tsum (x8 * x30), tsum (x9 * x30), tsum (x10 * x30)] + x11 ; x36 = let x34 = exp (negate x33) ; x35 = tconstant (tkonst 4 (tconst 1.0)) + x34 in recip x35 ; x37 = tconstant (tkonst 4 (tconst 1.0)) - x36 ; x38 = x36 * x37 ; x39 = exp (tfromList [tsum (x12 * x36), tsum (x13 * x36), tsum (x14 * x36), tsum (x15 * x36), tsum (x16 * x36)] + x17) ; x40 = tsum x39 ; x41 = tkonst 5 (recip x40) ; x42 = x39 * (tkonst 5 (negate (recip (x40 * x40)) * tsum (x39 * dret)) + x41 * dret) ; x43 = x42 ! [4] ; x44 = x42 ! [3] ; x45 = x42 ! [2] ; x46 = x42 ! [1] ; x47 = x42 ! [0] ; x48 = x12 * tkonst 5 x47 + x13 * tkonst 5 x46 + x14 * tkonst 5 x45 + x15 * tkonst 5 x44 + x16 * tkonst 5 x43 ; x49 = x36 * (x33 * x48) ; x50 = x38 * x48 ; x51 = x50 ! [3] ; x52 = x50 ! [2] ; x53 = x50 ! [1] ; x54 = x50 ! [0] ; x55 = x7 * tkonst 4 x54 + x8 * tkonst 4 x53 + x9 * tkonst 4 x52 + x10 * tkonst 4 x51 ; x56 = x30 * (x27 * x55) ; x57 = x32 * x55 ; x58 = x57 ! [2] ; x59 = x57 ! [1] ; x60 = x57 ! [0] in (tfromList [], x26 * tkonst 784 x60, x26 * tkonst 784 x59, x26 * tkonst 784 x58, x57, x30 * tkonst 3 x54, x30 * tkonst 3 x53, x30 * tkonst 3 x52, x30 * tkonst 3 x51, x50, x36 * tkonst 4 x47, x36 * tkonst 4 x46, x36 * tkonst 4 x45, x36 * tkonst 4 x44, x36 * tkonst 4 x43, x42)"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6nonLin)
-    @?= "\\s0 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> let x23 = tconstant (tkonst 784 (tconst 7.0)) ; x24 = tfromList [tsum (x3 * x23), tsum (x4 * x23)] + x5 ; x27 = let x25 = exp (negate x24) ; x26 = tconstant (tkonst 2 (tconst 1.0)) + x25 in recip x26 ; x28 = tconstant (tkonst 2 (tconst 1.0)) - x27 ; x29 = x27 * x28 ; x30 = tfromList [tsum (x6 * x27), tsum (x7 * x27), tsum (x8 * x27)] + x9 ; x33 = let x31 = exp (negate x30) ; x32 = tconstant (tkonst 3 (tconst 1.0)) + x31 in recip x32 ; x34 = tconstant (tkonst 3 (tconst 1.0)) - x33 ; x35 = x33 * x34 ; x36 = exp (tfromList [tsum (x10 * x33), tsum (x11 * x33), tsum (x12 * x33), tsum (x13 * x33)] + x14) ; x37 = tsum x36 ; x38 = tkonst 4 (recip x37) in x38 * x36"
+    @?= "\\s0 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 -> let x26 = tconstant (tkonst 784 (tconst 7.0)) ; x27 = tfromList [tsum (x3 * x26), tsum (x4 * x26), tsum (x5 * x26)] + x6 ; x30 = let x28 = exp (negate x27) ; x29 = tconstant (tkonst 3 (tconst 1.0)) + x28 in recip x29 ; x31 = tconstant (tkonst 3 (tconst 1.0)) - x30 ; x32 = x30 * x31 ; x33 = tfromList [tsum (x7 * x30), tsum (x8 * x30), tsum (x9 * x30), tsum (x10 * x30)] + x11 ; x36 = let x34 = exp (negate x33) ; x35 = tconstant (tkonst 4 (tconst 1.0)) + x34 in recip x35 ; x37 = tconstant (tkonst 4 (tconst 1.0)) - x36 ; x38 = x36 * x37 ; x39 = exp (tfromList [tsum (x12 * x36), tsum (x13 * x36), tsum (x14 * x36), tsum (x15 * x36), tsum (x16 * x36)] + x17) ; x40 = tsum x39 ; x41 = tkonst 5 (recip x40) in x41 * x39"
+
+valsInitVT2OPP :: MnistFcnnRanked2.ADFcnnMnist2Parameters Double
+valsInitVT2OPP =
+  ( ( OR.fromList [3, 3] (concat $ replicate 3 [1, 2, 3])
+    , OR.fromList [3] [1, 2, 3] )
+  , ( OR.fromList [4, 4] (concat $ replicate 4 [1, 2, 3, 4])
+    , OR.fromList [4] [1, 2, 3, 4] )
+  , ( OR.fromList [5, 5] (concat $ replicate 5 [1, 2, 3, 4, 5])
+    , OR.fromList [5] [1, 2, 3, 4, 5] ) )
 
 testVT2OPP :: Assertion
 testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
-      valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters Double
-      valsInit =
-        ( (OR.fromList [2,1] [1, 2], OR.fromList [2] [1, 2])
-        , (OR.fromList [3,1] [1, 2, 3], OR.fromList [3] [1, 2, 3])
-        , (OR.fromList [4,1] [1, 2, 3, 4], OR.fromList [4] [1, 2, 3, 4]) )
       blackGlyph = AstKonst sizeMnistGlyphInt 7
       afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters (Ast0 Double)
               -> TensorOf 1 (Ast0 Double)
       afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id blackGlyph
+      (artifact6, _) = revDtFun afcnn2T valsInitVT2OPP
+  printGradient6Pretty renames artifact6
+    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 -> let x12 = tkonst 3 (tkonst 784 (tconst 7.0)) ; x13 = tkonst 4 (tsum (ttranspose [1,0] (x12 * x3)) + x4) ; x14 = tkonst 5 (tsum (ttranspose [1,0] (x13 * x5)) + x6) ; x15 = ttranspose [1,0] (tkonst 4 dret) ; x16 = tsum (x7 * x15) ; x17 = ttranspose [1,0] (tkonst 3 x16) ; x18 = tsum (x5 * x17) ; x19 = ttranspose [1,0] (tkonst 784 x18) in (tfromList [], x12 * x19, x18, x13 * x17, x16, x14 * x15, dret)"
+  printPrimal6Pretty renames artifact6
+    @?= "\\s0 x3 x4 x5 x6 x7 x8 -> let x12 = tkonst 3 (tkonst 784 (tconst 7.0)) ; x13 = tkonst 4 (tsum (ttranspose [1,0] (x12 * x3)) + x4) ; x14 = tkonst 5 (tsum (ttranspose [1,0] (x13 * x5)) + x6) in tsum (ttranspose [1,0] (x14 * x7)) + x8"
+  printGradient6Pretty renames (simplifyArtifact6 artifact6)
+    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 -> let x12 = tconstant (tkonst 3 (tkonst 784 (tconst 7.0))) ; x13 = tkonst 4 (tsum (ttranspose [1,0] (x12 * x3)) + x4) ; x14 = tkonst 5 (tsum (ttranspose [1,0] (x13 * x5)) + x6) ; x15 = tgather [5,4] dret (\\[i20, i21] -> [i20]) ; x16 = tsum (x7 * x15) ; x17 = tgather [5,3] x16 (\\[i22, i23] -> [i22]) ; x18 = tsum (x5 * x17) ; x19 = tgather [4,784] x18 (\\[i24, i25] -> [i24]) in (tfromList [], x12 * x19, x18, x13 * x17, x16, x14 * x15, dret)"
+  printPrimal6Pretty renames (simplifyArtifact6 artifact6)
+    @?= "\\s0 x3 x4 x5 x6 x7 x8 -> let x12 = tconstant (tkonst 3 (tkonst 784 (tconst 7.0))) ; x13 = tkonst 4 (tsum (ttranspose [1,0] (x12 * x3)) + x4) ; x14 = tkonst 5 (tsum (ttranspose [1,0] (x13 * x5)) + x6) in tsum (ttranspose [1,0] (x14 * x7)) + x8"
+
+testVT2OPPNonLin :: Assertion
+testVT2OPPNonLin = do
+  resetVarCounter
+  let renames = IM.empty
+      blackGlyph = AstKonst sizeMnistGlyphInt 7
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (Ast0 Double)
                     -> TensorOf 1 (Ast0 Double)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMaxV blackGlyph
-  resetVarCounter
-  let (artifact6, _) = revDtFun afcnn2T valsInit
-  printGradient6Pretty renames artifact6
-    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 -> let x12 = tkonst 2 (tkonst 784 (tconst 7.0)) ; x13 = tkonst 3 (tsum (ttranspose [1,0] (x12 * x3)) + x4) ; x14 = tkonst 4 (tsum (ttranspose [1,0] (x13 * x5)) + x6) ; x15 = ttranspose [1,0] (tkonst 3 dret) ; x16 = tsum (x7 * x15) ; x17 = ttranspose [1,0] (tkonst 2 x16) ; x18 = tsum (x5 * x17) ; x19 = ttranspose [1,0] (tkonst 784 x18) in (tfromList [], x12 * x19, x18, x13 * x17, x16, x14 * x15, dret)"
-  printPrimal6Pretty renames artifact6
-    @?= "\\s0 x3 x4 x5 x6 x7 x8 -> let x12 = tkonst 2 (tkonst 784 (tconst 7.0)) ; x13 = tkonst 3 (tsum (ttranspose [1,0] (x12 * x3)) + x4) ; x14 = tkonst 4 (tsum (ttranspose [1,0] (x13 * x5)) + x6) in tsum (ttranspose [1,0] (x14 * x7)) + x8"
-  printGradient6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 -> let x12 = tconstant (tkonst 2 (tkonst 784 (tconst 7.0))) ; x13 = tkonst 3 (tsum (ttranspose [1,0] (x12 * x3)) + x4) ; x14 = tkonst 4 (tsum (ttranspose [1,0] (x13 * x5)) + x6) ; x15 = tgather [4,3] dret (\\[i20, i21] -> [i20]) ; x16 = tsum (x7 * x15) ; x17 = tgather [1,2] x16 (\\[i22, i23] -> [i22]) ; x18 = tsum (x5 * x17) ; x19 = tgather [1,784] x18 (\\[i24, i25] -> [i24]) in (tfromList [], x12 * x19, x18, x13 * x17, x16, x14 * x15, dret)"
-  printPrimal6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 x3 x4 x5 x6 x7 x8 -> let x12 = tconstant (tkonst 2 (tkonst 784 (tconst 7.0))) ; x13 = tkonst 3 (tsum (ttranspose [1,0] (x12 * x3)) + x4) ; x14 = tkonst 4 (tsum (ttranspose [1,0] (x13 * x5)) + x6) in tsum (ttranspose [1,0] (x14 * x7)) + x8"
-  resetVarCounter
-  let (artifact6nonLin, _) = revDtFun afcnn2TnonLin valsInit
+      (artifact6nonLin, _) = revDtFun afcnn2TnonLin valsInitVT2OPP
   printGradient6Pretty renames artifact6nonLin
-    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 -> let x17 = tkonst 2 (tkonst 784 (tconst 7.0)) ; x18 = tsum (ttranspose [1,0] (x17 * x3)) + x4 ; x21 = let x19 = exp (negate x18) ; x20 = tkonst 2 (tconst 1.0) + x19 in recip x20 ; x22 = tkonst 2 (tconst 1.0) - x21 ; x23 = x21 * x22 ; x24 = tkonst 3 x21 ; x25 = tsum (ttranspose [1,0] (x24 * x5)) + x6 ; x28 = let x26 = exp (negate x25) ; x27 = tkonst 3 (tconst 1.0) + x26 in recip x27 ; x29 = tkonst 3 (tconst 1.0) - x28 ; x30 = x28 * x29 ; x31 = tkonst 4 x28 ; x32 = exp (tsum (ttranspose [1,0] (x31 * x7)) + x8) ; x33 = tsum x32 ; x34 = tkonst 4 (recip x33) ; x35 = x32 * (tkonst 4 (negate (recip (x33 * x33)) * tsum (x32 * dret)) + x34 * dret) ; x36 = ttranspose [1,0] (tkonst 3 x35) ; x37 = tsum (x7 * x36) ; x38 = x28 * (x25 * x37) ; x39 = x30 * x37 ; x40 = ttranspose [1,0] (tkonst 2 x39) ; x41 = tsum (x5 * x40) ; x42 = x21 * (x18 * x41) ; x43 = x23 * x41 ; x44 = ttranspose [1,0] (tkonst 784 x43) in (tfromList [], x17 * x44, x43, x24 * x40, x39, x31 * x36, x35)"
+    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 -> let x17 = tkonst 3 (tkonst 784 (tconst 7.0)) ; x18 = tsum (ttranspose [1,0] (x17 * x3)) + x4 ; x21 = let x19 = exp (negate x18) ; x20 = tkonst 3 (tconst 1.0) + x19 in recip x20 ; x22 = tkonst 3 (tconst 1.0) - x21 ; x23 = x21 * x22 ; x24 = tkonst 4 x21 ; x25 = tsum (ttranspose [1,0] (x24 * x5)) + x6 ; x28 = let x26 = exp (negate x25) ; x27 = tkonst 4 (tconst 1.0) + x26 in recip x27 ; x29 = tkonst 4 (tconst 1.0) - x28 ; x30 = x28 * x29 ; x31 = tkonst 5 x28 ; x32 = exp (tsum (ttranspose [1,0] (x31 * x7)) + x8) ; x33 = tsum x32 ; x34 = tkonst 5 (recip x33) ; x35 = x32 * (tkonst 5 (negate (recip (x33 * x33)) * tsum (x32 * dret)) + x34 * dret) ; x36 = ttranspose [1,0] (tkonst 4 x35) ; x37 = tsum (x7 * x36) ; x38 = x28 * (x25 * x37) ; x39 = x30 * x37 ; x40 = ttranspose [1,0] (tkonst 3 x39) ; x41 = tsum (x5 * x40) ; x42 = x21 * (x18 * x41) ; x43 = x23 * x41 ; x44 = ttranspose [1,0] (tkonst 784 x43) in (tfromList [], x17 * x44, x43, x24 * x40, x39, x31 * x36, x35)"
   printPrimal6Pretty renames artifact6nonLin
-    @?= "\\s0 x3 x4 x5 x6 x7 x8 -> let x17 = tkonst 2 (tkonst 784 (tconst 7.0)) ; x18 = tsum (ttranspose [1,0] (x17 * x3)) + x4 ; x21 = let x19 = exp (negate x18) ; x20 = tkonst 2 (tconst 1.0) + x19 in recip x20 ; x22 = tkonst 2 (tconst 1.0) - x21 ; x23 = x21 * x22 ; x24 = tkonst 3 x21 ; x25 = tsum (ttranspose [1,0] (x24 * x5)) + x6 ; x28 = let x26 = exp (negate x25) ; x27 = tkonst 3 (tconst 1.0) + x26 in recip x27 ; x29 = tkonst 3 (tconst 1.0) - x28 ; x30 = x28 * x29 ; x31 = tkonst 4 x28 ; x32 = exp (tsum (ttranspose [1,0] (x31 * x7)) + x8) ; x33 = tsum x32 ; x34 = tkonst 4 (recip x33) in x34 * x32"
+    @?= "\\s0 x3 x4 x5 x6 x7 x8 -> let x17 = tkonst 3 (tkonst 784 (tconst 7.0)) ; x18 = tsum (ttranspose [1,0] (x17 * x3)) + x4 ; x21 = let x19 = exp (negate x18) ; x20 = tkonst 3 (tconst 1.0) + x19 in recip x20 ; x22 = tkonst 3 (tconst 1.0) - x21 ; x23 = x21 * x22 ; x24 = tkonst 4 x21 ; x25 = tsum (ttranspose [1,0] (x24 * x5)) + x6 ; x28 = let x26 = exp (negate x25) ; x27 = tkonst 4 (tconst 1.0) + x26 in recip x27 ; x29 = tkonst 4 (tconst 1.0) - x28 ; x30 = x28 * x29 ; x31 = tkonst 5 x28 ; x32 = exp (tsum (ttranspose [1,0] (x31 * x7)) + x8) ; x33 = tsum x32 ; x34 = tkonst 5 (recip x33) in x34 * x32"
   printGradient6Pretty renames (simplifyArtifact6 artifact6nonLin)
-    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 -> let x17 = tconstant (tkonst 2 (tkonst 784 (tconst 7.0))) ; x18 = tsum (ttranspose [1,0] (x17 * x3)) + x4 ; x21 = let x19 = exp (negate x18) ; x20 = tconstant (tkonst 2 (tconst 1.0)) + x19 in recip x20 ; x22 = tconstant (tkonst 2 (tconst 1.0)) - x21 ; x23 = x21 * x22 ; x24 = tkonst 3 x21 ; x25 = tsum (ttranspose [1,0] (x24 * x5)) + x6 ; x28 = let x26 = exp (negate x25) ; x27 = tconstant (tkonst 3 (tconst 1.0)) + x26 in recip x27 ; x29 = tconstant (tkonst 3 (tconst 1.0)) - x28 ; x30 = x28 * x29 ; x31 = tkonst 4 x28 ; x32 = exp (tsum (ttranspose [1,0] (x31 * x7)) + x8) ; x33 = tsum x32 ; x34 = tkonst 4 (recip x33) ; x35 = x32 * (tkonst 4 (negate (recip (x33 * x33)) * tsum (x32 * dret)) + x34 * dret) ; x36 = tgather [4,3] x35 (\\[i45, i46] -> [i45]) ; x37 = tsum (x7 * x36) ; x38 = x28 * (x25 * x37) ; x39 = x30 * x37 ; x40 = tgather [3,2] x39 (\\[i47, i48] -> [i47]) ; x41 = tsum (x5 * x40) ; x42 = x21 * (x18 * x41) ; x43 = x23 * x41 ; x44 = tgather [2,784] x43 (\\[i49, i50] -> [i49]) in (tfromList [], x17 * x44, x43, x24 * x40, x39, x31 * x36, x35)"
+    @?= "\\s0 dret x3 x4 x5 x6 x7 x8 -> let x17 = tconstant (tkonst 3 (tkonst 784 (tconst 7.0))) ; x18 = tsum (ttranspose [1,0] (x17 * x3)) + x4 ; x21 = let x19 = exp (negate x18) ; x20 = tconstant (tkonst 3 (tconst 1.0)) + x19 in recip x20 ; x22 = tconstant (tkonst 3 (tconst 1.0)) - x21 ; x23 = x21 * x22 ; x24 = tkonst 4 x21 ; x25 = tsum (ttranspose [1,0] (x24 * x5)) + x6 ; x28 = let x26 = exp (negate x25) ; x27 = tconstant (tkonst 4 (tconst 1.0)) + x26 in recip x27 ; x29 = tconstant (tkonst 4 (tconst 1.0)) - x28 ; x30 = x28 * x29 ; x31 = tkonst 5 x28 ; x32 = exp (tsum (ttranspose [1,0] (x31 * x7)) + x8) ; x33 = tsum x32 ; x34 = tkonst 5 (recip x33) ; x35 = x32 * (tkonst 5 (negate (recip (x33 * x33)) * tsum (x32 * dret)) + x34 * dret) ; x36 = tgather [5,4] x35 (\\[i45, i46] -> [i45]) ; x37 = tsum (x7 * x36) ; x38 = x28 * (x25 * x37) ; x39 = x30 * x37 ; x40 = tgather [4,3] x39 (\\[i47, i48] -> [i47]) ; x41 = tsum (x5 * x40) ; x42 = x21 * (x18 * x41) ; x43 = x23 * x41 ; x44 = tgather [3,784] x43 (\\[i49, i50] -> [i49]) in (tfromList [], x17 * x44, x43, x24 * x40, x39, x31 * x36, x35)"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6nonLin)
-    @?= "\\s0 x3 x4 x5 x6 x7 x8 -> let x17 = tconstant (tkonst 2 (tkonst 784 (tconst 7.0))) ; x18 = tsum (ttranspose [1,0] (x17 * x3)) + x4 ; x21 = let x19 = exp (negate x18) ; x20 = tconstant (tkonst 2 (tconst 1.0)) + x19 in recip x20 ; x22 = tconstant (tkonst 2 (tconst 1.0)) - x21 ; x23 = x21 * x22 ; x24 = tkonst 3 x21 ; x25 = tsum (ttranspose [1,0] (x24 * x5)) + x6 ; x28 = let x26 = exp (negate x25) ; x27 = tconstant (tkonst 3 (tconst 1.0)) + x26 in recip x27 ; x29 = tconstant (tkonst 3 (tconst 1.0)) - x28 ; x30 = x28 * x29 ; x31 = tkonst 4 x28 ; x32 = exp (tsum (ttranspose [1,0] (x31 * x7)) + x8) ; x33 = tsum x32 ; x34 = tkonst 4 (recip x33) in x34 * x32"
+    @?= "\\s0 x3 x4 x5 x6 x7 x8 -> let x17 = tconstant (tkonst 3 (tkonst 784 (tconst 7.0))) ; x18 = tsum (ttranspose [1,0] (x17 * x3)) + x4 ; x21 = let x19 = exp (negate x18) ; x20 = tconstant (tkonst 3 (tconst 1.0)) + x19 in recip x20 ; x22 = tconstant (tkonst 3 (tconst 1.0)) - x21 ; x23 = x21 * x22 ; x24 = tkonst 4 x21 ; x25 = tsum (ttranspose [1,0] (x24 * x5)) + x6 ; x28 = let x26 = exp (negate x25) ; x27 = tconstant (tkonst 4 (tconst 1.0)) + x26 in recip x27 ; x29 = tconstant (tkonst 4 (tconst 1.0)) - x28 ; x30 = x28 * x29 ; x31 = tkonst 5 x28 ; x32 = exp (tsum (ttranspose [1,0] (x31 * x7)) + x8) ; x33 = tsum x32 ; x34 = tkonst 5 (recip x33) in x34 * x32"
