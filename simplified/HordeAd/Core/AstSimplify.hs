@@ -624,15 +624,23 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     AstFromList{} | gatherFromNF vars4 ix4 -> AstGatherZ sh4 v4 (vars4, ix4)
     AstFromList l ->
       let f v = astGatherRec sh4 v (vars4, rest4)
-      in astGather sh4 (astFromList $ map f l)
-                   (vars4, i4 :. sizedListToIndex (fmap AstIntVar vars4))
+          (varsFresh, ixFresh) = funToAstIndex @m' id
+          subst i =
+            foldr (uncurry (substituteAstInt @0)) i
+                  (zipSized (fmap Right $ indexToSizedList ixFresh) vars4)
+          i5 = subst i4
+      in astGather sh4 (astFromList $ map f l) (varsFresh, i5 :. ixFresh)
     AstFromVector l | AstIntConst i <- i4 ->
       astGather sh4 (if V.length l > i then l V.! i else 0) (vars4, rest4)
     AstFromVector{} | gatherFromNF vars4 ix4 -> AstGatherZ sh4 v4 (vars4, ix4)
     AstFromVector l ->
       let f v = astGatherRec sh4 v (vars4, rest4)
-      in astGather sh4 (astFromVector $ V.map f l)
-                   (vars4, i4 :. sizedListToIndex (fmap AstIntVar vars4))
+          (varsFresh, ixFresh) = funToAstIndex @m' id
+          subst i =
+            foldr (uncurry (substituteAstInt @0)) i
+                  (zipSized (fmap Right $ indexToSizedList ixFresh) vars4)
+          i5 = subst i4
+     in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :. ixFresh)
     AstKonst _k v -> astGather sh4 v (vars4, rest4)
     AstAppend{} ->
       {- This is wrong, see astIndexZOrStepOnly:
@@ -696,8 +704,13 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     AstConstant (AstPrimalPart v) ->
       astConstant $ AstPrimalPart $ astGatherRec sh4 v (vars4, ix4)
     AstD (AstPrimalPart u) (AstDualPart u') ->
-      AstD (AstPrimalPart $ astGatherRec sh4 u (vars4, ix4))
-           (AstDualPart $ astGatherRec sh4 u' (vars4, ix4))
+      let (varsFresh, ixFresh) = funToAstIndex @m' id
+          subst i =
+            foldr (uncurry (substituteAstInt @0)) i
+                  (zipSized (fmap Right $ indexToSizedList ixFresh) vars4)
+          ix5 = fmap subst ix4
+      in AstD (AstPrimalPart $ astGatherRec sh4 u (vars4, ix4))
+              (AstDualPart $ astGatherRec sh4 u' (varsFresh, ix5))
     AstLetDomains vars l v ->
       AstLetDomains vars l (astGatherCase sh4 v (vars4, ix4))
 

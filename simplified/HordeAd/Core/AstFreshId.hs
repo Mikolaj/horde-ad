@@ -1,8 +1,8 @@
 -- | Operations that (usually impurely) generate fresh variables.
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare
-  , funToAstR, funToAstD, ADAstVars, funToAstAll, funToAstI
-  , funToAstIndexIO, funToAstIndex
+  , funToAstR, funToAstD, ADAstVars, funToAstAll
+  , funToAstIIO, funToAstI, funToAstIndexIO, funToAstIndex
   , resetVarCounter
   ) where
 
@@ -104,11 +104,15 @@ funToAstAll sh shapes1 = unsafePerformIO $ do
   (vn1, v1) <- unzip <$> (mapM funToAstDIO shapes1)
   return ((vn0, vnDt, vn1), (v0, vDt, v1))
 
-funToAstI :: (AstInt r -> t) -> (AstVarId, t)
-{-# NOINLINE funToAstI #-}
-funToAstI f = unsafePerformIO $ do
+funToAstIIO :: (AstInt r -> t) -> IO (AstVarId, t)
+{-# INLINE funToAstIIO #-}
+funToAstIIO f = do
   freshId <- unsafeGetFreshAstVarId
   return (freshId, f (AstIntVar freshId))
+
+funToAstI :: (AstInt r -> t) -> (AstVarId, t)
+{-# NOINLINE funToAstI #-}
+funToAstI = unsafePerformIO . funToAstIIO
 
 funToAstIndexIO
   :: forall m p r. KnownNat m
