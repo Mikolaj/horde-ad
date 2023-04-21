@@ -475,9 +475,9 @@ astTranspose :: forall n r. (ShowAstSimplify r, KnownNat n)
 astTranspose perm0 t0 = case (perm0, t0) of
   ([], t) -> t
   (perm, AstLet var u v) -> astLet var u (astTranspose perm v)
-  (perm, AstOp opCode args) | not $ all isVar args ->
+  (perm, AstOp opCode args) | not (all isVar args) && length args <= 1 ->
     AstOp opCode (map (astTranspose perm) args)
-  (perm, AstSumOfList args) | not $ all isVar args ->
+  (perm, AstSumOfList args) | not (all isVar args) && length args <= 1 ->
     AstSumOfList (map (astTranspose perm) args)
   (perm, AstSum v) -> astSum $ astTranspose (0 : map succ perm) v
   (perm1, AstTranspose perm2 t) ->
@@ -491,7 +491,7 @@ astTranspose perm0 t0 = case (perm0, t0) of
   -- changes the linearisation order, while reshape only modifies indexing:
   -- (perm, AstReshape sh v) -> astReshape (backpermutePrefixShape perm sh) v
   (perm1, AstGatherZ @m sh v (vars, ix)) | length perm1 <= valueOf @m ->
-    AstGatherZ (backpermutePrefixShape perm1 sh) v
+    astGatherZ (backpermutePrefixShape perm1 sh) v
                (backpermutePrefixSized perm1 vars, ix)
   (perm, AstConst t) ->
     AstConst $ ttransposeR perm t
@@ -597,10 +597,15 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     AstVar{} -> AstGatherZ sh4 v4 (vars4, ix4)
     AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
     AstLetADShare{} -> error "astGatherCase: AstLetADShare"
-    AstOp opCode args ->
+    AstOp opCode args | not (all isVar args) && length args <= 1 ->
+      -- Going inside AstOp usually makes the term more expensive to interpret
+      -- and reverting this transformation requires comparing many arguments,
+      -- so it's not practical.
       AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
-    AstSumOfList args ->
+    AstOp{} -> AstGatherZ sh4 v4 (vars4, ix4)
+    AstSumOfList args | not (all isVar args) && length args <= 1 ->
       AstSumOfList (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
+    AstSumOfList{} -> AstGatherZ sh4 v4 (vars4, ix4)
     AstIota | AstIntConst i <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
       Just Refl -> astKonstN sh4 $ AstConst $ OR.scalar $ fromIntegral i
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
@@ -1045,6 +1050,8 @@ inlineAstBool env memo v0 = case v0 of
 
 -- * The pass eliminating nested lets bottom-up
 
+-- TODO: if a nested let is alone, eliminate the nesting let instead;
+-- this probably requires many passes though
 unletAstPrimal
   :: (ShowAstSimplify r, KnownNat n)
   => ES.EnumSet AstVarId -> AstPrimalPart n r -> AstPrimalPart n r
@@ -1179,8 +1186,10 @@ simplifyAst t = case t of
         case astTranspose perm2 (simplifyAst v2) of
           u@(AstTranspose _ AstVar{}) -> u  -- normal form
           u@(AstTranspose _ AstScatter{}) -> u  -- normal form
-          u@(AstTranspose _ (AstOp _ args)) | all isVar args -> u  -- nf
-          u@(AstTranspose _ (AstSumOfList args)) | all isVar args -> u  -- nf
+          u@(AstTranspose _ (AstOp _ args))
+            | all isVar args || length args > 1 -> u  -- nf
+          u@(AstTranspose _ (AstSumOfList args)) | all isVar args -> u
+            | all isVar args || length args > 1 -> u  -- nf
           AstTranspose perm3 v3 ->  -- nope, let's express all as gather
             astTransposeAsGather perm3 v3
               -- this is expensive, but the only way to guarantee

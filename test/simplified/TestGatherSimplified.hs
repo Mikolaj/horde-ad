@@ -305,14 +305,14 @@ testGatherSimp23 = do
                 (t * tkonst0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
   length (show t1) @?= 266
-  length (show (simplifyAst6 @Float t1)) @?= 1772
+  length (show (simplifyAst6 @Float t1)) @?= 1359
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               treshape @(Ast0 Float) @2 @2 [2, 6]
                 (t * tkonst0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
   length (show t2) @?= 266
-  length (show (simplifyAst6 @Float t2)) @?= 1772
+  length (show (simplifyAst6 @Float t2)) @?= 1359
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -370,14 +370,14 @@ testGatherSimp33 = do
   resetVarCounter
   let !t1 = gatherTranspose33
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
-  length (show t1) @?= 1093
-  length (show (simplifyAst6 @Float t1)) @?= 7390
+  length (show t1) @?= 1072
+  length (show (simplifyAst6 @Float t1)) @?= 7355
   resetVarCounter
   let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
                             (treshape @(Ast0 Float) @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
-  length (show t2) @?= 505
-  length (show (simplifyAst6 @Float t2)) @?= 1993
+  length (show t2) @?= 526
+  length (show (simplifyAst6 @Float t2)) @?= 1958
 
 testGatherSimp34 :: Assertion
 testGatherSimp34 = do
@@ -385,16 +385,16 @@ testGatherSimp34 = do
   let !t1 = (\t -> tbuild1 4 (\i ->
              gatherTranspose33 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
-  length (show t1) @?= 913
-  length (show (simplifyAst6 @Float t1)) @?= 26218
+  length (show t1) @?= 857
+  length (show (simplifyAst6 @Float t1)) @?= 15228
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               (\t' -> tmatmul2 (treshape [6, 8] (tconst t48))
                                (treshape @(Ast0 Float) @10 [8, 16] t'))
                 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
-  length (show t2) @?= 772
-  length (show (simplifyAst6 @Float t2)) @?= 5518
+  length (show t2) @?= 795
+  length (show (simplifyAst6 @Float t2)) @?= 4188
 
 -- scatters instead of gathers
 

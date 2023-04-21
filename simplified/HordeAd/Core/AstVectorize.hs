@@ -59,8 +59,9 @@ build1Vectorize k (var, v0) = unsafePerformIO $ do
   return endTerm
 
 -- This abbreviation is used a lot below.
-astTr :: forall n r. Ast (2 + n) r -> Ast (2 + n) r
-astTr = AstTranspose [1, 0]
+astTr :: forall n r. (KnownNat n, ShowAstSimplify r)
+      => Ast (2 + n) r -> Ast (2 + n) r
+astTr = astTranspose [1, 0]
 
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
