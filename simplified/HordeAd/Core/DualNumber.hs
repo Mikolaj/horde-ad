@@ -164,8 +164,9 @@ instance (Num a, IsPrimal a) => Num (ADVal a) where
   D l1 u u' - D l2 v v' =
     dD (l1 `mergeADShare` l2) (u - v) (dAdd u' (dScaleByScalar v (-1) v'))
   D l1 ue u' * D l2 ve v' =
-    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        (l4, v) = recordSharingPrimal ve l3
+    -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
+    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dAdd (dScale v u') (dScale u v'))
   negate (D l v v') = dD l (negate v) (dScaleByScalar v (-1) v')
   abs (D l ve v') = let (l2, v) = recordSharingPrimal ve l
@@ -179,8 +180,9 @@ instance (Real a, IsPrimal a) => Real (ADVal a) where
 
 instance (Fractional a, IsPrimal a) => Fractional (ADVal a) where
   D l1 ue u' / D l2 ve v' =
-    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        (l4, v) = recordSharingPrimal ve l3
+    -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
+    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u / v)
              (dAdd (dScale (recip v) u') (dScale (- u / (v * v)) v'))
   recip (D l ve v') =

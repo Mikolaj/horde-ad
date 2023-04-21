@@ -258,8 +258,9 @@ dot0 :: ( ADTensor r, IsPrimal (TensorOf n  r), IsPrimal (TensorOf 0 r)
         , Element (TensorOf n r) ~ r )
      => ADVal (TensorOf n r) -> ADVal (TensorOf n r) -> ADVal (TensorOf 0 r)
 dot0 (D l1 ue u') (D l2 ve v') =
-  let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-      (l4, v) = recordSharingPrimal ve l3
+  -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
+  let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+      !(!l4, v) = recordSharingPrimal ve l3
   in dD l4 (tdot0 u v) (dScalarR $ dAdd (dDot0 v u') (dDot0 u v'))
 
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
