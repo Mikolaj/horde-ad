@@ -22,15 +22,17 @@ module HordeAd.Core.AstSimplify
   , astIntCond
   , simplifyArtifact6, simplifyAst6, simplifyAstDomains6
   , unletAstDomains6, unletAst6
-  , substituteAst, substituteAstInt, substituteAstBool
+  , substituteAst, substituteAstDomains, substituteAstInt, substituteAstBool
   ) where
 
 import Prelude
 
+import           Control.Arrow (second)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
+import qualified Data.EnumMap.Strict as EM
 import qualified Data.EnumSet as ES
-import           Data.List (dropWhileEnd, foldl')
+import           Data.List (dropWhileEnd, foldl', mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -848,15 +850,20 @@ simplifyArtifact6 :: (ShowAstSimplify r, KnownNat n)
 simplifyArtifact6 (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6 primal)
 
+-- Potentially, some more inlining could be triggered after the second
+-- simplification, but it's probably rare, so we don't insisit on a fixpoint.
+-- The second simplification is very likely to trigger, because substitution
+-- often reveals redexes.
 simplifyAst6
   :: (ShowAstSimplify r, KnownNat n)
   => Ast n r -> Ast n r
-simplifyAst6 = simplifyAst  -- . unletAst6
+simplifyAst6 = simplifyAst . snd . inlineAst () EM.empty . simplifyAst
 
 simplifyAstDomains6
   :: ShowAstSimplify r
   => AstDomains r -> AstDomains r
-simplifyAstDomains6 = simplifyAstDomains  -- . unletAstDomains6
+simplifyAstDomains6 =
+  simplifyAstDomains . snd . inlineAstDomains () EM.empty . simplifyAstDomains
 
 unletAst6
   :: (ShowAstSimplify r, KnownNat n)
@@ -869,7 +876,174 @@ unletAstDomains6
 unletAstDomains6 = unletAstDomains ES.empty
 
 
--- * The nested let simplifying bottom-up pass
+-- * The pass inlining lets with the bottom-up strategy
+
+type AstEnv a = ()  -- unused for now
+
+type AstMemo = EM.EnumMap AstVarId Int
+
+inlineAstPrimal
+  :: forall n r. (ShowAstSimplify r, KnownNat n)
+  => AstEnv r -> AstMemo
+  -> AstPrimalPart n r -> (AstMemo, AstPrimalPart n r)
+inlineAstPrimal env memo (AstPrimalPart v1) =
+  second AstPrimalPart $ inlineAst env memo v1
+
+inlineAstDual
+  :: forall n r. (ShowAstSimplify r, KnownNat n)
+  => AstEnv r -> AstMemo
+  -> AstDualPart n r -> (AstMemo, AstDualPart n r)
+inlineAstDual env memo (AstDualPart v1) =
+  second AstDualPart $ inlineAst env memo v1
+
+astIsSmall :: forall n r. KnownNat n
+           => Ast n r -> Bool
+astIsSmall = \case
+  AstVar{} -> True
+  AstIota -> True
+  AstIndexZ AstIota _ -> True
+  AstConst{} -> valueOf @n == (0 :: Int)
+  AstConstant (AstPrimalPart v) -> astIsSmall v
+  _ -> False
+
+inlineAst
+  :: forall n r. (ShowAstSimplify r, KnownNat n)
+  => AstEnv r -> AstMemo
+  -> Ast n r -> (AstMemo, Ast n r)
+inlineAst env memo v0 = case v0 of
+  AstVar _ var -> (EM.adjust succ var memo, v0)
+  AstLet var u v ->
+    -- We assume there are no nested lets with the same variable.
+    let (memo1, u2) = inlineAst env memo u
+        memoVar =
+          EM.insertWithKey (\_ _ _ ->
+                             error $ "inlineAst: nested var " ++ show v0)
+                           var 0 memo1
+        (memo2, v2) = inlineAst env memoVar v
+        tOut = case memo2 EM.! var of
+          0 -> v2
+          count | count == 1 || astIsSmall u2 ->
+            substitute1Ast (Left u2) var v2
+              -- this is the substitution doesn't simplify, so that
+              -- inlining can be applied with and without simplification
+          _ -> AstLet var u2 v2
+        memoOut = EM.delete var memo2
+    in (memoOut, tOut)
+  AstLetADShare{} -> error "inlineAst: AstLetADShare"
+  AstOp opCode args ->
+    let (memo2, args2) = mapAccumR (inlineAst env) memo args
+    in (memo2, AstOp opCode args2)
+  AstSumOfList args ->
+    let (memo2, args2) = mapAccumR (inlineAst env) memo args
+    in (memo2, AstSumOfList args2)
+  AstIota -> (memo, v0)
+  AstIndexZ v ix ->
+    let (memo1, v2) = inlineAst env memo v
+        (memo2, ix2) = mapAccumR (inlineAstInt env) memo1 (indexToList ix)
+    in (memo2, AstIndexZ v2 (listToIndex ix2))
+  AstSum v -> second AstSum (inlineAst env memo v)
+  AstScatter sh v (vars, ix) ->
+    let (memo1, v2) = inlineAst env memo v
+        (memo2, ix2) = mapAccumR (inlineAstInt env) memo1 (indexToList ix)
+    in (memo2, AstScatter sh v2 (vars, listToIndex ix2))
+  AstFromList l ->
+    let (memo2, l2) = mapAccumR (inlineAst env) memo l
+    in (memo2, AstFromList l2)
+  AstFromVector l ->
+    let (memo2, l2) = mapAccumR (inlineAst env) memo (V.toList l)
+    in (memo2, AstFromVector $ V.fromList l2)
+      -- TODO: emulate mapAccum using mapM?
+  AstKonst k v -> second (AstKonst k) (inlineAst env memo v)
+  AstAppend x y ->
+    let (memo1, t1) = inlineAst env memo x
+        (memo2, t2) = inlineAst env memo1 y
+    in (memo2, AstAppend t1 t2)
+  AstSlice i k v -> second (AstSlice i k) (inlineAst env memo v)
+  AstReverse v -> second AstReverse (inlineAst env memo v)
+  AstTranspose perm v -> second (AstTranspose perm) $ inlineAst env memo v
+  AstReshape sh v -> second (AstReshape sh) (inlineAst env memo v)
+  AstBuild1 k (var, v) ->
+    let (memo1, v2) = inlineAst env memo v
+    in (memo1, AstBuild1 k (var, v2))
+  AstGatherZ sh v (vars, ix) ->
+    let (memo1, v2) = inlineAst env memo v
+        (memo2, ix2) = mapAccumR (inlineAstInt env) memo1 (indexToList ix)
+    in (memo2, AstGatherZ sh v2 (vars, listToIndex ix2))
+  AstConst{} -> (memo, v0)
+  AstConstant a -> second AstConstant $ inlineAstPrimal env memo a
+  AstD u u' ->
+    let (memo1, t1) = inlineAstPrimal env memo u
+        (memo2, t2) = inlineAstDual env memo1 u'
+    in (memo2, AstD t1 t2)
+  AstLetDomains vars l v ->  -- TODO: actually inline
+    let (memo1, l2) = inlineAstDomains env memo l
+        (memo2, v2) = inlineAst env memo1 v
+    in (memo2, AstLetDomains vars l2 v2)
+
+inlineAstDynamic
+  :: ShowAstSimplify r
+  => AstEnv r -> AstMemo
+  -> AstDynamic r -> (AstMemo, AstDynamic r)
+inlineAstDynamic env memo = \case
+  AstDynamic w -> second AstDynamic $ inlineAst env memo w
+
+inlineAstDomains
+  :: ShowAstSimplify r
+  => AstEnv r -> AstMemo
+  -> AstDomains r -> (AstMemo, AstDomains r)
+inlineAstDomains env memo v0 = case v0 of
+  AstDomains l -> second AstDomains $ mapAccumR (inlineAstDynamic env) memo l
+  AstDomainsLet var u v ->
+    -- We assume there are no nested lets with the same variable.
+    let (memo1, u2) = inlineAst env memo u
+        memoVar =
+          EM.insertWithKey (\_ _ _ ->
+                             error $ "inlineAstDomains: nested var " ++ show v0)
+                           var 0 memo1
+        (memo2, v2) = inlineAstDomains env memoVar v
+        tOut = case memo2 EM.! var of
+          0 -> v2
+          count | count == 1 || astIsSmall u2 ->
+            substitute1AstDomains (Left u2) var v2
+          _ -> AstDomainsLet var u2 v2
+        memoOut = EM.delete var memo2
+    in (memoOut, tOut)
+
+inlineAstInt :: ShowAstSimplify r
+             => AstEnv r -> AstMemo
+             -> AstInt r -> (AstMemo, AstInt r)
+inlineAstInt env memo v0 = case v0 of
+  AstIntVar{} -> (memo, v0)
+  AstIntOp opCodeInt args ->
+    let (memo2, args2) = mapAccumR (inlineAstInt env) memo args
+    in (memo2, AstIntOp opCodeInt args2)
+  AstIntConst{} -> (memo, v0)
+  AstIntFloor v -> second AstIntFloor $ inlineAstPrimal env memo v
+  AstIntCond b a1 a2 ->
+    let (memo1, b1) = inlineAstBool env memo b
+        (memo2, t2) = inlineAstInt env memo1 a1
+        (memo3, t3) = inlineAstInt env memo2 a2
+    in (memo3, AstIntCond b1 t2 t3)
+  AstMinIndex1 v -> second AstMinIndex1 $ inlineAstPrimal env memo v
+  AstMaxIndex1 v -> second AstMaxIndex1 $ inlineAstPrimal env memo v
+
+inlineAstBool :: forall r. ShowAstSimplify r
+              => AstEnv r -> AstMemo
+              -> AstBool r -> (AstMemo, AstBool r)
+inlineAstBool env memo v0 = case v0 of
+  AstBoolOp opCodeBool args ->
+    let (memo2, args2) = mapAccumR (inlineAstBool env) memo args
+    in (memo2, AstBoolOp opCodeBool args2)
+  AstBoolConst{} -> (memo, v0)
+  AstRel @n opCodeRel args ->
+    let (memo2, args2) =  mapAccumR (inlineAstPrimal env) memo args
+    in (memo2, AstRel opCodeRel args2)
+  AstRelInt opCodeRel args ->
+    let (memo2, args2) = mapAccumR (inlineAstInt env) memo args
+    in (memo2, AstRelInt opCodeRel args2)
+
+
+-- * The pass eliminating nested lets bottom-up
 
 unletAstPrimal
   :: (ShowAstSimplify r, KnownNat n)
@@ -1242,6 +1416,13 @@ substituteAst :: forall m n r. (ShowAstSimplify r, KnownNat m, KnownNat n)
               => Either (Ast m r) (AstInt r) -> AstVarId -> Ast n r
               -> Ast n r
 substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
+
+substituteAstDomains
+  :: (ShowAstSimplify r, KnownNat m)
+  => Either (Ast m r) (AstInt r) -> AstVarId -> AstDomains r
+  -> AstDomains r
+substituteAstDomains i var v1 =
+  simplifyAstDomains $ substitute1AstDomains i var v1
 
 substituteAstInt :: forall m r. (ShowAstSimplify r, KnownNat m)
                  => Either (Ast m r) (AstInt r) -> AstVarId -> AstInt r

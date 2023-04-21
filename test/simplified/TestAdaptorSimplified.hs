@@ -207,7 +207,7 @@ testReluPP2 = do
   printPrimal6Pretty renames artifact6
     @?= "\\s0 x3 -> let x6 = tkonst 5 (s0 ! [0]) ; x7 = tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB ((let x12 = x3 ! [i5] ; x13 = s0 ! [0] in x12 * x13) <=* tconst 0.0) 0 1]) ; x8 = x3 * x6 in x7 * x8"
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 dret x3 -> let x6 = tkonst 5 (s0 ! [0]) ; x7 = tconstant (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB ((let x12 = x3 ! [i5] ; x13 = s0 ! [0] in x12 * x13) <=* tconst 0.0) 0 1])) ; x8 = x3 * x6 ; x9 = x7 * dret ; x11 = tscatter [1] (tkonst 1 (tsum (x3 * x9))) (\\[i10] -> [0]) in (tkonst 1 (tconst 0.0 + x11 ! [0]), x6 * x9)"
+    @?= "\\s0 dret x3 -> let x6 = tkonst 5 (s0 ! [0]) ; x9 = tconstant (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (x3 ! [i5] * s0 ! [0] <=* tconst 0.0) 0 1])) * dret in (tkonst 1 (tconst 0.0 + tscatter [1] (tkonst 1 (tsum (x3 * x9))) (\\[i10] -> [0]) ! [0]), x6 * x9)"
   show deltas
     @?= "LetR 100000013 (ScaleR (AstVar [5] (AstVarId 100000007)) (LetR 100000012 (AddR (ScaleR (AstVar [5] (AstVarId 100000006)) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000003)) (LetR 100000011 (ReshapeR [5] [5] (LetR 100000010 (KonstR 5 (LetR 100000009 (ScalarR (Let0 100000008 (UnScalar0 (LetR 100000007 (IndexZ (LetR 100000006 (FromVectorR [ScalarR (Input0 (InputId 0))])) [AstIntConst 0] [1]))))))))))))))"
 
@@ -250,7 +250,7 @@ testReluSimplerPP2 = do
   printPrimal6Pretty renames artifact6
     @?= "\\s0 x3 -> let x6 = tkonst 5 (s0 ! [0]) ; x7 = tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB ((let x12 = x3 ! [i5] ; x13 = s0 ! [0] in x12 * x13) <=* tconst 0.0) 0 1]) ; x8 = x3 * x6 in x7 * x8"
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 dret x3 -> let x6 = tkonst 5 (s0 ! [0]) ; x7 = tconstant (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB ((let x12 = x3 ! [i5] ; x13 = s0 ! [0] in x12 * x13) <=* tconst 0.0) 0 1])) ; x8 = x3 * x6 ; x9 = x7 * dret ; x11 = tscatter [1] (tkonst 1 (tsum (x3 * x9))) (\\[i10] -> [0]) in (tkonst 1 (tconst 0.0 + x11 ! [0]), x6 * x9)"
+    @?= "\\s0 dret x3 -> let x6 = tkonst 5 (s0 ! [0]) ; x9 = tconstant (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (x3 ! [i5] * s0 ! [0] <=* tconst 0.0) 0 1])) * dret in (tkonst 1 (tconst 0.0 + tscatter [1] (tkonst 1 (tsum (x3 * x9))) (\\[i10] -> [0]) ! [0]), x6 * x9)"
   show deltas
     @?= "LetR 100000013 (ScaleR (AstVar [5] (AstVarId 100000007)) (LetR 100000012 (AddR (ScaleR (AstVar [5] (AstVarId 100000006)) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000003)) (LetR 100000011 (ReshapeR [5] [5] (LetR 100000010 (KonstR 5 (LetR 100000009 (ScalarR (Let0 100000008 (UnScalar0 (LetR 100000007 (IndexZ (LetR 100000006 (FromVectorR [ScalarR (Input0 (InputId 0))])) [AstIntConst 0] [1]))))))))))))))"
 
@@ -349,9 +349,9 @@ testMatmul2PP = do
   printPrimal6Pretty renames artifact6
     @?= "\\s0 x3 x4 -> let x7 = ttranspose [1,2,0] (tkonst 5 x3) ; x8 = tkonst 2 x4 in tsum (ttranspose [1,0] (x7 * x8))"
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 dret x3 x4 -> let x7 = tgather [2,3,5] x3 (\\[i10, i11, i12] -> [i10, i11]) ; x8 = tkonst 2 x4 ; x9 = tgather [2,3,5] dret (\\[i13, i14] -> [i13]) in (tfromList [], tsum (ttranspose [2,0,1] (x8 * x9)), tsum (x7 * x9))"
+    @?= "\\s0 dret x3 x4 -> let x9 = tgather [2,3,5] dret (\\[i13, i14] -> [i13]) in (tfromList [], tsum (tgather [5,2,4] x4 (\\[i15, i16, i17] -> [i17, i15]) * ttranspose [2,0,1] x9), tsum (tgather [2,3,5] x3 (\\[i10, i11, i12] -> [i10, i11]) * x9))"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 x3 x4 -> let x7 = tgather [2,3,5] x3 (\\[i15, i16, i17] -> [i15, i16]) ; x8 = tkonst 2 x4 in tsum (ttranspose [1,0] (x7 * x8))"
+    @?= "\\s0 x3 x4 -> tsum (tgather [3,2,5] x3 (\\[i19, i18, i20] -> [i18, i19]) * tgather [4,2,5] x4 (\\[i21, i22] -> [i21]))"
 
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =

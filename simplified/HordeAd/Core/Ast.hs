@@ -16,8 +16,7 @@ module HordeAd.Core.Ast
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool, intVarInIndex
-  , substitute1Ast, substitute1AstDomains
-  , substitute1AstInt, substitute1AstBool
+  , substitute1Ast, substitute1AstDomains, substitute1AstInt, substitute1AstBool
   , printAstVarId
   , printAstSimple, printAstPretty, printAstDomainsSimple, printAstDomainsPretty
   , printGradient6Simple, printGradient6Pretty

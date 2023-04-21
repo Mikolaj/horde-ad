@@ -143,7 +143,8 @@ instance Evidence Float where
 
 type InterpretAst a = Evidence a
 
-type AstMemo a = ()
+type AstMemo a = ()  -- unused for now, but likely to be used in the future,
+                     -- though probably not for memoization
 
 emptyMemo :: AstMemo a
 emptyMemo = ()
