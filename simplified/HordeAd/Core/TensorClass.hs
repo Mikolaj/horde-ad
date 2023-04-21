@@ -209,7 +209,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tsum0 :: KnownNat n => TensorOf n r -> TensorOf 0 r
   tsum0 = tsum . tflatten
   tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf 0 r
-  tdot0 t u = tsum (tflatten t * tflatten u)
+  tdot0 t u = tsum (tflatten (t `tmult` u))
   tmatmul1 :: TensorOf 2 r -> TensorOf 1 r -> TensorOf 1 r
   tmatmul1 m v = tbuild1 (tlength m) (\i -> tdot0 v (m ! [i]))
 -- How to generalize (#69)? these equivalent definitions generalize differently

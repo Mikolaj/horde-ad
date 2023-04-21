@@ -321,9 +321,9 @@ testDot2PP = do
                  ( OR.fromList [2,3] [1 .. 6]
                  , OR.fromList [4,5] [1 .. 20] )
   printGradient6Pretty renames artifact6
-    @?= "\\s0 dret x3 x4 -> let x5 = treshape [6] x3 ; x6 = treshape [20] x4 in (tfromList [], treshape [2,3] (x6 * tkonst 20 dret), treshape [4,5] (x5 * tkonst 6 dret))"
+    @?= "\\s0 dret x3 x4 -> let x5 = treshape [2,3] (tkonst 6 dret) in (tfromList [], x4 * x5, x3 * x5)"
   printPrimal6Pretty renames artifact6
-    @?= "\\s0 x3 x4 -> let x5 = treshape [6] x3 ; x6 = treshape [20] x4 in tsum (x5 * x6)"
+    @?= "\\s0 x3 x4 -> tsum (treshape [6] (x3 * x4))"
 
 testMatmul1PP :: Assertion
 testMatmul1PP = do
