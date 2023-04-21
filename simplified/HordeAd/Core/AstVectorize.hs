@@ -17,11 +17,14 @@ import           GHC.TypeLits (KnownNat, type (+))
 import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 
-import HordeAd.Core.Ast
-import HordeAd.Core.AstFreshId
-import HordeAd.Core.AstSimplify
-import HordeAd.Core.SizedIndex
-import HordeAd.Internal.SizedList
+import           HordeAd.Core.Ast hiding
+  (Ast (..), AstBool (..), AstDomains (..), AstInt (..))
+import           HordeAd.Core.Ast (Ast, AstDomains, AstInt)
+import qualified HordeAd.Core.Ast as Ast
+import           HordeAd.Core.AstFreshId
+import           HordeAd.Core.AstSimplify
+import           HordeAd.Core.SizedIndex
+import           HordeAd.Internal.SizedList
 
 -- * Vectorization
 
@@ -37,7 +40,7 @@ build1Vectorize
 build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
-      startTerm = AstBuild1 k (var, v0)
+      startTerm = Ast.AstBuild1 k (var, v0)
       renames = IM.fromList [(1, "s0")]
   when enabled $ do
     writeIORef traceNestingLevel 0
@@ -70,7 +73,7 @@ build1VOccurenceUnknown
   :: (KnownNat n, ShowAstSimplify r)
   => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
 build1VOccurenceUnknown k (var, v0) =
-  let traceRule = mkTraceRule "build1VOcc" (AstBuild1 k (var, v0)) v0 1
+  let traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 k (var, v0)) v0 1
   in if intVarInAst var v0
      then build1V k (var, v0)
      else traceRule $
@@ -106,14 +109,15 @@ build1V k (var, v00) =
         -- as well we one-step simplified first (many steps if redexes
         -- get uncovered and so the simplification requires only constant
         -- look-ahead, but has a guaranteed net benefit).
-      bv = AstBuild1 k (var, v0)
+      bv = Ast.AstBuild1 k (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
-    AstVar{} ->
+    Ast.AstVar{} ->
       error "build1V: AstVar can't have free int variables"
-    AstLet var2 u v ->
+    Ast.AstLet var2 u v ->
       let sh = shapeAst u
-          projection = AstIndexZ (AstVar (k :$ sh) var2) (AstIntVar var :. ZI)
+          projection = Ast.AstIndexZ (Ast.AstVar (k :$ sh) var2)
+                                     (Ast.AstIntVar var :. ZI)
           v2 = substitute1Ast (Left projection) var2 v
             -- we use the substitution that does not simplify, which is sad,
             -- because very low hanging fruits may be left hanging, but we
@@ -124,71 +128,71 @@ build1V k (var, v00) =
                      (build1VOccurenceUnknownRefresh k (var, v2))
                         -- ensure no duplicated bindings; this is stronger
                         -- than what we need for simple substitution, etc.
-    AstLetADShare{} -> error "build1V: AstLetADShare"
+    Ast.AstLetADShare{} -> error "build1V: AstLetADShare"
 
-    AstOp opCode args -> traceRule $
-      AstOp opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
+    Ast.AstOp opCode args -> traceRule $
+      Ast.AstOp opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
         -- we permit duplicated bindings, because they can't easily
         -- be substituted into one another, unlike inside a let,
         -- which may get inlined
-    AstSumOfList args -> traceRule $
-      AstSumOfList $ map (\v -> build1VOccurenceUnknown k (var, v)) args
-    AstIota ->
+    Ast.AstSumOfList args -> traceRule $
+      Ast.AstSumOfList $ map (\v -> build1VOccurenceUnknown k (var, v)) args
+    Ast.AstIota ->
       error "build1V: AstIota can't have free int variables"
 
-    AstIndexZ v ix -> traceRule $
+    Ast.AstIndexZ v ix -> traceRule $
       build1VIndex k (var, v, ix)  -- @var@ is in @v@ or @ix@
-    AstSum v -> traceRule $
+    Ast.AstSum v -> traceRule $
       astSum $ astTr $ build1V k (var, v)
-    AstScatter sh v (vars, ix) -> traceRule $
+    Ast.AstScatter sh v (vars, ix) -> traceRule $
       let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix
       in astScatter (k :$ sh)
                     (build1VOccurenceUnknown k (var, v))
                     (varFresh ::: vars, astVarFresh :. ix2)
 
-    AstFromList l -> traceRule $
+    Ast.AstFromList l -> traceRule $
       astTr $ astFromList (map (\v -> build1VOccurenceUnknown k (var, v)) l)
-    AstFromVector l -> traceRule $
+    Ast.AstFromVector l -> traceRule $
       astTr $ astFromVector (V.map (\v -> build1VOccurenceUnknown k (var, v)) l)
-    AstKonst s v -> traceRule $
+    Ast.AstKonst s v -> traceRule $
       astTr $ astKonst s $ build1V k (var, v)
-    AstAppend v w -> traceRule $
+    Ast.AstAppend v w -> traceRule $
       astTr $ astAppend (astTr $ build1VOccurenceUnknown k (var, v))
                         (astTr $ build1VOccurenceUnknown k (var, w))
-    AstSlice i s v -> traceRule $
+    Ast.AstSlice i s v -> traceRule $
       astTr $ astSlice i s $ astTr $ build1V k (var, v)
-    AstReverse v -> traceRule $
+    Ast.AstReverse v -> traceRule $
       astTr $ astReverse $ astTr $ build1V k (var, v)
-    AstTranspose perm v -> traceRule $
+    Ast.AstTranspose perm v -> traceRule $
       astTranspose (simplifyPermutation $ 0 : map succ perm)
                    (build1V k (var, v))
-    AstReshape sh v -> traceRule $
+    Ast.AstReshape sh v -> traceRule $
       astReshape (k :$ sh) $ build1V k (var, v)
-    AstBuild1{} -> error "build1V: impossible case of AstBuild1"
-    AstGatherZ sh v (vars, ix) -> traceRule $
+    Ast.AstBuild1{} -> error "build1V: impossible case of AstBuild1"
+    Ast.AstGatherZ sh v (vars, ix) -> traceRule $
       let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix
       in astGatherStep (k :$ sh)
                        (build1VOccurenceUnknown k (var, v))
                        (varFresh ::: vars, astVarFresh :. ix2)
 
-    AstConst{} ->
+    Ast.AstConst{} ->
       error "build1V: AstConst can't have free int variables"
-    AstConstant (AstPrimalPart v) -> traceRule $
+    Ast.AstConstant (AstPrimalPart v) -> traceRule $
       astConstant $ AstPrimalPart $ build1V k (var, v)
-    AstD (AstPrimalPart u) (AstDualPart u') ->
-      AstD (AstPrimalPart $ build1VOccurenceUnknown k (var, u))
-           (AstDualPart $ build1VOccurenceUnknown k (var, u'))
-    AstLetDomains vars l v ->
+    Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
+      Ast.AstD (AstPrimalPart $ build1VOccurenceUnknown k (var, u))
+               (AstDualPart $ build1VOccurenceUnknown k (var, u'))
+    Ast.AstLetDomains vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
       let subst (var1, AstDynamic u1) =
             let sh = shapeAst u1
-                projection = AstIndexZ (AstVar (k :$ sh) var1)
-                                       (AstIntVar var :. ZI)
+                projection = Ast.AstIndexZ (Ast.AstVar (k :$ sh) var1)
+                                           (Ast.AstIntVar var :. ZI)
             in substitute1Ast (Left projection) var1
           v2 = V.foldr subst v (V.zip vars (unwrapAstDomains l))
             -- we use the substitution that does not simplify
-      in AstLetDomains vars (build1VOccurenceUnknownDomains k (var, l))
-                            (build1VOccurenceUnknownRefresh k (var, v2))
+      in Ast.AstLetDomains vars (build1VOccurenceUnknownDomains k (var, l))
+                                (build1VOccurenceUnknownRefresh k (var, v2))
 
 build1VOccurenceUnknownDynamic
   :: ShowAstSimplify r
@@ -200,11 +204,12 @@ build1VOccurenceUnknownDomains
   :: ShowAstSimplify r
   => Int -> (AstVarId, AstDomains r) -> AstDomains r
 build1VOccurenceUnknownDomains k (var, v0) = case v0 of
-  AstDomains l ->
-    AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
-  AstDomainsLet var2 u v ->
+  Ast.AstDomains l ->
+    Ast.AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
+  Ast.AstDomainsLet var2 u v ->
     let sh = shapeAst u
-        projection = AstIndexZ (AstVar (k :$ sh) var2) (AstIntVar var :. ZI)
+        projection = Ast.AstIndexZ (Ast.AstVar (k :$ sh) var2)
+                                   (Ast.AstIntVar var :. ZI)
         v2 = substitute1AstDomains (Left projection) var2 v
           -- we use the substitution that does not simplify
     in astDomainsLet var2 (build1VOccurenceUnknownRefresh k (var, u))
@@ -238,13 +243,13 @@ build1VIndex
 build1VIndex k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
 build1VIndex k (var, v0, ix@(_ :. _)) =
   let traceRule = mkTraceRule "build1VIndex"
-                              (AstBuild1 k (var, AstIndexZ v0 ix))
+                              (Ast.AstBuild1 k (var, Ast.AstIndexZ v0 ix))
                               v0 1
   in if intVarInAst var v0
      then case astIndexStep v0 ix of  -- push deeper
-       AstIndexZ v1 ZI -> traceRule $
+       Ast.AstIndexZ v1 ZI -> traceRule $
          build1VOccurenceUnknown k (var, v1)
-       v@(AstIndexZ v1 ix1) -> traceRule $
+       v@(Ast.AstIndexZ v1 ix1) -> traceRule $
          let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix1
              ruleD = astGatherStep
                        (k :$ dropShape (shapeAst v1))
@@ -252,10 +257,10 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
                        (varFresh ::: Z, astVarFresh :. ix2)
          in if intVarInAst var v1
             then case (v1, ix1) of  -- try to avoid ruleD if not a normal form
-              (AstFromList{}, _ :. ZI) -> ruleD
-              (AstFromVector{}, _ :. ZI) -> ruleD
-              (AstScatter{}, _) -> ruleD
-              (AstAppend{}, _) -> ruleD
+              (Ast.AstFromList{}, _ :. ZI) -> ruleD
+              (Ast.AstFromVector{}, _ :. ZI) -> ruleD
+              (Ast.AstScatter{}, _) -> ruleD
+              (Ast.AstAppend{}, _) -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
             else build1VOccurenceUnknown k (var, v)  -- shortcut
        v -> traceRule $
