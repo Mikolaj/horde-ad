@@ -9,7 +9,6 @@ import Prelude
 
 import           Control.Arrow (first, second)
 import           Control.Exception.Assert.Sugar
-import           Control.Monad.ST.Strict (runST)
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
@@ -23,17 +22,21 @@ import qualified Data.Array.Internal.ShapedS
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
+import           Data.Functor (void)
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Map as M
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Generic.Mutable as VM
+import qualified Data.Vector.Storable.Mutable as VM
+import           Foreign (advancePtr)
 import           Foreign.C (CInt)
+import           Foreign.Storable (peekElemOff, pokeElemOff)
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
+import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR)
@@ -208,21 +211,25 @@ tsumR t = case OR.shapeL t of
   0 : sh2 -> OR.constant sh2 0  -- the shape is known from sh, so no ambiguity
   k : sh2 -> case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> OR.scalar $ tsum0R t
-    _ -> OR.fromVector sh2 $ runST $ do  -- this is basically rowSum
-      let v = OR.toVector t
-          len2 = product sh2
-      v2 <- VM.new len2
-      let rower row =
-            if row == k then return () else do
-              let copier n = do
-                    if n == len2 then return () else do
-                      let x = v V.! (row * len2 + n)
-                      VM.unsafeModify v2 (+ x) n
-                      copier (succ n)
-              copier 0
-              rower (succ row)
-      rower 0
-      V.unsafeFreeze v2
+    _ -> OR.fromVector sh2 $ unsafePerformIO $ do  -- this is basically rowSum
+      v <- V.unsafeThaw $ OR.toVector t
+      VM.unsafeWith v $ \ptr -> do
+        let len2 = product sh2
+        v2 <- VM.new len2
+        VM.unsafeWith v2 $ \ptr2 -> do
+          let rower row ptr1 =
+                if row == k then return () else do
+                  let copier n = do
+                        if n == len2 then return () else do
+                          x <- peekElemOff ptr1 n
+                          y <- peekElemOff ptr2 n
+                          pokeElemOff ptr2 n (x + y)
+                          copier (succ n)
+                  copier 0
+                  rower (succ row) (advancePtr ptr1 len2)
+          rower 0 ptr
+          void $ V.unsafeFreeze v
+          V.unsafeFreeze v2
 
 tsum0R
   :: Numeric r
