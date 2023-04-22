@@ -17,6 +17,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualClass (dFromD)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -118,7 +119,7 @@ fooMap1 r =
   in tmap0N (\x -> x * tscalar r + 5) v
 
 -- This uses raw AST instead of sufficiently polymorphic code.
-fooNoGoAst :: forall r. (ShowAst r, RealFloat r, Floating (Vector r))
+fooNoGoAst :: forall r. (ShowAstSimplify r, RealFloat r, Floating (Vector r))
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
   let r = tsum0 v
@@ -178,18 +179,17 @@ barRelu
 barRelu x = relu $ bar (x, relu x)
 
 barReluAst
-  :: (KnownNat n, ShowAst r, RealFloat r, Floating (Vector r))
+  :: (KnownNat n, ShowAstSimplify r, RealFloat r, Floating (Vector r))
   => Ast n r -> Ast n r
 barReluAst x = relu $ bar (x, reluAst1 x)
 
 konstReluAst
-  :: forall r. (ShowAst r, RealFloat (Vector r))
+  :: forall r. (ShowAstSimplify r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
 konstReluAst x = tsum0 $ reluAst1 @1 $ tkonst0N [7] x
 
 reluAst1
-  :: forall n r.
-     (KnownNat n, ShowAst r, Floating (Vector r))
+  :: forall n r. (KnownNat n, ShowAstSimplify r)
   => Ast n r -> Ast n r
 reluAst1 v =
   let oneIfGtZero =

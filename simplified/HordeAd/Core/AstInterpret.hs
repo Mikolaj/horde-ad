@@ -31,6 +31,7 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal ()
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
+import HordeAd.Internal.TensorOps
 
 type AstEnv a = EM.EnumMap AstVarId (AstEnvElem a)
 
@@ -111,8 +112,8 @@ data Dict c a where
 
 class ( Tensor a, Tensor (Primal a), DynamicTensor a
       , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a)
-      , ShowAst (ScalarOf a), Num (Vector (ScalarOf a)), RealFloat (Primal a)
-      , IntOf (Primal a) ~ IntOf a
+      , ShowAst (ScalarOf a), Num (Vector (ScalarOf a)), RowSum  (ScalarOf a)
+      , RealFloat (Primal a), IntOf (Primal a) ~ IntOf a
       , BooleanOf (Primal a) ~ BooleanOf (IntOf a) )
       => Evidence a where
   evi1 :: forall n. KnownNat n

@@ -51,7 +51,7 @@ extra-doc-files:    README.md,
                     CHANGELOG.md
 
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
--- extra-source-files:
+extra-source-files: src/cbits/matrix_reduce.h
 
 tested-with:        GHC ==9.2.7 || ==9.4.4
 
@@ -539,6 +539,19 @@ library horde-ad-simplified
       , vector
 
     hs-source-dirs:   simplified src/common
+
+    C-sources:        src/cbits/matrix_reduce.c
+    cc-options:         -O4 -Wall -std=c99
+
+    if arch(x86_64)
+        cc-options:     -msse2
+    if arch(i386)
+        cc-options:     -msse2
+
+    if os(linux)
+        -- cargo-culting this one:
+        if arch(x86_64)
+            cc-options: -fPIC
 
 library oldExampleLibrarySimplified
     import:           options

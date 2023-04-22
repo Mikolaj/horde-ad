@@ -487,7 +487,7 @@ barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
-fooNoGoAst :: forall r. (ShowAst r, RealFloat r, Floating (Vector r))
+fooNoGoAst :: forall r. (ShowAstSimplify r, RealFloat r, Floating (Vector r))
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
   let r = tsum0 v
@@ -503,7 +503,7 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: ( ShowAst r, RealFloat r, Floating (Vector r)
+  let f :: ( ShowAstSimplify r, RealFloat r, Floating (Vector r)
            , TensorOf 1 r ~ OR.Array 1 r, InterpretAst (ADVal r)
            , TensorOf 1 (ADVal r) ~ ADVal (TensorOf 1 r)
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
@@ -638,13 +638,13 @@ testBarReluADValMax3 =
 
 barReluAst
   :: forall n r.
-     (KnownNat n, ShowAst r, RealFloat r, Floating (Vector r))
+     (KnownNat n, ShowAstSimplify r, RealFloat r, Floating (Vector r))
   => Ast n r -> Ast n r
 barReluAst x = relu @n @(Ast0 r) $ bar (x, relu x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
-  let f :: ( ShowAst r, RealFloat r, Floating (Vector r)
+  let f :: ( ShowAstSimplify r, RealFloat r, Floating (Vector r)
            , TensorOf 0 r ~ OR.Array 0 r, InterpretAst (ADVal r)
            , TensorOf 0 (ADVal r) ~ ADVal (TensorOf 0 r)
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
@@ -660,7 +660,7 @@ testBarReluAst0 =
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
-  let f :: ( ShowAst r, RealFloat r, Floating (Vector r)
+  let f :: ( ShowAstSimplify r, RealFloat r, Floating (Vector r)
            , TensorOf 1 r ~ OR.Array 1 r, InterpretAst (ADVal r)
            , TensorOf 1 (ADVal r) ~ ADVal (TensorOf 1 r)
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
@@ -675,13 +675,13 @@ testBarReluAst1 =
        (crev @(OR.Array 1 Double) f (OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
 
 konstReluAst
-  :: forall r. (ShowAst r, RealFloat r, RealFloat (Vector r))
+  :: forall r. (ShowAstSimplify r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
 konstReluAst x = tsum0 $ relu $ tkonst0N (7 :$ ZS) x
 
 testKonstReluAst :: Assertion
 testKonstReluAst =
-  let f :: ( ShowAst r, RealFloat r, Floating (Vector r)
+  let f :: ( ShowAstSimplify r, RealFloat r, Floating (Vector r)
            , TensorOf 0 r ~ OR.Array 0 r, InterpretAst (ADVal r)
            , TensorOf 0 (ADVal r) ~ ADVal (TensorOf 0 r)
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)

@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Miscellaneous more or less general purpose tensor operations.
@@ -30,9 +31,8 @@ import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable.Mutable as VM
-import           Foreign (advancePtr)
-import           Foreign.C (CInt)
-import           Foreign.Storable (peekElemOff, pokeElemOff)
+import           Foreign (Ptr)
+import           Foreign.C (CInt (..))
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
@@ -204,7 +204,7 @@ tindex0R (Data.Array.Internal.RankedS.A
     -- to avoid linearizing @values@, we do everything in unsized way
 
 tsumR
-  :: forall n r. (KnownNat n, Numeric r)
+  :: forall n r. (KnownNat n, Numeric r, RowSum r)
   => OR.Array (1 + n) r -> OR.Array n r
 tsumR t = case OR.shapeL t of
   [] -> error "tsumR: null shape"
@@ -217,19 +217,29 @@ tsumR t = case OR.shapeL t of
         let len2 = product sh2
         v2 <- VM.new len2
         VM.unsafeWith v2 $ \ptr2 -> do
-          let rower row ptr1 =
-                if row == k then return () else do
-                  let copier n = do
-                        if n == len2 then return () else do
-                          x <- peekElemOff ptr1 n
-                          y <- peekElemOff ptr2 n
-                          pokeElemOff ptr2 n (x + y)
-                          copier (succ n)
-                  copier 0
-                  rower (succ row) (advancePtr ptr1 len2)
-          rower 0 ptr
+          rowSum len2 k ptr ptr2
           void $ V.unsafeFreeze v
           V.unsafeFreeze v2
+
+foreign import ccall unsafe "row_sum_double"
+  c_row_sum_double :: CInt -> CInt -> Ptr Double -> Ptr Double -> IO ()
+
+foreign import ccall unsafe "row_sum_float"
+  c_row_sum_float :: CInt -> CInt -> Ptr Float -> Ptr Float -> IO ()
+
+class RowSum r where
+  rowSum :: Int -> Int -> Ptr r -> Ptr r -> IO ()
+
+instance RowSum Double where
+  rowSum n k ptr ptr2 =
+    c_row_sum_double (fromIntegral n) (fromIntegral k) ptr ptr2
+
+instance RowSum Float where
+  rowSum n k ptr ptr2 =
+    c_row_sum_float (fromIntegral n) (fromIntegral k) ptr ptr2
+
+instance {-# OVERLAPPABLE #-} Numeric r => RowSum r where
+  rowSum = error "RowSum: TODO"
 
 tsum0R
   :: Numeric r

@@ -70,7 +70,7 @@ import           HordeAd.Internal.SizedList
 import           HordeAd.Internal.TensorOps
 
 
-type ShowAstSimplify r = (ShowAst r, Num (Vector r))
+type ShowAstSimplify r = (ShowAst r, Num (Vector r), RowSum r)
 
 -- * Expressing operations as Gather; introduces new variable names
 
