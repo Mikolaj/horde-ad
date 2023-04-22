@@ -9,6 +9,7 @@ import Prelude
 
 import           Control.Arrow (first, second)
 import           Control.Exception.Assert.Sugar
+import           Control.Monad.ST.Strict (runST)
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
@@ -28,6 +29,7 @@ import qualified Data.Strict.Map as M
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Generic.Mutable as VM
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
@@ -199,13 +201,28 @@ tindex0R (Data.Array.Internal.RankedS.A
     -- to avoid linearizing @values@, we do everything in unsized way
 
 tsumR
-  :: forall n r. (KnownNat n, Numeric r, Num (Vector r))
+  :: forall n r. (KnownNat n, Numeric r)
   => OR.Array (1 + n) r -> OR.Array n r
 tsumR t = case OR.shapeL t of
-  0 : sh -> OR.constant sh 0  -- the shape is known from sh, so no ambiguity
-  _ -> case sameNat (Proxy @n) (Proxy @0) of
+  [] -> error "tsumR: null shape"
+  0 : sh2 -> OR.constant sh2 0  -- the shape is known from sh, so no ambiguity
+  k : sh2 -> case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> OR.scalar $ tsum0R t
-    _ -> ORB.sumA $ OR.unravel t
+    _ -> OR.fromVector sh2 $ runST $ do  -- this is basically rowSum
+      let v = OR.toVector t
+          len2 = product sh2
+      v2 <- VM.new len2
+      let rower row =
+            if row == k then return () else do
+              let copier n = do
+                    if n == len2 then return () else do
+                      let x = v V.! (row * len2 + n)
+                      VM.unsafeModify v2 (+ x) n
+                      copier (succ n)
+              copier 0
+              rower (succ row)
+      rower 0
+      V.unsafeFreeze v2
 
 tsum0R
   :: Numeric r
