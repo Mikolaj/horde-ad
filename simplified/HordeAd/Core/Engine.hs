@@ -85,12 +85,20 @@ revAstOnDomains
 -- The functions in which @revAstOnDomains@ inlines are not inlined
 -- themselves in client code, so the bloat is limited.
 {-# INLINE revAstOnDomains #-}
-revAstOnDomains f parameters dt =
+revAstOnDomains f parameters =
+  revAstOnDomainsEval (revAstOnDomainsF f parameters) parameters
+
+revAstOnDomainsF
+  :: forall r n.
+     (ADTensor r, DomainsTensor r, KnownNat n, ShowAstSimplify r)
+  => (ADInputs (Ast0 r) -> ADVal (Ast n r))
+  -> Domains r
+  -> ADAstArtifact6 n r
+{-# INLINE revAstOnDomainsF #-}
+revAstOnDomainsF f parameters  =
   let dim0 = tlength $ domains0 parameters
       shapes1 = map dshape $ V.toList $ domainsR parameters
-  in revAstOnDomainsEval
-       (fst $ revAstOnDomainsFun dim0 shapes1 (\varInputs _ _ -> f varInputs))
-       parameters dt
+  in fst $ revAstOnDomainsFun dim0 shapes1 (\varInputs _ _ -> f varInputs)
 
 revAstOnDomainsFun
   :: forall r n. (KnownNat n, ShowAstSimplify r)
