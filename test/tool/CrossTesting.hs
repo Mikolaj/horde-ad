@@ -41,12 +41,13 @@ rev' :: forall a r n m.
         , TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r )
 rev' f vals =
   let value0 = f vals
+      parameters = toDomains vals
       dt = Nothing
       g inputs = f $ parseADInputs vals inputs
-      (advalGrad, value1) = revOnDomains dt g (toDomains vals)
+      (advalGrad, value1) = revOnDomains dt g parameters
       gradient1 = parseDomains vals advalGrad
       g9 inputs = f $ parseADInputs vals inputs
-      (advalGrad9, value9) = revAstOnDomains g9 (toDomains vals) dt
+      (advalGrad9, value9) = revAstOnDomains g9 parameters dt
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady x
         => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
@@ -56,20 +57,20 @@ rev' f vals =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseADInputs vals inputs) EM.empty
         in snd $ interpretAst env emptyMemo (gx ast)
-      (astGrad, value2) = revOnDomains dt (h id id id) (toDomains vals)
+      (astGrad, value2) = revOnDomains dt (h id id id) parameters
       gradient2 = parseDomains vals astGrad
       (astSimple, value3) =
-        revOnDomains dt (h id id simplifyAst6) (toDomains vals)
+        revOnDomains dt (h id id simplifyAst6) parameters
       gradient3 = parseDomains vals astSimple
       (astPrimal, value4) =
         revOnDomains dt (h unAstNoVectorize AstNoVectorize id)
-                        (toDomains vals)
+                        parameters
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradient4 = parseDomains vals astPrimal
       (astPSimple, value5) =
         revOnDomains dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
-                        (toDomains vals)
+                        parameters
       gradient5 = parseDomains vals astPSimple
       astVectSimp = simplifyAst6 $ snd $ funToAstR (tshape vals) f
       astSimp =
@@ -85,18 +86,18 @@ rev' f vals =
             env = extendEnvR var (parseADInputs vals inputs) EM.empty
         in snd $ interpretAst env emptyMemo (gx ast)
       (astGradAst, value2Ast) =
-        revAstOnDomains (hAst id id id) (toDomains vals) dt
+        revAstOnDomains (hAst id id id) parameters dt
       gradient2Ast = parseDomains vals astGradAst
       (astSimpleAst, value3Ast) =
-        revAstOnDomains (hAst id id simplifyAst6) (toDomains vals) dt
+        revAstOnDomains (hAst id id simplifyAst6) parameters dt
       gradient3Ast = parseDomains vals astSimpleAst
       (astPrimalAst, value4Ast) =
         revAstOnDomains (hAst unAstNoVectorize AstNoVectorize id)
-                        (toDomains vals) dt
+                        parameters dt
       gradient4Ast = parseDomains vals astPrimalAst
       (astPSimpleAst, value5Ast) =
         revAstOnDomains (hAst unAstNoVectorize AstNoVectorize simplifyAst6)
-                        (toDomains vals) dt
+                        parameters dt
       gradient5Ast = parseDomains vals astPSimpleAst
   in ( value0, value1, value2, value3, value4, value5
      , gradient1, gradient2, gradient3, gradient4, gradient5
