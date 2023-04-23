@@ -8,6 +8,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import           Data.Array.Convert (Convert)
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OD
@@ -21,6 +22,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Boolean
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
+import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
@@ -30,33 +32,149 @@ import           Numeric.LinearAlgebra.Data (arctan2)
 liftVT :: Numeric r
        => (Vector r -> Vector r)
        -> OD.Array r -> OD.Array r
-liftVT op t = OD.fromVector (OD.shapeL t) $ op $ OD.toVector t
+liftVT op (DS.A (DG.A sh oit)) =
+  if product sh >= V.length (OI.values oit)
+  then DS.A $ DG.A sh $ oit {OI.values = op $ OI.values oit}
+  else OD.fromVector sh $ op $ OI.toVectorT sh oit
+    -- avoids applying op to any vector element not in the tensor
+    -- (or at least ensures the right asymptotic behaviour, IDK)
 
+-- For the operations where hmatrix can't adapt/expand scalars.
+liftVT2NoAdapt :: Numeric r
+               => (Vector r -> Vector r -> Vector r)
+               -> OD.Array r -> OD.Array r -> OD.Array r
+liftVT2NoAdapt op (DS.A (DG.A sht oit@(OI.T sst _ vt)))
+                  (DS.A (DG.A shu oiu@(OI.T ssu _ vu))) =
+  case (V.length vt, V.length vu) of
+    (1, 1) ->
+      -- If both vectors have length 1, then it's a degenerate case.
+      -- Additionally, one of them may have non-nil shape due to the hack below.
+      -- Whether hmatrix can auto-expand doesn't matter here.
+      let (sh, ss) = if null sht then (shu, ssu) else (sht, sst)
+      in DS.A $ DG.A sh $ OI.T ss 0 $ vt `op` vu
+    (1, _) ->
+      -- First vector has length 1, but hmatrix can't auto-expand.
+      if product shu >= V.length vu
+      then DS.A $ DG.A shu
+                $ oiu {OI.values = LA.konst (vt V.! 0) (V.length vu) `op` vu}
+      else let v = OI.toVectorT shu oiu
+           in OD.fromVector shu $ LA.konst (vt V.! 0) (V.length v) `op` v
+    (_, 1) ->
+      -- Second vector has length 1, but hmatrix can't auto-expand.
+      if product sht >= V.length vt
+      then DS.A $ DG.A sht
+                $ oit {OI.values = vt `op` LA.konst (vu V.! 0) (V.length vt)}
+      else let v = OI.toVectorT sht oit
+           in OD.fromVector sht $ v `op` LA.konst (vu V.! 0) (V.length v)
+    (_, _) -> assert (sht == shu) $
+      -- We don't special-case tensors that have same non-zero offsets, etc.,
+      -- because the gains are small, correctness suspect (offsets can be
+      -- larger than the vector length!) and we often apply op to sliced off
+      -- elements, which defeats asymptotic guarantees.
+      if product sht >= V.length vt && product shu >= V.length vu
+         && OI.strides oit == OI.strides oiu
+      then assert (OI.offset oit == OI.offset oiu
+                   && V.length vt == V.length vu)
+           $ DS.A $ DG.A sht $ oit {OI.values = vt `op` vu}
+      else OD.fromVector sht $ OI.toVectorT sht oit `op` OI.toVectorT sht oiu
+        -- avoids applying op to any vector element not in the tensor
+        -- (or at least ensures the right asymptotic behaviour, IDK)
+
+-- Inspired by OI.zipWithT.
 liftVT2 :: Numeric r
         => (Vector r -> Vector r -> Vector r)
         -> OD.Array r -> OD.Array r -> OD.Array r
-liftVT2 op t u =
-  let sh = case OD.shapeL t of
-        [] -> OD.shapeL u
-        sh' -> sh'
-  in OD.fromVector sh $ OD.toVector t `op` OD.toVector u
+liftVT2 op (DS.A (DG.A sht oit@(OI.T sst _ vt)))
+           (DS.A (DG.A shu oiu@(OI.T ssu _ vu))) =
+  case (V.length vt, V.length vu) of
+    (1, 1) ->
+      -- If both vectors have length 1, then it's a degenerate case.
+      -- Additionally, one of them may have non-nil shape due to the hack below,
+      -- where the OD.constant in fromInteger below is replaced
+      -- by unsafe internal operations and then hmatrix helps some more.
+      -- However, the removal of the check vs run-time type is risky.
+      let (sh, ss) = if null sht then (shu, ssu) else (sht, sst)
+      in DS.A $ DG.A sh $ OI.T ss 0 $ vt `op` vu
+    (1, _) ->
+      -- First vector has length 1, hmatrix should auto-expand to match second.
+      if product shu >= V.length vu
+      then DS.A $ DG.A shu $ oiu {OI.values = vt `op` vu}
+      else OD.fromVector shu $ vt `op` OI.toVectorT shu oiu
+    (_, 1) ->
+      -- Second vector has length 1, hmatrix should auto-expand to match first.
+      if product sht >= V.length vt
+      then DS.A $ DG.A sht $ oit {OI.values = vt `op` vu}
+      else OD.fromVector sht $ OI.toVectorT sht oit `op` vu
+    (_, _) -> assert (sht == shu) $
+      if product sht >= V.length vt && product shu >= V.length vu
+         && OI.strides oit == OI.strides oiu
+      then assert (OI.offset oit == OI.offset oiu
+                   && V.length vt == V.length vu)
+           $ DS.A $ DG.A sht $ oit {OI.values = vt `op` vu}
+      else OD.fromVector sht $ OI.toVectorT sht oit `op` OI.toVectorT sht oiu
 
+-- See the various comments above; we don't repeat them below.
 liftVR :: (Numeric r, KnownNat n)
        => (Vector r -> Vector r)
        -> OR.Array n r -> OR.Array n r
-liftVR op t = OR.fromVector (OR.shapeL t) $ op $ OR.toVector t
+liftVR op (RS.A (RG.A sh oit)) =
+  if product sh >= V.length (OI.values oit)
+  then RS.A $ RG.A sh $ oit {OI.values = op $ OI.values oit}
+  else OR.fromVector sh $ op $ OI.toVectorT sh oit
+
+liftVR2NoAdapt :: (Numeric r, KnownNat n)
+               => (Vector r -> Vector r -> Vector r)
+               -> OR.Array n r -> OR.Array n r -> OR.Array n r
+liftVR2NoAdapt op (RS.A (RG.A sht oit@(OI.T sst _ vt)))
+                  (RS.A (RG.A shu oiu@(OI.T ssu _ vu))) =
+  case (V.length vt, V.length vu) of
+    (1, 1) ->
+      let (sh, ss) = if null sht then (shu, ssu) else (sht, sst)
+      in RS.A $ RG.A sh $ OI.T ss 0 $ vt `op` vu
+    (1, _) ->
+      if product shu >= V.length vu
+      then RS.A $ RG.A shu
+                $ oiu {OI.values = LA.konst (vt V.! 0) (V.length vu) `op` vu}
+      else let v = OI.toVectorT shu oiu
+           in OR.fromVector shu $ LA.konst (vt V.! 0) (V.length v) `op` v
+    (_, 1) ->
+      if product sht >= V.length vt
+      then RS.A $ RG.A sht
+                $ oit {OI.values = vt `op` LA.konst (vu V.! 0) (V.length vt)}
+      else let v = OI.toVectorT sht oit
+           in OR.fromVector sht $ v `op` LA.konst (vu V.! 0) (V.length v)
+    (_, _) -> assert (sht == shu) $
+      if product sht >= V.length vt && product shu >= V.length vu
+         && OI.strides oit == OI.strides oiu
+      then assert (OI.offset oit == OI.offset oiu
+                   && V.length vt == V.length vu)
+           $ RS.A $ RG.A sht $ oit {OI.values = vt `op` vu}
+      else OR.fromVector sht $ OI.toVectorT sht oit `op` OI.toVectorT sht oiu
 
 liftVR2 :: (Numeric r, KnownNat n)
         => (Vector r -> Vector r -> Vector r)
         -> OR.Array n r -> OR.Array n r -> OR.Array n r
-liftVR2 op t u =
-  -- This hack helps, because OR.constant in fromInteger below is replaced
-  -- by unsafe internal operations and then hmatrix helps some more.
-  -- However, the removal of the check vs run-time type is risky.
-  let sh = case OR.shapeL t of
-        [] -> OR.shapeL u
-        sh' -> sh'
-  in OR.fromVector sh $ OR.toVector t `op` OR.toVector u
+liftVR2 op (RS.A (RG.A sht oit@(OI.T sst _ vt)))
+           (RS.A (RG.A shu oiu@(OI.T ssu _ vu))) =
+  case (V.length vt, V.length vu) of
+    (1, 1) ->
+      let (sh, ss) = if null sht then (shu, ssu) else (sht, sst)
+      in RS.A $ RG.A sh $ OI.T ss 0 $ vt `op` vu
+    (1, _) ->
+      if product shu >= V.length vu
+      then RS.A $ RG.A shu $ oiu {OI.values = vt `op` vu}
+      else OR.fromVector shu $ vt `op` OI.toVectorT shu oiu
+    (_, 1) ->
+      if product sht >= V.length vt
+      then RS.A $ RG.A sht $ oit {OI.values = vt `op` vu}
+      else OR.fromVector sht $ OI.toVectorT sht oit `op` vu
+    (_, _) -> assert (sht == shu) $
+      if product sht >= V.length vt && product shu >= V.length vu
+         && OI.strides oit == OI.strides oiu
+      then assert (OI.offset oit == OI.offset oiu
+                   && V.length vt == V.length vu)
+           $ RS.A $ RG.A sht $ oit {OI.values = vt `op` vu}
+      else OR.fromVector sht $ OI.toVectorT sht oit `op` OI.toVectorT sht oiu
 
 liftVS :: (Numeric r, OS.Shape sh)
        => (Vector r -> Vector r)
@@ -254,13 +372,13 @@ instance (RealFrac (Vector r), OS.Shape sh, Numeric r, Fractional r, Ord r)
 
 instance (RealFloat (Vector r), Numeric r, Floating r, Ord r)
          => RealFloat (OD.Array r) where
-  atan2 = liftVT2 atan2
+  atan2 = liftVT2NoAdapt atan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
 
 instance (RealFloat (Vector r), KnownNat n, Numeric r, Floating r, Ord r)
          => RealFloat (OR.Array n r) where
-  atan2 = liftVR2 atan2
+  atan2 = liftVR2NoAdapt atan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
 
