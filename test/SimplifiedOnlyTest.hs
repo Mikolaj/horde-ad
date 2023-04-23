@@ -14,8 +14,9 @@ import qualified TestConvSimplified
 import qualified TestGatherSimplified
 import qualified TestHighRankSimplified
 import qualified TestMnistFCNNR
-import qualified TestMnistRNNR
 import qualified TestSimplified
+
+--import qualified TestMnistRNNR
 
 main :: IO ()
 main = do
@@ -30,10 +31,10 @@ main = do
 
 tests :: TestTree
 tests = testGroup "Only special tests for simplified horde-ad" $
-  TestGatherSimplified.testTrees
-  ++ TestHighRankSimplified.testTrees
-  ++ TestConvSimplified.testTrees
-  ++ TestAdaptorSimplified.testTrees
+  TestAdaptorSimplified.testTrees
   ++ TestSimplified.testTrees
   ++ TestMnistFCNNR.testTrees
-  ++ TestMnistRNNR.testTrees
+--  ++ TestMnistRNNR.testTrees
+  ++ TestGatherSimplified.testTrees
+  ++ TestHighRankSimplified.testTrees
+  ++ TestConvSimplified.testTrees

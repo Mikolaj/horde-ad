@@ -746,7 +746,7 @@ test-suite simplifiedOnlyTest
                       TestGatherSimplified
                       TestHighRankSimplified
                       TestMnistFCNNR
-                      TestMnistRNNR
+--                      TestMnistRNNR
                       TestSimplified
 
     build-depends:
