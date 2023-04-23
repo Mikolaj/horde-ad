@@ -180,6 +180,19 @@ library
     -- Directories containing source files.
     hs-source-dirs:   src src/common
 
+    C-sources:        src/cbits/matrix_reduce.c
+    cc-options:         -O4 -Wall -std=c99
+
+    if arch(x86_64)
+        cc-options:     -msse2
+    if arch(i386)
+        cc-options:     -msse2
+
+    if os(linux)
+        -- cargo-culting this one:
+        if arch(x86_64)
+            cc-options: -fPIC
+
 library exampleLibrary
     -- Import common warning flags.
     import:           options

@@ -203,6 +203,8 @@ tindex0R (Data.Array.Internal.RankedS.A
                                         strides))
     -- to avoid linearizing @values@, we do everything in unsized way
 
+-- No NOINLINE, because apparently nothing breaks and hmatrix, etc.
+-- also don't put NOINLINE in the functions using FFI.
 tsumR
   :: forall n r. (KnownNat n, Numeric r, RowSum r)
   => OR.Array (1 + n) r -> OR.Array n r
@@ -211,7 +213,7 @@ tsumR t = case OR.shapeL t of
   0 : sh2 -> OR.constant sh2 0  -- the shape is known from sh, so no ambiguity
   k : sh2 -> case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> OR.scalar $ tsum0R t
-    _ -> OR.fromVector sh2 $ unsafePerformIO $ do  -- this is basically rowSum
+    _ -> OR.fromVector sh2 $ unsafePerformIO $ do  -- unsafe only due to FFI
       v <- V.unsafeThaw $ OR.toVector t
       VM.unsafeWith v $ \ptr -> do
         let len2 = product sh2
