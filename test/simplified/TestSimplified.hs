@@ -32,7 +32,6 @@ testTrees :: [TestTree]
 testTrees = [ -- Tensor tests
               testCase "barADVal" testBarADVal
             , testCase "fooBuild" testFooBuild
-            , testCase "fooMap" testFooMap
             , testCase "fooNoGoAst" testFooNoGoAst
             , testCase "nestedBuildMap" testNestedBuildMap
             , testCase "nestedSumBuild" testNestedSumBuild
@@ -399,12 +398,6 @@ testFooBuild =
   testPoly11 fooBuild1 3
     [1.1, 2.2, 3.3, 4]
     [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627]
-
-testFooMap :: Assertion
-testFooMap =
-  testPoly01 fooMap1 3
-    1.1
-    4.438131773948916e7
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =

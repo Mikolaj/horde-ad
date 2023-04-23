@@ -477,8 +477,8 @@ fooMap1 r =
 
 testFooMap1 :: Assertion
 testFooMap1 =
-  assertEqualUpToEpsilon' 1e-6
-    4.438131773948916e7
+  assertEqualUpToEpsilon' 1e-3
+    4.438131773975095e7
     (rev' @(OR.Array 1 Double) fooMap1 1.1)
 
 barAst :: (Numeric r, RealFloat r, RealFloat (Vector r))

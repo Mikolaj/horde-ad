@@ -244,6 +244,9 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo t
         in (memo1, tsum0 t1)
+  AstSum (AstKonst k v) ->
+    let (memo1, t) = interpretAst env memo v
+    in (memo1, tscaleByScalar (fromIntegral k) t)
   AstSum (AstLet var v t) -> interpretAst env memo (AstLet var v (AstSum t))
   AstSum v -> second tsum (interpretAst env memo v)
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
