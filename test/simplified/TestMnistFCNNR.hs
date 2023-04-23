@@ -355,7 +355,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                  gradientDomain =
                    fst $ revAstOnDomainsEval (vars, gradient, primal)
                                              parametersAndInput Nothing
-             in go rest (updateWithGradient gamma parameters gradientDomain)
+             in go rest (updateWithGradientR gamma parameters gradientDomain)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
@@ -704,7 +704,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                  gradientDomain =
                    fst $ revAstOnDomainsEval (vars, gradient, primal)
                                              parametersAndInput Nothing
-             in go rest (updateWithGradient gamma parameters gradientDomain)
+             in go rest (updateWithGradientR gamma parameters gradientDomain)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)

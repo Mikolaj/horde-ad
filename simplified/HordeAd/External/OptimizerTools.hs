@@ -1,6 +1,6 @@
 -- | Tools for implementing (and debugging the use of) gradient descent schemes.
 module HordeAd.External.OptimizerTools
-  ( updateWithGradient
+  ( updateWithGradient, updateWithGradientR
 --  , gradientIsNil, minimumGradient, maximumGradient
   , ArgsAdam(..), defaultArgsAdam
   , StateAdam(..), initialStateAdam
@@ -38,6 +38,17 @@ updateWithGradient gamma params gradient =
       !paramsRNew = V.zipWith updateR paramsR gradientR
   in mkDomains params0New paramsRNew
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
+
+updateWithGradientR
+  :: (Numeric r, Floating (Vector r), DTensorOf r ~ OD.Array r)
+  => r -> Domains r -> Domains r -> Domains r
+updateWithGradientR gamma params gradient =
+  let updateVector i r = i - LA.scale gamma r
+      updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
+                    then i
+                    else liftVT2 updateVector i r
+  in V.zipWith updateR params gradient
+{-# SPECIALIZE updateWithGradientR :: Double -> Domains Double -> Domains Double -> Domains Double #-}
 
 {-
 gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool

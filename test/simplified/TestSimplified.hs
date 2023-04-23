@@ -184,7 +184,7 @@ barReluAst
 barReluAst x = relu $ bar (x, reluAst1 x)
 
 konstReluAst
-  :: forall r. (ShowAstSimplify r, RealFloat (Vector r))
+  :: forall r. ShowAstSimplify r
   => Ast 0 r -> Ast 0 r
 konstReluAst x = tsum0 $ reluAst1 @1 $ tkonst0N [7] x
 
