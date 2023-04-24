@@ -309,16 +309,21 @@ instance OrdB (Ast0 r) where
 type instance BooleanOf (AstInt r) = AstBool r
 
 instance IfB (AstInt r) where
-  ifB = AstIntCond
+  ifB (AstBoolConst b) v w = if b then v else w  -- common in indexing
+  ifB b v w = AstIntCond b v w
 
 instance EqB (AstInt r) where
   v ==* u = AstRelInt EqOp [v, u]
   v /=* u = AstRelInt NeqOp [v, u]
 
 instance OrdB (AstInt r) where
+  AstIntConst u <* AstIntConst v = AstBoolConst $ u < v  -- common in indexing
   v <* u = AstRelInt LsOp [v, u]
+  AstIntConst u <=* AstIntConst v = AstBoolConst $ u <= v  -- common in indexing
   v <=* u = AstRelInt LeqOp [v, u]
+  AstIntConst u >* AstIntConst v = AstBoolConst $ u > v  -- common in indexing
   v >* u = AstRelInt GtOp [v, u]
+  AstIntConst u >=* AstIntConst v = AstBoolConst $ u >= v  -- common in indexing
   v >=* u = AstRelInt GeqOp [v, u]
 
 
@@ -457,8 +462,11 @@ instance Ord (AstInt r) where
   _ <= _ = error "AstInt: can't evaluate terms for Ord"
 
 instance Num (AstInt r) where
+  AstIntConst u + AstIntConst v = AstIntConst $ u + v  -- common in indexing
   u + v = AstIntOp PlusIntOp [u, v]  -- simplification relies on binary form
+  AstIntConst u - AstIntConst v = AstIntConst $ u - v  -- common in indexing
   u - v = AstIntOp MinusIntOp [u, v]
+  AstIntConst u * AstIntConst v = AstIntConst $ u * v  -- common in indexing
   u * v = AstIntOp TimesIntOp [u, v]
   negate u = AstIntOp NegateIntOp [u]
   abs v = AstIntOp AbsIntOp [v]
@@ -489,6 +497,8 @@ instance Boolean (AstBool r) where
   true = AstBoolConst True
   false = AstBoolConst False
   notB b = AstBoolOp NotOp [b]
+  AstBoolConst b &&* AstBoolConst c = AstBoolConst $ b && c
+                                        -- common in indexing
   b &&* c = AstBoolOp AndOp [b, c]
   b ||* c = AstBoolOp OrOp [b, c]
 

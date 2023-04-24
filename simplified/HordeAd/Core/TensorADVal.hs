@@ -367,6 +367,14 @@ build1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
 
 -- Strangely, this variant slows down simplifiedOnlyTest 3 times. Perhaps
 -- that's because k is very low and the f functions are simple enough.
+--
+-- This does not work any more, because the dual numbers produced by f
+-- are not simplified to transform ADShare, which breaks some pipelines.
+-- Even if they were, the sharing would most likely be missing
+-- or redundant or both.
+--
+-- This may be a problem with gatherNClosure, too, as soon as we have
+-- integer sharing and it's shared in the whole transpose result.
 _build1Closure
   :: (ADTensor r, KnownNat n, IsPrimal (TensorOf (1 + n) r))
   => Int -> (IntOf r -> ADVal (TensorOf n r))
@@ -375,7 +383,6 @@ _build1Closure k f =  -- stores closures on tape
   let g i = let D _ u _ = f i in u
       h i = let D _ _ u' = f i in u'
   in dD emptyADShare (tbuild1 k g) (dBuildR k h)
-       -- TODO: is the empty sharing list fine?
 
 -- Note that if any index is out of bounds, the result of that particular
 -- projection is defined and is 0 (but beware of vectorization).
