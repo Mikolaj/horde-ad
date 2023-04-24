@@ -31,10 +31,10 @@ main = do
 
 tests :: TestTree
 tests = testGroup "Only special tests for simplified horde-ad" $
-  TestAdaptorSimplified.testTrees
+  TestGatherSimplified.testTrees
+  ++ TestHighRankSimplified.testTrees
+  ++ TestConvSimplified.testTrees
+  ++ TestAdaptorSimplified.testTrees
   ++ TestSimplified.testTrees
   ++ TestMnistFCNNR.testTrees
 --  ++ TestMnistRNNR.testTrees
-  ++ TestGatherSimplified.testTrees
-  ++ TestHighRankSimplified.testTrees
-  ++ TestConvSimplified.testTrees

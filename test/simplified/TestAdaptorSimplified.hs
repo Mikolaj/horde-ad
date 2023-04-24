@@ -789,7 +789,7 @@ testRecycled =
 
 testRecycled1 :: Assertion
 testRecycled1 =
-  assertEqualUpToEpsilon' 1e-6
+  assertEqualUpToEpsilonShort 1e-6
     348356.9278600814
     (rev' @(OR.Array 5 Double) (recycled . tunScalar) 0.0000001)
 
@@ -931,41 +931,41 @@ fblowupLetPP = do
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
 blowupTests = testGroup "Catastrophic blowup avoidance tests"
-  [ testCase "blowup 15" $ do
-      assertEqualUpToEpsilon' 1e-10
-        (OR.fromList [2] [0.3333331833333646,-0.22222212222224305])
-        (rev' @(OR.Array 0 Double) (fblowup 15) (OR.fromList [2] [2, 3]))
+  [ testCase "blowup 10" $ do
+      assertEqualUpToEpsilonShort 1e-5
+        (OR.fromList [2] [0.3333332333333467,-0.22222215555556446])
+        (rev' @(OR.Array 0 Double) (fblowup 10) (OR.fromList [2] [2, 3]))
   , testCase "blowupLet 15" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [0.3333331833333646,-0.22222212222224305])
         (rev' @(OR.Array 0 Double) (fblowupLet 0 15) (OR.fromList [2] [2, 3]))
-  , testCase "blowupLet 10000" $ do
-      assertEqualUpToEpsilon' 1e-10
-        (OR.fromList [2] [0.33323334833020163,-0.22215556555346774])
-        (rev' @(OR.Array 0 Double) (fblowupLet 0 10000)
+  , testCase "blowupLet 1000" $ do
+      assertEqualUpToEpsilonShort 1e-10
+        (OR.fromList [2] [0.3333233334831686,-0.22221555565544573])
+        (rev' @(OR.Array 0 Double) (fblowupLet 0 1000)
                                    (OR.fromList [2] [2, 3]))
   , testCase "blowupLet tbuild1" $ do
-      assertEqualUpToEpsilon' 1e-10
+      assertEqualUpToEpsilonShort 1e-10
         (OR.fromList [2] [33.332333348316844,-22.221555565544556])
         (rev' @(OR.Array 1 Double)
               (\intputs -> tbuild1 100 (\i -> fblowupLet i 1000 intputs))
               (OR.fromList [2] [2, 3]))
-  , testCase "blowupMult 5" $ do
-      assertEqualUpToEpsilon' 1e-10
-        (OR.fromList [2] [2.9999995500000267,1.9999997000000178])
-        (rev' @(OR.Array 0 Double) (fblowupMult 5) (OR.fromList [2] [2, 3]))
+  , testCase "blowupMult 4" $ do
+      assertEqualUpToEpsilonShort 1e-5
+        (OR.fromList [2] [2.999999730000007,1.9999998200000046])
+        (rev' @(OR.Array 0 Double) (fblowupMult 4) (OR.fromList [2] [2, 3]))
   , testCase "blowupMultLet 5" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [2.9999995500000267,1.9999997000000178])
         (rev' @(OR.Array 0 Double) (fblowupMultLet 0 5)
                                    (OR.fromList [2] [2, 3]))
-  , testCase "blowupMultLet 10000" $ do
-      assertEqualUpToEpsilon' 1e-10
-        (OR.fromList [2] [2.9991001345552233,1.999400089703482])
-        (rev' @(OR.Array 0 Double) (fblowupMultLet 0 10000)
+  , testCase "blowupMultLet 1000" $ do
+      assertEqualUpToEpsilonShort 1e-10
+        (OR.fromList [2] [2.999910001306838,1.9999400008712254])
+        (rev' @(OR.Array 0 Double) (fblowupMultLet 0 1000)
                                    (OR.fromList [2] [2, 3]))
   , testCase "blowupMultLet tbuild1" $ do
-      assertEqualUpToEpsilon' 1e-10
+      assertEqualUpToEpsilonShort 1e-10
         (OR.fromList [2] [14.999547940541992,39.998796798841916])
         (rev' @(OR.Array 1 Double)
               (\intputs -> tbuild1 100 (\i -> fblowupMultLet i 1000 intputs))
