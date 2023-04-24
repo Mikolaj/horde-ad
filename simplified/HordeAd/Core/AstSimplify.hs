@@ -1204,15 +1204,17 @@ simplifyAst t = case t of
   Ast.AstReverse v -> astReverse (simplifyAst v)
   Ast.AstTranspose perm v ->
     -- The first attempt is for the case of v being a transpose, which would
-    -- simplify to a huge gather, but instead we may fuse it at once.
-    case astTranspose (simplifyPermutation perm) v of
-      Ast.AstTranspose perm2 v2 ->
+    -- simplify to a huge gather, but instead we may fuse it at once
+    -- or leave it to be executed via changing only the strides.
+    let perm1 = simplifyPermutation perm
+    in case astTranspose perm1 v of
+      Ast.AstTranspose perm2 v2 | perm2 == perm1 ->
         -- no luck, let's try simplifying the argument
         case astTranspose perm2 (simplifyAst v2) of
           u@(Ast.AstTranspose _ Ast.AstVar{}) -> u  -- normal form
           u@(Ast.AstTranspose _ (Ast.AstOp _ args))
             | all isVar args || length args > 1 -> u  -- nf
-          u@(Ast.AstTranspose _ (Ast.AstSumOfList args)) | all isVar args -> u
+          u@(Ast.AstTranspose _ (Ast.AstSumOfList args))
             | all isVar args || length args > 1 -> u  -- nf
           u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstKonst{}) -> u  -- normal form
