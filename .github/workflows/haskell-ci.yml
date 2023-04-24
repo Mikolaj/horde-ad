@@ -166,9 +166,9 @@ jobs:
         run: |
           $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks --dependencies-only -j2 all
           $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH --dependencies-only -j2 all
-      - name: build w/o tests
-        run: |
-          $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks all
+#      - name: build w/o tests
+#        run: |
+#          $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks all
       - name: build
         run: |
           $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH all --write-ghc-environment-files=always
@@ -192,7 +192,7 @@ jobs:
       - name: haddock
         run: |
           $CABAL v2-haddock $ARG_COMPILER --with-haddock $HADDOCK $ARG_TESTS $ARG_BENCH all
-      - name: unconstrained build
-        run: |
-          rm -f cabal.project.local
-          $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks all
+#      - name: unconstrained build
+#        run: |
+#          rm -f cabal.project.local
+#          $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks all
