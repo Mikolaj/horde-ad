@@ -1279,10 +1279,12 @@ simplifyAstBool t = case t of
     simplifyAstBoolOp opCodeBool (map simplifyAstBool args)
   AstBoolConst{} -> t
   Ast.AstRel opCodeRel args -> Ast.AstRel opCodeRel (map simplifyAstPrimal args)
-    -- these expressions are potentially large, so we simplify and ignore them
+    -- these expressions potentially represent large tensors that are
+    -- expensive to compute even when constant, so we simplify and ignore them,
+    -- because computation should be done on GPU, not on CPU when simplifying;
+    -- we'd need a flag to control how much we pre-compute
   Ast.AstRelInt opCodeRel args ->
-    Ast.AstRelInt opCodeRel (map simplifyAstInt args)
-      -- TODO: evaluate if arguments are constants
+    simplifyRelIntOp opCodeRel (map simplifyAstInt args)
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right
@@ -1448,6 +1450,21 @@ simplifyAstBoolOp OrOp [AstBoolConst False, b] = b
 simplifyAstBoolOp OrOp [_b, AstBoolConst True] = AstBoolConst True
 simplifyAstBoolOp OrOp [b, AstBoolConst False] = b
 simplifyAstBoolOp opCodeBool arg = Ast.AstBoolOp opCodeBool arg
+
+simplifyRelIntOp :: OpCodeRel -> [AstInt r] -> AstBool r
+simplifyRelIntOp EqOp [AstIntConst u, AstIntConst v] = AstBoolConst $ u == v
+simplifyRelIntOp NeqOp [AstIntConst u, AstIntConst v] = AstBoolConst $ u /= v
+simplifyRelIntOp LeqOp [AstIntConst u, AstIntConst v] = AstBoolConst $ u <= v
+simplifyRelIntOp GeqOp [AstIntConst u, AstIntConst v] = AstBoolConst $ u >= v
+simplifyRelIntOp LsOp [AstIntConst u, AstIntConst v] = AstBoolConst $ u < v
+simplifyRelIntOp GtOp [AstIntConst u, AstIntConst v] = AstBoolConst $ u > v
+simplifyRelIntOp EqOp [AstIntVar u, AstIntVar v] | u == v = AstBoolConst True
+simplifyRelIntOp LeqOp [AstIntVar u, AstIntVar v] | u == v = AstBoolConst True
+simplifyRelIntOp GeqOp [AstIntVar u, AstIntVar v] | u == v = AstBoolConst True
+simplifyRelIntOp NeqOp [AstIntVar u, AstIntVar v] | u == v = AstBoolConst False
+simplifyRelIntOp LsOp [AstIntVar u, AstIntVar v] | u == v = AstBoolConst False
+simplifyRelIntOp GtOp [AstIntVar u, AstIntVar v] | u == v = AstBoolConst False
+simplifyRelIntOp opCodeRel arg = Ast.AstRelInt opCodeRel arg
 
 -- We have to simplify after substitution or simplifying is not idempotent.
 substituteAst :: forall m n r. (ShowAstSimplify r, KnownNat m, KnownNat n)
