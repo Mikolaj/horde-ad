@@ -371,13 +371,13 @@ testGatherSimp33 = do
   let !t1 = gatherTranspose33
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t1) @?= 1072
-  length (show (simplifyAst6 @Float t1)) @?= 7355
+  length (show (simplifyAst6 @Float t1)) @?= 7293
   resetVarCounter
   let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
                             (treshape @(Ast0 Float) @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t2) @?= 526
-  length (show (simplifyAst6 @Float t2)) @?= 1958
+  length (show (simplifyAst6 @Float t2)) @?= 1896
 
 testGatherSimp34 :: Assertion
 testGatherSimp34 = do
@@ -386,7 +386,7 @@ testGatherSimp34 = do
              gatherTranspose33 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t1) @?= 857
-  length (show (simplifyAst6 @Float t1)) @?= 15228
+  length (show (simplifyAst6 @Float t1)) @?= 15179
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               (\t' -> tmatmul2 (treshape [6, 8] (tconst t48))
@@ -394,7 +394,7 @@ testGatherSimp34 = do
                 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t2) @?= 795
-  length (show (simplifyAst6 @Float t2)) @?= 4188
+  length (show (simplifyAst6 @Float t2)) @?= 4139
 
 -- scatters instead of gathers
 

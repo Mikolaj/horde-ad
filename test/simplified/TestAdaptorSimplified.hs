@@ -357,9 +357,9 @@ testMatmul2PP = do
   printPrimal6Pretty renames artifact6
     @?= "\\s0 x3 x4 -> let x7 = ttranspose [1,0] (tkonst 5 x3) ; x8 = tkonst 2 (ttranspose [1,0] x4) in tsum (ttranspose [2,0,1] (x7 * x8))"
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 dret x3 x4 -> let x9 = tgather [2,5,3] dret (\\[i12, i13, i14] -> [i12, i13]) in (tfromList [], tsum (ttranspose [1,0] (tkonst 2 (ttranspose [1,0] x4) * x9)), tsum (ttranspose [0,2,1] (tgather [2,5,3] x3 (\\[i10, i11] -> [i10]) * x9)))"
+    @?= "\\s0 dret x3 x4 -> let x9 = ttranspose [1,2,0] (tkonst 3 dret) in (tfromList [], tsum (ttranspose [1,0] (tkonst 2 (ttranspose [1,0] x4) * x9)), tsum (ttranspose [0,2,1] (ttranspose [1,0] (tkonst 5 x3) * x9)))"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 x3 x4 -> tsum (ttranspose [2,0,1] (tgather [2,5,3] x3 (\\[i15, i16] -> [i15]) * tkonst 2 (ttranspose [1,0] x4)))"
+    @?= "\\s0 x3 x4 -> tsum (ttranspose [2,0,1] (ttranspose [1,0] (tkonst 5 x3) * tkonst 2 (ttranspose [1,0] x4)))"
 
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =

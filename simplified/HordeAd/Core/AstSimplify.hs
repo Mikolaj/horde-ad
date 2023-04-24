@@ -1210,11 +1210,12 @@ simplifyAst t = case t of
         -- no luck, let's try simplifying the argument
         case astTranspose perm2 (simplifyAst v2) of
           u@(Ast.AstTranspose _ Ast.AstVar{}) -> u  -- normal form
-          u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
           u@(Ast.AstTranspose _ (Ast.AstOp _ args))
             | all isVar args || length args > 1 -> u  -- nf
           u@(Ast.AstTranspose _ (Ast.AstSumOfList args)) | all isVar args -> u
             | all isVar args || length args > 1 -> u  -- nf
+          u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
+          u@(Ast.AstTranspose _ Ast.AstKonst{}) -> u  -- normal form
           Ast.AstTranspose perm3 v3 ->  -- nope, let's express all as gather
             astTransposeAsGather perm3 v3
               -- this is expensive, but the only way to guarantee
