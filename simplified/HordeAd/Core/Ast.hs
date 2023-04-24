@@ -944,7 +944,7 @@ printAstInt cfg d = \case
 printAstBool :: ShowAst r => PrintConfig -> Int -> AstBool r -> ShowS
 printAstBool cfg d = \case
   AstBoolOp opCode args -> printAstBoolOp cfg d opCode args
-  AstBoolConst a -> shows a
+  AstBoolConst b -> showString $ if b then "true" else "false"
   AstRel opCode args -> printAstRelOp printAst cfg d opCode
                         $ map unAstPrimalPart args
   AstRelInt opCode args -> printAstRelOp printAstInt cfg d opCode args
@@ -1020,9 +1020,9 @@ printAstIntOp cfg d opCode args = case (opCode, args) of
 printAstBoolOp
   :: ShowAst r => PrintConfig -> Int -> OpCodeBool -> [AstBool r] -> ShowS
 printAstBoolOp cfg d opCode args = case (opCode, args) of
-  (NotOp, [u]) -> printPrefixOp printAstBool cfg d "not" [u]
-  (AndOp, [u, v]) -> printBinaryOp printAstBool cfg d u (3, " && ") v
-  (OrOp, [u, v]) -> printBinaryOp printAstBool cfg d u (2, " || ") v
+  (NotOp, [u]) -> printPrefixOp printAstBool cfg d "notB" [u]
+  (AndOp, [u, v]) -> printBinaryOp printAstBool cfg d u (3, " &&* ") v
+  (OrOp, [u, v]) -> printBinaryOp printAstBool cfg d u (2, " ||* ") v
   _ -> error $ "printAstBoolOp: wrong number of arguments"
                ++ show (opCode, length args)
 
