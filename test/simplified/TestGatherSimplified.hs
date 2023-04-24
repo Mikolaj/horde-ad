@@ -404,7 +404,7 @@ scatterNested1 t =
   tscatter @r @2
           (2 :$ ZS)
           (tscatter @r @1
-                   (4 :$ 2 :$ ZS) t
+                   (7 :$ 2 :$ ZS) t
                    (\(k3 :. ZI) -> k3 :. ZI))
           (\(i1 :. i2 :. ZI) -> i2 `quot` (1 + i1) :. ZI)
 
@@ -412,7 +412,7 @@ testScatterNested1 :: Assertion
 testScatterNested1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
-                 [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0])
+                 [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @(OR.Array 1 Double) scatterNested1
                                (tkonst 7 $ tfromList [0, 1]))
 
@@ -420,7 +420,7 @@ testScatterNestedBuild1 :: Assertion
 testScatterNestedBuild1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
-                 [3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,0.0,0.0,0.0,0.0,0.0,0.0])
+                 [3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
     (rev' @(OR.Array 2 Double)
           (\t -> tbuild1 5 (\i ->
              ifB (i >* 2) (scatterNested1 t) (t ! [i])))
