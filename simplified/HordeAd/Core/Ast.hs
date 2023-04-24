@@ -173,6 +173,8 @@ newtype AstVarName t = AstVarName AstVarId
 data AstDynamicVarName :: Type -> Type where
   AstDynamicVarName :: KnownNat n
                     => AstVarName (OR.Array n r) -> AstDynamicVarName r
+deriving instance ShowAst r
+                  => Show (AstDynamicVarName r)
 
 -- The argument is the underlying scalar.
 data AstInt :: Type -> Type where

@@ -275,14 +275,14 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     -- nothing can be simplified at all, so this is a normal form
     Ast.AstIndexZ v0 ix
   Ast.AstFromList l | AstIntConst i <- i1 ->
-    astIndex (if length l > i then l !! i else 0) rest1
+    astIndex (if 0 <= i && i < length l then l !! i else 0) rest1
   Ast.AstFromList{} | ZI <- rest1 ->  -- normal form
     Ast.AstIndexZ v0 ix
   Ast.AstFromList l ->
     Ast.AstIndexZ (astFromList $ map (`astIndexRec` rest1) l)
                   (singletonIndex i1)
   Ast.AstFromVector l | AstIntConst i <- i1 ->
-    astIndex (if V.length l > i then l V.! i else 0) rest1
+    astIndex (if 0 <= i && i < V.length l then l V.! i else 0) rest1
   Ast.AstFromVector{} | ZI <- rest1 ->  -- normal form
     Ast.AstIndexZ v0 ix
   Ast.AstFromVector l ->
@@ -378,7 +378,7 @@ astFromList l =
 
 astFromVector :: (KnownNat n, Numeric r)
               => Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
-astFromVector v | V.length v == 1 = astKonst 1 (v V.! 1)
+astFromVector v | V.length v == 1 = astKonst 1 (v V.! 0)
 astFromVector l =
   let unConstant (Ast.AstConstant (AstPrimalPart t)) = Just t
       unConstant _ = Nothing
@@ -641,7 +641,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstScatter{} ->  -- probably nothing can be simplified; a normal form
       Ast.AstGatherZ sh4 v4 (vars4, ix4)
     Ast.AstFromList l | AstIntConst i <- i4 ->
-      astGather sh4 (if length l > i then l !! i else 0) (vars4, rest4)
+      astGather sh4 (if 0 <= i && i < length l then l !! i else 0)
+                    (vars4, rest4)
     Ast.AstFromList{} | gatherFromNF vars4 ix4 ->
       Ast.AstGatherZ sh4 v4 (vars4, ix4)
     Ast.AstFromList l ->
@@ -653,7 +654,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           i5 = subst i4
       in astGather sh4 (astFromList $ map f l) (varsFresh, i5 :. ixFresh)
     Ast.AstFromVector l | AstIntConst i <- i4 ->
-      astGather sh4 (if V.length l > i then l V.! i else 0) (vars4, rest4)
+      astGather sh4 (if 0 <= i && i < V.length l then l V.! i else 0)
+                    (vars4, rest4)
     Ast.AstFromVector{} | gatherFromNF vars4 ix4 ->
       Ast.AstGatherZ sh4 v4 (vars4, ix4)
     Ast.AstFromVector l ->
