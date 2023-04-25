@@ -858,6 +858,8 @@ printAst cfg d = \case
         else showParen True
              $ shows a
   AstConstant (AstPrimalPart (AstConst a)) -> printAst cfg d (AstConst a)
+  AstConstant (AstPrimalPart (AstIndexZ AstIota (i :. ZI))) ->
+    printAst cfg d (AstIndexZ AstIota (i :. ZI))
   AstConstant (AstPrimalPart a) ->
     printPrefixOp printAst cfg d "tconstant" [a]
   AstD (AstPrimalPart u) (AstDualPart u') ->

@@ -913,9 +913,9 @@ fblowupPP = do
       fblowupT = fblowup @(Ast0 Double) 1
   let (artifact6, _) = revDtFun fblowupT (OR.constant [4] 4)
   printGradient6Simple renames artifact6
-    @?= "\\s0 dret x3 -> dlet (x3 ! [0]) (\\x4 -> dlet (x3 ! [1]) (\\x5 -> dlet (x3 ! [0]) (\\x6 -> dlet (x3 ! [1]) (\\x7 -> dlet (tconst 0.499999985) (\\x8 -> dlet ((x4 / x5 + x6 / x7) - tconstant (tfromIndex0 0)) (\\x9 -> dlet (x8 * dret) (\\x10 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tscatter [4] (recip x5 * x10) (\\[] -> [0]) + tscatter [4] (negate (x4 / (x5 * x5)) * x10) (\\[] -> [1]) + tscatter [4] (recip x7 * x10) (\\[] -> [0]) + tscatter [4] (negate (x6 / (x7 * x7)) * x10) (\\[] -> [1]))]))))))))"
+    @?= "\\s0 dret x3 -> dlet (x3 ! [0]) (\\x4 -> dlet (x3 ! [1]) (\\x5 -> dlet (x3 ! [0]) (\\x6 -> dlet (x3 ! [1]) (\\x7 -> dlet (tconst 0.499999985) (\\x8 -> dlet ((x4 / x5 + x6 / x7) - tfromIndex0 0) (\\x9 -> dlet (x8 * dret) (\\x10 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tscatter [4] (recip x5 * x10) (\\[] -> [0]) + tscatter [4] (negate (x4 / (x5 * x5)) * x10) (\\[] -> [1]) + tscatter [4] (recip x7 * x10) (\\[] -> [0]) + tscatter [4] (negate (x6 / (x7 * x7)) * x10) (\\[] -> [1]))]))))))))"
   printPrimal6Simple renames artifact6
-    @?= "\\s0 x3 -> tlet (x3 ! [0]) (\\x4 -> tlet (x3 ! [1]) (\\x5 -> tlet (x3 ! [0]) (\\x6 -> tlet (x3 ! [1]) (\\x7 -> tlet (tconst 0.499999985) (\\x8 -> tlet ((x4 / x5 + x6 / x7) - tconstant (tfromIndex0 0)) (\\x9 -> x8 * x9 - tconstant (tfromIndex0 0)))))))"
+    @?= "\\s0 x3 -> tlet (x3 ! [0]) (\\x4 -> tlet (x3 ! [1]) (\\x5 -> tlet (x3 ! [0]) (\\x6 -> tlet (x3 ! [1]) (\\x7 -> tlet (tconst 0.499999985) (\\x8 -> tlet ((x4 / x5 + x6 / x7) - tfromIndex0 0) (\\x9 -> x8 * x9 - tfromIndex0 0))))))"
 
 fblowupLetPP :: Assertion
 fblowupLetPP = do
@@ -924,9 +924,9 @@ fblowupLetPP = do
       fblowupLetT = fblowupLet @(Ast0 Double) 0 1
   let (artifact6, _) = revDtFun fblowupLetT (OR.constant [4] 4)
   printGradient6Simple renames artifact6
-    @?= "\\s0 dret x3 -> dlet (x3 ! [0]) (\\x5 -> dlet (x3 ! [1]) (\\x6 -> dlet (x5 / x6) (\\x7 -> dlet (tconst 0.499999985) (\\x8 -> dlet ((x7 + x7) - tconstant (tfromIndex0 0)) (\\x9 -> dlet (x8 * dret) (\\x10 -> dlet (x10 + x10) (\\x11 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tscatter [4] (recip x6 * x11) (\\[] -> [0]) + tscatter [4] (negate (x5 / (x6 * x6)) * x11) (\\[] -> [1]))]))))))))"
+    @?= "\\s0 dret x3 -> dlet (x3 ! [0]) (\\x5 -> dlet (x3 ! [1]) (\\x6 -> dlet (x5 / x6) (\\x7 -> dlet (tconst 0.499999985) (\\x8 -> dlet ((x7 + x7) - tfromIndex0 0) (\\x9 -> dlet (x8 * dret) (\\x10 -> dlet (x10 + x10) (\\x11 -> dmkDomains (fromList [dfromR (tfromList []), dfromR (tscatter [4] (recip x6 * x11) (\\[] -> [0]) + tscatter [4] (negate (x5 / (x6 * x6)) * x11) (\\[] -> [1]))]))))))))"
   printPrimal6Simple renames artifact6
-    @?= "\\s0 x3 -> tlet (x3 ! [0]) (\\x5 -> tlet (x3 ! [1]) (\\x6 -> tlet (x5 / x6) (\\x7 -> tlet (tconst 0.499999985) (\\x8 -> tlet ((x7 + x7) - tconstant (tfromIndex0 0)) (\\x9 -> x8 * x9 - tconstant (tfromIndex0 0))))))"
+    @?= "\\s0 x3 -> tlet (x3 ! [0]) (\\x5 -> tlet (x3 ! [1]) (\\x6 -> tlet (x5 / x6) (\\x7 -> tlet (tconst 0.499999985) (\\x8 -> tlet ((x7 + x7) - tfromIndex0 0) (\\x9 -> x8 * x9 - tfromIndex0 0)))))"
 
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
