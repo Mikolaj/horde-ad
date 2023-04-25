@@ -515,8 +515,7 @@ buildFinMaps s0 deltaDt =
                    , dMapR = EM.insert n v $ dMapR s }
             _ -> error "buildFinMaps: corrupted nMap"
 -}
-        Index0 d ix sh ->
-          evalR s (tscatter1 sh (tfromList [tscalar c]) (const ix)) d
+        Index0 d ix sh -> evalR s (tscatter sh (tscalar c) (const ix)) d
             -- equivalent: evalR s (updateR (tkonst0NR sh 0) [(ix, c)]) d
         Sum0 sh d -> evalR s (tkonst0N sh (tscalar c)) d
         Dot0 v vd -> evalR s (tscaleByScalar c v) vd
@@ -556,7 +555,7 @@ buildFinMaps s0 deltaDt =
 --                                     , OR.reshape (1 : rest) c
 --                                     , OR.constant (len - ix - 1 : rest) 0 ])
 --                     d  -- TODO: optimize for input case
-        IndexZ d ix sh -> evalR s (tscatter sh (tfromList [c]) (const ix)) d
+        IndexZ d ix sh -> evalR s (tscatter @r @0 sh c (const ix)) d
           -- equivalent: evalR s (updateNR (tkonst0NR sh 0) [(ix, c)]) d
         SumR n d -> evalR s (tkonst n c) d
 --        Scatter1 f n d _sh -> evalR s (tgatherZ1R n c f) d
