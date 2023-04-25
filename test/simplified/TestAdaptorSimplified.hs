@@ -301,7 +301,7 @@ testReluMaxPP2 = do
   resetVarCounter
   let (artifact6, deltas) = revDtFun reluT2 ((OR.constant [5] 128), 42)
   printGradient6Pretty renames artifact6
-    @?= "\\s0 dret x3 -> let x6 = tkonst 5 (s0 ! [0]) ; x9 = tscatter [2,5] dret (\\[i8] -> [ifB (tconst 0.0 >=* (let x12 = x3 ! [i8] ; x13 = s0 ! [0] in x12 * x13)) 0 1, i8]) ; x10 = x9 ! [1] ; x11 = tscatter [1] (tsum (x3 * x10)) (\\[] -> [0]) in (tfromList [tconst 0.0 + x11 ! [0]], x6 * x10)"
+    @?= "\\s0 dret x3 -> let x6 = tkonst 5 (s0 ! [0]) ; x11 = tscatter [2,5] dret (\\[i8] -> [ifB (tconst 0.0 >=* (let x9 = x3 ! [i8] ; x10 = s0 ! [0] in x9 * x10)) 0 1, i8]) ; x12 = x11 ! [1] ; x13 = tscatter [1] (tsum (x3 * x12)) (\\[] -> [0]) in (tfromList [tconst 0.0 + x13 ! [0]], x6 * x12)"
   printPrimal6Pretty renames artifact6
     @?= "\\s0 x3 -> let x6 = tkonst 5 (s0 ! [0]) in tgather [5] (tfromList [tkonst 5 (tconst 0.0), x3 * x6]) (\\[i7] -> [ifB (tconst 0.0 >=* (let x14 = x3 ! [i7] ; x15 = s0 ! [0] in x14 * x15)) 0 1, i7])"
   show deltas

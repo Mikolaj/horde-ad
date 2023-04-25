@@ -570,7 +570,11 @@ intVarInAst :: AstVarId -> Ast n r -> Bool
 intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
   AstLet _var2 u v -> intVarInAst var u || intVarInAst var v
-  AstLetADShare{} -> error "intVarInAst: AstLetADShare"
+  AstLetADShare _l v -> intVarInAst var v
+    -- this is a (we assume) conservative approximation, to avoid a costly
+    -- traversal; in (almost?) all cases this is also the true answer,
+    -- because the let definitions come from the outside and so can't
+    -- contain a local variable we (always?) ask about
   AstOp _ l -> any (intVarInAst var) l
   AstSumOfList l -> any (intVarInAst var) l
   AstIota -> False
