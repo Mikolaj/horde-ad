@@ -175,7 +175,7 @@ simplifyStepNonIndex t = case t of
   Ast.AstIota -> t
   Ast.AstIndexZ{} -> t
   Ast.AstSum v -> astSum v
-  Ast.AstScatter sh v (vars2, ix2) -> astScatter sh v (vars2, ix2)
+  Ast.AstScatter sh v (vars, ix) -> astScatter sh v (vars, ix)
   Ast.AstFromList l -> astFromList l
   Ast.AstFromVector l -> astFromVector l
   Ast.AstKonst k v -> astKonst k v
@@ -268,11 +268,19 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   Ast.AstSum v ->  -- almost neutral; transposition is likely to fuse away
     let perm3 = backpermCycle $ valueOf @m + 1
     in astSum $ astIndex (astTranspose perm3 v) ix
-  -- AstScatter sh v (Z, ix2) -> ifB (ix2 ==* ixHead) (index v ixTail) 0
+  Ast.AstScatter (_ :$ sh) v (vars, AstIntVar var5 :. ix2)
+    | AstIntVar var6 <- i1, var6 == var5 ->
+        astIndex (unsafeCoerce $ astScatter sh v (vars, ix2)) rest1
+  Ast.AstScatter (_ :$ sh) v (vars, AstIntConst i5 :. ix2)
+    | AstIntConst i6 <- i1 ->
+        if i6 == i5
+        then astIndex (unsafeCoerce $ astScatter sh v (vars, ix2)) rest1
+          -- see analogous code in astGatherCase for how a million
+          -- type applications is still not enough to make it type-check
+        else astIndex (astKonstN @(m1 + n) @0 (unsafeCoerce sh) 0) rest1
   -- AstScatter sh v (vars2, ZI) ->
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
-  Ast.AstScatter{} ->
-    -- nothing can be simplified at all, so this is a normal form
+  Ast.AstScatter{} ->  -- a normal form
     Ast.AstIndexZ v0 ix
   Ast.AstFromList l | AstIntConst i <- i1 ->
     astIndex (if 0 <= i && i < length l then l !! i else 0) rest1
@@ -349,12 +357,15 @@ astSum (Ast.AstReverse v) = Ast.AstSum v
 astSum v = Ast.AstSum v
 
 -- TODO: fuse scatters, scatter and sum, perhaps more (fromList?)
-astScatter :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
+astScatter :: forall m n p r.
+              (ShowAstSimplify r, KnownNat m, KnownNat n, KnownNat p)
            => ShapeInt (p + n) -> Ast (m + n) r
            -> (AstVarList m, AstIndex p r)
            -> Ast (p + n) r
+astScatter _sh v (Z, ZI) = v
+astScatter sh v (var ::: vars, ix) | not $ var `intVarInIndex` ix =
+  astScatter sh (astSum v) (vars, ix)
 -- astScatter sh v (Z, ix) = update (tzero sh 0) ix v
--- astScatter sh v (_, ZI) = astSumN sh v  -- no benefit
 astScatter sh (Ast.AstConstant (AstPrimalPart v)) (vars, ix) =
   astConstant $ AstPrimalPart $ astScatter sh v (vars, ix)
 astScatter sh v (vars, ix) = Ast.AstScatter sh v (vars, ix)
@@ -493,6 +504,9 @@ astTranspose perm0 t0 = case (perm0, t0) of
   (perm, Ast.AstSumOfList args) | not (all isVar args) && length args <= 1 ->
     Ast.AstSumOfList (map (astTranspose perm) args)
   (perm, Ast.AstSum v) -> astSum $ astTranspose (0 : map succ perm) v
+  (perm, Ast.AstScatter @m sh v (vars, ix)) | length perm <= valueOf @m ->
+    astScatter (backpermutePrefixShape perm sh) v
+               (backpermutePrefixSized perm vars, ix)
   (perm1, Ast.AstTranspose perm2 t) ->
     let perm2Matched =
           perm2
@@ -503,9 +517,9 @@ astTranspose perm0 t0 = case (perm0, t0) of
   -- Note that the following would be wrong, becuase transpose really
   -- changes the linearisation order, while reshape only modifies indexing:
   -- (perm, AstReshape sh v) -> astReshape (backpermutePrefixShape perm sh) v
-  (perm1, Ast.AstGatherZ @m sh v (vars, ix)) | length perm1 <= valueOf @m ->
-    astGatherZ (backpermutePrefixShape perm1 sh) v
-               (backpermutePrefixSized perm1 vars, ix)
+  (perm, Ast.AstGatherZ @m sh v (vars, ix)) | length perm <= valueOf @m ->
+    astGatherZ (backpermutePrefixShape perm sh) v
+               (backpermutePrefixSized perm vars, ix)
   (perm, Ast.AstConst t) ->
     Ast.AstConst $ ttransposeR perm t
   (perm, Ast.AstConstant (AstPrimalPart v)) ->
@@ -579,10 +593,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
            -> astGatherZOrStepOnly stepOnly sh0 v0 (varsN, restN)
          | intVarInIndex var ix0 ->
            astGatherCase sh0 v0 (vars0, ix0)
-         | any (`intVarInIndex` ix0) vars ->
-           astKonst k (astGatherZOrStepOnly stepOnly sh' v0 (vars, ix0))
          | otherwise ->
-           astKonstN sh0 (astIndex v0 ix0)
+           astKonst k (astGatherZOrStepOnly stepOnly sh' v0 (vars, ix0))
        where
         (restN, iN) = unsnocIndex1 ix0
         (varsN, varN) = unsnocSized1 vars0
@@ -607,7 +619,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     => ShapeInt (m' + n') -> Ast (p' + n') r -> (AstVarList m', AstIndex p' r)
     -> Ast (m' + n') r
   astGatherCase sh4 v4 (_, ZI) = astKonstN sh4 v4  -- not really possible
-  astGatherCase sh4 v4 (vars4, ix4@(i4 :. rest4)) = case v4 of
+  astGatherCase sh4 v4 ( vars4
+                       , ix4@(i4 :. (rest4 :: AstIndex p1' r)) ) = case v4 of
     Ast.AstVar{} -> Ast.AstGatherZ sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
     Ast.AstLetADShare{} -> error "astGatherCase: AstLetADShare"
@@ -638,7 +651,21 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       in astSum $ astTransposeAsGather perm4  -- TODO: inline and simplify less
          $ astGather sh5 (astTransposeAsGather perm3 v) (vars4, ix4)
              -- TODO: why is simplification not idempotent without AsGather?
-    Ast.AstScatter{} ->  -- probably nothing can be simplified; a normal form
+    Ast.AstScatter (_ :$ sh) v (vars, AstIntVar var5 :. ix2)
+      | AstIntVar var6 <- i4, var6 == var5 ->
+          astGather sh4 (unsafeCoerce $ astScatter sh v (vars, ix2))
+                        (vars4, rest4)
+    Ast.AstScatter @m4 @n4 (_ :$ sh) v (vars, AstIntConst i5
+                                              :. (ix2 :: AstIndex p1 r))
+      | AstIntConst i6 <- i4 ->
+          if i6 == i5
+          then astGather @m' @n' @p1' sh4
+                         (unsafeCoerce
+                          $ astScatter @m4 @n4 @p1 sh v (vars, ix2))
+                         (vars4, rest4)
+          else astGather sh4 (astKonstN @(p1' + n') @0 (unsafeCoerce sh) 0)
+                         (vars4, rest4)
+    Ast.AstScatter{} ->  -- a normal form
       Ast.AstGatherZ sh4 v4 (vars4, ix4)
     Ast.AstFromList l | AstIntConst i <- i4 ->
       astGather sh4 (if 0 <= i && i < length l then l !! i else 0)
