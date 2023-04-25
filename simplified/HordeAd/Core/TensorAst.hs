@@ -50,7 +50,7 @@ instance ShowAstSimplify r
   treverse = AstReverse
   ttranspose = AstTranspose
   treshape = astReshape
-  tbuild1 = astBuild1Fun
+  tbuild1 = astBuild1Vectorize
   tgather sh t f = AstGatherZ sh t (funToAstIndex f)  -- introduces new vars
 
   tscalar = unAst0
@@ -147,9 +147,9 @@ astDomainsLetFun a f =
 -- works bottom-up, which removes the need to backtrack in the vectorization
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
-astBuild1Fun :: (KnownNat n, ShowAstSimplify r)
-             => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
-astBuild1Fun k f = build1Vectorize k $ funToAstI f
+astBuild1Vectorize :: (KnownNat n, ShowAstSimplify r)
+                   => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
+astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 instance ShowAstSimplify r
          => Tensor (AstPrimalPart 0 r) where
@@ -182,7 +182,7 @@ instance ShowAstSimplify r
   treverse = AstPrimalPart . AstReverse . unAstPrimalPart
   ttranspose perm = AstPrimalPart . AstTranspose perm . unAstPrimalPart
   treshape sh = AstPrimalPart . astReshape sh . unAstPrimalPart
-  tbuild1 k f = AstPrimalPart $ astBuild1Fun k (unAstPrimalPart . f)
+  tbuild1 k f = AstPrimalPart $ astBuild1Vectorize k (unAstPrimalPart . f)
   tgather sh t f = AstPrimalPart $ AstGatherZ sh (unAstPrimalPart t)
                    $ funToAstIndex f  -- this introduces new variable names
 
@@ -266,3 +266,67 @@ instance ShowAstSimplify r
   tletWrap = undefined
 
   tfromD = undefined
+
+instance ShowAstSimplify r
+         => Tensor (AstNoSimplify 0 r) where
+  type TensorOf n (AstNoSimplify 0 r) = AstNoSimplify n r
+  type IntOf (AstNoSimplify 0 r) = AstInt r
+
+  tlet a f =
+    AstNoSimplify
+    $ astLetFunUnSimp (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)
+
+  tshape = shapeAst . unAstNoSimplify
+  tminIndex0 = AstMinIndex1 . AstPrimalPart . unAstNoSimplify
+  tmaxIndex0 = AstMaxIndex1 . AstPrimalPart . unAstNoSimplify
+  tfloor = AstIntFloor . AstPrimalPart . unAstNoSimplify
+
+  tindex v ix = AstNoSimplify $ AstIndexZ (unAstNoSimplify v) ix
+  tsum = AstNoSimplify . AstSum . unAstNoSimplify
+  tfromIndex0 i = AstNoSimplify $ AstConstant $ AstPrimalPart
+                  $ AstIndexZ AstIota (singletonIndex i)
+    -- toInteger is not defined for Ast, hence a special implementation
+  tscatter sh t f = AstNoSimplify $ AstScatter sh (unAstNoSimplify t)
+                    $ funToAstIndex f  -- this introduces new variable names
+
+  tfromList = AstNoSimplify . AstFromList . map unAstNoSimplify
+  tfromVector = AstNoSimplify . AstFromVector . V.map unAstNoSimplify
+  tkonst k = AstNoSimplify . AstKonst k . unAstNoSimplify
+  tappend u v =
+    AstNoSimplify $ AstAppend (unAstNoSimplify u) (unAstNoSimplify v)
+  tslice i k = AstNoSimplify . AstSlice i k . unAstNoSimplify
+  treverse = AstNoSimplify . AstReverse . unAstNoSimplify
+  ttranspose perm = AstNoSimplify . AstTranspose perm . unAstNoSimplify
+  treshape sh = AstNoSimplify . AstReshape sh . unAstNoSimplify
+  tbuild1 k f = AstNoSimplify $ astBuild1Vectorize k (unAstNoSimplify . f)
+  tgather sh t f = AstNoSimplify $ AstGatherZ sh (unAstNoSimplify t)
+                   $ funToAstIndex f  -- this introduces new variable names
+
+  tscalar = id
+  tunScalar = id
+
+  tsumOfList l = AstNoSimplify . AstSumOfList . map unAstNoSimplify $ l
+
+  type ScalarOf (AstNoSimplify 0 r) = r
+  type Primal (AstNoSimplify 0 r) = AstNoSimplify 0 r
+  type DualOf n (AstNoSimplify 0 r) = AstDualPart n r
+  tconst = AstNoSimplify . AstConstant . AstPrimalPart . AstConst
+  tconstant = AstNoSimplify . astConstant . AstPrimalPart . unAstNoSimplify
+    -- exceptionally we do simplify AstConstant to avoid long boring chains
+  tscale0 r d = r * d
+  tprimalPart = id
+  tdualPart = AstDualPart . unAstNoSimplify
+  tD u u' = AstNoSimplify $ AstD (AstPrimalPart $ unAstNoSimplify u) u'
+  tScale (AstNoSimplify s) (AstDualPart t) = AstDualPart $ s `tmult` t
+
+  tregister = undefined
+  tletWrap = undefined
+
+  tfromD = undefined
+
+astLetFunUnSimp :: (KnownNat n, ShowAst r)
+                => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
+astLetFunUnSimp a f =
+  let sh = shapeAst a
+      (AstVarName var, ast) = funToAstR sh f
+  in AstLet var a ast

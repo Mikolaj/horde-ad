@@ -9,7 +9,8 @@
 module HordeAd.Core.Ast
   ( ADAstVarNames, ADAstArtifact6
   , ShowAst, AstIndex, AstVarList
-  , Ast(..), AstNoVectorize(..), AstPrimalPart(..), AstDualPart(..)
+  , Ast(..), AstNoVectorize(..), AstNoSimplify(..)
+  , AstPrimalPart(..), AstDualPart(..)
   , AstDynamic(..), AstDomains(..), unwrapAstDomains, Ast0(..)
   , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
   , AstInt(..), AstBool(..)
@@ -132,6 +133,10 @@ deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
 newtype AstNoVectorize n r = AstNoVectorize {unAstNoVectorize :: Ast n r}
 deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
                   => Show (AstNoVectorize n r)
+
+newtype AstNoSimplify n r = AstNoSimplify {unAstNoSimplify :: Ast n r}
+deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
+                  => Show (AstNoSimplify n r)
 
 newtype AstPrimalPart n r = AstPrimalPart {unAstPrimalPart :: Ast n r}
 deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
@@ -276,6 +281,28 @@ instance KnownNat n => OrdB (AstNoVectorize n r) where
   v >=* u = AstRel GeqOp [ AstPrimalPart $ unAstNoVectorize v
                          , AstPrimalPart $ unAstNoVectorize u ]
 
+type instance BooleanOf (AstNoSimplify n r) = AstBool r
+
+instance KnownNat n => IfB (AstNoSimplify n r) where
+  ifB b v w = AstNoSimplify $ astCond b (unAstNoSimplify v)
+                                         (unAstNoSimplify w)
+
+instance KnownNat n => EqB (AstNoSimplify n r) where
+  v ==* u = AstRel EqOp [ AstPrimalPart $ unAstNoSimplify v
+                        , AstPrimalPart $ unAstNoSimplify u ]
+  v /=* u = AstRel NeqOp [ AstPrimalPart $ unAstNoSimplify v
+                         , AstPrimalPart $ unAstNoSimplify u ]
+
+instance KnownNat n => OrdB (AstNoSimplify n r) where
+  v <* u = AstRel LsOp [ AstPrimalPart $ unAstNoSimplify v
+                       , AstPrimalPart $ unAstNoSimplify u ]
+  v <=* u = AstRel LeqOp [ AstPrimalPart $ unAstNoSimplify v
+                         , AstPrimalPart $ unAstNoSimplify u ]
+  v >* u = AstRel GtOp [ AstPrimalPart $ unAstNoSimplify v
+                       , AstPrimalPart $ unAstNoSimplify u ]
+  v >=* u = AstRel GeqOp [ AstPrimalPart $ unAstNoSimplify v
+                         , AstPrimalPart $ unAstNoSimplify u ]
+
 type instance BooleanOf (AstPrimalPart n r) = AstBool r
 
 instance KnownNat n => IfB (AstPrimalPart n r) where
@@ -418,6 +445,23 @@ deriving instance Fractional (Ast n r) => Fractional (AstNoVectorize n r)
 deriving instance Floating (Ast n r) => Floating (AstNoVectorize n r)
 deriving instance RealFrac (Ast n r) => RealFrac (AstNoVectorize n r)
 deriving instance RealFloat (Ast n r) => RealFloat (AstNoVectorize n r)
+
+instance Eq (AstNoSimplify n r) where
+  _ == _ = error "AstNoSimplify: can't evaluate terms for Eq"
+
+instance Ord (Ast n r) => Ord (AstNoSimplify n r) where
+  max (AstNoSimplify u) (AstNoSimplify v) =
+    AstNoSimplify (AstOp MaxOp [u, v])
+  min (AstNoSimplify u) (AstNoSimplify v) =
+    AstNoSimplify (AstOp MinOp [u, v])
+  _ <= _ = error "AstNoSimplify: can't evaluate terms for Ord"
+
+deriving instance Num (Ast n r) => Num (AstNoSimplify n r)
+deriving instance Real (Ast n r) => Real (AstNoSimplify n r)
+deriving instance Fractional (Ast n r) => Fractional (AstNoSimplify n r)
+deriving instance Floating (Ast n r) => Floating (AstNoSimplify n r)
+deriving instance RealFrac (Ast n r) => RealFrac (AstNoSimplify n r)
+deriving instance RealFloat (Ast n r) => RealFloat (AstNoSimplify n r)
 
 instance Eq (AstPrimalPart n r) where
   _ == _ = error "AstPrimalPart: can't evaluate terms for Eq"
