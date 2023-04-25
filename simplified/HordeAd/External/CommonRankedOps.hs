@@ -42,11 +42,11 @@ relu, reluLeaky
   :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
   => TensorOf n r -> TensorOf n r
 relu v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0 1) v
+  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.0 1.0) v
   in oneIfGtZero * v
 
 reluLeaky v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.01 1) v
+  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.01 1.0) v
   in oneIfGtZero * v
 
 -- TODO: verify how faster a dedicated Tensor method would be

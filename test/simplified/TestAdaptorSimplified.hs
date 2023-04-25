@@ -168,7 +168,7 @@ reluPrimal
   :: forall n r. (ADReady r, KnownNat n)
   => TensorOf n r -> TensorOf n r
 reluPrimal v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0 1)
+  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.0 1.0)
                            (tprimalPart v)
   in scale oneIfGtZero v
 
