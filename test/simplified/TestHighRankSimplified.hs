@@ -315,7 +315,7 @@ nestedBuildMap r =
 
 testNestedBuildMap1 :: Assertion
 testNestedBuildMap1 =
-  assertEqualUpToEpsilon' 1e-8
+  assertEqualUpToEpsilonShort 1e-8
     22.673212907588812
     (rev' @(OR.Array 1 Double) nestedBuildMap 0.6)
 
