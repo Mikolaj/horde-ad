@@ -324,14 +324,16 @@ testDot2PP :: Assertion
 testDot2PP = do
   resetVarCounter
   let renames = IM.empty
-      (artifact6, _) =
+      (artifact6, deltas) =
         revDtFun (uncurry (tdot0 @(Ast0 Double) @2))
                  ( OR.fromList [2,3] [1 .. 6]
                  , OR.fromList [2,3] [7 .. 12] )
   printGradient6Pretty renames artifact6
-    @?= "\\s0 dret x3 x4 -> let x5 = treshape [2,3] (tkonst 6 dret) in (tfromList [], x4 * x5, x3 * x5)"
+    @?= "\\s0 dret x3 x4 -> (tfromList [], x4 * treshape [2,3] (tkonst 6 dret), x3 * treshape [2,3] (tkonst 6 dret))"
   printPrimal6Pretty renames artifact6
     @?= "\\s0 x3 x4 -> tsum (treshape [6] (x3 * x4))"
+  show deltas
+    @?= "LetR 100000043 (ScalarR (Add0 (Dot0 (AstVar [2,3] (AstVarId 100000004)) (InputR (InputId 0))) (Dot0 (AstVar [2,3] (AstVarId 100000003)) (InputR (InputId 1)))))"
 
 testMatmul1PP :: Assertion
 testMatmul1PP = do

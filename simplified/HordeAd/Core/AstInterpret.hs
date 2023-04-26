@@ -196,6 +196,11 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
         let (memo1, t1) = interpretAst env memo v
             (memo2, t2) = interpretAst env memo1 s
         in (memo2, tscaleByScalar (tunScalar t2) t1)
+  AstOp TimesOp [v, AstKonst @m _ s]
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
+        let (memo1, t1) = interpretAst env memo v
+            (memo2, t2) = interpretAst env memo1 s
+        in (memo2, tscaleByScalar (tunScalar t2) t1)
   AstOp TimesOp [v, AstLet var u (AstReshape sh (AstKonst @m k s))]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
         -- The intVarInAst check is needed, because although variable
@@ -208,11 +213,6 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
         interpretAst env memo
           (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstKonst @m k s)]))
-  AstOp TimesOp [v, AstKonst @m _ s]
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
-        let (memo1, t1) = interpretAst env memo v
-            (memo2, t2) = interpretAst env memo1 s
-        in (memo2, tscaleByScalar (tunScalar t2) t1)
   AstOp TimesOp [v, AstLet var u (AstKonst @m k s)]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
         interpretAst env memo
@@ -239,6 +239,11 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
             (memo2, t2) = interpretAst env memo1 u
         in (memo2, tdot0 t1 t2)
           -- TODO: do as a term rewrite using an extended set of terms?
+  AstSum (AstReshape _sh (AstOp TimesOp [t, u]))
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+        let (memo1, t1) = interpretAst env memo t
+            (memo2, t2) = interpretAst env memo1 u
+        in (memo2, tdot0 t1 t2)
   AstSum (AstTranspose [1, 0] t)  -- TODO: generalize
     | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
         second tsumIn $ interpretAst env memo t
@@ -248,6 +253,8 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
   AstSum (AstKonst k v) ->
     second (tscaleByScalar (fromIntegral k)) $ interpretAst env memo v
   AstSum (AstLet var v t) -> interpretAst env memo (AstLet var v (AstSum t))
+  AstSum (AstReshape sh (AstLet var v t)) ->
+    interpretAst env memo (AstLet var v (AstSum (AstReshape sh t)))
   AstSum v -> second tsum $ interpretAst env memo v
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
@@ -267,8 +274,8 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo s
         in (memo1, tkonst0N sh t1)
-  AstReshape sh (AstLet var v t) ->
-    interpretAst env memo (AstLet var v (AstReshape sh t))
+  AstReshape sh (AstLet var v (AstKonst k t)) ->
+    interpretAst env memo (AstLet var v (AstReshape sh (AstKonst k t)))
   AstKonst k v -> second (tkonst k) (interpretAst env memo v)
   AstAppend x y ->
     let (memo1, t1) = interpretAst env memo x
