@@ -342,8 +342,9 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                           ++ [ dfromR $ tconstant astGlyph
                              , dfromR $ tconstant astLabel ]
              in snd $ interpretAst env1 emptyMemo ast
-           (((var0Again, varDtAgain, vars1Again), gradient, primal), _) =
+           (((var0Again, varDtAgain, vars1Again), gradientRaw, primal), _) =
              revAstOnDomainsFun 0 shapes1 fInterpret
+           gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ inputVars
            vars = (var0Again, varDtAgain, vars1AndInputAgain)
            go :: [MnistData r] -> Domains r -> Domains r
@@ -691,8 +692,9 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                           ++ [ dfromR $ tconstant astGlyph
                              , dfromR $ tconstant astLabel ]
              in snd $ interpretAst env1 emptyMemo ast
-           (((var0Again, varDtAgain, vars1Again), gradient, primal), _) =
+           (((var0Again, varDtAgain, vars1Again), gradientRaw, primal), _) =
              revAstOnDomainsFun 0 shapes1 fInterpret
+           gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ inputVars
            vars = (var0Again, varDtAgain, vars1AndInputAgain)
            go :: [MnistData r] -> Domains r -> Domains r
