@@ -345,6 +345,9 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tmult = (*)
   tscaleByScalar :: KnownNat n => r -> TensorOf n r -> TensorOf n r
   tscaleByScalar s v = v `tmult` tkonst0N (tshape v) (tscalar s)
+  tsumIn :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
+  tsumIn = tsum . ttranspose [1, 0]
+    -- TODO: generalize, replace by stride analysis, etc.
 
   -- The primal/dual distinction
   type ScalarOf r
@@ -492,6 +495,7 @@ instance Tensor Double where
   tscalar = tscalarR
   tunScalar = tunScalarR
   tscaleByScalar = tscaleByScalarR
+  tsumIn = tsumInR
   type ScalarOf Double = Double
   type Primal Double = Double
   type DualOf n Double = ()
@@ -548,6 +552,7 @@ instance Tensor Float where
   tscalar = tscalarR
   tunScalar = tunScalarR
   tscaleByScalar = tscaleByScalarR
+  tsumIn = tsumInR
   type ScalarOf Float = Float
   type Primal Float = Float
   type DualOf n Float = ()

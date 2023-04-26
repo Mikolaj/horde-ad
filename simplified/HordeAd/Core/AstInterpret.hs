@@ -239,16 +239,16 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
             (memo2, t2) = interpretAst env memo1 u
         in (memo2, tdot0 t1 t2)
           -- TODO: do as a term rewrite using an extended set of terms?
-          -- rather not, because rewrite breaks sharing
+  AstSum (AstTranspose [1, 0] t)  -- TODO: generalize
+    | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
+        second tsumIn $ interpretAst env memo t
   AstSum (AstReshape _sh t)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        let (memo1, t1) = interpretAst env memo t
-        in (memo1, tsum0 t1)
+        second tsum0 $ interpretAst env memo t
   AstSum (AstKonst k v) ->
-    let (memo1, t) = interpretAst env memo v
-    in (memo1, tscaleByScalar (fromIntegral k) t)
+    second (tscaleByScalar (fromIntegral k)) $ interpretAst env memo v
   AstSum (AstLet var v t) -> interpretAst env memo (AstLet var v (AstSum t))
-  AstSum v -> second tsum (interpretAst env memo v)
+  AstSum v -> second tsum $ interpretAst env memo v
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
     -- is cheaper, too

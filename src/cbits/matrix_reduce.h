@@ -5,7 +5,9 @@
    we sum and eliminate the outermost dimension, not the innermost. */
 
 void row_sum_double(int nrows, int ncols, const double *x, double *y);
+void column_sum_double(int nrows, int ncols, const double *x, double *y);
 
 void row_sum_float(int nrows, int ncols, const float *x, float *y);
+void column_sum_float(int nrows, int ncols, const float *x, float *y);
 
 #endif /* MATRIX_REDUCE_H */
