@@ -314,9 +314,9 @@ testDot1PP = do
       (artifact6, _) =
         revDtFun (uncurry (tdot0 @(Ast0 Double) @1))
                  ( OR.fromList [3] [1 .. 3]
-                 , OR.fromList [7] [1 .. 7] )
+                 , OR.fromList [3] [4 .. 6] )
   printGradient6Pretty renames artifact6
-    @?= "\\s0 dret x3 x4 -> (tfromList [], x4 * tkonst 7 dret, x3 * tkonst 3 dret)"
+    @?= "\\s0 dret x3 x4 -> (tfromList [], x4 * tkonst 3 dret, x3 * tkonst 3 dret)"
   printPrimal6Pretty renames artifact6
     @?= "\\s0 x3 x4 -> tsum (x3 * x4)"
 
@@ -327,7 +327,7 @@ testDot2PP = do
       (artifact6, _) =
         revDtFun (uncurry (tdot0 @(Ast0 Double) @2))
                  ( OR.fromList [2,3] [1 .. 6]
-                 , OR.fromList [4,5] [1 .. 20] )
+                 , OR.fromList [2,3] [7 .. 12] )
   printGradient6Pretty renames artifact6
     @?= "\\s0 dret x3 x4 -> let x5 = treshape [2,3] (tkonst 6 dret) in (tfromList [], x4 * x5, x3 * x5)"
   printPrimal6Pretty renames artifact6
@@ -339,9 +339,9 @@ testMatmul1PP = do
   let renames = IM.empty
       (artifact6, _) =
         revDtFun (uncurry tmatmul1) ( OR.fromList [2,3] [1 :: Double .. 6]
-                                    , OR.fromList [7] [1 .. 7] )
+                                    , OR.fromList [3] [7 .. 9] )
   printGradient6Pretty renames artifact6
-    @?= "\\s0 dret x3 x4 -> let x6 = tkonst 2 x4 ; x7 = ttranspose [1,0] (tkonst 7 dret) in (tfromList [], x6 * x7, tsum (x3 * x7))"
+    @?="\\s0 dret x3 x4 -> let x6 = tkonst 2 x4 ; x7 = ttranspose [1,0] (tkonst 3 dret) in (tfromList [], x6 * x7, tsum (x3 * x7))"
   printPrimal6Pretty renames artifact6
     @?= "\\s0 x3 x4 -> let x6 = tkonst 2 x4 in tsum (ttranspose [1,0] (x6 * x3))"
 
@@ -351,15 +351,15 @@ testMatmul2PP = do
   let renames = IM.empty
       (artifact6, _) =
         revDtFun (uncurry tmatmul2) ( OR.fromList [2,3] [1 :: Double .. 6]
-                                    , OR.fromList [4,5] [1 .. 20] )
+                                    , OR.fromList [3,4] [7 .. 18] )
   printGradient6Pretty renames artifact6
-    @?= "\\s0 dret x3 x4 -> let x7 = ttranspose [1,0] (tkonst 5 x3) ; x8 = tkonst 2 (ttranspose [1,0] x4) ; x9 = ttranspose [1,2,0] (tkonst 3 dret) in (tfromList [], tsum (ttranspose [1,0] (x8 * x9)), ttranspose [1,0] (tsum (x7 * x9)))"
+    @?= "\\s0 dret x3 x4 -> let x7 = ttranspose [1,0] (tkonst 4 x3) ; x8 = tkonst 2 (ttranspose [1,0] x4) ; x9 = ttranspose [1,2,0] (tkonst 3 dret) in (tfromList [], tsum (ttranspose [1,0] (x8 * x9)), ttranspose [1,0] (tsum (x7 * x9)))"
   printPrimal6Pretty renames artifact6
-    @?= "\\s0 x3 x4 -> let x7 = ttranspose [1,0] (tkonst 5 x3) ; x8 = tkonst 2 (ttranspose [1,0] x4) in tsum (ttranspose [2,0,1] (x7 * x8))"
+    @?= "\\s0 x3 x4 -> let x7 = ttranspose [1,0] (tkonst 4 x3) ; x8 = tkonst 2 (ttranspose [1,0] x4) in tsum (ttranspose [2,0,1] (x7 * x8))"
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 dret x3 x4 -> let x9 = ttranspose [1,2,0] (tkonst 3 dret) in (tfromList [], tsum (ttranspose [1,0] (tkonst 2 (ttranspose [1,0] x4) * x9)), tsum (ttranspose [0,2,1] (ttranspose [1,0] (tkonst 5 x3) * x9)))"
+    @?= "\\s0 dret x3 x4 -> let x9 = ttranspose [1,2,0] (tkonst 3 dret) in (tfromList [], tsum (ttranspose [1,0] (tkonst 2 (ttranspose [1,0] x4) * x9)), tsum (ttranspose [0,2,1] (ttranspose [1,0] (tkonst 4 x3) * x9)))"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 x3 x4 -> tsum (ttranspose [2,0,1] (ttranspose [1,0] (tkonst 5 x3) * tkonst 2 (ttranspose [1,0] x4)))"
+    @?= "\\s0 x3 x4 -> tsum (ttranspose [2,0,1] (ttranspose [1,0] (tkonst 4 x3) * tkonst 2 (ttranspose [1,0] x4)))"
 
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =
