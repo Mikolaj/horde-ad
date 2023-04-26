@@ -1,4 +1,5 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ImpredicativeTypes, QuantifiedConstraints, UndecidableInstances,
+             UndecidableSuperClasses #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
@@ -104,43 +105,42 @@ interpretLambdaIndexToIndex f env memo (vars, asts) =
 -- https://gitlab.haskell.org/ghc/ghc/-/issues/14860 and
 -- https://gitlab.haskell.org/ghc/ghc/-/issues/16365.
 --
--- This is 5% slower in tests dominated by interpretation (e.g., no Ast sharing
--- or code with no or tiny tensors) than duplicating the code 5 times.
--- A bit less slow with two evi* instead of one.
+-- This is a couple percent slower in tests dominated by interpretation
+-- (e.g., no Ast sharing or code with no or tiny tensors) than duplicating
+-- the code 5 times.
 data Dict c a where
   Dict :: c a => Dict c a
 
-class ( Tensor a, Tensor (Primal a), DynamicTensor a
-      , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a)
-      , ShowAst (ScalarOf a), Num (Vector (ScalarOf a)), RowSum  (ScalarOf a)
-      , RealFloat (Primal a), IntOf (Primal a) ~ IntOf a
-      , BooleanOf (Primal a) ~ BooleanOf (IntOf a) )
-      => Evidence a where
-  evi1 :: forall n. KnownNat n
-       => Proxy a
-       -> Dict RealFloat (TensorOf n a)
-  evi2 :: forall n. KnownNat n
-       => Proxy a
-       -> ( BooleanOf (TensorOf n (Primal a)) :~: BooleanOf (IntOf a)
-          , Dict EqB (TensorOf n (Primal a))
-          , Dict OrdB (TensorOf n (Primal a)) )
+class c (TensorOf n r) => CTensorOf c n r
+instance c (TensorOf n r) => CTensorOf c n r
 
-instance Evidence (ADVal Double) where
-  evi1 _ = Dict
-  evi2 _ = (Refl, Dict, Dict)
-instance Evidence (ADVal Float) where
-  evi1 _ = Dict
-  evi2 _ = (Refl, Dict, Dict)
+class Evi a where
+  evi :: forall n. KnownNat n
+      => Proxy a
+      -> ( BooleanOf (TensorOf n (Primal a)) :~: BooleanOf (IntOf a)
+         , Dict EqB (TensorOf n (Primal a))
+         , Dict OrdB (TensorOf n (Primal a)) )
+
+instance Evi (ADVal Double) where
+  evi _ = (Refl, Dict, Dict)
+instance Evi (ADVal Float) where
+  evi _ = (Refl, Dict, Dict)
 instance (ShowAst r, RealFloat r, Floating (Vector r))
-         => Evidence (ADVal (Ast0 r)) where
-  evi1 _ = Dict
-  evi2 _ = (Refl, Dict, Dict)
-instance Evidence Double where
-  evi1 _ = Dict
-  evi2 _ = (Refl, Dict, Dict)
-instance Evidence Float where
-  evi1 _ = Dict
-  evi2 _ = (Refl, Dict, Dict)
+         => Evi (ADVal (Ast0 r)) where
+  evi _ = (Refl, Dict, Dict)
+instance Evi Double where
+  evi _ = (Refl, Dict, Dict)
+instance Evi Float where
+  evi _ = (Refl, Dict, Dict)
+
+type Evidence a =
+  ( Tensor a, Tensor (Primal a), DynamicTensor a
+  , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a)
+  , ShowAst (ScalarOf a), Num (Vector (ScalarOf a)), RowSum (ScalarOf a)
+  , RealFloat (Primal a), IntOf (Primal a) ~ IntOf a
+  , BooleanOf (Primal a) ~ BooleanOf (IntOf a)
+  , forall n. CTensorOf RealFloat n a
+  , Evi a )
 
 type InterpretAst a = Evidence a
 
@@ -177,7 +177,7 @@ interpretAst
   :: forall n a. (KnownNat n, Evidence a)
   => AstEnv a -> AstMemo a
   -> Ast n (ScalarOf a) -> (AstMemo a, TensorOf n a)
-interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
+interpretAst env memo = \case
   AstVar sh var -> case EM.lookup var env of
     Just (AstVarR d) -> let t = tfromD d
                         in assert (sh == tshape t) $ (memo, t)
@@ -373,7 +373,7 @@ interpretAstBool env memo = \case
     let (memo2, args2) = mapAccumR (interpretAstBool env) memo args
     in (memo2, interpretAstBoolOp opCodeBool args2)
   AstBoolConst a -> (memo, if a then true else false)
-  AstRel @n opCodeRel args | (Refl, Dict, Dict) <- evi2 @a @n Proxy ->
+  AstRel @n opCodeRel args | (Refl, Dict, Dict) <- evi @a @n Proxy ->
     let (memo2, args2) =  mapAccumR (interpretAstPrimal env) memo args
     in (memo2, interpretAstRelOp opCodeRel args2)
   AstRelInt opCodeRel args ->
