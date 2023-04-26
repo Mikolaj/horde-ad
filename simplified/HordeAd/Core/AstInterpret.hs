@@ -247,14 +247,27 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
   AstSum (AstTranspose [1, 0] t)  -- TODO: generalize
     | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
         second tsumIn $ interpretAst env memo t
-  AstSum (AstReshape _sh t)
+  AstSum (AstReshape sh (AstTranspose _ t))
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+        interpretAst env memo (AstSum (AstReshape sh t))
+  AstSum (AstReshape sh (AstReverse t))
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+        interpretAst env memo (AstSum (AstReshape sh t))
+  AstSum (AstReshape _sh (AstSum t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         second tsum0 $ interpretAst env memo t
+  AstSum (AstSum t)
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+        second tsum0 $ interpretAst env memo t
+          -- more cases are needed so perhaps we need AstSum0
   AstSum (AstKonst k v) ->
     second (tscaleByScalar (fromIntegral k)) $ interpretAst env memo v
   AstSum (AstLet var v t) -> interpretAst env memo (AstLet var v (AstSum t))
   AstSum (AstReshape sh (AstLet var v t)) ->
     interpretAst env memo (AstLet var v (AstSum (AstReshape sh t)))
+  AstSum (AstReshape _sh t)
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+        second tsum0 $ interpretAst env memo t
   AstSum v -> second tsum $ interpretAst env memo v
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
