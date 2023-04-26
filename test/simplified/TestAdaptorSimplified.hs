@@ -211,7 +211,7 @@ testReluPP2 = do
   printPrimal6Pretty renames artifact6
     @?= "\\s0 x3 -> let x6 = tkonst 5 (s0 ! [0]) ; x7 = tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB ((let x11 = x3 ! [i5] ; x12 = s0 ! [0] in x11 * x12) <=* tconst 0.0) 0 1]) ; x8 = x3 * x6 in x7 * x8"
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 dret x3 -> let x6 = tkonst 5 (s0 ! [0]) ; x9 = tconstant (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (x3 ! [i5] * s0 ! [0] <=* tconst 0.0) 0 1])) * dret in (tkonst 1 (tconst 0.0 + tsum (x3 * x9)), x6 * x9)"
+    @?= "\\s0 dret x3 -> let x9 = tconstant (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (x3 ! [i5] * s0 ! [0] <=* tconst 0.0) 0 1])) * dret in (tkonst 1 (tconst 0.0 + tsum (x3 * x9)), tkonst 5 (s0 ! [0]) * x9)"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\s0 x3 -> tconstant (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (x3 ! [i5] * s0 ! [0] <=* tconst 0.0) 0 1])) * (x3 * tkonst 5 (s0 ! [0]))"
   show deltas
@@ -256,7 +256,7 @@ testReluSimplerPP2 = do
   printPrimal6Pretty renames artifact6
     @?= "\\s0 x3 -> let x6 = tkonst 5 (s0 ! [0]) ; x7 = tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB ((let x11 = x3 ! [i5] ; x12 = s0 ! [0] in x11 * x12) <=* tconst 0.0) 0 1]) ; x8 = x3 * x6 in x7 * x8"
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 dret x3 -> let x6 = tkonst 5 (s0 ! [0]) ; x9 = tconstant (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (x3 ! [i5] * s0 ! [0] <=* tconst 0.0) 0 1])) * dret in (tkonst 1 (tconst 0.0 + tsum (x3 * x9)), x6 * x9)"
+    @?= "\\s0 dret x3 -> let x9 = tconstant (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (x3 ! [i5] * s0 ! [0] <=* tconst 0.0) 0 1])) * dret in (tkonst 1 (tconst 0.0 + tsum (x3 * x9)), tkonst 5 (s0 ! [0]) * x9)"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\s0 x3 -> tconstant (tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (x3 ! [i5] * s0 ! [0] <=* tconst 0.0) 0 1])) * (x3 * tkonst 5 (s0 ! [0]))"
   show deltas
@@ -827,8 +827,7 @@ emptyArgs t =
   - tindex (tfromList0N (0 :$ 0 :$ ZS) []) (42 :. ZI)
   - tindex (tfromList0N (0 :$ tshape @r (tfromList [])) []) (42 :. ZI)
   - tsum (tfromList0N (0 :$ tshape @r (tfromList [])) [])
-  * tsum (tfromList [ tsum (tfromList0N (0 :$ tshape @r (tfromList [])) [])
-                    , treshape @r @1 [0] $ tfromList [] ])
+  * tsum (tfromList [tsum (tfromList0N (0 :$ tshape @r (tfromList [])) [])])
   / tflatten (ttr (tgather1 0 t (const ZI)))
   + tbuild1 0 (\i -> t ! [fromIntegral (trank t) `quot` i] / tfromIndex0 i)
   -- - tsum (tbuild @r @2 (0 :$ 0 :$ ZS) (const 73))

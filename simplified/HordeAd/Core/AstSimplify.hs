@@ -962,24 +962,25 @@ inlineAst
   => AstEnv r -> AstMemo
   -> Ast n r -> (AstMemo, Ast n r)
 inlineAst env memo v0 = case v0 of
-  Ast.AstVar _ var -> (EM.adjust succ var memo, v0)
+  Ast.AstVar _ var -> let f Nothing = Just 1
+                          f (Just count) = Just $ succ count
+                      in (EM.alter f var memo, v0)
   Ast.AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
-    let (memo1, u2) = inlineAst env memo u
-        memoVar =
-          EM.insertWithKey (\_ _ _ ->
-                             error $ "inlineAst: nested var " ++ show v0)
-                           var 0 memo1
-        (memo2, v2) = inlineAst env memoVar v
-        tOut = case memo2 EM.! var of
-          0 -> v2
-          count | count == 1 || astIsSmall u2 ->
-            substitute1Ast (Left u2) var v2
-              -- this is the substitution doesn't simplify, so that
-              -- inlining can be applied with and without simplification
-          _ -> Ast.AstLet var u2 v2
-        memoOut = EM.delete var memo2
-    in (memoOut, tOut)
+    let (memo1, v2) = inlineAst env memo v
+        memo1NoVar = EM.delete var memo1
+        (memo2, u2) = inlineAst env memo1NoVar u
+    in case EM.findWithDefault 0 var memo1 of
+      0 -> (memo1, v2)
+      1 -> (memo2, substitute1Ast (Left u2) var v2)
+        -- this is the substitution that doesn't simplify, so that
+        -- inlining can be applied with and without simplification
+      count | astIsSmall u ->
+        let (memoU0, u0) = inlineAst env EM.empty u
+        in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
+               -- u is small, so the union is fast
+           , substitute1Ast (Left u0) var v2 )
+      _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstLetADShare{} -> error "inlineAst: AstLetADShare"
   Ast.AstOp opCode args ->
     let (memo2, args2) = mapAccumR (inlineAst env) memo args
@@ -1048,19 +1049,20 @@ inlineAstDomains env memo v0 = case v0 of
     second Ast.AstDomains $ mapAccumR (inlineAstDynamic env) memo l
   Ast.AstDomainsLet var u v ->
     -- We assume there are no nested lets with the same variable.
-    let (memo1, u2) = inlineAst env memo u
-        memoVar =
-          EM.insertWithKey (\_ _ _ ->
-                             error $ "inlineAstDomains: nested var " ++ show v0)
-                           var 0 memo1
-        (memo2, v2) = inlineAstDomains env memoVar v
-        tOut = case memo2 EM.! var of
-          0 -> v2
-          count | count == 1 || astIsSmall u2 ->
-            substitute1AstDomains (Left u2) var v2
-          _ -> Ast.AstDomainsLet var u2 v2
-        memoOut = EM.delete var memo2
-    in (memoOut, tOut)
+    let (memo1, v2) = inlineAstDomains env memo v
+        memo1NoVar = EM.delete var memo1
+        (memo2, u2) = inlineAst env memo1NoVar u
+    in case EM.findWithDefault 0 var memo1 of
+      0 -> (memo1, v2)
+      1 -> (memo2, substitute1AstDomains (Left u2) var v2)
+        -- this is the substitution that doesn't simplify, so that
+        -- inlining can be applied with and without simplification
+      count | astIsSmall u ->
+        let (memoU0, u0) = inlineAst env EM.empty u
+        in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
+               -- u is small, so the union is fast
+           , substitute1AstDomains (Left u0) var v2 )
+      _ -> (memo2, Ast.AstDomainsLet var u2 v2)
 
 inlineAstInt :: ShowAstSimplify r
              => AstEnv r -> AstMemo
