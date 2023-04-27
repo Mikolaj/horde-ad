@@ -324,7 +324,7 @@ instance ShowAstSimplify r
 
   tfromD = undefined
 
-astLetFunUnSimp :: (KnownNat n, ShowAst r)
+astLetFunUnSimp :: (KnownNat n, KnownNat m, ShowAst r)
                 => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
 astLetFunUnSimp a f =
   let sh = shapeAst a

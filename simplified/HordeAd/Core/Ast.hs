@@ -18,7 +18,7 @@ module HordeAd.Core.Ast
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool, intVarInIndex
   , substitute1Ast, substitute1AstDomains, substitute1AstInt, substitute1AstBool
-  , printAstVarId
+  , printAstVarName
   , printAstSimple, printAstPretty, printAstDomainsSimple, printAstDomainsPretty
   , printGradient6Simple, printGradient6Pretty
   , printPrimal6Simple, printPrimal6Pretty
@@ -28,6 +28,7 @@ module HordeAd.Core.Ast
 import Prelude
 
 import           Control.Exception.Assert.Sugar
+import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           Data.Either (fromLeft, fromRight)
@@ -72,7 +73,7 @@ type AstVarList n = SizedList n AstVarId
 data Ast :: Nat -> Type -> Type where
   -- To permit defining objective functions in Ast, not just constants:
   AstVar :: ShapeInt n -> AstVarId -> Ast n r
-  AstLet :: KnownNat n
+  AstLet :: (KnownNat n, KnownNat m)
          => AstVarId -> Ast n r -> Ast m r -> Ast m r
   AstLetADShare :: KnownNat m
                 => ADShare (Ast0 r) -> Ast m r -> Ast m r
@@ -780,18 +781,29 @@ data PrintConfig = PrintConfig
   , varRenames            :: IntMap String
   }
 
-printAstVarIdGeneric :: String -> PrintConfig -> AstVarId -> ShowS
-printAstVarIdGeneric prefix cfg var =
+printAstVarId :: String -> PrintConfig -> AstVarId -> ShowS
+printAstVarId prefix cfg var =
   let n = fromEnum var - 100000000
   in showString $ case IM.lookup n (varRenames cfg) of
     Nothing -> prefix ++ show n
     Just name -> name
 
-printAstVar :: PrintConfig -> AstVarId -> ShowS
-printAstVar = printAstVarIdGeneric "x"
+printAstVar :: forall n r. KnownNat n
+            => PrintConfig -> AstVarName (OR.Array n r) -> ShowS
+printAstVar cfg (AstVarName var) =
+  let rank = valueOf @n
+      prefix = case rank :: Int of
+        0 -> "x"
+        1 -> "v"
+        2 -> "m"
+        3 -> "t"
+        4 -> "u"
+        5 -> "v"
+        _ -> "w"
+  in printAstVarId prefix cfg var
 
 printAstIntVar :: PrintConfig -> AstVarId -> ShowS
-printAstIntVar = printAstVarIdGeneric "i"
+printAstIntVar = printAstVarId "i"
 
 defaulPrintConfig :: Bool -> IntMap String -> PrintConfig
 defaulPrintConfig prettifyLosingSharing renames =
@@ -799,14 +811,15 @@ defaulPrintConfig prettifyLosingSharing renames =
   in PrintConfig {..}
 
 -- Precedences used are as in Haskell.
-printAst :: forall n r. ShowAst r => PrintConfig -> Int -> Ast n r -> ShowS
+printAst :: forall n r. (ShowAst r, KnownNat n)
+         => PrintConfig -> Int -> Ast n r -> ShowS
 printAst cfg d = \case
-  AstVar _sh var -> printAstVar cfg var
-  t@(AstLet var0 u0 v0) ->
+  AstVar _sh var -> printAstVar cfg (AstVarName @(OR.Array n r) var)
+  t@(AstLet @_ @m0 var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: Ast n r -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLet var u v) =
-               let name = printAstVar cfg var
+             collect (AstLet @_ @m var u v) =
+               let name = printAstVar cfg (AstVarName @(OR.Array m r) var)
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -825,7 +838,7 @@ printAst cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVar cfg var0
+             . printAstVar cfg (AstVarName @(OR.Array m0 r) var0)
              . showString " -> "
              . printAst cfg 0 v0)
   AstLetADShare l v ->
@@ -877,14 +890,14 @@ printAst cfg d = \case
     printPrefixOp printAst cfg d ("ttranspose " ++ show perm) [v]
   AstReshape sh v ->
     printPrefixOp printAst cfg d ("treshape " ++ show sh) [v]
-  AstBuild1 k (var, v) ->
+  AstBuild1 @m k (var, v) ->
     showParen (d > 10)
     $ showString "tbuild1 "
       . shows k
       . showString " "
       . (showParen True
          $ showString "\\"
-           . printAstVar cfg var
+           . printAstVar cfg (AstVarName @(OR.Array m r) var)
            . showString " -> "
            . printAst cfg 0 v)
   AstGatherZ sh v (vars, ix) ->
@@ -919,10 +932,16 @@ printAst cfg d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith (printAstVar cfg) (V.toList vars)
+           . showListWith (printAstVarFromDomains cfg)
+                          (V.toList $ V.zip vars (unwrapAstDomains l))
            . showString " -> "
            . printAst cfg 0 v)
       -- TODO: this does not roundtrip yet
+
+printAstVarFromDomains :: forall r. PrintConfig -> (AstVarId, AstDynamic r)
+                       -> ShowS
+printAstVarFromDomains cfg (var, AstDynamic @n _) =
+  printAstVar cfg (AstVarName @(OR.Array n r) var)
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
@@ -955,11 +974,11 @@ printAstDomains cfg d = \case
         . (showParen True
            $ showString "fromList "
              . showListWith (printAstDynamic cfg 0) (V.toList l))
-  t@(AstDomainsLet var0 u0 v0) ->
+  t@(AstDomainsLet @m0 var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstDomains r -> ([(ShowS, ShowS)], ShowS)
-             collect (AstDomainsLet var u v) =
-               let name = printAstVar cfg var
+             collect (AstDomainsLet @m var u v) =
+               let name = printAstVar cfg (AstVarName @(OR.Array m r) var)
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -978,7 +997,7 @@ printAstDomains cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVar cfg var0
+             . printAstVar cfg (AstVarName @(OR.Array m0 r) var0)
              . showString " -> "
              . printAstDomains cfg 0 v0)
 
@@ -1009,7 +1028,8 @@ printAstBool cfg d = \case
                         $ map unAstPrimalPart args
   AstRelInt opCode args -> printAstRelOp printAstInt cfg d opCode args
 
-printAstOp :: ShowAst r => PrintConfig -> Int -> OpCode -> [Ast n r] -> ShowS
+printAstOp :: (ShowAst r, KnownNat n)
+           => PrintConfig -> Int -> OpCode -> [Ast n r] -> ShowS
 printAstOp cfg d opCode args = case (opCode, args) of
   (MinusOp, [u, v]) -> printBinaryOp printAst cfg d u (6, " - ") v
   (TimesOp, [u, v]) -> printBinaryOp printAst cfg d u (7, " * ") v
@@ -1100,13 +1120,19 @@ printAstRelOp pr cfg d opCode args = case (opCode, args) of
   _ -> error $ "printAstRelOp: wrong number of arguments"
                ++ show (opCode, length args)
 
-printAstVarId :: IntMap String -> AstVarId -> String
-printAstVarId renames var = printAstVar (defaulPrintConfig False renames) var ""
+printAstVarName :: KnownNat n
+                => IntMap String -> AstVarName (OR.Array n r) -> String
+printAstVarName renames var =
+  printAstVar (defaulPrintConfig False renames) var ""
 
-printAstSimple :: ShowAst r => IntMap String -> Ast n r -> String
+printAstDynamicVarName :: IntMap String -> AstDynamicVarName r -> String
+printAstDynamicVarName renames (AstDynamicVarName var) =
+  printAstVarName renames var
+
+printAstSimple :: (ShowAst r, KnownNat n) => IntMap String -> Ast n r -> String
 printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
 
-printAstPretty :: ShowAst r => IntMap String -> Ast n r -> String
+printAstPretty :: (ShowAst r, KnownNat n) => IntMap String -> Ast n r -> String
 printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
 
 
@@ -1118,36 +1144,36 @@ printAstDomainsPretty :: ShowAst r => IntMap String -> AstDomains r -> String
 printAstDomainsPretty renames t =
   printAstDomains (defaulPrintConfig True renames) 0 t ""
 
-printGradient6Simple :: ShowAst r
+printGradient6Simple :: (ShowAst r, KnownNat n)
                      => IntMap String -> ADAstArtifact6 n r -> String
-printGradient6Simple renames
-                     ((AstVarName var0, AstVarName varDt, vars1), gradient, _) =
-  let vars1UnD = map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-      varsPP = map (printAstVarId renames) $ var0 : varDt : vars1UnD
+printGradient6Simple renames ((var0, varDt, vars1), gradient, _) =
+  let varsPP = printAstVarName renames var0
+               : printAstVarName renames varDt
+               : map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstDomainsSimple renames gradient
 
-printGradient6Pretty :: ShowAst r
+printGradient6Pretty :: (ShowAst r, KnownNat n)
                      => IntMap String -> ADAstArtifact6 n r -> String
-printGradient6Pretty renames
-                     ((AstVarName var0, AstVarName varDt, vars1), gradient, _) =
-  let vars1UnD = map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-      varsPP = map (printAstVarId renames) $ var0 : varDt : vars1UnD
+printGradient6Pretty renames ((var0, varDt, vars1), gradient, _) =
+  let varsPP = printAstVarName renames var0
+               : printAstVarName renames varDt
+               : map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstDomainsPretty renames gradient
 
-printPrimal6Simple :: ShowAst r
+printPrimal6Simple :: (ShowAst r, KnownNat n)
                    => IntMap String -> ADAstArtifact6 n r -> String
-printPrimal6Simple renames ((AstVarName var0, _, vars1), _, primal) =
-  let vars1UnD = map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-      varsPP = map (printAstVarId renames) $ var0 : vars1UnD
+printPrimal6Simple renames ((var0, _, vars1), _, primal) =
+  let varsPP = printAstVarName renames var0
+               : map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstSimple renames primal
 
-printPrimal6Pretty :: ShowAst r
+printPrimal6Pretty :: (ShowAst r, KnownNat n)
                    => IntMap String -> ADAstArtifact6 n r -> String
-printPrimal6Pretty renames ((AstVarName var0, _, vars1), _, primal) =
-  let vars1UnD = map (\(AstDynamicVarName (AstVarName var)) -> var) vars1
-      varsPP = map (printAstVarId renames) $ var0 : vars1UnD
+printPrimal6Pretty renames (( var0, _, vars1), _, primal) =
+  let varsPP = printAstVarName renames var0
+               : map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstPretty renames primal

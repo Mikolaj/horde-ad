@@ -295,7 +295,7 @@ ellipsisString width full = let cropped = take width full
                                then cropped
                                else take (width - 3) cropped ++ "..."
 
-mkTraceRule :: (KnownNat n, ShowAstSimplify r)
+mkTraceRule :: (KnownNat n, KnownNat m, ShowAstSimplify r)
             => String -> Ast n r -> Ast m r -> Int -> Ast n r -> Ast n r
 {-# NOINLINE mkTraceRule #-}
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
