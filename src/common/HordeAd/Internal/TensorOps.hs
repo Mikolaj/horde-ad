@@ -13,11 +13,11 @@ import           Control.Exception.Assert.Sugar
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Internal
+import qualified Data.Array.Internal as OI
 import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
-import qualified Data.Array.Internal.RankedG
-import qualified Data.Array.Internal.RankedS
+import qualified Data.Array.Internal.RankedG as RG
+import qualified Data.Array.Internal.RankedS as RS
 import qualified Data.Array.Internal.ShapedG
 import qualified Data.Array.Internal.ShapedS
 import qualified Data.Array.Ranked as ORB
@@ -57,12 +57,12 @@ dummyTensor :: Numeric r => OD.Array r
 dummyTensor =  -- an inconsistent tensor array
   Data.Array.Internal.DynamicS.A
   $ Data.Array.Internal.DynamicG.A []
-  $ Data.Array.Internal.T [] (-1) V.empty
+  $ OI.T [] (-1) V.empty
 
 isTensorDummy :: OD.Array r -> Bool
 isTensorDummy (Data.Array.Internal.DynamicS.A
                  (Data.Array.Internal.DynamicG.A _
-                    (Data.Array.Internal.T _ (-1) _))) = True
+                    (OI.T _ (-1) _))) = True
 isTensorDummy _ = False
 
 toVectorOrDummy :: Numeric r
@@ -92,7 +92,7 @@ toShapedOrDummy x = if isTensorDummy x
 tindex0D :: Numeric r => OD.Array r -> [Int] -> r
 tindex0D (Data.Array.Internal.DynamicS.A
             (Data.Array.Internal.DynamicG.A _
-               Data.Array.Internal.T{..})) is =
+               OI.T{..})) is =
   values V.! (offset + sum (zipWith (*) is strides))
     -- TODO: tests are needed to verify if order of dimensions is right
 
@@ -110,9 +110,7 @@ updateNR :: forall m n a. (Numeric a, KnownNat m, KnownNat n)
          => OR.Array (m + n) a -> [(IndexInt m, OR.Array n a)]
          -> OR.Array (m + n) a
 updateNR arr upd =
-  let Data.Array.Internal.RankedS.A
-        (Data.Array.Internal.RankedG.A shRaw
-           Data.Array.Internal.T{offset, values}) = OR.normalize arr
+  let RS.A (RG.A shRaw OI.T{offset, values}) = OR.normalize arr
       !_A = assert (offset == 0) ()
   in let sh = listShapeToShape shRaw
          f t (ix, u) =
@@ -125,7 +123,7 @@ tsum0D
   :: Numeric r
   => OD.Array r -> r
 tsum0D (Data.Array.Internal.DynamicS.A (Data.Array.Internal.DynamicG.A sh t)) =
-  LA.sumElements $ Data.Array.Internal.toUnorderedVectorT sh t
+  LA.sumElements $ OI.toUnorderedVectorT sh t
 
 tkonst0ND
   :: Numeric r
@@ -164,19 +162,15 @@ ixInBounds ix sh =
 tindexNR
   :: forall m n r. (KnownNat m, Show r, Numeric r)
   => OR.Array (m + n) r -> IndexInt m -> OR.Array n r
-tindexNR v@(Data.Array.Internal.RankedS.A
-              (Data.Array.Internal.RankedG.A sh
-                 Data.Array.Internal.T{strides, offset, values})) ix =
+tindexNR v@(RS.A (RG.A sh OI.T{strides, offset, values})) ix =
   let l = indexToList ix
       linear = offset + sum (zipWith (*) (map fromIntegral l) strides)
       plen = valueOf @m  -- length of prefix being indexed out of
       !_A = assert (ixInBounds l sh `blame` (ix, sh, v)) ()
   in
-    Data.Array.Internal.RankedS.A
-      (Data.Array.Internal.RankedG.A (drop plen sh)
-         Data.Array.Internal.T{ strides = drop plen strides
-                              , offset = linear
-                              , values })
+    RS.A (RG.A (drop plen sh) OI.T{ strides = drop plen strides
+                                  , offset = linear
+                                  , values })
 
 tindexZR
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
@@ -196,9 +190,7 @@ tindex1R t i = OR.index t (fromIntegral i)
 tindex0R
   :: Numeric r
   => OR.Array n r -> IndexInt n -> r
-tindex0R (Data.Array.Internal.RankedS.A
-            (Data.Array.Internal.RankedG.A _
-               Data.Array.Internal.T{..})) ix =
+tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
                                         strides))
     -- to avoid linearizing @values@, we do everything in unsized way
@@ -210,6 +202,8 @@ tindex0R (Data.Array.Internal.RankedS.A
 tsumR
   :: forall n r. (KnownNat n, Numeric r, RowSum r)
   => OR.Array (1 + n) r -> OR.Array n r
+tsumR (RS.A (RG.A (k : sh) (OI.T (_ : ss) o vt))) | V.length vt == 1 =
+  RS.A (RG.A sh (OI.T ss o (V.map (* fromIntegral k) vt)))
 tsumR t = case OR.shapeL t of
   [] -> error "tsumR: null shape"
   0 : sh2 -> OR.constant sh2 0  -- the shape is known from sh, so no ambiguity
@@ -233,17 +227,19 @@ tsumInR t = case OR.shapeL t of
   [] -> error "tsumInR: null shape"
   k2 : 0 : [] ->
     OR.constant [k2] 0  -- the shape is known from sh, so no ambiguity
-  k2 : k : [] ->
-    let sh2 = [k2]
-    in OR.fromVector sh2 $ unsafePerformIO $ do  -- unsafe only due to FFI
-      v <- V.unsafeThaw $ OR.toVector t
-      VM.unsafeWith v $ \ptr -> do
-        let len2 = product sh2
-        v2 <- VM.new len2
-        VM.unsafeWith v2 $ \ptr2 -> do
-          columnSum k len2 ptr ptr2
-          void $ V.unsafeFreeze v
-          V.unsafeFreeze v2
+  k2 : k : [] -> case t of
+    RS.A (RG.A _ (OI.T (s2 : _) o vt)) | V.length vt == 1 ->
+      RS.A (RG.A [k2] (OI.T [s2] o (V.map (* fromIntegral k) vt)))
+    _ -> let sh2 = [k2]
+         in OR.fromVector sh2 $ unsafePerformIO $ do  -- unsafe only due to FFI
+           v <- V.unsafeThaw $ OR.toVector t
+           VM.unsafeWith v $ \ptr -> do
+             let len2 = product sh2
+             v2 <- VM.new len2
+             VM.unsafeWith v2 $ \ptr2 -> do
+               columnSum k len2 ptr ptr2
+               void $ V.unsafeFreeze v
+               V.unsafeFreeze v2
   _ -> error "tsumInR: not yet generalized beyond rank 2"
 
 foreign import ccall unsafe "row_sum_double"
@@ -281,14 +277,33 @@ instance {-# OVERLAPPABLE #-} Numeric r => RowSum r where
 tsum0R
   :: Numeric r
   => OR.Array n r -> r
-tsum0R (Data.Array.Internal.RankedS.A (Data.Array.Internal.RankedG.A sh t)) =
-  LA.sumElements $ Data.Array.Internal.toUnorderedVectorT sh t
+tsum0R (RS.A (RG.A sh (OI.T _ _ vt))) | V.length vt == 1 =
+  fromIntegral (product sh) * vt V.! 0
+-- tsumInR t@(RS.A (RG.A _ (OI.T _ _ vt))) | V.length vt == 1 =
+tsum0R (RS.A (RG.A sh t)) =
+  LA.sumElements $ OI.toUnorderedVectorT sh t
 
 tdot0R
   :: Numeric r
   => OR.Array n r -> OR.Array n r -> r
-tdot0R u v = OR.toVector u LA.<.> OR.toVector v
+tdot0R (RS.A (RG.A sh (OI.T _ _ vt))) (RS.A (RG.A _ (OI.T _ _ vu)))
+  | V.length vt == 1 && V.length vu == 1 =
+      fromIntegral (product sh) * vt V.! 0 * vu V.! 0
+tdot0R t u = OR.toVector t LA.<.> OR.toVector u
   -- TODO: if offset 0 and same strides, use toUnorderedVectorT
+  -- TODO: if either has length 1 values, it may or may not be faster to do
+  -- tsum0R (t * u)
+
+tdot1InR
+  :: (Numeric r, Num (Vector r), RowSum r)
+  => OR.Array 2 r -> OR.Array 2 r -> OR.Array 1 r
+tdot1InR t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
+  if V.length vt == 1 || V.length vu == 1
+  then tsumInR (t * u)
+  else let lt = map OR.toVector $ ORB.toList $ OR.unravel t
+           lu = map OR.toVector $ ORB.toList $ OR.unravel u
+           l = zipWith (LA.<.>) lt lu
+       in OR.fromList [length l] $ l
 
 tminimum0R
   :: Numeric r
@@ -519,7 +534,7 @@ tsum0S
   :: (Numeric r, OS.Shape sh)
   => OS.Array sh r -> r
 tsum0S arr@(Data.Array.Internal.ShapedS.A (Data.Array.Internal.ShapedG.A t)) =
-  LA.sumElements $ Data.Array.Internal.toUnorderedVectorT (OS.shapeL arr) t
+  LA.sumElements $ OI.toUnorderedVectorT (OS.shapeL arr) t
 
 -- Takes a shape.
 fromLinearIdx2 :: Integral i => [i] -> i -> [i]

@@ -348,6 +348,9 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tsumIn :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
   tsumIn = tsum . ttranspose [1, 0]
     -- TODO: generalize, replace by stride analysis, etc.
+  tdot1In :: TensorOf 2 r -> TensorOf 2 r -> TensorOf 1 r
+  tdot1In t u = tsum (ttranspose [1, 0] (t `tmult` u))
+    -- TODO: generalize, replace by stride analysis, etc.
 
   -- The primal/dual distinction
   type ScalarOf r
@@ -496,6 +499,7 @@ instance Tensor Double where
   tunScalar = tunScalarR
   tscaleByScalar = tscaleByScalarR
   tsumIn = tsumInR
+  tdot1In = tdot1InR
   type ScalarOf Double = Double
   type Primal Double = Double
   type DualOf n Double = ()
@@ -553,6 +557,7 @@ instance Tensor Float where
   tunScalar = tunScalarR
   tscaleByScalar = tscaleByScalarR
   tsumIn = tsumInR
+  tdot1In = tdot1InR
   type ScalarOf Float = Float
   type Primal Float = Float
   type DualOf n Float = ()
