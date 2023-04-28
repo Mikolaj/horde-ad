@@ -1090,10 +1090,12 @@ inlineAstBool env memo v0 = case v0 of
 
 -- * The pass eliminating nested lets bottom-up
 
-type UnletEnv r = (ES.EnumSet AstVarId, ADShare (Ast0 r))
+data UnletEnv r = UnletEnv
+  { unletSet     :: ES.EnumSet AstVarId
+  , unletADShare :: ADShare (Ast0 r) }
 
 emptyUnletEnv :: ADShare (Ast0 r) -> UnletEnv r
-emptyUnletEnv l = (ES.empty, l)
+emptyUnletEnv l = UnletEnv ES.empty l
 
 unletAst6
   :: (ShowAstSimplify r, KnownNat n)
@@ -1114,12 +1116,12 @@ unletAstDomains6 astBindings l t =
 unletAstPrimal
   :: (ShowAstSimplify r, KnownNat n)
   => UnletEnv r -> AstPrimalPart n r -> AstPrimalPart n r
-unletAstPrimal letSet (AstPrimalPart t) = AstPrimalPart $ unletAst letSet t
+unletAstPrimal env (AstPrimalPart t) = AstPrimalPart $ unletAst env t
 
 unletAst
   :: (ShowAstSimplify r, KnownNat n)
   => UnletEnv r -> Ast n r -> Ast n r
-unletAst letSet@(set, lglobal) t = case t of
+unletAst env t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v ->
     -- This optimization is sound, because there is no mechanism
@@ -1128,89 +1130,90 @@ unletAst letSet@(set, lglobal) t = case t of
     -- a term into the same term). If that changes, let's refresh
     -- let variables whenever substituting into let bodies.
     -- See the same assumption in AstInterpret.
-    if var `ES.member` set
-    then unletAst letSet v
-    else let letSet2 = (ES.insert var set, lglobal)
-         in Ast.AstLet var (unletAst letSet u) (unletAst letSet2 v)
+    if var `ES.member` unletSet env
+    then unletAst env v
+    else let env2 = env {unletSet = ES.insert var (unletSet env)}
+         in Ast.AstLet var (unletAst env u) (unletAst env2 v)
   Ast.AstLetADShare l v ->
-    let lassocs = subtractADShare l lglobal
+    let lassocs = subtractADShare l $ unletADShare env
           -- potentially prevents quadratic cost induced by tletWrap
           -- duplicating the global ADShare; may induce overhead when
           -- the same lets are verified for removal twice, in subtractADShare
           -- and via unletAst, but if many lets can be eliminated,
           -- subtractADShare does it much faster
-    in unletAst letSet $ bindsToLet v lassocs
-  Ast.AstOp opCode args -> Ast.AstOp opCode (map (unletAst letSet) args)
-  Ast.AstSumOfList args -> Ast.AstSumOfList (map (unletAst letSet) args)
+    in unletAst env $ bindsToLet v lassocs
+  Ast.AstOp opCode args -> Ast.AstOp opCode (map (unletAst env) args)
+  Ast.AstSumOfList args -> Ast.AstSumOfList (map (unletAst env) args)
   Ast.AstIota -> t
   Ast.AstIndexZ v ix ->
-    Ast.AstIndexZ (unletAst letSet v) (fmap (unletAstInt letSet) ix)
-  Ast.AstSum v -> Ast.AstSum (unletAst letSet v)
+    Ast.AstIndexZ (unletAst env v) (fmap (unletAstInt env) ix)
+  Ast.AstSum v -> Ast.AstSum (unletAst env v)
   Ast.AstScatter sh v (var, ix) ->
-    Ast.AstScatter sh (unletAst letSet v) (var, fmap (unletAstInt letSet) ix)
-  Ast.AstFromList l -> Ast.AstFromList (map (unletAst letSet) l)
-  Ast.AstFromVector l -> Ast.AstFromVector (V.map (unletAst letSet) l)
-  Ast.AstKonst k v -> Ast.AstKonst k (unletAst letSet v)
-  Ast.AstAppend x y -> Ast.AstAppend (unletAst letSet x) (unletAst letSet y)
-  Ast.AstSlice i k v -> Ast.AstSlice i k (unletAst letSet v)
-  Ast.AstReverse v -> Ast.AstReverse (unletAst letSet v)
-  Ast.AstTranspose perm v -> Ast.AstTranspose perm (unletAst letSet v)
-  Ast.AstReshape sh v -> Ast.AstReshape sh (unletAst letSet v)
-  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, unletAst letSet v)
+    Ast.AstScatter sh (unletAst env v) (var, fmap (unletAstInt env) ix)
+  Ast.AstFromList l -> Ast.AstFromList (map (unletAst env) l)
+  Ast.AstFromVector l -> Ast.AstFromVector (V.map (unletAst env) l)
+  Ast.AstKonst k v -> Ast.AstKonst k (unletAst env v)
+  Ast.AstAppend x y -> Ast.AstAppend (unletAst env x) (unletAst env y)
+  Ast.AstSlice i k v -> Ast.AstSlice i k (unletAst env v)
+  Ast.AstReverse v -> Ast.AstReverse (unletAst env v)
+  Ast.AstTranspose perm v -> Ast.AstTranspose perm (unletAst env v)
+  Ast.AstReshape sh v -> Ast.AstReshape sh (unletAst env v)
+  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, unletAst env v)
   Ast.AstGatherZ sh v (vars, ix) ->
-    Ast.AstGatherZ sh (unletAst letSet v) (vars, fmap (unletAstInt letSet) ix)
+    Ast.AstGatherZ sh (unletAst env v) (vars, fmap (unletAstInt env) ix)
   Ast.AstConst{} -> t
-  Ast.AstConstant v -> Ast.AstConstant (unletAstPrimal letSet v)
-  Ast.AstD u (AstDualPart u') -> Ast.AstD (unletAstPrimal letSet u)
-                                  (AstDualPart $ unletAst letSet u')
+  Ast.AstConstant v -> Ast.AstConstant (unletAstPrimal env v)
+  Ast.AstD u (AstDualPart u') -> Ast.AstD (unletAstPrimal env u)
+                                  (AstDualPart $ unletAst env u')
   Ast.AstLetDomains vars l v ->
-    let letSet2 = (set `ES.union` ES.fromList (V.toList vars), lglobal)
-    in Ast.AstLetDomains vars (unletAstDomains letSet l) (unletAst letSet2 v)
+    let env2 = env {unletSet = unletSet env
+                               `ES.union` ES.fromList (V.toList vars)}
+    in Ast.AstLetDomains vars (unletAstDomains env l) (unletAst env2 v)
 
 unletAstDynamic
   :: ShowAstSimplify r
   => UnletEnv r -> AstDynamic r -> AstDynamic r
-unletAstDynamic letSet (AstDynamic u) = AstDynamic $ unletAst letSet u
+unletAstDynamic env (AstDynamic u) = AstDynamic $ unletAst env u
 
 unletAstDomains
   :: ShowAstSimplify r
   => UnletEnv r -> AstDomains r -> AstDomains r
-unletAstDomains letSet@(set, lglobal) = \case
-  Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic letSet) l
+unletAstDomains env = \case
+  Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic env) l
   Ast.AstDomainsLet var u v ->
-    if var `ES.member` set
-    then unletAstDomains letSet v
-    else let letSet2 = (ES.insert var set, lglobal)
-         in Ast.AstDomainsLet var (unletAst letSet u)
-                                  (unletAstDomains letSet2 v)
+    if var `ES.member` unletSet env
+    then unletAstDomains env v
+    else let env2 = env {unletSet = ES.insert var (unletSet env)}
+         in Ast.AstDomainsLet var (unletAst env u)
+                                  (unletAstDomains env2 v)
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether
 -- a tensor terms can be simplified in turn.
 unletAstInt :: ShowAstSimplify r
             => UnletEnv r -> AstInt r -> AstInt r
-unletAstInt letSet t = case t of
+unletAstInt env t = case t of
   AstIntVar{} -> t
   AstIntOp opCodeInt args ->
-    AstIntOp opCodeInt (map (unletAstInt letSet) args)
+    AstIntOp opCodeInt (map (unletAstInt env) args)
   AstIntConst{} -> t
-  Ast.AstIntFloor v -> Ast.AstIntFloor $ unletAstPrimal letSet v
+  Ast.AstIntFloor v -> Ast.AstIntFloor $ unletAstPrimal env v
   Ast.AstIntCond b a1 a2 ->
     Ast.AstIntCond
-      (unletAstBool letSet b) (unletAstInt letSet a1) (unletAstInt letSet a2)
-  Ast.AstMinIndex1 v -> Ast.AstMinIndex1 $ unletAstPrimal letSet v
-  Ast.AstMaxIndex1 v -> Ast.AstMaxIndex1 $ unletAstPrimal letSet v
+      (unletAstBool env b) (unletAstInt env a1) (unletAstInt env a2)
+  Ast.AstMinIndex1 v -> Ast.AstMinIndex1 $ unletAstPrimal env v
+  Ast.AstMaxIndex1 v -> Ast.AstMaxIndex1 $ unletAstPrimal env v
 
 unletAstBool :: ShowAstSimplify r
              => UnletEnv r -> AstBool r -> AstBool r
-unletAstBool letSet t = case t of
+unletAstBool env t = case t of
   Ast.AstBoolOp opCodeBool args ->
-    Ast.AstBoolOp opCodeBool (map (unletAstBool letSet) args)
+    Ast.AstBoolOp opCodeBool (map (unletAstBool env) args)
   AstBoolConst{} -> t
   Ast.AstRel opCodeRel args ->
-    Ast.AstRel opCodeRel (map (unletAstPrimal letSet) args)
+    Ast.AstRel opCodeRel (map (unletAstPrimal env) args)
   Ast.AstRelInt opCodeRel args ->
-    Ast.AstRelInt opCodeRel (map (unletAstInt letSet) args)
+    Ast.AstRelInt opCodeRel (map (unletAstInt env) args)
 
 
 -- * The simplifying bottom-up pass
