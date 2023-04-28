@@ -118,13 +118,13 @@ revAstOnDomainsFun dim0 shapes1 f =
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D astBindings0 primalBody deltaTopLevel) = f varInputs domains v6
+      !(D adShare primalBody deltaTopLevel) = f varInputs domains v6
       deltaDt = packDeltaDt (Right $ astDt (tshape primalBody)) deltaTopLevel in
-  let (astBindings, gradient0) = gradientFromDelta dim0 (length shapes1) deltaDt
-      !gradient = dletWrap (astBindings ++ assocsADShare astBindings0) gradient0
+  let !(!astBindings, !gradient) =
+        gradientFromDelta dim0 (length shapes1) deltaDt
   in ( ( vars
-       , unletAstDomains6 gradient
-       , unletAst6 $ tletWrap astBindings0 primalBody )
+       , unletAstDomains6 astBindings adShare gradient
+       , unletAst6 adShare primalBody )
      , deltaTopLevel )
 
 revAstOnDomainsEval

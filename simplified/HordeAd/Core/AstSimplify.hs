@@ -1097,13 +1097,21 @@ emptyUnletEnv = ES.empty
 
 unletAst6
   :: (ShowAstSimplify r, KnownNat n)
-  => Ast n r -> Ast n r
-unletAst6 = unletAst emptyUnletEnv
+  => ADShare (Ast0 r) -> Ast n r -> Ast n r
+unletAst6 adShare t = unletAst emptyUnletEnv
+                      $ Ast.AstLetADShare adShare t
 
 unletAstDomains6
   :: ShowAstSimplify r
-  => AstDomains r -> AstDomains r
-unletAstDomains6 = unletAstDomains emptyUnletEnv
+  => [(AstVarId, DTensorOf (Ast0 r))] -> ADShare (Ast0 r) -> AstDomains r
+  -> AstDomains r
+unletAstDomains6 astBindings adShare t =
+  unletAstDomains emptyUnletEnv
+  $ dletWrap' (astBindings ++ assocsADShare adShare) t
+ where
+  dletWrap' l u =
+    let bindToLet g (var, Ast.AstDynamic v) = Ast.AstDomainsLet var v g
+    in foldl' bindToLet u l
 
 -- TODO: if a nested let is alone, eliminate the nesting let instead;
 -- this probably requires many passes though
