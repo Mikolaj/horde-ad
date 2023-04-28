@@ -10,7 +10,6 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
-import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -106,9 +105,6 @@ instance ShowAst r
   tletDomains = astLetDomainsFun
   dmkDomains = AstDomains
   dlet = astDomainsLetFun
-  dletWrap l u =
-    let bindToLet g (var, AstDynamic t) = AstDomainsLet var t g
-    in foldl' bindToLet u l
 
 astLetFun :: (KnownNat n, KnownNat m, ShowAst r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r

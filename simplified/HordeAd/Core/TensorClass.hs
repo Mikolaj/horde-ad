@@ -409,8 +409,6 @@ class DomainsTensor r where
        => TensorOf n r -> (TensorOf n r -> DomainsOf r)
        -> DomainsOf r
   dlet a f = f a
-  dletWrap :: [(AstVarId, DTensorOf r)] -> DomainsOf r -> DomainsOf r
-  dletWrap _l u = u
 
 
 -- * The giga-constraint
