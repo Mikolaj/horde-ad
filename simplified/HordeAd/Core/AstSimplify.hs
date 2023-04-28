@@ -916,16 +916,6 @@ simplifyAstDomains6
 simplifyAstDomains6 =
   simplifyAstDomains . snd . inlineAstDomains () EM.empty . simplifyAstDomains
 
-unletAst6
-  :: (ShowAstSimplify r, KnownNat n)
-  => Ast n r -> Ast n r
-unletAst6 = unletAst ES.empty
-
-unletAstDomains6
-  :: ShowAstSimplify r
-  => AstDomains r -> AstDomains r
-unletAstDomains6 = unletAstDomains ES.empty
-
 
 -- * The pass inlining lets with the bottom-up strategy
 
@@ -1100,16 +1090,31 @@ inlineAstBool env memo v0 = case v0 of
 
 -- * The pass eliminating nested lets bottom-up
 
+type UnletEnv r = ES.EnumSet AstVarId
+
+emptyUnletEnv :: UnletEnv r
+emptyUnletEnv = ES.empty
+
+unletAst6
+  :: (ShowAstSimplify r, KnownNat n)
+  => Ast n r -> Ast n r
+unletAst6 = unletAst emptyUnletEnv
+
+unletAstDomains6
+  :: ShowAstSimplify r
+  => AstDomains r -> AstDomains r
+unletAstDomains6 = unletAstDomains emptyUnletEnv
+
 -- TODO: if a nested let is alone, eliminate the nesting let instead;
 -- this probably requires many passes though
 unletAstPrimal
   :: (ShowAstSimplify r, KnownNat n)
-  => ES.EnumSet AstVarId -> AstPrimalPart n r -> AstPrimalPart n r
+  => UnletEnv r -> AstPrimalPart n r -> AstPrimalPart n r
 unletAstPrimal letSet (AstPrimalPart t) = AstPrimalPart $ unletAst letSet t
 
 unletAst
   :: (ShowAstSimplify r, KnownNat n)
-  => ES.EnumSet AstVarId -> Ast n r -> Ast n r
+  => UnletEnv r -> Ast n r -> Ast n r
 unletAst letSet t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v ->
@@ -1155,12 +1160,12 @@ unletAst letSet t = case t of
 
 unletAstDynamic
   :: ShowAstSimplify r
-  => ES.EnumSet AstVarId -> AstDynamic r -> AstDynamic r
+  => UnletEnv r -> AstDynamic r -> AstDynamic r
 unletAstDynamic letSet (AstDynamic u) = AstDynamic $ unletAst letSet u
 
 unletAstDomains
   :: ShowAstSimplify r
-  => ES.EnumSet AstVarId -> AstDomains r -> AstDomains r
+  => UnletEnv r -> AstDomains r -> AstDomains r
 unletAstDomains letSet = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic letSet) l
   Ast.AstDomainsLet var u v ->
@@ -1174,7 +1179,7 @@ unletAstDomains letSet = \case
 -- created by vectorization and can be a deciding factor in whether
 -- a tensor terms can be simplified in turn.
 unletAstInt :: ShowAstSimplify r
-            => ES.EnumSet AstVarId -> AstInt r -> AstInt r
+            => UnletEnv r -> AstInt r -> AstInt r
 unletAstInt letSet t = case t of
   AstIntVar{} -> t
   AstIntOp opCodeInt args ->
@@ -1188,7 +1193,7 @@ unletAstInt letSet t = case t of
   Ast.AstMaxIndex1 v -> Ast.AstMaxIndex1 $ unletAstPrimal letSet v
 
 unletAstBool :: ShowAstSimplify r
-             => ES.EnumSet AstVarId -> AstBool r -> AstBool r
+             => UnletEnv r -> AstBool r -> AstBool r
 unletAstBool letSet t = case t of
   Ast.AstBoolOp opCodeBool args ->
     Ast.AstBoolOp opCodeBool (map (unletAstBool letSet) args)
