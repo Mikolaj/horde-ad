@@ -138,6 +138,7 @@ mergeADShare !s1 !s2 =
 -- The result type is not as expected. The result is as if assocsADShare
 -- was applied to the expected one.
 subtractADShare :: forall r. ADShare r -> ADShare r -> [(AstVarId, DTensorOf r)]
+{-# INLINE subtractADShare #-}  -- help list fusion
 subtractADShare s1 s2 =
   let subAD :: ADShare r -> ADShare r -> [(AstVarId, DTensorOf r)]
       subAD l ADShareNil = assocsADShare l
@@ -158,6 +159,7 @@ flattenADShare :: [ADShare r] -> ADShare r
 flattenADShare = foldl' mergeADShare emptyADShare
 
 assocsADShare :: ADShare r -> [(AstVarId, DTensorOf r)]
+{-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
 assocsADShare (ADShareCons _ key t rest) = (key, t) : assocsADShare rest
 

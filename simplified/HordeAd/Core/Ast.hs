@@ -10,9 +10,9 @@ module HordeAd.Core.Ast
   ( ADAstVarNames, ADAstArtifact6
   , ShowAst, AstIndex, AstVarList
   , Ast(..), AstNoVectorize(..), AstNoSimplify(..)
-  , AstPrimalPart(..), AstDualPart(..)
-  , AstDynamic(..), AstDomains(..), unwrapAstDomains, Ast0(..)
-  , AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
+  , AstPrimalPart(..), AstDualPart(..), AstDynamic(..)
+  , AstDomains(..), unwrapAstDomains, bindsToLet, bindsToDomainsLet
+  , Ast0(..), AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , shapeAst, lengthAst
@@ -164,6 +164,18 @@ unwrapAstDomains :: AstDomains r -> Data.Vector.Vector (AstDynamic r)
 unwrapAstDomains = \case
   AstDomains l -> l
   AstDomainsLet _ _ v -> unwrapAstDomains v
+
+bindsToLet :: KnownNat n => Ast n r -> [(AstVarId, AstDynamic r)] -> Ast n r
+{-# INLINE bindsToLet #-}  -- help list fusion
+bindsToLet = foldl' bindToLet
+ where
+  bindToLet u (var, AstDynamic w) = AstLet var w u
+
+bindsToDomainsLet :: AstDomains r -> [(AstVarId, AstDynamic r)] -> AstDomains r
+{-# INLINE bindsToDomainsLet #-}   -- help list fusion
+bindsToDomainsLet = foldl' bindToDomainsLet
+ where
+  bindToDomainsLet u (var, AstDynamic w) = AstDomainsLet var w u
 
 newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
 deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
@@ -841,9 +853,7 @@ printAst cfg d = \case
              . printAstVar cfg (AstVarName @(OR.Array m0 r) var0)
              . showString " -> "
              . printAst cfg 0 v0)
-  AstLetADShare l v ->
-    let bindToLet g (var, AstDynamic u) = AstLet var u g
-    in printAst cfg d $ foldl' bindToLet v (assocsADShare l)
+  AstLetADShare l v -> printAst cfg d $ bindsToLet v (assocsADShare l)
   AstOp opCode args -> printAstOp cfg d opCode args
   AstSumOfList [] -> error "printAst: empty AstSumOfList"
   AstSumOfList (left : args) ->

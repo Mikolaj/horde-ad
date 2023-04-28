@@ -32,7 +32,7 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.EnumSet as ES
-import           Data.List (dropWhileEnd, foldl', mapAccumR)
+import           Data.List (dropWhileEnd, mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -1101,11 +1101,6 @@ unletAst6
 unletAst6 l t = unletAst (emptyUnletEnv l)
                 $ bindsToLet t (assocsADShare l)
 
-bindsToLet :: KnownNat n => Ast n r -> [(AstVarId, AstDynamic r)] -> Ast n r
-bindsToLet = foldl' bindToLet
- where
-  bindToLet u (var, AstDynamic w) = Ast.AstLet var w u
-
 unletAstDomains6
   :: ShowAstSimplify r
   => [(AstVarId, AstDynamic r)] -> ADShare (Ast0 r) -> AstDomains r
@@ -1113,9 +1108,6 @@ unletAstDomains6
 unletAstDomains6 astBindings l t =
   unletAstDomains (emptyUnletEnv l)
   $ bindsToDomainsLet (bindsToDomainsLet t astBindings) (assocsADShare l)
- where
-  bindsToDomainsLet = foldl' bindToDomainsLet
-  bindToDomainsLet u (var, Ast.AstDynamic w) = Ast.AstDomainsLet var w u
 
 -- TODO: if a nested let is alone, eliminate the nesting let instead;
 -- this probably requires many passes though
