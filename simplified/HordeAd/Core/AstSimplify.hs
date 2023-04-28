@@ -1090,15 +1090,15 @@ inlineAstBool env memo v0 = case v0 of
 
 -- * The pass eliminating nested lets bottom-up
 
-type UnletEnv r = ES.EnumSet AstVarId
+type UnletEnv r = (ES.EnumSet AstVarId, ADShare (Ast0 r))
 
-emptyUnletEnv :: UnletEnv r
-emptyUnletEnv = ES.empty
+emptyUnletEnv :: ADShare (Ast0 r) -> UnletEnv r
+emptyUnletEnv l = (ES.empty, l)
 
 unletAst6
   :: (ShowAstSimplify r, KnownNat n)
   => ADShare (Ast0 r) -> Ast n r -> Ast n r
-unletAst6 l t = unletAst emptyUnletEnv
+unletAst6 l t = unletAst (emptyUnletEnv l)
                 $ bindsToLet t (assocsADShare l)
 
 bindsToLet :: KnownNat n => Ast n r -> [(AstVarId, AstDynamic r)] -> Ast n r
@@ -1111,7 +1111,7 @@ unletAstDomains6
   => [(AstVarId, AstDynamic r)] -> ADShare (Ast0 r) -> AstDomains r
   -> AstDomains r
 unletAstDomains6 astBindings l t =
-  unletAstDomains emptyUnletEnv
+  unletAstDomains (emptyUnletEnv l)
   $ bindsToDomainsLet (bindsToDomainsLet t astBindings) (assocsADShare l)
  where
   bindsToDomainsLet = foldl' bindToDomainsLet
@@ -1127,7 +1127,7 @@ unletAstPrimal letSet (AstPrimalPart t) = AstPrimalPart $ unletAst letSet t
 unletAst
   :: (ShowAstSimplify r, KnownNat n)
   => UnletEnv r -> Ast n r -> Ast n r
-unletAst letSet t = case t of
+unletAst letSet@(set, lglobal) t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v ->
     -- This optimization is sound, because there is no mechanism
@@ -1136,11 +1136,18 @@ unletAst letSet t = case t of
     -- a term into the same term). If that changes, let's refresh
     -- let variables whenever substituting into let bodies.
     -- See the same assumption in AstInterpret.
-    if var `ES.member` letSet
+    if var `ES.member` set
     then unletAst letSet v
-    else let letSet2 = ES.insert var letSet
+    else let letSet2 = (ES.insert var set, lglobal)
          in Ast.AstLet var (unletAst letSet u) (unletAst letSet2 v)
-  Ast.AstLetADShare l v -> unletAst letSet $ bindsToLet v (assocsADShare l)
+  Ast.AstLetADShare l v ->
+    let lassocs = subtractADShare l lglobal
+          -- potentially prevents quadratic cost induced by tletWrap
+          -- duplicating the global ADShare; may induce overhead when
+          -- the same lets are verified for removal twice, in subtractADShare
+          -- and via unletAst, but if many lets can be eliminated,
+          -- subtractADShare does it much faster
+    in unletAst letSet $ bindsToLet v lassocs
   Ast.AstOp opCode args -> Ast.AstOp opCode (map (unletAst letSet) args)
   Ast.AstSumOfList args -> Ast.AstSumOfList (map (unletAst letSet) args)
   Ast.AstIota -> t
@@ -1165,7 +1172,7 @@ unletAst letSet t = case t of
   Ast.AstD u (AstDualPart u') -> Ast.AstD (unletAstPrimal letSet u)
                                   (AstDualPart $ unletAst letSet u')
   Ast.AstLetDomains vars l v ->
-    let letSet2 = letSet `ES.union` ES.fromList (V.toList vars)
+    let letSet2 = (set `ES.union` ES.fromList (V.toList vars), lglobal)
     in Ast.AstLetDomains vars (unletAstDomains letSet l) (unletAst letSet2 v)
 
 unletAstDynamic
@@ -1176,12 +1183,12 @@ unletAstDynamic letSet (AstDynamic u) = AstDynamic $ unletAst letSet u
 unletAstDomains
   :: ShowAstSimplify r
   => UnletEnv r -> AstDomains r -> AstDomains r
-unletAstDomains letSet = \case
+unletAstDomains letSet@(set, lglobal) = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic letSet) l
   Ast.AstDomainsLet var u v ->
-    if var `ES.member` letSet
+    if var `ES.member` set
     then unletAstDomains letSet v
-    else let letSet2 = ES.insert var letSet
+    else let letSet2 = (ES.insert var set, lglobal)
          in Ast.AstDomainsLet var (unletAst letSet u)
                                   (unletAstDomains letSet2 v)
 

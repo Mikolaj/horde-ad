@@ -8,7 +8,8 @@ module HordeAd.Core.TensorClass
   ( Domain0, DomainR, Domains
   , domains0, domainsR, mkDomains, emptyDomain0, nullDomains
   , ADShare
-  , emptyADShare, insertADShare, mergeADShare, flattenADShare, assocsADShare
+  , emptyADShare, insertADShare, mergeADShare, subtractADShare
+  , flattenADShare, assocsADShare
   , IndexOf, ShapeInt, Tensor(..), DynamicTensor(..), DomainsTensor(..), ADReady
   ) where
 
@@ -133,6 +134,25 @@ mergeADShare !s1 !s2 =
              Nothing -> Just l1
              Just l3 -> Just $ freshInsertADShare key1 t1 l3
   in fromMaybe s1 (mergeAD s1 s2)
+
+-- The result type is not as expected. The result is as if assocsADShare
+-- was applied to the expected one.
+subtractADShare :: forall r. ADShare r -> ADShare r -> [(AstVarId, DTensorOf r)]
+subtractADShare s1 s2 =
+  let subAD :: ADShare r -> ADShare r -> [(AstVarId, DTensorOf r)]
+      subAD l ADShareNil = assocsADShare l
+      subAD ADShareNil _ = []
+      subAD l1@(ADShareCons id1 key1 t1 rest1)
+              l2@(ADShareCons id2 key2 _ rest2) =
+        if id1 == id2
+        then []
+               -- the lists only ever grow and only in fresh/unique way,
+               -- so an identical id means the rest is the same
+        else case compare key1 key2 of
+          EQ -> subAD rest1 rest2
+          LT -> subAD l1 rest2
+          GT -> (key1, t1) : subAD rest1 l2
+  in subAD s1 s2
 
 flattenADShare :: [ADShare r] -> ADShare r
 flattenADShare = foldl' mergeADShare emptyADShare
