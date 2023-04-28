@@ -1098,20 +1098,24 @@ emptyUnletEnv = ES.empty
 unletAst6
   :: (ShowAstSimplify r, KnownNat n)
   => ADShare (Ast0 r) -> Ast n r -> Ast n r
-unletAst6 adShare t = unletAst emptyUnletEnv
-                      $ Ast.AstLetADShare adShare t
+unletAst6 l t = unletAst emptyUnletEnv
+                $ bindsToLet t (assocsADShare l)
+
+bindsToLet :: KnownNat n => Ast n r -> [(AstVarId, AstDynamic r)] -> Ast n r
+bindsToLet = foldl' bindToLet
+ where
+  bindToLet u (var, AstDynamic w) = Ast.AstLet var w u
 
 unletAstDomains6
   :: ShowAstSimplify r
-  => [(AstVarId, DTensorOf (Ast0 r))] -> ADShare (Ast0 r) -> AstDomains r
+  => [(AstVarId, AstDynamic r)] -> ADShare (Ast0 r) -> AstDomains r
   -> AstDomains r
-unletAstDomains6 astBindings adShare t =
+unletAstDomains6 astBindings l t =
   unletAstDomains emptyUnletEnv
-  $ dletWrap' (astBindings ++ assocsADShare adShare) t
+  $ bindsToDomainsLet (bindsToDomainsLet t astBindings) (assocsADShare l)
  where
-  dletWrap' l u =
-    let bindToLet g (var, Ast.AstDynamic v) = Ast.AstDomainsLet var v g
-    in foldl' bindToLet u l
+  bindsToDomainsLet = foldl' bindToDomainsLet
+  bindToDomainsLet u (var, Ast.AstDynamic w) = Ast.AstDomainsLet var w u
 
 -- TODO: if a nested let is alone, eliminate the nesting let instead;
 -- this probably requires many passes though
@@ -1136,9 +1140,7 @@ unletAst letSet t = case t of
     then unletAst letSet v
     else let letSet2 = ES.insert var letSet
          in Ast.AstLet var (unletAst letSet u) (unletAst letSet2 v)
-  Ast.AstLetADShare l v ->
-    let bindToLet g (var, AstDynamic u) = Ast.AstLet var u g
-    in unletAst letSet $ foldl' bindToLet v (assocsADShare l)
+  Ast.AstLetADShare l v -> unletAst letSet $ bindsToLet v (assocsADShare l)
   Ast.AstOp opCode args -> Ast.AstOp opCode (map (unletAst letSet) args)
   Ast.AstSumOfList args -> Ast.AstSumOfList (map (unletAst letSet) args)
   Ast.AstIota -> t

@@ -112,7 +112,7 @@ astLetFun a@AstVar{} f = f a
 astLetFun a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh f
-  in astLet var a ast
+  in astLet var a ast  -- safe, because subsitution ruled out above
 
 astLetDomainsFun
   :: forall m r. ShowAst r
@@ -135,7 +135,7 @@ astDomainsLetFun a@AstVar{} f = f a
 astDomainsLetFun a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh id
-  in AstDomainsLet var a (f ast)
+  in astDomainsLet var a (f ast)  -- safe, because subsitution ruled out above
 
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
