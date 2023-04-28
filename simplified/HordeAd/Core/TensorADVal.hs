@@ -76,15 +76,20 @@ instance Tensor (ADVal Double) where
   type TensorOf n (ADVal Double) = ADVal (OR.Array n Double)
   type IntOf (ADVal Double) = CInt
 
+  tlet (D l u u') f =
+    let (l2, var2) = recordSharingPrimal u l
+    in f (D l2 var2 u')
+
   tshape (D _ u _) = tshape u
-  tminIndex0 (D _ u _) = tminIndex0 u
-  tmaxIndex0 (D _ u _) = tmaxIndex0 u
-  tfloor (D _ u _) = tfloor u
+  tminIndex0 (D l u _) = tminIndex0 (tletWrap l u)
+  tmaxIndex0 (D l u _) = tmaxIndex0 (tletWrap l u)
+  tfloor (D l u _) = tfloor (tletWrap l u)
 
   tindex = indexZ
   tsum = sum'
   tsum0 = sum0
   tdot0 = dot0
+  tfromIndex0 = tconstant . tfromIndex0
   tscatter = scatterNClosure
 
   tfromList = fromList
@@ -104,16 +109,31 @@ instance Tensor (ADVal Double) where
   tscalar = scalar
   tunScalar = unScalar
 
+  tsumOfList lu = dD (flattenADShare $ map ((\(D l _ _) -> l)) lu)
+                     (tsumOfList $ map (\(D _ u _) -> u) lu)
+                     (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
+  tmult (D l1 ue ZeroR) (D l2 ve v') =
+    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        (l4, v) = recordSharingPrimal ve l3
+    in dD l4 (u * v) (dScale u v')
+  tmult (D l1 ue u') (D l2 ve ZeroR) =
+    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        (l4, v) = recordSharingPrimal ve l3
+    in dD l4 (u * v) (dScale v u')
+  tmult d e = d * e
+
   type ScalarOf (ADVal Double) = Double
   type Primal (ADVal Double) = Double
-  type DualOf n (ADVal Double) = Dual (TensorOf n Double)
-  tconst t = dD emptyADShare t dZero
+  type DualOf n (ADVal Double) =
+    (ADShare Double, Dual (TensorOf n Double))
+  tconst t = dD emptyADShare (tconst t) dZero
   tconstant t = dD emptyADShare t dZero
   tscale0 r (D l u u') = dD l (r * u) (dScale r u')
-  tprimalPart (D _ u _) = u
-  tdualPart (D _ _ u') = u'
-  tD = dD emptyADShare
-  tScale = dScale
+  tprimalPart (D l u _) = tletWrap l u
+  tdualPart (D l _ u') = (l, u')
+  tD t (l, delta) = dD l t delta
+  tScale t (l, delta) = (l, dScale t delta)
+
   tfromD = fromD
 
 instance DynamicTensor (ADVal Double) where
@@ -124,15 +144,20 @@ instance Tensor (ADVal Float) where
   type TensorOf n (ADVal Float) = ADVal (OR.Array n Float)
   type IntOf (ADVal Float) = CInt
 
+  tlet (D l u u') f =
+    let (l2, var2) = recordSharingPrimal u l
+    in f (D l2 var2 u')
+
   tshape (D _ u _) = tshape u
-  tminIndex0 (D _ u _) = tminIndex0 u
-  tmaxIndex0 (D _ u _) = tmaxIndex0 u
-  tfloor (D _ u _) = tfloor u
+  tminIndex0 (D l u _) = tminIndex0 (tletWrap l u)
+  tmaxIndex0 (D l u _) = tmaxIndex0 (tletWrap l u)
+  tfloor (D l u _) = tfloor (tletWrap l u)
 
   tindex = indexZ
   tsum = sum'
   tsum0 = sum0
   tdot0 = dot0
+  tfromIndex0 = tconstant . tfromIndex0
   tscatter = scatterNClosure
 
   tfromList = fromList
@@ -152,16 +177,31 @@ instance Tensor (ADVal Float) where
   tscalar = scalar
   tunScalar = unScalar
 
+  tsumOfList lu = dD (flattenADShare $ map ((\(D l _ _) -> l)) lu)
+                     (tsumOfList $ map (\(D _ u _) -> u) lu)
+                     (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
+  tmult (D l1 ue ZeroR) (D l2 ve v') =
+    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        (l4, v) = recordSharingPrimal ve l3
+    in dD l4 (u * v) (dScale u v')
+  tmult (D l1 ue u') (D l2 ve ZeroR) =
+    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        (l4, v) = recordSharingPrimal ve l3
+    in dD l4 (u * v) (dScale v u')
+  tmult d e = d * e
+
   type ScalarOf (ADVal Float) = Float
   type Primal (ADVal Float) = Float
-  type DualOf n (ADVal Float) = Dual (TensorOf n Float)
-  tconst t = dD emptyADShare t dZero
+  type DualOf n (ADVal Float) =
+    (ADShare Float, Dual (TensorOf n Float))
+  tconst t = dD emptyADShare (tconst t) dZero
   tconstant t = dD emptyADShare t dZero
   tscale0 r (D l u u') = dD l (r * u) (dScale r u')
-  tprimalPart (D _ u _) = u
-  tdualPart (D _ _ u') = u'
-  tD = dD emptyADShare
-  tScale = dScale
+  tprimalPart (D l u _) = tletWrap l u
+  tdualPart (D l _ u') = (l, u')
+  tD t (l, delta) = dD l t delta
+  tScale t (l, delta) = (l, dScale t delta)
+
   tfromD = fromD
 
 instance DynamicTensor (ADVal Float) where
@@ -232,9 +272,11 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
   tprimalPart (D l u _) = tletWrap l u
   tdualPart (D l _ u') = (l, u')
   tD (AstLetADShare l1 v) (l, delta) = dD (l1 `mergeADShare` l) v delta
+    -- TODO: express this without fixing the type to be Ast
   tD t (l, delta) = dD l t delta
   tScale (AstLetADShare l1 v) (l, delta) =
     (l1 `mergeADShare` l, dScale v delta)
+      -- TODO: express this without fixing the type to be Ast
   tScale t (l, delta) = (l, dScale t delta)
 
   tfromD = fromD
