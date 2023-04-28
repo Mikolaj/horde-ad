@@ -120,7 +120,8 @@ revAstOnDomainsFun dim0 shapes1 f =
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D astBindings0 primalBody deltaTopLevel) = f varInputs domains v6
       deltaDt = packDeltaDt (Right $ astDt (tshape primalBody)) deltaTopLevel in
-  let gradient = gradientFromDelta astBindings0 dim0 (length shapes1) deltaDt
+  let (astBindings, gradient0) = gradientFromDelta dim0 (length shapes1) deltaDt
+      !gradient = dletWrap (astBindings ++ assocsADShare astBindings0) gradient0
   in ( ( vars
        , unletAstDomains6 gradient
        , unletAst6 $ tletWrap astBindings0 primalBody )
@@ -162,9 +163,9 @@ revOnADInputs dt f inputs@ADInputs{..} =
       dim1 = V.length inputPrimal1
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
-      !(D astBindings0 v deltaTopLevel) = f inputs
+      !(D _ v deltaTopLevel) = f inputs
       deltaDt = packDeltaDt (maybe (Left v) Right dt) deltaTopLevel in
-  let gradient = gradientFromDelta astBindings0 dim0 dim1 deltaDt
+  let (_, gradient) = gradientFromDelta dim0 dim1 deltaDt
   in (gradient, v)
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative

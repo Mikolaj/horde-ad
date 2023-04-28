@@ -386,9 +386,9 @@ data DeltaBinding r =
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
   :: forall r. (Tensor r, DynamicTensor r, DomainsTensor r)
-  => ADShare r -> Int -> Int -> DeltaDt r
-  -> DomainsOf r
-gradientFromDelta !astBindings0 dim0 dimR deltaDt =
+  => Int -> Int -> DeltaDt r
+  -> ([(AstVarId, DTensorOf r)], DomainsOf r)
+gradientFromDelta dim0 dimR deltaDt =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
   -- The former are initialized with dummy values so that it's cheap
@@ -417,13 +417,13 @@ gradientFromDelta !astBindings0 dim0 dimR deltaDt =
            dmkDomains
            $ mkDomains (tfromList0N (singletonShape dim0) (EM.elems iMap0))
                        (V.fromList $ EM.elems iMapR)
-     in dletWrap (astBindings ++ assocsADShare astBindings0) gradient
+     in (astBindings, gradient)
 {-# SPECIALIZE gradientFromDelta
-  :: ADShare Double -> Int -> Int -> DeltaDt Double
-  -> DomainsOf Double #-}
+  :: Int -> Int -> DeltaDt Double
+  -> ([(AstVarId, DTensorOf Double)], DomainsOf Double) #-}
 {-# SPECIALIZE gradientFromDelta
-  :: ADShare (Ast0 Double) -> Int -> Int -> DeltaDt (Ast0 Double)
-  -> DomainsOf (Ast0 Double) #-}
+  :: Int -> Int -> DeltaDt (Ast0 Double)
+  -> ([(AstVarId, DTensorOf (Ast0 Double))], DomainsOf (Ast0 Double)) #-}
 
 buildFinMaps :: forall r. (Tensor r, DynamicTensor r, DomainsTensor r)
              => EvalState r -> DeltaDt r -> EvalState r
