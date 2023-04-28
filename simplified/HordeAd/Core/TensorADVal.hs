@@ -21,7 +21,6 @@ import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, type (+))
 
 import HordeAd.Core.Ast
-import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
 import HordeAd.Core.DualClass
@@ -175,7 +174,7 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
   type IntOf (ADVal (Ast0 r)) = AstInt r
 
   tlet (D l u u') f =
-    let (l2, var2) = astRegisterADShare u l
+    let (l2, var2) = recordSharingPrimal u l
     in f (D l2 var2 u')
       -- TODO: What about sharing u'?
 
@@ -214,8 +213,8 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
                      (tsumOfList $ map (\(D _ u _) -> u) lu)
                      (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
   tmult (D l1 ue ZeroR) (D l2 ve v') =
-    let (l3, u) = astRegisterADShare ue $ l1 `mergeADShare` l2
-        (l4, v) = astRegisterADShare ve l3
+    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        (l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dScale u v')
   tmult (D l1 ue u') (D l2 ve ZeroR) =
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
@@ -233,10 +232,10 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
   tprimalPart (D l u _) = tletWrap l u
   tdualPart (D l _ u') = (l, u')
   tD (AstLetADShare l1 v) (l, delta) = dD (l1 `mergeADShare` l) v delta
-  tD ast (l, delta) = dD l ast delta
+  tD t (l, delta) = dD l t delta
   tScale (AstLetADShare l1 v) (l, delta) =
     (l1 `mergeADShare` l, dScale v delta)
-  tScale ast (l, delta) = (l, dScale ast delta)
+  tScale t (l, delta) = (l, dScale t delta)
 
   tfromD = fromD
 
