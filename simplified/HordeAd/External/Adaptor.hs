@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ImpredicativeTypes, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | This is an adaptor from user-defined objective functions
@@ -103,7 +103,7 @@ revDtInterpret vals f varInputs domains ((var0, _, vars1), (ast0, _, _)) =
              $ V.zipWith (dDnotShared emptyADShare)
                          (inputPrimal1 varInputs)
                          (inputDual1 varInputs)
-  in snd $ interpretAst env1 emptyMemo ast
+  in snd $ interpretAst @n env1 emptyMemo ast
 
 rev
   :: forall r n vals astvals.
