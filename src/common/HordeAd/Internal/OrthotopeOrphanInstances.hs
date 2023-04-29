@@ -441,10 +441,6 @@ deriving instance EqB (f (g a)) => EqB (Compose f g a)
 
 deriving instance OrdB (f (g a)) => OrdB (Compose f g a)
 
-deriving instance Eq (f (g a)) => Eq (Compose f g a)
-
-deriving instance Ord (f (g a)) => Ord (Compose f g a)
-
 deriving instance Num (f (g a)) => Num (Compose f g a)
 
 deriving instance Fractional (f (g a)) => Fractional (Compose f g a)
