@@ -4,8 +4,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
 module HordeAd.Core.AstInterpret
-  ( InterpretAst, interpretAst
-  , interpretAstDomainsDummy, interpretAstDynamicDummy
+  ( InterpretAst, interpretAst, interpretAstDomainsDummy
   , AstEnv, extendEnvR, extendEnvD, AstMemo, emptyMemo
   , AstEnvElem(AstVarR)  -- for a test only
   ) where
@@ -336,8 +335,7 @@ interpretAstDynamic env memo = \case
 interpretAstDomains
   :: InterpretAst a
   => AstEnv a -> AstMemo a
-  -> AstDomains (ScalarOf a)
-  -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
+  -> AstDomains (ScalarOf a) -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
 interpretAstDomains env memo = \case
   AstDomains l -> mapAccumR (interpretAstDynamic env) memo l
   AstDomainsLet var u v ->
@@ -394,8 +392,7 @@ interpretAstDynamicDummy env memo = \case
 interpretAstDomainsDummy
   :: (InterpretAst a, DomainsTensor a)
   => AstEnv a -> AstMemo a
-  -> AstDomains (ScalarOf a)
-  -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
+  -> AstDomains (ScalarOf a) -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
 interpretAstDomainsDummy env memo = \case
   AstDomains l -> mapAccumR (interpretAstDynamicDummy env) memo l
   AstDomainsLet var u v ->
@@ -506,6 +503,31 @@ interpretAstRelOp opCodeRel args =
   => AstEnv Float -> AstMemo Float
   -> AstPrimalPart n Float -> (AstMemo Float, TensorOf n Float) #-}
 
+{-# SPECIALIZE interpretAstDual
+  :: KnownNat n
+  => AstEnv (ADVal Double) -> AstMemo (ADVal Double)
+  -> AstDualPart n Double -> (AstMemo (ADVal Double), DualOf n (ADVal Double)) #-}
+{-# SPECIALIZE interpretAstDual
+  :: KnownNat n
+  => AstEnv (ADVal Float) -> AstMemo (ADVal Float)
+  -> AstDualPart n Float -> (AstMemo (ADVal Float), DualOf n (ADVal Float)) #-}
+{-# SPECIALIZE interpretAstDual
+  :: KnownNat n
+  => AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
+  -> AstDualPart n Double -> (AstMemo (ADVal (Ast0 Double)), DualOf n (ADVal (Ast0 Double))) #-}
+{-# SPECIALIZE interpretAstDual
+  :: KnownNat n
+  => AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
+  -> AstDualPart n Float -> (AstMemo (ADVal (Ast0 Float)), DualOf n (ADVal (Ast0 Float))) #-}
+{-# SPECIALIZE interpretAstDual
+  :: KnownNat n
+  => AstEnv Double -> AstMemo Double
+  -> AstDualPart n Double -> (AstMemo Double, DualOf n Double) #-}
+{-# SPECIALIZE interpretAstDual
+  :: KnownNat n
+  => AstEnv Float -> AstMemo Float
+  -> AstDualPart n Float -> (AstMemo Float, DualOf n Float) #-}
+
 {-# SPECIALIZE interpretAst
   :: KnownNat n
   => AstEnv (ADVal Double) -> AstMemo (ADVal Double)
@@ -530,6 +552,44 @@ interpretAstRelOp opCodeRel args =
   :: KnownNat n
   => AstEnv Float -> AstMemo Float
   -> Ast n Float -> (AstMemo Float, TensorOf n Float) #-}
+
+{-# SPECIALIZE interpretAstDynamic
+  :: AstEnv (ADVal Double) -> AstMemo (ADVal Double)
+  -> AstDynamic Double -> (AstMemo (ADVal Double), DTensorOf (ADVal Double)) #-}
+{-# SPECIALIZE interpretAstDynamic
+  :: AstEnv (ADVal Float) -> AstMemo (ADVal Float)
+  -> AstDynamic Float -> (AstMemo (ADVal Float), DTensorOf (ADVal Float)) #-}
+{-# SPECIALIZE interpretAstDynamic
+  :: AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
+  -> AstDynamic Double -> (AstMemo (ADVal (Ast0 Double)), DTensorOf (ADVal (Ast0 Double))) #-}
+{-# SPECIALIZE interpretAstDynamic
+  :: AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
+  -> AstDynamic Float -> (AstMemo (ADVal (Ast0 Float)), DTensorOf (ADVal (Ast0 Float))) #-}
+{-# SPECIALIZE interpretAstDynamic
+  :: AstEnv Double -> AstMemo Double
+  -> AstDynamic Double -> (AstMemo Double, DTensorOf Double) #-}
+{-# SPECIALIZE interpretAstDynamic
+  :: AstEnv Float -> AstMemo Float
+  -> AstDynamic Float -> (AstMemo Float, DTensorOf Float) #-}
+
+{-# SPECIALIZE interpretAstDomains
+  :: AstEnv (ADVal Double) -> AstMemo (ADVal Double)
+  -> AstDomains Double -> (AstMemo (ADVal Double), Data.Vector.Vector (DTensorOf (ADVal Double))) #-}
+{-# SPECIALIZE interpretAstDomains
+  :: AstEnv (ADVal Float) -> AstMemo (ADVal Float)
+  -> AstDomains Float -> (AstMemo (ADVal Float), Data.Vector.Vector (DTensorOf (ADVal Float))) #-}
+{-# SPECIALIZE interpretAstDomains
+  :: AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
+  -> AstDomains Double -> (AstMemo (ADVal (Ast0 Double)), Data.Vector.Vector (DTensorOf (ADVal (Ast0 Double)))) #-}
+{-# SPECIALIZE interpretAstDomains
+  :: AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
+  -> AstDomains Float -> (AstMemo (ADVal (Ast0 Float)), Data.Vector.Vector (DTensorOf (ADVal (Ast0 Float)))) #-}
+{-# SPECIALIZE interpretAstDomains
+  :: AstEnv Double -> AstMemo Double
+  -> AstDomains Double -> (AstMemo Double, Data.Vector.Vector (DTensorOf Double)) #-}
+{-# SPECIALIZE interpretAstDomains
+  :: AstEnv Float -> AstMemo Float
+  -> AstDomains Float -> (AstMemo Float, Data.Vector.Vector (DTensorOf Float)) #-}
 
 {-# SPECIALIZE interpretAstInt
   :: AstEnv (ADVal Double) -> AstMemo (ADVal Double)
@@ -569,12 +629,19 @@ interpretAstRelOp opCodeRel args =
   :: AstEnv Float -> AstMemo Float
   -> AstBool Float -> (AstMemo Float, Bool) #-}
 
-{-# SPECIALIZE interpretAstDynamic
+{-# SPECIALIZE interpretAstDynamicDummy
   :: AstEnv Double -> AstMemo Double
   -> AstDynamic Double -> (AstMemo Double, DTensorOf Double) #-}
-{-# SPECIALIZE interpretAstDynamic
+{-# SPECIALIZE interpretAstDynamicDummy
   :: AstEnv Float -> AstMemo Float
   -> AstDynamic Float -> (AstMemo Float, DTensorOf Float) #-}
+
+{-# SPECIALIZE interpretAstDomainsDummy
+  :: AstEnv Double -> AstMemo Double
+  -> AstDomains Double -> (AstMemo Double, Data.Vector.Vector (DTensorOf Double)) #-}
+{-# SPECIALIZE interpretAstDomainsDummy
+  :: AstEnv Float -> AstMemo Float
+  -> AstDomains Float -> (AstMemo Float, Data.Vector.Vector (DTensorOf Float)) #-}
 
 {- outdated and inlined anyway:
 {-# SPECIALIZE interpretAstOp
