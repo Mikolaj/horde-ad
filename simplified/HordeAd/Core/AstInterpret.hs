@@ -221,14 +221,14 @@ interpretAst env memo = \case
         let (memo1, t1) = interpretAst env memo t
             (memo2, t2) = interpretAst env memo1 u
         in (memo2, tdot0 t1 t2)
-  AstSum (AstTranspose [1, 0] t)  -- TODO: generalize
-    | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
-        second tsumIn $ interpretAst env memo t
   AstSum (AstTranspose [1, 0] (AstOp TimesOp [t, u]))  -- TODO: generalize
     | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
         let (memo1, t1) = interpretAst env memo t
             (memo2, t2) = interpretAst env memo1 u
         in (memo2, tdot1In t1 t2)
+  AstSum (AstTranspose [1, 0] t)  -- TODO: generalize
+    | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
+        second tsumIn $ interpretAst env memo t
   AstSum (AstReshape sh (AstTranspose _ t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         interpretAst env memo (AstSum (AstReshape sh t))
