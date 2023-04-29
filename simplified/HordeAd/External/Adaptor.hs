@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ImpredicativeTypes, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | This is an adaptor from user-defined objective functions
@@ -48,7 +48,7 @@ import HordeAd.Core.TensorClass
 revL
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), ShowAst r, RealFloat r
+     , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> [vals] -> [vals]
@@ -57,7 +57,7 @@ revL f valsAll = revDtMaybeL f valsAll Nothing
 revDtMaybeL
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), ShowAst r, RealFloat r
+     , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> [vals] -> Maybe (TensorOf n r) -> [vals]
@@ -71,7 +71,7 @@ revDtMaybeL f valsAll@(vals : _) dt =
 revDtFun
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), ShowAst r, RealFloat r
+     , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> vals
@@ -86,7 +86,7 @@ revDtFun f vals =
 revDtInterpret
   :: forall r n vals astvals.
      ( InterpretAst r, KnownNat n, ScalarOf r ~ r, Floating (Vector r)
-     , ShowAst r, RealFloat r, FromDomainsAst astvals
+     , RealFloat r, FromDomainsAst astvals
      , r ~ Scalar vals, vals ~ ValueAst astvals )
   => vals -> (astvals -> Ast n r) -> ADInputs (Ast0 r) -> Domains (Ast0 r)
   -> (ADAstVarNames n r, ADAstVars n r)
@@ -108,7 +108,7 @@ revDtInterpret vals f varInputs domains ((var0, _, vars1), (ast0, _, _)) =
 rev
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), ShowAst r, RealFloat r
+     , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> vals -> vals
@@ -118,7 +118,7 @@ rev f vals = head $ revL f [vals]
 revDt
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), ShowAst r, RealFloat r
+     , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ ValueAst astvals )
   => (astvals -> Ast n r) -> vals -> TensorOf n r -> vals
@@ -128,7 +128,7 @@ revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 srevL
   :: forall r vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, ScalarOf r ~ r
-     , Floating (Vector r), ShowAst r, RealFloat r
+     , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ ValueAst astvals )
   => (astvals -> Ast0 r) -> [vals] -> [vals]
@@ -137,7 +137,7 @@ srevL f = revL (tscalar . f)
 srevDtMaybeL
   :: forall r vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, ScalarOf r ~ r
-     , Floating (Vector r), ShowAst r, RealFloat r
+     , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ ValueAst astvals )
   => (astvals -> Ast0 r) -> [vals] -> Maybe r -> [vals]
@@ -147,7 +147,7 @@ srevDtMaybeL f valsAll dt = revDtMaybeL (tscalar . f) valsAll (tscalar <$> dt)
 srev
   :: forall r vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, ScalarOf r ~ r
-     , Floating (Vector r), ShowAst r, RealFloat r
+     , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ ValueAst astvals )
   => (astvals -> Ast0 r) -> vals -> vals
@@ -157,7 +157,7 @@ srev f = rev (tscalar . f)
 srevDt
   :: forall r vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, ScalarOf r ~ r
-     , Floating (Vector r), ShowAst r, RealFloat r
+     , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ ValueAst astvals )
   => (astvals -> Ast0 r) -> vals -> r -> vals

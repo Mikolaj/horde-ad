@@ -1,4 +1,5 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ImpredicativeTypes, UndecidableInstances,
+             UndecidableSuperClasses #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
@@ -16,6 +17,7 @@ import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
+import           Data.Kind (Constraint, Type)
 import           Data.List (foldl1', mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -23,15 +25,14 @@ import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, sameNat)
-import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal ()
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
-import HordeAd.Internal.TensorOps
 
 type AstEnv a = EM.EnumMap AstVarId (AstEnvElem a)
 
@@ -99,50 +100,27 @@ interpretLambdaIndexToIndex f env memo (vars, asts) =
   \ix -> listToIndex $ snd
          $ mapAccumR (f (extendEnvVars vars ix env)) memo (indexToList asts)
 
--- This horror (and some lesser horrors elsewhere) are required due
--- to the inability to quantify constraints containing type families, see
--- https://gitlab.haskell.org/ghc/ghc/-/issues/14860 and
--- https://gitlab.haskell.org/ghc/ghc/-/issues/16365.
---
--- This is 5% slower in tests dominated by interpretation (e.g., no Ast sharing
--- or code with no or tiny tensors) than duplicating the code 5 times.
--- A bit less slow with two evi* instead of one.
-data Dict c a where
-  Dict :: c a => Dict c a
+class c (Ranked r n) => CRanked c r n where
+instance c (Ranked r n) => CRanked c r n where
 
-class ( Tensor a, Tensor (Primal a), DynamicTensor a
-      , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a)
-      , ShowAst (ScalarOf a), Num (Vector (ScalarOf a)), RowSum  (ScalarOf a)
-      , RealFloat (Primal a), IntOf (Primal a) ~ IntOf a
-      , BooleanOf (Primal a) ~ BooleanOf (IntOf a) )
-      => Evidence a where
-  evi1 :: forall n. KnownNat n
-       => Proxy a
-       -> Dict RealFloat (TensorOf n a)
-  evi2 :: forall n. KnownNat n
-       => Proxy a
-       -> ( BooleanOf (TensorOf n (Primal a)) :~: BooleanOf (IntOf a)
-          , Dict EqB (TensorOf n (Primal a))
-          , Dict OrdB (TensorOf n (Primal a)) )
+class c (Ranked (Primal a) n) => CRankedPrimal c a n where
+instance c (Ranked (Primal a) n) => CRankedPrimal c a n where
 
-instance Evidence (ADVal Double) where
-  evi1 _ = Dict
-  evi2 _ = (Refl, Dict, Dict)
-instance Evidence (ADVal Float) where
-  evi1 _ = Dict
-  evi2 _ = (Refl, Dict, Dict)
-instance (ShowAst r, RealFloat r, Floating (Vector r))
-         => Evidence (ADVal (Ast0 r)) where
-  evi1 _ = Dict
-  evi2 _ = (Refl, Dict, Dict)
-instance Evidence Double where
-  evi1 _ = Dict
-  evi2 _ = (Refl, Dict, Dict)
-instance Evidence Float where
-  evi1 _ = Dict
-  evi2 _ = (Refl, Dict, Dict)
+class (BooleanOf (Ranked (Primal a) n) ~ BooleanOf (IntOf a))
+      => CBooleanOfMatches a n where
+instance (BooleanOf (Ranked (Primal a) n) ~ BooleanOf (IntOf a))
+         => CBooleanOfMatches a n where
 
-type InterpretAst a = Evidence a
+type InterpretAst :: Type -> Constraint
+type InterpretAst a =
+  ( Tensor a, Tensor (Primal a), DynamicTensor a, ShowAstSimplify (ScalarOf a)
+  , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a), RealFloat (Primal a)
+  , IntOf (Primal a) ~ IntOf a, BooleanOf (Primal a) ~ BooleanOf (IntOf a)
+  , forall x. KnownNat x => CRanked RealFloat a x
+  , forall x. KnownNat x => CRankedPrimal EqB a x
+  , forall x. KnownNat x => CRankedPrimal OrdB a x
+  , forall x. CBooleanOfMatches a x
+  )
 
 type AstMemo a = ()  -- unused for now, but likely to be used in the future,
                      -- though probably not for memoization
@@ -158,7 +136,7 @@ emptyMemo = ()
 -- It helps that usually the dual part is either trivially computed
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
-  :: forall n a. (KnownNat n, Evidence a)
+  :: forall n a. (KnownNat n, InterpretAst a)
   => AstEnv a -> AstMemo a
   -> AstPrimalPart n (ScalarOf a) -> (AstMemo a, TensorOf n (Primal a))
 interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
@@ -166,7 +144,7 @@ interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
   _ -> second tprimalPart $ interpretAst env memo v1
 
 interpretAstDual
-  :: forall n a. (KnownNat n, Evidence a)
+  :: forall n a. (KnownNat n, InterpretAst a)
   => AstEnv a -> AstMemo a
   -> AstDualPart n (ScalarOf a) -> (AstMemo a, DualOf n a)
 interpretAstDual env memo (AstDualPart v1) = case v1 of
@@ -174,10 +152,10 @@ interpretAstDual env memo (AstDualPart v1) = case v1 of
   _ -> second tdualPart $ interpretAst env memo v1
 
 interpretAst
-  :: forall n a. (KnownNat n, Evidence a)
+  :: forall n a. (KnownNat n, InterpretAst a)
   => AstEnv a -> AstMemo a
   -> Ast n (ScalarOf a) -> (AstMemo a, TensorOf n a)
-interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
+interpretAst env memo = \case
   AstVar sh var -> case EM.lookup var env of
     Just (AstVarR d) -> let t = tfromD d
                         in assert (sh == tshape t) $ (memo, t)
@@ -349,14 +327,14 @@ interpretAst env memo | Dict <- evi1 @a @n Proxy = \case
     in interpretAst env2 memo2 v
 
 interpretAstDynamic
-  :: Evidence a
+  :: InterpretAst a
   => AstEnv a -> AstMemo a
   -> AstDynamic (ScalarOf a) -> (AstMemo a, DTensorOf a)
 interpretAstDynamic env memo = \case
   AstDynamic w -> second dfromR $ interpretAst env memo w
 
 interpretAstDomains
-  :: Evidence a
+  :: InterpretAst a
   => AstEnv a -> AstMemo a
   -> AstDomains (ScalarOf a)
   -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
@@ -368,7 +346,7 @@ interpretAstDomains env memo = \case
     in interpretAstDomains env2 memo2 v
       -- TODO: preserve let, as in AstLet case
 
-interpretAstInt :: Evidence a
+interpretAstInt :: InterpretAst a
                 => AstEnv a -> AstMemo a
                 -> AstInt (ScalarOf a) -> (AstMemo a, IntOf (Primal a))
 interpretAstInt env memo = \case
@@ -390,7 +368,7 @@ interpretAstInt env memo = \case
   AstMinIndex1 v -> second tminIndex0 $ interpretAstPrimal env memo v
   AstMaxIndex1 v -> second tmaxIndex0 $ interpretAstPrimal env memo v
 
-interpretAstBool :: forall a. Evidence a
+interpretAstBool :: forall a. InterpretAst a
                  => AstEnv a -> AstMemo a
                  -> AstBool (ScalarOf a) -> (AstMemo a, BooleanOf (Primal a))
 interpretAstBool env memo = \case
@@ -398,7 +376,7 @@ interpretAstBool env memo = \case
     let (memo2, args2) = mapAccumR (interpretAstBool env) memo args
     in (memo2, interpretAstBoolOp opCodeBool args2)
   AstBoolConst a -> (memo, if a then true else false)
-  AstRel @n opCodeRel args | (Refl, Dict, Dict) <- evi2 @a @n Proxy ->
+  AstRel opCodeRel args ->
     let (memo2, args2) = mapAccumR (interpretAstPrimal env) memo args
     in (memo2, interpretAstRelOp opCodeRel args2)
   AstRelInt opCodeRel args ->
@@ -406,7 +384,7 @@ interpretAstBool env memo = \case
     in (memo2, interpretAstRelOp opCodeRel args2)
 
 interpretAstDynamicDummy
-  :: (Evidence a, DomainsTensor a)
+  :: (InterpretAst a, DomainsTensor a)
   => AstEnv a -> AstMemo a
   -> AstDynamic (ScalarOf a) -> (AstMemo a, DTensorOf a)
 interpretAstDynamicDummy env memo = \case
@@ -414,7 +392,7 @@ interpretAstDynamicDummy env memo = \case
   AstDynamic w -> second dfromR $ interpretAst env memo w
 
 interpretAstDomainsDummy
-  :: (Evidence a, DomainsTensor a)
+  :: (InterpretAst a, DomainsTensor a)
   => AstEnv a -> AstMemo a
   -> AstDomains (ScalarOf a)
   -> (AstMemo a, Data.Vector.Vector (DTensorOf a))

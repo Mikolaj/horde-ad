@@ -1,3 +1,4 @@
+{-# LANGUAGE ImpredicativeTypes #-}
 -- | The implementation of calculating gradient and derivative
 -- of an objective function expressed wtih the `Tensor` class.
 -- Together with "HordeAd.Core.TensorClass", this forms the basic
@@ -79,8 +80,7 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 -- computed, only for testing.
 revAstOnDomains
   :: forall r n.
-     ( ADTensor r, InterpretAst r, DomainsTensor r
-     , KnownNat n, ScalarOf r ~ r, ShowAstSimplify r )
+     (ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r)
   => (ADInputs (Ast0 r) -> Compose ADVal (AstRanked r) n)
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
@@ -131,8 +131,7 @@ revAstOnDomainsFun dim0 shapes1 f =
 
 revAstOnDomainsEval
   :: forall r n.
-     ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
-     , ShowAstSimplify r )
+     (ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r)
   => ADAstArtifact6 n r -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
