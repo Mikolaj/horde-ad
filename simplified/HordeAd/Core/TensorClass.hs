@@ -10,7 +10,8 @@ module HordeAd.Core.TensorClass
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare
-  , IndexOf, ShapeInt, Tensor(..), DynamicTensor(..), DomainsTensor(..), ADReady
+  , IndexOf, TensorOf, ShapeInt
+  , Tensor(..), DynamicTensor(..), DomainsTensor(..), ADReady
   ) where
 
 import Prelude
@@ -19,6 +20,7 @@ import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import           Data.Boolean
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Constraint, Type)
@@ -184,6 +186,7 @@ _lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
 -- and also extra type applications may be needed to satisfy the compiler.
 -- Therefore, there is a real trade-off between @[2]@ and @(2 :. ZI).
 type IndexOf n r = Index n (IntOf r)
+type TensorOf (n :: Nat) r = Ranked r n
 
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
@@ -192,7 +195,7 @@ type IndexOf n r = Index n (IntOf r)
 -- but also a mathematical tensor, sporting numeric operations.
 class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
       => Tensor r where
-  type TensorOf (n :: Nat) r = result | result -> n r
+  type Ranked r = (t :: Nat -> Type) | t -> r
   type IntOf r
 
   tlet :: (KnownNat n, KnownNat m)
@@ -485,55 +488,56 @@ type ADReady r =
 -- * Tensor class instances for concrete arrays
 
 instance Tensor Double where
-  type TensorOf n Double = OR.Array n Double
+  type Ranked Double = Flip OR.Array Double
   type IntOf Double = CInt
-  tshape = tshapeR
-  tminIndex0 = tminIndexR
-  tmaxIndex0 = tmaxIndexR
+  tshape = tshapeR . runFlip
+  tminIndex0 = tminIndexR . runFlip
+  tmaxIndex0 = tmaxIndexR . runFlip
   tfloor = floor . tunScalar
-  tindex = tindexZR
-  tsum = tsumR
-  tsum0 = tscalar . tsum0R
-  tdot0 u v = tscalar $ tdot0R u v
-  tscatter = tscatterZR
-  tscatter1 = tscatterZ1R
-  tfromList = tfromListR
-  tfromList0N = tfromList0NR
-  tfromVector = tfromVectorR
-  tfromVector0N = tfromVector0NR
-  tkonst = tkonstR
-  tkonst0N sh = tkonst0NR sh . tunScalar
-  tappend = tappendR
-  tslice = tsliceR
-  treverse = treverseR
-  ttranspose = ttransposeR
-  treshape = treshapeR
-  tbuild = tbuildNR
-  tbuild1 = tbuild1R
-  tmap0N = tmap0NR
-  tzipWith0N = tzipWith0NR
-  tgather = tgatherZR
-  tgather1 = tgatherZ1R
-  tscalar = tscalarR
-  tunScalar = tunScalarR
-  tscaleByScalar = tscaleByScalarR
-  tsumIn = tsumInR
-  tdot1In = tdot1InR
+  tindex v ix = Flip $ tindexZR (runFlip v) ix
+  tsum = Flip . tsumR . runFlip
+  tsum0 = tscalar . tsum0R . runFlip
+  tdot0 u v = tscalar $ tdot0R (runFlip u) (runFlip v)
+  tscatter sh t f = Flip $ tscatterZR sh (runFlip t) f
+  tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t) f
+  tfromList = Flip . tfromListR . map runFlip
+  tfromList0N sh = Flip . tfromList0NR sh
+  tfromVector = Flip . tfromVectorR . V.map runFlip
+  tfromVector0N sh = Flip . tfromVector0NR sh
+  tkonst k = Flip . tkonstR k . runFlip
+  tkonst0N sh = Flip . tkonst0NR sh . tunScalar
+  tappend u v = Flip $ tappendR (runFlip u) (runFlip v)
+  tslice i k = Flip . tsliceR i k . runFlip
+  treverse = Flip . treverseR . runFlip
+  ttranspose perm = Flip . ttransposeR perm . runFlip
+  treshape sh = Flip . treshapeR sh . runFlip
+  tbuild sh f = Flip $ tbuildNR sh (runFlip . f)
+  tbuild1 k f = Flip $ tbuild1R k (runFlip . f)
+  tmap0N f t = Flip $ tmap0NR (runFlip . f . Flip) (runFlip t)
+  tzipWith0N f t u = Flip $ tzipWith0NR (\v w -> runFlip $ f (Flip v) (Flip w))
+                                        (runFlip t) (runFlip u)
+  tgather sh t f = Flip $ tgatherZR sh (runFlip t) f
+  tgather1 k t f = Flip $ tgatherZ1R k (runFlip t) f
+  tscalar = Flip . tscalarR
+  tunScalar = tunScalarR . runFlip
+  tscaleByScalar s v = Flip $ tscaleByScalarR s (runFlip v)
+  tsumIn = Flip . tsumInR . runFlip
+  tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   type ScalarOf Double = Double
   type Primal Double = Double
   type DualOf n Double = ()
-  tconst = id
+  tconst = Flip
   tconstant = id
   tscale0 r d = r * d
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
   tScale _ _ = ()
-  tfromD = Data.Array.Convert.convert
+  tfromD = Flip . Data.Array.Convert.convert
 
 instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
-  dfromR = Data.Array.Convert.convert
+  dfromR = Data.Array.Convert.convert . runFlip
 
 instance DomainsTensor Double where
   ddummy = dummyTensor
@@ -543,55 +547,56 @@ instance DomainsTensor Double where
   type DomainsOf Double = Domains Double
 
 instance Tensor Float where
-  type TensorOf n Float = OR.Array n Float
+  type Ranked Float = Flip OR.Array Float
   type IntOf Float = CInt
-  tshape = tshapeR
-  tminIndex0 = tminIndexR
-  tmaxIndex0 = tmaxIndexR
+  tshape = tshapeR . runFlip
+  tminIndex0 = tminIndexR . runFlip
+  tmaxIndex0 = tmaxIndexR . runFlip
   tfloor = floor . tunScalar
-  tindex = tindexZR
-  tsum = tsumR
-  tsum0 = tscalar . tsum0R
-  tdot0 u v = tscalar $ tdot0R u v
-  tscatter = tscatterZR
-  tscatter1 = tscatterZ1R
-  tfromList = tfromListR
-  tfromList0N = tfromList0NR
-  tfromVector = tfromVectorR
-  tfromVector0N = tfromVector0NR
-  tkonst = tkonstR
-  tkonst0N sh = tkonst0NR sh . tunScalar
-  tappend = tappendR
-  tslice = tsliceR
-  treverse = treverseR
-  ttranspose = ttransposeR
-  treshape = treshapeR
-  tbuild = tbuildNR
-  tbuild1 = tbuild1R
-  tmap0N = tmap0NR
-  tzipWith0N = tzipWith0NR
-  tgather = tgatherZR
-  tgather1 = tgatherZ1R
-  tscalar = tscalarR
-  tunScalar = tunScalarR
-  tscaleByScalar = tscaleByScalarR
-  tsumIn = tsumInR
-  tdot1In = tdot1InR
+  tindex v ix = Flip $ tindexZR (runFlip v) ix
+  tsum = Flip . tsumR . runFlip
+  tsum0 = tscalar . tsum0R . runFlip
+  tdot0 u v = tscalar $ tdot0R (runFlip u) (runFlip v)
+  tscatter sh t f = Flip $ tscatterZR sh (runFlip t) f
+  tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t) f
+  tfromList = Flip . tfromListR . map runFlip
+  tfromList0N sh = Flip . tfromList0NR sh
+  tfromVector = Flip . tfromVectorR . V.map runFlip
+  tfromVector0N sh = Flip . tfromVector0NR sh
+  tkonst k = Flip . tkonstR k . runFlip
+  tkonst0N sh = Flip . tkonst0NR sh . tunScalar
+  tappend u v = Flip $ tappendR (runFlip u) (runFlip v)
+  tslice i k = Flip . tsliceR i k . runFlip
+  treverse = Flip . treverseR . runFlip
+  ttranspose perm = Flip . ttransposeR perm . runFlip
+  treshape sh = Flip . treshapeR sh . runFlip
+  tbuild sh f = Flip $ tbuildNR sh (runFlip . f)
+  tbuild1 k f = Flip $ tbuild1R k (runFlip . f)
+  tmap0N f t = Flip $ tmap0NR (runFlip . f . Flip) (runFlip t)
+  tzipWith0N f t u = Flip $ tzipWith0NR (\v w -> runFlip $ f (Flip v) (Flip w))
+                                        (runFlip t) (runFlip u)
+  tgather sh t f = Flip $ tgatherZR sh (runFlip t) f
+  tgather1 k t f = Flip $ tgatherZ1R k (runFlip t) f
+  tscalar = Flip . tscalarR
+  tunScalar = tunScalarR . runFlip
+  tscaleByScalar s v = Flip $ tscaleByScalarR s (runFlip v)
+  tsumIn = Flip . tsumInR . runFlip
+  tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   type ScalarOf Float = Float
   type Primal Float = Float
   type DualOf n Float = ()
-  tconst = id
+  tconst = Flip
   tconstant = id
   tscale0 r d = r * d
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
   tScale _ _ = ()
-  tfromD = Data.Array.Convert.convert
+  tfromD = Flip . Data.Array.Convert.convert
 
 instance DynamicTensor Float where
   type DTensorOf Float = OD.Array Float
-  dfromR = Data.Array.Convert.convert
+  dfromR = Data.Array.Convert.convert . runFlip
 
 instance DomainsTensor Float where
   ddummy = dummyTensor

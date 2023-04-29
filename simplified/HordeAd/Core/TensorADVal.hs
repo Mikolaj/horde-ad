@@ -12,7 +12,9 @@ import Prelude hiding ((<*))
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import           Data.Boolean
+import           Data.Functor.Compose
 import           Data.List (foldl1')
 import           Data.MonoTraversable (Element)
 import qualified Data.Strict.Vector as Data.Vector
@@ -55,14 +57,17 @@ instance IfB (ADVal Float) where
 instance IfB (ADVal (OR.Array n r)) where
   ifB b v w = if b then v else w
 
+instance IfB (ADVal (Flip OR.Array r n)) where
+  ifB b v w = if b then v else w
+
 -- This requires the Tensor instance, hence the definitions must be here.
 instance (KnownNat n, ShowAstSimplify r)
          => IfB (ADVal (Ast n r)) where
-  ifB b v w = tindex (tfromList [v, w]) (singletonIndex $ ifB b 0 1)
+  ifB b v w = indexZ (fromList [v, w]) (singletonIndex $ ifB b 0 1)
 
 instance ShowAstSimplify r
          => IfB (ADVal (Ast0 r)) where
-  ifB b v w = tunScalar $ ifB b (tscalar v) (tscalar w)
+  ifB b v w = unScalar $ ifB b (scalar v) (scalar w)
 
 -- We should really only have one @ADVal r@ instance, but typing problems caused
 -- by ranks (and probably too strict injectivity checks) make us copy the code.
@@ -73,213 +78,222 @@ instance ShowAstSimplify r
 -- in particular, to satisfy the constraints needed for the interpretation
 -- of @Ast@ in @ADVal (Ast0 r)@.
 instance Tensor (ADVal Double) where
-  type TensorOf n (ADVal Double) = ADVal (OR.Array n Double)
+  type Ranked (ADVal Double) = Compose ADVal (Flip OR.Array Double)
   type IntOf (ADVal Double) = CInt
 
-  tlet (D l u u') f =
+  tlet (Compose (D l u u')) f =
     let (l2, var2) = recordSharingPrimal u l
-    in f (D l2 var2 u')
+    in f (Compose (D l2 var2 u'))
+      -- TODO: What about sharing u'?
 
-  tshape (D _ u _) = tshape u
-  tminIndex0 (D l u _) = tminIndex0 (tletWrap l u)
-  tmaxIndex0 (D l u _) = tmaxIndex0 (tletWrap l u)
-  tfloor (D l u _) = tfloor (tletWrap l u)
+  tshape (Compose (D _ u _)) = tshape u
+  -- This is very slow, but is fortunately not needed:
+  -- tshape (D l u _) = tshape (tletWrap l u)
+  tminIndex0 (Compose (D l u _)) = tminIndex0 (tletWrap l u)
+  tmaxIndex0 (Compose (D l u _)) = tmaxIndex0 (tletWrap l u)
+  tfloor (Compose (D l u _)) = tfloor (tletWrap l u)
 
-  tindex = indexZ
-  tsum = sum'
-  tsum0 = sum0
-  tdot0 = dot0
+  tindex v ix = Compose $ indexZ (getCompose v) ix
+  tsum = Compose . sum' . getCompose
+  tsum0 = Compose . sum0 . getCompose
+  tdot0 u v = Compose $ dot0 (getCompose u) (getCompose v)
   tfromIndex0 = tconstant . tfromIndex0
-  tscatter = scatterNClosure
+  tscatter sh t f = Compose $ scatterNClosure sh (getCompose t) f
 
-  tfromList = fromList
+  tfromList = Compose . fromList . map getCompose
 --  tfromList0N = fromList0N
-  tfromVector = fromVector
+  tfromVector = Compose . fromVector . V.map getCompose
 --  tfromVector0N = fromVector0N
-  tkonst = konst
+  tkonst k = Compose . konst k . getCompose
 --  tkonst0N sh = konst0N sh . unScalar
-  tappend = append
-  tslice = slice
-  treverse = reverse'
-  ttranspose = transpose
-  treshape = reshape
-  tbuild1 = build1
-  tgather = gatherNClosure
+  tappend u v = Compose $ append (getCompose u) (getCompose v)
+  tslice i k = Compose . slice i k . getCompose
+  treverse = Compose . reverse' . getCompose
+  ttranspose perm = Compose . transpose perm . getCompose
+  treshape sh = Compose . reshape sh . getCompose
+  tbuild1 k f = Compose $ build1 k (getCompose . f)
+  tgather sh t f = Compose $ gatherNClosure sh (getCompose t) f
 
-  tscalar = scalar
-  tunScalar = unScalar
+  tscalar = Compose . scalar
+  tunScalar = unScalar . getCompose
 
-  tsumOfList lu = dD (flattenADShare $ map ((\(D l _ _) -> l)) lu)
-                     (tsumOfList $ map (\(D _ u _) -> u) lu)
-                     (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
-  tmult (D l1 ue ZeroR) (D l2 ve v') =
+  tsumOfList lu =
+    Compose $ dD (flattenADShare $ map ((\(Compose (D l _ _)) -> l)) lu)
+                 (tsumOfList $ map (\(Compose (D _ u _)) -> u) lu)
+                 (foldl1' dAdd $ map (\(Compose (D _ _ u')) -> u') lu)
+  tmult (Compose (D l1 ue ZeroR)) (Compose (D l2 ve v')) =
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         (l4, v) = recordSharingPrimal ve l3
-    in dD l4 (u * v) (dScale u v')
-  tmult (D l1 ue u') (D l2 ve ZeroR) =
+    in Compose $ dD l4 (u * v) (dScale u v')
+  tmult (Compose (D l1 ue u')) (Compose (D l2 ve ZeroR)) =
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         (l4, v) = recordSharingPrimal ve l3
-    in dD l4 (u * v) (dScale v u')
+    in Compose $ dD l4 (u * v) (dScale v u')
   tmult d e = d * e
 
   type ScalarOf (ADVal Double) = Double
   type Primal (ADVal Double) = Double
   type DualOf n (ADVal Double) =
     (ADShare Double, Dual (TensorOf n Double))
-  tconst t = dD emptyADShare (tconst t) dZero
-  tconstant t = dD emptyADShare t dZero
+  tconst t = Compose $ dD emptyADShare (tconst t) dZero
+  tconstant t = Compose $ dD emptyADShare t dZero
   tscale0 r (D l u u') = dD l (r * u) (dScale r u')
-  tprimalPart (D l u _) = tletWrap l u
-  tdualPart (D l _ u') = (l, u')
-  tD t (l, delta) = dD l t delta
-  tScale t (l, delta) = (l, dScale t delta)
+  tprimalPart (Compose (D l u _)) = tletWrap l u
+  tdualPart (Compose (D l _ u')) = (l, u')
+  tD ast (l, delta) = Compose $ dD l ast delta
+  tScale ast (l, delta) = (l, dScale ast delta)
 
-  tfromD = fromD
+  tfromD = Compose . fromD
 
 instance DynamicTensor (ADVal Double) where
   type DTensorOf (ADVal Double) = ADVal (OD.Array Double)
-  dfromR = fromR
+  dfromR = fromR . getCompose
 
 instance Tensor (ADVal Float) where
-  type TensorOf n (ADVal Float) = ADVal (OR.Array n Float)
+  type Ranked (ADVal Float) = Compose ADVal (Flip OR.Array Float)
   type IntOf (ADVal Float) = CInt
 
-  tlet (D l u u') f =
+  tlet (Compose (D l u u')) f =
     let (l2, var2) = recordSharingPrimal u l
-    in f (D l2 var2 u')
+    in f (Compose (D l2 var2 u'))
+      -- TODO: What about sharing u'?
 
-  tshape (D _ u _) = tshape u
-  tminIndex0 (D l u _) = tminIndex0 (tletWrap l u)
-  tmaxIndex0 (D l u _) = tmaxIndex0 (tletWrap l u)
-  tfloor (D l u _) = tfloor (tletWrap l u)
+  tshape (Compose (D _ u _)) = tshape u
+  -- This is very slow, but is fortunately not needed:
+  -- tshape (D l u _) = tshape (tletWrap l u)
+  tminIndex0 (Compose (D l u _)) = tminIndex0 (tletWrap l u)
+  tmaxIndex0 (Compose (D l u _)) = tmaxIndex0 (tletWrap l u)
+  tfloor (Compose (D l u _)) = tfloor (tletWrap l u)
 
-  tindex = indexZ
-  tsum = sum'
-  tsum0 = sum0
-  tdot0 = dot0
+  tindex v ix = Compose $ indexZ (getCompose v) ix
+  tsum = Compose . sum' . getCompose
+  tsum0 = Compose . sum0 . getCompose
+  tdot0 u v = Compose $ dot0 (getCompose u) (getCompose v)
   tfromIndex0 = tconstant . tfromIndex0
-  tscatter = scatterNClosure
+  tscatter sh t f = Compose $ scatterNClosure sh (getCompose t) f
 
-  tfromList = fromList
+  tfromList = Compose . fromList . map getCompose
 --  tfromList0N = fromList0N
-  tfromVector = fromVector
+  tfromVector = Compose . fromVector . V.map getCompose
 --  tfromVector0N = fromVector0N
-  tkonst = konst
+  tkonst k = Compose . konst k . getCompose
 --  tkonst0N sh = konst0N sh . unScalar
-  tappend = append
-  tslice = slice
-  treverse = reverse'
-  ttranspose = transpose
-  treshape = reshape
-  tbuild1 = build1
-  tgather = gatherNClosure
+  tappend u v = Compose $ append (getCompose u) (getCompose v)
+  tslice i k = Compose . slice i k . getCompose
+  treverse = Compose . reverse' . getCompose
+  ttranspose perm = Compose . transpose perm . getCompose
+  treshape sh = Compose . reshape sh . getCompose
+  tbuild1 k f = Compose $ build1 k (getCompose . f)
+  tgather sh t f = Compose $ gatherNClosure sh (getCompose t) f
 
-  tscalar = scalar
-  tunScalar = unScalar
+  tscalar = Compose . scalar
+  tunScalar = unScalar . getCompose
 
-  tsumOfList lu = dD (flattenADShare $ map ((\(D l _ _) -> l)) lu)
-                     (tsumOfList $ map (\(D _ u _) -> u) lu)
-                     (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
-  tmult (D l1 ue ZeroR) (D l2 ve v') =
+  tsumOfList lu =
+    Compose $ dD (flattenADShare $ map ((\(Compose (D l _ _)) -> l)) lu)
+                 (tsumOfList $ map (\(Compose (D _ u _)) -> u) lu)
+                 (foldl1' dAdd $ map (\(Compose (D _ _ u')) -> u') lu)
+  tmult (Compose (D l1 ue ZeroR)) (Compose (D l2 ve v')) =
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         (l4, v) = recordSharingPrimal ve l3
-    in dD l4 (u * v) (dScale u v')
-  tmult (D l1 ue u') (D l2 ve ZeroR) =
+    in Compose $ dD l4 (u * v) (dScale u v')
+  tmult (Compose (D l1 ue u')) (Compose (D l2 ve ZeroR)) =
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         (l4, v) = recordSharingPrimal ve l3
-    in dD l4 (u * v) (dScale v u')
+    in Compose $ dD l4 (u * v) (dScale v u')
   tmult d e = d * e
 
   type ScalarOf (ADVal Float) = Float
   type Primal (ADVal Float) = Float
   type DualOf n (ADVal Float) =
     (ADShare Float, Dual (TensorOf n Float))
-  tconst t = dD emptyADShare (tconst t) dZero
-  tconstant t = dD emptyADShare t dZero
+  tconst t = Compose $ dD emptyADShare (tconst t) dZero
+  tconstant t = Compose $ dD emptyADShare t dZero
   tscale0 r (D l u u') = dD l (r * u) (dScale r u')
-  tprimalPart (D l u _) = tletWrap l u
-  tdualPart (D l _ u') = (l, u')
-  tD t (l, delta) = dD l t delta
-  tScale t (l, delta) = (l, dScale t delta)
+  tprimalPart (Compose (D l u _)) = tletWrap l u
+  tdualPart (Compose (D l _ u')) = (l, u')
+  tD ast (l, delta) = Compose $ dD l ast delta
+  tScale ast (l, delta) = (l, dScale ast delta)
 
-  tfromD = fromD
+  tfromD = Compose . fromD
 
 instance DynamicTensor (ADVal Float) where
   type DTensorOf (ADVal Float) = ADVal (OD.Array Float)
-  dfromR = fromR
+  dfromR = fromR . getCompose
 
 instance (ADTensor (Ast0 r), ShowAstSimplify r)
          => Tensor (ADVal (Ast0 r)) where
-  type TensorOf n (ADVal (Ast0 r)) = ADVal (Ast n r)
+  type Ranked (ADVal (Ast0 r)) = Compose ADVal (AstRanked r)
   type IntOf (ADVal (Ast0 r)) = AstInt r
 
-  tlet (D l u u') f =
+  tlet (Compose (D l u u')) f =
     let (l2, var2) = recordSharingPrimal u l
-    in f (D l2 var2 u')
+    in f (Compose (D l2 var2 u'))
       -- TODO: What about sharing u'?
 
-  tshape (D _ u _) = tshape u
+  tshape (Compose (D _ u _)) = tshape u
   -- This is very slow, but is fortunately not needed:
   -- tshape (D l u _) = tshape (tletWrap l u)
-  tminIndex0 (D l u _) = tminIndex0 (tletWrap l u)
-  tmaxIndex0 (D l u _) = tmaxIndex0 (tletWrap l u)
-  tfloor (D l u _) = tfloor (tletWrap l u)
+  tminIndex0 (Compose (D l u _)) = tminIndex0 (tletWrap l u)
+  tmaxIndex0 (Compose (D l u _)) = tmaxIndex0 (tletWrap l u)
+  tfloor (Compose (D l u _)) = tfloor (tletWrap l u)
 
-  tindex = indexZ
-  tsum = sum'
-  tsum0 = sum0
-  tdot0 = dot0
+  tindex v ix = Compose $ indexZ (getCompose v) ix
+  tsum = Compose . sum' . getCompose
+  tsum0 = Compose . sum0 . getCompose
+  tdot0 u v = Compose $ dot0 (getCompose u) (getCompose v)
   tfromIndex0 = tconstant . tfromIndex0
-  tscatter = scatterNClosure
+  tscatter sh t f = Compose $ scatterNClosure sh (getCompose t) f
 
-  tfromList = fromList
+  tfromList = Compose . fromList . map getCompose
 --  tfromList0N = fromList0N
-  tfromVector = fromVector
+  tfromVector = Compose . fromVector . V.map getCompose
 --  tfromVector0N = fromVector0N
-  tkonst = konst
+  tkonst k = Compose . konst k . getCompose
 --  tkonst0N sh = konst0N sh . unScalar
-  tappend = append
-  tslice = slice
-  treverse = reverse'
-  ttranspose = transpose
-  treshape = reshape
-  tbuild1 = build1
-  tgather = gatherNClosure
+  tappend u v = Compose $ append (getCompose u) (getCompose v)
+  tslice i k = Compose . slice i k . getCompose
+  treverse = Compose . reverse' . getCompose
+  ttranspose perm = Compose . transpose perm . getCompose
+  treshape sh = Compose . reshape sh . getCompose
+  tbuild1 k f = Compose $ build1 k (getCompose . f)
+  tgather sh t f = Compose $ gatherNClosure sh (getCompose t) f
 
-  tscalar = scalar
-  tunScalar = unScalar
+  tscalar = Compose . scalar
+  tunScalar = unScalar . getCompose
 
-  tsumOfList lu = dD (flattenADShare $ map ((\(D l _ _) -> l)) lu)
-                     (tsumOfList $ map (\(D _ u _) -> u) lu)
-                     (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
-  tmult (D l1 ue ZeroR) (D l2 ve v') =
+  tsumOfList lu =
+    Compose $ dD (flattenADShare $ map ((\(Compose (D l _ _)) -> l)) lu)
+                 (tsumOfList $ map (\(Compose (D _ u _)) -> u) lu)
+                 (foldl1' dAdd $ map (\(Compose (D _ _ u')) -> u') lu)
+  tmult (Compose (D l1 ue ZeroR)) (Compose (D l2 ve v')) =
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         (l4, v) = recordSharingPrimal ve l3
-    in dD l4 (u * v) (dScale u v')
-  tmult (D l1 ue u') (D l2 ve ZeroR) =
+    in Compose $ dD l4 (u * v) (dScale u v')
+  tmult (Compose (D l1 ue u')) (Compose (D l2 ve ZeroR)) =
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         (l4, v) = recordSharingPrimal ve l3
-    in dD l4 (u * v) (dScale v u')
+    in Compose $ dD l4 (u * v) (dScale v u')
   tmult d e = d * e
 
   type ScalarOf (ADVal (Ast0 r)) = r
   type Primal (ADVal (Ast0 r)) = Ast0 r
   type DualOf n (ADVal (Ast0 r)) =
     (ADShare (Ast0 r), Dual (TensorOf n (Ast0 r)))
-  tconst t = dD emptyADShare (tconst t) dZero
-  tconstant t = dD emptyADShare t dZero
+  tconst t = Compose $ dD emptyADShare (tconst t) dZero
+  tconstant t = Compose $ dD emptyADShare t dZero
   tscale0 r (D l u u') = dD l (r * u) (dScale r u')
-  tprimalPart (D l u _) = tletWrap l u
-  tdualPart (D l _ u') = (l, u')
-  tD t (l, delta) = dD l t delta
-  tScale t (l, delta) = (l, dScale t delta)
+  tprimalPart (Compose (D l u _)) = tletWrap l u
+  tdualPart (Compose (D l _ u')) = (l, u')
+  tD ast (l, delta) = Compose $ dD l ast delta
+  tScale ast (l, delta) = (l, dScale ast delta)
 
-  tfromD = fromD
+  tfromD = Compose . fromD
 
 instance ShowAstSimplify r
          => DynamicTensor (ADVal (Ast0 r)) where
   type DTensorOf (ADVal (Ast0 r)) = ADVal (AstDynamic r)
-  dfromR = fromR
+  dfromR = fromR . getCompose
 
 
 -- * ADVal combinators generalizing ranked tensor operations

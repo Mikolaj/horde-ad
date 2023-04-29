@@ -20,7 +20,9 @@ import qualified Data.Array.Internal.RankedS as RS
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Flip
 import           Data.Boolean
+import           Data.Functor.Compose
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
@@ -395,6 +397,8 @@ type instance Element (OD.Array r) = r
 
 type instance Element (OR.Array n r) = r
 
+type instance Element (Flip OR.Array r n) = r
+
 type instance Element (OS.Array sh r) = r
 
 instance Numeric r => MonoFunctor (OD.Array r) where
@@ -408,6 +412,53 @@ instance (OS.Shape sh, Numeric r) => MonoFunctor (OS.Array sh r) where
 
 instance (a ~ b) => Convert (OR.Array n a) (OD.Array b) where
   convert (RS.A (RG.A sh t)) = DS.A (DG.A sh t)
+
+type instance BooleanOf (Flip f a b) = BooleanOf (f b a)
+
+deriving instance IfB (f a b) => IfB (Flip f b a)
+
+deriving instance EqB (f a b) => EqB (Flip f b a)
+
+deriving instance OrdB (f a b) => OrdB (Flip f b a)
+
+deriving instance Num (f a b) => Num (Flip f b a)
+
+deriving instance Fractional (f a b) => Fractional (Flip f b a)
+
+deriving instance Floating (f a b) => Floating (Flip f b a)
+
+deriving instance Real (f a b) => Real (Flip f b a)
+
+deriving instance RealFrac (f a b) => RealFrac (Flip f b a)
+
+deriving instance RealFloat (f a b) => RealFloat (Flip f b a)
+
+type instance BooleanOf (Compose f g a) = BooleanOf (f (g a))
+
+deriving instance IfB (f (g a)) => IfB (Compose f g a)
+
+deriving instance EqB (f (g a)) => EqB (Compose f g a)
+
+deriving instance OrdB (f (g a)) => OrdB (Compose f g a)
+
+deriving instance Eq (f (g a)) => Eq (Compose f g a)
+
+deriving instance Ord (f (g a)) => Ord (Compose f g a)
+
+deriving instance Num (f (g a)) => Num (Compose f g a)
+
+deriving instance Fractional (f (g a)) => Fractional (Compose f g a)
+
+deriving instance Floating (f (g a)) => Floating (Compose f g a)
+
+deriving instance (Ord (Compose f g a), Real (f (g a)))
+                  => Real (Compose f g a)
+
+deriving instance (Ord (Compose f g a), RealFrac (f (g a)))
+                  => RealFrac (Compose f g a)
+
+deriving instance (Ord (Compose f g a), RealFloat (f (g a)))
+                  => RealFloat (Compose f g a)
 
 
 -- TODO: move to separate orphan module(s) at some point

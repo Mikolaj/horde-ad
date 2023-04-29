@@ -399,7 +399,7 @@ interpretAstBool env memo = \case
     in (memo2, interpretAstBoolOp opCodeBool args2)
   AstBoolConst a -> (memo, if a then true else false)
   AstRel @n opCodeRel args | (Refl, Dict, Dict) <- evi2 @a @n Proxy ->
-    let (memo2, args2) =  mapAccumR (interpretAstPrimal env) memo args
+    let (memo2, args2) = mapAccumR (interpretAstPrimal env) memo args
     in (memo2, interpretAstRelOp opCodeRel args2)
   AstRelInt opCodeRel args ->
     let (memo2, args2) = mapAccumR (interpretAstInt env) memo args

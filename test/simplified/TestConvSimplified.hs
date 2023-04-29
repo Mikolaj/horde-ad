@@ -6,6 +6,7 @@ import Prelude
 
 import           Control.Exception (assert)
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import           Data.Boolean
 import           GHC.TypeLits (KnownNat)
 import           Test.Tasty
@@ -114,13 +115,13 @@ conv2dA = conv2d $ tconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25.0003]
 conv2dB
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dB = conv2d $ tconst t16b
+conv2dB = conv2d $ tconst $ runFlip t16b
 
 testKonstG0Rev :: Assertion
 testKonstG0Rev =
   assertEqualUpToEpsilon 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @Double @4 conv2dB (tzero [2, 2, 2, 2]))
+    (rev @Double @4 conv2dB (runFlip $ tzero [2, 2, 2, 2]))
 
 testKonstG0Tiny1 :: Assertion
 testKonstG0Tiny1 =
@@ -133,8 +134,8 @@ testKonstG0TinyS =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @(OR.Array 4 Double)
-          (conv2d $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R t16b))
-          (OR.fromList [1, 1, 1, 1] [0]))
+          (conv2d $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R $ runFlip t16b))
+          (Flip $ OR.fromList [1, 1, 1, 1] [0]))
 
 testKonstG0TinyA :: Assertion
 testKonstG0TinyA =
@@ -222,38 +223,38 @@ conv2dALaborious = conv2dLaborious $ tconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25
 conv2dBLaborious
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dBLaborious = conv2dLaborious $ tconst t16b
+conv2dBLaborious = conv2dLaborious $ tconst $ runFlip t16b
 
 conv2dCLaborious
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dCLaborious = flip conv2dLaborious $ tconst t16b
+conv2dCLaborious = flip conv2dLaborious $ tconst $ runFlip t16b
 
 conv2dBLaborious128b
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dBLaborious128b = conv2dLaborious $ tconst t128b
+conv2dBLaborious128b = conv2dLaborious $ tconst $ runFlip t128b
 
 conv2dCLaborious128b
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dCLaborious128b = flip conv2dLaborious $ tconst t128b
+conv2dCLaborious128b = flip conv2dLaborious $ tconst $ runFlip t128b
 
 conv2dBLaborious128c
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dBLaborious128c = conv2dLaborious $ tconst t128c
+conv2dBLaborious128c = conv2dLaborious $ tconst $ runFlip t128c
 
 conv2dCLaborious128c
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dCLaborious128c = flip conv2dLaborious $ tconst t128c
+conv2dCLaborious128c = flip conv2dLaborious $ tconst $ runFlip t128c
 
 testKonst0RevLaborious :: Assertion
 testKonst0RevLaborious =
   assertEqualUpToEpsilon 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @Double @4 conv2dBLaborious (tzero [2, 2, 2, 2]))
+    (rev @Double @4 conv2dBLaborious (runFlip $ tzero [2, 2, 2, 2]))
 
 testKonst0Tiny1Laborious :: Assertion
 testKonst0Tiny1Laborious =
@@ -266,8 +267,8 @@ testKonst0TinySLaborious =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @(OR.Array 4 Double)
-          (conv2dLaborious $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R t16b))
-          (OR.fromList [1, 1, 1, 1] [0]))
+          (conv2dLaborious $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R $ runFlip t16b))
+          (Flip $ OR.fromList [1, 1, 1, 1] [0]))
 
 testKonst0TinyALaborious :: Assertion
 testKonst0TinyALaborious =
@@ -514,13 +515,13 @@ conv2d1Failed = conv2dFailed $ tconst $ OR.fromList [1, 1, 1, 1] [-0.2]
 conv2dBFailed
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dBFailed = conv2dFailed $ tconst t16b
+conv2dBFailed = conv2dFailed $ tconst $ runFlip t16b
 
 testKonst0RevFailed :: Assertion
 testKonst0RevFailed =
   assertEqualUpToEpsilon 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @Double @4 conv2dBFailed (tkonst0N [2, 2, 2, 2] 0))
+    (rev @Double @4 conv2dBFailed (runFlip $ tkonst0N [2, 2, 2, 2] 0))
 
 testKonst0Tiny1Failed :: Assertion
 testKonst0Tiny1Failed =
@@ -533,8 +534,8 @@ testKonst0TinySFailed =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @(OR.Array 4 Double)
-          (conv2dFailed $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R t16b))
-          (OR.fromList [1, 1, 1, 1] [0]))
+          (conv2dFailed $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R $ runFlip t16b))
+          (Flip $ OR.fromList [1, 1, 1, 1] [0]))
 
 
 -- * Disparity
@@ -576,11 +577,11 @@ test_disparityKonst = do
       arrR :: ADReady r => TensorOf 4 r
       arrR = tkonst0N [1, 2, 4, 6] 0.3
       arrO = costVolume @Double 0 4 arrL arrR
-      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) arrR arrO
+      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) (runFlip arrL) arrO
+      arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) (runFlip arrR) arrO
   assertEqualUpToEpsilon 1e-7
     (OR.fromList [1,4,4,6] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0])
-    arrO
+    (runFlip arrO)
   assertEqualUpToEpsilon 1e-7
     (OR.fromList [1,2,4,6] [-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0])
     arrDL
@@ -606,14 +607,14 @@ test_disparityKonst2 = do
       arrO = OR.constant [1, 4, 4, 6] (1 :: Double)
       res1 = OR.fromList [1,2,4,6] [4.0,2.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,0.0,0.0,-2.0,0.0,4.0,4.0,2.0,0.0,-4.0,1.0,4.0,4.0,4.0,-4.0,2.0,4.0,2.0]
       res2 = OR.fromList [1,2,4,6] [-4.0,0.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-2.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,4.0,4.0,-4.0,1.0,-2.0,-1.0,-2.0,3.0,2.0,-1.0,-2.0,-1.0,-2.0,0.0,-2.0,-3.0,-2.0,1.0]
-      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
-      arrDR = revDt (costVolume 0 4 (tconstant arrL)) arrR arrO
+      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) (runFlip arrL) (Flip arrO)
+      arrDR = revDt (costVolume 0 4 (tconstant arrL)) (runFlip arrR) (Flip arrO)
   assertEqualUpToEpsilon 1e-7
     res1
     arrDL
   assertEqualUpToEpsilon 1e-7
     res2
-   arrDR
+    arrDR
   assertEqualUpToEpsilon' 1e-7
     res1
     (rev' @(OR.Array 4 Double) (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL)
@@ -628,11 +629,11 @@ test_disparitySmall = do
       arrR :: ADReady r => TensorOf 4 r
       arrR = tfromList0N [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
       arrO = costVolume @Double 0 4 arrL arrR
-      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) arrR arrO
+      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) (runFlip arrL) arrO
+      arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) (runFlip arrR) arrO
   assertEqualUpToEpsilon 1e-7
     (OR.fromList [1,4,3,2] [1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3])
-    arrO
+    (runFlip arrO)
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,3,2] [-2.0,-1.0,-2.0,-1.0,-2.0,-1.0,2.0,1.0,-2.0,1.0,2.0,1.0])
     (rev' @(OR.Array 4 Double) (costVolume 0 4 arrL) arrR)

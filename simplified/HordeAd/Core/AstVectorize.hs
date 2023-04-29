@@ -18,8 +18,8 @@ import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import           HordeAd.Core.Ast hiding
-  (Ast (..), AstBool (..), AstDomains (..), AstInt (..))
-import           HordeAd.Core.Ast (Ast, AstDomains, AstInt)
+  (AstBool (..), AstDomains (..), AstInt (..), AstRanked (..))
+import           HordeAd.Core.Ast (AstDomains, AstInt)
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstSimplify

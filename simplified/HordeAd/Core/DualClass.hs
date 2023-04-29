@@ -33,6 +33,7 @@ module HordeAd.Core.DualClass
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.MonoTraversable (Element)
@@ -69,27 +70,27 @@ class IsPrimal a where
 -- for all @n@ values. A similar hack with @TensorOf@ wouldn't work,
 -- because instances of type families are illegal.
 class IsPrimalR r where
-  dZeroR :: KnownNat n => Dual (OR.Array n r)
+  dZeroR :: KnownNat n => Dual (Flip OR.Array r n)
   dScaleR :: KnownNat n
-          => OR.Array n r -> Dual (OR.Array n r) -> Dual (OR.Array n r)
+          => Flip OR.Array r n -> Dual (Flip OR.Array r n) -> Dual (Flip OR.Array r n)
   dScaleByScalarR :: KnownNat n
-                  => OR.Array n r -> Int -> Dual (OR.Array n r)
-                  -> Dual (OR.Array n r)
+                  => Flip OR.Array r n -> Int -> Dual (Flip OR.Array r n)
+                  -> Dual (Flip OR.Array r n)
   dAddR :: KnownNat n
-        => Dual (OR.Array n r) -> Dual (OR.Array n r)
-        -> Dual (OR.Array n r)
-  recordSharingR :: Dual (OR.Array n r) -> Dual (OR.Array n r)
-  recordSharingPrimalR :: OR.Array n r -> ADShare r
-                       -> (ADShare r, OR.Array n r)
-  letWrapPrimalR :: ADShare r -> OR.Array n r -> OR.Array n r
+        => Dual (Flip OR.Array r n) -> Dual (Flip OR.Array r n)
+        -> Dual (Flip OR.Array r n)
+  recordSharingR :: Dual (Flip OR.Array r n) -> Dual (Flip OR.Array r n)
+  recordSharingPrimalR :: Flip OR.Array r n -> ADShare r
+                       -> (ADShare r, Flip OR.Array r n)
+  letWrapPrimalR :: ADShare r -> Flip OR.Array r n -> Flip OR.Array r n
   packDeltaDtR :: KnownNat n
-               => Either (OR.Array n r) (OR.Array n r) -> Dual (OR.Array n r)
+               => Either (Flip OR.Array r n) (Flip OR.Array r n) -> Dual (Flip OR.Array r n)
                -> DeltaDt r
 
 -- | Part 2/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class.
 instance (IsPrimalR r, KnownNat n)
-         => IsPrimal (OR.Array n r) where
+         => IsPrimal (Flip OR.Array r n) where
   dZero = dZeroR
   dScale = dScaleR
   dScaleByScalar = dScaleByScalarR
@@ -288,7 +289,7 @@ instance (Show r, Numeric r, Num (Vector r)) => IsPrimal (Ast0 r) where
 instance IsPrimalR Double where
   dZeroR = ZeroR
   dScaleR = ScaleR
-  dScaleByScalarR tsh c = ScaleR (OR.constant (OR.shapeL tsh) (fromIntegral c))
+  dScaleByScalarR tsh c = ScaleR (Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c))
   dAddR = AddR
   recordSharingR d = case d of
     ZeroR -> d
@@ -304,7 +305,7 @@ instance IsPrimalR Double where
 instance IsPrimalR Float where
   dZeroR = ZeroR
   dScaleR = ScaleR
-  dScaleByScalarR tsh c = ScaleR (OR.constant (OR.shapeL tsh) (fromIntegral c))
+  dScaleByScalarR tsh c = ScaleR (Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c))
   dAddR = AddR
   recordSharingR d = case d of
     ZeroR -> d
@@ -314,7 +315,7 @@ instance IsPrimalR Float where
     _ -> wrapDeltaR d
   recordSharingPrimalR r l = (l, r)
   letWrapPrimalR _ r = r
-  packDeltaDtR (Left tsh) = DeltaDtR (tconst $ tkonst0N (tshape tsh) 1)
+  packDeltaDtR (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
   packDeltaDtR (Right t) = DeltaDtR t
 
 instance (Show r, Numeric r, Tensor (Ast0 r)) => IsPrimalA r where

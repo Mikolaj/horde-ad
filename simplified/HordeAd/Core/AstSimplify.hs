@@ -55,13 +55,12 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Ast
-  ( Ast
-  , AstBool (AstBoolConst)
+  ( AstBool (AstBoolConst)
   , AstDomains
   , AstInt (AstIntConst, AstIntOp, AstIntVar)
   )
 import           HordeAd.Core.Ast hiding
-  (Ast (..), AstBool (..), AstDomains (..), AstInt (..))
+  (AstBool (..), AstDomains (..), AstInt (..), AstRanked (..))
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.SizedIndex

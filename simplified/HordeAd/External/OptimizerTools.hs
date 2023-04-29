@@ -12,6 +12,7 @@ import Prelude
 import           Control.Monad.ST.Strict (runST)
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -23,7 +24,7 @@ import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient
   :: ( Numeric r, Floating (Vector r), Tensor r, DynamicTensor r
-     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r )
+     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma params gradient =
   let params0 = domains0 params
@@ -31,7 +32,8 @@ updateWithGradient gamma params gradient =
       gradient0 = domains0 gradient
       gradientR = domainsR gradient
       updateVector i r = i - LA.scale gamma r
-      !params0New = liftVR2 updateVector params0 gradient0
+      !params0New = Flip $ liftVR2 updateVector (runFlip params0)
+                                                (runFlip gradient0)
       updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVT2 updateVector i r
@@ -94,7 +96,7 @@ data StateAdam r = StateAdam
 
 -- The arguments are just sample params0, for dimensions.
 zeroParameters
-  :: ( Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r
+  :: ( Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
      , Tensor r, DynamicTensor r )
   => Domains r -> Domains r
 zeroParameters params =
@@ -102,11 +104,11 @@ zeroParameters params =
         vThawed <- V.thaw v
         VM.set vThawed 0
         V.unsafeFreeze vThawed
-  in mkDomains (liftVR zeroVector (domains0 params))
+  in mkDomains (Flip $ liftVR zeroVector (runFlip $ domains0 params))
                (V.map (\a -> OD.constant (OD.shapeL a) 0) (domainsR params))
 
 initialStateAdam
-  :: ( Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r
+  :: ( Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
      , Tensor r, DynamicTensor r )
   => Domains r -> StateAdam r
 initialStateAdam parameters0 =
@@ -143,7 +145,7 @@ liftArray43 f m1 m2 m3 m4 =
 updateWithGradientAdam
   :: forall r.
      ( Numeric r, Floating r, Floating (Vector r), DynamicTensor r, Tensor r
-     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r )
+     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
   -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
@@ -173,19 +175,23 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                  / (sqrt vANew + LA.scalar epsilon) )  -- the @scalar@ is safe
                       -- @addConstant@ would be better, but it's not exposed
       (!mAdam0New, !vAdam0New, !params0New) =
-        updateVector (OR.toVector mAdam0) (OR.toVector vAdam0)
-                     (OR.toVector params0) (OR.toVector gradient0)
+        updateVector
+          (OR.toVector $ runFlip mAdam0) (OR.toVector $ runFlip vAdam0)
+          (OR.toVector $ runFlip params0) (OR.toVector $ runFlip gradient0)
       updateR mA vA p g = if isTensorDummy g  -- eval didn't update it
                           then (mA, vA, p)
                           else liftArray43 updateVector mA vA p g
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         V.unzip3 $ V.zipWith4 updateR mAdamR vAdamR paramsR gradientR
-  in ( mkDomains (OR.fromVector [V.length params0New] params0New) paramsRNew
+  in ( mkDomains (Flip $ OR.fromVector [V.length params0New] params0New)
+                 paramsRNew
      , StateAdam
          { tAdam = tAdamNew
-         , mAdam = mkDomains (OR.fromVector [V.length mAdam0New] mAdam0New)
-                             mAdamRNew
-         , vAdam = mkDomains (OR.fromVector [V.length vAdam0New] vAdam0New)
-                             vAdamRNew
+         , mAdam = mkDomains
+                     (Flip $ OR.fromVector [V.length mAdam0New] mAdam0New)
+                     mAdamRNew
+         , vAdam = mkDomains
+                     (Flip $ OR.fromVector [V.length vAdam0New] vAdam0New)
+                     vAdamRNew
          }
      )

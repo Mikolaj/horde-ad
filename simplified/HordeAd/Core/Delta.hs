@@ -51,6 +51,7 @@ import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.List (foldl', sort)
@@ -264,15 +265,15 @@ toInputId :: Int -> InputId a
 toInputId i = assert (i >= 0) $ InputId i
 
 -- | The type family that to each basic differentiable type
--- assignes its delta expression type.
+-- assigns its delta expression type.
 type family Dual a = result | result -> a where
   Dual Double = Delta0 Double
   Dual Float = Delta0 Float
   Dual (Ast0 r) = Delta0 (Ast0 r)
   Dual (OD.Array Double) = DeltaD Double
   Dual (OD.Array Float) = DeltaD Float
-  Dual (OR.Array n Double) = DeltaR n Double
-  Dual (OR.Array n Float) = DeltaR n Float
+  Dual (Flip OR.Array Double n) = DeltaR n Double
+  Dual (Flip OR.Array Float n) = DeltaR n Float
   Dual (AstDynamic r) = DeltaD (Ast0 r)
   Dual (Ast n r) = DeltaR n (Ast0 r)
 
@@ -669,9 +670,9 @@ instance ForwardDerivative (Ast0 r) where
       DeltaDt0 res _ -> res
       DeltaDtR{} -> error "derivativeFromDelta"
 
-instance ( Num (TensorOf n r), KnownNat n, TensorOf n r ~ OR.Array n r
-         , Dual (OR.Array n r) ~ DeltaR n r )
-         => ForwardDerivative (OR.Array n r) where
+instance ( Num (TensorOf n r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
+         , Dual (Flip OR.Array r n) ~ DeltaR n r )
+         => ForwardDerivative (Flip OR.Array r n) where
   derivativeFromDelta dim0 dimR deltaTopLevel ds =
     case runST $ buildDerivative dim0 dimR
                                  (DeltaDtR 0 deltaTopLevel) ds of

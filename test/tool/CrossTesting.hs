@@ -5,8 +5,11 @@ module CrossTesting
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
+import           Data.Functor.Compose
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty.HUnit hiding (assert)
@@ -23,15 +26,15 @@ import HordeAd.External.Adaptor
 
 import EqEpsilon
 
-rev' :: forall a r n m.
+rev' :: forall b r n m a.
         ( KnownNat n, KnownNat m, Floating (Vector r), ADTensor r, ADReady r
         , InterpretAst (ADVal r), InterpretAst r, DomainsTensor r
         , a ~ TensorOf m r, ScalarOf r ~ r, ScalarOf (ADVal r) ~ r
         , IsPrimalWithScalar (TensorOf m r) r, DomainsOf r ~ Domains r
-        , Adaptable (ADVal (TensorOf n r))
-        , TensorOf n (ADVal r) ~ ADVal (TensorOf n r)
-        , TensorOf m (ADVal r) ~ ADVal (TensorOf m r)
-        , ADReady (ADVal r), TensorOf n r ~ OR.Array n r )
+        , Adaptable (ADVal (TensorOf n r)), DTensorOf r ~ OD.Array r
+        , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
+        , ADReady (ADVal r), TensorOf n r ~ Flip OR.Array r n
+        , b ~ OR.Array m r )
      => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
      -> TensorOf n r
      -> ( TensorOf m r, a, a, a, a, a, a, a
@@ -43,46 +46,50 @@ rev' :: forall a r n m.
         , TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r
         , TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r )
 rev' f vals =
-  let value0 = f vals
+  let vals':: OR.Array n r
+      vals' = runFlip vals
+      value0 = f vals
       parameters = toDomains vals
       dt = Nothing
-      g inputs = f $ parseADInputs vals inputs
-      (advalGrad, value1) = revOnDomains dt g parameters
-      gradient1 = parseDomains vals advalGrad
-      g9 inputs = f $ parseADInputs vals inputs
+      g :: ADInputs r -> TensorOf m (ADVal r)
+      g inputs = f $ Compose $ parseADInputs vals' inputs
+      (advalGrad, value1) = revOnDomains dt (getCompose . g) parameters
+      gradient1 = parseDomains vals' advalGrad
+      g9 :: ADInputs (Ast0 r) -> TensorOf m (ADVal (Ast0 r))
+      g9 inputs = f $ Compose $ parseADInputs vals' inputs
       (advalGrad9, value9) = revAstOnDomains g9 parameters dt
-      gradient9 = parseDomains vals advalGrad9
+      gradient9 = parseDomains vals' advalGrad9
       h :: ADReady x
         => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
         -> (Ast m r -> Ast m r) -> ADInputs r
         -> ADVal (TensorOf m r)
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
-            env = extendEnvR var (parseADInputs vals inputs) EM.empty
-        in snd $ interpretAst env emptyMemo (gx ast)
+            env = extendEnvR var (Compose $ parseADInputs vals' inputs) EM.empty
+        in getCompose $ snd $ interpretAst env emptyMemo (gx ast)
       (astGrad, value2) =
         revOnDomains dt (h id id id) parameters
-      gradient2 = parseDomains vals astGrad
+      gradient2 = parseDomains vals' astGrad
       (astSimple, value3) =
         revOnDomains dt (h id id simplifyAst6) parameters
-      gradient3 = parseDomains vals astSimple
+      gradient3 = parseDomains vals' astSimple
       (astGradUnSimp, value2UnSimp) =
         revOnDomains dt (h unAstNoSimplify AstNoSimplify id) parameters
-      gradient2UnSimp = parseDomains vals astGradUnSimp
+      gradient2UnSimp = parseDomains vals' astGradUnSimp
       (astSimpleUnSimp, value3UnSimp) =
         revOnDomains dt (h unAstNoSimplify AstNoSimplify simplifyAst6)
                      parameters
-      gradient3UnSimp = parseDomains vals astSimpleUnSimp
+      gradient3UnSimp = parseDomains vals' astSimpleUnSimp
       (astPrimal, value4) =
         revOnDomains dt (h unAstNoVectorize AstNoVectorize id)
                         parameters
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
-      gradient4 = parseDomains vals astPrimal
+      gradient4 = parseDomains vals' astPrimal
       (astPSimple, value5) =
         revOnDomains dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
                         parameters
-      gradient5 = parseDomains vals astPSimple
+      gradient5 = parseDomains vals' astPSimple
       astVectSimp = simplifyAst6 $ snd $ funToAstR (tshape vals) f
       astSimp =
         simplifyAst6 $ snd
@@ -91,64 +98,64 @@ rev' f vals =
       hAst :: ADReady x
            => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
            -> (Ast m r -> Ast m r) -> ADInputs (Ast0 r)
-           -> ADVal (Ast m r)
+           -> Compose ADVal (AstRanked r) m
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
-            env = extendEnvR var (parseADInputs vals inputs) EM.empty
+            env = extendEnvR var (Compose $ parseADInputs vals' inputs) EM.empty
         in snd $ interpretAst env emptyMemo (gx ast)
       artifactsGradAst =
         revAstOnDomainsF (hAst id id id) parameters
       (astGradAst, value2Ast) =
         revAstOnDomainsEval artifactsGradAst parameters dt
-      gradient2Ast = parseDomains vals astGradAst
+      gradient2Ast = parseDomains vals' astGradAst
       (astGradAstS, value2AstS) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsGradAst) parameters dt
-      gradient2AstS = parseDomains vals astGradAstS
+      gradient2AstS = parseDomains vals' astGradAstS
       artifactsSimpleAst =
         revAstOnDomainsF (hAst id id simplifyAst6) parameters
       (astSimpleAst, value3Ast) =
         revAstOnDomainsEval artifactsSimpleAst parameters dt
-      gradient3Ast = parseDomains vals astSimpleAst
+      gradient3Ast = parseDomains vals' astSimpleAst
       (astSimpleAstS, value3AstS) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsSimpleAst) parameters dt
-      gradient3AstS = parseDomains vals astSimpleAstS
+      gradient3AstS = parseDomains vals' astSimpleAstS
       artifactsGradAstUnSimp =
         revAstOnDomainsF (hAst unAstNoSimplify AstNoSimplify id) parameters
       (astGradAstUnSimp, value2AstUnSimp) =
         revAstOnDomainsEval artifactsGradAstUnSimp parameters dt
-      gradient2AstUnSimp = parseDomains vals astGradAstUnSimp
+      gradient2AstUnSimp = parseDomains vals' astGradAstUnSimp
       (astGradAstSUnSimp, value2AstSUnSimp) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsGradAstUnSimp)
                             parameters dt
-      gradient2AstSUnSimp = parseDomains vals astGradAstSUnSimp
+      gradient2AstSUnSimp = parseDomains vals' astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
         revAstOnDomainsF (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
                          parameters
       (astSimpleAstUnSimp, value3AstUnSimp) =
         revAstOnDomainsEval artifactsSimpleAstUnSimp parameters dt
-      gradient3AstUnSimp = parseDomains vals astSimpleAstUnSimp
+      gradient3AstUnSimp = parseDomains vals' astSimpleAstUnSimp
       (astSimpleAstSUnSimp, value3AstSUnSimp) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsSimpleAstUnSimp)
                             parameters dt
-      gradient3AstSUnSimp = parseDomains vals astSimpleAstSUnSimp
+      gradient3AstSUnSimp = parseDomains vals' astSimpleAstSUnSimp
       artifactsPrimalAst =
         revAstOnDomainsF (hAst unAstNoVectorize AstNoVectorize id) parameters
       (astPrimalAst, value4Ast) =
         revAstOnDomainsEval artifactsPrimalAst parameters dt
-      gradient4Ast = parseDomains vals astPrimalAst
+      gradient4Ast = parseDomains vals' astPrimalAst
       (astPrimalAstS, value4AstS) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsPrimalAst) parameters dt
-      gradient4AstS = parseDomains vals astPrimalAstS
+      gradient4AstS = parseDomains vals' astPrimalAstS
       artifactsPSimpleAst =
         revAstOnDomainsF (hAst unAstNoVectorize AstNoVectorize simplifyAst6)
                          parameters
       (astPSimpleAst, value5Ast) =
         revAstOnDomainsEval artifactsPSimpleAst parameters dt
-      gradient5Ast = parseDomains vals astPSimpleAst
+      gradient5Ast = parseDomains vals' astPSimpleAst
       (astPSimpleAstS, value5AstS) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsPSimpleAst)
                             parameters dt
-      gradient5AstS = parseDomains vals astPSimpleAstS
+      gradient5AstS = parseDomains vals' astPSimpleAstS
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
      , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp
@@ -164,16 +171,16 @@ rev' f vals =
 
 assertEqualUpToEpsilon'
     :: ( AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon b
-       , KnownNat m, ShowAstSimplify r, HasCallStack )
+       , KnownNat m, ShowAstSimplify r, HasCallStack, a ~ Flip OR.Array r n )
     => Rational  -- ^ error margin (i.e., the epsilon)
-    -> a  -- ^ expected value
+    -> OR.Array n r  -- ^ expected value
     -> ( b, b, b, b, b, b, b, b, a, a, a, a, a, a, a, Ast m r, Ast m r
        , b, b, b, b, b, b, b, b, b, b, b, b, b
        , a, a, a, a, a, a, a, a, a, a, a, a, a )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
-    errMargin expected
+    errMargin expected'
     ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
     , value4, value5
     , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp
@@ -186,6 +193,7 @@ assertEqualUpToEpsilon'
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS ) = do
+  let expected = Flip expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
@@ -249,16 +257,16 @@ assertEqualUpToEpsilon'
 
 assertEqualUpToEpsilonShort
     :: ( AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon b
-       , KnownNat m, ShowAstSimplify r, HasCallStack )
+       , KnownNat m, ShowAstSimplify r, HasCallStack, a ~ Flip OR.Array r n )
     => Rational  -- ^ error margin (i.e., the epsilon)
-    -> a  -- ^ expected value
+    -> OR.Array n r  -- ^ expected value
     -> ( b, b, b, b, b, b, b, b, a, a, a, a, a, a, a, Ast m r, Ast m r
        , b, b, b, b, b, b, b, b, b, b, b, b, b
        , a, a, a, a, a, a, a, a, a, a, a, a, a )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShort
-    errMargin expected
+    errMargin expected'
     ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
     , _value4, value5
     , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp
@@ -271,6 +279,7 @@ assertEqualUpToEpsilonShort
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS ) = do
+  let expected = Flip expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
@@ -316,20 +325,20 @@ assertEqualUpToEpsilonShort
   show (simplifyAst6 astVectSimp) @?= show astVectSimp
   show (simplifyAst6 astSimp) @?= show astSimp
 
-t16 :: (Numeric r, Fractional r) => OR.Array 5 r
-t16 = OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
+t16 :: (Numeric r, Fractional r) => Flip OR.Array r 5
+t16 = Flip $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
 
-t16b :: (Numeric r, Fractional r) => OR.Array 4 r
-t16b = OR.fromList [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
+t16b :: (Numeric r, Fractional r) => Flip OR.Array r 4
+t16b = Flip $ OR.fromList [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
 
-t48 :: (Numeric r, Fractional r) => OR.Array 7 r
-t48 = OR.fromList [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
+t48 :: (Numeric r, Fractional r) => Flip OR.Array r 7
+t48 = Flip $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
 
-t128 :: (Numeric r, Fractional r) => OR.Array 10 r
-t128 = OR.fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
+t128 :: (Numeric r, Fractional r) => Flip OR.Array r 10
+t128 = Flip $ OR.fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
 
-t128b :: (Numeric r, Fractional r) => OR.Array 4 r
-t128b = OR.reshape [4, 2, 4, 4] t128
+t128b :: (Numeric r, Fractional r) => Flip OR.Array r 4
+t128b = Flip $ OR.reshape [4, 2, 4, 4] $ runFlip t128
 
-t128c :: (Numeric r, Fractional r) => OR.Array 4 r
-t128c = OR.reshape [2, 2, 8, 4] t128
+t128c :: (Numeric r, Fractional r) => Flip OR.Array r 4
+t128c = Flip $ OR.reshape [2, 2, 8, 4] $ runFlip t128

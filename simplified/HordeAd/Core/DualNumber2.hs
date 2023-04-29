@@ -27,14 +27,17 @@ module HordeAd.Core.DualNumber2
   , listsToParameters, listsToParameters4, domainsD0
   , valueGeneral, valueOnDomains, revOnADInputs, revOnDomains, prettyPrintDf
   , constant, scale, logistic, altSumElements10
-  , softMax, lossCrossEntropy, lossCrossEntropyV
+  , softMax, softMaxV, lossCrossEntropy, lossCrossEntropyV
+  , lossSoftMaxCrossEntropyV, relu
   ) where
 
 import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
-import           Data.MonoTraversable (Element)
+import           Data.Bifunctor.Flip
+import           Data.Boolean
+import           Data.Functor.Compose
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -92,7 +95,7 @@ type ADModeAndNum (d :: ADMode) r =
   , ScalarOf (DualNumber.ADVal r) ~ r
   , Tensor (DualNumber.ADVal r)
   , DynamicTensor (DualNumber.ADVal r)
-  , TensorOf 1 (DualNumber.ADVal r) ~ DualNumber.ADVal (Vec r)
+  , TensorOf 1 (DualNumber.ADVal r) ~ Compose DualNumber.ADVal (Flip OR.Array r) 1
   , Fractional (TensorOf 0 (DualNumber.ADVal r))
   )
 
@@ -164,15 +167,16 @@ prettyPrintDf f parameters =
 
 at0 :: ADModeAndNum d r => Engine.ADInputs r -> Int -> ADVal d r
 {-# INLINE at0 #-}
-at0 Engine.ADInputs{..} i = dD emptyADShare (OR.toVector inputPrimal0 V.! i)
-                                  (inputDual0 V.! i)
+at0 Engine.ADInputs{..} i =
+  dD emptyADShare (OR.toVector (runFlip inputPrimal0) V.! i)
+                               (inputDual0 V.! i)
 
 at1 :: forall n r d.
-       ( KnownNat n, ADModeAndNum d r, TensorOf n r ~ OR.Array n r )
-    => Engine.ADInputs r -> Int -> ADVal d (OR.Array n r)
+       ( KnownNat n, ADModeAndNum d r, TensorOf n r ~ Flip OR.Array r n )
+    => Engine.ADInputs r -> Int -> ADVal d (Flip OR.Array r n)
 {-# INLINE at1 #-}
 at1 Engine.ADInputs{..} i = dD emptyADShare (tfromD $ inputPrimal1 V.! i)
-                                  (dFromD $ inputDual1 V.! i)
+                                            (dFromD $ inputDual1 V.! i)
 
 ifoldlDual' :: forall a d r. ADModeAndNum d r
              => (a -> Int -> ADVal d r -> a)
@@ -185,7 +189,7 @@ ifoldlDual' f a Engine.ADInputs{..} = do
       g !acc i valX =
         let !b = dD emptyADShare valX (inputDual0 V.! i)
         in f acc i b
-  V.ifoldl' g a $ OR.toVector inputPrimal0
+  V.ifoldl' g a $ OR.toVector (runFlip inputPrimal0)
 
 foldlDual' :: forall a d r. ADModeAndNum d r
             => (a -> ADVal d r -> a)
@@ -198,23 +202,23 @@ foldlDual' f a Engine.ADInputs{..} = do
       g !acc i valX =
         let !b = dD emptyADShare valX (inputDual0 V.! i)
         in f acc b
-  V.ifoldl' g a $ OR.toVector inputPrimal0
+  V.ifoldl' g a $ OR.toVector (runFlip inputPrimal0)
 
 domainsFromD01 :: DynamicTensor r => Domain0 r -> DomainR r -> Domains r
 domainsFromD01 = mkDomains
 
-domainsFrom01 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r, DynamicTensor r)
+domainsFrom01 :: (Numeric r, TensorOf 1 r ~ Flip OR.Array r 1, DynamicTensor r)
               => Vector r -> DomainR r -> Domains r
-domainsFrom01 v0 = mkDomains (OR.fromVector [V.length v0] v0)
+domainsFrom01 v0 = mkDomains (Flip $ OR.fromVector [V.length v0] v0)
 
 domainsFrom0V :: ( Numeric r, DTensorOf r ~ OD.Array r
-                 , TensorOf 1 r ~ OR.Array 1 r, DynamicTensor r )
+                 , TensorOf 1 r ~ Flip OR.Array r 1, DynamicTensor r )
               => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
   domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
 listsToParameters :: ( Numeric r, DTensorOf r ~ OD.Array r
-                     , TensorOf 1 r ~ OR.Array 1 r, DynamicTensor r )
+                     , TensorOf 1 r ~ Flip OR.Array r 1, DynamicTensor r )
                   => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
   domainsFrom0V (V.fromList a0) (V.singleton (V.fromList a1))
@@ -223,30 +227,27 @@ listsToParameters4 :: ([Double], [Double], [Double], [Double]) -> Domains Double
 listsToParameters4 (a0, a1, _a2, _aX) = listsToParameters (a0, a1)
 
 domainsD0 :: Tensor r
-          => (Numeric r, TensorOf 1 r ~ OR.Array 1 r) => Domains r -> Vector r
-domainsD0 = OR.toVector . domains0
+          => (Numeric r, TensorOf 1 r ~ Flip OR.Array r 1) => Domains r -> Vector r
+domainsD0 = OR.toVector . runFlip . domains0
 
 -- * Auxiliary definitions
 
-fromX1 :: forall n d r.
-          ( ADModeAndNum d r, KnownNat n
-          , Element (OD.Array r) ~ Element (TensorOf n r) )
+fromX1 :: forall n d r.(ADModeAndNum d r, KnownNat n)
        => ADVal d (OD.Array r) -> ADVal d (TensorOf n r)
 fromX1 (DualNumber.D l u u') = dDnotShared l (tfromD u) (dFromD u')
 
-from1X :: ( ADModeAndNum d r, KnownNat n
-          , Element (TensorOf n r) ~ Element (OD.Array r) )
+from1X :: (ADModeAndNum d r, KnownNat n)
        => ADVal d (TensorOf n r) -> ADVal d (OD.Array r)
 from1X (DualNumber.D l u u') = dDnotShared l (dfromR u) (dFromR u')
 
 -- Shims to reuse the tests for ordinary vectors.
-type Vec r = OR.Array 1 r
+type Vec r = Flip OR.Array r 1
 
 vecToV :: Numeric r => Vec r -> Vector r
-vecToV = OR.toVector
+vecToV = OR.toVector . runFlip
 
-vToVec :: Numeric r => Vector r  -> Vec r
-vToVec v = OR.fromVector [V.length v] v
+vToVec :: Numeric r => Vector r -> Vec r
+vToVec v = Flip $ OR.fromVector [V.length v] v
 
 -- All this is not needed in the simplified version, except for compilation
 -- with the common test code.
@@ -290,10 +291,10 @@ addParameters paramsA paramsB =
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters
   :: Tensor r
-  => (Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r)
+  => (Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1)
   => Domains r -> Domains r -> r
 dotParameters paramsA paramsB =
-  domains0 paramsA `tdot0R` domains0 paramsB
+  runFlip (domains0 paramsA) `tdot0R` runFlip (domains0 paramsB)
   + V.sum (V.zipWith (\v1 u1 ->
       if isTensorDummy v1 || isTensorDummy u1
       then 0
@@ -305,11 +306,11 @@ dotParameters paramsA paramsB =
 
 -- Operations resulting in a scalar
 
-sumElements10 :: Tensor r => TensorOf 1 r -> r
-sumElements10 = tunScalar . tsum
+sumElements10 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
+sumElements10 = tunScalar . tsum . Compose
 
-index10 :: Tensor r => TensorOf 1 r -> Int -> r
-index10 d ix = tunScalar $ d ! (singletonIndex $ fromIntegral ix)
+index10 :: ADModeAndNum d r => ADVal d (Vec r) -> Int -> ADVal d r
+index10 d ix = tunScalar $ Compose d ! (singletonIndex $ fromIntegral ix)
 
 minimum0 :: (KnownNat n, Tensor r) => TensorOf n r -> r
 minimum0 = tunScalar . tminimum
@@ -319,26 +320,27 @@ maximum0 = tunScalar . tmaximum
 
 -- | Dot product.
 infixr 8 <.>!
-(<.>!) :: Tensor r => TensorOf 1 r -> TensorOf 1 r -> r
-(<.>!) u v = tunScalar $ tdot0 u v
+(<.>!) :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d (Vec r) -> ADVal d r
+(<.>!) u v = tunScalar $ tdot0 (Compose u) (Compose v)
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
-(<.>!!) :: Tensor r => TensorOf 1 r -> TensorOf 1 (Primal r) -> r
-(<.>!!) u s = (<.>!) u (tconstant s)
+(<.>!!) :: ADModeAndNum d r => ADVal d (Vec r) -> Vec r -> ADVal d r
+(<.>!!) u s = (<.>!) u (constant s)
 
 
 -- Operations resulting in a vector (really, a OR.Array)
 
 -- @1@ means rank one, so the dual component represents a vector.
-fromList1 :: Tensor r => [r] -> TensorOf 1 r
-fromList1 = tfromList . map tscalar
+fromList1 :: ADModeAndNum d r => [ADVal d r] -> ADVal d (Vec r)
+fromList1 = getCompose . tfromList . map tscalar
 
-fromVector1 :: Tensor r => Data.Vector.Vector r -> TensorOf 1 r
-fromVector1 = tfromVector . V.map tscalar
+fromVector1 :: ADModeAndNum d r
+            => Data.Vector.Vector (ADVal d r) -> ADVal d (Vec r)
+fromVector1 = getCompose . tfromVector . V.map tscalar
 
-konst1 :: Tensor r => r -> Int -> TensorOf 1 r
-konst1 d n = tkonst n (tscalar d)
+konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vec r)
+konst1 d n = getCompose $ tkonst n (tscalar d)
 
 append1 :: Tensor r => TensorOf 1 r -> TensorOf 1 r -> TensorOf 1 r
 append1 = tappend
@@ -356,9 +358,9 @@ reverse1 = treverse
 -- instead of a single delta expression representing an array.
 -- We gain a little by storing the primal part in an unboxed vector.
 build1Elementwise
-  :: Tensor r
-  => Int -> (Int -> r) -> TensorOf 1 r
-build1Elementwise n f = tfromList $ map (tscalar . f) [0 .. n - 1]
+  :: ADModeAndNum d r
+  => Int -> (Int -> ADVal d r) -> ADVal d (Vec r)
+build1Elementwise n f = getCompose $ tfromList $ map (tscalar . f) [0 .. n - 1]
   -- equivalent to @fromVector1 $ build1POPL n f@
 
 build1Closure
@@ -367,13 +369,13 @@ build1Closure
 build1Closure n f =
   let g i = let DualNumber.D _ u _ = f i in u
       h i = let DualNumber.D _ _ u' = f $ fromIntegral i in u'
-  in dD emptyADShare (OR.fromList [n] $ map g [0 .. n - 1])
-           (dBuildR n (dScalarR . h))
+  in dD emptyADShare (Flip $ OR.fromList [n] $ map g [0 .. n - 1])
+                     (dBuildR n (dScalarR . h))
 
 map1Elementwise
-  :: Tensor r
-  => (r -> r) -> TensorOf 1 r -> TensorOf 1 r
-map1Elementwise f = tmap1 (tscalar . f . tunScalar)
+  :: ADModeAndNum d r
+  => (ADVal d r -> ADVal d r) -> ADVal d (Vec r) -> ADVal d (Vec r)
+map1Elementwise f = getCompose . tmap1 (tscalar . f . tunScalar) . Compose
     -- equivalent to
     -- @fromVector1 . map1POPL f . rank1toVector
     --   where rank1toVector d@(D v _v') = V.generate (llength d) (lindex0 d)@
@@ -400,8 +402,8 @@ foldl'0 :: ADModeAndNum d r
 foldl'0 f uu' (DualNumber.D _ v v') =
   let g !acc ix p =
         f (dD emptyADShare p (dIndex0 v' (singletonIndex $ fromIntegral ix)
-                               (flattenShape (tshapeR v)))) acc
-  in V.ifoldl' g uu' (OR.toVector v)
+                           (flattenShape (tshapeR $ runFlip v)))) acc
+  in V.ifoldl' g uu' (OR.toVector $ runFlip v)
 
 altSumElements10 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
 altSumElements10 = foldl'0 (+) 0
@@ -417,6 +419,14 @@ softMax us =
   let expUs = V.map exp us  -- used twice below, so named, to enable sharing
       sumExpUs = sumElementsVectorOfDual expUs
   in V.map (\r -> r * recip sumExpUs) expUs
+
+softMaxV :: (ADModeAndNum d r, Floating (TensorOf 1 r))
+         => ADVal d (Vec r) -> ADVal d (Vec r)
+softMaxV d' =
+  let d = Compose d'
+      expU0 = exp d
+  in getCompose
+     $ tlet expU0 $ \expU -> tkonst0N (tshape d) (recip $ tsum0 expU) * expU
 
 scaleADVal :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
 scaleADVal a (DualNumber.D l u u') = dD l (a * u) (dScale a u')
@@ -437,3 +447,35 @@ lossCrossEntropyV :: ADModeAndNum d r
                   -> ADVal d (Vec r)
                   -> ADVal d r
 lossCrossEntropyV targ res = negate $ log res <.>!! targ
+
+-- Note that this is equivalent to a composition of softMax and cross entropy
+-- only when @target@ is one-hot. Otherwise, results vary wildly. In our
+-- rendering of the MNIST data all labels are one-hot.
+lossSoftMaxCrossEntropyV
+  :: ADModeAndNum d r
+  => Vec r -> ADVal d (Vec r) -> ADVal d r
+lossSoftMaxCrossEntropyV target d' =
+  -- The following protects from underflows, overflows and exploding gradients
+  -- and is required by the QuickCheck test in TestMnistCNN.
+  -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
+  -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
+  let d = Compose d'
+      u = tprimalPart d
+      expU = exp (u - tkonst0N (tshape u) (tminimum u))
+      sumExpU = tsum0 expU
+      recipSum = recip sumExpU
+-- not exposed: softMaxU = LA.scaleRecip sumExpU expU
+      softMaxU = tscaleByScalar (tunScalar recipSum) expU
+  in tunScalar
+     $ tD (negate $ log softMaxU `tdot0` target)
+            -- TODO: avoid: log . exp
+          (tdualPart $ (tconstant (softMaxU - target)) `tdot0` d)
+            -- TODO: probably defining tDot0 would lead to a faster
+            -- tDot0 (softMaxU - target) u'
+
+relu
+  :: forall r d. ADModeAndNum d r
+  => ADVal d (Vec r) -> ADVal d (Vec r)
+relu v =
+  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.0 1.0) $ Compose v
+  in getCompose $ oneIfGtZero * Compose v

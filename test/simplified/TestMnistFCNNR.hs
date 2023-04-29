@@ -7,7 +7,9 @@ import Prelude
 import           Control.Monad (foldM, unless)
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
+import           Data.Functor.Compose
 import           Data.List.Index (imap)
 import           Data.MonoTraversable (Element)
 import qualified Data.Strict.IntMap as IM
@@ -58,13 +60,13 @@ testTrees = [ tensorADValMnistTests
 mnistTestCase2VTA
   :: forall r.
      ( ADReady r, ADReady (ADVal r), ScalarOf r ~ r, ScalarOf (ADVal r) ~ r
-     , TensorOf 0 (ADVal r) ~ ADVal (OR.Array 0 r)
-     , TensorOf 1 (ADVal r) ~ ADVal (OR.Array 1 r)
+     , TensorOf 0 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 0
+     , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
      , DynamicTensor r, DomainsTensor r, Element r ~ r
-     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r
+     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
      , DomainsOf r ~ Data.Vector.Vector (OD.Array r) )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -85,7 +87,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       emptyR = OR.fromList [0] []
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
+      -- valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
@@ -98,7 +100,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
       ftest mnist testParams =
         MnistFcnnRanked1.afcnnMnistTest1
           widthHidden widthHidden2 mnist
-          (\f -> OR.toVector $ f $ parseDomains valsInit testParams)
+          (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -133,7 +135,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
              !res <- foldM runBatch params chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (mkDomains emptyR params1Init)
+       res <- runEpoch 1 (mkDomains (Flip emptyR) params1Init)
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
@@ -151,13 +153,13 @@ tensorADValMnistTests = testGroup "ShortRanked ADVal MNIST tests"
 mnistTestCase2VTI
   :: forall r.
      ( ADReady r, ADReady (ADVal r), ScalarOf r ~ r, ScalarOf (ADVal r) ~ r
-     , TensorOf 1 (ADVal r) ~ ADVal (OR.Array 1 r)
+     , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , InterpretAst (ADVal r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
      , DynamicTensor r, DomainsTensor r, Element r ~ r
-     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r
+     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
      , DomainsOf r ~ Data.Vector.Vector (OD.Array r) )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -172,7 +174,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                           - LA.scalar 0.5)
              nParams1
       emptyR = OR.fromList [0] []
-      domainsInit = mkDomains emptyR params1Init
+      domainsInit = mkDomains (Flip emptyR) params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -180,7 +182,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       -- TODO: generate this from afcnnMnistLen1.
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
+      -- valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
@@ -193,7 +195,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
       ftest mnist testParams =
         MnistFcnnRanked1.afcnnMnistTest1
           widthHidden widthHidden2 mnist
-          (\f -> OR.toVector $ f $ parseDomains valsInit testParams)
+          (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -271,7 +273,7 @@ mnistTestCase2VTO
      ( ADReady r, ScalarOf r ~ r, InterpretAst r
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r, DomainsTensor r
-     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ OR.Array 1 r )
+     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
@@ -285,7 +287,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                           - LA.scalar 0.5)
              nParams1
       emptyR = OR.fromList [0] []
-      domainsInit = mkDomains emptyR params1Init
+      domainsInit = mkDomains (Flip emptyR) params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -293,7 +295,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       -- TODO: generate this from afcnnMnistLen1.
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
+      -- valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
@@ -306,7 +308,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
       ftest mnist testParams =
         MnistFcnnRanked1.afcnnMnistTest1
           widthHidden widthHidden2 mnist
-          (\f -> OR.toVector $ f $ parseDomains valsInit testParams)
+          (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -323,7 +325,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            fInterpret
              :: ADInputs (Ast0 r) -> Domains (Ast0 r)
              -> (ADAstVarNames n r, ADAstVars n r)
-             -> ADVal (Ast 0 r)
+             -> Compose ADVal (AstRanked r) 0
            {-# INLINE fInterpret #-}
            fInterpret varInputs domains ((_, _, vars1), _) =
              -- TODO: with larger examples benchmark if not working in rank 0
@@ -402,15 +404,15 @@ tensorADOnceMnistTests = testGroup "ShortRankedOnce MNIST tests"
 mnistTestCase2VT2A
   :: forall r.
      ( ADReady r, ADReady (ADVal r), ScalarOf r ~ r, ScalarOf (ADVal r) ~ r
-     , TensorOf 0 (ADVal r) ~ ADVal (OR.Array 0 r)
-     , TensorOf 1 (ADVal r) ~ ADVal (OR.Array 1 r)
-     , TensorOf 2 (ADVal r) ~ ADVal (OR.Array 2 r)
+     , TensorOf 0 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 0
+     , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
+     , TensorOf 2 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 2
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
      , DynamicTensor r, DomainsTensor r, Element r ~ r
      , DTensorOf r ~ OD.Array r, DomainsOf r ~ Data.Vector.Vector (OD.Array r)
-     , TensorOf 1 r ~ OR.Array 1 r, TensorOf 2 r ~ OR.Array 2 r )
+     , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
@@ -432,7 +434,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
       -- not using adaptors.
       emptyR = OR.fromList [0] []
       emptyR2 = OR.fromList [0, 0] []
-      valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
+      -- valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
       valsInit = ( (emptyR2, emptyR)
                  , (emptyR2, emptyR)
                  , (emptyR2, emptyR) )
@@ -445,7 +447,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
       ftest :: [MnistData r] -> Domains r -> r
       ftest mnist testParams =
         MnistFcnnRanked2.afcnnMnistTest2 mnist
-          (\f -> OR.toVector $ f $ parseDomains valsInit testParams)
+          (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -479,7 +481,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
              !res <- foldM runBatch params chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (mkDomains emptyR params1Init)
+       res <- runEpoch 1 (mkDomains (Flip emptyR) params1Init)
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
@@ -497,14 +499,14 @@ tensorADValMnistTests2 = testGroup "ShortRanked2 ADVal MNIST tests"
 mnistTestCase2VT2I
   :: forall r.
      ( ADReady r, ADReady (ADVal r), ScalarOf r ~ r, ScalarOf (ADVal r) ~ r
-     , TensorOf 1 (ADVal r) ~ ADVal (OR.Array 1 r)
+     , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , InterpretAst (ADVal r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
      , DynamicTensor r, DomainsTensor r, Element r ~ r
      , DTensorOf r ~ OD.Array r, DomainsOf r ~ Data.Vector.Vector (OD.Array r)
-     , TensorOf 1 r ~ OR.Array 1 r, TensorOf 2 r ~ OR.Array 2 r )
+     , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
@@ -520,7 +522,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
              nParams1
       emptyR = OR.fromList [0] []
       emptyR2 = OR.fromList [0, 0] []
-      domainsInit = mkDomains emptyR params1Init
+      domainsInit = mkDomains (Flip emptyR) params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -528,7 +530,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       -- TODO: generate this from afcnnMnistLen1.
-      valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
+      -- valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
       valsInit = ( (emptyR2, emptyR)
                  , (emptyR2, emptyR)
                  , (emptyR2, emptyR) )
@@ -541,7 +543,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
       ftest :: [MnistData r] -> Domains r -> r
       ftest mnist testParams =
         MnistFcnnRanked2.afcnnMnistTest2 mnist
-          (\f -> OR.toVector $ f $ parseDomains valsInit testParams)
+          (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -619,7 +621,7 @@ mnistTestCase2VT2O
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r, DomainsTensor r
      , DTensorOf r ~ OD.Array r
-     , TensorOf 1 r ~ OR.Array 1 r, TensorOf 2 r ~ OR.Array 2 r )
+     , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
@@ -635,7 +637,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
              nParams1
       emptyR = OR.fromList [0] []
       emptyR2 = OR.fromList [0, 0] []
-      domainsInit = mkDomains emptyR params1Init
+      domainsInit = mkDomains (Flip emptyR) params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -643,7 +645,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       -- TODO: generate this from afcnnMnistLen1.
-      valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
+      -- valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
       valsInit = ( (emptyR2, emptyR)
                  , (emptyR2, emptyR)
                  , (emptyR2, emptyR) )
@@ -656,7 +658,8 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
       ftest :: [MnistData r] -> Domains r -> r
       ftest mnist testParams =
         MnistFcnnRanked2.afcnnMnistTest2 mnist
-          (\f -> OR.toVector $ f $ parseDomains valsInit testParams)
+          (\f -> OR.toVector $ runFlip $ f
+                 $ parseDomains valsInit testParams)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -673,7 +676,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
            fInterpret
              :: ADInputs (Ast0 r) -> Domains (Ast0 r)
              -> (ADAstVarNames n r, ADAstVars n r)
-             -> ADVal (Ast 0 r)
+             -> Compose ADVal (AstRanked r) 0
            {-# INLINE fInterpret #-}
            fInterpret varInputs domains ((_, _, vars1), _) =
              -- TODO: with larger examples benchmark if not working in rank 0
@@ -753,7 +756,14 @@ tensorMnistTestsPP = testGroup "PP tests for Short Ranked MNIST tests"
   , testCase "VT2OPPNonLin" testVT2OPPNonLin
   ]
 
-valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters Double
+valsInitVTOPP ::  -- MnistFcnnRanked1.ADFcnnMnist1Parameters Double
+  ( ( [OR.Array 1 Double]
+    , OR.Array 1 Double )
+  , ( [OR.Array 1 Double]
+    , OR.Array 1 Double )
+  , ( [OR.Array 1 Double]
+    , OR.Array 1 Double )
+  )
 valsInitVTOPP =
   ( ( replicate 3 (OR.fromList [3] [1, 2, 3])
     , OR.fromList [3] [1, 2, 3] )
@@ -788,7 +798,7 @@ testVTOPPNonLin = do
       afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters (Ast0 Double)
                     -> TensorOf 1 (Ast0 Double)
       afcnn2TnonLin =
-        MnistFcnnRanked1.afcnnMnist1 logistic softMaxV 3 4 blackGlyph
+        MnistFcnnRanked1.afcnnMnist1 logistic softMax1 3 4 blackGlyph
       (artifact6nonLin, _) = revDtFun afcnn2TnonLin valsInitVTOPP
   printGradient6Pretty renames artifact6nonLin
     @?= "\\s0 dret v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 v17 -> let v26 = tkonst 784 (tconst 7.0) ; v27 = tfromList [tsum (v3 * v26), tsum (v4 * v26), tsum (v5 * v26)] + v6 ; v30 = let v28 = exp (negate v27) ; v29 = tkonst 3 (tconst 1.0) + v28 in recip v29 ; v31 = tkonst 3 (tconst 1.0) - v30 ; v32 = v30 * v31 ; v33 = v30 ; v34 = tfromList [tsum (v7 * v33), tsum (v8 * v33), tsum (v9 * v33), tsum (v10 * v33)] + v11 ; v37 = let v35 = exp (negate v34) ; v36 = tkonst 4 (tconst 1.0) + v35 in recip v36 ; v38 = tkonst 4 (tconst 1.0) - v37 ; v39 = v37 * v38 ; v40 = v37 ; v41 = exp (tfromList [tsum (v12 * v40), tsum (v13 * v40), tsum (v14 * v40), tsum (v15 * v40), tsum (v16 * v40)] + v17) ; x42 = tsum v41 ; v43 = tkonst 5 (recip x42) ; v44 = v41 * (tkonst 5 (negate (recip (x42 * x42)) * tsum (v41 * dret)) + v43 * dret) ; x45 = v44 ! [4] ; x46 = v44 ! [3] ; x47 = v44 ! [2] ; x48 = v44 ! [1] ; x49 = v44 ! [0] ; v50 = v12 * tkonst 5 x49 + v13 * tkonst 5 x48 + v14 * tkonst 5 x47 + v15 * tkonst 5 x46 + v16 * tkonst 5 x45 ; v51 = v37 * (v34 * v50) ; v52 = v39 * v50 ; x53 = v52 ! [3] ; x54 = v52 ! [2] ; x55 = v52 ! [1] ; x56 = v52 ! [0] ; v57 = v7 * tkonst 4 x56 + v8 * tkonst 4 x55 + v9 * tkonst 4 x54 + v10 * tkonst 4 x53 ; v58 = v30 * (v27 * v57) ; v59 = v32 * v57 ; x60 = v59 ! [2] ; x61 = v59 ! [1] ; x62 = v59 ! [0] in (tfromList [], v26 * tkonst 784 x62, v26 * tkonst 784 x61, v26 * tkonst 784 x60, v59, v33 * tkonst 3 x56, v33 * tkonst 3 x55, v33 * tkonst 3 x54, v33 * tkonst 3 x53, v52, v40 * tkonst 4 x49, v40 * tkonst 4 x48, v40 * tkonst 4 x47, v40 * tkonst 4 x46, v40 * tkonst 4 x45, v44)"
@@ -799,7 +809,14 @@ testVTOPPNonLin = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6nonLin)
     @?= "\\s0 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 v17 -> let v26 = tconstant (tkonst 784 (tconst 7.0)) ; v30 = recip (tconstant (tkonst 3 (tconst 1.0)) + exp (negate (tfromList [tsum (v3 * v26), tsum (v4 * v26), tsum (v5 * v26)] + v6))) ; v37 = recip (tconstant (tkonst 4 (tconst 1.0)) + exp (negate (tfromList [tsum (v7 * v30), tsum (v8 * v30), tsum (v9 * v30), tsum (v10 * v30)] + v11))) ; v41 = exp (tfromList [tsum (v12 * v37), tsum (v13 * v37), tsum (v14 * v37), tsum (v15 * v37), tsum (v16 * v37)] + v17) in tkonst 5 (recip (tsum v41)) * v41"
 
-valsInitVT2OPP :: MnistFcnnRanked2.ADFcnnMnist2Parameters Double
+valsInitVT2OPP ::  -- MnistFcnnRanked2.ADFcnnMnist2Parameters Double
+  ( ( OR.Array 2 Double
+    , OR.Array 1 Double )
+  , ( OR.Array 2 Double
+    , OR.Array 1 Double )
+  , ( OR.Array 2 Double
+    , OR.Array 1 Double )
+  )
 valsInitVT2OPP =
   ( ( OR.fromList [3, 3] (concat $ replicate 3 [1, 2, 3])
     , OR.fromList [3] [1, 2, 3] )
@@ -833,7 +850,7 @@ testVT2OPPNonLin = do
       blackGlyph = AstKonst sizeMnistGlyphInt 7
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (Ast0 Double)
                     -> TensorOf 1 (Ast0 Double)
-      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMaxV blackGlyph
+      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       (artifact6nonLin, _) = revDtFun afcnn2TnonLin valsInitVT2OPP
   printGradient6Pretty renames artifact6nonLin
     @?= "\\s0 dret m3 v4 m5 v6 m7 v8 -> let m17 = tkonst 3 (tkonst 784 (tconst 7.0)) ; v18 = tsum (ttranspose [1,0] (m17 * m3)) + v4 ; v21 = let v19 = exp (negate v18) ; v20 = tkonst 3 (tconst 1.0) + v19 in recip v20 ; v22 = tkonst 3 (tconst 1.0) - v21 ; v23 = v21 * v22 ; m24 = tkonst 4 v21 ; v25 = tsum (ttranspose [1,0] (m24 * m5)) + v6 ; v28 = let v26 = exp (negate v25) ; v27 = tkonst 4 (tconst 1.0) + v26 in recip v27 ; v29 = tkonst 4 (tconst 1.0) - v28 ; v30 = v28 * v29 ; m31 = tkonst 5 v28 ; v32 = exp (tsum (ttranspose [1,0] (m31 * m7)) + v8) ; x33 = tsum v32 ; v34 = tkonst 5 (recip x33) ; v35 = v32 * (tkonst 5 (negate (recip (x33 * x33)) * tsum (v32 * dret)) + v34 * dret) ; m36 = ttranspose [1,0] (tkonst 4 v35) ; v37 = tsum (m7 * m36) ; v38 = v28 * (v25 * v37) ; v39 = v30 * v37 ; m40 = ttranspose [1,0] (tkonst 3 v39) ; v41 = tsum (m5 * m40) ; v42 = v21 * (v18 * v41) ; v43 = v23 * v41 ; m44 = ttranspose [1,0] (tkonst 784 v43) in (tfromList [], m17 * m44, v43, m24 * m40, v39, m31 * m36, v35)"

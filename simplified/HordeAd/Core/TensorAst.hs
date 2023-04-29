@@ -24,7 +24,7 @@ import HordeAd.Core.TensorClass
 
 instance ShowAstSimplify r
          => Tensor (Ast0 r) where
-  type TensorOf n (Ast0 r) = Ast n r
+  type Ranked (Ast0 r) = AstRanked r
   type IntOf (Ast0 r) = AstInt r
 
   tlet a f = astLetFun a f
@@ -149,7 +149,7 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 instance ShowAstSimplify r
          => Tensor (AstPrimalPart 0 r) where
-  type TensorOf n (AstPrimalPart 0 r) = AstPrimalPart n r
+  type Ranked (AstPrimalPart 0 r) = AstPrimalPartRanked r
   type IntOf (AstPrimalPart 0 r) = AstInt r
 
   tlet a f =
@@ -206,9 +206,9 @@ instance ShowAstSimplify r
   tfromD = undefined
 
 instance ShowAstSimplify r
-         => Tensor (AstNoVectorize 0 r) where
-  type TensorOf n (AstNoVectorize 0 r) = AstNoVectorize n r
-  type IntOf (AstNoVectorize 0 r) = AstInt r
+         => Tensor (AstNoVectorize r 0) where
+  type Ranked (AstNoVectorize r 0) = AstNoVectorize r
+  type IntOf (AstNoVectorize r 0) = AstInt r
 
   tlet a f =
     AstNoVectorize
@@ -247,9 +247,9 @@ instance ShowAstSimplify r
 
   tsumOfList l = AstNoVectorize . AstSumOfList . map unAstNoVectorize $ l
 
-  type ScalarOf (AstNoVectorize 0 r) = r
-  type Primal (AstNoVectorize 0 r) = AstNoVectorize 0 r
-  type DualOf n (AstNoVectorize 0 r) = AstDualPart n r
+  type ScalarOf (AstNoVectorize r 0) = r
+  type Primal (AstNoVectorize r 0) = AstNoVectorize r 0
+  type DualOf n (AstNoVectorize r 0) = AstDualPart n r
   tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
   tconstant = AstNoVectorize . astConstant . AstPrimalPart . unAstNoVectorize
   tscale0 r d = r * d
@@ -264,9 +264,9 @@ instance ShowAstSimplify r
   tfromD = undefined
 
 instance ShowAstSimplify r
-         => Tensor (AstNoSimplify 0 r) where
-  type TensorOf n (AstNoSimplify 0 r) = AstNoSimplify n r
-  type IntOf (AstNoSimplify 0 r) = AstInt r
+         => Tensor (AstNoSimplify r 0) where
+  type Ranked (AstNoSimplify r 0) = AstNoSimplify r
+  type IntOf (AstNoSimplify r 0) = AstInt r
 
   tlet a f =
     AstNoSimplify
@@ -303,9 +303,9 @@ instance ShowAstSimplify r
 
   tsumOfList l = AstNoSimplify . AstSumOfList . map unAstNoSimplify $ l
 
-  type ScalarOf (AstNoSimplify 0 r) = r
-  type Primal (AstNoSimplify 0 r) = AstNoSimplify 0 r
-  type DualOf n (AstNoSimplify 0 r) = AstDualPart n r
+  type ScalarOf (AstNoSimplify r 0) = r
+  type Primal (AstNoSimplify r 0) = AstNoSimplify r 0
+  type DualOf n (AstNoSimplify r 0) = AstDualPart n r
   tconst = AstNoSimplify . AstConstant . AstPrimalPart . AstConst
   tconstant = AstNoSimplify . astConstant . AstPrimalPart . unAstNoSimplify
     -- exceptionally we do simplify AstConstant to avoid long boring chains

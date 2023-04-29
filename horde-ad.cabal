@@ -157,6 +157,7 @@ library
     build-depends:
         assert-failure
       , base >= 4.16 && < 99
+      , bifunctors
       , Boolean
       , deepseq
       , enummapset
@@ -264,6 +265,7 @@ library testCommonLibrary
       , horde-ad
 
       , base
+      , bifunctors
       , deepseq
       , hmatrix
       , ilist
@@ -537,6 +539,7 @@ library horde-ad-simplified
     build-depends:
         assert-failure
       , base >= 4.14 && < 99
+      , bifunctors
       , Boolean
       , enummapset
       , ghc-typelits-knownnat
@@ -638,6 +641,7 @@ library testToolLibrarySimplified
       , horde-ad-simplified
 
       , base
+      , bifunctors
       , enummapset
       , hmatrix
       , orthotope
@@ -755,6 +759,7 @@ test-suite simplifiedOnlyTest
       , testToolLibrarySimplified
 
       , base
+      , bifunctors
       , Boolean
       , enummapset
       , ghc-typelits-knownnat

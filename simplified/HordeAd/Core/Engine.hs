@@ -19,7 +19,9 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
+import           Data.Functor.Compose
 import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -79,7 +81,7 @@ revAstOnDomains
   :: forall r n.
      ( ADTensor r, InterpretAst r, DomainsTensor r
      , KnownNat n, ScalarOf r ~ r, ShowAstSimplify r )
-  => (ADInputs (Ast0 r) -> ADVal (Ast n r))
+  => (ADInputs (Ast0 r) -> Compose ADVal (AstRanked r) n)
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 -- The functions in which @revAstOnDomains@ inlines are not inlined
@@ -91,7 +93,7 @@ revAstOnDomains f parameters =
 revAstOnDomainsF
   :: forall r n.
      (ADTensor r, DomainsTensor r, KnownNat n, ShowAstSimplify r)
-  => (ADInputs (Ast0 r) -> ADVal (Ast n r))
+  => (ADInputs (Ast0 r) -> Compose ADVal (AstRanked r) n)
   -> Domains r
   -> ADAstArtifact6 n r
 {-# INLINE revAstOnDomainsF #-}
@@ -105,7 +107,7 @@ revAstOnDomainsFun
   => Int -> [[Int]]
   -> (ADInputs (Ast0 r) -> Domains (Ast0 r)
       -> (ADAstVarNames n r, ADAstVars n r)
-      -> ADVal (Ast n r))
+      -> Compose ADVal (AstRanked r) n)
   -> (ADAstArtifact6 n r, DeltaR n (Ast0 r))
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun dim0 shapes1 f =
@@ -118,7 +120,7 @@ revAstOnDomainsFun dim0 shapes1 f =
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D l primalBody deltaTopLevel) = f varInputs domains v6
+      !(D l primalBody deltaTopLevel) = getCompose $ f varInputs domains v6
       deltaDt = packDeltaDt (Right $ astDt (tshape primalBody)) deltaTopLevel in
   let !(!astBindings, !gradient) =
         gradientFromDelta dim0 (length shapes1) deltaDt
@@ -264,7 +266,7 @@ initializerFixed seed range (nParams0, lParams1, _, _) =
   in ( (nParams0, V.length vParams1)
      , totalParams
      , range
-     , mkDomains dom0 domR )
+     , mkDomains (Flip dom0) domR )
 
 initializerFixed01 :: Int -> Double -> (Int, [Int])
                    -> ((Int, Int), Int, Double, Domains Double)

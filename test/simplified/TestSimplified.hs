@@ -5,8 +5,10 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
+import           Data.Functor.Compose
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
@@ -58,11 +60,11 @@ at0 ADInputs{..} i =
               (inputDual0 V.! i)
 
 at1 :: forall n r. ( KnownNat n, ADTensor r, IsPrimal (TensorOf n r)
-                   , TensorOf n r ~ OR.Array n r )
-    => ADInputs r -> Int -> ADVal (OR.Array n r)
+                   , TensorOf n r ~ Flip OR.Array r n )
+    => ADInputs r -> Int -> Compose ADVal (Flip OR.Array r) n
 {-# INLINE at1 #-}
-at1 ADInputs{..} i = dD emptyADShare (tfromD $ inputPrimal1 V.! i)
-                                 (dFromD $ inputDual1 V.! i)
+at1 ADInputs{..} i = Compose $ dD emptyADShare (tfromD $ inputPrimal1 V.! i)
+                                               (dFromD $ inputDual1 V.! i)
 
 domainsFrom01 :: (Numeric r, Tensor r, DynamicTensor r)
               => Vector r -> DomainR r -> Domains r
@@ -75,9 +77,9 @@ domainsFrom0V
 domainsFrom0V v0 vs =
   domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
-domainsD0 :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r, Tensor r)
+domainsD0 :: (Numeric r, TensorOf 1 r ~ Flip OR.Array r 1, Tensor r)
           => Domains r -> Vector r
-domainsD0 = OR.toVector . domains0
+domainsD0 = OR.toVector . runFlip . domains0
 
 
 -- * Tensor tests
@@ -301,11 +303,11 @@ testPoly01 f outSize input expected = do
         domainsFrom01 (V.singleton input) V.empty
       domainsExpected =
         domainsFrom01 (V.singleton expected) V.empty
-      dt = OR.constant [outSize] 1
+      dt = Flip $ OR.constant [outSize] 1
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
       (astGrad, astValue) =
         revOnDomains (Just dt)
-          (\adinputs -> snd $
+          (\adinputs -> getCompose $ snd $
              interpretAst (EM.singleton (intToAstVarId 100000000)
                              (AstVarR $ dfromR $ tscalar $ adinputs `at0` 0))
                           emptyMemo
@@ -313,7 +315,7 @@ testPoly01 f outSize input expected = do
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains (Just dt)
-          (\adinputs -> f $ adinputs `at0` 0)
+          (\adinputs -> getCompose $ f $ adinputs `at0` 0)
           domainsInput
       val = f input
   astValue @?~ val
@@ -330,11 +332,11 @@ testPoly11 f outSize input expected = do
         domainsFrom0V V.empty (V.singleton (V.fromList input))
       domainsExpected =
         domainsFrom0V V.empty (V.singleton (V.fromList expected))
-      dt = OR.constant [outSize] 1
+      dt = Flip $ OR.constant [outSize] 1
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
       (astGrad, astValue) =
         revOnDomains (Just dt)
-          (\adinputs -> snd $
+          (\adinputs -> getCompose $ snd $
              interpretAst (EM.singleton (intToAstVarId 100000000)
                              (AstVarR $ dfromR $ at1 @1 adinputs 0))
                           emptyMemo
@@ -342,9 +344,9 @@ testPoly11 f outSize input expected = do
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains (Just dt)
-          (\adinputs -> f $ adinputs `at1` 0)
+          (\adinputs -> getCompose $ f $ adinputs `at1` 0)
           domainsInput
-      val = f (OR.fromList [length input] input)
+      val = f (Flip $ OR.fromList [length input] input)
   astValue @?~ val
   advalValue @?~ val
   domainsR astGrad @?~ domainsR domainsExpected
@@ -360,11 +362,11 @@ testPolyn f sh input expected = do
         domainsFrom01 (V.singleton input) V.empty
       domainsExpected =
         domainsFrom01 (V.singleton expected) V.empty
-      dt = OR.fromVector sh $ LA.konst 1 $ product sh
+      dt = Flip $ OR.fromVector sh $ LA.konst 1 $ product sh
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
       (astGrad, astValue) =
         revOnDomains (Just dt)
-          (\adinputs -> snd $
+          (\adinputs -> getCompose $ snd $
              interpretAst (EM.singleton (intToAstVarId 100000000)
                              (AstVarR $ dfromR $ tscalar $ adinputs `at0` 0))
                           emptyMemo
@@ -372,7 +374,7 @@ testPolyn f sh input expected = do
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains (Just dt)
-          (\adinputs -> f $ adinputs `at0` 0)
+          (\adinputs -> getCompose $ f $ adinputs `at0` 0)
           domainsInput
       val = f input
   astValue @?~ val
@@ -403,9 +405,9 @@ testFooNoGoAst :: Assertion
 testFooNoGoAst =
   (domainsR $ fst
    $ revOnDomains
-       (Just $ OR.constant [3] 1)
+       (Just $ Flip $ OR.constant [3] 1)
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
-       (\adinputs -> snd $
+       (\adinputs -> getCompose $ snd $
           interpretAst (EM.singleton (intToAstVarId 100000000)
                           (AstVarR $ dfromR $ at1 @1 adinputs 0))
                        emptyMemo
@@ -458,12 +460,12 @@ testBarReluAst0 =
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
   (domainsR $ fst
-   $ revOnDomains @Double @(OR.Array 1 Double)
-       (Just $ OR.constant [5] 1)
+   $ revOnDomains @Double @(Flip OR.Array Double 1)
+       (Just $ Flip $ OR.constant [5] 1)
          -- "1" wrong due to fragility of hmatrix and tensor numeric instances
-       (\adinputs -> snd $
+       (\adinputs -> getCompose $ snd $
           interpretAst (EM.singleton (intToAstVarId 100000000)
-                          (AstVarR $ dfromR $ at1 @1 adinputs 0))
+                          (AstVarR $ dfromR @(ADVal Double) $ at1 @1 adinputs 0))
                        emptyMemo
                        (barReluAst (AstVar [5] (intToAstVarId 100000000))))
        (domainsFrom0V V.empty

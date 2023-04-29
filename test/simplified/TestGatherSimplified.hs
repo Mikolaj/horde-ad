@@ -6,6 +6,7 @@ module TestGatherSimplified (testTrees) where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import           Data.Boolean
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -319,7 +320,7 @@ testGatherSimp23 = do
 gatherTranspose33 :: forall r. ADReady r
                   => TensorOf 10 r -> TensorOf 2 r
 gatherTranspose33 t =
-  tmatmul2 (treshape [6, 8] (tconst t48))
+  tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
     (ttr
      $ treshape @r @4 [16, 8]
      $ ttranspose [0, 1, 2]
@@ -373,7 +374,7 @@ testGatherSimp33 = do
   length (show t1) @?= 1072
   length (show (simplifyAst6 @Float t1)) @?= 7293
   resetVarCounter
-  let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
+  let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
                             (treshape @(Ast0 Float) @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t2) @?= 526
@@ -389,7 +390,7 @@ testGatherSimp34 = do
   length (show (simplifyAst6 @Float t1)) @?= 15179
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
-              (\t' -> tmatmul2 (treshape [6, 8] (tconst t48))
+              (\t' -> tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
                                (treshape @(Ast0 Float) @10 [8, 16] t'))
                 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)

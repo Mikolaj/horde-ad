@@ -9,9 +9,10 @@
 module HordeAd.Core.Ast
   ( ADAstVarNames, ADAstArtifact6
   , ShowAst, AstIndex, AstVarList
-  , Ast(..), AstNoVectorize(..), AstNoSimplify(..)
-  , AstPrimalPart(..), AstDualPart(..), AstDynamic(..)
-  , AstDomains(..), unwrapAstDomains, bindsToLet, bindsToDomainsLet
+  , AstRanked(..), Ast, AstNoVectorize(..), AstNoSimplify(..)
+  , AstPrimalPartRanked(..), AstPrimalPart, AstDualPartRanked(..), AstDualPart
+  , AstDynamic(..), AstDomains(..)
+  , unwrapAstDomains, bindsToLet, bindsToDomainsLet
   , Ast0(..), AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
@@ -64,13 +65,15 @@ type AstIndex n r = Index n (AstInt r)
 
 type AstVarList n = SizedList n AstVarId
 
+type Ast n r = AstRanked r n
+
 -- We use here @ShapeInt@ for simplicity. @Shape n (AstInt r)@ gives
 -- more expressiveness, but leads to irregular tensors,
 -- especially after vectorization, and prevents statically known shapes.
 
 -- | AST for a tensor of rank n and elements r that is meant
 -- to be differentiated.
-data Ast :: Nat -> Type -> Type where
+data AstRanked :: Type -> Nat -> Type where
   -- To permit defining objective functions in Ast, not just constants:
   AstVar :: ShapeInt n -> AstVarId -> Ast n r
   AstLet :: (KnownNat n, KnownNat m)
@@ -130,21 +133,25 @@ data Ast :: Nat -> Type -> Type where
 deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
                   => Show (Ast n r)
 
-newtype AstNoVectorize n r = AstNoVectorize {unAstNoVectorize :: Ast n r}
+newtype AstNoVectorize r n = AstNoVectorize {unAstNoVectorize :: Ast n r}
 deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
-                  => Show (AstNoVectorize n r)
+                  => Show (AstNoVectorize r n)
 
-newtype AstNoSimplify n r = AstNoSimplify {unAstNoSimplify :: Ast n r}
+newtype AstNoSimplify r n = AstNoSimplify {unAstNoSimplify :: Ast n r}
 deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
-                  => Show (AstNoSimplify n r)
+                  => Show (AstNoSimplify r n)
 
-newtype AstPrimalPart n r = AstPrimalPart {unAstPrimalPart :: Ast n r}
+newtype AstPrimalPartRanked r n = AstPrimalPart {unAstPrimalPart :: Ast n r}
 deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
                   => Show (AstPrimalPart n r)
 
-newtype AstDualPart n r = AstDualPart {unAstDualPart :: Ast n r}
+type AstPrimalPart n r = AstPrimalPartRanked r n
+
+newtype AstDualPartRanked r n = AstDualPart {unAstDualPart :: Ast n r}
 deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
                   => Show (AstDualPart n r)
+
+type AstDualPart n r = AstDualPartRanked r n
 
 data AstDynamic :: Type -> Type where
   AstDynamic :: KnownNat n
@@ -271,19 +278,19 @@ instance KnownNat n => OrdB (Ast n r) where
   v >* u = AstRel GtOp [AstPrimalPart v, AstPrimalPart u]
   v >=* u = AstRel GeqOp [AstPrimalPart v, AstPrimalPart u]
 
-type instance BooleanOf (AstNoVectorize n r) = AstBool r
+type instance BooleanOf (AstNoVectorize r n) = AstBool r
 
-instance KnownNat n => IfB (AstNoVectorize n r) where
+instance KnownNat n => IfB (AstNoVectorize r n) where
   ifB b v w = AstNoVectorize $ astCond b (unAstNoVectorize v)
                                          (unAstNoVectorize w)
 
-instance KnownNat n => EqB (AstNoVectorize n r) where
+instance KnownNat n => EqB (AstNoVectorize r n) where
   v ==* u = AstRel EqOp [ AstPrimalPart $ unAstNoVectorize v
                         , AstPrimalPart $ unAstNoVectorize u ]
   v /=* u = AstRel NeqOp [ AstPrimalPart $ unAstNoVectorize v
                          , AstPrimalPart $ unAstNoVectorize u ]
 
-instance KnownNat n => OrdB (AstNoVectorize n r) where
+instance KnownNat n => OrdB (AstNoVectorize r n) where
   v <* u = AstRel LsOp [ AstPrimalPart $ unAstNoVectorize v
                        , AstPrimalPart $ unAstNoVectorize u ]
   v <=* u = AstRel LeqOp [ AstPrimalPart $ unAstNoVectorize v
@@ -293,19 +300,19 @@ instance KnownNat n => OrdB (AstNoVectorize n r) where
   v >=* u = AstRel GeqOp [ AstPrimalPart $ unAstNoVectorize v
                          , AstPrimalPart $ unAstNoVectorize u ]
 
-type instance BooleanOf (AstNoSimplify n r) = AstBool r
+type instance BooleanOf (AstNoSimplify r n) = AstBool r
 
-instance KnownNat n => IfB (AstNoSimplify n r) where
+instance KnownNat n => IfB (AstNoSimplify r n) where
   ifB b v w = AstNoSimplify $ astCond b (unAstNoSimplify v)
                                          (unAstNoSimplify w)
 
-instance KnownNat n => EqB (AstNoSimplify n r) where
+instance KnownNat n => EqB (AstNoSimplify r n) where
   v ==* u = AstRel EqOp [ AstPrimalPart $ unAstNoSimplify v
                         , AstPrimalPart $ unAstNoSimplify u ]
   v /=* u = AstRel NeqOp [ AstPrimalPart $ unAstNoSimplify v
                          , AstPrimalPart $ unAstNoSimplify u ]
 
-instance KnownNat n => OrdB (AstNoSimplify n r) where
+instance KnownNat n => OrdB (AstNoSimplify r n) where
   v <* u = AstRel LsOp [ AstPrimalPart $ unAstNoSimplify v
                        , AstPrimalPart $ unAstNoSimplify u ]
   v <=* u = AstRel LeqOp [ AstPrimalPart $ unAstNoSimplify v
@@ -441,39 +448,39 @@ instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
   isNegativeZero = undefined
   isIEEE = undefined
 
-instance Eq (AstNoVectorize n r) where
+instance Eq (AstNoVectorize r n) where
   _ == _ = error "AstNoVectorize: can't evaluate terms for Eq"
 
-instance Ord (Ast n r) => Ord (AstNoVectorize n r) where
+instance Ord (Ast n r) => Ord (AstNoVectorize r n) where
   max (AstNoVectorize u) (AstNoVectorize v) =
     AstNoVectorize (AstOp MaxOp [u, v])
   min (AstNoVectorize u) (AstNoVectorize v) =
     AstNoVectorize (AstOp MinOp [u, v])
   _ <= _ = error "AstNoVectorize: can't evaluate terms for Ord"
 
-deriving instance Num (Ast n r) => Num (AstNoVectorize n r)
-deriving instance Real (Ast n r) => Real (AstNoVectorize n r)
-deriving instance Fractional (Ast n r) => Fractional (AstNoVectorize n r)
-deriving instance Floating (Ast n r) => Floating (AstNoVectorize n r)
-deriving instance RealFrac (Ast n r) => RealFrac (AstNoVectorize n r)
-deriving instance RealFloat (Ast n r) => RealFloat (AstNoVectorize n r)
+deriving instance Num (Ast n r) => Num (AstNoVectorize r n)
+deriving instance Real (Ast n r) => Real (AstNoVectorize r n)
+deriving instance Fractional (Ast n r) => Fractional (AstNoVectorize r n)
+deriving instance Floating (Ast n r) => Floating (AstNoVectorize r n)
+deriving instance RealFrac (Ast n r) => RealFrac (AstNoVectorize r n)
+deriving instance RealFloat (Ast n r) => RealFloat (AstNoVectorize r n)
 
-instance Eq (AstNoSimplify n r) where
+instance Eq (AstNoSimplify r n) where
   _ == _ = error "AstNoSimplify: can't evaluate terms for Eq"
 
-instance Ord (Ast n r) => Ord (AstNoSimplify n r) where
+instance Ord (Ast n r) => Ord (AstNoSimplify r n) where
   max (AstNoSimplify u) (AstNoSimplify v) =
     AstNoSimplify (AstOp MaxOp [u, v])
   min (AstNoSimplify u) (AstNoSimplify v) =
     AstNoSimplify (AstOp MinOp [u, v])
   _ <= _ = error "AstNoSimplify: can't evaluate terms for Ord"
 
-deriving instance Num (Ast n r) => Num (AstNoSimplify n r)
-deriving instance Real (Ast n r) => Real (AstNoSimplify n r)
-deriving instance Fractional (Ast n r) => Fractional (AstNoSimplify n r)
-deriving instance Floating (Ast n r) => Floating (AstNoSimplify n r)
-deriving instance RealFrac (Ast n r) => RealFrac (AstNoSimplify n r)
-deriving instance RealFloat (Ast n r) => RealFloat (AstNoSimplify n r)
+deriving instance Num (Ast n r) => Num (AstNoSimplify r n)
+deriving instance Real (Ast n r) => Real (AstNoSimplify r n)
+deriving instance Fractional (Ast n r) => Fractional (AstNoSimplify r n)
+deriving instance Floating (Ast n r) => Floating (AstNoSimplify r n)
+deriving instance RealFrac (Ast n r) => RealFrac (AstNoSimplify r n)
+deriving instance RealFloat (Ast n r) => RealFloat (AstNoSimplify r n)
 
 instance Eq (AstPrimalPart n r) where
   _ == _ = error "AstPrimalPart: can't evaluate terms for Eq"

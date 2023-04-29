@@ -18,6 +18,7 @@ import Prelude hiding ((<*))
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy (Proxy))
 import           Foreign.C (CInt)
@@ -79,9 +80,9 @@ type ADNum r =
   , RealFloat r
   , RealFloat (Vector r)
   , Tensor r
-  , TensorOf 0 r ~ OR.Array 0 r
-  , TensorOf 1 r ~ OR.Array 1 r
-  , TensorOf 2 r ~ OR.Array 2 r
+  , TensorOf 0 r ~ Flip OR.Array r 0
+  , TensorOf 1 r ~ Flip OR.Array r 1
+  , TensorOf 2 r ~ Flip OR.Array r 2
   , IntOf r ~ CInt
   , DynamicTensor r
   , DomainsTensor r

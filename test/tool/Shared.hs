@@ -7,6 +7,7 @@ import Prelude
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Flip
 import qualified Data.Char
 import qualified Data.Foldable
 import qualified Data.Vector.Storable as VS
@@ -30,6 +31,9 @@ instance (VS.Storable a) => HasShape (VS.Vector a) where
 
 instance HasShape (OD.Array a) where
   shapeL = OD.shapeL
+
+instance HasShape (Flip OR.Array a n) where
+  shapeL = OR.shapeL . runFlip
 
 instance HasShape (LA.Matrix a) where
   shapeL matrix = [LA.rows matrix, LA.cols matrix]
@@ -55,6 +59,9 @@ instance (VS.Storable a, OS.Shape sh) => Linearizable (OS.Array sh a) a where
 
 instance (VS.Storable a) => Linearizable (OR.Array n a) a where
   linearize = OR.toList
+
+instance (VS.Storable a) => Linearizable (Flip OR.Array a n) a where
+  linearize = OR.toList . runFlip
 
 instance (LA.Element a) => Linearizable (LA.Matrix a) a where
   linearize = LA.toList . LA.flatten

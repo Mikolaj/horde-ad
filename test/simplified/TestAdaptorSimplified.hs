@@ -7,8 +7,10 @@ module TestAdaptorSimplified
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
+import           Data.Functor.Compose
 import qualified Data.Strict.IntMap as IM
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -48,7 +50,6 @@ testTrees =
   , testCase "2matmul1PP" testMatmul1PP
   , testCase "2matmul2PP" testMatmul2PP
   , testCase "2bar" testBar
-  , testCase "2barADVal" testBarADVal
   , testCase "2baz old to force fooConstant" testBaz
   , testCase "2baz if repetition breaks things" testBaz
   , testCase "2baz again with renumbered terms" testBazRenumbered
@@ -372,19 +373,9 @@ testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-9
     (3.1435239435581166,-1.1053869545195814)
-    (crev (bar @(ADVal Double)) (1.1, 2.2))
+    (crev (bar @(TensorOf 0 (ADVal Double))) (1.1, 2.2))
 
-barADVal :: forall r. (IsPrimal r, RealFloat r)
-         => (ADVal r, ADVal r) -> ADVal r
-barADVal = bar @(ADVal r)
-
-testBarADVal :: Assertion
-testBarADVal =
-  assertEqualUpToEpsilon 1e-9
-    (11.49618087412679,-135.68959896367525)
-    (crevDt (barADVal @Double) (1.1, 3) 42.2)
-
-barADVal2 :: forall r a. (a ~ ADVal r, r ~ Double)
+barADVal2 :: forall a. RealFloat a
           => (a, a, a) -> a
 barADVal2 (x,y,z) =
   let w = foo (x,y,z) * sin y
@@ -401,16 +392,16 @@ barADVal2 (x,y,z) =
 -- causing exactly the same danger.
 -- This example also tests unused parameters (x), another common cause
 -- of crashes in naive gradient computing code.
-baz :: ( ADVal Double
-       , ADVal Double
-       , ADVal Double )
-    -> ADVal Double
+baz :: ( TensorOf 0 (ADVal Double)
+       , TensorOf 0 (ADVal Double)
+       , TensorOf 0 (ADVal Double) )
+    -> TensorOf 0 (ADVal Double)
 baz (_x,y,z) =
   let w = fooConstant * barADVal2 (y,y,z) * sin y
   in atan2 z w + z * w
 
 -- An "old term", computed once, stored at top level.
-fooConstant :: ADVal Double
+fooConstant :: TensorOf 0 (ADVal Double)
 fooConstant = foo (7, 8, 9)
 
 testBaz :: Assertion
@@ -437,8 +428,8 @@ testBazRenumbered =
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
-fooD :: forall r. (IsPrimalWithScalar r r, RealFloat r)
-     => [ADVal r] -> ADVal r
+fooD :: forall r. r ~ Double
+     => [TensorOf 0 (ADVal r)] -> TensorOf 0 (ADVal r)
 fooD [x, y, z] =
   let w = x * sin y
   in atan2 z w + z * w
@@ -448,7 +439,7 @@ testFooD :: Assertion
 testFooD =
   assertEqualUpToEpsilon 1e-10
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
-    (crev fooD [1.1 :: Double, 2.2, 3.3])
+    (crev fooD [1.1, 2.2, 3.3])
 
 fooBuild1 :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 fooBuild1 v =
@@ -464,13 +455,13 @@ testFooBuildDt :: Assertion
 testFooBuildDt =
   assertEqualUpToEpsilon 1e-10
     (OR.fromList [4] [-189890.46351219364,-233886.08744601303,-222532.22669716467,-206108.68889329425])
-    (revDt @Double @1 fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]) (OR.constant [3] 42))
+    (revDt @Double @1 fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]) (Flip $ OR.constant [3] 42))
 
 testFooBuild :: Assertion
 testFooBuild =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [4] [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
-    (rev' @(OR.Array 1 Double) fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]))
+    (rev' @(OR.Array 1 Double) fooBuild1 (Flip $ OR.fromList [4] [1.1, 2.2, 3.3, 4]))
 
 fooMap1 :: ADReady r => TensorOf 0 r -> TensorOf 1 r
 fooMap1 r =
@@ -506,18 +497,18 @@ fooNoGoAst v =
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
   let f :: ( ShowAstSimplify r, RealFloat r, Floating (Vector r)
-           , TensorOf 1 r ~ OR.Array 1 r, InterpretAst (ADVal r)
-           , TensorOf 1 (ADVal r) ~ ADVal (TensorOf 1 r)
+           , TensorOf 1 r ~ Flip OR.Array r 1, InterpretAst (ADVal r)
+           , TensorOf 1 (ADVal r) ~ Compose ADVal (Ranked r) 1
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
            , ScalarOf (ADVal r) ~ r )
-        => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
+        => TensorOf 1 (ADVal r) -> TensorOf 1 (ADVal r)
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
                            emptyMemo
                            (fooNoGoAst (AstVar [5] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
-       (crev @(OR.Array 1 Double) f
+       (crev @1 f
              (OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
 fooNoGo :: forall r. ADReady r
@@ -537,7 +528,7 @@ testFooNoGo =
   assertEqualUpToEpsilon' 1e-6
    (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
    (rev' @(OR.Array 1 Double) fooNoGo
-         (OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
+         (Flip $ OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
 nestedBuildMap :: forall r. ADReady r => TensorOf 0 r -> TensorOf 1 r
 nestedBuildMap r =
@@ -580,7 +571,7 @@ testNestedSumBuild :: Assertion
 testNestedSumBuild =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [5] [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612])
-    (rev' @(OR.Array 1 Double) nestedSumBuild (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
+    (rev' @(OR.Array 1 Double) nestedSumBuild (Flip $ OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 nestedBuildIndex :: forall r. ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedBuildIndex v =
@@ -590,7 +581,7 @@ testNestedBuildIndex :: Assertion
 testNestedBuildIndex =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [5]  [1,1,0,0,0])
-    (rev' @(OR.Array 1 Double) nestedBuildIndex (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
+    (rev' @(OR.Array 1 Double) nestedBuildIndex (Flip $ OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 barRelu
   :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
@@ -607,13 +598,13 @@ testBarReluADVal :: Assertion
 testBarReluADVal =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [] [4.5309153191767395])
-    (rev' @(OR.Array 0 Double) barRelu (OR.fromList [] [1.1]))
+    (rev' @(OR.Array 0 Double) barRelu (Flip $ OR.fromList [] [1.1]))
 
 testBarReluADVal3 :: Assertion
 testBarReluADVal3 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
-    (rev' @(OR.Array 3 Double) barRelu (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
+    (rev' @(OR.Array 3 Double) barRelu (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 barReluMax
   :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
@@ -630,13 +621,13 @@ testBarReluADValMax :: Assertion
 testBarReluADValMax =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [] [4.5309153191767395])
-    (rev' @(OR.Array 0 Double) barReluMax (OR.fromList [] [1.1]))
+    (rev' @(OR.Array 0 Double) barReluMax (Flip $ OR.fromList [] [1.1]))
 
 testBarReluADValMax3 :: Assertion
 testBarReluADValMax3 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
-    (rev' @(OR.Array 3 Double) barReluMax (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
+    (rev' @(OR.Array 3 Double) barReluMax (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 barReluAst
   :: forall n r.
@@ -647,34 +638,34 @@ barReluAst x = relu @n @(Ast0 r) $ bar (x, relu x)
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
   let f :: ( ShowAstSimplify r, RealFloat r, Floating (Vector r)
-           , TensorOf 0 r ~ OR.Array 0 r, InterpretAst (ADVal r)
-           , TensorOf 0 (ADVal r) ~ ADVal (TensorOf 0 r)
+           , TensorOf 0 r ~ Flip OR.Array r 0, InterpretAst (ADVal r)
+           , TensorOf 0 (ADVal r) ~ Compose ADVal (Ranked r) 0
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
            , ScalarOf (ADVal r) ~ r )
-        => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
+        => TensorOf 0 (ADVal r) -> TensorOf 0 (ADVal r)
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
                            emptyMemo
                            (barReluAst (AstVar [] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [] [191.20462646925841])
-       (crevDt @(OR.Array 0 Double) f (OR.fromList [] [1.1]) 42.2)
+       (crevDt @0 @Double f (OR.fromList [] [1.1]) 42.2)
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
   let f :: ( ShowAstSimplify r, RealFloat r, Floating (Vector r)
-           , TensorOf 1 r ~ OR.Array 1 r, InterpretAst (ADVal r)
-           , TensorOf 1 (ADVal r) ~ ADVal (TensorOf 1 r)
+           , TensorOf 1 r ~ Flip OR.Array r 1, InterpretAst (ADVal r)
+           , TensorOf 1 (ADVal r) ~ Compose ADVal (Ranked r) 1
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
            , ScalarOf (ADVal r) ~ r )
-        => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
+        => TensorOf 1 (ADVal r) -> TensorOf 1 (ADVal r)
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
                            emptyMemo
                            (barReluAst (AstVar [5] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
-       (crev @(OR.Array 1 Double) f (OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
+       (crev @1 @Double f (OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
 
 konstReluAst
   :: forall r. (ShowAstSimplify r, RealFloat r, RealFloat (Vector r))
@@ -684,18 +675,18 @@ konstReluAst x = tsum0 $ relu $ tkonst0N (7 :$ ZS) x
 testKonstReluAst :: Assertion
 testKonstReluAst =
   let f :: ( ShowAstSimplify r, RealFloat r, Floating (Vector r)
-           , TensorOf 0 r ~ OR.Array 0 r, InterpretAst (ADVal r)
-           , TensorOf 0 (ADVal r) ~ ADVal (TensorOf 0 r)
+           , TensorOf 0 r ~ Flip OR.Array r 0, InterpretAst (ADVal r)
+           , TensorOf 0 (ADVal r) ~ Compose ADVal (Ranked r) 0
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
            , ScalarOf (ADVal r) ~ r )
-        => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
+        => TensorOf 0 (ADVal r) -> TensorOf 0 (ADVal r)
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
                            emptyMemo
                            (konstReluAst (AstVar [] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon 1e-10
        (OR.fromList [] [295.4])
-       (crevDt @(OR.Array 0 Double) f (OR.fromList [] [1.1]) 42.2)
+       (crevDt @0 @Double f (OR.fromList [] [1.1]) 42.2)
 
 
 -- * Tests by TomS
@@ -838,13 +829,13 @@ testEmptyArgs0 :: Assertion
 testEmptyArgs0 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [0] [])
-    (rev' @(OR.Array 1 Double) emptyArgs (OR.fromList [0] []))
+    (rev' @(OR.Array 1 Double) emptyArgs (Flip $ OR.fromList [0] []))
 
 testEmptyArgs1 :: Assertion
 testEmptyArgs1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1] [0])
-    (rev' @(OR.Array 1 Double) emptyArgs (OR.fromList [1] [0.24]))
+    (rev' @(OR.Array 1 Double) emptyArgs (Flip $ OR.fromList [1] [0.24]))
 
 testEmptyArgs4 :: Assertion
 testEmptyArgs4 =
@@ -852,7 +843,7 @@ testEmptyArgs4 =
     (OR.fromList [1] [0])
     (rev' @(OR.Array 1 Double)
           (\t -> tbuild [2, 5, 11, 0] (const $ emptyArgs t))
-          (OR.fromList [1] [0.24]))
+          (Flip $ OR.fromList [1] [0.24]))
 
 -- Catastrophic loss of sharing prevented.
 fblowup :: forall r. ADReady r => Int -> TensorOf 1 r -> TensorOf 0 r
@@ -935,40 +926,40 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   [ testCase "blowup 10" $ do
       assertEqualUpToEpsilon' 1e-5
         (OR.fromList [2] [0.3333332333333467,-0.22222215555556446])
-        (rev' @(OR.Array 0 Double) (fblowup 10) (OR.fromList [2] [2, 3]))
+        (rev' @(OR.Array 0 Double) (fblowup 10) (Flip $ OR.fromList [2] [2, 3]))
   , testCase "blowupLet 15" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [0.3333331833333646,-0.22222212222224305])
-        (rev' @(OR.Array 0 Double) (fblowupLet 0 15) (OR.fromList [2] [2, 3]))
+        (rev' @(OR.Array 0 Double) (fblowupLet 0 15) (Flip $ OR.fromList [2] [2, 3]))
   , testCase "blowupLet 1000" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [0.3333233334831686,-0.22221555565544573])
         (rev' @(OR.Array 0 Double) (fblowupLet 0 1000)
-                                   (OR.fromList [2] [2, 3]))
+                                   (Flip $ OR.fromList [2] [2, 3]))
   , testCase "blowupLet tbuild1" $ do
       assertEqualUpToEpsilonShort 1e-10
         (OR.fromList [2] [33.332333348316844,-22.221555565544556])
         (rev' @(OR.Array 1 Double)
               (\intputs -> tbuild1 100 (\i -> fblowupLet i 1000 intputs))
-              (OR.fromList [2] [2, 3]))
+              (Flip $ OR.fromList [2] [2, 3]))
   , testCase "blowupMult 3" $ do
       assertEqualUpToEpsilon' 1e-5
         (OR.fromList [2] [2.999999730000007,1.9999998200000046])
-        (rev' @(OR.Array 0 Double) (fblowupMult 3) (OR.fromList [2] [2, 3]))
+        (rev' @(OR.Array 0 Double) (fblowupMult 3) (Flip $ OR.fromList [2] [2, 3]))
   , testCase "blowupMultLet 5" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [2.9999995500000267,1.9999997000000178])
         (rev' @(OR.Array 0 Double) (fblowupMultLet 0 5)
-                                   (OR.fromList [2] [2, 3]))
+                                   (Flip $ OR.fromList [2] [2, 3]))
   , testCase "blowupMultLet 500" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [2.9999550003159223,1.9999700002106149])
         (rev' @(OR.Array 0 Double) (fblowupMultLet 0 500)
-                                   (OR.fromList [2] [2, 3]))
+                                   (Flip $ OR.fromList [2] [2, 3]))
   , testCase "blowupMultLet tbuild1" $ do
       assertEqualUpToEpsilonShort 1e-10
         (OR.fromList [2] [14.999773964296464,39.99939838951207])
         (rev' @(OR.Array 1 Double)
               (\intputs -> tbuild1 100 (\i -> fblowupMultLet i 500 intputs))
-              (OR.fromList [2] [0.2, 0.3]))
+              (Flip $ OR.fromList [2] [0.2, 0.3]))
   ]

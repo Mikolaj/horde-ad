@@ -82,7 +82,7 @@ afcnnMnistLoss1TensorData
   => Int -> Int -> (TensorOf 1 r, TensorOf 1 r) -> ADFcnnMnist1Parameters r
   -> r
 afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
-  let result = inline afcnnMnist1 logistic softMaxV
+  let result = inline afcnnMnist1 logistic softMax1
                                   widthHidden widthHidden2 datum adparams
   in lossCrossEntropyV target result
 
@@ -101,7 +101,7 @@ afcnnMnistTest1 widthHidden widthHidden2 dataList evalAtTestParams =
         let glyph1 = tconst $ OR.fromVector [sizeMnistGlyphInt] glyph
             nn :: ADFcnnMnist1Parameters r
                -> TensorOf 1 r
-            nn = inline afcnnMnist1 logistic softMaxV
+            nn = inline afcnnMnist1 logistic softMax1
                                     widthHidden widthHidden2 glyph1
             v = evalAtTestParams nn
         in V.maxIndex v == V.maxIndex label
