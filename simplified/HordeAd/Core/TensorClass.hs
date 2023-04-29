@@ -397,8 +397,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
             => TensorOf n r -> [(AstVarId, DTensorOf r)]
             -> ([(AstVarId, DTensorOf r)], TensorOf n r)
   tregister r l = (l, r)
-  tletWrap :: KnownNat n
-           => ADShare r -> TensorOf n r -> TensorOf n r
+  tletWrap :: ADShare r -> TensorOf n r -> TensorOf n r
   tletWrap _l u = u
 
   -- Conversion

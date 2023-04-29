@@ -75,8 +75,7 @@ data Ast :: Nat -> Type -> Type where
   AstVar :: ShapeInt n -> AstVarId -> Ast n r
   AstLet :: (KnownNat n, KnownNat m)
          => AstVarId -> Ast n r -> Ast m r -> Ast m r
-  AstLetADShare :: KnownNat m
-                => ADShare (Ast0 r) -> Ast m r -> Ast m r
+  AstLetADShare :: ADShare (Ast0 r) -> Ast m r -> Ast m r
    -- there are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
