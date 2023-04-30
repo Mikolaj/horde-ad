@@ -17,10 +17,12 @@ import           Data.Boolean
 import           Data.Functor.Compose
 import           Data.List (foldl1')
 import           Data.MonoTraversable (Element)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat, type (+))
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
@@ -402,10 +404,13 @@ transpose :: (ADTensor r, IsPrimal (TensorOf n r), KnownNat n)
           => Permutation -> ADVal (TensorOf n r) -> ADVal (TensorOf n r)
 transpose perm (D l u u') = dD l (ttranspose perm u) (dTransposeR perm u')
 
-reshape :: ( ADTensor r, IsPrimal (TensorOf m r), KnownNat m, KnownNat n
+reshape :: forall n m r.
+           ( ADTensor r, IsPrimal (TensorOf m r), KnownNat m, KnownNat n
            , Element (TensorOf n r) ~ Element (TensorOf m r) )
         => ShapeInt m -> ADVal (TensorOf n r) -> ADVal (TensorOf m r)
-reshape sh (D l u u') = dD l (treshape sh u) (dReshapeR (tshape u) sh u')
+reshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
+  Just Refl | sh == tshape u -> t
+  _ -> dD l (treshape sh u) (dReshapeR (tshape u) sh u')
 
 build1
   :: ( ADTensor r, KnownNat n, IsPrimal (TensorOf (1 + n) r)
