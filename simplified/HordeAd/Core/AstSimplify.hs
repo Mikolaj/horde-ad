@@ -498,9 +498,9 @@ astTranspose :: forall n r. (ShowAstSimplify r, KnownNat n)
 astTranspose perm0 t0 = case (perm0, t0) of
   ([], t) -> t
   (perm, Ast.AstLet var u v) -> astLet var u (astTranspose perm v)
-  (perm, Ast.AstOp opCode args) | not (all isVar args) && length args <= 1 ->
+  (perm, Ast.AstOp opCode args) | not (length args > 1 || all isVar args) ->
     Ast.AstOp opCode (map (astTranspose perm) args)
-  (perm, Ast.AstSumOfList args) | not (all isVar args) && length args <= 1 ->
+  (perm, Ast.AstSumOfList args) | not (length args > 1 || all isVar args) ->
     Ast.AstSumOfList (map (astTranspose perm) args)
   (perm, Ast.AstSum v) -> astSum $ astTranspose (0 : map succ perm) v
   (perm, Ast.AstScatter @m sh v (vars, ix)) | length perm <= valueOf @m ->
@@ -532,10 +532,10 @@ astReshape :: forall p m r. (KnownNat p, KnownNat m, ShowAstSimplify r)
            => ShapeInt m -> Ast p r -> Ast m r
 astReshape shOut (Ast.AstLet var u v) = astLet var u (astReshape shOut v)
 astReshape shOut (Ast.AstOp opCode args)
-  | not (all isVar args) && length args <= 1 =
+  | not (length args > 1 || all isVar args) =
       Ast.AstOp opCode (map (astReshape shOut) args)
 astReshape shOut (Ast.AstSumOfList args)
-  | not (all isVar args) && length args <= 1 =
+  | not (length args > 1 || all isVar args) =
       Ast.AstSumOfList (map (astReshape shOut) args)
 astReshape shOut (Ast.AstReshape _ v) = astReshape shOut v
   -- this rule can be disabled to test fusion of gathers
@@ -630,13 +630,13 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstVar{} -> Ast.AstGatherZ sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
     Ast.AstLetADShare{} -> error "astGatherCase: AstLetADShare"
-    Ast.AstOp opCode args | not (all isVar args) && length args <= 1 ->
+    Ast.AstOp opCode args | not (length args > 1 || all isVar args) ->
       -- Going inside AstOp usually makes the term more expensive to interpret
       -- and reverting this transformation requires comparing many arguments,
       -- so it's not practical.
       Ast.AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     Ast.AstOp{} -> Ast.AstGatherZ sh4 v4 (vars4, ix4)
-    Ast.AstSumOfList args | not (all isVar args) && length args <= 1 ->
+    Ast.AstSumOfList args | not (length args > 1 || all isVar args) ->
       Ast.AstSumOfList (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     Ast.AstSumOfList{} -> Ast.AstGatherZ sh4 v4 (vars4, ix4)
     Ast.AstIota | AstIntConst i <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
@@ -1265,9 +1265,9 @@ simplifyAst t = case t of
         case astTranspose perm2 (simplifyAst v2) of
           u@(Ast.AstTranspose _ Ast.AstVar{}) -> u  -- normal form
           u@(Ast.AstTranspose _ (Ast.AstOp _ args))
-            | all isVar args || length args > 1 -> u  -- normal form
+            | length args > 1 || all isVar args -> u  -- normal form
           u@(Ast.AstTranspose _ (Ast.AstSumOfList args))
-            | all isVar args || length args > 1 -> u  -- normal form
+            | length args > 1 || all isVar args -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstKonst{}) -> u  -- normal form
           Ast.AstTranspose perm3 v3 ->  -- not nf, let's express all as gather
@@ -1282,10 +1282,10 @@ simplifyAst t = case t of
         case astReshape sh2 (simplifyAst v2) of
           u@(Ast.AstReshape _ Ast.AstVar{}) -> u  -- normal form
           u@(Ast.AstReshape _ (Ast.AstOp _ args))
-            | all isVar args || length args > 1 -> u
+            | length args > 1 || all isVar args -> u
               -- normal form, because gather doesn't go inside such AstOp either
           u@(Ast.AstReshape _ (Ast.AstSumOfList args))
-            | all isVar args || length args > 1 -> u  -- normal form
+            | length args > 1 || all isVar args -> u  -- normal form
           u@(Ast.AstReshape _ Ast.AstScatter{}) -> u  -- normal form
           -- Not a normal form, because often AstReshape scan be eliminated:
           -- u@(Ast.AstReshape _ Ast.AstKonst{}) -> u  -- normal form
