@@ -1,4 +1,4 @@
-{-# LANGUAGE ImpredicativeTypes, QuantifiedConstraints, UndecidableInstances #-}
+{-# LANGUAGE ImpredicativeTypes, QuantifiedConstraints #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
