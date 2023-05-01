@@ -530,12 +530,19 @@ astTranspose perm0 t0 = case (perm0, t0) of
 -- if full simplification is required.
 astReshape :: forall p m r. (KnownNat p, KnownNat m, ShowAstSimplify r)
            => ShapeInt m -> Ast p r -> Ast m r
+astReshape shOut (Ast.AstLet var u v) = astLet var u (astReshape shOut v)
+astReshape shOut (Ast.AstOp opCode args)
+  | not (all isVar args) && length args <= 1 =
+      Ast.AstOp opCode (map (astReshape shOut) args)
+astReshape shOut (Ast.AstSumOfList args)
+  | not (all isVar args) && length args <= 1 =
+      Ast.AstSumOfList (map (astReshape shOut) args)
+astReshape shOut (Ast.AstReshape _ v) = astReshape shOut v
+  -- this rule can be disabled to test fusion of gathers
 astReshape shOut (Ast.AstConst t) =
   Ast.AstConst $ OR.reshape (shapeToList shOut) t
 astReshape shOut (Ast.AstConstant (AstPrimalPart v)) =
   astConstant $ AstPrimalPart $ astReshape shOut v
-astReshape shOut (Ast.AstReshape _ v) = astReshape shOut v
-  -- this rule can be disabled to test fusion of gathers
 astReshape shOut v =
   let shIn = shapeAst v
   in case sameNat (Proxy @p) (Proxy @m) of
@@ -1258,12 +1265,12 @@ simplifyAst t = case t of
         case astTranspose perm2 (simplifyAst v2) of
           u@(Ast.AstTranspose _ Ast.AstVar{}) -> u  -- normal form
           u@(Ast.AstTranspose _ (Ast.AstOp _ args))
-            | all isVar args || length args > 1 -> u  -- nf
+            | all isVar args || length args > 1 -> u  -- normal form
           u@(Ast.AstTranspose _ (Ast.AstSumOfList args))
-            | all isVar args || length args > 1 -> u  -- nf
+            | all isVar args || length args > 1 -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstKonst{}) -> u  -- normal form
-          Ast.AstTranspose perm3 v3 ->  -- nope, let's express all as gather
+          Ast.AstTranspose perm3 v3 ->  -- not nf, let's express all as gather
             astTransposeAsGather perm3 v3
               -- this is expensive, but the only way to guarantee
               -- full simplification
@@ -1273,6 +1280,15 @@ simplifyAst t = case t of
     case astReshape sh v of  -- see above
       Ast.AstReshape sh2 v2 ->
         case astReshape sh2 (simplifyAst v2) of
+          u@(Ast.AstReshape _ Ast.AstVar{}) -> u  -- normal form
+          u@(Ast.AstReshape _ (Ast.AstOp _ args))
+            | all isVar args || length args > 1 -> u
+              -- normal form, because gather doesn't go inside such AstOp either
+          u@(Ast.AstReshape _ (Ast.AstSumOfList args))
+            | all isVar args || length args > 1 -> u  -- normal form
+          u@(Ast.AstReshape _ Ast.AstScatter{}) -> u  -- normal form
+          -- Not a normal form, because often AstReshape scan be eliminated:
+          -- u@(Ast.AstReshape _ Ast.AstKonst{}) -> u  -- normal form
           Ast.AstReshape sh3 v3 -> astReshapeAsGather sh3 v3
             -- this is terribly expensive, but the only way to fully simplify
           u -> simplifyAst u

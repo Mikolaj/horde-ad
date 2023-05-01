@@ -309,7 +309,7 @@ testReluSimplerPP4 = do
   printPrimal6Pretty renames artifact6
     @?= "\\s0 m3 -> let m9 = treshape [3,4] (tkonst 12 (s0 ! [0])) ; m10 = tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i7, i8] -> [ifB ((let x16 = m3 ! [i7, i8] ; x17 = s0 ! [0] in x16 * x17) <=* tconst 0.0) 0 1]) ; m11 = m3 * m9 in m10 * m11"
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 dret m3 -> let m12 = tconstant (tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i7, i8] -> [ifB (m3 ! [i7, i8] * s0 ! [0] <=* tconst 0.0) 0 1])) * dret in (tkonst 1 (tconst 0.0 + tsum (tgather [12] (m3 * m12) (\\[i20] -> [rem (quot i20 4) 3, rem i20 4]))), tkonst 3 (tkonst 4 (s0 ! [0])) * m12)"
+    @?= "\\s0 dret m3 -> let m12 = tconstant (tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i7, i8] -> [ifB (m3 ! [i7, i8] * s0 ! [0] <=* tconst 0.0) 0 1])) * dret in (tkonst 1 (tconst 0.0 + tsum (treshape [12] (m3 * m12))), tkonst 3 (tkonst 4 (s0 ! [0])) * m12)"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\s0 m3 -> tconstant (tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i7, i8] -> [ifB (m3 ! [i7, i8] * s0 ! [0] <=* tconst 0.0) 0 1])) * (m3 * tkonst 3 (tkonst 4 (s0 ! [0])))"
   show deltas
@@ -871,7 +871,7 @@ emptyArgs t =
   - tindex (tfromList0N (0 :$ tshape @r (tfromList [])) []) (42 :. ZI)
   - tsum (tfromList0N (0 :$ tshape @r (tfromList [])) [])
   * tsum (tfromList [tsum (tfromList0N (0 :$ tshape @r (tfromList [])) [])])
-  / tflatten (ttr (tgather1 0 t (const ZI)))
+  * tflatten (ttr (tgather1 0 t (const ZI)))
   + tbuild1 0 (\i -> t ! [fromIntegral (trank t) `quot` i] / tfromIndex0 i)
   -- - tsum (tbuild @r @2 (0 :$ 0 :$ ZS) (const 73))
   -- - tsum (tbuild @r @1 (0 :$ 0 :$ ZS) (const $ tfromList []))
