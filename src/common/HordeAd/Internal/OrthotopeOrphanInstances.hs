@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP, UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Orphan instances for orthotope classes.
@@ -441,9 +441,11 @@ deriving instance EqB (f (g a)) => EqB (Compose f g a)
 
 deriving instance OrdB (f (g a)) => OrdB (Compose f g a)
 
+#if !MIN_VERSION_base(4,18,0)
 deriving instance Eq (f (g a)) => Eq (Compose f g a)
 
 deriving instance Ord (f (g a)) => Ord (Compose f g a)
+#endif
 
 deriving instance Num (f (g a)) => Num (Compose f g a)
 
