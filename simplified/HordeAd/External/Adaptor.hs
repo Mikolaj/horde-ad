@@ -1,4 +1,4 @@
-{-# LANGUAGE ImpredicativeTypes, UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | This is an adaptor from user-defined objective functions

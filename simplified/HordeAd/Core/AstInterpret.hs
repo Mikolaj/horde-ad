@@ -1,4 +1,4 @@
-{-# LANGUAGE ImpredicativeTypes, QuantifiedConstraints, UndecidableInstances #-}
+{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
@@ -15,7 +15,6 @@ import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
-import           Data.Kind (Constraint, Type)
 import           Data.List (foldl1', mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -98,23 +97,20 @@ interpretLambdaIndexToIndex f env memo (vars, asts) =
   \ix -> listToIndex $ snd
          $ mapAccumR (f (extendEnvVars vars ix env)) memo (indexToList asts)
 
-class (forall y. KnownNat y => c (Ranked r y)) => CRanked2 c r where
-instance (forall y. KnownNat y => c (Ranked r y)) => CRanked2 c r where
+class (forall y. KnownNat y => c (Ranked r y)) => CRanked c r where
+instance (forall y. KnownNat y => c (Ranked r y)) => CRanked c r where
 
-class (BooleanOf (Ranked (Primal a) n) ~ BooleanOf (IntOf a))
-      => CBooleanOfMatches a n where
-instance (BooleanOf (Ranked (Primal a) n) ~ BooleanOf (IntOf a))
-         => CBooleanOfMatches a n where
+class (BooleanOf r ~ b) => BooleanOfMatches b r where
+instance (BooleanOf r ~ b) => BooleanOfMatches b r where
 
-type InterpretAst :: Type -> Constraint
 type InterpretAst a =
   ( Tensor a, Tensor (Primal a), DynamicTensor a, ShowAstSimplify (ScalarOf a)
   , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a), RealFloat (Primal a)
   , IntOf (Primal a) ~ IntOf a, BooleanOf (Primal a) ~ BooleanOf (IntOf a)
-  , CRanked2 RealFloat a
-  , CRanked2 EqB (Primal a)
-  , CRanked2 OrdB (Primal a)
-  , forall x. CBooleanOfMatches a x
+  , CRanked RealFloat a
+  , CRanked EqB (Primal a)
+  , CRanked OrdB (Primal a)
+  , CRanked (BooleanOfMatches (BooleanOf (IntOf a))) (Primal a)
   )
 
 type AstMemo a = ()  -- unused for now, but likely to be used in the future,

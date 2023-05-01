@@ -1,4 +1,4 @@
-{-# LANGUAGE ImpredicativeTypes, OverloadedLists #-}
+{-# LANGUAGE OverloadedLists #-}
 module TestAdaptorSimplified
   ( testTrees, rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , t16, t16b, t48, t128, t128b, t128c

@@ -1,4 +1,3 @@
-{-# LANGUAGE ImpredicativeTypes #-}
 module CrossTesting
   ( rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , t16, t16b, t48, t128, t128b, t128c

@@ -1,4 +1,3 @@
-{-# LANGUAGE ImpredicativeTypes #-}
 -- | The implementation of calculating gradient and derivative
 -- of an objective function expressed wtih the `Tensor` class.
 -- Together with "HordeAd.Core.TensorClass", this forms the basic
