@@ -41,12 +41,17 @@ testTrees =
   , testCase "2fooLetPP" testFooLetPP
   , testCase "2reluPP" testReluPP
   , testCase "2reluPP2" testReluPP2
+  , testCase "2reluSimpler" testReluSimpler
   , testCase "2reluSimplerPP" testReluSimplerPP
   , testCase "2reluSimplerPP2" testReluSimplerPP2
   , testCase "2reluSimplerPP3" testReluSimplerPP3
   , testCase "2reluSimplerPP4" testReluSimplerPP4
+  , testCase "2reluSimpler3" testReluSimpler3
+  , testCase "2reluSimpler4" testReluSimpler4
+  , testCase "2reluMax" testReluMax
   , testCase "2reluMaxPP" testReluMaxPP
   , testCase "2reluMaxPP2" testReluMaxPP2
+  , testCase "2reluMax3" testReluMax3
   , testCase "2dot1PP" testDot1PP
   , testCase "2dot2PP" testDot2PP
   , testCase "2matmul1PP" testMatmul1PP
@@ -220,6 +225,12 @@ testReluPP2 = do
   show deltas
     @?= "LetR 100000010 (ScaleR (AstVar [5] (AstVarId 100000007)) (LetR 100000009 (AddR (ScaleR (AstVar [5] (AstVarId 100000006)) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000003)) (LetR 100000008 (KonstR 5 (LetR 100000007 (IndexZ (LetR 100000006 (FromVectorR [ScalarR (Input0 (InputId 0))])) [AstIntConst 0] [1]))))))))"
 
+testReluSimpler :: Assertion
+testReluSimpler = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [3, 4] [1.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,0.0,0.0,1.0,1.0])
+    (rev' @(OR.Array 2 Double) relu (tfromList0N [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12]))
+
 testReluSimplerPP :: Assertion
 testReluSimplerPP = do
   resetVarCounter >> resetIdCounter
@@ -315,9 +326,33 @@ testReluSimplerPP4 = do
   show deltas
     @?= "LetR 100000030 (ScaleR (AstVar [3,4] (AstVarId 100000010)) (LetR 100000029 (AddR (ScaleR (AstVar [3,4] (AstVarId 100000009)) (InputR (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000003)) (LetR 100000028 (ReshapeR [12] [3,4] (LetR 100000027 (KonstR 12 (LetR 100000026 (IndexZ (LetR 100000025 (FromVectorR [ScalarR (Input0 (InputId 0))])) [AstIntConst 0] [1]))))))))))"
 
+testReluSimpler3 :: Assertion
+testReluSimpler3 = do
+  let reluT2 :: (TensorOf 2 (Ast0 Double), Ast0 Double)
+             -> TensorOf 2 (Ast0 Double)
+      reluT2 (t, r) = relu (t * tkonst 3 (tkonst 4 (tscalar r)))
+  assertEqualUpToEpsilon 1e-10
+    (OR.fromList [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0],57.1)
+    (rev @Double @2 reluT2 (OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
+
+testReluSimpler4 :: Assertion
+testReluSimpler4 = do
+  let reluT2 :: (TensorOf 2 (Ast0 Double), Ast0 Double)
+             -> TensorOf 2 (Ast0 Double)
+      reluT2 (t, r) = relu (t * tkonst0N [3, 4] (tscalar r))
+  assertEqualUpToEpsilon 1e-10
+    (OR.fromList [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0],57.1)
+    (rev @Double @2 reluT2 (OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
+
 reluMax :: forall n r. (ADReady r, KnownNat n)
         => TensorOf n r -> TensorOf n r
 reluMax v = tmap0N (maxB 0) v
+
+testReluMax :: Assertion
+testReluMax = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [3, 4] [1.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,0.0,0.0,1.0,1.0])
+    (rev' @(OR.Array 2 Double) reluMax (tfromList0N [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12]))
 
 testReluMaxPP :: Assertion
 testReluMaxPP = do
@@ -367,6 +402,15 @@ testReluMaxPP2 = do
     @?= "\\s0 v3 -> tgather [5] (tfromList [tconstant (tkonst 5 (tconst 0.0)), v3 * tkonst 5 (s0 ! [0])]) (\\[i7] -> [ifB (tconst 0.0 >=* v3 ! [i7] * s0 ! [0]) 0 1, i7])"
   show deltas
     @?= "LetR 100000014 (GatherZ [5] (LetR 100000013 (FromListR [ZeroR,LetR 100000012 (AddR (ScaleR (AstVar [5] (AstVarId 100000006)) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000003)) (LetR 100000011 (KonstR 5 (LetR 100000010 (IndexZ (LetR 100000009 (FromVectorR [ScalarR (Input0 (InputId 0))])) [AstIntConst 0] [1]))))))])) <function> [2,5])"
+
+testReluMax3 :: Assertion
+testReluMax3 = do
+  let reluT2 :: (TensorOf 2 (Ast0 Double), Ast0 Double)
+             -> TensorOf 2 (Ast0 Double)
+      reluT2 (t, r) = reluMax (t * tkonst 3 (tkonst 4 (tscalar r)))
+  assertEqualUpToEpsilon 1e-10
+    (OR.fromList [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0],57.1)
+    (rev @Double @2 reluT2 (OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
 
 testDot1PP :: Assertion
 testDot1PP = do
