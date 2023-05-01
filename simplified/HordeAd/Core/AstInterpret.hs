@@ -1,4 +1,4 @@
-{-# LANGUAGE ImpredicativeTypes, UndecidableInstances,
+{-# LANGUAGE ImpredicativeTypes, QuantifiedConstraints, UndecidableInstances,
              UndecidableSuperClasses #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -99,11 +99,8 @@ interpretLambdaIndexToIndex f env memo (vars, asts) =
   \ix -> listToIndex $ snd
          $ mapAccumR (f (extendEnvVars vars ix env)) memo (indexToList asts)
 
-class c (Ranked r n) => CRanked c r n where
-instance c (Ranked r n) => CRanked c r n where
-
-class c (Ranked (Primal a) n) => CRankedPrimal c a n where
-instance c (Ranked (Primal a) n) => CRankedPrimal c a n where
+class (forall y. KnownNat y => c (Ranked r y)) => CRanked2 c r where
+instance (forall y. KnownNat y => c (Ranked r y)) => CRanked2 c r where
 
 class (BooleanOf (Ranked (Primal a) n) ~ BooleanOf (IntOf a))
       => CBooleanOfMatches a n where
@@ -115,9 +112,9 @@ type InterpretAst a =
   ( Tensor a, Tensor (Primal a), DynamicTensor a, ShowAstSimplify (ScalarOf a)
   , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a), RealFloat (Primal a)
   , IntOf (Primal a) ~ IntOf a, BooleanOf (Primal a) ~ BooleanOf (IntOf a)
-  , forall x. KnownNat x => CRanked RealFloat a x
-  , forall x. KnownNat x => CRankedPrimal EqB a x
-  , forall x. KnownNat x => CRankedPrimal OrdB a x
+  , CRanked2 RealFloat a
+  , CRanked2 EqB (Primal a)
+  , CRanked2 OrdB (Primal a)
   , forall x. CBooleanOfMatches a x
   )
 
