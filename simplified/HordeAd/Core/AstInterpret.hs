@@ -168,16 +168,23 @@ interpretAst env memo = \case
     in (memo1, tlet t (\w -> snd $ interpretAst (env2 w) memo1 v))
          -- TODO: snd; env/state?
   AstLetADShare{} -> error "interpretAst: AstLetADShare"
+  {- TODO: revise when we handle GPUs. For now, this is done in TensorOps
+     instead and that's fine, because for one-element carriers,
+     reshape and konst are very cheap. OTOH, this was introducing
+     ScalarR(UnScalar0 ...) into delta expressions by firing
+     in an early phase.
   AstOp TimesOp [v, AstReshape _ (AstKonst @m _ s)]
+   -- TODO: also handle nested AstKonst to prevent executing them
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo v
             (memo2, t2) = interpretAst env memo1 s
-        in (memo2, tscaleByScalar (tunScalar t2) t1)
+        in (memo2, tscaleByScalar0 t2 t1)
   AstOp TimesOp [v, AstKonst @m _ s]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo v
             (memo2, t2) = interpretAst env memo1 s
-        in (memo2, tscaleByScalar (tunScalar t2) t1)
+        in (memo2, tscaleByScalar0 t2 t1)
+  -}
   AstOp TimesOp [v, AstLet var u (AstReshape sh (AstKonst @m k s))]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
         -- The intVarInAst check is needed, because although variable
