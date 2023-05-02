@@ -50,7 +50,8 @@ revL
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
      , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals )
+     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
+     , Scalar astvals ~ r )
   => (astvals -> Ast n r) -> [vals] -> [vals]
 revL f valsAll = revDtMaybeL f valsAll Nothing
 
@@ -59,7 +60,8 @@ revDtMaybeL
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
      , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals )
+     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
+     , Scalar astvals ~ r )
   => (astvals -> Ast n r) -> [vals] -> Maybe (TensorOf n r) -> [vals]
 revDtMaybeL _ [] _ = []
 revDtMaybeL f valsAll@(vals : _) dt =
@@ -73,7 +75,8 @@ revDtFun
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
      , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals )
+     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
+     , Scalar astvals ~ r )
   => (astvals -> Ast n r) -> vals
   -> (ADAstArtifact6 n r, DeltaR n (Ast0 r))
 {-# INLINE revDtFun #-}
@@ -87,7 +90,7 @@ revDtInterpret
   :: forall r n vals astvals.
      ( InterpretAst r, KnownNat n, ScalarOf r ~ r, Floating (Vector r)
      , RealFloat r, FromDomainsAst astvals
-     , r ~ Scalar vals, vals ~ Value astvals )
+     , vals ~ Value astvals, Scalar astvals ~ r )
   => vals -> (astvals -> Ast n r) -> ADInputs (Ast0 r) -> Domains (Ast0 r)
   -> (ADAstVarNames n r, ADAstVars n r)
   -> Compose ADVal (AstRanked r) n
@@ -110,7 +113,8 @@ rev
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
      , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals )
+     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
+     , Scalar astvals ~ r )
   => (astvals -> Ast n r) -> vals -> vals
 rev f vals = head $ revL f [vals]
 
@@ -120,7 +124,8 @@ revDt
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
      , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals )
+     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
+     , Scalar astvals ~ r )
   => (astvals -> Ast n r) -> vals -> TensorOf n r -> vals
 revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 
@@ -130,7 +135,8 @@ srevL
      ( ADTensor r, InterpretAst r, DomainsTensor r, ScalarOf r ~ r
      , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals )
+     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
+     , Scalar astvals ~ r )
   => (astvals -> Ast0 r) -> [vals] -> [vals]
 srevL f = revL (tscalar . f)
 
@@ -139,7 +145,8 @@ srevDtMaybeL
      ( ADTensor r, InterpretAst r, DomainsTensor r, ScalarOf r ~ r
      , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals )
+     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
+     , Scalar astvals ~ r )
   => (astvals -> Ast0 r) -> [vals] -> Maybe r -> [vals]
 srevDtMaybeL _ [] _ = []
 srevDtMaybeL f valsAll dt = revDtMaybeL (tscalar . f) valsAll (tscalar <$> dt)
@@ -149,7 +156,8 @@ srev
      ( ADTensor r, InterpretAst r, DomainsTensor r, ScalarOf r ~ r
      , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals )
+     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
+     , Scalar astvals ~ r )
   => (astvals -> Ast0 r) -> vals -> vals
 srev f = rev (tscalar . f)
 
@@ -159,7 +167,8 @@ srevDt
      ( ADTensor r, InterpretAst r, DomainsTensor r, ScalarOf r ~ r
      , Floating (Vector r), RealFloat r
      , FromDomainsAst astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals )
+     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
+     , Scalar astvals ~ r )
   => (astvals -> Ast0 r) -> vals -> r -> vals
 srevDt f vals dt = revDt (tscalar . f) vals (tscalar dt)
 
@@ -214,8 +223,8 @@ type Adaptable advals =
 
 class FromDomainsAst astvals where
   fromDomainsAst :: Value astvals
-                 -> Domains (Ast0 (Scalar (Value astvals)))
-                 -> (astvals, Domains (Ast0 (Scalar (Value astvals))))
+                 -> Domains (Ast0 (Scalar astvals))
+                 -> (astvals, Domains (Ast0 (Scalar astvals)))
 
 class AdaptableDomains vals where
   type Scalar vals
@@ -239,8 +248,8 @@ class AdaptableInputs r advals where
   fromADInputs :: Value advals -> ADInputs r -> (advals, ADInputs r)
 
 parseDomainsAst
-  :: (FromDomainsAst astvals, ShowAstSimplify (Scalar (Value astvals)))
-  => Value astvals -> Domains (Ast0 (Scalar (Value astvals)))
+  :: (FromDomainsAst astvals, ShowAstSimplify (Scalar astvals))
+  => Value astvals -> Domains (Ast0 (Scalar astvals))
   -> astvals
 parseDomainsAst aInit domains =
   let (vals, rest) = fromDomainsAst aInit domains
@@ -334,6 +343,13 @@ instance ShowAstSimplify r
       Nothing -> error "fromADInputs in AdaptableInputs (Ast0 r)"
     Nothing -> error "fromADInputs in AdaptableInputs (Ast0 r)"
 
+instance AdaptableDomains (Ast0 r) where
+  type Scalar (Ast0 r) = r
+  toDomains = undefined
+  fromDomains = undefined
+  nParams = undefined
+  nScalars = undefined
+
 {- TODO: requires IncoherentInstances no matter what pragma I stick in
 -- A special case, because for @Double@ we have faster @randomVals@,
 -- though the quality of randomness is worse (going through a single @Int@).
@@ -368,6 +384,13 @@ instance ( Tensor r, ShowAstSimplify r, KnownNat n
 instance AdaptableInputs r (Ast n r) where
   type Value (Ast n r) = OR.Array n r
   fromADInputs = undefined
+
+instance AdaptableDomains (Ast n r) where
+  type Scalar (Ast n r) = r
+  toDomains = undefined
+  fromDomains = undefined
+  nParams = undefined
+  nScalars = undefined
 
 ttoRankedOrDummy :: (Tensor r, DomainsTensor r, KnownNat n)
                  => ShapeInt n -> DTensorOf r -> TensorOf n r
@@ -501,7 +524,7 @@ instance AdaptableInputs r a
         (l, restAll) = foldl' f ([], source) lInit
     in (reverse l, restAll)
 
-instance ( r ~ Scalar (Value a), r ~ Scalar (Value b)
+instance ( r ~ Scalar a, r ~ Scalar b
          , FromDomainsAst a
          , FromDomainsAst b ) => FromDomainsAst (a, b) where
   fromDomainsAst (aInit, bInit) source =
@@ -534,8 +557,8 @@ instance ( r ~ Scalar a, r ~ Scalar b
         (v2, g2) = randomVals range g1
     in ((v1, v2), g2)
 
-instance ( r ~ Scalar (Value a), r ~ Scalar (Value b)
-         , r ~ Scalar (Value c)
+instance ( r ~ Scalar a, r ~ Scalar b
+         , r ~ Scalar c
          , FromDomainsAst a
          , FromDomainsAst b
          , FromDomainsAst c ) => FromDomainsAst (a, b, c) where
@@ -575,8 +598,8 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
         (v3, g3) = randomVals range g2
     in ((v1, v2, v3), g3)
 
-instance ( r ~ Scalar (Value a), r ~ Scalar (Value b)
-         , r ~ Scalar (Value c), r ~ Scalar (Value d)
+instance ( r ~ Scalar a, r ~ Scalar b
+         , r ~ Scalar c, r ~ Scalar d
          , FromDomainsAst a
          , FromDomainsAst b
          , FromDomainsAst c
@@ -656,7 +679,7 @@ instance ( AdaptableInputs r a
         (dd, rest) = fromADInputs dInit cRest
     in ((a, b, c, dd), rest)
 
-instance ( r ~ Scalar (Value a), r ~ Scalar (Value b)
+instance ( r ~ Scalar a, r ~ Scalar b
          , FromDomainsAst a, FromDomainsAst b )
          => FromDomainsAst (Either a b) where
   fromDomainsAst eInit source = case eInit of
