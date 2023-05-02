@@ -412,10 +412,10 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
  -- The untyped versions of the tensor, to put many ranks in one vector
 class DynamicTensor r where
   type DTensorOf r = result | result -> r
-
-class DomainsTensor r where
   ddummy :: DTensorOf r
   disDummy :: DTensorOf r -> Bool
+
+class DomainsTensor r where
   daddR :: forall n. KnownNat n
         => TensorOf n r -> DTensorOf r -> DTensorOf r
   dshape :: DTensorOf r -> [Int]
@@ -538,10 +538,10 @@ instance Tensor Double where
 
 instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
-
-instance DomainsTensor Double where
   ddummy = dummyTensor
   disDummy = isTensorDummy
+
+instance DomainsTensor Double where
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
   type DomainsOf Double = Domains Double
@@ -597,10 +597,10 @@ instance Tensor Float where
 
 instance DynamicTensor Float where
   type DTensorOf Float = OD.Array Float
-
-instance DomainsTensor Float where
   ddummy = dummyTensor
   disDummy = isTensorDummy
+
+instance DomainsTensor Float where
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
   type DomainsOf Float = Domains Float

@@ -118,7 +118,7 @@ valueGeneral f parameters =
   in f inputs
 
 valueOnDomains
-  :: ( ADTensor r, DomainsTensor r
+  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
      , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r )
   => (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
@@ -130,7 +130,7 @@ valueOnDomains f parameters =
   in snd $ Engine.revOnADInputs Nothing f inputs
 
 revOnADInputs
-  :: ( ADTensor r, DomainsTensor r
+  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
      , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r )
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
@@ -144,7 +144,7 @@ revOnADInputs = Engine.revOnADInputs  . Just
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: ( ADTensor r, DomainsTensor r
+  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
      , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r )
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
@@ -282,7 +282,7 @@ multNotShared (DualNumber.D l1 u u') (DualNumber.D l2 v v') =
   dDnotShared (l1 `mergeADShare` l2) (u * v) (dAdd (dScale v u') (dScale u v'))
 
 addParameters :: ( Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r
-                 , Tensor r)
+                 , Tensor r )
               => Domains r -> Domains r -> Domains r
 addParameters paramsA paramsB =
   mkDomains (domains0 paramsA + domains0 paramsB)

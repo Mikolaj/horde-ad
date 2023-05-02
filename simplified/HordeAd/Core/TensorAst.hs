@@ -82,13 +82,13 @@ instance ShowAstSimplify r
 
 instance DynamicTensor (Ast0 r) where
   type DTensorOf (Ast0 r) = AstDynamic r
-
-instance ShowAst r
-         => DomainsTensor (Ast0 r) where
   ddummy = AstDynamic AstIota
   disDummy t = case t of
     AstDynamic AstIota -> True
     _ -> False
+
+instance ShowAst r
+         => DomainsTensor (Ast0 r) where
   daddR :: forall n q. (KnownNat n, q ~ (Ast0 r))
         => TensorOf n q -> DTensorOf q -> DTensorOf q
   daddR r (AstDynamic AstIota) = AstDynamic r

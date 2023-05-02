@@ -130,7 +130,7 @@ revAstOnDomainsFun dim0 shapes1 f =
 
 revAstOnDomainsEval
   :: forall r n.
-     (ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r)
+     (ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r)
   => ADAstArtifact6 n r -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
@@ -149,7 +149,7 @@ revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
-  :: ( Tensor r, DomainsTensor r, IsPrimalWithScalar a r
+  :: ( Tensor r, DomainsTensor r, DynamicTensor r, IsPrimalWithScalar a r
      , DomainsOf r ~ Domains r )
   => Maybe a
   -> (ADInputs r -> ADVal a)
@@ -171,7 +171,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: ( ADTensor r, DomainsTensor r, IsPrimalWithScalar a r
+  :: ( ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
      , DomainsOf r ~ Domains r )
   => Maybe a
   -> (ADInputs r -> ADVal a)

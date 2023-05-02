@@ -373,7 +373,7 @@ instance ( Tensor r, ShowAstSimplify r, KnownNat n
   nParams = undefined
   nScalars = undefined
 
-ttoRankedOrDummy :: (Tensor r, DomainsTensor r, KnownNat n)
+ttoRankedOrDummy :: (Tensor r, DynamicTensor r, DomainsTensor r, KnownNat n)
                  => ShapeInt n -> DTensorOf r -> TensorOf n r
 ttoRankedOrDummy sh x = if disDummy x
                         then tzero sh

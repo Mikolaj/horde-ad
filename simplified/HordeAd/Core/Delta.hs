@@ -386,7 +386,7 @@ data DeltaBinding r =
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
-  :: forall r. (Tensor r, DomainsTensor r)
+  :: forall r. (Tensor r, DynamicTensor r, DomainsTensor r)
   => Int -> Int -> DeltaDt r
   -> ([(AstVarId, DTensorOf r)], DomainsOf r)
 gradientFromDelta dim0 dimR deltaDt =

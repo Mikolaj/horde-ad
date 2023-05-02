@@ -150,6 +150,8 @@ instance Tensor (ADVal Double) where
 
 instance DynamicTensor (ADVal Double) where
   type DTensorOf (ADVal Double) = ADVal (OD.Array Double)
+  ddummy = undefined
+  disDummy = undefined
 
 instance Tensor (ADVal Float) where
   type Ranked (ADVal Float) = Compose ADVal (Flip OR.Array Float)
@@ -222,6 +224,8 @@ instance Tensor (ADVal Float) where
 
 instance DynamicTensor (ADVal Float) where
   type DTensorOf (ADVal Float) = ADVal (OD.Array Float)
+  ddummy = undefined
+  disDummy = undefined
 
 instance (ADTensor (Ast0 r), ShowAstSimplify r)
          => Tensor (ADVal (Ast0 r)) where
@@ -296,6 +300,8 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
 instance ShowAstSimplify r
          => DynamicTensor (ADVal (Ast0 r)) where
   type DTensorOf (ADVal (Ast0 r)) = ADVal (AstDynamic r)
+  ddummy = undefined
+  disDummy = undefined
 
 
 -- * ADVal combinators generalizing ranked tensor operations
