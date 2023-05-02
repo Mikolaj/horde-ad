@@ -31,8 +31,7 @@ rev' :: forall b r n m a.
         , InterpretAst (ADVal r), InterpretAst r, DomainsTensor r
         , a ~ TensorOf m r, ScalarOf r ~ r, ScalarOf (ADVal r) ~ r
         , IsPrimalWithScalar (TensorOf m r) r, DomainsOf r ~ Domains r
-        , AdaptableInputs (Scalar (Value (ADVal (TensorOf n r))))
-                          (ADVal (TensorOf n r))
+        , AdaptableInputs (ADVal (TensorOf n r))
         , DTensorOf r ~ OD.Array r
         , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
         , ADReady (ADVal r), TensorOf n r ~ Flip OR.Array r n
