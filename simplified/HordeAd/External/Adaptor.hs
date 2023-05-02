@@ -5,10 +5,10 @@
 -- with complicated domains to the restricted from of functions
 -- that the AD machinery can efficiently differentiate.
 module HordeAd.External.Adaptor
-  ( Adaptable, Scalar
+  ( Adaptable, Scalar, Value
   , AdaptableDomains(toDomains, nParams, nScalars)
   , RandomDomains(randomVals)
-  , AdaptableInputs(Value), parseDomains, parseADInputs
+  , parseDomains, parseADInputs
   , revL, revDtMaybeL, revDtFun, rev, revDt
   , srevL, srevDtMaybeL, srev, srevDt
   , crev, crevDt, fwd
@@ -223,6 +223,7 @@ type Adaptable advals =
 
 class AdaptableDomains vals where
   type Scalar vals
+  type Value vals
   toDomains :: Tensor (Scalar vals)
             => vals -> Domains (Scalar vals)
   fromDomains :: Value vals
@@ -239,7 +240,6 @@ class RandomDomains vals where
     => r -> g -> (vals, g)
 
 class AdaptableInputs r advals where
-  type Value advals
   fromADInputs :: Value advals -> ADInputs r -> (advals, ADInputs r)
 
 parseDomains
@@ -256,12 +256,9 @@ parseADInputs aInit inputs =
   let (advals, rest) = fromADInputs aInit inputs
   in assert (nullADInputs rest) advals
 
-instance AdaptableInputs r (Ast0 r) where
-  type Value (Ast0 r) = r
-  fromADInputs = undefined
-
 instance AdaptableDomains Double where
   type Scalar Double = Double
+  type Value Double = Double
   toDomains a = mkDomains (tfromList [tscalar a]) V.empty
   fromDomains _aInit params = case tuncons (domains0 params) of
     Just (a, rest) -> (tunScalar a, mkDomains rest (domainsR params))
@@ -273,12 +270,15 @@ instance RandomDomains Double where
   randomVals range = randomR (- range, range)
     -- note that unlike in hmatrix the range is closed from the top
 
-instance AdaptableInputs Double Double where
-  type Value Double = Double
-  fromADInputs = undefined
+instance AdaptableDomains (ADVal Double) where
+  type Scalar (ADVal Double) = Double
+  type Value (ADVal Double) = Double
+  toDomains = undefined
+  fromDomains = undefined
+  nParams = undefined
+  nScalars = undefined
 
 instance AdaptableInputs Double (ADVal Double) where
-  type Value (ADVal Double) = Double
   fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
       Just (aDual, restDual) ->
@@ -289,6 +289,7 @@ instance AdaptableInputs Double (ADVal Double) where
 
 instance AdaptableDomains Float where
   type Scalar Float = Float
+  type Value Float = Float
   toDomains a = mkDomains (tfromList [tscalar a]) V.empty
   fromDomains _aInit params = case tuncons (domains0 params) of
     Just (a, rest) -> (tunScalar a, mkDomains rest (domainsR params))
@@ -299,12 +300,15 @@ instance AdaptableDomains Float where
 instance RandomDomains Float where
   randomVals range = randomR (- range, range)
 
-instance AdaptableInputs Float Float where
-  type Value Float = Float
-  fromADInputs = undefined
+instance AdaptableDomains (ADVal Float) where
+  type Scalar (ADVal Float) = Float
+  type Value (ADVal Float) = Float
+  toDomains = undefined
+  fromDomains = undefined
+  nParams = undefined
+  nScalars = undefined
 
 instance AdaptableInputs Float (ADVal Float) where
-  type Value (ADVal Float) = Float
   fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
       Just (aDual, restDual) ->
@@ -313,9 +317,16 @@ instance AdaptableInputs Float (ADVal Float) where
       Nothing -> error "fromADInputs in AdaptableInputs Float"
     Nothing -> error "fromADInputs in AdaptableInputs Float"
 
+instance AdaptableDomains (ADVal (Ast0 r)) where
+  type Scalar (ADVal (Ast0 r)) = Ast0 r
+  type Value (ADVal (Ast0 r)) = r
+  toDomains = undefined
+  fromDomains = undefined
+  nParams = undefined
+  nScalars = undefined
+
 instance ShowAstSimplify r
          => AdaptableInputs (Ast0 r) (ADVal (Ast0 r)) where
-  type Value (ADVal (Ast0 r)) = r
   fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
       Just (aDual, restDual) ->
@@ -327,6 +338,7 @@ instance ShowAstSimplify r
 instance (Scalar r ~ r, ShowAstSimplify r)
          => AdaptableDomains (Ast0 r) where
   type Scalar (Ast0 r) = Ast0 r
+  type Value (Ast0 r) = r
   toDomains = undefined
   fromDomains _aInit params = case tuncons (domains0 params) of
     Just (a, rest) -> (tunScalar a, mkDomains rest (domainsR params))
@@ -357,14 +369,11 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
     in (arr, g2)
 -}
 
-instance AdaptableInputs r (Ast n r) where
-  type Value (Ast n r) = OR.Array n r
-  fromADInputs = undefined
-
 instance ( Tensor r, ShowAstSimplify r, KnownNat n
          , TensorOf n r ~ Flip OR.Array r n )
          => AdaptableDomains (Ast n r) where
   type Scalar (Ast n r) = Ast0 r
+  type Value (Ast n r) = OR.Array n r
   toDomains = undefined
   fromDomains aInit params = case V.uncons $ domainsR params of
     Just (a, rest) -> ( ttoRankedOrDummy (tshape $ Flip aInit) a
@@ -383,6 +392,7 @@ instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsTensor r
          , TensorOf n r ~ Flip OR.Array r n, DTensorOf r ~ OD.Array r )
          => AdaptableDomains (OR.Array n r) where
   type Scalar (OR.Array n r) = r
+  type Value (OR.Array n r) = OR.Array n r
   toDomains a =
     mkDomains emptyDomain0 (V.singleton (Data.Array.Convert.convert a))
   fromDomains aInit params = case V.uncons $ domainsR params of
@@ -396,6 +406,7 @@ instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsTensor r
          , TensorOf n r ~ Flip OR.Array r n, DTensorOf r ~ OD.Array r )
          => AdaptableDomains (Flip OR.Array r n) where
   type Scalar (Flip OR.Array r n) = r
+  type Value (Flip OR.Array r n) = OR.Array n r
   toDomains a =
     mkDomains emptyDomain0
               (V.singleton (Data.Array.Convert.convert $ runFlip a))
@@ -417,20 +428,19 @@ instance KnownNat n
               $ createRandomVector (OR.size undefined) g1  -- TODO
     in (arr, g2)
 
-instance AdaptableInputs r (OR.Array n r) where
-  type Value (OR.Array n r) = OR.Array n r
-  fromADInputs = undefined
-
-instance AdaptableInputs r (Flip OR.Array r n) where
-  type Value (Flip OR.Array r n) = OR.Array n r
-  fromADInputs = undefined
+instance AdaptableDomains (ADVal (Flip OR.Array r n)) where
+  type Scalar (ADVal (Flip OR.Array r n)) = r
+  type Value (ADVal (Flip OR.Array r n)) = OR.Array n r
+  toDomains = undefined
+  fromDomains = undefined
+  nParams = undefined
+  nScalars = undefined
 
 instance ( Tensor (ADVal r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
          , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
          , DTensorOf r ~ OD.Array r
          , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
          => AdaptableInputs r (ADVal (Flip OR.Array r n)) where
-  type Value (ADVal (Flip OR.Array r n)) = OR.Array n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
@@ -440,12 +450,19 @@ instance ( Tensor (ADVal r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
       Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
 
+instance AdaptableDomains (Compose ADVal (Flip OR.Array r) n) where
+  type Scalar (Compose ADVal (Flip OR.Array r) n) = r
+  type Value (Compose ADVal (Flip OR.Array r) n) = OR.Array n r
+  toDomains = undefined
+  fromDomains = undefined
+  nParams = undefined
+  nScalars = undefined
+
 instance ( Tensor (ADVal r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
          , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
          , DTensorOf r ~ OD.Array r
          , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
          => AdaptableInputs r (Compose ADVal (Flip OR.Array r) n) where
-  type Value (Compose ADVal (Flip OR.Array r) n) = OR.Array n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
@@ -455,9 +472,16 @@ instance ( Tensor (ADVal r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
       Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
 
+instance AdaptableDomains (ADVal (Ast n r)) where
+  type Scalar (ADVal (Ast n r)) = Ast0 r
+  type Value (ADVal (Ast n r)) = OR.Array n r
+  toDomains = undefined
+  fromDomains = undefined
+  nParams = undefined
+  nScalars = undefined
+
 instance (KnownNat n, ShowAstSimplify r)
          => AdaptableInputs (Ast0 r) (ADVal (Ast n r)) where
-  type Value (ADVal (Ast n r)) = OR.Array n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
@@ -470,6 +494,7 @@ instance (KnownNat n, ShowAstSimplify r)
 instance (AdaptableDomains a, DynamicTensor (Scalar a))
          => AdaptableDomains [a] where
   type Scalar [a] = Scalar a
+  type Value [a] = [Value a]
   toDomains l =
     let (l0, l1) = unzip $ map ((domains0 &&& domainsR) . toDomains) l
     in mkDomains (tconcat l0) (V.concat l1)
@@ -488,7 +513,6 @@ instance (AdaptableDomains a, DynamicTensor (Scalar a))
 
 instance AdaptableInputs r a
          => AdaptableInputs r [a] where
-  type Value [a] = [Value a]
   fromADInputs lInit source =
     let f (lAcc, restAcc) aInit =
           let (a, rest) = fromADInputs aInit restAcc
@@ -501,6 +525,7 @@ instance ( DynamicTensor r
          , AdaptableDomains a
          , AdaptableDomains b ) => AdaptableDomains (a, b) where
   type Scalar (a, b) = Scalar a
+  type Value (a, b) = (Value a, Value b)
   toDomains (a, b) =
     let (a0, a1) = domains0 &&& domainsR $ toDomains a
         (b0, b1) = domains0 &&& domainsR $ toDomains b
@@ -527,6 +552,7 @@ instance ( DynamicTensor r
          , AdaptableDomains b
          , AdaptableDomains c ) => AdaptableDomains (a, b, c) where
   type Scalar (a, b, c) = Scalar a
+  type Value (a, b, c) = (Value a, Value b, Value c)
   toDomains (a, b, c) =
     let (a0, a1) = domains0 &&& domainsR $ toDomains a
         (b0, b1) = domains0 &&& domainsR $ toDomains b
@@ -558,6 +584,7 @@ instance ( DynamicTensor r
          , AdaptableDomains c
          , AdaptableDomains d ) => AdaptableDomains (a, b, c, d) where
   type Scalar (a, b, c, d) = Scalar a
+  type Value (a, b, c, d) = (Value a, Value b, Value c, Value d)
   toDomains (a, b, c, d) =
     let (a0, a1) = domains0 &&& domainsR $ toDomains a
         (b0, b1) = domains0 &&& domainsR $ toDomains b
@@ -589,7 +616,6 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
 instance ( AdaptableInputs r a
          , AdaptableInputs r b )
          => AdaptableInputs r (a, b) where
-  type Value (a, b) = (Value a, Value b)
   fromADInputs (aInit, bInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, rest) = fromADInputs bInit aRest
@@ -599,7 +625,6 @@ instance ( AdaptableInputs r a
          , AdaptableInputs r b
          , AdaptableInputs r c )
          => AdaptableInputs r (a, b, c) where
-  type Value (a, b, c) = (Value a, Value b, Value c)
   fromADInputs (aInit, bInit, cInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, bRest) = fromADInputs bInit aRest
@@ -611,7 +636,6 @@ instance ( AdaptableInputs r a
          , AdaptableInputs r c
          , AdaptableInputs r dd )
          => AdaptableInputs r (a, b, c, dd) where
-  type Value (a, b, c, dd) = (Value a, Value b, Value c, Value dd)
   fromADInputs (aInit, bInit, cInit, dInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, bRest) = fromADInputs bInit aRest
@@ -623,6 +647,7 @@ instance ( r ~ Scalar a, r ~ Scalar b
          , AdaptableDomains a, AdaptableDomains b )
          => AdaptableDomains (Either a b) where
   type Scalar (Either a b) = Scalar a
+  type Value (Either a b) = Either (Value a) (Value b)
   toDomains e = case e of
     Left a -> toDomains a
     Right b -> toDomains b
@@ -636,7 +661,6 @@ instance ( r ~ Scalar a, r ~ Scalar b
 
 instance (AdaptableInputs r a, AdaptableInputs r b)
          => AdaptableInputs r (Either a b) where
-  type Value (Either a b) = Either (Value a) (Value b)
   fromADInputs eInit source = case eInit of
     Left a -> let (a2, rest) = fromADInputs a source
               in (Left a2, rest)
@@ -646,6 +670,7 @@ instance (AdaptableInputs r a, AdaptableInputs r b)
 instance (AdaptableDomains a, DynamicTensor (Scalar a))
          => AdaptableDomains (Maybe a) where
   type Scalar (Maybe a) = Scalar a
+  type Value (Maybe a) = Maybe (Value a)
   toDomains e = case e of
     Nothing -> mkDomains emptyDomain0 V.empty
     Just a -> toDomains a
@@ -658,7 +683,6 @@ instance (AdaptableDomains a, DynamicTensor (Scalar a))
 
 instance AdaptableInputs r a
          => AdaptableInputs r (Maybe a) where
-  type Value (Maybe a) = Maybe (Value a)
   fromADInputs eInit source = case eInit of
     Nothing -> (Nothing, source)
     Just a -> let (a2, rest) = fromADInputs a source
