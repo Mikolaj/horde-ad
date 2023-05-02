@@ -5,8 +5,8 @@
 -- with complicated domains to the restricted from of functions
 -- that the AD machinery can efficiently differentiate.
 module HordeAd.External.Adaptor
-  ( Adaptable, Scalar, Value
-  , AdaptableDomains(toDomains, nParams, nScalars)
+  ( AdaptableDomains(Scalar, Value, toDomains, nParams, nScalars)
+  , AdaptableInputs
   , RandomDomains(randomVals)
   , parseDomains, parseADInputs
   , revL, revDtMaybeL, revDtFun, rev, revDt
@@ -177,7 +177,9 @@ crev :: forall n r vals advals.
        ( r ~ Scalar vals, vals ~ Value advals
        , ADTensor r, DynamicTensor r, DomainsTensor r
        , IsPrimal (Flip OR.Array r n)
-       , Adaptable advals, vals ~ Value vals, DomainsOf r ~ Domains r )
+       , AdaptableDomains (Value advals)
+       , AdaptableInputs (Scalar (Value advals)) advals
+       , vals ~ Value vals, DomainsOf r ~ Domains r )
     => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals
     -> vals
 crev f vals = crevDtMaybe f vals Nothing
@@ -187,7 +189,9 @@ crevDt :: forall n r vals advals.
          ( r ~ Scalar vals, vals ~ Value advals
          , ADTensor r, DynamicTensor r, DomainsTensor r
          , IsPrimal (Flip OR.Array r n)
-         , Adaptable advals, vals ~ Value vals, DomainsOf r ~ Domains r )
+         , AdaptableDomains (Value advals)
+         , AdaptableInputs (Scalar (Value advals)) advals
+         , vals ~ Value vals, DomainsOf r ~ Domains r )
       => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals -> OR.Array n r
       -> vals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
@@ -197,7 +201,9 @@ crevDtMaybe
      ( r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals
      , ADTensor r, DynamicTensor r, DomainsTensor r
      , IsPrimal (Flip OR.Array r n)
-     , Adaptable advals, DomainsOf r ~ Domains r )
+     , AdaptableDomains (Value advals)
+     , AdaptableInputs (Scalar (Value advals)) advals
+     , DomainsOf r ~ Domains r )
   => (advals -> Compose ADVal (Flip OR.Array r) n)
   -> vals -> Maybe (OR.Array n r)
   -> vals
@@ -209,17 +215,13 @@ crevDtMaybe f vals dt =
 fwd :: forall a vals r advals.
        ( ForwardDerivative a, r ~ Scalar vals, vals ~ Value advals
        , ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
-       , Adaptable advals )
+       , AdaptableDomains (Value advals)
+       , AdaptableInputs (Scalar (Value advals)) advals )
     => (advals -> ADVal a) -> vals -> vals
     -> a
 fwd f x ds =
   let g inputs = f $ parseADInputs ds inputs
   in fst $ slowFwdOnDomains (toDomains x) g (toDomains ds)
-
--- Inspired by adaptors from @tomjaguarpaw's branch.
-type Adaptable advals =
-  ( AdaptableDomains (Value advals)
-  , AdaptableInputs (Scalar (Value advals)) advals )
 
 class AdaptableDomains vals where
   type Scalar vals
