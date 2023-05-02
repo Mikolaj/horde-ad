@@ -98,8 +98,8 @@ interpretLambdaIndexToIndex f env memo (vars, asts) =
 class (forall y. KnownNat y => c (Ranked r y)) => CRanked c r where
 instance (forall y. KnownNat y => c (Ranked r y)) => CRanked c r where
 
-class (BooleanOf r ~ b) => BooleanOfMatches b r where
-instance (BooleanOf r ~ b) => BooleanOfMatches b r where
+class (b ~ BooleanOf r) => BooleanOfMatches b r where
+instance (b ~ BooleanOf r) => BooleanOfMatches b r where
 
 type InterpretAst a =
   ( Tensor a, Tensor (Primal a), DynamicTensor a, ShowAstSimplify (ScalarOf a)
