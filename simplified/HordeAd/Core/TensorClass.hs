@@ -55,7 +55,7 @@ domains0 v = tfromD $ v V.! 0
 domainsR :: Domains r -> DomainR r
 domainsR v = V.slice 1 (V.length v - 1) v
 
-mkDomains :: DynamicTensor r => Domain0 r -> DomainR r -> Domains r
+mkDomains :: Tensor r => Domain0 r -> DomainR r -> Domains r
 mkDomains t = V.cons (dfromR t)
 
 emptyDomain0 :: Tensor r => Domain0 r
@@ -403,15 +403,15 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tletWrap :: ADShare r -> TensorOf n r -> TensorOf n r
   tletWrap _l u = u
 
-  -- Conversion
+  -- Conversions
   tfromD :: KnownNat n
          => DTensorOf r -> TensorOf n r
+  dfromR :: KnownNat n
+         => TensorOf n r -> DTensorOf r
 
  -- The untyped versions of the tensor, to put many ranks in one vector
 class DynamicTensor r where
   type DTensorOf r = result | result -> r
-  dfromR :: KnownNat n
-         => TensorOf n r -> DTensorOf r
 
 class DomainsTensor r where
   ddummy :: DTensorOf r
@@ -534,10 +534,10 @@ instance Tensor Double where
   tD u _ = u
   tScale _ _ = ()
   tfromD = Flip . Data.Array.Convert.convert
+  dfromR = Data.Array.Convert.convert . runFlip
 
 instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
-  dfromR = Data.Array.Convert.convert . runFlip
 
 instance DomainsTensor Double where
   ddummy = dummyTensor
@@ -593,10 +593,10 @@ instance Tensor Float where
   tD u _ = u
   tScale _ _ = ()
   tfromD = Flip . Data.Array.Convert.convert
+  dfromR = Data.Array.Convert.convert . runFlip
 
 instance DynamicTensor Float where
   type DTensorOf Float = OD.Array Float
-  dfromR = Data.Array.Convert.convert . runFlip
 
 instance DomainsTensor Float where
   ddummy = dummyTensor

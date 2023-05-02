@@ -39,14 +39,14 @@ data AstEnvElem a =
 deriving instance (Show (DTensorOf a), Show (IntOf a))
                   => Show (AstEnvElem a)
 
-extendEnvR :: forall n a. (DynamicTensor a, KnownNat n)
+extendEnvR :: forall n a. (Tensor a, KnownNat n)
            => AstVarName (OR.Array n (ScalarOf a)) -> TensorOf n a
            -> AstEnv a -> AstEnv a
 extendEnvR v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstVarR $ dfromR d)
 
-extendEnvD :: (DynamicTensor a, Tensor a)
+extendEnvD :: Tensor a
            => (AstDynamicVarName (ScalarOf a), DTensorOf a) -> AstEnv a
            -> AstEnv a
 extendEnvD (AstDynamicVarName var, d) = extendEnvR var (tfromD d)

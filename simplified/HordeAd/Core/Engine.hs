@@ -63,11 +63,11 @@ makeADInputs
 makeADInputs params (vs0, vs1)
   = ADInputs (domains0 params) vs0 (domainsR params) vs1
 
-inputsToDomains :: DynamicTensor r => ADInputs r -> Domains r
+inputsToDomains :: Tensor r => ADInputs r -> Domains r
 inputsToDomains ADInputs{..} =
   mkDomains inputPrimal0 inputPrimal1
 
-nullADInputs :: (Tensor r, DynamicTensor r) => ADInputs r -> Bool
+nullADInputs :: Tensor r => ADInputs r -> Bool
 nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 
 
@@ -149,7 +149,7 @@ revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
-  :: ( Tensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
+  :: ( Tensor r, DomainsTensor r, IsPrimalWithScalar a r
      , DomainsOf r ~ Domains r )
   => Maybe a
   -> (ADInputs r -> ADVal a)
@@ -171,7 +171,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: ( ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
+  :: ( ADTensor r, DomainsTensor r, IsPrimalWithScalar a r
      , DomainsOf r ~ Domains r )
   => Maybe a
   -> (ADInputs r -> ADVal a)

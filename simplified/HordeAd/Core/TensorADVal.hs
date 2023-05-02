@@ -146,10 +146,10 @@ instance Tensor (ADVal Double) where
   tScale ast (l, delta) = (l, dScale ast delta)
 
   tfromD = Compose . fromD
+  dfromR = fromR . getCompose
 
 instance DynamicTensor (ADVal Double) where
   type DTensorOf (ADVal Double) = ADVal (OD.Array Double)
-  dfromR = fromR . getCompose
 
 instance Tensor (ADVal Float) where
   type Ranked (ADVal Float) = Compose ADVal (Flip OR.Array Float)
@@ -218,10 +218,10 @@ instance Tensor (ADVal Float) where
   tScale ast (l, delta) = (l, dScale ast delta)
 
   tfromD = Compose . fromD
+  dfromR = fromR . getCompose
 
 instance DynamicTensor (ADVal Float) where
   type DTensorOf (ADVal Float) = ADVal (OD.Array Float)
-  dfromR = fromR . getCompose
 
 instance (ADTensor (Ast0 r), ShowAstSimplify r)
          => Tensor (ADVal (Ast0 r)) where
@@ -291,11 +291,11 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
   tScale ast (l, delta) = (l, dScale ast delta)
 
   tfromD = Compose . fromD
+  dfromR = fromR . getCompose
 
 instance ShowAstSimplify r
          => DynamicTensor (ADVal (Ast0 r)) where
   type DTensorOf (ADVal (Ast0 r)) = ADVal (AstDynamic r)
-  dfromR = fromR . getCompose
 
 
 -- * ADVal combinators generalizing ranked tensor operations
@@ -466,7 +466,7 @@ fromD :: forall n r.
        => ADVal (DTensorOf r) -> ADVal (TensorOf n r)
 fromD (D l u u') = dDnotShared l (tfromD u) (dFromD u')
 
-fromR :: ( ADTensor r, DynamicTensor r, KnownNat n
+fromR :: ( ADTensor r, KnownNat n
          , Element (TensorOf n r) ~ Element (DTensorOf r) )
        => ADVal (TensorOf n r) -> ADVal (DTensorOf r)
 fromR (D l u u') = dDnotShared l (dfromR u) (dFromR u')

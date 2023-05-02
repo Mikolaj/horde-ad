@@ -118,7 +118,7 @@ valueGeneral f parameters =
   in f inputs
 
 valueOnDomains
-  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
+  :: ( ADTensor r, DomainsTensor r
      , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r )
   => (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
@@ -130,7 +130,7 @@ valueOnDomains f parameters =
   in snd $ Engine.revOnADInputs Nothing f inputs
 
 revOnADInputs
-  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
+  :: ( ADTensor r, DomainsTensor r
      , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r )
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
@@ -144,7 +144,7 @@ revOnADInputs = Engine.revOnADInputs  . Just
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
+  :: ( ADTensor r, DomainsTensor r
      , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r )
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
@@ -204,21 +204,21 @@ foldlDual' f a Engine.ADInputs{..} = do
         in f acc b
   V.ifoldl' g a $ OR.toVector (runFlip inputPrimal0)
 
-domainsFromD01 :: DynamicTensor r => Domain0 r -> DomainR r -> Domains r
+domainsFromD01 :: Tensor r => Domain0 r -> DomainR r -> Domains r
 domainsFromD01 = mkDomains
 
-domainsFrom01 :: (Numeric r, TensorOf 1 r ~ Flip OR.Array r 1, DynamicTensor r)
+domainsFrom01 :: (Numeric r, TensorOf 1 r ~ Flip OR.Array r 1, Tensor r)
               => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 = mkDomains (Flip $ OR.fromVector [V.length v0] v0)
 
 domainsFrom0V :: ( Numeric r, DTensorOf r ~ OD.Array r
-                 , TensorOf 1 r ~ Flip OR.Array r 1, DynamicTensor r )
+                 , TensorOf 1 r ~ Flip OR.Array r 1, Tensor r )
               => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
   domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
 listsToParameters :: ( Numeric r, DTensorOf r ~ OD.Array r
-                     , TensorOf 1 r ~ Flip OR.Array r 1, DynamicTensor r )
+                     , TensorOf 1 r ~ Flip OR.Array r 1, Tensor r )
                   => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
   domainsFrom0V (V.fromList a0) (V.singleton (V.fromList a1))
@@ -282,7 +282,7 @@ multNotShared (DualNumber.D l1 u u') (DualNumber.D l2 v v') =
   dDnotShared (l1 `mergeADShare` l2) (u * v) (dAdd (dScale v u') (dScale u v'))
 
 addParameters :: ( Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r
-                 , Tensor r, DynamicTensor r)
+                 , Tensor r)
               => Domains r -> Domains r -> Domains r
 addParameters paramsA paramsB =
   mkDomains (domains0 paramsA + domains0 paramsB)

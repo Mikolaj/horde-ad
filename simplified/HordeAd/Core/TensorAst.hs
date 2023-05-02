@@ -78,10 +78,10 @@ instance ShowAstSimplify r
     -- a special constructor that also makes comparing lets cheap.
 
   tfromD = astFromDynamic
+  dfromR r = AstDynamic r
 
 instance DynamicTensor (Ast0 r) where
   type DTensorOf (Ast0 r) = AstDynamic r
-  dfromR r = AstDynamic r
 
 instance ShowAst r
          => DomainsTensor (Ast0 r) where
@@ -204,6 +204,7 @@ instance ShowAstSimplify r
   tletWrap = undefined
 
   tfromD = undefined
+  dfromR = undefined
 
 instance ShowAstSimplify r
          => Tensor (AstNoVectorize r 0) where
@@ -262,6 +263,7 @@ instance ShowAstSimplify r
   tletWrap = undefined
 
   tfromD = undefined
+  dfromR = undefined
 
 instance ShowAstSimplify r
          => Tensor (AstNoSimplify r 0) where
@@ -319,6 +321,7 @@ instance ShowAstSimplify r
   tletWrap = undefined
 
   tfromD = undefined
+  dfromR = undefined
 
 astLetFunUnSimp :: (KnownNat n, KnownNat m, ShowAst r)
                 => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
