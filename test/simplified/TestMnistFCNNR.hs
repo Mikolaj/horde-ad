@@ -214,7 +214,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
            ast = tscalar
                  $ MnistFcnnRanked1.afcnnMnistLoss1TensorData
                      widthHidden widthHidden2 (astGlyph, astLabel)
-                     (parseDomainsAst valsInit doms)
+                     (parseDomains valsInit doms)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
@@ -334,7 +334,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                  ast = tscalar
                        $ MnistFcnnRanked1.afcnnMnistLoss1TensorData
                            widthHidden widthHidden2 (astGlyph, astLabel)
-                           (parseDomainsAst valsInit domains)
+                           (parseDomains valsInit domains)
                  vars1AndInput = vars1 ++ inputVars
                  env1 = foldr extendEnvD EM.empty
                         $ zip vars1AndInput
@@ -561,7 +561,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
            ast :: Ast 0 r
            ast = tscalar
                  $ MnistFcnnRanked2.afcnnMnistLoss2TensorData
-                     (astGlyph, astLabel) (parseDomainsAst valsInit doms)
+                     (astGlyph, astLabel) (parseDomains valsInit doms)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
@@ -685,7 +685,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                  ast = tscalar
                        $ MnistFcnnRanked2.afcnnMnistLoss2TensorData
                            (astGlyph, astLabel)
-                           (parseDomainsAst valsInit domains)
+                           (parseDomains valsInit domains)
                  vars1AndInput = vars1 ++ inputVars
                  env1 = foldr extendEnvD EM.empty
                         $ zip vars1AndInput
