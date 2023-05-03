@@ -1,12 +1,13 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- | A class containing array operations, with some extra algebraic operations
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
   ( Domain0, DomainR, Domains
-  , domains0, domainsR, mkDomains
+  , domains0, domainsR, mkDomains, ttoRankedOrDummy
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare
@@ -31,7 +32,9 @@ import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
+import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
+import           System.Random
 
 import HordeAd.Core.Domains
 import HordeAd.Core.SizedIndex
@@ -57,6 +60,12 @@ domainsR = domsR
 mkDomains :: (DomainsCollection r, Tensor r)
           => Domain0 r -> DomainR r -> Domains r
 mkDomains t = mkDoms (dfromR t)
+
+ttoRankedOrDummy :: (Tensor r, DynamicTensor r, KnownNat n)
+                 => ShapeInt n -> DTensorOf r -> TensorOf n r
+ttoRankedOrDummy sh x = if disDummy x
+                        then tzero sh
+                        else tfromD x
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -582,6 +591,70 @@ instance DomainsTensor Float where
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
   type DomainsOf Float = Domains Float
+
+{- TODO: requires IncoherentInstances no matter what pragma I stick in
+-- A special case, because for @Double@ we have faster @randomVals@,
+-- though the quality of randomness is worse (going through a single @Int@).
+instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
+         KnownNat n
+         => AdaptableDomains (OR.Array n Double) where
+  type Scalar (OR.Array n Double) = Double
+  toDomains a =
+    (V.empty, V.empty, V.empty, V.singleton (Data.Array.Convert.convert a))
+  fromDomains _aInit (v0, v1) = case V.uncons v1 of
+    Just (a, rest) -> (toShapedOrDummy a, (v0, v1, v2, rest))
+    Nothing -> error "fromDomains in AdaptableDomains (OR.Array n r)"
+  randomVals range g =
+    let -- Note that hmatrix produces numbers from the range open at the top,
+        -- unlike package random.
+        createRandomVector n seedInt =
+          LA.scale (2 * range)
+          $ LA.randomVector seedInt LA.Uniform n - LA.scalar 0.5
+        (i, g2) = random g
+        arr = OR.fromVector $ createRandomVector (OR.sizeP (Proxy @n)) i
+    in (arr, g2)
+-}
+
+instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r
+         , Domains r ~ Data.Vector.Vector (DTensorOf r), DomainsCollection r
+         , TensorOf n r ~ Flip OR.Array r n, DTensorOf r ~ OD.Array r )
+         => AdaptableDomains (OR.Array n r) where
+  type Scalar (OR.Array n r) = r
+  type Value (OR.Array n r) = OR.Array n r
+  toDomains a =
+    mkDoms emptyDoms0 (V.singleton (Data.Array.Convert.convert a))
+  fromDomains aInit params = case unconsR params of
+    Just (a, rest) ->
+      Just (runFlip $ ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
+    Nothing -> Nothing
+  nParams _ = 1
+  nScalars = OR.size
+
+instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r
+         , Domains r ~ Data.Vector.Vector (DTensorOf r), DomainsCollection r
+         , TensorOf n r ~ Flip OR.Array r n )
+         => AdaptableDomains (Flip OR.Array r n) where
+  type Scalar (Flip OR.Array r n) = r
+  type Value (Flip OR.Array r n) = OR.Array n r
+  toDomains a =
+    mkDoms emptyDoms0 (V.singleton (dfromR a))
+  fromDomains aInit params = case unconsR params of
+    Just (a, rest) ->
+      Just (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
+    Nothing -> Nothing
+  nParams _ = 1
+  nScalars = OR.size . runFlip
+
+instance KnownNat n
+         => RandomDomains (OR.Array n r) where
+  randomVals range g =
+    let createRandomVector n seed =
+          LA.scale (2 * range)
+          $ V.fromListN n (randoms seed) - LA.scalar 0.5
+        (g1, g2) = split g
+        arr = OR.fromVector undefined
+              $ createRandomVector (OR.size undefined) g1  -- TODO
+    in (arr, g2)
 
 {- These instances are increasingly breaking stuff, so disabled:
 

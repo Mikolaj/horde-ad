@@ -19,11 +19,12 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
+import HordeAd.Core.Domains
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
-import HordeAd.External.Adaptor
+import HordeAd.External.Adaptor ()
 
 import EqEpsilon
 

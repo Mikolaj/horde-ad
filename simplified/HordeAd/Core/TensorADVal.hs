@@ -117,6 +117,38 @@ instance ( Tensor r, Domains r ~ Data.Vector.Vector (DTensorOf r)
   concatDom0 = undefined
   concatDomR = undefined
 
+instance ( Tensor r, Tensor (ADVal r), IsPrimal r
+         , KnownNat n, TensorOf n r ~ Flip OR.Array r n
+         , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
+         , DTensorOf r ~ OD.Array r
+         , Domains r ~ Data.Vector.Vector (DTensorOf r)
+         , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
+         => AdaptableDomains (ADVal (Flip OR.Array r n)) where
+  type Scalar (ADVal (Flip OR.Array r n)) = ADVal r
+  type Value (ADVal (Flip OR.Array r n)) = OR.Array n r
+  toDomains = undefined
+  fromDomains _aInit inputs = case unconsR inputs of
+    Just (a, rest) -> Just (getCompose $ tfromD a, rest)
+    Nothing -> Nothing
+  nParams = undefined
+  nScalars = undefined
+
+instance ( Tensor r, Tensor (ADVal r), IsPrimal r
+         , KnownNat n, TensorOf n r ~ Flip OR.Array r n
+         , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
+         , DTensorOf r ~ OD.Array r
+         , Domains r ~ Data.Vector.Vector (DTensorOf r)
+         , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
+         => AdaptableDomains (Compose ADVal (Flip OR.Array r) n) where
+  type Scalar (Compose ADVal (Flip OR.Array r) n) = ADVal r
+  type Value (Compose ADVal (Flip OR.Array r) n) = OR.Array n r
+  toDomains = undefined
+  fromDomains _aInit inputs = case unconsR inputs of
+    Just (a, rest) -> Just (tfromD a, rest)
+    Nothing -> Nothing
+  nParams = undefined
+  nScalars = undefined
+
 -- We should really only have one @ADVal r@ instance, but typing problems caused
 -- by ranks (and probably too strict injectivity checks) make us copy the code.
 -- Not that these instances don't do vectorization. To enable it,
@@ -199,6 +231,14 @@ instance DynamicTensor (ADVal Double) where
   ddummy = undefined
   disDummy = undefined
 
+instance AdaptableDomains (ADVal Double) where
+  type Scalar (ADVal Double) = ADVal Double
+  type Value (ADVal Double) = Double
+  toDomains = undefined
+  fromDomains _aInit = uncons0
+  nParams = undefined
+  nScalars = undefined
+
 instance Tensor (ADVal Float) where
   type Ranked (ADVal Float) = Compose ADVal (Flip OR.Array Float)
   type IntOf (ADVal Float) = CInt
@@ -272,6 +312,14 @@ instance DynamicTensor (ADVal Float) where
   type DTensorOf (ADVal Float) = ADVal (OD.Array Float)
   ddummy = undefined
   disDummy = undefined
+
+instance AdaptableDomains (ADVal Float) where
+  type Scalar (ADVal Float) = ADVal Float
+  type Value (ADVal Float) = Float
+  toDomains = undefined
+  fromDomains _aInit = uncons0
+  nParams = undefined
+  nScalars = undefined
 
 instance (ADTensor (Ast0 r), ShowAstSimplify r)
          => Tensor (ADVal (Ast0 r)) where
@@ -348,6 +396,26 @@ instance ShowAstSimplify r
   type DTensorOf (ADVal (Ast0 r)) = ADVal (AstDynamic r)
   ddummy = undefined
   disDummy = undefined
+
+instance ShowAstSimplify r
+         => AdaptableDomains (ADVal (Ast0 r)) where
+  type Scalar (ADVal (Ast0 r)) = ADVal (Ast0 r)
+  type Value (ADVal (Ast0 r)) = r
+  toDomains = undefined
+  fromDomains _aInit = uncons0
+  nParams = undefined
+  nScalars = undefined
+
+instance (KnownNat n, ShowAstSimplify r)
+         => AdaptableDomains (ADVal (Ast n r)) where
+  type Scalar (ADVal (Ast n r)) = ADVal (Ast0 r)
+  type Value (ADVal (Ast n r)) = OR.Array n r
+  toDomains = undefined
+  fromDomains _aInit inputs = case unconsR inputs of
+    Just (a, rest) -> Just (getCompose $ tfromD a, rest)
+    Nothing -> Nothing
+  nParams = undefined
+  nScalars = undefined
 
 
 -- * ADVal combinators generalizing ranked tensor operations

@@ -10,6 +10,8 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
+import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
@@ -112,6 +114,27 @@ instance ShowAstSimplify r
         Just (h, mkDoms (doms0 params) rest)
   concatDom0 = dfromR @(Ast0 r) @1 . foldr1 tappend . map tfromD
   concatDomR = V.concat
+
+instance ShowAstSimplify r
+         => AdaptableDomains (Ast0 r) where
+  type Scalar (Ast0 r) = Ast0 r
+  type Value (Ast0 r) = r
+  toDomains = undefined
+  fromDomains _aInit = uncons0
+  nParams = undefined
+  nScalars = undefined
+
+instance ( Tensor r, ShowAstSimplify r, KnownNat n
+         , TensorOf n r ~ Flip OR.Array r n )
+         => AdaptableDomains (Ast n r) where
+  type Scalar (Ast n r) = Ast0 r
+  type Value (Ast n r) = OR.Array n r
+  toDomains = undefined
+  fromDomains aInit params = case unconsR params of
+    Just (a, rest) -> Just (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
+    Nothing -> Nothing
+  nParams = undefined
+  nScalars = undefined
 
 instance ShowAst r
          => DomainsTensor (Ast0 r) where
