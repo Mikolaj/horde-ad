@@ -191,7 +191,8 @@ crev :: forall n r vals advals.
        , ADTensor r, DynamicTensor r, DomainsTensor r
        , IsPrimal (Flip OR.Array r n)
        , AdaptableDomains (Value advals)
-       , AdaptableInputs advals, Scalar advals ~ r
+       , AdaptableInputs advals, Scalar (Value advals) ~ r
+       , Scalar advals ~ ADVal r
        , Domains r ~ Data.Vector.Vector (DTensorOf r)
        , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
        , vals ~ Value vals, DomainsOf r ~ Domains r )
@@ -205,7 +206,8 @@ crevDt :: forall n r vals advals.
          , ADTensor r, DynamicTensor r, DomainsTensor r
          , IsPrimal (Flip OR.Array r n)
          , AdaptableDomains (Value advals)
-         , AdaptableInputs advals, Scalar advals ~ r
+         , AdaptableInputs advals, Scalar (Value advals) ~ r
+         , Scalar advals ~ ADVal r
          , Domains r ~ Data.Vector.Vector (DTensorOf r)
          , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
          , vals ~ Value vals, DomainsOf r ~ Domains r )
@@ -219,7 +221,8 @@ crevDtMaybe
      , ADTensor r, DynamicTensor r, DomainsTensor r
      , IsPrimal (Flip OR.Array r n)
      , AdaptableDomains (Value advals)
-     , AdaptableInputs advals, Scalar advals ~ r
+     , AdaptableInputs advals, Scalar (Value advals) ~ r
+     , Scalar advals ~ ADVal r
      , DomainsOf r ~ Domains r, Domains r ~ Data.Vector.Vector (DTensorOf r)
      , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r) )
   => (advals -> Compose ADVal (Flip OR.Array r) n)
@@ -233,7 +236,8 @@ crevDtMaybe f vals dt =
 fwd :: forall a vals r advals.
        ( ForwardDerivative a, r ~ Scalar vals, vals ~ Value advals
        , ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
-       , AdaptableDomains (Value advals), Scalar advals ~ r
+       , AdaptableDomains (Value advals), Scalar (Value advals) ~ r
+       , Scalar advals ~ ADVal r
        , AdaptableInputs advals, Domains r ~ Data.Vector.Vector (DTensorOf r)
        , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r) )
     => (advals -> ADVal a) -> vals -> vals
@@ -259,8 +263,8 @@ class RandomDomains vals where
     => r -> g -> (vals, g)
 
 class AdaptableInputs advals where
-  fromADInputs :: Value advals -> Domains (ADVal (Scalar advals))
-               -> (advals, Domains (ADVal (Scalar advals)))
+  fromADInputs :: Value advals -> Domains (Scalar advals)
+               -> (advals, Domains (Scalar advals))
 
 parseDomains
   :: ( AdaptableDomains vals, Tensor (Scalar vals)
@@ -271,10 +275,10 @@ parseDomains aInit domains =
   in assert (isEmptyDoms rest) vals
 
 parseADInputs :: ( AdaptableInputs advals, Tensor r, DynamicTensor r
-                 , r ~ Scalar advals, DomainsCollection r
+                 , r ~ Scalar (Value advals), DomainsCollection (Scalar advals)
                  , Domains r ~ Data.Vector.Vector (DTensorOf r)
                  , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r) )
-              => Value advals -> Domains (ADVal r)
+              => Value advals -> Domains (Scalar advals)
               -> advals
 parseADInputs aInit inputs =
   let (advals, rest) = fromADInputs aInit inputs
@@ -295,7 +299,7 @@ instance RandomDomains Double where
     -- note that unlike in hmatrix the range is closed from the top
 
 instance AdaptableDomains (ADVal Double) where
-  type Scalar (ADVal Double) = Double
+  type Scalar (ADVal Double) = ADVal Double
   type Value (ADVal Double) = Double
   toDomains = undefined
   fromDomains = undefined
@@ -321,7 +325,7 @@ instance RandomDomains Float where
   randomVals range = randomR (- range, range)
 
 instance AdaptableDomains (ADVal Float) where
-  type Scalar (ADVal Float) = Float
+  type Scalar (ADVal Float) = ADVal Float
   type Value (ADVal Float) = Float
   toDomains = undefined
   fromDomains = undefined
@@ -334,7 +338,7 @@ instance AdaptableInputs (ADVal Float) where
     Nothing -> error "fromADInputs in AdaptableInputs (ADVal Float)"
 
 instance AdaptableDomains (ADVal (Ast0 r)) where
-  type Scalar (ADVal (Ast0 r)) = Ast0 r
+  type Scalar (ADVal (Ast0 r)) = ADVal (Ast0 r)
   type Value (ADVal (Ast0 r)) = r
   toDomains = undefined
   fromDomains = undefined
@@ -440,7 +444,7 @@ instance KnownNat n
     in (arr, g2)
 
 instance AdaptableDomains (ADVal (Flip OR.Array r n)) where
-  type Scalar (ADVal (Flip OR.Array r n)) = r
+  type Scalar (ADVal (Flip OR.Array r n)) = ADVal r
   type Value (ADVal (Flip OR.Array r n)) = OR.Array n r
   toDomains = undefined
   fromDomains = undefined
@@ -459,7 +463,7 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r
     Nothing -> error "fromADInputs in AdaptableInputs (ADVal (Flip OR.Array r n))"
 
 instance AdaptableDomains (Compose ADVal (Flip OR.Array r) n) where
-  type Scalar (Compose ADVal (Flip OR.Array r) n) = r
+  type Scalar (Compose ADVal (Flip OR.Array r) n) = ADVal r
   type Value (Compose ADVal (Flip OR.Array r) n) = OR.Array n r
   toDomains = undefined
   fromDomains = undefined
@@ -478,7 +482,7 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r
     Nothing -> error "fromADInputs in AdaptableInputs (Compose ADVal (Flip OR.Array r) n)"
 
 instance AdaptableDomains (ADVal (Ast n r)) where
-  type Scalar (ADVal (Ast n r)) = Ast0 r
+  type Scalar (ADVal (Ast n r)) = ADVal (Ast0 r)
   type Value (ADVal (Ast n r)) = OR.Array n r
   toDomains = undefined
   fromDomains = undefined
@@ -668,6 +672,7 @@ instance ( r ~ Scalar a, r ~ Scalar b
   nScalars = either nScalars nScalars
 
 instance ( r ~ Scalar a, r ~ Scalar b
+         , r ~ Scalar (Value a), r ~ Scalar (Value b)
          , Domains r ~ Data.Vector.Vector (DTensorOf r)
          , AdaptableInputs a, AdaptableInputs b)
          => AdaptableInputs (Either a b) where
