@@ -5,9 +5,9 @@
 -- with complicated domains to the restricted from of functions
 -- that the AD machinery can efficiently differentiate.
 module HordeAd.External.Adaptor
-  ( AdaptableDomains(Scalar, Value, toDomains, nParams, nScalars)
+  ( AdaptableDomains(toDomains, nParams, nScalars)
+  , parseDomains
   , RandomDomains(randomVals)
-  , parseDomains, parseADInputs
   , revL, revDtMaybeL, revDtFun, rev, revDt
   , srevL, srevDtMaybeL, srev, srevDt
   , crev, crevDt, fwd
@@ -225,7 +225,7 @@ crevDtMaybe
   -> vals -> Maybe (OR.Array n r)
   -> vals
 crevDtMaybe f vals dt =
-  let g inputs = getCompose $ f $ parseADInputs vals inputs
+  let g inputs = getCompose $ f $ parseDomains vals inputs
   in parseDomains vals $ fst $ revOnDomains (Flip <$> dt) g (toDomains vals)
 
 -- This takes the sensitivity parameter, by convention.
@@ -238,7 +238,7 @@ fwd :: forall a vals r advals.
     => (advals -> ADVal a) -> vals -> vals
     -> a
 fwd f x ds =
-  let g inputs = f $ parseADInputs ds inputs
+  let g inputs = f $ parseDomains ds inputs
   in fst $ slowFwdOnDomains (toDomains x) g (toDomains ds)
 
 class AdaptableDomains vals where
@@ -263,11 +263,6 @@ parseDomains
 parseDomains aInit domains =
   let (vals, rest) = fromDomains aInit domains
   in assert (isEmptyDoms rest) vals
-
-parseADInputs
-  :: (AdaptableDomains vals, DomainsCollection (Scalar vals))
-  => Value vals -> Domains (Scalar vals) -> vals
-parseADInputs = parseDomains
 
 instance AdaptableDomains Double where
   type Scalar Double = Double

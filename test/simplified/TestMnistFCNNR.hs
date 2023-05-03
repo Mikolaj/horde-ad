@@ -64,7 +64,7 @@ mnistTestCase2VTA
      , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
-     , Floating (Vector r), ADTensor r, DynamicTensor (ADVal r)
+     , Floating (Vector r), ADTensor r
      , Domains r ~ Data.Vector.Vector (OD.Array r)
      , DynamicTensor r, DomainsTensor r, Element r ~ r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
@@ -116,7 +116,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
              let f mnist adinputs =
                    MnistFcnnRanked1.afcnnMnistLoss1
                      widthHidden widthHidden2
-                     mnist (parseADInputs valsInit adinputs)
+                     mnist (parseDomains valsInit adinputs)
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -275,7 +275,7 @@ mnistTestCase2VTO
      ( ADReady r, ScalarOf r ~ r, InterpretAst r
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Domains r ~ Data.Vector.Vector (OD.Array r)
-     , Floating (Vector r), ADTensor r, DomainsTensor r
+     , Floating (Vector r), ADTensor r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -413,7 +413,7 @@ mnistTestCase2VT2A
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , Domains r ~ Data.Vector.Vector (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
-     , Floating (Vector r), ADTensor r, DynamicTensor (ADVal r)
+     , Floating (Vector r), ADTensor r
      , DynamicTensor r, DomainsTensor r, Element r ~ r
      , DTensorOf r ~ OD.Array r, DomainsOf r ~ Data.Vector.Vector (OD.Array r)
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
@@ -472,7 +472,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> Domains (ADVal r) -> ADVal r
                  f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
-                     mnist (parseADInputs valsInit adinputs)
+                     mnist (parseDomains valsInit adinputs)
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -631,7 +631,7 @@ mnistTestCase2VT2O
   :: forall r.
      ( ADReady r, ScalarOf r ~ r, InterpretAst r
      , PrintfArg r, AssertEqualUpToEpsilon r
-     , Floating (Vector r), ADTensor r, DomainsTensor r
+     , Floating (Vector r), ADTensor r
      , DTensorOf r ~ OD.Array r
      , Domains r ~ Data.Vector.Vector (OD.Array r)
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
