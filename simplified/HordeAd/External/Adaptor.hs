@@ -286,8 +286,8 @@ instance AdaptableDomains Double where
   type Scalar Double = Double
   type Value Double = Double
   toDomains a = mkDomains (tfromList [tscalar a]) V.empty
-  fromDomains _aInit params = case tuncons (domains0 params) of
-    Just (a, rest) -> (tunScalar a, mkDomains rest (domainsR params))
+  fromDomains _aInit params = case uncons0 params of
+    Just (a, rest) -> (a, rest)
     Nothing -> error "fromDomains in AdaptableDomains Double"
   nParams _ = 1
   nScalars _ = 1
@@ -305,20 +305,16 @@ instance AdaptableDomains (ADVal Double) where
   nScalars = undefined
 
 instance AdaptableInputs (ADVal Double) where
-  fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
-    Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
-      Just (aDual, restDual) ->
-        ( dD emptyADShare (tunScalar aPrimal) aDual
-        , inputs {inputPrimal0 = restPrimal, inputDual0 = restDual} )
-      Nothing -> error "fromADInputs in AdaptableInputs Double"
-    Nothing -> error "fromADInputs in AdaptableInputs Double"
+  fromADInputs _aInit inputs = case uncons0 inputs of
+    Just (a, rest) -> (a, rest)
+    Nothing -> error "fromADInputs in AdaptableInputs (ADVal Double)"
 
 instance AdaptableDomains Float where
   type Scalar Float = Float
   type Value Float = Float
   toDomains a = mkDomains (tfromList [tscalar a]) V.empty
-  fromDomains _aInit params = case tuncons (domains0 params) of
-    Just (a, rest) -> (tunScalar a, mkDomains rest (domainsR params))
+  fromDomains _aInit params = case uncons0 params of
+    Just (a, rest) -> (a, rest)
     Nothing -> error "fromDomains in AdaptableDomains Float"
   nParams _ = 1
   nScalars _ = 1
@@ -335,13 +331,9 @@ instance AdaptableDomains (ADVal Float) where
   nScalars = undefined
 
 instance AdaptableInputs (ADVal Float) where
-  fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
-    Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
-      Just (aDual, restDual) ->
-        ( dD emptyADShare (tunScalar aPrimal) aDual
-        , inputs {inputPrimal0 = restPrimal, inputDual0 = restDual} )
-      Nothing -> error "fromADInputs in AdaptableInputs Float"
-    Nothing -> error "fromADInputs in AdaptableInputs Float"
+  fromADInputs _aInit inputs = case uncons0 inputs of
+    Just (a, rest) -> (a, rest)
+    Nothing -> error "fromADInputs in AdaptableInputs (ADVal Float)"
 
 instance AdaptableDomains (ADVal (Ast0 r)) where
   type Scalar (ADVal (Ast0 r)) = Ast0 r
@@ -353,21 +345,17 @@ instance AdaptableDomains (ADVal (Ast0 r)) where
 
 instance ShowAstSimplify r
          => AdaptableInputs (ADVal (Ast0 r)) where
-  fromADInputs _aInit inputs@ADInputs{..} = case tuncons inputPrimal0 of
-    Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
-      Just (aDual, restDual) ->
-        ( dD emptyADShare (tunScalar aPrimal) aDual
-        , inputs {inputPrimal0 = restPrimal, inputDual0 = restDual} )
-      Nothing -> error "fromADInputs in AdaptableInputs (Ast0 r)"
-    Nothing -> error "fromADInputs in AdaptableInputs (Ast0 r)"
+  fromADInputs _aInit inputs = case uncons0 inputs of
+    Just (a, rest) -> (a, rest)
+    Nothing -> error "fromADInputs in AdaptableInputs (ADVal (Ast0 r))"
 
 instance (Scalar r ~ r, ShowAstSimplify r)
          => AdaptableDomains (Ast0 r) where
   type Scalar (Ast0 r) = Ast0 r
   type Value (Ast0 r) = r
   toDomains = undefined
-  fromDomains _aInit params = case tuncons (domains0 params) of
-    Just (a, rest) -> (tunScalar a, mkDomains rest (domainsR params))
+  fromDomains _aInit params = case uncons0 params of
+    Just (a, rest) -> (a, rest)
     Nothing -> error "fromDomains in AdaptableDomains (Ast0 r)"
   nParams = undefined
   nScalars = undefined
@@ -401,9 +389,8 @@ instance ( Tensor r, ShowAstSimplify r, KnownNat n
   type Scalar (Ast n r) = Ast0 r
   type Value (Ast n r) = OR.Array n r
   toDomains = undefined
-  fromDomains aInit params = case V.uncons $ domainsR params of
-    Just (a, rest) -> ( ttoRankedOrDummy (tshape $ Flip aInit) a
-                      , mkDomains (domains0 params) rest )
+  fromDomains aInit params = case unconsR params of
+    Just (a, rest) -> (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
     Nothing -> error "fromDomains in AdaptableDomains (Ast n r)"
   nParams = undefined
   nScalars = undefined
@@ -422,9 +409,8 @@ instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsTensor r
   type Value (OR.Array n r) = OR.Array n r
   toDomains a =
     mkDoms emptyDoms0 (V.singleton (Data.Array.Convert.convert a))
-  fromDomains aInit params = case V.uncons $ domainsR params of
-    Just (a, rest) -> ( runFlip $ ttoRankedOrDummy (tshape $ Flip aInit) a
-                      , mkDomains (domains0 params) rest )
+  fromDomains aInit params = case unconsR params of
+    Just (a, rest) -> (runFlip $ ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
     Nothing -> error "fromDomains in AdaptableDomains (OR.Array n r)"
   nParams _ = 1
   nScalars = OR.size
@@ -438,10 +424,9 @@ instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsTensor r
   toDomains a =
     mkDoms emptyDoms0
               (V.singleton (Data.Array.Convert.convert $ runFlip a))
-  fromDomains aInit params = case V.uncons $ domainsR params of
-    Just (a, rest) -> ( ttoRankedOrDummy (tshape $ Flip aInit) a
-                      , mkDomains (domains0 params) rest )
-    Nothing -> error "fromDomains in AdaptableDomains (OR.Array n r)"
+  fromDomains aInit params = case unconsR params of
+    Just (a, rest) -> (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
+    Nothing -> error "fromDomains in AdaptableDomains (Flip OR.Array r n)"
   nParams _ = 1
   nScalars = OR.size . runFlip
 
@@ -464,20 +449,16 @@ instance AdaptableDomains (ADVal (Flip OR.Array r n)) where
   nParams = undefined
   nScalars = undefined
 
-instance ( Tensor (ADVal r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
+instance ( Tensor r, Tensor (ADVal r), IsPrimal r
+         , KnownNat n, TensorOf n r ~ Flip OR.Array r n
          , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
          , DTensorOf r ~ OD.Array r
          , Domains r ~ Data.Vector.Vector (DTensorOf r)
          , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
          => AdaptableInputs (ADVal (Flip OR.Array r n)) where
-  fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
-    Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
-      Just (aDual, restDual) ->
-        ( getCompose $ tfromD @(ADVal r) @n
-          $ dDnotShared emptyADShare aPrimal aDual
-        , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
-      Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
-    Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
+  fromADInputs _aInit inputs = case unconsR inputs of
+    Just (a, rest) -> (getCompose $ tfromD @(ADVal r) @n a, rest)
+    Nothing -> error "fromADInputs in AdaptableInputs (ADVal (Flip OR.Array r n))"
 
 instance AdaptableDomains (Compose ADVal (Flip OR.Array r) n) where
   type Scalar (Compose ADVal (Flip OR.Array r) n) = r
@@ -487,20 +468,16 @@ instance AdaptableDomains (Compose ADVal (Flip OR.Array r) n) where
   nParams = undefined
   nScalars = undefined
 
-instance ( Tensor (ADVal r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
+instance ( Tensor r, Tensor (ADVal r), IsPrimal r
+         , KnownNat n, TensorOf n r ~ Flip OR.Array r n
          , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
          , DTensorOf r ~ OD.Array r
          , Domains r ~ Data.Vector.Vector (DTensorOf r)
          , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
          => AdaptableInputs (Compose ADVal (Flip OR.Array r) n) where
-  fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
-    Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
-      Just (aDual, restDual) ->
-        ( tfromD @(ADVal r) @n
-          $ dDnotShared emptyADShare aPrimal aDual
-        , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
-      Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
-    Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
+  fromADInputs _aInit inputs = case unconsR inputs of
+    Just (a, rest) -> (tfromD @(ADVal r) @n a, rest)
+    Nothing -> error "fromADInputs in AdaptableInputs (Compose ADVal (Flip OR.Array r) n)"
 
 instance AdaptableDomains (ADVal (Ast n r)) where
   type Scalar (ADVal (Ast n r)) = Ast0 r
@@ -512,14 +489,9 @@ instance AdaptableDomains (ADVal (Ast n r)) where
 
 instance (KnownNat n, ShowAstSimplify r)
          => AdaptableInputs (ADVal (Ast n r)) where
-  fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
-    Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
-      Just (aDual, restDual) ->
-        ( getCompose $ tfromD @(ADVal (Ast0 r)) @n
-          $ dDnotShared emptyADShare aPrimal aDual
-        , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
-      Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
-    Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
+  fromADInputs _aInit inputs = case unconsR inputs of
+    Just (a, rest) -> (getCompose $ tfromD @(ADVal (Ast0 r)) @n a, rest)
+    Nothing -> error "fromADInputs in AdaptableInputs (ADVal (Ast n r))"
 
 instance ( AdaptableDomains a, DynamicTensor (Scalar a)
          , DomainsCollection (Scalar a)
