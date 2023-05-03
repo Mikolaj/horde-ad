@@ -55,6 +55,7 @@ import qualified HordeAd.Core.DualNumber as DualNumber
 import qualified HordeAd.Core.Engine as Engine
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorADVal (ADTensor)
+import qualified HordeAd.Core.TensorADVal as TensorADVal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Internal.TensorOps
 
@@ -67,7 +68,7 @@ type Domain1 r = DomainR r
 domains1 :: DomainsCollection r => Domains r -> Domain1 r
 domains1 = domainsR
 
-type ADInputs d r = Engine.ADInputs r
+type ADInputs d r = Domains (DualNumber.ADVal r)
 
 data ADMode =
     ADModeGradient
@@ -112,27 +113,27 @@ valueGeneral
   :: forall r a.
      ( ADTensor r, DomainsTensor r
      , Domains r ~ Data.Vector.Vector (DTensorOf r) )
-  => (Engine.ADInputs r -> a)
+  => (TensorADVal.ADInputs r -> a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
 {-# INLINE valueGeneral #-}
 valueGeneral f parameters =
   let deltaInputs = Engine.generateDeltaInputs parameters
-      inputs = Engine.makeADInputs parameters deltaInputs
+      inputs = TensorADVal.makeADInputs parameters deltaInputs
   in f inputs
 
 valueOnDomains
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
      , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r
      , Domains r ~ Data.Vector.Vector (DTensorOf r) )
-  => (Engine.ADInputs r -> DualNumber.ADVal a)
+  => (TensorADVal.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
   -> a
 {-# INLINE valueOnDomains #-}
 valueOnDomains f parameters =
   let deltaInputs = Engine.generateDeltaInputs parameters
-      inputs = Engine.makeADInputs parameters deltaInputs
+      inputs = TensorADVal.makeADInputs parameters deltaInputs
   in snd $ Engine.revOnADInputs Nothing f inputs
 
 revOnADInputs
@@ -140,8 +141,8 @@ revOnADInputs
      , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r
      , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => a
-  -> (Engine.ADInputs r -> DualNumber.ADVal a)
-  -> Engine.ADInputs r
+  -> (TensorADVal.ADInputs r -> DualNumber.ADVal a)
+  -> TensorADVal.ADInputs r
   -> (Domains r, a)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
@@ -155,7 +156,7 @@ revOnDomains
      , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r
      , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => a
-  -> (Engine.ADInputs r -> DualNumber.ADVal a)
+  -> (TensorADVal.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
   -> (Domains r, a)
 revOnDomains = Engine.revOnDomains . Just
@@ -163,37 +164,37 @@ revOnDomains = Engine.revOnDomains . Just
 prettyPrintDf
   :: ( ADTensor r, DomainsTensor r, Show (Dual r)
      , Domains r ~ Data.Vector.Vector (DTensorOf r) )
-  => (Engine.ADInputs r -> DualNumber.ADVal r)
+  => (TensorADVal.ADInputs r -> DualNumber.ADVal r)
   -> Domains r
   -> String
 prettyPrintDf f parameters =
   let deltaInputs = Engine.generateDeltaInputs parameters
-      inputs = Engine.makeADInputs parameters deltaInputs
+      inputs = TensorADVal.makeADInputs parameters deltaInputs
       !(DualNumber.D _ _ deltaTopLevel) = f inputs
   in ppShow deltaTopLevel
 
 -- * Simplified version compatibility shims
 
-at0 :: ADModeAndNum d r => Engine.ADInputs r -> Int -> ADVal d r
+at0 :: ADModeAndNum d r => TensorADVal.ADInputs r -> Int -> ADVal d r
 {-# INLINE at0 #-}
-at0 Engine.ADInputs{..} i =
+at0 TensorADVal.ADInputs{..} i =
   dD emptyADShare (OR.toVector (runFlip inputPrimal0) V.! i)
                                (inputDual0 V.! i)
 
 at1 :: forall n r d.
        ( KnownNat n, ADModeAndNum d r, TensorOf n r ~ Flip OR.Array r n )
-    => Engine.ADInputs r -> Int -> ADVal d (Flip OR.Array r n)
+    => TensorADVal.ADInputs r -> Int -> ADVal d (Flip OR.Array r n)
 {-# INLINE at1 #-}
-at1 Engine.ADInputs{..} i = dD emptyADShare (tfromD $ inputPrimal1 V.! i)
+at1 TensorADVal.ADInputs{..} i = dD emptyADShare (tfromD $ inputPrimal1 V.! i)
                                             (dFromD $ inputDual1 V.! i)
 
 ifoldlDual' :: forall a d r. ADModeAndNum d r
              => (a -> Int -> ADVal d r -> a)
              -> a
-             -> Engine.ADInputs r
+             -> TensorADVal.ADInputs r
              -> a
 {-# INLINE ifoldlDual' #-}
-ifoldlDual' f a Engine.ADInputs{..} = do
+ifoldlDual' f a TensorADVal.ADInputs{..} = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
         let !b = dD emptyADShare valX (inputDual0 V.! i)
@@ -203,10 +204,10 @@ ifoldlDual' f a Engine.ADInputs{..} = do
 foldlDual' :: forall a d r. ADModeAndNum d r
             => (a -> ADVal d r -> a)
             -> a
-            -> Engine.ADInputs r
+            -> TensorADVal.ADInputs r
             -> a
 {-# INLINE foldlDual' #-}
-foldlDual' f a Engine.ADInputs{..} = do
+foldlDual' f a TensorADVal.ADInputs{..} = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
         let !b = dD emptyADShare valX (inputDual0 V.! i)

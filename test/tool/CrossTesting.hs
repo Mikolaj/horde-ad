@@ -21,7 +21,7 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.TensorADVal (ADTensor)
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor
 

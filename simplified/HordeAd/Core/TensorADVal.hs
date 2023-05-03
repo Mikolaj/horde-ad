@@ -5,7 +5,7 @@
 -- | 'Tensor' class instances for dual number. The dual numbers are built
 -- either from concrete floats or from 'Ast' term.
 module HordeAd.Core.TensorADVal
-  ( ADTensor
+  ( ADTensor, ADInputs(..), makeADInputs
   ) where
 
 import Prelude hiding ((<*))
@@ -72,6 +72,33 @@ instance (KnownNat n, ShowAstSimplify r)
 instance ShowAstSimplify r
          => IfB (ADVal (Ast0 r)) where
   ifB b v w = unScalar $ ifB b (scalar v) (scalar w)
+
+data ADInputs r = ADInputs
+  { inputPrimal0 :: Domain0 r
+  , inputDual0   :: Data.Vector.Vector (Dual r)
+  , inputPrimal1 :: DomainR r
+  , inputDual1   :: Data.Vector.Vector (Dual (DTensorOf r))
+  }
+
+makeADInputs
+  :: (Tensor r, DomainsCollection r)
+  => Domains r
+  -> ( Data.Vector.Vector (Dual r)
+     , Data.Vector.Vector (Dual (DTensorOf r)) )
+  -> ADInputs r
+{-# INLINE makeADInputs #-}
+makeADInputs params (vs0, vs1)
+  = ADInputs (domains0 params) vs0 (domainsR params) vs1
+
+instance (Tensor r, Domains r ~ Data.Vector.Vector (DTensorOf r))
+         => DomainsCollection (ADVal r) where
+  type Domains (ADVal r) = ADInputs r
+  doms0 = undefined
+  domsR = undefined
+  mkDoms = undefined
+  emptyDoms0 = undefined
+  isEmptyDoms ADInputs{..} =
+    tlength inputPrimal0 == 0 && V.null inputPrimal1
 
 -- We should really only have one @ADVal r@ instance, but typing problems caused
 -- by ranks (and probably too strict injectivity checks) make us copy the code.

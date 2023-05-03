@@ -25,7 +25,7 @@ import HordeAd.Core.DualClass (dFromD)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorADVal (ADTensor)
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 

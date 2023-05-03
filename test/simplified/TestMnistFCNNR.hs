@@ -30,7 +30,7 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualNumber (ADVal, dDnotShared)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorADVal (ADTensor)
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.External.Adaptor
 import HordeAd.External.CommonRankedOps

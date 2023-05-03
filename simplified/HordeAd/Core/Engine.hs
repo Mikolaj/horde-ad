@@ -4,9 +4,7 @@
 -- high-level API of the horde-ad library. Adaptors, optimizers, etc.,
 -- are add-ons.
 module HordeAd.Core.Engine
-  ( ADInputs(..)
-  , makeADInputs, nullADInputs
-  , -- * The most often used part of the high-level API
+  ( -- * The most often used part of the high-level API
     revAstOnDomains, revOnDomains
   , -- * Operations exposed not for the library users but add-on makers
     revAstOnDomainsF, revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
@@ -44,35 +42,8 @@ import HordeAd.Core.Domains
 import HordeAd.Core.DualClass (Dual, dFromR, dInput0, dInputR)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorADVal (ADTensor)
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
-
-data ADInputs r = ADInputs
-  { inputPrimal0 :: Domain0 r
-  , inputDual0   :: Data.Vector.Vector (Dual r)
-  , inputPrimal1 :: DomainR r
-  , inputDual1   :: Data.Vector.Vector (Dual (DTensorOf r))
-  }
-
-makeADInputs
-  :: (Tensor r, DomainsCollection r)
-  => Domains r
-  -> ( Data.Vector.Vector (Dual r)
-     , Data.Vector.Vector (Dual (DTensorOf r)) )
-  -> ADInputs r
-{-# INLINE makeADInputs #-}
-makeADInputs params (vs0, vs1)
-  = ADInputs (domains0 params) vs0 (domainsR params) vs1
-
-inputsToDomains :: (Tensor r, DomainsCollection r)
-                => ADInputs r -> Domains r
-inputsToDomains ADInputs{..} =
-  mkDomains inputPrimal0 inputPrimal1
-
-nullADInputs :: (Tensor r, DomainsCollection r)
-             => ADInputs r -> Bool
-nullADInputs adinputs = isEmptyDoms (inputsToDomains adinputs)
-
 
 -- * Evaluation that computes gradients.
 

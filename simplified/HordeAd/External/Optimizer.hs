@@ -17,7 +17,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.DualNumber (ADNum, ADVal)
 import HordeAd.Core.Engine
-import HordeAd.Core.TensorADVal (ADTensor)
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.External.OptimizerTools
 

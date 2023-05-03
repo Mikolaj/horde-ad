@@ -42,7 +42,7 @@ import HordeAd.Core.DualClass (dFromVectorR, dScalarR)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorADVal (ADTensor)
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 
 -- These only work with non-scalar codomain. A fully general version
@@ -268,12 +268,14 @@ parseDomains aInit domains =
   in assert (isEmptyDoms rest) vals
 
 parseADInputs :: ( AdaptableInputs advals, Tensor r, DynamicTensor r
-                 , r ~ Scalar advals, DomainsCollection r )
+                 , r ~ Scalar advals, DomainsCollection r
+                 , Domains (ADVal r) ~ ADInputs r
+                 , Domains r ~ Data.Vector.Vector (DTensorOf r) )
               => Value advals -> ADInputs r
               -> advals
 parseADInputs aInit inputs =
   let (advals, rest) = fromADInputs aInit inputs
-  in assert (nullADInputs rest) advals
+  in assert (isEmptyDoms rest) advals
 
 instance AdaptableDomains Double where
   type Scalar Double = Double
