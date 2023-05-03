@@ -130,41 +130,34 @@ data AstRanked :: Type -> Nat -> Type where
   AstD :: AstPrimalPart n r -> AstDualPart n r -> Ast n r
   AstLetDomains :: Data.Vector.Vector AstVarId -> AstDomains r -> Ast m r
                 -> Ast m r
-deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
-                  => Show (Ast n r)
+deriving instance ShowAst r => Show (Ast n r)
 
 newtype AstNoVectorize r n = AstNoVectorize {unAstNoVectorize :: Ast n r}
-deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
-                  => Show (AstNoVectorize r n)
+deriving instance ShowAst r => Show (AstNoVectorize r n)
 
 newtype AstNoSimplify r n = AstNoSimplify {unAstNoSimplify :: Ast n r}
-deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
-                  => Show (AstNoSimplify r n)
+deriving instance ShowAst r => Show (AstNoSimplify r n)
 
 newtype AstPrimalPartRanked r n = AstPrimalPart {unAstPrimalPart :: Ast n r}
-deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
-                  => Show (AstPrimalPart n r)
+deriving instance ShowAst r => Show (AstPrimalPart n r)
 
 type AstPrimalPart n r = AstPrimalPartRanked r n
 
 newtype AstDualPartRanked r n = AstDualPart {unAstDualPart :: Ast n r}
-deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
-                  => Show (AstDualPart n r)
+deriving instance ShowAst r => Show (AstDualPart n r)
 
 type AstDualPart n r = AstDualPartRanked r n
 
 data AstDynamic :: Type -> Type where
   AstDynamic :: KnownNat n
              => Ast n r -> AstDynamic r
-deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
-                  => Show (AstDynamic r)
+deriving instance ShowAst r => Show (AstDynamic r)
 
 data AstDomains :: Type -> Type where
   AstDomains :: Data.Vector.Vector (AstDynamic r) -> AstDomains r
   AstDomainsLet :: KnownNat n
                 => AstVarId -> Ast n r -> AstDomains r -> AstDomains r
-deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
-                  => Show (AstDomains r)
+deriving instance ShowAst r => Show (AstDomains r)
 
 unwrapAstDomains :: AstDomains r -> Data.Vector.Vector (AstDynamic r)
 unwrapAstDomains = \case
@@ -184,8 +177,7 @@ bindsToDomainsLet = foldl' bindToDomainsLet
   bindToDomainsLet u (var, AstDynamic w) = AstDomainsLet var w u
 
 newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
-deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
-                  => Show (Ast0 r)
+deriving instance ShowAst r => Show (Ast0 r)
 
 type instance Element (Ast0 r) = Ast0 r
 type instance Element (Ast n r) = Ast0 r
@@ -197,8 +189,7 @@ newtype AstVarName t = AstVarName AstVarId
 data AstDynamicVarName :: Type -> Type where
   AstDynamicVarName :: KnownNat n
                     => AstVarName (OR.Array n r) -> AstDynamicVarName r
-deriving instance ShowAst r
-                  => Show (AstDynamicVarName r)
+deriving instance ShowAst r => Show (AstDynamicVarName r)
 
 -- The argument is the underlying scalar.
 data AstInt :: Type -> Type where
@@ -209,8 +200,7 @@ data AstInt :: Type -> Type where
   AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
   AstMinIndex1 :: AstPrimalPart 1 r -> AstInt r
   AstMaxIndex1 :: AstPrimalPart 1 r -> AstInt r
-deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
-                  => Show (AstInt r)
+deriving instance ShowAst r => Show (AstInt r)
 
 data AstBool :: Type -> Type where
   AstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
@@ -218,8 +208,7 @@ data AstBool :: Type -> Type where
   AstRel :: KnownNat n
          => OpCodeRel -> [AstPrimalPart n r] -> AstBool r
   AstRelInt :: OpCodeRel -> [AstInt r] -> AstBool r
-deriving instance (Show (DTensorOf (Ast0 r)), ShowAst r)
-                  => Show (AstBool r)
+deriving instance ShowAst r => Show (AstBool r)
 
 -- Copied from the outlining mechanism deleted in
 -- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
