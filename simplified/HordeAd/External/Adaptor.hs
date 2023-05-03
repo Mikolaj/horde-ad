@@ -246,7 +246,7 @@ class AdaptableDomains vals where
   type Value vals
   toDomains :: vals -> Domains (Scalar vals)
   fromDomains :: Value vals -> Domains (Scalar vals)
-              -> (vals, Domains (Scalar vals))
+              -> Maybe (vals, Domains (Scalar vals))
   nParams :: vals -> Int
   nScalars :: vals -> Int
 
@@ -261,16 +261,15 @@ parseDomains
   :: (AdaptableDomains vals, DomainsCollection (Scalar vals))
   => Value vals -> Domains (Scalar vals) -> vals
 parseDomains aInit domains =
-  let (vals, rest) = fromDomains aInit domains
-  in assert (isEmptyDoms rest) vals
+  case fromDomains aInit domains of
+    Just (vals, rest) -> assert (isEmptyDoms rest) vals
+    Nothing -> error "parseDomains: Nothing"
 
 instance AdaptableDomains Double where
   type Scalar Double = Double
   type Value Double = Double
   toDomains a = mkDomains (tfromList [tscalar a]) V.empty
-  fromDomains _aInit params = case uncons0 params of
-    Just (a, rest) -> (a, rest)
-    Nothing -> error "fromDomains in AdaptableDomains Double"
+  fromDomains _aInit = uncons0
   nParams _ = 1
   nScalars _ = 1
 
@@ -282,9 +281,7 @@ instance AdaptableDomains (ADVal Double) where
   type Scalar (ADVal Double) = ADVal Double
   type Value (ADVal Double) = Double
   toDomains = undefined
-  fromDomains _aInit inputs = case uncons0 inputs of
-    Just (a, rest) -> (a, rest)
-    Nothing -> error "fromADInputs in AdaptableInputs (ADVal Double)"
+  fromDomains _aInit = uncons0
   nParams = undefined
   nScalars = undefined
 
@@ -292,9 +289,7 @@ instance AdaptableDomains Float where
   type Scalar Float = Float
   type Value Float = Float
   toDomains a = mkDomains (tfromList [tscalar a]) V.empty
-  fromDomains _aInit params = case uncons0 params of
-    Just (a, rest) -> (a, rest)
-    Nothing -> error "fromDomains in AdaptableDomains Float"
+  fromDomains _aInit = uncons0
   nParams _ = 1
   nScalars _ = 1
 
@@ -305,9 +300,7 @@ instance AdaptableDomains (ADVal Float) where
   type Scalar (ADVal Float) = ADVal Float
   type Value (ADVal Float) = Float
   toDomains = undefined
-  fromDomains _aInit inputs = case uncons0 inputs of
-    Just (a, rest) -> (a, rest)
-    Nothing -> error "fromADInputs in AdaptableInputs (ADVal Float)"
+  fromDomains _aInit = uncons0
   nParams = undefined
   nScalars = undefined
 
@@ -316,9 +309,7 @@ instance ShowAstSimplify r
   type Scalar (ADVal (Ast0 r)) = ADVal (Ast0 r)
   type Value (ADVal (Ast0 r)) = r
   toDomains = undefined
-  fromDomains _aInit inputs = case uncons0 inputs of
-    Just (a, rest) -> (a, rest)
-    Nothing -> error "fromADInputs in AdaptableInputs (ADVal (Ast0 r))"
+  fromDomains _aInit = uncons0
   nParams = undefined
   nScalars = undefined
 
@@ -327,9 +318,7 @@ instance (Scalar r ~ r, ShowAstSimplify r)
   type Scalar (Ast0 r) = Ast0 r
   type Value (Ast0 r) = r
   toDomains = undefined
-  fromDomains _aInit params = case uncons0 params of
-    Just (a, rest) -> (a, rest)
-    Nothing -> error "fromDomains in AdaptableDomains (Ast0 r)"
+  fromDomains _aInit = uncons0
   nParams = undefined
   nScalars = undefined
 
@@ -363,8 +352,8 @@ instance ( Tensor r, ShowAstSimplify r, KnownNat n
   type Value (Ast n r) = OR.Array n r
   toDomains = undefined
   fromDomains aInit params = case unconsR params of
-    Just (a, rest) -> (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
-    Nothing -> error "fromDomains in AdaptableDomains (Ast n r)"
+    Just (a, rest) -> Just (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
+    Nothing -> Nothing
   nParams = undefined
   nScalars = undefined
 
@@ -383,8 +372,9 @@ instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r
   toDomains a =
     mkDoms emptyDoms0 (V.singleton (Data.Array.Convert.convert a))
   fromDomains aInit params = case unconsR params of
-    Just (a, rest) -> (runFlip $ ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
-    Nothing -> error "fromDomains in AdaptableDomains (OR.Array n r)"
+    Just (a, rest) ->
+      Just (runFlip $ ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
+    Nothing -> Nothing
   nParams _ = 1
   nScalars = OR.size
 
@@ -398,8 +388,8 @@ instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r
     mkDoms emptyDoms0
               (V.singleton (Data.Array.Convert.convert $ runFlip a))
   fromDomains aInit params = case unconsR params of
-    Just (a, rest) -> (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
-    Nothing -> error "fromDomains in AdaptableDomains (Flip OR.Array r n)"
+    Just (a, rest) -> Just (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
+    Nothing -> Nothing
   nParams _ = 1
   nScalars = OR.size . runFlip
 
@@ -425,8 +415,8 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r
   type Value (ADVal (Flip OR.Array r n)) = OR.Array n r
   toDomains = undefined
   fromDomains _aInit inputs = case unconsR inputs of
-    Just (a, rest) -> (getCompose $ tfromD @(ADVal r) @n a, rest)
-    Nothing -> error "fromADInputs in AdaptableInputs (ADVal (Flip OR.Array r n))"
+    Just (a, rest) -> Just (getCompose $ tfromD @(ADVal r) @n a, rest)
+    Nothing -> Nothing
   nParams = undefined
   nScalars = undefined
 
@@ -441,8 +431,8 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r
   type Value (Compose ADVal (Flip OR.Array r) n) = OR.Array n r
   toDomains = undefined
   fromDomains _aInit inputs = case unconsR inputs of
-    Just (a, rest) -> (tfromD @(ADVal r) @n a, rest)
-    Nothing -> error "fromADInputs in AdaptableInputs (Compose ADVal (Flip OR.Array r) n)"
+    Just (a, rest) -> Just (tfromD @(ADVal r) @n a, rest)
+    Nothing -> Nothing
   nParams = undefined
   nScalars = undefined
 
@@ -452,8 +442,8 @@ instance (KnownNat n, ShowAstSimplify r)
   type Value (ADVal (Ast n r)) = OR.Array n r
   toDomains = undefined
   fromDomains _aInit inputs = case unconsR inputs of
-    Just (a, rest) -> (getCompose $ tfromD @(ADVal (Ast0 r)) @n a, rest)
-    Nothing -> error "fromADInputs in AdaptableInputs (ADVal (Ast n r))"
+    Just (a, rest) -> Just (getCompose $ tfromD @(ADVal (Ast0 r)) @n a, rest)
+    Nothing -> Nothing
   nParams = undefined
   nScalars = undefined
 
@@ -466,10 +456,11 @@ instance (AdaptableDomains a, r ~ Scalar a, Tensor r, DomainsCollection r)
     in mkDomains (tconcat l0) (concatDoms l1)
   fromDomains lInit source =
     let f (lAcc, restAcc) aInit =
-          let (a, rest) = fromDomains aInit restAcc
-          in (a : lAcc, rest)
+          case fromDomains aInit restAcc of
+            Just (a, rest) -> (a : lAcc, rest)
+            Nothing -> error "fromDomains [a]"
         (l, restAll) = foldl' f ([], source) lInit
-    in (reverse l, restAll)
+    in Just (reverse l, restAll)
     -- is the following as performant? benchmark:
     -- > fromDomains lInit source =
     -- >   let f = swap . flip fromDomains
@@ -488,10 +479,10 @@ instance ( Tensor (Scalar a), DomainsCollection r
         (b0, b1) = domains0 &&& domainsR $ toDomains b
     in mkDomains (tconcat [a0, b0])
                  (concatDoms [a1, b1])
-  fromDomains (aInit, bInit) source =
-    let (a, aRest) = fromDomains aInit source
-        (b, bRest) = fromDomains bInit aRest
-    in ((a, b), bRest)
+  fromDomains (aInit, bInit) source = do
+    (a, aRest) <- fromDomains aInit source
+    (b, bRest) <- fromDomains bInit aRest
+    return ((a, b), bRest)
   nParams (a, b) = nParams a + nParams b
   nScalars (a, b) = nScalars a + nScalars b
 
@@ -516,11 +507,11 @@ instance ( Tensor (Scalar a), DomainsCollection r
         (c0, c1) = domains0 &&& domainsR $ toDomains c
     in mkDomains (tconcat [a0, b0, c0])
                  (concatDoms [a1, b1, c1])
-  fromDomains (aInit, bInit, cInit) source =
-    let (a, aRest) = fromDomains aInit source
-        (b, bRest) = fromDomains bInit aRest
-        (c, rest) = fromDomains cInit bRest
-    in ((a, b, c), rest)
+  fromDomains (aInit, bInit, cInit) source = do
+    (a, aRest) <- fromDomains aInit source
+    (b, bRest) <- fromDomains bInit aRest
+    (c, cRest) <- fromDomains cInit bRest
+    return ((a, b, c), cRest)
   nParams (a, b, c) = nParams a + nParams b + nParams c
   nScalars (a, b, c) = nScalars a + nScalars b + nScalars c
 
@@ -549,12 +540,12 @@ instance ( Tensor (Scalar a), DomainsCollection r
         (d0, d1) = domains0 &&& domainsR $ toDomains d
     in mkDomains (tconcat [a0, b0, c0, d0])
                  (concatDoms [a1, b1, c1, d1])
-  fromDomains (aInit, bInit, cInit, dInit) source =
-    let (a, aRest) = fromDomains aInit source
-        (b, bRest) = fromDomains bInit aRest
-        (c, cRest) = fromDomains cInit bRest
-        (d, rest) = fromDomains dInit cRest
-    in ((a, b, c, d), rest)
+  fromDomains (aInit, bInit, cInit, dInit) source = do
+    (a, aRest) <- fromDomains aInit source
+    (b, bRest) <- fromDomains bInit aRest
+    (c, cRest) <- fromDomains cInit bRest
+    (d, dRest) <- fromDomains dInit cRest
+    return ((a, b, c, d), dRest)
   nParams (a, b, c, d) = nParams a + nParams b + nParams c + nParams d
   nScalars (a, b, c, d) = nScalars a + nScalars b + nScalars c + nScalars d
 
@@ -579,10 +570,12 @@ instance ( r ~ Scalar a, r ~ Scalar b
     Left a -> toDomains a
     Right b -> toDomains b
   fromDomains eInit source = case eInit of
-    Left a -> let (a2, rest) = fromDomains a source
-              in (Left a2, rest)
-    Right b -> let (b2, rest) = fromDomains b source
-               in (Right b2, rest)
+    Left a -> case fromDomains a source of
+                Just (a2, rest) -> Just (Left a2, rest)
+                Nothing -> Nothing
+    Right b -> case fromDomains b source of
+                 Just (b2, rest) -> Just (Right b2, rest)
+                 Nothing -> Nothing
   nParams = either nParams nParams
   nScalars = either nScalars nScalars
 
@@ -595,8 +588,9 @@ instance ( AdaptableDomains a, DomainsCollection (Scalar a)
     Nothing -> mkDoms emptyDoms0 V.empty
     Just a -> toDomains a
   fromDomains eInit source = case eInit of
-    Nothing -> (Nothing, source)
-    Just a -> let (a2, rest) = fromDomains a source
-              in (Just a2, rest)
+    Nothing -> Just (Nothing, source)
+    Just a -> case fromDomains a source of
+                Just (a2, rest) -> Just (Just a2, rest)
+                Nothing -> Nothing
   nParams = maybe 0 nParams
   nScalars = maybe 0 nScalars
