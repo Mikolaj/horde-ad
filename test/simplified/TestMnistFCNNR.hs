@@ -65,6 +65,7 @@ mnistTestCase2VTA
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
+     , Domains r ~ Data.Vector.Vector (OD.Array r)
      , DynamicTensor r, DomainsTensor r, Element r ~ r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
      , DomainsOf r ~ Data.Vector.Vector (OD.Array r) )
@@ -156,6 +157,7 @@ mnistTestCase2VTI
      , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , InterpretAst (ADVal r)
+     , Domains r ~ Data.Vector.Vector (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
      , DynamicTensor r, DomainsTensor r, Element r ~ r
@@ -272,6 +274,7 @@ mnistTestCase2VTO
   :: forall r.
      ( ADReady r, ScalarOf r ~ r, InterpretAst r
      , PrintfArg r, AssertEqualUpToEpsilon r
+     , Domains r ~ Data.Vector.Vector (OD.Array r)
      , Floating (Vector r), ADTensor r, DomainsTensor r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => String
@@ -408,6 +411,7 @@ mnistTestCase2VT2A
      , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , TensorOf 2 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 2
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
+     , Domains r ~ Data.Vector.Vector (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
      , DynamicTensor r, DomainsTensor r, Element r ~ r
@@ -504,6 +508,7 @@ mnistTestCase2VT2I
      , InterpretAst (ADVal r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
+     , Domains r ~ Data.Vector.Vector (OD.Array r)
      , DynamicTensor r, DomainsTensor r, Element r ~ r
      , DTensorOf r ~ OD.Array r, DomainsOf r ~ Data.Vector.Vector (OD.Array r)
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
@@ -621,6 +626,7 @@ mnistTestCase2VT2O
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r, DomainsTensor r
      , DTensorOf r ~ OD.Array r
+     , Domains r ~ Data.Vector.Vector (OD.Array r)
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r

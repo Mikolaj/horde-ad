@@ -520,6 +520,7 @@ library horde-ad-simplified
                       HordeAd.Core.AstSimplify
                       HordeAd.Core.AstVectorize
                       HordeAd.Core.Delta
+                      HordeAd.Core.Domains
                       HordeAd.Core.DualClass
                       HordeAd.Core.DualNumber
                       HordeAd.Core.DualNumber2
@@ -645,6 +646,7 @@ library testToolLibrarySimplified
       , enummapset
       , hmatrix
       , orthotope
+      , strict-containers
       , tasty >= 1.0
       , tasty-hunit
       , tasty-quickcheck

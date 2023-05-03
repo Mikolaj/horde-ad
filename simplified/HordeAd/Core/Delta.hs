@@ -64,10 +64,11 @@ import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Vector)
 import           Text.Show.Functions ()
 
 import HordeAd.Core.Ast
+import HordeAd.Core.Domains
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
@@ -386,7 +387,8 @@ data DeltaBinding r =
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
-  :: forall r. (Tensor r, DynamicTensor r, DomainsTensor r)
+  :: forall r. ( Tensor r, DynamicTensor r, DomainsTensor r, DomainsCollection r
+               , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => Int -> Int -> DeltaDt r
   -> ([(AstVarId, DTensorOf r)], DomainsOf r)
 gradientFromDelta dim0 dimR deltaDt =
@@ -663,7 +665,8 @@ instance ForwardDerivative Float where
       DeltaDt0 res _ -> res
       DeltaDtR{} -> error "derivativeFromDelta"
 
-instance ForwardDerivative (Ast0 r) where
+instance ShowAst r
+         => ForwardDerivative (Ast0 r) where
   derivativeFromDelta dim0 dimR deltaTopLevel ds =
     case runST $ buildDerivative dim0 dimR
                                  (DeltaDt0 0 deltaTopLevel) ds of
@@ -671,7 +674,8 @@ instance ForwardDerivative (Ast0 r) where
       DeltaDtR{} -> error "derivativeFromDelta"
 
 instance ( Num (TensorOf n r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
-         , Dual (Flip OR.Array r n) ~ DeltaR n r )
+         , Dual (Flip OR.Array r n) ~ DeltaR n r, DomainsCollection r
+         , Domains r ~ Data.Vector.Vector (DTensorOf r) )
          => ForwardDerivative (Flip OR.Array r n) where
   derivativeFromDelta dim0 dimR deltaTopLevel ds =
     case runST $ buildDerivative dim0 dimR
@@ -681,7 +685,7 @@ instance ( Num (TensorOf n r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
         _ -> error "derivativeFromDelta"
       DeltaDt0{} -> error "derivativeFromDelta"
 
-instance (Numeric r, Num (Vector r), KnownNat n, TensorOf n (Ast0 r) ~ Ast n r)
+instance (ShowAst r, Num (Vector r), KnownNat n, TensorOf n (Ast0 r) ~ Ast n r)
          => ForwardDerivative (Ast n r) where
   derivativeFromDelta dim0 dimR deltaTopLevel ds =
     case runST $ buildDerivative dim0 dimR
@@ -695,7 +699,9 @@ instance (Numeric r, Num (Vector r), KnownNat n, TensorOf n (Ast0 r) ~ Ast n r)
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
-  :: forall s r. Tensor r
+  :: forall s r.
+     ( Tensor r, Domains r ~ Data.Vector.Vector (DTensorOf r)
+     , DomainsCollection r )
   => Int -> Int -> DeltaDt r -> Domains r
   -> ST s (DeltaDt r)
 buildDerivative dim0 dimR deltaDt params = do

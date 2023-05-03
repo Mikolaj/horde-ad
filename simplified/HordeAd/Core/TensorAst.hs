@@ -11,6 +11,7 @@ module HordeAd.Core.TensorAst
 import Prelude
 
 import           Data.Proxy (Proxy (Proxy))
+import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
@@ -19,6 +20,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstVectorize
+import HordeAd.Core.Domains
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
@@ -86,6 +88,16 @@ instance DynamicTensor (Ast0 r) where
   disDummy t = case t of
     AstDynamic AstIota -> True
     _ -> False
+
+instance ShowAst r
+         => DomainsCollection (Ast0 r) where
+  type Domains (Ast0 r) = Data.Vector.Vector (AstDynamic r)
+  doms0 v = v V.! 0
+  domsR v = V.slice 1 (V.length v - 1) v
+  mkDoms = V.cons
+  emptyDoms0 = AstDynamic @1 (AstFromList [])
+  isEmptyDoms params = V.null (domsR params) && case doms0 params of
+    AstDynamic t -> sizeShape (shapeAst t) == 0
 
 instance ShowAst r
          => DomainsTensor (Ast0 r) where

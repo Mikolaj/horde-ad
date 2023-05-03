@@ -13,18 +13,21 @@ import           Control.Monad.ST.Strict (runST)
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
+import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
+import HordeAd.Core.Domains
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2, liftVT2)
 import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient
-  :: ( Numeric r, Floating (Vector r), Tensor r
-     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
+  :: ( Numeric r, Floating (Vector r), Tensor r, DomainsCollection r
+     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma params gradient =
   let params0 = domains0 params
@@ -42,7 +45,8 @@ updateWithGradient gamma params gradient =
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
 
 updateWithGradientR
-  :: (Numeric r, Floating (Vector r), DTensorOf r ~ OD.Array r)
+  :: ( Numeric r, Floating (Vector r), DTensorOf r ~ OD.Array r
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => r -> Domains r -> Domains r -> Domains r
 updateWithGradientR gamma params gradient =
   let updateVector i r = i - LA.scale gamma r
@@ -97,7 +101,8 @@ data StateAdam r = StateAdam
 -- The arguments are just sample params0, for dimensions.
 zeroParameters
   :: ( Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
-     , Tensor r )
+     , Tensor r, DomainsCollection r
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => Domains r -> Domains r
 zeroParameters params =
   let zeroVector v = runST $ do
@@ -109,7 +114,8 @@ zeroParameters params =
 
 initialStateAdam
   :: ( Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
-     , Tensor r )
+     , Tensor r, DomainsCollection r
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => Domains r -> StateAdam r
 initialStateAdam parameters0 =
   let zeroP = zeroParameters parameters0
@@ -144,8 +150,10 @@ liftArray43 f m1 m2 m3 m4 =
 
 updateWithGradientAdam
   :: forall r.
-     ( Numeric r, Floating r, Floating (Vector r), Tensor r
-     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
+     ( Numeric r, Floating r, Floating (Vector r)
+     , Tensor r, DomainsCollection r
+     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
   -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}

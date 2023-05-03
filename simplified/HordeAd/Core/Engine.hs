@@ -40,6 +40,7 @@ import HordeAd.Core.Delta
   , gradientFromDelta
   , toInputId
   )
+import HordeAd.Core.Domains
 import HordeAd.Core.DualClass (Dual, dFromR, dInput0, dInputR)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
@@ -54,7 +55,7 @@ data ADInputs r = ADInputs
   }
 
 makeADInputs
-  :: Tensor r
+  :: (Tensor r, DomainsCollection r)
   => Domains r
   -> ( Data.Vector.Vector (Dual r)
      , Data.Vector.Vector (Dual (DTensorOf r)) )
@@ -63,12 +64,14 @@ makeADInputs
 makeADInputs params (vs0, vs1)
   = ADInputs (domains0 params) vs0 (domainsR params) vs1
 
-inputsToDomains :: Tensor r => ADInputs r -> Domains r
+inputsToDomains :: (Tensor r, DomainsCollection r)
+                => ADInputs r -> Domains r
 inputsToDomains ADInputs{..} =
   mkDomains inputPrimal0 inputPrimal1
 
-nullADInputs :: Tensor r => ADInputs r -> Bool
-nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
+nullADInputs :: (Tensor r, DomainsCollection r)
+             => ADInputs r -> Bool
+nullADInputs adinputs = isEmptyDoms (inputsToDomains adinputs)
 
 
 -- * Evaluation that computes gradients.
@@ -79,7 +82,8 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 -- computed, only for testing.
 revAstOnDomains
   :: forall r n.
-     (ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r)
+     ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => (ADInputs (Ast0 r) -> Compose ADVal (AstRanked r) n)
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
@@ -91,7 +95,8 @@ revAstOnDomains f parameters =
 
 revAstOnDomainsF
   :: forall r n.
-     (ADTensor r, DomainsTensor r, KnownNat n, ShowAstSimplify r)
+     ( ADTensor r, DomainsTensor r, KnownNat n, ShowAstSimplify r
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => (ADInputs (Ast0 r) -> Compose ADVal (AstRanked r) n)
   -> Domains r
   -> ADAstArtifact6 n r
@@ -130,7 +135,8 @@ revAstOnDomainsFun dim0 shapes1 f =
 
 revAstOnDomainsEval
   :: forall r n.
-     (ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r)
+     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => ADAstArtifact6 n r -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
@@ -150,7 +156,8 @@ revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
   :: ( Tensor r, DomainsTensor r, DynamicTensor r, IsPrimalWithScalar a r
-     , DomainsOf r ~ Domains r )
+     , DomainsOf r ~ Domains r, DomainsCollection r
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> ADInputs r
@@ -172,7 +179,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
-     , DomainsOf r ~ Domains r )
+     , DomainsOf r ~ Domains r, Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -189,7 +196,8 @@ revOnDomains dt f parameters =
 -- for a fast variant (TODO: not ported from the old code yet).
 
 slowFwdOnADInputs
-  :: (Tensor r, DynamicTensor r, Element a ~ r, ForwardDerivative a)
+  :: ( Tensor r, DynamicTensor r, Element a ~ r, ForwardDerivative a
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => ADInputs r
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -205,7 +213,7 @@ slowFwdOnADInputs inputs@ADInputs{..} f ds =
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r, Element a ~ r
-     , ForwardDerivative a )
+     , ForwardDerivative a, Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => Domains r
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -219,7 +227,8 @@ slowFwdOnDomains parameters f ds =
 -- * Additional mechanisms
 
 generateDeltaInputs
-  :: forall r. (ADTensor r, DomainsTensor r)
+  :: forall r.
+     (ADTensor r, DomainsTensor r, Domains r ~ Data.Vector.Vector (DTensorOf r))
   => Domains r
   -> ( Data.Vector.Vector (Dual r)
      , Data.Vector.Vector (Dual (DTensorOf r)) )

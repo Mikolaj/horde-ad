@@ -20,6 +20,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
+import HordeAd.Core.Domains
 import HordeAd.Core.DualClass (dFromD)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -60,24 +61,29 @@ at0 ADInputs{..} i =
               (inputDual0 V.! i)
 
 at1 :: forall n r. ( KnownNat n, ADTensor r, IsPrimal (TensorOf n r)
-                   , TensorOf n r ~ Flip OR.Array r n )
+                   , TensorOf n r ~ Flip OR.Array r n
+                   , Domains r ~ Data.Vector.Vector (DTensorOf r) )
     => ADInputs r -> Int -> Compose ADVal (Flip OR.Array r) n
 {-# INLINE at1 #-}
 at1 ADInputs{..} i = Compose $ dD emptyADShare (tfromD $ inputPrimal1 V.! i)
                                                (dFromD $ inputDual1 V.! i)
 
-domainsFrom01 :: (Numeric r, Tensor r)
+domainsFrom01 :: ( Numeric r, Tensor r, DomainsCollection r
+                 , Domains r ~ Data.Vector.Vector (OD.Array r) )
               => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 =
   mkDomains (tfromList0N (singletonShape (V.length v0)) (V.toList v0))
 
 domainsFrom0V
-  :: (Numeric r, DTensorOf r ~ OD.Array r, Tensor r)
+  :: ( Numeric r, Tensor r, DomainsCollection r
+     , Domains r ~ Data.Vector.Vector (OD.Array r) )
   => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
   domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
-domainsD0 :: (Numeric r, TensorOf 1 r ~ Flip OR.Array r 1, Tensor r)
+domainsD0 :: ( Numeric r, TensorOf 1 r ~ Flip OR.Array r 1, Tensor r
+             , Domains r ~ Data.Vector.Vector (OD.Array r)
+             , DomainsCollection r )
           => Domains r -> Vector r
 domainsD0 = OR.toVector . runFlip . domains0
 

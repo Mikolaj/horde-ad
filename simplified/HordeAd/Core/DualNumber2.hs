@@ -19,7 +19,7 @@ module HordeAd.Core.DualNumber2
     ADMode(..)
   , IsPrimal, IsPrimalWithScalar, IsPrimalAndHasFeatures, IsPrimalAndHasInputs
   , Domain0, DomainR, Domains
-  , domains0, domainsR, mkDomains, emptyDomain0, nullDomains
+  , domains0, domainsR, mkDomains
   , Domain1, domains1
   , ADInputs
   , at0, at1, ifoldlDual', foldlDual'
@@ -47,6 +47,7 @@ import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
 import           HordeAd.Core.Delta (Delta0, ForwardDerivative)
+import           HordeAd.Core.Domains
 import           HordeAd.Core.DualClass hiding (IsPrimal)
 import qualified HordeAd.Core.DualClass as DualClass
 import           HordeAd.Core.DualNumber (dD, dDnotShared)
@@ -63,7 +64,7 @@ pattern D u u' <- DualNumber.D _ u u'
 
 type Domain1 r = DomainR r
 
-domains1 :: Domains r -> Domain1 r
+domains1 :: DomainsCollection r => Domains r -> Domain1 r
 domains1 = domainsR
 
 type ADInputs d r = Engine.ADInputs r
@@ -97,6 +98,8 @@ type ADModeAndNum (d :: ADMode) r =
   , DynamicTensor (DualNumber.ADVal r)
   , TensorOf 1 (DualNumber.ADVal r) ~ Compose DualNumber.ADVal (Flip OR.Array r) 1
   , Fractional (TensorOf 0 (DualNumber.ADVal r))
+  , Domains r ~ Data.Vector.Vector (OD.Array r)
+  , DomainsCollection r
   )
 
 type HasDelta r = ( ADModeAndNum 'ADModeGradient r
@@ -106,7 +109,9 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
 
 -- The general case, needed for old hacky tests using only scalars.
 valueGeneral
-  :: forall r a. (ADTensor r, DomainsTensor r)
+  :: forall r a.
+     ( ADTensor r, DomainsTensor r
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => (Engine.ADInputs r -> a)
   -> Domains r
   -> a
@@ -119,7 +124,8 @@ valueGeneral f parameters =
 
 valueOnDomains
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r )
+     , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
   -> a
@@ -131,7 +137,8 @@ valueOnDomains f parameters =
 
 revOnADInputs
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r )
+     , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Engine.ADInputs r
@@ -145,7 +152,8 @@ revOnADInputs = Engine.revOnADInputs  . Just
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r )
+     , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => a
   -> (Engine.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
@@ -153,7 +161,8 @@ revOnDomains
 revOnDomains = Engine.revOnDomains . Just
 
 prettyPrintDf
-  :: (ADTensor r, DomainsTensor r, Show (Dual r))
+  :: ( ADTensor r, DomainsTensor r, Show (Dual r)
+     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => (Engine.ADInputs r -> DualNumber.ADVal r)
   -> Domains r
   -> String
@@ -204,21 +213,27 @@ foldlDual' f a Engine.ADInputs{..} = do
         in f acc b
   V.ifoldl' g a $ OR.toVector (runFlip inputPrimal0)
 
-domainsFromD01 :: Tensor r => Domain0 r -> DomainR r -> Domains r
+domainsFromD01 :: (Tensor r, DomainsCollection r)
+               => Domain0 r -> DomainR r -> Domains r
 domainsFromD01 = mkDomains
 
-domainsFrom01 :: (Numeric r, TensorOf 1 r ~ Flip OR.Array r 1, Tensor r)
+domainsFrom01 :: ( Numeric r, TensorOf 1 r ~ Flip OR.Array r 1, Tensor r
+                 , DomainsCollection r
+                 , Domains r ~ Data.Vector.Vector (OD.Array r) )
               => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 = mkDomains (Flip $ OR.fromVector [V.length v0] v0)
 
-domainsFrom0V :: ( Numeric r, DTensorOf r ~ OD.Array r
-                 , TensorOf 1 r ~ Flip OR.Array r 1, Tensor r )
+domainsFrom0V :: ( Numeric r, DTensorOf r ~ OD.Array r, DomainsCollection r
+                 , TensorOf 1 r ~ Flip OR.Array r 1, Tensor r
+                 , Domains r ~ Data.Vector.Vector (DTensorOf r) )
               => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
   domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
 listsToParameters :: ( Numeric r, DTensorOf r ~ OD.Array r
-                     , TensorOf 1 r ~ Flip OR.Array r 1, Tensor r )
+                     , TensorOf 1 r ~ Flip OR.Array r 1, Tensor r
+                     , DomainsCollection r
+                     , Domains r ~ Data.Vector.Vector (OD.Array r) )
                   => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
   domainsFrom0V (V.fromList a0) (V.singleton (V.fromList a1))
@@ -226,7 +241,7 @@ listsToParameters (a0, a1) =
 listsToParameters4 :: ([Double], [Double], [Double], [Double]) -> Domains Double
 listsToParameters4 (a0, a1, _a2, _aX) = listsToParameters (a0, a1)
 
-domainsD0 :: Tensor r
+domainsD0 :: (Tensor r, DomainsCollection r)
           => (Numeric r, TensorOf 1 r ~ Flip OR.Array r 1) => Domains r -> Vector r
 domainsD0 = OR.toVector . runFlip . domains0
 
@@ -282,7 +297,8 @@ multNotShared (DualNumber.D l1 u u') (DualNumber.D l2 v v') =
   dDnotShared (l1 `mergeADShare` l2) (u * v) (dAdd (dScale v u') (dScale u v'))
 
 addParameters :: ( Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r
-                 , Tensor r )
+                 , Tensor r, DomainsCollection r
+                 , Domains r ~ Data.Vector.Vector (DTensorOf r) )
               => Domains r -> Domains r -> Domains r
 addParameters paramsA paramsB =
   mkDomains (domains0 paramsA + domains0 paramsB)
@@ -290,8 +306,9 @@ addParameters paramsA paramsB =
 
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters
-  :: Tensor r
-  => (Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1)
+  :: ( Tensor r, DomainsCollection r
+     , Domains r ~ Data.Vector.Vector (DTensorOf r)
+     , Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => Domains r -> Domains r -> r
 dotParameters paramsA paramsB =
   runFlip (domains0 paramsA) `tdot0R` runFlip (domains0 paramsB)

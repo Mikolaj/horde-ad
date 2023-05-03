@@ -21,10 +21,12 @@ import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy (Proxy))
+import qualified Data.Strict.Vector as Data.Vector
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
+import HordeAd.Core.Domains
 import HordeAd.Core.DualClass
 import HordeAd.Core.TensorClass
 
@@ -88,6 +90,8 @@ type ADNum r =
   , DomainsTensor r
   , DTensorOf r ~ OD.Array r
   , DomainsOf r ~ Domains r
+  , Domains r ~ Data.Vector.Vector (OD.Array r)
+  , DomainsCollection r
   )
 
 -- All this is not needed in the simplified version, except for compilation

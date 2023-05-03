@@ -6,7 +6,7 @@
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
   ( Domain0, DomainR, Domains
-  , domains0, domainsR, mkDomains, emptyDomain0, nullDomains
+  , domains0, domainsR, mkDomains
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare
@@ -33,6 +33,7 @@ import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 
+import HordeAd.Core.Domains
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.TensorOps
 
@@ -45,24 +46,17 @@ type Domain0 r = TensorOf 1 r
 -- To store ranked tensors (or Ast terms) we use their untyped versions
 -- instead of, e.g,. the unerlying vectors of the tensors,
 -- to prevent frequent linearization of the tensors (e.g., after transpose).
-type DomainR r = Data.Vector.Vector (DTensorOf r)
+type DomainR r = Domains r
 
-type Domains r = Data.Vector.Vector (DTensorOf r)
+domains0 :: (DomainsCollection r, Tensor r) => Domains r -> Domain0 r
+domains0 v = tfromD $ doms0 v
 
-domains0 :: Tensor r => Domains r -> Domain0 r
-domains0 v = tfromD $ v V.! 0
+domainsR :: DomainsCollection r => Domains r -> DomainR r
+domainsR = domsR
 
-domainsR :: Domains r -> DomainR r
-domainsR v = V.slice 1 (V.length v - 1) v
-
-mkDomains :: Tensor r => Domain0 r -> DomainR r -> Domains r
-mkDomains t = V.cons (dfromR t)
-
-emptyDomain0 :: Tensor r => Domain0 r
-emptyDomain0 = tzero (singletonShape 0)
-
-nullDomains :: Tensor r => Domains r -> Bool
-nullDomains params = tlength (domains0 params) == 0 && V.null (domainsR params)
+mkDomains :: (DomainsCollection r, Tensor r)
+          => Domain0 r -> DomainR r -> Domains r
+mkDomains t = mkDoms (dfromR t)
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -409,12 +403,6 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   dfromR :: KnownNat n
          => TensorOf n r -> DTensorOf r
 
- -- The untyped versions of the tensor, to put many ranks in one vector
-class DynamicTensor r where
-  type DTensorOf r = result | result -> r
-  ddummy :: DTensorOf r
-  disDummy :: DTensorOf r -> Bool
-
 class DomainsTensor r where
   daddR :: forall n. KnownNat n
         => TensorOf n r -> DTensorOf r -> DTensorOf r
@@ -536,11 +524,6 @@ instance Tensor Double where
   tfromD = Flip . Data.Array.Convert.convert
   dfromR = Data.Array.Convert.convert . runFlip
 
-instance DynamicTensor Double where
-  type DTensorOf Double = OD.Array Double
-  ddummy = dummyTensor
-  disDummy = isTensorDummy
-
 instance DomainsTensor Double where
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
@@ -594,11 +577,6 @@ instance Tensor Float where
   tScale _ _ = ()
   tfromD = Flip . Data.Array.Convert.convert
   dfromR = Data.Array.Convert.convert . runFlip
-
-instance DynamicTensor Float where
-  type DTensorOf Float = OD.Array Float
-  ddummy = dummyTensor
-  disDummy = isTensorDummy
 
 instance DomainsTensor Float where
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
