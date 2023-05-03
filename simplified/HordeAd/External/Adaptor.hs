@@ -97,7 +97,8 @@ revDtInterpret
      ( InterpretAst r, KnownNat n, ScalarOf r ~ r, Floating (Vector r)
      , RealFloat r, AdaptableDomains astvals
      , vals ~ Value astvals, Scalar astvals ~ Ast0 r )
-  => vals -> (astvals -> Ast n r) -> ADInputs (Ast0 r) -> Domains (Ast0 r)
+  => vals -> (astvals -> Ast n r)
+  -> Domains (ADVal (Ast0 r)) -> Domains (Ast0 r)
   -> (ADAstVarNames n r, ADAstVars n r)
   -> Compose ADVal (AstRanked r) n
 {-# INLINE revDtInterpret #-}
@@ -244,10 +245,8 @@ fwd f x ds =
 class AdaptableDomains vals where
   type Scalar vals
   type Value vals
-  toDomains :: Tensor (Scalar vals)
-            => vals -> Domains (Scalar vals)
-  fromDomains :: Value vals
-              -> Domains (Scalar vals)
+  toDomains :: vals -> Domains (Scalar vals)
+  fromDomains :: Value vals -> Domains (Scalar vals)
               -> (vals, Domains (Scalar vals))
   nParams :: vals -> Int
   nScalars :: vals -> Int
@@ -260,8 +259,8 @@ class RandomDomains vals where
     => r -> g -> (vals, g)
 
 class AdaptableInputs advals where
-  fromADInputs :: Value advals -> ADInputs (Scalar advals)
-               -> (advals, ADInputs (Scalar advals))
+  fromADInputs :: Value advals -> Domains (ADVal (Scalar advals))
+               -> (advals, Domains (ADVal (Scalar advals)))
 
 parseDomains
   :: ( AdaptableDomains vals, Tensor (Scalar vals)
@@ -273,10 +272,9 @@ parseDomains aInit domains =
 
 parseADInputs :: ( AdaptableInputs advals, Tensor r, DynamicTensor r
                  , r ~ Scalar advals, DomainsCollection r
-                 , Domains (ADVal r) ~ ADInputs r
                  , Domains r ~ Data.Vector.Vector (DTensorOf r)
                  , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r) )
-              => Value advals -> ADInputs r
+              => Value advals -> Domains (ADVal r)
               -> advals
 parseADInputs aInit inputs =
   let (advals, rest) = fromADInputs aInit inputs
@@ -493,7 +491,7 @@ instance (KnownNat n, ShowAstSimplify r)
     Just (a, rest) -> (getCompose $ tfromD @(ADVal (Ast0 r)) @n a, rest)
     Nothing -> error "fromADInputs in AdaptableInputs (ADVal (Ast n r))"
 
-instance ( AdaptableDomains a, DynamicTensor (Scalar a)
+instance ( AdaptableDomains a, Tensor (Scalar a), DynamicTensor (Scalar a)
          , DomainsCollection (Scalar a)
          , Domains (Scalar a) ~ Data.Vector.Vector (DTensorOf (Scalar a)) )
          => AdaptableDomains [a] where
@@ -524,7 +522,7 @@ instance AdaptableInputs a
         (l, restAll) = foldl' f ([], source) lInit
     in (reverse l, restAll)
 
-instance ( DynamicTensor r, DomainsCollection r
+instance ( Tensor (Scalar a), DynamicTensor r, DomainsCollection r
          , r ~ Scalar a, r ~ Scalar b
          , Domains r ~ Data.Vector.Vector (DTensorOf r)
          , AdaptableDomains a
@@ -551,7 +549,7 @@ instance ( r ~ Scalar a, r ~ Scalar b
         (v2, g2) = randomVals range g1
     in ((v1, v2), g2)
 
-instance ( DynamicTensor r, DomainsCollection r
+instance ( Tensor (Scalar a), DynamicTensor r, DomainsCollection r
          , r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
          , Domains r ~ Data.Vector.Vector (DTensorOf r)
          , AdaptableDomains a
@@ -583,7 +581,7 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
         (v3, g3) = randomVals range g2
     in ((v1, v2, v3), g3)
 
-instance ( DynamicTensor r, DomainsCollection r
+instance ( Tensor (Scalar a), DynamicTensor r, DomainsCollection r
          , r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
          , Domains r ~ Data.Vector.Vector (DTensorOf r)
          , AdaptableDomains a
