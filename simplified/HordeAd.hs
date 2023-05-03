@@ -10,7 +10,6 @@ module HordeAd
   , module HordeAd.Core.SizedIndex
   , module HordeAd.Core.TensorADVal
   , module HordeAd.Core.TensorClass
-  , module HordeAd.External.Adaptor
   , module HordeAd.External.CommonRankedOps
   , module HordeAd.External.Optimizer
   ) where
@@ -24,7 +23,6 @@ import HordeAd.Core.Engine hiding (revOnADInputs, revOnDomains)
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal (makeADInputs)
 import HordeAd.Core.TensorClass
-import HordeAd.External.Adaptor
 import HordeAd.External.CommonRankedOps hiding
   (constant, logistic, lossCrossEntropyV, relu, scale)
 import HordeAd.External.Optimizer

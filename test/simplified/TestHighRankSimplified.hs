@@ -16,9 +16,9 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualNumber
+import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
-import HordeAd.External.Adaptor
 import HordeAd.External.CommonRankedOps
 
 import CrossTesting

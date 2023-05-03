@@ -12,9 +12,9 @@ import           GHC.TypeLits (KnownNat)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
+import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
-import HordeAd.External.Adaptor
 import HordeAd.Internal.TensorOps
 
 import CrossTesting
