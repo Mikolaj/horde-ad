@@ -29,6 +29,8 @@ class DomainsCollection r where
   mkDoms :: DTensorOf r -> Domains r -> Domains r
   emptyDoms0 :: DTensorOf r
   isEmptyDoms :: Domains r -> Bool
+  uncons0 :: Domains r -> Maybe (r, Domains r)
+  unconsR :: Domains r -> Maybe (DTensorOf r, Domains r)
 
 instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
@@ -47,6 +49,18 @@ instance DomainsCollection Double where
   mkDoms = V.cons
   emptyDoms0 = OD.constant [0] 0
   isEmptyDoms params = OD.shapeL (doms0 params) == [0] && V.null (domsR params)
+  uncons0 params =
+    let v = OD.toVector $ doms0 params
+    in case V.uncons v of
+      Nothing -> Nothing
+      Just (h, rest) ->
+        Just (h, mkDoms (OD.fromVector [V.length rest] rest) (domsR params))
+  unconsR params =
+    let v = domsR params
+    in case V.uncons v of
+      Nothing -> Nothing
+      Just (h, rest) ->
+        Just (h, mkDoms (doms0 params) rest)
 
 instance DomainsCollection Float where
   type Domains Float = Data.Vector.Vector (OD.Array Float)
@@ -55,3 +69,15 @@ instance DomainsCollection Float where
   mkDoms = V.cons
   emptyDoms0 = OD.constant [0] 0
   isEmptyDoms params = OD.shapeL (doms0 params) == [0] && V.null (domsR params)
+  uncons0 params =
+    let v = OD.toVector $ doms0 params
+    in case V.uncons v of
+      Nothing -> Nothing
+      Just (h, rest) ->
+        Just (h, mkDoms (OD.fromVector [V.length rest] rest) (domsR params))
+  unconsR params =
+    let v = domsR params
+    in case V.uncons v of
+      Nothing -> Nothing
+      Just (h, rest) ->
+        Just (h, mkDoms (doms0 params) rest)

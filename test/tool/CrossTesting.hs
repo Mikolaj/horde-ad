@@ -34,6 +34,7 @@ rev' :: forall b r n m a.
         , IsPrimalWithScalar (TensorOf m r) r, DomainsOf r ~ Domains r
         , AdaptableInputs (ADVal (TensorOf n r))
         , DTensorOf r ~ OD.Array r, Domains r ~ Data.Vector.Vector (DTensorOf r)
+        , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
         , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
         , ADReady (ADVal r), TensorOf n r ~ Flip OR.Array r n
         , b ~ OR.Array m r )

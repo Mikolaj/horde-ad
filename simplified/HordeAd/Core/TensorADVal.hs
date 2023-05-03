@@ -90,7 +90,8 @@ makeADInputs
 makeADInputs params (vs0, vs1)
   = ADInputs (domains0 params) vs0 (domainsR params) vs1
 
-instance (Tensor r, Domains r ~ Data.Vector.Vector (DTensorOf r))
+instance ( Tensor r, Domains r ~ Data.Vector.Vector (DTensorOf r)
+         , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r) )
          => DomainsCollection (ADVal r) where
   type Domains (ADVal r) = ADInputs r
   doms0 = undefined
@@ -99,6 +100,21 @@ instance (Tensor r, Domains r ~ Data.Vector.Vector (DTensorOf r))
   emptyDoms0 = undefined
   isEmptyDoms ADInputs{..} =
     tlength inputPrimal0 == 0 && V.null inputPrimal1
+  uncons0 inputs@ADInputs{..} = case tuncons inputPrimal0 of
+    Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
+      Just (aDual, restDual) ->
+        Just ( dD emptyADShare (tunScalar aPrimal) aDual
+             , inputs {inputPrimal0 = restPrimal, inputDual0 = restDual} )
+      Nothing -> Nothing
+    Nothing -> Nothing
+  unconsR inputs@ADInputs{..} = case V.uncons inputPrimal1 of
+    Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
+      Just (aDual, restDual) ->
+        Just ( -- getCompose $ tfromD @(ADVal (Ast0 r)) @n
+               dDnotShared emptyADShare aPrimal aDual
+             , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
+      Nothing -> Nothing
+    Nothing -> Nothing
 
 -- We should really only have one @ADVal r@ instance, but typing problems caused
 -- by ranks (and probably too strict injectivity checks) make us copy the code.

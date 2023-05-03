@@ -68,6 +68,7 @@ import           Numeric.LinearAlgebra (Vector)
 import           Text.Show.Functions ()
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.Domains
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
@@ -665,7 +666,7 @@ instance ForwardDerivative Float where
       DeltaDt0 res _ -> res
       DeltaDtR{} -> error "derivativeFromDelta"
 
-instance ShowAst r
+instance ShowAstSimplify r
          => ForwardDerivative (Ast0 r) where
   derivativeFromDelta dim0 dimR deltaTopLevel ds =
     case runST $ buildDerivative dim0 dimR

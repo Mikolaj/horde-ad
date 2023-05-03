@@ -89,7 +89,7 @@ instance DynamicTensor (Ast0 r) where
     AstDynamic AstIota -> True
     _ -> False
 
-instance ShowAst r
+instance ShowAstSimplify r
          => DomainsCollection (Ast0 r) where
   type Domains (Ast0 r) = Data.Vector.Vector (AstDynamic r)
   doms0 v = v V.! 0
@@ -98,6 +98,18 @@ instance ShowAst r
   emptyDoms0 = AstDynamic @1 (AstFromList [])
   isEmptyDoms params = V.null (domsR params) && case doms0 params of
     AstDynamic t -> sizeShape (shapeAst t) == 0
+  uncons0 params =
+    let v = tfromD $ doms0 params
+    in case tuncons v of
+      Nothing -> Nothing
+      Just (h, rest) ->
+        Just (tunScalar h, mkDoms (dfromR rest) (domsR params))
+  unconsR params =
+    let v = domsR params
+    in case V.uncons v of
+      Nothing -> Nothing
+      Just (h, rest) ->
+        Just (h, mkDoms (doms0 params) rest)
 
 instance ShowAst r
          => DomainsTensor (Ast0 r) where

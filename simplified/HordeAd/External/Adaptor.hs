@@ -192,6 +192,7 @@ crev :: forall n r vals advals.
        , AdaptableDomains (Value advals)
        , AdaptableInputs advals, Scalar advals ~ r
        , Domains r ~ Data.Vector.Vector (DTensorOf r)
+       , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
        , vals ~ Value vals, DomainsOf r ~ Domains r )
     => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals
     -> vals
@@ -205,6 +206,7 @@ crevDt :: forall n r vals advals.
          , AdaptableDomains (Value advals)
          , AdaptableInputs advals, Scalar advals ~ r
          , Domains r ~ Data.Vector.Vector (DTensorOf r)
+         , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
          , vals ~ Value vals, DomainsOf r ~ Domains r )
       => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals -> OR.Array n r
       -> vals
@@ -217,7 +219,8 @@ crevDtMaybe
      , IsPrimal (Flip OR.Array r n)
      , AdaptableDomains (Value advals)
      , AdaptableInputs advals, Scalar advals ~ r
-     , DomainsOf r ~ Domains r, Domains r ~ Data.Vector.Vector (DTensorOf r) )
+     , DomainsOf r ~ Domains r, Domains r ~ Data.Vector.Vector (DTensorOf r)
+     , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r) )
   => (advals -> Compose ADVal (Flip OR.Array r) n)
   -> vals -> Maybe (OR.Array n r)
   -> vals
@@ -230,7 +233,8 @@ fwd :: forall a vals r advals.
        ( ForwardDerivative a, r ~ Scalar vals, vals ~ Value advals
        , ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
        , AdaptableDomains (Value advals), Scalar advals ~ r
-       , AdaptableInputs advals, Domains r ~ Data.Vector.Vector (DTensorOf r) )
+       , AdaptableInputs advals, Domains r ~ Data.Vector.Vector (DTensorOf r)
+       , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r) )
     => (advals -> ADVal a) -> vals -> vals
     -> a
 fwd f x ds =
@@ -270,7 +274,8 @@ parseDomains aInit domains =
 parseADInputs :: ( AdaptableInputs advals, Tensor r, DynamicTensor r
                  , r ~ Scalar advals, DomainsCollection r
                  , Domains (ADVal r) ~ ADInputs r
-                 , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+                 , Domains r ~ Data.Vector.Vector (DTensorOf r)
+                 , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r) )
               => Value advals -> ADInputs r
               -> advals
 parseADInputs aInit inputs =
