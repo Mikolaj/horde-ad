@@ -110,6 +110,7 @@ instance ShowAstSimplify r
       Nothing -> Nothing
       Just (h, rest) ->
         Just (h, mkDoms (doms0 params) rest)
+  concatDoms = V.concat
 
 instance ShowAst r
          => DomainsTensor (Ast0 r) where

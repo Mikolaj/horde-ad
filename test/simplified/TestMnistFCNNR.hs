@@ -64,11 +64,11 @@ mnistTestCase2VTA
      , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
-     , Floating (Vector r), ADTensor r
+     , Floating (Vector r), ADTensor r, DynamicTensor (ADVal r)
      , Domains r ~ Data.Vector.Vector (OD.Array r)
      , DynamicTensor r, DomainsTensor r, Element r ~ r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
-     , DomainsOf r ~ Data.Vector.Vector (OD.Array r) )
+     , DomainsOf r ~ Domains r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
@@ -413,7 +413,7 @@ mnistTestCase2VT2A
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , Domains r ~ Data.Vector.Vector (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
-     , Floating (Vector r), ADTensor r
+     , Floating (Vector r), ADTensor r, DynamicTensor (ADVal r)
      , DynamicTensor r, DomainsTensor r, Element r ~ r
      , DTensorOf r ~ OD.Array r, DomainsOf r ~ Data.Vector.Vector (OD.Array r)
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
@@ -438,7 +438,13 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
       -- not using adaptors.
       emptyR = OR.fromList [0] []
       emptyR2 = OR.fromList [0, 0] []
-      -- valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
+      valsInit :: ( ( OR.Array 2 r
+                    , OR.Array 1 r )
+                  , ( OR.Array 2 r
+                    , OR.Array 1 r )
+                  , ( OR.Array 2 r
+                    , OR.Array 1 r )
+                  )
       valsInit = ( (emptyR2, emptyR)
                  , (emptyR2, emptyR)
                  , (emptyR2, emptyR) )
@@ -463,7 +469,8 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
            runBatch !domains (k, chunk) = do
-             let f mnist adinputs =
+             let f :: MnistData r -> Domains (ADVal r) -> ADVal r
+                 f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
                      mnist (parseADInputs valsInit adinputs)
                  res = fst $ sgd gamma f chunk domains

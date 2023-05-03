@@ -115,6 +115,7 @@ instance ( Tensor r, Domains r ~ Data.Vector.Vector (DTensorOf r)
              , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
       Nothing -> Nothing
     Nothing -> Nothing
+  concatDoms = undefined
 
 -- We should really only have one @ADVal r@ instance, but typing problems caused
 -- by ranks (and probably too strict injectivity checks) make us copy the code.
