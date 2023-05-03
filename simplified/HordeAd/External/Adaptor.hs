@@ -86,8 +86,8 @@ revDtFun
 {-# INLINE revDtFun #-}
 revDtFun f vals =
   let parameters0 = toDomains vals
-      dim0 = tlength $ domains0 parameters0
-      shapes1 = map dshape $ V.toList $ domainsR parameters0
+      dim0 = tlength @r @0 $ tfromD $ doms0 parameters0
+      shapes1 = map dshape $ V.toList $ domsR parameters0
   in revAstOnDomainsFun dim0 shapes1 (revDtInterpret vals f)
 
 revDtInterpret
@@ -268,7 +268,7 @@ parseDomains aInit domains =
 instance AdaptableDomains Double where
   type Scalar Double = Double
   type Value Double = Double
-  toDomains a = mkDomains (tfromList [tscalar a]) V.empty
+  toDomains a = mkDoms (OD.constant [1] a) V.empty
   fromDomains _aInit = uncons0
   nParams _ = 1
   nScalars _ = 1
@@ -288,7 +288,7 @@ instance AdaptableDomains (ADVal Double) where
 instance AdaptableDomains Float where
   type Scalar Float = Float
   type Value Float = Float
-  toDomains a = mkDomains (tfromList [tscalar a]) V.empty
+  toDomains a = mkDoms (OD.constant [1] a) V.empty
   fromDomains _aInit = uncons0
   nParams _ = 1
   nScalars _ = 1
@@ -313,7 +313,7 @@ instance ShowAstSimplify r
   nParams = undefined
   nScalars = undefined
 
-instance (Scalar r ~ r, ShowAstSimplify r)
+instance ShowAstSimplify r
          => AdaptableDomains (Ast0 r) where
   type Scalar (Ast0 r) = Ast0 r
   type Value (Ast0 r) = r
@@ -380,15 +380,15 @@ instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r
 
 instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r
          , Domains r ~ Data.Vector.Vector (DTensorOf r), DomainsCollection r
-         , TensorOf n r ~ Flip OR.Array r n, DTensorOf r ~ OD.Array r )
+         , TensorOf n r ~ Flip OR.Array r n )
          => AdaptableDomains (Flip OR.Array r n) where
   type Scalar (Flip OR.Array r n) = r
   type Value (Flip OR.Array r n) = OR.Array n r
   toDomains a =
-    mkDoms emptyDoms0
-              (V.singleton (Data.Array.Convert.convert $ runFlip a))
+    mkDoms emptyDoms0 (V.singleton (dfromR a))
   fromDomains aInit params = case unconsR params of
-    Just (a, rest) -> Just (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
+    Just (a, rest) ->
+      Just (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
     Nothing -> Nothing
   nParams _ = 1
   nScalars = OR.size . runFlip
@@ -415,7 +415,7 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r
   type Value (ADVal (Flip OR.Array r n)) = OR.Array n r
   toDomains = undefined
   fromDomains _aInit inputs = case unconsR inputs of
-    Just (a, rest) -> Just (getCompose $ tfromD @(ADVal r) @n a, rest)
+    Just (a, rest) -> Just (getCompose $ tfromD a, rest)
     Nothing -> Nothing
   nParams = undefined
   nScalars = undefined
@@ -431,7 +431,7 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r
   type Value (Compose ADVal (Flip OR.Array r) n) = OR.Array n r
   toDomains = undefined
   fromDomains _aInit inputs = case unconsR inputs of
-    Just (a, rest) -> Just (tfromD @(ADVal r) @n a, rest)
+    Just (a, rest) -> Just (tfromD a, rest)
     Nothing -> Nothing
   nParams = undefined
   nScalars = undefined
@@ -442,18 +442,18 @@ instance (KnownNat n, ShowAstSimplify r)
   type Value (ADVal (Ast n r)) = OR.Array n r
   toDomains = undefined
   fromDomains _aInit inputs = case unconsR inputs of
-    Just (a, rest) -> Just (getCompose $ tfromD @(ADVal (Ast0 r)) @n a, rest)
+    Just (a, rest) -> Just (getCompose $ tfromD a, rest)
     Nothing -> Nothing
   nParams = undefined
   nScalars = undefined
 
-instance (AdaptableDomains a, r ~ Scalar a, Tensor r, DomainsCollection r)
+instance (AdaptableDomains a, r ~ Scalar a, DomainsCollection r)
          => AdaptableDomains [a] where
   type Scalar [a] = Scalar a
   type Value [a] = [Value a]
   toDomains l =
-    let (l0, l1) = unzip $ map ((domains0 &&& domainsR) . toDomains) l
-    in mkDomains (tconcat l0) (concatDoms l1)
+    let (l0, l1) = unzip $ map ((doms0 &&& domsR) . toDomains) l
+    in mkDoms (concatDom0 l0) (concatDomR l1)
   fromDomains lInit source =
     let f (lAcc, restAcc) aInit =
           case fromDomains aInit restAcc of
@@ -468,17 +468,17 @@ instance (AdaptableDomains a, r ~ Scalar a, Tensor r, DomainsCollection r)
   nParams = sum . map nParams
   nScalars = sum . map nScalars
 
-instance ( Tensor (Scalar a), DomainsCollection r
+instance ( DomainsCollection r
          , r ~ Scalar a, r ~ Scalar b
          , AdaptableDomains a
          , AdaptableDomains b ) => AdaptableDomains (a, b) where
   type Scalar (a, b) = Scalar a
   type Value (a, b) = (Value a, Value b)
   toDomains (a, b) =
-    let (a0, a1) = domains0 &&& domainsR $ toDomains a
-        (b0, b1) = domains0 &&& domainsR $ toDomains b
-    in mkDomains (tconcat [a0, b0])
-                 (concatDoms [a1, b1])
+    let (a0, a1) = doms0 &&& domsR $ toDomains a
+        (b0, b1) = doms0 &&& domsR $ toDomains b
+    in mkDoms (concatDom0 [a0, b0])
+              (concatDomR [a1, b1])
   fromDomains (aInit, bInit) source = do
     (a, aRest) <- fromDomains aInit source
     (b, bRest) <- fromDomains bInit aRest
@@ -494,7 +494,7 @@ instance ( r ~ Scalar a, r ~ Scalar b
         (v2, g2) = randomVals range g1
     in ((v1, v2), g2)
 
-instance ( Tensor (Scalar a), DomainsCollection r
+instance ( DomainsCollection r
          , r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
          , AdaptableDomains a
          , AdaptableDomains b
@@ -502,11 +502,11 @@ instance ( Tensor (Scalar a), DomainsCollection r
   type Scalar (a, b, c) = Scalar a
   type Value (a, b, c) = (Value a, Value b, Value c)
   toDomains (a, b, c) =
-    let (a0, a1) = domains0 &&& domainsR $ toDomains a
-        (b0, b1) = domains0 &&& domainsR $ toDomains b
-        (c0, c1) = domains0 &&& domainsR $ toDomains c
-    in mkDomains (tconcat [a0, b0, c0])
-                 (concatDoms [a1, b1, c1])
+    let (a0, a1) = doms0 &&& domsR $ toDomains a
+        (b0, b1) = doms0 &&& domsR $ toDomains b
+        (c0, c1) = doms0 &&& domsR $ toDomains c
+    in mkDoms (concatDom0 [a0, b0, c0])
+              (concatDomR [a1, b1, c1])
   fromDomains (aInit, bInit, cInit) source = do
     (a, aRest) <- fromDomains aInit source
     (b, bRest) <- fromDomains bInit aRest
@@ -525,7 +525,7 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
         (v3, g3) = randomVals range g2
     in ((v1, v2, v3), g3)
 
-instance ( Tensor (Scalar a), DomainsCollection r
+instance ( DomainsCollection r
          , r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
          , AdaptableDomains a
          , AdaptableDomains b
@@ -534,12 +534,12 @@ instance ( Tensor (Scalar a), DomainsCollection r
   type Scalar (a, b, c, d) = Scalar a
   type Value (a, b, c, d) = (Value a, Value b, Value c, Value d)
   toDomains (a, b, c, d) =
-    let (a0, a1) = domains0 &&& domainsR $ toDomains a
-        (b0, b1) = domains0 &&& domainsR $ toDomains b
-        (c0, c1) = domains0 &&& domainsR $ toDomains c
-        (d0, d1) = domains0 &&& domainsR $ toDomains d
-    in mkDomains (tconcat [a0, b0, c0, d0])
-                 (concatDoms [a1, b1, c1, d1])
+    let (a0, a1) = doms0 &&& domsR $ toDomains a
+        (b0, b1) = doms0 &&& domsR $ toDomains b
+        (c0, c1) = doms0 &&& domsR $ toDomains c
+        (d0, d1) = doms0 &&& domsR $ toDomains d
+    in mkDoms (concatDom0 [a0, b0, c0, d0])
+              (concatDomR [a1, b1, c1, d1])
   fromDomains (aInit, bInit, cInit, dInit) source = do
     (a, aRest) <- fromDomains aInit source
     (b, bRest) <- fromDomains bInit aRest
@@ -579,13 +579,12 @@ instance ( r ~ Scalar a, r ~ Scalar b
   nParams = either nParams nParams
   nScalars = either nScalars nScalars
 
-instance ( AdaptableDomains a, DomainsCollection (Scalar a)
-         , Domains (Scalar a) ~ Data.Vector.Vector (DTensorOf (Scalar a)) )
+instance ( AdaptableDomains a, DomainsCollection (Scalar a) )
          => AdaptableDomains (Maybe a) where
   type Scalar (Maybe a) = Scalar a
   type Value (Maybe a) = Maybe (Value a)
   toDomains e = case e of
-    Nothing -> mkDoms emptyDoms0 V.empty
+    Nothing -> mkDoms emptyDoms0 (concatDomR [])
     Just a -> toDomains a
   fromDomains eInit source = case eInit of
     Nothing -> Just (Nothing, source)

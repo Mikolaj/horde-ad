@@ -110,12 +110,12 @@ instance ( Tensor r, Domains r ~ Data.Vector.Vector (DTensorOf r)
   unconsR inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
-        Just ( -- getCompose $ tfromD @(ADVal (Ast0 r)) @n
-               dDnotShared emptyADShare aPrimal aDual
+        Just ( dDnotShared emptyADShare aPrimal aDual
              , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
       Nothing -> Nothing
     Nothing -> Nothing
-  concatDoms = undefined
+  concatDom0 = undefined
+  concatDomR = undefined
 
 -- We should really only have one @ADVal r@ instance, but typing problems caused
 -- by ranks (and probably too strict injectivity checks) make us copy the code.

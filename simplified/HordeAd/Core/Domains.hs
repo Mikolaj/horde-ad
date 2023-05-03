@@ -31,7 +31,8 @@ class DomainsCollection r where
   isEmptyDoms :: Domains r -> Bool
   uncons0 :: Domains r -> Maybe (r, Domains r)
   unconsR :: Domains r -> Maybe (DTensorOf r, Domains r)
-  concatDoms :: [Domains r] -> Domains r
+  concatDom0 :: [DTensorOf r] -> DTensorOf r
+  concatDomR :: [Domains r] -> Domains r
 
 instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
@@ -62,7 +63,8 @@ instance DomainsCollection Double where
       Nothing -> Nothing
       Just (h, rest) ->
         Just (h, mkDoms (doms0 params) rest)
-  concatDoms = V.concat
+  concatDom0 = OD.concatOuter
+  concatDomR = V.concat
 
 instance DomainsCollection Float where
   type Domains Float = Data.Vector.Vector (OD.Array Float)
@@ -83,4 +85,5 @@ instance DomainsCollection Float where
       Nothing -> Nothing
       Just (h, rest) ->
         Just (h, mkDoms (doms0 params) rest)
-  concatDoms = V.concat
+  concatDom0 = OD.concatOuter
+  concatDomR = V.concat

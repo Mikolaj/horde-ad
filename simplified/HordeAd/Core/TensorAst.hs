@@ -110,7 +110,8 @@ instance ShowAstSimplify r
       Nothing -> Nothing
       Just (h, rest) ->
         Just (h, mkDoms (doms0 params) rest)
-  concatDoms = V.concat
+  concatDom0 = dfromR @(Ast0 r) @1 . foldr1 tappend . map tfromD
+  concatDomR = V.concat
 
 instance ShowAst r
          => DomainsTensor (Ast0 r) where
