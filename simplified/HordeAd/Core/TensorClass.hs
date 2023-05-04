@@ -381,7 +381,6 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
     -- TODO: generalize, replace by stride analysis, etc.
 
   -- The primal/dual distinction
-  type ScalarOf r
   type Primal r
   type DualOf (n :: Nat) r
   tconst :: KnownNat n => OR.Array n (ScalarOf r) -> TensorOf n r
@@ -520,7 +519,6 @@ instance Tensor Double where
   tscaleByScalar s v = Flip $ tscaleByScalarR s (runFlip v)
   tsumIn = Flip . tsumInR . runFlip
   tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
-  type ScalarOf Double = Double
   type Primal Double = Double
   type DualOf n Double = ()
   tconst = Flip
@@ -574,7 +572,6 @@ instance Tensor Float where
   tscaleByScalar s v = Flip $ tscaleByScalarR s (runFlip v)
   tsumIn = Flip . tsumInR . runFlip
   tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
-  type ScalarOf Float = Float
   type Primal Float = Float
   type DualOf n Float = ()
   tconst = Flip

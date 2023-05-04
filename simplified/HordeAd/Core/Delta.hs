@@ -64,7 +64,6 @@ import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
-import           Numeric.LinearAlgebra (Vector)
 import           Text.Show.Functions ()
 
 import HordeAd.Core.Ast
@@ -686,7 +685,7 @@ instance ( Num (TensorOf n r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
         _ -> error "derivativeFromDelta"
       DeltaDt0{} -> error "derivativeFromDelta"
 
-instance (ShowAst r, Num (Vector r), KnownNat n, TensorOf n (Ast0 r) ~ Ast n r)
+instance (ShowAstSimplify r, KnownNat n, TensorOf n (Ast0 r) ~ Ast n r)
          => ForwardDerivative (Ast n r) where
   derivativeFromDelta dim0 dimR deltaTopLevel ds =
     case runST $ buildDerivative dim0 dimR

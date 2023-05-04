@@ -9,6 +9,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
+import HordeAd.Core.Domains
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData

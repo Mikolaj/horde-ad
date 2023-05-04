@@ -211,7 +211,6 @@ instance Tensor (ADVal Double) where
     in Compose $ dD l4 (u * v) (dScale v u')
   tmult d e = d * e
 
-  type ScalarOf (ADVal Double) = Double
   type Primal (ADVal Double) = Double
   type DualOf n (ADVal Double) =
     (ADShare Double, Dual (TensorOf n Double))
@@ -293,7 +292,6 @@ instance Tensor (ADVal Float) where
     in Compose $ dD l4 (u * v) (dScale v u')
   tmult d e = d * e
 
-  type ScalarOf (ADVal Float) = Float
   type Primal (ADVal Float) = Float
   type DualOf n (ADVal Float) =
     (ADShare Float, Dual (TensorOf n Float))
@@ -376,7 +374,6 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
     in Compose $ dD l4 (u * v) (dScale v u')
   tmult d e = d * e
 
-  type ScalarOf (ADVal (Ast0 r)) = r
   type Primal (ADVal (Ast0 r)) = Ast0 r
   type DualOf n (ADVal (Ast0 r)) =
     (ADShare (Ast0 r), Dual (TensorOf n (Ast0 r)))
@@ -417,6 +414,18 @@ instance (KnownNat n, ShowAstSimplify r)
   nParams = undefined
   nScalars = undefined
 
+{-
+instance (KnownNat n, ShowAstSimplify r)
+         => AdaptableDomains (Compose ADVal (AstRanked r) n) where
+  type Scalar (Compose ADVal (AstRanked r) n) = ADVal (Ast0 r)
+  type Value (Compose ADVal (AstRanked r) n) = OR.Array n r
+  toDomains = undefined
+  fromDomains _aInit inputs = case unconsR inputs of
+    Just (a, rest) -> Just (tfromD a, rest)
+    Nothing -> Nothing
+  nParams = undefined
+  nScalars = undefined
+-}
 
 -- * ADVal combinators generalizing ranked tensor operations
 

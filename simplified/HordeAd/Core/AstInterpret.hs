@@ -25,6 +25,7 @@ import           GHC.TypeLits (KnownNat, sameNat)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
+import HordeAd.Core.Domains
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal ()

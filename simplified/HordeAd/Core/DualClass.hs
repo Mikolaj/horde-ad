@@ -41,11 +41,12 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
@@ -270,7 +271,7 @@ instance IsPrimal Float where
   letWrapPrimal _ r = r
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
 
-instance (Show r, Numeric r, Num (Vector r)) => IsPrimal (Ast0 r) where
+instance ShowAstSimplify r => IsPrimal (Ast0 r) where
   dZero = Zero0
   dScale = Scale0
   dScaleByScalar _ c = Scale0 (fromIntegral c)
