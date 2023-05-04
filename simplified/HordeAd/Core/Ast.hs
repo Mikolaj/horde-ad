@@ -7,14 +7,13 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( ADAstVarNames, ADAstArtifact6
-  , ShowAst, AstIndex, AstVarList
+  ( AstVarId, intToAstVarId
+  , ADAstVarNames, ADAstArtifact6, ShowAst, AstIndex, AstVarList
   , AstRanked(..), Ast, AstNoVectorize(..), AstNoSimplify(..)
   , AstPrimalPartRanked(..), AstPrimalPart, AstDualPartRanked(..), AstDualPart
   , AstDynamic(..), AstDomains(..)
   , unwrapAstDomains, bindsToLet, bindsToDomainsLet
-  , Ast0(..), AstVarId, intToAstVarId, AstVarName(..), AstDynamicVarName(..)
-  , AstInt(..), AstBool(..)
+  , Ast0(..), AstVarName(..), AstDynamicVarName(..), AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , astCond  -- exposed only for tests
   , ADShare
@@ -37,9 +36,18 @@ import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.SizedList
-import HordeAd.Internal.TensorOps
 
 -- * Ast definitions
+
+-- We avoid adding a phantom type denoting the underlying scalar,
+-- because the type families over tensor ranks make quanitified constraints
+-- impossible and so the phantom type leads to passing explicit (and implicit)
+-- type equality proofs around.
+newtype AstVarId = AstVarId Int
+ deriving (Eq, Ord, Show, Enum)
+
+intToAstVarId :: Int -> AstVarId
+intToAstVarId = AstVarId
 
 type ADAstVarNames n r = ( AstVarName (OR.Array 1 r)
                          , AstVarName (OR.Array n r)
