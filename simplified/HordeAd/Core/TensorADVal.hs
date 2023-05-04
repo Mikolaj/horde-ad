@@ -119,8 +119,7 @@ instance (Tensor r, IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r))
   fromVectorDoms = undefined
   toVectorDoms = undefined
 
-instance ( Tensor r, Tensor (ADVal r), IsPrimal r
-         , KnownNat n, TensorOf n r ~ Flip OR.Array r n
+instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
          , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
          , DTensorOf r ~ OD.Array r
          , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
@@ -134,8 +133,7 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r
   nParams = undefined
   nScalars = undefined
 
-instance ( Tensor r, Tensor (ADVal r), IsPrimal r
-         , KnownNat n, TensorOf n r ~ Flip OR.Array r n
+instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
          , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
          , DTensorOf r ~ OD.Array r
          , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
@@ -319,7 +317,7 @@ instance AdaptableDomains (ADVal Float) where
   nParams = undefined
   nScalars = undefined
 
-instance (ADTensor (Ast0 r), ShowAstSimplify r)
+instance ShowAstSimplify r
          => Tensor (ADVal (Ast0 r)) where
   type Ranked (ADVal (Ast0 r)) = Compose ADVal (AstRanked r)
   type IntOf (ADVal (Ast0 r)) = AstInt r

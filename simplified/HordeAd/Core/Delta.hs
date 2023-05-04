@@ -682,7 +682,7 @@ instance ( Num (TensorOf n r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
         _ -> error "derivativeFromDelta"
       DeltaDt0{} -> error "derivativeFromDelta"
 
-instance (ShowAstSimplify r, KnownNat n, TensorOf n (Ast0 r) ~ Ast n r)
+instance (ShowAstSimplify r, KnownNat n)
          => ForwardDerivative (Ast n r) where
   derivativeFromDelta dim0 dimR deltaTopLevel ds =
     case runST $ buildDerivative dim0 dimR
