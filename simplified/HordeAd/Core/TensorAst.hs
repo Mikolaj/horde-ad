@@ -116,7 +116,7 @@ instance ShowAstSimplify r
 
 instance ShowAstSimplify r
          => AdaptableDomains (Ast0 r) where
-  type Scalar (Ast0 r) = Ast0 r
+  type Scalar (Ast0 r) = Ast0 r  -- TODO: or AstPrimalPartRanked r 0 ?
   type Value (Ast0 r) = r
   toDomains = undefined
   fromDomains _aInit = uncons0

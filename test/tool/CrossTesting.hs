@@ -30,7 +30,7 @@ import EqEpsilon
 rev' :: forall b r n m a.
         ( KnownNat n, KnownNat m, Floating (Vector r), ADTensor r, ADReady r
         , InterpretAst (ADVal r), InterpretAst r, DomainsTensor r
-        , a ~ TensorOf m r, ScalarOf r ~ r, ScalarOf (ADVal r) ~ r
+        , a ~ TensorOf m r, Scalar r ~ r, Value r ~ r, Underlying (ADVal r) ~ r
         , IsPrimalWithScalar (TensorOf m r) r, DomainsOf r ~ Domains r
         , AdaptableDomains (ADVal (TensorOf n r)), DynamicTensor r
         , DTensorOf r ~ OD.Array r, Domains r ~ Data.Vector.Vector (DTensorOf r)

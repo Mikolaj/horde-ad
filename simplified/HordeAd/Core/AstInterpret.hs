@@ -41,14 +41,14 @@ deriving instance (Show (DTensorOf a), Show (IntOf a))
                   => Show (AstEnvElem a)
 
 extendEnvR :: forall n a. (Tensor a, KnownNat n)
-           => AstVarName (OR.Array n (ScalarOf a)) -> TensorOf n a
+           => AstVarName (OR.Array n (Underlying a)) -> TensorOf n a
            -> AstEnv a -> AstEnv a
 extendEnvR v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstVarR $ dfromR d)
 
 extendEnvD :: Tensor a
-           => (AstDynamicVarName (ScalarOf a), DTensorOf a) -> AstEnv a
+           => (AstDynamicVarName (Underlying a), DTensorOf a) -> AstEnv a
            -> AstEnv a
 extendEnvD (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
 
@@ -73,16 +73,19 @@ extendEnvVars vars ix env =
 -- for each iteration, with differently extended environment,
 -- and also because the created function is not expected to return a @memo@.
 interpretLambdaI
-  :: (AstEnv a -> AstMemo a -> Ast n (ScalarOf a) -> (AstMemo a, TensorOf n a))
-  -> AstEnv a -> AstMemo a -> (AstVarId, Ast n (ScalarOf a)) -> IntOf a
+  :: (AstEnv a -> AstMemo a -> Ast n (Underlying a)
+  -> (AstMemo a, TensorOf n a))
+  -> AstEnv a -> AstMemo a -> (AstVarId, Ast n (Underlying a)) -> IntOf a
   -> TensorOf n a
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env memo (var, ast) =
   \i -> snd $ f (extendEnvI var i env) memo ast
 
 interpretLambdaIndex
-  :: (AstEnv a -> AstMemo a -> Ast n (ScalarOf a) -> (AstMemo a, TensorOf n a))
-  -> AstEnv a -> AstMemo a -> (AstVarList m, Ast n (ScalarOf a)) -> IndexOf m a
+  :: (AstEnv a -> AstMemo a -> Ast n (Underlying a)
+  -> (AstMemo a, TensorOf n a))
+  -> AstEnv a -> AstMemo a
+  -> (AstVarList m, Ast n (Underlying a)) -> IndexOf m a
   -> TensorOf n a
 {-# INLINE interpretLambdaIndex #-}
 interpretLambdaIndex f env memo (vars, ast) =
@@ -105,7 +108,7 @@ class (BooleanOf r ~ b) => BooleanOfMatches b r where
 instance (BooleanOf r ~ b) => BooleanOfMatches b r where
 
 type InterpretAst a =
-  ( Tensor a, Tensor (Primal a), ShowAstSimplify (ScalarOf a)
+  ( Tensor a, Tensor (Primal a), ShowAstSimplify (Underlying a)
   , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a), RealFloat (Primal a)
   , IntOf (Primal a) ~ IntOf a, BooleanOf (Primal a) ~ BooleanOf (IntOf a)
   , CRanked RealFloat a
@@ -130,7 +133,7 @@ emptyMemo = ()
 interpretAstPrimal
   :: forall n a. (KnownNat n, InterpretAst a)
   => AstEnv a -> AstMemo a
-  -> AstPrimalPart n (ScalarOf a) -> (AstMemo a, TensorOf n (Primal a))
+  -> AstPrimalPart n (Underlying a) -> (AstMemo a, TensorOf n (Primal a))
 interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
   AstD u _-> interpretAstPrimal env memo u
   _ -> second tprimalPart $ interpretAst env memo v1
@@ -138,7 +141,7 @@ interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
 interpretAstDual
   :: forall n a. (KnownNat n, InterpretAst a)
   => AstEnv a -> AstMemo a
-  -> AstDualPart n (ScalarOf a) -> (AstMemo a, DualOf n a)
+  -> AstDualPart n (Underlying a) -> (AstMemo a, DualOf n a)
 interpretAstDual env memo (AstDualPart v1) = case v1 of
   AstD _ u'-> interpretAstDual env memo u'
   _ -> second tdualPart $ interpretAst env memo v1
@@ -146,7 +149,7 @@ interpretAstDual env memo (AstDualPart v1) = case v1 of
 interpretAst
   :: forall n a. (KnownNat n, InterpretAst a)
   => AstEnv a -> AstMemo a
-  -> Ast n (ScalarOf a) -> (AstMemo a, TensorOf n a)
+  -> Ast n (Underlying a) -> (AstMemo a, TensorOf n a)
 interpretAst env memo = \case
   AstVar sh var -> case EM.lookup var env of
     Just (AstVarR d) -> let t = tfromD d
@@ -286,7 +289,7 @@ interpretAst env memo = \case
   AstBuild1 0 (_, v) -> (memo, tfromList0N (0 :$ tshape v) [])
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
-  -- not to concrete numbers (and so Primal a is not equal to ScalarOf a).
+  -- not to concrete numbers (and so Primal a is not equal to Underlying a).
   -- However, this matters only for POPL AD, not JAX AD and also it matters
   -- only with no vectorization of, at least, constant (primal-only) terms.
   -- AstBuild1 k (var, AstConstant v) ->
@@ -328,14 +331,14 @@ interpretAst env memo = \case
 interpretAstDynamic
   :: InterpretAst a
   => AstEnv a -> AstMemo a
-  -> AstDynamic (ScalarOf a) -> (AstMemo a, DTensorOf a)
+  -> AstDynamic (Underlying a) -> (AstMemo a, DTensorOf a)
 interpretAstDynamic env memo = \case
   AstDynamic w -> second dfromR $ interpretAst env memo w
 
 interpretAstDomains
   :: InterpretAst a
   => AstEnv a -> AstMemo a
-  -> AstDomains (ScalarOf a) -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
+  -> AstDomains (Underlying a) -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
 interpretAstDomains env memo = \case
   AstDomains l -> mapAccumR (interpretAstDynamic env) memo l
   AstDomainsLet var u v ->
@@ -346,7 +349,7 @@ interpretAstDomains env memo = \case
 
 interpretAstInt :: InterpretAst a
                 => AstEnv a -> AstMemo a
-                -> AstInt (ScalarOf a) -> (AstMemo a, IntOf (Primal a))
+                -> AstInt (Underlying a) -> (AstMemo a, IntOf (Primal a))
 interpretAstInt env memo = \case
   AstIntVar var -> case EM.lookup var env of
     Just AstVarR{} ->
@@ -368,7 +371,7 @@ interpretAstInt env memo = \case
 
 interpretAstBool :: forall a. InterpretAst a
                  => AstEnv a -> AstMemo a
-                 -> AstBool (ScalarOf a) -> (AstMemo a, BooleanOf (Primal a))
+                 -> AstBool (Underlying a) -> (AstMemo a, BooleanOf (Primal a))
 interpretAstBool env memo = \case
   AstBoolOp opCodeBool args ->
     let (memo2, args2) = mapAccumR (interpretAstBool env) memo args
@@ -384,7 +387,7 @@ interpretAstBool env memo = \case
 interpretAstDynamicDummy
   :: (InterpretAst a, DynamicTensor a)
   => AstEnv a -> AstMemo a
-  -> AstDynamic (ScalarOf a) -> (AstMemo a, DTensorOf a)
+  -> AstDynamic (Underlying a) -> (AstMemo a, DTensorOf a)
 interpretAstDynamicDummy env memo = \case
   AstDynamic AstIota -> (memo, ddummy)
   AstDynamic w -> second dfromR $ interpretAst env memo w
@@ -392,7 +395,7 @@ interpretAstDynamicDummy env memo = \case
 interpretAstDomainsDummy
   :: (InterpretAst a, DynamicTensor a)
   => AstEnv a -> AstMemo a
-  -> AstDomains (ScalarOf a) -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
+  -> AstDomains (Underlying a) -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
 interpretAstDomainsDummy env memo = \case
   AstDomains l -> mapAccumR (interpretAstDynamicDummy env) memo l
   AstDomainsLet var u v ->

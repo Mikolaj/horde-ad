@@ -94,7 +94,6 @@ type ADModeAndNum (d :: ADMode) r =
   ( DualNumber.ADNum r
   , ForwardDerivative r
   , Primal (DualNumber.ADVal r) ~ r
-  , ScalarOf (DualNumber.ADVal r) ~ r
   , Tensor (DualNumber.ADVal r)
   , DynamicTensor (DualNumber.ADVal r)
   , TensorOf 1 (DualNumber.ADVal r) ~ Compose DualNumber.ADVal (Flip OR.Array r) 1

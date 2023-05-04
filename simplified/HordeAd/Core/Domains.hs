@@ -4,7 +4,7 @@
 module HordeAd.Core.Domains
   ( DynamicTensor(..)
   , DomainsCollection(..)
-  , ScalarOf, AdaptableDomains(..), parseDomains
+  , Underlying, AdaptableDomains(..), parseDomains
   , RandomDomains(randomVals)
   ) where
 
@@ -98,7 +98,7 @@ instance DomainsCollection Float where
 
 -- * Adaptor classes
 
-type ScalarOf a = Scalar (Value a)
+type Underlying a = Scalar (Value a)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class AdaptableDomains vals where

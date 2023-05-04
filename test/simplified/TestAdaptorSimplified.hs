@@ -613,7 +613,7 @@ testFooNoGoAst =
            , TensorOf 1 r ~ Flip OR.Array r 1, InterpretAst (ADVal r)
            , TensorOf 1 (ADVal r) ~ Compose ADVal (Ranked r) 1
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
-           , ScalarOf (ADVal r) ~ r )
+           , Underlying (ADVal r) ~ r )
         => TensorOf 1 (ADVal r) -> TensorOf 1 (ADVal r)
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
@@ -754,7 +754,7 @@ testBarReluAst0 =
            , TensorOf 0 r ~ Flip OR.Array r 0, InterpretAst (ADVal r)
            , TensorOf 0 (ADVal r) ~ Compose ADVal (Ranked r) 0
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
-           , ScalarOf (ADVal r) ~ r )
+           , Underlying (ADVal r) ~ r )
         => TensorOf 0 (ADVal r) -> TensorOf 0 (ADVal r)
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
@@ -770,7 +770,7 @@ testBarReluAst1 =
            , TensorOf 1 r ~ Flip OR.Array r 1, InterpretAst (ADVal r)
            , TensorOf 1 (ADVal r) ~ Compose ADVal (Ranked r) 1
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
-           , ScalarOf (ADVal r) ~ r )
+           , Underlying (ADVal r) ~ r )
         => TensorOf 1 (ADVal r) -> TensorOf 1 (ADVal r)
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
@@ -791,7 +791,7 @@ testKonstReluAst =
            , TensorOf 0 r ~ Flip OR.Array r 0, InterpretAst (ADVal r)
            , TensorOf 0 (ADVal r) ~ Compose ADVal (Ranked r) 0
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
-           , ScalarOf (ADVal r) ~ r )
+           , Underlying (ADVal r) ~ r )
         => TensorOf 0 (ADVal r) -> TensorOf 0 (ADVal r)
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
