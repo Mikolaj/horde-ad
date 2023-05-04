@@ -158,7 +158,7 @@ instance AdaptableDomains (AstDynamic r) where
 
 instance AdaptableDomains (AstPrimalPartRanked r n) where
   type Scalar (AstPrimalPartRanked r n) = AstPrimalPartRanked r 0
-  type Value (AstPrimalPartRanked r n) = OR.Array n r
+  type Value (AstPrimalPartRanked r n) = r
   toDomains = undefined
   fromDomains = undefined
   nParams = undefined
@@ -166,7 +166,7 @@ instance AdaptableDomains (AstPrimalPartRanked r n) where
 
 instance AdaptableDomains (AstNoVectorize r n) where
   type Scalar (AstNoVectorize r n) = AstNoVectorize r 0
-  type Value (AstNoVectorize r n) = OR.Array n r
+  type Value (AstNoVectorize r n) = r
   toDomains = undefined
   fromDomains = undefined
   nParams = undefined
@@ -174,7 +174,7 @@ instance AdaptableDomains (AstNoVectorize r n) where
 
 instance AdaptableDomains (AstNoSimplify r n) where
   type Scalar (AstNoSimplify r n) = AstNoSimplify r 0
-  type Value (AstNoSimplify r n) = OR.Array n r
+  type Value (AstNoSimplify r n) = r
   toDomains = undefined
   fromDomains = undefined
   nParams = undefined

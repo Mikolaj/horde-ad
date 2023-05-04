@@ -272,7 +272,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   -- The primal/dual distinction
   type Primal r
   type DualOf (n :: Nat) r
-  tconst :: KnownNat n => OR.Array n (Underlying r) -> TensorOf n r
+  tconst :: KnownNat n => OR.Array n (Value r) -> TensorOf n r
   tconstant :: KnownNat n => TensorOf n (Primal r) -> TensorOf n r
   tscale0 :: Primal r -> r -> r
   tprimalPart :: KnownNat n
@@ -326,7 +326,7 @@ type Many (f :: Type -> Constraint) r = (f (TensorOf 0 r), f (TensorOf 1 r), f (
 
 type ADReady r =
   ( Tensor r, Tensor (Primal r), Show r, RealFloat r
-  , RealFloat (Primal r), Numeric (Underlying r), RealFloat (Underlying r)
+  , RealFloat (Primal r), Numeric (Value r), RealFloat (Value r)
   , Many RealFloat r
   , Many RealFloat (Primal r)
   , IfB r, IfB (IntOf r)

@@ -58,7 +58,7 @@ testTrees = [ tensorADValMnistTests
 -- POPL differentiation, straight via the ADVal instance of Tensor
 mnistTestCase2VTA
   :: forall r.
-     ( ADReady r, ADReady (ADVal r), Scalar r ~ r, Value r ~ r, Underlying (ADVal r) ~ r
+     ( ADReady r, ADReady (ADVal r), Scalar r ~ r, Value r ~ r, Value (ADVal r) ~ r
      , TensorOf 0 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 0
      , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
@@ -151,7 +151,7 @@ tensorADValMnistTests = testGroup "ShortRanked ADVal MNIST tests"
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCase2VTI
   :: forall r.
-     ( ADReady r, ADReady (ADVal r), Scalar r ~ r, Value r ~ r, Underlying (ADVal r) ~ r
+     ( ADReady r, ADReady (ADVal r), Scalar r ~ r, Value r ~ r, Value (ADVal r) ~ r
      , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , InterpretAst (ADVal r)
@@ -402,7 +402,7 @@ tensorADOnceMnistTests = testGroup "ShortRankedOnce MNIST tests"
 -- POPL differentiation, straight via the ADVal instance of Tensor
 mnistTestCase2VT2A
   :: forall r.
-     ( ADReady r, ADReady (ADVal r), Scalar r ~ r, Value r ~ r, Underlying (ADVal r) ~ r
+     ( ADReady r, ADReady (ADVal r), Scalar r ~ r, Value r ~ r, Value (ADVal r) ~ r
      , TensorOf 0 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 0
      , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , TensorOf 2 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 2
@@ -505,7 +505,7 @@ tensorADValMnistTests2 = testGroup "ShortRanked2 ADVal MNIST tests"
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCase2VT2I
   :: forall r.
-     ( ADReady r, ADReady (ADVal r), Scalar r ~ r, Value r ~ r, Underlying (ADVal r) ~ r
+     ( ADReady r, ADReady (ADVal r), Scalar r ~ r, Value r ~ r, Value (ADVal r) ~ r
      , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , InterpretAst (ADVal r)

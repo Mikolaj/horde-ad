@@ -57,7 +57,7 @@ afcnnMnist2 factivationHidden factivationOutput
 -- and composed with the appropriate loss function.
 afcnnMnistLoss2
   :: ADReady r
-  => MnistData (Underlying r) -> ADFcnnMnist2Parameters r
+  => MnistData (Value r) -> ADFcnnMnist2Parameters r
   -> r
 afcnnMnistLoss2 (datum, target) =
   let datum1 = tconst $ OR.fromVector [sizeMnistGlyphInt] datum
@@ -76,13 +76,13 @@ afcnnMnistLoss2TensorData (datum, target) adparams =
 -- and the trained parameters.
 afcnnMnistTest2
   :: forall r. (ADReady r, Numeric r)
-  => [MnistData (Underlying r)]
+  => [MnistData (Value r)]
   -> ((ADFcnnMnist2Parameters r
        -> TensorOf 1 r)
       -> Vector r)
   -> r
 afcnnMnistTest2 dataList evalAtTestParams =
-  let matchesLabels :: MnistData (Underlying r) -> Bool
+  let matchesLabels :: MnistData (Value r) -> Bool
       matchesLabels (glyph, label) =
         let glyph1 = tconst $ OR.fromVector [sizeMnistGlyphInt] glyph
             nn :: ADFcnnMnist2Parameters r
