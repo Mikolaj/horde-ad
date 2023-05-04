@@ -27,6 +27,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
+import HordeAd.Core.AstTools
 import HordeAd.Core.Domains
 import HordeAd.Core.DualNumber (ADVal, dDnotShared)
 import HordeAd.Core.Engine

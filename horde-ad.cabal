@@ -518,6 +518,7 @@ library horde-ad-simplified
                       HordeAd.Core.AstFreshId
                       HordeAd.Core.AstInterpret
                       HordeAd.Core.AstSimplify
+                      HordeAd.Core.AstTools
                       HordeAd.Core.AstVectorize
                       HordeAd.Core.Delta
                       HordeAd.Core.Domains

@@ -18,6 +18,7 @@ import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstTools
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList

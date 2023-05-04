@@ -21,6 +21,7 @@ import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
+import HordeAd.Core.AstTools
 import HordeAd.Core.AstVectorize
 import HordeAd.Core.Domains
 import HordeAd.Core.SizedIndex

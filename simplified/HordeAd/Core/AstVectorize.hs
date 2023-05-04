@@ -23,6 +23,7 @@ import           HordeAd.Core.Ast (AstDomains, AstInt)
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstSimplify
+import           HordeAd.Core.AstTools
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Internal.SizedList
 

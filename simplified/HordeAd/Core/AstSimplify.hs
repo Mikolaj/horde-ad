@@ -63,12 +63,12 @@ import           HordeAd.Core.Ast hiding
   (AstBool (..), AstDomains (..), AstInt (..), AstRanked (..))
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
+import           HordeAd.Core.AstTools
 import           HordeAd.Core.Domains
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
 import           HordeAd.Internal.SizedList
 import           HordeAd.Internal.TensorOps
-
 
 type ShowAstSimplify r = (ShowAst r, Num (Vector r), RowSum r, Scalar r ~ r)
 
