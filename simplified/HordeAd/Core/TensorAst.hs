@@ -10,6 +10,7 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
@@ -147,8 +148,15 @@ instance ( Tensor r, ShowAstSimplify r, KnownNat n
   nParams = undefined
   nScalars = undefined
 
-instance (ShowAstSimplify r, TensorOf n r ~ Flip OR.Array r n)
-         => AdaptableDomains (AstPrimalPartRanked r n) where
+instance AdaptableDomains (AstDynamic r) where
+  type Scalar (AstDynamic r) = Ast0 r
+  type Value (AstDynamic r) = OD.Array r
+  toDomains = undefined
+  fromDomains = undefined
+  nParams = undefined
+  nScalars = undefined
+
+instance AdaptableDomains (AstPrimalPartRanked r n) where
   type Scalar (AstPrimalPartRanked r n) = AstPrimalPartRanked r 0
   type Value (AstPrimalPartRanked r n) = OR.Array n r
   toDomains = undefined
@@ -156,8 +164,7 @@ instance (ShowAstSimplify r, TensorOf n r ~ Flip OR.Array r n)
   nParams = undefined
   nScalars = undefined
 
-instance (ShowAstSimplify r, TensorOf n r ~ Flip OR.Array r n)
-         => AdaptableDomains (AstNoVectorize r n) where
+instance AdaptableDomains (AstNoVectorize r n) where
   type Scalar (AstNoVectorize r n) = AstNoVectorize r 0
   type Value (AstNoVectorize r n) = OR.Array n r
   toDomains = undefined
@@ -165,8 +172,7 @@ instance (ShowAstSimplify r, TensorOf n r ~ Flip OR.Array r n)
   nParams = undefined
   nScalars = undefined
 
-instance (ShowAstSimplify r, TensorOf n r ~ Flip OR.Array r n)
-         => AdaptableDomains (AstNoSimplify r n) where
+instance AdaptableDomains (AstNoSimplify r n) where
   type Scalar (AstNoSimplify r n) = AstNoSimplify r 0
   type Value (AstNoSimplify r n) = OR.Array n r
   toDomains = undefined

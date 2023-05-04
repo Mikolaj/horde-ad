@@ -68,8 +68,7 @@ dDnotShared = D
 -- | The intended semantics (not fully enforced by the constraint in isolation)
 -- is that the second type is the primal component of a dual number type
 -- at an unknown rank with the given underlying scalar.
-type IsPrimalWithScalar a r =
-  (IsPrimal a, Element a ~ r)
+type IsPrimalWithScalar a r = (IsPrimal a, Element a ~ r, Scalar a ~ r)
 
 type ADNum r =
   ( Numeric r

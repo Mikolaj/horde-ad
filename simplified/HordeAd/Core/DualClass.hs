@@ -48,6 +48,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
+import HordeAd.Core.Domains
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
@@ -64,7 +65,7 @@ class IsPrimal a where
   recordSharing :: Dual a -> Dual a
   recordSharingPrimal :: a -> ADShare (Element a) -> (ADShare (Element a), a)
   letWrapPrimal :: ADShare (Element a) -> a -> a
-  packDeltaDt :: Either a a -> Dual a -> DeltaDt (Element a)
+  packDeltaDt :: Either a a -> Dual a -> DeltaDt (Scalar a)
 
 -- | Part 1/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class and assert it
