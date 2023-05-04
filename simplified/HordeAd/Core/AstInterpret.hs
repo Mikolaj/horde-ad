@@ -104,7 +104,7 @@ class (BooleanOf r ~ b) => BooleanOfMatches b r where
 instance (BooleanOf r ~ b) => BooleanOfMatches b r where
 
 type InterpretAst a =
-  ( Tensor a, Tensor (Primal a), DynamicTensor a, ShowAstSimplify (ScalarOf a)
+  ( Tensor a, Tensor (Primal a), ShowAstSimplify (ScalarOf a)
   , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a), RealFloat (Primal a)
   , IntOf (Primal a) ~ IntOf a, BooleanOf (Primal a) ~ BooleanOf (IntOf a)
   , CRanked RealFloat a
@@ -381,7 +381,7 @@ interpretAstBool env memo = \case
     in (memo2, interpretAstRelOp opCodeRel args2)
 
 interpretAstDynamicDummy
-  :: InterpretAst a
+  :: (InterpretAst a, DynamicTensor a)
   => AstEnv a -> AstMemo a
   -> AstDynamic (ScalarOf a) -> (AstMemo a, DTensorOf a)
 interpretAstDynamicDummy env memo = \case
@@ -389,7 +389,7 @@ interpretAstDynamicDummy env memo = \case
   AstDynamic w -> second dfromR $ interpretAst env memo w
 
 interpretAstDomainsDummy
-  :: InterpretAst a
+  :: (InterpretAst a, DynamicTensor a)
   => AstEnv a -> AstMemo a
   -> AstDomains (ScalarOf a) -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
 interpretAstDomainsDummy env memo = \case

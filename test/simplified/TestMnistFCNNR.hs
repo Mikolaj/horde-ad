@@ -273,7 +273,7 @@ tensorIntermediateMnistTests = testGroup "ShortRankedIntermediate MNIST tests"
 mnistTestCase2VTO
   :: forall r.
      ( ADReady r, ScalarOf r ~ r, InterpretAst r
-     , PrintfArg r, AssertEqualUpToEpsilon r
+     , PrintfArg r, AssertEqualUpToEpsilon r, DynamicTensor r
      , Domains r ~ Data.Vector.Vector (OD.Array r)
      , Floating (Vector r), ADTensor r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
@@ -632,7 +632,7 @@ mnistTestCase2VT2O
      ( ADReady r, ScalarOf r ~ r, InterpretAst r
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
-     , DTensorOf r ~ OD.Array r
+     , DTensorOf r ~ OD.Array r, DynamicTensor r
      , Domains r ~ Data.Vector.Vector (OD.Array r)
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
   => String

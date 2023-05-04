@@ -32,7 +32,7 @@ rev' :: forall b r n m a.
         , InterpretAst (ADVal r), InterpretAst r, DomainsTensor r
         , a ~ TensorOf m r, ScalarOf r ~ r, ScalarOf (ADVal r) ~ r
         , IsPrimalWithScalar (TensorOf m r) r, DomainsOf r ~ Domains r
-        , AdaptableDomains (ADVal (TensorOf n r))
+        , AdaptableDomains (ADVal (TensorOf n r)), DynamicTensor r
         , DTensorOf r ~ OD.Array r, Domains r ~ Data.Vector.Vector (DTensorOf r)
         , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
         , Ranked (ADVal r) ~ Compose ADVal (Ranked r)

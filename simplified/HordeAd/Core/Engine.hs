@@ -58,7 +58,7 @@ import HordeAd.Core.TensorClass
 revL
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), RealFloat r
+     , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Domains r ~ Data.Vector.Vector (DTensorOf r)
@@ -69,7 +69,7 @@ revL f valsAll = revDtMaybeL f valsAll Nothing
 revDtMaybeL
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), RealFloat r
+     , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Domains r ~ Data.Vector.Vector (DTensorOf r)
@@ -125,7 +125,7 @@ revDtInterpret vals f varInputs domains ((var0, _, vars1), (ast0, _, _)) =
 rev
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), RealFloat r
+     , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Domains r ~ Data.Vector.Vector (DTensorOf r)
@@ -137,7 +137,7 @@ rev f vals = head $ revL f [vals]
 revDt
   :: forall r n vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
-     , Floating (Vector r), RealFloat r
+     , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Domains r ~ Data.Vector.Vector (DTensorOf r)
@@ -149,7 +149,7 @@ revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 srevL
   :: forall r vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, ScalarOf r ~ r
-     , Floating (Vector r), RealFloat r
+     , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Domains r ~ Data.Vector.Vector (DTensorOf r)
@@ -160,7 +160,7 @@ srevL f = revL (tscalar . f)
 srevDtMaybeL
   :: forall r vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, ScalarOf r ~ r
-     , Floating (Vector r), RealFloat r
+     , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Domains r ~ Data.Vector.Vector (DTensorOf r)
@@ -172,7 +172,7 @@ srevDtMaybeL f valsAll dt = revDtMaybeL (tscalar . f) valsAll (tscalar <$> dt)
 srev
   :: forall r vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, ScalarOf r ~ r
-     , Floating (Vector r), RealFloat r
+     , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Domains r ~ Data.Vector.Vector (DTensorOf r)
@@ -184,7 +184,7 @@ srev f = rev (tscalar . f)
 srevDt
   :: forall r vals astvals.
      ( ADTensor r, InterpretAst r, DomainsTensor r, ScalarOf r ~ r
-     , Floating (Vector r), RealFloat r
+     , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , Domains r ~ Data.Vector.Vector (DTensorOf r)
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
@@ -260,7 +260,7 @@ fwd f x ds =
 revAstOnDomains
   :: forall r n.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n, ScalarOf r ~ r
-     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+     , Domains r ~ Data.Vector.Vector (DTensorOf r), DynamicTensor r )
   => (ADInputs (Ast0 r) -> Compose ADVal (AstRanked r) n)
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
@@ -312,7 +312,7 @@ revAstOnDomainsFun dim0 shapes1 f =
 
 revAstOnDomainsEval
   :: forall r n.
-     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r
+     ( ADTensor r, InterpretAst r, KnownNat n, ScalarOf r ~ r, DynamicTensor r
      , Domains r ~ Data.Vector.Vector (DTensorOf r) )
   => ADAstArtifact6 n r -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
