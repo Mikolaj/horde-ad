@@ -91,6 +91,13 @@ instance DynamicTensor (Ast0 r) where
     AstDynamic AstIota -> True
     _ -> False
 
+-- This is used for domains composed of variables only, to adapt them
+-- into more complex types and back again. This is not used for
+-- vectors of large terms, since they'd share values, so we'd need
+-- AstDomainsLet, but these would make adapting the vector costly.
+-- DomainsOf is used for that and the only reasons DomainsOf exists
+-- is to prevent mixing up the two (and complicating the definition
+-- below with errors in the AstDomainsLet case).
 instance ShowAstSimplify r
          => DomainsCollection (Ast0 r) where
   type Domains (Ast0 r) = Data.Vector.Vector (AstDynamic r)
@@ -112,8 +119,12 @@ instance ShowAstSimplify r
       Nothing -> Nothing
       Just (h, rest) ->
         Just (h, mkDoms (doms0 params) rest)
-  concatDom0 = dfromR @(Ast0 r) @1 . foldr1 tappend . map tfromD
-  concatDomR = V.concat
+  concatDoms0 = dfromR @(Ast0 r) @1 . foldr1 tappend . map tfromD
+  concatDomsR = V.concat
+  fromListDoms = V.fromList
+  toListDoms = V.toList
+  fromVectorDoms = id
+  toVectorDoms = id
 
 instance ShowAstSimplify r
          => AdaptableDomains (Ast0 r) where

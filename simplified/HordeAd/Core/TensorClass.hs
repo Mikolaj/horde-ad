@@ -49,17 +49,17 @@ type Domain0 r = TensorOf 1 r
 -- To store ranked tensors (or Ast terms) we use their untyped versions
 -- instead of, e.g,. the unerlying vectors of the tensors,
 -- to prevent frequent linearization of the tensors (e.g., after transpose).
-type DomainR r = Domains r
+type DomainR r = Data.Vector.Vector (DTensorOf r)
 
 domains0 :: (DomainsCollection r, Tensor r) => Domains r -> Domain0 r
 domains0 v = tfromD $ doms0 v
 
 domainsR :: DomainsCollection r => Domains r -> DomainR r
-domainsR = domsR
+domainsR = toVectorDoms . domsR
 
 mkDomains :: (DomainsCollection r, Tensor r)
           => Domain0 r -> DomainR r -> Domains r
-mkDomains t = mkDoms (dfromR t)
+mkDomains d0 dR = mkDoms (dfromR d0) (fromVectorDoms dR)
 
 ttoRankedOrDummy :: (Tensor r, DynamicTensor r, KnownNat n)
                  => ShapeInt n -> DTensorOf r -> TensorOf n r
@@ -612,14 +612,12 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
     in (arr, g2)
 -}
 
-instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r
-         , Domains r ~ Data.Vector.Vector (DTensorOf r), DomainsCollection r
+instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsCollection r
          , TensorOf n r ~ Flip OR.Array r n, DTensorOf r ~ OD.Array r )
          => AdaptableDomains (OR.Array n r) where
   type Scalar (OR.Array n r) = r
   type Value (OR.Array n r) = OR.Array n r
-  toDomains a =
-    mkDoms emptyDoms0 (V.singleton (Data.Array.Convert.convert a))
+  toDomains a = mkDoms emptyDoms0 (fromListDoms [Data.Array.Convert.convert a])
   fromDomains aInit params = case unconsR params of
     Just (a, rest) ->
       Just (runFlip $ ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
@@ -627,14 +625,12 @@ instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r
   nParams _ = 1
   nScalars = OR.size
 
-instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r
-         , Domains r ~ Data.Vector.Vector (DTensorOf r), DomainsCollection r
+instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsCollection r
          , TensorOf n r ~ Flip OR.Array r n )
          => AdaptableDomains (Flip OR.Array r n) where
   type Scalar (Flip OR.Array r n) = r
   type Value (Flip OR.Array r n) = OR.Array n r
-  toDomains a =
-    mkDoms emptyDoms0 (V.singleton (dfromR a))
+  toDomains a = mkDoms emptyDoms0 (fromListDoms [dfromR a])
   fromDomains aInit params = case unconsR params of
     Just (a, rest) ->
       Just (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)

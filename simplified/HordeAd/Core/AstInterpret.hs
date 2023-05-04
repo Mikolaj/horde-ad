@@ -402,7 +402,7 @@ interpretAstDomainsDummy env memo = \case
   AstDomainsLet var u v ->
     let (memo2, t) = interpretAst env memo u
         env2 = extendEnvR (AstVarName var) t env
-    in interpretAstDomains env2 memo2 v
+    in interpretAstDomainsDummy env2 memo2 v
       -- TODO: preserve let, as in AstLet case
 
 -- TODO: when the code again compiles with GHC >= 9.6, check whether

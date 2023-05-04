@@ -90,8 +90,7 @@ makeADInputs
 makeADInputs params (vs0, vs1)
   = ADInputs (domains0 params) vs0 (domainsR params) vs1
 
-instance ( Tensor r, Domains r ~ Data.Vector.Vector (DTensorOf r)
-         , IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r) )
+instance (Tensor r, IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r))
          => DomainsCollection (ADVal r) where
   type Domains (ADVal r) = ADInputs r
   doms0 = undefined
@@ -114,14 +113,17 @@ instance ( Tensor r, Domains r ~ Data.Vector.Vector (DTensorOf r)
              , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
       Nothing -> Nothing
     Nothing -> Nothing
-  concatDom0 = undefined
-  concatDomR = undefined
+  concatDoms0 = undefined
+  concatDomsR = undefined
+  fromListDoms = undefined
+  toListDoms = undefined
+  fromVectorDoms = undefined
+  toVectorDoms = undefined
 
 instance ( Tensor r, Tensor (ADVal r), IsPrimal r
          , KnownNat n, TensorOf n r ~ Flip OR.Array r n
          , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
          , DTensorOf r ~ OD.Array r
-         , Domains r ~ Data.Vector.Vector (DTensorOf r)
          , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
          => AdaptableDomains (ADVal (Flip OR.Array r n)) where
   type Scalar (ADVal (Flip OR.Array r n)) = ADVal r
@@ -137,7 +139,6 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r
          , KnownNat n, TensorOf n r ~ Flip OR.Array r n
          , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
          , DTensorOf r ~ OD.Array r
-         , Domains r ~ Data.Vector.Vector (DTensorOf r)
          , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
          => AdaptableDomains (Compose ADVal (Flip OR.Array r) n) where
   type Scalar (Compose ADVal (Flip OR.Array r) n) = ADVal r

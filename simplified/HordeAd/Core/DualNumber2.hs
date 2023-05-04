@@ -98,7 +98,6 @@ type ADModeAndNum (d :: ADMode) r =
   , DynamicTensor (DualNumber.ADVal r)
   , TensorOf 1 (DualNumber.ADVal r) ~ Compose DualNumber.ADVal (Flip OR.Array r) 1
   , Fractional (TensorOf 0 (DualNumber.ADVal r))
-  , Domains r ~ Data.Vector.Vector (OD.Array r)
   , DomainsCollection r
   )
 
@@ -109,9 +108,7 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
 
 -- The general case, needed for old hacky tests using only scalars.
 valueGeneral
-  :: forall r a.
-     ( ADTensor r, DomainsTensor r
-     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+  :: forall r a. (ADTensor r, DomainsTensor r)
   => (TensorADVal.ADInputs r -> a)
   -> Domains r
   -> a
@@ -124,8 +121,7 @@ valueGeneral f parameters =
 
 valueOnDomains
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r
-     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+     , DualNumber.IsPrimalWithScalar a r )
   => (TensorADVal.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
   -> a
@@ -137,8 +133,7 @@ valueOnDomains f parameters =
 
 revOnADInputs
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r
-     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+     , DualNumber.IsPrimalWithScalar a r )
   => a
   -> (TensorADVal.ADInputs r -> DualNumber.ADVal a)
   -> TensorADVal.ADInputs r
@@ -152,8 +147,7 @@ revOnADInputs = Engine.revOnADInputs  . Just
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , DualNumber.IsPrimalWithScalar a r, DomainsOf r ~ Domains r
-     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+     , DualNumber.IsPrimalWithScalar a r )
   => a
   -> (TensorADVal.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
@@ -161,8 +155,7 @@ revOnDomains
 revOnDomains = Engine.revOnDomains . Just
 
 prettyPrintDf
-  :: ( ADTensor r, DomainsTensor r, Show (Dual r)
-     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+  :: ( ADTensor r, DomainsTensor r, Show (Dual r) )
   => (TensorADVal.ADInputs r -> DualNumber.ADVal r)
   -> Domains r
   -> String
@@ -218,22 +211,19 @@ domainsFromD01 :: (Tensor r, DomainsCollection r)
 domainsFromD01 = mkDomains
 
 domainsFrom01 :: ( Numeric r, TensorOf 1 r ~ Flip OR.Array r 1, Tensor r
-                 , DomainsCollection r
-                 , Domains r ~ Data.Vector.Vector (OD.Array r) )
+                 , DomainsCollection r )
               => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 = mkDomains (Flip $ OR.fromVector [V.length v0] v0)
 
 domainsFrom0V :: ( Numeric r, DTensorOf r ~ OD.Array r, DomainsCollection r
-                 , TensorOf 1 r ~ Flip OR.Array r 1, Tensor r
-                 , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+                 , TensorOf 1 r ~ Flip OR.Array r 1, Tensor r )
               => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
   domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
 listsToParameters :: ( Numeric r, DTensorOf r ~ OD.Array r
                      , TensorOf 1 r ~ Flip OR.Array r 1, Tensor r
-                     , DomainsCollection r
-                     , Domains r ~ Data.Vector.Vector (OD.Array r) )
+                     , DomainsCollection r )
                   => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
   domainsFrom0V (V.fromList a0) (V.singleton (V.fromList a1))
@@ -297,8 +287,7 @@ multNotShared (DualNumber.D l1 u u') (DualNumber.D l2 v v') =
   dDnotShared (l1 `mergeADShare` l2) (u * v) (dAdd (dScale v u') (dScale u v'))
 
 addParameters :: ( Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r
-                 , Tensor r, DomainsCollection r
-                 , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+                 , Tensor r, DomainsCollection r )
               => Domains r -> Domains r -> Domains r
 addParameters paramsA paramsB =
   mkDomains (domains0 paramsA + domains0 paramsB)
@@ -307,7 +296,6 @@ addParameters paramsA paramsB =
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters
   :: ( Tensor r, DomainsCollection r
-     , Domains r ~ Data.Vector.Vector (DTensorOf r)
      , Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => Domains r -> Domains r -> r
 dotParameters paramsA paramsB =

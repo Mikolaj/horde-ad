@@ -12,7 +12,6 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           Data.MonoTraversable (Element)
-import qualified Data.Strict.Vector as Data.Vector
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.DualNumber (ADNum, ADVal)
@@ -45,10 +44,8 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
 -- | Stochastic Gradient Descent.
 sgd :: forall r a.
        ( Numeric r, Floating (Vector r), ADTensor r
-       , Domains r ~ Data.Vector.Vector (OD.Array r)
        , DynamicTensor r, DomainsTensor r, Element r ~ r
-       , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
-       , DomainsOf r ~ Data.Vector.Vector (OD.Array r) )
+       , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
     => r
     -> (a -> ADInputs r -> ADVal r)
     -> [a]  -- ^ training data
@@ -77,9 +74,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 sgdAdam :: forall r a.
            ( Numeric r, Floating r, Floating (Vector r), ADTensor r
            , DynamicTensor r, DomainsTensor r, Element r ~ r
-           , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
-           , DomainsOf r ~ Data.Vector.Vector (OD.Array r)
-           , Domains r ~ Data.Vector.Vector (OD.Array r) )
+           , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
        => (a -> ADInputs r -> ADVal r)
         -> [a]
         -> Domains r
@@ -90,9 +85,7 @@ sgdAdam = sgdAdamArgs defaultArgsAdam
 sgdAdamArgs :: forall r a.
                ( Numeric r, Floating r, Floating (Vector r), ADTensor r
                , DynamicTensor r, DomainsTensor r, Element r ~ r
-               , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
-               , DomainsOf r ~ Data.Vector.Vector (OD.Array r)
-               , Domains r ~ Data.Vector.Vector (OD.Array r) )
+               , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
             => ArgsAdam r
             -> (a -> ADInputs r -> ADVal r)
             -> [a]

@@ -62,7 +62,6 @@ revL
      , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
-     , Domains r ~ Data.Vector.Vector (DTensorOf r)
      , Scalar astvals ~ Ast0 r )
   => (astvals -> Ast n r) -> [vals] -> [vals]
 revL f valsAll = revDtMaybeL f valsAll Nothing
@@ -74,7 +73,6 @@ revDtMaybeL
      , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
-     , Domains r ~ Data.Vector.Vector (DTensorOf r)
      , Scalar astvals ~ Ast0 r )
   => (astvals -> Ast n r) -> [vals] -> Maybe (TensorOf n r) -> [vals]
 revDtMaybeL _ [] _ = []
@@ -89,7 +87,6 @@ revDtFun
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n
      , Scalar r ~ r, Value r ~ r
      , Floating (Vector r), RealFloat r
-     , Domains r ~ Data.Vector.Vector (DTensorOf r)
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
@@ -99,7 +96,7 @@ revDtFun
 revDtFun f vals =
   let parameters0 = toDomains vals
       dim0 = tlength @r @0 $ tfromD $ doms0 parameters0
-      shapes1 = map dshape $ V.toList $ domsR parameters0
+      shapes1 = map dshape $ toListDoms $ domsR parameters0
   in revAstOnDomainsFun dim0 shapes1 (revDtInterpret vals f)
 
 revDtInterpret
@@ -133,7 +130,6 @@ rev
      , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
-     , Domains r ~ Data.Vector.Vector (DTensorOf r)
      , Scalar astvals ~ Ast0 r )
   => (astvals -> Ast n r) -> vals -> vals
 rev f vals = head $ revL f [vals]
@@ -146,7 +142,6 @@ revDt
      , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
-     , Domains r ~ Data.Vector.Vector (DTensorOf r)
      , Scalar astvals ~ Ast0 r )
   => (astvals -> Ast n r) -> vals -> TensorOf n r -> vals
 revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
@@ -158,7 +153,6 @@ srevL
      , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
-     , Domains r ~ Data.Vector.Vector (DTensorOf r)
      , Scalar astvals ~ Ast0 r )
   => (astvals -> Ast0 r) -> [vals] -> [vals]
 srevL f = revL (tscalar . f)
@@ -169,7 +163,6 @@ srevDtMaybeL
      , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
-     , Domains r ~ Data.Vector.Vector (DTensorOf r)
      , Scalar astvals ~ Ast0 r )
   => (astvals -> Ast0 r) -> [vals] -> Maybe r -> [vals]
 srevDtMaybeL _ [] _ = []
@@ -181,7 +174,6 @@ srev
      , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
-     , Domains r ~ Data.Vector.Vector (DTensorOf r)
      , Scalar astvals ~ Ast0 r )
   => (astvals -> Ast0 r) -> vals -> vals
 srev f = rev (tscalar . f)
@@ -192,7 +184,6 @@ srevDt
      ( ADTensor r, InterpretAst r, DomainsTensor r, Scalar r ~ r, Value r ~ r
      , Floating (Vector r), RealFloat r, DynamicTensor r
      , AdaptableDomains astvals, AdaptableDomains vals
-     , Domains r ~ Data.Vector.Vector (DTensorOf r)
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
   => (astvals -> Ast0 r) -> vals -> r -> vals
@@ -205,9 +196,8 @@ crev :: forall n r vals advals.
        , IsPrimal (Flip OR.Array r n)
        , AdaptableDomains vals, AdaptableDomains advals
        , Scalar advals ~ ADVal r
-       , Domains r ~ Data.Vector.Vector (DTensorOf r)
        , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
-       , vals ~ Value vals, DomainsOf r ~ Domains r )
+       , vals ~ Value vals )
     => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals
     -> vals
 crev f vals = crevDtMaybe f vals Nothing
@@ -219,9 +209,8 @@ crevDt :: forall n r vals advals.
          , IsPrimal (Flip OR.Array r n)
          , AdaptableDomains vals, AdaptableDomains advals
          , Scalar advals ~ ADVal r
-         , Domains r ~ Data.Vector.Vector (DTensorOf r)
          , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
-         , vals ~ Value vals, DomainsOf r ~ Domains r )
+         , vals ~ Value vals )
       => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals -> OR.Array n r
       -> vals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
@@ -233,9 +222,8 @@ crevDtMaybe
      , IsPrimal (Flip OR.Array r n)
      , AdaptableDomains vals, AdaptableDomains advals
      , Scalar advals ~ ADVal r
-     , Domains r ~ Data.Vector.Vector (DTensorOf r)
      , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
-     , vals ~ Value vals, DomainsOf r ~ Domains r )
+     , vals ~ Value vals )
   => (advals -> Compose ADVal (Flip OR.Array r) n)
   -> vals -> Maybe (OR.Array n r)
   -> vals
@@ -248,7 +236,7 @@ fwd :: forall a vals r advals.
        ( ForwardDerivative a, r ~ Scalar vals, vals ~ Value advals
        , ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
        , AdaptableDomains (Value advals), Scalar advals ~ ADVal r
-       , AdaptableDomains advals, Domains r ~ Data.Vector.Vector (DTensorOf r)
+       , AdaptableDomains advals
        , DTensorOf (ADVal r) ~ ADVal (DTensorOf r) )
     => (advals -> ADVal a) -> vals -> vals
     -> a
@@ -267,7 +255,7 @@ revAstOnDomains
   :: forall r n.
      ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n
      , Scalar r ~ r, Value r ~ r
-     , Domains r ~ Data.Vector.Vector (DTensorOf r), DynamicTensor r )
+     , DynamicTensor r )
   => (ADInputs (Ast0 r) -> Compose ADVal (AstRanked r) n)
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
@@ -279,15 +267,14 @@ revAstOnDomains f parameters =
 
 revAstOnDomainsF
   :: forall r n.
-     ( ADTensor r, DomainsTensor r, KnownNat n, ShowAstSimplify r
-     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+     (ADTensor r, DomainsTensor r, KnownNat n, ShowAstSimplify r)
   => (ADInputs (Ast0 r) -> Compose ADVal (AstRanked r) n)
   -> Domains r
   -> ADAstArtifact6 n r
 {-# INLINE revAstOnDomainsF #-}
 revAstOnDomainsF f parameters  =
   let dim0 = tlength $ domains0 parameters
-      shapes1 = map dshape $ V.toList $ domainsR parameters
+      shapes1 = map dshape $ toListDoms $ domsR parameters
   in fst $ revAstOnDomainsFun dim0 shapes1 (\varInputs _ _ -> f varInputs)
 
 revAstOnDomainsFun
@@ -303,7 +290,7 @@ revAstOnDomainsFun dim0 shapes1 f =
       -- for pretty-printing and prevent sharing the impure values/effects.
       !v6@(!vars@(!_, _, _), (ast0, astDt, asts1)) =
         funToAstAll (singletonShape dim0) shapes1 in
-  let domains = mkDomains ast0 (V.fromList asts1)
+  let domains = mkDomains ast0 (fromListDoms asts1)
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
@@ -313,21 +300,20 @@ revAstOnDomainsFun dim0 shapes1 f =
   let !(!astBindings, !gradient) =
         gradientFromDelta dim0 (length shapes1) deltaDt
   in ( ( vars
-       , unletAstDomains6 astBindings l gradient
+       , unletAstDomains6 astBindings l (dmkDomains gradient)
        , unletAst6 l primalBody )
      , deltaTopLevel )
 
 revAstOnDomainsEval
   :: forall r n.
      ( ADTensor r, InterpretAst r, KnownNat n, DynamicTensor r
-     , Scalar r ~ r, Value r ~ r
-     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+     , Scalar r ~ r, Value r ~ r )
   => ADAstArtifact6 n r -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
 revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
   let env1 = foldr extendEnvD EM.empty
-             $ zip (AstDynamicVarName var0 : vars1) $ V.toList parameters
+             $ zip (AstDynamicVarName var0 : vars1) $ toListDoms parameters
       dtValue = case dt of
         Just a -> a
         Nothing -> tkonst0N (tshape primal) 1
@@ -335,14 +321,13 @@ revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
       (memo1, gradientDomain) =
         interpretAstDomainsDummy envDt emptyMemo gradient
       primalTensor = snd $ interpretAst env1 memo1 primal
-  in (gradientDomain, primalTensor)
+  in (fromVectorDoms gradientDomain, primalTensor)
 
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
   :: ( Tensor r, DomainsTensor r, DynamicTensor r, IsPrimalWithScalar a r
-     , DomainsOf r ~ Domains r, DomainsCollection r
-     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+     , DomainsCollection r )
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> ADInputs r
@@ -363,8 +348,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: ( ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
-     , DomainsOf r ~ Domains r, Domains r ~ Data.Vector.Vector (DTensorOf r) )
+  :: (ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -381,8 +365,7 @@ revOnDomains dt f parameters =
 -- for a fast variant (TODO: not ported from the old code yet).
 
 slowFwdOnADInputs
-  :: ( Tensor r, DynamicTensor r, Element a ~ r, ForwardDerivative a
-     , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+  :: (Tensor r, DynamicTensor r, Element a ~ r, ForwardDerivative a)
   => ADInputs r
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -398,7 +381,7 @@ slowFwdOnADInputs inputs@ADInputs{..} f ds =
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r, Element a ~ r
-     , ForwardDerivative a, Domains r ~ Data.Vector.Vector (DTensorOf r) )
+     , ForwardDerivative a )
   => Domains r
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -413,7 +396,7 @@ slowFwdOnDomains parameters f ds =
 
 generateDeltaInputs
   :: forall r.
-     (ADTensor r, DomainsTensor r, Domains r ~ Data.Vector.Vector (DTensorOf r))
+     (ADTensor r, DomainsTensor r)
   => Domains r
   -> ( Data.Vector.Vector (Dual r)
      , Data.Vector.Vector (Dual (DTensorOf r)) )

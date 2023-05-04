@@ -387,10 +387,9 @@ data DeltaBinding r =
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
-  :: forall r. ( Tensor r, DynamicTensor r, DomainsTensor r, DomainsCollection r
-               , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+  :: forall r. (Tensor r, DynamicTensor r, DomainsTensor r, DomainsCollection r)
   => Int -> Int -> DeltaDt r
-  -> ([(AstVarId, DTensorOf r)], DomainsOf r)
+  -> ([(AstVarId, DTensorOf r)], Domains r)
 gradientFromDelta dim0 dimR deltaDt =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
@@ -417,16 +416,16 @@ gradientFromDelta dim0 dimR deltaDt =
          EvalState{..} = buildFinMaps s0 deltaDt
          -- Extract results.
          gradient =
-           dmkDomains
-           $ mkDomains (tfromList0N (singletonShape dim0) (EM.elems iMap0))
-                       (V.fromList $ EM.elems iMapR)
+           mkDoms (dfromR
+                   $ tfromList0N (singletonShape dim0) (EM.elems iMap0))
+                  (fromListDoms $ EM.elems iMapR)
      in (astBindings, gradient)
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> DeltaDt Double
-  -> ([(AstVarId, DTensorOf Double)], DomainsOf Double) #-}
+  -> ([(AstVarId, DTensorOf Double)], Domains Double) #-}
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> DeltaDt (Ast0 Double)
-  -> ([(AstVarId, DTensorOf (Ast0 Double))], DomainsOf (Ast0 Double)) #-}
+  -> ([(AstVarId, DTensorOf (Ast0 Double))], Domains (Ast0 Double)) #-}
 
 buildFinMaps :: forall r. (Tensor r, DomainsTensor r)
              => EvalState r -> DeltaDt r -> EvalState r
@@ -674,8 +673,7 @@ instance ShowAstSimplify r
       DeltaDtR{} -> error "derivativeFromDelta"
 
 instance ( Num (TensorOf n r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
-         , Dual (Flip OR.Array r n) ~ DeltaR n r, DomainsCollection r
-         , Domains r ~ Data.Vector.Vector (DTensorOf r) )
+         , Dual (Flip OR.Array r n) ~ DeltaR n r, DomainsCollection r )
          => ForwardDerivative (Flip OR.Array r n) where
   derivativeFromDelta dim0 dimR deltaTopLevel ds =
     case runST $ buildDerivative dim0 dimR
@@ -699,9 +697,7 @@ instance (ShowAstSimplify r, KnownNat n, TensorOf n (Ast0 r) ~ Ast n r)
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
-  :: forall s r.
-     ( Tensor r, Domains r ~ Data.Vector.Vector (DTensorOf r)
-     , DomainsCollection r )
+  :: forall s r. (Tensor r, DomainsCollection r)
   => Int -> Int -> DeltaDt r -> Domains r
   -> ST s (DeltaDt r)
 buildDerivative dim0 dimR deltaDt params = do

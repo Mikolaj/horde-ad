@@ -10,7 +10,6 @@ import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Compose
-import qualified Data.Strict.Vector as Data.Vector
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty.HUnit hiding (assert)
@@ -31,9 +30,9 @@ rev' :: forall b r n m a.
         ( KnownNat n, KnownNat m, Floating (Vector r), ADTensor r, ADReady r
         , InterpretAst (ADVal r), InterpretAst r, DomainsTensor r
         , a ~ TensorOf m r, Scalar r ~ r, Value r ~ r, Underlying (ADVal r) ~ r
-        , IsPrimalWithScalar (TensorOf m r) r, DomainsOf r ~ Domains r
+        , IsPrimalWithScalar (TensorOf m r) r
         , AdaptableDomains (ADVal (TensorOf n r)), DynamicTensor r
-        , DTensorOf r ~ OD.Array r, Domains r ~ Data.Vector.Vector (DTensorOf r)
+        , DTensorOf r ~ OD.Array r
         , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
         , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
         , ADReady (ADVal r), TensorOf n r ~ Flip OR.Array r n

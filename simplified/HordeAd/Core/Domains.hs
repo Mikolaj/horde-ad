@@ -38,8 +38,12 @@ class DomainsCollection r where
   isEmptyDoms :: Domains r -> Bool
   uncons0 :: Domains r -> Maybe (r, Domains r)
   unconsR :: Domains r -> Maybe (DTensorOf r, Domains r)
-  concatDom0 :: [DTensorOf r] -> DTensorOf r
-  concatDomR :: [Domains r] -> Domains r
+  concatDoms0 :: [DTensorOf r] -> DTensorOf r
+  concatDomsR :: [Domains r] -> Domains r
+  fromListDoms :: [DTensorOf r] -> Domains r
+  toListDoms :: Domains r -> [DTensorOf r]
+  fromVectorDoms :: Data.Vector.Vector (DTensorOf r) -> Domains r
+  toVectorDoms :: Domains r -> Data.Vector.Vector (DTensorOf r)
 
 instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
@@ -70,8 +74,12 @@ instance DomainsCollection Double where
       Nothing -> Nothing
       Just (h, rest) ->
         Just (h, mkDoms (doms0 params) rest)
-  concatDom0 = OD.concatOuter
-  concatDomR = V.concat
+  concatDoms0 = OD.concatOuter
+  concatDomsR = V.concat
+  fromListDoms = V.fromList
+  toListDoms = V.toList
+  fromVectorDoms = id
+  toVectorDoms = id
 
 instance DomainsCollection Float where
   type Domains Float = Data.Vector.Vector (OD.Array Float)
@@ -92,9 +100,12 @@ instance DomainsCollection Float where
       Nothing -> Nothing
       Just (h, rest) ->
         Just (h, mkDoms (doms0 params) rest)
-  concatDom0 = OD.concatOuter
-  concatDomR = V.concat
-
+  concatDoms0 = OD.concatOuter
+  concatDomsR = V.concat
+  fromListDoms = V.fromList
+  toListDoms = V.toList
+  fromVectorDoms = id
+  toVectorDoms = id
 
 -- * Adaptor classes
 
@@ -157,7 +168,7 @@ instance (AdaptableDomains a, r ~ Scalar a, DomainsCollection r)
   type Value [a] = [Value a]
   toDomains l =
     let (l0, l1) = unzip $ map ((doms0 &&& domsR) . toDomains) l
-    in mkDoms (concatDom0 l0) (concatDomR l1)
+    in mkDoms (concatDoms0 l0) (concatDomsR l1)
   fromDomains lInit source =
     let f (lAcc, restAcc) aInit =
           case fromDomains aInit restAcc of
@@ -181,8 +192,8 @@ instance ( DomainsCollection r
   toDomains (a, b) =
     let (a0, a1) = doms0 &&& domsR $ toDomains a
         (b0, b1) = doms0 &&& domsR $ toDomains b
-    in mkDoms (concatDom0 [a0, b0])
-              (concatDomR [a1, b1])
+    in mkDoms (concatDoms0 [a0, b0])
+              (concatDomsR [a1, b1])
   fromDomains (aInit, bInit) source = do
     (a, aRest) <- fromDomains aInit source
     (b, bRest) <- fromDomains bInit aRest
@@ -209,8 +220,8 @@ instance ( DomainsCollection r
     let (a0, a1) = doms0 &&& domsR $ toDomains a
         (b0, b1) = doms0 &&& domsR $ toDomains b
         (c0, c1) = doms0 &&& domsR $ toDomains c
-    in mkDoms (concatDom0 [a0, b0, c0])
-              (concatDomR [a1, b1, c1])
+    in mkDoms (concatDoms0 [a0, b0, c0])
+              (concatDomsR [a1, b1, c1])
   fromDomains (aInit, bInit, cInit) source = do
     (a, aRest) <- fromDomains aInit source
     (b, bRest) <- fromDomains bInit aRest
@@ -242,8 +253,8 @@ instance ( DomainsCollection r
         (b0, b1) = doms0 &&& domsR $ toDomains b
         (c0, c1) = doms0 &&& domsR $ toDomains c
         (d0, d1) = doms0 &&& domsR $ toDomains d
-    in mkDoms (concatDom0 [a0, b0, c0, d0])
-              (concatDomR [a1, b1, c1, d1])
+    in mkDoms (concatDoms0 [a0, b0, c0, d0])
+              (concatDomsR [a1, b1, c1, d1])
   fromDomains (aInit, bInit, cInit, dInit) source = do
     (a, aRest) <- fromDomains aInit source
     (b, bRest) <- fromDomains bInit aRest
@@ -288,7 +299,7 @@ instance ( AdaptableDomains a, DomainsCollection (Scalar a) )
   type Scalar (Maybe a) = Scalar a
   type Value (Maybe a) = Maybe (Value a)
   toDomains e = case e of
-    Nothing -> mkDoms emptyDoms0 (concatDomR [])
+    Nothing -> mkDoms emptyDoms0 (concatDomsR [])
     Just a -> toDomains a
   fromDomains eInit source = case eInit of
     Nothing -> Just (Nothing, source)

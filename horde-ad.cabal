@@ -646,7 +646,6 @@ library testToolLibrarySimplified
       , enummapset
       , hmatrix
       , orthotope
-      , strict-containers
       , tasty >= 1.0
       , tasty-hunit
       , tasty-quickcheck

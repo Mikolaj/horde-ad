@@ -13,7 +13,6 @@ import           Data.Functor.Compose
 import           Data.List.Index (imap)
 import           Data.MonoTraversable (Element)
 import qualified Data.Strict.IntMap as IM
-import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA
@@ -66,17 +65,15 @@ mnistTestCase2VTA
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
-     , Domains r ~ Data.Vector.Vector (OD.Array r)
      , DynamicTensor r, DomainsTensor r, Element r ~ r
-     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
-     , DomainsOf r ~ Domains r )
+     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
 mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
-      params1Init = V.fromList $
+      params1Init =
         imap (\i nPV -> OD.fromVector [nPV]
                         $ V.map realToFrac
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
@@ -137,7 +134,8 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
              !res <- foldM runBatch params chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (mkDomains (Flip emptyR) params1Init)
+       res <- runEpoch 1 (mkDoms (dfromR $ Flip emptyR)
+                                 (fromListDoms params1Init))
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
@@ -158,26 +156,24 @@ mnistTestCase2VTI
      , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , InterpretAst (ADVal r)
-     , Domains r ~ Data.Vector.Vector (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
      , DynamicTensor r, DomainsTensor r, Element r ~ r
-     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
-     , DomainsOf r ~ Data.Vector.Vector (OD.Array r) )
+     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
 mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
-      params1Init = V.fromList $
+      params1Init =
         imap (\i nPV -> OD.fromVector [nPV]
                         $ V.map realToFrac
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1
       emptyR = OR.fromList [0] []
-      domainsInit = mkDomains (Flip emptyR) params1Init
+      domainsInit = mkDoms (dfromR $ Flip emptyR) (fromListDoms params1Init)
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -208,7 +204,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let shapes1 = map (: []) nParams1
            (vars1, asts1) = unzip $ map funToAstD shapes1
-           doms = mkDomains (AstConst emptyR) (V.fromList asts1)
+           doms = mkDoms (dfromR $ AstConst emptyR) (fromListDoms asts1)
            (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
@@ -275,7 +271,6 @@ mnistTestCase2VTO
   :: forall r.
      ( ADReady r, Scalar r ~ r, Value r ~ r, InterpretAst r
      , PrintfArg r, AssertEqualUpToEpsilon r, DynamicTensor r
-     , Domains r ~ Data.Vector.Vector (OD.Array r)
      , Floating (Vector r), ADTensor r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => String
@@ -284,14 +279,14 @@ mnistTestCase2VTO
 mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
-      params1Init = V.fromList $
+      params1Init =
         imap (\i nPV -> OD.fromVector [nPV]
                         $ V.map realToFrac
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1
       emptyR = OR.fromList [0] []
-      domainsInit = mkDomains (Flip emptyR) params1Init
+      domainsInit = mkDoms (dfromR $ Flip emptyR) (fromListDoms params1Init)
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -358,7 +353,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            go ((glyph, label) : rest) parameters =
              let glyphD = OD.fromVector [sizeMnistGlyphInt] glyph
                  labelD = OD.fromVector [sizeMnistLabelInt] label
-                 parametersAndInput = parameters `V.snoc` glyphD `V.snoc` labelD
+                 parametersAndInput =
+                   concatDomsR [parameters, fromListDoms [glyphD, labelD]]
                  gradientDomain =
                    fst $ revAstOnDomainsEval (vars, gradient, primal)
                                              parametersAndInput Nothing
@@ -412,11 +408,10 @@ mnistTestCase2VT2A
      , TensorOf 1 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 1
      , TensorOf 2 (ADVal r) ~ Compose ADVal (Flip OR.Array r) 2
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
-     , Domains r ~ Data.Vector.Vector (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
      , DynamicTensor r, DomainsTensor r, Element r ~ r
-     , DTensorOf r ~ OD.Array r, DomainsOf r ~ Data.Vector.Vector (OD.Array r)
+     , DTensorOf r ~ OD.Array r
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -424,7 +419,7 @@ mnistTestCase2VT2A
 mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
   let nParams1 = MnistFcnnRanked2.afcnnMnistLen2 widthHidden widthHidden2
-      params1Init = V.fromList $
+      params1Init =
         imap (\i sh -> OD.fromVector sh
                        $ V.map realToFrac
                        $ LA.randomVector (44 + product sh + i) LA.Uniform
@@ -493,7 +488,8 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
              !res <- foldM runBatch params chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (mkDomains (Flip emptyR) params1Init)
+       res <- runEpoch 1 (mkDoms (dfromR $ Flip emptyR)
+                                 (fromListDoms params1Init))
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
@@ -516,9 +512,8 @@ mnistTestCase2VT2I
      , InterpretAst (ADVal r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
-     , Domains r ~ Data.Vector.Vector (OD.Array r)
      , DynamicTensor r, DomainsTensor r, Element r ~ r
-     , DTensorOf r ~ OD.Array r, DomainsOf r ~ Data.Vector.Vector (OD.Array r)
+     , DTensorOf r ~ OD.Array r
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -526,7 +521,7 @@ mnistTestCase2VT2I
 mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
   let nParams1 = MnistFcnnRanked2.afcnnMnistLen2 widthHidden widthHidden2
-      params1Init = V.fromList $
+      params1Init =
         imap (\i sh -> OD.fromVector sh
                        $ V.map realToFrac
                        $ LA.randomVector (44 + product sh + i) LA.Uniform
@@ -535,7 +530,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
              nParams1
       emptyR = OR.fromList [0] []
       emptyR2 = OR.fromList [0, 0] []
-      domainsInit = mkDomains (Flip emptyR) params1Init
+      domainsInit = mkDoms (dfromR $ Flip emptyR) (fromListDoms params1Init)
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -566,7 +561,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let shapes1 = nParams1
            (vars1, asts1) = unzip $ map funToAstD shapes1
-           doms = mkDomains (AstConst emptyR) (V.fromList asts1)
+           doms = mkDoms (dfromR $ AstConst emptyR) (fromListDoms asts1)
            (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
@@ -634,7 +629,6 @@ mnistTestCase2VT2O
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
      , DTensorOf r ~ OD.Array r, DynamicTensor r
-     , Domains r ~ Data.Vector.Vector (OD.Array r)
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -642,7 +636,7 @@ mnistTestCase2VT2O
 mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
   let nParams1 = MnistFcnnRanked2.afcnnMnistLen2 widthHidden widthHidden2
-      params1Init = V.fromList $
+      params1Init =
         imap (\i sh -> OD.fromVector sh
                        $ V.map realToFrac
                        $ LA.randomVector (44 + product sh + i) LA.Uniform
@@ -651,7 +645,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
              nParams1
       emptyR = OR.fromList [0] []
       emptyR2 = OR.fromList [0, 0] []
-      domainsInit = mkDomains (Flip emptyR) params1Init
+      domainsInit = mkDoms (dfromR $ Flip emptyR) (fromListDoms params1Init)
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -719,7 +713,8 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
            go ((glyph, label) : rest) parameters =
              let glyphD = OD.fromVector [sizeMnistGlyphInt] glyph
                  labelD = OD.fromVector [sizeMnistLabelInt] label
-                 parametersAndInput = parameters `V.snoc` glyphD `V.snoc` labelD
+                 parametersAndInput =
+                   concatDomsR [parameters, fromListDoms [glyphD, labelD]]
                  gradientDomain =
                    fst $ revAstOnDomainsEval (vars, gradient, primal)
                                              parametersAndInput Nothing
