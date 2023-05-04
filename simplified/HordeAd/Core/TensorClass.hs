@@ -420,10 +420,10 @@ class DomainsTensor r where
               -> (DomainsOf r -> TensorOf n r)
               -> TensorOf n r
   tletDomains a f = f a
-  dmkDomains :: Data.Vector.Vector (DTensorOf r) -> DomainsOf r
+  dmkDomains :: Domains r -> DomainsOf r
   default dmkDomains
-    :: Data.Vector.Vector (DTensorOf r) ~ DomainsOf r
-    => Data.Vector.Vector (DTensorOf r) -> DomainsOf r
+    :: Domains r ~ DomainsOf r
+    => Domains r -> DomainsOf r
   dmkDomains = id
   dlet :: KnownNat n
        => TensorOf n r -> (TensorOf n r -> DomainsOf r)
