@@ -233,7 +233,7 @@ crevDtMaybe f vals dt =
 -- This takes the sensitivity parameter, by convention.
 fwd :: forall a vals r advals.
        ( ForwardDerivative a, r ~ Scalar vals, vals ~ Value advals
-       , ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r
+       , ADTensor r, DynamicTensor r, DomainsTensor r, Scalar a ~ r
        , AdaptableDomains (Value advals), Scalar advals ~ ADVal r
        , AdaptableDomains advals
        , DTensorOf (ADVal r) ~ ADVal (DTensorOf r) )
@@ -325,7 +325,7 @@ revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
-  :: ( Tensor r, DomainsTensor r, DynamicTensor r, IsPrimalWithScalar a r
+  :: ( Tensor r, DomainsTensor r, DynamicTensor r, IsPrimal a, Scalar a ~ r
      , DomainsCollection r )
   => Maybe a
   -> (ADInputs r -> ADVal a)
@@ -347,7 +347,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: (ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimalWithScalar a r)
+  :: (ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimal a, Scalar a ~ r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> Domains r

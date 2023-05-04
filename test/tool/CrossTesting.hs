@@ -30,7 +30,7 @@ rev' :: forall b r n m a.
         ( KnownNat n, KnownNat m, Floating (Vector r), ADTensor r, ADReady r
         , InterpretAst (ADVal r), InterpretAst r, DomainsTensor r
         , a ~ TensorOf m r, Scalar r ~ r, Value r ~ r, Value (ADVal r) ~ r
-        , IsPrimalWithScalar (TensorOf m r) r
+        , IsPrimal (TensorOf m r), Scalar (TensorOf m r) ~ r
         , AdaptableDomains (ADVal (TensorOf n r)), DynamicTensor r
         , DTensorOf r ~ OD.Array r
         , DTensorOf (ADVal r) ~ ADVal (OD.Array r)

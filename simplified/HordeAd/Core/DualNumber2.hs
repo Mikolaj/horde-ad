@@ -60,6 +60,8 @@ import qualified HordeAd.Core.TensorADVal as TensorADVal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Internal.TensorOps
 
+type IsPrimalWithScalarNew a r = (DualClass.IsPrimal a, Scalar a ~ r)
+
 pattern D :: a -> Dual a -> DualNumber.ADVal a
 pattern D u u' <- DualNumber.D _ u u'
 {-# COMPLETE D #-}
@@ -83,13 +85,13 @@ type IsPrimal (d :: ADMode) a =
   DualClass.IsPrimal a
 
 type IsPrimalWithScalar (d :: ADMode) a r =
-  DualNumber.IsPrimalWithScalar a r
+  IsPrimalWithScalarNew a r
 
 type IsPrimalAndHasFeatures (d :: ADMode) a r =
-  DualNumber.IsPrimalWithScalar a r
+  IsPrimalWithScalarNew a r
 
 type IsPrimalAndHasInputs (d :: ADMode) a r =
-  DualNumber.IsPrimalWithScalar a r
+  IsPrimalWithScalarNew a r
 
 type ADModeAndNum (d :: ADMode) r =
   ( DualNumber.ADNum r
@@ -122,7 +124,7 @@ valueGeneral f parameters =
 
 valueOnDomains
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , DualNumber.IsPrimalWithScalar a r )
+     , IsPrimalWithScalarNew a r )
   => (TensorADVal.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
   -> a
@@ -134,7 +136,7 @@ valueOnDomains f parameters =
 
 revOnADInputs
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , DualNumber.IsPrimalWithScalar a r )
+     , IsPrimalWithScalarNew a r )
   => a
   -> (TensorADVal.ADInputs r -> DualNumber.ADVal a)
   -> TensorADVal.ADInputs r
@@ -148,7 +150,7 @@ revOnADInputs = Engine.revOnADInputs  . Just
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
   :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , DualNumber.IsPrimalWithScalar a r )
+     , IsPrimalWithScalarNew a r )
   => a
   -> (TensorADVal.ADInputs r -> DualNumber.ADVal a)
   -> Domains r

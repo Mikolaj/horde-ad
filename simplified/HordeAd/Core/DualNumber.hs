@@ -9,9 +9,7 @@ module HordeAd.Core.DualNumber
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , -- * Re-exports
-    IsPrimal (..), IsPrimalWithScalar
-  , ADNum
+  , IsPrimal (..), ADNum
   ) where
 
 import Prelude hiding ((<*))
@@ -65,17 +63,13 @@ dDnotShared = D
 
 -- * Auxiliary definitions
 
--- | The intended semantics (not fully enforced by the constraint in isolation)
--- is that the second type is the primal component of a dual number type
--- at an unknown rank with the given underlying scalar.
-type IsPrimalWithScalar a r = (IsPrimal a, Scalar a ~ r)
-
 type ADNum r =
   ( Numeric r
   , Show r
   , Show (Dual (OD.Array r))
   , HasRanks r
-  , IsPrimalWithScalar r r
+  , IsPrimal r
+  , Scalar r ~ r
   , IsPrimalR r
   , RealFloat r
   , RealFloat (Vector r)
