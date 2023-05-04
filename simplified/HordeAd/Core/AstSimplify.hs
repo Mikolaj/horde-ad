@@ -973,9 +973,9 @@ inlineAst env memo v0 = case v0 of
         -- inlining can be applied with and without simplification
       count | astIsSmall u ->
         let (memoU0, u0) = inlineAst env EM.empty u
-        in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
-               -- u is small, so the union is fast
-           , substitute1Ast (Left u0) var v2 )
+            memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
+                      -- u is small, so the union is fast
+        in (memo3, substitute1Ast (Left u0) var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstLetADShare{} -> error "inlineAst: AstLetADShare"
   Ast.AstOp opCode args ->
@@ -992,7 +992,9 @@ inlineAst env memo v0 = case v0 of
   Ast.AstSum v -> second Ast.AstSum (inlineAst env memo v)
   Ast.AstScatter sh v (vars, ix) ->
     let (memo1, v2) = inlineAst env memo v
-        (memo2, ix2) = mapAccumR (inlineAstInt env) memo1 (indexToList ix)
+        (memoI0, ix2) = mapAccumR (inlineAstInt env) EM.empty (indexToList ix)
+        count = sizeShape sh
+        memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatter sh v2 (vars, listToIndex ix2))
   Ast.AstFromList l ->
     let (memo2, l2) = mapAccumR (inlineAst env) memo l
@@ -1012,11 +1014,14 @@ inlineAst env memo v0 = case v0 of
     second (Ast.AstTranspose perm) $ inlineAst env memo v
   Ast.AstReshape sh v -> second (Ast.AstReshape sh) (inlineAst env memo v)
   Ast.AstBuild1 k (var, v) ->
-    let (memo1, v2) = inlineAst env memo v
+    let (memoV0, v2) = inlineAst env EM.empty v
+        memo1 = EM.unionWith (\c1 c0 -> c1 + k * c0) memo memoV0
     in (memo1, Ast.AstBuild1 k (var, v2))
   Ast.AstGatherZ sh v (vars, ix) ->
     let (memo1, v2) = inlineAst env memo v
-        (memo2, ix2) = mapAccumR (inlineAstInt env) memo1 (indexToList ix)
+        (memoI0, ix2) = mapAccumR (inlineAstInt env) EM.empty (indexToList ix)
+        count = sizeShape sh
+        memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGatherZ sh v2 (vars, listToIndex ix2))
   Ast.AstConst{} -> (memo, v0)
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAstPrimal env memo a
@@ -1070,11 +1075,13 @@ inlineAstInt env memo v0 = case v0 of
     in (memo2, AstIntOp opCodeInt args2)
   AstIntConst{} -> (memo, v0)
   Ast.AstIntFloor v -> second Ast.AstIntFloor $ inlineAstPrimal env memo v
-  Ast.AstIntCond b a1 a2 ->
+  Ast.AstIntCond b a2 a3 ->
     let (memo1, b1) = inlineAstBool env memo b
-        (memo2, t2) = inlineAstInt env memo1 a1
-        (memo3, t3) = inlineAstInt env memo2 a2
-    in (memo3, Ast.AstIntCond b1 t2 t3)
+        (memoA2, t2) = inlineAstInt env EM.empty a2
+        (memoA3, t3) = inlineAstInt env EM.empty a3
+        memo4 = EM.unionWith max memoA2 memoA3
+        memo5 = EM.unionWith (+) memo1 memo4
+    in (memo5, Ast.AstIntCond b1 t2 t3)
   Ast.AstMinIndex1 v -> second Ast.AstMinIndex1 $ inlineAstPrimal env memo v
   Ast.AstMaxIndex1 v -> second Ast.AstMaxIndex1 $ inlineAstPrimal env memo v
 
