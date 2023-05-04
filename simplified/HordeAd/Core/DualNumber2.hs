@@ -46,6 +46,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
+import           HordeAd.Core.Ast
 import           HordeAd.Core.Delta (Delta0, ForwardDerivative)
 import           HordeAd.Core.Domains
 import           HordeAd.Core.DualClass hiding (IsPrimal)

@@ -19,12 +19,12 @@ import Prelude hiding ((<*))
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
-import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy (Proxy))
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
+import HordeAd.Core.Ast
 import HordeAd.Core.Domains
 import HordeAd.Core.DualClass
 import HordeAd.Core.TensorClass
@@ -41,16 +41,16 @@ import HordeAd.Core.TensorClass
 -- can be any containers of scalars. The primal component has the type
 -- given as the second type argument and the dual component (with the type
 -- determined by the type faimly @Dual@) is defined elsewhere.
-data ADVal a = D (ADShare (Element a)) a (Dual a)
+data ADVal a = D (ADShare (Underlying a)) a (Dual a)
 
-deriving instance (Show a, Show (ADShare (Element a)), Show (Dual a))
+deriving instance (Show a, Show (ADShare (Underlying a)), Show (Dual a))
                   => Show (ADVal a)
 
 -- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
 -- information, if applicable for the differentiation mode in question.
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
-dD :: IsPrimal a => ADShare (Element a) -> a -> Dual a -> ADVal a
+dD :: IsPrimal a => ADShare (Underlying a) -> a -> Dual a -> ADVal a
 dD l a dual = D l a (recordSharing dual)
 
 -- | This a not so smart constructor for 'D' of 'ADVal' that does not record
@@ -59,7 +59,7 @@ dD l a dual = D l a (recordSharing dual)
 -- in backpropagation phase. In contexts without sharing, it saves
 -- some evaluation time and memory (in term structure, but even more
 -- in the per-node data stored while evaluating).
-dDnotShared :: ADShare (Element a) -> a -> Dual a -> ADVal a
+dDnotShared :: ADShare (Underlying a) -> a -> Dual a -> ADVal a
 dDnotShared = D
 
 
@@ -68,7 +68,7 @@ dDnotShared = D
 -- | The intended semantics (not fully enforced by the constraint in isolation)
 -- is that the second type is the primal component of a dual number type
 -- at an unknown rank with the given underlying scalar.
-type IsPrimalWithScalar a r = (IsPrimal a, Element a ~ r, Scalar a ~ r)
+type IsPrimalWithScalar a r = (IsPrimal a, Scalar a ~ r)
 
 type ADNum r =
   ( Numeric r

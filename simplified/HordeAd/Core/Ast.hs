@@ -17,21 +17,25 @@ module HordeAd.Core.Ast
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , astCond  -- exposed only for tests
+  , ADShare
+  , emptyADShare, insertADShare, mergeADShare, subtractADShare
+  , flattenADShare, assocsADShare
   ) where
 
 import Prelude
 
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
+import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
 import           Data.List (foldl')
-import           Data.MonoTraversable (Element)
+import           Data.Maybe (fromMaybe)
 import qualified Data.Strict.Vector as Data.Vector
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
+import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
@@ -44,7 +48,7 @@ type ADAstVarNames n r = ( AstVarName (OR.Array 1 r)
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 n r = (ADAstVarNames n r, AstDomains r, Ast n r)
 
-type ShowAst r = (Show r, Numeric r, DTensorOf (Ast0 r) ~ AstDynamic r)
+type ShowAst r = (Show r, Numeric r)
 
 type AstIndex n r = Index n (AstInt r)
 
@@ -63,7 +67,7 @@ data AstRanked :: Type -> Nat -> Type where
   AstVar :: ShapeInt n -> AstVarId -> Ast n r
   AstLet :: (KnownNat n, KnownNat m)
          => AstVarId -> Ast n r -> Ast m r -> Ast m r
-  AstLetADShare :: ADShare (Ast0 r) -> Ast m r -> Ast m r
+  AstLetADShare :: ADShare r -> Ast m r -> Ast m r
    -- there are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
@@ -163,10 +167,6 @@ bindsToDomainsLet = foldl' bindToDomainsLet
 
 newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
 deriving instance ShowAst r => Show (Ast0 r)
-
-type instance Element (Ast0 r) = Ast0 r
-type instance Element (Ast n r) = Ast0 r
-type instance Element (AstDynamic r) = Ast0 r
 
 newtype AstVarName t = AstVarName AstVarId
  deriving (Eq, Show)
@@ -538,3 +538,112 @@ instance Boolean (AstBool r) where
                                         -- common in indexing
   b &&* c = AstBoolOp AndOp [b, c]
   b ||* c = AstBoolOp OrOp [b, c]
+
+
+-- * ADShare definition
+
+unsafeGlobalCounter :: Counter
+{-# NOINLINE unsafeGlobalCounter #-}
+unsafeGlobalCounter = unsafePerformIO (newCounter 0)
+
+unsafeGetFreshId :: IO Int
+{-# INLINE unsafeGetFreshId #-}
+unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
+
+-- Data invariant: the list is reverse-sorted wrt keys.
+-- This permits not inspecting too long a prefix of the list, usually,
+-- which is crucial for performance. The strictness is crucial for correctness
+-- in the presence of impurity for generating fresh variables.
+-- The first integer field permits something akin to pointer equality
+-- but with less false negatives, because it's stable.
+data ADShare r = ADShareNil
+               | ADShareCons Int AstVarId (AstDynamic r) (ADShare r)
+deriving instance ShowAst r => Show (ADShare r)
+
+emptyADShare :: ADShare r
+emptyADShare = ADShareNil
+
+insertADShare :: forall r. AstVarId -> AstDynamic r -> ADShare r -> ADShare r
+insertADShare !key !t !s =
+  -- The Maybe over-engineering ensures that we never refresh an id
+  -- unnecessarily. In theory, when merging alternating equal lists
+  -- with different ids, this improves runtime from quadratic to linear,
+  -- but we apparently don't have such tests or they are too small,
+  -- so this causes a couple percent overhead instead.
+  let insertAD :: ADShare r -> Maybe (ADShare r)
+      insertAD ADShareNil = Just $ ADShareCons (- fromEnum key) key t ADShareNil
+      insertAD l2@(ADShareCons _id2 key2 t2 rest2) =
+        case compare key key2 of
+          EQ -> Nothing
+                  -- the lists only ever grow and only in fresh/unique way,
+                  -- so identical key means identical payload
+          LT -> case insertAD rest2 of
+            Nothing -> Nothing
+            Just l3 -> Just $ freshInsertADShare key2 t2 l3
+          GT -> Just $ freshInsertADShare key t l2
+  in fromMaybe s (insertAD s)
+
+freshInsertADShare :: AstVarId -> AstDynamic r -> ADShare r -> ADShare r
+{-# NOINLINE freshInsertADShare #-}
+freshInsertADShare !key !t !s = unsafePerformIO $ do
+  id0 <- unsafeGetFreshId
+  return $! ADShareCons id0 key t s
+
+mergeADShare :: forall r. ADShare r -> ADShare r -> ADShare r
+mergeADShare !s1 !s2 =
+  let mergeAD :: ADShare r -> ADShare r -> Maybe (ADShare r)
+      mergeAD ADShareNil ADShareNil = Nothing
+      mergeAD l ADShareNil = Just l
+      mergeAD ADShareNil l = Just l
+      mergeAD l1@(ADShareCons id1 key1 t1 rest1)
+              l2@(ADShareCons id2 key2 t2 rest2) =
+        if id1 == id2
+        then -- This assert is quadratic, so can only be enabled when debugging:
+             -- assert (_lengthADShare l1 == _lengthADShare l2) $
+             Nothing
+               -- the lists only ever grow and only in fresh/unique way,
+               -- so an identical id means the rest is the same
+        else case compare key1 key2 of
+          EQ -> case mergeAD rest1 rest2 of
+             Nothing -> Nothing
+             Just l3 -> Just $ freshInsertADShare key2 t2 l3
+          LT -> case mergeAD l1 rest2 of
+             Nothing -> Just l2
+             Just l3 -> Just $ freshInsertADShare key2 t2 l3
+          GT -> case mergeAD rest1 l2 of
+             Nothing -> Just l1
+             Just l3 -> Just $ freshInsertADShare key1 t1 l3
+  in fromMaybe s1 (mergeAD s1 s2)
+
+-- The result type is not as expected. The result is as if assocsADShare
+-- was applied to the expected one.
+subtractADShare :: forall r.
+                   ADShare r -> ADShare r -> [(AstVarId, AstDynamic r)]
+{-# INLINE subtractADShare #-}  -- help list fusion
+subtractADShare s1 s2 =
+  let subAD :: ADShare r -> ADShare r -> [(AstVarId, AstDynamic r)]
+      subAD l ADShareNil = assocsADShare l
+      subAD ADShareNil _ = []
+      subAD l1@(ADShareCons id1 key1 t1 rest1)
+              l2@(ADShareCons id2 key2 _ rest2) =
+        if id1 == id2
+        then []
+               -- the lists only ever grow and only in fresh/unique way,
+               -- so an identical id means the rest is the same
+        else case compare key1 key2 of
+          EQ -> subAD rest1 rest2
+          LT -> subAD l1 rest2
+          GT -> (key1, t1) : subAD rest1 l2
+  in subAD s1 s2
+
+flattenADShare :: [ADShare r] -> ADShare r
+flattenADShare = foldl' mergeADShare emptyADShare
+
+assocsADShare :: ADShare r -> [(AstVarId, AstDynamic r)]
+{-# INLINE assocsADShare #-}  -- help list fusion
+assocsADShare ADShareNil = []
+assocsADShare (ADShareCons _ key t rest) = (key, t) : assocsADShare rest
+
+_lengthADShare :: Int -> ADShare r -> Int
+_lengthADShare acc ADShareNil = acc
+_lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest

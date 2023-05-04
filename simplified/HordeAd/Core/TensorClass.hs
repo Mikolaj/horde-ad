@@ -8,9 +8,6 @@
 module HordeAd.Core.TensorClass
   ( Domain0, DomainR, Domains
   , domains0, domainsR, mkDomains, ttoRankedOrDummy
-  , ADShare
-  , emptyADShare, insertADShare, mergeADShare, subtractADShare
-  , flattenADShare, assocsADShare
   , IndexOf, TensorOf, ShapeInt
   , Tensor(..), DynamicTensor(..), DomainsTensor(..), ADReady
   ) where
@@ -23,19 +20,16 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           Data.Boolean
-import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Constraint, Type)
-import           Data.List (foldl')
-import           Data.Maybe (fromMaybe)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 import qualified Numeric.LinearAlgebra as LA
-import           System.IO.Unsafe (unsafePerformIO)
 import           System.Random
 
+import HordeAd.Core.Ast
 import HordeAd.Core.Domains
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.TensorOps
@@ -66,111 +60,6 @@ ttoRankedOrDummy :: (Tensor r, DynamicTensor r, KnownNat n)
 ttoRankedOrDummy sh x = if disDummy x
                         then tzero sh
                         else tfromD x
-
-unsafeGlobalCounter :: Counter
-{-# NOINLINE unsafeGlobalCounter #-}
-unsafeGlobalCounter = unsafePerformIO (newCounter 0)
-
-unsafeGetFreshId :: IO Int
-{-# INLINE unsafeGetFreshId #-}
-unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
-
--- Data invariant: the list is reverse-sorted wrt keys.
--- This permits not inspecting too long a prefix of the list, usually,
--- which is crucial for performance. The strictness is crucial for correctness
--- in the presence of impurity for generating fresh variables.
--- The first integer field permits something akin to pointer equality
--- but with less false negatives, because it's stable.
-data ADShare r = ADShareNil
-               | ADShareCons !Int !AstVarId !(DTensorOf r) !(ADShare r)
-deriving instance Show (DTensorOf r) => Show (ADShare r)
-
-emptyADShare :: ADShare r
-emptyADShare = ADShareNil
-
-insertADShare :: forall r. AstVarId -> DTensorOf r -> ADShare r -> ADShare r
-insertADShare !key !t !s =
-  -- The Maybe over-engineering ensures that we never refresh an id
-  -- unnecessarily. In theory, when merging alternating equal lists
-  -- with different ids, this improves runtime from quadratic to linear,
-  -- but we apparently don't have such tests or they are too small,
-  -- so this causes a couple percent overhead instead.
-  let insertAD :: ADShare r -> Maybe (ADShare r)
-      insertAD ADShareNil = Just $ ADShareCons (- fromEnum key) key t ADShareNil
-      insertAD l2@(ADShareCons _id2 key2 t2 rest2) =
-        case compare key key2 of
-          EQ -> Nothing
-                  -- the lists only ever grow and only in fresh/unique way,
-                  -- so identical key means identical payload
-          LT -> case insertAD rest2 of
-            Nothing -> Nothing
-            Just l3 -> Just $ freshInsertADShare key2 t2 l3
-          GT -> Just $ freshInsertADShare key t l2
-  in fromMaybe s (insertAD s)
-
-freshInsertADShare :: AstVarId -> DTensorOf r -> ADShare r -> ADShare r
-{-# NOINLINE freshInsertADShare #-}
-freshInsertADShare !key !t !s = unsafePerformIO $ do
-  id0 <- unsafeGetFreshId
-  return $! ADShareCons id0 key t s
-
-mergeADShare :: forall r. ADShare r -> ADShare r -> ADShare r
-mergeADShare !s1 !s2 =
-  let mergeAD :: ADShare r -> ADShare r -> Maybe (ADShare r)
-      mergeAD ADShareNil ADShareNil = Nothing
-      mergeAD l ADShareNil = Just l
-      mergeAD ADShareNil l = Just l
-      mergeAD l1@(ADShareCons id1 key1 t1 rest1)
-              l2@(ADShareCons id2 key2 t2 rest2) =
-        if id1 == id2
-        then -- This assert is quadratic, so can only be enabled when debugging:
-             -- assert (_lengthADShare l1 == _lengthADShare l2) $
-             Nothing
-               -- the lists only ever grow and only in fresh/unique way,
-               -- so an identical id means the rest is the same
-        else case compare key1 key2 of
-          EQ -> case mergeAD rest1 rest2 of
-             Nothing -> Nothing
-             Just l3 -> Just $ freshInsertADShare key2 t2 l3
-          LT -> case mergeAD l1 rest2 of
-             Nothing -> Just l2
-             Just l3 -> Just $ freshInsertADShare key2 t2 l3
-          GT -> case mergeAD rest1 l2 of
-             Nothing -> Just l1
-             Just l3 -> Just $ freshInsertADShare key1 t1 l3
-  in fromMaybe s1 (mergeAD s1 s2)
-
--- The result type is not as expected. The result is as if assocsADShare
--- was applied to the expected one.
-subtractADShare :: forall r. ADShare r -> ADShare r -> [(AstVarId, DTensorOf r)]
-{-# INLINE subtractADShare #-}  -- help list fusion
-subtractADShare s1 s2 =
-  let subAD :: ADShare r -> ADShare r -> [(AstVarId, DTensorOf r)]
-      subAD l ADShareNil = assocsADShare l
-      subAD ADShareNil _ = []
-      subAD l1@(ADShareCons id1 key1 t1 rest1)
-              l2@(ADShareCons id2 key2 _ rest2) =
-        if id1 == id2
-        then []
-               -- the lists only ever grow and only in fresh/unique way,
-               -- so an identical id means the rest is the same
-        else case compare key1 key2 of
-          EQ -> subAD rest1 rest2
-          LT -> subAD l1 rest2
-          GT -> (key1, t1) : subAD rest1 l2
-  in subAD s1 s2
-
-flattenADShare :: [ADShare r] -> ADShare r
-flattenADShare = foldl' mergeADShare emptyADShare
-
-assocsADShare :: ADShare r -> [(AstVarId, DTensorOf r)]
-{-# INLINE assocsADShare #-}  -- help list fusion
-assocsADShare ADShareNil = []
-assocsADShare (ADShareCons _ key t rest) = (key, t) : assocsADShare rest
-
-_lengthADShare :: Int -> ADShare r -> Int
-_lengthADShare acc ADShareNil = acc
-_lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
 
 
 -- * Tensor class definition
@@ -402,7 +291,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
             => TensorOf n r -> [(AstVarId, DTensorOf r)]
             -> ([(AstVarId, DTensorOf r)], TensorOf n r)
   tregister r l = (l, r)
-  tletWrap :: ADShare r -> TensorOf n r -> TensorOf n r
+  tletWrap :: ADShare (Value r) -> TensorOf n r -> TensorOf n r
   tletWrap _l u = u
 
   -- Conversions
@@ -648,6 +537,14 @@ instance KnownNat n
         arr = OR.fromVector undefined
               $ createRandomVector (OR.size undefined) g1  -- TODO
     in (arr, g2)
+
+instance AdaptableDomains (OD.Array r) where
+  type Scalar (OD.Array r) = r
+  type Value (OD.Array r) = OD.Array r
+  toDomains = undefined
+  fromDomains = undefined
+  nParams = undefined
+  nScalars = undefined
 
 {- These instances are increasingly breaking stuff, so disabled:
 

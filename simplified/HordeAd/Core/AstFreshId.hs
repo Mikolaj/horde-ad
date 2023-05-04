@@ -20,7 +20,6 @@ import           System.IO.Unsafe (unsafePerformIO)
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 
 -- Impure but in the most trivial way (only ever incremented counter).
@@ -49,8 +48,8 @@ astRegisterFun r l = unsafePerformIO $ do
   return ((freshId, AstDynamic r) : l, r2)
 
 astRegisterADShare :: (ShowAst r, KnownNat n)
-                   => Ast n r -> ADShare (Ast0 r)
-                   -> (ADShare (Ast0 r), Ast n r)
+                   => Ast n r -> ADShare r
+                   -> (ADShare r, Ast n r)
 {-# NOINLINE astRegisterADShare #-}
 astRegisterADShare !r@AstVar{} !l = (l, r)
 astRegisterADShare r l = unsafePerformIO $ do

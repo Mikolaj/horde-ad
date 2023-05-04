@@ -66,7 +66,6 @@ import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.Domains
 import           HordeAd.Core.SizedIndex
-import           HordeAd.Core.TensorClass
 import           HordeAd.Internal.SizedList
 import           HordeAd.Internal.TensorOps
 
@@ -1099,20 +1098,20 @@ inlineAstBool env memo v0 = case v0 of
 
 data UnletEnv r = UnletEnv
   { unletSet     :: ES.EnumSet AstVarId
-  , unletADShare :: ADShare (Ast0 r) }
+  , unletADShare :: ADShare r }
 
-emptyUnletEnv :: ADShare (Ast0 r) -> UnletEnv r
+emptyUnletEnv :: ADShare r -> UnletEnv r
 emptyUnletEnv l = UnletEnv ES.empty l
 
 unletAst6
   :: (ShowAstSimplify r, KnownNat n)
-  => ADShare (Ast0 r) -> Ast n r -> Ast n r
+  => ADShare r -> Ast n r -> Ast n r
 unletAst6 l t = unletAst (emptyUnletEnv l)
                 $ bindsToLet t (assocsADShare l)
 
 unletAstDomains6
   :: ShowAstSimplify r
-  => [(AstVarId, AstDynamic r)] -> ADShare (Ast0 r) -> AstDomains r
+  => [(AstVarId, AstDynamic r)] -> ADShare r -> AstDomains r
   -> AstDomains r
 unletAstDomains6 astBindings l t =
   unletAstDomains (emptyUnletEnv l)

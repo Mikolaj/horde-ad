@@ -29,7 +29,6 @@ import           GHC.TypeLits (KnownNat, sameNat, type (+))
 
 import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 
 -- * Shape calculation

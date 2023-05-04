@@ -16,7 +16,6 @@ import           Data.Bifunctor.Flip
 import           Data.Boolean
 import           Data.Functor.Compose
 import           Data.List (foldl1')
-import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
@@ -377,7 +376,7 @@ instance (ADTensor (Ast0 r), ShowAstSimplify r)
 
   type Primal (ADVal (Ast0 r)) = Ast0 r
   type DualOf n (ADVal (Ast0 r)) =
-    (ADShare (Ast0 r), Dual (TensorOf n (Ast0 r)))
+    (ADShare r, Dual (TensorOf n (Ast0 r)))
   tconst t = Compose $ dD emptyADShare (tconst t) dZero
   tconstant t = Compose $ dD emptyADShare t dZero
   tscale0 r (D l u u') = dD l (r * u) (dScale r u')
@@ -431,13 +430,12 @@ instance (KnownNat n, ShowAstSimplify r)
 -- * ADVal combinators generalizing ranked tensor operations
 
 sum0 :: ( ADTensor r, IsPrimal (TensorOf 0 r), KnownNat n
-        , Element (TensorOf 0 r) ~ Element (TensorOf n r) )
+        , Underlying (TensorOf 0 r) ~ Underlying (TensorOf n r) )
      => ADVal (TensorOf n r) -> ADVal (TensorOf 0 r)
 sum0 (D l u u') = dD l (tsum0 u) (dScalarR $ dSum0 (tshape u) u')
 
 dot0 :: ( ADTensor r, IsPrimal (TensorOf n  r), IsPrimal (TensorOf 0 r)
-        , KnownNat n, Element (TensorOf 0 r) ~ Element (TensorOf n r)
-        , Element (TensorOf n r) ~ r )
+        , KnownNat n, Underlying (TensorOf 0 r) ~ Underlying (TensorOf n r) )
      => ADVal (TensorOf n r) -> ADVal (TensorOf n r) -> ADVal (TensorOf 0 r)
 dot0 (D l1 ue u') (D l2 ve v') =
   -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
@@ -453,20 +451,20 @@ dot0 (D l1 ue u') (D l2 ve v') =
 -- index ouf of bounds produces zero (but beware of vectorization).
 indexZ :: forall m n r.
           ( ADTensor r, IsPrimal (TensorOf n r), KnownNat m, KnownNat n
-          , Element (TensorOf (m + n) r) ~ Element (TensorOf n r) )
+          , Underlying (TensorOf (m + n) r) ~ Underlying (TensorOf n r) )
        => ADVal (TensorOf (m + n) r) -> IndexOf m r
        -> ADVal (TensorOf n r)
 indexZ (D l u u') ix = dD l (tindex u ix) (dIndexZ u' ix (tshape u))
 
 sum' :: ( ADTensor r, IsPrimal (TensorOf n r), KnownNat n
-        , Element (TensorOf n r) ~ Element (TensorOf (1 + n) r) )
+        , Underlying (TensorOf n r) ~ Underlying (TensorOf (1 + n) r) )
      => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf n r)
 sum' (D l u u') = dD l (tsum u) (dSumR (tlength u) u')
 
 scatterNClosure
   :: ( ADTensor r, IsPrimal (TensorOf (p + n) r)
      , KnownNat m, KnownNat p, KnownNat n
-     , Element (TensorOf (p + n) r) ~ Element (TensorOf (m + n) r) )
+     , Underlying (TensorOf (p + n) r) ~ Underlying (TensorOf (m + n) r) )
   => ShapeInt (p + n) -> ADVal (TensorOf (m + n) r)
   -> (IndexOf m r -> IndexOf p r)
   -> ADVal (TensorOf (p + n) r)
@@ -474,7 +472,7 @@ scatterNClosure sh (D l u u') f =
   dD l (tscatter sh u f) (dScatterZ sh u' f (tshape u))
 
 fromList :: ( ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n
-            , Element (TensorOf n r) ~ Element (TensorOf (1 + n) r) )
+            , Underlying (TensorOf n r) ~ Underlying (TensorOf (1 + n) r) )
          => [ADVal (TensorOf n r)]
          -> ADVal (TensorOf (1 + n) r)
 fromList lu =
@@ -491,7 +489,7 @@ fromList lu =
 --     (dFromList01 sh $ map (\(D _ u') -> u') l)
 
 fromVector :: ( ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n
-              , Element (TensorOf n r) ~ Element (TensorOf (1 + n) r) )
+              , Underlying (TensorOf n r) ~ Underlying (TensorOf (1 + n) r) )
            => Data.Vector.Vector (ADVal (TensorOf n r))
            -> ADVal (TensorOf (1 + n) r)
 fromVector lu =
@@ -507,7 +505,7 @@ fromVector lu =
 --     (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
 
 konst :: ( ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n
-         , Element (TensorOf n r) ~ Element (TensorOf (1 + n) r) )
+         , Underlying (TensorOf n r) ~ Underlying (TensorOf (1 + n) r) )
       => Int -> ADVal (TensorOf n r) -> ADVal (TensorOf (1 + n) r)
 konst k (D l u u') = dD l (tkonst k u) (dKonstR k u')
 
@@ -536,7 +534,7 @@ transpose perm (D l u u') = dD l (ttranspose perm u) (dTransposeR perm u')
 
 reshape :: forall n m r.
            ( ADTensor r, IsPrimal (TensorOf m r), KnownNat m, KnownNat n
-           , Element (TensorOf n r) ~ Element (TensorOf m r) )
+           , Underlying (TensorOf n r) ~ Underlying (TensorOf m r) )
         => ShapeInt m -> ADVal (TensorOf n r) -> ADVal (TensorOf m r)
 reshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
   Just Refl | sh == tshape u -> t
@@ -544,7 +542,7 @@ reshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
 
 build1
   :: ( ADTensor r, KnownNat n, IsPrimal (TensorOf (1 + n) r)
-     , Element (TensorOf n r) ~ Element (TensorOf (1 + n) r) )
+     , Underlying (TensorOf n r) ~ Underlying (TensorOf (1 + n) r) )
   => Int -> (IntOf r -> ADVal (TensorOf n r))
   -> ADVal (TensorOf (1 + n) r)
 build1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
@@ -574,7 +572,7 @@ _build1Closure k f =  -- stores closures on tape
 gatherNClosure
   :: ( ADTensor r, IsPrimal (TensorOf (m + n) r)
      , KnownNat m, KnownNat p, KnownNat n
-     , Element (TensorOf (p + n) r) ~ Element (TensorOf (m + n) r) )
+     , Underlying (TensorOf (p + n) r) ~ Underlying (TensorOf (m + n) r) )
   => ShapeInt (m + n) -> ADVal (TensorOf (p + n) r)
   -> (IndexOf m r -> IndexOf p r)
   -> ADVal (TensorOf (m + n) r)
@@ -582,21 +580,21 @@ gatherNClosure sh (D l u u') f =
   dD l (tgather sh u f) (dGatherZ sh u' f (tshape u))
 
 scalar :: ( ADTensor r, IsPrimal (TensorOf 0 r)
-          , Element (TensorOf 0 r) ~ Element r )
+          , Underlying (TensorOf 0 r) ~ Underlying r )
        => ADVal r -> ADVal (TensorOf 0 r)
 scalar (D l u u') = dD l (tscalar u) (dScalarR u')
 
-unScalar :: (ADTensor r, Element (TensorOf 0 r) ~ Element r)
+unScalar :: (ADTensor r, Underlying (TensorOf 0 r) ~ Underlying r)
          => ADVal (TensorOf 0 r) -> ADVal r
 unScalar (D l u u') = dD l (tunScalar u) (dUnScalar0 u')
 
 fromD :: forall n r.
          ( ADTensor r, KnownNat n
-         , Element (TensorOf n r) ~ Element (DTensorOf r) )
+         , Underlying (TensorOf n r) ~ Underlying (DTensorOf r) )
        => ADVal (DTensorOf r) -> ADVal (TensorOf n r)
 fromD (D l u u') = dDnotShared l (tfromD u) (dFromD u')
 
 fromR :: ( ADTensor r, KnownNat n
-         , Element (TensorOf n r) ~ Element (DTensorOf r) )
+         , Underlying (TensorOf n r) ~ Underlying (DTensorOf r) )
        => ADVal (TensorOf n r) -> ADVal (DTensorOf r)
 fromR (D l u u') = dDnotShared l (dfromR u) (dFromR u')

@@ -397,8 +397,6 @@ type instance Element (OD.Array r) = r
 
 type instance Element (OR.Array n r) = r
 
-type instance Element (Flip OR.Array r n) = r
-
 type instance Element (OS.Array sh r) = r
 
 instance Numeric r => MonoFunctor (OD.Array r) where

@@ -11,7 +11,6 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Compose
 import           Data.List.Index (imap)
-import           Data.MonoTraversable (Element)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
@@ -65,7 +64,7 @@ mnistTestCase2VTA
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
-     , DynamicTensor r, DomainsTensor r, Element r ~ r
+     , DynamicTensor r, DomainsTensor r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -158,7 +157,7 @@ mnistTestCase2VTI
      , InterpretAst (ADVal r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
-     , DynamicTensor r, DomainsTensor r, Element r ~ r
+     , DynamicTensor r, DomainsTensor r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -410,7 +409,7 @@ mnistTestCase2VT2A
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
-     , DynamicTensor r, DomainsTensor r, Element r ~ r
+     , DynamicTensor r, DomainsTensor r
      , DTensorOf r ~ OD.Array r
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
   => String
@@ -512,7 +511,7 @@ mnistTestCase2VT2I
      , InterpretAst (ADVal r)
      , PrintfArg r, AssertEqualUpToEpsilon r
      , Floating (Vector r), ADTensor r
-     , DynamicTensor r, DomainsTensor r, Element r ~ r
+     , DynamicTensor r, DomainsTensor r
      , DTensorOf r ~ OD.Array r
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
   => String

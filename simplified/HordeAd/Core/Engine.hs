@@ -24,7 +24,6 @@ import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Compose
-import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -365,7 +364,7 @@ revOnDomains dt f parameters =
 -- for a fast variant (TODO: not ported from the old code yet).
 
 slowFwdOnADInputs
-  :: (Tensor r, DynamicTensor r, Element a ~ r, ForwardDerivative a)
+  :: (Tensor r, DynamicTensor r, ForwardDerivative a, Scalar a ~ r)
   => ADInputs r
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -380,8 +379,8 @@ slowFwdOnADInputs inputs@ADInputs{..} f ds =
 
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
-  :: ( ADTensor r, DynamicTensor r, DomainsTensor r, Element a ~ r
-     , ForwardDerivative a )
+  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
+     , ForwardDerivative a, Scalar a ~ r )
   => Domains r
   -> (ADInputs r -> ADVal a)
   -> Domains r

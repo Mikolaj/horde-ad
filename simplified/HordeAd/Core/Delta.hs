@@ -56,7 +56,6 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
-import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
@@ -647,7 +646,7 @@ buildFinMaps s0 deltaDt =
 -- given in the last parameter called @ds@.
 class ForwardDerivative a where
   derivativeFromDelta
-    :: (Tensor r, DynamicTensor r, Element a ~ r)
+    :: (Tensor r, DynamicTensor r, Scalar a ~ r)
     => Int -> Int -> Dual a -> Domains r -> a
 
 instance ForwardDerivative Double where

@@ -36,7 +36,6 @@ import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
-import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
@@ -63,8 +62,9 @@ class IsPrimal a where
   dScaleByScalar :: a -> Int -> Dual a -> Dual a
   dAdd :: Dual a -> Dual a -> Dual a
   recordSharing :: Dual a -> Dual a
-  recordSharingPrimal :: a -> ADShare (Element a) -> (ADShare (Element a), a)
-  letWrapPrimal :: ADShare (Element a) -> a -> a
+  recordSharingPrimal :: a -> ADShare (Underlying a)
+                      -> (ADShare (Underlying a), a)
+  letWrapPrimal :: ADShare (Underlying a) -> a -> a
   packDeltaDt :: Either a a -> Dual a -> DeltaDt (Scalar a)
 
 -- | Part 1/2 of a hack to squeeze the ranked tensors rank,
@@ -113,9 +113,8 @@ class IsPrimalA r where
         => Dual (Ast n r) -> Dual (Ast n r) -> Dual (Ast n r)
   recordSharingA :: Dual (Ast n r) -> Dual (Ast n r)
   recordSharingPrimalA :: KnownNat n
-                       => Ast n r -> ADShare (Ast0 r)
-                       -> (ADShare (Ast0 r), Ast n r)
-  letWrapPrimalA :: ADShare (Ast0 r) -> Ast n r -> Ast n r
+                       => Ast n r -> ADShare r -> (ADShare r, Ast n r)
+  letWrapPrimalA :: ADShare r -> Ast n r -> Ast n r
   packDeltaDtA :: KnownNat n
                => Either (Ast n r) (Ast n r) -> Dual (Ast n r)
                -> DeltaDt (Ast0 r)
