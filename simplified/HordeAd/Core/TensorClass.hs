@@ -1,4 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists, QuantifiedConstraints,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -8,7 +9,7 @@
 module HordeAd.Core.TensorClass
   ( Domain0, DomainR, Domains
   , domains0, domainsR, mkDomains, ttoRankedOrDummy
-  , IndexOf, TensorOf, ShapeInt
+  , IndexOf, TensorOf, ShapeInt, CRanked
   , Tensor(..), DynamicTensor(..), DomainsTensor(..), ADReady
   ) where
 
@@ -80,12 +81,15 @@ ttoRankedOrDummy sh x = if disDummy x
 type IndexOf n r = Index n (IntOf r)
 type TensorOf (n :: Nat) r = Ranked r n
 
+class (forall y. KnownNat y => c (Ranked r y)) => CRanked c r where
+instance (forall y. KnownNat y => c (Ranked r y)) => CRanked c r where
+
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
 -- Ord and Num operations and numeric superclasses.
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
-class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
+class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
       => Tensor r where
   type Ranked r = (t :: Nat -> Type) | t -> r
   type IntOf r
@@ -113,7 +117,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tmaxIndex t = fromLinearIdx (tshape t) (tmaxIndex0 (tflatten t))
   tfloor :: TensorOf 0 r -> IntOf r
   default tfloor  -- a more narrow type to rule out Ast
-    :: (IntOf r ~ CInt, RealFrac r) => TensorOf 0 r -> IntOf r
+    :: (IntOf r ~ CInt) => TensorOf 0 r -> IntOf r
   tfloor = floor . tunScalar
 
   -- Typically scalar codomain, often tensor reduction
@@ -325,19 +329,10 @@ class DomainsTensor r where
 type Many (f :: Type -> Constraint) r = (f (TensorOf 0 r), f (TensorOf 1 r), f (TensorOf 2 r), f (TensorOf 3 r), f (TensorOf 4 r), f (TensorOf 5 r), f (TensorOf 6 r), f (TensorOf 7 r), f (TensorOf 8 r), f (TensorOf 9 r), f (TensorOf 10 r), f (TensorOf 11 r), f (TensorOf 12 r))
 
 type ADReady r =
-  ( Tensor r, Tensor (Primal r), Show r, RealFloat r
-  , RealFloat (Primal r), Numeric (Value r), RealFloat (Value r)
-  , Many RealFloat r
-  , Many RealFloat (Primal r)
-  , IfB r, IfB (IntOf r)
-  , Many IfB r
-  , Many IfB (Primal r)
-  , EqB r, EqB (IntOf r)
-  , Many EqB r
-  , Many EqB (Primal r)
-  , OrdB r, OrdB (IntOf r)
-  , Many OrdB r
-  , Many OrdB (Primal r)
+  ( Tensor r, Tensor (Primal r), Show r, Numeric (Value r), RealFloat (Value r)
+  , IfB r, IfB (IntOf r), Many IfB r, Many IfB (Primal r)
+  , EqB r, EqB (IntOf r), Many EqB r, Many EqB (Primal r)
+  , OrdB r, OrdB (IntOf r), Many OrdB r, Many OrdB (Primal r)
   , Boolean (BooleanOf r)
   , ( BooleanOf r ~ BooleanOf (TensorOf 0 r)
     , BooleanOf r ~ BooleanOf (TensorOf 1 r)

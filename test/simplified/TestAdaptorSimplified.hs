@@ -594,7 +594,7 @@ barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
-fooNoGoAst :: forall r. (ShowAstSimplify r, RealFloat r, Floating (Vector r))
+fooNoGoAst :: forall r. ShowAstSimplify r
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
   let r = tsum0 v
@@ -610,7 +610,7 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: ( ShowAstSimplify r, RealFloat r, Floating (Vector r)
+  let f :: ( ShowAstSimplify r
            , TensorOf 1 r ~ Flip OR.Array r 1, InterpretAst (ADVal r)
            , TensorOf 1 (ADVal r) ~ Compose ADVal (Ranked r) 1
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
@@ -745,13 +745,13 @@ testBarReluADValMax3 =
 
 barReluAst
   :: forall n r.
-     (KnownNat n, ShowAstSimplify r, RealFloat r, Floating (Vector r))
+     (KnownNat n, ShowAstSimplify r)
   => Ast n r -> Ast n r
 barReluAst x = relu @n @(Ast0 r) $ bar (x, relu x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
-  let f :: ( ShowAstSimplify r, RealFloat r, Floating (Vector r)
+  let f :: ( ShowAstSimplify r
            , TensorOf 0 r ~ Flip OR.Array r 0, InterpretAst (ADVal r)
            , TensorOf 0 (ADVal r) ~ Compose ADVal (Ranked r) 0
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
@@ -767,7 +767,7 @@ testBarReluAst0 =
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
-  let f :: ( ShowAstSimplify r, RealFloat r, Floating (Vector r)
+  let f :: ( ShowAstSimplify r
            , TensorOf 1 r ~ Flip OR.Array r 1, InterpretAst (ADVal r)
            , TensorOf 1 (ADVal r) ~ Compose ADVal (Ranked r) 1
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
@@ -782,13 +782,13 @@ testBarReluAst1 =
        (crev @1 @Double f (OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
 
 konstReluAst
-  :: forall r. (ShowAstSimplify r, RealFloat r, RealFloat (Vector r))
+  :: forall r. ShowAstSimplify r
   => Ast 0 r -> Ast 0 r
 konstReluAst x = tsum0 $ relu $ tkonst0N (7 :$ ZS) x
 
 testKonstReluAst :: Assertion
 testKonstReluAst =
-  let f :: ( ShowAstSimplify r, RealFloat r, Floating (Vector r)
+  let f :: ( ShowAstSimplify r
            , TensorOf 0 r ~ Flip OR.Array r 0, InterpretAst (ADVal r)
            , TensorOf 0 (ADVal r) ~ Compose ADVal (Ranked r) 0
            , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)

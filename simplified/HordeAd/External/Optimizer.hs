@@ -72,7 +72,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   -> (Domains Double, Double) #-}
 
 sgdAdam :: forall r a.
-           ( Numeric r, Floating r, Floating (Vector r), ADTensor r
+           ( Numeric r, Floating (Vector r), ADTensor r
            , DynamicTensor r, DomainsTensor r, Scalar r ~ r
            , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
        => (a -> ADInputs r -> ADVal r)
@@ -83,7 +83,7 @@ sgdAdam :: forall r a.
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs :: forall r a.
-               ( Numeric r, Floating r, Floating (Vector r), ADTensor r
+               ( Numeric r, Floating (Vector r), ADTensor r
                , DynamicTensor r, DomainsTensor r, Scalar r ~ r
                , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
             => ArgsAdam r

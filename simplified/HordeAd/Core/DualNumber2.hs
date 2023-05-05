@@ -428,7 +428,7 @@ softMax us =
       sumExpUs = sumElementsVectorOfDual expUs
   in V.map (\r -> r * recip sumExpUs) expUs
 
-softMaxV :: (ADModeAndNum d r, Floating (TensorOf 1 r))
+softMaxV :: ADModeAndNum d r
          => ADVal d (Vec r) -> ADVal d (Vec r)
 softMaxV d' =
   let d = Compose d'

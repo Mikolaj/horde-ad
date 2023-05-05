@@ -156,7 +156,7 @@ mnistTestCase2VTI
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , InterpretAst (ADVal r)
      , PrintfArg r, AssertEqualUpToEpsilon r
-     , Floating (Vector r), ADTensor r
+     , ADTensor r
      , DynamicTensor r, DomainsTensor r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => String
@@ -270,7 +270,7 @@ mnistTestCase2VTO
   :: forall r.
      ( ADReady r, Scalar r ~ r, Value r ~ r, InterpretAst r
      , PrintfArg r, AssertEqualUpToEpsilon r, DynamicTensor r
-     , Floating (Vector r), ADTensor r
+     , ADTensor r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -510,7 +510,7 @@ mnistTestCase2VT2I
      , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
      , InterpretAst (ADVal r)
      , PrintfArg r, AssertEqualUpToEpsilon r
-     , Floating (Vector r), ADTensor r
+     , ADTensor r
      , DynamicTensor r, DomainsTensor r
      , DTensorOf r ~ OD.Array r
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
@@ -626,7 +626,7 @@ mnistTestCase2VT2O
   :: forall r.
      ( ADReady r, Scalar r ~ r, Value r ~ r, InterpretAst r
      , PrintfArg r, AssertEqualUpToEpsilon r
-     , Floating (Vector r), ADTensor r
+     , ADTensor r
      , DTensorOf r ~ OD.Array r, DynamicTensor r
      , TensorOf 1 r ~ Flip OR.Array r 1, TensorOf 2 r ~ Flip OR.Array r 2 )
   => String

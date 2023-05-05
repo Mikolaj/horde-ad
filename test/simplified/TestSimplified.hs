@@ -122,7 +122,7 @@ fooMap1 r =
   in tmap0N (\x -> x * tscalar r + 5) v
 
 -- This uses raw AST instead of sufficiently polymorphic code.
-fooNoGoAst :: forall r. (ShowAstSimplify r, RealFloat r, Floating (Vector r))
+fooNoGoAst :: forall r. ShowAstSimplify r
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
   let r = tsum0 v
@@ -182,7 +182,7 @@ barRelu
 barRelu x = relu $ bar (x, relu x)
 
 barReluAst
-  :: (KnownNat n, ShowAstSimplify r, RealFloat r, Floating (Vector r))
+  :: (KnownNat n, ShowAstSimplify r)
   => Ast n r -> Ast n r
 barReluAst x = relu $ bar (x, reluAst1 x)
 

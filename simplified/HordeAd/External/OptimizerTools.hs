@@ -147,7 +147,7 @@ liftArray43 f m1 m2 m3 m4 =
 
 updateWithGradientAdam
   :: forall r.
-     ( Numeric r, Floating r, Floating (Vector r)
+     ( Numeric r, Floating (Vector r)
      , Tensor r, DomainsCollection r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
