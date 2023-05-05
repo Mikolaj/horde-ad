@@ -102,11 +102,8 @@ interpretLambdaIndexToIndex f env memo (vars, asts) =
   \ix -> listToIndex $ snd
          $ mapAccumR (f (extendEnvVars vars ix env)) memo (indexToList asts)
 
-class (forall y. KnownNat y => c (Ranked r y)) => CRanked c r where
-instance (forall y. KnownNat y => c (Ranked r y)) => CRanked c r where
-
-class (BooleanOf r ~ b) => BooleanOfMatches b r where
-instance (BooleanOf r ~ b) => BooleanOfMatches b r where
+class (BooleanOf a ~ b) => BooleanOfMatches b a where
+instance (BooleanOf a ~ b) => BooleanOfMatches b a where
 
 type InterpretAst a =
   ( Tensor a, Tensor (Primal a)

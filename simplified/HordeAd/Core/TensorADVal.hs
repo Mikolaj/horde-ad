@@ -201,6 +201,12 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
   nParams = undefined
   nScalars = undefined
 
+class (Underlying a ~ u) => UnderlyingMatches u a where
+instance (Underlying a ~ u) => UnderlyingMatches u a where
+
+class (u ~ Underlying a) => UnderlyingMatchesLeft u a where
+instance (u ~ Underlying a) => UnderlyingMatchesLeft u a where
+
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
 -- In any case, only the ADVal (Ast0 r) instantiation of this instance
@@ -208,8 +214,11 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
 -- needed for the interpretation of @Ast@ in @ADVal (Ast0 r)@.
 -- The ADVal Double) and ADVal Float instantiations are only used
 -- in tests. No others are used anywhere.
-instance ( Tensor r
-         , IsPrimal r, IsPrimal (Ranked r 0), IsPrimal (Ranked r 1) )
+instance ( ADTensor r, CRanked IsPrimal r
+         , Underlying (DTensorOf r) ~ Value r, Value (ADVal r) ~ Value r
+         , Underlying r ~ Value r
+         , CRanked (UnderlyingMatches (Value r)) r
+         , CRanked (UnderlyingMatchesLeft (Value r)) r )
          => Tensor (ADVal r) where
   type Ranked (ADVal r) = Compose ADVal (Ranked r)
   type IntOf (ADVal r) = IntOf r

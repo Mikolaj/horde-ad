@@ -1,4 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists, QuantifiedConstraints,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -8,7 +9,7 @@
 module HordeAd.Core.TensorClass
   ( Domain0, DomainR, Domains
   , domains0, domainsR, mkDomains, ttoRankedOrDummy
-  , IndexOf, TensorOf, ShapeInt
+  , IndexOf, TensorOf, ShapeInt, CRanked
   , Tensor(..), DynamicTensor(..), DomainsTensor(..), ADReady
   ) where
 
@@ -79,6 +80,9 @@ ttoRankedOrDummy sh x = if disDummy x
 -- Therefore, there is a real trade-off between @[2]@ and @(2 :. ZI).
 type IndexOf n r = Index n (IntOf r)
 type TensorOf (n :: Nat) r = Ranked r n
+
+class (forall y. KnownNat y => c (Ranked r y)) => CRanked c r where
+instance (forall y. KnownNat y => c (Ranked r y)) => CRanked c r where
 
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
@@ -277,7 +281,7 @@ class (Num r, Num (TensorOf 0 r), Num (TensorOf 1 r), Integral (IntOf r))
   tscale0 :: Primal r -> r -> r
   tprimalPart :: KnownNat n
               => TensorOf n r -> TensorOf n (Primal r)
-  tdualPart :: TensorOf n r -> DualOf n r
+  tdualPart :: KnownNat n => TensorOf n r -> DualOf n r
   tD :: KnownNat n => TensorOf n (Primal r) -> DualOf n r -> TensorOf n r
   tScale :: KnownNat n => TensorOf n (Primal r) -> DualOf n r -> DualOf n r
   -- TODO: we'd probably also need dZero, dIndex0 and all others;
