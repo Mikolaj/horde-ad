@@ -89,6 +89,11 @@ makeADInputs
 makeADInputs params (vs0, vs1)
   = ADInputs (domains0 params) vs0 (domainsR params) vs1
 
+instance DynamicTensor (ADVal r) where
+  type DTensorOf (ADVal r) = ADVal (DTensorOf r)
+  ddummy = undefined
+  disDummy = undefined
+
 instance (Tensor r, IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r))
          => DomainsCollection (ADVal r) where
   type Domains (ADVal r) = ADInputs r
@@ -119,6 +124,55 @@ instance (Tensor r, IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r))
   fromVectorDoms = undefined
   toVectorDoms = undefined
 
+instance AdaptableDomains (ADVal Double) where
+  type Scalar (ADVal Double) = ADVal Double
+  type Value (ADVal Double) = Double
+  toDomains = undefined
+  fromDomains _aInit = uncons0
+  nParams = undefined
+  nScalars = undefined
+
+instance AdaptableDomains (ADVal Float) where
+  type Scalar (ADVal Float) = ADVal Float
+  type Value (ADVal Float) = Float
+  toDomains = undefined
+  fromDomains _aInit = uncons0
+  nParams = undefined
+  nScalars = undefined
+
+instance ShowAstSimplify r
+         => AdaptableDomains (ADVal (Ast0 r)) where
+  type Scalar (ADVal (Ast0 r)) = ADVal (Ast0 r)
+  type Value (ADVal (Ast0 r)) = r
+  toDomains = undefined
+  fromDomains _aInit = uncons0
+  nParams = undefined
+  nScalars = undefined
+
+{-
+instance (KnownNat n, ShowAstSimplify r)
+         => AdaptableDomains (ADVal (Ast n r)) where
+  type Scalar (ADVal (Ast n r)) = ADVal (Ast0 r)
+  type Value (ADVal (Ast n r)) = OR.Array n r
+  toDomains = undefined
+  fromDomains _aInit inputs = case unconsR inputs of
+    Just (a, rest) -> Just (getCompose $ tfromD a, rest)
+    Nothing -> Nothing
+  nParams = undefined
+  nScalars = undefined
+
+instance (KnownNat n, ShowAstSimplify r)
+         => AdaptableDomains (Compose ADVal (AstRanked r) n) where
+  type Scalar (Compose ADVal (AstRanked r) n) = ADVal (Ast0 r)
+  type Value (Compose ADVal (AstRanked r) n) = OR.Array n r
+  toDomains = undefined
+  fromDomains _aInit inputs = case unconsR inputs of
+    Just (a, rest) -> Just (tfromD a, rest)
+    Nothing -> Nothing
+  nParams = undefined
+  nScalars = undefined
+-}
+
 instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
          , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
          , DTensorOf r ~ OD.Array r
@@ -147,17 +201,18 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
   nParams = undefined
   nScalars = undefined
 
--- We should really only have one @ADVal r@ instance, but typing problems caused
--- by ranks (and probably too strict injectivity checks) make us copy the code.
--- Not that these instances don't do vectorization. To enable it,
+-- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
--- In any case, the first instances here are only used for tests.
--- Only the @ADVal (Ast0 r)@ instance is used in the codebase,
--- in particular, to satisfy the constraints needed for the interpretation
--- of @Ast@ in @ADVal (Ast0 r)@.
-instance Tensor (ADVal Double) where
-  type Ranked (ADVal Double) = Compose ADVal (Flip OR.Array Double)
-  type IntOf (ADVal Double) = CInt
+-- In any case, only the ADVal (Ast0 r) instantiation of this instance
+-- is used in the codebase, in particular, to satisfy the constraints
+-- needed for the interpretation of @Ast@ in @ADVal (Ast0 r)@.
+-- The ADVal Double) and ADVal Float instantiations are only used
+-- in tests. No others are used anywhere.
+instance ( Tensor r
+         , IsPrimal r, IsPrimal (Ranked r 0), IsPrimal (Ranked r 1) )
+         => Tensor (ADVal r) where
+  type Ranked (ADVal r) = Compose ADVal (Ranked r)
+  type IntOf (ADVal r) = IntOf r
 
   tlet (Compose (D l u u')) f =
     let (l2, var2) = recordSharingPrimal u l
@@ -209,9 +264,8 @@ instance Tensor (ADVal Double) where
     in Compose $ dD l4 (u * v) (dScale v u')
   tmult d e = d * e
 
-  type Primal (ADVal Double) = Double
-  type DualOf n (ADVal Double) =
-    (ADShare Double, Dual (TensorOf n Double))
+  type Primal (ADVal r) = r
+  type DualOf n (ADVal r) = (ADShare (Value r), Dual (TensorOf n r))
   tconst t = Compose $ dD emptyADShare (tconst t) dZero
   tconstant t = Compose $ dD emptyADShare t dZero
   tscale0 r (D l u u') = dD l (r * u) (dScale r u')
@@ -222,208 +276,6 @@ instance Tensor (ADVal Double) where
 
   tfromD = Compose . fromD
   dfromR = fromR . getCompose
-
-instance DynamicTensor (ADVal Double) where
-  type DTensorOf (ADVal Double) = ADVal (OD.Array Double)
-  ddummy = undefined
-  disDummy = undefined
-
-instance AdaptableDomains (ADVal Double) where
-  type Scalar (ADVal Double) = ADVal Double
-  type Value (ADVal Double) = Double
-  toDomains = undefined
-  fromDomains _aInit = uncons0
-  nParams = undefined
-  nScalars = undefined
-
-instance Tensor (ADVal Float) where
-  type Ranked (ADVal Float) = Compose ADVal (Flip OR.Array Float)
-  type IntOf (ADVal Float) = CInt
-
-  tlet (Compose (D l u u')) f =
-    let (l2, var2) = recordSharingPrimal u l
-    in f (Compose (D l2 var2 u'))
-      -- TODO: What about sharing u'?
-
-  tshape (Compose (D _ u _)) = tshape u
-  -- This is very slow, but is fortunately not needed:
-  -- tshape (D l u _) = tshape (tletWrap l u)
-  tminIndex0 (Compose (D l u _)) = tminIndex0 (tletWrap l u)
-  tmaxIndex0 (Compose (D l u _)) = tmaxIndex0 (tletWrap l u)
-  tfloor (Compose (D l u _)) = tfloor (tletWrap l u)
-
-  tindex v ix = Compose $ indexZ (getCompose v) ix
-  tsum = Compose . sum' . getCompose
-  tsum0 = Compose . sum0 . getCompose
-  tdot0 u v = Compose $ dot0 (getCompose u) (getCompose v)
-  tfromIndex0 = tconstant . tfromIndex0
-  tscatter sh t f = Compose $ scatterNClosure sh (getCompose t) f
-
-  tfromList = Compose . fromList . map getCompose
---  tfromList0N = fromList0N
-  tfromVector = Compose . fromVector . V.map getCompose
---  tfromVector0N = fromVector0N
-  tkonst k = Compose . konst k . getCompose
---  tkonst0N sh = konst0N sh . unScalar
-  tappend u v = Compose $ append (getCompose u) (getCompose v)
-  tslice i k = Compose . slice i k . getCompose
-  treverse = Compose . reverse' . getCompose
-  ttranspose perm = Compose . transpose perm . getCompose
-  treshape sh = Compose . reshape sh . getCompose
-  tbuild1 k f = Compose $ build1 k (getCompose . f)
-  tgather sh t f = Compose $ gatherNClosure sh (getCompose t) f
-
-  tscalar = Compose . scalar
-  tunScalar = unScalar . getCompose
-
-  tsumOfList lu =
-    Compose $ dD (flattenADShare $ map ((\(Compose (D l _ _)) -> l)) lu)
-                 (tsumOfList $ map (\(Compose (D _ u _)) -> u) lu)
-                 (foldl1' dAdd $ map (\(Compose (D _ _ u')) -> u') lu)
-  tmult (Compose (D l1 ue ZeroR)) (Compose (D l2 ve v')) =
-    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        (l4, v) = recordSharingPrimal ve l3
-    in Compose $ dD l4 (u * v) (dScale u v')
-  tmult (Compose (D l1 ue u')) (Compose (D l2 ve ZeroR)) =
-    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        (l4, v) = recordSharingPrimal ve l3
-    in Compose $ dD l4 (u * v) (dScale v u')
-  tmult d e = d * e
-
-  type Primal (ADVal Float) = Float
-  type DualOf n (ADVal Float) =
-    (ADShare Float, Dual (TensorOf n Float))
-  tconst t = Compose $ dD emptyADShare (tconst t) dZero
-  tconstant t = Compose $ dD emptyADShare t dZero
-  tscale0 r (D l u u') = dD l (r * u) (dScale r u')
-  tprimalPart (Compose (D l u _)) = tletWrap l u
-  tdualPart (Compose (D l _ u')) = (l, u')
-  tD ast (l, delta) = Compose $ dD l ast delta
-  tScale ast (l, delta) = (l, dScale ast delta)
-
-  tfromD = Compose . fromD
-  dfromR = fromR . getCompose
-
-instance DynamicTensor (ADVal Float) where
-  type DTensorOf (ADVal Float) = ADVal (OD.Array Float)
-  ddummy = undefined
-  disDummy = undefined
-
-instance AdaptableDomains (ADVal Float) where
-  type Scalar (ADVal Float) = ADVal Float
-  type Value (ADVal Float) = Float
-  toDomains = undefined
-  fromDomains _aInit = uncons0
-  nParams = undefined
-  nScalars = undefined
-
-instance ShowAstSimplify r
-         => Tensor (ADVal (Ast0 r)) where
-  type Ranked (ADVal (Ast0 r)) = Compose ADVal (AstRanked r)
-  type IntOf (ADVal (Ast0 r)) = AstInt r
-
-  tlet (Compose (D l u u')) f =
-    let (l2, var2) = recordSharingPrimal u l
-    in f (Compose (D l2 var2 u'))
-      -- TODO: What about sharing u'?
-
-  tshape (Compose (D _ u _)) = tshape u
-  -- This is very slow, but is fortunately not needed:
-  -- tshape (D l u _) = tshape (tletWrap l u)
-  tminIndex0 (Compose (D l u _)) = tminIndex0 (tletWrap l u)
-  tmaxIndex0 (Compose (D l u _)) = tmaxIndex0 (tletWrap l u)
-  tfloor (Compose (D l u _)) = tfloor (tletWrap l u)
-
-  tindex v ix = Compose $ indexZ (getCompose v) ix
-  tsum = Compose . sum' . getCompose
-  tsum0 = Compose . sum0 . getCompose
-  tdot0 u v = Compose $ dot0 (getCompose u) (getCompose v)
-  tfromIndex0 = tconstant . tfromIndex0
-  tscatter sh t f = Compose $ scatterNClosure sh (getCompose t) f
-
-  tfromList = Compose . fromList . map getCompose
---  tfromList0N = fromList0N
-  tfromVector = Compose . fromVector . V.map getCompose
---  tfromVector0N = fromVector0N
-  tkonst k = Compose . konst k . getCompose
---  tkonst0N sh = konst0N sh . unScalar
-  tappend u v = Compose $ append (getCompose u) (getCompose v)
-  tslice i k = Compose . slice i k . getCompose
-  treverse = Compose . reverse' . getCompose
-  ttranspose perm = Compose . transpose perm . getCompose
-  treshape sh = Compose . reshape sh . getCompose
-  tbuild1 k f = Compose $ build1 k (getCompose . f)
-  tgather sh t f = Compose $ gatherNClosure sh (getCompose t) f
-
-  tscalar = Compose . scalar
-  tunScalar = unScalar . getCompose
-
-  tsumOfList lu =
-    Compose $ dD (flattenADShare $ map ((\(Compose (D l _ _)) -> l)) lu)
-                 (tsumOfList $ map (\(Compose (D _ u _)) -> u) lu)
-                 (foldl1' dAdd $ map (\(Compose (D _ _ u')) -> u') lu)
-  tmult (Compose (D l1 ue ZeroR)) (Compose (D l2 ve v')) =
-    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        (l4, v) = recordSharingPrimal ve l3
-    in Compose $ dD l4 (u * v) (dScale u v')
-  tmult (Compose (D l1 ue u')) (Compose (D l2 ve ZeroR)) =
-    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        (l4, v) = recordSharingPrimal ve l3
-    in Compose $ dD l4 (u * v) (dScale v u')
-  tmult d e = d * e
-
-  type Primal (ADVal (Ast0 r)) = Ast0 r
-  type DualOf n (ADVal (Ast0 r)) =
-    (ADShare r, Dual (TensorOf n (Ast0 r)))
-  tconst t = Compose $ dD emptyADShare (tconst t) dZero
-  tconstant t = Compose $ dD emptyADShare t dZero
-  tscale0 r (D l u u') = dD l (r * u) (dScale r u')
-  tprimalPart (Compose (D l u _)) = tletWrap l u
-  tdualPart (Compose (D l _ u')) = (l, u')
-  tD ast (l, delta) = Compose $ dD l ast delta
-  tScale ast (l, delta) = (l, dScale ast delta)
-
-  tfromD = Compose . fromD
-  dfromR = fromR . getCompose
-
-instance ShowAstSimplify r
-         => DynamicTensor (ADVal (Ast0 r)) where
-  type DTensorOf (ADVal (Ast0 r)) = ADVal (AstDynamic r)
-  ddummy = undefined
-  disDummy = undefined
-
-instance ShowAstSimplify r
-         => AdaptableDomains (ADVal (Ast0 r)) where
-  type Scalar (ADVal (Ast0 r)) = ADVal (Ast0 r)
-  type Value (ADVal (Ast0 r)) = r
-  toDomains = undefined
-  fromDomains _aInit = uncons0
-  nParams = undefined
-  nScalars = undefined
-
-instance (KnownNat n, ShowAstSimplify r)
-         => AdaptableDomains (ADVal (Ast n r)) where
-  type Scalar (ADVal (Ast n r)) = ADVal (Ast0 r)
-  type Value (ADVal (Ast n r)) = OR.Array n r
-  toDomains = undefined
-  fromDomains _aInit inputs = case unconsR inputs of
-    Just (a, rest) -> Just (getCompose $ tfromD a, rest)
-    Nothing -> Nothing
-  nParams = undefined
-  nScalars = undefined
-
-{-
-instance (KnownNat n, ShowAstSimplify r)
-         => AdaptableDomains (Compose ADVal (AstRanked r) n) where
-  type Scalar (Compose ADVal (AstRanked r) n) = ADVal (Ast0 r)
-  type Value (Compose ADVal (AstRanked r) n) = OR.Array n r
-  toDomains = undefined
-  fromDomains _aInit inputs = case unconsR inputs of
-    Just (a, rest) -> Just (tfromD a, rest)
-    Nothing -> Nothing
-  nParams = undefined
-  nScalars = undefined
--}
 
 -- * ADVal combinators generalizing ranked tensor operations
 
