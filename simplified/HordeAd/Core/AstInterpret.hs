@@ -108,9 +108,8 @@ instance (BooleanOf r ~ b) => BooleanOfMatches b r where
 type InterpretAst a =
   ( Tensor a, Tensor (Primal a)
   , ShowAstSimplify (Value a), Underlying a ~ Value a
-  , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a), RealFloat (Primal a)
+  , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a)
   , IntOf (Primal a) ~ IntOf a, BooleanOf (Primal a) ~ BooleanOf (IntOf a)
-  , CRanked RealFloat a
   , CRanked EqB (Primal a)
   , CRanked OrdB (Primal a)
   , CRanked (BooleanOfMatches (BooleanOf (IntOf a))) (Primal a)
@@ -405,7 +404,7 @@ interpretAstDomainsDummy env memo = \case
 
 -- TODO: when the code again compiles with GHC >= 9.6, check whether
 -- these INLINEs are still needed (removal causes 10% slowdown ATM).
-interpretAstOp :: (RealFloat (TensorOf n r), Tensor r, KnownNat n)
+interpretAstOp :: (Tensor r, KnownNat n)
                => OpCode -> [TensorOf n r] -> TensorOf n r
 {-# INLINE interpretAstOp #-}
 interpretAstOp MinusOp [u, v] = u - v

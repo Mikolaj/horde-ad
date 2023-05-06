@@ -611,9 +611,8 @@ fooNoGoAst v =
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
   let f :: ( ShowAstSimplify r
-           , TensorOf 1 r ~ Flip OR.Array r 1, InterpretAst (ADVal r)
-           , TensorOf 1 (ADVal r) ~ Compose ADVal (Ranked r) 1
-           , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
+           , Ranked r ~ Flip OR.Array r, InterpretAst (ADVal r)
+           , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
            , Value (ADVal r) ~ r )
         => TensorOf 1 (ADVal r) -> TensorOf 1 (ADVal r)
       f x = snd
@@ -752,9 +751,8 @@ barReluAst x = relu @n @(Ast0 r) $ bar (x, relu x)
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
   let f :: ( ShowAstSimplify r
-           , TensorOf 0 r ~ Flip OR.Array r 0, InterpretAst (ADVal r)
-           , TensorOf 0 (ADVal r) ~ Compose ADVal (Ranked r) 0
-           , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
+           , Ranked r ~ Flip OR.Array r, InterpretAst (ADVal r)
+           , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
            , Value (ADVal r) ~ r )
         => TensorOf 0 (ADVal r) -> TensorOf 0 (ADVal r)
       f x = snd
@@ -768,9 +766,8 @@ testBarReluAst0 =
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
   let f :: ( ShowAstSimplify r
-           , TensorOf 1 r ~ Flip OR.Array r 1, InterpretAst (ADVal r)
-           , TensorOf 1 (ADVal r) ~ Compose ADVal (Ranked r) 1
-           , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
+           , Ranked r ~ Flip OR.Array r, InterpretAst (ADVal r)
+           , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
            , Value (ADVal r) ~ r )
         => TensorOf 1 (ADVal r) -> TensorOf 1 (ADVal r)
       f x = snd
@@ -789,9 +786,8 @@ konstReluAst x = tsum0 $ relu $ tkonst0N (7 :$ ZS) x
 testKonstReluAst :: Assertion
 testKonstReluAst =
   let f :: ( ShowAstSimplify r
-           , TensorOf 0 r ~ Flip OR.Array r 0, InterpretAst (ADVal r)
-           , TensorOf 0 (ADVal r) ~ Compose ADVal (Ranked r) 0
-           , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
+           , Ranked r ~ Flip OR.Array r, InterpretAst (ADVal r)
+           , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
            , Value (ADVal r) ~ r )
         => TensorOf 0 (ADVal r) -> TensorOf 0 (ADVal r)
       f x = snd

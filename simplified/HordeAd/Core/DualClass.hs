@@ -40,7 +40,6 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
-import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
@@ -411,7 +410,7 @@ instance HasRanks Float where
       _ -> error "dFromD: different ranks in FromD(FromR)"
   dFromR = FromR
 
-instance (Show r, Numeric r) => HasRanks (Ast0 r) where
+instance ShowAst r => HasRanks (Ast0 r) where
   dInput0 = Input0
   dIndex0 = Index0
   dSum0 = Sum0

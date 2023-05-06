@@ -5,7 +5,7 @@
 -- | 'Tensor' class instances for dual number. The dual numbers are built
 -- either from concrete floats or from 'Ast' term.
 module HordeAd.Core.TensorADVal
-  ( ADTensor, ADInputs(..), makeADInputs
+  ( ADInputs(..), makeADInputs
   ) where
 
 import Prelude hiding ((<*))
@@ -31,13 +31,6 @@ import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
-
-type ADTensor r =
-  ( IsPrimal r
-  , HasRanks r
-  , Tensor r
-  , DomainsCollection r
-  )
 
 type instance BooleanOf (ADVal a) = BooleanOf a
 
@@ -72,6 +65,11 @@ instance ShowAstSimplify r
          => IfB (ADVal (Ast0 r)) where
   ifB b v w = unScalar $ ifB b (scalar v) (scalar w)
 
+instance DynamicTensor (ADVal r) where
+  type DTensorOf (ADVal r) = ADVal (DTensorOf r)
+  ddummy = undefined
+  disDummy = undefined
+
 data ADInputs r = ADInputs
   { inputPrimal0 :: Domain0 r
   , inputDual0   :: Data.Vector.Vector (Dual r)
@@ -89,7 +87,7 @@ makeADInputs
 makeADInputs params (vs0, vs1)
   = ADInputs (domains0 params) vs0 (domainsR params) vs1
 
-instance (Tensor r, IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r))
+instance (Tensor r, IsPrimal r)
          => DomainsCollection (ADVal r) where
   type Domains (ADVal r) = ADInputs r
   doms0 = undefined
@@ -120,9 +118,8 @@ instance (Tensor r, IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r))
   toVectorDoms = undefined
 
 instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
-         , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
-         , DTensorOf r ~ OD.Array r
-         , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
+         , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
+         , DTensorOf r ~ OD.Array r )
          => AdaptableDomains (ADVal (Flip OR.Array r n)) where
   type Scalar (ADVal (Flip OR.Array r n)) = ADVal r
   type Value (ADVal (Flip OR.Array r n)) = OR.Array n r
@@ -134,9 +131,8 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
   nScalars = undefined
 
 instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
-         , TensorOf n (ADVal r) ~ Compose ADVal (Flip OR.Array r) n
-         , DTensorOf r ~ OD.Array r
-         , DTensorOf (ADVal r) ~ ADVal (OD.Array r) )
+         , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
+         , DTensorOf r ~ OD.Array r )
          => AdaptableDomains (Compose ADVal (Flip OR.Array r) n) where
   type Scalar (Compose ADVal (Flip OR.Array r) n) = ADVal r
   type Value (Compose ADVal (Flip OR.Array r) n) = OR.Array n r
@@ -223,11 +219,6 @@ instance Tensor (ADVal Double) where
   tfromD = Compose . fromD
   dfromR = fromR . getCompose
 
-instance DynamicTensor (ADVal Double) where
-  type DTensorOf (ADVal Double) = ADVal (OD.Array Double)
-  ddummy = undefined
-  disDummy = undefined
-
 instance AdaptableDomains (ADVal Double) where
   type Scalar (ADVal Double) = ADVal Double
   type Value (ADVal Double) = Double
@@ -303,11 +294,6 @@ instance Tensor (ADVal Float) where
 
   tfromD = Compose . fromD
   dfromR = fromR . getCompose
-
-instance DynamicTensor (ADVal Float) where
-  type DTensorOf (ADVal Float) = ADVal (OD.Array Float)
-  ddummy = undefined
-  disDummy = undefined
 
 instance AdaptableDomains (ADVal Float) where
   type Scalar (ADVal Float) = ADVal Float
@@ -387,12 +373,6 @@ instance ShowAstSimplify r
   dfromR = fromR . getCompose
 
 instance ShowAstSimplify r
-         => DynamicTensor (ADVal (Ast0 r)) where
-  type DTensorOf (ADVal (Ast0 r)) = ADVal (AstDynamic r)
-  ddummy = undefined
-  disDummy = undefined
-
-instance ShowAstSimplify r
          => AdaptableDomains (ADVal (Ast0 r)) where
   type Scalar (ADVal (Ast0 r)) = ADVal (Ast0 r)
   type Value (ADVal (Ast0 r)) = r
@@ -432,7 +412,7 @@ sum0 :: ( ADTensor r, IsPrimal (TensorOf 0 r), KnownNat n
      => ADVal (TensorOf n r) -> ADVal (TensorOf 0 r)
 sum0 (D l u u') = dD l (tsum0 u) (dScalarR $ dSum0 (tshape u) u')
 
-dot0 :: ( ADTensor r, IsPrimal (TensorOf n  r), IsPrimal (TensorOf 0 r)
+dot0 :: ( ADTensor r, IsPrimal (TensorOf n r), IsPrimal (TensorOf 0 r)
         , KnownNat n, Underlying (TensorOf 0 r) ~ Underlying (TensorOf n r) )
      => ADVal (TensorOf n r) -> ADVal (TensorOf n r) -> ADVal (TensorOf 0 r)
 dot0 (D l1 ue u') (D l2 ve v') =

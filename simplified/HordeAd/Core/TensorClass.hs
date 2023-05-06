@@ -329,7 +329,8 @@ class DomainsTensor r where
 type Many (f :: Type -> Constraint) r = (f (TensorOf 0 r), f (TensorOf 1 r), f (TensorOf 2 r), f (TensorOf 3 r), f (TensorOf 4 r), f (TensorOf 5 r), f (TensorOf 6 r), f (TensorOf 7 r), f (TensorOf 8 r), f (TensorOf 9 r), f (TensorOf 10 r), f (TensorOf 11 r), f (TensorOf 12 r))
 
 type ADReady r =
-  ( Tensor r, Tensor (Primal r), Show r, Numeric (Value r), RealFloat (Value r)
+  ( Tensor r, Tensor (Primal r)
+  , Show r, Numeric (Value r), RealFloat (Value r), Scalar r ~ r
   , IfB r, IfB (IntOf r), Many IfB r, Many IfB (Primal r)
   , EqB r, EqB (IntOf r), Many EqB r, Many EqB (Primal r)
   , OrdB r, OrdB (IntOf r), Many OrdB r, Many OrdB (Primal r)
@@ -497,7 +498,7 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
 -}
 
 instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsCollection r
-         , TensorOf n r ~ Flip OR.Array r n, DTensorOf r ~ OD.Array r )
+         , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r )
          => AdaptableDomains (OR.Array n r) where
   type Scalar (OR.Array n r) = r
   type Value (OR.Array n r) = OR.Array n r
@@ -510,7 +511,7 @@ instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsCollection r
   nScalars = OR.size
 
 instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsCollection r
-         , TensorOf n r ~ Flip OR.Array r n )
+         , Ranked r ~ Flip OR.Array r )
          => AdaptableDomains (Flip OR.Array r n) where
   type Scalar (Flip OR.Array r n) = r
   type Value (Flip OR.Array r n) = OR.Array n r

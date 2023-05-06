@@ -14,7 +14,7 @@ import           Data.Bifunctor.Flip
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Domains
-import HordeAd.Core.DualNumber (ADNum, ADVal)
+import HordeAd.Core.DualNumber (ADNum, ADTensor, ADVal)
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
@@ -43,8 +43,7 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
 
 -- | Stochastic Gradient Descent.
 sgd :: forall r a.
-       ( Numeric r, Floating (Vector r), ADTensor r
-       , DynamicTensor r, DomainsTensor r, Scalar r ~ r
+       ( Numeric r, Floating (Vector r), ADTensor r, Scalar r ~ r
        , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
     => r
     -> (a -> ADInputs r -> ADVal r)
@@ -72,8 +71,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   -> (Domains Double, Double) #-}
 
 sgdAdam :: forall r a.
-           ( Numeric r, Floating (Vector r), ADTensor r
-           , DynamicTensor r, DomainsTensor r, Scalar r ~ r
+           ( Numeric r, Floating (Vector r), ADTensor r, Scalar r ~ r
            , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
        => (a -> ADInputs r -> ADVal r)
         -> [a]
@@ -83,8 +81,7 @@ sgdAdam :: forall r a.
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs :: forall r a.
-               ( Numeric r, Floating (Vector r), ADTensor r
-               , DynamicTensor r, DomainsTensor r, Scalar r ~ r
+               ( Numeric r, Floating (Vector r), ADTensor r, Scalar r ~ r
                , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
             => ArgsAdam r
             -> (a -> ADInputs r -> ADVal r)

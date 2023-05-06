@@ -51,11 +51,10 @@ import           HordeAd.Core.Delta (Delta0, ForwardDerivative)
 import           HordeAd.Core.Domains
 import           HordeAd.Core.DualClass hiding (IsPrimal)
 import qualified HordeAd.Core.DualClass as DualClass
-import           HordeAd.Core.DualNumber (dD, dDnotShared)
+import           HordeAd.Core.DualNumber (ADTensor, dD, dDnotShared)
 import qualified HordeAd.Core.DualNumber as DualNumber
 import qualified HordeAd.Core.Engine as Engine
 import           HordeAd.Core.SizedIndex
-import           HordeAd.Core.TensorADVal (ADTensor)
 import qualified HordeAd.Core.TensorADVal as TensorADVal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Internal.TensorOps
@@ -99,9 +98,7 @@ type ADModeAndNum (d :: ADMode) r =
   , Primal (DualNumber.ADVal r) ~ r
   , Tensor (DualNumber.ADVal r)
   , DynamicTensor (DualNumber.ADVal r)
-  , TensorOf 1 (DualNumber.ADVal r) ~ Compose DualNumber.ADVal (Flip OR.Array r) 1
-  , Fractional (TensorOf 0 (DualNumber.ADVal r))
-  , DomainsCollection r
+  , Ranked (DualNumber.ADVal r) ~ Compose DualNumber.ADVal (Flip OR.Array r)
   )
 
 type HasDelta r = ( ADModeAndNum 'ADModeGradient r
@@ -111,7 +108,7 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
 
 -- The general case, needed for old hacky tests using only scalars.
 valueGeneral
-  :: forall r a. (ADTensor r, DomainsTensor r)
+  :: forall r a. ADTensor r
   => (TensorADVal.ADInputs r -> a)
   -> Domains r
   -> a
@@ -123,8 +120,7 @@ valueGeneral f parameters =
   in f inputs
 
 valueOnDomains
-  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , IsPrimalWithScalarNew a r )
+  :: (ADTensor r, IsPrimalWithScalarNew a r)
   => (TensorADVal.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
   -> a
@@ -135,8 +131,7 @@ valueOnDomains f parameters =
   in snd $ Engine.revOnADInputs Nothing f inputs
 
 revOnADInputs
-  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , IsPrimalWithScalarNew a r )
+  :: (ADTensor r, IsPrimalWithScalarNew a r)
   => a
   -> (TensorADVal.ADInputs r -> DualNumber.ADVal a)
   -> TensorADVal.ADInputs r
@@ -149,8 +144,7 @@ revOnADInputs = Engine.revOnADInputs  . Just
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , IsPrimalWithScalarNew a r )
+  :: (ADTensor r, IsPrimalWithScalarNew a r)
   => a
   -> (TensorADVal.ADInputs r -> DualNumber.ADVal a)
   -> Domains r
@@ -158,7 +152,7 @@ revOnDomains
 revOnDomains = Engine.revOnDomains . Just
 
 prettyPrintDf
-  :: ( ADTensor r, DomainsTensor r, Show (Dual r) )
+  :: (ADTensor r, Show (Dual r))
   => (TensorADVal.ADInputs r -> DualNumber.ADVal r)
   -> Domains r
   -> String

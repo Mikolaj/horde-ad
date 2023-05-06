@@ -55,9 +55,7 @@ import HordeAd.Core.TensorClass
 -- is possible, but the user has to write many more type applications.
 revL
   :: forall r n vals astvals.
-     ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n
-     , Scalar r ~ r, Value r ~ r
-     , DynamicTensor r
+     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r, KnownNat n
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
@@ -66,9 +64,7 @@ revL f valsAll = revDtMaybeL f valsAll Nothing
 
 revDtMaybeL
   :: forall r n vals astvals.
-     ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n
-     , Scalar r ~ r, Value r ~ r
-     , DynamicTensor r
+     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r, KnownNat n
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
@@ -82,9 +78,7 @@ revDtMaybeL f valsAll@(vals : _) dt =
 
 revDtFun
   :: forall r n vals astvals.
-     ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n
-     , Scalar r ~ r, Value r ~ r
-
+     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r, KnownNat n
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
@@ -99,8 +93,9 @@ revDtFun f vals =
 
 revDtInterpret
   :: forall r n vals astvals.
-     ( InterpretAst r, KnownNat n, Scalar r ~ r, Value r ~ r
-     , AdaptableDomains astvals, vals ~ Value astvals, Scalar astvals ~ Ast0 r )
+     ( InterpretAst r, Scalar r ~ r, Value r ~ r, KnownNat n
+     , AdaptableDomains astvals, vals ~ Value astvals
+     , Scalar astvals ~ Ast0 r )
   => vals -> (astvals -> Ast n r)
   -> Domains (ADVal (Ast0 r)) -> Domains (Ast0 r)
   -> (ADAstVarNames n r, ADAstVars n r)
@@ -121,9 +116,7 @@ revDtInterpret vals f varInputs domains ((var0, _, vars1), (ast0, _, _)) =
 
 rev
   :: forall r n vals astvals.
-     ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n
-     , Scalar r ~ r, Value r ~ r
-     , DynamicTensor r
+     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r, KnownNat n
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
@@ -133,9 +126,7 @@ rev f vals = head $ revL f [vals]
 -- This version additionally takes the sensitivity parameter.
 revDt
   :: forall r n vals astvals.
-     ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n
-     , Scalar r ~ r, Value r ~ r
-     , DynamicTensor r
+     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r, KnownNat n
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
@@ -145,8 +136,7 @@ revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 -- Versions that work with scalar codomain.
 srevL
   :: forall r vals astvals.
-     ( ADTensor r, InterpretAst r, DomainsTensor r, Scalar r ~ r, Value r ~ r
-     , DynamicTensor r
+     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
@@ -155,8 +145,7 @@ srevL f = revL (tscalar . f)
 
 srevDtMaybeL
   :: forall r vals astvals.
-     ( ADTensor r, InterpretAst r, DomainsTensor r, Scalar r ~ r, Value r ~ r
-     , DynamicTensor r
+     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
@@ -166,8 +155,7 @@ srevDtMaybeL f valsAll dt = revDtMaybeL (tscalar . f) valsAll (tscalar <$> dt)
 
 srev
   :: forall r vals astvals.
-     ( ADTensor r, InterpretAst r, DomainsTensor r, Scalar r ~ r, Value r ~ r
-     , DynamicTensor r
+     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
@@ -177,8 +165,7 @@ srev f = rev (tscalar . f)
 -- This version additionally takes the sensitivity parameter.
 srevDt
   :: forall r vals astvals.
-     ( ADTensor r, InterpretAst r, DomainsTensor r, Scalar r ~ r, Value r ~ r
-     , DynamicTensor r
+     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r
      , AdaptableDomains astvals, AdaptableDomains vals
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
@@ -186,40 +173,33 @@ srevDt
 srevDt f vals dt = revDt (tscalar . f) vals (tscalar dt)
 
 -- Old version of the three functions, with constant, fixed inputs and dt.
-crev :: forall n r vals advals.
-       ( r ~ Scalar vals, vals ~ Value advals
-       , ADTensor r, DynamicTensor r, DomainsTensor r
-       , IsPrimal (Flip OR.Array r n)
-       , AdaptableDomains vals, AdaptableDomains advals
-       , Scalar advals ~ ADVal r
-       , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
-       , vals ~ Value vals )
-    => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals
-    -> vals
+crev
+  :: forall n r vals advals.
+     ( ADTensor r, IsPrimal (Flip OR.Array r n)
+     , AdaptableDomains advals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals
+     , Scalar advals ~ ADVal r )
+  => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals
+  -> vals
 crev f vals = crevDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
-crevDt :: forall n r vals advals.
-         ( r ~ Scalar vals, vals ~ Value advals
-         , ADTensor r, DynamicTensor r, DomainsTensor r
-         , IsPrimal (Flip OR.Array r n)
-         , AdaptableDomains vals, AdaptableDomains advals
-         , Scalar advals ~ ADVal r
-         , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
-         , vals ~ Value vals )
-      => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals -> OR.Array n r
-      -> vals
+crevDt
+  :: forall n r vals advals.
+     ( ADTensor r, IsPrimal (Flip OR.Array r n)
+     , AdaptableDomains advals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals
+     , Scalar advals ~ ADVal r )
+  => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals -> OR.Array n r
+  -> vals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall n vals r advals.
-     ( r ~ Scalar vals, vals ~ Value advals
-     , ADTensor r, DynamicTensor r, DomainsTensor r
-     , IsPrimal (Flip OR.Array r n)
-     , AdaptableDomains vals, AdaptableDomains advals
-     , Scalar advals ~ ADVal r
-     , DTensorOf (ADVal r) ~ ADVal (DTensorOf r)
-     , vals ~ Value vals )
+     ( ADTensor r, IsPrimal (Flip OR.Array r n)
+     , AdaptableDomains advals, AdaptableDomains vals
+     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals
+     , Scalar advals ~ ADVal r )
   => (advals -> Compose ADVal (Flip OR.Array r) n)
   -> vals -> Maybe (OR.Array n r)
   -> vals
@@ -229,11 +209,10 @@ crevDtMaybe f vals dt =
 
 -- This takes the sensitivity parameter, by convention.
 fwd :: forall a vals r advals.
-       ( ForwardDerivative a, r ~ Scalar vals, vals ~ Value advals
-       , ADTensor r, DynamicTensor r, DomainsTensor r, Scalar a ~ r
-       , AdaptableDomains (Value advals), Scalar advals ~ ADVal r
-       , AdaptableDomains advals
-       , DTensorOf (ADVal r) ~ ADVal (DTensorOf r) )
+       ( ADTensor r, Scalar a ~ r, ForwardDerivative a
+       , AdaptableDomains advals, AdaptableDomains (Value advals)
+       , r ~ Scalar vals, vals ~ Value advals
+       , Scalar advals ~ ADVal r )
     => (advals -> ADVal a) -> vals -> vals
     -> a
 fwd f x ds =
@@ -249,9 +228,7 @@ fwd f x ds =
 -- computed, only for testing.
 revAstOnDomains
   :: forall r n.
-     ( ADTensor r, InterpretAst r, DomainsTensor r, KnownNat n
-     , Scalar r ~ r, Value r ~ r
-     , DynamicTensor r )
+     (ADTensor r, InterpretAst r, KnownNat n, Scalar r ~ r, Value r ~ r)
   => (ADInputs (Ast0 r) -> Compose ADVal (AstRanked r) n)
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
@@ -263,7 +240,7 @@ revAstOnDomains f parameters =
 
 revAstOnDomainsF
   :: forall r n.
-     (ADTensor r, DomainsTensor r, KnownNat n, ShowAstSimplify r)
+     (ADTensor r, KnownNat n, ShowAstSimplify r)
   => (ADInputs (Ast0 r) -> Compose ADVal (AstRanked r) n)
   -> Domains r
   -> ADAstArtifact6 n r
@@ -302,8 +279,7 @@ revAstOnDomainsFun dim0 shapes1 f =
 
 revAstOnDomainsEval
   :: forall r n.
-     ( ADTensor r, InterpretAst r, KnownNat n, DynamicTensor r
-     , Scalar r ~ r, Value r ~ r )
+     (ADTensor r, InterpretAst r, KnownNat n, Scalar r ~ r, Value r ~ r)
   => ADAstArtifact6 n r -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
@@ -322,8 +298,7 @@ revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
-  :: ( Tensor r, DomainsTensor r, DynamicTensor r, IsPrimal a, Scalar a ~ r
-     , DomainsCollection r )
+  :: (ADTensor r, IsPrimal a, Scalar a ~ r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> ADInputs r
@@ -344,7 +319,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: (ADTensor r, DynamicTensor r, DomainsTensor r, IsPrimal a, Scalar a ~ r)
+  :: (ADTensor r, IsPrimal a, Scalar a ~ r)
   => Maybe a
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -361,7 +336,7 @@ revOnDomains dt f parameters =
 -- for a fast variant (TODO: not ported from the old code yet).
 
 slowFwdOnADInputs
-  :: (Tensor r, DynamicTensor r, ForwardDerivative a, Scalar a ~ r)
+  :: (ADTensor r, ForwardDerivative a, Scalar a ~ r)
   => ADInputs r
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -376,8 +351,7 @@ slowFwdOnADInputs inputs@ADInputs{..} f ds =
 
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
-  :: ( ADTensor r, DynamicTensor r, DomainsTensor r
-     , ForwardDerivative a, Scalar a ~ r )
+  :: (ADTensor r, ForwardDerivative a, Scalar a ~ r)
   => Domains r
   -> (ADInputs r -> ADVal a)
   -> Domains r
@@ -391,8 +365,7 @@ slowFwdOnDomains parameters f ds =
 -- * Additional mechanisms
 
 generateDeltaInputs
-  :: forall r.
-     (ADTensor r, DomainsTensor r)
+  :: forall r. ADTensor r
   => Domains r
   -> ( Data.Vector.Vector (Dual r)
      , Data.Vector.Vector (Dual (DTensorOf r)) )

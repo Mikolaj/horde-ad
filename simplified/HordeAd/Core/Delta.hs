@@ -671,7 +671,7 @@ instance ShowAstSimplify r
       DeltaDt0 res _ -> res
       DeltaDtR{} -> error "derivativeFromDelta"
 
-instance ( Num (TensorOf n r), KnownNat n, TensorOf n r ~ Flip OR.Array r n
+instance ( Num (TensorOf n r), KnownNat n, Ranked r ~ Flip OR.Array r
          , Dual (Flip OR.Array r n) ~ DeltaR n r, DomainsCollection r )
          => ForwardDerivative (Flip OR.Array r n) where
   derivativeFromDelta dim0 dimR deltaTopLevel ds =

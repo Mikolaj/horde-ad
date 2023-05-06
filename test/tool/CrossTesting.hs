@@ -11,7 +11,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Compose
 import           GHC.TypeLits (KnownNat)
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd.Core.Ast
@@ -27,19 +27,15 @@ import HordeAd.Core.TensorClass
 import EqEpsilon
 
 rev' :: forall b r n m a.
-        ( KnownNat n, KnownNat m, Floating (Vector r), ADTensor r, ADReady r
-        , InterpretAst (ADVal r), InterpretAst r, DomainsTensor r
-        , a ~ TensorOf m r, Scalar r ~ r, Value r ~ r, Value (ADVal r) ~ r
-        , IsPrimal (TensorOf m r)
-        , AdaptableDomains (ADVal (TensorOf n r)), DynamicTensor r
-        , DTensorOf r ~ OD.Array r
-        , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
+        ( KnownNat n, KnownNat m, ADTensor r, ADReady r, ADReady (ADVal r)
+        , InterpretAst r, InterpretAst (ADVal r)
+        , a ~ TensorOf m r, IsPrimal a, Value r ~ r, Value (ADVal r) ~ r
+        , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
         , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
-        , ADReady (ADVal r), TensorOf n r ~ Flip OR.Array r n
         , b ~ OR.Array m r )
      => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
      -> TensorOf n r
-     -> ( TensorOf m r, a, a, a, a, a, a, a
+     -> ( a, a, a, a, a, a, a, a
         , TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r
         , TensorOf n r, TensorOf n r
         , Ast m r, Ast m r

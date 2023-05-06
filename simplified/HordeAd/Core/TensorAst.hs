@@ -137,7 +137,7 @@ instance ShowAstSimplify r
   nScalars = undefined
 
 instance ( Tensor r, ShowAstSimplify r, KnownNat n
-         , TensorOf n r ~ Flip OR.Array r n )
+         , Ranked r ~ Flip OR.Array r )
          => AdaptableDomains (Ast n r) where
   type Scalar (Ast n r) = Ast0 r
   type Value (Ast n r) = OR.Array n r

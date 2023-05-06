@@ -5,7 +5,7 @@
 -- the mid-level API of the horde-ad library, together with
 -- the safely impure "HordeAd.Core.DualClass".
 module HordeAd.Core.DualNumber
-  ( ADVal, dD, pattern D, dDnotShared
+  ( ADTensor, ADVal, dD, pattern D, dDnotShared
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
@@ -63,25 +63,26 @@ dDnotShared = D
 
 -- * Auxiliary definitions
 
+type ADTensor r =
+  ( IsPrimal r
+  , HasRanks r
+  , Tensor r
+  , DynamicTensor r
+  , DomainsCollection r
+  , DomainsTensor r
+  )
+
 type ADNum r =
   ( Numeric r
   , Show r
   , Show (Dual (OD.Array r))
-  , HasRanks r
-  , IsPrimal r
   , Scalar r ~ r
   , IsPrimalR r
-  , RealFloat r
-  , RealFloat (Vector r)
-  , Tensor r
-  , TensorOf 0 r ~ Flip OR.Array r 0
-  , TensorOf 1 r ~ Flip OR.Array r 1
-  , TensorOf 2 r ~ Flip OR.Array r 2
+  , ADTensor r
+  , Ranked r ~ Flip OR.Array r
   , IntOf r ~ CInt
-  , DynamicTensor r
-  , DomainsTensor r
   , DTensorOf r ~ OD.Array r
-  , DomainsCollection r
+  , Floating (Vector r)
   )
 
 -- All this is not needed in the simplified version, except for compilation
