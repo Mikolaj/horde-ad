@@ -23,7 +23,7 @@ import HordeAd.External.OptimizerTools
 -- | Simple Gradient Descent.
 gdSimple :: forall r. ADNum r
          => r
-         -> (ADInputs r -> ADVal r)
+         -> (Domains (ADVal r) -> ADVal r)
          -> Int  -- ^ requested number of iterations
          -> Domains r  -- ^ initial parameters
          -> Domains r
@@ -46,7 +46,7 @@ sgd :: forall r a.
        ( Numeric r, Floating (Vector r), ADTensor r, Scalar r ~ r
        , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
     => r
-    -> (a -> ADInputs r -> ADVal r)
+    -> (a -> Domains (ADVal r) -> ADVal r)
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
     -> (Domains r, r)
@@ -73,7 +73,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 sgdAdam :: forall r a.
            ( Numeric r, Floating (Vector r), ADTensor r, Scalar r ~ r
            , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
-       => (a -> ADInputs r -> ADVal r)
+       => (a -> Domains (ADVal r) -> ADVal r)
         -> [a]
         -> Domains r
         -> StateAdam r
@@ -84,7 +84,7 @@ sgdAdamArgs :: forall r a.
                ( Numeric r, Floating (Vector r), ADTensor r, Scalar r ~ r
                , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
             => ArgsAdam r
-            -> (a -> ADInputs r -> ADVal r)
+            -> (a -> Domains (ADVal r) -> ADVal r)
             -> [a]
             -> Domains r
             -> StateAdam r

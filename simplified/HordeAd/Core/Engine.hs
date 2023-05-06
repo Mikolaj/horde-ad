@@ -229,7 +229,7 @@ fwd f x ds =
 revAstOnDomains
   :: forall r n.
      (ADTensor r, InterpretAst r, KnownNat n, Scalar r ~ r, Value r ~ r)
-  => (ADInputs (Ast0 r) -> Compose ADVal (AstRanked r) n)
+  => (Domains (ADVal (Ast0 r)) -> Compose ADVal (AstRanked r) n)
   -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 -- The functions in which @revAstOnDomains@ inlines are not inlined
@@ -241,7 +241,7 @@ revAstOnDomains f parameters =
 revAstOnDomainsF
   :: forall r n.
      (ADTensor r, KnownNat n, ShowAstSimplify r)
-  => (ADInputs (Ast0 r) -> Compose ADVal (AstRanked r) n)
+  => (Domains (ADVal (Ast0 r)) -> Compose ADVal (AstRanked r) n)
   -> Domains r
   -> ADAstArtifact6 n r
 {-# INLINE revAstOnDomainsF #-}
@@ -253,7 +253,7 @@ revAstOnDomainsF f parameters  =
 revAstOnDomainsFun
   :: forall r n. (KnownNat n, ShowAstSimplify r)
   => Int -> [[Int]]
-  -> (ADInputs (Ast0 r) -> Domains (Ast0 r)
+  -> (Domains (ADVal (Ast0 r)) -> Domains (Ast0 r)
       -> (ADAstVarNames n r, ADAstVars n r)
       -> Compose ADVal (AstRanked r) n)
   -> (ADAstArtifact6 n r, DeltaR n (Ast0 r))
@@ -300,8 +300,8 @@ revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
 revOnADInputs
   :: (ADTensor r, IsPrimal a, Scalar a ~ r)
   => Maybe a
-  -> (ADInputs r -> ADVal a)
-  -> ADInputs r
+  -> (Domains (ADVal r) -> ADVal a)
+  -> Domains (ADVal r)
   -> (Domains r, a)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
@@ -321,7 +321,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
 revOnDomains
   :: (ADTensor r, IsPrimal a, Scalar a ~ r)
   => Maybe a
-  -> (ADInputs r -> ADVal a)
+  -> (Domains (ADVal r) -> ADVal a)
   -> Domains r
   -> (Domains r, a)
 revOnDomains dt f parameters =
@@ -337,8 +337,8 @@ revOnDomains dt f parameters =
 
 slowFwdOnADInputs
   :: (ADTensor r, ForwardDerivative a, Scalar a ~ r)
-  => ADInputs r
-  -> (ADInputs r -> ADVal a)
+  => Domains (ADVal r)
+  -> (Domains (ADVal r) -> ADVal a)
   -> Domains r
   -> (a, a)
 {-# INLINE slowFwdOnADInputs #-}
@@ -353,7 +353,7 @@ slowFwdOnADInputs inputs@ADInputs{..} f ds =
 slowFwdOnDomains
   :: (ADTensor r, ForwardDerivative a, Scalar a ~ r)
   => Domains r
-  -> (ADInputs r -> ADVal a)
+  -> (Domains (ADVal r) -> ADVal a)
   -> Domains r
   -> (a, a)
 slowFwdOnDomains parameters f ds =

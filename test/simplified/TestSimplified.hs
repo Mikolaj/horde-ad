@@ -54,7 +54,7 @@ testTrees = [ -- Tensor tests
             ]
 
 
-at0 :: ADTensor r => ADInputs r -> Int -> ADVal r
+at0 :: ADTensor r => Domains (ADVal r) -> Int -> ADVal r
 {-# INLINE at0 #-}
 at0 ADInputs{..} i =
   dD emptyADShare (tunScalar $ inputPrimal0 ! singletonIndex (fromIntegral i))
@@ -62,7 +62,7 @@ at0 ADInputs{..} i =
 
 at1 :: forall n r. ( KnownNat n, ADTensor r, IsPrimal (TensorOf n r)
                    , TensorOf n r ~ Flip OR.Array r n )
-    => ADInputs r -> Int -> Compose ADVal (Flip OR.Array r) n
+    => Domains (ADVal r) -> Int -> Compose ADVal (Flip OR.Array r) n
 {-# INLINE at1 #-}
 at1 ADInputs{..} i = Compose $ dD emptyADShare (tfromD $ inputPrimal1 V.! i)
                                                (dFromD $ inputDual1 V.! i)

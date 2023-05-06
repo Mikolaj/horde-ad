@@ -21,7 +21,6 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.Domains
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 
 import EqEpsilon
@@ -44,17 +43,17 @@ rev' f vals =
       value0 = f vals
       parameters = toDomains vals
       dt = Nothing
-      g :: ADInputs r -> TensorOf m (ADVal r)
+      g :: Domains (ADVal r) -> TensorOf m (ADVal r)
       g inputs = f $ Compose $ parseDomains vals' inputs
       (advalGrad, value1) = revOnDomains dt (getCompose . g) parameters
       gradient1 = parseDomains vals' advalGrad
-      g9 :: ADInputs (Ast0 r) -> TensorOf m (ADVal (Ast0 r))
+      g9 :: Domains (ADVal (Ast0 r)) -> TensorOf m (ADVal (Ast0 r))
       g9 inputs = f $ Compose $ parseDomains vals' inputs
       (advalGrad9, value9) = revAstOnDomains g9 parameters dt
       gradient9 = parseDomains vals' advalGrad9
       h :: ADReady x
         => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
-        -> (Ast m r -> Ast m r) -> ADInputs r
+        -> (Ast m r -> Ast m r) -> Domains (ADVal r)
         -> ADVal (TensorOf m r)
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
@@ -90,7 +89,7 @@ rev' f vals =
       -- Here comes the part with Ast gradients.
       hAst :: ADReady x
            => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
-           -> (Ast m r -> Ast m r) -> ADInputs (Ast0 r)
+           -> (Ast m r -> Ast m r) -> Domains (ADVal (Ast0 r))
            -> Compose ADVal (AstRanked r) m
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)

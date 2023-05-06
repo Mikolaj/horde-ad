@@ -211,7 +211,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> ADInputs r -> ADVal r
+             let f :: MnistData r -> Domains (ADVal r) -> ADVal r
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvD EM.empty
                               $ zip vars1 $ V.toList
@@ -314,7 +314,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
              funToAstR (singletonShape sizeMnistLabelInt) id
            inputVars = [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
            fInterpret
-             :: ADInputs (Ast0 r) -> Domains (Ast0 r)
+             :: Domains (ADVal (Ast0 r)) -> Domains (Ast0 r)
              -> (ADAstVarNames n r, ADAstVars n r)
              -> Compose ADVal (AstRanked r) 0
            {-# INLINE fInterpret #-}
@@ -557,7 +557,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> ADInputs r -> ADVal r
+             let f :: MnistData r -> Domains (ADVal r) -> ADVal r
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvD EM.empty
                               $ zip vars1 $ V.toList
@@ -663,7 +663,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
              funToAstR (singletonShape sizeMnistLabelInt) id
            inputVars = [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
            fInterpret
-             :: ADInputs (Ast0 r) -> Domains (Ast0 r)
+             :: Domains (ADVal (Ast0 r)) -> Domains (Ast0 r)
              -> (ADAstVarNames n r, ADAstVars n r)
              -> Compose ADVal (AstRanked r) 0
            {-# INLINE fInterpret #-}

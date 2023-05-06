@@ -109,7 +109,7 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
 -- The general case, needed for old hacky tests using only scalars.
 valueGeneral
   :: forall r a. ADTensor r
-  => (TensorADVal.ADInputs r -> a)
+  => (Domains (DualNumber.ADVal r) -> a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
@@ -121,7 +121,7 @@ valueGeneral f parameters =
 
 valueOnDomains
   :: (ADTensor r, IsPrimalWithScalarNew a r)
-  => (TensorADVal.ADInputs r -> DualNumber.ADVal a)
+  => (Domains (DualNumber.ADVal r) -> DualNumber.ADVal a)
   -> Domains r
   -> a
 {-# INLINE valueOnDomains #-}
@@ -133,8 +133,8 @@ valueOnDomains f parameters =
 revOnADInputs
   :: (ADTensor r, IsPrimalWithScalarNew a r)
   => a
-  -> (TensorADVal.ADInputs r -> DualNumber.ADVal a)
-  -> TensorADVal.ADInputs r
+  -> (Domains (DualNumber.ADVal r) -> DualNumber.ADVal a)
+  -> Domains (DualNumber.ADVal r)
   -> (Domains r, a)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
@@ -146,14 +146,14 @@ revOnADInputs = Engine.revOnADInputs  . Just
 revOnDomains
   :: (ADTensor r, IsPrimalWithScalarNew a r)
   => a
-  -> (TensorADVal.ADInputs r -> DualNumber.ADVal a)
+  -> (Domains (DualNumber.ADVal r) -> DualNumber.ADVal a)
   -> Domains r
   -> (Domains r, a)
 revOnDomains = Engine.revOnDomains . Just
 
 prettyPrintDf
   :: (ADTensor r, Show (Dual r))
-  => (TensorADVal.ADInputs r -> DualNumber.ADVal r)
+  => (Domains (DualNumber.ADVal r) -> DualNumber.ADVal r)
   -> Domains r
   -> String
 prettyPrintDf f parameters =
@@ -164,7 +164,7 @@ prettyPrintDf f parameters =
 
 -- * Simplified version compatibility shims
 
-at0 :: ADModeAndNum d r => TensorADVal.ADInputs r -> Int -> ADVal d r
+at0 :: ADModeAndNum d r => Domains (DualNumber.ADVal r) -> Int -> ADVal d r
 {-# INLINE at0 #-}
 at0 TensorADVal.ADInputs{..} i =
   dD emptyADShare (OR.toVector (runFlip inputPrimal0) V.! i)
@@ -172,7 +172,7 @@ at0 TensorADVal.ADInputs{..} i =
 
 at1 :: forall n r d.
        ( KnownNat n, ADModeAndNum d r, TensorOf n r ~ Flip OR.Array r n )
-    => TensorADVal.ADInputs r -> Int -> ADVal d (Flip OR.Array r n)
+    => Domains (DualNumber.ADVal r) -> Int -> ADVal d (Flip OR.Array r n)
 {-# INLINE at1 #-}
 at1 TensorADVal.ADInputs{..} i = dD emptyADShare (tfromD $ inputPrimal1 V.! i)
                                             (dFromD $ inputDual1 V.! i)
@@ -180,7 +180,7 @@ at1 TensorADVal.ADInputs{..} i = dD emptyADShare (tfromD $ inputPrimal1 V.! i)
 ifoldlDual' :: forall a d r. ADModeAndNum d r
              => (a -> Int -> ADVal d r -> a)
              -> a
-             -> TensorADVal.ADInputs r
+             -> Domains (DualNumber.ADVal r)
              -> a
 {-# INLINE ifoldlDual' #-}
 ifoldlDual' f a TensorADVal.ADInputs{..} = do
@@ -193,7 +193,7 @@ ifoldlDual' f a TensorADVal.ADInputs{..} = do
 foldlDual' :: forall a d r. ADModeAndNum d r
             => (a -> ADVal d r -> a)
             -> a
-            -> TensorADVal.ADInputs r
+            -> Domains (DualNumber.ADVal r)
             -> a
 {-# INLINE foldlDual' #-}
 foldlDual' f a TensorADVal.ADInputs{..} = do
