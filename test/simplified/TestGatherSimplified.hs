@@ -77,7 +77,7 @@ testGatherNested1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 1 Double) gatherNested1
+    (rev' @Double @1 gatherNested1
                                (tkonst 7 $ tfromList [0, 1]))
 
 testGatherNestedBuild1 :: Assertion
@@ -85,7 +85,7 @@ testGatherNestedBuild1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [3.0,1.0,1.0,1.0,1.0,3.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 2 Double)
+    (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
              ifB (i >* 2) (gatherNested1 t) (t ! [i])))
           (tkonst 7 $ tfromList [0, 1]))
@@ -103,7 +103,7 @@ testGather1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 1 Double) gather1
+    (rev' @Double @1 gather1
                                (tkonst 7 $ tfromList [0, 1]))
 
 testGatherBuild1 :: Assertion
@@ -111,7 +111,7 @@ testGatherBuild1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [3.0,1.0,1.0,1.0,1.0,3.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 2 Double)
+    (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
              ifB (i >* 2) (gather1 t) (t ! [i])))
           (tkonst 7 $ tfromList [0, 1]))
@@ -142,7 +142,7 @@ testGatherNested2 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0])
-    (rev' @(OR.Array 2 Double) gatherNested2
+    (rev' @Double @2 gatherNested2
                                (tkonst 7 $ tfromList [0, 1]))
 
 testGatherNestedBuild2 :: Assertion
@@ -150,7 +150,7 @@ testGatherNestedBuild2 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [6.0,0.0,0.0,0.0,6.0,6.0,0.0,0.0,6.0,6.0,0.0,0.0,0.0,6.0])
-    (rev' @(OR.Array 3 Double)
+    (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
              gatherNested2 (t * tkonst0N [7, 2] (tfromIndex0 i))))
           (tkonst 7 $ tfromList [0, 1]))
@@ -168,7 +168,7 @@ testGather2 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0])
-    (rev' @(OR.Array 2 Double) gather2
+    (rev' @Double @2 gather2
                                (tkonst 7 $ tfromList [0, 1]))
 
 testGatherBuild2 :: Assertion
@@ -176,7 +176,7 @@ testGatherBuild2 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [6.0,0.0,0.0,0.0,6.0,6.0,0.0,0.0,6.0,6.0,0.0,0.0,0.0,6.0])
-    (rev' @(OR.Array 3 Double)
+    (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
              gather2 (t * tkonst0N [7, 2] (tfromIndex0 i))))
           (tkonst 7 $ tfromList [0, 1]))
@@ -207,7 +207,7 @@ testGatherNested12 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,0.0,1.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0])
-    (rev' @(OR.Array 2 Double) gatherNested12
+    (rev' @Double @2 gatherNested12
                                (tkonst 7 $ tfromList [0, 1]))
 
 testGatherNestedBuild12 :: Assertion
@@ -215,7 +215,7 @@ testGatherNestedBuild12 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 2 Double)
+    (rev' @Double @2
           (\t -> tindex (tbuild1 5 (\i ->
              ifB (i >* 2) (gatherNested12 t)
                           (ttranspose [1, 0] $ tkonst 4 $ t ! [i]))) [1])
@@ -234,7 +234,7 @@ testGather12 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,0.0,1.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0])
-    (rev' @(OR.Array 2 Double) gather12
+    (rev' @Double @2 gather12
                                (tkonst 7 $ tfromList [0, 1]))
 
 testGatherBuild12 :: Assertion
@@ -242,7 +242,7 @@ testGatherBuild12 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 2 Double)
+    (rev' @Double @2
           (\t -> tindex (tbuild1 5 (\i ->
              ifB (i >* 2) (gather12 t)
                           (ttranspose [1, 0] $ tkonst 4 $ t ! [i]))) [1])
@@ -273,7 +273,7 @@ testGatherReshape22 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [6,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @(OR.Array 2 Double) gatherReshape22
+    (rev' @Double @2 gatherReshape22
                                (tkonst 6 $ tfromList [0, 1]))
 
 testGatherReshapeBuild22 :: Assertion
@@ -281,7 +281,7 @@ testGatherReshapeBuild22 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [6,2]
                  [6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0])
-    (rev' @(OR.Array 3 Double)
+    (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
              gatherReshape22 (t * tkonst0N [6, 2] (tfromIndex0 i))))
           (tkonst 6 $ tfromList [0, 1]))
@@ -351,13 +351,13 @@ testGatherTranspose33 :: Assertion
 testGatherTranspose33 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,2,2,1,2,2,2,2,2,1] [81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002])
-    (rev' @(OR.Array 2 Double) gatherTranspose33 t128)
+    (rev' @Double @2 gatherTranspose33 t128)
 
 testGatherTransposeBuild33 :: Assertion
 testGatherTransposeBuild33 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,2,2,1,2,2,2,2,2,1] [487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012])
-    (rev' @(OR.Array 3 Double)
+    (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
              gatherTranspose33 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
           t128)
@@ -414,7 +414,7 @@ testScatterNested1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @(OR.Array 1 Double) scatterNested1
+    (rev' @Double @1 scatterNested1
                                (tkonst 7 $ tfromList [0, 1]))
 
 testScatterNestedBuild1 :: Assertion
@@ -422,7 +422,7 @@ testScatterNestedBuild1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
-    (rev' @(OR.Array 2 Double)
+    (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
              ifB (i >* 2) (scatterNested1 t) (t ! [i])))
           (tkonst 7 $ tfromList [0, 1]))
@@ -440,7 +440,7 @@ testScatter1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 1 Double) scatter1
+    (rev' @Double @1 scatter1
                                (tkonst 7 $ tfromList [0, 1]))
 
 testScatterBuild1 :: Assertion
@@ -448,7 +448,7 @@ testScatterBuild1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [3.0,3.0,1.0,1.0,1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 2 Double)
+    (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
              ifB (i >* 2) (scatter1 t) (t ! [i])))
           (tkonst 7 $ tfromList [0, 1]))
@@ -479,7 +479,7 @@ testScatterNested2 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 2 Double) scatterNested2
+    (rev' @Double @2 scatterNested2
                                (tkonst 7 $ tfromList [0, 1]))
 
 testScatterNestedBuild2 :: Assertion
@@ -487,7 +487,7 @@ testScatterNestedBuild2 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [6.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 3 Double)
+    (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
              scatterNested2 (t * tkonst0N [7, 2] (tfromIndex0 i))))
           (tkonst 7 $ tfromList [0, 1]))
@@ -505,7 +505,7 @@ testScatter2 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 2 Double) scatter2
+    (rev' @Double @2 scatter2
                                (tkonst 7 $ tfromList [0, 1]))
 
 testScatterBuild2 :: Assertion
@@ -513,7 +513,7 @@ testScatterBuild2 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 3 Double)
+    (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
              scatter2 (t * tkonst0N [7, 2] (tfromIndex0 i))))
           (tkonst 7 $ tfromList [0, 1]))
@@ -544,7 +544,7 @@ testScatterNested12 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 2 Double) scatterNested12
+    (rev' @Double @2 scatterNested12
                                (tkonst 7 $ tfromList [0, 1]))
 
 testScatterNestedBuild12 :: Assertion
@@ -552,7 +552,7 @@ testScatterNestedBuild12 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 2 Double)
+    (rev' @Double @2
           (\t -> tindex (tbuild1 5 (\i ->
              ifB (i >* 2) (scatterNested12 t)
                           (ttranspose [1, 0] $ tkonst 4 $ t ! [i]))) [1])
@@ -571,7 +571,7 @@ testScatter12 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 2 Double) scatter12
+    (rev' @Double @2 scatter12
                                (tkonst 7 $ tfromList [0, 1]))
 
 testScatterBuild12 :: Assertion
@@ -579,7 +579,7 @@ testScatterBuild12 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 2 Double)
+    (rev' @Double @2
           (\t -> tindex (tbuild1 5 (\i ->
              ifB (i >* 2) (scatter12 t)
                           (ttranspose [1, 0] $ tkonst 4 $ t ! [i]))) [1])

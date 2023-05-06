@@ -26,23 +26,18 @@ import HordeAd.Core.TensorClass
 
 import EqEpsilon
 
-rev' :: forall b r n m a.
+rev' :: forall r m n v g.
         ( KnownNat n, KnownNat m, ADTensor r, ADReady r, ADReady (ADVal r)
         , InterpretAst r, InterpretAst (ADVal r)
-        , a ~ TensorOf m r, IsPrimal a, Value r ~ r, Value (ADVal r) ~ r
+        , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n
+        , IsPrimal v, Value r ~ r, Value (ADVal r) ~ r
         , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-        , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
-        , b ~ OR.Array m r )
+        , Ranked (ADVal r) ~ Compose ADVal (Ranked r) )
      => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
-     -> TensorOf n r
-     -> ( a, a, a, a, a, a, a, a
-        , TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r
-        , TensorOf n r, TensorOf n r
-        , Ast m r, Ast m r
-        , a, a, a, a, a, a, a, a, a, a, a, a, a
-        , TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r
-        , TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r
-        , TensorOf n r, TensorOf n r, TensorOf n r, TensorOf n r )
+     -> g
+     -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, Ast m r, Ast m r
+        , v, v, v, v, v, v, v, v, v, v, v, v, v
+        , g, g, g, g, g, g, g, g, g, g, g, g, g )
 rev' f vals =
   let vals':: OR.Array n r
       vals' = runFlip vals
@@ -168,13 +163,14 @@ rev' f vals =
      , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS )
 
 assertEqualUpToEpsilon'
-    :: ( AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon b
-       , KnownNat m, ShowAstSimplify r, HasCallStack, a ~ Flip OR.Array r n )
+    :: ( v ~ Flip OR.Array r m, g ~ Flip OR.Array r n
+       , AssertEqualUpToEpsilon g, AssertEqualUpToEpsilon v
+       , KnownNat m, ShowAstSimplify r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected value
-    -> ( b, b, b, b, b, b, b, b, a, a, a, a, a, a, a, Ast m r, Ast m r
-       , b, b, b, b, b, b, b, b, b, b, b, b, b
-       , a, a, a, a, a, a, a, a, a, a, a, a, a )
+    -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, Ast m r, Ast m r
+       , v, v, v, v, v, v, v, v, v, v, v, v, v
+       , g, g, g, g, g, g, g, g, g, g, g, g, g )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
@@ -254,13 +250,14 @@ assertEqualUpToEpsilon'
   show (simplifyAst6 astSimp) @?= show astSimp
 
 assertEqualUpToEpsilonShort
-    :: ( AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon b
-       , KnownNat m, ShowAstSimplify r, HasCallStack, a ~ Flip OR.Array r n )
+    :: ( v ~ Flip OR.Array r m, g ~ Flip OR.Array r n
+       , AssertEqualUpToEpsilon g, AssertEqualUpToEpsilon v
+       , KnownNat m, ShowAstSimplify r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected value
-    -> ( b, b, b, b, b, b, b, b, a, a, a, a, a, a, a, Ast m r, Ast m r
-       , b, b, b, b, b, b, b, b, b, b, b, b, b
-       , a, a, a, a, a, a, a, a, a, a, a, a, a )
+    -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, Ast m r, Ast m r
+       , v, v, v, v, v, v, v, v, v, v, v, v, v
+       , g, g, g, g, g, g, g, g, g, g, g, g, g )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShort
