@@ -312,33 +312,16 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
              funToAstR (singletonShape sizeMnistLabelInt) id
-           inputVars = [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
-           fInterpret
-             :: Domains (ADVal (Ast0 r)) -> Domains (Ast0 r)
-             -> (ADAstVarNames n r, ADAstVars n r)
-             -> Compose ADVal (AstRanked r) 0
-           {-# INLINE fInterpret #-}
-           fInterpret varInputs domains ((_, _, vars1), _) =
-             -- TODO: with larger examples benchmark if not working in rank 0
-             -- is costly (tscalar below)
-             let ast :: Ast 0 r
-                 ast = tscalar
-                       $ MnistFcnnRanked1.afcnnMnistLoss1TensorData
+           envInit = extendEnvR varGlyph (tconstant astGlyph)
+                     $ extendEnvR varLabel (tconstant astLabel) EM.empty
+           f = tscalar . MnistFcnnRanked1.afcnnMnistLoss1TensorData
                            widthHidden widthHidden2 (astGlyph, astLabel)
-                           (parseDomains valsInit domains)
-                 vars1AndInput = vars1 ++ inputVars
-                 env1 = foldr extendEnvD EM.empty
-                        $ zip vars1AndInput
-                        $ V.toList (V.zipWith (dDnotShared emptyADShare)
-                                              (inputPrimal1 varInputs)
-                                              (inputDual1 varInputs))
-                          ++ [ dfromR $ tconstant astGlyph
-                             , dfromR $ tconstant astLabel ]
-             in snd $ interpretAst env1 emptyMemo ast
            (((var0Again, varDtAgain, vars1Again), gradientRaw, primal), _) =
-             revAstOnDomainsFun 0 shapes1 fInterpret
+             revAstOnDomainsFun 0 shapes1 $ revDtInterpret envInit valsInit f
            gradient = simplifyAstDomains6 gradientRaw
-           vars1AndInputAgain = vars1Again ++ inputVars
+           vars1AndInputAgain =
+             vars1Again
+             ++ [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
            vars = (var0Again, varDtAgain, vars1AndInputAgain)
            go :: [MnistData r] -> Domains r -> Domains r
            go [] parameters = parameters
@@ -661,33 +644,16 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
              funToAstR (singletonShape sizeMnistLabelInt) id
-           inputVars = [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
-           fInterpret
-             :: Domains (ADVal (Ast0 r)) -> Domains (Ast0 r)
-             -> (ADAstVarNames n r, ADAstVars n r)
-             -> Compose ADVal (AstRanked r) 0
-           {-# INLINE fInterpret #-}
-           fInterpret varInputs domains ((_, _, vars1), _) =
-             -- TODO: with larger examples benchmark if not working in rank 0
-             -- is costly (tscalar below)
-             let ast :: Ast 0 r
-                 ast = tscalar
-                       $ MnistFcnnRanked2.afcnnMnistLoss2TensorData
+           envInit = extendEnvR varGlyph (tconstant astGlyph)
+                     $ extendEnvR varLabel (tconstant astLabel) EM.empty
+           f = tscalar . MnistFcnnRanked2.afcnnMnistLoss2TensorData
                            (astGlyph, astLabel)
-                           (parseDomains valsInit domains)
-                 vars1AndInput = vars1 ++ inputVars
-                 env1 = foldr extendEnvD EM.empty
-                        $ zip vars1AndInput
-                        $ V.toList (V.zipWith (dDnotShared emptyADShare)
-                                              (inputPrimal1 varInputs)
-                                              (inputDual1 varInputs))
-                          ++ [ dfromR $ tconstant astGlyph
-                             , dfromR $ tconstant astLabel ]
-             in snd $ interpretAst env1 emptyMemo ast
            (((var0Again, varDtAgain, vars1Again), gradientRaw, primal), _) =
-             revAstOnDomainsFun 0 shapes1 fInterpret
+             revAstOnDomainsFun 0 shapes1 $ revDtInterpret envInit valsInit f
            gradient = simplifyAstDomains6 gradientRaw
-           vars1AndInputAgain = vars1Again ++ inputVars
+           vars1AndInputAgain =
+             vars1Again
+             ++ [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
            vars = (var0Again, varDtAgain, vars1AndInputAgain)
            go :: [MnistData r] -> Domains r -> Domains r
            go [] parameters = parameters

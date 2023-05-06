@@ -5,7 +5,7 @@
 -- are add-ons.
 module HordeAd.Core.Engine
   ( -- * The adaptors
-    revL, revDtMaybeL, revDtFun, rev, revDt
+    revL, revDtMaybeL, revDtFun, revDtInterpret, rev, revDt
   , srevL, srevDtMaybeL, srev, srevDt
   , crev, crevDt, fwd
   , -- * The most often used part of the high-level API
@@ -89,24 +89,25 @@ revDtFun f vals =
   let parameters0 = toDomains vals
       dim0 = tlength @r @0 $ tfromD $ doms0 parameters0
       shapes1 = map dshape $ toListDoms $ domsR parameters0
-  in revAstOnDomainsFun dim0 shapes1 (revDtInterpret vals f)
+  in revAstOnDomainsFun dim0 shapes1 (revDtInterpret EM.empty vals f)
 
 revDtInterpret
-  :: forall r n vals astvals.
+  :: forall n r vals astvals.
      ( InterpretAst r, Scalar r ~ r, Value r ~ r, KnownNat n
      , AdaptableDomains astvals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
-  => vals -> (astvals -> Ast n r)
+  => AstEnv (ADVal (Ast0 r)) -> vals -> (astvals -> Ast n r)
   -> Domains (ADVal (Ast0 r)) -> Domains (Ast0 r)
   -> (ADAstVarNames n r, ADAstVars n r)
   -> Compose ADVal (AstRanked r) n
 {-# INLINE revDtInterpret #-}
-revDtInterpret vals f varInputs domains ((var0, _, vars1), (ast0, _, _)) =
-  let ast = f $ parseDomains vals domains
+revDtInterpret envInit valsInit f = \varInputs domains
+                                     ((var0, _, vars1), (ast0, _, _)) ->
+  let ast = f $ parseDomains valsInit domains
       d0 = dD emptyADShare
               ast0
               (dFromVectorR $ V.map dScalarR $ inputDual0 varInputs)
-      env0 = extendEnvR var0 (Compose d0) EM.empty
+      env0 = extendEnvR var0 (Compose d0) envInit
       env1 = foldr extendEnvD env0
              $ zip vars1 $ V.toList
              $ V.zipWith (dDnotShared emptyADShare)
