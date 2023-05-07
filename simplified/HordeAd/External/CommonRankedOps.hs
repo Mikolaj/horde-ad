@@ -94,12 +94,12 @@ lossCrossEntropyV targ res = negate $ tunScalar $ log res `tdot0` targ
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
-lossSoftMaxCrossEntropy1
+lossSoftMaxCrossEntropyR
   :: ( Tensor r, Tensor (Primal r), KnownNat n
      , Floating (TensorOf n (Primal r))
      , Fractional (TensorOf 0 (Primal r)) )
   => TensorOf n (Primal r) -> TensorOf n r -> r
-lossSoftMaxCrossEntropy1 target d =
+lossSoftMaxCrossEntropyR target d =
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by the QuickCheck test in TestMnistCNN.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106

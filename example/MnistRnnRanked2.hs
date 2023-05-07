@@ -3,108 +3,128 @@ module MnistRnnRanked2 where
 
 import Prelude
 
-import           Control.Exception (assert)
+import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
+import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
-import           GHC.Exts (inline)
+import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.Domains
+import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData
 
-sumTrainableInputsL
-  :: forall r. Tensor r
-  => TensorOf 1 r -> [TensorOf 1 r]
-  -> TensorOf 1 r
-sumTrainableInputsL x0 weights = tlet x0 $ \x ->
-  let f :: TensorOf 1 r -> TensorOf 0 r
-      f v = v `tdot0` x
-  in tfromList $ map f weights
-
-afcnnMnistLen1 :: Int -> Int -> [Int]
-afcnnMnistLen1 widthHidden widthHidden2 =
-  replicate widthHidden sizeMnistGlyphInt ++ [widthHidden]
-  ++ replicate widthHidden2 widthHidden ++ [widthHidden2]
-  ++ replicate sizeMnistLabelInt widthHidden2 ++ [sizeMnistLabelInt]
+type LayerWeigthsRNN r =  -- in_width out_width
+  ( Ranked r 2  -- input weight, [out_width, in_width]
+  , Ranked r 2  -- state weight, [out_width, out_width]
+  , Ranked r 1 )  -- bias, [out_width]
 
 -- The differentiable type of all trainable parameters of this nn.
-type ADFcnnMnist1Parameters r =
-  ( ( [TensorOf 1 r]  -- @widthHidden@ copies, length @sizeMnistGlyphInt@
-    , TensorOf 1 r )  -- length @widthHidden@
-  , ( [TensorOf 1 r]  -- @widthHidden2@ copies, length @widthHidden@
-    , TensorOf 1 r )  -- length @widthHidden2@
-  , ( [TensorOf 1 r]  -- @sizeMnistLabelInt@ copies, length @widthHidden2@
-    , TensorOf 1 r )  -- length @sizeMnistLabelInt@
-  )
+type ADRnnMnistParameters r =  -- sizeMnistHeight out_width
+  ( LayerWeigthsRNN r  -- sizeMnistHeight out_width
+  , LayerWeigthsRNN r  -- out_width out_width
+  , ( Ranked r 2  -- [SizeMnistLabel, out_width]
+    , Ranked r 1 ) )  -- [SizeMnistLabel]
 
--- | Fully connected neural network for the MNIST digit classification task.
--- There are two hidden layers and both use the same activation function.
--- The output layer uses a different activation function.
--- The widths of the hidden layers are @widthHidden@ and @widthHidden2@
--- and from these, the @len*@ functions compute the number and dimensions
--- of scalars (none in this case) and vectors of dual number parameters
--- (inputs) to be given to the program.
-afcnnMnist1 :: ADReady r
-            => (TensorOf 1 r -> TensorOf 1 r)
-            -> (TensorOf 1 r -> TensorOf 1 r)
-            -> Int
-            -> Int
-            -> TensorOf 1 r
-            -> ADFcnnMnist1Parameters r
-            -> TensorOf 1 r
-afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
-            datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
-  let !_A = assert (sizeMnistGlyphInt == tlength datum
-                    && length hidden == widthHidden
-                    && length hidden2 == widthHidden2
-                    && length readout == sizeMnistLabelInt) ()
-      hiddenLayer1 = sumTrainableInputsL datum hidden + bias
-      nonlinearLayer1 = factivationHidden hiddenLayer1
-      hiddenLayer2 = sumTrainableInputsL nonlinearLayer1 hidden2 + bias2
-      nonlinearLayer2 = factivationHidden hiddenLayer2
-      outputLayer = sumTrainableInputsL nonlinearLayer2 readout + biasr
-  in factivationOutput outputLayer
+zeroStateR
+  :: (Tensor r, KnownNat n)
+  => ShapeInt n -> (Ranked r n  -- state
+                    -> a)
+  -> a
+zeroStateR sh f = f (tzero sh)
 
--- | The neural network applied to concrete activation functions
--- and composed with the appropriate loss function.
-afcnnMnistLoss1
-  :: ADReady r
-  => Int -> Int -> MnistData (Value r) -> ADFcnnMnist1Parameters r
+unrollLastR :: forall state c w r n. Numeric r
+            => (state -> OR.Array n r -> w -> (c, state))
+            -> (state -> OR.Array (1 + n) r -> w -> (c, state))
+unrollLastR f s0 xs w =
+  let g :: (c, state) -> OR.Array n r -> (c, state)
+      g (_, s) x = f s x w
+  in foldl' g (undefined, s0) $ ORB.toList $ OR.unravel xs
+
+rnnMnistLayerR
+  :: forall r. Tensor r
+  => Ranked r 2  -- in state, [out_width, batch_size]
+  -> Ranked r 2  -- in, [in_width, batch_size] r)  -- in
+  -> LayerWeigthsRNN r  -- in_width out_width
+  -> ( Ranked r 2  -- out, [out_width, batch_size]
+     , Ranked r 2 )  -- out state, [out_width, batch_size]
+rnnMnistLayerR s x (wX, wS, b) = case tshape s of
+  _out_width :$  batch_size :$ ZS ->
+    let y = wX `tmatmul2` x + wS `tmatmul2` s
+            + ttranspose [1, 0] (tkonst @r @1 batch_size b)
+        yTanh = tanh y
+    in (yTanh, yTanh)
+  _ -> error "rnnMnistLayerR: wrong shape of the state"
+
+rnnMnistTwoR
+  :: Tensor r
+  => Ranked r 2  -- initial state, [2 * out_width, batch_size]
+  -> OR.Array 2 (Value r)  -- [sizeMnistHeight, batch_size]
+  -> ( LayerWeigthsRNN r  -- sizeMnistHeight out_width
+     , LayerWeigthsRNN r )  -- out_width out_width
+  -> ( Ranked r 2  -- [out_width, batch_size]
+     , Ranked r 2 )  -- final state, [2 * out_width, batch_size]
+rnnMnistTwoR s x ((wX, wS, b), (wX2, wS2, b2)) = case tshape s of
+  out_width_x_2 :$ _batch_size :$ ZS ->
+    let out_width = out_width_x_2 `div` 2
+        s1 = tslice 0 out_width s
+        s2 = tslice out_width out_width s
+        (vec1, s1') = rnnMnistLayerR s1 (tconst x) (wX, wS, b)
+        (vec2, s2') = rnnMnistLayerR s2 vec1 (wX2, wS2, b2)
+        s3 = tappend s1' s2'
+    in (vec2, s3)
+  _ -> error "rnnMnistTwoR: wrong shape of the state"
+
+rnnMnistZeroR
+  :: (Tensor r, Numeric (Value r))
+  => Int
+  -> OR.Array 3 (Value r)  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
+  -> ADRnnMnistParameters r  -- sizeMnistHeight out_width
+  -> Ranked r 2  -- [SizeMnistLabel, batch_size]
+rnnMnistZeroR batch_size xs
+              ((wX, wS, b), (wX2, wS2, b2), (w3, b3)) = case tshape b of
+  out_width :$ ZS ->
+    let sh = 2 * out_width :$ batch_size :$ ZS
+        (out, _s) = zeroStateR sh (unrollLastR rnnMnistTwoR) xs
+                                  ((wX, wS, b), (wX2, wS2, b2))
+    in w3 `tmatmul2` out + ttranspose [1, 0] (tkonst batch_size b3)
+  _ -> error "rnnMnistZeroR: wrong shape"
+
+arnnMnistLossFusedR
+  :: ( Tensor r, Tensor (Primal r)
+     , Ranked (Primal r) 2 ~ OR.Array 2 (Value r), Numeric (Value r) )
+  => Int -> MnistDataBatchR (Value r)  -- batch_size
+  -> ADRnnMnistParameters r  -- SizeMnistHeight out_width
   -> r
-afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
-  let datum1 = tconst $ OR.fromVector [sizeMnistGlyphInt] datum
-      target1 = tconst $ OR.fromVector [sizeMnistLabelInt] target
-  in afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum1, target1)
+arnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
+  let xs = OR.transpose [2, 1, 0] glyphR
+      result = rnnMnistZeroR batch_size xs adparameters
+      targets2 = OR.transpose [1, 0] labelR
+      loss = lossSoftMaxCrossEntropyR targets2 result
+  in tscale0 (recip $ fromIntegral batch_size)
+             loss
 
-afcnnMnistLoss1TensorData
-  :: ADReady r
-  => Int -> Int -> (TensorOf 1 r, TensorOf 1 r) -> ADFcnnMnist1Parameters r
+arnnMnistTestR
+  :: forall r. (ADReady r, r ~ Value r)
+  => Int -> MnistDataBatchR r  -- batch_size
+  -> ((ADRnnMnistParameters r  -- SizeMnistHeight out_width
+       -> Ranked r 2)  -- [SizeMnistLabel, batch_size]
+      -> OR.Array 2 r)  -- [SizeMnistLabel, batch_size]
   -> r
-afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
-  let result = inline afcnnMnist1 logistic softMax1
-                                  widthHidden widthHidden2 datum adparams
-  in lossCrossEntropyV target result
-
--- | A function testing the neural network given testing set of inputs
--- and the trained parameters.
-afcnnMnistTest1
-  :: forall r. (ADReady r, Numeric r)
-  => Int -> Int -> [MnistData (Value r)]
-  -> ((ADFcnnMnist1Parameters r
-       -> TensorOf 1 r)
-      -> Vector r)
-  -> r
-afcnnMnistTest1 widthHidden widthHidden2 dataList evalAtTestParams =
-  let matchesLabels :: MnistData (Value r) -> Bool
-      matchesLabels (glyph, label) =
-        let glyph1 = tconst $ OR.fromVector [sizeMnistGlyphInt] glyph
-            nn :: ADFcnnMnist1Parameters r
-               -> TensorOf 1 r
-            nn = inline afcnnMnist1 logistic softMax1
-                                    widthHidden widthHidden2 glyph1
-            v = evalAtTestParams nn
-        in V.maxIndex v == V.maxIndex label
-  in fromIntegral (length (filter matchesLabels dataList))
-     / fromIntegral (length dataList)
+arnnMnistTestR batch_size (glyphS, labelS) evalAtTestParams =
+  let xs = OR.transpose [2, 1, 0] glyphS
+      outputR =
+        let nn :: ADRnnMnistParameters r  -- SizeMnistHeight out_width
+               -> Ranked r 2  -- [SizeMnistLabel, batch_size]
+            nn = rnnMnistZeroR batch_size xs
+        in evalAtTestParams nn
+      outputs = map OR.toVector $ ORB.toList $ OR.unravel
+                $ OR.transpose [1, 0] outputR
+      labels = map OR.toVector $ ORB.toList $ OR.unravel labelS
+      matchesLabels :: Vector r -> Vector r -> Int
+      matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
+                                 | otherwise = 0
+  in fromIntegral (sum (zipWith matchesLabels outputs labels))
+     / fromIntegral batch_size

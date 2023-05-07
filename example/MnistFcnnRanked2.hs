@@ -7,7 +7,7 @@ import           Control.Exception (assert)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.Domains
 import HordeAd.Core.TensorClass
@@ -75,14 +75,14 @@ afcnnMnistLoss2TensorData (datum, target) adparams =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 afcnnMnistTest2
-  :: forall r. (ADReady r, Numeric r)
-  => [MnistData (Value r)]
+  :: forall r. (ADReady r, r ~ Value r)
+  => [MnistData r]
   -> ((ADFcnnMnist2Parameters r
        -> TensorOf 1 r)
       -> Vector r)
   -> r
 afcnnMnistTest2 dataList evalAtTestParams =
-  let matchesLabels :: MnistData (Value r) -> Bool
+  let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let glyph1 = tconst $ OR.fromVector [sizeMnistGlyphInt] glyph
             nn :: ADFcnnMnist2Parameters r

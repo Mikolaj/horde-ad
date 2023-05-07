@@ -151,13 +151,14 @@ arnnMnistTestS out_width@MkSNat
       outputS =
         let nn :: ADRnnMnistParameters SizeMnistHeight out_width 'ADModeValue r
                -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size] r)
-            nn = rnnMnistZeroS out_width
-                               batch_size
-                               (MkSNat @SizeMnistWidth) (MkSNat @SizeMnistHeight)
-                               xs
+            nn = rnnMnistZeroS
+                   out_width
+                   batch_size
+                   (MkSNat @SizeMnistWidth) (MkSNat @SizeMnistHeight)
+                   xs
         in evalAtTestParams nn
       outputs = map OS.toVector $ OSB.toList $ OS.unravel
-                $ OS.transpose @'[1, 0] $ outputS
+                $ OS.transpose @'[1, 0] outputS
       labels = map OS.toVector $ OSB.toList $ OS.unravel labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1

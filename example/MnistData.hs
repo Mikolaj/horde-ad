@@ -8,6 +8,7 @@ import Prelude
 import           Codec.Compression.GZip (decompress)
 import           Control.Arrow (first)
 import           Data.Array.Internal (valueOf)
+import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.ByteString.Lazy as LBS
@@ -76,6 +77,10 @@ type MnistDataS r =
 type MnistDataBatchS batch_size r =
   ( OS.Array '[batch_size, SizeMnistHeight, SizeMnistWidth] r
   , OS.Array '[batch_size, SizeMnistLabel] r )
+
+type MnistDataBatchR r =
+  ( OR.Array 3 r  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
+  , OR.Array 2 r )  -- [batch_size, SizeMnistLabel]
 
 shapeBatch :: Numeric r => MnistData r -> MnistDataS r
 shapeBatch (input, target) = (OS.fromVector input, OS.fromVector target)
