@@ -615,6 +615,7 @@ library exampleLibrarySimplified
       , horde-ad-simplified
 
       , base
+      , bifunctors
       , bytestring
       , hmatrix
       , mnist-idx
@@ -751,7 +752,7 @@ test-suite simplifiedOnlyTest
                       TestGatherSimplified
                       TestHighRankSimplified
                       TestMnistFCNNR
---                      TestMnistRNNR
+                      TestMnistRNNR
                       TestSimplified
 
     build-depends:

@@ -153,11 +153,11 @@ liftVR2NoAdapt op (RS.A (RG.A sht oit@(OI.T sst _ vt)))
            $ RS.A $ RG.A sht $ oit {OI.values = vt `op` vu}
       else OR.fromVector sht $ OI.toVectorT sht oit `op` OI.toVectorT sht oiu
 
-liftVR2 :: (Numeric r, KnownNat n)
+liftVR2 :: (Numeric r, Show r, KnownNat n)
         => (Vector r -> Vector r -> Vector r)
         -> OR.Array n r -> OR.Array n r -> OR.Array n r
-liftVR2 op (RS.A (RG.A sht oit@(OI.T sst _ vt)))
-           (RS.A (RG.A shu oiu@(OI.T ssu _ vu))) =
+liftVR2 op t@(RS.A (RG.A sht oit@(OI.T sst _ vt)))
+           u@(RS.A (RG.A shu oiu@(OI.T ssu _ vu))) =
   case (V.length vt, V.length vu) of
     (1, 1) ->
       let (sh, ss) = if null sht then (shu, ssu) else (sht, sst)
@@ -170,7 +170,7 @@ liftVR2 op (RS.A (RG.A sht oit@(OI.T sst _ vt)))
       if product sht >= V.length vt
       then RS.A $ RG.A sht $ oit {OI.values = vt `op` vu}
       else OR.fromVector sht $ OI.toVectorT sht oit `op` vu
-    (_, _) -> assert (sht == shu) $
+    (_, _) -> assert (sht == shu `blame` (t, u)) $
       if product sht >= V.length vt && product shu >= V.length vu
          && OI.strides oit == OI.strides oiu
       then assert (OI.offset oit == OI.offset oiu
@@ -228,7 +228,8 @@ instance (Num (Vector r), Numeric r) => Num (OD.Array r) where
   signum = liftVT signum
   fromInteger = OD.constant [] . fromInteger  -- often fails and there's no fix
 
-instance (Num (Vector r), KnownNat n, Numeric r) => Num (OR.Array n r) where
+instance (Num (Vector r), KnownNat n, Numeric r, Show r)
+         => Num (OR.Array n r) where
   (+) = liftVR2 (+)
   (-) = liftVR2 (-)
   (*) = liftVR2 (*)
@@ -255,7 +256,7 @@ instance (Num (Vector r), Numeric r, Fractional r)
   recip = liftVT recip
   fromRational = OD.constant [] . fromRational
 
-instance (Num (Vector r), KnownNat n, Numeric r, Fractional r)
+instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
          => Fractional (OR.Array n r) where
   (/) = liftVR2 (/)
   recip = liftVR recip
@@ -291,7 +292,7 @@ instance (Floating (Vector r), Numeric r, Floating r)
   acosh = liftVT acosh
   atanh = liftVT atanh
 
-instance (Floating (Vector r), KnownNat n, Numeric r, Floating r)
+instance (Floating (Vector r), KnownNat n, Numeric r, Show r, Floating r)
          => Floating (OR.Array n r) where
   pi = OR.constant [] pi
   exp = liftVR exp
@@ -341,7 +342,7 @@ instance (Real (Vector r), Numeric r, Ord r)
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (Real (Vector r), KnownNat n, Numeric r, Ord r)
+instance (Real (Vector r), KnownNat n, Numeric r, Show r, Ord r)
          => Real (OR.Array n r) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
@@ -360,7 +361,8 @@ instance (RealFrac (Vector r), Numeric r, Fractional r, Ord r)
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (RealFrac (Vector r), KnownNat n, Numeric r, Fractional r, Ord r)
+instance ( RealFrac (Vector r), KnownNat n, Numeric r, Show r, Fractional r
+         , Ord r )
          => RealFrac (OR.Array n r) where
   properFraction = undefined
 
@@ -378,7 +380,8 @@ instance (RealFloat (Vector r), Numeric r, Floating r, Ord r)
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
 
-instance (RealFloat (Vector r), KnownNat n, Numeric r, Floating r, Ord r)
+instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
+         , Ord r )
          => RealFloat (OR.Array n r) where
   atan2 = liftVR2NoAdapt atan2
     -- we can be selective here and omit the other methods,

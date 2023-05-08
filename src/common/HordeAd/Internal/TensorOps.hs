@@ -285,7 +285,7 @@ tdot0R t u = OR.toVector t LA.<.> OR.toVector u
   -- tsum0R (t * u)
 
 tdot1InR
-  :: (Numeric r, Num (Vector r), RowSum r)
+  :: (Numeric r, Show r, Num (Vector r), RowSum r)
   => OR.Array 2 r -> OR.Array 2 r -> OR.Array 1 r
 tdot1InR t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
   if V.length vt == 1 || V.length vu == 1
@@ -338,7 +338,7 @@ tscatterZR sh t f =
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OR.fromVector
 -- or optimize tscatterNR and instantiate it instead
-tscatterZ1R :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
+tscatterZ1R :: (Numeric r, Show r, Num (Vector r), KnownNat p, KnownNat n)
             => ShapeInt (p + n) -> OR.Array (1 + n) r -> (CInt -> IndexInt p)
             -> OR.Array (p + n) r
 tscatterZ1R sh t f = case OR.shapeL t of

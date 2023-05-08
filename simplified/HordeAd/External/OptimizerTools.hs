@@ -24,7 +24,7 @@ import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2, liftVT2)
 import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient
-  :: ( Numeric r, Floating (Vector r), Tensor r, DomainsCollection r
+  :: ( Numeric r, Show r, Floating (Vector r), Tensor r, DomainsCollection r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma params gradient =

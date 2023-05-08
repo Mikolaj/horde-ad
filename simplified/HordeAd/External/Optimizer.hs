@@ -43,7 +43,7 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
 
 -- | Stochastic Gradient Descent.
 sgd :: forall r a.
-       ( Numeric r, Floating (Vector r), ADTensor r, Scalar r ~ r
+       ( Numeric r, Show r, Floating (Vector r), ADTensor r, Scalar r ~ r
        , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
     => r
     -> (a -> Domains (ADVal r) -> ADVal r)

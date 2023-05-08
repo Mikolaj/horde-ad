@@ -8,6 +8,7 @@ import Prelude
 import           Codec.Compression.GZip (decompress)
 import           Control.Arrow (first)
 import           Data.Array.Internal (valueOf)
+import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
@@ -37,6 +38,9 @@ type SizeMnistHeight = SizeMnistWidth
 
 sizeMnistHeight :: SNat SizeMnistHeight
 sizeMnistHeight = MkSNat @SizeMnistHeight
+
+sizeMnistHeightInt :: Int
+sizeMnistHeightInt = valueOf @SizeMnistHeight
 
 type SizeMnistGlyph = SizeMnistWidth * SizeMnistHeight
 
@@ -78,6 +82,10 @@ type MnistDataBatchS batch_size r =
   ( OS.Array '[batch_size, SizeMnistHeight, SizeMnistWidth] r
   , OS.Array '[batch_size, SizeMnistLabel] r )
 
+type MnistDataR r =
+  ( OR.Array 2 r
+  , OR.Array 1 r )
+
 type MnistDataBatchR r =
   ( OR.Array 3 r  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
   , OR.Array 2 r )  -- [batch_size, SizeMnistLabel]
@@ -94,6 +102,18 @@ packBatch l =
   in (OS.ravel $ OSB.fromList inputs, OS.ravel $ OSB.fromList targets)
 {-# SPECIALIZE packBatch :: forall batch_size. KnownNat batch_size => [MnistDataS Double] -> MnistDataBatchS batch_size Double #-}
 {-# SPECIALIZE packBatch :: forall batch_size. KnownNat batch_size => [MnistDataS Float] -> MnistDataBatchS batch_size Float #-}
+
+rankBatch :: Numeric r => MnistData r -> MnistDataR r
+rankBatch (input, target) =
+  ( OR.fromVector [sizeMnistHeightInt, sizeMnistWidthInt] input
+  , OR.fromVector [sizeMnistLabelInt] target )
+
+packBatchR :: Numeric r
+           => [MnistDataR r] -> MnistDataBatchR r
+packBatchR l =
+  let (inputs, targets) = unzip l
+  in ( OR.ravel $ ORB.fromList [length inputs] inputs
+     , OR.ravel $ ORB.fromList [length targets] targets )
 
 readMnistData :: forall r. (Numeric r, Fractional r)
               => LBS.ByteString -> LBS.ByteString -> [MnistData r]

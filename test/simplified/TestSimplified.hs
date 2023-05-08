@@ -96,7 +96,7 @@ bar (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
-barAst :: (Numeric r, RealFloat r, RealFloat (Vector r))
+barAst :: (Numeric r, Show r, RealFloat r, RealFloat (Vector r))
        => (Ast 0 r, Ast 0 r) -> Ast 0 r
 barAst (x, y) =
   let w = foo (x, y, x) * sin y

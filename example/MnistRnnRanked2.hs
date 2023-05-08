@@ -5,6 +5,7 @@ import Prelude
 
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
@@ -15,6 +16,12 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData
+
+rnnMnistLenR :: Int -> [[Int]]
+rnnMnistLenR width =
+  [ [width, sizeMnistHeightInt], [width, width], [width]
+  , [width, width], [width, width], [width]
+  , [sizeMnistLabelInt, width], [sizeMnistLabelInt] ]
 
 type LayerWeigthsRNN r =  -- in_width out_width
   ( Ranked r 2  -- input weight, [out_width, in_width]
@@ -92,28 +99,28 @@ rnnMnistZeroR batch_size xs
     in w3 `tmatmul2` out + ttranspose [1, 0] (tkonst batch_size b3)
   _ -> error "rnnMnistZeroR: wrong shape"
 
-arnnMnistLossFusedR
+rnnMnistLossFusedR
   :: ( Tensor r, Tensor (Primal r)
-     , Ranked (Primal r) 2 ~ OR.Array 2 (Value r), Numeric (Value r) )
+     , Ranked (Primal r) 2 ~ Flip OR.Array (Value r) 2, Numeric (Value r) )
   => Int -> MnistDataBatchR (Value r)  -- batch_size
   -> ADRnnMnistParameters r  -- SizeMnistHeight out_width
   -> r
-arnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
+rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   let xs = OR.transpose [2, 1, 0] glyphR
       result = rnnMnistZeroR batch_size xs adparameters
-      targets2 = OR.transpose [1, 0] labelR
+      targets2 = Flip $ OR.transpose [1, 0] labelR
       loss = lossSoftMaxCrossEntropyR targets2 result
   in tscale0 (recip $ fromIntegral batch_size)
              loss
 
-arnnMnistTestR
+rnnMnistTestR
   :: forall r. (ADReady r, r ~ Value r)
   => Int -> MnistDataBatchR r  -- batch_size
   -> ((ADRnnMnistParameters r  -- SizeMnistHeight out_width
        -> Ranked r 2)  -- [SizeMnistLabel, batch_size]
       -> OR.Array 2 r)  -- [SizeMnistLabel, batch_size]
   -> r
-arnnMnistTestR batch_size (glyphS, labelS) evalAtTestParams =
+rnnMnistTestR batch_size (glyphS, labelS) evalAtTestParams =
   let xs = OR.transpose [2, 1, 0] glyphS
       outputR =
         let nn :: ADRnnMnistParameters r  -- SizeMnistHeight out_width

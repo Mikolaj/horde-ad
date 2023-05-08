@@ -7,9 +7,13 @@ import Prelude
 import           Control.Monad (foldM, unless)
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
+import           Data.Functor.Compose
 import           Data.List.Index (imap)
+import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
+import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
@@ -20,11 +24,15 @@ import           Text.Printf
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
-import HordeAd.Core.DualNumber
+import HordeAd.Core.AstSimplify
+import HordeAd.Core.AstTools
+import HordeAd.Core.Domains
+import HordeAd.Core.DualNumber (ADTensor, ADVal, dDnotShared)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
-import HordeAd.External.Adaptor
+import HordeAd.External.CommonRankedOps
 import HordeAd.External.Optimizer
 import HordeAd.External.OptimizerTools
 
@@ -34,85 +42,97 @@ import           MnistData
 import qualified MnistRnnRanked2
 
 testTrees :: [TestTree]
-testTrees = [ tensorADValMnistTests
-            , tensorIntermediateMnistTests
-            , tensorADOnceMnistTests
+testTrees = [ tensorADValMnistTestsRNNA
             ]
 
 -- POPL differentiation, straight via the ADVal instance of Tensor
-mnistTestCase2VTA
+mnistTestCaseRNNA
   :: forall r.
-     ( ADReady r, ADReady (ADVal r), ADNum r, PrintfArg r
-     , Primal r ~ r, ScalarOf r ~ r, AssertEqualUpToEpsilon r
-     , TensorOf 0 (ADVal r) ~ ADVal (OR.Array 0 r)
-     , TensorOf 1 (ADVal r) ~ ADVal (OR.Array 1 r)
-     , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
-     , Primal (ADVal r) ~ r, ScalarOf (ADVal r) ~ r )
+     ( ADTensor r, ADReady r, ADReady (ADVal r), Primal (ADVal r) ~ r
+     , Value r ~ r, Value (ADVal r) ~ r, Floating (Vector r)
+     , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
+     , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
+     , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
-  -> Int -> Int -> Int -> Int -> r -> Int -> r
+  -> Int -> Int -> Int -> Int -> r
   -> TestTree
-mnistTestCase2VTA _prefix _epochs _maxBatches widthHidden widthHidden2
-                  _gamma _batchSize _expected =
-  let _nParams1 = MnistRnnRanked2.afcnnMnistLen1 widthHidden widthHidden2
-  in testCase "" $ return ()
+mnistTestCaseRNNA prefix epochs maxBatches width batchSize expected =
+  let nParams1 = MnistRnnRanked2.rnnMnistLenR width
+      params1Init =
+        imap (\i sh -> OD.fromVector sh
+                       $ V.map realToFrac
+                       $ (LA.randomVector (44 + product sh + i) LA.Uniform
+                                          (product sh)
+                          - LA.scalar 0.5) * LA.scalar 0.4)
+             nParams1
+      parametersInit = mkDoms (dfromR $ Flip emptyR)
+                              (fromListDoms params1Init)
+      emptyR = OR.fromList [0] []
+      emptyR2 = OR.fromList [0, 0] []
+      valsInit = ( (emptyR2, emptyR2, emptyR)
+                 , (emptyR2, emptyR2, emptyR)
+                 , (emptyR2, emptyR) )
+      name = prefix ++ ": "
+             ++ unwords [ show epochs, show maxBatches
+                        , show width, show batchSize
+                        , show (length nParams1)
+                        , show (sum $ map product nParams1) ]
+      ftest :: Int -> MnistDataBatchR r -> Domains r -> r
+      ftest batchSize' mnist testParams =
+        MnistRnnRanked2.rnnMnistTestR batchSize' mnist
+          (\f -> runFlip $ f $ parseDomains valsInit testParams)
+  in testCase name $ do
+       hPutStrLn stderr $
+         printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+                prefix epochs maxBatches
+       trainData <- map rankBatch
+                    <$> loadMnistData trainGlyphsPath trainLabelsPath
+       testData <- map rankBatch . take (batchSize * maxBatches)
+                   <$> loadMnistData testGlyphsPath testLabelsPath
+       let testDataR = packBatchR testData
+           runBatch :: (Domains r, StateAdam r)
+                    -> (Int, [MnistDataR r])
+                    -> IO (Domains r, StateAdam r)
+           runBatch (!parameters, !stateAdam) (k, chunk) = do
+             let f :: MnistDataBatchR r -> Domains (ADVal r) -> ADVal r
+                 f mnist adinputs =
+                   MnistRnnRanked2.rnnMnistLossFusedR
+                     batchSize mnist (parseDomains valsInit adinputs)
+                 chunkR = map packBatchR
+                          $ filter (\ch -> length ch >= batchSize)
+                          $ chunksOf batchSize chunk
+                 res@(parameters2, _) = sgdAdam f chunkR parameters stateAdam
+                 !trainScore =
+                   ftest (length chunk) (packBatchR chunk) parameters2
+                 !testScore =
+                   ftest (batchSize * maxBatches) testDataR parameters2
+                 !lenChunk = length chunk
+             unless (width < 10) $ do
+               hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
+               hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+               hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
+             return res
+       let runEpoch :: Int -> (Domains r, StateAdam r) -> IO (Domains r)
+           runEpoch n (params2, _) | n > epochs = return params2
+           runEpoch n paramsStateAdam = do
+             unless (width < 10) $
+               hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
+             let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
+                 chunks = take maxBatches
+                          $ zip [1 ..]
+                          $ chunksOf (10 * batchSize) trainDataShuffled
+             !res <- foldM runBatch paramsStateAdam chunks
+             runEpoch (succ n) res
+       res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
+       let testErrorFinal = 1 - ftest (batchSize * maxBatches) testDataR res
+       testErrorFinal @?~ expected
 
-tensorADValMnistTests :: TestTree
-tensorADValMnistTests = testGroup "ShortRanked ADVal MNIST tests"
-  [ mnistTestCase2VTA "VRA 1 epoch, 1 batch" 1 1 300 100 0.02 5000
-                      (0.16600000000000004 :: Double)
-  , mnistTestCase2VTA "VRA artificial 1 2 3 4 5" 1 2 3 4 5 5000
-                      (0.8972 :: Float)
-  , mnistTestCase2VTA "VRA artificial 5 4 3 2 1" 5 4 3 2 1 5000
-                      (0.6585 :: Double)
-  ]
-
--- POPL differentiation, Ast term defined only once but differentiated each time
-mnistTestCase2VTI
-  :: forall r.
-     ( ADReady r, ADReady (ADVal r), ADReady (Ast0 r), ADNum r, PrintfArg r
-     , Primal r ~ r, ScalarOf r ~ r, AssertEqualUpToEpsilon r
-     , TensorOf 0 (ADVal r) ~ ADVal (OR.Array 0 r)
-     , DTensorOf (ADVal r) ~ ADVal (OD.Array r)
-     , ScalarOf (ADVal r) ~ r
-     , InterpretAst (ADVal r) )
-  => String
-  -> Int -> Int -> Int -> Int -> r -> Int -> r
-  -> TestTree
-mnistTestCase2VTI _prefix _epochs _maxBatches widthHidden widthHidden2
-                  _gamma _batchSize _expected =
-  let _nParams1 = MnistRnnRanked2.afcnnMnistLen1 widthHidden widthHidden2
-  in testCase "" $ return ()
-
-tensorIntermediateMnistTests :: TestTree
-tensorIntermediateMnistTests = testGroup "ShortRankedIntermediate MNIST tests"
-  [ mnistTestCase2VTI "VRI 1 epoch, 1 batch" 1 1 300 100 0.02 5000
-                      (0.16479999999999995 :: Double)
-  , mnistTestCase2VTI "VRI artificial 1 2 3 4 5" 1 2 3 4 5 5000
-                      (0.9108 :: Float)
-  , mnistTestCase2VTI "VRI artificial 5 4 3 2 1" 5 4 3 2 1 5000
-                      (0.5859 :: Double)
-  ]
-
--- JAX differentiation, Ast term built and differentiated only once
-mnistTestCase2VTO
-  :: forall r.
-     ( ADReady r, ADReady (ADVal r), ADReady (Ast0 r), ADNum r, PrintfArg r
-     , Primal r ~ r, ScalarOf r ~ r, AssertEqualUpToEpsilon r
-     , TensorOf 0 (ADVal r) ~ ADVal (OR.Array 0 r), InterpretAst r )
-  => String
-  -> Int -> Int -> Int -> Int -> r -> Int -> r
-  -> TestTree
-mnistTestCase2VTO _prefix _epochs _maxBatches widthHidden widthHidden2
-                  _gamma _batchSize _expected =
-  let _nParams1 = MnistRnnRanked2.afcnnMnistLen1 widthHidden widthHidden2
-  in testCase "" $ return ()
-
-tensorADOnceMnistTests :: TestTree
-tensorADOnceMnistTests = testGroup "ShortRankedOnce MNIST tests"
-  [ mnistTestCase2VTO "VRO 1 epoch, 1 batch" 1 1 300 100 0.02 5000
-                      (0.16479999999999995 :: Double)
-  , mnistTestCase2VTO "VRO artificial 1 2 3 4 5" 1 2 3 4 5 5000
-                      (0.9108 :: Float)
-  , mnistTestCase2VTO "VRO artificial 5 4 3 2 1" 5 4 3 2 1 5000
-                      (0.8304 :: Double)
+tensorADValMnistTestsRNNA :: TestTree
+tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
+  [ mnistTestCaseRNNA "RNNA 1 epoch, 1 batch" 1 1 64 1
+                       (0.0 :: Double)
+  , mnistTestCaseRNNA "RNNA artificial 1 2 3 4 5" 2 3 4 5
+                       (0.93333334 :: Float)
+  , mnistTestCaseRNNA "RNNA artificial 5 4 3 2 1" 5 4 3 2
+                       (0.875 :: Double)
   ]
