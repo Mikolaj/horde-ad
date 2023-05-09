@@ -136,7 +136,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
        testErrorFinal @?~ expected
 
 tensorADValMnistTests :: TestTree
-tensorADValMnistTests = testGroup "ShortRanked ADVal MNIST tests"
+tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
   [ mnistTestCase2VTA "VTA 1 epoch, 1 batch" 1 1 300 100 0.02 5000
                       (0.16600000000000004 :: Double)
   , mnistTestCase2VTA "VTA artificial 1 2 3 4 5" 1 2 3 4 5 5000
@@ -250,7 +250,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        testErrorFinal @?~ expected
 
 tensorIntermediateMnistTests :: TestTree
-tensorIntermediateMnistTests = testGroup "ShortRankedIntermediate MNIST tests"
+tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
   [ mnistTestCase2VTI "VTI 1 epoch, 1 batch" 1 1 300 100 0.02 5000
                       (0.16479999999999995 :: Double)
   , mnistTestCase2VTI "VTI artificial 1 2 3 4 5" 1 2 3 4 5 5000
@@ -363,7 +363,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
        testErrorFinal @?~ expected
 
 tensorADOnceMnistTests :: TestTree
-tensorADOnceMnistTests = testGroup "ShortRankedOnce MNIST tests"
+tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
   [ mnistTestCase2VTO "VTO 1 epoch, 1 batch" 1 1 300 100 0.02 5000
                       (0.16479999999999995 :: Double)
   , mnistTestCase2VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5 5000
@@ -464,7 +464,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
        testErrorFinal @?~ expected
 
 tensorADValMnistTests2 :: TestTree
-tensorADValMnistTests2 = testGroup "ShortRanked2 ADVal MNIST tests"
+tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
   [ mnistTestCase2VT2A "VT2A 1 epoch, 1 batch" 1 1 300 100 0.02 5
                        (0.8 :: Double)
   , mnistTestCase2VT2A "VT2A artificial 1 2 3 4 5" 1 2 3 4 5 5
@@ -579,7 +579,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        testErrorFinal @?~ expected
 
 tensorIntermediateMnistTests2 :: TestTree
-tensorIntermediateMnistTests2 = testGroup "ShortRankedIntermediate2 MNIST tests"
+tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
   [ mnistTestCase2VT2I "VT2I 1 epoch, 1 batch" 1 1 300 100 0.02 500
                        (0.42200000000000004 :: Double)
   , mnistTestCase2VT2I "VT2I artificial 1 2 3 4 5" 1 2 3 4 5 500
@@ -695,7 +695,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
        testErrorFinal @?~ expected
 
 tensorADOnceMnistTests2 :: TestTree
-tensorADOnceMnistTests2 = testGroup "ShortRankedOnce2 MNIST tests"
+tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
   [ mnistTestCase2VT2O "VT2O 1 epoch, 1 batch" 1 1 300 100 0.02 500
                        (0.42200000000000004 :: Double)
   , mnistTestCase2VT2O "VT2O artificial 1 2 3 4 5" 1 2 3 4 5 500
