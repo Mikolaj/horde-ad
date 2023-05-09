@@ -65,6 +65,7 @@ class IsPrimal a where
                       -> (ADShare (Underlying a), a)
   letWrapPrimal :: ADShare (Underlying a) -> a -> a
   packDeltaDt :: Either a a -> Dual a -> DeltaDt (Scalar a)
+  intOfShape :: a -> Int -> a
 
 -- | Part 1/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class and assert it
@@ -87,6 +88,8 @@ class IsPrimalR r where
   packDeltaDtR :: KnownNat n
                => Either (Flip OR.Array r n) (Flip OR.Array r n) -> Dual (Flip OR.Array r n)
                -> DeltaDt r
+  intOfShapeR :: KnownNat n
+              => Flip OR.Array r n -> Int -> Flip OR.Array r n
 
 -- | Part 2/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class.
@@ -100,6 +103,7 @@ instance (IsPrimalR r, KnownNat n)
   recordSharingPrimal = recordSharingPrimalR
   letWrapPrimal = letWrapPrimalR
   packDeltaDt = packDeltaDtR
+  intOfShape = intOfShapeR
 
 -- An analogous hack for Ast.
 class IsPrimalA r where
@@ -117,6 +121,8 @@ class IsPrimalA r where
   packDeltaDtA :: KnownNat n
                => Either (Ast n r) (Ast n r) -> Dual (Ast n r)
                -> DeltaDt (Ast0 r)
+  intOfShapeA :: KnownNat n
+              => Ast n r -> Int -> Ast n r
 
 instance (IsPrimalA r, KnownNat n)
          => IsPrimal (Ast n r) where
@@ -128,6 +134,7 @@ instance (IsPrimalA r, KnownNat n)
   recordSharingPrimal = recordSharingPrimalA
   letWrapPrimal = letWrapPrimalA
   packDeltaDt = packDeltaDtA
+  intOfShape = intOfShapeA
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
@@ -253,6 +260,7 @@ instance IsPrimal Double where
   recordSharingPrimal r l = (l, r)
   letWrapPrimal _ r = r
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
+  intOfShape _ c = fromIntegral c
 
 -- | This is an impure instance. See above.
 instance IsPrimal Float where
@@ -269,6 +277,7 @@ instance IsPrimal Float where
   recordSharingPrimal r l = (l, r)
   letWrapPrimal _ r = r
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
+  intOfShape _ c = fromIntegral c
 
 instance ShowAstSimplify r => IsPrimal (Ast0 r) where
   dZero = Zero0
@@ -284,12 +293,14 @@ instance ShowAstSimplify r => IsPrimal (Ast0 r) where
                             in (l2, Ast0 r2)
   letWrapPrimal l r = Ast0 $ tletWrap l (unAst0 r)
   packDeltaDt et = DeltaDt0 (either (const 1) id et)
+  intOfShape _ c = fromIntegral c
 
 -- | This is an impure instance. See above.
 instance IsPrimalR Double where
   dZeroR = ZeroR
   dScaleR = ScaleR
-  dScaleByScalarR tsh c = ScaleR (Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c))
+  dScaleByScalarR tsh c =
+    ScaleR (Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c))
   dAddR = AddR
   recordSharingR d = case d of
     ZeroR -> d
@@ -301,6 +312,8 @@ instance IsPrimalR Double where
   letWrapPrimalR _ r = r
   packDeltaDtR (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
   packDeltaDtR (Right t) = DeltaDtR t
+  intOfShapeR tsh c =
+    Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
 
 instance IsPrimalR Float where
   dZeroR = ZeroR
@@ -317,6 +330,8 @@ instance IsPrimalR Float where
   letWrapPrimalR _ r = r
   packDeltaDtR (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
   packDeltaDtR (Right t) = DeltaDtR t
+  intOfShapeR tsh c =
+    Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
 
 instance ShowAstSimplify r => IsPrimalA r where
   dZeroA = ZeroR
@@ -334,6 +349,7 @@ instance ShowAstSimplify r => IsPrimalA r where
   letWrapPrimalA = tletWrap
   packDeltaDtA (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
   packDeltaDtA (Right t) = DeltaDtR t
+  intOfShapeA tsh c = tkonst0N (tshape tsh) (tscalar $ fromIntegral c)
 
 -- | This is an impure instance. See above.
 instance HasRanks Double where

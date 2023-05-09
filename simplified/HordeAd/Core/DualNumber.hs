@@ -198,7 +198,7 @@ instance (Floating a, IsPrimal a) => Floating (ADVal a) where
   D l1 ue u' ** D l2 ve v' =
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         (l4, v) = recordSharingPrimal ve l3
-    in dD l4 (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
+    in dD l4 (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v 1))) u')
                             (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x
   sin (D l ue u') = let (l2, u) = recordSharingPrimal ue l
@@ -209,23 +209,29 @@ instance (Floating a, IsPrimal a) => Floating (ADVal a) where
                         (l3, cosU) = recordSharingPrimal (cos u) l2
                     in dD l3 (tan u) (dScale (recip (cosU * cosU)) u')
   asin (D l ue u') = let (l2, u) = recordSharingPrimal ue l
-                     in dD l2 (asin u) (dScale (recip (sqrt (1 - u*u))) u')
+                     in dD l2 (asin u)
+                           (dScale (recip (sqrt (intOfShape u 1 - u*u))) u')
   acos (D l ue u') = let (l2, u) = recordSharingPrimal ue l
-                     in dD l2 (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
+                     in dD l2 (acos u)
+                           (dScale (- recip (sqrt (intOfShape u 1 - u*u))) u')
   atan (D l ue u') = let (l2, u) = recordSharingPrimal ue l
-                     in dD l2 (atan u) (dScale (recip (1 + u*u)) u')
+                     in dD l2 (atan u)
+                           (dScale (recip (intOfShape u 1 + u*u)) u')
   sinh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
                      in dD l2 (sinh u) (dScale (cosh u) u')
   cosh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
                      in dD l2 (cosh u) (dScale (sinh u) u')
   tanh (D l ue u') = let (l2, y) = recordSharingPrimal (tanh ue) l
-                     in dD l2 y (dScale (1 - y * y) u')
+                     in dD l2 y (dScale (intOfShape y 1 - y * y) u')
   asinh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
-                      in dD l2 (asinh u) (dScale (recip (sqrt (1 + u*u))) u')
+                      in dD l2 (asinh u)
+                            (dScale (recip (sqrt (intOfShape u 1 + u*u))) u')
   acosh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
-                      in dD l2 (acosh u) (dScale (recip (sqrt (u*u - 1))) u')
+                      in dD l2 (acosh u)
+                            (dScale (recip (sqrt (u*u - intOfShape u 1))) u')
   atanh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
-                      in dD l2 (atanh u) (dScale (recip (1 - u*u)) u')
+                      in dD l2 (atanh u)
+                            (dScale (recip (intOfShape u 1 - u*u)) u')
 
 instance (RealFrac a, IsPrimal a) => RealFrac (ADVal a) where
   properFraction = undefined
