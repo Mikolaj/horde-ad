@@ -140,11 +140,10 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCaseRNNI
   :: forall r.
-     ( ADTensor r, ADReady r, ADReady (ADVal r), ShowAstSimplify r
-     , Primal (ADVal r) ~ r, Primal r ~ r, IntOf r ~ IntOf (ADVal r)
+     ( ADTensor r, ADReady r, InterpretAst (ADVal r)
      , Value r ~ r, Value (ADVal r) ~ r
      , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-     , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
+     , Primal r ~ r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r
@@ -252,9 +251,9 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCaseRNNO
   :: forall r.
-     ( ADTensor r, ADReady r, ShowAstSimplify r
-     , Primal (ADVal r) ~ r, Primal r ~ r, IntOf r ~ IntOf (ADVal r)
-     , Value r ~ r, Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
+     ( ADTensor r, ADReady r, Value r ~ r, InterpretAst r
+     , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
+     , Primal r ~ r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r

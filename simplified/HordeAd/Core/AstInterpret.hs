@@ -112,7 +112,7 @@ type InterpretAst a =
   , IntOf (Primal a) ~ IntOf a, BooleanOf (Primal a) ~ BooleanOf (IntOf a)
   , CRanked EqB (Primal a)
   , CRanked OrdB (Primal a)
-  , CRanked (BooleanOfMatches (BooleanOf (IntOf a))) (Primal a)
+  , CRanked (BooleanOfMatches (BooleanOf (Primal a))) (Primal a)
   )
 
 type AstMemo a = ()  -- unused for now, but likely to be used in the future,

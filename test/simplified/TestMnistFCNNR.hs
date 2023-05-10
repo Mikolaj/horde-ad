@@ -148,10 +148,9 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCase2VTI
   :: forall r.
-     ( ADTensor r, ADReady r, ADReady (ADVal r), InterpretAst (ADVal r)
+     ( ADTensor r, ADReady r, InterpretAst (ADVal r)
      , Value r ~ r, Value (ADVal r) ~ r
      , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-     , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -262,7 +261,7 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCase2VTO
   :: forall r.
-     ( ADTensor r, ADReady r, InterpretAst r, Value r ~ r
+     ( ADTensor r, ADReady r, Value r ~ r, InterpretAst r
      , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
@@ -476,10 +475,9 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCase2VT2I
   :: forall r.
-     ( ADTensor r, ADReady r, ADReady (ADVal r), InterpretAst (ADVal r)
+     ( ADTensor r, ADReady r, InterpretAst (ADVal r)
      , Value r ~ r, Value (ADVal r) ~ r
      , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-     , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
