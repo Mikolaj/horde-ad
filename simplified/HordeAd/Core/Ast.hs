@@ -601,8 +601,8 @@ mergeADShare :: forall r. ADShare r -> ADShare r -> ADShare r
 mergeADShare !s1 !s2 =
   let mergeAD :: ADShare r -> ADShare r -> Maybe (ADShare r)
       mergeAD ADShareNil ADShareNil = Nothing
-      mergeAD l ADShareNil = Just l
-      mergeAD ADShareNil l = Just l
+      mergeAD !l ADShareNil = Just l
+      mergeAD ADShareNil !l = Just l
       mergeAD l1@(ADShareCons id1 key1 t1 rest1)
               l2@(ADShareCons id2 key2 t2 rest2) =
         if id1 == id2
@@ -628,12 +628,12 @@ mergeADShare !s1 !s2 =
 subtractADShare :: forall r.
                    ADShare r -> ADShare r -> [(AstVarId, AstDynamic r)]
 {-# INLINE subtractADShare #-}  -- help list fusion
-subtractADShare s1 s2 =
+subtractADShare !s1 !s2 =
   let subAD :: ADShare r -> ADShare r -> [(AstVarId, AstDynamic r)]
-      subAD l ADShareNil = assocsADShare l
+      subAD !l ADShareNil = assocsADShare l
       subAD ADShareNil _ = []
       subAD l1@(ADShareCons id1 key1 t1 rest1)
-              l2@(ADShareCons id2 key2 _ rest2) =
+            l2@(ADShareCons id2 key2 _ rest2) =
         if id1 == id2
         then []
                -- the lists only ever grow and only in fresh/unique way,
