@@ -35,12 +35,7 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
-  ( DeltaR
-  , ForwardDerivative (..)
-  , derivativeFromDelta
-  , gradientFromDelta
-  , toInputId
-  )
+  (ForwardDerivative (..), derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.Domains
 import HordeAd.Core.DualClass
   (Dual, dFromR, dFromVectorR, dInput0, dInputR, dScalarR)
@@ -83,7 +78,7 @@ revDtFun
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
      , Scalar astvals ~ Ast0 r )
   => (astvals -> Ast n r) -> vals
-  -> (ADAstArtifact6 n r, DeltaR n (Ast0 r))
+  -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revDtFun #-}
 revDtFun f vals =
   let parameters0 = toDomains vals
@@ -257,7 +252,7 @@ revAstOnDomainsFun
   -> (Domains (ADVal (Ast0 r)) -> Domains (Ast0 r)
       -> (ADAstVarNames n r, ADAstVars n r)
       -> Compose ADVal (AstRanked r) n)
-  -> (ADAstArtifact6 n r, DeltaR n (Ast0 r))
+  -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun dim0 shapes1 f =
   let -- Bangs and the compound function to fix the numbering of variables
