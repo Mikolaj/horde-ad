@@ -9,7 +9,6 @@ import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
-import           Data.Functor.Compose
 import qualified Data.Strict.IntMap as IM
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -611,7 +610,6 @@ testFooNoGoAst :: Assertion
 testFooNoGoAst =
   let f :: ( ShowAstSimplify r
            , Ranked r ~ Flip OR.Array r, InterpretAst (ADVal r)
-           , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
            , Value (ADVal r) ~ r )
         => TensorOf 1 (ADVal r) -> TensorOf 1 (ADVal r)
       f x = snd
@@ -751,7 +749,6 @@ testBarReluAst0 :: Assertion
 testBarReluAst0 =
   let f :: ( ShowAstSimplify r
            , Ranked r ~ Flip OR.Array r, InterpretAst (ADVal r)
-           , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
            , Value (ADVal r) ~ r )
         => TensorOf 0 (ADVal r) -> TensorOf 0 (ADVal r)
       f x = snd
@@ -766,7 +763,6 @@ testBarReluAst1 :: Assertion
 testBarReluAst1 =
   let f :: ( ShowAstSimplify r
            , Ranked r ~ Flip OR.Array r, InterpretAst (ADVal r)
-           , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
            , Value (ADVal r) ~ r )
         => TensorOf 1 (ADVal r) -> TensorOf 1 (ADVal r)
       f x = snd
@@ -786,7 +782,6 @@ testKonstReluAst :: Assertion
 testKonstReluAst =
   let f :: ( ShowAstSimplify r
            , Ranked r ~ Flip OR.Array r, InterpretAst (ADVal r)
-           , Ranked (ADVal r) ~ Compose ADVal (Ranked r)
            , Value (ADVal r) ~ r )
         => TensorOf 0 (ADVal r) -> TensorOf 0 (ADVal r)
       f x = snd

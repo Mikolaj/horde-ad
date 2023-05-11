@@ -9,7 +9,7 @@
 module HordeAd.Core.TensorClass
   ( Domain0, DomainR, Domains
   , domains0, domainsR, mkDomains, ttoRankedOrDummy
-  , IndexOf, TensorOf, ShapeInt, CRanked
+  , IndexOf, TensorOf, ShapeInt, CRanked, CYRanked, CRanked2
   , Tensor(..), DynamicTensor(..), DomainsTensor(..), ADReady
   ) where
 
@@ -83,6 +83,12 @@ type TensorOf (n :: Nat) r = Ranked r n
 
 class (forall y. KnownNat y => c (Ranked r y)) => CRanked c r where
 instance (forall y. KnownNat y => c (Ranked r y)) => CRanked c r where
+
+class (forall y. c y r (Ranked r y)) => CYRanked c r where
+instance (forall y. c y r (Ranked r y)) => CYRanked c r where
+
+class (forall y z. c (Ranked r y) (Ranked r z)) => CRanked2 c r where
+instance (forall y z. c (Ranked r y) (Ranked r z)) => CRanked2 c r where
 
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
@@ -281,7 +287,8 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
   tscale0 :: Primal r -> r -> r
   tprimalPart :: KnownNat n
               => TensorOf n r -> TensorOf n (Primal r)
-  tdualPart :: TensorOf n r -> DualOf n r
+  tdualPart :: KnownNat n
+            => TensorOf n r -> DualOf n r
   tD :: KnownNat n => TensorOf n (Primal r) -> DualOf n r -> TensorOf n r
   tScale :: KnownNat n => TensorOf n (Primal r) -> DualOf n r -> DualOf n r
   -- TODO: we'd probably also need dZero, dIndex0 and all others;

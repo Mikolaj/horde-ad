@@ -9,7 +9,6 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           Data.Functor.Compose
 import           Data.List.Index (imap)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
@@ -61,7 +60,6 @@ mnistTestCase2VTA
      ( ADTensor r, ADReady r, ADReady (ADVal r)
      , Value r ~ r, Value (ADVal r) ~ r, Floating (Vector r)
      , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-     , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -380,7 +378,6 @@ mnistTestCase2VT2A
      ( ADTensor r, ADReady r, ADReady (ADVal r)
      , Value r ~ r, Value (ADVal r) ~ r, Floating (Vector r)
      , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-     , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r

@@ -9,7 +9,6 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           Data.Functor.Compose
 import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
@@ -50,7 +49,6 @@ mnistTestCaseRNNA
      ( ADTensor r, ADReady r, ADReady (ADVal r)
      , Primal (ADVal r) ~ r, Primal r ~ r, Value r ~ r, Floating (Vector r)
      , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-     , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r

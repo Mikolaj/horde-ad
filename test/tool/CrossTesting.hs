@@ -30,8 +30,7 @@ rev' :: forall r m n v g.
         , InterpretAst r, InterpretAst (ADVal r)
         , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n
         , IsPrimal v, Value r ~ r, Value (ADVal r) ~ r
-        , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-        , Ranked (ADVal r) ~ Compose ADVal (Ranked r) )
+        , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r )
      => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
      -> g
      -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, Ast m r, Ast m r
