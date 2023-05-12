@@ -81,6 +81,7 @@ afcnnMnistTest2
        -> TensorOf 1 r)
       -> Vector r)
   -> r
+{-# INLINE afcnnMnistTest2 #-}
 afcnnMnistTest2 [] _ = 0
 afcnnMnistTest2 dataList evalAtTestParams =
   let matchesLabels :: MnistData r -> Bool

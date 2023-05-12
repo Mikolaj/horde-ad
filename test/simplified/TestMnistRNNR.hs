@@ -125,6 +125,11 @@ mnistTestCaseRNNA prefix epochs maxBatches width batchSize expected =
        let testErrorFinal = 1 - ftest (batchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
 
+{-# SPECIALIZE mnistTestCaseRNNA
+  :: String
+  -> Int -> Int -> Int -> Int -> Double
+  -> TestTree #-}
+
 tensorADValMnistTestsRNNA :: TestTree
 tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
   [ mnistTestCaseRNNA "RNNA 1 epoch, 1 batch" 1 1 32 5
@@ -237,6 +242,11 @@ mnistTestCaseRNNI prefix epochs maxBatches width batchSize expected =
        res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
        let testErrorFinal = 1 - ftest (batchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
+
+{-# SPECIALIZE mnistTestCaseRNNI
+  :: String
+  -> Int -> Int -> Int -> Int -> Double
+  -> TestTree #-}
 
 tensorADValMnistTestsRNNI :: TestTree
 tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
@@ -357,6 +367,11 @@ mnistTestCaseRNNO prefix epochs maxBatches width batchSize expected =
        res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
        let testErrorFinal = 1 - ftest (batchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
+
+{-# SPECIALIZE mnistTestCaseRNNO
+  :: String
+  -> Int -> Int -> Int -> Int -> Double
+  -> TestTree #-}
 
 tensorADValMnistTestsRNNO :: TestTree
 tensorADValMnistTestsRNNO = testGroup "RNN Once MNIST tests"

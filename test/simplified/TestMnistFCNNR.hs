@@ -133,6 +133,11 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
+{-# SPECIALIZE mnistTestCase2VTA
+  :: String
+  -> Int -> Int -> Int -> Int -> Double -> Int -> Double
+  -> TestTree #-}
+
 tensorADValMnistTests :: TestTree
 tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
   [ mnistTestCase2VTA "VTA 1 epoch, 1 batch" 1 1 300 100 0.02 5000
@@ -247,6 +252,11 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        res <- runEpoch 1 domainsInit
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
+
+{-# SPECIALIZE mnistTestCase2VTI
+  :: String
+  -> Int -> Int -> Int -> Int -> Double -> Int -> Double
+  -> TestTree #-}
 
 tensorIntermediateMnistTests :: TestTree
 tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
@@ -363,6 +373,11 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
+{-# SPECIALIZE mnistTestCase2VTO
+  :: String
+  -> Int -> Int -> Int -> Int -> Double -> Int -> Double
+  -> TestTree #-}
+
 tensorADOnceMnistTests :: TestTree
 tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
   [ mnistTestCase2VTO "VTO 1 epoch, 1 batch" 1 1 300 100 0.02 5000
@@ -464,6 +479,11 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                                  (fromListDoms params1Init))
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
+
+{-# SPECIALIZE mnistTestCase2VT2A
+  :: String
+  -> Int -> Int -> Int -> Int -> Double -> Int -> Double
+  -> TestTree #-}
 
 tensorADValMnistTests2 :: TestTree
 tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
@@ -580,6 +600,11 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        res <- runEpoch 1 domainsInit
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
+
+{-# SPECIALIZE mnistTestCase2VT2I
+  :: String
+  -> Int -> Int -> Int -> Int -> Double -> Int -> Double
+  -> TestTree #-}
 
 tensorIntermediateMnistTests2 :: TestTree
 tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
@@ -698,6 +723,11 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
        res <- runEpoch 1 domainsInit
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
+
+{-# SPECIALIZE mnistTestCase2VT2O
+  :: String
+  -> Int -> Int -> Int -> Int -> Double -> Int -> Double
+  -> TestTree #-}
 
 tensorADOnceMnistTests2 :: TestTree
 tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
