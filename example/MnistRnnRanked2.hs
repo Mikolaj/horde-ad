@@ -122,6 +122,7 @@ rnnMnistTestR
        -> Ranked r 2)  -- [SizeMnistLabel, batch_size]
       -> OR.Array 2 r)  -- [SizeMnistLabel, batch_size]
   -> r
+rnnMnistTestR 0 _ _ = 0
 rnnMnistTestR batch_size (glyphR, labelR) evalAtTestParams =
   let xs = Flip $ OR.transpose [2, 1, 0] glyphR
       outputR =

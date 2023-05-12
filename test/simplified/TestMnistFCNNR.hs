@@ -141,6 +141,8 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
                       (0.8972 :: Float)
   , mnistTestCase2VTA "VTA artificial 5 4 3 2 1" 5 4 3 2 1 5000
                       (0.6585 :: Double)
+  , mnistTestCase2VTA "VTA 1 epoch, 0 batch" 1 0 300 100 0.02 5000
+                      (1 :: Float)
   ]
 
 -- POPL differentiation, Ast term defined only once but differentiated each time
@@ -254,6 +256,8 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
                       (0.9108 :: Float)
   , mnistTestCase2VTI "VTI artificial 5 4 3 2 1" 5 4 3 2 1 5000
                       (0.5859 :: Double)
+  , mnistTestCase2VTI "VTI 1 epoch, 0 batch" 1 0 300 100 0.02 5000
+                      (1 :: Float)
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
@@ -367,6 +371,8 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
                       (0.9108 :: Float)
   , mnistTestCase2VTO "VTO artificial 5 4 3 2 1" 5 4 3 2 1 5000
                       (0.8304 :: Double)
+  , mnistTestCase2VTO "VTO 1 epoch, 0 batch" 1 0 300 100 0.02 5000
+                      (1 :: Float)
   ]
 
 
@@ -467,6 +473,8 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
                        (0.8 :: Float)
   , mnistTestCase2VT2A "VT2A artificial 5 4 3 2 1" 5 4 3 2 1 5
                        (0.95 :: Double)
+  , mnistTestCase2VT2A "VT2A 1 epoch, 0 batch" 1 0 300 100 0.02 5
+                       (1 :: Float)
   ]
 
 -- POPL differentiation, Ast term defined only once but differentiated each time
@@ -581,6 +589,8 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
                        (0.884 :: Float)
   , mnistTestCase2VT2I "VT2I artificial 5 4 3 2 1" 5 4 3 2 1 500
                        (0.7324999999999999 :: Double)
+  , mnistTestCase2VT2I "VT2I 1 epoch, 0 batch" 1 0 300 100 0.02 500
+                       (1 :: Float)
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
@@ -697,6 +707,8 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
                        (0.884 :: Float)
   , mnistTestCase2VT2O "VT2O artificial 5 4 3 2 1" 5 4 3 2 1 500
                        (0.7324999999999999 :: Double)
+  , mnistTestCase2VT2O "VT2O 1 epoch, 0 batch" 1 0 300 100 0.02 500
+                       (1 :: Float)
   ]
 
 tensorMnistTestsPP :: TestTree

@@ -133,6 +133,8 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
                        (0.93333334 :: Float)
   , mnistTestCaseRNNA "RNNA artificial 5 4 3 2 1" 5 4 3 2
                        (0.875 :: Double)
+  , mnistTestCaseRNNA "RNNA 1 epoch, 0 batch" 1 0 32 4
+                       (1.0 :: Float)
   ]
 
 -- POPL differentiation, Ast term defined only once but differentiated each time
@@ -244,6 +246,8 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
                        (0.93333334 :: Float)
   , mnistTestCaseRNNI "RNNI artificial 5 4 3 2 1" 5 4 3 2
                        (0.875 :: Double)
+  , mnistTestCaseRNNI "RNNI 1 epoch, 0 batch" 1 0 32 4
+                       (1.0 :: Float)
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
@@ -362,4 +366,6 @@ tensorADValMnistTestsRNNO = testGroup "RNN Once MNIST tests"
                        (0.93333334 :: Float)
   , mnistTestCaseRNNO "RNNO artificial 5 4 3 2 1" 5 4 3 2
                        (0.875 :: Double)
+  , mnistTestCaseRNNO "RNNO 1 epoch, 0 batch" 1 0 32 4
+                       (1.0 :: Float)
   ]
