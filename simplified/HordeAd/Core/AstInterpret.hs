@@ -284,6 +284,24 @@ interpretAst env memo = \case
   AstReverse v -> second treverse (interpretAst env memo v)
   AstTranspose perm v -> second (ttranspose perm) $ interpretAst env memo v
   AstReshape sh v -> second (treshape sh) (interpretAst env memo v)
+  -- These two are only needed for tests that don't vectorize Ast.
+  AstBuild1 k (var, AstSum (AstOp TimesOp [t, AstIndexZ
+                                                u (AstIntVar var2 :. ZI)]))
+    | Just Refl <- sameNat (Proxy @n) (Proxy @1)
+    , var == var2, k == tlength u ->
+        let (memo1, t1) = interpretAst env memo t
+            (memo2, t2) = interpretAst env memo1 u
+        in (memo2, tmatmul1 t2 t1)
+  AstBuild1 k (var, AstSum
+                      (AstReshape @p
+                         _sh (AstOp TimesOp [t, AstIndexZ
+                                                  u (AstIntVar var2 :. ZI)])))
+    | Just Refl <- sameNat (Proxy @n) (Proxy @1)
+    , Just Refl <- sameNat (Proxy @p) (Proxy @1)
+    , var == var2, k == tlength u ->
+        let (memo1, t1) = interpretAst env memo t
+            (memo2, t2) = interpretAst env memo1 u
+        in (memo2, tmatmul1 t2 t1)
   AstBuild1 0 (_, v) -> (memo, tfromList0N (0 :$ tshape v) [])
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
