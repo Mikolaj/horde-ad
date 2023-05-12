@@ -386,6 +386,8 @@ instance Tensor Double where
   tsum = Flip . tsumR . runFlip
   tsum0 = tscalar . tsum0R . runFlip
   tdot0 u v = tscalar $ tdot0R (runFlip u) (runFlip v)
+  tmatmul1 m v = Flip $ tmatmul1R (runFlip m) (runFlip v)
+  tmatmul2 m1 m2 = Flip $ tmatmul2R (runFlip m1) (runFlip m2)
   tscatter sh t f = Flip $ tscatterZR sh (runFlip t) f
   tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t) f
   tfromList = Flip . tfromListR . map runFlip
@@ -439,6 +441,8 @@ instance Tensor Float where
   tsum = Flip . tsumR . runFlip
   tsum0 = tscalar . tsum0R . runFlip
   tdot0 u v = tscalar $ tdot0R (runFlip u) (runFlip v)
+  tmatmul1 m v = Flip $ tmatmul1R (runFlip m) (runFlip v)
+  tmatmul2 m1 m2 = Flip $ tmatmul2R (runFlip m1) (runFlip m2)
   tscatter sh t f = Flip $ tscatterZR sh (runFlip t) f
   tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t) f
   tfromList = Flip . tfromListR . map runFlip

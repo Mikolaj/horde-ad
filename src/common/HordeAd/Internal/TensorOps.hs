@@ -295,6 +295,32 @@ tdot1InR t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
            l = zipWith (LA.<.>) lt lu
        in OR.fromList [length l] $ l
 
+tmatmul1R
+  :: Numeric r
+  => OR.Array 2 r -> OR.Array 1 r -> OR.Array 1 r
+tmatmul1R t u =
+  let t2 = OR.toVector t
+      u2 = OR.toVector u
+      (trows, tcols) = case OR.shapeL t of
+        [r, c] -> (r, c)
+        _ -> error "tmatmul1R: wrong shape"
+  in OR.fromVector [trows] $ LA.reshape tcols t2 LA.#> u2
+
+tmatmul2R
+  :: Numeric r
+  => OR.Array 2 r -> OR.Array 2 r -> OR.Array 2 r
+tmatmul2R t u =
+  let t2 = OR.toVector t
+      u2 = OR.toVector u
+      (trows, tcols) = case OR.shapeL t of
+        [r, c] -> (r, c)
+        _ -> error "tmatmul2R: wrong shape"
+      ucols = case OR.shapeL u of
+        [_, c] -> c
+        _ -> error "tmatmul2R: wrong shape"
+  in OR.fromVector [trows, ucols] $ LA.flatten
+     $ LA.reshape tcols t2 LA.<> LA.reshape ucols u2
+
 tminimum0R
   :: Numeric r
   => OR.Array 1 r -> r

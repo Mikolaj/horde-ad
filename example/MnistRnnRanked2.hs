@@ -57,11 +57,11 @@ unrollLastR f s0 xs w =
 rnnMnistLayerR
   :: forall r. Tensor r
   => Ranked r 2  -- in state, [out_width, batch_size]
-  -> Ranked r 2  -- in, [in_width, batch_size] r)  -- in
+  -> Ranked r 2  -- in, [in_width, batch_size]
   -> LayerWeigthsRNN r  -- in_width out_width
   -> Ranked r 2  -- out, [out_width, batch_size]
 rnnMnistLayerR s x (wX, wS, b) = case tshape s of
-  _out_width :$  batch_size :$ ZS ->
+  _out_width :$ batch_size :$ ZS ->
     let y = wX `tmatmul2` x + wS `tmatmul2` s
             + ttranspose [1, 0] (tkonst @r @1 batch_size b)
     in tanh y
