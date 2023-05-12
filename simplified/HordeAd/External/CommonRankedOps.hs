@@ -99,23 +99,25 @@ lossSoftMaxCrossEntropyR
      , Floating (TensorOf n (Primal r))
      , Fractional (TensorOf 0 (Primal r)) )
   => TensorOf n (Primal r) -> TensorOf n r -> r
-lossSoftMaxCrossEntropyR target d =
+lossSoftMaxCrossEntropyR target d' = tunScalar $ tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by the QuickCheck test in TestMnistCNN.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
-  let u = tprimalPart d
-      expU = exp (u - tkonst0N (tshape u) (tminimum u))
-      sumExpU = tsum0 expU
-      recipSum = recip sumExpU
--- not exposed: softMaxU = LA.scaleRecip sumExpU expU
-      softMaxU = tscaleByScalar (tunScalar recipSum) expU
-  in tunScalar
-     $ tD (negate $ log softMaxU `tdot0` target)
-            -- TODO: avoid: log . exp
-          (tdualPart $ (tconstant (softMaxU - target)) `tdot0` d)
-            -- TODO: probably defining tDot0 would lead to a faster
-            -- tDot0 (softMaxU - target) u'
+  let softMaxU' =
+        let u = tprimalPart d
+            expU' = exp (u - tkonst0N (tshape u) (tminimum u))
+        in tlet expU' $ \expU ->
+          let sumExpU = tsum0 expU
+              recipSum = recip sumExpU
+          in tscaleByScalar (tunScalar recipSum) expU
+               -- not exposed: LA.scaleRecip sumExpU expU
+  in tlet (tconstant softMaxU')  $ \softMaxU ->
+    tD (negate $ log (tprimalPart softMaxU) `tdot0` target)
+         -- TODO: avoid: log . exp
+       (tdualPart $ (softMaxU - tconstant target) `tdot0` d)
+         -- TODO: probably defining tDot0 would lead to a faster
+         -- tDot0 (softMaxU - target) u'
 
 -- No padding; remaining areas ignored.
 maxPool1 :: Tensor r

@@ -127,13 +127,13 @@ mnistTestCaseRNNA prefix epochs maxBatches width batchSize expected =
 
 tensorADValMnistTestsRNNA :: TestTree
 tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
-  [ mnistTestCaseRNNA "RNNA 1 epoch, 1 batch" 1 1 32 4
+  [ mnistTestCaseRNNA "RNNA 1 epoch, 1 batch" 1 1 32 5
                        (1 :: Double)
   , mnistTestCaseRNNA "RNNA artificial 1 2 3 4 5" 2 3 4 5
                        (0.93333334 :: Float)
   , mnistTestCaseRNNA "RNNA artificial 5 4 3 2 1" 5 4 3 2
                        (0.875 :: Double)
-  , mnistTestCaseRNNA "RNNA 1 epoch, 0 batch" 1 0 32 4
+  , mnistTestCaseRNNA "RNNA 1 epoch, 0 batch" 1 0 32 5
                        (1.0 :: Float)
   ]
 
@@ -240,13 +240,13 @@ mnistTestCaseRNNI prefix epochs maxBatches width batchSize expected =
 
 tensorADValMnistTestsRNNI :: TestTree
 tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
-  [ mnistTestCaseRNNI "RNNI 1 epoch, 1 batch" 1 1 32 4
-                       (1 :: Double)
+  [ mnistTestCaseRNNI "RNNI 1 epoch, 1 batch" 1 1 128 5
+                       (0.8 :: Double)
   , mnistTestCaseRNNI "RNNI artificial 1 2 3 4 5" 2 3 4 5
                        (0.93333334 :: Float)
   , mnistTestCaseRNNI "RNNI artificial 5 4 3 2 1" 5 4 3 2
                        (0.875 :: Double)
-  , mnistTestCaseRNNI "RNNI 1 epoch, 0 batch" 1 0 32 4
+  , mnistTestCaseRNNI "RNNI 1 epoch, 0 batch" 1 0 128 5
                        (1.0 :: Float)
   ]
 
@@ -360,12 +360,12 @@ mnistTestCaseRNNO prefix epochs maxBatches width batchSize expected =
 
 tensorADValMnistTestsRNNO :: TestTree
 tensorADValMnistTestsRNNO = testGroup "RNN Once MNIST tests"
-  [ mnistTestCaseRNNO "RNNO 1 epoch, 1 batch" 1 1 32 4
-                       (1.0 :: Double)
+  [ mnistTestCaseRNNO "RNNO 1 epoch, 1 batch" 1 1 128 5
+                       (0.8 :: Double)
   , mnistTestCaseRNNO "RNNO artificial 1 2 3 4 5" 2 3 4 5
                        (0.93333334 :: Float)
   , mnistTestCaseRNNO "RNNO artificial 5 4 3 2 1" 5 4 3 2
                        (0.875 :: Double)
-  , mnistTestCaseRNNO "RNNO 1 epoch, 0 batch" 1 0 32 4
+  , mnistTestCaseRNNO "RNNO 1 epoch, 0 batch" 1 0 128 5
                        (1.0 :: Float)
   ]
