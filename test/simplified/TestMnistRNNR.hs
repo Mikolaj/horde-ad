@@ -90,7 +90,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width batchSize expected =
            runBatch :: (Domains r, StateAdam r)
                     -> (Int, [MnistDataR r])
                     -> IO (Domains r, StateAdam r)
-           runBatch (!parameters, !stateAdam) (k, chunk) = do
+           runBatch !(!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r -> Domains (ADVal r) -> ADVal r
                  f (glyphR, labelR) adinputs =
                    MnistRnnRanked2.rnnMnistLossFusedR
@@ -112,14 +112,14 @@ mnistTestCaseRNNA prefix epochs maxBatches width batchSize expected =
              return res
        let runEpoch :: Int -> (Domains r, StateAdam r) -> IO (Domains r)
            runEpoch n (params2, _) | n > epochs = return params2
-           runEpoch n paramsStateAdam = do
+           runEpoch n !paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..]
                           $ chunksOf (10 * batchSize) trainDataShuffled
-             !res <- foldM runBatch paramsStateAdam chunks
+             res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
        res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
        let testErrorFinal = 1 - ftest (batchSize * maxBatches) testDataR res
@@ -196,7 +196,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width batchSize expected =
            runBatch :: (Domains r, StateAdam r)
                     -> (Int, [MnistDataR r])
                     -> IO (Domains r, StateAdam r)
-           runBatch (!parameters, !stateAdam) (k, chunk) = do
+           runBatch !(!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r -> Domains (ADVal r) -> ADVal r
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvD EM.empty
@@ -223,14 +223,14 @@ mnistTestCaseRNNI prefix epochs maxBatches width batchSize expected =
              return res
        let runEpoch :: Int -> (Domains r, StateAdam r) -> IO (Domains r)
            runEpoch n (params2, _) | n > epochs = return params2
-           runEpoch n paramsStateAdam = do
+           runEpoch n !paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..]
                           $ chunksOf (10 * batchSize) trainDataShuffled
-             !res <- foldM runBatch paramsStateAdam chunks
+             res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
        res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
        let testErrorFinal = 1 - ftest (batchSize * maxBatches) testDataR res
@@ -311,7 +311,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width batchSize expected =
            go :: [MnistDataBatchR r] -> (Domains r, StateAdam r)
               -> (Domains r, StateAdam r)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
-           go ((glyph, label) : rest) (parameters, stateAdam) =
+           go ((glyph, label) : rest) !(!parameters, !stateAdam) =
              let glyphD = dfromR $ tconst glyph
                  labelD = dfromR $ tconst label
                  parametersAndInput =
@@ -324,7 +324,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width batchSize expected =
            runBatch :: (Domains r, StateAdam r)
                     -> (Int, [MnistDataR r])
                     -> IO (Domains r, StateAdam r)
-           runBatch (!parameters, !stateAdam) (k, chunk) = do
+           runBatch !(!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map packBatchR
                           $ filter (\ch -> length ch >= batchSize)
                           $ chunksOf batchSize chunk
@@ -341,14 +341,14 @@ mnistTestCaseRNNO prefix epochs maxBatches width batchSize expected =
              return res
        let runEpoch :: Int -> (Domains r, StateAdam r) -> IO (Domains r)
            runEpoch n (params2, _) | n > epochs = return params2
-           runEpoch n paramsStateAdam = do
+           runEpoch n !paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..]
                           $ chunksOf (10 * batchSize) trainDataShuffled
-             !res <- foldM runBatch paramsStateAdam chunks
+             res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
        res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
        let testErrorFinal = 1 - ftest (batchSize * maxBatches) testDataR res

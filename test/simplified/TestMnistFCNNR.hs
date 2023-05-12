@@ -120,13 +120,13 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
              return res
        let runEpoch :: Int -> Domains r -> IO (Domains r)
            runEpoch n params | n > epochs = return params
-           runEpoch n params = do
+           runEpoch n !params = do
              unless (widthHidden < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
-             !res <- foldM runBatch params chunks
+             res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 (mkDoms (dfromR $ Flip emptyR)
                                  (fromListDoms params1Init))
@@ -233,14 +233,14 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
              return res
        let runEpoch :: Int -> Domains r -> IO (Domains r)
            runEpoch n params | n > epochs = return params
-           runEpoch n params = do
+           runEpoch n !params = do
              unless (widthHidden < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
                               -- 5000 times less data per batch
-             !res <- foldM runBatch params chunks
+             res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 domainsInit
        let testErrorFinal = 1 - ftest testData res
@@ -322,7 +322,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            vars = (var0Again, varDtAgain, vars1AndInputAgain)
            go :: [MnistData r] -> Domains r -> Domains r
            go [] parameters = parameters
-           go ((glyph, label) : rest) parameters =
+           go ((glyph, label) : rest) !parameters =
              let glyphD = OD.fromVector [sizeMnistGlyphInt] glyph
                  labelD = OD.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
@@ -346,14 +346,14 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
              return res
        let runEpoch :: Int -> Domains r -> IO (Domains r)
            runEpoch n params | n > epochs = return params
-           runEpoch n params = do
+           runEpoch n !params = do
              unless (widthHidden < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
                               -- 5000 times less data per batch
-             !res <- foldM runBatch params chunks
+             res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 domainsInit
        let testErrorFinal = 1 - ftest testData res
@@ -446,13 +446,13 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
              return res
        let runEpoch :: Int -> Domains r -> IO (Domains r)
            runEpoch n params | n > epochs = return params
-           runEpoch n params = do
+           runEpoch n !params = do
              unless (widthHidden < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
-             !res <- foldM runBatch params chunks
+             res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 (mkDoms (dfromR $ Flip emptyR)
                                  (fromListDoms params1Init))
@@ -560,14 +560,14 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
              return res
        let runEpoch :: Int -> Domains r -> IO (Domains r)
            runEpoch n params | n > epochs = return params
-           runEpoch n params = do
+           runEpoch n !params = do
              unless (widthHidden < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
                               -- 5000 times less data per batch
-             !res <- foldM runBatch params chunks
+             res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 domainsInit
        let testErrorFinal = 1 - ftest testData res
@@ -652,7 +652,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
            vars = (var0Again, varDtAgain, vars1AndInputAgain)
            go :: [MnistData r] -> Domains r -> Domains r
            go [] parameters = parameters
-           go ((glyph, label) : rest) parameters =
+           go ((glyph, label) : rest) !parameters =
              let glyphD = OD.fromVector [sizeMnistGlyphInt] glyph
                  labelD = OD.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
@@ -676,14 +676,14 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
              return res
        let runEpoch :: Int -> Domains r -> IO (Domains r)
            runEpoch n params | n > epochs = return params
-           runEpoch n params = do
+           runEpoch n !params = do
              unless (widthHidden < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
                               -- 5000 times less data per batch
-             !res <- foldM runBatch params chunks
+             res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 domainsInit
        let testErrorFinal = 1 - ftest testData res
