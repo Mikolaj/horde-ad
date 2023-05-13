@@ -122,7 +122,7 @@ testOverleaf =
 
 testOverleafPP :: Assertion
 testOverleafPP = do
-  resetVarCounter
+  resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v"), (2, "i")]
       fT :: (TensorOf 1 (Ast0 Double))
@@ -143,7 +143,7 @@ testOverleafPP = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= printPrimal6Pretty renames artifact6
   show deltas
-    @?= "LetR 100000331 (SumR 50 (LetR 100000330 (GatherZ [50] (InputR (InputId 0)) <function> [28])))"
+    @?= "LetR 100000003 (SumR 50 (LetR 100000002 (GatherZ [50] (InputR (InputId 0)) <function> [28])))"
 
 foo :: RealFloat a => (a, a, a) -> a
 foo (x, y, z) =
