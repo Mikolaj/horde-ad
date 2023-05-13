@@ -42,7 +42,7 @@ build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
       startTerm = Ast.AstBuild1 k (var, v0)
-      renames = IM.fromList [(1, "s0")]
+      renames = IM.fromList [(1, ""), (2, "")]
   when enabled $ do
     writeIORef traceNestingLevel 0
     hPutStrLnFlush stderr $
@@ -302,7 +302,7 @@ mkTraceRule :: (KnownNat n, KnownNat m, ShowAstSimplify r)
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = traceWidth
-      renames = IM.fromList [(1, "s0")]
+      renames = IM.fromList [(1, ""), (2, "")]
       constructorName =
         unwords $ take nwords $ words $ take 20
         $ printAstSimple renames caseAnalysed

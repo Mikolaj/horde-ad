@@ -268,8 +268,8 @@ printAstVarId :: String -> PrintConfig -> AstVarId -> ShowS
 printAstVarId prefix cfg var =
   let n = fromEnum var - 100000000
   in showString $ case IM.lookup n (varRenames cfg) of
-    Nothing -> prefix ++ show n
-    Just name -> name
+    Just name | name /= "" -> name
+    _ -> prefix ++ show n
 
 printAstVar :: forall n r. KnownNat n
             => PrintConfig -> AstVarName (OR.Array n r) -> ShowS
@@ -378,7 +378,7 @@ printAst cfg d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . printAstVar cfg (AstVarName @(OR.Array m r) var)
+           . printAstIntVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
   AstGatherZ sh v (vars, ix) ->
