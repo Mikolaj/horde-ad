@@ -35,6 +35,8 @@ testTrees :: [TestTree]
 testTrees =
   [ -- Tensor tests
     testCase "2zero" testZero
+  , testCase "2overleaf" testOverleaf
+  , testCase "2overleafPP" testOverleafPP
   , testCase "2foo" testFoo
   , testCase "2fooPP" testFooPP
   , testCase "2fooLet" testFooLet
@@ -107,6 +109,41 @@ testZero =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Double @0 [] [0])
     (rev' @Double @0 (const 3) 42)
+
+overleaf :: forall r. Tensor r => TensorOf 1 r -> TensorOf 0 r
+overleaf v = let wrap i = i `rem` fromIntegral (tlength v)
+             in tsum (tbuild @r @1 [50] (\[i] -> tindex v [wrap i]))
+
+testOverleaf :: Assertion
+testOverleaf =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList @Double @1 [28] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0])
+    (rev' @Double @0 overleaf (tfromList0N [28] [0 .. 27]))
+
+testOverleafPP :: Assertion
+testOverleafPP = do
+  resetVarCounter
+  let renames = IM.empty
+      renamesNull = IM.fromList [(1, "v"), (2, "i")]
+      fT :: (TensorOf 1 (Ast0 Double))
+         -> TensorOf 0 (Ast0 Double)
+      fT = overleaf
+      (var3, ast3) = funToAstR [28] fT
+  "\\" ++ printAstVarName renamesNull var3
+       ++ " -> " ++ printAstSimple renamesNull ast3
+    @?= "\\v -> tsum (tgather [50] v (\\[i] -> [rem i 28]))"
+  resetVarCounter
+  let (artifact6, deltas) = revDtFun fT (OR.fromList [28] [0 .. 27])
+  printGradient6Pretty renames artifact6
+    @?= "\\s0 dret v3 -> (tfromList [], tscatter [28] (tkonst 50 dret) (\\[i6] -> [rem i6 28]))"
+  printPrimal6Pretty renames artifact6
+    @?= "\\s0 v3 -> tsum (tgather [50] v3 (\\[i5] -> [rem i5 28]))"
+  printGradient6Pretty renames (simplifyArtifact6 artifact6)
+    @?= printGradient6Pretty renames artifact6
+  printPrimal6Pretty renames (simplifyArtifact6 artifact6)
+    @?= printPrimal6Pretty renames artifact6
+  show deltas
+    @?= "LetR 100000331 (SumR 50 (LetR 100000330 (GatherZ [50] (InputR (InputId 0)) <function> [28])))"
 
 foo :: RealFloat a => (a, a, a) -> a
 foo (x, y, z) =
