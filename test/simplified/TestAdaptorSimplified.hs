@@ -490,12 +490,12 @@ testMatmul1PP = do
                                     , OR.fromList [3] [7 .. 9] )
   printGradient6Pretty renames artifact6
     @?= "\\s0 dret m3 v4 -> let m6 = tkonst 2 v4 ; m7 = ttranspose [1,0] (tkonst 3 dret) in (tfromList [], m6 * m7, tsum (m3 * m7))"
+  printPrimal6Pretty renames artifact6
+    @?= "\\s0 m3 v4 -> let v6 = tkonst 2 v4 in tsum (ttranspose [1,0] (m6 * m3))"
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\s0 dret m3 v4 -> let m7 = ttranspose [1,0] (tkonst 3 dret) in (tfromList [], tkonst 2 v4 * m7, tsum (m3 * m7))"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\s0 m3 v4 -> tsum (ttranspose [1,0] (tkonst 2 v4 * m3))"
-  printPrimal6Pretty renames artifact6
-    @?= "\\s0 m3 v4 -> let v6 = tkonst 2 v4 in tsum (ttranspose [1,0] (m6 * m3))"
 
 testMatmul2PP :: Assertion
 testMatmul2PP = do
