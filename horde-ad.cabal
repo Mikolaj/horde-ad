@@ -1,4 +1,4 @@
-cabal-version:      2.4
+cabal-version:      3.8
 -- The cabal-version field refers to the version of the .cabal specification,
 -- and can be different from the cabal-install (the tool) version and the
 -- Cabal (the library) version you are using. As such, the Cabal (the library)
@@ -261,7 +261,7 @@ library testCommonLibrary
 
     -- Other library packages from which modules are imported.
     build-depends:
-      , exampleLibrary
+      , horde-ad:exampleLibrary
       , horde-ad
 
       , base
@@ -305,7 +305,7 @@ test-suite minimalTest
 
     -- Test dependencies.
     build-depends:
-      , testCommonLibrary
+      , horde-ad:testCommonLibrary
 
       , base
       , tasty >= 1.0
@@ -333,7 +333,7 @@ test-suite shortTestForCI
     main-is:          ShortTestForCI.hs
 
     build-depends:
-      , testCommonLibrary
+      , horde-ad:testCommonLibrary
 
       , base
       , tasty >= 1.0
@@ -365,7 +365,7 @@ test-suite extremelyLongTest
 
     -- Test dependencies.
     build-depends:
-      , testCommonLibrary
+      , horde-ad:testCommonLibrary
 
       , base
       , tasty >= 1.0
@@ -389,7 +389,7 @@ library benchCommonLibrary
 
 
     build-depends:
-      , exampleLibrary
+      , horde-ad:exampleLibrary
       , horde-ad
 
       , base
@@ -414,7 +414,7 @@ benchmark longProdBench
     hs-source-dirs:   bench
     main-is:          LongProdBench.hs
     build-depends:
-      , benchCommonLibrary
+      , horde-ad:benchCommonLibrary
 
       , base
       , criterion
@@ -433,7 +433,7 @@ benchmark shortProdForCI
     hs-source-dirs:   bench
     main-is:          ShortProdForCI.hs
     build-depends:
-      , benchCommonLibrary
+      , horde-ad:benchCommonLibrary
 
       , base
       , criterion
@@ -454,8 +454,8 @@ benchmark longMnistBench
     hs-source-dirs:   bench
     main-is:          LongMnistBench.hs
     build-depends:
-      , benchCommonLibrary
-      , exampleLibrary
+      , horde-ad:benchCommonLibrary
+      , horde-ad:exampleLibrary
 
       , base
       , criterion
@@ -475,8 +475,8 @@ benchmark shortMnistForCI
     hs-source-dirs:   bench
     main-is:          ShortMnistForCI.hs
     build-depends:
-      , benchCommonLibrary
-      , exampleLibrary
+      , horde-ad:benchCommonLibrary
+      , horde-ad:exampleLibrary
 
       , base
       , criterion
@@ -495,8 +495,8 @@ benchmark realisticMnistBench
     hs-source-dirs:   bench
     main-is:          RealisticMnistBench.hs
     build-depends:
-      , benchCommonLibrary
-      , exampleLibrary
+      , horde-ad:benchCommonLibrary
+      , horde-ad:exampleLibrary
 
       , base
       , criterion
@@ -584,7 +584,7 @@ library oldExampleLibrarySimplified
                       OldMnistFcnnVector
 
     build-depends:
-      , horde-ad-simplified
+      , horde-ad:horde-ad-simplified
 
       , base
       , bytestring
@@ -612,7 +612,7 @@ library exampleLibrarySimplified
                       MnistRnnRanked2
 
     build-depends:
-      , horde-ad-simplified
+      , horde-ad:horde-ad-simplified
 
       , base
       , bifunctors
@@ -640,7 +640,7 @@ library testToolLibrarySimplified
                       Shared
 
     build-depends:
-      , horde-ad-simplified
+      , horde-ad:horde-ad-simplified
 
       , base
       , bifunctors
@@ -669,9 +669,9 @@ library testCommonLibrarySimplified
                       TestMnistRNNSimple
 
     build-depends:
-      , testToolLibrarySimplified
-      , oldExampleLibrarySimplified
-      , horde-ad-simplified
+      , horde-ad:testToolLibrarySimplified
+      , horde-ad:oldExampleLibrarySimplified
+      , horde-ad:horde-ad-simplified
 
       , base
       , hmatrix
@@ -703,8 +703,8 @@ test-suite shortTestForCISimplified
     main-is:          ShortTestForCISimplified.hs
 
     build-depends:
-      , testCommonLibrarySimplified
-      , testToolLibrarySimplified
+      , horde-ad:testCommonLibrarySimplified
+      , horde-ad:testToolLibrarySimplified
 
       , base
       , tasty >= 1.0
@@ -726,8 +726,8 @@ test-suite extremelyLongTestSimplified
     main-is:          ExtremelyLongTestSimplified.hs
 
     build-depends:
-      , testCommonLibrarySimplified
-      , testToolLibrarySimplified
+      , horde-ad:testCommonLibrarySimplified
+      , horde-ad:testToolLibrarySimplified
 
       , base
       , tasty >= 1.0
@@ -756,9 +756,9 @@ test-suite simplifiedOnlyTest
                       TestSimplified
 
     build-depends:
-      , horde-ad-simplified
-      , exampleLibrarySimplified
-      , testToolLibrarySimplified
+      , horde-ad:horde-ad-simplified
+      , horde-ad:exampleLibrarySimplified
+      , horde-ad:testToolLibrarySimplified
 
       , base
       , bifunctors
