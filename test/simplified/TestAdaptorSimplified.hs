@@ -35,6 +35,8 @@ testTrees :: [TestTree]
 testTrees =
   [ -- Tensor tests
     testCase "2zero" testZero
+  , testCase "2piecewiseLinearPP" testPiecewiseLinearPP
+  , testCase "2piecewiseLinear2PP" testPiecewiseLinear2PP
   , testCase "2overleaf" testOverleaf
   , testCase "2overleafPP" testOverleafPP
   , testCase "2foo" testFoo
@@ -109,6 +111,40 @@ testZero =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Double @0 [] [0])
     (rev' @Double @0 (const 3) 42)
+
+testPiecewiseLinearPP :: Assertion
+testPiecewiseLinearPP = do
+  resetVarCounter >> resetIdCounter
+  let renames = IM.empty
+      fT :: TensorOf 0 (Ast0 Double)
+         -> TensorOf 0 (Ast0 Double)
+      fT x = ifB (x >* 0) (2 * x) (5 * x)
+      (artifact6, deltas) = revDtFun fT 42
+  printGradient6Pretty renames (simplifyArtifact6 artifact6)
+    @?= "\\s0 dret x3 -> let v6 = tscatter [2] dret (\\[] -> [ifB (x3 >* tconst 0.0) 0 1]) in (tfromList [], tconst 2.0 * v6 ! [0] + tconst 5.0 * v6 ! [1])"
+  printPrimal6Pretty renames (simplifyArtifact6 artifact6)
+    @?= "\\s0 x3 -> tfromList [tconst 2.0 * x3, tconst 5.0 * x3] ! [ifB (x3 >* tconst 0.0) 0 1]"
+  show deltas
+    @?= "LetR 100000005 (IndexZ (LetR 100000004 (FromListR [LetR 100000002 (ScaleR (AstVar [] (AstVarId 100000004)) (InputR (InputId 0))),LetR 100000003 (ScaleR (AstVar [] (AstVarId 100000005)) (InputR (InputId 0)))])) [AstIntCond (AstRel GtOp [AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstVar [] (AstVarId 100000003))},AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstLetADShare ADShareNil (AstConstant (AstPrimalPart {unAstPrimalPart = AstConst (fromList [] [0.0])})))}]) (AstIntConst 0) (AstIntConst 1)] [2])"
+
+testPiecewiseLinear2PP :: Assertion
+testPiecewiseLinear2PP = do
+  resetVarCounter
+  let renames = IM.empty
+      fT :: TensorOf 0 (Ast0 Double)
+         -> TensorOf 0 (Ast0 Double)
+      fT x = ifB (x >* 0) 2 5 * x
+      (artifact6, deltas) = revDtFun fT 42
+  printGradient6Pretty renames artifact6
+    @?= "\\s0 dret x3 -> let x4 = tfromList [tconst 2.0, tconst 5.0] ! [ifB (x3 >* tconst 0.0) 0 1] in (tfromList [], x4 * dret)"
+  printPrimal6Pretty renames artifact6
+    @?= "\\s0 x3 -> let x4 = tfromList [tconst 2.0, tconst 5.0] ! [ifB (x3 >* tconst 0.0) 0 1] in x4 * x3"
+  printGradient6Pretty renames (simplifyArtifact6 artifact6)
+    @?= "\\s0 dret x3 -> (tfromList [], tconstant (tconst (fromList [2] [2.0,5.0]) ! [ifB (x3 >* tconst 0.0) 0 1]) * dret)"
+  printPrimal6Pretty renames (simplifyArtifact6 artifact6)
+    @?= "\\s0 x3 -> tconstant (tconst (fromList [2] [2.0,5.0]) ! [ifB (x3 >* tconst 0.0) 0 1]) * x3"
+  show deltas
+    @?= "LetR 100000009 (ScaleR (AstVar [] (AstVarId 100000004)) (InputR (InputId 0)))"
 
 overleaf :: forall r. Tensor r => TensorOf 1 r -> TensorOf 0 r
 overleaf v = let wrap i = i `rem` fromIntegral (tlength v)
