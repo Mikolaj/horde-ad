@@ -138,13 +138,18 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
   tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf 0 r
   tdot0 t u = tsum (tflatten (t `tmult` u))
   tmatmul1 :: TensorOf 2 r -> TensorOf 1 r -> TensorOf 1 r
+-- How to generalize (#69)? The few straightforward generalizations
+-- differ in types but all are far from matmul2.
   tmatmul1 m v = tbuild1 (tlength m) (\i -> tdot0 v (m ! [i]))
--- How to generalize (#69)? these equivalent definitions generalize differently
--- and the two tmatmul2 variants differ in what transpositions get multiplied.
 -- tmatmul1 m v = tflatten $ tmap1 (tkonst 1 . tdot0 v) m
   tmatmul2 :: TensorOf 2 r -> TensorOf 2 r -> TensorOf 2 r
--- tmatmul2 m1 m2 = tbuild1 (tlength m1) (\i -> tmatmul1 m2 (m1 ! [i]))
-  tmatmul2 m1 m2 = tmap1 (tmatmul1 (ttr m2)) m1
+-- How to generalize (#69)? Just tmatmul2 the two outermost dimensions?
+-- tmatmul2 m1 m2 = tmap1 (tmatmul1 (ttr m2)) m1
+-- tmatmul2 m1 m2 = tbuild1 (tlength m1) (\i -> tmatmul1 (ttr m2) (m1 ! [i]))
+  tmatmul2 m1 m2 = case tshape m2 of
+    _ :$ width2 :$ ZS -> tsum (ttranspose [2,1,0] (tkonst width2 m1)
+                               * ttranspose [1,0] (tkonst (tlength m1) m2))
+    _ -> error "impossible pattern needlessly required"
   tminimum :: KnownNat n => TensorOf n r -> TensorOf 0 r
   tminimum t = t ! tminIndex t
   tmaximum :: KnownNat n => TensorOf n r -> TensorOf 0 r

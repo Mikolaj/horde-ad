@@ -505,13 +505,13 @@ testMatmul2PP = do
         revDtFun (uncurry tmatmul2) ( OR.fromList [2,3] [1 :: Double .. 6]
                                     , OR.fromList [3,4] [7 .. 18] )
   printGradient6Pretty renames artifact6
-    @?= "\\s0 dret m3 m4 -> let t7 = ttranspose [1,0] (tkonst 4 m3) ; t8 = tkonst 2 (ttranspose [1,0] m4) ; t9 = ttranspose [1,2,0] (tkonst 3 dret) in (tfromList [], tsum (ttranspose [1,0] (t8 * t9)), ttranspose [1,0] (tsum (t7 * t9)))"
+    @?= "\\s0 dret m3 m4 -> let t5 = ttranspose [2,1,0] (tkonst 4 m3) ; t6 = ttranspose [1,0] (tkonst 2 m4) ; t7 = tkonst 3 dret in (tfromList [], tsum (ttranspose [2,1,0] (t6 * t7)), tsum (ttranspose [1,0] (t5 * t7)))"
   printPrimal6Pretty renames artifact6
-    @?= "\\s0 m3 m4 -> let m7 = ttranspose [1,0] (tkonst 4 m3) ; m8 = tkonst 2 (ttranspose [1,0] m4) in tsum (ttranspose [2,0,1] (t7 * t8))"
+    @?= "\\s0 m3 m4 -> let m5 = ttranspose [2,1,0] (tkonst 4 m3) ; m6 = ttranspose [1,0] (tkonst 2 m4) in tsum (t5 * t6)"
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 dret m3 m4 -> let t9 = ttranspose [1,2,0] (tkonst 3 dret) in (tfromList [], tsum (ttranspose [1,0] (tkonst 2 (ttranspose [1,0] m4) * t9)), tsum (ttranspose [0,2,1] (ttranspose [1,0] (tkonst 4 m3) * t9)))"
+    @?= "\\s0 dret m3 m4 -> let t7 = tkonst 3 dret in (tfromList [], tsum (ttranspose [2,1,0] (ttranspose [1,0] (tkonst 2 m4) * t7)), tsum (ttranspose [1,0] (ttranspose [2,1,0] (tkonst 4 m3) * t7)))"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\s0 m3 m4 -> tsum (ttranspose [2,0,1] (ttranspose [1,0] (tkonst 4 m3) * tkonst 2 (ttranspose [1,0] m4)))"
+    @?= "\\s0 m3 m4 -> tsum (ttranspose [2,1,0] (tkonst 4 m3) * ttranspose [1,0] (tkonst 2 m4))"
 
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =
