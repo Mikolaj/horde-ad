@@ -50,7 +50,7 @@ import           GHC.TypeLits
   , type (-)
   , type (<=)
   )
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -370,7 +370,7 @@ astScatter sh (Ast.AstConstant (AstPrimalPart v)) (vars, ix) =
   astConstant $ AstPrimalPart $ astScatter sh v (vars, ix)
 astScatter sh v (vars, ix) = Ast.AstScatter sh v (vars, ix)
 
-astFromList :: (KnownNat n, Numeric r)
+astFromList :: (KnownNat n, ShowAstSimplify r)
             => [Ast n r] -> Ast (1 + n) r
 astFromList [a] = astKonst 1 a
 astFromList l =
@@ -387,7 +387,7 @@ astFromList l =
         Just l3 -> Ast.AstConst $ tfromListR l3
         Nothing -> Ast.AstFromList l
 
-astFromVector :: (KnownNat n, Numeric r)
+astFromVector :: (KnownNat n, ShowAstSimplify r)
               => Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
 astFromVector v | V.length v == 1 = astKonst 1 (v V.! 0)
 astFromVector l =
@@ -404,26 +404,29 @@ astFromVector l =
         Just l3 -> Ast.AstConst $ tfromVectorR l3
         Nothing -> Ast.AstFromVector l
 
-astKonst :: (KnownNat n, Numeric r)
+astKonst :: (KnownNat n, ShowAstSimplify r)
          => Int -> Ast n r -> Ast (1 + n) r
 astKonst k = \case
 -- This allocates a big tensor too early, while it's still possible
 -- a projection reduces this away. The cost to AD should not be too high.
---  AstConst t -> AstConst $ tkonstR k t
+-- This would also hide AstKonst from hacks that recover tmatmul2, etc.
+--  Ast.AstConst t -> Ast.AstConst $ tkonstR k t
   Ast.AstConstant (AstPrimalPart v) ->
     astConstant $ AstPrimalPart $ astKonst k v
 {- TODO: these may be counterproductive with many gathers and their fusion
          though these let transpose cancel out with each other sometimes
          (instead we should try to cancel out inside konst and only move
           if they don't)
-  AstTranspose perm v ->
+-}
+  Ast.AstTranspose perm v ->
     astTranspose (0 : map succ perm) $ astKonst k v
-  AstReshape sh v ->
+{- see the previous comment
+  Ast.AstReshape sh v ->
     AstReshape (k :$ sh) $ astKonst k v
 -}
   v -> Ast.AstKonst k v
 
-astKonstN :: forall n p r. (KnownNat n, KnownNat p, Numeric r)
+astKonstN :: forall n p r. (KnownNat n, KnownNat p, ShowAstSimplify r)
           => ShapeInt (n + p) -> Ast p r -> Ast (n + p) r
 astKonstN sh =
   let go :: KnownNat n' => ShapeInt n' -> Ast p r -> Ast (n' + p) r
@@ -431,7 +434,7 @@ astKonstN sh =
       go (k :$ sh') v = astKonst k $ go sh' v
   in go (takeShape sh)
 
-astAppend :: (KnownNat n, Numeric r)
+astAppend :: (KnownNat n, ShowAstSimplify r)
           => Ast (1 + n) r -> Ast (1 + n) r -> Ast (1 + n) r
 astAppend (Ast.AstConst u) (Ast.AstConst v) = Ast.AstConst $ tappendR u v
 astAppend (Ast.AstConstant (AstPrimalPart u))

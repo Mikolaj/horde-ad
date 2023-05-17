@@ -386,16 +386,16 @@ testGatherSimp34 = do
   let !t1 = (\t -> tbuild1 4 (\i ->
              gatherTranspose33 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
-  length (show t1) @?= 880
-  length (show (simplifyAst6 @Float t1)) @?= 15179
+  length (show t1) @?= 840
+  length (show (simplifyAst6 @Float t1)) @?= 15162
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               (\t' -> tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
                                (treshape @(Ast0 Float) @10 [8, 16] t'))
                 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
-  length (show t2) @?= 755
-  length (show (simplifyAst6 @Float t2)) @?= 990
+  length (show t2) @?= 736
+  length (show (simplifyAst6 @Float t2)) @?= 971
 
 -- scatters instead of gathers
 
