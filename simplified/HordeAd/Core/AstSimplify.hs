@@ -195,7 +195,7 @@ simplifyStepNonIndex t = case t of
 
 astLet :: forall n m r. (KnownNat m, KnownNat n, ShowAst r)
        => AstVarId -> Ast n r -> Ast m r -> Ast m r
-astLet var u@Ast.AstVar{} v = substitute1Ast (Left u) var v
+astLet var u v | astIsSmall u = substitute1Ast (Left u) var v
   -- we use the substitution that does not simplify, which is sad,
   -- because very low hanging fruits may be left hanging, but we
   -- don't want to simplify the whole term; a better alternative
@@ -882,7 +882,7 @@ astConstant v = Ast.AstConstant v
 
 astDomainsLet :: forall n r. (KnownNat n, ShowAst r)
               => AstVarId -> Ast n r -> AstDomains r -> AstDomains r
-astDomainsLet var u@Ast.AstVar{} v = substitute1AstDomains (Left u) var v
+astDomainsLet var u v | astIsSmall u = substitute1AstDomains (Left u) var v
   -- we use the substitution that does not simplify, which is sad,
   -- because very low hanging fruits may be left hanging, but we
   -- don't want to simplify the whole term; a better alternative
@@ -943,16 +943,6 @@ inlineAstDual
   -> AstDualPart n r -> (AstMemo, AstDualPart n r)
 inlineAstDual env memo (AstDualPart v1) =
   second AstDualPart $ inlineAst env memo v1
-
-astIsSmall :: forall n r. KnownNat n
-           => Ast n r -> Bool
-astIsSmall = \case
-  Ast.AstVar{} -> True
-  Ast.AstIota -> True
-  Ast.AstIndexZ Ast.AstIota _ -> True
-  Ast.AstConst{} -> valueOf @n == (0 :: Int)
-  Ast.AstConstant (AstPrimalPart v) -> astIsSmall v
-  _ -> False
 
 inlineAst
   :: forall n r. (ShowAstSimplify r, KnownNat n)

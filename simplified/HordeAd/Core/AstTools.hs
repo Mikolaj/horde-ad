@@ -6,6 +6,7 @@ module HordeAd.Core.AstTools
   ( shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool, intVarInIndex
   , substitute1Ast, substitute1AstDomains, substitute1AstInt, substitute1AstBool
+  , astIsSmall
   , printAstVarName
   , printAstSimple, printAstPretty, printAstDomainsSimple, printAstDomainsPretty
   , printGradient6Simple, printGradient6Pretty
@@ -253,6 +254,19 @@ substitute1AstBool i var b1 = case b1 of
     $ map (AstPrimalPart . substitute1Ast i var . unAstPrimalPart) args
   AstRelInt opCodeRel args ->
     AstRelInt opCodeRel $ map (substitute1AstInt i var) args
+
+
+-- * Determining if a term is too small to require sharing
+
+astIsSmall :: forall n r. KnownNat n
+           => Ast n r -> Bool
+astIsSmall = \case
+  AstVar{} -> True
+  AstIota -> True
+  AstIndexZ AstIota _ -> True
+  AstConst{} -> valueOf @n == (0 :: Int)
+  AstConstant (AstPrimalPart v) -> astIsSmall v
+  _ -> False
 
 
 -- * Pretty-printing

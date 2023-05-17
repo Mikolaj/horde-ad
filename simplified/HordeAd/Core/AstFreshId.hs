@@ -41,7 +41,7 @@ astRegisterFun :: (ShowAst r, KnownNat n)
                => Ast n r -> [(AstVarId, AstDynamic r)]
                -> ([(AstVarId, AstDynamic r)], Ast n r)
 {-# NOINLINE astRegisterFun #-}
-astRegisterFun !r@AstVar{} !l = (l, r)
+astRegisterFun !r !l | astIsSmall r = (l, r)
 astRegisterFun !r !l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !r2 = AstVar (shapeAst r) freshId
@@ -51,7 +51,7 @@ astRegisterADShare :: (ShowAst r, KnownNat n)
                    => Ast n r -> ADShare r
                    -> (ADShare r, Ast n r)
 {-# NOINLINE astRegisterADShare #-}
-astRegisterADShare !r@AstVar{} !l = (l, r)
+astRegisterADShare !r !l | astIsSmall r = (l, r)
 astRegisterADShare !r !l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !l2 = insertADShare freshId (AstDynamic r) l

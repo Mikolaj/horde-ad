@@ -201,7 +201,7 @@ instance ShowAst r
 
 astLetFun :: (KnownNat n, KnownNat m, ShowAst r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
-astLetFun a@AstVar{} f = f a
+astLetFun a f | astIsSmall a = f a
 astLetFun a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh f
@@ -224,7 +224,7 @@ astLetDomainsFun a f =
 astDomainsLetFun :: (KnownNat n, ShowAst r)
                  => Ast n r -> (Ast n r -> AstDomains r)
                  -> AstDomains r
-astDomainsLetFun a@AstVar{} f = f a
+astDomainsLetFun a f | astIsSmall a = f a
 astDomainsLetFun a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh id
