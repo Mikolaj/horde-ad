@@ -266,6 +266,8 @@ astIsSmall = \case
   AstIndexZ AstIota _ -> True
   AstConst{} -> valueOf @n == (0 :: Int)
   AstConstant (AstPrimalPart v) -> astIsSmall v
+  AstKonst _ v -> astIsSmall v  -- materialized via tricks, so prob. safe
+--  AstTranspose _ v -> astIsSmall v  -- often cheap and often fuses
   _ -> False
 
 
