@@ -104,7 +104,8 @@ rnnMnistZeroR batch_size xs
 
 rnnMnistLossFusedR
   :: (Tensor r, Tensor (Primal r))
-  => Int -> (Ranked (Primal r) 3, Ranked (Primal r) 2)  -- batch_size
+  => Int
+  -> (Ranked (Primal r) 3, Ranked (Primal r) 2)  -- batch_size
   -> ADRnnMnistParameters r  -- SizeMnistHeight out_width
   -> r
 rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
@@ -117,7 +118,8 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 
 rnnMnistTestR
   :: forall r. (ADReady r, r ~ Primal r, Numeric r, Ranked r ~ Flip OR.Array r)
-  => Int -> MnistDataBatchR r  -- batch_size
+  => Int
+  -> MnistDataBatchR r  -- batch_size
   -> ((ADRnnMnistParameters r  -- SizeMnistHeight out_width
        -> Ranked r 2)  -- [SizeMnistLabel, batch_size]
       -> OR.Array 2 r)  -- [SizeMnistLabel, batch_size]
