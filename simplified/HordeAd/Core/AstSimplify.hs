@@ -499,6 +499,10 @@ astTranspose :: forall n r. (ShowAstSimplify r, KnownNat n)
 astTranspose perm0 t0 = case (perm0, t0) of
   ([], t) -> t
   (perm, Ast.AstLet var u v) -> astLet var u (astTranspose perm v)
+  (perm, Ast.AstOp opCode args@[Ast.AstTranspose{}, _]) ->
+    Ast.AstOp opCode (map (astTranspose perm) args)
+  (perm, Ast.AstOp opCode args@[_,  Ast.AstTranspose{}]) ->
+    Ast.AstOp opCode (map (astTranspose perm) args)
   (perm, Ast.AstOp opCode args) | not (length args > 1 || all isVar args) ->
     Ast.AstOp opCode (map (astTranspose perm) args)
   (perm, Ast.AstSumOfList args) | not (length args > 1 || all isVar args) ->
@@ -532,6 +536,10 @@ astTranspose perm0 t0 = case (perm0, t0) of
 astReshape :: forall p m r. (KnownNat p, KnownNat m, ShowAstSimplify r)
            => ShapeInt m -> Ast p r -> Ast m r
 astReshape shOut (Ast.AstLet var u v) = astLet var u (astReshape shOut v)
+astReshape shOut (Ast.AstOp opCode args@[Ast.AstReshape{}, _]) =
+  Ast.AstOp opCode (map (astReshape shOut) args)
+astReshape shOut (Ast.AstOp opCode args@[_, Ast.AstReshape{}]) =
+  Ast.AstOp opCode (map (astReshape shOut) args)
 astReshape shOut (Ast.AstOp opCode args)
   | not (length args > 1 || all isVar args) =
       Ast.AstOp opCode (map (astReshape shOut) args)

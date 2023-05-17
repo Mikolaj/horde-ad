@@ -305,15 +305,15 @@ testGatherSimp23 = do
               gatherReshape22
                 (t * tkonst0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
-  length (show t1) @?= 266
-  length (show (simplifyAst6 @Float t1)) @?= 499
+  length (show t1) @?= 264
+  length (show (simplifyAst6 @Float t1)) @?= 497
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               treshape @(Ast0 Float) @2 @2 [2, 6]
                 (t * tkonst0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
-  length (show t2) @?= 266
-  length (show (simplifyAst6 @Float t2)) @?= 499
+  length (show t2) @?= 264
+  length (show (simplifyAst6 @Float t2)) @?= 497
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -394,8 +394,8 @@ testGatherSimp34 = do
                                (treshape @(Ast0 Float) @10 [8, 16] t'))
                 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
-  length (show t2) @?= 772
-  length (show (simplifyAst6 @Float t2)) @?= 1832
+  length (show t2) @?= 755
+  length (show (simplifyAst6 @Float t2)) @?= 990
 
 -- scatters instead of gathers
 
