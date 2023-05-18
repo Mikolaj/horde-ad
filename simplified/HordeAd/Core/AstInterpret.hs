@@ -211,6 +211,92 @@ interpretAst env memo = \case
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
+  AstSum (AstOp TimesOp [ AstLet vart vt (AstTranspose tperm t)
+                        , AstTranspose uperm u ]) ->
+    interpretAst env memo
+      (AstLet vart vt
+         (AstSum (AstOp TimesOp [ AstTranspose tperm t
+                                , AstTranspose uperm u ])))
+  AstSum (AstOp TimesOp [ AstTranspose tperm t
+                        , AstLet varu vu (AstTranspose uperm u) ]) ->
+    interpretAst env memo
+      (AstLet varu vu
+         (AstSum (AstOp TimesOp [ AstTranspose tperm t
+                                , AstTranspose uperm u ])))
+  AstSum (AstOp TimesOp [ AstLet vart vt (AstTranspose tperm t)
+                        , AstLet varu vu (AstTranspose uperm u) ]) ->
+    interpretAst env memo
+      (AstLet vart vt (AstLet varu vu
+         (AstSum (AstOp TimesOp [ AstTranspose tperm t
+                                , AstTranspose uperm u ]))))
+  AstSum (AstOp TimesOp [ AstTranspose tperm (AstLet vart vt (AstKonst tk t))
+                        , AstTranspose uperm (AstKonst uk u) ]) ->
+    interpretAst env memo
+      (AstLet vart vt
+         (AstSum (AstOp TimesOp [ AstTranspose tperm (AstKonst tk t)
+                                , AstTranspose uperm (AstKonst uk u) ])))
+  AstSum (AstOp TimesOp [ AstTranspose tperm (AstKonst tk t)
+                        , AstTranspose uperm (AstLet varu vu
+                                               (AstKonst uk u)) ]) ->
+    interpretAst env memo
+      (AstLet varu vu
+         (AstSum (AstOp TimesOp [ AstTranspose tperm (AstKonst tk t)
+                                , AstTranspose uperm (AstKonst uk u) ])))
+  AstSum (AstOp TimesOp [ AstTranspose tperm (AstLet vart vt (AstKonst tk t))
+                        , AstTranspose uperm (AstLet varu vu
+                                               (AstKonst uk u)) ]) ->
+    interpretAst env memo
+      (AstLet vart vt (AstLet varu vu
+         (AstSum (AstOp TimesOp [ AstTranspose tperm (AstKonst tk t)
+                                , AstTranspose uperm (AstKonst uk u) ]))))
+  AstSum v@(AstOp TimesOp [ AstTranspose tperm (AstKonst _tk t)
+                          , AstTranspose uperm (AstKonst _uk u) ])
+    | Just Refl <- sameNat (Proxy @n) (Proxy @2) ->
+        let interpretMatmul2 t1 u1 =
+              let (memo1, t2) = interpretAst env memo t1
+                  (memo2, u2) = interpretAst env memo1 u1
+              in (memo2, tmatmul2 t2 u2)
+        in case (tperm, uperm) of
+          ([2, 1, 0], [1, 0]) ->  -- tk and uk are fine due to perms matching
+            interpretMatmul2 t u
+          ([1, 0], [2, 1, 0]) ->
+            interpretMatmul2 u t
+          ([2, 1, 0], [2, 0, 1]) ->
+            interpretMatmul2 t (astTranspose [1, 0] u)
+          ([2, 0, 1], [2, 1, 0]) ->
+            interpretMatmul2 u (astTranspose [1, 0] t)
+          ([1, 2, 0], [1, 0]) ->
+            interpretMatmul2 (astTranspose [1, 0] t) u
+          ([1, 0], [1, 2, 0]) ->
+            interpretMatmul2 (astTranspose [1, 0] u) t
+--          ([1, 2, 0], [2, 0, 1]) ->
+--            interpretMatmul2 (AstTranspose [1, 0] t) (AstTranspose [1, 0] u)
+--          ([2, 0, 1], [1, 2, 0]) ->
+--            interpretMatmul2 (AstTranspose [1, 0] u) (AstTranspose [1, 0] t)
+          -- The variants below emerge when the whole term is transposed.
+          -- All overlap with variants above and the cheaper one is selected.
+          ([2, 0, 1], [1, 2, 0]) ->
+            second (ttranspose [1, 0])
+            $ interpretMatmul2 t u
+          ([1, 2, 0], [2, 0, 1]) ->
+            second (ttranspose [1, 0])
+            $ interpretMatmul2 u t
+--          ([2, 0, 1], [2, 1, 0]) ->
+--            second (ttranspose [1, 0])
+--            $ interpretMatmul2 t (AstTranspose [1, 0] u)
+--          ([2, 1, 0], [2, 0, 1]) ->
+--            second (ttranspose [1, 0])
+--            $ interpretMatmul2 u (AstTranspose [1, 0] t)
+--          ([1, 2, 0], [1, 0]) ->
+--            second (ttranspose [1, 0])
+--            $ interpretMatmul2 (AstTranspose [1, 0] u) t
+--          ([1, 0], [2, 1, 0]) ->
+--            second (ttranspose [1, 0])
+--            $ interpretMatmul2 (AstTranspose [1, 0] t) (AstTranspose [1, 0] u)
+--          ([2, 1, 0], [1, 0]) ->
+--            second (ttranspose [1, 0])
+--            $ interpretMatmul2 (AstTranspose [1, 0] u) (AstTranspose [1, 0] t)
+          _ -> second tsum $ interpretAst env memo v
   AstSum (AstOp TimesOp [t, u])
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo t
