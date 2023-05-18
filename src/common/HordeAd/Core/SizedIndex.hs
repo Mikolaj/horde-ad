@@ -10,7 +10,7 @@ module HordeAd.Core.SizedIndex
   , singletonIndex, snocIndex, appendIndex
   , headIndex, tailIndex, takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
-  , permutePrefixIndex
+  , backpermutePrefixIndex, permutePrefixIndex
   , listToIndex, indexToList, indexToSizedList, sizedListToIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$), pattern ZS
@@ -138,6 +138,10 @@ zipIndex (Index l1) (Index l2) = Index $ zipSized l1 l2
 
 zipWith_Index :: (i -> j -> k) -> Index n i -> Index n j -> Index n k
 zipWith_Index f (Index l1) (Index l2) = Index $ zipWith_Sized f l1 l2
+
+backpermutePrefixIndex :: forall n i. KnownNat n
+                       => Permutation -> Index n i -> Index n i
+backpermutePrefixIndex p (Index ix) = Index $ backpermutePrefixSized p ix
 
 -- Inverse permutation of indexes corresponds to normal permutation
 -- of the shape of the projected tensor.

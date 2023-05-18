@@ -341,10 +341,10 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexZ v0 ix
   Ast.AstConstant (AstPrimalPart v) ->
-    astConstant $ AstPrimalPart $ astIndexRec v ix
+    astConstant $ AstPrimalPart $ astIndex v ix
   Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
     Ast.AstD (AstPrimalPart $ astIndexRec u ix)
-         (AstDualPart $ astIndexRec u' ix)
+             (AstDualPart $ astIndexRec u' ix)
   Ast.AstLetDomains vars l v ->
     Ast.AstLetDomains vars l (astIndexRec v ix)
 
@@ -511,9 +511,9 @@ astTranspose perm0 t0 = case (perm0, t0) of
   (perm, Ast.AstSumOfList args) | not (length args > 1 || all isVar args) ->
     Ast.AstSumOfList (map (astTranspose perm) args)
   (perm, Ast.AstSum v) -> astSum $ astTranspose (0 : map succ perm) v
-  (perm, Ast.AstScatter @m sh v (vars, ix)) | length perm <= valueOf @m ->
+  (perm, Ast.AstScatter @_ @_ @p sh v (vars, ix)) | length perm <= valueOf @p ->
     astScatter (backpermutePrefixShape perm sh) v
-               (backpermutePrefixSized perm vars, ix)
+               (vars, backpermutePrefixIndex perm ix)
   (perm1, Ast.AstTranspose perm2 t) ->
     let perm2Matched =
           perm2
@@ -773,7 +773,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstConst{} ->  -- free variables possible, so can't compute the tensor
       Ast.AstGatherZ sh4 v4 (vars4, ix4)
     Ast.AstConstant (AstPrimalPart v) ->
-      astConstant $ AstPrimalPart $ astGatherRec sh4 v (vars4, ix4)
+      astConstant $ AstPrimalPart $ astGather sh4 v (vars4, ix4)
     Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
       let (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
