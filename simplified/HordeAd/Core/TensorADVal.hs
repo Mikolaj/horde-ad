@@ -261,7 +261,7 @@ instance ( ADTensor r, CRanked IsPrimal r
 
   type Primal (ADVal r) = r
   type DualOf n (ADVal r) = (ADShare (Value r), Dual (TensorOf n r))
-  tconst t = Compose $ dD emptyADShare (tconst t) dZero
+  tconst t = Compose $ dD emptyADShare (tconstBare t) dZero
   tconstant t = Compose $ dD emptyADShare t dZero
   tscale0 r (D l u u') = dD l (r * u) (dScale r u')
   tprimalPart (Compose (D l u _)) = tletWrap l u

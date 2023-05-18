@@ -73,6 +73,7 @@ instance ShowAstSimplify r
   tdualPart = AstDualPart
   tD = AstD
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
+  tconstBare = AstConst
 
   tregister = astRegisterFun
   tletWrap = AstLetADShare
@@ -349,6 +350,7 @@ instance ShowAstSimplify r
   tdualPart = AstDualPart . unAstNoVectorize
   tD u u' = AstNoVectorize $ AstD (AstPrimalPart $ unAstNoVectorize u) u'
   tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
+  tconstBare = AstNoVectorize . AstConst
 
   tregister = undefined
   tletWrap = undefined
@@ -406,6 +408,7 @@ instance ShowAstSimplify r
   tdualPart = AstDualPart . unAstNoSimplify
   tD u u' = AstNoSimplify $ AstD (AstPrimalPart $ unAstNoSimplify u) u'
   tScale (AstNoSimplify s) (AstDualPart t) = AstDualPart $ s `tmult` t
+  tconstBare = AstNoSimplify . AstConst
 
   tregister = undefined
   tletWrap = undefined

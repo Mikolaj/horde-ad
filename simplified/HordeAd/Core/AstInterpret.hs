@@ -333,7 +333,7 @@ interpretAst env memo = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstConst a -> (memo, tconst a)
+  AstConst a -> (memo, tconstBare a)
   AstConstant a -> second tconstant $ interpretAstPrimal env memo a
   AstD u u' ->
     let (memo1, t1) = interpretAstPrimal env memo u

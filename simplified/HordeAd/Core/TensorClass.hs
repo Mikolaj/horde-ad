@@ -301,6 +301,8 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
   -- (and HasInputs?)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
+  tconstBare :: KnownNat n => OR.Array n (Value r) -> TensorOf n r
+  tconstBare = tconst
 
   -- Operations for delayed let bindings creation
   tregister :: KnownNat n
