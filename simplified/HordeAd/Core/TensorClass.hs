@@ -137,15 +137,16 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
   tsum0 = tsum . tflatten
   tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf 0 r
   tdot0 t u = tsum (tflatten (t `tmult` u))
-  tmatmul1 :: TensorOf 2 r -> TensorOf 1 r -> TensorOf 1 r
+  tmatvecmul :: TensorOf 2 r -> TensorOf 1 r -> TensorOf 1 r
 -- How to generalize (#69)? The few straightforward generalizations
 -- differ in types but all are far from matmul2.
-  tmatmul1 m v = tbuild1 (tlength m) (\i -> tdot0 v (m ! [i]))
--- tmatmul1 m v = tflatten $ tmap1 (tkonst 1 . tdot0 v) m
+  tmatvecmul m v = tbuild1 (tlength m) (\i -> tdot0 v (m ! [i]))
+-- tmatvecmul m v = tflatten $ tmap1 (tkonst 1 . tdot0 v) m
   tmatmul2 :: TensorOf 2 r -> TensorOf 2 r -> TensorOf 2 r
--- How to generalize (#69)? Just tmatmul2 the two outermost dimensions?
--- tmatmul2 m1 m2 = tmap1 (tmatmul1 (ttr m2)) m1
--- tmatmul2 m1 m2 = tbuild1 (tlength m1) (\i -> tmatmul1 (ttr m2) (m1 ! [i]))
+-- How to generalize to tmatmul (#69)?
+-- Just tmatmul2 the two outermost dimensions?
+-- tmatmul2 m1 m2 = tmap1 (tmatvecmul (ttr m2)) m1
+-- tmatmul2 m1 m2 = tbuild1 (tlength m1) (\i -> tmatvecmul (ttr m2) (m1 ! [i]))
   tmatmul2 m1 m2 = case tshape m2 of
     _ :$ width2 :$ ZS -> tsum (ttranspose [2,1,0] (tkonst width2 m1)
                                * ttranspose [1,0] (tkonst (tlength m1) m2))
@@ -393,7 +394,7 @@ instance Tensor Double where
   tsum = Flip . tsumR . runFlip
   tsum0 = tscalar . tsum0R . runFlip
   tdot0 u v = tscalar $ tdot0R (runFlip u) (runFlip v)
-  tmatmul1 m v = Flip $ tmatmul1R (runFlip m) (runFlip v)
+  tmatvecmul m v = Flip $ tmatvecmulR (runFlip m) (runFlip v)
   tmatmul2 m1 m2 = Flip $ tmatmul2R (runFlip m1) (runFlip m2)
   tscatter sh t f = Flip $ tscatterZR sh (runFlip t) f
   tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t) f
@@ -448,7 +449,7 @@ instance Tensor Float where
   tsum = Flip . tsumR . runFlip
   tsum0 = tscalar . tsum0R . runFlip
   tdot0 u v = tscalar $ tdot0R (runFlip u) (runFlip v)
-  tmatmul1 m v = Flip $ tmatmul1R (runFlip m) (runFlip v)
+  tmatvecmul m v = Flip $ tmatvecmulR (runFlip m) (runFlip v)
   tmatmul2 m1 m2 = Flip $ tmatmul2R (runFlip m1) (runFlip m2)
   tscatter sh t f = Flip $ tscatterZR sh (runFlip t) f
   tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t) f

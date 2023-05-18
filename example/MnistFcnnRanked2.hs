@@ -46,11 +46,11 @@ afcnnMnist2 :: ADReady r
 afcnnMnist2 factivationHidden factivationOutput
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
   let !_A = assert (sizeMnistGlyphInt == tlength datum) ()
-      hiddenLayer1 = tmatmul1 hidden datum + bias
+      hiddenLayer1 = tmatvecmul hidden datum + bias
       nonlinearLayer1 = factivationHidden hiddenLayer1
-      hiddenLayer2 = tmatmul1 hidden2 nonlinearLayer1 + bias2
+      hiddenLayer2 = tmatvecmul hidden2 nonlinearLayer1 + bias2
       nonlinearLayer2 = factivationHidden hiddenLayer2
-      outputLayer = tmatmul1 readout nonlinearLayer2 + biasr
+      outputLayer = tmatvecmul readout nonlinearLayer2 + biasr
   in factivationOutput outputLayer
 
 -- | The neural network applied to concrete activation functions

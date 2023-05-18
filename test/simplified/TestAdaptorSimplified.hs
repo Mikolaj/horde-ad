@@ -58,7 +58,7 @@ testTrees =
   , testCase "2reluMax3" testReluMax3
   , testCase "2dot1PP" testDot1PP
   , testCase "2dot2PP" testDot2PP
-  , testCase "2matmul1PP" testMatmul1PP
+  , testCase "2matvecmulPP" testMatvecmulPP
   , testCase "2matmul2PP" testMatmul2PP
   , testCase "2bar" testBar
   , testCase "2baz old to force fooConstant" testBaz
@@ -517,13 +517,13 @@ testDot2PP = do
   show deltas
     @?= "LetR 100000004 (ScalarR (Add0 (Dot0 (AstVar [2,3] (AstVarId 100000004)) (InputR (InputId 0))) (Dot0 (AstVar [2,3] (AstVarId 100000003)) (InputR (InputId 1)))))"
 
-testMatmul1PP :: Assertion
-testMatmul1PP = do
+testMatvecmulPP :: Assertion
+testMatvecmulPP = do
   resetVarCounter
   let renames = IM.empty
       (artifact6, _) =
-        revDtFun (uncurry tmatmul1) ( OR.fromList [2,3] [1 :: Double .. 6]
-                                    , OR.fromList [3] [7 .. 9] )
+        revDtFun (uncurry tmatvecmul) ( OR.fromList [2,3] [1 :: Double .. 6]
+                                      , OR.fromList [3] [7 .. 9] )
   printGradient6Pretty renames artifact6
     @?= "\\s0 dret m3 v4 -> (tfromList [], tkonst 2 v4 * ttranspose [1,0] (tkonst 3 dret), tsum (m3 * ttranspose [1,0] (tkonst 3 dret)))"
   printPrimal6Pretty renames artifact6

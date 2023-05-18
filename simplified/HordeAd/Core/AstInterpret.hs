@@ -377,7 +377,7 @@ interpretAst env memo = \case
     , var == var2, k == tlength u ->
         let (memo1, t1) = interpretAst env memo t
             (memo2, t2) = interpretAst env memo1 u
-        in (memo2, tmatmul1 t2 t1)
+        in (memo2, tmatvecmul t2 t1)
   AstBuild1 k (var, AstSum
                       (AstReshape @p
                          _sh (AstOp TimesOp [t, AstIndexZ
@@ -387,7 +387,7 @@ interpretAst env memo = \case
     , var == var2, k == tlength u ->
         let (memo1, t1) = interpretAst env memo t
             (memo2, t2) = interpretAst env memo1 u
-        in (memo2, tmatmul1 t2 t1)
+        in (memo2, tmatvecmul t2 t1)
   AstBuild1 0 (_, v) -> (memo, tfromList0N (0 :$ tshape v) [])
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
