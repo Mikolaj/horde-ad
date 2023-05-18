@@ -371,7 +371,7 @@ testGatherSimp33 = do
   resetVarCounter
   let !t1 = gatherTranspose33
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
-  length (show t1) @?= 1093
+  length (show t1) @?= 605
   length (show (simplifyAst6 @Float t1)) @?= 7293
   resetVarCounter
   let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))

@@ -53,7 +53,7 @@ instance ShowAstSimplify r
   tappend = AstAppend
   tslice = AstSlice
   treverse = AstReverse
-  ttranspose = AstTranspose
+  ttranspose = astTranspose
   treshape = astReshape
   tbuild1 = astBuild1Vectorize
   tgather sh t f = AstGatherZ sh t (funToAstIndex f)  -- introduces new vars
