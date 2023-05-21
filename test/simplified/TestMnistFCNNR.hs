@@ -87,7 +87,8 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (length nParams1), show (sum nParams1)
+                        , show (nParams params1Init)
+                        , show (nScalars params1Init)
                         , show gamma ]
       ftest :: [MnistData r] -> Domains r -> r
       ftest mnist testParams =
@@ -185,7 +186,8 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (length nParams1), show (sum nParams1)
+                        , show (nParams params1Init)
+                        , show (nScalars params1Init)
                         , show gamma ]
       ftest :: [MnistData r] -> Domains r -> r
       ftest mnist testParams =
@@ -305,7 +307,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (length nParams1), show (sum nParams1)
+                        , show (nParams params1Init)
+                        , show (nScalars params1Init)
                         , show gamma ]
       ftest :: [MnistData r] -> Domains r -> r
       ftest mnist testParams =
@@ -429,8 +432,8 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (length nParams1)
-                        , show (sum $ map product nParams1)
+                        , show (nParams params1Init)
+                        , show (nScalars params1Init)
                         , show gamma ]
       ftest :: [MnistData r] -> Domains r -> r
       ftest mnist testParams =
@@ -529,8 +532,8 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (length nParams1)
-                        , show (sum $ map product nParams1)
+                        , show (nParams params1Init)
+                        , show (nScalars params1Init)
                         , show gamma ]
       ftest :: [MnistData r] -> Domains r -> r
       ftest mnist testParams =
@@ -650,8 +653,8 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (length nParams1)
-                        , show (sum $ map product nParams1)
+                        , show (nParams params1Init)
+                        , show (nScalars params1Init)
                         , show gamma ]
       ftest :: [MnistData r] -> Domains r -> r
       ftest mnist testParams =

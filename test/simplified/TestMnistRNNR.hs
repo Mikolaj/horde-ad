@@ -77,8 +77,8 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
-                        , show (length nParams1)
-                        , show (sum $ map product nParams1) ]
+                        , show (nParams params1Init)
+                        , show (nScalars params1Init) ]
       ftest :: Int -> MnistDataBatchR r -> Domains r -> r
       ftest miniBatchSize' mnist testParams =
         MnistRnnRanked2.rnnMnistTestR miniBatchSize' mnist
@@ -180,8 +180,8 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
-                        , show (length nParams1)
-                        , show (sum $ map product nParams1) ]
+                        , show (nParams params1Init)
+                        , show (nScalars params1Init) ]
       ftest :: Int -> MnistDataBatchR r -> Domains r -> r
       ftest miniBatchSize' mnist testParams =
         MnistRnnRanked2.rnnMnistTestR miniBatchSize' mnist
@@ -302,8 +302,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
-                        , show (length nParams1)
-                        , show (sum $ map product nParams1) ]
+                        , show (nParams params1Init)
+                        , show (nScalars params1Init) ]
       ftest :: Int -> MnistDataBatchR r -> Domains r -> r
       ftest miniBatchSize' mnist testParams =
         MnistRnnRanked2.rnnMnistTestR miniBatchSize' mnist
