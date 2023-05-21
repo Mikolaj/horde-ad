@@ -541,19 +541,6 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
 -}
 
 instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsCollection r
-         , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r )
-         => AdaptableDomains (OR.Array n r) where
-  type Scalar (OR.Array n r) = r
-  type Value (OR.Array n r) = OR.Array n r
-  toDomains a = mkDoms emptyDoms0 (fromListDoms [Data.Array.Convert.convert a])
-  fromDomains aInit params = case unconsR params of
-    Just (a, rest) ->
-      Just (runFlip $ ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
-    Nothing -> Nothing
-  nParams _ = 1
-  nScalars = OR.size
-
-instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsCollection r
          , Ranked r ~ Flip OR.Array r )
          => AdaptableDomains (Flip OR.Array r n) where
   type Scalar (Flip OR.Array r n) = r
@@ -567,7 +554,7 @@ instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsCollection r
   nScalars = OR.size . runFlip
 
 instance KnownNat n
-         => RandomDomains (OR.Array n r) where
+         => RandomDomains (Flip OR.Array r n) where
   randomVals range g =
     let createRandomVector n seed =
           LA.scale (2 * range)
@@ -575,7 +562,7 @@ instance KnownNat n
         (g1, g2) = split g
         arr = OR.fromVector undefined
               $ createRandomVector (OR.size undefined) g1  -- TODO
-    in (arr, g2)
+    in (Flip arr, g2)
 
 instance AdaptableDomains (OD.Array r) where
   type Scalar (OD.Array r) = r
