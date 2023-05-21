@@ -20,7 +20,7 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
@@ -269,8 +269,15 @@ instance ( ADTensor r, CRanked IsPrimal r
   tD ast (l, delta) = Compose $ dD l ast delta
   tScale ast (l, delta) = (l, dScale ast delta)
 
+  type Shaped (ADVal r) = ShapedAbsentADVal r
   tfromD = Compose . fromD
+  tfromS = undefined
   dfromR = fromR . getCompose
+  dfromS = undefined
+  sfromR = undefined
+  sfromD = undefined
+
+data ShapedAbsentADVal r (sh :: [Nat])
 
 
 -- * ADVal combinators generalizing ranked tensor operations

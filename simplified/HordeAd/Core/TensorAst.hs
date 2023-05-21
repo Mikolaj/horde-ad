@@ -17,7 +17,7 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
@@ -83,8 +83,15 @@ instance ShowAstSimplify r
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
 
+  type Shaped (Ast0 r) = ShapedAbsentAst0 r
   tfromD = astFromDynamic
+  tfromS = undefined
   dfromR r = AstDynamic r
+  dfromS = undefined
+  sfromR = undefined
+  sfromD = undefined
+
+data ShapedAbsentAst0 r (sh :: [Nat])
 
 instance DynamicTensor (Ast0 r) where
   type DTensorOf (Ast0 r) = AstDynamic r
@@ -296,8 +303,15 @@ instance ShowAstSimplify r
   tregister = undefined
   tletWrap = undefined
 
+  type Shaped (AstPrimalPart 0 r) = ShapedAbsentAstPrimalPart r
   tfromD = undefined
+  tfromS = undefined
   dfromR = undefined
+  dfromS = undefined
+  sfromR = undefined
+  sfromD = undefined
+
+data ShapedAbsentAstPrimalPart r (sh :: [Nat])
 
 instance ShowAstSimplify r
          => Tensor (AstNoVectorize r 0) where
@@ -355,8 +369,15 @@ instance ShowAstSimplify r
   tregister = undefined
   tletWrap = undefined
 
+  type Shaped (AstNoVectorize r 0) = ShapedAbsentAstNoVectorize r
   tfromD = undefined
+  tfromS = undefined
   dfromR = undefined
+  dfromS = undefined
+  sfromR = undefined
+  sfromD = undefined
+
+data ShapedAbsentAstNoVectorize r (sh :: [Nat])
 
 instance ShowAstSimplify r
          => Tensor (AstNoSimplify r 0) where
@@ -413,8 +434,15 @@ instance ShowAstSimplify r
   tregister = undefined
   tletWrap = undefined
 
+  type Shaped (AstNoSimplify r 0) = ShapedAbsentAstNoSimplify r
   tfromD = undefined
+  tfromS = undefined
   dfromR = undefined
+  dfromS = undefined
+  sfromR = undefined
+  sfromD = undefined
+
+data ShapedAbsentAstNoSimplify r (sh :: [Nat])
 
 astLetFunUnSimp :: (KnownNat n, KnownNat m, ShowAst r)
                 => Ast n r -> (Ast n r -> Ast m r) -> Ast m r

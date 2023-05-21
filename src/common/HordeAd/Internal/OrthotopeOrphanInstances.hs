@@ -17,6 +17,8 @@ import qualified Data.Array.Internal.DynamicG as DG
 import qualified Data.Array.Internal.DynamicS as DS
 import qualified Data.Array.Internal.RankedG as RG
 import qualified Data.Array.Internal.RankedS as RS
+import qualified Data.Array.Internal.ShapedG as SG
+import qualified Data.Array.Internal.ShapedS as SS
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
@@ -411,8 +413,12 @@ instance Numeric r => MonoFunctor (OR.Array n r) where
 instance (OS.Shape sh, Numeric r) => MonoFunctor (OS.Array sh r) where
   omap = OS.mapA
 
-instance (a ~ b) => Convert (OR.Array n a) (OD.Array b) where
+instance Convert (OR.Array n a) (OD.Array a) where
   convert (RS.A (RG.A sh t)) = DS.A (DG.A sh t)
+
+instance (OS.Shape sh, OS.Rank sh ~ n)
+         => Convert (OS.Array sh a) (OR.Array n a) where
+  convert (SS.A a@(SG.A t)) = RS.A (RG.A (SG.shapeL a) t)
 
 type instance BooleanOf (Flip f a b) = BooleanOf (f b a)
 
