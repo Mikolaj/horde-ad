@@ -5,7 +5,7 @@ module HordeAd.Core.Domains
   ( DynamicTensor(..)
   , DomainsCollection(..)
   , Underlying, AdaptableDomains(..), parseDomains
-  , RandomDomains(randomVals)
+  , RandomDomains(..)
   ) where
 
 import Prelude
@@ -127,6 +127,8 @@ class RandomDomains vals where
        ( RandomGen g
        , r ~ Scalar vals, Numeric r, Fractional r, Random r, Num (Vector r) )
     => r -> g -> (vals, g)
+  type ToRanked vals
+  toRanked :: vals -> ToRanked vals
 
 parseDomains
   :: (AdaptableDomains vals, DomainsCollection (Scalar vals))
@@ -150,6 +152,8 @@ instance AdaptableDomains Double where
 instance RandomDomains Double where
   randomVals range = randomR (- range, range)
     -- note that unlike in hmatrix the range is closed from the top
+  type ToRanked Double = Double
+  toRanked = id
 
 instance AdaptableDomains Float where
   type Scalar Float = Float
@@ -161,6 +165,8 @@ instance AdaptableDomains Float where
 
 instance RandomDomains Float where
   randomVals range = randomR (- range, range)
+  type ToRanked Float = Float
+  toRanked = id
 
 instance (AdaptableDomains a, r ~ Scalar a, DomainsCollection r)
          => AdaptableDomains [a] where
@@ -208,6 +214,8 @@ instance ( r ~ Scalar a, r ~ Scalar b
     let (v1, g1) = randomVals range g
         (v2, g2) = randomVals range g1
     in ((v1, v2), g2)
+  type ToRanked (a, b) = (ToRanked a, ToRanked b)
+  toRanked (a, b) = (toRanked a, toRanked b)
 
 instance ( DomainsCollection r
          , r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
@@ -239,6 +247,8 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
         (v2, g2) = randomVals range g1
         (v3, g3) = randomVals range g2
     in ((v1, v2, v3), g3)
+  type ToRanked (a, b, c) = (ToRanked a, ToRanked b, ToRanked c)
+  toRanked (a, b, c) = (toRanked a, toRanked b, toRanked c)
 
 instance ( DomainsCollection r
          , r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
@@ -275,6 +285,8 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
         (v3, g3) = randomVals range g2
         (v4, g4) = randomVals range g3
     in ((v1, v2, v3, v4), g4)
+  type ToRanked (a, b, c, d) = (ToRanked a, ToRanked b, ToRanked c, ToRanked d)
+  toRanked (a, b, c, d) = (toRanked a, toRanked b, toRanked c, toRanked d)
 
 instance ( r ~ Scalar a, r ~ Scalar b
          , AdaptableDomains a, AdaptableDomains b )

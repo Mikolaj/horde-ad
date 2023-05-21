@@ -565,6 +565,8 @@ instance KnownNat n
         arr = OR.fromVector undefined
               $ createRandomVector (OR.size undefined) g1  -- TODO
     in (Flip arr, g2)
+  type ToRanked (Flip OR.Array r n) = Flip OR.Array r n
+  toRanked = id
 
 instance AdaptableDomains (OD.Array r) where
   type Scalar (OD.Array r) = r
@@ -591,6 +593,8 @@ instance OS.Shape sh
         (g1, g2) = split g
         arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
     in (Flip arr, g2)
+  type ToRanked (Flip OS.Array r sh) = Flip OR.Array r (OS.Rank sh)
+  toRanked = Flip . Data.Array.Convert.convert . runFlip
 
 {- These instances are increasingly breaking stuff, so disabled:
 
