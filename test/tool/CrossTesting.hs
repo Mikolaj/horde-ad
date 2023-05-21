@@ -1,5 +1,6 @@
 module CrossTesting
-  ( rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
+  ( assertEqualUpToEpsilon1
+  , rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , t16, t16b, t48, t128, t128b, t128c
   ) where
 
@@ -25,6 +26,15 @@ import HordeAd.Core.TensorClass
 
 import EqEpsilon
 
+assertEqualUpToEpsilon1
+  :: (AssertEqualUpToEpsilon (OR.Array n r), HasCallStack)
+  => Rational
+  -> OR.Array n r
+  -> Flip OR.Array r n
+  -> Assertion
+assertEqualUpToEpsilon1 eps expected result =
+  assertEqualUpToEpsilon eps expected (runFlip result)
+
 rev' :: forall r m n v g.
         ( KnownNat n, KnownNat m, ADTensor r, ADReady r, ADReady (ADVal r)
         , InterpretAst r, InterpretAst (ADVal r)
@@ -45,11 +55,11 @@ rev' f vals =
       g :: Domains (ADVal r) -> TensorOf m (ADVal r)
       g inputs = f $ Compose $ parseDomains vals' inputs
       (advalGrad, value1) = revOnDomains dt (getCompose . g) parameters
-      gradient1 = parseDomains vals' advalGrad
+      gradient1 = parseDomains vals advalGrad
       g9 :: Domains (ADVal (Ast0 r)) -> TensorOf m (ADVal (Ast0 r))
       g9 inputs = f $ Compose $ parseDomains vals' inputs
       (advalGrad9, value9) = revAstOnDomains g9 parameters dt
-      gradient9 = parseDomains vals' advalGrad9
+      gradient9 = parseDomains vals advalGrad9
       h :: ADReady x
         => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
         -> (Ast m r -> Ast m r) -> Domains (ADVal r)
@@ -60,27 +70,27 @@ rev' f vals =
         in getCompose $ snd $ interpretAst env emptyMemo (gx ast)
       (astGrad, value2) =
         revOnDomains dt (h id id id) parameters
-      gradient2 = parseDomains vals' astGrad
+      gradient2 = parseDomains vals astGrad
       (astSimple, value3) =
         revOnDomains dt (h id id simplifyAst6) parameters
-      gradient3 = parseDomains vals' astSimple
+      gradient3 = parseDomains vals astSimple
       (astGradUnSimp, value2UnSimp) =
         revOnDomains dt (h unAstNoSimplify AstNoSimplify id) parameters
-      gradient2UnSimp = parseDomains vals' astGradUnSimp
+      gradient2UnSimp = parseDomains vals astGradUnSimp
       (astSimpleUnSimp, value3UnSimp) =
         revOnDomains dt (h unAstNoSimplify AstNoSimplify simplifyAst6)
                      parameters
-      gradient3UnSimp = parseDomains vals' astSimpleUnSimp
+      gradient3UnSimp = parseDomains vals astSimpleUnSimp
       (astPrimal, value4) =
         revOnDomains dt (h unAstNoVectorize AstNoVectorize id)
                         parameters
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
-      gradient4 = parseDomains vals' astPrimal
+      gradient4 = parseDomains vals astPrimal
       (astPSimple, value5) =
         revOnDomains dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
                         parameters
-      gradient5 = parseDomains vals' astPSimple
+      gradient5 = parseDomains vals astPSimple
       astVectSimp = simplifyAst6 $ snd $ funToAstR (tshape vals) f
       astSimp =
         simplifyAst6 $ snd
@@ -98,55 +108,55 @@ rev' f vals =
         revAstOnDomainsF (hAst id id id) parameters
       (astGradAst, value2Ast) =
         revAstOnDomainsEval artifactsGradAst parameters dt
-      gradient2Ast = parseDomains vals' astGradAst
+      gradient2Ast = parseDomains vals astGradAst
       (astGradAstS, value2AstS) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsGradAst) parameters dt
-      gradient2AstS = parseDomains vals' astGradAstS
+      gradient2AstS = parseDomains vals astGradAstS
       artifactsSimpleAst =
         revAstOnDomainsF (hAst id id simplifyAst6) parameters
       (astSimpleAst, value3Ast) =
         revAstOnDomainsEval artifactsSimpleAst parameters dt
-      gradient3Ast = parseDomains vals' astSimpleAst
+      gradient3Ast = parseDomains vals astSimpleAst
       (astSimpleAstS, value3AstS) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsSimpleAst) parameters dt
-      gradient3AstS = parseDomains vals' astSimpleAstS
+      gradient3AstS = parseDomains vals astSimpleAstS
       artifactsGradAstUnSimp =
         revAstOnDomainsF (hAst unAstNoSimplify AstNoSimplify id) parameters
       (astGradAstUnSimp, value2AstUnSimp) =
         revAstOnDomainsEval artifactsGradAstUnSimp parameters dt
-      gradient2AstUnSimp = parseDomains vals' astGradAstUnSimp
+      gradient2AstUnSimp = parseDomains vals astGradAstUnSimp
       (astGradAstSUnSimp, value2AstSUnSimp) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsGradAstUnSimp)
                             parameters dt
-      gradient2AstSUnSimp = parseDomains vals' astGradAstSUnSimp
+      gradient2AstSUnSimp = parseDomains vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
         revAstOnDomainsF (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
                          parameters
       (astSimpleAstUnSimp, value3AstUnSimp) =
         revAstOnDomainsEval artifactsSimpleAstUnSimp parameters dt
-      gradient3AstUnSimp = parseDomains vals' astSimpleAstUnSimp
+      gradient3AstUnSimp = parseDomains vals astSimpleAstUnSimp
       (astSimpleAstSUnSimp, value3AstSUnSimp) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsSimpleAstUnSimp)
                             parameters dt
-      gradient3AstSUnSimp = parseDomains vals' astSimpleAstSUnSimp
+      gradient3AstSUnSimp = parseDomains vals astSimpleAstSUnSimp
       artifactsPrimalAst =
         revAstOnDomainsF (hAst unAstNoVectorize AstNoVectorize id) parameters
       (astPrimalAst, value4Ast) =
         revAstOnDomainsEval artifactsPrimalAst parameters dt
-      gradient4Ast = parseDomains vals' astPrimalAst
+      gradient4Ast = parseDomains vals astPrimalAst
       (astPrimalAstS, value4AstS) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsPrimalAst) parameters dt
-      gradient4AstS = parseDomains vals' astPrimalAstS
+      gradient4AstS = parseDomains vals astPrimalAstS
       artifactsPSimpleAst =
         revAstOnDomainsF (hAst unAstNoVectorize AstNoVectorize simplifyAst6)
                          parameters
       (astPSimpleAst, value5Ast) =
         revAstOnDomainsEval artifactsPSimpleAst parameters dt
-      gradient5Ast = parseDomains vals' astPSimpleAst
+      gradient5Ast = parseDomains vals astPSimpleAst
       (astPSimpleAstS, value5AstS) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsPSimpleAst)
                             parameters dt
-      gradient5AstS = parseDomains vals' astPSimpleAstS
+      gradient5AstS = parseDomains vals astPSimpleAstS
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
      , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp

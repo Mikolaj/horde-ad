@@ -79,8 +79,8 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
       -- to bootstrap the adaptor machinery. Such boilerplate can be
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
-      emptyR = OR.fromList [0] []
-      -- valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
+      emptyR = Flip $ OR.fromList [0] []
+      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
@@ -128,7 +128,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (mkDoms (dfromR $ Flip emptyR)
+       res <- runEpoch 1 (mkDoms (dfromR emptyR)
                                  (fromListDoms params1Init))
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
@@ -169,8 +169,8 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1
-      emptyR = OR.fromList [0] []
-      domainsInit = mkDoms (dfromR $ Flip emptyR) (fromListDoms params1Init)
+      emptyR = Flip $ OR.fromList [0] []
+      domainsInit = mkDoms (dfromR emptyR) (fromListDoms params1Init)
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -178,7 +178,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       -- TODO: generate this from afcnnMnistLen1.
-      -- valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
+      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
@@ -201,7 +201,8 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let shapes1 = map (: []) nParams1
            (vars1, asts1) = unzip $ map funToAstD shapes1
-           doms = mkDoms (dfromR $ AstConst emptyR) (fromListDoms asts1)
+           doms = mkDoms (dfromR $ AstConst $ runFlip emptyR)
+                         (fromListDoms asts1)
            (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
@@ -288,8 +289,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1
-      emptyR = OR.fromList [0] []
-      domainsInit = mkDoms (dfromR $ Flip emptyR) (fromListDoms params1Init)
+      emptyR = Flip $ OR.fromList [0] []
+      domainsInit = mkDoms (dfromR emptyR) (fromListDoms params1Init)
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -297,7 +298,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       -- TODO: generate this from afcnnMnistLen1.
-      -- valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
+      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
@@ -419,15 +420,9 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
       -- to bootstrap the adaptor machinery. Such boilerplate can be
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
-      emptyR = OR.fromList [0] []
-      emptyR2 = OR.fromList [0, 0] []
-      valsInit :: ( ( OR.Array 2 r
-                    , OR.Array 1 r )
-                  , ( OR.Array 2 r
-                    , OR.Array 1 r )
-                  , ( OR.Array 2 r
-                    , OR.Array 1 r )
-                  )
+      emptyR = Flip $ OR.fromList [0] []
+      emptyR2 = Flip $ OR.fromList [0, 0] []
+      valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
       valsInit = ( (emptyR2, emptyR)
                  , (emptyR2, emptyR)
                  , (emptyR2, emptyR) )
@@ -475,7 +470,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (mkDoms (dfromR $ Flip emptyR)
+       res <- runEpoch 1 (mkDoms (dfromR emptyR)
                                  (fromListDoms params1Init))
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
@@ -517,9 +512,9 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                                          (product sh)
                          - LA.scalar 0.5)
              nParams1
-      emptyR = OR.fromList [0] []
-      emptyR2 = OR.fromList [0, 0] []
-      domainsInit = mkDoms (dfromR $ Flip emptyR) (fromListDoms params1Init)
+      emptyR = Flip $ OR.fromList [0] []
+      emptyR2 = Flip $ OR.fromList [0, 0] []
+      domainsInit = mkDoms (dfromR emptyR) (fromListDoms params1Init)
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -527,7 +522,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       -- TODO: generate this from afcnnMnistLen1.
-      -- valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
+      valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
       valsInit = ( (emptyR2, emptyR)
                  , (emptyR2, emptyR)
                  , (emptyR2, emptyR) )
@@ -550,7 +545,8 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let shapes1 = nParams1
            (vars1, asts1) = unzip $ map funToAstD shapes1
-           doms = mkDoms (dfromR $ AstConst emptyR) (fromListDoms asts1)
+           doms = mkDoms (dfromR $ AstConst $ runFlip emptyR)
+                         (fromListDoms asts1)
            (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
@@ -637,9 +633,9 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                                          (product sh)
                          - LA.scalar 0.5)
              nParams1
-      emptyR = OR.fromList [0] []
-      emptyR2 = OR.fromList [0, 0] []
-      domainsInit = mkDoms (dfromR $ Flip emptyR) (fromListDoms params1Init)
+      emptyR = Flip $ OR.fromList [0] []
+      emptyR2 = Flip $ OR.fromList [0, 0] []
+      domainsInit = mkDoms (dfromR emptyR) (fromListDoms params1Init)
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -647,7 +643,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       -- TODO: generate this from afcnnMnistLen1.
-      -- valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
+      valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
       valsInit = ( (emptyR2, emptyR)
                  , (emptyR2, emptyR)
                  , (emptyR2, emptyR) )
@@ -749,21 +745,14 @@ tensorMnistTestsPP = testGroup "PP tests for Short Ranked MNIST tests"
   , testCase "VT2OPPNonLin" testVT2OPPNonLin
   ]
 
-valsInitVTOPP ::  -- MnistFcnnRanked1.ADFcnnMnist1Parameters Double
-  ( ( [OR.Array 1 Double]
-    , OR.Array 1 Double )
-  , ( [OR.Array 1 Double]
-    , OR.Array 1 Double )
-  , ( [OR.Array 1 Double]
-    , OR.Array 1 Double )
-  )
+valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters Double
 valsInitVTOPP =
-  ( ( replicate 3 (OR.fromList [3] [1, 2, 3])
-    , OR.fromList [3] [1, 2, 3] )
-  , ( replicate 4 (OR.fromList [4] [1, 2, 3, 4])
-    , OR.fromList [4] [1, 2, 3, 4] )
-  , ( replicate 5 (OR.fromList [5] [1, 2, 3, 4, 5])
-    , OR.fromList [5] [1, 2, 3, 4, 5] ) )
+  ( ( replicate 3 (Flip $ OR.fromList [3] [1, 2, 3])
+    , Flip $ OR.fromList [3] [1, 2, 3] )
+  , ( replicate 4 (Flip $ OR.fromList [4] [1, 2, 3, 4])
+    , Flip $ OR.fromList [4] [1, 2, 3, 4] )
+  , ( replicate 5 (Flip $ OR.fromList [5] [1, 2, 3, 4, 5])
+    , Flip $ OR.fromList [5] [1, 2, 3, 4, 5] ) )
 
 testVTOPP :: Assertion
 testVTOPP = do
@@ -802,21 +791,14 @@ testVTOPPNonLin = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6nonLin)
     @?= "\\s0 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 v17 -> let v31 = recip (tkonst 3 (tconst 1.0) + exp (negate (tfromList [tsum (v3 * tkonst 784 (tconst 7.0)), tsum (v4 * tkonst 784 (tconst 7.0)), tsum (v5 * tkonst 784 (tconst 7.0))] + v6))) ; v38 = recip (tkonst 4 (tconst 1.0) + exp (negate (tfromList [tsum (v7 * v31), tsum (v8 * v31), tsum (v9 * v31), tsum (v10 * v31)] + v11))) ; v42 = exp (tfromList [tsum (v12 * v38), tsum (v13 * v38), tsum (v14 * v38), tsum (v15 * v38), tsum (v16 * v38)] + v17) in tkonst 5 (recip (tsum v42)) * v42"
 
-valsInitVT2OPP ::  -- MnistFcnnRanked2.ADFcnnMnist2Parameters Double
-  ( ( OR.Array 2 Double
-    , OR.Array 1 Double )
-  , ( OR.Array 2 Double
-    , OR.Array 1 Double )
-  , ( OR.Array 2 Double
-    , OR.Array 1 Double )
-  )
+valsInitVT2OPP ::  MnistFcnnRanked2.ADFcnnMnist2Parameters Double
 valsInitVT2OPP =
-  ( ( OR.fromList [3, 3] (concat $ replicate 3 [1, 2, 3])
-    , OR.fromList [3] [1, 2, 3] )
-  , ( OR.fromList [4, 4] (concat $ replicate 4 [1, 2, 3, 4])
-    , OR.fromList [4] [1, 2, 3, 4] )
-  , ( OR.fromList [5, 5] (concat $ replicate 5 [1, 2, 3, 4, 5])
-    , OR.fromList [5] [1, 2, 3, 4, 5] ) )
+  ( ( Flip $ OR.fromList [3, 3] (concat $ replicate 3 [1, 2, 3])
+    , Flip $ OR.fromList [3] [1, 2, 3] )
+  , ( Flip $ OR.fromList [4, 4] (concat $ replicate 4 [1, 2, 3, 4])
+    , Flip $ OR.fromList [4] [1, 2, 3, 4] )
+  , ( Flip $ OR.fromList [5, 5] (concat $ replicate 5 [1, 2, 3, 4, 5])
+    , Flip $ OR.fromList [5] [1, 2, 3, 4, 5] ) )
 
 testVT2OPP :: Assertion
 testVT2OPP = do

@@ -557,11 +557,11 @@ instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsCollection r
          , Ranked r ~ Flip OR.Array r )
          => AdaptableDomains (Flip OR.Array r n) where
   type Scalar (Flip OR.Array r n) = r
-  type Value (Flip OR.Array r n) = OR.Array n r
+  type Value (Flip OR.Array r n) = Flip OR.Array r n
   toDomains a = mkDoms emptyDoms0 (fromListDoms [dfromR a])
   fromDomains aInit params = case unconsR params of
     Just (a, rest) ->
-      Just (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
+      Just (ttoRankedOrDummy (tshape aInit) a, rest)
     Nothing -> Nothing
   nParams _ = 1
   nScalars = OR.size . runFlip

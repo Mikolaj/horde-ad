@@ -148,10 +148,10 @@ instance ( Tensor r, ShowAstSimplify r, KnownNat n
          , Ranked r ~ Flip OR.Array r )
          => AdaptableDomains (Ast n r) where
   type Scalar (Ast n r) = Ast0 r
-  type Value (Ast n r) = OR.Array n r
+  type Value (Ast n r) = Flip OR.Array r n
   toDomains = undefined
   fromDomains aInit params = case unconsR params of
-    Just (a, rest) -> Just (ttoRankedOrDummy (tshape $ Flip aInit) a, rest)
+    Just (a, rest) -> Just (ttoRankedOrDummy (tshape aInit) a, rest)
     Nothing -> Nothing
   nParams = undefined
   nScalars = undefined

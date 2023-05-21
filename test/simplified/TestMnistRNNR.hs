@@ -66,10 +66,11 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                                           (product sh)
                           - LA.scalar 0.5) * LA.scalar 0.4)
              nParams1
-      parametersInit = mkDoms (dfromR $ tconst emptyR)
+      parametersInit = mkDoms (dfromR $ tconst $ runFlip emptyR)
                               (fromListDoms params1Init)
-      emptyR = OR.fromList [0] []
-      emptyR2 = OR.fromList [0, 0] []
+      emptyR = Flip $ OR.fromList [0] []
+      emptyR2 = Flip $ OR.fromList [0, 0] []
+      valsInit :: MnistRnnRanked2.ADRnnMnistParameters r
       valsInit = ( (emptyR2, emptyR2, emptyR)
                  , (emptyR2, emptyR2, emptyR)
                  , (emptyR2, emptyR) )
@@ -99,7 +100,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                  f (glyphR, labelR) adinputs =
                    MnistRnnRanked2.rnnMnistLossFusedR
                      miniBatchSize (tconst glyphR, tconst labelR)
-                               (parseDomains valsInit adinputs)
+                     (parseDomains valsInit adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -168,10 +169,11 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                                           (product sh)
                           - LA.scalar 0.5) * LA.scalar 0.4)
              nParams1
-      parametersInit = mkDoms (dfromR $ tconst emptyR)
+      parametersInit = mkDoms (dfromR $ tconst $ runFlip emptyR)
                               (fromListDoms params1Init)
-      emptyR = OR.fromList [0] []
-      emptyR2 = OR.fromList [0, 0] []
+      emptyR = Flip $ OR.fromList [0] []
+      emptyR2 = Flip $ OR.fromList [0, 0] []
+      valsInit :: MnistRnnRanked2.ADRnnMnistParameters r
       valsInit = ( (emptyR2, emptyR2, emptyR)
                  , (emptyR2, emptyR2, emptyR)
                  , (emptyR2, emptyR) )
@@ -195,7 +197,8 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
        let testDataR = packBatchR testData
            shapes1 = nParams1
            (vars1, asts1) = unzip $ map funToAstD shapes1
-           doms = mkDoms (dfromR $ AstConst emptyR) (fromListDoms asts1)
+           doms = mkDoms (dfromR $ AstConst $ runFlip emptyR)
+                         (fromListDoms asts1)
            (varGlyph, astGlyph) =
              funToAstR
                (miniBatchSize :$ sizeMnistHeightInt :$ sizeMnistWidthInt :$ ZS)
@@ -288,10 +291,11 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                                           (product sh)
                           - LA.scalar 0.5) * LA.scalar 0.4)
              nParams1
-      parametersInit = mkDoms (dfromR $ tconst emptyR)
+      parametersInit = mkDoms (dfromR $ tconst $ runFlip emptyR)
                               (fromListDoms params1Init)
-      emptyR = OR.fromList [0] []
-      emptyR2 = OR.fromList [0, 0] []
+      emptyR = Flip $ OR.fromList [0] []
+      emptyR2 = Flip $ OR.fromList [0, 0] []
+      valsInit :: MnistRnnRanked2.ADRnnMnistParameters r
       valsInit = ( (emptyR2, emptyR2, emptyR)
                  , (emptyR2, emptyR2, emptyR)
                  , (emptyR2, emptyR) )
@@ -403,31 +407,29 @@ tensorMnistTestsPP = testGroup "PP tests for RNN MNIST tests"
   ]
 
 valsInitRNNOPP
-  :: Int -> Int
-  -> ( ( OR.Array 2 Double
-       , OR.Array 2 Double
-       , OR.Array 1 Double )
-     , ( OR.Array 2 Double
-       , OR.Array 2 Double
-       , OR.Array 1 Double )
-     , ( OR.Array 2 Double
-       , OR.Array 1 Double )
-     )
+  :: Int -> Int -> MnistRnnRanked2.ADRnnMnistParameters Double
 valsInitRNNOPP out_width sizeMnistHeightI =
-  ( ( OR.fromList [out_width, sizeMnistHeightI]
-                  (map fromIntegral [0 .. out_width * sizeMnistHeightI - 1])
-    , OR.fromList [out_width, out_width]
-                  (map fromIntegral [0 .. out_width * out_width - 1])
-    , OR.fromList [out_width] (map fromIntegral [0 .. out_width - 1]) )
-  , ( OR.fromList [out_width, out_width]
-                  (map fromIntegral [0 .. out_width * out_width - 1])
-    , OR.fromList [out_width, out_width]
-                  (map fromIntegral [0 .. out_width * out_width - 1])
-    , OR.fromList [out_width] (map fromIntegral [0 .. out_width - 1]) )
-  , ( OR.fromList [sizeMnistLabelInt, out_width]
-                  (map fromIntegral [0 .. sizeMnistLabelInt * out_width - 1])
-    , OR.fromList [sizeMnistLabelInt]
-                  (map fromIntegral [0 .. sizeMnistLabelInt - 1]) ) )
+  ( ( Flip
+      $ OR.fromList [out_width, sizeMnistHeightI]
+                    (map fromIntegral [0 .. out_width * sizeMnistHeightI - 1])
+    , Flip
+      $ OR.fromList [out_width, out_width]
+                    (map fromIntegral [0 .. out_width * out_width - 1])
+    , Flip
+      $ OR.fromList [out_width] (map fromIntegral [0 .. out_width - 1]) )
+  , ( Flip
+      $ OR.fromList [out_width, out_width]
+                    (map fromIntegral [0 .. out_width * out_width - 1])
+    , Flip
+      $ OR.fromList [out_width, out_width]
+                    (map fromIntegral [0 .. out_width * out_width - 1])
+    , Flip $ OR.fromList [out_width] (map fromIntegral [0 .. out_width - 1]) )
+  , ( Flip
+      $ OR.fromList [sizeMnistLabelInt, out_width]
+                    (map fromIntegral [0 .. sizeMnistLabelInt * out_width - 1])
+    , Flip
+      $ OR.fromList [sizeMnistLabelInt]
+                    (map fromIntegral [0 .. sizeMnistLabelInt - 1]) ) )
 
 testRNNOPP :: Assertion
 testRNNOPP = do

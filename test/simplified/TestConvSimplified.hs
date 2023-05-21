@@ -18,7 +18,6 @@ import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
 
 import CrossTesting
-import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees =
@@ -119,9 +118,9 @@ conv2dB = conv2d $ tconst $ runFlip t16b
 
 testKonstG0Rev :: Assertion
 testKonstG0Rev =
-  assertEqualUpToEpsilon 1e-4
+  assertEqualUpToEpsilon1 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @Double @4 conv2dB (runFlip $ tzero [2, 2, 2, 2]))
+    (rev @Double @4 conv2dB (tzero [2, 2, 2, 2]))
 
 testKonstG0Tiny1 :: Assertion
 testKonstG0Tiny1 =
@@ -252,9 +251,9 @@ conv2dCLaborious128c = flip conv2dLaborious $ tconst $ runFlip t128c
 
 testKonst0RevLaborious :: Assertion
 testKonst0RevLaborious =
-  assertEqualUpToEpsilon 1e-4
+  assertEqualUpToEpsilon1 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @Double @4 conv2dBLaborious (runFlip $ tzero [2, 2, 2, 2]))
+    (rev @Double @4 conv2dBLaborious (tzero [2, 2, 2, 2]))
 
 testKonst0Tiny1Laborious :: Assertion
 testKonst0Tiny1Laborious =
@@ -519,9 +518,9 @@ conv2dBFailed = conv2dFailed $ tconst $ runFlip t16b
 
 testKonst0RevFailed :: Assertion
 testKonst0RevFailed =
-  assertEqualUpToEpsilon 1e-4
+  assertEqualUpToEpsilon1 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @Double @4 conv2dBFailed (runFlip $ tkonst0N [2, 2, 2, 2] 0))
+    (rev @Double @4 conv2dBFailed (tkonst0N [2, 2, 2, 2] 0))
 
 testKonst0Tiny1Failed :: Assertion
 testKonst0Tiny1Failed =
@@ -577,15 +576,15 @@ test_disparityKonst = do
       arrR :: ADReady r => TensorOf 4 r
       arrR = tkonst0N [1, 2, 4, 6] 0.3
       arrO = costVolume @Double 0 4 arrL arrR
-      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) (runFlip arrL) arrO
-      arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) (runFlip arrR) arrO
-  assertEqualUpToEpsilon 1e-7
+      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
+      arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) arrR arrO
+  assertEqualUpToEpsilon1 1e-7
     (OR.fromList [1,4,4,6] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0])
-    (runFlip arrO)
-  assertEqualUpToEpsilon 1e-7
+    arrO
+  assertEqualUpToEpsilon1 1e-7
     (OR.fromList [1,2,4,6] [-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0])
     arrDL
-  assertEqualUpToEpsilon 1e-7
+  assertEqualUpToEpsilon1 1e-7
     (OR.fromList [1,2,4,6] [4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0])
    arrDR
   assertEqualUpToEpsilon' 1e-7
@@ -607,12 +606,12 @@ test_disparityKonst2 = do
       arrO = OR.constant [1, 4, 4, 6] (1 :: Double)
       res1 = OR.fromList [1,2,4,6] [4.0,2.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,0.0,0.0,-2.0,0.0,4.0,4.0,2.0,0.0,-4.0,1.0,4.0,4.0,4.0,-4.0,2.0,4.0,2.0]
       res2 = OR.fromList [1,2,4,6] [-4.0,0.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-2.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,4.0,4.0,-4.0,1.0,-2.0,-1.0,-2.0,3.0,2.0,-1.0,-2.0,-1.0,-2.0,0.0,-2.0,-3.0,-2.0,1.0]
-      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) (runFlip arrL) (Flip arrO)
-      arrDR = revDt (costVolume 0 4 (tconstant arrL)) (runFlip arrR) (Flip arrO)
-  assertEqualUpToEpsilon 1e-7
+      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL (Flip arrO)
+      arrDR = revDt (costVolume 0 4 (tconstant arrL)) arrR (Flip arrO)
+  assertEqualUpToEpsilon1 1e-7
     res1
     arrDL
-  assertEqualUpToEpsilon 1e-7
+  assertEqualUpToEpsilon1 1e-7
     res2
     arrDR
   assertEqualUpToEpsilon' 1e-7
@@ -629,18 +628,18 @@ test_disparitySmall = do
       arrR :: ADReady r => TensorOf 4 r
       arrR = tfromList0N [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
       arrO = costVolume @Double 0 4 arrL arrR
-      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) (runFlip arrL) arrO
-      arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) (runFlip arrR) arrO
-  assertEqualUpToEpsilon 1e-7
+      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
+      arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) arrR arrO
+  assertEqualUpToEpsilon1 1e-7
     (OR.fromList [1,4,3,2] [1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3])
-    (runFlip arrO)
+    arrO
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,3,2] [-2.0,-1.0,-2.0,-1.0,-2.0,-1.0,2.0,1.0,-2.0,1.0,2.0,1.0])
     (rev' @Double @4 (costVolume 0 4 arrL) arrR)
-  assertEqualUpToEpsilon 1e-7
+  assertEqualUpToEpsilon1 1e-7
     (OR.fromList [1,2,3,2] [5.004124145231932,3.3241241452319317,-1.0464466094067264,1.7006200572599404,3.0731698975466575,4.5496165069533845,-5.004124145231932,-1.3240841452319316,-1.0464466094067264,-0.9933132760733929,-3.0731698975466575,-4.5496165069533845])
     arrDL
-  assertEqualUpToEpsilon 1e-7
+  assertEqualUpToEpsilon1 1e-7
     (OR.fromList [1,2,3,2] [-2.808238290463863,-1.21999,-0.5672067811865474,-0.7867666666666666,-1.986339795093316,-0.6964466094067263,2.808238290463863,1.21999,-0.5672067811865474,0.7867666666666666,1.986339795093316,0.6964466094067263])
    arrDR
   assertEqualUpToEpsilon' 1e-7
