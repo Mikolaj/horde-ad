@@ -573,16 +573,17 @@ instance AdaptableDomains (OD.Array r) where
   type Value (OD.Array r) = OD.Array r
   toDomains = undefined
   fromDomains = undefined
-  nParams = undefined
-  nScalars = undefined
+  nParams _ = 1
+  nScalars = OD.size
 
-instance AdaptableDomains (Flip OS.Array r sh) where
+instance OS.Shape sh
+         => AdaptableDomains (Flip OS.Array r sh) where
   type Scalar (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
   toDomains = undefined
   fromDomains = undefined
-  nParams = undefined
-  nScalars = undefined
+  nParams _ = 1
+  nScalars = OS.size . runFlip
 
 instance OS.Shape sh
          => RandomDomains (Flip OS.Array r sh) where

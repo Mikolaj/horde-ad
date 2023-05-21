@@ -7,11 +7,13 @@ import Prelude
 import           Control.Monad (foldM, unless)
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.List.Index (imap)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (SomeNat (..), someNatVal)
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
@@ -400,40 +402,35 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
 -- POPL differentiation, straight via the ADVal instance of Tensor
 mnistTestCase2VT2A
   :: forall r.
-     ( ADTensor r, ADReady r, ADReady (ADVal r)
+     ( ADTensor r, ADReady r, Random r, ADReady (ADVal r)
      , Value r ~ r, Value (ADVal r) ~ r, Floating (Vector r)
      , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
+     , Shaped r ~ Flip OS.Array r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
 mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
-  let nParams1 = MnistFcnnRanked2.afcnnMnistLen2 widthHidden widthHidden2
-      params1Init =
-        imap (\i sh -> OD.fromVector sh
-                       $ V.map realToFrac
-                       $ LA.randomVector (44 + product sh + i) LA.Uniform
-                                         (product sh)
-                         - LA.scalar 0.5)
-             nParams1
-      -- This is a very ugly and probably unavoidable boilerplate:
-      -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
-      -- with the correct list lengths (vector lengths can be fake)
-      -- to bootstrap the adaptor machinery. Such boilerplate can be
-      -- avoided only with shapely typed tensors and scalars or when
-      -- not using adaptors.
-      emptyR = Flip $ OR.fromList [0] []
-      emptyR2 = Flip $ OR.fromList [0, 0] []
-      valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
-      valsInit = ( (emptyR2, emptyR)
-                 , (emptyR2, emptyR)
-                 , (emptyR2, emptyR) )
+  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
+      valsInit =
+        case someNatVal $ toInteger widthHidden of
+          Just (SomeNat @widthHidden _) ->
+            case someNatVal $ toInteger widthHidden2 of
+              Just (SomeNat @widthHidden2 _) ->
+                toRanked $ fst
+                $ randomVals
+                    @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                        widthHidden widthHidden2 r)
+                    1 (mkStdGen 44)
+              Nothing -> error "valsInit: impossible someNatVal error"
+          Nothing -> error "valsInit: impossible someNatVal error"
+      domainsInit = toDomains valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (nParams params1Init)
-                        , show (nScalars params1Init)
+                        , show (nParams valsInit)
+                        , show (nScalars valsInit)
                         , show gamma ]
       ftest :: [MnistData r] -> Domains r -> r
       ftest mnist testParams =
@@ -473,8 +470,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (mkDoms (dfromR emptyR)
-                                 (fromListDoms params1Init))
+       res <- runEpoch 1 domainsInit
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
@@ -486,11 +482,11 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
 tensorADValMnistTests2 :: TestTree
 tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
   [ mnistTestCase2VT2A "VT2A 1 epoch, 1 batch" 1 1 300 100 0.02 5
-                       (0.8 :: Double)
+                       (1.0 :: Double)
   , mnistTestCase2VT2A "VT2A artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.89 :: Float)
   , mnistTestCase2VT2A "VT2A artificial 5 4 3 2 1" 5 4 3 2 1 499
-                       (0.7289579158316633 :: Double)
+                       (0.686372745490982 :: Double)
   , mnistTestCase2VT2A "VT2A 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
@@ -498,42 +494,35 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCase2VT2I
   :: forall r.
-     ( ADTensor r, ADReady r, InterpretAst (ADVal r)
+     ( ADTensor r, ADReady r, Random r, InterpretAst (ADVal r)
      , Value r ~ r, Value (ADVal r) ~ r
      , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
+     , Shaped r ~ Flip OS.Array r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
 mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
-  let nParams1 = MnistFcnnRanked2.afcnnMnistLen2 widthHidden widthHidden2
-      params1Init =
-        imap (\i sh -> OD.fromVector sh
-                       $ V.map realToFrac
-                       $ LA.randomVector (44 + product sh + i) LA.Uniform
-                                         (product sh)
-                         - LA.scalar 0.5)
-             nParams1
-      emptyR = Flip $ OR.fromList [0] []
-      emptyR2 = Flip $ OR.fromList [0, 0] []
-      domainsInit = mkDoms (dfromR emptyR) (fromListDoms params1Init)
-      -- This is a very ugly and probably unavoidable boilerplate:
-      -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
-      -- with the correct list lengths (vector lengths can be fake)
-      -- to bootstrap the adaptor machinery. Such boilerplate can be
-      -- avoided only with shapely typed tensors and scalars or when
-      -- not using adaptors.
-      -- TODO: generate this from afcnnMnistLen1.
-      valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
-      valsInit = ( (emptyR2, emptyR)
-                 , (emptyR2, emptyR)
-                 , (emptyR2, emptyR) )
+  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
+      valsInit =
+        case someNatVal $ toInteger widthHidden of
+          Just (SomeNat @widthHidden _) ->
+            case someNatVal $ toInteger widthHidden2 of
+              Just (SomeNat @widthHidden2 _) ->
+                toRanked $ fst
+                $ randomVals
+                    @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                        widthHidden widthHidden2 r)
+                    1 (mkStdGen 44)
+              Nothing -> error "valsInit: impossible someNatVal error"
+          Nothing -> error "valsInit: impossible someNatVal error"
+      domainsInit = toDomains valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (nParams params1Init)
-                        , show (nScalars params1Init)
+                        , show (nParams valsInit)
+                        , show (nScalars valsInit)
                         , show gamma ]
       ftest :: [MnistData r] -> Domains r -> r
       ftest mnist testParams =
@@ -546,9 +535,9 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let shapes1 = nParams1
+       let shapes1 = map dshape $ toListDoms $ domsR domainsInit
            (vars1, asts1) = unzip $ map funToAstD shapes1
-           doms = mkDoms (dfromR $ AstConst $ runFlip emptyR)
+           doms = mkDoms (dfromR $ AstConst $ OR.fromList @r @1 [0] [])
                          (fromListDoms asts1)
            (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
@@ -608,11 +597,11 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
 tensorIntermediateMnistTests2 :: TestTree
 tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
   [ mnistTestCase2VT2I "VT2I 1 epoch, 1 batch" 1 1 300 100 0.02 500
-                       (0.42200000000000004 :: Double)
+                       (0.518 :: Double)
   , mnistTestCase2VT2I "VT2I artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.884 :: Float)
   , mnistTestCase2VT2I "VT2I artificial 5 4 3 2 1" 5 4 3 2 1 499
-                       (0.7229458917835672 :: Double)
+                       (0.6683366733466933 :: Double)
   , mnistTestCase2VT2I "VT2I 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
@@ -620,41 +609,35 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCase2VT2O
   :: forall r.
-     ( ADTensor r, ADReady r, Value r ~ r, InterpretAst r
+     ( ADTensor r, ADReady r, Random r, Value r ~ r, InterpretAst r
      , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
+     , Shaped r ~ Flip OS.Array r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
 mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
-  let nParams1 = MnistFcnnRanked2.afcnnMnistLen2 widthHidden widthHidden2
-      params1Init =
-        imap (\i sh -> OD.fromVector sh
-                       $ V.map realToFrac
-                       $ LA.randomVector (44 + product sh + i) LA.Uniform
-                                         (product sh)
-                         - LA.scalar 0.5)
-             nParams1
-      emptyR = Flip $ OR.fromList [0] []
-      emptyR2 = Flip $ OR.fromList [0, 0] []
-      domainsInit = mkDoms (dfromR emptyR) (fromListDoms params1Init)
-      -- This is a very ugly and probably unavoidable boilerplate:
-      -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
-      -- with the correct list lengths (vector lengths can be fake)
-      -- to bootstrap the adaptor machinery. Such boilerplate can be
-      -- avoided only with shapely typed tensors and scalars or when
-      -- not using adaptors.
-      -- TODO: generate this from afcnnMnistLen1.
+  let -- TODO: use withKnownNat when we no longer support GHC 9.4
       valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
-      valsInit = ( (emptyR2, emptyR)
-                 , (emptyR2, emptyR)
-                 , (emptyR2, emptyR) )
+      valsInit =
+        case someNatVal $ toInteger widthHidden of
+          Just (SomeNat @widthHidden _) ->
+            case someNatVal $ toInteger widthHidden2 of
+              Just (SomeNat @widthHidden2 _) ->
+                toRanked $ fst
+                $ randomVals
+                    @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                        widthHidden widthHidden2 r)
+                    1 (mkStdGen 44)
+              Nothing -> error "valsInit: impossible someNatVal error"
+          Nothing -> error "valsInit: impossible someNatVal error"
+      domainsInit = toDomains valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (nParams params1Init)
-                        , show (nScalars params1Init)
+                        , show (nParams valsInit)
+                        , show (nScalars valsInit)
                         , show gamma ]
       ftest :: [MnistData r] -> Domains r -> r
       ftest mnist testParams =
@@ -668,7 +651,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let shapes1 = nParams1
+       let shapes1 = map dshape $ toListDoms $ domsR domainsInit
            (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
@@ -731,11 +714,11 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
 tensorADOnceMnistTests2 :: TestTree
 tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
   [ mnistTestCase2VT2O "VT2O 1 epoch, 1 batch" 1 1 300 100 0.02 500
-                       (0.42200000000000004 :: Double)
+                       (0.518 :: Double)
   , mnistTestCase2VT2O "VT2O artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.884 :: Float)
   , mnistTestCase2VT2O "VT2O artificial 5 4 3 2 1" 5 4 3 2 1 499
-                       (0.7229458917835672 :: Double)
+                       (0.6683366733466933 :: Double)
   , mnistTestCase2VT2O "VT2O 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]

@@ -14,11 +14,14 @@ import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData
 
-afcnnMnistLen2 :: Int -> Int -> [[Int]]
-afcnnMnistLen2 widthHidden widthHidden2 =
-  [ [widthHidden, sizeMnistGlyphInt], [widthHidden]
-  , [widthHidden2, widthHidden], [widthHidden2]
-  , [sizeMnistLabelInt, widthHidden2], [sizeMnistLabelInt] ]
+type ADFcnnMnist2ParametersShaped widthHidden widthHidden2 r =
+  ( ( Shaped r '[widthHidden, SizeMnistGlyph]
+    , Shaped r '[widthHidden] )
+  , ( Shaped r '[widthHidden2, widthHidden]
+    , Shaped r '[widthHidden2] )
+  , ( Shaped r '[SizeMnistLabel, widthHidden2]
+    , Shaped r '[SizeMnistLabel] )
+  )
 
 -- The differentiable type of all trainable parameters of this nn.
 type ADFcnnMnist2Parameters r =
