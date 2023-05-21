@@ -47,17 +47,15 @@ rev' :: forall r m n v g.
         , v, v, v, v, v, v, v, v, v, v, v, v, v
         , g, g, g, g, g, g, g, g, g, g, g, g, g )
 rev' f vals =
-  let vals':: OR.Array n r
-      vals' = runFlip vals
-      value0 = f vals
+  let value0 = f vals
       parameters = toDomains vals
       dt = Nothing
       g :: Domains (ADVal r) -> TensorOf m (ADVal r)
-      g inputs = f $ Compose $ parseDomains vals' inputs
+      g inputs = f $ Compose $ parseDomains vals inputs
       (advalGrad, value1) = revOnDomains dt (getCompose . g) parameters
       gradient1 = parseDomains vals advalGrad
       g9 :: Domains (ADVal (Ast0 r)) -> TensorOf m (ADVal (Ast0 r))
-      g9 inputs = f $ Compose $ parseDomains vals' inputs
+      g9 inputs = f $ Compose $ parseDomains vals inputs
       (advalGrad9, value9) = revAstOnDomains g9 parameters dt
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady x
@@ -66,7 +64,7 @@ rev' f vals =
         -> ADVal (TensorOf m r)
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
-            env = extendEnvR var (Compose $ parseDomains vals' inputs) EM.empty
+            env = extendEnvR var (Compose $ parseDomains vals inputs) EM.empty
         in getCompose $ snd $ interpretAst env emptyMemo (gx ast)
       (astGrad, value2) =
         revOnDomains dt (h id id id) parameters
@@ -102,7 +100,7 @@ rev' f vals =
            -> Compose ADVal (AstRanked r) m
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
-            env = extendEnvR var (Compose $ parseDomains vals' inputs) EM.empty
+            env = extendEnvR var (Compose $ parseDomains vals inputs) EM.empty
         in snd $ interpretAst env emptyMemo (gx ast)
       artifactsGradAst =
         revAstOnDomainsF (hAst id id id) parameters

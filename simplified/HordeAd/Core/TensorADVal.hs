@@ -146,7 +146,7 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
          , DTensorOf r ~ OD.Array r )
          => AdaptableDomains (ADVal (Flip OR.Array r n)) where
   type Scalar (ADVal (Flip OR.Array r n)) = ADVal r
-  type Value (ADVal (Flip OR.Array r n)) = OR.Array n r
+  type Value (ADVal (Flip OR.Array r n)) = Flip OR.Array r n
   toDomains = undefined
   fromDomains _aInit inputs = case unconsR inputs of
     Just (a, rest) -> Just (getCompose $ tfromD a, rest)
@@ -170,7 +170,7 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
 instance (KnownNat n, ShowAstSimplify r)
          => AdaptableDomains (ADVal (Ast n r)) where
   type Scalar (ADVal (Ast n r)) = ADVal (Ast0 r)
-  type Value (ADVal (Ast n r)) = OR.Array n r
+  type Value (ADVal (Ast n r)) = Flip OR.Array r n
   toDomains = undefined
   fromDomains _aInit inputs = case unconsR inputs of
     Just (a, rest) -> Just (getCompose $ tfromD a, rest)
