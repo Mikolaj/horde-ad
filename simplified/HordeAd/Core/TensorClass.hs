@@ -23,6 +23,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Boolean
 import           Data.Kind (Constraint, Type)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
@@ -518,6 +519,7 @@ instance DomainsTensor Float where
   type DomainsOf Float = Domains Float
 
 {- TODO: requires IncoherentInstances no matter what pragma I stick in
+-- TODO2: benchmark this used for any scalar via @V.map realToFrac@
 -- A special case, because for @Double@ we have faster @randomVals@,
 -- though the quality of randomness is worse (going through a single @Int@).
 instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
@@ -571,6 +573,24 @@ instance AdaptableDomains (OD.Array r) where
   fromDomains = undefined
   nParams = undefined
   nScalars = undefined
+
+instance AdaptableDomains (Flip OS.Array r sh) where
+  type Scalar (Flip OS.Array r sh) = r
+  type Value (Flip OS.Array r sh) = Flip OS.Array r sh
+  toDomains = undefined
+  fromDomains = undefined
+  nParams = undefined
+  nScalars = undefined
+
+instance OS.Shape sh
+         => RandomDomains (Flip OS.Array r sh) where
+  randomVals range g =
+    let createRandomVector n seed =
+          LA.scale (2 * range)
+          $ V.fromListN n (randoms seed) - LA.scalar 0.5
+        (g1, g2) = split g
+        arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
+    in (Flip arr, g2)
 
 {- These instances are increasingly breaking stuff, so disabled:
 
