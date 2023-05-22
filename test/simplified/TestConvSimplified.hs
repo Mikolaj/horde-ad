@@ -7,7 +7,6 @@ import Prelude
 import           Control.Exception (assert)
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
-import           Data.Boolean
 import           GHC.TypeLits (KnownNat)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -15,6 +14,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
+import HordeAd.External.CommonRankedOps
 import HordeAd.Internal.TensorOps
 
 import CrossTesting
@@ -55,9 +55,6 @@ testTrees =
   , testCase "KonstNotBigBLaborious128cb" testKonstNotBigBLaborious128cb
   , testCase "Konst5BigCLaborious128cb" testKonst5BigCLaborious128cb
   , testCase "KonstNotBigCLaborious128cb" testKonstNotBigCLaborious128cb
-  , testCase "Konst0RevFailed" testKonst0RevFailed
-  , testCase "Konst0Tiny1Failed" testKonst0Tiny1Failed
-  , testCase "Konst0TinySFailed" testKonst0TinySFailed
   , testCase "disparityKonst" test_disparityKonst
   , testCase "disparityKonst2" test_disparityKonst2
   , testCase "disparitySmall" test_disparitySmall
@@ -84,8 +81,8 @@ conv2d arrK arrA =
       shK1 = [1, nCinp, nKh, nKw]
   in tbuild shB $ \case
     [iImg, iCout, iBh, iBw] ->
-      let arrAt = slicez shK1 arrA [iImg, 0, iBh, iBw]
-          arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
+      let arrAt = slicezF shK1 arrA [iImg, 0, iBh, iBw]
+          arrKt = slicezF shK1 arrK [iCout, 0, 0, 0]
       in tdot0 arrAt arrKt
     _ -> error "conv2d: impossible pattern needlessly required"
 
@@ -94,9 +91,9 @@ conv2d arrK arrA =
 --
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
-slicez :: forall n r. (ADReady r, KnownNat n)
-       => ShapeInt n -> TensorOf n r -> IndexOf n r -> TensorOf n r
-slicez shOut d ixBase =
+slicezF :: forall n r. (ADReady r, KnownNat n)
+        => ShapeInt n -> TensorOf n r -> IndexOf n r -> TensorOf n r
+slicezF shOut d ixBase =
   tbuild shOut $ \ixResult ->
     tindex @r @n @0 d (zipWith_Index (+) ixBase ixResult)
       -- tindex0 would not require a single type application here
@@ -104,7 +101,7 @@ slicez shOut d ixBase =
 conv2d1
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2d1 = conv2dFailed $ tconst $ OR.fromList [1, 1, 1, 1] [-0.2]
+conv2d1 = conv2d $ tconst $ OR.fromList [1, 1, 1, 1] [-0.2]
 
 conv2dA
   :: ADReady r
@@ -151,103 +148,50 @@ testKonstG0LittleA =
 
 -- * A laborious version
 
--- It guards the out of bounds indexing behind a conditional
--- to prevent changed values after vectorization,
--- despite the indexing giving 0 when out of bounds.
--- If another value than 0 was needed, the conditional
--- would be necessary even without vectorization.
+-- The implementation is in HordeAd.External.CommonRankedOps.
 --
 -- Some tests are copied from above and the required test results are
 -- the same.
 
--- | Unpadded full convolution,
---   where the output size is the same as the input size.
-conv2dLaborious
-  :: ADReady r
-  => TensorOf 4 r -> TensorOf 4 r -> TensorOf 4 r
-conv2dLaborious arrK arrA =
-  let [nImgs, nCinpA, nAh, nAw] = tshape arrA
-      [nCoutK, nCinpK, nKh, nKw] = tshape arrK
-      nCinp = assert (nCinpA == nCinpK) nCinpA
-      shB = [nImgs, nCoutK, nAh, nAw]
-      shK1 = [1, nCinp, nKh, nKw]
-  in tbuild shB $ \case
-    [iImg, iCout, iBh, iBw] ->
-      let arrAt = slicezLaborious shK1 arrA [iImg, 0, iBh, iBw]
-          arrKt = slicezLaborious shK1 arrK [iCout, 0, 0, 0]
-      in tdot0 arrAt arrKt
-    _ -> error "conv2d: impossible pattern needlessly required"
-
--- | Slice a section out of a tensor,
---   given a base offset and shape of the section.
---
---   If the slice extends out side the source array then the corresponding
---   elements are set to zero.
-slicezLaborious
-  :: (ADReady r, KnownNat n)
-  => ShapeInt n -> TensorOf n r -> IndexOf n r -> TensorOf n r
-slicezLaborious shOut d ixBase =
-  tbuild shOut $ \ixResult -> indexz0Laborious d (zipWith_Index (+) ixBase ixResult)
-
--- Note that this is now spurious, since the current version of index
--- returns 0 when out of bounds. But if another values was required,
--- the current vections of index would be needed together with this
--- conditional.
--- | Retrieve the element at the given index,
---   returning zero for out of range indices.
-indexz0Laborious
-  :: forall r n. (ADReady r, KnownNat n)
-  => TensorOf n r -> IndexOf n r -> TensorOf 0 r
-indexz0Laborious d ix = ifB (within0 @r (tshape d) ix) (d ! ix) 0
-
--- | Given an index and shape, check if the index is fully within the shape.
-within0 :: forall r n. ADReady r
-        => ShapeInt n -> IndexOf n r -> BooleanOf r
-within0 sh ix =
-  let within :: IntOf r -> IntOf r -> BooleanOf r
-      within i dim = 0 <=* i &&* dim >* i
-  in foldr (&&*) true
-     $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)
-
 conv2d1Laborious
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2d1Laborious = conv2dLaborious $ tconst $ OR.fromList [1, 1, 1, 1] [-0.2]
+conv2d1Laborious = conv2dUnpadded $ tconst $ OR.fromList [1, 1, 1, 1] [-0.2]
 
 conv2dALaborious
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dALaborious = conv2dLaborious $ tconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25.0003]
+conv2dALaborious = conv2dUnpadded $ tconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25.0003]
 
 conv2dBLaborious
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dBLaborious = conv2dLaborious $ tconst $ runFlip t16b
+conv2dBLaborious = conv2dUnpadded $ tconst $ runFlip t16b
 
 conv2dCLaborious
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dCLaborious = flip conv2dLaborious $ tconst $ runFlip t16b
+conv2dCLaborious = flip conv2dUnpadded $ tconst $ runFlip t16b
 
 conv2dBLaborious128b
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dBLaborious128b = conv2dLaborious $ tconst $ runFlip t128b
+conv2dBLaborious128b = conv2dUnpadded $ tconst $ runFlip t128b
 
 conv2dCLaborious128b
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dCLaborious128b = flip conv2dLaborious $ tconst $ runFlip t128b
+conv2dCLaborious128b = flip conv2dUnpadded $ tconst $ runFlip t128b
 
 conv2dBLaborious128c
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dBLaborious128c = conv2dLaborious $ tconst $ runFlip t128c
+conv2dBLaborious128c = conv2dUnpadded $ tconst $ runFlip t128c
 
 conv2dCLaborious128c
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dCLaborious128c = flip conv2dLaborious $ tconst $ runFlip t128c
+conv2dCLaborious128c = flip conv2dUnpadded $ tconst $ runFlip t128c
 
 testKonst0RevLaborious :: Assertion
 testKonst0RevLaborious =
@@ -266,7 +210,7 @@ testKonst0TinySLaborious =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2dLaborious $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R $ runFlip t16b))
+          (conv2dUnpadded $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R $ runFlip t16b))
           (Flip $ OR.fromList [1, 1, 1, 1] [0]))
 
 testKonst0TinyALaborious :: Assertion
@@ -456,7 +400,7 @@ testKonstNotBigCLaborious128cb =
     (rev' @Double @4 conv2dCLaborious128c t128b)
 
 
--- * A failed version
+-- * A failed version (tests had to be removed)
 
 -- That's due to the conditional not being lazy and the indexing
 -- (and gather) crashing when out of bounds. Either of these needs to be
@@ -470,71 +414,6 @@ testKonstNotBigCLaborious128cb =
 -- are generated (on purpose) in this code.
 -- It would manifest with the older version of tindex that crashed
 -- when out of bounds.
-
-conv2dFailed
-  :: ADReady r
-  => TensorOf 4 r -> TensorOf 4 r -> TensorOf 4 r
-conv2dFailed arrK arrA =
-  let [nImgs, nCinpA, nAh, nAw] = tshape arrA
-      [nCoutK, nCinpK, nKh, nKw] = tshape arrK
-      nCinp = assert (nCinpA == nCinpK) nCinpA
-      shB = [nImgs, nCoutK, nAh, nAw]
-      shK1 = [1, nCinp, nKh, nKw]
-  in tbuild shB $ \case
-    [iImg, iCout, iBh, iBw] ->
-      let arrAt = slicezFailed shK1 arrA [iImg, 0, iBh, iBw]
-          arrKt = slicezFailed shK1 arrK [iCout, 0, 0, 0]
-      in tdot0 arrAt arrKt
-    _ -> error "conv2d: impossible pattern needlessly required"
-
--- | Slice a section out of a tensor,
---   given a base offset and shape of the section.
---
---   If the slice extends out side the source array then the corresponding
---   elements are set to zero.
-slicezFailed
-  :: (ADReady r, KnownNat n)
-  => ShapeInt n -> TensorOf n r -> IndexOf n r -> TensorOf n r
-slicezFailed shOut d ixBase =
-  tbuild shOut $ \ixResult ->
-    indexz0Failed d (zipWith_Index (+) ixBase ixResult)
-
--- | Retrieve the element at the given index,
---   returning zero for out of range indices.
-indexz0Failed
-  :: forall r n. (ADReady r, KnownNat n)
-  => TensorOf n r -> IndexOf n r -> TensorOf 0 r
-indexz0Failed d ix = ifB (within0 @r (tshape d) ix) (d ! ix) 0
-
-conv2d1Failed
-  :: ADReady r
-  => TensorOf 4 r -> TensorOf 4 r
-conv2d1Failed = conv2dFailed $ tconst $ OR.fromList [1, 1, 1, 1] [-0.2]
-
-conv2dBFailed
-  :: ADReady r
-  => TensorOf 4 r -> TensorOf 4 r
-conv2dBFailed = conv2dFailed $ tconst $ runFlip t16b
-
-testKonst0RevFailed :: Assertion
-testKonst0RevFailed =
-  assertEqualUpToEpsilon1 1e-4
-    (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @Double @4 conv2dBFailed (tkonst0N [2, 2, 2, 2] 0))
-
-testKonst0Tiny1Failed :: Assertion
-testKonst0Tiny1Failed =
-  assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [1, 1, 1, 1] [-0.2])
-    (rev' @Double @4 conv2d1Failed (tkonst0N [1, 1, 1, 1] 0))
-
-testKonst0TinySFailed :: Assertion
-testKonst0TinySFailed =
-  assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [1, 1, 1, 1] [582665.99432])
-    (rev' @Double @4
-          (conv2dFailed $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R $ runFlip t16b))
-          (Flip $ OR.fromList [1, 1, 1, 1] [0]))
 
 
 -- * Disparity
@@ -563,10 +442,10 @@ costVolume iStart nCount arrL arrR =
       shO = [nImgs, nCount, nRows, nCols]
   in tbuild shO $ \[iImg, iDisp, iRow, iCol] ->
        let arrVecL = tbuild (nChas :$ ZS) $ \[iCha] ->
-                       indexz0Laborious arrL [iImg, iCha, iRow, iCol]
+                       indexz0 arrL [iImg, iCha, iRow, iCol]
            iSrc = iCol - fromIntegral iStart - iDisp
            arrVecR = tbuild [nChas] $ \[iCha] ->
-                       indexz0Laborious arrR [iImg, iCha, iRow, iSrc]
+                       indexz0 arrR [iImg, iCha, iRow, iSrc]
        in tsum0 $ tzipWith1 (\xL xR -> abs (xL - xR)) arrVecL arrVecR
 
 test_disparityKonst :: Assertion

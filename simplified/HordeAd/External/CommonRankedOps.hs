@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Commonly used operations on tensors. Too large, too ad hoc or too unlikely
@@ -8,9 +9,11 @@ module HordeAd.External.CommonRankedOps
 
 import Prelude
 
+import Control.Exception (assert)
 import Data.Boolean
 import GHC.TypeLits (KnownNat)
 
+import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
 constant0 :: (Tensor r, Tensor (Primal r))
@@ -132,3 +135,54 @@ softMax1 :: ( Tensor r, KnownNat n
 softMax1 d =
   let expU0 = exp d
   in tlet expU0 $ \expU -> tkonst0N (tshape d) (recip $ tsum0 expU) * expU
+
+-- | Unpadded full convolution,
+--   where the output size is the same as the input size.
+--
+-- It guards the out of bounds indexing behind a conditional
+-- to prevent changed values after vectorization,
+-- despite the indexing giving 0 when out of bounds.
+-- If another value than 0 was needed, the conditional
+-- would be necessary even without vectorization.
+conv2dUnpadded
+  :: ADReady r
+  => TensorOf 4 r -> TensorOf 4 r -> TensorOf 4 r
+conv2dUnpadded arrK arrA =
+  let [nImgs, nCinpA, nAh, nAw] = tshape arrA
+      [nCoutK, nCinpK, nKh, nKw] = tshape arrK
+      nCinp = assert (nCinpA == nCinpK) nCinpA
+      shB = [nImgs, nCoutK, nAh, nAw]
+      shK1 = [1, nCinp, nKh, nKw]
+  in tbuild shB $ \case
+    [iImg, iCout, iBh, iBw] ->
+      let arrAt = slicez shK1 arrA [iImg, 0, iBh, iBw]
+          arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
+      in tdot0 arrAt arrKt
+    _ -> error "conv2dUnpadded: impossible pattern needlessly required"
+
+-- | Slice a section out of a tensor,
+--   given a base offset and shape of the section.
+--
+--   If the slice extends out side the source array then the corresponding
+--   elements are set to zero.
+slicez
+  :: (ADReady r, KnownNat n)
+  => ShapeInt n -> TensorOf n r -> IndexOf n r -> TensorOf n r
+slicez shOut d ixBase =
+  tbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
+
+-- | Retrieve the element at the given index,
+--   returning zero for out of range indices.
+indexz0
+  :: forall r n. (ADReady r, KnownNat n)
+  => TensorOf n r -> IndexOf n r -> TensorOf 0 r
+indexz0 d ix = ifB (within0 @r (tshape d) ix) (d ! ix) 0
+
+-- | Given an index and shape, check if the index is fully within the shape.
+within0 :: forall r n. ADReady r
+        => ShapeInt n -> IndexOf n r -> BooleanOf r
+within0 sh ix =
+  let within :: IntOf r -> IntOf r -> BooleanOf r
+      within i dim = 0 <=* i &&* dim >* i
+  in foldr (&&*) true
+     $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)
