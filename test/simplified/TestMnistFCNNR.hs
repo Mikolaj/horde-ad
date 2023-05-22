@@ -617,33 +617,35 @@ mnistTestCase2VT2O
   -> TestTree
 mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
-  let -- TODO: use withKnownNat when we no longer support GHC 9.4
-      valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
-      valsInit =
-        case someNatVal $ toInteger widthHidden of
-          Just (SomeNat @widthHidden _) ->
-            case someNatVal $ toInteger widthHidden2 of
-              Just (SomeNat @widthHidden2 _) ->
-                toRanked $ fst
-                $ randomVals
-                    @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        widthHidden widthHidden2 r)
-                    1 (mkStdGen 44)
-              Nothing -> error "valsInit: impossible someNatVal error"
-          Nothing -> error "valsInit: impossible someNatVal error"
-      domainsInit = toDomains valsInit
-      name = prefix ++ ": "
-             ++ unwords [ show epochs, show maxBatches
-                        , show widthHidden, show widthHidden2
-                        , show (nParams valsInit)
-                        , show (nScalars valsInit)
-                        , show gamma ]
-      ftest :: [MnistData r] -> Domains r -> r
-      ftest mnist testParams =
-        MnistFcnnRanked2.afcnnMnistTest2 mnist
-          (\f -> OR.toVector $ runFlip $ f
-                 $ parseDomains valsInit testParams)
-  in testCase name $ do
+ -- TODO: use withKnownNat when we no longer support GHC 9.4
+ case someNatVal $ toInteger widthHidden of
+  Nothing -> error "impossible someNatVal error"
+  Just (SomeNat @widthHidden _) -> case someNatVal $ toInteger widthHidden2 of
+   Nothing -> error "impossible someNatVal error"
+   Just (SomeNat @widthHidden2 _) ->
+    let valsInitShaped
+          :: MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+               widthHidden widthHidden2 r
+        valsInitShaped = fst $ randomVals 1 (mkStdGen 44)
+        domainsInit = toDomains valsInitShaped  -- == toDomains valsInit
+        valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
+        valsInit =
+          -- This almost works and I wouldn't need toRanked,
+          -- but there is nowhere to get aInit from.
+          --   parseDomains aInit domainsInit
+          toRanked valsInitShaped
+        name = prefix ++ ": "
+               ++ unwords [ show epochs, show maxBatches
+                          , show widthHidden, show widthHidden2
+                          , show (nParams valsInit)
+                          , show (nScalars valsInit)
+                          , show gamma ]
+        ftest :: [MnistData r] -> Domains r -> r
+        ftest mnist testParams =
+          MnistFcnnRanked2.afcnnMnistTest2 mnist
+            (\f -> OR.toVector $ runFlip $ f
+                   $ parseDomains valsInit testParams)
+    in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches

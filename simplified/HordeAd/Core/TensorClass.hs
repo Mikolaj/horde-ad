@@ -542,7 +542,7 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
     in (arr, g2)
 -}
 
-instance ( Numeric r, KnownNat n, Tensor r, DynamicTensor r, DomainsCollection r
+instance ( KnownNat n, Numeric r, Tensor r, DynamicTensor r, DomainsCollection r
          , Ranked r ~ Flip OR.Array r )
          => AdaptableDomains (Flip OR.Array r n) where
   type Scalar (Flip OR.Array r n) = r
@@ -576,11 +576,12 @@ instance AdaptableDomains (OD.Array r) where
   nParams _ = 1
   nScalars = OD.size
 
-instance OS.Shape sh
+instance ( OS.Shape sh, Numeric r, Tensor r, DomainsCollection r
+         , Shaped r ~ Flip OS.Array r )
          => AdaptableDomains (Flip OS.Array r sh) where
   type Scalar (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
-  toDomains = undefined
+  toDomains a = mkDoms emptyDoms0 (fromListDoms [dfromS a])
   fromDomains = undefined
   nParams _ = 1
   nScalars = OS.size . runFlip
