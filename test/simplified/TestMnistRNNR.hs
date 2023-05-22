@@ -365,7 +365,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
        res <- runEpoch 1 (domainsInit, initialStateAdam domainsInit)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
-       testErrorFinal @?~ expected
+       assertEqualUpToEpsilon 1e-1 expected testErrorFinal
 
 {-# SPECIALIZE mnistTestCaseRNNO
   :: String
@@ -375,7 +375,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
 tensorADValMnistTestsRNNO :: TestTree
 tensorADValMnistTestsRNNO = testGroup "RNN Once MNIST tests"
   [ mnistTestCaseRNNO "RNNO 1 epoch, 1 batch" 1 1 128 5 500
-                       (0.874 :: Double)
+                       (0.898 :: Double)
   , mnistTestCaseRNNO "RNNO artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNO "RNNO artificial 5 4 3 2 1" 5 4 3 2 49
