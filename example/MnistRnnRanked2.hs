@@ -16,23 +16,28 @@ import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData
 
-rnnMnistLenR :: Int -> [[Int]]
-rnnMnistLenR width =
-  [ [width, sizeMnistHeightInt], [width, width], [width]
-  , [width, width], [width, width], [width]
-  , [sizeMnistLabelInt, width], [sizeMnistLabelInt] ]
+type LayerWeigthsRNNShaped in_width out_width r =
+  ( Shaped r '[out_width, in_width]   -- input weight
+  , Shaped r '[out_width, out_width]  -- state weight
+  , Shaped r '[out_width] )           -- bias
 
-type LayerWeigthsRNN r =  -- in_width out_width
-  ( Ranked r 2  -- input weight, [out_width, in_width]
-  , Ranked r 2  -- state weight, [out_width, out_width]
-  , Ranked r 1 )  -- bias, [out_width]
+type ADRnnMnistParametersShaped width r =
+  ( LayerWeigthsRNNShaped SizeMnistHeight width r
+  , LayerWeigthsRNNShaped width width r
+  , ( Shaped r '[SizeMnistLabel, width]
+    , Shaped r '[SizeMnistLabel] ) )
+
+type LayerWeigthsRNN r =
+  ( Ranked r 2
+  , Ranked r 2
+  , Ranked r 1 )
 
 -- The differentiable type of all trainable parameters of this nn.
-type ADRnnMnistParameters r =  -- sizeMnistHeight out_width
-  ( LayerWeigthsRNN r  -- sizeMnistHeight out_width
-  , LayerWeigthsRNN r  -- out_width out_width
-  , ( Ranked r 2  -- [SizeMnistLabel, out_width]
-    , Ranked r 1 ) )  -- [SizeMnistLabel]
+type ADRnnMnistParameters r =
+  ( LayerWeigthsRNN r
+  , LayerWeigthsRNN r
+  , ( Ranked r 2
+    , Ranked r 1 ) )
 
 zeroStateR
   :: (Tensor r, KnownNat n)

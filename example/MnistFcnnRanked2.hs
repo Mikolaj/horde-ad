@@ -25,12 +25,12 @@ type ADFcnnMnist2ParametersShaped widthHidden widthHidden2 r =
 
 -- The differentiable type of all trainable parameters of this nn.
 type ADFcnnMnist2Parameters r =
-  ( ( TensorOf 2 r  -- @widthHidden@ copies, length @sizeMnistGlyphInt@
-    , TensorOf 1 r )  -- length @widthHidden@
-  , ( TensorOf 2 r  -- @widthHidden2@ copies, length @widthHidden@
-    , TensorOf 1 r )  -- length @widthHidden2@
-  , ( TensorOf 2 r  -- @sizeMnistLabelInt@ copies, length @widthHidden2@
-    , TensorOf 1 r )  -- length @sizeMnistLabelInt@
+  ( ( TensorOf 2 r
+    , TensorOf 1 r )
+  , ( TensorOf 2 r
+    , TensorOf 1 r )
+  , ( TensorOf 2 r
+    , TensorOf 1 r )
   )
 
 -- | Fully connected neural network for the MNIST digit classification task.

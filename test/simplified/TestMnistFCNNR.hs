@@ -506,16 +506,16 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
   let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
       valsInit =
         case someNatVal $ toInteger widthHidden of
+          Nothing -> error "impossible someNatVal error"
           Just (SomeNat @widthHidden _) ->
             case someNatVal $ toInteger widthHidden2 of
+              Nothing -> error "impossible someNatVal error"
               Just (SomeNat @widthHidden2 _) ->
                 toRanked $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
-              Nothing -> error "valsInit: impossible someNatVal error"
-          Nothing -> error "valsInit: impossible someNatVal error"
       domainsInit = toDomains valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
