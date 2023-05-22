@@ -5,7 +5,7 @@
 -- are add-ons.
 module HordeAd.Core.Engine
   ( -- * The adaptors
-    revL, revDtMaybeL, revDtFun, revDtInterpret, rev, revDt
+    revL, revDtMaybeL, revDtFun, revDtInit, revDtInterpret, rev, revDt
   , srevL, srevDtMaybeL, srev, srevDt
   , crev, crevDt, fwd
   , -- * The most often used part of the high-level API
@@ -82,9 +82,20 @@ revDtFun
 {-# INLINE revDtFun #-}
 revDtFun f vals =
   let parameters0 = toDomains vals
-      dim0 = tlength @r @0 $ tfromD $ doms0 parameters0
+  in revDtInit f vals EM.empty parameters0
+
+revDtInit
+  :: forall r n vals astvals.
+     ( ADTensor r, InterpretAst r, Value r ~ r, KnownNat n
+     , AdaptableDomains astvals, vals ~ Value vals, vals ~ Value astvals
+     , Scalar astvals ~ Ast0 r )
+  => (astvals -> Ast n r) -> vals -> AstEnv (ADVal (Ast0 r)) -> Domains r
+  -> (ADAstArtifact6 n r, Dual (AstRanked r n))
+{-# INLINE revDtInit #-}
+revDtInit f vals envInit parameters0 =
+  let dim0 = tlength @r @0 $ tfromD $ doms0 parameters0
       shapes1 = map dshape $ toListDoms $ domsR parameters0
-  in revAstOnDomainsFun dim0 shapes1 (revDtInterpret EM.empty vals f)
+  in revAstOnDomainsFun dim0 shapes1 (revDtInterpret envInit vals f)
 
 revDtInterpret
   :: forall n r vals astvals.

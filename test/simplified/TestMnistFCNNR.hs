@@ -324,8 +324,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let shapes1 = map (: []) nParams1
-           (varGlyph, astGlyph) =
+       let (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
              funToAstR (singletonShape sizeMnistLabelInt) id
@@ -334,7 +333,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            f = tscalar . MnistFcnnRanked1.afcnnMnistLoss1TensorData
                            widthHidden widthHidden2 (astGlyph, astLabel)
            (((var0Again, varDtAgain, vars1Again), gradientRaw, primal), _) =
-             revAstOnDomainsFun 0 shapes1 $ revDtInterpret envInit valsInit f
+             revDtInit f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain =
              vars1Again
@@ -651,8 +650,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let shapes1 = map dshape $ toListDoms $ domsR domainsInit
-           (varGlyph, astGlyph) =
+       let (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
              funToAstR (singletonShape sizeMnistLabelInt) id
@@ -661,7 +659,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
            f = tscalar . MnistFcnnRanked2.afcnnMnistLoss2TensorData
                            (astGlyph, astLabel)
            (((var0Again, varDtAgain, vars1Again), gradientRaw, primal), _) =
-             revAstOnDomainsFun 0 shapes1 $ revDtInterpret envInit valsInit f
+             revDtInit f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain =
              vars1Again
