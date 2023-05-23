@@ -186,3 +186,18 @@ within0 sh ix =
       within i dim = 0 <=* i &&* dim >* i
   in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)
+
+maxPool2dUnpadded
+  :: ADReady r
+  => Int -> Int -> TensorOf 4 r -> TensorOf 4 r
+maxPool2dUnpadded ksize stride arr =
+  let [batch_size, channels, h, w] = tshape arr
+      shOut = [batch_size, channels, h `div` stride, w `div` stride]
+      shK1 = [1, 1, ksize, ksize]
+  in tbuild shOut $ \case
+    [iImg, iChan, iBh, iBw] ->
+      let arrt = slicez shK1 arr [ iImg, iChan
+                                 , fromIntegral stride * iBh
+                                 , fromIntegral stride * iBw ]
+      in tmaximum arrt
+    _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
