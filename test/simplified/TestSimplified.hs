@@ -42,7 +42,7 @@ testTrees = [ -- Tensor tests
             , testCase "barReluADVal" testBarReluADVal
             , testCase "barReluAst0" testBarReluAst0
             , testCase "barReluAst1" testBarReluAst1
-            , testCase "konstReluAst" testKonstReluAst
+            , testCase "konstReluAst" testReplicateReluAst
             , -- Tests by TomS:
               testCase "F1" testF1
             , testCase "F2" testF2
@@ -118,7 +118,7 @@ fooBuild1 v =
 
 fooMap1 :: ADReady r => r -> TensorOf 1 r
 fooMap1 r =
-  let v = fooBuild1 $ tkonst0N [130] (tscalar r)
+  let v = fooBuild1 $ treplicate0N [130] (tscalar r)
   in tmap0N (\x -> x * tscalar r + 5) v
 
 -- This uses raw AST instead of sufficiently polymorphic code.
@@ -137,8 +137,8 @@ fooNoGoAst v =
 
 nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r
 nestedBuildMap r =
-  let w = tkonst0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
-      v' = tkonst0N (177 :$ ZS) (tscalar r)
+  let w = treplicate0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
+      v' = treplicate0N (177 :$ ZS) (tscalar r)
       nestedMap x = tmap0N (tscalar x /) (w (tscalar x))
       variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' [ix + iy])
       doublyBuild = tbuild1 5 (tminimum @r @1. variableLengthBuild)
@@ -161,13 +161,13 @@ nestedSumBuild v =
              , tsum (tbuild1 6 (\_ -> tsum v))
              , tindex v [ix2]
              , tsum (tbuild1 3 (\ix7 ->
-                 tsum (tkonst 5 (tfromIndex0 ix7))))
+                 tsum (treplicate 5 (tfromIndex0 ix7))))
 -- dynamic shapes:
 --             , tsum (tbuild1 3 (\ix7 ->
---                 tsum (tkonst0N [ix2 + 1] (tfromIndex0 ix7))))
+--                 tsum (treplicate0N [ix2 + 1] (tfromIndex0 ix7))))
 -- irregular array:
 --             , tsum (tbuild1 3 (\ix7 ->
---                 tsum (tkonst0N [ix2 + ix7 + 1] 2.4)))
+--                 tsum (treplicate0N [ix2 + ix7 + 1] 2.4)))
              ]))))
   + tbuild1 13 (\ix ->
       nestedBuildMap (tunScalar $ tsum0 v) `tindex` [min ix 4])
@@ -189,7 +189,7 @@ barReluAst x = relu $ bar (x, reluAst1 x)
 konstReluAst
   :: forall r. ShowAstSimplify r
   => Ast 0 r -> Ast 0 r
-konstReluAst x = tsum0 $ reluAst1 @1 $ tkonst0N [7] x
+konstReluAst x = tsum0 $ reluAst1 @1 $ treplicate0N [7] x
 
 reluAst1
   :: forall n r. (KnownNat n, ShowAstSimplify r)
@@ -244,17 +244,17 @@ recycled :: ADReady r
          => r -> TensorOf 5 r
 recycled r =
   tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ ->
-    nestedSumBuild (tkonst0N [7] (tscalar r))
+    nestedSumBuild (treplicate0N [7] (tscalar r))
 
 concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =
   tbuild1 7 (\i ->
     tappend (tappend (tbuild1 5 (\_j -> tscalar r))  -- TODO: i should work
-                     (tkonst 1 (tfromIndex0 i)))
+                     (treplicate 1 (tfromIndex0 i)))
             (tbuild1 13 (\_k -> tscalar r)))
 -- TODO: reject via types or accept with type obligations:
 --    tappend (tappend (tbuild1 (1 + i) (\_j -> tscalar r))  -- TODO: i should work
---                     (tkonst0N [1] (tfromIndex0 i)))
+--                     (treplicate0N [1] (tfromIndex0 i)))
 --            (tbuild1 (13 - i) (\_k -> tscalar r)))
 
 -- TODO:
@@ -475,8 +475,8 @@ testBarReluAst1 =
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
   @?~ domainsR (domainsFrom0V V.empty (V.singleton (V.fromList [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])))
 
-testKonstReluAst :: Assertion
-testKonstReluAst =
+testReplicateReluAst :: Assertion
+testReplicateReluAst =
   (domainsD0 $ fst
    $ revOnDomains
        (Just 42.2)

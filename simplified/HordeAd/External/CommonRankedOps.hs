@@ -59,10 +59,10 @@ logistic :: forall r n.
          => TensorOf n r -> TensorOf n r
 logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
   let sh = tshape d
-      y0 = recip (tkonst0N sh 1 + exp (- tprimalPart d))
+      y0 = recip (treplicate0N sh 1 + exp (- tprimalPart d))
   in tlet (tconstant y0)  -- we don't have tletPrimal
      $ \y1 -> let y = tprimalPart y1
-              in tD y (tScale @r (y * (tkonst0N sh 1 - y)) $ tdualPart d)
+              in tD y (tScale @r (y * (treplicate0N sh 1 - y)) $ tdualPart d)
 
 -- TODO: and especially here try a faster approach
 logistic0 :: (Tensor r, Tensor (Primal r), Floating (TensorOf 0 (Primal r)))
@@ -109,7 +109,7 @@ lossSoftMaxCrossEntropyR target d' = tunScalar $ tlet d' $ \d ->
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
   let softMaxU' =
         let u = tprimalPart d
-            expU' = exp (u - tkonst0N (tshape u) (tminimum u))
+            expU' = exp (u - treplicate0N (tshape u) (tminimum u))
         in tlet expU' $ \expU ->
           let sumExpU = tsum0 expU
               recipSum = recip sumExpU
@@ -134,7 +134,7 @@ softMax1 :: ( Tensor r, KnownNat n
          => TensorOf n r -> TensorOf n r
 softMax1 d =
   let expU0 = exp d
-  in tlet expU0 $ \expU -> tkonst0N (tshape d) (recip $ tsum0 expU) * expU
+  in tlet expU0 $ \expU -> treplicate0N (tshape d) (recip $ tsum0 expU) * expU
 
 -- | Unpadded full convolution,
 --   where the output size is the same as the input size.

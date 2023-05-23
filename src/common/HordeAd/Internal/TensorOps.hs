@@ -115,10 +115,10 @@ tsum0D
 tsum0D (Data.Array.Internal.DynamicS.A (Data.Array.Internal.DynamicG.A sh t)) =
   LA.sumElements $ OI.toUnorderedVectorT sh t
 
-tkonst0ND
+treplicate0ND
   :: Numeric r
   => ShapeInt n -> r -> OD.Array r
-tkonst0ND sh = OD.constant (shapeToList sh)
+treplicate0ND sh = OD.constant (shapeToList sh)
 
 tshapeR
   :: KnownNat n
@@ -357,7 +357,7 @@ tscatterZR sh t f =
            else id
       ivs = foldr g M.empty [ fromLinearIdx shm i
                             | i <- [0 .. fromIntegral s - 1] ]
-  in updateNR (tkonst0NR sh 0) $ map (second $ OR.fromVector shn . sum)
+  in updateNR (treplicate0NR sh 0) $ map (second $ OR.fromVector shn . sum)
                                $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
@@ -373,8 +373,8 @@ tscatterZ1R sh t f = case OR.shapeL t of
     V.sum $ V.imap (\i ti ->
                      let ix2 = f $ fromIntegral i
                      in if ixInBounds (indexToList ix2) (shapeToList sh)
-                        then updateNR (tkonst0NR sh 0) [(ix2, ti)]
-                        else tkonst0NR sh 0)
+                        then updateNR (treplicate0NR sh 0) [(ix2, ti)]
+                        else treplicate0NR sh 0)
           $ ORB.toVector $ OR.unravel t
 
 tfromListR
@@ -405,18 +405,18 @@ tfromVector0NR
   => ShapeInt n -> Data.Vector.Vector r -> OR.Array n r
 tfromVector0NR sh l = OR.fromVector (shapeToList sh) $ V.convert l
 
-tkonstR
+treplicateR
   :: forall n r. (KnownNat n, Numeric r)
   => Int -> OR.Array n r -> OR.Array (1 + n) r
-tkonstR 0 u = OR.fromList (0 : OR.shapeL u) []
-tkonstR s u = case sameNat (Proxy @n) (Proxy @0) of
+treplicateR 0 u = OR.fromList (0 : OR.shapeL u) []
+treplicateR s u = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> OR.constant [s] (OR.unScalar u)
   _ -> OR.ravel $ ORB.constant [s] u
 
-tkonst0NR
+treplicate0NR
   :: (KnownNat n, Numeric r)
   => ShapeInt n -> r -> OR.Array n r
-tkonst0NR sh = OR.constant (shapeToList sh)
+treplicate0NR sh = OR.constant (shapeToList sh)
 
 tappendR
   :: (KnownNat n, Numeric r)

@@ -102,7 +102,7 @@ data AstRanked :: Type -> Nat -> Type where
               => [Ast n r] -> Ast (1 + n) r
   AstFromVector :: KnownNat n
                 => Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
-  AstKonst :: KnownNat n
+  AstReplicate :: KnownNat n
            => Int -> Ast n r -> Ast (1 + n) r
   AstAppend :: KnownNat n
             => Ast (1 + n) r -> Ast (1 + n) r -> Ast (1 + n) r

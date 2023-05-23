@@ -227,8 +227,8 @@ instance ( ADTensor r, CRanked IsPrimal r
 --  tfromList0N = fromList0N
   tfromVector = Compose . fromVector . V.map getCompose
 --  tfromVector0N = fromVector0N
-  tkonst k = Compose . konst k . getCompose
---  tkonst0N sh = konst0N sh . unScalar
+  treplicate k = Compose . replicate' k . getCompose
+--  treplicate0N sh = replicate0N sh . unScalar
   tappend u v = Compose $ append (getCompose u) (getCompose v)
   tslice i k = Compose . slice i k . getCompose
   treverse = Compose . reverse' . getCompose
@@ -357,14 +357,14 @@ fromVector lu =
 --  dD (tfromVector0N sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
 --     (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
 
-konst :: ( ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n
+replicate' :: ( ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n
          , Underlying (TensorOf n r) ~ Underlying (TensorOf (1 + n) r) )
       => Int -> ADVal (TensorOf n r) -> ADVal (TensorOf (1 + n) r)
-konst k (D l u u') = dD l (tkonst k u) (dKonstR k u')
+replicate' k (D l u u') = dD l (treplicate k u) (dReplicateR k u')
 
---konst0N :: (ADTensor r, KnownNat n)
+--replicate0N :: (ADTensor r, KnownNat n)
 --        => ShapeInt n -> ADVal r -> ADVal (TensorOf n r)
---konst0N sh (D u u') = dD (tkonst0N sh u) (dKonst01 sh u')
+--replicate0N sh (D u u') = dD (treplicate0N sh u) (dReplicate01 sh u')
 
 append :: (ADTensor r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
        => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf (1 + n) r)

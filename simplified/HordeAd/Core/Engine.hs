@@ -295,7 +295,7 @@ revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
              $ zip (AstDynamicVarName var0 : vars1) $ toListDoms parameters
       dtValue = case dt of
         Just a -> a
-        Nothing -> tkonst0N (tshape primal) 1
+        Nothing -> treplicate0N (tshape primal) 1
       envDt = extendEnvR varDt dtValue env1
       (memo1, gradientDomain) =
         interpretAstDomainsDummy envDt emptyMemo gradient

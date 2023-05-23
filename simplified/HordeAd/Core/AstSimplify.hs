@@ -17,7 +17,7 @@ module HordeAd.Core.AstSimplify
   , simplifyPermutation
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
-  , astLet, astSum, astScatter, astFromList, astFromVector, astKonst
+  , astLet, astSum, astScatter, astFromList, astFromVector, astReplicate
   , astAppend, astSlice, astReverse, astFromDynamic, astConstant, astDomainsLet
   , astIntCond
   , simplifyArtifact6, simplifyAst6, simplifyAstDomains6
@@ -178,7 +178,7 @@ simplifyStepNonIndex t = case t of
   Ast.AstScatter sh v (vars, ix) -> astScatter sh v (vars, ix)
   Ast.AstFromList l -> astFromList l
   Ast.AstFromVector l -> astFromVector l
-  Ast.AstKonst k v -> astKonst k v
+  Ast.AstReplicate k v -> astReplicate k v
   Ast.AstAppend x y -> astAppend x y
   Ast.AstSlice i k v -> astSlice i k v
   Ast.AstReverse v -> astReverse v
@@ -186,7 +186,7 @@ simplifyStepNonIndex t = case t of
   Ast.AstReshape sh v -> astReshape sh v
   Ast.AstBuild1{} -> t
   Ast.AstGatherZ _ v0 (Z, ix) -> Ast.AstIndexZ v0 ix
-  Ast.AstGatherZ sh v0 (_, ZI) -> astKonstN sh v0
+  Ast.AstGatherZ sh v0 (_, ZI) -> astReplicateN sh v0
   Ast.AstGatherZ {} -> t
   Ast.AstConst{} -> t
   Ast.AstConstant v -> astConstant v
@@ -277,7 +277,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
         then astIndex (unsafeCoerce $ astScatter sh v (vars, ix2)) rest1
           -- see analogous code in astGatherCase for how a million
           -- type applications is still not enough to make it type-check
-        else astIndex (astKonstN @(m1 + n) @0 (unsafeCoerce sh) 0) rest1
+        else astIndex (astReplicateN @(m1 + n) @0 (unsafeCoerce sh) 0) rest1
   -- AstScatter sh v (vars2, ZI) ->
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
   Ast.AstScatter{} ->  -- a normal form
@@ -296,7 +296,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   Ast.AstFromVector l ->
     Ast.AstIndexZ (astFromVector $ V.map (`astIndexRec` rest1) l)
                   (singletonIndex i1)
-  Ast.AstKonst _k v ->
+  Ast.AstReplicate _k v ->
     astIndex v rest1
   Ast.AstAppend{} ->
     {- We can't do the following, because we can get, e.g., division
@@ -372,7 +372,7 @@ astScatter sh v (vars, ix) = Ast.AstScatter sh v (vars, ix)
 
 astFromList :: (KnownNat n, ShowAstSimplify r)
             => [Ast n r] -> Ast (1 + n) r
-astFromList [a] = astKonst 1 a
+astFromList [a] = astReplicate 1 a
 astFromList l =
   let unConstant (Ast.AstConstant (AstPrimalPart t)) = Just t
       unConstant _ = Nothing
@@ -389,7 +389,7 @@ astFromList l =
 
 astFromVector :: (KnownNat n, ShowAstSimplify r)
               => Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
-astFromVector v | V.length v == 1 = astKonst 1 (v V.! 0)
+astFromVector v | V.length v == 1 = astReplicate 1 (v V.! 0)
 astFromVector l =
   let unConstant (Ast.AstConstant (AstPrimalPart t)) = Just t
       unConstant _ = Nothing
@@ -404,34 +404,34 @@ astFromVector l =
         Just l3 -> Ast.AstConst $ tfromVectorR l3
         Nothing -> Ast.AstFromVector l
 
-astKonst :: (KnownNat n, ShowAstSimplify r)
+astReplicate :: (KnownNat n, ShowAstSimplify r)
          => Int -> Ast n r -> Ast (1 + n) r
-astKonst k = \case
+astReplicate k = \case
 -- This allocates a big tensor too early, while it's still possible
 -- a projection reduces this away. The cost to AD should not be too high.
--- This would also hide AstKonst from hacks that recover tmatmul2, etc.
---  Ast.AstConst t -> Ast.AstConst $ tkonstR k t
+-- This would also hide AstReplicate from hacks that recover tmatmul2, etc.
+--  Ast.AstConst t -> Ast.AstConst $ treplicateR k t
   Ast.AstConstant (AstPrimalPart v) ->
-    astConstant $ AstPrimalPart $ astKonst k v
+    astConstant $ AstPrimalPart $ astReplicate k v
 {- TODO: these may be counterproductive with many gathers and their fusion
          though these let transpose cancel out with each other sometimes
-         (instead we should try to cancel out inside konst and only move
+         (instead we should try to cancel out inside replicate and only move
           if they don't)
 -}
   Ast.AstTranspose perm v ->
-    astTranspose (0 : map succ perm) $ astKonst k v
+    astTranspose (0 : map succ perm) $ astReplicate k v
 {- see the previous comment
   Ast.AstReshape sh v ->
-    AstReshape (k :$ sh) $ astKonst k v
+    AstReshape (k :$ sh) $ astReplicate k v
 -}
-  v -> Ast.AstKonst k v
+  v -> Ast.AstReplicate k v
 
-astKonstN :: forall n p r. (KnownNat n, KnownNat p, ShowAstSimplify r)
+astReplicateN :: forall n p r. (KnownNat n, KnownNat p, ShowAstSimplify r)
           => ShapeInt (n + p) -> Ast p r -> Ast (n + p) r
-astKonstN sh =
+astReplicateN sh =
   let go :: KnownNat n' => ShapeInt n' -> Ast p r -> Ast (n' + p) r
       go ZS v = v
-      go (k :$ sh') v = astKonst k $ go sh' v
+      go (k :$ sh') v = astReplicate k $ go sh' v
   in go (takeShape sh)
 
 astAppend :: (KnownNat n, ShowAstSimplify r)
@@ -457,7 +457,7 @@ astSlice i k (Ast.AstConstant (AstPrimalPart v)) =
 astSlice 0 k v | k == lengthAst v = v
 astSlice i k (Ast.AstFromList l) = astFromList $ take k (drop i l)
 astSlice i k (Ast.AstFromVector l) = astFromVector $ V.take k (V.drop i l)
-astSlice _i k (Ast.AstKonst _k2 v) = astKonst k v
+astSlice _i k (Ast.AstReplicate _k2 v) = astReplicate k v
 astSlice i k w@(Ast.AstAppend (u :: Ast (1 + n) r) (v :: Ast (1 + n) r)) =
   -- GHC 9.2.7 -- 9.6.1 with the plugins demand so much verbiage ^^^
   -- It seems this is caused by only having (1 + n) in the type
@@ -482,7 +482,7 @@ astReverse (Ast.AstConstant (AstPrimalPart v)) =
   astConstant $ AstPrimalPart $ astReverse v
 astReverse (Ast.AstFromList l) = Ast.AstFromList $ reverse l
 astReverse (Ast.AstFromVector l) = Ast.AstFromVector $ V.reverse l
-astReverse (Ast.AstKonst k v) = Ast.AstKonst k v
+astReverse (Ast.AstReplicate k v) = Ast.AstReplicate k v
 astReverse (Ast.AstReverse v) = v
 astReverse (Ast.AstGatherZ sh@(k :$ _) v (var ::: vars, ix)) =
   let ivar = AstIntOp Ast.MinusIntOp [AstIntConst k, AstIntVar var]
@@ -594,7 +594,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       error $ "astGather: gather vars in v0: "
               ++ show (vars0, v0)
     (_, (Z, _)) -> astIndex v0 ix0
-    (sh, (_, ZI)) -> astKonstN sh v0
+    (sh, (_, ZI)) -> astReplicateN sh v0
     (k :$ sh', (var ::: vars, i1 :. rest1)) ->
       if | not (any (`intVarInAstInt` i1) vars0) ->
            astGatherZOrStepOnly stepOnly sh0 (astIndex v0 (i1 :. ZI))
@@ -612,7 +612,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
          | intVarInIndex var ix0 ->
            astGatherCase sh0 v0 (vars0, ix0)
          | otherwise ->
-           astKonst k (astGatherZOrStepOnly stepOnly sh' v0 (vars, ix0))
+           astReplicate k (astGatherZOrStepOnly stepOnly sh' v0 (vars, ix0))
        where
         (restN, iN) = unsnocIndex1 ix0
         (varsN, varN) = unsnocSized1 vars0
@@ -636,7 +636,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     :: forall m' n' p'. (KnownNat m', KnownNat p', KnownNat n')
     => ShapeInt (m' + n') -> Ast (p' + n') r -> (AstVarList m', AstIndex p' r)
     -> Ast (m' + n') r
-  astGatherCase sh4 v4 (_, ZI) = astKonstN sh4 v4  -- not really possible
+  astGatherCase sh4 v4 (_, ZI) = astReplicateN sh4 v4  -- not really possible
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :. (rest4 :: AstIndex p1' r)) ) = case v4 of
     Ast.AstVar{} -> Ast.AstGatherZ sh4 v4 (vars4, ix4)
@@ -652,7 +652,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       Ast.AstSumOfList (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     Ast.AstSumOfList{} -> Ast.AstGatherZ sh4 v4 (vars4, ix4)
     Ast.AstIota | AstIntConst i <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
-      Just Refl -> astKonstN sh4 $ Ast.AstConst $ OR.scalar $ fromIntegral i
+      Just Refl -> astReplicateN sh4 $ Ast.AstConst $ OR.scalar $ fromIntegral i
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
     Ast.AstIota ->  -- probably nothing can be simplified; a normal form
       Ast.AstGatherZ sh4 v4 (vars4, ix4)
@@ -681,7 +681,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                          (unsafeCoerce
                           $ astScatter @m4 @n4 @p1 sh v (vars, ix2))
                          (vars4, rest4)
-          else astGather sh4 (astKonstN @(p1' + n') @0 (unsafeCoerce sh) 0)
+          else astGather sh4 (astReplicateN @(p1' + n') @0 (unsafeCoerce sh) 0)
                          (vars4, rest4)
     Ast.AstScatter{} ->  -- a normal form
       Ast.AstGatherZ sh4 v4 (vars4, ix4)
@@ -711,7 +711,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                   (zipSized (fmap Right $ indexToSizedList ixFresh) vars4)
           i5 = subst i4
      in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :. ixFresh)
-    Ast.AstKonst _k v -> astGather sh4 v (vars4, rest4)
+    Ast.AstReplicate _k v -> astGather sh4 v (vars4, rest4)
     Ast.AstAppend{} ->
       {- This is wrong, see astIndexZOrStepOnly:
          We can't express append as gather, because AstFromList needs
@@ -836,7 +836,7 @@ astFromDynamic (AstDynamic @n2 v) =
                   Nothing ->
                     AstGather1 k v2 (var, ix2)
                     -- we didn't really need it anyway
-            | otherwise -> astKonst k (AstIndexZ v2 ix2)
+            | otherwise -> astReplicate k (AstIndexZ v2 ix2)
 -}
 -- Let's instead wait and see if we can come up with more general
 -- simplifications, involving all variables. Especially that
@@ -1005,7 +1005,7 @@ inlineAst env memo v0 = case v0 of
     let (memo2, l2) = mapAccumR (inlineAst env) memo (V.toList l)
     in (memo2, Ast.AstFromVector $ V.fromList l2)
       -- TODO: emulate mapAccum using mapM?
-  Ast.AstKonst k v -> second (Ast.AstKonst k) (inlineAst env memo v)
+  Ast.AstReplicate k v -> second (Ast.AstReplicate k) (inlineAst env memo v)
   Ast.AstAppend x y ->
     let (memo1, t1) = inlineAst env memo x
         (memo2, t2) = inlineAst env memo1 y
@@ -1173,7 +1173,7 @@ unletAst env t = case t of
     Ast.AstScatter sh (unletAst env v) (var, fmap (unletAstInt env) ix)
   Ast.AstFromList l -> Ast.AstFromList (map (unletAst env) l)
   Ast.AstFromVector l -> Ast.AstFromVector (V.map (unletAst env) l)
-  Ast.AstKonst k v -> Ast.AstKonst k (unletAst env v)
+  Ast.AstReplicate k v -> Ast.AstReplicate k (unletAst env v)
   Ast.AstAppend x y -> Ast.AstAppend (unletAst env x) (unletAst env y)
   Ast.AstSlice i k v -> Ast.AstSlice i k (unletAst env v)
   Ast.AstReverse v -> Ast.AstReverse (unletAst env v)
@@ -1265,7 +1265,7 @@ simplifyAst t = case t of
     astScatter sh (simplifyAst v) (var, fmap simplifyAstInt ix)
   Ast.AstFromList l -> astFromList (map simplifyAst l)
   Ast.AstFromVector l -> astFromVector (V.map simplifyAst l)
-  Ast.AstKonst k v -> astKonst k (simplifyAst v)
+  Ast.AstReplicate k v -> astReplicate k (simplifyAst v)
   Ast.AstAppend x y -> astAppend (simplifyAst x) (simplifyAst y)
   Ast.AstSlice i k v -> astSlice i k (simplifyAst v)
   Ast.AstReverse v -> astReverse (simplifyAst v)
@@ -1284,7 +1284,7 @@ simplifyAst t = case t of
           u@(Ast.AstTranspose _ (Ast.AstSumOfList args))
             | length args > 1 || all isVar args -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
-          u@(Ast.AstTranspose _ Ast.AstKonst{}) -> u  -- normal form
+          u@(Ast.AstTranspose _ Ast.AstReplicate{}) -> u  -- normal form
           Ast.AstTranspose perm3 v3 ->  -- not nf, let's express all as gather
             astTransposeAsGather perm3 v3
               -- this is expensive, but the only way to guarantee
@@ -1303,7 +1303,7 @@ simplifyAst t = case t of
             | length args > 1 || all isVar args -> u  -- normal form
           u@(Ast.AstReshape _ Ast.AstScatter{}) -> u  -- normal form
           -- Not a normal form, because often AstReshape scan be eliminated:
-          -- u@(Ast.AstReshape _ Ast.AstKonst{}) -> u  -- normal form
+          -- u@(Ast.AstReshape _ Ast.AstReplicate{}) -> u  -- normal form
           Ast.AstReshape sh3 v3 -> astReshapeAsGather sh3 v3
             -- this is terribly expensive, but the only way to fully simplify
           u -> simplifyAst u

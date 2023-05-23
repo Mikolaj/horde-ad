@@ -184,10 +184,10 @@ data DeltaR :: Type -> Nat -> Type where
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
 --  FromList0R :: ShapeInt n -> [Delta0 r] -> DeltaR r n
 --  FromVector0R :: ShapeInt n -> Data.Vector.Vector (Delta0 r) -> DeltaR r n
-  KonstR :: KnownNat n
+  ReplicateR :: KnownNat n
          => Int -> DeltaR r n -> DeltaR r (1 + n)
     -- ^ Copy the given tensor along the new, outermost dimension.
---  Konst0R :: ShapeInt n -> Delta0 r -> DeltaR r n
+--  Replicate0R :: ShapeInt n -> Delta0 r -> DeltaR r n
   AppendR :: KnownNat n
           => DeltaR r (1 + n) -> Int -> DeltaR r (1 + n) -> DeltaR r (1 + n)
     -- ^ Append two arrays along the outermost dimension.
@@ -219,7 +219,7 @@ data DeltaR :: Type -> Nat -> Type where
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const Z) [] (ScalarR d) k@ is equivalent
-    -- to @Konst0R [k] d@. If an index of length @p@ is out of bounds,
+    -- to @Replicate0R [k] d@. If an index of length @p@ is out of bounds,
     -- tensor 0 is chosen instead or projecting (and similarly in @GatherN@).
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
@@ -235,7 +235,7 @@ data DeltaR :: Type -> Nat -> Type where
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
-    -- so that, e.g, @Scatter1 5 (const Z) (Konst0R [5] d) []@ is equivalent
+    -- so that, e.g, @Scatter1 5 (const Z) (Replicate0R [5] d) []@ is equivalent
     -- to @5 * d@. If an index of length @p@ is out of bounds, no tensor
     -- is added at such an index (and similarly in @ScatterN@).
     -- The semantics of the operation permits index out of bounds
@@ -496,7 +496,7 @@ buildFinMaps s0 deltaDt =
         Index0 (InputR (InputId i)) ixs' sh ->
           let ixs = indexToList ixs'
               f v = if isTensorDummy v
-                    then tkonst0ND sh 0 `OD.update` [(ixs, c)]
+                    then treplicate0ND sh 0 `OD.update` [(ixs, c)]
                     else v `OD.update` [(ixs, v `tindex0D` ixs + c)]
           in s {iMapR = EM.adjust f (InputId i) $ iMapR s}
         Index0 (LetR n d) ixs' sh ->
@@ -511,16 +511,16 @@ buildFinMaps s0 deltaDt =
                 -- so it's only several times faster (same allocation,
                 -- but not adding to each cell of @v@).
             Nothing ->
-              let v = tkonst0ND sh 0 `OD.update` [(ixs, c)]
+              let v = treplicate0ND sh 0 `OD.update` [(ixs, c)]
               in s { nMap = EM.insert n (DeltaBindingR d) $ nMap s
                    , dMapR = EM.insert n v $ dMapR s }
             _ -> error "buildFinMaps: corrupted nMap"
 -}
         Index0 d ix sh -> evalR s (tscatter sh (tscalar c) (const ix)) d
-            -- equivalent: evalR s (updateR (tkonst0NR sh 0) [(ix, c)]) d
-        Sum0 sh d -> evalR s (tkonst0N sh (tscalar c)) d
+            -- equivalent: evalR s (updateR (treplicate0NR sh 0) [(ix, c)]) d
+        Sum0 sh d -> evalR s (treplicate0N sh (tscalar c)) d
         Dot0 v vd -> evalR s (tscaleByScalar c v) vd
-                     -- too slow: evalR s (v * tkonst0N (tshape v) c) vd
+                     -- too slow: evalR s (v * treplicate0N (tshape v) c) vd
                      -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
         UnScalar0 d -> evalR s (tscalar c) d
 
@@ -557,8 +557,8 @@ buildFinMaps s0 deltaDt =
 --                                     , OR.constant (len - ix - 1 : rest) 0 ])
 --                     d  -- TODO: optimize for input case
         IndexZ d ix sh -> evalR s (tscatter @r @0 sh c (const ix)) d
-          -- equivalent: evalR s (updateNR (tkonst0NR sh 0) [(ix, c)]) d
-        SumR n d -> evalR s (tkonst n c) d
+          -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
+        SumR n d -> evalR s (treplicate n c) d
 --        Scatter1 f n d _sh -> evalR s (tgatherZ1R n c f) d
         ScatterZ _sh d f shd -> evalR s (tgather shd c f) d
         FromListR ld ->
@@ -573,8 +573,8 @@ buildFinMaps s0 deltaDt =
 --        FromVector0R _sh lsd ->  -- lsd is a list of scalar delta expressions
 --          let cv = OR.toVector c
 --          in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
-        KonstR _n d -> evalR s (tsum c) d
---        Konst0R _ d -> eval0 s (tsum0R c) d
+        ReplicateR _n d -> evalR s (tsum c) d
+--        Replicate0R _ d -> eval0 s (tsum0R c) d
         AppendR d k e -> case tshape c of
           n :$ _ -> let s2 = evalR sShared (tslice 0 k cShared) d
                     in evalR s2 (tslice k (n - k) cShared) e
@@ -791,10 +791,10 @@ buildDerivative dim0 dimR deltaDt params = do
 --        FromVector0R sh lsd -> do
 --          l <- V.mapM eval0 lsd
 --          return $! tfromVector0NR sh l
-        KonstR n d -> do
+        ReplicateR n d -> do
           t <- evalR d
-          return $! tkonst n t
---        Konst0R sh d -> tkonst0NR sh <$> eval0 d
+          return $! treplicate n t
+--        Replicate0R sh d -> treplicate0NR sh <$> eval0 d
         AppendR d _k e -> liftM2 tappend (evalR d) (evalR e)
         SliceR i n d _len -> tslice i n <$> evalR d
         ReverseR d -> treverse <$> evalR d

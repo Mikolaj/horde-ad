@@ -177,9 +177,9 @@ class HasRanks r where
 --  dFromVector0R :: KnownNat n
 --                => ShapeInt n -> Data.Vector.Vector (Dual r)
 --                -> Dual (TensorOf n r)
-  dKonstR :: KnownNat n
+  dReplicateR :: KnownNat n
           => Int -> Dual (TensorOf n r) -> Dual (TensorOf (1 + n) r)
---  dKonst0R :: KnownNat n
+--  dReplicate0R :: KnownNat n
 --           => ShapeInt n -> Dual r -> Dual (TensorOf n r)
   dAppendR :: KnownNat n
            => Dual (TensorOf (1 + n) r) -> Int -> Dual (TensorOf (1 + n) r)
@@ -310,7 +310,7 @@ instance IsPrimalR Double where
     _ -> wrapDeltaR d
   recordSharingPrimalR r l = (l, r)
   letWrapPrimalR _ r = r
-  packDeltaDtR (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
+  packDeltaDtR (Left tsh) = DeltaDtR (treplicate0N (tshape tsh) 1)
   packDeltaDtR (Right t) = DeltaDtR t
   intOfShapeR tsh c =
     Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
@@ -328,7 +328,7 @@ instance IsPrimalR Float where
     _ -> wrapDeltaR d
   recordSharingPrimalR r l = (l, r)
   letWrapPrimalR _ r = r
-  packDeltaDtR (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
+  packDeltaDtR (Left tsh) = DeltaDtR (treplicate0N (tshape tsh) 1)
   packDeltaDtR (Right t) = DeltaDtR t
   intOfShapeR tsh c =
     Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
@@ -337,7 +337,7 @@ instance ShowAstSimplify r => IsPrimalA r where
   dZeroA = ZeroR
   dScaleA = ScaleR
   dScaleByScalarA tsh c =
-    ScaleR (tkonst0N (tshape tsh) (tscalar $ fromIntegral c))
+    ScaleR (treplicate0N (tshape tsh) (tscalar $ fromIntegral c))
   dAddA = AddR
   recordSharingA d = case d of
     ZeroR -> d
@@ -347,9 +347,9 @@ instance ShowAstSimplify r => IsPrimalA r where
     _ -> wrapDeltaR d
   recordSharingPrimalA = astRegisterADShare
   letWrapPrimalA = tletWrap
-  packDeltaDtA (Left tsh) = DeltaDtR (tkonst0N (tshape tsh) 1)
+  packDeltaDtA (Left tsh) = DeltaDtR (treplicate0N (tshape tsh) 1)
   packDeltaDtA (Right t) = DeltaDtR t
-  intOfShapeA tsh c = tkonst0N (tshape tsh) (tscalar $ fromIntegral c)
+  intOfShapeA tsh c = treplicate0N (tshape tsh) (tscalar $ fromIntegral c)
 
 -- | This is an impure instance. See above.
 instance HasRanks Double where
@@ -369,8 +369,8 @@ instance HasRanks Double where
   dFromVectorR = FromVectorR
 --  dFromList0R = FromList0R
 --  dFromVector0R = FromVector0R
-  dKonstR = KonstR
---  dKonst0R = Konst0R
+  dReplicateR = ReplicateR
+--  dReplicate0R = Replicate0R
   dAppendR = AppendR
   dSliceR = SliceR
   dReverseR = ReverseR
@@ -406,8 +406,8 @@ instance HasRanks Float where
   dFromVectorR = FromVectorR
 --  dFromList0R = FromList0R
 --  dFromVector0R = FromVector0R
-  dKonstR = KonstR
---  dKonst0R = Konst0R
+  dReplicateR = ReplicateR
+--  dReplicate0R = Replicate0R
   dAppendR = AppendR
   dSliceR = SliceR
   dReverseR = ReverseR
@@ -443,8 +443,8 @@ instance ShowAst r => HasRanks (Ast0 r) where
   dFromVectorR = FromVectorR
 --  dFromList0R = FromList0R
 --  dFromVector0R = FromVector0R
-  dKonstR = KonstR
---  dKonst0R = Konst0R
+  dReplicateR = ReplicateR
+--  dReplicate0R = Replicate0R
   dAppendR = AppendR
   dSliceR = SliceR
   dReverseR = ReverseR

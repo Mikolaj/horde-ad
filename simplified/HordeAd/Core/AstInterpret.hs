@@ -164,37 +164,37 @@ interpretAst env memo = \case
   AstLetADShare{} -> error "interpretAst: AstLetADShare"
   {- TODO: revise when we handle GPUs. For now, this is done in TensorOps
      instead and that's fine, because for one-element carriers,
-     reshape and konst are very cheap. OTOH, this was introducing
+     reshape and replicate are very cheap. OTOH, this was introducing
      ScalarR(UnScalar0 ...) into delta expressions by firing
      in an early phase.
-  AstOp TimesOp [v, AstReshape _ (AstKonst @m _ s)]
-   -- TODO: also handle nested AstKonst to prevent executing them
+  AstOp TimesOp [v, AstReshape _ (AstReplicate @m _ s)]
+   -- TODO: also handle nested AstReplicate to prevent executing them
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo v
             (memo2, t2) = interpretAst env memo1 s
         in (memo2, tscaleByScalar0 t2 t1)
-  AstOp TimesOp [v, AstKonst @m _ s]
+  AstOp TimesOp [v, AstReplicate @m _ s]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo v
             (memo2, t2) = interpretAst env memo1 s
         in (memo2, tscaleByScalar0 t2 t1)
   -}
-  AstOp TimesOp [v, AstLet var u (AstReshape sh (AstKonst @m k s))]
+  AstOp TimesOp [v, AstLet var u (AstReshape sh (AstReplicate @m k s))]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
         -- The intVarInAst check is needed, because although variable
         -- capture is impossible, because we don't create nested lets
         -- with the same variable, we could create such nested lets
         -- if we omitted this check.
         interpretAst env memo
-          (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstKonst @m k s)]))
-  AstOp TimesOp [v, AstReshape sh (AstLet var u (AstKonst @m k s))]
+          (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstReplicate @m k s)]))
+  AstOp TimesOp [v, AstReshape sh (AstLet var u (AstReplicate @m k s))]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
         interpretAst env memo
-          (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstKonst @m k s)]))
-  AstOp TimesOp [v, AstLet var u (AstKonst @m k s)]
+          (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstReplicate @m k s)]))
+  AstOp TimesOp [v, AstLet var u (AstReplicate @m k s)]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
         interpretAst env memo
-          (AstLet var u (AstOp TimesOp [v, AstKonst @m k s]))
+          (AstLet var u (AstOp TimesOp [v, AstReplicate @m k s]))
   AstOp opCode args ->
     let (memo2, args2) = mapAccumR (interpretAst env) memo args
     in (memo2, interpretAstOp opCode args2)
@@ -229,28 +229,28 @@ interpretAst env memo = \case
       (AstLet vart vt (AstLet varu vu
          (AstSum (AstOp TimesOp [ AstTranspose tperm t
                                 , AstTranspose uperm u ]))))
-  AstSum (AstOp TimesOp [ AstTranspose tperm (AstLet vart vt (AstKonst tk t))
-                        , AstTranspose uperm (AstKonst uk u) ]) ->
+  AstSum (AstOp TimesOp [ AstTranspose tperm (AstLet vart vt (AstReplicate tk t))
+                        , AstTranspose uperm (AstReplicate uk u) ]) ->
     interpretAst env memo
       (AstLet vart vt
-         (AstSum (AstOp TimesOp [ AstTranspose tperm (AstKonst tk t)
-                                , AstTranspose uperm (AstKonst uk u) ])))
-  AstSum (AstOp TimesOp [ AstTranspose tperm (AstKonst tk t)
+         (AstSum (AstOp TimesOp [ AstTranspose tperm (AstReplicate tk t)
+                                , AstTranspose uperm (AstReplicate uk u) ])))
+  AstSum (AstOp TimesOp [ AstTranspose tperm (AstReplicate tk t)
                         , AstTranspose uperm (AstLet varu vu
-                                               (AstKonst uk u)) ]) ->
+                                               (AstReplicate uk u)) ]) ->
     interpretAst env memo
       (AstLet varu vu
-         (AstSum (AstOp TimesOp [ AstTranspose tperm (AstKonst tk t)
-                                , AstTranspose uperm (AstKonst uk u) ])))
-  AstSum (AstOp TimesOp [ AstTranspose tperm (AstLet vart vt (AstKonst tk t))
+         (AstSum (AstOp TimesOp [ AstTranspose tperm (AstReplicate tk t)
+                                , AstTranspose uperm (AstReplicate uk u) ])))
+  AstSum (AstOp TimesOp [ AstTranspose tperm (AstLet vart vt (AstReplicate tk t))
                         , AstTranspose uperm (AstLet varu vu
-                                               (AstKonst uk u)) ]) ->
+                                               (AstReplicate uk u)) ]) ->
     interpretAst env memo
       (AstLet vart vt (AstLet varu vu
-         (AstSum (AstOp TimesOp [ AstTranspose tperm (AstKonst tk t)
-                                , AstTranspose uperm (AstKonst uk u) ]))))
-  AstSum v@(AstOp TimesOp [ AstTranspose tperm (AstKonst _tk t)
-                          , AstTranspose uperm (AstKonst _uk u) ])
+         (AstSum (AstOp TimesOp [ AstTranspose tperm (AstReplicate tk t)
+                                , AstTranspose uperm (AstReplicate uk u) ]))))
+  AstSum v@(AstOp TimesOp [ AstTranspose tperm (AstReplicate _tk t)
+                          , AstTranspose uperm (AstReplicate _uk u) ])
     | Just Refl <- sameNat (Proxy @n) (Proxy @2) ->
         let interpretMatmul2 t1 u1 =
               let (memo1, t2) = interpretAst env memo t1
@@ -329,7 +329,7 @@ interpretAst env memo = \case
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         second tsum0 $ interpretAst env memo t
           -- more cases are needed so perhaps we need AstSum0
-  AstSum (AstKonst k v) ->
+  AstSum (AstReplicate k v) ->
     second (tscaleByScalar (fromIntegral k)) $ interpretAst env memo v
   AstSum (AstLet var v t) -> interpretAst env memo (AstLet var v (AstSum t))
   AstSum (AstReshape sh (AstLet var v t)) ->
@@ -352,13 +352,13 @@ interpretAst env memo = \case
     let (memo2, l2) = mapAccumR (interpretAst env) memo (V.toList l)
     in (memo2, tfromVector $ V.fromList l2)
       -- TODO: emulate mapAccum using mapM?
-  AstReshape sh (AstKonst @m _ s)
+  AstReshape sh (AstReplicate @m _ s)
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let (memo1, t1) = interpretAst env memo s
-        in (memo1, tkonst0N sh t1)
-  AstReshape sh (AstLet var v (AstKonst k t)) ->
-    interpretAst env memo (AstLet var v (AstReshape sh (AstKonst k t)))
-  AstKonst k v -> second (tkonst k) (interpretAst env memo v)
+        in (memo1, treplicate0N sh t1)
+  AstReshape sh (AstLet var v (AstReplicate k t)) ->
+    interpretAst env memo (AstLet var v (AstReshape sh (AstReplicate k t)))
+  AstReplicate k v -> second (treplicate k) (interpretAst env memo v)
   AstAppend x y ->
     let (memo1, t1) = interpretAst env memo x
         (memo2, t2) = interpretAst env memo1 y

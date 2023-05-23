@@ -68,7 +68,7 @@ rnnMnistLayerR
 rnnMnistLayerR s x (wX, wS, b) = case tshape s of
   _out_width :$ batch_size :$ ZS ->
     let y = wX `tmatmul2` x + wS `tmatmul2` s
-            + ttranspose [1, 0] (tkonst @r @1 batch_size b)
+            + ttranspose [1, 0] (treplicate @r @1 batch_size b)
     in tanh y
   _ -> error "rnnMnistLayerR: wrong shape of the state"
 
@@ -104,7 +104,7 @@ rnnMnistZeroR batch_size xs
     let sh = 2 * out_width :$ batch_size :$ ZS
         (out, _s) = zeroStateR sh (unrollLastR rnnMnistTwoR) xs
                                   ((wX, wS, b), (wX2, wS2, b2))
-    in w3 `tmatmul2` out + ttranspose [1, 0] (tkonst batch_size b3)
+    in w3 `tmatmul2` out + ttranspose [1, 0] (treplicate batch_size b3)
   _ -> error "rnnMnistZeroR: wrong shape"
 
 rnnMnistLossFusedR

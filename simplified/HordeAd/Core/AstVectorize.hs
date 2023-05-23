@@ -78,7 +78,7 @@ build1VOccurenceUnknown k (var, v0) =
   in if intVarInAst var v0
      then build1V k (var, v0)
      else traceRule $
-       astKonst k v0
+       astReplicate k v0
 
 build1VOccurenceUnknownRefresh
   :: (KnownNat n, ShowAstSimplify r)
@@ -155,8 +155,8 @@ build1V k (var, v00) =
       astTr $ astFromList (map (\v -> build1VOccurenceUnknown k (var, v)) l)
     Ast.AstFromVector l -> traceRule $
       astTr $ astFromVector (V.map (\v -> build1VOccurenceUnknown k (var, v)) l)
-    Ast.AstKonst s v -> traceRule $
-      astTr $ astKonst s $ build1V k (var, v)
+    Ast.AstReplicate s v -> traceRule $
+      astTr $ astReplicate s $ build1V k (var, v)
     Ast.AstAppend v w -> traceRule $
       astTr $ astAppend (astTr $ build1VOccurenceUnknown k (var, v))
                         (astTr $ build1VOccurenceUnknown k (var, w))

@@ -65,7 +65,7 @@ shapeAst v1 = case v1 of
       Just Refl -> singletonShape 0
       _ ->  error "shapeAst: AstFromVector with no arguments"
     t : _ -> V.length l :$ shapeAst t
-  AstKonst s v -> s :$ shapeAst v
+  AstReplicate s v -> s :$ shapeAst v
   AstAppend x y -> case shapeAst x of
     ZS -> error "shapeAst: impossible pattern needlessly required"
     xi :$ xsh -> case shapeAst y of
@@ -112,7 +112,7 @@ intVarInAst var = \case
   AstScatter _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
   AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
   AstFromVector vl -> any (intVarInAst var) $ V.toList vl
-  AstKonst _ v -> intVarInAst var v
+  AstReplicate _ v -> intVarInAst var v
   AstAppend v u -> intVarInAst var v || intVarInAst var u
   AstSlice _ _ v -> intVarInAst var v
   AstReverse v -> intVarInAst var v
@@ -186,7 +186,7 @@ substitute1Ast i var v1 = case v1 of
                   (vars, fmap (substitute1AstInt i var) ix)
   AstFromList l -> AstFromList $ map (substitute1Ast i var) l
   AstFromVector l -> AstFromVector $ V.map (substitute1Ast i var) l
-  AstKonst s v -> AstKonst s (substitute1Ast i var v)
+  AstReplicate s v -> AstReplicate s (substitute1Ast i var v)
   AstAppend x y -> AstAppend (substitute1Ast i var x) (substitute1Ast i var y)
   AstSlice k s v -> AstSlice k s (substitute1Ast i var v)
   AstReverse v -> AstReverse (substitute1Ast i var v)
@@ -266,7 +266,7 @@ astIsSmall = \case
   AstIndexZ AstIota _ -> True
   AstConst{} -> valueOf @n == (0 :: Int)
   AstConstant (AstPrimalPart v) -> astIsSmall v
-  AstKonst _ v -> astIsSmall v  -- materialized via tricks, so prob. safe
+  AstReplicate _ v -> astIsSmall v  -- materialized via tricks, so prob. safe
   AstSlice _ _ v -> astIsSmall v  -- materialized via tensor/vector slice; cheap
   AstTranspose _ v -> astIsSmall v  -- often cheap and often fuses
   _ -> False
@@ -379,7 +379,7 @@ printAst cfg d = \case
       . (showParen True
          $ showString "fromList "
            . showListWith (printAst cfg 0) (V.toList l))
-  AstKonst k v -> printPrefixOp printAst cfg d ("tkonst " ++ show k) [v]
+  AstReplicate k v -> printPrefixOp printAst cfg d ("treplicate " ++ show k) [v]
   AstAppend x y -> printPrefixOp printAst cfg d "tappend" [x, y]
   AstSlice i k v -> printPrefixOp printAst cfg d
                                   ("tslice " ++ show i ++ " " ++ show k) [v]

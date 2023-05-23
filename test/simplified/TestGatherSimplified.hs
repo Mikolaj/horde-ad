@@ -78,7 +78,7 @@ testGatherNested1 =
     (OR.fromList [7,2]
                  [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @1 gatherNested1
-                               (tkonst 7 $ tfromList [0, 1]))
+                               (treplicate 7 $ tfromList [0, 1]))
 
 testGatherNestedBuild1 :: Assertion
 testGatherNestedBuild1 =
@@ -88,7 +88,7 @@ testGatherNestedBuild1 =
     (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
              ifB (i >* 2) (gatherNested1 t) (t ! [i])))
-          (tkonst 7 $ tfromList [0, 1]))
+          (treplicate 7 $ tfromList [0, 1]))
 
 gather1 :: forall r. ADReady r
         => TensorOf 2 r -> TensorOf 1 r
@@ -104,7 +104,7 @@ testGather1 =
     (OR.fromList [7,2]
                  [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @1 gather1
-                               (tkonst 7 $ tfromList [0, 1]))
+                               (treplicate 7 $ tfromList [0, 1]))
 
 testGatherBuild1 :: Assertion
 testGatherBuild1 =
@@ -114,7 +114,7 @@ testGatherBuild1 =
     (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
              ifB (i >* 2) (gather1 t) (t ! [i])))
-          (tkonst 7 $ tfromList [0, 1]))
+          (treplicate 7 $ tfromList [0, 1]))
 
 testGatherSimp1 :: Assertion
 testGatherSimp1 = do
@@ -143,7 +143,7 @@ testGatherNested2 =
     (OR.fromList [7,2]
                  [1.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0])
     (rev' @Double @2 gatherNested2
-                               (tkonst 7 $ tfromList [0, 1]))
+                               (treplicate 7 $ tfromList [0, 1]))
 
 testGatherNestedBuild2 :: Assertion
 testGatherNestedBuild2 =
@@ -152,8 +152,8 @@ testGatherNestedBuild2 =
                  [6.0,0.0,0.0,0.0,6.0,6.0,0.0,0.0,6.0,6.0,0.0,0.0,0.0,6.0])
     (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
-             gatherNested2 (t * tkonst0N [7, 2] (tfromIndex0 i))))
-          (tkonst 7 $ tfromList [0, 1]))
+             gatherNested2 (t * treplicate0N [7, 2] (tfromIndex0 i))))
+          (treplicate 7 $ tfromList [0, 1]))
 
 gather2 :: forall r. ADReady r
         => TensorOf 2 r -> TensorOf 2 r
@@ -169,7 +169,7 @@ testGather2 =
     (OR.fromList [7,2]
                  [1.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0])
     (rev' @Double @2 gather2
-                               (tkonst 7 $ tfromList [0, 1]))
+                               (treplicate 7 $ tfromList [0, 1]))
 
 testGatherBuild2 :: Assertion
 testGatherBuild2 =
@@ -178,8 +178,8 @@ testGatherBuild2 =
                  [6.0,0.0,0.0,0.0,6.0,6.0,0.0,0.0,6.0,6.0,0.0,0.0,0.0,6.0])
     (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
-             gather2 (t * tkonst0N [7, 2] (tfromIndex0 i))))
-          (tkonst 7 $ tfromList [0, 1]))
+             gather2 (t * treplicate0N [7, 2] (tfromIndex0 i))))
+          (treplicate 7 $ tfromList [0, 1]))
 
 testGatherSimp2 :: Assertion
 testGatherSimp2 = do
@@ -208,7 +208,7 @@ testGatherNested12 =
     (OR.fromList [7,2]
                  [1.0,0.0,1.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0])
     (rev' @Double @2 gatherNested12
-                               (tkonst 7 $ tfromList [0, 1]))
+                               (treplicate 7 $ tfromList [0, 1]))
 
 testGatherNestedBuild12 :: Assertion
 testGatherNestedBuild12 =
@@ -218,8 +218,8 @@ testGatherNestedBuild12 =
     (rev' @Double @2
           (\t -> tindex (tbuild1 5 (\i ->
              ifB (i >* 2) (gatherNested12 t)
-                          (ttranspose [1, 0] $ tkonst 4 $ t ! [i]))) [1])
-          (tkonst 7 $ tfromList [0, 1]))
+                          (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
+          (treplicate 7 $ tfromList [0, 1]))
 
 gather12 :: forall r. ADReady r
          => TensorOf 2 r -> TensorOf 2 r
@@ -235,7 +235,7 @@ testGather12 =
     (OR.fromList [7,2]
                  [1.0,0.0,1.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0])
     (rev' @Double @2 gather12
-                               (tkonst 7 $ tfromList [0, 1]))
+                               (treplicate 7 $ tfromList [0, 1]))
 
 testGatherBuild12 :: Assertion
 testGatherBuild12 =
@@ -245,8 +245,8 @@ testGatherBuild12 =
     (rev' @Double @2
           (\t -> tindex (tbuild1 5 (\i ->
              ifB (i >* 2) (gather12 t)
-                          (ttranspose [1, 0] $ tkonst 4 $ t ! [i]))) [1])
-          (tkonst 7 $ tfromList [0, 1]))
+                          (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
+          (treplicate 7 $ tfromList [0, 1]))
 
 testGatherSimp12 :: Assertion
 testGatherSimp12 = do
@@ -274,7 +274,7 @@ testGatherReshape22 =
     (OR.fromList [6,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @2 gatherReshape22
-                               (tkonst 6 $ tfromList [0, 1]))
+                               (treplicate 6 $ tfromList [0, 1]))
 
 testGatherReshapeBuild22 :: Assertion
 testGatherReshapeBuild22 =
@@ -283,8 +283,8 @@ testGatherReshapeBuild22 =
                  [6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0])
     (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
-             gatherReshape22 (t * tkonst0N [6, 2] (tfromIndex0 i))))
-          (tkonst 6 $ tfromList [0, 1]))
+             gatherReshape22 (t * treplicate0N [6, 2] (tfromIndex0 i))))
+          (treplicate 6 $ tfromList [0, 1]))
 
 testGatherSimp22 :: Assertion
 testGatherSimp22 = do
@@ -303,14 +303,14 @@ testGatherSimp23 = do
   resetVarCounter
   let !t1 = (\t -> tbuild1 4 (\i ->
               gatherReshape22
-                (t * tkonst0N [6, 2] (tfromIndex0 i))))
+                (t * treplicate0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
   length (show t1) @?= 264
   length (show (simplifyAst6 @Float t1)) @?= 497
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               treshape @(Ast0 Float) @2 @2 [2, 6]
-                (t * tkonst0N [6, 2] (tfromIndex0 i))))
+                (t * treplicate0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
   length (show t2) @?= 264
   length (show (simplifyAst6 @Float t2)) @?= 497
@@ -359,7 +359,7 @@ testGatherTransposeBuild33 =
     (OR.fromList [1,2,2,1,2,2,2,2,2,1] [487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012])
     (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
-             gatherTranspose33 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
+             gatherTranspose33 (t * treplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
           t128)
 
 -- These are different terms, but they should have similar lengths,
@@ -384,7 +384,7 @@ testGatherSimp34 :: Assertion
 testGatherSimp34 = do
   resetVarCounter
   let !t1 = (\t -> tbuild1 4 (\i ->
-             gatherTranspose33 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
+             gatherTranspose33 (t * treplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t1) @?= 840
   length (show (simplifyAst6 @Float t1)) @?= 15162
@@ -392,7 +392,7 @@ testGatherSimp34 = do
   let !t2 = (\t -> tbuild1 4 (\i ->
               (\t' -> tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
                                (treshape @(Ast0 Float) @10 [8, 16] t'))
-                (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
+                (t * treplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t2) @?= 736
   length (show (simplifyAst6 @Float t2)) @?= 971
@@ -415,7 +415,7 @@ testScatterNested1 =
     (OR.fromList [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @1 scatterNested1
-                               (tkonst 7 $ tfromList [0, 1]))
+                               (treplicate 7 $ tfromList [0, 1]))
 
 testScatterNestedBuild1 :: Assertion
 testScatterNestedBuild1 =
@@ -425,7 +425,7 @@ testScatterNestedBuild1 =
     (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
              ifB (i >* 2) (scatterNested1 t) (t ! [i])))
-          (tkonst 7 $ tfromList [0, 1]))
+          (treplicate 7 $ tfromList [0, 1]))
 
 scatter1 :: forall r. ADReady r
         => TensorOf 2 r -> TensorOf 1 r
@@ -441,7 +441,7 @@ testScatter1 =
     (OR.fromList [7,2]
                  [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @1 scatter1
-                               (tkonst 7 $ tfromList [0, 1]))
+                               (treplicate 7 $ tfromList [0, 1]))
 
 testScatterBuild1 :: Assertion
 testScatterBuild1 =
@@ -451,7 +451,7 @@ testScatterBuild1 =
     (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
              ifB (i >* 2) (scatter1 t) (t ! [i])))
-          (tkonst 7 $ tfromList [0, 1]))
+          (treplicate 7 $ tfromList [0, 1]))
 
 testScatterSimp1 :: Assertion
 testScatterSimp1 = do
@@ -480,7 +480,7 @@ testScatterNested2 =
     (OR.fromList [7,2]
                  [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2 scatterNested2
-                               (tkonst 7 $ tfromList [0, 1]))
+                               (treplicate 7 $ tfromList [0, 1]))
 
 testScatterNestedBuild2 :: Assertion
 testScatterNestedBuild2 =
@@ -489,8 +489,8 @@ testScatterNestedBuild2 =
                  [6.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
-             scatterNested2 (t * tkonst0N [7, 2] (tfromIndex0 i))))
-          (tkonst 7 $ tfromList [0, 1]))
+             scatterNested2 (t * treplicate0N [7, 2] (tfromIndex0 i))))
+          (treplicate 7 $ tfromList [0, 1]))
 
 scatter2 :: forall r. ADReady r
         => TensorOf 2 r -> TensorOf 2 r
@@ -506,7 +506,7 @@ testScatter2 =
     (OR.fromList [7,2]
                  [1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2 scatter2
-                               (tkonst 7 $ tfromList [0, 1]))
+                               (treplicate 7 $ tfromList [0, 1]))
 
 testScatterBuild2 :: Assertion
 testScatterBuild2 =
@@ -515,8 +515,8 @@ testScatterBuild2 =
                  [6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
-             scatter2 (t * tkonst0N [7, 2] (tfromIndex0 i))))
-          (tkonst 7 $ tfromList [0, 1]))
+             scatter2 (t * treplicate0N [7, 2] (tfromIndex0 i))))
+          (treplicate 7 $ tfromList [0, 1]))
 
 testScatterSimp2 :: Assertion
 testScatterSimp2 = do
@@ -545,7 +545,7 @@ testScatterNested12 =
     (OR.fromList [7,2]
                  [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2 scatterNested12
-                               (tkonst 7 $ tfromList [0, 1]))
+                               (treplicate 7 $ tfromList [0, 1]))
 
 testScatterNestedBuild12 :: Assertion
 testScatterNestedBuild12 =
@@ -555,8 +555,8 @@ testScatterNestedBuild12 =
     (rev' @Double @2
           (\t -> tindex (tbuild1 5 (\i ->
              ifB (i >* 2) (scatterNested12 t)
-                          (ttranspose [1, 0] $ tkonst 4 $ t ! [i]))) [1])
-          (tkonst 7 $ tfromList [0, 1]))
+                          (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
+          (treplicate 7 $ tfromList [0, 1]))
 
 scatter12 :: forall r. ADReady r
          => TensorOf 2 r -> TensorOf 2 r
@@ -572,7 +572,7 @@ testScatter12 =
     (OR.fromList [7,2]
                  [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2 scatter12
-                               (tkonst 7 $ tfromList [0, 1]))
+                               (treplicate 7 $ tfromList [0, 1]))
 
 testScatterBuild12 :: Assertion
 testScatterBuild12 =
@@ -582,8 +582,8 @@ testScatterBuild12 =
     (rev' @Double @2
           (\t -> tindex (tbuild1 5 (\i ->
              ifB (i >* 2) (scatter12 t)
-                          (ttranspose [1, 0] $ tkonst 4 $ t ! [i]))) [1])
-          (tkonst 7 $ tfromList [0, 1]))
+                          (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
+          (treplicate 7 $ tfromList [0, 1]))
 
 testScatterSimp12 :: Assertion
 testScatterSimp12 = do

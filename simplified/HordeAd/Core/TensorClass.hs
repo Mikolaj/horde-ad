@@ -143,15 +143,15 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
 -- How to generalize (#69)? The few straightforward generalizations
 -- differ in types but all are far from matmul2.
   tmatvecmul m v = tbuild1 (tlength m) (\i -> tdot0 v (m ! [i]))
--- tmatvecmul m v = tflatten $ tmap1 (tkonst 1 . tdot0 v) m
+-- tmatvecmul m v = tflatten $ tmap1 (treplicate 1 . tdot0 v) m
   tmatmul2 :: TensorOf 2 r -> TensorOf 2 r -> TensorOf 2 r
 -- How to generalize to tmatmul (#69)?
 -- Just tmatmul2 the two outermost dimensions?
 -- tmatmul2 m1 m2 = tmap1 (tmatvecmul (ttr m2)) m1
 -- tmatmul2 m1 m2 = tbuild1 (tlength m1) (\i -> tmatvecmul (ttr m2) (m1 ! [i]))
   tmatmul2 m1 m2 = case tshape m2 of
-    _ :$ width2 :$ ZS -> tsum (ttranspose [2,1,0] (tkonst width2 m1)
-                               * ttranspose [1,0] (tkonst (tlength m1) m2))
+    _ :$ width2 :$ ZS -> tsum (ttranspose [2,1,0] (treplicate width2 m1)
+                               * ttranspose [1,0] (treplicate (tlength m1) m2))
     _ -> error "impossible pattern needlessly required"
   tminimum :: KnownNat n => TensorOf n r -> TensorOf 0 r
   tminimum t = t ! tminIndex t
@@ -186,9 +186,9 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
   tfromVector0N :: KnownNat n
                 => ShapeInt n -> Data.Vector.Vector r -> TensorOf n r
   tfromVector0N sh = treshape sh . tfromVector . V.map tscalar
-  tkonst :: KnownNat n => Int -> TensorOf n r -> TensorOf (1 + n) r
-  tkonst0N :: KnownNat n => ShapeInt n -> TensorOf 0 r -> TensorOf n r
-  tkonst0N sh = treshape sh . tkonst (sizeShape sh)
+  treplicate :: KnownNat n => Int -> TensorOf n r -> TensorOf (1 + n) r
+  treplicate0N :: KnownNat n => ShapeInt n -> TensorOf 0 r -> TensorOf n r
+  treplicate0N sh = treshape sh . treplicate (sizeShape sh)
   tappend :: KnownNat n
           => TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tconcat :: KnownNat n
@@ -265,7 +265,7 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
   -- and also wrong shape in @0@ with ranked (not shaped) tensors.
   tzero :: KnownNat n
         => ShapeInt n -> TensorOf n r
-  tzero sh = tkonst0N sh 0
+  tzero sh = treplicate0N sh 0
   tsumOfList :: KnownNat n
              => [TensorOf n r] -> TensorOf n r  -- TODO: declare nonempty
   default tsumOfList
@@ -279,7 +279,7 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
     => TensorOf n r -> TensorOf n r -> TensorOf n r
   tmult = (*)
   tscaleByScalar :: KnownNat n => r -> TensorOf n r -> TensorOf n r
-  tscaleByScalar s v = v `tmult` tkonst0N (tshape v) (tscalar s)
+  tscaleByScalar s v = v `tmult` treplicate0N (tshape v) (tscalar s)
   tsumIn :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
   tsumIn = tsum . ttranspose [1, 0]
     -- TODO: generalize, replace by stride analysis, etc.
@@ -414,8 +414,8 @@ instance Tensor Double where
   tfromList0N sh = Flip . tfromList0NR sh
   tfromVector = Flip . tfromVectorR . V.map runFlip
   tfromVector0N sh = Flip . tfromVector0NR sh
-  tkonst k = Flip . tkonstR k . runFlip
-  tkonst0N sh = Flip . tkonst0NR sh . tunScalar
+  treplicate k = Flip . treplicateR k . runFlip
+  treplicate0N sh = Flip . treplicate0NR sh . tunScalar
   tappend u v = Flip $ tappendR (runFlip u) (runFlip v)
   tslice i k = Flip . tsliceR i k . runFlip
   treverse = Flip . treverseR . runFlip
@@ -476,8 +476,8 @@ instance Tensor Float where
   tfromList0N sh = Flip . tfromList0NR sh
   tfromVector = Flip . tfromVectorR . V.map runFlip
   tfromVector0N sh = Flip . tfromVector0NR sh
-  tkonst k = Flip . tkonstR k . runFlip
-  tkonst0N sh = Flip . tkonst0NR sh . tunScalar
+  treplicate k = Flip . treplicateR k . runFlip
+  treplicate0N sh = Flip . treplicate0NR sh . tunScalar
   tappend u v = Flip $ tappendR (runFlip u) (runFlip v)
   tslice i k = Flip . tsliceR i k . runFlip
   treverse = Flip . treverseR . runFlip
@@ -638,7 +638,7 @@ instance Tensor r
   tfromIndex0 = undefined
   tfromList = undefined
   tfromVector = undefined
-  tkonst = undefined
+  treplicate = undefined
   tappend = undefined
   tslice = undefined
   treverse = undefined

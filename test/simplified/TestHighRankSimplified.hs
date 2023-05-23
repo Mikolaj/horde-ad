@@ -142,11 +142,11 @@ fooBuild2
 fooBuild2 v =
   tbuild1 2 $ \ix ->
     ifB (ix - tfloor (tsum0 @r @5
-                      $ tkonst0N [5,12,11,9,4] (tsum0 v)) - 10001 >=* 0
+                      $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001 >=* 0
          &&* ix - tfloor (tsum0 @r @5
-                          $ tkonst0N [5,12,11,9,4] (tsum0 v)) - 10001 <=* 1)
+                          $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001 <=* 1)
         (tindex v [ix - tfloor (tsum0 @r @5
-                                $ tkonst0N [5,12,11,9,4] (tsum0 v)) - 10001])
+                                $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001])
            -- index out of bounds; also fine
         (sqrt $ abs $ tindex v [let rr = (ix - tfloor (tsum0 v) - 10001) `rem` 2
                                 in ifB (signum rr ==* negate (signum 2))
@@ -191,7 +191,7 @@ fooBuild3 :: forall r n.
           => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild3 v =
   tbuild1 22 $ \ix ->
-    bar ( tkonst0N (tailShape $ tshape v) 1
+    bar ( treplicate0N (tailShape $ tshape v) 1
         , tindex v [min 1 (ix + 1)] )  -- index not out of bounds
 
 testFooBuild3 :: Assertion
@@ -205,9 +205,9 @@ fooBuild5 :: forall r n.
           => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild5 v =
   let r = tsum v
-      v' = tkonst0N (tailShape $ tshape v) $ tminimum $ tflatten v
+      v' = treplicate0N (tailShape $ tshape v) $ tminimum $ tflatten v
   in tbuild1 2 $ \ix ->
-       r * foo ( tkonst0N (tailShape $ tshape v) 3
+       r * foo ( treplicate0N (tailShape $ tshape v) 3
                , tscaleByScalar 5 r
                , r * v')
        + bar (r, tindex v [min 1 (ix + 1)])  -- index not out of bounds
@@ -229,7 +229,7 @@ fooBuild1 :: forall r n.
           => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild1 v =
   let r = tsum v
-      tk = tkonst0N (tailShape $ tshape v)
+      tk = treplicate0N (tailShape $ tshape v)
       v' = tk $ tminimum $ tflatten v
   in tbuild1 3 $ \ix ->
        r * foo ( tk 3
@@ -246,7 +246,7 @@ testFooBuild1 =
 fooMap1 :: (ADReady r, KnownNat n, RealFloat (TensorOf n r))
         => ShapeInt (1 + n) -> TensorOf 0 r -> TensorOf (1 + n) r
 fooMap1 sh r =
-  let v = fooBuild1 $ tkonst0N sh (r * r)
+  let v = fooBuild1 $ treplicate0N sh (r * r)
   in tmap0N (\x -> x * r + 5) v
 
 testFooMap :: Assertion
@@ -274,11 +274,11 @@ fooNoGo v =
       r0 = tsum0 v
       shTail = tailShape (tshape v)
   in tbuild1 3 (\ix ->
-       bar ( tkonst0N shTail 3.14
+       bar ( treplicate0N shTail 3.14
            , bar ( tconst (OR.constant (shapeToList shTail) 3.14)
                  , tindex v [ix]) )
        + ifB (tindex v (ix * 2 :. ZI) <=* 0 &&* 6 >* abs ix)
-               r (tkonst0N shTail 5 * r))
+               r (treplicate0N shTail 5 * r))
      / tslice 1 3 (tmap0N (\x -> ifB (x >* r0) r0 x) v)
      * tbuild1 3 (const $ tconst $ OR.constant (shapeToList shTail) 1)
 
@@ -293,19 +293,19 @@ testFooNoGo10 :: Assertion
 testFooNoGo10 =
   assertEqualUpToEpsilonShort 1e-10
     (OR.fromList [5, 3, 1, 2, 2, 1, 2, 2] [8.096867407436072e-8,9.973025492756426e-8,9.976696178938985e-8,5.614458707681111e-8,-1.8338500573636686e-7,-2.144970334428336e-7,7.354143606421902e-7,-1.8140041785503643e-7,8.096867407436072e-8,9.973025492756426e-8,9.976696178938985e-8,5.614458707681111e-8,-2.01381292700262e-7,-2.221588091014473e-7,7.354143606421902e-7,-1.9951065225263367e-7,1.7230532848112822e-7,4.5426218104870796e-7,1.430886696893587e-7,9.354993295163118e-7,-5.225515010723883e-7,1.019433073376504e-6,9.64067025472343e-6,-4.872227980305747e-6,8.089200625992941e-8,9.924319994964371e-8,1.092480101004153e-7,-2.8478802468285825e-7,9.641049518625974e-8,2.9624147815716037e-7,-1.950868158558337e-7,9.547754822865364e-8,4.5426218104870796e-7,4.5426218104870796e-7,4.5426218104870796e-7,4.5426218104870796e-7,-4.872227980305747e-6,-4.872227980305747e-6,-4.872227980305747e-6,-4.872227980305747e-6,9.361277121832246e-8,-4.872227980305747e-6,-4.872227980305747e-6,-4.872227980305747e-6,9.361277121832246e-8,9.361277121832246e-8,9.361277121832246e-8,9.361277121832246e-8,-5.488572216677945e-7,-1.8496203182958057e-7,-1.4603644180845103e-7,-1.2145268106051633e-7,-2.817402689957553e-7,-2.9913537180597976e-7,6.272804203945257e-7,-2.3697344464172694e-7,-5.488572216677945e-7,-1.8496203182958057e-7,-1.4603644180845103e-7,-1.2145268106051633e-7,-2.613973017956691e-7,-3.0013408634207794e-7,6.272804203945257e-7,-2.916736028401805e-7,-7.0114505846358575e-6,-4.303381366239431e-5,-4.897282418246382e-6,-1.710952247892854e-4,-4.2040039667393255e-5,-2.0204742564752248e-4,-1.7017980671040968e-2,-4.247008401789142e-3,-1.056090348050961e-6,-2.210187184450231e-6,-2.7842041329045203e-6,-1.0402806498987974e-5,-1.2967382896879757e-7,-1.9315601705070884e-5,-2.40087090725031e-7,-2.4419692405172046e-7,-4.303381366239431e-5,-4.303381366239431e-5,-4.303381366239431e-5,-4.303381366239431e-5,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-2.683138631810477e-7,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-2.683138631810477e-7,-2.683138631810477e-7,-2.683138631810477e-7,-2.683138631810477e-7,-5.488572216677945e-7,-1.8496203182958057e-7,-1.4603644180845103e-7,-1.2145268106051633e-7,-2.817402689957553e-7,-2.9913537180597976e-7,6.272804203945257e-7,-2.3697344464172694e-7,-5.488572216677945e-7,-1.8496203182958057e-7,-1.4603644180845103e-7,-1.2145268106051633e-7,-2.613973017956691e-7,-3.0013408634207794e-7,6.272804203945257e-7,-2.916736028401805e-7,-7.0114505846358575e-6,-4.303381366239431e-5,-4.897282418246382e-6,-1.710952247892854e-4,-4.2040039667393255e-5,-2.0204742564752248e-4,-1.7017980671040968e-2,-4.247008401789142e-3,-1.056090348050961e-6,-2.210187184450231e-6,-2.7842041329045203e-6,-1.0402806498987974e-5,-1.2967382896879757e-7,-1.9315601705070884e-5,-2.40087090725031e-7,-2.4419692405172046e-7,-4.303381366239431e-5,-4.303381366239431e-5,-4.303381366239431e-5,-4.303381366239431e-5,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-2.683138631810477e-7,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-2.683138631810477e-7,-2.683138631810477e-7,-2.683138631810477e-7,-2.683138631810477e-7,-5.469529675653596e-7,-2.331458950045675e-7,-1.9907443163522408e-7,-1.4019078434680374e-7,-6.95091094132346e-8,-5.685763846730528e-8,-9.268594848659335e-8,-3.010367762029461e-8,-5.469529675653596e-7,-2.331458950045675e-7,-1.9907443163522408e-7,-1.4019078434680374e-7,-3.415394012988984e-8,-5.069973314807702e-8,-9.268594848659335e-8,-6.380451815099858e-8,-6.883755913116986e-6,-4.273807584344302e-5,-4.79037108793574e-6,-1.705307241188017e-4,-4.2267488166320864e-5,-2.0143642393829028e-4,-1.701262134129569e-2,-4.2496361738088365e-3,-1.0224785375169973e-6,-2.1427637177332083e-6,-2.705952143004936e-6,-1.0493018474305117e-5,-1.819666770962338e-7,-1.911089472080586e-5,-9.045482032374276e-8,-2.819821645880664e-7,-4.273807584344302e-5,-4.273807584344302e-5,-4.273807584344302e-5,-4.273807584344302e-5,-4.2496361738088365e-3,-4.2496361738088365e-3,-4.2496361738088365e-3,-4.2496361738088365e-3,-3.019273543907303e-7,-4.2496361738088365e-3,-4.2496361738088365e-3,-4.2496361738088365e-3,-3.019273543907303e-7,-3.019273543907303e-7,-3.019273543907303e-7,-3.019273543907303e-7,8.287292817679557e-8,5.154639175257732e-8,4.672897196261682e-8,3.740648379052369e-8,2.884615384615385e-8,2.7780699895840894e-8,1.5447991761071065e-8,2.546934916639589e-8,8.287292817679557e-8,5.154639175257732e-8,4.672897196261682e-8,3.740648379052369e-8,2.5862068965517245e-8,2.7275544092553562e-8,1.5447991761071065e-8,2.8358432436548274e-8,3.0000000000000004e-7,7.500000000000001e-7,2.5000000000000004e-7,1.5000000000000002e-6,-7.500000000000001e-7,1.6304347826086957e-6,1.5000000000000002e-5,-7.500000000000001e-6,1.1450381679389314e-7,1.6666666666666668e-7,1.8750000000000003e-7,-3.7500000000000006e-7,4.411764705882353e-8,5.00948462422186e-7,-4.545454545454546e-8,5.76923076923077e-8,7.500000000000001e-7,7.500000000000001e-7,7.500000000000001e-7,7.500000000000001e-7,-7.500000000000001e-6,-7.500000000000001e-6,-7.500000000000001e-6,-7.500000000000001e-6,5.999928000863991e-8,-7.500000000000001e-6,-7.500000000000001e-6,-7.500000000000001e-6,5.999928000863991e-8,5.999928000863991e-8,5.999928000863991e-8,5.999928000863991e-8])
-   (rev' @Double @8 (tmap0N (* 0.000000001) . fooNoGo) (tmap0N (* 0.01) $ tkonst 5 t48))
+   (rev' @Double @8 (tmap0N (* 0.000000001) . fooNoGo) (tmap0N (* 0.01) $ treplicate 5 t48))
 
 nestedBuildMap :: forall n r.
                   (ADReady r, n <= 6, KnownNat n)
                => TensorOf 0 r -> TensorOf (1 + n) r
 nestedBuildMap r =
-  let w = tkonst0N [4]
-      v' = tkonst0N (177 :$ ZS) r
+  let w = treplicate0N [4]
+      v' = treplicate0N (177 :$ ZS) r
       nestedMap x = tmap0N (x /) (w x)
       variableLengthBuild iy = tbuild1 7 (\ix ->
         tindex v' (ix + iy :. ZI))
       doublyBuild =
-        tbuild1 3 (tkonst0N (takeShape @n @(6 - n)
+        tbuild1 3 (treplicate0N (takeShape @n @(6 - n)
                              $ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ ZS)
                    . tminimum . variableLengthBuild)
   in tmap0N (\x -> x * tsum0
@@ -389,7 +389,7 @@ nestedSumBuildB v =
                              (max 0 $ min 1 $ ix2 `quot` 2 + ix `quot` 4 - 1))
              , tbuild1 2 (\_ -> tsum0 v)
              , tsum (tbuild1 7 (\ix7 ->
-                 tkonst 2 (tfromIndex0 ix7)))
+                 treplicate 2 (tfromIndex0 ix7)))
              ])
     _ -> error "nestedSumBuildB: impossible pattern needlessly required"
 
@@ -412,7 +412,7 @@ testNestedBuildIndex =
 barRelu
   :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
   => TensorOf n r -> TensorOf n r
-barRelu x = let t = tkonst0N (tshape x) 0.001 * x
+barRelu x = let t = treplicate0N (tshape x) 0.001 * x
             in relu $ bar (t, relu t)
 
 testBarReluADValDt :: Assertion
@@ -471,7 +471,7 @@ testBraidedBuilds :: Assertion
 testBraidedBuilds =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [4] [0.0,4.0,0.0,0.0])
-    (rev' @Double @2 braidedBuilds (tkonst0N (4 :$ ZS) 3.4))
+    (rev' @Double @2 braidedBuilds (treplicate0N (4 :$ ZS) 3.4))
 
 testBraidedBuilds1 :: Assertion
 testBraidedBuilds1 =
@@ -483,19 +483,19 @@ recycled :: (ADReady r, KnownNat n)
          => TensorOf n r -> TensorOf 7 r
 recycled r =
   tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ ->
-    nestedSumBuildB (tkonst 4 r)
+    nestedSumBuildB (treplicate 4 r)
 
 testRecycled :: Assertion
 testRecycled =
   assertEqualUpToEpsilon' 1e-6
-    (runFlip $ tkonst0N (2 :$ ZS) 5616)
-    (rev' @Double @7 recycled (tkonst0N [2] 1.0001))
+    (runFlip $ treplicate0N (2 :$ ZS) 5616)
+    (rev' @Double @7 recycled (treplicate0N [2] 1.0001))
 
 testRecycled1 :: Assertion
 testRecycled1 =
   assertEqualUpToEpsilon' 1e-6
     (runFlip $ tfromList0N (5 :$ 4 :$ 2 :$ ZS) [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
-    (rev' @Double @7 recycled (tkonst0N [5, 4, 2] 0.0002))
+    (rev' @Double @7 recycled (treplicate0N [5, 4, 2] 0.0002))
 
 concatBuild :: ( ADReady r, KnownNat n, OrdB (TensorOf (1 + n) r)
                , BooleanOf (TensorOf (1 + n) r) ~ BooleanOf (IntOf r) )
@@ -512,7 +512,7 @@ concatBuild r =
                          (tminIndex0 (tflatten r))
                          (tfloor $ tsum0 $ r ! ((i * j) `rem` 7 :. ZI))))) r)
             , tbuild1 13 (\_k ->
-                tsum $ ttr $ tkonst (tlength r) (tslice 0 1 r)) ])
+                tsum $ ttr $ treplicate (tlength r) (tslice 0 1 r)) ])
 
 testConcatBuild0 :: Assertion
 testConcatBuild0 =

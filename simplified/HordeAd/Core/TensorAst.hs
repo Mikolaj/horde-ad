@@ -49,7 +49,7 @@ instance ShowAstSimplify r
 
   tfromList = AstFromList
   tfromVector = AstFromVector
-  tkonst = AstKonst
+  treplicate = AstReplicate
   tappend = AstAppend
   tslice = AstSlice
   treverse = AstReverse
@@ -272,7 +272,7 @@ instance ShowAstSimplify r
 
   tfromList = AstPrimalPart . AstFromList . map unAstPrimalPart
   tfromVector = AstPrimalPart . AstFromVector . V.map unAstPrimalPart
-  tkonst k = AstPrimalPart . AstKonst k . unAstPrimalPart
+  treplicate k = AstPrimalPart . AstReplicate k . unAstPrimalPart
   tappend u v =
     AstPrimalPart $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
   tslice i k = AstPrimalPart . AstSlice i k . unAstPrimalPart
@@ -337,7 +337,7 @@ instance ShowAstSimplify r
 
   tfromList = AstNoVectorize . AstFromList . map unAstNoVectorize
   tfromVector = AstNoVectorize . AstFromVector . V.map unAstNoVectorize
-  tkonst k = AstNoVectorize . AstKonst k . unAstNoVectorize
+  treplicate k = AstNoVectorize . AstReplicate k . unAstNoVectorize
   tappend u v =
     AstNoVectorize $ AstAppend (unAstNoVectorize u) (unAstNoVectorize v)
   tslice i k = AstNoVectorize . AstSlice i k . unAstNoVectorize
@@ -403,7 +403,7 @@ instance ShowAstSimplify r
 
   tfromList = AstNoSimplify . AstFromList . map unAstNoSimplify
   tfromVector = AstNoSimplify . AstFromVector . V.map unAstNoSimplify
-  tkonst k = AstNoSimplify . AstKonst k . unAstNoSimplify
+  treplicate k = AstNoSimplify . AstReplicate k . unAstNoSimplify
   tappend u v =
     AstNoSimplify $ AstAppend (unAstNoSimplify u) (unAstNoSimplify v)
   tslice i k = AstNoSimplify . AstSlice i k . unAstNoSimplify

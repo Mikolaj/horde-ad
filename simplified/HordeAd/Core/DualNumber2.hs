@@ -342,7 +342,7 @@ fromVector1 :: ADModeAndNum d r
 fromVector1 = getCompose . tfromVector . V.map tscalar
 
 konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vec r)
-konst1 d n = getCompose $ tkonst n (tscalar d)
+konst1 d n = getCompose $ treplicate n (tscalar d)
 
 append1 :: Tensor r => TensorOf 1 r -> TensorOf 1 r -> TensorOf 1 r
 append1 = tappend
@@ -428,7 +428,7 @@ softMaxV d' =
   let d = Compose d'
       expU0 = exp d
   in getCompose
-     $ tlet expU0 $ \expU -> tkonst0N (tshape d) (recip $ tsum0 expU) * expU
+     $ tlet expU0 $ \expU -> treplicate0N (tshape d) (recip $ tsum0 expU) * expU
 
 scaleADVal :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
 scaleADVal a (DualNumber.D l u u') = dD l (a * u) (dScale a u')
@@ -463,7 +463,7 @@ lossSoftMaxCrossEntropyV target d' =
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
   let d = Compose d'
       u = tprimalPart d
-      expU = exp (u - tkonst0N (tshape u) (tminimum u))
+      expU = exp (u - treplicate0N (tshape u) (tminimum u))
       sumExpU = tsum0 expU
       recipSum = recip sumExpU
 -- not exposed: softMaxU = LA.scaleRecip sumExpU expU

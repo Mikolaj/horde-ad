@@ -26,11 +26,11 @@ testTrees =
   , testCase "KonstG0TinyS" testKonstG0TinyS
   , testCase "KonstG0TinyA" testKonstG0TinyA
   , testCase "KonstG0LittleA" testKonstG0LittleA
-  , testCase "Konst0RevLaborious" testKonst0RevLaborious
-  , testCase "Konst0Tiny1Laborious" testKonst0Tiny1Laborious
-  , testCase "Konst0TinySLaborious" testKonst0TinySLaborious
-  , testCase "Konst0TinyALaborious" testKonst0TinyALaborious
-  , testCase "Konst0LittleALaborious" testKonst0LittleALaborious
+  , testCase "Replicate0RevLaborious" testReplicate0RevLaborious
+  , testCase "Replicate0Tiny1Laborious" testReplicate0Tiny1Laborious
+  , testCase "Replicate0TinySLaborious" testReplicate0TinySLaborious
+  , testCase "Replicate0TinyALaborious" testReplicate0TinyALaborious
+  , testCase "Replicate0LittleALaborious" testReplicate0LittleALaborious
   , testCase "Konst5LittleBLaborious" testKonst5LittleBLaborious
   , testCase "Konst5LittleCLaborious" testKonst5LittleCLaborious
   , testCase "Konst5BigBLaborious" testKonst5BigBLaborious
@@ -130,7 +130,7 @@ testKonstG0TinyS =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2d $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R $ runFlip t16b))
+          (conv2d $ tconst $ treplicate0NR [1, 1, 1, 1] (tsum0R $ runFlip t16b))
           (Flip $ OR.fromList [1, 1, 1, 1] [0]))
 
 testKonstG0TinyA :: Assertion
@@ -193,34 +193,34 @@ conv2dCLaborious128c
   => TensorOf 4 r -> TensorOf 4 r
 conv2dCLaborious128c = flip conv2dUnpadded $ tconst $ runFlip t128c
 
-testKonst0RevLaborious :: Assertion
-testKonst0RevLaborious =
+testReplicate0RevLaborious :: Assertion
+testReplicate0RevLaborious =
   assertEqualUpToEpsilon1 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
     (rev @Double @4 conv2dBLaborious (tzero [2, 2, 2, 2]))
 
-testKonst0Tiny1Laborious :: Assertion
-testKonst0Tiny1Laborious =
+testReplicate0Tiny1Laborious :: Assertion
+testReplicate0Tiny1Laborious =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [-0.2])
     (rev' @Double @4 conv2d1Laborious (tzero [1, 1, 1, 1]))
 
-testKonst0TinySLaborious :: Assertion
-testKonst0TinySLaborious =
+testReplicate0TinySLaborious :: Assertion
+testReplicate0TinySLaborious =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2dUnpadded $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R $ runFlip t16b))
+          (conv2dUnpadded $ tconst $ treplicate0NR [1, 1, 1, 1] (tsum0R $ runFlip t16b))
           (Flip $ OR.fromList [1, 1, 1, 1] [0]))
 
-testKonst0TinyALaborious :: Assertion
-testKonst0TinyALaborious =
+testReplicate0TinyALaborious :: Assertion
+testReplicate0TinyALaborious =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 2, 1, 1] [-0.2,25.0003])
     (rev' @Double @4 conv2dALaborious (tzero [1, 2, 1, 1]))
 
-testKonst0LittleALaborious :: Assertion
-testKonst0LittleALaborious =
+testReplicate0LittleALaborious :: Assertion
+testReplicate0LittleALaborious =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [2, 2, 2, 2] [-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003])
     (rev' @Double @4 conv2dALaborious (tzero [2, 2, 2, 2]))
@@ -231,19 +231,19 @@ testKonst5LittleBLaborious :: Assertion
 testKonst5LittleBLaborious =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev' @Double @4 conv2dBLaborious (tkonst0N [2, 2, 2, 2] 5))
+    (rev' @Double @4 conv2dBLaborious (treplicate0N [2, 2, 2, 2] 5))
 
 testKonst5LittleCLaborious :: Assertion
 testKonst5LittleCLaborious =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2, 2, 2, 2] [40.1,8.0,11.0,-3.0,582625.89432,28.79432,-309.09999999999997,25.8,40.1,8.0,11.0,-3.0,582625.89432,28.79432,-309.09999999999997,25.8])
-    (rev' @Double @4 conv2dCLaborious (tkonst0N [2, 2, 2, 2] 5))
+    (rev' @Double @4 conv2dCLaborious (treplicate0N [2, 2, 2, 2] 5))
 
 testKonst5BigBLaborious :: Assertion
 testKonst5BigBLaborious =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001])
-    (rev' @Double @4 conv2dBLaborious (tkonst0N [3, 2, 4, 2] 5))
+    (rev' @Double @4 conv2dBLaborious (treplicate0N [3, 2, 4, 2] 5))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
@@ -258,7 +258,7 @@ testKonst5BigCLaborious :: Assertion
 testKonst5BigCLaborious =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0,40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0,40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0])
-    (rev' @Double @4 conv2dCLaborious (tkonst0N [3, 2, 4, 2] 5))
+    (rev' @Double @4 conv2dCLaborious (treplicate0N [3, 2, 4, 2] 5))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
@@ -275,19 +275,19 @@ testKonst5LittleBLaborious128b :: Assertion
 testKonst5LittleBLaborious128b =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2, 2, 2, 2] [112.3003,251.5006,209.49462,482.69492000000014,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,112.3003,251.5006,209.49462,482.69492000000014,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004])
-    (rev' @Double @4 conv2dBLaborious128b (tkonst0N [2, 2, 2, 2] 5))
+    (rev' @Double @4 conv2dBLaborious128b (treplicate0N [2, 2, 2, 2] 5))
 
 testKonst5LittleCLaborious128b :: Assertion
 testKonst5LittleCLaborious128b =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2, 2, 2, 2] [1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987])
-    (rev' @Double @4 conv2dCLaborious128b (tkonst0N [2, 2, 2, 2] 5))
+    (rev' @Double @4 conv2dCLaborious128b (treplicate0N [2, 2, 2, 2] 5))
 
 testKonst5BigBLaborious128b :: Assertion
 testKonst5BigBLaborious128b =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [112.3003,251.5006,209.49462,482.69492000000014,229.49462000000003,610.5892400000002,56.58894000000004,580.6778800001001,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,667.2003000000001,1060.8778800002,893.3003,1465.6665200003993,112.3003,251.5006,209.49462,482.69492000000014,229.49462000000003,610.5892400000002,56.58894000000004,580.6778800001001,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,667.2003000000001,1060.8778800002,893.3003,1465.6665200003993,112.3003,251.5006,209.49462,482.69492000000014,229.49462000000003,610.5892400000002,56.58894000000004,580.6778800001001,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,667.2003000000001,1060.8778800002,893.3003,1465.6665200003993])
-    (rev' @Double @4 conv2dBLaborious128b (tkonst0N [3, 2, 4, 2] 5))
+    (rev' @Double @4 conv2dBLaborious128b (treplicate0N [3, 2, 4, 2] 5))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
@@ -302,7 +302,7 @@ testKonst5BigCLaborious128b :: Assertion
 testKonst5BigCLaborious128b =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001])
-    (rev' @Double @4 conv2dCLaborious128b (tkonst0N [3, 2, 4, 2] 5))
+    (rev' @Double @4 conv2dCLaborious128b (treplicate0N [3, 2, 4, 2] 5))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
@@ -319,19 +319,19 @@ testKonst5LittleBLaborious128c :: Assertion
 testKonst5LittleBLaborious128c =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2, 2, 2, 2] [54.100300000000004,111.20060000000001,119.09462,270.29492000000005,58.2,140.3,90.4,212.4,54.100300000000004,111.20060000000001,119.09462,270.29492000000005,58.2,140.3,90.4,212.4])
-    (rev' @Double @4 conv2dBLaborious128c (tkonst0N [2, 2, 2, 2] 5))
+    (rev' @Double @4 conv2dBLaborious128c (treplicate0N [2, 2, 2, 2] 5))
 
 testKonst5LittleCLaborious128c :: Assertion
 testKonst5LittleCLaborious128c =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2, 2, 2, 2] [2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992,2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992])
-    (rev' @Double @4 conv2dCLaborious128c (tkonst0N [2, 2, 2, 2] 5))
+    (rev' @Double @4 conv2dCLaborious128c (treplicate0N [2, 2, 2, 2] 5))
 
 testKonst5BigBLaborious128c :: Assertion
 testKonst5BigBLaborious128c =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [54.100300000000004,111.20060000000001,119.09462,270.29492000000005,109.09462000000002,318.19492,174.08894000000004,477.28924000000006,58.2,140.3,90.4,212.4,120.4,292.39432000000005,-117.5,103.38864000010005,54.100300000000004,111.20060000000001,119.09462,270.29492000000005,109.09462000000002,318.19492,174.08894000000004,477.28924000000006,58.2,140.3,90.4,212.4,120.4,292.39432000000005,-117.5,103.38864000010005,54.100300000000004,111.20060000000001,119.09462,270.29492000000005,109.09462000000002,318.19492,174.08894000000004,477.28924000000006,58.2,140.3,90.4,212.4,120.4,292.39432000000005,-117.5,103.38864000010005])
-    (rev' @Double @4 conv2dBLaborious128c (tkonst0N [3, 2, 4, 2] 5))
+    (rev' @Double @4 conv2dBLaborious128c (treplicate0N [3, 2, 4, 2] 5))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
@@ -346,7 +346,7 @@ testKonst5BigCLaborious128c :: Assertion
 testKonst5BigCLaborious128c =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,2121.6375200006987,1436.2432000006995,1953.5375200006988,1258.1432000006998,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992,1279.150680000599,1224.1503800005996,987.1677200004992,962.1674200005002,2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,2121.6375200006987,1436.2432000006995,1953.5375200006988,1258.1432000006998,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992,1279.150680000599,1224.1503800005996,987.1677200004992,962.1674200005002,2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,2121.6375200006987,1436.2432000006995,1953.5375200006988,1258.1432000006998,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992,1279.150680000599,1224.1503800005996,987.1677200004992,962.1674200005002])
-    (rev' @Double @4 conv2dCLaborious128c (tkonst0N [3, 2, 4, 2] 5))
+    (rev' @Double @4 conv2dCLaborious128c (treplicate0N [3, 2, 4, 2] 5))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
@@ -451,9 +451,9 @@ costVolume iStart nCount arrL arrR =
 test_disparityKonst :: Assertion
 test_disparityKonst = do
   let arrL :: ADReady r => TensorOf 4 r
-      arrL = tkonst0N [1, 2, 4, 6] (-0.2)
+      arrL = treplicate0N [1, 2, 4, 6] (-0.2)
       arrR :: ADReady r => TensorOf 4 r
-      arrR = tkonst0N [1, 2, 4, 6] 0.3
+      arrR = treplicate0N [1, 2, 4, 6] 0.3
       arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
       arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) arrR arrO
