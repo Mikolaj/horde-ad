@@ -607,6 +607,7 @@ library exampleLibrarySimplified
       buildable: True
 
     exposed-modules:  MnistData
+                      MnistCnnRanked2
                       MnistFcnnRanked1
                       MnistFcnnRanked2
                       MnistRnnRanked2
