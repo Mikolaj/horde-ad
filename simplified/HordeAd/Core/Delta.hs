@@ -418,7 +418,7 @@ gradientFromDelta dim0 dimR deltaDt =
          -- Extract results.
          gradient =
            mkDoms (dfromR
-                   $ tfromList0N (singletonShape dim0) (EM.elems iMap0))
+                   $ tfromList0N (singletonShape dim0) (map tscalar $ EM.elems iMap0))
                   (fromListDoms $ EM.elems iMapR)
      in (astBindings, gradient)
 {-# SPECIALIZE gradientFromDelta

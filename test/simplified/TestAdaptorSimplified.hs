@@ -154,7 +154,7 @@ testOverleaf :: Assertion
 testOverleaf =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Double @1 [28] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @Double @0 overleaf (tfromList0N [28] [0 .. 27]))
+    (rev' @Double @0 overleaf (tfromList0N [28] (map tscalar $ [0 .. 27])))
 
 testOverleafPP :: Assertion
 testOverleafPP = do
@@ -939,7 +939,7 @@ braidedBuilds :: forall r. ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
     tbuild1 4 (\ix2 -> tindex (tfromList0N [4]
-      [tunScalar $ tfromIndex0 ix2, 7, r, -0.2]) (ix1 :. ZI)))
+      [tfromIndex0 ix2, 7, tscalar r, -0.2]) (ix1 :. ZI)))
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =

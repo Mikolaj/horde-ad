@@ -70,7 +70,7 @@ at1 ADInputs{..} i = Compose $ dD emptyADShare (tfromD $ inputPrimal1 V.! i)
 domainsFrom01 :: ( Numeric r, Tensor r, ConvertTensor r, DomainsCollection r )
               => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 =
-  mkDomains (tfromList0N (singletonShape (V.length v0)) (V.toList v0))
+  mkDomains (tfromList0N (singletonShape (V.length v0)) (map tscalar $ V.toList v0))
 
 domainsFrom0V
   :: ( Numeric r, Tensor r, ConvertTensor r, DomainsCollection r
@@ -239,7 +239,7 @@ braidedBuilds :: forall r. ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
     tbuild1 4 (\ix2 -> tindex @r @1 (tfromList0N [4]
-                              [tunScalar $ tfromIndex0 ix2, 7, r, -0.2]) [ix1]))
+                              [tfromIndex0 ix2, 7, tscalar r, -0.2]) [ix1]))
 
 recycled :: ADReady r
          => r -> TensorOf 5 r

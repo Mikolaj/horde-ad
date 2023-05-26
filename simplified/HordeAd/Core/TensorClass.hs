@@ -179,14 +179,15 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
   -- by one rank, and is omitted if a more general variant is not defined)
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
-  tfromList0N :: KnownNat n => ShapeInt n -> [r] -> TensorOf n r
-  tfromList0N sh = treshape sh . tfromList . map tscalar
+  tfromList0N :: KnownNat n => ShapeInt n -> [TensorOf 0 r] -> TensorOf n r
+  tfromList0N sh = treshape sh . tfromList
   tfromVector :: KnownNat n
               => Data.Vector.Vector (TensorOf n r) -> TensorOf (1 + n) r
   tfromVector v = tfromList (V.toList v)  -- horribly inefficient for large vs
   tfromVector0N :: KnownNat n
-                => ShapeInt n -> Data.Vector.Vector r -> TensorOf n r
-  tfromVector0N sh = treshape sh . tfromVector . V.map tscalar
+                => ShapeInt n -> Data.Vector.Vector (TensorOf 0 r)
+                -> TensorOf n r
+  tfromVector0N sh = treshape sh . tfromVector
   treplicate :: KnownNat n => Int -> TensorOf n r -> TensorOf (1 + n) r
   treplicate0N :: KnownNat n => ShapeInt n -> TensorOf 0 r -> TensorOf n r
   treplicate0N sh = treshape sh . treplicate (sizeShape sh)
@@ -411,9 +412,9 @@ instance Tensor Double where
   tscatter sh t f = Flip $ tscatterZR sh (runFlip t) f
   tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t) f
   tfromList = Flip . tfromListR . map runFlip
-  tfromList0N sh = Flip . tfromList0NR sh
+  tfromList0N sh = Flip . tfromList0NR sh . map tunScalar
   tfromVector = Flip . tfromVectorR . V.map runFlip
-  tfromVector0N sh = Flip . tfromVector0NR sh
+  tfromVector0N sh = Flip . tfromVector0NR sh . V.map tunScalar
   treplicate k = Flip . treplicateR k . runFlip
   treplicate0N sh = Flip . treplicate0NR sh . tunScalar
   tappend u v = Flip $ tappendR (runFlip u) (runFlip v)
@@ -474,9 +475,9 @@ instance Tensor Float where
   tscatter sh t f = Flip $ tscatterZR sh (runFlip t) f
   tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t) f
   tfromList = Flip . tfromListR . map runFlip
-  tfromList0N sh = Flip . tfromList0NR sh
+  tfromList0N sh = Flip . tfromList0NR sh . map tunScalar
   tfromVector = Flip . tfromVectorR . V.map runFlip
-  tfromVector0N sh = Flip . tfromVector0NR sh
+  tfromVector0N sh = Flip . tfromVector0NR sh . V.map tunScalar
   treplicate k = Flip . treplicateR k . runFlip
   treplicate0N sh = Flip . treplicate0NR sh . tunScalar
   tappend u v = Flip $ tappendR (runFlip u) (runFlip v)
