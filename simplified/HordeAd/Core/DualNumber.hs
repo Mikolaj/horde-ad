@@ -67,6 +67,7 @@ type ADTensor r =
   ( IsPrimal r
   , HasRanks r
   , Tensor r
+  , ConvertTensor r
   , DynamicTensor r
   , DomainsCollection r
   , DomainsTensor r

@@ -67,18 +67,19 @@ at1 :: forall n r. ( KnownNat n, ADTensor r, IsPrimal (TensorOf n r)
 at1 ADInputs{..} i = Compose $ dD emptyADShare (tfromD $ inputPrimal1 V.! i)
                                                (dFromD $ inputDual1 V.! i)
 
-domainsFrom01 :: ( Numeric r, Tensor r, DomainsCollection r )
+domainsFrom01 :: ( Numeric r, Tensor r, ConvertTensor r, DomainsCollection r )
               => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 =
   mkDomains (tfromList0N (singletonShape (V.length v0)) (V.toList v0))
 
 domainsFrom0V
-  :: (Numeric r, Tensor r, DomainsCollection r, DTensorOf r ~ OD.Array r)
+  :: ( Numeric r, Tensor r, ConvertTensor r, DomainsCollection r
+     , DTensorOf r ~ OD.Array r )
   => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
   domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
-domainsD0 :: ( Numeric r, TensorOf 1 r ~ Flip OR.Array r 1, Tensor r
+domainsD0 :: ( Numeric r, TensorOf 1 r ~ Flip OR.Array r 1, ConvertTensor r
              , DomainsCollection r )
           => Domains r -> Vector r
 domainsD0 = OR.toVector . runFlip . domains0

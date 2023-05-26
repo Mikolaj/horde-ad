@@ -10,7 +10,7 @@ module HordeAd.Core.TensorClass
   ( Domain0, DomainR, Domains
   , domains0, domainsR, mkDomains, ttoRankedOrDummy
   , IndexOf, TensorOf, ShapeInt, CRanked, CYRanked, CRanked2
-  , Tensor(..), DynamicTensor(..), DomainsTensor(..), ADReady
+  , Tensor(..), ConvertTensor(..), DynamicTensor(..), DomainsTensor(..), ADReady
   ) where
 
 import Prelude
@@ -48,17 +48,18 @@ type Domain0 r = TensorOf 1 r
 -- to prevent frequent linearization of the tensors (e.g., after transpose).
 type DomainR r = Data.Vector.Vector (DTensorOf r)
 
-domains0 :: (DomainsCollection r, Tensor r) => Domains r -> Domain0 r
+domains0 :: (DomainsCollection r, ConvertTensor r)
+         => Domains r -> Domain0 r
 domains0 v = tfromD $ doms0 v
 
 domainsR :: DomainsCollection r => Domains r -> DomainR r
 domainsR = toVectorDoms . domsR
 
-mkDomains :: (DomainsCollection r, Tensor r)
+mkDomains :: (DomainsCollection r, ConvertTensor r)
           => Domain0 r -> DomainR r -> Domains r
 mkDomains d0 dR = mkDoms (dfromR d0) (fromVectorDoms dR)
 
-ttoRankedOrDummy :: (Tensor r, DynamicTensor r, KnownNat n)
+ttoRankedOrDummy :: (Tensor r, ConvertTensor r, DynamicTensor r, KnownNat n)
                  => ShapeInt n -> DTensorOf r -> TensorOf n r
 ttoRankedOrDummy sh x = if disDummy x
                         then tzero sh
@@ -315,9 +316,8 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
   tletWrap :: ADShare (Value r) -> TensorOf n r -> TensorOf n r
   tletWrap _l u = u
 
+class ConvertTensor r where
   type Shaped r = (t :: [Nat] -> Type) | t -> r
-
-  -- Conversions
   tfromD :: KnownNat n
          => DTensorOf r -> Ranked r n
   tfromS :: (KnownNat n, OS.Shape sh, OS.Rank sh ~ n)
@@ -443,6 +443,7 @@ instance Tensor Double where
   tD u _ = u
   tScale _ _ = ()
 
+instance ConvertTensor Double where
   type Shaped Double = Flip OS.Array Double
   tfromD = Flip . Data.Array.Convert.convert
   tfromS = Flip . Data.Array.Convert.convert . runFlip
@@ -505,6 +506,7 @@ instance Tensor Float where
   tD u _ = u
   tScale _ _ = ()
 
+instance ConvertTensor Float where
   type Shaped Float = Flip OS.Array Float
   tfromD = Flip . Data.Array.Convert.convert
   tfromS = Flip . Data.Array.Convert.convert . runFlip
@@ -542,7 +544,8 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
     in (arr, g2)
 -}
 
-instance ( KnownNat n, Numeric r, Tensor r, DynamicTensor r, DomainsCollection r
+instance ( KnownNat n, Numeric r, Tensor r, ConvertTensor r
+         , DynamicTensor r, DomainsCollection r
          , Ranked r ~ Flip OR.Array r )
          => AdaptableDomains (Flip OR.Array r n) where
   type Scalar (Flip OR.Array r n) = r
@@ -576,7 +579,7 @@ instance AdaptableDomains (OD.Array r) where
   nParams _ = 1
   nScalars = OD.size
 
-instance ( OS.Shape sh, Numeric r, Tensor r, DomainsCollection r
+instance ( OS.Shape sh, Numeric r, ConvertTensor r, DomainsCollection r
          , Shaped r ~ Flip OS.Array r )
          => AdaptableDomains (Flip OS.Array r sh) where
   type Scalar (Flip OS.Array r sh) = r
@@ -597,56 +600,3 @@ instance OS.Shape sh
     in (Flip arr, g2)
   type ToRanked (Flip OS.Array r sh) = Flip OR.Array r (OS.Rank sh)
   toRanked = Flip . Data.Array.Convert.convert . runFlip
-
-{- These instances are increasingly breaking stuff, so disabled:
-
--- A stub just to type-check and rewrite away before any computation
--- takes place. Also many others below.
-instance Eq r => Eq (a -> r) where  -- embarrassing
-
-instance Ord r => Ord (a -> r) where
-
-instance Num r => Num (a -> r) where
-
-instance Enum (a -> r) where
-
-instance (Enum (a -> r), Real r) => Integral (a -> r) where
-
-instance Fractional r => Fractional (a -> r) where
-
-instance Floating r => Floating (a -> r) where
-
-instance Real r => Real (a -> r) where
-
-instance RealFrac r => RealFrac (a -> r) where
-
-instance RealFloat r => RealFloat (a -> r) where
-
-type instance BooleanOf (ORB.Array n (z -> a)) = z -> BooleanOf a
-
--- A stub instance for experiments with stored functions
-instance Tensor r
-         => Tensor (a -> r) where
-  type TensorOf n (a -> r) = ORB.Array n (a -> r)
-  type IntOf (a -> r) = a -> IntOf r
-  tshape = undefined
-  tminIndex = undefined
-  tmaxIndex = undefined
-  tfloor = undefined
-  tindex = undefined
-  tsum = undefined
-  tfromIndex0 = undefined
-  tfromList = undefined
-  tfromVector = undefined
-  treplicate = undefined
-  tappend = undefined
-  tslice = undefined
-  treverse = undefined
-  ttranspose = undefined
-  treshape = undefined
-  tbuild1 = undefined
-  tscalar = ORB.scalar
-  tunScalar = ORB.unScalar
-  type ScalarOf (a -> r) = ScalarOf r
-  tconst = tconst
--}

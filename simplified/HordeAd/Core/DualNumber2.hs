@@ -203,24 +203,25 @@ foldlDual' f a TensorADVal.ADInputs{..} = do
         in f acc b
   V.ifoldl' g a $ OR.toVector (runFlip inputPrimal0)
 
-domainsFromD01 :: (Tensor r, DomainsCollection r)
+domainsFromD01 :: (ConvertTensor r, DomainsCollection r)
                => Domain0 r -> DomainR r -> Domains r
 domainsFromD01 = mkDomains
 
-domainsFrom01 :: ( Numeric r, TensorOf 1 r ~ Flip OR.Array r 1, Tensor r
-                 , DomainsCollection r )
+domainsFrom01 :: ( Numeric r, TensorOf 1 r ~ Flip OR.Array r 1
+                 , ConvertTensor r, DomainsCollection r )
               => Vector r -> DomainR r -> Domains r
 domainsFrom01 v0 = mkDomains (Flip $ OR.fromVector [V.length v0] v0)
 
 domainsFrom0V :: ( Numeric r, DTensorOf r ~ OD.Array r, DomainsCollection r
-                 , TensorOf 1 r ~ Flip OR.Array r 1, Tensor r )
+                 , TensorOf 1 r ~ Flip OR.Array r 1
+                 , ConvertTensor r )
               => Vector r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V v0 vs =
   domainsFrom01 v0 (V.map (\v -> OD.fromVector [V.length v] v) vs)
 
 listsToParameters :: ( Numeric r, DTensorOf r ~ OD.Array r
-                     , TensorOf 1 r ~ Flip OR.Array r 1, Tensor r
-                     , DomainsCollection r )
+                     , TensorOf 1 r ~ Flip OR.Array r 1
+                     , ConvertTensor r, DomainsCollection r )
                   => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
   domainsFrom0V (V.fromList a0) (V.singleton (V.fromList a1))
@@ -228,7 +229,7 @@ listsToParameters (a0, a1) =
 listsToParameters4 :: ([Double], [Double], [Double], [Double]) -> Domains Double
 listsToParameters4 (a0, a1, _a2, _aX) = listsToParameters (a0, a1)
 
-domainsD0 :: (Tensor r, DomainsCollection r)
+domainsD0 :: (ConvertTensor r, DomainsCollection r)
           => (Numeric r, TensorOf 1 r ~ Flip OR.Array r 1) => Domains r -> Vector r
 domainsD0 = OR.toVector . runFlip . domains0
 
@@ -284,7 +285,7 @@ multNotShared (DualNumber.D l1 u u') (DualNumber.D l2 v v') =
   dDnotShared (l1 `mergeADShare` l2) (u * v) (dAdd (dScale v u') (dScale u v'))
 
 addParameters :: ( Numeric r, Num (Vector r), DTensorOf r ~ OD.Array r
-                 , Tensor r, DomainsCollection r )
+                 , Tensor r, ConvertTensor r, DomainsCollection r )
               => Domains r -> Domains r -> Domains r
 addParameters paramsA paramsB =
   mkDomains (domains0 paramsA + domains0 paramsB)
@@ -292,7 +293,7 @@ addParameters paramsA paramsB =
 
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters
-  :: ( Tensor r, DomainsCollection r
+  :: ( ConvertTensor r, DomainsCollection r
      , Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => Domains r -> Domains r -> r
 dotParameters paramsA paramsB =

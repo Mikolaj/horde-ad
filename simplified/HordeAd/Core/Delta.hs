@@ -386,7 +386,9 @@ data DeltaBinding r =
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
-  :: forall r. (Tensor r, DynamicTensor r, DomainsTensor r, DomainsCollection r)
+  :: forall r.
+     ( Tensor r, ConvertTensor r, DynamicTensor r, DomainsTensor r
+     , DomainsCollection r )
   => Int -> Int -> DeltaDt r
   -> ([(AstVarId, DTensorOf r)], Domains r)
 gradientFromDelta dim0 dimR deltaDt =
@@ -426,7 +428,7 @@ gradientFromDelta dim0 dimR deltaDt =
   :: Int -> Int -> DeltaDt (Ast0 Double)
   -> ([(AstVarId, DTensorOf (Ast0 Double))], Domains (Ast0 Double)) #-}
 
-buildFinMaps :: forall r. (Tensor r, DomainsTensor r)
+buildFinMaps :: forall r. (Tensor r, ConvertTensor r, DomainsTensor r)
              => EvalState r -> DeltaDt r -> EvalState r
 buildFinMaps s0 deltaDt =
   -- The first argument is the evaluation state being modified,
@@ -672,7 +674,8 @@ instance ShowAstSimplify r
       DeltaDtR{} -> error "derivativeFromDelta"
 
 instance ( Num (TensorOf n r), KnownNat n, Ranked r ~ Flip OR.Array r
-         , Dual (Flip OR.Array r n) ~ DeltaR r n, DomainsCollection r )
+         , Dual (Flip OR.Array r n) ~ DeltaR r n, ConvertTensor r
+         , DomainsCollection r )
          => ForwardDerivative (Flip OR.Array r n) where
   derivativeFromDelta dim0 dimR deltaTopLevel ds =
     case runST $ buildDerivative dim0 dimR
@@ -696,7 +699,7 @@ instance (ShowAstSimplify r, KnownNat n)
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
-  :: forall s r. (Tensor r, DomainsCollection r)
+  :: forall s r. (Tensor r, ConvertTensor r, DomainsCollection r)
   => Int -> Int -> DeltaDt r -> Domains r
   -> ST s (DeltaDt r)
 buildDerivative dim0 dimR deltaDt params = do

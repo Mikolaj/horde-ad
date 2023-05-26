@@ -41,14 +41,14 @@ data AstEnvElem a =
 deriving instance (Show (DTensorOf a), Show (IntOf a))
                   => Show (AstEnvElem a)
 
-extendEnvR :: forall n a. (Tensor a, KnownNat n)
+extendEnvR :: forall n a. (ConvertTensor a, KnownNat n)
            => AstVarName (OR.Array n (Value a)) -> TensorOf n a
            -> AstEnv a -> AstEnv a
 extendEnvR v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstVarR $ dfromR d)
 
-extendEnvD :: Tensor a
+extendEnvD :: ConvertTensor a
            => (AstDynamicVarName (Value a), DTensorOf a) -> AstEnv a
            -> AstEnv a
 extendEnvD (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
@@ -106,7 +106,7 @@ class (BooleanOf r ~ b) => BooleanOfMatches b r where
 instance (BooleanOf r ~ b) => BooleanOfMatches b r where
 
 type InterpretAst a =
-  ( Tensor a, Tensor (Primal a)
+  ( Tensor a, ConvertTensor a, Tensor (Primal a)
   , ShowAstSimplify (Value a), Underlying a ~ Value a
   , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a)
   , IntOf (Primal a) ~ IntOf a, BooleanOf (Primal a) ~ BooleanOf (IntOf a)

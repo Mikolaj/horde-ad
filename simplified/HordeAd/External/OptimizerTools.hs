@@ -24,7 +24,8 @@ import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2, liftVT2)
 import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient
-  :: ( Numeric r, Show r, Floating (Vector r), Tensor r, DomainsCollection r
+  :: ( Numeric r, Show r, Floating (Vector r), ConvertTensor r
+     , DomainsCollection r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma params gradient =
@@ -100,7 +101,7 @@ data StateAdam r = StateAdam
 -- The arguments are just sample params0, for dimensions.
 zeroParameters
   :: ( Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
-     , Tensor r, DomainsCollection r )
+     , ConvertTensor r, DomainsCollection r )
   => Domains r -> Domains r
 zeroParameters params =
   let zeroVector v = runST $ do
@@ -112,7 +113,7 @@ zeroParameters params =
 
 initialStateAdam
   :: ( Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
-     , Tensor r, DomainsCollection r )
+     , ConvertTensor r, DomainsCollection r )
   => Domains r -> StateAdam r
 initialStateAdam parameters0 =
   let zeroP = zeroParameters parameters0
@@ -148,7 +149,7 @@ liftArray43 f m1 m2 m3 m4 =
 updateWithGradientAdam
   :: forall r.
      ( Numeric r, Floating (Vector r)
-     , Tensor r, DomainsCollection r
+     , Tensor r, ConvertTensor r, DomainsCollection r
      , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
   => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
   -> (Domains r, StateAdam r)

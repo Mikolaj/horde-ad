@@ -69,6 +69,11 @@ instance DynamicTensor (ADVal r) where
   ddummy = undefined
   disDummy = undefined
 
+-- This is faster than Data.Vector.Vector (Dual ...), because scalar primal
+-- values are in an unboxed vector and also initial paramters are embedded
+-- into ADInputs for free, as opposed to traversing them to create
+-- the Data.Vector.Vector (Dual ...). With many gradient descent iteration
+-- oif a cheap objective function, especially with man scalars, this matters.
 data ADInputs r = ADInputs
   { inputPrimal0 :: Domain0 r
   , inputDual0   :: Data.Vector.Vector (Dual r)
@@ -77,7 +82,7 @@ data ADInputs r = ADInputs
   }
 
 makeADInputs
-  :: (Tensor r, DomainsCollection r)
+  :: (ConvertTensor r, DomainsCollection r)
   => Domains r
   -> ( Data.Vector.Vector (Dual r)
      , Data.Vector.Vector (Dual (DTensorOf r)) )
@@ -141,7 +146,8 @@ instance ShowAstSimplify r
   nParams = undefined
   nScalars = undefined
 
-instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
+instance ( Tensor r, ConvertTensor (ADVal r)
+         , IsPrimal r, KnownNat n
          , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
          , DTensorOf r ~ OD.Array r )
          => AdaptableDomains (ADVal (Flip OR.Array r n)) where
@@ -154,7 +160,8 @@ instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
   nParams = undefined
   nScalars = undefined
 
-instance ( Tensor r, Tensor (ADVal r), IsPrimal r, KnownNat n
+instance ( Tensor r, ConvertTensor (ADVal r)
+         , IsPrimal r, KnownNat n
          , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
          , DTensorOf r ~ OD.Array r )
          => AdaptableDomains (Compose ADVal (Flip OR.Array r) n) where
@@ -269,6 +276,10 @@ instance ( ADTensor r, CRanked IsPrimal r
   tD ast (l, delta) = Compose $ dD l ast delta
   tScale ast (l, delta) = (l, dScale ast delta)
 
+instance ( ADTensor r
+         , Underlying (DTensorOf r) ~ Value r
+         , CRanked (UnderlyingMatches (Value r)) r )
+         => ConvertTensor (ADVal r) where
   type Shaped (ADVal r) = ShapedAbsentADVal r
   tfromD = Compose . fromD
   tfromS = undefined
