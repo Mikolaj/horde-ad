@@ -280,8 +280,8 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
     :: Num (TensorOf n r)
     => TensorOf n r -> TensorOf n r -> TensorOf n r
   tmult = (*)
-  tscaleByScalar :: KnownNat n => r -> TensorOf n r -> TensorOf n r
-  tscaleByScalar s v = v `tmult` treplicate0N (tshape v) (tscalar s)
+  tscaleByScalar :: KnownNat n => TensorOf 0 r -> TensorOf n r -> TensorOf n r
+  tscaleByScalar s v = v `tmult` treplicate0N (tshape v) s
   tsumIn :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
   tsumIn = tsum . ttranspose [1, 0]
     -- TODO: generalize, replace by stride analysis, etc.
@@ -431,7 +431,7 @@ instance Tensor Double where
   tgather1 k t f = Flip $ tgatherZ1R k (runFlip t) f
   tscalar = Flip . tscalarR
   tunScalar = tunScalarR . runFlip
-  tscaleByScalar s v = Flip $ tscaleByScalarR s (runFlip v)
+  tscaleByScalar s v = Flip $ tscaleByScalarR (tunScalar s) (runFlip v)
   tsumIn = Flip . tsumInR . runFlip
   tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   type Primal Double = Double
@@ -494,7 +494,7 @@ instance Tensor Float where
   tgather1 k t f = Flip $ tgatherZ1R k (runFlip t) f
   tscalar = Flip . tscalarR
   tunScalar = tunScalarR . runFlip
-  tscaleByScalar s v = Flip $ tscaleByScalarR s (runFlip v)
+  tscaleByScalar s v = Flip $ tscaleByScalarR (tunScalar s) (runFlip v)
   tsumIn = Flip . tsumInR . runFlip
   tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   type Primal Float = Float

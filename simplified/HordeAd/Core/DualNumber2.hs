@@ -468,7 +468,7 @@ lossSoftMaxCrossEntropyV target d' =
       sumExpU = tsum0 expU
       recipSum = recip sumExpU
 -- not exposed: softMaxU = LA.scaleRecip sumExpU expU
-      softMaxU = tscaleByScalar (tunScalar recipSum) expU
+      softMaxU = tscaleByScalar recipSum expU
   in tunScalar
      $ tD (negate $ log softMaxU `tdot0` target)
             -- TODO: avoid: log . exp

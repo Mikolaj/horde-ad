@@ -113,7 +113,7 @@ lossSoftMaxCrossEntropyR target d' = tunScalar $ tlet d' $ \d ->
         in tlet expU' $ \expU ->
           let sumExpU = tsum0 expU
               recipSum = recip sumExpU
-          in tscaleByScalar (tunScalar recipSum) expU
+          in tscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
   in tlet (tconstant softMaxU')  $ \softMaxU ->
     tD (negate $ log (tprimalPart softMaxU) `tdot0` target)

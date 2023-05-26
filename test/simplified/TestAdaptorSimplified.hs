@@ -521,7 +521,7 @@ testDot2PP = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\s0 m3 m4 -> tsum (treshape [6] (m3 * m4))"
   show deltas
-    @?= "LetR 100000004 (ScalarR (Add0 (Dot0 (AstVar [2,3] (AstVarId 100000004)) (InputR (InputId 0))) (Dot0 (AstVar [2,3] (AstVarId 100000003)) (InputR (InputId 1)))))"
+    @?= "LetR 100000004 (AddR (Dot0 (AstVar [2,3] (AstVarId 100000004)) (InputR (InputId 0))) (Dot0 (AstVar [2,3] (AstVarId 100000003)) (InputR (InputId 1))))"
 
 testMatvecmulPP :: Assertion
 testMatvecmulPP = do
