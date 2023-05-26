@@ -137,10 +137,6 @@ data Delta0 :: Type -> Type where
 
   Index0 :: KnownNat n
          => DeltaR r n -> IndexOf n r -> ShapeInt n -> Delta0 r
-  Sum0 :: KnownNat n
-       => ShapeInt n -> DeltaR r n -> Delta0 r
-  Dot0 :: (KnownNat n, Show (TensorOf n r))
-       => TensorOf n r -> DeltaR r n -> Delta0 r
   UnScalar0 :: DeltaR r 0 -> Delta0 r
 
 deriving instance (Show (IntOf r), Show r) => Show (Delta0 r)
@@ -170,6 +166,10 @@ data DeltaR :: Type -> Nat -> Type where
   SumR :: KnownNat n
        => Int -> DeltaR r (1 + n) -> DeltaR r n
     -- ^ Add element tensors along the outermost dimension.
+  Sum0 :: KnownNat n
+       => ShapeInt n -> DeltaR r n -> DeltaR r 0
+  Dot0 :: (KnownNat n, Show (TensorOf n r))
+       => TensorOf n r -> DeltaR r n -> DeltaR r 0
   ScatterZ :: (KnownNat m, KnownNat p, KnownNat n)
            => ShapeInt (p + n) -> DeltaR r (m + n)
            -> (IndexOf m r -> IndexOf p r)
@@ -520,10 +520,6 @@ buildFinMaps s0 deltaDt =
 -}
         Index0 d ix sh -> evalR s (tscatter sh (tscalar c) (const ix)) d
             -- equivalent: evalR s (updateR (treplicate0NR sh 0) [(ix, c)]) d
-        Sum0 sh d -> evalR s (treplicate0N sh (tscalar c)) d
-        Dot0 v vd -> evalR s (tscaleByScalar c v) vd
-                     -- too slow: evalR s (v * treplicate0N (tshape v) c) vd
-                     -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
         UnScalar0 d -> evalR s (tscalar c) d
 
       evalR :: forall n. KnownNat n
@@ -561,6 +557,9 @@ buildFinMaps s0 deltaDt =
         IndexZ d ix sh -> evalR s (tscatter @r @0 sh c (const ix)) d
           -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
         SumR n d -> evalR s (treplicate n c) d
+        Sum0 sh d -> evalR s (treplicate0N sh c) d
+        Dot0 v vd -> evalR s (v `tmult `treplicate0N (tshape v) c) vd
+                     -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
 --        Scatter1 f n d _sh -> evalR s (tgatherZ1R n c f) d
         ScatterZ _sh d f shd -> evalR s (tgather shd c f) d
         FromListR ld ->
@@ -735,10 +734,6 @@ buildDerivative dim0 dimR deltaDt params = do
 
         Index0 ZeroR _ _ -> return 0
         Index0 d ixs _ -> tunScalar . flip tindex ixs <$> evalR d
-        Sum0 _ ZeroR ->  return 0
-        Sum0 _ d -> tunScalar . tsum0 <$> evalR d
-        Dot0 _ ZeroR ->  return 0
-        Dot0 v d -> tunScalar . tdot0 v <$> evalR d
         UnScalar0 ZeroR -> return 0
         UnScalar0 d -> tunScalar <$> evalR d
 
@@ -776,6 +771,10 @@ buildDerivative dim0 dimR deltaDt params = do
 --        Index1 d ix _len -> (`tindex1R` ix) <$> evalR d
         IndexZ d ix _len -> (`tindex` ix) <$> evalR d
         SumR _ d -> tsum <$> evalR d
+        Sum0 _ ZeroR ->  return 0
+        Sum0 _ d -> tsum0 <$> evalR d
+        Dot0 _ ZeroR ->  return 0
+        Dot0 v d -> tdot0 v <$> evalR d
 --        Scatter1 f _k d sh -> do
 --          t <- evalR d
 --          return $! tscatter1R f t sh

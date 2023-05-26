@@ -296,7 +296,7 @@ data ShapedAbsentADVal r (sh :: [Nat])
 sum0 :: ( ADTensor r, IsPrimal (TensorOf 0 r), KnownNat n
         , Underlying (TensorOf 0 r) ~ Underlying (TensorOf n r) )
      => ADVal (TensorOf n r) -> ADVal (TensorOf 0 r)
-sum0 (D l u u') = dD l (tsum0 u) (dScalarR $ dSum0 (tshape u) u')
+sum0 (D l u u') = dD l (tsum0 u) (dSum0 (tshape u) u')
 
 dot0 :: ( ADTensor r, IsPrimal (TensorOf n r), IsPrimal (TensorOf 0 r)
         , KnownNat n, Underlying (TensorOf 0 r) ~ Underlying (TensorOf n r) )
@@ -305,7 +305,7 @@ dot0 (D l1 ue u') (D l2 ve v') =
   -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
   let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
       !(!l4, v) = recordSharingPrimal ve l3
-  in dD l4 (tdot0 u v) (dScalarR $ dAdd (dDot0 v u') (dDot0 u v'))
+  in dD l4 (tdot0 u v) (dAdd (dDot0 v u') (dDot0 u v'))
 
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
 -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost

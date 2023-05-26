@@ -143,8 +143,18 @@ class HasRanks r where
   dInput0 :: InputId r -> Dual r
   dIndex0 :: KnownNat n
           => Dual (TensorOf n r) -> IndexOf n r -> ShapeInt n -> Dual r
+  dInputR :: InputId (TensorOf n r) -> Dual (TensorOf n r)
+--  dIndexZ1 :: KnownNat n
+--         => Dual (TensorOf (1 + n) r) -> Int -> Int -> Dual (TensorOf n r)
+  dIndexZ :: (KnownNat n, KnownNat m)
+          => Dual (TensorOf (m + n) r) -> IndexOf m r -> ShapeInt (m + n)
+          -> Dual (TensorOf n r)
+  dSumR :: KnownNat n
+        => Int -> Dual (TensorOf (1 + n) r) -> Dual (TensorOf n r)
   dSum0 :: KnownNat n
-        => ShapeInt n -> Dual (TensorOf n r) -> Dual r
+        => ShapeInt n -> Dual (TensorOf n r) -> Dual (TensorOf 0 r)
+  dDot0 :: KnownNat n
+        => TensorOf n r -> Dual (TensorOf n r) -> Dual (TensorOf 0 r)
 --  dScatterZ1 :: (KnownNat p, KnownNat n)
 --            => (Int -> IndexOf p r)
 --            -> Int -> Dual (TensorOf (1 + n) r)
@@ -154,17 +164,6 @@ class HasRanks r where
             -> (IndexOf m r -> IndexOf p r)
             -> ShapeInt (m + n)
             -> Dual (TensorOf (p + n) r)
-  dDot0 :: KnownNat n
-        => TensorOf n r -> Dual (TensorOf n r) -> Dual r
-
-  dInputR :: InputId (TensorOf n r) -> Dual (TensorOf n r)
---  dIndexZ1 :: KnownNat n
---         => Dual (TensorOf (1 + n) r) -> Int -> Int -> Dual (TensorOf n r)
-  dIndexZ :: (KnownNat n, KnownNat m)
-          => Dual (TensorOf (m + n) r) -> IndexOf m r -> ShapeInt (m + n)
-          -> Dual (TensorOf n r)
-  dSumR :: KnownNat n
-        => Int -> Dual (TensorOf (1 + n) r) -> Dual (TensorOf n r)
   dScalarR :: Dual r -> Dual (TensorOf 0 r)
   dFromListR :: KnownNat n
              => [Dual (TensorOf n r)]
@@ -355,14 +354,14 @@ instance ShowAstSimplify r => IsPrimalA r where
 instance HasRanks Double where
   dInput0 = Input0
   dIndex0 = Index0
-  dSum0 = Sum0
-  dDot0 = Dot0
   dUnScalar0 = UnScalar0
 
   dInputR = InputR
 --  dIndex1 = Index1
   dIndexZ = IndexZ
   dSumR = SumR
+  dSum0 = Sum0
+  dDot0 = Dot0
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
   dFromListR = FromListR
@@ -392,14 +391,14 @@ instance HasRanks Double where
 instance HasRanks Float where
   dInput0 = Input0
   dIndex0 = Index0
-  dSum0 = Sum0
-  dDot0 = Dot0
   dUnScalar0 = UnScalar0
 
   dInputR = InputR
 --  dIndex1 = Index1
   dIndexZ = IndexZ
   dSumR = SumR
+  dSum0 = Sum0
+  dDot0 = Dot0
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
   dFromListR = FromListR
@@ -429,14 +428,14 @@ instance HasRanks Float where
 instance ShowAst r => HasRanks (Ast0 r) where
   dInput0 = Input0
   dIndex0 = Index0
-  dSum0 = Sum0
-  dDot0 = Dot0
   dUnScalar0 = UnScalar0
 
   dInputR = InputR
 --  dIndex1 = Index1
   dIndexZ = IndexZ
   dSumR = SumR
+  dSum0 = Sum0
+  dDot0 = Dot0
 --  dScatter1 = Scatter1
   dScatterZ = ScatterZ
   dFromListR = FromListR
