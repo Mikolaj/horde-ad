@@ -524,7 +524,6 @@ library horde-ad-simplified
                       HordeAd.Core.Domains
                       HordeAd.Core.DualClass
                       HordeAd.Core.DualNumber
-                      HordeAd.Core.DualNumber2
                       HordeAd.Core.Engine
                       HordeAd.Core.SizedIndex
                       HordeAd.Core.TensorADVal
@@ -549,7 +548,6 @@ library horde-ad-simplified
       , ilist
       , mono-traversable
       , orthotope
-      , pretty-show
       , random
       , strict-containers
       , unboxed-ref
@@ -569,34 +567,6 @@ library horde-ad-simplified
         -- cargo-culting this one:
         if arch(x86_64)
             cc-options: -fPIC
-
-library oldExampleLibrarySimplified
-    import:           options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    exposed-modules:  MnistData
-                      MnistFcnnScalar
-                      MnistFcnnVector
-                      OldMnistFcnnVector
-
-    build-depends:
-      , horde-ad:horde-ad-simplified
-
-      , base
-      , bytestring
-      , hmatrix
-      , mnist-idx
-      , orthotope
-      , random
-      , strict-containers
-      , vector
-      , zlib
-
-    hs-source-dirs:   example
 
 library exampleLibrarySimplified
     import:           options
@@ -637,7 +607,6 @@ library testToolLibrarySimplified
 
     exposed-modules:  CrossTesting
                       EqEpsilon
-                      Prop
                       Shared
 
     build-depends:
@@ -650,88 +619,9 @@ library testToolLibrarySimplified
       , orthotope
       , tasty >= 1.0
       , tasty-hunit
-      , tasty-quickcheck
       , vector
 
     hs-source-dirs:   test/tool
-
-library testCommonLibrarySimplified
-    import:           options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    exposed-modules:  TestConditionalSynth
-                      TestDescentSimple
-                      TestGradientSimple
-                      TestMnistFCNNSimple
-                      TestMnistRNNSimple
-
-    build-depends:
-      , horde-ad:testToolLibrarySimplified
-      , horde-ad:oldExampleLibrarySimplified
-      , horde-ad:horde-ad-simplified
-
-      , base
-      , hmatrix
-      , ilist
-      , random
-      , storable-tuple
-      , strict-containers
-      , tasty >= 1.0
-      , tasty-hunit
-      , tasty-quickcheck
-      , vector
-
-    hs-source-dirs:   test/common
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-test-suite shortTestForCISimplified
-    import:           options, exe-options-test
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-
-    main-is:          ShortTestForCISimplified.hs
-
-    build-depends:
-      , horde-ad:testCommonLibrarySimplified
-      , horde-ad:testToolLibrarySimplified
-
-      , base
-      , tasty >= 1.0
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-test-suite extremelyLongTestSimplified
-    import:           options, exe-options-test
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-
-    main-is:          ExtremelyLongTestSimplified.hs
-
-    build-depends:
-      , horde-ad:testCommonLibrarySimplified
-      , horde-ad:testToolLibrarySimplified
-
-      , base
-      , tasty >= 1.0
 
 test-suite simplifiedOnlyTest
     import:           options, exe-options-test

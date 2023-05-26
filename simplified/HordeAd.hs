@@ -5,7 +5,7 @@
 module HordeAd
   ( module HordeAd.Core.Ast
   , module HordeAd.Core.AstInterpret
-  , module HordeAd.Core.DualNumber2
+  , module HordeAd.Core.DualNumber
   , module HordeAd.Core.Engine
   , module HordeAd.Core.SizedIndex
   , module HordeAd.Core.TensorADVal
@@ -18,11 +18,10 @@ import Prelude ()
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInterpret
-import HordeAd.Core.DualNumber2
-import HordeAd.Core.Engine hiding (revOnADInputs, revOnDomains)
+import HordeAd.Core.DualNumber
+import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorADVal (makeADInputs)
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
-import HordeAd.External.CommonRankedOps hiding
-  (constant, logistic, lossCrossEntropyV, relu, scale)
+import HordeAd.External.CommonRankedOps
 import HordeAd.External.Optimizer
