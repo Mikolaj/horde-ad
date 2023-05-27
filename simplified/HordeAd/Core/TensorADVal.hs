@@ -198,10 +198,15 @@ instance ( ADTensor r, CRanked IsPrimal r
         (l4, v) = recordSharingPrimal ve l3
     in Compose $ dD l4 (u * v) (dScale v u')
   tmult d e = d * e
+  tconst t = Compose $ dD emptyADShare (tconstBare t) dZero
 
+instance ( ADTensor r, CRanked IsPrimal r
+         , Underlying (DTensorOf r) ~ Value r, Value (ADVal r) ~ Value r
+         , Underlying r ~ Value r
+         , CRanked (UnderlyingMatches (Value r)) r )
+         => PrimalDualTensor (ADVal r) where
   type Primal (ADVal r) = r
   type DualOf n (ADVal r) = (ADShare (Value r), Dual (TensorOf n r))
-  tconst t = Compose $ dD emptyADShare (tconstBare t) dZero
   tconstant t = Compose $ dD emptyADShare t dZero
   tprimalPart (Compose (D l u _)) = tletWrap l u
   tdualPart (Compose (D l _ u')) = (l, u')

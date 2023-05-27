@@ -106,7 +106,7 @@ class (BooleanOf r ~ b) => BooleanOfMatches b r where
 instance (BooleanOf r ~ b) => BooleanOfMatches b r where
 
 type InterpretAst a =
-  ( Tensor a, ConvertTensor a, Tensor (Primal a)
+  ( Tensor a, PrimalDualTensor a, ConvertTensor a, Tensor (Primal a)
   , ShowAstSimplify (Value a), Underlying a ~ Value a
   , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a)
   , IntOf (Primal a) ~ IntOf a, BooleanOf (Primal a) ~ BooleanOf (IntOf a)

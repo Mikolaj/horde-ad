@@ -16,12 +16,8 @@ import GHC.TypeLits (KnownNat)
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
-constant :: (Tensor r, KnownNat n)
-         => TensorOf n (Primal r) -> TensorOf n r
-constant = tconstant
-
-scale :: (Tensor d, KnownNat n)
-      => TensorOf n (Primal d) -> TensorOf n d -> TensorOf n d
+scale :: (Tensor r, PrimalDualTensor r, KnownNat n)
+      => TensorOf n (Primal r) -> TensorOf n r -> TensorOf n r
 scale a d = tconstant a `tmult` d
 -- This should be faster, but is slower even before `tmult` is optimized
 -- for the scaling case. This may be caused by the lets repeated
@@ -41,7 +37,7 @@ reluLeaky v =
 
 -- TODO: verify how faster a dedicated Tensor method would be
 logistic :: forall r n.
-            ( Tensor r, Tensor (Primal r), KnownNat n
+            ( Tensor r, PrimalDualTensor r, Tensor (Primal r), KnownNat n
             , Floating (TensorOf n (Primal r)) )
          => TensorOf n r -> TensorOf n r
 logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
@@ -53,14 +49,16 @@ logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
 
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
-square :: forall r n. (Tensor r, KnownNat n, Num (TensorOf n (Primal r)))
+square :: forall r n.
+          (PrimalDualTensor r, KnownNat n, Num (TensorOf n (Primal r)))
        => TensorOf n r -> TensorOf n r
 square d = let u = tprimalPart d
                u' = tdualPart d
            in tD (u * u) (tScale @r (2 * u) u')
 
 squaredDifference
-  :: (Tensor r, KnownNat n, Num (TensorOf n r), Num (TensorOf n (Primal r)))
+  :: ( PrimalDualTensor r, KnownNat n, Num (TensorOf n r)
+     , Num (TensorOf n (Primal r)) )
   => TensorOf n (Primal r) -> TensorOf n r -> TensorOf n r
 squaredDifference targ res = square $ res - tconstant targ
 
@@ -74,7 +72,7 @@ lossCrossEntropyV targ res = negate $ log res `tdot0` targ
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
-  :: ( Tensor r, Tensor (Primal r), KnownNat n
+  :: ( Tensor r, PrimalDualTensor r, Tensor (Primal r), KnownNat n
      , Floating (TensorOf n (Primal r))
      , Fractional (TensorOf 0 (Primal r)) )
   => TensorOf n (Primal r) -> TensorOf n r -> TensorOf 0 r

@@ -9,7 +9,8 @@
 module HordeAd.Core.TensorClass
   ( ttoRankedOrDummy
   , IndexOf, TensorOf, ShapeInt, CRanked, CYRanked, CRanked2
-  , Tensor(..), ConvertTensor(..), DynamicTensor(..), DomainsTensor(..), ADReady
+  , Tensor(..), PrimalDualTensor(..), ConvertTensor(..), DynamicTensor(..)
+  , DomainsTensor(..), ADReady
   ) where
 
 import Prelude
@@ -249,11 +250,20 @@ class (CRanked RealFloat r, Integral (IntOf r))
   tdot1In :: TensorOf 2 r -> TensorOf 2 r -> TensorOf 1 r
   tdot1In t u = tsum (ttranspose [1, 0] (t `tmult` u))
     -- TODO: generalize, replace by stride analysis, etc.
+  tconst :: KnownNat n => OR.Array n (Value r) -> TensorOf n r
+  tconstBare :: KnownNat n => OR.Array n (Value r) -> TensorOf n r
+  tconstBare = tconst
+  -- Operations for delayed let bindings creation
+  tregister :: KnownNat n
+            => TensorOf n r -> [(AstVarId, DTensorOf r)]
+            -> ([(AstVarId, DTensorOf r)], TensorOf n r)
+  tregister r l = (l, r)
+  tletWrap :: ADShare (Value r) -> TensorOf n r -> TensorOf n r
+  tletWrap _l u = u
 
-  -- The primal/dual distinction
+class PrimalDualTensor r where
   type Primal r
   type DualOf (n :: Nat) r
-  tconst :: KnownNat n => OR.Array n (Value r) -> TensorOf n r
   tconstant :: KnownNat n => TensorOf n (Primal r) -> TensorOf n r
   tprimalPart :: KnownNat n
               => TensorOf n r -> TensorOf n (Primal r)
@@ -266,16 +276,6 @@ class (CRanked RealFloat r, Integral (IntOf r))
   -- (and HasInputs?)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
-  tconstBare :: KnownNat n => OR.Array n (Value r) -> TensorOf n r
-  tconstBare = tconst
-
-  -- Operations for delayed let bindings creation
-  tregister :: KnownNat n
-            => TensorOf n r -> [(AstVarId, DTensorOf r)]
-            -> ([(AstVarId, DTensorOf r)], TensorOf n r)
-  tregister r l = (l, r)
-  tletWrap :: ADShare (Value r) -> TensorOf n r -> TensorOf n r
-  tletWrap _l u = u
 
 class ConvertTensor r where
   type Shaped r = (t :: [Nat] -> Type) | t -> r
@@ -317,7 +317,7 @@ class DomainsTensor r where
 type Many (f :: Type -> Constraint) r = (f (TensorOf 0 r), f (TensorOf 1 r), f (TensorOf 2 r), f (TensorOf 3 r), f (TensorOf 4 r), f (TensorOf 5 r), f (TensorOf 6 r), f (TensorOf 7 r), f (TensorOf 8 r), f (TensorOf 9 r), f (TensorOf 10 r), f (TensorOf 11 r), f (TensorOf 12 r))
 
 type ADReady r =
-  ( Tensor r, Tensor (Primal r)
+  ( Tensor r, PrimalDualTensor r, Tensor (Primal r)
   , Numeric (Value r), RealFloat (Value r), Scalar r ~ r
   , IfB (IntOf r), Many IfB r, Many IfB (Primal r)
   , EqB r, EqB (IntOf r), Many EqB r, Many EqB (Primal r)
@@ -394,9 +394,11 @@ instance Tensor Double where
     Flip $ tscaleByScalarR (tunScalarR $ runFlip s) (runFlip v)
   tsumIn = Flip . tsumInR . runFlip
   tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
+  tconst = Flip
+
+instance PrimalDualTensor Double where
   type Primal Double = Double
   type DualOf n Double = ()
-  tconst = Flip
   tconstant = id
   tprimalPart = id
   tdualPart _ = ()
@@ -455,9 +457,11 @@ instance Tensor Float where
     Flip $ tscaleByScalarR (tunScalarR $ runFlip s) (runFlip v)
   tsumIn = Flip . tsumInR . runFlip
   tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
+  tconst = Flip
+
+instance PrimalDualTensor Float where
   type Primal Float = Float
   type DualOf n Float = ()
-  tconst = Flip
   tconstant = id
   tprimalPart = id
   tdualPart _ = ()

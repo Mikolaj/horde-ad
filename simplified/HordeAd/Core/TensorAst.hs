@@ -58,17 +58,8 @@ instance ShowAstSimplify r
   tgather sh t f = AstGatherZ sh t (funToAstIndex f)  -- introduces new vars
 
   tsumOfList l = AstSumOfList l
-
-  type Primal (Ast0 r) = AstPrimalPart 0 r
-  type DualOf n (Ast0 r) = AstDualPart n r
   tconst = AstConstant . AstPrimalPart . AstConst
-  tconstant = astConstant
-  tprimalPart = AstPrimalPart
-  tdualPart = AstDualPart
-  tD = AstD
-  tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
   tconstBare = AstConst
-
   tregister = astRegisterFun
   tletWrap = AstLetADShare
     -- We can't use astLet here, because it may inline a let that is
@@ -76,6 +67,16 @@ instance ShowAstSimplify r
     -- sharing that is not visible in this restricted context.
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
+
+instance ShowAstSimplify r
+         => PrimalDualTensor (Ast0 r) where
+  type Primal (Ast0 r) = AstPrimalPart 0 r
+  type DualOf n (Ast0 r) = AstDualPart n r
+  tconstant = astConstant
+  tprimalPart = AstPrimalPart
+  tdualPart = AstDualPart
+  tD = AstD
+  tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
 instance ConvertTensor (Ast0 r) where
   type Shaped (Ast0 r) = ShapedAbsentAst0 r
@@ -244,18 +245,19 @@ instance ShowAstSimplify r
                    $ funToAstIndex f  -- this introduces new variable names
 
   tsumOfList l = AstPrimalPart . AstSumOfList . map unAstPrimalPart $ l
+  tconst = AstPrimalPart . AstConst
+  tregister = undefined
+  tletWrap = undefined
 
+instance ShowAstSimplify r
+         => PrimalDualTensor (AstPrimalPart 0 r) where
   type Primal (AstPrimalPart 0 r) = AstPrimalPart 0 r
   type DualOf n (AstPrimalPart 0 r) = ()
-  tconst = AstPrimalPart . AstConst
   tconstant = id
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
   tScale _ _ = ()
-
-  tregister = undefined
-  tletWrap = undefined
 
 instance ShowAstSimplify r
          => Tensor (AstNoVectorize r 0) where
@@ -295,19 +297,20 @@ instance ShowAstSimplify r
                    $ funToAstIndex f  -- this introduces new variable names
 
   tsumOfList l = AstNoVectorize . AstSumOfList . map unAstNoVectorize $ l
+  tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
+  tconstBare = AstNoVectorize . AstConst
+  tregister = undefined
+  tletWrap = undefined
 
+instance ShowAstSimplify r
+         => PrimalDualTensor (AstNoVectorize r 0) where
   type Primal (AstNoVectorize r 0) = AstNoVectorize r 0
   type DualOf n (AstNoVectorize r 0) = AstDualPart n r
-  tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
   tconstant = AstNoVectorize . astConstant . AstPrimalPart . unAstNoVectorize
   tprimalPart = id
   tdualPart = AstDualPart . unAstNoVectorize
   tD u u' = AstNoVectorize $ AstD (AstPrimalPart $ unAstNoVectorize u) u'
   tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
-  tconstBare = AstNoVectorize . AstConst
-
-  tregister = undefined
-  tletWrap = undefined
 
 instance ShowAstSimplify r
          => Tensor (AstNoSimplify r 0) where
@@ -345,20 +348,21 @@ instance ShowAstSimplify r
                    $ funToAstIndex f  -- this introduces new variable names
 
   tsumOfList l = AstNoSimplify . AstSumOfList . map unAstNoSimplify $ l
+  tconst = AstNoSimplify . AstConstant . AstPrimalPart . AstConst
+  tconstBare = AstNoSimplify . AstConst
+  tregister = undefined
+  tletWrap = undefined
 
+instance ShowAstSimplify r
+         => PrimalDualTensor (AstNoSimplify r 0) where
   type Primal (AstNoSimplify r 0) = AstNoSimplify r 0
   type DualOf n (AstNoSimplify r 0) = AstDualPart n r
-  tconst = AstNoSimplify . AstConstant . AstPrimalPart . AstConst
   tconstant = AstNoSimplify . astConstant . AstPrimalPart . unAstNoSimplify
     -- exceptionally we do simplify AstConstant to avoid long boring chains
   tprimalPart = id
   tdualPart = AstDualPart . unAstNoSimplify
   tD u u' = AstNoSimplify $ AstD (AstPrimalPart $ unAstNoSimplify u) u'
   tScale (AstNoSimplify s) (AstDualPart t) = AstDualPart $ s `tmult` t
-  tconstBare = AstNoSimplify . AstConst
-
-  tregister = undefined
-  tletWrap = undefined
 
 astLetFunUnSimp :: (KnownNat n, KnownNat m, ShowAst r)
                 => Ast n r -> (Ast n r -> Ast m r) -> Ast m r

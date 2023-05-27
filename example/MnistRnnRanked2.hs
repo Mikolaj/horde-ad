@@ -73,7 +73,7 @@ rnnMnistLayerR s x (wX, wS, b) = case tshape s of
   _ -> error "rnnMnistLayerR: wrong shape of the state"
 
 rnnMnistTwoR
-  :: Tensor r
+  :: (Tensor r, PrimalDualTensor r)
   => Ranked r 2  -- initial state, [2 * out_width, batch_size]
   -> Ranked (Primal r) 2  -- [sizeMnistHeight, batch_size]
   -> ( LayerWeigthsRNN r  -- sizeMnistHeight out_width
@@ -93,7 +93,7 @@ rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case tshape s' of
   _ -> error "rnnMnistTwoR: wrong shape of the state"
 
 rnnMnistZeroR
-  :: (Tensor r, Tensor (Primal r))
+  :: (Tensor r, PrimalDualTensor r, Tensor (Primal r))
   => Int
   -> Ranked (Primal r) 3  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
   -> ADRnnMnistParameters r  -- sizeMnistHeight out_width
@@ -108,7 +108,7 @@ rnnMnistZeroR batch_size xs
   _ -> error "rnnMnistZeroR: wrong shape"
 
 rnnMnistLossFusedR
-  :: (Tensor r, Tensor (Primal r))
+  :: (Tensor r, PrimalDualTensor r, Tensor (Primal r))
   => Int
   -> (Ranked (Primal r) 3, Ranked (Primal r) 2)  -- batch_size
   -> ADRnnMnistParameters r  -- SizeMnistHeight out_width
