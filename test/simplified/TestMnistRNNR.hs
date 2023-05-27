@@ -27,10 +27,9 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.Domains
-import HordeAd.Core.DualNumber (ADTensor, ADVal, IsPrimalR, dDnotShared)
+import HordeAd.Core.DualNumber (ADTensor, ADVal, IsPrimalR)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.External.Optimizer
 import HordeAd.External.OptimizerTools
@@ -188,9 +187,9 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           shapes1 = map dshape $ toListDoms domainsInit
+           shapes1 = map dshape $ V.toList domainsInit
            (vars1, asts1) = unzip $ map funToAstD shapes1
-           doms = fromListDoms asts1
+           doms = V.fromList asts1
            (varGlyph, astGlyph) =
              funToAstR
                (miniBatchSize :$ sizeMnistHeightInt :$ sizeMnistWidthInt :$ ZS)
@@ -209,10 +208,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                    -> ADVal (TensorOf 0 r)
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvD EM.empty
-                              $ zip vars1 $ V.toList
-                              $ V.zipWith (dDnotShared emptyADShare)
-                                          (inputPrimal1 varInputs)
-                                          (inputDual1 varInputs)
+                              $ zip vars1 $ V.toList varInputs
                        envMnist = extendEnvR varGlyph (tconst glyph)
                                   $ extendEnvR varLabel (tconst label) env1
                    in getCompose $ snd $ interpretAst envMnist emptyMemo ast
@@ -328,7 +324,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
              let glyphD = dfromR $ tconst glyph
                  labelD = dfromR $ tconst label
                  parametersAndInput =
-                   concatDomsR [parameters, fromListDoms [glyphD, labelD]]
+                   V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
                    fst $ revAstOnDomainsEval (vars, gradient, primal)
                                              parametersAndInput Nothing

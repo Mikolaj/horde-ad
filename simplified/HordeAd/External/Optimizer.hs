@@ -16,7 +16,6 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import HordeAd.Core.Domains
 import HordeAd.Core.DualNumber (ADTensor, ADVal, IsPrimalR)
 import HordeAd.Core.Engine
-import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.External.OptimizerTools
 
@@ -44,7 +43,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 {-# SPECIALIZE sgd
   :: Double
   -> ((Vector Double, Vector Double)
-      -> ADInputs Double
+      -> Domains (ADVal Double)
       -> ADVal (TensorOf 0 Double))
   -> [(Vector Double, Vector Double)]
   -> Domains Double

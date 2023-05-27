@@ -29,10 +29,9 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.Domains
-import HordeAd.Core.DualNumber (ADTensor, ADVal, IsPrimalR, dDnotShared)
+import HordeAd.Core.DualNumber (ADTensor, ADVal, IsPrimalR)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import HordeAd.External.Optimizer
@@ -134,7 +133,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (fromListDoms params1Init)
+       res <- runEpoch 1 (V.fromList params1Init)
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
@@ -175,7 +174,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                           - LA.scalar 0.5)
              nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = fromListDoms params1Init
+      domainsInit = V.fromList params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -207,7 +206,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let shapes1 = map (: []) nParams1
            (vars1, asts1) = unzip $ map funToAstD shapes1
-           doms = fromListDoms asts1
+           doms = V.fromList asts1
            (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
@@ -223,10 +222,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> Domains (ADVal r) -> ADVal (TensorOf 0 r)
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvD EM.empty
-                              $ zip vars1 $ V.toList
-                              $ V.zipWith (dDnotShared emptyADShare)
-                                          (inputPrimal1 varInputs)
-                                          (inputDual1 varInputs)
+                              $ zip vars1 $ V.toList varInputs
                        envMnist =
                          extendEnvR varGlyph
                            (tconst $ OR.fromVector [sizeMnistGlyphInt] glyph)
@@ -295,7 +291,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                           - LA.scalar 0.5)
              nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = fromListDoms params1Init
+      domainsInit = V.fromList params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -346,7 +342,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
              let glyphD = OD.fromVector [sizeMnistGlyphInt] glyph
                  labelD = OD.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
-                   concatDomsR [parameters, fromListDoms [glyphD, labelD]]
+                   V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
                    fst $ revAstOnDomainsEval (vars, gradient, primal)
                                              parametersAndInput Nothing
@@ -536,9 +532,9 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let shapes1 = map dshape $ toListDoms domainsInit
+       let shapes1 = map dshape $ V.toList domainsInit
            (vars1, asts1) = unzip $ map funToAstD shapes1
-           doms = fromListDoms asts1
+           doms = V.fromList asts1
            (varGlyph, astGlyph) =
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
@@ -553,10 +549,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> Domains (ADVal r) -> ADVal (Ranked r 0)
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvD EM.empty
-                              $ zip vars1 $ V.toList
-                              $ V.zipWith (dDnotShared emptyADShare)
-                                          (inputPrimal1 varInputs)
-                                          (inputDual1 varInputs)
+                              $ zip vars1 $ V.toList varInputs
                        envMnist =
                          extendEnvR varGlyph
                            (tconst $ OR.fromVector [sizeMnistGlyphInt] glyph)
@@ -674,7 +667,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
              let glyphD = OD.fromVector [sizeMnistGlyphInt] glyph
                  labelD = OD.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
-                   concatDomsR [parameters, fromListDoms [glyphD, labelD]]
+                   V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
                    fst $ revAstOnDomainsEval (vars, gradient, primal)
                                              parametersAndInput Nothing

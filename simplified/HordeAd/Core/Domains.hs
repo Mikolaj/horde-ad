@@ -2,8 +2,7 @@
 -- | A general representation of the domains of objective functions
 -- that become the codomains of the gradient functions.
 module HordeAd.Core.Domains
-  ( DynamicTensor(..)
-  , DomainsCollection(..)
+  ( DynamicTensor(..), Domains
   , Underlying, AdaptableDomains(..), parseDomains
   , RandomDomains(..)
   ) where
@@ -28,15 +27,6 @@ class DynamicTensor r where
   ddummy :: DTensorOf r
   disDummy :: DTensorOf r -> Bool
 
-class DomainsCollection r where
-  type Domains r = result | result -> r
-  unconsR :: Domains r -> Maybe (DTensorOf r, Domains r)
-  concatDomsR :: [Domains r] -> Domains r
-  fromListDoms :: [DTensorOf r] -> Domains r
-  toListDoms :: Domains r -> [DTensorOf r]
-  fromVectorDoms :: Data.Vector.Vector (DTensorOf r) -> Domains r
-  toVectorDoms :: Domains r -> Data.Vector.Vector (DTensorOf r)
-
 instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
   ddummy = dummyTensor
@@ -47,23 +37,15 @@ instance DynamicTensor Float where
   ddummy = dummyTensor
   disDummy = isTensorDummy
 
-instance DomainsCollection Double where
-  type Domains Double = Data.Vector.Vector (OD.Array Double)
-  unconsR = V.uncons
-  concatDomsR = V.concat
-  fromListDoms = V.fromList
-  toListDoms = V.toList
-  fromVectorDoms = id
-  toVectorDoms = id
+-- When r is Ast, this is used for domains composed of variables only,
+-- to adapt them into more complex types and back again. This is not used
+-- for vectors of large terms, since they'd share values, so we'd need
+-- AstDomainsLet, but these would make adapting the vector costly.
+-- DomainsOf is used for that and the only reasons DomainsOf exists
+-- is to prevent mixing up the two (and complicating the definition
+-- below with errors in the AstDomainsLet case).
+type Domains r = Data.Vector.Vector (DTensorOf r)
 
-instance DomainsCollection Float where
-  type Domains Float = Data.Vector.Vector (OD.Array Float)
-  unconsR = V.uncons
-  concatDomsR = V.concat
-  fromListDoms = V.fromList
-  toListDoms = V.toList
-  fromVectorDoms = id
-  toVectorDoms = id
 
 -- * Adaptor classes
 
@@ -89,11 +71,11 @@ class RandomDomains vals where
   toRanked :: vals -> ToRanked vals
 
 parseDomains
-  :: (AdaptableDomains vals, DomainsCollection (Scalar vals))
+  :: AdaptableDomains vals
   => Value vals -> Domains (Scalar vals) -> vals
 parseDomains aInit domains =
   case fromDomains aInit domains of
-    Just (vals, rest) -> assert (V.null $ toVectorDoms rest) vals
+    Just (vals, rest) -> assert (V.null rest) vals
     Nothing -> error "parseDomains: Nothing"
 
 
@@ -115,11 +97,11 @@ instance AdaptableDomains Float where
   nParams = undefined
   nScalars = undefined
 
-instance (AdaptableDomains a, r ~ Scalar a, DomainsCollection r)
+instance (AdaptableDomains a, r ~ Scalar a)
          => AdaptableDomains [a] where
   type Scalar [a] = Scalar a
   type Value [a] = [Value a]
-  toDomains = concatDomsR . map toDomains
+  toDomains = V.concat . map toDomains
   fromDomains lInit source =
     let f (lAcc, restAcc) aInit =
           case fromDomains aInit restAcc of
@@ -134,8 +116,7 @@ instance (AdaptableDomains a, r ~ Scalar a, DomainsCollection r)
   nParams = sum . map nParams
   nScalars = sum . map nScalars
 
-instance ( DomainsCollection r
-         , r ~ Scalar a, r ~ Scalar b
+instance ( r ~ Scalar a, r ~ Scalar b
          , AdaptableDomains a
          , AdaptableDomains b ) => AdaptableDomains (a, b) where
   type Scalar (a, b) = Scalar a
@@ -143,7 +124,7 @@ instance ( DomainsCollection r
   toDomains (a, b) =
     let a1 = toDomains a
         b1 = toDomains b
-    in concatDomsR [a1, b1]
+    in V.concat [a1, b1]
   fromDomains (aInit, bInit) source = do
     (a, aRest) <- fromDomains aInit source
     (b, bRest) <- fromDomains bInit aRest
@@ -161,8 +142,7 @@ instance ( r ~ Scalar a, r ~ Scalar b
   type ToRanked (a, b) = (ToRanked a, ToRanked b)
   toRanked (a, b) = (toRanked a, toRanked b)
 
-instance ( DomainsCollection r
-         , r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
+instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
          , AdaptableDomains a
          , AdaptableDomains b
          , AdaptableDomains c ) => AdaptableDomains (a, b, c) where
@@ -172,7 +152,7 @@ instance ( DomainsCollection r
     let a1 = toDomains a
         b1 = toDomains b
         c1 = toDomains c
-    in concatDomsR [a1, b1, c1]
+    in V.concat [a1, b1, c1]
   fromDomains (aInit, bInit, cInit) source = do
     (a, aRest) <- fromDomains aInit source
     (b, bRest) <- fromDomains bInit aRest
@@ -193,8 +173,7 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
   type ToRanked (a, b, c) = (ToRanked a, ToRanked b, ToRanked c)
   toRanked (a, b, c) = (toRanked a, toRanked b, toRanked c)
 
-instance ( DomainsCollection r
-         , r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
+instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
          , AdaptableDomains a
          , AdaptableDomains b
          , AdaptableDomains c
@@ -206,7 +185,7 @@ instance ( DomainsCollection r
         b1 = toDomains b
         c1 = toDomains c
         d1 = toDomains d
-    in concatDomsR [a1, b1, c1, d1]
+    in V.concat [a1, b1, c1, d1]
   fromDomains (aInit, bInit, cInit, dInit) source = do
     (a, aRest) <- fromDomains aInit source
     (b, bRest) <- fromDomains bInit aRest
@@ -248,12 +227,12 @@ instance ( r ~ Scalar a, r ~ Scalar b
   nParams = either nParams nParams
   nScalars = either nScalars nScalars
 
-instance ( AdaptableDomains a, DomainsCollection (Scalar a) )
+instance AdaptableDomains a
          => AdaptableDomains (Maybe a) where
   type Scalar (Maybe a) = Scalar a
   type Value (Maybe a) = Maybe (Value a)
   toDomains e = case e of
-    Nothing -> concatDomsR []
+    Nothing -> V.concat []
     Just a -> toDomains a
   fromDomains eInit source = case eInit of
     Nothing -> Just (Nothing, source)

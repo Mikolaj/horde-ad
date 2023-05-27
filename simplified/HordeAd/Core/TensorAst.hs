@@ -14,7 +14,6 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
@@ -96,23 +95,6 @@ instance DynamicTensor (Ast0 r) where
     AstDynamic AstIota -> True
     _ -> False
 
--- This is used for domains composed of variables only, to adapt them
--- into more complex types and back again. This is not used for
--- vectors of large terms, since they'd share values, so we'd need
--- AstDomainsLet, but these would make adapting the vector costly.
--- DomainsOf is used for that and the only reasons DomainsOf exists
--- is to prevent mixing up the two (and complicating the definition
--- below with errors in the AstDomainsLet case).
-instance ShowAstSimplify r
-         => DomainsCollection (Ast0 r) where
-  type Domains (Ast0 r) = Data.Vector.Vector (AstDynamic r)
-  unconsR = V.uncons
-  concatDomsR = V.concat
-  fromListDoms = V.fromList
-  toListDoms = V.toList
-  fromVectorDoms = id
-  toVectorDoms = id
-
 instance ShowAstSimplify r
          => AdaptableDomains (Ast0 r) where
   type Scalar (Ast0 r) = Ast0 r
@@ -128,7 +110,7 @@ instance ( Tensor r, ShowAstSimplify r, KnownNat n
   type Scalar (Ast n r) = Ast0 r
   type Value (Ast n r) = Flip OR.Array r n
   toDomains = undefined
-  fromDomains aInit params = case unconsR params of
+  fromDomains aInit params = case V.uncons params of
     Just (a, rest) -> Just (ttoRankedOrDummy (tshape aInit) a, rest)
     Nothing -> Nothing
   nParams = undefined

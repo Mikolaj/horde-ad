@@ -8,7 +8,6 @@ module HordeAd
   , module HordeAd.Core.DualNumber
   , module HordeAd.Core.Engine
   , module HordeAd.Core.SizedIndex
-  , module HordeAd.Core.TensorADVal
   , module HordeAd.Core.TensorClass
   , module HordeAd.External.CommonRankedOps
   , module HordeAd.External.Optimizer
@@ -21,7 +20,6 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import HordeAd.External.Optimizer

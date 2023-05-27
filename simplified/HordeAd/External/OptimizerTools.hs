@@ -19,31 +19,25 @@ import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
 import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient
-  :: ( Numeric r, Floating (Vector r)
-     , DomainsCollection r, DTensorOf r ~ OD.Array r )
+  :: (Numeric r, Floating (Vector r), DTensorOf r ~ OD.Array r)
   => r -> Domains r -> Domains r -> Domains r
-updateWithGradient gamma params gradient =
-  let paramsR = toVectorDoms params
-      gradientR = toVectorDoms gradient
-      updateVector i r = i - LA.scale gamma r
+updateWithGradient gamma paramsR gradientR =
+  let updateVector i r = i - LA.scale gamma r
       updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVT2 updateVector i r
-      !paramsRNew = V.zipWith updateR paramsR gradientR
-  in fromVectorDoms paramsRNew
+  in V.zipWith updateR paramsR gradientR
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
 
 updateWithGradientR
-  :: ( Numeric r, Floating (Vector r), DTensorOf r ~ OD.Array r
-     , DomainsCollection r )
+  :: (Numeric r, Floating (Vector r), DTensorOf r ~ OD.Array r)
   => r -> Domains r -> Domains r -> Domains r
 updateWithGradientR gamma params gradient =
   let updateVector i r = i - LA.scale gamma r
       updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVT2 updateVector i r
-  in fromVectorDoms
-     $ V.zipWith updateR (toVectorDoms params) (toVectorDoms gradient)
+  in V.zipWith updateR params gradient
 {-# SPECIALIZE updateWithGradientR :: Double -> Domains Double -> Domains Double -> Domains Double #-}
 
 {-
@@ -90,14 +84,12 @@ data StateAdam r = StateAdam
 
 -- The arguments are just sample params0, for dimensions.
 zeroParameters
-  :: ( Numeric r, DTensorOf r ~ OD.Array r, DomainsCollection r )
+  :: (Numeric r, DTensorOf r ~ OD.Array r)
   => Domains r -> Domains r
-zeroParameters params =
-  fromVectorDoms (V.map (\a -> OD.constant (OD.shapeL a) 0) (toVectorDoms params))
+zeroParameters params = V.map (\a -> OD.constant (OD.shapeL a) 0) params
 
 initialStateAdam
-  :: ( Numeric r, DTensorOf r ~ OD.Array r
-     , DomainsCollection r )
+  :: (Numeric r, DTensorOf r ~ OD.Array r)
   => Domains r -> StateAdam r
 initialStateAdam parameters0 =
   let zeroP = zeroParameters parameters0
@@ -132,16 +124,13 @@ liftArray43 f m1 m2 m3 m4 =
 
 updateWithGradientAdam
   :: forall r.
-     ( Numeric r, Floating r, Floating (Vector r)
-     , DomainsCollection r, DTensorOf r ~ OD.Array r )
+     (Numeric r, Floating r, Floating (Vector r), DTensorOf r ~ OD.Array r)
   => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
   -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
-                       params gradient =
-  let mAdamR = toVectorDoms mAdam
-      vAdamR = toVectorDoms vAdam
-      paramsR = toVectorDoms params
-      gradientR = toVectorDoms gradient
+                       paramsR gradientR =
+  let mAdamR = mAdam
+      vAdamR = vAdam
       tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
@@ -163,10 +152,10 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                           else liftArray43 updateVector mA vA p g
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         V.unzip3 $ V.zipWith4 updateR mAdamR vAdamR paramsR gradientR
-  in ( fromVectorDoms paramsRNew
+  in ( paramsRNew
      , StateAdam
          { tAdam = tAdamNew
-         , mAdam = fromVectorDoms mAdamRNew
-         , vAdam = fromVectorDoms vAdamRNew
+         , mAdam = mAdamRNew
+         , vAdam = vAdamRNew
          }
      )

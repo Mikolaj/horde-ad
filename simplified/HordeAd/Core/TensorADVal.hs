@@ -5,7 +5,7 @@
 -- | 'Tensor' class instances for dual number. The dual numbers are built
 -- either from concrete floats or from 'Ast' term.
 module HordeAd.Core.TensorADVal
-  ( ADInputs(..), makeADInputs
+  (
   ) where
 
 import Prelude hiding ((<*))
@@ -59,40 +59,6 @@ instance DynamicTensor (ADVal r) where
   ddummy = undefined
   disDummy = undefined
 
--- This is faster than Data.Vector.Vector (Dual ...), because scalar primal
--- values are in an unboxed vector and also initial paramters are embedded
--- into ADInputs for free, as opposed to traversing them to create
--- the Data.Vector.Vector (Dual ...). With many gradient descent iteration
--- oif a cheap objective function, especially with man scalars, this matters.
-data ADInputs r = ADInputs
-  { inputPrimal1 :: Data.Vector.Vector (DTensorOf r)
-  , inputDual1   :: Data.Vector.Vector (Dual (DTensorOf r))
-  }
-
-makeADInputs
-  :: DomainsCollection r
-  => Domains r
-  -> Data.Vector.Vector (Dual (DTensorOf r))
-  -> ADInputs r
-{-# INLINE makeADInputs #-}
-makeADInputs params vs1
-  = ADInputs (toVectorDoms params) vs1
-
-instance DomainsCollection (ADVal r) where
-  type Domains (ADVal r) = ADInputs r
-  unconsR inputs@ADInputs{..} = case V.uncons inputPrimal1 of
-    Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
-      Just (aDual, restDual) ->
-        Just ( dDnotShared emptyADShare aPrimal aDual
-             , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
-      Nothing -> Nothing
-    Nothing -> Nothing
-  concatDomsR = undefined
-  fromListDoms = undefined
-  toListDoms = undefined
-  fromVectorDoms = undefined
-  toVectorDoms = undefined
-
 instance AdaptableDomains (ADVal Double) where
   type Scalar (ADVal Double) = ADVal Double
   type Value (ADVal Double) = Double
@@ -125,7 +91,7 @@ instance ( ConvertTensor (ADVal r), KnownNat n
   type Scalar (ADVal (Flip OR.Array r n)) = ADVal r
   type Value (ADVal (Flip OR.Array r n)) = Flip OR.Array r n
   toDomains = undefined
-  fromDomains _aInit inputs = case unconsR inputs of
+  fromDomains _aInit inputs = case V.uncons inputs of
     Just (a, rest) -> Just (getCompose $ tfromD a, rest)
     Nothing -> Nothing
   nParams = undefined
@@ -138,7 +104,7 @@ instance ( ConvertTensor (ADVal r), KnownNat n
   type Scalar (Compose ADVal (Flip OR.Array r) n) = ADVal r
   type Value (Compose ADVal (Flip OR.Array r) n) = Flip OR.Array r n
   toDomains = undefined
-  fromDomains _aInit inputs = case unconsR inputs of
+  fromDomains _aInit inputs = case V.uncons inputs of
     Just (a, rest) -> Just (tfromD a, rest)
     Nothing -> Nothing
   nParams = undefined
@@ -149,7 +115,7 @@ instance (KnownNat n, ShowAstSimplify r)
   type Scalar (ADVal (Ast n r)) = ADVal (Ast0 r)
   type Value (ADVal (Ast n r)) = Flip OR.Array r n
   toDomains = undefined
-  fromDomains _aInit inputs = case unconsR inputs of
+  fromDomains _aInit inputs = case V.uncons inputs of
     Just (a, rest) -> Just (getCompose $ tfromD a, rest)
     Nothing -> Nothing
   nParams = undefined

@@ -379,8 +379,7 @@ data DeltaBinding r =
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
   :: forall r.
-     ( Tensor r, ConvertTensor r, DynamicTensor r, DomainsTensor r
-     , DomainsCollection r )
+     (Tensor r, ConvertTensor r, DynamicTensor r, DomainsTensor r)
   => Int -> DeltaDt r
   -> ([(AstVarId, DTensorOf r)], Domains r)
 gradientFromDelta dimR deltaDt =
@@ -405,7 +404,7 @@ gradientFromDelta dimR deltaDt =
   in let -- Eval.
          EvalState{..} = buildFinMaps s0 deltaDt
          -- Extract results.
-         gradient = fromListDoms $ EM.elems iMapR
+         gradient = V.fromList $ EM.elems iMapR
      in (astBindings, gradient)
 {-# SPECIALIZE gradientFromDelta
   :: Int -> DeltaDt Double
@@ -614,8 +613,7 @@ class ForwardDerivative a where
     => Int -> Dual a -> Domains r -> a
 
 instance ( Num (TensorOf n r), KnownNat n, Ranked r ~ Flip OR.Array r
-         , Dual (Flip OR.Array r n) ~ DeltaR r n, ConvertTensor r
-         , DomainsCollection r )
+         , Dual (Flip OR.Array r n) ~ DeltaR r n, ConvertTensor r )
          => ForwardDerivative (Flip OR.Array r n) where
   derivativeFromDelta dimR deltaTopLevel ds =
     case runST $ buildDerivative dimR
@@ -639,7 +637,7 @@ instance (ShowAstSimplify r, KnownNat n)
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
-  :: forall s r. (Tensor r, ConvertTensor r, DomainsCollection r)
+  :: forall s r. (Tensor r, ConvertTensor r)
   => Int -> DeltaDt r -> Domains r
   -> ST s (DeltaDt r)
 buildDerivative dimR deltaDt params = do
@@ -654,7 +652,7 @@ buildDerivative dimR deltaDt params = do
           -- or simplification of delta terms
         InputR (InputId i) ->
           if i < dimR
-          then return $! tfromD $ (toVectorDoms params) V.! i
+          then return $! tfromD $ params V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
         ScaleR _ ZeroR -> evalR ZeroR
         ScaleR k d -> tmult k <$> evalR d

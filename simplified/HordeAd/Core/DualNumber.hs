@@ -63,7 +63,6 @@ type ADTensor r =
   , Tensor r
   , ConvertTensor r
   , DynamicTensor r
-  , DomainsCollection r
   , DomainsTensor r
   )
 

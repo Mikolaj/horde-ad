@@ -503,13 +503,12 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
 -}
 
 instance ( KnownNat n, Numeric r, Tensor r, ConvertTensor r
-         , DynamicTensor r, DomainsCollection r
-         , Ranked r ~ Flip OR.Array r )
+         , DynamicTensor r, Ranked r ~ Flip OR.Array r )
          => AdaptableDomains (Flip OR.Array r n) where
   type Scalar (Flip OR.Array r n) = r
   type Value (Flip OR.Array r n) = Flip OR.Array r n
-  toDomains a = fromListDoms [dfromR a]
-  fromDomains aInit params = case unconsR params of
+  toDomains a = V.singleton (dfromR a)
+  fromDomains aInit params = case V.uncons params of
     Just (a, rest) ->
       Just (ttoRankedOrDummy (tshape aInit) a, rest)
     Nothing -> Nothing
@@ -543,12 +542,11 @@ instance AdaptableDomains (OD.Array r) where
   nParams _ = 1
   nScalars = OD.size
 
-instance ( OS.Shape sh, Numeric r, ConvertTensor r, DomainsCollection r
-         , Shaped r ~ Flip OS.Array r )
+instance ( OS.Shape sh, Numeric r, ConvertTensor r, Shaped r ~ Flip OS.Array r )
          => AdaptableDomains (Flip OS.Array r sh) where
   type Scalar (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
-  toDomains a = fromListDoms [dfromS a]
+  toDomains a = V.singleton (dfromS a)
   fromDomains = undefined
   nParams _ = 1
   nScalars = OS.size . runFlip

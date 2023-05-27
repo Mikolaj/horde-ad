@@ -11,7 +11,7 @@ module HordeAd.Core.Engine
     revAstOnDomains, revOnDomains
   , -- * Operations exposed not for the library users but add-on makers
     revAstOnDomainsF, revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
-  , generateDeltaInputs
+  , generateDeltaInputs, makeADInputs
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdOnADInputs, slowFwdOnDomains
   ) where
@@ -37,7 +37,6 @@ import HordeAd.Core.Delta
 import HordeAd.Core.Domains
 import HordeAd.Core.DualClass (Dual, dFromR, dInputR)
 import HordeAd.Core.DualNumber
-import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 
 -- * Adaptor objective functions with more complex domains
@@ -89,7 +88,7 @@ revDtInit
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revDtInit #-}
 revDtInit f vals envInit parameters0 =
-  let shapes1 = map dshape $ toListDoms parameters0
+  let shapes1 = map dshape $ V.toList parameters0
   in revAstOnDomainsFun shapes1 (revDtInterpret envInit vals f)
 
 revDtInterpret
@@ -106,10 +105,7 @@ revDtInterpret envInit valsInit f = \varInputs domains
                                      ((_, vars1), (_, _)) ->
   let ast = f $ parseDomains valsInit domains
       env1 = foldr extendEnvD envInit
-             $ zip vars1 $ V.toList
-             $ V.zipWith (dDnotShared emptyADShare)
-                         (inputPrimal1 varInputs)
-                         (inputDual1 varInputs)
+             $ zip vars1 $ V.toList varInputs
   in snd $ interpretAst env1 emptyMemo ast
 
 rev
@@ -205,7 +201,7 @@ revAstOnDomainsF
   -> ADAstArtifact6 n r
 {-# INLINE revAstOnDomainsF #-}
 revAstOnDomainsF f parameters  =
-  let shapes1 = map dshape $ toListDoms parameters
+  let shapes1 = map dshape $ V.toList parameters
   in fst $ revAstOnDomainsFun shapes1 (\varInputs _ _ -> f varInputs)
 
 revAstOnDomainsFun
@@ -220,7 +216,7 @@ revAstOnDomainsFun shapes1 f =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
       !v6@(!vars@(!_, _), (astDt, asts1)) = funToAstAll shapes1 in
-  let domains = fromListDoms asts1
+  let domains = V.fromList asts1
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
@@ -241,7 +237,7 @@ revAstOnDomainsEval
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
 revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
-  let env1 = foldr extendEnvD EM.empty $ zip vars1 $ toListDoms parameters
+  let env1 = foldr extendEnvD EM.empty $ zip vars1 $ V.toList parameters
       dtValue = case dt of
         Just a -> a
         Nothing -> treplicate0N (tshape primal) 1
@@ -249,7 +245,7 @@ revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
       (memo1, gradientDomain) =
         interpretAstDomainsDummy envDt emptyMemo gradient
       primalTensor = snd $ interpretAst env1 memo1 primal
-  in (fromVectorDoms gradientDomain, primalTensor)
+  in (gradientDomain, primalTensor)
 
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
@@ -262,8 +258,8 @@ revOnADInputs
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE revOnADInputs #-}
-revOnADInputs dt f inputs@ADInputs{..} =
-  let dim1 = V.length inputPrimal1
+revOnADInputs dt f inputs =
+  let dim1 = V.length inputs
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D _ v deltaTopLevel) = f inputs
@@ -297,8 +293,8 @@ slowFwdOnADInputs
   -> Domains r
   -> (a, a)
 {-# INLINE slowFwdOnADInputs #-}
-slowFwdOnADInputs inputs@ADInputs{..} f ds =
-  let dim1 = V.length inputPrimal1
+slowFwdOnADInputs inputs f ds =
+  let dim1 = V.length inputs
       !(D _ v deltaTopLevel) = f inputs in  -- TODO: _
   let derivative = derivativeFromDelta dim1 deltaTopLevel ds
   in (derivative, v)
@@ -328,7 +324,14 @@ generateDeltaInputs params =
         Just (SomeNat (_ :: Proxy n)) ->
           dFromR $ dInputR @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
-  in V.imap arrayToInput (toVectorDoms params)
+  in V.imap arrayToInput params
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
   -> Data.Vector.Vector (Dual (OD.Array Double)) #-}
+
+makeADInputs
+  :: Domains r
+  -> Data.Vector.Vector (Dual (DTensorOf r))
+  -> Domains (ADVal r)
+{-# INLINE makeADInputs #-}
+makeADInputs = V.zipWith (dDnotShared emptyADShare)
