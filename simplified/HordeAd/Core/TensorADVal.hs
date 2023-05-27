@@ -214,11 +214,11 @@ instance ( ADTensor r
          => ConvertTensor (ADVal r) where
   type Shaped (ADVal r) = ShapedAbsentADVal r
   tfromD = Compose . fromD
-  tfromS = undefined
+--  tfromS = undefined
   dfromR = fromR . getCompose
-  dfromS = undefined
-  sfromR = undefined
-  sfromD = undefined
+--  dfromS = undefined
+--  sfromR = undefined
+--  sfromD = undefined
 
 data ShapedAbsentADVal r (sh :: [Nat])
 

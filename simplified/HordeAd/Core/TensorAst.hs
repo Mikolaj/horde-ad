@@ -80,11 +80,11 @@ instance ShowAstSimplify r
 instance ConvertTensor (Ast0 r) where
   type Shaped (Ast0 r) = ShapedAbsentAst0 r
   tfromD = astFromDynamic
-  tfromS = undefined
+--  tfromS = undefined
   dfromR r = AstDynamic r
-  dfromS = undefined
-  sfromR = undefined
-  sfromD = undefined
+--  dfromS = undefined
+--  sfromR = undefined
+--  sfromD = undefined
 
 data ShapedAbsentAst0 r (sh :: [Nat])
 

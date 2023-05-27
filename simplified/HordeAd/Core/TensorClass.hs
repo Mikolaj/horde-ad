@@ -281,16 +281,16 @@ class ConvertTensor r where
   type Shaped r = (t :: [Nat] -> Type) | t -> r
   tfromD :: KnownNat n
          => DTensorOf r -> Ranked r n
-  tfromS :: (KnownNat n, OS.Shape sh, OS.Rank sh ~ n)
-         => Shaped r sh -> Ranked r n
+--  tfromS :: (KnownNat n, OS.Shape sh, OS.Rank sh ~ n)
+--         => Shaped r sh -> Ranked r n
   dfromR :: KnownNat n
          => Ranked r n -> DTensorOf r
-  dfromS :: OS.Shape sh
-         => Shaped r sh -> DTensorOf r
-  sfromR :: (KnownNat n, OS.Shape sh, OS.Rank sh ~ n)
-         => Ranked r n -> Shaped r sh
-  sfromD :: OS.Shape sh
-         => DTensorOf r -> Shaped r sh
+--  dfromS :: OS.Shape sh
+--         => Shaped r sh -> DTensorOf r
+--  sfromR :: (KnownNat n, OS.Shape sh, OS.Rank sh ~ n)
+--         => Ranked r n -> Shaped r sh
+--  sfromD :: OS.Shape sh
+--         => DTensorOf r -> Shaped r sh
 
 class DomainsTensor r where
   daddR :: forall n. KnownNat n
@@ -406,11 +406,11 @@ instance Tensor Double where
 instance ConvertTensor Double where
   type Shaped Double = Flip OS.Array Double
   tfromD = Flip . Data.Array.Convert.convert
-  tfromS = Flip . Data.Array.Convert.convert . runFlip
+--  tfromS = Flip . Data.Array.Convert.convert . runFlip
   dfromR = Data.Array.Convert.convert . runFlip
-  dfromS = Data.Array.Convert.convert . runFlip
-  sfromR = Flip . Data.Array.Convert.convert . runFlip
-  sfromD = Flip . Data.Array.Convert.convert
+--  dfromS = Data.Array.Convert.convert . runFlip
+--  sfromR = Flip . Data.Array.Convert.convert . runFlip
+--  sfromD = Flip . Data.Array.Convert.convert
 
 instance DomainsTensor Double where
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
@@ -467,11 +467,11 @@ instance Tensor Float where
 instance ConvertTensor Float where
   type Shaped Float = Flip OS.Array Float
   tfromD = Flip . Data.Array.Convert.convert
-  tfromS = Flip . Data.Array.Convert.convert . runFlip
+--  tfromS = Flip . Data.Array.Convert.convert . runFlip
   dfromR = Data.Array.Convert.convert . runFlip
-  dfromS = Data.Array.Convert.convert . runFlip
-  sfromR = Flip . Data.Array.Convert.convert . runFlip
-  sfromD = Flip . Data.Array.Convert.convert
+--  dfromS = Data.Array.Convert.convert . runFlip
+--  sfromR = Flip . Data.Array.Convert.convert . runFlip
+--  sfromD = Flip . Data.Array.Convert.convert
 
 instance DomainsTensor Float where
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
@@ -542,11 +542,11 @@ instance AdaptableDomains (OD.Array r) where
   nParams _ = 1
   nScalars = OD.size
 
-instance ( OS.Shape sh, Numeric r, ConvertTensor r, Shaped r ~ Flip OS.Array r )
+instance ( OS.Shape sh, Numeric r, Shaped r ~ Flip OS.Array r )
          => AdaptableDomains (Flip OS.Array r sh) where
   type Scalar (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
-  toDomains a = V.singleton (dfromS a)
+  toDomains = undefined  -- TODO: a = V.singleton (dfromS a)
   fromDomains = undefined
   nParams _ = 1
   nScalars = OS.size . runFlip
