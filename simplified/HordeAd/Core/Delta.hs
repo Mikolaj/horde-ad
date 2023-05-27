@@ -274,7 +274,7 @@ type family Dual a = result | result -> a where
 -- the gradient.
 data DeltaDt r =
     forall sh. OS.Shape sh
-    => DeltaDtS () (DeltaS r sh)
+    => DeltaDtS () (DeltaS r sh)  -- TODO
   | forall n. KnownNat n
     => DeltaDtR (TensorOf n r) (DeltaR r n)
 
@@ -289,6 +289,8 @@ data DeltaDt r =
 -- 2. keys nMap == keys dMap0 `union` keys dMapR
 -- 3. key `member` dMap0 == nMap!key is DeltaBinding0
 -- 4. key `member` dMapR == nMap!key is DeltaBindingR
+
+-- TODO: remove 0, add S
 data EvalState r = EvalState
   { iMap0       :: EM.EnumMap (InputId r) r
       -- ^ eventually, cotangents of objective function inputs of rank 0
@@ -379,9 +381,9 @@ gradientFromDelta
   :: forall r.
      ( Tensor r, ConvertTensor r, DynamicTensor r, DomainsTensor r
      , DomainsCollection r )
-  => Int -> Int -> DeltaDt r
+  => Int -> DeltaDt r
   -> ([(AstVarId, DTensorOf r)], Domains r)
-gradientFromDelta dim0 dimR deltaDt =
+gradientFromDelta dimR deltaDt =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
   -- The former are initialized with dummy values so that it's cheap
@@ -403,16 +405,13 @@ gradientFromDelta dim0 dimR deltaDt =
   in let -- Eval.
          EvalState{..} = buildFinMaps s0 deltaDt
          -- Extract results.
-         gradient =
-           mkDoms (dfromR
-                   $ tfromList0N (singletonShape dim0) [])
-                  (fromListDoms $ EM.elems iMapR)
+         gradient = fromListDoms $ EM.elems iMapR
      in (astBindings, gradient)
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> Int -> DeltaDt Double
+  :: Int -> DeltaDt Double
   -> ([(AstVarId, DTensorOf Double)], Domains Double) #-}
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> Int -> DeltaDt (Ast0 Double)
+  :: Int -> DeltaDt (Ast0 Double)
   -> ([(AstVarId, DTensorOf (Ast0 Double))], Domains (Ast0 Double)) #-}
 
 buildFinMaps :: forall r. (Tensor r, ConvertTensor r, DomainsTensor r)
@@ -599,6 +598,7 @@ buildFinMaps s0 deltaDt =
 -- the result. Perhaps this can be simplified completely differently.
 
 -- This code is full of hacks (e.g., ST). Rewrites welcome.
+-- Though perhaps let's wait for DeltaS.
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,
@@ -611,14 +611,14 @@ buildFinMaps s0 deltaDt =
 class ForwardDerivative a where
   derivativeFromDelta
     :: (Tensor r, DynamicTensor r, Scalar a ~ r)
-    => Int -> Int -> Dual a -> Domains r -> a
+    => Int -> Dual a -> Domains r -> a
 
 instance ( Num (TensorOf n r), KnownNat n, Ranked r ~ Flip OR.Array r
          , Dual (Flip OR.Array r n) ~ DeltaR r n, ConvertTensor r
          , DomainsCollection r )
          => ForwardDerivative (Flip OR.Array r n) where
-  derivativeFromDelta dim0 dimR deltaTopLevel ds =
-    case runST $ buildDerivative dim0 dimR
+  derivativeFromDelta dimR deltaTopLevel ds =
+    case runST $ buildDerivative dimR
                                  (DeltaDtR 0 deltaTopLevel) ds of
       DeltaDtR @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
         Just Refl -> res
@@ -627,8 +627,8 @@ instance ( Num (TensorOf n r), KnownNat n, Ranked r ~ Flip OR.Array r
 
 instance (ShowAstSimplify r, KnownNat n)
          => ForwardDerivative (Ast n r) where
-  derivativeFromDelta dim0 dimR deltaTopLevel ds =
-    case runST $ buildDerivative dim0 dimR
+  derivativeFromDelta dimR deltaTopLevel ds =
+    case runST $ buildDerivative dimR
                                  (DeltaDtR 0 deltaTopLevel) ds of
       DeltaDtR @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
         Just Refl -> res
@@ -640,9 +640,9 @@ instance (ShowAstSimplify r, KnownNat n)
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
   :: forall s r. (Tensor r, ConvertTensor r, DomainsCollection r)
-  => Int -> Int -> DeltaDt r -> Domains r
+  => Int -> DeltaDt r -> Domains r
   -> ST s (DeltaDt r)
-buildDerivative _dim0 dimR deltaDt params = do
+buildDerivative dimR deltaDt params = do
   dMapR <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
   let evalR :: forall n. KnownNat n
@@ -654,7 +654,7 @@ buildDerivative _dim0 dimR deltaDt params = do
           -- or simplification of delta terms
         InputR (InputId i) ->
           if i < dimR
-          then return $! tfromD $ (domainsR params) V.! i
+          then return $! tfromD $ (toVectorDoms params) V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
         ScaleR _ ZeroR -> evalR ZeroR
         ScaleR k d -> tmult k <$> evalR d
@@ -728,6 +728,6 @@ buildDerivative _dim0 dimR deltaDt params = do
   -- A hack to fit both argument delta and, afterwards, the result in a type
   -- that does not reflect either.
   case deltaDt of
-    DeltaDtS _dt _deltaTopLevel -> undefined
+    DeltaDtS _dt _deltaTopLevel -> undefined  -- TODO
     DeltaDtR _dt deltaTopLevel ->
       flip DeltaDtR ZeroR <$> evalR deltaTopLevel

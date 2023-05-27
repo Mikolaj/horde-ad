@@ -11,7 +11,7 @@ module HordeAd.Core.Engine
     revAstOnDomains, revOnDomains
   , -- * Operations exposed not for the library users but add-on makers
     revAstOnDomainsF, revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
-  , generateDeltaInputs, initializerFixed, initializerFixed01
+  , generateDeltaInputs
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdOnADInputs, slowFwdOnDomains
   ) where
@@ -27,7 +27,6 @@ import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
-import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
@@ -38,7 +37,6 @@ import HordeAd.Core.Delta
 import HordeAd.Core.Domains
 import HordeAd.Core.DualClass (Dual, dFromR, dInputR)
 import HordeAd.Core.DualNumber
-import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 
@@ -91,9 +89,8 @@ revDtInit
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revDtInit #-}
 revDtInit f vals envInit parameters0 =
-  let dim0 = tlength @r @0 $ tfromD $ doms0 parameters0
-      shapes1 = map dshape $ toListDoms $ domsR parameters0
-  in revAstOnDomainsFun dim0 shapes1 (revDtInterpret envInit vals f)
+  let shapes1 = map dshape $ toListDoms parameters0
+  in revAstOnDomainsFun shapes1 (revDtInterpret envInit vals f)
 
 revDtInterpret
   :: forall n r vals astvals.
@@ -106,7 +103,7 @@ revDtInterpret
   -> Compose ADVal (AstRanked r) n
 {-# INLINE revDtInterpret #-}
 revDtInterpret envInit valsInit f = \varInputs domains
-                                     ((_var0, _, vars1), (_ast0, _, _)) ->
+                                     ((_, vars1), (_, _)) ->
   let ast = f $ parseDomains valsInit domains
       env1 = foldr extendEnvD envInit
              $ zip vars1 $ V.toList
@@ -138,7 +135,7 @@ revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 crev
   :: forall n r vals advals.
      ( ADTensor r, AdaptableDomains advals, AdaptableDomains vals
-     , Ranked r ~ Flip OR.Array r, IsPrimalR r, KnownNat n
+     , IsPrimalR r, KnownNat n
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals
      , Scalar advals ~ ADVal r )
   => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals
@@ -149,7 +146,7 @@ crev f vals = crevDtMaybe f vals Nothing
 crevDt
   :: forall n r vals advals.
      ( ADTensor r, AdaptableDomains advals, AdaptableDomains vals
-     , Ranked r ~ Flip OR.Array r, IsPrimalR r, KnownNat n
+     , IsPrimalR r, KnownNat n
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals
      , Scalar advals ~ ADVal r )
   => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals -> OR.Array n r
@@ -159,7 +156,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 crevDtMaybe
   :: forall n vals r advals.
      ( ADTensor r, AdaptableDomains advals, AdaptableDomains vals
-     , Ranked r ~ Flip OR.Array r, IsPrimalR r, KnownNat n
+     , IsPrimalR r, KnownNat n
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals
      , Scalar advals ~ ADVal r )
   => (advals -> Compose ADVal (Flip OR.Array r) n)
@@ -208,24 +205,22 @@ revAstOnDomainsF
   -> ADAstArtifact6 n r
 {-# INLINE revAstOnDomainsF #-}
 revAstOnDomainsF f parameters  =
-  let dim0 = tlength $ domains0 parameters
-      shapes1 = map dshape $ toListDoms $ domsR parameters
-  in fst $ revAstOnDomainsFun dim0 shapes1 (\varInputs _ _ -> f varInputs)
+  let shapes1 = map dshape $ toListDoms parameters
+  in fst $ revAstOnDomainsFun shapes1 (\varInputs _ _ -> f varInputs)
 
 revAstOnDomainsFun
   :: forall r n. (KnownNat n, ShowAstSimplify r)
-  => Int -> [[Int]]
+  => [[Int]]
   -> (Domains (ADVal (Ast0 r)) -> Domains (Ast0 r)
       -> (ADAstVarNames n r, ADAstVars n r)
       -> Compose ADVal (AstRanked r) n)
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revAstOnDomainsFun #-}
-revAstOnDomainsFun dim0 shapes1 f =
+revAstOnDomainsFun shapes1 f =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !v6@(!vars@(!_, _, _), (ast0, astDt, asts1)) =
-        funToAstAll (singletonShape dim0) shapes1 in
-  let domains = mkDomains ast0 (fromListDoms asts1)
+      !v6@(!vars@(!_, _), (astDt, asts1)) = funToAstAll shapes1 in
+  let domains = fromListDoms asts1
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
@@ -233,7 +228,7 @@ revAstOnDomainsFun dim0 shapes1 f =
       !(D l primalBody deltaTopLevel) = getCompose $ f varInputs domains v6
       deltaDt = packDeltaDt (Right $ astDt (tshape primalBody)) deltaTopLevel in
   let !(!astBindings, !gradient) =
-        gradientFromDelta dim0 (length shapes1) deltaDt
+        gradientFromDelta (length shapes1) deltaDt
   in ( ( vars
        , unletAstDomains6 astBindings l (dmkDomains gradient)
        , unletAst6 l primalBody )
@@ -245,9 +240,8 @@ revAstOnDomainsEval
   => ADAstArtifact6 n r -> Domains r -> Maybe (TensorOf n r)
   -> (Domains r, TensorOf n r)
 {-# INLINE revAstOnDomainsEval #-}
-revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
-  let env1 = foldr extendEnvD EM.empty
-             $ zip (AstDynamicVarName var0 : vars1) $ toListDoms parameters
+revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
+  let env1 = foldr extendEnvD EM.empty $ zip vars1 $ toListDoms parameters
       dtValue = case dt of
         Just a -> a
         Nothing -> treplicate0N (tshape primal) 1
@@ -260,7 +254,7 @@ revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
-  :: (ADTensor r, Ranked r ~ Flip OR.Array r, Scalar a ~ r, IsPrimal a)
+  :: (ADTensor r, Scalar a ~ r, IsPrimal a)
   => Maybe a
   -> (Domains (ADVal r) -> ADVal a)
   -> Domains (ADVal r)
@@ -269,19 +263,18 @@ revOnADInputs
 -- in client code, so the bloat is limited.
 {-# INLINE revOnADInputs #-}
 revOnADInputs dt f inputs@ADInputs{..} =
-  let dim0 = tlength inputPrimal0
-      dim1 = V.length inputPrimal1
+  let dim1 = V.length inputPrimal1
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D _ v deltaTopLevel) = f inputs
       deltaDt = packDeltaDt (maybe (Left v) Right dt) deltaTopLevel in
-  let (_, gradient) = gradientFromDelta dim0 dim1 deltaDt
+  let (_, gradient) = gradientFromDelta dim1 deltaDt
   in (gradient, v)
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: (ADTensor r, Ranked r ~ Flip OR.Array r, Scalar a ~ r, IsPrimal a)
+  :: (ADTensor r, Scalar a ~ r, IsPrimal a)
   => Maybe a
   -> (Domains (ADVal r) -> ADVal a)
   -> Domains r
@@ -305,10 +298,9 @@ slowFwdOnADInputs
   -> (a, a)
 {-# INLINE slowFwdOnADInputs #-}
 slowFwdOnADInputs inputs@ADInputs{..} f ds =
-  let dim0 = tlength inputPrimal0
-      dim1 = V.length inputPrimal1
+  let dim1 = V.length inputPrimal1
       !(D _ v deltaTopLevel) = f inputs in  -- TODO: _
-  let derivative = derivativeFromDelta dim0 dim1 deltaTopLevel ds
+  let derivative = derivativeFromDelta dim1 deltaTopLevel ds
   in (derivative, v)
 
 -- The direction vector ds is taken as an extra argument.
@@ -336,41 +328,7 @@ generateDeltaInputs params =
         Just (SomeNat (_ :: Proxy n)) ->
           dFromR $ dInputR @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
-  in V.imap arrayToInput (domainsR params)
+  in V.imap arrayToInput (toVectorDoms params)
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
   -> Data.Vector.Vector (Dual (OD.Array Double)) #-}
-
--- | Initialize parameters using a uniform distribution with a fixed range
--- taken from an argument.
---
--- Must be Double, because @randomVector@ only works on that.
---
--- This only works fine for nets with levels that have similar size and use
--- the same activation function. Otherwise, the range should vary per level.
--- A rule of thumb range for weights is @sqrt(6 / (F_in + F_out)@,
--- where @F_in + F_out@ is the sum of inputs and outputs of the largest level.
--- See https://github.com/pytorch/pytorch/issues/15314 and their newer code.
-initializerFixed :: Int -> Double -> (Int, [Int], c, d)
-                 -> ((Int, Int), Int, Double, Domains Double)
-initializerFixed seed range (nParams0, lParams1, _, _) =
-  let vParams1 = V.fromList lParams1
-      createRandomVector n seedV =
-        LA.scale (2 * range)
-        $ LA.randomVector seedV LA.Uniform n - LA.scalar 0.5
-      dom0 = OR.fromVector [nParams0] $ createRandomVector nParams0 seed
-      domR =
-        V.imap (\i sz ->
-                  OD.fromVector [sz]
-                  $ createRandomVector sz (seed + sz + i)) vParams1
-      totalParams = nParams0
-                    + V.sum vParams1
-  in ( (nParams0, V.length vParams1)
-     , totalParams
-     , range
-     , mkDomains (Flip dom0) domR )
-
-initializerFixed01 :: Int -> Double -> (Int, [Int])
-                   -> ((Int, Int), Int, Double, Domains Double)
-initializerFixed01 seed range (nParams0, lParams1) =
-  initializerFixed seed range (nParams0, lParams1, undefined, undefined)

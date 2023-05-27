@@ -307,7 +307,7 @@ printAstIntVar = printAstVarId "i"
 
 defaulPrintConfig :: Bool -> IntMap String -> PrintConfig
 defaulPrintConfig prettifyLosingSharing renames =
-  let varRenames = renames `IM.union` IM.fromList [(1, "s0"), (2, "dret")]
+  let varRenames = renames `IM.union` IM.fromList [(1, "dret")]
   in PrintConfig {..}
 
 -- Precedences used are as in Haskell.
@@ -644,34 +644,30 @@ printAstDomainsPretty renames t =
 
 printGradient6Simple :: (ShowAst r, KnownNat n)
                      => IntMap String -> ADAstArtifact6 n r -> String
-printGradient6Simple renames ((var0, varDt, vars1), gradient, _) =
-  let varsPP = printAstVarName renames var0
-               : printAstVarName renames varDt
+printGradient6Simple renames ((varDt, vars1), gradient, _) =
+  let varsPP = printAstVarName renames varDt
                : map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstDomainsSimple renames gradient
 
 printGradient6Pretty :: (ShowAst r, KnownNat n)
                      => IntMap String -> ADAstArtifact6 n r -> String
-printGradient6Pretty renames ((var0, varDt, vars1), gradient, _) =
-  let varsPP = printAstVarName renames var0
-               : printAstVarName renames varDt
+printGradient6Pretty renames ((varDt, vars1), gradient, _) =
+  let varsPP = printAstVarName renames varDt
                : map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstDomainsPretty renames gradient
 
 printPrimal6Simple :: (ShowAst r, KnownNat n)
                    => IntMap String -> ADAstArtifact6 n r -> String
-printPrimal6Simple renames ((var0, _, vars1), _, primal) =
-  let varsPP = printAstVarName renames var0
-               : map (printAstDynamicVarName renames) vars1
+printPrimal6Simple renames ((_, vars1), _, primal) =
+  let varsPP = map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstSimple renames primal
 
 printPrimal6Pretty :: (ShowAst r, KnownNat n)
                    => IntMap String -> ADAstArtifact6 n r -> String
-printPrimal6Pretty renames (( var0, _, vars1), _, primal) =
-  let varsPP = printAstVarName renames var0
-               : map (printAstDynamicVarName renames) vars1
+printPrimal6Pretty renames ((_, vars1), _, primal) =
+  let varsPP = map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstPretty renames primal

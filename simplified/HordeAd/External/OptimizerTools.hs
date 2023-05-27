@@ -9,38 +9,28 @@ module HordeAd.External.OptimizerTools
 
 import Prelude
 
-import           Control.Monad.ST.Strict (runST)
 import qualified Data.Array.DynamicS as OD
-import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Flip
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.Domains
-import HordeAd.Core.TensorClass
-import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2, liftVT2)
+import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
 import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient
-  :: ( Numeric r, Show r, Floating (Vector r), ConvertTensor r
-     , DomainsCollection r
-     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
+  :: ( Numeric r, Floating (Vector r)
+     , DomainsCollection r, DTensorOf r ~ OD.Array r )
   => r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma params gradient =
-  let params0 = domains0 params
-      paramsR = domainsR params
-      gradient0 = domains0 gradient
-      gradientR = domainsR gradient
+  let paramsR = toVectorDoms params
+      gradientR = toVectorDoms gradient
       updateVector i r = i - LA.scale gamma r
-      !params0New = Flip $ liftVR2 updateVector (runFlip params0)
-                                                (runFlip gradient0)
       updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVT2 updateVector i r
       !paramsRNew = V.zipWith updateR paramsR gradientR
-  in mkDomains params0New paramsRNew
+  in fromVectorDoms paramsRNew
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
 
 updateWithGradientR
@@ -100,20 +90,14 @@ data StateAdam r = StateAdam
 
 -- The arguments are just sample params0, for dimensions.
 zeroParameters
-  :: ( Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
-     , ConvertTensor r, DomainsCollection r )
+  :: ( Numeric r, DTensorOf r ~ OD.Array r, DomainsCollection r )
   => Domains r -> Domains r
 zeroParameters params =
-  let zeroVector v = runST $ do
-        vThawed <- V.thaw v
-        VM.set vThawed 0
-        V.unsafeFreeze vThawed
-  in mkDomains (Flip $ liftVR zeroVector (runFlip $ domains0 params))
-               (V.map (\a -> OD.constant (OD.shapeL a) 0) (domainsR params))
+  fromVectorDoms (V.map (\a -> OD.constant (OD.shapeL a) 0) (toVectorDoms params))
 
 initialStateAdam
-  :: ( Numeric r, DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1
-     , ConvertTensor r, DomainsCollection r )
+  :: ( Numeric r, DTensorOf r ~ OD.Array r
+     , DomainsCollection r )
   => Domains r -> StateAdam r
 initialStateAdam parameters0 =
   let zeroP = zeroParameters parameters0
@@ -149,20 +133,15 @@ liftArray43 f m1 m2 m3 m4 =
 updateWithGradientAdam
   :: forall r.
      ( Numeric r, Floating r, Floating (Vector r)
-     , ConvertTensor r, DomainsCollection r
-     , DTensorOf r ~ OD.Array r, TensorOf 1 r ~ Flip OR.Array r 1 )
+     , DomainsCollection r, DTensorOf r ~ OD.Array r )
   => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
   -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                        params gradient =
-  let mAdam0 = domains0 mAdam
-      mAdamR = domainsR mAdam
-      vAdam0 = domains0 vAdam
-      vAdamR = domainsR vAdam
-      params0 = domains0 params
-      paramsR = domainsR params
-      gradient0 = domains0 gradient
-      gradientR = domainsR gradient
+  let mAdamR = toVectorDoms mAdam
+      vAdamR = toVectorDoms vAdam
+      paramsR = toVectorDoms params
+      gradientR = toVectorDoms gradient
       tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
@@ -179,24 +158,15 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
            , p - LA.scale alphat mANew
                  / (sqrt vANew + LA.scalar epsilon) )  -- the @scalar@ is safe
                       -- @addConstant@ would be better, but it's not exposed
-      (!mAdam0New, !vAdam0New, !params0New) =
-        updateVector
-          (OR.toVector $ runFlip mAdam0) (OR.toVector $ runFlip vAdam0)
-          (OR.toVector $ runFlip params0) (OR.toVector $ runFlip gradient0)
       updateR mA vA p g = if isTensorDummy g  -- eval didn't update it
                           then (mA, vA, p)
                           else liftArray43 updateVector mA vA p g
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         V.unzip3 $ V.zipWith4 updateR mAdamR vAdamR paramsR gradientR
-  in ( mkDomains (Flip $ OR.fromVector [V.length params0New] params0New)
-                 paramsRNew
+  in ( fromVectorDoms paramsRNew
      , StateAdam
          { tAdam = tAdamNew
-         , mAdam = mkDomains
-                     (Flip $ OR.fromVector [V.length mAdam0New] mAdam0New)
-                     mAdamRNew
-         , vAdam = mkDomains
-                     (Flip $ OR.fromVector [V.length vAdam0New] vAdam0New)
-                     vAdamRNew
+         , mAdam = fromVectorDoms mAdamRNew
+         , vAdam = fromVectorDoms vAdamRNew
          }
      )

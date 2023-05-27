@@ -107,20 +107,7 @@ instance DynamicTensor (Ast0 r) where
 instance ShowAstSimplify r
          => DomainsCollection (Ast0 r) where
   type Domains (Ast0 r) = Data.Vector.Vector (AstDynamic r)
-  doms0 v = v V.! 0
-  domsR v = V.slice 1 (V.length v - 1) v
-  mkDoms = V.cons
-  emptyDoms0 = AstDynamic @1 (AstFromList [])
-  isEmptyDoms params = V.null (domsR params) && case doms0 params of
-    AstDynamic t -> sizeShape (shapeAst t) == 0
-  uncons0 = undefined
-  unconsR params =
-    let v = domsR params
-    in case V.uncons v of
-      Nothing -> Nothing
-      Just (h, rest) ->
-        Just (h, mkDoms (doms0 params) rest)
-  concatDoms0 = dfromR @(Ast0 r) @1 . foldr1 tappend . map tfromD
+  unconsR = V.uncons
   concatDomsR = V.concat
   fromListDoms = V.fromList
   toListDoms = V.toList
@@ -129,10 +116,10 @@ instance ShowAstSimplify r
 
 instance ShowAstSimplify r
          => AdaptableDomains (Ast0 r) where
-  type Scalar (Ast0 r) = Ast0 r  -- TODO: or AstPrimalPartRanked r 0 ?
+  type Scalar (Ast0 r) = Ast0 r
   type Value (Ast0 r) = r
   toDomains = undefined
-  fromDomains _aInit = uncons0
+  fromDomains = undefined
   nParams = undefined
   nScalars = undefined
 

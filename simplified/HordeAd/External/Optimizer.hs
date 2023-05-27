@@ -22,7 +22,7 @@ import HordeAd.External.OptimizerTools
 
 -- | Stochastic Gradient Descent.
 sgd :: forall n r a.
-       ( KnownNat n, Numeric r, Show r, Floating (Vector r), ADTensor r
+       ( KnownNat n, Numeric r, Floating (Vector r), ADTensor r
        , IsPrimalR r
        , DTensorOf r ~ OD.Array r, Ranked r ~ Flip OR.Array r )
     => r

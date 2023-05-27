@@ -43,12 +43,6 @@ instance (OrdB a, IsPrimal a) => OrdB (ADVal a) where
   D l1 u _ >* D l2 v _ = letWrapPrimal l1 u >* letWrapPrimal l2 v
   D l1 u _ >=* D l2 v _ = letWrapPrimal l1 u >=* letWrapPrimal l2 v
 
-instance IfB (ADVal Double) where
-  ifB b v w = if b then v else w
-
-instance IfB (ADVal Float) where
-  ifB b v w = if b then v else w
-
 instance IfB (ADVal (OR.Array n r)) where
   ifB b v w = if b then v else w
 
@@ -71,31 +65,21 @@ instance DynamicTensor (ADVal r) where
 -- the Data.Vector.Vector (Dual ...). With many gradient descent iteration
 -- oif a cheap objective function, especially with man scalars, this matters.
 data ADInputs r = ADInputs
-  { inputPrimal0 :: Domain0 r
-  , inputDual0   :: Data.Vector.Vector (Dual r)
-  , inputPrimal1 :: DomainR r
+  { inputPrimal1 :: Data.Vector.Vector (DTensorOf r)
   , inputDual1   :: Data.Vector.Vector (Dual (DTensorOf r))
   }
 
 makeADInputs
-  :: (ConvertTensor r, DomainsCollection r)
+  :: DomainsCollection r
   => Domains r
   -> Data.Vector.Vector (Dual (DTensorOf r))
   -> ADInputs r
 {-# INLINE makeADInputs #-}
 makeADInputs params vs1
-  = ADInputs (domains0 params) V.empty (domainsR params) vs1
+  = ADInputs (toVectorDoms params) vs1
 
-instance (Tensor r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r))
-         => DomainsCollection (ADVal r) where
+instance DomainsCollection (ADVal r) where
   type Domains (ADVal r) = ADInputs r
-  doms0 = undefined
-  domsR = undefined
-  mkDoms = undefined
-  emptyDoms0 = undefined
-  isEmptyDoms ADInputs{..} =
-    tlength inputPrimal0 == 0 && V.null inputPrimal1
-  uncons0 = undefined
   unconsR inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
@@ -103,7 +87,6 @@ instance (Tensor r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r))
              , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
       Nothing -> Nothing
     Nothing -> Nothing
-  concatDoms0 = undefined
   concatDomsR = undefined
   fromListDoms = undefined
   toListDoms = undefined
@@ -114,7 +97,7 @@ instance AdaptableDomains (ADVal Double) where
   type Scalar (ADVal Double) = ADVal Double
   type Value (ADVal Double) = Double
   toDomains = undefined
-  fromDomains _aInit = uncons0
+  fromDomains = undefined
   nParams = undefined
   nScalars = undefined
 
@@ -122,7 +105,7 @@ instance AdaptableDomains (ADVal Float) where
   type Scalar (ADVal Float) = ADVal Float
   type Value (ADVal Float) = Float
   toDomains = undefined
-  fromDomains _aInit = uncons0
+  fromDomains = undefined
   nParams = undefined
   nScalars = undefined
 
@@ -131,11 +114,11 @@ instance ShowAstSimplify r
   type Scalar (ADVal (Ast0 r)) = ADVal (Ast0 r)
   type Value (ADVal (Ast0 r)) = r
   toDomains = undefined
-  fromDomains _aInit = uncons0
+  fromDomains = undefined
   nParams = undefined
   nScalars = undefined
 
-instance ( Tensor r, ConvertTensor (ADVal r), KnownNat n
+instance ( ConvertTensor (ADVal r), KnownNat n
          , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
          , DTensorOf r ~ OD.Array r )
          => AdaptableDomains (ADVal (Flip OR.Array r n)) where
@@ -148,7 +131,7 @@ instance ( Tensor r, ConvertTensor (ADVal r), KnownNat n
   nParams = undefined
   nScalars = undefined
 
-instance ( Tensor r, ConvertTensor (ADVal r), KnownNat n
+instance ( ConvertTensor (ADVal r), KnownNat n
          , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
          , DTensorOf r ~ OD.Array r )
          => AdaptableDomains (Compose ADVal (Flip OR.Array r) n) where

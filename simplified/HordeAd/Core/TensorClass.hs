@@ -7,8 +7,7 @@
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
-  ( Domain0, DomainR, Domains
-  , domains0, domainsR, mkDomains, ttoRankedOrDummy
+  ( ttoRankedOrDummy
   , IndexOf, TensorOf, ShapeInt, CRanked, CYRanked, CRanked2
   , Tensor(..), ConvertTensor(..), DynamicTensor(..), DomainsTensor(..), ADReady
   ) where
@@ -36,35 +35,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.Domains
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.TensorOps
-
--- * Domains datatypes definition
-
--- | Helper definitions to shorten type signatures. @Domains@, among other
--- roles, is the internal representation of domains of objective functions.
-type Domain0 r = TensorOf 1 r
-
--- To store ranked tensors (or Ast terms) we use their untyped versions
--- instead of, e.g,. the unerlying vectors of the tensors,
--- to prevent frequent linearization of the tensors (e.g., after transpose).
-type DomainR r = Data.Vector.Vector (DTensorOf r)
-
-domains0 :: (DomainsCollection r, ConvertTensor r)
-         => Domains r -> Domain0 r
-domains0 v = tfromD $ doms0 v
-
-domainsR :: DomainsCollection r => Domains r -> DomainR r
-domainsR = toVectorDoms . domsR
-
-mkDomains :: (DomainsCollection r, ConvertTensor r)
-          => Domain0 r -> DomainR r -> Domains r
-mkDomains d0 dR = mkDoms (dfromR d0) (fromVectorDoms dR)
-
-ttoRankedOrDummy :: (Tensor r, ConvertTensor r, DynamicTensor r, KnownNat n)
-                 => ShapeInt n -> DTensorOf r -> TensorOf n r
-ttoRankedOrDummy sh x = if disDummy x
-                        then tzero sh
-                        else tfromD x
-
 
 -- * Tensor class definition
 
@@ -444,7 +414,6 @@ instance ConvertTensor Double where
   sfromR = Flip . Data.Array.Convert.convert . runFlip
   sfromD = Flip . Data.Array.Convert.convert
 
-
 instance DomainsTensor Double where
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
@@ -542,13 +511,19 @@ instance ( KnownNat n, Numeric r, Tensor r, ConvertTensor r
          => AdaptableDomains (Flip OR.Array r n) where
   type Scalar (Flip OR.Array r n) = r
   type Value (Flip OR.Array r n) = Flip OR.Array r n
-  toDomains a = mkDoms emptyDoms0 (fromListDoms [dfromR a])
+  toDomains a = fromListDoms [dfromR a]
   fromDomains aInit params = case unconsR params of
     Just (a, rest) ->
       Just (ttoRankedOrDummy (tshape aInit) a, rest)
     Nothing -> Nothing
   nParams _ = 1
   nScalars = OR.size . runFlip
+
+ttoRankedOrDummy :: (Tensor r, ConvertTensor r, DynamicTensor r, KnownNat n)
+                 => ShapeInt n -> DTensorOf r -> TensorOf n r
+ttoRankedOrDummy sh x = if disDummy x
+                        then tzero sh
+                        else tfromD x
 
 instance KnownNat n
          => RandomDomains (Flip OR.Array r n) where
@@ -576,7 +551,7 @@ instance ( OS.Shape sh, Numeric r, ConvertTensor r, DomainsCollection r
          => AdaptableDomains (Flip OS.Array r sh) where
   type Scalar (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
-  toDomains a = mkDoms emptyDoms0 (fromListDoms [dfromS a])
+  toDomains a = fromListDoms [dfromS a]
   fromDomains = undefined
   nParams _ = 1
   nScalars = OS.size . runFlip

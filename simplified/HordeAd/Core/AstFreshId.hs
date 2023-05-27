@@ -92,17 +92,14 @@ funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
 {-# NOINLINE funToAstD #-}
 funToAstD sh = unsafePerformIO $ funToAstDIO sh
 
-type ADAstVars n r = ( Ast 1 r
-                     , ShapeInt n -> Ast n r
-                     , [AstDynamic r] )
+type ADAstVars n r = (ShapeInt n -> Ast n r, [AstDynamic r])
 
-funToAstAll :: ShapeInt 1 -> [[Int]] -> (ADAstVarNames n r, ADAstVars n r)
+funToAstAll :: [[Int]] -> (ADAstVarNames n r, ADAstVars n r)
 {-# NOINLINE funToAstAll #-}
-funToAstAll sh shapes1 = unsafePerformIO $ do
-  (vn0, v0) <- funToAstRIO sh id
+funToAstAll shapes1 = unsafePerformIO $ do
   (vnDt, vDt) <- funToAstRshIO
   (vn1, v1) <- unzip <$> (mapM funToAstDIO shapes1)
-  return ((vn0, vnDt, vn1), (v0, vDt, v1))
+  return ((vnDt, vn1), (vDt, v1))
 
 funToAstIIO :: (AstInt r -> t) -> IO (AstVarId, t)
 {-# INLINE funToAstIIO #-}

@@ -49,9 +49,7 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-type ADAstVarNames n r = ( AstVarName (OR.Array 1 r)
-                         , AstVarName (OR.Array n r)
-                         , [AstDynamicVarName r] )
+type ADAstVarNames n r = (AstVarName (OR.Array n r), [AstDynamicVarName r])
 
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 n r = (ADAstVarNames n r, AstDomains r, Ast n r)
