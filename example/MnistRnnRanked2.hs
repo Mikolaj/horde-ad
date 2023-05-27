@@ -112,13 +112,13 @@ rnnMnistLossFusedR
   => Int
   -> (Ranked (Primal r) 3, Ranked (Primal r) 2)  -- batch_size
   -> ADRnnMnistParameters r  -- SizeMnistHeight out_width
-  -> r
+  -> Ranked r 0
 rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   let xs = ttranspose [2, 1, 0] glyphR
       result = rnnMnistZeroR batch_size xs adparameters
       targets = ttranspose [1, 0] labelR
       loss = lossSoftMaxCrossEntropyR targets result
-  in tscale0 (recip $ fromIntegral batch_size) loss
+  in tconstant (recip $ fromIntegral batch_size) * loss
 
 rnnMnistTestR
   :: forall r. (ADReady r, r ~ Primal r, Numeric r, Ranked r ~ Flip OR.Array r)

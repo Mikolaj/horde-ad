@@ -182,8 +182,8 @@ srevDt f vals dt = revDt (tscalar . f) vals (tscalar dt)
 -- Old version of the three functions, with constant, fixed inputs and dt.
 crev
   :: forall n r vals advals.
-     ( ADTensor r, IsPrimal (Flip OR.Array r n)
-     , AdaptableDomains advals, AdaptableDomains vals
+     ( ADTensor r, AdaptableDomains advals, AdaptableDomains vals
+     , Ranked r ~ Flip OR.Array r, IsPrimalR r, KnownNat n
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals
      , Scalar advals ~ ADVal r )
   => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals
@@ -193,8 +193,8 @@ crev f vals = crevDtMaybe f vals Nothing
 -- This version additionally takes the sensitivity parameter.
 crevDt
   :: forall n r vals advals.
-     ( ADTensor r, IsPrimal (Flip OR.Array r n)
-     , AdaptableDomains advals, AdaptableDomains vals
+     ( ADTensor r, AdaptableDomains advals, AdaptableDomains vals
+     , Ranked r ~ Flip OR.Array r, IsPrimalR r, KnownNat n
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals
      , Scalar advals ~ ADVal r )
   => (advals -> Compose ADVal (Flip OR.Array r) n) -> vals -> OR.Array n r
@@ -203,8 +203,8 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall n vals r advals.
-     ( ADTensor r, IsPrimal (Flip OR.Array r n)
-     , AdaptableDomains advals, AdaptableDomains vals
+     ( ADTensor r, AdaptableDomains advals, AdaptableDomains vals
+     , Ranked r ~ Flip OR.Array r, IsPrimalR r, KnownNat n
      , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals
      , Scalar advals ~ ADVal r )
   => (advals -> Compose ADVal (Flip OR.Array r) n)
@@ -305,7 +305,7 @@ revAstOnDomainsEval ((var0, varDt, vars1), gradient, primal) parameters dt =
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
-  :: (ADTensor r, IsPrimal a, Scalar a ~ r)
+  :: (ADTensor r, Ranked r ~ Flip OR.Array r, Scalar a ~ r, IsPrimal a)
   => Maybe a
   -> (Domains (ADVal r) -> ADVal a)
   -> Domains (ADVal r)
@@ -326,7 +326,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: (ADTensor r, IsPrimal a, Scalar a ~ r)
+  :: (ADTensor r, Ranked r ~ Flip OR.Array r, Scalar a ~ r, IsPrimal a)
   => Maybe a
   -> (Domains (ADVal r) -> ADVal a)
   -> Domains r

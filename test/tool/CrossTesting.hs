@@ -37,9 +37,9 @@ assertEqualUpToEpsilon1 eps expected result =
 
 rev' :: forall r m n v g.
         ( KnownNat n, KnownNat m, ADTensor r, ADReady r, ADReady (ADVal r)
-        , InterpretAst r, InterpretAst (ADVal r)
+        , InterpretAst r, InterpretAst (ADVal r), IsPrimalR r
         , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n
-        , IsPrimal v, Value r ~ r, Value (ADVal r) ~ r
+        , Value r ~ r, Value (ADVal r) ~ r
         , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r )
      => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
      -> g

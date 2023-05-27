@@ -86,7 +86,7 @@ convMnistLossFusedR
   -> ( Ranked (Primal r) 3  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
      , Ranked (Primal r) 2 )  -- [batch_size, SizeMnistLabel]
   -> ADCnnMnistParameters r  -- kh kw c_out n_hidden
-  -> r
+  -> Ranked r 0
 convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   let input = treshape (batch_size
                         :$ 1
@@ -97,7 +97,7 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
       result = convMnistTwoR batch_size input adparameters
       targets = ttranspose [1, 0] labelR
       loss = lossSoftMaxCrossEntropyR targets result
-  in tscale0 (recip $ fromIntegral batch_size) loss
+  in tconstant (recip $ fromIntegral batch_size) * loss
 
 convMnistTestR
   :: forall r. (ADReady r, r ~ Primal r, Numeric r, Ranked r ~ Flip OR.Array r)

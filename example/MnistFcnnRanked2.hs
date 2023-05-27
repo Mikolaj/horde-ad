@@ -61,7 +61,7 @@ afcnnMnist2 factivationHidden factivationOutput
 afcnnMnistLoss2
   :: ADReady r
   => MnistData (Value r) -> ADFcnnMnist2Parameters r
-  -> r
+  -> Ranked r 0
 afcnnMnistLoss2 (datum, target) =
   let datum1 = tconst $ OR.fromVector [sizeMnistGlyphInt] datum
       target1 = tconst $ OR.fromVector [sizeMnistLabelInt] target
@@ -70,7 +70,7 @@ afcnnMnistLoss2 (datum, target) =
 afcnnMnistLoss2TensorData
   :: ADReady r
   => (TensorOf 1 r, TensorOf 1 r) -> ADFcnnMnist2Parameters r
-  -> r
+  -> Ranked r 0
 afcnnMnistLoss2TensorData (datum, target) adparams =
   let result = inline afcnnMnist2 logistic softMax1 datum adparams
   in lossCrossEntropyV target result

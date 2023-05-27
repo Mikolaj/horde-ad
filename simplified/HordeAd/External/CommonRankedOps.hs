@@ -16,17 +16,9 @@ import GHC.TypeLits (KnownNat)
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
-constant0 :: (Tensor r, Tensor (Primal r))
-          => Primal r -> r
-constant0 = tunScalar . tconstant . tscalar
-
 constant :: (Tensor r, KnownNat n)
          => TensorOf n (Primal r) -> TensorOf n r
 constant = tconstant
-
-scale0 :: Tensor r
-       => Primal r -> r -> r
-scale0 = tscale0
 
 scale :: (Tensor d, KnownNat n)
       => TensorOf n (Primal d) -> TensorOf n d -> TensorOf n d
@@ -35,11 +27,6 @@ scale a d = tconstant a `tmult` d
 -- for the scaling case. This may be caused by the lets repeated
 -- both in primal part and the D constructor.
 -- scale a d = tD (a * tprimalPart d) (tScale @r a (tdualPart d))
-
-relu0
-  :: forall r. ADReady r
-  => r -> r
-relu0 x = ifB (x >* 0) x 0
 
 relu, reluLeaky
   :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
@@ -64,11 +51,6 @@ logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
      $ \y1 -> let y = tprimalPart y1
               in tD y (tScale @r (y * (treplicate0N sh 1 - y)) $ tdualPart d)
 
--- TODO: and especially here try a faster approach
-logistic0 :: (Tensor r, Tensor (Primal r), Floating (TensorOf 0 (Primal r)))
-          => r -> r
-logistic0 = tunScalar . logistic . tscalar
-
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
 square :: forall r n. (Tensor r, KnownNat n, Num (TensorOf n (Primal r)))
@@ -82,17 +64,11 @@ squaredDifference
   => TensorOf n (Primal r) -> TensorOf n r -> TensorOf n r
 squaredDifference targ res = square $ res - tconstant targ
 
-squaredDifference0
-  :: (Tensor r, Tensor (Primal r))
-  => Primal r -> r -> r
-squaredDifference0 targ res =
-  tunScalar $ squaredDifference (tscalar targ) (tscalar res)
-
 lossCrossEntropyV :: (Tensor r, KnownNat n, Floating (TensorOf n r))
                   => TensorOf n r
                   -> TensorOf n r
-                  -> r
-lossCrossEntropyV targ res = negate $ tunScalar $ log res `tdot0` targ
+                  -> TensorOf 0 r
+lossCrossEntropyV targ res = negate $ log res `tdot0` targ
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
@@ -101,8 +77,8 @@ lossSoftMaxCrossEntropyR
   :: ( Tensor r, Tensor (Primal r), KnownNat n
      , Floating (TensorOf n (Primal r))
      , Fractional (TensorOf 0 (Primal r)) )
-  => TensorOf n (Primal r) -> TensorOf n r -> r
-lossSoftMaxCrossEntropyR target d' = tunScalar $ tlet d' $ \d ->
+  => TensorOf n (Primal r) -> TensorOf n r -> TensorOf 0 r
+lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by the QuickCheck test in TestMnistCNN.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106

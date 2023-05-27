@@ -9,18 +9,13 @@ module HordeAd.Core.DualNumber
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , IsPrimal (..), ADNum
+  , IsPrimal (..), IsPrimalR
   ) where
 
 import Prelude hiding ((<*))
 
-import qualified Data.Array.DynamicS as OD
-import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Flip
-import           Data.Proxy (Proxy (Proxy))
-import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat, Nat, natVal)
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import Data.Proxy (Proxy (Proxy))
+import GHC.TypeLits (KnownNat, Nat, natVal)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Domains
@@ -71,19 +66,6 @@ type ADTensor r =
   , DynamicTensor r
   , DomainsCollection r
   , DomainsTensor r
-  )
-
-type ADNum r =
-  ( Numeric r
-  , Show r
-  , Show (Dual (OD.Array r))
-  , Scalar r ~ r
-  , IsPrimalR r
-  , ADTensor r
-  , Ranked r ~ Flip OR.Array r
-  , IntOf r ~ CInt
-  , DTensorOf r ~ OD.Array r
-  , Floating (Vector r)
   )
 
 -- All this is not needed in the simplified version, except for compilation

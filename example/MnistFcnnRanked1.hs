@@ -71,7 +71,7 @@ afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 afcnnMnistLoss1
   :: ADReady r
   => Int -> Int -> MnistData (Value r) -> ADFcnnMnist1Parameters r
-  -> r
+  -> Ranked r 0
 afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
   let datum1 = tconst $ OR.fromVector [sizeMnistGlyphInt] datum
       target1 = tconst $ OR.fromVector [sizeMnistLabelInt] target
@@ -80,7 +80,7 @@ afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
 afcnnMnistLoss1TensorData
   :: ADReady r
   => Int -> Int -> (TensorOf 1 r, TensorOf 1 r) -> ADFcnnMnist1Parameters r
-  -> r
+  -> Ranked r 0
 afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
   let result = inline afcnnMnist1 logistic softMax1
                                   widthHidden widthHidden2 datum adparams
