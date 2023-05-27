@@ -255,7 +255,6 @@ class (CRanked RealFloat r, Integral (IntOf r))
   type DualOf (n :: Nat) r
   tconst :: KnownNat n => OR.Array n (Value r) -> TensorOf n r
   tconstant :: KnownNat n => TensorOf n (Primal r) -> TensorOf n r
-  tscale0 :: Primal r -> r -> r
   tprimalPart :: KnownNat n
               => TensorOf n r -> TensorOf n (Primal r)
   tdualPart :: KnownNat n
@@ -399,7 +398,6 @@ instance Tensor Double where
   type DualOf n Double = ()
   tconst = Flip
   tconstant = id
-  tscale0 r d = r * d
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
@@ -461,7 +459,6 @@ instance Tensor Float where
   type DualOf n Float = ()
   tconst = Flip
   tconstant = id
-  tscale0 r d = r * d
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u

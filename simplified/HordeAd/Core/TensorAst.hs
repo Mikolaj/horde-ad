@@ -64,7 +64,6 @@ instance ShowAstSimplify r
   type DualOf n (Ast0 r) = AstDualPart n r
   tconst = AstConstant . AstPrimalPart . AstConst
   tconstant = astConstant
-  tscale0 (AstPrimalPart r) (Ast0 t) = Ast0 (r * t)
   tprimalPart = AstPrimalPart
   tdualPart = AstDualPart
   tD = AstD
@@ -268,7 +267,6 @@ instance ShowAstSimplify r
   type DualOf n (AstPrimalPart 0 r) = ()
   tconst = AstPrimalPart . AstConst
   tconstant = id
-  tscale0 r d = r * d
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
@@ -320,7 +318,6 @@ instance ShowAstSimplify r
   type DualOf n (AstNoVectorize r 0) = AstDualPart n r
   tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
   tconstant = AstNoVectorize . astConstant . AstPrimalPart . unAstNoVectorize
-  tscale0 r d = r * d
   tprimalPart = id
   tdualPart = AstDualPart . unAstNoVectorize
   tD u u' = AstNoVectorize $ AstD (AstPrimalPart $ unAstNoVectorize u) u'
@@ -372,7 +369,6 @@ instance ShowAstSimplify r
   tconst = AstNoSimplify . AstConstant . AstPrimalPart . AstConst
   tconstant = AstNoSimplify . astConstant . AstPrimalPart . unAstNoSimplify
     -- exceptionally we do simplify AstConstant to avoid long boring chains
-  tscale0 r d = r * d
   tprimalPart = id
   tdualPart = AstDualPart . unAstNoSimplify
   tD u u' = AstNoSimplify $ AstD (AstPrimalPart $ unAstNoSimplify u) u'
