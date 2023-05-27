@@ -59,8 +59,7 @@ dDnotShared = D
 -- * Auxiliary definitions
 
 type ADTensor r =
-  ( IsPrimal r
-  , HasRanks r
+  ( HasRanks r
   , Tensor r
   , ConvertTensor r
   , DynamicTensor r

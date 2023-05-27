@@ -60,10 +60,6 @@ instance (KnownNat n, ShowAstSimplify r)
          => IfB (ADVal (Ast n r)) where
   ifB b v w = indexZ (fromList [v, w]) (singletonIndex $ ifB b 0 1)
 
-instance ShowAstSimplify r
-         => IfB (ADVal (Ast0 r)) where
-  ifB b v w = unScalar $ ifB b (scalar v) (scalar w)
-
 instance DynamicTensor (ADVal r) where
   type DTensorOf (ADVal r) = ADVal (DTensorOf r)
   ddummy = undefined
@@ -84,14 +80,13 @@ data ADInputs r = ADInputs
 makeADInputs
   :: (ConvertTensor r, DomainsCollection r)
   => Domains r
-  -> ( Data.Vector.Vector (Dual r)
-     , Data.Vector.Vector (Dual (DTensorOf r)) )
+  -> Data.Vector.Vector (Dual (DTensorOf r))
   -> ADInputs r
 {-# INLINE makeADInputs #-}
-makeADInputs params (vs0, vs1)
-  = ADInputs (domains0 params) vs0 (domainsR params) vs1
+makeADInputs params vs1
+  = ADInputs (domains0 params) V.empty (domainsR params) vs1
 
-instance (Tensor r, IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r))
+instance (Tensor r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r))
          => DomainsCollection (ADVal r) where
   type Domains (ADVal r) = ADInputs r
   doms0 = undefined
@@ -100,13 +95,7 @@ instance (Tensor r, IsPrimal r, DTensorOf (ADVal r) ~ ADVal (DTensorOf r))
   emptyDoms0 = undefined
   isEmptyDoms ADInputs{..} =
     tlength inputPrimal0 == 0 && V.null inputPrimal1
-  uncons0 inputs@ADInputs{..} = case tuncons inputPrimal0 of
-    Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
-      Just (aDual, restDual) ->
-        Just ( dD emptyADShare (tunScalar aPrimal) aDual
-             , inputs {inputPrimal0 = restPrimal, inputDual0 = restDual} )
-      Nothing -> Nothing
-    Nothing -> Nothing
+  uncons0 = undefined
   unconsR inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
@@ -146,8 +135,7 @@ instance ShowAstSimplify r
   nParams = undefined
   nScalars = undefined
 
-instance ( Tensor r, ConvertTensor (ADVal r)
-         , IsPrimal r, KnownNat n
+instance ( Tensor r, ConvertTensor (ADVal r), KnownNat n
          , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
          , DTensorOf r ~ OD.Array r )
          => AdaptableDomains (ADVal (Flip OR.Array r n)) where
@@ -160,8 +148,7 @@ instance ( Tensor r, ConvertTensor (ADVal r)
   nParams = undefined
   nScalars = undefined
 
-instance ( Tensor r, ConvertTensor (ADVal r)
-         , IsPrimal r, KnownNat n
+instance ( Tensor r, ConvertTensor (ADVal r), KnownNat n
          , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
          , DTensorOf r ~ OD.Array r )
          => AdaptableDomains (Compose ADVal (Flip OR.Array r) n) where
@@ -244,9 +231,6 @@ instance ( ADTensor r, CRanked IsPrimal r
   tbuild1 k f = Compose $ build1 k (getCompose . f)
   tgather sh t f = Compose $ gatherNClosure sh (getCompose t) f
 
-  tscalar = Compose . scalar
-  tunScalar = unScalar . getCompose
-
   tsumOfList lu =
     Compose $ dD (flattenADShare $ map ((\(Compose (D l _ _)) -> l)) lu)
                  (tsumOfList $ map (\(Compose (D _ u _)) -> u) lu)
@@ -270,7 +254,7 @@ instance ( ADTensor r, CRanked IsPrimal r
   type DualOf n (ADVal r) = (ADShare (Value r), Dual (TensorOf n r))
   tconst t = Compose $ dD emptyADShare (tconstBare t) dZero
   tconstant t = Compose $ dD emptyADShare t dZero
-  tscale0 r (D l u u') = dD l (r * u) (dScale r u')
+  tscale0 = undefined  -- r (D l u u') = dD l (r * u) (dScale r u')
   tprimalPart (Compose (D l u _)) = tletWrap l u
   tdualPart (Compose (D l _ u')) = (l, u')
   tD ast (l, delta) = Compose $ dD l ast delta
@@ -442,15 +426,6 @@ gatherNClosure
   -> ADVal (TensorOf (m + n) r)
 gatherNClosure sh (D l u u') f =
   dD l (tgather sh u f) (dGatherZ sh u' f (tshape u))
-
-scalar :: ( ADTensor r, IsPrimal (TensorOf 0 r)
-          , Underlying (TensorOf 0 r) ~ Underlying r )
-       => ADVal r -> ADVal (TensorOf 0 r)
-scalar (D l u u') = dD l (tscalar u) (dScalarR u')
-
-unScalar :: (ADTensor r, Underlying (TensorOf 0 r) ~ Underlying r)
-         => ADVal (TensorOf 0 r) -> ADVal r
-unScalar (D l u u') = dD l (tunScalar u) (dUnScalar0 u')
 
 fromD :: forall n r.
          ( ADTensor r, KnownNat n

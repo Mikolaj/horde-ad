@@ -36,8 +36,7 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
   (ForwardDerivative (..), derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.Domains
-import HordeAd.Core.DualClass
-  (Dual, dFromR, dFromVectorR, dInput0, dInputR, dScalarR)
+import HordeAd.Core.DualClass (Dual, dFromR, dInputR)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal
@@ -107,13 +106,9 @@ revDtInterpret
   -> Compose ADVal (AstRanked r) n
 {-# INLINE revDtInterpret #-}
 revDtInterpret envInit valsInit f = \varInputs domains
-                                     ((var0, _, vars1), (ast0, _, _)) ->
+                                     ((_var0, _, vars1), (_ast0, _, _)) ->
   let ast = f $ parseDomains valsInit domains
-      d0 = dD emptyADShare
-              ast0
-              (dFromVectorR $ V.map dScalarR $ inputDual0 varInputs)
-      env0 = extendEnvR var0 (Compose d0) envInit
-      env1 = foldr extendEnvD env0
+      env1 = foldr extendEnvD envInit
              $ zip vars1 $ V.toList
              $ V.zipWith (dDnotShared emptyADShare)
                          (inputPrimal1 varInputs)
@@ -334,21 +329,17 @@ slowFwdOnDomains parameters f ds =
 generateDeltaInputs
   :: forall r. ADTensor r
   => Domains r
-  -> ( Data.Vector.Vector (Dual r)
-     , Data.Vector.Vector (Dual (DTensorOf r)) )
+  -> Data.Vector.Vector (Dual (DTensorOf r))
 generateDeltaInputs params =
   let arrayToInput :: Int -> DTensorOf r -> Dual (DTensorOf r)
       arrayToInput i t = case someNatVal $ toInteger $ length $ dshape t of
         Just (SomeNat (_ :: Proxy n)) ->
           dFromR $ dInputR @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
-      !v0 = V.generate (tlength $ domains0 params) (dInput0 . toInputId)
-      !v1 = V.imap arrayToInput (domainsR params)
-  in (v0, v1)
+  in V.imap arrayToInput (domainsR params)
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
-  -> ( Data.Vector.Vector (Dual Double)
-     , Data.Vector.Vector (Dual (OD.Array Double)) ) #-}
+  -> Data.Vector.Vector (Dual (OD.Array Double)) #-}
 
 -- | Initialize parameters using a uniform distribution with a fixed range
 -- taken from an argument.

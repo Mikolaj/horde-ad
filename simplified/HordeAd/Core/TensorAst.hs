@@ -58,10 +58,6 @@ instance ShowAstSimplify r
   tbuild1 = astBuild1Vectorize
   tgather sh t f = AstGatherZ sh t (funToAstIndex f)  -- introduces new vars
 
-  tscalar = unAst0
-  tunScalar = Ast0
-    -- due to injective type families, we have to distinguish Ast0 and Ast 0
-
   tsumOfList l = AstSumOfList l
 
   type Primal (Ast0 r) = AstPrimalPart 0 r
@@ -117,12 +113,7 @@ instance ShowAstSimplify r
   emptyDoms0 = AstDynamic @1 (AstFromList [])
   isEmptyDoms params = V.null (domsR params) && case doms0 params of
     AstDynamic t -> sizeShape (shapeAst t) == 0
-  uncons0 params =
-    let v = tfromD $ doms0 params
-    in case tuncons v of
-      Nothing -> Nothing
-      Just (h, rest) ->
-        Just (tunScalar h, mkDoms (dfromR rest) (domsR params))
+  uncons0 = undefined
   unconsR params =
     let v = domsR params
     in case V.uncons v of
@@ -284,11 +275,6 @@ instance ShowAstSimplify r
   tgather sh t f = AstPrimalPart $ AstGatherZ sh (unAstPrimalPart t)
                    $ funToAstIndex f  -- this introduces new variable names
 
-  tscalar = id
-  tunScalar = id
-    -- identifying AstPrimalPart 0 with primal part scalars lets us avoid
-    -- adding a lot of constraints to ADReady
-
   tsumOfList l = AstPrimalPart . AstSumOfList . map unAstPrimalPart $ l
 
   type Primal (AstPrimalPart 0 r) = AstPrimalPart 0 r
@@ -341,9 +327,6 @@ instance ShowAstSimplify r
   tgather sh t f = AstNoVectorize $ AstGatherZ sh (unAstNoVectorize t)
                    $ funToAstIndex f  -- this introduces new variable names
 
-  tscalar = id
-  tunScalar = id
-
   tsumOfList l = AstNoVectorize . AstSumOfList . map unAstNoVectorize $ l
 
   type Primal (AstNoVectorize r 0) = AstNoVectorize r 0
@@ -394,9 +377,6 @@ instance ShowAstSimplify r
   tbuild1 k f = AstNoSimplify $ astBuild1Vectorize k (unAstNoSimplify . f)
   tgather sh t f = AstNoSimplify $ AstGatherZ sh (unAstNoSimplify t)
                    $ funToAstIndex f  -- this introduces new variable names
-
-  tscalar = id
-  tunScalar = id
 
   tsumOfList l = AstNoSimplify . AstSumOfList . map unAstNoSimplify $ l
 

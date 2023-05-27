@@ -136,16 +136,16 @@ instance (IsPrimalA r, KnownNat n)
   packDeltaDt = packDeltaDtA
   intOfShape = intOfShapeA
 
+-- TODO: this should not be needed, but typing needs it ATM
+instance IsPrimal (Ast0 r) where
+instance IsPrimal Float where
+instance IsPrimal Double where
+
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
 class HasRanks r where
-  dInput0 :: InputId r -> Dual r
-  dIndex0 :: KnownNat n
-          => Dual (TensorOf n r) -> IndexOf n r -> ShapeInt n -> Dual r
   dInputR :: InputId (TensorOf n r) -> Dual (TensorOf n r)
---  dIndexZ1 :: KnownNat n
---         => Dual (TensorOf (1 + n) r) -> Int -> Int -> Dual (TensorOf n r)
   dIndexZ :: (KnownNat n, KnownNat m)
           => Dual (TensorOf (m + n) r) -> IndexOf m r -> ShapeInt (m + n)
           -> Dual (TensorOf n r)
@@ -164,7 +164,6 @@ class HasRanks r where
             -> (IndexOf m r -> IndexOf p r)
             -> ShapeInt (m + n)
             -> Dual (TensorOf (p + n) r)
-  dScalarR :: Dual r -> Dual (TensorOf 0 r)
   dFromListR :: KnownNat n
              => [Dual (TensorOf n r)]
              -> Dual (TensorOf (1 + n) r)
@@ -205,7 +204,6 @@ class HasRanks r where
            -> (IndexOf m r -> IndexOf p r)
            -> ShapeInt (p + n)
            -> Dual (TensorOf (m + n) r)
-  dUnScalar0 :: Dual (TensorOf 0 r) -> Dual r
 
   dFromD :: KnownNat n
           => Dual (DTensorOf r) -> Dual (TensorOf n r)
@@ -246,53 +244,6 @@ class HasRanks r where
 -- and it could, presumably, be extended to further limit which
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
-instance IsPrimal Double where
-  dZero = Zero0
-  dScale = Scale0
-  dScaleByScalar _ c = Scale0 (fromIntegral c)
-  dAdd = Add0
-  recordSharing d = case d of
-    Zero0 -> d
-    Input0{} -> d
-    Let0{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDelta0 d
-  recordSharingPrimal r l = (l, r)
-  letWrapPrimal _ r = r
-  packDeltaDt et = DeltaDt0 (either (const 1) id et)
-  intOfShape _ c = fromIntegral c
-
--- | This is an impure instance. See above.
-instance IsPrimal Float where
-  -- Identical as above:
-  dZero = Zero0
-  dScale = Scale0
-  dScaleByScalar _ c = Scale0 (fromIntegral c)
-  dAdd = Add0
-  recordSharing d = case d of
-    Zero0 -> d
-    Input0{} -> d
-    Let0{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDelta0 d
-  recordSharingPrimal r l = (l, r)
-  letWrapPrimal _ r = r
-  packDeltaDt et = DeltaDt0 (either (const 1) id et)
-  intOfShape _ c = fromIntegral c
-
-instance ShowAstSimplify r => IsPrimal (Ast0 r) where
-  dZero = Zero0
-  dScale = Scale0
-  dScaleByScalar _ c = Scale0 (fromIntegral c)
-  dAdd = Add0
-  recordSharing d = case d of
-    Zero0 -> d
-    Input0{} -> d
-    Let0{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDelta0 d
-  recordSharingPrimal r l = let (l2, r2) = astRegisterADShare (unAst0 r) l
-                            in (l2, Ast0 r2)
-  letWrapPrimal l r = Ast0 $ tletWrap l (unAst0 r)
-  packDeltaDt et = DeltaDt0 (either (const 1) id et)
-  intOfShape _ c = fromIntegral c
 
 -- | This is an impure instance. See above.
 instance IsPrimalR Double where
@@ -336,7 +287,7 @@ instance ShowAstSimplify r => IsPrimalA r where
   dZeroA = ZeroR
   dScaleA = ScaleR
   dScaleByScalarA tsh c =
-    ScaleR (treplicate0N (tshape tsh) (tscalar $ fromIntegral c))
+    ScaleR (treplicate0N (tshape tsh) (fromIntegral c))
   dAddA = AddR
   recordSharingA d = case d of
     ZeroR -> d
@@ -348,16 +299,11 @@ instance ShowAstSimplify r => IsPrimalA r where
   letWrapPrimalA = tletWrap
   packDeltaDtA (Left tsh) = DeltaDtR (treplicate0N (tshape tsh) 1)
   packDeltaDtA (Right t) = DeltaDtR t
-  intOfShapeA tsh c = treplicate0N (tshape tsh) (tscalar $ fromIntegral c)
+  intOfShapeA tsh c = treplicate0N (tshape tsh) (fromIntegral c)
 
 -- | This is an impure instance. See above.
 instance HasRanks Double where
-  dInput0 = Input0
-  dIndex0 = Index0
-  dUnScalar0 = UnScalar0
-
   dInputR = InputR
---  dIndex1 = Index1
   dIndexZ = IndexZ
   dSumR = SumR
   dSum0 = Sum0
@@ -378,7 +324,6 @@ instance HasRanks Double where
   dBuildR = BuildR
 --  dGather1 = Gather1
   dGatherZ = GatherZ
-  dScalarR = ScalarR
 
   dFromD :: forall n2. KnownNat n2
          => Dual (DTensorOf Double) -> Dual (TensorOf n2 Double)
@@ -389,12 +334,7 @@ instance HasRanks Double where
   dFromR = FromR
 
 instance HasRanks Float where
-  dInput0 = Input0
-  dIndex0 = Index0
-  dUnScalar0 = UnScalar0
-
   dInputR = InputR
---  dIndex1 = Index1
   dIndexZ = IndexZ
   dSumR = SumR
   dSum0 = Sum0
@@ -415,7 +355,6 @@ instance HasRanks Float where
   dBuildR = BuildR
 --  dGather1 = Gather1
   dGatherZ = GatherZ
-  dScalarR = ScalarR
 
   dFromD :: forall n2. KnownNat n2
          => Dual (DTensorOf Float) -> Dual (TensorOf n2 Float)
@@ -426,12 +365,7 @@ instance HasRanks Float where
   dFromR = FromR
 
 instance ShowAst r => HasRanks (Ast0 r) where
-  dInput0 = Input0
-  dIndex0 = Index0
-  dUnScalar0 = UnScalar0
-
   dInputR = InputR
---  dIndex1 = Index1
   dIndexZ = IndexZ
   dSumR = SumR
   dSum0 = Sum0
@@ -452,7 +386,6 @@ instance ShowAst r => HasRanks (Ast0 r) where
   dBuildR = BuildR
 --  dGather1 = Gather1
   dGatherZ = GatherZ
-  dScalarR = ScalarR
 
   dFromD :: forall n2. KnownNat n2
          => Dual (DTensorOf (Ast0 r)) -> Dual (TensorOf n2 (Ast0 r))
@@ -495,16 +428,8 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 resetIdCounter :: IO ()
 resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
--- The following functions are the only places, except for global
--- variable definitions, that contain `unsafePerformIO'.
--- BTW, tests don't show a speedup from `unsafeDupablePerformIO`,
+-- Tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
-wrapDelta0 :: Delta0 r -> Delta0 r
-{-# NOINLINE wrapDelta0 #-}
-wrapDelta0 !d = unsafePerformIO $ do
-  n <- unsafeGetFreshId
-  return $! Let0 (NodeId n) d
-
 wrapDeltaR :: DeltaR n r -> DeltaR n r
 {-# NOINLINE wrapDeltaR #-}
 wrapDeltaR !d = unsafePerformIO $ do

@@ -121,7 +121,9 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   in tconstant (recip $ fromIntegral batch_size) * loss
 
 rnnMnistTestR
-  :: forall r. (ADReady r, r ~ Primal r, Numeric r, Ranked r ~ Flip OR.Array r)
+  :: forall r.
+     ( ADReady r, RealFloat r, r ~ Primal r, Numeric r
+     , Ranked r ~ Flip OR.Array r )
   => Int
   -> MnistDataBatchR r  -- batch_size
   -> ((ADRnnMnistParameters r  -- SizeMnistHeight out_width

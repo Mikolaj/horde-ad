@@ -779,6 +779,7 @@ interpretAstRelOp opCodeRel args =
   :: OpCodeBool -> [AstBool Float] -> AstBool Float #-}
 -}
 
+{- TODO: here and elsewhere add tensor specializations instead of these
 {-# SPECIALIZE interpretAstRelOp
   :: OpCodeRel -> [ADVal Double] -> Bool #-}
 {-# SPECIALIZE interpretAstRelOp
@@ -787,6 +788,7 @@ interpretAstRelOp opCodeRel args =
   :: OpCodeRel -> [ADVal (Ast0 Double)] -> AstBool Double #-}
 {-# SPECIALIZE interpretAstRelOp
   :: OpCodeRel -> [ADVal (Ast0 Float)] -> AstBool Float #-}
+-}
 {-# SPECIALIZE interpretAstRelOp
   :: OpCodeRel -> [Double] -> Bool #-}
 {-# SPECIALIZE interpretAstRelOp

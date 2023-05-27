@@ -98,7 +98,7 @@ instance (forall y z. c (Ranked r y) (Ranked r z)) => CRanked2 c r where
 -- Ord and Num operations and numeric superclasses.
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
-class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
+class (CRanked RealFloat r, Integral (IntOf r))
       => Tensor r where
   type Ranked r = (t :: Nat -> Type) | t -> r
   type IntOf r
@@ -125,9 +125,6 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
   tmaxIndex :: KnownNat n => TensorOf n r -> IndexOf n r
   tmaxIndex t = fromLinearIdx (tshape t) (tmaxIndex0 (tflatten t))
   tfloor :: TensorOf 0 r -> IntOf r
-  default tfloor  -- a more narrow type to rule out Ast
-    :: (IntOf r ~ CInt) => TensorOf 0 r -> IntOf r
-  tfloor = floor . tunScalar
 
   -- Typically scalar codomain, often tensor reduction
   -- (a number suffix in the name indicates the rank of codomain)
@@ -159,9 +156,6 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
   tmaximum :: KnownNat n => TensorOf n r -> TensorOf 0 r
   tmaximum t = t ! tmaxIndex t
   tfromIndex0 :: IntOf r -> TensorOf 0 r
-  default tfromIndex0  -- the more narrow type rules out Ast
-    :: IntOf r ~ CInt => IntOf r -> TensorOf 0 r
-  tfromIndex0 = tscalar . fromIntegral
   tfromIndex1 :: IndexOf n r -> TensorOf 1 r
   tfromIndex1 = tfromList . map tfromIndex0 . indexToList
   tscatter :: (KnownNat m, KnownNat n, KnownNat p)
@@ -256,9 +250,6 @@ class (RealFloat r, CRanked RealFloat r, Integral (IntOf r))
            -> TensorOf (1 + n) r
   tgather1 k v f = tgather @r @1 (k :$ dropShape (tshape v)) v
                                  (\(i :. ZI) -> f i)
-
-  tscalar :: r -> TensorOf 0 r
-  tunScalar :: TensorOf 0 r -> r
 
 
   -- ** No serviceable parts beyond this point ** --
@@ -358,8 +349,8 @@ type Many (f :: Type -> Constraint) r = (f (TensorOf 0 r), f (TensorOf 1 r), f (
 
 type ADReady r =
   ( Tensor r, Tensor (Primal r)
-  , Show r, Numeric (Value r), RealFloat (Value r), Scalar r ~ r
-  , IfB r, IfB (IntOf r), Many IfB r, Many IfB (Primal r)
+  , Numeric (Value r), RealFloat (Value r), Scalar r ~ r
+  , IfB (IntOf r), Many IfB r, Many IfB (Primal r)
   , EqB r, EqB (IntOf r), Many EqB r, Many EqB (Primal r)
   , OrdB r, OrdB (IntOf r), Many OrdB r, Many OrdB (Primal r)
   , Boolean (BooleanOf r)
@@ -402,21 +393,22 @@ instance Tensor Double where
   tshape = tshapeR . runFlip
   tminIndex0 = tminIndexR . runFlip
   tmaxIndex0 = tmaxIndexR . runFlip
-  tfloor = floor . tunScalar
+  tfloor = floor . tunScalarR . runFlip
   tindex v ix = Flip $ tindexZR (runFlip v) ix
   tsum = Flip . tsumR . runFlip
-  tsum0 = tscalar . tsum0R . runFlip
-  tdot0 u v = tscalar $ tdot0R (runFlip u) (runFlip v)
+  tsum0 = Flip . tscalarR . tsum0R . runFlip
+  tdot0 u v = Flip $ tscalarR $ tdot0R (runFlip u) (runFlip v)
   tmatvecmul m v = Flip $ tmatvecmulR (runFlip m) (runFlip v)
   tmatmul2 m1 m2 = Flip $ tmatmul2R (runFlip m1) (runFlip m2)
+  tfromIndex0 = Flip . tscalarR . fromIntegral
   tscatter sh t f = Flip $ tscatterZR sh (runFlip t) f
   tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t) f
   tfromList = Flip . tfromListR . map runFlip
-  tfromList0N sh = Flip . tfromList0NR sh . map tunScalar
+  tfromList0N sh = Flip . tfromList0NR sh . map (tunScalarR . runFlip)
   tfromVector = Flip . tfromVectorR . V.map runFlip
-  tfromVector0N sh = Flip . tfromVector0NR sh . V.map tunScalar
+  tfromVector0N sh = Flip . tfromVector0NR sh . V.map (tunScalarR . runFlip)
   treplicate k = Flip . treplicateR k . runFlip
-  treplicate0N sh = Flip . treplicate0NR sh . tunScalar
+  treplicate0N sh = Flip . treplicate0NR sh . tunScalarR . runFlip
   tappend u v = Flip $ tappendR (runFlip u) (runFlip v)
   tslice i k = Flip . tsliceR i k . runFlip
   treverse = Flip . treverseR . runFlip
@@ -429,9 +421,8 @@ instance Tensor Double where
                                         (runFlip t) (runFlip u)
   tgather sh t f = Flip $ tgatherZR sh (runFlip t) f
   tgather1 k t f = Flip $ tgatherZ1R k (runFlip t) f
-  tscalar = Flip . tscalarR
-  tunScalar = tunScalarR . runFlip
-  tscaleByScalar s v = Flip $ tscaleByScalarR (tunScalar s) (runFlip v)
+  tscaleByScalar s v =
+    Flip $ tscaleByScalarR (tunScalarR $ runFlip s) (runFlip v)
   tsumIn = Flip . tsumInR . runFlip
   tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   type Primal Double = Double
@@ -465,21 +456,22 @@ instance Tensor Float where
   tshape = tshapeR . runFlip
   tminIndex0 = tminIndexR . runFlip
   tmaxIndex0 = tmaxIndexR . runFlip
-  tfloor = floor . tunScalar
+  tfloor = floor . tunScalarR . runFlip
   tindex v ix = Flip $ tindexZR (runFlip v) ix
   tsum = Flip . tsumR . runFlip
-  tsum0 = tscalar . tsum0R . runFlip
-  tdot0 u v = tscalar $ tdot0R (runFlip u) (runFlip v)
+  tsum0 = Flip . tscalarR . tsum0R . runFlip
+  tdot0 u v = Flip $ tscalarR $ tdot0R (runFlip u) (runFlip v)
   tmatvecmul m v = Flip $ tmatvecmulR (runFlip m) (runFlip v)
   tmatmul2 m1 m2 = Flip $ tmatmul2R (runFlip m1) (runFlip m2)
+  tfromIndex0 = Flip . tscalarR . fromIntegral
   tscatter sh t f = Flip $ tscatterZR sh (runFlip t) f
   tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t) f
   tfromList = Flip . tfromListR . map runFlip
-  tfromList0N sh = Flip . tfromList0NR sh . map tunScalar
+  tfromList0N sh = Flip . tfromList0NR sh . map (tunScalarR . runFlip)
   tfromVector = Flip . tfromVectorR . V.map runFlip
-  tfromVector0N sh = Flip . tfromVector0NR sh . V.map tunScalar
+  tfromVector0N sh = Flip . tfromVector0NR sh . V.map (tunScalarR . runFlip)
   treplicate k = Flip . treplicateR k . runFlip
-  treplicate0N sh = Flip . treplicate0NR sh . tunScalar
+  treplicate0N sh = Flip . treplicate0NR sh . tunScalarR . runFlip
   tappend u v = Flip $ tappendR (runFlip u) (runFlip v)
   tslice i k = Flip . tsliceR i k . runFlip
   treverse = Flip . treverseR . runFlip
@@ -492,9 +484,8 @@ instance Tensor Float where
                                         (runFlip t) (runFlip u)
   tgather sh t f = Flip $ tgatherZR sh (runFlip t) f
   tgather1 k t f = Flip $ tgatherZ1R k (runFlip t) f
-  tscalar = Flip . tscalarR
-  tunScalar = tunScalarR . runFlip
-  tscaleByScalar s v = Flip $ tscaleByScalarR (tunScalar s) (runFlip v)
+  tscaleByScalar s v =
+    Flip $ tscaleByScalarR (tunScalarR $ runFlip s) (runFlip v)
   tsumIn = Flip . tsumInR . runFlip
   tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   type Primal Float = Float

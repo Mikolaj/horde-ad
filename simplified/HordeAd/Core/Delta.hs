@@ -34,7 +34,7 @@
 -- to understand.
 module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta0 (..), DeltaR (..), DeltaD (..)
+    DeltaS (..), DeltaR (..), DeltaD (..)
   , -- * Delta expression identifiers
     NodeId (..), InputId, toInputId, Dual
   , -- * Evaluation of the delta expressions
@@ -51,6 +51,7 @@ import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
@@ -128,18 +129,10 @@ newtype NodeId = NodeId Int
 -- with respect to the input parameter component at that index
 -- in the objective function domain. The collection of all such
 -- vectors of partial derivatives across all ranks is the gradient.
-data Delta0 :: Type -> Type where
-  Zero0 :: Delta0 r
-  Input0 :: InputId r -> Delta0 r
-  Scale0 :: r -> Delta0 r -> Delta0 r
-  Add0 :: Delta0 r -> Delta0 r -> Delta0 r
-  Let0 :: NodeId -> Delta0 r -> Delta0 r
+data DeltaS :: Type -> [Nat] -> Type where
+  LetS :: NodeId -> DeltaS r sh -> DeltaS r sh
 
-  Index0 :: KnownNat n
-         => DeltaR r n -> IndexOf n r -> ShapeInt n -> Delta0 r
-  UnScalar0 :: DeltaR r 0 -> Delta0 r
-
-deriving instance (Show (IntOf r), Show r) => Show (Delta0 r)
+deriving instance (Show (IntOf r), Show r) => Show (DeltaS r sh)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 -- The comments refer to the ordinary (forward) semantics of the terms,
@@ -240,8 +233,6 @@ data DeltaR :: Type -> Nat -> Type where
     -- is added at such an index (and similarly in @ScatterN@).
     -- The semantics of the operation permits index out of bounds
     -- and then no tensors is added at such an index.
-  ScalarR :: Delta0 r -> DeltaR r 0
-    -- ^ Conversion between rank 0 and R (ranked tensors).
 
   FromD :: forall n r. DeltaD r -> DeltaR r n
 
@@ -267,9 +258,6 @@ toInputId i = assert (i >= 0) $ InputId i
 -- | The type family that to each basic differentiable type
 -- assigns its delta expression type.
 type family Dual a = result | result -> a where
-  Dual Double = Delta0 Double
-  Dual Float = Delta0 Float
-  Dual (Ast0 r) = Delta0 (Ast0 r)
   Dual (OD.Array Double) = DeltaD Double
   Dual (OD.Array Float) = DeltaD Float
   Dual (AstDynamic r) = DeltaD (Ast0 r)
@@ -285,7 +273,8 @@ type family Dual a = result | result -> a where
 -- (small change) of the objective function codomain, for which we compute
 -- the gradient.
 data DeltaDt r =
-    DeltaDt0 r (Delta0 r)
+    forall sh. OS.Shape sh
+    => DeltaDtS () (DeltaS r sh)
   | forall n. KnownNat n
     => DeltaDtR (TensorOf n r) (DeltaR r n)
 
@@ -327,7 +316,8 @@ data EvalState r = EvalState
 -- may still not be processed, so we'd not take advantage of the sharing
 -- and not take into account the whole summed context when finally evaluating.
 data DeltaBinding r =
-    DeltaBinding0 (Delta0 r)
+    forall sh. OS.Shape sh
+    => DeltaBindingS (DeltaS r sh)
   | forall n. KnownNat n
     => DeltaBindingR (DeltaR r n)
 
@@ -401,10 +391,7 @@ gradientFromDelta dim0 dimR deltaDt =
   -- and especially using them as cotangent accumulators is wasteful;
   -- additionally, it may not be easy to deduce the sizes of the vectors).
   let s0 =
-        let iMap0 = EM.fromDistinctAscList
-                    $ zip [toInputId 0 ..]
-                          (replicate dim0 0)
-                      -- 0 is the correct value; below is a dummy value
+        let iMap0 = EM.empty
             iMapR = EM.fromDistinctAscList
                     $ zip [toInputId 0 ..]
                           (replicate dimR (ddummy :: DTensorOf r))
@@ -418,7 +405,7 @@ gradientFromDelta dim0 dimR deltaDt =
          -- Extract results.
          gradient =
            mkDoms (dfromR
-                   $ tfromList0N (singletonShape dim0) (map tscalar $ EM.elems iMap0))
+                   $ tfromList0N (singletonShape dim0) [])
                   (fromListDoms $ EM.elems iMapR)
      in (astBindings, gradient)
 {-# SPECIALIZE gradientFromDelta
@@ -435,17 +422,9 @@ buildFinMaps s0 deltaDt =
   -- the second is the cotangent accumulator that will become an actual
   -- cotangent contribution when complete (see below for an explanation)
   -- and the third argument is the node to evaluate.
-  let eval0 :: EvalState r -> r -> Delta0 r -> EvalState r
-      eval0 s !c = \case
-        Zero0 -> s
-        Input0 i -> s {iMap0 = EM.adjust (+ c) i $ iMap0 s}
-        Scale0 k d -> eval0 s (k * c) d
-        Add0 d e -> let (abShared, cSharedRaw) =
-                          inline tregister (tscalar c) (astBindings s)
-                        cShared = tunScalar cSharedRaw
-                        sShared = s {astBindings = abShared}
-                    in eval0 (eval0 sShared cShared d) cShared e
-        Let0 n d ->
+  let _evalS :: EvalState r -> r -> DeltaS r sh -> EvalState r
+      _evalS _s !_c = \case
+        LetS _n _d ->
           -- In this context, by construction, @d@ is the dual component
           -- of a dual number term. Let's say that, at this point, evaluation
           -- considers position (node) p out of possibly multiple positions
@@ -476,18 +455,7 @@ buildFinMaps s0 deltaDt =
           -- For @Input@ terms, the eventual lists of cotangents end up
           -- in the cells of the gradient vectors that are the final
           -- result of the evaluation.
-          assert (case d of
-                    Zero0 -> False
-                    Input0{} -> False
-                    Let0{} -> False  -- wasteful and nonsensical
-                    _ -> True)
-          $ case EM.lookup n $ nMap s of
-              Just (DeltaBinding0 _) ->
-                s {dMap0 = EM.adjust (+ c) n $ dMap0 s}
-              Nothing ->
-                s { nMap = EM.insert n (DeltaBinding0 d) $ nMap s
-                  , dMap0 = EM.insert n c $ dMap0 s }
-              _ -> error "buildFinMaps: corrupted nMap"
+          undefined
 
 {-
         -- The general case is given as the last one below,
@@ -518,9 +486,6 @@ buildFinMaps s0 deltaDt =
                    , dMapR = EM.insert n v $ dMapR s }
             _ -> error "buildFinMaps: corrupted nMap"
 -}
-        Index0 d ix sh -> evalR s (tscatter sh (tscalar c) (const ix)) d
-            -- equivalent: evalR s (updateR (treplicate0NR sh 0) [(ix, c)]) d
-        UnScalar0 d -> evalR s (tscalar c) d
 
       evalR :: forall n. KnownNat n
             => EvalState r -> TensorOf n r -> DeltaR r n -> EvalState r
@@ -598,7 +563,6 @@ buildFinMaps s0 deltaDt =
                  sShared (fromIntegral <$> [0 .. n - 1])
 --        Gather1 f sh d _n -> evalR s (tscatter1R f c sh) d
         GatherZ _sh d f shd -> evalR s (tscatter shd c f) d
-        ScalarR d -> eval0 s (tunScalar c) d
 
         FromD @n2 (FromR @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
@@ -606,20 +570,19 @@ buildFinMaps s0 deltaDt =
             _ -> error "buildFinMaps: different ranks in FromD(FromR)"
 
       evalFromnMap :: EvalState r -> EvalState r
-      evalFromnMap s@EvalState{nMap, dMap0, dMapR} =
+      evalFromnMap s@EvalState{nMap, dMapR} =
         case EM.maxViewWithKey nMap of
           Just ((n, b), nMap2) ->
             let s2 = s {nMap = nMap2}
                 s3 = case b of
-                  DeltaBinding0 d -> let c = dMap0 EM.! n
-                                     in eval0 s2 c d
+                  DeltaBindingS _d -> undefined
                   DeltaBindingR d -> let c = tfromD $ dMapR EM.! n
                                      in evalR s2 c d
             in evalFromnMap s3
           Nothing -> s  -- loop ends
 
       s1 = case deltaDt of
-        DeltaDt0 dt deltaTopLevel -> eval0 s0 dt deltaTopLevel
+        DeltaDtS _dt _deltaTopLevel -> undefined
         DeltaDtR dt deltaTopLevel -> evalR s0 dt deltaTopLevel
   in evalFromnMap s1
 {-# SPECIALIZE buildFinMaps
@@ -635,7 +598,7 @@ buildFinMaps s0 deltaDt =
 -- is really an irritating side effect, while in @buildFinMaps@ it's building
 -- the result. Perhaps this can be simplified completely differently.
 
--- This code is full of hacks (DeltaDt0 and ST). Rewrites welcome.
+-- This code is full of hacks (e.g., ST). Rewrites welcome.
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,
@@ -650,28 +613,6 @@ class ForwardDerivative a where
     :: (Tensor r, DynamicTensor r, Scalar a ~ r)
     => Int -> Int -> Dual a -> Domains r -> a
 
-instance ForwardDerivative Double where
-  derivativeFromDelta dim0 dimR deltaTopLevel ds =
-    case runST $ buildDerivative dim0 dimR
-                                 (DeltaDt0 0 deltaTopLevel) ds of
-      DeltaDt0 res _ -> res
-      DeltaDtR{} -> error "derivativeFromDelta"
-
-instance ForwardDerivative Float where
-  derivativeFromDelta dim0 dimR deltaTopLevel ds =
-    case runST $ buildDerivative dim0 dimR
-                                 (DeltaDt0 0 deltaTopLevel) ds of
-      DeltaDt0 res _ -> res
-      DeltaDtR{} -> error "derivativeFromDelta"
-
-instance ShowAstSimplify r
-         => ForwardDerivative (Ast0 r) where
-  derivativeFromDelta dim0 dimR deltaTopLevel ds =
-    case runST $ buildDerivative dim0 dimR
-                                 (DeltaDt0 0 deltaTopLevel) ds of
-      DeltaDt0 res _ -> res
-      DeltaDtR{} -> error "derivativeFromDelta"
-
 instance ( Num (TensorOf n r), KnownNat n, Ranked r ~ Flip OR.Array r
          , Dual (Flip OR.Array r n) ~ DeltaR r n, ConvertTensor r
          , DomainsCollection r )
@@ -682,7 +623,7 @@ instance ( Num (TensorOf n r), KnownNat n, Ranked r ~ Flip OR.Array r
       DeltaDtR @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
         Just Refl -> res
         _ -> error "derivativeFromDelta"
-      DeltaDt0{} -> error "derivativeFromDelta"
+      DeltaDtS{} -> error "derivativeFromDelta"
 
 instance (ShowAstSimplify r, KnownNat n)
          => ForwardDerivative (Ast n r) where
@@ -692,7 +633,7 @@ instance (ShowAstSimplify r, KnownNat n)
       DeltaDtR @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
         Just Refl -> res
         _ -> error "derivativeFromDelta"
-      DeltaDt0{} -> error "derivativeFromDelta"
+      DeltaDtS{} -> error "derivativeFromDelta"
 
 -- | This mimics 'buildFinMaps', but in reverse. Perhaps this can be
 -- simplified, but the obvious simplest formulation does not honour sharing
@@ -701,43 +642,10 @@ buildDerivative
   :: forall s r. (Tensor r, ConvertTensor r, DomainsCollection r)
   => Int -> Int -> DeltaDt r -> Domains r
   -> ST s (DeltaDt r)
-buildDerivative dim0 dimR deltaDt params = do
-  dMap0 <- newSTRef EM.empty
+buildDerivative _dim0 dimR deltaDt params = do
   dMapR <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
-  let eval0 :: Delta0 r -> ST s r
-      eval0 = \case
-        Zero0 -> return 0
-        Input0 (InputId i) ->
-          if i < dim0
-          then return $! tunScalar
-                         $ domains0 params ! singletonIndex (fromIntegral i)
-          else error "derivativeFromDelta.eval': wrong index for an input"
-        Scale0 k d -> (k *) <$> eval0 d
-        Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)
-        Let0 n d -> do
-          -- This is too complex, but uses components already defined
-          -- for initializeFinMaps and some of a similar code.
-          nm <- readSTRef nMap
-          case EM.lookup n nm of
-            Just (DeltaBinding0 _) -> do
-              dm <- readSTRef dMap0
-              return $! dm EM.! n
-            Nothing -> do
-              c <- eval0 d
-              nmNew <- readSTRef nMap
-              dm <- readSTRef dMap0
-              writeSTRef nMap $! EM.insert n (DeltaBinding0 d) nmNew
-              writeSTRef dMap0 $! EM.insert n c dm
-              return c
-            _ -> error "buildDerivative: corrupted nMap"
-
-        Index0 ZeroR _ _ -> return 0
-        Index0 d ixs _ -> tunScalar . flip tindex ixs <$> evalR d
-        UnScalar0 ZeroR -> return 0
-        UnScalar0 d -> tunScalar <$> evalR d
-
-      evalR :: forall n. KnownNat n
+  let evalR :: forall n. KnownNat n
             => DeltaR r n -> ST s (TensorOf n r)
       evalR = \case
         ZeroR -> return $! tzero $ listShapeToShape $ replicate (valueOf @n) 1
@@ -811,7 +719,6 @@ buildDerivative dim0 dimR deltaDt params = do
         GatherZ sh d f _shd -> do
           t <- evalR d
           return $! tgather sh t f
-        ScalarR d -> tscalar <$> eval0 d
 
         FromD @n2 (FromR @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
@@ -821,7 +728,6 @@ buildDerivative dim0 dimR deltaDt params = do
   -- A hack to fit both argument delta and, afterwards, the result in a type
   -- that does not reflect either.
   case deltaDt of
-    DeltaDt0 _dt deltaTopLevel ->
-      flip DeltaDt0 Zero0 <$> eval0 deltaTopLevel
+    DeltaDtS _dt _deltaTopLevel -> undefined
     DeltaDtR _dt deltaTopLevel ->
       flip DeltaDtR ZeroR <$> evalR deltaTopLevel

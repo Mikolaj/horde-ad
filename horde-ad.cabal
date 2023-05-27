@@ -644,7 +644,6 @@ test-suite simplifiedOnlyTest
                       TestHighRankSimplified
                       TestMnistFCNNR
                       TestMnistRNNR
-                      TestSimplified
 
     build-depends:
       , horde-ad:horde-ad-simplified
