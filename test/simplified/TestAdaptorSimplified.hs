@@ -190,7 +190,7 @@ testFoo :: Assertion
 testFoo = do
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (srev @Double foo (1.1, 2.2, 3.3))
+    (rev @Double @0 foo (1.1, 2.2, 3.3))
 
 testFooPP :: Assertion
 testFooPP = do
@@ -876,42 +876,42 @@ testReplicateReluAst =
 
 -- * Tests by TomS
 
-f1 :: ADReady a => a -> a
-f1 = \arg -> tunScalar $ tsum0 (tbuild1 10 (\i -> tscalar arg * tfromIndex0 i))
+f1 :: ADReady r => Ranked r 0 -> Ranked r 0
+f1 = \arg -> tsum0 (tbuild1 10 (\i -> arg * tfromIndex0 i))
 
 testF1 :: Assertion
 testF1 =
   assertEqualUpToEpsilon 1e-10
     45.0
-    (srev @Double f1 1.1)
+    (rev @Double @0 f1 1.1)
 
 testF11 :: Assertion
 testF11 =
   assertEqualUpToEpsilon' 1e-10
     45.0
-    (rev' @Double @0 (tscalar . f1 . tunScalar) 1.1)
+    (rev' @Double @0 f1 1.1)
 
-f2 :: ADReady a => a -> a
+f2 :: ADReady r => Ranked r 0 -> Ranked r 0
 f2 = \arg ->
-  let fun1 i = tscalar arg * tfromIndex0 i
+  let fun1 i = arg * tfromIndex0 i
       v1a = tsum0 (tbuild1 10 fun1)
       v1b = tsum0 (tbuild1 20 fun1)
-      fun2 y i = tscalar y * tfromIndex0 i
+      fun2 y i = y * tfromIndex0 i
       v2a = tsum0 (tbuild1 10 (fun2 arg))
       v2b = tsum0 (tbuild1 20 (fun2 (arg + 1)))
-  in tunScalar $ v1a + v1b + v2a + v2b
+  in v1a + v1b + v2a + v2b
 
 testF2 :: Assertion
 testF2 =
   assertEqualUpToEpsilon 1e-10
     470
-    (srev @Double f2 1.1)
+    (rev @Double @0 f2 1.1)
 
 testF21 :: Assertion
 testF21 =
   assertEqualUpToEpsilon' 1e-10
     470
-    (rev' @Double @0 (tscalar . f2 . tunScalar) 1.1)
+    (rev' @Double @0 f2 1.1)
 
 {- TODO: disabled, because the a -> r instances are disabled
 f3 :: (ADReady r, Tensor (r -> r), Tensor ((r -> r) -> (r -> r)))

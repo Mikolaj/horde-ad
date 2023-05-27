@@ -6,7 +6,6 @@
 module HordeAd.Core.Engine
   ( -- * The adaptors
     revL, revDtMaybeL, revDtFun, revDtInit, revDtInterpret, rev, revDt
-  , srevL, srevDtMaybeL, srev, srevDt
   , crev, crevDt, fwd
   , -- * The most often used part of the high-level API
     revAstOnDomains, revOnDomains
@@ -139,45 +138,6 @@ revDt
      , Scalar astvals ~ Ast0 r )
   => (astvals -> Ast n r) -> vals -> TensorOf n r -> vals
 revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
-
--- Versions that work with scalar codomain.
-srevL
-  :: forall r vals astvals.
-     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r
-     , AdaptableDomains astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
-     , Scalar astvals ~ Ast0 r )
-  => (astvals -> Ast0 r) -> [vals] -> [vals]
-srevL f = revL (tscalar . f)
-
-srevDtMaybeL
-  :: forall r vals astvals.
-     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r
-     , AdaptableDomains astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
-     , Scalar astvals ~ Ast0 r )
-  => (astvals -> Ast0 r) -> [vals] -> Maybe r -> [vals]
-srevDtMaybeL _ [] _ = []
-srevDtMaybeL f valsAll dt = revDtMaybeL (tscalar . f) valsAll (tscalar <$> dt)
-
-srev
-  :: forall r vals astvals.
-     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r
-     , AdaptableDomains astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
-     , Scalar astvals ~ Ast0 r )
-  => (astvals -> Ast0 r) -> vals -> vals
-srev f = rev (tscalar . f)
-
--- This version additionally takes the sensitivity parameter.
-srevDt
-  :: forall r vals astvals.
-     ( ADTensor r, InterpretAst r, Scalar r ~ r, Value r ~ r
-     , AdaptableDomains astvals, AdaptableDomains vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value astvals
-     , Scalar astvals ~ Ast0 r )
-  => (astvals -> Ast0 r) -> vals -> r -> vals
-srevDt f vals dt = revDt (tscalar . f) vals (tscalar dt)
 
 -- Old version of the three functions, with constant, fixed inputs and dt.
 crev
