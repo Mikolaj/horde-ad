@@ -10,8 +10,7 @@ module HordeAd.Core.Ast
   ( AstVarId, intToAstVarId
   , ADAstVarNames, ADAstArtifact6, ShowAst, AstIndex, AstVarList
   , AstRanked(..), Ast, AstNoVectorize(..), AstNoSimplify(..)
-  , AstPrimalPartRanked(..), AstPrimalPart, AstDualPartRanked(..), AstDualPart
-  , AstDynamic(..), AstDomains(..)
+  , AstPrimalPart(..), AstDualPart(..), AstDynamic(..), AstDomains(..)
   , unwrapAstDomains, bindsToLet, bindsToDomainsLet
   , Ast0(..), AstVarName(..), AstDynamicVarName(..), AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
@@ -121,27 +120,23 @@ data AstRanked :: Type -> Nat -> Type where
 
   -- For the forbidden half of the Tensor class:
   AstConst :: OR.Array n r -> Ast n r
-  AstConstant :: AstPrimalPart n r -> Ast n r
-  AstD :: AstPrimalPart n r -> AstDualPart n r -> Ast n r
+  AstConstant :: AstPrimalPart r n -> Ast n r
+  AstD :: AstPrimalPart r n -> AstDualPart r n -> Ast n r
   AstLetDomains :: Data.Vector.Vector AstVarId -> AstDomains r -> Ast m r
                 -> Ast m r
 deriving instance ShowAst r => Show (Ast n r)
 
-newtype AstNoVectorize r n = AstNoVectorize {unAstNoVectorize :: Ast n r}
+newtype AstNoVectorize r n = AstNoVectorize {unAstNoVectorize :: AstRanked r n}
 deriving instance ShowAst r => Show (AstNoVectorize r n)
 
-newtype AstNoSimplify r n = AstNoSimplify {unAstNoSimplify :: Ast n r}
+newtype AstNoSimplify r n = AstNoSimplify {unAstNoSimplify :: AstRanked r n}
 deriving instance ShowAst r => Show (AstNoSimplify r n)
 
-newtype AstPrimalPartRanked r n = AstPrimalPart {unAstPrimalPart :: Ast n r}
-deriving instance ShowAst r => Show (AstPrimalPart n r)
+newtype AstPrimalPart r n = AstPrimalPart {unAstPrimalPart :: AstRanked r n}
+deriving instance ShowAst r => Show (AstPrimalPart r n)
 
-type AstPrimalPart n r = AstPrimalPartRanked r n
-
-newtype AstDualPartRanked r n = AstDualPart {unAstDualPart :: Ast n r}
-deriving instance ShowAst r => Show (AstDualPart n r)
-
-type AstDualPart n r = AstDualPartRanked r n
+newtype AstDualPart r n = AstDualPart {unAstDualPart :: AstRanked r n}
+deriving instance ShowAst r => Show (AstDualPart r n)
 
 data AstDynamic :: Type -> Type where
   AstDynamic :: KnownNat n
@@ -187,17 +182,17 @@ data AstInt :: Type -> Type where
   AstIntVar :: AstVarId -> AstInt r
   AstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
   AstIntConst :: Int -> AstInt r
-  AstIntFloor :: AstPrimalPart 0 r -> AstInt r
+  AstIntFloor :: AstPrimalPart r 0 -> AstInt r
   AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
-  AstMinIndex1 :: AstPrimalPart 1 r -> AstInt r
-  AstMaxIndex1 :: AstPrimalPart 1 r -> AstInt r
+  AstMinIndex1 :: AstPrimalPart r 1 -> AstInt r
+  AstMaxIndex1 :: AstPrimalPart r 1 -> AstInt r
 deriving instance ShowAst r => Show (AstInt r)
 
 data AstBool :: Type -> Type where
   AstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
   AstBoolConst :: Bool -> AstBool r
   AstRel :: KnownNat n
-         => OpCodeRel -> [AstPrimalPart n r] -> AstBool r
+         => OpCodeRel -> [AstPrimalPart r n] -> AstBool r
   AstRelInt :: OpCodeRel -> [AstInt r] -> AstBool r
 deriving instance ShowAst r => Show (AstBool r)
 
@@ -302,16 +297,16 @@ instance KnownNat n => OrdB (AstNoSimplify r n) where
   v >=* u = AstRel GeqOp [ AstPrimalPart $ unAstNoSimplify v
                          , AstPrimalPart $ unAstNoSimplify u ]
 
-type instance BooleanOf (AstPrimalPart n r) = AstBool r
+type instance BooleanOf (AstPrimalPart r n) = AstBool r
 
-instance KnownNat n => IfB (AstPrimalPart n r) where
+instance KnownNat n => IfB (AstPrimalPart r n) where
   ifB b v w = AstPrimalPart $ astCond b (unAstPrimalPart v) (unAstPrimalPart w)
 
-instance KnownNat n => EqB (AstPrimalPart n r) where
+instance KnownNat n => EqB (AstPrimalPart r n) where
   v ==* u = AstRel EqOp [v, u]
   v /=* u = AstRel NeqOp [v, u]
 
-instance KnownNat n => OrdB (AstPrimalPart n r) where
+instance KnownNat n => OrdB (AstPrimalPart r n) where
   v <* u = AstRel LsOp [v, u]
   v <=* u = AstRel LeqOp [v, u]
   v >* u = AstRel GtOp [v, u]
@@ -462,22 +457,22 @@ deriving instance Floating (Ast n r) => Floating (AstNoSimplify r n)
 deriving instance RealFrac (Ast n r) => RealFrac (AstNoSimplify r n)
 deriving instance RealFloat (Ast n r) => RealFloat (AstNoSimplify r n)
 
-instance Eq (AstPrimalPart n r) where
+instance Eq (AstPrimalPart r n) where
   _ == _ = error "AstPrimalPart: can't evaluate terms for Eq"
 
-instance Ord (Ast n r) => Ord (AstPrimalPart n r) where
+instance Ord (Ast n r) => Ord (AstPrimalPart r n) where
   max (AstPrimalPart u) (AstPrimalPart v) =
     AstPrimalPart (AstOp MaxOp [u, v])
   min (AstPrimalPart u) (AstPrimalPart v) =
     AstPrimalPart (AstOp MinOp [u, v])
   _ <= _ = error "AstPrimalPart: can't evaluate terms for Ord"
 
-deriving instance Num (Ast n r) => Num (AstPrimalPart n r)
-deriving instance Real (Ast n r) => Real (AstPrimalPart n r)
-deriving instance Fractional (Ast n r) => Fractional (AstPrimalPart n r)
-deriving instance Floating (Ast n r) => Floating (AstPrimalPart n r)
-deriving instance RealFrac (Ast n r) => RealFrac (AstPrimalPart n r)
-deriving instance RealFloat (Ast n r) => RealFloat (AstPrimalPart n r)
+deriving instance Num (Ast n r) => Num (AstPrimalPart r n)
+deriving instance Real (Ast n r) => Real (AstPrimalPart r n)
+deriving instance Fractional (Ast n r) => Fractional (AstPrimalPart r n)
+deriving instance Floating (Ast n r) => Floating (AstPrimalPart r n)
+deriving instance RealFrac (Ast n r) => RealFrac (AstPrimalPart r n)
+deriving instance RealFloat (Ast n r) => RealFloat (AstPrimalPart r n)
 
 instance Eq (Ast0 r) where
   _ == _ = error "Ast0: can't evaluate terms for Eq"

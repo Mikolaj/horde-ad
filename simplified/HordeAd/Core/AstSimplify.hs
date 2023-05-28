@@ -887,7 +887,7 @@ astSliceLax i k v =
         | otherwise -> AstAppend (AstSlice i kMax v) v2
 -}
 
-astConstant :: AstPrimalPart n r -> Ast n r
+astConstant :: AstPrimalPart r n -> Ast n r
 astConstant (AstPrimalPart (Ast.AstConstant t)) = astConstant t
 astConstant v = Ast.AstConstant v
 
@@ -905,10 +905,10 @@ astIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
 astIntCond (AstBoolConst b) v w = if b then v else w
 astIntCond b v w = Ast.AstIntCond b v w
 
-astMinIndex1 :: AstPrimalPart 1 r -> AstInt r
+astMinIndex1 :: AstPrimalPart r 1 -> AstInt r
 astMinIndex1 = Ast.AstMinIndex1
 
-astMaxIndex1 :: AstPrimalPart 1 r -> AstInt r
+astMaxIndex1 :: AstPrimalPart r 1 -> AstInt r
 astMaxIndex1 = Ast.AstMaxIndex1
 
 
@@ -944,14 +944,14 @@ type AstMemo = EM.EnumMap AstVarId Int
 inlineAstPrimal
   :: forall n r. (ShowAstSimplify r, KnownNat n)
   => AstEnv r -> AstMemo
-  -> AstPrimalPart n r -> (AstMemo, AstPrimalPart n r)
+  -> AstPrimalPart r n -> (AstMemo, AstPrimalPart r n)
 inlineAstPrimal env memo (AstPrimalPart v1) =
   second AstPrimalPart $ inlineAst env memo v1
 
 inlineAstDual
   :: forall n r. (ShowAstSimplify r, KnownNat n)
   => AstEnv r -> AstMemo
-  -> AstDualPart n r -> (AstMemo, AstDualPart n r)
+  -> AstDualPart r n -> (AstMemo, AstDualPart r n)
 inlineAstDual env memo (AstDualPart v1) =
   second AstDualPart $ inlineAst env memo v1
 
@@ -1136,7 +1136,7 @@ unletAstDomains6 astBindings l t =
 -- this probably requires many passes though
 unletAstPrimal
   :: (ShowAstSimplify r, KnownNat n)
-  => UnletEnv r -> AstPrimalPart n r -> AstPrimalPart n r
+  => UnletEnv r -> AstPrimalPart r n -> AstPrimalPart r n
 unletAstPrimal env (AstPrimalPart t) = AstPrimalPart $ unletAst env t
 
 unletAst
@@ -1241,7 +1241,7 @@ unletAstBool env t = case t of
 
 simplifyAstPrimal
   :: (ShowAstSimplify r, KnownNat n)
-  => AstPrimalPart n r -> AstPrimalPart n r
+  => AstPrimalPart r n -> AstPrimalPart r n
 simplifyAstPrimal (AstPrimalPart t) = AstPrimalPart $ simplifyAst t
 
 -- This function guarantees full simplification: every redex

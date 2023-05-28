@@ -419,7 +419,7 @@ testRNNOPP = do
       batch_size = 1
       sizeMnistWidthI = 1
       sizeMnistHeightI = 1
-      blackGlyph :: AstPrimalPartRanked Double 3
+      blackGlyph :: AstPrimalPart Double 3
       blackGlyph = AstPrimalPart
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
@@ -444,7 +444,7 @@ testRNNOPP2 = do
       batch_size = 2
       sizeMnistWidthI = 2
       sizeMnistHeightI = 2
-      blackGlyph :: AstPrimalPartRanked Double 3
+      blackGlyph :: AstPrimalPart Double 3
       blackGlyph = AstPrimalPart
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI

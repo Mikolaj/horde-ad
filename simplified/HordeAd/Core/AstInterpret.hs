@@ -131,7 +131,7 @@ emptyMemo = ()
 interpretAstPrimal
   :: forall n a. (KnownNat n, InterpretAst a)
   => AstEnv a -> AstMemo a
-  -> AstPrimalPart n (Value a) -> (AstMemo a, TensorOf n (Primal a))
+  -> AstPrimalPart (Value a) n -> (AstMemo a, TensorOf n (Primal a))
 interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
   AstD u _-> interpretAstPrimal env memo u
   _ -> second tprimalPart $ interpretAst env memo v1
@@ -139,7 +139,7 @@ interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
 interpretAstDual
   :: forall n a. (KnownNat n, InterpretAst a)
   => AstEnv a -> AstMemo a
-  -> AstDualPart n (Value a) -> (AstMemo a, DualOf n a)
+  -> AstDualPart (Value a) n -> (AstMemo a, DualOf n a)
 interpretAstDual env memo (AstDualPart v1) = case v1 of
   AstD _ u'-> interpretAstDual env memo u'
   _ -> second tdualPart $ interpretAst env memo v1
@@ -586,52 +586,52 @@ interpretAstRelOp opCodeRel args =
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal Double) -> AstMemo (ADVal Double)
-  -> AstPrimalPart n Double -> (AstMemo (ADVal Double), TensorOf n Double) #-}
+  -> AstPrimalPart Double n -> (AstMemo (ADVal Double), TensorOf n Double) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal Float) -> AstMemo (ADVal Float)
-  -> AstPrimalPart n Float -> (AstMemo (ADVal Float), TensorOf n Float) #-}
+  -> AstPrimalPart Float n -> (AstMemo (ADVal Float), TensorOf n Float) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
-  -> AstPrimalPart n Double -> (AstMemo (ADVal (Ast0 Double)), TensorOf n (Ast0 Double)) #-}
+  -> AstPrimalPart Double n -> (AstMemo (ADVal (Ast0 Double)), TensorOf n (Ast0 Double)) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
-  -> AstPrimalPart n Float -> (AstMemo (ADVal (Ast0 Float)), TensorOf n (Ast0 Float)) #-}
+  -> AstPrimalPart Float n -> (AstMemo (ADVal (Ast0 Float)), TensorOf n (Ast0 Float)) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv Double -> AstMemo Double
-  -> AstPrimalPart n Double -> (AstMemo Double, TensorOf n Double) #-}
+  -> AstPrimalPart Double n -> (AstMemo Double, TensorOf n Double) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv Float -> AstMemo Float
-  -> AstPrimalPart n Float -> (AstMemo Float, TensorOf n Float) #-}
+  -> AstPrimalPart Float n -> (AstMemo Float, TensorOf n Float) #-}
 
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal Double) -> AstMemo (ADVal Double)
-  -> AstDualPart n Double -> (AstMemo (ADVal Double), DualOf n (ADVal Double)) #-}
+  -> AstDualPart Double n -> (AstMemo (ADVal Double), DualOf n (ADVal Double)) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal Float) -> AstMemo (ADVal Float)
-  -> AstDualPart n Float -> (AstMemo (ADVal Float), DualOf n (ADVal Float)) #-}
+  -> AstDualPart Float n -> (AstMemo (ADVal Float), DualOf n (ADVal Float)) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
-  -> AstDualPart n Double -> (AstMemo (ADVal (Ast0 Double)), DualOf n (ADVal (Ast0 Double))) #-}
+  -> AstDualPart Double n -> (AstMemo (ADVal (Ast0 Double)), DualOf n (ADVal (Ast0 Double))) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
-  -> AstDualPart n Float -> (AstMemo (ADVal (Ast0 Float)), DualOf n (ADVal (Ast0 Float))) #-}
+  -> AstDualPart Float n -> (AstMemo (ADVal (Ast0 Float)), DualOf n (ADVal (Ast0 Float))) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv Double -> AstMemo Double
-  -> AstDualPart n Double -> (AstMemo Double, DualOf n Double) #-}
+  -> AstDualPart Double n -> (AstMemo Double, DualOf n Double) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv Float -> AstMemo Float
-  -> AstDualPart n Float -> (AstMemo Float, DualOf n Float) #-}
+  -> AstDualPart Float n -> (AstMemo Float, DualOf n Float) #-}
 
 {-# SPECIALIZE interpretAst
   :: KnownNat n

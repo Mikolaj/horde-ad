@@ -70,8 +70,8 @@ instance ShowAstSimplify r
 
 instance ShowAstSimplify r
          => PrimalDualTensor (Ast0 r) where
-  type Primal (Ast0 r) = AstPrimalPart 0 r
-  type DualOf n (Ast0 r) = AstDualPart n r
+  type Primal (Ast0 r) = AstPrimalPart r 0
+  type DualOf n (Ast0 r) = AstDualPart r n
   tconstant = astConstant
   tprimalPart = AstPrimalPart
   tdualPart = AstDualPart
@@ -115,9 +115,9 @@ instance AdaptableDomains (AstDynamic r) where
   toDomains = undefined
   fromDomains = undefined
 
-instance AdaptableDomains (AstPrimalPartRanked r n) where
-  type Scalar (AstPrimalPartRanked r n) = AstPrimalPartRanked r 0
-  type Value (AstPrimalPartRanked r n) = r
+instance AdaptableDomains (AstPrimalPart r n) where
+  type Scalar (AstPrimalPart r n) = AstPrimalPart r 0
+  type Value (AstPrimalPart r n) = r
   toDomains = undefined
   fromDomains = undefined
 
@@ -198,9 +198,9 @@ astBuild1Vectorize :: (KnownNat n, ShowAstSimplify r)
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 instance ShowAstSimplify r
-         => Tensor (AstPrimalPart 0 r) where
-  type Ranked (AstPrimalPart 0 r) = AstPrimalPartRanked r
-  type IntOf (AstPrimalPart 0 r) = AstInt r
+         => Tensor (AstPrimalPart r 0) where
+  type Ranked (AstPrimalPart r 0) = AstPrimalPart r
+  type IntOf (AstPrimalPart r 0) = AstInt r
 
   tlet a f =
     AstPrimalPart
@@ -238,9 +238,9 @@ instance ShowAstSimplify r
   tletWrap = undefined
 
 instance ShowAstSimplify r
-         => PrimalDualTensor (AstPrimalPart 0 r) where
-  type Primal (AstPrimalPart 0 r) = AstPrimalPart 0 r
-  type DualOf n (AstPrimalPart 0 r) = ()
+         => PrimalDualTensor (AstPrimalPart r 0) where
+  type Primal (AstPrimalPart r 0) = AstPrimalPart r 0
+  type DualOf n (AstPrimalPart r 0) = ()
   tconstant = id
   tprimalPart = id
   tdualPart _ = ()
@@ -293,7 +293,7 @@ instance ShowAstSimplify r
 instance ShowAstSimplify r
          => PrimalDualTensor (AstNoVectorize r 0) where
   type Primal (AstNoVectorize r 0) = AstNoVectorize r 0
-  type DualOf n (AstNoVectorize r 0) = AstDualPart n r
+  type DualOf n (AstNoVectorize r 0) = AstDualPart r n
   tconstant = AstNoVectorize . astConstant . AstPrimalPart . unAstNoVectorize
   tprimalPart = id
   tdualPart = AstDualPart . unAstNoVectorize
@@ -344,7 +344,7 @@ instance ShowAstSimplify r
 instance ShowAstSimplify r
          => PrimalDualTensor (AstNoSimplify r 0) where
   type Primal (AstNoSimplify r 0) = AstNoSimplify r 0
-  type DualOf n (AstNoSimplify r 0) = AstDualPart n r
+  type DualOf n (AstNoSimplify r 0) = AstDualPart r n
   tconstant = AstNoSimplify . astConstant . AstPrimalPart . unAstNoSimplify
     -- exceptionally we do simplify AstConstant to avoid long boring chains
   tprimalPart = id
