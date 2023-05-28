@@ -71,7 +71,8 @@ instance ShowAstSimplify r
   tD = AstD
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-instance ConvertTensor (Ast0 r) where
+instance ShowAst r
+         => ConvertTensor (Ast0 r) where
   type Shaped (Ast0 r) = ShapedAbsentAst0 r
   tfromD = astFromDynamic
 --  tfromS = undefined
@@ -79,6 +80,29 @@ instance ConvertTensor (Ast0 r) where
 --  dfromS = undefined
 --  sfromR = undefined
 --  sfromD = undefined
+  ddummy = AstDynamic AstIota
+  disDummy t = case t of
+    AstDynamic AstIota -> True
+    _ -> False
+  daddR :: forall n q. (KnownNat n, q ~ (Ast0 r))
+        => TensorOf n q -> DTensorOf q -> DTensorOf q
+  daddR r (AstDynamic AstIota) = AstDynamic r
+  daddR r (AstDynamic @n2 (AstSumOfList l)) =
+    case sameNat (Proxy @n) (Proxy @n2) of
+      Just Refl -> AstDynamic (AstSumOfList (r : l))
+      _ -> error "daddR: type mismatch"
+  daddR r (AstDynamic @n2 v) =
+    case sameNat (Proxy @n) (Proxy @n2) of
+      Just Refl -> AstDynamic (AstSumOfList [r, v])
+      _ -> error "daddR: type mismatch"
+  dshape (AstDynamic v) = shapeToList $ shapeAst v
+  tregister = astRegisterFun
+  tletWrap = AstLetADShare
+    -- We can't use astLet here, because it may inline a let that is
+    -- present at the top level of the dual number and so we'd lose
+    -- sharing that is not visible in this restricted context.
+    -- To make sure astLet is not used on these, we mark them with
+    -- a special constructor that also makes comparing lets cheap.
 
 data ShapedAbsentAst0 r (sh :: [Nat])
 
@@ -128,33 +152,10 @@ instance AdaptableDomains (AstNoSimplify r n) where
 
 instance ShowAst r
          => DomainsTensor (Ast0 r) where
-  ddummy = AstDynamic AstIota
-  disDummy t = case t of
-    AstDynamic AstIota -> True
-    _ -> False
-  daddR :: forall n q. (KnownNat n, q ~ (Ast0 r))
-        => TensorOf n q -> DTensorOf q -> DTensorOf q
-  daddR r (AstDynamic AstIota) = AstDynamic r
-  daddR r (AstDynamic @n2 (AstSumOfList l)) =
-    case sameNat (Proxy @n) (Proxy @n2) of
-      Just Refl -> AstDynamic (AstSumOfList (r : l))
-      _ -> error "daddR: type mismatch"
-  daddR r (AstDynamic @n2 v) =
-    case sameNat (Proxy @n) (Proxy @n2) of
-      Just Refl -> AstDynamic (AstSumOfList [r, v])
-      _ -> error "daddR: type mismatch"
-  dshape (AstDynamic v) = shapeToList $ shapeAst v
   type DomainsOf (Ast0 r) = AstDomains r
   tletDomains = astLetDomainsFun
   dmkDomains = AstDomains
   dlet = astDomainsLetFun
-  tregister = astRegisterFun
-  tletWrap = AstLetADShare
-    -- We can't use astLet here, because it may inline a let that is
-    -- present at the top level of the dual number and so we'd lose
-    -- sharing that is not visible in this restricted context.
-    -- To make sure astLet is not used on these, we mark them with
-    -- a special constructor that also makes comparing lets cheap.
 
 astLetFun :: (KnownNat n, KnownNat m, ShowAst r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r

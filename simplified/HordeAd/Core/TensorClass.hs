@@ -284,13 +284,20 @@ class ConvertTensor r where
 --         => Ranked r n -> Shaped r sh
 --  sfromD :: OS.Shape sh
 --         => DTensorOf r -> Shaped r sh
-
-class DomainsTensor r where
   ddummy :: DTensorOf r
   disDummy :: DTensorOf r -> Bool
   daddR :: forall n. KnownNat n
         => TensorOf n r -> DTensorOf r -> DTensorOf r
   dshape :: DTensorOf r -> [Int]
+  -- Operations for delayed let bindings creation
+  tregister :: KnownNat n
+            => TensorOf n r -> [(AstVarId, DTensorOf r)]
+            -> ([(AstVarId, DTensorOf r)], TensorOf n r)
+  tregister r l = (l, r)
+  tletWrap :: ADShare (Value r) -> TensorOf n r -> TensorOf n r
+  tletWrap _l u = u
+
+class DomainsTensor r where
   type DomainsOf r
   tletDomains :: DomainsOf r
               -> (DomainsOf r -> TensorOf n r)
@@ -305,13 +312,6 @@ class DomainsTensor r where
        => TensorOf n r -> (TensorOf n r -> DomainsOf r)
        -> DomainsOf r
   dlet a f = f a
-  -- Operations for delayed let bindings creation
-  tregister :: KnownNat n
-            => TensorOf n r -> [(AstVarId, DTensorOf r)]
-            -> ([(AstVarId, DTensorOf r)], TensorOf n r)
-  tregister r l = (l, r)
-  tletWrap :: ADShare (Value r) -> TensorOf n r -> TensorOf n r
-  tletWrap _l u = u
 
 
 -- * The giga-constraint
@@ -415,12 +415,12 @@ instance ConvertTensor Double where
 --  dfromS = Data.Array.Convert.convert . runFlip
 --  sfromR = Flip . Data.Array.Convert.convert . runFlip
 --  sfromD = Flip . Data.Array.Convert.convert
-
-instance DomainsTensor Double where
   ddummy = dummyTensor
   disDummy = isTensorDummy
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
+
+instance DomainsTensor Double where
   type DomainsOf Double = Domains Double
 
 instance Tensor Float where
@@ -480,12 +480,12 @@ instance ConvertTensor Float where
 --  dfromS = Data.Array.Convert.convert . runFlip
 --  sfromR = Flip . Data.Array.Convert.convert . runFlip
 --  sfromD = Flip . Data.Array.Convert.convert
-
-instance DomainsTensor Float where
   ddummy = dummyTensor
   disDummy = isTensorDummy
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
+
+instance DomainsTensor Float where
   type DomainsOf Float = Domains Float
 
 {- TODO: requires IncoherentInstances no matter what pragma I stick in
