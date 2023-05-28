@@ -98,8 +98,6 @@ instance ShowAstSimplify r
   type Value (Ast0 r) = r
   toDomains = undefined
   fromDomains = undefined
-  nParams = undefined
-  nScalars = undefined
 
 instance ( Tensor r, ShowAstSimplify r, KnownNat n
          , Ranked r ~ Flip OR.Array r )
@@ -110,40 +108,30 @@ instance ( Tensor r, ShowAstSimplify r, KnownNat n
   fromDomains aInit params = case V.uncons params of
     Just (a, rest) -> Just (ttoRankedOrDummy (tshape aInit) a, rest)
     Nothing -> Nothing
-  nParams = undefined
-  nScalars = undefined
 
 instance AdaptableDomains (AstDynamic r) where
   type Scalar (AstDynamic r) = Ast0 r
   type Value (AstDynamic r) = OD.Array r
   toDomains = undefined
   fromDomains = undefined
-  nParams = undefined
-  nScalars = undefined
 
 instance AdaptableDomains (AstPrimalPartRanked r n) where
   type Scalar (AstPrimalPartRanked r n) = AstPrimalPartRanked r 0
   type Value (AstPrimalPartRanked r n) = r
   toDomains = undefined
   fromDomains = undefined
-  nParams = undefined
-  nScalars = undefined
 
 instance AdaptableDomains (AstNoVectorize r n) where
   type Scalar (AstNoVectorize r n) = AstNoVectorize r 0
   type Value (AstNoVectorize r n) = r
   toDomains = undefined
   fromDomains = undefined
-  nParams = undefined
-  nScalars = undefined
 
 instance AdaptableDomains (AstNoSimplify r n) where
   type Scalar (AstNoSimplify r n) = AstNoSimplify r 0
   type Value (AstNoSimplify r n) = r
   toDomains = undefined
   fromDomains = undefined
-  nParams = undefined
-  nScalars = undefined
 
 instance ShowAst r
          => DomainsTensor (Ast0 r) where

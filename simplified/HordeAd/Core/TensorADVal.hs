@@ -62,16 +62,12 @@ instance AdaptableDomains (ADVal Double) where
   type Value (ADVal Double) = Double
   toDomains = undefined
   fromDomains = undefined
-  nParams = undefined
-  nScalars = undefined
 
 instance AdaptableDomains (ADVal Float) where
   type Scalar (ADVal Float) = ADVal Float
   type Value (ADVal Float) = Float
   toDomains = undefined
   fromDomains = undefined
-  nParams = undefined
-  nScalars = undefined
 
 instance ShowAstSimplify r
          => AdaptableDomains (ADVal (Ast0 r)) where
@@ -79,8 +75,6 @@ instance ShowAstSimplify r
   type Value (ADVal (Ast0 r)) = r
   toDomains = undefined
   fromDomains = undefined
-  nParams = undefined
-  nScalars = undefined
 
 instance ( ConvertTensor (ADVal r), KnownNat n
          , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
@@ -92,8 +86,6 @@ instance ( ConvertTensor (ADVal r), KnownNat n
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (a, rest) -> Just (getCompose $ tfromD a, rest)
     Nothing -> Nothing
-  nParams = undefined
-  nScalars = undefined
 
 instance ( ConvertTensor (ADVal r), KnownNat n
          , Ranked (ADVal r) ~ Compose ADVal (Flip OR.Array r)
@@ -105,8 +97,6 @@ instance ( ConvertTensor (ADVal r), KnownNat n
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (a, rest) -> Just (tfromD a, rest)
     Nothing -> Nothing
-  nParams = undefined
-  nScalars = undefined
 
 instance (KnownNat n, ShowAstSimplify r)
          => AdaptableDomains (ADVal (Ast n r)) where
@@ -116,8 +106,6 @@ instance (KnownNat n, ShowAstSimplify r)
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (a, rest) -> Just (getCompose $ tfromD a, rest)
     Nothing -> Nothing
-  nParams = undefined
-  nScalars = undefined
 
 class (Underlying a ~ u, u ~ Underlying a) => UnderlyingMatches u a where
 instance (Underlying a ~ u, u ~ Underlying a) => UnderlyingMatches u a where

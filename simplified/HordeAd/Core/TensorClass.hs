@@ -522,8 +522,6 @@ instance ( KnownNat n, Numeric r, Tensor r, ConvertTensor r
     Just (a, rest) ->
       Just (ttoRankedOrDummy (tshape aInit) a, rest)
     Nothing -> Nothing
-  nParams _ = 1
-  nScalars = OR.size . runFlip
 
 ttoRankedOrDummy :: (Tensor r, ConvertTensor r, DomainsTensor r, KnownNat n)
                  => ShapeInt n -> DTensorOf r -> TensorOf n r
@@ -549,8 +547,6 @@ instance AdaptableDomains (OD.Array r) where
   type Value (OD.Array r) = OD.Array r
   toDomains = undefined
   fromDomains = undefined
-  nParams _ = 1
-  nScalars = OD.size
 
 instance ( OS.Shape sh, Numeric r, Shaped r ~ Flip OS.Array r )
          => AdaptableDomains (Flip OS.Array r sh) where
@@ -558,8 +554,6 @@ instance ( OS.Shape sh, Numeric r, Shaped r ~ Flip OS.Array r )
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
   toDomains = undefined  -- TODO: a = V.singleton (dfromS a)
   fromDomains = undefined
-  nParams _ = 1
-  nScalars = OS.size . runFlip
 
 instance OS.Shape sh
          => RandomDomains (Flip OS.Array r sh) where

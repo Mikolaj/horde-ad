@@ -47,8 +47,6 @@ class AdaptableDomains vals where
   toDomains :: vals -> Domains (Scalar vals)
   fromDomains :: Value vals -> Domains (Scalar vals)
               -> Maybe (vals, Domains (Scalar vals))
-  nParams :: vals -> Int
-  nScalars :: vals -> Int
 
 class RandomDomains vals where
   randomVals
@@ -75,16 +73,12 @@ instance AdaptableDomains Double where
   type Value Double = Double
   toDomains = undefined
   fromDomains = undefined
-  nParams = undefined
-  nScalars = undefined
 
 instance AdaptableDomains Float where
   type Scalar Float = Float
   type Value Float = Float
   toDomains = undefined
   fromDomains = undefined
-  nParams = undefined
-  nScalars = undefined
 
 instance (AdaptableDomains a, r ~ Scalar a)
          => AdaptableDomains [a] where
@@ -102,8 +96,6 @@ instance (AdaptableDomains a, r ~ Scalar a)
     -- > fromDomains lInit source =
     -- >   let f = swap . flip fromDomains
     -- >   in swap $ mapAccumL f source lInit
-  nParams = sum . map nParams
-  nScalars = sum . map nScalars
 
 instance ( r ~ Scalar a, r ~ Scalar b
          , AdaptableDomains a
@@ -118,8 +110,6 @@ instance ( r ~ Scalar a, r ~ Scalar b
     (a, aRest) <- fromDomains aInit source
     (b, bRest) <- fromDomains bInit aRest
     return ((a, b), bRest)
-  nParams (a, b) = nParams a + nParams b
-  nScalars (a, b) = nScalars a + nScalars b
 
 instance ( r ~ Scalar a, r ~ Scalar b
          , RandomDomains a
@@ -147,8 +137,6 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
     (b, bRest) <- fromDomains bInit aRest
     (c, cRest) <- fromDomains cInit bRest
     return ((a, b, c), cRest)
-  nParams (a, b, c) = nParams a + nParams b + nParams c
-  nScalars (a, b, c) = nScalars a + nScalars b + nScalars c
 
 instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
          , RandomDomains a
@@ -181,8 +169,6 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
     (c, cRest) <- fromDomains cInit bRest
     (d, dRest) <- fromDomains dInit cRest
     return ((a, b, c, d), dRest)
-  nParams (a, b, c, d) = nParams a + nParams b + nParams c + nParams d
-  nScalars (a, b, c, d) = nScalars a + nScalars b + nScalars c + nScalars d
 
 instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
          , RandomDomains a
@@ -213,8 +199,6 @@ instance ( r ~ Scalar a, r ~ Scalar b
     Right b -> case fromDomains b source of
                  Just (b2, rest) -> Just (Right b2, rest)
                  Nothing -> Nothing
-  nParams = either nParams nParams
-  nScalars = either nScalars nScalars
 
 instance AdaptableDomains a
          => AdaptableDomains (Maybe a) where
@@ -228,5 +212,3 @@ instance AdaptableDomains a
     Just a -> case fromDomains a source of
                 Just (a2, rest) -> Just (Just a2, rest)
                 Nothing -> Nothing
-  nParams = maybe 0 nParams
-  nScalars = maybe 0 nScalars
