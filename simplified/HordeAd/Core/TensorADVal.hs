@@ -56,8 +56,6 @@ instance (KnownNat n, ShowAstSimplify r)
 
 instance DynamicTensor (ADVal r) where
   type DTensorOf (ADVal r) = ADVal (DTensorOf r)
-  ddummy = undefined
-  disDummy = undefined
 
 instance AdaptableDomains (ADVal Double) where
   type Scalar (ADVal Double) = ADVal Double

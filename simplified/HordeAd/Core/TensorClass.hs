@@ -293,6 +293,8 @@ class ConvertTensor r where
 --         => DTensorOf r -> Shaped r sh
 
 class DomainsTensor r where
+  ddummy :: DTensorOf r
+  disDummy :: DTensorOf r -> Bool
   daddR :: forall n. KnownNat n
         => TensorOf n r -> DTensorOf r -> DTensorOf r
   dshape :: DTensorOf r -> [Int]
@@ -415,6 +417,8 @@ instance ConvertTensor Double where
 --  sfromD = Flip . Data.Array.Convert.convert
 
 instance DomainsTensor Double where
+  ddummy = dummyTensor
+  disDummy = isTensorDummy
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
   type DomainsOf Double = Domains Double
@@ -478,6 +482,8 @@ instance ConvertTensor Float where
 --  sfromD = Flip . Data.Array.Convert.convert
 
 instance DomainsTensor Float where
+  ddummy = dummyTensor
+  disDummy = isTensorDummy
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
   type DomainsOf Float = Domains Float
@@ -507,7 +513,7 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
 -}
 
 instance ( KnownNat n, Numeric r, Tensor r, ConvertTensor r
-         , DynamicTensor r, Ranked r ~ Flip OR.Array r )
+         , DomainsTensor r, Ranked r ~ Flip OR.Array r )
          => AdaptableDomains (Flip OR.Array r n) where
   type Scalar (Flip OR.Array r n) = r
   type Value (Flip OR.Array r n) = Flip OR.Array r n
@@ -519,7 +525,7 @@ instance ( KnownNat n, Numeric r, Tensor r, ConvertTensor r
   nParams _ = 1
   nScalars = OR.size . runFlip
 
-ttoRankedOrDummy :: (Tensor r, ConvertTensor r, DynamicTensor r, KnownNat n)
+ttoRankedOrDummy :: (Tensor r, ConvertTensor r, DomainsTensor r, KnownNat n)
                  => ShapeInt n -> DTensorOf r -> TensorOf n r
 ttoRankedOrDummy sh x = if disDummy x
                         then tzero sh

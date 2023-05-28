@@ -17,25 +17,17 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.Random
 
-import HordeAd.Internal.TensorOps
-
--- * Domains
-
 -- The untyped versions of tensors, to put many ranks/shapes in one vector.
 class DynamicTensor r where
   type DTensorOf r = result | result -> r
-  ddummy :: DTensorOf r
-  disDummy :: DTensorOf r -> Bool
 
 instance DynamicTensor Double where
   type DTensorOf Double = OD.Array Double
-  ddummy = dummyTensor
-  disDummy = isTensorDummy
 
 instance DynamicTensor Float where
   type DTensorOf Float = OD.Array Float
-  ddummy = dummyTensor
-  disDummy = isTensorDummy
+
+-- * Adaptor classes
 
 -- When r is Ast, this is used for domains composed of variables only,
 -- to adapt them into more complex types and back again. This is not used
@@ -45,9 +37,6 @@ instance DynamicTensor Float where
 -- is to prevent mixing up the two (and complicating the definition
 -- below with errors in the AstDomainsLet case).
 type Domains r = Data.Vector.Vector (DTensorOf r)
-
-
--- * Adaptor classes
 
 type Underlying a = Scalar (Value a)
 

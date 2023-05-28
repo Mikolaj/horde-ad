@@ -379,7 +379,7 @@ data DeltaBinding r =
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
   :: forall r.
-     (Tensor r, ConvertTensor r, DynamicTensor r, DomainsTensor r)
+     (Tensor r, ConvertTensor r, DomainsTensor r)
   => Int -> DeltaDt r
   -> ([(AstVarId, DTensorOf r)], Domains r)
 gradientFromDelta dimR deltaDt =

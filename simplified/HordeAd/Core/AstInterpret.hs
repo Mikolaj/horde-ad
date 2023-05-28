@@ -487,7 +487,7 @@ interpretAstBool env memo = \case
     in (memo2, interpretAstRelOp opCodeRel args2)
 
 interpretAstDynamicDummy
-  :: (InterpretAst a, DynamicTensor a)
+  :: (InterpretAst a, DomainsTensor a)
   => AstEnv a -> AstMemo a
   -> AstDynamic (Value a) -> (AstMemo a, DTensorOf a)
 interpretAstDynamicDummy env memo = \case
@@ -495,7 +495,7 @@ interpretAstDynamicDummy env memo = \case
   AstDynamic w -> second dfromR $ interpretAst env memo w
 
 interpretAstDomainsDummy
-  :: (InterpretAst a, DynamicTensor a)
+  :: (InterpretAst a, DomainsTensor a)
   => AstEnv a -> AstMemo a
   -> AstDomains (Value a) -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
 interpretAstDomainsDummy env memo = \case
