@@ -60,13 +60,6 @@ instance ShowAstSimplify r
   tsumOfList l = AstSumOfList l
   tconst = AstConstant . AstPrimalPart . AstConst
   tconstBare = AstConst
-  tregister = astRegisterFun
-  tletWrap = AstLetADShare
-    -- We can't use astLet here, because it may inline a let that is
-    -- present at the top level of the dual number and so we'd lose
-    -- sharing that is not visible in this restricted context.
-    -- To make sure astLet is not used on these, we mark them with
-    -- a special constructor that also makes comparing lets cheap.
 
 instance ShowAstSimplify r
          => PrimalDualTensor (Ast0 r) where
@@ -155,6 +148,13 @@ instance ShowAst r
   tletDomains = astLetDomainsFun
   dmkDomains = AstDomains
   dlet = astDomainsLetFun
+  tregister = astRegisterFun
+  tletWrap = AstLetADShare
+    -- We can't use astLet here, because it may inline a let that is
+    -- present at the top level of the dual number and so we'd lose
+    -- sharing that is not visible in this restricted context.
+    -- To make sure astLet is not used on these, we mark them with
+    -- a special constructor that also makes comparing lets cheap.
 
 astLetFun :: (KnownNat n, KnownNat m, ShowAst r)
           => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
@@ -234,8 +234,6 @@ instance ShowAstSimplify r
 
   tsumOfList l = AstPrimalPart . AstSumOfList . map unAstPrimalPart $ l
   tconst = AstPrimalPart . AstConst
-  tregister = undefined
-  tletWrap = undefined
 
 instance ShowAstSimplify r
          => PrimalDualTensor (AstPrimalPart r 0) where
@@ -287,8 +285,6 @@ instance ShowAstSimplify r
   tsumOfList l = AstNoVectorize . AstSumOfList . map unAstNoVectorize $ l
   tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
   tconstBare = AstNoVectorize . AstConst
-  tregister = undefined
-  tletWrap = undefined
 
 instance ShowAstSimplify r
          => PrimalDualTensor (AstNoVectorize r 0) where
@@ -338,8 +334,6 @@ instance ShowAstSimplify r
   tsumOfList l = AstNoSimplify . AstSumOfList . map unAstNoSimplify $ l
   tconst = AstNoSimplify . AstConstant . AstPrimalPart . AstConst
   tconstBare = AstNoSimplify . AstConst
-  tregister = undefined
-  tletWrap = undefined
 
 instance ShowAstSimplify r
          => PrimalDualTensor (AstNoSimplify r 0) where

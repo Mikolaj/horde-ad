@@ -253,13 +253,6 @@ class (CRanked RealFloat r, Integral (IntOf r))
   tconst :: KnownNat n => OR.Array n (Value r) -> TensorOf n r
   tconstBare :: KnownNat n => OR.Array n (Value r) -> TensorOf n r
   tconstBare = tconst
-  -- Operations for delayed let bindings creation
-  tregister :: KnownNat n
-            => TensorOf n r -> [(AstVarId, DTensorOf r)]
-            -> ([(AstVarId, DTensorOf r)], TensorOf n r)
-  tregister r l = (l, r)
-  tletWrap :: ADShare (Value r) -> TensorOf n r -> TensorOf n r
-  tletWrap _l u = u
 
 class PrimalDualTensor r where
   type Primal r
@@ -312,6 +305,13 @@ class DomainsTensor r where
        => TensorOf n r -> (TensorOf n r -> DomainsOf r)
        -> DomainsOf r
   dlet a f = f a
+  -- Operations for delayed let bindings creation
+  tregister :: KnownNat n
+            => TensorOf n r -> [(AstVarId, DTensorOf r)]
+            -> ([(AstVarId, DTensorOf r)], TensorOf n r)
+  tregister r l = (l, r)
+  tletWrap :: ADShare (Value r) -> TensorOf n r -> TensorOf n r
+  tletWrap _l u = u
 
 
 -- * The giga-constraint
@@ -548,7 +548,7 @@ instance AdaptableDomains (OD.Array r) where
   toDomains = undefined
   fromDomains = undefined
 
-instance ( OS.Shape sh, Numeric r, Shaped r ~ Flip OS.Array r )
+instance Numeric r
          => AdaptableDomains (Flip OS.Array r sh) where
   type Scalar (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
