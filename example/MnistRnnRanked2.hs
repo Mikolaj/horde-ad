@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module MnistRnnRanked2 where
 
@@ -16,70 +17,70 @@ import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData
 
-type LayerWeigthsRNNShaped in_width out_width r =
-  ( Shaped r '[out_width, in_width]   -- input weight
-  , Shaped r '[out_width, out_width]  -- state weight
-  , Shaped r '[out_width] )           -- bias
+type LayerWeigthsRNNShaped shaped in_width out_width r =
+  ( shaped r '[out_width, in_width]   -- input weight
+  , shaped r '[out_width, out_width]  -- state weight
+  , shaped r '[out_width] )           -- bias
 
-type ADRnnMnistParametersShaped width r =
-  ( LayerWeigthsRNNShaped SizeMnistHeight width r
-  , LayerWeigthsRNNShaped width width r
-  , ( Shaped r '[SizeMnistLabel, width]
-    , Shaped r '[SizeMnistLabel] ) )
+type ADRnnMnistParametersShaped shaped width r =
+  ( LayerWeigthsRNNShaped shaped SizeMnistHeight width r
+  , LayerWeigthsRNNShaped shaped width width r
+  , ( shaped r '[SizeMnistLabel, width]
+    , shaped r '[SizeMnistLabel] ) )
 
-type LayerWeigthsRNN r =
-  ( Ranked r 2
-  , Ranked r 2
-  , Ranked r 1 )
+type LayerWeigthsRNN ranked r =
+  ( ranked r 2
+  , ranked r 2
+  , ranked r 1 )
 
 -- The differentiable type of all trainable parameters of this nn.
-type ADRnnMnistParameters r =
-  ( LayerWeigthsRNN r
-  , LayerWeigthsRNN r
-  , ( Ranked r 2
-    , Ranked r 1 ) )
+type ADRnnMnistParameters ranked r =
+  ( LayerWeigthsRNN ranked r
+  , LayerWeigthsRNN ranked r
+  , ( ranked r 2
+    , ranked r 1 ) )
 
 zeroStateR
-  :: (Tensor r, KnownNat n)
-  => ShapeInt n -> (Ranked r n  -- state
+  :: (Tensor ranked, KnownNat n)
+  => ShapeInt n -> (ranked r n  -- state
                     -> a)
   -> a
 zeroStateR sh f = f (tzero sh)
 
-unrollLastR :: forall state c w r n.
-               (Tensor r, KnownNat n,  KnownNat (1 + n))
-            => (state -> Ranked r n -> w -> (c, state))
-            -> (state -> Ranked r (1 + n) -> w -> (c, state))
+unrollLastR :: forall ranked state c w r n.
+               (Tensor ranked, KnownNat n,  KnownNat (1 + n), GoodScalar r)
+            => (state -> ranked r n -> w -> (c, state))
+            -> (state -> ranked r (1 + n) -> w -> (c, state))
 unrollLastR f s0 xs w =
-  let g :: (c, state) -> Ranked r n -> (c, state)
+  let g :: (c, state) -> ranked r n -> (c, state)
       g (_, s) x = f s x w
-      projections :: [Ranked r n]
+      projections :: [ranked r n]
       projections = case tshape xs of
         len :$ _ -> map (\i -> tindex xs (fromIntegral i :. ZI)) [0 .. len - 1]
         ZS -> error "impossible pattern needlessly required"
   in foldl' g (undefined, s0) projections
 
 rnnMnistLayerR
-  :: forall r. Tensor r
-  => Ranked r 2  -- in state, [out_width, batch_size]
-  -> Ranked r 2  -- in, [in_width, batch_size]
-  -> LayerWeigthsRNN r  -- in_width out_width
-  -> Ranked r 2  -- out, [out_width, batch_size]
+  :: forall ranked r. (Tensor ranked, GoodScalar r)
+  => ranked r 2  -- in state, [out_width, batch_size]
+  -> ranked r 2  -- in, [in_width, batch_size]
+  -> LayerWeigthsRNN ranked r  -- in_width out_width
+  -> ranked r 2  -- out, [out_width, batch_size]
 rnnMnistLayerR s x (wX, wS, b) = case tshape s of
   _out_width :$ batch_size :$ ZS ->
     let y = wX `tmatmul2` x + wS `tmatmul2` s
-            + ttranspose [1, 0] (treplicate @r @1 batch_size b)
+            + ttranspose [1, 0] (treplicate @ranked @1 batch_size b)
     in tanh y
   _ -> error "rnnMnistLayerR: wrong shape of the state"
 
 rnnMnistTwoR
-  :: (Tensor r, PrimalDualTensor r)
-  => Ranked r 2  -- initial state, [2 * out_width, batch_size]
-  -> Ranked (Primal r) 2  -- [sizeMnistHeight, batch_size]
-  -> ( LayerWeigthsRNN r  -- sizeMnistHeight out_width
-     , LayerWeigthsRNN r )  -- out_width out_width
-  -> ( Ranked r 2  -- [out_width, batch_size]
-     , Ranked r 2 )  -- final state, [2 * out_width, batch_size]
+  :: (Tensor ranked, PrimalDualTensor ranked primal dual, GoodScalar r)
+  => ranked r 2  -- initial state, [2 * out_width, batch_size]
+  -> primal r 2  -- [sizeMnistHeight, batch_size]
+  -> ( LayerWeigthsRNN ranked r  -- sizeMnistHeight out_width
+     , LayerWeigthsRNN ranked r )  -- out_width out_width
+  -> ( ranked r 2  -- [out_width, batch_size]
+     , ranked r 2 )  -- final state, [2 * out_width, batch_size]
 rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case tshape s' of
   out_width_x_2 :$ _batch_size :$ ZS ->
     let out_width = out_width_x_2 `div` 2
@@ -93,11 +94,11 @@ rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case tshape s' of
   _ -> error "rnnMnistTwoR: wrong shape of the state"
 
 rnnMnistZeroR
-  :: (Tensor r, PrimalDualTensor r, Tensor (Primal r))
+  :: (Tensor ranked, PrimalDualTensor ranked primal dual, Tensor primal, GoodScalar r)
   => Int
-  -> Ranked (Primal r) 3  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
-  -> ADRnnMnistParameters r  -- sizeMnistHeight out_width
-  -> Ranked r 2  -- [SizeMnistLabel, batch_size]
+  -> primal r 3  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
+  -> ADRnnMnistParameters ranked r  -- sizeMnistHeight out_width
+  -> ranked r 2  -- [SizeMnistLabel, batch_size]
 rnnMnistZeroR batch_size xs
               ((wX, wS, b), (wX2, wS2, b2), (w3, b3)) = case tshape b of
   out_width :$ ZS ->
@@ -108,11 +109,11 @@ rnnMnistZeroR batch_size xs
   _ -> error "rnnMnistZeroR: wrong shape"
 
 rnnMnistLossFusedR
-  :: (Tensor r, PrimalDualTensor r, Tensor (Primal r))
+  :: (Tensor ranked, PrimalDualTensor ranked primal dual, Tensor primal, GoodScalar r)
   => Int
-  -> (Ranked (Primal r) 3, Ranked (Primal r) 2)  -- batch_size
-  -> ADRnnMnistParameters r  -- SizeMnistHeight out_width
-  -> Ranked r 0
+  -> (primal r 3, primal r 2)  -- batch_size
+  -> ADRnnMnistParameters ranked r  -- SizeMnistHeight out_width
+  -> ranked r 0
 rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   let xs = ttranspose [2, 1, 0] glyphR
       result = rnnMnistZeroR batch_size xs adparameters
@@ -121,13 +122,11 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   in tconstant (recip $ fromIntegral batch_size) * loss
 
 rnnMnistTestR
-  :: forall r.
-     ( ADReady r, RealFloat r, r ~ Primal r, Numeric r
-     , Ranked r ~ Flip OR.Array r )
+  :: forall r. (RealFloat r, Numeric r, GoodScalar r)
   => Int
   -> MnistDataBatchR r  -- batch_size
-  -> ((ADRnnMnistParameters r  -- SizeMnistHeight out_width
-       -> Ranked r 2)  -- [SizeMnistLabel, batch_size]
+  -> ((ADRnnMnistParameters (Flip OR.Array) r  -- SizeMnistHeight out_width
+       -> Flip OR.Array r 2)  -- [SizeMnistLabel, batch_size]
       -> OR.Array 2 r)  -- [SizeMnistLabel, batch_size]
   -> r
 {-# INLINE rnnMnistTestR #-}
@@ -135,9 +134,10 @@ rnnMnistTestR 0 _ _ = 0
 rnnMnistTestR batch_size (glyphR, labelR) evalAtTestParams =
   let xs = Flip $ OR.transpose [2, 1, 0] glyphR
       outputR =
-        let nn :: ADRnnMnistParameters r  -- SizeMnistHeight out_width
-               -> Ranked r 2  -- [SizeMnistLabel, batch_size]
-            nn = rnnMnistZeroR batch_size xs
+        let nn :: ADRnnMnistParameters (Flip OR.Array) r
+                    -- SizeMnistHeight out_width
+               -> Flip OR.Array r 2  -- [SizeMnistLabel, batch_size]
+            nn = rnnMnistZeroR @(Flip OR.Array) @(Flip OR.Array) @DummyDual batch_size xs
         in evalAtTestParams nn
       outputs = map OR.toVector $ ORB.toList $ OR.unravel
                 $ OR.transpose [1, 0] outputR

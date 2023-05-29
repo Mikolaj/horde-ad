@@ -16,17 +16,18 @@ import GHC.TypeLits (KnownNat)
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
-scale :: (Tensor r, PrimalDualTensor r, KnownNat n)
-      => TensorOf n (Primal r) -> TensorOf n r -> TensorOf n r
-scale a d = tconstant a `tmult` d
+scale :: forall ranked primal dual r n.
+         (Allowed ranked r, Tensor ranked, PrimalDualTensor ranked primal dual, KnownNat n, GoodScalar r)
+      => primal r n -> ranked r n -> ranked r n
+scale a d = tconstant @ranked @primal @dual a `tmult` d
 -- This should be faster, but is slower even before `tmult` is optimized
 -- for the scaling case. This may be caused by the lets repeated
 -- both in primal part and the D constructor.
 -- scale a d = tD (a * tprimalPart d) (tScale @r a (tdualPart d))
 
 relu, reluLeaky
-  :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
-  => TensorOf n r -> TensorOf n r
+  :: forall ranked n r. (ADReady ranked, KnownNat n, GoodScalar r, Num (ranked r n), Fractional (ranked r 0), OrdB (ranked r 0), IfB (ranked r 0))
+  => ranked r n -> ranked r n
 relu v =
   let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.0 1.0) v
   in oneIfGtZero * v
@@ -36,76 +37,80 @@ reluLeaky v =
   in oneIfGtZero * v
 
 -- TODO: verify how faster a dedicated Tensor method would be
-logistic :: forall r n.
-            ( Tensor r, PrimalDualTensor r, Tensor (Primal r), KnownNat n
-            , Floating (TensorOf n (Primal r)) )
-         => TensorOf n r -> TensorOf n r
+logistic :: forall ranked primal dual r n.
+            ( Tensor ranked, PrimalDualTensor ranked primal dual
+            , Tensor primal, KnownNat n, GoodScalar r
+            , Floating (primal r n), Allowed ranked r, Num (primal r 0) )
+         => ranked r n -> ranked r n
 logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
   let sh = tshape d
-      y0 = recip (treplicate0N sh 1 + exp (- tprimalPart d))
-  in tlet (tconstant y0)  -- we don't have tletPrimal
-     $ \y1 -> let y = tprimalPart y1
-              in tD y (tScale @r (y * (treplicate0N sh 1 - y)) $ tdualPart d)
+      y0 = recip (treplicate0N sh 1 + exp (- tprimalPart @ranked @primal @dual d))
+  in tlet (tconstant @ranked @primal @dual y0)  -- we don't have tletPrimal
+     $ \y1 -> let y = tprimalPart @ranked @primal @dual y1
+              in tD y (tScale @ranked @primal @dual (y * (treplicate0N sh 1 - y)) $ tdualPart @ranked @primal @dual d)
 
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
-square :: forall r n.
-          (PrimalDualTensor r, KnownNat n, Num (TensorOf n (Primal r)))
-       => TensorOf n r -> TensorOf n r
-square d = let u = tprimalPart d
-               u' = tdualPart d
-           in tD (u * u) (tScale @r (2 * u) u')
+square :: forall ranked primal dual r n.
+          ( PrimalDualTensor ranked primal dual, Allowed ranked r
+          , KnownNat n, Num (primal r n), GoodScalar r )
+       => ranked r n -> ranked r n
+square d = let u = tprimalPart @ranked @primal @dual d
+               u' = tdualPart @ranked @primal @dual d
+           in tD (u * u) (tScale @ranked @primal @dual (2 * u) u')
 
 squaredDifference
-  :: ( PrimalDualTensor r, KnownNat n, Num (TensorOf n r)
-     , Num (TensorOf n (Primal r)) )
-  => TensorOf n (Primal r) -> TensorOf n r -> TensorOf n r
-squaredDifference targ res = square $ res - tconstant targ
+  :: forall ranked primal dual n r.
+     ( PrimalDualTensor ranked primal dual, KnownNat n, Num (ranked r n)
+     , Num (primal r n), GoodScalar r, Allowed ranked r )
+  => primal r n -> ranked r n -> ranked r n
+squaredDifference targ res = square @ranked @primal @dual $ res - tconstant @ranked @primal @dual targ
 
-lossCrossEntropyV :: (Tensor r, KnownNat n, Floating (TensorOf n r))
-                  => TensorOf n r
-                  -> TensorOf n r
-                  -> TensorOf 0 r
+lossCrossEntropyV :: (Tensor ranked, KnownNat n, Floating (ranked r n), GoodScalar r, Num (ranked r 0) )
+                  => ranked r n
+                  -> ranked r n
+                  -> ranked r 0
 lossCrossEntropyV targ res = negate $ log res `tdot0` targ
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
-  :: ( Tensor r, PrimalDualTensor r, Tensor (Primal r), KnownNat n
-     , Floating (TensorOf n (Primal r))
-     , Fractional (TensorOf 0 (Primal r)) )
-  => TensorOf n (Primal r) -> TensorOf n r -> TensorOf 0 r
+  :: forall ranked primal dual n r.
+     ( Tensor ranked, PrimalDualTensor ranked primal dual, Tensor primal, KnownNat n, Allowed ranked r
+     , Floating (primal r n), GoodScalar r, Num (ranked r n)
+     , Fractional (primal r 0) )
+  => primal r n -> ranked r n -> ranked r 0
 lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by the QuickCheck test in TestMnistCNN.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
   let softMaxU' =
-        let u = tprimalPart d
+        let u = tprimalPart @ranked @primal @dual d
             expU' = exp (u - treplicate0N (tshape u) (tminimum u))
         in tlet expU' $ \expU ->
           let sumExpU = tsum0 expU
               recipSum = recip sumExpU
           in tscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
-  in tlet (tconstant softMaxU')  $ \softMaxU ->
-    tD (negate $ log (tprimalPart softMaxU) `tdot0` target)
+  in tlet (tconstant @ranked @primal @dual softMaxU')  $ \softMaxU ->
+    tD (negate $ log (tprimalPart @ranked @primal @dual softMaxU) `tdot0` target)
          -- TODO: avoid: log . exp
-       (tdualPart $ (softMaxU - tconstant target) `tdot0` d)
+       (tdualPart @ranked @primal @dual $ (softMaxU - tconstant @ranked @primal @dual target) `tdot0` d)
          -- TODO: probably defining tDot0 would lead to a faster
          -- tDot0 (softMaxU - target) u'
 
 -- No padding; remaining areas ignored.
-maxPool1 :: Tensor r
-         => Int -> Int -> TensorOf 1 r -> TensorOf 1 r
+maxPool1 :: (Tensor ranked, GoodScalar r)
+         => Int -> Int -> ranked r 1 -> ranked r 1
 maxPool1 ksize stride v =
   let slices = [tslice i ksize v | i <- [0, stride .. tlength v - ksize]]
   in tfromList $ map tmaximum slices
 
-softMax1 :: ( Tensor r, KnownNat n
-            , Floating (TensorOf n r), Fractional (TensorOf 0 r) )
-         => TensorOf n r -> TensorOf n r
+softMax1 :: ( Tensor ranked, KnownNat n, GoodScalar r
+            , Floating (ranked r n), Fractional (ranked r 0) )
+         => ranked r n -> ranked r n
 softMax1 d =
   let expU0 = exp d
   in tlet expU0 $ \expU -> treplicate0N (tshape d) (recip $ tsum0 expU) * expU
@@ -119,8 +124,8 @@ softMax1 d =
 -- If another value than 0 was needed, the conditional
 -- would be necessary even without vectorization.
 conv2dUnpadded
-  :: ADReady r
-  => TensorOf 4 r -> TensorOf 4 r -> TensorOf 4 r
+  :: (ADReady ranked, GoodScalar r, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
+  => ranked r 4 -> ranked r 4 -> ranked r 4
 conv2dUnpadded arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = tshape arrA
       [nCoutK, nCinpK, nKh, nKw] = tshape arrK
@@ -140,30 +145,31 @@ conv2dUnpadded arrK arrA =
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
 slicez
-  :: (ADReady r, KnownNat n)
-  => ShapeInt n -> TensorOf n r -> IndexOf n r -> TensorOf n r
+  :: (ADReady ranked, KnownNat n, GoodScalar r, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
+  => ShapeInt n -> ranked r n -> IndexOf ranked r n -> ranked r n
 slicez shOut d ixBase =
   tbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
 
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
 indexz0
-  :: forall r n. (ADReady r, KnownNat n)
-  => TensorOf n r -> IndexOf n r -> TensorOf 0 r
-indexz0 d ix = ifB (within0 @r (tshape d) ix) (d ! ix) 0
+  :: forall ranked r n. (ADReady ranked, KnownNat n, GoodScalar r, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
+  => ranked r n -> IndexOf ranked r n -> ranked r 0
+indexz0 d ix = ifB (within0 @ranked @r (tshape @ranked d) ix) (d ! ix) 0
 
 -- | Given an index and shape, check if the index is fully within the shape.
-within0 :: forall r n. ADReady r
-        => ShapeInt n -> IndexOf n r -> BooleanOf r
+within0 :: forall ranked r n.
+           (ADReady ranked, BooleanOf (IntOf ranked r) ~ BooleanOf r, Boolean (BooleanOf r), OrdB (IntOf ranked r))
+        => ShapeInt n -> IndexOf ranked r n -> BooleanOf r
 within0 sh ix =
-  let within :: IntOf r -> IntOf r -> BooleanOf r
+  let within :: IntOf ranked r -> IntOf ranked r -> BooleanOf r
       within i dim = 0 <=* i &&* dim >* i
   in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)
 
 maxPool2dUnpadded
-  :: ADReady r
-  => Int -> Int -> TensorOf 4 r -> TensorOf 4 r
+  :: (ADReady ranked, GoodScalar r, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
+  => Int -> Int -> ranked r 4 -> ranked r 4
 maxPool2dUnpadded ksize stride arr =
   let [batch_size, channels, h, w] = tshape arr
       shOut = [batch_size, channels, h `div` stride, w `div` stride]

@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
@@ -26,13 +26,14 @@ module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
     IsPrimal(..), IsPrimalR(..), IsPrimalA (..)
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
-    Dual, HasRanks(..)
+    Dual, HasRanks(..), HasConversions(..)
   , -- * Internal operations, exposed for tests, debugging and experiments
     unsafeGetFreshId, resetIdCounter
   ) where
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
@@ -65,7 +66,6 @@ class IsPrimal a where
   recordSharingPrimal :: a -> ADShare (Underlying a)
                       -> (ADShare (Underlying a), a)
   letWrapPrimal :: ADShare (Underlying a) -> a -> a
-  packDeltaDt :: Either a a -> Dual a -> DeltaDt (Scalar a)
   intOfShape :: a -> Int -> a
 
 -- | Part 1/2 of a hack to squeeze the ranked tensors rank,
@@ -88,7 +88,7 @@ class IsPrimalR r where
   letWrapPrimalR :: ADShare r -> Flip OR.Array r n -> Flip OR.Array r n
   packDeltaDtR :: KnownNat n
                => Either (Flip OR.Array r n) (Flip OR.Array r n) -> Dual (Flip OR.Array r n)
-               -> DeltaDt r
+               -> DeltaDt (Flip OR.Array) r
   intOfShapeR :: KnownNat n
               => Flip OR.Array r n -> Int -> Flip OR.Array r n
 
@@ -103,7 +103,6 @@ instance (IsPrimalR r, KnownNat n)
   recordSharing = recordSharingR
   recordSharingPrimal = recordSharingPrimalR
   letWrapPrimal = letWrapPrimalR
-  packDeltaDt = packDeltaDtR
   intOfShape = intOfShapeR
 
 -- An analogous hack for Ast.
@@ -121,7 +120,7 @@ class IsPrimalA r where
   letWrapPrimalA :: ADShare r -> Ast n r -> Ast n r
   packDeltaDtA :: KnownNat n
                => Either (Ast n r) (Ast n r) -> Dual (Ast n r)
-               -> DeltaDt (Ast0 r)
+               -> DeltaDt AstRanked r
   intOfShapeA :: KnownNat n
               => Ast n r -> Int -> Ast n r
 
@@ -134,7 +133,6 @@ instance (IsPrimalA r, KnownNat n)
   recordSharing = recordSharingA
   recordSharingPrimal = recordSharingPrimalA
   letWrapPrimal = letWrapPrimalA
-  packDeltaDt = packDeltaDtA
   intOfShape = intOfShapeA
 
 -- TODO: this should not be needed, but typing needs it ATM
@@ -145,71 +143,72 @@ instance IsPrimal Double where
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
-class HasRanks r where
-  dInputR :: InputId (TensorOf n r) -> Dual (TensorOf n r)
+class HasRanks ranked where
+  dInputR :: InputId (ranked r n) -> Dual (ranked r n)
   dIndexZ :: (KnownNat n, KnownNat m)
-          => Dual (TensorOf (m + n) r) -> IndexOf m r -> ShapeInt (m + n)
-          -> Dual (TensorOf n r)
+          => Dual (ranked r (m + n)) -> IndexOf ranked r m -> ShapeInt (m + n)
+          -> Dual (ranked r n)
   dSumR :: KnownNat n
-        => Int -> Dual (TensorOf (1 + n) r) -> Dual (TensorOf n r)
+        => Int -> Dual (ranked r (1 + n)) -> Dual (ranked r n)
   dSum0 :: KnownNat n
-        => ShapeInt n -> Dual (TensorOf n r) -> Dual (TensorOf 0 r)
-  dDot0 :: KnownNat n
-        => TensorOf n r -> Dual (TensorOf n r) -> Dual (TensorOf 0 r)
+        => ShapeInt n -> Dual (ranked r n) -> Dual (ranked r 0)
+  dDot0 :: (KnownNat n, Show (ranked r n))
+        => ranked r n -> Dual (ranked r n) -> Dual (ranked r 0)
 --  dScatterZ1 :: (KnownNat p, KnownNat n)
---            => (Int -> IndexOf p r)
---            -> Int -> Dual (TensorOf (1 + n) r)
---            -> ShapeInt (p + n) -> Dual (TensorOf (p + n) r)
+--            => (Int -> IndexOf ranked r p)
+--            -> Int -> Dual (ranked r (1 + n))
+--            -> ShapeInt (p + n) -> Dual (ranked r (p + n))
   dScatterZ :: (KnownNat m, KnownNat p, KnownNat n)
-            => ShapeInt (p + n) -> Dual (TensorOf (m + n) r)
-            -> (IndexOf m r -> IndexOf p r)
+            => ShapeInt (p + n) -> Dual (ranked r (m + n))
+            -> (IndexOf ranked r m -> IndexOf ranked r p)
             -> ShapeInt (m + n)
-            -> Dual (TensorOf (p + n) r)
+            -> Dual (ranked r (p + n))
   dFromListR :: KnownNat n
-             => [Dual (TensorOf n r)]
-             -> Dual (TensorOf (1 + n) r)
+             => [Dual (ranked r n)]
+             -> Dual (ranked r (1 + n))
   dFromVectorR :: KnownNat n
-               => Data.Vector.Vector (Dual (TensorOf n r))
-               -> Dual (TensorOf (1 + n) r)
+               => Data.Vector.Vector (Dual (ranked r n))
+               -> Dual (ranked r (1 + n))
 --  dFromList0R :: KnownNat n
---              => ShapeInt n -> [Dual r] -> Dual (TensorOf n r)
+--              => ShapeInt n -> [Dual r] -> Dual (ranked r n)
 --  dFromVector0R :: KnownNat n
 --                => ShapeInt n -> Data.Vector.Vector (Dual r)
---                -> Dual (TensorOf n r)
+--                -> Dual (ranked r n)
   dReplicateR :: KnownNat n
-          => Int -> Dual (TensorOf n r) -> Dual (TensorOf (1 + n) r)
+          => Int -> Dual (ranked r n) -> Dual (ranked r (1 + n))
 --  dReplicate0R :: KnownNat n
---           => ShapeInt n -> Dual r -> Dual (TensorOf n r)
+--           => ShapeInt n -> Dual r -> Dual (ranked r n)
   dAppendR :: KnownNat n
-           => Dual (TensorOf (1 + n) r) -> Int -> Dual (TensorOf (1 + n) r)
-           -> Dual (TensorOf (1 + n) r)
+           => Dual (ranked r (1 + n)) -> Int -> Dual (ranked r (1 + n))
+           -> Dual (ranked r (1 + n))
   dSliceR :: KnownNat n
-          => Int -> Int -> Dual (TensorOf (1 + n) r) -> Int
-          -> Dual (TensorOf (1 + n) r)
+          => Int -> Int -> Dual (ranked r (1 + n)) -> Int
+          -> Dual (ranked r (1 + n))
   dReverseR :: KnownNat n
-            => Dual (TensorOf (1 + n) r) -> Dual (TensorOf (1 + n) r)
+            => Dual (ranked r (1 + n)) -> Dual (ranked r (1 + n))
   dTransposeR :: KnownNat n
-              => Permutation -> Dual (TensorOf n r) -> Dual (TensorOf n r)
+              => Permutation -> Dual (ranked r n) -> Dual (ranked r n)
   dReshapeR :: (KnownNat n, KnownNat m)
-            => ShapeInt n -> ShapeInt m -> Dual (TensorOf n r)
-            -> Dual (TensorOf m r)
+            => ShapeInt n -> ShapeInt m -> Dual (ranked r n)
+            -> Dual (ranked r m)
   dBuildR :: KnownNat n
-          => Int -> (IntOf r -> Dual (TensorOf n r))
-          -> Dual (TensorOf (1 + n) r)
+          => Int -> (IntOf ranked r -> Dual (ranked r n))
+          -> Dual (ranked r (1 + n))
 --  dGatherZ1 :: (KnownNat p, KnownNat n)
---           => (Int -> IndexOf p r)
---           -> ShapeInt (p + n) -> Dual (TensorOf (p + n) r)
---           -> Int -> Dual (TensorOf (1 + n) r)
+--           => (Int -> IndexOf ranked r p)
+--           -> ShapeInt (p + n) -> Dual (ranked r (p + n))
+--           -> Int -> Dual (ranked r (1 + n))
   dGatherZ :: (KnownNat m, KnownNat p, KnownNat n)
-           => ShapeInt (m + n) -> Dual (TensorOf (p + n) r)
-           -> (IndexOf m r -> IndexOf p r)
+           => ShapeInt (m + n) -> Dual (ranked r (p + n))
+           -> (IndexOf ranked r m -> IndexOf ranked r p)
            -> ShapeInt (p + n)
-           -> Dual (TensorOf (m + n) r)
+           -> Dual (ranked r (m + n))
 
+class HasConversions dynamic ranked where
   dFromD :: KnownNat n
-          => Dual (DTensorOf r) -> Dual (TensorOf n r)
+         => Dual (dynamic r) -> Dual (ranked r n)
   dFromR :: KnownNat n
-          => Dual (TensorOf n r) -> Dual (DTensorOf r)
+         => Dual (ranked r n) -> Dual (dynamic r)
 
 
 -- * Delta expression method instances
@@ -284,7 +283,8 @@ instance IsPrimalR Float where
   intOfShapeR tsh c =
     Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
 
-instance ShowAstSimplify r => IsPrimalA r where
+instance ShowAstSimplify r
+         => IsPrimalA r where
   dZeroA = ZeroR
   dScaleA = ScaleR
   dScaleByScalarA tsh c =
@@ -302,8 +302,7 @@ instance ShowAstSimplify r => IsPrimalA r where
   packDeltaDtA (Right t) = DeltaDtR t
   intOfShapeA tsh c = treplicate0N (tshape tsh) (fromIntegral c)
 
--- | This is an impure instance. See above.
-instance HasRanks Double where
+instance HasRanks (Flip OR.Array) where
   dInputR = InputR
   dIndexZ = IndexZ
   dSumR = SumR
@@ -326,15 +325,17 @@ instance HasRanks Double where
 --  dGather1 = Gather1
   dGatherZ = GatherZ
 
-  dFromD :: forall n2. KnownNat n2
-         => Dual (DTensorOf Double) -> Dual (TensorOf n2 Double)
-  dFromD (FromR @n1 d) =
+instance (dynamic ~ OD.Array, ranked ~ Flip OR.Array)
+         => HasConversions OD.Array (Flip OR.Array) where
+  dFromD :: forall n2 r. KnownNat n2
+         => Dual (dynamic r) -> Dual (ranked r n2)
+  dFromD (FromR @_ @n1 d) =
     case sameNat (Proxy @n1) (Proxy @n2) of
       Just Refl -> d
       _ -> error "dFromD: different ranks in FromD(FromR)"
   dFromR = FromR
 
-instance HasRanks Float where
+instance HasRanks AstRanked where
   dInputR = InputR
   dIndexZ = IndexZ
   dSumR = SumR
@@ -357,40 +358,11 @@ instance HasRanks Float where
 --  dGather1 = Gather1
   dGatherZ = GatherZ
 
-  dFromD :: forall n2. KnownNat n2
-         => Dual (DTensorOf Float) -> Dual (TensorOf n2 Float)
-  dFromD (FromR @n1 d) =
-    case sameNat (Proxy @n1) (Proxy @n2) of
-      Just Refl -> d
-      _ -> error "dFromD: different ranks in FromD(FromR)"
-  dFromR = FromR
-
-instance ShowAst r => HasRanks (Ast0 r) where
-  dInputR = InputR
-  dIndexZ = IndexZ
-  dSumR = SumR
-  dSum0 = Sum0
-  dDot0 = Dot0
---  dScatter1 = Scatter1
-  dScatterZ = ScatterZ
-  dFromListR = FromListR
-  dFromVectorR = FromVectorR
---  dFromList0R = FromList0R
---  dFromVector0R = FromVector0R
-  dReplicateR = ReplicateR
---  dReplicate0R = Replicate0R
-  dAppendR = AppendR
-  dSliceR = SliceR
-  dReverseR = ReverseR
-  dTransposeR = TransposeR
-  dReshapeR = ReshapeR
-  dBuildR = BuildR
---  dGather1 = Gather1
-  dGatherZ = GatherZ
-
-  dFromD :: forall n2. KnownNat n2
-         => Dual (DTensorOf (Ast0 r)) -> Dual (TensorOf n2 (Ast0 r))
-  dFromD (FromR @n1 d) =
+instance (dynamic ~ AstDynamic, ranked ~ AstRanked)
+         => HasConversions AstDynamic AstRanked where
+  dFromD :: forall n2 r. KnownNat n2
+         => Dual (dynamic r) -> Dual (ranked r n2)
+  dFromD (FromR @_ @n1 d) =
     case sameNat (Proxy @n1) (Proxy @n2) of
       Just Refl -> d
       _ -> error "dFromD: different ranks in FromD(FromR)"
@@ -431,7 +403,7 @@ resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
 -- Tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
-wrapDeltaR :: DeltaR n r -> DeltaR n r
+wrapDeltaR :: DeltaR ranked n r -> DeltaR ranked n r
 {-# NOINLINE wrapDeltaR #-}
 wrapDeltaR !d = unsafePerformIO $ do
   n <- unsafeGetFreshId

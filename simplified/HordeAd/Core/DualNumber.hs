@@ -5,7 +5,7 @@
 -- the mid-level API of the horde-ad library, together with
 -- the safely impure "HordeAd.Core.DualClass".
 module HordeAd.Core.DualNumber
-  ( ADTensor, ADVal, dD, pattern D, dDnotShared
+  ( ADVal, dD, pattern D, dDnotShared
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
@@ -20,7 +20,6 @@ import GHC.TypeLits (KnownNat, Nat, natVal)
 import HordeAd.Core.Ast
 import HordeAd.Core.Domains
 import HordeAd.Core.DualClass
-import HordeAd.Core.TensorClass
 
 -- * The main dual number type
 
@@ -57,14 +56,6 @@ dDnotShared = D
 
 
 -- * Auxiliary definitions
-
-type ADTensor r =
-  ( HasRanks r
-  , Tensor r
-  , ConvertTensor r
-  , DynamicTensor r
-  , DomainsTensor r
-  )
 
 -- All this is not needed in the simplified version, except for compilation
 -- with the common test code.

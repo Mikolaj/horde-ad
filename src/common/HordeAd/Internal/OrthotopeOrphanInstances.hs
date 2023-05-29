@@ -23,6 +23,7 @@ import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
+import           Data.Bifunctor.Tannen
 import           Data.Boolean
 import           Data.Functor.Compose
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
@@ -468,6 +469,29 @@ deriving instance (Ord (Compose f g a), RealFrac (f (g a)))
 
 deriving instance (Ord (Compose f g a), RealFloat (f (g a)))
                   => RealFloat (Compose f g a)
+
+type instance BooleanOf (Tannen f g a b) = BooleanOf (f (g a b))
+
+deriving instance IfB (f (g a b)) => IfB (Tannen f g a b)
+
+deriving instance EqB (f (g a b)) => EqB (Tannen f g a b)
+
+deriving instance OrdB (f (g a b)) => OrdB (Tannen f g a b)
+
+deriving instance Num (f (g a b)) => Num (Tannen f g a b)
+
+deriving instance Fractional (f (g a b)) => Fractional (Tannen f g a b)
+
+deriving instance Floating (f (g a b)) => Floating (Tannen f g a b)
+
+deriving instance (Ord (Tannen f g a b), Real (f (g a b)))
+                  => Real (Tannen f g a b)
+
+deriving instance (Ord (Tannen f g a b), RealFrac (f (g a b)))
+                  => RealFrac (Tannen f g a b)
+
+deriving instance (Ord (Tannen f g a b), RealFloat (f (g a b)))
+                  => RealFloat (Tannen f g a b)
 
 
 -- TODO: move to separate orphan module(s) at some point

@@ -1,9 +1,11 @@
-{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
 module HordeAd.Core.AstInterpret
-  ( InterpretAst, interpretAst, interpretAstDomainsDummy
+  ( InterpretAstF, InterpretAstA, InterpretAst
+  , interpretAst, interpretAstDomainsDummy
   , AstEnv, extendEnvR, extendEnvD, AstMemo, emptyMemo
   , AstEnvElem(AstVarR)  -- for a test only
   ) where
@@ -17,54 +19,55 @@ import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
 import           Data.List (foldl1', mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, sameNat)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.Domains
-import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal ()
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.SizedList
 
-type AstEnv a = EM.EnumMap AstVarId (AstEnvElem a)
+type AstEnv dynamic ranked a = EM.EnumMap AstVarId (AstEnvElem dynamic ranked a)
 
-data AstEnvElem a =
-    AstVarR (DTensorOf a)
-  | AstVarI (IntOf a)
-deriving instance (Show (DTensorOf a), Show (IntOf a))
-                  => Show (AstEnvElem a)
+data AstEnvElem dynamic ranked a =
+    AstVarR (dynamic a)
+  | AstVarI (IntOf ranked a)
+deriving instance (Show (dynamic a), Show (IntOf ranked a))
+                  => Show (AstEnvElem dynamic ranked a)
 
-extendEnvR :: forall n a. (ConvertTensor a, KnownNat n)
-           => AstVarName (OR.Array n (Value a)) -> TensorOf n a
-           -> AstEnv a -> AstEnv a
+extendEnvR :: forall dynamic ranked a n.
+              (ConvertTensor dynamic ranked, KnownNat n, GoodScalar a)
+           => AstVarName (OR.Array n a) -> ranked a n
+           -> AstEnv dynamic ranked a -> AstEnv dynamic ranked a
 extendEnvR v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstVarR $ dfromR d)
 
-extendEnvD :: ConvertTensor a
-           => (AstDynamicVarName (Value a), DTensorOf a) -> AstEnv a
-           -> AstEnv a
+extendEnvD :: (ConvertTensor dynamic ranked, GoodScalar a)
+           => (AstDynamicVarName a, dynamic a)
+           -> AstEnv dynamic ranked a
+           -> AstEnv dynamic ranked a
 extendEnvD (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
 
-extendEnvDId :: AstVarId -> DTensorOf a -> AstEnv a
-             -> AstEnv a
+extendEnvDId :: AstVarId -> dynamic a -> AstEnv dynamic ranked a
+             -> AstEnv dynamic ranked a
 extendEnvDId var d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvDId: duplicate " ++ show var)
                    var (AstVarR d)
 
-extendEnvI :: AstVarId -> IntOf a -> AstEnv a -> AstEnv a
+extendEnvI :: AstVarId -> IntOf ranked a -> AstEnv dynamic ranked a
+           -> AstEnv dynamic ranked a
 extendEnvI var i =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
                    var (AstVarI i)
 
-extendEnvVars :: AstVarList m -> IndexOf m a -> AstEnv a -> AstEnv a
+extendEnvVars :: AstVarList m -> IndexOf ranked a m -> AstEnv dynamic ranked a
+              -> AstEnv dynamic ranked a
 extendEnvVars vars ix env =
   let assocs = zip (sizedListToList vars) (indexToList ix)
   in foldr (uncurry extendEnvI) env assocs
@@ -74,29 +77,32 @@ extendEnvVars vars ix env =
 -- for each iteration, with differently extended environment,
 -- and also because the created function is not expected to return a @memo@.
 interpretLambdaI
-  :: (AstEnv a -> AstMemo a -> Ast n (Value a)
-  -> (AstMemo a, TensorOf n a))
-  -> AstEnv a -> AstMemo a -> (AstVarId, Ast n (Value a)) -> IntOf a
-  -> TensorOf n a
+  :: (AstEnv dynamic ranked a -> AstMemo a -> Ast n a
+  -> (AstMemo a, ranked a n))
+  -> AstEnv dynamic ranked a -> AstMemo a -> (AstVarId, Ast n a)
+  -> IntOf ranked a
+  -> ranked a n
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env memo (var, ast) =
   \i -> snd $ f (extendEnvI var i env) memo ast
 
 interpretLambdaIndex
-  :: (AstEnv a -> AstMemo a -> Ast n (Value a)
-  -> (AstMemo a, TensorOf n a))
-  -> AstEnv a -> AstMemo a
-  -> (AstVarList m, Ast n (Value a)) -> IndexOf m a
-  -> TensorOf n a
+  :: (AstEnv dynamic ranked a -> AstMemo a -> Ast n a
+  -> (AstMemo a, ranked a n))
+  -> AstEnv dynamic ranked a -> AstMemo a
+  -> (AstVarList m, Ast n a) -> IndexOf ranked a m
+  -> ranked a n
 {-# INLINE interpretLambdaIndex #-}
 interpretLambdaIndex f env memo (vars, ast) =
   \ix -> snd $ f (extendEnvVars vars ix env) memo ast
 
 interpretLambdaIndexToIndex
   :: KnownNat p
-  => (AstEnv a -> AstMemo a -> AstInt q -> (AstMemo a, IntOf a))
-  -> AstEnv a -> AstMemo a -> (AstVarList m, AstIndex p q) -> IndexOf m a
-  -> IndexOf p a
+  => (AstEnv dynamic ranked a -> AstMemo a -> AstInt q
+  -> (AstMemo a, IntOf ranked a)) -> AstEnv dynamic ranked a
+  -> AstMemo a -> (AstVarList m, AstIndex p q)
+  -> IndexOf ranked a m
+  -> IndexOf ranked a p
 {-# INLINE interpretLambdaIndexToIndex #-}
 interpretLambdaIndexToIndex f env memo (vars, asts) =
   \ix -> listToIndex $ snd
@@ -105,15 +111,31 @@ interpretLambdaIndexToIndex f env memo (vars, asts) =
 class (BooleanOf r ~ b) => BooleanOfMatches b r where
 instance (BooleanOf r ~ b) => BooleanOfMatches b r where
 
-type InterpretAst a =
-  ( Tensor a, PrimalDualTensor a, ConvertTensor a, Tensor (Primal a)
-  , ShowAstSimplify (Value a), Underlying a ~ Value a
-  , EqB (IntOf a), OrdB (IntOf a), IfB (IntOf a)
-  , IntOf (Primal a) ~ IntOf a, BooleanOf (Primal a) ~ BooleanOf (IntOf a)
-  , CRanked EqB (Primal a)
-  , CRanked OrdB (Primal a)
-  , CRanked (BooleanOfMatches (BooleanOf (Primal a))) (Primal a)
+class (forall y. KnownNat y => c (ranked r y))
+      => CRanked ranked r c where
+instance (forall y. KnownNat y => c (ranked r y))
+         => CRanked ranked r c where
+
+type InterpretAstF dynamic ranked primal dual =
+  ( Tensor ranked, PrimalDualTensor ranked primal dual
+  , ConvertTensor dynamic ranked, Tensor primal )
+
+type InterpretAstA ranked primal a =
+  ( GoodScalar a, Integral (IntOf primal a), Allowed ranked a
+  , ShowAstSimplify a, Underlying a ~ a
+  , EqB (IntOf ranked a), OrdB (IntOf ranked a), IfB (IntOf ranked a)
+  , IntOf primal a ~ IntOf ranked a
+  , BooleanOf (ranked a 0) ~ BooleanOf (IntOf ranked a)
+  , BooleanOf (IntOf ranked a) ~ BooleanOf (ranked a 0)
+  , CRanked primal a EqB
+  , CRanked primal a OrdB
+  , CRanked ranked a RealFloat
+  , CRanked primal a (BooleanOfMatches (BooleanOf (ranked a 0)))
+  , CRanked ranked a (BooleanOfMatches (BooleanOf (primal a 0)))
   )
+
+type InterpretAst dynamic ranked primal dual a =
+  (InterpretAstF dynamic ranked primal dual, InterpretAstA ranked primal a)
 
 type AstMemo a = ()  -- unused for now, but likely to be used in the future,
                      -- though probably not for memoization
@@ -129,25 +151,28 @@ emptyMemo = ()
 -- It helps that usually the dual part is either trivially computed
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
-  :: forall n a. (KnownNat n, InterpretAst a)
-  => AstEnv a -> AstMemo a
-  -> AstPrimalPart (Value a) n -> (AstMemo a, TensorOf n (Primal a))
+  :: forall dynamic ranked primal dual n a.
+     (KnownNat n, InterpretAst dynamic ranked primal dual a)
+  => AstEnv dynamic ranked a -> AstMemo a
+  -> AstPrimalPart a n -> (AstMemo a, primal a n)
 interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
-  AstD u _-> interpretAstPrimal env memo u
-  _ -> second tprimalPart $ interpretAst env memo v1
+  AstD u _-> interpretAstPrimal @dynamic @ranked @primal @dual env memo u
+  _ -> second (tprimalPart @ranked @primal @dual) $ interpretAst @dynamic @ranked @primal @dual env memo v1
 
 interpretAstDual
-  :: forall n a. (KnownNat n, InterpretAst a)
-  => AstEnv a -> AstMemo a
-  -> AstDualPart (Value a) n -> (AstMemo a, DualOf n a)
+  :: forall dynamic ranked primal dual n a.
+     (KnownNat n, InterpretAst dynamic ranked primal dual a)
+  => AstEnv dynamic ranked a -> AstMemo a
+  -> AstDualPart a n -> (AstMemo a, dual a n)
 interpretAstDual env memo (AstDualPart v1) = case v1 of
-  AstD _ u'-> interpretAstDual env memo u'
-  _ -> second tdualPart $ interpretAst env memo v1
+  AstD _ u'-> interpretAstDual @dynamic @ranked @primal @dual env memo u'
+  _ -> second (tdualPart @ranked @primal @dual) $ interpretAst @dynamic @ranked @primal @dual env memo v1
 
 interpretAst
-  :: forall n a. (KnownNat n, InterpretAst a)
-  => AstEnv a -> AstMemo a
-  -> Ast n (Value a) -> (AstMemo a, TensorOf n a)
+  :: forall dynamic ranked primal dual n a.
+     (KnownNat n, InterpretAst dynamic ranked primal dual a)
+  => AstEnv dynamic ranked a -> AstMemo a
+  -> Ast n a -> (AstMemo a, ranked a n)
 interpretAst env memo = \case
   AstVar sh var -> case EM.lookup var env of
     Just (AstVarR d) -> let t = tfromD d
@@ -157,9 +182,9 @@ interpretAst env memo = \case
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
-    let (memo1, t) = interpretAst env memo u
+    let (memo1, t) = interpretAst @dynamic @ranked @primal @dual env memo u
         env2 w = extendEnvR (AstVarName var) w env
-    in (memo1, tlet t (\w -> snd $ interpretAst (env2 w) memo1 v))
+    in (memo1, tlet t (\w -> snd $ interpretAst @dynamic @ranked @primal @dual (env2 w) memo1 v))
          -- TODO: snd; env/state?
   AstLetADShare{} -> error "interpretAst: AstLetADShare"
   {- TODO: revise when we handle GPUs. For now, this is done in TensorOps
@@ -185,27 +210,27 @@ interpretAst env memo = \case
         -- capture is impossible, because we don't create nested lets
         -- with the same variable, we could create such nested lets
         -- if we omitted this check.
-        interpretAst env memo
+        interpretAst @dynamic @ranked @primal @dual env memo
           (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstReplicate @m k s)]))
   AstOp TimesOp [v, AstReshape sh (AstLet var u (AstReplicate @m k s))]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
-        interpretAst env memo
+        interpretAst @dynamic @ranked @primal @dual env memo
           (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstReplicate @m k s)]))
   AstOp TimesOp [v, AstLet var u (AstReplicate @m k s)]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
-        interpretAst env memo
+        interpretAst @dynamic @ranked @primal @dual env memo
           (AstLet var u (AstOp TimesOp [v, AstReplicate @m k s]))
   AstOp opCode args ->
-    let (memo2, args2) = mapAccumR (interpretAst env) memo args
+    let (memo2, args2) = mapAccumR (interpretAst @dynamic @ranked @primal @dual env) memo args
     in (memo2, interpretAstOp opCode args2)
   AstSumOfList args ->
-    let (memo2, args2) = mapAccumR (interpretAst env) memo args
+    let (memo2, args2) = mapAccumR (interpretAst @dynamic @ranked @primal @dual env) memo args
     in (memo2, tsumOfList args2)
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"
-  AstIndexZ AstIota (i :. ZI) -> second tfromIndex0 $ interpretAstInt env memo i
+  AstIndexZ AstIota (i :. ZI) -> second tfromIndex0 $ interpretAstInt @dynamic @ranked @primal @dual env memo i
   AstIndexZ v ix ->
-    let (memo2, v2) = interpretAst env memo v
-        (memo3, ix3) = mapAccumR (interpretAstInt env) memo2 (indexToList ix)
+    let (memo2, v2) = interpretAst @dynamic @ranked @primal @dual env memo v
+        (memo3, ix3) = mapAccumR (interpretAstInt @dynamic @ranked @primal @dual env) memo2 (indexToList ix)
     in (memo3, tindex v2 $ listToIndex ix3)
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
@@ -213,39 +238,39 @@ interpretAst env memo = \case
       -- the indexing is guarded by conditionals
   AstSum (AstOp TimesOp [ AstLet vart vt (AstTranspose tperm t)
                         , AstTranspose uperm u ]) ->
-    interpretAst env memo
+    interpretAst @dynamic @ranked @primal @dual env memo
       (AstLet vart vt
          (AstSum (AstOp TimesOp [ AstTranspose tperm t
                                 , AstTranspose uperm u ])))
   AstSum (AstOp TimesOp [ AstTranspose tperm t
                         , AstLet varu vu (AstTranspose uperm u) ]) ->
-    interpretAst env memo
+    interpretAst @dynamic @ranked @primal @dual env memo
       (AstLet varu vu
          (AstSum (AstOp TimesOp [ AstTranspose tperm t
                                 , AstTranspose uperm u ])))
   AstSum (AstOp TimesOp [ AstLet vart vt (AstTranspose tperm t)
                         , AstLet varu vu (AstTranspose uperm u) ]) ->
-    interpretAst env memo
+    interpretAst @dynamic @ranked @primal @dual env memo
       (AstLet vart vt (AstLet varu vu
          (AstSum (AstOp TimesOp [ AstTranspose tperm t
                                 , AstTranspose uperm u ]))))
   AstSum (AstOp TimesOp [ AstTranspose tperm (AstLet vart vt (AstReplicate tk t))
                         , AstTranspose uperm (AstReplicate uk u) ]) ->
-    interpretAst env memo
+    interpretAst @dynamic @ranked @primal @dual env memo
       (AstLet vart vt
          (AstSum (AstOp TimesOp [ AstTranspose tperm (AstReplicate tk t)
                                 , AstTranspose uperm (AstReplicate uk u) ])))
   AstSum (AstOp TimesOp [ AstTranspose tperm (AstReplicate tk t)
                         , AstTranspose uperm (AstLet varu vu
                                                (AstReplicate uk u)) ]) ->
-    interpretAst env memo
+    interpretAst @dynamic @ranked @primal @dual env memo
       (AstLet varu vu
          (AstSum (AstOp TimesOp [ AstTranspose tperm (AstReplicate tk t)
                                 , AstTranspose uperm (AstReplicate uk u) ])))
   AstSum (AstOp TimesOp [ AstTranspose tperm (AstLet vart vt (AstReplicate tk t))
                         , AstTranspose uperm (AstLet varu vu
                                                (AstReplicate uk u)) ]) ->
-    interpretAst env memo
+    interpretAst @dynamic @ranked @primal @dual env memo
       (AstLet vart vt (AstLet varu vu
          (AstSum (AstOp TimesOp [ AstTranspose tperm (AstReplicate tk t)
                                 , AstTranspose uperm (AstReplicate uk u) ]))))
@@ -253,8 +278,8 @@ interpretAst env memo = \case
                           , AstTranspose uperm (AstReplicate _uk u) ])
     | Just Refl <- sameNat (Proxy @n) (Proxy @2) ->
         let interpretMatmul2 t1 u1 =
-              let (memo1, t2) = interpretAst env memo t1
-                  (memo2, u2) = interpretAst env memo1 u1
+              let (memo1, t2) = interpretAst @dynamic @ranked @primal @dual env memo t1
+                  (memo2, u2) = interpretAst @dynamic @ranked @primal @dual env memo1 u1
               in (memo2, tmatmul2 t2 u2)
         in case (tperm, uperm) of
           ([2, 1, 0], [1, 0]) ->  -- tk and uk are fine due to perms matching
@@ -296,87 +321,87 @@ interpretAst env memo = \case
 --          ([2, 1, 0], [1, 0]) ->
 --            second (ttranspose [1, 0])
 --            $ interpretMatmul2 (AstTranspose [1, 0] u) (AstTranspose [1, 0] t)
-          _ -> second tsum $ interpretAst env memo v
+          _ -> second tsum $ interpretAst @dynamic @ranked @primal @dual env memo v
   AstSum (AstOp TimesOp [t, u])
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        let (memo1, t1) = interpretAst env memo t
-            (memo2, t2) = interpretAst env memo1 u
+        let (memo1, t1) = interpretAst @dynamic @ranked @primal @dual env memo t
+            (memo2, t2) = interpretAst @dynamic @ranked @primal @dual env memo1 u
         in (memo2, tdot0 t1 t2)
           -- TODO: do as a term rewrite using an extended set of terms?
   AstSum (AstReshape _sh (AstOp TimesOp [t, u]))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        let (memo1, t1) = interpretAst env memo t
-            (memo2, t2) = interpretAst env memo1 u
+        let (memo1, t1) = interpretAst @dynamic @ranked @primal @dual env memo t
+            (memo2, t2) = interpretAst @dynamic @ranked @primal @dual env memo1 u
         in (memo2, tdot0 t1 t2)
   AstSum (AstTranspose [1, 0] (AstOp TimesOp [t, u]))  -- TODO: generalize
     | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
-        let (memo1, t1) = interpretAst env memo t
-            (memo2, t2) = interpretAst env memo1 u
+        let (memo1, t1) = interpretAst @dynamic @ranked @primal @dual env memo t
+            (memo2, t2) = interpretAst @dynamic @ranked @primal @dual env memo1 u
         in (memo2, tdot1In t1 t2)
   AstSum (AstTranspose [1, 0] t)  -- TODO: generalize
     | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
-        second tsumIn $ interpretAst env memo t
+        second tsumIn $ interpretAst @dynamic @ranked @primal @dual env memo t
   AstSum (AstReshape sh (AstTranspose _ t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        interpretAst env memo (AstSum (AstReshape sh t))
+        interpretAst @dynamic @ranked @primal @dual env memo (AstSum (AstReshape sh t))
   AstSum (AstReshape sh (AstReverse t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        interpretAst env memo (AstSum (AstReshape sh t))
+        interpretAst @dynamic @ranked @primal @dual env memo (AstSum (AstReshape sh t))
   AstSum (AstReshape _sh (AstSum t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        second tsum0 $ interpretAst env memo t
+        second tsum0 $ interpretAst @dynamic @ranked @primal @dual env memo t
   AstSum (AstSum t)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        second tsum0 $ interpretAst env memo t
+        second tsum0 $ interpretAst @dynamic @ranked @primal @dual env memo t
           -- more cases are needed so perhaps we need AstSum0
   AstSum (AstReplicate k v) ->
-    second (tscaleByScalar (fromIntegral k)) $ interpretAst env memo v
-  AstSum (AstLet var v t) -> interpretAst env memo (AstLet var v (AstSum t))
+    second (tscaleByScalar (fromIntegral k)) $ interpretAst @dynamic @ranked @primal @dual env memo v
+  AstSum (AstLet var v t) -> interpretAst @dynamic @ranked @primal @dual env memo (AstLet var v (AstSum t))
   AstSum (AstReshape sh (AstLet var v t)) ->
-    interpretAst env memo (AstLet var v (AstSum (AstReshape sh t)))
+    interpretAst @dynamic @ranked @primal @dual env memo (AstLet var v (AstSum (AstReshape sh t)))
   AstSum (AstReshape _sh t)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        second tsum0 $ interpretAst env memo t
-  AstSum v -> second tsum $ interpretAst env memo v
+        second tsum0 $ interpretAst @dynamic @ranked @primal @dual env memo t
+  AstSum v -> second tsum $ interpretAst @dynamic @ranked @primal @dual env memo v
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
     -- is cheaper, too
   AstScatter sh v (vars, ix) ->
-    let (memo1, t1) = interpretAst env memo v
-        f2 = interpretLambdaIndexToIndex interpretAstInt env memo (vars, ix)
+    let (memo1, t1) = interpretAst @dynamic @ranked @primal @dual env memo v
+        f2 = interpretLambdaIndexToIndex (interpretAstInt @dynamic @ranked @primal @dual) env memo (vars, ix)
     in (memo1, tscatter sh t1 f2)
   AstFromList l ->
-    let (memo2, l2) = mapAccumR (interpretAst env) memo l
+    let (memo2, l2) = mapAccumR (interpretAst @dynamic @ranked @primal @dual env) memo l
     in (memo2, tfromList l2)
   AstFromVector l ->
-    let (memo2, l2) = mapAccumR (interpretAst env) memo (V.toList l)
+    let (memo2, l2) = mapAccumR (interpretAst @dynamic @ranked @primal @dual env) memo (V.toList l)
     in (memo2, tfromVector $ V.fromList l2)
       -- TODO: emulate mapAccum using mapM?
   AstReshape sh (AstReplicate @m _ s)
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
-        let (memo1, t1) = interpretAst env memo s
+        let (memo1, t1) = interpretAst @dynamic @ranked @primal @dual env memo s
         in (memo1, treplicate0N sh t1)
   AstReshape sh (AstLet var v (AstReplicate k t)) ->
-    interpretAst env memo (AstLet var v (AstReshape sh (AstReplicate k t)))
-  AstReplicate k v -> second (treplicate k) (interpretAst env memo v)
+    interpretAst @dynamic @ranked @primal @dual env memo (AstLet var v (AstReshape sh (AstReplicate k t)))
+  AstReplicate k v -> second (treplicate k) (interpretAst @dynamic @ranked @primal @dual env memo v)
   AstAppend x y ->
-    let (memo1, t1) = interpretAst env memo x
-        (memo2, t2) = interpretAst env memo1 y
+    let (memo1, t1) = interpretAst @dynamic @ranked @primal @dual env memo x
+        (memo2, t2) = interpretAst @dynamic @ranked @primal @dual env memo1 y
     in (memo2, tappend t1 t2)
   AstSlice i k AstIota ->
-    interpretAst env memo
+    interpretAst @dynamic @ranked @primal @dual env memo
     $ AstConst $ OR.fromList [k] $ map fromIntegral [i .. i + k - 1]
-  AstSlice i k v -> second (tslice i k) (interpretAst env memo v)
-  AstReverse v -> second treverse (interpretAst env memo v)
-  AstTranspose perm v -> second (ttranspose perm) $ interpretAst env memo v
-  AstReshape sh v -> second (treshape sh) (interpretAst env memo v)
+  AstSlice i k v -> second (tslice i k) (interpretAst @dynamic @ranked @primal @dual env memo v)
+  AstReverse v -> second treverse (interpretAst @dynamic @ranked @primal @dual env memo v)
+  AstTranspose perm v -> second (ttranspose perm) $ interpretAst @dynamic @ranked @primal @dual env memo v
+  AstReshape sh v -> second (treshape sh) (interpretAst @dynamic @ranked @primal @dual env memo v)
   -- These two are only needed for tests that don't vectorize Ast.
   AstBuild1 k (var, AstSum (AstOp TimesOp [t, AstIndexZ
                                                 u (AstIntVar var2 :. ZI)]))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
     , var == var2, k == tlength u ->
-        let (memo1, t1) = interpretAst env memo t
-            (memo2, t2) = interpretAst env memo1 u
+        let (memo1, t1) = interpretAst @dynamic @ranked @primal @dual env memo t
+            (memo2, t2) = interpretAst @dynamic @ranked @primal @dual env memo1 u
         in (memo2, tmatvecmul t2 t1)
   AstBuild1 k (var, AstSum
                       (AstReshape @p
@@ -385,13 +410,13 @@ interpretAst env memo = \case
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
     , Just Refl <- sameNat (Proxy @p) (Proxy @1)
     , var == var2, k == tlength u ->
-        let (memo1, t1) = interpretAst env memo t
-            (memo2, t2) = interpretAst env memo1 u
+        let (memo1, t1) = interpretAst @dynamic @ranked @primal @dual env memo t
+            (memo2, t2) = interpretAst @dynamic @ranked @primal @dual env memo1 u
         in (memo2, tmatvecmul t2 t1)
   AstBuild1 0 (_, v) -> (memo, tfromList0N (0 :$ tshape v) [])
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
-  -- not to concrete numbers (and so Primal a is not equal to Value a).
+  -- not to concrete numbers (and so Primal a is not equal to a).
   -- However, this matters only for POPL AD, not JAX AD and also it matters
   -- only with no vectorization of, at least, constant (primal-only) terms.
   -- AstBuild1 k (var, AstConstant v) ->
@@ -399,15 +424,15 @@ interpretAst env memo = \case
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env memo (var, v)
   AstBuild1 k (var, v) ->
-    (memo, tbuild1 k (interpretLambdaI interpretAst env memo (var, v)))
+    (memo, tbuild1 k (interpretLambdaI (interpretAst @dynamic @ranked @primal @dual) env memo (var, v)))
       -- to be used only in tests
   AstGatherZ sh AstIota (vars, (i :. ZI)) ->
     ( memo
-    , tbuild sh (interpretLambdaIndex interpretAst env memo
+    , tbuild sh (interpretLambdaIndex (interpretAst @dynamic @ranked @primal @dual) env memo
                                       (vars, tfromIndex0 i)) )
   AstGatherZ sh v (vars, ix) ->
-    let (memo1, t1) = interpretAst env memo v
-        f2 = interpretLambdaIndexToIndex interpretAstInt env memo (vars, ix)
+    let (memo1, t1) = interpretAst @dynamic @ranked @primal @dual env memo v
+        f2 = interpretLambdaIndexToIndex (interpretAstInt @dynamic @ranked @primal @dual) env memo (vars, ix)
     in (memo1, tgather sh t1 f2)
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
@@ -420,38 +445,41 @@ interpretAst env memo = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
   AstConst a -> (memo, tconstBare a)
-  AstConstant a -> second tconstant $ interpretAstPrimal env memo a
+  AstConstant a -> second (tconstant @ranked @primal @dual) $ interpretAstPrimal @dynamic @ranked @primal @dual env memo a
   AstD u u' ->
-    let (memo1, t1) = interpretAstPrimal env memo u
-        (memo2, t2) = interpretAstDual env memo1 u'
+    let (memo1, t1) = interpretAstPrimal @dynamic @ranked @primal @dual env memo u
+        (memo2, t2) = interpretAstDual @dynamic @ranked @primal @dual env memo1 u'
     in (memo2, tD t1 t2)
   AstLetDomains vars l v ->
-    let (memo2, l2) = interpretAstDomains env memo l
+    let (memo2, l2) = interpretAstDomains @dynamic @ranked @primal @dual env memo l
         env2 = V.foldr (\(var, d) -> extendEnvDId var d) env (V.zip vars l2)
-    in interpretAst env2 memo2 v
+    in interpretAst @dynamic @ranked @primal @dual env2 memo2 v
 
 interpretAstDynamic
-  :: InterpretAst a
-  => AstEnv a -> AstMemo a
-  -> AstDynamic (Value a) -> (AstMemo a, DTensorOf a)
+  :: forall dynamic ranked primal dual a.
+     InterpretAst dynamic ranked primal dual a
+  => AstEnv dynamic ranked a -> AstMemo a
+  -> AstDynamic a -> (AstMemo a, dynamic a)
 interpretAstDynamic env memo = \case
-  AstDynamic w -> second dfromR $ interpretAst env memo w
+  AstDynamic w -> second dfromR $ interpretAst @dynamic @ranked @primal @dual env memo w
 
 interpretAstDomains
-  :: InterpretAst a
-  => AstEnv a -> AstMemo a
-  -> AstDomains (Value a) -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
+  :: forall dynamic ranked primal dual a.
+     InterpretAst dynamic ranked primal dual a
+  => AstEnv dynamic ranked a -> AstMemo a
+  -> AstDomains a -> (AstMemo a, Domains dynamic a)
 interpretAstDomains env memo = \case
-  AstDomains l -> mapAccumR (interpretAstDynamic env) memo l
+  AstDomains l -> mapAccumR (interpretAstDynamic @dynamic @ranked @primal @dual env) memo l
   AstDomainsLet var u v ->
-    let (memo2, t) = interpretAst env memo u
+    let (memo2, t) = interpretAst @dynamic @ranked @primal @dual env memo u
         env2 = extendEnvR (AstVarName var) t env
-    in interpretAstDomains env2 memo2 v
+    in interpretAstDomains @dynamic @ranked @primal @dual env2 memo2 v
       -- TODO: preserve let, as in AstLet case
 
-interpretAstInt :: InterpretAst a
-                => AstEnv a -> AstMemo a
-                -> AstInt (Value a) -> (AstMemo a, IntOf (Primal a))
+interpretAstInt :: forall dynamic ranked primal dual a.
+                   InterpretAst dynamic ranked primal dual a
+                => AstEnv dynamic ranked a -> AstMemo a
+                -> AstInt a -> (AstMemo a, IntOf primal a)
 interpretAstInt env memo = \case
   AstIntVar var -> case EM.lookup var env of
     Just AstVarR{} ->
@@ -459,57 +487,60 @@ interpretAstInt env memo = \case
     Just (AstVarI i) -> (memo, i)
     Nothing -> error $ "interpretAstInt: unknown variable " ++ show var
   AstIntOp opCodeInt args ->
-    let (memo2, args2) = mapAccumR (interpretAstInt env) memo args
+    let (memo2, args2) = mapAccumR (interpretAstInt @dynamic @ranked @primal @dual env) memo args
     in (memo2, interpretAstIntOp opCodeInt args2)
   AstIntConst a -> (memo, fromIntegral a)
-  AstIntFloor v -> second tfloor $ interpretAstPrimal env memo v
+  AstIntFloor v -> second tfloor $ interpretAstPrimal @dynamic @ranked @primal @dual env memo v
   AstIntCond b a1 a2 ->
-    let (memo1, b1) = interpretAstBool env memo b
-        (memo2, t2) = interpretAstInt env memo1 a1
-        (memo3, t3) = interpretAstInt env memo2 a2
+    let (memo1, b1) = interpretAstBool @dynamic @ranked @primal @dual env memo b
+        (memo2, t2) = interpretAstInt @dynamic @ranked @primal @dual env memo1 a1
+        (memo3, t3) = interpretAstInt @dynamic @ranked @primal @dual env memo2 a2
     in (memo3, ifB b1 t2 t3)
-  AstMinIndex1 v -> second tminIndex0 $ interpretAstPrimal env memo v
-  AstMaxIndex1 v -> second tmaxIndex0 $ interpretAstPrimal env memo v
+  AstMinIndex1 v -> second tminIndex0 $ interpretAstPrimal @dynamic @ranked @primal @dual env memo v
+  AstMaxIndex1 v -> second tmaxIndex0 $ interpretAstPrimal @dynamic @ranked @primal @dual env memo v
 
-interpretAstBool :: forall a. InterpretAst a
-                 => AstEnv a -> AstMemo a
-                 -> AstBool (Value a) -> (AstMemo a, BooleanOf (Primal a))
+interpretAstBool :: forall dynamic ranked primal dual a.
+                    InterpretAst dynamic ranked primal dual a
+                 => AstEnv dynamic ranked a -> AstMemo a
+                 -> AstBool a -> (AstMemo a, BooleanOf (ranked a 0))
 interpretAstBool env memo = \case
   AstBoolOp opCodeBool args ->
-    let (memo2, args2) = mapAccumR (interpretAstBool env) memo args
+    let (memo2, args2) = mapAccumR (interpretAstBool @dynamic @ranked @primal @dual env) memo args
     in (memo2, interpretAstBoolOp opCodeBool args2)
   AstBoolConst a -> (memo, if a then true else false)
   AstRel opCodeRel args ->
-    let (memo2, args2) = mapAccumR (interpretAstPrimal env) memo args
+    let (memo2, args2) = mapAccumR (interpretAstPrimal @dynamic @ranked @primal @dual env) memo args
     in (memo2, interpretAstRelOp opCodeRel args2)
   AstRelInt opCodeRel args ->
-    let (memo2, args2) = mapAccumR (interpretAstInt env) memo args
+    let (memo2, args2) = mapAccumR (interpretAstInt @dynamic @ranked @primal @dual env) memo args
     in (memo2, interpretAstRelOp opCodeRel args2)
 
 interpretAstDynamicDummy
-  :: (InterpretAst a, DomainsTensor a)
-  => AstEnv a -> AstMemo a
-  -> AstDynamic (Value a) -> (AstMemo a, DTensorOf a)
+  :: forall dynamic ranked primal dual a.
+     InterpretAst dynamic ranked primal dual a
+  => AstEnv dynamic ranked a -> AstMemo a
+  -> AstDynamic a -> (AstMemo a, dynamic a)
 interpretAstDynamicDummy env memo = \case
-  AstDynamic AstIota -> (memo, ddummy)
-  AstDynamic w -> second dfromR $ interpretAst env memo w
+  AstDynamic AstIota -> (memo, ddummy @dynamic @ranked)
+  AstDynamic w -> second dfromR $ interpretAst @dynamic @ranked @primal @dual env memo w
 
 interpretAstDomainsDummy
-  :: (InterpretAst a, DomainsTensor a)
-  => AstEnv a -> AstMemo a
-  -> AstDomains (Value a) -> (AstMemo a, Data.Vector.Vector (DTensorOf a))
+  :: forall dynamic ranked primal dual a.
+     InterpretAst dynamic ranked primal dual a
+  => AstEnv dynamic ranked a -> AstMemo a
+  -> AstDomains a -> (AstMemo a, Domains dynamic a)
 interpretAstDomainsDummy env memo = \case
-  AstDomains l -> mapAccumR (interpretAstDynamicDummy env) memo l
+  AstDomains l -> mapAccumR (interpretAstDynamicDummy @dynamic @ranked @primal @dual env) memo l
   AstDomainsLet var u v ->
-    let (memo2, t) = interpretAst env memo u
+    let (memo2, t) = interpretAst @dynamic @ranked @primal @dual env memo u
         env2 = extendEnvR (AstVarName var) t env
-    in interpretAstDomainsDummy env2 memo2 v
+    in interpretAstDomainsDummy @dynamic @ranked @primal @dual env2 memo2 v
       -- TODO: preserve let, as in AstLet case
 
 -- TODO: when the code again compiles with GHC >= 9.6, check whether
 -- these INLINEs are still needed (removal causes 10% slowdown ATM).
-interpretAstOp :: (Tensor r, KnownNat n)
-               => OpCode -> [TensorOf n r] -> TensorOf n r
+interpretAstOp :: (Tensor ranked, KnownNat n, GoodScalar r, RealFloat (ranked r n))
+               => OpCode -> [ranked r n] -> ranked r n
 {-# INLINE interpretAstOp #-}
 interpretAstOp MinusOp [u, v] = u - v
 interpretAstOp TimesOp [u, v] = u `tmult` v
@@ -582,6 +613,7 @@ interpretAstRelOp opCodeRel args =
           ++ show (opCodeRel, length args)
 
 
+{- TODO:
 
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
@@ -800,3 +832,4 @@ interpretAstRelOp opCodeRel args =
   :: OpCodeRel -> [AstInt Double] -> AstBool Double #-}
 {-# SPECIALIZE interpretAstRelOp
   :: OpCodeRel -> [AstInt Float] -> AstBool Float #-}
+-}
