@@ -26,7 +26,7 @@ scale a d = tconstant @ranked @primal @dual a `tmult` d
 -- scale a d = tD (a * tprimalPart d) (tScale @r a (tdualPart d))
 
 relu, reluLeaky
-  :: forall ranked n r. (ADReady ranked, KnownNat n, GoodScalar r, Num (ranked r n), Fractional (ranked r 0), OrdB (ranked r 0), IfB (ranked r 0))
+  :: forall ranked n r. (ADReady ranked r, KnownNat n, Num (ranked r n), Fractional (ranked r 0), OrdB (ranked r 0), IfB (ranked r 0))
   => ranked r n -> ranked r n
 relu v =
   let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.0 1.0) v
@@ -124,7 +124,7 @@ softMax1 d =
 -- If another value than 0 was needed, the conditional
 -- would be necessary even without vectorization.
 conv2dUnpadded
-  :: (ADReady ranked, GoodScalar r, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
+  :: (ADReady ranked r, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
   => ranked r 4 -> ranked r 4 -> ranked r 4
 conv2dUnpadded arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = tshape arrA
@@ -145,7 +145,7 @@ conv2dUnpadded arrK arrA =
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
 slicez
-  :: (ADReady ranked, KnownNat n, GoodScalar r, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
+  :: (ADReady ranked r, KnownNat n, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
   => ShapeInt n -> ranked r n -> IndexOf ranked r n -> ranked r n
 slicez shOut d ixBase =
   tbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
@@ -153,13 +153,13 @@ slicez shOut d ixBase =
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
 indexz0
-  :: forall ranked r n. (ADReady ranked, KnownNat n, GoodScalar r, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
+  :: forall ranked r n. (ADReady ranked r, KnownNat n, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
   => ranked r n -> IndexOf ranked r n -> ranked r 0
 indexz0 d ix = ifB (within0 @ranked @r (tshape @ranked d) ix) (d ! ix) 0
 
 -- | Given an index and shape, check if the index is fully within the shape.
 within0 :: forall ranked r n.
-           (ADReady ranked, BooleanOf (IntOf ranked r) ~ BooleanOf r, Boolean (BooleanOf r), OrdB (IntOf ranked r))
+           (ADReady ranked r, BooleanOf (IntOf ranked r) ~ BooleanOf r, Boolean (BooleanOf r), OrdB (IntOf ranked r))
         => ShapeInt n -> IndexOf ranked r n -> BooleanOf r
 within0 sh ix =
   let within :: IntOf ranked r -> IntOf ranked r -> BooleanOf r
@@ -168,7 +168,7 @@ within0 sh ix =
      $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)
 
 maxPool2dUnpadded
-  :: (ADReady ranked, GoodScalar r, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
+  :: (ADReady ranked r, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
   => Int -> Int -> ranked r 4 -> ranked r 4
 maxPool2dUnpadded ksize stride arr =
   let [batch_size, channels, h, w] = tshape arr

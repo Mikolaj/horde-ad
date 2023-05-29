@@ -8,7 +8,7 @@
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
   ( IndexOf, ShapeInt
-  , Tensor(..), PrimalDualTensor(..), ConvertTensor(..), DynamicTensor(..)
+  , Tensor(..), PrimalDualTensor(..), ConvertTensor(..)
   , DomainsTensor(..), ADReady
   , GoodScalar, DummyDual(..), ttoRankedOrDummy
   ) where
@@ -56,13 +56,13 @@ import HordeAd.Internal.TensorOps
 type IndexOf ranked r n = Index n (IntOf ranked r)
 
 type GoodScalar r =
-  (ShowAst r, RealFloat r, Floating (Vector r), RowSum r, Scalar r ~ r)
+  (ShowAst r, RealFloat r, Floating (Vector r), RowSum r, Underlying r ~ r)
 
 class Integral (IntOf ranked r) => IntegralIntOf ranked r where
 instance Integral (IntOf ranked r) => IntegralIntOf ranked r where
 
-class (forall r. c ranked r) => CRankedRR ranked c where
-instance (forall r. c ranked r) => CRankedRR ranked c where
+class (forall r10. c ranked r10) => CRankedRR ranked c where
+instance (forall r10. c ranked r10) => CRankedRR ranked c where
 
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
@@ -286,9 +286,11 @@ class (Underlying a ~ Underlying b, Underlying b ~ Underlying a)
 instance (Underlying a ~ Underlying b, Underlying b ~ Underlying a)
          => UnderlyingMatches a b where
 
-class (forall r y. (KnownNat y, GoodScalar r) => c (dynamic r) (ranked r y))
+class (forall r11 y. (KnownNat y, GoodScalar r11)
+      => c (dynamic r11) (ranked r11 y))
       => CDynamicRanked dynamic ranked c where
-instance (forall r y. (KnownNat y, GoodScalar r) => c (dynamic r) (ranked r y))
+instance (forall r11 y. (KnownNat y, GoodScalar r11)
+         => c (dynamic r11) (ranked r11 y))
          => CDynamicRanked dynamic ranked c where
 
 class CDynamicRanked dynamic ranked UnderlyingMatches
@@ -343,8 +345,8 @@ class DomainsTensor (dynamic :: Type -> Type)
 type Many (f :: Type -> Constraint) r = (f (TensorOf 0 r), f (TensorOf 1 r), f (TensorOf 2 r), f (TensorOf 3 r), f (TensorOf 4 r), f (TensorOf 5 r), f (TensorOf 6 r), f (TensorOf 7 r), f (TensorOf 8 r), f (TensorOf 9 r), f (TensorOf 10 r), f (TensorOf 11 r), f (TensorOf 12 r))
 -}
 
-type ADReady ranked =
-  ( Tensor ranked
+type ADReady ranked r =
+  ( Tensor ranked, GoodScalar r
 {-
   , PrimalDualTensor r, Tensor (Primal r)
   , Numeric r, RealFloat r, Scalar r ~ r
@@ -457,7 +459,7 @@ instance DomainsTensor OD.Array (Flip OR.Array)
 instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
          KnownNat n
          => AdaptableDomains (OR.Array n Double) where
-  type Scalar (OR.Array n Double) = Double
+  type Underlying (OR.Array n Double) = Double
   toDomains a =
     (V.empty, V.empty, V.empty, V.singleton (Data.Array.Convert.convert a))
   fromDomains _aInit (v0, v1) = case V.uncons v1 of
@@ -476,7 +478,7 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
 
 instance (KnownNat n, GoodScalar r)
          => AdaptableDomains OD.Array (Flip OR.Array r n) where
-  type Scalar (Flip OR.Array r n) = r
+  type Underlying (Flip OR.Array r n) = r
   type Value (Flip OR.Array r n) = Flip OR.Array r n
   toDomains a = V.singleton (dfromR a)
   fromDomains aInit params = case V.uncons params of
@@ -508,14 +510,14 @@ instance KnownNat n
   toRanked = id
 
 instance AdaptableDomains OD.Array (OD.Array r) where
-  type Scalar (OD.Array r) = r
+  type Underlying (OD.Array r) = r
   type Value (OD.Array r) = OD.Array r
   toDomains = undefined
   fromDomains = undefined
 
 instance Numeric r
          => AdaptableDomains OD.Array (Flip OS.Array r sh) where
-  type Scalar (Flip OS.Array r sh) = r
+  type Underlying (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
   toDomains = undefined  -- TODO: a = V.singleton (dfromS a)
   fromDomains = undefined

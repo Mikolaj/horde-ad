@@ -2,9 +2,8 @@
 -- | A general representation of the domains of objective functions
 -- that become the codomains of the gradient functions.
 module HordeAd.Core.Domains
-  ( DynamicTensor(..), Domains, DomainsOD
-  , Underlying, AdaptableDomains(..), parseDomains
-  , RandomDomains(..)
+  ( Domains, DomainsOD
+  , AdaptableDomains(..), parseDomains, RandomDomains(..)
   ) where
 
 import Prelude
@@ -17,16 +16,6 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.Random
-
--- The untyped versions of tensors, to put many ranks/shapes in one vector.
-class DynamicTensor r where
-  type DTensorOf r = result | result -> r
-
-instance DynamicTensor Double where
-  type DTensorOf Double = OD.Array Double
-
-instance DynamicTensor Float where
-  type DTensorOf Float = OD.Array Float
 
 -- * Adaptor classes
 
@@ -41,11 +30,9 @@ type Domains dynamic r = Data.Vector.Vector (dynamic r)
 
 type DomainsOD r = Domains OD.Array r
 
-type Underlying a = Scalar (Value a)
-
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class AdaptableDomains (dynamic :: Type -> Type) vals where
-  type Scalar vals
+  type Underlying vals
   type Value vals
   toDomains :: vals -> Domains dynamic (Underlying vals)
   fromDomains :: Value vals -> Domains dynamic (Underlying vals)
@@ -55,7 +42,7 @@ class RandomDomains vals where
   randomVals
     :: forall r g.
        ( RandomGen g
-       , r ~ Scalar vals, Numeric r, Fractional r, Random r, Num (Vector r) )
+       , r ~ Underlying vals, Numeric r, Fractional r, Random r, Num (Vector r) )
     => r -> g -> (vals, g)
   type ToRanked vals
   toRanked :: vals -> ToRanked vals
@@ -72,20 +59,20 @@ parseDomains aInit domains =
 -- * Basic Adaptor class instances
 
 instance AdaptableDomains OD.Array Double where
-  type Scalar Double = Double
+  type Underlying Double = Double
   type Value Double = Double
   toDomains = undefined
   fromDomains = undefined
 
 instance AdaptableDomains OD.Array Float where
-  type Scalar Float = Float
+  type Underlying Float = Float
   type Value Float = Float
   toDomains = undefined
   fromDomains = undefined
 
 instance AdaptableDomains dynamic a
          => AdaptableDomains dynamic [a] where
-  type Scalar [a] = Scalar a
+  type Underlying [a] = Underlying a
   type Value [a] = [Value a]
   toDomains = V.concat . map toDomains
   fromDomains lInit source =
@@ -103,7 +90,7 @@ instance AdaptableDomains dynamic a
 instance ( r ~ Underlying a, r ~ Underlying b
          , AdaptableDomains dynamic a
          , AdaptableDomains dynamic b ) => AdaptableDomains dynamic (a, b) where
-  type Scalar (a, b) = Scalar a
+  type Underlying (a, b) = Underlying a
   type Value (a, b) = (Value a, Value b)
   toDomains (a, b) =
     let a1 = toDomains a
@@ -114,7 +101,7 @@ instance ( r ~ Underlying a, r ~ Underlying b
     (b, bRest) <- fromDomains bInit aRest
     return ((a, b), bRest)
 
-instance ( r ~ Scalar a, r ~ Scalar b
+instance ( r ~ Underlying a, r ~ Underlying b
          , RandomDomains a
          , RandomDomains b ) => RandomDomains (a, b) where
   randomVals range g =
@@ -128,7 +115,7 @@ instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c
          , AdaptableDomains dynamic a
          , AdaptableDomains dynamic b
          , AdaptableDomains dynamic c ) => AdaptableDomains dynamic (a, b, c) where
-  type Scalar (a, b, c) = Scalar a
+  type Underlying (a, b, c) = Underlying a
   type Value (a, b, c) = (Value a, Value b, Value c)
   toDomains (a, b, c) =
     let a1 = toDomains a
@@ -141,7 +128,7 @@ instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c
     (c, cRest) <- fromDomains cInit bRest
     return ((a, b, c), cRest)
 
-instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
+instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c
          , RandomDomains a
          , RandomDomains b
          , RandomDomains c ) => RandomDomains (a, b, c) where
@@ -158,7 +145,7 @@ instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c, r ~ Underlying 
          , AdaptableDomains dynamic b
          , AdaptableDomains dynamic c
          , AdaptableDomains dynamic d ) => AdaptableDomains dynamic (a, b, c, d) where
-  type Scalar (a, b, c, d) = Scalar a
+  type Underlying (a, b, c, d) = Underlying a
   type Value (a, b, c, d) = (Value a, Value b, Value c, Value d)
   toDomains (a, b, c, d) =
     let a1 = toDomains a
@@ -173,7 +160,7 @@ instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c, r ~ Underlying 
     (d, dRest) <- fromDomains dInit cRest
     return ((a, b, c, d), dRest)
 
-instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
+instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c, r ~ Underlying d
          , RandomDomains a
          , RandomDomains b
          , RandomDomains c
@@ -190,7 +177,7 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
 instance ( r ~ Underlying a, r ~ Underlying b
          , AdaptableDomains dynamic a, AdaptableDomains dynamic b )
          => AdaptableDomains dynamic (Either a b) where
-  type Scalar (Either a b) = Scalar a
+  type Underlying (Either a b) = Underlying a
   type Value (Either a b) = Either (Value a) (Value b)
   toDomains e = case e of
     Left a -> toDomains a
@@ -205,7 +192,7 @@ instance ( r ~ Underlying a, r ~ Underlying b
 
 instance AdaptableDomains dynamic a
          => AdaptableDomains dynamic (Maybe a) where
-  type Scalar (Maybe a) = Scalar a
+  type Underlying (Maybe a) = Underlying a
   type Value (Maybe a) = Maybe (Value a)
   toDomains e = case e of
     Nothing -> V.concat []

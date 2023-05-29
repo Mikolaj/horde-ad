@@ -44,7 +44,7 @@ rev' :: forall r m n v g.
         , InterpretAstA (Flip OR.Array) (Flip OR.Array) r
         , InterpretAstA (Tannen ADVal (Flip OR.Array)) (Flip OR.Array) r
         , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n, Value r ~ r )
-     => (forall f x. ADReady f => f x n -> f x m)
+     => (forall f x. ADReady f x => f x n -> f x m)
      -> g
      -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, Ast m r, Ast m r
         , v, v, v, v, v, v, v, v, v, v, v, v, v
@@ -55,7 +55,7 @@ rev' f vals =
       dt = Nothing
       g :: Domains (Compose ADVal OD.Array) r
         -> Tannen ADVal (Flip OR.Array) r m
-      g inputs = undefined -- f $ Tannen $ parseDomains vals inputs
+      g inputs = f $ Tannen $ parseDomains vals inputs
       (advalGrad, value1) = revOnDomains dt (runTannen . g) parameters
       gradient1 = parseDomains vals advalGrad
       g9 :: Domains (Compose ADVal AstDynamic) r
@@ -70,7 +70,7 @@ rev' f vals =
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR @(Compose ADVal OD.Array) @(Tannen ADVal (Flip OR.Array)) var (Tannen $ parseDomains vals inputs) EM.empty
-        in undefined -- runTannen $ snd $ interpretAst @(Compose ADVal OD.Array) @(Tannen ADVal (Flip OR.Array)) @(Flip OR.Array) @(Product (Clown ADShare) (DeltaR (Flip OR.Array))) env emptyMemo (gx ast)
+        in runTannen $ snd $ interpretAst @(Compose ADVal OD.Array) @(Tannen ADVal (Flip OR.Array)) @(Flip OR.Array) @(Product (Clown ADShare) (DeltaR (Flip OR.Array))) env emptyMemo (gx ast)
       (astGrad, value2) =
         revOnDomains dt (h id id id) parameters
       gradient2 = parseDomains vals astGrad

@@ -246,29 +246,11 @@ class HasConversions dynamic ranked where
 -- or library definitions that use it could be made smarter.
 
 -- | This is an impure instance. See above.
-instance IsPrimalR Double where
+instance GoodScalar r => IsPrimalR r where
   dZeroR = ZeroR
   dScaleR = ScaleR
   dScaleByScalarR tsh c =
     ScaleR (Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c))
-  dAddR = AddR
-  recordSharingR d = case d of
-    ZeroR -> d
-    InputR{} -> d
-    FromD{} -> d
-    LetR{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDeltaR d
-  recordSharingPrimalR r l = (l, r)
-  letWrapPrimalR _ r = r
-  packDeltaDtR (Left tsh) = DeltaDtR (treplicate0N (tshape tsh) 1)
-  packDeltaDtR (Right t) = DeltaDtR t
-  intOfShapeR tsh c =
-    Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
-
-instance IsPrimalR Float where
-  dZeroR = ZeroR
-  dScaleR = ScaleR
-  dScaleByScalarR tsh c = ScaleR (Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c))
   dAddR = AddR
   recordSharingR d = case d of
     ZeroR -> d

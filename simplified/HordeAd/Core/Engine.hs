@@ -61,24 +61,24 @@ import HordeAd.Core.TensorClass
 -- These only work with non-scalar codomain. A fully general version
 -- is possible, but the user has to write many more type applications.
 revL
-  :: forall ranked primal r n vals astvals.
+  :: forall r n ranked primal vals astvals.
      ( ranked ~ Tannen ADVal AstRanked
      , primal ~ AstRanked
      , InterpretAstA ranked primal r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , AdaptableDomains AstDynamic vals
-     , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Scalar vals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> [vals] -> [vals]
 revL f valsAll = revDtMaybeL f valsAll Nothing
 
 revDtMaybeL
-  :: forall ranked primal r n vals astvals.
+  :: forall r n ranked primal vals astvals.
      ( ranked ~ Tannen ADVal AstRanked
      , primal ~ AstRanked
      , InterpretAstA ranked primal r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains AstDynamic vals
      , AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Scalar vals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> [vals] -> Maybe (Flip OR.Array r n) -> [vals]
 revDtMaybeL _ [] _ = []
 revDtMaybeL f valsAll@(vals : _) dt =
@@ -88,12 +88,12 @@ revDtMaybeL f valsAll@(vals : _) dt =
   in map h valsAll
 
 revDtFun
-  :: forall ranked primal r n vals astvals.
+  :: forall r n ranked primal vals astvals.
      ( ranked ~ Tannen ADVal AstRanked
      , primal ~ AstRanked
      , InterpretAstA ranked primal r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains AstDynamic vals
-     , vals ~ Value vals, vals ~ Value astvals, Scalar vals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r  )
   => (astvals -> Ast n r) -> vals
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revDtFun #-}
@@ -108,7 +108,7 @@ revDtInit
      , primal ~ AstRanked
      , InterpretAstA ranked primal r, KnownNat n
      , AdaptableDomains AstDynamic astvals
-     , vals ~ Value vals, vals ~ Value astvals, Scalar vals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r)
   => (astvals -> Ast n r) -> vals -> AstEnv dynamic ranked r
   -> Domains AstDynamic r
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
@@ -126,7 +126,7 @@ revDtInterpret
                       (DeltaR AstRanked)
      , InterpretAstA ranked primal r, KnownNat n
      , AdaptableDomains AstDynamic astvals
-     , vals ~ Value astvals, Scalar vals ~ r )
+     , vals ~ Value astvals, Underlying astvals ~ r )
   => AstEnv dynamic ranked r
   -> vals -> (astvals -> Ast n r)
   -> Domains dynamic r -> Domains AstDynamic r
@@ -141,25 +141,25 @@ revDtInterpret envInit valsInit f = \varInputs domains
   in snd $ interpretAst @dynamic @ranked @primal @dual env1 emptyMemo ast
 
 rev
-  :: forall ranked primal r n vals astvals.
+  :: forall r n ranked primal vals astvals.
      ( ranked ~ Tannen ADVal AstRanked
      , primal ~ AstRanked
      , InterpretAstA ranked primal r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , AdaptableDomains AstDynamic vals
-     , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Scalar vals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> vals -> vals
 rev f vals = head $ revL f [vals]
 
 -- This version additionally takes the sensitivity parameter.
 revDt
-  :: forall ranked primal r n vals astvals.
+  :: forall r n ranked primal vals astvals.
      ( ranked ~ Tannen ADVal AstRanked
      , primal ~ AstRanked
      , InterpretAstA ranked primal r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains AstDynamic vals
      , AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Scalar vals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> vals -> Flip OR.Array r n -> vals
 revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 
@@ -170,7 +170,7 @@ crev
      , ranked ~ Tannen ADVal (Flip OR.Array)
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
      , IsPrimalR r, KnownNat n, GoodScalar r
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals )
+     , r ~ Underlying vals, vals ~ Value vals, vals ~ Value advals, Underlying advals ~ r )
   => (advals -> ranked r n) -> vals
   -> vals
 crev f vals = crevDtMaybe f vals Nothing
@@ -182,7 +182,7 @@ crevDt
      , ranked ~ Tannen ADVal (Flip OR.Array)
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
      , IsPrimalR r, KnownNat n, GoodScalar r
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals )
+     , r ~ Underlying vals, vals ~ Value vals, vals ~ Value advals, Underlying advals ~ r )
   => (advals -> ranked r n) -> vals -> OR.Array n r
   -> vals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
@@ -193,7 +193,7 @@ crevDtMaybe
      , ranked ~ Tannen ADVal (Flip OR.Array)
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
      , IsPrimalR r, KnownNat n, GoodScalar r
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals )
+     , r ~ Underlying vals, vals ~ Value vals, vals ~ Value advals, Underlying advals ~ r )
   => (advals -> ranked r n) -> vals -> Maybe (OR.Array n r)
   -> vals
 crevDtMaybe f vals dt =
@@ -211,7 +211,7 @@ revAstOnDomains
   :: forall dynamic ranked r n.
      ( dynamic ~ OD.Array
      , ranked ~ Flip OR.Array
-     , InterpretAstA ranked ranked r, KnownNat n, Value r ~ r )
+     , InterpretAstA ranked ranked r, KnownNat n )
   => (Domains (Compose ADVal AstDynamic) r -> Tannen ADVal AstRanked r n)
   -> Domains dynamic r -> Maybe (ranked r n)
   -> (Domains dynamic r, ranked r n)
@@ -265,7 +265,7 @@ revAstOnDomainsEval
   :: forall dynamic ranked r n.
      ( dynamic ~ OD.Array
      , ranked ~ Flip OR.Array
-     , InterpretAstA ranked ranked r, KnownNat n, Value r ~ r )
+     , InterpretAstA ranked ranked r, KnownNat n )
   => ADAstArtifact6 n r -> Domains dynamic r -> Maybe (ranked r n)
   -> (Domains dynamic r, ranked r n)
 {-# INLINE revAstOnDomainsEval #-}
@@ -327,7 +327,7 @@ fwd
      ( dynamic ~ Compose ADVal OD.Array
      , ForwardDerivative OD.Array a r, GoodScalar r
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
-     , r ~ Scalar vals, vals ~ Value vals, vals ~ Value advals )
+     , r ~ Underlying vals, vals ~ Value advals, Underlying advals ~ r )
   => (advals -> ADVal a) -> vals -> vals
   -> a
 fwd f x ds =

@@ -58,20 +58,20 @@ instance (KnownNat n, ShowAstSimplify r)
   ifB b v w = indexZ (fromList [v, w]) (singletonIndex $ ifB b 0 1)
 
 instance AdaptableDomains (Compose ADVal OD.Array) (ADVal Double) where
-  type Scalar (ADVal Double) = ADVal Double
+  type Underlying (ADVal Double) = Double
   type Value (ADVal Double) = Double
   toDomains = undefined
   fromDomains = undefined
 
 instance AdaptableDomains (Compose ADVal OD.Array) (ADVal Float) where
-  type Scalar (ADVal Float) = ADVal Float
+  type Underlying (ADVal Float) = Float
   type Value (ADVal Float) = Float
   toDomains = undefined
   fromDomains = undefined
 
 instance ShowAstSimplify r
          => AdaptableDomains (Compose ADVal AstDynamic) (ADVal (Ast0 r)) where
-  type Scalar (ADVal (Ast0 r)) = ADVal (Ast0 r)
+  type Underlying (ADVal (Ast0 r)) = r
   type Value (ADVal (Ast0 r)) = r
   toDomains = undefined
   fromDomains = undefined
@@ -79,27 +79,47 @@ instance ShowAstSimplify r
 instance (KnownNat n, GoodScalar r)
          => AdaptableDomains (Compose ADVal OD.Array)
                              (ADVal (Flip OR.Array r n)) where
-  type Scalar (ADVal (Flip OR.Array r n)) = ADVal r
+  type Underlying (ADVal (Flip OR.Array r n)) = r
   type Value (ADVal (Flip OR.Array r n)) = Flip OR.Array r n
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (a, rest) -> Just (fromD $ getCompose a, rest)
     Nothing -> Nothing
 
-instance (KnownNat n, GoodScalar r)
-         => AdaptableDomains (Compose ADVal OD.Array)
-                             (Compose ADVal (Flip OR.Array r) n) where
-  type Scalar (Compose ADVal (Flip OR.Array r) n) = ADVal r
-  type Value (Compose ADVal (Flip OR.Array r) n) = Flip OR.Array r n
+instance GoodScalar r
+         => AdaptableDomains (Compose ADVal dynamic)
+                             (Compose ADVal dynamic r) where
+  type Underlying (Compose ADVal dynamic r) = r
+  type Value (Compose ADVal dynamic r) = dynamic r
+  toDomains = undefined
+  fromDomains _aInit = V.uncons
+
+instance ( KnownNat n, GoodScalar r
+         , ConvertTensor dynamic ranked, HasConversions dynamic ranked )
+         => AdaptableDomains (Compose ADVal dynamic)
+                             (Compose ADVal (ranked r) n) where
+  type Underlying (Compose ADVal (ranked r) n) = r
+  type Value (Compose ADVal (ranked r) n) = ranked r n
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (a, rest) -> Just (Compose $ fromD $ getCompose a, rest)
     Nothing -> Nothing
 
+instance ( KnownNat n, GoodScalar r
+         , ConvertTensor dynamic ranked, HasConversions dynamic ranked )
+         => AdaptableDomains (Compose ADVal dynamic)
+                             (Tannen ADVal ranked r n) where
+  type Underlying (Tannen ADVal ranked r n) = r
+  type Value (Tannen ADVal ranked r n) = ranked r n
+  toDomains = undefined
+  fromDomains _aInit inputs = case V.uncons inputs of
+    Just (a, rest) -> Just (Tannen $ fromD $ getCompose a, rest)
+    Nothing -> Nothing
+
 instance (KnownNat n, ShowAstSimplify r)
          => AdaptableDomains (Compose ADVal AstDynamic)
                              (ADVal (Ast n r)) where
-  type Scalar (ADVal (Ast n r)) = ADVal (Ast0 r)
+  type Underlying (ADVal (Ast n r)) = r
   type Value (ADVal (Ast n r)) = Flip OR.Array r n
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
@@ -111,17 +131,17 @@ class (Dual (ranked r y) ~ DeltaR ranked r y)
 instance (Dual (ranked r y) ~ DeltaR ranked r y)
          => DualIsDeltaR ranked r y where
 
-class (forall r y. (KnownNat y, GoodScalar r) => c ranked r y) => CYRanked ranked c where
-instance (forall r y. (KnownNat y, GoodScalar r) => c ranked r y) => CYRanked ranked c where
+class (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked r12 y) => CYRanked ranked c where
+instance (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked r12 y) => CYRanked ranked c where
 
 class (Underlying a ~ Underlying b)
       => UnderlyingMatches2 a b where
 instance (Underlying a ~ Underlying b)
          => UnderlyingMatches2 a b where
 
-class (forall r x y. (KnownNat y, GoodScalar r) => c (ranked r x) (ranked r y))
+class (forall r13 x y. (KnownNat y, GoodScalar r13) => c (ranked r13 x) (ranked r13 y))
       => CRanked2 ranked c where
-instance (forall r x y. (KnownNat y, GoodScalar r) => c (ranked r x) (ranked r y))
+instance (forall r13 x y. (KnownNat y, GoodScalar r13) => c (ranked r13 x) (ranked r13 y))
          => CRanked2 ranked c where
 
 class (Underlying a ~ b)
@@ -129,14 +149,14 @@ class (Underlying a ~ b)
 instance (Underlying a ~ b)
          => UnderlyingMatches a b where
 
-class (forall r y. (KnownNat y, GoodScalar r) => c (ranked r y) r)
+class (forall r14 y. (KnownNat y, GoodScalar r14) => c (ranked r14 y) r14)
       => CRankedR ranked c where
-instance (forall r y. (KnownNat y, GoodScalar r) => c (ranked r y) r)
+instance (forall r14 y. (KnownNat y, GoodScalar r14) => c (ranked r14 y) r14)
          => CRankedR ranked c where
 
-class (forall r y. (KnownNat y, GoodScalar r) => c (ranked r y))
+class (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
       => CRanked ranked c where
-instance (forall r y. (KnownNat y, GoodScalar r) => c (ranked r y))
+instance (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
          => CRanked ranked c where
 
 -- Note that these instances don't do vectorization. To enable it,
@@ -232,8 +252,7 @@ instance PrimalDualTensor (Tannen ADVal AstRanked)
   tD ast (Pair (Clown l) delta) = Tannen $ dD l ast delta
   tScale ast (Pair l delta) = Pair l (dScale ast delta)
 
-instance ( HasConversions dynamic ranked, ConvertTensor dynamic ranked
-         , ConvertTensor (Compose ADVal dynamic) (Tannen ADVal ranked) )
+instance (HasConversions dynamic ranked, ConvertTensor dynamic ranked)
          => ConvertTensor (Compose ADVal dynamic)
                           (Tannen ADVal ranked) where
   tfromD = Tannen . fromD . getCompose

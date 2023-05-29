@@ -98,19 +98,16 @@ instance ConvertTensor AstDynamic AstRanked where
   dshape (AstDynamic v) = shapeToList $ shapeAst v
   tregister = astRegisterFun
 
-instance DynamicTensor (Ast0 r) where
-  type DTensorOf (Ast0 r) = AstDynamic r
-
 instance ShowAstSimplify r
          => AdaptableDomains AstDynamic (Ast0 r) where
-  type Scalar (Ast0 r) = Ast0 r
+  type Underlying (Ast0 r) = r
   type Value (Ast0 r) = r
   toDomains = undefined
   fromDomains = undefined
 
 instance (ShowAstSimplify r, KnownNat n)
          => AdaptableDomains AstDynamic (Ast n r) where
-  type Scalar (Ast n r) = Ast0 r
+  type Underlying (Ast n r) = r
   type Value (Ast n r) = Flip OR.Array r n
   toDomains = undefined
   fromDomains aInit params = case V.uncons params of
@@ -119,25 +116,25 @@ instance (ShowAstSimplify r, KnownNat n)
     Nothing -> Nothing
 
 instance AdaptableDomains AstDynamic (AstDynamic r) where
-  type Scalar (AstDynamic r) = Ast0 r
+  type Underlying (AstDynamic r) = r
   type Value (AstDynamic r) = OD.Array r
   toDomains = undefined
   fromDomains = undefined
 
 instance AdaptableDomains AstDynamic (AstPrimalPart r n) where
-  type Scalar (AstPrimalPart r n) = AstPrimalPart r 0
+  type Underlying (AstPrimalPart r n) = r
   type Value (AstPrimalPart r n) = r
   toDomains = undefined
   fromDomains = undefined
 
 instance AdaptableDomains AstDynamic (AstNoVectorize r n) where
-  type Scalar (AstNoVectorize r n) = AstNoVectorize r 0
+  type Underlying (AstNoVectorize r n) = r
   type Value (AstNoVectorize r n) = r
   toDomains = undefined
   fromDomains = undefined
 
 instance AdaptableDomains AstDynamic (AstNoSimplify r n) where
-  type Scalar (AstNoSimplify r n) = AstNoSimplify r 0
+  type Underlying (AstNoSimplify r n) = r
   type Value (AstNoSimplify r n) = r
   toDomains = undefined
   fromDomains = undefined
