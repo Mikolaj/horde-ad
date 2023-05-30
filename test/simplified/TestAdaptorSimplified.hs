@@ -244,8 +244,7 @@ testFooLetPP = do
 
 reluPrimal
   :: forall ranked n r.
-     ( ADReady ranked r, ADReady (PrimalOf ranked) r
-     , KnownNat n )
+     (ADReady ranked r, KnownNat n)
   => ranked r n -> ranked r n
 reluPrimal v =
   let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.0 1.0)

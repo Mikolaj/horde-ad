@@ -85,8 +85,10 @@ type family DualOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
 -- but also a mathematical tensor, sporting numeric operations.
 class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
       => Tensor (ranked :: Type -> Nat -> Type) where
+
   -- TODO: type Scalar r = ranked r 0
   -- is a macro/TH the only way?
+
   tlet :: (KnownNat n, KnownNat m, GoodScalar r)
        => ranked r n -> (ranked r n -> ranked r m)
        -> ranked r m
@@ -359,10 +361,12 @@ type Many ranked (f :: Type -> Constraint) r = (f (ranked r 0), f (ranked r 1), 
 
 type ADReady ranked r =
   ( Tensor ranked, GoodScalar r, Tensor (PrimalOf ranked)
---  , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked
-  , IfB (IntOf (ranked r 0)), Many ranked IfB r  --, Many ranked IfB (Primal r)
-  , EqB r, EqB (IntOf (ranked r 0)), Many ranked EqB r  --, Many ranked EqB (Primal r)
-  , OrdB r, OrdB (IntOf (ranked r 0)), Many ranked OrdB r  --, Many ranked OrdB (Primal r)
+  , IfB (IntOf (ranked r 0)), Many ranked IfB r
+  , Many (PrimalOf ranked) IfB r
+  , EqB r, EqB (IntOf (ranked r 0)), Many ranked EqB r
+  , Many (PrimalOf ranked) EqB r
+  , OrdB r, OrdB (IntOf (ranked r 0)), Many ranked OrdB r
+  , Many (PrimalOf ranked) OrdB r
   , Boolean (BooleanOf (IntOf (ranked r 0)))
   , ( BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 1)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 2)
@@ -389,7 +393,8 @@ type ADReady ranked r =
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 10)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 11)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 12) )
-  , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 0)  -- placing this last gives better errors
+  , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 0)
+      -- placing this last gives better errors
   )
 
 

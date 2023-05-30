@@ -41,14 +41,14 @@ type ADRnnMnistParameters ranked r =
     , ranked r 1 ) )
 
 zeroStateR
-  :: (ADReady ranked r, KnownNat n)
+  :: (Tensor ranked, GoodScalar r, KnownNat n)
   => ShapeInt n -> (ranked r n  -- state
                     -> a)
   -> a
 zeroStateR sh f = f (tzero sh)
 
 unrollLastR :: forall ranked state c w r n.
-               (ADReady ranked r, KnownNat n, KnownNat (1 + n))
+               (Tensor ranked, GoodScalar r, KnownNat n, KnownNat (1 + n))
             => (state -> ranked r n -> w -> (c, state))
             -> (state -> ranked r (1 + n) -> w -> (c, state))
 unrollLastR f s0 xs w =
@@ -61,7 +61,7 @@ unrollLastR f s0 xs w =
   in foldl' g (undefined, s0) projections
 
 rnnMnistLayerR
-  :: forall ranked r. ADReady ranked r
+  :: ADReady ranked r
   => ranked r 2  -- in state, [out_width, batch_size]
   -> ranked r 2  -- in, [in_width, batch_size]
   -> LayerWeigthsRNN ranked r  -- in_width out_width
@@ -94,7 +94,7 @@ rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case tshape s' of
   _ -> error "rnnMnistTwoR: wrong shape of the state"
 
 rnnMnistZeroR
-  :: (ADReady ranked r, ADReady (PrimalOf ranked) r)
+  :: ADReady ranked r
   => Int
   -> PrimalOf ranked r 3  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
   -> ADRnnMnistParameters ranked r  -- sizeMnistHeight out_width
@@ -109,7 +109,7 @@ rnnMnistZeroR batch_size xs
   _ -> error "rnnMnistZeroR: wrong shape"
 
 rnnMnistLossFusedR
-  :: (ADReady ranked r, ADReady (PrimalOf ranked) r)
+  :: ADReady ranked r
   => Int
   -> (PrimalOf ranked r 3, PrimalOf ranked r 2)  -- batch_size
   -> ADRnnMnistParameters ranked r  -- SizeMnistHeight out_width
