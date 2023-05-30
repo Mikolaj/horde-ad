@@ -95,7 +95,7 @@ instance GoodScalar r
   fromDomains _aInit = V.uncons
 
 instance ( KnownNat n, GoodScalar r
-         , ConvertTensor dynamic ranked, HasConversions dynamic ranked )
+         , ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked )
          => AdaptableDomains (Compose ADVal dynamic)
                              (Compose ADVal (ranked r) n) where
   type Underlying (Compose ADVal (ranked r) n) = r
@@ -106,7 +106,7 @@ instance ( KnownNat n, GoodScalar r
     Nothing -> Nothing
 
 instance ( KnownNat n, GoodScalar r
-         , ConvertTensor dynamic ranked, HasConversions dynamic ranked )
+         , ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked )
          => AdaptableDomains (Compose ADVal dynamic)
                              (Tannen ADVal ranked r n) where
   type Underlying (Tannen ADVal ranked r n) = r
@@ -241,15 +241,16 @@ instance ( CRanked2 ranked UnderlyingMatches2
   tD ast (Pair (Clown l) delta) = Tannen $ dD l ast delta
   tScale ast (Pair l delta) = Pair l (dScale ast delta)
 
-instance (HasConversions dynamic ranked, ConvertTensor dynamic ranked)
+instance (HasConversions dynamic ranked, ConvertTensor dynamic ranked shaped)
          => ConvertTensor (Compose ADVal dynamic)
-                          (Tannen ADVal ranked) where
+                          (Tannen ADVal ranked)
+                          (Tannen ADVal shaped) where
   tfromD = Tannen . fromD . getCompose
---  tfromS = undefined
+  tfromS = undefined
   dfromR = Compose . fromR . runTannen
---  dfromS = undefined
---  sfromR = undefined
---  sfromD = undefined
+  dfromS = undefined
+  sfromR = undefined
+  sfromD = undefined
   ddummy = undefined
   disDummy = undefined
   daddR = undefined
@@ -408,13 +409,13 @@ gatherNClosure
 gatherNClosure sh (D l u u') f =
   dD l (tgather sh u f) (dGatherZ sh u' f (tshape u))
 
-fromD :: forall dynamic ranked n r.
-         ( ConvertTensor dynamic ranked, HasConversions dynamic ranked
+fromD :: forall dynamic ranked shaped n r.
+         ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
          , KnownNat n, GoodScalar r )
        => ADVal (dynamic r) -> ADVal (ranked r n)
 fromD (D l u u') = dDnotShared l (tfromD u) (dFromD u')
 
-fromR :: ( ConvertTensor dynamic ranked, HasConversions dynamic ranked
+fromR :: ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
          , KnownNat n, GoodScalar r )
        => ADVal (ranked r n) -> ADVal (dynamic r)
 fromR (D l u u') = dDnotShared l (dfromR u) (dFromR u')

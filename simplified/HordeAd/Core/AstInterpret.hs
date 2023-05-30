@@ -40,15 +40,15 @@ data AstEnvElem dynamic ranked a =
 deriving instance (Show (dynamic a), Show (IntOf (ranked a 0)))
                   => Show (AstEnvElem dynamic ranked a)
 
-extendEnvR :: forall dynamic ranked a n.
-              (ConvertTensor dynamic ranked, KnownNat n, GoodScalar a)
+extendEnvR :: forall dynamic ranked shaped a n.
+              (ConvertTensor dynamic ranked shaped, KnownNat n, GoodScalar a)
            => AstVarName (OR.Array n a) -> ranked a n
            -> AstEnv dynamic ranked a -> AstEnv dynamic ranked a
 extendEnvR v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstVarR $ dfromR d)
 
-extendEnvD :: (ConvertTensor dynamic ranked, GoodScalar a)
+extendEnvD :: (ConvertTensor dynamic ranked shaped, GoodScalar a)
            => (AstDynamicVarName a, dynamic a)
            -> AstEnv dynamic ranked a
            -> AstEnv dynamic ranked a
@@ -116,9 +116,9 @@ class (forall y. KnownNat y => c (ranked r y))
 instance (forall y. KnownNat y => c (ranked r y))
          => CRanked ranked r c where
 
-type InterpretAstF dynamic ranked =
+type InterpretAstF dynamic ranked shaped =
   ( Tensor ranked
-  , ConvertTensor dynamic ranked, Tensor (PrimalOf ranked) )
+  , ConvertTensor dynamic ranked shaped, Tensor (PrimalOf ranked) )
 
 type InterpretAstA ranked a =
   ( GoodScalar a, Integral (IntOf (PrimalOf ranked a 0))
@@ -134,8 +134,8 @@ type InterpretAstA ranked a =
   , CRanked ranked a (BooleanOfMatches (BooleanOf (PrimalOf ranked a 0)))
   )
 
-type InterpretAst dynamic ranked a =
-  (InterpretAstF dynamic ranked, InterpretAstA ranked a)
+type InterpretAst dynamic ranked shaped a =
+  (InterpretAstF dynamic ranked shaped, InterpretAstA ranked a)
 
 type AstMemo a = ()  -- unused for now, but likely to be used in the future,
                      -- though probably not for memoization
@@ -151,8 +151,8 @@ emptyMemo = ()
 -- It helps that usually the dual part is either trivially computed
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
-  :: forall dynamic ranked n a.
-     (KnownNat n, InterpretAst dynamic ranked a)
+  :: forall dynamic ranked shaped n a.
+     (KnownNat n, InterpretAst dynamic ranked shaped a)
   => AstEnv dynamic ranked a -> AstMemo a
   -> AstPrimalPart a n -> (AstMemo a, PrimalOf ranked a n)
 interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
@@ -160,8 +160,8 @@ interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
   _ -> second (tprimalPart) $ interpretAst env memo v1
 
 interpretAstDual
-  :: forall dynamic ranked n a.
-     (KnownNat n, InterpretAst dynamic ranked a)
+  :: forall dynamic ranked shaped n a.
+     (KnownNat n, InterpretAst dynamic ranked shaped a)
   => AstEnv dynamic ranked a -> AstMemo a
   -> AstDualPart a n -> (AstMemo a, DualOf ranked a n)
 interpretAstDual env memo (AstDualPart v1) = case v1 of
@@ -169,8 +169,8 @@ interpretAstDual env memo (AstDualPart v1) = case v1 of
   _ -> second (tdualPart) $ interpretAst env memo v1
 
 interpretAst
-  :: forall dynamic ranked n a.
-     (KnownNat n, InterpretAst dynamic ranked a)
+  :: forall dynamic ranked shaped n a.
+     (KnownNat n, InterpretAst dynamic ranked shaped a)
   => AstEnv dynamic ranked a -> AstMemo a
   -> Ast n a -> (AstMemo a, ranked a n)
 interpretAst env memo = \case
@@ -456,16 +456,16 @@ interpretAst env memo = \case
     in interpretAst env2 memo2 v
 
 interpretAstDynamic
-  :: forall dynamic ranked a.
-     InterpretAst dynamic ranked a
+  :: forall dynamic ranked shaped a.
+     InterpretAst dynamic ranked shaped a
   => AstEnv dynamic ranked a -> AstMemo a
   -> AstDynamic a -> (AstMemo a, dynamic a)
 interpretAstDynamic env memo = \case
   AstDynamic w -> second dfromR $ interpretAst env memo w
 
 interpretAstDomains
-  :: forall dynamic ranked a.
-     InterpretAst dynamic ranked a
+  :: forall dynamic ranked shaped a.
+     InterpretAst dynamic ranked shaped a
   => AstEnv dynamic ranked a -> AstMemo a
   -> AstDomains a -> (AstMemo a, Domains dynamic a)
 interpretAstDomains env memo = \case
@@ -476,8 +476,8 @@ interpretAstDomains env memo = \case
     in interpretAstDomains env2 memo2 v
       -- TODO: preserve let, as in AstLet case
 
-interpretAstInt :: forall dynamic ranked a.
-                   InterpretAst dynamic ranked a
+interpretAstInt :: forall dynamic ranked shaped a.
+                   InterpretAst dynamic ranked shaped a
                 => AstEnv dynamic ranked a -> AstMemo a
                 -> AstInt a -> (AstMemo a, IntOf (PrimalOf ranked a 0))
 interpretAstInt env memo = \case
@@ -499,8 +499,8 @@ interpretAstInt env memo = \case
   AstMinIndex1 v -> second tminIndex0 $ interpretAstPrimal env memo v
   AstMaxIndex1 v -> second tmaxIndex0 $ interpretAstPrimal env memo v
 
-interpretAstBool :: forall dynamic ranked a.
-                    InterpretAst dynamic ranked a
+interpretAstBool :: forall dynamic ranked shaped a.
+                    InterpretAst dynamic ranked shaped a
                  => AstEnv dynamic ranked a -> AstMemo a
                  -> AstBool a -> (AstMemo a, BooleanOf (ranked a 0))
 interpretAstBool env memo = \case
@@ -516,8 +516,8 @@ interpretAstBool env memo = \case
     in (memo2, interpretAstRelOp opCodeRel args2)
 
 interpretAstDynamicDummy
-  :: forall dynamic ranked a.
-     InterpretAst dynamic ranked a
+  :: forall dynamic ranked shaped a.
+     InterpretAst dynamic ranked shaped a
   => AstEnv dynamic ranked a -> AstMemo a
   -> AstDynamic a -> (AstMemo a, dynamic a)
 interpretAstDynamicDummy env memo = \case
@@ -525,8 +525,8 @@ interpretAstDynamicDummy env memo = \case
   AstDynamic w -> second dfromR $ interpretAst env memo w
 
 interpretAstDomainsDummy
-  :: forall dynamic ranked a.
-     InterpretAst dynamic ranked a
+  :: forall dynamic ranked shaped a.
+     InterpretAst dynamic ranked shaped a
   => AstEnv dynamic ranked a -> AstMemo a
   -> AstDomains a -> (AstMemo a, Domains dynamic a)
 interpretAstDomainsDummy env memo = \case

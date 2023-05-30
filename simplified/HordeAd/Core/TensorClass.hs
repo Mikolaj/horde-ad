@@ -78,9 +78,6 @@ type family PrimalOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
 
 type family DualOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
 
--- TODO: when we have several times more operations, split into
--- Array (Container) and Tensor (Numeric), with the latter containing the few
--- Ord and Num operations and numeric superclasses.
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
 class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
@@ -309,20 +306,22 @@ instance (forall r11 y. (KnownNat y, GoodScalar r11)
 class CDynamicRanked dynamic ranked UnderlyingMatches
       => ConvertTensor (dynamic :: Type -> Type)
                        (ranked :: Type -> Nat -> Type)
-                    {- (shaped :: Type -> [Nat] -> Type) -}
-                       | ranked -> dynamic, dynamic -> ranked where
+                       (shaped :: Type -> [Nat] -> Type)
+                       | dynamic -> ranked, dynamic -> shaped
+                       , ranked -> dynamic, ranked -> shaped
+                       , shaped -> dynamic, shaped -> ranked where
   tfromD :: (GoodScalar r, KnownNat n)
          => dynamic r -> ranked r n
---  tfromS :: (KnownNat n, GoodScalar r, OS.Shape sh, OS.Rank sh ~ n)
---         => shaped r sh -> ranked r n
+  tfromS :: (KnownNat n, GoodScalar r, OS.Shape sh, OS.Rank sh ~ n)
+         => shaped r sh -> ranked r n
   dfromR :: (GoodScalar r, KnownNat n)
          => ranked r n -> dynamic r
---  dfromS :: OS.Shape sh
---         => shaped r sh -> dynamic r
---  sfromR :: (KnownNat n, GoodScalar r, OS.Shape sh, OS.Rank sh ~ n)
---         => ranked r n -> shaped r sh
---  sfromD :: OS.Shape sh
---         => dynamic r -> shaped r sh
+  dfromS :: OS.Shape sh
+         => shaped r sh -> dynamic r
+  sfromR :: (KnownNat n, GoodScalar r, OS.Shape sh, OS.Rank sh ~ n)
+         => ranked r n -> shaped r sh
+  sfromD :: OS.Shape sh
+         => dynamic r -> shaped r sh
   ddummy :: Numeric r => dynamic r
   disDummy :: Numeric r => dynamic r -> Bool
   daddR :: forall n r. (GoodScalar r, KnownNat n)
@@ -452,13 +451,13 @@ instance Tensor (Flip OR.Array) where
 
 data DummyDual a (b :: Nat) = DummyDual
 
-instance ConvertTensor OD.Array (Flip OR.Array) where
+instance ConvertTensor OD.Array (Flip OR.Array) (Flip OS.Array) where
   tfromD = Flip . Data.Array.Convert.convert
---  tfromS = Flip . Data.Array.Convert.convert . runFlip
+  tfromS = Flip . Data.Array.Convert.convert . runFlip
   dfromR = Data.Array.Convert.convert . runFlip
---  dfromS = Data.Array.Convert.convert . runFlip
---  sfromR = Flip . Data.Array.Convert.convert . runFlip
---  sfromD = Flip . Data.Array.Convert.convert
+  dfromS = Data.Array.Convert.convert . runFlip
+  sfromR = Flip . Data.Array.Convert.convert . runFlip
+  sfromD = Flip . Data.Array.Convert.convert
   ddummy = dummyTensor
   disDummy = isTensorDummy
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
@@ -503,9 +502,9 @@ instance (GoodScalar r, KnownNat n)
     Nothing -> Nothing
 
 ttoRankedOrDummy
-  :: forall dynamic ranked n r.
+  :: forall dynamic ranked shaped n r.
      ( KnownNat n, Tensor ranked, GoodScalar r, Num (ranked r 0)
-     , ConvertTensor dynamic ranked )
+     , ConvertTensor dynamic ranked shaped )
   => ShapeInt n -> dynamic r -> ranked r n
 ttoRankedOrDummy sh x = if disDummy @dynamic @ranked x
                         then tzero sh
@@ -535,7 +534,7 @@ instance (Numeric r, OS.Shape sh)
   type Underlying (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
 --  toDomains :: forall sh.
-  toDomains a = V.singleton (Data.Array.Convert.convert $ runFlip a)  -- TODO: (dfromS a)
+  toDomains a = V.singleton (dfromS a)
   fromDomains = undefined
 
 instance OS.Shape sh

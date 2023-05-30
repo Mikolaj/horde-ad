@@ -120,9 +120,9 @@ revDtInterpret
 revDtInterpret envInit valsInit f = \varInputs domains
                                      ((_, vars1), (_, _)) ->
   let ast = f $ parseDomains valsInit domains
-      env1 = foldr (extendEnvD @dynamic @ranked @r) envInit
+      env1 = foldr extendEnvD envInit
              $ zip vars1 $ V.toList varInputs
-  in snd $ interpretAst @dynamic @ranked env1 emptyMemo ast
+  in snd $ interpretAst env1 emptyMemo ast
 
 rev
   :: forall r n vals astvals ranked.
@@ -209,7 +209,7 @@ revAstOnDomainsF
   -> ADAstArtifact6 n r
 {-# INLINE revAstOnDomainsF #-}
 revAstOnDomainsF f parameters  =
-  let shapes1 = map (dshape @OD.Array @(Flip OR.Array)) $ V.toList parameters
+  let shapes1 = map dshape $ V.toList parameters
   in fst $ revAstOnDomainsFun shapes1 (\varInputs _ _ -> f varInputs)
 
 revAstOnDomainsFun
@@ -226,18 +226,16 @@ revAstOnDomainsFun shapes1 f =
       -- for pretty-printing and prevent sharing the impure values/effects.
       !v6@(!vars@(!_, _), (astDt, asts1)) = funToAstAll shapes1 in
   let domains = V.fromList asts1
-      deltaInputs = generateDeltaInputs @AstDynamic @AstRanked domains
+      deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D l primalBody deltaTopLevel) = runTannen $ f varInputs domains v6
       deltaDt = packDeltaDtA (Right $ astDt (tshape primalBody))
                              deltaTopLevel in
-  let !(!astBindings, !gradient) =
-        gradientFromDelta @AstDynamic @AstRanked (length shapes1) deltaDt
+  let !(!astBindings, !gradient) = gradientFromDelta (length shapes1) deltaDt
   in ( ( vars
-       , unletAstDomains6 astBindings l
-                          (dmkDomains @AstDynamic @AstRanked gradient)
+       , unletAstDomains6 astBindings l (dmkDomains gradient)
        , unletAst6 l primalBody )
      , deltaTopLevel )
 
@@ -256,9 +254,8 @@ revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
         Nothing -> treplicate0N (tshape primal) 1
       envDt = extendEnvR varDt dtValue env1
       (memo1, gradientDomain) =
-        interpretAstDomainsDummy @dynamic @ranked envDt emptyMemo gradient
-      primalTensor =
-        snd $ interpretAst @dynamic @ranked env1 memo1 primal
+        interpretAstDomainsDummy envDt emptyMemo gradient
+      primalTensor = snd $ interpretAst env1 memo1 primal
   in (gradientDomain, primalTensor)
 
 -- The old versions that use the fixed input and dt to compute gradient
@@ -278,7 +275,7 @@ revOnADInputs dt f inputs =
       -- before evaluation allocates new memory and new FFI is started.
       !(D _ v deltaTopLevel) = f inputs
       deltaDt = packDeltaDtR (maybe (Left v) Right dt) deltaTopLevel in
-  let (_, gradient) = gradientFromDelta @OD.Array dim1 deltaDt
+  let (_, gradient) = gradientFromDelta dim1 deltaDt
   in (gradient, v)
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
@@ -290,7 +287,7 @@ revOnDomains
   -> Domains OD.Array r
   -> (Domains OD.Array r, Flip OR.Array r n)
 revOnDomains dt f parameters =
-  let deltaInputs = generateDeltaInputs @OD.Array @(Flip OR.Array) parameters
+  let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in revOnADInputs dt f inputs
 
@@ -337,7 +334,7 @@ slowFwdOnDomains
   -> Domains OD.Array r
   -> (a, a)
 slowFwdOnDomains parameters f ds =
-  let deltaInputs = generateDeltaInputs @OD.Array @(Flip OR.Array) parameters
+  let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in slowFwdOnADInputs inputs f ds
 
@@ -345,17 +342,17 @@ slowFwdOnDomains parameters f ds =
 -- * Additional mechanisms
 
 generateDeltaInputs
-  :: forall dynamic ranked r.
-     ( ConvertTensor dynamic ranked, GoodScalar r
+  :: forall dynamic ranked shaped r.
+     ( ConvertTensor dynamic ranked shaped, GoodScalar r
      , HasRanks ranked, HasConversions dynamic ranked )
   => Domains dynamic r
   -> Data.Vector.Vector (Dual (dynamic r))
 generateDeltaInputs params =
   let arrayToInput :: Int -> dynamic r -> Dual (dynamic r)
       arrayToInput i t = case someNatVal $ toInteger $ length
-                              $ dshape @dynamic @ranked t of
+                              $ dshape t of
         Just (SomeNat (_ :: Proxy n)) ->
-          dFromR @dynamic @ranked $ dInputR @ranked @r @n $ toInputId i
+          dFromR $ dInputR @ranked @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
   in V.imap arrayToInput params
 {- TODO: this can't be specified without a proxy

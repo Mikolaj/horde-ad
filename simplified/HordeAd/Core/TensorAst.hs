@@ -16,7 +16,7 @@ import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
@@ -75,13 +75,13 @@ instance Tensor AstRanked where
   tD = AstD
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-instance ConvertTensor AstDynamic AstRanked where
+instance ConvertTensor AstDynamic AstRanked AstShapedTODO where
   tfromD = astFromDynamic
---  tfromS = undefined
+  tfromS = undefined
   dfromR r = AstDynamic r
---  dfromS = undefined
---  sfromR = undefined
---  sfromD = undefined
+  dfromS = undefined
+  sfromR = undefined
+  sfromD = undefined
   ddummy = AstDynamic AstIota
   disDummy t = case t of
     AstDynamic AstIota -> True
@@ -99,6 +99,8 @@ instance ConvertTensor AstDynamic AstRanked where
       _ -> error "daddR: type mismatch"
   dshape (AstDynamic v) = shapeToList $ shapeAst v
   tregister = astRegisterFun
+
+data AstShapedTODO r (sh :: [Nat])
 
 instance ShowAstSimplify r
          => AdaptableDomains AstDynamic (Ast0 r) where
