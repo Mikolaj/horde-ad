@@ -17,7 +17,8 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
 scale :: forall ranked primal dual r n.
-         (Allowed ranked r, Tensor ranked, PrimalDualTensor ranked primal dual, KnownNat n, GoodScalar r)
+         ( Allowed ranked r, Tensor ranked, PrimalDualTensor ranked primal dual
+         , KnownNat n, GoodScalar r )
       => primal r n -> ranked r n -> ranked r n
 scale a d = tconstant @ranked @primal @dual a `tmult` d
 -- This should be faster, but is slower even before `tmult` is optimized
@@ -26,7 +27,7 @@ scale a d = tconstant @ranked @primal @dual a `tmult` d
 -- scale a d = tD (a * tprimalPart d) (tScale @r a (tdualPart d))
 
 relu, reluLeaky
-  :: forall ranked n r. (ADReady ranked r, KnownNat n, Num (ranked r n), Fractional (ranked r 0), OrdB (ranked r 0), IfB (ranked r 0))
+  :: forall ranked n r. (ADReady ranked r, KnownNat n)
   => ranked r n -> ranked r n
 relu v =
   let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.0 1.0) v
@@ -61,12 +62,12 @@ square d = let u = tprimalPart @ranked @primal @dual d
 
 squaredDifference
   :: forall ranked primal dual n r.
-     ( PrimalDualTensor ranked primal dual, KnownNat n, Num (ranked r n)
+     ( Tensor ranked, PrimalDualTensor ranked primal dual, KnownNat n
      , Num (primal r n), GoodScalar r, Allowed ranked r )
   => primal r n -> ranked r n -> ranked r n
 squaredDifference targ res = square @ranked @primal @dual $ res - tconstant @ranked @primal @dual targ
 
-lossCrossEntropyV :: (Tensor ranked, KnownNat n, Floating (ranked r n), GoodScalar r, Num (ranked r 0) )
+lossCrossEntropyV :: (Tensor ranked, KnownNat n, GoodScalar r)
                   => ranked r n
                   -> ranked r n
                   -> ranked r 0
@@ -77,9 +78,8 @@ lossCrossEntropyV targ res = negate $ log res `tdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
   :: forall ranked primal dual n r.
-     ( Tensor ranked, PrimalDualTensor ranked primal dual, Tensor primal, KnownNat n, Allowed ranked r
-     , Floating (primal r n), GoodScalar r, Num (ranked r n)
-     , Fractional (primal r 0) )
+     ( Tensor ranked, PrimalDualTensor ranked primal dual, Tensor primal
+     , KnownNat n, Allowed ranked r, GoodScalar r )
   => primal r n -> ranked r n -> ranked r 0
 lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
@@ -108,8 +108,7 @@ maxPool1 ksize stride v =
   let slices = [tslice i ksize v | i <- [0, stride .. tlength v - ksize]]
   in tfromList $ map tmaximum slices
 
-softMax1 :: ( Tensor ranked, KnownNat n, GoodScalar r
-            , Floating (ranked r n), Fractional (ranked r 0) )
+softMax1 :: (Tensor ranked, KnownNat n, GoodScalar r)
          => ranked r n -> ranked r n
 softMax1 d =
   let expU0 = exp d
@@ -124,7 +123,7 @@ softMax1 d =
 -- If another value than 0 was needed, the conditional
 -- would be necessary even without vectorization.
 conv2dUnpadded
-  :: (ADReady ranked r, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
+  :: ADReady ranked r
   => ranked r 4 -> ranked r 4 -> ranked r 4
 conv2dUnpadded arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = tshape arrA
@@ -145,7 +144,7 @@ conv2dUnpadded arrK arrA =
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
 slicez
-  :: (ADReady ranked r, KnownNat n, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
+  :: (ADReady ranked r, KnownNat n)
   => ShapeInt n -> ranked r n -> IndexOf ranked r n -> ranked r n
 slicez shOut d ixBase =
   tbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
@@ -153,22 +152,22 @@ slicez shOut d ixBase =
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
 indexz0
-  :: forall ranked r n. (ADReady ranked r, KnownNat n, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
+  :: forall ranked r n. (ADReady ranked r, KnownNat n)
   => ranked r n -> IndexOf ranked r n -> ranked r 0
 indexz0 d ix = ifB (within0 @ranked @r (tshape @ranked d) ix) (d ! ix) 0
 
 -- | Given an index and shape, check if the index is fully within the shape.
 within0 :: forall ranked r n.
-           (ADReady ranked r, BooleanOf (IntOf ranked r) ~ BooleanOf r, Boolean (BooleanOf r), OrdB (IntOf ranked r))
-        => ShapeInt n -> IndexOf ranked r n -> BooleanOf r
+           ADReady ranked r
+        => ShapeInt n -> IndexOf ranked r n -> BooleanOf (IntOf ranked r)
 within0 sh ix =
-  let within :: IntOf ranked r -> IntOf ranked r -> BooleanOf r
+  let within :: IntOf ranked r -> IntOf ranked r -> BooleanOf (IntOf ranked r)
       within i dim = 0 <=* i &&* dim >* i
   in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)
 
 maxPool2dUnpadded
-  :: (ADReady ranked r, BooleanOf r ~ BooleanOf (ranked r 0), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0), Boolean (BooleanOf r), OrdB (IntOf ranked r), Num (ranked r 0), IfB (ranked r 0))
+  :: ADReady ranked r
   => Int -> Int -> ranked r 4 -> ranked r 4
 maxPool2dUnpadded ksize stride arr =
   let [batch_size, channels, h, w] = tshape arr

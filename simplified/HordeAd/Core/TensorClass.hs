@@ -64,12 +64,17 @@ instance Integral (IntOf ranked r) => IntegralIntOf ranked r where
 class (forall r10. c ranked r10) => CRankedRR ranked c where
 instance (forall r10. c ranked r10) => CRankedRR ranked c where
 
+class (forall r20 y. (KnownNat y, GoodScalar r20) => c (ranked r20 y))
+      => CRankedR ranked c where
+instance (forall r20 y. (KnownNat y, GoodScalar r20) => c (ranked r20 y))
+         => CRankedR ranked c where
+
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
 -- Ord and Num operations and numeric superclasses.
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
-class CRankedRR ranked IntegralIntOf
+class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
       => Tensor (ranked :: Type -> Nat -> Type) where
   type IntOf ranked r
 
@@ -341,49 +346,44 @@ class DomainsTensor (dynamic :: Type -> Type)
 
 -- * The giga-constraint
 
-{-
-type Many (f :: Type -> Constraint) r = (f (TensorOf 0 r), f (TensorOf 1 r), f (TensorOf 2 r), f (TensorOf 3 r), f (TensorOf 4 r), f (TensorOf 5 r), f (TensorOf 6 r), f (TensorOf 7 r), f (TensorOf 8 r), f (TensorOf 9 r), f (TensorOf 10 r), f (TensorOf 11 r), f (TensorOf 12 r))
--}
+type Many ranked (f :: Type -> Constraint) r = (f (ranked r 0), f (ranked r 1), f (ranked r 2), f (ranked r 3), f (ranked r 4), f (ranked r 5), f (ranked r 6), f (ranked r 7), f (ranked r 8), f (ranked r 9), f (ranked r 10), f (ranked r 11), f (ranked r 12))
 
 type ADReady ranked r =
   ( Tensor ranked, GoodScalar r
+--  , PrimalDualTensor r, Tensor (Primal r)
+  , IfB (IntOf ranked r), Many ranked IfB r  --, Many ranked IfB (Primal r)
+  , EqB r, EqB (IntOf ranked r), Many ranked EqB r  --, Many ranked EqB (Primal r)
+  , OrdB r, OrdB (IntOf ranked r), Many ranked OrdB r  --, Many ranked OrdB (Primal r)
+  , Boolean (BooleanOf (IntOf ranked r))
+  , ( BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 1)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 2)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 3)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 4)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 5)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 6)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 7)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 8)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 9)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 10)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 11)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 12) )
 {-
-  , PrimalDualTensor r, Tensor (Primal r)
-  , Numeric r, RealFloat r, Scalar r ~ r
-  , IfB (IntOf r), Many IfB r, Many IfB (Primal r)
-  , EqB r, EqB (IntOf r), Many EqB r, Many EqB (Primal r)
-  , OrdB r, OrdB (IntOf r), Many OrdB r, Many OrdB (Primal r)
-  , Boolean (BooleanOf r)
-  , ( BooleanOf r ~ BooleanOf (TensorOf 0 r)
-    , BooleanOf r ~ BooleanOf (TensorOf 1 r)
-    , BooleanOf r ~ BooleanOf (TensorOf 2 r)
-    , BooleanOf r ~ BooleanOf (TensorOf 3 r)
-    , BooleanOf r ~ BooleanOf (TensorOf 4 r)
-    , BooleanOf r ~ BooleanOf (TensorOf 5 r)
-    , BooleanOf r ~ BooleanOf (TensorOf 6 r)
-    , BooleanOf r ~ BooleanOf (TensorOf 7 r)
-    , BooleanOf r ~ BooleanOf (TensorOf 8 r)
-    , BooleanOf r ~ BooleanOf (TensorOf 9 r)
-    , BooleanOf r ~ BooleanOf (TensorOf 10 r)
-    , BooleanOf r ~ BooleanOf (TensorOf 11 r)
-    , BooleanOf r ~ BooleanOf (TensorOf 12 r) )
-  , ( BooleanOf r ~ BooleanOf (TensorOf 0 (Primal r))
-    , BooleanOf r ~ BooleanOf (TensorOf 1 (Primal r))
-    , BooleanOf r ~ BooleanOf (TensorOf 2 (Primal r))
-    , BooleanOf r ~ BooleanOf (TensorOf 3 (Primal r))
-    , BooleanOf r ~ BooleanOf (TensorOf 4 (Primal r))
-    , BooleanOf r ~ BooleanOf (TensorOf 5 (Primal r))
-    , BooleanOf r ~ BooleanOf (TensorOf 6 (Primal r))
-    , BooleanOf r ~ BooleanOf (TensorOf 7 (Primal r))
-    , BooleanOf r ~ BooleanOf (TensorOf 8 (Primal r))
-    , BooleanOf r ~ BooleanOf (TensorOf 9 (Primal r))
-    , BooleanOf r ~ BooleanOf (TensorOf 10 (Primal r))
-    , BooleanOf r ~ BooleanOf (TensorOf 11 (Primal r))
-    , BooleanOf r ~ BooleanOf (TensorOf 12 (Primal r)) )
-  , BooleanOf r ~ BooleanOf (IntOf r)  -- placing this last gives better errors
+  , ( BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 0 (Primal r))
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 1 (Primal r))
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 2 (Primal r))
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 3 (Primal r))
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 4 (Primal r))
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 5 (Primal r))
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 6 (Primal r))
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 7 (Primal r))
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 8 (Primal r))
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 9 (Primal r))
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 10 (Primal r))
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 11 (Primal r))
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (TensorOf 12 (Primal r)) )
 -}
+  , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0)  -- placing this last gives better errors
   )
-  -- any of the @BooleanOf r ~ ...@ lines above breaks GHC <= 9.0.2
 
 
 -- * Tensor class instances for concrete arrays

@@ -40,7 +40,7 @@ assertEqualUpToEpsilon1 eps expected result =
   assertEqualUpToEpsilon eps expected (runFlip result)
 
 rev' :: forall r m n v g.
-        ( KnownNat n, KnownNat m
+        ( KnownNat n, KnownNat m, ADReady AstRanked r
         , InterpretAstA (Flip OR.Array) (Flip OR.Array) r
         , InterpretAstA (Tannen ADVal (Flip OR.Array)) (Flip OR.Array) r
         , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n, Value r ~ r )
@@ -63,7 +63,7 @@ rev' f vals =
       g9 inputs = f $ Tannen $ parseDomains vals inputs
       (advalGrad9, value9) = revAstOnDomains g9 parameters dt
       gradient9 = parseDomains vals advalGrad9
-      h :: Tensor f1
+      h :: ADReady f1 r
         => (f1 r m -> Ast m r) -> (Ast n r -> f1 r n)
         -> (Ast m r -> Ast m r) -> Domains (Compose ADVal OD.Array) r
         -> ADVal (Flip OR.Array r m)
@@ -99,7 +99,7 @@ rev' f vals =
         simplifyAst6 $ snd
         $ funToAstR (tshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
-      hAst :: Tensor f1
+      hAst :: ADReady f1 r
            => (f1 r m -> Ast m r) -> (Ast n r -> f1 r n)
            -> (Ast m r -> Ast m r) -> Domains (Compose ADVal AstDynamic) r
            -> Tannen ADVal AstRanked r m
