@@ -97,7 +97,7 @@ revDtInit
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r)
   => (astvals -> Ast n r) -> vals -> AstEnv dynamic ranked r
-  -> Domains OD.Array r
+  -> DomainsOD r
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revDtInit #-}
 revDtInit f vals envInit parameters0 =
@@ -205,7 +205,7 @@ revAstOnDomainsF
   :: forall r n.
      (KnownNat n, ShowAstSimplify r)
   => (Domains (Compose ADVal AstDynamic) r -> Tannen ADVal AstRanked r n)
-  -> Domains OD.Array r
+  -> DomainsOD r
   -> ADAstArtifact6 n r
 {-# INLINE revAstOnDomainsF #-}
 revAstOnDomainsF f parameters  =
@@ -265,7 +265,7 @@ revOnADInputs
   => Maybe (Flip OR.Array r n)
   -> (Domains dynamic r -> ADVal (Flip OR.Array r n))
   -> Domains dynamic r
-  -> (Domains OD.Array r, Flip OR.Array r n)
+  -> (DomainsOD r, Flip OR.Array r n)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE revOnADInputs #-}
@@ -284,8 +284,8 @@ revOnDomains
   :: (dynamic ~ Compose ADVal OD.Array, KnownNat n, GoodScalar r, IsPrimalR r)
   => Maybe (Flip OR.Array r n)
   -> (Domains dynamic r -> ADVal (Flip OR.Array r n))
-  -> Domains OD.Array r
-  -> (Domains OD.Array r, Flip OR.Array r n)
+  -> DomainsOD r
+  -> (DomainsOD r, Flip OR.Array r n)
 revOnDomains dt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
@@ -315,7 +315,7 @@ slowFwdOnADInputs
      , ForwardDerivative OD.Array a r )
   => Domains dynamic r
   -> (Domains dynamic r -> ADVal a)
-  -> Domains OD.Array r
+  -> DomainsOD r
   -> (a, a)
 {-# INLINE slowFwdOnADInputs #-}
 slowFwdOnADInputs inputs f ds =
@@ -329,9 +329,9 @@ slowFwdOnDomains
   :: forall a r dynamic.
      ( dynamic ~ Compose ADVal OD.Array
      , ForwardDerivative OD.Array a r, GoodScalar r )
-  => Domains OD.Array r
+  => DomainsOD r
   -> (Domains dynamic r -> ADVal a)
-  -> Domains OD.Array r
+  -> DomainsOD r
   -> (a, a)
 slowFwdOnDomains parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
@@ -357,7 +357,7 @@ generateDeltaInputs params =
   in V.imap arrayToInput params
 {- TODO: this can't be specified without a proxy
 {-# SPECIALIZE generateDeltaInputs
-  :: Domains OD.Array Double
+  :: DomainsOD Double
   -> Data.Vector.Vector (Dual (OD.Array Double)) #-}
 -}
 

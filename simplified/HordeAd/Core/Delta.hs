@@ -405,7 +405,7 @@ gradientFromDelta dimR deltaDt =
      in (astBindings, gradient)
 {-# SPECIALIZE gradientFromDelta
   :: Int -> DeltaDt (Flip OR.Array) Double
-  -> ([(AstVarId, OD.Array Double)], Domains OD.Array Double) #-}
+  -> ([(AstVarId, OD.Array Double)], DomainsOD Double) #-}
 {-# SPECIALIZE gradientFromDelta
   :: Int -> DeltaDt AstRanked Double
   -> ([(AstVarId, AstDynamic Double)], Domains AstDynamic Double) #-}

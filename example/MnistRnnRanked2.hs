@@ -125,8 +125,8 @@ rnnMnistTestR
   :: forall ranked r. (ranked ~ Flip OR.Array, ADReady ranked r)
   => Int
   -> MnistDataBatchR r  -- batch_size
-  -> ((ADRnnMnistParameters (Flip OR.Array) r  -- SizeMnistHeight out_width
-       -> Flip OR.Array r 2)  -- [SizeMnistLabel, batch_size]
+  -> ((ADRnnMnistParameters ranked r  -- SizeMnistHeight out_width
+       -> ranked r 2)  -- [SizeMnistLabel, batch_size]
       -> OR.Array 2 r)  -- [SizeMnistLabel, batch_size]
   -> r
 {-# INLINE rnnMnistTestR #-}
