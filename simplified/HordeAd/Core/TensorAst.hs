@@ -27,9 +27,9 @@ import HordeAd.Core.Domains
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
-instance Tensor AstRanked where
-  type IntOf AstRanked r = AstInt r
+type instance IntOf (AstRanked r n) = AstInt r
 
+instance Tensor AstRanked where
   tlet a f = astLetFun a f
 
   tshape = shapeAst
@@ -185,9 +185,9 @@ astBuild1Vectorize :: (KnownNat n, ShowAstSimplify r)
                    => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
-instance Tensor AstPrimalPart where
-  type IntOf AstPrimalPart r = AstInt r
+type instance IntOf (AstPrimalPart r n) = AstInt r
 
+instance Tensor AstPrimalPart where
   tlet a f =
     AstPrimalPart
     $ astLetFun (unAstPrimalPart a) (unAstPrimalPart . f . AstPrimalPart)
@@ -229,9 +229,9 @@ instance PrimalDualTensor AstPrimalPart AstPrimalPart DummyDual where
   tD u _ = u
   tScale _ _ = DummyDual
 
-instance Tensor AstNoVectorize where
-  type IntOf AstNoVectorize r = AstInt r
+type instance IntOf (AstNoVectorize r n) = AstInt r
 
+instance Tensor AstNoVectorize where
   tlet a f =
     AstNoVectorize
     $ astLetFun (unAstNoVectorize a) (unAstNoVectorize . f . AstNoVectorize)
@@ -276,9 +276,9 @@ instance PrimalDualTensor AstNoVectorize AstNoVectorize AstDualPart where
   tD u u' = AstNoVectorize $ AstD (AstPrimalPart $ unAstNoVectorize u) u'
   tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-instance Tensor AstNoSimplify where
-  type IntOf AstNoSimplify r = AstInt r
+type instance IntOf (AstNoSimplify r n) = AstInt r
 
+instance Tensor AstNoSimplify where
   tlet a f =
     AstNoSimplify
     $ astLetFunUnSimp (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)

@@ -146,7 +146,7 @@ instance IsPrimal Double where
 class HasRanks ranked where
   dInputR :: InputId (ranked r n) -> Dual (ranked r n)
   dIndexZ :: (KnownNat n, KnownNat m)
-          => Dual (ranked r (m + n)) -> IndexOf ranked r m -> ShapeInt (m + n)
+          => Dual (ranked r (m + n)) -> IndexOf (ranked r 0) m -> ShapeInt (m + n)
           -> Dual (ranked r n)
   dSumR :: KnownNat n
         => Int -> Dual (ranked r (1 + n)) -> Dual (ranked r n)
@@ -155,12 +155,12 @@ class HasRanks ranked where
   dDot0 :: (KnownNat n, Show (ranked r n))
         => ranked r n -> Dual (ranked r n) -> Dual (ranked r 0)
 --  dScatterZ1 :: (KnownNat p, KnownNat n)
---            => (Int -> IndexOf ranked r p)
+--            => (Int -> IndexOf (ranked r 0) p)
 --            -> Int -> Dual (ranked r (1 + n))
 --            -> ShapeInt (p + n) -> Dual (ranked r (p + n))
   dScatterZ :: (KnownNat m, KnownNat p, KnownNat n)
             => ShapeInt (p + n) -> Dual (ranked r (m + n))
-            -> (IndexOf ranked r m -> IndexOf ranked r p)
+            -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
             -> ShapeInt (m + n)
             -> Dual (ranked r (p + n))
   dFromListR :: KnownNat n
@@ -192,15 +192,15 @@ class HasRanks ranked where
             => ShapeInt n -> ShapeInt m -> Dual (ranked r n)
             -> Dual (ranked r m)
   dBuildR :: KnownNat n
-          => Int -> (IntOf ranked r -> Dual (ranked r n))
+          => Int -> (IntOf (ranked r 0) -> Dual (ranked r n))
           -> Dual (ranked r (1 + n))
 --  dGatherZ1 :: (KnownNat p, KnownNat n)
---           => (Int -> IndexOf ranked r p)
+--           => (Int -> IndexOf (ranked r 0) p)
 --           -> ShapeInt (p + n) -> Dual (ranked r (p + n))
 --           -> Int -> Dual (ranked r (1 + n))
   dGatherZ :: (KnownNat m, KnownNat p, KnownNat n)
            => ShapeInt (m + n) -> Dual (ranked r (p + n))
-           -> (IndexOf ranked r m -> IndexOf ranked r p)
+           -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
            -> ShapeInt (p + n)
            -> Dual (ranked r (m + n))
 

@@ -106,7 +106,7 @@ rev' f vals =
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (Tannen $ parseDomains vals inputs) EM.empty
-        in snd $ interpretAst @(Compose ADVal AstDynamic) @(Tannen ADVal AstRanked) @AstRanked @(Product (Clown ADShare) (DeltaR AstRanked)) env emptyMemo (gx ast)
+        in snd $ interpretAst @(Compose ADVal AstDynamic) @(Tannen ADVal AstRanked) @AstRanked @(Product (Clown ADShare) (DeltaR AstRanked)) @m @r env emptyMemo (gx ast)
       artifactsGradAst =
         revAstOnDomainsF (hAst id id id) parameters
       (astGradAst, value2Ast) =

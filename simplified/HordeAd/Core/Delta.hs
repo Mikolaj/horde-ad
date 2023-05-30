@@ -151,7 +151,7 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
     -- ^ The sub-tensors at the given index of the outermost dimension.
     -- The second integer is the length of the dimension.
   IndexZ :: (KnownNat n, KnownNat m)
-         => DeltaR ranked r (m + n) -> IndexOf ranked r m -> ShapeInt (m + n) -> DeltaR ranked r n
+         => DeltaR ranked r (m + n) -> IndexOf (ranked r 0) m -> ShapeInt (m + n) -> DeltaR ranked r n
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. The operation fails if index is out of bounds.
     -- If index is out of bounds, the result is defined and is 0.
@@ -164,7 +164,7 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
        => ranked r n -> DeltaR ranked r n -> DeltaR ranked r 0
   ScatterZ :: (KnownNat m, KnownNat p, KnownNat n)
            => ShapeInt (p + n) -> DeltaR ranked r (m + n)
-           -> (IndexOf ranked r m -> IndexOf ranked r p)
+           -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
            -> ShapeInt (m + n)
            -> DeltaR ranked r (p + n)
   FromListR :: KnownNat n
@@ -200,12 +200,12 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
            => ShapeInt n -> ShapeInt m -> DeltaR ranked r n -> DeltaR ranked r m
     -- ^ Change the shape of the tensor from the first to the second.
   BuildR :: KnownNat n
-         => Int -> (IntOf ranked r -> DeltaR ranked r n) -> DeltaR ranked r (1 + n)
+         => Int -> (IntOf (ranked r 0) -> DeltaR ranked r n) -> DeltaR ranked r (1 + n)
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
 
 --  GatherZ1 :: (KnownNat p, KnownNat n)
---           => (Int -> IndexOf ranked r p)
+--           => (Int -> IndexOf (ranked r 0) p)
 --           -> ShapeInt (p + n) -> DeltaR ranked r (p + n)
 --           -> Int -> DeltaR ranked r (1 + n)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
@@ -217,11 +217,11 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
     -- and the result of such indexing is zero.
   GatherZ :: (KnownNat m, KnownNat p, KnownNat n)
           => ShapeInt (m + n) -> DeltaR ranked r (p + n)
-          -> (IndexOf ranked r m -> IndexOf ranked r p)
+          -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
           -> ShapeInt (p + n)
           -> DeltaR ranked r (m + n)
 --  ScatterZ1 :: (KnownNat p, KnownNat n)
---            => (Int -> IndexOf ranked r p)
+--            => (Int -> IndexOf (ranked r 0) p)
 --            -> Int -> DeltaR ranked r (1 + n)
 --            -> ShapeInt (p + n) -> DeltaR ranked r (p + n)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
@@ -235,13 +235,13 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
 
   FromD :: forall ranked n r. DeltaD ranked r -> DeltaR ranked r n
 
-deriving instance (Show (IntOf ranked r), Show r) => Show (DeltaR ranked r n)
+deriving instance (Show (IntOf (ranked r 0)), Show r) => Show (DeltaR ranked r n)
 
 data DeltaD :: (Type -> Nat -> Type) -> Type -> Type where
   FromR :: forall ranked n r. KnownNat n
          => DeltaR ranked r n -> DeltaD ranked r
 
-deriving instance (Show (IntOf ranked r), Show r) => Show (DeltaD ranked r)
+deriving instance (Show (IntOf (ranked r 0)), Show r) => Show (DeltaD ranked r)
 
 
 -- * Related datatypes and classes
@@ -376,7 +376,7 @@ data DeltaBinding ranked r =
 -- value (usually set to @1@) is given in the @DeltaDt ranked r@ parameter.
 gradientFromDelta
   :: forall dynamic ranked r.
-      (GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked, Num (IntOf ranked r), Num (ranked r 0))
+      (GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked, Num (IntOf (ranked r 0)), Num (ranked r 0))
   => Int -> DeltaDt ranked r
   -> ([(AstVarId, dynamic r)], Domains dynamic r)
 gradientFromDelta dimR deltaDt =
@@ -411,7 +411,7 @@ gradientFromDelta dimR deltaDt =
   -> ([(AstVarId, AstDynamic Double)], Domains AstDynamic Double) #-}
 
 buildFinMaps :: forall dynamic ranked r.
-                (GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked, Num (IntOf ranked r), Num (ranked r 0))
+                (GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked, Num (IntOf (ranked r 0)), Num (ranked r 0))
              => EvalState dynamic ranked r -> DeltaDt ranked r
              -> EvalState dynamic ranked r
 buildFinMaps s0 deltaDt =
@@ -612,7 +612,7 @@ class ForwardDerivative (dynamic :: Type -> Type) a r where
   derivativeFromDelta
     :: Int -> Dual a -> Domains dynamic r -> a
 
-instance (KnownNat n, GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked, Dual (ranked r n) ~ DeltaR ranked r n, Num (IntOf ranked r), Num (ranked r 0), Num (ranked r n))
+instance (KnownNat n, GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked, Dual (ranked r n) ~ DeltaR ranked r n, Num (IntOf (ranked r 0)), Num (ranked r 0), Num (ranked r n))
          => ForwardDerivative dynamic (ranked r n) r where
   derivativeFromDelta dimR deltaTopLevel ds =
     case runST $ buildDerivative dimR (DeltaDtR 0 deltaTopLevel) ds of
@@ -626,7 +626,7 @@ instance (KnownNat n, GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked,
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
   :: forall dynamic ranked r s.
-     (Tensor ranked, ConvertTensor dynamic ranked, GoodScalar r, Num (IntOf ranked r), Num (ranked r 0))
+     (Tensor ranked, ConvertTensor dynamic ranked, GoodScalar r, Num (IntOf (ranked r 0)), Num (ranked r 0))
   => Int -> DeltaDt ranked r -> Domains dynamic r
   -> ST s (DeltaDt ranked r)
 buildDerivative dimR deltaDt params = do

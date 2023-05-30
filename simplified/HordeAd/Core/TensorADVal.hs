@@ -159,6 +159,8 @@ class (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
 instance (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
          => CRanked ranked c where
 
+type instance IntOf (Tannen ADVal ranked r n) = IntOf (ranked r n)
+
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
 -- In any case, only the ADVal (Ast0 r) instantiation of this instance
@@ -175,8 +177,6 @@ instance ( CRanked2 ranked UnderlyingMatches2
          , HasRanks ranked
          , Tensor ranked )
          => Tensor (Tannen ADVal ranked) where
-  type IntOf (Tannen ADVal ranked) r = IntOf ranked r
-
   tlet (Tannen (D l u u')) f =
     let (l2, var2) = recordSharingPrimal u l
     in f (Tannen (D l2 var2 u'))
@@ -292,7 +292,7 @@ dot0 (D l1 ue u') (D l2 ve v') =
 indexZ :: forall ranked m n r.
           ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r n), KnownNat m, KnownNat n, GoodScalar r
           , Underlying (ranked r (m + n)) ~ Underlying (ranked r n) )
-       => ADVal (ranked r (m + n)) -> IndexOf ranked r m
+       => ADVal (ranked r (m + n)) -> IndexOf (ranked r 0) m
        -> ADVal (ranked r n)
 indexZ (D l u u') ix = dD l (tindex u ix) (dIndexZ u' ix (tshape u))
 
@@ -306,7 +306,7 @@ scatterNClosure
      , KnownNat m, KnownNat p, KnownNat n, GoodScalar r
      , Underlying (ranked r (p + n)) ~ Underlying (ranked r (m + n)) )
   => ShapeInt (p + n) -> ADVal (ranked r (m + n))
-  -> (IndexOf ranked r m -> IndexOf ranked r p)
+  -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
   -> ADVal (ranked r (p + n))
 scatterNClosure sh (D l u u') f =
   dD l (tscatter sh u f) (dScatterZ sh u' f (tshape u))
@@ -381,9 +381,9 @@ reshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
   _ -> dD l (treshape sh u) (dReshapeR (tshape u) sh u')
 
 build1
-  :: ( Tensor ranked, HasRanks ranked, KnownNat n, GoodScalar r, IsPrimal (ranked r (1 + n)), Num (IntOf ranked r)
+  :: ( Tensor ranked, HasRanks ranked, KnownNat n, GoodScalar r, IsPrimal (ranked r (1 + n)), Num (IntOf (ranked r 0))
      , Underlying (ranked r n) ~ Underlying (ranked r (1 + n)) )
-  => Int -> (IntOf ranked r -> ADVal (ranked r n))
+  => Int -> (IntOf (ranked r 0) -> ADVal (ranked r n))
   -> ADVal (ranked r (1 + n))
 build1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
                -- element-wise (POPL) version
@@ -400,7 +400,7 @@ build1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
 -- integer sharing and it's shared in the whole transpose result.
 _build1Closure
   :: (Tensor ranked, HasRanks ranked, KnownNat n, GoodScalar r, IsPrimal (ranked r (1 + n)))
-  => Int -> (IntOf ranked r -> ADVal (ranked r n))
+  => Int -> (IntOf (ranked r 0) -> ADVal (ranked r n))
   -> ADVal (ranked r (1 + n))
 _build1Closure k f =  -- stores closures on tape
   let g i = let D _ u _ = f i in u
@@ -414,7 +414,7 @@ gatherNClosure
      , KnownNat m, KnownNat p, KnownNat n, GoodScalar r
      , Underlying (ranked r (p + n)) ~ Underlying (ranked r (m + n)) )
   => ShapeInt (m + n) -> ADVal (ranked r (p + n))
-  -> (IndexOf ranked r m -> IndexOf ranked r p)
+  -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
   -> ADVal (ranked r (m + n))
 gatherNClosure sh (D l u u') f =
   dD l (tgather sh u f) (dGatherZ sh u' f (tshape u))

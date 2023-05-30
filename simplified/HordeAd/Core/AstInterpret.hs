@@ -36,8 +36,8 @@ type AstEnv dynamic ranked a = EM.EnumMap AstVarId (AstEnvElem dynamic ranked a)
 
 data AstEnvElem dynamic ranked a =
     AstVarR (dynamic a)
-  | AstVarI (IntOf ranked a)
-deriving instance (Show (dynamic a), Show (IntOf ranked a))
+  | AstVarI (IntOf (ranked a 0))
+deriving instance (Show (dynamic a), Show (IntOf (ranked a 0)))
                   => Show (AstEnvElem dynamic ranked a)
 
 extendEnvR :: forall dynamic ranked a n.
@@ -60,13 +60,13 @@ extendEnvDId var d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvDId: duplicate " ++ show var)
                    var (AstVarR d)
 
-extendEnvI :: AstVarId -> IntOf ranked a -> AstEnv dynamic ranked a
+extendEnvI :: AstVarId -> IntOf (ranked a 0) -> AstEnv dynamic ranked a
            -> AstEnv dynamic ranked a
 extendEnvI var i =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
                    var (AstVarI i)
 
-extendEnvVars :: AstVarList m -> IndexOf ranked a m -> AstEnv dynamic ranked a
+extendEnvVars :: AstVarList m -> IndexOf (ranked a 0) m -> AstEnv dynamic ranked a
               -> AstEnv dynamic ranked a
 extendEnvVars vars ix env =
   let assocs = zip (sizedListToList vars) (indexToList ix)
@@ -80,7 +80,7 @@ interpretLambdaI
   :: (AstEnv dynamic ranked a -> AstMemo a -> Ast n a
   -> (AstMemo a, ranked a n))
   -> AstEnv dynamic ranked a -> AstMemo a -> (AstVarId, Ast n a)
-  -> IntOf ranked a
+  -> IntOf (ranked a 0)
   -> ranked a n
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env memo (var, ast) =
@@ -90,7 +90,7 @@ interpretLambdaIndex
   :: (AstEnv dynamic ranked a -> AstMemo a -> Ast n a
   -> (AstMemo a, ranked a n))
   -> AstEnv dynamic ranked a -> AstMemo a
-  -> (AstVarList m, Ast n a) -> IndexOf ranked a m
+  -> (AstVarList m, Ast n a) -> IndexOf (ranked a 0) m
   -> ranked a n
 {-# INLINE interpretLambdaIndex #-}
 interpretLambdaIndex f env memo (vars, ast) =
@@ -99,10 +99,10 @@ interpretLambdaIndex f env memo (vars, ast) =
 interpretLambdaIndexToIndex
   :: KnownNat p
   => (AstEnv dynamic ranked a -> AstMemo a -> AstInt q
-  -> (AstMemo a, IntOf ranked a)) -> AstEnv dynamic ranked a
+  -> (AstMemo a, IntOf (ranked a 0))) -> AstEnv dynamic ranked a
   -> AstMemo a -> (AstVarList m, AstIndex p q)
-  -> IndexOf ranked a m
-  -> IndexOf ranked a p
+  -> IndexOf (ranked a 0) m
+  -> IndexOf (ranked a 0) p
 {-# INLINE interpretLambdaIndexToIndex #-}
 interpretLambdaIndexToIndex f env memo (vars, asts) =
   \ix -> listToIndex $ snd
@@ -121,12 +121,12 @@ type InterpretAstF dynamic ranked primal dual =
   , ConvertTensor dynamic ranked, Tensor primal )
 
 type InterpretAstA ranked primal a =
-  ( GoodScalar a, Integral (IntOf primal a), Allowed ranked a
+  ( GoodScalar a, Integral (IntOf (primal a 0)), Allowed ranked a
   , ShowAstSimplify a, Underlying a ~ a
-  , EqB (IntOf ranked a), OrdB (IntOf ranked a), IfB (IntOf ranked a)
-  , IntOf primal a ~ IntOf ranked a
-  , BooleanOf (ranked a 0) ~ BooleanOf (IntOf ranked a)
-  , BooleanOf (IntOf ranked a) ~ BooleanOf (ranked a 0)
+  , EqB (IntOf (ranked a 0)), OrdB (IntOf (ranked a 0)), IfB (IntOf (ranked a 0))
+  , IntOf (primal a 0) ~ IntOf (ranked a 0)
+  , BooleanOf (ranked a 0) ~ BooleanOf (IntOf (ranked a 0))
+  , BooleanOf (IntOf (ranked a 0)) ~ BooleanOf (ranked a 0)
   , CRanked primal a EqB
   , CRanked primal a OrdB
   , CRanked ranked a RealFloat
@@ -479,7 +479,7 @@ interpretAstDomains env memo = \case
 interpretAstInt :: forall dynamic ranked primal dual a.
                    InterpretAst dynamic ranked primal dual a
                 => AstEnv dynamic ranked a -> AstMemo a
-                -> AstInt a -> (AstMemo a, IntOf primal a)
+                -> AstInt a -> (AstMemo a, IntOf (primal a 0))
 interpretAstInt env memo = \case
   AstIntVar var -> case EM.lookup var env of
     Just AstVarR{} ->
