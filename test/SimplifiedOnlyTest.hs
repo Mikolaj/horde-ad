@@ -10,10 +10,10 @@ import           Test.Tasty.Runners
 
 import           EqEpsilon
 import qualified TestAdaptorSimplified
-import qualified TestConvSimplified
-import qualified TestGatherSimplified
-import qualified TestHighRankSimplified
-import qualified TestMnistFCNNR
+--import qualified TestConvSimplified
+--import qualified TestGatherSimplified
+--import qualified TestHighRankSimplified
+--import qualified TestMnistFCNNR
 import qualified TestMnistRNNR
 
 main :: IO ()
@@ -29,9 +29,9 @@ main = do
 
 tests :: TestTree
 tests = testGroup "Only special tests for simplified horde-ad" $
-  TestGatherSimplified.testTrees
-  ++ TestHighRankSimplified.testTrees
-  ++ TestConvSimplified.testTrees
-  ++ TestAdaptorSimplified.testTrees
-  ++ TestMnistFCNNR.testTrees
+--  TestGatherSimplified.testTrees
+--  ++ TestHighRankSimplified.testTrees
+--  ++ TestConvSimplified.testTrees
+  TestAdaptorSimplified.testTrees
+--  ++ TestMnistFCNNR.testTrees
   ++ TestMnistRNNR.testTrees

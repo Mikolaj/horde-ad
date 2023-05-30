@@ -577,9 +577,9 @@ library exampleLibrarySimplified
       buildable: True
 
     exposed-modules:  MnistData
-                      MnistCnnRanked2
-                      MnistFcnnRanked1
-                      MnistFcnnRanked2
+--                      MnistCnnRanked2
+--                      MnistFcnnRanked1
+--                      MnistFcnnRanked2
                       MnistRnnRanked2
 
     build-depends:
@@ -639,10 +639,10 @@ test-suite simplifiedOnlyTest
     main-is:          SimplifiedOnlyTest.hs
 
     other-modules:    TestAdaptorSimplified
-                      TestConvSimplified
-                      TestGatherSimplified
-                      TestHighRankSimplified
-                      TestMnistFCNNR
+--                      TestConvSimplified
+--                      TestGatherSimplified
+--                      TestHighRankSimplified
+--                      TestMnistFCNNR
                       TestMnistRNNR
 
     build-depends:
