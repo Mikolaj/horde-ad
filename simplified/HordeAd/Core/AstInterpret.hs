@@ -117,11 +117,11 @@ instance (forall y. KnownNat y => c (ranked r y))
          => CRanked ranked r c where
 
 type InterpretAstF dynamic ranked =
-  ( Tensor ranked, PrimalDualTensor ranked
+  ( Tensor ranked
   , ConvertTensor dynamic ranked, Tensor (PrimalOf ranked) )
 
 type InterpretAstA ranked a =
-  ( GoodScalar a, Integral (IntOf (PrimalOf ranked a 0)), Allowed ranked a
+  ( GoodScalar a, Integral (IntOf (PrimalOf ranked a 0))
   , ShowAstSimplify a, Underlying a ~ a
   , EqB (IntOf (ranked a 0)), OrdB (IntOf (ranked a 0)), IfB (IntOf (ranked a 0))
   , IntOf (PrimalOf ranked a 0) ~ IntOf (ranked a 0)

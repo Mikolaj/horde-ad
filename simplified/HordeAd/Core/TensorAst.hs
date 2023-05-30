@@ -69,8 +69,6 @@ instance Tensor AstRanked where
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
 
-instance PrimalDualTensor AstRanked where
-  type Allowed AstRanked r = ()
   tconstant = astConstant
   tprimalPart = AstPrimalPart
   tdualPart = AstDualPart
@@ -229,8 +227,6 @@ instance Tensor AstPrimalPart where
   tsumOfList l = AstPrimalPart . AstSumOfList . map unAstPrimalPart $ l
   tconst = AstPrimalPart . AstConst
 
-instance PrimalDualTensor AstPrimalPart where
-  type Allowed AstPrimalPart r = ()
   tconstant = id
   tprimalPart = id
   tdualPart _ = DummyDual
@@ -280,8 +276,6 @@ instance Tensor AstNoVectorize where
   tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
   tconstBare = AstNoVectorize . AstConst
 
-instance PrimalDualTensor AstNoVectorize where
-  type Allowed AstNoVectorize r = ()
   tconstant = AstNoVectorize . astConstant . AstPrimalPart . unAstNoVectorize
   tprimalPart = id
   tdualPart = AstDualPart . unAstNoVectorize
@@ -329,8 +323,6 @@ instance Tensor AstNoSimplify where
   tconst = AstNoSimplify . AstConstant . AstPrimalPart . AstConst
   tconstBare = AstNoSimplify . AstConst
 
-instance PrimalDualTensor AstNoSimplify where
-  type Allowed AstNoSimplify r = ()
   tconstant = AstNoSimplify . astConstant . AstPrimalPart . unAstNoSimplify
     -- exceptionally we do simplify AstConstant to avoid long boring chains
   tprimalPart = id

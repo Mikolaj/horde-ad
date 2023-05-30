@@ -9,8 +9,7 @@
 module HordeAd.Core.TensorClass
   ( IntOf, IndexOf, ShapeInt
   , PrimalOf, DualOf
-  , Tensor(..), PrimalDualTensor(..), ConvertTensor(..)
-  , DomainsTensor(..), ADReady
+  , Tensor(..), ConvertTensor(..), DomainsTensor(..), ADReady
   , GoodScalar, DummyDual(..), ttoRankedOrDummy
   ) where
 
@@ -279,15 +278,14 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   tletWrap :: ADShare r -> ranked r n -> ranked r n
   tletWrap _l u = u
 
-class PrimalDualTensor (ranked :: Type -> Nat -> Type) where
-  type Allowed ranked r :: Constraint
-  tconstant :: (GoodScalar r, Allowed ranked r, KnownNat n) => PrimalOf ranked r n -> ranked r n
-  tprimalPart :: (GoodScalar r, Allowed ranked r, KnownNat n)
+  -- Primal/dual things.
+  tconstant :: (GoodScalar r, KnownNat n) => PrimalOf ranked r n -> ranked r n
+  tprimalPart :: (GoodScalar r, KnownNat n)
               => ranked r n -> PrimalOf ranked r n
-  tdualPart :: (GoodScalar r, Allowed ranked r, KnownNat n)
+  tdualPart :: (GoodScalar r, KnownNat n)
             => ranked r n -> DualOf ranked r n
-  tD :: (GoodScalar r, Allowed ranked r, KnownNat n) => PrimalOf ranked r n -> DualOf ranked r n -> ranked r n
-  tScale :: (GoodScalar r, Allowed ranked r, KnownNat n) => PrimalOf ranked r n -> DualOf ranked r n -> DualOf ranked r n
+  tD :: (GoodScalar r, KnownNat n) => PrimalOf ranked r n -> DualOf ranked r n -> ranked r n
+  tScale :: (GoodScalar r, KnownNat n) => PrimalOf ranked r n -> DualOf ranked r n -> DualOf ranked r n
   -- TODO: we'd probably also need dZero, dIndex0 and all others;
   -- basically DualOf a needs to have IsPrimal and HasRanks instances
   -- (and HasInputs?)
@@ -360,8 +358,8 @@ class DomainsTensor (dynamic :: Type -> Type)
 type Many ranked (f :: Type -> Constraint) r = (f (ranked r 0), f (ranked r 1), f (ranked r 2), f (ranked r 3), f (ranked r 4), f (ranked r 5), f (ranked r 6), f (ranked r 7), f (ranked r 8), f (ranked r 9), f (ranked r 10), f (ranked r 11), f (ranked r 12))
 
 type ADReady ranked r =
-  ( Tensor ranked, GoodScalar r, Allowed ranked r
-  , PrimalDualTensor ranked, Tensor (PrimalOf ranked)
+  ( Tensor ranked, GoodScalar r, Tensor (PrimalOf ranked)
+--  , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked
   , IfB (IntOf (ranked r 0)), Many ranked IfB r  --, Many ranked IfB (Primal r)
   , EqB r, EqB (IntOf (ranked r 0)), Many ranked EqB r  --, Many ranked EqB (Primal r)
   , OrdB r, OrdB (IntOf (ranked r 0)), Many ranked OrdB r  --, Many ranked OrdB (Primal r)
@@ -378,21 +376,19 @@ type ADReady ranked r =
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 10)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 11)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 12) )
-{-
-  , ( BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 0 (Primal r))
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 1 (Primal r))
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 2 (Primal r))
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 3 (Primal r))
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 4 (Primal r))
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 5 (Primal r))
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 6 (Primal r))
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 7 (Primal r))
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 8 (Primal r))
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 9 (Primal r))
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 10 (Primal r))
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 11 (Primal r))
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (TensorOf 12 (Primal r)) )
--}
+  , ( BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 0)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 1)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 2)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 3)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 4)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 5)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 6)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 7)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 8)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 9)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 10)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 11)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 12) )
   , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 0)  -- placing this last gives better errors
   )
 
@@ -443,8 +439,6 @@ instance Tensor (Flip OR.Array) where
   tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   tconst = Flip
 
-instance PrimalDualTensor (Flip OR.Array) where
-  type Allowed (Flip OR.Array) r = ()
   tconstant = id
   tprimalPart = id
   tdualPart _ = DummyDual

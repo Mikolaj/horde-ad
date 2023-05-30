@@ -17,8 +17,7 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
 scale :: forall ranked r n.
-         ( Allowed ranked r, Tensor ranked, PrimalDualTensor ranked
-         , KnownNat n, GoodScalar r )
+         (ADReady ranked r, KnownNat n)
       => PrimalOf ranked r n -> ranked r n -> ranked r n
 scale a d = tconstant @ranked a `tmult` d
 -- This should be faster, but is slower even before `tmult` is optimized
@@ -39,9 +38,9 @@ reluLeaky v =
 
 -- TODO: verify how faster a dedicated Tensor method would be
 logistic :: forall ranked r n.
-            ( Tensor ranked, PrimalDualTensor ranked
+            ( Tensor ranked
             , Tensor (PrimalOf ranked), KnownNat n, GoodScalar r
-            , Floating (PrimalOf ranked r n), Allowed ranked r, Num (PrimalOf ranked r 0) )
+            , Floating (PrimalOf ranked r n), Num (PrimalOf ranked r 0) )
          => ranked r n -> ranked r n
 logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
   let sh = tshape d
@@ -53,8 +52,7 @@ logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
 square :: forall ranked r n.
-          ( PrimalDualTensor ranked, Allowed ranked r
-          , KnownNat n, Num (PrimalOf ranked r n), GoodScalar r )
+          (Tensor ranked, KnownNat n, Num (PrimalOf ranked r n), GoodScalar r)
        => ranked r n -> ranked r n
 square d = let u = tprimalPart @ranked d
                u' = tdualPart @ranked d
@@ -62,8 +60,7 @@ square d = let u = tprimalPart @ranked d
 
 squaredDifference
   :: forall ranked n r.
-     ( Tensor ranked, PrimalDualTensor ranked, KnownNat n
-     , Num (PrimalOf ranked r n), GoodScalar r, Allowed ranked r )
+     (Tensor ranked, KnownNat n, Num (PrimalOf ranked r n), GoodScalar r)
   => PrimalOf ranked r n -> ranked r n -> ranked r n
 squaredDifference targ res = square @ranked $ res - tconstant @ranked targ
 
@@ -78,8 +75,7 @@ lossCrossEntropyV targ res = negate $ log res `tdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
   :: forall ranked n r.
-     ( Tensor ranked, PrimalDualTensor ranked, Tensor (PrimalOf ranked)
-     , KnownNat n, Allowed ranked r, GoodScalar r )
+     (Tensor ranked, Tensor (PrimalOf ranked), KnownNat n, GoodScalar r)
   => PrimalOf ranked r n -> ranked r n -> ranked r 0
 lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
