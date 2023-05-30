@@ -8,9 +8,7 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
-import           Data.Bifunctor.Product
 import           Data.Bifunctor.Tannen
 import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Compose
@@ -22,7 +20,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
-import HordeAd.Core.Delta
 import HordeAd.Core.Domains
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -41,8 +38,8 @@ assertEqualUpToEpsilon1 eps expected result =
 
 rev' :: forall r m n v g.
         ( KnownNat n, KnownNat m, ADReady AstRanked r
-        , InterpretAstA (Flip OR.Array) (Flip OR.Array) r
-        , InterpretAstA (Tannen ADVal (Flip OR.Array)) (Flip OR.Array) r
+        , InterpretAstA (Flip OR.Array) r
+        , InterpretAstA (Tannen ADVal (Flip OR.Array)) r
         , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n, Value r ~ r )
      => (forall f x. ADReady f x => f x n -> f x m)
      -> g
@@ -70,7 +67,7 @@ rev' f vals =
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR @(Compose ADVal OD.Array) @(Tannen ADVal (Flip OR.Array)) var (Tannen $ parseDomains vals inputs) EM.empty
-        in runTannen $ snd $ interpretAst @(Compose ADVal OD.Array) @(Tannen ADVal (Flip OR.Array)) @(Flip OR.Array) @(Product (Clown ADShare) (DeltaR (Flip OR.Array))) env emptyMemo (gx ast)
+        in runTannen $ snd $ interpretAst @(Compose ADVal OD.Array) @(Tannen ADVal (Flip OR.Array)) env emptyMemo (gx ast)
       (astGrad, value2) =
         revOnDomains dt (h id id id) parameters
       gradient2 = parseDomains vals astGrad
@@ -106,7 +103,7 @@ rev' f vals =
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (Tannen $ parseDomains vals inputs) EM.empty
-        in snd $ interpretAst @(Compose ADVal AstDynamic) @(Tannen ADVal AstRanked) @AstRanked @(Product (Clown ADShare) (DeltaR AstRanked)) @m @r env emptyMemo (gx ast)
+        in snd $ interpretAst @(Compose ADVal AstDynamic) @(Tannen ADVal AstRanked) env emptyMemo (gx ast)
       artifactsGradAst =
         revAstOnDomainsF (hAst id id id) parameters
       (astGradAst, value2Ast) =

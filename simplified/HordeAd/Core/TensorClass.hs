@@ -8,6 +8,7 @@
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
   ( IntOf, IndexOf, ShapeInt
+  , PrimalOf, DualOf
   , Tensor(..), PrimalDualTensor(..), ConvertTensor(..)
   , DomainsTensor(..), ADReady
   , GoodScalar, DummyDual(..), ttoRankedOrDummy
@@ -73,6 +74,11 @@ class (forall r20. (GoodScalar r20) => c (ranked r20 0))
 instance (forall r20. (GoodScalar r20) => c (ranked r20 0))
          => CRankedRR ranked c where
 
+-- k is intended to be Nat or [Nat] (or nothing, if we support scalars)
+type family PrimalOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
+
+type family DualOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
+
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
 -- Ord and Num operations and numeric superclasses.
@@ -82,7 +88,6 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
       => Tensor (ranked :: Type -> Nat -> Type) where
   -- TODO: type Scalar r = ranked r 0
   -- is a macro/TH the only way?
-
   tlet :: (KnownNat n, KnownNat m, GoodScalar r)
        => ranked r n -> (ranked r n -> ranked r m)
        -> ranked r m
@@ -274,18 +279,15 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   tletWrap :: ADShare r -> ranked r n -> ranked r n
   tletWrap _l u = u
 
-class PrimalDualTensor (ranked :: Type -> Nat -> Type)
-                       (primal :: Type -> Nat -> Type)
-                       (dual :: Type -> Nat -> Type)
-                       | ranked -> primal dual, primal dual -> ranked where
+class PrimalDualTensor (ranked :: Type -> Nat -> Type) where
   type Allowed ranked r :: Constraint
-  tconstant :: (GoodScalar r, Allowed ranked r, KnownNat n) => primal r n -> ranked r n
+  tconstant :: (GoodScalar r, Allowed ranked r, KnownNat n) => PrimalOf ranked r n -> ranked r n
   tprimalPart :: (GoodScalar r, Allowed ranked r, KnownNat n)
-              => ranked r n -> primal r n
+              => ranked r n -> PrimalOf ranked r n
   tdualPart :: (GoodScalar r, Allowed ranked r, KnownNat n)
-            => ranked r n -> dual r n
-  tD :: (GoodScalar r, Allowed ranked r, KnownNat n) => primal r n -> dual r n -> ranked r n
-  tScale :: (GoodScalar r, Allowed ranked r, KnownNat n) => primal r n -> dual r n -> dual r n
+            => ranked r n -> DualOf ranked r n
+  tD :: (GoodScalar r, Allowed ranked r, KnownNat n) => PrimalOf ranked r n -> DualOf ranked r n -> ranked r n
+  tScale :: (GoodScalar r, Allowed ranked r, KnownNat n) => PrimalOf ranked r n -> DualOf ranked r n -> DualOf ranked r n
   -- TODO: we'd probably also need dZero, dIndex0 and all others;
   -- basically DualOf a needs to have IsPrimal and HasRanks instances
   -- (and HasInputs?)
@@ -359,7 +361,7 @@ type Many ranked (f :: Type -> Constraint) r = (f (ranked r 0), f (ranked r 1), 
 
 type ADReady ranked r =
   ( Tensor ranked, GoodScalar r, Allowed ranked r
---  , PrimalDualTensor r, Tensor (Primal r)
+  , PrimalDualTensor ranked, Tensor (PrimalOf ranked)
   , IfB (IntOf (ranked r 0)), Many ranked IfB r  --, Many ranked IfB (Primal r)
   , EqB r, EqB (IntOf (ranked r 0)), Many ranked EqB r  --, Many ranked EqB (Primal r)
   , OrdB r, OrdB (IntOf (ranked r 0)), Many ranked OrdB r  --, Many ranked OrdB (Primal r)
@@ -399,6 +401,10 @@ type ADReady ranked r =
 
 type instance IntOf (Flip OR.Array r n) = CInt
 
+type instance PrimalOf (Flip OR.Array) = Flip OR.Array
+
+type instance DualOf (Flip OR.Array) = DummyDual
+
 instance Tensor (Flip OR.Array) where
   tshape = tshapeR . runFlip
   tminIndex0 = tminIndexR . runFlip
@@ -437,7 +443,7 @@ instance Tensor (Flip OR.Array) where
   tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   tconst = Flip
 
-instance PrimalDualTensor (Flip OR.Array) (Flip OR.Array) DummyDual where
+instance PrimalDualTensor (Flip OR.Array) where
   type Allowed (Flip OR.Array) r = ()
   tconstant = id
   tprimalPart = id

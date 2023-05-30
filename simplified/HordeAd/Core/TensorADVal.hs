@@ -161,6 +161,11 @@ instance (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
 
 type instance IntOf (Tannen ADVal ranked r n) = IntOf (ranked r n)
 
+type instance PrimalOf (Tannen ADVal ranked) = ranked
+
+type instance DualOf (Tannen ADVal ranked) = Product (Clown ADShare)
+                                                   (DeltaR ranked)
+
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
 -- In any case, only the ADVal (Ast0 r) instantiation of this instance
@@ -230,10 +235,7 @@ instance ( CRanked2 ranked UnderlyingMatches2
   tmult d e = Tannen $ runTannen d * runTannen e
   tconst t = Tannen $ dDnotShared emptyADShare (tconstBare t) dZero
 
-instance PrimalDualTensor (Tannen ADVal (Flip OR.Array))
-                          (Flip OR.Array)
-                          (Product (Clown ADShare)
-                                   (DeltaR (Flip OR.Array))) where
+instance PrimalDualTensor (Tannen ADVal (Flip OR.Array)) where
   type Allowed (Tannen ADVal (Flip OR.Array)) r = IsPrimalR r
   tconstant t = Tannen $ dDnotShared emptyADShare t dZero
   tprimalPart (Tannen (D l u _)) = tletWrap l u
@@ -241,10 +243,7 @@ instance PrimalDualTensor (Tannen ADVal (Flip OR.Array))
   tD ast (Pair (Clown l) delta) = Tannen $ dD l ast delta
   tScale ast (Pair l delta) = Pair l (dScale ast delta)
 
-instance PrimalDualTensor (Tannen ADVal AstRanked)
-                          AstRanked
-                          (Product (Clown ADShare)
-                                   (DeltaR AstRanked)) where
+instance PrimalDualTensor (Tannen ADVal AstRanked) where
   type Allowed (Tannen ADVal AstRanked) r = IsPrimalA r
   tconstant t = Tannen $ dDnotShared emptyADShare t dZero
   tprimalPart (Tannen (D l u _)) = tletWrap l u

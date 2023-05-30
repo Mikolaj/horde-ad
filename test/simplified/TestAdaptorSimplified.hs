@@ -243,8 +243,8 @@ testFooLetPP = do
     @?= "\\x y z -> let x7 = x * sin y in atan2 z x7 + z * x7"
 
 reluPrimal
-  :: forall ranked primal dual n r.
-     ( ADReady ranked r, PrimalDualTensor ranked primal dual, ADReady primal r
+  :: forall ranked n r.
+     ( ADReady ranked r, ADReady (PrimalOf ranked) r
      , KnownNat n )
   => ranked r n -> ranked r n
 reluPrimal v =
@@ -688,7 +688,7 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: ( InterpretAstA (Tannen ADVal (Flip OR.Array)) (Flip OR.Array) r )
+  let f :: ( InterpretAstA (Tannen ADVal (Flip OR.Array)) r )
         => Tannen ADVal (Flip OR.Array) r 1 -> Tannen ADVal (Flip OR.Array) r 1
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
@@ -826,7 +826,7 @@ barReluAst x = relu $ bar (x, relu x)
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
   let f :: ( ADReady AstRanked r
-           , InterpretAstA (Tannen ADVal (Flip OR.Array)) (Flip OR.Array) r )
+           , InterpretAstA (Tannen ADVal (Flip OR.Array)) r )
         => Tannen ADVal (Flip OR.Array) r 0 -> Tannen ADVal (Flip OR.Array) r 0
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
@@ -839,7 +839,7 @@ testBarReluAst0 =
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
   let f :: ( ADReady AstRanked r
-           , InterpretAstA (Tannen ADVal (Flip OR.Array)) (Flip OR.Array) r )
+           , InterpretAstA (Tannen ADVal (Flip OR.Array)) r )
         => Tannen ADVal (Flip OR.Array) r 1 -> Tannen ADVal (Flip OR.Array) r 1
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
@@ -857,7 +857,7 @@ konstReluAst x = tsum0 $ relu $ treplicate0N (7 :$ ZS) x
 testReplicateReluAst :: Assertion
 testReplicateReluAst =
   let f :: ( ADReady AstRanked r
-           , InterpretAstA (Tannen ADVal (Flip OR.Array)) (Flip OR.Array) r )
+           , InterpretAstA (Tannen ADVal (Flip OR.Array)) r )
         => Tannen ADVal (Flip OR.Array) r 0 -> Tannen ADVal (Flip OR.Array) r 0
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))

@@ -21,9 +21,7 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
-import           Data.Bifunctor.Product
 import           Data.Bifunctor.Tannen
 import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Compose
@@ -37,12 +35,7 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
-  ( DeltaR (..)
-  , ForwardDerivative (..)
-  , derivativeFromDelta
-  , gradientFromDelta
-  , toInputId
-  )
+  (ForwardDerivative (..), derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.Domains
 import HordeAd.Core.DualClass
   ( Dual
@@ -61,20 +54,18 @@ import HordeAd.Core.TensorClass
 -- These only work with non-scalar codomain. A fully general version
 -- is possible, but the user has to write many more type applications.
 revL
-  :: forall r n vals astvals ranked primal.
+  :: forall r n vals astvals ranked.
      ( ranked ~ Tannen ADVal AstRanked
-     , primal ~ AstRanked
-     , InterpretAstA ranked primal r, KnownNat n
+     , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> [vals] -> [vals]
 revL f valsAll = revDtMaybeL f valsAll Nothing
 
 revDtMaybeL
-  :: forall r n vals astvals ranked primal.
+  :: forall r n vals astvals ranked.
      ( ranked ~ Tannen ADVal AstRanked
-     , primal ~ AstRanked
-     , InterpretAstA ranked primal r, KnownNat n
+     , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> [vals] -> Maybe (Flip OR.Array r n) -> [vals]
@@ -86,10 +77,9 @@ revDtMaybeL f valsAll@(vals : _) dt =
   in map h valsAll
 
 revDtFun
-  :: forall r n vals astvals ranked primal.
+  :: forall r n vals astvals ranked.
      ( ranked ~ Tannen ADVal AstRanked
-     , primal ~ AstRanked
-     , InterpretAstA ranked primal r, KnownNat n
+     , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r  )
   => (astvals -> Ast n r) -> vals
@@ -100,11 +90,10 @@ revDtFun f vals =
   in revDtInit f vals EM.empty parameters0
 
 revDtInit
-  :: forall r n vals astvals dynamic ranked primal.
+  :: forall r n vals astvals dynamic ranked.
      ( dynamic ~ Compose ADVal AstDynamic
      , ranked ~ Tannen ADVal AstRanked
-     , primal ~ AstRanked
-     , InterpretAstA ranked primal r, KnownNat n
+     , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r)
   => (astvals -> Ast n r) -> vals -> AstEnv dynamic ranked r
@@ -116,13 +105,10 @@ revDtInit f vals envInit parameters0 =
   in revAstOnDomainsFun shapes1 (revDtInterpret envInit vals f)
 
 revDtInterpret
-  :: forall n r vals astvals dynamic ranked primal dual.
+  :: forall n r vals astvals dynamic ranked.
      ( dynamic ~ Compose ADVal AstDynamic
      , ranked ~ Tannen ADVal AstRanked
-     , primal ~ AstRanked
-     , dual ~ Product (Clown ADShare)
-                      (DeltaR AstRanked)
-     , InterpretAstA ranked primal r, KnownNat n
+     , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value astvals, Underlying astvals ~ r )
   => AstEnv dynamic ranked r
@@ -136,13 +122,12 @@ revDtInterpret envInit valsInit f = \varInputs domains
   let ast = f $ parseDomains valsInit domains
       env1 = foldr (extendEnvD @dynamic @ranked @r) envInit
              $ zip vars1 $ V.toList varInputs
-  in snd $ interpretAst @dynamic @ranked @primal @dual env1 emptyMemo ast
+  in snd $ interpretAst @dynamic @ranked env1 emptyMemo ast
 
 rev
-  :: forall r n vals astvals ranked primal.
+  :: forall r n vals astvals ranked.
      ( ranked ~ Tannen ADVal AstRanked
-     , primal ~ AstRanked
-     , InterpretAstA ranked primal r, KnownNat n
+     , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> vals -> vals
@@ -150,10 +135,9 @@ rev f vals = head $ revL f [vals]
 
 -- This version additionally takes the sensitivity parameter.
 revDt
-  :: forall r n vals astvals ranked primal.
+  :: forall r n vals astvals ranked.
      ( ranked ~ Tannen ADVal AstRanked
-     , primal ~ AstRanked
-     , InterpretAstA ranked primal r, KnownNat n
+     , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> vals -> Flip OR.Array r n -> vals
@@ -207,7 +191,7 @@ revAstOnDomains
   :: forall r n dynamic ranked.
      ( dynamic ~ OD.Array
      , ranked ~ Flip OR.Array
-     , InterpretAstA ranked ranked r, KnownNat n )
+     , InterpretAstA ranked r, KnownNat n )
   => (Domains (Compose ADVal AstDynamic) r -> Tannen ADVal AstRanked r n)
   -> Domains dynamic r -> Maybe (ranked r n)
   -> (Domains dynamic r, ranked r n)
@@ -261,7 +245,7 @@ revAstOnDomainsEval
   :: forall r n dynamic ranked.
      ( dynamic ~ OD.Array
      , ranked ~ Flip OR.Array
-     , InterpretAstA ranked ranked r, KnownNat n )
+     , InterpretAstA ranked r, KnownNat n )
   => ADAstArtifact6 n r -> Domains dynamic r -> Maybe (ranked r n)
   -> (Domains dynamic r, ranked r n)
 {-# INLINE revAstOnDomainsEval #-}
@@ -272,10 +256,9 @@ revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
         Nothing -> treplicate0N (tshape primal) 1
       envDt = extendEnvR varDt dtValue env1
       (memo1, gradientDomain) =
-        interpretAstDomainsDummy @dynamic @ranked @ranked @DummyDual
-                                 envDt emptyMemo gradient
+        interpretAstDomainsDummy @dynamic @ranked envDt emptyMemo gradient
       primalTensor =
-        snd $ interpretAst @dynamic @ranked @ranked @DummyDual env1 memo1 primal
+        snd $ interpretAst @dynamic @ranked env1 memo1 primal
   in (gradientDomain, primalTensor)
 
 -- The old versions that use the fixed input and dt to compute gradient

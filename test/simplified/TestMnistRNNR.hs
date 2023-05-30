@@ -148,7 +148,7 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
 mnistTestCaseRNNI
   :: forall r.
      ( ADReady (Flip OR.Array) r, Random r
-     , InterpretAstA (Tannen ADVal (Flip OR.Array)) (Flip OR.Array) r
+     , InterpretAstA (Tannen ADVal (Flip OR.Array)) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -260,7 +260,7 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
 mnistTestCaseRNNO
   :: forall r.
      ( ADReady (Flip OR.Array) r, Random r
-     , InterpretAstA (Flip OR.Array) (Flip OR.Array) r
+     , InterpretAstA (Flip OR.Array) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r

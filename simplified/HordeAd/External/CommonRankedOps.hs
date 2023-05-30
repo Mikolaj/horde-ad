@@ -16,11 +16,11 @@ import GHC.TypeLits (KnownNat)
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
-scale :: forall ranked primal dual r n.
-         ( Allowed ranked r, Tensor ranked, PrimalDualTensor ranked primal dual
+scale :: forall ranked r n.
+         ( Allowed ranked r, Tensor ranked, PrimalDualTensor ranked
          , KnownNat n, GoodScalar r )
-      => primal r n -> ranked r n -> ranked r n
-scale a d = tconstant @ranked @primal @dual a `tmult` d
+      => PrimalOf ranked r n -> ranked r n -> ranked r n
+scale a d = tconstant @ranked a `tmult` d
 -- This should be faster, but is slower even before `tmult` is optimized
 -- for the scaling case. This may be caused by the lets repeated
 -- both in primal part and the D constructor.
@@ -38,34 +38,34 @@ reluLeaky v =
   in oneIfGtZero * v
 
 -- TODO: verify how faster a dedicated Tensor method would be
-logistic :: forall ranked primal dual r n.
-            ( Tensor ranked, PrimalDualTensor ranked primal dual
-            , Tensor primal, KnownNat n, GoodScalar r
-            , Floating (primal r n), Allowed ranked r, Num (primal r 0) )
+logistic :: forall ranked r n.
+            ( Tensor ranked, PrimalDualTensor ranked
+            , Tensor (PrimalOf ranked), KnownNat n, GoodScalar r
+            , Floating (PrimalOf ranked r n), Allowed ranked r, Num (PrimalOf ranked r 0) )
          => ranked r n -> ranked r n
 logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
   let sh = tshape d
-      y0 = recip (treplicate0N sh 1 + exp (- tprimalPart @ranked @primal @dual d))
-  in tlet (tconstant @ranked @primal @dual y0)  -- we don't have tletPrimal
-     $ \y1 -> let y = tprimalPart @ranked @primal @dual y1
-              in tD y (tScale @ranked @primal @dual (y * (treplicate0N sh 1 - y)) $ tdualPart @ranked @primal @dual d)
+      y0 = recip (treplicate0N sh 1 + exp (- tprimalPart @ranked d))
+  in tlet (tconstant @ranked y0)  -- we don't have tletPrimal
+     $ \y1 -> let y = tprimalPart @ranked y1
+              in tD y (tScale @ranked (y * (treplicate0N sh 1 - y)) $ tdualPart @ranked d)
 
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
-square :: forall ranked primal dual r n.
-          ( PrimalDualTensor ranked primal dual, Allowed ranked r
-          , KnownNat n, Num (primal r n), GoodScalar r )
+square :: forall ranked r n.
+          ( PrimalDualTensor ranked, Allowed ranked r
+          , KnownNat n, Num (PrimalOf ranked r n), GoodScalar r )
        => ranked r n -> ranked r n
-square d = let u = tprimalPart @ranked @primal @dual d
-               u' = tdualPart @ranked @primal @dual d
-           in tD (u * u) (tScale @ranked @primal @dual (2 * u) u')
+square d = let u = tprimalPart @ranked d
+               u' = tdualPart @ranked d
+           in tD (u * u) (tScale @ranked (2 * u) u')
 
 squaredDifference
-  :: forall ranked primal dual n r.
-     ( Tensor ranked, PrimalDualTensor ranked primal dual, KnownNat n
-     , Num (primal r n), GoodScalar r, Allowed ranked r )
-  => primal r n -> ranked r n -> ranked r n
-squaredDifference targ res = square @ranked @primal @dual $ res - tconstant @ranked @primal @dual targ
+  :: forall ranked n r.
+     ( Tensor ranked, PrimalDualTensor ranked, KnownNat n
+     , Num (PrimalOf ranked r n), GoodScalar r, Allowed ranked r )
+  => PrimalOf ranked r n -> ranked r n -> ranked r n
+squaredDifference targ res = square @ranked $ res - tconstant @ranked targ
 
 lossCrossEntropyV :: (Tensor ranked, KnownNat n, GoodScalar r)
                   => ranked r n
@@ -77,27 +77,27 @@ lossCrossEntropyV targ res = negate $ log res `tdot0` targ
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
-  :: forall ranked primal dual n r.
-     ( Tensor ranked, PrimalDualTensor ranked primal dual, Tensor primal
+  :: forall ranked n r.
+     ( Tensor ranked, PrimalDualTensor ranked, Tensor (PrimalOf ranked)
      , KnownNat n, Allowed ranked r, GoodScalar r )
-  => primal r n -> ranked r n -> ranked r 0
+  => PrimalOf ranked r n -> ranked r n -> ranked r 0
 lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by the QuickCheck test in TestMnistCNN.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
   let softMaxU' =
-        let u = tprimalPart @ranked @primal @dual d
+        let u = tprimalPart @ranked d
             expU' = exp (u - treplicate0N (tshape u) (tminimum u))
         in tlet expU' $ \expU ->
           let sumExpU = tsum0 expU
               recipSum = recip sumExpU
           in tscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
-  in tlet (tconstant @ranked @primal @dual softMaxU')  $ \softMaxU ->
-    tD (negate $ log (tprimalPart @ranked @primal @dual softMaxU) `tdot0` target)
+  in tlet (tconstant @ranked softMaxU')  $ \softMaxU ->
+    tD (negate $ log (tprimalPart @ranked softMaxU) `tdot0` target)
          -- TODO: avoid: log . exp
-       (tdualPart @ranked @primal @dual $ (softMaxU - tconstant @ranked @primal @dual target) `tdot0` d)
+       (tdualPart @ranked $ (softMaxU - tconstant @ranked target) `tdot0` d)
          -- TODO: probably defining tDot0 would lead to a faster
          -- tDot0 (softMaxU - target) u'
 

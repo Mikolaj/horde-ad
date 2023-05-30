@@ -116,26 +116,26 @@ class (forall y. KnownNat y => c (ranked r y))
 instance (forall y. KnownNat y => c (ranked r y))
          => CRanked ranked r c where
 
-type InterpretAstF dynamic ranked primal dual =
-  ( Tensor ranked, PrimalDualTensor ranked primal dual
-  , ConvertTensor dynamic ranked, Tensor primal )
+type InterpretAstF dynamic ranked =
+  ( Tensor ranked, PrimalDualTensor ranked
+  , ConvertTensor dynamic ranked, Tensor (PrimalOf ranked) )
 
-type InterpretAstA ranked primal a =
-  ( GoodScalar a, Integral (IntOf (primal a 0)), Allowed ranked a
+type InterpretAstA ranked a =
+  ( GoodScalar a, Integral (IntOf (PrimalOf ranked a 0)), Allowed ranked a
   , ShowAstSimplify a, Underlying a ~ a
   , EqB (IntOf (ranked a 0)), OrdB (IntOf (ranked a 0)), IfB (IntOf (ranked a 0))
-  , IntOf (primal a 0) ~ IntOf (ranked a 0)
+  , IntOf (PrimalOf ranked a 0) ~ IntOf (ranked a 0)
   , BooleanOf (ranked a 0) ~ BooleanOf (IntOf (ranked a 0))
   , BooleanOf (IntOf (ranked a 0)) ~ BooleanOf (ranked a 0)
-  , CRanked primal a EqB
-  , CRanked primal a OrdB
+  , CRanked (PrimalOf ranked) a EqB
+  , CRanked (PrimalOf ranked) a OrdB
   , CRanked ranked a RealFloat
-  , CRanked primal a (BooleanOfMatches (BooleanOf (ranked a 0)))
-  , CRanked ranked a (BooleanOfMatches (BooleanOf (primal a 0)))
+  , CRanked (PrimalOf ranked) a (BooleanOfMatches (BooleanOf (ranked a 0)))
+  , CRanked ranked a (BooleanOfMatches (BooleanOf (PrimalOf ranked a 0)))
   )
 
-type InterpretAst dynamic ranked primal dual a =
-  (InterpretAstF dynamic ranked primal dual, InterpretAstA ranked primal a)
+type InterpretAst dynamic ranked a =
+  (InterpretAstF dynamic ranked, InterpretAstA ranked a)
 
 type AstMemo a = ()  -- unused for now, but likely to be used in the future,
                      -- though probably not for memoization
@@ -151,26 +151,26 @@ emptyMemo = ()
 -- It helps that usually the dual part is either trivially computed
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
-  :: forall dynamic ranked primal dual n a.
-     (KnownNat n, InterpretAst dynamic ranked primal dual a)
+  :: forall dynamic ranked n a.
+     (KnownNat n, InterpretAst dynamic ranked a)
   => AstEnv dynamic ranked a -> AstMemo a
-  -> AstPrimalPart a n -> (AstMemo a, primal a n)
+  -> AstPrimalPart a n -> (AstMemo a, PrimalOf ranked a n)
 interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
   AstD u _-> interpretAstPrimal env memo u
   _ -> second (tprimalPart) $ interpretAst env memo v1
 
 interpretAstDual
-  :: forall dynamic ranked primal dual n a.
-     (KnownNat n, InterpretAst dynamic ranked primal dual a)
+  :: forall dynamic ranked n a.
+     (KnownNat n, InterpretAst dynamic ranked a)
   => AstEnv dynamic ranked a -> AstMemo a
-  -> AstDualPart a n -> (AstMemo a, dual a n)
+  -> AstDualPart a n -> (AstMemo a, DualOf ranked a n)
 interpretAstDual env memo (AstDualPart v1) = case v1 of
   AstD _ u'-> interpretAstDual env memo u'
   _ -> second (tdualPart) $ interpretAst env memo v1
 
 interpretAst
-  :: forall dynamic ranked primal dual n a.
-     (KnownNat n, InterpretAst dynamic ranked primal dual a)
+  :: forall dynamic ranked n a.
+     (KnownNat n, InterpretAst dynamic ranked a)
   => AstEnv dynamic ranked a -> AstMemo a
   -> Ast n a -> (AstMemo a, ranked a n)
 interpretAst env memo = \case
@@ -456,16 +456,16 @@ interpretAst env memo = \case
     in interpretAst env2 memo2 v
 
 interpretAstDynamic
-  :: forall dynamic ranked primal dual a.
-     InterpretAst dynamic ranked primal dual a
+  :: forall dynamic ranked a.
+     InterpretAst dynamic ranked a
   => AstEnv dynamic ranked a -> AstMemo a
   -> AstDynamic a -> (AstMemo a, dynamic a)
 interpretAstDynamic env memo = \case
   AstDynamic w -> second dfromR $ interpretAst env memo w
 
 interpretAstDomains
-  :: forall dynamic ranked primal dual a.
-     InterpretAst dynamic ranked primal dual a
+  :: forall dynamic ranked a.
+     InterpretAst dynamic ranked a
   => AstEnv dynamic ranked a -> AstMemo a
   -> AstDomains a -> (AstMemo a, Domains dynamic a)
 interpretAstDomains env memo = \case
@@ -476,10 +476,10 @@ interpretAstDomains env memo = \case
     in interpretAstDomains env2 memo2 v
       -- TODO: preserve let, as in AstLet case
 
-interpretAstInt :: forall dynamic ranked primal dual a.
-                   InterpretAst dynamic ranked primal dual a
+interpretAstInt :: forall dynamic ranked a.
+                   InterpretAst dynamic ranked a
                 => AstEnv dynamic ranked a -> AstMemo a
-                -> AstInt a -> (AstMemo a, IntOf (primal a 0))
+                -> AstInt a -> (AstMemo a, IntOf (PrimalOf ranked a 0))
 interpretAstInt env memo = \case
   AstIntVar var -> case EM.lookup var env of
     Just AstVarR{} ->
@@ -499,8 +499,8 @@ interpretAstInt env memo = \case
   AstMinIndex1 v -> second tminIndex0 $ interpretAstPrimal env memo v
   AstMaxIndex1 v -> second tmaxIndex0 $ interpretAstPrimal env memo v
 
-interpretAstBool :: forall dynamic ranked primal dual a.
-                    InterpretAst dynamic ranked primal dual a
+interpretAstBool :: forall dynamic ranked a.
+                    InterpretAst dynamic ranked a
                  => AstEnv dynamic ranked a -> AstMemo a
                  -> AstBool a -> (AstMemo a, BooleanOf (ranked a 0))
 interpretAstBool env memo = \case
@@ -516,8 +516,8 @@ interpretAstBool env memo = \case
     in (memo2, interpretAstRelOp opCodeRel args2)
 
 interpretAstDynamicDummy
-  :: forall dynamic ranked primal dual a.
-     InterpretAst dynamic ranked primal dual a
+  :: forall dynamic ranked a.
+     InterpretAst dynamic ranked a
   => AstEnv dynamic ranked a -> AstMemo a
   -> AstDynamic a -> (AstMemo a, dynamic a)
 interpretAstDynamicDummy env memo = \case
@@ -525,8 +525,8 @@ interpretAstDynamicDummy env memo = \case
   AstDynamic w -> second dfromR $ interpretAst env memo w
 
 interpretAstDomainsDummy
-  :: forall dynamic ranked primal dual a.
-     InterpretAst dynamic ranked primal dual a
+  :: forall dynamic ranked a.
+     InterpretAst dynamic ranked a
   => AstEnv dynamic ranked a -> AstMemo a
   -> AstDomains a -> (AstMemo a, Domains dynamic a)
 interpretAstDomainsDummy env memo = \case

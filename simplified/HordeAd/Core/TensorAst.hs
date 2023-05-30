@@ -29,6 +29,10 @@ import HordeAd.Core.TensorClass
 
 type instance IntOf (AstRanked r n) = AstInt r
 
+type instance PrimalOf AstRanked = AstPrimalPart
+
+type instance DualOf AstRanked = AstDualPart
+
 instance Tensor AstRanked where
   tlet a f = astLetFun a f
 
@@ -65,7 +69,7 @@ instance Tensor AstRanked where
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
 
-instance PrimalDualTensor AstRanked AstPrimalPart AstDualPart where
+instance PrimalDualTensor AstRanked where
   type Allowed AstRanked r = ()
   tconstant = astConstant
   tprimalPart = AstPrimalPart
@@ -187,6 +191,10 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 type instance IntOf (AstPrimalPart r n) = AstInt r
 
+type instance PrimalOf AstPrimalPart = AstPrimalPart
+
+type instance DualOf AstPrimalPart = DummyDual
+
 instance Tensor AstPrimalPart where
   tlet a f =
     AstPrimalPart
@@ -221,7 +229,7 @@ instance Tensor AstPrimalPart where
   tsumOfList l = AstPrimalPart . AstSumOfList . map unAstPrimalPart $ l
   tconst = AstPrimalPart . AstConst
 
-instance PrimalDualTensor AstPrimalPart AstPrimalPart DummyDual where
+instance PrimalDualTensor AstPrimalPart where
   type Allowed AstPrimalPart r = ()
   tconstant = id
   tprimalPart = id
@@ -230,6 +238,10 @@ instance PrimalDualTensor AstPrimalPart AstPrimalPart DummyDual where
   tScale _ _ = DummyDual
 
 type instance IntOf (AstNoVectorize r n) = AstInt r
+
+type instance PrimalOf AstNoVectorize = AstNoVectorize
+
+type instance DualOf AstNoVectorize = AstDualPart
 
 instance Tensor AstNoVectorize where
   tlet a f =
@@ -268,7 +280,7 @@ instance Tensor AstNoVectorize where
   tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
   tconstBare = AstNoVectorize . AstConst
 
-instance PrimalDualTensor AstNoVectorize AstNoVectorize AstDualPart where
+instance PrimalDualTensor AstNoVectorize where
   type Allowed AstNoVectorize r = ()
   tconstant = AstNoVectorize . astConstant . AstPrimalPart . unAstNoVectorize
   tprimalPart = id
@@ -277,6 +289,10 @@ instance PrimalDualTensor AstNoVectorize AstNoVectorize AstDualPart where
   tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
 type instance IntOf (AstNoSimplify r n) = AstInt r
+
+type instance PrimalOf AstNoSimplify = AstNoSimplify
+
+type instance DualOf AstNoSimplify = AstDualPart
 
 instance Tensor AstNoSimplify where
   tlet a f =
@@ -313,7 +329,7 @@ instance Tensor AstNoSimplify where
   tconst = AstNoSimplify . AstConstant . AstPrimalPart . AstConst
   tconstBare = AstNoSimplify . AstConst
 
-instance PrimalDualTensor AstNoSimplify AstNoSimplify AstDualPart where
+instance PrimalDualTensor AstNoSimplify where
   type Allowed AstNoSimplify r = ()
   tconstant = AstNoSimplify . astConstant . AstPrimalPart . unAstNoSimplify
     -- exceptionally we do simplify AstConstant to avoid long boring chains
