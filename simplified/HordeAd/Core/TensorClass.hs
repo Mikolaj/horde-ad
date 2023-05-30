@@ -84,12 +84,12 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   tlet a f = f a
 
   -- Integer codomain
-  tshape :: (KnownNat n, GoodScalar r) => ranked r n -> ShapeInt n
-  trank :: forall r n. (KnownNat n, GoodScalar r) => ranked r n -> Int
+  tshape :: (GoodScalar r, KnownNat n) => ranked r n -> ShapeInt n
+  trank :: forall r n. (GoodScalar r, KnownNat n) => ranked r n -> Int
   trank _ = valueOf @n
-  tsize :: (KnownNat n, GoodScalar r) => ranked r n -> Int
+  tsize :: (GoodScalar r, KnownNat n) => ranked r n -> Int
   tsize = sizeShape . tshape
-  tlength :: (KnownNat n, GoodScalar r) => ranked r (1 + n) -> Int
+  tlength :: (GoodScalar r, KnownNat n) => ranked r (1 + n) -> Int
   tlength v = case tshape v of
     ZS -> error "tlength: impossible pattern needlessly required"
     k :$ _ -> k
@@ -98,21 +98,21 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
             => ranked r n -> IndexOf ranked r n
   tminIndex t = fromLinearIdx (tshape t) (tminIndex0 (tflatten t))
   tmaxIndex0 :: GoodScalar r => ranked r 1 -> IntOf ranked r  -- partial
-  tmaxIndex :: (KnownNat n, GoodScalar r, Integral (IntOf ranked r))
+  tmaxIndex :: (GoodScalar r, KnownNat n, Integral (IntOf ranked r))
             => ranked r n -> IndexOf ranked r n
   tmaxIndex t = fromLinearIdx (tshape t) (tmaxIndex0 (tflatten t))
   tfloor :: (GoodScalar r, RealFrac r) => ranked r 0 -> IntOf ranked r
 
   -- Typically scalar codomain, often tensor reduction
   -- (a number suffix in the name indicates the rank of codomain)
-  tindex, (!) :: (KnownNat m, KnownNat n, GoodScalar r)
+  tindex, (!) :: (GoodScalar r, KnownNat m, KnownNat n)
               => ranked r (m + n) -> IndexOf ranked r m -> ranked r n
   infixl 9 !
   (!) = tindex  -- prefix form better when type applications are necessary
-  tsum :: (KnownNat n, GoodScalar r) => ranked r (1 + n) -> ranked r n
-  tsum0 :: (KnownNat n, GoodScalar r) => ranked r n -> ranked r 0
+  tsum :: (GoodScalar r, KnownNat n) => ranked r (1 + n) -> ranked r n
+  tsum0 :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r 0
   tsum0 = tsum . tflatten
-  tdot0 :: (KnownNat n, GoodScalar r) => ranked r n -> ranked r n -> ranked r 0
+  tdot0 :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r n -> ranked r 0
   tdot0 t u = tsum (tflatten (t `tmult` u))
   tmatvecmul :: GoodScalar r => ranked r 2 -> ranked r 1 -> ranked r 1
 -- How to generalize (#69)? The few straightforward generalizations
@@ -129,67 +129,67 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
     _ :$ width2 :$ ZS -> tsum (ttranspose [2,1,0] (treplicate width2 m1)
                                * ttranspose [1,0] (treplicate (tlength m1) m2))
     _ -> error "impossible pattern needlessly required"
-  tminimum :: (KnownNat n, GoodScalar r, Integral (IntOf ranked r))
+  tminimum :: (GoodScalar r, KnownNat n, Integral (IntOf ranked r))
            => ranked r n -> ranked r 0
   tminimum t = t ! tminIndex t
-  tmaximum :: (KnownNat n, GoodScalar r, Integral (IntOf ranked r))
+  tmaximum :: (GoodScalar r, KnownNat n, Integral (IntOf ranked r))
            => ranked r n -> ranked r 0
   tmaximum t = t ! tmaxIndex t
   tfromIndex0 :: GoodScalar r => IntOf ranked r -> ranked r 0
   tfromIndex1 :: GoodScalar r => IndexOf ranked r n -> ranked r 1
   tfromIndex1 = tfromList . map tfromIndex0 . indexToList
-  tscatter :: (KnownNat m, KnownNat n, GoodScalar r, KnownNat p)
+  tscatter :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
            => ShapeInt (p + n) -> ranked r (m + n)
            -> (IndexOf ranked r m -> IndexOf ranked r p)
            -> ranked r (p + n)
-  tscatter1 :: (KnownNat n, GoodScalar r, KnownNat p)
+  tscatter1 :: forall r n p. (GoodScalar r, KnownNat n, KnownNat p)
             => ShapeInt (p + n) -> ranked r (1 + n)
             -> (IntOf ranked r -> IndexOf ranked r p)
             -> ranked r (p + n)
-  tscatter1 sh v f = tscatter @ranked @1 sh v
+  tscatter1 sh v f = tscatter @ranked @r @1 sh v
                               (\(i :. ZI) -> f i)
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
   -- by one rank, and is omitted if a more general variant is not defined)
-  tfromList :: (KnownNat n, GoodScalar r)
+  tfromList :: (GoodScalar r, KnownNat n)
             => [ranked r n] -> ranked r (1 + n)
-  tfromList0N :: (KnownNat n, GoodScalar r)
+  tfromList0N :: (GoodScalar r, KnownNat n)
               => ShapeInt n -> [ranked r 0] -> ranked r n
   tfromList0N sh = treshape sh . tfromList
-  tfromVector :: (KnownNat n, GoodScalar r)
+  tfromVector :: (GoodScalar r, KnownNat n)
               => Data.Vector.Vector (ranked r n) -> ranked r (1 + n)
   tfromVector v = tfromList (V.toList v)  -- horribly inefficient for large vs
-  tfromVector0N :: (KnownNat n, GoodScalar r)
+  tfromVector0N :: (GoodScalar r, KnownNat n)
                 => ShapeInt n -> Data.Vector.Vector (ranked r 0) -> ranked r n
   tfromVector0N sh = treshape sh . tfromVector
-  treplicate :: (KnownNat n, GoodScalar r)
+  treplicate :: (GoodScalar r, KnownNat n)
              => Int -> ranked r n -> ranked r (1 + n)
-  treplicate0N :: (KnownNat n, GoodScalar r)
+  treplicate0N :: (GoodScalar r, KnownNat n)
                => ShapeInt n -> ranked r 0 -> ranked r n
   treplicate0N sh = treshape sh . treplicate (sizeShape sh)
-  tappend :: (KnownNat n, GoodScalar r)
+  tappend :: (GoodScalar r, KnownNat n)
           => ranked r (1 + n) -> ranked r (1 + n) -> ranked r (1 + n)
-  tconcat :: (KnownNat n, GoodScalar r)
+  tconcat :: (GoodScalar r, KnownNat n)
           => [ranked r (1 + n)] -> ranked r (1 + n)
   tconcat = foldr1 tappend
-  tslice :: (KnownNat n, GoodScalar r)
+  tslice :: (GoodScalar r, KnownNat n)
          => Int -> Int -> ranked r (1 + n) -> ranked r (1 + n)
-  tuncons :: (KnownNat n, GoodScalar r)
+  tuncons :: (GoodScalar r, KnownNat n)
           => ranked r (1 + n) -> Maybe (ranked r n, ranked r (1 + n))
   tuncons v = case tshape v of
                 ZS -> Nothing
                 len :$ _ -> Just (v ! [0], tslice 1 (len - 1) v)
-  treverse :: (KnownNat n, GoodScalar r) => ranked r (1 + n) -> ranked r (1 + n)
-  ttr :: (KnownNat n, GoodScalar r) => ranked r (2 + n) -> ranked r (2 + n)
+  treverse :: (GoodScalar r, KnownNat n) => ranked r (1 + n) -> ranked r (1 + n)
+  ttr :: (GoodScalar r, KnownNat n) => ranked r (2 + n) -> ranked r (2 + n)
   ttr = ttranspose [1, 0]
-  ttranspose :: (KnownNat n, GoodScalar r)
+  ttranspose :: (GoodScalar r, KnownNat n)
              => Permutation -> ranked r n -> ranked r n
-  tflatten :: (KnownNat n, GoodScalar r) => ranked r n -> ranked r 1
+  tflatten :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r 1
   tflatten u = treshape (flattenShape $ tshape u) u
-  treshape :: (KnownNat n, GoodScalar r, KnownNat m)
+  treshape :: (GoodScalar r, KnownNat n, KnownNat m)
            => ShapeInt m -> ranked r n -> ranked r m
-  tbuild :: forall r m n. (KnownNat m, KnownNat n, GoodScalar r)
+  tbuild :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
          => ShapeInt (m + n) -> (IndexOf ranked r m -> ranked r n)
          -> ranked r (m + n)
   tbuild sh0 f0 =
@@ -199,72 +199,72 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
         buildSh ZS f = f ZI
         buildSh (k :$ sh) f = tbuild1 k (\i -> buildSh sh (\ix -> f (i :. ix)))
     in buildSh (takeShape @m @n sh0) f0
-  tbuild1 :: (KnownNat n, GoodScalar r)  -- this form needs less typeapps
+  tbuild1 :: (GoodScalar r, KnownNat n)  -- this form needs less typeapps
           => Int -> (IntOf ranked r -> ranked r n) -> ranked r (1 + n)
-  tmap :: (KnownNat m, KnownNat n, GoodScalar r)
+  tmap :: (GoodScalar r, KnownNat m, KnownNat n)
        => (ranked r n -> ranked r n)
        -> ranked r (m + n) -> ranked r (m + n)
   tmap f v = tbuild (tshape v) (\ix -> f (v ! ix))
-  tmap1 :: (KnownNat n, GoodScalar r)
+  tmap1 :: (GoodScalar r, KnownNat n)
         => (ranked r n -> ranked r n)
         -> ranked r (1 + n) -> ranked r (1 + n)
   tmap1 f u = tbuild1 (tlength u) (\i -> f (u ! [i]))
-  tmap0N :: (KnownNat n, GoodScalar r)
+  tmap0N :: (GoodScalar r, KnownNat n)
          => (ranked r 0 -> ranked r 0) -> ranked r n -> ranked r n
   tmap0N f v = tbuild (tshape v) (\ix -> f $ v ! ix)
-  tzipWith :: (KnownNat m, KnownNat n, GoodScalar r)
+  tzipWith :: (GoodScalar r, KnownNat m, KnownNat n)
            => (ranked r n -> ranked r n -> ranked r n)
            -> ranked r (m + n) -> ranked r (m + n) -> ranked r (m + n)
   tzipWith f u v = tbuild (tshape v) (\ix -> f (u ! ix) (v ! ix))
-  tzipWith1 :: (KnownNat n, GoodScalar r)
+  tzipWith1 :: (GoodScalar r, KnownNat n)
             => (ranked r n -> ranked r n -> ranked r n)
             -> ranked r (1 + n) -> ranked r (1 + n) -> ranked r (1 + n)
   tzipWith1 f u v = tbuild1 (tlength u) (\i -> f (u ! [i]) (v ! [i]))
-  tzipWith0N :: (KnownNat n, GoodScalar r)
+  tzipWith0N :: (GoodScalar r, KnownNat n)
              => (ranked r 0 -> ranked r 0 -> ranked r 0)
              -> ranked r n -> ranked r n -> ranked r n
   tzipWith0N f u v = tbuild (tshape v) (\ix -> f (u ! ix) (v ! ix))
-  tgather :: (KnownNat m, KnownNat n, GoodScalar r, KnownNat p)
+  tgather :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
           => ShapeInt (m + n) -> ranked r (p + n)
           -> (IndexOf ranked r m -> IndexOf ranked r p)
           -> ranked r (m + n)
-  tgather1 :: (KnownNat n, GoodScalar r, KnownNat p)
+  tgather1 :: forall r n p. (GoodScalar r, KnownNat n, KnownNat p)
            => Int -> ranked r (p + n)
            -> (IntOf ranked r -> IndexOf ranked r p)
            -> ranked r (1 + n)
-  tgather1 k v f = tgather @ranked @1 (k :$ dropShape (tshape v)) v
+  tgather1 k v f = tgather @ranked @r @1 (k :$ dropShape (tshape v)) v
                            (\(i :. ZI) -> f i)
 
   -- ** No serviceable parts beyond this point ** --
 
   -- Needed to avoid Num (ranked r n) constraints all over the place
   -- and also wrong shape in @0@ with ranked (not shaped) tensors.
-  tzero :: (KnownNat n, GoodScalar r, Num (ranked r 0))
+  tzero :: (GoodScalar r, KnownNat n, Num (ranked r 0))
         => ShapeInt n -> ranked r n
   tzero sh = treplicate0N sh 0
-  tsumOfList :: (KnownNat n, GoodScalar r)
+  tsumOfList :: (GoodScalar r, KnownNat n)
              => [ranked r n] -> ranked r n  -- TODO: declare nonempty
   default tsumOfList
     :: Num (ranked r n)
     => [ranked r n] -> ranked r n
   tsumOfList = sum
-  tmult :: (KnownNat n, GoodScalar r)
+  tmult :: (GoodScalar r, KnownNat n)
         => ranked r n -> ranked r n -> ranked r n
   default tmult
     :: Num (ranked r n)
     => ranked r n -> ranked r n -> ranked r n
   tmult = (*)
-  tscaleByScalar :: (KnownNat n, GoodScalar r)
+  tscaleByScalar :: (GoodScalar r, KnownNat n)
                  => ranked r 0 -> ranked r n -> ranked r n
   tscaleByScalar s v = v `tmult` treplicate0N (tshape v) s
-  tsumIn :: (KnownNat n, GoodScalar r) => ranked r (1 + n) -> ranked r n
+  tsumIn :: (GoodScalar r, KnownNat n) => ranked r (1 + n) -> ranked r n
   tsumIn = tsum . ttranspose [1, 0]
     -- TODO: generalize, replace by stride analysis, etc.
   tdot1In :: GoodScalar r => ranked r 2 -> ranked r 2 -> ranked r 1
   tdot1In t u = tsum (ttranspose [1, 0] (t `tmult` u))
     -- TODO: generalize, replace by stride analysis, etc.
-  tconst :: (KnownNat n, GoodScalar r) => OR.Array n r -> ranked r n
-  tconstBare :: (KnownNat n, GoodScalar r) => OR.Array n r -> ranked r n
+  tconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
+  tconstBare :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
   tconstBare = tconst
   tletWrap :: ADShare r -> ranked r n -> ranked r n
   tletWrap _l u = u
@@ -274,13 +274,13 @@ class PrimalDualTensor (ranked :: Type -> Nat -> Type)
                        (dual :: Type -> Nat -> Type)
                        | ranked -> primal dual, primal dual -> ranked where
   type Allowed ranked r :: Constraint
-  tconstant :: (Allowed ranked r, KnownNat n, GoodScalar r) => primal r n -> ranked r n
-  tprimalPart :: (Allowed ranked r, KnownNat n, GoodScalar r)
+  tconstant :: (GoodScalar r, Allowed ranked r, KnownNat n) => primal r n -> ranked r n
+  tprimalPart :: (GoodScalar r, Allowed ranked r, KnownNat n)
               => ranked r n -> primal r n
-  tdualPart :: (Allowed ranked r, KnownNat n, GoodScalar r)
+  tdualPart :: (GoodScalar r, Allowed ranked r, KnownNat n)
             => ranked r n -> dual r n
-  tD :: (Allowed ranked r, KnownNat n, GoodScalar r) => primal r n -> dual r n -> ranked r n
-  tScale :: (Allowed ranked r, KnownNat n, GoodScalar r) => primal r n -> dual r n -> dual r n
+  tD :: (GoodScalar r, Allowed ranked r, KnownNat n) => primal r n -> dual r n -> ranked r n
+  tScale :: (GoodScalar r, Allowed ranked r, KnownNat n) => primal r n -> dual r n -> dual r n
   -- TODO: we'd probably also need dZero, dIndex0 and all others;
   -- basically DualOf a needs to have IsPrimal and HasRanks instances
   -- (and HasInputs?)
@@ -304,11 +304,11 @@ class CDynamicRanked dynamic ranked UnderlyingMatches
                        (ranked :: Type -> Nat -> Type)
                     {- (shaped :: Type -> [Nat] -> Type) -}
                        | ranked -> dynamic, dynamic -> ranked where
-  tfromD :: (KnownNat n, GoodScalar r)
+  tfromD :: (GoodScalar r, KnownNat n)
          => dynamic r -> ranked r n
 --  tfromS :: (KnownNat n, GoodScalar r, OS.Shape sh, OS.Rank sh ~ n)
 --         => shaped r sh -> ranked r n
-  dfromR :: (KnownNat n, GoodScalar r)
+  dfromR :: (GoodScalar r, KnownNat n)
          => ranked r n -> dynamic r
 --  dfromS :: OS.Shape sh
 --         => shaped r sh -> dynamic r
@@ -318,11 +318,11 @@ class CDynamicRanked dynamic ranked UnderlyingMatches
 --         => dynamic r -> shaped r sh
   ddummy :: Numeric r => dynamic r
   disDummy :: Numeric r => dynamic r -> Bool
-  daddR :: forall n r. (KnownNat n, GoodScalar r)
+  daddR :: forall n r. (GoodScalar r, KnownNat n)
         => ranked r n -> dynamic r -> dynamic r
   dshape :: GoodScalar r => dynamic r -> [Int]
   -- Operations for delayed let bindings creation
-  tregister :: (KnownNat n, GoodScalar r)
+  tregister :: (GoodScalar r, KnownNat n)
             => ranked r n -> [(AstVarId, dynamic r)]
             -> ([(AstVarId, dynamic r)], ranked r n)
   tregister r l = (l, r)
@@ -333,7 +333,7 @@ class DomainsTensor (dynamic :: Type -> Type)
                     | ranked -> dynamic domainsOf
                     , dynamic -> ranked domainsOf
                     , domainsOf -> ranked dynamic where
-  tletDomains :: (KnownNat n, GoodScalar r)
+  tletDomains :: (GoodScalar r, KnownNat n)
               => domainsOf r
               -> (domainsOf r -> ranked r n)
               -> ranked r n
@@ -343,7 +343,7 @@ class DomainsTensor (dynamic :: Type -> Type)
     :: domainsOf ~ Compose Data.Vector.Vector dynamic
     => Domains dynamic r -> domainsOf r
   dmkDomains = Compose
-  dlet :: (KnownNat n, GoodScalar r)
+  dlet :: (GoodScalar r, KnownNat n)
        => ranked r n -> (ranked r n -> domainsOf r)
        -> domainsOf r
   dlet a f = f a
@@ -480,7 +480,7 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
     in (arr, g2)
 -}
 
-instance (KnownNat n, GoodScalar r)
+instance (GoodScalar r, KnownNat n)
          => AdaptableDomains OD.Array (Flip OR.Array r n) where
   type Underlying (Flip OR.Array r n) = r
   type Value (Flip OR.Array r n) = Flip OR.Array r n
@@ -519,11 +519,12 @@ instance AdaptableDomains OD.Array (OD.Array r) where
   toDomains = undefined
   fromDomains = undefined
 
-instance Numeric r
+instance (Numeric r, OS.Shape sh)
          => AdaptableDomains OD.Array (Flip OS.Array r sh) where
   type Underlying (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
-  toDomains = undefined  -- TODO: a = V.singleton (dfromS a)
+--  toDomains :: forall sh.
+  toDomains a = V.singleton (Data.Array.Convert.convert $ runFlip a)  -- TODO: (dfromS a)
   fromDomains = undefined
 
 instance OS.Shape sh

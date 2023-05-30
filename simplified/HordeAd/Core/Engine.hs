@@ -61,23 +61,21 @@ import HordeAd.Core.TensorClass
 -- These only work with non-scalar codomain. A fully general version
 -- is possible, but the user has to write many more type applications.
 revL
-  :: forall r n ranked primal vals astvals.
+  :: forall r n vals astvals ranked primal.
      ( ranked ~ Tannen ADVal AstRanked
      , primal ~ AstRanked
      , InterpretAstA ranked primal r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , AdaptableDomains AstDynamic vals
      , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> [vals] -> [vals]
 revL f valsAll = revDtMaybeL f valsAll Nothing
 
 revDtMaybeL
-  :: forall r n ranked primal vals astvals.
+  :: forall r n vals astvals ranked primal.
      ( ranked ~ Tannen ADVal AstRanked
      , primal ~ AstRanked
      , InterpretAstA ranked primal r, KnownNat n
-     , AdaptableDomains AstDynamic astvals, AdaptableDomains AstDynamic vals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> [vals] -> Maybe (Flip OR.Array r n) -> [vals]
 revDtMaybeL _ [] _ = []
@@ -88,11 +86,11 @@ revDtMaybeL f valsAll@(vals : _) dt =
   in map h valsAll
 
 revDtFun
-  :: forall r n ranked primal vals astvals.
+  :: forall r n vals astvals ranked primal.
      ( ranked ~ Tannen ADVal AstRanked
      , primal ~ AstRanked
      , InterpretAstA ranked primal r, KnownNat n
-     , AdaptableDomains AstDynamic astvals, AdaptableDomains AstDynamic vals
+     , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r  )
   => (astvals -> Ast n r) -> vals
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
@@ -102,7 +100,7 @@ revDtFun f vals =
   in revDtInit f vals EM.empty parameters0
 
 revDtInit
-  :: forall dynamic ranked primal r n vals astvals.
+  :: forall r n vals astvals dynamic ranked primal.
      ( dynamic ~ Compose ADVal AstDynamic
      , ranked ~ Tannen ADVal AstRanked
      , primal ~ AstRanked
@@ -110,15 +108,15 @@ revDtInit
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r)
   => (astvals -> Ast n r) -> vals -> AstEnv dynamic ranked r
-  -> Domains AstDynamic r
+  -> Domains OD.Array r
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revDtInit #-}
 revDtInit f vals envInit parameters0 =
-  let shapes1 = map (dshape @AstDynamic @AstRanked) $ V.toList parameters0
+  let shapes1 = map dshape $ V.toList parameters0
   in revAstOnDomainsFun shapes1 (revDtInterpret envInit vals f)
 
 revDtInterpret
-  :: forall dynamic ranked primal dual n r vals astvals.
+  :: forall n r vals astvals dynamic ranked primal dual.
      ( dynamic ~ Compose ADVal AstDynamic
      , ranked ~ Tannen ADVal AstRanked
      , primal ~ AstRanked
@@ -141,31 +139,29 @@ revDtInterpret envInit valsInit f = \varInputs domains
   in snd $ interpretAst @dynamic @ranked @primal @dual env1 emptyMemo ast
 
 rev
-  :: forall r n ranked primal vals astvals.
+  :: forall r n vals astvals ranked primal.
      ( ranked ~ Tannen ADVal AstRanked
      , primal ~ AstRanked
      , InterpretAstA ranked primal r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , AdaptableDomains AstDynamic vals
      , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> vals -> vals
 rev f vals = head $ revL f [vals]
 
 -- This version additionally takes the sensitivity parameter.
 revDt
-  :: forall r n ranked primal vals astvals.
+  :: forall r n vals astvals ranked primal.
      ( ranked ~ Tannen ADVal AstRanked
      , primal ~ AstRanked
      , InterpretAstA ranked primal r, KnownNat n
-     , AdaptableDomains AstDynamic astvals, AdaptableDomains AstDynamic vals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> vals -> Flip OR.Array r n -> vals
 revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 
 -- Old version of the three functions, with constant, fixed inputs and dt.
 crev
-  :: forall dynamic ranked n r vals advals.
+  :: forall n r vals advals dynamic ranked.
      ( dynamic ~ Compose ADVal OD.Array
      , ranked ~ Tannen ADVal (Flip OR.Array)
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
@@ -177,7 +173,7 @@ crev f vals = crevDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
 crevDt
-  :: forall dynamic ranked n r vals advals.
+  :: forall n r vals advals dynamic ranked.
      ( dynamic ~ Compose ADVal OD.Array
      , ranked ~ Tannen ADVal (Flip OR.Array)
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
@@ -188,7 +184,7 @@ crevDt
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
-  :: forall dynamic ranked n r vals advals.
+  :: forall n r vals advals dynamic ranked.
      ( dynamic ~ Compose ADVal OD.Array
      , ranked ~ Tannen ADVal (Flip OR.Array)
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
@@ -208,7 +204,7 @@ crevDtMaybe f vals dt =
 -- of the result is the objective function value, inefficiently
 -- computed, only for testing.
 revAstOnDomains
-  :: forall dynamic ranked r n.
+  :: forall r n dynamic ranked.
      ( dynamic ~ OD.Array
      , ranked ~ Flip OR.Array
      , InterpretAstA ranked ranked r, KnownNat n )
@@ -262,7 +258,7 @@ revAstOnDomainsFun shapes1 f =
      , deltaTopLevel )
 
 revAstOnDomainsEval
-  :: forall dynamic ranked r n.
+  :: forall r n dynamic ranked.
      ( dynamic ~ OD.Array
      , ranked ~ Flip OR.Array
      , InterpretAstA ranked ranked r, KnownNat n )
@@ -323,7 +319,7 @@ revOnDomains dt f parameters =
 
 -- This takes the sensitivity parameter, by convention.
 fwd
-  :: forall dynamic a r vals advals.
+  :: forall a r vals advals dynamic.
      ( dynamic ~ Compose ADVal OD.Array
      , ForwardDerivative OD.Array a r, GoodScalar r
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
@@ -350,7 +346,7 @@ slowFwdOnADInputs inputs f ds =
 
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
-  :: forall dynamic a r.
+  :: forall a r dynamic.
      ( dynamic ~ Compose ADVal OD.Array
      , ForwardDerivative OD.Array a r, GoodScalar r )
   => Domains OD.Array r

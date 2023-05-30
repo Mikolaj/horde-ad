@@ -21,7 +21,6 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
-import HordeAd.Core.Domains
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -244,7 +243,9 @@ testFooLetPP = do
     @?= "\\x y z -> let x7 = x * sin y in atan2 z x7 + z * x7"
 
 reluPrimal
-  :: forall ranked n r. (ADReady ranked r, KnownNat n)
+  :: forall ranked primal dual n r.
+     ( ADReady ranked r, PrimalDualTensor ranked primal dual, ADReady primal r
+     , KnownNat n )
   => ranked r n -> ranked r n
 reluPrimal v =
   let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.0 1.0)
@@ -494,7 +495,7 @@ testDot1PP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       (artifact6, _) =
-        revDtFun (uncurry (tdot0 @AstRanked @1 @Double))
+        revDtFun (uncurry (tdot0 @AstRanked @Double @1))
                  ( Flip $ OR.fromList [3] [1 .. 3]
                  , Flip $ OR.fromList [3] [4 .. 6] )
   printGradient6Pretty renames artifact6
@@ -507,7 +508,7 @@ testDot2PP = do
   resetVarCounter
   let renames = IM.empty
       (artifact6, deltas) =
-        revDtFun (uncurry (tdot0 @AstRanked @2 @Double))
+        revDtFun (uncurry (tdot0 @AstRanked @Double @2))
                  ( Flip $ OR.fromList [2,3] [1 .. 6]
                  , Flip $ OR.fromList [2,3] [7 .. 12] )
   printGradient6Pretty renames artifact6
@@ -687,9 +688,8 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: ( ShowAstSimplify r, InterpretAst (ADVal r)
-           , Value (ADVal r) ~ r )
-        => Tannen ADVal ranked r 1 -> Tannen ADVal ranked r 1
+  let f :: ( InterpretAstA (Tannen ADVal (Flip OR.Array)) (Flip OR.Array) r )
+        => Tannen ADVal (Flip OR.Array) r 1 -> Tannen ADVal (Flip OR.Array) r 1
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
                            emptyMemo
@@ -819,15 +819,15 @@ testBarReluADValMax3 =
 
 barReluAst
   :: forall n r.
-     (KnownNat n, ShowAstSimplify r)
+     (KnownNat n, ADReady AstRanked r)
   => Ast n r -> Ast n r
-barReluAst x = relu @n @(Ast0 r) $ bar (x, relu x)
+barReluAst x = relu $ bar (x, relu x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
-  let f :: ( ShowAstSimplify r, InterpretAst (ADVal r)
-           , Value (ADVal r) ~ r )
-        => Tannen ADVal ranked r 0 -> Tannen ADVal ranked r 0
+  let f :: ( ADReady AstRanked r
+           , InterpretAstA (Tannen ADVal (Flip OR.Array)) (Flip OR.Array) r )
+        => Tannen ADVal (Flip OR.Array) r 0 -> Tannen ADVal (Flip OR.Array) r 0
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
                            emptyMemo
@@ -838,9 +838,9 @@ testBarReluAst0 =
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
-  let f :: ( ShowAstSimplify r, InterpretAst (ADVal r)
-           , Value (ADVal r) ~ r )
-        => Tannen ADVal ranked r 1 -> Tannen ADVal ranked r 1
+  let f :: ( ADReady AstRanked r
+           , InterpretAstA (Tannen ADVal (Flip OR.Array)) (Flip OR.Array) r )
+        => Tannen ADVal (Flip OR.Array) r 1 -> Tannen ADVal (Flip OR.Array) r 1
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
                            emptyMemo
@@ -850,15 +850,15 @@ testBarReluAst1 =
        (crev @1 @Double f (Flip $ OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
 
 konstReluAst
-  :: forall r. ShowAstSimplify r
+  :: forall r. ADReady AstRanked r
   => Ast 0 r -> Ast 0 r
 konstReluAst x = tsum0 $ relu $ treplicate0N (7 :$ ZS) x
 
 testReplicateReluAst :: Assertion
 testReplicateReluAst =
-  let f :: ( ShowAstSimplify r, InterpretAst (ADVal r)
-           , Value (ADVal r) ~ r )
-        => Tannen ADVal ranked r 0 -> Tannen ADVal ranked r 0
+  let f :: ( ADReady AstRanked r
+           , InterpretAstA (Tannen ADVal (Flip OR.Array)) (Flip OR.Array) r )
+        => Tannen ADVal (Flip OR.Array) r 0 -> Tannen ADVal (Flip OR.Array) r 0
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
                            emptyMemo
@@ -1044,7 +1044,7 @@ fblowupPP :: Assertion
 fblowupPP = do
   resetVarCounter
   let renames = IM.empty
-      fblowupT = fblowup @(Ast0 Double) 1
+      fblowupT = fblowup @AstRanked @Double 1
   let (artifact6, _) = revDtFun fblowupT (Flip $ OR.constant [4] 4)
   printGradient6Simple renames artifact6
     @?= "\\dret v2 -> dlet (v2 ! [0]) (\\x3 -> dlet (v2 ! [1]) (\\x4 -> dlet (v2 ! [0]) (\\x5 -> dlet (v2 ! [1]) (\\x6 -> dlet (tconst 0.499999985) (\\x7 -> dlet ((x3 / x4 + x5 / x6) - tfromIndex0 0) (\\x8 -> dlet (x7 * dret) (\\x9 -> dmkDomains (fromList [dfromR (tscatter [4] (recip x4 * x9) (\\[] -> [0]) + tscatter [4] (negate (x3 / (x4 * x4)) * x9) (\\[] -> [1]) + tscatter [4] (recip x6 * x9) (\\[] -> [0]) + tscatter [4] (negate (x5 / (x6 * x6)) * x9) (\\[] -> [1]))]))))))))"
@@ -1055,7 +1055,7 @@ fblowupLetPP :: Assertion
 fblowupLetPP = do
   resetVarCounter
   let renames = IM.empty
-      fblowupLetT = fblowupLet @(Ast0 Double) 0 1
+      fblowupLetT = fblowupLet @AstRanked @Double 0 1
   let (artifact6, _) = revDtFun fblowupLetT (Flip $ OR.constant [4] 4)
   printGradient6Simple renames artifact6
     @?= "\\dret v2 -> dlet (v2 ! [0]) (\\x4 -> dlet (v2 ! [1]) (\\x5 -> dlet (x4 / x5) (\\x6 -> dlet (tconst 0.499999985) (\\x7 -> dlet ((x6 + x6) - tfromIndex0 0) (\\x8 -> dlet (x7 * dret) (\\x9 -> dlet (x9 + x9) (\\x10 -> dmkDomains (fromList [dfromR (tscatter [4] (recip x5 * x10) (\\[] -> [0]) + tscatter [4] (negate (x4 / (x5 * x5)) * x10) (\\[] -> [1]))]))))))))"

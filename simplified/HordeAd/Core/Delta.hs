@@ -518,7 +518,7 @@ buildFinMaps s0 deltaDt =
 --                                     , OR.reshape (1 : rest) c
 --                                     , OR.constant (len - ix - 1 : rest) 0 ])
 --                     d  -- TODO: optimize for input case
-        IndexZ d ix sh -> evalR s (tscatter @ranked @0 sh c (const ix)) d
+        IndexZ d ix sh -> evalR s (tscatter @ranked @r @0 sh c (const ix)) d
           -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
         SumR n d -> evalR s (treplicate n c) d
         Sum0 sh d -> evalR s (treplicate0N sh c) d
