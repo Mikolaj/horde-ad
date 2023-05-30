@@ -271,7 +271,8 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
 
 class PrimalDualTensor (ranked :: Type -> Nat -> Type)
                        (primal :: Type -> Nat -> Type)
-                       (dual :: Type -> Nat -> Type) where
+                       (dual :: Type -> Nat -> Type)
+                       | ranked -> primal dual, primal dual -> ranked where
   type Allowed ranked r :: Constraint
   tconstant :: (Allowed ranked r, KnownNat n, GoodScalar r) => primal r n -> ranked r n
   tprimalPart :: (Allowed ranked r, KnownNat n, GoodScalar r)
@@ -301,7 +302,8 @@ instance (forall r11 y. (KnownNat y, GoodScalar r11)
 class CDynamicRanked dynamic ranked UnderlyingMatches
       => ConvertTensor (dynamic :: Type -> Type)
                        (ranked :: Type -> Nat -> Type)
-                    {- (shaped :: Type -> [Nat] -> Type) -} where
+                    {- (shaped :: Type -> [Nat] -> Type) -}
+                       | ranked -> dynamic, dynamic -> ranked where
   tfromD :: (KnownNat n, GoodScalar r)
          => dynamic r -> ranked r n
 --  tfromS :: (KnownNat n, GoodScalar r, OS.Shape sh, OS.Rank sh ~ n)
@@ -328,7 +330,9 @@ class CDynamicRanked dynamic ranked UnderlyingMatches
 class DomainsTensor (dynamic :: Type -> Type)
                     (ranked :: Type -> Nat -> Type)
                     (domainsOf :: Type -> Type)
-                    where
+                    | ranked -> dynamic domainsOf
+                    , dynamic -> ranked domainsOf
+                    , domainsOf -> ranked dynamic where
   tletDomains :: (KnownNat n, GoodScalar r)
               => domainsOf r
               -> (domainsOf r -> ranked r n)
@@ -349,7 +353,7 @@ class DomainsTensor (dynamic :: Type -> Type)
 type Many ranked (f :: Type -> Constraint) r = (f (ranked r 0), f (ranked r 1), f (ranked r 2), f (ranked r 3), f (ranked r 4), f (ranked r 5), f (ranked r 6), f (ranked r 7), f (ranked r 8), f (ranked r 9), f (ranked r 10), f (ranked r 11), f (ranked r 12))
 
 type ADReady ranked r =
-  ( Tensor ranked, GoodScalar r
+  ( Tensor ranked, GoodScalar r, Allowed ranked r
 --  , PrimalDualTensor r, Tensor (Primal r)
   , IfB (IntOf ranked r), Many ranked IfB r  --, Many ranked IfB (Primal r)
   , EqB r, EqB (IntOf ranked r), Many ranked EqB r  --, Many ranked EqB (Primal r)
