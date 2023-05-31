@@ -383,7 +383,7 @@ type ADReady ranked r =
   , forall r31 y31. (KnownNat y31, GoodScalar r31)
                     => BooleanMatches (ranked r31 0)
                                       (ranked r31 y31) :: Constraint
-  , forall r32 y32. (KnownNat y32, GoodScalar r32)  -- KnownNat y32 causes 'ambiguous' error
+  , forall r32 y32. GoodScalar r32  -- KnownNat y32 causes 'ambiguous' error
                     => BooleanMatchesPrimalOf ranked r32 y32 :: Constraint
   )
 
