@@ -358,28 +358,6 @@ class DomainsTensor (dynamic :: Type -> Type)
 
 type Many ranked (f :: Type -> Constraint) r = (f (ranked r 0), f (ranked r 1), f (ranked r 2), f (ranked r 3), f (ranked r 4), f (ranked r 5), f (ranked r 6), f (ranked r 7), f (ranked r 8), f (ranked r 9), f (ranked r 10), f (ranked r 11), f (ranked r 12))
 
-class (forall r34 y34. (GoodScalar r34) => c ranked r34 y34)
-      => CRanked3 ranked c where
-instance
-      (forall r34 y34. (GoodScalar r34) => c ranked r34 y34)
-      => CRanked3 ranked c where
-
-class ( BooleanOf (IntOf (ranked r35 0)) ~ BooleanOf (ranked r35 y35)
-      , BooleanOf (ranked r35 y35) ~ BooleanOf (IntOf (ranked r35 0)) )
-      => BooleanMatches ranked r35 y35 where
-instance
-      ( BooleanOf (IntOf (ranked r35 0)) ~ BooleanOf (ranked r35 y35)
-      , BooleanOf (ranked r35 y35) ~ BooleanOf (IntOf (ranked r35 0)) )
-      => BooleanMatches ranked r35 y35 where
-
-class ( BooleanOf (IntOf (ranked r33 0)) ~ BooleanOf (PrimalOf ranked r33 y33)
-      , BooleanOf (PrimalOf ranked r33 y33) ~ BooleanOf (IntOf (ranked r33 0)) )
-      => BooleanMatchesPrimalOf ranked r33 y33 where
-instance
-      ( BooleanOf (IntOf (ranked r33 0)) ~ BooleanOf (PrimalOf ranked r33 y33)
-      , BooleanOf (PrimalOf ranked r33 y33) ~ BooleanOf (IntOf (ranked r33 0)) )
-      => BooleanMatchesPrimalOf ranked r33 y33 where
-
 type ADReady ranked r =
   ( Tensor ranked, GoodScalar r, Tensor (PrimalOf ranked)
   , IfB (IntOf (ranked r 0)), Many ranked IfB r
@@ -389,8 +367,33 @@ type ADReady ranked r =
   , OrdB r, OrdB (IntOf (ranked r 0)), Many ranked OrdB r
   , Many (PrimalOf ranked) OrdB r
   , Boolean (BooleanOf (IntOf (ranked r 0)))
-  , CRanked3 ranked BooleanMatches
-  , CRanked3 ranked BooleanMatchesPrimalOf
+  , ( BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 1)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 2)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 3)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 4)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 5)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 6)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 7)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 8)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 9)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 10)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 11)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 12) )
+  , ( BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 0)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 1)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 2)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 3)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 4)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 5)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 6)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 7)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 8)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 9)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 10)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 11)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 12) )
+  , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 0)
+      -- placing this last gives better errors
   )
 
 
