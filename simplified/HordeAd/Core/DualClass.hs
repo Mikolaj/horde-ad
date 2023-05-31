@@ -135,11 +135,6 @@ instance (IsPrimalA r, KnownNat n)
   letWrapPrimal = letWrapPrimalA
   intOfShape = intOfShapeA
 
--- TODO: this should not be needed, but typing needs it ATM
-instance IsPrimal (Ast0 r) where
-instance IsPrimal Float where
-instance IsPrimal Double where
-
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
