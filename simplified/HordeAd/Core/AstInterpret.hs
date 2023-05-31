@@ -14,19 +14,28 @@ import Prelude hiding ((<*))
 
 import           Control.Arrow (second)
 import           Control.Exception.Assert.Sugar
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Clown
+import           Data.Bifunctor.Flip
+import           Data.Bifunctor.Product
+import           Data.Bifunctor.Tannen
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
+import           Data.Functor.Compose
 import           Data.List (foldl1', mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, sameNat)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
+import HordeAd.Core.Delta
 import HordeAd.Core.Domains
+import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal ()
 import HordeAd.Core.TensorClass
@@ -479,7 +488,7 @@ interpretAstDomains env memo = \case
 interpretAstInt :: forall dynamic ranked shaped a.
                    InterpretAst dynamic ranked shaped a
                 => AstEnv dynamic ranked a -> AstMemo a
-                -> AstInt a -> (AstMemo a, IntOf (PrimalOf ranked a 0))
+                -> AstInt a -> (AstMemo a, IntOf (ranked a 0))
 interpretAstInt env memo = \case
   AstIntVar var -> case EM.lookup var env of
     Just AstVarR{} ->
@@ -613,172 +622,263 @@ interpretAstRelOp opCodeRel args =
           ++ show (opCodeRel, length args)
 
 
-{- TODO:
 
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal Double) -> AstMemo (ADVal Double)
-  -> AstPrimalPart Double n -> (AstMemo (ADVal Double), TensorOf n Double) #-}
+  => AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Double
+  -> AstMemo Double
+  -> AstPrimalPart Double n
+  -> (AstMemo Double, Flip OR.Array Double n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal Float) -> AstMemo (ADVal Float)
-  -> AstPrimalPart Float n -> (AstMemo (ADVal Float), TensorOf n Float) #-}
+  => AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Float
+  -> AstMemo Float
+  -> AstPrimalPart Float n
+  -> (AstMemo Float, Flip OR.Array Float n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
-  -> AstPrimalPart Double n -> (AstMemo (ADVal (Ast0 Double)), TensorOf n (Ast0 Double)) #-}
+  => AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Double
+  -> AstMemo Double
+  -> AstPrimalPart Double n
+  -> (AstMemo Double, AstRanked Double n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
-  -> AstPrimalPart Float n -> (AstMemo (ADVal (Ast0 Float)), TensorOf n (Ast0 Float)) #-}
+  => AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Float
+  -> AstMemo Float
+  -> AstPrimalPart Float n
+  -> (AstMemo Float, AstRanked Float n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv Double -> AstMemo Double
-  -> AstPrimalPart Double n -> (AstMemo Double, TensorOf n Double) #-}
+  => AstEnv OD.Array (Flip OR.Array) Double
+  -> AstMemo Double
+  -> AstPrimalPart Double n
+  -> (AstMemo Double, Flip OR.Array Double n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv Float -> AstMemo Float
-  -> AstPrimalPart Float n -> (AstMemo Float, TensorOf n Float) #-}
+  => AstEnv OD.Array (Flip OR.Array) Float
+  -> AstMemo Float
+  -> AstPrimalPart Float n
+  -> (AstMemo Float, Flip OR.Array Float n) #-}
 
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal Double) -> AstMemo (ADVal Double)
-  -> AstDualPart Double n -> (AstMemo (ADVal Double), DualOf n (ADVal Double)) #-}
+  => AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Double
+  -> AstMemo Double
+  -> AstDualPart Double n
+  -> (AstMemo Double, Product (Clown ADShare) (DeltaR (Flip OR.Array)) Double n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal Float) -> AstMemo (ADVal Float)
-  -> AstDualPart Float n -> (AstMemo (ADVal Float), DualOf n (ADVal Float)) #-}
+  => AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Float
+  -> AstMemo Float
+  -> AstDualPart Float n
+  -> (AstMemo Float, Product (Clown ADShare) (DeltaR (Flip OR.Array)) Float n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
-  -> AstDualPart Double n -> (AstMemo (ADVal (Ast0 Double)), DualOf n (ADVal (Ast0 Double))) #-}
+  => AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Double
+  -> AstMemo Double
+  -> AstDualPart Double n
+  -> (AstMemo Double, Product (Clown ADShare) (DeltaR AstRanked) Double n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
-  -> AstDualPart Float n -> (AstMemo (ADVal (Ast0 Float)), DualOf n (ADVal (Ast0 Float))) #-}
+  => AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Float
+  -> AstMemo Float
+  -> AstDualPart Float n
+  -> (AstMemo Float, Product (Clown ADShare) (DeltaR AstRanked) Float n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv Double -> AstMemo Double
-  -> AstDualPart Double n -> (AstMemo Double, DualOf n Double) #-}
+  => AstEnv OD.Array (Flip OR.Array) Double
+  -> AstMemo Double
+  -> AstDualPart Double n
+  -> (AstMemo Double, DummyDual Double n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv Float -> AstMemo Float
-  -> AstDualPart Float n -> (AstMemo Float, DualOf n Float) #-}
+  => AstEnv OD.Array (Flip OR.Array) Float
+  -> AstMemo Float
+  -> AstDualPart Float n
+  -> (AstMemo Float, DummyDual Float n) #-}
 
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv (ADVal Double) -> AstMemo (ADVal Double)
-  -> Ast n Double -> (AstMemo (ADVal Double), TensorOf n (ADVal Double)) #-}
+  => AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Double
+  -> AstMemo Double
+  -> AstRanked Double n
+  -> (AstMemo Double, Tannen ADVal (Flip OR.Array) Double n) #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv (ADVal Float) -> AstMemo (ADVal Float)
-  -> Ast n Float -> (AstMemo (ADVal Float), TensorOf n (ADVal Float)) #-}
+  => AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Float
+  -> AstMemo Float
+  -> AstRanked Float n
+  -> (AstMemo Float, Tannen ADVal (Flip OR.Array) Float n) #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
-  -> Ast n Double -> (AstMemo (ADVal (Ast0 Double)), TensorOf n (ADVal (Ast0 Double))) #-}
+  => AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Double
+  -> AstMemo Double
+  -> AstRanked Double n
+  -> (AstMemo Double, Tannen ADVal AstRanked Double n) #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
-  -> Ast n Float -> (AstMemo (ADVal (Ast0 Float)), TensorOf n (ADVal (Ast0 Float))) #-}
+  => AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Float
+  -> AstMemo Float
+  -> AstRanked Float n
+  -> (AstMemo Float, Tannen ADVal AstRanked Float n) #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv Double -> AstMemo Double
-  -> Ast n Double -> (AstMemo Double, TensorOf n Double) #-}
+  => AstEnv OD.Array (Flip OR.Array) Double
+  -> AstMemo Double
+  -> AstRanked Double n
+  -> (AstMemo Double, Flip OR.Array Double n) #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv Float -> AstMemo Float
-  -> Ast n Float -> (AstMemo Float, TensorOf n Float) #-}
+  => AstEnv OD.Array (Flip OR.Array) Float
+  -> AstMemo Float
+  -> AstRanked Float n
+  -> (AstMemo Float, Flip OR.Array Float n) #-}
 
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal Double) -> AstMemo (ADVal Double)
-  -> AstDynamic Double -> (AstMemo (ADVal Double), DTensorOf (ADVal Double)) #-}
+  :: AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Double
+  -> AstMemo Double
+  -> AstDynamic Double
+  -> (AstMemo Double, Compose ADVal OD.Array Double) #-}
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal Float) -> AstMemo (ADVal Float)
-  -> AstDynamic Float -> (AstMemo (ADVal Float), DTensorOf (ADVal Float)) #-}
+  :: AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Float
+  -> AstMemo Float
+  -> AstDynamic Float
+  -> (AstMemo Float, Compose ADVal OD.Array Float) #-}
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
-  -> AstDynamic Double -> (AstMemo (ADVal (Ast0 Double)), DTensorOf (ADVal (Ast0 Double))) #-}
+  :: AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Double
+  -> AstMemo Double
+  -> AstDynamic Double
+  -> (AstMemo Double, Compose ADVal AstDynamic Double) #-}
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
-  -> AstDynamic Float -> (AstMemo (ADVal (Ast0 Float)), DTensorOf (ADVal (Ast0 Float))) #-}
+  :: AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Float
+  -> AstMemo Float
+  -> AstDynamic Float
+  -> (AstMemo Float, Compose ADVal AstDynamic Float) #-}
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv Double -> AstMemo Double
-  -> AstDynamic Double -> (AstMemo Double, DTensorOf Double) #-}
+  :: AstEnv OD.Array (Flip OR.Array) Double
+  -> AstMemo Double
+  -> AstDynamic Double
+  -> (AstMemo Double, OD.Array Double) #-}
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv Float -> AstMemo Float
-  -> AstDynamic Float -> (AstMemo Float, DTensorOf Float) #-}
+  :: AstEnv OD.Array (Flip OR.Array) Float
+  -> AstMemo Float
+  -> AstDynamic Float
+  -> (AstMemo Float, OD.Array Float) #-}
 
 {-# SPECIALIZE interpretAstDomains
-  :: AstEnv (ADVal Double) -> AstMemo (ADVal Double)
-  -> AstDomains Double -> (AstMemo (ADVal Double), Data.Vector.Vector (DTensorOf (ADVal Double))) #-}
+  :: AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Double
+  -> AstMemo Double
+  -> AstDomains Double
+  -> (AstMemo Double, Domains (Compose ADVal OD.Array) Double) #-}
 {-# SPECIALIZE interpretAstDomains
-  :: AstEnv (ADVal Float) -> AstMemo (ADVal Float)
-  -> AstDomains Float -> (AstMemo (ADVal Float), Data.Vector.Vector (DTensorOf (ADVal Float))) #-}
+  :: AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Float
+  -> AstMemo Float
+  -> AstDomains Float
+  -> (AstMemo Float, Domains (Compose ADVal OD.Array) Float) #-}
 {-# SPECIALIZE interpretAstDomains
-  :: AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
-  -> AstDomains Double -> (AstMemo (ADVal (Ast0 Double)), Data.Vector.Vector (DTensorOf (ADVal (Ast0 Double)))) #-}
+  :: AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Double
+  -> AstMemo Double
+  -> AstDomains Double
+  -> (AstMemo Double, Domains (Compose ADVal AstDynamic) Double) #-}
 {-# SPECIALIZE interpretAstDomains
-  :: AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
-  -> AstDomains Float -> (AstMemo (ADVal (Ast0 Float)), Data.Vector.Vector (DTensorOf (ADVal (Ast0 Float)))) #-}
+  :: AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Float
+  -> AstMemo Float
+  -> AstDomains Float
+  -> (AstMemo Float, Domains (Compose ADVal AstDynamic) Float) #-}
 {-# SPECIALIZE interpretAstDomains
-  :: AstEnv Double -> AstMemo Double
-  -> AstDomains Double -> (AstMemo Double, Data.Vector.Vector (DTensorOf Double)) #-}
+  :: AstEnv OD.Array (Flip OR.Array) Double
+  -> AstMemo Double
+  -> AstDomains Double
+  -> (AstMemo Double, Domains OD.Array Double) #-}
 {-# SPECIALIZE interpretAstDomains
-  :: AstEnv Float -> AstMemo Float
-  -> AstDomains Float -> (AstMemo Float, Data.Vector.Vector (DTensorOf Float)) #-}
+  :: AstEnv OD.Array (Flip OR.Array) Float
+  -> AstMemo Float
+  -> AstDomains Float
+  -> (AstMemo Float, Domains OD.Array Float) #-}
 
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal Double) -> AstMemo (ADVal Double)
-  -> AstInt Double -> (AstMemo (ADVal Double), CInt) #-}
+  :: AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Double
+  -> AstMemo Double
+  -> AstInt Double
+  -> (AstMemo Double, CInt) #-}
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal Float) -> AstMemo (ADVal Float)
-  -> AstInt Float -> (AstMemo (ADVal Float), CInt) #-}
+  :: AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Float
+  -> AstMemo Float
+  -> AstInt Float
+  -> (AstMemo Float, CInt) #-}
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
-  -> AstInt Double -> (AstMemo (ADVal (Ast0 Double)), AstInt Double) #-}
+  :: AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Double
+  -> AstMemo Double
+  -> AstInt Double
+  -> (AstMemo Double, AstInt Double) #-}
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
-  -> AstInt Float -> (AstMemo (ADVal (Ast0 Float)), AstInt Float) #-}
+  :: AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Float
+  -> AstMemo Float
+  -> AstInt Float
+  -> (AstMemo Float, AstInt Float) #-}
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv Double -> AstMemo Double
-  -> AstInt Double -> (AstMemo Double, CInt) #-}
+  :: AstEnv OD.Array (Flip OR.Array) Double
+  -> AstMemo Double
+  -> AstInt Double
+  -> (AstMemo Double, CInt) #-}
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv Float -> AstMemo Float
-  -> AstInt Float -> (AstMemo Float, CInt) #-}
+  :: AstEnv OD.Array (Flip OR.Array) Float
+  -> AstMemo Float
+  -> AstInt Float
+  -> (AstMemo Float, CInt) #-}
 
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal Double) -> AstMemo (ADVal Double)
-  -> AstBool Double -> (AstMemo (ADVal Double), Bool) #-}
+  :: AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Double
+  -> AstMemo Double
+  -> AstBool Double
+  -> (AstMemo Double, Bool) #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal Float) -> AstMemo (ADVal Float)
-  -> AstBool Float -> (AstMemo (ADVal Float), Bool) #-}
+  :: AstEnv (Compose ADVal OD.Array) (Tannen ADVal (Flip OR.Array)) Float
+  -> AstMemo Float
+  -> AstBool Float
+  -> (AstMemo Float, Bool) #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal (Ast0 Double)) -> AstMemo (ADVal (Ast0 Double))
-  -> AstBool Double -> (AstMemo (ADVal (Ast0 Double)), AstBool Double) #-}
+  :: AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Double
+  -> AstMemo Double
+  -> AstBool Double
+  -> (AstMemo Double, AstBool Double) #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal (Ast0 Float)) -> AstMemo (ADVal (Ast0 Float))
-  -> AstBool Float -> (AstMemo (ADVal (Ast0 Float)), AstBool Float) #-}
+  :: AstEnv (Compose ADVal AstDynamic) (Tannen ADVal AstRanked) Float
+  -> AstMemo Float
+  -> AstBool Float
+  -> (AstMemo Float, AstBool Float) #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv Double -> AstMemo Double
-  -> AstBool Double -> (AstMemo Double, Bool) #-}
+  :: AstEnv OD.Array (Flip OR.Array) Double
+  -> AstMemo Double
+  -> AstBool Double
+  -> (AstMemo Double, Bool) #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv Float -> AstMemo Float
-  -> AstBool Float -> (AstMemo Float, Bool) #-}
+  :: AstEnv OD.Array (Flip OR.Array) Float
+  -> AstMemo Float
+  -> AstBool Float
+  -> (AstMemo Float, Bool) #-}
 
 {-# SPECIALIZE interpretAstDynamicDummy
-  :: AstEnv Double -> AstMemo Double
-  -> AstDynamic Double -> (AstMemo Double, DTensorOf Double) #-}
+  :: AstEnv OD.Array (Flip OR.Array) Double
+  -> AstMemo Double
+  -> AstDynamic Double
+  -> (AstMemo Double, OD.Array Double) #-}
 {-# SPECIALIZE interpretAstDynamicDummy
-  :: AstEnv Float -> AstMemo Float
-  -> AstDynamic Float -> (AstMemo Float, DTensorOf Float) #-}
+  :: AstEnv OD.Array (Flip OR.Array) Float
+  -> AstMemo Float
+  -> AstDynamic Float
+  -> (AstMemo Float, OD.Array Float) #-}
 
 {-# SPECIALIZE interpretAstDomainsDummy
-  :: AstEnv Double -> AstMemo Double
-  -> AstDomains Double -> (AstMemo Double, Data.Vector.Vector (DTensorOf Double)) #-}
+  :: AstEnv OD.Array (Flip OR.Array) Double
+  -> AstMemo Double
+  -> AstDomains Double
+  -> (AstMemo Double, Domains OD.Array Double) #-}
 {-# SPECIALIZE interpretAstDomainsDummy
-  :: AstEnv Float -> AstMemo Float
-  -> AstDomains Float -> (AstMemo Float, Data.Vector.Vector (DTensorOf Float)) #-}
+  :: AstEnv OD.Array (Flip OR.Array) Float
+  -> AstMemo Float
+  -> AstDomains Float
+  -> (AstMemo Float, Domains OD.Array Float) #-}
 
 {- outdated and inlined anyway:
 {-# SPECIALIZE interpretAstOp
@@ -811,20 +911,18 @@ interpretAstRelOp opCodeRel args =
   :: OpCodeBool -> [AstBool Float] -> AstBool Float #-}
 -}
 
-{- TODO: here and elsewhere add tensor specializations instead of these
 {-# SPECIALIZE interpretAstRelOp
-  :: OpCodeRel -> [ADVal Double] -> Bool #-}
+  :: KnownNat n
+  => OpCodeRel -> [Flip OR.Array Double n] -> Bool #-}
 {-# SPECIALIZE interpretAstRelOp
-  :: OpCodeRel -> [ADVal Float] -> Bool #-}
+  :: KnownNat n
+  => OpCodeRel -> [Flip OR.Array Float n] -> Bool #-}
 {-# SPECIALIZE interpretAstRelOp
-  :: OpCodeRel -> [ADVal (Ast0 Double)] -> AstBool Double #-}
+  :: KnownNat n
+  => OpCodeRel -> [AstRanked Double n] -> AstBool Double #-}
 {-# SPECIALIZE interpretAstRelOp
-  :: OpCodeRel -> [ADVal (Ast0 Float)] -> AstBool Float #-}
--}
-{-# SPECIALIZE interpretAstRelOp
-  :: OpCodeRel -> [Double] -> Bool #-}
-{-# SPECIALIZE interpretAstRelOp
-  :: OpCodeRel -> [Float] -> Bool #-}
+  :: KnownNat n
+  => OpCodeRel -> [AstRanked Float n] -> AstBool Float #-}
 
 {-# SPECIALIZE interpretAstRelOp
   :: OpCodeRel -> [CInt] -> Bool #-}
@@ -832,4 +930,3 @@ interpretAstRelOp opCodeRel args =
   :: OpCodeRel -> [AstInt Double] -> AstBool Double #-}
 {-# SPECIALIZE interpretAstRelOp
   :: OpCodeRel -> [AstInt Float] -> AstBool Float #-}
--}
