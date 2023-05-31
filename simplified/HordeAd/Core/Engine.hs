@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 -- | The implementation of calculating gradient and derivative
 -- of an objective function expressed wtih the `Tensor` class.
 -- Together with "HordeAd.Core.TensorClass", this forms the basic
@@ -58,7 +57,8 @@ revL
      ( ranked ~ Tannen ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals
+     , Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> [vals] -> [vals]
 revL f valsAll = revDtMaybeL f valsAll Nothing
 
@@ -67,7 +67,8 @@ revDtMaybeL
      ( ranked ~ Tannen ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals
+     , Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> [vals] -> Maybe (Flip OR.Array r n) -> [vals]
 revDtMaybeL _ [] _ = []
 revDtMaybeL f valsAll@(vals : _) dt =
@@ -81,7 +82,7 @@ revDtFun
      ( ranked ~ Tannen ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r  )
+     , vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r  )
   => (astvals -> Ast n r) -> vals
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revDtFun #-}
@@ -95,7 +96,7 @@ revDtInit
      , ranked ~ Tannen ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals
-     , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r)
+     , vals ~ Value astvals, Underlying astvals ~ r)
   => (astvals -> Ast n r) -> vals -> AstEnv dynamic ranked r
   -> DomainsOD r
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
@@ -129,7 +130,8 @@ rev
      ( ranked ~ Tannen ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals
+     , Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> vals -> vals
 rev f vals = head $ revL f [vals]
 
@@ -139,7 +141,8 @@ revDt
      ( ranked ~ Tannen ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals
+     , Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> vals -> Flip OR.Array r n -> vals
 revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 
@@ -150,7 +153,8 @@ crev
      , ranked ~ Tannen ADVal (Flip OR.Array)
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
      , IsPrimalR r, KnownNat n, GoodScalar r
-     , r ~ Underlying vals, vals ~ Value vals, vals ~ Value advals, Underlying advals ~ r )
+     , r ~ Underlying vals, vals ~ Value vals
+     , vals ~ Value advals, Underlying advals ~ r )
   => (advals -> ranked r n) -> vals
   -> vals
 crev f vals = crevDtMaybe f vals Nothing
@@ -162,7 +166,8 @@ crevDt
      , ranked ~ Tannen ADVal (Flip OR.Array)
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
      , IsPrimalR r, KnownNat n, GoodScalar r
-     , r ~ Underlying vals, vals ~ Value vals, vals ~ Value advals, Underlying advals ~ r )
+     , r ~ Underlying vals, vals ~ Value vals
+     , vals ~ Value advals, Underlying advals ~ r )
   => (advals -> ranked r n) -> vals -> OR.Array n r
   -> vals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
@@ -173,7 +178,8 @@ crevDtMaybe
      , ranked ~ Tannen ADVal (Flip OR.Array)
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
      , IsPrimalR r, KnownNat n, GoodScalar r
-     , r ~ Underlying vals, vals ~ Value vals, vals ~ Value advals, Underlying advals ~ r )
+     , r ~ Underlying vals, vals ~ Value vals
+     , vals ~ Value advals, Underlying advals ~ r )
   => (advals -> ranked r n) -> vals -> Maybe (OR.Array n r)
   -> vals
 crevDtMaybe f vals dt =

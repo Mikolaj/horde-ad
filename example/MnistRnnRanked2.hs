@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module MnistRnnRanked2 where
 

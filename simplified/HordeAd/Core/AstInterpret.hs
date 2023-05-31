@@ -1,10 +1,9 @@
-{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
-             UndecidableInstances #-}
+{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
 module HordeAd.Core.AstInterpret
-  ( InterpretAstF, InterpretAstA, InterpretAst
+  ( InterpretAstA
   , interpretAst, interpretAstDomainsDummy
   , AstEnv, extendEnvR, extendEnvD, AstMemo, emptyMemo
   , AstEnvElem(AstVarR)  -- for a test only
@@ -75,7 +74,8 @@ extendEnvI var i =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
                    var (AstVarI i)
 
-extendEnvVars :: AstVarList m -> IndexOf (ranked a 0) m -> AstEnv dynamic ranked a
+extendEnvVars :: AstVarList m -> IndexOf (ranked a 0) m
+              -> AstEnv dynamic ranked a
               -> AstEnv dynamic ranked a
 extendEnvVars vars ix env =
   let assocs = zip (sizedListToList vars) (indexToList ix)
@@ -117,34 +117,33 @@ interpretLambdaIndexToIndex f env memo (vars, asts) =
   \ix -> listToIndex $ snd
          $ mapAccumR (f (extendEnvVars vars ix env)) memo (indexToList asts)
 
-class (BooleanOf r ~ b) => BooleanOfMatches b r where
-instance (BooleanOf r ~ b) => BooleanOfMatches b r where
+class (BooleanOf r ~ b, b ~ BooleanOf r) => BooleanOfMatches b r where
+instance (BooleanOf r ~ b, b ~ BooleanOf r) => BooleanOfMatches b r where
 
-class (forall y. KnownNat y => c (ranked r y))
+class (forall y41. KnownNat y41 => c (ranked r y41))
       => CRanked ranked r c where
-instance (forall y. KnownNat y => c (ranked r y))
+instance (forall y41. KnownNat y41 => c (ranked r y41))
          => CRanked ranked r c where
 
-type InterpretAstF dynamic ranked shaped =
-  ( Tensor ranked
-  , ConvertTensor dynamic ranked shaped, Tensor (PrimalOf ranked) )
-
 type InterpretAstA ranked a =
-  ( GoodScalar a, Integral (IntOf (PrimalOf ranked a 0))
-  , EqB (IntOf (ranked a 0)), OrdB (IntOf (ranked a 0))
-  , IfB (IntOf (ranked a 0))
+  ( GoodScalar a
+  , Integral (IntOf (PrimalOf ranked a 0)), EqB (IntOf (ranked a 0))
+  , OrdB (IntOf (ranked a 0)), IfB (IntOf (ranked a 0))
   , IntOf (PrimalOf ranked a 0) ~ IntOf (ranked a 0)
-  , BooleanOf (ranked a 0) ~ BooleanOf (IntOf (ranked a 0))
-  , BooleanOf (IntOf (ranked a 0)) ~ BooleanOf (ranked a 0)
   , CRanked (PrimalOf ranked) a EqB
   , CRanked (PrimalOf ranked) a OrdB
   , CRanked ranked a RealFloat
-  , CRanked (PrimalOf ranked) a (BooleanOfMatches (BooleanOf (ranked a 0)))
-  , CRanked ranked a (BooleanOfMatches (BooleanOf (PrimalOf ranked a 0)))
+  , CRanked (PrimalOf ranked) a
+            (BooleanOfMatches (BooleanOf (IntOf (ranked a 0))))
+  , BooleanOf (ranked a 0) ~ BooleanOf (IntOf (ranked a 0))
+  , BooleanOf (IntOf (ranked a 0)) ~ BooleanOf (ranked a 0)
   )
 
-type InterpretAst dynamic ranked shaped a =
-  (InterpretAstF dynamic ranked shaped, InterpretAstA ranked a)
+type InterpretAst dynamic ranked shaped r=
+  ( Tensor ranked, Tensor (PrimalOf ranked)
+  , ConvertTensor dynamic ranked shaped
+  , InterpretAstA ranked r
+  )
 
 type AstMemo a = ()  -- unused for now, but likely to be used in the future,
                      -- though probably not for memoization
@@ -377,7 +376,7 @@ interpretAst env memo = \case
     -- is cheaper, too
   AstScatter sh v (vars, ix) ->
     let (memo1, t1) = interpretAst env memo v
-        f2 = interpretLambdaIndexToIndex (interpretAstInt) env memo (vars, ix)
+        f2 = interpretLambdaIndexToIndex interpretAstInt env memo (vars, ix)
     in (memo1, tscatter sh t1 f2)
   AstFromList l ->
     let (memo2, l2) = mapAccumR (interpretAst env) memo l
@@ -433,15 +432,15 @@ interpretAst env memo = \case
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env memo (var, v)
   AstBuild1 k (var, v) ->
-    (memo, tbuild1 k (interpretLambdaI (interpretAst) env memo (var, v)))
+    (memo, tbuild1 k (interpretLambdaI interpretAst env memo (var, v)))
       -- to be used only in tests
   AstGatherZ sh AstIota (vars, (i :. ZI)) ->
     ( memo
-    , tbuild sh (interpretLambdaIndex (interpretAst) env memo
+    , tbuild sh (interpretLambdaIndex interpretAst env memo
                                       (vars, tfromIndex0 i)) )
   AstGatherZ sh v (vars, ix) ->
     let (memo1, t1) = interpretAst env memo v
-        f2 = interpretLambdaIndexToIndex (interpretAstInt) env memo (vars, ix)
+        f2 = interpretLambdaIndexToIndex interpretAstInt env memo (vars, ix)
     in (memo1, tgather sh t1 f2)
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
@@ -454,7 +453,7 @@ interpretAst env memo = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
   AstConst a -> (memo, tconstBare a)
-  AstConstant a -> second (tconstant) $ interpretAstPrimal env memo a
+  AstConstant a -> second tconstant $ interpretAstPrimal env memo a
   AstD u u' ->
     let (memo1, t1) = interpretAstPrimal env memo u
         (memo2, t2) = interpretAstDual env memo1 u'

@@ -1,5 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, ImpredicativeTypes, OverloadedLists,
-             QuantifiedConstraints, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists, QuantifiedConstraints,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}

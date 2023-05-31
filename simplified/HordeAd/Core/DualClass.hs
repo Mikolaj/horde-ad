@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
@@ -278,6 +278,20 @@ instance ShowAstSimplify r
   packDeltaDtA (Left tsh) = DeltaDtR (treplicate0N (tshape tsh) 1)
   packDeltaDtA (Right t) = DeltaDtR t
   intOfShapeA tsh c = treplicate0N (tshape tsh) (fromIntegral c)
+
+{- TODO: this should suffice to merge both HasRanks instances, but it doesn't:
+class ( Dual (ranked r y) ~ DeltaR ranked r y
+      , DeltaR ranked r y ~ Dual (ranked r y) )
+      => DualIsDeltaR ranked r y where
+instance ( Dual (ranked r y) ~ DeltaR ranked r y
+         , DeltaR ranked r y ~ Dual (ranked r y) )
+         => DualIsDeltaR ranked r y where
+
+class (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked r12 y) => CYRanked ranked c where
+instance (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked r12 y) => CYRanked ranked c where
+
+instance CYRanked ranked DualIsDeltaR => HasRanks ranked where
+-}
 
 instance HasRanks (Flip OR.Array) where
   dInputR = InputR

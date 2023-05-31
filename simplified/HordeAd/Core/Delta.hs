@@ -376,7 +376,7 @@ data DeltaBinding ranked r =
 -- value (usually set to @1@) is given in the @DeltaDt ranked r@ parameter.
 gradientFromDelta
   :: forall dynamic ranked shaped r.
-      (GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked shaped, Num (IntOf (ranked r 0)), Num (ranked r 0))
+      (GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked shaped)
   => Int -> DeltaDt ranked r
   -> ([(AstVarId, dynamic r)], Domains dynamic r)
 gradientFromDelta dimR deltaDt =
@@ -391,8 +391,7 @@ gradientFromDelta dimR deltaDt =
   let s0 =
         let iMap0 = EM.empty
             iMapR = EM.fromDistinctAscList
-                    $ zip [toInputId 0 ..]
-                          (replicate dimR (ddummy @dynamic @ranked :: dynamic r))
+                    $ zip [toInputId 0 ..] (replicate dimR ddummy)
             dMap0 = EM.empty
             dMapR = EM.empty
             nMap = EM.empty
@@ -410,10 +409,11 @@ gradientFromDelta dimR deltaDt =
   :: Int -> DeltaDt AstRanked Double
   -> ([(AstVarId, AstDynamic Double)], Domains AstDynamic Double) #-}
 
-buildFinMaps :: forall dynamic ranked shaped r.
-                (GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked shaped, Num (IntOf (ranked r 0)), Num (ranked r 0))
-             => EvalState dynamic ranked r -> DeltaDt ranked r
-             -> EvalState dynamic ranked r
+buildFinMaps
+  :: forall dynamic ranked shaped r.
+     (GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked shaped)
+  => EvalState dynamic ranked r -> DeltaDt ranked r
+  -> EvalState dynamic ranked r
 buildFinMaps s0 deltaDt =
   -- The first argument is the evaluation state being modified,
   -- the second is the cotangent accumulator that will become an actual
@@ -612,7 +612,9 @@ class ForwardDerivative (dynamic :: Type -> Type) a r where
   derivativeFromDelta
     :: Int -> Dual a -> Domains dynamic r -> a
 
-instance (KnownNat n, GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked shaped, Dual (ranked r n) ~ DeltaR ranked r n, Num (IntOf (ranked r 0)), Num (ranked r 0), Num (ranked r n))
+instance ( KnownNat n, GoodScalar r, Tensor ranked
+         , ConvertTensor dynamic ranked shaped
+         , Dual (ranked r n) ~ DeltaR ranked r n )
          => ForwardDerivative dynamic (ranked r n) r where
   derivativeFromDelta dimR deltaTopLevel ds =
     case runST $ buildDerivative dimR (DeltaDtR 0 deltaTopLevel) ds of
@@ -626,7 +628,7 @@ instance (KnownNat n, GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked 
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
   :: forall dynamic ranked shaped r s.
-     (Tensor ranked, ConvertTensor dynamic ranked shaped, GoodScalar r, Num (IntOf (ranked r 0)), Num (ranked r 0))
+     (Tensor ranked, ConvertTensor dynamic ranked shaped, GoodScalar r)
   => Int -> DeltaDt ranked r -> Domains dynamic r
   -> ST s (DeltaDt ranked r)
 buildDerivative dimR deltaDt params = do
@@ -635,7 +637,7 @@ buildDerivative dimR deltaDt params = do
   let evalR :: forall n. KnownNat n
             => DeltaR ranked r n -> ST s (ranked r n)
       evalR = \case
-        ZeroR -> return $! tzero @ranked $ listShapeToShape $ replicate (valueOf @n) 1
+        ZeroR -> return $! tzero $ listShapeToShape $ replicate (valueOf @n) 1
           -- TODO: wrong shape but it often works and the special cases
           -- for ZeroR help, but the real solution would be shaped tensors
           -- or simplification of delta terms

@@ -367,7 +367,7 @@ reshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
   _ -> dD l (treshape sh u) (dReshapeR (tshape u) sh u')
 
 build1
-  :: ( Tensor ranked, HasRanks ranked, KnownNat n, GoodScalar r, IsPrimal (ranked r (1 + n)), Num (IntOf (ranked r 0))
+  :: ( Tensor ranked, HasRanks ranked, KnownNat n, GoodScalar r, IsPrimal (ranked r (1 + n))
      , Underlying (ranked r n) ~ Underlying (ranked r (1 + n)) )
   => Int -> (IntOf (ranked r 0) -> ADVal (ranked r n))
   -> ADVal (ranked r (1 + n))

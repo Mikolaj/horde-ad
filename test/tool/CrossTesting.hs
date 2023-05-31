@@ -66,8 +66,8 @@ rev' f vals =
         -> ADVal (Flip OR.Array r m)
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
-            env = extendEnvR @(Compose ADVal OD.Array) @(Tannen ADVal (Flip OR.Array)) var (Tannen $ parseDomains vals inputs) EM.empty
-        in runTannen $ snd $ interpretAst @(Compose ADVal OD.Array) @(Tannen ADVal (Flip OR.Array)) env emptyMemo (gx ast)
+            env = extendEnvR var (Tannen $ parseDomains vals inputs) EM.empty
+        in runTannen $ snd $ interpretAst env emptyMemo (gx ast)
       (astGrad, value2) =
         revOnDomains dt (h id id id) parameters
       gradient2 = parseDomains vals astGrad
@@ -103,7 +103,7 @@ rev' f vals =
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (Tannen $ parseDomains vals inputs) EM.empty
-        in snd $ interpretAst @(Compose ADVal AstDynamic) @(Tannen ADVal AstRanked) env emptyMemo (gx ast)
+        in snd $ interpretAst env emptyMemo (gx ast)
       artifactsGradAst =
         revAstOnDomainsF (hAst id id id) parameters
       (astGradAst, value2Ast) =
