@@ -40,7 +40,7 @@ rev' :: forall r m n v g.
         ( KnownNat n, KnownNat m, ADReady AstRanked r
         , InterpretAstA (Flip OR.Array) r
         , InterpretAstA (Tannen ADVal (Flip OR.Array)) r
-        , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n, Value r ~ r )
+        , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n )
      => (forall f x. ADReady f x => f x n -> f x m)
      -> g
      -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, Ast m r, Ast m r

@@ -58,7 +58,7 @@ revL
      ( ranked ~ Tannen ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> [vals] -> [vals]
 revL f valsAll = revDtMaybeL f valsAll Nothing
 
@@ -67,7 +67,7 @@ revDtMaybeL
      ( ranked ~ Tannen ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> [vals] -> Maybe (Flip OR.Array r n) -> [vals]
 revDtMaybeL _ [] _ = []
 revDtMaybeL f valsAll@(vals : _) dt =
@@ -129,7 +129,7 @@ rev
      ( ranked ~ Tannen ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> vals -> vals
 rev f vals = head $ revL f [vals]
 
@@ -139,7 +139,7 @@ revDt
      ( ranked ~ Tannen ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals, Value r ~ r, Underlying vals ~ r, Underlying astvals ~ r )
+     , vals ~ Value vals, vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> Ast n r) -> vals -> Flip OR.Array r n -> vals
 revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 
