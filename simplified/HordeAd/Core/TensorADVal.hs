@@ -69,13 +69,6 @@ instance AdaptableDomains (Compose ADVal OD.Array) (ADVal Float) where
   toDomains = undefined
   fromDomains = undefined
 
-instance ShowAstSimplify r
-         => AdaptableDomains (Compose ADVal AstDynamic) (ADVal (Ast0 r)) where
-  type Underlying (ADVal (Ast0 r)) = r
-  type Value (ADVal (Ast0 r)) = r
-  toDomains = undefined
-  fromDomains = undefined
-
 instance (KnownNat n, GoodScalar r)
          => AdaptableDomains (Compose ADVal OD.Array)
                              (ADVal (Flip OR.Array r n)) where
@@ -168,9 +161,9 @@ type instance DualOf (Tannen ADVal ranked) = Product (Clown ADShare)
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
--- In any case, only the ADVal (Ast0 r) instantiation of this instance
+-- In any case, only the Ast instantiation of this instance
 -- is used in the codebase, in particular, to satisfy the constraints
--- needed for the interpretation of @Ast@ in @ADVal (Ast0 r)@.
+-- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
 instance ( CRanked2 ranked UnderlyingMatches2

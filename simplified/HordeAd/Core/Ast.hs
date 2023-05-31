@@ -12,7 +12,7 @@ module HordeAd.Core.Ast
   , AstRanked(..), Ast, AstNoVectorize(..), AstNoSimplify(..)
   , AstPrimalPart(..), AstDualPart(..), AstDynamic(..), AstDomains(..)
   , unwrapAstDomains, bindsToLet, bindsToDomainsLet
-  , Ast0(..), AstVarName(..), AstDynamicVarName(..), AstInt(..), AstBool(..)
+  , AstVarName(..), AstDynamicVarName(..), AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , astCond  -- exposed only for tests
   , ADShare
@@ -166,9 +166,6 @@ bindsToDomainsLet = foldl' bindToDomainsLet
  where
   bindToDomainsLet u (var, AstDynamic w) = AstDomainsLet var w u
 
-newtype Ast0 r = Ast0 {unAst0 :: Ast 0 r}
-deriving instance ShowAst r => Show (Ast0 r)
-
 newtype AstVarName t = AstVarName AstVarId
  deriving (Eq, Show)
 
@@ -311,21 +308,6 @@ instance KnownNat n => OrdB (AstPrimalPart r n) where
   v <=* u = AstRel LeqOp [v, u]
   v >* u = AstRel GtOp [v, u]
   v >=* u = AstRel GeqOp [v, u]
-
-type instance BooleanOf (Ast0 r) = AstBool r
-
-instance IfB (Ast0 r) where
-  ifB b v w = Ast0 $ astCond b (unAst0 v) (unAst0 w)
-
-instance EqB (Ast0 r) where
-  v ==* u = AstRel EqOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
-  v /=* u = AstRel NeqOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
-
-instance OrdB (Ast0 r) where
-  v <* u = AstRel LsOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
-  v <=* u = AstRel LeqOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
-  v >* u = AstRel GtOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
-  v >=* u = AstRel GeqOp [AstPrimalPart $ unAst0 v, AstPrimalPart $ unAst0 u]
 
 type instance BooleanOf (AstInt r) = AstBool r
 
@@ -473,23 +455,6 @@ deriving instance Fractional (Ast n r) => Fractional (AstPrimalPart r n)
 deriving instance Floating (Ast n r) => Floating (AstPrimalPart r n)
 deriving instance RealFrac (Ast n r) => RealFrac (AstPrimalPart r n)
 deriving instance RealFloat (Ast n r) => RealFloat (AstPrimalPart r n)
-
-instance Eq (Ast0 r) where
-  _ == _ = error "Ast0: can't evaluate terms for Eq"
-
-instance Ord (Ast 0 r) => Ord (Ast0 r) where
-  max (Ast0 u) (Ast0 v) =
-    Ast0 (AstOp MaxOp [u, v])
-  min (Ast0 u) (Ast0 v) =
-    Ast0 (AstOp MinOp [u, v])
-  _ <= _ = error "Ast0: can't evaluate terms for Ord"
-
-deriving instance Num (Ast 0 r) => Num (Ast0 r)
-deriving instance Real (Ast 0 r) => Real (Ast0 r)
-deriving instance Fractional (Ast 0 r) => Fractional (Ast0 r)
-deriving instance Floating (Ast 0 r) => Floating (Ast0 r)
-deriving instance RealFrac (Ast 0 r) => RealFrac (Ast0 r)
-deriving instance RealFloat (Ast 0 r) => RealFloat (Ast0 r)
 
 instance Eq (AstInt r) where
   _ == _ = error "AstInt: can't evaluate terms for Eq"

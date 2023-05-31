@@ -102,13 +102,6 @@ instance ConvertTensor AstDynamic AstRanked AstShapedTODO where
 
 data AstShapedTODO r (sh :: [Nat])
 
-instance ShowAstSimplify r
-         => AdaptableDomains AstDynamic (Ast0 r) where
-  type Underlying (Ast0 r) = r
-  type Value (Ast0 r) = r
-  toDomains = undefined
-  fromDomains = undefined
-
 instance (ShowAstSimplify r, KnownNat n)
          => AdaptableDomains AstDynamic (Ast n r) where
   type Underlying (Ast n r) = r
