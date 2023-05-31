@@ -119,9 +119,11 @@ instance (KnownNat n, ShowAstSimplify r)
     Just (a, rest) -> Just (fromD $ getCompose a, rest)
     Nothing -> Nothing
 
-class (Dual (ranked r y) ~ DeltaR ranked r y)
+class ( Dual (ranked r y) ~ DeltaR ranked r y
+      , DeltaR ranked r y ~ Dual (ranked r y) )
       => DualIsDeltaR ranked r y where
-instance (Dual (ranked r y) ~ DeltaR ranked r y)
+instance ( Dual (ranked r y) ~ DeltaR ranked r y
+         , DeltaR ranked r y ~ Dual (ranked r y) )
          => DualIsDeltaR ranked r y where
 
 class (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked r12 y) => CYRanked ranked c where
@@ -214,7 +216,8 @@ instance ( CRanked2 ranked UnderlyingMatches2
                 (foldl1' dAdd $ map (\(Tannen (D _ _ u')) -> u') lu)
 
   -- For whatever reason this signature is necessary to type-check this.
-  tmult :: forall n r. (KnownNat n, GoodScalar r, Dual (ranked r n) ~ DeltaR ranked r n)
+  tmult :: forall n r.
+           (KnownNat n, GoodScalar r, Dual (ranked r n) ~ DeltaR ranked r n)
         => Tannen ADVal ranked r n -> Tannen ADVal ranked r n
         -> Tannen ADVal ranked r n
   tmult (Tannen (D l1 ue ZeroR)) (Tannen (D l2 ve v')) =
