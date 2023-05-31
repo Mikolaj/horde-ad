@@ -5,11 +5,11 @@ import Prelude
 
 import           Control.Exception (assert)
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.Domains
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData
@@ -21,21 +21,21 @@ afcnnMnistLen1 widthHidden widthHidden2 =
   ++ replicate sizeMnistLabelInt widthHidden2 ++ [sizeMnistLabelInt]
 
 -- The differentiable type of all trainable parameters of this nn.
-type ADFcnnMnist1Parameters r =
-  ( ( [TensorOf 1 r]  -- @widthHidden@ copies, length @sizeMnistGlyphInt@
-    , TensorOf 1 r )  -- length @widthHidden@
-  , ( [TensorOf 1 r]  -- @widthHidden2@ copies, length @widthHidden@
-    , TensorOf 1 r )  -- length @widthHidden2@
-  , ( [TensorOf 1 r]  -- @sizeMnistLabelInt@ copies, length @widthHidden2@
-    , TensorOf 1 r )  -- length @sizeMnistLabelInt@
+type ADFcnnMnist1Parameters ranked r =
+  ( ( [ranked r 1]  -- @widthHidden@ copies, length @sizeMnistGlyphInt@
+    , ranked r 1 )  -- length @widthHidden@
+  , ( [ranked r 1]  -- @widthHidden2@ copies, length @widthHidden@
+    , ranked r 1 )  -- length @widthHidden2@
+  , ( [ranked r 1]  -- @sizeMnistLabelInt@ copies, length @widthHidden2@
+    , ranked r 1 )  -- length @sizeMnistLabelInt@
   )
 
 listMatmul1
-  :: forall r. Tensor r
-  => TensorOf 1 r -> [TensorOf 1 r]
-  -> TensorOf 1 r
+  :: forall ranked r. (Tensor ranked, GoodScalar r)
+  => ranked r 1 -> [ranked r 1]
+  -> ranked r 1
 listMatmul1 x0 weights = tlet x0 $ \x ->
-  let f :: TensorOf 1 r -> TensorOf 0 r
+  let f :: ranked r 1 -> ranked r 0
       f v = v `tdot0` x
   in tfromList $ map f weights
 
@@ -46,13 +46,13 @@ listMatmul1 x0 weights = tlet x0 $ \x ->
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (inputs) to be given to the program.
-afcnnMnist1 :: ADReady r
-            => (TensorOf 1 r -> TensorOf 1 r)
-            -> (TensorOf 1 r -> TensorOf 1 r)
+afcnnMnist1 :: ADReady ranked r
+            => (ranked r 1 -> ranked r 1)
+            -> (ranked r 1 -> ranked r 1)
             -> Int -> Int
-            -> TensorOf 1 r
-            -> ADFcnnMnist1Parameters r
-            -> TensorOf 1 r
+            -> ranked r 1
+            -> ADFcnnMnist1Parameters ranked r
+            -> ranked r 1
 afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
   let !_A = assert (sizeMnistGlyphInt == tlength datum
@@ -69,18 +69,18 @@ afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 afcnnMnistLoss1
-  :: ADReady r
-  => Int -> Int -> MnistData (Value r) -> ADFcnnMnist1Parameters r
-  -> Ranked r 0
+  :: ADReady ranked r
+  => Int -> Int -> MnistData r -> ADFcnnMnist1Parameters ranked r
+  -> ranked r 0
 afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
   let datum1 = tconst $ OR.fromVector [sizeMnistGlyphInt] datum
       target1 = tconst $ OR.fromVector [sizeMnistLabelInt] target
   in afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum1, target1)
 
 afcnnMnistLoss1TensorData
-  :: ADReady r
-  => Int -> Int -> (TensorOf 1 r, TensorOf 1 r) -> ADFcnnMnist1Parameters r
-  -> Ranked r 0
+  :: ADReady ranked r
+  => Int -> Int -> (ranked r 1, ranked r 1) -> ADFcnnMnist1Parameters ranked r
+  -> ranked r 0
 afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
   let result = inline afcnnMnist1 logistic softMax1
                                   widthHidden widthHidden2 datum adparams
@@ -89,11 +89,11 @@ afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 afcnnMnistTest1
-  :: forall r. (ADReady r, r ~ Value r)
+  :: forall ranked r. (ranked ~ Flip OR.Array, ADReady ranked r)
   => Int -> Int
   -> [MnistData r]
-  -> ((ADFcnnMnist1Parameters r
-       -> TensorOf 1 r)
+  -> ((ADFcnnMnist1Parameters ranked r
+       -> ranked r 1)
       -> Vector r)
   -> r
 {-# INLINE afcnnMnistTest1 #-}
@@ -102,8 +102,8 @@ afcnnMnistTest1 widthHidden widthHidden2 dataList evalAtTestParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let glyph1 = tconst $ OR.fromVector [sizeMnistGlyphInt] glyph
-            nn :: ADFcnnMnist1Parameters r
-               -> TensorOf 1 r
+            nn :: ADFcnnMnist1Parameters ranked r
+               -> ranked r 1
             nn = inline afcnnMnist1 logistic softMax1
                                     widthHidden widthHidden2 glyph1
             v = evalAtTestParams nn

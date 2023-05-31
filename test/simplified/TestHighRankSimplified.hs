@@ -7,6 +7,7 @@ import Prelude hiding ((<*))
 
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
+import           Data.Bifunctor.Tannen
 import           Data.Boolean
 import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import           Test.Tasty
@@ -86,12 +87,12 @@ testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-5
     (Flip $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [304.13867,914.9335,823.0187,1464.4688,5264.3306,1790.0055,1535.4309,3541.6572,304.13867,914.9335,823.0187,1464.4688,6632.4355,6047.113,1535.4309,1346.6815,45.92141,6.4903135,5.5406737,1.4242969,6.4903135,1.1458766,4.6446533,2.3550234,88.783676,27.467598,125.27507,18.177452,647.1917,0.3878851,2177.6152,786.1792,6.4903135,6.4903135,6.4903135,6.4903135,2.3550234,2.3550234,2.3550234,2.3550234,21.783596,2.3550234,2.3550234,2.3550234,21.783596,21.783596,21.783596,21.783596],Flip $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [-5728.7617,24965.113,32825.07,-63505.953,-42592.203,145994.88,-500082.5,-202480.06,-5728.7617,24965.113,32825.07,-63505.953,49494.473,-2446.7632,-500082.5,-125885.58,-43.092484,-1.9601002,-98.97709,2.1931143,-1.9601002,1.8243169,-4.0434446,-1.5266153,2020.9731,-538.0603,-84.28137,62.963814,-34987.0,-9.917454,135.30023,17741.998,-1.9601002,-1.9601002,-1.9601002,-1.9601002,-1.5266153,-1.5266153,-1.5266153,-1.5266153,-4029.1775,-1.5266153,-1.5266153,-1.5266153,-4029.1775,-4029.1775,-4029.1775,-4029.1775])
-    (crev (bar @(TensorOf 7 (ADVal Float))) (t48, t48))
+    (crev (bar @(Tannen ADVal (Flip OR.Array) Float 7)) (t48, t48))
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
-fooD :: forall r n. (RealFloat (TensorOf n (ADVal r)))
-     => [TensorOf n (ADVal r)] -> TensorOf n (ADVal r)
+fooD :: forall r n. (RealFloat (Tannen ADVal (Flip OR.Array) r n))
+     => [Tannen ADVal (Flip OR.Array) r n] -> Tannen ADVal (Flip OR.Array) r n
 fooD [x, y, z] =
   let w = x * sin y
   in atan2 z w + z * w
@@ -106,8 +107,8 @@ testFooD =
                  $ OR.constant [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (0.7 :: Double)
                , t128 ])
 
-fooBuild0 :: forall r n. (ADReady r, KnownNat n)
-          => TensorOf (1 + n) r -> TensorOf (1 + n) r
+fooBuild0 :: forall ranked r n. (ADReady ranked r, KnownNat n)
+          => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild0 v =
   let r = tsum v
   in tbuild1 2 $ const r
@@ -119,10 +120,10 @@ testFooBuild0 =
     (rev' @Double @5 fooBuild0 t16)
 
 fooBuildOut
-  :: forall r n.
-     ( ADReady r, KnownNat n
-     , IfB (TensorOf n r), BooleanOf (IntOf r) ~ BooleanOf (TensorOf n r) )
-  => TensorOf (1 + n) r -> TensorOf (1 + n) r
+  :: forall ranked r n.
+     ( ADReady ranked r, KnownNat n
+     , IfB (ranked r n), BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r n) )
+  => ranked r (1 + n) -> ranked r (1 + n)
 fooBuildOut v =
   tbuild1 2 $ \ix -> ifB (ix ==* 0)
                          (tindex v [ix + 1])  -- index out of bounds; guarded
@@ -135,17 +136,17 @@ testFooBuildOut =
     (rev' @Double @5 fooBuildOut t16)
 
 fooBuild2
-  :: forall r n.
-     ( ADReady r, KnownNat n, Floating (TensorOf n r)
-     , IfB (TensorOf n r), BooleanOf (IntOf r) ~ BooleanOf (TensorOf n r) )
-  => TensorOf (1 + n) r -> TensorOf (1 + n) r
+  :: forall ranked r n.
+     ( ADReady ranked r, KnownNat n, Floating (ranked r n)
+     , IfB (ranked r n), BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r n) )
+  => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild2 v =
   tbuild1 2 $ \ix ->
-    ifB (ix - tfloor (tsum0 @r @5
+    ifB (ix - tfloor (tsum0 @ranked @r @5
                       $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001 >=* 0
-         &&* ix - tfloor (tsum0 @r @5
+         &&* ix - tfloor (tsum0 @ranked @r @5
                           $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001 <=* 1)
-        (tindex v [ix - tfloor (tsum0 @r @5
+        (tindex v [ix - tfloor (tsum0 @ranked @r @5
                                 $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001])
            -- index out of bounds; also fine
         (sqrt $ abs $ tindex v [let rr = (ix - tfloor (tsum0 v) - 10001) `rem` 2
@@ -186,9 +187,9 @@ testFooBuild25 =
     (OR.fromList [2,2,1,2,2] [0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5,-0.35355339059327373,500.0,1.5811388300841895,-1.118033988749895,0.1381447409988844,0.16666666666666666,0.17677669529663687,-0.25,8.574929257125441e-2,0.288948802391873,-8.703882797784893e-2,9.805806756909202e-2])
     (rev' @Double @5 fooBuild2 t16)
 
-fooBuild3 :: forall r n.
-             ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
-          => TensorOf (1 + n) r -> TensorOf (1 + n) r
+fooBuild3 :: forall ranked r n.
+             ( ADReady ranked r, KnownNat n, RealFloat (ranked r n) )
+          => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild3 v =
   tbuild1 22 $ \ix ->
     bar ( treplicate0N (tailShape $ tshape v) 1
@@ -200,9 +201,9 @@ testFooBuild3 =
     (OR.fromList [2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,423.72976235076516,-260.41676627885636,-17.60047532855961,151.18955028869385,-1059.9668424433578,-65.00898015327623,-21.49245448729951,743.7622427949768])
     (rev' @Double @5 fooBuild3 t16)
 
-fooBuild5 :: forall r n.
-             ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
-          => TensorOf (1 + n) r -> TensorOf (1 + n) r
+fooBuild5 :: forall ranked r n.
+             ( ADReady ranked r, KnownNat n, RealFloat (ranked r n) )
+          => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild5 v =
   let r = tsum v
       v' = treplicate0N (tailShape $ tshape v) $ tminimum $ tflatten v
@@ -224,9 +225,9 @@ testFooBuild5 =
     (OR.fromList [3,1,2,2,1,2,2] [-613291.6547530327,571164.2201603781,-1338602.6247083102,528876.2566682736,1699442.2143691683,2874891.369778316,-3456754.605470273,3239487.8744244366,554916.1344235454,-775449.1803684114,3072.200583200206,1165767.8436804386,-1.0686356667942494e7,-6606976.194539241,-6457671.748790982,4791868.42112978,-615556.7946425928,569660.3506343022,-1348678.1169100606,534886.9366492515,1696036.143341285,2883992.9672165257,-3456212.5353846983,3240296.690514803,629047.8398075115,-794389.5797803313,-1143.8025173051583,1177448.8083517442,-1.15145721735623e7,-6618648.839812404,-6462386.031613377,5358224.852822481,-613291.6547530327,571164.2201603781,-1338602.6247083102,528876.2566682736,1699442.2143691683,2874891.369778316,-3456754.605470273,3239487.8744244366,554916.1344235454,-775449.1803684114,3072.200583200206,1165767.8436804386,-1.0686356667942494e7,-6606976.194539241,-6457671.748790982,4791868.42112978])
     (rev' @Double @7 fooBuild5 t48)
 
-fooBuild1 :: forall r n.
-             ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
-          => TensorOf (1 + n) r -> TensorOf (1 + n) r
+fooBuild1 :: forall ranked r n.
+             ( ADReady ranked r, KnownNat n, RealFloat (ranked r n) )
+          => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild1 v =
   let r = tsum v
       tk = treplicate0N (tailShape $ tshape v)
@@ -243,8 +244,8 @@ testFooBuild1 =
     (OR.fromList [2,2,1,2,2] [394056.00100873224,2652.651012139068,-190115.65273218407,9038.358355005721,1481231.4430045108,8665.8566966351,-686561.2828884773,975098.0370838332,405610.50900167174,247.29268093759174,-190893.00285812665,9131.411216464405,1388249.3520251075,8636.104329095837,-692176.9903632513,1027508.6863491047])
     (rev' @Double @5 fooBuild1 t16)
 
-fooMap1 :: (ADReady r, KnownNat n, RealFloat (TensorOf n r))
-        => ShapeInt (1 + n) -> TensorOf 0 r -> TensorOf (1 + n) r
+fooMap1 :: (ADReady ranked r, KnownNat n, RealFloat (ranked r n))
+        => ShapeInt (1 + n) -> ranked r 0 -> ranked r (1 + n)
 fooMap1 sh r =
   let v = fooBuild1 $ treplicate0N sh (r * r)
   in tmap0N (\x -> x * r + 5) v
@@ -263,12 +264,12 @@ testFooMap1 =
     3901.312463734578
     (rev' @Double @7 (fooMap1 [4, 3, 2, 3, 4, 5, 3]) 0.1)
 
-fooNoGo :: forall r n.
-           ( ADReady r, KnownNat n, RealFloat (TensorOf n r)
-           , RealFloat (TensorOf (1 + n) r)
-           , BooleanOf r ~ BooleanOf (TensorOf n r), OrdB (TensorOf n r)
-           , IfB (TensorOf n r) )
-        => TensorOf (1 + n) r -> TensorOf (1 + n) r
+fooNoGo :: forall ranked r n.
+           ( ADReady ranked r, KnownNat n, RealFloat (ranked r n)
+           , RealFloat (ranked r (1 + n))
+           , BooleanOf (ranked r 0) ~ BooleanOf (ranked r n)
+           , OrdB (ranked r n), IfB (ranked r n) )
+        => ranked r (1 + n) -> ranked r (1 + n)
 fooNoGo v =
   let r = tsum v
       r0 = tsum0 v
@@ -295,9 +296,9 @@ testFooNoGo10 =
     (OR.fromList [5, 3, 1, 2, 2, 1, 2, 2] [8.096867407436072e-8,9.973025492756426e-8,9.976696178938985e-8,5.614458707681111e-8,-1.8338500573636686e-7,-2.144970334428336e-7,7.354143606421902e-7,-1.8140041785503643e-7,8.096867407436072e-8,9.973025492756426e-8,9.976696178938985e-8,5.614458707681111e-8,-2.01381292700262e-7,-2.221588091014473e-7,7.354143606421902e-7,-1.9951065225263367e-7,1.7230532848112822e-7,4.5426218104870796e-7,1.430886696893587e-7,9.354993295163118e-7,-5.225515010723883e-7,1.019433073376504e-6,9.64067025472343e-6,-4.872227980305747e-6,8.089200625992941e-8,9.924319994964371e-8,1.092480101004153e-7,-2.8478802468285825e-7,9.641049518625974e-8,2.9624147815716037e-7,-1.950868158558337e-7,9.547754822865364e-8,4.5426218104870796e-7,4.5426218104870796e-7,4.5426218104870796e-7,4.5426218104870796e-7,-4.872227980305747e-6,-4.872227980305747e-6,-4.872227980305747e-6,-4.872227980305747e-6,9.361277121832246e-8,-4.872227980305747e-6,-4.872227980305747e-6,-4.872227980305747e-6,9.361277121832246e-8,9.361277121832246e-8,9.361277121832246e-8,9.361277121832246e-8,-5.488572216677945e-7,-1.8496203182958057e-7,-1.4603644180845103e-7,-1.2145268106051633e-7,-2.817402689957553e-7,-2.9913537180597976e-7,6.272804203945257e-7,-2.3697344464172694e-7,-5.488572216677945e-7,-1.8496203182958057e-7,-1.4603644180845103e-7,-1.2145268106051633e-7,-2.613973017956691e-7,-3.0013408634207794e-7,6.272804203945257e-7,-2.916736028401805e-7,-7.0114505846358575e-6,-4.303381366239431e-5,-4.897282418246382e-6,-1.710952247892854e-4,-4.2040039667393255e-5,-2.0204742564752248e-4,-1.7017980671040968e-2,-4.247008401789142e-3,-1.056090348050961e-6,-2.210187184450231e-6,-2.7842041329045203e-6,-1.0402806498987974e-5,-1.2967382896879757e-7,-1.9315601705070884e-5,-2.40087090725031e-7,-2.4419692405172046e-7,-4.303381366239431e-5,-4.303381366239431e-5,-4.303381366239431e-5,-4.303381366239431e-5,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-2.683138631810477e-7,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-2.683138631810477e-7,-2.683138631810477e-7,-2.683138631810477e-7,-2.683138631810477e-7,-5.488572216677945e-7,-1.8496203182958057e-7,-1.4603644180845103e-7,-1.2145268106051633e-7,-2.817402689957553e-7,-2.9913537180597976e-7,6.272804203945257e-7,-2.3697344464172694e-7,-5.488572216677945e-7,-1.8496203182958057e-7,-1.4603644180845103e-7,-1.2145268106051633e-7,-2.613973017956691e-7,-3.0013408634207794e-7,6.272804203945257e-7,-2.916736028401805e-7,-7.0114505846358575e-6,-4.303381366239431e-5,-4.897282418246382e-6,-1.710952247892854e-4,-4.2040039667393255e-5,-2.0204742564752248e-4,-1.7017980671040968e-2,-4.247008401789142e-3,-1.056090348050961e-6,-2.210187184450231e-6,-2.7842041329045203e-6,-1.0402806498987974e-5,-1.2967382896879757e-7,-1.9315601705070884e-5,-2.40087090725031e-7,-2.4419692405172046e-7,-4.303381366239431e-5,-4.303381366239431e-5,-4.303381366239431e-5,-4.303381366239431e-5,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-2.683138631810477e-7,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-2.683138631810477e-7,-2.683138631810477e-7,-2.683138631810477e-7,-2.683138631810477e-7,-5.469529675653596e-7,-2.331458950045675e-7,-1.9907443163522408e-7,-1.4019078434680374e-7,-6.95091094132346e-8,-5.685763846730528e-8,-9.268594848659335e-8,-3.010367762029461e-8,-5.469529675653596e-7,-2.331458950045675e-7,-1.9907443163522408e-7,-1.4019078434680374e-7,-3.415394012988984e-8,-5.069973314807702e-8,-9.268594848659335e-8,-6.380451815099858e-8,-6.883755913116986e-6,-4.273807584344302e-5,-4.79037108793574e-6,-1.705307241188017e-4,-4.2267488166320864e-5,-2.0143642393829028e-4,-1.701262134129569e-2,-4.2496361738088365e-3,-1.0224785375169973e-6,-2.1427637177332083e-6,-2.705952143004936e-6,-1.0493018474305117e-5,-1.819666770962338e-7,-1.911089472080586e-5,-9.045482032374276e-8,-2.819821645880664e-7,-4.273807584344302e-5,-4.273807584344302e-5,-4.273807584344302e-5,-4.273807584344302e-5,-4.2496361738088365e-3,-4.2496361738088365e-3,-4.2496361738088365e-3,-4.2496361738088365e-3,-3.019273543907303e-7,-4.2496361738088365e-3,-4.2496361738088365e-3,-4.2496361738088365e-3,-3.019273543907303e-7,-3.019273543907303e-7,-3.019273543907303e-7,-3.019273543907303e-7,8.287292817679557e-8,5.154639175257732e-8,4.672897196261682e-8,3.740648379052369e-8,2.884615384615385e-8,2.7780699895840894e-8,1.5447991761071065e-8,2.546934916639589e-8,8.287292817679557e-8,5.154639175257732e-8,4.672897196261682e-8,3.740648379052369e-8,2.5862068965517245e-8,2.7275544092553562e-8,1.5447991761071065e-8,2.8358432436548274e-8,3.0000000000000004e-7,7.500000000000001e-7,2.5000000000000004e-7,1.5000000000000002e-6,-7.500000000000001e-7,1.6304347826086957e-6,1.5000000000000002e-5,-7.500000000000001e-6,1.1450381679389314e-7,1.6666666666666668e-7,1.8750000000000003e-7,-3.7500000000000006e-7,4.411764705882353e-8,5.00948462422186e-7,-4.545454545454546e-8,5.76923076923077e-8,7.500000000000001e-7,7.500000000000001e-7,7.500000000000001e-7,7.500000000000001e-7,-7.500000000000001e-6,-7.500000000000001e-6,-7.500000000000001e-6,-7.500000000000001e-6,5.999928000863991e-8,-7.500000000000001e-6,-7.500000000000001e-6,-7.500000000000001e-6,5.999928000863991e-8,5.999928000863991e-8,5.999928000863991e-8,5.999928000863991e-8])
    (rev' @Double @8 (tmap0N (* 0.000000001) . fooNoGo) (tmap0N (* 0.01) $ treplicate 5 t48))
 
-nestedBuildMap :: forall n r.
-                  (ADReady r, n <= 6, KnownNat n)
-               => TensorOf 0 r -> TensorOf (1 + n) r
+nestedBuildMap :: forall ranked n r.
+                  (ADReady ranked r, n <= 6, KnownNat n)
+               => ranked r 0 -> ranked r (1 + n)
 nestedBuildMap r =
   let w = treplicate0N [4]
       v' = treplicate0N (177 :$ ZS) r
@@ -350,10 +351,10 @@ testNestedBuildMap7 =
 -- The n <= 4 is necessary despite what GHC claims. Applying @(2 + n)
 -- to nestedBuildMap doesn't help.
 nestedSumBuild
-  :: forall n r.
-     ( ADReady r, n <= 4, KnownNat n
-     , BooleanOf (TensorOf n r) ~ BooleanOf (IntOf r), IfB (TensorOf n r) )
-  => TensorOf n r -> TensorOf (2 + n) r
+  :: forall ranked n r.
+     ( ADReady ranked r, n <= 4, KnownNat n
+     , BooleanOf (ranked r n) ~ BooleanOf (IntOf (ranked r 0)), IfB (ranked r n) )
+  => ranked r n -> ranked r (2 + n)
 nestedSumBuild v =
   tbuild1 13 $ \ix1 -> tbuild1 4 $ \ix2 ->
     ifB (ix2 >* ix1)
@@ -375,10 +376,10 @@ testNestedSumBuild5 =
     (OR.fromList [1,2,2] [3.5330436757054903e-3,3.5330436757054903e-3,3.5330436757054903e-3,3.5330436757054903e-3])
     (rev' @Double @5 nestedSumBuild (tsum $ tsum t16))
 
-nestedSumBuildB :: forall n r. (ADReady r, KnownNat n)
-                => TensorOf (1 + n) r -> TensorOf 3 r
+nestedSumBuildB :: forall ranked n r. (ADReady ranked r, KnownNat n)
+                => ranked r (1 + n) -> ranked r 3
 nestedSumBuildB v =
-  tbuild @r @2 [13, 4, 2] $ \case
+  tbuild @ranked @r @2 [13, 4, 2] $ \case
     [ix, ix2] ->
       flip tindex [ix2]
         (tfromList
@@ -399,7 +400,7 @@ testNestedSumBuildB =
     (OR.fromList [2,3,2,2,2] [30.0,30.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,35.0,35.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0])
     (rev' @Double @3 nestedSumBuildB (tsum $ tsum $ ttranspose [1, 4, 2, 0, 3] t48))
 
-nestedBuildIndex :: forall r. ADReady r => TensorOf 5 r -> TensorOf 3 r
+nestedBuildIndex :: forall ranked r. ADReady ranked r => ranked r 5 -> ranked r 3
 nestedBuildIndex v =
   tbuild1 2 $ \ix2 -> tindex (tbuild1 3 $ \ix3 -> tindex (tbuild1 3 $ \ix4 -> tindex v (ix4 `rem` 2:. ix2 :. 0 :. ZI)) [ix3]) (ix2 :. ZI)
 
@@ -410,8 +411,8 @@ testNestedBuildIndex =
     (rev' @Double @3 nestedBuildIndex t16)
 
 barRelu
-  :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
-  => TensorOf n r -> TensorOf n r
+  :: ( ADReady ranked r, KnownNat n, RealFloat (ranked r n) )
+  => ranked r n -> ranked r n
 barRelu x = let t = treplicate0N (tshape x) 0.001 * x
             in relu $ bar (t, relu t)
 
@@ -435,8 +436,8 @@ testBarReluADVal3 =
          (Flip $ OR.mapA (* 0.001) $ runFlip t128))
 
 barRelu10xSlower
-  :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
-  => TensorOf n r -> TensorOf n r
+  :: ( ADReady ranked r, KnownNat n, RealFloat (ranked r n) )
+  => ranked r n -> ranked r n
 barRelu10xSlower x = let t = tmap0N (* 0.001) x
                      in relu $ bar (t, relu t)
 
@@ -460,8 +461,8 @@ testBarReluADVal320 =
     (rev' @Double @10 barRelu10xSlower
          (Flip $ OR.mapA (* 0.001) $ runFlip t128))
 
-braidedBuilds :: forall n r. (ADReady r, KnownNat n)
-              => TensorOf (1 + n) r -> TensorOf 2 r
+braidedBuilds :: forall ranked n r. (ADReady ranked r, KnownNat n)
+              => ranked r (1 + n) -> ranked r 2
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
     tbuild1 4 (\ix2 -> tindex (tfromList
@@ -479,8 +480,8 @@ testBraidedBuilds1 =
     (OR.fromList [2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0])
     (rev' @Double @2 braidedBuilds t16)
 
-recycled :: (ADReady r, KnownNat n)
-         => TensorOf n r -> TensorOf 7 r
+recycled :: (ADReady ranked r, KnownNat n)
+         => ranked r n -> ranked r 7
 recycled r =
   tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ ->
     nestedSumBuildB (treplicate 4 r)
@@ -497,9 +498,9 @@ testRecycled1 =
     (runFlip $ tfromList0N (5 :$ 4 :$ 2 :$ ZS) [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
     (rev' @Double @7 recycled (treplicate0N [5, 4, 2] 0.0002))
 
-concatBuild :: ( ADReady r, KnownNat n, OrdB (TensorOf (1 + n) r)
-               , BooleanOf (TensorOf (1 + n) r) ~ BooleanOf (IntOf r) )
-            => TensorOf (1 + n) r -> TensorOf (3 + n) r
+concatBuild :: ( ADReady ranked r, KnownNat n, OrdB (ranked r (1 + n))
+               , BooleanOf (ranked r (1 + n)) ~ BooleanOf (IntOf (ranked r 0)) )
+            => ranked r (1 + n) -> ranked r (3 + n)
 concatBuild r =
   tbuild1 7 (\i ->
     tconcat [ tbuild1 5 (const r)

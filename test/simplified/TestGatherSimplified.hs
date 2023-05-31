@@ -62,12 +62,12 @@ testTrees =
   , testCase "scatterSimp12" testScatterSimp12
   ]
 
-gatherNested1 :: forall r. ADReady r
-              => TensorOf 2 r -> TensorOf 1 r
+gatherNested1 :: forall ranked r. ADReady ranked r
+              => ranked r 2 -> ranked r 1
 gatherNested1 t =
-  tgather @r @1
+  tgather @ranked @r @1
           (2 :$ ZS)
-          (tgather @r @1
+          (tgather @ranked @r @1
                    (4 :$ 2 :$ ZS) t
                    (\(k3 :. ZI) -> k3 :. ZI))
           (\(i2 :. ZI) -> i2 + i2 :. i2 :. ZI)
@@ -90,10 +90,10 @@ testGatherNestedBuild1 =
              ifB (i >* 2) (gatherNested1 t) (t ! [i])))
           (treplicate 7 $ tfromList [0, 1]))
 
-gather1 :: forall r. ADReady r
-        => TensorOf 2 r -> TensorOf 1 r
+gather1 :: forall ranked r. ADReady ranked r
+        => ranked r 2 -> ranked r 1
 gather1 t =
-  tgather @r @1
+  tgather @ranked @r @1
           (2 :$ ZS)
           t
           (\(i2 :. ZI) -> i2 + i2 :. i2 :. ZI)
@@ -127,12 +127,12 @@ testGatherSimp1 = do
   length (show (simplifyAst6 @Float t1))
     @?= length (show (simplifyAst6 @Float t2))
 
-gatherNested2 :: forall r. ADReady r
-              => TensorOf 2 r -> TensorOf 2 r
+gatherNested2 :: forall ranked r. ADReady ranked r
+              => ranked r 2 -> ranked r 2
 gatherNested2 t =
-  tgather @r @2
+  tgather @ranked @r @2
           (2 :$ 3 :$ ZS)
-          (tgather @r @3
+          (tgather @ranked @r @3
                    (2 :$ 3 :$ 4 :$ 2 :$ ZS) t
                    (\(k1 :. k2 :. k3 :. ZI) -> k1 + k2 + k3 :. ZI))
           (\(i1 :. i2 :. ZI) -> i1 :. i2 :. i1 + i2 :. i1 :. ZI)
@@ -155,10 +155,10 @@ testGatherNestedBuild2 =
              gatherNested2 (t * treplicate0N [7, 2] (tfromIndex0 i))))
           (treplicate 7 $ tfromList [0, 1]))
 
-gather2 :: forall r. ADReady r
-        => TensorOf 2 r -> TensorOf 2 r
+gather2 :: forall ranked r. ADReady ranked r
+        => ranked r 2 -> ranked r 2
 gather2 t =
-  tgather @r @2
+  tgather @ranked @r @2
           (2 :$ 3 :$ ZS)
           t
           (\(i1 :. i2 :. ZI) -> i1 + i2 + i1 + i2 :. i1 :. ZI)
@@ -192,12 +192,12 @@ testGatherSimp2 = do
   length (show (simplifyAst6 @Float t1))
     @?= length (show (simplifyAst6 @Float t2))
 
-gatherNested12 :: forall r. ADReady r
-               => TensorOf 2 r -> TensorOf 2 r
+gatherNested12 :: forall ranked r. ADReady ranked r
+               => ranked r 2 -> ranked r 2
 gatherNested12 t =
-  tgather @r @1
+  tgather @ranked @r @1
           (2 :$ 4 :$ ZS)
-          (tgather @r @3
+          (tgather @ranked @r @3
                    (2 :$ 3 :$ 4 :$ ZS) t
                    (\(k1 :. k2 :. k3 :. ZI) -> k1 + k2 + k3 :. k1 :. ZI))
           (\(i1 :. ZI) -> i1 :. i1 + i1 :. ZI)
@@ -221,10 +221,10 @@ testGatherNestedBuild12 =
                           (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
           (treplicate 7 $ tfromList [0, 1]))
 
-gather12 :: forall r. ADReady r
-         => TensorOf 2 r -> TensorOf 2 r
+gather12 :: forall ranked r. ADReady ranked r
+         => ranked r 2 -> ranked r 2
 gather12 t =
-  tgather @r @2
+  tgather @ranked @r @2
           (2 :$ 4 :$ ZS)
           t
           (\(i1 :. k3 :. ZI) -> i1 + i1 + i1 + k3 :. i1 :. ZI)
@@ -259,13 +259,13 @@ testGatherSimp12 = do
   length (show (simplifyAst6 @Float t1))
     @?= length (show (simplifyAst6 @Float t2))
 
-gatherReshape22 :: forall r. ADReady r
-                => TensorOf 2 r -> TensorOf 2 r
+gatherReshape22 :: forall ranked r. ADReady ranked r
+                => ranked r 2 -> ranked r 2
 gatherReshape22 t =
-  treshape @r @6 [2, 6]
+  treshape @ranked @r @6 [2, 6]
   $ treshape [3, 1, 2, 1, 1, 2]
-  $ treshape @r @4 (1 :$ 12 :$ 1 :$ ZS)
-  $ treshape @r @3 [3, 1, 1, 4]
+  $ treshape @ranked @r @4 (1 :$ 12 :$ 1 :$ ZS)
+  $ treshape @ranked @r @3 [3, 1, 1, 4]
   $ treshape [2, 2, 3] t
 
 testGatherReshape22 :: Assertion
@@ -293,7 +293,7 @@ testGatherSimp22 = do
   length (show t1) @?= 52
   length (show (simplifyAst6 @Float t1)) @?= 52
   resetVarCounter
-  let !t2 = treshape @(Ast0 Float) @2 @2 [2, 6]
+  let !t2 = treshape @AstRanked @Float @2 @2 [2, 6]
             $ AstVar [6, 2] (intToAstVarId 100000000)
   length (show t2) @?= 52
   length (show (simplifyAst6 @Float t2)) @?= 52
@@ -309,7 +309,7 @@ testGatherSimp23 = do
   length (show (simplifyAst6 @Float t1)) @?= 501
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
-              treshape @(Ast0 Float) @2 @2 [2, 6]
+              treshape @AstRanked @Float @2 @2 [2, 6]
                 (t * treplicate0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
   length (show t2) @?= 272
@@ -317,12 +317,12 @@ testGatherSimp23 = do
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
-gatherTranspose33 :: forall r. ADReady r
-                  => TensorOf 10 r -> TensorOf 2 r
+gatherTranspose33 :: forall ranked r. ADReady ranked r
+                  => ranked r 10 -> ranked r 2
 gatherTranspose33 t =
   tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
     (ttr
-     $ treshape @r @4 [16, 8]
+     $ treshape @ranked @r @4 [16, 8]
      $ ttranspose [0, 1, 2]
      $ ttranspose [2, 0, 1]
      $ ttranspose [1, 2, 0]
@@ -375,7 +375,7 @@ testGatherSimp33 = do
   length (show (simplifyAst6 @Float t1)) @?= 7301
   resetVarCounter
   let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
-                            (treshape @(Ast0 Float) @10 [8, 16] t))
+                            (treshape @AstRanked @Float @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t2) @?= 513
   length (show (simplifyAst6 @Float t2)) @?= 513
@@ -391,7 +391,7 @@ testGatherSimp34 = do
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               (\t' -> tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
-                               (treshape @(Ast0 Float) @10 [8, 16] t'))
+                               (treshape @AstRanked @Float @10 [8, 16] t'))
                 (t * treplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t2) @?= 756
@@ -399,12 +399,12 @@ testGatherSimp34 = do
 
 -- scatters instead of gathers
 
-scatterNested1 :: forall r. ADReady r
-              => TensorOf 2 r -> TensorOf 1 r
+scatterNested1 :: forall ranked r. ADReady ranked r
+              => ranked r 2 -> ranked r 1
 scatterNested1 t =
-  tscatter @r @2
+  tscatter @ranked @r @2
           (2 :$ ZS)
-          (tscatter @r @1
+          (tscatter @ranked @r @1
                    (7 :$ 2 :$ ZS) t
                    (\(k3 :. ZI) -> k3 :. ZI))
           (\(i1 :. i2 :. ZI) -> i2 `quot` (1 + i1) :. ZI)
@@ -427,10 +427,10 @@ testScatterNestedBuild1 =
              ifB (i >* 2) (scatterNested1 t) (t ! [i])))
           (treplicate 7 $ tfromList [0, 1]))
 
-scatter1 :: forall r. ADReady r
-        => TensorOf 2 r -> TensorOf 1 r
+scatter1 :: forall ranked r. ADReady ranked r
+        => ranked r 2 -> ranked r 1
 scatter1 t =
-  tscatter @r @2
+  tscatter @ranked @r @2
           (2 :$ ZS)
           t
           (\(i1 :. i2 :. ZI) -> i2 + 2 * i1 :. ZI)
@@ -464,12 +464,12 @@ testScatterSimp1 = do
   length (show (simplifyAst6 @Float t1)) @?= 287
   length (show (simplifyAst6 @Float t2)) @?= 213
 
-scatterNested2 :: forall r. ADReady r
-              => TensorOf 2 r -> TensorOf 2 r
+scatterNested2 :: forall ranked r. ADReady ranked r
+              => ranked r 2 -> ranked r 2
 scatterNested2 t =
-  tscatter @r @4
+  tscatter @ranked @r @4
           (2 :$ 3 :$ ZS)
-          (tscatter @r @1
+          (tscatter @ranked @r @1
                    (2 :$ 3 :$ 4 :$ 2 :$ ZS) t
                    (\(k1 :. ZI) -> k1 :. k1 :. k1 :. ZI))
           (\(i1 :. i2 :. _i3 :. i4 :. ZI) -> i1 + i2 :. i4 + i1 :. ZI)
@@ -492,10 +492,10 @@ testScatterNestedBuild2 =
              scatterNested2 (t * treplicate0N [7, 2] (tfromIndex0 i))))
           (treplicate 7 $ tfromList [0, 1]))
 
-scatter2 :: forall r. ADReady r
-        => TensorOf 2 r -> TensorOf 2 r
+scatter2 :: forall ranked r. ADReady ranked r
+        => ranked r 2 -> ranked r 2
 scatter2 t =
-  tscatter @r @2
+  tscatter @ranked @r @2
           (2 :$ 3 :$ ZS)
           t
           (\(i1 :. i2 :. ZI) -> i1 + i2 + i1 + i2 :. i1 :. ZI)
@@ -529,12 +529,12 @@ testScatterSimp2 = do
   length (show (simplifyAst6 @Float t1)) @?= 441
   length (show (simplifyAst6 @Float t2)) @?= 314
 
-scatterNested12 :: forall r. ADReady r
-               => TensorOf 2 r -> TensorOf 2 r
+scatterNested12 :: forall ranked r. ADReady ranked r
+               => ranked r 2 -> ranked r 2
 scatterNested12 t =
-  tscatter @r @2
+  tscatter @ranked @r @2
           (2 :$ 4 :$ ZS)
-          (tscatter @r @2
+          (tscatter @ranked @r @2
                    (2 :$ 3 :$ 4 :$ ZS) t
                    (\(k1 :. k2 :. ZI) -> k1 :. k2 + k1 :. k1 :. ZI))
           (\(i1 :. _i2 :. ZI) -> i1 + i1 :. ZI)
@@ -558,10 +558,10 @@ testScatterNestedBuild12 =
                           (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
           (treplicate 7 $ tfromList [0, 1]))
 
-scatter12 :: forall r. ADReady r
-         => TensorOf 2 r -> TensorOf 2 r
+scatter12 :: forall ranked r. ADReady ranked r
+         => ranked r 2 -> ranked r 2
 scatter12 t =
-  tscatter @r @2
+  tscatter @ranked @r @2
           (2 :$ 4 :$ ZS)
           t
           (\(i1 :. k3 :. ZI) -> i1 + i1 + i1 + k3 :. i1 :. ZI)
