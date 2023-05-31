@@ -1,4 +1,3 @@
-{-# LANGUAGE ImpredicativeTypes #-}
 module TestMnistFCNNR
   ( testTrees
   ) where

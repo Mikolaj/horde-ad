@@ -358,10 +358,19 @@ class DomainsTensor (dynamic :: Type -> Type)
 
 type Many ranked (f :: Type -> Constraint) r = (f (ranked r 0), f (ranked r 1), f (ranked r 2), f (ranked r 3), f (ranked r 4), f (ranked r 5), f (ranked r 6), f (ranked r 7), f (ranked r 8), f (ranked r 9), f (ranked r 10), f (ranked r 11), f (ranked r 12))
 
-class (BooleanOf (IntOf a) ~ BooleanOf b, BooleanOf b ~ BooleanOf (IntOf a))
-      => BooleanMatches a b where
-instance (BooleanOf (IntOf a) ~ BooleanOf b, BooleanOf b ~ BooleanOf (IntOf a))
-         => BooleanMatches a b where
+class (forall r34 y34. (GoodScalar r34) => c ranked r34 y34)
+      => CRanked3 ranked c where
+instance
+      (forall r34 y34. (GoodScalar r34) => c ranked r34 y34)
+      => CRanked3 ranked c where
+
+class ( BooleanOf (IntOf (ranked r35 0)) ~ BooleanOf (ranked r35 y35)
+      , BooleanOf (ranked r35 y35) ~ BooleanOf (IntOf (ranked r35 0)) )
+      => BooleanMatches ranked r35 y35 where
+instance
+      ( BooleanOf (IntOf (ranked r35 0)) ~ BooleanOf (ranked r35 y35)
+      , BooleanOf (ranked r35 y35) ~ BooleanOf (IntOf (ranked r35 0)) )
+      => BooleanMatches ranked r35 y35 where
 
 class ( BooleanOf (IntOf (ranked r33 0)) ~ BooleanOf (PrimalOf ranked r33 y33)
       , BooleanOf (PrimalOf ranked r33 y33) ~ BooleanOf (IntOf (ranked r33 0)) )
@@ -380,11 +389,8 @@ type ADReady ranked r =
   , OrdB r, OrdB (IntOf (ranked r 0)), Many ranked OrdB r
   , Many (PrimalOf ranked) OrdB r
   , Boolean (BooleanOf (IntOf (ranked r 0)))
-  , forall r31 y31. (KnownNat y31, GoodScalar r31)
-                    => BooleanMatches (ranked r31 0)
-                                      (ranked r31 y31) :: Constraint
-  , forall r32 y32. GoodScalar r32  -- KnownNat y32 causes 'ambiguous' error
-                    => BooleanMatchesPrimalOf ranked r32 y32 :: Constraint
+  , CRanked3 ranked BooleanMatches
+  , CRanked3 ranked BooleanMatchesPrimalOf
   )
 
 

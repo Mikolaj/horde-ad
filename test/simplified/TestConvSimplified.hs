@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, ImpredicativeTypes, OverloadedLists #-}
+{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TestConvSimplified (testTrees) where
 

@@ -1,4 +1,4 @@
-{-# LANGUAGE ImpredicativeTypes, OverloadedLists #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestHighRankSimplified (testTrees) where

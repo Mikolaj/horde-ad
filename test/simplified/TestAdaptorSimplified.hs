@@ -1,4 +1,4 @@
-{-# LANGUAGE ImpredicativeTypes, OverloadedLists #-}
+{-# LANGUAGE OverloadedLists #-}
 module TestAdaptorSimplified
   ( testTrees
   ) where
