@@ -40,7 +40,7 @@ import HordeAd.Internal.TensorOps
 
 -- * Tensor class definition
 
--- @IntOf ranked@ as size or shape gives more expressiveness,
+-- @IntOf a@ as size or shape gives more expressiveness,
 -- but leads to irregular tensors, especially after vectorization,
 -- and prevents statically known shapes.
 -- However, if we switched to @Data.Array.Shaped@ and moved most of the shapes
@@ -57,8 +57,7 @@ type family IntOf a
 -- Therefore, there is a real trade-off between @[2]@ and @(2 :. ZI).
 type IndexOf a n = Index n (IntOf a)
 
-type GoodScalar r =
-  (ShowAst r, RealFloat r, Floating (Vector r), RowSum r, Underlying r ~ r)
+type GoodScalar r = (ShowAst r, RealFloat r, Floating (Vector r), RowSum r)
 
 class Integral (IntOf a) => IntegralIntOf a where
 instance Integral (IntOf a) => IntegralIntOf a where

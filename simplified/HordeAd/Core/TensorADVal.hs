@@ -134,7 +134,7 @@ instance (Dual (ranked r y) ~ DeltaR ranked r y)
 class (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked r12 y) => CYRanked ranked c where
 instance (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked r12 y) => CYRanked ranked c where
 
-class (Underlying a ~ Underlying b)
+class (Underlying a ~ Underlying b)  -- TODO:errors:Underlying b ~ Underlying a)
       => UnderlyingMatches2 a b where
 instance (Underlying a ~ Underlying b)
          => UnderlyingMatches2 a b where
@@ -144,9 +144,9 @@ class (forall r13 x y. (KnownNat y, GoodScalar r13) => c (ranked r13 x) (ranked 
 instance (forall r13 x y. (KnownNat y, GoodScalar r13) => c (ranked r13 x) (ranked r13 y))
          => CRanked2 ranked c where
 
-class (Underlying a ~ b)
+class (Underlying a ~ b, b ~ Underlying a)
       => UnderlyingMatches a b where
-instance (Underlying a ~ b)
+instance (Underlying a ~ b, b ~ Underlying a)
          => UnderlyingMatches a b where
 
 class (forall r14 y. (KnownNat y, GoodScalar r14) => c (ranked r14 y) r14)

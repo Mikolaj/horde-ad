@@ -131,8 +131,8 @@ type InterpretAstF dynamic ranked shaped =
 
 type InterpretAstA ranked a =
   ( GoodScalar a, Integral (IntOf (PrimalOf ranked a 0))
-  , ShowAstSimplify a, Underlying a ~ a
-  , EqB (IntOf (ranked a 0)), OrdB (IntOf (ranked a 0)), IfB (IntOf (ranked a 0))
+  , EqB (IntOf (ranked a 0)), OrdB (IntOf (ranked a 0))
+  , IfB (IntOf (ranked a 0))
   , IntOf (PrimalOf ranked a 0) ~ IntOf (ranked a 0)
   , BooleanOf (ranked a 0) ~ BooleanOf (IntOf (ranked a 0))
   , BooleanOf (IntOf (ranked a 0)) ~ BooleanOf (ranked a 0)
