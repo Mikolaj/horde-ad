@@ -1,3 +1,4 @@
+{-# LANGUAGE ImpredicativeTypes #-}
 module CrossTesting
   ( assertEqualUpToEpsilon1
   , rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
