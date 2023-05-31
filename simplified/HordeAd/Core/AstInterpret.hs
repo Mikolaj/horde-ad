@@ -912,11 +912,9 @@ interpretAstRelOp opCodeRel args =
 -}
 
 {-# SPECIALIZE interpretAstRelOp
-  :: KnownNat n
-  => OpCodeRel -> [Flip OR.Array Double n] -> Bool #-}
+  :: OpCodeRel -> [Flip OR.Array Double n] -> Bool #-}
 {-# SPECIALIZE interpretAstRelOp
-  :: KnownNat n
-  => OpCodeRel -> [Flip OR.Array Float n] -> Bool #-}
+  :: OpCodeRel -> [Flip OR.Array Float n] -> Bool #-}
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n
   => OpCodeRel -> [AstRanked Double n] -> AstBool Double #-}
