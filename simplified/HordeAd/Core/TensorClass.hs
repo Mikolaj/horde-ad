@@ -370,19 +370,22 @@ type ADReady ranked r =
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 2)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 3)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 4)
+{- TODO: GHC 9.4 and 9.6 can't cope with too many of these:
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 5)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 6)
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 6) -}
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 7)
+{-
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 8)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 9)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 10)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 11)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 12) )
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 12) -} )
   , ( BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 0)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 1)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 2)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 3)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 4)
+{-
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 5)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 6)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 7)
@@ -390,7 +393,7 @@ type ADReady ranked r =
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 9)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 10)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 11)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 12) )
+    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 12) -} )
   , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 0)
       -- placing this last gives better errors
   )
