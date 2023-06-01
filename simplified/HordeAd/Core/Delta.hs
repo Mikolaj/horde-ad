@@ -227,16 +227,18 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
 
-  DToR :: forall ranked n r. DeltaD ranked r -> DeltaR ranked r n
+  DToR :: forall ranked shaped n r. DeltaD ranked shaped r -> DeltaR ranked r n
 
 deriving instance (Show (IntOf (ranked r 0)), Show r)
                   => Show (DeltaR ranked r n)
 
-data DeltaD :: (Type -> Nat -> Type) -> Type -> Type where
-  RToD :: forall ranked n r. KnownNat n
-         => DeltaR ranked r n -> DeltaD ranked r
+data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
+            -> Type -> Type where
+  RToD :: forall ranked shaped n r. KnownNat n
+         => DeltaR ranked r n -> DeltaD ranked shaped r
 
-deriving instance (Show (IntOf (ranked r 0)), Show r) => Show (DeltaD ranked r)
+deriving instance (Show (IntOf (ranked r 0)), Show r)
+                  => Show (DeltaD ranked shaped r)
 
 
 -- * Related datatypes and classes
@@ -252,8 +254,8 @@ toInputId i = assert (i >= 0) $ InputId i
 -- | The type family that to each basic differentiable type
 -- assigns its delta expression type.
 type family Dual a = result | result -> a where
-  Dual (OD.Array r) = DeltaD (Flip OR.Array) r
-  Dual (AstDynamic r) = DeltaD AstRanked r
+  Dual (OD.Array r) = DeltaD (Flip OR.Array) (Flip OS.Array) r
+  Dual (AstDynamic r) = DeltaD AstRanked AstShaped r
   Dual (Flip OR.Array r n) = DeltaR (Flip OR.Array) r n
   Dual (AstRanked r n) = DeltaR AstRanked r n
   Dual (Flip OS.Array sh n) = DeltaS (Flip OR.Array) (Flip OS.Array) sh n
@@ -546,7 +548,7 @@ buildFinMaps s0 deltaDt =
                  sShared (fromIntegral <$> [0 .. n - 1])
         GatherR _sh d f shd -> evalR s (tscatter shd c f) d
 
-        DToR @_ @n2 (RToD @_ @n1 d) ->
+        DToR @_ @_ @n2 (RToD @_ @_ @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
             Just Refl -> evalR s c d
             _ -> error "buildFinMaps: different ranks in DToR(RToD)"
@@ -679,7 +681,7 @@ buildDerivative dimR deltaDt params = do
           t <- evalR d
           return $! tgather sh t f
 
-        DToR @_ @n2 (RToD @_ @n1 d) ->
+        DToR @_ @_ @n2 (RToD @_ @_ @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
             Just Refl -> evalR d
             _ -> error "buildDerivative: different ranks in DToR(RToD)"

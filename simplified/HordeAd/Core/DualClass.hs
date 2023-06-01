@@ -305,7 +305,7 @@ instance (dynamic ~ OD.Array, ranked ~ Flip OR.Array)
          => HasConversions (Flip OR.Array) where
   dDToR :: forall n2 r. KnownNat n2
          => Dual (dynamic r) -> Dual (ranked r n2)
-  dDToR (RToD @_ @n1 d) =
+  dDToR (RToD @_ @_ @n1 d) =
     case sameNat (Proxy @n1) (Proxy @n2) of
       Just Refl -> d
       _ -> error "dDToR: different ranks in DToR(RToD)"
@@ -333,7 +333,7 @@ instance (dynamic ~ AstDynamic, ranked ~ AstRanked)
          => HasConversions AstRanked where
   dDToR :: forall n2 r. KnownNat n2
          => Dual (dynamic r) -> Dual (ranked r n2)
-  dDToR (RToD @_ @n1 d) =
+  dDToR (RToD @_ @_ @n1 d) =
     case sameNat (Proxy @n1) (Proxy @n2) of
       Just Refl -> d
       _ -> error "dDToR: different ranks in DToR(RToD)"
