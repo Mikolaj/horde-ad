@@ -20,14 +20,13 @@ import           Data.Boolean
 import           Data.Functor.Compose
 import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.Delta
-import HordeAd.Core.Adaptor
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
@@ -56,6 +55,30 @@ instance (KnownNat n, GoodScalar r)
          => IfB (ADVal (AstRanked r n)) where
   ifB b v w = indexZ (fromList [v, w]) (singletonIndex $ ifB b 0 1)
 
+-- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
+-- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
+-- dimension affected.
+--
+-- First index is for outermost dimension; empty index means identity,
+-- index ouf of bounds produces zero (but beware of vectorization).
+indexZ :: forall ranked m n r.
+          ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r n)
+          , KnownNat m, KnownNat n, GoodScalar r
+          , Underlying (ranked r (m + n)) ~ Underlying (ranked r n) )
+       => ADVal (ranked r (m + n)) -> IndexOf (ranked r 0) m
+       -> ADVal (ranked r n)
+indexZ (D l u u') ix = dD l (tindex u ix) (dIndexZ u' ix (tshape u))
+
+fromList :: ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r (1 + n)), KnownNat n, GoodScalar r
+            , Underlying (ranked r n) ~ Underlying (ranked r (1 + n)) )
+         => [ADVal (ranked r n)]
+         -> ADVal (ranked r (1 + n))
+fromList lu =
+  -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
+  dD (flattenADShare $ map ((\(D l _ _) -> l)) lu)
+     (tfromList $ map (\(D _ u _) -> u) lu)
+     (dFromListR $ map (\(D _ _ u') -> u') lu)
+
 instance AdaptableDomains (Compose ADVal OD.Array) (ADVal Double) where
   type Underlying (ADVal Double) = Double
   type Value (ADVal Double) = Double
@@ -77,6 +100,17 @@ instance (KnownNat n, GoodScalar r)
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (a, rest) -> Just (fromD $ getCompose a, rest)
     Nothing -> Nothing
+
+fromD :: forall dynamic ranked shaped n r.
+         ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
+         , KnownNat n, GoodScalar r )
+       => ADVal (dynamic r) -> ADVal (ranked r n)
+fromD (D l u u') = dDnotShared l (tfromD u) (dFromD u')
+
+fromR :: ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
+         , KnownNat n, GoodScalar r )
+       => ADVal (ranked r n) -> ADVal (dynamic r)
+fromR (D l u u') = dDnotShared l (dfromR u) (dFromR u')
 
 instance GoodScalar r
          => AdaptableDomains (Compose ADVal dynamic)
@@ -190,24 +224,61 @@ instance ( CRanked2 ranked UnderlyingMatches2
 
   tindex v ix = Tannen $ indexZ (runTannen v) ix
   tsum = Tannen . sum' . runTannen
+   where
+    sum' (D l u u') = dD l (tsum u) (dSumR (tlength u) u')
   tsum0 = Tannen . sum0 . runTannen
-  tdot0 u v = Tannen $ dot0 (runTannen u) (runTannen v)
-  tfromIndex0 ix = Tannen $ dDnotShared emptyADShare (tfromIndex0 ix) dZero
-  tscatter sh t f = Tannen $ scatterNClosure sh (runTannen t) f
-
+   where
+    sum0 (D l u u') = dD l (tsum0 u) (dSum0 (tshape u) u')
+  tdot0 = \u v -> Tannen $ dot0 (runTannen u) (runTannen v)
+   where
+    dot0 (D l1 ue u') (D l2 ve v') =
+      -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
+      let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+          !(!l4, v) = recordSharingPrimal ve l3
+      in dD l4 (tdot0 u v) (dAdd (dDot0 v u') (dDot0 u v'))
+  tfromIndex0 = \ix -> Tannen $ dDnotShared emptyADShare (tfromIndex0 ix) dZero
+  tscatter = \sh t f -> Tannen $ scatterNClosure sh (runTannen t) f
+   where
+    scatterNClosure sh (D l u u') f =
+      dD l (tscatter sh u f) (dScatterZ sh u' f (tshape u))
   tfromList = Tannen . fromList . map runTannen
---  tfromList0N = fromList0N
   tfromVector = Tannen . fromVector . V.map runTannen
---  tfromVector0N = fromVector0N
-  treplicate k = Tannen . replicate' k . runTannen
---  treplicate0N sh = replicate0N sh . unScalar
-  tappend u v = Tannen $ append (runTannen u) (runTannen v)
-  tslice i k = Tannen . slice i k . runTannen
+   where
+    fromVector lu =
+      dD (flattenADShare $ map ((\(D l _ _) -> l)) $ V.toList lu)
+         (tfromVector $ V.map (\(D _ u _) -> u) lu)
+         (dFromVectorR $ V.map (\(D _ _ u') -> u') lu)
+  treplicate = \k -> Tannen . replicate' k . runTannen
+   where
+    replicate' k (D l u u') = dD l (treplicate k u) (dReplicateR k u')
+  tappend = \u v -> Tannen $ append (runTannen u) (runTannen v)
+   where
+    append (D l1 u u') (D l2 v v') =
+      dD (l1 `mergeADShare` l2) (tappend u v) (dAppendR u' (tlength u) v')
+  tslice = \i k -> Tannen . slice i k . runTannen
+   where
+    slice i k (D l u u') = dD l (tslice i k u) (dSliceR i k u' (tlength u))
   treverse = Tannen . reverse' . runTannen
-  ttranspose perm = Tannen . transpose perm . runTannen
-  treshape sh = Tannen . reshape sh . runTannen
-  tbuild1 k f = Tannen $ build1 k (runTannen . f)
-  tgather sh t f = Tannen $ gatherNClosure sh (runTannen t) f
+   where
+    reverse' (D l u u') = dD l (treverse u) (dReverseR u')
+  ttranspose = \perm -> Tannen . transpose perm . runTannen
+   where
+    transpose perm (D l u u') = dD l (ttranspose perm u) (dTransposeR perm u')
+  treshape :: forall n m r. (GoodScalar r, KnownNat n, KnownNat m)
+           => ShapeInt m -> Tannen ADVal ranked r n -> Tannen ADVal ranked r m
+  treshape = \sh -> Tannen . reshape sh . runTannen
+   where
+    reshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
+      Just Refl | sh == tshape u -> t
+      _ -> dD l (treshape sh u) (dReshapeR (tshape u) sh u')
+  tbuild1 = \k f -> Tannen $ build1 k (runTannen . f)
+   where
+    build1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
+                   -- element-wise (POPL) version
+  tgather = \sh t f -> Tannen $ gatherNClosure sh (runTannen t) f
+   where
+    gatherNClosure sh (D l u u') f =
+      dD l (tgather sh u f) (dGatherZ sh u' f (tshape u))
 
   tsumOfList lu =
     Tannen $ dD (flattenADShare $ map ((\(Tannen (D l _ _)) -> l)) lu)
@@ -252,127 +323,6 @@ instance (HasConversions dynamic ranked, ConvertTensor dynamic ranked shaped)
   dshape = undefined
 
 
--- * ADVal combinators generalizing ranked tensor operations
-
-sum0 :: ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r 0), KnownNat n, GoodScalar r
-        , Underlying (ranked r 0) ~ Underlying (ranked r n) )
-     => ADVal (ranked r n) -> ADVal (ranked r 0)
-sum0 (D l u u') = dD l (tsum0 u) (dSum0 (tshape u) u')
-
-dot0 :: ( Show (ranked r n), Tensor ranked, HasRanks ranked, IsPrimal (ranked r n), IsPrimal (ranked r 0)
-        , KnownNat n, GoodScalar r, Underlying (ranked r 0) ~ Underlying (ranked r n) )
-     => ADVal (ranked r n) -> ADVal (ranked r n) -> ADVal (ranked r 0)
-dot0 (D l1 ue u') (D l2 ve v') =
-  -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
-  let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-      !(!l4, v) = recordSharingPrimal ve l3
-  in dD l4 (tdot0 u v) (dAdd (dDot0 v u') (dDot0 u v'))
-
--- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
--- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
--- dimension affected.
---
--- First index is for outermost dimension; empty index means identity,
--- index ouf of bounds produces zero (but beware of vectorization).
-indexZ :: forall ranked m n r.
-          ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r n), KnownNat m, KnownNat n, GoodScalar r
-          , Underlying (ranked r (m + n)) ~ Underlying (ranked r n) )
-       => ADVal (ranked r (m + n)) -> IndexOf (ranked r 0) m
-       -> ADVal (ranked r n)
-indexZ (D l u u') ix = dD l (tindex u ix) (dIndexZ u' ix (tshape u))
-
-sum' :: ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r n), KnownNat n, GoodScalar r
-        , Underlying (ranked r n) ~ Underlying (ranked r (1 + n)) )
-     => ADVal (ranked r (1 + n)) -> ADVal (ranked r n)
-sum' (D l u u') = dD l (tsum u) (dSumR (tlength u) u')
-
-scatterNClosure
-  :: ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r (p + n))
-     , KnownNat m, KnownNat p, KnownNat n, GoodScalar r
-     , Underlying (ranked r (p + n)) ~ Underlying (ranked r (m + n)) )
-  => ShapeInt (p + n) -> ADVal (ranked r (m + n))
-  -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
-  -> ADVal (ranked r (p + n))
-scatterNClosure sh (D l u u') f =
-  dD l (tscatter sh u f) (dScatterZ sh u' f (tshape u))
-
-fromList :: ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r (1 + n)), KnownNat n, GoodScalar r
-            , Underlying (ranked r n) ~ Underlying (ranked r (1 + n)) )
-         => [ADVal (ranked r n)]
-         -> ADVal (ranked r (1 + n))
-fromList lu =
-  -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
-  dD (flattenADShare $ map ((\(D l _ _) -> l)) lu)
-     (tfromList $ map (\(D _ u _) -> u) lu)
-     (dFromListR $ map (\(D _ _ u') -> u') lu)
-
---fromList0N :: (Tensor ranked, KnownNat n)
---           => ShapeInt n -> [ADVal r]
---           -> ADVal (ranked r n)
---fromList0N sh l =
---  dD (tfromList0N sh $ map (\(D u _) -> u) l)  -- I hope this fuses
---     (dFromList01 sh $ map (\(D _ u') -> u') l)
-
-fromVector :: ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r (1 + n)), KnownNat n, GoodScalar r
-              , Underlying (ranked r n) ~ Underlying (ranked r (1 + n)) )
-           => Data.Vector.Vector (ADVal (ranked r n))
-           -> ADVal (ranked r (1 + n))
-fromVector lu =
-  dD (flattenADShare $ map ((\(D l _ _) -> l)) $ V.toList lu)
-     (tfromVector $ V.map (\(D _ u _) -> u) lu)
-     (dFromVectorR $ V.map (\(D _ _ u') -> u') lu)
-
---fromVector0N :: (Tensor ranked, KnownNat n)
---             => ShapeInt n -> Data.Vector.Vector (ADVal r)
---             -> ADVal (ranked r n)
---fromVector0N sh l =
---  dD (tfromVector0N sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
---     (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
-
-replicate' :: ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r (1 + n)), KnownNat n, GoodScalar r
-         , Underlying (ranked r n) ~ Underlying (ranked r (1 + n)) )
-      => Int -> ADVal (ranked r n) -> ADVal (ranked r (1 + n))
-replicate' k (D l u u') = dD l (treplicate k u) (dReplicateR k u')
-
---replicate0N :: (Tensor ranked, KnownNat n)
---        => ShapeInt n -> ADVal r -> ADVal (ranked r n)
---replicate0N sh (D u u') = dD (treplicate0N sh u) (dReplicate01 sh u')
-
-append :: (Tensor ranked, HasRanks ranked, IsPrimal (ranked r (1 + n)), KnownNat n, GoodScalar r)
-       => ADVal (ranked r (1 + n)) -> ADVal (ranked r (1 + n))
-       -> ADVal (ranked r (1 + n))
-append (D l1 u u') (D l2 v v') =
-  dD (l1 `mergeADShare` l2) (tappend u v) (dAppendR u' (tlength u) v')
-
-slice :: (Tensor ranked, HasRanks ranked, IsPrimal (ranked r (1 + n)), KnownNat n, GoodScalar r)
-      => Int -> Int -> ADVal (ranked r (1 + n))
-      -> ADVal (ranked r (1 + n))
-slice i k (D l u u') = dD l (tslice i k u) (dSliceR i k u' (tlength u))
-
-reverse' :: (Tensor ranked, HasRanks ranked, IsPrimal (ranked r (1 + n)), KnownNat n, GoodScalar r)
-         => ADVal (ranked r (1 + n)) -> ADVal (ranked r (1 + n))
-reverse' (D l u u') = dD l (treverse u) (dReverseR u')
-
-transpose :: (Tensor ranked, HasRanks ranked, IsPrimal (ranked r n), KnownNat n, GoodScalar r)
-          => Permutation -> ADVal (ranked r n) -> ADVal (ranked r n)
-transpose perm (D l u u') = dD l (ttranspose perm u) (dTransposeR perm u')
-
-reshape :: forall ranked n m r.
-           ( Tensor ranked, HasRanks ranked, GoodScalar r, IsPrimal (ranked r m), KnownNat m, KnownNat n
-           , Underlying (ranked r n) ~ Underlying (ranked r m) )
-        => ShapeInt m -> ADVal (ranked r n) -> ADVal (ranked r m)
-reshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
-  Just Refl | sh == tshape u -> t
-  _ -> dD l (treshape sh u) (dReshapeR (tshape u) sh u')
-
-build1
-  :: ( Tensor ranked, HasRanks ranked, KnownNat n, GoodScalar r, IsPrimal (ranked r (1 + n))
-     , Underlying (ranked r n) ~ Underlying (ranked r (1 + n)) )
-  => Int -> (IntOf (ranked r 0) -> ADVal (ranked r n))
-  -> ADVal (ranked r (1 + n))
-build1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
-               -- element-wise (POPL) version
-
 -- Strangely, this variant slows down simplifiedOnlyTest 3 times. Perhaps
 -- that's because k is very low and the f functions are simple enough.
 --
@@ -391,26 +341,3 @@ _build1Closure k f =  -- stores closures on tape
   let g i = let D _ u _ = f i in u
       h i = let D _ _ u' = f i in u'
   in dD emptyADShare (tbuild1 k g) (dBuildR k h)
-
--- Note that if any index is out of bounds, the result of that particular
--- projection is defined and is 0 (but beware of vectorization).
-gatherNClosure
-  :: ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r (m + n))
-     , KnownNat m, KnownNat p, KnownNat n, GoodScalar r
-     , Underlying (ranked r (p + n)) ~ Underlying (ranked r (m + n)) )
-  => ShapeInt (m + n) -> ADVal (ranked r (p + n))
-  -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
-  -> ADVal (ranked r (m + n))
-gatherNClosure sh (D l u u') f =
-  dD l (tgather sh u f) (dGatherZ sh u' f (tshape u))
-
-fromD :: forall dynamic ranked shaped n r.
-         ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
-         , KnownNat n, GoodScalar r )
-       => ADVal (dynamic r) -> ADVal (ranked r n)
-fromD (D l u u') = dDnotShared l (tfromD u) (dFromD u')
-
-fromR :: ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
-         , KnownNat n, GoodScalar r )
-       => ADVal (ranked r n) -> ADVal (dynamic r)
-fromR (D l u u') = dDnotShared l (dfromR u) (dFromR u')
