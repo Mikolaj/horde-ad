@@ -2,30 +2,20 @@
 -- | A general representation of the domains of objective functions
 -- that become the codomains of the gradient functions.
 module HordeAd.Core.Domains
-  ( DynamicTensor(..), Domains
-  , Underlying, AdaptableDomains(..), parseDomains
-  , RandomDomains(..)
+  ( Domains, DomainsOD
+  , AdaptableDomains(..), parseDomains, RandomDomains(..)
   ) where
 
 import Prelude
 
 import           Control.Exception (assert)
 import qualified Data.Array.DynamicS as OD
+import           Data.Kind (Type)
 import           Data.List (foldl')
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.Random
-
--- The untyped versions of tensors, to put many ranks/shapes in one vector.
-class DynamicTensor r where
-  type DTensorOf r = result | result -> r
-
-instance DynamicTensor Double where
-  type DTensorOf Double = OD.Array Double
-
-instance DynamicTensor Float where
-  type DTensorOf Float = OD.Array Float
 
 -- * Adaptor classes
 
@@ -36,30 +26,30 @@ instance DynamicTensor Float where
 -- DomainsOf is used for that and the only reasons DomainsOf exists
 -- is to prevent mixing up the two (and complicating the definition
 -- below with errors in the AstDomainsLet case).
-type Domains r = Data.Vector.Vector (DTensorOf r)
+type Domains dynamic r = Data.Vector.Vector (dynamic r)
 
-type Underlying a = Scalar (Value a)
+type DomainsOD r = Domains OD.Array r
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-class AdaptableDomains vals where
-  type Scalar vals
+class AdaptableDomains (dynamic :: Type -> Type) vals where
+  type Underlying vals
   type Value vals
-  toDomains :: vals -> Domains (Scalar vals)
-  fromDomains :: Value vals -> Domains (Scalar vals)
-              -> Maybe (vals, Domains (Scalar vals))
+  toDomains :: vals -> Domains dynamic (Underlying vals)
+  fromDomains :: Value vals -> Domains dynamic (Underlying vals)
+              -> Maybe (vals, Domains dynamic (Underlying vals))
 
 class RandomDomains vals where
   randomVals
     :: forall r g.
        ( RandomGen g
-       , r ~ Scalar vals, Numeric r, Fractional r, Random r, Num (Vector r) )
+       , r ~ Underlying vals, Numeric r, Fractional r, Random r, Num (Vector r) )
     => r -> g -> (vals, g)
   type ToRanked vals
   toRanked :: vals -> ToRanked vals
 
 parseDomains
-  :: AdaptableDomains vals
-  => Value vals -> Domains (Scalar vals) -> vals
+  :: AdaptableDomains dynamic vals
+  => Value vals -> Domains dynamic (Underlying vals) -> vals
 parseDomains aInit domains =
   case fromDomains aInit domains of
     Just (vals, rest) -> assert (V.null rest) vals
@@ -68,21 +58,21 @@ parseDomains aInit domains =
 
 -- * Basic Adaptor class instances
 
-instance AdaptableDomains Double where
-  type Scalar Double = Double
+instance AdaptableDomains OD.Array Double where
+  type Underlying Double = Double
   type Value Double = Double
   toDomains = undefined
   fromDomains = undefined
 
-instance AdaptableDomains Float where
-  type Scalar Float = Float
+instance AdaptableDomains OD.Array Float where
+  type Underlying Float = Float
   type Value Float = Float
   toDomains = undefined
   fromDomains = undefined
 
-instance (AdaptableDomains a, r ~ Scalar a)
-         => AdaptableDomains [a] where
-  type Scalar [a] = Scalar a
+instance AdaptableDomains dynamic a
+         => AdaptableDomains dynamic [a] where
+  type Underlying [a] = Underlying a
   type Value [a] = [Value a]
   toDomains = V.concat . map toDomains
   fromDomains lInit source =
@@ -97,10 +87,10 @@ instance (AdaptableDomains a, r ~ Scalar a)
     -- >   let f = swap . flip fromDomains
     -- >   in swap $ mapAccumL f source lInit
 
-instance ( r ~ Scalar a, r ~ Scalar b
-         , AdaptableDomains a
-         , AdaptableDomains b ) => AdaptableDomains (a, b) where
-  type Scalar (a, b) = Scalar a
+instance ( r ~ Underlying a, r ~ Underlying b
+         , AdaptableDomains dynamic a
+         , AdaptableDomains dynamic b ) => AdaptableDomains dynamic (a, b) where
+  type Underlying (a, b) = Underlying a
   type Value (a, b) = (Value a, Value b)
   toDomains (a, b) =
     let a1 = toDomains a
@@ -111,7 +101,7 @@ instance ( r ~ Scalar a, r ~ Scalar b
     (b, bRest) <- fromDomains bInit aRest
     return ((a, b), bRest)
 
-instance ( r ~ Scalar a, r ~ Scalar b
+instance ( r ~ Underlying a, r ~ Underlying b
          , RandomDomains a
          , RandomDomains b ) => RandomDomains (a, b) where
   randomVals range g =
@@ -121,11 +111,11 @@ instance ( r ~ Scalar a, r ~ Scalar b
   type ToRanked (a, b) = (ToRanked a, ToRanked b)
   toRanked (a, b) = (toRanked a, toRanked b)
 
-instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
-         , AdaptableDomains a
-         , AdaptableDomains b
-         , AdaptableDomains c ) => AdaptableDomains (a, b, c) where
-  type Scalar (a, b, c) = Scalar a
+instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c
+         , AdaptableDomains dynamic a
+         , AdaptableDomains dynamic b
+         , AdaptableDomains dynamic c ) => AdaptableDomains dynamic (a, b, c) where
+  type Underlying (a, b, c) = Underlying a
   type Value (a, b, c) = (Value a, Value b, Value c)
   toDomains (a, b, c) =
     let a1 = toDomains a
@@ -138,7 +128,7 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
     (c, cRest) <- fromDomains cInit bRest
     return ((a, b, c), cRest)
 
-instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
+instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c
          , RandomDomains a
          , RandomDomains b
          , RandomDomains c ) => RandomDomains (a, b, c) where
@@ -150,12 +140,12 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
   type ToRanked (a, b, c) = (ToRanked a, ToRanked b, ToRanked c)
   toRanked (a, b, c) = (toRanked a, toRanked b, toRanked c)
 
-instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
-         , AdaptableDomains a
-         , AdaptableDomains b
-         , AdaptableDomains c
-         , AdaptableDomains d ) => AdaptableDomains (a, b, c, d) where
-  type Scalar (a, b, c, d) = Scalar a
+instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c, r ~ Underlying d
+         , AdaptableDomains dynamic a
+         , AdaptableDomains dynamic b
+         , AdaptableDomains dynamic c
+         , AdaptableDomains dynamic d ) => AdaptableDomains dynamic (a, b, c, d) where
+  type Underlying (a, b, c, d) = Underlying a
   type Value (a, b, c, d) = (Value a, Value b, Value c, Value d)
   toDomains (a, b, c, d) =
     let a1 = toDomains a
@@ -170,7 +160,7 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
     (d, dRest) <- fromDomains dInit cRest
     return ((a, b, c, d), dRest)
 
-instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
+instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c, r ~ Underlying d
          , RandomDomains a
          , RandomDomains b
          , RandomDomains c
@@ -184,10 +174,10 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
   type ToRanked (a, b, c, d) = (ToRanked a, ToRanked b, ToRanked c, ToRanked d)
   toRanked (a, b, c, d) = (toRanked a, toRanked b, toRanked c, toRanked d)
 
-instance ( r ~ Scalar a, r ~ Scalar b
-         , AdaptableDomains a, AdaptableDomains b )
-         => AdaptableDomains (Either a b) where
-  type Scalar (Either a b) = Scalar a
+instance ( r ~ Underlying a, r ~ Underlying b
+         , AdaptableDomains dynamic a, AdaptableDomains dynamic b )
+         => AdaptableDomains dynamic (Either a b) where
+  type Underlying (Either a b) = Underlying a
   type Value (Either a b) = Either (Value a) (Value b)
   toDomains e = case e of
     Left a -> toDomains a
@@ -200,9 +190,9 @@ instance ( r ~ Scalar a, r ~ Scalar b
                  Just (b2, rest) -> Just (Right b2, rest)
                  Nothing -> Nothing
 
-instance AdaptableDomains a
-         => AdaptableDomains (Maybe a) where
-  type Scalar (Maybe a) = Scalar a
+instance AdaptableDomains dynamic a
+         => AdaptableDomains dynamic (Maybe a) where
+  type Underlying (Maybe a) = Underlying a
   type Value (Maybe a) = Maybe (Value a)
   toDomains e = case e of
     Nothing -> V.concat []

@@ -50,7 +50,6 @@ import           GHC.TypeLits
   , type (-)
   , type (<=)
   )
-import           Numeric.LinearAlgebra (Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -64,13 +63,13 @@ import           HordeAd.Core.Ast hiding
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstTools
-import           HordeAd.Core.Domains
 import           HordeAd.Core.SizedIndex
+import           HordeAd.Core.TensorClass
 import           HordeAd.Internal.SizedList
 import           HordeAd.Internal.TensorOps
 
-type ShowAstSimplify r =
-  (ShowAst r, RealFloat r, Floating (Vector r), RowSum r, Scalar r ~ r)
+type ShowAstSimplify r = GoodScalar r
+
 
 -- * Expressing operations as Gather; introduces new variable names
 

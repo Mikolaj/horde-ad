@@ -9,13 +9,13 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
+import           Data.Bifunctor.Tannen
 import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Compose
 import           Data.List.Index (imap)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (SomeNat (..), someNatVal)
-import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
@@ -29,7 +29,7 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.Domains
-import HordeAd.Core.DualNumber (ADTensor, ADVal, IsPrimalR)
+import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
@@ -58,10 +58,9 @@ testTrees = [ tensorADValMnistTests
 
 -- POPL differentiation, straight via the ADVal instance of Tensor
 mnistTestCase2VTA
-  :: forall r.
-     ( ADTensor r, ADReady r, ADReady (ADVal r), IsPrimalR r
-     , Value r ~ r, Value (ADVal r) ~ r, Floating (Vector r)
-     , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
+  :: forall ranked r.
+     ( ranked ~ Flip OR.Array
+     , ADReady ranked r, ADReady (Tannen ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -82,7 +81,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       emptyR = Flip $ OR.fromList [0] []
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
+      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
@@ -92,7 +91,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                         , show (length params1Init)
                         , show (sum (map OD.size params1Init))
                         , show gamma ]
-      ftest :: [MnistData r] -> Domains r -> r
+      ftest :: [MnistData r] -> DomainsOD r -> r
       ftest mnist testParams =
         MnistFcnnRanked1.afcnnMnistTest1
           widthHidden widthHidden2 mnist
@@ -106,11 +105,12 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
+       let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (ADVal r) -> ADVal (TensorOf 0 r)
+             let f :: MnistData r -> Domains (Compose ADVal OD.Array) r
+                   -> ADVal (ranked r 0)
                  f mnist adinputs =
-                   getCompose
+                   runTannen
                    $ MnistFcnnRanked1.afcnnMnistLoss1
                        widthHidden widthHidden2
                        mnist (parseDomains valsInit adinputs)
@@ -123,7 +123,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> Domains r -> IO (Domains r)
+       let runEpoch :: Int -> DomainsOD r -> IO (DomainsOD r)
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -156,10 +156,9 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
 
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCase2VTI
-  :: forall r.
-     ( ADTensor r, ADReady r, InterpretAst (ADVal r)
-     , Value r ~ r, Value (ADVal r) ~ r, IsPrimalR r
-     , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
+  :: forall ranked r.
+     ( ranked ~ Flip OR.Array
+     , ADReady ranked r, InterpretAstA (Tannen ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -182,7 +181,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       -- TODO: generate this from afcnnMnistLen1.
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
+      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
@@ -192,7 +191,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                         , show (length params1Init)
                         , show (sum (map OD.size params1Init))
                         , show gamma ]
-      ftest :: [MnistData r] -> Domains r -> r
+      ftest :: [MnistData r] -> DomainsOD r -> r
       ftest mnist testParams =
         MnistFcnnRanked1.afcnnMnistTest1
           widthHidden widthHidden2 mnist
@@ -217,9 +216,10 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    (parseDomains valsInit doms)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
+       let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (ADVal r) -> ADVal (TensorOf 0 r)
+             let f :: MnistData r -> Domains (Compose ADVal OD.Array) r
+                   -> ADVal (ranked r 0)
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvD EM.empty
                               $ zip vars1 $ V.toList varInputs
@@ -229,7 +229,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                          $ extendEnvR varLabel
                              (tconst $ OR.fromVector [sizeMnistLabelInt] label)
                              env1
-                   in getCompose
+                   in runTannen
                       $ snd $ interpretAst envMnist emptyMemo ast
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
@@ -240,7 +240,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> Domains r -> IO (Domains r)
+       let runEpoch :: Int -> DomainsOD r -> IO (DomainsOD r)
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -274,9 +274,9 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
 
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCase2VTO
-  :: forall r.
-     ( ADTensor r, ADReady r, Value r ~ r, InterpretAst r
-     , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
+  :: forall ranked r.
+     ( ranked ~ Flip OR.Array
+     , ADReady ranked r, InterpretAstA ranked r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -299,7 +299,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       -- TODO: generate this from afcnnMnistLen1.
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters r
+      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
@@ -309,7 +309,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                         , show (length params1Init)
                         , show (sum (map OD.size params1Init))
                         , show gamma ]
-      ftest :: [MnistData r] -> Domains r -> r
+      ftest :: [MnistData r] -> DomainsOD r -> r
       ftest mnist testParams =
         MnistFcnnRanked1.afcnnMnistTest1
           widthHidden widthHidden2 mnist
@@ -336,7 +336,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
              vars1Again
              ++ [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
            vars = (varDtAgain, vars1AndInputAgain)
-           go :: [MnistData r] -> Domains r -> Domains r
+           go :: [MnistData r] -> DomainsOD r -> DomainsOD r
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
              let glyphD = OD.fromVector [sizeMnistGlyphInt] glyph
@@ -349,7 +349,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
              in go rest (updateWithGradientR gamma parameters gradientDomain)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
+       let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
            runBatch !domains (k, chunk) = do
              let res = go chunk domains
                  trainScore = ftest chunk res
@@ -360,7 +360,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> Domains r -> IO (Domains r)
+       let runEpoch :: Int -> DomainsOD r -> IO (DomainsOD r)
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -397,18 +397,16 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
 
 -- POPL differentiation, straight via the ADVal instance of Tensor
 mnistTestCase2VT2A
-  :: forall r.
-     ( ADTensor r, ADReady r, Random r, ADReady (ADVal r)
-     , Value r ~ r, Value (ADVal r) ~ r, Floating (Vector r)
-     , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-     , Shaped r ~ Flip OS.Array r, IsPrimalR r
+  :: forall ranked r.
+     ( ranked ~ Flip OR.Array
+     , ADReady ranked r, Random r, ADReady (Tannen ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
 mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
-  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
+  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
       valsInit =
         case someNatVal $ toInteger widthHidden of
           Just (SomeNat @widthHidden _) ->
@@ -417,7 +415,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                 toRanked $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        widthHidden widthHidden2 r)
+                        (Flip OS.Array) widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
@@ -428,7 +426,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                         , show (V.length domainsInit)
                         , show (V.sum (V.map OD.size domainsInit))
                         , show gamma ]
-      ftest :: [MnistData r] -> Domains r -> r
+      ftest :: [MnistData r] -> DomainsOD r -> r
       ftest mnist testParams =
         MnistFcnnRanked2.afcnnMnistTest2 mnist
           (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
@@ -441,11 +439,12 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
+       let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (ADVal r) -> ADVal (Ranked r 0)
+             let f :: MnistData r -> Domains (Compose ADVal OD.Array) r
+                   -> ADVal (ranked r 0)
                  f mnist adinputs =
-                   getCompose
+                   runTannen
                    $ MnistFcnnRanked2.afcnnMnistLoss2
                        mnist (parseDomains valsInit adinputs)
                  res = fst $ sgd gamma f chunk domains
@@ -457,7 +456,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> Domains r -> IO (Domains r)
+       let runEpoch :: Int -> DomainsOD r -> IO (DomainsOD r)
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -490,18 +489,16 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
 
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCase2VT2I
-  :: forall r.
-     ( ADTensor r, ADReady r, Random r, InterpretAst (ADVal r)
-     , Value r ~ r, Value (ADVal r) ~ r, IsPrimalR r
-     , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-     , Shaped r ~ Flip OS.Array r
+  :: forall ranked r.
+     ( ranked ~ Flip OR.Array
+     , ADReady ranked r, Random r, InterpretAstA (Tannen ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
   -> TestTree
 mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
-  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
+  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
       valsInit =
         case someNatVal $ toInteger widthHidden of
           Nothing -> error "impossible someNatVal error"
@@ -512,7 +509,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                 toRanked $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        widthHidden widthHidden2 r)
+                        (Flip OS.Array) widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
       domainsInit = toDomains valsInit
       name = prefix ++ ": "
@@ -521,7 +518,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                         , show (V.length domainsInit)
                         , show (V.sum (V.map OD.size domainsInit))
                         , show gamma ]
-      ftest :: [MnistData r] -> Domains r -> r
+      ftest :: [MnistData r] -> DomainsOD r -> r
       ftest mnist testParams =
         MnistFcnnRanked2.afcnnMnistTest2 mnist
           (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
@@ -544,9 +541,10 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                    (astGlyph, astLabel) (parseDomains valsInit doms)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
+       let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (ADVal r) -> ADVal (Ranked r 0)
+             let f :: MnistData r -> Domains (Compose ADVal OD.Array) r
+                   -> ADVal (ranked r 0)
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvD EM.empty
                               $ zip vars1 $ V.toList varInputs
@@ -556,7 +554,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                          $ extendEnvR varLabel
                              (tconst $ OR.fromVector [sizeMnistLabelInt] label)
                              env1
-                   in getCompose
+                   in runTannen
                       $ snd $ interpretAst envMnist emptyMemo ast
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
@@ -567,7 +565,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> Domains r -> IO (Domains r)
+       let runEpoch :: Int -> DomainsOD r -> IO (DomainsOD r)
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -581,7 +579,6 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        res <- runEpoch 1 domainsInit
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
-
 {-# SPECIALIZE mnistTestCase2VT2I
   :: String
   -> Int -> Int -> Int -> Int -> Double -> Int -> Double
@@ -601,10 +598,9 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
 
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCase2VT2O
-  :: forall r.
-     ( ADTensor r, ADReady r, Random r, Value r ~ r, InterpretAst r
-     , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-     , Shaped r ~ Flip OS.Array r
+  :: forall ranked r.
+     ( ranked ~ Flip OR.Array
+     , ADReady ranked r, Random r, InterpretAstA ranked r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -619,10 +615,10 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
    Just (SomeNat @widthHidden2 _) ->
     let valsInitShaped
           :: MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-               widthHidden widthHidden2 r
+               (Flip OS.Array) widthHidden widthHidden2 r
         valsInitShaped = fst $ randomVals 1 (mkStdGen 44)
         domainsInit = toDomains valsInitShaped  -- == toDomains valsInit
-        valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters r
+        valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
         valsInit =
           -- This almost works and I wouldn't need toRanked,
           -- but there is nowhere to get aInit from.
@@ -634,7 +630,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                           , show (V.length domainsInit)
                           , show (V.sum (V.map OD.size domainsInit))
                           , show gamma ]
-        ftest :: [MnistData r] -> Domains r -> r
+        ftest :: [MnistData r] -> DomainsOD r -> r
         ftest mnist testParams =
           MnistFcnnRanked2.afcnnMnistTest2 mnist
             (\f -> OR.toVector $ runFlip $ f
@@ -661,7 +657,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
              vars1Again
              ++ [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
            vars = (varDtAgain, vars1AndInputAgain)
-           go :: [MnistData r] -> Domains r -> Domains r
+           go :: [MnistData r] -> DomainsOD r -> DomainsOD r
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
              let glyphD = OD.fromVector [sizeMnistGlyphInt] glyph
@@ -674,7 +670,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
              in go rest (updateWithGradientR gamma parameters gradientDomain)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: Domains r -> (Int, [MnistData r]) -> IO (Domains r)
+       let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
            runBatch !domains (k, chunk) = do
              let res = go chunk domains
                  trainScore = ftest chunk res
@@ -685,7 +681,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> Domains r -> IO (Domains r)
+       let runEpoch :: Int -> DomainsOD r -> IO (DomainsOD r)
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -725,7 +721,7 @@ tensorMnistTestsPP = testGroup "PP tests for Short Ranked MNIST tests"
   , testCase "VT2OPPNonLin" testVT2OPPNonLin
   ]
 
-valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters Double
+valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters (Flip OR.Array) Double
 valsInitVTOPP =
   ( ( replicate 3 (Flip $ OR.fromList [3] [1, 2, 3])
     , Flip $ OR.fromList [3] [1, 2, 3] )
@@ -739,8 +735,8 @@ testVTOPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (Ast0 Double)
-              -> TensorOf 1 (Ast0 Double)
+      afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters AstRanked Double
+              -> AstRanked Double 1
       afcnn2T = MnistFcnnRanked1.afcnnMnist1 id id 3 4 blackGlyph
       (artifact6, _) = revDtFun afcnn2T valsInitVTOPP
   printGradient6Pretty renames artifact6
@@ -757,8 +753,8 @@ testVTOPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters (Ast0 Double)
-                    -> TensorOf 1 (Ast0 Double)
+      afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters AstRanked Double
+                    -> AstRanked Double 1
       afcnn2TnonLin =
         MnistFcnnRanked1.afcnnMnist1 logistic softMax1 3 4 blackGlyph
       (artifact6nonLin, _) = revDtFun afcnn2TnonLin valsInitVTOPP
@@ -771,7 +767,7 @@ testVTOPPNonLin = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6nonLin)
     @?= "\\v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 -> let v30 = recip (treplicate 3 (tconst 1.0) + exp (negate (tfromList [tsum (v2 * treplicate 784 (tconst 7.0)), tsum (v3 * treplicate 784 (tconst 7.0)), tsum (v4 * treplicate 784 (tconst 7.0))] + v5))) ; v37 = recip (treplicate 4 (tconst 1.0) + exp (negate (tfromList [tsum (v6 * v30), tsum (v7 * v30), tsum (v8 * v30), tsum (v9 * v30)] + v10))) ; v41 = exp (tfromList [tsum (v11 * v37), tsum (v12 * v37), tsum (v13 * v37), tsum (v14 * v37), tsum (v15 * v37)] + v16) in treplicate 5 (recip (tsum v41)) * v41"
 
-valsInitVT2OPP ::  MnistFcnnRanked2.ADFcnnMnist2Parameters Double
+valsInitVT2OPP :: MnistFcnnRanked2.ADFcnnMnist2Parameters (Flip OR.Array) Double
 valsInitVT2OPP =
   ( ( Flip $ OR.fromList [3, 3] (concat $ replicate 3 [1, 2, 3])
     , Flip $ OR.fromList [3] [1, 2, 3] )
@@ -785,8 +781,8 @@ testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters (Ast0 Double)
-              -> TensorOf 1 (Ast0 Double)
+      afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters AstRanked Double
+              -> AstRanked Double 1
       afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id blackGlyph
       (artifact6, _) = revDtFun afcnn2T valsInitVT2OPP
   printGradient6Pretty renames artifact6
@@ -803,8 +799,8 @@ testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (Ast0 Double)
-                    -> TensorOf 1 (Ast0 Double)
+      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters AstRanked Double
+                    -> AstRanked Double 1
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       (artifact6nonLin, _) = revDtFun afcnn2TnonLin valsInitVT2OPP
   printGradient6Pretty renames artifact6nonLin

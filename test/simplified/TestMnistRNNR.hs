@@ -9,12 +9,12 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
+import           Data.Bifunctor.Tannen
 import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Compose
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (SomeNat (..), someNatVal)
-import           Numeric.LinearAlgebra (Vector)
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
 import           Test.Tasty
@@ -27,7 +27,7 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.Domains
-import HordeAd.Core.DualNumber (ADTensor, ADVal, IsPrimalR)
+import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
@@ -48,25 +48,23 @@ testTrees = [ tensorADValMnistTestsRNNA
 
 -- POPL differentiation, straight via the ADVal instance of Tensor
 mnistTestCaseRNNA
-  :: forall r.
-     ( ADTensor r, ADReady r, Random r, ADReady (ADVal r)
-     , Primal (ADVal r) ~ r, Primal r ~ r, Value r ~ r, Floating (Vector r)
-     , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-     , Shaped r ~ Flip OS.Array r, IsPrimalR r
+  :: forall ranked r.
+     ( ranked ~ Flip OR.Array
+     , ADReady ranked r, Random r, ADReady (Tannen ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                   expected =
-  let valsInit :: MnistRnnRanked2.ADRnnMnistParameters r
+  let valsInit :: MnistRnnRanked2.ADRnnMnistParameters ranked r
       valsInit =
         case someNatVal $ toInteger width of
           Nothing -> error "impossible someNatVal error"
           Just (SomeNat @width _) ->
             toRanked $ fst
-            $ randomVals
-                @(MnistRnnRanked2.ADRnnMnistParametersShaped width r)
+            $ randomVals @(MnistRnnRanked2.ADRnnMnistParametersShaped
+                             (Flip OS.Array) width r)
                 0.4 (mkStdGen 44)
       domainsInit = toDomains valsInit
       name = prefix ++ ": "
@@ -74,7 +72,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                         , show width, show miniBatchSize
                         , show (V.length domainsInit)
                         , show (V.sum (V.map OD.size domainsInit)) ]
-      ftest :: Int -> MnistDataBatchR r -> Domains r -> r
+      ftest :: Int -> MnistDataBatchR r -> DomainsOD r -> r
       ftest miniBatchSize' mnist testParams =
         MnistRnnRanked2.rnnMnistTestR miniBatchSize' mnist
           (\f -> runFlip $ f $ parseDomains valsInit testParams)
@@ -87,14 +85,13 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           runBatch :: (Domains r, StateAdam r)
-                    -> (Int, [MnistDataR r])
-                    -> IO (Domains r, StateAdam r)
+           runBatch :: (DomainsOD r, StateAdam r) -> (Int, [MnistDataR r])
+                    -> IO (DomainsOD r, StateAdam r)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> Domains (ADVal r)
-                   -> ADVal (TensorOf 0 r)
+             let f :: MnistDataBatchR r -> Domains (Compose ADVal OD.Array) r
+                   -> ADVal (ranked r 0)
                  f (glyphR, labelR) adinputs =
-                   getCompose
+                   runTannen
                    $ MnistRnnRanked2.rnnMnistLossFusedR
                        miniBatchSize (tconst glyphR, tconst labelR)
                        (parseDomains valsInit adinputs)
@@ -112,7 +109,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (Domains r, StateAdam r) -> IO (Domains r)
+       let runEpoch :: Int -> (DomainsOD r, StateAdam r) -> IO (DomainsOD r)
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n !paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
@@ -147,26 +144,23 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
 
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCaseRNNI
-  :: forall r.
-     ( ADTensor r, ADReady r, Random r, InterpretAst (ADVal r)
-     , Value r ~ r, Value (ADVal r) ~ r, IsPrimalR r
-     , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-     , Shaped r ~ Flip OS.Array r
-     , Primal r ~ r
+  :: forall ranked r.
+     ( ranked ~ Flip OR.Array
+     , ADReady ranked r, Random r, InterpretAstA (Tannen ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                   expected =
-  let valsInit :: MnistRnnRanked2.ADRnnMnistParameters r
+  let valsInit :: MnistRnnRanked2.ADRnnMnistParameters ranked r
       valsInit =
         case someNatVal $ toInteger width of
           Nothing -> error "impossible someNatVal error"
           Just (SomeNat @width _) ->
             toRanked $ fst
-            $ randomVals
-                @(MnistRnnRanked2.ADRnnMnistParametersShaped width r)
+            $ randomVals @(MnistRnnRanked2.ADRnnMnistParametersShaped
+                             (Flip OS.Array) width r)
                 0.4 (mkStdGen 44)
       domainsInit = toDomains valsInit
       name = prefix ++ ": "
@@ -174,7 +168,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                         , show width, show miniBatchSize
                         , show (V.length domainsInit)
                         , show (V.sum (V.map OD.size domainsInit)) ]
-      ftest :: Int -> MnistDataBatchR r -> Domains r -> r
+      ftest :: Int -> MnistDataBatchR r -> DomainsOD r -> r
       ftest miniBatchSize' mnist testParams =
         MnistRnnRanked2.rnnMnistTestR miniBatchSize' mnist
           (\f -> runFlip $ f $ parseDomains valsInit testParams)
@@ -200,18 +194,17 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (tprimalPart astGlyph, tprimalPart astLabel)
                                  (parseDomains valsInit doms)
-           runBatch :: (Domains r, StateAdam r)
-                    -> (Int, [MnistDataR r])
-                    -> IO (Domains r, StateAdam r)
+           runBatch :: (DomainsOD r, StateAdam r) -> (Int, [MnistDataR r])
+                    -> IO (DomainsOD r, StateAdam r)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> Domains (ADVal r)
-                   -> ADVal (TensorOf 0 r)
+             let f :: MnistDataBatchR r -> Domains (Compose ADVal OD.Array) r
+                   -> ADVal (ranked r 0)
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvD EM.empty
                               $ zip vars1 $ V.toList varInputs
                        envMnist = extendEnvR varGlyph (tconst glyph)
                                   $ extendEnvR varLabel (tconst label) env1
-                   in getCompose $ snd $ interpretAst envMnist emptyMemo ast
+                   in runTannen $ snd $ interpretAst envMnist emptyMemo ast
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -226,7 +219,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (Domains r, StateAdam r) -> IO (Domains r)
+       let runEpoch :: Int -> (DomainsOD r, StateAdam r) -> IO (DomainsOD r)
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n !paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
@@ -261,11 +254,9 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
 
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCaseRNNO
-  :: forall r.
-     ( ADTensor r, ADReady r, Random r, Value r ~ r, InterpretAst r
-     , Ranked r ~ Flip OR.Array r, DTensorOf r ~ OD.Array r
-     , Shaped r ~ Flip OS.Array r
-     , Primal r ~ r
+  :: forall ranked r.
+     ( ranked ~ Flip OR.Array
+     , ADReady ranked r, Random r, InterpretAstA ranked r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -277,17 +268,17 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
   Nothing -> error "impossible someNatVal error"
   Just (SomeNat @width _) ->
     let valsInitShaped
-          :: MnistRnnRanked2.ADRnnMnistParametersShaped width r
+          :: MnistRnnRanked2.ADRnnMnistParametersShaped (Flip OS.Array) width r
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         domainsInit = toDomains valsInitShaped  -- == toDomains valsInit
-        valsInit :: MnistRnnRanked2.ADRnnMnistParameters r
+        valsInit :: MnistRnnRanked2.ADRnnMnistParameters ranked r
         valsInit = toRanked valsInitShaped
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show width, show miniBatchSize
                           , show (V.length domainsInit)
                           , show (V.sum (V.map OD.size domainsInit)) ]
-        ftest :: Int -> MnistDataBatchR r -> Domains r -> r
+        ftest :: Int -> MnistDataBatchR r -> DomainsOD r -> r
         ftest miniBatchSize' mnist testParams =
           MnistRnnRanked2.rnnMnistTestR miniBatchSize' mnist
             (\f -> runFlip $ f $ parseDomains valsInit testParams)
@@ -317,8 +308,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
              vars1Again
              ++ [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
            vars = (varDtAgain, vars1AndInputAgain)
-           go :: [MnistDataBatchR r] -> (Domains r, StateAdam r)
-              -> (Domains r, StateAdam r)
+           go :: [MnistDataBatchR r] -> (DomainsOD r, StateAdam r)
+              -> (DomainsOD r, StateAdam r)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) !(!parameters, !stateAdam) =
              let glyphD = dfromR $ tconst glyph
@@ -330,9 +321,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                                              parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientDomain)
-           runBatch :: (Domains r, StateAdam r)
-                    -> (Int, [MnistDataR r])
-                    -> IO (Domains r, StateAdam r)
+           runBatch :: (DomainsOD r, StateAdam r) -> (Int, [MnistDataR r])
+                    -> IO (DomainsOD r, StateAdam r)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -348,7 +338,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (Domains r, StateAdam r) -> IO (Domains r)
+       let runEpoch :: Int -> (DomainsOD r, StateAdam r) -> IO (DomainsOD r)
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n !paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
@@ -388,7 +378,7 @@ tensorMnistTestsPP = testGroup "PP tests for RNN MNIST tests"
   ]
 
 valsInitRNNOPP
-  :: Int -> Int -> MnistRnnRanked2.ADRnnMnistParameters Double
+  :: Int -> Int -> MnistRnnRanked2.ADRnnMnistParameters (Flip OR.Array) Double
 valsInitRNNOPP out_width sizeMnistHeightI =
   ( ( Flip
       $ OR.fromList [out_width, sizeMnistHeightI]
@@ -424,8 +414,8 @@ testRNNOPP = do
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
-      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (Ast0 Double)
-              -> TensorOf 2 (Ast0 Double)
+      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters AstRanked Double
+              -> Ast 2 Double
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
       (artifact6, _) = revDtFun afcnn2T (valsInitRNNOPP 1 sizeMnistHeightI)
   printGradient6Pretty renames artifact6
@@ -449,8 +439,8 @@ testRNNOPP2 = do
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
-      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (Ast0 Double)
-              -> TensorOf 2 (Ast0 Double)
+      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters AstRanked Double
+              -> Ast 2 Double
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
       (artifact6, _) = revDtFun afcnn2T (valsInitRNNOPP 2 sizeMnistHeightI)
   printGradient6Pretty renames artifact6

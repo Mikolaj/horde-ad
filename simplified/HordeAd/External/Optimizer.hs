@@ -10,28 +10,28 @@ import Prelude
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
+import           Data.Functor.Compose
 import           GHC.TypeLits (KnownNat)
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.Domains
-import HordeAd.Core.DualNumber (ADTensor, ADVal, IsPrimalR)
+import HordeAd.Core.DualNumber (ADVal, IsPrimalR)
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorClass
 import HordeAd.External.OptimizerTools
 
 -- | Stochastic Gradient Descent.
 sgd :: forall n r a.
-       ( KnownNat n, Numeric r, Floating (Vector r), ADTensor r
-       , IsPrimalR r
-       , DTensorOf r ~ OD.Array r, Ranked r ~ Flip OR.Array r )
+       ( KnownNat n, GoodScalar r
+       , IsPrimalR r )
     => r
-    -> (a -> Domains (ADVal r) -> ADVal (TensorOf n r))
+    -> (a -> Domains (Compose ADVal OD.Array) r -> ADVal (Flip OR.Array r n))
     -> [a]  -- ^ training data
-    -> Domains r  -- ^ initial parameters
-    -> (Domains r, TensorOf n r)
+    -> DomainsOD r  -- ^ initial parameters
+    -> (DomainsOD r, Flip OR.Array r n)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
-  deltaInputs = generateDeltaInputs parameters0
-  go :: [a] -> Domains r -> (Domains r, TensorOf n r)
+  deltaInputs = generateDeltaInputs @OD.Array @(Flip OR.Array) parameters0
+  go :: [a] -> DomainsOD r -> (DomainsOD r, Flip OR.Array r n)
   go [] parameters = (parameters, 0)
   go (a : rest) !parameters =
     let inputs = makeADInputs parameters deltaInputs
@@ -43,39 +43,34 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 {-# SPECIALIZE sgd
   :: Double
   -> ((Vector Double, Vector Double)
-      -> Domains (ADVal Double)
-      -> ADVal (TensorOf 0 Double))
+      -> Domains (Compose ADVal OD.Array) Double
+      -> ADVal (Flip OR.Array Double 0))
   -> [(Vector Double, Vector Double)]
-  -> Domains Double
-  -> (Domains Double, TensorOf 0 Double) #-}
+  -> DomainsOD Double
+  -> (DomainsOD Double, Flip OR.Array Double 0) #-}
 
 sgdAdam :: forall r a n.
-           ( KnownNat n, Numeric r, Floating r, Floating (Vector r), ADTensor r
-           , IsPrimalR r
-           , DTensorOf r ~ OD.Array r, Ranked r ~ Flip OR.Array r )
-        => (a -> Domains (ADVal r) -> ADVal (TensorOf n r))
+           ( KnownNat n, GoodScalar r, IsPrimalR r )
+        => (a -> Domains (Compose ADVal OD.Array) r -> ADVal (Flip OR.Array r n))
         -> [a]
-        -> Domains r
+        -> DomainsOD r
         -> StateAdam r
-        -> (Domains r, StateAdam r)
+        -> (DomainsOD r, StateAdam r)
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs :: forall r a n.
-               ( KnownNat n, Numeric r, Floating r, Floating (Vector r)
-               , ADTensor r
-               , IsPrimalR r
-               , DTensorOf r ~ OD.Array r, Ranked r ~ Flip OR.Array r )
+               ( KnownNat n, GoodScalar r, IsPrimalR r )
             => ArgsAdam r
-            -> (a -> Domains (ADVal r) -> ADVal (TensorOf n r))
+            -> (a -> Domains (Compose ADVal OD.Array) r -> ADVal (Flip OR.Array r n))
             -> [a]
-            -> Domains r
+            -> DomainsOD r
             -> StateAdam r
-            -> (Domains r, StateAdam r)
+            -> (DomainsOD r, StateAdam r)
 sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
-  deltaInputs = generateDeltaInputs parameters0
-  go :: [a] -> Domains r -> StateAdam r -> (Domains r, StateAdam r)
+  deltaInputs = generateDeltaInputs @OD.Array @(Flip OR.Array) parameters0
+  go :: [a] -> DomainsOD r -> StateAdam r -> (DomainsOD r, StateAdam r)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =
     let inputs = makeADInputs parameters deltaInputs

@@ -27,11 +27,13 @@ import HordeAd.Core.Domains
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
-instance ShowAstSimplify r
-         => Tensor (Ast0 r) where
-  type Ranked (Ast0 r) = AstRanked r
-  type IntOf (Ast0 r) = AstInt r
+type instance IntOf (AstRanked r n) = AstInt r
 
+type instance PrimalOf AstRanked = AstPrimalPart
+
+type instance DualOf AstRanked = AstDualPart
+
+instance Tensor AstRanked where
   tlet a f = astLetFun a f
 
   tshape = shapeAst
@@ -60,32 +62,32 @@ instance ShowAstSimplify r
   tsumOfList l = AstSumOfList l
   tconst = AstConstant . AstPrimalPart . AstConst
   tconstBare = AstConst
+  tletWrap = AstLetADShare
+    -- We can't use astLet here, because it may inline a let that is
+    -- present at the top level of the dual number and so we'd lose
+    -- sharing that is not visible in this restricted context.
+    -- To make sure astLet is not used on these, we mark them with
+    -- a special constructor that also makes comparing lets cheap.
 
-instance ShowAstSimplify r
-         => PrimalDualTensor (Ast0 r) where
-  type Primal (Ast0 r) = AstPrimalPart r 0
-  type DualOf n (Ast0 r) = AstDualPart r n
   tconstant = astConstant
   tprimalPart = AstPrimalPart
   tdualPart = AstDualPart
   tD = AstD
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-instance ShowAst r
-         => ConvertTensor (Ast0 r) where
-  type Shaped (Ast0 r) = ShapedAbsentAst0 r
+instance ConvertTensor AstDynamic AstRanked AstShapedTODO where
   tfromD = astFromDynamic
---  tfromS = undefined
+  tfromS = undefined
   dfromR r = AstDynamic r
---  dfromS = undefined
---  sfromR = undefined
---  sfromD = undefined
+  dfromS = undefined
+  sfromR = undefined
+  sfromD = undefined
   ddummy = AstDynamic AstIota
   disDummy t = case t of
     AstDynamic AstIota -> True
     _ -> False
-  daddR :: forall n q. (KnownNat n, q ~ (Ast0 r))
-        => TensorOf n q -> DTensorOf q -> DTensorOf q
+  daddR :: forall n r. KnownNat n
+        => AstRanked r n -> AstDynamic r -> AstDynamic r
   daddR r (AstDynamic AstIota) = AstDynamic r
   daddR r (AstDynamic @n2 (AstSumOfList l)) =
     case sameNat (Proxy @n) (Proxy @n2) of
@@ -97,62 +99,44 @@ instance ShowAst r
       _ -> error "daddR: type mismatch"
   dshape (AstDynamic v) = shapeToList $ shapeAst v
   tregister = astRegisterFun
-  tletWrap = AstLetADShare
-    -- We can't use astLet here, because it may inline a let that is
-    -- present at the top level of the dual number and so we'd lose
-    -- sharing that is not visible in this restricted context.
-    -- To make sure astLet is not used on these, we mark them with
-    -- a special constructor that also makes comparing lets cheap.
 
-data ShapedAbsentAst0 r (sh :: [Nat])
+data AstShapedTODO r (sh :: [Nat])
 
-instance DynamicTensor (Ast0 r) where
-  type DTensorOf (Ast0 r) = AstDynamic r
-
-instance ShowAstSimplify r
-         => AdaptableDomains (Ast0 r) where
-  type Scalar (Ast0 r) = Ast0 r
-  type Value (Ast0 r) = r
-  toDomains = undefined
-  fromDomains = undefined
-
-instance ( Tensor r, ShowAstSimplify r, KnownNat n
-         , Ranked r ~ Flip OR.Array r )
-         => AdaptableDomains (Ast n r) where
-  type Scalar (Ast n r) = Ast0 r
+instance (ShowAstSimplify r, KnownNat n)
+         => AdaptableDomains AstDynamic (Ast n r) where
+  type Underlying (Ast n r) = r
   type Value (Ast n r) = Flip OR.Array r n
   toDomains = undefined
   fromDomains aInit params = case V.uncons params of
-    Just (a, rest) -> Just (ttoRankedOrDummy (tshape aInit) a, rest)
+    Just (a, rest) -> Just (ttoRankedOrDummy @AstDynamic @AstRanked
+                                             (tshape aInit) a, rest)
     Nothing -> Nothing
 
-instance AdaptableDomains (AstDynamic r) where
-  type Scalar (AstDynamic r) = Ast0 r
+instance AdaptableDomains AstDynamic (AstDynamic r) where
+  type Underlying (AstDynamic r) = r
   type Value (AstDynamic r) = OD.Array r
   toDomains = undefined
   fromDomains = undefined
 
-instance AdaptableDomains (AstPrimalPart r n) where
-  type Scalar (AstPrimalPart r n) = AstPrimalPart r 0
+instance AdaptableDomains AstDynamic (AstPrimalPart r n) where
+  type Underlying (AstPrimalPart r n) = r
   type Value (AstPrimalPart r n) = r
   toDomains = undefined
   fromDomains = undefined
 
-instance AdaptableDomains (AstNoVectorize r n) where
-  type Scalar (AstNoVectorize r n) = AstNoVectorize r 0
+instance AdaptableDomains AstDynamic (AstNoVectorize r n) where
+  type Underlying (AstNoVectorize r n) = r
   type Value (AstNoVectorize r n) = r
   toDomains = undefined
   fromDomains = undefined
 
-instance AdaptableDomains (AstNoSimplify r n) where
-  type Scalar (AstNoSimplify r n) = AstNoSimplify r 0
+instance AdaptableDomains AstDynamic (AstNoSimplify r n) where
+  type Underlying (AstNoSimplify r n) = r
   type Value (AstNoSimplify r n) = r
   toDomains = undefined
   fromDomains = undefined
 
-instance ShowAst r
-         => DomainsTensor (Ast0 r) where
-  type DomainsOf (Ast0 r) = AstDomains r
+instance DomainsTensor AstDynamic AstRanked AstDomains where
   tletDomains = astLetDomainsFun
   dmkDomains = AstDomains
   dlet = astDomainsLetFun
@@ -198,11 +182,13 @@ astBuild1Vectorize :: (KnownNat n, ShowAstSimplify r)
                    => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
-instance ShowAstSimplify r
-         => Tensor (AstPrimalPart r 0) where
-  type Ranked (AstPrimalPart r 0) = AstPrimalPart r
-  type IntOf (AstPrimalPart r 0) = AstInt r
+type instance IntOf (AstPrimalPart r n) = AstInt r
 
+type instance PrimalOf AstPrimalPart = AstPrimalPart
+
+type instance DualOf AstPrimalPart = DummyDual
+
+instance Tensor AstPrimalPart where
   tlet a f =
     AstPrimalPart
     $ astLetFun (unAstPrimalPart a) (unAstPrimalPart . f . AstPrimalPart)
@@ -236,21 +222,19 @@ instance ShowAstSimplify r
   tsumOfList l = AstPrimalPart . AstSumOfList . map unAstPrimalPart $ l
   tconst = AstPrimalPart . AstConst
 
-instance ShowAstSimplify r
-         => PrimalDualTensor (AstPrimalPart r 0) where
-  type Primal (AstPrimalPart r 0) = AstPrimalPart r 0
-  type DualOf n (AstPrimalPart r 0) = ()
   tconstant = id
   tprimalPart = id
-  tdualPart _ = ()
+  tdualPart _ = DummyDual
   tD u _ = u
-  tScale _ _ = ()
+  tScale _ _ = DummyDual
 
-instance ShowAstSimplify r
-         => Tensor (AstNoVectorize r 0) where
-  type Ranked (AstNoVectorize r 0) = AstNoVectorize r
-  type IntOf (AstNoVectorize r 0) = AstInt r
+type instance IntOf (AstNoVectorize r n) = AstInt r
 
+type instance PrimalOf AstNoVectorize = AstNoVectorize
+
+type instance DualOf AstNoVectorize = AstDualPart
+
+instance Tensor AstNoVectorize where
   tlet a f =
     AstNoVectorize
     $ astLetFun (unAstNoVectorize a) (unAstNoVectorize . f . AstNoVectorize)
@@ -287,21 +271,19 @@ instance ShowAstSimplify r
   tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
   tconstBare = AstNoVectorize . AstConst
 
-instance ShowAstSimplify r
-         => PrimalDualTensor (AstNoVectorize r 0) where
-  type Primal (AstNoVectorize r 0) = AstNoVectorize r 0
-  type DualOf n (AstNoVectorize r 0) = AstDualPart r n
   tconstant = AstNoVectorize . astConstant . AstPrimalPart . unAstNoVectorize
   tprimalPart = id
   tdualPart = AstDualPart . unAstNoVectorize
   tD u u' = AstNoVectorize $ AstD (AstPrimalPart $ unAstNoVectorize u) u'
   tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-instance ShowAstSimplify r
-         => Tensor (AstNoSimplify r 0) where
-  type Ranked (AstNoSimplify r 0) = AstNoSimplify r
-  type IntOf (AstNoSimplify r 0) = AstInt r
+type instance IntOf (AstNoSimplify r n) = AstInt r
 
+type instance PrimalOf AstNoSimplify = AstNoSimplify
+
+type instance DualOf AstNoSimplify = AstDualPart
+
+instance Tensor AstNoSimplify where
   tlet a f =
     AstNoSimplify
     $ astLetFunUnSimp (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)
@@ -336,10 +318,6 @@ instance ShowAstSimplify r
   tconst = AstNoSimplify . AstConstant . AstPrimalPart . AstConst
   tconstBare = AstNoSimplify . AstConst
 
-instance ShowAstSimplify r
-         => PrimalDualTensor (AstNoSimplify r 0) where
-  type Primal (AstNoSimplify r 0) = AstNoSimplify r 0
-  type DualOf n (AstNoSimplify r 0) = AstDualPart r n
   tconstant = AstNoSimplify . astConstant . AstPrimalPart . unAstNoSimplify
     -- exceptionally we do simplify AstConstant to avoid long boring chains
   tprimalPart = id

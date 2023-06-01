@@ -19,41 +19,41 @@ import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
 import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient
-  :: (Numeric r, Floating (Vector r), DTensorOf r ~ OD.Array r)
-  => r -> Domains r -> Domains r -> Domains r
+  :: (Numeric r, Floating (Vector r))
+  => r -> DomainsOD r -> DomainsOD r -> DomainsOD r
 updateWithGradient gamma paramsR gradientR =
   let updateVector i r = i - LA.scale gamma r
       updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVT2 updateVector i r
   in V.zipWith updateR paramsR gradientR
-{-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
+{-# SPECIALIZE updateWithGradient :: Double -> DomainsOD Double -> DomainsOD Double -> DomainsOD Double #-}
 
 updateWithGradientR
-  :: (Numeric r, Floating (Vector r), DTensorOf r ~ OD.Array r)
-  => r -> Domains r -> Domains r -> Domains r
+  :: (Numeric r, Floating (Vector r))
+  => r -> DomainsOD r -> DomainsOD r -> DomainsOD r
 updateWithGradientR gamma params gradient =
   let updateVector i r = i - LA.scale gamma r
       updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVT2 updateVector i r
   in V.zipWith updateR params gradient
-{-# SPECIALIZE updateWithGradientR :: Double -> Domains Double -> Domains Double -> Domains Double #-}
+{-# SPECIALIZE updateWithGradientR :: Double -> DomainsOD Double -> DomainsOD Double -> DomainsOD Double #-}
 
 {-
-gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool
-gradientIsNil (Domains gradient0 gradientR) =
+gradientIsNil :: (Eq r, Numeric r) => DomainsOD r -> Bool
+gradientIsNil (DomainsOD gradient0 gradientR) =
   V.all (== 0) gradient0
   && V.all isTensorDummy gradientR
 
-minimumGradient :: (Ord r, Numeric r) => Domains r -> r
-minimumGradient (Domains gradient0 gradientR) =
+minimumGradient :: (Ord r, Numeric r) => DomainsOD r -> r
+minimumGradient (DomainsOD gradient0 gradientR) =
   min (if V.null gradient0 then 0 else LA.minElement gradient0)
       (if V.null gradientR then 0
        else V.minimum (V.map OD.minimumA gradientR))
 
-maximumGradient :: (Ord r, Numeric r) => Domains r -> r
-maximumGradient (Domains gradient0 gradientR) =
+maximumGradient :: (Ord r, Numeric r) => DomainsOD r -> r
+maximumGradient (DomainsOD gradient0 gradientR) =
   max (if V.null gradient0 then 0 else LA.maxElement gradient0)
       (if V.null gradientR then 0
        else V.maximum (V.map OD.maximumA gradientR))
@@ -78,19 +78,19 @@ defaultArgsAdam = ArgsAdam
 
 data StateAdam r = StateAdam
   { tAdam :: Int  -- iteration count
-  , mAdam :: Domains r
-  , vAdam :: Domains r
+  , mAdam :: DomainsOD r
+  , vAdam :: DomainsOD r
   }
 
 -- The arguments are just sample params0, for dimensions.
 zeroParameters
-  :: (Numeric r, DTensorOf r ~ OD.Array r)
-  => Domains r -> Domains r
+  :: Numeric r
+  => DomainsOD r -> DomainsOD r
 zeroParameters params = V.map (\a -> OD.constant (OD.shapeL a) 0) params
 
 initialStateAdam
-  :: (Numeric r, DTensorOf r ~ OD.Array r)
-  => Domains r -> StateAdam r
+  :: Numeric r
+  => DomainsOD r -> StateAdam r
 initialStateAdam parameters0 =
   let zeroP = zeroParameters parameters0
   in StateAdam
@@ -124,9 +124,9 @@ liftArray43 f m1 m2 m3 m4 =
 
 updateWithGradientAdam
   :: forall r.
-     (Numeric r, Floating r, Floating (Vector r), DTensorOf r ~ OD.Array r)
-  => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
-  -> (Domains r, StateAdam r)
+     (Numeric r, Floating r, Floating (Vector r))
+  => ArgsAdam r -> StateAdam r -> DomainsOD r -> DomainsOD r
+  -> (DomainsOD r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                        paramsR gradientR =
   let mAdamR = mAdam
