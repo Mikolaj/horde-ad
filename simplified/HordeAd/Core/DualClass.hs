@@ -141,20 +141,20 @@ instance (IsPrimalA r, KnownNat n)
 -- of various ranks wrt the differentation mode given in the first parameter.
 class HasRanks ranked where
   dInputR :: InputId (ranked r n) -> Dual (ranked r n)
-  dIndexZ :: (KnownNat n, KnownNat m)
+  dIndexR :: (KnownNat n, KnownNat m)
           => Dual (ranked r (m + n)) -> IndexOf (ranked r 0) m -> ShapeInt (m + n)
           -> Dual (ranked r n)
   dSumR :: KnownNat n
         => Int -> Dual (ranked r (1 + n)) -> Dual (ranked r n)
-  dSum0 :: KnownNat n
+  dSum0R :: KnownNat n
         => ShapeInt n -> Dual (ranked r n) -> Dual (ranked r 0)
-  dDot0 :: (KnownNat n, Show (ranked r n))
+  dDot0R :: (KnownNat n, Show (ranked r n))
         => ranked r n -> Dual (ranked r n) -> Dual (ranked r 0)
---  dScatterZ1 :: (KnownNat p, KnownNat n)
+--  dScatterR1 :: (KnownNat p, KnownNat n)
 --            => (Int -> IndexOf (ranked r 0) p)
 --            -> Int -> Dual (ranked r (1 + n))
 --            -> ShapeInt (p + n) -> Dual (ranked r (p + n))
-  dScatterZ :: (KnownNat m, KnownNat p, KnownNat n)
+  dScatterR :: (KnownNat m, KnownNat p, KnownNat n)
             => ShapeInt (p + n) -> Dual (ranked r (m + n))
             -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
             -> ShapeInt (m + n)
@@ -190,20 +190,20 @@ class HasRanks ranked where
   dBuildR :: KnownNat n
           => Int -> (IntOf (ranked r 0) -> Dual (ranked r n))
           -> Dual (ranked r (1 + n))
---  dGatherZ1 :: (KnownNat p, KnownNat n)
+--  dGatherR1 :: (KnownNat p, KnownNat n)
 --           => (Int -> IndexOf (ranked r 0) p)
 --           -> ShapeInt (p + n) -> Dual (ranked r (p + n))
 --           -> Int -> Dual (ranked r (1 + n))
-  dGatherZ :: (KnownNat m, KnownNat p, KnownNat n)
+  dGatherR :: (KnownNat m, KnownNat p, KnownNat n)
            => ShapeInt (m + n) -> Dual (ranked r (p + n))
            -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
            -> ShapeInt (p + n)
            -> Dual (ranked r (m + n))
 
 class HasConversions dynamic ranked where
-  dFromD :: KnownNat n
+  dDToR :: KnownNat n
          => Dual (dynamic r) -> Dual (ranked r n)
-  dFromR :: KnownNat n
+  dRToD :: KnownNat n
          => Dual (ranked r n) -> Dual (dynamic r)
 
 
@@ -251,7 +251,7 @@ instance GoodScalar r => IsPrimalR r where
   recordSharingR d = case d of
     ZeroR -> d
     InputR{} -> d
-    FromD{} -> d
+    DToR{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
   recordSharingPrimalR r l = (l, r)
@@ -270,7 +270,7 @@ instance GoodScalar r => IsPrimalA r where
   recordSharingA d = case d of
     ZeroR -> d
     InputR{} -> d
-    FromD{} -> d
+    DToR{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
   recordSharingPrimalA = astRegisterADShare
@@ -295,12 +295,12 @@ instance CYRanked ranked DualIsDeltaR => HasRanks ranked where
 
 instance HasRanks (Flip OR.Array) where
   dInputR = InputR
-  dIndexZ = IndexZ
+  dIndexR = IndexR
   dSumR = SumR
-  dSum0 = Sum0
-  dDot0 = Dot0
+  dSum0R = Sum0R
+  dDot0R = Dot0R
 --  dScatter1 = Scatter1
-  dScatterZ = ScatterZ
+  dScatterR = ScatterR
   dFromListR = FromListR
   dFromVectorR = FromVectorR
 --  dFromList0R = FromList0R
@@ -314,26 +314,26 @@ instance HasRanks (Flip OR.Array) where
   dReshapeR = ReshapeR
   dBuildR = BuildR
 --  dGather1 = Gather1
-  dGatherZ = GatherZ
+  dGatherR = GatherR
 
 instance (dynamic ~ OD.Array, ranked ~ Flip OR.Array)
          => HasConversions OD.Array (Flip OR.Array) where
-  dFromD :: forall n2 r. KnownNat n2
+  dDToR :: forall n2 r. KnownNat n2
          => Dual (dynamic r) -> Dual (ranked r n2)
-  dFromD (FromR @_ @n1 d) =
+  dDToR (RToD @_ @n1 d) =
     case sameNat (Proxy @n1) (Proxy @n2) of
       Just Refl -> d
-      _ -> error "dFromD: different ranks in FromD(FromR)"
-  dFromR = FromR
+      _ -> error "dDToR: different ranks in DToR(RToD)"
+  dRToD = RToD
 
 instance HasRanks AstRanked where
   dInputR = InputR
-  dIndexZ = IndexZ
+  dIndexR = IndexR
   dSumR = SumR
-  dSum0 = Sum0
-  dDot0 = Dot0
+  dSum0R = Sum0R
+  dDot0R = Dot0R
 --  dScatter1 = Scatter1
-  dScatterZ = ScatterZ
+  dScatterR = ScatterR
   dFromListR = FromListR
   dFromVectorR = FromVectorR
 --  dFromList0R = FromList0R
@@ -347,17 +347,17 @@ instance HasRanks AstRanked where
   dReshapeR = ReshapeR
   dBuildR = BuildR
 --  dGather1 = Gather1
-  dGatherZ = GatherZ
+  dGatherR = GatherR
 
 instance (dynamic ~ AstDynamic, ranked ~ AstRanked)
          => HasConversions AstDynamic AstRanked where
-  dFromD :: forall n2 r. KnownNat n2
+  dDToR :: forall n2 r. KnownNat n2
          => Dual (dynamic r) -> Dual (ranked r n2)
-  dFromD (FromR @_ @n1 d) =
+  dDToR (RToD @_ @n1 d) =
     case sameNat (Proxy @n1) (Proxy @n2) of
       Just Refl -> d
-      _ -> error "dFromD: different ranks in FromD(FromR)"
-  dFromR = FromR
+      _ -> error "dDToR: different ranks in DToR(RToD)"
+  dRToD = RToD
 
 
 -- * Counter handling

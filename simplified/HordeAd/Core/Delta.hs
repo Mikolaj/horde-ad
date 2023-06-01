@@ -150,7 +150,7 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
 --         => DeltaR ranked r (1 + n) -> Int -> Int -> DeltaR ranked r n
     -- ^ The sub-tensors at the given index of the outermost dimension.
     -- The second integer is the length of the dimension.
-  IndexZ :: (KnownNat n, KnownNat m)
+  IndexR :: (KnownNat n, KnownNat m)
          => DeltaR ranked r (m + n) -> IndexOf (ranked r 0) m -> ShapeInt (m + n) -> DeltaR ranked r n
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. The operation fails if index is out of bounds.
@@ -158,11 +158,11 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
   SumR :: KnownNat n
        => Int -> DeltaR ranked r (1 + n) -> DeltaR ranked r n
     -- ^ Add element tensors along the outermost dimension.
-  Sum0 :: KnownNat n
+  Sum0R :: KnownNat n
        => ShapeInt n -> DeltaR ranked r n -> DeltaR ranked r 0
-  Dot0 :: (KnownNat n, Show (ranked r n))
+  Dot0R :: (KnownNat n, Show (ranked r n))
        => ranked r n -> DeltaR ranked r n -> DeltaR ranked r 0
-  ScatterZ :: (KnownNat m, KnownNat p, KnownNat n)
+  ScatterR :: (KnownNat m, KnownNat p, KnownNat n)
            => ShapeInt (p + n) -> DeltaR ranked r (m + n)
            -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
            -> ShapeInt (m + n)
@@ -204,7 +204,7 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
 
---  GatherZ1 :: (KnownNat p, KnownNat n)
+--  GatherR1 :: (KnownNat p, KnownNat n)
 --           => (Int -> IndexOf (ranked r 0) p)
 --           -> ShapeInt (p + n) -> DeltaR ranked r (p + n)
 --           -> Int -> DeltaR ranked r (1 + n)
@@ -215,12 +215,12 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
     -- tensor 0 is chosen instead or projecting (and similarly in @GatherN@).
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
-  GatherZ :: (KnownNat m, KnownNat p, KnownNat n)
+  GatherR :: (KnownNat m, KnownNat p, KnownNat n)
           => ShapeInt (m + n) -> DeltaR ranked r (p + n)
           -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
           -> ShapeInt (p + n)
           -> DeltaR ranked r (m + n)
---  ScatterZ1 :: (KnownNat p, KnownNat n)
+--  ScatterR1 :: (KnownNat p, KnownNat n)
 --            => (Int -> IndexOf (ranked r 0) p)
 --            -> Int -> DeltaR ranked r (1 + n)
 --            -> ShapeInt (p + n) -> DeltaR ranked r (p + n)
@@ -233,12 +233,12 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
     -- The semantics of the operation permits index out of bounds
     -- and then no tensors is added at such an index.
 
-  FromD :: forall ranked n r. DeltaD ranked r -> DeltaR ranked r n
+  DToR :: forall ranked n r. DeltaD ranked r -> DeltaR ranked r n
 
 deriving instance (Show (IntOf (ranked r 0)), Show r) => Show (DeltaR ranked r n)
 
 data DeltaD :: (Type -> Nat -> Type) -> Type -> Type where
-  FromR :: forall ranked n r. KnownNat n
+  RToD :: forall ranked n r. KnownNat n
          => DeltaR ranked r n -> DeltaD ranked r
 
 deriving instance (Show (IntOf (ranked r 0)), Show r) => Show (DeltaD ranked r)
@@ -501,7 +501,7 @@ buildFinMaps s0 deltaDt =
         LetR n d ->
           assert (case d of
                     ZeroR -> False
-                    FromD{} -> False
+                    DToR{} -> False
                     LetR{} -> False  -- wasteful and nonsensical
                     _ -> True)
           $ case EM.lookup n $ nMap s of
@@ -519,14 +519,14 @@ buildFinMaps s0 deltaDt =
 --                                     , OR.reshape (1 : rest) c
 --                                     , OR.constant (len - ix - 1 : rest) 0 ])
 --                     d  -- TODO: optimize for input case
-        IndexZ d ix sh -> evalR s (tscatter @ranked @r @0 sh c (const ix)) d
+        IndexR d ix sh -> evalR s (tscatter @ranked @r @0 sh c (const ix)) d
           -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
         SumR n d -> evalR s (treplicate n c) d
-        Sum0 sh d -> evalR s (treplicate0N sh c) d
-        Dot0 v vd -> evalR s (v `tmult `treplicate0N (tshape v) c) vd
+        Sum0R sh d -> evalR s (treplicate0N sh c) d
+        Dot0R v vd -> evalR s (v `tmult `treplicate0N (tshape v) c) vd
                      -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
 --        Scatter1 f n d _sh -> evalR s (tgatherZ1R n c f) d
-        ScatterZ _sh d f shd -> evalR s (tgather shd c f) d
+        ScatterR _sh d f shd -> evalR s (tgather shd c f) d
         FromListR ld ->
           ifoldl' (\s2 i d2 ->
             evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) sShared ld
@@ -562,12 +562,12 @@ buildFinMaps s0 deltaDt =
           foldl' (\s2 i -> evalR s2 (tindex cShared (i :. ZI)) (f i))
                  sShared (fromIntegral <$> [0 .. n - 1])
 --        Gather1 f sh d _n -> evalR s (tscatter1R f c sh) d
-        GatherZ _sh d f shd -> evalR s (tscatter shd c f) d
+        GatherR _sh d f shd -> evalR s (tscatter shd c f) d
 
-        FromD @_ @n2 (FromR @_ @n1 d) ->
+        DToR @_ @n2 (RToD @_ @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
             Just Refl -> evalR s c d
-            _ -> error "buildFinMaps: different ranks in FromD(FromR)"
+            _ -> error "buildFinMaps: different ranks in DToR(RToD)"
 
       evalFromnMap :: EvalState dynamic ranked shaped r
                    -> EvalState dynamic ranked shaped r
@@ -668,16 +668,16 @@ buildDerivative dimR deltaDt params = do
             _ -> error "buildDerivative: corrupted nMap"
 
 --        Index1 d ix _len -> (`tindex1R` ix) <$> evalR d
-        IndexZ d ix _len -> (`tindex` ix) <$> evalR d
+        IndexR d ix _len -> (`tindex` ix) <$> evalR d
         SumR _ d -> tsum <$> evalR d
-        Sum0 _ ZeroR ->  return 0
-        Sum0 _ d -> tsum0 <$> evalR d
-        Dot0 _ ZeroR ->  return 0
-        Dot0 v d -> tdot0 v <$> evalR d
+        Sum0R _ ZeroR ->  return 0
+        Sum0R _ d -> tsum0 <$> evalR d
+        Dot0R _ ZeroR ->  return 0
+        Dot0R v d -> tdot0 v <$> evalR d
 --        Scatter1 f _k d sh -> do
 --          t <- evalR d
 --          return $! tscatter1R f t sh
-        ScatterZ sh d f _shd ->  do
+        ScatterR sh d f _shd ->  do
           t <- evalR d
           return $! tscatter sh t f
         FromListR lsd -> do
@@ -707,14 +707,14 @@ buildDerivative dimR deltaDt params = do
 --        Gather1 f _sh d k -> do
 --          t <- evalR d
 --          return $! tgather1R k t f
-        GatherZ sh d f _shd -> do
+        GatherR sh d f _shd -> do
           t <- evalR d
           return $! tgather sh t f
 
-        FromD @_ @n2 (FromR @_ @n1 d) ->
+        DToR @_ @n2 (RToD @_ @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
             Just Refl -> evalR d
-            _ -> error "buildDerivative: different ranks in FromD(FromR)"
+            _ -> error "buildDerivative: different ranks in DToR(RToD)"
 
   -- A hack to fit both argument delta and, afterwards, the result in a type
   -- that does not reflect either.

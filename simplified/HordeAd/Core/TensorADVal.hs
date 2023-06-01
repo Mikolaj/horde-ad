@@ -67,7 +67,7 @@ indexZ :: forall ranked m n r.
           , Underlying (ranked r (m + n)) ~ Underlying (ranked r n) )
        => ADVal (ranked r (m + n)) -> IndexOf (ranked r 0) m
        -> ADVal (ranked r n)
-indexZ (D l u u') ix = dD l (tindex u ix) (dIndexZ u' ix (tshape u))
+indexZ (D l u u') ix = dD l (tindex u ix) (dIndexR u' ix (tshape u))
 
 fromList :: ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r (1 + n)), KnownNat n, GoodScalar r
             , Underlying (ranked r n) ~ Underlying (ranked r (1 + n)) )
@@ -95,19 +95,19 @@ instance ( KnownNat n, GoodScalar r
   type Value (Tannen ADVal ranked r n) = Flip OR.Array r n  -- !!! not ranked
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
-    Just (a, rest) -> Just (Tannen $ fromD $ getCompose a, rest)
+    Just (a, rest) -> Just (Tannen $ dToR $ getCompose a, rest)
     Nothing -> Nothing
 
-fromD :: forall dynamic ranked shaped n r.
-         ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
-         , KnownNat n, GoodScalar r )
-       => ADVal (dynamic r) -> ADVal (ranked r n)
-fromD (D l u u') = dDnotShared l (tfromD u) (dFromD u')
+dToR :: forall dynamic ranked shaped n r.
+        ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
+        , KnownNat n, GoodScalar r )
+      => ADVal (dynamic r) -> ADVal (ranked r n)
+dToR (D l u u') = dDnotShared l (tfromD u) (dDToR u')
 
-fromR :: ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
-         , KnownNat n, GoodScalar r )
-       => ADVal (ranked r n) -> ADVal (dynamic r)
-fromR (D l u u') = dDnotShared l (dfromR u) (dFromR u')
+rToD :: ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
+        , KnownNat n, GoodScalar r )
+      => ADVal (ranked r n) -> ADVal (dynamic r)
+rToD (D l u u') = dDnotShared l (dfromR u) (dRToD u')
 
 class ( Dual (ranked r y) ~ DeltaR ranked r y
       , DeltaR ranked r y ~ Dual (ranked r y) )
@@ -185,19 +185,19 @@ instance ( CRanked2 ranked UnderlyingMatches2
     sum' (D l u u') = dD l (tsum u) (dSumR (tlength u) u')
   tsum0 = Tannen . sum0 . runTannen
    where
-    sum0 (D l u u') = dD l (tsum0 u) (dSum0 (tshape u) u')
+    sum0 (D l u u') = dD l (tsum0 u) (dSum0R (tshape u) u')
   tdot0 = \u v -> Tannen $ dot0 (runTannen u) (runTannen v)
    where
     dot0 (D l1 ue u') (D l2 ve v') =
       -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
       let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
           !(!l4, v) = recordSharingPrimal ve l3
-      in dD l4 (tdot0 u v) (dAdd (dDot0 v u') (dDot0 u v'))
+      in dD l4 (tdot0 u v) (dAdd (dDot0R v u') (dDot0R u v'))
   tfromIndex0 = \ix -> Tannen $ dDnotShared emptyADShare (tfromIndex0 ix) dZero
   tscatter = \sh t f -> Tannen $ scatterNClosure sh (runTannen t) f
    where
     scatterNClosure sh (D l u u') f =
-      dD l (tscatter sh u f) (dScatterZ sh u' f (tshape u))
+      dD l (tscatter sh u f) (dScatterR sh u' f (tshape u))
   tfromList = Tannen . fromList . map runTannen
   tfromVector = Tannen . fromVector . V.map runTannen
    where
@@ -235,7 +235,7 @@ instance ( CRanked2 ranked UnderlyingMatches2
   tgather = \sh t f -> Tannen $ gatherNClosure sh (runTannen t) f
    where
     gatherNClosure sh (D l u u') f =
-      dD l (tgather sh u f) (dGatherZ sh u' f (tshape u))
+      dD l (tgather sh u f) (dGatherR sh u' f (tshape u))
 
   tsumOfList lu =
     Tannen $ dD (flattenADShare $ map ((\(Tannen (D l _ _)) -> l)) lu)
@@ -268,12 +268,12 @@ instance (HasConversions dynamic ranked, ConvertTensor dynamic ranked shaped)
          => ConvertTensor (Compose ADVal dynamic)
                           (Tannen ADVal ranked)
                           (Tannen ADVal shaped) where
-  tfromD = Tannen . fromD . getCompose
+  tfromD = Tannen . dToR . getCompose
   tfromS = undefined
-  dfromR = Compose . fromR . runTannen
+  dfromR = Compose . rToD . runTannen
   dfromS = undefined
-  sfromR = undefined
   sfromD = undefined
+  sfromR = undefined
   ddummy = undefined
   disDummy = undefined
   daddR = undefined

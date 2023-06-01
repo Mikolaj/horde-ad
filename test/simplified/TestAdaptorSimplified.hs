@@ -123,7 +123,7 @@ testPiecewiseLinearPP = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\x2 -> tfromList [tconst 2.0 * x2, tconst 5.0 * x2] ! [ifB (x2 >* tconst 0.0) 0 1]"
   show deltas
-    @?= "LetR 100000004 (IndexZ (LetR 100000003 (FromListR [LetR 100000001 (ScaleR (AstVar [] (AstVarId 100000003)) (InputR (InputId 0))),LetR 100000002 (ScaleR (AstVar [] (AstVarId 100000004)) (InputR (InputId 0)))])) [AstIntCond (AstRel GtOp [AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstVar [] (AstVarId 100000002))},AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstLetADShare ADShareNil (AstConst (fromList [] [0.0])))}]) (AstIntConst 0) (AstIntConst 1)] [2])"
+    @?= "LetR 100000004 (IndexR (LetR 100000003 (FromListR [LetR 100000001 (ScaleR (AstVar [] (AstVarId 100000003)) (InputR (InputId 0))),LetR 100000002 (ScaleR (AstVar [] (AstVarId 100000004)) (InputR (InputId 0)))])) [AstIntCond (AstRel GtOp [AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstVar [] (AstVarId 100000002))},AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstLetADShare ADShareNil (AstConst (fromList [] [0.0])))}]) (AstIntConst 0) (AstIntConst 1)] [2])"
 
 testPiecewiseLinear2PP :: Assertion
 testPiecewiseLinear2PP = do
@@ -177,7 +177,7 @@ testOverleafPP = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= printPrimal6Pretty renames artifact6
   show deltas
-    @?= "LetR 100000002 (SumR 50 (LetR 100000001 (GatherZ [50] (InputR (InputId 0)) <function> [28])))"
+    @?= "LetR 100000002 (SumR 50 (LetR 100000001 (GatherR [50] (InputR (InputId 0)) <function> [28])))"
 
 foo :: RealFloat a => (a, a, a) -> a
 foo (x, y, z) =
@@ -451,7 +451,7 @@ testReluMaxPP = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\m2 -> tgather [3,4] (tfromList [treplicate 3 (treplicate 4 (tconst 0.0)), m2]) (\\[i7, i8] -> [ifB (tconst 0.0 >=* m2 ! [i7, i8]) 0 1, i7, i8])"
   show deltas
-    @?= "LetR 100000004 (GatherZ [3,4] (LetR 100000003 (FromListR [ZeroR,InputR (InputId 0)])) <function> [2,3,4])"
+    @?= "LetR 100000004 (GatherR [3,4] (LetR 100000003 (FromListR [ZeroR,InputR (InputId 0)])) <function> [2,3,4])"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do
@@ -476,7 +476,7 @@ testReluMaxPP2 = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\v2 x3 -> tgather [5] (tfromList [treplicate 5 (tconst 0.0), v2 * treplicate 5 x3]) (\\[i6] -> [ifB (tconst 0.0 >=* v2 ! [i6] * x3) 0 1, i6])"
   show deltas
-    @?= "LetR 100000011 (GatherZ [5] (LetR 100000010 (FromListR [ZeroR,LetR 100000009 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000008 (ReplicateR 5 (InputR (InputId 1))))))])) <function> [2,5])"
+    @?= "LetR 100000011 (GatherR [5] (LetR 100000010 (FromListR [ZeroR,LetR 100000009 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000008 (ReplicateR 5 (InputR (InputId 1))))))])) <function> [2,5])"
 
 testReluMax3 :: Assertion
 testReluMax3 = do
@@ -519,7 +519,7 @@ testDot2PP = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\m2 m3 -> tsum (treshape [6] (m2 * m3))"
   show deltas
-    @?= "LetR 100000002 (AddR (Dot0 (AstVar [2,3] (AstVarId 100000003)) (InputR (InputId 0))) (Dot0 (AstVar [2,3] (AstVarId 100000002)) (InputR (InputId 1))))"
+    @?= "LetR 100000002 (AddR (Dot0R (AstVar [2,3] (AstVarId 100000003)) (InputR (InputId 0))) (Dot0R (AstVar [2,3] (AstVarId 100000002)) (InputR (InputId 1))))"
 
 testMatvecmulPP :: Assertion
 testMatvecmulPP = do

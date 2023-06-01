@@ -29,21 +29,21 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
   (ForwardDerivative (..), derivativeFromDelta, gradientFromDelta, toInputId)
-import HordeAd.Core.Adaptor
 import HordeAd.Core.DualClass
   ( Dual
   , HasConversions (..)
   , HasRanks (..)
   , IsPrimalA (..)
   , IsPrimalR (..)
-  , dFromR
   , dInputR
+  , dRToD
   )
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorClass
@@ -358,7 +358,7 @@ generateDeltaInputs params =
       arrayToInput i t = case someNatVal $ toInteger $ length
                               $ dshape t of
         Just (SomeNat (_ :: Proxy n)) ->
-          dFromR $ dInputR @ranked @r @n $ toInputId i
+          dRToD $ dInputR @ranked @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
   in V.imap arrayToInput params
 {- TODO: this can't be specified without a proxy
