@@ -46,7 +46,6 @@ import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
-import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
 import HordeAd.Core.Domains
 import HordeAd.Core.SizedIndex
@@ -260,7 +259,7 @@ instance GoodScalar r => IsPrimalR r where
   intOfShapeR tsh c =
     Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
 
-instance ShowAstSimplify r
+instance GoodScalar r
          => IsPrimalA r where
   dZeroA = ZeroR
   dScaleA = ScaleR

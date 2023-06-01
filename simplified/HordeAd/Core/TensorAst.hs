@@ -102,7 +102,7 @@ instance ConvertTensor AstDynamic AstRanked AstShapedTODO where
 
 data AstShapedTODO r (sh :: [Nat])
 
-instance (ShowAstSimplify r, KnownNat n)
+instance (GoodScalar r, KnownNat n)
          => AdaptableDomains AstDynamic (Ast n r) where
   type Underlying (Ast n r) = r
   type Value (Ast n r) = Flip OR.Array r n
@@ -178,7 +178,7 @@ astDomainsLetFun a f =
 -- works bottom-up, which removes the need to backtrack in the vectorization
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
-astBuild1Vectorize :: (KnownNat n, ShowAstSimplify r)
+astBuild1Vectorize :: (KnownNat n, GoodScalar r)
                    => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 

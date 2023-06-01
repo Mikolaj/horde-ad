@@ -671,7 +671,7 @@ barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
-fooNoGoAst :: forall r. ShowAstSimplify r
+fooNoGoAst :: forall r. GoodScalar r
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
   let r = tsum0 v

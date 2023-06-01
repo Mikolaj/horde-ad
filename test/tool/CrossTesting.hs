@@ -173,7 +173,7 @@ rev' f vals =
 assertEqualUpToEpsilon'
     :: ( v ~ Flip OR.Array r m, g ~ Flip OR.Array r n
        , AssertEqualUpToEpsilon g, AssertEqualUpToEpsilon v
-       , KnownNat m, ShowAstSimplify r, HasCallStack)
+       , KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected value
     -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, Ast m r, Ast m r
@@ -260,7 +260,7 @@ assertEqualUpToEpsilon'
 assertEqualUpToEpsilonShort
     :: ( v ~ Flip OR.Array r m, g ~ Flip OR.Array r n
        , AssertEqualUpToEpsilon g, AssertEqualUpToEpsilon v
-       , KnownNat m, ShowAstSimplify r, HasCallStack)
+       , KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected value
     -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, Ast m r, Ast m r

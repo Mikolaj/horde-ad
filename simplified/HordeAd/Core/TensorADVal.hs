@@ -26,7 +26,6 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 
 import HordeAd.Core.Ast
-import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
 import HordeAd.Core.Domains
 import HordeAd.Core.DualClass
@@ -53,7 +52,7 @@ instance IfB (ADVal (Flip OR.Array r n)) where
   ifB b v w = if b then v else w
 
 -- This requires the Tensor instance, hence the definitions must be here.
-instance (KnownNat n, ShowAstSimplify r)
+instance (KnownNat n, GoodScalar r)
          => IfB (ADVal (Ast n r)) where
   ifB b v w = indexZ (fromList [v, w]) (singletonIndex $ ifB b 0 1)
 
@@ -109,7 +108,7 @@ instance ( KnownNat n, GoodScalar r
     Just (a, rest) -> Just (Tannen $ fromD $ getCompose a, rest)
     Nothing -> Nothing
 
-instance (KnownNat n, ShowAstSimplify r)
+instance (KnownNat n, GoodScalar r)
          => AdaptableDomains (Compose ADVal AstDynamic)
                              (ADVal (Ast n r)) where
   type Underlying (ADVal (Ast n r)) = r

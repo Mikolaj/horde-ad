@@ -209,7 +209,7 @@ revAstOnDomains f parameters =
 
 revAstOnDomainsF
   :: forall r n.
-     (KnownNat n, ShowAstSimplify r)
+     (KnownNat n, GoodScalar r)
   => (Domains (Compose ADVal AstDynamic) r -> Tannen ADVal AstRanked r n)
   -> DomainsOD r
   -> ADAstArtifact6 n r
@@ -219,7 +219,7 @@ revAstOnDomainsF f parameters  =
   in fst $ revAstOnDomainsFun shapes1 (\varInputs _ _ -> f varInputs)
 
 revAstOnDomainsFun
-  :: forall r n. (KnownNat n, ShowAstSimplify r)
+  :: forall r n. (KnownNat n, GoodScalar r)
   => [[Int]]
   -> (Domains (Compose ADVal AstDynamic) r
       -> Domains AstDynamic r
