@@ -20,7 +20,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
-import HordeAd.Core.Domains
+import HordeAd.Core.Adaptor
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorClass

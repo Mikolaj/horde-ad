@@ -521,7 +521,7 @@ library horde-ad-simplified
                       HordeAd.Core.AstTools
                       HordeAd.Core.AstVectorize
                       HordeAd.Core.Delta
-                      HordeAd.Core.Domains
+                      HordeAd.Core.Adaptor
                       HordeAd.Core.DualClass
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine

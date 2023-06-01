@@ -14,7 +14,7 @@ import           Data.Functor.Compose
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.Domains
+import HordeAd.Core.Adaptor
 import HordeAd.Core.DualNumber (ADVal, IsPrimalR)
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorClass

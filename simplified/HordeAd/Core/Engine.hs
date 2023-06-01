@@ -35,7 +35,7 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
   (ForwardDerivative (..), derivativeFromDelta, gradientFromDelta, toInputId)
-import HordeAd.Core.Domains
+import HordeAd.Core.Adaptor
 import HordeAd.Core.DualClass
   ( Dual
   , HasConversions (..)

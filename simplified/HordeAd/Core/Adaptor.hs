@@ -1,7 +1,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 -- | A general representation of the domains of objective functions
 -- that become the codomains of the gradient functions.
-module HordeAd.Core.Domains
+module HordeAd.Core.Adaptor
   ( Domains, DomainsOD
   , AdaptableDomains(..), parseDomains, RandomDomains(..)
   ) where

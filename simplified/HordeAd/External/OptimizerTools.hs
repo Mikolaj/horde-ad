@@ -14,7 +14,7 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
-import HordeAd.Core.Domains
+import HordeAd.Core.Adaptor
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
 import HordeAd.Internal.TensorOps (isTensorDummy)
 

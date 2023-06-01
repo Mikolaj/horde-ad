@@ -27,7 +27,7 @@ import           GHC.TypeLits (KnownNat, sameNat, type (+))
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Delta
-import HordeAd.Core.Domains
+import HordeAd.Core.Adaptor
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex

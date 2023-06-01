@@ -67,7 +67,7 @@ import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Text.Show.Functions ()
 
 import HordeAd.Core.Ast
-import HordeAd.Core.Domains
+import HordeAd.Core.Adaptor
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass

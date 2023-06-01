@@ -26,7 +26,7 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
-import HordeAd.Core.Domains
+import HordeAd.Core.Adaptor
 import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex

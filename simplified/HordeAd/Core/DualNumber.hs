@@ -18,7 +18,7 @@ import Data.Proxy (Proxy (Proxy))
 import GHC.TypeLits (KnownNat, Nat, natVal)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.Domains
+import HordeAd.Core.Adaptor
 import HordeAd.Core.DualClass
 
 -- * The main dual number type

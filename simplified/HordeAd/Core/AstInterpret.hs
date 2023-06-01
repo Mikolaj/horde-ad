@@ -33,7 +33,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.Delta
-import HordeAd.Core.Domains
+import HordeAd.Core.Adaptor
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal ()

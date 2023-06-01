@@ -23,7 +23,7 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.AstVectorize
-import HordeAd.Core.Domains
+import HordeAd.Core.Adaptor
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
