@@ -43,7 +43,7 @@ rev' :: forall r m n v g.
         , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n )
      => (forall f x. ADReady f x => f x n -> f x m)
      -> g
-     -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, Ast m r, Ast m r
+     -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, AstRanked r m, AstRanked r m
         , v, v, v, v, v, v, v, v, v, v, v, v, v
         , g, g, g, g, g, g, g, g, g, g, g, g, g )
 rev' f vals =
@@ -61,8 +61,8 @@ rev' f vals =
       (advalGrad9, value9) = revAstOnDomains g9 parameters dt
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady f1 r
-        => (f1 r m -> Ast m r) -> (Ast n r -> f1 r n)
-        -> (Ast m r -> Ast m r) -> Domains (Compose ADVal OD.Array) r
+        => (f1 r m -> AstRanked r m) -> (AstRanked r n -> f1 r n)
+        -> (AstRanked r m -> AstRanked r m) -> Domains (Compose ADVal OD.Array) r
         -> ADVal (Flip OR.Array r m)
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
@@ -97,8 +97,8 @@ rev' f vals =
         $ funToAstR (tshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1 r
-           => (f1 r m -> Ast m r) -> (Ast n r -> f1 r n)
-           -> (Ast m r -> Ast m r) -> Domains (Compose ADVal AstDynamic) r
+           => (f1 r m -> AstRanked r m) -> (AstRanked r n -> f1 r n)
+           -> (AstRanked r m -> AstRanked r m) -> Domains (Compose ADVal AstDynamic) r
            -> Tannen ADVal AstRanked r m
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
@@ -176,7 +176,7 @@ assertEqualUpToEpsilon'
        , KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected value
-    -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, Ast m r, Ast m r
+    -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, AstRanked r m, AstRanked r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v
        , g, g, g, g, g, g, g, g, g, g, g, g, g )
          -- ^ actual values
@@ -263,7 +263,7 @@ assertEqualUpToEpsilonShort
        , KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected value
-    -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, Ast m r, Ast m r
+    -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g, AstRanked r m, AstRanked r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v
        , g, g, g, g, g, g, g, g, g, g, g, g, g )
          -- ^ actual values

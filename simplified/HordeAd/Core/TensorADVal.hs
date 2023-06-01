@@ -53,7 +53,7 @@ instance IfB (ADVal (Flip OR.Array r n)) where
 
 -- This requires the Tensor instance, hence the definitions must be here.
 instance (KnownNat n, GoodScalar r)
-         => IfB (ADVal (Ast n r)) where
+         => IfB (ADVal (AstRanked r n)) where
   ifB b v w = indexZ (fromList [v, w]) (singletonIndex $ ifB b 0 1)
 
 instance AdaptableDomains (Compose ADVal OD.Array) (ADVal Double) where
@@ -110,9 +110,9 @@ instance ( KnownNat n, GoodScalar r
 
 instance (KnownNat n, GoodScalar r)
          => AdaptableDomains (Compose ADVal AstDynamic)
-                             (ADVal (Ast n r)) where
-  type Underlying (ADVal (Ast n r)) = r
-  type Value (ADVal (Ast n r)) = Flip OR.Array r n
+                             (ADVal (AstRanked r n)) where
+  type Underlying (ADVal (AstRanked r n)) = r
+  type Value (ADVal (AstRanked r n)) = Flip OR.Array r n
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (a, rest) -> Just (fromD $ getCompose a, rest)

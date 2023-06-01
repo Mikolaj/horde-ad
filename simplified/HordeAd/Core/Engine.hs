@@ -59,7 +59,7 @@ revL
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> Ast n r) -> [vals] -> [vals]
+  => (astvals -> AstRanked r n) -> [vals] -> [vals]
 revL f valsAll = revDtMaybeL f valsAll Nothing
 
 revDtMaybeL
@@ -69,7 +69,7 @@ revDtMaybeL
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> Ast n r) -> [vals] -> Maybe (Flip OR.Array r n) -> [vals]
+  => (astvals -> AstRanked r n) -> [vals] -> Maybe (Flip OR.Array r n) -> [vals]
 revDtMaybeL _ [] _ = []
 revDtMaybeL f valsAll@(vals : _) dt =
   let asts4 = fst $ revDtFun f vals
@@ -83,7 +83,7 @@ revDtFun
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r  )
-  => (astvals -> Ast n r) -> vals
+  => (astvals -> AstRanked r n) -> vals
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revDtFun #-}
 revDtFun f vals =
@@ -97,7 +97,7 @@ revDtInit
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value astvals, Underlying astvals ~ r)
-  => (astvals -> Ast n r) -> vals -> AstEnv dynamic ranked r
+  => (astvals -> AstRanked r n) -> vals -> AstEnv dynamic ranked r
   -> DomainsOD r
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revDtInit #-}
@@ -113,7 +113,7 @@ revDtInterpret
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value astvals, Underlying astvals ~ r )
   => AstEnv dynamic ranked r
-  -> vals -> (astvals -> Ast n r)
+  -> vals -> (astvals -> AstRanked r n)
   -> Domains dynamic r -> Domains AstDynamic r
   -> (ADAstVarNames n r, ADAstVars n r)
   -> ranked r n
@@ -132,7 +132,7 @@ rev
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> Ast n r) -> vals -> vals
+  => (astvals -> AstRanked r n) -> vals -> vals
 rev f vals = head $ revL f [vals]
 
 -- This version additionally takes the sensitivity parameter.
@@ -143,7 +143,7 @@ revDt
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> Ast n r) -> vals -> Flip OR.Array r n -> vals
+  => (astvals -> AstRanked r n) -> vals -> Flip OR.Array r n -> vals
 revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 
 -- Old version of the three functions, with constant, fixed inputs and dt.

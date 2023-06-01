@@ -40,7 +40,7 @@ import HordeAd.Internal.SizedList
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
 shapeAst :: forall n r. (KnownNat n, ShowAst r)
-         => Ast n r -> ShapeInt n
+         => AstRanked r n -> ShapeInt n
 shapeAst v1 = case v1 of
   AstVar sh _var -> sh
   AstLet _ _ v -> shapeAst v
@@ -83,7 +83,7 @@ shapeAst v1 = case v1 of
   AstLetDomains _ _ v -> shapeAst v
 
 -- Length of the outermost dimension.
-lengthAst :: (KnownNat n, ShowAst r) => Ast (1 + n) r -> Int
+lengthAst :: (KnownNat n, ShowAst r) => AstRanked r (1 + n) -> Int
 lengthAst v1 = case shapeAst v1 of
   ZS -> error "lengthAst: impossible pattern needlessly required"
   k :$ _ -> k
@@ -95,7 +95,7 @@ lengthAst v1 = case shapeAst v1 of
 -- and nobody asks about occurences of variables that are bound.
 -- This keeps the occurence checking code simple, because we never need
 -- to compare variables to any variable in the bindings.
-intVarInAst :: AstVarId -> Ast n r -> Bool
+intVarInAst :: AstVarId -> AstRanked r n -> Bool
 intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
   AstLet _var2 u v -> intVarInAst var u || intVarInAst var v
@@ -162,8 +162,8 @@ intVarInIndex var = any (intVarInAstInt var)
 --
 -- The Either is a hack until we merge Ast and AstInt.
 substitute1Ast :: forall m n r. (ShowAst r, KnownNat m, KnownNat n)
-               => Either (Ast m r) (AstInt r) -> AstVarId -> Ast n r
-               -> Ast n r
+               => Either (AstRanked r m) (AstInt r) -> AstVarId -> AstRanked r n
+               -> AstRanked r n
 substitute1Ast i var v1 = case v1 of
   AstVar sh var2 ->
     if var == var2
@@ -208,13 +208,13 @@ substitute1Ast i var v1 = case v1 of
 
 substitute1AstDynamic
   :: (ShowAst r, KnownNat m)
-  => Either (Ast m r) (AstInt r) -> AstVarId -> AstDynamic r
+  => Either (AstRanked r m) (AstInt r) -> AstVarId -> AstDynamic r
   -> AstDynamic r
 substitute1AstDynamic i var (AstDynamic t) = AstDynamic $ substitute1Ast i var t
 
 substitute1AstDomains
   :: (ShowAst r, KnownNat m)
-  => Either (Ast m r) (AstInt r) -> AstVarId -> AstDomains r
+  => Either (AstRanked r m) (AstInt r) -> AstVarId -> AstDomains r
   -> AstDomains r
 substitute1AstDomains i var v1 = case v1 of
   AstDomains l -> AstDomains $ V.map (substitute1AstDynamic i var) l
@@ -223,7 +223,7 @@ substitute1AstDomains i var v1 = case v1 of
                        (substitute1AstDomains i var v)
 
 substitute1AstInt :: forall m r. (ShowAst r, KnownNat m)
-                  => Either (Ast m r) (AstInt r) -> AstVarId -> AstInt r
+                  => Either (AstRanked r m) (AstInt r) -> AstVarId -> AstInt r
                   -> AstInt r
 substitute1AstInt i var i2 = case i2 of
   AstIntVar var2 -> if var == var2
@@ -243,7 +243,7 @@ substitute1AstInt i var i2 = case i2 of
     AstMaxIndex1 $ AstPrimalPart $ substitute1Ast i var v
 
 substitute1AstBool :: forall m r. (ShowAst r, KnownNat m)
-                   => Either (Ast m r) (AstInt r) -> AstVarId -> AstBool r
+                   => Either (AstRanked r m) (AstInt r) -> AstVarId -> AstBool r
                    -> AstBool r
 substitute1AstBool i var b1 = case b1 of
   AstBoolOp opCodeBool args ->
@@ -259,7 +259,7 @@ substitute1AstBool i var b1 = case b1 of
 -- * Determining if a term is too small to require sharing
 
 astIsSmall :: forall n r. KnownNat n
-           => Ast n r -> Bool
+           => AstRanked r n -> Bool
 astIsSmall = \case
   AstVar{} -> True
   AstIota -> True
@@ -312,12 +312,12 @@ defaulPrintConfig prettifyLosingSharing renames =
 
 -- Precedences used are as in Haskell.
 printAst :: forall n r. (ShowAst r, KnownNat n)
-         => PrintConfig -> Int -> Ast n r -> ShowS
+         => PrintConfig -> Int -> AstRanked r n -> ShowS
 printAst cfg d = \case
   AstVar _sh var -> printAstVar cfg (AstVarName @(OR.Array n r) var)
   t@(AstLet @_ @m0 var0 u0 v0) ->
     if prettifyLosingSharing cfg
-    then let collect :: Ast n r -> ([(ShowS, ShowS)], ShowS)
+    then let collect :: AstRanked r n -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet @_ @m var u v) =
                let name = printAstVar cfg (AstVarName @(OR.Array m r) var)
                    uPP = printAst cfg 0 u
@@ -527,7 +527,7 @@ printAstBool cfg d = \case
   AstRelInt opCode args -> printAstRelOp printAstInt cfg d opCode args
 
 printAstOp :: (ShowAst r, KnownNat n)
-           => PrintConfig -> Int -> OpCode -> [Ast n r] -> ShowS
+           => PrintConfig -> Int -> OpCode -> [AstRanked r n] -> ShowS
 printAstOp cfg d opCode args = case (opCode, args) of
   (MinusOp, [u, v]) -> printBinaryOp printAst cfg d u (6, " - ") v
   (TimesOp, [u, v]) -> printBinaryOp printAst cfg d u (7, " * ") v
@@ -627,10 +627,10 @@ printAstDynamicVarName :: IntMap String -> AstDynamicVarName r -> String
 printAstDynamicVarName renames (AstDynamicVarName var) =
   printAstVarName renames var
 
-printAstSimple :: (ShowAst r, KnownNat n) => IntMap String -> Ast n r -> String
+printAstSimple :: (ShowAst r, KnownNat n) => IntMap String -> AstRanked r n -> String
 printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
 
-printAstPretty :: (ShowAst r, KnownNat n) => IntMap String -> Ast n r -> String
+printAstPretty :: (ShowAst r, KnownNat n) => IntMap String -> AstRanked r n -> String
 printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
 
 

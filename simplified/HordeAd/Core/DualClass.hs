@@ -106,25 +106,25 @@ instance (IsPrimalR r, KnownNat n)
 
 -- An analogous hack for Ast.
 class IsPrimalA r where
-  dZeroA :: KnownNat n => Dual (Ast n r)
+  dZeroA :: KnownNat n => Dual (AstRanked r n)
   dScaleA :: KnownNat n
-          => Ast n r -> Dual (Ast n r) -> Dual (Ast n r)
+          => AstRanked r n -> Dual (AstRanked r n) -> Dual (AstRanked r n)
   dScaleByScalarA :: KnownNat n
-                  => Ast n r -> Int -> Dual (Ast n r) -> Dual (Ast n r)
+                  => AstRanked r n -> Int -> Dual (AstRanked r n) -> Dual (AstRanked r n)
   dAddA :: KnownNat n
-        => Dual (Ast n r) -> Dual (Ast n r) -> Dual (Ast n r)
-  recordSharingA :: Dual (Ast n r) -> Dual (Ast n r)
+        => Dual (AstRanked r n) -> Dual (AstRanked r n) -> Dual (AstRanked r n)
+  recordSharingA :: Dual (AstRanked r n) -> Dual (AstRanked r n)
   recordSharingPrimalA :: KnownNat n
-                       => Ast n r -> ADShare r -> (ADShare r, Ast n r)
-  letWrapPrimalA :: ADShare r -> Ast n r -> Ast n r
+                       => AstRanked r n -> ADShare r -> (ADShare r, AstRanked r n)
+  letWrapPrimalA :: ADShare r -> AstRanked r n -> AstRanked r n
   packDeltaDtA :: KnownNat n
-               => Either (Ast n r) (Ast n r) -> Dual (Ast n r)
+               => Either (AstRanked r n) (AstRanked r n) -> Dual (AstRanked r n)
                -> DeltaDt AstRanked r
   intOfShapeA :: KnownNat n
-              => Ast n r -> Int -> Ast n r
+              => AstRanked r n -> Int -> AstRanked r n
 
 instance (IsPrimalA r, KnownNat n)
-         => IsPrimal (Ast n r) where
+         => IsPrimal (AstRanked r n) where
   dZero = dZeroA
   dScale = dScaleA
   dScaleByScalar = dScaleByScalarA

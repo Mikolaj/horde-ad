@@ -38,8 +38,8 @@ unsafeGetFreshAstVarId =
   intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 astRegisterFun :: (ShowAst r, KnownNat n)
-               => Ast n r -> [(AstVarId, AstDynamic r)]
-               -> ([(AstVarId, AstDynamic r)], Ast n r)
+               => AstRanked r n -> [(AstVarId, AstDynamic r)]
+               -> ([(AstVarId, AstDynamic r)], AstRanked r n)
 {-# NOINLINE astRegisterFun #-}
 astRegisterFun !r !l | astIsSmall r = (l, r)
 astRegisterFun !r !l = unsafePerformIO $ do
@@ -48,8 +48,8 @@ astRegisterFun !r !l = unsafePerformIO $ do
   return ((freshId, AstDynamic r) : l, r2)
 
 astRegisterADShare :: (ShowAst r, KnownNat n)
-                   => Ast n r -> ADShare r
-                   -> (ADShare r, Ast n r)
+                   => AstRanked r n -> ADShare r
+                   -> (ADShare r, AstRanked r n)
 {-# NOINLINE astRegisterADShare #-}
 astRegisterADShare !r !l | astIsSmall r = (l, r)
 astRegisterADShare !r !l = unsafePerformIO $ do
@@ -58,19 +58,19 @@ astRegisterADShare !r !l = unsafePerformIO $ do
       !r2 = AstVar (shapeAst r) freshId
   return (l2, r2)
 
-funToAstRIO :: ShapeInt n -> (Ast n r -> Ast m r)
-            -> IO (AstVarName (OR.Array n r), Ast m r)
+funToAstRIO :: ShapeInt n -> (AstRanked r n -> AstRanked r m)
+            -> IO (AstVarName (OR.Array n r), AstRanked r m)
 {-# INLINE funToAstRIO #-}
 funToAstRIO sh f = do
   freshId <- unsafeGetFreshAstVarId
   return (AstVarName freshId, f (AstVar sh freshId))
 
-funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
-          -> (AstVarName (OR.Array n r), Ast m r)
+funToAstR :: ShapeInt n -> (AstRanked r n -> AstRanked r m)
+          -> (AstVarName (OR.Array n r), AstRanked r m)
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ funToAstRIO sh f
 
-funToAstRshIO :: IO (AstVarName (OR.Array n r), ShapeInt n -> Ast n r)
+funToAstRshIO :: IO (AstVarName (OR.Array n r), ShapeInt n -> AstRanked r n)
 {-# INLINE funToAstRshIO #-}
 funToAstRshIO = do
   freshId <- unsafeGetFreshAstVarId
@@ -92,7 +92,7 @@ funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
 {-# NOINLINE funToAstD #-}
 funToAstD sh = unsafePerformIO $ funToAstDIO sh
 
-type ADAstVars n r = (ShapeInt n -> Ast n r, [AstDynamic r])
+type ADAstVars n r = (ShapeInt n -> AstRanked r n, [AstDynamic r])
 
 funToAstAll :: [[Int]] -> (ADAstVarNames n r, ADAstVars n r)
 {-# NOINLINE funToAstAll #-}

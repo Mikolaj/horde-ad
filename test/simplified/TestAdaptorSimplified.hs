@@ -194,7 +194,7 @@ testFooPP :: Assertion
 testFooPP = do
   resetVarCounter
   let renames = IM.fromList [(2, "x"), (3, "y"), (4, "z")]
-      fooT = foo @(Ast 0 Double)
+      fooT = foo @(AstRanked Double 0)
       foo3 x = fooT (x, x, x)
       (var3, ast3) = funToAstR ZS foo3
   "\\" ++ printAstVarName IM.empty var3
@@ -666,13 +666,13 @@ testFooMap1 =
     (rev' @Double @1 fooMap1 1.1)
 
 barAst :: (Numeric r, Show r, RealFloat r, RealFloat (Vector r))
-       => (Ast 0 r, Ast 0 r) -> Ast 0 r
+       => (AstRanked r 0, AstRanked r 0) -> AstRanked r 0
 barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
 fooNoGoAst :: forall r. GoodScalar r
-           => Ast 1 r -> Ast 1 r
+           => AstRanked r 1 -> AstRanked r 1
 fooNoGoAst v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
@@ -819,7 +819,7 @@ testBarReluADValMax3 =
 barReluAst
   :: forall n r.
      (KnownNat n, ADReady AstRanked r)
-  => Ast n r -> Ast n r
+  => AstRanked r n -> AstRanked r n
 barReluAst x = relu $ bar (x, relu x)
 
 testBarReluAst0 :: Assertion
@@ -850,7 +850,7 @@ testBarReluAst1 =
 
 konstReluAst
   :: forall r. ADReady AstRanked r
-  => Ast 0 r -> Ast 0 r
+  => AstRanked r 0 -> AstRanked r 0
 konstReluAst x = tsum0 $ relu $ treplicate0N (7 :$ ZS) x
 
 testReplicateReluAst :: Assertion

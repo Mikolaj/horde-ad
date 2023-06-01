@@ -103,9 +103,9 @@ instance ConvertTensor AstDynamic AstRanked AstShapedTODO where
 data AstShapedTODO r (sh :: [Nat])
 
 instance (GoodScalar r, KnownNat n)
-         => AdaptableDomains AstDynamic (Ast n r) where
-  type Underlying (Ast n r) = r
-  type Value (Ast n r) = Flip OR.Array r n
+         => AdaptableDomains AstDynamic (AstRanked r n) where
+  type Underlying (AstRanked r n) = r
+  type Value (AstRanked r n) = Flip OR.Array r n
   toDomains = undefined
   fromDomains aInit params = case V.uncons params of
     Just (a, rest) -> Just (ttoRankedOrDummy @AstDynamic @AstRanked
@@ -142,7 +142,7 @@ instance DomainsTensor AstDynamic AstRanked AstDomains where
   dlet = astDomainsLetFun
 
 astLetFun :: (KnownNat n, KnownNat m, ShowAst r)
-          => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
+          => AstRanked r n -> (AstRanked r n -> AstRanked r m) -> AstRanked r m
 astLetFun a f | astIsSmall a = f a
 astLetFun a f =
   let sh = shapeAst a
@@ -152,8 +152,8 @@ astLetFun a f =
 astLetDomainsFun
   :: forall m r. ShowAst r
   => AstDomains r
-  -> (AstDomains r -> Ast m r)
-  -> Ast m r
+  -> (AstDomains r -> AstRanked r m)
+  -> AstRanked r m
 astLetDomainsFun a f =
   let genVar :: AstDynamic r -> (AstVarId, AstDynamic r)
       genVar (AstDynamic t) =
@@ -164,7 +164,7 @@ astLetDomainsFun a f =
   in AstLetDomains vars a (f $ AstDomains asts)
 
 astDomainsLetFun :: (KnownNat n, ShowAst r)
-                 => Ast n r -> (Ast n r -> AstDomains r)
+                 => AstRanked r n -> (AstRanked r n -> AstDomains r)
                  -> AstDomains r
 astDomainsLetFun a f | astIsSmall a = f a
 astDomainsLetFun a f =
@@ -179,7 +179,7 @@ astDomainsLetFun a f =
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
 astBuild1Vectorize :: (KnownNat n, GoodScalar r)
-                   => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
+                   => Int -> (AstInt r -> AstRanked r n) -> AstRanked r (1 + n)
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 type instance IntOf (AstPrimalPart r n) = AstInt r
@@ -326,7 +326,7 @@ instance Tensor AstNoSimplify where
   tScale (AstNoSimplify s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
 astLetFunUnSimp :: (KnownNat n, KnownNat m, ShowAst r)
-                => Ast n r -> (Ast n r -> Ast m r) -> Ast m r
+                => AstRanked r n -> (AstRanked r n -> AstRanked r m) -> AstRanked r m
 astLetFunUnSimp a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh f

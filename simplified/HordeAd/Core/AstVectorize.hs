@@ -19,7 +19,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 
 import           HordeAd.Core.Ast hiding
   (AstBool (..), AstDomains (..), AstInt (..), AstRanked (..))
-import           HordeAd.Core.Ast (AstDomains, AstInt)
+import           HordeAd.Core.Ast (AstDomains, AstInt, AstRanked)
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstSimplify
@@ -37,7 +37,7 @@ import           HordeAd.Internal.SizedList
 -- the total number of @AstBuild1@ occuring in the term.
 build1Vectorize
   :: (KnownNat n, GoodScalar r)
-  => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
+  => Int -> (AstVarId, AstRanked r n) -> AstRanked r (1 + n)
 {-# NOINLINE build1Vectorize #-}
 build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -65,7 +65,7 @@ build1Vectorize k (var, v0) = unsafePerformIO $ do
 
 -- This abbreviation is used a lot below.
 astTr :: forall n r. (KnownNat n, GoodScalar r)
-      => Ast (2 + n) r -> Ast (2 + n) r
+      => AstRanked r (2 + n) -> AstRanked r (2 + n)
 astTr = astTranspose [1, 0]
 
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
@@ -73,7 +73,7 @@ astTr = astTranspose [1, 0]
 -- @var@ occurs in @v@.
 build1VOccurenceUnknown
   :: (KnownNat n, GoodScalar r)
-  => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
+  => Int -> (AstVarId, AstRanked r n) -> AstRanked r (1 + n)
 build1VOccurenceUnknown k (var, v0) =
   let traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 k (var, v0)) v0 1
   in if intVarInAst var v0
@@ -83,7 +83,7 @@ build1VOccurenceUnknown k (var, v0) =
 
 build1VOccurenceUnknownRefresh
   :: (KnownNat n, GoodScalar r)
-  => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
+  => Int -> (AstVarId, AstRanked r n) -> AstRanked r (1 + n)
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIIO id
@@ -104,7 +104,7 @@ intBindingRefresh var ix = unsafePerformIO $ do
 -- @var@ occurs in @v@.
 build1V
   :: (KnownNat n, GoodScalar r)
-  => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
+  => Int -> (AstVarId, AstRanked r n) -> AstRanked r (1 + n)
 build1V k (var, v00) =
   let v0 = simplifyStepNonIndex v00
         -- Almost surely the term will be transformed, so it can just
@@ -240,8 +240,8 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
   :: forall m n r. (KnownNat m, KnownNat n, GoodScalar r)
-  => Int -> (AstVarId, Ast (m + n) r, AstIndex m r)
-  -> Ast (1 + n) r
+  => Int -> (AstVarId, AstRanked r (m + n), AstIndex m r)
+  -> AstRanked r (1 + n)
 build1VIndex k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
 build1VIndex k (var, v0, ix@(_ :. _)) =
   let traceRule = mkTraceRule "build1VIndex"
@@ -298,7 +298,7 @@ ellipsisString width full = let cropped = take width full
                                else take (width - 3) cropped ++ "..."
 
 mkTraceRule :: (KnownNat n, KnownNat m, GoodScalar r)
-            => String -> Ast n r -> Ast m r -> Int -> Ast n r -> Ast n r
+            => String -> AstRanked r n -> AstRanked r m -> Int -> AstRanked r n -> AstRanked r n
 {-# NOINLINE mkTraceRule #-}
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef

@@ -86,9 +86,9 @@ extendEnvVars vars ix env =
 -- for each iteration, with differently extended environment,
 -- and also because the created function is not expected to return a @memo@.
 interpretLambdaI
-  :: (AstEnv dynamic ranked r -> AstMemo r -> Ast n r
+  :: (AstEnv dynamic ranked r -> AstMemo r -> AstRanked r n
   -> (AstMemo r, ranked r n))
-  -> AstEnv dynamic ranked r -> AstMemo r -> (AstVarId, Ast n r)
+  -> AstEnv dynamic ranked r -> AstMemo r -> (AstVarId, AstRanked r n)
   -> IntOf (ranked r 0)
   -> ranked r n
 {-# INLINE interpretLambdaI #-}
@@ -96,10 +96,10 @@ interpretLambdaI f env memo (var, ast) =
   \i -> snd $ f (extendEnvI var i env) memo ast
 
 interpretLambdaIndex
-  :: (AstEnv dynamic ranked r -> AstMemo r -> Ast n r
+  :: (AstEnv dynamic ranked r -> AstMemo r -> AstRanked r n
   -> (AstMemo r, ranked r n))
   -> AstEnv dynamic ranked r -> AstMemo r
-  -> (AstVarList m, Ast n r) -> IndexOf (ranked r 0) m
+  -> (AstVarList m, AstRanked r n) -> IndexOf (ranked r 0) m
   -> ranked r n
 {-# INLINE interpretLambdaIndex #-}
 interpretLambdaIndex f env memo (vars, ast) =
@@ -180,7 +180,7 @@ interpretAst
   :: forall dynamic ranked shaped n r.
      (KnownNat n, InterpretAst dynamic ranked shaped r)
   => AstEnv dynamic ranked r -> AstMemo r
-  -> Ast n r -> (AstMemo r, ranked r n)
+  -> AstRanked r n -> (AstMemo r, ranked r n)
 interpretAst env memo = \case
   AstVar sh var -> case EM.lookup var env of
     Just (AstVarR d) -> let t = tfromD d

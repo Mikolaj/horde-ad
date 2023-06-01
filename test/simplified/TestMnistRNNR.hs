@@ -21,12 +21,12 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
-import HordeAd.Core.Adaptor
 import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
@@ -190,7 +190,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                id
            (varLabel, astLabel) =
              funToAstR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
-           ast :: Ast 0 r
+           ast :: AstRanked r 0
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (tprimalPart astGlyph, tprimalPart astLabel)
                                  (parseDomains valsInit doms)
@@ -415,7 +415,7 @@ testRNNOPP = do
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
       afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters AstRanked Double
-              -> Ast 2 Double
+              -> AstRanked Double 2
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
       (artifact6, _) = revDtFun afcnn2T (valsInitRNNOPP 1 sizeMnistHeightI)
   printGradient6Pretty renames artifact6
@@ -440,7 +440,7 @@ testRNNOPP2 = do
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
       afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters AstRanked Double
-              -> Ast 2 Double
+              -> AstRanked Double 2
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
       (artifact6, _) = revDtFun afcnn2T (valsInitRNNOPP 2 sizeMnistHeightI)
   printGradient6Pretty renames artifact6

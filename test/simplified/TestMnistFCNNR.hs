@@ -210,7 +210,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
              funToAstR (singletonShape sizeMnistLabelInt) id
-           ast :: Ast 0 r
+           ast :: AstRanked r 0
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                    widthHidden widthHidden2 (astGlyph, astLabel)
                    (parseDomains valsInit doms)
@@ -536,7 +536,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
              funToAstR (singletonShape sizeMnistGlyphInt) id
            (varLabel, astLabel) =
              funToAstR (singletonShape sizeMnistLabelInt) id
-           ast :: Ast 0 r
+           ast :: AstRanked r 0
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
                    (astGlyph, astLabel) (parseDomains valsInit doms)
        -- Mimic how backprop tests and display it, even though tests

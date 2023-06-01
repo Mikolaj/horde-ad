@@ -9,7 +9,7 @@
 module HordeAd.Core.Ast
   ( AstVarId, intToAstVarId
   , ADAstVarNames, ADAstArtifact6, ShowAst, AstIndex, AstVarList
-  , AstRanked(..), Ast, AstNoVectorize(..), AstNoSimplify(..)
+  , AstRanked(..), AstNoVectorize(..), AstNoSimplify(..)
   , AstPrimalPart(..), AstDualPart(..), AstDynamic(..), AstDomains(..)
   , unwrapAstDomains, bindsToLet, bindsToDomainsLet
   , AstVarName(..), AstDynamicVarName(..), AstInt(..), AstBool(..)
@@ -51,15 +51,13 @@ intToAstVarId = AstVarId
 type ADAstVarNames n r = (AstVarName (OR.Array n r), [AstDynamicVarName r])
 
 -- The artifact from step 6) of our full pipeline.
-type ADAstArtifact6 n r = (ADAstVarNames n r, AstDomains r, Ast n r)
+type ADAstArtifact6 n r = (ADAstVarNames n r, AstDomains r, AstRanked r n)
 
 type ShowAst r = (Show r, Numeric r)
 
 type AstIndex n r = Index n (AstInt r)
 
 type AstVarList n = SizedList n AstVarId
-
-type Ast n r = AstRanked r n
 
 -- We use here @ShapeInt@ for simplicity. @Shape n (AstInt r)@ gives
 -- more expressiveness, but leads to irregular tensors,
@@ -69,62 +67,62 @@ type Ast n r = AstRanked r n
 -- to be differentiated.
 data AstRanked :: Type -> Nat -> Type where
   -- To permit defining objective functions in Ast, not just constants:
-  AstVar :: ShapeInt n -> AstVarId -> Ast n r
+  AstVar :: ShapeInt n -> AstVarId -> AstRanked r n
   AstLet :: (KnownNat n, KnownNat m)
-         => AstVarId -> Ast n r -> Ast m r -> Ast m r
-  AstLetADShare :: ADShare r -> Ast m r -> Ast m r
+         => AstVarId -> AstRanked r n -> AstRanked r m -> AstRanked r m
+  AstLetADShare :: ADShare r -> AstRanked r m -> AstRanked r m
    -- there are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
 
   -- For the numeric classes:
-  AstOp :: OpCode -> [Ast n r] -> Ast n r
-  AstSumOfList :: [Ast n r] -> Ast n r
-  AstIota :: Ast 1 r
+  AstOp :: OpCode -> [AstRanked r n] -> AstRanked r n
+  AstSumOfList :: [AstRanked r n] -> AstRanked r n
+  AstIota :: AstRanked r 1
     -- needed, because toInteger and so fromIntegral is not defined for Ast
 
   -- For the Tensor class:
   AstIndexZ :: forall m n r. KnownNat m
-            => Ast (m + n) r -> AstIndex m r -> Ast n r
+            => AstRanked r (m + n) -> AstIndex m r -> AstRanked r n
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
     -- but vectorization is permitted to change the value
-  AstSum :: Ast (1 + n) r -> Ast n r
+  AstSum :: AstRanked r (1 + n) -> AstRanked r n
   AstScatter :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
-             => ShapeInt (p + n) -> Ast (m + n) r
+             => ShapeInt (p + n) -> AstRanked r (m + n)
              -> (AstVarList m, AstIndex p r)
-             -> Ast (p + n) r
+             -> AstRanked r (p + n)
 
   AstFromList :: KnownNat n
-              => [Ast n r] -> Ast (1 + n) r
+              => [AstRanked r n] -> AstRanked r (1 + n)
   AstFromVector :: KnownNat n
-                => Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
+                => Data.Vector.Vector (AstRanked r n) -> AstRanked r (1 + n)
   AstReplicate :: KnownNat n
-           => Int -> Ast n r -> Ast (1 + n) r
+           => Int -> AstRanked r n -> AstRanked r (1 + n)
   AstAppend :: KnownNat n
-            => Ast (1 + n) r -> Ast (1 + n) r -> Ast (1 + n) r
+            => AstRanked r (1 + n) -> AstRanked r (1 + n) -> AstRanked r (1 + n)
   AstSlice :: KnownNat n
-           => Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
+           => Int -> Int -> AstRanked r (1 + n) -> AstRanked r (1 + n)
   AstReverse :: KnownNat n
-             => Ast (1 + n) r -> Ast (1 + n) r
-  AstTranspose :: Permutation -> Ast n r -> Ast n r
+             => AstRanked r (1 + n) -> AstRanked r (1 + n)
+  AstTranspose :: Permutation -> AstRanked r n -> AstRanked r n
   AstReshape :: KnownNat n
-             => ShapeInt m -> Ast n r -> Ast m r
+             => ShapeInt m -> AstRanked r n -> AstRanked r m
   AstBuild1 :: KnownNat n
-            => Int -> (AstVarId, Ast n r) -> Ast (1 + n) r
+            => Int -> (AstVarId, AstRanked r n) -> AstRanked r (1 + n)
   AstGatherZ :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
-             => ShapeInt (m + n) -> Ast (p + n) r
+             => ShapeInt (m + n) -> AstRanked r (p + n)
              -> (AstVarList m, AstIndex p r)
-             -> Ast (m + n) r
+             -> AstRanked r (m + n)
     -- out of bounds indexing is permitted
 
   -- For the forbidden half of the Tensor class:
-  AstConst :: OR.Array n r -> Ast n r
-  AstConstant :: AstPrimalPart r n -> Ast n r
-  AstD :: AstPrimalPart r n -> AstDualPart r n -> Ast n r
-  AstLetDomains :: Data.Vector.Vector AstVarId -> AstDomains r -> Ast m r
-                -> Ast m r
-deriving instance ShowAst r => Show (Ast n r)
+  AstConst :: OR.Array n r -> AstRanked r n
+  AstConstant :: AstPrimalPart r n -> AstRanked r n
+  AstD :: AstPrimalPart r n -> AstDualPart r n -> AstRanked r n
+  AstLetDomains :: Data.Vector.Vector AstVarId -> AstDomains r -> AstRanked r m
+                -> AstRanked r m
+deriving instance ShowAst r => Show (AstRanked r n)
 
 newtype AstNoVectorize r n = AstNoVectorize {unAstNoVectorize :: AstRanked r n}
 deriving instance ShowAst r => Show (AstNoVectorize r n)
@@ -140,13 +138,13 @@ deriving instance ShowAst r => Show (AstDualPart r n)
 
 data AstDynamic :: Type -> Type where
   AstDynamic :: KnownNat n
-             => Ast n r -> AstDynamic r
+             => AstRanked r n -> AstDynamic r
 deriving instance ShowAst r => Show (AstDynamic r)
 
 data AstDomains :: Type -> Type where
   AstDomains :: Data.Vector.Vector (AstDynamic r) -> AstDomains r
   AstDomainsLet :: KnownNat n
-                => AstVarId -> Ast n r -> AstDomains r -> AstDomains r
+                => AstVarId -> AstRanked r n -> AstDomains r -> AstDomains r
 deriving instance ShowAst r => Show (AstDomains r)
 
 unwrapAstDomains :: AstDomains r -> Data.Vector.Vector (AstDynamic r)
@@ -154,7 +152,7 @@ unwrapAstDomains = \case
   AstDomains l -> l
   AstDomainsLet _ _ v -> unwrapAstDomains v
 
-bindsToLet :: KnownNat n => Ast n r -> [(AstVarId, AstDynamic r)] -> Ast n r
+bindsToLet :: KnownNat n => AstRanked r n -> [(AstVarId, AstDynamic r)] -> AstRanked r n
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
  where
@@ -224,15 +222,15 @@ data OpCodeRel =
 
 -- * Unlawful boolean package instances of AST types; they are lawful modulo evaluation
 
-type instance BooleanOf (Ast n r) = AstBool r
+type instance BooleanOf (AstRanked r n) = AstBool r
 
-instance KnownNat n => IfB (Ast n r) where
+instance KnownNat n => IfB (AstRanked r n) where
   ifB = astCond
 
 -- No simplification yet done at this point, so constant boolean unlikely,
 -- but it's a constant time simplification, so no harm done.
 astCond :: KnownNat n
-        => AstBool r -> Ast n r -> Ast n r -> Ast n r
+        => AstBool r -> AstRanked r n -> AstRanked r n -> AstRanked r n
 astCond (AstBoolConst b) v w = if b then v else w
 astCond b (AstConstant (AstPrimalPart v)) (AstConstant (AstPrimalPart w)) =
   AstConstant $ AstPrimalPart $ AstIndexZ (AstFromList [v, w])
@@ -240,11 +238,11 @@ astCond b (AstConstant (AstPrimalPart v)) (AstConstant (AstPrimalPart w)) =
 astCond b v w = AstIndexZ (AstFromList [v, w])
                           (singletonIndex $ AstIntCond b 0 1)
 
-instance KnownNat n => EqB (Ast n r) where
+instance KnownNat n => EqB (AstRanked r n) where
   v ==* u = AstRel EqOp [AstPrimalPart v, AstPrimalPart u]
   v /=* u = AstRel NeqOp [AstPrimalPart v, AstPrimalPart u]
 
-instance KnownNat n => OrdB (Ast n r) where
+instance KnownNat n => OrdB (AstRanked r n) where
   v <* u = AstRel LsOp [AstPrimalPart v, AstPrimalPart u]
   v <=* u = AstRel LeqOp [AstPrimalPart v, AstPrimalPart u]
   v >* u = AstRel GtOp [AstPrimalPart v, AstPrimalPart u]
@@ -333,16 +331,16 @@ instance OrdB (AstInt r) where
 -- * Unlawful numeric instances of AST types; they are lawful modulo evaluation
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
-instance Eq (Ast n r) where
+instance Eq (AstRanked r n) where
   _ == _ = error "Ast: can't evaluate terms for Eq"
 
-instance Ord (OR.Array n r) => Ord (Ast n r) where
+instance Ord (OR.Array n r) => Ord (AstRanked r n) where
   max u v = AstOp MaxOp [u, v]
   min u v = AstOp MinOp [u, v]
   -- Unfortunately, the others can't be made to return @AstBool@.
   _ <= _ = error "Ast: can't evaluate terms for Ord"
 
-instance Num (OR.Array n r) => Num (Ast n r) where
+instance Num (OR.Array n r) => Num (AstRanked r n) where
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
   u + AstSumOfList l = AstSumOfList (u : l)
   AstSumOfList l + u = AstSumOfList (u : l)
@@ -356,16 +354,16 @@ instance Num (OR.Array n r) => Num (Ast n r) where
   signum v = AstOp SignumOp [v]
   fromInteger = AstConstant . AstPrimalPart . AstConst . fromInteger
 
-instance Real (OR.Array n r) => Real (Ast n r) where
+instance Real (OR.Array n r) => Real (AstRanked r n) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance Fractional (OR.Array n r) => Fractional (Ast n r) where
+instance Fractional (OR.Array n r) => Fractional (AstRanked r n) where
   u / v = AstOp DivideOp  [u, v]
   recip v = AstOp RecipOp [v]
   fromRational = AstConstant . AstPrimalPart . AstConst . fromRational
 
-instance (Floating (OR.Array n r)) => Floating (Ast n r) where
+instance (Floating (OR.Array n r)) => Floating (AstRanked r n) where
   pi = AstConstant $ AstPrimalPart $ AstConst pi
   exp u = AstOp ExpOp [u]
   log u = AstOp LogOp [u]
@@ -385,12 +383,12 @@ instance (Floating (OR.Array n r)) => Floating (Ast n r) where
   acosh u = AstOp AcoshOp [u]
   atanh u = AstOp AtanhOp [u]
 
-instance RealFrac (OR.Array n r) => RealFrac (Ast n r) where
+instance RealFrac (OR.Array n r) => RealFrac (AstRanked r n) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
+instance RealFloat (OR.Array n r) => RealFloat (AstRanked r n) where
   atan2 u v = AstOp Atan2Op [u, v]
   -- We can be selective here and omit the other methods,
   -- most of which don't even have a differentiable codomain.
@@ -408,53 +406,53 @@ instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
 instance Eq (AstNoVectorize r n) where
   _ == _ = error "AstNoVectorize: can't evaluate terms for Eq"
 
-instance Ord (Ast n r) => Ord (AstNoVectorize r n) where
+instance Ord (AstRanked r n) => Ord (AstNoVectorize r n) where
   max (AstNoVectorize u) (AstNoVectorize v) =
     AstNoVectorize (AstOp MaxOp [u, v])
   min (AstNoVectorize u) (AstNoVectorize v) =
     AstNoVectorize (AstOp MinOp [u, v])
   _ <= _ = error "AstNoVectorize: can't evaluate terms for Ord"
 
-deriving instance Num (Ast n r) => Num (AstNoVectorize r n)
-deriving instance Real (Ast n r) => Real (AstNoVectorize r n)
-deriving instance Fractional (Ast n r) => Fractional (AstNoVectorize r n)
-deriving instance Floating (Ast n r) => Floating (AstNoVectorize r n)
-deriving instance RealFrac (Ast n r) => RealFrac (AstNoVectorize r n)
-deriving instance RealFloat (Ast n r) => RealFloat (AstNoVectorize r n)
+deriving instance Num (AstRanked r n) => Num (AstNoVectorize r n)
+deriving instance Real (AstRanked r n) => Real (AstNoVectorize r n)
+deriving instance Fractional (AstRanked r n) => Fractional (AstNoVectorize r n)
+deriving instance Floating (AstRanked r n) => Floating (AstNoVectorize r n)
+deriving instance RealFrac (AstRanked r n) => RealFrac (AstNoVectorize r n)
+deriving instance RealFloat (AstRanked r n) => RealFloat (AstNoVectorize r n)
 
 instance Eq (AstNoSimplify r n) where
   _ == _ = error "AstNoSimplify: can't evaluate terms for Eq"
 
-instance Ord (Ast n r) => Ord (AstNoSimplify r n) where
+instance Ord (AstRanked r n) => Ord (AstNoSimplify r n) where
   max (AstNoSimplify u) (AstNoSimplify v) =
     AstNoSimplify (AstOp MaxOp [u, v])
   min (AstNoSimplify u) (AstNoSimplify v) =
     AstNoSimplify (AstOp MinOp [u, v])
   _ <= _ = error "AstNoSimplify: can't evaluate terms for Ord"
 
-deriving instance Num (Ast n r) => Num (AstNoSimplify r n)
-deriving instance Real (Ast n r) => Real (AstNoSimplify r n)
-deriving instance Fractional (Ast n r) => Fractional (AstNoSimplify r n)
-deriving instance Floating (Ast n r) => Floating (AstNoSimplify r n)
-deriving instance RealFrac (Ast n r) => RealFrac (AstNoSimplify r n)
-deriving instance RealFloat (Ast n r) => RealFloat (AstNoSimplify r n)
+deriving instance Num (AstRanked r n) => Num (AstNoSimplify r n)
+deriving instance Real (AstRanked r n) => Real (AstNoSimplify r n)
+deriving instance Fractional (AstRanked r n) => Fractional (AstNoSimplify r n)
+deriving instance Floating (AstRanked r n) => Floating (AstNoSimplify r n)
+deriving instance RealFrac (AstRanked r n) => RealFrac (AstNoSimplify r n)
+deriving instance RealFloat (AstRanked r n) => RealFloat (AstNoSimplify r n)
 
 instance Eq (AstPrimalPart r n) where
   _ == _ = error "AstPrimalPart: can't evaluate terms for Eq"
 
-instance Ord (Ast n r) => Ord (AstPrimalPart r n) where
+instance Ord (AstRanked r n) => Ord (AstPrimalPart r n) where
   max (AstPrimalPart u) (AstPrimalPart v) =
     AstPrimalPart (AstOp MaxOp [u, v])
   min (AstPrimalPart u) (AstPrimalPart v) =
     AstPrimalPart (AstOp MinOp [u, v])
   _ <= _ = error "AstPrimalPart: can't evaluate terms for Ord"
 
-deriving instance Num (Ast n r) => Num (AstPrimalPart r n)
-deriving instance Real (Ast n r) => Real (AstPrimalPart r n)
-deriving instance Fractional (Ast n r) => Fractional (AstPrimalPart r n)
-deriving instance Floating (Ast n r) => Floating (AstPrimalPart r n)
-deriving instance RealFrac (Ast n r) => RealFrac (AstPrimalPart r n)
-deriving instance RealFloat (Ast n r) => RealFloat (AstPrimalPart r n)
+deriving instance Num (AstRanked r n) => Num (AstPrimalPart r n)
+deriving instance Real (AstRanked r n) => Real (AstPrimalPart r n)
+deriving instance Fractional (AstRanked r n) => Fractional (AstPrimalPart r n)
+deriving instance Floating (AstRanked r n) => Floating (AstPrimalPart r n)
+deriving instance RealFrac (AstRanked r n) => RealFrac (AstPrimalPart r n)
+deriving instance RealFloat (AstRanked r n) => RealFloat (AstPrimalPart r n)
 
 instance Eq (AstInt r) where
   _ == _ = error "AstInt: can't evaluate terms for Eq"
