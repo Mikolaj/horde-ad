@@ -42,7 +42,8 @@ class RandomDomains vals where
   randomVals
     :: forall r g.
        ( RandomGen g
-       , r ~ Underlying vals, Numeric r, Fractional r, Random r, Num (Vector r) )
+       , r ~ Underlying vals, Numeric r, Fractional r, Random r
+       , Num (Vector r) )
     => r -> g -> (vals, g)
   type ToRanked vals
   toRanked :: vals -> ToRanked vals
