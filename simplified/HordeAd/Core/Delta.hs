@@ -132,7 +132,15 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> [Nat] -> Type where
   LetS :: NodeId -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
 
-deriving instance (Show r) => Show (DeltaS ranked shaped r sh)
+  DToS :: forall ranked shaped sh r.
+          DeltaD ranked shaped r
+       -> DeltaS ranked shaped r sh
+  RToS :: forall ranked shaped sh r.
+          DeltaR ranked shaped r (OS.Rank sh)
+       -> DeltaS ranked shaped r sh
+
+deriving instance (Show (IntOf (ranked r 0)), Show r)
+                  => Show (DeltaS ranked shaped r sh)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 -- The comments refer to the ordinary (forward) semantics of the terms,
@@ -232,8 +240,12 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
 
-  DToR :: forall ranked shaped n r. DeltaD ranked shaped r
+  DToR :: forall ranked shaped n r.
+          DeltaD ranked shaped r
        -> DeltaR ranked shaped r n
+  SToR :: forall ranked shaped sh r.
+          DeltaS ranked shaped r sh
+       -> DeltaR ranked shaped r (OS.Rank sh)
 
 deriving instance (Show (IntOf (ranked r 0)), Show r)
                   => Show (DeltaR ranked shaped r n)
@@ -242,6 +254,8 @@ data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> Type where
   RToD :: forall ranked shaped n r. KnownNat n
          => DeltaR ranked shaped r n -> DeltaD ranked shaped r
+  SToD :: forall ranked shaped sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
+         => DeltaS ranked shaped r sh -> DeltaD ranked shaped r
 
 deriving instance (Show (IntOf (ranked r 0)), Show r)
                   => Show (DeltaD ranked shaped r)
@@ -424,9 +438,10 @@ buildFinMaps s0 deltaDt =
   -- the second is the cotangent accumulator that will become an actual
   -- cotangent contribution when complete (see below for an explanation)
   -- and the third argument is the node to evaluate.
-  let _evalS :: EvalState ranked shaped r -> r -> DeltaS ranked shaped r sh
+  let _evalS :: forall sh. KnownNat (OS.Rank sh)
+             => EvalState ranked shaped r -> r -> DeltaS ranked shaped r sh
              -> EvalState ranked shaped r
-      _evalS _s !_c = \case
+      _evalS s !c = \case
         LetS _n _d ->
           -- In this context, by construction, @d@ is the dual component
           -- of a dual number term. Let's say that, at this point, evaluation
@@ -459,6 +474,17 @@ buildFinMaps s0 deltaDt =
           -- in the cells of the gradient vectors that are the final
           -- result of the evaluation.
           undefined
+        DToS (SToD @_ @_ @sh1 d) ->
+          -- TODO: compare sh, not n:
+          case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
+            Just Refl -> _evalS s c d
+            _ -> error "buildFinMaps: different shapes in DToS(SToD)"
+        RToS (SToR @_ @_ @sh1 d) ->
+          -- TODO: compare sh, not n:
+          case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
+            Just Refl -> _evalS s c d
+            _ -> error "buildFinMaps: different shapes in RToS(SToR)"
+        _ -> undefined
 
 {-
         -- The general case is given as the last one below,
@@ -558,6 +584,16 @@ buildFinMaps s0 deltaDt =
           case sameNat (Proxy @n1) (Proxy @n2) of
             Just Refl -> evalR s c d
             _ -> error "buildFinMaps: different ranks in DToR(RToD)"
+        DToR @_ @_ @n2 (SToD @_ @_ @sh1 d) ->
+          case sameNat (Proxy @(OS.Rank sh1)) (Proxy @n2) of
+            Just Refl -> evalR s c (SToR d)
+            _ -> error "buildFinMaps: different ranks in DToR(SToD)"
+        SToR @_ @_ @sh2 (RToS @_ @_ @sh1 d) ->
+          -- TODO: compare sh, not n:
+          case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh2)) of
+            Just Refl -> evalR s c d
+            _ -> error "buildFinMaps: different shapes in SToR(RToS)"
+        SToR _ -> undefined
 
       evalFromnMap :: EvalState ranked shaped r
                    -> EvalState ranked shaped r
@@ -691,6 +727,16 @@ buildDerivative dimR deltaDt params = do
           case sameNat (Proxy @n1) (Proxy @n2) of
             Just Refl -> evalR d
             _ -> error "buildDerivative: different ranks in DToR(RToD)"
+        DToR @_ @_ @n2 (SToD @_ @_ @sh1 d) ->
+          case sameNat (Proxy @(OS.Rank sh1)) (Proxy @n2) of
+            Just Refl -> evalR (SToR d)
+            _ -> error "buildDerivative: different ranks in DToR(SToD)"
+        SToR @_ @_ @sh2 (RToS @_ @_ @sh1 d) ->
+          -- TODO: compare sh, not n:
+          case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh2)) of
+            Just Refl -> evalR d
+            _ -> error "buildDerivative: different shapes in SToR(RToS)"
+        SToR _ -> undefined
 
   -- A hack to fit both argument delta and, afterwards, the result in a type
   -- that does not reflect either.

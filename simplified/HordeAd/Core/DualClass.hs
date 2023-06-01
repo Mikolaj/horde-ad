@@ -309,6 +309,7 @@ instance (dynamic ~ OD.Array, ranked ~ Flip OR.Array)
     case sameNat (Proxy @n1) (Proxy @n2) of
       Just Refl -> d
       _ -> error "dDToR: different ranks in DToR(RToD)"
+  dDToR d = DToR d
   dRToD = RToD
 
 instance HasRanks AstRanked where
@@ -337,6 +338,7 @@ instance (dynamic ~ AstDynamic, ranked ~ AstRanked)
     case sameNat (Proxy @n1) (Proxy @n2) of
       Just Refl -> d
       _ -> error "dDToR: different ranks in DToR(RToD)"
+  dDToR d = DToR d
   dRToD = RToD
 
 
