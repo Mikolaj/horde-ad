@@ -181,7 +181,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           shapes1 = map dshape $ V.toList domainsInit
+           shapes1 = map (dshape @(Flip OR.Array)) $ V.toList domainsInit
            (vars1, asts1) = unzip $ map funToAstD shapes1
            doms = V.fromList asts1
            (varGlyph, astGlyph) =
@@ -312,8 +312,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
               -> (DomainsOD r, StateAdam r)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) !(!parameters, !stateAdam) =
-             let glyphD = dfromR $ tconst glyph
-                 labelD = dfromR $ tconst label
+             let glyphD = dfromR @(Flip OR.Array) $ tconst glyph
+                 labelD = dfromR @(Flip OR.Array) $ tconst label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =

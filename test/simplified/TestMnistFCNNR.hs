@@ -23,12 +23,12 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
-import HordeAd.Core.Adaptor
 import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
@@ -529,7 +529,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let shapes1 = map dshape $ V.toList domainsInit
+       let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList domainsInit
            (vars1, asts1) = unzip $ map funToAstD shapes1
            doms = V.fromList asts1
            (varGlyph, astGlyph) =

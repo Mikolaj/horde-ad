@@ -30,7 +30,7 @@ sgd :: forall n r a.
     -> DomainsOD r  -- ^ initial parameters
     -> (DomainsOD r, Flip OR.Array r n)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
-  deltaInputs = generateDeltaInputs @OD.Array @(Flip OR.Array) parameters0
+  deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters0
   go :: [a] -> DomainsOD r -> (DomainsOD r, Flip OR.Array r n)
   go [] parameters = (parameters, 0)
   go (a : rest) !parameters =
@@ -69,7 +69,7 @@ sgdAdamArgs :: forall r a n.
 sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
-  deltaInputs = generateDeltaInputs @OD.Array @(Flip OR.Array) parameters0
+  deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters0
   go :: [a] -> DomainsOD r -> StateAdam r -> (DomainsOD r, StateAdam r)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =

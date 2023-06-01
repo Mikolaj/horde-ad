@@ -190,11 +190,11 @@ class HasRanks ranked where
            -> ShapeInt (p + n)
            -> Dual (ranked r (m + n))
 
-class HasConversions dynamic ranked where
+class HasConversions ranked where
   dDToR :: KnownNat n
-         => Dual (dynamic r) -> Dual (ranked r n)
+         => Dual (DynamicOf ranked r) -> Dual (ranked r n)
   dRToD :: KnownNat n
-         => Dual (ranked r n) -> Dual (dynamic r)
+         => Dual (ranked r n) -> Dual (DynamicOf ranked r)
 
 
 -- * Delta expression method instances
@@ -302,7 +302,7 @@ instance HasRanks (Flip OR.Array) where
   dGatherR = GatherR
 
 instance (dynamic ~ OD.Array, ranked ~ Flip OR.Array)
-         => HasConversions OD.Array (Flip OR.Array) where
+         => HasConversions (Flip OR.Array) where
   dDToR :: forall n2 r. KnownNat n2
          => Dual (dynamic r) -> Dual (ranked r n2)
   dDToR (RToD @_ @n1 d) =
@@ -330,7 +330,7 @@ instance HasRanks AstRanked where
   dGatherR = GatherR
 
 instance (dynamic ~ AstDynamic, ranked ~ AstRanked)
-         => HasConversions AstDynamic AstRanked where
+         => HasConversions AstRanked where
   dDToR :: forall n2 r. KnownNat n2
          => Dual (dynamic r) -> Dual (ranked r n2)
   dDToR (RToD @_ @n1 d) =

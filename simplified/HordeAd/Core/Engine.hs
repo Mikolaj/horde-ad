@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 -- | The implementation of calculating gradient and derivative
 -- of an objective function expressed wtih the `Tensor` class.
 -- Together with "HordeAd.Core.TensorClass", this forms the basic
@@ -91,30 +92,28 @@ revDtFun f vals =
   in revDtInit f vals EM.empty parameters0
 
 revDtInit
-  :: forall r n vals astvals dynamic ranked.
-     ( dynamic ~ Compose ADVal AstDynamic
-     , ranked ~ Tannen ADVal AstRanked
+  :: forall r n vals astvals ranked.
+     ( ranked ~ Tannen ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value astvals, Underlying astvals ~ r)
-  => (astvals -> AstRanked r n) -> vals -> AstEnv dynamic ranked r
+  => (astvals -> AstRanked r n) -> vals -> AstEnv ranked r
   -> DomainsOD r
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revDtInit #-}
 revDtInit f vals envInit parameters0 =
-  let shapes1 = map dshape $ V.toList parameters0
+  let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList parameters0
   in revAstOnDomainsFun shapes1 (revDtInterpret envInit vals f)
 
 revDtInterpret
-  :: forall n r vals astvals dynamic ranked.
-     ( dynamic ~ Compose ADVal AstDynamic
-     , ranked ~ Tannen ADVal AstRanked
+  :: forall n r vals astvals ranked.
+     ( ranked ~ Tannen ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value astvals, Underlying astvals ~ r )
-  => AstEnv dynamic ranked r
+  => AstEnv ranked r
   -> vals -> (astvals -> AstRanked r n)
-  -> Domains dynamic r -> Domains AstDynamic r
+  -> Domains (DynamicOf ranked) r -> Domains AstDynamic r
   -> (ADAstVarNames n r, ADAstVars n r)
   -> ranked r n
 {-# INLINE revDtInterpret #-}
@@ -148,10 +147,10 @@ revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 
 -- Old version of the three functions, with constant, fixed inputs and dt.
 crev
-  :: forall n r vals advals dynamic ranked.
-     ( dynamic ~ Compose ADVal OD.Array
-     , ranked ~ Tannen ADVal (Flip OR.Array)
-     , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
+  :: forall n r vals advals ranked.
+     ( ranked ~ Tannen ADVal (Flip OR.Array)
+     , AdaptableDomains (DynamicOf ranked) advals
+     , AdaptableDomains OD.Array vals
      , IsPrimalR r, KnownNat n, GoodScalar r
      , r ~ Underlying vals, vals ~ Value vals
      , vals ~ Value advals, Underlying advals ~ r )
@@ -161,10 +160,10 @@ crev f vals = crevDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
 crevDt
-  :: forall n r vals advals dynamic ranked.
-     ( dynamic ~ Compose ADVal OD.Array
-     , ranked ~ Tannen ADVal (Flip OR.Array)
-     , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
+  :: forall n r vals advals ranked.
+     ( ranked ~ Tannen ADVal (Flip OR.Array)
+     , AdaptableDomains (DynamicOf ranked) advals
+     , AdaptableDomains OD.Array vals
      , IsPrimalR r, KnownNat n, GoodScalar r
      , r ~ Underlying vals, vals ~ Value vals
      , vals ~ Value advals, Underlying advals ~ r )
@@ -173,10 +172,10 @@ crevDt
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
-  :: forall n r vals advals dynamic ranked.
-     ( dynamic ~ Compose ADVal OD.Array
-     , ranked ~ Tannen ADVal (Flip OR.Array)
-     , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
+  :: forall n r vals advals ranked.
+     ( ranked ~ Tannen ADVal (Flip OR.Array)
+     , AdaptableDomains (DynamicOf ranked) advals
+     , AdaptableDomains OD.Array vals
      , IsPrimalR r, KnownNat n, GoodScalar r
      , r ~ Underlying vals, vals ~ Value vals
      , vals ~ Value advals, Underlying advals ~ r )
@@ -194,13 +193,12 @@ crevDtMaybe f vals dt =
 -- of the result is the objective function value, inefficiently
 -- computed, only for testing.
 revAstOnDomains
-  :: forall r n dynamic ranked.
-     ( dynamic ~ OD.Array
-     , ranked ~ Flip OR.Array
+  :: forall r n ranked.
+     ( ranked ~ Flip OR.Array
      , InterpretAstA ranked r, KnownNat n )
   => (Domains (Compose ADVal AstDynamic) r -> Tannen ADVal AstRanked r n)
-  -> Domains dynamic r -> Maybe (ranked r n)
-  -> (Domains dynamic r, ranked r n)
+  -> Domains OD.Array r -> Maybe (ranked r n)
+  -> (Domains OD.Array r, ranked r n)
 -- The functions in which @revAstOnDomains@ inlines are not inlined
 -- themselves in client code, so the bloat is limited.
 {-# INLINE revAstOnDomains #-}
@@ -215,7 +213,7 @@ revAstOnDomainsF
   -> ADAstArtifact6 n r
 {-# INLINE revAstOnDomainsF #-}
 revAstOnDomainsF f parameters  =
-  let shapes1 = map dshape $ V.toList parameters
+  let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList parameters
   in fst $ revAstOnDomainsFun shapes1 (\varInputs _ _ -> f varInputs)
 
 revAstOnDomainsFun
@@ -232,7 +230,7 @@ revAstOnDomainsFun shapes1 f =
       -- for pretty-printing and prevent sharing the impure values/effects.
       !v6@(!vars@(!_, _), (astDt, asts1)) = funToAstAll shapes1 in
   let domains = V.fromList asts1
-      deltaInputs = generateDeltaInputs domains
+      deltaInputs = generateDeltaInputs @AstRanked domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
@@ -246,12 +244,11 @@ revAstOnDomainsFun shapes1 f =
      , deltaTopLevel )
 
 revAstOnDomainsEval
-  :: forall r n dynamic ranked.
-     ( dynamic ~ OD.Array
-     , ranked ~ Flip OR.Array
+  :: forall r n ranked.
+     ( ranked ~ Flip OR.Array
      , InterpretAstA ranked r, KnownNat n )
-  => ADAstArtifact6 n r -> Domains dynamic r -> Maybe (ranked r n)
-  -> (Domains dynamic r, ranked r n)
+  => ADAstArtifact6 n r -> Domains OD.Array r -> Maybe (ranked r n)
+  -> (Domains OD.Array r, ranked r n)
 {-# INLINE revAstOnDomainsEval #-}
 revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
   let env1 = foldr extendEnvD EM.empty $ zip vars1 $ V.toList parameters
@@ -293,7 +290,7 @@ revOnDomains
   -> DomainsOD r
   -> (DomainsOD r, Flip OR.Array r n)
 revOnDomains dt f parameters =
-  let deltaInputs = generateDeltaInputs parameters
+  let deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters
       inputs = makeADInputs parameters deltaInputs
   in revOnADInputs dt f inputs
 
@@ -307,7 +304,7 @@ revOnDomains dt f parameters =
 fwd
   :: forall a r vals advals dynamic.
      ( dynamic ~ Compose ADVal OD.Array
-     , ForwardDerivative OD.Array a r, GoodScalar r
+     , ForwardDerivative (Flip OR.Array) a r, GoodScalar r
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
      , r ~ Underlying vals, vals ~ Value advals, Underlying advals ~ r )
   => (advals -> ADVal a) -> vals -> vals
@@ -318,7 +315,7 @@ fwd f x ds =
 
 slowFwdOnADInputs
   :: ( dynamic ~ Compose ADVal OD.Array
-     , ForwardDerivative OD.Array a r )
+     , ForwardDerivative (Flip OR.Array) a r )
   => Domains dynamic r
   -> (Domains dynamic r -> ADVal a)
   -> DomainsOD r
@@ -327,20 +324,20 @@ slowFwdOnADInputs
 slowFwdOnADInputs inputs f ds =
   let dim1 = V.length inputs
       !(D _ v deltaTopLevel) = f inputs in  -- TODO: _
-  let derivative = derivativeFromDelta dim1 deltaTopLevel ds
+  let derivative = derivativeFromDelta @(Flip OR.Array) dim1 deltaTopLevel ds
   in (derivative, v)
 
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
   :: forall a r dynamic.
      ( dynamic ~ Compose ADVal OD.Array
-     , ForwardDerivative OD.Array a r, GoodScalar r )
+     , ForwardDerivative (Flip OR.Array) a r, GoodScalar r )
   => DomainsOD r
   -> (Domains dynamic r -> ADVal a)
   -> DomainsOD r
   -> (a, a)
 slowFwdOnDomains parameters f ds =
-  let deltaInputs = generateDeltaInputs parameters
+  let deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters
       inputs = makeADInputs parameters deltaInputs
   in slowFwdOnADInputs inputs f ds
 
@@ -348,15 +345,15 @@ slowFwdOnDomains parameters f ds =
 -- * Additional mechanisms
 
 generateDeltaInputs
-  :: forall dynamic ranked shaped r.
-     ( ConvertTensor dynamic ranked shaped, GoodScalar r
-     , HasRanks ranked, HasConversions dynamic ranked )
+  :: forall ranked shaped r dynamic.
+     ( dynamic ~ DynamicOf ranked, ConvertTensor ranked shaped, GoodScalar r
+     , HasRanks ranked, HasConversions ranked )
   => Domains dynamic r
   -> Data.Vector.Vector (Dual (dynamic r))
 generateDeltaInputs params =
   let arrayToInput :: Int -> dynamic r -> Dual (dynamic r)
       arrayToInput i t = case someNatVal $ toInteger $ length
-                              $ dshape t of
+                              $ dshape @ranked t of
         Just (SomeNat (_ :: Proxy n)) ->
           dRToD $ dInputR @ranked @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"

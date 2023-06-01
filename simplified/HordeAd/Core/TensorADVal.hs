@@ -88,8 +88,8 @@ instance GoodScalar r
   toDomains = undefined
   fromDomains = undefined
 
-instance ( KnownNat n, GoodScalar r
-         , ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked )
+instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
+         , ConvertTensor ranked shaped, HasConversions ranked )
          => AdaptableDomains (Compose ADVal dynamic)
                              (Tannen ADVal ranked r n) where
   type Underlying (Tannen ADVal ranked r n) = r
@@ -99,15 +99,15 @@ instance ( KnownNat n, GoodScalar r
     Just (a, rest) -> Just (Tannen $ dToR $ getCompose a, rest)
     Nothing -> Nothing
 
-dToR :: forall dynamic ranked shaped n r.
-        ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
+dToR :: forall ranked shaped n r.
+        ( ConvertTensor ranked shaped, HasConversions ranked
         , KnownNat n, GoodScalar r )
-      => ADVal (dynamic r) -> ADVal (ranked r n)
+      => ADVal (DynamicOf ranked r) -> ADVal (ranked r n)
 dToR (D l u u') = dDnotShared l (tfromD u) (dDToR u')
 
-rToD :: ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
+rToD :: ( ConvertTensor ranked shaped, HasConversions ranked
         , KnownNat n, GoodScalar r )
-      => ADVal (ranked r n) -> ADVal (dynamic r)
+      => ADVal (ranked r n) -> ADVal (DynamicOf ranked r)
 rToD (D l u u') = dDnotShared l (dfromR u) (dRToD u')
 
 class ( Dual (ranked r y) ~ DeltaR ranked r y
@@ -284,9 +284,8 @@ instance ( DualOf (Tannen ADVal ranked)
   tD ast (Pair (Clown l) delta) = Tannen $ dD l ast delta
   tScale ast (Pair l delta) = Pair l (dScale ast delta)
 
-instance (HasConversions dynamic ranked, ConvertTensor dynamic ranked shaped)
-         => ConvertTensor (Compose ADVal dynamic)
-                          (Tannen ADVal ranked)
+instance (HasConversions ranked, ConvertTensor ranked shaped)
+         => ConvertTensor (Tannen ADVal ranked)
                           (Tannen ADVal shaped) where
   tfromD = Tannen . dToR . getCompose
   tfromS = undefined

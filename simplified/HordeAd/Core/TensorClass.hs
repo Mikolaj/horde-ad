@@ -298,58 +298,52 @@ instance (Underlying a ~ Underlying b, Underlying b ~ Underlying a)
          => UnderlyingMatches a b where
 
 class (forall r11 y. (KnownNat y, GoodScalar r11)
-      => c (dynamic r11) (ranked r11 y))
-      => CDynamicRanked dynamic ranked c where
+      => c (DynamicOf ranked r11) (ranked r11 y))
+      => CDynamicRanked ranked c where
 instance (forall r11 y. (KnownNat y, GoodScalar r11)
-         => c (dynamic r11) (ranked r11 y))
-         => CDynamicRanked dynamic ranked c where
+         => c (DynamicOf ranked r11) (ranked r11 y))
+         => CDynamicRanked ranked c where
 
-class ( CDynamicRanked dynamic ranked UnderlyingMatches
+class ( CDynamicRanked ranked UnderlyingMatches
       , DynamicOf ranked ~ DynamicOf shaped )
-      => ConvertTensor (dynamic :: Type -> Type)
-                       (ranked :: Type -> Nat -> Type)
+      => ConvertTensor (ranked :: Type -> Nat -> Type)
                        (shaped :: Type -> [Nat] -> Type)
-                       | dynamic -> ranked, dynamic -> shaped
-                       , ranked -> dynamic, ranked -> shaped
-                       , shaped -> dynamic, shaped -> ranked where
+                       | ranked -> shaped, shaped -> ranked where
   tfromD :: (GoodScalar r, KnownNat n)
-         => dynamic r -> ranked r n
+         => DynamicOf ranked r -> ranked r n
   tfromS :: (KnownNat n, GoodScalar r, OS.Shape sh, OS.Rank sh ~ n)
          => shaped r sh -> ranked r n
   dfromR :: (GoodScalar r, KnownNat n)
-         => ranked r n -> dynamic r
+         => ranked r n -> DynamicOf ranked r
   dfromS :: OS.Shape sh
-         => shaped r sh -> dynamic r
+         => shaped r sh -> DynamicOf shaped r
   sfromR :: (KnownNat n, GoodScalar r, OS.Shape sh, OS.Rank sh ~ n)
          => ranked r n -> shaped r sh
   sfromD :: OS.Shape sh
-         => dynamic r -> shaped r sh
-  ddummy :: Numeric r => dynamic r
-  disDummy :: Numeric r => dynamic r -> Bool
+         => DynamicOf shaped r -> shaped r sh
+  ddummy :: Numeric r => DynamicOf ranked r
+  disDummy :: Numeric r => DynamicOf ranked r -> Bool
   daddR :: forall n r. (GoodScalar r, KnownNat n)
-        => ranked r n -> dynamic r -> dynamic r
-  dshape :: GoodScalar r => dynamic r -> [Int]
+        => ranked r n -> DynamicOf ranked r -> DynamicOf ranked r
+  dshape :: GoodScalar r => DynamicOf ranked r -> [Int]
   -- Operations for delayed let bindings creation
   tregister :: (GoodScalar r, KnownNat n)
-            => ranked r n -> [(AstVarId, dynamic r)]
-            -> ([(AstVarId, dynamic r)], ranked r n)
+            => ranked r n -> [(AstVarId, DynamicOf ranked r)]
+            -> ([(AstVarId, DynamicOf ranked r)], ranked r n)
   tregister r l = (l, r)
 
-class DomainsTensor (dynamic :: Type -> Type)
-                    (ranked :: Type -> Nat -> Type)
+class DomainsTensor (ranked :: Type -> Nat -> Type)
                     (domainsOf :: Type -> Type)
-                    | ranked -> dynamic domainsOf
-                    , dynamic -> ranked domainsOf
-                    , domainsOf -> ranked dynamic where
+                    | ranked -> domainsOf, domainsOf -> ranked where
   tletDomains :: (GoodScalar r, KnownNat n)
               => domainsOf r
               -> (domainsOf r -> ranked r n)
               -> ranked r n
   tletDomains a f = f a
-  dmkDomains :: Domains dynamic r -> domainsOf r
+  dmkDomains :: Domains (DynamicOf ranked) r -> domainsOf r
   default dmkDomains
-    :: domainsOf ~ Compose Data.Vector.Vector dynamic
-    => Domains dynamic r -> domainsOf r
+    :: domainsOf ~ Compose Data.Vector.Vector (DynamicOf ranked)
+    => Domains (DynamicOf ranked) r -> domainsOf r
   dmkDomains = Compose
   dlet :: (GoodScalar r, KnownNat n)
        => ranked r n -> (ranked r n -> domainsOf r)
@@ -460,7 +454,7 @@ instance Tensor (Flip OR.Array) where
 
 data DummyDual a (b :: Nat) = DummyDual
 
-instance ConvertTensor OD.Array (Flip OR.Array) (Flip OS.Array) where
+instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   tfromD = Flip . Data.Array.Convert.convert
   tfromS = Flip . Data.Array.Convert.convert . runFlip
   dfromR = Data.Array.Convert.convert . runFlip
@@ -503,16 +497,15 @@ instance (GoodScalar r, KnownNat n)
   toDomains a = V.singleton (dfromR a)
   fromDomains aInit params = case V.uncons params of
     Just (a, rest) ->
-      Just (ttoRankedOrDummy @OD.Array @(Flip OR.Array)
-                             (tshape aInit) a, rest)
+      Just (ttoRankedOrDummy @(Flip OR.Array) (tshape aInit) a, rest)
     Nothing -> Nothing
 
 ttoRankedOrDummy
-  :: forall dynamic ranked shaped n r.
+  :: forall ranked shaped n r.
      ( KnownNat n, Tensor ranked, GoodScalar r, Num (ranked r 0)
-     , ConvertTensor dynamic ranked shaped )
-  => ShapeInt n -> dynamic r -> ranked r n
-ttoRankedOrDummy sh x = if disDummy @dynamic @ranked x
+     , ConvertTensor ranked shaped )
+  => ShapeInt n -> DynamicOf ranked r -> ranked r n
+ttoRankedOrDummy sh x = if disDummy @ranked x
                         then tzero sh
                         else tfromD x
 

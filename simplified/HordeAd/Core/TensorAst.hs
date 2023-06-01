@@ -79,7 +79,7 @@ instance Tensor AstRanked where
   tD = AstD
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-instance ConvertTensor AstDynamic AstRanked AstShaped where
+instance ConvertTensor AstRanked AstShaped where
   tfromD = astFromDynamic
   tfromS = undefined
   dfromR r = AstDynamic r
@@ -110,8 +110,7 @@ instance (GoodScalar r, KnownNat n)
   type Value (AstRanked r n) = Flip OR.Array r n
   toDomains = undefined
   fromDomains aInit params = case V.uncons params of
-    Just (a, rest) -> Just (ttoRankedOrDummy @AstDynamic @AstRanked
-                                             (tshape aInit) a, rest)
+    Just (a, rest) -> Just (ttoRankedOrDummy @AstRanked (tshape aInit) a, rest)
     Nothing -> Nothing
 
 instance AdaptableDomains AstDynamic (AstDynamic r) where
@@ -120,7 +119,7 @@ instance AdaptableDomains AstDynamic (AstDynamic r) where
   toDomains = undefined
   fromDomains = undefined
 
-instance DomainsTensor AstDynamic AstRanked AstDomains where
+instance DomainsTensor AstRanked AstDomains where
   tletDomains = astLetDomainsFun
   dmkDomains = AstDomains
   dlet = astDomainsLetFun
