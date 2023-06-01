@@ -198,6 +198,7 @@ instance ( CRanked2 ranked UnderlyingMatches2
    where
     scatterNClosure sh (D l u u') f =
       dD l (tscatter sh u f) (dScatterR sh u' f (tshape u))
+
   tfromList = Tannen . fromList . map runTannen
   tfromVector = Tannen . fromVector . V.map runTannen
    where
@@ -241,7 +242,6 @@ instance ( CRanked2 ranked UnderlyingMatches2
     Tannen $ dD (flattenADShare $ map ((\(Tannen (D l _ _)) -> l)) lu)
                 (tsumOfList $ map (\(Tannen (D _ u _)) -> u) lu)
                 (foldl1' dAdd $ map (\(Tannen (D _ _ u')) -> u') lu)
-
   -- For whatever reason this signature is necessary to type-check this.
   tmult :: forall n r.
            (KnownNat n, GoodScalar r, Dual (ranked r n) ~ DeltaR ranked r n)

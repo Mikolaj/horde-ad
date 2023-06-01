@@ -75,7 +75,8 @@ class IsPrimal a where
 class IsPrimalR r where
   dZeroR :: KnownNat n => Dual (Flip OR.Array r n)
   dScaleR :: KnownNat n
-          => Flip OR.Array r n -> Dual (Flip OR.Array r n) -> Dual (Flip OR.Array r n)
+          => Flip OR.Array r n -> Dual (Flip OR.Array r n)
+          -> Dual (Flip OR.Array r n)
   dScaleByScalarR :: KnownNat n
                   => Flip OR.Array r n -> Int -> Dual (Flip OR.Array r n)
                   -> Dual (Flip OR.Array r n)
@@ -112,15 +113,18 @@ class IsPrimalA r where
   dScaleA :: KnownNat n
           => AstRanked r n -> Dual (AstRanked r n) -> Dual (AstRanked r n)
   dScaleByScalarA :: KnownNat n
-                  => AstRanked r n -> Int -> Dual (AstRanked r n) -> Dual (AstRanked r n)
+                  => AstRanked r n -> Int -> Dual (AstRanked r n)
+                  -> Dual (AstRanked r n)
   dAddA :: KnownNat n
         => Dual (AstRanked r n) -> Dual (AstRanked r n) -> Dual (AstRanked r n)
   recordSharingA :: Dual (AstRanked r n) -> Dual (AstRanked r n)
   recordSharingPrimalA :: KnownNat n
-                       => AstRanked r n -> ADShare r -> (ADShare r, AstRanked r n)
+                       => AstRanked r n -> ADShare r
+                       -> (ADShare r, AstRanked r n)
   letWrapPrimalA :: ADShare r -> AstRanked r n -> AstRanked r n
   packDeltaDtA :: KnownNat n
-               => Either (AstRanked r n) (AstRanked r n) -> Dual (AstRanked r n)
+               => Either (AstRanked r n) (AstRanked r n)
+               -> Dual (AstRanked r n)
                -> DeltaDt AstRanked AstShaped r
   intOfShapeA :: KnownNat n
               => AstRanked r n -> Int -> AstRanked r n
@@ -142,7 +146,8 @@ instance (IsPrimalA r, KnownNat n)
 class HasRanks ranked where
   dInputR :: InputId (ranked r n) -> Dual (ranked r n)
   dIndexR :: (KnownNat n, KnownNat m)
-          => Dual (ranked r (m + n)) -> IndexOf (ranked r 0) m -> ShapeInt (m + n)
+          => Dual (ranked r (m + n)) -> IndexOf (ranked r 0) m
+          -> ShapeInt (m + n)
           -> Dual (ranked r n)
   dSumR :: KnownNat n
         => Int -> Dual (ranked r (1 + n)) -> Dual (ranked r n)
@@ -150,10 +155,6 @@ class HasRanks ranked where
         => ShapeInt n -> Dual (ranked r n) -> Dual (ranked r 0)
   dDot0R :: (KnownNat n, Show (ranked r n))
         => ranked r n -> Dual (ranked r n) -> Dual (ranked r 0)
---  dScatterR1 :: (KnownNat p, KnownNat n)
---            => (Int -> IndexOf (ranked r 0) p)
---            -> Int -> Dual (ranked r (1 + n))
---            -> ShapeInt (p + n) -> Dual (ranked r (p + n))
   dScatterR :: (KnownNat m, KnownNat p, KnownNat n)
             => ShapeInt (p + n) -> Dual (ranked r (m + n))
             -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
@@ -165,15 +166,8 @@ class HasRanks ranked where
   dFromVectorR :: KnownNat n
                => Data.Vector.Vector (Dual (ranked r n))
                -> Dual (ranked r (1 + n))
---  dFromList0R :: KnownNat n
---              => ShapeInt n -> [Dual r] -> Dual (ranked r n)
---  dFromVector0R :: KnownNat n
---                => ShapeInt n -> Data.Vector.Vector (Dual r)
---                -> Dual (ranked r n)
   dReplicateR :: KnownNat n
           => Int -> Dual (ranked r n) -> Dual (ranked r (1 + n))
---  dReplicate0R :: KnownNat n
---           => ShapeInt n -> Dual r -> Dual (ranked r n)
   dAppendR :: KnownNat n
            => Dual (ranked r (1 + n)) -> Int -> Dual (ranked r (1 + n))
            -> Dual (ranked r (1 + n))
@@ -190,10 +184,6 @@ class HasRanks ranked where
   dBuildR :: KnownNat n
           => Int -> (IntOf (ranked r 0) -> Dual (ranked r n))
           -> Dual (ranked r (1 + n))
---  dGatherR1 :: (KnownNat p, KnownNat n)
---           => (Int -> IndexOf (ranked r 0) p)
---           -> ShapeInt (p + n) -> Dual (ranked r (p + n))
---           -> Int -> Dual (ranked r (1 + n))
   dGatherR :: (KnownNat m, KnownNat p, KnownNat n)
            => ShapeInt (m + n) -> Dual (ranked r (p + n))
            -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
@@ -299,21 +289,16 @@ instance HasRanks (Flip OR.Array) where
   dSumR = SumR
   dSum0R = Sum0R
   dDot0R = Dot0R
---  dScatter1 = Scatter1
   dScatterR = ScatterR
   dFromListR = FromListR
   dFromVectorR = FromVectorR
---  dFromList0R = FromList0R
---  dFromVector0R = FromVector0R
   dReplicateR = ReplicateR
---  dReplicate0R = Replicate0R
   dAppendR = AppendR
   dSliceR = SliceR
   dReverseR = ReverseR
   dTransposeR = TransposeR
   dReshapeR = ReshapeR
   dBuildR = BuildR
---  dGather1 = Gather1
   dGatherR = GatherR
 
 instance (dynamic ~ OD.Array, ranked ~ Flip OR.Array)
@@ -332,21 +317,16 @@ instance HasRanks AstRanked where
   dSumR = SumR
   dSum0R = Sum0R
   dDot0R = Dot0R
---  dScatter1 = Scatter1
   dScatterR = ScatterR
   dFromListR = FromListR
   dFromVectorR = FromVectorR
---  dFromList0R = FromList0R
---  dFromVector0R = FromVector0R
   dReplicateR = ReplicateR
---  dReplicate0R = Replicate0R
   dAppendR = AppendR
   dSliceR = SliceR
   dReverseR = ReverseR
   dTransposeR = TransposeR
   dReshapeR = ReshapeR
   dBuildR = BuildR
---  dGather1 = Gather1
   dGatherR = GatherR
 
 instance (dynamic ~ AstDynamic, ranked ~ AstRanked)

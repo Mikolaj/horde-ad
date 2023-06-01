@@ -146,12 +146,11 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
   AddR :: DeltaR ranked r n -> DeltaR ranked r n -> DeltaR ranked r n
   LetR :: NodeId -> DeltaR ranked r n -> DeltaR ranked r n
 
---  IndexR :: KnownNat n
---         => DeltaR ranked r (1 + n) -> Int -> Int -> DeltaR ranked r n
     -- ^ The sub-tensors at the given index of the outermost dimension.
     -- The second integer is the length of the dimension.
   IndexR :: (KnownNat n, KnownNat m)
-         => DeltaR ranked r (m + n) -> IndexOf (ranked r 0) m -> ShapeInt (m + n) -> DeltaR ranked r n
+         => DeltaR ranked r (m + n) -> IndexOf (ranked r 0) m
+         -> ShapeInt (m + n) -> DeltaR ranked r n
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. The operation fails if index is out of bounds.
     -- If index is out of bounds, the result is defined and is 0.
@@ -167,6 +166,16 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
            -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
            -> ShapeInt (m + n)
            -> DeltaR ranked r (p + n)
+    -- ^ Build a tensor by adding up tensors of rank @n@ taken from
+    -- the third argument and inserted in a zero tensor
+    -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
+    -- so that, e.g, @Scatter1 5 (const Z) (Replicate0R [5] d) []@ is equivalent
+    -- to @5 * d@. If an index of length @p@ is out of bounds, no tensor
+    -- is added at such an index (and similarly in @ScatterN@).
+    -- The semantics of the operation permits index out of bounds
+    -- and then no tensors is added at such an index.
+    -- TODO: this is a haddock for Scatter1; fix.
+
   FromListR :: KnownNat n
             => [DeltaR ranked r n] -> DeltaR ranked r (1 + n)
     -- ^ Create a tensor from a list treated as the outermost dimension.
@@ -174,19 +183,18 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
               => Data.Vector.Vector (DeltaR ranked r n)
               -> DeltaR ranked r (1 + n)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
---  FromList0R :: ShapeInt n -> [Delta0 r] -> DeltaR ranked r n
---  FromVector0R :: ShapeInt n -> Data.Vector.Vector (Delta0 r) -> DeltaR ranked r n
   ReplicateR :: KnownNat n
          => Int -> DeltaR ranked r n -> DeltaR ranked r (1 + n)
     -- ^ Copy the given tensor along the new, outermost dimension.
---  Replicate0R :: ShapeInt n -> Delta0 r -> DeltaR ranked r n
   AppendR :: KnownNat n
-          => DeltaR ranked r (1 + n) -> Int -> DeltaR ranked r (1 + n) -> DeltaR ranked r (1 + n)
+          => DeltaR ranked r (1 + n) -> Int -> DeltaR ranked r (1 + n)
+          -> DeltaR ranked r (1 + n)
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
     -- The integer argument is the outermost size of the first array.
   SliceR :: KnownNat n
-         => Int -> Int -> DeltaR ranked r (1 + n) -> Int -> DeltaR ranked r (1 + n)
+         => Int -> Int -> DeltaR ranked r (1 + n) -> Int
+         -> DeltaR ranked r (1 + n)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
@@ -200,14 +208,15 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
            => ShapeInt n -> ShapeInt m -> DeltaR ranked r n -> DeltaR ranked r m
     -- ^ Change the shape of the tensor from the first to the second.
   BuildR :: KnownNat n
-         => Int -> (IntOf (ranked r 0) -> DeltaR ranked r n) -> DeltaR ranked r (1 + n)
+         => Int -> (IntOf (ranked r 0) -> DeltaR ranked r n)
+         -> DeltaR ranked r (1 + n)
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
-
---  GatherR1 :: (KnownNat p, KnownNat n)
---           => (Int -> IndexOf (ranked r 0) p)
---           -> ShapeInt (p + n) -> DeltaR ranked r (p + n)
---           -> Int -> DeltaR ranked r (1 + n)
+  GatherR :: (KnownNat m, KnownNat p, KnownNat n)
+          => ShapeInt (m + n) -> DeltaR ranked r (p + n)
+          -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
+          -> ShapeInt (p + n)
+          -> DeltaR ranked r (m + n)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const Z) [] (ScalarR d) k@ is equivalent
@@ -215,27 +224,12 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
     -- tensor 0 is chosen instead or projecting (and similarly in @GatherN@).
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
-  GatherR :: (KnownNat m, KnownNat p, KnownNat n)
-          => ShapeInt (m + n) -> DeltaR ranked r (p + n)
-          -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
-          -> ShapeInt (p + n)
-          -> DeltaR ranked r (m + n)
---  ScatterR1 :: (KnownNat p, KnownNat n)
---            => (Int -> IndexOf (ranked r 0) p)
---            -> Int -> DeltaR ranked r (1 + n)
---            -> ShapeInt (p + n) -> DeltaR ranked r (p + n)
-    -- ^ Build a tensor by adding up tensors of rank @n@ taken from
-    -- the third argument and inserted in a zero tensor
-    -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
-    -- so that, e.g, @Scatter1 5 (const Z) (Replicate0R [5] d) []@ is equivalent
-    -- to @5 * d@. If an index of length @p@ is out of bounds, no tensor
-    -- is added at such an index (and similarly in @ScatterN@).
-    -- The semantics of the operation permits index out of bounds
-    -- and then no tensors is added at such an index.
+    -- TODO: this is a haddock for Gather1; fix.
 
   DToR :: forall ranked n r. DeltaD ranked r -> DeltaR ranked r n
 
-deriving instance (Show (IntOf (ranked r 0)), Show r) => Show (DeltaR ranked r n)
+deriving instance (Show (IntOf (ranked r 0)), Show r)
+                  => Show (DeltaR ranked r n)
 
 data DeltaD :: (Type -> Nat -> Type) -> Type -> Type where
   RToD :: forall ranked n r. KnownNat n
@@ -513,19 +507,12 @@ buildFinMaps s0 deltaDt =
                      , dMapR = EM.insert n cs $ dMapR s }
               _ -> error "buildFinMaps: corrupted nMap"
 
---        IndexR d ix len ->
---          let rest = tshape c
---          in evalR s (OR.concatOuter [ OR.constant (ix : rest) 0
---                                     , OR.reshape (1 : rest) c
---                                     , OR.constant (len - ix - 1 : rest) 0 ])
---                     d  -- TODO: optimize for input case
         IndexR d ix sh -> evalR s (tscatter @ranked @r @0 sh c (const ix)) d
           -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
         SumR n d -> evalR s (treplicate n c) d
         Sum0R sh d -> evalR s (treplicate0N sh c) d
         Dot0R v vd -> evalR s (v `tmult `treplicate0N (tshape v) c) vd
                      -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
---        Scatter1 f n d _sh -> evalR s (tgatherZ1R n c f) d
         ScatterR _sh d f shd -> evalR s (tgather shd c f) d
         FromListR ld ->
           ifoldl' (\s2 i d2 ->
@@ -533,14 +520,7 @@ buildFinMaps s0 deltaDt =
         FromVectorR ld ->
           V.ifoldl' (\s2 i d2 ->
             evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) sShared ld
---        FromList0R _sh lsd ->  -- lsd is a list of scalar delta expressions
---          let cv = OR.toVector c
---          in ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
---        FromVector0R _sh lsd ->  -- lsd is a list of scalar delta expressions
---          let cv = OR.toVector c
---          in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
         ReplicateR _n d -> evalR s (tsum c) d
---        Replicate0R _ d -> eval0 s (tsum0R c) d
         AppendR d k e -> case tshape c of
           n :$ _ -> let s2 = evalR sShared (tslice 0 k cShared) d
                     in evalR s2 (tslice k (n - k) cShared) e
@@ -561,7 +541,6 @@ buildFinMaps s0 deltaDt =
         BuildR n f ->
           foldl' (\s2 i -> evalR s2 (tindex cShared (i :. ZI)) (f i))
                  sShared (fromIntegral <$> [0 .. n - 1])
---        Gather1 f sh d _n -> evalR s (tscatter1R f c sh) d
         GatherR _sh d f shd -> evalR s (tscatter shd c f) d
 
         DToR @_ @n2 (RToD @_ @n1 d) ->
@@ -667,16 +646,12 @@ buildDerivative dimR deltaDt params = do
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
---        Index1 d ix _len -> (`tindex1R` ix) <$> evalR d
         IndexR d ix _len -> (`tindex` ix) <$> evalR d
         SumR _ d -> tsum <$> evalR d
         Sum0R _ ZeroR ->  return 0
         Sum0R _ d -> tsum0 <$> evalR d
         Dot0R _ ZeroR ->  return 0
         Dot0R v d -> tdot0 v <$> evalR d
---        Scatter1 f _k d sh -> do
---          t <- evalR d
---          return $! tscatter1R f t sh
         ScatterR sh d f _shd ->  do
           t <- evalR d
           return $! tscatter sh t f
@@ -686,16 +661,9 @@ buildDerivative dimR deltaDt params = do
         FromVectorR lsd -> do
           l <- V.mapM evalR lsd
           return $! tfromVector l
---        FromList0R sh lsd -> do
---          l <- mapM eval0 lsd
---          return $! tfromList0NR sh l
---        FromVector0R sh lsd -> do
---          l <- V.mapM eval0 lsd
---          return $! tfromVector0NR sh l
         ReplicateR n d -> do
           t <- evalR d
           return $! treplicate n t
---        Replicate0R sh d -> treplicate0NR sh <$> eval0 d
         AppendR d _k e -> liftM2 tappend (evalR d) (evalR e)
         SliceR i n d _len -> tslice i n <$> evalR d
         ReverseR d -> treverse <$> evalR d
@@ -704,9 +672,6 @@ buildDerivative dimR deltaDt params = do
         BuildR n f -> do
           l <- mapM (evalR . f . fromIntegral) [0 .. n - 1]
           return $! tfromList l
---        Gather1 f _sh d k -> do
---          t <- evalR d
---          return $! tgather1R k t f
         GatherR sh d f _shd -> do
           t <- evalR d
           return $! tgather sh t f
