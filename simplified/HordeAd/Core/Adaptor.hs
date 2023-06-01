@@ -59,18 +59,6 @@ parseDomains aInit domains =
 
 -- * Basic Adaptor class instances
 
-instance AdaptableDomains OD.Array Double where
-  type Underlying Double = Double
-  type Value Double = Double
-  toDomains = undefined
-  fromDomains = undefined
-
-instance AdaptableDomains OD.Array Float where
-  type Underlying Float = Float
-  type Value Float = Float
-  toDomains = undefined
-  fromDomains = undefined
-
 instance AdaptableDomains dynamic a
          => AdaptableDomains dynamic [a] where
   type Underlying [a] = Underlying a

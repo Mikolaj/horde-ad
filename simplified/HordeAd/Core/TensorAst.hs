@@ -18,12 +18,12 @@ import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.AstVectorize
-import HordeAd.Core.Adaptor
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
@@ -115,24 +115,6 @@ instance (GoodScalar r, KnownNat n)
 instance AdaptableDomains AstDynamic (AstDynamic r) where
   type Underlying (AstDynamic r) = r
   type Value (AstDynamic r) = OD.Array r
-  toDomains = undefined
-  fromDomains = undefined
-
-instance AdaptableDomains AstDynamic (AstPrimalPart r n) where
-  type Underlying (AstPrimalPart r n) = r
-  type Value (AstPrimalPart r n) = r
-  toDomains = undefined
-  fromDomains = undefined
-
-instance AdaptableDomains AstDynamic (AstNoVectorize r n) where
-  type Underlying (AstNoVectorize r n) = r
-  type Value (AstNoVectorize r n) = r
-  toDomains = undefined
-  fromDomains = undefined
-
-instance AdaptableDomains AstDynamic (AstNoSimplify r n) where
-  type Underlying (AstNoSimplify r n) = r
-  type Value (AstNoSimplify r n) = r
   toDomains = undefined
   fromDomains = undefined
 

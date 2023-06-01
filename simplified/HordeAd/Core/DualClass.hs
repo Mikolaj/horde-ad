@@ -44,10 +44,10 @@ import           Data.Type.Equality ((:~:) (Refl))
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.Delta
-import HordeAd.Core.Adaptor
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
@@ -259,8 +259,7 @@ instance GoodScalar r => IsPrimalR r where
   intOfShapeR tsh c =
     Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
 
-instance GoodScalar r
-         => IsPrimalA r where
+instance GoodScalar r => IsPrimalA r where
   dZeroA = ZeroR
   dScaleA = ScaleR
   dScaleByScalarA tsh c =

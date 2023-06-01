@@ -33,8 +33,8 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
-import HordeAd.Core.Ast
 import HordeAd.Core.Adaptor
+import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.TensorOps
 
@@ -464,9 +464,6 @@ instance ConvertTensor OD.Array (Flip OR.Array) (Flip OS.Array) where
   disDummy = isTensorDummy
   daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL
-
-instance DomainsTensor OD.Array (Flip OR.Array)
-                       (Compose Data.Vector.Vector OD.Array) where
 
 {- TODO: requires IncoherentInstances no matter what pragma I stick in
 -- TODO2: benchmark this used for any scalar via @V.map realToFrac@

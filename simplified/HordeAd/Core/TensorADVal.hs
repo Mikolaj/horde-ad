@@ -44,9 +44,6 @@ instance (OrdB a, IsPrimal a) => OrdB (ADVal a) where
   D l1 u _ >* D l2 v _ = letWrapPrimal l1 u >* letWrapPrimal l2 v
   D l1 u _ >=* D l2 v _ = letWrapPrimal l1 u >=* letWrapPrimal l2 v
 
-instance IfB (ADVal (OR.Array n r)) where
-  ifB b v w = if b then v else w
-
 instance IfB (ADVal (Flip OR.Array r n)) where
   ifB b v w = if b then v else w
 
@@ -79,18 +76,6 @@ fromList lu =
      (tfromList $ map (\(D _ u _) -> u) lu)
      (dFromListR $ map (\(D _ _ u') -> u') lu)
 
-instance AdaptableDomains (Compose ADVal OD.Array) (ADVal Double) where
-  type Underlying (ADVal Double) = Double
-  type Value (ADVal Double) = Double
-  toDomains = undefined
-  fromDomains = undefined
-
-instance AdaptableDomains (Compose ADVal OD.Array) (ADVal Float) where
-  type Underlying (ADVal Float) = Float
-  type Value (ADVal Float) = Float
-  toDomains = undefined
-  fromDomains = undefined
-
 instance (KnownNat n, GoodScalar r)
          => AdaptableDomains (Compose ADVal OD.Array)
                              (ADVal (Flip OR.Array r n)) where
@@ -119,17 +104,6 @@ instance GoodScalar r
   type Value (Compose ADVal dynamic r) = dynamic r
   toDomains = undefined
   fromDomains _aInit = V.uncons
-
-instance ( KnownNat n, GoodScalar r
-         , ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked )
-         => AdaptableDomains (Compose ADVal dynamic)
-                             (Compose ADVal (ranked r) n) where
-  type Underlying (Compose ADVal (ranked r) n) = r
-  type Value (Compose ADVal (ranked r) n) = ranked r n
-  toDomains = undefined
-  fromDomains _aInit inputs = case V.uncons inputs of
-    Just (a, rest) -> Just (Compose $ fromD $ getCompose a, rest)
-    Nothing -> Nothing
 
 instance ( KnownNat n, GoodScalar r
          , ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked )
