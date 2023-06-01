@@ -10,7 +10,6 @@ module HordeAd.Core.TensorADVal
 
 import Prelude hiding ((<*))
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
@@ -34,6 +33,10 @@ import HordeAd.Core.TensorClass
 
 type instance BooleanOf (ADVal a) = BooleanOf a
 
+-- Boolean and numeric instances are easy to define for ADVal a
+-- and then Compose and Tannen instances are auto-derived on top of them.
+-- OTOH, AdaptableDomains and other such instances are best defined
+-- directly for Compose and Tannen applied to ADVal.
 instance (EqB a, IsPrimal a) => EqB (ADVal a) where
   D l1 u _ ==* D l2 v _ = letWrapPrimal l1 u ==* letWrapPrimal l2 v
   D l1 u _ /=* D l2 v _ = letWrapPrimal l1 u /=* letWrapPrimal l2 v
@@ -76,14 +79,23 @@ fromList lu =
      (tfromList $ map (\(D _ u _) -> u) lu)
      (dFromListR $ map (\(D _ _ u') -> u') lu)
 
-instance (KnownNat n, GoodScalar r)
-         => AdaptableDomains (Compose ADVal OD.Array)
-                             (ADVal (Flip OR.Array r n)) where
-  type Underlying (ADVal (Flip OR.Array r n)) = r
-  type Value (ADVal (Flip OR.Array r n)) = Flip OR.Array r n
+instance GoodScalar r
+         => AdaptableDomains (Compose ADVal dynamic)
+                             (Compose ADVal dynamic r) where
+  type Underlying (Compose ADVal dynamic r) = r
+  type Value (Compose ADVal dynamic r) = dynamic r
+  toDomains = undefined
+  fromDomains = undefined
+
+instance ( KnownNat n, GoodScalar r
+         , ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked )
+         => AdaptableDomains (Compose ADVal dynamic)
+                             (Tannen ADVal ranked r n) where
+  type Underlying (Tannen ADVal ranked r n) = r
+  type Value (Tannen ADVal ranked r n) = Flip OR.Array r n  -- !!! not ranked
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
-    Just (a, rest) -> Just (fromD $ getCompose a, rest)
+    Just (a, rest) -> Just (Tannen $ fromD $ getCompose a, rest)
     Nothing -> Nothing
 
 fromD :: forall dynamic ranked shaped n r.
@@ -96,35 +108,6 @@ fromR :: ( ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked
          , KnownNat n, GoodScalar r )
        => ADVal (ranked r n) -> ADVal (dynamic r)
 fromR (D l u u') = dDnotShared l (dfromR u) (dFromR u')
-
-instance GoodScalar r
-         => AdaptableDomains (Compose ADVal dynamic)
-                             (Compose ADVal dynamic r) where
-  type Underlying (Compose ADVal dynamic r) = r
-  type Value (Compose ADVal dynamic r) = dynamic r
-  toDomains = undefined
-  fromDomains _aInit = V.uncons
-
-instance ( KnownNat n, GoodScalar r
-         , ConvertTensor dynamic ranked shaped, HasConversions dynamic ranked )
-         => AdaptableDomains (Compose ADVal dynamic)
-                             (Tannen ADVal ranked r n) where
-  type Underlying (Tannen ADVal ranked r n) = r
-  type Value (Tannen ADVal ranked r n) = ranked r n
-  toDomains = undefined
-  fromDomains _aInit inputs = case V.uncons inputs of
-    Just (a, rest) -> Just (Tannen $ fromD $ getCompose a, rest)
-    Nothing -> Nothing
-
-instance (KnownNat n, GoodScalar r)
-         => AdaptableDomains (Compose ADVal AstDynamic)
-                             (ADVal (AstRanked r n)) where
-  type Underlying (ADVal (AstRanked r n)) = r
-  type Value (ADVal (AstRanked r n)) = Flip OR.Array r n
-  toDomains = undefined
-  fromDomains _aInit inputs = case V.uncons inputs of
-    Just (a, rest) -> Just (fromD $ getCompose a, rest)
-    Nothing -> Nothing
 
 class ( Dual (ranked r y) ~ DeltaR ranked r y
       , DeltaR ranked r y ~ Dual (ranked r y) )

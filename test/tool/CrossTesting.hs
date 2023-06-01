@@ -16,11 +16,11 @@ import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty.HUnit hiding (assert)
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
-import HordeAd.Core.Adaptor
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorClass
@@ -52,12 +52,12 @@ rev' f vals =
       dt = Nothing
       g :: Domains (Compose ADVal OD.Array) r
         -> Tannen ADVal (Flip OR.Array) r m
-      g inputs = f $ Tannen $ parseDomains vals inputs
+      g inputs = f $ parseDomains vals inputs
       (advalGrad, value1) = revOnDomains dt (runTannen . g) parameters
       gradient1 = parseDomains vals advalGrad
       g9 :: Domains (Compose ADVal AstDynamic) r
          -> Tannen ADVal AstRanked r m
-      g9 inputs = f $ Tannen $ parseDomains vals inputs
+      g9 inputs = f $ parseDomains vals inputs
       (advalGrad9, value9) = revAstOnDomains g9 parameters dt
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady f1 r
@@ -66,7 +66,7 @@ rev' f vals =
         -> ADVal (Flip OR.Array r m)
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
-            env = extendEnvR var (Tannen $ parseDomains vals inputs) EM.empty
+            env = extendEnvR var (parseDomains vals inputs) EM.empty
         in runTannen $ snd $ interpretAst env emptyMemo (gx ast)
       (astGrad, value2) =
         revOnDomains dt (h id id id) parameters
@@ -102,7 +102,7 @@ rev' f vals =
            -> Tannen ADVal AstRanked r m
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
-            env = extendEnvR var (Tannen $ parseDomains vals inputs) EM.empty
+            env = extendEnvR var (parseDomains vals inputs) EM.empty
         in snd $ interpretAst env emptyMemo (gx ast)
       artifactsGradAst =
         revAstOnDomainsF (hAst id id id) parameters
