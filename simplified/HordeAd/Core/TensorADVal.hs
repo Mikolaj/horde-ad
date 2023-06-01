@@ -11,6 +11,7 @@ module HordeAd.Core.TensorADVal
 import Prelude hiding ((<*))
 
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
@@ -144,12 +145,29 @@ class (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
 instance (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
          => CRanked ranked c where
 
-type instance IntOf (Tannen ADVal ranked r n) = IntOf (ranked r n)
+type instance IntOf (Tannen ADVal f r n) = IntOf (f r n)
 
-type instance PrimalOf (Tannen ADVal ranked) = ranked
+type instance PrimalOf (Tannen ADVal f) = f
 
-type instance DualOf (Tannen ADVal ranked) = Product (Clown ADShare)
-                                                     (DeltaR ranked)
+-- Morally:
+-- type instance DualOf (Tannen ADVal f) = Product (Clown ADShare)
+--                                                 (\r k -> Dual (f r k))
+
+type instance DualOf (Tannen ADVal (Flip OR.Array)) = Product
+                                                        (Clown ADShare)
+                                                        (DeltaR (Flip OR.Array))
+
+type instance DualOf (Tannen ADVal AstRanked) = Product (Clown ADShare)
+                                                        (DeltaR AstRanked)
+
+type instance DualOf (Tannen ADVal (Flip OS.Array)) = Product
+                                                        (Clown ADShare)
+                                                        (DeltaS (Flip OS.Array))
+
+type instance DualOf (Tannen ADVal AstShaped) = Product (Clown ADShare)
+                                                        (DeltaS AstShaped)
+
+type instance DynamicOf (Tannen ADVal f) = (Compose ADVal (DynamicOf f))
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
@@ -158,7 +176,9 @@ type instance DualOf (Tannen ADVal ranked) = Product (Clown ADShare)
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance ( CRanked2 ranked UnderlyingMatches2
+instance ( DualOf (Tannen ADVal ranked)
+           ~ Product (Clown ADShare) (DeltaR ranked)
+         , CRanked2 ranked UnderlyingMatches2
          , CYRanked ranked DualIsDeltaR
          , CRankedR ranked UnderlyingMatches
          , CRanked ranked IsPrimal

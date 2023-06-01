@@ -8,7 +8,7 @@
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
   ( IntOf, IndexOf, ShapeInt
-  , PrimalOf, DualOf
+  , PrimalOf, DualOf, DynamicOf
   , Tensor(..), ConvertTensor(..), DomainsTensor(..), ADReady
   , GoodScalar, DummyDual(..), ttoRankedOrDummy
   ) where
@@ -76,6 +76,8 @@ instance (forall r20. (GoodScalar r20) => c (ranked r20 0))
 type family PrimalOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
 
 type family DualOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
+
+type family DynamicOf (tensor :: Type -> k -> Type) :: Type -> Type
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
@@ -302,7 +304,8 @@ instance (forall r11 y. (KnownNat y, GoodScalar r11)
          => c (dynamic r11) (ranked r11 y))
          => CDynamicRanked dynamic ranked c where
 
-class CDynamicRanked dynamic ranked UnderlyingMatches
+class ( CDynamicRanked dynamic ranked UnderlyingMatches
+      , DynamicOf ranked ~ DynamicOf shaped )
       => ConvertTensor (dynamic :: Type -> Type)
                        (ranked :: Type -> Nat -> Type)
                        (shaped :: Type -> [Nat] -> Type)
@@ -406,6 +409,10 @@ type instance IntOf (Flip OR.Array r n) = CInt
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 
 type instance DualOf (Flip OR.Array) = DummyDual
+
+type instance DynamicOf (Flip OR.Array) = OD.Array
+
+type instance DynamicOf (Flip OS.Array) = OD.Array
 
 instance Tensor (Flip OR.Array) where
   tshape = tshapeR . runFlip

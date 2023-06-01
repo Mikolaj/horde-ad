@@ -255,6 +255,8 @@ type family Dual a = result | result -> a where
   Dual (AstDynamic r) = DeltaD AstRanked r
   Dual (Flip OR.Array r n) = DeltaR (Flip OR.Array) r n
   Dual (AstRanked r n) = DeltaR AstRanked r n
+  Dual (Flip OS.Array sh n) = DeltaS (Flip OS.Array) sh n
+  Dual (AstShaped sh n) = DeltaS AstShaped sh n
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions

@@ -16,7 +16,7 @@ import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -32,6 +32,10 @@ type instance IntOf (AstRanked r n) = AstInt r
 type instance PrimalOf AstRanked = AstPrimalPart
 
 type instance DualOf AstRanked = AstDualPart
+
+type instance DynamicOf AstRanked = AstDynamic
+
+type instance DynamicOf AstShaped = AstDynamic
 
 instance Tensor AstRanked where
   tlet a f = astLetFun a f
