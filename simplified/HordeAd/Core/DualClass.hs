@@ -35,6 +35,7 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
@@ -86,8 +87,9 @@ class IsPrimalR r where
                        -> (ADShare r, Flip OR.Array r n)
   letWrapPrimalR :: ADShare r -> Flip OR.Array r n -> Flip OR.Array r n
   packDeltaDtR :: KnownNat n
-               => Either (Flip OR.Array r n) (Flip OR.Array r n) -> Dual (Flip OR.Array r n)
-               -> DeltaDt (Flip OR.Array) r
+               => Either (Flip OR.Array r n) (Flip OR.Array r n)
+               -> Dual (Flip OR.Array r n)
+               -> DeltaDt (Flip OR.Array) (Flip OS.Array) r
   intOfShapeR :: KnownNat n
               => Flip OR.Array r n -> Int -> Flip OR.Array r n
 
@@ -119,7 +121,7 @@ class IsPrimalA r where
   letWrapPrimalA :: ADShare r -> AstRanked r n -> AstRanked r n
   packDeltaDtA :: KnownNat n
                => Either (AstRanked r n) (AstRanked r n) -> Dual (AstRanked r n)
-               -> DeltaDt AstRanked r
+               -> DeltaDt AstRanked AstShaped r
   intOfShapeA :: KnownNat n
               => AstRanked r n -> Int -> AstRanked r n
 

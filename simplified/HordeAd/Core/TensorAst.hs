@@ -75,7 +75,7 @@ instance Tensor AstRanked where
   tD = AstD
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-instance ConvertTensor AstDynamic AstRanked AstShapedTODO where
+instance ConvertTensor AstDynamic AstRanked AstShaped where
   tfromD = astFromDynamic
   tfromS = undefined
   dfromR r = AstDynamic r
@@ -99,8 +99,6 @@ instance ConvertTensor AstDynamic AstRanked AstShapedTODO where
       _ -> error "daddR: type mismatch"
   dshape (AstDynamic v) = shapeToList $ shapeAst v
   tregister = astRegisterFun
-
-data AstShapedTODO r (sh :: [Nat])
 
 instance (GoodScalar r, KnownNat n)
          => AdaptableDomains AstDynamic (AstRanked r n) where

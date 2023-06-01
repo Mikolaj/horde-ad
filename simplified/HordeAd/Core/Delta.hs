@@ -66,8 +66,8 @@ import           GHC.Exts (inline)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Text.Show.Functions ()
 
-import HordeAd.Core.Ast
 import HordeAd.Core.Adaptor
+import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
@@ -128,10 +128,10 @@ newtype NodeId = NodeId Int
 -- with respect to the input parameter component at that index
 -- in the objective function domain. The collection of all such
 -- vectors of partial derivatives across all ranks is the gradient.
-data DeltaS :: Type -> [Nat] -> Type where
-  LetS :: NodeId -> DeltaS r sh -> DeltaS r sh
+data DeltaS :: (Type -> [Nat] -> Type) -> Type -> [Nat] -> Type where
+  LetS :: NodeId -> DeltaS shaped r sh -> DeltaS shaped r sh
 
-deriving instance (Show r) => Show (DeltaS r sh)
+deriving instance (Show r) => Show (DeltaS shaped r sh)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 -- The comments refer to the ordinary (forward) semantics of the terms,
@@ -269,9 +269,9 @@ type family Dual a = result | result -> a where
 -- the delta expression to be differentiated and the dt perturbation
 -- (small change) of the objective function codomain, for which we compute
 -- the gradient.
-data DeltaDt ranked r =
+data DeltaDt ranked shaped r =
     forall sh. OS.Shape sh
-    => DeltaDtS () (DeltaS r sh)  -- TODO
+    => DeltaDtS () (DeltaS shaped r sh)  -- TODO
   | forall n. KnownNat n
     => DeltaDtR (ranked r n) (DeltaR ranked r n)
 
@@ -288,7 +288,7 @@ data DeltaDt ranked r =
 -- 4. key `member` dMapR == nMap!key is DeltaBindingR
 
 -- TODO: remove 0, add S
-data EvalState dynamic ranked r = EvalState
+data EvalState dynamic ranked shaped r = EvalState
   { iMap0       :: EM.EnumMap (InputId r) r
       -- ^ eventually, cotangents of objective function inputs of rank 0
       -- (finally copied to the vector representing the rank 0 portion
@@ -305,7 +305,7 @@ data EvalState dynamic ranked r = EvalState
   , dMapR       :: EM.EnumMap NodeId (dynamic r)
       -- ^ eventually, cotangents of non-input subterms of rank R indexed
       -- by their node identifiers
-  , nMap        :: EM.EnumMap NodeId (DeltaBinding ranked r)
+  , nMap        :: EM.EnumMap NodeId (DeltaBinding ranked shaped r)
       -- ^ nodes left to be evaluated
   , astBindings :: [(AstVarId, dynamic r)]
   }
@@ -314,9 +314,9 @@ data EvalState dynamic ranked r = EvalState
 -- We can't evaluate them at once, because their other shared copies
 -- may still not be processed, so we'd not take advantage of the sharing
 -- and not take into account the whole summed context when finally evaluating.
-data DeltaBinding ranked r =
+data DeltaBinding ranked shaped r =
     forall sh. OS.Shape sh
-    => DeltaBindingS (DeltaS r sh)
+    => DeltaBindingS (DeltaS shaped r sh)
   | forall n. KnownNat n
     => DeltaBindingR (DeltaR ranked r n)
 
@@ -377,7 +377,7 @@ data DeltaBinding ranked r =
 gradientFromDelta
   :: forall dynamic ranked shaped r.
       (GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked shaped)
-  => Int -> DeltaDt ranked r
+  => Int -> DeltaDt ranked shaped r
   -> ([(AstVarId, dynamic r)], Domains dynamic r)
 gradientFromDelta dimR deltaDt =
   -- Create finite maps that hold values associated with inputs
@@ -403,24 +403,24 @@ gradientFromDelta dimR deltaDt =
          gradient = V.fromList $ EM.elems iMapR
      in (astBindings, gradient)
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> DeltaDt (Flip OR.Array) Double
+  :: Int -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
   -> ([(AstVarId, OD.Array Double)], DomainsOD Double) #-}
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> DeltaDt AstRanked Double
+  :: Int -> DeltaDt AstRanked AstShaped Double
   -> ([(AstVarId, AstDynamic Double)], Domains AstDynamic Double) #-}
 
 buildFinMaps
   :: forall dynamic ranked shaped r.
      (GoodScalar r, Tensor ranked, ConvertTensor dynamic ranked shaped)
-  => EvalState dynamic ranked r -> DeltaDt ranked r
-  -> EvalState dynamic ranked r
+  => EvalState dynamic ranked shaped r -> DeltaDt ranked shaped r
+  -> EvalState dynamic ranked shaped r
 buildFinMaps s0 deltaDt =
   -- The first argument is the evaluation state being modified,
   -- the second is the cotangent accumulator that will become an actual
   -- cotangent contribution when complete (see below for an explanation)
   -- and the third argument is the node to evaluate.
-  let _evalS :: EvalState dynamic ranked r -> r -> DeltaS r sh
-             -> EvalState dynamic ranked r
+  let _evalS :: EvalState dynamic ranked shaped r -> r -> DeltaS shaped r sh
+             -> EvalState dynamic ranked shaped r
       _evalS _s !_c = \case
         LetS _n _d ->
           -- In this context, by construction, @d@ is the dual component
@@ -486,8 +486,9 @@ buildFinMaps s0 deltaDt =
 -}
 
       evalR :: forall n. KnownNat n
-            => EvalState dynamic ranked r -> ranked r n -> DeltaR ranked r n
-            -> EvalState dynamic ranked r
+            => EvalState dynamic ranked shaped r
+            -> ranked r n -> DeltaR ranked r n
+            -> EvalState dynamic ranked shaped r
       evalR s !c = let (abShared, cShared) =
                          inline tregister c (astBindings s)
                        sShared = s {astBindings = abShared}
@@ -568,7 +569,8 @@ buildFinMaps s0 deltaDt =
             Just Refl -> evalR s c d
             _ -> error "buildFinMaps: different ranks in FromD(FromR)"
 
-      evalFromnMap :: EvalState dynamic ranked r -> EvalState dynamic ranked r
+      evalFromnMap :: EvalState dynamic ranked shaped r
+                   -> EvalState dynamic ranked shaped r
       evalFromnMap s@EvalState{nMap, dMapR} =
         case EM.maxViewWithKey nMap of
           Just ((n, b), nMap2) ->
@@ -585,9 +587,9 @@ buildFinMaps s0 deltaDt =
         DeltaDtR dt deltaTopLevel -> evalR s0 dt deltaTopLevel
   in evalFromnMap s1
 {-# SPECIALIZE buildFinMaps
-  :: EvalState OD.Array (Flip OR.Array) Double -> DeltaDt (Flip OR.Array) Double -> EvalState OD.Array (Flip OR.Array) Double #-}
+  :: EvalState OD.Array (Flip OR.Array) (Flip OS.Array) Double -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState OD.Array (Flip OR.Array) (Flip OS.Array) Double #-}
 {-# SPECIALIZE buildFinMaps
-  :: EvalState AstDynamic AstRanked Double -> DeltaDt AstRanked Double -> EvalState AstDynamic AstRanked Double #-}
+  :: EvalState AstDynamic AstRanked AstShaped Double -> DeltaDt AstRanked AstShaped Double -> EvalState AstDynamic AstRanked AstShaped Double #-}
 
 
 -- * Forward derivative computation from the delta expressions
@@ -618,7 +620,7 @@ instance ( KnownNat n, GoodScalar r, Tensor ranked
          => ForwardDerivative dynamic (ranked r n) r where
   derivativeFromDelta dimR deltaTopLevel ds =
     case runST $ buildDerivative dimR (DeltaDtR 0 deltaTopLevel) ds of
-      DeltaDtR @_ @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
+      DeltaDtR @_ @_ @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
         Just Refl -> res
         _ -> error "derivativeFromDelta"
       DeltaDtS{} -> error "derivativeFromDelta"
@@ -629,8 +631,8 @@ instance ( KnownNat n, GoodScalar r, Tensor ranked
 buildDerivative
   :: forall dynamic ranked shaped r s.
      (Tensor ranked, ConvertTensor dynamic ranked shaped, GoodScalar r)
-  => Int -> DeltaDt ranked r -> Domains dynamic r
-  -> ST s (DeltaDt ranked r)
+  => Int -> DeltaDt ranked shaped r -> Domains dynamic r
+  -> ST s (DeltaDt ranked shaped r)
 buildDerivative dimR deltaDt params = do
   dMapR <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
