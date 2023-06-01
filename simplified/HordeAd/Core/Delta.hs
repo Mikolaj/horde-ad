@@ -128,10 +128,11 @@ newtype NodeId = NodeId Int
 -- with respect to the input parameter component at that index
 -- in the objective function domain. The collection of all such
 -- vectors of partial derivatives across all ranks is the gradient.
-data DeltaS :: (Type -> [Nat] -> Type) -> Type -> [Nat] -> Type where
-  LetS :: NodeId -> DeltaS shaped r sh -> DeltaS shaped r sh
+data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
+            -> Type -> [Nat] -> Type where
+  LetS :: NodeId -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
 
-deriving instance (Show r) => Show (DeltaS shaped r sh)
+deriving instance (Show r) => Show (DeltaS ranked shaped r sh)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 -- The comments refer to the ordinary (forward) semantics of the terms,
@@ -255,8 +256,8 @@ type family Dual a = result | result -> a where
   Dual (AstDynamic r) = DeltaD AstRanked r
   Dual (Flip OR.Array r n) = DeltaR (Flip OR.Array) r n
   Dual (AstRanked r n) = DeltaR AstRanked r n
-  Dual (Flip OS.Array sh n) = DeltaS (Flip OS.Array) sh n
-  Dual (AstShaped sh n) = DeltaS AstShaped sh n
+  Dual (Flip OS.Array sh n) = DeltaS (Flip OR.Array) (Flip OS.Array) sh n
+  Dual (AstShaped sh n) = DeltaS AstRanked AstShaped sh n
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions
@@ -267,7 +268,7 @@ type family Dual a = result | result -> a where
 -- the gradient.
 data DeltaDt ranked shaped r =
     forall sh. OS.Shape sh
-    => DeltaDtS () (DeltaS shaped r sh)  -- TODO
+    => DeltaDtS () (DeltaS ranked shaped r sh)  -- TODO
   | forall n. KnownNat n
     => DeltaDtR (ranked r n) (DeltaR ranked r n)
 
@@ -312,7 +313,7 @@ data EvalState ranked shaped r = EvalState
 -- and not take into account the whole summed context when finally evaluating.
 data DeltaBinding ranked shaped r =
     forall sh. OS.Shape sh
-    => DeltaBindingS (DeltaS shaped r sh)
+    => DeltaBindingS (DeltaS ranked shaped r sh)
   | forall n. KnownNat n
     => DeltaBindingR (DeltaR ranked r n)
 
@@ -415,7 +416,7 @@ buildFinMaps s0 deltaDt =
   -- the second is the cotangent accumulator that will become an actual
   -- cotangent contribution when complete (see below for an explanation)
   -- and the third argument is the node to evaluate.
-  let _evalS :: EvalState ranked shaped r -> r -> DeltaS shaped r sh
+  let _evalS :: EvalState ranked shaped r -> r -> DeltaS ranked shaped r sh
              -> EvalState ranked shaped r
       _evalS _s !_c = \case
         LetS _n _d ->

@@ -153,19 +153,21 @@ type instance PrimalOf (Tannen ADVal f) = f
 -- type instance DualOf (Tannen ADVal f) = Product (Clown ADShare)
 --                                                 (\r k -> Dual (f r k))
 
-type instance DualOf (Tannen ADVal (Flip OR.Array)) = Product
-                                                        (Clown ADShare)
-                                                        (DeltaR (Flip OR.Array))
+type instance DualOf (Tannen ADVal (Flip OR.Array)) =
+  Product (Clown ADShare)
+          (DeltaR (Flip OR.Array))
 
-type instance DualOf (Tannen ADVal AstRanked) = Product (Clown ADShare)
-                                                        (DeltaR AstRanked)
+type instance DualOf (Tannen ADVal AstRanked) =
+  Product (Clown ADShare)
+          (DeltaR AstRanked)
 
-type instance DualOf (Tannen ADVal (Flip OS.Array)) = Product
-                                                        (Clown ADShare)
-                                                        (DeltaS (Flip OS.Array))
+type instance DualOf (Tannen ADVal (Flip OS.Array)) =
+  Product (Clown ADShare)
+          (DeltaS (Flip OR.Array) (Flip OS.Array))
 
-type instance DualOf (Tannen ADVal AstShaped) = Product (Clown ADShare)
-                                                        (DeltaS AstShaped)
+type instance DualOf (Tannen ADVal AstShaped) =
+  Product (Clown ADShare)
+          (DeltaS AstRanked AstShaped)
 
 type instance DynamicOf (Tannen ADVal f) = (Compose ADVal (DynamicOf f))
 
