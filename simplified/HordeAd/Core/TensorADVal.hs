@@ -110,25 +110,31 @@ rToD :: ( ConvertTensor ranked shaped, HasConversions ranked
       => ADVal (ranked r n) -> ADVal (DynamicOf ranked r)
 rToD (D l u u') = dDnotShared l (dfromR u) (dRToD u')
 
-class ( Dual (ranked r y) ~ DeltaR ranked r y
-      , DeltaR ranked r y ~ Dual (ranked r y) )
-      => DualIsDeltaR ranked r y where
-instance ( Dual (ranked r y) ~ DeltaR ranked r y
-         , DeltaR ranked r y ~ Dual (ranked r y) )
-         => DualIsDeltaR ranked r y where
+class ( Dual (ranked r y) ~ DeltaR ranked shaped r y
+      , DeltaR ranked shaped r y ~ Dual (ranked r y) )
+      => DualIsDeltaR ranked shaped r y where
+instance ( Dual (ranked r y) ~ DeltaR ranked shaped r y
+         , DeltaR ranked shaped r y ~ Dual (ranked r y) )
+         => DualIsDeltaR ranked shaped r y where
 
-class (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked r12 y) => CYRanked ranked c where
-instance (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked r12 y) => CYRanked ranked c where
+class (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked shaped r12 y)
+      => CYRanked ranked shaped c where
+instance
+      (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked shaped r12 y)
+      => CYRanked ranked shaped c where
 
 class (Underlying a ~ Underlying b)  -- TODO:errors:Underlying b ~ Underlying a)
       => UnderlyingMatches2 a b where
 instance (Underlying a ~ Underlying b)
          => UnderlyingMatches2 a b where
 
-class (forall r13 x y. (KnownNat y, GoodScalar r13) => c (ranked r13 x) (ranked r13 y))
+class (forall r13 x y. (KnownNat y, GoodScalar r13)
+      => c (ranked r13 x) (ranked r13 y))
       => CRanked2 ranked c where
-instance (forall r13 x y. (KnownNat y, GoodScalar r13) => c (ranked r13 x) (ranked r13 y))
-         => CRanked2 ranked c where
+instance
+      (forall r13 x y. (KnownNat y, GoodScalar r13)
+      => c (ranked r13 x) (ranked r13 y))
+      => CRanked2 ranked c where
 
 class (Underlying a ~ b, b ~ Underlying a)
       => UnderlyingMatches a b where
@@ -155,11 +161,11 @@ type instance PrimalOf (Tannen ADVal f) = f
 
 type instance DualOf (Tannen ADVal (Flip OR.Array)) =
   Product (Clown ADShare)
-          (DeltaR (Flip OR.Array))
+          (DeltaR (Flip OR.Array) (Flip OS.Array))
 
 type instance DualOf (Tannen ADVal AstRanked) =
   Product (Clown ADShare)
-          (DeltaR AstRanked)
+          (DeltaR AstRanked AstShaped)
 
 type instance DualOf (Tannen ADVal (Flip OS.Array)) =
   Product (Clown ADShare)
@@ -179,9 +185,9 @@ type instance DynamicOf (Tannen ADVal f) = (Compose ADVal (DynamicOf f))
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
 instance ( DualOf (Tannen ADVal ranked)
-           ~ Product (Clown ADShare) (DeltaR ranked)
+           ~ Product (Clown ADShare) (DeltaR ranked shaped)
          , CRanked2 ranked UnderlyingMatches2
-         , CYRanked ranked DualIsDeltaR
+         , CYRanked ranked shaped DualIsDeltaR
          , CRankedR ranked UnderlyingMatches
          , CRanked ranked IsPrimal
          , CRanked ranked Num
@@ -266,7 +272,8 @@ instance ( DualOf (Tannen ADVal ranked)
                 (foldl1' dAdd $ map (\(Tannen (D _ _ u')) -> u') lu)
   -- For whatever reason this signature is necessary to type-check this.
   tmult :: forall n r.
-           (KnownNat n, GoodScalar r, Dual (ranked r n) ~ DeltaR ranked r n)
+           ( KnownNat n, GoodScalar r
+           , Dual (ranked r n) ~ DeltaR ranked shaped r n )
         => Tannen ADVal ranked r n -> Tannen ADVal ranked r n
         -> Tannen ADVal ranked r n
   tmult (Tannen (D l1 ue ZeroR)) (Tannen (D l2 ve v')) =

@@ -139,34 +139,36 @@ deriving instance (Show r) => Show (DeltaS ranked shaped r sh)
 -- as given in @buildDerivative@. Evaluating the terms backwards
 -- (transposing the represented linear map) in order to compute gradients
 -- provides a different semantics.
-data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
-  ZeroR :: DeltaR ranked r n
-  InputR :: InputId (ranked r n) -> DeltaR ranked r n
+data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
+            -> Type -> Nat -> Type where
+  ZeroR :: DeltaR ranked shaped r n
+  InputR :: InputId (ranked r n) -> DeltaR ranked shaped r n
   ScaleR :: Show (ranked r n)
-         => ranked r n -> DeltaR ranked r n -> DeltaR ranked r n
-  AddR :: DeltaR ranked r n -> DeltaR ranked r n -> DeltaR ranked r n
-  LetR :: NodeId -> DeltaR ranked r n -> DeltaR ranked r n
+         => ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
+  AddR :: DeltaR ranked shaped r n -> DeltaR ranked shaped r n
+       -> DeltaR ranked shaped r n
+  LetR :: NodeId -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
 
     -- ^ The sub-tensors at the given index of the outermost dimension.
     -- The second integer is the length of the dimension.
   IndexR :: (KnownNat n, KnownNat m)
-         => DeltaR ranked r (m + n) -> IndexOf (ranked r 0) m
-         -> ShapeInt (m + n) -> DeltaR ranked r n
+         => DeltaR ranked shaped r (m + n) -> IndexOf (ranked r 0) m
+         -> ShapeInt (m + n) -> DeltaR ranked shaped r n
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. The operation fails if index is out of bounds.
     -- If index is out of bounds, the result is defined and is 0.
   SumR :: KnownNat n
-       => Int -> DeltaR ranked r (1 + n) -> DeltaR ranked r n
+       => Int -> DeltaR ranked shaped r (1 + n) -> DeltaR ranked shaped r n
     -- ^ Add element tensors along the outermost dimension.
   Sum0R :: KnownNat n
-       => ShapeInt n -> DeltaR ranked r n -> DeltaR ranked r 0
+       => ShapeInt n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r 0
   Dot0R :: (KnownNat n, Show (ranked r n))
-       => ranked r n -> DeltaR ranked r n -> DeltaR ranked r 0
+       => ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r 0
   ScatterR :: (KnownNat m, KnownNat p, KnownNat n)
-           => ShapeInt (p + n) -> DeltaR ranked r (m + n)
+           => ShapeInt (p + n) -> DeltaR ranked shaped r (m + n)
            -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
            -> ShapeInt (m + n)
-           -> DeltaR ranked r (p + n)
+           -> DeltaR ranked shaped r (p + n)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
@@ -178,46 +180,49 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
     -- TODO: this is a haddock for Scatter1; fix.
 
   FromListR :: KnownNat n
-            => [DeltaR ranked r n] -> DeltaR ranked r (1 + n)
+            => [DeltaR ranked shaped r n] -> DeltaR ranked shaped r (1 + n)
     -- ^ Create a tensor from a list treated as the outermost dimension.
   FromVectorR :: KnownNat n
-              => Data.Vector.Vector (DeltaR ranked r n)
-              -> DeltaR ranked r (1 + n)
+              => Data.Vector.Vector (DeltaR ranked shaped r n)
+              -> DeltaR ranked shaped r (1 + n)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   ReplicateR :: KnownNat n
-         => Int -> DeltaR ranked r n -> DeltaR ranked r (1 + n)
+         => Int -> DeltaR ranked shaped r n -> DeltaR ranked shaped r (1 + n)
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendR :: KnownNat n
-          => DeltaR ranked r (1 + n) -> Int -> DeltaR ranked r (1 + n)
-          -> DeltaR ranked r (1 + n)
+          => DeltaR ranked shaped r (1 + n) -> Int
+          -> DeltaR ranked shaped r (1 + n)
+          -> DeltaR ranked shaped r (1 + n)
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
     -- The integer argument is the outermost size of the first array.
   SliceR :: KnownNat n
-         => Int -> Int -> DeltaR ranked r (1 + n) -> Int
-         -> DeltaR ranked r (1 + n)
+         => Int -> Int -> DeltaR ranked shaped r (1 + n) -> Int
+         -> DeltaR ranked shaped r (1 + n)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
   ReverseR :: KnownNat n
-           => DeltaR ranked r (1 + n) -> DeltaR ranked r (1 + n)
+           => DeltaR ranked shaped r (1 + n) -> DeltaR ranked shaped r (1 + n)
     -- ^ Reverse elements of the outermost dimension.
   TransposeR :: KnownNat n
-             => Permutation -> DeltaR ranked r n -> DeltaR ranked r n
+             => Permutation -> DeltaR ranked shaped r n
+             -> DeltaR ranked shaped r n
     -- ^ Transpose according to the permutation.
   ReshapeR :: (KnownNat n, KnownNat m)
-           => ShapeInt n -> ShapeInt m -> DeltaR ranked r n -> DeltaR ranked r m
+           => ShapeInt n -> ShapeInt m -> DeltaR ranked shaped r n
+          -> DeltaR ranked shaped r m
     -- ^ Change the shape of the tensor from the first to the second.
   BuildR :: KnownNat n
-         => Int -> (IntOf (ranked r 0) -> DeltaR ranked r n)
-         -> DeltaR ranked r (1 + n)
+         => Int -> (IntOf (ranked r 0) -> DeltaR ranked shaped r n)
+         -> DeltaR ranked shaped r (1 + n)
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
   GatherR :: (KnownNat m, KnownNat p, KnownNat n)
-          => ShapeInt (m + n) -> DeltaR ranked r (p + n)
+          => ShapeInt (m + n) -> DeltaR ranked shaped r (p + n)
           -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
           -> ShapeInt (p + n)
-          -> DeltaR ranked r (m + n)
+          -> DeltaR ranked shaped r (m + n)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const Z) [] (ScalarR d) k@ is equivalent
@@ -227,15 +232,16 @@ data DeltaR :: (Type -> Nat -> Type) -> Type -> Nat -> Type where
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
 
-  DToR :: forall ranked shaped n r. DeltaD ranked shaped r -> DeltaR ranked r n
+  DToR :: forall ranked shaped n r. DeltaD ranked shaped r
+       -> DeltaR ranked shaped r n
 
 deriving instance (Show (IntOf (ranked r 0)), Show r)
-                  => Show (DeltaR ranked r n)
+                  => Show (DeltaR ranked shaped r n)
 
 data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> Type where
   RToD :: forall ranked shaped n r. KnownNat n
-         => DeltaR ranked r n -> DeltaD ranked shaped r
+         => DeltaR ranked shaped r n -> DeltaD ranked shaped r
 
 deriving instance (Show (IntOf (ranked r 0)), Show r)
                   => Show (DeltaD ranked shaped r)
@@ -256,8 +262,8 @@ toInputId i = assert (i >= 0) $ InputId i
 type family Dual a = result | result -> a where
   Dual (OD.Array r) = DeltaD (Flip OR.Array) (Flip OS.Array) r
   Dual (AstDynamic r) = DeltaD AstRanked AstShaped r
-  Dual (Flip OR.Array r n) = DeltaR (Flip OR.Array) r n
-  Dual (AstRanked r n) = DeltaR AstRanked r n
+  Dual (Flip OR.Array r n) = DeltaR (Flip OR.Array) (Flip OS.Array) r n
+  Dual (AstRanked r n) = DeltaR AstRanked AstShaped r n
   Dual (Flip OS.Array sh n) = DeltaS (Flip OR.Array) (Flip OS.Array) sh n
   Dual (AstShaped sh n) = DeltaS AstRanked AstShaped sh n
 
@@ -272,7 +278,7 @@ data DeltaDt ranked shaped r =
     forall sh. OS.Shape sh
     => DeltaDtS () (DeltaS ranked shaped r sh)  -- TODO
   | forall n. KnownNat n
-    => DeltaDtR (ranked r n) (DeltaR ranked r n)
+    => DeltaDtR (ranked r n) (DeltaR ranked shaped r n)
 
 -- | The state of evaluation. It consists of several maps.
 -- The maps indexed by input identifiers and node identifiers
@@ -317,7 +323,7 @@ data DeltaBinding ranked shaped r =
     forall sh. OS.Shape sh
     => DeltaBindingS (DeltaS ranked shaped r sh)
   | forall n. KnownNat n
-    => DeltaBindingR (DeltaR ranked r n)
+    => DeltaBindingR (DeltaR ranked shaped r n)
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
 -- in function 'derivativeFromDelta'. However, we are usually more
@@ -486,7 +492,7 @@ buildFinMaps s0 deltaDt =
 
       evalR :: forall n. KnownNat n
             => EvalState ranked shaped r
-            -> ranked r n -> DeltaR ranked r n
+            -> ranked r n -> DeltaR ranked shaped r n
             -> EvalState ranked shaped r
       evalR s !c = let (abShared, cShared) =
                          inline tregister c (astBindings s)
@@ -600,7 +606,7 @@ class ForwardDerivative (ranked :: Type -> Nat -> Type) a r where
 
 instance ( KnownNat n, GoodScalar r, Tensor ranked
          , ConvertTensor ranked shaped
-         , Dual (ranked r n) ~ DeltaR ranked r n )
+         , Dual (ranked r n) ~ DeltaR ranked shaped r n )
          => ForwardDerivative ranked (ranked r n) r where
   derivativeFromDelta dimR deltaTopLevel ds =
     case runST $ buildDerivative dimR (DeltaDtR 0 deltaTopLevel) ds of
@@ -621,7 +627,7 @@ buildDerivative dimR deltaDt params = do
   dMapR <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
   let evalR :: forall n. KnownNat n
-            => DeltaR ranked r n -> ST s (ranked r n)
+            => DeltaR ranked shaped r n -> ST s (ranked r n)
       evalR = \case
         ZeroR -> return $! tzero $ listShapeToShape $ replicate (valueOf @n) 1
           -- TODO: wrong shape but it often works and the special cases

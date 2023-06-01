@@ -15,6 +15,7 @@ import           Control.Arrow (second)
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
@@ -664,25 +665,25 @@ interpretAstRelOp opCodeRel args =
   => AstEnv (Tannen ADVal (Flip OR.Array)) Double
   -> AstMemo Double
   -> AstDualPart Double n
-  -> (AstMemo Double, Product (Clown ADShare) (DeltaR (Flip OR.Array)) Double n) #-}
+  -> (AstMemo Double, Product (Clown ADShare) (DeltaR (Flip OR.Array) (Flip OS.Array)) Double n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (Tannen ADVal (Flip OR.Array)) Float
   -> AstMemo Float
   -> AstDualPart Float n
-  -> (AstMemo Float, Product (Clown ADShare) (DeltaR (Flip OR.Array)) Float n) #-}
+  -> (AstMemo Float, Product (Clown ADShare) (DeltaR (Flip OR.Array) (Flip OS.Array)) Float n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (Tannen ADVal AstRanked) Double
   -> AstMemo Double
   -> AstDualPart Double n
-  -> (AstMemo Double, Product (Clown ADShare) (DeltaR AstRanked) Double n) #-}
+  -> (AstMemo Double, Product (Clown ADShare) (DeltaR AstRanked AstShaped) Double n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (Tannen ADVal AstRanked) Float
   -> AstMemo Float
   -> AstDualPart Float n
-  -> (AstMemo Float, Product (Clown ADShare) (DeltaR AstRanked) Float n) #-}
+  -> (AstMemo Float, Product (Clown ADShare) (DeltaR AstRanked AstShaped) Float n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (Flip OR.Array) Double
