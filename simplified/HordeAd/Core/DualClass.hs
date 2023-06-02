@@ -1,7 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-{-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | The classes generalizing delta expressions and exposing them
 -- in a more polymorphic way.
 -- This is a mid-level API ("HordeAd.Core.Delta" is low level)
@@ -140,9 +139,10 @@ instance (IsPrimalA r, KnownNat n)
   letWrapPrimal = letWrapPrimalA
   intOfShape = intOfShapeA
 
--- | The class provides methods required for the second type parameter
--- to be the underlying scalar of a well behaved collection of dual numbers
--- of various ranks wrt the differentation mode given in the first parameter.
+-- This indirection indueces a few blocks of boilerplate in this module
+-- but makes unnecessary hundreds of type applications, repeated
+-- and instantiated method signatures and explicit foralls elsewhere,
+-- mostly in TensorADVal.
 class HasRanks ranked where
   dInputR :: InputId (ranked r n) -> Dual (ranked r n)
   dIndexR :: (KnownNat n, KnownNat m)
@@ -190,11 +190,21 @@ class HasRanks ranked where
            -> ShapeInt (p + n)
            -> Dual (ranked r (m + n))
 
-class HasConversions ranked where
-  dDToR :: KnownNat n
-         => Dual (DynamicOf ranked r) -> Dual (ranked r n)
+-- This indirection is useful to prevent long strings of trivial
+-- conversions on tape stemming from packing tensors into Domains.
+class HasConversions ranked shaped | ranked -> shaped, shaped -> ranked where
+  dDToR :: forall n r. KnownNat n
+        => Dual (DynamicOf ranked r) -> Dual (ranked r n)
+  dSToR :: forall sh r. KnownNat (OS.Rank sh)
+        => Dual (shaped r sh) -> Dual (ranked r (OS.Rank sh))
   dRToD :: KnownNat n
-         => Dual (ranked r n) -> Dual (DynamicOf ranked r)
+        => Dual (ranked r n) -> Dual (DynamicOf ranked r)
+  dSToD :: (OS.Shape sh, KnownNat (OS.Rank sh))
+        => Dual (shaped r sh) -> Dual (DynamicOf shaped r)
+  dRToS :: OS.Shape sh
+        => Dual (ranked r (OS.Rank sh)) -> Dual (shaped r sh)
+  dDToS :: OS.Shape sh
+        => Dual (DynamicOf ranked r) -> Dual (shaped r sh)
 
 
 -- * Delta expression method instances
@@ -301,16 +311,27 @@ instance HasRanks (Flip OR.Array) where
   dBuildR = BuildR
   dGatherR = GatherR
 
-instance (dynamic ~ OD.Array, ranked ~ Flip OR.Array)
-         => HasConversions (Flip OR.Array) where
-  dDToR :: forall n2 r. KnownNat n2
-         => Dual (dynamic r) -> Dual (ranked r n2)
+instance (dynamic ~ OD.Array, ranked ~ Flip OR.Array, shaped ~ Flip OS.Array)
+         => HasConversions (Flip OR.Array) (Flip OS.Array) where
+  dDToR :: forall n r. KnownNat n
+         => Dual (dynamic r) -> Dual (ranked r n)
   dDToR (RToD @_ @_ @n1 d) =
-    case sameNat (Proxy @n1) (Proxy @n2) of
+    case sameNat (Proxy @n1) (Proxy @n) of
       Just Refl -> d
       _ -> error "dDToR: different ranks in DToR(RToD)"
   dDToR d = DToR d
+  dSToR :: forall sh r. KnownNat (OS.Rank sh)
+        => Dual (shaped r sh) -> Dual (ranked r (OS.Rank sh))
+  dSToR (RToS @_ @_ @sh1 d) =
+    -- TODO: compare sh, not n:
+    case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
+      Just Refl -> d
+      _ -> error "dSToR: different shapes in SToR(RToS)"
+  dSToR d = SToR d
   dRToD = RToD
+  dSToD = SToD
+  dRToS = RToS
+  dDToS = DToS
 
 instance HasRanks AstRanked where
   dInputR = InputR
@@ -330,16 +351,29 @@ instance HasRanks AstRanked where
   dBuildR = BuildR
   dGatherR = GatherR
 
-instance (dynamic ~ AstDynamic, ranked ~ AstRanked)
-         => HasConversions AstRanked where
-  dDToR :: forall n2 r. KnownNat n2
-         => Dual (dynamic r) -> Dual (ranked r n2)
+instance (dynamic ~ AstDynamic, ranked ~ AstRanked, shaped ~ AstShaped)
+         => HasConversions AstRanked AstShaped where
+  dDToR :: forall n r. KnownNat n
+         => Dual (dynamic r) -> Dual (ranked r n)
   dDToR (RToD @_ @_ @n1 d) =
-    case sameNat (Proxy @n1) (Proxy @n2) of
+    case sameNat (Proxy @n1) (Proxy @n) of
       Just Refl -> d
       _ -> error "dDToR: different ranks in DToR(RToD)"
   dDToR d = DToR d
+  dSToR :: forall sh r. KnownNat (OS.Rank sh)
+-- TODO: test in new GHC and report; this doesn't work:
+--        => Dual (shaped r sh) -> Dual (ranked r (OS.Rank sh))
+        => Dual (AstShaped r sh) -> Dual (AstRanked r (OS.Rank sh))
+  dSToR (RToS @_ @_ @sh1 d) =
+    -- TODO: compare sh, not n:
+    case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
+      Just Refl -> d
+      _ -> error "dSToR: different shapes in SToR(RToS)"
+  dSToR d = SToR d
   dRToD = RToD
+  dSToD = SToD
+  dRToS = RToS
+  dDToS = DToS
 
 
 -- * Counter handling

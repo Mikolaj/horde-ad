@@ -347,7 +347,7 @@ slowFwdOnDomains parameters f ds =
 generateDeltaInputs
   :: forall ranked shaped r dynamic.
      ( dynamic ~ DynamicOf ranked, ConvertTensor ranked shaped, GoodScalar r
-     , HasRanks ranked, HasConversions ranked )
+     , HasRanks ranked, HasConversions ranked shaped )
   => Domains dynamic r
   -> Data.Vector.Vector (Dual (dynamic r))
 generateDeltaInputs params =
