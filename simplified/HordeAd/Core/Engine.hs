@@ -5,16 +5,12 @@
 -- high-level API of the horde-ad library. Adaptors, optimizers, etc.,
 -- are add-ons.
 module HordeAd.Core.Engine
-  ( -- * The adaptors
-    revL, revDtMaybeL, revDtFun, revDtInit, revDtInterpret, rev, revDt
+  ( revL, revDtMaybeL, revDtFun, revDtInit, revDtInterpret, rev, revDt
   , crev, crevDt, fwd
-  , -- * The most often used part of the high-level API
-    revAstOnDomains, revOnDomains
-  , -- * Operations exposed not for the library users but add-on makers
-    revAstOnDomainsF, revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
+  , revAstOnDomains, revOnDomains
+  , revAstOnDomainsF, revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
   , generateDeltaInputs, makeADInputs
-  , -- * Internal operations, exposed, e.g., for tests
-    slowFwdOnADInputs, slowFwdOnDomains
+  ,  slowFwdOnADInputs, slowFwdOnDomains
   ) where
 
 import Prelude
@@ -49,7 +45,7 @@ import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorClass
 
--- * Adaptor objective functions with more complex domains
+-- * Gradient adaptors
 
 -- These only work with non-scalar codomain. A fully general version
 -- is possible, but the user has to write many more type applications.
@@ -145,49 +141,6 @@ revDt
   => (astvals -> AstRanked r n) -> vals -> Flip OR.Array r n -> vals
 revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 
--- Old version of the three functions, with constant, fixed inputs and dt.
-crev
-  :: forall n r vals advals ranked.
-     ( ranked ~ Tannen ADVal (Flip OR.Array)
-     , AdaptableDomains (DynamicOf ranked) advals
-     , AdaptableDomains OD.Array vals
-     , IsPrimalR r, KnownNat n, GoodScalar r
-     , r ~ Underlying vals, vals ~ Value vals
-     , vals ~ Value advals, Underlying advals ~ r )
-  => (advals -> ranked r n) -> vals
-  -> vals
-crev f vals = crevDtMaybe f vals Nothing
-
--- This version additionally takes the sensitivity parameter.
-crevDt
-  :: forall n r vals advals ranked.
-     ( ranked ~ Tannen ADVal (Flip OR.Array)
-     , AdaptableDomains (DynamicOf ranked) advals
-     , AdaptableDomains OD.Array vals
-     , IsPrimalR r, KnownNat n, GoodScalar r
-     , r ~ Underlying vals, vals ~ Value vals
-     , vals ~ Value advals, Underlying advals ~ r )
-  => (advals -> ranked r n) -> vals -> OR.Array n r
-  -> vals
-crevDt f vals dt = crevDtMaybe f vals (Just dt)
-
-crevDtMaybe
-  :: forall n r vals advals ranked.
-     ( ranked ~ Tannen ADVal (Flip OR.Array)
-     , AdaptableDomains (DynamicOf ranked) advals
-     , AdaptableDomains OD.Array vals
-     , IsPrimalR r, KnownNat n, GoodScalar r
-     , r ~ Underlying vals, vals ~ Value vals
-     , vals ~ Value advals, Underlying advals ~ r )
-  => (advals -> ranked r n) -> vals -> Maybe (OR.Array n r)
-  -> vals
-crevDtMaybe f vals dt =
-  let g inputs = runTannen $ f $ parseDomains vals inputs
-  in parseDomains vals $ fst $ revOnDomains (Flip <$> dt) g (toDomains vals)
-
-
--- * Evaluation that computes gradients.
-
 -- A new version that produced the gradient function, which can be
 -- applied multiple times to input and dt. The second component
 -- of the result is the objective function value, inefficiently
@@ -261,6 +214,48 @@ revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
       primalTensor = snd $ interpretAst env1 memo1 primal
   in (gradientDomain, primalTensor)
 
+
+-- * Old gradient adaptors, with constant and fixed inputs and dt.
+
+crev
+  :: forall n r vals advals ranked.
+     ( ranked ~ Tannen ADVal (Flip OR.Array)
+     , AdaptableDomains (DynamicOf ranked) advals
+     , AdaptableDomains OD.Array vals
+     , IsPrimalR r, KnownNat n, GoodScalar r
+     , r ~ Underlying vals, vals ~ Value vals
+     , vals ~ Value advals, Underlying advals ~ r )
+  => (advals -> ranked r n) -> vals
+  -> vals
+crev f vals = crevDtMaybe f vals Nothing
+
+-- This version additionally takes the sensitivity parameter.
+crevDt
+  :: forall n r vals advals ranked.
+     ( ranked ~ Tannen ADVal (Flip OR.Array)
+     , AdaptableDomains (DynamicOf ranked) advals
+     , AdaptableDomains OD.Array vals
+     , IsPrimalR r, KnownNat n, GoodScalar r
+     , r ~ Underlying vals, vals ~ Value vals
+     , vals ~ Value advals, Underlying advals ~ r )
+  => (advals -> ranked r n) -> vals -> OR.Array n r
+  -> vals
+crevDt f vals dt = crevDtMaybe f vals (Just dt)
+
+crevDtMaybe
+  :: forall n r vals advals ranked.
+     ( ranked ~ Tannen ADVal (Flip OR.Array)
+     , AdaptableDomains (DynamicOf ranked) advals
+     , AdaptableDomains OD.Array vals
+     , IsPrimalR r, KnownNat n, GoodScalar r
+     , r ~ Underlying vals, vals ~ Value vals
+     , vals ~ Value advals, Underlying advals ~ r )
+  => (advals -> ranked r n) -> vals -> Maybe (OR.Array n r)
+  -> vals
+crevDtMaybe f vals dt =
+  let g inputs = runTannen $ f $ parseDomains vals inputs
+  in parseDomains vals $ fst $ revOnDomains (Flip <$> dt) g (toDomains vals)
+
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
@@ -295,7 +290,7 @@ revOnDomains dt f parameters =
   in revOnADInputs dt f inputs
 
 
--- * The slow evaluation producing objective function derivatives
+-- * Old derivative adaptors
 
 -- It uses the same delta expressions as for gradients. See @fwdOnDomains@
 -- for a fast variant (TODO: not ported from the old code yet).
