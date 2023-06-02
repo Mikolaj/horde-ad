@@ -297,15 +297,35 @@ class (Underlying a ~ Underlying b, Underlying b ~ Underlying a)
 instance (Underlying a ~ Underlying b, Underlying b ~ Underlying a)
          => UnderlyingMatches a b where
 
-class (forall r11 y. (KnownNat y, GoodScalar r11)
-      => c (DynamicOf ranked r11) (ranked r11 y))
+class (forall r11 y11. (GoodScalar r11, KnownNat y11)
+       => c (DynamicOf ranked r11) (ranked r11 y11))
       => CDynamicRanked ranked c where
-instance (forall r11 y. (KnownNat y, GoodScalar r11)
-         => c (DynamicOf ranked r11) (ranked r11 y))
-         => CDynamicRanked ranked c where
+instance
+      (forall r11 y11. (GoodScalar r11, KnownNat y11)
+       => c (DynamicOf ranked r11) (ranked r11 y11))
+      => CDynamicRanked ranked c where
 
-class ( CDynamicRanked ranked UnderlyingMatches
-      , DynamicOf ranked ~ DynamicOf shaped )
+class (forall r11 sh11. (GoodScalar r11, OS.Shape sh11)
+       => c (DynamicOf shaped r11) (shaped r11 sh11))
+      => CDynamicShaped shaped c where
+instance
+      (forall r11 sh11. (GoodScalar r11, OS.Shape sh11)
+       => c (DynamicOf shaped r11) (shaped r11 sh11))
+      => CDynamicShaped shaped c where
+
+class (forall r11 y11 sh11. (GoodScalar r11, KnownNat y11, OS.Shape sh11)
+       => c (ranked r11 y11) (shaped r11 sh11))
+      => CRankedShaped ranked shaped c where
+instance
+      (forall r11 y11 sh11. (GoodScalar r11, KnownNat y11, OS.Shape sh11)
+       => c (ranked r11 y11) (shaped r11 sh11))
+      => CRankedShaped ranked shaped c where
+
+class ( DynamicOf ranked ~ DynamicOf shaped
+      , DynamicOf shaped ~ DynamicOf ranked
+      , CDynamicRanked ranked UnderlyingMatches
+      , CDynamicShaped shaped UnderlyingMatches
+      , CRankedShaped ranked shaped UnderlyingMatches )
       => ConvertTensor (ranked :: Type -> Nat -> Type)
                        (shaped :: Type -> [Nat] -> Type)
                        | ranked -> shaped, shaped -> ranked where

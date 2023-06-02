@@ -306,11 +306,19 @@ instance (HasConversions ranked shaped, ConvertTensor ranked shaped)
          => ConvertTensor (Tannen ADVal ranked)
                           (Tannen ADVal shaped) where
   tfromD = Tannen . dToR . getCompose
-  tfromS = undefined
+  tfromS = Tannen . sToR . runTannen
+   where
+    sToR (D l u u') = dDnotShared l (tfromS u) (dSToR u')
   dfromR = Compose . rToD . runTannen
-  dfromS = undefined
-  sfromD = undefined
-  sfromR = undefined
+  dfromS = Compose . sToD . runTannen
+   where
+    sToD (D l u u') = dDnotShared l (dfromS u) (dSToD u')
+  sfromD = Tannen . dToS . getCompose
+   where
+    dToS (D l u u') = dDnotShared l (sfromD u) (dDToS u')
+  sfromR = Tannen . rToS . runTannen
+   where
+    rToS (D l u u') = dDnotShared l (sfromR u) (dRToS u')
   ddummy = undefined
   disDummy = undefined
   daddR = undefined
