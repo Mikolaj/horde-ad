@@ -5,19 +5,18 @@
 -- | 'Tensor' class instances for dual number. The dual numbers are built
 -- either from concrete floats or from 'Ast' term.
 module HordeAd.Core.TensorADVal
-  (
+  ( ADValClown
   ) where
 
 import Prelude hiding ((<*))
 
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
-import           Data.Bifunctor.Tannen
 import           Data.Boolean
-import           Data.Functor.Compose
 import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
@@ -32,28 +31,28 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
-type instance BooleanOf (ADVal a) = BooleanOf a
+type instance BooleanOf (ADVal f r z) = BooleanOf (f r z)
 
--- Boolean and numeric instances are easy to define for ADVal a
--- and then Compose and Tannen instances are auto-derived on top of them.
+-- Boolean and numeric instances are easy to define for ADVal f r z
+-- and then Clown, Flip and other instances are auto-derived on top of them.
 -- OTOH, AdaptableDomains and other such instances are best defined
--- directly for Compose and Tannen applied to ADVal.
-instance (EqB a, IsPrimal a) => EqB (ADVal a) where
+-- directly for Clown and others applied to ADVal.
+instance (EqB (f r z), IsPrimal (f r z)) => EqB (ADVal f r z) where
   D l1 u _ ==* D l2 v _ = letWrapPrimal l1 u ==* letWrapPrimal l2 v
   D l1 u _ /=* D l2 v _ = letWrapPrimal l1 u /=* letWrapPrimal l2 v
 
-instance (OrdB a, IsPrimal a) => OrdB (ADVal a) where
+instance (OrdB (f r z), IsPrimal (f r z)) => OrdB (ADVal f r z) where
   D l1 u _ <* D l2 v _ = letWrapPrimal l1 u <* letWrapPrimal l2 v
   D l1 u _ <=* D l2 v _ = letWrapPrimal l1 u <=* letWrapPrimal l2 v
   D l1 u _ >* D l2 v _ = letWrapPrimal l1 u >* letWrapPrimal l2 v
   D l1 u _ >=* D l2 v _ = letWrapPrimal l1 u >=* letWrapPrimal l2 v
 
-instance IfB (ADVal (Flip OR.Array r n)) where
+instance IfB (ADVal (Flip OR.Array) r n) where
   ifB b v w = if b then v else w
 
 -- This requires the Tensor instance, hence the definitions must be here.
 instance (KnownNat n, GoodScalar r)
-         => IfB (ADVal (AstRanked r n)) where
+         => IfB (ADVal AstRanked r n) where
   ifB b v w = indexZ (fromList [v, w]) (singletonIndex $ ifB b 0 1)
 
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
@@ -66,58 +65,91 @@ indexZ :: forall ranked m n r.
           ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r n)
           , KnownNat m, KnownNat n, GoodScalar r
           , Underlying (ranked r (m + n)) ~ Underlying (ranked r n) )
-       => ADVal (ranked r (m + n)) -> IndexOf (ranked r 0) m
-       -> ADVal (ranked r n)
+       => ADVal ranked r (m + n) -> IndexOf (ranked r 0) m
+       -> ADVal ranked r n
 indexZ (D l u u') ix = dD l (tindex u ix) (dIndexR u' ix (tshape u))
 
 fromList :: ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r (1 + n)), KnownNat n, GoodScalar r
             , Underlying (ranked r n) ~ Underlying (ranked r (1 + n)) )
-         => [ADVal (ranked r n)]
-         -> ADVal (ranked r (1 + n))
+         => [ADVal ranked r n]
+         -> ADVal ranked r (1 + n)
 fromList lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
   dD (flattenADShare $ map ((\(D l _ _) -> l)) lu)
      (tfromList $ map (\(D _ u _) -> u) lu)
      (dFromListR $ map (\(D _ _ u') -> u') lu)
 
+type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
+
+-- TODO: remove
 instance GoodScalar r
-         => AdaptableDomains (Compose ADVal dynamic)
-                             (Compose ADVal dynamic r) where
-  type Underlying (Compose ADVal dynamic r) = r
-  type Value (Compose ADVal dynamic r) = dynamic r
+         => AdaptableDomains (ADValClown dynamic)
+                             (ADVal (Clown dynamic) r '()) where
+  type Underlying (ADVal (Clown dynamic) r '()) = r
+  type Value (ADVal (Clown dynamic) r '()) = dynamic r
+  toDomains = undefined
+  fromDomains = undefined
+
+instance GoodScalar r
+         => AdaptableDomains (ADValClown AstDynamic)
+                             (Clown AstDynamic r '()) where
+  type Underlying (Clown AstDynamic r '()) = r
+  type Value (Clown AstDynamic r '()) = AstDynamic r
+  toDomains = undefined
+  fromDomains = undefined
+
+instance GoodScalar r
+         => AdaptableDomains (ADValClown OD.Array)
+                             (Clown OD.Array r '()) where
+  type Underlying (Clown OD.Array r '()) = r
+  type Value (Clown OD.Array r '()) = OD.Array r
+  toDomains = undefined
+  fromDomains = undefined
+
+instance GoodScalar r
+         => AdaptableDomains (ADValClown dynamic)
+                             (ADValClown dynamic r) where
+  type Underlying (ADValClown dynamic r) = r
+  type Value (ADValClown dynamic r) = dynamic r
   toDomains = undefined
   fromDomains = undefined
 
 instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
-         , ConvertTensor ranked shaped, HasConversions ranked shaped )
-         => AdaptableDomains (Compose ADVal dynamic)
-                             (Tannen ADVal ranked r n) where
-  type Underlying (Tannen ADVal ranked r n) = r
-  type Value (Tannen ADVal ranked r n) = Flip OR.Array r n  -- !!! not ranked
+         , ConvertTensor ranked shaped, HasConversions ranked shaped
+         , Underlying (ranked r n)
+           ~ Underlying (Clown dynamic r '()) )
+         => AdaptableDomains (ADValClown dynamic)
+                             (ADVal ranked r n) where
+  type Underlying (ADVal ranked r n) = r
+  type Value (ADVal ranked r n) = Flip OR.Array r n  -- !!! not ranked
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
-    Just (a, rest) -> Just (Tannen $ dToR $ getCompose a, rest)
+    Just (a, rest) -> Just (dToR (runFlip a), rest)
     Nothing -> Nothing
 
 instance ( GoodScalar r, dynamic ~ DynamicOf shaped
          , ConvertTensor ranked shaped, HasConversions ranked shaped )
-         => AdaptableDomains (Compose ADVal dynamic)
-                             (Tannen ADVal shaped r sh) where
-  type Underlying (Tannen ADVal shaped r sh) = r
-  type Value (Tannen ADVal shaped r sh) = Flip OS.Array r sh  -- !!! not shaped
+         => AdaptableDomains (ADValClown dynamic)
+                             (ADVal shaped r sh) where
+  type Underlying (ADVal shaped r sh) = r
+  type Value (ADVal shaped r sh) = Flip OS.Array r sh  -- !!! not shaped
   toDomains = undefined
   fromDomains = undefined
 
 dToR :: forall ranked shaped n r.
         ( ConvertTensor ranked shaped, HasConversions ranked shaped
-        , KnownNat n, GoodScalar r )
-      => ADVal (DynamicOf ranked r) -> ADVal (ranked r n)
-dToR (D l u u') = dDnotShared l (tfromD u) (dDToR u')
+        , KnownNat n, GoodScalar r
+        , Underlying (ranked r n)
+          ~ Underlying (Clown (DynamicOf shaped) r '()) )
+      => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal ranked r n
+dToR (D l u u') = dDnotShared l (tfromD $ runClown u) (dDToR u')
 
 rToD :: ( ConvertTensor ranked shaped, HasConversions ranked shaped
-        , KnownNat n, GoodScalar r )
-      => ADVal (ranked r n) -> ADVal (DynamicOf ranked r)
-rToD (D l u u') = dDnotShared l (dfromR u) (dRToD u')
+        , KnownNat n, GoodScalar r
+        , Underlying (ranked r n)
+          ~ Underlying (Clown (DynamicOf shaped) r '()) )
+      => ADVal ranked r n -> ADVal (Clown (DynamicOf ranked)) r '()
+rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (dRToD u')
 
 class ( Dual (ranked r y) ~ DeltaR ranked shaped r y
       , DeltaR ranked shaped r y ~ Dual (ranked r y) )
@@ -160,31 +192,31 @@ class (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
 instance (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
          => CRanked ranked c where
 
-type instance IntOf (Tannen ADVal f r n) = IntOf (f r n)
+type instance IntOf (ADVal f r n) = IntOf (f r n)
 
-type instance PrimalOf (Tannen ADVal f) = f
+type instance PrimalOf (ADVal f) = f
 
 -- Morally:
 -- type instance DualOf (Tannen ADVal f) = Product (Clown ADShare)
 --                                                 (\r k -> Dual (f r k))
 
-type instance DualOf (Tannen ADVal (Flip OR.Array)) =
+type instance DualOf (ADVal (Flip OR.Array)) =
   Product (Clown ADShare)
           (DeltaR (Flip OR.Array) (Flip OS.Array))
 
-type instance DualOf (Tannen ADVal AstRanked) =
+type instance DualOf (ADVal AstRanked) =
   Product (Clown ADShare)
           (DeltaR AstRanked AstShaped)
 
-type instance DualOf (Tannen ADVal (Flip OS.Array)) =
+type instance DualOf (ADVal (Flip OS.Array)) =
   Product (Clown ADShare)
           (DeltaS (Flip OR.Array) (Flip OS.Array))
 
-type instance DualOf (Tannen ADVal AstShaped) =
+type instance DualOf (ADVal AstShaped) =
   Product (Clown ADShare)
           (DeltaS AstRanked AstShaped)
 
-type instance DynamicOf (Tannen ADVal f) = (Compose ADVal (DynamicOf f))
+type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
@@ -193,7 +225,7 @@ type instance DynamicOf (Tannen ADVal f) = (Compose ADVal (DynamicOf f))
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance ( DualOf (Tannen ADVal ranked)
+instance ( DualOf (ADVal ranked)
            ~ Product (Clown ADShare) (DeltaR ranked shaped)
          , CRanked2 ranked UnderlyingMatches2
          , CYRanked ranked shaped DualIsDeltaR
@@ -203,122 +235,142 @@ instance ( DualOf (Tannen ADVal ranked)
          , CRanked ranked Show
          , HasRanks ranked
          , Tensor ranked )
-         => Tensor (Tannen ADVal ranked) where
-  tlet (Tannen (D l u u')) f =
+         => Tensor (ADVal ranked) where
+  tlet (D l u u') f =
     let (l2, var2) = recordSharingPrimal u l
-    in f (Tannen (D l2 var2 u'))
+    in f (D l2 var2 u')
       -- TODO: What about sharing u'?
 
-  tshape (Tannen (D _ u _)) = tshape u
+  tshape (D _ u _) = tshape u
   -- This is very slow, but is fortunately not needed:
   -- tshape (D l u _) = tshape (tletWrap l u)
-  tminIndex0 (Tannen (D l u _)) = tminIndex0 (tletWrap l u)
-  tmaxIndex0 (Tannen (D l u _)) = tmaxIndex0 (tletWrap l u)
-  tfloor (Tannen (D l u _)) = tfloor (tletWrap l u)
+  tminIndex0 (D l u _) = tminIndex0 (tletWrap l u)
+  tmaxIndex0 (D l u _) = tmaxIndex0 (tletWrap l u)
+  tfloor (D l u _) = tfloor (tletWrap l u)
 
-  tindex v ix = Tannen $ indexZ (runTannen v) ix
-  tsum = Tannen . sum' . runTannen
+  tindex v ix = indexZ v ix
+  tsum = sum'
    where
     sum' (D l u u') = dD l (tsum u) (dSumR (tlength u) u')
-  tsum0 = Tannen . sum0 . runTannen
+  tsum0 = sum0
    where
     sum0 (D l u u') = dD l (tsum0 u) (dSum0R (tshape u) u')
-  tdot0 = \u v -> Tannen $ dot0 (runTannen u) (runTannen v)
+  tdot0 = \u v -> dot0 u v
    where
     dot0 (D l1 ue u') (D l2 ve v') =
       -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
       let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
           !(!l4, v) = recordSharingPrimal ve l3
       in dD l4 (tdot0 u v) (dAdd (dDot0R v u') (dDot0R u v'))
-  tfromIndex0 = \ix -> Tannen $ dDnotShared emptyADShare (tfromIndex0 ix) dZero
-  tscatter = \sh t f -> Tannen $ scatterNClosure sh (runTannen t) f
+  tfromIndex0 = \ix -> dDnotShared emptyADShare (tfromIndex0 ix) dZero
+  tscatter = \sh t f -> scatterNClosure sh t f
    where
     scatterNClosure sh (D l u u') f =
       dD l (tscatter sh u f) (dScatterR sh u' f (tshape u))
 
-  tfromList = Tannen . fromList . map runTannen
-  tfromVector = Tannen . fromVector . V.map runTannen
+  tfromList = fromList
+  tfromVector = fromVector
    where
     fromVector lu =
       dD (flattenADShare $ map ((\(D l _ _) -> l)) $ V.toList lu)
          (tfromVector $ V.map (\(D _ u _) -> u) lu)
          (dFromVectorR $ V.map (\(D _ _ u') -> u') lu)
-  treplicate = \k -> Tannen . replicate' k . runTannen
+  treplicate = \k -> replicate' k
    where
     replicate' k (D l u u') = dD l (treplicate k u) (dReplicateR k u')
-  tappend = \u v -> Tannen $ append (runTannen u) (runTannen v)
+  tappend = \u v -> append u v
    where
     append (D l1 u u') (D l2 v v') =
       dD (l1 `mergeADShare` l2) (tappend u v) (dAppendR u' (tlength u) v')
-  tslice = \i k -> Tannen . slice i k . runTannen
+  tslice = \i k -> slice i k
    where
     slice i k (D l u u') = dD l (tslice i k u) (dSliceR i k u' (tlength u))
-  treverse = Tannen . reverse' . runTannen
+  treverse = reverse'
    where
     reverse' (D l u u') = dD l (treverse u) (dReverseR u')
-  ttranspose = \perm -> Tannen . transpose perm . runTannen
+  ttranspose = \perm -> transpose perm
    where
     transpose perm (D l u u') = dD l (ttranspose perm u) (dTransposeR perm u')
   treshape :: forall n m r. (GoodScalar r, KnownNat n, KnownNat m)
-           => ShapeInt m -> Tannen ADVal ranked r n -> Tannen ADVal ranked r m
-  treshape = \sh -> Tannen . reshape sh . runTannen
+           => ShapeInt m -> ADVal ranked r n -> ADVal ranked r m
+  treshape = \sh -> reshape sh
    where
     reshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
       Just Refl | sh == tshape u -> t
       _ -> dD l (treshape sh u) (dReshapeR (tshape u) sh u')
-  tbuild1 = \k f -> Tannen $ build1 k (runTannen . f)
+  tbuild1 = \k f -> build1 k f
    where
     build1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
                    -- element-wise (POPL) version
-  tgather = \sh t f -> Tannen $ gatherNClosure sh (runTannen t) f
+  tgather = \sh t f -> gatherNClosure sh t f
    where
     gatherNClosure sh (D l u u') f =
       dD l (tgather sh u f) (dGatherR sh u' f (tshape u))
 
   tsumOfList lu =
-    Tannen $ dD (flattenADShare $ map ((\(Tannen (D l _ _)) -> l)) lu)
-                (tsumOfList $ map (\(Tannen (D _ u _)) -> u) lu)
-                (foldl1' dAdd $ map (\(Tannen (D _ _ u')) -> u') lu)
+    dD (flattenADShare $ map (\(D l _ _) -> l) lu)
+       (tsumOfList $ map (\(D _ u _) -> u) lu)
+       (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
   -- For whatever reason this signature is necessary to type-check this.
   tmult :: forall n r.
            ( KnownNat n, GoodScalar r
            , Dual (ranked r n) ~ DeltaR ranked shaped r n )
-        => Tannen ADVal ranked r n -> Tannen ADVal ranked r n
-        -> Tannen ADVal ranked r n
-  tmult (Tannen (D l1 ue ZeroR)) (Tannen (D l2 ve v')) =
+        => ADVal ranked r n -> ADVal ranked r n
+        -> ADVal ranked r n
+  tmult (D l1 ue ZeroR) (D l2 ve v') =
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         (l4, v) = recordSharingPrimal ve l3
-    in Tannen $ dD l4 (u * v) (dScale u v')
-  tmult (Tannen (D l1 ue u')) (Tannen (D l2 ve ZeroR)) =
+    in dD l4 (u * v) (dScale u v')
+  tmult (D l1 ue u') (D l2 ve ZeroR) =
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         (l4, v) = recordSharingPrimal ve l3
-    in Tannen $ dD l4 (u * v) (dScale v u')
-  tmult d e = Tannen $ runTannen d * runTannen e
-  tconst t = Tannen $ dDnotShared emptyADShare (tconstBare t) dZero
+    in dD l4 (u * v) (dScale v u')
+  tmult d e = d * e
+  tconst t = dDnotShared emptyADShare (tconstBare t) dZero
 
-  tconstant t = Tannen $ dDnotShared emptyADShare t dZero
-  tprimalPart (Tannen (D l u _)) = tletWrap l u
-  tdualPart (Tannen (D l _ u')) = Pair (Clown l) u'
-  tD ast (Pair (Clown l) delta) = Tannen $ dD l ast delta
+  tconstant t = dDnotShared emptyADShare t dZero
+  tprimalPart (D l u _) = tletWrap l u
+  tdualPart (D l _ u') = Pair (Clown l) u'
+  tD ast (Pair (Clown l) delta) = dD l ast delta
   tScale ast (Pair l delta) = Pair l (dScale ast delta)
 
-instance (HasConversions ranked shaped, ConvertTensor ranked shaped)
-         => ConvertTensor (Tannen ADVal ranked)
-                          (Tannen ADVal shaped) where
-  tfromD = Tannen . dToR . getCompose
-  tfromS = Tannen . sToR . runTannen
+class (forall r11 y11. (GoodScalar r11, KnownNat y11)
+       => c (Clown (DynamicOf ranked) r11 '()) (ranked r11 y11))
+      => CDynamicRankedClown ranked c where
+instance
+      (forall r11 y11. (GoodScalar r11, KnownNat y11)
+       => c (Clown (DynamicOf ranked) r11 '()) (ranked r11 y11))
+      => CDynamicRankedClown ranked c where
+
+class (forall r11 sh11. (GoodScalar r11, OS.Shape sh11)
+       => c (Clown (DynamicOf shaped) r11 '()) (shaped r11 sh11))
+      => CDynamicShapedClown shaped c where
+instance
+      (forall r11 sh11. (GoodScalar r11, OS.Shape sh11)
+       => c (Clown (DynamicOf shaped) r11 '()) (shaped r11 sh11))
+      => CDynamicShapedClown shaped c where
+
+instance ( HasConversions ranked shaped, ConvertTensor ranked shaped
+         , CDynamicRankedClown ranked UnderlyingMatches2
+         , CDynamicShapedClown shaped UnderlyingMatches2 )
+         => ConvertTensor (ADVal ranked)
+                          (ADVal shaped) where
+  tfromD = dToR . runFlip
+  tfromS = sToR
    where
-    sToR (D l u u') = dDnotShared l (tfromS u) (dSToR u')
-  dfromR = Compose . rToD . runTannen
-  dfromS = Compose . sToD . runTannen
+    sToR (D l u u') = dDnotShared l (tfromS @ranked @shaped u) (dSToR u')
+  dfromR = Flip . rToD
+  dfromS = Flip . sToD
    where
-    sToD (D l u u') = dDnotShared l (dfromS u) (dSToD u')
-  sfromD = Tannen . dToS . getCompose
+    sToD (D l u u') = dDnotShared l (Clown $ dfromS @ranked @shaped u)
+                                    (dSToD u')
+  sfromD = dToS . runFlip
    where
-    dToS (D l u u') = dDnotShared l (sfromD u) (dDToS u')
-  sfromR = Tannen . rToS . runTannen
+    dToS (D l u u') = dDnotShared l (sfromD @ranked @shaped (runClown u))
+                                    (dDToS u')
+  sfromR = rToS
    where
-    rToS (D l u u') = dDnotShared l (sfromR u) (dRToS u')
+    rToS (D l u u') = dDnotShared l (sfromR @ranked @shaped u) (dRToS u')
   ddummy = undefined
   disDummy = undefined
   daddR = undefined
@@ -337,8 +389,8 @@ instance (HasConversions ranked shaped, ConvertTensor ranked shaped)
 -- integer sharing and it's shared in the whole transpose result.
 _build1Closure
   :: (Tensor ranked, HasRanks ranked, KnownNat n, GoodScalar r, IsPrimal (ranked r (1 + n)))
-  => Int -> (IntOf (ranked r 0) -> ADVal (ranked r n))
-  -> ADVal (ranked r (1 + n))
+  => Int -> (IntOf (ranked r 0) -> ADVal ranked r n)
+  -> ADVal ranked r (1 + n)
 _build1Closure k f =  -- stores closures on tape
   let g i = let D _ u _ = f i in u
       h i = let D _ _ u' = f i in u'

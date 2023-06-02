@@ -9,9 +9,7 @@ import Prelude
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
-import           Data.Bifunctor.Tannen
 import qualified Data.EnumMap.Strict as EM
-import           Data.Functor.Compose
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty.HUnit hiding (assert)
@@ -23,6 +21,7 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 
 import EqEpsilon
@@ -39,7 +38,7 @@ assertEqualUpToEpsilon1 eps expected result =
 rev' :: forall r m n v g.
         ( KnownNat n, KnownNat m, ADReady AstRanked r
         , InterpretAstA (Flip OR.Array) r
-        , InterpretAstA (Tannen ADVal (Flip OR.Array)) r
+        , InterpretAstA (ADVal (Flip OR.Array)) r
         , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n )
      => (forall f x. ADReady f x => f x n -> f x m)
      -> g
@@ -50,24 +49,24 @@ rev' f vals =
   let value0 = f vals
       parameters = toDomains vals
       dt = Nothing
-      g :: Domains (Compose ADVal OD.Array) r
-        -> Tannen ADVal (Flip OR.Array) r m
+      g :: Domains (ADValClown OD.Array) r
+        -> ADVal (Flip OR.Array) r m
       g inputs = f $ parseDomains vals inputs
-      (advalGrad, value1) = revOnDomains dt (runTannen . g) parameters
+      (advalGrad, value1) = revOnDomains dt g parameters
       gradient1 = parseDomains vals advalGrad
-      g9 :: Domains (Compose ADVal AstDynamic) r
-         -> Tannen ADVal AstRanked r m
+      g9 :: Domains (ADValClown AstDynamic) r
+         -> ADVal AstRanked r m
       g9 inputs = f $ parseDomains vals inputs
       (advalGrad9, value9) = revAstOnDomains g9 parameters dt
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady f1 r
         => (f1 r m -> AstRanked r m) -> (AstRanked r n -> f1 r n)
-        -> (AstRanked r m -> AstRanked r m) -> Domains (Compose ADVal OD.Array) r
-        -> ADVal (Flip OR.Array r m)
+        -> (AstRanked r m -> AstRanked r m) -> Domains (ADValClown OD.Array) r
+        -> ADVal (Flip OR.Array) r m
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseDomains vals inputs) EM.empty
-        in runTannen $ snd $ interpretAst env emptyMemo (gx ast)
+        in snd $ interpretAst env emptyMemo (gx ast)
       (astGrad, value2) =
         revOnDomains dt (h id id id) parameters
       gradient2 = parseDomains vals astGrad
@@ -98,8 +97,8 @@ rev' f vals =
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1 r
            => (f1 r m -> AstRanked r m) -> (AstRanked r n -> f1 r n)
-           -> (AstRanked r m -> AstRanked r m) -> Domains (Compose ADVal AstDynamic) r
-           -> Tannen ADVal AstRanked r m
+           -> (AstRanked r m -> AstRanked r m) -> Domains (ADValClown AstDynamic) r
+           -> ADVal AstRanked r m
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseDomains vals inputs) EM.empty

@@ -9,9 +9,7 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
-import           Data.Bifunctor.Tannen
 import qualified Data.EnumMap.Strict as EM
-import           Data.Functor.Compose
 import           Data.List.Index (imap)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
@@ -32,6 +30,7 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import HordeAd.External.Optimizer
@@ -60,7 +59,7 @@ testTrees = [ tensorADValMnistTests
 mnistTestCase2VTA
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, ADReady (Tannen ADVal ranked) r
+     , ADReady ranked r, ADReady (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -107,13 +106,12 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (Compose ADVal OD.Array) r
-                   -> ADVal (ranked r 0)
+             let f :: MnistData r -> Domains (ADValClown OD.Array) r
+                   -> ADVal ranked r 0
                  f mnist adinputs =
-                   runTannen
-                   $ MnistFcnnRanked1.afcnnMnistLoss1
-                       widthHidden widthHidden2
-                       mnist (parseDomains valsInit adinputs)
+                   MnistFcnnRanked1.afcnnMnistLoss1
+                     widthHidden widthHidden2
+                     mnist (parseDomains valsInit adinputs)
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -158,7 +156,7 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
 mnistTestCase2VTI
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, InterpretAstA (Tannen ADVal ranked) r
+     , ADReady ranked r, InterpretAstA (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -218,8 +216,8 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (Compose ADVal OD.Array) r
-                   -> ADVal (ranked r 0)
+             let f :: MnistData r -> Domains (ADValClown OD.Array) r
+                   -> ADVal ranked r 0
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvD EM.empty
                               $ zip vars1 $ V.toList varInputs
@@ -229,8 +227,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                          $ extendEnvR varLabel
                              (tconst $ OR.fromVector [sizeMnistLabelInt] label)
                              env1
-                   in runTannen
-                      $ snd $ interpretAst envMnist emptyMemo ast
+                   in snd $ interpretAst envMnist emptyMemo ast
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -399,7 +396,7 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
 mnistTestCase2VT2A
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, Random r, ADReady (Tannen ADVal ranked) r
+     , ADReady ranked r, Random r, ADReady (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -441,12 +438,11 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (Compose ADVal OD.Array) r
-                   -> ADVal (ranked r 0)
+             let f :: MnistData r -> Domains (ADValClown OD.Array) r
+                   -> ADVal ranked r 0
                  f mnist adinputs =
-                   runTannen
-                   $ MnistFcnnRanked2.afcnnMnistLoss2
-                       mnist (parseDomains valsInit adinputs)
+                   MnistFcnnRanked2.afcnnMnistLoss2
+                     mnist (parseDomains valsInit adinputs)
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -491,7 +487,7 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
 mnistTestCase2VT2I
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, Random r, InterpretAstA (Tannen ADVal ranked) r
+     , ADReady ranked r, Random r, InterpretAstA (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -543,8 +539,8 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (Compose ADVal OD.Array) r
-                   -> ADVal (ranked r 0)
+             let f :: MnistData r -> Domains (ADValClown OD.Array) r
+                   -> ADVal ranked r 0
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvD EM.empty
                               $ zip vars1 $ V.toList varInputs
@@ -554,8 +550,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                          $ extendEnvR varLabel
                              (tconst $ OR.fromVector [sizeMnistLabelInt] label)
                              env1
-                   in runTannen
-                      $ snd $ interpretAst envMnist emptyMemo ast
+                   in snd $ interpretAst envMnist emptyMemo ast
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
                  testScore = ftest testData res

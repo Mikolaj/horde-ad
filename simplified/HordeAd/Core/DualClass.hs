@@ -35,6 +35,7 @@ import Prelude
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
@@ -194,17 +195,17 @@ class HasRanks ranked where
 -- conversions on tape stemming from packing tensors into Domains.
 class HasConversions ranked shaped | ranked -> shaped, shaped -> ranked where
   dDToR :: forall n r. KnownNat n
-        => Dual (DynamicOf ranked r) -> Dual (ranked r n)
+        => Dual (Clown (DynamicOf ranked) r '()) -> Dual (ranked r n)
   dSToR :: forall sh r. KnownNat (OS.Rank sh)
         => Dual (shaped r sh) -> Dual (ranked r (OS.Rank sh))
   dRToD :: KnownNat n
-        => Dual (ranked r n) -> Dual (DynamicOf ranked r)
+        => Dual (ranked r n) -> Dual (Clown (DynamicOf ranked) r '())
   dSToD :: (OS.Shape sh, KnownNat (OS.Rank sh))
-        => Dual (shaped r sh) -> Dual (DynamicOf shaped r)
+        => Dual (shaped r sh) -> Dual (Clown (DynamicOf shaped) r '())
   dRToS :: OS.Shape sh
         => Dual (ranked r (OS.Rank sh)) -> Dual (shaped r sh)
   dDToS :: OS.Shape sh
-        => Dual (DynamicOf ranked r) -> Dual (shaped r sh)
+        => Dual (Clown (DynamicOf shaped) r '()) -> Dual (shaped r sh)
 
 
 -- * Delta expression method instances
@@ -311,10 +312,10 @@ instance HasRanks (Flip OR.Array) where
   dBuildR = BuildR
   dGatherR = GatherR
 
-instance (dynamic ~ OD.Array, ranked ~ Flip OR.Array, shaped ~ Flip OS.Array)
+instance (ranked ~ Flip OR.Array, shaped ~ Flip OS.Array)
          => HasConversions (Flip OR.Array) (Flip OS.Array) where
   dDToR :: forall n r. KnownNat n
-         => Dual (dynamic r) -> Dual (ranked r n)
+         => Dual (Clown OD.Array r '()) -> Dual (ranked r n)
   dDToR (RToD @_ @_ @n1 d) =
     case sameNat (Proxy @n1) (Proxy @n) of
       Just Refl -> d
@@ -351,10 +352,10 @@ instance HasRanks AstRanked where
   dBuildR = BuildR
   dGatherR = GatherR
 
-instance (dynamic ~ AstDynamic, ranked ~ AstRanked, shaped ~ AstShaped)
+instance (ranked ~ AstRanked, shaped ~ AstShaped)
          => HasConversions AstRanked AstShaped where
   dDToR :: forall n r. KnownNat n
-         => Dual (dynamic r) -> Dual (ranked r n)
+         => Dual (Clown AstDynamic r '()) -> Dual (ranked r n)
   dDToR (RToD @_ @_ @n1 d) =
     case sameNat (Proxy @n1) (Proxy @n) of
       Just Refl -> d

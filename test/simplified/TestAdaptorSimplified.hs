@@ -7,7 +7,6 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
-import           Data.Bifunctor.Tannen
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.Strict.IntMap as IM
@@ -564,7 +563,7 @@ testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-9
     (3.1435239435581166,-1.1053869545195814)
-    (crev (bar @(Tannen ADVal (Flip OR.Array) Double 0)) (1.1, 2.2))
+    (crev (bar @(ADVal (Flip OR.Array) Double 0)) (1.1, 2.2))
 
 barADVal2 :: forall a. RealFloat a
           => (a, a, a) -> a
@@ -583,16 +582,16 @@ barADVal2 (x,y,z) =
 -- causing exactly the same danger.
 -- This example also tests unused parameters (x), another common cause
 -- of crashes in naive gradient computing code.
-baz :: ( Tannen ADVal (Flip OR.Array) Double 0
-       , Tannen ADVal (Flip OR.Array) Double 0
-       , Tannen ADVal (Flip OR.Array) Double 0 )
-    -> Tannen ADVal (Flip OR.Array) Double 0
+baz :: ( ADVal (Flip OR.Array) Double 0
+       , ADVal (Flip OR.Array) Double 0
+       , ADVal (Flip OR.Array) Double 0 )
+    -> ADVal (Flip OR.Array) Double 0
 baz (_x,y,z) =
   let w = fooConstant * barADVal2 (y,y,z) * sin y
   in atan2 z w + z * w
 
 -- An "old term", computed once, stored at top level.
-fooConstant :: Tannen ADVal (Flip OR.Array) Double 0
+fooConstant :: ADVal (Flip OR.Array) Double 0
 fooConstant = foo (7, 8, 9)
 
 testBaz :: Assertion
@@ -620,7 +619,7 @@ testBazRenumbered =
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
 fooD :: forall r. r ~ Double
-     => [Tannen ADVal (Flip OR.Array) r 0] -> Tannen ADVal (Flip OR.Array) r 0
+     => [ADVal (Flip OR.Array) r 0] -> ADVal (Flip OR.Array) r 0
 fooD [x, y, z] =
   let w = x * sin y
   in atan2 z w + z * w
@@ -687,8 +686,8 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: ( InterpretAstA (Tannen ADVal (Flip OR.Array)) r )
-        => Tannen ADVal (Flip OR.Array) r 1 -> Tannen ADVal (Flip OR.Array) r 1
+  let f :: ( InterpretAstA (ADVal (Flip OR.Array)) r )
+        => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
                            emptyMemo
@@ -825,8 +824,8 @@ barReluAst x = relu $ bar (x, relu x)
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
   let f :: ( ADReady AstRanked r
-           , InterpretAstA (Tannen ADVal (Flip OR.Array)) r )
-        => Tannen ADVal (Flip OR.Array) r 0 -> Tannen ADVal (Flip OR.Array) r 0
+           , InterpretAstA (ADVal (Flip OR.Array)) r )
+        => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
                            emptyMemo
@@ -838,8 +837,8 @@ testBarReluAst0 =
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
   let f :: ( ADReady AstRanked r
-           , InterpretAstA (Tannen ADVal (Flip OR.Array)) r )
-        => Tannen ADVal (Flip OR.Array) r 1 -> Tannen ADVal (Flip OR.Array) r 1
+           , InterpretAstA (ADVal (Flip OR.Array)) r )
+        => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
                            emptyMemo
@@ -856,8 +855,8 @@ konstReluAst x = tsum0 $ relu $ treplicate0N (7 :$ ZS) x
 testReplicateReluAst :: Assertion
 testReplicateReluAst =
   let f :: ( ADReady AstRanked r
-           , InterpretAstA (Tannen ADVal (Flip OR.Array)) r )
-        => Tannen ADVal (Flip OR.Array) r 0 -> Tannen ADVal (Flip OR.Array) r 0
+           , InterpretAstA (ADVal (Flip OR.Array)) r )
+        => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
                            emptyMemo

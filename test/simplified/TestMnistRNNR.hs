@@ -9,9 +9,7 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
-import           Data.Bifunctor.Tannen
 import qualified Data.EnumMap.Strict as EM
-import           Data.Functor.Compose
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (SomeNat (..), someNatVal)
@@ -30,6 +28,7 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.External.Optimizer
 import HordeAd.External.OptimizerTools
@@ -50,7 +49,7 @@ testTrees = [ tensorADValMnistTestsRNNA
 mnistTestCaseRNNA
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, Random r, ADReady (Tannen ADVal ranked) r
+     , ADReady ranked r, Random r, ADReady (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -88,13 +87,12 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
            runBatch :: (DomainsOD r, StateAdam r) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD r, StateAdam r)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> Domains (Compose ADVal OD.Array) r
-                   -> ADVal (ranked r 0)
+             let f :: MnistDataBatchR r -> Domains (ADValClown OD.Array) r
+                   -> ADVal ranked r 0
                  f (glyphR, labelR) adinputs =
-                   runTannen
-                   $ MnistRnnRanked2.rnnMnistLossFusedR
-                       miniBatchSize (tconst glyphR, tconst labelR)
-                       (parseDomains valsInit adinputs)
+                   MnistRnnRanked2.rnnMnistLossFusedR
+                     miniBatchSize (tconst glyphR, tconst labelR)
+                     (parseDomains valsInit adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -146,7 +144,7 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
 mnistTestCaseRNNI
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, Random r, InterpretAstA (Tannen ADVal ranked) r
+     , ADReady ranked r, Random r, InterpretAstA (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -197,14 +195,14 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
            runBatch :: (DomainsOD r, StateAdam r) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD r, StateAdam r)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> Domains (Compose ADVal OD.Array) r
-                   -> ADVal (ranked r 0)
+             let f :: MnistDataBatchR r -> Domains (ADValClown OD.Array) r
+                   -> ADVal ranked r 0
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvD EM.empty
                               $ zip vars1 $ V.toList varInputs
                        envMnist = extendEnvR varGlyph (tconst glyph)
                                   $ extendEnvR varLabel (tconst label) env1
-                   in runTannen $ snd $ interpretAst envMnist emptyMemo ast
+                   in snd $ interpretAst envMnist emptyMemo ast
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk

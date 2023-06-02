@@ -6,21 +6,20 @@
 -- are add-ons.
 module HordeAd.Core.Engine
   ( revL, revDtMaybeL, revDtFun, revDtInit, revDtInterpret, rev, revDt
-  , crev, crevDt, fwd
+  , crev, crevDt
   , revAstOnDomains, revOnDomains
   , revAstOnDomainsF, revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
+--  , fwd, slowFwdOnADInputs, slowFwdOnDomains
   , generateDeltaInputs, makeADInputs
-  ,  slowFwdOnADInputs, slowFwdOnDomains
   ) where
 
 import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
-import           Data.Bifunctor.Tannen
 import qualified Data.EnumMap.Strict as EM
-import           Data.Functor.Compose
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -31,8 +30,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
-import HordeAd.Core.Delta
-  (ForwardDerivative (..), derivativeFromDelta, gradientFromDelta, toInputId)
+import HordeAd.Core.Delta (gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass
   ( Dual
   , HasConversions (..)
@@ -43,6 +41,7 @@ import HordeAd.Core.DualClass
   , dRToD
   )
 import HordeAd.Core.DualNumber
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 
 -- * Gradient adaptors
@@ -51,7 +50,7 @@ import HordeAd.Core.TensorClass
 -- is possible, but the user has to write many more type applications.
 revL
   :: forall r n vals astvals ranked.
-     ( ranked ~ Tannen ADVal AstRanked
+     ( ranked ~ ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
@@ -61,7 +60,7 @@ revL f valsAll = revDtMaybeL f valsAll Nothing
 
 revDtMaybeL
   :: forall r n vals astvals ranked.
-     ( ranked ~ Tannen ADVal AstRanked
+     ( ranked ~ ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
@@ -76,7 +75,7 @@ revDtMaybeL f valsAll@(vals : _) dt =
 
 revDtFun
   :: forall r n vals astvals ranked.
-     ( ranked ~ Tannen ADVal AstRanked
+     ( ranked ~ ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r  )
@@ -89,7 +88,7 @@ revDtFun f vals =
 
 revDtInit
   :: forall r n vals astvals ranked.
-     ( ranked ~ Tannen ADVal AstRanked
+     ( ranked ~ ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value astvals, Underlying astvals ~ r)
@@ -103,7 +102,7 @@ revDtInit f vals envInit parameters0 =
 
 revDtInterpret
   :: forall n r vals astvals ranked.
-     ( ranked ~ Tannen ADVal AstRanked
+     ( ranked ~ ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value astvals, Underlying astvals ~ r )
@@ -122,7 +121,7 @@ revDtInterpret envInit valsInit f = \varInputs domains
 
 rev
   :: forall r n vals astvals ranked.
-     ( ranked ~ Tannen ADVal AstRanked
+     ( ranked ~ ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
@@ -133,7 +132,7 @@ rev f vals = head $ revL f [vals]
 -- This version additionally takes the sensitivity parameter.
 revDt
   :: forall r n vals astvals ranked.
-     ( ranked ~ Tannen ADVal AstRanked
+     ( ranked ~ ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
@@ -149,7 +148,7 @@ revAstOnDomains
   :: forall r n ranked.
      ( ranked ~ Flip OR.Array
      , InterpretAstA ranked r, KnownNat n )
-  => (Domains (Compose ADVal AstDynamic) r -> Tannen ADVal AstRanked r n)
+  => (Domains (ADValClown AstDynamic) r -> ADVal AstRanked r n)
   -> Domains OD.Array r -> Maybe (ranked r n)
   -> (Domains OD.Array r, ranked r n)
 -- The functions in which @revAstOnDomains@ inlines are not inlined
@@ -161,7 +160,7 @@ revAstOnDomains f parameters =
 revAstOnDomainsF
   :: forall r n.
      (KnownNat n, GoodScalar r)
-  => (Domains (Compose ADVal AstDynamic) r -> Tannen ADVal AstRanked r n)
+  => (Domains (ADValClown AstDynamic) r -> ADVal AstRanked r n)
   -> DomainsOD r
   -> ADAstArtifact6 n r
 {-# INLINE revAstOnDomainsF #-}
@@ -172,10 +171,10 @@ revAstOnDomainsF f parameters  =
 revAstOnDomainsFun
   :: forall r n. (KnownNat n, GoodScalar r)
   => [[Int]]
-  -> (Domains (Compose ADVal AstDynamic) r
+  -> (Domains (ADValClown AstDynamic) r
       -> Domains AstDynamic r
       -> (ADAstVarNames n r, ADAstVars n r)
-      -> Tannen ADVal AstRanked r n)
+      -> ADVal AstRanked r n)
   -> (ADAstArtifact6 n r, Dual (AstRanked r n))
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun shapes1 f =
@@ -187,7 +186,7 @@ revAstOnDomainsFun shapes1 f =
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D l primalBody deltaTopLevel) = runTannen $ f varInputs domains v6
+      !(D l primalBody deltaTopLevel) = f varInputs domains v6
       deltaDt = packDeltaDtA (Right $ astDt (tshape primalBody))
                              deltaTopLevel in
   let !(!astBindings, !gradient) = gradientFromDelta (length shapes1) deltaDt
@@ -219,7 +218,7 @@ revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
 
 crev
   :: forall n r vals advals ranked.
-     ( ranked ~ Tannen ADVal (Flip OR.Array)
+     ( ranked ~ ADVal (Flip OR.Array)
      , AdaptableDomains (DynamicOf ranked) advals
      , AdaptableDomains OD.Array vals
      , IsPrimalR r, KnownNat n, GoodScalar r
@@ -232,7 +231,7 @@ crev f vals = crevDtMaybe f vals Nothing
 -- This version additionally takes the sensitivity parameter.
 crevDt
   :: forall n r vals advals ranked.
-     ( ranked ~ Tannen ADVal (Flip OR.Array)
+     ( ranked ~ ADVal (Flip OR.Array)
      , AdaptableDomains (DynamicOf ranked) advals
      , AdaptableDomains OD.Array vals
      , IsPrimalR r, KnownNat n, GoodScalar r
@@ -244,7 +243,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall n r vals advals ranked.
-     ( ranked ~ Tannen ADVal (Flip OR.Array)
+     ( ranked ~ ADVal (Flip OR.Array)
      , AdaptableDomains (DynamicOf ranked) advals
      , AdaptableDomains OD.Array vals
      , IsPrimalR r, KnownNat n, GoodScalar r
@@ -253,15 +252,15 @@ crevDtMaybe
   => (advals -> ranked r n) -> vals -> Maybe (OR.Array n r)
   -> vals
 crevDtMaybe f vals dt =
-  let g inputs = runTannen $ f $ parseDomains vals inputs
+  let g inputs = f $ parseDomains vals inputs
   in parseDomains vals $ fst $ revOnDomains (Flip <$> dt) g (toDomains vals)
 
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
-  :: (dynamic ~ Compose ADVal OD.Array, KnownNat n, GoodScalar r, IsPrimalR r)
+  :: (dynamic ~ ADValClown OD.Array, KnownNat n, GoodScalar r, IsPrimalR r)
   => Maybe (Flip OR.Array r n)
-  -> (Domains dynamic r -> ADVal (Flip OR.Array r n))
+  -> (Domains dynamic r -> ADVal (Flip OR.Array) r n)
   -> Domains dynamic r
   -> (DomainsOD r, Flip OR.Array r n)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
@@ -279,9 +278,9 @@ revOnADInputs dt f inputs =
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: (dynamic ~ Compose ADVal OD.Array, KnownNat n, GoodScalar r, IsPrimalR r)
+  :: (dynamic ~ ADValClown OD.Array, KnownNat n, GoodScalar r, IsPrimalR r)
   => Maybe (Flip OR.Array r n)
-  -> (Domains dynamic r -> ADVal (Flip OR.Array r n))
+  -> (Domains dynamic r -> ADVal (Flip OR.Array) r n)
   -> DomainsOD r
   -> (DomainsOD r, Flip OR.Array r n)
 revOnDomains dt f parameters =
@@ -290,6 +289,7 @@ revOnDomains dt f parameters =
   in revOnADInputs dt f inputs
 
 
+{-
 -- * Old derivative adaptors
 
 -- It uses the same delta expressions as for gradients. See @fwdOnDomains@
@@ -298,7 +298,7 @@ revOnDomains dt f parameters =
 -- This takes the sensitivity parameter, by convention.
 fwd
   :: forall a r vals advals dynamic.
-     ( dynamic ~ Compose ADVal OD.Array
+     ( dynamic ~ ADVal OD.Array
      , ForwardDerivative (Flip OR.Array) a r, GoodScalar r
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
      , r ~ Underlying vals, vals ~ Value advals, Underlying advals ~ r )
@@ -309,7 +309,7 @@ fwd f x ds =
   in fst $ slowFwdOnDomains (toDomains x) g (toDomains ds)
 
 slowFwdOnADInputs
-  :: ( dynamic ~ Compose ADVal OD.Array
+  :: ( dynamic ~ ADVal OD.Array
      , ForwardDerivative (Flip OR.Array) a r )
   => Domains dynamic r
   -> (Domains dynamic r -> ADVal a)
@@ -325,7 +325,7 @@ slowFwdOnADInputs inputs f ds =
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
   :: forall a r dynamic.
-     ( dynamic ~ Compose ADVal OD.Array
+     ( dynamic ~ ADVal OD.Array
      , ForwardDerivative (Flip OR.Array) a r, GoodScalar r )
   => DomainsOD r
   -> (Domains dynamic r -> ADVal a)
@@ -335,6 +335,7 @@ slowFwdOnDomains parameters f ds =
   let deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters
       inputs = makeADInputs parameters deltaInputs
   in slowFwdOnADInputs inputs f ds
+-}
 
 
 -- * Additional mechanisms
@@ -344,9 +345,9 @@ generateDeltaInputs
      ( dynamic ~ DynamicOf ranked, ConvertTensor ranked shaped, GoodScalar r
      , HasRanks ranked, HasConversions ranked shaped )
   => Domains dynamic r
-  -> Data.Vector.Vector (Dual (dynamic r))
+  -> Data.Vector.Vector (Dual (Clown dynamic r '()))
 generateDeltaInputs params =
-  let arrayToInput :: Int -> dynamic r -> Dual (dynamic r)
+  let arrayToInput :: Int -> dynamic r -> Dual (Clown dynamic r '())
       arrayToInput i t = case someNatVal $ toInteger $ length
                               $ dshape @ranked t of
         Just (SomeNat (_ :: Proxy n)) ->
@@ -361,7 +362,7 @@ generateDeltaInputs params =
 
 makeADInputs
   :: Domains dynamic r
-  -> Data.Vector.Vector (Dual (dynamic r))
-  -> Domains (Compose ADVal dynamic) r
+  -> Data.Vector.Vector (Dual (Clown dynamic r '()))
+  -> Domains (ADValClown dynamic) r
 {-# INLINE makeADInputs #-}
-makeADInputs = V.zipWith (\p d -> Compose $ dDnotShared emptyADShare p d)
+makeADInputs = V.zipWith (\p d -> Flip $ dDnotShared emptyADShare (Clown p) d)

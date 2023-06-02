@@ -10,13 +10,13 @@ import Prelude
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
-import           Data.Functor.Compose
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.DualNumber (ADVal, IsPrimalR)
 import HordeAd.Core.Engine
+import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.External.OptimizerTools
 
@@ -25,7 +25,7 @@ sgd :: forall n r a.
        ( KnownNat n, GoodScalar r
        , IsPrimalR r )
     => r
-    -> (a -> Domains (Compose ADVal OD.Array) r -> ADVal (Flip OR.Array r n))
+    -> (a -> Domains (ADValClown OD.Array) r -> ADVal (Flip OR.Array) r n)
     -> [a]  -- ^ training data
     -> DomainsOD r  -- ^ initial parameters
     -> (DomainsOD r, Flip OR.Array r n)
@@ -43,15 +43,15 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 {-# SPECIALIZE sgd
   :: Double
   -> ((Vector Double, Vector Double)
-      -> Domains (Compose ADVal OD.Array) Double
-      -> ADVal (Flip OR.Array Double 0))
+      -> Domains (ADValClown OD.Array) Double
+      -> ADVal (Flip OR.Array) Double 0)
   -> [(Vector Double, Vector Double)]
   -> DomainsOD Double
   -> (DomainsOD Double, Flip OR.Array Double 0) #-}
 
 sgdAdam :: forall r a n.
            ( KnownNat n, GoodScalar r, IsPrimalR r )
-        => (a -> Domains (Compose ADVal OD.Array) r -> ADVal (Flip OR.Array r n))
+        => (a -> Domains (ADValClown OD.Array) r -> ADVal (Flip OR.Array) r n)
         -> [a]
         -> DomainsOD r
         -> StateAdam r
@@ -61,7 +61,8 @@ sgdAdam = sgdAdamArgs defaultArgsAdam
 sgdAdamArgs :: forall r a n.
                ( KnownNat n, GoodScalar r, IsPrimalR r )
             => ArgsAdam r
-            -> (a -> Domains (Compose ADVal OD.Array) r -> ADVal (Flip OR.Array r n))
+            -> (a -> Domains (ADValClown OD.Array) r
+                -> ADVal (Flip OR.Array) r n)
             -> [a]
             -> DomainsOD r
             -> StateAdam r

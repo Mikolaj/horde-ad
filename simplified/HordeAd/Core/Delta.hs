@@ -52,6 +52,7 @@ import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
@@ -274,8 +275,10 @@ toInputId i = assert (i >= 0) $ InputId i
 -- | The type family that to each basic differentiable type
 -- assigns its delta expression type.
 type family Dual a = result | result -> a where
-  Dual (OD.Array r) = DeltaD (Flip OR.Array) (Flip OS.Array) r
-  Dual (AstDynamic r) = DeltaD AstRanked AstShaped r
+--  Dual (OD.Array r) = DeltaD (Flip OR.Array) (Flip OS.Array) r
+--  Dual (AstDynamic r) = DeltaD AstRanked AstShaped r
+  Dual (Clown OD.Array r '()) = DeltaD (Flip OR.Array) (Flip OS.Array) r
+  Dual (Clown AstDynamic r '()) = DeltaD AstRanked AstShaped r
   Dual (Flip OR.Array r n) = DeltaR (Flip OR.Array) (Flip OS.Array) r n
   Dual (AstRanked r n) = DeltaR AstRanked AstShaped r n
   Dual (Flip OS.Array sh n) = DeltaS (Flip OR.Array) (Flip OS.Array) sh n
