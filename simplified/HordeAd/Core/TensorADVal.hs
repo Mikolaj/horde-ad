@@ -99,6 +99,15 @@ instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
     Just (a, rest) -> Just (Tannen $ dToR $ getCompose a, rest)
     Nothing -> Nothing
 
+instance ( GoodScalar r, dynamic ~ DynamicOf shaped
+         , ConvertTensor ranked shaped, HasConversions ranked shaped )
+         => AdaptableDomains (Compose ADVal dynamic)
+                             (Tannen ADVal shaped r sh) where
+  type Underlying (Tannen ADVal shaped r sh) = r
+  type Value (Tannen ADVal shaped r sh) = Flip OS.Array r sh  -- !!! not shaped
+  toDomains = undefined
+  fromDomains = undefined
+
 dToR :: forall ranked shaped n r.
         ( ConvertTensor ranked shaped, HasConversions ranked shaped
         , KnownNat n, GoodScalar r )

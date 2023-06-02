@@ -12,6 +12,7 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
@@ -112,6 +113,13 @@ instance (GoodScalar r, KnownNat n)
   fromDomains aInit params = case V.uncons params of
     Just (a, rest) -> Just (ttoRankedOrDummy @AstRanked (tshape aInit) a, rest)
     Nothing -> Nothing
+
+instance GoodScalar r
+         => AdaptableDomains AstDynamic (AstShaped r sh) where
+  type Underlying (AstShaped r sh) = r
+  type Value (AstShaped r sh) = Flip OS.Array r sh
+  toDomains = undefined
+  fromDomains = undefined
 
 instance AdaptableDomains AstDynamic (AstDynamic r) where
   type Underlying (AstDynamic r) = r

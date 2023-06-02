@@ -311,15 +311,15 @@ class ( CDynamicRanked ranked UnderlyingMatches
                        | ranked -> shaped, shaped -> ranked where
   tfromD :: (GoodScalar r, KnownNat n)
          => DynamicOf ranked r -> ranked r n
-  tfromS :: (KnownNat n, GoodScalar r, OS.Shape sh, OS.Rank sh ~ n)
+  tfromS :: (GoodScalar r, KnownNat n, OS.Shape sh, OS.Rank sh ~ n)
          => shaped r sh -> ranked r n
   dfromR :: (GoodScalar r, KnownNat n)
          => ranked r n -> DynamicOf ranked r
-  dfromS :: OS.Shape sh
+  dfromS :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => shaped r sh -> DynamicOf shaped r
-  sfromR :: (KnownNat n, GoodScalar r, OS.Shape sh, OS.Rank sh ~ n)
+  sfromR :: (GoodScalar r, KnownNat n, OS.Shape sh, OS.Rank sh ~ n)
          => ranked r n -> shaped r sh
-  sfromD :: OS.Shape sh
+  sfromD :: (GoodScalar r, OS.Shape sh)
          => DynamicOf shaped r -> shaped r sh
   ddummy :: Numeric r => DynamicOf ranked r
   disDummy :: Numeric r => DynamicOf ranked r -> Bool
@@ -528,11 +528,10 @@ instance AdaptableDomains OD.Array (OD.Array r) where
   toDomains = undefined
   fromDomains = undefined
 
-instance (Numeric r, OS.Shape sh)
+instance (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => AdaptableDomains OD.Array (Flip OS.Array r sh) where
   type Underlying (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
---  toDomains :: forall sh.
   toDomains a = V.singleton (dfromS a)
   fromDomains = undefined
 
