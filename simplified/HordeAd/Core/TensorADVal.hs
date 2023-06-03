@@ -124,11 +124,6 @@ rToD :: ( ConvertTensor ranked shaped
       => ADVal ranked r n -> ADVal (Clown (DynamicOf ranked)) r '()
 rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (RToD u')
 
-class (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
-      => CRanked ranked c where
-instance (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
-         => CRanked ranked c where
-
 class (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
       => CRankedIP ranked c where
 instance (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
@@ -152,7 +147,6 @@ type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
 instance ( Dual ranked ~ DeltaR ranked shaped
          , DeltaR ranked shaped ~ Dual ranked
          , CRankedIP ranked IsPrimal
-         , CRanked ranked Show
          , Tensor ranked )
          => Tensor (ADVal ranked) where
   tlet (D l u u') f =

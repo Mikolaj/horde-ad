@@ -1,4 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies, QuantifiedConstraints,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The second component of our rendition of dual numbers:
@@ -140,7 +141,8 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
           DeltaR ranked shaped r (OS.Rank sh)
        -> DeltaS ranked shaped r sh
 
-deriving instance (Show (IntOf (ranked r 0)), Show r)
+deriving instance ( (forall k. Show (ranked r k))
+                  , Show (IntOf (ranked r 0)), Show r)
                   => Show (DeltaS ranked shaped r sh)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
@@ -152,8 +154,7 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> Nat -> Type where
   ZeroR :: DeltaR ranked shaped r n
   InputR :: InputId (ranked r n) -> DeltaR ranked shaped r n
-  ScaleR :: Show (ranked r n)
-         => ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
+  ScaleR :: ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
   AddR :: DeltaR ranked shaped r n -> DeltaR ranked shaped r n
        -> DeltaR ranked shaped r n
   LetR :: NodeId -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
@@ -171,7 +172,7 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- ^ Add element tensors along the outermost dimension.
   Sum0R :: KnownNat n
        => ShapeInt n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r 0
-  Dot0R :: (KnownNat n, Show (ranked r n))
+  Dot0R :: KnownNat n
        => ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r 0
   ScatterR :: (KnownNat m, KnownNat p, KnownNat n)
            => ShapeInt (p + n) -> DeltaR ranked shaped r (m + n)
@@ -248,7 +249,8 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
           DeltaS ranked shaped r sh
        -> DeltaR ranked shaped r (OS.Rank sh)
 
-deriving instance (Show (IntOf (ranked r 0)), Show r)
+deriving instance ( (forall k. Show (ranked r k))
+                  , Show (IntOf (ranked r 0)), Show r )
                   => Show (DeltaR ranked shaped r n)
 
 data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
@@ -258,7 +260,8 @@ data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
   SToD :: forall ranked shaped sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
          => DeltaS ranked shaped r sh -> DeltaD ranked shaped r '()
 
-deriving instance (Show (IntOf (ranked r 0)), Show r)
+deriving instance ( (forall k. Show (ranked r k))
+                  , Show (IntOf (ranked r 0)), Show r )
                   => Show (DeltaD ranked shaped r '())
 
 
