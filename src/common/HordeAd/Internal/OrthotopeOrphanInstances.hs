@@ -24,7 +24,6 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Boolean
-import           Data.Functor.Compose
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
@@ -439,35 +438,6 @@ deriving instance Real (f a b) => Real (Flip f b a)
 deriving instance RealFrac (f a b) => RealFrac (Flip f b a)
 
 deriving instance RealFloat (f a b) => RealFloat (Flip f b a)
-
-type instance BooleanOf (Compose f g a) = BooleanOf (f (g a))
-
-deriving instance IfB (f (g a)) => IfB (Compose f g a)
-
-deriving instance EqB (f (g a)) => EqB (Compose f g a)
-
-deriving instance OrdB (f (g a)) => OrdB (Compose f g a)
-
-#if !MIN_VERSION_base(4,18,0)
-deriving instance Eq (f (g a)) => Eq (Compose f g a)
-
-deriving instance Ord (f (g a)) => Ord (Compose f g a)
-#endif
-
-deriving instance Num (f (g a)) => Num (Compose f g a)
-
-deriving instance Fractional (f (g a)) => Fractional (Compose f g a)
-
-deriving instance Floating (f (g a)) => Floating (Compose f g a)
-
-deriving instance (Ord (Compose f g a), Real (f (g a)))
-                  => Real (Compose f g a)
-
-deriving instance (Ord (Compose f g a), RealFrac (f (g a)))
-                  => RealFrac (Compose f g a)
-
-deriving instance (Ord (Compose f g a), RealFloat (f (g a)))
-                  => RealFloat (Compose f g a)
 
 
 -- TODO: move to separate orphan module(s) at some point

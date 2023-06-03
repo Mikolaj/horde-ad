@@ -22,7 +22,6 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Boolean
-import           Data.Functor.Compose
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -327,16 +326,11 @@ class DomainsTensor (ranked :: Type -> Nat -> Type)
               => domainsOf r
               -> (domainsOf r -> ranked r n)
               -> ranked r n
-  tletDomains a f = f a
   dmkDomains :: Domains (DynamicOf ranked) r -> domainsOf r
-  default dmkDomains
-    :: domainsOf ~ Compose Data.Vector.Vector (DynamicOf ranked)
-    => Domains (DynamicOf ranked) r -> domainsOf r
-  dmkDomains = Compose
   dlet :: (GoodScalar r, KnownNat n)
        => ranked r n -> (ranked r n -> domainsOf r)
        -> domainsOf r
-  dlet a f = f a
+
 
 -- * The giga-constraint
 
