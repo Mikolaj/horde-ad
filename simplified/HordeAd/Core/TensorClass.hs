@@ -283,8 +283,10 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
               => ranked r n -> PrimalOf ranked r n
   tdualPart :: (GoodScalar r, KnownNat n)
             => ranked r n -> DualOf ranked r n
-  tD :: (GoodScalar r, KnownNat n) => PrimalOf ranked r n -> DualOf ranked r n -> ranked r n
-  tScale :: (GoodScalar r, KnownNat n) => PrimalOf ranked r n -> DualOf ranked r n -> DualOf ranked r n
+  tD :: (GoodScalar r, KnownNat n)
+     => PrimalOf ranked r n -> DualOf ranked r n -> ranked r n
+  tScale :: (GoodScalar r, KnownNat n)
+         => PrimalOf ranked r n -> DualOf ranked r n -> DualOf ranked r n
   -- TODO: we'd probably also need dZero, dIndex0 and all others;
   -- basically DualOf a needs to have IsPrimal and HasRanks instances
   -- (and HasInputs?)

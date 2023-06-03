@@ -138,25 +138,7 @@ type instance IntOf (ADVal f r n) = IntOf (f r n)
 
 type instance PrimalOf (ADVal f) = f
 
--- Morally:
--- type instance DualOf (Tannen ADVal f) = Product (Clown ADShare)
---                                                 (\r k -> Dual (f r k))
-
-type instance DualOf (ADVal (Flip OR.Array)) =
-  Product (Clown ADShare)
-          (DeltaR (Flip OR.Array) (Flip OS.Array))
-
-type instance DualOf (ADVal AstRanked) =
-  Product (Clown ADShare)
-          (DeltaR AstRanked AstShaped)
-
-type instance DualOf (ADVal (Flip OS.Array)) =
-  Product (Clown ADShare)
-          (DeltaS (Flip OR.Array) (Flip OS.Array))
-
-type instance DualOf (ADVal AstShaped) =
-  Product (Clown ADShare)
-          (DeltaS AstRanked AstShaped)
+type instance DualOf (ADVal f) = Product (Clown ADShare) (Dual f)
 
 type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
 
@@ -167,9 +149,7 @@ type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance ( DualOf (ADVal ranked)
-           ~ Product (Clown ADShare) (DeltaR ranked shaped)
-         , Dual ranked ~ DeltaR ranked shaped
+instance ( Dual ranked ~ DeltaR ranked shaped
          , DeltaR ranked shaped ~ Dual ranked
          , CRankedIP ranked IsPrimal
          , CRanked ranked Show
@@ -188,63 +168,37 @@ instance ( DualOf (ADVal ranked)
   tfloor (D l u _) = tfloor (tletWrap l u)
 
   tindex v ix = indexZ v ix
-  tsum = sum'
-   where
-    sum' (D l u u') = dD l (tsum u) (SumR (tlength u) u')
-  tsum0 = sum0
-   where
-    sum0 (D l u u') = dD l (tsum0 u) (Sum0R (tshape u) u')
-  tdot0 = \u v -> dot0 u v
-   where
-    dot0 (D l1 ue u') (D l2 ve v') =
-      -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
-      let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-          !(!l4, v) = recordSharingPrimal ve l3
-      in dD l4 (tdot0 u v) (dAdd (Dot0R v u') (Dot0R u v'))
+  tsum (D l u u') = dD l (tsum u) (SumR (tlength u) u')
+  tsum0 (D l u u') = dD l (tsum0 u) (Sum0R (tshape u) u')
+  tdot0 (D l1 ue u') (D l2 ve v') =
+    -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
+    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        !(!l4, v) = recordSharingPrimal ve l3
+    in dD l4 (tdot0 u v) (dAdd (Dot0R v u') (Dot0R u v'))
   tfromIndex0 = \ix -> dDnotShared emptyADShare (tfromIndex0 ix) dZero
-  tscatter = \sh t f -> scatterNClosure sh t f
-   where
-    scatterNClosure sh (D l u u') f =
-      dD l (tscatter sh u f) (ScatterR sh u' f (tshape u))
+  tscatter sh (D l u u') f =
+    dD l (tscatter sh u f) (ScatterR sh u' f (tshape u))
 
   tfromList = fromList
-  tfromVector = fromVector
-   where
-    fromVector lu =
-      dD (flattenADShare $ map ((\(D l _ _) -> l)) $ V.toList lu)
-         (tfromVector $ V.map (\(D _ u _) -> u) lu)
-         (FromVectorR $ V.map (\(D _ _ u') -> u') lu)
-  treplicate = \k -> replicate' k
-   where
-    replicate' k (D l u u') = dD l (treplicate k u) (ReplicateR k u')
-  tappend = \u v -> append u v
-   where
-    append (D l1 u u') (D l2 v v') =
-      dD (l1 `mergeADShare` l2) (tappend u v) (AppendR u' (tlength u) v')
-  tslice = \i k -> slice i k
-   where
-    slice i k (D l u u') = dD l (tslice i k u) (SliceR i k u' (tlength u))
-  treverse = reverse'
-   where
-    reverse' (D l u u') = dD l (treverse u) (ReverseR u')
-  ttranspose = \perm -> transpose perm
-   where
-    transpose perm (D l u u') = dD l (ttranspose perm u) (TransposeR perm u')
+  tfromVector lu =
+    dD (flattenADShare $ map ((\(D l _ _) -> l)) $ V.toList lu)
+       (tfromVector $ V.map (\(D _ u _) -> u) lu)
+       (FromVectorR $ V.map (\(D _ _ u') -> u') lu)
+  treplicate k (D l u u') = dD l (treplicate k u) (ReplicateR k u')
+  tappend (D l1 u u') (D l2 v v') =
+    dD (l1 `mergeADShare` l2) (tappend u v) (AppendR u' (tlength u) v')
+  tslice i k (D l u u') = dD l (tslice i k u) (SliceR i k u' (tlength u))
+  treverse (D l u u') = dD l (treverse u) (ReverseR u')
+  ttranspose perm (D l u u') = dD l (ttranspose perm u) (TransposeR perm u')
   treshape :: forall n m r. (GoodScalar r, KnownNat n, KnownNat m)
            => ShapeInt m -> ADVal ranked r n -> ADVal ranked r m
-  treshape = \sh -> reshape sh
-   where
-    reshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
-      Just Refl | sh == tshape u -> t
-      _ -> dD l (treshape sh u) (ReshapeR (tshape u) sh u')
-  tbuild1 = \k f -> build1 k f
-   where
-    build1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
+  treshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
+    Just Refl | sh == tshape u -> t
+    _ -> dD l (treshape sh u) (ReshapeR (tshape u) sh u')
+  tbuild1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
                    -- element-wise (POPL) version
-  tgather = \sh t f -> gatherNClosure sh t f
-   where
-    gatherNClosure sh (D l u u') f =
-      dD l (tgather sh u f) (GatherR sh u' f (tshape u))
+  tgather sh (D l u u') f =
+    dD l (tgather sh u f) (GatherR sh u' f (tshape u))
 
   tsumOfList lu =
     dD (flattenADShare $ map (\(D l _ _) -> l) lu)

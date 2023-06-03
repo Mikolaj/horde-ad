@@ -218,11 +218,13 @@ interpretAst env memo = \case
         -- with the same variable, we could create such nested lets
         -- if we omitted this check.
         interpretAst env memo
-          (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstReplicate @m k s)]))
+          (AstLet var u (AstOp TimesOp [v, AstReshape sh
+                                             (AstReplicate @m k s)]))
   AstOp TimesOp [v, AstReshape sh (AstLet var u (AstReplicate @m k s))]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
         interpretAst env memo
-          (AstLet var u (AstOp TimesOp [v, AstReshape sh (AstReplicate @m k s)]))
+          (AstLet var u (AstOp TimesOp [v, AstReshape sh
+                                             (AstReplicate @m k s)]))
   AstOp TimesOp [v, AstLet var u (AstReplicate @m k s)]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
         interpretAst env memo
@@ -261,7 +263,8 @@ interpretAst env memo = \case
       (AstLet vart vt (AstLet varu vu
          (AstSum (AstOp TimesOp [ AstTranspose tperm t
                                 , AstTranspose uperm u ]))))
-  AstSum (AstOp TimesOp [ AstTranspose tperm (AstLet vart vt (AstReplicate tk t))
+  AstSum (AstOp TimesOp [ AstTranspose tperm (AstLet vart vt
+                                                (AstReplicate tk t))
                         , AstTranspose uperm (AstReplicate uk u) ]) ->
     interpretAst env memo
       (AstLet vart vt
@@ -274,7 +277,8 @@ interpretAst env memo = \case
       (AstLet varu vu
          (AstSum (AstOp TimesOp [ AstTranspose tperm (AstReplicate tk t)
                                 , AstTranspose uperm (AstReplicate uk u) ])))
-  AstSum (AstOp TimesOp [ AstTranspose tperm (AstLet vart vt (AstReplicate tk t))
+  AstSum (AstOp TimesOp [ AstTranspose tperm (AstLet vart vt
+                                                (AstReplicate tk t))
                         , AstTranspose uperm (AstLet varu vu
                                                (AstReplicate uk u)) ]) ->
     interpretAst env memo
@@ -544,9 +548,9 @@ interpretAstDomainsDummy env memo = \case
     in interpretAstDomainsDummy env2 memo2 v
       -- TODO: preserve let, as in AstLet case
 
--- TODO: when the code again compiles with GHC >= 9.6, check whether
+-- TODO: when the code again tests with GHC >= 9.6, check whether
 -- these INLINEs are still needed (removal causes 10% slowdown ATM).
-interpretAstOp :: (Tensor ranked, KnownNat n, GoodScalar r, RealFloat (ranked r n))
+interpretAstOp :: (Tensor ranked, KnownNat n, GoodScalar r)
                => OpCode -> [ranked r n] -> ranked r n
 {-# INLINE interpretAstOp #-}
 interpretAstOp MinusOp [u, v] = u - v

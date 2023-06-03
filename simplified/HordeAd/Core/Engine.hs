@@ -96,8 +96,7 @@ revDtInit
   -> (ADAstArtifact6 n r, Dual AstRanked r n)
 {-# INLINE revDtInit #-}
 revDtInit f vals envInit parameters0 =
-  let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList parameters0
-  in revAstOnDomainsFun shapes1 (revDtInterpret envInit vals f)
+  revAstOnDomainsFun parameters0 (revDtInterpret envInit vals f)
 
 revDtInterpret
   :: forall n r vals astvals ranked.
@@ -139,10 +138,6 @@ revDt
   => (astvals -> AstRanked r n) -> vals -> Flip OR.Array r n -> vals
 revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 
--- A new version that produced the gradient function, which can be
--- applied multiple times to input and dt. The second component
--- of the result is the objective function value, inefficiently
--- computed, only for testing.
 revAstOnDomains
   :: forall r n ranked.
      ( ranked ~ Flip OR.Array
@@ -154,30 +149,30 @@ revAstOnDomains
 -- themselves in client code, so the bloat is limited.
 {-# INLINE revAstOnDomains #-}
 revAstOnDomains f parameters =
-  revAstOnDomainsEval (revAstOnDomainsF f parameters) parameters
+  revAstOnDomainsEval (fst $ revAstOnDomainsF f parameters) parameters
 
 revAstOnDomainsF
   :: forall r n.
      (KnownNat n, GoodScalar r)
   => (Domains (ADValClown AstDynamic) r -> ADVal AstRanked r n)
   -> DomainsOD r
-  -> ADAstArtifact6 n r
+  -> (ADAstArtifact6 n r, Dual AstRanked r n)
 {-# INLINE revAstOnDomainsF #-}
 revAstOnDomainsF f parameters  =
-  let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList parameters
-  in fst $ revAstOnDomainsFun shapes1 (\varInputs _ _ -> f varInputs)
+  revAstOnDomainsFun parameters (\varInputs _ _ -> f varInputs)
 
 revAstOnDomainsFun
   :: forall r n. (KnownNat n, GoodScalar r)
-  => [[Int]]
+  => DomainsOD r
   -> (Domains (ADValClown AstDynamic) r
       -> Domains AstDynamic r
       -> (ADAstVarNames n r, ADAstVars n r)
       -> ADVal AstRanked r n)
   -> (ADAstArtifact6 n r, Dual AstRanked r n)
 {-# INLINE revAstOnDomainsFun #-}
-revAstOnDomainsFun shapes1 f =
-  let -- Bangs and the compound function to fix the numbering of variables
+revAstOnDomainsFun parameters0 f =
+  let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList parameters0
+      -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
       !v6@(!vars@(!_, _), (astDt, asts1)) = funToAstAll shapes1 in
   let domains = V.fromList asts1

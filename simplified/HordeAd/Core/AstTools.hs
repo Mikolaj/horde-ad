@@ -11,7 +11,6 @@ module HordeAd.Core.AstTools
   , printAstSimple, printAstPretty, printAstDomainsSimple, printAstDomainsPretty
   , printGradient6Simple, printGradient6Pretty
   , printPrimal6Simple, printPrimal6Pretty
-  , astCond  -- only for tests
   ) where
 
 import Prelude
