@@ -37,11 +37,11 @@ type instance BooleanOf (ADVal f r z) = BooleanOf (f r z)
 -- and then Clown, Flip and other instances are auto-derived on top of them.
 -- OTOH, AdaptableDomains and other such instances are best defined
 -- directly for Clown and others applied to ADVal.
-instance (EqB (f r z), IsPrimal (f r z)) => EqB (ADVal f r z) where
+instance (EqB (f r z), IsPrimal f r z) => EqB (ADVal f r z) where
   D l1 u _ ==* D l2 v _ = letWrapPrimal l1 u ==* letWrapPrimal l2 v
   D l1 u _ /=* D l2 v _ = letWrapPrimal l1 u /=* letWrapPrimal l2 v
 
-instance (OrdB (f r z), IsPrimal (f r z)) => OrdB (ADVal f r z) where
+instance (OrdB (f r z), IsPrimal f r z) => OrdB (ADVal f r z) where
   D l1 u _ <* D l2 v _ = letWrapPrimal l1 u <* letWrapPrimal l2 v
   D l1 u _ <=* D l2 v _ = letWrapPrimal l1 u <=* letWrapPrimal l2 v
   D l1 u _ >* D l2 v _ = letWrapPrimal l1 u >* letWrapPrimal l2 v
@@ -62,14 +62,14 @@ instance (KnownNat n, GoodScalar r)
 -- First index is for outermost dimension; empty index means identity,
 -- index ouf of bounds produces zero (but beware of vectorization).
 indexZ :: forall ranked m n r.
-          ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r n)
+          ( Tensor ranked, HasRanks ranked, IsPrimal ranked r n
           , KnownNat m, KnownNat n, GoodScalar r
           , Underlying (ranked r (m + n)) ~ Underlying (ranked r n) )
        => ADVal ranked r (m + n) -> IndexOf (ranked r 0) m
        -> ADVal ranked r n
 indexZ (D l u u') ix = dD l (tindex u ix) (dIndexR u' ix (tshape u))
 
-fromList :: ( Tensor ranked, HasRanks ranked, IsPrimal (ranked r (1 + n)), KnownNat n, GoodScalar r
+fromList :: ( Tensor ranked, HasRanks ranked, IsPrimal ranked r (1 + n), KnownNat n, GoodScalar r
             , Underlying (ranked r n) ~ Underlying (ranked r (1 + n)) )
          => [ADVal ranked r n]
          -> ADVal ranked r (1 + n)
@@ -151,19 +151,6 @@ rToD :: ( ConvertTensor ranked shaped, HasConversions ranked shaped
       => ADVal ranked r n -> ADVal (Clown (DynamicOf ranked)) r '()
 rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (dRToD u')
 
-class ( Dual (ranked r y) ~ DeltaR ranked shaped r y
-      , DeltaR ranked shaped r y ~ Dual (ranked r y) )
-      => DualIsDeltaR ranked shaped r y where
-instance ( Dual (ranked r y) ~ DeltaR ranked shaped r y
-         , DeltaR ranked shaped r y ~ Dual (ranked r y) )
-         => DualIsDeltaR ranked shaped r y where
-
-class (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked shaped r12 y)
-      => CYRanked ranked shaped c where
-instance
-      (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked shaped r12 y)
-      => CYRanked ranked shaped c where
-
 class (Underlying a ~ Underlying b)  -- TODO:errors:Underlying b ~ Underlying a)
       => UnderlyingMatches2 a b where
 instance (Underlying a ~ Underlying b)
@@ -191,6 +178,11 @@ class (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
       => CRanked ranked c where
 instance (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
          => CRanked ranked c where
+
+class (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
+      => CRankedIP ranked c where
+instance (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
+         => CRankedIP ranked c where
 
 type instance IntOf (ADVal f r n) = IntOf (f r n)
 
@@ -227,10 +219,11 @@ type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
 -- in tests. None others are used anywhere.
 instance ( DualOf (ADVal ranked)
            ~ Product (Clown ADShare) (DeltaR ranked shaped)
+         , Dual ranked ~ DeltaR ranked shaped
+         , DeltaR ranked shaped ~ Dual ranked
          , CRanked2 ranked UnderlyingMatches2
-         , CYRanked ranked shaped DualIsDeltaR
          , CRankedR ranked UnderlyingMatches
-         , CRanked ranked IsPrimal
+         , CRankedIP ranked IsPrimal
          , CRanked ranked Num
          , CRanked ranked Show
          , HasRanks ranked
@@ -311,12 +304,6 @@ instance ( DualOf (ADVal ranked)
     dD (flattenADShare $ map (\(D l _ _) -> l) lu)
        (tsumOfList $ map (\(D _ u _) -> u) lu)
        (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
-  -- For whatever reason this signature is necessary to type-check this.
-  tmult :: forall n r.
-           ( KnownNat n, GoodScalar r
-           , Dual (ranked r n) ~ DeltaR ranked shaped r n )
-        => ADVal ranked r n -> ADVal ranked r n
-        -> ADVal ranked r n
   tmult (D l1 ue ZeroR) (D l2 ve v') =
     let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         (l4, v) = recordSharingPrimal ve l3
@@ -388,7 +375,8 @@ instance ( HasConversions ranked shaped, ConvertTensor ranked shaped
 -- This may be a problem with gatherNClosure, too, as soon as we have
 -- integer sharing and it's shared in the whole transpose result.
 _build1Closure
-  :: (Tensor ranked, HasRanks ranked, KnownNat n, GoodScalar r, IsPrimal (ranked r (1 + n)))
+  :: ( Tensor ranked, HasRanks ranked, KnownNat n, GoodScalar r
+     , IsPrimal ranked r (1 + n) )
   => Int -> (IntOf (ranked r 0) -> ADVal ranked r n)
   -> ADVal ranked r (1 + n)
 _build1Closure k f =  -- stores closures on tape

@@ -80,7 +80,7 @@ revDtFun
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r  )
   => (astvals -> AstRanked r n) -> vals
-  -> (ADAstArtifact6 n r, Dual (AstRanked r n))
+  -> (ADAstArtifact6 n r, Dual AstRanked r n)
 {-# INLINE revDtFun #-}
 revDtFun f vals =
   let parameters0 = toDomains vals
@@ -94,7 +94,7 @@ revDtInit
      , vals ~ Value astvals, Underlying astvals ~ r)
   => (astvals -> AstRanked r n) -> vals -> AstEnv ranked r
   -> DomainsOD r
-  -> (ADAstArtifact6 n r, Dual (AstRanked r n))
+  -> (ADAstArtifact6 n r, Dual AstRanked r n)
 {-# INLINE revDtInit #-}
 revDtInit f vals envInit parameters0 =
   let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList parameters0
@@ -175,7 +175,7 @@ revAstOnDomainsFun
       -> Domains AstDynamic r
       -> (ADAstVarNames n r, ADAstVars n r)
       -> ADVal AstRanked r n)
-  -> (ADAstArtifact6 n r, Dual (AstRanked r n))
+  -> (ADAstArtifact6 n r, Dual AstRanked r n)
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun shapes1 f =
   let -- Bangs and the compound function to fix the numbering of variables
@@ -345,9 +345,9 @@ generateDeltaInputs
      ( dynamic ~ DynamicOf ranked, ConvertTensor ranked shaped, GoodScalar r
      , HasRanks ranked, HasConversions ranked shaped )
   => Domains dynamic r
-  -> Data.Vector.Vector (Dual (Clown dynamic r '()))
+  -> Data.Vector.Vector (Dual (Clown dynamic) r '())
 generateDeltaInputs params =
-  let arrayToInput :: Int -> dynamic r -> Dual (Clown dynamic r '())
+  let arrayToInput :: Int -> dynamic r -> Dual (Clown dynamic) r '()
       arrayToInput i t = case someNatVal $ toInteger $ length
                               $ dshape @ranked t of
         Just (SomeNat (_ :: Proxy n)) ->
@@ -357,12 +357,12 @@ generateDeltaInputs params =
 {- TODO: this can't be specified without a proxy
 {-# SPECIALIZE generateDeltaInputs
   :: DomainsOD Double
-  -> Data.Vector.Vector (Dual (OD.Array Double)) #-}
+  -> Data.Vector.Vector (Dual OD.Array Double) #-}
 -}
 
 makeADInputs
   :: Domains dynamic r
-  -> Data.Vector.Vector (Dual (Clown dynamic r '()))
+  -> Data.Vector.Vector (Dual (Clown dynamic) r '())
   -> Domains (ADValClown dynamic) r
 {-# INLINE makeADInputs #-}
 makeADInputs = V.zipWith (\p d -> Flip $ dDnotShared emptyADShare (Clown p) d)

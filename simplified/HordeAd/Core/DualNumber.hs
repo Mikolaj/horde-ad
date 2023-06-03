@@ -35,18 +35,18 @@ import HordeAd.Core.DualClass
 -- given as the second type argument and the dual component (with the type
 -- determined by the type faimly @Dual@) is defined elsewhere.
 data ADVal (f :: Type -> k -> Type) (r :: Type) (z :: k) =
-  D (ADShare (Underlying (f r z))) (f r z) (Dual (f r z))
+  D (ADShare (Underlying (f r z))) (f r z) (Dual f r z)
 
 deriving instance ( Show (f r z), Show (ADShare (Underlying (f r z)))
-                  , Show (Dual (f r z)) )
+                  , Show (Dual f r z) )
                   => Show (ADVal f r z)
 
 -- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
 -- information, if applicable for the differentiation mode in question.
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
-dD :: IsPrimal (f r z)
-   => ADShare (Underlying (f r z)) -> f r z -> Dual (f r z) -> ADVal f r z
+dD :: IsPrimal f r z
+   => ADShare (Underlying (f r z)) -> f r z -> Dual f r z -> ADVal f r z
 dD l a dual = D l a (recordSharing dual)
 
 -- | This a not so smart constructor for 'D' of 'ADVal' that does not record
@@ -55,7 +55,7 @@ dD l a dual = D l a (recordSharing dual)
 -- in backpropagation phase. In contexts without sharing, it saves
 -- some evaluation time and memory (in term structure, but even more
 -- in the per-node data stored while evaluating).
-dDnotShared :: ADShare (Underlying (f r z)) -> f r z -> Dual (f r z)
+dDnotShared :: ADShare (Underlying (f r z)) -> f r z -> Dual f r z
             -> ADVal f r z
 dDnotShared = D
 
@@ -80,19 +80,19 @@ staticNatFromProxy Proxy = MkSNat
 -- constructed using multiple applications of the `dDnotShared` operation.
 -- The resulting term may not have sharing information inside,
 -- but is ready to be shared as a whole.
-ensureToplevelSharing :: IsPrimal (f r z) => ADVal f r z -> ADVal f r z
+ensureToplevelSharing :: IsPrimal f r z => ADVal f r z -> ADVal f r z
 ensureToplevelSharing (D l u u') = dD l u u'
 
-scaleNotShared :: (Num (f r z), IsPrimal (f r z))
+scaleNotShared :: (Num (f r z), IsPrimal f r z)
                => f r z -> ADVal f r z -> ADVal f r z
 scaleNotShared a (D l u u') = dDnotShared l (a * u) (dScale a u')
 
-addNotShared :: (Num (f r z), IsPrimal (f r z))
+addNotShared :: (Num (f r z), IsPrimal f r z)
              => ADVal f r z -> ADVal f r z -> ADVal f r z
 addNotShared (D l1 u u') (D l2 v v') =
   dDnotShared (l1 `mergeADShare` l2) (u + v) (dAdd u' v')
 
-multNotShared :: (Num (f r z), IsPrimal (f r z))
+multNotShared :: (Num (f r z), IsPrimal f r z)
               => ADVal f r z -> ADVal f r z -> ADVal f r z
 multNotShared (D l1 u u') (D l2 v v') =
   dDnotShared (l1 `mergeADShare` l2) (u * v) (dAdd (dScale v u') (dScale u v'))
@@ -114,7 +114,7 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
       else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
 -}
 
-constantADVal :: IsPrimal (f r z) => f r z -> ADVal f r z
+constantADVal :: IsPrimal f r z => f r z -> ADVal f r z
 constantADVal a = dDnotShared emptyADShare a dZero
 
 
@@ -135,7 +135,7 @@ instance Ord (f r z) => Ord (ADVal f r z) where
   D _ u _ > D _ v _ = u > v
   D _ u _ >= D _ v _ = u >= v
 
-instance (Num (f r z), IsPrimal (f r z)) => Num (ADVal f r z) where
+instance (Num (f r z), IsPrimal f r z) => Num (ADVal f r z) where
   D l1 u u' + D l2 v v' = dD (l1 `mergeADShare` l2) (u + v) (dAdd u' v')
   D l1 u u' - D l2 v v' =
     dD (l1 `mergeADShare` l2) (u - v) (dAdd u' (dScaleByScalar v (-1) v'))
@@ -150,11 +150,11 @@ instance (Num (f r z), IsPrimal (f r z)) => Num (ADVal f r z) where
   signum (D l v _) = dD l (signum v) dZero
   fromInteger = constantADVal . fromInteger
 
-instance (Real (f r z), IsPrimal (f r z)) => Real (ADVal f r z) where
+instance (Real (f r z), IsPrimal f r z) => Real (ADVal f r z) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (Fractional (f r z), IsPrimal (f r z)) => Fractional (ADVal f r z) where
+instance (Fractional (f r z), IsPrimal f r z) => Fractional (ADVal f r z) where
   D l1 ue u' / D l2 ve v' =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
@@ -167,7 +167,7 @@ instance (Fractional (f r z), IsPrimal (f r z)) => Fractional (ADVal f r z) wher
     in dD l2 (recip v) (dScale minusRecipSq v')
   fromRational = constantADVal . fromRational
 
-instance (Floating (f r z), IsPrimal (f r z)) => Floating (ADVal f r z) where
+instance (Floating (f r z), IsPrimal f r z) => Floating (ADVal f r z) where
   pi = constantADVal pi
   exp (D l ue u') = let (l2, expU) = recordSharingPrimal (exp ue) l
                     in dD l2 expU (dScale expU u')
@@ -213,12 +213,12 @@ instance (Floating (f r z), IsPrimal (f r z)) => Floating (ADVal f r z) where
                       in dD l2 (atanh u)
                             (dScale (recip (intOfShape u 1 - u*u)) u')
 
-instance (RealFrac (f r z), IsPrimal (f r z)) => RealFrac (ADVal f r z) where
+instance (RealFrac (f r z), IsPrimal f r z) => RealFrac (ADVal f r z) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (RealFloat (f r z), IsPrimal (f r z)) => RealFloat (ADVal f r z) where
+instance (RealFloat (f r z), IsPrimal f r z) => RealFloat (ADVal f r z) where
   atan2 (D l1 ue u') (D l2 ve v') =
     -- The bangs below are neccessary for GHC 9.2.7.
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in

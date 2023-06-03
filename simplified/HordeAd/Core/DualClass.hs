@@ -57,39 +57,39 @@ import HordeAd.Core.TensorClass
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
-class IsPrimal a where
-  dZero :: Dual a
-  dScale :: a -> Dual a -> Dual a
-  dScaleByScalar :: a -> Int -> Dual a -> Dual a
-  dAdd :: Dual a -> Dual a -> Dual a
-  recordSharing :: Dual a -> Dual a
-  recordSharingPrimal :: a -> ADShare (Underlying a)
-                      -> (ADShare (Underlying a), a)
-  letWrapPrimal :: ADShare (Underlying a) -> a -> a
-  intOfShape :: a -> Int -> a
+class IsPrimal f r z where
+  dZero :: Dual f r z
+  dScale ::  f r z -> Dual f r z -> Dual f r z
+  dScaleByScalar :: f r z -> Int -> Dual f r z -> Dual f r z
+  dAdd :: Dual f r z -> Dual f r z -> Dual f r z
+  recordSharing :: Dual f r z -> Dual f r z
+  recordSharingPrimal :: f r z -> ADShare (Underlying (f r z))
+                      -> (ADShare (Underlying (f r z)), f r z)
+  letWrapPrimal :: ADShare (Underlying (f r z)) -> f r z -> f r z
+  intOfShape :: f r z -> Int -> f r z
 
 -- | Part 1/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class and assert it
 -- for all @n@ values. A similar hack with @TensorOf@ wouldn't work,
 -- because instances of type families are illegal.
 class IsPrimalR r where
-  dZeroR :: KnownNat n => Dual (Flip OR.Array r n)
+  dZeroR :: KnownNat n => Dual (Flip OR.Array) r n
   dScaleR :: KnownNat n
-          => Flip OR.Array r n -> Dual (Flip OR.Array r n)
-          -> Dual (Flip OR.Array r n)
+          => Flip OR.Array r n -> Dual (Flip OR.Array) r n
+          -> Dual (Flip OR.Array) r n
   dScaleByScalarR :: KnownNat n
-                  => Flip OR.Array r n -> Int -> Dual (Flip OR.Array r n)
-                  -> Dual (Flip OR.Array r n)
+                  => Flip OR.Array r n -> Int -> Dual (Flip OR.Array) r n
+                  -> Dual (Flip OR.Array) r n
   dAddR :: KnownNat n
-        => Dual (Flip OR.Array r n) -> Dual (Flip OR.Array r n)
-        -> Dual (Flip OR.Array r n)
-  recordSharingR :: Dual (Flip OR.Array r n) -> Dual (Flip OR.Array r n)
+        => Dual (Flip OR.Array) r n -> Dual (Flip OR.Array) r n
+        -> Dual (Flip OR.Array) r n
+  recordSharingR :: Dual (Flip OR.Array) r n -> Dual (Flip OR.Array) r n
   recordSharingPrimalR :: Flip OR.Array r n -> ADShare r
                        -> (ADShare r, Flip OR.Array r n)
   letWrapPrimalR :: ADShare r -> Flip OR.Array r n -> Flip OR.Array r n
   packDeltaDtR :: KnownNat n
                => Either (Flip OR.Array r n) (Flip OR.Array r n)
-               -> Dual (Flip OR.Array r n)
+               -> Dual (Flip OR.Array) r n
                -> DeltaDt (Flip OR.Array) (Flip OS.Array) r
   intOfShapeR :: KnownNat n
               => Flip OR.Array r n -> Int -> Flip OR.Array r n
@@ -97,7 +97,7 @@ class IsPrimalR r where
 -- | Part 2/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class.
 instance (IsPrimalR r, KnownNat n)
-         => IsPrimal (Flip OR.Array r n) where
+         => IsPrimal (Flip OR.Array) r n where
   dZero = dZeroR
   dScale = dScaleR
   dScaleByScalar = dScaleByScalarR
@@ -109,28 +109,28 @@ instance (IsPrimalR r, KnownNat n)
 
 -- An analogous hack for Ast.
 class IsPrimalA r where
-  dZeroA :: KnownNat n => Dual (AstRanked r n)
+  dZeroA :: KnownNat n => Dual AstRanked r n
   dScaleA :: KnownNat n
-          => AstRanked r n -> Dual (AstRanked r n) -> Dual (AstRanked r n)
+          => AstRanked r n -> Dual AstRanked r n -> Dual AstRanked r n
   dScaleByScalarA :: KnownNat n
-                  => AstRanked r n -> Int -> Dual (AstRanked r n)
-                  -> Dual (AstRanked r n)
+                  => AstRanked r n -> Int -> Dual AstRanked r n
+                  -> Dual AstRanked r n
   dAddA :: KnownNat n
-        => Dual (AstRanked r n) -> Dual (AstRanked r n) -> Dual (AstRanked r n)
-  recordSharingA :: Dual (AstRanked r n) -> Dual (AstRanked r n)
+        => Dual AstRanked r n -> Dual AstRanked r n -> Dual AstRanked r n
+  recordSharingA :: Dual AstRanked r n -> Dual AstRanked r n
   recordSharingPrimalA :: KnownNat n
                        => AstRanked r n -> ADShare r
                        -> (ADShare r, AstRanked r n)
   letWrapPrimalA :: ADShare r -> AstRanked r n -> AstRanked r n
   packDeltaDtA :: KnownNat n
                => Either (AstRanked r n) (AstRanked r n)
-               -> Dual (AstRanked r n)
+               -> Dual AstRanked r n
                -> DeltaDt AstRanked AstShaped r
   intOfShapeA :: KnownNat n
               => AstRanked r n -> Int -> AstRanked r n
 
 instance (IsPrimalA r, KnownNat n)
-         => IsPrimal (AstRanked r n) where
+         => IsPrimal AstRanked r n where
   dZero = dZeroA
   dScale = dScaleA
   dScaleByScalar = dScaleByScalarA
@@ -145,67 +145,67 @@ instance (IsPrimalA r, KnownNat n)
 -- and instantiated method signatures and explicit foralls elsewhere,
 -- mostly in TensorADVal.
 class HasRanks ranked where
-  dInputR :: InputId (ranked r n) -> Dual (ranked r n)
+  dInputR :: InputId (ranked r n) -> Dual ranked r n
   dIndexR :: (KnownNat n, KnownNat m)
-          => Dual (ranked r (m + n)) -> IndexOf (ranked r 0) m
+          => Dual ranked r (m + n) -> IndexOf (ranked r 0) m
           -> ShapeInt (m + n)
-          -> Dual (ranked r n)
+          -> Dual ranked r n
   dSumR :: KnownNat n
-        => Int -> Dual (ranked r (1 + n)) -> Dual (ranked r n)
+        => Int -> Dual ranked r (1 + n) -> Dual ranked r n
   dSum0R :: KnownNat n
-        => ShapeInt n -> Dual (ranked r n) -> Dual (ranked r 0)
+        => ShapeInt n -> Dual ranked r n -> Dual ranked r 0
   dDot0R :: (KnownNat n, Show (ranked r n))
-        => ranked r n -> Dual (ranked r n) -> Dual (ranked r 0)
+        => ranked r n -> Dual ranked r n -> Dual ranked r 0
   dScatterR :: (KnownNat m, KnownNat p, KnownNat n)
-            => ShapeInt (p + n) -> Dual (ranked r (m + n))
+            => ShapeInt (p + n) -> Dual ranked r (m + n)
             -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
             -> ShapeInt (m + n)
-            -> Dual (ranked r (p + n))
+            -> Dual ranked r (p + n)
   dFromListR :: KnownNat n
-             => [Dual (ranked r n)]
-             -> Dual (ranked r (1 + n))
+             => [Dual ranked r n]
+             -> Dual ranked r (1 + n)
   dFromVectorR :: KnownNat n
-               => Data.Vector.Vector (Dual (ranked r n))
-               -> Dual (ranked r (1 + n))
+               => Data.Vector.Vector (Dual ranked r n)
+               -> Dual ranked r (1 + n)
   dReplicateR :: KnownNat n
-          => Int -> Dual (ranked r n) -> Dual (ranked r (1 + n))
+          => Int -> Dual ranked r n -> Dual ranked r (1 + n)
   dAppendR :: KnownNat n
-           => Dual (ranked r (1 + n)) -> Int -> Dual (ranked r (1 + n))
-           -> Dual (ranked r (1 + n))
+           => Dual ranked r (1 + n) -> Int -> Dual ranked r (1 + n)
+           -> Dual ranked r (1 + n)
   dSliceR :: KnownNat n
-          => Int -> Int -> Dual (ranked r (1 + n)) -> Int
-          -> Dual (ranked r (1 + n))
+          => Int -> Int -> Dual ranked r (1 + n) -> Int
+          -> Dual ranked r (1 + n)
   dReverseR :: KnownNat n
-            => Dual (ranked r (1 + n)) -> Dual (ranked r (1 + n))
+            => Dual ranked r (1 + n) -> Dual ranked r (1 + n)
   dTransposeR :: KnownNat n
-              => Permutation -> Dual (ranked r n) -> Dual (ranked r n)
+              => Permutation -> Dual ranked r n -> Dual ranked r n
   dReshapeR :: (KnownNat n, KnownNat m)
-            => ShapeInt n -> ShapeInt m -> Dual (ranked r n)
-            -> Dual (ranked r m)
+            => ShapeInt n -> ShapeInt m -> Dual ranked r n
+            -> Dual ranked r m
   dBuildR :: KnownNat n
-          => Int -> (IntOf (ranked r 0) -> Dual (ranked r n))
-          -> Dual (ranked r (1 + n))
+          => Int -> (IntOf (ranked r 0) -> Dual ranked r n)
+          -> Dual ranked r (1 + n)
   dGatherR :: (KnownNat m, KnownNat p, KnownNat n)
-           => ShapeInt (m + n) -> Dual (ranked r (p + n))
+           => ShapeInt (m + n) -> Dual ranked r (p + n)
            -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
            -> ShapeInt (p + n)
-           -> Dual (ranked r (m + n))
+           -> Dual ranked r (m + n)
 
 -- This indirection is useful to prevent long strings of trivial
 -- conversions on tape stemming from packing tensors into Domains.
 class HasConversions ranked shaped | ranked -> shaped, shaped -> ranked where
   dDToR :: forall n r. KnownNat n
-        => Dual (Clown (DynamicOf ranked) r '()) -> Dual (ranked r n)
+        => Dual (Clown (DynamicOf ranked)) r '() -> Dual ranked r n
   dSToR :: forall sh r. KnownNat (OS.Rank sh)
-        => Dual (shaped r sh) -> Dual (ranked r (OS.Rank sh))
+        => Dual shaped r sh -> Dual ranked r (OS.Rank sh)
   dRToD :: KnownNat n
-        => Dual (ranked r n) -> Dual (Clown (DynamicOf ranked) r '())
+        => Dual ranked r n -> Dual (Clown (DynamicOf ranked)) r '()
   dSToD :: (OS.Shape sh, KnownNat (OS.Rank sh))
-        => Dual (shaped r sh) -> Dual (Clown (DynamicOf shaped) r '())
+        => Dual shaped r sh -> Dual (Clown (DynamicOf shaped)) r '()
   dRToS :: OS.Shape sh
-        => Dual (ranked r (OS.Rank sh)) -> Dual (shaped r sh)
+        => Dual ranked r (OS.Rank sh) -> Dual shaped r sh
   dDToS :: OS.Shape sh
-        => Dual (Clown (DynamicOf shaped) r '()) -> Dual (shaped r sh)
+        => Dual (Clown (DynamicOf shaped)) r '() -> Dual shaped r sh
 
 
 -- * Delta expression method instances
@@ -315,14 +315,14 @@ instance HasRanks (Flip OR.Array) where
 instance (ranked ~ Flip OR.Array, shaped ~ Flip OS.Array)
          => HasConversions (Flip OR.Array) (Flip OS.Array) where
   dDToR :: forall n r. KnownNat n
-         => Dual (Clown OD.Array r '()) -> Dual (ranked r n)
+         => Dual (Clown OD.Array) r '() -> Dual ranked r n
   dDToR (RToD @_ @_ @n1 d) =
     case sameNat (Proxy @n1) (Proxy @n) of
       Just Refl -> d
       _ -> error "dDToR: different ranks in DToR(RToD)"
   dDToR d = DToR d
   dSToR :: forall sh r. KnownNat (OS.Rank sh)
-        => Dual (shaped r sh) -> Dual (ranked r (OS.Rank sh))
+        => Dual shaped r sh -> Dual ranked r (OS.Rank sh)
   dSToR (RToS @_ @_ @sh1 d) =
     -- TODO: compare sh, not n:
     case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
@@ -355,7 +355,7 @@ instance HasRanks AstRanked where
 instance (ranked ~ AstRanked, shaped ~ AstShaped)
          => HasConversions AstRanked AstShaped where
   dDToR :: forall n r. KnownNat n
-         => Dual (Clown AstDynamic r '()) -> Dual (ranked r n)
+         => Dual (Clown AstDynamic) r '() -> Dual ranked r n
   dDToR (RToD @_ @_ @n1 d) =
     case sameNat (Proxy @n1) (Proxy @n) of
       Just Refl -> d
@@ -364,7 +364,7 @@ instance (ranked ~ AstRanked, shaped ~ AstShaped)
   dSToR :: forall sh r. KnownNat (OS.Rank sh)
 -- TODO: test in new GHC and report; this doesn't work:
 --        => Dual (shaped r sh) -> Dual (ranked r (OS.Rank sh))
-        => Dual (AstShaped r sh) -> Dual (AstRanked r (OS.Rank sh))
+        => Dual AstShaped r sh -> Dual AstRanked r (OS.Rank sh)
   dSToR (RToS @_ @_ @sh1 d) =
     -- TODO: compare sh, not n:
     case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of

@@ -134,7 +134,7 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
   LetS :: NodeId -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
 
   DToS :: forall ranked shaped sh r.
-          DeltaD ranked shaped r
+          DeltaD ranked shaped r '()
        -> DeltaS ranked shaped r sh
   RToS :: forall ranked shaped sh r.
           DeltaR ranked shaped r (OS.Rank sh)
@@ -242,7 +242,7 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- TODO: this is a haddock for Gather1; fix.
 
   DToR :: forall ranked shaped n r.
-          DeltaD ranked shaped r
+          DeltaD ranked shaped r '()
        -> DeltaR ranked shaped r n
   SToR :: forall ranked shaped sh r.
           DeltaS ranked shaped r sh
@@ -252,14 +252,14 @@ deriving instance (Show (IntOf (ranked r 0)), Show r)
                   => Show (DeltaR ranked shaped r n)
 
 data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
-            -> Type -> Type where
+            -> Type -> () -> Type where
   RToD :: forall ranked shaped n r. KnownNat n
-         => DeltaR ranked shaped r n -> DeltaD ranked shaped r
+         => DeltaR ranked shaped r n -> DeltaD ranked shaped r '()
   SToD :: forall ranked shaped sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
-         => DeltaS ranked shaped r sh -> DeltaD ranked shaped r
+         => DeltaS ranked shaped r sh -> DeltaD ranked shaped r '()
 
 deriving instance (Show (IntOf (ranked r 0)), Show r)
-                  => Show (DeltaD ranked shaped r)
+                  => Show (DeltaD ranked shaped r '())
 
 
 -- * Related datatypes and classes
@@ -274,15 +274,15 @@ toInputId i = assert (i >= 0) $ InputId i
 
 -- | The type family that to each basic differentiable type
 -- assigns its delta expression type.
-type family Dual a = result | result -> a where
---  Dual (OD.Array r) = DeltaD (Flip OR.Array) (Flip OS.Array) r
---  Dual (AstDynamic r) = DeltaD AstRanked AstShaped r
-  Dual (Clown OD.Array r '()) = DeltaD (Flip OR.Array) (Flip OS.Array) r
-  Dual (Clown AstDynamic r '()) = DeltaD AstRanked AstShaped r
-  Dual (Flip OR.Array r n) = DeltaR (Flip OR.Array) (Flip OS.Array) r n
-  Dual (AstRanked r n) = DeltaR AstRanked AstShaped r n
-  Dual (Flip OS.Array sh n) = DeltaS (Flip OR.Array) (Flip OS.Array) sh n
-  Dual (AstShaped sh n) = DeltaS AstRanked AstShaped sh n
+type Dual :: forall k. (Type -> k -> Type) -> Type -> k -> Type
+type family Dual (f :: Type -> k -> Type)
+     = (result :: Type -> k -> Type) | result -> f where
+  Dual (Clown OD.Array) = DeltaD (Flip OR.Array) (Flip OS.Array)
+  Dual (Clown AstDynamic) = DeltaD AstRanked AstShaped
+  Dual (Flip OR.Array) = DeltaR (Flip OR.Array) (Flip OS.Array)
+  Dual AstRanked = DeltaR AstRanked AstShaped
+  Dual (Flip OS.Array) = DeltaS (Flip OR.Array) (Flip OS.Array)
+  Dual AstShaped = DeltaS AstRanked AstShaped
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions
@@ -639,14 +639,14 @@ buildFinMaps s0 deltaDt =
 -- represented by the parameters of the objective function and used
 -- to compute it's dual number result) and along the direction vector(s)
 -- given in the last parameter called @ds@.
-class ForwardDerivative (ranked :: Type -> Nat -> Type) a r where
+class ForwardDerivative (ranked :: Type -> Nat -> Type) r n where
   derivativeFromDelta
-    :: Int -> Dual a -> Domains (DynamicOf ranked) r -> a
+    :: Int -> Dual ranked r n -> Domains (DynamicOf ranked) r -> ranked r n
 
 instance ( KnownNat n, GoodScalar r, Tensor ranked
          , ConvertTensor ranked shaped
-         , Dual (ranked r n) ~ DeltaR ranked shaped r n )
-         => ForwardDerivative ranked (ranked r n) r where
+         , Dual ranked ~ DeltaR ranked shaped )
+         => ForwardDerivative ranked r n where
   derivativeFromDelta dimR deltaTopLevel ds =
     case runST $ buildDerivative dimR (DeltaDtR 0 deltaTopLevel) ds of
       DeltaDtR @_ @_ @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
