@@ -25,7 +25,7 @@ module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
     IsPrimal(..)
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
-    Dual, HasRanks(..), HasConversions(..)
+    Dual, HasConversions(..)
   , -- * Internal operations, exposed for tests, debugging and experiments
     unsafeGetFreshId, resetIdCounter
   ) where
@@ -40,15 +40,13 @@ import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, sameNat)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.Delta
-import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
 
@@ -65,57 +63,6 @@ class IsPrimal f r z where
   recordSharingPrimal :: f r z -> ADShare r -> (ADShare r, f r z)
   letWrapPrimal :: ADShare r -> f r z -> f r z
   intOfShape :: f r z -> Int -> f r z
-
--- This indirection indueces a few blocks of boilerplate in this module
--- but makes unnecessary hundreds of type applications, repeated
--- and instantiated method signatures and explicit foralls elsewhere,
--- mostly in TensorADVal.
-class HasRanks ranked where
-  dInputR :: InputId (ranked r n) -> Dual ranked r n
-  dIndexR :: (KnownNat n, KnownNat m)
-          => Dual ranked r (m + n) -> IndexOf (ranked r 0) m
-          -> ShapeInt (m + n)
-          -> Dual ranked r n
-  dSumR :: KnownNat n
-        => Int -> Dual ranked r (1 + n) -> Dual ranked r n
-  dSum0R :: KnownNat n
-        => ShapeInt n -> Dual ranked r n -> Dual ranked r 0
-  dDot0R :: (KnownNat n, Show (ranked r n))
-        => ranked r n -> Dual ranked r n -> Dual ranked r 0
-  dScatterR :: (KnownNat m, KnownNat p, KnownNat n)
-            => ShapeInt (p + n) -> Dual ranked r (m + n)
-            -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
-            -> ShapeInt (m + n)
-            -> Dual ranked r (p + n)
-  dFromListR :: KnownNat n
-             => [Dual ranked r n]
-             -> Dual ranked r (1 + n)
-  dFromVectorR :: KnownNat n
-               => Data.Vector.Vector (Dual ranked r n)
-               -> Dual ranked r (1 + n)
-  dReplicateR :: KnownNat n
-          => Int -> Dual ranked r n -> Dual ranked r (1 + n)
-  dAppendR :: KnownNat n
-           => Dual ranked r (1 + n) -> Int -> Dual ranked r (1 + n)
-           -> Dual ranked r (1 + n)
-  dSliceR :: KnownNat n
-          => Int -> Int -> Dual ranked r (1 + n) -> Int
-          -> Dual ranked r (1 + n)
-  dReverseR :: KnownNat n
-            => Dual ranked r (1 + n) -> Dual ranked r (1 + n)
-  dTransposeR :: KnownNat n
-              => Permutation -> Dual ranked r n -> Dual ranked r n
-  dReshapeR :: (KnownNat n, KnownNat m)
-            => ShapeInt n -> ShapeInt m -> Dual ranked r n
-            -> Dual ranked r m
-  dBuildR :: KnownNat n
-          => Int -> (IntOf (ranked r 0) -> Dual ranked r n)
-          -> Dual ranked r (1 + n)
-  dGatherR :: (KnownNat m, KnownNat p, KnownNat n)
-           => ShapeInt (m + n) -> Dual ranked r (p + n)
-           -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
-           -> ShapeInt (p + n)
-           -> Dual ranked r (m + n)
 
 -- This indirection is useful to prevent long strings of trivial
 -- conversions on tape stemming from packing tensors into Domains.
@@ -202,7 +149,7 @@ instance (GoodScalar r, KnownNat n) => IsPrimal AstRanked r n where
   letWrapPrimal = tletWrap
   intOfShape tsh c = treplicate0N (tshape tsh) (fromIntegral c)
 
-{- TODO: this should suffice to merge both HasRanks instances, but it doesn't:
+{- TODO: this should suffice to merge both HasConversions instances, but it doesn't:
 class ( Dual (ranked r y) ~ DeltaR ranked r y
       , DeltaR ranked r y ~ Dual (ranked r y) )
       => DualIsDeltaR ranked r y where
@@ -215,24 +162,6 @@ instance (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked r12 y) => CYRan
 
 instance CYRanked ranked DualIsDeltaR => HasRanks ranked where
 -}
-
-instance HasRanks (Flip OR.Array) where
-  dInputR = InputR
-  dIndexR = IndexR
-  dSumR = SumR
-  dSum0R = Sum0R
-  dDot0R = Dot0R
-  dScatterR = ScatterR
-  dFromListR = FromListR
-  dFromVectorR = FromVectorR
-  dReplicateR = ReplicateR
-  dAppendR = AppendR
-  dSliceR = SliceR
-  dReverseR = ReverseR
-  dTransposeR = TransposeR
-  dReshapeR = ReshapeR
-  dBuildR = BuildR
-  dGatherR = GatherR
 
 instance (ranked ~ Flip OR.Array, shaped ~ Flip OS.Array)
          => HasConversions (Flip OR.Array) (Flip OS.Array) where
@@ -255,24 +184,6 @@ instance (ranked ~ Flip OR.Array, shaped ~ Flip OS.Array)
   dSToD = SToD
   dRToS = RToS
   dDToS = DToS
-
-instance HasRanks AstRanked where
-  dInputR = InputR
-  dIndexR = IndexR
-  dSumR = SumR
-  dSum0R = Sum0R
-  dDot0R = Dot0R
-  dScatterR = ScatterR
-  dFromListR = FromListR
-  dFromVectorR = FromVectorR
-  dReplicateR = ReplicateR
-  dAppendR = AppendR
-  dSliceR = SliceR
-  dReverseR = ReverseR
-  dTransposeR = TransposeR
-  dReshapeR = ReshapeR
-  dBuildR = BuildR
-  dGatherR = GatherR
 
 instance (ranked ~ AstRanked, shaped ~ AstShaped)
          => HasConversions AstRanked AstShaped where

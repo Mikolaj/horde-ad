@@ -60,14 +60,16 @@ instance (KnownNat n, GoodScalar r)
 --
 -- First index is for outermost dimension; empty index means identity,
 -- index ouf of bounds produces zero (but beware of vectorization).
-indexZ :: forall ranked m n r.
-          ( Tensor ranked, HasRanks ranked, IsPrimal ranked r n
+indexZ :: forall ranked shaped m n r.
+          ( Tensor ranked, IsPrimal ranked r n
+          , Dual ranked ~ DeltaR ranked shaped
           , KnownNat m, KnownNat n, GoodScalar r )
        => ADVal ranked r (m + n) -> IndexOf (ranked r 0) m
        -> ADVal ranked r n
-indexZ (D l u u') ix = dD l (tindex u ix) (dIndexR u' ix (tshape u))
+indexZ (D l u u') ix = dD l (tindex u ix) (IndexR u' ix (tshape u))
 
-fromList :: ( Tensor ranked, HasRanks ranked, IsPrimal ranked r (1 + n)
+fromList :: ( Tensor ranked, IsPrimal ranked r (1 + n)
+            , Dual ranked ~ DeltaR ranked shaped
             , KnownNat n, GoodScalar r )
          => [ADVal ranked r n]
          -> ADVal ranked r (1 + n)
@@ -75,7 +77,7 @@ fromList lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
   dD (flattenADShare $ map ((\(D l _ _) -> l)) lu)
      (tfromList $ map (\(D _ u _) -> u) lu)
-     (dFromListR $ map (\(D _ _ u') -> u') lu)
+     (FromListR $ map (\(D _ _ u') -> u') lu)
 
 type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
 
@@ -159,7 +161,6 @@ instance ( DualOf (ADVal ranked)
          , DeltaR ranked shaped ~ Dual ranked
          , CRankedIP ranked IsPrimal
          , CRanked ranked Show
-         , HasRanks ranked
          , Tensor ranked )
          => Tensor (ADVal ranked) where
   tlet (D l u u') f =
@@ -177,22 +178,22 @@ instance ( DualOf (ADVal ranked)
   tindex v ix = indexZ v ix
   tsum = sum'
    where
-    sum' (D l u u') = dD l (tsum u) (dSumR (tlength u) u')
+    sum' (D l u u') = dD l (tsum u) (SumR (tlength u) u')
   tsum0 = sum0
    where
-    sum0 (D l u u') = dD l (tsum0 u) (dSum0R (tshape u) u')
+    sum0 (D l u u') = dD l (tsum0 u) (Sum0R (tshape u) u')
   tdot0 = \u v -> dot0 u v
    where
     dot0 (D l1 ue u') (D l2 ve v') =
       -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
       let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
           !(!l4, v) = recordSharingPrimal ve l3
-      in dD l4 (tdot0 u v) (dAdd (dDot0R v u') (dDot0R u v'))
+      in dD l4 (tdot0 u v) (dAdd (Dot0R v u') (Dot0R u v'))
   tfromIndex0 = \ix -> dDnotShared emptyADShare (tfromIndex0 ix) dZero
   tscatter = \sh t f -> scatterNClosure sh t f
    where
     scatterNClosure sh (D l u u') f =
-      dD l (tscatter sh u f) (dScatterR sh u' f (tshape u))
+      dD l (tscatter sh u f) (ScatterR sh u' f (tshape u))
 
   tfromList = fromList
   tfromVector = fromVector
@@ -200,30 +201,30 @@ instance ( DualOf (ADVal ranked)
     fromVector lu =
       dD (flattenADShare $ map ((\(D l _ _) -> l)) $ V.toList lu)
          (tfromVector $ V.map (\(D _ u _) -> u) lu)
-         (dFromVectorR $ V.map (\(D _ _ u') -> u') lu)
+         (FromVectorR $ V.map (\(D _ _ u') -> u') lu)
   treplicate = \k -> replicate' k
    where
-    replicate' k (D l u u') = dD l (treplicate k u) (dReplicateR k u')
+    replicate' k (D l u u') = dD l (treplicate k u) (ReplicateR k u')
   tappend = \u v -> append u v
    where
     append (D l1 u u') (D l2 v v') =
-      dD (l1 `mergeADShare` l2) (tappend u v) (dAppendR u' (tlength u) v')
+      dD (l1 `mergeADShare` l2) (tappend u v) (AppendR u' (tlength u) v')
   tslice = \i k -> slice i k
    where
-    slice i k (D l u u') = dD l (tslice i k u) (dSliceR i k u' (tlength u))
+    slice i k (D l u u') = dD l (tslice i k u) (SliceR i k u' (tlength u))
   treverse = reverse'
    where
-    reverse' (D l u u') = dD l (treverse u) (dReverseR u')
+    reverse' (D l u u') = dD l (treverse u) (ReverseR u')
   ttranspose = \perm -> transpose perm
    where
-    transpose perm (D l u u') = dD l (ttranspose perm u) (dTransposeR perm u')
+    transpose perm (D l u u') = dD l (ttranspose perm u) (TransposeR perm u')
   treshape :: forall n m r. (GoodScalar r, KnownNat n, KnownNat m)
            => ShapeInt m -> ADVal ranked r n -> ADVal ranked r m
   treshape = \sh -> reshape sh
    where
     reshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
       Just Refl | sh == tshape u -> t
-      _ -> dD l (treshape sh u) (dReshapeR (tshape u) sh u')
+      _ -> dD l (treshape sh u) (ReshapeR (tshape u) sh u')
   tbuild1 = \k f -> build1 k f
    where
     build1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
@@ -231,7 +232,7 @@ instance ( DualOf (ADVal ranked)
   tgather = \sh t f -> gatherNClosure sh t f
    where
     gatherNClosure sh (D l u u') f =
-      dD l (tgather sh u f) (dGatherR sh u' f (tshape u))
+      dD l (tgather sh u f) (GatherR sh u' f (tshape u))
 
   tsumOfList lu =
     dD (flattenADShare $ map (\(D l _ _) -> l) lu)
@@ -290,11 +291,12 @@ instance (HasConversions ranked shaped, ConvertTensor ranked shaped)
 -- This may be a problem with gatherNClosure, too, as soon as we have
 -- integer sharing and it's shared in the whole transpose result.
 _build1Closure
-  :: ( Tensor ranked, HasRanks ranked, KnownNat n, GoodScalar r
+  :: ( Tensor ranked, KnownNat n, GoodScalar r
+     , Dual ranked ~ DeltaR ranked shaped
      , IsPrimal ranked r (1 + n) )
   => Int -> (IntOf (ranked r 0) -> ADVal ranked r n)
   -> ADVal ranked r (1 + n)
 _build1Closure k f =  -- stores closures on tape
   let g i = let D _ u _ = f i in u
       h i = let D _ _ u' = f i in u'
-  in dD emptyADShare (tbuild1 k g) (dBuildR k h)
+  in dD emptyADShare (tbuild1 k g) (BuildR k h)

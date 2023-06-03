@@ -31,9 +31,9 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
-import HordeAd.Core.Delta (DeltaDt (..), gradientFromDelta, toInputId)
-import HordeAd.Core.DualClass
-  (Dual, HasConversions (..), HasRanks (..), dInputR, dRToD)
+import HordeAd.Core.Delta
+  (DeltaDt (..), DeltaR (InputR), gradientFromDelta, toInputId)
+import HordeAd.Core.DualClass (Dual, HasConversions (..), dRToD)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
@@ -351,7 +351,7 @@ slowFwdOnDomains parameters f ds =
 generateDeltaInputs
   :: forall ranked shaped r dynamic.
      ( dynamic ~ DynamicOf ranked, ConvertTensor ranked shaped, GoodScalar r
-     , HasRanks ranked, HasConversions ranked shaped )
+     , Dual ranked ~ DeltaR ranked shaped, HasConversions ranked shaped )
   => Domains dynamic r
   -> Data.Vector.Vector (Dual (Clown dynamic) r '())
 generateDeltaInputs params =
@@ -359,7 +359,7 @@ generateDeltaInputs params =
       arrayToInput i t = case someNatVal $ toInteger $ length
                               $ dshape @ranked t of
         Just (SomeNat (_ :: Proxy n)) ->
-          dRToD $ dInputR @ranked @r @n $ toInputId i
+          dRToD @ranked $ InputR @ranked @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
   in V.imap arrayToInput params
 {- TODO: this can't be specified without a proxy
