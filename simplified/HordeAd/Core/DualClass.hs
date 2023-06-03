@@ -85,10 +85,6 @@ class IsPrimalR r where
   recordSharingPrimalR :: Flip OR.Array r n -> ADShare r
                        -> (ADShare r, Flip OR.Array r n)
   letWrapPrimalR :: ADShare r -> Flip OR.Array r n -> Flip OR.Array r n
-  packDeltaDtR :: KnownNat n
-               => Either (Flip OR.Array r n) (Flip OR.Array r n)
-               -> Dual (Flip OR.Array) r n
-               -> DeltaDt (Flip OR.Array) (Flip OS.Array) r
   intOfShapeR :: KnownNat n
               => Flip OR.Array r n -> Int -> Flip OR.Array r n
 
@@ -120,10 +116,6 @@ class IsPrimalA r where
                        => AstRanked r n -> ADShare r
                        -> (ADShare r, AstRanked r n)
   letWrapPrimalA :: ADShare r -> AstRanked r n -> AstRanked r n
-  packDeltaDtA :: KnownNat n
-               => Either (AstRanked r n) (AstRanked r n)
-               -> Dual AstRanked r n
-               -> DeltaDt AstRanked AstShaped r
   intOfShapeA :: KnownNat n
               => AstRanked r n -> Int -> AstRanked r n
 
@@ -255,8 +247,6 @@ instance GoodScalar r => IsPrimalR r where
     _ -> wrapDeltaR d
   recordSharingPrimalR r l = (l, r)
   letWrapPrimalR _ r = r
-  packDeltaDtR (Left tsh) = DeltaDtR (treplicate0N (tshape tsh) 1)
-  packDeltaDtR (Right t) = DeltaDtR t
   intOfShapeR tsh c =
     Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
 
@@ -274,8 +264,6 @@ instance GoodScalar r => IsPrimalA r where
     _ -> wrapDeltaR d
   recordSharingPrimalA = astRegisterADShare
   letWrapPrimalA = tletWrap
-  packDeltaDtA (Left tsh) = DeltaDtR (treplicate0N (tshape tsh) 1)
-  packDeltaDtA (Right t) = DeltaDtR t
   intOfShapeA tsh c = treplicate0N (tshape tsh) (fromIntegral c)
 
 {- TODO: this should suffice to merge both HasRanks instances, but it doesn't:

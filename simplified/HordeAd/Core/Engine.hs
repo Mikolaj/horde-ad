@@ -17,6 +17,7 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
@@ -30,16 +31,9 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
-import HordeAd.Core.Delta (gradientFromDelta, toInputId)
+import HordeAd.Core.Delta (DeltaDt (..), gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass
-  ( Dual
-  , HasConversions (..)
-  , HasRanks (..)
-  , IsPrimalA (..)
-  , IsPrimalR (..)
-  , dInputR
-  , dRToD
-  )
+  (Dual, HasConversions (..), HasRanks (..), dInputR, dRToD)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
@@ -195,6 +189,13 @@ revAstOnDomainsFun shapes1 f =
        , unletAst6 l primalBody )
      , deltaTopLevel )
 
+packDeltaDtA :: (KnownNat n, GoodScalar r)
+             => Either (AstRanked r n) (AstRanked r n)
+             -> Dual AstRanked r n
+             -> DeltaDt AstRanked AstShaped r
+packDeltaDtA (Left tsh) = DeltaDtR (treplicate0N (tshape tsh) 1)
+packDeltaDtA (Right t) = DeltaDtR t
+
 revAstOnDomainsEval
   :: forall r n ranked.
      ( ranked ~ Flip OR.Array
@@ -221,7 +222,7 @@ crev
      ( ranked ~ ADVal (Flip OR.Array)
      , AdaptableDomains (DynamicOf ranked) advals
      , AdaptableDomains OD.Array vals
-     , IsPrimalR r, KnownNat n, GoodScalar r
+     , KnownNat n, GoodScalar r
      , r ~ Underlying vals, vals ~ Value vals
      , vals ~ Value advals, Underlying advals ~ r )
   => (advals -> ranked r n) -> vals
@@ -234,7 +235,7 @@ crevDt
      ( ranked ~ ADVal (Flip OR.Array)
      , AdaptableDomains (DynamicOf ranked) advals
      , AdaptableDomains OD.Array vals
-     , IsPrimalR r, KnownNat n, GoodScalar r
+     , KnownNat n, GoodScalar r
      , r ~ Underlying vals, vals ~ Value vals
      , vals ~ Value advals, Underlying advals ~ r )
   => (advals -> ranked r n) -> vals -> OR.Array n r
@@ -246,7 +247,7 @@ crevDtMaybe
      ( ranked ~ ADVal (Flip OR.Array)
      , AdaptableDomains (DynamicOf ranked) advals
      , AdaptableDomains OD.Array vals
-     , IsPrimalR r, KnownNat n, GoodScalar r
+     , KnownNat n, GoodScalar r
      , r ~ Underlying vals, vals ~ Value vals
      , vals ~ Value advals, Underlying advals ~ r )
   => (advals -> ranked r n) -> vals -> Maybe (OR.Array n r)
@@ -258,7 +259,7 @@ crevDtMaybe f vals dt =
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 revOnADInputs
-  :: (dynamic ~ ADValClown OD.Array, KnownNat n, GoodScalar r, IsPrimalR r)
+  :: (dynamic ~ ADValClown OD.Array, KnownNat n, GoodScalar r)
   => Maybe (Flip OR.Array r n)
   -> (Domains dynamic r -> ADVal (Flip OR.Array) r n)
   -> Domains dynamic r
@@ -275,10 +276,17 @@ revOnADInputs dt f inputs =
   let (_, gradient) = gradientFromDelta dim1 deltaDt
   in (gradient, v)
 
+packDeltaDtR :: (KnownNat n, GoodScalar r)
+             => Either (Flip OR.Array r n) (Flip OR.Array r n)
+             -> Dual (Flip OR.Array) r n
+             -> DeltaDt (Flip OR.Array) (Flip OS.Array) r
+packDeltaDtR (Left tsh) = DeltaDtR (treplicate0N (tshape tsh) 1)
+packDeltaDtR (Right t) = DeltaDtR t
+
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: (dynamic ~ ADValClown OD.Array, KnownNat n, GoodScalar r, IsPrimalR r)
+  :: (dynamic ~ ADValClown OD.Array, KnownNat n, GoodScalar r)
   => Maybe (Flip OR.Array r n)
   -> (Domains dynamic r -> ADVal (Flip OR.Array) r n)
   -> DomainsOD r

@@ -14,16 +14,14 @@ import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.Adaptor
-import HordeAd.Core.DualNumber (ADVal, IsPrimalR)
+import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.External.OptimizerTools
 
 -- | Stochastic Gradient Descent.
-sgd :: forall n r a.
-       ( KnownNat n, GoodScalar r
-       , IsPrimalR r )
+sgd :: forall n r a. (KnownNat n, GoodScalar r)
     => r
     -> (a -> Domains (ADValClown OD.Array) r -> ADVal (Flip OR.Array) r n)
     -> [a]  -- ^ training data
@@ -49,8 +47,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   -> DomainsOD Double
   -> (DomainsOD Double, Flip OR.Array Double 0) #-}
 
-sgdAdam :: forall r a n.
-           ( KnownNat n, GoodScalar r, IsPrimalR r )
+sgdAdam :: forall r a n. (KnownNat n, GoodScalar r)
         => (a -> Domains (ADValClown OD.Array) r -> ADVal (Flip OR.Array) r n)
         -> [a]
         -> DomainsOD r
@@ -58,8 +55,7 @@ sgdAdam :: forall r a n.
         -> (DomainsOD r, StateAdam r)
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
-sgdAdamArgs :: forall r a n.
-               ( KnownNat n, GoodScalar r, IsPrimalR r )
+sgdAdamArgs :: forall r a n. (KnownNat n, GoodScalar r)
             => ArgsAdam r
             -> (a -> Domains (ADValClown OD.Array) r
                 -> ADVal (Flip OR.Array) r n)
