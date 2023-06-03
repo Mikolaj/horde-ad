@@ -82,7 +82,9 @@ fromList lu =
 type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
 
 instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
-         , ConvertTensor ranked shaped, HasConversions ranked shaped )
+         , Dual ranked ~ DeltaR ranked shaped
+         , Dual (Clown dynamic) ~ DeltaD ranked shaped
+         , ConvertTensor ranked shaped )
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal ranked r n) where
   type Underlying (ADVal ranked r n) = r
@@ -93,7 +95,7 @@ instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
     Nothing -> Nothing
 
 instance ( GoodScalar r, dynamic ~ DynamicOf shaped
-         , ConvertTensor ranked shaped, HasConversions ranked shaped )
+         , ConvertTensor ranked shaped )
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal shaped r sh) where
   type Underlying (ADVal shaped r sh) = r
@@ -102,15 +104,25 @@ instance ( GoodScalar r, dynamic ~ DynamicOf shaped
   fromDomains = undefined
 
 dToR :: forall ranked shaped n r.
-        ( ConvertTensor ranked shaped, HasConversions ranked shaped
+        ( ConvertTensor ranked shaped
+        , Dual ranked ~ DeltaR ranked shaped
+        , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped
         , KnownNat n, GoodScalar r )
       => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal ranked r n
 dToR (D l u u') = dDnotShared l (tfromD $ runClown u) (dDToR u')
+ where
+  dDToR (RToD @_ @_ @n1 d) =
+    case sameNat (Proxy @n1) (Proxy @n) of
+      Just Refl -> d
+      _ -> error "dToR: different ranks in DToR(RToD)"
+  dDToR d = DToR d
 
-rToD :: ( ConvertTensor ranked shaped, HasConversions ranked shaped
+rToD :: ( ConvertTensor ranked shaped
+        , Dual ranked ~ DeltaR ranked shaped
+        , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped
         , KnownNat n, GoodScalar r )
       => ADVal ranked r n -> ADVal (Clown (DynamicOf ranked)) r '()
-rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (dRToD u')
+rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (RToD u')
 
 class (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
       => CRanked ranked c where
@@ -255,25 +267,39 @@ instance ( DualOf (ADVal ranked)
   tD ast (Pair (Clown l) delta) = dD l ast delta
   tScale ast (Pair l delta) = Pair l (dScale ast delta)
 
-instance (HasConversions ranked shaped, ConvertTensor ranked shaped)
+instance ( Dual ranked ~ DeltaR ranked shaped
+         , Dual shaped ~ DeltaS ranked shaped
+         , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped
+         , ConvertTensor ranked shaped )
          => ConvertTensor (ADVal ranked)
                           (ADVal shaped) where
   tfromD = dToR . runFlip
   tfromS = sToR
    where
-    sToR (D l u u') = dDnotShared l (tfromS @ranked @shaped u) (dSToR u')
+    sToR :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+         => ADVal shaped r sh -> ADVal ranked r (OS.Rank sh)
+    sToR (D l u u') = dDnotShared l (tfromS u) (dSToR u')
+     where
+      dSToR (RToS @_ @_ @sh1 d) =
+        -- TODO: compare sh, not n:
+        case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
+          Just Refl -> d
+          _ -> error "sToR: different shapes in SToR(RToS)"
+      dSToR d = SToR d
+        -- TODO: add all the other optimizations about not storing
+        -- trivial conversions on tape
   dfromR = Flip . rToD
   dfromS = Flip . sToD
    where
-    sToD (D l u u') = dDnotShared l (Clown $ dfromS @ranked @shaped u)
-                                    (dSToD u')
+    sToD (D l u u') = dDnotShared l (Clown $ dfromS u)
+                                    (SToD u')
   sfromD = dToS . runFlip
    where
-    dToS (D l u u') = dDnotShared l (sfromD @ranked @shaped (runClown u))
-                                    (dDToS u')
+    dToS (D l u u') = dDnotShared l (sfromD (runClown u))
+                                    (DToS u')
   sfromR = rToS
    where
-    rToS (D l u u') = dDnotShared l (sfromR @ranked @shaped u) (dRToS u')
+    rToS (D l u u') = dDnotShared l (sfromR u) (RToS u')
   ddummy = undefined
   disDummy = undefined
   daddR = undefined

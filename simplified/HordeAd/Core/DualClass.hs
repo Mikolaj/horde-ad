@@ -22,26 +22,16 @@
 -- sharing. This applies regardless of impurity, because repeated processing
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
-  ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
-    IsPrimal(..)
-  , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
-    Dual, HasConversions(..)
-  , -- * Internal operations, exposed for tests, debugging and experiments
-    unsafeGetFreshId, resetIdCounter
+  ( IsPrimal(..), unsafeGetFreshId, resetIdCounter
   ) where
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
-import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality ((:~:) (Refl))
-import           GHC.TypeLits (KnownNat, sameNat)
+import           GHC.TypeLits (KnownNat)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
@@ -63,22 +53,6 @@ class IsPrimal f r z where
   recordSharingPrimal :: f r z -> ADShare r -> (ADShare r, f r z)
   letWrapPrimal :: ADShare r -> f r z -> f r z
   intOfShape :: f r z -> Int -> f r z
-
--- This indirection is useful to prevent long strings of trivial
--- conversions on tape stemming from packing tensors into Domains.
-class HasConversions ranked shaped | ranked -> shaped, shaped -> ranked where
-  dDToR :: forall n r. KnownNat n
-        => Dual (Clown (DynamicOf ranked)) r '() -> Dual ranked r n
-  dSToR :: forall sh r. KnownNat (OS.Rank sh)
-        => Dual shaped r sh -> Dual ranked r (OS.Rank sh)
-  dRToD :: KnownNat n
-        => Dual ranked r n -> Dual (Clown (DynamicOf ranked)) r '()
-  dSToD :: (OS.Shape sh, KnownNat (OS.Rank sh))
-        => Dual shaped r sh -> Dual (Clown (DynamicOf shaped)) r '()
-  dRToS :: OS.Shape sh
-        => Dual ranked r (OS.Rank sh) -> Dual shaped r sh
-  dDToS :: OS.Shape sh
-        => Dual (Clown (DynamicOf shaped)) r '() -> Dual shaped r sh
 
 
 -- * Delta expression method instances
@@ -148,66 +122,6 @@ instance (GoodScalar r, KnownNat n) => IsPrimal AstRanked r n where
   recordSharingPrimal = astRegisterADShare
   letWrapPrimal = tletWrap
   intOfShape tsh c = treplicate0N (tshape tsh) (fromIntegral c)
-
-{- TODO: this should suffice to merge both HasConversions instances, but it doesn't:
-class ( Dual (ranked r y) ~ DeltaR ranked r y
-      , DeltaR ranked r y ~ Dual (ranked r y) )
-      => DualIsDeltaR ranked r y where
-instance ( Dual (ranked r y) ~ DeltaR ranked r y
-         , DeltaR ranked r y ~ Dual (ranked r y) )
-         => DualIsDeltaR ranked r y where
-
-class (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked r12 y) => CYRanked ranked c where
-instance (forall r12 y. (KnownNat y, GoodScalar r12) => c ranked r12 y) => CYRanked ranked c where
-
-instance CYRanked ranked DualIsDeltaR => HasRanks ranked where
--}
-
-instance (ranked ~ Flip OR.Array, shaped ~ Flip OS.Array)
-         => HasConversions (Flip OR.Array) (Flip OS.Array) where
-  dDToR :: forall n r. KnownNat n
-         => Dual (Clown OD.Array) r '() -> Dual ranked r n
-  dDToR (RToD @_ @_ @n1 d) =
-    case sameNat (Proxy @n1) (Proxy @n) of
-      Just Refl -> d
-      _ -> error "dDToR: different ranks in DToR(RToD)"
-  dDToR d = DToR d
-  dSToR :: forall sh r. KnownNat (OS.Rank sh)
-        => Dual shaped r sh -> Dual ranked r (OS.Rank sh)
-  dSToR (RToS @_ @_ @sh1 d) =
-    -- TODO: compare sh, not n:
-    case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
-      Just Refl -> d
-      _ -> error "dSToR: different shapes in SToR(RToS)"
-  dSToR d = SToR d
-  dRToD = RToD
-  dSToD = SToD
-  dRToS = RToS
-  dDToS = DToS
-
-instance (ranked ~ AstRanked, shaped ~ AstShaped)
-         => HasConversions AstRanked AstShaped where
-  dDToR :: forall n r. KnownNat n
-         => Dual (Clown AstDynamic) r '() -> Dual ranked r n
-  dDToR (RToD @_ @_ @n1 d) =
-    case sameNat (Proxy @n1) (Proxy @n) of
-      Just Refl -> d
-      _ -> error "dDToR: different ranks in DToR(RToD)"
-  dDToR d = DToR d
-  dSToR :: forall sh r. KnownNat (OS.Rank sh)
--- TODO: test in new GHC and report; this doesn't work:
---        => Dual (shaped r sh) -> Dual (ranked r (OS.Rank sh))
-        => Dual AstShaped r sh -> Dual AstRanked r (OS.Rank sh)
-  dSToR (RToS @_ @_ @sh1 d) =
-    -- TODO: compare sh, not n:
-    case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
-      Just Refl -> d
-      _ -> error "dSToR: different shapes in SToR(RToS)"
-  dSToR d = SToR d
-  dRToD = RToD
-  dSToD = SToD
-  dRToS = RToS
-  dDToS = DToS
 
 
 -- * Counter handling

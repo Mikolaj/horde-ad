@@ -298,14 +298,14 @@ class ( DynamicOf ranked ~ DynamicOf shaped
                        | ranked -> shaped, shaped -> ranked where
   tfromD :: (GoodScalar r, KnownNat n)
          => DynamicOf ranked r -> ranked r n
-  tfromS :: (GoodScalar r, KnownNat n, OS.Shape sh, OS.Rank sh ~ n)
-         => shaped r sh -> ranked r n
+  tfromS :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+         => shaped r sh -> ranked r (OS.Rank sh)
   dfromR :: (GoodScalar r, KnownNat n)
          => ranked r n -> DynamicOf ranked r
   dfromS :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => shaped r sh -> DynamicOf shaped r
-  sfromR :: (GoodScalar r, KnownNat n, OS.Shape sh, OS.Rank sh ~ n)
-         => ranked r n -> shaped r sh
+  sfromR :: (GoodScalar r, OS.Shape sh)
+         => ranked r (OS.Rank sh) -> shaped r sh
   sfromD :: (GoodScalar r, OS.Shape sh)
          => DynamicOf shaped r -> shaped r sh
   ddummy :: Numeric r => DynamicOf ranked r

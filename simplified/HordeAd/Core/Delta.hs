@@ -597,6 +597,7 @@ buildFinMaps s0 deltaDt =
             Just Refl -> evalR s c d
             _ -> error "buildFinMaps: different shapes in SToR(RToS)"
         SToR _ -> undefined
+          -- TODO: add runtime checks everywhere they are needed
 
       evalFromnMap :: EvalState ranked shaped r
                    -> EvalState ranked shaped r
