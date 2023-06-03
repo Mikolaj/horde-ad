@@ -9,7 +9,7 @@ module HordeAd.Core.DualNumber
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , IsPrimal (..), IsPrimalR
+  , IsPrimal (..)
   ) where
 
 import Prelude hiding ((<*))

@@ -23,7 +23,7 @@
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
-    IsPrimal(..), IsPrimalR(..), IsPrimalA (..)
+    IsPrimal(..)
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasConversions(..)
   , -- * Internal operations, exposed for tests, debugging and experiments
@@ -58,77 +58,13 @@ import HordeAd.Core.TensorClass
 -- wrt the differentiation mode given in the first argument.
 class IsPrimal f r z where
   dZero :: Dual f r z
-  dScale ::  f r z -> Dual f r z -> Dual f r z
+  dScale :: f r z -> Dual f r z -> Dual f r z
   dScaleByScalar :: f r z -> Int -> Dual f r z -> Dual f r z
   dAdd :: Dual f r z -> Dual f r z -> Dual f r z
   recordSharing :: Dual f r z -> Dual f r z
   recordSharingPrimal :: f r z -> ADShare r -> (ADShare r, f r z)
   letWrapPrimal :: ADShare r -> f r z -> f r z
   intOfShape :: f r z -> Int -> f r z
-
--- | Part 1/2 of a hack to squeeze the ranked tensors rank,
--- with its extra @n@ parameter, into the 'IsPrimal' class and assert it
--- for all @n@ values. A similar hack with @TensorOf@ wouldn't work,
--- because instances of type families are illegal.
-class IsPrimalR r where
-  dZeroR :: KnownNat n => Dual (Flip OR.Array) r n
-  dScaleR :: KnownNat n
-          => Flip OR.Array r n -> Dual (Flip OR.Array) r n
-          -> Dual (Flip OR.Array) r n
-  dScaleByScalarR :: KnownNat n
-                  => Flip OR.Array r n -> Int -> Dual (Flip OR.Array) r n
-                  -> Dual (Flip OR.Array) r n
-  dAddR :: KnownNat n
-        => Dual (Flip OR.Array) r n -> Dual (Flip OR.Array) r n
-        -> Dual (Flip OR.Array) r n
-  recordSharingR :: Dual (Flip OR.Array) r n -> Dual (Flip OR.Array) r n
-  recordSharingPrimalR :: Flip OR.Array r n -> ADShare r
-                       -> (ADShare r, Flip OR.Array r n)
-  letWrapPrimalR :: ADShare r -> Flip OR.Array r n -> Flip OR.Array r n
-  intOfShapeR :: KnownNat n
-              => Flip OR.Array r n -> Int -> Flip OR.Array r n
-
--- | Part 2/2 of a hack to squeeze the ranked tensors rank,
--- with its extra @n@ parameter, into the 'IsPrimal' class.
-instance (IsPrimalR r, KnownNat n)
-         => IsPrimal (Flip OR.Array) r n where
-  dZero = dZeroR
-  dScale = dScaleR
-  dScaleByScalar = dScaleByScalarR
-  dAdd = dAddR
-  recordSharing = recordSharingR
-  recordSharingPrimal = recordSharingPrimalR
-  letWrapPrimal = letWrapPrimalR
-  intOfShape = intOfShapeR
-
--- An analogous hack for Ast.
-class IsPrimalA r where
-  dZeroA :: KnownNat n => Dual AstRanked r n
-  dScaleA :: KnownNat n
-          => AstRanked r n -> Dual AstRanked r n -> Dual AstRanked r n
-  dScaleByScalarA :: KnownNat n
-                  => AstRanked r n -> Int -> Dual AstRanked r n
-                  -> Dual AstRanked r n
-  dAddA :: KnownNat n
-        => Dual AstRanked r n -> Dual AstRanked r n -> Dual AstRanked r n
-  recordSharingA :: Dual AstRanked r n -> Dual AstRanked r n
-  recordSharingPrimalA :: KnownNat n
-                       => AstRanked r n -> ADShare r
-                       -> (ADShare r, AstRanked r n)
-  letWrapPrimalA :: ADShare r -> AstRanked r n -> AstRanked r n
-  intOfShapeA :: KnownNat n
-              => AstRanked r n -> Int -> AstRanked r n
-
-instance (IsPrimalA r, KnownNat n)
-         => IsPrimal AstRanked r n where
-  dZero = dZeroA
-  dScale = dScaleA
-  dScaleByScalar = dScaleByScalarA
-  dAdd = dAddA
-  recordSharing = recordSharingA
-  recordSharingPrimal = recordSharingPrimalA
-  letWrapPrimal = letWrapPrimalA
-  intOfShape = intOfShapeA
 
 -- This indirection indueces a few blocks of boilerplate in this module
 -- but makes unnecessary hundreds of type applications, repeated
@@ -233,38 +169,38 @@ class HasConversions ranked shaped | ranked -> shaped, shaped -> ranked where
 -- or library definitions that use it could be made smarter.
 
 -- | This is an impure instance. See above.
-instance GoodScalar r => IsPrimalR r where
-  dZeroR = ZeroR
-  dScaleR = ScaleR
-  dScaleByScalarR tsh c =
+instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
+  dZero = ZeroR
+  dScale = ScaleR
+  dScaleByScalar tsh c =
     ScaleR (Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c))
-  dAddR = AddR
-  recordSharingR d = case d of
+  dAdd = AddR
+  recordSharing d = case d of
     ZeroR -> d
     InputR{} -> d
     DToR{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
-  recordSharingPrimalR r l = (l, r)
-  letWrapPrimalR _ r = r
-  intOfShapeR tsh c =
+  recordSharingPrimal r l = (l, r)
+  letWrapPrimal _ r = r
+  intOfShape tsh c =
     Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
 
-instance GoodScalar r => IsPrimalA r where
-  dZeroA = ZeroR
-  dScaleA = ScaleR
-  dScaleByScalarA tsh c =
+instance (GoodScalar r, KnownNat n) => IsPrimal AstRanked r n where
+  dZero = ZeroR
+  dScale = ScaleR
+  dScaleByScalar tsh c =
     ScaleR (treplicate0N (tshape tsh) (fromIntegral c))
-  dAddA = AddR
-  recordSharingA d = case d of
+  dAdd = AddR
+  recordSharing d = case d of
     ZeroR -> d
     InputR{} -> d
     DToR{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
-  recordSharingPrimalA = astRegisterADShare
-  letWrapPrimalA = tletWrap
-  intOfShapeA tsh c = treplicate0N (tshape tsh) (fromIntegral c)
+  recordSharingPrimal = astRegisterADShare
+  letWrapPrimal = tletWrap
+  intOfShape tsh c = treplicate0N (tshape tsh) (fromIntegral c)
 
 {- TODO: this should suffice to merge both HasRanks instances, but it doesn't:
 class ( Dual (ranked r y) ~ DeltaR ranked r y
