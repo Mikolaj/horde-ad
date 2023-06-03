@@ -29,6 +29,8 @@ import HordeAd.Core.TensorClass
 
 type instance IntOf (AstRanked r n) = AstInt r
 
+type instance IntOf (AstShaped r n) = AstInt r
+
 type instance PrimalOf AstRanked = AstPrimalPart
 
 type instance DualOf AstRanked = AstDualPart

@@ -2,7 +2,10 @@
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | The second component of our rendition of dual numbers:
+{-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
+-- | TODO: This and most of other haddocks are out of date.
+--
+-- The second component of our rendition of dual numbers:
 -- delta expressions, with their semantics.
 --
 -- A delta expression can be viewed as a concise representation
@@ -51,6 +54,7 @@ import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
+import qualified Data.Array.Internal.Shape as OS
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
@@ -62,11 +66,12 @@ import           Data.List.Index (ifoldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality ((:~:) (Refl))
+import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Text.Show.Functions ()
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -80,7 +85,9 @@ newtype NodeId = NodeId Int
  deriving newtype (Show, Enum)
    -- No Eq instance to limit hacks.
 
--- | For each choice of the underlying scalar type @r@,
+-- | TODO: This and most of other haddocks are out of date.
+--
+-- For each choice of the underlying scalar type @r@,
 -- we have several primitive differentiable types based on the scalar:
 -- the scalar type @r@ itself, @Vector r@ and (in the non-simplified
 -- version of delta expressions) @Matrix r@ and tensors.
@@ -130,19 +137,120 @@ newtype NodeId = NodeId Int
 -- with respect to the input parameter component at that index
 -- in the objective function domain. The collection of all such
 -- vectors of partial derivatives across all ranks is the gradient.
+
+-- TODO: WIP
 data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> [Nat] -> Type where
+  ZeroS :: DeltaS ranked shaped r sh
+  InputS :: InputId (shaped r sh) -> DeltaS ranked shaped r sh
+  ScaleS :: shaped r sh -> DeltaS ranked shaped r sh
+         -> DeltaS ranked shaped r sh
+  AddS :: DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
+       -> DeltaS ranked shaped r sh
   LetS :: NodeId -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
 
-  DToS :: forall ranked shaped sh r.
-          DeltaD ranked shaped r '()
+    -- ^ The sub-tensors at the given index of the outermost dimension.
+    -- The second integer is the length of the dimension.
+  IndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
+         => DeltaS ranked shaped r (ix + 1 + k ': rest)
+         -> IndexOf (shaped r '[]) m  -- TODO: IndexSh (shaped r '[]) sh
+         -> ShapeInt (m + n)
+         -> DeltaS ranked shaped r rest
+    -- ^ The sub-tensor at the given index. The given shape is of the
+    -- large tensor. The operation fails if index is out of bounds.
+    -- If index is out of bounds, the result is defined and is 0.
+  SumS :: (OS.Shape sh, KnownNat n)
+       => Int -> DeltaS ranked shaped r (n ': sh) -> DeltaS ranked shaped r sh
+    -- ^ Add element tensors along the outermost dimension.
+  Sum0S :: OS.Shape sh
+        => ShapeInt n -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r '[]
+  Dot0S :: (OS.Shape sh)
+        => shaped r sh -> DeltaS ranked shaped r sh
+        -> DeltaS ranked shaped r '[]
+  ScatterS :: (OS.Shape sh2, OS.Shape sh3, OS.Shape sh)
+           => ShapeInt (p + n) -> DeltaS ranked shaped r (sh2 OS.++ sh)
+           -> (IndexOf (shaped r '[]) m -> IndexOf (shaped r '[]) p)
+           -> ShapeInt (m + n)
+           -> DeltaS ranked shaped r (sh3 OS.++ sh)
+    -- ^ Build a tensor by adding up tensors of rank @n@ taken from
+    -- the third argument and inserted in a zero tensor
+    -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
+    -- so that, e.g, @Scatter1 5 (const Z) (Replicate0R [5] d) []@ is equivalent
+    -- to @5 * d@. If an index of length @p@ is out of bounds, no tensor
+    -- is added at such an index (and similarly in @ScatterN@).
+    -- The semantics of the operation permits index out of bounds
+    -- and then no tensors is added at such an index.
+    -- TODO: this is a haddock for Scatter1; fix.
+
+  FromListS :: (OS.Shape sh, KnownNat n)
+            => [DeltaS ranked shaped r sh] -> DeltaS ranked shaped r (n ': sh)
+    -- ^ Create a tensor from a list treated as the outermost dimension.
+  FromVectorS :: (OS.Shape sh, KnownNat n)
+              => Data.Vector.Vector (DeltaS ranked shaped r sh)
+              -> DeltaS ranked shaped r (n ': sh)
+    -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
+  ReplicateS :: (OS.Shape sh, KnownNat n)
+         => Int -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r (n ': sh)
+    -- ^ Copy the given tensor along the new, outermost dimension.
+  AppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
+          => DeltaS ranked shaped r (m ': sh)
+          -> Int
+          -> DeltaS ranked shaped r (n ': sh)
+          -> DeltaS ranked shaped r ((m + n) ': sh)
+    -- ^ Append two arrays along the outermost dimension.
+    -- All dimensions, except the outermost, must be the same.
+    -- The integer argument is the outermost size of the first array.
+  SliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+         => Int -> Int -> DeltaS ranked shaped r (i + n + k ': rest)
+         -> Int
+         -> DeltaS ranked shaped r (n ': rest)
+    -- ^ Extract a slice of an array along the outermost dimension.
+    -- The extracted slice must fall within the dimension.
+    -- The last argument is the outermost size of the argument array.
+  ReverseS :: (OS.Shape sh, KnownNat n)
+           => DeltaS ranked shaped r (n ': sh)
+           -> DeltaS ranked shaped r (n ': sh)
+    -- ^ Reverse elements of the outermost dimension.
+  TransposeS :: OS.Shape sh
+             => Permutation -> DeltaS ranked shaped r sh
+             -> DeltaS ranked shaped r sh
+    -- ^ Transpose according to the permutation.
+  ReshapeS :: (OS.Shape sh, OS.Shape sh2, OS.Size sh ~ OS.Size sh2)
+           => ShapeInt n -> ShapeInt m -> DeltaS ranked shaped r sh
+           -> DeltaS ranked shaped r sh2
+    -- ^ Change the shape of the tensor from the first to the second.
+  BuildS :: (OS.Shape sh, KnownNat n)
+         => Int -> (IntOf (shaped r '[]) -> DeltaS ranked shaped r sh)
+         -> DeltaS ranked shaped r (n ': sh)
+    -- ^ Build a tensor with the given size of the outermost dimension
+    -- and using the given function to construct the element tensors.
+  GatherS :: (OS.Shape sh2, OS.Shape sh3, OS.Shape sh)
+          => ShapeInt (OS.Rank sh2 + OS.Rank sh)
+          -> DeltaS ranked shaped r (sh3 OS.++ sh)
+          -> (IndexOf (shaped r '[]) (OS.Rank sh2)
+              -> IndexOf (shaped r '[]) (OS.Rank sh3))
+          -> ShapeInt (OS.Rank sh3 + OS.Rank sh)
+          -> DeltaS ranked shaped r (sh2 OS.++ sh)
+    -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
+    -- of length @p@. Index of length 0 results in identity, so that,
+    -- e.g, @Gather1 (const Z) [] (ScalarR d) k@ is equivalent
+    -- to @Replicate0R [k] d@. If an index of length @p@ is out of bounds,
+    -- tensor 0 is chosen instead or projecting (and similarly in @GatherN@).
+    -- The semantics of the operation permits index out of bounds
+    -- and the result of such indexing is zero.
+    -- TODO: this is a haddock for Gather1; fix.
+
+  DToS :: forall ranked shaped sh r. KnownNat (OS.Rank sh)
+       => DeltaD ranked shaped r '()
        -> DeltaS ranked shaped r sh
-  RToS :: forall ranked shaped sh r.
-          DeltaR ranked shaped r (OS.Rank sh)
+  RToS :: forall ranked shaped sh r. KnownNat (OS.Rank sh)
+       => DeltaR ranked shaped r (OS.Rank sh)
        -> DeltaS ranked shaped r sh
 
 deriving instance ( (forall k. Show (ranked r k))
-                  , Show (IntOf (ranked r 0)), Show r)
+                  , (forall k. Show (shaped r k))
+                  , Show (IntOf (ranked r 0))
+                  , Show (IntOf (shaped r '[])) )
                   => Show (DeltaS ranked shaped r sh)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
@@ -250,7 +358,9 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
        -> DeltaR ranked shaped r (OS.Rank sh)
 
 deriving instance ( (forall k. Show (ranked r k))
-                  , Show (IntOf (ranked r 0)), Show r )
+                  , (forall k. Show (shaped r k))
+                  , Show (IntOf (ranked r 0))
+                  , Show (IntOf (shaped r '[])) )
                   => Show (DeltaR ranked shaped r n)
 
 data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
@@ -261,7 +371,9 @@ data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
          => DeltaS ranked shaped r sh -> DeltaD ranked shaped r '()
 
 deriving instance ( (forall k. Show (ranked r k))
-                  , Show (IntOf (ranked r 0)), Show r )
+                  , (forall k. Show (shaped r k))
+                  , Show (IntOf (ranked r 0))
+                  , Show (IntOf (shaped r '[])) )
                   => Show (DeltaD ranked shaped r '())
 
 
@@ -295,8 +407,8 @@ type family Dual (f :: Type -> k -> Type)
 -- (small change) of the objective function codomain, for which we compute
 -- the gradient.
 data DeltaDt ranked shaped r =
-    forall sh. OS.Shape sh
-    => DeltaDtS () (DeltaS ranked shaped r sh)  -- TODO
+    forall sh. (OS.Shape sh, KnownNat (OS.Rank sh))
+    => DeltaDtS (shaped r sh) (DeltaS ranked shaped r sh)
   | forall n. KnownNat n
     => DeltaDtR (ranked r n) (DeltaR ranked shaped r n)
 
@@ -314,17 +426,19 @@ data DeltaDt ranked shaped r =
 
 -- TODO: remove 0, add S
 data EvalState ranked shaped r = EvalState
-  { iMap0       :: EM.EnumMap (InputId r) r
-      -- ^ eventually, cotangents of objective function inputs of rank 0
+  { iMapS       :: EM.EnumMap (InputId (DynamicOf shaped r))
+                              (DynamicOf shaped r)
+      -- ^ eventually, cotangents of objective function inputs of rank S
       -- (finally copied to the vector representing the rank 0 portion
       -- of the gradient of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , iMapR       :: EM.EnumMap (InputId (DynamicOf ranked r)) (DynamicOf ranked r)
+  , iMapR       :: EM.EnumMap (InputId (DynamicOf ranked r))
+                              (DynamicOf ranked r)
       -- ^ eventually, cotangents of objective function inputs of rank R;
       -- (eventually copied to the vector representing the rank R portion
       -- of the gradient of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap0       :: EM.EnumMap NodeId r
+  , dMapS       :: EM.EnumMap NodeId (DynamicOf shaped r)
       -- ^ eventually, cotangents of non-input subterms of rank 0 indexed
       -- by their node identifiers
   , dMapR       :: EM.EnumMap NodeId (DynamicOf ranked r)
@@ -401,7 +515,8 @@ data DeltaBinding ranked shaped r =
 -- value (usually set to @1@) is given in the @DeltaDt ranked r@ parameter.
 gradientFromDelta
   :: forall ranked shaped r.
-      (GoodScalar r, Tensor ranked, ConvertTensor ranked shaped)
+      ( GoodScalar r, Tensor ranked, ShapedTensor shaped
+      , ConvertTensor ranked shaped )
   => Int -> DeltaDt ranked shaped r
   -> ([(AstVarId, DynamicOf ranked r)], Domains (DynamicOf ranked) r)
 gradientFromDelta dimR deltaDt =
@@ -414,10 +529,10 @@ gradientFromDelta dimR deltaDt =
   -- and especially using them as cotangent accumulators is wasteful;
   -- additionally, it may not be easy to deduce the sizes of the vectors).
   let s0 =
-        let iMap0 = EM.empty
+        let iMapS = EM.empty
             iMapR = EM.fromDistinctAscList
                     $ zip [toInputId 0 ..] (replicate dimR (ddummy @ranked))
-            dMap0 = EM.empty
+            dMapS = EM.empty
             dMapR = EM.empty
             nMap = EM.empty
             astBindings = []
@@ -436,7 +551,8 @@ gradientFromDelta dimR deltaDt =
 
 buildFinMaps
   :: forall ranked shaped r.
-     (GoodScalar r, Tensor ranked, ConvertTensor ranked shaped)
+     ( GoodScalar r, Tensor ranked, ShapedTensor shaped
+     , ConvertTensor ranked shaped )
   => EvalState ranked shaped r -> DeltaDt ranked shaped r
   -> EvalState ranked shaped r
 buildFinMaps s0 deltaDt =
@@ -444,53 +560,89 @@ buildFinMaps s0 deltaDt =
   -- the second is the cotangent accumulator that will become an actual
   -- cotangent contribution when complete (see below for an explanation)
   -- and the third argument is the node to evaluate.
-  let _evalS :: forall sh. KnownNat (OS.Rank sh)
-             => EvalState ranked shaped r -> r -> DeltaS ranked shaped r sh
-             -> EvalState ranked shaped r
-      _evalS s !c = \case
-        LetS _n _d ->
-          -- In this context, by construction, @d@ is the dual component
-          -- of a dual number term. Let's say that, at this point, evaluation
-          -- considers position (node) p out of possibly multiple positions
-          -- at which that dual number resides in the whole term tree
-          -- of the dual number representation of the objective function.
-          -- (Equivalently, considers edges p, one of many leading to the only
-          -- node with identifier @n@ in the DAG representing the term).
-          -- If so, the @c@ argument of @eval0@ is the cotangent
-          -- contribution for position p, that is, the partial derivative
-          -- of the objective function with respect to position p.
-          --
-          -- If there are indeed multiple such positions (the term is shared)
-          -- then, over the course of evaluation, cotangent contributions
-          -- of them all are gradually accumulated in the finite
-          -- maps and eventually their total sum represents the total
-          -- influence of the objective function's subcomputation
-          -- (more precisely, subgraph of the data flow graph in question)
-          -- corresponding to the shared term @Let0 n d@. This total
-          -- influence over the objective function's behaviour is called
-          -- in short the cotangent of the node identifier @n@.
-          -- In other words, the cotangent of @n@ is the sum,
-          -- over all positions (edges) q in the global delta-expression DAG
-          -- that are a reference to node @n@, of the partial derivative
-          -- of the objective function with respect to the subcomputation
-          -- corresponding to @q@ (meaning, subcomputations denoted by
-          -- Haskell terms whose dual components are @Let n ...@).
-          --
-          -- For @Input@ terms, the eventual lists of cotangents end up
-          -- in the cells of the gradient vectors that are the final
-          -- result of the evaluation.
-          undefined
+  let evalS :: forall sh. (OS.Shape sh, KnownNat (OS.Rank sh))
+            => EvalState ranked shaped r
+            -> shaped r sh -> DeltaS ranked shaped r sh
+            -> EvalState ranked shaped r
+      evalS s !c = let (abShared, cShared) =
+                         inline undefined {-tregister-} c (astBindings s)
+                       sShared = s {astBindings = abShared}
+                   in \case
+        -- TODO: WIP
+        ZeroS -> s
+        InputS (InputId i) ->
+          s {iMapS = EM.adjust (undefined {-daddR-} c) (InputId i) $ iMapS s}
+        ScaleS _k d -> evalS s (undefined {-k `tmult`-} c) d
+        AddS d e -> evalS (evalS sShared cShared d) cShared e
+        LetS n d ->
+          assert (case d of
+                    ZeroS -> False
+                    DToS{} -> False
+                    LetS{} -> False  -- wasteful and nonsensical
+                    _ -> True)
+          $ case EM.lookup n $ nMap s of
+              Just (DeltaBindingR _) ->
+                s {dMapS = EM.adjust (undefined {-daddR-} c) n $ dMapS s}
+              Nothing ->
+                let cs = dfromS c
+                in s { nMap = EM.insert n (DeltaBindingS d) $ nMap s
+                     , dMapS = EM.insert n cs $ dMapS s }
+              _ -> error "buildFinMaps: corrupted nMap"
+
+        IndexS d ix sh -> evalS s (undefined {-tscatter @ranked @r @0-} sh c (const ix)) d
+          -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
+        SumS n d -> evalS s (undefined {-treplicate-} n c) d
+        Sum0S _sh _d -> undefined  --evalS s (treplicate0N sh c) d
+        Dot0S _v _vd -> undefined  --evalS s (v `tmult `treplicate0N (tshape v) c) vd
+                     -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
+        ScatterS _sh _d _f _shd -> undefined  -- evalS s (tgather shd c f) d
+        FromListS ld ->
+          ifoldl' (\_s2 _i d2 -> undefined
+            {-evalS s2 (tindex cShared (fromIntegral i :. ZI))-} d2) sShared ld
+        FromVectorS ld ->
+          V.ifoldl' (\_s2 _i d2 -> undefined
+            {-evalS s2 (tindex cShared (fromIntegral i :. ZI))-} d2) sShared ld
+        ReplicateS _n _d -> undefined  -- evalS s (tsum c) d
+        AppendS d k e -> case ZS {-tshape c-} of
+          n :$ _ -> let s2 = evalS sShared (undefined {-tslice 0-} k cShared) d
+                    in evalS s2 (undefined {-tslice-} k (n - k) cShared) e
+          ZS -> error "evalR: appending a 0-dimensional tensor"
+        SliceS i n d len -> case ZS {-tshape c-} of
+          n' :$ rest ->
+            assert (n' == n `blame` (n', n)) $
+            evalS s (undefined {-tconcat-} [ undefined {-tzero-} (i :$ rest)
+                             , c
+                             , undefined {-tzero-} (len - i - n :$ rest) ])
+                    d
+          ZS -> error "evalR: slicing a 0-dimensional tensor"
+        ReverseS d -> evalS s (undefined {-treverse-} c) d
+        TransposeS perm d ->
+          let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
+          in evalS s (undefined {-ttranspose-} perm_reversed c) d
+        ReshapeS _sh _sh' _d -> undefined  -- evalS s (treshape sh c) d
+        BuildS n f ->
+          foldl' (\_s2 i -> undefined {-evalS s2 (tindex cShared (i :. ZI))-} (f i))
+                 sShared (fromIntegral <$> [0 .. n - 1])
+        GatherS _sh _d _f _shd -> undefined  -- evalS s (tscatter shd c f) d
+
         DToS (SToD @_ @_ @sh1 d) ->
-          -- TODO: compare sh, not n:
+          -- TODO: compare sh, not n.
+          -- See https://github.com/Mikolaj/horde-ad/issues/104
           case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
-            Just Refl -> _evalS s c d
+            Just Refl -> gcastWith (unsafeCoerce Refl :: sh1 :~: sh)
+                         $ evalS s c d
             _ -> error "buildFinMaps: different shapes in DToS(SToD)"
+        DToS (RToD @_ @_ @n1 d) ->
+          case sameNat (Proxy @n1) (Proxy @(OS.Rank sh)) of
+            Just Refl -> evalS s c (RToS d)
+            _ -> error "buildFinMaps: different ranks in DToR(SToD)"
         RToS (SToR @_ @_ @sh1 d) ->
           -- TODO: compare sh, not n:
           case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
-            Just Refl -> _evalS s c d
+            Just Refl -> gcastWith (unsafeCoerce Refl :: sh1 :~: sh)
+                         $ evalS s c d
             _ -> error "buildFinMaps: different shapes in RToS(SToR)"
-        _ -> undefined
+        RToS _ -> undefined
 
 {-
         -- The general case is given as the last one below,
@@ -536,6 +688,36 @@ buildFinMaps s0 deltaDt =
         ScaleR k d -> evalR s (k `tmult` c) d
         AddR d e -> evalR (evalR sShared cShared d) cShared e
         LetR n d ->
+          -- In this context, by construction, @d@ is the dual component
+          -- of a dual number term. Let's say that, at this point, evaluation
+          -- considers position (node) p out of possibly multiple positions
+          -- at which that dual number resides in the whole term tree
+          -- of the dual number representation of the objective function.
+          -- (Equivalently, considers edges p, one of many leading to the only
+          -- node with identifier @n@ in the DAG representing the term).
+          -- If so, the @c@ argument of @eval0@ is the cotangent
+          -- contribution for position p, that is, the partial derivative
+          -- of the objective function with respect to position p.
+          --
+          -- If there are indeed multiple such positions (the term is shared)
+          -- then, over the course of evaluation, cotangent contributions
+          -- of them all are gradually accumulated in the finite
+          -- maps and eventually their total sum represents the total
+          -- influence of the objective function's subcomputation
+          -- (more precisely, subgraph of the data flow graph in question)
+          -- corresponding to the shared term @Let0 n d@. This total
+          -- influence over the objective function's behaviour is called
+          -- in short the cotangent of the node identifier @n@.
+          -- In other words, the cotangent of @n@ is the sum,
+          -- over all positions (edges) q in the global delta-expression DAG
+          -- that are a reference to node @n@, of the partial derivative
+          -- of the objective function with respect to the subcomputation
+          -- corresponding to @q@ (meaning, subcomputations denoted by
+          -- Haskell terms whose dual components are @Let n ...@).
+          --
+          -- For @Input@ terms, the eventual lists of cotangents end up
+          -- in the cells of the gradient vectors that are the final
+          -- result of the evaluation.
           assert (case d of
                     ZeroR -> False
                     DToR{} -> False
@@ -616,7 +798,7 @@ buildFinMaps s0 deltaDt =
           Nothing -> s  -- loop ends
 
       s1 = case deltaDt of
-        DeltaDtS _dt _deltaTopLevel -> undefined
+        DeltaDtS dt deltaTopLevel -> evalS s0 dt deltaTopLevel
         DeltaDtR dt deltaTopLevel -> evalR s0 dt deltaTopLevel
   in evalFromnMap s1
 {-# SPECIALIZE buildFinMaps

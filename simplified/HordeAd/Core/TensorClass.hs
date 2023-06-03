@@ -9,7 +9,7 @@
 module HordeAd.Core.TensorClass
   ( IntOf, IndexOf, ShapeInt
   , PrimalOf, DualOf, DynamicOf
-  , Tensor(..), ConvertTensor(..), DomainsTensor(..), ADReady
+  , ShapedTensor, Tensor(..), ConvertTensor(..), DomainsTensor(..), ADReady
   , GoodScalar, DummyDual(..), ttoRankedOrDummy
   ) where
 
@@ -70,6 +70,26 @@ class (forall r20. GoodScalar r20 => c (ranked r20 0))
       => CRankedRR ranked c where
 instance (forall r20. GoodScalar r20 => c (ranked r20 0))
          => CRankedRR ranked c where
+
+class (forall r30 y30. (OS.Shape y30, GoodScalar r30) => c (shaped r30 y30))
+      => CRankedS shaped c where
+instance
+      (forall r30 y30. (OS.Shape y30, GoodScalar r30) => c (shaped r30 y30))
+      => CRankedS shaped c where
+
+class (forall r31. GoodScalar r31 => c (shaped r31 '[]))
+      => CRankedSS shaped c where
+instance
+      (forall r31. GoodScalar r31 => c (shaped r31 '[]))
+      => CRankedSS shaped c where
+
+class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
+      => ShapedTensor (shaped :: Type -> [Nat] -> Type) where
+
+instance ShapedTensor (Flip OS.Array)
+type instance IntOf (Flip OS.Array r sh) = CInt
+instance ShapedTensor AstShaped
+type instance IntOf (AstShaped r sh) = AstInt r
 
 -- k is intended to be Nat or [Nat] (or nothing, if we support scalars)
 type family PrimalOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
@@ -306,9 +326,9 @@ class ( DynamicOf ranked ~ DynamicOf shaped
          => ranked r n -> DynamicOf ranked r
   dfromS :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => shaped r sh -> DynamicOf shaped r
-  sfromR :: (GoodScalar r, OS.Shape sh)
+  sfromR :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => ranked r (OS.Rank sh) -> shaped r sh
-  sfromD :: (GoodScalar r, OS.Shape sh)
+  sfromD :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => DynamicOf shaped r -> shaped r sh
   ddummy :: Numeric r => DynamicOf ranked r
   disDummy :: Numeric r => DynamicOf ranked r -> Bool

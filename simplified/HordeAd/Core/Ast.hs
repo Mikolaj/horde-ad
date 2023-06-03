@@ -137,7 +137,8 @@ deriving instance ShowAst r => Show (AstPrimalPart r n)
 newtype AstDualPart r n = AstDualPart {unAstDualPart :: AstRanked r n}
 deriving instance ShowAst r => Show (AstDualPart r n)
 
-data AstShaped r (sh :: [Nat]) = AstShapedTODO
+newtype AstShaped r (sh :: [Nat]) = AstShapedTODO r
+  deriving (Show, Eq, Ord, Num, Real, Fractional, Floating, RealFrac, RealFloat)
 
 data AstDynamic :: Type -> Type where
   AstDynamic :: KnownNat n
