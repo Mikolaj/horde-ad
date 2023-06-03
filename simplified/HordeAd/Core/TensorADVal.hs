@@ -10,7 +10,6 @@ module HordeAd.Core.TensorADVal
 
 import Prelude hiding ((<*))
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
@@ -63,14 +62,13 @@ instance (KnownNat n, GoodScalar r)
 -- index ouf of bounds produces zero (but beware of vectorization).
 indexZ :: forall ranked m n r.
           ( Tensor ranked, HasRanks ranked, IsPrimal ranked r n
-          , KnownNat m, KnownNat n, GoodScalar r
-          , Underlying (ranked r (m + n)) ~ Underlying (ranked r n) )
+          , KnownNat m, KnownNat n, GoodScalar r )
        => ADVal ranked r (m + n) -> IndexOf (ranked r 0) m
        -> ADVal ranked r n
 indexZ (D l u u') ix = dD l (tindex u ix) (dIndexR u' ix (tshape u))
 
-fromList :: ( Tensor ranked, HasRanks ranked, IsPrimal ranked r (1 + n), KnownNat n, GoodScalar r
-            , Underlying (ranked r n) ~ Underlying (ranked r (1 + n)) )
+fromList :: ( Tensor ranked, HasRanks ranked, IsPrimal ranked r (1 + n)
+            , KnownNat n, GoodScalar r )
          => [ADVal ranked r n]
          -> ADVal ranked r (1 + n)
 fromList lu =
@@ -81,43 +79,8 @@ fromList lu =
 
 type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
 
--- TODO: remove
-instance GoodScalar r
-         => AdaptableDomains (ADValClown dynamic)
-                             (ADVal (Clown dynamic) r '()) where
-  type Underlying (ADVal (Clown dynamic) r '()) = r
-  type Value (ADVal (Clown dynamic) r '()) = dynamic r
-  toDomains = undefined
-  fromDomains = undefined
-
-instance GoodScalar r
-         => AdaptableDomains (ADValClown AstDynamic)
-                             (Clown AstDynamic r '()) where
-  type Underlying (Clown AstDynamic r '()) = r
-  type Value (Clown AstDynamic r '()) = AstDynamic r
-  toDomains = undefined
-  fromDomains = undefined
-
-instance GoodScalar r
-         => AdaptableDomains (ADValClown OD.Array)
-                             (Clown OD.Array r '()) where
-  type Underlying (Clown OD.Array r '()) = r
-  type Value (Clown OD.Array r '()) = OD.Array r
-  toDomains = undefined
-  fromDomains = undefined
-
-instance GoodScalar r
-         => AdaptableDomains (ADValClown dynamic)
-                             (ADValClown dynamic r) where
-  type Underlying (ADValClown dynamic r) = r
-  type Value (ADValClown dynamic r) = dynamic r
-  toDomains = undefined
-  fromDomains = undefined
-
 instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
-         , ConvertTensor ranked shaped, HasConversions ranked shaped
-         , Underlying (ranked r n)
-           ~ Underlying (Clown dynamic r '()) )
+         , ConvertTensor ranked shaped, HasConversions ranked shaped )
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal ranked r n) where
   type Underlying (ADVal ranked r n) = r
@@ -138,41 +101,14 @@ instance ( GoodScalar r, dynamic ~ DynamicOf shaped
 
 dToR :: forall ranked shaped n r.
         ( ConvertTensor ranked shaped, HasConversions ranked shaped
-        , KnownNat n, GoodScalar r
-        , Underlying (ranked r n)
-          ~ Underlying (Clown (DynamicOf shaped) r '()) )
+        , KnownNat n, GoodScalar r )
       => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal ranked r n
 dToR (D l u u') = dDnotShared l (tfromD $ runClown u) (dDToR u')
 
 rToD :: ( ConvertTensor ranked shaped, HasConversions ranked shaped
-        , KnownNat n, GoodScalar r
-        , Underlying (ranked r n)
-          ~ Underlying (Clown (DynamicOf shaped) r '()) )
+        , KnownNat n, GoodScalar r )
       => ADVal ranked r n -> ADVal (Clown (DynamicOf ranked)) r '()
 rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (dRToD u')
-
-class (Underlying a ~ Underlying b)  -- TODO:errors:Underlying b ~ Underlying a)
-      => UnderlyingMatches2 a b where
-instance (Underlying a ~ Underlying b)
-         => UnderlyingMatches2 a b where
-
-class (forall r13 x y. (KnownNat y, GoodScalar r13)
-      => c (ranked r13 x) (ranked r13 y))
-      => CRanked2 ranked c where
-instance
-      (forall r13 x y. (KnownNat y, GoodScalar r13)
-      => c (ranked r13 x) (ranked r13 y))
-      => CRanked2 ranked c where
-
-class (Underlying a ~ b, b ~ Underlying a)
-      => UnderlyingMatches a b where
-instance (Underlying a ~ b, b ~ Underlying a)
-         => UnderlyingMatches a b where
-
-class (forall r14 y. (KnownNat y, GoodScalar r14) => c (ranked r14 y) r14)
-      => CRankedR ranked c where
-instance (forall r14 y. (KnownNat y, GoodScalar r14) => c (ranked r14 y) r14)
-         => CRankedR ranked c where
 
 class (forall r15 y. (KnownNat y, GoodScalar r15) => c (ranked r15 y))
       => CRanked ranked c where
@@ -221,10 +157,7 @@ instance ( DualOf (ADVal ranked)
            ~ Product (Clown ADShare) (DeltaR ranked shaped)
          , Dual ranked ~ DeltaR ranked shaped
          , DeltaR ranked shaped ~ Dual ranked
-         , CRanked2 ranked UnderlyingMatches2
-         , CRankedR ranked UnderlyingMatches
          , CRankedIP ranked IsPrimal
-         , CRanked ranked Num
          , CRanked ranked Show
          , HasRanks ranked
          , Tensor ranked )
@@ -321,25 +254,7 @@ instance ( DualOf (ADVal ranked)
   tD ast (Pair (Clown l) delta) = dD l ast delta
   tScale ast (Pair l delta) = Pair l (dScale ast delta)
 
-class (forall r11 y11. (GoodScalar r11, KnownNat y11)
-       => c (Clown (DynamicOf ranked) r11 '()) (ranked r11 y11))
-      => CDynamicRankedClown ranked c where
-instance
-      (forall r11 y11. (GoodScalar r11, KnownNat y11)
-       => c (Clown (DynamicOf ranked) r11 '()) (ranked r11 y11))
-      => CDynamicRankedClown ranked c where
-
-class (forall r11 sh11. (GoodScalar r11, OS.Shape sh11)
-       => c (Clown (DynamicOf shaped) r11 '()) (shaped r11 sh11))
-      => CDynamicShapedClown shaped c where
-instance
-      (forall r11 sh11. (GoodScalar r11, OS.Shape sh11)
-       => c (Clown (DynamicOf shaped) r11 '()) (shaped r11 sh11))
-      => CDynamicShapedClown shaped c where
-
-instance ( HasConversions ranked shaped, ConvertTensor ranked shaped
-         , CDynamicRankedClown ranked UnderlyingMatches2
-         , CDynamicShapedClown shaped UnderlyingMatches2 )
+instance (HasConversions ranked shaped, ConvertTensor ranked shaped)
          => ConvertTensor (ADVal ranked)
                           (ADVal shaped) where
   tfromD = dToR . runFlip

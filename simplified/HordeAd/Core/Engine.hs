@@ -78,7 +78,7 @@ revDtFun
      ( ranked ~ ADVal AstRanked
      , InterpretAstA ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r  )
+     , vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> AstRanked r n) -> vals
   -> (ADAstArtifact6 n r, Dual AstRanked r n)
 {-# INLINE revDtFun #-}

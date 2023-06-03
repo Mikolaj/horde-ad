@@ -45,7 +45,6 @@ import           Data.Type.Equality ((:~:) (Refl))
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.Delta
@@ -63,9 +62,8 @@ class IsPrimal f r z where
   dScaleByScalar :: f r z -> Int -> Dual f r z -> Dual f r z
   dAdd :: Dual f r z -> Dual f r z -> Dual f r z
   recordSharing :: Dual f r z -> Dual f r z
-  recordSharingPrimal :: f r z -> ADShare (Underlying (f r z))
-                      -> (ADShare (Underlying (f r z)), f r z)
-  letWrapPrimal :: ADShare (Underlying (f r z)) -> f r z -> f r z
+  recordSharingPrimal :: f r z -> ADShare r -> (ADShare r, f r z)
+  letWrapPrimal :: ADShare r -> f r z -> f r z
   intOfShape :: f r z -> Int -> f r z
 
 -- | Part 1/2 of a hack to squeeze the ranked tensors rank,

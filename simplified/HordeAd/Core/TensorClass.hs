@@ -67,9 +67,9 @@ class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
 instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
          => CRankedR ranked c where
 
-class (forall r20. (GoodScalar r20) => c (ranked r20 0))
+class (forall r20. GoodScalar r20 => c (ranked r20 0))
       => CRankedRR ranked c where
-instance (forall r20. (GoodScalar r20) => c (ranked r20 0))
+instance (forall r20. GoodScalar r20 => c (ranked r20 0))
          => CRankedRR ranked c where
 
 -- k is intended to be Nat or [Nat] (or nothing, if we support scalars)
@@ -292,40 +292,8 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
-class (Underlying a ~ Underlying b, Underlying b ~ Underlying a)
-      => UnderlyingMatches a b where
-instance (Underlying a ~ Underlying b, Underlying b ~ Underlying a)
-         => UnderlyingMatches a b where
-
-class (forall r11 y11. (GoodScalar r11, KnownNat y11)
-       => c (DynamicOf ranked r11) (ranked r11 y11))
-      => CDynamicRanked ranked c where
-instance
-      (forall r11 y11. (GoodScalar r11, KnownNat y11)
-       => c (DynamicOf ranked r11) (ranked r11 y11))
-      => CDynamicRanked ranked c where
-
-class (forall r11 sh11. (GoodScalar r11, OS.Shape sh11)
-       => c (DynamicOf shaped r11) (shaped r11 sh11))
-      => CDynamicShaped shaped c where
-instance
-      (forall r11 sh11. (GoodScalar r11, OS.Shape sh11)
-       => c (DynamicOf shaped r11) (shaped r11 sh11))
-      => CDynamicShaped shaped c where
-
-class (forall r11 y11 sh11. (GoodScalar r11, KnownNat y11, OS.Shape sh11)
-       => c (ranked r11 y11) (shaped r11 sh11))
-      => CRankedShaped ranked shaped c where
-instance
-      (forall r11 y11 sh11. (GoodScalar r11, KnownNat y11, OS.Shape sh11)
-       => c (ranked r11 y11) (shaped r11 sh11))
-      => CRankedShaped ranked shaped c where
-
 class ( DynamicOf ranked ~ DynamicOf shaped
-      , DynamicOf shaped ~ DynamicOf ranked
-      , CDynamicRanked ranked UnderlyingMatches
-      , CDynamicShaped shaped UnderlyingMatches
-      , CRankedShaped ranked shaped UnderlyingMatches )
+      , DynamicOf shaped ~ DynamicOf ranked )
       => ConvertTensor (ranked :: Type -> Nat -> Type)
                        (shaped :: Type -> [Nat] -> Type)
                        | ranked -> shaped, shaped -> ranked where
@@ -493,7 +461,6 @@ instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
 instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
          KnownNat n
          => AdaptableDomains (OR.Array n Double) where
-  type Underlying (OR.Array n Double) = Double
   toDomains a =
     (V.empty, V.empty, V.empty, V.singleton (Data.Array.Convert.convert a))
   fromDomains _aInit (v0, v1) = case V.uncons v1 of
@@ -541,12 +508,6 @@ instance KnownNat n
     in (Flip arr, g2)
   type ToRanked (Flip OR.Array r n) = Flip OR.Array r n
   toRanked = id
-
-instance AdaptableDomains OD.Array (OD.Array r) where
-  type Underlying (OD.Array r) = r
-  type Value (OD.Array r) = OD.Array r
-  toDomains = undefined
-  fromDomains = undefined
 
 instance (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => AdaptableDomains OD.Array (Flip OS.Array r sh) where

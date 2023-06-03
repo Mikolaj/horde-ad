@@ -10,7 +10,6 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
@@ -118,12 +117,6 @@ instance GoodScalar r
          => AdaptableDomains AstDynamic (AstShaped r sh) where
   type Underlying (AstShaped r sh) = r
   type Value (AstShaped r sh) = Flip OS.Array r sh
-  toDomains = undefined
-  fromDomains = undefined
-
-instance AdaptableDomains AstDynamic (AstDynamic r) where
-  type Underlying (AstDynamic r) = r
-  type Value (AstDynamic r) = OD.Array r
   toDomains = undefined
   fromDomains = undefined
 
