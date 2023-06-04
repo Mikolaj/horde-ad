@@ -37,14 +37,11 @@ import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.TensorOps
 
--- * Tensor class definition
+-- * Ranked tensor class definition
 
 -- @IntOf a@ as size or shape gives more expressiveness,
 -- but leads to irregular tensors, especially after vectorization,
 -- and prevents statically known shapes.
--- However, if we switched to @Data.Array.Shaped@ and moved most of the shapes
--- to the type level, we'd recover some of the expressiveness, while retaining
--- statically known (type-parameterized) shapes.
 
 type family IntOf a
 
@@ -71,25 +68,11 @@ class (forall r20. GoodScalar r20 => c (ranked r20 0))
 instance (forall r20. GoodScalar r20 => c (ranked r20 0))
          => CRankedRR ranked c where
 
-class (forall r30 y30. (OS.Shape y30, GoodScalar r30) => c (shaped r30 y30))
-      => CRankedS shaped c where
-instance
-      (forall r30 y30. (OS.Shape y30, GoodScalar r30) => c (shaped r30 y30))
-      => CRankedS shaped c where
-
 class (forall r31. GoodScalar r31 => c (shaped r31 '[]))
       => CRankedSS shaped c where
 instance
       (forall r31. GoodScalar r31 => c (shaped r31 '[]))
       => CRankedSS shaped c where
-
-class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
-      => ShapedTensor (shaped :: Type -> [Nat] -> Type) where
-
-instance ShapedTensor (Flip OS.Array)
-type instance IntOf (Flip OS.Array r sh) = CInt
-instance ShapedTensor AstShaped
-type instance IntOf (AstShaped r sh) = AstInt r
 
 -- k is intended to be Nat or [Nat] (or nothing, if we support scalars)
 type family PrimalOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
@@ -313,6 +296,33 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
+class DomainsTensor (ranked :: Type -> Nat -> Type)
+                    (domainsOf :: Type -> Type)
+                    | ranked -> domainsOf, domainsOf -> ranked where
+  tletDomains :: (GoodScalar r, KnownNat n)
+              => domainsOf r
+              -> (domainsOf r -> ranked r n)
+              -> ranked r n
+  dmkDomains :: Domains (DynamicOf ranked) r -> domainsOf r
+  dlet :: (GoodScalar r, KnownNat n)
+       => ranked r n -> (ranked r n -> domainsOf r)
+       -> domainsOf r
+
+
+-- * Shaped tensor class definition
+
+class (forall r30 y30. (OS.Shape y30, GoodScalar r30) => c (shaped r30 y30))
+      => CRankedS shaped c where
+instance
+      (forall r30 y30. (OS.Shape y30, GoodScalar r30) => c (shaped r30 y30))
+      => CRankedS shaped c where
+
+class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
+      => ShapedTensor (shaped :: Type -> [Nat] -> Type) where
+
+
+-- * ConvertTensor class definition
+
 class ( DynamicOf ranked ~ DynamicOf shaped
       , DynamicOf shaped ~ DynamicOf ranked )
       => ConvertTensor (ranked :: Type -> Nat -> Type)
@@ -340,18 +350,6 @@ class ( DynamicOf ranked ~ DynamicOf shaped
             => ranked r n -> [(AstVarId, DynamicOf ranked r)]
             -> ([(AstVarId, DynamicOf ranked r)], ranked r n)
   tregister r l = (l, r)
-
-class DomainsTensor (ranked :: Type -> Nat -> Type)
-                    (domainsOf :: Type -> Type)
-                    | ranked -> domainsOf, domainsOf -> ranked where
-  tletDomains :: (GoodScalar r, KnownNat n)
-              => domainsOf r
-              -> (domainsOf r -> ranked r n)
-              -> ranked r n
-  dmkDomains :: Domains (DynamicOf ranked) r -> domainsOf r
-  dlet :: (GoodScalar r, KnownNat n)
-       => ranked r n -> (ranked r n -> domainsOf r)
-       -> domainsOf r
 
 
 -- * The giga-constraint
@@ -400,7 +398,7 @@ type ADReady ranked r =
   )
 
 
--- * Tensor class instances for concrete arrays
+-- * Ranked tensor class instance for concrete arrays
 
 type instance IntOf (Flip OR.Array r n) = CInt
 
@@ -409,8 +407,6 @@ type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 type instance DualOf (Flip OR.Array) = DummyDual
 
 type instance DynamicOf (Flip OR.Array) = OD.Array
-
-type instance DynamicOf (Flip OS.Array) = OD.Array
 
 instance Tensor (Flip OR.Array) where
   tshape = tshapeR . runFlip
@@ -457,18 +453,6 @@ instance Tensor (Flip OR.Array) where
   tScale _ _ = DummyDual
 
 data DummyDual a (b :: Nat) = DummyDual
-
-instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
-  tfromD = Flip . Data.Array.Convert.convert
-  tfromS = Flip . Data.Array.Convert.convert . runFlip
-  dfromR = Data.Array.Convert.convert . runFlip
-  dfromS = Data.Array.Convert.convert . runFlip
-  sfromR = Flip . Data.Array.Convert.convert . runFlip
-  sfromD = Flip . Data.Array.Convert.convert
-  ddummy = dummyTensor
-  disDummy = isTensorDummy
-  daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
-  dshape = OD.shapeL
 
 {- TODO: requires IncoherentInstances no matter what pragma I stick in
 -- TODO2: benchmark this used for any scalar via @V.map realToFrac@
@@ -525,6 +509,16 @@ instance KnownNat n
   type ToRanked (Flip OR.Array r n) = Flip OR.Array r n
   toRanked = id
 
+
+-- * Shaped tensor class instance for concrete arrays
+
+type instance DynamicOf (Flip OS.Array) = OD.Array
+
+instance ShapedTensor (Flip OS.Array)
+type instance IntOf (Flip OS.Array r sh) = CInt
+instance ShapedTensor AstShaped
+type instance IntOf (AstShaped r sh) = AstInt r
+
 instance (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => AdaptableDomains OD.Array (Flip OS.Array r sh) where
   type Underlying (Flip OS.Array r sh) = r
@@ -543,3 +537,18 @@ instance OS.Shape sh
     in (Flip arr, g2)
   type ToRanked (Flip OS.Array r sh) = Flip OR.Array r (OS.Rank sh)
   toRanked = Flip . Data.Array.Convert.convert . runFlip
+
+
+-- * ConvertTensor instance for concrete arrays
+
+instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
+  tfromD = Flip . Data.Array.Convert.convert
+  tfromS = Flip . Data.Array.Convert.convert . runFlip
+  dfromR = Data.Array.Convert.convert . runFlip
+  dfromS = Data.Array.Convert.convert . runFlip
+  sfromR = Flip . Data.Array.Convert.convert . runFlip
+  sfromD = Flip . Data.Array.Convert.convert
+  ddummy = dummyTensor
+  disDummy = isTensorDummy
+  daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
+  dshape = OD.shapeL
