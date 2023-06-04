@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances
-  ( liftVT, liftVT2, liftVR, liftVR2, liftVS, liftVS2
+  ( liftVT, liftVT2, liftVR, liftVR2, liftVS, liftVS2, sameShape
   ) where
 
 import Prelude
@@ -25,12 +25,14 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Boolean
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Numeric.LinearAlgebra.Data (arctan2)
+import           Type.Reflection (eqTypeRep, typeRep, (:~~:) (HRefl))
 
 liftVT :: Numeric r
        => (Vector r -> Vector r)
@@ -440,7 +442,12 @@ deriving instance RealFrac (f a b) => RealFrac (Flip f b a)
 deriving instance RealFloat (f a b) => RealFloat (Flip f b a)
 
 
--- TODO: move to separate orphan module(s) at some point
+-- TODO: move to separate orphan module(s) at some point or to orthotope
+
+sameShape :: forall s1 s2. (OS.Shape s1, OS.Shape s2) => Maybe (s1 :~: s2)
+sameShape = case eqTypeRep (typeRep @s1) (typeRep @s2) of
+              Just HRefl -> Just Refl
+              Nothing -> Nothing
 
 instance (Num (Vector r), Numeric r, Ord r)
          => Real (Vector r) where

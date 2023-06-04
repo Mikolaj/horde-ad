@@ -66,18 +66,18 @@ import           Data.List.Index (ifoldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Text.Show.Functions ()
-import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
+import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -240,11 +240,11 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
 
-  DToS :: forall ranked shaped sh r. KnownNat (OS.Rank sh)
-       => DeltaD ranked shaped r '()
+  DToS :: forall ranked shaped sh r.
+          DeltaD ranked shaped r '()
        -> DeltaS ranked shaped r sh
-  RToS :: forall ranked shaped sh r. KnownNat (OS.Rank sh)
-       => DeltaR ranked shaped r (OS.Rank sh)
+  RToS :: forall ranked shaped sh r.
+          DeltaR ranked shaped r (OS.Rank sh)
        -> DeltaS ranked shaped r sh
 
 deriving instance ( (forall k. Show (ranked r k))
@@ -353,8 +353,8 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
   DToR :: forall ranked shaped n r.
           DeltaD ranked shaped r '()
        -> DeltaR ranked shaped r n
-  SToR :: forall ranked shaped sh r.
-          DeltaS ranked shaped r sh
+  SToR :: forall ranked shaped sh r. OS.Shape sh
+       => DeltaS ranked shaped r sh
        -> DeltaR ranked shaped r (OS.Rank sh)
 
 deriving instance ( (forall k. Show (ranked r k))
@@ -366,9 +366,9 @@ deriving instance ( (forall k. Show (ranked r k))
 data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> () -> Type where
   RToD :: forall ranked shaped n r. KnownNat n
-         => DeltaR ranked shaped r n -> DeltaD ranked shaped r '()
+       => DeltaR ranked shaped r n -> DeltaD ranked shaped r '()
   SToD :: forall ranked shaped sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
-         => DeltaS ranked shaped r sh -> DeltaD ranked shaped r '()
+       => DeltaS ranked shaped r sh -> DeltaD ranked shaped r '()
 
 deriving instance ( (forall k. Show (ranked r k))
                   , (forall k. Show (shaped r k))
@@ -625,24 +625,19 @@ buildFinMaps s0 deltaDt =
                  sShared (fromIntegral <$> [0 .. n - 1])
         GatherS _sh _d _f _shd -> undefined  -- evalS s (tscatter shd c f) d
 
-        DToS (SToD @_ @_ @sh1 d) ->
-          -- TODO: compare sh, not n.
-          -- See https://github.com/Mikolaj/horde-ad/issues/104
-          case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
-            Just Refl -> gcastWith (unsafeCoerce Refl :: sh1 :~: sh)
-                         $ evalS s c d
+        DToS (SToD @_ @_ @sh2 d) ->
+          case sameShape @sh @sh2 of
+            Just Refl -> evalS s c d
             _ -> error "buildFinMaps: different shapes in DToS(SToD)"
-        DToS (RToD @_ @_ @n1 d) ->
-          case sameNat (Proxy @n1) (Proxy @(OS.Rank sh)) of
+        DToS (RToD @_ @_ @n2 d) ->
+          case sameNat (Proxy @(OS.Rank sh)) (Proxy @n2) of
             Just Refl -> evalS s c (RToS d)
             _ -> error "buildFinMaps: different ranks in DToR(SToD)"
-        RToS (SToR @_ @_ @sh1 d) ->
-          -- TODO: compare sh, not n:
-          case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
-            Just Refl -> gcastWith (unsafeCoerce Refl :: sh1 :~: sh)
-                         $ evalS s c d
+        RToS (SToR @_ @_ @sh2 d) ->
+          case sameShape @sh @sh2 of
+            Just Refl -> evalS s c d
             _ -> error "buildFinMaps: different shapes in RToS(SToR)"
-        RToS _ -> undefined
+        RToS d -> evalR s (tfromS c) d
 
 {-
         -- The general case is given as the last one below,
@@ -768,21 +763,16 @@ buildFinMaps s0 deltaDt =
                  sShared (fromIntegral <$> [0 .. n - 1])
         GatherR _sh d f shd -> evalR s (tscatter shd c f) d
 
-        DToR @_ @_ @n2 (RToD @_ @_ @n1 d) ->
-          case sameNat (Proxy @n1) (Proxy @n2) of
+        DToR (RToD @_ @_ @n2 d) ->
+          case sameNat (Proxy @n) (Proxy @n2) of
             Just Refl -> evalR s c d
             _ -> error "buildFinMaps: different ranks in DToR(RToD)"
-        DToR @_ @_ @n2 (SToD @_ @_ @sh1 d) ->
-          case sameNat (Proxy @(OS.Rank sh1)) (Proxy @n2) of
+        DToR (SToD @_ @_ @sh2 d) ->
+          case sameNat (Proxy @n) (Proxy @(OS.Rank sh2)) of
             Just Refl -> evalR s c (SToR d)
             _ -> error "buildFinMaps: different ranks in DToR(SToD)"
-        SToR @_ @_ @sh2 (RToS @_ @_ @sh1 d) ->
-          -- TODO: compare sh, not n:
-          case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh2)) of
-            Just Refl -> evalR s c d
-            _ -> error "buildFinMaps: different shapes in SToR(RToS)"
-        SToR _ -> undefined
-          -- TODO: add runtime checks everywhere they are needed
+        SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
+        SToR d -> evalS s (sfromR c) d
 
       evalFromnMap :: EvalState ranked shaped r
                    -> EvalState ranked shaped r
@@ -912,20 +902,16 @@ buildDerivative dimR deltaDt params = do
           t <- evalR d
           return $! tgather sh t f
 
-        DToR @_ @_ @n2 (RToD @_ @_ @n1 d) ->
-          case sameNat (Proxy @n1) (Proxy @n2) of
+        DToR (RToD @_ @_ @n2 d) ->
+          case sameNat (Proxy @n) (Proxy @n2) of
             Just Refl -> evalR d
             _ -> error "buildDerivative: different ranks in DToR(RToD)"
-        DToR @_ @_ @n2 (SToD @_ @_ @sh1 d) ->
-          case sameNat (Proxy @(OS.Rank sh1)) (Proxy @n2) of
+        DToR (SToD @_ @_ @sh2 d) ->
+          case sameNat (Proxy @n) (Proxy @(OS.Rank sh2)) of
             Just Refl -> evalR (SToR d)
             _ -> error "buildDerivative: different ranks in DToR(SToD)"
-        SToR @_ @_ @sh2 (RToS @_ @_ @sh1 d) ->
-          -- TODO: compare sh, not n:
-          case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh2)) of
-            Just Refl -> evalR d
-            _ -> error "buildDerivative: different shapes in SToR(RToS)"
-        SToR _ -> undefined
+        SToR (RToS d) -> evalR d  -- no information lost, so no checks
+        SToR _d -> undefined
 
   -- A hack to fit both argument delta and, afterwards, the result in a type
   -- that does not reflect either.
