@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | A class containing array operations, with some extra algebraic operations
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library.
@@ -121,6 +122,9 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
               => ranked r (m + n) -> IndexOf (ranked r 0) m -> ranked r n
   infixl 9 !
   (!) = tindex  -- prefix form better when type applications are necessary
+  tindex0 :: (GoodScalar r, KnownNat m)
+          => ranked r m -> IndexOf (ranked r 0) m -> ranked r 0
+  tindex0 = tindex
   tsum :: (GoodScalar r, KnownNat n) => ranked r (1 + n) -> ranked r n
   tsum0 :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r 0
   tsum0 = tsum . tflatten
@@ -143,10 +147,10 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
     _ -> error "impossible pattern needlessly required"
   tminimum :: (GoodScalar r, KnownNat n)
            => ranked r n -> ranked r 0
-  tminimum t = t ! tminIndex t
+  tminimum t = tindex0 t (tminIndex t)
   tmaximum :: (GoodScalar r, KnownNat n)
            => ranked r n -> ranked r 0
-  tmaximum t = t ! tmaxIndex t
+  tmaximum t = tindex0 t (tmaxIndex t)
   tfromIndex0 :: GoodScalar r => IntOf (ranked r 0) -> ranked r 0
   tfromIndex1 :: GoodScalar r => IndexOf (ranked r 0) n -> ranked r 1
   tfromIndex1 = tfromList . map tfromIndex0 . indexToList
@@ -223,7 +227,7 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   tmap1 f u = tbuild1 (tlength u) (\i -> f (u ! [i]))
   tmap0N :: (GoodScalar r, KnownNat n)
          => (ranked r 0 -> ranked r 0) -> ranked r n -> ranked r n
-  tmap0N f v = tbuild (tshape v) (\ix -> f $ v ! ix)
+  tmap0N f v = tbuild (tshape v) (\ix -> f $ tindex0 v ix)
   tzipWith :: (GoodScalar r, KnownNat m, KnownNat n)
            => (ranked r n -> ranked r n -> ranked r n)
            -> ranked r (m + n) -> ranked r (m + n) -> ranked r (m + n)
@@ -235,7 +239,7 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   tzipWith0N :: (GoodScalar r, KnownNat n)
              => (ranked r 0 -> ranked r 0 -> ranked r 0)
              -> ranked r n -> ranked r n -> ranked r n
-  tzipWith0N f u v = tbuild (tshape v) (\ix -> f (u ! ix) (v ! ix))
+  tzipWith0N f u v = tbuild (tshape v) (\ix -> f (tindex0 u ix) (tindex0 v ix))
   tgather :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
           => ShapeInt (m + n) -> ranked r (p + n)
           -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
@@ -353,6 +357,10 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   infixl 9 !$
 --  (!$) = sindex @shaped @r @sh2 @sh
     -- prefix form better when type applications are necessary
+  sindex0 :: forall r sh2. (GoodScalar r, OS.Shape sh2, sh2 OS.++ '[] ~ sh2)
+          => shaped r sh2 -> IndexOf (shaped r '[]) (OS.Rank sh2)
+          -> shaped r '[]
+  sindex0 = sindex @shaped @r @sh2 @'[]
   ssum :: (GoodScalar r, OS.Shape sh) => shaped r (n ': sh) -> shaped r sh
   ssum0 :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
         => shaped r sh -> shaped r '[]
@@ -370,12 +378,14 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
       ssum (stranspose @shaped @'[2,1,0] (sreplicate width2 m1)
             * stranspose @shaped @'[1,0] (sreplicate (slength m1) m2))
     _ -> error "impossible pattern needlessly required"
-  sminimum :: (GoodScalar r, OS.Shape sh)
+  sminimum :: ( GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
+              , KnownNat (OS.Size sh), sh OS.++ '[] ~ sh )
            => shaped r sh -> shaped r '[]
---  sminimum t = t !$ sminIndex t
-  smaximum :: (GoodScalar r, OS.Shape sh)
+  sminimum t = sindex0 t (sminIndex t)
+  smaximum :: ( GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
+              , KnownNat (OS.Size sh), sh OS.++ '[] ~ sh )
            => shaped r sh -> shaped r '[]
---  smaximum t = t !$ smaxIndex t
+  smaximum t = sindex0 t (smaxIndex t)
   sfromIndex0 :: GoodScalar r => IntOf (shaped r '[]) -> shaped r '[]
   sfromIndex1 :: GoodScalar r => IndexOf (shaped r '[]) n -> shaped r '[n]
   sfromIndex1 = sfromList . map sfromIndex0 . indexToList
@@ -459,31 +469,37 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   sbuild1 :: (GoodScalar r, OS.Shape sh)  -- this form needs less typeapps
           => Int -> (IntOf (shaped r '[]) -> shaped r sh)
           -> shaped r (n ': sh)
-  smap :: (GoodScalar r, OS.Shape sh2, OS.Shape sh)
+  smap :: forall r sh2 sh. (GoodScalar r, OS.Shape sh2, OS.Shape sh)
        => (shaped r sh -> shaped r sh)
        -> shaped r (sh2 OS.++ sh) -> shaped r (sh2 OS.++ sh)
---  smap f v = sbuild (sshape v) (\ix -> f (v !$ ix))
-  smap1 :: (GoodScalar r, OS.Shape sh)
+--  smap f v = sbuild @shaped @r @sh2 @sh
+--                    (\ix -> f (sindex @shaped @r @sh2 @sh v ix))
+  smap1 :: forall r sh n. (GoodScalar r, OS.Shape sh, KnownNat n)
         => (shaped r sh -> shaped r sh)
         -> shaped r (n ': sh) -> shaped r (n ': sh)
---  smap1 f u = sbuild1 (slength u) (\i -> f (u !$ [i]))
-  smap0N :: (GoodScalar r, OS.Shape sh)
+  smap1 f u = sbuild1 @shaped @r @sh @n
+                      (slength u) (\i -> f (sindex @shaped @r @'[n] u [i]))
+  smap0N :: forall r sh. (GoodScalar r, OS.Shape sh, sh OS.++ '[] ~ sh)
          => (shaped r '[] -> shaped r '[]) -> shaped r sh -> shaped r sh
---  smap0N f v = sbuild (\ix -> f $ v !$ ix)
+  smap0N f v = sbuild @shaped @r @sh
+                      (\ix -> f $ sindex0 v ix)
   szipWith :: forall r sh2 sh. (GoodScalar r, OS.Shape sh2, OS.Shape sh)
            => (shaped r sh -> shaped r sh -> shaped r sh)
            -> shaped r (sh2 OS.++ sh) -> shaped r (sh2 OS.++ sh)
            -> shaped r (sh2 OS.++ sh)
 --  szipWith f u v = sbuild @shaped @r @sh2 @sh (\ix -> f (u !$ ix) (v !$ ix))
-  szipWith1 :: forall r sh n. (GoodScalar r, OS.Shape sh)
+  szipWith1 :: forall r sh n. (GoodScalar r, OS.Shape sh, KnownNat n)
             => (shaped r sh -> shaped r sh -> shaped r sh)
             -> shaped r (n ': sh) -> shaped r (n ': sh) -> shaped r (n ': sh)
---  szipWith1 f u v = sbuild1 @shaped @r @sh @n
---                            (slength u) (\i -> f (u !$ [i]) (v !$ [i]))
-  szipWith0N :: (GoodScalar r, OS.Shape sh)
+  szipWith1 f u v = sbuild1 @shaped @r @sh @n
+                            (slength u)
+                            (\i -> f (sindex @shaped @r @'[n] u [i])
+                                     (sindex @shaped @r @'[n] v [i]))
+  szipWith0N :: forall r sh. (GoodScalar r, OS.Shape sh, sh OS.++ '[] ~ sh)
              => (shaped r '[] -> shaped r '[] -> shaped r '[])
              -> shaped r sh -> shaped r sh -> shaped r sh
---  szipWith0N f u v = sbuild (\ix -> f (u !$ ix) (v !$ ix))
+  szipWith0N f u v = sbuild @shaped @r @sh
+                            (\ix -> f (sindex0 u ix) (sindex0 v ix))
   sgather
     :: (GoodScalar r, OS.Shape sh, OS.Shape sh2, OS.Shape sh3, k2 ~ OS.Rank sh2)
     => shaped r (sh3 OS.++ sh)
@@ -629,6 +645,7 @@ instance Tensor (Flip OR.Array) where
   tmaxIndex0 = tmaxIndexR . runFlip
   tfloor = floor . tunScalarR . runFlip
   tindex v ix = Flip $ tindexZR (runFlip v) ix
+  tindex0 v ix = Flip . tscalarR $ tindex0R (runFlip v) ix
   tsum = Flip . tsumR . runFlip
   tsum0 = Flip . tscalarR . tsum0R . runFlip
   tdot0 u v = Flip $ tscalarR $ tdot0R (runFlip u) (runFlip v)
