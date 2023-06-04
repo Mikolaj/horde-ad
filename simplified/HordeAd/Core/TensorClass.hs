@@ -9,7 +9,7 @@
 module HordeAd.Core.TensorClass
   ( IntOf, IndexOf, ShapeInt
   , PrimalOf, DualOf, DynamicOf
-  , ShapedTensor, Tensor(..), ConvertTensor(..), DomainsTensor(..), ADReady
+  , ShapedTensor(..), Tensor(..), ConvertTensor(..), DomainsTensor(..), ADReady
   , GoodScalar, DummyDual(..), ttoRankedOrDummy
   ) where
 
@@ -19,6 +19,7 @@ import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Boolean
@@ -112,7 +113,7 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   tmaxIndex :: (GoodScalar r, KnownNat n)
             => ranked r n -> IndexOf (ranked r 0) n
   tmaxIndex t = fromLinearIdx (tshape t) (tmaxIndex0 (tflatten t))
-  tfloor :: (GoodScalar r, RealFrac r) => ranked r 0 -> IntOf (ranked r 0)
+  tfloor :: GoodScalar r => ranked r 0 -> IntOf (ranked r 0)
 
   -- Typically scalar codomain, often tensor reduction
   -- (a number suffix in the name indicates the rank of codomain)
@@ -130,7 +131,7 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
 -- differ in types but all are far from matmul2.
   tmatvecmul m v = tbuild1 (tlength m) (\i -> tdot0 v (m ! [i]))
 -- tmatvecmul m v = tflatten $ tmap1 (treplicate 1 . tdot0 v) m
-  tmatmul2 :: (GoodScalar r, Num (ranked r 3))
+  tmatmul2 :: GoodScalar r
            => ranked r 2 -> ranked r 2 -> ranked r 2
 -- How to generalize to tmatmul (#69)?
 -- Just tmatmul2 the two outermost dimensions?
@@ -250,29 +251,23 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
 
   -- Needed to avoid Num (ranked r n) constraints all over the place
   -- and also wrong shape in @0@ with ranked (not shaped) tensors.
-  tzero :: (GoodScalar r, KnownNat n, Num (ranked r 0))
+  tzero :: (GoodScalar r, KnownNat n)
         => ShapeInt n -> ranked r n
   tzero sh = treplicate0N sh 0
   tsumOfList :: (GoodScalar r, KnownNat n)
              => [ranked r n] -> ranked r n  -- TODO: declare nonempty
-  default tsumOfList
-    :: Num (ranked r n)
-    => [ranked r n] -> ranked r n
   tsumOfList = sum
   tmult :: (GoodScalar r, KnownNat n)
         => ranked r n -> ranked r n -> ranked r n
-  default tmult
-    :: Num (ranked r n)
-    => ranked r n -> ranked r n -> ranked r n
   tmult = (*)
   tscaleByScalar :: (GoodScalar r, KnownNat n)
                  => ranked r 0 -> ranked r n -> ranked r n
   tscaleByScalar s v = v `tmult` treplicate0N (tshape v) s
-  tsumIn :: (GoodScalar r, KnownNat n) => ranked r (1 + n) -> ranked r n
-  tsumIn = tsum . ttranspose [1, 0]
+  tsumIn :: (GoodScalar r, KnownNat n) => ranked r (2 + n) -> ranked r (1 + n)
+  tsumIn = tsum . ttr
     -- TODO: generalize, replace by stride analysis, etc.
   tdot1In :: GoodScalar r => ranked r 2 -> ranked r 2 -> ranked r 1
-  tdot1In t u = tsum (ttranspose [1, 0] (t `tmult` u))
+  tdot1In t u = tsumIn (t `tmult` u)
     -- TODO: generalize, replace by stride analysis, etc.
   tconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
   tconstBare :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
@@ -319,6 +314,226 @@ instance
 
 class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
       => ShapedTensor (shaped :: Type -> [Nat] -> Type) where
+
+  slet :: (OS.Shape sh, OS.Shape sh2, GoodScalar r)
+       => shaped r sh -> (shaped r sh -> shaped r sh2)
+       -> shaped r sh2
+  slet a f = f a
+
+  -- Integer codomain
+  sshape :: forall sh r. (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+         => shaped r sh -> ShapeInt (OS.Rank sh)
+  sshape _ = listShapeToShape $ OS.shapeT @sh
+  srank :: forall sh r. (GoodScalar r, KnownNat (OS.Rank sh))
+        => shaped r sh -> Int
+  srank _ = valueOf @(OS.Rank sh)
+  ssize :: forall sh r. (GoodScalar r, OS.Shape sh) => shaped r sh -> Int
+  ssize _ = OS.sizeT @sh
+  slength :: forall r n sh. (GoodScalar r, KnownNat n)
+          => shaped r (n ': sh) -> Int
+  slength _ = valueOf @n
+  sminIndex0 :: GoodScalar r => shaped r '[n] -> IntOf (shaped r '[]) -- partial
+  sminIndex :: ( GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
+               , KnownNat (OS.Size sh) )
+            => shaped r sh -> IndexOf (shaped r '[]) (OS.Rank sh)
+  sminIndex t = fromLinearIdx (sshape t) (sminIndex0 (sflatten t))
+  smaxIndex0 :: GoodScalar r => shaped r '[n] -> IntOf (shaped r '[]) -- partial
+  smaxIndex :: ( GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
+               , KnownNat (OS.Size sh) )
+            => shaped r sh -> IndexOf (shaped r '[]) (OS.Rank sh)
+  smaxIndex t = fromLinearIdx (sshape t) (smaxIndex0 (sflatten t))
+  sfloor :: GoodScalar r => shaped r '[] -> IntOf (shaped r '[])
+
+  -- Typically scalar codomain, often tensor reduction
+  -- (a number suffix in the name indicates the rank of codomain)
+  sindex, (!$) :: forall r sh2 sh. (GoodScalar r, OS.Shape sh2, OS.Shape sh)
+               => shaped r (sh2 OS.++ sh)
+               -> IndexOf (shaped r '[]) (OS.Rank sh2)
+               -> shaped r sh
+  infixl 9 !$
+--  (!$) = sindex @shaped @r @sh2 @sh
+    -- prefix form better when type applications are necessary
+  ssum :: (GoodScalar r, OS.Shape sh) => shaped r (n ': sh) -> shaped r sh
+  ssum0 :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
+        => shaped r sh -> shaped r '[]
+  ssum0 = ssum . sflatten
+  sdot0 :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
+        => shaped r sh -> shaped r sh -> shaped r '[]
+  sdot0 t u = ssum (sflatten (t `smult` u))
+  smatvecmul :: GoodScalar r
+             => shaped r '[m, n] -> shaped r '[n] -> shaped r '[m]
+--  smatvecmul m v = sbuild1 (slength m) (\i -> sdot0 v (m !$ [i]))
+  smatmul2 :: (GoodScalar r, KnownNat n, KnownNat m, KnownNat p)
+           => shaped r '[m, n] -> shaped r '[n, p] -> shaped r '[m, p]
+  smatmul2 m1 m2 = case sshape m2 of
+    _ :$ width2 :$ ZS ->
+      ssum (stranspose @shaped @'[2,1,0] (sreplicate width2 m1)
+            * stranspose @shaped @'[1,0] (sreplicate (slength m1) m2))
+    _ -> error "impossible pattern needlessly required"
+  sminimum :: (GoodScalar r, OS.Shape sh)
+           => shaped r sh -> shaped r '[]
+--  sminimum t = t !$ sminIndex t
+  smaximum :: (GoodScalar r, OS.Shape sh)
+           => shaped r sh -> shaped r '[]
+--  smaximum t = t !$ smaxIndex t
+  sfromIndex0 :: GoodScalar r => IntOf (shaped r '[]) -> shaped r '[]
+  sfromIndex1 :: GoodScalar r => IndexOf (shaped r '[]) n -> shaped r '[n]
+  sfromIndex1 = sfromList . map sfromIndex0 . indexToList
+  sscatter
+    :: (GoodScalar r, OS.Shape sh, OS.Shape sh2, OS.Shape sh3, k2 ~ OS.Rank sh2)
+    => shaped r (sh2 OS.++ sh)
+    -> (IndexOf (shaped r '[]) k2 -> IndexOf (shaped r '[]) (OS.Rank sh3))
+    -> shaped r (sh3 OS.++ sh)
+  sscatter1
+    :: forall r sh n2 sh3. (GoodScalar r, OS.Shape sh, OS.Shape sh3)
+    => shaped r (n2 ': sh)
+    -> (IntOf (shaped r '[]) -> IndexOf (shaped r '[]) (OS.Rank sh3))
+    -> shaped r (sh3 OS.++ sh)
+--  sscatter1 sh v f = sscatter v (\(i :. ZI) -> f i)
+
+  -- Tensor codomain, often tensor construction, sometimes transformation
+  -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
+  -- by one rank, and is omitted if a more general variant is not defined)
+  sfromList :: (GoodScalar r, OS.Shape sh)
+            => [shaped r sh] -> shaped r (n ': sh)
+  sfromList0N :: forall r sh.
+                 ( GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
+                 , KnownNat (OS.Size sh) )
+              => [shaped r '[]] -> shaped r sh
+  sfromList0N = sreshape @shaped @r @'[OS.Size sh] @sh . sfromList
+  sfromVector :: (GoodScalar r, OS.Shape sh)
+              => Data.Vector.Vector (shaped r sh) -> shaped r (n ': sh)
+  sfromVector v = sfromList (V.toList v)  -- horribly inefficient for large vs
+  sfromVector0N :: forall r sh.
+                   ( GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
+                   , KnownNat (OS.Size sh) )
+                => Data.Vector.Vector (shaped r '[])
+                -> shaped r sh
+  sfromVector0N = sreshape @shaped @r @'[OS.Size sh] @sh . sfromVector
+  sreplicate :: (GoodScalar r, OS.Shape sh)
+             => Int -> shaped r sh -> shaped r (n ': sh)
+  sreplicate0N :: forall r sh.
+                  ( GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
+                  , KnownNat (OS.Size sh) )
+               => shaped r '[] -> shaped r sh
+  sreplicate0N = sreshape @shaped @r @'[OS.Size sh] @sh
+                 . sreplicate (OS.sizeT @sh)
+  sappend :: (GoodScalar r, OS.Shape sh)
+          => shaped r (n ': sh) -> shaped r (n ': sh) -> shaped r (n ': sh)
+  sconcat :: (GoodScalar r, OS.Shape sh)
+          => [shaped r (n ': sh)] -> shaped r (n ': sh)
+  sconcat = foldr1 sappend
+  sslice :: (GoodScalar r, OS.Shape sh)
+         => Int -> Int -> shaped r (n ': sh) -> shaped r (n ': sh)
+  suncons :: (GoodScalar r, OS.Shape sh)
+          => shaped r (n ': sh) -> Maybe (shaped r sh, shaped r (n ': sh))
+--  suncons v = case sshape v of
+--                ZS -> Nothing
+--                len :$ _ -> Just (v !$ [0], sslice 1 (len - 1) v)
+  sreverse :: (GoodScalar r, OS.Shape sh)
+           => shaped r (n ': sh) -> shaped r (n ': sh)
+  str :: (GoodScalar r, OS.Shape sh, KnownNat n, KnownNat m)
+      => shaped r (n ': m ': sh) -> shaped r (m ': n ': sh)
+  str = stranspose @shaped @'[1, 0]
+  stranspose :: (OS.Permutation perm, GoodScalar r, OS.Shape sh)
+             => shaped r sh -> shaped r (OS.Permute perm sh)
+  sflatten :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
+           => shaped r sh -> shaped r '[OS.Size sh]
+  sflatten = sreshape
+  sreshape :: (GoodScalar r, OS.Shape sh, OS.Shape sh2)
+           => shaped r sh -> shaped r sh2
+  sbuild :: forall r sh2 sh. (GoodScalar r, OS.Shape sh2, OS.Shape sh)
+         => (IndexOf (shaped r '[]) (OS.Rank sh2) -> shaped r sh)
+         -> shaped r (sh2 OS.++ sh)
+{-
+  sbuild f0 =
+    let buildSh :: OS.Shape sh21
+                => ShapeInt (OS.Rank sh4)
+                -> (IndexOf (shaped r '[]) (OS.Rank sh4) -> shaped r sh)
+                -> shaped r (sh4 + sh)
+        buildSh ZS f = f ZI
+        buildSh (k :$ sh) f = sbuild1 @shaped @r @sh
+                                      k (\i -> buildSh sh (\ix -> f (i :. ix)))
+    in buildSh (listShapeToShape $ OS.shapeT @sh) f0
+-}
+  sbuild1 :: (GoodScalar r, OS.Shape sh)  -- this form needs less typeapps
+          => Int -> (IntOf (shaped r '[]) -> shaped r sh)
+          -> shaped r (n ': sh)
+  smap :: (GoodScalar r, OS.Shape sh2, OS.Shape sh)
+       => (shaped r sh -> shaped r sh)
+       -> shaped r (sh2 OS.++ sh) -> shaped r (sh2 OS.++ sh)
+--  smap f v = sbuild (sshape v) (\ix -> f (v !$ ix))
+  smap1 :: (GoodScalar r, OS.Shape sh)
+        => (shaped r sh -> shaped r sh)
+        -> shaped r (n ': sh) -> shaped r (n ': sh)
+--  smap1 f u = sbuild1 (slength u) (\i -> f (u !$ [i]))
+  smap0N :: (GoodScalar r, OS.Shape sh)
+         => (shaped r '[] -> shaped r '[]) -> shaped r sh -> shaped r sh
+--  smap0N f v = sbuild (\ix -> f $ v !$ ix)
+  szipWith :: forall r sh2 sh. (GoodScalar r, OS.Shape sh2, OS.Shape sh)
+           => (shaped r sh -> shaped r sh -> shaped r sh)
+           -> shaped r (sh2 OS.++ sh) -> shaped r (sh2 OS.++ sh)
+           -> shaped r (sh2 OS.++ sh)
+--  szipWith f u v = sbuild @shaped @r @sh2 @sh (\ix -> f (u !$ ix) (v !$ ix))
+  szipWith1 :: forall r sh n. (GoodScalar r, OS.Shape sh)
+            => (shaped r sh -> shaped r sh -> shaped r sh)
+            -> shaped r (n ': sh) -> shaped r (n ': sh) -> shaped r (n ': sh)
+--  szipWith1 f u v = sbuild1 @shaped @r @sh @n
+--                            (slength u) (\i -> f (u !$ [i]) (v !$ [i]))
+  szipWith0N :: (GoodScalar r, OS.Shape sh)
+             => (shaped r '[] -> shaped r '[] -> shaped r '[])
+             -> shaped r sh -> shaped r sh -> shaped r sh
+--  szipWith0N f u v = sbuild (\ix -> f (u !$ ix) (v !$ ix))
+  sgather
+    :: (GoodScalar r, OS.Shape sh, OS.Shape sh2, OS.Shape sh3, k2 ~ OS.Rank sh2)
+    => shaped r (sh3 OS.++ sh)
+    -> (IndexOf (shaped r '[]) k2 -> IndexOf (shaped r '[]) (OS.Rank sh3))
+    -> shaped r (sh2 OS.++ sh)
+  sgather1
+    :: forall r sh n2 sh3.
+       (GoodScalar r, OS.Shape sh, OS.Shape sh3, KnownNat n2)
+    => shaped r (sh3 OS.++ sh)
+    -> (IntOf (shaped r '[]) -> IndexOf (shaped r '[]) (OS.Rank sh3))
+    -> shaped r (n2 ': sh)
+--  sgather1 v f = sgather @shaped @r @sh @'[n2] @sh3 v (\(i :. ZI) -> f i)
+
+  -- ** No serviceable parts beyond this point ** --
+
+  ssumOfList :: (GoodScalar r, OS.Shape sh)
+             => [shaped r sh] -> shaped r sh  -- TODO: declare nonempty
+  ssumOfList = sum
+  smult :: (GoodScalar r, OS.Shape sh)
+        => shaped r sh -> shaped r sh -> shaped r sh
+  smult = (*)
+  sscaleByScalar
+    :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh), KnownNat (OS.Size sh))
+    => shaped r '[] -> shaped r sh -> shaped r sh
+  sscaleByScalar s v = v `smult` sreplicate0N s
+  ssumIn :: (GoodScalar r, OS.Shape sh, KnownNat n, KnownNat m)
+         => shaped r (n ': m ': sh) -> shaped r (n ': sh)
+  ssumIn = ssum . str
+    -- TODO: generalize, replace by stride analysis, etc.
+  sdot1In :: (GoodScalar r, KnownNat n, KnownNat m)
+          => shaped r '[n, m] -> shaped r '[n, m] -> shaped r '[n]
+  sdot1In t u = ssumIn (t `smult` u)
+    -- TODO: generalize, replace by stride analysis, etc.
+  sconst :: (GoodScalar r, OS.Shape sh) => OS.Array sh r -> shaped r sh
+  sconstBare :: (GoodScalar r, OS.Shape sh) => OS.Array sh r -> shaped r sh
+  sconstBare = sconst
+  sletWrap :: ADShare r -> shaped r sh -> shaped r sh
+  sletWrap _l u = u
+
+  -- Primal/dual things.
+  sconstant :: (GoodScalar r, OS.Shape sh)
+            => PrimalOf shaped r sh -> shaped r sh
+  sprimalPart :: (GoodScalar r, OS.Shape sh)
+              => shaped r sh -> PrimalOf shaped r sh
+  sdualPart :: (GoodScalar r, OS.Shape sh)
+            => shaped r sh -> DualOf shaped r sh
+  sD :: (GoodScalar r, OS.Shape sh)
+     => PrimalOf shaped r sh -> DualOf shaped r sh -> shaped r sh
+  sScale :: (GoodScalar r, OS.Shape sh)
+         => PrimalOf shaped r sh -> DualOf shaped r sh -> DualOf shaped r sh
 
 
 -- * ConvertTensor class definition
@@ -452,30 +667,7 @@ instance Tensor (Flip OR.Array) where
   tD u _ = u
   tScale _ _ = DummyDual
 
-data DummyDual a (b :: Nat) = DummyDual
-
-{- TODO: requires IncoherentInstances no matter what pragma I stick in
--- TODO2: benchmark this used for any scalar via @V.map realToFrac@
--- A special case, because for @Double@ we have faster @randomVals@,
--- though the quality of randomness is worse (going through a single @Int@).
-instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
-         KnownNat n
-         => AdaptableDomains (OR.Array n Double) where
-  toDomains a =
-    (V.empty, V.empty, V.empty, V.singleton (Data.Array.Convert.convert a))
-  fromDomains _aInit (v0, v1) = case V.uncons v1 of
-    Just (a, rest) -> (toShapedOrDummy a, (v0, v1, v2, rest))
-    Nothing -> error "fromDomains in AdaptableDomains (OR.Array n r)"
-  randomVals range g =
-    let -- Note that hmatrix produces numbers from the range open at the top,
-        -- unlike package random.
-        createRandomVector n seedInt =
-          LA.scale (2 * range)
-          $ LA.randomVector seedInt LA.Uniform n - LA.scalar 0.5
-        (i, g2) = random g
-        arr = OR.fromVector $ createRandomVector (OR.sizeP (Proxy @n)) i
-    in (arr, g2)
--}
+data DummyDual a (b :: k) = DummyDual
 
 instance (GoodScalar r, KnownNat n)
          => AdaptableDomains OD.Array (Flip OR.Array r n) where
@@ -484,13 +676,12 @@ instance (GoodScalar r, KnownNat n)
   toDomains a = V.singleton (dfromR a)
   fromDomains aInit params = case V.uncons params of
     Just (a, rest) ->
-      Just (ttoRankedOrDummy @(Flip OR.Array) (tshape aInit) a, rest)
+      Just (ttoRankedOrDummy (tshape aInit) a, rest)
     Nothing -> Nothing
 
 ttoRankedOrDummy
   :: forall ranked shaped n r.
-     ( KnownNat n, Tensor ranked, GoodScalar r, Num (ranked r 0)
-     , ConvertTensor ranked shaped )
+     (KnownNat n, Tensor ranked, GoodScalar r, ConvertTensor ranked shaped)
   => ShapeInt n -> DynamicOf ranked r -> ranked r n
 ttoRankedOrDummy sh x = if disDummy @ranked x
                         then tzero sh
@@ -504,7 +695,7 @@ instance KnownNat n
           $ V.fromListN n (randoms seed) - LA.scalar 0.5
         (g1, g2) = split g
         arr = OR.fromVector undefined
-              $ createRandomVector (OR.size undefined) g1  -- TODO
+              $ createRandomVector (OR.size undefined) g1  -- TODO, or just remove the instance
     in (Flip arr, g2)
   type ToRanked (Flip OR.Array r n) = Flip OR.Array r n
   toRanked = id
@@ -512,19 +703,37 @@ instance KnownNat n
 
 -- * Shaped tensor class instance for concrete arrays
 
+type instance IntOf (Flip OS.Array r sh) = CInt
+
+type instance PrimalOf (Flip OS.Array) = Flip OS.Array
+
+type instance DualOf (Flip OS.Array) = DummyDual
+
 type instance DynamicOf (Flip OS.Array) = OD.Array
 
-instance ShapedTensor (Flip OS.Array)
-type instance IntOf (Flip OS.Array r sh) = CInt
-instance ShapedTensor AstShaped
+instance ShapedTensor (Flip OS.Array) where
+
 type instance IntOf (AstShaped r sh) = AstInt r
+
+instance ShapedTensor AstShaped where
 
 instance (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => AdaptableDomains OD.Array (Flip OS.Array r sh) where
   type Underlying (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
   toDomains a = V.singleton (dfromS a)
-  fromDomains = undefined
+  fromDomains _aInit params = case V.uncons params of
+    Just (a, rest) -> Just (stoRankedOrDummy a, rest)
+    Nothing -> Nothing
+
+stoRankedOrDummy
+  :: forall ranked shaped sh r.
+     ( OS.Shape sh, KnownNat (OS.Rank sh), ShapedTensor shaped, GoodScalar r
+     , ConvertTensor ranked shaped )
+  => DynamicOf shaped r -> shaped r sh
+stoRankedOrDummy x = if disDummy @ranked x
+                        then 0
+                        else sfromD x
 
 instance OS.Shape sh
          => RandomDomains (Flip OS.Array r sh) where
@@ -537,6 +746,24 @@ instance OS.Shape sh
     in (Flip arr, g2)
   type ToRanked (Flip OS.Array r sh) = Flip OR.Array r (OS.Rank sh)
   toRanked = Flip . Data.Array.Convert.convert . runFlip
+
+{- TODO: requires IncoherentInstances no matter what pragma I stick in
+-- TODO2: benchmark this used for any scalar via @V.map realToFrac@
+-- A special case, because for @Double@ we have faster @randomVals@,
+-- though the quality of randomness is worse (going through a single @Int@).
+instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
+         KnownNat n
+         => AdaptableDomains (OR.Array n Double) where
+  randomVals range g =
+    let -- Note that hmatrix produces numbers from the range open at the top,
+        -- unlike package random.
+        createRandomVector n seedInt =
+          LA.scale (2 * range)
+          $ LA.randomVector seedInt LA.Uniform n - LA.scalar 0.5
+        (i, g2) = random g
+        arr = OR.fromVector $ createRandomVector (OR.sizeP (Proxy @n)) i
+    in (arr, g2)
+-}
 
 
 -- * ConvertTensor instance for concrete arrays
