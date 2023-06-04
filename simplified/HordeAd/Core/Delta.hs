@@ -419,30 +419,19 @@ data DeltaDt ranked shaped r =
 -- by summing cotangent contributions.
 --
 -- Data invariant:
--- 1. keys dMap0 `intersect` keys dMapR == mempty
--- 2. keys nMap == keys dMap0 `union` keys dMapR
--- 3. key `member` dMap0 == nMap!key is DeltaBinding0
--- 4. key `member` dMapR == nMap!key is DeltaBindingR
+-- 1. keys nMap == keys dMap
+-- 2. key `member` dMap == nMap!key is DeltaBindingR
 
 -- TODO: remove 0, add S
 data EvalState ranked shaped r = EvalState
-  { iMapS       :: EM.EnumMap (InputId (DynamicOf shaped r))
-                              (DynamicOf shaped r)
-      -- ^ eventually, cotangents of objective function inputs of rank S
-      -- (finally copied to the vector representing the rank 0 portion
-      -- of the gradient of the objective function);
-      -- the identifiers need to be contiguous and start at 0
-  , iMapR       :: EM.EnumMap (InputId (DynamicOf ranked r))
+  { iMap        :: EM.EnumMap (InputId (DynamicOf ranked r))
                               (DynamicOf ranked r)
-      -- ^ eventually, cotangents of objective function inputs of rank R;
-      -- (eventually copied to the vector representing the rank R portion
-      -- of the gradient of the objective function);
+      -- ^ eventually, cotangents of objective function inputs
+      -- (eventually copied to the vector representing the gradient
+      -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMapS       :: EM.EnumMap NodeId (DynamicOf shaped r)
-      -- ^ eventually, cotangents of non-input subterms of rank 0 indexed
-      -- by their node identifiers
-  , dMapR       :: EM.EnumMap NodeId (DynamicOf ranked r)
-      -- ^ eventually, cotangents of non-input subterms of rank R indexed
+  , dMap        :: EM.EnumMap NodeId (DynamicOf ranked r)
+      -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
   , nMap        :: EM.EnumMap NodeId (DeltaBinding ranked shaped r)
       -- ^ nodes left to be evaluated
@@ -519,7 +508,7 @@ gradientFromDelta
       , ConvertTensor ranked shaped )
   => Int -> DeltaDt ranked shaped r
   -> ([(AstVarId, DynamicOf ranked r)], Domains (DynamicOf ranked) r)
-gradientFromDelta dimR deltaDt =
+gradientFromDelta dims deltaDt =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
   -- The former are initialized with dummy values so that it's cheap
@@ -529,18 +518,16 @@ gradientFromDelta dimR deltaDt =
   -- and especially using them as cotangent accumulators is wasteful;
   -- additionally, it may not be easy to deduce the sizes of the vectors).
   let s0 =
-        let iMapS = EM.empty
-            iMapR = EM.fromDistinctAscList
-                    $ zip [toInputId 0 ..] (replicate dimR (ddummy @ranked))
-            dMapS = EM.empty
-            dMapR = EM.empty
+        let iMap = EM.fromDistinctAscList
+                   $ zip [toInputId 0 ..] (replicate dims (ddummy @ranked))
+            dMap = EM.empty
             nMap = EM.empty
             astBindings = []
         in EvalState {..}
   in let -- Eval.
          EvalState{..} = buildFinMaps s0 deltaDt
          -- Extract results.
-         gradient = V.fromList $ EM.elems iMapR
+         gradient = V.fromList $ EM.elems iMap
      in (astBindings, gradient)
 {-# SPECIALIZE gradientFromDelta
   :: Int -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
@@ -571,7 +558,7 @@ buildFinMaps s0 deltaDt =
         -- TODO: WIP
         ZeroS -> s
         InputS (InputId i) ->
-          s {iMapS = EM.adjust (undefined {-daddR-} c) (InputId i) $ iMapS s}
+          s {iMap = EM.adjust (undefined {-daddR-} c) (InputId i) $ iMap s}
         ScaleS _k d -> evalS s (undefined {-k `tmult`-} c) d
         AddS d e -> evalS (evalS sShared cShared d) cShared e
         LetS n d ->
@@ -582,11 +569,11 @@ buildFinMaps s0 deltaDt =
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBindingR _) ->
-                s {dMapS = EM.adjust (undefined {-daddR-} c) n $ dMapS s}
+                s {dMap = EM.adjust (undefined {-daddR-} c) n $ dMap s}
               Nothing ->
                 let cs = dfromS c
                 in s { nMap = EM.insert n (DeltaBindingS d) $ nMap s
-                     , dMapS = EM.insert n cs $ dMapS s }
+                     , dMap = EM.insert n cs $ dMap s }
               _ -> error "buildFinMaps: corrupted nMap"
 
         IndexS d ix sh -> evalS s (undefined {-tscatter @ranked @r @0-} sh c (const ix)) d
@@ -650,13 +637,13 @@ buildFinMaps s0 deltaDt =
               f v = if isTensorDummy v
                     then treplicate0ND sh 0 `OD.update` [(ixs, c)]
                     else v `OD.update` [(ixs, v `tindex0D` ixs + c)]
-          in s {iMapR = EM.adjust f (InputId i) $ iMapR s}
+          in s {iMap = EM.adjust f (InputId i) $ iMap s}
         Index0 (LetR n d) ixs' sh ->
           let ixs = indexToList ixs'
           in case EM.lookup n $ nMap s of
             Just (DeltaBindingR _) ->
               let f v = v `OD.update` [(ixs, v `tindex0D` ixs + c)]
-              in s {dMapR = EM.adjust f n $ dMapR s}
+              in s {dMap = EM.adjust f n $ dMap s}
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,
                 -- which implies copying the whole @v@ vector,
@@ -665,7 +652,7 @@ buildFinMaps s0 deltaDt =
             Nothing ->
               let v = treplicate0ND sh 0 `OD.update` [(ixs, c)]
               in s { nMap = EM.insert n (DeltaBindingR d) $ nMap s
-                   , dMapR = EM.insert n v $ dMapR s }
+                   , dMap = EM.insert n v $ dMap s }
             _ -> error "buildFinMaps: corrupted nMap"
 -}
 
@@ -679,7 +666,7 @@ buildFinMaps s0 deltaDt =
                    in \case
         ZeroR -> s
         InputR (InputId i) ->
-          s {iMapR = EM.adjust (daddR c) (InputId i) $ iMapR s}
+          s {iMap = EM.adjust (daddR c) (InputId i) $ iMap s}
         ScaleR k d -> evalR s (k `tmult` c) d
         AddR d e -> evalR (evalR sShared cShared d) cShared e
         LetR n d ->
@@ -720,11 +707,11 @@ buildFinMaps s0 deltaDt =
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBindingR _) ->
-                s {dMapR = EM.adjust (daddR c) n $ dMapR s}
+                s {dMap = EM.adjust (daddR c) n $ dMap s}
               Nothing ->
                 let cs = dfromR c
                 in s { nMap = EM.insert n (DeltaBindingR d) $ nMap s
-                     , dMapR = EM.insert n cs $ dMapR s }
+                     , dMap = EM.insert n cs $ dMap s }
               _ -> error "buildFinMaps: corrupted nMap"
 
         IndexR d ix sh -> evalR s (tscatter @ranked @r @0 sh c (const ix)) d
@@ -776,13 +763,13 @@ buildFinMaps s0 deltaDt =
 
       evalFromnMap :: EvalState ranked shaped r
                    -> EvalState ranked shaped r
-      evalFromnMap s@EvalState{nMap, dMapR} =
+      evalFromnMap s@EvalState{nMap, dMap} =
         case EM.maxViewWithKey nMap of
           Just ((n, b), nMap2) ->
             let s2 = s {nMap = nMap2}
                 s3 = case b of
                   DeltaBindingS _d -> undefined
-                  DeltaBindingR d -> let c = tfromD $ dMapR EM.! n
+                  DeltaBindingR d -> let c = tfromD $ dMap EM.! n
                                      in evalR s2 c d
             in evalFromnMap s3
           Nothing -> s  -- loop ends
@@ -839,7 +826,7 @@ buildDerivative
   => Int -> DeltaDt ranked shaped r -> Domains (DynamicOf ranked) r
   -> ST s (DeltaDt ranked shaped r)
 buildDerivative dimR deltaDt params = do
-  dMapR <- newSTRef EM.empty
+  dMap <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
   let evalR :: forall n. KnownNat n
             => DeltaR ranked shaped r n -> ST s (ranked r n)
@@ -861,14 +848,14 @@ buildDerivative dimR deltaDt params = do
           nm <- readSTRef nMap
           case EM.lookup n nm of
             Just (DeltaBindingR _) -> do
-              dm <- readSTRef dMapR
+              dm <- readSTRef dMap
               return $! tfromD (dm EM.! n :: DynamicOf ranked r)
             Nothing -> do
               c <- evalR d
               nmNew <- readSTRef nMap
-              dm <- readSTRef dMapR
+              dm <- readSTRef dMap
               writeSTRef nMap $! EM.insert n (DeltaBindingR d) nmNew
-              writeSTRef dMapR $! EM.insert n (dfromR c) dm
+              writeSTRef dMap $! EM.insert n (dfromR c) dm
               return c
             _ -> error "buildDerivative: corrupted nMap"
 

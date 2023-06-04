@@ -268,12 +268,11 @@ revOnADInputs
 -- in client code, so the bloat is limited.
 {-# INLINE revOnADInputs #-}
 revOnADInputs dt f inputs =
-  let dim1 = V.length inputs
-      -- Evaluate completely after terms constructed, to free memory
+  let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D _ v deltaTopLevel) = f inputs
       deltaDt = packDeltaDtR (maybe (Left v) Right dt) deltaTopLevel in
-  let (_, gradient) = gradientFromDelta dim1 deltaDt
+  let (_, gradient) = gradientFromDelta (V.length inputs) deltaDt
   in (gradient, v)
 
 packDeltaDtR :: (KnownNat n, GoodScalar r)
