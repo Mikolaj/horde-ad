@@ -28,6 +28,7 @@ module HordeAd.Core.DualClass
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
@@ -123,6 +124,39 @@ instance (GoodScalar r, KnownNat n) => IsPrimal AstRanked r n where
   letWrapPrimal = tletWrap
   intOfShape tsh c = treplicate0N (tshape tsh) (fromIntegral c)
 
+instance (GoodScalar r, OS.Shape sh) => IsPrimal (Flip OS.Array) r sh where
+  dZero = ZeroS
+  dScale = ScaleS
+  dScaleByScalar _tsh c =  -- this is not even needed for OS, but OR needs it
+    ScaleS (Flip $ OS.constant (fromIntegral c))
+  dAdd = AddS
+  recordSharing d = case d of
+    ZeroS -> d
+    InputS{} -> d
+    DToS{} -> d
+    LetS{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaS d
+  recordSharingPrimal r l = (l, r)
+  letWrapPrimal _ r = r
+  intOfShape _tsh c =  -- this is not even needed for OS, but OR needs it
+    Flip $ OS.constant (fromIntegral c)
+
+instance {-(GoodScalar r, OS.Shape sh) =>-} IsPrimal AstShaped r sh where
+  dZero = ZeroS
+  dScale = ScaleS
+  dScaleByScalar _tsh _c =  -- this is not even needed for OS, but OR needs it
+    undefined  -- ScaleR (treplicate0N (tshape tsh) (fromIntegral c))
+  dAdd = AddS
+  recordSharing d = case d of
+    ZeroS -> d
+    InputS{} -> d
+    DToS{} -> d
+    LetS{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaS d
+  recordSharingPrimal = undefined  -- astRegisterADShare
+  letWrapPrimal = undefined  -- tletWrap
+  intOfShape = undefined  -- treplicate0N (tshape tsh) (fromIntegral c)
+
 
 -- * Counter handling
 
@@ -163,3 +197,9 @@ wrapDeltaR :: DeltaR ranked shaped n r -> DeltaR ranked shaped n r
 wrapDeltaR !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! LetR (NodeId n) d
+
+wrapDeltaS :: DeltaS ranked shaped n r -> DeltaS ranked shaped n r
+{-# NOINLINE wrapDeltaS #-}
+wrapDeltaS !d = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! LetS (NodeId n) d
