@@ -398,16 +398,16 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   sfromIndex1 :: GoodScalar r => IndexOf (shaped r '[]) n -> shaped r '[n]
   sfromIndex1 = sfromList . map sfromIndex0 . indexToList
   sscatter
-    :: (GoodScalar r, OS.Shape sh, OS.Shape sh2, OS.Shape sh3, k2 ~ OS.Rank sh2)
-    => shaped r (sh2 OS.++ sh)
-    -> (IndexOf (shaped r '[]) k2 -> IndexOf (shaped r '[]) (OS.Rank sh3))
-    -> shaped r (sh3 OS.++ sh)
+    :: forall r sh2 p sh. GoodScalar r
+    => shaped r (sh2 OS.++ OS.Drop p sh)
+    -> (IndexOf (shaped r '[]) (OS.Rank sh2) -> IndexOf (shaped r '[]) p)
+    -> shaped r sh
   sscatter1
-    :: forall r sh n2 sh3. (GoodScalar r, OS.Shape sh, OS.Shape sh3)
-    => shaped r (n2 ': sh)
-    -> (IntOf (shaped r '[]) -> IndexOf (shaped r '[]) (OS.Rank sh3))
-    -> shaped r (sh3 OS.++ sh)
---  sscatter1 sh v f = sscatter v (\(i :. ZI) -> f i)
+    :: forall r n2 p sh. GoodScalar r
+    => shaped r (n2 ': OS.Drop p sh)
+    -> (IntOf (shaped r '[]) -> IndexOf (shaped r '[]) p)
+    -> shaped r sh
+  sscatter1 v f = sscatter @shaped @r @'[n2] v (\(i :. ZI) -> f i)
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
@@ -535,17 +535,16 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
     gcastWith (unsafeCoerce Refl :: OS.Drop (OS.Rank sh) sh :~: '[])
     $ sbuild (\ix -> f (sindex0 u ix) (sindex0 v ix))
   sgather
-    :: (GoodScalar r, OS.Shape sh, OS.Shape sh2, OS.Shape sh3, k2 ~ OS.Rank sh2)
-    => shaped r (sh3 OS.++ sh)
-    -> (IndexOf (shaped r '[]) k2 -> IndexOf (shaped r '[]) (OS.Rank sh3))
-    -> shaped r (sh2 OS.++ sh)
+    :: forall r sh2 p sh. GoodScalar r
+    => shaped r sh
+    -> (IndexOf (shaped r '[]) (OS.Rank sh2) -> IndexOf (shaped r '[]) p)
+    -> shaped r (sh2 OS.++ OS.Drop p sh)
   sgather1
-    :: forall r sh n2 sh3.
-       (GoodScalar r, OS.Shape sh, OS.Shape sh3, KnownNat n2)
-    => shaped r (sh3 OS.++ sh)
-    -> (IntOf (shaped r '[]) -> IndexOf (shaped r '[]) (OS.Rank sh3))
-    -> shaped r (n2 ': sh)
---  sgather1 v f = sgather @shaped @r @sh @'[n2] @sh3 v (\(i :. ZI) -> f i)
+    :: forall r n2 p sh. GoodScalar r
+    => shaped r sh
+    -> (IntOf (shaped r '[]) -> IndexOf (shaped r '[]) p)
+    -> shaped r (n2 ': OS.Drop p sh)
+  sgather1 v f = sgather @shaped @r @'[n2] v (\(i :. ZI) -> f i)
 
   -- ** No serviceable parts beyond this point ** --
 
