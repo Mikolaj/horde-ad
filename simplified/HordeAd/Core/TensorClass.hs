@@ -32,15 +32,7 @@ import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits
-  ( KnownNat
-  , Nat
-  , OrderingI (..)
-  , SomeNat (..)
-  , cmpNat
-  , someNatVal
-  , type (+)
-  , type (-)
-  )
+  (KnownNat, Nat, SomeNat (..), someNatVal, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
@@ -383,11 +375,13 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
              => shaped r '[m, n] -> shaped r '[n] -> shaped r '[m]
   smatvecmul m v = sbuild1 (\i -> sdot0 v (m !$ (i :. ZI)))
-  smatmul2 :: forall r n m p. (GoodScalar r, KnownNat n, KnownNat m, KnownNat p)
+  smatmul2 :: (GoodScalar r, KnownNat n, KnownNat m, KnownNat p)
            => shaped r '[m, n] -> shaped r '[n, p] -> shaped r '[m, p]
-  smatmul2 m1 m2 =
-    ssum (stranspose @shaped @'[2,1,0] (sreplicate @shaped @r @p m1)
-          * stranspose @shaped @'[1,0] (sreplicate @shaped @r @m m2))
+  smatmul2 m1 m2 = case sshape m2 of
+    _ :$ width2 :$ ZS ->
+      ssum (stranspose @shaped @'[2,1,0] (sreplicate width2 m1)
+            * stranspose @shaped @'[1,0] (sreplicate (slength m1) m2))
+    _ -> error "impossible pattern needlessly required"
   sminimum :: forall r sh.
               ( GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
               , KnownNat (OS.Size sh) )
@@ -434,28 +428,26 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
                 => Data.Vector.Vector (shaped r '[])
                 -> shaped r sh
   sfromVector0N = sreshape @shaped @r @'[OS.Size sh] @sh . sfromVector
-  sreplicate :: (GoodScalar r, KnownNat n, OS.Shape sh)
-             => shaped r sh -> shaped r (n ': sh)
+  sreplicate :: (GoodScalar r, OS.Shape sh)
+             => Int -> shaped r sh -> shaped r (n ': sh)
   sreplicate0N :: forall r sh.
                   ( GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
                   , KnownNat (OS.Size sh) )
                => shaped r '[] -> shaped r sh
   sreplicate0N = sreshape @shaped @r @'[OS.Size sh] @sh
-                 . sreplicate @shaped @r @(OS.Size sh)
+                 . sreplicate (OS.sizeT @sh)
   sappend :: (GoodScalar r, OS.Shape sh)
           => shaped r (n ': sh) -> shaped r (n ': sh) -> shaped r (n ': sh)
   sconcat :: (GoodScalar r, OS.Shape sh)
           => [shaped r (n ': sh)] -> shaped r (n ': sh)
   sconcat = foldr1 sappend
-  sslice :: (GoodScalar r, KnownNat i, KnownNat k, KnownNat n, OS.Shape rest)
-         => shaped r (i + n + k ': rest) -> shaped r (n ': rest)
-  suncons :: forall r n sh.
-             (GoodScalar r, KnownNat n, OS.Shape sh, KnownNat (OS.Rank sh))
-          => shaped r (n ': sh) -> Maybe (shaped r sh, shaped r (n - 1 ': sh))
-  suncons v = case cmpNat (Proxy @1) (Proxy @n) of
-    EQI -> Just (v !$ (0 :. ZI), sslice @shaped @r @1 @0 v)
-    LTI -> Just (v !$ (0 :. ZI), sslice @shaped @r @1 @0 v)
-    _ -> Nothing
+  sslice :: (GoodScalar r, OS.Shape sh)
+         => Int -> Int -> shaped r (n ': sh) -> shaped r (n ': sh)
+  suncons :: (GoodScalar r, KnownNat n, OS.Shape sh, KnownNat (OS.Rank sh))
+          => shaped r (n ': sh) -> Maybe (shaped r sh, shaped r (n ': sh))
+  suncons v = case sshape v of
+                ZS -> Nothing
+                len :$ _ -> Just (v !$ (0 :. ZI), sslice 1 (len - 1) v)
   sreverse :: (GoodScalar r, OS.Shape sh)
            => shaped r (n ': sh) -> shaped r (n ': sh)
   str :: (GoodScalar r, OS.Shape sh, KnownNat n, KnownNat m)
