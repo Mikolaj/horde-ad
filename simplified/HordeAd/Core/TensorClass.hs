@@ -308,12 +308,12 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
 class DomainsTensor (ranked :: Type -> Nat -> Type)
                     (domainsOf :: Type -> Type)
                     | ranked -> domainsOf, domainsOf -> ranked where
-  tletDomains :: (GoodScalar r, KnownNat n)
+  rletDomainsOf :: (GoodScalar r, KnownNat n)
               => domainsOf r
               -> (domainsOf r -> ranked r n)
               -> ranked r n
   dmkDomains :: Domains (DynamicOf ranked) r -> domainsOf r
-  dlet :: (GoodScalar r, KnownNat n)
+  rletToDomainsOf :: (GoodScalar r, KnownNat n)
        => ranked r n -> (ranked r n -> domainsOf r)
        -> domainsOf r
 

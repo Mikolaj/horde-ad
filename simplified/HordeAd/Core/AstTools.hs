@@ -424,7 +424,7 @@ printAst cfg d = \case
     printPrefixOp printAst cfg d "tD" [u, u']
   AstLetDomains vars l v ->
     showParen (d > 10)
-    $ showString "tletDomains "
+    $ showString "rletDomainsOf "
       . printAstDomains cfg 11 l
       . showString " "
       . (showParen True
@@ -489,7 +489,7 @@ printAstDomains cfg d = \case
               . core
     else
       showParen (d > 10)
-      $ showString "dlet "
+      $ showString "rletToDomainsOf "
         . printAst cfg 11 u0
         . showString " "
         . (showParen True

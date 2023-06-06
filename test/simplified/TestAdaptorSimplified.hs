@@ -202,7 +202,7 @@ testFooPP = do
   resetVarCounter
   let (artifact6, _) = revDtFun fooT (4, 5, 6)
   printGradient6Simple renames artifact6
-    @?= "\\dret x y z -> dlet (sin y) (\\x5 -> dlet (x * x5) (\\x6 -> dlet (recip (z * z + x6 * x6)) (\\x7 -> dlet (sin y) (\\x8 -> dlet (x * x8) (\\x9 -> dlet (z * dret) (\\x10 -> dlet (negate (z * x7) * dret) (\\x11 -> dmkDomains (fromList [dfromR (x5 * x11 + x8 * x10), dfromR (cos y * (x * x11) + cos y * (x * x10)), dfromR ((x6 * x7) * dret + x9 * dret)]))))))))"
+    @?= "\\dret x y z -> rletToDomainsOf (sin y) (\\x5 -> rletToDomainsOf (x * x5) (\\x6 -> rletToDomainsOf (recip (z * z + x6 * x6)) (\\x7 -> rletToDomainsOf (sin y) (\\x8 -> rletToDomainsOf (x * x8) (\\x9 -> rletToDomainsOf (z * dret) (\\x10 -> rletToDomainsOf (negate (z * x7) * dret) (\\x11 -> dmkDomains (fromList [dfromR (x5 * x11 + x8 * x10), dfromR (cos y * (x * x11) + cos y * (x * x10)), dfromR ((x6 * x7) * dret + x9 * dret)]))))))))"
   printPrimal6Simple renames artifact6
     @?= "\\x y z -> tlet (sin y) (\\x5 -> tlet (x * x5) (\\x6 -> tlet (recip (z * z + x6 * x6)) (\\x7 -> tlet (sin y) (\\x8 -> tlet (x * x8) (\\x9 -> atan2 z x6 + z * x9)))))"
 
@@ -233,7 +233,7 @@ testFooLetPP = do
   resetVarCounter
   let (artifact6, _)= revDtFun fooLetT (4, 5, 6)
   printGradient6Simple renames artifact6
-    @?= "\\dret x y z -> dlet (sin y) (\\x6 -> dlet (x * x6) (\\x7 -> dlet (recip (z * z + x7 * x7)) (\\x8 -> dlet (negate (z * x8) * dret + z * dret) (\\x9 -> dmkDomains (fromList [dfromR (x6 * x9), dfromR (cos y * (x * x9)), dfromR ((x7 * x8) * dret + x7 * dret)])))))"
+    @?= "\\dret x y z -> rletToDomainsOf (sin y) (\\x6 -> rletToDomainsOf (x * x6) (\\x7 -> rletToDomainsOf (recip (z * z + x7 * x7)) (\\x8 -> rletToDomainsOf (negate (z * x8) * dret + z * dret) (\\x9 -> dmkDomains (fromList [dfromR (x6 * x9), dfromR (cos y * (x * x9)), dfromR ((x7 * x8) * dret + x7 * dret)])))))"
   printPrimal6Simple renames artifact6
     @?= "\\x y z -> tlet (sin y) (\\x6 -> tlet (x * x6) (\\x7 -> tlet (recip (z * z + x7 * x7)) (\\x8 -> atan2 z x7 + z * x7)))"
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
@@ -1045,7 +1045,7 @@ fblowupPP = do
       fblowupT = fblowup @AstRanked @Double 1
   let (artifact6, _) = revDtFun fblowupT (Flip $ OR.constant [4] 4)
   printGradient6Simple renames artifact6
-    @?= "\\dret v2 -> dlet (v2 ! [0]) (\\x3 -> dlet (v2 ! [1]) (\\x4 -> dlet (v2 ! [0]) (\\x5 -> dlet (v2 ! [1]) (\\x6 -> dlet (tconst 0.499999985) (\\x7 -> dlet ((x3 / x4 + x5 / x6) - tfromIndex0 0) (\\x8 -> dlet (x7 * dret) (\\x9 -> dmkDomains (fromList [dfromR (tscatter [4] (recip x4 * x9) (\\[] -> [0]) + tscatter [4] (negate (x3 / (x4 * x4)) * x9) (\\[] -> [1]) + tscatter [4] (recip x6 * x9) (\\[] -> [0]) + tscatter [4] (negate (x5 / (x6 * x6)) * x9) (\\[] -> [1]))]))))))))"
+    @?= "\\dret v2 -> rletToDomainsOf (v2 ! [0]) (\\x3 -> rletToDomainsOf (v2 ! [1]) (\\x4 -> rletToDomainsOf (v2 ! [0]) (\\x5 -> rletToDomainsOf (v2 ! [1]) (\\x6 -> rletToDomainsOf (tconst 0.499999985) (\\x7 -> rletToDomainsOf ((x3 / x4 + x5 / x6) - tfromIndex0 0) (\\x8 -> rletToDomainsOf (x7 * dret) (\\x9 -> dmkDomains (fromList [dfromR (tscatter [4] (recip x4 * x9) (\\[] -> [0]) + tscatter [4] (negate (x3 / (x4 * x4)) * x9) (\\[] -> [1]) + tscatter [4] (recip x6 * x9) (\\[] -> [0]) + tscatter [4] (negate (x5 / (x6 * x6)) * x9) (\\[] -> [1]))]))))))))"
   printPrimal6Simple renames artifact6
     @?= "\\v2 -> tlet (v2 ! [0]) (\\x3 -> tlet (v2 ! [1]) (\\x4 -> tlet (v2 ! [0]) (\\x5 -> tlet (v2 ! [1]) (\\x6 -> tlet (tconst 0.499999985) (\\x7 -> tlet ((x3 / x4 + x5 / x6) - tfromIndex0 0) (\\x8 -> x7 * x8 - tfromIndex0 0))))))"
 
@@ -1056,7 +1056,7 @@ fblowupLetPP = do
       fblowupLetT = fblowupLet @AstRanked @Double 0 1
   let (artifact6, _) = revDtFun fblowupLetT (Flip $ OR.constant [4] 4)
   printGradient6Simple renames artifact6
-    @?= "\\dret v2 -> dlet (v2 ! [0]) (\\x4 -> dlet (v2 ! [1]) (\\x5 -> dlet (x4 / x5) (\\x6 -> dlet (tconst 0.499999985) (\\x7 -> dlet ((x6 + x6) - tfromIndex0 0) (\\x8 -> dlet (x7 * dret) (\\x9 -> dlet (x9 + x9) (\\x10 -> dmkDomains (fromList [dfromR (tscatter [4] (recip x5 * x10) (\\[] -> [0]) + tscatter [4] (negate (x4 / (x5 * x5)) * x10) (\\[] -> [1]))]))))))))"
+    @?= "\\dret v2 -> rletToDomainsOf (v2 ! [0]) (\\x4 -> rletToDomainsOf (v2 ! [1]) (\\x5 -> rletToDomainsOf (x4 / x5) (\\x6 -> rletToDomainsOf (tconst 0.499999985) (\\x7 -> rletToDomainsOf ((x6 + x6) - tfromIndex0 0) (\\x8 -> rletToDomainsOf (x7 * dret) (\\x9 -> rletToDomainsOf (x9 + x9) (\\x10 -> dmkDomains (fromList [dfromR (tscatter [4] (recip x5 * x10) (\\[] -> [0]) + tscatter [4] (negate (x4 / (x5 * x5)) * x10) (\\[] -> [1]))]))))))))"
   printPrimal6Simple renames artifact6
     @?= "\\v2 -> tlet (v2 ! [0]) (\\x4 -> tlet (v2 ! [1]) (\\x5 -> tlet (x4 / x5) (\\x6 -> tlet (tconst 0.499999985) (\\x7 -> tlet ((x6 + x6) - tfromIndex0 0) (\\x8 -> x7 * x8 - tfromIndex0 0)))))"
 
