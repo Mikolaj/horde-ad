@@ -606,7 +606,7 @@ class ( DynamicOf ranked ~ DynamicOf shaped
          => DynamicOf shaped r -> shaped r sh
   ddummy :: Numeric r => DynamicOf ranked r
   disDummy :: Numeric r => DynamicOf ranked r -> Bool
-  daddR :: forall r n. (GoodScalar r, KnownNat n)
+  raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
         => ranked r n -> DynamicOf ranked r -> DynamicOf ranked r
   dshape :: GoodScalar r => DynamicOf ranked r -> [Int]
   -- Operations for delayed let bindings creation
@@ -827,5 +827,5 @@ instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   sfromD = Flip . Data.Array.Convert.convert
   ddummy = dummyTensor
   disDummy = isTensorDummy
-  daddR r d = if isTensorDummy d then dfromR r else dfromR r + d
+  raddDynamic r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL

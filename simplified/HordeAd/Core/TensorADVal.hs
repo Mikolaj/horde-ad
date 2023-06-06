@@ -250,7 +250,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     rToS (D l u u') = dDnotShared l (sfromR u) (RToS u')
   ddummy = undefined
   disDummy = undefined
-  daddR = undefined
+  raddDynamic = undefined
   dshape = undefined
 
 

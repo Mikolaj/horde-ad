@@ -558,7 +558,7 @@ buildFinMaps s0 deltaDt =
         -- TODO: WIP
         ZeroS -> s
         InputS (InputId i) ->
-          s {iMap = EM.adjust (undefined {-daddR-} c) (InputId i) $ iMap s}
+          s {iMap = EM.adjust (undefined {-raddDynamic-} c) (InputId i) $ iMap s}
         ScaleS _k d -> evalS s (undefined {-k `tmult`-} c) d
         AddS d e -> evalS (evalS sShared cShared d) cShared e
         LetS n d ->
@@ -569,7 +569,7 @@ buildFinMaps s0 deltaDt =
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBindingR _) ->
-                s {dMap = EM.adjust (undefined {-daddR-} c) n $ dMap s}
+                s {dMap = EM.adjust (undefined {-raddDynamic-} c) n $ dMap s}
               Nothing ->
                 let cs = dfromS c
                 in s { nMap = EM.insert n (DeltaBindingS d) $ nMap s
@@ -666,7 +666,7 @@ buildFinMaps s0 deltaDt =
                    in \case
         ZeroR -> s
         InputR (InputId i) ->
-          s {iMap = EM.adjust (daddR c) (InputId i) $ iMap s}
+          s {iMap = EM.adjust (raddDynamic c) (InputId i) $ iMap s}
         ScaleR k d -> evalR s (k `tmult` c) d
         AddR d e -> evalR (evalR sShared cShared d) cShared e
         LetR n d ->
@@ -707,7 +707,7 @@ buildFinMaps s0 deltaDt =
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBindingR _) ->
-                s {dMap = EM.adjust (daddR c) n $ dMap s}
+                s {dMap = EM.adjust (raddDynamic c) n $ dMap s}
               Nothing ->
                 let cs = dfromR c
                 in s { nMap = EM.insert n (DeltaBindingR d) $ nMap s

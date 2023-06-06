@@ -92,17 +92,17 @@ instance ConvertTensor AstRanked AstShaped where
   disDummy t = case t of
     AstDynamic AstIota -> True
     _ -> False
-  daddR :: forall n r. KnownNat n
+  raddDynamic :: forall n r. KnownNat n
         => AstRanked r n -> AstDynamic r -> AstDynamic r
-  daddR r (AstDynamic AstIota) = AstDynamic r
-  daddR r (AstDynamic @n2 (AstSumOfList l)) =
+  raddDynamic r (AstDynamic AstIota) = AstDynamic r
+  raddDynamic r (AstDynamic @n2 (AstSumOfList l)) =
     case sameNat (Proxy @n) (Proxy @n2) of
       Just Refl -> AstDynamic (AstSumOfList (r : l))
-      _ -> error "daddR: type mismatch"
-  daddR r (AstDynamic @n2 v) =
+      _ -> error "raddDynamic: type mismatch"
+  raddDynamic r (AstDynamic @n2 v) =
     case sameNat (Proxy @n) (Proxy @n2) of
       Just Refl -> AstDynamic (AstSumOfList [r, v])
-      _ -> error "daddR: type mismatch"
+      _ -> error "raddDynamic: type mismatch"
   dshape (AstDynamic v) = shapeToList $ shapeAst v
   tregister = astRegisterFun
 
