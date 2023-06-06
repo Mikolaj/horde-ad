@@ -106,6 +106,13 @@ instance ConvertTensor AstRanked AstShaped where
     _ -> False
   dshape (AstDynamic v) = shapeToList $ shapeAst v
 
+instance DomainsTensor AstRanked AstShaped AstDomains where
+  dmkDomains = AstDomains
+  rletDomainsOf = astLetDomainsFun
+  rletToDomainsOf = astDomainsLetFun
+  sletDomainsOf = undefined
+  sletToDomainsOf = undefined
+
 instance (GoodScalar r, KnownNat n)
          => AdaptableDomains AstDynamic (AstRanked r n) where
   type Underlying (AstRanked r n) = r
@@ -121,13 +128,6 @@ instance GoodScalar r
   type Value (AstShaped r sh) = Flip OS.Array r sh
   toDomains = undefined
   fromDomains = undefined
-
-instance DomainsTensor AstRanked AstShaped AstDomains where
-  dmkDomains = AstDomains
-  rletDomainsOf = astLetDomainsFun
-  rletToDomainsOf = astDomainsLetFun
-  sletDomainsOf = undefined
-  sletToDomainsOf = undefined
 
 astLetFun :: (KnownNat n, KnownNat m, ShowAst r)
           => AstRanked r n -> (AstRanked r n -> AstRanked r m) -> AstRanked r m

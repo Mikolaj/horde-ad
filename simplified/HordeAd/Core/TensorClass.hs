@@ -305,28 +305,6 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
-class DomainsTensor (ranked :: Type -> Nat -> Type)
-                    (shaped :: Type -> [Nat] -> Type)
-                    (domainsOf :: Type -> Type)
-                    | ranked -> shaped domainsOf
-                    , shaped -> ranked domainsOf
-                    , domainsOf -> ranked shaped where
-  dmkDomains :: Domains (DynamicOf ranked) r -> domainsOf r
-  rletDomainsOf :: (GoodScalar r, KnownNat n)
-              => domainsOf r
-              -> (domainsOf r -> ranked r n)
-              -> ranked r n
-  rletToDomainsOf :: (GoodScalar r, KnownNat n)
-       => ranked r n -> (ranked r n -> domainsOf r)
-       -> domainsOf r
-  sletDomainsOf :: (GoodScalar r, OS.Shape sh)
-              => domainsOf r
-              -> (domainsOf r -> shaped r sh)
-              -> shaped r sh
-  sletToDomainsOf :: (GoodScalar r, OS.Shape sh)
-       => shaped r sh -> (shaped r sh -> domainsOf r)
-       -> domainsOf r
-
 
 -- * Shaped tensor class definition
 
@@ -607,7 +585,7 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
          => PrimalOf shaped r sh -> DualOf shaped r sh -> DualOf shaped r sh
 
 
--- * ConvertTensor class definition
+-- * ConvertTensor and DomainsTensor class definitions
 
 class ( DynamicOf ranked ~ DynamicOf shaped
       , DynamicOf shaped ~ DynamicOf ranked )
@@ -629,6 +607,28 @@ class ( DynamicOf ranked ~ DynamicOf shaped
   ddummy :: Numeric r => DynamicOf ranked r
   disDummy :: Numeric r => DynamicOf ranked r -> Bool
   dshape :: GoodScalar r => DynamicOf ranked r -> [Int]
+
+class DomainsTensor (ranked :: Type -> Nat -> Type)
+                    (shaped :: Type -> [Nat] -> Type)
+                    (domainsOf :: Type -> Type)
+                    | ranked -> shaped domainsOf
+                    , shaped -> ranked domainsOf
+                    , domainsOf -> ranked shaped where
+  dmkDomains :: Domains (DynamicOf ranked) r -> domainsOf r
+  rletDomainsOf :: (GoodScalar r, KnownNat n)
+              => domainsOf r
+              -> (domainsOf r -> ranked r n)
+              -> ranked r n
+  rletToDomainsOf :: (GoodScalar r, KnownNat n)
+       => ranked r n -> (ranked r n -> domainsOf r)
+       -> domainsOf r
+  sletDomainsOf :: (GoodScalar r, OS.Shape sh)
+              => domainsOf r
+              -> (domainsOf r -> shaped r sh)
+              -> shaped r sh
+  sletToDomainsOf :: (GoodScalar r, OS.Shape sh)
+       => shaped r sh -> (shaped r sh -> domainsOf r)
+       -> domainsOf r
 
 
 -- * The giga-constraint
