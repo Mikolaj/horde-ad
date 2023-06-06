@@ -577,6 +577,12 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   sconstBare = sconst
   sletWrap :: ADShare r -> shaped r sh -> shaped r sh
   sletWrap _l u = u
+  saddDynamic :: forall r sh. (GoodScalar r, OS.Shape sh)
+              => shaped r sh -> DynamicOf shaped r -> DynamicOf shaped r
+  sregister :: (GoodScalar r, OS.Shape sh)
+            => shaped r sh -> [(AstVarId, DynamicOf shaped r)]
+            -> ([(AstVarId, DynamicOf shaped r)], shaped r sh)
+  sregister r l = (l, r)
 
   -- Primal/dual things.
   sconstant :: (GoodScalar r, OS.Shape sh)
