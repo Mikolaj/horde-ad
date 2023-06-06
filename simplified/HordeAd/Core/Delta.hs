@@ -149,29 +149,24 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
        -> DeltaS ranked shaped r sh
   LetS :: NodeId -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
 
-    -- ^ The sub-tensors at the given index of the outermost dimension.
-    -- The second integer is the length of the dimension.
-  IndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
-         => DeltaS ranked shaped r (ix + 1 + k ': rest)
-         -> IndexOf (shaped r '[]) m  -- TODO: IndexSh (shaped r '[]) sh
-         -> ShapeInt (m + n)
-         -> DeltaS ranked shaped r rest
-    -- ^ The sub-tensor at the given index. The given shape is of the
-    -- large tensor. The operation fails if index is out of bounds.
+  IndexS :: (KnownNat ix, KnownNat k, OS.Shape sh, KnownNat (OS.Rank sh))
+         => DeltaS ranked shaped r sh -> IndexOf (shaped r '[]) m
+         -> DeltaS ranked shaped r (OS.Drop m sh)
+    -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
   SumS :: (OS.Shape sh, KnownNat n)
-       => Int -> DeltaS ranked shaped r (n ': sh) -> DeltaS ranked shaped r sh
-    -- ^ Add element tensors along the outermost dimension.
-  Sum0S :: OS.Shape sh
-        => ShapeInt n -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r '[]
-  Dot0S :: (OS.Shape sh)
+       => DeltaS ranked shaped r (n ': sh) -> DeltaS ranked shaped r sh
+  Sum0S :: (OS.Shape sh, KnownNat (OS.Rank sh), KnownNat (OS.Size sh))
+        => DeltaS ranked shaped r sh -> DeltaS ranked shaped r '[]
+  Dot0S :: (OS.Shape sh, KnownNat (OS.Rank sh), KnownNat (OS.Size sh))
         => shaped r sh -> DeltaS ranked shaped r sh
         -> DeltaS ranked shaped r '[]
-  ScatterS :: (OS.Shape sh2, OS.Shape sh3, OS.Shape sh)
-           => ShapeInt (p + n) -> DeltaS ranked shaped r (sh2 OS.++ sh)
-           -> (IndexOf (shaped r '[]) m -> IndexOf (shaped r '[]) p)
-           -> ShapeInt (m + n)
-           -> DeltaS ranked shaped r (sh3 OS.++ sh)
+  ScatterS :: forall ranked shaped r sh2 p sh.
+              ( OS.Shape (sh2 OS.++ OS.Drop p sh)
+              , KnownNat (OS.Rank (sh2 OS.++ OS.Drop p sh)) )
+           => DeltaS ranked shaped r (sh2 OS.++ OS.Drop p sh)
+           -> (IndexOf (shaped r '[]) (OS.Rank sh2) -> IndexOf (shaped r '[]) p)
+           -> DeltaS ranked shaped r sh
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
@@ -182,15 +177,15 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromListS :: (OS.Shape sh, KnownNat n)
+  FromListS :: forall ranked shaped r n sh. (OS.Shape sh, KnownNat n)
             => [DeltaS ranked shaped r sh] -> DeltaS ranked shaped r (n ': sh)
     -- ^ Create a tensor from a list treated as the outermost dimension.
   FromVectorS :: (OS.Shape sh, KnownNat n)
               => Data.Vector.Vector (DeltaS ranked shaped r sh)
               -> DeltaS ranked shaped r (n ': sh)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
-  ReplicateS :: (OS.Shape sh, KnownNat n)
-         => Int -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r (n ': sh)
+  ReplicateS :: forall ranked shaped r n sh. (OS.Shape sh, KnownNat n)
+         => DeltaS ranked shaped r sh -> DeltaS ranked shaped r (n ': sh)
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
           => DeltaS ranked shaped r (m ': sh)
@@ -267,17 +262,13 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
        -> DeltaR ranked shaped r n
   LetR :: NodeId -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
 
-    -- ^ The sub-tensors at the given index of the outermost dimension.
-    -- The second integer is the length of the dimension.
   IndexR :: (KnownNat n, KnownNat m)
          => DeltaR ranked shaped r (m + n) -> IndexOf (ranked r 0) m
          -> ShapeInt (m + n) -> DeltaR ranked shaped r n
     -- ^ The sub-tensor at the given index. The given shape is of the
-    -- large tensor. The operation fails if index is out of bounds.
-    -- If index is out of bounds, the result is defined and is 0.
+    -- large tensor. If index is out of bounds, the result is defined and is 0.
   SumR :: KnownNat n
        => Int -> DeltaR ranked shaped r (1 + n) -> DeltaR ranked shaped r n
-    -- ^ Add element tensors along the outermost dimension.
   Sum0R :: KnownNat n
        => ShapeInt n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r 0
   Dot0R :: KnownNat n
@@ -552,14 +543,14 @@ buildFinMaps s0 deltaDt =
             -> shaped r sh -> DeltaS ranked shaped r sh
             -> EvalState ranked shaped r
       evalS s !c = let (abShared, cShared) =
-                         inline undefined {-tregister-} c (astBindings s)
+                         inline sregister c (astBindings s)
                        sShared = s {astBindings = abShared}
                    in \case
         -- TODO: WIP
         ZeroS -> s
         InputS (InputId i) ->
-          s {iMap = EM.adjust (undefined {-raddDynamic-} c) (InputId i) $ iMap s}
-        ScaleS _k d -> evalS s (undefined {-k `tmult`-} c) d
+          s {iMap = EM.adjust (saddDynamic c) (InputId i) $ iMap s}
+        ScaleS k d -> evalS s (k `smult` c) d
         AddS d e -> evalS (evalS sShared cShared d) cShared e
         LetS n d ->
           assert (case d of
@@ -569,27 +560,30 @@ buildFinMaps s0 deltaDt =
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBindingR _) ->
-                s {dMap = EM.adjust (undefined {-raddDynamic-} c) n $ dMap s}
+                s {dMap = EM.adjust (saddDynamic c) n $ dMap s}
               Nothing ->
                 let cs = dfromS c
                 in s { nMap = EM.insert n (DeltaBindingS d) $ nMap s
                      , dMap = EM.insert n cs $ dMap s }
               _ -> error "buildFinMaps: corrupted nMap"
 
-        IndexS d ix sh -> evalS s (undefined {-tscatter @ranked @r @0-} sh c (const ix)) d
-          -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
-        SumS n d -> evalS s (undefined {-treplicate-} n c) d
-        Sum0S _sh _d -> undefined  --evalS s (treplicate0N sh c) d
-        Dot0S _v _vd -> undefined  --evalS s (v `tmult `treplicate0N (tshape v) c) vd
-                     -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
-        ScatterS _sh _d _f _shd -> undefined  -- evalS s (tgather shd c f) d
-        FromListS ld ->
-          ifoldl' (\_s2 _i d2 -> undefined
-            {-evalS s2 (tindex cShared (fromIntegral i :. ZI))-} d2) sShared ld
+        IndexS d ix -> evalS s (sscatter @shaped @r @'[] c (const ix)) d
+          -- equivalent: evalS s (updateNR (sreplicate0NR sh 0) [(ix, c)]) d
+        SumS d -> evalS s (sreplicate c) d
+        Sum0S d -> evalS s (sreplicate0N c) d
+        Dot0S v vd -> evalS s (v `smult` sreplicate0N c) vd
+          -- too slow: evalS s (smap0N (* (sscalar c)) v) vd
+        ScatterS @_ @_ @_ @sh2 d f -> evalS s (sgather @shaped @r @sh2 c f) d
+        FromListS @_ @_ @_ @n @sh2 _ld -> undefined
+{-
+          ifoldl' (\s2 i d2 ->
+            evalS s2 (sindex @shaped @r @1 @(n ': sh2)
+                             c{-Shared-} (fromIntegral i :. ZI)) d2) s{-Shared-} ld
+-}
         FromVectorS ld ->
           V.ifoldl' (\_s2 _i d2 -> undefined
             {-evalS s2 (tindex cShared (fromIntegral i :. ZI))-} d2) sShared ld
-        ReplicateS _n _d -> undefined  -- evalS s (tsum c) d
+        ReplicateS @_ @_ @_ @n @sh2 _d -> undefined  -- evalS @sh2 s (ssum @shaped @r @n @sh2 c) d
         AppendS d k e -> case ZS {-tshape c-} of
           n :$ _ -> let s2 = evalS sShared (undefined {-tslice 0-} k cShared) d
                     in evalS s2 (undefined {-tslice-} k (n - k) cShared) e

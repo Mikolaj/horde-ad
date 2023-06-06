@@ -367,7 +367,8 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
           => shaped r sh2 -> IndexOf (shaped r '[]) (OS.Rank sh2)
           -> shaped r '[]
   sindex0 = sindex
-  ssum :: (GoodScalar r, OS.Shape sh) => shaped r (n ': sh) -> shaped r sh
+  ssum :: forall r n sh. (GoodScalar r, OS.Shape sh)
+       => shaped r (n ': sh) -> shaped r sh
   ssum0 :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
         => shaped r sh -> shaped r '[]
   ssum0 = ssum . sflatten
