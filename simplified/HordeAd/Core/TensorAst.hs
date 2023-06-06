@@ -122,10 +122,12 @@ instance GoodScalar r
   toDomains = undefined
   fromDomains = undefined
 
-instance DomainsTensor AstRanked AstDomains where
-  rletDomainsOf = astLetDomainsFun
+instance DomainsTensor AstRanked AstShaped AstDomains where
   dmkDomains = AstDomains
+  rletDomainsOf = astLetDomainsFun
   rletToDomainsOf = astDomainsLetFun
+  sletDomainsOf = undefined
+  sletToDomainsOf = undefined
 
 astLetFun :: (KnownNat n, KnownNat m, ShowAst r)
           => AstRanked r n -> (AstRanked r n -> AstRanked r m) -> AstRanked r m

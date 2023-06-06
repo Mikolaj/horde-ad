@@ -306,15 +306,25 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
 class DomainsTensor (ranked :: Type -> Nat -> Type)
+                    (shaped :: Type -> [Nat] -> Type)
                     (domainsOf :: Type -> Type)
-                    | ranked -> domainsOf, domainsOf -> ranked where
+                    | ranked -> shaped domainsOf
+                    , shaped -> ranked domainsOf
+                    , domainsOf -> ranked shaped where
+  dmkDomains :: Domains (DynamicOf ranked) r -> domainsOf r
   rletDomainsOf :: (GoodScalar r, KnownNat n)
               => domainsOf r
               -> (domainsOf r -> ranked r n)
               -> ranked r n
-  dmkDomains :: Domains (DynamicOf ranked) r -> domainsOf r
   rletToDomainsOf :: (GoodScalar r, KnownNat n)
        => ranked r n -> (ranked r n -> domainsOf r)
+       -> domainsOf r
+  sletDomainsOf :: (GoodScalar r, OS.Shape sh)
+              => domainsOf r
+              -> (domainsOf r -> shaped r sh)
+              -> shaped r sh
+  sletToDomainsOf :: (GoodScalar r, OS.Shape sh)
+       => shaped r sh -> (shaped r sh -> domainsOf r)
        -> domainsOf r
 
 
