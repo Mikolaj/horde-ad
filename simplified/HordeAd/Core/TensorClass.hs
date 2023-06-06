@@ -282,6 +282,12 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   tconstBare = tconst
   tletWrap :: ADShare r -> ranked r n -> ranked r n
   tletWrap _l u = u
+  raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
+              => ranked r n -> DynamicOf ranked r -> DynamicOf ranked r
+  tregister :: (GoodScalar r, KnownNat n)
+            => ranked r n -> [(AstVarId, DynamicOf ranked r)]
+            -> ([(AstVarId, DynamicOf ranked r)], ranked r n)
+  tregister r l = (l, r)
 
   -- Primal/dual things.
   tconstant :: (GoodScalar r, KnownNat n) => PrimalOf ranked r n -> ranked r n
@@ -606,14 +612,7 @@ class ( DynamicOf ranked ~ DynamicOf shaped
          => DynamicOf shaped r -> shaped r sh
   ddummy :: Numeric r => DynamicOf ranked r
   disDummy :: Numeric r => DynamicOf ranked r -> Bool
-  raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
-        => ranked r n -> DynamicOf ranked r -> DynamicOf ranked r
   dshape :: GoodScalar r => DynamicOf ranked r -> [Int]
-  -- Operations for delayed let bindings creation
-  tregister :: (GoodScalar r, KnownNat n)
-            => ranked r n -> [(AstVarId, DynamicOf ranked r)]
-            -> ([(AstVarId, DynamicOf ranked r)], ranked r n)
-  tregister r l = (l, r)
 
 
 -- * The giga-constraint
@@ -710,6 +709,7 @@ instance Tensor (Flip OR.Array) where
   tsumIn = Flip . tsumInR . runFlip
   tdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   tconst = Flip
+  raddDynamic r d = if isTensorDummy d then dfromR r else dfromR r + d
 
   tconstant = id
   tprimalPart = id
@@ -827,5 +827,4 @@ instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   sfromD = Flip . Data.Array.Convert.convert
   ddummy = dummyTensor
   disDummy = isTensorDummy
-  raddDynamic r d = if isTensorDummy d then dfromR r else dfromR r + d
   dshape = OD.shapeL

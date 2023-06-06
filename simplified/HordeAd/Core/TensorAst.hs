@@ -74,6 +74,18 @@ instance Tensor AstRanked where
     -- sharing that is not visible in this restricted context.
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
+  raddDynamic :: forall n r. KnownNat n
+        => AstRanked r n -> AstDynamic r -> AstDynamic r
+  raddDynamic r (AstDynamic AstIota) = AstDynamic r
+  raddDynamic r (AstDynamic @n2 (AstSumOfList l)) =
+    case sameNat (Proxy @n) (Proxy @n2) of
+      Just Refl -> AstDynamic (AstSumOfList (r : l))
+      _ -> error "raddDynamic: type mismatch"
+  raddDynamic r (AstDynamic @n2 v) =
+    case sameNat (Proxy @n) (Proxy @n2) of
+      Just Refl -> AstDynamic (AstSumOfList [r, v])
+      _ -> error "raddDynamic: type mismatch"
+  tregister = astRegisterFun
 
   tconstant = astConstant
   tprimalPart = AstPrimalPart
@@ -92,19 +104,7 @@ instance ConvertTensor AstRanked AstShaped where
   disDummy t = case t of
     AstDynamic AstIota -> True
     _ -> False
-  raddDynamic :: forall n r. KnownNat n
-        => AstRanked r n -> AstDynamic r -> AstDynamic r
-  raddDynamic r (AstDynamic AstIota) = AstDynamic r
-  raddDynamic r (AstDynamic @n2 (AstSumOfList l)) =
-    case sameNat (Proxy @n) (Proxy @n2) of
-      Just Refl -> AstDynamic (AstSumOfList (r : l))
-      _ -> error "raddDynamic: type mismatch"
-  raddDynamic r (AstDynamic @n2 v) =
-    case sameNat (Proxy @n) (Proxy @n2) of
-      Just Refl -> AstDynamic (AstSumOfList [r, v])
-      _ -> error "raddDynamic: type mismatch"
   dshape (AstDynamic v) = shapeToList $ shapeAst v
-  tregister = astRegisterFun
 
 instance (GoodScalar r, KnownNat n)
          => AdaptableDomains AstDynamic (AstRanked r n) where
@@ -207,6 +207,7 @@ instance Tensor AstPrimalPart where
 
   tsumOfList l = AstPrimalPart . AstSumOfList . map unAstPrimalPart $ l
   tconst = AstPrimalPart . AstConst
+  raddDynamic = undefined
 
   tconstant = id
   tprimalPart = id
@@ -256,6 +257,7 @@ instance Tensor AstNoVectorize where
   tsumOfList l = AstNoVectorize . AstSumOfList . map unAstNoVectorize $ l
   tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
   tconstBare = AstNoVectorize . AstConst
+  raddDynamic = undefined
 
   tconstant = AstNoVectorize . astConstant . AstPrimalPart . unAstNoVectorize
   tprimalPart = id
@@ -303,6 +305,7 @@ instance Tensor AstNoSimplify where
   tsumOfList l = AstNoSimplify . AstSumOfList . map unAstNoSimplify $ l
   tconst = AstNoSimplify . AstConstant . AstPrimalPart . AstConst
   tconstBare = AstNoSimplify . AstConst
+  raddDynamic = undefined
 
   tconstant = AstNoSimplify . astConstant . AstPrimalPart . unAstNoSimplify
     -- exceptionally we do simplify AstConstant to avoid long boring chains

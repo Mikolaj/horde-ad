@@ -208,6 +208,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     in dD l4 (u * v) (dScale v u')
   tmult d e = d * e
   tconst t = dDnotShared emptyADShare (tconstBare t) dZero
+  raddDynamic = undefined
 
   tconstant t = dDnotShared emptyADShare t dZero
   tprimalPart (D l u _) = tletWrap l u
@@ -250,7 +251,6 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     rToS (D l u u') = dDnotShared l (sfromR u) (RToS u')
   ddummy = undefined
   disDummy = undefined
-  raddDynamic = undefined
   dshape = undefined
 
 
