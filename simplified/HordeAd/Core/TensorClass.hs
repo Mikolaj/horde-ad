@@ -486,19 +486,18 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
           => (IntOf (shaped r '[]) -> shaped r sh)
           -> shaped r (n ': sh)
   smap :: forall r m sh. ( GoodScalar r, KnownNat m, OS.Shape sh
-                         , OS.Shape (OS.Take m sh), OS.Shape (OS.Drop m sh) )
+                         , OS.Shape (OS.Take m sh) )
        => (shaped r (OS.Drop m sh) -> shaped r (OS.Drop m sh))
        -> shaped r sh -> shaped r sh
   smap f v = gcastWith (unsafeCoerce Refl
                         :: sh :~: OS.Take m sh OS.++ OS.Drop m sh)
              $ sbuild (\ix -> f (v !$ ix))
-  smap1 :: forall r sh n. (GoodScalar r, OS.Shape sh, KnownNat n)
+  smap1 :: forall r sh n. (GoodScalar r, KnownNat n)
         => (shaped r sh -> shaped r sh)
         -> shaped r (n ': sh) -> shaped r (n ': sh)
   smap1 f u = sbuild1 (\i -> f (u !$ (i :$: ZSH)))
   smap0N :: forall r sh.
-            ( GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
-            , OS.Shape (OS.Take (OS.Rank sh) sh) )
+            (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => (shaped r '[] -> shaped r '[]) -> shaped r sh -> shaped r sh
   smap0N f v =
     gcastWith (unsafeCoerce Refl :: OS.Drop (OS.Rank sh) sh :~: '[])
@@ -514,14 +513,13 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   szipWith f u v = gcastWith (unsafeCoerce Refl
                               :: sh :~: OS.Take m sh OS.++ OS.Drop m sh)
                    $ sbuild (\ix -> f (u !$ ix) (v !$ ix))
-  szipWith1 :: forall r sh n. (GoodScalar r, OS.Shape sh, KnownNat n)
+  szipWith1 :: forall r sh n. (GoodScalar r, KnownNat n)
             => (shaped r sh -> shaped r sh -> shaped r sh)
             -> shaped r (n ': sh) -> shaped r (n ': sh) -> shaped r (n ': sh)
   szipWith1 f u v = sbuild1 (\i -> f (u !$ (i :$: ZSH))
                                      (v !$ (i :$: ZSH)))
   szipWith0N :: forall r sh.
-                ( GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
-                , OS.Shape (OS.Take (OS.Rank sh) sh) )
+                (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
              => (shaped r '[] -> shaped r '[] -> shaped r '[])
              -> shaped r sh -> shaped r sh -> shaped r sh
   szipWith0N f u v =
