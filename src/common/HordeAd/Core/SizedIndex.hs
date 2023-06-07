@@ -289,7 +289,7 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
           (tensLin', i) = tensLin `quotRem` fromIntegral n
       in (tensLin', i :. idxInTens)
 
--- | The zero index in this shape (not dependent on the actual integers)
+-- | The zero index in this shape (not dependent on the actual integers).
 zeroOf :: (Num j, KnownNat n) => Shape n i -> Index n j
 zeroOf ZS = ZI
 zeroOf (_ :$ sh) = 0 :. zeroOf sh

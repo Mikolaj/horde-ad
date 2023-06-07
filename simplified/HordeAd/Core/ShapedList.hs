@@ -10,6 +10,7 @@ module HordeAd.Core.ShapedList
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , sizedListCompare, listToSized, sizedListToList
   , Permutation
+  , fromLinearIdx
   ) where
 
 import Prelude
@@ -167,3 +168,31 @@ listToSized (i : is) = case OS.shapeT @sh of
 sizedListToList :: ShapedList sh i -> [i]
 sizedListToList ZSH = []
 sizedListToList (i :$: is) = i : sizedListToList is
+
+-- | Given a linear index into the buffer, get the corresponding
+-- multidimensional index. Here we require an index pointing at a scalar.
+--
+-- If any of the dimensions is 0, the linear index has to be 0
+-- (which we can't assert, because j may be a term and so == lies)
+-- and a fake index with correct length but lots of zeroes is produced,
+-- because it doesn't matter, because it's going to point at the start
+-- of the empty buffer anyway.
+fromLinearIdx :: forall sh i j. (Integral i, Integral j)
+              => ShapedList sh i -> j -> ShapedList sh j
+fromLinearIdx = \sh lin -> snd (go sh lin)
+  where
+    -- Returns (linear index into array of sub-tensors,
+    -- multi-index within sub-tensor).
+    go :: ShapedList sh1 i -> j -> (j, ShapedList sh1 j)
+    go ZSH n = (n, ZSH)
+    go (0 :$: sh) _ =
+      (0, 0 :$: zeroOf sh)
+    go (n :$: sh) lin =
+      let (tensLin, idxInTens) = go sh lin
+          (tensLin', i) = tensLin `quotRem` fromIntegral n
+      in (tensLin', i :$: idxInTens)
+
+-- | The zero index in this shape (not dependent on the actual integers).
+zeroOf :: Num j => ShapedList sh i -> ShapedList sh j
+zeroOf ZSH = ZSH
+zeroOf (_ :$: sh) = 0 :$: zeroOf sh
