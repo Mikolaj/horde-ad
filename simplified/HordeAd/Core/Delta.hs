@@ -66,11 +66,12 @@ import           Data.List.Index (ifoldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality ((:~:) (Refl))
+import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Text.Show.Functions ()
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -149,9 +150,11 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
        -> DeltaS ranked shaped r sh
   LetS :: NodeId -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
 
-  IndexS :: (KnownNat ix, KnownNat k, OS.Shape sh, KnownNat (OS.Rank sh))
-         => DeltaS ranked shaped r sh -> IndexOf (shaped r '[]) m
-         -> DeltaS ranked shaped r (OS.Drop m sh)
+  IndexS :: ( OS.Shape sh1, OS.Shape (sh1 OS.++ sh2)
+            , KnownNat (OS.Rank (sh1 OS.++ sh2)) )
+         => DeltaS ranked shaped r (sh1 OS.++ sh2)
+         -> IndexSh (shaped r '[]) sh1
+         -> DeltaS ranked shaped r sh2
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
   SumS :: (OS.Shape sh, KnownNat n)
@@ -165,7 +168,8 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
               ( OS.Shape (sh2 OS.++ OS.Drop p sh)
               , KnownNat (OS.Rank (sh2 OS.++ OS.Drop p sh)) )
            => DeltaS ranked shaped r (sh2 OS.++ OS.Drop p sh)
-           -> (IndexOf (shaped r '[]) (OS.Rank sh2) -> IndexOf (shaped r '[]) p)
+           -> (IndexSh (shaped r '[]) sh2
+               -> IndexSh (shaped r '[]) (OS.Take p sh))
            -> DeltaS ranked shaped r sh
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
@@ -219,13 +223,12 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
          -> DeltaS ranked shaped r (n ': sh)
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
-  GatherS :: (OS.Shape sh2, OS.Shape sh3, OS.Shape sh)
-          => ShapeInt (OS.Rank sh2 + OS.Rank sh)
-          -> DeltaS ranked shaped r (sh3 OS.++ sh)
-          -> (IndexOf (shaped r '[]) (OS.Rank sh2)
-              -> IndexOf (shaped r '[]) (OS.Rank sh3))
-          -> ShapeInt (OS.Rank sh3 + OS.Rank sh)
-          -> DeltaS ranked shaped r (sh2 OS.++ sh)
+  GatherS :: forall ranked shaped r sh2 p sh.
+             (OS.Shape sh, KnownNat (OS.Rank sh))
+          => DeltaS ranked shaped r sh
+          -> (IndexSh (shaped r '[]) sh2
+              -> IndexSh (shaped r '[]) (OS.Take p sh))
+          -> DeltaS ranked shaped r (sh2 OS.++ OS.Drop p sh)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const Z) [] (ScalarR d) k@ is equivalent
@@ -567,13 +570,18 @@ buildFinMaps s0 deltaDt =
                      , dMap = EM.insert n cs $ dMap s }
               _ -> error "buildFinMaps: corrupted nMap"
 
-        IndexS d ix -> evalS s (sscatter @shaped @r @'[] c (const ix)) d
+        IndexS @sh1 d ix ->
+          gcastWith (unsafeCoerce Refl
+                     :: OS.Drop (OS.Rank sh1) (sh1 OS.++ sh) :~: sh)
+          $ gcastWith (unsafeCoerce Refl
+                       :: OS.Take (OS.Rank sh1) (sh1 OS.++ sh) :~: sh1)
+          $ evalS s (sscatter @shaped @r @'[] @(OS.Rank sh1) c (const ix)) d
           -- equivalent: evalS s (updateNR (sreplicate0NR sh 0) [(ix, c)]) d
         SumS d -> evalS s (sreplicate c) d
         Sum0S d -> evalS s (sreplicate0N c) d
         Dot0S v vd -> evalS s (v `smult` sreplicate0N c) vd
           -- too slow: evalS s (smap0N (* (sscalar c)) v) vd
-        ScatterS @_ @_ @_ @sh2 d f -> evalS s (sgather @shaped @r @sh2 c f) d
+        ScatterS d f -> evalS s (sgather c f) d
         FromListS @_ @_ @_ @n @sh2 _ld -> undefined
 {-
           ifoldl' (\s2 i d2 ->
@@ -604,7 +612,7 @@ buildFinMaps s0 deltaDt =
         BuildS n f ->
           foldl' (\_s2 i -> undefined {-evalS s2 (tindex cShared (i :. ZI))-} (f i))
                  sShared (fromIntegral <$> [0 .. n - 1])
-        GatherS _sh _d _f _shd -> undefined  -- evalS s (tscatter shd c f) d
+        GatherS d f -> evalS s (sscatter c f) d
 
         DToS (SToD @_ @_ @sh2 d) ->
           case sameShape @sh @sh2 of

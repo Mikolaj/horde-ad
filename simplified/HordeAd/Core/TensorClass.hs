@@ -9,7 +9,7 @@
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
-  ( IntOf, IndexOf, ShapeInt
+  ( ShapeInt, IntOf, IndexOf, ShapeSh, IntSh, IndexSh
   , PrimalOf, DualOf, DynamicOf
   , ShapedTensor(..), Tensor(..), ConvertTensor(..), DomainsTensor(..), ADReady
   , GoodScalar, DummyDual(..), ttoRankedOrDummy
@@ -401,19 +401,20 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   smaximum t = gcastWith (unsafeCoerce Refl :: (sh OS.++ '[])  :~: sh)
                $ t !$ smaxIndex t
   sfromIndex0 :: GoodScalar r => IntOf (shaped r '[]) -> shaped r '[]
-  sfromIndex1 :: GoodScalar r => IndexOf (shaped r '[]) n -> shaped r '[n]
-  sfromIndex1 = sfromList . map sfromIndex0 . indexToList
+  sfromIndex1 :: (GoodScalar r, OS.Shape sh)
+              => IndexSh (shaped r '[]) sh -> shaped r '[OS.Rank sh]
+  sfromIndex1 = sfromList . map sfromIndex0 . ShapedList.sizedListToList
   sscatter
     :: forall r sh2 p sh. GoodScalar r
     => shaped r (sh2 OS.++ OS.Drop p sh)
-    -> (IndexOf (shaped r '[]) (OS.Rank sh2) -> IndexOf (shaped r '[]) p)
+    -> (IndexSh (shaped r '[]) sh2 -> IndexSh (shaped r '[]) (OS.Take p sh))
     -> shaped r sh
   sscatter1
     :: forall r n2 p sh. GoodScalar r
     => shaped r (n2 ': OS.Drop p sh)
-    -> (IntOf (shaped r '[]) -> IndexOf (shaped r '[]) p)
+    -> (IntOf (shaped r '[]) -> IndexSh (shaped r '[]) (OS.Take p sh))
     -> shaped r sh
-  sscatter1 v f = sscatter @shaped @r @'[n2] v (\(i :. ZI) -> f i)
+  sscatter1 v f = sscatter @shaped @r @'[n2] v (\(i :$: ZSH) -> f i)
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
@@ -529,14 +530,14 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   sgather
     :: forall r sh2 p sh. GoodScalar r
     => shaped r sh
-    -> (IndexOf (shaped r '[]) (OS.Rank sh2) -> IndexOf (shaped r '[]) p)
+    -> (IndexSh (shaped r '[]) sh2 -> IndexSh (shaped r '[]) (OS.Take p sh))
     -> shaped r (sh2 OS.++ OS.Drop p sh)
   sgather1
     :: forall r n2 p sh. GoodScalar r
     => shaped r sh
-    -> (IntOf (shaped r '[]) -> IndexOf (shaped r '[]) p)
+    -> (IntOf (shaped r '[]) -> IndexSh (shaped r '[]) (OS.Take p sh))
     -> shaped r (n2 ': OS.Drop p sh)
-  sgather1 v f = sgather @shaped @r @'[n2] v (\(i :. ZI) -> f i)
+  sgather1 v f = sgather @shaped @r @'[n2] v (\(i :$: ZSH) -> f i)
 
   -- ** No serviceable parts beyond this point ** --
 
