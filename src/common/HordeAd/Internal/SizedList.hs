@@ -177,7 +177,7 @@ sizedListCompare _ _ _ =
 listToSized :: forall n i. KnownNat n => [i] -> SizedList n i
 listToSized []
   | Just Refl <- sameNat (Proxy @n) (Proxy @0) = Z
-  | otherwise = error $ "listToSized: list too short; missing "
+  | otherwise = error $ "listToSized: input list too short; missing "
                         ++ show (valueOf @n :: Int)
 listToSized (i : is)
   -- What we really need here to make the types check out is a <= check.
@@ -188,7 +188,8 @@ listToSized (i : is)
       let sh = listToSized @(n - 1) is
       in i ::: sh
   | otherwise =
-      error $ "listToSized: list too long; spurious " ++ show (length (i : is))
+      error $ "listToSized: input list too long; spurious "
+                            ++ show (length (i : is))
 
 sizedListToList :: SizedList n i -> [i]
 sizedListToList Z = []
