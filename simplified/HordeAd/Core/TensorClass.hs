@@ -465,43 +465,24 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   sreshape :: (GoodScalar r, OS.Shape sh, OS.Shape sh2)
            => shaped r sh -> shaped r sh2
   sbuild :: forall r m sh.
-            ( GoodScalar r, KnownNat m, OS.Shape sh
-            , OS.Shape (OS.Take m sh), OS.Shape (OS.Drop m sh) )
+            (GoodScalar r, KnownNat m, OS.Shape sh, OS.Shape (OS.Take m sh))
          => (IndexSh (shaped r '[]) (OS.Take m sh) -> shaped r (OS.Drop m sh))
          -> shaped r sh
-{-
   sbuild =
-    -- TODO : this is quite terrible. How to present this better?
-    -- Rewrite orthotope in singletons?
-    let shM = OS.shapeT @(OS.Drop m sh)
+    let shm :: ShapeSh (OS.Take m sh)
+        shm = ShapedList.listToSized $ OS.shapeT @(OS.Take m sh)
         buildSh
-          :: forall (sh1 :: [Nat]). OS.Shape sh1
-          => (IndexOf (shaped r '[]) (OS.Rank sh1) -> shaped r (OS.Drop m sh))
+          :: forall sh1.
+             ShapeSh sh1
+          -> (IndexSh (shaped r '[]) sh1 -> shaped r (OS.Drop m sh))
           -> shaped r (sh1 OS.++ OS.Drop m sh)
-        buildSh f = case OS.shapeT @sh1 of
-          [] -> gcastWith (unsafeCoerce Refl :: sh1 :~: '[])
-                $ f ZSH
-          n : sh2 -> OS.withShapeP sh2 $ \(_proxy :: Proxy sh2) ->
-                     OS.withShapeP (sh2 ++ shM) $ \(_proxyP :: Proxy shP) ->
-            case someNatVal $ toInteger n of
-              Just (SomeNat (_proxy :: Proxy n)) ->
-                case someNatVal $ toInteger $ length sh2 of
-                  Just (SomeNat (_proxy :: Proxy m2)) ->
-                    gcastWith (unsafeCoerce Refl :: sh1 :~: n ': sh2)
-                    $ gcastWith (unsafeCoerce Refl
-                                 :: OS.Rank sh2 :~: m2)
-                    $ gcastWith (unsafeCoerce Refl
-                                 :: sh2 OS.++ OS.Drop m sh :~: shP)
-                    $ sbuild1 @shaped @r @n @shP
-                              (\i -> buildSh @sh2 (\ix -> f (i :$: ix)))
-                  Nothing -> error "sbuild: impossible someNatVal error"
-              Nothing -> error "sbuild: impossible someNatVal error"
-    in gcastWith (unsafeCoerce Refl :: m :~: OS.Rank (OS.Take m sh))
-       $ gcastWith (unsafeCoerce Refl
-                    :: sh :~: OS.Take m sh OS.++ OS.Drop m sh)
-       $ buildSh @(OS.Take m sh)
--}
-  sbuild1 :: forall r n sh. (GoodScalar r, OS.Shape sh)
+        buildSh sh1 f = case sh1 of
+          ZSH -> f ZSH
+          _n :$: sh2 -> sbuild1 (\i -> buildSh sh2 (\ix -> f (i :$: ix)))
+    in gcastWith (unsafeCoerce Refl
+                  :: sh :~: OS.Take m sh OS.++ OS.Drop m sh)
+       $ buildSh shm
+  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n)
           => (IntOf (shaped r '[]) -> shaped r sh)
           -> shaped r (n ': sh)
   smap :: forall r m sh. ( GoodScalar r, KnownNat m, OS.Shape sh
