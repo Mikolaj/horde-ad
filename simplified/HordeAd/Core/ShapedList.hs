@@ -3,7 +3,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | @[Nat]@-indexed lists.
 module HordeAd.Core.ShapedList
-  ( ShapedList(..)
+  ( ShapedNat, shapedNat, unShapedNat
+  , ShapedList(..), consShaped, unconsContShaped
   , snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , backpermutePrefixSized, permutePrefixSized, backpermutePrefixList
@@ -26,6 +27,17 @@ import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Internal.SizedList (Permutation)
+
+-- TODO: ensure this is checked (runtime-checked, if necessary):
+-- | The value of this type has to be positive and less than the @n@ bound.
+-- If the values are terms, this is relative to environment
+-- and up to evaluation.
+newtype ShapedNat (n :: Nat) a = ShapedNat {unShapedNat :: a}
+
+-- TODO: actually check or wrap a check for later, based on a mechanism
+-- provided by @a@ somehow
+shapedNat :: forall n a. a -> ShapedNat n a
+shapedNat = ShapedNat
 
 -- | Strict lists indexed by shapes, that is, lists of the GHC @Nat@.
 infixr 3 :$:
@@ -52,6 +64,14 @@ instance OS.Shape sh => IsList (ShapedList sh i) where
   type Item (ShapedList sh i) = i
   fromList = listToSized
   toList = sizedListToList
+
+-- TODO: should we actually replace :$: with that in the external API?
+consShaped :: (KnownNat n, OS.Shape sh)
+           => ShapedNat n i -> ShapedList sh i -> ShapedList (n ': sh) i
+consShaped (ShapedNat i) l = i :$: l
+
+unconsContShaped :: (ShapedNat n i -> k) -> ShapedList (n ': sh) i -> k
+unconsContShaped f (i :$: _) = f (ShapedNat i)
 
 snocSized :: KnownNat n => ShapedList sh i -> i -> ShapedList (n ': sh) i
 snocSized ZSH last1 = last1 :$: ZSH
@@ -178,8 +198,8 @@ sizedListToList (i :$: is) = i : sizedListToList is
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
 fromLinearIdx :: forall sh i j. (Integral i, Integral j)
-              => ShapedList sh i -> j -> ShapedList sh j
-fromLinearIdx = \sh lin -> snd (go sh lin)
+              => ShapedList sh i -> ShapedNat (OS.Size sh) j -> ShapedList sh j
+fromLinearIdx = \sh (ShapedNat lin) -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
