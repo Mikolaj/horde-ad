@@ -584,6 +584,7 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   sScale :: (GoodScalar r, OS.Shape sh)
          => PrimalOf shaped r sh -> DualOf shaped r sh -> DualOf shaped r sh
 
+
 -- * ConvertTensor and DomainsTensor class definitions
 
 class ( DynamicOf ranked ~ DynamicOf shaped

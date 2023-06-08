@@ -43,8 +43,7 @@ module HordeAd.Core.Delta
     NodeId (..), InputId, toInputId, Dual
   , -- * Evaluation of the delta expressions
     DeltaDt (..)
-  , gradientFromDelta
-  , ForwardDerivative (..)
+  , gradientFromDelta, derivativeFromDeltaR, derivativeFromDeltaS
   ) where
 
 import Prelude
@@ -799,9 +798,6 @@ buildFinMaps s0 deltaDt =
 -- is really an irritating side effect, while in @buildFinMaps@ it's building
 -- the result. Perhaps this can be simplified completely differently.
 
--- This code is full of hacks (e.g., ST). Rewrites welcome.
--- Though perhaps let's wait for DeltaS.
-
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,
 -- until the allocation of deltas gets large enough to affect cache hits).
@@ -810,39 +806,33 @@ buildFinMaps s0 deltaDt =
 -- represented by the parameters of the objective function and used
 -- to compute it's dual number result) and along the direction vector(s)
 -- given in the last parameter called @ds@.
-class ForwardDerivative (ranked :: Type -> Nat -> Type)
-                        (shaped :: Type -> [Nat] -> Type)
-                        r where
-  derivativeFromDeltaR
-    :: KnownNat n
-    => Int -> Dual ranked r n -> Domains (DynamicOf ranked) r -> ranked r n
-  derivativeFromDeltaS
-    :: (OS.Shape sh, KnownNat (OS.Rank sh))
-    => Int -> Dual shaped r sh -> Domains (DynamicOf shaped) r -> shaped r sh
+derivativeFromDeltaR
+  :: forall ranked shaped r n.
+       ( KnownNat n
+       , GoodScalar r, Tensor ranked, ShapedTensor shaped
+       , ConvertTensor ranked shaped
+       , Dual ranked ~ DeltaR ranked shaped )
+  => Int -> Dual ranked r n -> Domains (DynamicOf ranked) r -> ranked r n
+derivativeFromDeltaR dim deltaTopLevel ds =
+  case runST $ buildDerivative dim (DeltaDtR 0 deltaTopLevel) ds of
+    DeltaDtR @_ @_ @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
+      Just Refl -> res
+      _ -> error "derivativeFromDelta"
+    DeltaDtS{} -> error "derivativeFromDelta"
 
-instance ( GoodScalar r, Tensor ranked, ShapedTensor shaped
-         , ConvertTensor ranked shaped
-         , Dual ranked ~ DeltaR ranked shaped
-         , Dual shaped ~ DeltaS ranked shaped )
-         => ForwardDerivative ranked shaped r where
-  derivativeFromDeltaR
-    :: forall n. KnownNat n
-    => Int -> Dual ranked r n -> Domains (DynamicOf ranked) r -> ranked r n
-  derivativeFromDeltaR dim deltaTopLevel ds =
-    case runST $ buildDerivative dim (DeltaDtR 0 deltaTopLevel) ds of
-      DeltaDtR @_ @_ @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
-        Just Refl -> res
-        _ -> error "derivativeFromDelta"
-      DeltaDtS{} -> error "derivativeFromDelta"
-  derivativeFromDeltaS
-    :: forall sh. (OS.Shape sh, KnownNat (OS.Rank sh))
-    => Int -> Dual shaped r sh -> Domains (DynamicOf shaped) r -> shaped r sh
-  derivativeFromDeltaS dim deltaTopLevel ds =
-    case runST $ buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
-      DeltaDtS @_ @_ @_ @sh2 res _ -> case sameShape @sh @sh2 of
-        Just Refl -> res
-        _ -> error "derivativeFromDelta"
-      DeltaDtR{} -> error "derivativeFromDelta"
+derivativeFromDeltaS
+  :: forall ranked shaped r sh.
+       ( OS.Shape sh, KnownNat (OS.Rank sh)
+       , GoodScalar r, Tensor ranked, ShapedTensor shaped
+       , ConvertTensor ranked shaped
+       , Dual shaped ~ DeltaS ranked shaped )
+  => Int -> Dual shaped r sh -> Domains (DynamicOf shaped) r -> shaped r sh
+derivativeFromDeltaS dim deltaTopLevel ds =
+  case runST $ buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
+    DeltaDtS @_ @_ @_ @sh2 res _ -> case sameShape @sh @sh2 of
+      Just Refl -> res
+      _ -> error "derivativeFromDelta"
+    DeltaDtR{} -> error "derivativeFromDelta"
 
 -- | This mimics 'buildFinMaps', but in reverse. Perhaps this can be
 -- simplified, but the obvious simplest formulation does not honour sharing

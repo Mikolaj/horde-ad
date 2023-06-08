@@ -36,7 +36,7 @@ import HordeAd.Core.Delta
   , DeltaDt (..)
   , DeltaR (InputR)
   , Dual
-  , ForwardDerivative (..)
+  , derivativeFromDeltaR
   , gradientFromDelta
   , toInputId
   )
