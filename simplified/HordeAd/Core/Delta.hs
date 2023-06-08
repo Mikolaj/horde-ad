@@ -73,12 +73,14 @@ import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
 
-import HordeAd.Core.Adaptor
-import HordeAd.Core.Ast
-import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorAst ()
-import HordeAd.Core.TensorClass
-import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import           HordeAd.Core.Adaptor
+import           HordeAd.Core.Ast
+import           HordeAd.Core.ShapedList (ShapedList (..))
+import qualified HordeAd.Core.ShapedList as ShapedList
+import           HordeAd.Core.SizedIndex
+import           HordeAd.Core.TensorAst ()
+import           HordeAd.Core.TensorClass
+import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -181,28 +183,29 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromListS :: forall ranked shaped r n sh. (OS.Shape sh, KnownNat n)
+  FromListS :: (OS.Shape sh, KnownNat n, KnownNat (OS.Rank sh))
             => [DeltaS ranked shaped r sh] -> DeltaS ranked shaped r (n ': sh)
     -- ^ Create a tensor from a list treated as the outermost dimension.
-  FromVectorS :: (OS.Shape sh, KnownNat n)
+  FromVectorS :: (OS.Shape sh, KnownNat n, KnownNat (OS.Rank sh))
               => Data.Vector.Vector (DeltaS ranked shaped r sh)
               -> DeltaS ranked shaped r (n ': sh)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
-  ReplicateS :: forall ranked shaped r n sh. (OS.Shape sh, KnownNat n)
-         => DeltaS ranked shaped r sh -> DeltaS ranked shaped r (n ': sh)
+  ReplicateS :: forall ranked shaped r n sh.
+                (OS.Shape sh, KnownNat n, KnownNat (OS.Rank sh))
+             => DeltaS ranked shaped r sh -> DeltaS ranked shaped r (n ': sh)
     -- ^ Copy the given tensor along the new, outermost dimension.
-  AppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
+  AppendS :: forall ranked shaped r m n sh.
+             (KnownNat m, KnownNat n, OS.Shape sh)
           => DeltaS ranked shaped r (m ': sh)
-          -> Int
           -> DeltaS ranked shaped r (n ': sh)
           -> DeltaS ranked shaped r ((m + n) ': sh)
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
     -- The integer argument is the outermost size of the first array.
-  SliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
-         => Int -> Int -> DeltaS ranked shaped r (i + n + k ': rest)
-         -> Int
-         -> DeltaS ranked shaped r (n ': rest)
+  SliceS :: forall ranked shaped r i k n sh.
+            (KnownNat i, KnownNat k, KnownNat n, OS.Shape sh)
+         => DeltaS ranked shaped r (i + n + k ': sh)
+         -> DeltaS ranked shaped r (n ': sh)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
@@ -210,16 +213,20 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
            => DeltaS ranked shaped r (n ': sh)
            -> DeltaS ranked shaped r (n ': sh)
     -- ^ Reverse elements of the outermost dimension.
-  TransposeS :: OS.Shape sh
-             => Permutation -> DeltaS ranked shaped r sh
-             -> DeltaS ranked shaped r sh
+  TransposeS :: forall ranked shaped perm r sh.
+                ( {-TODO: OS.Permutation perm,-} OS.Shape perm, OS.Shape sh
+                , KnownNat (OS.Rank sh) )
+             => DeltaS ranked shaped r sh
+             -> DeltaS ranked shaped r (OS.Permute perm sh)
     -- ^ Transpose according to the permutation.
-  ReshapeS :: (OS.Shape sh, OS.Shape sh2, OS.Size sh ~ OS.Size sh2)
-           => ShapeInt n -> ShapeInt m -> DeltaS ranked shaped r sh
+  ReshapeS :: ( OS.Shape sh, OS.Shape sh2, OS.Size sh ~ OS.Size sh2
+              , KnownNat (OS.Rank sh) )
+           => DeltaS ranked shaped r sh
            -> DeltaS ranked shaped r sh2
     -- ^ Change the shape of the tensor from the first to the second.
-  BuildS :: (OS.Shape sh, KnownNat n)
-         => Int -> (IntOf (shaped r '[]) -> DeltaS ranked shaped r sh)
+  BuildS :: forall ranked shaped r n sh.
+            (OS.Shape sh, KnownNat n, KnownNat (OS.Rank sh))
+         => (IntSh (shaped r '[]) n -> DeltaS ranked shaped r sh)
          -> DeltaS ranked shaped r (n ': sh)
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
@@ -437,7 +444,7 @@ data EvalState ranked shaped r = EvalState
 -- may still not be processed, so we'd not take advantage of the sharing
 -- and not take into account the whole summed context when finally evaluating.
 data DeltaBinding ranked shaped r =
-    forall sh. OS.Shape sh
+    forall sh. (OS.Shape sh, KnownNat (OS.Rank sh))
     => DeltaBindingS (DeltaS ranked shaped r sh)
   | forall n. KnownNat n
     => DeltaBindingR (DeltaR ranked shaped r n)
@@ -582,36 +589,34 @@ buildFinMaps s0 deltaDt =
         Dot0S v vd -> evalS s (v `smult` sreplicate0N c) vd
           -- too slow: evalS s (smap0N (* (sscalar c)) v) vd
         ScatterS d f -> evalS s (sgather c f) d
-        FromListS @_ @_ @_ @n @sh2 _ld -> undefined
-{-
+        FromListS ld ->
           ifoldl' (\s2 i d2 ->
-            evalS s2 (sindex @shaped @r @1 @(n ': sh2)
-                             c{-Shared-} (fromIntegral i :. ZI)) d2) s{-Shared-} ld
--}
+            evalS s2 (cShared !$ (fromIntegral i :$: ZSH)) d2) sShared ld
         FromVectorS ld ->
-          V.ifoldl' (\_s2 _i d2 -> undefined
-            {-evalS s2 (tindex cShared (fromIntegral i :. ZI))-} d2) sShared ld
-        ReplicateS @_ @_ @_ @n @sh2 _d -> undefined  -- evalS @sh2 s (ssum @shaped @r @n @sh2 c) d
-        AppendS d k e -> case ZS {-tshape c-} of
-          n :$ _ -> let s2 = evalS sShared (undefined {-tslice 0-} k cShared) d
-                    in evalS s2 (undefined {-tslice-} k (n - k) cShared) e
-          ZS -> error "evalR: appending a 0-dimensional tensor"
-        SliceS i n d len -> case ZS {-tshape c-} of
-          n' :$ rest ->
-            assert (n' == n `blame` (n', n)) $
-            evalS s (undefined {-tconcat-} [ undefined {-tzero-} (i :$ rest)
-                             , c
-                             , undefined {-tzero-} (len - i - n :$ rest) ])
-                    d
-          ZS -> error "evalR: slicing a 0-dimensional tensor"
-        ReverseS d -> evalS s (undefined {-treverse-} c) d
-        TransposeS perm d ->
-          let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
-          in evalS s (undefined {-ttranspose-} perm_reversed c) d
-        ReshapeS _sh _sh' _d -> undefined  -- evalS s (treshape sh c) d
-        BuildS n f ->
-          foldl' (\_s2 i -> undefined {-evalS s2 (tindex cShared (i :. ZI))-} (f i))
-                 sShared (fromIntegral <$> [0 .. n - 1])
+          V.ifoldl' (\s2 i d2 ->
+            evalS s2 (cShared !$ (fromIntegral i :$: ZSH)) d2) sShared ld
+        ReplicateS d -> evalS s (ssum c) d
+        AppendS @_ @_ @_ @m @n d e ->
+          let s2 = evalS sShared (sslice @shaped @r @0 @n cShared) d
+          in evalS s2 (sslice @shaped @r @m cShared) e
+        SliceS @_ @_ @_ @i d ->
+          evalS s (sappend @shaped @r @i 0 (sappend c 0)) d
+        ReverseS d -> evalS s (sreverse c) d
+        TransposeS @_ @_ @perm @_ @sh2 d ->
+          -- Reversing the permutation on the type level would be too hard.
+          -- TODO: instead add a tensor operation that permutes
+          -- in the other direction.
+          let perm = OS.shapeT @perm
+              permRev = map snd $ sort $ zip perm [0 .. length perm - 1]
+          in OS.withShapeP permRev $ \(_proxy :: Proxy permRev) ->
+            gcastWith (unsafeCoerce Refl
+                       :: OS.Permute permRev sh :~: sh2)
+            $ evalS s (stranspose @shaped @permRev c) d
+        ReshapeS d -> evalS s (sreshape c) d
+        BuildS @_ @_ @_ @n f ->
+          foldl' (\s2 i -> evalS s2 (sindex cShared (i :$: ZSH))
+                                 (f $ ShapedList.shapedNat i))
+                 sShared (fromIntegral <$> [0 .. (valueOf @n :: Int) - 1])
         GatherS d f -> evalS s (sscatter c f) d
 
         DToS (SToD @_ @_ @sh2 d) ->
@@ -621,7 +626,7 @@ buildFinMaps s0 deltaDt =
         DToS (RToD @_ @_ @n2 d) ->
           case sameNat (Proxy @(OS.Rank sh)) (Proxy @n2) of
             Just Refl -> evalS s c (RToS d)
-            _ -> error "buildFinMaps: different ranks in DToR(SToD)"
+            _ -> error "buildFinMaps: different ranks in DToS(RToD)"
         RToS (SToR @_ @_ @sh2 d) ->
           case sameShape @sh @sh2 of
             Just Refl -> evalS s c d
@@ -770,7 +775,8 @@ buildFinMaps s0 deltaDt =
           Just ((n, b), nMap2) ->
             let s2 = s {nMap = nMap2}
                 s3 = case b of
-                  DeltaBindingS _d -> undefined
+                  DeltaBindingS d -> let c = sfromD $ dMap EM.! n
+                                     in evalS s2 c d
                   DeltaBindingR d -> let c = tfromD $ dMap EM.! n
                                      in evalR s2 c d
             in evalFromnMap s3

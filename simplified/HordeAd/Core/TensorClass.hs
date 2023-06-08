@@ -41,7 +41,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
 import           HordeAd.Core.ShapedList
-  (ShapedList (..), ShapedNat, consShaped)
+  (ShapeSh, ShapedList (..), ShapedNat, consShaped)
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Internal.TensorOps
@@ -61,11 +61,6 @@ type family IntOf a
 -- and also extra type applications may be needed to satisfy the compiler.
 -- Therefore, there is a real trade-off between @[2]@ and @(2 :. ZI).
 type IndexOf a n = Index n (IntOf a)
-
--- TODO: ensure this can't be subverted:
--- | These are singletons. The integers inside are equal to the type-level
--- dimensions.
-type ShapeSh (sh :: [Nat]) = ShapedList sh Int
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The value of this type has to be positive and less than the @n@ bound.
@@ -345,7 +340,7 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   -- Integer codomain
   sshape :: forall sh r. (GoodScalar r, OS.Shape sh)
          => shaped r sh -> ShapeSh sh
-  sshape _ = ShapedList.listToSized $ OS.shapeT @sh
+  sshape _ = ShapedList.shapeSh @sh
   srank :: forall sh r. (GoodScalar r, KnownNat (OS.Rank sh))
         => shaped r sh -> Int
   srank _ = valueOf @(OS.Rank sh)
@@ -446,11 +441,9 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
                => shaped r '[] -> shaped r sh
   sreplicate0N = sreshape @shaped @r @'[OS.Size sh] @sh
                  . sreplicate @shaped @r @(OS.Size sh)
-  sappend :: (GoodScalar r, OS.Shape sh)
-          => shaped r (n ': sh) -> shaped r (n ': sh) -> shaped r (n ': sh)
-  sconcat :: (GoodScalar r, OS.Shape sh)
-          => [shaped r (n ': sh)] -> shaped r (n ': sh)
-  sconcat = foldr1 sappend
+  sappend :: (GoodScalar r, KnownNat m, KnownNat n, OS.Shape sh)
+          => shaped r (m ': sh) -> shaped r (n ': sh)
+          -> shaped r ((m + n) ': sh)
   sslice :: (GoodScalar r, KnownNat i, KnownNat k, KnownNat n)
          => shaped r (i + n + k ': rest) -> shaped r (n ': rest)
   suncons :: forall r n sh. (GoodScalar r, KnownNat n)
@@ -464,12 +457,13 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   str :: (GoodScalar r, KnownNat n, KnownNat m)
       => shaped r (n ': m ': sh) -> shaped r (m ': n ': sh)
   str = stranspose @shaped @'[1, 0]
-  stranspose :: (OS.Permutation perm, GoodScalar r)
+  stranspose :: ({-TODO: OS.Permutation perm,-} OS.Shape perm, GoodScalar r)
              => shaped r sh -> shaped r (OS.Permute perm sh)
   sflatten :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
            => shaped r sh -> shaped r '[OS.Size sh]
   sflatten = sreshape
-  sreshape :: (GoodScalar r, OS.Shape sh, OS.Shape sh2)
+  sreshape :: ( GoodScalar r, OS.Shape sh, OS.Shape sh2
+              , OS.Size sh ~ OS.Size sh2 )
            => shaped r sh -> shaped r sh2
   sbuild :: forall r m sh.
             (GoodScalar r, KnownNat m, OS.Shape sh, OS.Shape (OS.Take m sh))
@@ -477,7 +471,7 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
          -> shaped r sh
   sbuild =
     let shm :: ShapeSh (OS.Take m sh)
-        shm = ShapedList.listToSized $ OS.shapeT @(OS.Take m sh)
+        shm = ShapedList.shapeSh @(OS.Take m sh)
         buildSh
           :: forall sh1.
              ShapeSh sh1

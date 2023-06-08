@@ -4,6 +4,7 @@
 -- | @[Nat]@-indexed lists.
 module HordeAd.Core.ShapedList
   ( ShapedNat, shapedNat, unShapedNat
+  , ShapeSh, shapeSh
   , ShapedList(..), consShaped, unconsContShaped
   , snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
@@ -38,6 +39,14 @@ newtype ShapedNat (n :: Nat) a = ShapedNat {unShapedNat :: a}
 -- provided by @a@ somehow
 shapedNat :: forall n a. a -> ShapedNat n a
 shapedNat = ShapedNat
+
+-- TODO: ensure this can't be subverted:
+-- | These are singletons. The integers inside are equal to the type-level
+-- dimensions.
+type ShapeSh (sh :: [Nat]) = ShapedList sh Int
+
+shapeSh :: forall sh. OS.Shape sh => ShapeSh sh
+shapeSh = listToSized $ OS.shapeT @sh
 
 -- | Strict lists indexed by shapes, that is, lists of the GHC @Nat@.
 infixr 3 :$:
