@@ -810,33 +810,126 @@ buildFinMaps s0 deltaDt =
 -- represented by the parameters of the objective function and used
 -- to compute it's dual number result) and along the direction vector(s)
 -- given in the last parameter called @ds@.
-class ForwardDerivative (ranked :: Type -> Nat -> Type) r n where
-  derivativeFromDelta
-    :: Int -> Dual ranked r n -> Domains (DynamicOf ranked) r -> ranked r n
+class ForwardDerivative (ranked :: Type -> Nat -> Type)
+                        (shaped :: Type -> [Nat] -> Type)
+                        r where
+  derivativeFromDeltaR
+    :: KnownNat n
+    => Int -> Dual ranked r n -> Domains (DynamicOf ranked) r -> ranked r n
+  derivativeFromDeltaS
+    :: (OS.Shape sh, KnownNat (OS.Rank sh))
+    => Int -> Dual shaped r sh -> Domains (DynamicOf shaped) r -> shaped r sh
 
-instance ( KnownNat n, GoodScalar r, Tensor ranked
+instance ( GoodScalar r, Tensor ranked, ShapedTensor shaped
          , ConvertTensor ranked shaped
-         , Dual ranked ~ DeltaR ranked shaped )
-         => ForwardDerivative ranked r n where
-  derivativeFromDelta dimR deltaTopLevel ds =
-    case runST $ buildDerivative dimR (DeltaDtR 0 deltaTopLevel) ds of
+         , Dual ranked ~ DeltaR ranked shaped
+         , Dual shaped ~ DeltaS ranked shaped )
+         => ForwardDerivative ranked shaped r where
+  derivativeFromDeltaR
+    :: forall n. KnownNat n
+    => Int -> Dual ranked r n -> Domains (DynamicOf ranked) r -> ranked r n
+  derivativeFromDeltaR dim deltaTopLevel ds =
+    case runST $ buildDerivative dim (DeltaDtR 0 deltaTopLevel) ds of
       DeltaDtR @_ @_ @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
         Just Refl -> res
         _ -> error "derivativeFromDelta"
       DeltaDtS{} -> error "derivativeFromDelta"
+  derivativeFromDeltaS
+    :: forall sh. (OS.Shape sh, KnownNat (OS.Rank sh))
+    => Int -> Dual shaped r sh -> Domains (DynamicOf shaped) r -> shaped r sh
+  derivativeFromDeltaS dim deltaTopLevel ds =
+    case runST $ buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
+      DeltaDtS @_ @_ @_ @sh2 res _ -> case sameShape @sh @sh2 of
+        Just Refl -> res
+        _ -> error "derivativeFromDelta"
+      DeltaDtR{} -> error "derivativeFromDelta"
 
 -- | This mimics 'buildFinMaps', but in reverse. Perhaps this can be
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
   :: forall ranked shaped r s.
-     (Tensor ranked, ConvertTensor ranked shaped, GoodScalar r)
+     ( GoodScalar r, Tensor ranked, ShapedTensor shaped
+     , ConvertTensor ranked shaped )
   => Int -> DeltaDt ranked shaped r -> Domains (DynamicOf ranked) r
   -> ST s (DeltaDt ranked shaped r)
 buildDerivative dimR deltaDt params = do
   dMap <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
-  let evalR :: forall n. KnownNat n
+  let evalS :: forall sh. (OS.Shape sh, KnownNat (OS.Rank sh))
+            => DeltaS ranked shaped r sh -> ST s (shaped r sh)
+      evalS = \case
+        ZeroS -> return 0
+        InputS (InputId i) ->
+          if i < dimR
+          then return $! sfromD $ params V.! i
+          else error "derivativeFromDelta.eval': wrong index for an input"
+        ScaleS _ ZeroS -> evalS ZeroS
+        ScaleS k d -> smult k <$> evalS d
+        AddS ZeroS e -> evalS e
+        AddS d ZeroS -> evalS d
+        AddS d e -> liftM2 (\u v -> ssumOfList [u, v]) (evalS d) (evalS e)
+        LetS n d -> do
+          nm <- readSTRef nMap
+          case EM.lookup n nm of
+            Just (DeltaBindingS _) -> do
+              dm <- readSTRef dMap
+              return $! sfromD (dm EM.! n :: DynamicOf shaped r)
+            Nothing -> do
+              c <- evalS d
+              nmNew <- readSTRef nMap
+              dm <- readSTRef dMap
+              writeSTRef nMap $! EM.insert n (DeltaBindingS d) nmNew
+              writeSTRef dMap $! EM.insert n (dfromS c) dm
+              return c
+            _ -> error "buildDerivative: corrupted nMap"
+
+        IndexS d ix -> (`sindex` ix) <$> evalS d
+        SumS d -> ssum <$> evalS d
+        Sum0S ZeroS -> return 0
+        Sum0S d -> ssum0 <$> evalS d
+        Dot0S _ ZeroS -> return 0
+        Dot0S v d -> sdot0 v <$> evalS d
+        ScatterS d f ->  do
+          t <- evalS d
+          return $! sscatter t f
+        FromListS lsd -> do
+          l <- mapM evalS lsd
+          return $! sfromList l
+        FromVectorS lsd -> do
+          l <- V.mapM evalS lsd
+          return $! sfromVector l
+        ReplicateS d -> do
+          t <- evalS d
+          return $! sreplicate t
+        AppendS d e -> liftM2 sappend (evalS d) (evalS e)
+        SliceS @_ @_ @_ @i d -> sslice @shaped @r @i <$> evalS d
+        ReverseS d -> sreverse <$> evalS d
+        TransposeS @_ @_ @perm d -> stranspose @shaped @perm <$> evalS d
+        ReshapeS d -> sreshape <$> evalS d
+        BuildS @_ @_ @_ @n f -> do
+          l <- mapM (evalS . f . ShapedList.shapedNat . fromIntegral)
+                    [0 .. (valueOf @n :: Int) - 1]
+          return $! sfromList l
+        GatherS d f -> do
+          t <- evalS d
+          return $! sgather t f
+
+        DToS (SToD @_ @_ @sh2 d) ->
+          case sameShape @sh @sh2 of
+            Just Refl -> evalS d
+            _ -> error "buildDerivative: different ranks in DToR(RToD)"
+        DToS (RToD @_ @_ @n2 d) ->
+          case sameNat (Proxy @(OS.Rank sh)) (Proxy @n2) of
+            Just Refl -> evalS (RToS d)
+            _ -> error "buildDerivative: different ranks in DToR(SToD)"
+        RToS (SToR @_ @_ @sh2 d) ->
+          case sameShape @sh @sh2 of
+            Just Refl -> evalS d
+            _ -> error "buildDerivative: different shapes in RToS(SToR)"
+        RToS d -> sfromR <$> evalR d
+
+      evalR :: forall n. KnownNat n
             => DeltaR ranked shaped r n -> ST s (ranked r n)
       evalR = \case
         ZeroR -> return $! tzero $ listShapeToShape $ replicate (valueOf @n) 1
@@ -869,9 +962,9 @@ buildDerivative dimR deltaDt params = do
 
         IndexR d ix _len -> (`tindex` ix) <$> evalR d
         SumR _ d -> tsum <$> evalR d
-        Sum0R _ ZeroR ->  return 0
+        Sum0R _ ZeroR -> return 0
         Sum0R _ d -> tsum0 <$> evalR d
-        Dot0R _ ZeroR ->  return 0
+        Dot0R _ ZeroR -> return 0
         Dot0R v d -> tdot0 v <$> evalR d
         ScatterR sh d f _shd ->  do
           t <- evalR d
@@ -906,11 +999,12 @@ buildDerivative dimR deltaDt params = do
             Just Refl -> evalR (SToR d)
             _ -> error "buildDerivative: different ranks in DToR(SToD)"
         SToR (RToS d) -> evalR d  -- no information lost, so no checks
-        SToR _d -> undefined
+        SToR d -> tfromS <$> evalS d
 
   -- A hack to fit both argument delta and, afterwards, the result in a type
   -- that does not reflect either.
   case deltaDt of
-    DeltaDtS _dt _deltaTopLevel -> undefined  -- TODO
+    DeltaDtS _dt deltaTopLevel ->
+      flip DeltaDtS ZeroS <$> evalS deltaTopLevel
     DeltaDtR _dt deltaTopLevel ->
       flip DeltaDtR ZeroR <$> evalR deltaTopLevel
