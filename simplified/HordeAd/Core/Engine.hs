@@ -9,7 +9,7 @@ module HordeAd.Core.Engine
   , crev, crevDt
   , revAstOnDomains, revOnDomains
   , revAstOnDomainsF, revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
---  , fwd, slowFwdOnADInputs, slowFwdOnDomains
+  , fwd, slowFwdOnADInputs, slowFwdOnDomains
   , generateDeltaInputs, makeADInputs
   ) where
 
@@ -36,6 +36,7 @@ import HordeAd.Core.Delta
   , DeltaDt (..)
   , DeltaR (InputR)
   , Dual
+  , ForwardDerivative (..)
   , gradientFromDelta
   , toInputId
   )
@@ -296,53 +297,51 @@ revOnDomains dt f parameters =
   in revOnADInputs dt f inputs
 
 
-{-
--- * Old derivative adaptors
+-- * The old derivative adaptors
 
 -- It uses the same delta expressions as for gradients. See @fwdOnDomains@
 -- for a fast variant (TODO: not ported from the old code yet).
 
 -- This takes the sensitivity parameter, by convention.
 fwd
-  :: forall a r vals advals dynamic.
-     ( dynamic ~ ADVal OD.Array
-     , ForwardDerivative (Flip OR.Array) a r, GoodScalar r
+  :: forall a r n vals advals dynamic.
+     ( dynamic ~ ADValClown OD.Array, a ~ Flip OR.Array r n
+     , GoodScalar r, KnownNat n
      , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
      , r ~ Underlying vals, vals ~ Value advals, Underlying advals ~ r )
-  => (advals -> ADVal a) -> vals -> vals
+  => (advals -> ADVal (Flip OR.Array) r n) -> vals -> vals
   -> a
 fwd f x ds =
   let g inputs = f $ parseDomains ds inputs
   in fst $ slowFwdOnDomains (toDomains x) g (toDomains ds)
 
 slowFwdOnADInputs
-  :: ( dynamic ~ ADVal OD.Array
-     , ForwardDerivative (Flip OR.Array) a r )
+  :: ( dynamic ~ ADValClown OD.Array, a ~ Flip OR.Array r n
+     , GoodScalar r, KnownNat n )
   => Domains dynamic r
-  -> (Domains dynamic r -> ADVal a)
+  -> (Domains dynamic r -> ADVal (Flip OR.Array) r n)
   -> DomainsOD r
   -> (a, a)
 {-# INLINE slowFwdOnADInputs #-}
 slowFwdOnADInputs inputs f ds =
-  let dim1 = V.length inputs
-      !(D _ v deltaTopLevel) = f inputs in  -- TODO: _
-  let derivative = derivativeFromDelta @(Flip OR.Array) dim1 deltaTopLevel ds
+  let dim = V.length inputs
+      !(D _ v deltaTopLevel) = f inputs in
+  let derivative = derivativeFromDeltaR @(Flip OR.Array) dim deltaTopLevel ds
   in (derivative, v)
 
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
-  :: forall a r dynamic.
-     ( dynamic ~ ADVal OD.Array
-     , ForwardDerivative (Flip OR.Array) a r, GoodScalar r )
+  :: forall a r n dynamic.
+     ( dynamic ~ ADValClown OD.Array, a ~ Flip OR.Array r n
+     , GoodScalar r, KnownNat n )
   => DomainsOD r
-  -> (Domains dynamic r -> ADVal a)
+  -> (Domains dynamic r -> ADVal (Flip OR.Array) r n)
   -> DomainsOD r
   -> (a, a)
 slowFwdOnDomains parameters f ds =
   let deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters
       inputs = makeADInputs parameters deltaInputs
   in slowFwdOnADInputs inputs f ds
--}
 
 
 -- * Additional mechanisms
