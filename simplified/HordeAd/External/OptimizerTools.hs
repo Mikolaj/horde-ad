@@ -16,7 +16,7 @@ import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.Adaptor
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
-import HordeAd.Internal.TensorOps (isTensorDummy)
+import HordeAd.Core.TensorOps (isTensorDummy)
 
 updateWithGradient
   :: (Numeric r, Floating (Vector r))

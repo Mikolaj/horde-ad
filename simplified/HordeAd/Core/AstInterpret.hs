@@ -37,7 +37,7 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
-import HordeAd.Internal.SizedList
+import HordeAd.Core.SizedList
 
 type AstEnv ranked r = EM.EnumMap AstVarId (AstEnvElem ranked r)
 

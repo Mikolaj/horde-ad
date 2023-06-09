@@ -134,13 +134,11 @@ library
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.PairOfVectors
-                      HordeAd.Core.SizedIndex
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.Delta
                       HordeAd.Internal.MatrixOuter
                       HordeAd.Internal.OrthotopeOrphanInstances
-                      HordeAd.Internal.SizedList
                       HordeAd.Internal.TensorOps
 
   if flag(use_typelits_plugins) {
@@ -527,15 +525,15 @@ library horde-ad-simplified
                       HordeAd.Core.Engine
                       HordeAd.Core.ShapedList
                       HordeAd.Core.SizedIndex
+                      HordeAd.Core.SizedList
                       HordeAd.Core.TensorADVal
                       HordeAd.Core.TensorAst
                       HordeAd.Core.TensorClass
+                      HordeAd.Core.TensorOps
                       HordeAd.External.CommonRankedOps
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.OrthotopeOrphanInstances
-                      HordeAd.Internal.SizedList
-                      HordeAd.Internal.TensorOps
 
     build-depends:
         assert-failure
@@ -554,7 +552,7 @@ library horde-ad-simplified
       , unboxed-ref
       , vector
 
-    hs-source-dirs:   simplified src/common
+    hs-source-dirs:   simplified
 
     C-sources:        src/cbits/matrix_reduce.c
     cc-options:         -O4 -Wall -std=c99

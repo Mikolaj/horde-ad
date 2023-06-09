@@ -65,8 +65,8 @@ import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
-import           HordeAd.Internal.SizedList
-import           HordeAd.Internal.TensorOps
+import           HordeAd.Core.SizedList
+import           HordeAd.Core.TensorOps
 
 
 -- * Expressing operations as Gather; introduces new variable names

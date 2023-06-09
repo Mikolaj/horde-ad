@@ -35,7 +35,7 @@ import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.SizedIndex
-import HordeAd.Internal.SizedList
+import HordeAd.Core.SizedList
 
 -- * Ast definitions
 

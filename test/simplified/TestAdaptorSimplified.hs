@@ -26,7 +26,7 @@ import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
-import HordeAd.Internal.TensorOps
+import HordeAd.Core.TensorOps
 
 import CrossTesting
 import EqEpsilon

@@ -29,7 +29,7 @@ import           GHC.TypeLits (KnownNat, sameNat, type (+))
 
 import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
-import HordeAd.Internal.SizedList
+import HordeAd.Core.SizedList
 
 -- * Shape calculation
 

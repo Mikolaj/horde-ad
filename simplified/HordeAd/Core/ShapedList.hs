@@ -27,7 +27,7 @@ import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import HordeAd.Internal.SizedList (Permutation)
+import HordeAd.Core.SizedList (Permutation)
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The value of this type has to be positive and less than the @n@ bound.

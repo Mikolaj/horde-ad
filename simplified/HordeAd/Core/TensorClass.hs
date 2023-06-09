@@ -44,7 +44,7 @@ import           HordeAd.Core.ShapedList
   (ShapeSh, ShapedList (..), ShapedNat, consShaped)
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
-import           HordeAd.Internal.TensorOps
+import           HordeAd.Core.TensorOps
 
 -- * Ranked tensor class definition
 

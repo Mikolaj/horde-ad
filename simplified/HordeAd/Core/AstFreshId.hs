@@ -20,7 +20,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools
 import HordeAd.Core.SizedIndex
-import HordeAd.Internal.SizedList
+import HordeAd.Core.SizedList
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter

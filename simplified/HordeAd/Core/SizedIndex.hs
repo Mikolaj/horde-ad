@@ -31,7 +31,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 
-import HordeAd.Internal.SizedList
+import HordeAd.Core.SizedList
 
 -- * Concrete type synonyms to be used in many other modules
 

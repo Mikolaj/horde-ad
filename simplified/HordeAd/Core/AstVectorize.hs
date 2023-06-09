@@ -26,7 +26,7 @@ import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
-import           HordeAd.Internal.SizedList
+import           HordeAd.Core.SizedList
 
 -- * Vectorization
 
