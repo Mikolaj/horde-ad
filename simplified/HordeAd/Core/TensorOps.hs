@@ -531,9 +531,9 @@ tgatherZR :: forall m p n r.
           -> OR.Array (m + n) r
 tgatherZR sh t f =
   let shm = takeShape @m sh
-      s = valueOf @m
+      s = sizeShape shm
       l = [ OR.toVector $ t `tindexZR` f (fromLinearIdx shm i)
-          | i <- [0 .. s - 1] ]
+          | i <- [0 .. fromIntegral s - 1] ]
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
 tgatherZ1R :: forall p n r. (KnownNat p, KnownNat n, NumAndShow r)
@@ -883,14 +883,14 @@ tzipWith0NS f = OS.zipWithA (\x y -> tunScalarS $ f (tscalarS x) (tscalarS y))
                 -- bad type: liftVS2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
 tgatherNS :: forall sh2 p sh r.
-             ( NumAndShow r, OS.Shape sh, OS.Shape sh2, OS.Shape (OS.Drop p sh)
+             ( NumAndShow r, OS.Shape sh2, OS.Shape (OS.Drop p sh)
              , OS.Shape (sh2 OS.++ OS.Drop p sh) )
           => OS.Array sh r
           -> (IndexIntSh sh2 -> IndexIntSh (OS.Take p sh))
           -> OS.Array (sh2 OS.++ OS.Drop p sh) r
 tgatherNS t f =
   let sh2 = ShapedList.shapeSh @sh2
-      s = OS.sizeT @sh
+      s = OS.sizeT @sh2
       l = gcastWith (unsafeCoerce Refl
                      :: sh :~: OS.Take p sh OS.++ OS.Drop p sh)
           $ [ OS.toVector
@@ -913,7 +913,7 @@ tgatherZS :: forall sh2 p sh r.
           -> OS.Array (sh2 OS.++ OS.Drop p sh) r
 tgatherZS t f =
   let sh2 = ShapedList.shapeSh @sh2
-      s = OS.sizeT @sh
+      s = OS.sizeT @sh2
       l = gcastWith (unsafeCoerce Refl
                      :: sh :~: OS.Take p sh OS.++ OS.Drop p sh)
           $ [ OS.toVector
