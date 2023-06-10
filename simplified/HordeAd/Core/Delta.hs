@@ -58,7 +58,6 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
-import           Data.Constraint (Dict (..))
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.List (foldl', sort)
@@ -793,12 +792,13 @@ buildFinMaps s0 deltaDt =
 {-# SPECIALIZE buildFinMaps
   :: EvalState AstRanked AstShaped Double -> DeltaDt AstRanked AstShaped Double -> EvalState AstRanked AstShaped Double #-}
 
-trustMeThisIsAPermutationDict :: forall (is :: [Nat]). Dict (OS.Permutation is)
-trustMeThisIsAPermutationDict =
-  unsafeCoerce (Dict :: Dict (OS.Permutation '[]))
+data Dict c where
+  Dict :: c => Dict c
 
-trustMeThisIsAPermutation :: forall (is :: [Nat]) r.
-                             (OS.Permutation is => r) -> r
+trustMeThisIsAPermutationDict :: forall is. Dict (OS.Permutation is)
+trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict (OS.Permutation '[]))
+
+trustMeThisIsAPermutation :: forall is r. (OS.Permutation is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
 

@@ -540,7 +540,6 @@ library horde-ad-simplified
       , base >= 4.14 && < 99
       , bifunctors
       , Boolean
-      , constraints
       , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
