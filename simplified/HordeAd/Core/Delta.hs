@@ -58,6 +58,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
+import           Data.Constraint (Dict (..))
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.List (foldl', sort)
@@ -212,7 +213,7 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
            -> DeltaS ranked shaped r (n ': sh)
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall ranked shaped perm r sh.
-                ( {-TODO: OS.Permutation perm,-} OS.Shape perm, OS.Shape sh
+                ( OS.Permutation perm, OS.Shape perm, OS.Shape sh
                 , KnownNat (OS.Rank sh) )
              => DeltaS ranked shaped r sh
              -> DeltaS ranked shaped r (OS.Permute perm sh)
@@ -608,7 +609,11 @@ buildFinMaps s0 deltaDt =
           in OS.withShapeP permRev $ \(_proxy :: Proxy permRev) ->
             gcastWith (unsafeCoerce Refl
                        :: OS.Permute permRev sh :~: sh2)
-            $ evalS s (stranspose @shaped @permRev c) d
+            $ evalS s
+                    (trustMeThisIsAPermutation @permRev
+                       (stranspose @shaped @permRev)
+                       c)
+                    d
         ReshapeS d -> evalS s (sreshape c) d
         BuildS @_ @_ @_ @n f ->
           foldl' (\s2 i -> evalS s2 (sindex cShared (i :$: ZSH))
@@ -787,6 +792,15 @@ buildFinMaps s0 deltaDt =
   :: EvalState (Flip OR.Array) (Flip OS.Array) Double -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) Double #-}
 {-# SPECIALIZE buildFinMaps
   :: EvalState AstRanked AstShaped Double -> DeltaDt AstRanked AstShaped Double -> EvalState AstRanked AstShaped Double #-}
+
+trustMeThisIsAPermutationDict :: forall (is :: [Nat]). Dict (OS.Permutation is)
+trustMeThisIsAPermutationDict =
+  unsafeCoerce (Dict :: Dict (OS.Permutation '[]))
+
+trustMeThisIsAPermutation :: forall (is :: [Nat]) r.
+                             (OS.Permutation is => r) -> r
+trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
+  Dict -> r
 
 
 -- * Forward derivative computation from the delta expressions

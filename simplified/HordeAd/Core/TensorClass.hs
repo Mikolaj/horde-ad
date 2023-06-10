@@ -459,7 +459,7 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   str :: (GoodScalar r, KnownNat n, KnownNat m)
       => shaped r (n ': m ': sh) -> shaped r (m ': n ': sh)
   str = stranspose @shaped @'[1, 0]
-  stranspose :: ({-TODO: OS.Permutation perm,-} OS.Shape perm, GoodScalar r)
+  stranspose :: (OS.Permutation perm, OS.Shape perm, GoodScalar r)
              => shaped r sh -> shaped r (OS.Permute perm sh)
   sflatten :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
            => shaped r sh -> shaped r '[OS.Size sh]
