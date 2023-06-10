@@ -1,4 +1,4 @@
-{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | @[Nat]@-indexed lists.
@@ -12,7 +12,7 @@ module HordeAd.Core.ShapedList
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , sizedListCompare, listToSized, sizedListToList
   , Permutation
-  , fromLinearIdx
+  , toLinearIdx, fromLinearIdx
   ) where
 
 import Prelude
@@ -192,11 +192,34 @@ listToSized (i : is) = case OS.shapeT @sh of
         let sh = listToSized @rest is
         in gcastWith (unsafeCoerce Refl :: sh :~: n ': rest)
            $ i :$: sh
+               -- TODO: actually check i < n or wrap a check for later,
+               -- based on a mechanism provided by @i@ somehow
       Nothing -> error "listToSized: impossible someNatVal error"
 
 sizedListToList :: ShapedList sh i -> [i]
 sizedListToList ZSH = []
 sizedListToList (i :$: is) = i : sizedListToList is
+
+-- | Given a multidimensional index, get the corresponding linear
+-- index into the buffer. Note that the index doesn't need to be pointing
+-- at a scalar. It may point at the start of a larger tensor instead.
+--
+-- If any of the dimensions is 0 or if rank is 0, the result will be 0,
+-- which is fine, that's pointing at the start of the empty buffer.
+-- Note that the resulting 0 may be a complex term.
+toLinearIdx :: forall sh1 sh2 i j. (OS.Shape sh1, Integral i, Num j)
+            => ShapedList (sh1 OS.++ sh2) i -> ShapedList sh1 j
+            -> ShapedNat (OS.Size sh2) j
+toLinearIdx = \sh idx -> shapedNat $ go sh idx 0
+  where
+    -- Additional argument: index, in the @m - m1@ dimensional array so far,
+    -- of the @m - m1 + n@ dimensional tensor pointed to by the current
+    -- @m - m1@ dimensional index prefix.
+    go :: forall sh3. OS.Shape sh3
+       => ShapedList (sh3 OS.++ sh2) i -> ShapedList sh3 j -> j -> j
+    go _sh ZSH tensidx = fromIntegral (OS.sizeT @sh3) * tensidx
+    go (n :$: sh) (i :$: idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
+    go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
 -- multidimensional index. Here we require an index pointing at a scalar.

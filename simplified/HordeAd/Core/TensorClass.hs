@@ -232,7 +232,9 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
                 => ShapeInt m1 -> (IndexOf (ranked r 0) m1 -> ranked r n)
                 -> ranked r (m1 + n)
         buildSh ZS f = f ZI
-        buildSh (k :$ sh) f = tbuild1 k (\i -> buildSh sh (\ix -> f (i :. ix)))
+        buildSh (k :$ sh) f =
+          let g i = buildSh sh (\ix -> f (i :. ix))
+          in tbuild1 k g
     in buildSh (takeShape @m @n sh0) f0
   tbuild1 :: (GoodScalar r, KnownNat n)  -- this form needs less typeapps
           => Int -> (IntOf (ranked r 0) -> ranked r n) -> ranked r (1 + n)
@@ -479,8 +481,9 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
           -> shaped r (sh1 OS.++ OS.Drop m sh)
         buildSh sh1 f = case sh1 of
           ZSH -> f ZSH
-          _n :$: sh2 -> sbuild1 (\i ->
-            buildSh sh2 (\ix -> f (consShaped i ix)))
+          _n :$: sh2 ->
+            let g i = buildSh sh2 (f . consShaped i)
+            in sbuild1 g
     in gcastWith (unsafeCoerce Refl
                   :: sh :~: OS.Take m sh OS.++ OS.Drop m sh)
        $ buildSh shm
@@ -689,8 +692,8 @@ type instance DynamicOf (Flip OR.Array) = OD.Array
 
 instance Tensor (Flip OR.Array) where
   tshape = tshapeR . runFlip
-  tminIndex0 = tminIndexR . runFlip
-  tmaxIndex0 = tmaxIndexR . runFlip
+  tminIndex0 = tminIndex0R . runFlip
+  tmaxIndex0 = tmaxIndex0R . runFlip
   tfloor = floor . tunScalarR . runFlip
   tindex v ix = Flip $ tindexZR (runFlip v) ix
   tindex0 v ix = Flip . tscalarR $ tindex0R (runFlip v) ix
@@ -713,7 +716,6 @@ instance Tensor (Flip OR.Array) where
   treverse = Flip . treverseR . runFlip
   ttranspose perm = Flip . ttransposeR perm . runFlip
   treshape sh = Flip . treshapeR sh . runFlip
-  tbuild sh f = Flip $ tbuildNR sh (runFlip . f)
   tbuild1 k f = Flip $ tbuild1R k (runFlip . f)
   tmap0N f t = Flip $ tmap0NR (runFlip . f . Flip) (runFlip t)
   tzipWith0N f t u = Flip $ tzipWith0NR (\v w -> runFlip $ f (Flip v) (Flip w))
