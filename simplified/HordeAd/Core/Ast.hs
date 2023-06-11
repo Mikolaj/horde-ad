@@ -83,8 +83,8 @@ data AstRanked :: Type -> Nat -> Type where
     -- needed, because toInteger and so fromIntegral is not defined for Ast
 
   -- For the Tensor class:
-  AstIndexZ :: forall m n r. KnownNat m
-            => AstRanked r (m + n) -> AstIndex m r -> AstRanked r n
+  AstIndex :: forall m n r. KnownNat m
+           => AstRanked r (m + n) -> AstIndex m r -> AstRanked r n
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
     -- but vectorization is permitted to change the value
@@ -111,10 +111,10 @@ data AstRanked :: Type -> Nat -> Type where
              => ShapeInt m -> AstRanked r n -> AstRanked r m
   AstBuild1 :: KnownNat n
             => Int -> (AstVarId, AstRanked r n) -> AstRanked r (1 + n)
-  AstGatherZ :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
-             => ShapeInt (m + n) -> AstRanked r (p + n)
-             -> (AstVarList m, AstIndex p r)
-             -> AstRanked r (m + n)
+  AstGather :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
+            => ShapeInt (m + n) -> AstRanked r (p + n)
+            -> (AstVarList m, AstIndex p r)
+            -> AstRanked r (m + n)
     -- out of bounds indexing is permitted
 
   -- For the forbidden half of the Tensor class:
@@ -237,9 +237,9 @@ astCond :: KnownNat n
         => AstBool r -> AstRanked r n -> AstRanked r n -> AstRanked r n
 astCond (AstBoolConst b) v w = if b then v else w
 astCond b (AstConstant (AstPrimalPart v)) (AstConstant (AstPrimalPart w)) =
-  AstConstant $ AstPrimalPart $ AstIndexZ (AstFromList [v, w])
+  AstConstant $ AstPrimalPart $ AstIndex (AstFromList [v, w])
                                           (singletonIndex $ AstIntCond b 0 1)
-astCond b v w = AstIndexZ (AstFromList [v, w])
+astCond b v w = AstIndex (AstFromList [v, w])
                           (singletonIndex $ AstIntCond b 0 1)
 
 instance KnownNat n => EqB (AstRanked r n) where

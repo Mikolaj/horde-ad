@@ -47,10 +47,10 @@ instance Tensor AstRanked where
   tmaxIndex0 = AstMaxIndex1 . AstPrimalPart
   tfloor = AstIntFloor . AstPrimalPart
 
-  tindex = AstIndexZ
+  tindex = AstIndex
   tsum = AstSum
   tfromIndex0 i = AstConstant $ AstPrimalPart
-                  $ AstIndexZ AstIota (singletonIndex i)
+                  $ AstIndex AstIota (singletonIndex i)
     -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = astScatter sh t (funToAstIndex f)  -- introduces new vars
 
@@ -63,7 +63,7 @@ instance Tensor AstRanked where
   ttranspose = astTranspose
   treshape = astReshape
   tbuild1 = astBuild1Vectorize
-  tgather sh t f = AstGatherZ sh t (funToAstIndex f)  -- introduces new vars
+  tgather sh t f = AstGather sh t (funToAstIndex f)  -- introduces new vars
 
   tsumOfList l = AstSumOfList l
   tconst = AstConstant . AstPrimalPart . AstConst
@@ -186,10 +186,10 @@ instance Tensor AstPrimalPart where
   tmaxIndex0 = AstMaxIndex1
   tfloor = AstIntFloor
 
-  tindex v ix = AstPrimalPart $ AstIndexZ (unAstPrimalPart v) ix
+  tindex v ix = AstPrimalPart $ AstIndex (unAstPrimalPart v) ix
   tsum = AstPrimalPart . AstSum . unAstPrimalPart
   tfromIndex0 i = AstPrimalPart
-                  $ AstIndexZ AstIota (singletonIndex i)
+                  $ AstIndex AstIota (singletonIndex i)
     -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = AstPrimalPart $ astScatter sh (unAstPrimalPart t)
                     $ funToAstIndex f  -- this introduces new variable names
@@ -204,7 +204,7 @@ instance Tensor AstPrimalPart where
   ttranspose perm = AstPrimalPart . AstTranspose perm . unAstPrimalPart
   treshape sh = AstPrimalPart . astReshape sh . unAstPrimalPart
   tbuild1 k f = AstPrimalPart $ astBuild1Vectorize k (unAstPrimalPart . f)
-  tgather sh t f = AstPrimalPart $ AstGatherZ sh (unAstPrimalPart t)
+  tgather sh t f = AstPrimalPart $ AstGather sh (unAstPrimalPart t)
                    $ funToAstIndex f  -- this introduces new variable names
 
   tsumOfList l = AstPrimalPart . AstSumOfList . map unAstPrimalPart $ l
@@ -233,10 +233,10 @@ instance Tensor AstNoVectorize where
   tmaxIndex0 = AstMaxIndex1 . AstPrimalPart . unAstNoVectorize
   tfloor = AstIntFloor . AstPrimalPart . unAstNoVectorize
 
-  tindex v ix = AstNoVectorize $ AstIndexZ (unAstNoVectorize v) ix
+  tindex v ix = AstNoVectorize $ AstIndex (unAstNoVectorize v) ix
   tsum = AstNoVectorize . AstSum . unAstNoVectorize
   tfromIndex0 i = AstNoVectorize $ AstConstant $ AstPrimalPart
-                  $ AstIndexZ AstIota (singletonIndex i)
+                  $ AstIndex AstIota (singletonIndex i)
     -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = AstNoVectorize $ astScatter sh (unAstNoVectorize t)
                     $ funToAstIndex f  -- this introduces new variable names
@@ -253,7 +253,7 @@ instance Tensor AstNoVectorize where
   tbuild1 k f = AstNoVectorize $ AstBuild1 k
                 $ funToAstI  -- this introduces new variable names
                 $ unAstNoVectorize . f
-  tgather sh t f = AstNoVectorize $ AstGatherZ sh (unAstNoVectorize t)
+  tgather sh t f = AstNoVectorize $ AstGather sh (unAstNoVectorize t)
                    $ funToAstIndex f  -- this introduces new variable names
 
   tsumOfList l = AstNoVectorize . AstSumOfList . map unAstNoVectorize $ l
@@ -283,10 +283,10 @@ instance Tensor AstNoSimplify where
   tmaxIndex0 = AstMaxIndex1 . AstPrimalPart . unAstNoSimplify
   tfloor = AstIntFloor . AstPrimalPart . unAstNoSimplify
 
-  tindex v ix = AstNoSimplify $ AstIndexZ (unAstNoSimplify v) ix
+  tindex v ix = AstNoSimplify $ AstIndex (unAstNoSimplify v) ix
   tsum = AstNoSimplify . AstSum . unAstNoSimplify
   tfromIndex0 i = AstNoSimplify $ AstConstant $ AstPrimalPart
-                  $ AstIndexZ AstIota (singletonIndex i)
+                  $ AstIndex AstIota (singletonIndex i)
     -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = AstNoSimplify $ AstScatter sh (unAstNoSimplify t)
                     $ funToAstIndex f  -- this introduces new variable names
@@ -301,7 +301,7 @@ instance Tensor AstNoSimplify where
   ttranspose perm = AstNoSimplify . AstTranspose perm . unAstNoSimplify
   treshape sh = AstNoSimplify . AstReshape sh . unAstNoSimplify
   tbuild1 k f = AstNoSimplify $ astBuild1Vectorize k (unAstNoSimplify . f)
-  tgather sh t f = AstNoSimplify $ AstGatherZ sh (unAstNoSimplify t)
+  tgather sh t f = AstNoSimplify $ AstGather sh (unAstNoSimplify t)
                    $ funToAstIndex f  -- this introduces new variable names
 
   tsumOfList l = AstNoSimplify . AstSumOfList . map unAstNoSimplify $ l

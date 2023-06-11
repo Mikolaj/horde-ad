@@ -236,8 +236,8 @@ interpretAst env memo = \case
     let (memo2, args2) = mapAccumR (interpretAst env) memo args
     in (memo2, tsumOfList args2)
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"
-  AstIndexZ AstIota (i :. ZI) -> second tfromIndex0 $ interpretAstInt env memo i
-  AstIndexZ v ix ->
+  AstIndex AstIota (i :. ZI) -> second tfromIndex0 $ interpretAstInt env memo i
+  AstIndex v ix ->
     let (memo2, v2) = interpretAst env memo v
         (memo3, ix3) = mapAccumR (interpretAstInt env) memo2 (indexToList ix)
     in (memo3, tindex v2 $ listToIndex ix3)
@@ -407,7 +407,7 @@ interpretAst env memo = \case
   AstTranspose perm v -> second (ttranspose perm) $ interpretAst env memo v
   AstReshape sh v -> second (treshape sh) (interpretAst env memo v)
   -- These two are only needed for tests that don't vectorize Ast.
-  AstBuild1 k (var, AstSum (AstOp TimesOp [t, AstIndexZ
+  AstBuild1 k (var, AstSum (AstOp TimesOp [t, AstIndex
                                                 u (AstIntVar var2 :. ZI)]))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
     , var == var2, k == tlength u ->
@@ -416,7 +416,7 @@ interpretAst env memo = \case
         in (memo2, tmatvecmul t2 t1)
   AstBuild1 k (var, AstSum
                       (AstReshape @p
-                         _sh (AstOp TimesOp [t, AstIndexZ
+                         _sh (AstOp TimesOp [t, AstIndex
                                                   u (AstIntVar var2 :. ZI)])))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
     , Just Refl <- sameNat (Proxy @p) (Proxy @1)
@@ -437,11 +437,11 @@ interpretAst env memo = \case
   AstBuild1 k (var, v) ->
     (memo, tbuild1 k (interpretLambdaI interpretAst env memo (var, v)))
       -- to be used only in tests
-  AstGatherZ sh AstIota (vars, (i :. ZI)) ->
+  AstGather sh AstIota (vars, (i :. ZI)) ->
     ( memo
     , tbuild sh (interpretLambdaIndex interpretAst env memo
                                       (vars, tfromIndex0 i)) )
-  AstGatherZ sh v (vars, ix) ->
+  AstGather sh v (vars, ix) ->
     let (memo1, t1) = interpretAst env memo v
         f2 = interpretLambdaIndexToIndex interpretAstInt env memo (vars, ix)
     in (memo1, tgather sh t1 f2)

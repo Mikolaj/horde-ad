@@ -51,7 +51,7 @@ shapeAst v1 = case v1 of
     [] -> error "shapeAst: AstSumOfList with no arguments"
     t : _ -> shapeAst t
   AstIota -> singletonShape (maxBound :: Int)  -- ought to be enough
-  AstIndexZ v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
+  AstIndex v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
   AstScatter sh _ _ -> sh
   AstFromList l -> case l of
@@ -75,7 +75,7 @@ shapeAst v1 = case v1 of
   AstTranspose perm v -> backpermutePrefixShape perm (shapeAst v)
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$ shapeAst v
-  AstGatherZ sh _v (_vars, _ix) -> sh
+  AstGather sh _v (_vars, _ix) -> sh
   AstConst a -> listShapeToShape $ OR.shapeL a
   AstConstant (AstPrimalPart a) -> shapeAst a
   AstD (AstPrimalPart u) _ -> shapeAst u
@@ -106,7 +106,7 @@ intVarInAst var = \case
   AstOp _ l -> any (intVarInAst var) l
   AstSumOfList l -> any (intVarInAst var) l
   AstIota -> False
-  AstIndexZ v ix -> intVarInAst var v || intVarInIndex var ix
+  AstIndex v ix -> intVarInAst var v || intVarInIndex var ix
   AstSum v -> intVarInAst var v
   AstScatter _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
   AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
@@ -118,7 +118,7 @@ intVarInAst var = \case
   AstTranspose _ v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
   AstBuild1 _ (_var2, v) -> intVarInAst var v
-  AstGatherZ _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
+  AstGather _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
   AstConst{} -> False
   AstConstant (AstPrimalPart v) -> intVarInAst var v
   AstD (AstPrimalPart u) (AstDualPart u') ->
@@ -177,8 +177,8 @@ substitute1Ast i var v1 = case v1 of
   AstOp opCode args -> AstOp opCode $ map (substitute1Ast i var) args
   AstSumOfList args -> AstSumOfList $ map (substitute1Ast i var) args
   AstIota -> v1
-  AstIndexZ v is ->
-    AstIndexZ (substitute1Ast i var v) (fmap (substitute1AstInt i var) is)
+  AstIndex v is ->
+    AstIndex (substitute1Ast i var v) (fmap (substitute1AstInt i var) is)
   AstSum v -> AstSum (substitute1Ast i var v)
   AstScatter sh v (vars, ix) ->
     AstScatter sh (substitute1Ast i var v)
@@ -192,8 +192,8 @@ substitute1Ast i var v1 = case v1 of
   AstTranspose perm v -> AstTranspose perm (substitute1Ast i var v)
   AstReshape sh v -> AstReshape sh (substitute1Ast i var v)
   AstBuild1 k (var2, v) -> AstBuild1 k (var2, substitute1Ast i var v)
-  AstGatherZ sh v (vars, ix) ->
-    AstGatherZ sh (substitute1Ast i var v)
+  AstGather sh v (vars, ix) ->
+    AstGather sh (substitute1Ast i var v)
                   (vars, fmap (substitute1AstInt i var) ix)
   AstConst _a -> v1
   AstConstant (AstPrimalPart a) ->
@@ -262,7 +262,7 @@ astIsSmall :: forall n r. KnownNat n
 astIsSmall = \case
   AstVar{} -> True
   AstIota -> True
-  AstIndexZ AstIota _ -> True
+  AstIndex AstIota _ -> True
   AstConst{} -> valueOf @n == (0 :: Int)
   AstConstant (AstPrimalPart v) -> astIsSmall v
   AstReplicate _ v -> astIsSmall v  -- materialized via tricks, so prob. safe
@@ -349,9 +349,9 @@ printAst cfg d = \case
        $ printAst cfg 7 left
          . foldr (.) id rs
   AstIota -> showString "tiota"  -- TODO: no surface syntax, so no roundtrip
-  AstIndexZ AstIota (i :. ZI) ->
+  AstIndex AstIota (i :. ZI) ->
     printPrefixOp printAstInt cfg d "tfromIndex0" [i]
-  AstIndexZ v ix ->
+  AstIndex v ix ->
     showParen (d > 9)
     $ printAst cfg 10 v
       . showString " ! "
@@ -397,7 +397,7 @@ printAst cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
-  AstGatherZ sh v (vars, ix) ->
+  AstGather sh v (vars, ix) ->
     showParen (d > 10)
     $ showString ("tgather " ++ show sh ++ " ")
       . printAst cfg 11 v
@@ -416,8 +416,8 @@ printAst cfg d = \case
         else showParen True
              $ shows a
   AstConstant (AstPrimalPart (AstConst a)) -> printAst cfg d (AstConst a)
-  AstConstant (AstPrimalPart (AstIndexZ AstIota (i :. ZI))) ->
-    printAst cfg d (AstIndexZ AstIota (i :. ZI))
+  AstConstant (AstPrimalPart (AstIndex AstIota (i :. ZI))) ->
+    printAst cfg d (AstIndex AstIota (i :. ZI))
   AstConstant (AstPrimalPart a) ->
     printPrefixOp printAst cfg d "tconstant" [a]
   AstD (AstPrimalPart u) (AstDualPart u') ->

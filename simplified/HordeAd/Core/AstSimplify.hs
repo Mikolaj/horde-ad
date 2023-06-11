@@ -111,9 +111,9 @@ astTransposeAsGather perm v = unsafePerformIO $ do
 -- that fuses perfectly with itself and absorbs normal indexes
 -- by substitution. Or perhaps make this the only constructor, with normal
 -- indexes represented as "this index reshaped from sh to sh".
--- Or only extend AstGatherZ and possibly also AstIndexZ with the extra
+-- Or only extend AstGather and possibly also AstIndex with the extra
 -- shIn and shOut arguments. This complicates any code related to
--- AstGatherZ and AstIndexZ, but often prevents nested reshapes from affecting
+-- AstGather and AstIndex, but often prevents nested reshapes from affecting
 -- term size in any way. But we'd need to be careful to avoid breaking such
 -- an index into components, because that forces index normalization,
 -- e.g., index(gather) can no longer simplify recursively by one index
@@ -170,7 +170,7 @@ simplifyStepNonIndex t = case t of
   Ast.AstOp{} -> t
   Ast.AstSumOfList{} -> t
   Ast.AstIota -> t
-  Ast.AstIndexZ{} -> t
+  Ast.AstIndex{} -> t
   Ast.AstSum v -> astSum v
   Ast.AstScatter sh v (vars, ix) -> astScatter sh v (vars, ix)
   Ast.AstFromList l -> astFromList l
@@ -182,9 +182,9 @@ simplifyStepNonIndex t = case t of
   Ast.AstTranspose perm v -> astTranspose perm v
   Ast.AstReshape sh v -> astReshape sh v
   Ast.AstBuild1{} -> t
-  Ast.AstGatherZ _ v0 (Z, ix) -> Ast.AstIndexZ v0 ix
-  Ast.AstGatherZ sh v0 (_, ZI) -> astReplicateN sh v0
-  Ast.AstGatherZ {} -> t
+  Ast.AstGather _ v0 (Z, ix) -> Ast.AstIndex v0 ix
+  Ast.AstGather sh v0 (_, ZI) -> astReplicateN sh v0
+  Ast.AstGather {} -> t
   Ast.AstConst{} -> t
   Ast.AstConstant v -> astConstant v
   Ast.AstD{} -> t
@@ -231,7 +231,7 @@ astIndexZOrStepOnly
   :: forall m n r.
      (KnownNat m, KnownNat n, GoodScalar r)
   => Bool -> AstRanked r (m + n) -> AstIndex m r -> AstRanked r n
-astIndexZOrStepOnly stepOnly (Ast.AstIndexZ v ix) ZI =
+astIndexZOrStepOnly stepOnly (Ast.AstIndex v ix) ZI =
   astIndexZOrStepOnly stepOnly v ix  -- no non-indexing constructor yet revealed
 astIndexZOrStepOnly _ v0 ZI = v0
 astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
@@ -240,7 +240,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
                            -> AstRanked r n'
      astIndexRec vRec ZI = vRec
      astIndexRec vRec ixRec =
-       if stepOnly then Ast.AstIndexZ vRec ixRec else astIndexZ vRec ixRec
+       if stepOnly then Ast.AstIndex vRec ixRec else astIndexZ vRec ixRec
      astIndex = if stepOnly then astIndexStep else astIndexZ
      astGather
        :: forall m' n' p'.
@@ -250,7 +250,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
        -> AstRanked r (m' + n')
      astGather = if stepOnly then astGatherStep else astGatherZ
  in case v0 of
-  Ast.AstVar{} -> Ast.AstIndexZ v0 ix
+  Ast.AstVar{} -> Ast.AstIndex v0 ix
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   Ast.AstLetADShare{} -> error "astIndexZOrStepOnly: AstLetADShare"
   Ast.AstOp opCode args ->
@@ -260,8 +260,8 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   Ast.AstIota | AstIntConst i <- i1 -> case sameNat (Proxy @m) (Proxy @1) of
     Just Refl -> Ast.AstConst $ OR.scalar $ fromIntegral i
     _ -> error "astIndex: AstIota: impossible pattern needlessly required"
-  Ast.AstIota -> Ast.AstIndexZ v0 ix
-  Ast.AstIndexZ v ix2 ->
+  Ast.AstIota -> Ast.AstIndex v0 ix
+  Ast.AstIndex v ix2 ->
     astIndex v (appendIndex ix2 ix)
   Ast.AstSum v ->  -- almost neutral; transposition is likely to fuse away
     let perm3 = backpermCycle $ valueOf @m + 1
@@ -279,20 +279,20 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   -- AstScatter sh v (vars2, ZI) ->
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
   Ast.AstScatter{} ->  -- a normal form
-    Ast.AstIndexZ v0 ix
+    Ast.AstIndex v0 ix
   Ast.AstFromList l | AstIntConst i <- i1 ->
     astIndex (if 0 <= i && i < length l then l !! i else 0) rest1
   Ast.AstFromList{} | ZI <- rest1 ->  -- normal form
-    Ast.AstIndexZ v0 ix
+    Ast.AstIndex v0 ix
   Ast.AstFromList l ->
-    Ast.AstIndexZ (astFromList $ map (`astIndexRec` rest1) l)
+    Ast.AstIndex (astFromList $ map (`astIndexRec` rest1) l)
                   (singletonIndex i1)
   Ast.AstFromVector l | AstIntConst i <- i1 ->
     astIndex (if 0 <= i && i < V.length l then l V.! i else 0) rest1
   Ast.AstFromVector{} | ZI <- rest1 ->  -- normal form
-    Ast.AstIndexZ v0 ix
+    Ast.AstIndex v0 ix
   Ast.AstFromVector l ->
-    Ast.AstIndexZ (astFromVector $ V.map (`astIndexRec` rest1) l)
+    Ast.AstIndex (astFromVector $ V.map (`astIndexRec` rest1) l)
                   (singletonIndex i1)
   Ast.AstReplicate _k v ->
     astIndex v rest1
@@ -307,7 +307,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
       AstBoolConst b -> if b then astIndex v ix else astIndex w ix2
       bExpr -> astCond bExpr (astIndexRec v ix) (astIndexRec w ix2)
     -}
-    Ast.AstIndexZ v0 ix
+    Ast.AstIndex v0 ix
   Ast.AstSlice i _k v ->
     let ii = simplifyAstInt (AstIntOp PlusIntOp [i1, AstIntConst i])
     in astIndex v (ii :. rest1)
@@ -323,21 +323,21 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     astIndex (astReshapeAsGather sh v) ix
   Ast.AstBuild1 _n2 (var2, v) ->
     astIndex (substituteAst @0 (Right i1) var2 v) rest1
-  Ast.AstGatherZ _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
-  Ast.AstGatherZ (_ :$ sh') v (var2 ::: vars, ix2) ->
+  Ast.AstGather _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
+  Ast.AstGather (_ :$ sh') v (var2 ::: vars, ix2) ->
     let ix3 = fmap (substituteAstInt @0 (Right i1) var2) ix2
         w :: AstRanked r (m1 + n)
         w = unsafeCoerce $ astGather sh' v (vars, ix3)
     in astIndex @m1 @n w rest1
-  Ast.AstGatherZ{} ->
-    error "astIndex: AstGatherZ: impossible pattern needlessly required"
+  Ast.AstGather{} ->
+    error "astIndex: AstGather: impossible pattern needlessly required"
   Ast.AstConst t ->
     let unConst (AstIntConst i) (Just l) = Just $ fromIntegral i : l
         unConst _ _ = Nothing
     in case foldr unConst (Just []) ix of
       Just ixInt -> Ast.AstConst $ tindexZR t $ listToIndex ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
-      Nothing -> Ast.AstIndexZ v0 ix
+      Nothing -> Ast.AstIndex v0 ix
   Ast.AstConstant (AstPrimalPart v) ->
     astConstant $ AstPrimalPart $ astIndex v ix
   Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
@@ -467,7 +467,7 @@ astSlice i k w@(Ast.AstAppend (u :: AstRanked r (1 + n)) (v :: AstRanked r (1 + 
   in if | i + k <= ulen -> astSlice @n i k u
         | i >= ulen -> astSlice @n (i - ulen) k v
         | otherwise -> Ast.AstSlice @n i k w  -- cheap iff fits in one
-astSlice i k (Ast.AstGatherZ (_ :$ sh') v (var ::: vars, ix)) =
+astSlice i k (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
   let ivar = AstIntOp PlusIntOp [AstIntVar var, AstIntConst i]
       ix2 = fmap (substituteAstInt @0 (Right ivar) var) ix
   in astGatherZ (k :$ sh') v (var ::: vars, ix2)
@@ -482,7 +482,7 @@ astReverse (Ast.AstFromList l) = Ast.AstFromList $ reverse l
 astReverse (Ast.AstFromVector l) = Ast.AstFromVector $ V.reverse l
 astReverse (Ast.AstReplicate k v) = Ast.AstReplicate k v
 astReverse (Ast.AstReverse v) = v
-astReverse (Ast.AstGatherZ sh@(k :$ _) v (var ::: vars, ix)) =
+astReverse (Ast.AstGather sh@(k :$ _) v (var ::: vars, ix)) =
   let ivar = AstIntOp Ast.MinusIntOp [AstIntConst k, AstIntVar var]
       ix2 = fmap (substituteAstInt @0 (Right ivar) var) ix
   in astGatherZ sh v (var ::: vars, ix2)
@@ -522,7 +522,7 @@ astTranspose perm0 t0 = case (perm0, t0) of
   -- Note that the following would be wrong, becuase transpose really
   -- changes the linearisation order, while reshape only modifies indexing:
   -- (perm, AstReshape sh v) -> astReshape (backpermutePrefixShape perm sh) v
-  (perm, Ast.AstGatherZ @m sh v (vars, ix)) | length perm <= valueOf @m ->
+  (perm, Ast.AstGather @m sh v (vars, ix)) | length perm <= valueOf @m ->
     astGatherZ (backpermutePrefixShape perm sh) v
                (backpermutePrefixSized perm vars, ix)
   (perm, Ast.AstConst t) ->
@@ -626,7 +626,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     => ShapeInt (m' + n') -> AstRanked r (p' + n')
     -> (AstVarList m', AstIndex p' r)
     -> AstRanked r (m' + n')
-  astGatherRec = if stepOnly then Ast.AstGatherZ else astGatherZ
+  astGatherRec = if stepOnly then Ast.AstGather else astGatherZ
   astGather = if stepOnly then astGatherStep else astGatherZ
   -- Note that v4 is in weak head normal form and so can't one-step reduce
   -- and so we don't have to reduce it to expose any top redexes.
@@ -638,7 +638,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 (_, ZI) = astReplicateN sh4 v4  -- not really possible
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :. (rest4 :: AstIndex p1' r)) ) = case v4 of
-    Ast.AstVar{} -> Ast.AstGatherZ sh4 v4 (vars4, ix4)
+    Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
     Ast.AstLetADShare{} -> error "astGatherCase: AstLetADShare"
     Ast.AstOp opCode args | not (length args > 1 || all isVar args) ->
@@ -646,20 +646,20 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       -- and reverting this transformation requires comparing many arguments,
       -- so it's not practical.
       Ast.AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
-    Ast.AstOp{} -> Ast.AstGatherZ sh4 v4 (vars4, ix4)
+    Ast.AstOp{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstSumOfList args | not (length args > 1 || all isVar args) ->
       Ast.AstSumOfList (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
-    Ast.AstSumOfList{} -> Ast.AstGatherZ sh4 v4 (vars4, ix4)
+    Ast.AstSumOfList{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstIota | AstIntConst i <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
       Just Refl -> astReplicateN sh4 $ Ast.AstConst $ OR.scalar $ fromIntegral i
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
     Ast.AstIota ->  -- probably nothing can be simplified; a normal form
-      Ast.AstGatherZ sh4 v4 (vars4, ix4)
-    Ast.AstIndexZ v2 ix2 -> case (v2, ix2) of
+      Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstIndex v2 ix2 -> case (v2, ix2) of
       (Ast.AstFromList{}, i2 :. ZI) -> astGather sh4 v2 (vars4, i2 :. ix4)
       (Ast.AstFromVector{}, i2 :. ZI) -> astGather sh4 v2 (vars4, i2 :. ix4)
       _ ->  -- AstVar, AstConst
-        Ast.AstGatherZ sh4 v4 (vars4, ix4)
+        Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstSum v ->
       let perm3 = backpermCycle $ valueOf @p' + 1
           perm4 = permCycle $ valueOf @m' + 1
@@ -683,12 +683,12 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           else astGather sh4 (astReplicateN @(p1' + n') @0 (unsafeCoerce sh) 0)
                          (vars4, rest4)
     Ast.AstScatter{} ->  -- a normal form
-      Ast.AstGatherZ sh4 v4 (vars4, ix4)
+      Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromList l | AstIntConst i <- i4 ->
       astGather sh4 (if 0 <= i && i < length l then l !! i else 0)
                     (vars4, rest4)
     Ast.AstFromList{} | gatherFromNF vars4 ix4 ->
-      Ast.AstGatherZ sh4 v4 (vars4, ix4)
+      Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromList l ->
       let f v = astGatherRec sh4 v (vars4, rest4)
           (varsFresh, ixFresh) = funToAstIndex @m' id
@@ -701,7 +701,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       astGather sh4 (if 0 <= i && i < V.length l then l V.! i else 0)
                     (vars4, rest4)
     Ast.AstFromVector{} | gatherFromNF vars4 ix4 ->
-      Ast.AstGatherZ sh4 v4 (vars4, ix4)
+      Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromVector l ->
       let f v = astGatherRec sh4 v (vars4, rest4)
           (varsFresh, ixFresh) = funToAstIndex @m' id
@@ -718,7 +718,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
          TODO: The normal form is not acceptable, because fusion is halted
          and can't get inside AstAppend, unlike inside AstFromList.
          Let's see if we can do the same trick as with AstFromList
-         and get all the remaining indexes inside AstGatherZ.
+         and get all the remaining indexes inside AstGather.
          BTW, probably fusion is halted also due to NF with AstScatter.
       let vlen = AstIntConst $ lengthAst v
           iw = simplifyAstInt (AstIntOp MinusIntOp [i4, vlen])
@@ -732,7 +732,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                        (vars4, AstIntCond b 0 1
                                :. sizedListToIndex (fmap AstIntVar vars4))
       -}
-      Ast.AstGatherZ sh4 v4 (vars4, ix4)
+      Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstSlice i _k v ->
       let ii = simplifyAstInt (AstIntOp Ast.PlusIntOp
                                             [i4, AstIntConst i])
@@ -747,8 +747,8 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       astGather sh4 (astTransposeAsGather perm v) (vars4, ix4)
     Ast.AstReshape sh v ->
       astGather sh4 (astReshapeAsGather sh v) (vars4, ix4)
-    Ast.AstBuild1{} -> Ast.AstGatherZ sh4 v4 (vars4, ix4)
-    Ast.AstGatherZ @m2 @n2 _sh2 v2 (vars2, ix2) ->
+    Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
       let subst :: AstIndex m7 r -> AstVarList m7 -> AstInt r -> AstInt r
           subst ix vars i =
             foldr (uncurry (substituteAstInt @0)) i
@@ -770,7 +770,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
         EQI -> assimilatedGather
         GTI -> gcastWith (flipCompare @p' @m2) assimilatedGather
     Ast.AstConst{} ->  -- free variables possible, so can't compute the tensor
-      Ast.AstGatherZ sh4 v4 (vars4, ix4)
+      Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstConstant (AstPrimalPart v) ->
       astConstant $ AstPrimalPart $ astGather sh4 v (vars4, ix4)
     Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
@@ -830,19 +830,19 @@ astFromDynamic (AstDynamic @n2 v) =
                     w = astIndexZ v2 rest1
                 in case gatherSimplify k var w i1 of
                   Just u -> u  -- an extremely simple form found
-                    -- for AstGatherZ instead:
-                    -- AstGatherZ ... u (initN, rest1)
+                    -- for AstGather instead:
+                    -- AstGather ... u (initN, rest1)
                   Nothing ->
                     AstGather1 k v2 (var, ix2)
                     -- we didn't really need it anyway
-            | otherwise -> astReplicate k (AstIndexZ v2 ix2)
+            | otherwise -> astReplicate k (AstIndex v2 ix2)
 -}
 -- Let's instead wait and see if we can come up with more general
 -- simplifications, involving all variables. Especially that
 -- astSliceLax is so complex. Perhaps instead of recovering slices
 -- and the identity, transpositions and the identity would be better.
 -- | The application @gatherSimplify k var v i1@ vectorizes and simplifies
--- the term @AstBuild1 k (var, AstIndexZ v [i1])@, where it's known that
+-- the term @AstBuild1 k (var, AstIndex v [i1])@, where it's known that
 -- @var@ does not occur in @v@ but occurs in @i1@. This is done by pattern
 -- matching on @i1@ as opposed to on @v@.
 gatherSimplify
@@ -986,10 +986,10 @@ inlineAst env memo v0 = case v0 of
     let (memo2, args2) = mapAccumR (inlineAst env) memo args
     in (memo2, Ast.AstSumOfList args2)
   Ast.AstIota -> (memo, v0)
-  Ast.AstIndexZ v ix ->
+  Ast.AstIndex v ix ->
     let (memo1, v2) = inlineAst env memo v
         (memo2, ix2) = mapAccumR (inlineAstInt env) memo1 (indexToList ix)
-    in (memo2, Ast.AstIndexZ v2 (listToIndex ix2))
+    in (memo2, Ast.AstIndex v2 (listToIndex ix2))
   Ast.AstSum v -> second Ast.AstSum (inlineAst env memo v)
   Ast.AstScatter sh v (vars, ix) ->
     let (memo1, v2) = inlineAst env memo v
@@ -1018,12 +1018,12 @@ inlineAst env memo v0 = case v0 of
     let (memoV0, v2) = inlineAst env EM.empty v
         memo1 = EM.unionWith (\c1 c0 -> c1 + k * c0) memo memoV0
     in (memo1, Ast.AstBuild1 k (var, v2))
-  Ast.AstGatherZ sh v (vars, ix) ->
+  Ast.AstGather sh v (vars, ix) ->
     let (memo1, v2) = inlineAst env memo v
         (memoI0, ix2) = mapAccumR (inlineAstInt env) EM.empty (indexToList ix)
         count = sizeShape sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-    in (memo2, Ast.AstGatherZ sh v2 (vars, listToIndex ix2))
+    in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
   Ast.AstConst{} -> (memo, v0)
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAstPrimal env memo a
   Ast.AstD u u' ->
@@ -1165,8 +1165,8 @@ unletAst env t = case t of
   Ast.AstOp opCode args -> Ast.AstOp opCode (map (unletAst env) args)
   Ast.AstSumOfList args -> Ast.AstSumOfList (map (unletAst env) args)
   Ast.AstIota -> t
-  Ast.AstIndexZ v ix ->
-    Ast.AstIndexZ (unletAst env v) (fmap (unletAstInt env) ix)
+  Ast.AstIndex v ix ->
+    Ast.AstIndex (unletAst env v) (fmap (unletAstInt env) ix)
   Ast.AstSum v -> Ast.AstSum (unletAst env v)
   Ast.AstScatter sh v (var, ix) ->
     Ast.AstScatter sh (unletAst env v) (var, fmap (unletAstInt env) ix)
@@ -1179,8 +1179,8 @@ unletAst env t = case t of
   Ast.AstTranspose perm v -> Ast.AstTranspose perm (unletAst env v)
   Ast.AstReshape sh v -> Ast.AstReshape sh (unletAst env v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, unletAst env v)
-  Ast.AstGatherZ sh v (vars, ix) ->
-    Ast.AstGatherZ sh (unletAst env v) (vars, fmap (unletAstInt env) ix)
+  Ast.AstGather sh v (vars, ix) ->
+    Ast.AstGather sh (unletAst env v) (vars, fmap (unletAstInt env) ix)
   Ast.AstConst{} -> t
   Ast.AstConstant v -> Ast.AstConstant (unletAstPrimal env v)
   Ast.AstD u (AstDualPart u') -> Ast.AstD (unletAstPrimal env u)
@@ -1258,7 +1258,7 @@ simplifyAst t = case t of
     -- We do not simplify, e.g., addition or multiplication by zero.
     -- There are too many cases and values are often unknown.
   Ast.AstIota -> t
-  Ast.AstIndexZ v ix -> astIndexZ (simplifyAst v) (fmap simplifyAstInt ix)
+  Ast.AstIndex v ix -> astIndexZ (simplifyAst v) (fmap simplifyAstInt ix)
   Ast.AstSum v -> astSum (simplifyAst v)
   Ast.AstScatter sh v (var, ix) ->
     astScatter sh (simplifyAst v) (var, fmap simplifyAstInt ix)
@@ -1308,7 +1308,7 @@ simplifyAst t = case t of
           u -> simplifyAst u
       u -> simplifyAst u
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
-  Ast.AstGatherZ sh v (vars, ix) ->
+  Ast.AstGather sh v (vars, ix) ->
     astGatherZ sh (simplifyAst v) (vars, fmap simplifyAstInt ix)
   Ast.AstConst{} -> t
   Ast.AstConstant v -> astConstant (simplifyAstPrimal v)
