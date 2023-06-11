@@ -68,7 +68,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
-import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
 import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -157,7 +157,7 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
          -> DeltaS ranked shaped r sh2
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
-  SumS :: (OS.Shape sh, KnownNat n)
+  SumS :: KnownNat n
        => DeltaS ranked shaped r (n ': sh) -> DeltaS ranked shaped r sh
   Sum0S :: (OS.Shape sh, KnownNat (OS.Rank sh), KnownNat (OS.Size sh))
         => DeltaS ranked shaped r sh -> DeltaS ranked shaped r '[]
@@ -165,7 +165,8 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
         => shaped r sh -> DeltaS ranked shaped r sh
         -> DeltaS ranked shaped r '[]
   ScatterS :: forall ranked shaped r sh2 p sh.
-              ( OS.Shape (sh2 OS.++ OS.Drop p sh)
+              ( OS.Shape sh2, OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh)
+              , OS.Shape (sh2 OS.++ OS.Drop p sh)
               , KnownNat (OS.Rank (sh2 OS.++ OS.Drop p sh)) )
            => DeltaS ranked shaped r (sh2 OS.++ OS.Drop p sh)
            -> (IndexSh (shaped r '[]) sh2
@@ -213,12 +214,11 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall ranked shaped perm r sh.
                 ( OS.Permutation perm, OS.Shape perm, OS.Shape sh
-                , KnownNat (OS.Rank sh) )
+                , KnownNat (OS.Rank sh), OS.Rank perm <= OS.Rank sh )
              => DeltaS ranked shaped r sh
              -> DeltaS ranked shaped r (OS.Permute perm sh)
     -- ^ Transpose according to the permutation.
-  ReshapeS :: ( OS.Shape sh, OS.Shape sh2, OS.Size sh ~ OS.Size sh2
-              , KnownNat (OS.Rank sh) )
+  ReshapeS :: (OS.Shape sh, OS.Size sh ~ OS.Size sh2, KnownNat (OS.Rank sh))
            => DeltaS ranked shaped r sh
            -> DeltaS ranked shaped r sh2
     -- ^ Change the shape of the tensor from the first to the second.
@@ -229,7 +229,8 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
   GatherS :: forall ranked shaped r sh2 p sh.
-             (OS.Shape sh, KnownNat (OS.Rank sh))
+             ( OS.Shape sh2, OS.Shape sh, KnownNat (OS.Rank sh)
+             , OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh) )
           => DeltaS ranked shaped r sh
           -> (IndexSh (shaped r '[]) sh2
               -> IndexSh (shaped r '[]) (OS.Take p sh))
@@ -593,8 +594,8 @@ buildFinMaps s0 deltaDt =
             evalS s2 (cShared !$ (fromIntegral i :$: ZSH)) d2) sShared ld
         ReplicateS d -> evalS s (ssum c) d
         AppendS @_ @_ @_ @m @n d e ->
-          let s2 = evalS sShared (sslice @shaped @r @0 @n cShared) d
-          in evalS s2 (sslice @shaped @r @m cShared) e
+          let s2 = evalS sShared (sslice (Proxy @0) Proxy cShared) d
+          in evalS s2 (sslice (Proxy @m) Proxy cShared) e
         SliceS @_ @_ @_ @i d ->
           evalS s (sappend @shaped @r @i 0 (sappend c 0)) d
         ReverseS d -> evalS s (sreverse c) d
@@ -608,9 +609,13 @@ buildFinMaps s0 deltaDt =
           in OS.withShapeP permRev $ \(_proxy :: Proxy permRev) ->
             gcastWith (unsafeCoerce Refl
                        :: OS.Permute permRev sh :~: sh2)
+            $ gcastWith (unsafeCoerce Refl
+                         :: OS.Rank sh :~: OS.Rank sh2)
+            $ gcastWith (unsafeCoerce Refl
+                         :: OS.Rank permRev :~: OS.Rank perm)
             $ evalS s
                     (trustMeThisIsAPermutation @permRev
-                       (stranspose @shaped @permRev)
+                       (stranspose (Proxy @permRev))
                        c)
                     d
         ReshapeS d -> evalS s (sreshape c) d
@@ -905,9 +910,9 @@ buildDerivative dimR deltaDt params = do
           t <- evalS d
           return $! sreplicate t
         AppendS d e -> liftM2 sappend (evalS d) (evalS e)
-        SliceS @_ @_ @_ @i d -> sslice @shaped @r @i <$> evalS d
+        SliceS @_ @_ @_ @i d -> sslice (Proxy @i) Proxy <$> evalS d
         ReverseS d -> sreverse <$> evalS d
-        TransposeS @_ @_ @perm d -> stranspose @shaped @perm <$> evalS d
+        TransposeS @_ @_ @perm d -> stranspose (Proxy @perm) <$> evalS d
         ReshapeS d -> sreshape <$> evalS d
         BuildS @_ @_ @_ @n f -> do
           l <- mapM (evalS . f . ShapedList.shapedNat . fromIntegral)
