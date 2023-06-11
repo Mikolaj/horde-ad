@@ -144,7 +144,7 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
 mnistTestCaseRNNI
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, Random r, InterpretAstA (ADVal ranked) r
+     , ADReady ranked r, Random r, InterpretAstR (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -254,7 +254,7 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
 mnistTestCaseRNNO
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, Random r, InterpretAstA ranked r
+     , ADReady ranked r, Random r, InterpretAstR ranked r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r

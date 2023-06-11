@@ -3,7 +3,6 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
 -- | A class containing array operations, with some extra algebraic operations
 -- and dual numbers operations added in. This is a part of the high-level
@@ -369,8 +368,7 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   -- (a number suffix in the name indicates the rank of codomain)
   sindex, (!$) :: forall r sh1 sh2.
                   (GoodScalar r, OS.Shape sh2, OS.Shape (sh1 OS.++ sh2))
-               => shaped r (sh1 OS.++ sh2)
-               -> IndexSh (shaped r '[]) sh1
+               => shaped r (sh1 OS.++ sh2) -> IndexSh (shaped r '[]) sh1
                -> shaped r sh2
   infixl 9 !$
   (!$) = sindex  -- prefix form better when type applications are necessary
@@ -403,15 +401,20 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
            => shaped r sh -> shaped r '[]
   smaximum t = gcastWith (unsafeCoerce Refl :: (sh OS.++ '[])  :~: sh)
                $ t !$ smaxIndex t
-  sfromIndex0 :: GoodScalar r => IntOf (shaped r '[]) -> shaped r '[]
-    -- not IntSh, because no benefit; compose with shapedNat if needed
-  sfromIndex1 :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+  sfromIndex0 :: forall n r. (GoodScalar r, KnownNat n)
+              => IntSh (shaped r '[]) n -> shaped r '[]
+  sfromIndex1 :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
               => IndexSh (shaped r '[]) sh -> shaped r '[OS.Rank sh]
-  sfromIndex1 = sfromList . map sfromIndex0 . ShapedList.sizedListToList
+  sfromIndex1 =
+    let go :: IndexSh (shaped r '[]) sh1 -> [shaped r '[]]
+        go ZSH = []
+        go ((:$:) @n i rest) = sfromIndex0 @shaped @n (ShapedList.shapedNat i)
+                               : go rest
+    in sfromList . go
   sscatter
     :: forall r sh2 p sh.
        ( GoodScalar r, OS.Shape sh2, OS.Shape sh, OS.Shape (OS.Take p sh)
-       , OS.Shape (OS.Drop p sh) )
+       , OS.Shape (OS.Drop p sh), OS.Shape (sh2 OS.++ OS.Drop p sh) )
     => shaped r (sh2 OS.++ OS.Drop p sh)
     -> (IndexSh (shaped r '[]) sh2 -> IndexSh (shaped r '[]) (OS.Take p sh))
     -> shaped r sh
@@ -451,9 +454,9 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   sappend :: (GoodScalar r, KnownNat m, KnownNat n, OS.Shape sh)
           => shaped r (m ': sh) -> shaped r (n ': sh)
           -> shaped r ((m + n) ': sh)
-  sslice :: (GoodScalar r, KnownNat i, KnownNat k, KnownNat n)
+  sslice :: (GoodScalar r, KnownNat i, KnownNat k, KnownNat n, OS.Shape sh)
          => Proxy i -> Proxy k
-         -> shaped r (i + n + k ': rest) -> shaped r (n ': rest)
+         -> shaped r (i + n + k ': sh) -> shaped r (n ': sh)
   suncons :: forall r n sh. (GoodScalar r, KnownNat n, OS.Shape sh)
           => shaped r (n ': sh) -> Maybe (shaped r sh, shaped r (n - 1 ': sh))
   suncons v = case cmpNat (Proxy @1) (Proxy @n) of
@@ -803,7 +806,7 @@ instance ShapedTensor (Flip OS.Array) where
   sdot0 u v = Flip $ tscalarS $ tdot0S (runFlip u) (runFlip v)
   smatvecmul m v = Flip $ tmatvecmulS (runFlip m) (runFlip v)
   smatmul2 m1 m2 = Flip $ tmatmul2S (runFlip m1) (runFlip m2)
-  sfromIndex0 = Flip . tscalarS . fromIntegral
+  sfromIndex0 = Flip . tscalarS . fromIntegral . ShapedList.unShapedNat
   sscatter t f = Flip $ tscatterZS (runFlip t) f
   sscatter1 t f = Flip $ tscatterZ1S (runFlip t) f
   sfromList = Flip . tfromListS . map runFlip
@@ -836,10 +839,6 @@ instance ShapedTensor (Flip OS.Array) where
   sdualPart _ = DummyDual
   sD u _ = u
   sScale _ _ = DummyDual
-
-type instance IntOf (AstShaped r sh) = AstInt r
-
-instance ShapedTensor AstShaped where
 
 instance (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => AdaptableDomains OD.Array (Flip OS.Array r sh) where

@@ -25,8 +25,8 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
-import HordeAd.External.CommonRankedOps
 import HordeAd.Core.TensorOps
+import HordeAd.External.CommonRankedOps
 
 import CrossTesting
 import EqEpsilon
@@ -686,7 +686,7 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: ( InterpretAstA (ADVal (Flip OR.Array)) r )
+  let f :: ( InterpretAstR (ADVal (Flip OR.Array)) r )
         => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
@@ -824,7 +824,7 @@ barReluAst x = relu $ bar (x, relu x)
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
   let f :: ( ADReady AstRanked r
-           , InterpretAstA (ADVal (Flip OR.Array)) r )
+           , InterpretAstR (ADVal (Flip OR.Array)) r )
         => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
@@ -837,7 +837,7 @@ testBarReluAst0 =
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
   let f :: ( ADReady AstRanked r
-           , InterpretAstA (ADVal (Flip OR.Array)) r )
+           , InterpretAstR (ADVal (Flip OR.Array)) r )
         => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))
@@ -855,7 +855,7 @@ konstReluAst x = tsum0 $ relu $ treplicate0N (7 :$ ZS) x
 testReplicateReluAst :: Assertion
 testReplicateReluAst =
   let f :: ( ADReady AstRanked r
-           , InterpretAstA (ADVal (Flip OR.Array)) r )
+           , InterpretAstR (ADVal (Flip OR.Array)) r )
         => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
       f x = snd
             $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstVarR $ dfromR x))

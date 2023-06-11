@@ -51,7 +51,7 @@ import HordeAd.Core.TensorClass
 revL
   :: forall r n vals astvals ranked.
      ( ranked ~ ADVal AstRanked
-     , InterpretAstA ranked r, KnownNat n
+     , InterpretAstR ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
@@ -61,7 +61,7 @@ revL f valsAll = revDtMaybeL f valsAll Nothing
 revDtMaybeL
   :: forall r n vals astvals ranked.
      ( ranked ~ ADVal AstRanked
-     , InterpretAstA ranked r, KnownNat n
+     , InterpretAstR ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
@@ -76,7 +76,7 @@ revDtMaybeL f valsAll@(vals : _) dt =
 revDtFun
   :: forall r n vals astvals ranked.
      ( ranked ~ ADVal AstRanked
-     , InterpretAstA ranked r, KnownNat n
+     , InterpretAstR ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> AstRanked r n) -> vals
@@ -89,7 +89,7 @@ revDtFun f vals =
 revDtInit
   :: forall r n vals astvals ranked.
      ( ranked ~ ADVal AstRanked
-     , InterpretAstA ranked r, KnownNat n
+     , InterpretAstR ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value astvals, Underlying astvals ~ r)
   => (astvals -> AstRanked r n) -> vals -> AstEnv ranked r
@@ -102,7 +102,7 @@ revDtInit f vals envInit parameters0 =
 revDtInterpret
   :: forall n r vals astvals ranked.
      ( ranked ~ ADVal AstRanked
-     , InterpretAstA ranked r, KnownNat n
+     , InterpretAstR ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value astvals, Underlying astvals ~ r )
   => AstEnv ranked r
@@ -121,7 +121,7 @@ revDtInterpret envInit valsInit f = \varInputs domains
 rev
   :: forall r n vals astvals ranked.
      ( ranked ~ ADVal AstRanked
-     , InterpretAstA ranked r, KnownNat n
+     , InterpretAstR ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
@@ -132,7 +132,7 @@ rev f vals = head $ revL f [vals]
 revDt
   :: forall r n vals astvals ranked.
      ( ranked ~ ADVal AstRanked
-     , InterpretAstA ranked r, KnownNat n
+     , InterpretAstR ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
@@ -142,7 +142,7 @@ revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 revAstOnDomains
   :: forall r n ranked.
      ( ranked ~ Flip OR.Array
-     , InterpretAstA ranked r, KnownNat n )
+     , InterpretAstR ranked r, KnownNat n )
   => (Domains (ADValClown AstDynamic) r -> ADVal AstRanked r n)
   -> Domains OD.Array r -> Maybe (ranked r n)
   -> (Domains OD.Array r, ranked r n)
@@ -200,7 +200,7 @@ packDeltaDtA (Right t) = DeltaDtR t
 revAstOnDomainsEval
   :: forall r n ranked.
      ( ranked ~ Flip OR.Array
-     , InterpretAstA ranked r, KnownNat n )
+     , InterpretAstR ranked r, KnownNat n )
   => ADAstArtifact6 n r -> Domains OD.Array r -> Maybe (ranked r n)
   -> (Domains OD.Array r, ranked r n)
 {-# INLINE revAstOnDomainsEval #-}

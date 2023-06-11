@@ -156,7 +156,7 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
 mnistTestCase2VTI
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, InterpretAstA (ADVal ranked) r
+     , ADReady ranked r, InterpretAstR (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -273,7 +273,7 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
 mnistTestCase2VTO
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, InterpretAstA ranked r
+     , ADReady ranked r, InterpretAstR ranked r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -487,7 +487,7 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
 mnistTestCase2VT2I
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, Random r, InterpretAstA (ADVal ranked) r
+     , ADReady ranked r, Random r, InterpretAstR (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -595,7 +595,7 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
 mnistTestCase2VT2O
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, Random r, InterpretAstA ranked r
+     , ADReady ranked r, Random r, InterpretAstR ranked r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r

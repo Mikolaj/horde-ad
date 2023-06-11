@@ -829,8 +829,8 @@ tappendS
 tappendS = OS.append
 
 tsliceS
-  :: forall i k n rest r. KnownNat i
-  => OS.Array (i + n + k ': rest) r -> OS.Array (n ': rest) r
+  :: forall i k n sh r. KnownNat i
+  => OS.Array (i + n + k ': sh) r -> OS.Array (n ': sh) r
 tsliceS = OS.slice @'[ '(i, n) ]
 
 treverseS

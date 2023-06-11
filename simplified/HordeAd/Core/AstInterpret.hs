@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
 module HordeAd.Core.AstInterpret
-  ( InterpretAstA
+  ( InterpretAstR, InterpretAstS
   , interpretAst, interpretAstDomainsDummy
   , AstEnv, extendEnvR, extendEnvD, AstMemo, emptyMemo
   , AstEnvElem(AstVarR)  -- for a test only
@@ -124,7 +124,12 @@ class (forall y41. KnownNat y41 => c (ranked r y41))
 instance (forall y41. KnownNat y41 => c (ranked r y41))
          => CRanked ranked r c where
 
-type InterpretAstA ranked r =
+class (forall y41. OS.Shape y41 => c (shaped r y41))
+      => CShaped shaped r c where
+instance (forall y41. OS.Shape y41 => c (shaped r y41))
+         => CShaped shaped r c where
+
+type InterpretAstR ranked r =
   ( GoodScalar r
   , Integral (IntOf (PrimalOf ranked r 0)), EqB (IntOf (ranked r 0))
   , OrdB (IntOf (ranked r 0)), IfB (IntOf (ranked r 0))
@@ -138,10 +143,26 @@ type InterpretAstA ranked r =
   , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 0)
   )
 
-type InterpretAst ranked shaped r=
+type InterpretAstS shaped r =
+  ( GoodScalar r
+  , Integral (IntOf (PrimalOf shaped r '[])), EqB (IntOf (shaped r '[]))
+  , OrdB (IntOf (shaped r '[])), IfB (IntOf (shaped r '[]))
+  , IntOf (PrimalOf shaped r '[]) ~ IntOf (shaped r '[])
+  , CShaped (PrimalOf shaped) r EqB
+  , CShaped (PrimalOf shaped) r OrdB
+  , CShaped shaped r RealFloat
+  , CShaped (PrimalOf shaped) r
+            (BooleanOfMatches (BooleanOf (IntOf (shaped r '[]))))
+  , BooleanOf (shaped r '[]) ~ BooleanOf (IntOf (shaped r '[]))
+  , BooleanOf (IntOf (shaped r '[])) ~ BooleanOf (shaped r '[])
+  )
+
+type InterpretAst ranked shaped r =
   ( Tensor ranked, Tensor (PrimalOf ranked)
   , ConvertTensor ranked shaped
-  , InterpretAstA ranked r
+  , InterpretAstR ranked r
+  , InterpretAstS shaped r
+  , IntOf (ranked r 0) ~ IntOf (shaped r '[])
   )
 
 type AstMemo r = ()  -- unused for now, but likely to be used in the future,
@@ -522,6 +543,9 @@ interpretAstBool env memo = \case
   AstRel opCodeRel args ->
     let (memo2, args2) = mapAccumR (interpretAstPrimal env) memo args
     in (memo2, interpretAstRelOp opCodeRel args2)
+  AstRelS opCodeRel args ->
+    let (memo2, args2) = mapAccumR (interpretAstPrimalS env) memo args
+    in (memo2, interpretAstRelOp opCodeRel args2)
   AstRelInt opCodeRel args ->
     let (memo2, args2) = mapAccumR (interpretAstInt env) memo args
     in (memo2, interpretAstRelOp opCodeRel args2)
@@ -623,6 +647,12 @@ interpretAstRelOp opCodeRel args =
   error $ "interpretAstRelOp: wrong number of arguments"
           ++ show (opCodeRel, length args)
 
+interpretAstPrimalS
+  :: forall ranked shaped sh r.
+     (InterpretAst ranked shaped r)
+  => AstEnv ranked r -> AstMemo r
+  -> AstPrimalPartS r sh -> (AstMemo r, PrimalOf shaped r sh)
+interpretAstPrimalS = undefined
 
 
 

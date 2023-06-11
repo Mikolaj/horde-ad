@@ -18,26 +18,25 @@ import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 
-import HordeAd.Core.Adaptor
-import HordeAd.Core.Ast
-import HordeAd.Core.AstFreshId
-import HordeAd.Core.AstSimplify
-import HordeAd.Core.AstTools
-import HordeAd.Core.AstVectorize
-import HordeAd.Core.SizedIndex
-import HordeAd.Core.TensorClass
+import           HordeAd.Core.Adaptor
+import           HordeAd.Core.Ast
+import           HordeAd.Core.AstFreshId
+import           HordeAd.Core.AstSimplify
+import           HordeAd.Core.AstTools
+import           HordeAd.Core.AstVectorize
+import           HordeAd.Core.ShapedList (ShapedList (..))
+import qualified HordeAd.Core.ShapedList as ShapedList
+import           HordeAd.Core.SizedIndex
+import           HordeAd.Core.TensorClass
+import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 
 type instance IntOf (AstRanked r n) = AstInt r
-
-type instance IntOf (AstShaped r n) = AstInt r
 
 type instance PrimalOf AstRanked = AstPrimalPart
 
 type instance DualOf AstRanked = AstDualPart
 
 type instance DynamicOf AstRanked = AstDynamic
-
-type instance DynamicOf AstShaped = AstDynamic
 
 instance Tensor AstRanked where
   tlet a f = astLetFun a f
@@ -65,7 +64,7 @@ instance Tensor AstRanked where
   tbuild1 = astBuild1Vectorize
   tgather sh t f = AstGather sh t (funToAstIndex f)  -- introduces new vars
 
-  tsumOfList l = AstSumOfList l
+  tsumOfList = AstSumOfList
   tconst = AstConstant . AstPrimalPart . AstConst
   tconstBare = AstConst
   tletWrap = AstLetADShare
@@ -75,7 +74,7 @@ instance Tensor AstRanked where
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
   raddDynamic :: forall n r. KnownNat n
-        => AstRanked r n -> AstDynamic r -> AstDynamic r
+              => AstRanked r n -> AstDynamic r -> AstDynamic r
   raddDynamic r (AstDynamic AstIota) = AstDynamic r
   raddDynamic r (AstDynamic @n2 (AstSumOfList l)) =
     case sameNat (Proxy @n) (Proxy @n2) of
@@ -322,3 +321,74 @@ astLetFunUnSimp a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh f
   in AstLet var a ast
+
+type instance IntOf (AstShaped r sh) = AstInt r
+
+type instance PrimalOf AstShaped = AstPrimalPartS
+
+type instance DualOf AstShaped = AstDualPartS
+
+type instance DynamicOf AstShaped = AstDynamic
+
+instance ShapedTensor AstShaped where  -- TODO
+  slet a f = astLetFunS a f
+
+  sminIndex0 = ShapedList.shapedNat . AstMinIndex1S . AstPrimalPartS
+  smaxIndex0 = ShapedList.shapedNat . AstMaxIndex1S . AstPrimalPartS
+  sfloor = AstIntFloorS . AstPrimalPartS
+
+  sindex = AstIndexS
+  ssum = AstSumS
+  sfromIndex0 :: forall n r. KnownNat n
+              => IntSh (AstShaped r '[]) n -> AstShaped r '[]
+  sfromIndex0 i = AstConstantS $ AstPrimalPartS
+                  $ AstIndexS (AstIotaS @n) (ShapedList.consShaped i ZSH)
+    -- toInteger is not defined for Ast, hence a special implementation
+  sscatter t f = AstScatterS t (funToAstIndexS f)  -- astScatter t (funToAstIndexS f)  -- introduces new vars
+
+  sfromList = AstFromListS
+  sfromVector = AstFromVectorS
+  sreplicate = AstReplicateS
+  sappend = AstAppendS
+  sslice (_ :: Proxy i) Proxy = AstSliceS @i
+  sreverse = AstReverseS
+  stranspose (_ :: Proxy perm) = AstTransposeS @perm  -- astTranspose
+  sreshape = AstReshapeS  -- astReshape
+  sbuild1 = undefined  -- astBuild1Vectorize
+  sgather t f = AstGatherS t (funToAstIndexS f)  -- introduces new vars
+
+  ssumOfList = AstSumOfListS
+  sconst = AstConstantS . AstPrimalPartS . AstConstS
+  sconstBare = AstConstS
+  sletWrap = AstLetADShareS
+    -- We can't use astLet here, because it may inline a let that is
+    -- present at the top level of the dual number and so we'd lose
+    -- sharing that is not visible in this restricted context.
+    -- To make sure astLet is not used on these, we mark them with
+    -- a special constructor that also makes comparing lets cheap.
+  saddDynamic :: forall sh r. OS.Shape sh
+              => AstShaped r sh -> AstDynamic r -> AstDynamic r
+  saddDynamic r (AstDynamicS AstIotaS) = AstDynamicS r
+  saddDynamic r (AstDynamicS @sh2 (AstSumOfListS l)) =
+    case sameShape @sh @sh2 of
+      Just Refl -> AstDynamicS (AstSumOfListS (r : l))
+      _ -> error "saddDynamic: type mismatch"
+  saddDynamic r (AstDynamicS @sh2 v) =
+    case sameShape @sh @sh2 of
+      Just Refl -> AstDynamicS (AstSumOfListS [r, v])
+      _ -> error "saddDynamic: type mismatch"
+  sregister = astRegisterFunS
+
+  sconstant = AstConstantS  -- astConstant
+  sprimalPart = AstPrimalPartS
+  sdualPart = AstDualPartS
+  sD = AstDS
+  sScale (AstPrimalPartS s) (AstDualPartS t) = AstDualPartS $ s `smult` t
+
+astLetFunS :: OS.Shape sh
+          => AstShaped r sh -> (AstShaped r sh -> AstShaped r sh2)
+          -> AstShaped r sh2
+-- astLetFunS a f | astIsSmall a = f a
+astLetFunS a f =
+  let (AstVarName var, ast) = funToAstS f
+  in AstLetS var a ast  -- astLet var a ast  -- safe, because subsitution ruled out above

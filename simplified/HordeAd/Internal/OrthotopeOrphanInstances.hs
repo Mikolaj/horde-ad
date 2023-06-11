@@ -244,6 +244,21 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r)
 
 instance (KnownNat n, Num r) => Num (ORB.Array n r) where
 
+type instance BooleanOf (OS.Array sh r) = Bool
+
+instance IfB (OS.Array sh r) where
+  ifB b v w = if b then v else w
+
+instance (Eq r, OS.Shape sh, Numeric r) => EqB (OS.Array sh r) where
+  (==*) = (==)
+  (/=*) = (/=)
+
+instance (Ord r, OS.Shape sh, Numeric r) => OrdB (OS.Array sh r) where
+  (<*) = (<)
+  (<=*) = (<=)
+  (>*) = (>)
+  (>=*) = (>=)
+
 instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
   (+) = liftVS2 (+)
   (-) = liftVS2 (-)

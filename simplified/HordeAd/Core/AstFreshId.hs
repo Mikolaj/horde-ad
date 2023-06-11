@@ -3,6 +3,7 @@ module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare
   , funToAstR, funToAstD, ADAstVars, funToAstAll
   , funToAstIIO, funToAstI, funToAstIndexIO, funToAstIndex
+  , funToAstIOS, funToAstS, astRegisterFunS, funToAstIndexIOS, funToAstIndexS
   , resetVarCounter
   ) where
 
@@ -11,16 +12,19 @@ import Prelude
 import           Control.Monad (replicateM)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Shape as OS
+import qualified Data.Array.ShapedS as OS
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.Proxy (Proxy)
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import           System.IO.Unsafe (unsafePerformIO)
 
-import HordeAd.Core.Ast
-import HordeAd.Core.AstTools
-import HordeAd.Core.SizedIndex
-import HordeAd.Core.SizedList
+import           HordeAd.Core.Ast
+import           HordeAd.Core.AstTools
+import qualified HordeAd.Core.ShapedList as ShapedList
+import           HordeAd.Core.SizedIndex
+import           HordeAd.Core.SizedList
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
@@ -124,3 +128,42 @@ funToAstIndex
   => (AstIndex r m -> AstIndex r p) -> (AstVarList m, AstIndex r p)
 {-# NOINLINE funToAstIndex #-}
 funToAstIndex = unsafePerformIO . funToAstIndexIO (valueOf @m)
+
+funToAstIOS :: (AstShaped r sh -> AstShaped r sh2)
+            -> IO (AstVarName (OS.Array sh r), AstShaped r sh2)
+{-# INLINE funToAstIOS #-}
+funToAstIOS f = do
+  freshId <- unsafeGetFreshAstVarId
+  return (AstVarName freshId, f (AstVarS freshId))
+
+funToAstS :: (AstShaped r sh -> AstShaped r sh2)
+          -> (AstVarName (OS.Array sh r), AstShaped r sh2)
+{-# NOINLINE funToAstS #-}
+funToAstS f = unsafePerformIO $ funToAstIOS f
+
+astRegisterFunS :: OS.Shape sh
+                => AstShaped r sh -> [(AstVarId, AstDynamic r)]
+                -> ([(AstVarId, AstDynamic r)], AstShaped r sh)
+{-# NOINLINE astRegisterFunS #-}
+-- astRegisterFun !r !l | astIsSmall r = (l, r)
+astRegisterFunS !r !l = unsafePerformIO $ do
+  freshId <- unsafeGetFreshAstVarId
+  let !r2 = AstVarS freshId
+  return ((freshId, AstDynamicS r) : l, r2)
+
+funToAstIndexIOS
+  :: forall sh1 sh2 r. OS.Shape sh1
+  => (AstIndexS r sh1 -> AstIndexS r sh2)
+  -> IO (AstVarListS sh1, AstIndexS r sh2)
+{-# INLINE funToAstIndexIOS #-}
+funToAstIndexIOS f = do
+  let p = length $ OS.shapeT @sh1
+  varList <- replicateM p unsafeGetFreshAstVarId
+  return ( ShapedList.listToSized varList
+         , f (ShapedList.listToSized $ map AstIntVar varList) )
+
+funToAstIndexS
+  :: forall sh1 sh2 r. OS.Shape sh1
+  => (AstIndexS r sh1 -> AstIndexS r sh2) -> (AstVarListS sh1, AstIndexS r sh2)
+{-# NOINLINE funToAstIndexS #-}
+funToAstIndexS = unsafePerformIO . funToAstIndexIOS

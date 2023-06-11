@@ -251,11 +251,12 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
           DeltaR ranked shaped r (OS.Rank sh)
        -> DeltaS ranked shaped r sh
 
-deriving instance ( (forall k. Show (ranked r k))
-                  , (forall k. Show (shaped r k))
+deriving instance ( OS.Shape sh0
+                  , (forall n. Show (ranked r n))
+                  , (forall sh. OS.Shape sh => Show (shaped r sh))
                   , Show (IntOf (ranked r 0))
                   , Show (IntOf (shaped r '[])) )
-                  => Show (DeltaS ranked shaped r sh)
+                  => Show (DeltaS ranked shaped r sh0)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 -- The comments refer to the ordinary (forward) semantics of the terms,
@@ -357,11 +358,11 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
        => DeltaS ranked shaped r sh
        -> DeltaR ranked shaped r (OS.Rank sh)
 
-deriving instance ( (forall k. Show (ranked r k))
-                  , (forall k. Show (shaped r k))
+deriving instance ( (forall n. Show (ranked r n))
+                  , (forall sh. OS.Shape sh => Show (shaped r sh))
                   , Show (IntOf (ranked r 0))
                   , Show (IntOf (shaped r '[])) )
-                  => Show (DeltaR ranked shaped r n)
+                  => Show (DeltaR ranked shaped r n0)
 
 data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> () -> Type where
@@ -370,8 +371,8 @@ data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
   SToD :: forall ranked shaped sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
        => DeltaS ranked shaped r sh -> DeltaD ranked shaped r '()
 
-deriving instance ( (forall k. Show (ranked r k))
-                  , (forall k. Show (shaped r k))
+deriving instance ( (forall n. Show (ranked r n))
+                  , (forall sh. OS.Shape sh => Show (shaped r sh))
                   , Show (IntOf (ranked r 0))
                   , Show (IntOf (shaped r '[])) )
                   => Show (DeltaD ranked shaped r '())
