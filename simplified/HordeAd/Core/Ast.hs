@@ -56,7 +56,7 @@ type ADAstArtifact6 n r = (ADAstVarNames n r, AstDomains r, AstRanked r n)
 
 type ShowAst r = (Show r, Numeric r)
 
-type AstIndex n r = Index n (AstInt r)
+type AstIndex r n = Index n (AstInt r)
 
 type AstVarList n = SizedList n AstVarId
 
@@ -84,14 +84,14 @@ data AstRanked :: Type -> Nat -> Type where
 
   -- For the Tensor class:
   AstIndex :: forall m n r. KnownNat m
-           => AstRanked r (m + n) -> AstIndex m r -> AstRanked r n
+           => AstRanked r (m + n) -> AstIndex r m -> AstRanked r n
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
     -- but vectorization is permitted to change the value
   AstSum :: AstRanked r (1 + n) -> AstRanked r n
   AstScatter :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
              => ShapeInt (p + n) -> AstRanked r (m + n)
-             -> (AstVarList m, AstIndex p r)
+             -> (AstVarList m, AstIndex r p)
              -> AstRanked r (p + n)
 
   AstFromList :: KnownNat n
@@ -113,7 +113,7 @@ data AstRanked :: Type -> Nat -> Type where
             => Int -> (AstVarId, AstRanked r n) -> AstRanked r (1 + n)
   AstGather :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
             => ShapeInt (m + n) -> AstRanked r (p + n)
-            -> (AstVarList m, AstIndex p r)
+            -> (AstVarList m, AstIndex r p)
             -> AstRanked r (m + n)
     -- out of bounds indexing is permitted
 

@@ -148,7 +148,7 @@ intVarInAstBool var = \case
   AstRel _ l -> any (intVarInAst var . unAstPrimalPart) l
   AstRelInt _ l  -> any (intVarInAstInt var) l
 
-intVarInIndex :: AstVarId -> AstIndex n r -> Bool
+intVarInIndex :: AstVarId -> AstIndex r n -> Bool
 intVarInIndex var = any (intVarInAstInt var)
 
 

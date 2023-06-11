@@ -113,7 +113,7 @@ funToAstI = unsafePerformIO . funToAstIIO
 
 funToAstIndexIO
   :: forall m p r. KnownNat m
-  => Int -> (AstIndex m r -> AstIndex p r) -> IO (AstVarList m, AstIndex p r)
+  => Int -> (AstIndex r m -> AstIndex r p) -> IO (AstVarList m, AstIndex r p)
 {-# INLINE funToAstIndexIO #-}
 funToAstIndexIO p f = do
   varList <- replicateM p unsafeGetFreshAstVarId
@@ -121,6 +121,6 @@ funToAstIndexIO p f = do
 
 funToAstIndex
   :: forall m p r. KnownNat m
-  => (AstIndex m r -> AstIndex p r) -> (AstVarList m, AstIndex p r)
+  => (AstIndex r m -> AstIndex r p) -> (AstVarList m, AstIndex r p)
 {-# NOINLINE funToAstIndex #-}
 funToAstIndex = unsafePerformIO . funToAstIndexIO (valueOf @m)

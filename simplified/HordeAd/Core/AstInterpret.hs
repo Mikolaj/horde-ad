@@ -35,9 +35,9 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.SizedList
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
-import HordeAd.Core.SizedList
 
 type AstEnv ranked r = EM.EnumMap AstVarId (AstEnvElem ranked r)
 
@@ -108,7 +108,7 @@ interpretLambdaIndexToIndex
   :: KnownNat p
   => (AstEnv ranked r -> AstMemo r -> AstInt q
   -> (AstMemo r, IntOf (ranked r 0))) -> AstEnv ranked r
-  -> AstMemo r -> (AstVarList m, AstIndex p q)
+  -> AstMemo r -> (AstVarList m, AstIndex q p)
   -> IndexOf (ranked r 0) m
   -> IndexOf (ranked r 0) p
 {-# INLINE interpretLambdaIndexToIndex #-}

@@ -25,8 +25,8 @@ import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.SizedIndex
-import           HordeAd.Core.TensorClass
 import           HordeAd.Core.SizedList
+import           HordeAd.Core.TensorClass
 
 -- * Vectorization
 
@@ -92,7 +92,7 @@ build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
 
 intBindingRefresh
   :: GoodScalar r
-  => AstVarId -> AstIndex n r -> (AstVarId, AstInt r, AstIndex n r)
+  => AstVarId -> AstIndex r n -> (AstVarId, AstInt r, AstIndex r n)
 {-# NOINLINE intBindingRefresh #-}
 intBindingRefresh var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIIO id
@@ -240,7 +240,7 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
   :: forall m n r. (KnownNat m, KnownNat n, GoodScalar r)
-  => Int -> (AstVarId, AstRanked r (m + n), AstIndex m r)
+  => Int -> (AstVarId, AstRanked r (m + n), AstIndex r m)
   -> AstRanked r (1 + n)
 build1VIndex k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
 build1VIndex k (var, v0, ix@(_ :. _)) =
