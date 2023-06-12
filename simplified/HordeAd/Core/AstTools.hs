@@ -524,7 +524,7 @@ printAst cfg d = \case
              . showString " -> "
              . printAst cfg 0 v0)
   AstLetADShare l v -> printAst cfg d $ bindsToLet v (assocsADShare l)
-  AstOp opCode args -> printAstOp cfg d opCode args
+  AstOp opCode args -> printAstOp printAst cfg d opCode args
   AstSumOfList [] -> error "printAst: empty AstSumOfList"
   AstSumOfList (left : args) ->
     let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
@@ -708,36 +708,36 @@ printAstBool cfg d = \case
                         $ map unAstPrimalPart args
   AstRelInt opCode args -> printAstRelOp printAstInt cfg d opCode args
 
-printAstOp :: (ShowAst r, KnownNat n)
-           => PrintConfig -> Int -> OpCode -> [AstRanked r n] -> ShowS
-printAstOp cfg d opCode args = case (opCode, args) of
-  (MinusOp, [u, v]) -> printBinaryOp printAst cfg d u (6, " - ") v
-  (TimesOp, [u, v]) -> printBinaryOp printAst cfg d u (7, " * ") v
-  (NegateOp, [u]) -> printPrefixOp printAst cfg d "negate" [u]
-  (AbsOp, [u]) -> printPrefixOp printAst cfg d "abs" [u]
-  (SignumOp, [u]) -> printPrefixOp printAst cfg d "signum" [u]
-  (DivideOp, [u, v]) -> printBinaryOp printAst cfg d u (7, " / ") v
-  (RecipOp, [u]) -> printPrefixOp printAst cfg d "recip" [u]
-  (ExpOp, [u]) -> printPrefixOp printAst cfg d "exp" [u]
-  (LogOp, [u]) -> printPrefixOp printAst cfg d "log" [u]
-  (SqrtOp, [u]) -> printPrefixOp printAst cfg d "sqrt" [u]
-  (PowerOp, [u, v]) -> printBinaryOp printAst cfg d u (8, " ** ") v
-  (LogBaseOp, [u, v]) -> printPrefixOp printAst cfg d "logBase" [u, v]
-  (SinOp, [u]) -> printPrefixOp printAst cfg d "sin" [u]
-  (CosOp, [u]) -> printPrefixOp printAst cfg d "cos" [u]
-  (TanOp, [u]) -> printPrefixOp printAst cfg d "tan" [u]
-  (AsinOp, [u]) -> printPrefixOp printAst cfg d "asin" [u]
-  (AcosOp, [u]) -> printPrefixOp printAst cfg d "acos" [u]
-  (AtanOp, [u]) -> printPrefixOp printAst cfg d "atan" [u]
-  (SinhOp, [u]) -> printPrefixOp printAst cfg d "sinh" [u]
-  (CoshOp, [u]) -> printPrefixOp printAst cfg d "cosh" [u]
-  (TanhOp, [u]) -> printPrefixOp printAst cfg d "tanh" [u]
-  (AsinhOp, [u]) -> printPrefixOp printAst cfg d "asinh" [u]
-  (AcoshOp, [u]) -> printPrefixOp printAst cfg d "acosh" [u]
-  (AtanhOp, [u]) -> printPrefixOp printAst cfg d "atanh" [u]
-  (Atan2Op, [u, v]) -> printPrefixOp printAst cfg d "atan2" [u, v]
-  (MaxOp, [u, v]) -> printPrefixOp printAst cfg d "max" [u, v]
-  (MinOp, [u, v]) -> printPrefixOp printAst cfg d "min" [u, v]
+printAstOp :: (PrintConfig -> Int -> a -> ShowS)
+           -> PrintConfig -> Int -> OpCode -> [a] -> ShowS
+printAstOp pr cfg d opCode args = case (opCode, args) of
+  (MinusOp, [u, v]) -> printBinaryOp pr cfg d u (6, " - ") v
+  (TimesOp, [u, v]) -> printBinaryOp pr cfg d u (7, " * ") v
+  (NegateOp, [u]) -> printPrefixOp pr cfg d "negate" [u]
+  (AbsOp, [u]) -> printPrefixOp pr cfg d "abs" [u]
+  (SignumOp, [u]) -> printPrefixOp pr cfg d "signum" [u]
+  (DivideOp, [u, v]) -> printBinaryOp pr cfg d u (7, " / ") v
+  (RecipOp, [u]) -> printPrefixOp pr cfg d "recip" [u]
+  (ExpOp, [u]) -> printPrefixOp pr cfg d "exp" [u]
+  (LogOp, [u]) -> printPrefixOp pr cfg d "log" [u]
+  (SqrtOp, [u]) -> printPrefixOp pr cfg d "sqrt" [u]
+  (PowerOp, [u, v]) -> printBinaryOp pr cfg d u (8, " ** ") v
+  (LogBaseOp, [u, v]) -> printPrefixOp pr cfg d "logBase" [u, v]
+  (SinOp, [u]) -> printPrefixOp pr cfg d "sin" [u]
+  (CosOp, [u]) -> printPrefixOp pr cfg d "cos" [u]
+  (TanOp, [u]) -> printPrefixOp pr cfg d "tan" [u]
+  (AsinOp, [u]) -> printPrefixOp pr cfg d "asin" [u]
+  (AcosOp, [u]) -> printPrefixOp pr cfg d "acos" [u]
+  (AtanOp, [u]) -> printPrefixOp pr cfg d "atan" [u]
+  (SinhOp, [u]) -> printPrefixOp pr cfg d "sinh" [u]
+  (CoshOp, [u]) -> printPrefixOp pr cfg d "cosh" [u]
+  (TanhOp, [u]) -> printPrefixOp pr cfg d "tanh" [u]
+  (AsinhOp, [u]) -> printPrefixOp pr cfg d "asinh" [u]
+  (AcoshOp, [u]) -> printPrefixOp pr cfg d "acosh" [u]
+  (AtanhOp, [u]) -> printPrefixOp pr cfg d "atanh" [u]
+  (Atan2Op, [u, v]) -> printPrefixOp pr cfg d "atan2" [u, v]
+  (MaxOp, [u, v]) -> printPrefixOp pr cfg d "max" [u, v]
+  (MinOp, [u, v]) -> printPrefixOp pr cfg d "min" [u, v]
   _ -> error $ "printAstOp: wrong number of arguments"
                ++ show (opCode, length args)
 
