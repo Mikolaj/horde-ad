@@ -23,6 +23,7 @@ module HordeAd.Core.AstSimplify
   , simplifyArtifact6, simplifyAst6, simplifyAstDomains6
   , unletAstDomains6, unletAst6
   , substituteAst, substituteAstDomains, substituteAstInt, substituteAstBool
+  , substituteAstS
   ) where
 
 import Prelude
@@ -194,7 +195,8 @@ simplifyStepNonIndex t = case t of
 
 astLet :: forall n m r. (KnownNat m, KnownNat n, ShowAst r)
        => AstVarId -> AstRanked r n -> AstRanked r m -> AstRanked r m
-astLet var u v | astIsSmall u = substitute1Ast (Left u) var v
+astLet var u v | astIsSmall u =
+  substitute1Ast (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
   -- because very low hanging fruits may be left hanging, but we
   -- don't want to simplify the whole term; a better alternative
@@ -324,10 +326,10 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex r m1)) =
   Ast.AstReshape sh v ->
     astIndex (astReshapeAsGather sh v) ix
   Ast.AstBuild1 _n2 (var2, v) ->
-    astIndex (substituteAst @0 (Right i1) var2 v) rest1
+    astIndex (substituteAst (SubstitutionPayloadInt i1) var2 v) rest1
   Ast.AstGather _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
   Ast.AstGather (_ :$ sh') v (var2 ::: vars, ix2) ->
-    let ix3 = fmap (substituteAstInt @0 (Right i1) var2) ix2
+    let ix3 = fmap (substituteAstInt (SubstitutionPayloadInt i1) var2) ix2
         w :: AstRanked r (m1 + n)
         w = unsafeCoerce $ astGather sh' v (vars, ix3)
     in astIndex @m1 @n w rest1
@@ -471,7 +473,7 @@ astSlice i k w@(Ast.AstAppend (u :: AstRanked r (1 + n)) (v :: AstRanked r (1 + 
         | otherwise -> Ast.AstSlice @n i k w  -- cheap iff fits in one
 astSlice i k (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
   let ivar = AstIntOp PlusIntOp [AstIntVar var, AstIntConst i]
-      ix2 = fmap (substituteAstInt @0 (Right ivar) var) ix
+      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt ivar) var) ix
   in astGatherZ (k :$ sh') v (var ::: vars, ix2)
 astSlice i k v = Ast.AstSlice i k v
 
@@ -486,7 +488,7 @@ astReverse (Ast.AstReplicate k v) = Ast.AstReplicate k v
 astReverse (Ast.AstReverse v) = v
 astReverse (Ast.AstGather sh@(k :$ _) v (var ::: vars, ix)) =
   let ivar = AstIntOp Ast.MinusIntOp [AstIntConst k, AstIntVar var]
-      ix2 = fmap (substituteAstInt @0 (Right ivar) var) ix
+      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt ivar) var) ix
   in astGatherZ sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
@@ -696,8 +698,9 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       let f v = astGatherRec sh4 v (vars4, rest4)
           (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
-            foldr (uncurry (substituteAstInt @0)) i
-                  (zipSized (fmap Right $ indexToSizedList ixFresh) vars4)
+            foldr (uncurry substituteAstInt) i
+                  (zipSized (fmap SubstitutionPayloadInt
+                             $ indexToSizedList ixFresh) vars4)
           i5 = subst i4
       in astGather sh4 (astFromList $ map f l) (varsFresh, i5 :. ixFresh)
     Ast.AstFromVector l | AstIntConst i <- i4 ->
@@ -709,8 +712,9 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       let f v = astGatherRec sh4 v (vars4, rest4)
           (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
-            foldr (uncurry (substituteAstInt @0)) i
-                  (zipSized (fmap Right $ indexToSizedList ixFresh) vars4)
+            foldr (uncurry substituteAstInt) i
+                  (zipSized (fmap SubstitutionPayloadInt
+                             $ indexToSizedList ixFresh) vars4)
           i5 = subst i4
      in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :. ixFresh)
     Ast.AstReplicate _k v -> astGather sh4 v (vars4, rest4)
@@ -754,8 +758,9 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
       let subst :: AstIndex r m7 -> AstVarList m7 -> AstInt r -> AstInt r
           subst ix vars i =
-            foldr (uncurry (substituteAstInt @0)) i
-                  (zipSized (fmap Right $ indexToSizedList ix) vars)
+            foldr (uncurry substituteAstInt) i
+                  (zipSized (fmap SubstitutionPayloadInt
+                             $ indexToSizedList ix) vars)
           composedGather :: p' <= m2 => AstRanked r (m' + n')
           composedGather =
             let (vars2p, vars22) = splitAt_Sized @p' @(m2 - p') vars2
@@ -779,8 +784,9 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
       let (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
-            foldr (uncurry (substituteAstInt @0)) i
-                  (zipSized (fmap Right $ indexToSizedList ixFresh) vars4)
+            foldr (uncurry substituteAstInt) i
+                  (zipSized (fmap SubstitutionPayloadInt
+                             $ indexToSizedList ixFresh) vars4)
           ix5 = fmap subst ix4
       in Ast.AstD (AstPrimalPart $ astGatherRec sh4 u (vars4, ix4))
                   (AstDualPart $ astGatherRec sh4 u' (varsFresh, ix5))
@@ -911,7 +917,8 @@ astConstant v = Ast.AstConstant v
 
 astDomainsLet :: forall n r. (KnownNat n, ShowAst r)
               => AstVarId -> AstRanked r n -> AstDomains r -> AstDomains r
-astDomainsLet var u v | astIsSmall u = substitute1AstDomains (Left u) var v
+astDomainsLet var u v | astIsSmall u =
+  substitute1AstDomains (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
   -- because very low hanging fruits may be left hanging, but we
   -- don't want to simplify the whole term; a better alternative
@@ -988,14 +995,14 @@ inlineAst env memo v0 = case v0 of
         (memo2, u2) = inlineAst env memo1NoVar u
     in case EM.findWithDefault 0 var memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substitute1Ast (Left u2) var v2)
+      1 -> (memo2, substitute1Ast (SubstitutionPayloadRanked u2) var v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
       count | astIsSmall u ->
         let (memoU0, u0) = inlineAst env EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
-        in (memo3, substitute1Ast (Left u0) var v2)
+        in (memo3, substitute1Ast (SubstitutionPayloadRanked u0) var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstLetADShare{} -> error "inlineAst: AstLetADShare"
   Ast.AstOp opCode args ->
@@ -1075,14 +1082,14 @@ inlineAstDomains env memo v0 = case v0 of
         (memo2, u2) = inlineAst env memo1NoVar u
     in case EM.findWithDefault 0 var memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substitute1AstDomains (Left u2) var v2)
+      1 -> (memo2, substitute1AstDomains (SubstitutionPayloadRanked u2) var v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
       count | astIsSmall u ->
         let (memoU0, u0) = inlineAst env EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
-           , substitute1AstDomains (Left u0) var v2 )
+           , substitute1AstDomains (SubstitutionPayloadRanked u0) var v2 )
       _ -> (memo2, Ast.AstDomainsLet var u2 v2)
 
 inlineAstInt :: GoodScalar r
@@ -1561,24 +1568,29 @@ simplifyRelIntOp GtOp [AstIntVar u, AstIntVar v] | u == v = AstBoolConst False
 simplifyRelIntOp opCodeRel arg = Ast.AstRelInt opCodeRel arg
 
 -- We have to simplify after substitution or simplifying is not idempotent.
-substituteAst :: forall m n r. (GoodScalar r, KnownNat m, KnownNat n)
-              => Either (AstRanked r m) (AstInt r) -> AstVarId -> AstRanked r n
+substituteAst :: forall n r. (GoodScalar r, KnownNat n)
+              => SubstitutionPayload r -> AstVarId -> AstRanked r n
               -> AstRanked r n
 substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
 
 substituteAstDomains
-  :: (GoodScalar r, KnownNat m)
-  => Either (AstRanked r m) (AstInt r) -> AstVarId -> AstDomains r
+  :: GoodScalar r
+  => SubstitutionPayload r -> AstVarId -> AstDomains r
   -> AstDomains r
 substituteAstDomains i var v1 =
   simplifyAstDomains $ substitute1AstDomains i var v1
 
-substituteAstInt :: forall m r. (GoodScalar r, KnownNat m)
-                 => Either (AstRanked r m) (AstInt r) -> AstVarId -> AstInt r
+substituteAstInt :: GoodScalar r
+                 => SubstitutionPayload r -> AstVarId -> AstInt r
                  -> AstInt r
 substituteAstInt i var i2 = simplifyAstInt $ substitute1AstInt i var i2
 
-substituteAstBool :: forall m r. (GoodScalar r, KnownNat m)
-                  => Either (AstRanked r m) (AstInt r) -> AstVarId -> AstBool r
+substituteAstBool :: GoodScalar r
+                  => SubstitutionPayload r -> AstVarId -> AstBool r
                   -> AstBool r
 substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1
+
+substituteAstS :: forall sh r. (GoodScalar r, OS.Shape sh)
+               => SubstitutionPayload r -> AstVarId -> AstShaped r sh
+               -> AstShaped r sh
+substituteAstS i var v1 = {-simplifyAstS $-} substitute1AstS i var v1

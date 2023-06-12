@@ -87,7 +87,7 @@ build1VOccurenceUnknownRefresh
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIIO id
-  let v2 = substitute1Ast @0 (Right astVarFresh) var v0
+  let v2 = substitute1Ast (SubstitutionPayloadInt astVarFresh) var v0
   return $! build1VOccurenceUnknown k (varFresh, v2)
 
 intBindingRefresh
@@ -96,7 +96,8 @@ intBindingRefresh
 {-# NOINLINE intBindingRefresh #-}
 intBindingRefresh var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIIO id
-  let ix2 = fmap (substituteAstInt @0 (Right astVarFresh) var) ix
+  let ix2 =
+        fmap (substituteAstInt (SubstitutionPayloadInt astVarFresh) var) ix
   return $! (varFresh, astVarFresh, ix2)
 
 -- | The application @build1V k (var, v)@ vectorizes
@@ -120,7 +121,7 @@ build1V k (var, v00) =
       let sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                      (Ast.AstIntVar var :. ZI)
-          v2 = substitute1Ast (Left projection) var2 v
+          v2 = substitute1Ast (SubstitutionPayloadRanked projection) var2 v
             -- we use the substitution that does not simplify, which is sad,
             -- because very low hanging fruits may be left hanging, but we
             -- don't want to simplify the whole term; a better alternative
@@ -190,7 +191,7 @@ build1V k (var, v00) =
             let sh = shapeAst u1
                 projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var1)
                                            (Ast.AstIntVar var :. ZI)
-            in substitute1Ast (Left projection) var1
+            in substitute1Ast (SubstitutionPayloadRanked projection) var1
           v2 = V.foldr subst v (V.zip vars (unwrapAstDomains l))
             -- we use the substitution that does not simplify
       in Ast.AstLetDomains vars (build1VOccurenceUnknownDomains k (var, l))
@@ -212,7 +213,7 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
     let sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                    (Ast.AstIntVar var :. ZI)
-        v2 = substitute1AstDomains (Left projection) var2 v
+        v2 = substitute1AstDomains (SubstitutionPayloadRanked projection) var2 v
           -- we use the substitution that does not simplify
     in astDomainsLet var2 (build1VOccurenceUnknownRefresh k (var, u))
                           (build1VOccurenceUnknownDomains k (var, v2))
