@@ -127,7 +127,7 @@ intVarInAst var = \case
 
 intVarInAstDomains :: AstVarId -> AstDomains r -> Bool
 intVarInAstDomains var = \case
-  AstDomains l -> any (\(AstDynamic t) -> intVarInAst var t) l
+  AstDomains l -> any (\(AstRToD t) -> intVarInAst var t) l
   AstDomainsLet _var2 u v -> intVarInAst var u || intVarInAstDomains var v
 
 intVarInAstInt :: AstVarId -> AstInt r -> Bool
@@ -209,7 +209,7 @@ substitute1AstDynamic
   :: (ShowAst r, KnownNat m)
   => Either (AstRanked r m) (AstInt r) -> AstVarId -> AstDynamic r
   -> AstDynamic r
-substitute1AstDynamic i var (AstDynamic t) = AstDynamic $ substitute1Ast i var t
+substitute1AstDynamic i var (AstRToD t) = AstRToD $ substitute1Ast i var t
 
 substitute1AstDomains
   :: (ShowAst r, KnownNat m)
@@ -437,7 +437,7 @@ printAst cfg d = \case
 
 printAstVarFromDomains :: forall r. PrintConfig -> (AstVarId, AstDynamic r)
                        -> ShowS
-printAstVarFromDomains cfg (var, AstDynamic @n _) =
+printAstVarFromDomains cfg (var, AstRToD @n _) =
   printAstVar cfg (AstVarName @(OR.Array n r) var)
 
 -- Differs from standard only in the space after comma.
@@ -452,11 +452,11 @@ showCollectionWith start end showx (x:xs) s = start ++ showx x (showl xs)
   showl (y:ys) = ", " ++ showx y (showl ys)
 
 printAstDynamic :: ShowAst r => PrintConfig -> Int -> AstDynamic r -> ShowS
-printAstDynamic cfg d (AstDynamic v) =
+printAstDynamic cfg d (AstRToD v) =
   printPrefixOp printAst cfg d "dfromR" [v]
 
 printAstUnDynamic :: ShowAst r => PrintConfig -> Int -> AstDynamic r -> ShowS
-printAstUnDynamic cfg d (AstDynamic v) = printAst cfg d v
+printAstUnDynamic cfg d (AstRToD v) = printAst cfg d v
 
 printAstDomains :: forall r. ShowAst r
                 => PrintConfig -> Int -> AstDomains r -> ShowS

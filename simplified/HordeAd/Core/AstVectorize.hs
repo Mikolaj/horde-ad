@@ -186,7 +186,7 @@ build1V k (var, v00) =
                (AstDualPart $ build1VOccurenceUnknown k (var, u'))
     Ast.AstLetDomains vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
-      let subst (var1, AstDynamic u1) =
+      let subst (var1, AstRToD u1) =
             let sh = shapeAst u1
                 projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var1)
                                            (Ast.AstIntVar var :. ZI)
@@ -199,8 +199,8 @@ build1V k (var, v00) =
 build1VOccurenceUnknownDynamic
   :: GoodScalar r
   => Int -> (AstVarId, AstDynamic r) -> AstDynamic r
-build1VOccurenceUnknownDynamic k (var, AstDynamic u) =
-  AstDynamic $ build1VOccurenceUnknown k (var, u)
+build1VOccurenceUnknownDynamic k (var, AstRToD u) =
+  AstRToD $ build1VOccurenceUnknown k (var, u)
 
 build1VOccurenceUnknownDomains
   :: GoodScalar r

@@ -75,14 +75,14 @@ instance Tensor AstRanked where
     -- a special constructor that also makes comparing lets cheap.
   raddDynamic :: forall n r. KnownNat n
               => AstRanked r n -> AstDynamic r -> AstDynamic r
-  raddDynamic r (AstDynamic AstIota) = AstDynamic r
-  raddDynamic r (AstDynamic @n2 (AstSumOfList l)) =
+  raddDynamic r (AstRToD AstIota) = AstRToD r
+  raddDynamic r (AstRToD @n2 (AstSumOfList l)) =
     case sameNat (Proxy @n) (Proxy @n2) of
-      Just Refl -> AstDynamic (AstSumOfList (r : l))
+      Just Refl -> AstRToD (AstSumOfList (r : l))
       _ -> error "raddDynamic: type mismatch"
-  raddDynamic r (AstDynamic @n2 v) =
+  raddDynamic r (AstRToD @n2 v) =
     case sameNat (Proxy @n) (Proxy @n2) of
-      Just Refl -> AstDynamic (AstSumOfList [r, v])
+      Just Refl -> AstRToD (AstSumOfList [r, v])
       _ -> error "raddDynamic: type mismatch"
   tregister = astRegisterFun
 
@@ -95,15 +95,15 @@ instance Tensor AstRanked where
 instance ConvertTensor AstRanked AstShaped where
   tfromD = astFromDynamic
   tfromS = undefined
-  dfromR r = AstDynamic r
+  dfromR r = AstRToD r
   dfromS = undefined
   sfromR = undefined
   sfromD = undefined
-  ddummy = AstDynamic AstIota
+  ddummy = AstRToD AstIota
   disDummy t = case t of
-    AstDynamic AstIota -> True
+    AstRToD AstIota -> True
     _ -> False
-  dshape (AstDynamic v) = shapeToList $ shapeAst v
+  dshape (AstRToD v) = shapeToList $ shapeAst v
 
 instance DomainsTensor AstRanked AstShaped AstDomains where
   dmkDomains = AstDomains
@@ -143,10 +143,10 @@ astLetDomainsFun
   -> AstRanked r m
 astLetDomainsFun a f =
   let genVar :: AstDynamic r -> (AstVarId, AstDynamic r)
-      genVar (AstDynamic t) =
+      genVar (AstRToD t) =
         let sh = shapeAst t
             (AstVarName var, ast) = funToAstR sh id
-        in (var, AstDynamic ast)
+        in (var, AstRToD ast)
       (vars, asts) = V.unzip $ V.map genVar (unwrapAstDomains a)
   in AstLetDomains vars a (f $ AstDomains asts)
 
@@ -368,14 +368,14 @@ instance ShapedTensor AstShaped where  -- TODO
     -- a special constructor that also makes comparing lets cheap.
   saddDynamic :: forall sh r. OS.Shape sh
               => AstShaped r sh -> AstDynamic r -> AstDynamic r
-  saddDynamic r (AstDynamicS AstIotaS) = AstDynamicS r
-  saddDynamic r (AstDynamicS @sh2 (AstSumOfListS l)) =
+  saddDynamic r (AstSToD AstIotaS) = AstSToD r
+  saddDynamic r (AstSToD @sh2 (AstSumOfListS l)) =
     case sameShape @sh @sh2 of
-      Just Refl -> AstDynamicS (AstSumOfListS (r : l))
+      Just Refl -> AstSToD (AstSumOfListS (r : l))
       _ -> error "saddDynamic: type mismatch"
-  saddDynamic r (AstDynamicS @sh2 v) =
+  saddDynamic r (AstSToD @sh2 v) =
     case sameShape @sh @sh2 of
-      Just Refl -> AstDynamicS (AstSumOfListS [r, v])
+      Just Refl -> AstSToD (AstSumOfListS [r, v])
       _ -> error "saddDynamic: type mismatch"
   sregister = astRegisterFunS
 

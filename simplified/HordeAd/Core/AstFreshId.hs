@@ -49,7 +49,7 @@ astRegisterFun !r !l | astIsSmall r = (l, r)
 astRegisterFun !r !l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !r2 = AstVar (shapeAst r) freshId
-  return ((freshId, AstDynamic r) : l, r2)
+  return ((freshId, AstRToD r) : l, r2)
 
 astRegisterADShare :: (ShowAst r, KnownNat n)
                    => AstRanked r n -> ADShare r
@@ -58,7 +58,7 @@ astRegisterADShare :: (ShowAst r, KnownNat n)
 astRegisterADShare !r !l | astIsSmall r = (l, r)
 astRegisterADShare !r !l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
-  let !l2 = insertADShare freshId (AstDynamic r) l
+  let !l2 = insertADShare freshId (AstRToD r) l
       !r2 = AstVar (shapeAst r) freshId
   return (l2, r2)
 
@@ -89,7 +89,7 @@ funToAstDIO sh = do
     Just (SomeNat (_proxy :: Proxy p)) ->
       let shn = listShapeToShape @p sh
           varName = AstVarName @(OR.Array p r) freshId
-      in (AstDynamicVarName varName, AstDynamic (AstVar shn freshId))
+      in (AstDynamicVarName varName, AstRToD (AstVar shn freshId))
     Nothing -> error "funToAstD: impossible someNatVal error"
 
 funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
@@ -149,7 +149,7 @@ astRegisterFunS :: OS.Shape sh
 astRegisterFunS !r !l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !r2 = AstVarS freshId
-  return ((freshId, AstDynamicS r) : l, r2)
+  return ((freshId, AstSToD r) : l, r2)
 
 funToAstIndexIOS
   :: forall sh1 sh2 r. OS.Shape sh1

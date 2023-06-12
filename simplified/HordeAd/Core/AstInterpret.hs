@@ -493,7 +493,7 @@ interpretAstDynamic
   => AstEnv ranked r -> AstMemo r
   -> AstDynamic r -> (AstMemo r, DynamicOf ranked r)
 interpretAstDynamic env memo = \case
-  AstDynamic w -> second dfromR $ interpretAst env memo w
+  AstRToD w -> second dfromR $ interpretAst env memo w
 
 interpretAstDomains
   :: forall ranked shaped r.
@@ -556,8 +556,8 @@ interpretAstDynamicDummy
   => AstEnv ranked r -> AstMemo r
   -> AstDynamic r -> (AstMemo r, DynamicOf ranked r)
 interpretAstDynamicDummy env memo = \case
-  AstDynamic AstIota -> (memo, ddummy @ranked)
-  AstDynamic w -> second dfromR $ interpretAst env memo w
+  AstRToD AstIota -> (memo, ddummy @ranked)
+  AstRToD w -> second dfromR $ interpretAst env memo w
 
 interpretAstDomainsDummy
   :: forall ranked shaped r.

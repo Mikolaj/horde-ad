@@ -806,8 +806,8 @@ flipCompare = unsafeCoerce Refl
 
 astFromDynamic :: forall n r. KnownNat n
                => AstDynamic r -> AstRanked r n
-astFromDynamic (AstDynamic Ast.AstIota) = error "astFromDynamic: dummy"
-astFromDynamic (AstDynamic @n2 v) =
+astFromDynamic (AstRToD Ast.AstIota) = error "astFromDynamic: dummy"
+astFromDynamic (AstRToD @n2 v) =
   case sameNat (Proxy @n) (Proxy @n2) of
     Just Refl -> v
     _ -> error "astFromDynamic: different rank expected and uncovered"
@@ -1041,7 +1041,7 @@ inlineAstDynamic
   => AstEnv r -> AstMemo
   -> AstDynamic r -> (AstMemo, AstDynamic r)
 inlineAstDynamic env memo = \case
-  AstDynamic w -> second AstDynamic $ inlineAst env memo w
+  AstRToD w -> second AstRToD $ inlineAst env memo w
 
 inlineAstDomains
   :: GoodScalar r
@@ -1194,7 +1194,7 @@ unletAst env t = case t of
 unletAstDynamic
   :: GoodScalar r
   => UnletEnv r -> AstDynamic r -> AstDynamic r
-unletAstDynamic env (AstDynamic u) = AstDynamic $ unletAst env u
+unletAstDynamic env (AstRToD u) = AstRToD $ unletAst env u
 
 unletAstDomains
   :: GoodScalar r
@@ -1321,7 +1321,7 @@ simplifyAst t = case t of
 simplifyAstDynamic
   :: GoodScalar r
   => AstDynamic r -> AstDynamic r
-simplifyAstDynamic (AstDynamic u) = AstDynamic $ simplifyAst u
+simplifyAstDynamic (AstRToD u) = AstRToD $ simplifyAst u
 
 simplifyAstDomains
   :: GoodScalar r

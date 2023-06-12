@@ -221,10 +221,10 @@ newtype AstDualPartS r sh = AstDualPartS {unAstDualPartS :: AstShaped r sh}
 deriving instance (ShowAst r, OS.Shape sh) => Show (AstDualPartS r sh)
 
 data AstDynamic :: Type -> Type where
-  AstDynamic :: KnownNat n
-             => AstRanked r n -> AstDynamic r
-  AstDynamicS :: OS.Shape sh
-              => AstShaped r sh -> AstDynamic r
+  AstRToD :: KnownNat n
+          => AstRanked r n -> AstDynamic r
+  AstSToD :: OS.Shape sh
+          => AstShaped r sh -> AstDynamic r
 deriving instance ShowAst r => Show (AstDynamic r)
 
 data AstDomains :: Type -> Type where
@@ -242,13 +242,13 @@ bindsToLet :: KnownNat n => AstRanked r n -> [(AstVarId, AstDynamic r)] -> AstRa
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
  where
-  bindToLet u (var, AstDynamic w) = AstLet var w u
+  bindToLet u (var, AstRToD w) = AstLet var w u
 
 bindsToDomainsLet :: AstDomains r -> [(AstVarId, AstDynamic r)] -> AstDomains r
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
-  bindToDomainsLet u (var, AstDynamic w) = AstDomainsLet var w u
+  bindToDomainsLet u (var, AstRToD w) = AstDomainsLet var w u
 
 newtype AstVarName t = AstVarName AstVarId
  deriving (Eq, Show)
