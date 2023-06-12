@@ -585,7 +585,7 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   sletWrap _l u = u
   saddDynamic :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
               => shaped r sh -> DynamicOf shaped r -> DynamicOf shaped r
-  sregister :: (GoodScalar r, OS.Shape sh)
+  sregister :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
             => shaped r sh -> [(AstVarId, DynamicOf shaped r)]
             -> ([(AstVarId, DynamicOf shaped r)], shaped r sh)
   sregister r l = (l, r)

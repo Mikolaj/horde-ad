@@ -126,6 +126,9 @@ data AstRanked :: Type -> Nat -> Type where
             -> AstRanked r (m + n)
     -- out of bounds indexing is permitted
 
+  AstSToR :: (OS.Shape sh, KnownNat (OS.Rank sh))
+          => AstShaped r sh -> AstRanked r (OS.Rank sh)
+
   -- For the forbidden half of the Tensor class:
   AstConst :: OR.Array n r -> AstRanked r n
   AstConstant :: AstPrimalPart r n -> AstRanked r n
@@ -204,6 +207,9 @@ data AstShaped :: Type -> [Nat] -> Type where
              -> AstShaped r (sh2 OS.++ OS.Drop p sh)
     -- out of bounds indexing is permitted
 
+  AstRToS :: (OS.Shape sh, KnownNat (OS.Rank sh))
+          => AstRanked r (OS.Rank sh) -> AstShaped r sh
+
   -- For the forbidden half of the Tensor class:
   AstConstS :: OS.Array sh r -> AstShaped r sh
   AstConstantS :: AstPrimalPartS r sh -> AstShaped r sh
@@ -223,7 +229,7 @@ deriving instance (ShowAst r, OS.Shape sh) => Show (AstDualPartS r sh)
 data AstDynamic :: Type -> Type where
   AstRToD :: KnownNat n
           => AstRanked r n -> AstDynamic r
-  AstSToD :: OS.Shape sh
+  AstSToD :: (OS.Shape sh, KnownNat (OS.Rank sh))
           => AstShaped r sh -> AstDynamic r
 deriving instance ShowAst r => Show (AstDynamic r)
 
@@ -231,24 +237,32 @@ data AstDomains :: Type -> Type where
   AstDomains :: Data.Vector.Vector (AstDynamic r) -> AstDomains r
   AstDomainsLet :: KnownNat n
                 => AstVarId -> AstRanked r n -> AstDomains r -> AstDomains r
+  AstDomainsLetS :: OS.Shape sh
+                 => AstVarId -> AstShaped r sh -> AstDomains r -> AstDomains r
 deriving instance ShowAst r => Show (AstDomains r)
 
 unwrapAstDomains :: AstDomains r -> Data.Vector.Vector (AstDynamic r)
 unwrapAstDomains = \case
   AstDomains l -> l
   AstDomainsLet _ _ v -> unwrapAstDomains v
+  AstDomainsLetS _ _ v -> unwrapAstDomains v
 
-bindsToLet :: KnownNat n => AstRanked r n -> [(AstVarId, AstDynamic r)] -> AstRanked r n
+bindsToLet :: KnownNat n
+           => AstRanked r n -> [(AstVarId, AstDynamic r)] -> AstRanked r n
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
  where
-  bindToLet u (var, AstRToD w) = AstLet var w u
+  bindToLet u (var, d) = case d of
+    AstRToD w -> AstLet var w u
+    AstSToD w -> AstLet var (AstSToR w) u
 
 bindsToDomainsLet :: AstDomains r -> [(AstVarId, AstDynamic r)] -> AstDomains r
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
-  bindToDomainsLet u (var, AstRToD w) = AstDomainsLet var w u
+  bindToDomainsLet u (var, d) = case d of
+    AstRToD w -> AstDomainsLet var w u
+    AstSToD w -> AstDomainsLetS var w u
 
 newtype AstVarName t = AstVarName AstVarId
  deriving (Eq, Show)

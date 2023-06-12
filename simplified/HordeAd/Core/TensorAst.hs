@@ -366,7 +366,7 @@ instance ShapedTensor AstShaped where  -- TODO
     -- sharing that is not visible in this restricted context.
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
-  saddDynamic :: forall sh r. OS.Shape sh
+  saddDynamic :: forall sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
               => AstShaped r sh -> AstDynamic r -> AstDynamic r
   saddDynamic r (AstSToD AstIotaS) = AstSToD r
   saddDynamic r (AstSToD @sh2 (AstSumOfListS l)) =
