@@ -10,6 +10,7 @@ module HordeAd.Core.AstTools
   , substitute1Ast, substitute1AstDomains, substitute1AstInt, substitute1AstBool
   , substitute1AstS
   , astIsSmall, astIsSmallS
+  , unwrapAstDomains, bindsToLet, bindsToLetS, bindsToDomainsLet
   , printAstVarName
   , printAstSimple, printAstPretty, printAstDomainsSimple, printAstDomainsPretty
   , printGradient6Simple, printGradient6Pretty
@@ -22,18 +23,23 @@ import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
-import           Data.List (intersperse)
+import qualified Data.Array.ShapedS as OS
+import           Data.List (foldl', intersperse)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Strict.IntMap (IntMap)
 import qualified Data.Strict.IntMap as IM
-import           Data.Type.Equality ((:~:) (Refl))
+import qualified Data.Strict.Vector as Data.Vector
+import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           Unsafe.Coerce (unsafeCoerce)
 
-import HordeAd.Core.Ast
-import HordeAd.Core.SizedIndex
-import HordeAd.Core.SizedList
-import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import           HordeAd.Core.Ast
+import           HordeAd.Core.ShapedList (ShapedList (..))
+import qualified HordeAd.Core.ShapedList as ShapedList
+import           HordeAd.Core.SizedIndex
+import           HordeAd.Core.SizedList
+import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 
 -- * Shape calculation
 
@@ -405,6 +411,47 @@ astIsSmallS = \case
   AstTransposeS v -> astIsSmallS v  -- often cheap and often fuses
   AstRToS v -> astIsSmall v
   _ -> False
+
+
+-- * Odds and ends
+
+unwrapAstDomains :: AstDomains r -> Data.Vector.Vector (AstDynamic r)
+unwrapAstDomains = \case
+  AstDomains l -> l
+  AstDomainsLet _ _ v -> unwrapAstDomains v
+  AstDomainsLetS _ _ v -> unwrapAstDomains v
+
+bindsToLet :: KnownNat n
+           => AstRanked r n -> [(AstVarId, AstDynamic r)] -> AstRanked r n
+{-# INLINE bindsToLet #-}  -- help list fusion
+bindsToLet = foldl' bindToLet
+ where
+  bindToLet u (var, d) = case d of
+    AstRToD w -> AstLet var w u
+    AstSToD w -> AstLet var (AstSToR w) u
+
+bindsToLetS :: ShowAst r
+            => AstShaped r sh -> [(AstVarId, AstDynamic r)] -> AstShaped r sh
+{-# INLINE bindsToLetS #-}  -- help list fusion
+bindsToLetS = foldl' bindToLetS
+ where
+  bindToLetS u (var, d) = case d of
+    AstRToD @n w ->  -- rare or impossible, but let's implement it anyway:
+      let sh = shapeToList $ shapeAst w
+      in if valueOf @n == length sh
+         then OS.withShapeP sh $ \(_proxy :: Proxy sh2) ->
+           gcastWith (unsafeCoerce Refl :: n :~: OS.Rank sh2)
+           $ AstLetS var (AstRToS @sh2 w) u
+         else error "bindsToLetS: rank mismatch"
+    AstSToD w -> AstLetS var w u
+
+bindsToDomainsLet :: AstDomains r -> [(AstVarId, AstDynamic r)] -> AstDomains r
+{-# INLINE bindsToDomainsLet #-}   -- help list fusion
+bindsToDomainsLet = foldl' bindToDomainsLet
+ where
+  bindToDomainsLet u (var, d) = case d of
+    AstRToD w -> AstDomainsLet var w u
+    AstSToD w -> AstDomainsLetS var w u
 
 
 -- * Pretty-printing

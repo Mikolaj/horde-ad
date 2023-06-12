@@ -14,7 +14,6 @@ module HordeAd.Core.Ast
   , AstPrimalPart(..), AstDualPart(..)
   , AstShaped(..), AstPrimalPartS(..), AstDualPartS(..)
   , AstDynamic(..), AstDomains(..)
-  , unwrapAstDomains, bindsToLet, bindsToDomainsLet
   , AstVarName(..), AstDynamicVarName(..), AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , astCond  -- exposed only for tests
@@ -240,29 +239,6 @@ data AstDomains :: Type -> Type where
   AstDomainsLetS :: OS.Shape sh
                  => AstVarId -> AstShaped r sh -> AstDomains r -> AstDomains r
 deriving instance ShowAst r => Show (AstDomains r)
-
-unwrapAstDomains :: AstDomains r -> Data.Vector.Vector (AstDynamic r)
-unwrapAstDomains = \case
-  AstDomains l -> l
-  AstDomainsLet _ _ v -> unwrapAstDomains v
-  AstDomainsLetS _ _ v -> unwrapAstDomains v
-
-bindsToLet :: KnownNat n
-           => AstRanked r n -> [(AstVarId, AstDynamic r)] -> AstRanked r n
-{-# INLINE bindsToLet #-}  -- help list fusion
-bindsToLet = foldl' bindToLet
- where
-  bindToLet u (var, d) = case d of
-    AstRToD w -> AstLet var w u
-    AstSToD w -> AstLet var (AstSToR w) u
-
-bindsToDomainsLet :: AstDomains r -> [(AstVarId, AstDynamic r)] -> AstDomains r
-{-# INLINE bindsToDomainsLet #-}   -- help list fusion
-bindsToDomainsLet = foldl' bindToDomainsLet
- where
-  bindToDomainsLet u (var, d) = case d of
-    AstRToD w -> AstDomainsLet var w u
-    AstSToD w -> AstDomainsLetS var w u
 
 newtype AstVarName t = AstVarName AstVarId
  deriving (Eq, Show)
