@@ -1,6 +1,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+{-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 -- | An assortment of operations on AST of the code to be differentiated.
 module HordeAd.Core.AstTools
   ( shapeAst, lengthAst
@@ -470,11 +471,9 @@ printAstVarId prefix cfg var =
     Just name | name /= "" -> name
     _ -> prefix ++ show n
 
-printAstVar :: forall n r. KnownNat n
-            => PrintConfig -> AstVarName (OR.Array n r) -> ShowS
-printAstVar cfg (AstVarName var) =
-  let rank = valueOf @n
-      prefix = case rank :: Int of
+printAstVarN :: Int -> PrintConfig -> AstVarName a -> ShowS
+printAstVarN n cfg (AstVarName var) =
+  let prefix = case n of
         0 -> "x"
         1 -> "v"
         2 -> "m"
@@ -483,6 +482,14 @@ printAstVar cfg (AstVarName var) =
         5 -> "v"
         _ -> "w"
   in printAstVarId prefix cfg var
+
+printAstVar :: forall n r. KnownNat n
+            => PrintConfig -> AstVarName (OR.Array n r) -> ShowS
+printAstVar = printAstVarN (valueOf @n)
+
+printAstVarS :: forall sh r. OS.Shape sh
+             => PrintConfig -> AstVarName (OS.Array sh r) -> ShowS
+printAstVarS = printAstVarN (length (OS.shapeT @sh))
 
 printAstIntVar :: PrintConfig -> AstVarId -> ShowS
 printAstIntVar = printAstVarId "i"
@@ -591,6 +598,7 @@ printAst cfg d = \case
                           (sizedListToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (indexToList ix))
+  AstSToR v -> printAstS cfg d v
   AstConst a ->
     showParen (d > 10)
     $ showString "tconst "
@@ -598,9 +606,9 @@ printAst cfg d = \case
         then shows $ head $ OR.toList a
         else showParen True
              $ shows a
-  AstConstant (AstPrimalPart (AstConst a)) -> printAst cfg d (AstConst a)
-  AstConstant (AstPrimalPart (AstIndex AstIota (i :. ZI))) ->
-    printAst cfg d (AstIndex AstIota (i :. ZI))
+  AstConstant (AstPrimalPart a@AstConst{}) -> printAst cfg d a
+  AstConstant (AstPrimalPart a@(AstIndex AstIota (_ :. ZI))) ->
+    printAst cfg d a
   AstConstant (AstPrimalPart a) ->
     printPrefixOp printAst cfg d "tconstant" [a]
   AstD (AstPrimalPart u) (AstDualPart u') ->
@@ -620,8 +628,9 @@ printAst cfg d = \case
 
 printAstVarFromDomains :: forall r. PrintConfig -> (AstVarId, AstDynamic r)
                        -> ShowS
-printAstVarFromDomains cfg (var, AstRToD @n _) =
-  printAstVar cfg (AstVarName @(OR.Array n r) var)
+printAstVarFromDomains cfg (var, d) = case d of
+  AstRToD @n _ -> printAstVar cfg (AstVarName @(OR.Array n r) var)
+  AstSToD @sh _ -> printAstVarS cfg (AstVarName @(OS.Array sh r) var)
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
@@ -635,11 +644,14 @@ showCollectionWith start end showx (x:xs) s = start ++ showx x (showl xs)
   showl (y:ys) = ", " ++ showx y (showl ys)
 
 printAstDynamic :: ShowAst r => PrintConfig -> Int -> AstDynamic r -> ShowS
-printAstDynamic cfg d (AstRToD v) =
-  printPrefixOp printAst cfg d "dfromR" [v]
+printAstDynamic cfg d = \case
+  AstRToD v -> printPrefixOp printAst cfg d "dfromR" [v]
+  AstSToD v -> printPrefixOp printAstS cfg d "dfromS" [v]
 
 printAstUnDynamic :: ShowAst r => PrintConfig -> Int -> AstDynamic r -> ShowS
-printAstUnDynamic cfg d (AstRToD v) = printAst cfg d v
+printAstUnDynamic cfg d = \case
+  AstRToD v -> printAst cfg d v
+  AstSToD v -> printAstS cfg d v
 
 printAstDomains :: forall r. ShowAst r
                 => PrintConfig -> Int -> AstDomains r -> ShowS
@@ -680,6 +692,32 @@ printAstDomains cfg d = \case
              . printAstVar cfg (AstVarName @(OR.Array m0 r) var0)
              . showString " -> "
              . printAstDomains cfg 0 v0)
+  t@(AstDomainsLetS @sh0 var0 u0 v0) ->
+    if prettifyLosingSharing cfg
+    then let collect :: AstDomains r -> ([(ShowS, ShowS)], ShowS)
+             collect (AstDomainsLetS @sh var u v) =
+               let name = printAstVarS cfg (AstVarName @(OS.Array sh r) var)
+                   uPP = printAstS cfg 0 u
+                   (rest, corePP) = collect v
+               in ((name, uPP) : rest, corePP)
+             collect v = ([], printAstDomains cfg 0 v)
+             (pairs, core) = collect t
+         in showParen (d > 0)
+            $ showString "let "
+              . foldr (.) id (intersperse (showString " ; ")
+                  [name . showString " = " . uPP | (name, uPP) <- pairs])
+              . showString " in "
+              . core
+    else
+      showParen (d > 10)
+      $ showString "rletToDomainsOf "
+        . printAstS cfg 11 u0
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstVarS cfg (AstVarName @(OS.Array sh0 r) var0)
+             . showString " -> "
+             . printAstDomains cfg 0 v0)
 
 printAstInt :: ShowAst r => PrintConfig -> Int -> AstInt r -> ShowS
 printAstInt cfg d = \case
@@ -687,6 +725,7 @@ printAstInt cfg d = \case
   AstIntOp opCode args -> printAstIntOp cfg d opCode args
   AstIntConst a -> shows a
   AstIntFloor (AstPrimalPart v) -> printPrefixOp printAst cfg d "floor" [v]
+  AstIntFloorS (AstPrimalPartS v) -> printPrefixOp printAstS cfg d "floor" [v]
   AstIntCond b a1 a2 ->
     showParen (d > 10)
     $ showString "ifB "
@@ -699,6 +738,10 @@ printAstInt cfg d = \case
     printPrefixOp printAst cfg d "tminIndex0" [v]
   AstMaxIndex1 (AstPrimalPart v) ->
     printPrefixOp printAst cfg d "tmaxIndex0" [v]
+  AstMinIndex1S (AstPrimalPartS v) ->
+    printPrefixOp printAstS cfg d "sminIndex0" [v]
+  AstMaxIndex1S (AstPrimalPartS v) ->
+    printPrefixOp printAstS cfg d "smaxIndex0" [v]
 
 printAstBool :: ShowAst r => PrintConfig -> Int -> AstBool r -> ShowS
 printAstBool cfg d = \case
@@ -706,6 +749,8 @@ printAstBool cfg d = \case
   AstBoolConst b -> showString $ if b then "true" else "false"
   AstRel opCode args -> printAstRelOp printAst cfg d opCode
                         $ map unAstPrimalPart args
+  AstRelS opCode args -> printAstRelOp printAstS cfg d opCode
+                         $ map unAstPrimalPartS args
   AstRelInt opCode args -> printAstRelOp printAstInt cfg d opCode args
 
 printAstOp :: (PrintConfig -> Int -> a -> ShowS)
@@ -809,12 +854,141 @@ printAstDynamicVarName :: IntMap String -> AstDynamicVarName r -> String
 printAstDynamicVarName renames (AstDynamicVarName var) =
   printAstVarName renames var
 
+printAstS :: forall sh r. (ShowAst r, OS.Shape sh)
+          => PrintConfig -> Int -> AstShaped r sh -> ShowS
+printAstS cfg d = \case
+  AstVarS var -> printAstVarS cfg (AstVarName @(OS.Array sh r) var)
+  t@(AstLetS @_ @sh0 var0 u0 v0) ->
+    if prettifyLosingSharing cfg
+    then let collect :: AstShaped r sh -> ([(ShowS, ShowS)], ShowS)
+             collect (AstLetS @_ @sh2 var u v) =
+               let name = printAstVarS cfg (AstVarName @(OS.Array sh2 r) var)
+                   uPP = printAstS cfg 0 u
+                   (rest, corePP) = collect v
+               in ((name, uPP) : rest, corePP)
+             collect v = ([], printAstS cfg 0 v)
+             (pairs, core) = collect t
+         in showParen (d > 0)
+            $ showString "let "
+              . foldr (.) id (intersperse (showString " ; ")
+                  [name . showString " = " . uPP | (name, uPP) <- pairs])
+              . showString " in "
+              . core
+    else
+      showParen (d > 10)
+      $ showString "slet "
+        . printAstS cfg 11 u0
+        . showString " "
+        . (showParen True
+           $ showString "\\"
+             . printAstVarS cfg (AstVarName @(OS.Array sh0 r) var0)
+             . showString " -> "
+             . printAstS cfg 0 v0)
+  AstLetADShareS l v -> printAstS cfg d $ bindsToLetS v (assocsADShare l)
+  AstOpS opCode args -> printAstOp printAstS cfg d opCode args
+  AstSumOfListS [] -> error "printAst: empty AstSumOfList"
+  AstSumOfListS (left : args) ->
+    let rs = map (\arg -> showString " + " . printAstS cfg 7 arg) args
+    in showParen (d > 6)
+       $ printAstS cfg 7 left
+         . foldr (.) id rs
+  AstIotaS -> showString "siota"  -- TODO: no surface syntax, so no roundtrip
+  AstIndexS AstIotaS (i :$: ZSH) ->
+    printPrefixOp printAstInt cfg d "sfromIndex0" [i]
+  AstIndexS v ix ->
+    showParen (d > 9)
+    $ printAstS cfg 10 v
+      . showString " ! "
+      . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix)
+  AstSumS v -> printPrefixOp printAstS cfg d "ssum" [v]
+  AstScatterS v (vars, ix) ->
+    showParen (d > 10)
+    $ showString ("sscatter ")
+      . printAstS cfg 11 v
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (printAstIntVar cfg)
+                          (ShapedList.sizedListToList vars)
+           . showString " -> "
+           . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix))
+  AstFromListS l ->
+    showParen (d > 10)
+    $ showString "sfromList "
+      . showListWith (printAstS cfg 0) l
+  AstFromVectorS l ->
+    showParen (d > 10)
+    $ showString "sfromVector "
+      . (showParen True
+         $ showString "fromList "
+           . showListWith (printAstS cfg 0) (V.toList l))
+  AstReplicateS v -> printPrefixOp printAstS cfg d "sreplicate" [v]
+  AstAppendS x y ->
+    -- x and y have different types, unlike in AstAppend, so we
+    -- have to inline printPrefixOp:
+    let rs = [ showString " " . printAstS cfg 11 x
+             , showString " " . printAstS cfg 11 y ]
+    in showParen (d > 10)
+       $ showString "sappend"
+         . foldr (.) id rs
+  AstSliceS v -> printPrefixOp printAstS cfg d "sslice" [v]
+  AstReverseS v -> printPrefixOp printAstS cfg d "sreverse" [v]
+  AstTransposeS v ->
+    printPrefixOp printAstS cfg d "stranspose" [v]
+  AstReshapeS v ->
+    printPrefixOp printAstS cfg d "sreshape" [v]
+  AstBuild1S (var, v) ->
+    showParen (d > 10)
+    $ showString "sbuild1 "
+      . (showParen True
+         $ showString "\\"
+           . printAstIntVar cfg var
+           . showString " -> "
+           . printAstS cfg 0 v)
+  AstGatherS v (vars, ix) ->
+    showParen (d > 10)
+    $ showString ("sgather ")
+      . printAstS cfg 11 v
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (printAstIntVar cfg)
+                          (ShapedList.sizedListToList vars)
+           . showString " -> "
+           . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix))
+  AstRToS v -> printAst cfg d v
+  AstConstS a ->
+    showParen (d > 10)
+    $ showString "sconst "
+      . if null (OS.shapeT @sh)
+        then shows $ head $ OS.toList a
+        else showParen True
+             $ shows a
+  AstConstantS (AstPrimalPartS a@AstConstS{}) -> printAstS cfg d a
+  AstConstantS (AstPrimalPartS a@(AstIndexS AstIotaS (_ :$: ZSH))) ->
+    printAstS cfg d a
+  AstConstantS (AstPrimalPartS a) ->
+    printPrefixOp printAstS cfg d "sconstant" [a]
+  AstDS (AstPrimalPartS u) (AstDualPartS u') ->
+    printPrefixOp printAstS cfg d "tDS" [u, u']
+  AstLetDomainsS vars l v ->
+    showParen (d > 10)
+    $ showString "sletDomainsOf "
+      . printAstDomains cfg 11 l
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (printAstVarFromDomains cfg)
+                          (V.toList $ V.zip vars (unwrapAstDomains l))
+           . showString " -> "
+           . printAstS cfg 0 v)
+      -- TODO: this does not roundtrip yet
+
 printAstSimple :: (ShowAst r, KnownNat n) => IntMap String -> AstRanked r n -> String
 printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
 
 printAstPretty :: (ShowAst r, KnownNat n) => IntMap String -> AstRanked r n -> String
 printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
-
 
 printAstDomainsSimple :: ShowAst r => IntMap String -> AstDomains r -> String
 printAstDomainsSimple renames t =
