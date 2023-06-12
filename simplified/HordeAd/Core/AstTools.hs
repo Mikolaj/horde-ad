@@ -5,6 +5,7 @@
 module HordeAd.Core.AstTools
   ( shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool, intVarInIndex
+  , intVarInAstS, intVarInIndexS
   , substitute1Ast, substitute1AstDomains, substitute1AstInt, substitute1AstBool
   , astIsSmall
   , printAstVarName
@@ -121,7 +122,7 @@ intVarInAst var = \case
   AstReshape _ v -> intVarInAst var v
   AstBuild1 _ (_var2, v) -> intVarInAst var v
   AstGather _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
---  AstSToR v -> intVarInAstS var v
+  AstSToR v -> intVarInAstS var v
   AstConst{} -> False
   AstConstant (AstPrimalPart v) -> intVarInAst var v
   AstD (AstPrimalPart u) (AstDualPart u') ->
@@ -132,10 +133,10 @@ intVarInAstDomains :: AstVarId -> AstDomains r -> Bool
 intVarInAstDomains var = \case
   AstDomains l ->
     let f (AstRToD t) = intVarInAst var t
---        f (AstSToD t) = intVarInAstS var t
+        f (AstSToD t) = intVarInAstS var t
     in any f l
   AstDomainsLet _var2 u v -> intVarInAst var u || intVarInAstDomains var v
---  AstDomainsLetS _var2 u v -> intVarInAstS var u || intVarInAstDomains var v
+  AstDomainsLetS _var2 u v -> intVarInAstS var u || intVarInAstDomains var v
 
 intVarInAstInt :: AstVarId -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -143,20 +144,59 @@ intVarInAstInt var = \case
   AstIntOp _ l -> any (intVarInAstInt var) l
   AstIntConst{} -> False
   AstIntFloor (AstPrimalPart v) -> intVarInAst var v
+  AstIntFloorS (AstPrimalPartS v) -> intVarInAstS var v
   AstIntCond b x y ->
     intVarInAstBool var b || intVarInAstInt var x || intVarInAstInt var y
   AstMinIndex1 (AstPrimalPart v) -> intVarInAst var v
   AstMaxIndex1 (AstPrimalPart v) -> intVarInAst var v
+  AstMinIndex1S (AstPrimalPartS v) -> intVarInAstS var v
+  AstMaxIndex1S (AstPrimalPartS v) -> intVarInAstS var v
 
 intVarInAstBool :: AstVarId -> AstBool r -> Bool
 intVarInAstBool var = \case
   AstBoolOp _ l -> any (intVarInAstBool var) l
   AstBoolConst{} -> False
   AstRel _ l -> any (intVarInAst var . unAstPrimalPart) l
+  AstRelS _ l -> any (intVarInAstS var . unAstPrimalPartS) l
   AstRelInt _ l  -> any (intVarInAstInt var) l
 
 intVarInIndex :: AstVarId -> AstIndex r n -> Bool
 intVarInIndex var = any (intVarInAstInt var)
+
+intVarInAstS :: AstVarId -> AstShaped r sh -> Bool
+intVarInAstS var = \case
+  AstVarS{} -> False  -- not an int variable
+  AstLetS _var2 u v -> intVarInAstS var u || intVarInAstS var v
+  AstLetADShareS _l v -> intVarInAstS var v
+    -- this is a (we assume) conservative approximation, to avoid a costly
+    -- traversal; in (almost?) all cases this is also the true answer,
+    -- because the let definitions come from the outside and so can't
+    -- contain a local variable we (always?) ask about
+  AstOpS _ l -> any (intVarInAstS var) l
+  AstSumOfListS l -> any (intVarInAstS var) l
+  AstIotaS -> False
+  AstIndexS v ix -> intVarInAstS var v || intVarInIndexS var ix
+  AstSumS v -> intVarInAstS var v
+  AstScatterS v (_vars, ix) -> intVarInIndexS var ix || intVarInAstS var v
+  AstFromListS l -> any (intVarInAstS var) l  -- down from rank 1 to 0
+  AstFromVectorS vl -> any (intVarInAstS var) $ V.toList vl
+  AstReplicateS v -> intVarInAstS var v
+  AstAppendS v u -> intVarInAstS var v || intVarInAstS var u
+  AstSliceS v -> intVarInAstS var v
+  AstReverseS v -> intVarInAstS var v
+  AstTransposeS v -> intVarInAstS var v
+  AstReshapeS v -> intVarInAstS var v
+  AstBuild1S (_var2, v) -> intVarInAstS var v
+  AstGatherS v (_vars, ix) -> intVarInIndexS var ix || intVarInAstS var v
+  AstRToS v -> intVarInAst var v
+  AstConstS{} -> False
+  AstConstantS (AstPrimalPartS v) -> intVarInAstS var v
+  AstDS (AstPrimalPartS u) (AstDualPartS u') ->
+    intVarInAstS var u || intVarInAstS var u'
+  AstLetDomainsS _vars l v -> intVarInAstDomains var l || intVarInAstS var v
+
+intVarInIndexS :: AstVarId -> AstIndexS r sh -> Bool
+intVarInIndexS var = any (intVarInAstInt var)
 
 
 -- * Substitution
