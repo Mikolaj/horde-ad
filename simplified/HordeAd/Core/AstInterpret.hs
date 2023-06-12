@@ -1,6 +1,7 @@
 {-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+{-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
 module HordeAd.Core.AstInterpret
   ( InterpretAstR, InterpretAstS
@@ -250,6 +251,10 @@ interpretAst env memo = \case
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
         interpretAst env memo
           (AstLet var u (AstOp TimesOp [v, AstReplicate @m k s]))
+  AstOp TimesOp [v, u] ->
+    let (memo2, v5) = interpretAst env memo v
+        (memo3, u5) = interpretAst env memo2 u
+    in (memo3, v5 `tmult` u5)
   AstOp opCode args ->
     let (memo2, args2) = mapAccumR (interpretAst env) memo args
     in (memo2, interpretAstOp opCode args2)
@@ -574,11 +579,10 @@ interpretAstDomainsDummy env memo = \case
 
 -- TODO: when the code again tests with GHC >= 9.6, check whether
 -- these INLINEs are still needed (removal causes 10% slowdown ATM).
-interpretAstOp :: (Tensor ranked, KnownNat n, GoodScalar r)
-               => OpCode -> [ranked r n] -> ranked r n
+interpretAstOp :: RealFloat a
+               => OpCode -> [a] -> a
 {-# INLINE interpretAstOp #-}
 interpretAstOp MinusOp [u, v] = u - v
-interpretAstOp TimesOp [u, v] = u `tmult` v
 interpretAstOp NegateOp [u] = negate u
 interpretAstOp AbsOp [u] = abs u
 interpretAstOp SignumOp [u] = signum u
