@@ -9,7 +9,7 @@ module HordeAd.Core.AstTools
   , SubstitutionPayload(..)
   , substitute1Ast, substitute1AstDomains, substitute1AstInt, substitute1AstBool
   , substitute1AstS
-  , astIsSmall
+  , astIsSmall, astIsSmallS
   , printAstVarName
   , printAstSimple, printAstPretty, printAstDomainsSimple, printAstDomainsPretty
   , printGradient6Simple, printGradient6Pretty
@@ -389,6 +389,21 @@ astIsSmall = \case
   AstReplicate _ v -> astIsSmall v  -- materialized via tricks, so prob. safe
   AstSlice _ _ v -> astIsSmall v  -- materialized via tensor/vector slice; cheap
   AstTranspose _ v -> astIsSmall v  -- often cheap and often fuses
+  AstSToR v -> astIsSmallS v
+  _ -> False
+
+astIsSmallS :: forall sh r. OS.Shape sh
+            => AstShaped r sh -> Bool
+astIsSmallS = \case
+  AstVarS{} -> True
+  AstIotaS -> True
+  AstIndexS AstIotaS _ -> True
+  AstConstS{} -> null (OS.shapeT @sh)
+  AstConstantS (AstPrimalPartS v) -> astIsSmallS v
+  AstReplicateS v -> astIsSmallS v  -- materialized via tricks, so prob. safe
+  AstSliceS v -> astIsSmallS v  -- materialized via tensor/vector slice; cheap
+  AstTransposeS v -> astIsSmallS v  -- often cheap and often fuses
+  AstRToS v -> astIsSmall v
   _ -> False
 
 

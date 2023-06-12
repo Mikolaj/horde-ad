@@ -412,7 +412,7 @@ instance ShapedTensor AstShaped where  -- TODO
 astLetFunS :: OS.Shape sh
           => AstShaped r sh -> (AstShaped r sh -> AstShaped r sh2)
           -> AstShaped r sh2
--- astLetFunS a f | astIsSmall a = f a
+astLetFunS a f | astIsSmallS a = f a
 astLetFunS a f =
   let (AstVarName var, ast) = funToAstS f
   in AstLetS var a ast  -- astLet var a ast  -- safe, because subsitution ruled out above

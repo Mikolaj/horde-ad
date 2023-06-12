@@ -145,7 +145,7 @@ astRegisterFunS :: (OS.Shape sh, KnownNat (OS.Rank sh))
                 => AstShaped r sh -> [(AstVarId, AstDynamic r)]
                 -> ([(AstVarId, AstDynamic r)], AstShaped r sh)
 {-# NOINLINE astRegisterFunS #-}
--- astRegisterFun !r !l | astIsSmall r = (l, r)
+astRegisterFunS !r !l | astIsSmallS r = (l, r)
 astRegisterFunS !r !l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !r2 = AstVarS freshId
