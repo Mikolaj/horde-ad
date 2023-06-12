@@ -18,6 +18,7 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Shape as OS
 import           Data.Either (fromLeft, fromRight)
 import           Data.List (intersperse)
 import           Data.Proxy (Proxy (Proxy))
@@ -76,6 +77,7 @@ shapeAst v1 = case v1 of
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$ shapeAst v
   AstGather sh _v (_vars, _ix) -> sh
+  AstSToR @sh _ -> listShapeToShape $ OS.shapeT @sh
   AstConst a -> listShapeToShape $ OR.shapeL a
   AstConstant (AstPrimalPart a) -> shapeAst a
   AstD (AstPrimalPart u) _ -> shapeAst u
@@ -119,6 +121,7 @@ intVarInAst var = \case
   AstReshape _ v -> intVarInAst var v
   AstBuild1 _ (_var2, v) -> intVarInAst var v
   AstGather _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
+--  AstSToR v -> intVarInAstS var v
   AstConst{} -> False
   AstConstant (AstPrimalPart v) -> intVarInAst var v
   AstD (AstPrimalPart u) (AstDualPart u') ->
@@ -127,8 +130,12 @@ intVarInAst var = \case
 
 intVarInAstDomains :: AstVarId -> AstDomains r -> Bool
 intVarInAstDomains var = \case
-  AstDomains l -> any (\(AstRToD t) -> intVarInAst var t) l
+  AstDomains l ->
+    let f (AstRToD t) = intVarInAst var t
+--        f (AstSToD t) = intVarInAstS var t
+    in any f l
   AstDomainsLet _var2 u v -> intVarInAst var u || intVarInAstDomains var v
+--  AstDomainsLetS _var2 u v -> intVarInAstS var u || intVarInAstDomains var v
 
 intVarInAstInt :: AstVarId -> AstInt r -> Bool
 intVarInAstInt var = \case

@@ -11,6 +11,7 @@ module HordeAd.Core.TensorAst
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
@@ -84,6 +85,15 @@ instance Tensor AstRanked where
     case sameNat (Proxy @n) (Proxy @n2) of
       Just Refl -> AstRToD (AstSumOfList [r, v])
       _ -> error "raddDynamic: type mismatch"
+  raddDynamic r (AstSToD AstIotaS) = AstRToD r
+  raddDynamic r (AstSToD @sh2 (AstSumOfListS l)) =
+    case sameNat (Proxy @n) (Proxy @(OS.Rank sh2)) of
+      Just Refl -> AstSToD (AstSumOfListS (AstRToS r : l))
+      _ -> error "raddDynamic: type mismatch"
+  raddDynamic r (AstSToD @sh2 v) =
+    case sameNat (Proxy @n) (Proxy @(OS.Rank sh2)) of
+      Just Refl -> AstSToD (AstSumOfListS [AstRToS r, v])
+      _ -> error "raddDynamic: type mismatch"
   tregister = astRegisterFun
 
   tconstant = astConstant
@@ -94,16 +104,18 @@ instance Tensor AstRanked where
 
 instance ConvertTensor AstRanked AstShaped where
   tfromD = astFromDynamic
-  tfromS = undefined
-  dfromR r = AstRToD r
-  dfromS = undefined
-  sfromR = undefined
-  sfromD = undefined
+  tfromS = AstSToR
+  dfromR = AstRToD
+  dfromS = AstSToD
+  sfromR = AstRToS
+  sfromD = astFromDynamicS
   ddummy = AstRToD AstIota
   disDummy t = case t of
     AstRToD AstIota -> True
+    AstSToD AstIotaS -> True
     _ -> False
   dshape (AstRToD v) = shapeToList $ shapeAst v
+  dshape (AstSToD @sh _) = OS.shapeT @sh
 
 instance DomainsTensor AstRanked AstShaped AstDomains where
   dmkDomains = AstDomains
@@ -147,6 +159,9 @@ astLetDomainsFun a f =
         let sh = shapeAst t
             (AstVarName var, ast) = funToAstR sh id
         in (var, AstRToD ast)
+      genVar (AstSToD @sh _t) =
+        let (AstVarName var, ast) = funToAstS @sh id
+        in (var, AstSToD ast)
       (vars, asts) = V.unzip $ V.map genVar (unwrapAstDomains a)
   in AstLetDomains vars a (f $ AstDomains asts)
 
@@ -376,6 +391,15 @@ instance ShapedTensor AstShaped where  -- TODO
   saddDynamic r (AstSToD @sh2 v) =
     case sameShape @sh @sh2 of
       Just Refl -> AstSToD (AstSumOfListS [r, v])
+      _ -> error "saddDynamic: type mismatch"
+  saddDynamic r (AstRToD AstIota) = AstSToD r
+  saddDynamic r (AstRToD @n2 (AstSumOfList l)) =
+    case sameNat (Proxy @n2) (Proxy @(OS.Rank sh)) of
+      Just Refl -> AstRToD (AstSumOfList (AstSToR r : l))
+      _ -> error "saddDynamic: type mismatch"
+  saddDynamic r (AstRToD @n2 v) =
+    case sameNat (Proxy @n2) (Proxy @(OS.Rank sh)) of
+      Just Refl -> AstRToD (AstSumOfList [AstSToR r, v])
       _ -> error "saddDynamic: type mismatch"
   sregister = astRegisterFunS
 

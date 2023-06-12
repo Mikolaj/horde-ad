@@ -17,7 +17,8 @@ module HordeAd.Core.AstSimplify
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
   , astLet, astSum, astScatter, astFromList, astFromVector, astReplicate
-  , astAppend, astSlice, astReverse, astFromDynamic, astConstant, astDomainsLet
+  , astAppend, astSlice, astReverse, astFromDynamic, astFromDynamicS
+  , astConstant, astDomainsLet
   , astIntCond
   , simplifyArtifact6, simplifyAst6, simplifyAstDomains6
   , unletAstDomains6, unletAst6
@@ -29,6 +30,7 @@ import Prelude
 import           Control.Arrow (second)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Shape as OS
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.EnumSet as ES
 import           Data.List (dropWhileEnd, mapAccumR)
@@ -67,7 +69,7 @@ import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.SizedList
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.TensorOps
-
+import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 
 -- * Expressing operations as Gather; introduces new variable names
 
@@ -811,6 +813,22 @@ astFromDynamic (AstRToD @n2 v) =
   case sameNat (Proxy @n) (Proxy @n2) of
     Just Refl -> v
     _ -> error "astFromDynamic: different rank expected and uncovered"
+astFromDynamic (AstSToD @sh2 v) =
+  case sameNat (Proxy @n) (Proxy @(OS.Rank sh2)) of
+    Just Refl -> Ast.AstSToR v
+    _ -> error "astFromDynamic: different rank expected and uncovered"
+
+astFromDynamicS :: forall sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
+                => AstDynamic r -> AstShaped r sh
+astFromDynamicS (AstSToD Ast.AstIotaS) = error "astFromDynamicS: dummy"
+astFromDynamicS (AstSToD @sh2 v) =
+  case sameShape @sh @sh2 of
+    Just Refl -> v
+    _ -> error "astFromDynamicS: different shape expected and uncovered"
+astFromDynamicS (AstRToD @n2 v) =
+  case sameNat (Proxy @n2) (Proxy @(OS.Rank sh)) of
+    Just Refl -> Ast.AstRToS v
+    _ -> error "astFromDynamicS: different rank expected and uncovered"
 
 {-
 -- TODO: To apply this to astGatherZ. we'd need to take the last variable

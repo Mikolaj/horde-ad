@@ -129,14 +129,14 @@ funToAstIndex
 {-# NOINLINE funToAstIndex #-}
 funToAstIndex = unsafePerformIO . funToAstIndexIO (valueOf @m)
 
-funToAstIOS :: (AstShaped r sh -> AstShaped r sh2)
+funToAstIOS :: forall sh sh2 r. (AstShaped r sh -> AstShaped r sh2)
             -> IO (AstVarName (OS.Array sh r), AstShaped r sh2)
 {-# INLINE funToAstIOS #-}
 funToAstIOS f = do
   freshId <- unsafeGetFreshAstVarId
   return (AstVarName freshId, f (AstVarS freshId))
 
-funToAstS :: (AstShaped r sh -> AstShaped r sh2)
+funToAstS :: forall sh sh2 r. (AstShaped r sh -> AstShaped r sh2)
           -> (AstVarName (OS.Array sh r), AstShaped r sh2)
 {-# NOINLINE funToAstS #-}
 funToAstS f = unsafePerformIO $ funToAstIOS f
