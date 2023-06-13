@@ -140,7 +140,8 @@ instance (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
 -- in tests. None others are used anywhere.
 instance ( Dual ranked ~ DeltaR ranked shaped
          , DeltaR ranked shaped ~ Dual ranked
-         , CRankedIP ranked IsPrimal
+         , CRankedIP ranked IsPrimalPart
+         , CRankedIP ranked CanRecordSharing
          , Tensor ranked )
          => Tensor (ADVal ranked) where
   tlet (D l u u') f =
@@ -267,6 +268,11 @@ class (forall r15 y. GoodScalar r15 => c shaped r15 y)
 instance (forall r15 y. GoodScalar r15 => c shaped r15 y)
          => CRankedIPS shaped c where
 
+class (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
+      => CRankedIPSh shaped c where
+instance (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
+         => CRankedIPSh shaped c where
+
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
 -- In any case, only the Ast instantiation of this instance
@@ -276,7 +282,8 @@ instance (forall r15 y. GoodScalar r15 => c shaped r15 y)
 -- in tests. None others are used anywhere.
 instance ( Dual shaped ~ DeltaS ranked shaped
          , DeltaS ranked shaped ~ Dual shaped
-         , CRankedIPS shaped IsPrimal
+         , CRankedIPSh shaped IsPrimalPart
+         , CRankedIPS shaped CanRecordSharing
          , ShapedTensor shaped )
          => ShapedTensor (ADVal shaped) where
   slet (D l u u') f =

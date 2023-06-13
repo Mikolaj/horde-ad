@@ -9,7 +9,7 @@ module HordeAd.Core.DualNumber
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , IsPrimal (..)
+  , IsPrimal
   ) where
 
 import Prelude hiding ((<*))
@@ -44,7 +44,7 @@ deriving instance (Show (f r z), Show (ADShare r), Show (Dual f r z))
 -- information, if applicable for the differentiation mode in question.
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
-dD :: IsPrimal f r z
+dD :: CanRecordSharing f r z
    => ADShare r -> f r z -> Dual f r z -> ADVal f r z
 dD l a dual = D l a (recordSharing dual)
 

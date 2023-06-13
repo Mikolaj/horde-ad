@@ -22,7 +22,8 @@
 -- sharing. This applies regardless of impurity, because repeated processing
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
-  ( IsPrimal(..), unsafeGetFreshId, resetIdCounter
+  ( IsPrimal, IsPrimalPart(..), CanRecordSharing(..)
+  , unsafeGetFreshId, resetIdCounter
   ) where
 
 import Prelude
@@ -45,15 +46,19 @@ import HordeAd.Core.TensorClass
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
-class IsPrimal f r z where
+class IsPrimalPart f r z where
   dZero :: Dual f r z
   dScale :: f r z -> Dual f r z -> Dual f r z
   dScaleByScalar :: f r z -> Int -> Dual f r z -> Dual f r z
   dAdd :: Dual f r z -> Dual f r z -> Dual f r z
+  intOfShape :: f r z -> Int -> f r z
+
+class CanRecordSharing f r z where
   recordSharing :: Dual f r z -> Dual f r z
   recordSharingPrimal :: f r z -> ADShare r -> (ADShare r, f r z)
   letWrapPrimal :: ADShare r -> f r z -> f r z
-  intOfShape :: f r z -> Int -> f r z
+
+type IsPrimal f r z = (IsPrimalPart f r z, CanRecordSharing f r z)
 
 
 -- * Delta expression method instances
@@ -91,12 +96,16 @@ class IsPrimal f r z where
 -- or library definitions that use it could be made smarter.
 
 -- | This is an impure instance. See above.
-instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
+instance (GoodScalar r, KnownNat n) => IsPrimalPart (Flip OR.Array) r n where
   dZero = ZeroR
   dScale = ScaleR
   dScaleByScalar tsh c =
     ScaleR (Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c))
   dAdd = AddR
+  intOfShape tsh c =
+    Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
+
+instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
   recordSharing d = case d of
     ZeroR -> d
     InputR{} -> d
@@ -105,15 +114,16 @@ instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
     _ -> wrapDeltaR d
   recordSharingPrimal r l = (l, r)
   letWrapPrimal _ r = r
-  intOfShape tsh c =
-    Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
 
-instance (GoodScalar r, KnownNat n) => IsPrimal AstRanked r n where
+instance (GoodScalar r, KnownNat n) => IsPrimalPart AstRanked r n where
   dZero = ZeroR
   dScale = ScaleR
   dScaleByScalar tsh c =
     ScaleR (treplicate0N (tshape tsh) (fromIntegral c))
   dAdd = AddR
+  intOfShape tsh c = treplicate0N (tshape tsh) (fromIntegral c)
+
+instance (GoodScalar r, KnownNat n) => CanRecordSharing AstRanked r n where
   recordSharing d = case d of
     ZeroR -> d
     InputR{} -> d
@@ -122,15 +132,17 @@ instance (GoodScalar r, KnownNat n) => IsPrimal AstRanked r n where
     _ -> wrapDeltaR d
   recordSharingPrimal = astRegisterADShare
   letWrapPrimal = tletWrap
-  intOfShape tsh c = treplicate0N (tshape tsh) (fromIntegral c)
 
-instance (GoodScalar r, OS.Shape sh)
-         => IsPrimal (Flip OS.Array) r sh where
+instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (Flip OS.Array) r sh where
   dZero = ZeroS
   dScale = ScaleS
   dScaleByScalar _tsh c =  -- this is not even needed for OS, but OR needs it
     ScaleS (Flip $ OS.constant (fromIntegral c))
   dAdd = AddS
+  intOfShape _tsh c =  -- this is not even needed for OS, but OR needs it
+    Flip $ OS.constant (fromIntegral c)
+
+instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
   recordSharing d = case d of
     ZeroS -> d
     InputS{} -> d
@@ -139,15 +151,16 @@ instance (GoodScalar r, OS.Shape sh)
     _ -> wrapDeltaS d
   recordSharingPrimal r l = (l, r)
   letWrapPrimal _ r = r
-  intOfShape _tsh c =  -- this is not even needed for OS, but OR needs it
-    Flip $ OS.constant (fromIntegral c)
 
-instance IsPrimal AstShaped r sh where
+instance IsPrimalPart AstShaped r sh where
   dZero = ZeroS
   dScale = ScaleS
   dScaleByScalar _tsh _c =  -- this is not even needed for OS, but OR needs it
     undefined  -- ScaleR (treplicate0N (tshape tsh) (fromIntegral c))
   dAdd = AddS
+  intOfShape = undefined  -- treplicate0N (tshape tsh) (fromIntegral c)
+
+instance CanRecordSharing AstShaped r sh where
   recordSharing d = case d of
     ZeroS -> d
     InputS{} -> d
@@ -156,7 +169,6 @@ instance IsPrimal AstShaped r sh where
     _ -> wrapDeltaS d
   recordSharingPrimal = undefined  -- astRegisterADShare
   letWrapPrimal = undefined  -- tletWrap
-  intOfShape = undefined  -- treplicate0N (tshape tsh) (fromIntegral c)
 
 
 -- * Counter handling
