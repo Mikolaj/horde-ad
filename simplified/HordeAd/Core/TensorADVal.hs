@@ -30,6 +30,8 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 
+-- * Assorted instances for any functor argument
+
 type instance BooleanOf (ADVal f r z) = BooleanOf (f r z)
 
 -- Boolean and numeric instances are easy to define for ADVal f r z
@@ -49,7 +51,20 @@ instance (OrdB (f r z), IsPrimal f r z) => OrdB (ADVal f r z) where
 instance IfB (ADVal (Flip OR.Array) r n) where
   ifB b v w = if b then v else w
 
--- This requires the Tensor instance, hence the definitions must be here.
+type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
+
+type instance IntOf (ADVal f r n) = IntOf (f r n)
+
+type instance PrimalOf (ADVal f) = f
+
+type instance DualOf (ADVal f) = Product (Clown ADShare) (Dual f)
+
+type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
+
+
+-- * Ranked tensor instances
+
+-- This requires the Tensor instance, hence the definitions must in this module.
 instance (KnownNat n, GoodScalar r)
          => IfB (ADVal AstRanked r n) where
   ifB b v w = indexZ (fromList [v, w]) (singletonIndex $ ifB b 0 1)
@@ -79,8 +94,6 @@ fromList lu =
      (tfromList $ map (\(D _ u _) -> u) lu)
      (FromListR $ map (\(D _ _ u') -> u') lu)
 
-type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
-
 instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
          , Dual ranked ~ DeltaR ranked shaped
          , Dual (Clown dynamic) ~ DeltaD ranked shaped
@@ -93,15 +106,6 @@ instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (a, rest) -> Just (dToR (runFlip a), rest)
     Nothing -> Nothing
-
-instance ( GoodScalar r, dynamic ~ DynamicOf shaped
-         , ConvertTensor ranked shaped )
-         => AdaptableDomains (ADValClown dynamic)
-                             (ADVal shaped r sh) where
-  type Underlying (ADVal shaped r sh) = r
-  type Value (ADVal shaped r sh) = Flip OS.Array r sh  -- !!! not shaped
-  toDomains = undefined
-  fromDomains = undefined
 
 dToR :: forall ranked shaped n r.
         ( ConvertTensor ranked shaped
@@ -117,25 +121,10 @@ dToR (D l u u') = dDnotShared l (tfromD $ runClown u) (dDToR u')
       _ -> error "dToR: different ranks in DToR(RToD)"
   dDToR d = DToR d
 
-rToD :: ( ConvertTensor ranked shaped
-        , Dual ranked ~ DeltaR ranked shaped
-        , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped
-        , KnownNat n, GoodScalar r )
-      => ADVal ranked r n -> ADVal (Clown (DynamicOf ranked)) r '()
-rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (RToD u')
-
 class (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
       => CRankedIP ranked c where
 instance (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
          => CRankedIP ranked c where
-
-type instance IntOf (ADVal f r n) = IntOf (f r n)
-
-type instance PrimalOf (ADVal f) = f
-
-type instance DualOf (ADVal f) = Product (Clown ADShare) (Dual f)
-
-type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
@@ -216,6 +205,21 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   tD ast (Pair (Clown l) delta) = dD l ast delta
   tScale ast (Pair l delta) = Pair l (dScale ast delta)
 
+
+-- * Shaped tensor instances
+
+instance ( GoodScalar r, dynamic ~ DynamicOf shaped
+         , ConvertTensor ranked shaped )
+         => AdaptableDomains (ADValClown dynamic)
+                             (ADVal shaped r sh) where
+  type Underlying (ADVal shaped r sh) = r
+  type Value (ADVal shaped r sh) = Flip OS.Array r sh  -- !!! not shaped
+  toDomains = undefined
+  fromDomains = undefined
+
+
+-- * ConvertTensor instance
+
 instance ( Dual ranked ~ DeltaR ranked shaped
          , Dual shaped ~ DeltaS ranked shaped
          , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped
@@ -238,14 +242,14 @@ instance ( Dual ranked ~ DeltaR ranked shaped
         -- TODO: add all the other optimizations about not storing
         -- trivial conversions on tape
   dfromR = Flip . rToD
+   where
+    rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (RToD u')
   dfromS = Flip . sToD
    where
-    sToD (D l u u') = dDnotShared l (Clown $ dfromS u)
-                                    (SToD u')
+    sToD (D l u u') = dDnotShared l (Clown $ dfromS u) (SToD u')
   sfromD = dToS . runFlip
    where
-    dToS (D l u u') = dDnotShared l (sfromD (runClown u))
-                                    (DToS u')
+    dToS (D l u u') = dDnotShared l (sfromD (runClown u)) (DToS u')
   sfromR = rToS
    where
     rToS (D l u u') = dDnotShared l (sfromR u) (RToS u')
