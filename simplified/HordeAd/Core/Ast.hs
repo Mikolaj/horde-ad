@@ -151,7 +151,7 @@ deriving instance ShowAst r => Show (AstDualPart r n)
 data AstShaped :: Type -> [Nat] -> Type where
   -- To permit defining objective functions in Ast, not just constants:
   AstVarS :: AstVarId -> AstShaped r sh
-  AstLetS :: forall sh sh2 r. OS.Shape sh
+  AstLetS :: forall sh sh2 r. (OS.Shape sh, OS.Shape sh2)
           => AstVarId -> AstShaped r sh -> AstShaped r sh2 -> AstShaped r sh2
   AstLetADShareS :: ADShare r -> AstShaped r sh -> AstShaped r sh
    -- there are mixed local/global lets, because they can be identical
@@ -161,11 +161,12 @@ data AstShaped :: Type -> [Nat] -> Type where
   -- For the numeric classes:
   AstOpS :: OpCode -> [AstShaped r sh] -> AstShaped r sh
   AstSumOfListS :: [AstShaped r sh] -> AstShaped r sh
-  AstIotaS :: forall n r. AstShaped r '[n]
+  AstIotaS :: forall n r. KnownNat n => AstShaped r '[n]
     -- needed, because toInteger and so fromIntegral is not defined for Ast
 
   -- For the Tensor class:
-  AstIndexS :: forall sh1 sh2 r. (OS.Shape sh2, OS.Shape (sh1 OS.++ sh2))
+  AstIndexS :: forall sh1 sh2 r.
+               (OS.Shape sh1, OS.Shape sh2, OS.Shape (sh1 OS.++ sh2))
             => AstShaped r (sh1 OS.++ sh2) -> AstIndexS r sh1
             -> AstShaped r sh2
     -- first ix is for outermost dimension; empty index means identity,
@@ -174,33 +175,37 @@ data AstShaped :: Type -> [Nat] -> Type where
   AstSumS :: KnownNat n
           => AstShaped r (n ': sh) -> AstShaped r sh
   AstScatterS :: forall sh2 p sh r.
-                 ( OS.Shape sh2, OS.Shape sh, OS.Shape (OS.Take p sh)
+                 ( OS.Shape sh2, OS.Shape sh
+                 , OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh)
                  , OS.Shape (sh2 OS.++ OS.Drop p sh) )
               => AstShaped r (sh2 OS.++ OS.Drop p sh)
               -> (AstVarListS sh2, AstIndexS r (OS.Take p sh))
               -> AstShaped r sh
 
-  AstFromListS :: OS.Shape sh
+  AstFromListS :: (KnownNat n, OS.Shape sh)
                => [AstShaped r sh] -> AstShaped r (n ': sh)
-  AstFromVectorS :: OS.Shape sh
+  AstFromVectorS :: (KnownNat n, OS.Shape sh)
                  => Data.Vector.Vector (AstShaped r sh) -> AstShaped r (n ': sh)
-  AstReplicateS :: OS.Shape sh
+  AstReplicateS :: (KnownNat n, OS.Shape sh)
                 => AstShaped r sh -> AstShaped r (n ': sh)
   AstAppendS :: (KnownNat n, KnownNat m, OS.Shape sh)
              => AstShaped r (m ': sh) -> AstShaped r (n ': sh)
              -> AstShaped r ((m + n) ': sh)
   AstSliceS :: (KnownNat i, KnownNat k, KnownNat n, OS.Shape sh)
             => AstShaped r (i + n + k ': sh) -> AstShaped r (n ': sh)
-  AstReverseS :: AstShaped r (n ': sh) -> AstShaped r (n ': sh)
+  AstReverseS :: (KnownNat n, OS.Shape sh)
+              => AstShaped r (n ': sh) -> AstShaped r (n ': sh)
   AstTransposeS :: forall perm sh r.
                    ( OS.Permutation perm, OS.Shape perm, OS.Shape sh
                    , KnownNat (OS.Rank sh), OS.Rank perm <= OS.Rank sh )
                 => AstShaped r sh -> AstShaped r (OS.Permute perm sh)
-  AstReshapeS :: OS.Shape sh
+  AstReshapeS :: (OS.Shape sh, OS.Size sh ~ OS.Size sh2)
               => AstShaped r sh -> AstShaped r sh2
-  AstBuild1S :: OS.Shape sh
+  AstBuild1S :: (KnownNat n, OS.Shape sh)
              => (AstVarId, AstShaped r sh) -> AstShaped r (n ': sh)
-  AstGatherS :: forall sh2 p sh r. OS.Shape sh
+  AstGatherS :: forall sh2 p sh r.
+                ( OS.Shape sh, OS.Shape sh2
+                , OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh) )
              => AstShaped r sh
              -> (AstVarListS sh2, AstIndexS r (OS.Take p sh))
              -> AstShaped r (sh2 OS.++ OS.Drop p sh)

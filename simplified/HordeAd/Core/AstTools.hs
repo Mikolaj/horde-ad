@@ -431,7 +431,7 @@ bindsToLet = foldl' bindToLet
     AstRToD w -> AstLet var w u
     AstSToD _w -> undefined  -- TODO: AstLet var (AstSToR w) u
 
-bindsToLetS :: ShowAst r
+bindsToLetS :: (ShowAst r, OS.Shape sh)
             => AstShaped r sh -> [(AstVarId, AstDynamic r)] -> AstShaped r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS

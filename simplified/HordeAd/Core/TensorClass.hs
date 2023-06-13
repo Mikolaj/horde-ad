@@ -482,7 +482,7 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
               , OS.Size sh ~ OS.Size sh2 )
            => shaped r sh -> shaped r sh2
   sbuild :: forall r m sh.
-            (GoodScalar r, KnownNat m, OS.Shape sh, OS.Shape (OS.Take m sh))
+            (GoodScalar r, OS.Shape sh, OS.Shape (OS.Take m sh))
          => (IndexSh (shaped r '[]) (OS.Take m sh) -> shaped r (OS.Drop m sh))
          -> shaped r sh
   sbuild =
@@ -595,9 +595,9 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   -- Primal/dual things.
   sconstant :: (GoodScalar r, OS.Shape sh)
             => PrimalOf shaped r sh -> shaped r sh
-  sprimalPart :: (GoodScalar r, OS.Shape sh)
+  sprimalPart :: GoodScalar r
               => shaped r sh -> PrimalOf shaped r sh
-  sdualPart :: (GoodScalar r, OS.Shape sh)
+  sdualPart :: GoodScalar r
             => shaped r sh -> DualOf shaped r sh
   sD :: (GoodScalar r, OS.Shape sh)
      => PrimalOf shaped r sh -> DualOf shaped r sh -> shaped r sh

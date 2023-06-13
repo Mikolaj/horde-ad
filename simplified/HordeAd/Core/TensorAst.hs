@@ -410,7 +410,7 @@ instance ShapedTensor AstShaped where  -- TODO
   sD = AstDS
   sScale (AstPrimalPartS s) (AstDualPartS t) = AstDualPartS $ s `smult` t
 
-astLetFunS :: OS.Shape sh
+astLetFunS :: (OS.Shape sh, OS.Shape sh2)
           => AstShaped r sh -> (AstShaped r sh -> AstShaped r sh2)
           -> AstShaped r sh2
 astLetFunS a f | astIsSmallS a = f a
