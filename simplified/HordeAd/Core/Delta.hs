@@ -79,7 +79,8 @@ import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorAst ()
 import           HordeAd.Core.TensorClass
-import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (matchingRank, sameShape)
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -631,7 +632,7 @@ buildFinMaps s0 deltaDt =
             Just Refl -> evalS s c d
             _ -> error "buildFinMaps: different shapes in DToS(SToD)"
         DToS (RToD @_ @_ @n2 d) ->
-          case sameNat (Proxy @(OS.Rank sh)) (Proxy @n2) of
+          case matchingRank @sh @n2 of
             Just Refl -> evalS s c (RToS d)
             _ -> error "buildFinMaps: different ranks in DToS(RToD)"
         RToS (SToR @_ @_ @sh2 d) ->
@@ -769,7 +770,7 @@ buildFinMaps s0 deltaDt =
             Just Refl -> evalR s c d
             _ -> error "buildFinMaps: different ranks in DToR(RToD)"
         DToR (SToD @_ @_ @sh2 d) ->
-          case sameNat (Proxy @n) (Proxy @(OS.Rank sh2)) of
+          case matchingRank @sh2 @n of
             Just Refl -> evalR s c (SToR d)
             _ -> error "buildFinMaps: different ranks in DToR(SToD)"
         SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
@@ -928,7 +929,7 @@ buildDerivative dimR deltaDt params = do
             Just Refl -> evalS d
             _ -> error "buildDerivative: different ranks in DToR(RToD)"
         DToS (RToD @_ @_ @n2 d) ->
-          case sameNat (Proxy @(OS.Rank sh)) (Proxy @n2) of
+          case matchingRank @sh @n2 of
             Just Refl -> evalS (RToS d)
             _ -> error "buildDerivative: different ranks in DToR(SToD)"
         RToS (SToR @_ @_ @sh2 d) ->
@@ -1003,7 +1004,7 @@ buildDerivative dimR deltaDt params = do
             Just Refl -> evalR d
             _ -> error "buildDerivative: different ranks in DToR(RToD)"
         DToR (SToD @_ @_ @sh2 d) ->
-          case sameNat (Proxy @n) (Proxy @(OS.Rank sh2)) of
+          case matchingRank @sh2 @n of
             Just Refl -> evalR (SToR d)
             _ -> error "buildDerivative: different ranks in DToR(SToD)"
         SToR (RToS d) -> evalR d  -- no information lost, so no checks

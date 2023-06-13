@@ -29,7 +29,8 @@ import           HordeAd.Core.ShapedList (ShapedList (..))
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
-import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (matchingRank, sameShape)
 
 type instance IntOf (AstRanked r n) = AstInt r
 
@@ -87,11 +88,11 @@ instance Tensor AstRanked where
       _ -> error "raddDynamic: type mismatch"
   raddDynamic r (AstSToD AstIotaS) = AstRToD r
   raddDynamic r (AstSToD @sh2 (AstSumOfListS l)) =
-    case sameNat (Proxy @n) (Proxy @(OS.Rank sh2)) of
+    case matchingRank @sh2 @n of
       Just Refl -> AstSToD (AstSumOfListS (AstRToS r : l))
       _ -> error "raddDynamic: type mismatch"
   raddDynamic r (AstSToD @sh2 v) =
-    case sameNat (Proxy @n) (Proxy @(OS.Rank sh2)) of
+    case matchingRank @sh2 @n of
       Just Refl -> AstSToD (AstSumOfListS [AstRToS r, v])
       _ -> error "raddDynamic: type mismatch"
   tregister = astRegisterFun
@@ -394,11 +395,11 @@ instance ShapedTensor AstShaped where  -- TODO
       _ -> error "saddDynamic: type mismatch"
   saddDynamic r (AstRToD AstIota) = AstSToD r
   saddDynamic r (AstRToD @n2 (AstSumOfList l)) =
-    case sameNat (Proxy @n2) (Proxy @(OS.Rank sh)) of
+    case matchingRank @sh @n2 of
       Just Refl -> AstRToD (AstSumOfList (AstSToR r : l))
       _ -> error "saddDynamic: type mismatch"
   saddDynamic r (AstRToD @n2 v) =
-    case sameNat (Proxy @n2) (Proxy @(OS.Rank sh)) of
+    case matchingRank @sh @n2 of
       Just Refl -> AstRToD (AstSumOfList [AstSToR r, v])
       _ -> error "saddDynamic: type mismatch"
   sregister = astRegisterFunS

@@ -1,9 +1,10 @@
-{-# LANGUAGE CPP, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, CPP, UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances
-  ( liftVT, liftVT2, liftVR, liftVR2, liftVS, liftVS2, sameShape
+  ( liftVT, liftVT2, liftVR, liftVR2, liftVS, liftVS2
+  , sameShape, matchingRank
   ) where
 
 import Prelude
@@ -12,11 +13,13 @@ import           Control.Exception.Assert.Sugar
 import           Data.Array.Convert (Convert)
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OD
+import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Internal as OI
 import qualified Data.Array.Internal.DynamicG as DG
 import qualified Data.Array.Internal.DynamicS as DS
 import qualified Data.Array.Internal.RankedG as RG
 import qualified Data.Array.Internal.RankedS as RS
+import qualified Data.Array.Internal.Shape as OS
 import qualified Data.Array.Internal.ShapedG as SG
 import qualified Data.Array.Internal.ShapedS as SS
 import qualified Data.Array.Ranked as ORB
@@ -33,6 +36,7 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Numeric.LinearAlgebra.Data (arctan2)
 import           Type.Reflection (eqTypeRep, typeRep, (:~~:) (HRefl))
+import           Unsafe.Coerce (unsafeCoerce)
 
 liftVT :: Numeric r
        => (Vector r -> Vector r)
@@ -459,10 +463,17 @@ deriving instance RealFloat (f a b) => RealFloat (Flip f b a)
 
 -- TODO: move to separate orphan module(s) at some point or to orthotope
 
-sameShape :: forall s1 s2. (OS.Shape s1, OS.Shape s2) => Maybe (s1 :~: s2)
-sameShape = case eqTypeRep (typeRep @s1) (typeRep @s2) of
+sameShape :: forall sh1 sh2. (OS.Shape sh1, OS.Shape sh2) => Maybe (sh1 :~: sh2)
+sameShape = case eqTypeRep (typeRep @sh1) (typeRep @sh2) of
               Just HRefl -> Just Refl
               Nothing -> Nothing
+
+matchingRank :: forall sh1 n2. (OS.Shape sh1, KnownNat n2)
+             => Maybe (OS.Rank sh1 :~: n2)
+matchingRank =
+  if length (OS.shapeT @sh1) == valueOf @n2
+  then Just (unsafeCoerce Refl :: OS.Rank sh1 :~: n2)
+  else Nothing
 
 instance (Num (Vector r), Numeric r, Ord r)
          => Real (Vector r) where

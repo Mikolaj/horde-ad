@@ -249,8 +249,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     sToR (D l u u') = dDnotShared l (tfromS u) (dSToR u')
      where
       dSToR (RToS @_ @_ @sh1 d) =
-        -- TODO: compare sh, not n:
-        case sameNat (Proxy @(OS.Rank sh1)) (Proxy @(OS.Rank sh)) of
+        case sameShape @sh1 @sh of
           Just Refl -> d
           _ -> error "sToR: different shapes in SToR(RToS)"
       dSToR d = SToR d

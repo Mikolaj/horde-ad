@@ -70,7 +70,8 @@ import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.SizedList
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.TensorOps
-import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (matchingRank, sameShape)
 
 -- * Expressing operations as Gather; introduces new variable names
 
@@ -820,7 +821,7 @@ astFromDynamic (AstRToD @n2 v) =
     Just Refl -> v
     _ -> error "astFromDynamic: different rank expected and uncovered"
 astFromDynamic (AstSToD @sh2 v) =
-  case sameNat (Proxy @n) (Proxy @(OS.Rank sh2)) of
+  case matchingRank @sh2 @n of
     Just Refl -> Ast.AstSToR v
     _ -> error "astFromDynamic: different rank expected and uncovered"
 
@@ -832,7 +833,7 @@ astFromDynamicS (AstSToD @sh2 v) =
     Just Refl -> v
     _ -> error "astFromDynamicS: different shape expected and uncovered"
 astFromDynamicS (AstRToD @n2 v) =
-  case sameNat (Proxy @n2) (Proxy @(OS.Rank sh)) of
+  case matchingRank @sh @n2 of
     Just Refl -> Ast.AstRToS v
     _ -> error "astFromDynamicS: different rank expected and uncovered"
 
