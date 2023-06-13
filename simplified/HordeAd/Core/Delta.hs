@@ -144,14 +144,12 @@ newtype NodeId = NodeId Int
 data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> [Nat] -> Type where
   ZeroS :: DeltaS ranked shaped r sh
-  InputS :: KnownNat (OS.Rank sh)
-         => InputId (shaped r sh) -> DeltaS ranked shaped r sh
+  InputS :: InputId (shaped r sh) -> DeltaS ranked shaped r sh
   ScaleS :: shaped r sh -> DeltaS ranked shaped r sh
          -> DeltaS ranked shaped r sh
   AddS :: DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
        -> DeltaS ranked shaped r sh
-  LetS :: KnownNat (OS.Rank sh)
-       => NodeId -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
+  LetS :: NodeId -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
 
   IndexS :: (OS.Shape sh1, OS.Shape (sh1 OS.++ sh2))
          => DeltaS ranked shaped r (sh1 OS.++ sh2)
@@ -444,7 +442,7 @@ data EvalState ranked shaped r = EvalState
 -- may still not be processed, so we'd not take advantage of the sharing
 -- and not take into account the whole summed context when finally evaluating.
 data DeltaBinding ranked shaped r =
-    forall sh. (OS.Shape sh, KnownNat (OS.Rank sh))
+    forall sh. OS.Shape sh
     => DeltaBindingS (DeltaS ranked shaped r sh)
   | forall n. KnownNat n
     => DeltaBindingR (DeltaR ranked shaped r n)

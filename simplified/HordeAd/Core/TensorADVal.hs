@@ -214,7 +214,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 -- * Shaped tensor instances
 
 -- This requires the Tensor instance, hence the definitions must in this module.
-instance (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+instance (GoodScalar r, OS.Shape sh)
          => IfB (ADVal AstShaped r sh) where
   ifB b v w = indexS (fromListS @2 [v, w]) (ifB b 0 1 :$: ZSH)
 
@@ -252,7 +252,7 @@ dToS :: forall ranked shaped sh r.
         ( ConvertTensor ranked shaped
         , Dual shaped ~ DeltaS ranked shaped
         , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped
-        , OS.Shape sh, KnownNat (OS.Rank sh), GoodScalar r )
+        , OS.Shape sh, GoodScalar r )
       => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal shaped r sh
 dToS (D l u u') = dDnotShared l (sfromD $ runClown u) (dDToS u')
  where

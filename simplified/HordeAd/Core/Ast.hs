@@ -267,7 +267,7 @@ data AstBool :: Type -> Type where
   AstBoolConst :: Bool -> AstBool r
   AstRel :: KnownNat n
          => OpCodeRel -> [AstPrimalPart r n] -> AstBool r
-  AstRelS :: (OS.Shape sh, KnownNat (OS.Rank sh))
+  AstRelS :: OS.Shape sh
           => OpCodeRel -> [AstPrimalPartS r sh] -> AstBool r
   AstRelInt :: OpCodeRel -> [AstInt r] -> AstBool r
 deriving instance ShowAst r => Show (AstBool r)
@@ -606,11 +606,11 @@ astCondS b (AstConstantS (AstPrimalPartS v)) (AstConstantS (AstPrimalPartS w)) =
 astCondS b v w = AstIndexS @'[2] (AstFromListS [v, w])
                                  (AstIntCond b 0 1 :$: ZSH)
 
-instance (OS.Shape sh, KnownNat (OS.Rank sh)) => EqB (AstShaped r sh) where
+instance OS.Shape sh => EqB (AstShaped r sh) where
   v ==* u = AstRelS EqOp [AstPrimalPartS v, AstPrimalPartS u]
   v /=* u = AstRelS NeqOp [AstPrimalPartS v, AstPrimalPartS u]
 
-instance (OS.Shape sh, KnownNat (OS.Rank sh)) => OrdB (AstShaped r sh) where
+instance OS.Shape sh => OrdB (AstShaped r sh) where
   v <* u = AstRelS LsOp [AstPrimalPartS v, AstPrimalPartS u]
   v <=* u = AstRelS LeqOp [AstPrimalPartS v, AstPrimalPartS u]
   v >* u = AstRelS GtOp [AstPrimalPartS v, AstPrimalPartS u]
@@ -668,13 +668,11 @@ instance OS.Shape sh => IfB (AstPrimalPartS r sh) where
   ifB b v w =
     AstPrimalPartS $ astCondS b (unAstPrimalPartS v) (unAstPrimalPartS w)
 
-instance (OS.Shape sh, KnownNat (OS.Rank sh))
-         => EqB (AstPrimalPartS r sh) where
+instance OS.Shape sh => EqB (AstPrimalPartS r sh) where
   v ==* u = AstRelS EqOp [v, u]
   v /=* u = AstRelS NeqOp [v, u]
 
-instance (OS.Shape sh, KnownNat (OS.Rank sh))
-         => OrdB (AstPrimalPartS r sh) where
+instance OS.Shape sh => OrdB (AstPrimalPartS r sh) where
   v <* u = AstRelS LsOp [v, u]
   v <=* u = AstRelS LeqOp [v, u]
   v >* u = AstRelS GtOp [v, u]

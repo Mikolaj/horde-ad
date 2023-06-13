@@ -825,7 +825,7 @@ astFromDynamic (AstSToD @sh2 v) =
     Just Refl -> Ast.AstSToR v
     _ -> error "astFromDynamic: different rank expected and uncovered"
 
-astFromDynamicS :: forall sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
+astFromDynamicS :: forall sh r. OS.Shape sh
                 => AstDynamic r -> AstShaped r sh
 astFromDynamicS (AstSToD Ast.AstIotaS) = error "astFromDynamicS: dummy"
 astFromDynamicS (AstSToD @sh2 v) =

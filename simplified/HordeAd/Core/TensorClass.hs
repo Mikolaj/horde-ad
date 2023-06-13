@@ -622,7 +622,7 @@ class ( DynamicOf ranked ~ DynamicOf shaped
          => shaped r sh -> DynamicOf shaped r
   sfromR :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => ranked r (OS.Rank sh) -> shaped r sh
-  sfromD :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+  sfromD :: (GoodScalar r, OS.Shape sh)
          => DynamicOf shaped r -> shaped r sh
   ddummy :: Numeric r => DynamicOf ranked r
   disDummy :: Numeric r => DynamicOf ranked r -> Bool
@@ -842,7 +842,7 @@ instance ShapedTensor (Flip OS.Array) where
   sD u _ = u
   sScale _ _ = DummyDual
 
-instance (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+instance (GoodScalar r, OS.Shape sh)
          => AdaptableDomains OD.Array (Flip OS.Array r sh) where
   type Underlying (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
@@ -853,7 +853,7 @@ instance (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
 
 stoRankedOrDummy
   :: forall ranked shaped sh r.
-     ( OS.Shape sh, KnownNat (OS.Rank sh), ShapedTensor shaped, GoodScalar r
+     ( OS.Shape sh, ShapedTensor shaped, GoodScalar r
      , ConvertTensor ranked shaped )
   => DynamicOf shaped r -> shaped r sh
 stoRankedOrDummy x = if disDummy @ranked x
