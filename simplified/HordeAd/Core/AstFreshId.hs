@@ -141,7 +141,7 @@ funToAstS :: forall sh sh2 r. (AstShaped r sh -> AstShaped r sh2)
 {-# NOINLINE funToAstS #-}
 funToAstS f = unsafePerformIO $ funToAstIOS f
 
-astRegisterFunS :: (OS.Shape sh, KnownNat (OS.Rank sh))
+astRegisterFunS :: OS.Shape sh
                 => AstShaped r sh -> [(AstVarId, AstDynamic r)]
                 -> ([(AstVarId, AstDynamic r)], AstShaped r sh)
 {-# NOINLINE astRegisterFunS #-}

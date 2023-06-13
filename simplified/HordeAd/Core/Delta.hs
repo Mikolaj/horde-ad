@@ -144,15 +144,16 @@ newtype NodeId = NodeId Int
 data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> [Nat] -> Type where
   ZeroS :: DeltaS ranked shaped r sh
-  InputS :: InputId (shaped r sh) -> DeltaS ranked shaped r sh
+  InputS :: KnownNat (OS.Rank sh)
+         => InputId (shaped r sh) -> DeltaS ranked shaped r sh
   ScaleS :: shaped r sh -> DeltaS ranked shaped r sh
          -> DeltaS ranked shaped r sh
   AddS :: DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
        -> DeltaS ranked shaped r sh
-  LetS :: NodeId -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
+  LetS :: KnownNat (OS.Rank sh)
+       => NodeId -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
 
-  IndexS :: ( OS.Shape sh1, OS.Shape (sh1 OS.++ sh2)
-            , KnownNat (OS.Rank (sh1 OS.++ sh2)) )
+  IndexS :: (OS.Shape sh1, OS.Shape (sh1 OS.++ sh2))
          => DeltaS ranked shaped r (sh1 OS.++ sh2)
          -> IndexSh (shaped r '[]) sh1
          -> DeltaS ranked shaped r sh2
@@ -160,15 +161,14 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- If index is out of bounds, the result is defined and is 0.
   SumS :: KnownNat n
        => DeltaS ranked shaped r (n ': sh) -> DeltaS ranked shaped r sh
-  Sum0S :: (OS.Shape sh, KnownNat (OS.Rank sh), KnownNat (OS.Size sh))
+  Sum0S :: (OS.Shape sh, KnownNat (OS.Size sh))
         => DeltaS ranked shaped r sh -> DeltaS ranked shaped r '[]
-  Dot0S :: (OS.Shape sh, KnownNat (OS.Rank sh), KnownNat (OS.Size sh))
+  Dot0S :: (OS.Shape sh, KnownNat (OS.Size sh))
         => shaped r sh -> DeltaS ranked shaped r sh
         -> DeltaS ranked shaped r '[]
   ScatterS :: forall ranked shaped r sh2 p sh.
               ( OS.Shape sh2, OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh)
-              , OS.Shape (sh2 OS.++ OS.Drop p sh)
-              , KnownNat (OS.Rank (sh2 OS.++ OS.Drop p sh)) )
+              , OS.Shape (sh2 OS.++ OS.Drop p sh) )
            => DeltaS ranked shaped r (sh2 OS.++ OS.Drop p sh)
            -> (IndexSh (shaped r '[]) sh2
                -> IndexSh (shaped r '[]) (OS.Take p sh))
@@ -183,15 +183,15 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromListS :: (OS.Shape sh, KnownNat n, KnownNat (OS.Rank sh))
+  FromListS :: (OS.Shape sh, KnownNat n)
             => [DeltaS ranked shaped r sh] -> DeltaS ranked shaped r (n ': sh)
     -- ^ Create a tensor from a list treated as the outermost dimension.
-  FromVectorS :: (OS.Shape sh, KnownNat n, KnownNat (OS.Rank sh))
+  FromVectorS :: (OS.Shape sh, KnownNat n)
               => Data.Vector.Vector (DeltaS ranked shaped r sh)
               -> DeltaS ranked shaped r (n ': sh)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   ReplicateS :: forall ranked shaped r n sh.
-                (OS.Shape sh, KnownNat n, KnownNat (OS.Rank sh))
+                (OS.Shape sh, KnownNat n)
              => DeltaS ranked shaped r sh -> DeltaS ranked shaped r (n ': sh)
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendS :: forall ranked shaped r m n sh.
@@ -219,18 +219,18 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
              => DeltaS ranked shaped r sh
              -> DeltaS ranked shaped r (OS.Permute perm sh)
     -- ^ Transpose according to the permutation.
-  ReshapeS :: (OS.Shape sh, OS.Size sh ~ OS.Size sh2, KnownNat (OS.Rank sh))
+  ReshapeS :: (OS.Shape sh, OS.Size sh ~ OS.Size sh2)
            => DeltaS ranked shaped r sh
            -> DeltaS ranked shaped r sh2
     -- ^ Change the shape of the tensor from the first to the second.
   BuildS :: forall ranked shaped r n sh.
-            (OS.Shape sh, KnownNat n, KnownNat (OS.Rank sh))
+            (OS.Shape sh, KnownNat n)
          => (IntSh (shaped r '[]) n -> DeltaS ranked shaped r sh)
          -> DeltaS ranked shaped r (n ': sh)
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
   GatherS :: forall ranked shaped r sh2 p sh.
-             ( OS.Shape sh2, OS.Shape sh, KnownNat (OS.Rank sh)
+             ( OS.Shape sh2, OS.Shape sh
              , OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh) )
           => DeltaS ranked shaped r sh
           -> (IndexSh (shaped r '[]) sh2
@@ -248,8 +248,8 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
   DToS :: forall ranked shaped sh r.
           DeltaD ranked shaped r '()
        -> DeltaS ranked shaped r sh
-  RToS :: forall ranked shaped sh r.
-          DeltaR ranked shaped r (OS.Rank sh)
+  RToS :: forall ranked shaped sh r. KnownNat (OS.Rank sh)
+       => DeltaR ranked shaped r (OS.Rank sh)
        -> DeltaS ranked shaped r sh
 
 deriving instance ( OS.Shape sh0
@@ -369,7 +369,7 @@ data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> () -> Type where
   RToD :: forall ranked shaped n r. KnownNat n
        => DeltaR ranked shaped r n -> DeltaD ranked shaped r '()
-  SToD :: forall ranked shaped sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
+  SToD :: forall ranked shaped sh r. OS.Shape sh
        => DeltaS ranked shaped r sh -> DeltaD ranked shaped r '()
 
 deriving instance ( (forall n. Show (ranked r n))
@@ -409,7 +409,7 @@ type family Dual (f :: Type -> k -> Type)
 -- (small change) of the objective function codomain, for which we compute
 -- the gradient.
 data DeltaDt ranked shaped r =
-    forall sh. (OS.Shape sh, KnownNat (OS.Rank sh))
+    forall sh. OS.Shape sh
     => DeltaDtS (shaped r sh) (DeltaS ranked shaped r sh)
   | forall n. KnownNat n
     => DeltaDtR (ranked r n) (DeltaR ranked shaped r n)
@@ -548,7 +548,7 @@ buildFinMaps s0 deltaDt =
   -- the second is the cotangent accumulator that will become an actual
   -- cotangent contribution when complete (see below for an explanation)
   -- and the third argument is the node to evaluate.
-  let evalS :: forall sh. (OS.Shape sh, KnownNat (OS.Rank sh))
+  let evalS :: forall sh. OS.Shape sh
             => EvalState ranked shaped r
             -> shaped r sh -> DeltaS ranked shaped r sh
             -> EvalState ranked shaped r
@@ -841,7 +841,7 @@ derivativeFromDeltaR dim deltaTopLevel ds =
 
 derivativeFromDeltaS
   :: forall ranked shaped r sh.
-       ( OS.Shape sh, KnownNat (OS.Rank sh)
+       ( OS.Shape sh
        , GoodScalar r, Tensor ranked, ShapedTensor shaped
        , ConvertTensor ranked shaped
        , Dual shaped ~ DeltaS ranked shaped )
@@ -865,7 +865,7 @@ buildDerivative
 buildDerivative dimR deltaDt params = do
   dMap <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
-  let evalS :: forall sh. (OS.Shape sh, KnownNat (OS.Rank sh))
+  let evalS :: forall sh. OS.Shape sh
             => DeltaS ranked shaped r sh -> ST s (shaped r sh)
       evalS = \case
         ZeroS -> return 0

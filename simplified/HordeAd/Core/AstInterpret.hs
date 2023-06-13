@@ -122,13 +122,15 @@ instance (BooleanOf r ~ b, b ~ BooleanOf r) => BooleanOfMatches b r where
 
 class (forall y41. KnownNat y41 => c (ranked r y41))
       => CRanked ranked r c where
-instance (forall y41. KnownNat y41 => c (ranked r y41))
-         => CRanked ranked r c where
+instance
+      (forall y41. KnownNat y41 => c (ranked r y41))
+      => CRanked ranked r c where
 
-class (forall y41. OS.Shape y41 => c (shaped r y41))
+class (forall y41. (OS.Shape y41, KnownNat (OS.Rank y41)) => c (shaped r y41))
       => CShaped shaped r c where
-instance (forall y41. OS.Shape y41 => c (shaped r y41))
-         => CShaped shaped r c where
+instance
+      (forall y41. (OS.Shape y41, KnownNat (OS.Rank y41)) => c (shaped r y41))
+      => CShaped shaped r c where
 
 type InterpretAstR ranked r =
   ( GoodScalar r

@@ -244,7 +244,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   tfromD = dToR . runFlip
   tfromS = sToR
    where
-    sToR :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+    sToR :: forall r sh. (GoodScalar r, OS.Shape sh)
          => ADVal shaped r sh -> ADVal ranked r (OS.Rank sh)
     sToR (D l u u') = dDnotShared l (tfromS u) (dSToR u')
      where

@@ -124,7 +124,8 @@ instance (GoodScalar r, KnownNat n) => IsPrimal AstRanked r n where
   letWrapPrimal = tletWrap
   intOfShape tsh c = treplicate0N (tshape tsh) (fromIntegral c)
 
-instance (GoodScalar r, OS.Shape sh) => IsPrimal (Flip OS.Array) r sh where
+instance (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+         => IsPrimal (Flip OS.Array) r sh where
   dZero = ZeroS
   dScale = ScaleS
   dScaleByScalar _tsh c =  -- this is not even needed for OS, but OR needs it
@@ -141,7 +142,7 @@ instance (GoodScalar r, OS.Shape sh) => IsPrimal (Flip OS.Array) r sh where
   intOfShape _tsh c =  -- this is not even needed for OS, but OR needs it
     Flip $ OS.constant (fromIntegral c)
 
-instance {-(GoodScalar r, OS.Shape sh) =>-} IsPrimal AstShaped r sh where
+instance KnownNat (OS.Rank sh) => IsPrimal AstShaped r sh where
   dZero = ZeroS
   dScale = ScaleS
   dScaleByScalar _tsh _c =  -- this is not even needed for OS, but OR needs it
@@ -192,13 +193,14 @@ resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
 -- Tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
-wrapDeltaR :: DeltaR ranked shaped n r -> DeltaR ranked shaped n r
+wrapDeltaR :: DeltaR ranked shaped r n -> DeltaR ranked shaped r n
 {-# NOINLINE wrapDeltaR #-}
 wrapDeltaR !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! LetR (NodeId n) d
 
-wrapDeltaS :: DeltaS ranked shaped n r -> DeltaS ranked shaped n r
+wrapDeltaS :: KnownNat (OS.Rank sh)
+           => DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
 {-# NOINLINE wrapDeltaS #-}
 wrapDeltaS !d = unsafePerformIO $ do
   n <- unsafeGetFreshId

@@ -583,9 +583,9 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   sconstBare = sconst
   sletWrap :: ADShare r -> shaped r sh -> shaped r sh
   sletWrap _l u = u
-  saddDynamic :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+  saddDynamic :: forall r sh. (GoodScalar r, OS.Shape sh)
               => shaped r sh -> DynamicOf shaped r -> DynamicOf shaped r
-  sregister :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+  sregister :: (GoodScalar r, OS.Shape sh)
             => shaped r sh -> [(AstVarId, DynamicOf shaped r)]
             -> ([(AstVarId, DynamicOf shaped r)], shaped r sh)
   sregister r l = (l, r)
@@ -612,11 +612,11 @@ class ( DynamicOf ranked ~ DynamicOf shaped
                        | ranked -> shaped, shaped -> ranked where
   tfromD :: (GoodScalar r, KnownNat n)
          => DynamicOf ranked r -> ranked r n
-  tfromS :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+  tfromS :: (GoodScalar r, OS.Shape sh)
          => shaped r sh -> ranked r (OS.Rank sh)
   dfromR :: (GoodScalar r, KnownNat n)
          => ranked r n -> DynamicOf ranked r
-  dfromS :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+  dfromS :: (GoodScalar r, OS.Shape sh)
          => shaped r sh -> DynamicOf shaped r
   sfromR :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => ranked r (OS.Rank sh) -> shaped r sh
@@ -855,8 +855,8 @@ stoRankedOrDummy
      , ConvertTensor ranked shaped )
   => DynamicOf shaped r -> shaped r sh
 stoRankedOrDummy x = if disDummy @ranked x
-                        then 0
-                        else sfromD x
+                     then 0
+                     else sfromD x
 
 instance OS.Shape sh
          => RandomDomains (Flip OS.Array r sh) where

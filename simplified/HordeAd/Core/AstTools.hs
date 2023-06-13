@@ -429,7 +429,7 @@ bindsToLet = foldl' bindToLet
  where
   bindToLet u (var, d) = case d of
     AstRToD w -> AstLet var w u
-    AstSToD w -> AstLet var (AstSToR w) u
+    AstSToD _w -> undefined  -- TODO: AstLet var (AstSToR w) u
 
 bindsToLetS :: ShowAst r
             => AstShaped r sh -> [(AstVarId, AstDynamic r)] -> AstShaped r sh

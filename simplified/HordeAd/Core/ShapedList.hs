@@ -140,20 +140,20 @@ reverseSized = listToSized . reverse . sizedListToList
 
 -- This permutes a prefix of the sized list of the length of the permutation.
 -- The rest of the sized list is left intact.
-backpermutePrefixSized :: forall sh i. (OS.Shape sh, KnownNat (OS.Rank sh))
+backpermutePrefixSized :: forall sh i. OS.Shape sh
                        => Permutation -> ShapedList sh i -> ShapedList sh i
 backpermutePrefixSized p ix =
-  if valueOf @(OS.Rank sh) < length p
+  if length (OS.shapeT @sh) < length p
   then error "backpermutePrefixSized: cannot permute a list shorter than permutation"
   else listToSized $ backpermutePrefixList p $ sizedListToList ix
 
 backpermutePrefixList :: Permutation -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 
-permutePrefixSized :: forall sh i. (OS.Shape sh, KnownNat (OS.Rank sh))
+permutePrefixSized :: forall sh i. OS.Shape sh
                    => Permutation -> ShapedList sh i -> ShapedList sh i
 permutePrefixSized p ix =
-  if valueOf @(OS.Rank sh) < length p
+  if length (OS.shapeT @sh) < length p
   then error "permutePrefixSized: cannot permute a list shorter than permutation"
   else listToSized $ permutePrefixList p $ sizedListToList ix
 
