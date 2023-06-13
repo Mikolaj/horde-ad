@@ -29,6 +29,7 @@ import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
+import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 
 -- * Assorted instances for any functor argument
 
@@ -217,6 +218,20 @@ instance ( GoodScalar r, dynamic ~ DynamicOf shaped
   toDomains = undefined
   fromDomains = undefined
 
+dToS :: forall ranked shaped sh r.
+        ( ConvertTensor ranked shaped
+        , Dual shaped ~ DeltaS ranked shaped
+        , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped
+        , OS.Shape sh, KnownNat (OS.Rank sh), GoodScalar r )
+      => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal shaped r sh
+dToS (D l u u') = dDnotShared l (sfromD $ runClown u) (dDToS u')
+ where
+  dDToS (SToD @_ @_ @sh1 d) =
+    case sameShape @sh1 @sh of
+      Just Refl -> d
+      _ -> error "dToS: different ranks in DToS(SToD)"
+  dDToS d = DToS d
+
 
 -- * ConvertTensor instance
 
@@ -248,8 +263,6 @@ instance ( Dual ranked ~ DeltaR ranked shaped
    where
     sToD (D l u u') = dDnotShared l (Clown $ dfromS u) (SToD u')
   sfromD = dToS . runFlip
-   where
-    dToS (D l u u') = dDnotShared l (sfromD (runClown u)) (DToS u')
   sfromR = rToS
    where
     rToS (D l u u') = dDnotShared l (sfromR u) (RToS u')
