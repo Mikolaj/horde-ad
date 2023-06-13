@@ -202,7 +202,7 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
     -- The integer argument is the outermost size of the first array.
-  SliceS :: forall ranked shaped r i k n sh.
+  SliceS :: forall ranked shaped i k n r sh.
             (KnownNat i, KnownNat k, KnownNat n, OS.Shape sh)
          => DeltaS ranked shaped r (i + n + k ': sh)
          -> DeltaS ranked shaped r (n ': sh)
@@ -598,7 +598,7 @@ buildFinMaps s0 deltaDt =
         AppendS @_ @_ @_ @m @n d e ->
           let s2 = evalS sShared (sslice (Proxy @0) Proxy cShared) d
           in evalS s2 (sslice (Proxy @m) Proxy cShared) e
-        SliceS @_ @_ @_ @i d ->
+        SliceS @_ @_ @i d ->
           evalS s (sappend @shaped @r @i 0 (sappend c 0)) d
         ReverseS d -> evalS s (sreverse c) d
         TransposeS @_ @_ @perm @_ @sh2 d ->
@@ -912,7 +912,7 @@ buildDerivative dimR deltaDt params = do
           t <- evalS d
           return $! sreplicate t
         AppendS d e -> liftM2 sappend (evalS d) (evalS e)
-        SliceS @_ @_ @_ @i d -> sslice (Proxy @i) Proxy <$> evalS d
+        SliceS @_ @_ @i d -> sslice (Proxy @i) Proxy <$> evalS d
         ReverseS d -> sreverse <$> evalS d
         TransposeS @_ @_ @perm d -> stranspose (Proxy @perm) <$> evalS d
         ReshapeS d -> sreshape <$> evalS d

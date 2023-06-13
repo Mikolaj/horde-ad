@@ -367,7 +367,8 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   -- Typically scalar codomain, often tensor reduction
   -- (a number suffix in the name indicates the rank of codomain)
   sindex, (!$) :: forall r sh1 sh2.
-                  (GoodScalar r, OS.Shape sh2, OS.Shape (sh1 OS.++ sh2))
+                  ( GoodScalar r, OS.Shape sh1, OS.Shape sh2
+                  , OS.Shape (sh1 OS.++ sh2) )
                => shaped r (sh1 OS.++ sh2) -> IndexSh (shaped r '[]) sh1
                -> shaped r sh2
   infixl 9 !$
@@ -544,14 +545,15 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
     $ sbuild @shaped @r @(OS.Rank sh) (\ix -> f (sindex0 u ix) (sindex0 v ix))
   sgather
     :: forall r sh2 p sh.
-       ( GoodScalar r, OS.Shape sh2, OS.Shape sh, OS.Shape (OS.Drop p sh)
-       , OS.Shape (sh2 OS.++ OS.Drop p sh) )
+       ( GoodScalar r, OS.Shape sh2, OS.Shape sh, OS.Shape (OS.Take p sh)
+       , OS.Shape (OS.Drop p sh), OS.Shape (sh2 OS.++ OS.Drop p sh) )
     => shaped r sh
     -> (IndexSh (shaped r '[]) sh2 -> IndexSh (shaped r '[]) (OS.Take p sh))
     -> shaped r (sh2 OS.++ OS.Drop p sh)
   sgather1
     :: forall r n2 p sh.
-       (GoodScalar r, KnownNat n2, OS.Shape sh, OS.Shape (OS.Drop p sh))
+       ( GoodScalar r, KnownNat n2, OS.Shape sh, OS.Shape (OS.Take p sh)
+       , OS.Shape (OS.Drop p sh) )
     => shaped r sh
     -> (IntSh (shaped r '[]) n2 -> IndexSh (shaped r '[]) (OS.Take p sh))
     -> shaped r (n2 ': OS.Drop p sh)
