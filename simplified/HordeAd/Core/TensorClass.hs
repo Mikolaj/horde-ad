@@ -11,7 +11,7 @@ module HordeAd.Core.TensorClass
   ( ShapeInt, IntOf, IndexOf, ShapeSh, IntSh, IndexSh
   , PrimalOf, DualOf, DynamicOf
   , ShapedTensor(..), Tensor(..), ConvertTensor(..), DomainsTensor(..), ADReady
-  , GoodScalar, DummyDual(..), ttoRankedOrDummy
+  , GoodScalar, DummyDual(..), toRankedOrDummy
   ) where
 
 import Prelude
@@ -762,16 +762,16 @@ instance (GoodScalar r, KnownNat n)
   toDomains a = V.singleton (dfromR a)
   fromDomains aInit params = case V.uncons params of
     Just (a, rest) ->
-      Just (ttoRankedOrDummy (tshape aInit) a, rest)
+      Just (toRankedOrDummy (tshape aInit) a, rest)
     Nothing -> Nothing
 
-ttoRankedOrDummy
+toRankedOrDummy
   :: forall ranked shaped n r.
      (KnownNat n, Tensor ranked, GoodScalar r, ConvertTensor ranked shaped)
   => ShapeInt n -> DynamicOf ranked r -> ranked r n
-ttoRankedOrDummy sh x = if disDummy @ranked x
-                        then tzero sh
-                        else tfromD x
+toRankedOrDummy sh x = if disDummy @ranked x
+                       then tzero sh
+                       else tfromD x
 
 instance KnownNat n
          => RandomDomains (Flip OR.Array r n) where
@@ -848,17 +848,17 @@ instance (GoodScalar r, OS.Shape sh)
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
   toDomains a = V.singleton (dfromS a)
   fromDomains _aInit params = case V.uncons params of
-    Just (a, rest) -> Just (stoRankedOrDummy a, rest)
+    Just (a, rest) -> Just (toShapedOrDummy a, rest)
     Nothing -> Nothing
 
-stoRankedOrDummy
+toShapedOrDummy
   :: forall ranked shaped sh r.
      ( OS.Shape sh, ShapedTensor shaped, GoodScalar r
      , ConvertTensor ranked shaped )
   => DynamicOf shaped r -> shaped r sh
-stoRankedOrDummy x = if disDummy @ranked x
-                     then 0
-                     else sfromD x
+toShapedOrDummy x = if disDummy @ranked x
+                    then 0
+                    else sfromD x
 
 instance OS.Shape sh
          => RandomDomains (Flip OS.Array r sh) where

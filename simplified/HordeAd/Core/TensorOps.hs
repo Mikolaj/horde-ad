@@ -36,7 +36,7 @@ import qualified Data.Vector.Storable.Mutable as VM
 import           Foreign (Ptr)
 import           Foreign.C (CInt (..))
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -59,30 +59,6 @@ isTensorDummy (Data.Array.Internal.DynamicS.A
                  (Data.Array.Internal.DynamicG.A _
                     (OI.T _ (-1) _))) = True
 isTensorDummy _ = False
-
-toVectorOrDummy :: Numeric r
-                => Int -> Vector r -> Vector r
-toVectorOrDummy size x = if V.null x
-                         then LA.konst 0 size
-                         else x
-
-toMatrixOrDummy :: Numeric r
-                => (Int, Int) -> Matrix r -> Matrix r
-toMatrixOrDummy size x = if LA.size x == (0, 0)
-                         then LA.konst 0 size
-                         else x
-
-toDynamicOrDummy :: Numeric r
-                 => OD.ShapeL -> OD.Array r -> OD.Array r
-toDynamicOrDummy sh x = if isTensorDummy x
-                        then OD.constant sh 0
-                        else x
-
-toShapedOrDummy :: (Numeric r, OS.Shape sh)
-                => OD.Array r -> OS.Array sh r
-toShapedOrDummy x = if isTensorDummy x
-                    then OS.constant 0
-                    else Data.Array.Convert.convert x
 
 tindex0D :: Numeric r => OD.Array r -> [Int] -> r
 tindex0D (Data.Array.Internal.DynamicS.A

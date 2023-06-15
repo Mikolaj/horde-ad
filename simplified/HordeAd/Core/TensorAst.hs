@@ -131,7 +131,7 @@ instance (GoodScalar r, KnownNat n)
   type Value (AstRanked r n) = Flip OR.Array r n
   toDomains = undefined
   fromDomains aInit params = case V.uncons params of
-    Just (a, rest) -> Just (ttoRankedOrDummy @AstRanked (tshape aInit) a, rest)
+    Just (a, rest) -> Just (toRankedOrDummy @AstRanked (tshape aInit) a, rest)
     Nothing -> Nothing
 
 instance GoodScalar r
