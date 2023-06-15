@@ -150,7 +150,7 @@ deriving instance ShowAst r => Show (AstDualPart r n)
 
 data AstShaped :: Type -> [Nat] -> Type where
   -- To permit defining objective functions in Ast, not just constants:
-  AstVarS :: AstVarId -> AstShaped r sh
+  AstVarS :: forall sh r. AstVarId -> AstShaped r sh
   AstLetS :: forall sh sh2 r. (OS.Shape sh, OS.Shape sh2)
           => AstVarId -> AstShaped r sh -> AstShaped r sh2 -> AstShaped r sh2
   AstLetADShareS :: ADShare r -> AstShaped r sh -> AstShaped r sh

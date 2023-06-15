@@ -13,7 +13,8 @@ module HordeAd.Core.AstTools
   , astIsSmall, astIsSmallS
   , unwrapAstDomains, bindsToLet, bindsToLetS, bindsToDomainsLet
   , printAstVarName
-  , printAstSimple, printAstPretty, printAstDomainsSimple, printAstDomainsPretty
+  , printAstSimple, printAstPretty, printAstSimpleS, printAstPrettyS
+  , printAstDomainsSimple, printAstDomainsPretty
   , printGradient6Simple, printGradient6Pretty
   , printPrimal6Simple, printPrimal6Pretty
   ) where
@@ -984,11 +985,21 @@ printAstS cfg d = \case
            . printAstS cfg 0 v)
       -- TODO: this does not roundtrip yet
 
-printAstSimple :: (ShowAst r, KnownNat n) => IntMap String -> AstRanked r n -> String
+printAstSimple :: (ShowAst r, KnownNat n)
+               => IntMap String -> AstRanked r n -> String
 printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
 
-printAstPretty :: (ShowAst r, KnownNat n) => IntMap String -> AstRanked r n -> String
+printAstPretty :: (ShowAst r, KnownNat n)
+               => IntMap String -> AstRanked r n -> String
 printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
+
+printAstSimpleS :: (ShowAst r, OS.Shape sh)
+                => IntMap String -> AstShaped r sh -> String
+printAstSimpleS renames t = printAstS (defaulPrintConfig False renames) 0 t ""
+
+printAstPrettyS :: (ShowAst r, OS.Shape sh)
+                => IntMap String -> AstShaped r sh -> String
+printAstPrettyS renames t = printAstS (defaulPrintConfig True renames) 0 t ""
 
 printAstDomainsSimple :: ShowAst r => IntMap String -> AstDomains r -> String
 printAstDomainsSimple renames t =

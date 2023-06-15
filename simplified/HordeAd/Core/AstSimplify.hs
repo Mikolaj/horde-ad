@@ -14,8 +14,9 @@
 -- sure everything introduced by vectorization is maximally simplified.
 module HordeAd.Core.AstSimplify
   ( simplifyPermutation
-  , simplifyStepNonIndex, astIndexStep, astGatherStep
-  , astReshape, astTranspose
+  , simplifyStepNonIndex, simplifyStepNonIndexS, astIndexStep, astGatherStep
+  , astIndexStepS, astGatherStepS
+  , astReshape, astTranspose, astReshapeS, astTransposeS
   , astLet, astSum, astScatter, astFromList, astFromVector, astReplicate
   , astAppend, astSlice, astReverse, astFromDynamic, astFromDynamicS
   , astConstant, astDomainsLet
@@ -200,6 +201,11 @@ simplifyStepNonIndex t = case t of
   Ast.AstD{} -> t
   Ast.AstLetDomains{} -> t
 
+simplifyStepNonIndexS
+  :: ()
+  => AstShaped r sh -> AstShaped r sh
+simplifyStepNonIndexS t = t  -- TODO
+
 astLet :: forall n m r. (KnownNat m, KnownNat n, ShowAst r)
        => AstVarId -> AstRanked r n -> AstRanked r m -> AstRanked r m
 astLet var u v | astIsSmall u =
@@ -229,6 +235,13 @@ astIndexStep
   => AstRanked r (m + n) -> AstIndex r m -> AstRanked r n
 astIndexStep v ix = astIndexROrStepOnly True (simplifyStepNonIndex v)
                                              (fmap simplifyAstInt ix)
+
+astIndexStepS
+  :: forall sh1 sh2 r.
+     (OS.Shape sh1, OS.Shape sh2, OS.Shape (sh1 OS.++ sh2))
+  => AstShaped r (sh1 OS.++ sh2) -> AstIndexS r sh1
+  -> AstShaped r sh2
+astIndexStepS v ix = Ast.AstIndexS v ix  -- TODO
 
 -- If stepOnly is set, we reduce only as long as needed to reveal
 -- a non-indexing constructor or one of the normal forms (one-element
@@ -542,6 +555,12 @@ astTranspose perm0 t0 = case (perm0, t0) of
     astConstant $ AstPrimalPart $ astTranspose perm v
   (perm, u) -> Ast.AstTranspose perm u
 
+astTransposeS :: forall perm sh r.
+                 ( OS.Permutation perm, OS.Shape perm, OS.Shape sh
+                 , KnownNat (OS.Rank sh), OS.Rank perm <= OS.Rank sh )
+              => AstShaped r sh -> AstShaped r (OS.Permute perm sh)
+astTransposeS = AstTransposeS @perm
+
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
 -- if full simplification is required.
@@ -572,6 +591,10 @@ astReshape shOut v =
                  else Ast.AstReshape shOut v
     _ -> Ast.AstReshape shOut v
 
+astReshapeS :: (OS.Shape sh, OS.Size sh ~ OS.Size sh2)
+            => AstShaped r sh -> AstShaped r sh2
+astReshapeS = AstReshapeS  -- TODO
+
 astGatherR
   :: forall m n p r. (KnownNat m, KnownNat p, KnownNat n, GoodScalar r)
   => ShapeInt (m + n) -> AstRanked r (p + n) -> (AstVarList m, AstIndex r p)
@@ -585,6 +608,15 @@ astGatherStep
 astGatherStep sh v (vars, ix) =
   astGatherROrStepOnly True sh (simplifyStepNonIndex v)
                             (vars, fmap simplifyAstInt ix)
+
+astGatherStepS
+  :: forall sh2 p sh r.
+     ( OS.Shape sh, OS.Shape sh2
+     , OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh) )
+  => AstShaped r sh
+  -> (AstVarListS sh2, AstIndexS r (OS.Take p sh))
+  -> AstShaped r (sh2 OS.++ OS.Drop p sh)
+astGatherStepS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
 
 -- Assumption: vars0 don't not occur in v0. The assumption only holds
 -- when newly generated variables are fresh, which is the case as long
