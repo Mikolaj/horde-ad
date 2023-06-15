@@ -80,7 +80,7 @@ import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorAst ()
 import           HordeAd.Core.TensorClass
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (matchingRank, sameShape)
+  (matchingRank, sameShape, trustMeThisIsAPermutation)
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -796,16 +796,6 @@ buildFinMaps s0 deltaDt =
   :: EvalState (Flip OR.Array) (Flip OS.Array) Double -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) Double #-}
 {-# SPECIALIZE buildFinMaps
   :: EvalState AstRanked AstShaped Double -> DeltaDt AstRanked AstShaped Double -> EvalState AstRanked AstShaped Double #-}
-
-data Dict c where
-  Dict :: c => Dict c
-
-trustMeThisIsAPermutationDict :: forall is. Dict (OS.Permutation is)
-trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict (OS.Permutation '[]))
-
-trustMeThisIsAPermutation :: forall is r. (OS.Permutation is => r) -> r
-trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
-  Dict -> r
 
 
 -- * Forward derivative computation from the delta expressions

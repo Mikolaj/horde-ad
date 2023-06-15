@@ -4,7 +4,7 @@
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances
   ( liftVT, liftVT2, liftVR, liftVR2, liftVS, liftVS2
-  , sameShape, matchingRank
+  , MapSucc, trustMeThisIsAPermutation, sameShape, matchingRank
   ) where
 
 import Prelude
@@ -31,7 +31,7 @@ import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat)
+import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Numeric.LinearAlgebra.Data (arctan2)
@@ -462,6 +462,20 @@ deriving instance RealFloat (f a b) => RealFloat (Flip f b a)
 
 
 -- TODO: move to separate orphan module(s) at some point or to orthotope
+
+type family MapSucc (xs :: [Nat]) :: [Nat] where
+    MapSucc '[] = '[]
+    MapSucc (x ': xs) = 1 + x ': MapSucc xs
+
+data Dict c where
+  Dict :: c => Dict c
+
+trustMeThisIsAPermutationDict :: forall is. Dict (OS.Permutation is)
+trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict (OS.Permutation '[]))
+
+trustMeThisIsAPermutation :: forall is r. (OS.Permutation is => r) -> r
+trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
+  Dict -> r
 
 sameShape :: forall sh1 sh2. (OS.Shape sh1, OS.Shape sh2) => Maybe (sh1 :~: sh2)
 sameShape = case eqTypeRep (typeRep @sh1) (typeRep @sh2) of

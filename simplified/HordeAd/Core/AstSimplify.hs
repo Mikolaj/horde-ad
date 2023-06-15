@@ -77,7 +77,7 @@ import           HordeAd.Core.SizedList
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.TensorOps
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (matchingRank, sameShape)
+  (matchingRank, sameShape, trustMeThisIsAPermutation)
 
 -- * Expressing operations as Gather; introduces new variable names
 
@@ -1930,14 +1930,20 @@ astFromVectorS l =
         Just l3 -> Ast.AstConstS $ tfromVectorS l3
         Nothing -> Ast.AstFromVectorS l
 
-astReplicateS :: (KnownNat n, OS.Shape sh, GoodScalar r)
+astReplicateS :: forall n sh r. (KnownNat n, OS.Shape sh, GoodScalar r)
               => AstShaped r sh -> AstShaped r (n ': sh)
 astReplicateS = \case
   Ast.AstConstantS (AstPrimalPartS v) ->
     astConstantS $ AstPrimalPartS $ astReplicateS v
--- TODO:
---  Ast.AstTransposeS v ->
---    astTransposeS (0 : map succ perm) $ astReplicateS v
+  Ast.AstTransposeS @perm @sh1 v ->
+    let zsuccPerm = 0 : map succ (OS.shapeT @perm)
+    in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccPerm) ->
+--      gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccPerm) $
+      gcastWith (unsafeCoerce Refl
+                 :: OS.Permute zsuccPerm (n : sh1) :~: n : sh) $
+      gcastWith (unsafeCoerce Refl :: OS.Rank zsuccPerm :~: 1 + OS.Rank perm) $
+      trustMeThisIsAPermutation @zsuccPerm
+      $ astTransposeS @zsuccPerm $ astReplicateS @n v
   v -> Ast.AstReplicateS v
 
 astAppendS :: (KnownNat m, KnownNat n, OS.Shape sh, GoodScalar r)
