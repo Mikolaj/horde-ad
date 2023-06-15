@@ -10,7 +10,7 @@ module HordeAd.Core.Engine
   , revAstOnDomains, revOnDomains
   , revAstOnDomainsF, revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
   , fwd, slowFwdOnADInputs, slowFwdOnDomains
-  , generateDeltaInputs, makeADInputs
+  , generateDeltaInputs, makeADInputs, shapedToRanked
   ) where
 
 import Prelude
@@ -372,3 +372,13 @@ makeADInputs
   -> Domains (ADValClown dynamic) r
 {-# INLINE makeADInputs #-}
 makeADInputs = V.zipWith (\p d -> Flip $ dDnotShared emptyADShare (Clown p) d)
+
+shapedToRanked
+  :: forall vals svals dynamic r.
+     ( dynamic ~ OD.Array, Value svals ~ vals, Value vals ~ vals
+     , AdaptableDomains dynamic vals
+     , AdaptableDomains dynamic svals, RandomDomains svals
+     , r ~ Underlying vals, r ~ Underlying svals )
+  => svals -> vals
+shapedToRanked svals =
+  parseDomains @dynamic (toValue svals) $ toDomains @dynamic svals

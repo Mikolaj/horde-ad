@@ -45,8 +45,7 @@ class RandomDomains vals where
        , r ~ Underlying vals, Numeric r, Fractional r, Random r
        , Num (Vector r) )
     => r -> g -> (vals, g)
-  type ToRanked vals
-  toRanked :: vals -> ToRanked vals
+  toValue :: vals -> Value vals
 
 parseDomains
   :: AdaptableDomains dynamic vals
@@ -97,8 +96,7 @@ instance ( r ~ Underlying a, r ~ Underlying b
     let (v1, g1) = randomVals range g
         (v2, g2) = randomVals range g1
     in ((v1, v2), g2)
-  type ToRanked (a, b) = (ToRanked a, ToRanked b)
-  toRanked (a, b) = (toRanked a, toRanked b)
+  toValue (a, b) = (toValue a, toValue b)
 
 instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c
          , AdaptableDomains dynamic a
@@ -126,8 +124,7 @@ instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c
         (v2, g2) = randomVals range g1
         (v3, g3) = randomVals range g2
     in ((v1, v2, v3), g3)
-  type ToRanked (a, b, c) = (ToRanked a, ToRanked b, ToRanked c)
-  toRanked (a, b, c) = (toRanked a, toRanked b, toRanked c)
+  toValue (a, b, c) = (toValue a, toValue b, toValue c)
 
 instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c, r ~ Underlying d
          , AdaptableDomains dynamic a
@@ -160,8 +157,7 @@ instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c, r ~ Underlying 
         (v3, g3) = randomVals range g2
         (v4, g4) = randomVals range g3
     in ((v1, v2, v3, v4), g4)
-  type ToRanked (a, b, c, d) = (ToRanked a, ToRanked b, ToRanked c, ToRanked d)
-  toRanked (a, b, c, d) = (toRanked a, toRanked b, toRanked c, toRanked d)
+  toValue (a, b, c, d) = (toValue a, toValue b, toValue c, toValue d)
 
 instance ( r ~ Underlying a, r ~ Underlying b
          , AdaptableDomains dynamic a, AdaptableDomains dynamic b )

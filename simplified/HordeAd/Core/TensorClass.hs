@@ -783,8 +783,7 @@ instance KnownNat n
         arr = OR.fromVector undefined
               $ createRandomVector (OR.size undefined) g1  -- TODO, or just remove the instance
     in (Flip arr, g2)
-  type ToRanked (Flip OR.Array r n) = Flip OR.Array r n
-  toRanked = id
+  toValue = id
 
 
 -- * Shaped tensor class instance for concrete arrays
@@ -845,7 +844,7 @@ instance ShapedTensor (Flip OS.Array) where
 instance (GoodScalar r, OS.Shape sh)
          => AdaptableDomains OD.Array (Flip OS.Array r sh) where
   type Underlying (Flip OS.Array r sh) = r
-  type Value (Flip OS.Array r sh) = Flip OS.Array r sh
+  type Value (Flip OS.Array r sh) = Flip OR.Array r (OS.Rank sh)
   toDomains a = V.singleton (dfromS a)
   fromDomains _aInit params = case V.uncons params of
     Just (a, rest) -> Just (toShapedOrDummy a, rest)
@@ -869,8 +868,7 @@ instance OS.Shape sh
         (g1, g2) = split g
         arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
     in (Flip arr, g2)
-  type ToRanked (Flip OS.Array r sh) = Flip OR.Array r (OS.Rank sh)
-  toRanked = Flip . Data.Array.Convert.convert . runFlip
+  toValue = Flip . Data.Array.Convert.convert . runFlip
 
 {- TODO: requires IncoherentInstances no matter what pragma I stick in
 -- TODO2: benchmark this used for any scalar via @V.map realToFrac@

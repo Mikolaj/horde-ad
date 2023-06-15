@@ -61,7 +61,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
         case someNatVal $ toInteger width of
           Nothing -> error "impossible someNatVal error"
           Just (SomeNat @width _) ->
-            toRanked $ fst
+            shapedToRanked $ fst
             $ randomVals @(MnistRnnRanked2.ADRnnMnistParametersShaped
                              (Flip OS.Array) width r)
                 0.4 (mkStdGen 44)
@@ -156,7 +156,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
         case someNatVal $ toInteger width of
           Nothing -> error "impossible someNatVal error"
           Just (SomeNat @width _) ->
-            toRanked $ fst
+            shapedToRanked $ fst
             $ randomVals @(MnistRnnRanked2.ADRnnMnistParametersShaped
                              (Flip OS.Array) width r)
                 0.4 (mkStdGen 44)
@@ -270,7 +270,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         domainsInit = toDomains valsInitShaped  -- == toDomains valsInit
         valsInit :: MnistRnnRanked2.ADRnnMnistParameters ranked r
-        valsInit = toRanked valsInitShaped
+        valsInit = shapedToRanked valsInitShaped
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show width, show miniBatchSize

@@ -409,7 +409,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
           Just (SomeNat @widthHidden _) ->
             case someNatVal $ toInteger widthHidden2 of
               Just (SomeNat @widthHidden2 _) ->
-                toRanked $ fst
+                shapedToRanked $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         (Flip OS.Array) widthHidden widthHidden2 r)
@@ -502,7 +502,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
             case someNatVal $ toInteger widthHidden2 of
               Nothing -> error "impossible someNatVal error"
               Just (SomeNat @widthHidden2 _) ->
-                toRanked $ fst
+                shapedToRanked $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         (Flip OS.Array) widthHidden widthHidden2 r)
@@ -615,10 +615,10 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
         domainsInit = toDomains valsInitShaped  -- == toDomains valsInit
         valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
         valsInit =
-          -- This almost works and I wouldn't need toRanked,
+          -- This almost works and I wouldn't need shapedToRanked,
           -- but there is nowhere to get aInit from.
           --   parseDomains aInit domainsInit
-          toRanked valsInitShaped
+          shapedToRanked valsInitShaped
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show widthHidden, show widthHidden2
