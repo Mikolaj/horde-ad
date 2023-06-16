@@ -1,6 +1,6 @@
 -- | Operations that (usually impurely) generate fresh variables.
 module HordeAd.Core.AstFreshId
-  ( astRegisterFun, astRegisterADShare
+  ( astRegisterFun, astRegisterADShare, astRegisterADShareS
   , funToAstR, funToAstD, ADAstVars, funToAstAll
   , funToAstIIO, funToAstI, funToAstIndexIO, funToAstIndex
   , funToAstIOS, funToAstS, astRegisterFunS, funToAstIndexIOS, funToAstIndexS
@@ -60,6 +60,17 @@ astRegisterADShare !r !l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !l2 = insertADShare freshId (AstRToD r) l
       !r2 = AstVar (shapeAst r) freshId
+  return (l2, r2)
+
+astRegisterADShareS :: OS.Shape sh
+                    => AstShaped r sh -> ADShare r
+                    -> (ADShare r, AstShaped r sh)
+{-# NOINLINE astRegisterADShareS #-}
+astRegisterADShareS !r !l | astIsSmallS r = (l, r)
+astRegisterADShareS !r !l = unsafePerformIO $ do
+  freshId <- unsafeGetFreshAstVarId
+  let !l2 = insertADShare freshId (AstSToD r) l
+      !r2 = AstVarS freshId
   return (l2, r2)
 
 funToAstRIO :: ShapeInt n -> (AstRanked r n -> AstRanked r m)

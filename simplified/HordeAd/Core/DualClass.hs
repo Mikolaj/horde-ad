@@ -39,6 +39,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.Delta
+import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
 
@@ -52,11 +53,11 @@ class IsPrimalPart f r z where
   dScaleByScalar :: f r z -> Int -> Dual f r z -> Dual f r z
   dAdd :: Dual f r z -> Dual f r z -> Dual f r z
   intOfShape :: f r z -> Int -> f r z
+  recordSharingPrimal :: f r z -> ADShare r -> (ADShare r, f r z)
+  letWrapPrimal :: ADShare r -> f r z -> f r z
 
 class CanRecordSharing f r z where
   recordSharing :: Dual f r z -> Dual f r z
-  recordSharingPrimal :: f r z -> ADShare r -> (ADShare r, f r z)
-  letWrapPrimal :: ADShare r -> f r z -> f r z
 
 type IsPrimal f r z = (IsPrimalPart f r z, CanRecordSharing f r z)
 
@@ -100,10 +101,12 @@ instance (GoodScalar r, KnownNat n) => IsPrimalPart (Flip OR.Array) r n where
   dZero = ZeroR
   dScale = ScaleR
   dScaleByScalar tsh c =
-    ScaleR (Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c))
+    ScaleR (tconst $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c))
   dAdd = AddR
   intOfShape tsh c =
-    Flip $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
+    tconst $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
+  recordSharingPrimal r l = (l, r)
+  letWrapPrimal _ r = r
 
 instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
   recordSharing d = case d of
@@ -112,35 +115,36 @@ instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
     DToR{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
-  recordSharingPrimal r l = (l, r)
-  letWrapPrimal _ r = r
 
 instance (GoodScalar r, KnownNat n) => IsPrimalPart AstRanked r n where
   dZero = ZeroR
   dScale = ScaleR
   dScaleByScalar tsh c =
-    ScaleR (treplicate0N (tshape tsh) (fromIntegral c))
+    ScaleR (tconst $ OR.constant (shapeToList $ tshape tsh) (fromIntegral c))
   dAdd = AddR
-  intOfShape tsh c = treplicate0N (tshape tsh) (fromIntegral c)
+  intOfShape tsh c =
+    tconst $ OR.constant (shapeToList $ tshape tsh) (fromIntegral c)
+  recordSharingPrimal = astRegisterADShare
+  letWrapPrimal = tletWrap
 
-instance (GoodScalar r, KnownNat n) => CanRecordSharing AstRanked r n where
+instance GoodScalar r => CanRecordSharing AstRanked r n where
   recordSharing d = case d of
     ZeroR -> d
     InputR{} -> d
     DToR{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
-  recordSharingPrimal = astRegisterADShare
-  letWrapPrimal = tletWrap
 
 instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (Flip OS.Array) r sh where
   dZero = ZeroS
   dScale = ScaleS
-  dScaleByScalar _tsh c =  -- this is not even needed for OS, but OR needs it
-    ScaleS (Flip $ OS.constant (fromIntegral c))
+  dScaleByScalar _tsh c =  -- this is not needed for OS, but OR needs it
+    ScaleS (sconst $ OS.constant (fromIntegral c))
   dAdd = AddS
-  intOfShape _tsh c =  -- this is not even needed for OS, but OR needs it
-    Flip $ OS.constant (fromIntegral c)
+  intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
+    sconst $ OS.constant (fromIntegral c)
+  recordSharingPrimal r l = (l, r)
+  letWrapPrimal _ r = r
 
 instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
   recordSharing d = case d of
@@ -149,16 +153,17 @@ instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
     DToS{} -> d
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
-  recordSharingPrimal r l = (l, r)
-  letWrapPrimal _ r = r
 
-instance IsPrimalPart AstShaped r sh where
+instance (GoodScalar r, OS.Shape sh) => IsPrimalPart AstShaped r sh where
   dZero = ZeroS
   dScale = ScaleS
-  dScaleByScalar _tsh _c =  -- this is not even needed for OS, but OR needs it
-    undefined  -- ScaleR (treplicate0N (tshape tsh) (fromIntegral c))
+  dScaleByScalar _tsh c =  -- this is not needed for OS, but OR needs it
+    ScaleS (sconst $ OS.constant (fromIntegral c))
   dAdd = AddS
-  intOfShape = undefined  -- treplicate0N (tshape tsh) (fromIntegral c)
+  intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
+    sconst $ OS.constant (fromIntegral c)
+  recordSharingPrimal = astRegisterADShareS
+  letWrapPrimal = sletWrap
 
 instance CanRecordSharing AstShaped r sh where
   recordSharing d = case d of
@@ -167,8 +172,6 @@ instance CanRecordSharing AstShaped r sh where
     DToS{} -> d
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
-  recordSharingPrimal = undefined  -- astRegisterADShare
-  letWrapPrimal = undefined  -- tletWrap
 
 
 -- * Counter handling
