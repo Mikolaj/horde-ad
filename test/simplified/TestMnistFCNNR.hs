@@ -178,7 +178,6 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
       -- to bootstrap the adaptor machinery. Such boilerplate can be
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
-      -- TODO: generate this from afcnnMnistLen1.
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
@@ -295,7 +294,6 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
       -- to bootstrap the adaptor machinery. Such boilerplate can be
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
-      -- TODO: generate this from afcnnMnistLen1.
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)

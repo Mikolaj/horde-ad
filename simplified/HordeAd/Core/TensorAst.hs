@@ -348,7 +348,7 @@ type instance DualOf AstShaped = AstDualPartS
 
 type instance DynamicOf AstShaped = AstDynamic
 
-instance ShapedTensor AstShaped where  -- TODO
+instance ShapedTensor AstShaped where
   slet a f = astLetFunS a f
 
   sminIndex0 = ShapedList.shapedNat . AstMinIndex1S . AstPrimalPartS

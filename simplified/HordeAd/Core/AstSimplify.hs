@@ -18,7 +18,7 @@ module HordeAd.Core.AstSimplify
   , astIndexStepS, astGatherStepS
   , astReshape, astTranspose, astReshapeS, astTransposeS
   , astLet, astSum, astScatter, astFromList, astFromVector, astReplicate
-  , astAppend, astSlice, astReverse, astFromDynamic, astFromDynamicS
+  , astAppend, astSlice, astSliceS, astReverse, astFromDynamic, astFromDynamicS
   , astConstant, astDomainsLet
   , astIntCond
   , simplifyArtifact6, simplifyAst6, simplifyAstDomains6
@@ -496,6 +496,11 @@ astSlice i k (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
       ix2 = fmap (substituteAstInt (SubstitutionPayloadInt ivar) var) ix
   in astGatherR (k :$ sh') v (var ::: vars, ix2)
 astSlice i k v = Ast.AstSlice i k v
+
+astSliceS :: forall i k n sh r.
+             (KnownNat i, KnownNat k, KnownNat n, OS.Shape sh)
+          => AstShaped r (i + n + k ': sh) -> AstShaped r (n ': sh)
+astSliceS = AstSliceS @i  -- TODO
 
 astReverse :: forall n r. (KnownNat n, GoodScalar r)
            => AstRanked r (1 + n) -> AstRanked r (1 + n)

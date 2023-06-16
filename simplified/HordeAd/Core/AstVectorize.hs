@@ -458,7 +458,7 @@ build1VS (var, v00) =
       astTrS $ astAppendS (astTrS $ build1VOccurenceUnknownS (var, v))
                           (astTrS $ build1VOccurenceUnknownS (var, w))
     Ast.AstSliceS @i v -> traceRule $
-      astTrS $ Ast.AstSliceS @i {-astSliceS TODO-} $ astTrS $ build1VS (var, v)
+      astTrS $ astSliceS @i $ astTrS $ build1VS (var, v)
     Ast.AstReverseS v -> traceRule $
       astTrS $ astReverseS $ astTrS $ build1VS (var, v)
     Ast.AstTransposeS @perm @sh1 v -> traceRule $

@@ -773,18 +773,6 @@ toRankedOrDummy sh x = if disDummy @ranked x
                        then tzero sh
                        else tfromD x
 
-instance KnownNat n
-         => RandomDomains (Flip OR.Array r n) where
-  randomVals range g =
-    let createRandomVector n seed =
-          LA.scale (2 * range)
-          $ V.fromListN n (randoms seed) - LA.scalar 0.5
-        (g1, g2) = split g
-        arr = OR.fromVector undefined
-              $ createRandomVector (OR.size undefined) g1  -- TODO, or just remove the instance
-    in (Flip arr, g2)
-  toValue = id
-
 
 -- * Shaped tensor class instance for concrete arrays
 
