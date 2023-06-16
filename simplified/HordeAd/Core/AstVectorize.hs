@@ -291,20 +291,18 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
      then case astIndexStep v0 ix of  -- push deeper
        Ast.AstIndex v1 ZI -> traceRule $
          build1VOccurenceUnknown k (var, v1)
-       v@(Ast.AstIndex v1 ix1) -> traceRule $
+       v@(Ast.AstIndex @p v1 ix1) -> traceRule $
          let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix1
              ruleD = astGatherStep
                        (k :$ dropShape (shapeAst v1))
                        (build1V k (var, v1))
                        (varFresh ::: Z, astVarFresh :. ix2)
          in if intVarInAst var v1
-            then case (v1, ix1) of  -- try to avoid ruleD if not a normal form
-              (Ast.AstFromList{}, _ :. ZI) -> ruleD
-              (Ast.AstFromVector{}, _ :. ZI) -> ruleD
-                -- TODO: this also constrains ix1 to be non-empty in the rules
-                -- below, which is probably wrong; the same in build1VIndexS
-              (Ast.AstScatter{}, _) -> ruleD
-              (Ast.AstAppend{}, _) -> ruleD
+            then case v1 of  -- try to avoid ruleD if not a normal form
+              Ast.AstFromList{} | valueOf @p == (1 :: Int) -> ruleD
+              Ast.AstFromVector{} | valueOf @p == (1 :: Int) -> ruleD
+              Ast.AstScatter{} -> ruleD
+              Ast.AstAppend{} -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
             else build1VOccurenceUnknown k (var, v)  -- shortcut
        v -> traceRule $
@@ -566,12 +564,13 @@ build1VIndexS (var, v0, ix@(_ :$: _)) =
              ruleD = astGatherStepS @'[k] @(1 + OS.Rank sh1)
                        (build1VS @k (var, v1))
                        (varFresh :$: ZSH, astVarFresh :$: ix2)
+             len = length $ OS.shapeT @sh1
          in if intVarInAstS var v1
-            then case (v1, ix1) of  -- try to avoid ruleD if not a normal form
-              (Ast.AstFromListS{}, _ :$: ZSH) -> ruleD
-              (Ast.AstFromVectorS{}, _ :$: ZSH) -> ruleD
-              (Ast.AstScatterS{}, _) -> ruleD
-              (Ast.AstAppendS{}, _) -> ruleD
+            then case v1 of  -- try to avoid ruleD if not a normal form
+              Ast.AstFromListS{} | len == 1 -> ruleD
+              Ast.AstFromVectorS{} | len == 1 -> ruleD
+              Ast.AstScatterS{} -> ruleD
+              Ast.AstAppendS{} -> ruleD
               _ -> build1VOccurenceUnknownS (var, v)  -- not a normal form
             else build1VOccurenceUnknownS (var, v)  -- shortcut
        v -> traceRule $
