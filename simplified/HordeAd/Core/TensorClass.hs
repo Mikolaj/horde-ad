@@ -11,7 +11,7 @@ module HordeAd.Core.TensorClass
   ( ShapeInt, IntOf, IndexOf, ShapeSh, IntSh, IndexSh
   , PrimalOf, DualOf, DynamicOf
   , ShapedTensor(..), Tensor(..), ConvertTensor(..), DomainsTensor(..), ADReady
-  , GoodScalar, DummyDual(..), toRankedOrDummy
+  , GoodScalar, DummyDual(..), toRankedOrDummy, toShapedOrDummy
   ) where
 
 import Prelude

@@ -131,15 +131,17 @@ instance (GoodScalar r, KnownNat n)
   type Value (AstRanked r n) = Flip OR.Array r n
   toDomains = undefined
   fromDomains aInit params = case V.uncons params of
-    Just (a, rest) -> Just (toRankedOrDummy @AstRanked (tshape aInit) a, rest)
+    Just (a, rest) -> Just (toRankedOrDummy (tshape aInit) a, rest)
     Nothing -> Nothing
 
-instance GoodScalar r
+instance (GoodScalar r, OS.Shape sh)
          => AdaptableDomains AstDynamic (AstShaped r sh) where
   type Underlying (AstShaped r sh) = r
   type Value (AstShaped r sh) = Flip OS.Array r sh
   toDomains = undefined
-  fromDomains = undefined
+  fromDomains _aInit params = case V.uncons params of
+    Just (a, rest) -> Just (toShapedOrDummy a, rest)
+    Nothing -> Nothing
 
 astLetFun :: (KnownNat n, KnownNat m, ShowAst r)
           => AstRanked r n -> (AstRanked r n -> AstRanked r m) -> AstRanked r m
