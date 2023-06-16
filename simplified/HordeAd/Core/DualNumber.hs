@@ -136,13 +136,13 @@ instance Ord (f r z) => Ord (ADVal f r z) where
 instance (Num (f r z), IsPrimal f r z) => Num (ADVal f r z) where
   D l1 u u' + D l2 v v' = dD (l1 `mergeADShare` l2) (u + v) (dAdd u' v')
   D l1 u u' - D l2 v v' =
-    dD (l1 `mergeADShare` l2) (u - v) (dAdd u' (dScaleByScalar v (-1) v'))
+    dD (l1 `mergeADShare` l2) (u - v) (dAdd u' (dScale (intOfShape v (-1)) v'))
   D l1 ue u' * D l2 ve v' =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dAdd (dScale v u') (dScale u v'))
-  negate (D l v v') = dD l (negate v) (dScaleByScalar v (-1) v')
+  negate (D l v v') = dD l (negate v) (dScale (intOfShape v (-1)) v')
   abs (D l ve v') = let (l2, v) = recordSharingPrimal ve l
                     in dD l2 (abs v) (dScale (signum v) v')
   signum (D l v _) = dD l (signum v) dZero

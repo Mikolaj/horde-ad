@@ -50,7 +50,6 @@ import HordeAd.Core.TensorClass
 class IsPrimalPart f r z where
   dZero :: Dual f r z
   dScale :: f r z -> Dual f r z -> Dual f r z
-  dScaleByScalar :: f r z -> Int -> Dual f r z -> Dual f r z
   dAdd :: Dual f r z -> Dual f r z -> Dual f r z
   intOfShape :: f r z -> Int -> f r z
   recordSharingPrimal :: f r z -> ADShare r -> (ADShare r, f r z)
@@ -100,8 +99,6 @@ type IsPrimal f r z = (IsPrimalPart f r z, CanRecordSharing f r z)
 instance (GoodScalar r, KnownNat n) => IsPrimalPart (Flip OR.Array) r n where
   dZero = ZeroR
   dScale = ScaleR
-  dScaleByScalar tsh c =
-    ScaleR (tconst $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c))
   dAdd = AddR
   intOfShape tsh c =
     tconst $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
@@ -119,8 +116,6 @@ instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
 instance (GoodScalar r, KnownNat n) => IsPrimalPart AstRanked r n where
   dZero = ZeroR
   dScale = ScaleR
-  dScaleByScalar tsh c =
-    ScaleR (tconst $ OR.constant (shapeToList $ tshape tsh) (fromIntegral c))
   dAdd = AddR
   intOfShape tsh c =
     tconst $ OR.constant (shapeToList $ tshape tsh) (fromIntegral c)
@@ -138,8 +133,6 @@ instance GoodScalar r => CanRecordSharing AstRanked r n where
 instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (Flip OS.Array) r sh where
   dZero = ZeroS
   dScale = ScaleS
-  dScaleByScalar _tsh c =  -- this is not needed for OS, but OR needs it
-    ScaleS (sconst $ OS.constant (fromIntegral c))
   dAdd = AddS
   intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
     sconst $ OS.constant (fromIntegral c)
@@ -157,8 +150,6 @@ instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
 instance (GoodScalar r, OS.Shape sh) => IsPrimalPart AstShaped r sh where
   dZero = ZeroS
   dScale = ScaleS
-  dScaleByScalar _tsh c =  -- this is not needed for OS, but OR needs it
-    ScaleS (sconst $ OS.constant (fromIntegral c))
   dAdd = AddS
   intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
     sconst $ OS.constant (fromIntegral c)
