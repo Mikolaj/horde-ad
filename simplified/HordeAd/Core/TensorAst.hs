@@ -370,7 +370,7 @@ instance ShapedTensor AstShaped where  -- TODO
   sreverse = AstReverseS
   stranspose (_ :: Proxy perm) = AstTransposeS @perm  -- astTranspose
   sreshape = AstReshapeS  -- astReshape
-  sbuild1 = undefined  -- astBuild1Vectorize
+  sbuild1 = astBuild1VectorizeS
   sgather t f = AstGatherS t (funToAstIndexS f)  -- introduces new vars
 
   ssumOfList = AstSumOfListS
@@ -417,3 +417,9 @@ astLetFunS a f | astIsSmallS a = f a
 astLetFunS a f =
   let (AstVarName var, ast) = funToAstS f
   in AstLetS var a ast  -- astLet var a ast  -- safe, because subsitution ruled out above
+
+astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r)
+                    => (IntSh (AstShaped r '[]) n -> AstShaped r sh)
+                    -> AstShaped r (n ': sh)
+astBuild1VectorizeS f =
+  build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)
