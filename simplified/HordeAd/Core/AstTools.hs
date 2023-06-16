@@ -33,7 +33,8 @@ import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits
+  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Ast
@@ -430,7 +431,14 @@ bindsToLet = foldl' bindToLet
  where
   bindToLet u (var, d) = case d of
     AstRToD w -> AstLet var w u
-    AstSToD _w -> undefined  -- TODO: AstLet var (AstSToR w) u
+    AstSToD @sh w ->  -- rare or impossible, but let's implement it anyway:
+      let p = length $ OS.shapeT @sh
+      in case someNatVal $ toInteger p of
+        Just (SomeNat @p _proxy) ->
+          -- I can't use sameNat to compare the types, because no KnownNat!
+          gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: p) $
+          AstLet var (AstSToR w) u
+        Nothing -> error "bindsToLet: impossible someNatVal error"
 
 bindsToLetS :: (ShowAst r, OS.Shape sh)
             => AstShaped r sh -> [(AstVarId, AstDynamic r)] -> AstShaped r sh
