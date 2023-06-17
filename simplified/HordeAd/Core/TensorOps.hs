@@ -80,7 +80,7 @@ treplicate0ND sh = OD.constant (shapeToList sh)
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
-type NumAndShow r = (Numeric r, Show r)
+type NumAndShow r = (Numeric r, Show r, Num (Vector r))
 
 
 -- * Ranked tensor operations
@@ -275,7 +275,7 @@ tdot0R t u = OR.toVector t LA.<.> OR.toVector u
   -- tsum0R (t * u)
 
 tdot1InR
-  :: (NumAndShow r, Num (Vector r), RowSum r)
+  :: (NumAndShow r, RowSum r)
   => OR.Array 2 r -> OR.Array 2 r -> OR.Array 1 r
 tdot1InR t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
   if V.length vt == 1 || V.length vu == 1
@@ -332,7 +332,7 @@ tmaximum0R = LA.maxElement . OR.toVector
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZR :: forall m p n r.
               ( KnownNat m, KnownNat p, KnownNat n, NumAndShow r
-              , Num (Vector r) )
+               )
            => ShapeInt (p + n) -> OR.Array (m + n) r
            -> (IndexInt m -> IndexInt p)
            -> OR.Array (p + n) r
@@ -354,7 +354,7 @@ tscatterZR sh t f =
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OR.fromVector
 -- or optimize tscatterNR and instantiate it instead
-tscatterZ1R :: (NumAndShow r, Num (Vector r), KnownNat p, KnownNat n)
+tscatterZ1R :: (NumAndShow r, KnownNat p, KnownNat n)
             => ShapeInt (p + n) -> OR.Array (1 + n) r -> (CInt -> IndexInt p)
             -> OR.Array (p + n) r
 tscatterZ1R sh t f = case OR.shapeL t of
@@ -597,7 +597,7 @@ tindexZS v ix =
   let sh = OS.shapeL v
   in if ixInBounds (ShapedList.sizedListToList ix) sh
      then tindexNS v ix
-     else OS.constant 0
+     else 0
 
 tindex1S
   :: (Numeric r, KnownNat n)
@@ -644,7 +644,7 @@ tsumInS t = case OS.shapeL t of
   [] -> error "tsumInS: null shape"
 {-
   k2 : 0 : [] ->
-    OS.constant 0  -- the shape is known from sh, so no ambiguity
+    0  -- the shape is known from sh, so no ambiguity
 -}
   k2 : k : [] -> case t of
     SS.A (SG.A (OI.T (s2 : _) o vt)) | V.length vt == 1 ->
@@ -682,7 +682,7 @@ tdot0S t u = OS.toVector t LA.<.> OS.toVector u
   -- tsum0S (t * u)
 
 tdot1InS
-  :: (NumAndShow r, Num (Vector r), RowSum r, KnownNat m, KnownNat n)
+  :: (NumAndShow r, RowSum r, KnownNat m, KnownNat n)
   => OS.Array '[m, n] r -> OS.Array '[m, n] r -> OS.Array '[m] r
 tdot1InS t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu))) =
   if V.length vt == 1 || V.length vu == 1
@@ -729,7 +729,7 @@ tmaximum0S = LA.maxElement . OS.toVector
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
-              ( NumAndShow r, Num (Vector r), OS.Shape sh, OS.Shape sh2
+              ( NumAndShow r, OS.Shape sh, OS.Shape sh2
               , OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh) )
            => OS.Array (sh2 OS.++ OS.Drop p sh) r
            -> (IndexIntSh sh2 -> IndexIntSh (OS.Take p sh))
@@ -752,7 +752,7 @@ tscatterZS t f =
 -- and then freezing it and calling OS.fromVector
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S :: forall r n2 p sh.
-               ( NumAndShow r, Num (Vector r), KnownNat n2
+               ( NumAndShow r, KnownNat n2
                , OS.Shape sh, OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh) )
             => OS.Array (n2 ': OS.Drop p sh) r
             -> (CIntSh n2 -> IndexIntSh (OS.Take p sh))

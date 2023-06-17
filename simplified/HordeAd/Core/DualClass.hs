@@ -135,7 +135,7 @@ instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (Flip OS.Array) r sh where
   dScale = ScaleS
   dAdd = AddS
   intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
-    sconst $ OS.constant (fromIntegral c)
+    sconst $ fromIntegral c
   recordSharingPrimal r l = (l, r)
   letWrapPrimal _ r = r
 
@@ -152,7 +152,7 @@ instance (GoodScalar r, OS.Shape sh) => IsPrimalPart AstShaped r sh where
   dScale = ScaleS
   dAdd = AddS
   intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
-    sconst $ OS.constant (fromIntegral c)
+    sconst $ fromIntegral c
   recordSharingPrimal = astRegisterADShareS
   letWrapPrimal = sletWrap
 
