@@ -10,7 +10,8 @@
 module HordeAd.Core.TensorClass
   ( ShapeInt, IntOf, IndexOf, ShapeSh, IntSh, IndexSh
   , PrimalOf, DualOf, DynamicOf
-  , ShapedTensor(..), Tensor(..), ConvertTensor(..), DomainsTensor(..), ADReady
+  , ShapedTensor(..), Tensor(..), ConvertTensor(..), DomainsTensor(..)
+  , ADReady, ADReadyS
   , GoodScalar, DummyDual(..), toRankedOrDummy, toShapedOrDummy
   ) where
 
@@ -693,6 +694,20 @@ type ADReady ranked r =
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 11)
     , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 12) -} )
   , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 0)
+      -- placing this last gives better errors
+  )
+
+type ADReadyS shaped r =
+  ( ShapedTensor shaped, GoodScalar r, ShapedTensor (PrimalOf shaped)
+  , IfB (IntOf (shaped r '[])), IfB (shaped r '[])
+  , IfB (PrimalOf shaped r '[])
+  , EqB r, EqB (IntOf (shaped r '[])), EqB (shaped r '[])
+  , EqB (PrimalOf shaped r '[])
+  , OrdB r, OrdB (IntOf (shaped r '[])), OrdB (shaped r '[])
+  , OrdB (PrimalOf shaped r '[])
+  , Boolean (BooleanOf (IntOf (shaped r '[])))
+  , BooleanOf (IntOf (shaped r '[])) ~ BooleanOf (PrimalOf shaped r '[])
+  , BooleanOf (IntOf (shaped r '[])) ~ BooleanOf (shaped r '[])
       -- placing this last gives better errors
   )
 

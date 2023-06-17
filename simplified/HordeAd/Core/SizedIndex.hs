@@ -36,7 +36,9 @@ import HordeAd.Core.SizedList
 -- * Concrete type synonyms to be used in many other modules
 
 -- This type is user facing so we warn similarly as for IndexOf.
--- | Thanks to the OverloadedLists mechanism, values of this type can be
+-- | This is a shape of a tensor, which implies the numbers are non-negative.
+--
+-- Thanks to the OverloadedLists mechanism, values of this type can be
 -- written using the normal list notation. However, such values, if not
 -- explicitly typed, do not inform the compiler about the length
 -- of the list until runtime. That means that some errors are hidden
@@ -50,6 +52,13 @@ type ShapeInt n = Shape n Int
 -- | An index in an n-dimensional array represented as a sized list.
 -- The slowest-moving index is at the head position;
 -- thus the index 'i :. j :. Z' represents 'a[i][j]' in traditional C notation.
+--
+-- Since we don't have type-level shape information in this variant,
+-- we don't assume the indexes are legal, meaning non-negative and bound
+-- by some shape. Consequently, there are no runtime checks for that
+-- until we we actually attempt projecting. In case that the values
+-- are terms, there is no absolute corrcetness criterion anyway,
+-- because the eventual integer value depends on a variable valuation.
 newtype Index n i = Index (SizedList n i)
   deriving (Eq, Ord)
 

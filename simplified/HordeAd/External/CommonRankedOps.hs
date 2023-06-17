@@ -47,7 +47,8 @@ logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
       y0 = recip (treplicate0N sh 1 + exp (- tprimalPart @ranked d))
   in tlet (tconstant @ranked y0)  -- we don't have tletPrimal
      $ \y1 -> let y = tprimalPart @ranked y1
-              in tD y (tScale @ranked (y * (treplicate0N sh 1 - y)) $ tdualPart @ranked d)
+              in tD y (tScale @ranked (y * (treplicate0N sh 1 - y))
+                       $ tdualPart @ranked d)
 
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
@@ -153,11 +154,12 @@ indexz0
 indexz0 d ix = ifB (within0 @ranked @r (tshape @ranked d) ix) (d ! ix) 0
 
 -- | Given an index and shape, check if the index is fully within the shape.
-within0 :: forall ranked r n.
-           ADReady ranked r
-        => ShapeInt n -> IndexOf (ranked r 0) n -> BooleanOf (IntOf (ranked r 0))
+within0
+  :: forall ranked r n. ADReady ranked r
+  => ShapeInt n -> IndexOf (ranked r 0) n -> BooleanOf (IntOf (ranked r 0))
 within0 sh ix =
-  let within :: IntOf (ranked r 0) -> IntOf (ranked r 0) -> BooleanOf (IntOf (ranked r 0))
+  let within :: IntOf (ranked r 0) -> IntOf (ranked r 0)
+             -> BooleanOf (IntOf (ranked r 0))
       within i dim = 0 <=* i &&* dim >* i
   in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)

@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+{-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 -- | @[Nat]@-indexed lists.
 module HordeAd.Core.ShapedList
   ( ShapedNat, shapedNat, unShapedNat
@@ -11,6 +12,7 @@ module HordeAd.Core.ShapedList
   , backpermutePrefixSized, permutePrefixSized, backpermutePrefixList
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , sizedListCompare, listToSized, sizedListToList
+  , shapedListToSized, shapedListToIndex
   , Permutation
   , toLinearIdx, fromLinearIdx
   ) where
@@ -27,7 +29,9 @@ import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import HordeAd.Core.SizedList (Permutation)
+import qualified HordeAd.Core.SizedIndex as SizedIndex
+import           HordeAd.Core.SizedList (Permutation)
+import qualified HordeAd.Core.SizedList as SizedList
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The value of this type has to be positive and less than the @n@ bound.
@@ -199,6 +203,14 @@ listToSized (i : is) = case OS.shapeT @sh of
 sizedListToList :: ShapedList sh i -> [i]
 sizedListToList ZSH = []
 sizedListToList (i :$: is) = i : sizedListToList is
+
+shapedListToSized :: KnownNat (OS.Rank sh)
+                  => ShapedList sh i -> SizedList.SizedList (OS.Rank sh) i
+shapedListToSized = SizedList.listToSized . sizedListToList
+
+shapedListToIndex :: KnownNat (OS.Rank sh)
+                  => ShapedList sh i -> SizedIndex.Index (OS.Rank sh) i
+shapedListToIndex = SizedIndex.listToIndex . sizedListToList
 
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing
