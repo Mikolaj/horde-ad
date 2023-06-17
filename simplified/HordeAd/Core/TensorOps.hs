@@ -745,8 +745,7 @@ tscatterZS t f =
       ivs = foldr g M.empty [ ShapedList.fromLinearIdx sh2
                               $ ShapedList.shapedNat $ fromIntegral i
                             | i <- [0 .. OS.sizeT @sh2 - 1] ]
-  in updateNS (treplicate0NS 0) $ map (second $ OS.fromVector . sum)
-                                $ M.assocs ivs
+  in updateNS 0 $ map (second $ OS.fromVector . sum) $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
@@ -763,8 +762,8 @@ tscatterZ1S t f =
                    let ix2 = f $ ShapedList.shapedNat $ fromIntegral i
                    in if ixInBounds (ShapedList.sizedListToList ix2)
                                     (OS.shapeT @sh)
-                      then updateNS (treplicate0NS 0) [(ix2, ti)]
-                      else treplicate0NS 0)
+                      then updateNS 0 [(ix2, ti)]
+                      else 0)
         $ OSB.toVector $ OS.unravel t
 
 tfromListS

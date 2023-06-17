@@ -580,7 +580,7 @@ buildFinMaps s0 deltaDt =
           $ gcastWith (unsafeCoerce Refl
                        :: OS.Take (OS.Rank sh1) (sh1 OS.++ sh) :~: sh1)
           $ evalS s (sscatter @shaped @r @'[] @(OS.Rank sh1) c (const ix)) d
-          -- equivalent: evalS s (updateNR (sreplicate0NR sh 0) [(ix, c)]) d
+          -- equivalent: evalS s (updateNR (replicate0NR sh 0) [(ix, c)]) d
         SumS d -> evalS s (sreplicate c) d
         Sum0S d -> evalS s (sreplicate0N c) d
         Dot0S v vd -> evalS s (v `smult` sreplicate0N c) vd
