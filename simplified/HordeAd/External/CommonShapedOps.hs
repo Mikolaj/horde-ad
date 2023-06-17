@@ -182,6 +182,11 @@ slicezS d ixBase =
 
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
+--
+-- The @ShapedList.listToSized@ in the implementation here should not verify
+-- that the index fitw inside the type-level shape, because vectorization
+-- may make it not fit and that's fine. In the worst case, indexing ingores
+-- such invalid indexes and returns 0.
 indexz0S
   :: forall shOut sh shaped r. (OS.Shape shOut, OS.Shape sh, ADReadyS shaped r)
   => shaped r sh -> IndexOf (shaped r '[]) (OS.Rank shOut) -> shaped r '[]

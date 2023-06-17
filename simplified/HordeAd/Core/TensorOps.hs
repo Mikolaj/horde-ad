@@ -587,9 +587,9 @@ tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
                    , offset = linear
                    , values })
 
--- TODO: should there IndexIntSh sh1 rather be IndexIntSh sh3 given
--- that indexing may be out of bounds? Wait until vectorization
--- leads to such typing or not
+-- Note that after vectorization, the index with type IndexIntSh sh1
+-- may not fit within the type-level shape, which we catch in the @ixInBounds@
+-- and return 0, so it's fine. Similarly in gather and scatter.
 tindexZS
   :: forall sh1 sh2 r. (NumAndShow r, OS.Shape sh2, OS.Shape (sh1 OS.++ sh2))
   => OS.Array (sh1 OS.++ sh2) r -> IndexIntSh sh1 -> OS.Array sh2 r
