@@ -15,13 +15,14 @@ import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData
 
-type ADCnnMnistParametersShaped shaped kh kw c_out n_hidden r =
+type ADCnnMnistParametersShaped
+       shaped sizeMnistHeight sizeMnistWidth kh kw c_out n_hidden r =
   ( ( shaped r '[c_out, 1, kh + 1, kw + 1]
     , shaped r '[c_out] )
   , ( shaped r '[c_out, c_out, kh + 1, kw + 1]
     , shaped r '[c_out] )
-  , ( shaped r '[n_hidden, c_out * SizeMnistHeight `Div` 4
-                                 * SizeMnistWidth `Div` 4 ]
+  , ( shaped r '[n_hidden, c_out * sizeMnistHeight `Div` 4
+                                 * sizeMnistWidth `Div` 4 ]
     , shaped r '[n_hidden] )
   , ( shaped r '[SizeMnistLabel, n_hidden]
     , shaped r '[SizeMnistLabel] )
@@ -54,13 +55,13 @@ convMnistLayerR ker input bias =
 
 convMnistTwoR
   :: ADReady ranked r
-  => Int
+  => Int -> Int -> Int
   -> PrimalOf ranked r 4  -- [batch_size, 1, SizeMnistHeight, SizeMnistWidth]
                           -- ^ input images
   -> ADCnnMnistParameters ranked r
   -> ranked r 2  -- [SizeMnistLabel, batch_size]
                  -- ^ classification
-convMnistTwoR batch_size input
+convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
               ( (ker1, bias1), (ker2, bias2)
               , (weightsDense, biasesDense), (weightsReadout, biasesReadout) ) =
   let t1 = convMnistLayerR ker1 (tconstant input) bias1
@@ -69,8 +70,8 @@ convMnistTwoR batch_size input
              -- , SizeMnistHeight `Div` 4, SizeMnistWidth `Div` 2 ]
       c_out = tlength bias1
       m1 = treshape (batch_size
-                     :$ c_out * sizeMnistHeightInt `div` 4
-                              * sizeMnistWidthInt `div` 4
+                     :$ c_out * sizeMnistHeightI `div` 4
+                              * sizeMnistWidthI `div` 4
                      :$ ZS)
                     t2
       m2 = ttranspose [1, 0] m1
@@ -94,7 +95,8 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
                         :$ sizeMnistWidthInt
                         :$ ZS)
                        glyphR
-      result = convMnistTwoR batch_size input adparameters
+      result = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
+                             batch_size input adparameters
       targets = ttranspose [1, 0] labelR
       loss = lossSoftMaxCrossEntropyR targets result
   in tconstant (recip $ fromIntegral batch_size) * loss
@@ -115,7 +117,8 @@ convMnistTestR batch_size (glyphR, labelR) evalAtTestParams =
       outputR =
         let nn :: ADCnnMnistParameters ranked r
                -> ranked r 2  -- [SizeMnistLabel, batch_size]
-            nn = convMnistTwoR batch_size input
+            nn = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
+                               batch_size input
         in evalAtTestParams nn
       outputs = map OR.toVector $ ORB.toList $ OR.unravel
                 $ OR.transpose [1, 0] $ outputR

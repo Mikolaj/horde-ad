@@ -13,6 +13,7 @@ import qualified TestAdaptorSimplified
 import qualified TestConvSimplified
 import qualified TestGatherSimplified
 import qualified TestHighRankSimplified
+import qualified TestMnistCNNR
 import qualified TestMnistFCNNR
 import qualified TestMnistRNNR
 
@@ -35,3 +36,4 @@ tests = testGroup "Only special tests for simplified horde-ad" $
   ++ TestAdaptorSimplified.testTrees
   ++ TestMnistFCNNR.testTrees
   ++ TestMnistRNNR.testTrees
+  ++ TestMnistCNNR.testTrees

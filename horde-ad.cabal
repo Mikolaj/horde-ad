@@ -642,6 +642,7 @@ test-suite simplifiedOnlyTest
                       TestConvSimplified
                       TestGatherSimplified
                       TestHighRankSimplified
+                      TestMnistCNNR
                       TestMnistFCNNR
                       TestMnistRNNR
 

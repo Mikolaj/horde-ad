@@ -133,9 +133,9 @@ rnnMnistTestR 0 _ _ = 0
 rnnMnistTestR batch_size (glyphR, labelR) evalAtTestParams =
   let xs = Flip $ OR.transpose [2, 1, 0] glyphR
       outputR =
-        let nn :: ADRnnMnistParameters (Flip OR.Array) r
+        let nn :: ADRnnMnistParameters ranked r
                     -- SizeMnistHeight out_width
-               -> Flip OR.Array r 2  -- [SizeMnistLabel, batch_size]
+               -> ranked r 2  -- [SizeMnistLabel, batch_size]
             nn = rnnMnistZeroR batch_size xs
         in evalAtTestParams nn
       outputs = map OR.toVector $ ORB.toList $ OR.unravel
