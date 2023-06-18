@@ -278,6 +278,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex r m1)) =
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   Ast.AstLetADShare{} -> error "astIndexROrStepOnly: AstLetADShare"
   Ast.AstOp opCode args ->
+    -- TODO: we need integer let to preserve sharing of ix here and elsewhere:
     Ast.AstOp opCode (map (`astIndexRec` ix) args)
   Ast.AstSumOfList args ->
     Ast.AstSumOfList (map (`astIndexRec` ix) args)
@@ -309,6 +310,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex r m1)) =
   Ast.AstFromList{} | ZI <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromList l ->
+    -- TODO: we need integer let to preserve sharing of ix here and elsewhere:
     Ast.AstIndex (astFromList $ map (`astIndexRec` rest1) l)
                   (singletonIndex i1)
   Ast.AstFromVector l | AstIntConst i <- i1 ->
@@ -349,6 +351,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex r m1)) =
     astIndex (substituteAst (SubstitutionPayloadInt i1) var2 v) rest1
   Ast.AstGather _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
   Ast.AstGather (_ :$ sh') v (var2 ::: vars, ix2) ->
+    -- TODO: we need integer let to preserve sharing while substituting here:
     let ix3 = fmap (substituteAstInt (SubstitutionPayloadInt i1) var2) ix2
         w :: AstRanked r (m1 + n)
         w = unsafeCoerce $ astGather sh' v (vars, ix3)
@@ -367,6 +370,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex r m1)) =
   Ast.AstConstant (AstPrimalPart v) ->
     astConstant $ AstPrimalPart $ astIndex v ix
   Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
+    -- TODO: we need integer let to preserve sharing while substituting here:
     Ast.AstD (AstPrimalPart $ astIndexRec u ix)
              (AstDualPart $ astIndexRec u' ix)
   Ast.AstLetDomains vars l v ->
@@ -800,6 +804,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       astGather sh4 (astReshapeAsGather sh v) (vars4, ix4)
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
+      -- TODO: we need integer let to preserve sharing while substituting here:
       let subst :: AstIndex r m7 -> AstVarList m7 -> AstInt r -> AstInt r
           subst ix vars i =
             foldr (uncurry substituteAstInt) i

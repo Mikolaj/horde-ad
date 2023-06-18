@@ -392,7 +392,7 @@ astIsSmall :: forall n r. KnownNat n
 astIsSmall = \case
   AstVar{} -> True
   AstIota -> True
-  AstIndex AstIota _ -> True
+  AstIndex AstIota _ -> True  -- TODO: what if ix contains a big tensor?
   AstConst{} -> valueOf @n == (0 :: Int)
   AstConstant (AstPrimalPart v) -> astIsSmall v
   AstReplicate _ v -> astIsSmall v  -- materialized via tricks, so prob. safe
@@ -406,7 +406,7 @@ astIsSmallS :: forall sh r. OS.Shape sh
 astIsSmallS = \case
   AstVarS{} -> True
   AstIotaS -> True
-  AstIndexS AstIotaS _ -> True
+  AstIndexS AstIotaS _ -> True  -- TODO: what if ix contains a big tensor?
   AstConstS{} -> null (OS.shapeT @sh)
   AstConstantS (AstPrimalPartS v) -> astIsSmallS v
   AstReplicateS v -> astIsSmallS v  -- materialized via tricks, so prob. safe

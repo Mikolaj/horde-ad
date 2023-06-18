@@ -166,10 +166,19 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
     _ -> error "impossible pattern needlessly required"
   tminimum :: (GoodScalar r, KnownNat n)
            => ranked r n -> ranked r 0
-  tminimum t = tindex0 t (tminIndex t)
+  -- The let is required to preserve the sharing of the argument, which is
+  -- used twice: in tminIndex0 and in tindex0.
+  -- TODO: this simpler form will be possible when intLet is available
+  -- and so sharing of integer expressions is not broken.
+  -- tminimum t0 = tlet t0 $ \t -> tindex0 t (tminIndex t)
+  tminimum t0 = tlet t0 $ \t ->
+                  tlet (tflatten t) $ \tf ->
+                    tindex0 t $ fromLinearIdx (tshape t) (tminIndex0 tf)
   tmaximum :: (GoodScalar r, KnownNat n)
            => ranked r n -> ranked r 0
-  tmaximum t = tindex0 t (tmaxIndex t)
+  tmaximum t0 = tlet t0 $ \t ->
+                  tlet (tflatten t) $ \tf ->
+                    tindex0 t $ fromLinearIdx (tshape t) (tmaxIndex0 tf)
   tfromIndex0 :: GoodScalar r => IntOf (ranked r 0) -> ranked r 0
   tfromIndex1 :: GoodScalar r => IndexOf (ranked r 0) n -> ranked r 1
   tfromIndex1 = tfromList . map tfromIndex0 . indexToList
