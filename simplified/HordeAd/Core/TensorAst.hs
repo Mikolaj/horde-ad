@@ -145,7 +145,7 @@ instance (GoodScalar r, OS.Shape sh)
 
 astLetFun :: (KnownNat n, KnownNat m, ShowAst r)
           => AstRanked r n -> (AstRanked r n -> AstRanked r m) -> AstRanked r m
-astLetFun a f | astIsSmall a = f a
+astLetFun a f | astIsSmall True a = f a
 astLetFun a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh f
@@ -171,7 +171,7 @@ astLetDomainsFun a f =
 astDomainsLetFun :: (KnownNat n, ShowAst r)
                  => AstRanked r n -> (AstRanked r n -> AstDomains r)
                  -> AstDomains r
-astDomainsLetFun a f | astIsSmall a = f a
+astDomainsLetFun a f | astIsSmall True a = f a
 astDomainsLetFun a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh id
@@ -415,7 +415,7 @@ instance ShapedTensor AstShaped where
 astLetFunS :: (OS.Shape sh, OS.Shape sh2)
           => AstShaped r sh -> (AstShaped r sh -> AstShaped r sh2)
           -> AstShaped r sh2
-astLetFunS a f | astIsSmallS a = f a
+astLetFunS a f | astIsSmallS True a = f a
 astLetFunS a f =
   let (AstVarName var, ast) = funToAstS f
   in AstLetS var a ast  -- astLet var a ast  -- safe, because subsitution ruled out above

@@ -388,31 +388,37 @@ substitute1AstS i var v1 = case v1 of
 -- * Determining if a term is too small to require sharing
 
 astIsSmall :: forall n r. KnownNat n
-           => AstRanked r n -> Bool
-astIsSmall = \case
+           => Bool -> AstRanked r n -> Bool
+astIsSmall relaxed = \case
   AstVar{} -> True
   AstIota -> True
   AstIndex AstIota _ -> True  -- TODO: what if ix contains a big tensor?
   AstConst{} -> valueOf @n == (0 :: Int)
-  AstConstant (AstPrimalPart v) -> astIsSmall v
-  AstReplicate _ v -> astIsSmall v  -- materialized via tricks, so prob. safe
-  AstSlice _ _ v -> astIsSmall v  -- materialized via tensor/vector slice; cheap
-  AstTranspose _ v -> astIsSmall v  -- often cheap and often fuses
-  AstSToR v -> astIsSmallS v
+  AstConstant (AstPrimalPart v) -> astIsSmall relaxed v
+  AstReplicate _ v ->
+    relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
+  AstSlice _ _ v ->
+    relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
+  AstTranspose _ v ->
+    relaxed && astIsSmall relaxed v  -- often cheap and often fuses
+  AstSToR v -> astIsSmallS relaxed v
   _ -> False
 
 astIsSmallS :: forall sh r. OS.Shape sh
-            => AstShaped r sh -> Bool
-astIsSmallS = \case
+            => Bool -> AstShaped r sh -> Bool
+astIsSmallS relaxed = \case
   AstVarS{} -> True
   AstIotaS -> True
   AstIndexS AstIotaS _ -> True  -- TODO: what if ix contains a big tensor?
   AstConstS{} -> null (OS.shapeT @sh)
-  AstConstantS (AstPrimalPartS v) -> astIsSmallS v
-  AstReplicateS v -> astIsSmallS v  -- materialized via tricks, so prob. safe
-  AstSliceS v -> astIsSmallS v  -- materialized via tensor/vector slice; cheap
-  AstTransposeS v -> astIsSmallS v  -- often cheap and often fuses
-  AstRToS v -> astIsSmall v
+  AstConstantS (AstPrimalPartS v) -> astIsSmallS relaxed v
+  AstReplicateS v ->
+    relaxed && astIsSmallS relaxed v  -- materialized via tricks, so prob. safe
+  AstSliceS v ->
+    relaxed && astIsSmallS relaxed v  -- materialized via vector slice; cheap
+  AstTransposeS v ->
+    relaxed && astIsSmallS relaxed v  -- often cheap and often fuses
+  AstRToS v -> astIsSmall relaxed v
   _ -> False
 
 

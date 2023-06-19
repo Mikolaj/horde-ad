@@ -208,7 +208,7 @@ simplifyStepNonIndexS t = t  -- TODO
 
 astLet :: forall n m r. (KnownNat m, KnownNat n, ShowAst r)
        => AstVarId -> AstRanked r n -> AstRanked r m -> AstRanked r m
-astLet var u v | astIsSmall u =
+astLet var u v | astIsSmall True u =
   substitute1Ast (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
   -- because very low hanging fruits may be left hanging, but we
@@ -968,7 +968,7 @@ astConstant v = Ast.AstConstant v
 
 astDomainsLet :: forall n r. (KnownNat n, ShowAst r)
               => AstVarId -> AstRanked r n -> AstDomains r -> AstDomains r
-astDomainsLet var u v | astIsSmall u =
+astDomainsLet var u v | astIsSmall True u =
   substitute1AstDomains (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
   -- because very low hanging fruits may be left hanging, but we
@@ -1043,7 +1043,7 @@ inlineAst env memo v0 = case v0 of
       1 -> (memo2, substitute1Ast (SubstitutionPayloadRanked u2) var v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
-      count | astIsSmall u ->
+      count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst env EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
@@ -1134,7 +1134,7 @@ inlineAstDomains env memo v0 = case v0 of
       1 -> (memo2, substitute1AstDomains (SubstitutionPayloadRanked u2) var v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
-      count | astIsSmall u ->
+      count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst env EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
@@ -1150,7 +1150,7 @@ inlineAstDomains env memo v0 = case v0 of
       1 -> (memo2, substitute1AstDomains (SubstitutionPayloadShaped u2) var v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
-      count | astIsSmallS u ->
+      count | astIsSmallS (count < 10) u ->
         let (memoU0, u0) = inlineAstS env EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
@@ -1236,7 +1236,7 @@ inlineAstS env memo v0 = case v0 of
       1 -> (memo2, substitute1AstS (SubstitutionPayloadShaped u2) var v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
-      count | astIsSmallS u ->
+      count | astIsSmallS (count < 10) u ->
         let (memoU0, u0) = inlineAstS env EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
@@ -1873,7 +1873,7 @@ simplifyAstS t = case t of
 
 astLetS :: forall sh1 sh2 r. (OS.Shape sh1, OS.Shape sh2, GoodScalar r)
         => AstVarId -> AstShaped r sh1 -> AstShaped r sh2 -> AstShaped r sh2
-astLetS var u v | astIsSmallS u =
+astLetS var u v | astIsSmallS True u =
   substitute1AstS (SubstitutionPayloadShaped u) var v
   -- we use the substitution that does not simplify, which is sad,
   -- because very low hanging fruits may be left hanging, but we
@@ -2010,7 +2010,7 @@ astConstantS v = Ast.AstConstantS v
 
 astDomainsLetS :: forall sh r. (ShowAst r, OS.Shape sh)
                => AstVarId -> AstShaped r sh -> AstDomains r -> AstDomains r
-astDomainsLetS var u v | astIsSmallS u =
+astDomainsLetS var u v | astIsSmallS True u =
   substitute1AstDomains (SubstitutionPayloadShaped u) var v
   -- we use the substitution that does not simplify, which is sad,
   -- because very low hanging fruits may be left hanging, but we
