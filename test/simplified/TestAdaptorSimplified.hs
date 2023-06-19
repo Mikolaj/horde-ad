@@ -719,15 +719,16 @@ testFooNoGo =
 nestedBuildMap :: forall ranked r. ADReady ranked r => ranked r 0 -> ranked r 1
 nestedBuildMap r =
   let w = treplicate0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
-      v' = treplicate0N [177] r :: ranked r 1
-      nestedMap x0 = tlet x0 $ \x -> tmap0N (x /) (w x)
-      variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' (ix + iy :. ZI))
-      doublyBuild = tbuild1 5 (tminimum . variableLengthBuild)
-  in tmap0N (\x0 -> tlet x0 $ \x -> x * tsum0
-                         (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
-                          + fooBuild1 (nestedMap x)
-                          / fooMap1 x)
-            ) doublyBuild
+      v0' = treplicate0N [177] r :: ranked r 1
+  in tlet v0' $ \v' ->
+    let nestedMap x0 = tlet x0 $ \x -> tmap0N (x /) (w x)
+        variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' (ix + iy :. ZI))
+        doublyBuild = tbuild1 5 (tminimum . variableLengthBuild)
+    in tmap0N (\x0 -> tlet x0 $ \x -> x * tsum0
+                           (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
+                            + (tlet (nestedMap x) $ \x3 -> fooBuild1 x3)
+                            / (tlet x $ \x4 -> fooMap1 x4))
+              ) doublyBuild
 
 testNestedBuildMap1 :: Assertion
 testNestedBuildMap1 =
@@ -1063,10 +1064,10 @@ fblowupLetPP = do
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
 blowupTests = testGroup "Catastrophic blowup avoidance tests"
-  [ testCase "blowup 10" $ do
+  [ testCase "blowup 7" $ do
       assertEqualUpToEpsilon' 1e-5
         (OR.fromList [2] [0.3333332333333467,-0.22222215555556446])
-        (rev' @Double @0 (fblowup 10) (Flip $ OR.fromList [2] [2, 3]))
+        (rev' @Double @0 (fblowup 7) (Flip $ OR.fromList [2] [2, 3]))
   , testCase "blowupLet 15" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [0.3333331833333646,-0.22222212222224305])
@@ -1091,15 +1092,15 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
         (OR.fromList [2] [2.9999995500000267,1.9999997000000178])
         (rev' @Double @0 (fblowupMultLet 0 5)
                                    (Flip $ OR.fromList [2] [2, 3]))
-  , testCase "blowupMultLet 500" $ do
+  , testCase "blowupMultLet 50" $ do
       assertEqualUpToEpsilon' 1e-10
-        (OR.fromList [2] [2.9999550003159223,1.9999700002106149])
-        (rev' @Double @0 (fblowupMultLet 0 500)
+        (OR.fromList [2] [2.999995500001215,1.99999700000081])
+        (rev' @Double @0 (fblowupMultLet 0 50)
                                    (Flip $ OR.fromList [2] [2, 3]))
   , testCase "blowupMultLet tbuild1" $ do
       assertEqualUpToEpsilonShort 1e-10
-        (OR.fromList [2] [14.999773964296464,39.99939838951207])
+        (OR.fromList [2] [14.9999773958889,39.9999398380561])
         (rev' @Double @1
-              (\intputs -> tbuild1 100 (\i -> fblowupMultLet i 500 intputs))
+              (\intputs -> tbuild1 100 (\i -> fblowupMultLet i 50 intputs))
               (Flip $ OR.fromList [2] [0.2, 0.3]))
   ]

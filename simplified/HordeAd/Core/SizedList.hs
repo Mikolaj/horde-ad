@@ -124,7 +124,7 @@ zipWith_Sized f (i ::: irest) (j ::: jrest) =
 zipWith_Sized _ _ _ =
   error "zipWith_Sized: impossible pattern needlessly required"
 
-reverseSized :: KnownNat n => SizedList n i -> SizedList n i
+reverseSized :: SizedList n i -> SizedList n i
 reverseSized l = go l Z
  where
   -- This constraint is mistakenly reported by GHC 9.4 as redundant:

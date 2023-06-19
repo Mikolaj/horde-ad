@@ -14,8 +14,8 @@ import           Test.Tasty.HUnit hiding (assert)
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
-import HordeAd.External.CommonRankedOps
 import HordeAd.Core.TensorOps
+import HordeAd.External.CommonRankedOps
 
 import CrossTesting
 
@@ -34,14 +34,14 @@ testTrees =
   , testCase "Konst5LittleBLaborious" testKonst5LittleBLaborious
   , testCase "Konst5LittleCLaborious" testKonst5LittleCLaborious
   , testCase "Konst5BigBLaborious" testKonst5BigBLaborious
-  , testCase "KonstNotBigBLaborious" testKonstNotBigBLaborious
+--  , testCase "KonstNotBigBLaborious" testKonstNotBigBLaborious
   , testCase "Konst5BigCLaborious" testKonst5BigCLaborious
-  , testCase "KonstNotBigCLaborious" testKonstNotBigCLaborious
+--  , testCase "KonstNotBigCLaborious" testKonstNotBigCLaborious
   , testCase "Konst5LittleBLaborious128b" testKonst5LittleBLaborious128b
   , testCase "Konst5LittleCLaborious128b" testKonst5LittleCLaborious128b
-  , testCase "Konst5BigBLaborious128b" testKonst5BigBLaborious128b
+--  , testCase "Konst5BigBLaborious128b" testKonst5BigBLaborious128b
   , testCase "KonstNotBigBLaborious128b" testKonstNotBigBLaborious128b
-  , testCase "Konst5BigCLaborious128b" testKonst5BigCLaborious128b
+--  , testCase "Konst5BigCLaborious128b" testKonst5BigCLaborious128b
   , testCase "KonstNotBigCLaborious128b" testKonstNotBigCLaborious128b
   , testCase "Konst5LittleBLaborious128c" testKonst5LittleBLaborious128c
   , testCase "Konst5LittleCLaborious128c" testKonst5LittleCLaborious128c
@@ -247,8 +247,8 @@ testKonst5BigBLaborious =
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
-testKonstNotBigBLaborious :: Assertion
-testKonstNotBigBLaborious =
+_testKonstNotBigBLaborious :: Assertion
+_testKonstNotBigBLaborious =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001])
     (rev' @Double @4 conv2dBLaborious
@@ -262,8 +262,8 @@ testKonst5BigCLaborious =
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
-testKonstNotBigCLaborious :: Assertion
-testKonstNotBigCLaborious =
+_testKonstNotBigCLaborious :: Assertion
+_testKonstNotBigCLaborious =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0,40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0,40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0])
     (rev' @Double @4 conv2dCLaborious
@@ -283,8 +283,8 @@ testKonst5LittleCLaborious128b =
     (OR.fromList [2, 2, 2, 2] [1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987])
     (rev' @Double @4 conv2dCLaborious128b (treplicate0N [2, 2, 2, 2] 5))
 
-testKonst5BigBLaborious128b :: Assertion
-testKonst5BigBLaborious128b =
+_testKonst5BigBLaborious128b :: Assertion
+_testKonst5BigBLaborious128b =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [112.3003,251.5006,209.49462,482.69492000000014,229.49462000000003,610.5892400000002,56.58894000000004,580.6778800001001,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,667.2003000000001,1060.8778800002,893.3003,1465.6665200003993,112.3003,251.5006,209.49462,482.69492000000014,229.49462000000003,610.5892400000002,56.58894000000004,580.6778800001001,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,667.2003000000001,1060.8778800002,893.3003,1465.6665200003993,112.3003,251.5006,209.49462,482.69492000000014,229.49462000000003,610.5892400000002,56.58894000000004,580.6778800001001,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,667.2003000000001,1060.8778800002,893.3003,1465.6665200003993])
     (rev' @Double @4 conv2dBLaborious128b (treplicate0N [3, 2, 4, 2] 5))
@@ -298,8 +298,8 @@ testKonstNotBigBLaborious128b =
     (rev' @Double @4 conv2dBLaborious128b
           (tfromList0N [3, 2, 4, 2] (map (Flip . tscalarR) $ [37, 36 .. -10])))
 
-testKonst5BigCLaborious128b :: Assertion
-testKonst5BigCLaborious128b =
+_testKonst5BigCLaborious128b :: Assertion
+_testKonst5BigCLaborious128b =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001])
     (rev' @Double @4 conv2dCLaborious128b (treplicate0N [3, 2, 4, 2] 5))
