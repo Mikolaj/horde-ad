@@ -49,7 +49,7 @@ convMnistLayerR ker input bias =
       yConv = conv2dUnpadded ker input
       biasStretched = ttranspose [0, 3, 1, 2]
                       $ treplicate batch_size $ treplicate h $ treplicate w bias
-      yRelu = relu $ yConv + biasStretched
+      yRelu = tlet (yConv + biasStretched) relu
   in maxPool2dUnpadded 2 2 yRelu
 
 convMnistTwoR
@@ -76,7 +76,7 @@ convMnistTwoR batch_size input
       m2 = ttranspose [1, 0] m1
       denseLayer = weightsDense `tmatmul2` m2
                    + ttranspose [1, 0] (treplicate batch_size biasesDense)
-      denseRelu = relu denseLayer
+      denseRelu = tlet denseLayer relu
   in weightsReadout `tmatmul2` denseRelu
      + ttranspose [1, 0] (treplicate batch_size biasesReadout)
 
