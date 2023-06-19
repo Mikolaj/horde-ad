@@ -488,7 +488,6 @@ printAstVarN n cfg (AstVarName var) =
         2 -> "m"
         3 -> "t"
         4 -> "u"
-        5 -> "v"
         _ -> "w"
   in printAstVarId prefix cfg var
 
@@ -513,11 +512,11 @@ printAst :: forall n r. (ShowAst r, KnownNat n)
          => PrintConfig -> Int -> AstRanked r n -> ShowS
 printAst cfg d = \case
   AstVar _sh var -> printAstVar cfg (AstVarName @(OR.Array n r) var)
-  t@(AstLet @_ @m0 var0 u0 v0) ->
+  t@(AstLet @n0 var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstRanked r n -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLet @_ @m var u v) =
-               let name = printAstVar cfg (AstVarName @(OR.Array m r) var)
+             collect (AstLet @n2 var u v) =
+               let name = printAstVar cfg (AstVarName @(OR.Array n2 r) var)
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -536,7 +535,7 @@ printAst cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVar cfg (AstVarName @(OR.Array m0 r) var0)
+             . printAstVar cfg (AstVarName @(OR.Array n0 r) var0)
              . showString " -> "
              . printAst cfg 0 v0)
   AstLetADShare l v -> printAst cfg d $ bindsToLet v (assocsADShare l)
@@ -867,10 +866,10 @@ printAstS :: forall sh r. (ShowAst r, OS.Shape sh)
           => PrintConfig -> Int -> AstShaped r sh -> ShowS
 printAstS cfg d = \case
   AstVarS var -> printAstVarS cfg (AstVarName @(OS.Array sh r) var)
-  t@(AstLetS @_ @sh0 var0 u0 v0) ->
+  t@(AstLetS @sh0 var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstShaped r sh -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLetS @_ @sh2 var u v) =
+             collect (AstLetS @sh2 var u v) =
                let name = printAstVarS cfg (AstVarName @(OS.Array sh2 r) var)
                    uPP = printAstS cfg 0 u
                    (rest, corePP) = collect v
