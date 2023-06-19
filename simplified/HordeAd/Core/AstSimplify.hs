@@ -1059,13 +1059,15 @@ inlineAst env memo v0 = case v0 of
   Ast.AstIota -> (memo, v0)
   Ast.AstIndex v ix ->
     let (memo1, v2) = inlineAst env memo v
-        (memo2, ix2) = mapAccumR (inlineAstInt env) memo1 (indexToList ix)
-    in (memo2, Ast.AstIndex v2 (listToIndex ix2))
+        (memo2, ix2) = mapAccumR (inlineAstInt env) EM.empty (indexToList ix)
+        count = 10  -- don't inline into integer expressions until we share them
+        memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memo2
+    in (memo3, Ast.AstIndex v2 (listToIndex ix2))
   Ast.AstSum v -> second Ast.AstSum (inlineAst env memo v)
   Ast.AstScatter sh v (vars, ix) ->
     let (memo1, v2) = inlineAst env memo v
         (memoI0, ix2) = mapAccumR (inlineAstInt env) EM.empty (indexToList ix)
-        count = sizeShape sh
+        count = sizeShape sh + 10  -- don't inline into integer expressions
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatter sh v2 (vars, listToIndex ix2))
   Ast.AstFromList l ->
@@ -1092,7 +1094,7 @@ inlineAst env memo v0 = case v0 of
   Ast.AstGather sh v (vars, ix) ->
     let (memo1, v2) = inlineAst env memo v
         (memoI0, ix2) = mapAccumR (inlineAstInt env) EM.empty (indexToList ix)
-        count = sizeShape sh
+        count = sizeShape sh + 10  -- don't inline into integer expressions
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
   Ast.AstSToR v -> second Ast.AstSToR $ inlineAstS env memo v
@@ -1250,15 +1252,17 @@ inlineAstS env memo v0 = case v0 of
   Ast.AstIotaS -> (memo, v0)
   Ast.AstIndexS @sh1 v ix ->
     let (memo1, v2) = inlineAstS env memo v
-        (memo2, ix2) = mapAccumR (inlineAstInt env) memo1
+        (memo2, ix2) = mapAccumR (inlineAstInt env) EM.empty
                                  (ShapedList.sizedListToList ix)
-    in (memo2, Ast.AstIndexS @sh1 v2 (ShapedList.listToSized ix2))
+        count = 10  -- don't inline into integer expressions until we share them
+        memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memo2
+    in (memo3, Ast.AstIndexS @sh1 v2 (ShapedList.listToSized ix2))
   Ast.AstSumS v -> second Ast.AstSumS (inlineAstS env memo v)
   Ast.AstScatterS @sh2 @p v (vars, ix) ->
     let (memo1, v2) = inlineAstS env memo v
         (memoI0, ix2) = mapAccumR (inlineAstInt env) EM.empty
                                   (ShapedList.sizedListToList ix)
-        count = OS.sizeT @sh
+        count = OS.sizeT @sh + 10  -- don't inline into integer expressions
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToSized ix2))
   Ast.AstFromListS l ->
@@ -1286,7 +1290,7 @@ inlineAstS env memo v0 = case v0 of
     let (memo1, v2) = inlineAstS env memo v
         (memoI0, ix2) = mapAccumR (inlineAstInt env) EM.empty
                                   (ShapedList.sizedListToList ix)
-        count = OS.sizeT @sh
+        count = OS.sizeT @sh + 10  -- don't inline into integer expressions
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToSized ix2))
   Ast.AstRToS v -> second Ast.AstRToS $ inlineAst env memo v
