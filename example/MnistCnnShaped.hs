@@ -9,7 +9,6 @@ module MnistCnnShaped where
 
 import Prelude
 
-import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
@@ -188,4 +187,4 @@ convMnistTestS kh@SNat kw@SNat
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
   in fromIntegral (sum (zipWith matchesLabels outputs labels))
-     / fromIntegral (valueOf @batch_size :: Int)
+     / sNatValue batch_size

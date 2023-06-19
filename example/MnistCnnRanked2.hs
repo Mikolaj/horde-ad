@@ -16,13 +16,12 @@ import HordeAd.External.CommonRankedOps
 import MnistData
 
 type ADCnnMnistParametersShaped
-       shaped sizeMnistHeight sizeMnistWidth kh kw c_out n_hidden r =
+       shaped h w kh kw c_out n_hidden r =
   ( ( shaped r '[c_out, 1, kh + 1, kw + 1]
     , shaped r '[c_out] )
   , ( shaped r '[c_out, c_out, kh + 1, kw + 1]
     , shaped r '[c_out] )
-  , ( shaped r '[n_hidden, c_out * sizeMnistHeight `Div` 4
-                                 * sizeMnistWidth `Div` 4 ]
+  , ( shaped r '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ]
     , shaped r '[n_hidden] )
   , ( shaped r '[SizeMnistLabel, n_hidden]
     , shaped r '[SizeMnistLabel] )
@@ -70,8 +69,8 @@ convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
              -- , SizeMnistHeight `Div` 4, SizeMnistWidth `Div` 2 ]
       c_out = tlength bias1
       m1 = treshape (batch_size
-                     :$ c_out * sizeMnistHeightI `div` 4
-                              * sizeMnistWidthI `div` 4
+                     :$ c_out * (sizeMnistHeightI `div` 4)
+                              * (sizeMnistWidthI `div` 4)
                      :$ ZS)
                     t2
       m2 = ttr m1

@@ -578,6 +578,7 @@ library exampleLibrarySimplified
 
     exposed-modules:  MnistData
                       MnistCnnRanked2
+                      MnistCnnShaped2
                       MnistFcnnRanked1
                       MnistFcnnRanked2
                       MnistRnnRanked2
@@ -588,6 +589,8 @@ library exampleLibrarySimplified
       , base
       , bifunctors
       , bytestring
+      , ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
       , hmatrix
       , mnist-idx
       , orthotope
