@@ -67,20 +67,17 @@ vToVec = id
 -- | Sizes of tensor dimensions, of batches, etc., packed for passing
 -- between functions as witnesses of type variable values.
 data SNat (n :: Nat) where
-  MkSNat :: KnownNat n => SNat n
-
-staticNatValue :: forall n i. (KnownNat n, Num i) => SNat n -> i
-{-# INLINE staticNatValue #-}
-staticNatValue = fromInteger . natVal
+  SNat :: KnownNat n => SNat n
 
 -- | Warning: takes the absolute value of the argument.
 withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
 withSNat i f = case someNatVal $ toInteger $ abs i of
-  Just (SomeNat (_ :: Proxy n)) -> f (MkSNat :: SNat n)
-  Nothing -> error "impossible in mkSNat"
+  Just (SomeNat @n _) -> f (SNat @n)
+  Nothing -> error "withSNat: impossible"
 
-staticNatFromProxy :: KnownNat n => Proxy n -> SNat n
-staticNatFromProxy Proxy = MkSNat
+sNatValue :: forall n i. (KnownNat n, Num i) => SNat n -> i
+{-# INLINE sNatValue #-}
+sNatValue = fromInteger . natVal
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.

@@ -30,7 +30,7 @@ fcnnMnistLayersS
   -- in the length function below and read from inputs further down.
   -> ADFcnnMnistParameters widthHidden widthHidden2 d r
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
-fcnnMnistLayersS MkSNat MkSNat factivationHidden datum
+fcnnMnistLayersS SNat SNat factivationHidden datum
                  ( (weightsL0, biasesV0)
                  , (weightsL1, biasesV1)
                  , (weightsL2, biasesV2) ) =

@@ -386,13 +386,13 @@ convMnistTestCaseCNNT
   -> r
   -> r
   -> TestTree
-convMnistTestCaseCNNT kheight_minus_1@MkSNat kwidth_minus_1@MkSNat
-                      n_hidden@MkSNat
-                      out_channels@MkSNat
-                      batch_size@MkSNat
+convMnistTestCaseCNNT kheight_minus_1@SNat kwidth_minus_1@SNat
+                      n_hidden@SNat
+                      out_channels@SNat
+                      batch_size@SNat
                       prefix epochs maxBatches ftrainWithLoss ftestWithParams
                       gamma expected =
-  let batchSize = staticNatValue batch_size :: Int
+  let batchSize = sNatValue batch_size :: Int
       seed = mkStdGen 44
       range = 0.05
       valsInit
@@ -402,7 +402,7 @@ convMnistTestCaseCNNT kheight_minus_1@MkSNat kwidth_minus_1@MkSNat
       parametersInit = toDomains valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (staticNatValue n_hidden :: Int)
+                        , show (sNatValue n_hidden :: Int)
                         , show batchSize
                         , show (nParams valsInit)
                         , show (nScalars valsInit)
@@ -442,10 +442,10 @@ convMnistTestCaseCNNT kheight_minus_1@MkSNat kwidth_minus_1@MkSNat
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk
               res = fst $ sgd gamma ftrain chunkS parameters
-              !trainScore = ftest (MkSNat @(10 * batch_size))
+              !trainScore = ftest (SNat @(10 * batch_size))
                                   (packBatch @(10 * batch_size) chunk)
                                   res
-              !testScore = ftest (MkSNat @100) testDataS res
+              !testScore = ftest (SNat @100) testDataS res
               !lenChunk = length chunk
           hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
           hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
@@ -462,7 +462,7 @@ convMnistTestCaseCNNT kheight_minus_1@MkSNat kwidth_minus_1@MkSNat
           !res <- foldM runBatch params2 chunks
           runEpoch (succ n) res
     res <- runEpoch 1 parametersInit
-    let testErrorFinal = 1 - ftest (MkSNat @100) testDataS res
+    let testErrorFinal = 1 - ftest (SNat @100) testDataS res
     testErrorFinal @?~ expected
 
 
@@ -518,14 +518,14 @@ convMnistTestCaseCNNO
   -> Double
   -> Double
   -> TestTree
-convMnistTestCaseCNNO kheight_minus_1@MkSNat kwidth_minus_1@MkSNat
-                      n_hidden@MkSNat
-                      out_channels@MkSNat
-                      in_height@MkSNat in_width@MkSNat
-                      batch_size@MkSNat
+convMnistTestCaseCNNO kheight_minus_1@SNat kwidth_minus_1@SNat
+                      n_hidden@SNat
+                      out_channels@SNat
+                      in_height@SNat in_width@SNat
+                      batch_size@SNat
                       prefix epochs maxBatches trainWithLoss ftest flen
                       gamma expected =
-  let batchSize = staticNatValue batch_size :: Int
+  let batchSize = sNatValue batch_size :: Int
       ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.05
           (flen kheight_minus_1 kwidth_minus_1
@@ -533,7 +533,7 @@ convMnistTestCaseCNNO kheight_minus_1@MkSNat kwidth_minus_1@MkSNat
                 out_channels n_hidden)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (staticNatValue n_hidden :: Int)
+                        , show (sNatValue n_hidden :: Int)
                         , show batchSize
                         , show nParamsX, show totalParams
                         , show gamma, show range ]
@@ -613,14 +613,14 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , -}convMnistTestCaseCNN "P artificial 5 4 3 2 1" 5 4
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          3 2 1 0.8991
-  , convMnistTestCaseCNNT (MkSNat @4) (MkSNat @4) (MkSNat @2) (MkSNat @3)
-                          (MkSNat @1)
+  , convMnistTestCaseCNNT (SNat @4) (SNat @4) (SNat @2) (SNat @3)
+                          (SNat @1)
                           "CNNT artificial 5 4 3 2 1" 5 4
                           convMnistLossFusedS convMnistTestS
                           0.02 (0.89 :: Float)
-  , convMnistTestCaseCNNO (MkSNat @4) (MkSNat @4) (MkSNat @2) (MkSNat @3)
-                          (MkSNat @SizeMnistHeight) (MkSNat @SizeMnistWidth)
-                          (MkSNat @1)
+  , convMnistTestCaseCNNO (SNat @4) (SNat @4) (SNat @2) (SNat @3)
+                          (SNat @SizeMnistHeight) (SNat @SizeMnistWidth)
+                          (SNat @1)
                           "O artificial 5 4 3 2 1" 5 4
                           convMnistLossFusedO convMnistTestO convMnistLenS
                           0.02 0.98
@@ -666,14 +666,14 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          final_image_size depth0 num_hidden0
                          0.02 2.7000000000000024e-2
 -}
-  , convMnistTestCaseCNNT (MkSNat @4) (MkSNat @4) (MkSNat @64) (MkSNat @16)
-                          (MkSNat @16)
+  , convMnistTestCaseCNNT (SNat @4) (SNat @4) (SNat @64) (SNat @16)
+                          (SNat @16)
                           "CNNT1 epoch 1 batch" 1 1
                           convMnistLossFusedS convMnistTestS
                           0.02 (0.85 :: Double)
-  , convMnistTestCaseCNNO (MkSNat @4) (MkSNat @4) (MkSNat @64) (MkSNat @16)
-                          (MkSNat @SizeMnistHeight) (MkSNat @SizeMnistWidth)
-                          (MkSNat @16)
+  , convMnistTestCaseCNNO (SNat @4) (SNat @4) (SNat @64) (SNat @16)
+                          (SNat @SizeMnistHeight) (SNat @SizeMnistWidth)
+                          (SNat @16)
                           "O1 epoch 1 batch" 1 1
                           convMnistLossFusedO convMnistTestO convMnistLenS
                           0.02 0.8200000000000001
@@ -690,14 +690,14 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
   , convMnistTestCaseCNN "P artificial 1 1 1 1 1" 1 1
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          1 1 1 0.9026
-  , convMnistTestCaseCNNT (MkSNat @4) (MkSNat @4) (MkSNat @1) (MkSNat @1)
-                          (MkSNat @1)
+  , convMnistTestCaseCNNT (SNat @4) (SNat @4) (SNat @1) (SNat @1)
+                          (SNat @1)
                           "CNNT artificial 1 1 1 1 1" 1 1
                           convMnistLossFusedS convMnistTestS
                           1 (0.92 :: Double)
-  , convMnistTestCaseCNNO (MkSNat @4) (MkSNat @4) (MkSNat @1) (MkSNat @1)
-                          (MkSNat @SizeMnistHeight) (MkSNat @SizeMnistWidth)
-                          (MkSNat @1)
+  , convMnistTestCaseCNNO (SNat @4) (SNat @4) (SNat @1) (SNat @1)
+                          (SNat @SizeMnistHeight) (SNat @SizeMnistWidth)
+                          (SNat @1)
                           "O artificial 1 1 1 1 1" 1 1
                           convMnistLossFusedO convMnistTestO convMnistLenS
                           1 0.85
@@ -712,14 +712,14 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          3 4 5 0.8972
 -}
-  , convMnistTestCaseCNNT (MkSNat @4) (MkSNat @4) (MkSNat @4) (MkSNat @3)
-                          (MkSNat @5)
+  , convMnistTestCaseCNNT (SNat @4) (SNat @4) (SNat @4) (SNat @3)
+                          (SNat @5)
                           "CNNT artificial 1 2 3 4 5" 1 2
                           convMnistLossFusedS convMnistTestS
                           6 (0.86 :: Float)
-  , convMnistTestCaseCNNO (MkSNat @4) (MkSNat @4) (MkSNat @4) (MkSNat @3)
-                          (MkSNat @SizeMnistHeight) (MkSNat @SizeMnistWidth)
-                          (MkSNat @5)
+  , convMnistTestCaseCNNO (SNat @4) (SNat @4) (SNat @4) (SNat @3)
+                          (SNat @SizeMnistHeight) (SNat @SizeMnistWidth)
+                          (SNat @5)
                           "O artificial 1 2 3 4 5" 1 2
                           convMnistLossFusedO convMnistTestO convMnistLenS
                           6 0.92
@@ -786,23 +786,23 @@ comparisonTests volume =
             fP = convMnistLossCNNP depth mnistData
             fO = (withSNat num_hidden  -- reverse order than args taken
                   $ withSNat depth
-                  $ convMnistLossFusedO (MkSNat @4) (MkSNat @4)
+                  $ convMnistLossFusedO (SNat @4) (SNat @4)
                                         sizeMnistHeight sizeMnistWidth
                  )
-                   (MkSNat @1)
+                   (SNat @1)
                    (packBatch @1 [shapeBatch $ first LA.flatten mnistData])
             fS adinputs =
               withSNat num_hidden  -- reverse order than args below
               $ withSNat depth
-              $ \(c_out :: SNat c_out) (n_hidden :: SNat n_hidden) ->
+              $ \(c_out@(SNat @c_out)) (n_hidden@(SNat @n_hidden)) ->
                   let valsInit
                         :: Value (ADConvMnistParameters 4 4 c_out n_hidden
                                                         'ADModeGradient r)
                       valsInit = fst $ randomVals (1 :: Double) (mkStdGen 1)
                   in convMnistLossFusedS
-                       (MkSNat @4) (MkSNat @4)
+                       (SNat @4) (SNat @4)
                        c_out n_hidden
-                       (MkSNat @1)
+                       (SNat @1)
                        (packBatch @1 [shapeBatch $ first LA.flatten mnistData])
                        (parseADInputs valsInit adinputs)
             paramsToT (Domains p0 p1 p2 _) =

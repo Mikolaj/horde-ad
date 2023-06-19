@@ -82,8 +82,8 @@ TODO: show how the 2x3 Jacobian emerges from here
 An additional feature of this library is a type system for tensor shape arithmetic. The following code is a part of convolutional neural network definition, for which horde-ad computes the gradient of a shape determined by the shape of input data and initial parameters. The compiler is able to infer a lot of tensor shapes, deriving them both from dynamic dimension arguments (the first two lines of parameters to the function) and from static type-level hints. Look at this beauty.
 ```hs
 convMnistTwoS
-  kh@MkSNat kw@MkSNat h@MkSNat w@MkSNat
-  c_in@MkSNat c_out@MkSNat _n_hidden@MkSNat batch_size@MkSNat
+  kh@SNat kw@SNat h@SNat w@SNat
+  c_in@SNat c_out@SNat _n_hidden@SNat batch_size@SNat
     -- integer parameters denoting basic dimensions, with some notational noise
   input              -- input images, shape (batch_size, c_in, h, w)
   (ker1, bias1)      -- layer1 kernel, shape (c_out, c_in, kh+1, kw+1); and bias, shape (c_out)
@@ -99,7 +99,7 @@ convMnistTwoS
                            c_in c_out batch_size
                            ker1 (constant input) bias1
       t2 = convMnistLayerS kh kw
-                           (MkSNat @((h + kh) `Div` 2)) (MkSNat @((w + kw) `Div` 2))
+                           (SNat @((h + kh) `Div` 2)) (SNat @((w + kw) `Div` 2))
                            c_out c_out batch_size
                            ker2 t1 bias2
       m1 = mapOuterS reshapeS t2
@@ -116,7 +116,7 @@ convMnistTwoS
      , 1 <= kw             -- kernel width is large enough
      , ADModeAndNum d r )  -- differentiation mode and numeric type are known to the engine
   => -- The two boilerplate lines below tie type parameters to the corresponding
-     -- value parameters (built with MkSNat) denoting basic dimensions.
+     -- value parameters (built with SNat) denoting basic dimensions.
      SNat kh -> SNat kw -> SNat h -> SNat w
   -> SNat c_in -> SNat c_out -> SNat n_hidden -> SNat batch_size
   -> OS.Array '[batch_size, c_in, h, w] r

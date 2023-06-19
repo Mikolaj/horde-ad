@@ -202,7 +202,7 @@ fooS :: forall r len1 l1 len2 l2 len3 l3 len4 l4 d.
         , ADVal d (OS.Array '[len2] r)
         , ADVal d (OS.Array '[len3] r)
         , ADVal d (OS.Array '[len4] r) ) -> ADVal d r
-fooS MkSNat MkSNat MkSNat MkSNat (x1, x2, x3, x4) =
+fooS SNat SNat SNat SNat (x1, x2, x3, x4) =
   fromS0 $ indexS @0 x1 * indexS @1 x2 * indexS @2 x3 * indexS @3 x4
 
 testFooS :: Assertion
@@ -212,7 +212,7 @@ testFooS =
     , OS.fromList [0, 18.095000000000002, 0, 0, 0]
     , OS.fromList [0, 0, 11.891]
     , OS.fromList [0, 0, 0, 8.854999999999999] )
-    (rev (fooS (MkSNat @1) (MkSNat @5) (MkSNat @3) (MkSNat @4))
+    (rev (fooS (SNat @1) (SNat @5) (SNat @3) (SNat @4))
          ( OS.fromList [1.1 :: Double]
          , OS.fromList [2.2, 2.3, 7.2, 7.3, 7.4]
          , OS.fromList [3.3, 3.4, 3.5]
@@ -224,7 +224,7 @@ barS :: (ADModeAndNum d r, OS.Shape sh)
         , ADVal d (OS.Array '[n1, n2] r)
         , [ADVal d (OS.Array (n2 ': sh) r)] )
      -> [ADVal d (OS.Array (n1 ': sh) r)]
-barS MkSNat MkSNat (s, w, xs) =
+barS SNat SNat (s, w, xs) =
   map (\x -> konstS s * dotGeneral w x) xs
     -- konstS is needed, after all, because @s@ is a differentiable unknown
     -- quantity with a given type, and not a constant that would be
@@ -246,7 +246,7 @@ bar_3_75
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
   -> OS.Array (k ': 3 ': sh) r
-bar_3_75 = value (ravelFromListS . barS (MkSNat @3) (MkSNat @75))
+bar_3_75 = value (ravelFromListS . barS (SNat @3) (SNat @75))
   -- @ravelFromListS@ is needed, because @valueOnDomains@ expects the objective
   -- function to have a dual number codomain and here we'd have a list
   -- of dual numbers. The same problem is worked around with @head@ below.
@@ -272,7 +272,7 @@ bar_jvp_3_75
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
   -> OS.Array (3 ': sh) r
-bar_jvp_3_75 = fwd (head . barS (MkSNat @3) (MkSNat @75))
+bar_jvp_3_75 = fwd (head . barS (SNat @3) (SNat @75))
   -- TODO: implement real jvp (forward) and vjp (back)
   -- TODO: @head@ is required, because our engine so far assumes
   -- objective functions have dual number codomains (though they may be
@@ -305,7 +305,7 @@ bar_rev_3_75
      , [OS.Array (75 ': sh) r] )
 bar_rev_3_75 = rev ((head :: [ADVal d (OS.Array (n1 ': sh) r)]
                           -> ADVal d (OS.Array (n1 ': sh) r))
-                    . barS (MkSNat @3) (MkSNat @75))
+                    . barS (SNat @3) (SNat @75))
   -- TODO: @head@ is required, because our engine so far assumes
   -- objective functions with dual number codomains (though they may be
   -- of arbitrary ranks)
@@ -404,7 +404,7 @@ static_conv2dNonDualNumber
   -> OS.Array shA r
        -- ^ Input of shape: batch x chas x height x width
   -> Bool
-static_conv2dNonDualNumber MkSNat MkSNat MkSNat MkSNat MkSNat MkSNat MkSNat arrK arrA =
+static_conv2dNonDualNumber SNat SNat SNat SNat SNat SNat SNat arrK arrA =
   let -- Compare the value produced by the dual number version
       -- against the value from a normal version of the objective function.
       v = value (uncurry conv2d) (arrK, arrA) :: OS.Array shB r
@@ -566,7 +566,7 @@ static_conv2d
        -- ^ Output gradient of shape:
        --     batch x chas x output_height x output_width
   -> Bool
-static_conv2d MkSNat MkSNat MkSNat MkSNat MkSNat MkSNat MkSNat arrK arrA arrB =
+static_conv2d SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the ad version against the manual derivative.
       -- Note that manual versions don't take one of the arguments (the point
       -- at which the gradient is taken), because maths (something about
@@ -611,9 +611,9 @@ test_disparityKonst :: Assertion
 test_disparityKonst = do
   let arrL = (-0.2) :: OS.Array '[1, 2, 4, 6] Double
       arrR = 0.3 :: OS.Array '[1, 2, 4, 6] Double
-      arrO = value (uncurry $ costVolume 0 (MkSNat @4)) (arrL, arrR)
-      arrDL = revDt (\aL -> costVolume 0 MkSNat aL (constant arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 MkSNat (constant arrL) aR) arrR arrO
+      arrO = value (uncurry $ costVolume 0 (SNat @4)) (arrL, arrR)
+      arrDL = revDt (\aL -> costVolume 0 SNat aL (constant arrR)) arrL arrO
+      arrDR = revDt (\aR -> costVolume 0 SNat (constant arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
     (OS.fromList @[1,4,4,6] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0])
     arrO
@@ -628,9 +628,9 @@ test_disparitySmall :: Assertion
 test_disparitySmall = do
   let arrL = OS.fromList @'[1, 2, 3, 2] [0.2 :: Double, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40]
       arrR = OS.fromList @'[1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
-      arrO = value (uncurry $ costVolume 0 (MkSNat @4)) (arrL, arrR)
-      arrDL = revDt (\aL -> costVolume 0 MkSNat aL (constant arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 MkSNat (constant arrL) aR) arrR arrO
+      arrO = value (uncurry $ costVolume 0 (SNat @4)) (arrL, arrR)
+      arrDL = revDt (\aL -> costVolume 0 SNat aL (constant arrR)) arrL arrO
+      arrDR = revDt (\aR -> costVolume 0 SNat (constant arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
     (OS.fromList @[1,4,3,2] [1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3])
     arrO

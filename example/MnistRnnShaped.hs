@@ -32,7 +32,7 @@ unrollLastS :: forall d state c w r k rest.
             => SNat k
             -> (state -> OS.Array rest r -> w -> (c, state))
             -> (state -> OS.Array (k : rest) r -> w -> (c, state))
-unrollLastS MkSNat f s0 xs w =
+unrollLastS SNat f s0 xs w =
   let g :: (c, state) -> OS.Array rest r -> (c, state)
       g (_, s) x = f s x w
   in foldl' g (undefined, s0) $ OSB.toList $ OS.unravel xs
@@ -51,7 +51,7 @@ rnnMnistLayerS
   -> LayerWeigthsRNN in_width out_width d r
   -> ( ADVal d (OS.Array '[out_width, batch_size] r)  -- out
      , ADVal d (OS.Array '[out_width, batch_size] r) ) -- out state
-rnnMnistLayerS MkSNat MkSNat MkSNat
+rnnMnistLayerS SNat SNat SNat
                s x (wX, wS, b) =
   let y = wX <>$ x + wS <>$ s + asColumnS b
       yTanh = tanh y
@@ -70,9 +70,9 @@ rnnMnistTwoS
   -> ( ADVal d (OS.Array '[out_width, batch_size] r)
      , ADVal d (OS.Array '[2 * out_width, batch_size] r) )
            -- final state
-rnnMnistTwoS out_width@MkSNat
-             batch_size@MkSNat
-             sizeMnistHeightHere@MkSNat
+rnnMnistTwoS out_width@SNat
+             batch_size@SNat
+             sizeMnistHeightHere@SNat
              s x ((wX, wS, b), (wX2, wS2, b2)) =
   let s1 = sliceS @0 @out_width s
       s2 = sliceS @out_width @out_width s
@@ -96,9 +96,9 @@ rnnMnistZeroS
   -> OS.Array '[sizeMnistWidth, sizeMnistHeight, batch_size] r
   -> ADRnnMnistParameters sizeMnistHeight out_width d r
   -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
-rnnMnistZeroS out_width@MkSNat
-              batch_size@MkSNat
-              sizeMnistWidthHere@MkSNat sizeMnistHeightHere@MkSNat
+rnnMnistZeroS out_width@SNat
+              batch_size@SNat
+              sizeMnistWidthHere@SNat sizeMnistHeightHere@SNat
               xs ((wX, wS, b), (wX2, wS2, b2), (w3, b3)) =
   let rnnMnistTwo = rnnMnistTwoS out_width batch_size sizeMnistHeightHere
       (out, _s) = zeroStateS (unrollLastS @d sizeMnistWidthHere rnnMnistTwo) xs
@@ -120,13 +120,13 @@ arnnMnistLossFusedS
   -> MnistDataBatchS batch_size r
   -> ADRnnMnistParameters SizeMnistHeight out_width d r
   -> ADVal d r
-arnnMnistLossFusedS out_width@MkSNat
-                    batch_size@MkSNat
+arnnMnistLossFusedS out_width@SNat
+                    batch_size@SNat
                     (glyphS, labelS) adparameters =
   let xs = OS.transpose @'[2, 1, 0] glyphS
       result = rnnMnistZeroS out_width
                              batch_size
-                             (MkSNat @SizeMnistWidth) (MkSNat @SizeMnistHeight)
+                             (SNat @SizeMnistWidth) (SNat @SizeMnistHeight)
                              xs adparameters
       targets2 = LA.tr $ LA.reshape (valueOf @SizeMnistLabel)
                        $ OS.toVector labelS
@@ -144,8 +144,8 @@ arnnMnistTestS
        -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size] r))
       -> OS.Array '[SizeMnistLabel, batch_size] r)
   -> r
-arnnMnistTestS out_width@MkSNat
-               batch_size@MkSNat
+arnnMnistTestS out_width@SNat
+               batch_size@SNat
                (glyphS, labelS) evalAtTestParams =
   let xs = OS.transpose @'[2, 1, 0] glyphS
       outputS =
@@ -154,7 +154,7 @@ arnnMnistTestS out_width@MkSNat
             nn = rnnMnistZeroS
                    out_width
                    batch_size
-                   (MkSNat @SizeMnistWidth) (MkSNat @SizeMnistHeight)
+                   (SNat @SizeMnistWidth) (SNat @SizeMnistHeight)
                    xs
         in evalAtTestParams nn
       outputs = map OS.toVector $ OSB.toList $ OS.unravel

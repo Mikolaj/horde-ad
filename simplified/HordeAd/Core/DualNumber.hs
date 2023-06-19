@@ -6,7 +6,7 @@
 -- the safely impure "HordeAd.Core.DualClass".
 module HordeAd.Core.DualNumber
   ( ADVal, dD, pattern D, dDnotShared
-  , SNat(..), staticNatValue, staticNatFromProxy
+  , SNat(..), withSNat, sNatValue
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
   , IsPrimal
@@ -15,8 +15,7 @@ module HordeAd.Core.DualNumber
 import Prelude hiding ((<*))
 
 import Data.Kind (Type)
-import Data.Proxy (Proxy (Proxy))
-import GHC.TypeLits (KnownNat, Nat, natVal)
+import GHC.TypeLits (KnownNat, Nat, SomeNat (..), natVal, someNatVal)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Delta (Dual)
@@ -62,17 +61,20 @@ dDnotShared = D
 
 -- All this is not needed in the simplified version, except for compilation
 -- with the common test code.
+-- TODO: Use SNat from base once we use GHC >= 9.6 exclusively.
 -- | Sizes of tensor dimensions, of batches, etc., packed for passing
 -- between functions as witnesses of type variable values.
 data SNat (n :: Nat) where
-  MkSNat :: KnownNat n => SNat n
+  SNat :: KnownNat n => SNat n
 
-staticNatValue :: forall n i. (KnownNat n, Num i) => SNat n -> i
-{-# INLINE staticNatValue #-}
-staticNatValue = fromInteger . natVal
+withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
+withSNat i f = case someNatVal $ toInteger $ abs i of
+  Just (SomeNat @n _) -> f (SNat @n)
+  Nothing -> error "withSNat: impossible"
 
-staticNatFromProxy :: KnownNat n => Proxy n -> SNat n
-staticNatFromProxy Proxy = MkSNat
+sNatValue :: forall n i. (KnownNat n, Num i) => SNat n -> i
+{-# INLINE sNatValue #-}
+sNatValue = fromInteger . natVal
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.

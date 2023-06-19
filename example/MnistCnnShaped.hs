@@ -37,7 +37,7 @@ convMnistLayerS
   -> ADVal d (OS.Array '[c_out] r)
   -> ADVal d (OS.Array '[ batch_size, c_out
                         , (h + kh) `Div` 2, (w + kw) `Div` 2 ] r)
-convMnistLayerS MkSNat MkSNat MkSNat MkSNat MkSNat MkSNat batch_size@MkSNat
+convMnistLayerS SNat SNat SNat SNat SNat SNat batch_size@SNat
                 ker input bias =
   let yConv = conv24 ker input
       replicateBias
@@ -45,7 +45,7 @@ convMnistLayerS MkSNat MkSNat MkSNat MkSNat MkSNat MkSNat batch_size@MkSNat
         -> ADVal d (OS.Array '[h + kh, w + kw] r)
       replicateBias = konstS . fromS0
       biasStretched = ravelFromListS
-                      $ replicate (staticNatValue batch_size)
+                      $ replicate (sNatValue batch_size)
                       $ mapOuterS replicateBias bias
         -- TODO: this is weakly typed; add and use replicateS instead
         -- or broadcastS or stretchS, possibly with transposeS?
@@ -64,7 +64,7 @@ convMnistTwoS
   -> SNat c_in -> SNat c_out
   -> SNat n_hidden -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
-       -- value parameters (@MkSNat@ below) denoting basic dimensions
+       -- value parameters (@SNat@ below) denoting basic dimensions
 
   -> OS.Array '[batch_size, c_in, h, w] r  -- ^ input images
 
@@ -84,10 +84,10 @@ convMnistTwoS
      , ADVal d (OS.Array '[SizeMnistLabel] r) )
 
   -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)  -- classification
-convMnistTwoS kh@MkSNat kw@MkSNat
-              h@MkSNat w@MkSNat
-              c_in@MkSNat c_out@MkSNat
-              _n_hidden@MkSNat batch_size@MkSNat
+convMnistTwoS kh@SNat kw@SNat
+              h@SNat w@SNat
+              c_in@SNat c_out@SNat
+              _n_hidden@SNat batch_size@SNat
               input
               (ker1, bias1) (ker2, bias2)
               (weightsDense, biasesDense) (weightsReadout, biasesReadout) =
@@ -97,7 +97,7 @@ convMnistTwoS kh@MkSNat kw@MkSNat
                            batch_size
                            ker1 (constant input) bias1
       t2 = convMnistLayerS kh kw
-                           (MkSNat @((h + kh) `Div` 2)) (MkSNat @((w + kw) `Div` 2))
+                           (SNat @((h + kh) `Div` 2)) (SNat @((w + kw) `Div` 2))
                            c_out c_out
                            batch_size
                            ker2 t1 bias2
@@ -137,19 +137,19 @@ convMnistLossFusedS
      , OS.Array '[batch_size, SizeMnistLabel] r )
   -> ADConvMnistParameters kh kw c_out n_hidden d r
   -> ADVal d r
-convMnistLossFusedS kh@MkSNat kw@MkSNat
-                    c_out@MkSNat
-                    n_hidden@MkSNat batch_size@MkSNat
+convMnistLossFusedS kh@SNat kw@SNat
+                    c_out@SNat
+                    n_hidden@SNat batch_size@SNat
                     (glyphS, labelS) _adparameters@(a1, a2, a3, a4) =
   let input :: OS.Array '[batch_size, c_in, h, w] r
       input = OS.reshape glyphS
-      result = convMnistTwoS kh kw (MkSNat @h) (MkSNat @w) (MkSNat @c_in)
+      result = convMnistTwoS kh kw (SNat @h) (SNat @w) (SNat @c_in)
                              c_out n_hidden batch_size
                              input a1 a2 a3 a4
-      targets2 = LA.tr $ LA.reshape (staticNatValue sizeMnistLabel :: Int)
+      targets2 = LA.tr $ LA.reshape (sNatValue sizeMnistLabel :: Int)
                        $ OS.toVector labelS
       vec = lossSoftMaxCrossEntropyL targets2 (fromS2 result)
-  in scale (recip $ fromIntegral (staticNatValue batch_size :: Int))
+  in scale (recip $ fromIntegral (sNatValue batch_size :: Int))
      $ sumElements10 vec
 
 convMnistTestS
@@ -167,9 +167,9 @@ convMnistTestS
        -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size] r))
       -> OS.Array '[SizeMnistLabel, batch_size] r)
   -> r
-convMnistTestS kh@MkSNat kw@MkSNat
-               c_out@MkSNat
-               n_hidden@MkSNat batch_size@MkSNat
+convMnistTestS kh@SNat kw@SNat
+               c_out@SNat
+               n_hidden@SNat batch_size@SNat
                (glyphS, labelS) evalAtTestParams =
   let input :: OS.Array '[batch_size, c_in, h, w] r
       input = OS.reshape glyphS
@@ -177,7 +177,7 @@ convMnistTestS kh@MkSNat kw@MkSNat
         let nn :: ADConvMnistParameters kh kw c_out n_hidden 'ADModeValue r
                -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size] r)
             nn _adparameters@(a1, a2, a3, a4) =
-              convMnistTwoS kh kw (MkSNat @h) (MkSNat @w) (MkSNat @c_in) c_out
+              convMnistTwoS kh kw (SNat @h) (SNat @w) (SNat @c_in) c_out
                             n_hidden batch_size
                             input a1 a2 a3 a4
         in evalAtTestParams nn

@@ -40,7 +40,7 @@ costVolume
  -> ADVal d (OS.Array shA r)
  -> ADVal d (OS.Array shO r)
 
-costVolume iStart MkSNat arrL arrR =
+costVolume iStart SNat arrL arrR =
   buildS @shO $ \[iImg, iDisp, iRow, iCol] ->
     let arrVecL = buildS @'[nChas] $ \[iCha] ->
                     indexzS0 arrL [iImg, iCha, iRow, iCol]
@@ -59,9 +59,9 @@ testCostVolume
         arrR    = random @'[1, 2, 4, 6] @Double 2
         arrS    = random @'[1, 4, 4, 6] @Double 3
           -- TODO: this is unused
-        arrO    = primal $ costVolume 0 (MkSNat :: SNat 4) (constant arrL) (constant arrR)
-        arrDL   = revDt (\aL -> costVolume 0 MkSNat aL (constant arrR)) arrL arrO
-        arrDR   = revDt (\aR -> costVolume 0 MkSNat (constant arrL) aR) arrR arrO
+        arrO    = primal $ costVolume 0 (SNat :: SNat 4) (constant arrL) (constant arrR)
+        arrDL   = revDt (\aL -> costVolume 0 SNat aL (constant arrR)) arrL arrO
+        arrDR   = revDt (\aR -> costVolume 0 SNat (constant arrL) aR) arrR arrO
    in   putStrLn $ unlines
          [ "arrL  = " ++ show arrL
          , "arrR  = " ++ show arrR

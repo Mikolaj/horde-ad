@@ -41,7 +41,7 @@ fcnnMnistLayersS
   -> ADVal d (OS.Array '[SizeMnistLabel, widthHidden2] r)
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
-fcnnMnistLayersS MkSNat MkSNat factivationHidden datum
+fcnnMnistLayersS SNat SNat factivationHidden datum
                  weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 =
   let !_A = assert (sizeMnistGlyphInt == OS.size datum) ()
       hiddenLayer1 = weightsL0 #>$ constant datum + biasesV0
@@ -57,7 +57,7 @@ fcnnMnistLenS
   :: forall widthHidden widthHidden2.
       SNat widthHidden -> SNat widthHidden2
   -> (Int, [Int], [(Int, Int)], [OD.ShapeL])
-fcnnMnistLenS MkSNat MkSNat =
+fcnnMnistLenS SNat SNat =
   ( 0
   , []
   , []
@@ -79,7 +79,7 @@ fcnnMnistS
   -> ADInputs d r
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
 {-# INLINE fcnnMnistS #-}
-fcnnMnistS widthHidden@MkSNat widthHidden2@MkSNat
+fcnnMnistS widthHidden@SNat widthHidden2@SNat
            factivationHidden datum inputs =
   let weightsL0 = atS inputs 0
       biasesV0 = atS inputs 1
