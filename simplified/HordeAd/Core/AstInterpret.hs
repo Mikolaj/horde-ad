@@ -396,25 +396,25 @@ interpretAst env memo = \case
           -- The variants below emerge when the whole term is transposed.
           -- All overlap with variants above and the cheaper one is selected.
           ([2, 0, 1], [1, 2, 0]) ->
-            second (ttranspose [1, 0])
+            second (ttr)
             $ interpretMatmul2 t u
           ([1, 2, 0], [2, 0, 1]) ->
-            second (ttranspose [1, 0])
+            second (ttr)
             $ interpretMatmul2 u t
 --          ([2, 0, 1], [2, 1, 0]) ->
---            second (ttranspose [1, 0])
+--            second (ttr)
 --            $ interpretMatmul2 t (AstTranspose [1, 0] u)
 --          ([2, 1, 0], [2, 0, 1]) ->
---            second (ttranspose [1, 0])
+--            second (ttr)
 --            $ interpretMatmul2 u (AstTranspose [1, 0] t)
 --          ([1, 2, 0], [1, 0]) ->
---            second (ttranspose [1, 0])
+--            second (ttr)
 --            $ interpretMatmul2 (AstTranspose [1, 0] u) t
 --          ([1, 0], [2, 1, 0]) ->
---            second (ttranspose [1, 0])
+--            second (ttr)
 --            $ interpretMatmul2 (AstTranspose [1, 0] t) (AstTranspose [1, 0] u)
 --          ([2, 1, 0], [1, 0]) ->
---            second (ttranspose [1, 0])
+--            second (ttr)
 --            $ interpretMatmul2 (AstTranspose [1, 0] u) (AstTranspose [1, 0] t)
           _ -> second tsum $ interpretAst env memo v
   AstSum (AstOp TimesOp [t, u])
@@ -871,10 +871,10 @@ interpretAstS env memo = \case
           -- The variants below emerge when the whole term is transposed.
           -- All overlap with variants above and the cheaper one is selected.
           ([2, 0, 1], [1, 2, 0]) ->
-            second (ttranspose [1, 0])
+            second (ttr)
             $ interpretMatmul2 t u
           ([1, 2, 0], [2, 0, 1]) ->
-            second (ttranspose [1, 0])
+            second (ttr)
             $ interpretMatmul2 u t
           _ -> second tsum $ interpretAst env memo v
   AstSum (AstOp TimesOp [t, u])

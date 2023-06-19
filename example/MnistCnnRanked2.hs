@@ -74,12 +74,12 @@ convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
                               * sizeMnistWidthI `div` 4
                      :$ ZS)
                     t2
-      m2 = ttranspose [1, 0] m1
+      m2 = ttr m1
       denseLayer = weightsDense `tmatmul2` m2
-                   + ttranspose [1, 0] (treplicate batch_size biasesDense)
+                   + ttr (treplicate batch_size biasesDense)
       denseRelu = tlet denseLayer relu
   in weightsReadout `tmatmul2` denseRelu
-     + ttranspose [1, 0] (treplicate batch_size biasesReadout)
+     + ttr (treplicate batch_size biasesReadout)
 
 convMnistLossFusedR
   :: ADReady ranked r
@@ -97,7 +97,7 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
                        glyphR
       result = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
                              batch_size input adparameters
-      targets = ttranspose [1, 0] labelR
+      targets = ttr labelR
       loss = lossSoftMaxCrossEntropyR targets result
   in tconstant (recip $ fromIntegral batch_size) * loss
 

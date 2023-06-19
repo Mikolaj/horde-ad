@@ -402,8 +402,8 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   smatmul2 :: forall r n m p. (GoodScalar r, KnownNat n, KnownNat m, KnownNat p)
            => shaped r '[m, n] -> shaped r '[n, p] -> shaped r '[m, p]
   smatmul2 m1 m2 =
-    ssum (stranspose (Proxy @'[2,1,0]) (sreplicate @shaped @r @p m1)
-          * stranspose (Proxy @'[1,0]) (sreplicate @shaped @r @m m2))
+    ssum (stranspose (Proxy @'[2, 1, 0]) (sreplicate @shaped @r @p m1)
+          * stranspose (Proxy @'[1, 0]) (sreplicate @shaped @r @m m2))
   sminimum :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
            => shaped r sh -> shaped r '[]
   sminimum t = gcastWith (unsafeCoerce Refl :: (sh OS.++ '[])  :~: sh)
