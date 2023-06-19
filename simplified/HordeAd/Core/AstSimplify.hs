@@ -381,6 +381,7 @@ astSum :: (KnownNat n, GoodScalar r)
 astSum (Ast.AstConst t) = Ast.AstConst $ tsumR t
 astSum (Ast.AstConstant (AstPrimalPart v)) =
   astConstant $ AstPrimalPart $ astSum v
+astSum (Ast.AstScatter (_ :$ sh) v (vars, _ :. ix)) = astScatter sh v (vars, ix)
 astSum (Ast.AstReverse v) = Ast.AstSum v
 astSum v = Ast.AstSum v
 
