@@ -976,12 +976,6 @@ astIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
 astIntCond (AstBoolConst b) v w = if b then v else w
 astIntCond b v w = Ast.AstIntCond b v w
 
-astMinIndex1 :: AstPrimalPart r 1 -> AstInt r
-astMinIndex1 = Ast.AstMinIndex1
-
-astMaxIndex1 :: AstPrimalPart r 1 -> AstInt r
-astMaxIndex1 = Ast.AstMaxIndex1
-
 
 -- * Simplification pass applied to code with eliminated nested lets
 
@@ -1616,8 +1610,8 @@ simplifyAstInt t = case t of
   Ast.AstIntFloorS v -> Ast.AstIntFloorS $ simplifyAstPrimalS v
   Ast.AstIntCond b a1 a2 ->
     astIntCond (simplifyAstBool b) (simplifyAstInt a1) (simplifyAstInt a2)
-  Ast.AstMinIndex1 v -> astMinIndex1 $ simplifyAstPrimal v
-  Ast.AstMaxIndex1 v -> astMaxIndex1 $ simplifyAstPrimal v
+  Ast.AstMinIndex1 v -> Ast.AstMinIndex1 $ simplifyAstPrimal v
+  Ast.AstMaxIndex1 v -> Ast.AstMaxIndex1 $ simplifyAstPrimal v
   Ast.AstMinIndex1S v -> Ast.AstMinIndex1S $ simplifyAstPrimalS v
   Ast.AstMaxIndex1S v -> Ast.AstMaxIndex1S $ simplifyAstPrimalS v
 
@@ -1688,12 +1682,22 @@ simplifyAstIntOp TimesIntOp [u, AstIntConst n] =
   simplifyAstIntOp TimesIntOp [AstIntConst n, u]
 simplifyAstIntOp TimesIntOp [AstIntOp TimesIntOp [u, v], w] =
   simplifyAstIntOp TimesIntOp [u, simplifyAstIntOp TimesIntOp [v, w]]
+{- TODO: these break sharing as long as we don't have @let@ for AstInt:
 simplifyAstIntOp TimesIntOp [AstIntOp PlusIntOp [u, v], w] =
   simplifyAstIntOp PlusIntOp [ simplifyAstIntOp TimesIntOp [u, w]
                              , simplifyAstIntOp TimesIntOp [v, w] ]
 simplifyAstIntOp TimesIntOp [u, AstIntOp PlusIntOp [v, w]] =
   simplifyAstIntOp PlusIntOp [ simplifyAstIntOp TimesIntOp [u, v]
                              , simplifyAstIntOp TimesIntOp [u, w] ]
+-}
+simplifyAstIntOp TimesIntOp [AstIntOp PlusIntOp [u, v], w@AstIntConst{}] =
+  simplifyAstIntOp PlusIntOp [ simplifyAstIntOp TimesIntOp [u, w]
+                             , simplifyAstIntOp TimesIntOp [v, w] ]
+simplifyAstIntOp TimesIntOp [u@AstIntConst{}, AstIntOp PlusIntOp [v, w]] =
+  simplifyAstIntOp PlusIntOp [ simplifyAstIntOp TimesIntOp [u, v]
+                             , simplifyAstIntOp TimesIntOp [u, w] ]
+-- TODO: perhaps aim for a polynomial normal form? but that requires global
+-- inspection of the whole expression
 
 -- With static shapes, the second argument to QuotIntOp and RemIntOp
 -- is always a constant, which makes such rules worth including,
