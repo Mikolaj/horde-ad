@@ -109,6 +109,7 @@ convMnistTestR
        -> ranked r 2)  -- [SizeMnistLabel, batch_size]
       -> OR.Array 2 r)  -- [SizeMnistLabel, batch_size]
   -> r
+convMnistTestR 0 _ _ = 0
 convMnistTestR batch_size (glyphR, labelR) evalAtTestParams =
   let input =
         Flip $ OR.reshape [batch_size, 1, sizeMnistHeightInt, sizeMnistWidthInt]

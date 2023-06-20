@@ -135,6 +135,8 @@ convMnistTestS
        -> shaped r '[SizeMnistLabel, batch_size])
       -> OS.Array '[SizeMnistLabel, batch_size] r)
   -> r
+convMnistTestS _ _ _ _ batch_size@SNat _ _
+  | sNatValue batch_size == (0 :: Int) = 0
 convMnistTestS kh@SNat kw@SNat
                c_out@SNat n_hidden@SNat batch_size@SNat
                (glyphS, labelS) evalAtTestParams =

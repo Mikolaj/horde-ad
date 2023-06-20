@@ -144,9 +144,8 @@ tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
                        (1 :: Float)
   , mnistTestCaseCNNA "CNNA artificial 5 4 3 2 1" 1 4 3 2 1 1 1 1
                        (1 :: Double)
--- TODO
---  , mnistTestCaseCNNA "CNNA 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
---                       (1.0 :: Float)
+  , mnistTestCaseCNNA "CNNA 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
+                       (1.0 :: Float)
   ]
 
 -- POPL differentiation, Ast term defined only once but differentiated each time
@@ -261,9 +260,8 @@ tensorADValMnistTestsCNNI = testGroup "CNN Intermediate MNIST tests"
                        (1 :: Float)
   , mnistTestCaseCNNI "CNNI artificial 5 4 3 2 1" 1 4 3 2 1 1 1 1
                        (1 :: Double)
--- TODO
---  , mnistTestCaseCNNI "CNNI 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
---                       (1.0 :: Float)
+  , mnistTestCaseCNNI "CNNI 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
+                       (1.0 :: Float)
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
@@ -388,9 +386,8 @@ tensorADValMnistTestsCNNO = testGroup "CNN Once MNIST tests"
                        (1 :: Float)
   , mnistTestCaseCNNO "CNNO artificial 5 4 3 2 1" 1 4 3 2 1 1 1 1
                        (1 :: Double)
--- TODO
---  , mnistTestCaseCNNO "CNNO 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
---                       (1.0 :: Float)
+  , mnistTestCaseCNNO "CNNO 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
+                       (1.0 :: Float)
   ]
 
 tensorMnistTestsPP :: TestTree
