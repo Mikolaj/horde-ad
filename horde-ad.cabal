@@ -582,6 +582,7 @@ library exampleLibrarySimplified
                       MnistFcnnRanked1
                       MnistFcnnRanked2
                       MnistRnnRanked2
+                      MnistRnnShaped2
 
     build-depends:
       , horde-ad:horde-ad-simplified

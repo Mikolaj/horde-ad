@@ -88,17 +88,17 @@ rnnMnistTwoS out_width@SNat
   in (vec2, s3)
 
 rnnMnistZeroS
-  :: forall out_width batch_size sizeMnistWidth sizeMnistHeight d r.
+  :: forall out_width batch_size sizeMnistHeight sizeMnistWidth d r.
      ADModeAndNum d r
   => SNat out_width
   -> SNat batch_size
-  -> SNat sizeMnistWidth -> SNat sizeMnistHeight
+  -> SNat sizeMnistHeight -> SNat sizeMnistWidth
   -> OS.Array '[sizeMnistWidth, sizeMnistHeight, batch_size] r
   -> ADRnnMnistParameters sizeMnistHeight out_width d r
   -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
 rnnMnistZeroS out_width@SNat
               batch_size@SNat
-              sizeMnistWidthHere@SNat sizeMnistHeightHere@SNat
+              sizeMnistHeightHere@SNat sizeMnistWidthHere@SNat
               xs ((wX, wS, b), (wX2, wS2, b2), (w3, b3)) =
   let rnnMnistTwo = rnnMnistTwoS out_width batch_size sizeMnistHeightHere
       (out, _s) = zeroStateS (unrollLastS @d sizeMnistWidthHere rnnMnistTwo) xs
@@ -126,7 +126,7 @@ arnnMnistLossFusedS out_width@SNat
   let xs = OS.transpose @'[2, 1, 0] glyphS
       result = rnnMnistZeroS out_width
                              batch_size
-                             (SNat @SizeMnistWidth) (SNat @SizeMnistHeight)
+                             (SNat @SizeMnistHeight) (SNat @SizeMnistWidth)
                              xs adparameters
       targets2 = LA.tr $ LA.reshape (valueOf @SizeMnistLabel)
                        $ OS.toVector labelS
@@ -154,7 +154,7 @@ arnnMnistTestS out_width@SNat
             nn = rnnMnistZeroS
                    out_width
                    batch_size
-                   (SNat @SizeMnistWidth) (SNat @SizeMnistHeight)
+                   (SNat @SizeMnistHeight) (SNat @SizeMnistWidth)
                    xs
         in evalAtTestParams nn
       outputs = map OS.toVector $ OSB.toList $ OS.unravel

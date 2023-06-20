@@ -6,7 +6,7 @@
 -- the safely impure "HordeAd.Core.DualClass".
 module HordeAd.Core.DualNumber
   ( ADVal, dD, pattern D, dDnotShared
-  , SNat(..), withSNat, sNatValue
+  , SNat(..), withSNat, sNatValue, proxyFromSNat
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
   , IsPrimal
@@ -15,6 +15,7 @@ module HordeAd.Core.DualNumber
 import Prelude hiding ((<*))
 
 import Data.Kind (Type)
+import Data.Proxy (Proxy (Proxy))
 import GHC.TypeLits (KnownNat, Nat, SomeNat (..), natVal, someNatVal)
 
 import HordeAd.Core.Ast
@@ -75,6 +76,9 @@ withSNat i f = case someNatVal $ toInteger $ abs i of
 sNatValue :: forall n i. (KnownNat n, Num i) => SNat n -> i
 {-# INLINE sNatValue #-}
 sNatValue = fromInteger . natVal
+
+proxyFromSNat :: SNat n -> Proxy n
+proxyFromSNat SNat = Proxy
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.
