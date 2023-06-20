@@ -216,7 +216,7 @@ instance Tensor AstPrimalPart where
   treplicate k = AstPrimalPart . AstReplicate k . unAstPrimalPart
   tappend u v =
     AstPrimalPart $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
-  tslice i k = AstPrimalPart . AstSlice i k . unAstPrimalPart
+  tslice i n = AstPrimalPart . AstSlice i n . unAstPrimalPart
   treverse = AstPrimalPart . AstReverse . unAstPrimalPart
   ttranspose perm = AstPrimalPart . AstTranspose perm . unAstPrimalPart
   treshape sh = AstPrimalPart . astReshape sh . unAstPrimalPart
@@ -263,7 +263,7 @@ instance Tensor AstNoVectorize where
   treplicate k = AstNoVectorize . AstReplicate k . unAstNoVectorize
   tappend u v =
     AstNoVectorize $ AstAppend (unAstNoVectorize u) (unAstNoVectorize v)
-  tslice i k = AstNoVectorize . AstSlice i k . unAstNoVectorize
+  tslice i n = AstNoVectorize . AstSlice i n . unAstNoVectorize
   treverse = AstNoVectorize . AstReverse . unAstNoVectorize
   ttranspose perm = AstNoVectorize . AstTranspose perm . unAstNoVectorize
   treshape sh = AstNoVectorize . astReshape sh . unAstNoVectorize
@@ -313,7 +313,7 @@ instance Tensor AstNoSimplify where
   treplicate k = AstNoSimplify . AstReplicate k . unAstNoSimplify
   tappend u v =
     AstNoSimplify $ AstAppend (unAstNoSimplify u) (unAstNoSimplify v)
-  tslice i k = AstNoSimplify . AstSlice i k . unAstNoSimplify
+  tslice i n = AstNoSimplify . AstSlice i n . unAstNoSimplify
   treverse = AstNoSimplify . AstReverse . unAstNoSimplify
   ttranspose perm = AstNoSimplify . AstTranspose perm . unAstNoSimplify
   treshape sh = AstNoSimplify . AstReshape sh . unAstNoSimplify

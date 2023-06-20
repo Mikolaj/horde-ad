@@ -119,7 +119,7 @@ maxPool1S v =
           Just (SomeNat @i _proxy) ->
             gcastWith (unsafeCoerce Refl :: Compare i m :~: LT) $
             gcastWith (unsafeCoerce Refl :: Compare ksize (m - i) :~: LT) $
-            smaximum $ sslice @shaped @r @i @ksize @(m - i - ksize)
+            smaximum $ sslice @shaped @r @i @(m - i - ksize) @ksize
                               Proxy Proxy v
           Nothing -> error "maxPool1S: impossible someNatVal error"
   in sfromList $ map maxOfSlice l

@@ -176,7 +176,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   treplicate k (D l u u') = dD l (treplicate k u) (ReplicateR k u')
   tappend (D l1 u u') (D l2 v v') =
     dD (l1 `mergeADShare` l2) (tappend u v) (AppendR u' (tlength u) v')
-  tslice i k (D l u u') = dD l (tslice i k u) (SliceR i k u' (tlength u))
+  tslice i n (D l u u') = dD l (tslice i n u) (SliceR i n u' (tlength u))
   treverse (D l u u') = dD l (treverse u) (ReverseR u')
   ttranspose perm (D l u u') = dD l (ttranspose perm u) (TransposeR perm u')
   treshape :: forall n m r. (GoodScalar r, KnownNat n, KnownNat m)
@@ -316,8 +316,8 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   sreplicate (D l u u') = dD l (sreplicate u) (ReplicateS u')
   sappend (D l1 u u') (D l2 v v') =
     dD (l1 `mergeADShare` l2) (sappend u v) (AppendS u' v')
-  sslice (i_proxy :: Proxy i) k_proxy (D l u u') =
-    dD l (sslice i_proxy k_proxy u) (SliceS @ranked @shaped @i u')
+  sslice (i_proxy :: Proxy i) n_proxy (D l u u') =
+    dD l (sslice i_proxy n_proxy u) (SliceS @ranked @shaped @i u')
   sreverse (D l u u') = dD l (sreverse u) (ReverseS u')
   stranspose (perm_proxy :: Proxy perm) (D l u u') =
     dD l (stranspose perm_proxy u) (TransposeS @ranked @shaped @perm u')

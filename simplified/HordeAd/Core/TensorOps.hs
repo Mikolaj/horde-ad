@@ -415,7 +415,7 @@ tappendR = OR.append
 
 tsliceR
   :: Int -> Int -> OR.Array n r -> OR.Array n r
-tsliceR i k = OR.slice [(i, k)]
+tsliceR i n = OR.slice [(i, n)]
 
 treverseR
   :: OR.Array (1 + n) r -> OR.Array (1 + n) r
@@ -804,7 +804,7 @@ tappendS
 tappendS = OS.append
 
 tsliceS
-  :: forall i k n sh r. KnownNat i
+  :: forall i n k sh r. KnownNat i
   => OS.Array (i + n + k ': sh) r -> OS.Array (n ': sh) r
 tsliceS = OS.slice @'[ '(i, n) ]
 

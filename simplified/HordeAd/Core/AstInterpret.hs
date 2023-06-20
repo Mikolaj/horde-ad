@@ -483,10 +483,10 @@ interpretAst env memo = \case
     let (memo1, t1) = interpretAst env memo x
         (memo2, t2) = interpretAst env memo1 y
     in (memo2, tappend t1 t2)
-  AstSlice i k AstIota ->
+  AstSlice i n AstIota ->
     interpretAst env memo
-    $ AstConst $ OR.fromList [k] $ map fromIntegral [i .. i + k - 1]
-  AstSlice i k v -> second (tslice i k) (interpretAst env memo v)
+    $ AstConst $ OR.fromList [n] $ map fromIntegral [i .. i + n - 1]
+  AstSlice i n v -> second (tslice i n) (interpretAst env memo v)
   AstReverse v -> second treverse (interpretAst env memo v)
   AstTranspose perm v -> second (ttranspose perm) $ interpretAst env memo v
   AstReshape sh v -> second (treshape sh) (interpretAst env memo v)

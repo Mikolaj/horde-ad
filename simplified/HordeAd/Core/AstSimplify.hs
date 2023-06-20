@@ -476,16 +476,16 @@ astAppend (Ast.AstFromVector l1) (Ast.AstFromVector l2) =
   astFromVector $ l1 V.++ l2
 astAppend u v = Ast.AstAppend u v
 
-astSlice :: forall n r. (KnownNat n, GoodScalar r)
-         => Int -> Int -> AstRanked r (1 + n) -> AstRanked r (1 + n)
-astSlice i k (Ast.AstConst t) = Ast.AstConst $ tsliceR i k t
-astSlice i k (Ast.AstConstant (AstPrimalPart v)) =
-  astConstant $ AstPrimalPart $ astSlice i k v
-astSlice 0 k v | k == lengthAst v = v
-astSlice i k (Ast.AstFromList l) = astFromList $ take k (drop i l)
-astSlice i k (Ast.AstFromVector l) = astFromVector $ V.take k (V.drop i l)
-astSlice _i k (Ast.AstReplicate _k2 v) = astReplicate k v
-astSlice i k w@(Ast.AstAppend (u :: AstRanked r (1 + n)) (v :: AstRanked r (1 + n))) =
+astSlice :: forall k r. (KnownNat k, GoodScalar r)
+         => Int -> Int -> AstRanked r (1 + k) -> AstRanked r (1 + k)
+astSlice i n (Ast.AstConst t) = Ast.AstConst $ tsliceR i n t
+astSlice i n (Ast.AstConstant (AstPrimalPart v)) =
+  astConstant $ AstPrimalPart $ astSlice i n v
+astSlice 0 n v | n == lengthAst v = v
+astSlice i n (Ast.AstFromList l) = astFromList $ take n (drop i l)
+astSlice i n (Ast.AstFromVector l) = astFromVector $ V.take n (V.drop i l)
+astSlice _i n (Ast.AstReplicate _n2 v) = astReplicate n v
+astSlice i n w@(Ast.AstAppend (u :: AstRanked r (1 + k)) (v :: AstRanked r (1 + k))) =
   -- GHC 9.2.7 -- 9.6.1 with the plugins demand so much verbiage ^^^
   -- It seems this is caused by only having (1 + n) in the type
   -- signature and + not being injective. Quite hopless in cases
@@ -493,16 +493,16 @@ astSlice i k w@(Ast.AstAppend (u :: AstRanked r (1 + n)) (v :: AstRanked r (1 + 
   -- whenever n -> n is wrong, because a function that requires 1 + n
   -- is used.
   let ulen = lengthAst u
-  in if | i + k <= ulen -> astSlice @n i k u
-        | i >= ulen -> astSlice @n (i - ulen) k v
-        | otherwise -> Ast.AstSlice @n i k w  -- cheap iff fits in one
-astSlice i k (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
+  in if | i + n <= ulen -> astSlice @k i n u
+        | i >= ulen -> astSlice @k (i - ulen) n v
+        | otherwise -> Ast.AstSlice @k i n w  -- cheap iff fits in one
+astSlice i n (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
   let ivar = AstIntOp PlusIntOp [AstIntVar var, AstIntConst i]
       ix2 = fmap (substituteAstInt (SubstitutionPayloadInt ivar) var) ix
-  in astGatherR (k :$ sh') v (var ::: vars, ix2)
-astSlice i k v = Ast.AstSlice i k v
+  in astGatherR (n :$ sh') v (var ::: vars, ix2)
+astSlice i n v = Ast.AstSlice i n v
 
-astSliceS :: forall i k n sh r.
+astSliceS :: forall i n k sh r.
              (KnownNat i, KnownNat k, KnownNat n, OS.Shape sh)
           => AstShaped r (i + n + k ': sh) -> AstShaped r (n ': sh)
 astSliceS = AstSliceS @i  -- TODO

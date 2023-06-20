@@ -83,7 +83,7 @@ shapeAst v1 = case v1 of
     xi :$ xsh -> case shapeAst y of
       ZS -> error "shapeAst: impossible pattern needlessly required"
       yi :$ _ -> xi + yi :$ xsh
-  AstSlice _n k v -> k :$ tailShape (shapeAst v)
+  AstSlice _i n v -> n :$ tailShape (shapeAst v)
   AstReverse v -> shapeAst v
   AstTranspose perm v -> backpermutePrefixShape perm (shapeAst v)
   AstReshape sh _v -> sh
@@ -251,7 +251,7 @@ substitute1Ast i var v1 = case v1 of
   AstFromVector l -> AstFromVector $ V.map (substitute1Ast i var) l
   AstReplicate s v -> AstReplicate s (substitute1Ast i var v)
   AstAppend x y -> AstAppend (substitute1Ast i var x) (substitute1Ast i var y)
-  AstSlice k s v -> AstSlice k s (substitute1Ast i var v)
+  AstSlice i2 n v -> AstSlice i2 n (substitute1Ast i var v)
   AstReverse v -> AstReverse (substitute1Ast i var v)
   AstTranspose perm v -> AstTranspose perm (substitute1Ast i var v)
   AstReshape sh v -> AstReshape sh (substitute1Ast i var v)
@@ -584,8 +584,8 @@ printAst cfg d = \case
            . showListWith (printAst cfg 0) (V.toList l))
   AstReplicate k v -> printPrefixOp printAst cfg d ("treplicate " ++ show k) [v]
   AstAppend x y -> printPrefixOp printAst cfg d "tappend" [x, y]
-  AstSlice i k v -> printPrefixOp printAst cfg d
-                                  ("tslice " ++ show i ++ " " ++ show k) [v]
+  AstSlice i n v -> printPrefixOp printAst cfg d
+                                  ("tslice " ++ show i ++ " " ++ show n) [v]
   AstReverse v -> printPrefixOp printAst cfg d "treverse" [v]
   AstTranspose perm v ->
     printPrefixOp printAst cfg d ("ttranspose " ++ show perm) [v]

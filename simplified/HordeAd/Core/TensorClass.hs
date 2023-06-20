@@ -465,14 +465,16 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   sappend :: (GoodScalar r, KnownNat m, KnownNat n, OS.Shape sh)
           => shaped r (m ': sh) -> shaped r (n ': sh)
           -> shaped r ((m + n) ': sh)
-  sslice :: (GoodScalar r, KnownNat i, KnownNat k, KnownNat n, OS.Shape sh)
-         => Proxy i -> Proxy k
+  sslice :: (GoodScalar r, KnownNat i, KnownNat n, KnownNat k, OS.Shape sh)
+         => Proxy i -> Proxy n
          -> shaped r (i + n + k ': sh) -> shaped r (n ': sh)
   suncons :: forall r n sh. (GoodScalar r, KnownNat n, OS.Shape sh)
           => shaped r (n ': sh) -> Maybe (shaped r sh, shaped r (n - 1 ': sh))
   suncons v = case cmpNat (Proxy @1) (Proxy @n) of
-    EQI -> Just (v !$ (0 :$: ZSH), sslice (Proxy @1) (Proxy @0) v)
-    LTI -> Just (v !$ (0 :$: ZSH), sslice (Proxy @1) (Proxy @0) v)
+    EQI -> Just ( v !$ (0 :$: ZSH)
+                , sslice @shaped @r @1 @(n - 1) @0 Proxy Proxy v )
+    LTI -> Just ( v !$ (0 :$: ZSH)
+                , sslice @shaped @r @1 @(n - 1) @0 Proxy Proxy v )
     _ -> Nothing
   sreverse :: (GoodScalar r, KnownNat n, OS.Shape sh)
            => shaped r (n ': sh) -> shaped r (n ': sh)
@@ -753,7 +755,7 @@ instance Tensor (Flip OR.Array) where
   treplicate k = Flip . treplicateR k . runFlip
   treplicate0N sh = Flip . treplicate0NR sh . tunScalarR . runFlip
   tappend u v = Flip $ tappendR (runFlip u) (runFlip v)
-  tslice i k = Flip . tsliceR i k . runFlip
+  tslice i n = Flip . tsliceR i n . runFlip
   treverse = Flip . treverseR . runFlip
   ttranspose perm = Flip . ttransposeR perm . runFlip
   treshape sh = Flip . treshapeR sh . runFlip
