@@ -91,7 +91,7 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
               recipSum = recip sumExpU
           in tscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
-  in tlet (tconstant @ranked softMaxU')  $ \softMaxU ->
+  in tlet (tconstant @ranked softMaxU') $ \softMaxU ->
     tD (negate $ log (tprimalPart @ranked softMaxU) `tdot0` target)
          -- TODO: avoid: log . exp
        (tdualPart @ranked $ (softMaxU - tconstant @ranked target) `tdot0` d)

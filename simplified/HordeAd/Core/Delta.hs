@@ -566,7 +566,7 @@ buildFinMaps s0 deltaDt =
                     LetS{} -> False  -- wasteful and nonsensical
                     _ -> True)
           $ case EM.lookup n $ nMap s of
-              Just (DeltaBindingR _) ->
+              Just (DeltaBindingS _) ->
                 s {dMap = EM.adjust (saddDynamic c) n $ dMap s}
               Nothing ->
                 let cs = dfromS c

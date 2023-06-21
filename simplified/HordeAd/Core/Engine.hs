@@ -9,6 +9,7 @@ module HordeAd.Core.Engine
   , crev, crevDt
   , revAstOnDomains, revOnDomains
   , revAstOnDomainsF, revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
+  , revOnADInputsS
   , fwd, slowFwdOnADInputs, slowFwdOnDomains
   , generateDeltaInputs, makeADInputs, shapedToRanked
   ) where
@@ -295,6 +296,34 @@ revOnDomains dt f parameters =
   let deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters
       inputs = makeADInputs parameters deltaInputs
   in revOnADInputs dt f inputs
+
+
+-- * Old gradient adaptors for shaped tensors
+
+revOnADInputsS
+  :: ( dynamic ~ ADValClown OD.Array
+     , OS.Shape sh, KnownNat (OS.Size sh), GoodScalar r )
+  => Maybe (Flip OS.Array r sh)
+  -> (Domains dynamic r -> ADVal (Flip OS.Array) r sh)
+  -> Domains dynamic r
+  -> (DomainsOD r, Flip OS.Array r sh)
+-- The functions in which @revOnADInputsS@ inlines are not inlined themselves
+-- in client code, so the bloat is limited.
+{-# INLINE revOnADInputsS #-}
+revOnADInputsS dt f inputs =
+  let -- Evaluate completely after terms constructed, to free memory
+      -- before evaluation allocates new memory and new FFI is started.
+      !(D _ v deltaTopLevel) = f inputs
+      deltaDt = packDeltaDtS dt deltaTopLevel in
+  let (_, gradient) = gradientFromDelta (V.length inputs) deltaDt
+  in (gradient, v)
+
+packDeltaDtS :: forall sh r. (OS.Shape sh, KnownNat (OS.Size sh), GoodScalar r)
+             => Maybe (Flip OS.Array r sh)
+             -> Dual (Flip OS.Array) r sh
+             -> DeltaDt (Flip OR.Array) (Flip OS.Array) r
+packDeltaDtS Nothing = DeltaDtS (sreplicate0N @(Flip OS.Array) @r @sh 1)
+packDeltaDtS (Just t) = DeltaDtS t
 
 
 -- * The old derivative adaptors

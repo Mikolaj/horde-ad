@@ -649,12 +649,14 @@ test-suite simplifiedOnlyTest
                       TestMnistCNNR
                       TestMnistFCNNR
                       TestMnistRNNR
+                      TestMnistRNNS
 
     build-depends:
       , horde-ad:horde-ad-simplified
       , horde-ad:exampleLibrarySimplified
       , horde-ad:testToolLibrarySimplified
 
+      , assert-failure
       , base
       , bifunctors
       , Boolean

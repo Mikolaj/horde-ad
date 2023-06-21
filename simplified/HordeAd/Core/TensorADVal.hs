@@ -214,6 +214,9 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 
 -- * Shaped tensor instances
 
+instance IfB (ADVal (Flip OS.Array) r sh) where
+  ifB b v w = if b then v else w
+
 -- This requires the Tensor instance, hence the definitions must in this module.
 instance (GoodScalar r, OS.Shape sh)
          => IfB (ADVal AstShaped r sh) where
@@ -240,14 +243,18 @@ fromListS lu =
      (sfromList $ map (\(D _ u _) -> u) lu)
      (FromListS $ map (\(D _ _ u') -> u') lu)
 
-instance ( GoodScalar r, dynamic ~ DynamicOf shaped
+instance ( OS.Shape sh, GoodScalar r, dynamic ~ DynamicOf shaped
+         , Dual shaped ~ DeltaS ranked shaped
+         , Dual (Clown dynamic) ~ DeltaD ranked shaped
          , ConvertTensor ranked shaped )
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal shaped r sh) where
   type Underlying (ADVal shaped r sh) = r
   type Value (ADVal shaped r sh) = Flip OS.Array r sh  -- !!! not shaped
   toDomains = undefined
-  fromDomains = undefined
+  fromDomains _aInit inputs = case V.uncons inputs of
+    Just (a, rest) -> Just (dToS (runFlip a), rest)
+    Nothing -> Nothing
 
 dToS :: forall ranked shaped sh r.
         ( ConvertTensor ranked shaped

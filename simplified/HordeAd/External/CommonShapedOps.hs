@@ -100,7 +100,7 @@ lossSoftMaxCrossEntropyS target d' = slet d' $ \d ->
               recipSum = recip sumExpU
           in sscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
-  in slet (sconstant softMaxU')  $ \softMaxU ->
+  in slet (sconstant softMaxU') $ \softMaxU ->
     sD (negate $ log (sprimalPart softMaxU) `sdot0` target)
          -- TODO: avoid: log . exp
        (sdualPart $ (softMaxU - sconstant target) `sdot0` d)

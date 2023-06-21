@@ -18,7 +18,7 @@ import           Numeric.LinearAlgebra (Vector)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.ShapedList (ShapedList (..))
 import HordeAd.Core.TensorClass
-import HordeAd.External.CommonShapedOps
+import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
 import MnistData
 
 type LayerWeigthsRNNShaped shaped in_width out_width r =
@@ -143,7 +143,6 @@ rnnMnistTestS
       -> OS.Array '[SizeMnistLabel, batch_size] r)
   -> r
 {-# INLINE rnnMnistTestS #-}
-rnnMnistTestS _ batch_size@SNat _ _ | sNatValue batch_size == (0 :: Int) = 0
 rnnMnistTestS out_width@SNat
               batch_size@SNat
               (glyphS, labelS) evalAtTestParams =
