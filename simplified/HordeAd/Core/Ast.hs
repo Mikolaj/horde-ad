@@ -201,6 +201,8 @@ data AstShaped :: Type -> [Nat] -> Type where
                 => AstShaped r sh -> AstShaped r (OS.Permute perm sh)
   AstReshapeS :: (OS.Shape sh, OS.Size sh ~ OS.Size sh2)
               => AstShaped r sh -> AstShaped r sh2
+    -- beware that the order of type arguments is different than in orthotope
+    -- and than the order of value arguments in the ranked version
   AstBuild1S :: (KnownNat n, OS.Shape sh)
              => (AstVarId, AstShaped r sh) -> AstShaped r (n ': sh)
   AstGatherS :: forall sh2 p sh r.

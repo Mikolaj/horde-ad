@@ -493,6 +493,8 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   sreshape :: ( GoodScalar r, OS.Shape sh, OS.Shape sh2
               , OS.Size sh ~ OS.Size sh2 )
            => shaped r sh -> shaped r sh2
+    -- beware that the order of type arguments is different than in orthotope
+    -- and than the order of value arguments in the ranked version
   sbuild :: forall r m sh.
             (GoodScalar r, OS.Shape sh, OS.Shape (OS.Take m sh))
          => (IndexSh (shaped r '[]) (OS.Take m sh) -> shaped r (OS.Drop m sh))
