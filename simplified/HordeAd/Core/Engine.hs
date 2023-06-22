@@ -173,21 +173,14 @@ revAstOnDomainsFun parameters0 f =
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D l primalBody deltaTopLevel) = f varInputs domains v6
-      deltaDt = packDeltaDtA (Right $ astDt (tshape primalBody))
-                             deltaTopLevel in
-  let !(!astBindings, !gradient) = gradientFromDelta (length shapes1) deltaDt
+      !(D l primalBody deltaTopLevel) = f varInputs domains v6 in
+  let !(!astBindings, !gradient) =
+        reverseDervative (length shapes1) undefined
+                         (Just $ astDt (tshape primalBody)) deltaTopLevel
   in ( ( vars
        , unletAstDomains6 astBindings l (dmkDomains gradient)
        , unletAst6 l primalBody )
      , deltaTopLevel )
-
-packDeltaDtA :: (KnownNat n, GoodScalar r)
-             => Either (AstRanked r n) (AstRanked r n)
-             -> Dual AstRanked r n
-             -> DeltaDt AstRanked AstShaped r
-packDeltaDtA (Left tsh) = DeltaDtR (treplicate0N (tshape tsh) 1)
-packDeltaDtA (Right t) = DeltaDtR t
 
 revAstOnDomainsEval
   :: forall r n ranked.

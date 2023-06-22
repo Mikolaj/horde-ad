@@ -43,7 +43,7 @@ module HordeAd.Core.Delta
     NodeId (..), InputId, toInputId, DualPart(..)
   , -- * Evaluation of the delta expressions
     DeltaDt (..)
-  , gradientFromDelta, derivativeFromDeltaR, derivativeFromDeltaS
+  , derivativeFromDeltaR, derivativeFromDeltaS
   ) where
 
 import Prelude
