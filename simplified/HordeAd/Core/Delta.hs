@@ -40,7 +40,7 @@ module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
     DeltaS (..), DeltaR (..), DeltaD (..)
   , -- * Delta expression identifiers
-    NodeId (..), InputId, toInputId, Dual
+    NodeId (..), InputId, toInputId, DualPart(..)
   , -- * Evaluation of the delta expressions
     DeltaDt (..)
   , gradientFromDelta, derivativeFromDeltaR, derivativeFromDeltaS
@@ -59,7 +59,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           Data.Kind (Type)
+import           Data.Kind (Constraint, Type)
 import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
 import           Data.Proxy (Proxy (Proxy))
@@ -387,17 +387,30 @@ newtype InputId a = InputId Int
 toInputId :: Int -> InputId a
 toInputId i = assert (i >= 0) $ InputId i
 
--- | The type family that to each basic differentiable type
--- assigns its delta expression type.
-type Dual :: forall k. (Type -> k -> Type) -> Type -> k -> Type
-type family Dual (f :: Type -> k -> Type)
-     = (result :: Type -> k -> Type) | result -> f where
-  Dual (Clown OD.Array) = DeltaD (Flip OR.Array) (Flip OS.Array)
-  Dual (Clown AstDynamic) = DeltaD AstRanked AstShaped
-  Dual (Flip OR.Array) = DeltaR (Flip OR.Array) (Flip OS.Array)
-  Dual AstRanked = DeltaR AstRanked AstShaped
-  Dual (Flip OS.Array) = DeltaS (Flip OR.Array) (Flip OS.Array)
-  Dual AstShaped = DeltaS AstRanked AstShaped
+type DualPart :: forall k -> (Type -> k -> Type) -> Constraint
+class DualPart k (f :: Type -> k -> Type) where
+  -- | The type family that to each basic differentiable type
+  -- assigns its delta expression type.
+  type Dual (f :: Type -> k -> Type)
+       = (result :: Type -> k -> Type) | result -> f
+
+instance DualPart () (Clown OD.Array) where
+  type Dual (Clown OD.Array) = DeltaD (Flip OR.Array) (Flip OS.Array)
+
+instance DualPart () (Clown AstDynamic) where
+  type Dual (Clown AstDynamic) = DeltaD AstRanked AstShaped
+
+instance DualPart Nat (Flip OR.Array) where
+  type Dual (Flip OR.Array) = DeltaR (Flip OR.Array) (Flip OS.Array)
+
+instance DualPart Nat AstRanked where
+  type Dual AstRanked = DeltaR AstRanked AstShaped
+
+instance DualPart [Nat] (Flip OS.Array) where
+  type Dual (Flip OS.Array) = DeltaS (Flip OR.Array) (Flip OS.Array)
+
+instance DualPart [Nat] AstShaped where
+  type Dual AstShaped = DeltaS AstRanked AstShaped
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions
