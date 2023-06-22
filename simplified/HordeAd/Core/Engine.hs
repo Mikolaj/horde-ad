@@ -18,7 +18,6 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
@@ -255,10 +254,10 @@ crevDtMaybe f vals dt =
 -- This works for f both ranked and shaped.
 revOnADInputs
   :: ( DualPart f, HasSingletonDict f y, GoodScalar r
-     , dynamic ~ ADValClown OD.Array, DynamicOf f ~ OD.Array )
+     , DynamicOf f ~ OD.Array )
   => Maybe (f r y)
-  -> (Domains dynamic r -> ADVal f r y)
-  -> Domains dynamic r
+  -> (Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
+  -> Domains (DynamicOf (ADVal f)) r
   -> (DomainsOD r, f r y)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
@@ -275,16 +274,14 @@ revOnADInputs dt f inputs =
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: forall f r y dynamic.
-     ( DualPart f, HasSingletonDict f y, GoodScalar r
-     , dynamic ~ ADValClown OD.Array, DynamicOf f ~ OD.Array )
+  :: ( DualPart f, HasSingletonDict f y, GoodScalar r
+     , DynamicOf f ~ OD.Array )
   => Maybe (f r y)
-  -> (Domains dynamic r -> ADVal f r y)
+  -> (Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
   -> DomainsOD r
   -> (DomainsOD r, f r y)
 revOnDomains dt f parameters =
-  let deltaInputs = generateDeltaInputs @(Flip OR.Array) @(Flip OS.Array)
-                                        parameters
+  let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in revOnADInputs dt f inputs
 

@@ -95,7 +95,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdamS f chunkS parameters stateAdam
+                 res@(parameters2, _) = sgdAdam f chunkS parameters stateAdam
                  smnistSToR (glyphs, labels) =
                    ( Data.Array.Convert.convert glyphs
                    , Data.Array.Convert.convert labels )
@@ -214,7 +214,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdamS f chunkS parameters stateAdam
+                 res@(parameters2, _) = sgdAdam f chunkS parameters stateAdam
                  smnistSToR (glyphs, labels) =
                    ( Data.Array.Convert.convert glyphs
                    , Data.Array.Convert.convert labels )

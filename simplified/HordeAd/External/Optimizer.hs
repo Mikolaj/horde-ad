@@ -2,7 +2,6 @@
 module HordeAd.External.Optimizer
   ( sgd
   , sgdAdam, sgdAdamArgs
-  , sgdAdamS, sgdAdamArgsS
   , StateAdam, initialStateAdam
   ) where
 
@@ -10,12 +9,12 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.Adaptor
+import HordeAd.Core.Delta (DualPart (..))
 import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorADVal
@@ -49,18 +48,21 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   -> DomainsOD Double
   -> (DomainsOD Double, Flip OR.Array Double 0) #-}
 
-sgdAdam :: forall r a n. (KnownNat n, GoodScalar r)
-        => (a -> Domains (ADValClown OD.Array) r -> ADVal (Flip OR.Array) r n)
+sgdAdam :: forall f r a y.
+           ( DualPart f, HasSingletonDict f y, GoodScalar r
+           , DynamicOf f ~ OD.Array, Num (f r y) )
+        => (a -> Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
         -> [a]
         -> DomainsOD r
         -> StateAdam r
         -> (DomainsOD r, StateAdam r)
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
-sgdAdamArgs :: forall r a n. (KnownNat n, GoodScalar r)
+sgdAdamArgs :: forall f r a y.
+               ( DualPart f, HasSingletonDict f y, GoodScalar r
+               , DynamicOf f ~ OD.Array, Num (f r y) )
             => ArgsAdam r
-            -> (a -> Domains (ADValClown OD.Array) r
-                -> ADVal (Flip OR.Array) r n)
+            -> (a -> Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
             -> [a]
             -> DomainsOD r
             -> StateAdam r
@@ -68,38 +70,7 @@ sgdAdamArgs :: forall r a n. (KnownNat n, GoodScalar r)
 sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
-  deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters0
-  go :: [a] -> DomainsOD r -> StateAdam r -> (DomainsOD r, StateAdam r)
-  go [] parameters stateAdam = (parameters, stateAdam)
-  go (a : rest) !parameters !stateAdam =
-    let inputs = makeADInputs parameters deltaInputs
-        gradients = fst $ revOnADInputs (Just 1) (f a) inputs
-        (parametersNew, stateAdamNew) =
-          updateWithGradientAdam argsAdam stateAdam parameters gradients
-    in go rest parametersNew stateAdamNew
-
-sgdAdamS :: forall r a sh. (OS.Shape sh, KnownNat (OS.Size sh), GoodScalar r)
-         => (a -> Domains (ADValClown OD.Array) r -> ADVal (Flip OS.Array) r sh)
-         -> [a]
-         -> DomainsOD r
-         -> StateAdam r
-         -> (DomainsOD r, StateAdam r)
-sgdAdamS = sgdAdamArgsS defaultArgsAdam
-
-sgdAdamArgsS :: forall r a sh.
-                (OS.Shape sh, KnownNat (OS.Size sh), GoodScalar r)
-             => ArgsAdam r
-             -> (a -> Domains (ADValClown OD.Array) r
-                 -> ADVal (Flip OS.Array) r sh)
-             -> [a]
-             -> DomainsOD r
-             -> StateAdam r
-             -> (DomainsOD r, StateAdam r)
-sgdAdamArgsS argsAdam f trainingData !parameters0 !stateAdam0 =
-  go trainingData parameters0 stateAdam0
- where
-  deltaInputs = generateDeltaInputs @(Flip OR.Array) @(Flip OS.Array)
-                                    parameters0
+  deltaInputs = generateDeltaInputs parameters0
   go :: [a] -> DomainsOD r -> StateAdam r -> (DomainsOD r, StateAdam r)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =
