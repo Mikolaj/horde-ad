@@ -9,13 +9,13 @@ module HordeAd.Core.Engine
   , crev, crevDt
   , revAstOnDomains, revOnDomains
   , revAstOnDomainsF, revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
-  , revOnADInputsS
   , fwd, slowFwdOnADInputs, slowFwdOnDomains
   , generateDeltaInputs, makeADInputs, shapedToRanked
   ) where
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
@@ -33,14 +33,6 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
-  ( DeltaD (RToD)
-  , DeltaDt (..)
-  , DeltaR (InputR)
-  , Dual
-  , derivativeFromDeltaR
-  , gradientFromDelta
-  , toInputId
-  )
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
@@ -260,70 +252,41 @@ crevDtMaybe f vals dt =
 
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
+-- This works for f both ranked and shaped.
 revOnADInputs
-  :: (dynamic ~ ADValClown OD.Array, KnownNat n, GoodScalar r)
-  => Maybe (Flip OR.Array r n)
-  -> (Domains dynamic r -> ADVal (Flip OR.Array) r n)
+  :: ( DualPart f, HasSingletonDict f y, GoodScalar r
+     , dynamic ~ ADValClown OD.Array, DynamicOf f ~ OD.Array )
+  => Maybe (f r y)
+  -> (Domains dynamic r -> ADVal f r y)
   -> Domains dynamic r
-  -> (DomainsOD r, Flip OR.Array r n)
+  -> (DomainsOD r, f r y)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE revOnADInputs #-}
 revOnADInputs dt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
-      !(D _ v deltaTopLevel) = f inputs
-      deltaDt = packDeltaDtR (maybe (Left v) Right dt) deltaTopLevel in
-  let (_, gradient) = gradientFromDelta (V.length inputs) deltaDt
+      !(D _ v deltaTopLevel) = f inputs in
+  let (astBindings, gradient) =
+        assert (null astBindings)
+        $ reverseDervative (V.length inputs) v dt deltaTopLevel
   in (gradient, v)
-
-packDeltaDtR :: (KnownNat n, GoodScalar r)
-             => Either (Flip OR.Array r n) (Flip OR.Array r n)
-             -> Dual (Flip OR.Array) r n
-             -> DeltaDt (Flip OR.Array) (Flip OS.Array) r
-packDeltaDtR (Left tsh) = DeltaDtR (treplicate0N (tshape tsh) 1)
-packDeltaDtR (Right t) = DeltaDtR t
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 revOnDomains
-  :: (dynamic ~ ADValClown OD.Array, KnownNat n, GoodScalar r)
-  => Maybe (Flip OR.Array r n)
-  -> (Domains dynamic r -> ADVal (Flip OR.Array) r n)
+  :: forall f r y dynamic.
+     ( DualPart f, HasSingletonDict f y, GoodScalar r
+     , dynamic ~ ADValClown OD.Array, DynamicOf f ~ OD.Array )
+  => Maybe (f r y)
+  -> (Domains dynamic r -> ADVal f r y)
   -> DomainsOD r
-  -> (DomainsOD r, Flip OR.Array r n)
+  -> (DomainsOD r, f r y)
 revOnDomains dt f parameters =
-  let deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters
+  let deltaInputs = generateDeltaInputs @(Flip OR.Array) @(Flip OS.Array)
+                                        parameters
       inputs = makeADInputs parameters deltaInputs
   in revOnADInputs dt f inputs
-
-
--- * Old gradient adaptors for shaped tensors
-
-revOnADInputsS
-  :: ( dynamic ~ ADValClown OD.Array
-     , OS.Shape sh, KnownNat (OS.Size sh), GoodScalar r )
-  => Maybe (Flip OS.Array r sh)
-  -> (Domains dynamic r -> ADVal (Flip OS.Array) r sh)
-  -> Domains dynamic r
-  -> (DomainsOD r, Flip OS.Array r sh)
--- The functions in which @revOnADInputsS@ inlines are not inlined themselves
--- in client code, so the bloat is limited.
-{-# INLINE revOnADInputsS #-}
-revOnADInputsS dt f inputs =
-  let -- Evaluate completely after terms constructed, to free memory
-      -- before evaluation allocates new memory and new FFI is started.
-      !(D _ v deltaTopLevel) = f inputs
-      deltaDt = packDeltaDtS dt deltaTopLevel in
-  let (_, gradient) = gradientFromDelta (V.length inputs) deltaDt
-  in (gradient, v)
-
-packDeltaDtS :: forall sh r. (OS.Shape sh, KnownNat (OS.Size sh), GoodScalar r)
-             => Maybe (Flip OS.Array r sh)
-             -> Dual (Flip OS.Array) r sh
-             -> DeltaDt (Flip OR.Array) (Flip OS.Array) r
-packDeltaDtS Nothing = DeltaDtS (sreplicate0N @(Flip OS.Array) @r @sh 1)
-packDeltaDtS (Just t) = DeltaDtS t
 
 
 -- * The old derivative adaptors

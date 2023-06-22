@@ -104,7 +104,7 @@ sgdAdamArgsS argsAdam f trainingData !parameters0 !stateAdam0 =
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =
     let inputs = makeADInputs parameters deltaInputs
-        gradients = fst $ revOnADInputsS (Just 1) (f a) inputs
+        gradients = fst $ revOnADInputs (Just 1) (f a) inputs
         (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew
