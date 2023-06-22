@@ -986,7 +986,8 @@ astIntCond b v w = Ast.AstIntCond b v w
 -- * Simplification pass applied to code with eliminated nested lets
 
 simplifyArtifact6 :: (GoodScalar r, KnownNat n)
-                  => ADAstArtifact6 n r -> ADAstArtifact6 n r
+                  => ADAstArtifact6 AstRanked r n
+                  -> ADAstArtifact6 AstRanked r n
 simplifyArtifact6 (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6 primal)
 

@@ -38,6 +38,7 @@ import           GHC.TypeLits (KnownNat, Nat, type (+), type (<=))
 import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.ShapedList (ShapedList (..))
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.SizedList
@@ -54,10 +55,11 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-type ADAstVarNames n r = (AstVarName (Flip OR.Array r n), [AstDynamicVarName r])
+type ADAstVarNames fry r = (AstVarName fry, [AstDynamicVarName r])
 
 -- The artifact from step 6) of our full pipeline.
-type ADAstArtifact6 n r = (ADAstVarNames n r, AstDomains r, AstRanked r n)
+type ADAstArtifact6 f r y =
+  (ADAstVarNames (Value (f r y)) r, AstDomains r, f r y)
 
 type ShowAst r = (Show r, Numeric r)
 

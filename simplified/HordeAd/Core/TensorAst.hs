@@ -10,17 +10,13 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
-import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
-import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 
-import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstSimplify
@@ -40,8 +36,6 @@ type instance IntOf (AstRanked r n) = AstInt r
 type instance PrimalOf AstRanked = AstPrimalPart
 
 type instance DualOf AstRanked = AstDualPart
-
-type instance DynamicOf AstRanked = AstDynamic
 
 instance Tensor AstRanked where
   tlet a f = astLetFun a f
@@ -127,24 +121,6 @@ instance DomainsTensor AstRanked AstShaped AstDomains where
   rletToDomainsOf = astDomainsLetFun
   sletDomainsOf = undefined
   sletToDomainsOf = undefined
-
-instance (GoodScalar r, KnownNat n)
-         => AdaptableDomains AstDynamic (AstRanked r n) where
-  type Underlying (AstRanked r n) = r
-  type Value (AstRanked r n) = Flip OR.Array r n
-  toDomains = undefined
-  fromDomains aInit params = case V.uncons params of
-    Just (a, rest) -> Just (toRankedOrDummy (tshape aInit) a, rest)
-    Nothing -> Nothing
-
-instance (GoodScalar r, OS.Shape sh)
-         => AdaptableDomains AstDynamic (AstShaped r sh) where
-  type Underlying (AstShaped r sh) = r
-  type Value (AstShaped r sh) = Flip OS.Array r sh
-  toDomains = undefined
-  fromDomains _aInit params = case V.uncons params of
-    Just (a, rest) -> Just (toShapedOrDummy a, rest)
-    Nothing -> Nothing
 
 astLetFun :: (KnownNat n, KnownNat m, ShowAst r)
           => AstRanked r n -> (AstRanked r n -> AstRanked r m) -> AstRanked r m
@@ -348,8 +324,6 @@ type instance IntOf (AstShaped r sh) = AstInt r
 type instance PrimalOf AstShaped = AstPrimalPartS
 
 type instance DualOf AstShaped = AstDualPartS
-
-type instance DynamicOf AstShaped = AstDynamic
 
 instance ShapedTensor AstShaped where
   slet a f = astLetFunS a f
