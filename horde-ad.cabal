@@ -92,7 +92,7 @@ common options
                       DerivingStrategies, DeriveAnyClass,
                       UndecidableInstances, AllowAmbiguousTypes
   ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
-  ghc-options:        -Wno-unticked-promoted-constructors
+  ghc-options:        -Wno-unticked-promoted-constructors -fprint-explicit-kinds
   if impl(ghc >= 9.4)
     ghc-options:        -Wredundant-strictness-flags
   ghc-options:        -fno-ignore-asserts

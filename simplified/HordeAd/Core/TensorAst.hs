@@ -13,6 +13,7 @@ import Prelude
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
@@ -31,6 +32,8 @@ import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
+
+type instance DynamicOf (Clown AstDynamic) = AstDynamic
 
 type instance IntOf (AstRanked r n) = AstInt r
 

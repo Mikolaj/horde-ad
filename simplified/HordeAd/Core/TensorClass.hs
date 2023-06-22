@@ -23,6 +23,7 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Boolean
 import           Data.Kind (Constraint, Type)
@@ -101,6 +102,8 @@ type family PrimalOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
 type family DualOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
 
 type family DynamicOf (tensor :: Type -> k -> Type) :: Type -> Type
+
+type instance DynamicOf (Clown OD.Array) = OD.Array
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.

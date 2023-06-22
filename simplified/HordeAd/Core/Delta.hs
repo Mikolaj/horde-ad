@@ -62,13 +62,15 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Constraint, Type)
 import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
+import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
-import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
+import           GHC.TypeLits
+  (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
 import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -387,30 +389,93 @@ newtype InputId a = InputId Int
 toInputId :: Int -> InputId a
 toInputId i = assert (i >= 0) $ InputId i
 
-type DualPart :: forall k -> (Type -> k -> Type) -> Constraint
-class DualPart k (f :: Type -> k -> Type) where
+type DualPart :: forall k. (Type -> k -> Type) -> Constraint
+class DualPart (f :: Type -> k -> Type) where
   -- | The type family that to each basic differentiable type
   -- assigns its delta expression type.
   type Dual (f :: Type -> k -> Type)
        = (result :: Type -> k -> Type) | result -> f
+  type HasSingletonDict f (y :: k) :: Constraint
+  reverseDervative
+    :: (HasSingletonDict f y, GoodScalar r)
+    => Int -> f r y -> Maybe (f r y) -> Dual f r y
+    -> ([(AstVarId, DynamicOf f r)], Domains (DynamicOf f) r)
 
-instance DualPart () (Clown OD.Array) where
+instance DualPart @() (Clown OD.Array) where
   type Dual (Clown OD.Array) = DeltaD (Flip OR.Array) (Flip OS.Array)
+  type HasSingletonDict (Clown OD.Array) '() = ()
+  reverseDervative = gradientDtD
 
-instance DualPart () (Clown AstDynamic) where
+instance DualPart @() (Clown AstDynamic) where
   type Dual (Clown AstDynamic) = DeltaD AstRanked AstShaped
+  type HasSingletonDict (Clown AstDynamic) '() = ()
+  reverseDervative = gradientDtD
 
-instance DualPart Nat (Flip OR.Array) where
+gradientDtD :: forall ranked shaped r (y :: ()).
+               ( GoodScalar r
+               , DynamicOf @Nat (Clown (DynamicOf ranked)) ~ DynamicOf ranked
+               , Tensor ranked, ShapedTensor shaped
+               , ConvertTensor ranked shaped )
+            => Int -> Clown (DynamicOf ranked) r y
+            -> Maybe (Clown (DynamicOf ranked) r y)
+            -> DeltaD ranked shaped r y
+            -> ( [(AstVarId, DynamicOf @Nat (Clown (DynamicOf ranked)) r)]
+               , Domains (DynamicOf @Nat (Clown (DynamicOf ranked))) r )
+gradientDtD dims value mdt deltaTopLevel =
+  let shl = dshape @ranked (runClown value)
+      n = length shl
+  in case someNatVal $ toInteger n of
+    Just (SomeNat @n _proxy) ->
+      let sh = listShapeToShape @n shl
+          dt = maybe (dfromR @ranked $ treplicate0N sh 1) runClown mdt
+          deltaDt = DeltaDtD dt deltaTopLevel
+      in gradientFromDelta dims deltaDt
+    Nothing -> error "gradientDtD: impossible someNatVal error"
+
+instance DualPart @Nat (Flip OR.Array) where
   type Dual (Flip OR.Array) = DeltaR (Flip OR.Array) (Flip OS.Array)
+  type HasSingletonDict (Flip OR.Array) n = KnownNat n
+  reverseDervative = gradientDtR
 
-instance DualPart Nat AstRanked where
+instance DualPart @Nat AstRanked where
   type Dual AstRanked = DeltaR AstRanked AstShaped
+  type HasSingletonDict AstRanked n = KnownNat n
+  reverseDervative = gradientDtR
 
-instance DualPart [Nat] (Flip OS.Array) where
+gradientDtR :: ( KnownNat y, GoodScalar r
+               , Tensor ranked, ShapedTensor shaped
+               , ConvertTensor ranked shaped )
+            => Int -> ranked r y -> Maybe (ranked r y)
+            -> DeltaR ranked shaped r y
+            -> ([(AstVarId, DynamicOf ranked r)], Domains (DynamicOf ranked) r)
+gradientDtR dims value mdt deltaTopLevel =
+  let dt = fromMaybe (treplicate0N (tshape value) 1) mdt
+      deltaDt = DeltaDtR dt deltaTopLevel
+  in gradientFromDelta dims deltaDt
+
+instance DualPart @[Nat] (Flip OS.Array) where
   type Dual (Flip OS.Array) = DeltaS (Flip OR.Array) (Flip OS.Array)
+  type HasSingletonDict (Flip OS.Array) sh =
+    (OS.Shape sh, KnownNat (OS.Size sh))
+  reverseDervative = gradientDtS
 
-instance DualPart [Nat] AstShaped where
+instance DualPart @[Nat] AstShaped where
   type Dual AstShaped = DeltaS AstRanked AstShaped
+  type HasSingletonDict AstShaped sh =
+    (OS.Shape sh, KnownNat (OS.Size sh))
+  reverseDervative = gradientDtS
+
+gradientDtS :: forall ranked shaped r y.
+               ( OS.Shape y, KnownNat (OS.Size y), GoodScalar r
+               , Tensor ranked, ShapedTensor shaped
+               , ConvertTensor ranked shaped )
+            => Int -> shaped r y -> Maybe (shaped r y)
+            -> DeltaS ranked shaped r y
+            -> ([(AstVarId, DynamicOf shaped r)], Domains (DynamicOf shaped) r)
+gradientDtS dims _ mdt deltaTopLevel =
+  let dt = fromMaybe (sreplicate0N @shaped @r @y 1) mdt
+      deltaDt = DeltaDtS dt deltaTopLevel
+  in gradientFromDelta dims deltaDt
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions
@@ -424,6 +489,8 @@ data DeltaDt ranked shaped r =
     => DeltaDtS (shaped r sh) (DeltaS ranked shaped r sh)
   | forall n. KnownNat n
     => DeltaDtR (ranked r n) (DeltaR ranked shaped r n)
+  | forall (y :: ()).
+    DeltaDtD (DynamicOf ranked r) (DeltaD ranked shaped r y)
 
 -- | The state of evaluation. It consists of several maps.
 -- The maps indexed by input identifiers and node identifiers
@@ -801,9 +868,17 @@ buildFinMaps s0 deltaDt =
             in evalFromnMap s3
           Nothing -> s  -- loop ends
 
+      evalD :: EvalState ranked shaped r
+            -> DynamicOf ranked r -> DeltaD ranked shaped r y
+            -> EvalState ranked shaped r
+      evalD s !c = \case
+        RToD d -> evalR s (tfromD c) d
+        SToD d -> evalS s (sfromD c) d
+
       s1 = case deltaDt of
         DeltaDtS dt deltaTopLevel -> evalS s0 dt deltaTopLevel
         DeltaDtR dt deltaTopLevel -> evalR s0 dt deltaTopLevel
+        DeltaDtD dt deltaTopLevel -> evalD s0 dt deltaTopLevel
   in evalFromnMap s1
 {-# SPECIALIZE buildFinMaps
   :: EvalState (Flip OR.Array) (Flip OS.Array) Double -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) Double #-}
@@ -839,6 +914,7 @@ derivativeFromDeltaR dim deltaTopLevel ds =
       Just Refl -> res
       _ -> error "derivativeFromDelta"
     DeltaDtS{} -> error "derivativeFromDelta"
+    DeltaDtD{} -> error "derivativeFromDelta"
 
 derivativeFromDeltaS
   :: forall ranked shaped r sh.
@@ -853,6 +929,7 @@ derivativeFromDeltaS dim deltaTopLevel ds =
       Just Refl -> res
       _ -> error "derivativeFromDelta"
     DeltaDtR{} -> error "derivativeFromDelta"
+    DeltaDtD{} -> error "derivativeFromDelta"
 
 -- | This mimics 'buildFinMaps', but in reverse. Perhaps this can be
 -- simplified, but the obvious simplest formulation does not honour sharing
@@ -1011,6 +1088,11 @@ buildDerivative dimR deltaDt params = do
         SToR (RToS d) -> evalR d  -- no information lost, so no checks
         SToR d -> tfromS <$> evalS d
 
+      evalD :: DeltaD ranked shaped r y -> ST s (DynamicOf ranked r)
+      evalD = \case
+        RToD d -> dfromR <$> evalR d
+        SToD d -> dfromS <$> evalS d
+
   -- A hack to fit both argument delta and, afterwards, the result in a type
   -- that does not reflect either.
   case deltaDt of
@@ -1018,3 +1100,5 @@ buildDerivative dimR deltaDt params = do
       flip DeltaDtS ZeroS <$> evalS deltaTopLevel
     DeltaDtR _dt deltaTopLevel ->
       flip DeltaDtR ZeroR <$> evalR deltaTopLevel
+    DeltaDtD _dt deltaTopLevel ->
+      flip DeltaDtD (RToD @ranked @shaped @0 ZeroR) <$> evalD deltaTopLevel
