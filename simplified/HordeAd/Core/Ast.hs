@@ -27,6 +27,7 @@ import Prelude
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Flip
 import           Data.Boolean
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
@@ -53,7 +54,7 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-type ADAstVarNames n r = (AstVarName (OR.Array n r), [AstDynamicVarName r])
+type ADAstVarNames n r = (AstVarName (Flip OR.Array r n), [AstDynamicVarName r])
 
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 n r = (ADAstVarNames n r, AstDomains r, AstRanked r n)
@@ -252,7 +253,7 @@ newtype AstVarName t = AstVarName AstVarId
 
 data AstDynamicVarName :: Type -> Type where
   AstDynamicVarName :: KnownNat n
-                    => AstVarName (OR.Array n r) -> AstDynamicVarName r
+                    => AstVarName (Flip OR.Array r n) -> AstDynamicVarName r
 deriving instance ShowAst r => Show (AstDynamicVarName r)
 
 -- The argument is the underlying scalar.

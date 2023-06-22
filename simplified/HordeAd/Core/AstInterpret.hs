@@ -55,7 +55,7 @@ deriving instance (Show (DynamicOf ranked r), Show (IntOf (ranked r 0)))
 
 extendEnvS :: forall ranked shaped r sh.
               (OS.Shape sh, ConvertTensor ranked shaped, GoodScalar r)
-           => AstVarName (OS.Array sh r) -> shaped r sh
+           => AstVarName (Flip OS.Array r sh) -> shaped r sh
            -> AstEnv ranked r -> AstEnv ranked r
 extendEnvS v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show v)
@@ -63,7 +63,7 @@ extendEnvS v@(AstVarName var) d =
 
 extendEnvR :: forall ranked shaped r n.
               (ConvertTensor ranked shaped, KnownNat n, GoodScalar r)
-           => AstVarName (OR.Array n r) -> ranked r n
+           => AstVarName (Flip OR.Array r n) -> ranked r n
            -> AstEnv ranked r -> AstEnv ranked r
 extendEnvR v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)

@@ -14,6 +14,7 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.Proxy (Proxy)
@@ -74,18 +75,19 @@ astRegisterADShareS !r !l = unsafePerformIO $ do
   return (l2, r2)
 
 funToAstRIO :: ShapeInt n -> (AstRanked r n -> AstRanked r m)
-            -> IO (AstVarName (OR.Array n r), AstRanked r m)
+            -> IO (AstVarName (Flip OR.Array r n), AstRanked r m)
 {-# INLINE funToAstRIO #-}
 funToAstRIO sh f = do
   freshId <- unsafeGetFreshAstVarId
   return (AstVarName freshId, f (AstVar sh freshId))
 
 funToAstR :: ShapeInt n -> (AstRanked r n -> AstRanked r m)
-          -> (AstVarName (OR.Array n r), AstRanked r m)
+          -> (AstVarName (Flip OR.Array r n), AstRanked r m)
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ funToAstRIO sh f
 
-funToAstRshIO :: IO (AstVarName (OR.Array n r), ShapeInt n -> AstRanked r n)
+funToAstRshIO :: IO ( AstVarName (Flip OR.Array r n)
+                    , ShapeInt n -> AstRanked r n )
 {-# INLINE funToAstRshIO #-}
 funToAstRshIO = do
   freshId <- unsafeGetFreshAstVarId
@@ -99,7 +101,7 @@ funToAstDIO sh = do
   return $! case someNatVal $ toInteger $ length sh of
     Just (SomeNat (_proxy :: Proxy p)) ->
       let shn = listShapeToShape @p sh
-          varName = AstVarName @(OR.Array p r) freshId
+          varName = AstVarName @(Flip OR.Array r p) freshId
       in (AstDynamicVarName varName, AstRToD (AstVar shn freshId))
     Nothing -> error "funToAstD: impossible someNatVal error"
 
@@ -141,14 +143,14 @@ funToAstIndex
 funToAstIndex = unsafePerformIO . funToAstIndexIO (valueOf @m)
 
 funToAstIOS :: forall sh sh2 r. (AstShaped r sh -> AstShaped r sh2)
-            -> IO (AstVarName (OS.Array sh r), AstShaped r sh2)
+            -> IO (AstVarName (Flip OS.Array r sh), AstShaped r sh2)
 {-# INLINE funToAstIOS #-}
 funToAstIOS f = do
   freshId <- unsafeGetFreshAstVarId
   return (AstVarName freshId, f (AstVarS freshId))
 
 funToAstS :: forall sh sh2 r. (AstShaped r sh -> AstShaped r sh2)
-          -> (AstVarName (OS.Array sh r), AstShaped r sh2)
+          -> (AstVarName (Flip OS.Array r sh), AstShaped r sh2)
 {-# NOINLINE funToAstS #-}
 funToAstS f = unsafePerformIO $ funToAstIOS f
 
