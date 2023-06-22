@@ -515,6 +515,7 @@ library horde-ad-simplified
                       HordeAd.Core.Ast
                       HordeAd.Core.AstFreshId
                       HordeAd.Core.AstInterpret
+                      HordeAd.Core.AstPrettyPrint
                       HordeAd.Core.AstSimplify
                       HordeAd.Core.AstTools
                       HordeAd.Core.AstVectorize

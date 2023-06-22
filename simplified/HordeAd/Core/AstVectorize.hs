@@ -27,6 +27,7 @@ import           HordeAd.Core.Ast hiding
   (AstBool (..), AstDomains (..), AstInt (..), AstRanked (..), AstShaped (..))
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
+import           HordeAd.Core.AstPrettyPrint
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.ShapedList (ShapedList (..))
