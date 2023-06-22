@@ -804,6 +804,10 @@ toRankedOrDummy sh x = if disDummy @ranked x
                        then tzero sh
                        else tfromD x
 
+instance RandomDomains (Flip OR.Array r n) where
+  randomVals = undefined
+  toValue = id
+
 
 -- * Shaped tensor class instance for concrete arrays
 

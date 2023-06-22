@@ -75,6 +75,11 @@ instance AdaptableDomains dynamic a
     -- >   let f = swap . flip fromDomains
     -- >   in swap $ mapAccumL f source lInit
 
+instance RandomDomains a
+         => RandomDomains [a] where
+  randomVals = undefined  -- TODO: split RandomDomains?
+  toValue as = map toValue as
+
 instance ( r ~ Underlying a, r ~ Underlying b
          , AdaptableDomains dynamic a
          , AdaptableDomains dynamic b ) => AdaptableDomains dynamic (a, b) where

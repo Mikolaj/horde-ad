@@ -6,6 +6,7 @@ module TestAdaptorSimplified
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
@@ -61,6 +62,7 @@ testTrees =
   , testCase "2matvecmulPP" testMatvecmulPP
   , testCase "2matmul2PP" testMatmul2PP
   , testCase "2bar" testBar
+  , testCase "2barS" testBarS
   , testCase "2baz old to force fooConstant" testBaz
   , testCase "2baz if repetition breaks things" testBaz
   , testCase "2baz again with renumbered terms" testBazRenumbered
@@ -564,6 +566,12 @@ testBar =
   assertEqualUpToEpsilon 1e-9
     (3.1435239435581166,-1.1053869545195814)
     (crev (bar @(ADVal (Flip OR.Array) Double 0)) (1.1, 2.2))
+
+testBarS :: Assertion
+testBarS =
+  assertEqualUpToEpsilon 1e-9
+    (3.1435239435581166,-1.1053869545195814)
+    (crev (bar @(ADVal (Flip OS.Array) Double '[])) (1.1, 2.2))
 
 barADVal2 :: forall a. RealFloat a
           => (a, a, a) -> a

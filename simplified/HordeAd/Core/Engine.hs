@@ -210,48 +210,46 @@ revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt.
 
+-- These work for f both ranked and shaped.
 crev
-  :: forall n r vals advals ranked.
-     ( ranked ~ ADVal (Flip OR.Array)
-     , AdaptableDomains (DynamicOf ranked) advals
-     , AdaptableDomains OD.Array vals
-     , KnownNat n, GoodScalar r
-     , r ~ Underlying vals, vals ~ Value vals
-     , vals ~ Value advals, Underlying advals ~ r )
-  => (advals -> ranked r n) -> vals
+  :: forall y r vals advals f.
+     ( DualPart f, HasSingletonDict f y, GoodScalar r
+     , DynamicOf f ~ OD.Array
+     , AdaptableDomains (DynamicOf (ADVal f)) advals
+     , AdaptableDomains OD.Array vals, RandomDomains vals
+     , vals ~ Value advals, r ~ Underlying vals, Underlying advals ~ r )
+  => (advals -> ADVal f r y) -> vals
   -> vals
 crev f vals = crevDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
 crevDt
-  :: forall n r vals advals ranked.
-     ( ranked ~ ADVal (Flip OR.Array)
-     , AdaptableDomains (DynamicOf ranked) advals
-     , AdaptableDomains OD.Array vals
-     , KnownNat n, GoodScalar r
-     , r ~ Underlying vals, vals ~ Value vals
-     , vals ~ Value advals, Underlying advals ~ r )
-  => (advals -> ranked r n) -> vals -> OR.Array n r
+  :: forall y r vals advals f.
+     ( DualPart f, HasSingletonDict f y, GoodScalar r
+     , DynamicOf f ~ OD.Array
+     , AdaptableDomains (DynamicOf (ADVal f)) advals
+     , AdaptableDomains OD.Array vals, RandomDomains vals
+     , vals ~ Value advals, r ~ Underlying vals, Underlying advals ~ r )
+  => (advals -> ADVal f r y) -> vals -> f r y
   -> vals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
-  :: forall n r vals advals ranked.
-     ( ranked ~ ADVal (Flip OR.Array)
-     , AdaptableDomains (DynamicOf ranked) advals
-     , AdaptableDomains OD.Array vals
-     , KnownNat n, GoodScalar r
-     , r ~ Underlying vals, vals ~ Value vals
-     , vals ~ Value advals, Underlying advals ~ r )
-  => (advals -> ranked r n) -> vals -> Maybe (OR.Array n r)
+  :: forall y r vals advals f.
+     ( DualPart f, HasSingletonDict f y, GoodScalar r
+     , DynamicOf f ~ OD.Array
+     , AdaptableDomains (DynamicOf (ADVal f)) advals
+     , AdaptableDomains OD.Array vals, RandomDomains vals
+     , vals ~ Value advals, r ~ Underlying vals, Underlying advals ~ r )
+  => (advals -> ADVal f r y) -> vals -> Maybe (f r y)
   -> vals
 crevDtMaybe f vals dt =
   let g inputs = f $ parseDomains vals inputs
-  in parseDomains vals $ fst $ revOnDomains (Flip <$> dt) g (toDomains vals)
+  in parseDomains (toValue vals) $ fst $ revOnDomains dt g (toDomains vals)
 
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
--- This works for f both ranked and shaped.
+-- These work for f both ranked and shaped.
 revOnADInputs
   :: ( DualPart f, HasSingletonDict f y, GoodScalar r
      , DynamicOf f ~ OD.Array )

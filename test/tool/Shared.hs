@@ -35,6 +35,9 @@ instance HasShape (OD.Array a) where
 instance HasShape (Flip OR.Array a n) where
   shapeL = OR.shapeL . runFlip
 
+instance OS.Shape sh => HasShape (Flip OS.Array a sh) where
+  shapeL = OS.shapeL . runFlip
+
 instance HasShape (LA.Matrix a) where
   shapeL matrix = [LA.rows matrix, LA.cols matrix]
 
@@ -54,8 +57,13 @@ instance (VS.Storable a) => Linearizable (VS.Vector a) a where
 instance (VS.Storable a) => Linearizable (OD.Array a) a where
   linearize = OD.toList
 
-instance (VS.Storable a, OS.Shape sh) => Linearizable (OS.Array sh a) a where
+instance (VS.Storable a, OS.Shape sh)
+         => Linearizable (OS.Array sh a) a where
   linearize = OS.toList
+
+instance (VS.Storable a, OS.Shape sh)
+         => Linearizable (Flip OS.Array a sh) a where
+  linearize = OS.toList . runFlip
 
 instance (VS.Storable a) => Linearizable (OR.Array n a) a where
   linearize = OR.toList
