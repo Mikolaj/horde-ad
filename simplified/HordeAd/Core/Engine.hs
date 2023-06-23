@@ -130,29 +130,6 @@ revDt
   => (astvals -> AstRanked r n) -> vals -> Flip OR.Array r n -> vals
 revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
 
-revAstOnDomains
-  :: forall r n ranked.
-     ( ranked ~ Flip OR.Array
-     , InterpretAstR ranked r, KnownNat n )
-  => (Domains (ADValClown AstDynamic) r -> ADVal AstRanked r n)
-  -> Domains OD.Array r -> Maybe (ranked r n)
-  -> (Domains OD.Array r, ranked r n)
--- The functions in which @revAstOnDomains@ inlines are not inlined
--- themselves in client code, so the bloat is limited.
-{-# INLINE revAstOnDomains #-}
-revAstOnDomains f parameters =
-  revAstOnDomainsEval (fst $ revAstOnDomainsF f parameters) parameters
-
-revAstOnDomainsF
-  :: forall r n.
-     (KnownNat n, GoodScalar r)
-  => (Domains (ADValClown AstDynamic) r -> ADVal AstRanked r n)
-  -> DomainsOD r
-  -> (ADAstArtifact6 AstRanked r n, Dual AstRanked r n)
-{-# INLINE revAstOnDomainsF #-}
-revAstOnDomainsF f parameters  =
-  revAstOnDomainsFun parameters (\varInputs _ _ -> f varInputs)
-
 revAstOnDomainsFun
   :: forall r n. (KnownNat n, GoodScalar r)
   => DomainsOD r
@@ -198,6 +175,32 @@ revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
         interpretAstDomainsDummy envDt emptyMemo gradient
       primalTensor = snd $ interpretAst env1 memo1 primal
   in (gradientDomain, primalTensor)
+
+
+-- * Simplified gradient producers that have no adaptors; used for tests
+
+revAstOnDomains
+  :: forall r n ranked.
+     ( ranked ~ Flip OR.Array
+     , InterpretAstR ranked r, KnownNat n )
+  => (Domains (ADValClown AstDynamic) r -> ADVal AstRanked r n)
+  -> Domains OD.Array r -> Maybe (ranked r n)
+  -> (Domains OD.Array r, ranked r n)
+-- The functions in which @revAstOnDomains@ inlines are not inlined
+-- themselves in client code, so the bloat is limited.
+{-# INLINE revAstOnDomains #-}
+revAstOnDomains f parameters =
+  revAstOnDomainsEval (fst $ revAstOnDomainsF f parameters) parameters
+
+revAstOnDomainsF
+  :: forall r n.
+     (KnownNat n, GoodScalar r)
+  => (Domains (ADValClown AstDynamic) r -> ADVal AstRanked r n)
+  -> DomainsOD r
+  -> (ADAstArtifact6 AstRanked r n, Dual AstRanked r n)
+{-# INLINE revAstOnDomainsF #-}
+revAstOnDomainsF f parameters  =
+  revAstOnDomainsFun parameters (\varInputs _ _ -> f varInputs)
 
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt.
