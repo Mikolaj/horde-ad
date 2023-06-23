@@ -100,11 +100,10 @@ revDtInterpret
   => AstEnv ranked r
   -> vals -> (astvals -> AstRanked r n)
   -> Domains (DynamicOf ranked) r -> Domains AstDynamic r
-  -> (ADAstVarNames (Flip OR.Array r n) r, ADAstVars r n)
+  -> [AstDynamicVarName r]
   -> ranked r n
 {-# INLINE revDtInterpret #-}
-revDtInterpret envInit valsInit f = \varInputs domains
-                                     ((_, vars1), (_, _)) ->
+revDtInterpret envInit valsInit f = \varInputs domains vars1 ->
   let ast = f $ parseDomains valsInit domains
       env1 = foldr extendEnvD envInit
              $ zip vars1 $ V.toList varInputs
@@ -159,7 +158,7 @@ revAstOnDomainsFun
   => DomainsOD r
   -> (Domains (ADValClown AstDynamic) r
       -> Domains AstDynamic r
-      -> (ADAstVarNames (Flip OR.Array r n) r, ADAstVars r n)
+      -> [AstDynamicVarName r]
       -> ADVal AstRanked r n)
   -> (ADAstArtifact6 AstRanked r n, Dual AstRanked r n)
 {-# INLINE revAstOnDomainsFun #-}
@@ -167,13 +166,13 @@ revAstOnDomainsFun parameters0 f =
   let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList parameters0
       -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !v6@(!vars@(!_, _), (astDt, asts1)) = funToAstAll shapes1 in
+      !(!vars@(!_, vars1), (astDt, asts1)) = funToAstAll shapes1 in
   let domains = V.fromList asts1
       deltaInputs = generateDeltaInputs @AstRanked domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D l primalBody deltaTopLevel) = f varInputs domains v6 in
+      !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
   let !(!astBindings, !gradient) =
         reverseDervative (length shapes1) undefined
                          (Just $ astDt (tshape primalBody)) deltaTopLevel
