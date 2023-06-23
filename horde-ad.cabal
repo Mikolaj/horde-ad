@@ -671,3 +671,46 @@ test-suite simplifiedOnlyTest
       , tasty >= 1.0
       , tasty-hunit
       , vector
+
+executable hang
+    import:           options, exe-options-test
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    hs-source-dirs:   test
+                      test/simplified
+
+    main-is:          Hang.hs
+
+    other-modules:    TestAdaptorSimplified
+                      TestConvSimplified
+                      TestGatherSimplified
+                      TestHighRankSimplified
+                      TestMnistCNNR
+                      TestMnistFCNNR
+                      TestMnistRNNR
+                      TestMnistRNNS
+
+    build-depends:
+      , horde-ad:horde-ad-simplified
+      , horde-ad:exampleLibrarySimplified
+      , horde-ad:testToolLibrarySimplified
+
+      , assert-failure
+      , base
+      , bifunctors
+      , Boolean
+      , enummapset
+      , ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
+      , hmatrix
+      , ilist
+      , orthotope
+      , random
+      , strict-containers
+      , tasty >= 1.0
+      , tasty-hunit
+      , vector

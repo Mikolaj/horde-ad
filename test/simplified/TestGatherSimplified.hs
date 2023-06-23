@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-module TestGatherSimplified (testTrees) where
+module TestGatherSimplified (testGatherNested1, testTrees) where
 
 import Prelude
 
