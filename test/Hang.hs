@@ -11,6 +11,10 @@ import           Test.Tasty.Runners
 import           EqEpsilon
 import qualified TestGatherSimplified
 
+import GHC.Debug.Stub
+
 main :: IO ()
-main = do
-  TestGatherSimplified.testGatherNested1
+main = withGhcDebug normalMain
+
+normalMain :: IO ()
+normalMain = TestGatherSimplified.testGatherNested1

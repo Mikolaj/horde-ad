@@ -5,3 +5,7 @@ package statistics
   ghc-options: -fsimpl-tick-factor=10000
 
 
+
+
+package *
+  ghc-options:        -finfo-table-map -fdistinct-constructor-tables
