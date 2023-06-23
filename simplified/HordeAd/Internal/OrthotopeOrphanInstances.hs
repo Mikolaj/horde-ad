@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes, CPP, UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances
@@ -22,17 +21,15 @@ import qualified Data.Array.Internal.RankedS as RS
 import qualified Data.Array.Internal.Shape as OS
 import qualified Data.Array.Internal.ShapedG as SG
 import qualified Data.Array.Internal.ShapedS as SS
-import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Boolean
-import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Numeric.LinearAlgebra.Data (arctan2)
 import           Type.Reflection (eqTypeRep, typeRep, (:~~:) (HRefl))
@@ -246,7 +243,7 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r)
   fromInteger = RS.A . RG.A [] . OI.constantT [] . fromInteger
     -- often fails and there's no fix
 
-instance (KnownNat n, Num r) => Num (ORB.Array n r) where
+-- instance (KnownNat n, Num r) => Num (ORB.Array n r) where
 
 type instance BooleanOf (OS.Array sh r) = Bool
 
@@ -284,8 +281,8 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
   recip = liftVR recip
   fromRational = OR.constant [] . fromRational
 
-instance (KnownNat n, Fractional r)
-         => Fractional (ORB.Array n r) where
+--instance (KnownNat n, Fractional r)
+--         => Fractional (ORB.Array n r) where
 
 instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
          => Fractional (OS.Array sh r) where
@@ -335,8 +332,8 @@ instance (Floating (Vector r), KnownNat n, Numeric r, Show r, Floating r)
   acosh = liftVR acosh
   atanh = liftVR atanh
 
-instance (KnownNat n, Floating r)
-         => Floating (ORB.Array n r) where
+--instance (KnownNat n, Floating r)
+--         => Floating (ORB.Array n r) where
 
 instance (Floating (Vector r), OS.Shape sh, Numeric r, Floating r)
          => Floating (OS.Array sh r) where
@@ -369,8 +366,8 @@ instance (Real (Vector r), KnownNat n, Numeric r, Show r, Ord r)
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (KnownNat n, Real r)
-         => Real (ORB.Array n r) where
+--instance (KnownNat n, Real r)
+--         => Real (ORB.Array n r) where
 
 instance (Real (Vector r), OS.Shape sh, Numeric r, Ord r)
          => Real (OS.Array sh r) where
@@ -388,9 +385,9 @@ instance ( RealFrac (Vector r), KnownNat n, Numeric r, Show r, Fractional r
          => RealFrac (OR.Array n r) where
   properFraction = undefined
 
-instance (KnownNat n, RealFrac r)
-         => RealFrac (ORB.Array n r) where
-  properFraction = undefined
+--instance (KnownNat n, RealFrac r)
+--         => RealFrac (ORB.Array n r) where
+--  properFraction = undefined
 
 instance (RealFrac (Vector r), OS.Shape sh, Numeric r, Fractional r, Ord r)
          => RealFrac (OS.Array sh r) where
@@ -401,6 +398,16 @@ instance (RealFloat (Vector r), Numeric r, Floating r, Ord r)
   atan2 = liftVT2NoAdapt atan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
+  floatRadix = undefined
+  floatDigits = undefined
+  floatRange = undefined
+  decodeFloat = undefined
+  encodeFloat = undefined
+  isNaN = undefined
+  isInfinite = undefined
+  isDenormalized = undefined
+  isNegativeZero = undefined
+  isIEEE = undefined
 
 instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
          , Ord r )
@@ -408,30 +415,35 @@ instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
   atan2 = liftVR2NoAdapt atan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
+  floatRadix = undefined
+  floatDigits = undefined
+  floatRange = undefined
+  decodeFloat = undefined
+  encodeFloat = undefined
+  isNaN = undefined
+  isInfinite = undefined
+  isDenormalized = undefined
+  isNegativeZero = undefined
+  isIEEE = undefined
 
-instance (KnownNat n, RealFloat r)
-         => RealFloat (ORB.Array n r) where
+--instance (KnownNat n, RealFloat r)
+--         => RealFloat (ORB.Array n r) where
 
 instance (RealFloat (Vector r), OS.Shape sh, Numeric r, Floating r, Ord r)
          => RealFloat (OS.Array sh r) where
   atan2 = liftVS2 atan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
-
-type instance Element (OD.Array r) = r
-
-type instance Element (OR.Array n r) = r
-
-type instance Element (OS.Array sh r) = r
-
-instance Numeric r => MonoFunctor (OD.Array r) where
-  omap = OD.mapA
-
-instance Numeric r => MonoFunctor (OR.Array n r) where
-  omap = OR.mapA
-
-instance (OS.Shape sh, Numeric r) => MonoFunctor (OS.Array sh r) where
-  omap = OS.mapA
+  floatRadix = undefined
+  floatDigits = undefined
+  floatRange = undefined
+  decodeFloat = undefined
+  encodeFloat = undefined
+  isNaN = undefined
+  isInfinite = undefined
+  isDenormalized = undefined
+  isNegativeZero = undefined
+  isIEEE = undefined
 
 instance Convert (OR.Array n a) (OD.Array a) where
   convert (RS.A (RG.A sh t)) = DS.A (DG.A sh t)
@@ -503,38 +515,13 @@ instance ( Floating (Vector r), Numeric r, RealFloat r )
   atan2 = arctan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
-
--- This instance are required by the @Real@ instance, which is required
--- by @RealFloat@, which gives @atan2@. No idea what properties
--- @Real@ requires here, so let it crash if it's really needed.
-instance Numeric r => Ord (Matrix r) where
-
-instance (Num (Vector r), Numeric r, Ord (Matrix r))
-         => Real (Matrix r) where
-  toRational = undefined
-    -- very low priority, since these are all extremely not continuous
-
-instance (Num (Vector r), Numeric r, Fractional r, Ord r, Ord (Matrix r))
-         => RealFrac (Matrix r) where
-  properFraction = undefined
-
-instance ( Floating (Vector r), Numeric r, RealFloat r, Ord (Matrix r) )
-         => RealFloat (Matrix r) where
-  atan2 = arctan2
-    -- we can be selective here and omit the other methods,
-    -- most of which don't even have a differentiable codomain
-
-type instance Element (Matrix r) = r
-
-type instance Element Double = Double
-
-type instance Element Float = Float
-
-instance Numeric r => MonoFunctor (Matrix r) where
-  omap = LA.cmap
-
-instance MonoFunctor Double where
-  omap f = f
-
-instance MonoFunctor Float where
-  omap f = f
+  floatRadix = undefined
+  floatDigits = undefined
+  floatRange = undefined
+  decodeFloat = undefined
+  encodeFloat = undefined
+  isNaN = undefined
+  isInfinite = undefined
+  isDenormalized = undefined
+  isNegativeZero = undefined
+  isIEEE = undefined

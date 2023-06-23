@@ -547,7 +547,6 @@ library horde-ad-simplified
       , ghc-typelits-natnormalise
       , hmatrix
       , ilist
-      , mono-traversable
       , orthotope
       , random
       , strict-containers
