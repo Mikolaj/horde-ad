@@ -8,4 +8,7 @@ package statistics
 
 
 package *
-  ghc-options:        -finfo-table-map -fdistinct-constructor-tables
+  ghc-options:        -finfo-table-map -fdistinct-constructor-tables -forig-thunk-info
+
+packages:
+  ../ghc-debug/stub
