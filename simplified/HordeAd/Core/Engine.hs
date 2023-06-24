@@ -260,9 +260,9 @@ revOnADInputs dt f inputs =
       -- before evaluation allocates new memory and new FFI is started.
       !(D _ v deltaTopLevel) = f inputs in
   let (astBindings, gradient) =
-        assert (null astBindings)
-        $ reverseDervative (V.length inputs) v dt deltaTopLevel
-  in (gradient, v)
+        reverseDervative (V.length inputs) v dt deltaTopLevel
+  in assert (null astBindings)
+     $ (gradient, v)
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
