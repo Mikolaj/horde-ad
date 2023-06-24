@@ -288,7 +288,7 @@ instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
          => Fractional (OS.Array sh r) where
   (/) = liftVS2 (/)
   recip = liftVS recip
-  fromRational = fromRational
+  fromRational = OS.constant . fromRational
 
 instance (Floating (Vector r), Numeric r, Floating r)
          => Floating (OD.Array r) where
