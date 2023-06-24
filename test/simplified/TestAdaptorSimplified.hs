@@ -36,6 +36,9 @@ testTrees :: [TestTree]
 testTrees =
   [ -- Tensor tests
     testCase "2zero" testZero
+  , testCase "2zeroS" testZeroS
+  , testCase "2zero2S" testZero2S
+  , testCase "2zero3S" testZero3S
   , testCase "2piecewiseLinearPP" testPiecewiseLinearPP
   , testCase "2piecewiseLinear2PP" testPiecewiseLinear2PP
   , testCase "2overleaf" testOverleaf
@@ -110,6 +113,28 @@ testZero =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Double @0 [] [0])
     (rev' @Double @0 (const 3) 42)
+
+testZeroS :: Assertion
+testZeroS =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[] [0])
+    (crev (let f :: Num a => a -> a
+               f = const 3
+           in f @(ADVal (Flip OS.Array) Double '[])) 42)
+
+testZero2S :: Assertion
+testZero2S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[] [1])
+    (crev (let f :: a -> a
+               f = id
+           in f @(ADVal (Flip OS.Array) Double '[])) 42)
+
+testZero3S :: Assertion
+testZero3S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[] [3.6174114266850617])
+    (crev (\x -> bar @(ADVal (Flip OS.Array) Double '[]) (x, x)) 1)
 
 testPiecewiseLinearPP :: Assertion
 testPiecewiseLinearPP = do
