@@ -363,40 +363,35 @@ instance (Floating (Vector r), OS.Shape sh, Numeric r, Floating r)
 
 instance (Real (Vector r), Numeric r, Show r, Ord r)
          => Real (OD.Array r) where
-  toRational = undefined
-    -- very low priority, since these are all extremely not continuous
+  toRational = undefined  -- TODO
 
 instance (Real (Vector r), KnownNat n, Numeric r, Show r, Ord r)
          => Real (OR.Array n r) where
-  toRational = undefined
-    -- very low priority, since these are all extremely not continuous
+  toRational = undefined  -- TODO
 
 instance (Real (Vector r), OS.Shape sh, Numeric r, Ord r)
          => Real (OS.Array sh r) where
-  toRational = undefined
-    -- very low priority, since these are all extremely not continuous
+  toRational = undefined  -- TODO
 
 instance (RealFrac (Vector r), Numeric r, Show r, Fractional r, Ord r)
          => RealFrac (OD.Array r) where
-  properFraction = undefined
+  properFraction = error "OD.properFraction: can't be implemented"
     -- The integral type doesn't have a Storable constraint,
-    -- so we can't implement this (nor RealFracB from Boolean package).
+    -- so we can't implement this (nor even RealFracB from Boolean package).
 
 instance ( RealFrac (Vector r), KnownNat n, Numeric r, Show r, Fractional r
          , Ord r )
          => RealFrac (OR.Array n r) where
-  properFraction = undefined
+  properFraction = error "OR.properFraction: can't be implemented"
 
 instance (RealFrac (Vector r), OS.Shape sh, Numeric r, Fractional r, Ord r)
          => RealFrac (OS.Array sh r) where
-  properFraction = undefined
+  properFraction = error "OS.properFraction: can't be implemented"
 
 instance (RealFloat (Vector r), Numeric r, Show r, Floating r, Ord r)
          => RealFloat (OD.Array r) where
   atan2 = liftVD2NoAdapt atan2
-    -- we can be selective here and omit the other methods,
-    -- most of which don't even have a differentiable codomain
-  floatRadix = undefined
+  floatRadix = undefined  -- TODO (and below)
   floatDigits = undefined
   floatRange = undefined
   decodeFloat = undefined
@@ -411,9 +406,7 @@ instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
          , Ord r )
          => RealFloat (OR.Array n r) where
   atan2 = liftVR2NoAdapt atan2
-    -- we can be selective here and omit the other methods,
-    -- most of which don't even have a differentiable codomain
-  floatRadix = undefined
+  floatRadix = undefined  -- TODO (and below)
   floatDigits = undefined
   floatRange = undefined
   decodeFloat = undefined
@@ -427,9 +420,7 @@ instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
 instance (RealFloat (Vector r), OS.Shape sh, Numeric r, Floating r, Ord r)
          => RealFloat (OS.Array sh r) where
   atan2 = liftVS2NoAdapt atan2
-    -- we can be selective here and omit the other methods,
-    -- most of which don't even have a differentiable codomain
-  floatRadix = undefined
+  floatRadix = undefined  -- TODO (and below)
   floatDigits = undefined
   floatRange = undefined
   decodeFloat = undefined
@@ -548,19 +539,16 @@ matchingRank =
 
 instance (Num (Vector r), Numeric r, Ord r)
          => Real (Vector r) where
-  toRational = undefined
-    -- very low priority, since these are all extremely not continuous
+  toRational = undefined  -- TODO
 
 instance (Num (Vector r), Numeric r, Fractional r, Ord r)
          => RealFrac (Vector r) where
-  properFraction = undefined
+  properFraction = error "Vector.properFraction: can't be implemented"
 
 instance ( Floating (Vector r), Numeric r, RealFloat r )
          => RealFloat (Vector r) where
   atan2 = arctan2
-    -- we can be selective here and omit the other methods,
-    -- most of which don't even have a differentiable codomain
-  floatRadix = undefined
+  floatRadix = undefined  -- TODO (and below)
   floatDigits = undefined
   floatRange = undefined
   decodeFloat = undefined
