@@ -285,7 +285,7 @@ fooNoGo v =
        bar ( treplicate0N shTail 3.14
            , bar ( tconst (OR.constant (shapeToList shTail) 3.14)
                  , tindex v [ix]) )
-       + ifB (tindex v (ix * 2 :. ZI) <=* 0 &&* 6 >* abs ix)
+       + ifB (tindex v (ix * 2 :. ZI) <=* treplicate0N shTail 0 &&* 6 >* abs ix)
                r (treplicate0N shTail 5 * r))
      / tslice 1 3 (tmap0N (\x -> ifB (x >* r0) r0 x) v)
      * tbuild1 3 (const $ tconst $ OR.constant (shapeToList shTail) 1)

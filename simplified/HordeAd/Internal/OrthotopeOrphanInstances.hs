@@ -25,10 +25,11 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Boolean
+import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat, Nat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Numeric.LinearAlgebra.Data (arctan2)
@@ -230,7 +231,7 @@ instance (Num (Vector r), Numeric r) => Num (OD.Array r) where
   negate = liftVT negate
   abs = liftVT abs
   signum = liftVT signum
-  fromInteger = OD.constant [] . fromInteger  -- often fails and there's no fix
+  fromInteger = error "OD.fromInteger: shape unknown"
 
 instance (Num (Vector r), KnownNat n, Numeric r, Show r)
          => Num (OR.Array n r) where
@@ -240,10 +241,10 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r)
   negate = liftVR negate
   abs = liftVR abs
   signum = liftVR signum
-  fromInteger = RS.A . RG.A [] . OI.constantT [] . fromInteger
-    -- often fails and there's no fix
-
--- instance (KnownNat n, Num r) => Num (ORB.Array n r) where
+  fromInteger = case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> OR.constant [] . fromInteger
+    Nothing -> error $ "OR.fromInteger: shape unknown at rank "
+                       ++ show (valueOf @n :: Int)
 
 type instance BooleanOf (OS.Array sh r) = Bool
 
@@ -273,16 +274,16 @@ instance (Num (Vector r), Numeric r, Fractional r)
          => Fractional (OD.Array r) where
   (/) = liftVT2 (/)
   recip = liftVT recip
-  fromRational = OD.constant [] . fromRational
+  fromRational = error "OD.fromRational: shape unknown"
 
 instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
          => Fractional (OR.Array n r) where
   (/) = liftVR2 (/)
   recip = liftVR recip
-  fromRational = OR.constant [] . fromRational
-
---instance (KnownNat n, Fractional r)
---         => Fractional (ORB.Array n r) where
+  fromRational = case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> OR.constant [] . fromRational
+    Nothing -> error $ "OR.fromRational: shape unknown at rank "
+                       ++ show (valueOf @n :: Int)
 
 instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
          => Fractional (OS.Array sh r) where
@@ -332,9 +333,6 @@ instance (Floating (Vector r), KnownNat n, Numeric r, Show r, Floating r)
   acosh = liftVR acosh
   atanh = liftVR atanh
 
---instance (KnownNat n, Floating r)
---         => Floating (ORB.Array n r) where
-
 instance (Floating (Vector r), OS.Shape sh, Numeric r, Floating r)
          => Floating (OS.Array sh r) where
   pi = OS.constant pi
@@ -366,9 +364,6 @@ instance (Real (Vector r), KnownNat n, Numeric r, Show r, Ord r)
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
---instance (KnownNat n, Real r)
---         => Real (ORB.Array n r) where
-
 instance (Real (Vector r), OS.Shape sh, Numeric r, Ord r)
          => Real (OS.Array sh r) where
   toRational = undefined
@@ -384,10 +379,6 @@ instance ( RealFrac (Vector r), KnownNat n, Numeric r, Show r, Fractional r
          , Ord r )
          => RealFrac (OR.Array n r) where
   properFraction = undefined
-
---instance (KnownNat n, RealFrac r)
---         => RealFrac (ORB.Array n r) where
---  properFraction = undefined
 
 instance (RealFrac (Vector r), OS.Shape sh, Numeric r, Fractional r, Ord r)
          => RealFrac (OS.Array sh r) where
@@ -425,9 +416,6 @@ instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
   isDenormalized = undefined
   isNegativeZero = undefined
   isIEEE = undefined
-
---instance (KnownNat n, RealFloat r)
---         => RealFloat (ORB.Array n r) where
 
 instance (RealFloat (Vector r), OS.Shape sh, Numeric r, Floating r, Ord r)
          => RealFloat (OS.Array sh r) where

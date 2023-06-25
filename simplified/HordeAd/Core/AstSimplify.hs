@@ -300,13 +300,16 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex r m1)) =
         then astIndex (unsafeCoerce $ astScatter sh v (vars, ix2)) rest1
           -- see analogous code in astGatherCase for how a million
           -- type applications is still not enough to make it type-check
-        else astIndex (astReplicateN @(m1 + n) @0 (unsafeCoerce sh) 0) rest1
+        else astIndex (astReplicate0N @(m1 + n) (unsafeCoerce sh) 0) rest1
   -- AstScatter sh v (vars2, ZI) ->
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
   Ast.AstScatter{} ->  -- a normal form
     Ast.AstIndex v0 ix
   Ast.AstFromList l | AstIntConst i <- i1 ->
-    astIndex (if 0 <= i && i < length l then l !! i else 0) rest1
+    astIndex (if 0 <= i && i < length l
+              then l !! i
+              else astReplicate0N @(m1 + n)
+                                 (dropShape $ shapeAst v0) 0) rest1
   Ast.AstFromList{} | ZI <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromList l ->
@@ -314,7 +317,10 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex r m1)) =
     Ast.AstIndex (astFromList $ map (`astIndexRec` rest1) l)
                   (singletonIndex i1)
   Ast.AstFromVector l | AstIntConst i <- i1 ->
-    astIndex (if 0 <= i && i < V.length l then l V.! i else 0) rest1
+    astIndex (if 0 <= i && i < V.length l
+              then l V.! i
+              else astReplicate0N @(m1 + n)
+                                  (dropShape $ shapeAst v0) 0) rest1
   Ast.AstFromVector{} | ZI <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromVector l ->
@@ -454,12 +460,20 @@ astReplicate k = \case
   v -> Ast.AstReplicate k v
 
 astReplicateN :: forall n p r. (KnownNat n, KnownNat p, GoodScalar r)
-          => ShapeInt (n + p) -> AstRanked r p -> AstRanked r (n + p)
+              => ShapeInt (n + p) -> AstRanked r p -> AstRanked r (n + p)
 astReplicateN sh =
   let go :: KnownNat n' => ShapeInt n' -> AstRanked r p -> AstRanked r (n' + p)
       go ZS v = v
       go (k :$ sh') v = astReplicate k $ go sh' v
   in go (takeShape sh)
+
+astReplicate0N :: forall n r. (KnownNat n, GoodScalar r)
+               => ShapeInt n -> AstRanked r 0 -> AstRanked r n
+astReplicate0N sh =
+  let go :: KnownNat n' => ShapeInt n' -> AstRanked r 0 -> AstRanked r n'
+      go ZS v = v
+      go (k :$ sh') v = astReplicate k $ go sh' v
+  in go sh
 
 astAppend :: (KnownNat n, GoodScalar r)
           => AstRanked r (1 + n) -> AstRanked r (1 + n) -> AstRanked r (1 + n)
@@ -705,7 +719,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       Ast.AstSumOfList (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     Ast.AstSumOfList{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstIota | AstIntConst i <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
-      Just Refl -> astReplicateN sh4 $ Ast.AstConst $ OR.scalar $ fromIntegral i
+      Just Refl -> astReplicate0N sh4 $ Ast.AstConst
+                   $ OR.scalar $ fromIntegral i
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
     Ast.AstIota ->  -- probably nothing can be simplified; a normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
@@ -734,12 +749,15 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                          (unsafeCoerce
                           $ astScatter @m4 @n4 @p1 sh v (vars, ix2))
                          (vars4, rest4)
-          else astGather sh4 (astReplicateN @(p1' + n') @0 (unsafeCoerce sh) 0)
+          else astGather sh4 (astReplicate0N @(p1' + n') (unsafeCoerce sh) 0)
                          (vars4, rest4)
     Ast.AstScatter{} ->  -- a normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromList l | AstIntConst i <- i4 ->
-      astGather sh4 (if 0 <= i && i < length l then l !! i else 0)
+      astGather sh4 (if 0 <= i && i < length l
+                     then l !! i
+                     else astReplicate0N @(p1' + n')
+                                         (dropShape $ shapeAst v4) 0)
                     (vars4, rest4)
     Ast.AstFromList{} | gatherFromNF vars4 ix4 ->
       Ast.AstGather sh4 v4 (vars4, ix4)
@@ -753,7 +771,10 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           i5 = subst i4
       in astGather sh4 (astFromList $ map f l) (varsFresh, i5 :. ixFresh)
     Ast.AstFromVector l | AstIntConst i <- i4 ->
-      astGather sh4 (if 0 <= i && i < V.length l then l V.! i else 0)
+      astGather sh4 (if 0 <= i && i < V.length l
+                     then l V.! i
+                     else astReplicate0N @(p1' + n')
+                                         (dropShape $ shapeAst v4) 0)
                     (vars4, rest4)
     Ast.AstFromVector{} | gatherFromNF vars4 ix4 ->
       Ast.AstGather sh4 v4 (vars4, ix4)
