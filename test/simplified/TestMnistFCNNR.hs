@@ -203,11 +203,11 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        let shapes1 = map (: []) nParams1
            (vars1, asts1) = unzip $ map funToAstD shapes1
            doms = V.fromList asts1
-           (varGlyph, astGlyph) =
-             funToAstR (singletonShape sizeMnistGlyphInt) id
-           (varLabel, astLabel) =
-             funToAstR (singletonShape sizeMnistLabelInt) id
-           ast :: AstRanked r 0
+       (varGlyph, astGlyph) <-
+         funToAstIOR (singletonShape sizeMnistGlyphInt) id
+       (varLabel, astLabel) <-
+         funToAstIOR (singletonShape sizeMnistLabelInt) id
+       let ast :: AstRanked r 0
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                    widthHidden widthHidden2 (astGlyph, astLabel)
                    (parseDomains valsInit doms)
@@ -316,11 +316,11 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let (varGlyph, astGlyph) =
-             funToAstR (singletonShape sizeMnistGlyphInt) id
-           (varLabel, astLabel) =
-             funToAstR (singletonShape sizeMnistLabelInt) id
-           envInit = extendEnvR varGlyph (tconstant astGlyph)
+       (varGlyph, astGlyph) <-
+         funToAstIOR (singletonShape sizeMnistGlyphInt) id
+       (varLabel, astLabel) <-
+         funToAstIOR (singletonShape sizeMnistLabelInt) id
+       let envInit = extendEnvR varGlyph (tconstant astGlyph)
                      $ extendEnvR varLabel (tconstant astLabel) EM.empty
            f = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                  widthHidden widthHidden2 (astGlyph, astLabel)
@@ -526,11 +526,11 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList domainsInit
            (vars1, asts1) = unzip $ map funToAstD shapes1
            doms = V.fromList asts1
-           (varGlyph, astGlyph) =
-             funToAstR (singletonShape sizeMnistGlyphInt) id
-           (varLabel, astLabel) =
-             funToAstR (singletonShape sizeMnistLabelInt) id
-           ast :: AstRanked r 0
+       (varGlyph, astGlyph) <-
+         funToAstIOR (singletonShape sizeMnistGlyphInt) id
+       (varLabel, astLabel) <-
+         funToAstIOR (singletonShape sizeMnistLabelInt) id
+       let ast :: AstRanked r 0
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
                    (astGlyph, astLabel) (parseDomains valsInit doms)
        -- Mimic how backprop tests and display it, even though tests
@@ -635,11 +635,11 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let (varGlyph, astGlyph) =
-             funToAstR (singletonShape sizeMnistGlyphInt) id
-           (varLabel, astLabel) =
-             funToAstR (singletonShape sizeMnistLabelInt) id
-           envInit = extendEnvR varGlyph (tconstant astGlyph)
+       (varGlyph, astGlyph) <-
+         funToAstIOR (singletonShape sizeMnistGlyphInt) id
+       (varLabel, astLabel) <-
+         funToAstIOR (singletonShape sizeMnistLabelInt) id
+       let envInit = extendEnvR varGlyph (tconstant astGlyph)
                      $ extendEnvR varLabel (tconstant astLabel) EM.empty
            f = MnistFcnnRanked2.afcnnMnistLoss2TensorData
                  (astGlyph, astLabel)

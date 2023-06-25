@@ -196,13 +196,13 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
            shapes1 = map (dshape @(Flip OR.Array)) $ V.toList domainsInit
            (vars1, asts1) = unzip $ map funToAstD shapes1
            doms = V.fromList asts1
-           (varGlyph, astGlyph) =
-             funToAstR
-               (miniBatchSize :$ sizeMnistHeightInt :$ sizeMnistWidthInt :$ ZS)
-               id
-           (varLabel, astLabel) =
-             funToAstR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
-           ast :: AstRanked r 0
+       (varGlyph, astGlyph) <-
+         funToAstIOR
+           (miniBatchSize :$ sizeMnistHeightInt :$ sizeMnistWidthInt :$ ZS)
+           id
+       (varLabel, astLabel) <-
+         funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
+       let ast :: AstRanked r 0
            ast = MnistCnnRanked2.convMnistLossFusedR
                    miniBatchSize (tprimalPart astGlyph, tprimalPart astLabel)
                                  (parseDomains valsInit doms)
@@ -309,13 +309,13 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           (varGlyph, astGlyph) =
-             funToAstR
-               (miniBatchSize :$ sizeMnistHeightInt :$ sizeMnistWidthInt :$ ZS)
-               id
-           (varLabel, astLabel) =
-             funToAstR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
-           envInit = extendEnvR varGlyph (tconstant astGlyph)
+       (varGlyph, astGlyph) <-
+         funToAstIOR
+           (miniBatchSize :$ sizeMnistHeightInt :$ sizeMnistWidthInt :$ ZS)
+           id
+       (varLabel, astLabel) <-
+         funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
+       let envInit = extendEnvR varGlyph (tconstant astGlyph)
                      $ extendEnvR varLabel (tconstant astLabel) EM.empty
            f = MnistCnnRanked2.convMnistLossFusedR
                  miniBatchSize (tprimalPart astGlyph, tprimalPart astLabel)

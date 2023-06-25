@@ -1,7 +1,7 @@
 -- | Operations that (usually impurely) generate fresh variables.
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
-  , funToAstR, funToAstD, ADAstVars, funToAstAll
+  , funToAstIOR, funToAstR, funToAstD, ADAstVars, funToAstAll
   , funToAstIIO, funToAstI, funToAstIndexIO, funToAstIndex
   , funToAstIOS, funToAstS, astRegisterFunS, funToAstIndexIOS, funToAstIndexS
   , resetVarCounter

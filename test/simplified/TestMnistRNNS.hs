@@ -301,13 +301,11 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           (varGlyph, astGlyph) =
-             funToAstS
-               {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-}
-               id
-           (varLabel, astLabel) =
-             funToAstS {-@'[batch_size, SizeMnistLabel]-} id
-           _envInit = extendEnvS @(ADVal AstRanked) @(ADVal AstShaped) @r
+       (varGlyph, astGlyph) <-
+         funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
+       (varLabel, astLabel) <-
+         funToAstIOS {-@'[batch_size, SizeMnistLabel]-} id
+       let _envInit = extendEnvS @(ADVal AstRanked) @(ADVal AstShaped) @r
                                 @'[batch_size, SizeMnistHeight, SizeMnistWidth]
                                 varGlyph (sconstant astGlyph)
                      $ extendEnvS @(ADVal AstRanked) @(ADVal AstShaped) @r
