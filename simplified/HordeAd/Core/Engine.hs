@@ -6,9 +6,8 @@
 -- are add-ons.
 module HordeAd.Core.Engine
   ( revDtFun, revDtInit, revDtInterpret, rev, revDt
-  , crev, crevDt
-  , revAstOnDomains, revOnDomains
-  , revAstOnDomainsF, revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
+  , crev, crevDt, revOnDomains
+  , revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
   , fwd, slowFwdOnADInputs, slowFwdOnDomains
   , generateDeltaInputs, makeADInputs, shapedToRanked
   ) where
@@ -21,6 +20,7 @@ import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
+import           Data.Maybe (isJust)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -46,9 +46,9 @@ revDtMaybe
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> AstRanked r n) -> vals -> Maybe (Flip OR.Array r n) -> vals
-revDtMaybe f vals dt =
-  let asts4 = fst $ revDtFun f vals
-  in parseDomains vals $ fst $ revAstOnDomainsEval asts4 (toDomains vals) dt
+revDtMaybe f vals mdt =
+  let asts4 = fst $ revDtFun (isJust mdt) f vals
+  in parseDomains vals $ fst $ revAstOnDomainsEval asts4 (toDomains vals) mdt
 
 revDtFun
   :: forall r n vals astvals ranked.
@@ -56,12 +56,12 @@ revDtFun
      , InterpretAstR ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> AstRanked r n) -> vals
+  => Bool -> (astvals -> AstRanked r n) -> vals
   -> (ADAstArtifact6 AstRanked r n, Dual AstRanked r n)
 {-# INLINE revDtFun #-}
-revDtFun f vals =
+revDtFun hasDt f vals =
   let parameters0 = toDomains vals
-  in revDtInit f vals EM.empty parameters0
+  in revDtInit hasDt f vals EM.empty parameters0
 
 revDtInit
   :: forall r n vals astvals ranked.
@@ -69,12 +69,12 @@ revDtInit
      , InterpretAstR ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals
      , vals ~ Value astvals, Underlying astvals ~ r)
-  => (astvals -> AstRanked r n) -> vals -> AstEnv ranked r
+  => Bool -> (astvals -> AstRanked r n) -> vals -> AstEnv ranked r
   -> DomainsOD r
   -> (ADAstArtifact6 AstRanked r n, Dual AstRanked r n)
 {-# INLINE revDtInit #-}
-revDtInit f vals envInit parameters0 =
-  revAstOnDomainsFun parameters0 (revDtInterpret envInit vals f)
+revDtInit hasDt f vals envInit parameters0 =
+  revAstOnDomainsFun hasDt parameters0 (revDtInterpret envInit vals f)
 
 revDtInterpret
   :: forall n r vals astvals ranked.
@@ -117,14 +117,14 @@ revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revAstOnDomainsFun
   :: forall r n. (KnownNat n, GoodScalar r)
-  => DomainsOD r
+  => Bool -> DomainsOD r
   -> (Domains (ADValClown AstDynamic) r
       -> Domains AstDynamic r
       -> [AstDynamicVarName r]
       -> ADVal AstRanked r n)
   -> (ADAstArtifact6 AstRanked r n, Dual AstRanked r n)
 {-# INLINE revAstOnDomainsFun #-}
-revAstOnDomainsFun parameters0 f =
+revAstOnDomainsFun hasDt parameters0 f =
   let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList parameters0
       -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
@@ -135,9 +135,9 @@ revAstOnDomainsFun parameters0 f =
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
-  let !(!astBindings, !gradient) =
-        reverseDervative (length shapes1) undefined
-                         (Just $ astDt (tshape primalBody)) deltaTopLevel
+  let mdt = if hasDt then Just $ astDt (tshape primalBody) else Nothing
+      !(!astBindings, !gradient) =
+        reverseDervative (length shapes1) primalBody mdt deltaTopLevel
   in ( ( vars
        , unletAstDomains6 astBindings l (dmkDomains gradient)
        , unletAst6 l primalBody )
@@ -160,32 +160,6 @@ revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
         interpretAstDomainsDummy envDt emptyMemo gradient
       primalTensor = snd $ interpretAst env1 memo1 primal
   in (gradientDomain, primalTensor)
-
-
--- * Simplified gradient producers that have no adaptors; used for tests
-
-revAstOnDomains
-  :: forall r n ranked.
-     ( ranked ~ Flip OR.Array
-     , InterpretAstR ranked r, KnownNat n )
-  => (Domains (ADValClown AstDynamic) r -> ADVal AstRanked r n)
-  -> Domains OD.Array r -> Maybe (ranked r n)
-  -> (Domains OD.Array r, ranked r n)
--- The functions in which @revAstOnDomains@ inlines are not inlined
--- themselves in client code, so the bloat is limited.
-{-# INLINE revAstOnDomains #-}
-revAstOnDomains f parameters =
-  revAstOnDomainsEval (fst $ revAstOnDomainsF f parameters) parameters
-
-revAstOnDomainsF
-  :: forall r n.
-     (KnownNat n, GoodScalar r)
-  => (Domains (ADValClown AstDynamic) r -> ADVal AstRanked r n)
-  -> DomainsOD r
-  -> (ADAstArtifact6 AstRanked r n, Dual AstRanked r n)
-{-# INLINE revAstOnDomainsF #-}
-revAstOnDomainsF f parameters  =
-  revAstOnDomainsFun parameters (\varInputs _ _ -> f varInputs)
 
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt.
@@ -240,12 +214,12 @@ revOnADInputs
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE revOnADInputs #-}
-revOnADInputs dt f inputs =
+revOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D _ v deltaTopLevel) = f inputs in
   let (astBindings, gradient) =
-        reverseDervative (V.length inputs) v dt deltaTopLevel
+        reverseDervative (V.length inputs) v mdt deltaTopLevel
   in assert (null astBindings)
      $ (gradient, v)
 

@@ -19,6 +19,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstSimplify
+import HordeAd.Core.Delta (Dual)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorADVal
@@ -58,7 +59,17 @@ rev' f vals =
       g9 :: Domains (ADValClown AstDynamic) r
          -> ADVal AstRanked r m
       g9 inputs = f $ parseDomains vals inputs
-      (advalGrad9, value9) = revAstOnDomains g9 parameters dt
+      revAstOnDomainsF
+        :: forall r2 n2.
+           (KnownNat n2, GoodScalar r2)
+        => (Domains (ADValClown AstDynamic) r2 -> ADVal AstRanked r2 n2)
+        -> DomainsOD r2
+        -> (ADAstArtifact6 AstRanked r2 n2, Dual AstRanked r2 n2)
+      {-# INLINE revAstOnDomainsF #-}
+      revAstOnDomainsF f2 parameters2  =
+        revAstOnDomainsFun True parameters2 (\varInputs _ _ -> f2 varInputs)
+      (advalGrad9, value9) =
+        revAstOnDomainsEval (fst $ revAstOnDomainsF g9 parameters) parameters dt
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady f1 r
         => (f1 r m -> AstRanked r m) -> (AstRanked r n -> f1 r n)

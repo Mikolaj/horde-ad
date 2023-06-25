@@ -400,7 +400,7 @@ testGatherSimp34 = do
 -- scatters instead of gathers
 
 scatterNested1 :: forall ranked r. ADReady ranked r
-              => ranked r 2 -> ranked r 1
+               => ranked r 2 -> ranked r 1
 scatterNested1 t =
   tscatter @ranked @r @2
           (2 :$ ZS)
@@ -414,8 +414,7 @@ testScatterNested1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @Double @1 scatterNested1
-                               (treplicate 7 $ tfromList [0, 1]))
+    (rev' @Double @1 scatterNested1 (treplicate 7 $ tfromList [0, 1]))
 
 testScatterNestedBuild1 :: Assertion
 testScatterNestedBuild1 =
@@ -428,7 +427,7 @@ testScatterNestedBuild1 =
           (treplicate 7 $ tfromList [0, 1]))
 
 scatter1 :: forall ranked r. ADReady ranked r
-        => ranked r 2 -> ranked r 1
+         => ranked r 2 -> ranked r 1
 scatter1 t =
   tscatter @ranked @r @2
           (2 :$ ZS)
@@ -440,8 +439,7 @@ testScatter1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
                  [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @Double @1 scatter1
-                               (treplicate 7 $ tfromList [0, 1]))
+    (rev' @Double @1 scatter1 (treplicate 7 $ tfromList [0, 1]))
 
 testScatterBuild1 :: Assertion
 testScatterBuild1 =
