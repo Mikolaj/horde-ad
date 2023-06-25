@@ -5,7 +5,7 @@
 -- high-level API of the horde-ad library. Adaptors, optimizers, etc.,
 -- are add-ons.
 module HordeAd.Core.Engine
-  ( revL, revDtMaybeL, revDtFun, revDtInit, revDtInterpret, rev, revDt
+  ( revDtFun, revDtInit, revDtInterpret, rev, revDt
   , crev, crevDt
   , revAstOnDomains, revOnDomains
   , revAstOnDomainsF, revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
@@ -38,32 +38,17 @@ import HordeAd.Core.TensorClass
 
 -- * Gradient adaptors
 
--- These only work with non-scalar codomain. A fully general version
--- is possible, but the user has to write many more type applications.
-revL
+revDtMaybe
   :: forall r n vals astvals ranked.
      ( ranked ~ ADVal AstRanked
      , InterpretAstR ranked r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> AstRanked r n) -> [vals] -> [vals]
-revL f valsAll = revDtMaybeL f valsAll Nothing
-
-revDtMaybeL
-  :: forall r n vals astvals ranked.
-     ( ranked ~ ADVal AstRanked
-     , InterpretAstR ranked r, KnownNat n
-     , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals
-     , Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> AstRanked r n) -> [vals] -> Maybe (Flip OR.Array r n) -> [vals]
-revDtMaybeL _ [] _ = []
-revDtMaybeL f valsAll@(vals : _) dt =
+  => (astvals -> AstRanked r n) -> vals -> Maybe (Flip OR.Array r n) -> vals
+revDtMaybe f vals dt =
   let asts4 = fst $ revDtFun f vals
-      h val = parseDomains val $ fst
-              $ revAstOnDomainsEval asts4 (toDomains val) dt
-  in map h valsAll
+  in parseDomains vals $ fst $ revAstOnDomainsEval asts4 (toDomains vals) dt
 
 revDtFun
   :: forall r n vals astvals ranked.
@@ -117,7 +102,7 @@ rev
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> AstRanked r n) -> vals -> vals
-rev f vals = head $ revL f [vals]
+rev f vals = revDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
 revDt
@@ -128,7 +113,7 @@ revDt
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> AstRanked r n) -> vals -> Flip OR.Array r n -> vals
-revDt f vals dt = head $ revDtMaybeL f [vals] (Just dt)
+revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revAstOnDomainsFun
   :: forall r n. (KnownNat n, GoodScalar r)
