@@ -27,6 +27,7 @@ import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Boolean
 import           Data.Kind (Constraint, Type)
+import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -293,7 +294,8 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   tzero sh = treplicate0N sh 0
   tsumOfList :: (GoodScalar r, KnownNat n)
              => [ranked r n] -> ranked r n  -- TODO: declare nonempty
-  tsumOfList = sum
+  tsumOfList [] = 0
+  tsumOfList l = foldl1' (+) l  -- avoid unknown shape of @0@ in @sum@
   tmult :: (GoodScalar r, KnownNat n)
         => ranked r n -> ranked r n -> ranked r n
   tmult = (*)
