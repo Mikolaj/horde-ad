@@ -49,6 +49,36 @@ liftVD op t@(DS.A (DG.A sh oit)) =
     -- avoids applying op to any vector element not in the tensor
     -- (or at least ensures the right asymptotic behaviour, IDK)
 
+-- Inspired by OI.zipWithT.
+liftVD2
+  :: (Numeric r, Show r)
+  => (Vector r -> Vector r -> Vector r)
+  -> OD.Array r -> OD.Array r -> OD.Array r
+liftVD2 op t@(DS.A (DG.A sh oit@(OI.T sst _ vt)))
+           u@(DS.A (DG.A shu oiu@(OI.T _ _ vu)))
+        = assert (sh == shu `blame` (t, u)) $
+  case (V.length vt, V.length vu) of
+    (1, 1) ->
+      -- If both vectors have length 1 then it's a degenerate case.
+      DS.A $ DG.A sh $ OI.T sst 0 $ vt `op` vu
+    (1, _) ->
+      -- First vector has length 1, hmatrix should auto-expand to match second.
+      if product sh >= V.length vu
+      then DS.A $ DG.A sh $ oiu {OI.values = vt `op` vu}
+      else OD.fromVector sh $ vt `op` OD.toVector u
+    (_, 1) ->
+      -- Second vector has length 1, hmatrix should auto-expand to match first.
+      if product sh >= V.length vt
+      then DS.A $ DG.A sh $ oit {OI.values = vt `op` vu}
+      else OD.fromVector sh $ OD.toVector t `op` vu
+    (_, _) ->
+      if product sh >= V.length vt
+         && product sh >= V.length vu
+         && OI.strides oit == OI.strides oiu
+      then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
+           $ DS.A $ DG.A sh $ oit {OI.values = vt `op` vu}
+      else OD.fromVector sh $ OD.toVector t `op` OD.toVector u
+
 -- For the operations where hmatrix can't adapt/expand scalars.
 liftVD2NoAdapt
   :: (Numeric r, Show r)
@@ -90,36 +120,6 @@ liftVD2NoAdapt op t@(DS.A (DG.A sh oit@(OI.T sst _ vt)))
         -- avoids applying op to any vector element not in the tensor
         -- (or at least ensures the right asymptotic behaviour, IDK)
 
--- Inspired by OI.zipWithT.
-liftVD2
-  :: (Numeric r, Show r)
-  => (Vector r -> Vector r -> Vector r)
-  -> OD.Array r -> OD.Array r -> OD.Array r
-liftVD2 op t@(DS.A (DG.A sh oit@(OI.T sst _ vt)))
-           u@(DS.A (DG.A shu oiu@(OI.T _ _ vu)))
-        = assert (sh == shu `blame` (t, u)) $
-  case (V.length vt, V.length vu) of
-    (1, 1) ->
-      -- If both vectors have length 1 then it's a degenerate case.
-      DS.A $ DG.A sh $ OI.T sst 0 $ vt `op` vu
-    (1, _) ->
-      -- First vector has length 1, hmatrix should auto-expand to match second.
-      if product sh >= V.length vu
-      then DS.A $ DG.A sh $ oiu {OI.values = vt `op` vu}
-      else OD.fromVector sh $ vt `op` OD.toVector u
-    (_, 1) ->
-      -- Second vector has length 1, hmatrix should auto-expand to match first.
-      if product sh >= V.length vt
-      then DS.A $ DG.A sh $ oit {OI.values = vt `op` vu}
-      else OD.fromVector sh $ OD.toVector t `op` vu
-    (_, _) ->
-      if product sh >= V.length vt
-         && product sh >= V.length vu
-         && OI.strides oit == OI.strides oiu
-      then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
-           $ DS.A $ DG.A sh $ oit {OI.values = vt `op` vu}
-      else OD.fromVector sh $ OD.toVector t `op` OD.toVector u
-
 -- See the various comments above; we don't repeat them below.
 liftVR
   :: (Numeric r, KnownNat n)
@@ -129,6 +129,31 @@ liftVR op t@(RS.A (RG.A sh oit)) =
   if product sh >= V.length (OI.values oit)
   then RS.A $ RG.A sh $ oit {OI.values = op $ OI.values oit}
   else OR.fromVector sh $ op $ OR.toVector t
+
+liftVR2
+  :: (Numeric r, Show r, KnownNat n)
+  => (Vector r -> Vector r -> Vector r)
+  -> OR.Array n r -> OR.Array n r -> OR.Array n r
+liftVR2 op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
+           u@(RS.A (RG.A shu oiu@(OI.T _ _ vu)))
+        = assert (sh == shu `blame` (t, u)) $
+  case (V.length vt, V.length vu) of
+    (1, 1) -> RS.A $ RG.A sh $ OI.T sst 0 $ vt `op` vu
+    (1, _) ->
+      if product sh >= V.length vu
+      then RS.A $ RG.A sh $ oiu {OI.values = vt `op` vu}
+      else OR.fromVector sh $ vt `op` OR.toVector u
+    (_, 1) ->
+      if product sh >= V.length vt
+      then RS.A $ RG.A sh $ oit {OI.values = vt `op` vu}
+      else OR.fromVector sh $ OR.toVector t `op` vu
+    (_, _) ->
+      if product sh >= V.length vt
+         && product sh >= V.length vu
+         && OI.strides oit == OI.strides oiu
+      then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
+           $ RS.A $ RG.A sh $ oit {OI.values = vt `op` vu}
+      else OR.fromVector sh $ OR.toVector t `op` OR.toVector u
 
 liftVR2NoAdapt
   :: (Numeric r, Show r, KnownNat n)
@@ -151,31 +176,6 @@ liftVR2NoAdapt op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
                 $ oit {OI.values = vt `op` LA.konst (vu V.! 0) (V.length vt)}
       else let v = OR.toVector t
            in OR.fromVector sh $ v `op` LA.konst (vu V.! 0) (V.length v)
-    (_, _) ->
-      if product sh >= V.length vt
-         && product sh >= V.length vu
-         && OI.strides oit == OI.strides oiu
-      then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
-           $ RS.A $ RG.A sh $ oit {OI.values = vt `op` vu}
-      else OR.fromVector sh $ OR.toVector t `op` OR.toVector u
-
-liftVR2
-  :: (Numeric r, Show r, KnownNat n)
-  => (Vector r -> Vector r -> Vector r)
-  -> OR.Array n r -> OR.Array n r -> OR.Array n r
-liftVR2 op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
-           u@(RS.A (RG.A shu oiu@(OI.T _ _ vu)))
-        = assert (sh == shu `blame` (t, u)) $
-  case (V.length vt, V.length vu) of
-    (1, 1) -> RS.A $ RG.A sh $ OI.T sst 0 $ vt `op` vu
-    (1, _) ->
-      if product sh >= V.length vu
-      then RS.A $ RG.A sh $ oiu {OI.values = vt `op` vu}
-      else OR.fromVector sh $ vt `op` OR.toVector u
-    (_, 1) ->
-      if product sh >= V.length vt
-      then RS.A $ RG.A sh $ oit {OI.values = vt `op` vu}
-      else OR.fromVector sh $ OR.toVector t `op` vu
     (_, _) ->
       if product sh >= V.length vt
          && product sh >= V.length vu
