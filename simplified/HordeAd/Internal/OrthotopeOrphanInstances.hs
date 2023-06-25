@@ -185,16 +185,65 @@ liftVR2NoAdapt op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
       else OR.fromVector sh $ OR.toVector t `op` OR.toVector u
 
 liftVS
-  :: (Numeric r, OS.Shape sh)
+  :: forall sh r. (Numeric r, OS.Shape sh)
   => (Vector r -> Vector r)
   -> OS.Array sh r -> OS.Array sh r
-liftVS op t = OS.fromVector $ op $ OS.toVector t
+liftVS op t@(SS.A (SG.A oit)) =
+  if OS.sizeT @sh >= V.length (OI.values oit)
+  then SS.A $ SG.A $ oit {OI.values = op $ OI.values oit}
+  else OS.fromVector $ op $ OS.toVector t
 
 liftVS2
-  :: (Numeric r, OS.Shape sh)
+  :: forall sh r. (Numeric r, OS.Shape sh)
   => (Vector r -> Vector r -> Vector r)
   -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
-liftVS2 op t u = OS.fromVector $ OS.toVector t `op` OS.toVector u
+liftVS2 op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
+           u@(SS.A (SG.A oiu@(OI.T _ _ vu))) =
+  case (V.length vt, V.length vu) of
+    (1, 1) -> SS.A $ SG.A $ OI.T sst 0 $ vt `op` vu
+    (1, _) ->
+      if OS.sizeT @sh >= V.length vu
+      then SS.A $ SG.A $ oiu {OI.values = vt `op` vu}
+      else OS.fromVector $ vt `op` OS.toVector u
+    (_, 1) ->
+      if OS.sizeT @sh >= V.length vt
+      then SS.A $ SG.A $ oit {OI.values = vt `op` vu}
+      else OS.fromVector $ OS.toVector t `op` vu
+    (_, _) ->
+      if OS.sizeT @sh >= V.length vt
+         && OS.sizeT @sh >= V.length vu
+         && OI.strides oit == OI.strides oiu
+      then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
+           $ SS.A $ SG.A $ oit {OI.values = vt `op` vu}
+      else OS.fromVector $ OS.toVector t `op` OS.toVector u
+
+liftVS2NoAdapt
+  :: forall sh r. (Numeric r, OS.Shape sh)
+  => (Vector r -> Vector r -> Vector r)
+  -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
+liftVS2NoAdapt op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
+                  u@(SS.A (SG.A oiu@(OI.T _ _ vu))) =
+  case (V.length vt, V.length vu) of
+    (1, 1) -> SS.A $ SG.A $ OI.T sst 0 $ vt `op` vu
+    (1, _) ->
+      if OS.sizeT @sh >= V.length vu
+      then SS.A $ SG.A
+                $ oiu {OI.values = LA.konst (vt V.! 0) (V.length vu) `op` vu}
+      else let v = OS.toVector u
+           in OS.fromVector $ LA.konst (vt V.! 0) (V.length v) `op` v
+    (_, 1) ->
+      if OS.sizeT @sh >= V.length vt
+      then SS.A $ SG.A
+                $ oit {OI.values = vt `op` LA.konst (vu V.! 0) (V.length vt)}
+      else let v = OS.toVector t
+           in OS.fromVector $ v `op` LA.konst (vu V.! 0) (V.length v)
+    (_, _) ->
+      if OS.sizeT @sh >= V.length vt
+         && OS.sizeT @sh >= V.length vu
+         && OI.strides oit == OI.strides oiu
+      then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
+           $ SS.A $ SG.A $ oit {OI.values = vt `op` vu}
+      else OS.fromVector $ OS.toVector t `op` OS.toVector u
 
 -- These constraints force @UndecidableInstances@.
 instance (Num (Vector r), Numeric r, Show r) => Num (OD.Array r) where
@@ -377,7 +426,7 @@ instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
 
 instance (RealFloat (Vector r), OS.Shape sh, Numeric r, Floating r, Ord r)
          => RealFloat (OS.Array sh r) where
-  atan2 = liftVS2 atan2
+  atan2 = liftVS2NoAdapt atan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
   floatRadix = undefined
