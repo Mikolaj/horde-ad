@@ -74,17 +74,17 @@ astRegisterADShareS !r !l = unsafePerformIO $ do
       !r2 = AstVarS freshId
   return (l2, r2)
 
-funToAstRIO :: ShapeInt n -> (AstRanked r n -> AstRanked r m)
+funToAstIOR :: ShapeInt n -> (AstRanked r n -> AstRanked r m)
             -> IO (AstVarName (Flip OR.Array r n), AstRanked r m)
-{-# INLINE funToAstRIO #-}
-funToAstRIO sh f = do
+{-# INLINE funToAstIOR #-}
+funToAstIOR sh f = do
   freshId <- unsafeGetFreshAstVarId
   return (AstVarName freshId, f (AstVar sh freshId))
 
 funToAstR :: ShapeInt n -> (AstRanked r n -> AstRanked r m)
           -> (AstVarName (Flip OR.Array r n), AstRanked r m)
 {-# NOINLINE funToAstR #-}
-funToAstR sh f = unsafePerformIO $ funToAstRIO sh f
+funToAstR sh f = unsafePerformIO $ funToAstIOR sh f
 
 funToAstRshIO :: IO ( AstVarName (Flip OR.Array r n)
                     , ShapeInt n -> AstRanked r n )

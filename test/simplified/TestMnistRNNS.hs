@@ -189,13 +189,11 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                      $ V.toList domainsInit
            (vars1, asts1) = unzip $ map funToAstD shapes1
            doms = V.fromList asts1
-           (varGlyph, astGlyph) =
-             funToAstS
-               {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-}
-               id
-           (varLabel, astLabel) =
-             funToAstS {-@'[batch_size, SizeMnistLabel]-} id
-           ast :: AstShaped r '[]
+       (varGlyph, astGlyph) <-
+         funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
+       (varLabel, astLabel) <-
+         funToAstIOS {-@'[batch_size, SizeMnistLabel]-} id
+       let ast :: AstShaped r '[]
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (sprimalPart astGlyph, sprimalPart astLabel)
                                     (parseDomains valsInit doms)
