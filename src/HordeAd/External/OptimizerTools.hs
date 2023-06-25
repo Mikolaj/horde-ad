@@ -21,7 +21,7 @@ import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
 import HordeAd.Internal.Delta (Domains (..))
-import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
+import HordeAd.Internal.OrthotopeOrphanInstances (liftVD2)
 import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient :: (Numeric r, Floating (Vector r))
@@ -40,7 +40,7 @@ updateWithGradient gamma (Domains params0 params1 params2 paramsX)
       !params2New = V.zipWith update2 params2 gradient2
       updateX i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
-                    else liftVT2 updateVector i r
+                    else liftVD2 updateVector i r
       !paramsXNew = V.zipWith updateX paramsX gradientX
   in Domains params0New params1New params2New paramsXNew
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}

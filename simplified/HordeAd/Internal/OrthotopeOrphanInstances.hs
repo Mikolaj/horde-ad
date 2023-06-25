@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances
-  ( liftVT, liftVT2, liftVR, liftVR2, liftVS, liftVS2
+  ( liftVD, liftVD2, liftVR, liftVR2, liftVS, liftVS2
   , MapSucc, trustMeThisIsAPermutation, sameShape, matchingRank
   ) where
 
@@ -36,10 +36,10 @@ import           Numeric.LinearAlgebra.Data (arctan2)
 import           Type.Reflection (eqTypeRep, typeRep, (:~~:) (HRefl))
 import           Unsafe.Coerce (unsafeCoerce)
 
-liftVT :: Numeric r
+liftVD :: Numeric r
        => (Vector r -> Vector r)
        -> OD.Array r -> OD.Array r
-liftVT op (DS.A (DG.A sh oit)) =
+liftVD op (DS.A (DG.A sh oit)) =
   if product sh >= V.length (OI.values oit)
   then DS.A $ DG.A sh $ oit {OI.values = op $ OI.values oit}
   else OD.fromVector sh $ op $ OI.toVectorT sh oit
@@ -47,10 +47,10 @@ liftVT op (DS.A (DG.A sh oit)) =
     -- (or at least ensures the right asymptotic behaviour, IDK)
 
 -- For the operations where hmatrix can't adapt/expand scalars.
-liftVT2NoAdapt :: Numeric r
+liftVD2NoAdapt :: Numeric r
                => (Vector r -> Vector r -> Vector r)
                -> OD.Array r -> OD.Array r -> OD.Array r
-liftVT2NoAdapt op (DS.A (DG.A sht oit@(OI.T sst _ vt)))
+liftVD2NoAdapt op (DS.A (DG.A sht oit@(OI.T sst _ vt)))
                   (DS.A (DG.A shu oiu@(OI.T ssu _ vu))) =
   case (V.length vt, V.length vu) of
     (1, 1) ->
@@ -88,10 +88,10 @@ liftVT2NoAdapt op (DS.A (DG.A sht oit@(OI.T sst _ vt)))
         -- (or at least ensures the right asymptotic behaviour, IDK)
 
 -- Inspired by OI.zipWithT.
-liftVT2 :: Numeric r
+liftVD2 :: Numeric r
         => (Vector r -> Vector r -> Vector r)
         -> OD.Array r -> OD.Array r -> OD.Array r
-liftVT2 op (DS.A (DG.A sht oit@(OI.T sst _ vt)))
+liftVD2 op (DS.A (DG.A sht oit@(OI.T sst _ vt)))
            (DS.A (DG.A shu oiu@(OI.T ssu _ vu))) =
   case (V.length vt, V.length vu) of
     (1, 1) ->
@@ -225,12 +225,12 @@ instance (Ord r, Numeric r) => OrdB (OR.Array n r) where
 
 -- These constraints force @UndecidableInstances@.
 instance (Num (Vector r), Numeric r) => Num (OD.Array r) where
-  (+) = liftVT2 (+)
-  (-) = liftVT2 (-)
-  (*) = liftVT2 (*)
-  negate = liftVT negate
-  abs = liftVT abs
-  signum = liftVT signum
+  (+) = liftVD2 (+)
+  (-) = liftVD2 (-)
+  (*) = liftVD2 (*)
+  negate = liftVD negate
+  abs = liftVD abs
+  signum = liftVD signum
   fromInteger = error "OD.fromInteger: shape unknown"
 
 instance (Num (Vector r), KnownNat n, Numeric r, Show r)
@@ -272,8 +272,8 @@ instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
 
 instance (Num (Vector r), Numeric r, Fractional r)
          => Fractional (OD.Array r) where
-  (/) = liftVT2 (/)
-  recip = liftVT recip
+  (/) = liftVD2 (/)
+  recip = liftVD recip
   fromRational = error "OD.fromRational: shape unknown"
 
 instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
@@ -294,23 +294,23 @@ instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
 instance (Floating (Vector r), Numeric r, Floating r)
          => Floating (OD.Array r) where
   pi = OD.constant [] pi
-  exp = liftVT exp
-  log = liftVT log
-  sqrt = liftVT sqrt
-  (**) = liftVT2 (**)
-  logBase = liftVT2 logBase
-  sin = liftVT sin
-  cos = liftVT cos
-  tan = liftVT tan
-  asin = liftVT asin
-  acos = liftVT acos
-  atan = liftVT atan
-  sinh = liftVT sinh
-  cosh = liftVT cosh
-  tanh = liftVT tanh
-  asinh = liftVT asinh
-  acosh = liftVT acosh
-  atanh = liftVT atanh
+  exp = liftVD exp
+  log = liftVD log
+  sqrt = liftVD sqrt
+  (**) = liftVD2 (**)
+  logBase = liftVD2 logBase
+  sin = liftVD sin
+  cos = liftVD cos
+  tan = liftVD tan
+  asin = liftVD asin
+  acos = liftVD acos
+  atan = liftVD atan
+  sinh = liftVD sinh
+  cosh = liftVD cosh
+  tanh = liftVD tanh
+  asinh = liftVD asinh
+  acosh = liftVD acosh
+  atanh = liftVD atanh
 
 instance (Floating (Vector r), KnownNat n, Numeric r, Show r, Floating r)
          => Floating (OR.Array n r) where
@@ -386,7 +386,7 @@ instance (RealFrac (Vector r), OS.Shape sh, Numeric r, Fractional r, Ord r)
 
 instance (RealFloat (Vector r), Numeric r, Floating r, Ord r)
          => RealFloat (OD.Array r) where
-  atan2 = liftVT2NoAdapt atan2
+  atan2 = liftVD2NoAdapt atan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
   floatRadix = undefined

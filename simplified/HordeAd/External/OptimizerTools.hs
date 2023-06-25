@@ -15,7 +15,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.Adaptor
-import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
+import HordeAd.Internal.OrthotopeOrphanInstances (liftVD2)
 import HordeAd.Core.TensorOps (isTensorDummy)
 
 updateWithGradient
@@ -25,7 +25,7 @@ updateWithGradient gamma paramsR gradientR =
   let updateVector i r = i - LA.scale gamma r
       updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
-                    else liftVT2 updateVector i r
+                    else liftVD2 updateVector i r
   in V.zipWith updateR paramsR gradientR
 {-# SPECIALIZE updateWithGradient :: Double -> DomainsOD Double -> DomainsOD Double -> DomainsOD Double #-}
 
@@ -36,7 +36,7 @@ updateWithGradientR gamma params gradient =
   let updateVector i r = i - LA.scale gamma r
       updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
-                    else liftVT2 updateVector i r
+                    else liftVD2 updateVector i r
   in V.zipWith updateR params gradient
 {-# SPECIALIZE updateWithGradientR :: Double -> DomainsOD Double -> DomainsOD Double -> DomainsOD Double #-}
 
