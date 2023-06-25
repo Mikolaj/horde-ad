@@ -36,6 +36,8 @@ import           Numeric.LinearAlgebra.Data (arctan2)
 import           Type.Reflection (eqTypeRep, typeRep, (:~~:) (HRefl))
 import           Unsafe.Coerce (unsafeCoerce)
 
+-- * Numeric instances for tensor
+
 liftVD :: Numeric r
        => (Vector r -> Vector r)
        -> OD.Array r -> OD.Array r
@@ -193,36 +195,6 @@ liftVS2 :: (Numeric r, OS.Shape sh)
         -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
 liftVS2 op t u = OS.fromVector $ OS.toVector t `op` OS.toVector u
 
-type instance BooleanOf CInt = Bool
-
-instance IfB CInt where
-  ifB b v w = if b then v else w
-
-instance EqB CInt where
-  (==*) = (==)
-  (/=*) = (/=)
-
-instance OrdB CInt where
-  (<*) = (<)
-  (<=*) = (<=)
-  (>*) = (>)
-  (>=*) = (>=)
-
-type instance BooleanOf (OR.Array n r) = Bool
-
-instance IfB (OR.Array n r) where
-  ifB b v w = if b then v else w
-
-instance (Eq r, Numeric r) => EqB (OR.Array n r) where
-  (==*) = (==)
-  (/=*) = (/=)
-
-instance (Ord r, Numeric r) => OrdB (OR.Array n r) where
-  (<*) = (<)
-  (<=*) = (<=)
-  (>*) = (>)
-  (>=*) = (>=)
-
 -- These constraints force @UndecidableInstances@.
 instance (Num (Vector r), Numeric r) => Num (OD.Array r) where
   (+) = liftVD2 (+)
@@ -245,21 +217,6 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r)
     Just Refl -> OR.constant [] . fromInteger
     Nothing -> error $ "OR.fromInteger: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
-
-type instance BooleanOf (OS.Array sh r) = Bool
-
-instance IfB (OS.Array sh r) where
-  ifB b v w = if b then v else w
-
-instance (Eq r, OS.Shape sh, Numeric r) => EqB (OS.Array sh r) where
-  (==*) = (==)
-  (/=*) = (/=)
-
-instance (Ord r, OS.Shape sh, Numeric r) => OrdB (OS.Array sh r) where
-  (<*) = (<)
-  (<=*) = (<=)
-  (>*) = (>)
-  (>=*) = (>=)
 
 instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
   (+) = liftVS2 (+)
@@ -433,12 +390,53 @@ instance (RealFloat (Vector r), OS.Shape sh, Numeric r, Floating r, Ord r)
   isNegativeZero = undefined
   isIEEE = undefined
 
-instance Convert (OR.Array n a) (OD.Array a) where
-  convert (RS.A (RG.A sh t)) = DS.A (DG.A sh t)
 
-instance (OS.Shape sh, OS.Rank sh ~ n)
-         => Convert (OS.Array sh a) (OR.Array n a) where
-  convert (SS.A a@(SG.A t)) = RS.A (RG.A (SG.shapeL a) t)
+-- * Boolean instances
+
+type instance BooleanOf CInt = Bool
+
+instance IfB CInt where
+  ifB b v w = if b then v else w
+
+instance EqB CInt where
+  (==*) = (==)
+  (/=*) = (/=)
+
+instance OrdB CInt where
+  (<*) = (<)
+  (<=*) = (<=)
+  (>*) = (>)
+  (>=*) = (>=)
+
+type instance BooleanOf (OR.Array n r) = Bool
+
+instance IfB (OR.Array n r) where
+  ifB b v w = if b then v else w
+
+instance (Eq r, Numeric r) => EqB (OR.Array n r) where
+  (==*) = (==)
+  (/=*) = (/=)
+
+instance (Ord r, Numeric r) => OrdB (OR.Array n r) where
+  (<*) = (<)
+  (<=*) = (<=)
+  (>*) = (>)
+  (>=*) = (>=)
+
+type instance BooleanOf (OS.Array sh r) = Bool
+
+instance IfB (OS.Array sh r) where
+  ifB b v w = if b then v else w
+
+instance (Eq r, OS.Shape sh, Numeric r) => EqB (OS.Array sh r) where
+  (==*) = (==)
+  (/=*) = (/=)
+
+instance (Ord r, OS.Shape sh, Numeric r) => OrdB (OS.Array sh r) where
+  (<*) = (<)
+  (<=*) = (<=)
+  (>*) = (>)
+  (>=*) = (>=)
 
 type instance BooleanOf (Flip f a b) = BooleanOf (f b a)
 
@@ -461,7 +459,16 @@ deriving instance RealFrac (f a b) => RealFrac (Flip f b a)
 deriving instance RealFloat (f a b) => RealFloat (Flip f b a)
 
 
--- TODO: move to separate orphan module(s) at some point or to orthotope
+-- * Assorted orphans and additions
+
+-- TODO: move to separate orphan module(s) at some point
+
+instance Convert (OR.Array n a) (OD.Array a) where
+  convert (RS.A (RG.A sh t)) = DS.A (DG.A sh t)
+
+instance (OS.Shape sh, OS.Rank sh ~ n)
+         => Convert (OS.Array sh a) (OR.Array n a) where
+  convert (SS.A a@(SG.A t)) = RS.A (RG.A (SG.shapeL a) t)
 
 type family MapSucc (xs :: [Nat]) :: [Nat] where
     MapSucc '[] = '[]
