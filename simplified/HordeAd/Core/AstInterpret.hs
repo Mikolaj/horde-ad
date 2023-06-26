@@ -78,13 +78,14 @@ extendEnvDR :: (ConvertTensor ranked shaped, GoodScalar r)
             -> AstEnv ranked r
 extendEnvDR (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
 
-extendEnvD :: AstVarId -> DynamicOf f r -> AstEnv f r -> AstEnv f r
+extendEnvD :: AstVarId -> DynamicOf ranked r -> AstEnv ranked r
+           -> AstEnv ranked r
 extendEnvD var d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvD: duplicate " ++ show var)
                    var (AstVarD d)
 
-extendEnvI :: AstVarId -> IntOf f r -> AstEnv f r
-           -> AstEnv f r
+extendEnvI :: AstVarId -> IntOf ranked r -> AstEnv ranked r
+           -> AstEnv ranked r
 extendEnvI var i =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
                    var (AstVarI i)
@@ -109,41 +110,42 @@ extendEnvVarsS vars ix env =
 -- for each iteration, with differently extended environment,
 -- and also because the created function is not expected to return a @memo@.
 interpretLambdaI
-  :: (AstEnv f r -> AstMemo r -> AstRanked r n
-      -> (AstMemo r, f r n))
-  -> AstEnv f r -> AstMemo r -> (AstVarId, AstRanked r n)
-  -> IntOf f r
-  -> f r n
+  :: (AstEnv ranked r -> AstMemo r -> AstRanked r n
+      -> (AstMemo r, ranked r n))
+  -> AstEnv ranked r -> AstMemo r -> (AstVarId, AstRanked r n)
+  -> IntOf ranked r
+  -> ranked r n
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env memo (var, ast) =
   \i -> snd $ f (extendEnvI var i env) memo ast
 
 interpretLambdaIS
-  :: (AstEnv f r -> AstMemo r -> AstShaped r sh
+  :: (AstEnv ranked r -> AstMemo r -> AstShaped r sh
       -> (AstMemo r, shaped r sh))
-  -> AstEnv f r -> AstMemo r -> (AstVarId, AstShaped r sh)
-  -> IntSh f r n
+  -> AstEnv ranked r -> AstMemo r -> (AstVarId, AstShaped r sh)
+  -> IntSh ranked r n
   -> shaped r sh
 {-# INLINE interpretLambdaIS #-}
 interpretLambdaIS f env memo (var, ast) =
   \i -> snd $ f (extendEnvI var (ShapedList.unShapedNat i) env) memo ast
 
 interpretLambdaIndex
-  :: (AstEnv f r -> AstMemo r -> AstRanked r n
-      -> (AstMemo r, f r n))
-  -> AstEnv f r -> AstMemo r
-  -> (AstVarList m, AstRanked r n) -> IndexOf f r m
-  -> f r n
+  :: (AstEnv ranked r -> AstMemo r -> AstRanked r n
+      -> (AstMemo r, ranked r n))
+  -> AstEnv ranked r -> AstMemo r
+  -> (AstVarList m, AstRanked r n) -> IndexOf ranked r m
+  -> ranked r n
 {-# INLINE interpretLambdaIndex #-}
 interpretLambdaIndex f env memo (vars, ast) =
   \ix -> snd $ f (extendEnvVars vars ix env) memo ast
 
 interpretLambdaIndexS
-  :: forall sh sh2 f shaped r.
-     (AstEnv f r -> AstMemo r -> AstShaped r sh
+  :: forall sh sh2 ranked shaped r.
+     (shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked)
+  => (AstEnv ranked r -> AstMemo r -> AstShaped r sh
       -> (AstMemo r, shaped r sh))
-  -> AstEnv f r -> AstMemo r
-  -> (AstVarListS sh2, AstShaped r sh) -> IndexSh f r sh2
+  -> AstEnv ranked r -> AstMemo r
+  -> (AstVarListS sh2, AstShaped r sh) -> IndexSh ranked r sh2
   -> shaped r sh
 {-# INLINE interpretLambdaIndexS #-}
 interpretLambdaIndexS f env memo (vars, ast) =
@@ -151,11 +153,11 @@ interpretLambdaIndexS f env memo (vars, ast) =
 
 interpretLambdaIndexToIndex
   :: KnownNat p
-  => (AstEnv f r -> AstMemo r -> AstInt q
-      -> (AstMemo r, IntOf f r)) -> AstEnv f r
+  => (AstEnv ranked r -> AstMemo r -> AstInt q
+      -> (AstMemo r, IntOf ranked r)) -> AstEnv ranked r
   -> AstMemo r -> (AstVarList m, AstIndex q p)
-  -> IndexOf f r m
-  -> IndexOf f r p
+  -> IndexOf ranked r m
+  -> IndexOf ranked r p
 {-# INLINE interpretLambdaIndexToIndex #-}
 interpretLambdaIndexToIndex f env memo (vars, asts) =
   \ix -> listToIndex $ snd
@@ -163,11 +165,11 @@ interpretLambdaIndexToIndex f env memo (vars, asts) =
 
 interpretLambdaIndexToIndexS
   :: OS.Shape sh2
-  => (AstEnv f r -> AstMemo r -> AstInt q
-      -> (AstMemo r, IntOf f r)) -> AstEnv f r
+  => (AstEnv ranked r -> AstMemo r -> AstInt q
+      -> (AstMemo r, IntOf ranked r)) -> AstEnv ranked r
   -> AstMemo r -> (AstVarListS sh, AstIndexS q sh2)
-  -> IndexSh f r sh
-  -> IndexSh f r sh2
+  -> IndexSh ranked r sh
+  -> IndexSh ranked r sh2
 {-# INLINE interpretLambdaIndexToIndexS #-}
 interpretLambdaIndexToIndexS f env memo (vars, asts) =
   \ix -> ShapedList.listToSized $ snd
@@ -217,13 +219,13 @@ type InterpretAstS shaped r =
   , BooleanOf (IntOf shaped r) ~ BooleanOf (shaped r '[])
   )
 
-type InterpretAst ranked shaped r =
+type InterpretAst ranked r =
   ( Tensor ranked, Tensor (PrimalOf ranked)
-  , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
-  , ConvertTensor ranked shaped
+  , ShapedTensor (ShapedOf ranked), ShapedTensor (PrimalOf (ShapedOf ranked))
+  , ConvertTensor ranked (ShapedOf ranked)
   , InterpretAstR ranked r
-  , InterpretAstS shaped r
-  , IntOf ranked r ~ IntOf shaped r
+  , InterpretAstS (ShapedOf ranked) r
+  , IntOf ranked r ~ IntOf (ShapedOf ranked) r
   )
 
 type AstMemo r = ()  -- unused for now, but likely to be used in the future,
@@ -240,8 +242,8 @@ emptyMemo = ()
 -- It helps that usually the dual part is either trivially computed
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
-  :: forall ranked shaped n r.
-     (KnownNat n, InterpretAst ranked shaped r)
+  :: forall ranked n r.
+     (KnownNat n, InterpretAst ranked r)
   => AstEnv ranked r -> AstMemo r
   -> AstPrimalPart r n -> (AstMemo r, PrimalOf ranked r n)
 interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
@@ -249,8 +251,8 @@ interpretAstPrimal env memo (AstPrimalPart v1) = case v1 of
   _ -> second (tprimalPart) $ interpretAst env memo v1
 
 interpretAstDual
-  :: forall ranked shaped n r.
-     (KnownNat n, InterpretAst ranked shaped r)
+  :: forall ranked n r.
+     (KnownNat n, InterpretAst ranked r)
   => AstEnv ranked r -> AstMemo r
   -> AstDualPart r n -> (AstMemo r, DualOf ranked r n)
 interpretAstDual env memo (AstDualPart v1) = case v1 of
@@ -258,8 +260,8 @@ interpretAstDual env memo (AstDualPart v1) = case v1 of
   _ -> second (tdualPart) $ interpretAst env memo v1
 
 interpretAst
-  :: forall ranked shaped n r.
-     (KnownNat n, InterpretAst ranked shaped r)
+  :: forall ranked n r.
+     (KnownNat n, InterpretAst ranked r)
   => AstEnv ranked r -> AstMemo r
   -> AstRanked r n -> (AstMemo r, ranked r n)
 interpretAst env memo = \case
@@ -554,8 +556,8 @@ interpretAst env memo = \case
     in interpretAst env2 memo2 v
 
 interpretAstDynamic
-  :: forall ranked shaped r.
-     InterpretAst ranked shaped r
+  :: forall ranked r.
+     InterpretAst ranked r
   => AstEnv ranked r -> AstMemo r
   -> AstDynamic r -> (AstMemo r, DynamicOf ranked r)
 interpretAstDynamic env memo = \case
@@ -563,8 +565,8 @@ interpretAstDynamic env memo = \case
   AstSToD w -> second dfromS $ interpretAstS env memo w
 
 interpretAstDomains
-  :: forall ranked shaped r.
-     InterpretAst ranked shaped r
+  :: forall ranked r.
+     InterpretAst ranked r
   => AstEnv  ranked r -> AstMemo r
   -> AstDomains r -> (AstMemo r, Domains (DynamicOf ranked) r)
 interpretAstDomains env memo = \case
@@ -580,8 +582,8 @@ interpretAstDomains env memo = \case
     in interpretAstDomains env2 memo2 v
       -- TODO: preserve let, as in AstLet case
 
-interpretAstInt :: forall ranked shaped r.
-                   InterpretAst ranked shaped r
+interpretAstInt :: forall ranked r.
+                   InterpretAst ranked r
                 => AstEnv ranked r -> AstMemo r
                 -> AstInt r -> (AstMemo r, IntOf ranked r)
 interpretAstInt env memo = \case
@@ -608,8 +610,8 @@ interpretAstInt env memo = \case
   AstMaxIndex1S v -> second (ShapedList.unShapedNat . smaxIndex0)
                      $ interpretAstPrimalS env memo v
 
-interpretAstBool :: forall ranked shaped r.
-                    InterpretAst ranked shaped r
+interpretAstBool :: forall ranked r.
+                    InterpretAst ranked r
                  => AstEnv ranked r -> AstMemo r
                  -> AstBool r -> (AstMemo r, BooleanOf (ranked r 0))
 interpretAstBool env memo = \case
@@ -628,8 +630,8 @@ interpretAstBool env memo = \case
     in (memo2, interpretAstRelOp opCodeRel args2)
 
 interpretAstDynamicDummy
-  :: forall ranked shaped r.
-     InterpretAst ranked shaped r
+  :: forall ranked r.
+     InterpretAst ranked r
   => AstEnv ranked r -> AstMemo r
   -> AstDynamic r -> (AstMemo r, DynamicOf ranked r)
 interpretAstDynamicDummy env memo = \case
@@ -639,8 +641,8 @@ interpretAstDynamicDummy env memo = \case
   AstSToD w -> second dfromS $ interpretAstS env memo w
 
 interpretAstDomainsDummy
-  :: forall ranked shaped r.
-     InterpretAst ranked shaped r
+  :: forall ranked r.
+     InterpretAst ranked r
   => AstEnv ranked r -> AstMemo r
   -> AstDomains r -> (AstMemo r, Domains (DynamicOf ranked) r)
 interpretAstDomainsDummy env memo = \case
@@ -731,8 +733,9 @@ interpretAstRelOp opCodeRel args =
           ++ show (opCodeRel, length args)
 
 interpretAstPrimalS
-  :: forall ranked shaped sh r. OS.Shape sh
-  => InterpretAst ranked shaped r
+  :: forall ranked shaped sh r.
+     (OS.Shape sh, shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked)
+  => InterpretAst ranked r
   => AstEnv ranked r -> AstMemo r
   -> AstPrimalPartS r sh -> (AstMemo r, PrimalOf shaped r sh)
 interpretAstPrimalS env memo (AstPrimalPartS v1) = case v1 of
@@ -740,8 +743,9 @@ interpretAstPrimalS env memo (AstPrimalPartS v1) = case v1 of
   _ -> second (sprimalPart) $ interpretAstS env memo v1
 
 interpretAstDualS
-  :: forall ranked shaped sh r. OS.Shape sh
-  => InterpretAst ranked shaped r
+  :: forall ranked shaped sh r.
+     (OS.Shape sh, shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked)
+  => InterpretAst ranked r
   => AstEnv ranked r -> AstMemo r
   -> AstDualPartS r sh -> (AstMemo r, DualOf shaped r sh)
 interpretAstDualS env memo (AstDualPartS v1) = case v1 of
@@ -749,8 +753,9 @@ interpretAstDualS env memo (AstDualPartS v1) = case v1 of
   _ -> second (sdualPart) $ interpretAstS env memo v1
 
 interpretAstS
-  :: forall ranked shaped sh r. OS.Shape sh
-  => InterpretAst ranked shaped r
+  :: forall ranked shaped sh r.
+     (OS.Shape sh, shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked)
+  => InterpretAst ranked r
   => AstEnv ranked r -> AstMemo r
   -> AstShaped r sh -> (AstMemo r, shaped r sh)
 interpretAstS env memo = \case

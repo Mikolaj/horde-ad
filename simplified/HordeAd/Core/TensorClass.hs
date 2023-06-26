@@ -628,7 +628,8 @@ class (CRankedRR shaped IntegralIntOf, CRankedS shaped RealFloat)
 
 -- * ConvertTensor and DomainsTensor class definitions
 
-class ( DynamicOf ranked ~ DynamicOf shaped
+class ( RankedOf shaped ~ ranked, ShapedOf ranked ~ shaped
+      , DynamicOf ranked ~ DynamicOf shaped
       , DynamicOf shaped ~ DynamicOf ranked )
       => ConvertTensor (ranked :: Type -> Nat -> Type)
                        (shaped :: Type -> [Nat] -> Type)
