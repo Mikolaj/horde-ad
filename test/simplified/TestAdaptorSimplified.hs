@@ -214,7 +214,7 @@ testFoo :: Assertion
 testFoo = do
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (rev @Double @0 foo (1.1, 2.2, 3.3))
+    (rev @Double @0 @(Flip OR.Array) foo (1.1, 2.2, 3.3))
 
 testFooPP :: Assertion
 testFooPP = do
@@ -244,7 +244,7 @@ testFooLet :: Assertion
 testFooLet = do
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (rev @Double @0 fooLet (1.1, 2.2, 3.3))
+    (rev @Double @0 @(Flip OR.Array) fooLet (1.1, 2.2, 3.3))
 
 testFooLetPP :: Assertion
 testFooLetPP = do
@@ -812,7 +812,7 @@ testBarReluADValDt :: Assertion
 testBarReluADValDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @Double @0 barRelu (Flip $ OR.fromList [] [1.1]) 42.2)
+    (revDt @Double @0 @(Flip OR.Array) barRelu (Flip $ OR.fromList [] [1.1]) 42.2)
 
 testBarReluADVal :: Assertion
 testBarReluADVal =
@@ -835,7 +835,7 @@ testBarReluADValMaxDt :: Assertion
 testBarReluADValMaxDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @Double @0 barReluMax (Flip $ OR.fromList [] [1.1]) 42.2)
+    (revDt @Double @0 @(Flip OR.Array) barReluMax (Flip $ OR.fromList [] [1.1]) 42.2)
 
 testBarReluADValMax :: Assertion
 testBarReluADValMax =
@@ -909,7 +909,7 @@ testF1 :: Assertion
 testF1 =
   assertEqualUpToEpsilon 1e-10
     45.0
-    (rev @Double @0 f1 1.1)
+    (rev @Double @0 @(Flip OR.Array) f1 1.1)
 
 testF11 :: Assertion
 testF11 =
@@ -931,7 +931,7 @@ testF2 :: Assertion
 testF2 =
   assertEqualUpToEpsilon 1e-10
     470
-    (rev @Double @0 f2 1.1)
+    (rev @Double @0 @(Flip OR.Array) f2 1.1)
 
 testF21 :: Assertion
 testF21 =

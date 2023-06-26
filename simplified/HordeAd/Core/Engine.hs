@@ -42,31 +42,31 @@ import HordeAd.Core.TensorClass
 -- * Gradient adaptors
 
 rev
-  :: forall r n vals astvals.
-     ( GoodScalar r, KnownNat n
+  :: forall r y f vals astvals.
+     ( Adaptable f, GoodScalar r, HasSingletonDict f y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> AstRanked r n) -> vals -> vals
+  => (astvals -> AstOf f r y) -> vals -> vals
 rev f vals = revDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
 revDt
-  :: forall r n vals astvals.
-     ( GoodScalar r, KnownNat n
+  :: forall r y f vals astvals.
+     ( Adaptable f, GoodScalar r, HasSingletonDict f y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> AstRanked r n) -> vals -> Flip OR.Array r n -> vals
+  => (astvals -> AstOf f r y) -> vals -> f r y -> vals
 revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revDtMaybe
-  :: forall r n vals astvals.
-     ( GoodScalar r, KnownNat n
+  :: forall r y f vals astvals.
+     ( Adaptable f, GoodScalar r, HasSingletonDict f y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> AstRanked r n) -> vals -> Maybe (Flip OR.Array r n) -> vals
+  => (astvals -> AstOf f r y) -> vals -> Maybe (f r y) -> vals
 revDtMaybe f vals mdt =
   let asts4 = fst $ revDtFun (isJust mdt) f vals
   in parseDomains vals $ fst $ revAstOnDomainsEval asts4 (toDomains vals) mdt
@@ -125,12 +125,12 @@ instance Adaptable @Nat (Flip OR.Array) where
 instance Adaptable @[Nat] (Flip OS.Array) where
 
 revDtFun
-  :: forall r n vals astvals.
-     ( GoodScalar r, KnownNat n
+  :: forall r y f vals astvals.
+     ( Adaptable f, GoodScalar r, HasSingletonDict f y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
-  => Bool -> (astvals -> AstRanked r n) -> vals
-  -> (ADAstArtifact6 (Flip OR.Array) r n, Dual AstRanked r n)
+  => Bool -> (astvals -> AstOf f r y) -> vals
+  -> (ADAstArtifact6 f r y, Dual (AstOf f) r y)
 {-# INLINE revDtFun #-}
 revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
@@ -167,7 +167,7 @@ revAstOnDomainsFun hasDt parameters0 f =
 
 -- These work for f both ranked and shaped.
 crev
-  :: forall y r vals advals f.
+  :: forall y r f vals advals.
      ( DualPart f, HasSingletonDict f y, GoodScalar r
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
@@ -179,7 +179,7 @@ crev f vals = crevDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
 crevDt
-  :: forall y r vals advals f.
+  :: forall y r f vals advals.
      ( DualPart f, HasSingletonDict f y, GoodScalar r
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
@@ -190,7 +190,7 @@ crevDt
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
-  :: forall y r vals advals f.
+  :: forall y r f vals advals.
      ( DualPart f, HasSingletonDict f y, GoodScalar r
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
