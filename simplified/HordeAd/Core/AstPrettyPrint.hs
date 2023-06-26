@@ -614,7 +614,8 @@ printAstDomainsPretty renames t =
   printAstDomains (defaulPrintConfig True renames) 0 t ""
 
 printGradient6Simple :: (ShowAst r, KnownNat n)
-                     => IntMap String -> ADAstArtifact6 AstRanked r n -> String
+                     => IntMap String -> ADAstArtifact6 (Flip OR.Array) r n
+                     -> String
 printGradient6Simple renames ((varDt, vars1), gradient, _) =
   let varsPP = printAstVarName renames varDt
                : map (printAstDynamicVarName renames) vars1
@@ -622,7 +623,8 @@ printGradient6Simple renames ((varDt, vars1), gradient, _) =
           ++ " -> " ++ printAstDomainsSimple renames gradient
 
 printGradient6Pretty :: (ShowAst r, KnownNat n)
-                     => IntMap String -> ADAstArtifact6 AstRanked r n -> String
+                     => IntMap String -> ADAstArtifact6 (Flip OR.Array) r n
+                     -> String
 printGradient6Pretty renames ((varDt, vars1), gradient, _) =
   let varsPP = printAstVarName renames varDt
                : map (printAstDynamicVarName renames) vars1
@@ -630,14 +632,16 @@ printGradient6Pretty renames ((varDt, vars1), gradient, _) =
           ++ " -> " ++ printAstDomainsPretty renames gradient
 
 printPrimal6Simple :: (ShowAst r, KnownNat n)
-                   => IntMap String -> ADAstArtifact6 AstRanked r n -> String
+                   => IntMap String -> ADAstArtifact6 (Flip OR.Array) r n
+                   -> String
 printPrimal6Simple renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstSimple renames primal
 
 printPrimal6Pretty :: (ShowAst r, KnownNat n)
-                   => IntMap String -> ADAstArtifact6 AstRanked r n -> String
+                   => IntMap String -> ADAstArtifact6 (Flip OR.Array) r n
+                   -> String
 printPrimal6Pretty renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP

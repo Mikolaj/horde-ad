@@ -64,7 +64,7 @@ rev' f vals =
            (KnownNat n2, GoodScalar r2)
         => Bool -> (Domains (ADValClown AstDynamic) r2 -> ADVal AstRanked r2 n2)
         -> DomainsOD r2
-        -> (ADAstArtifact6 AstRanked r2 n2, Dual AstRanked r2 n2)
+        -> (ADAstArtifact6 (Flip OR.Array) r2 n2, Dual AstRanked r2 n2)
       {-# INLINE revAstOnDomainsF #-}
       revAstOnDomainsF hasDt f2 parameters2  =
         revAstOnDomainsFun hasDt parameters2 (\varInputs _ _ -> f2 varInputs)

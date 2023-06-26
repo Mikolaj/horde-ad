@@ -36,6 +36,7 @@ import           Control.Arrow (second)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
+import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.EnumSet as ES
 import           Data.List (dropWhileEnd, mapAccumR)
@@ -1007,8 +1008,8 @@ astIntCond b v w = Ast.AstIntCond b v w
 -- * Simplification pass applied to code with eliminated nested lets
 
 simplifyArtifact6 :: (GoodScalar r, KnownNat n)
-                  => ADAstArtifact6 AstRanked r n
-                  -> ADAstArtifact6 AstRanked r n
+                  => ADAstArtifact6 (Flip OR.Array) r n
+                  -> ADAstArtifact6 (Flip OR.Array) r n
 simplifyArtifact6 (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6 primal)
 

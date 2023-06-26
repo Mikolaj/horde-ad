@@ -57,7 +57,7 @@ revDtFun
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
   => Bool -> (astvals -> AstRanked r n) -> vals
-  -> (ADAstArtifact6 AstRanked r n, Dual AstRanked r n)
+  -> (ADAstArtifact6 (Flip OR.Array) r n, Dual AstRanked r n)
 {-# INLINE revDtFun #-}
 revDtFun hasDt f vals =
   let parameters0 = toDomains vals
@@ -71,7 +71,7 @@ revDtInit
      , vals ~ Value astvals, Underlying astvals ~ r)
   => Bool -> (astvals -> AstRanked r n) -> vals -> AstEnv ranked r
   -> DomainsOD r
-  -> (ADAstArtifact6 AstRanked r n, Dual AstRanked r n)
+  -> (ADAstArtifact6 (Flip OR.Array) r n, Dual AstRanked r n)
 {-# INLINE revDtInit #-}
 revDtInit hasDt f vals envInit parameters0 =
   revAstOnDomainsFun hasDt parameters0 (revDtInterpret envInit vals f)
@@ -122,7 +122,7 @@ revAstOnDomainsFun
       -> Domains AstDynamic r
       -> [AstDynamicVarName r]
       -> ADVal AstRanked r n)
-  -> (ADAstArtifact6 AstRanked r n, Dual AstRanked r n)
+  -> (ADAstArtifact6 (Flip OR.Array) r n, Dual AstRanked r n)
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun hasDt parameters0 f =
   let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList parameters0
@@ -147,7 +147,8 @@ revAstOnDomainsEval
   :: forall r n ranked.
      ( ranked ~ Flip OR.Array
      , InterpretAstR ranked r, KnownNat n )
-  => ADAstArtifact6 AstRanked r n -> Domains OD.Array r -> Maybe (ranked r n)
+  => ADAstArtifact6 (Flip OR.Array) r n -> Domains OD.Array r
+  -> Maybe (ranked r n)
   -> (Domains OD.Array r, ranked r n)
 {-# INLINE revAstOnDomainsEval #-}
 revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =

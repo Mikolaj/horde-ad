@@ -7,7 +7,7 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( AstVarId, intToAstVarId
+  ( AstOf, AstVarId, intToAstVarId
   , ADAstVarNames, ADAstArtifact6, ShowAst, AstIndex, AstVarList
   , AstIndexS, AstVarListS
   , AstRanked(..), AstNoVectorize(..), AstNoSimplify(..)
@@ -24,9 +24,11 @@ module HordeAd.Core.Ast
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Boolean
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
@@ -38,12 +40,17 @@ import           GHC.TypeLits (KnownNat, Nat, type (+), type (<=))
 import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.ShapedList (ShapedList (..))
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.SizedList
 
--- * Ast definitions
+-- * Ast and related definitions
+
+type AstOf :: forall k. (Type -> k -> Type) -> Type -> k -> Type
+type family AstOf f = result | result -> f where
+  AstOf (Clown OD.Array) = Clown AstDynamic
+  AstOf (Flip OR.Array) = AstRanked
+  AstOf (Flip OS.Array) = AstShaped
 
 -- We avoid adding a phantom type denoting the underlying scalar,
 -- because the type families over tensor ranks make quanitified constraints
@@ -55,11 +62,11 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-type ADAstVarNames fry r = (AstVarName fry, [AstDynamicVarName r])
+type ADAstVarNames f r y = (AstVarName (f r y), [AstDynamicVarName r])
 
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 f r y =
-  (ADAstVarNames (Value (f r y)) r, AstDomains r, f r y)
+  (ADAstVarNames f r y, AstDomains r, AstOf f r y)
 
 type ShowAst r = (Show r, Numeric r)
 

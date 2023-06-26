@@ -111,7 +111,7 @@ funToAstD sh = unsafePerformIO $ funToAstDIO sh
 
 type ADAstVars r n = (ShapeInt n -> AstRanked r n, [AstDynamic r])
 
-funToAstAll :: [[Int]] -> (ADAstVarNames (Flip OR.Array r n) r, ADAstVars r n)
+funToAstAll :: [[Int]] -> (ADAstVarNames (Flip OR.Array) r n, ADAstVars r n)
 {-# NOINLINE funToAstAll #-}
 funToAstAll shapes1 = unsafePerformIO $ do
   (vnDt, vDt) <- funToAstRshIO
