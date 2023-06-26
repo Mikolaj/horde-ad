@@ -5,7 +5,7 @@
 -- high-level API of the horde-ad library. Adaptors, optimizers, etc.,
 -- are add-ons.
 module HordeAd.Core.Engine
-  ( revDtFun, revDtInit, revDtInterpret, rev, revDt
+  ( revDtFun, revDtInit, rev, revDt
   , crev, crevDt, revOnDomains
   , revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
   , fwd, slowFwdOnADInputs, slowFwdOnDomains
@@ -59,9 +59,7 @@ revDtFun
   => Bool -> (astvals -> AstRanked r n) -> vals
   -> (ADAstArtifact6 (Flip OR.Array) r n, Dual AstRanked r n)
 {-# INLINE revDtFun #-}
-revDtFun hasDt f vals =
-  let parameters0 = toDomains vals
-  in revDtInit hasDt f vals EM.empty parameters0
+revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
 revDtInit
   :: forall r n vals astvals ranked.
@@ -74,25 +72,14 @@ revDtInit
   -> (ADAstArtifact6 (Flip OR.Array) r n, Dual AstRanked r n)
 {-# INLINE revDtInit #-}
 revDtInit hasDt f vals envInit parameters0 =
-  revAstOnDomainsFun hasDt parameters0 (revDtInterpret envInit vals f)
-
-revDtInterpret
-  :: forall n r vals astvals ranked.
-     ( ranked ~ ADVal AstRanked
-     , InterpretAstR ranked r, KnownNat n
-     , AdaptableDomains AstDynamic astvals
-     , vals ~ Value astvals, Underlying astvals ~ r )
-  => AstEnv ranked r
-  -> vals -> (astvals -> AstRanked r n)
-  -> Domains (DynamicOf ranked) r -> Domains AstDynamic r
-  -> [AstDynamicVarName r]
-  -> ranked r n
-{-# INLINE revDtInterpret #-}
-revDtInterpret envInit valsInit f = \varInputs domains vars1 ->
-  let ast = f $ parseDomains valsInit domains
-      env1 = foldr extendEnvD envInit
-             $ zip vars1 $ V.toList varInputs
-  in snd $ interpretAst env1 emptyMemo ast
+  let revDtInterpret :: Domains (DynamicOf ranked) r -> Domains AstDynamic r
+                     -> [AstDynamicVarName r]
+                     -> ranked r n
+      revDtInterpret varInputs domains vars1 =
+        let ast = f $ parseDomains vals domains
+            env1 = foldr extendEnvD envInit $ zip vars1 $ V.toList varInputs
+        in snd $ interpretAst env1 emptyMemo ast
+  in revAstOnDomainsFun hasDt parameters0 revDtInterpret
 
 rev
   :: forall r n vals astvals ranked.
