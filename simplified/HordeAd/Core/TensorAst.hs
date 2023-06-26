@@ -29,13 +29,19 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
 
-type instance DynamicOf (Clown AstDynamic) = AstDynamic
+type instance RankedOf (Clown AstDynamic) = AstRanked
+
+type instance ShapedOf (Clown AstDynamic) = AstShaped
 
 type instance IntOf AstRanked r = AstInt r
 
 type instance PrimalOf AstRanked = AstPrimalPart
 
 type instance DualOf AstRanked = AstDualPart
+
+type instance RankedOf AstRanked = AstRanked
+
+type instance ShapedOf AstRanked = AstShaped
 
 instance Tensor AstRanked where
   tlet a f = astLetFun a f
@@ -408,6 +414,10 @@ type instance IntOf AstPrimalPartS r = AstInt r
 type instance PrimalOf AstPrimalPartS = AstPrimalPartS
 
 type instance DualOf AstPrimalPartS = DummyDual
+
+type instance RankedOf AstShaped = AstRanked
+
+type instance ShapedOf AstShaped = AstShaped
 
 instance ShapedTensor AstPrimalPartS where
   slet a f =

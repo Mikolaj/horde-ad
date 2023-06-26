@@ -9,7 +9,7 @@
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
   ( ShapeInt, IntOf, IndexOf, ShapeSh, IntSh, IndexSh
-  , PrimalOf, DualOf, DynamicOf
+  , PrimalOf, DualOf, DynamicOf, RankedOf, ShapedOf
   , ShapedTensor(..), Tensor(..), ConvertTensor(..), DomainsTensor(..)
   , ADReady, ADReadyS
   , GoodScalar, DummyDual(..)
@@ -90,13 +90,23 @@ class (forall r20. GoodScalar r20 => c f r20) => CRankedRR f c where
 instance (forall r20. GoodScalar r20 => c f r20) => CRankedRR f c where
 
 -- k is intended to be Nat or [Nat] (or nothing, if we support scalars)
-type family PrimalOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
+type family PrimalOf (f :: Type -> k -> Type) :: Type -> k -> Type
 
-type family DualOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
+type family DualOf (f :: Type -> k -> Type) :: Type -> k -> Type
 
-type family DynamicOf (tensor :: Type -> k -> Type) :: Type -> Type
+type family DynamicOf (f :: Type -> k -> Type) :: Type -> Type
 
 type instance DynamicOf (Clown OD.Array) = OD.Array
+
+type instance DynamicOf (Clown AstDynamic) = AstDynamic
+
+type family RankedOf (f :: Type -> k -> Type) :: Type -> Nat -> Type
+
+type instance RankedOf (Clown OD.Array) = Flip OR.Array
+
+type family ShapedOf (f :: Type -> k -> Type) :: Type -> [Nat] -> Type
+
+type instance ShapedOf (Clown OD.Array) = Flip OS.Array
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
@@ -734,6 +744,10 @@ type instance DynamicOf (Flip OR.Array) = OD.Array
 
 type instance DynamicOf AstRanked = AstDynamic
 
+type instance RankedOf (Flip OR.Array) = Flip OR.Array
+
+type instance ShapedOf (Flip OR.Array) = Flip OS.Array
+
 instance Tensor (Flip OR.Array) where
   tshape = tshapeR . runFlip
   tminIndex0 = tminIndex0R . runFlip
@@ -826,6 +840,10 @@ type instance DualOf (Flip OS.Array) = DummyDual
 type instance DynamicOf (Flip OS.Array) = OD.Array
 
 type instance DynamicOf AstShaped = AstDynamic
+
+type instance RankedOf (Flip OS.Array) = Flip OR.Array
+
+type instance ShapedOf (Flip OS.Array) = Flip OS.Array
 
 instance ShapedTensor (Flip OS.Array) where
   sminIndex0 = tminIndex0S . runFlip

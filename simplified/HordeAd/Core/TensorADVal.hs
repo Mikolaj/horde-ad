@@ -66,6 +66,10 @@ type instance DualOf (ADVal f) = Product (Clown ADShare) (Dual f)
 
 type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
 
+type instance RankedOf (ADVal f) = ADVal (RankedOf f)
+
+type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
+
 
 -- * Ranked tensor instances
 
