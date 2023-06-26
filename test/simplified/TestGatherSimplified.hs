@@ -432,20 +432,20 @@ scatter1 t =
   tscatter @ranked @r @2
           (2 :$ ZS)
           t
-          (\(i1 :. i2 :. ZI) -> i2 + 2 * i1 :. ZI)
+          (\(i1 :. i2 :. ZI) -> min (i2 + 2 * i1) 1 :. ZI)
 
 testScatter1 :: Assertion
 testScatter1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
-                 [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+                 [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @1 scatter1 (treplicate 7 $ tfromList [0, 1]))
 
 testScatterBuild1 :: Assertion
 testScatterBuild1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
-                 [3.0,3.0,1.0,1.0,1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+                 [3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
     (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
              ifB (i >* 2) (scatter1 t) (t ! [i])))
@@ -458,9 +458,9 @@ testScatterSimp1 = do
   length (show t1) @?= 287
   resetVarCounter
   let !t2 = scatter1 $ AstVar [7, 2] (intToAstVarId 100000000)
-  length (show t2) @?= 213
+  length (show t2) @?= 247
   length (show (simplifyAst6 @Float t1)) @?= 287
-  length (show (simplifyAst6 @Float t2)) @?= 213
+  length (show (simplifyAst6 @Float t2)) @?= 247
 
 scatterNested2 :: forall ranked r. ADReady ranked r
               => ranked r 2 -> ranked r 2
@@ -469,14 +469,15 @@ scatterNested2 t =
           (2 :$ 3 :$ ZS)
           (tscatter @ranked @r @1
                    (2 :$ 3 :$ 4 :$ 2 :$ ZS) t
-                   (\(k1 :. ZI) -> k1 :. k1 :. k1 :. ZI))
-          (\(i1 :. i2 :. _i3 :. i4 :. ZI) -> i1 + i2 :. i4 + i1 :. ZI)
+                   (\(k1 :. ZI) -> min k1 1 :. min k1 2  :. min k1 3 :. ZI))
+          (\(i1 :. i2 :. _i3 :. i4 :. ZI) ->
+            min (i1 + i2) 1 :. min (i4 + i1) 2 :. ZI)
 
 testScatterNested2 :: Assertion
 testScatterNested2 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
-                 [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+                 [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @2 scatterNested2
                                (treplicate 7 $ tfromList [0, 1]))
 
@@ -484,7 +485,7 @@ testScatterNestedBuild2 :: Assertion
 testScatterNestedBuild2 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
-                 [6.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+                 [6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0])
     (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
              scatterNested2 (t * treplicate0N [7, 2] (tfromIndex0 i))))
@@ -496,13 +497,13 @@ scatter2 t =
   tscatter @ranked @r @2
           (2 :$ 3 :$ ZS)
           t
-          (\(i1 :. i2 :. ZI) -> i1 + i2 + i1 + i2 :. i1 :. ZI)
+          (\(i1 :. i2 :. ZI) -> min (i1 + i2 + i1 + i2) 1 :. min i1 2 :. ZI)
 
 testScatter2 :: Assertion
 testScatter2 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
-                 [1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+                 [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @2 scatter2
                                (treplicate 7 $ tfromList [0, 1]))
 
@@ -510,7 +511,7 @@ testScatterBuild2 :: Assertion
 testScatterBuild2 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
-                 [6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+                 [6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0])
     (rev' @Double @3
           (\t -> tbuild1 4 (\i ->
              scatter2 (t * treplicate0N [7, 2] (tfromIndex0 i))))
@@ -520,12 +521,12 @@ testScatterSimp2 :: Assertion
 testScatterSimp2 = do
   resetVarCounter
   let !t1 = scatterNested2 $ AstVar [7, 2] (intToAstVarId 100000000)
-  length (show t1) @?= 441
+  length (show t1) @?= 611
   resetVarCounter
   let !t2 = scatter2 $ AstVar [7, 2] (intToAstVarId 100000000)
-  length (show t2) @?= 314
-  length (show (simplifyAst6 @Float t1)) @?= 441
-  length (show (simplifyAst6 @Float t2)) @?= 314
+  length (show t2) @?= 382
+  length (show (simplifyAst6 @Float t1)) @?= 611
+  length (show (simplifyAst6 @Float t2)) @?= 382
 
 scatterNested12 :: forall ranked r. ADReady ranked r
                => ranked r 2 -> ranked r 2
@@ -534,14 +535,15 @@ scatterNested12 t =
           (2 :$ 4 :$ ZS)
           (tscatter @ranked @r @2
                    (2 :$ 3 :$ 4 :$ ZS) t
-                   (\(k1 :. k2 :. ZI) -> k1 :. k2 + k1 :. k1 :. ZI))
-          (\(i1 :. _i2 :. ZI) -> i1 + i1 :. ZI)
+                   (\(k1 :. k2 :. ZI) ->
+                     min k1 1 :. min (k2 + k1) 2 :. min k1 3 :. ZI))
+          (\(i1 :. _i2 :. ZI) -> min (i1 + i1) 1 :. ZI)
 
 testScatterNested12 :: Assertion
 testScatterNested12 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
-                 [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+                 [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @2 scatterNested12
                                (treplicate 7 $ tfromList [0, 1]))
 
@@ -562,13 +564,13 @@ scatter12 t =
   tscatter @ranked @r @2
           (2 :$ 4 :$ ZS)
           t
-          (\(i1 :. k3 :. ZI) -> i1 + i1 + i1 + k3 :. i1 :. ZI)
+          (\(i1 :. k3 :. ZI) -> min (i1 + i1 + i1 + k3) 1 :. min i1 3 :. ZI)
 
 testScatter12 :: Assertion
 testScatter12 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7,2]
-                 [1.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+                 [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @2 scatter12
                                (treplicate 7 $ tfromList [0, 1]))
 
@@ -587,9 +589,9 @@ testScatterSimp12 :: Assertion
 testScatterSimp12 = do
   resetVarCounter
   let !t1 = scatterNested12 $ AstVar [7, 2] (intToAstVarId 100000000)
-  length (show t1) @?= 389
+  length (show t1) @?= 525
   resetVarCounter
   let !t2 = scatter12 $ AstVar [7, 2] (intToAstVarId 100000000)
-  length (show t2) @?= 314
-  length (show (simplifyAst6 @Float t1)) @?= 389
-  length (show (simplifyAst6 @Float t2)) @?= 314
+  length (show t2) @?= 382
+  length (show (simplifyAst6 @Float t1)) @?= 525
+  length (show (simplifyAst6 @Float t2)) @?= 382
