@@ -24,7 +24,6 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
-import           Data.Kind (Type)
 import           Data.List (foldl1', mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -46,15 +45,16 @@ import           HordeAd.Core.SizedList
 import           HordeAd.Core.TensorADVal
 import           HordeAd.Core.TensorClass
 
-type AstEnv (f :: Type -> k -> Type) r =
-  EM.EnumMap AstVarId (AstEnvElem f r)
+type AstEnv ranked r = EM.EnumMap AstVarId (AstEnvElem ranked r)
 
 data AstEnvElem ranked r =
     AstEnvElemD (DynamicOf ranked r)
-  | AstEnvElemR (DynamicOf ranked r)
+  | forall n. KnownNat n => AstEnvElemR (ranked r n)
   | AstEnvElemS (DynamicOf ranked r)
   | AstEnvElemI (IntOf ranked r)
-deriving instance (Show (DynamicOf ranked r), Show (IntOf ranked r))
+deriving instance ( Show (DynamicOf ranked r)
+                  , forall n. Show (ranked r n)
+                  , Show (IntOf ranked r) )
                   => Show (AstEnvElem ranked r)
 
 extendEnvS :: forall ranked shaped r sh.
@@ -65,13 +65,12 @@ extendEnvS v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show v)
                    var (AstEnvElemS $ dfromS d)
 
-extendEnvR :: forall ranked shaped r n.
-              (ConvertTensor ranked shaped, KnownNat n, GoodScalar r)
+extendEnvR :: forall ranked r n. KnownNat n
            => AstVarName (Flip OR.Array r n) -> ranked r n
            -> AstEnv ranked r -> AstEnv ranked r
-extendEnvR v@(AstVarName var) d =
+extendEnvR v@(AstVarName var) t =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
-                   var (AstEnvElemR $ dfromR d)
+                   var (AstEnvElemR t)
 
 extendEnvDR :: (ConvertTensor ranked shaped, GoodScalar r)
             => (AstDynamicVarName r, DynamicOf ranked r)
@@ -267,8 +266,9 @@ interpretAst
   -> AstRanked r n -> (AstMemo r, ranked r n)
 interpretAst env memo = \case
   AstVar sh var -> case EM.lookup var env of
-    Just (AstEnvElemR d) -> let t = tfromD d
-                            in assert (sh == tshape t) $ (memo, t)
+    Just (AstEnvElemR @_ @_ @n2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
+      Just Refl -> assert (sh == tshape t) $ (memo, t)
+      Nothing -> error "interpretAst: wrong rank in environment"
     Just _  ->
       error $ "interpretAst: type mismatch for " ++ show var
     Nothing -> error $ "interpretAst: unknown variable " ++ show var

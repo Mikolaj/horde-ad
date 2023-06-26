@@ -722,7 +722,7 @@ testFooNoGoAst =
   let f :: ( InterpretAstR (ADVal (Flip OR.Array)) r )
         => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
       f x = snd
-            $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR $ dfromR x))
+            $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR x))
                            emptyMemo
                            (fooNoGoAst (AstVar [5] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon1 1e-6
@@ -861,7 +861,7 @@ testBarReluAst0 =
            , InterpretAstR (ADVal (Flip OR.Array)) r )
         => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
       f x = snd
-            $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR $ dfromR x))
+            $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR x))
                            emptyMemo
                            (barReluAst (AstVar [] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon1 1e-10
@@ -874,7 +874,7 @@ testBarReluAst1 =
            , InterpretAstR (ADVal (Flip OR.Array)) r )
         => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
       f x = snd
-            $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR $ dfromR x))
+            $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR x))
                            emptyMemo
                            (barReluAst (AstVar [5] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon1 1e-10
@@ -892,7 +892,7 @@ testReplicateReluAst =
            , InterpretAstR (ADVal (Flip OR.Array)) r )
         => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
       f x = snd
-            $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR $ dfromR x))
+            $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR x))
                            emptyMemo
                            (konstReluAst (AstVar [] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon1 1e-10
