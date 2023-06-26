@@ -83,7 +83,8 @@ class Adaptable f where
        ( GoodScalar r, HasSingletonDict f y
        , AdaptableDomains AstDynamic astvals
        , vals ~ Value astvals, Underlying astvals ~ r )
-    => Bool -> (astvals -> AstOf f r y) -> vals -> AstEnv (ADVal (AstOf f)) r
+    => Bool -> (astvals -> AstOf f r y) -> vals
+    -> AstEnv (ADVal (AstOf (RankedOf f))) r
     -> DomainsOD r
     -> (ADAstArtifact6 f r y, Dual (AstOf f) r y)
 
@@ -107,7 +108,8 @@ instance Adaptable @Nat (Flip OR.Array) where
        ( GoodScalar r, KnownNat y
        , AdaptableDomains AstDynamic astvals
        , vals ~ Value astvals, Underlying astvals ~ r )
-    => Bool -> (astvals -> AstRanked r y) -> vals -> AstEnv (ADVal AstRanked) r
+    => Bool -> (astvals -> AstRanked r y) -> vals
+    -> AstEnv (ADVal AstRanked) r
     -> DomainsOD r
     -> (ADAstArtifact6 (Flip OR.Array) r y, Dual AstRanked r y)
   {-# INLINE revDtInit #-}

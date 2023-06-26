@@ -7,7 +7,7 @@ module HordeAd.Core.AstInterpret
   ( InterpretAstR, InterpretAstS
   , interpretAst, interpretAstDomainsDummy, interpretAstS
   , AstEnv, extendEnvS, extendEnvR, extendEnvDR, extendEnvD, AstMemo, emptyMemo
-  , AstEnvElem(AstVarR)  -- for a test only
+  , AstEnvElem(AstEnvElemR)  -- for a test only
   ) where
 
 import Prelude hiding ((<*))
@@ -49,12 +49,13 @@ import           HordeAd.Core.TensorClass
 type AstEnv (f :: Type -> k -> Type) r =
   EM.EnumMap AstVarId (AstEnvElem f r)
 
-data AstEnvElem f r =
-    AstVarD (DynamicOf f r)
-  | AstVarR (DynamicOf f r)
-  | AstVarI (IntOf f r)
-deriving instance (Show (DynamicOf f r), Show (IntOf f r))
-                  => Show (AstEnvElem f r)
+data AstEnvElem ranked r =
+    AstEnvElemD (DynamicOf ranked r)
+  | AstEnvElemR (DynamicOf ranked r)
+  | AstEnvElemS (DynamicOf ranked r)
+  | AstEnvElemI (IntOf ranked r)
+deriving instance (Show (DynamicOf ranked r), Show (IntOf ranked r))
+                  => Show (AstEnvElem ranked r)
 
 extendEnvS :: forall ranked shaped r sh.
               (OS.Shape sh, ConvertTensor ranked shaped, GoodScalar r)
@@ -62,7 +63,7 @@ extendEnvS :: forall ranked shaped r sh.
            -> AstEnv ranked r -> AstEnv ranked r
 extendEnvS v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show v)
-                   var (AstVarR $ dfromS d)
+                   var (AstEnvElemS $ dfromS d)
 
 extendEnvR :: forall ranked shaped r n.
               (ConvertTensor ranked shaped, KnownNat n, GoodScalar r)
@@ -70,7 +71,7 @@ extendEnvR :: forall ranked shaped r n.
            -> AstEnv ranked r -> AstEnv ranked r
 extendEnvR v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
-                   var (AstVarR $ dfromR d)
+                   var (AstEnvElemR $ dfromR d)
 
 extendEnvDR :: (ConvertTensor ranked shaped, GoodScalar r)
             => (AstDynamicVarName r, DynamicOf ranked r)
@@ -82,13 +83,13 @@ extendEnvD :: AstVarId -> DynamicOf ranked r -> AstEnv ranked r
            -> AstEnv ranked r
 extendEnvD var d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvD: duplicate " ++ show var)
-                   var (AstVarD d)
+                   var (AstEnvElemD d)
 
 extendEnvI :: AstVarId -> IntOf ranked r -> AstEnv ranked r
            -> AstEnv ranked r
 extendEnvI var i =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
-                   var (AstVarI i)
+                   var (AstEnvElemI i)
 
 extendEnvVars :: AstVarList m -> IndexOf ranked r m
               -> AstEnv ranked r
@@ -266,8 +267,8 @@ interpretAst
   -> AstRanked r n -> (AstMemo r, ranked r n)
 interpretAst env memo = \case
   AstVar sh var -> case EM.lookup var env of
-    Just (AstVarR d) -> let t = tfromD d
-                        in assert (sh == tshape t) $ (memo, t)
+    Just (AstEnvElemR d) -> let t = tfromD d
+                            in assert (sh == tshape t) $ (memo, t)
     Just _  ->
       error $ "interpretAst: type mismatch for " ++ show var
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
@@ -588,7 +589,7 @@ interpretAstInt :: forall ranked r.
                 -> AstInt r -> (AstMemo r, IntOf ranked r)
 interpretAstInt env memo = \case
   AstIntVar var -> case EM.lookup var env of
-    Just (AstVarI i) -> (memo, i)
+    Just (AstEnvElemI i) -> (memo, i)
     Just _ ->
       error $ "interpretAstInt: type mismatch for " ++ show var
     Nothing -> error $ "interpretAstInt: unknown variable " ++ show var
@@ -760,8 +761,8 @@ interpretAstS
   -> AstShaped r sh -> (AstMemo r, shaped r sh)
 interpretAstS env memo = \case
   AstVarS var -> case EM.lookup var env of
-    Just (AstVarR d) -> let t = sfromD d
-                        in (memo, t)
+    Just (AstEnvElemS d) -> let t = sfromD d
+                            in (memo, t)
     Just _ ->
       error $ "interpretAstS: type mismatch for " ++ show var
     Nothing -> error $ "interpretAstS: unknown variable " ++ show var

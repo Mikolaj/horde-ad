@@ -12,7 +12,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (SomeNat (..), someNatVal)
+import           GHC.TypeLits (Nat, SomeNat (..), someNatVal)
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
 import           Test.Tasty
@@ -299,7 +299,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
            f = MnistRnnRanked2.rnnMnistLossFusedR
                  miniBatchSize (tprimalPart astGlyph, tprimalPart astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
-             revDtInit False f valsInit envInit domainsInit
+             revDtInit @Nat @(Flip OR.Array)
+                       False f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain =
              vars1Again
