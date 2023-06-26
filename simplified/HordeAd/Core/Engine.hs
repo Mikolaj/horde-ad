@@ -92,7 +92,7 @@ instance Adaptable @() (Clown OD.Array) where
 instance Adaptable @Nat (Flip OR.Array) where
   {-# INLINE revAstOnDomainsEval #-}
   revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
-    let env1 = foldr extendEnvD EM.empty $ zip vars1 $ V.toList parameters
+    let env1 = foldr extendEnvDR EM.empty $ zip vars1 $ V.toList parameters
         dtValue = case dt of
           Just a -> a
           Nothing -> treplicate0N (tshape primal) 1
@@ -118,7 +118,7 @@ instance Adaptable @Nat (Flip OR.Array) where
                        -> ADVal AstRanked r y
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
-              env1 = foldr extendEnvD envInit $ zip vars1 $ V.toList varInputs
+              env1 = foldr extendEnvDR envInit $ zip vars1 $ V.toList varInputs
           in snd $ interpretAst env1 emptyMemo ast
     in revAstOnDomainsFun hasDt parameters0 revDtInterpret
 

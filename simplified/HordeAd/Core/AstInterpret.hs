@@ -6,7 +6,7 @@
 module HordeAd.Core.AstInterpret
   ( InterpretAstR, InterpretAstS
   , interpretAst, interpretAstDomainsDummy, interpretAstS
-  , AstEnv, extendEnvS, extendEnvR, extendEnvD, AstMemo, emptyMemo
+  , AstEnv, extendEnvS, extendEnvR, extendEnvDR, extendEnvD, AstMemo, emptyMemo
   , AstEnvElem(AstVarR)  -- for a test only
   ) where
 
@@ -50,7 +50,8 @@ type AstEnv (f :: Type -> k -> Type) r =
   EM.EnumMap AstVarId (AstEnvElem f r)
 
 data AstEnvElem f r =
-    AstVarR (DynamicOf f r)
+    AstVarD (DynamicOf f r)
+  | AstVarR (DynamicOf f r)
   | AstVarI (IntOf f r)
 deriving instance (Show (DynamicOf f r), Show (IntOf f r))
                   => Show (AstEnvElem f r)
@@ -71,17 +72,16 @@ extendEnvR v@(AstVarName var) d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstVarR $ dfromR d)
 
-extendEnvD :: (ConvertTensor ranked shaped, GoodScalar r)
-           => (AstDynamicVarName r, DynamicOf ranked r)
-           -> AstEnv ranked r
-           -> AstEnv ranked r
-extendEnvD (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
+extendEnvDR :: (ConvertTensor ranked shaped, GoodScalar r)
+            => (AstDynamicVarName r, DynamicOf ranked r)
+            -> AstEnv ranked r
+            -> AstEnv ranked r
+extendEnvDR (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
 
-extendEnvDId :: AstVarId -> DynamicOf f r -> AstEnv f r
-             -> AstEnv f r
-extendEnvDId var d =
-  EM.insertWithKey (\_ _ _ -> error $ "extendEnvDId: duplicate " ++ show var)
-                   var (AstVarR d)
+extendEnvD :: AstVarId -> DynamicOf f r -> AstEnv f r -> AstEnv f r
+extendEnvD var d =
+  EM.insertWithKey (\_ _ _ -> error $ "extendEnvD: duplicate " ++ show var)
+                   var (AstVarD d)
 
 extendEnvI :: AstVarId -> IntOf f r -> AstEnv f r
            -> AstEnv f r
@@ -266,7 +266,7 @@ interpretAst env memo = \case
   AstVar sh var -> case EM.lookup var env of
     Just (AstVarR d) -> let t = tfromD d
                         in assert (sh == tshape t) $ (memo, t)
-    Just AstVarI{} ->
+    Just _  ->
       error $ "interpretAst: type mismatch for " ++ show var
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
   AstLet var u v ->
@@ -550,7 +550,7 @@ interpretAst env memo = \case
     in (memo2, tD t1 t2)
   AstLetDomains vars l v ->
     let (memo2, l2) = interpretAstDomains env memo l
-        env2 = V.foldr (\(var, d) -> extendEnvDId var d) env (V.zip vars l2)
+        env2 = V.foldr (\(var, d) -> extendEnvD var d) env (V.zip vars l2)
     in interpretAst env2 memo2 v
 
 interpretAstDynamic
@@ -586,9 +586,9 @@ interpretAstInt :: forall ranked shaped r.
                 -> AstInt r -> (AstMemo r, IntOf ranked r)
 interpretAstInt env memo = \case
   AstIntVar var -> case EM.lookup var env of
-    Just AstVarR{} ->
-      error $ "interpretAstInt: type mismatch for " ++ show var
     Just (AstVarI i) -> (memo, i)
+    Just _ ->
+      error $ "interpretAstInt: type mismatch for " ++ show var
     Nothing -> error $ "interpretAstInt: unknown variable " ++ show var
   AstIntOp opCodeInt args ->
     let (memo2, args2) = mapAccumR (interpretAstInt env) memo args
@@ -757,7 +757,7 @@ interpretAstS env memo = \case
   AstVarS var -> case EM.lookup var env of
     Just (AstVarR d) -> let t = sfromD d
                         in (memo, t)
-    Just AstVarI{} ->
+    Just _ ->
       error $ "interpretAstS: type mismatch for " ++ show var
     Nothing -> error $ "interpretAstS: unknown variable " ++ show var
   AstLetS var u v ->
@@ -1025,7 +1025,7 @@ interpretAstS env memo = \case
     in (memo2, sD t1 t2)
   AstLetDomainsS vars l v ->
     let (memo2, l2) = interpretAstDomains env memo l
-        env2 = V.foldr (\(var, d) -> extendEnvDId var d) env (V.zip vars l2)
+        env2 = V.foldr (\(var, d) -> extendEnvD var d) env (V.zip vars l2)
     in interpretAstS env2 memo2 v
 
 

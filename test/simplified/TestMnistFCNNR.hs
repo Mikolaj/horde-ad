@@ -218,7 +218,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> Domains (ADValClown OD.Array) r
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
-                   let env1 = foldr extendEnvD EM.empty
+                   let env1 = foldr extendEnvDR EM.empty
                               $ zip vars1 $ V.toList varInputs
                        envMnist =
                          extendEnvR varGlyph
@@ -539,7 +539,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> Domains (ADValClown OD.Array) r
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
-                   let env1 = foldr extendEnvD EM.empty
+                   let env1 = foldr extendEnvDR EM.empty
                               $ zip vars1 $ V.toList varInputs
                        envMnist =
                          extendEnvR varGlyph

@@ -205,7 +205,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    -> Domains (ADValClown OD.Array) r
                    -> ADVal shaped r '[]
                  f (glyph, label) varInputs =
-                   let env1 = foldr extendEnvD EM.empty
+                   let env1 = foldr extendEnvDR EM.empty
                               $ zip vars1 $ V.toList varInputs
                        envMnist = extendEnvS varGlyph (sconst glyph)
                                   $ extendEnvS varLabel (sconst label) env1

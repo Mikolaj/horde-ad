@@ -212,7 +212,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
              let f :: MnistDataBatchR r -> Domains (ADValClown OD.Array) r
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
-                   let env1 = foldr extendEnvD EM.empty
+                   let env1 = foldr extendEnvDR EM.empty
                               $ zip vars1 $ V.toList varInputs
                        envMnist = extendEnvR varGlyph (tconst glyph)
                                   $ extendEnvR varLabel (tconst label) env1
