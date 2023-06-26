@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 -- | Pretty-printing of AST of the code to be differentiated or resulting
 -- from the differentiation.
 module HordeAd.Core.AstPrettyPrint
@@ -24,41 +23,12 @@ import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 
-import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.ShapedList (ShapedList (..))
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.SizedList
-import           HordeAd.Core.TensorClass
-
--- This is temporarily placed here to avoid a dependency cycle:
-
-type instance DynamicOf AstRanked = AstDynamic
-
-instance ( GoodScalar r, KnownNat n
-         , Tensor AstRanked, ConvertTensor AstRanked AstShaped )
-         => AdaptableDomains AstDynamic (AstRanked r n) where
-  type Underlying (AstRanked r n) = r
-  type Value (AstRanked r n) = Flip OR.Array r n
-  toDomains = undefined
-  fromDomains aInit params = case V.uncons params of
-    Just (a, rest) -> Just (toRankedOrDummy (tshape aInit) a, rest)
-    Nothing -> Nothing
-
-type instance DynamicOf AstShaped = AstDynamic
-
-instance ( GoodScalar r, OS.Shape sh
-         , ShapedTensor AstShaped, ConvertTensor AstRanked AstShaped )
-         => AdaptableDomains AstDynamic (AstShaped r sh) where
-  type Underlying (AstShaped r sh) = r
-  type Value (AstShaped r sh) = Flip OS.Array r sh
-  toDomains = undefined
-  fromDomains _aInit params = case V.uncons params of
-    Just (a, rest) -> Just (toShapedOrDummy a, rest)
-    Nothing -> Nothing
-
 
 -- * Pretty-printing
 

@@ -46,6 +46,8 @@ import HordeAd.Core.SizedList
 
 -- * Ast and related definitions
 
+-- | The type family that to a concrete tensor type assigns its
+-- corresponding AST type.
 type AstOf :: forall k. (Type -> k -> Type) -> Type -> k -> Type
 type family AstOf f = result | result -> f where
   AstOf (Clown OD.Array) = Clown AstDynamic

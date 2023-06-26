@@ -12,7 +12,7 @@ module HordeAd.Core.TensorClass
   , PrimalOf, DualOf, DynamicOf
   , ShapedTensor(..), Tensor(..), ConvertTensor(..), DomainsTensor(..)
   , ADReady, ADReadyS
-  , GoodScalar, DummyDual(..), toRankedOrDummy, toShapedOrDummy
+  , GoodScalar, DummyDual(..)
   ) where
 
 import Prelude
@@ -740,6 +740,8 @@ type instance DualOf (Flip OR.Array) = DummyDual
 
 type instance DynamicOf (Flip OR.Array) = OD.Array
 
+type instance DynamicOf AstRanked = AstDynamic
+
 instance Tensor (Flip OR.Array) where
   tshape = tshapeR . runFlip
   tminIndex0 = tminIndex0R . runFlip
@@ -798,6 +800,16 @@ instance (GoodScalar r, KnownNat n)
       Just (toRankedOrDummy (tshape aInit) a, rest)
     Nothing -> Nothing
 
+instance ( GoodScalar r, KnownNat n
+         , Tensor AstRanked, ConvertTensor AstRanked AstShaped )
+         => AdaptableDomains AstDynamic (AstRanked r n) where
+  type Underlying (AstRanked r n) = r
+  type Value (AstRanked r n) = Flip OR.Array r n
+  toDomains = undefined
+  fromDomains aInit params = case V.uncons params of
+    Just (a, rest) -> Just (toRankedOrDummy (tshape aInit) a, rest)
+    Nothing -> Nothing
+
 toRankedOrDummy
   :: forall ranked shaped n r.
      (KnownNat n, Tensor ranked, GoodScalar r, ConvertTensor ranked shaped)
@@ -820,6 +832,8 @@ type instance PrimalOf (Flip OS.Array) = Flip OS.Array
 type instance DualOf (Flip OS.Array) = DummyDual
 
 type instance DynamicOf (Flip OS.Array) = OD.Array
+
+type instance DynamicOf AstShaped = AstDynamic
 
 instance ShapedTensor (Flip OS.Array) where
   sminIndex0 = tminIndex0S . runFlip
@@ -871,6 +885,16 @@ instance (GoodScalar r, OS.Shape sh)
   type Underlying (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OR.Array r (OS.Rank sh)
   toDomains a = V.singleton (dfromS a)
+  fromDomains _aInit params = case V.uncons params of
+    Just (a, rest) -> Just (toShapedOrDummy a, rest)
+    Nothing -> Nothing
+
+instance ( GoodScalar r, OS.Shape sh
+         , ShapedTensor AstShaped, ConvertTensor AstRanked AstShaped )
+         => AdaptableDomains AstDynamic (AstShaped r sh) where
+  type Underlying (AstShaped r sh) = r
+  type Value (AstShaped r sh) = Flip OS.Array r sh
+  toDomains = undefined
   fromDomains _aInit params = case V.uncons params of
     Just (a, rest) -> Just (toShapedOrDummy a, rest)
     Nothing -> Nothing
