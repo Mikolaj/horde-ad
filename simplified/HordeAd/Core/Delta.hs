@@ -393,8 +393,7 @@ type DualPart :: forall k. (Type -> k -> Type) -> Constraint
 class DualPart (f :: Type -> k -> Type) where
   -- | The type family that to each basic differentiable type
   -- assigns its delta expression type.
-  type Dual (f :: Type -> k -> Type)
-       = (result :: Type -> k -> Type) | result -> f
+  type Dual f = (result :: Type -> k -> Type) | result -> f
   type HasSingletonDict f (y :: k) :: Constraint
   reverseDervative
     :: (HasSingletonDict f y, GoodScalar r)

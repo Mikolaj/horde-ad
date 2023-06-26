@@ -17,14 +17,16 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
+import           Data.Kind (Constraint, Type)
 import           Data.Maybe (isJust)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
+import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -38,10 +40,62 @@ import HordeAd.Core.TensorClass
 
 -- * Gradient adaptors
 
+type Adaptable :: forall k. (Type -> k -> Type) -> Constraint
+class Adaptable f where
+  revAstOnDomainsEval
+    :: forall r y. (GoodScalar r, HasSingletonDict f y)
+    => ADAstArtifact6 f r y -> Domains OD.Array r -> Maybe (f r y)
+    -> (Domains OD.Array r, f r y)
+
+  revDtInit
+    :: forall r y vals astvals.
+       ( GoodScalar r, HasSingletonDict f y
+       , AdaptableDomains AstDynamic astvals
+       , vals ~ Value astvals, Underlying astvals ~ r )
+    => Bool -> (astvals -> AstOf f r y) -> vals -> AstEnv (ADVal (AstOf f)) r
+    -> DomainsOD r
+    -> (ADAstArtifact6 f r y, Dual (AstOf f) r y)
+
+instance Adaptable @() (Clown OD.Array) where
+
+instance Adaptable @Nat (Flip OR.Array) where
+  {-# INLINE revAstOnDomainsEval #-}
+  revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
+    let env1 = foldr extendEnvD EM.empty $ zip vars1 $ V.toList parameters
+        dtValue = case dt of
+          Just a -> a
+          Nothing -> treplicate0N (tshape primal) 1
+        envDt = extendEnvR varDt dtValue env1
+        (memo1, gradientDomain) =
+          interpretAstDomainsDummy envDt emptyMemo gradient
+        primalTensor = snd $ interpretAst env1 memo1 primal
+    in (gradientDomain, primalTensor)
+
+  revDtInit
+    :: forall r y vals astvals.
+       ( GoodScalar r, KnownNat y
+       , AdaptableDomains AstDynamic astvals
+       , vals ~ Value astvals, Underlying astvals ~ r )
+    => Bool -> (astvals -> AstRanked r y) -> vals -> AstEnv (ADVal AstRanked) r
+    -> DomainsOD r
+    -> (ADAstArtifact6 (Flip OR.Array) r y, Dual AstRanked r y)
+  {-# INLINE revDtInit #-}
+  revDtInit hasDt f vals envInit parameters0 =
+    let revDtInterpret :: Domains (ADValClown AstDynamic) r
+                       -> Domains AstDynamic r
+                       -> [AstDynamicVarName r]
+                       -> ADVal AstRanked r y
+        revDtInterpret varInputs domains vars1 =
+          let ast = f $ parseDomains vals domains
+              env1 = foldr extendEnvD envInit $ zip vars1 $ V.toList varInputs
+          in snd $ interpretAst env1 emptyMemo ast
+    in revAstOnDomainsFun hasDt parameters0 revDtInterpret
+
+instance Adaptable @[Nat] (Flip OS.Array) where
+
 revDtMaybe
-  :: forall r n vals astvals ranked.
-     ( ranked ~ ADVal AstRanked
-     , InterpretAstR ranked r, KnownNat n
+  :: forall r n vals astvals.
+     ( GoodScalar r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
@@ -51,9 +105,8 @@ revDtMaybe f vals mdt =
   in parseDomains vals $ fst $ revAstOnDomainsEval asts4 (toDomains vals) mdt
 
 revDtFun
-  :: forall r n vals astvals ranked.
-     ( ranked ~ ADVal AstRanked
-     , InterpretAstR ranked r, KnownNat n
+  :: forall r n vals astvals.
+     ( GoodScalar r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
   => Bool -> (astvals -> AstRanked r n) -> vals
@@ -61,30 +114,9 @@ revDtFun
 {-# INLINE revDtFun #-}
 revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
-revDtInit
-  :: forall r n vals astvals ranked.
-     ( ranked ~ ADVal AstRanked
-     , InterpretAstR ranked r, KnownNat n
-     , AdaptableDomains AstDynamic astvals
-     , vals ~ Value astvals, Underlying astvals ~ r)
-  => Bool -> (astvals -> AstRanked r n) -> vals -> AstEnv ranked r
-  -> DomainsOD r
-  -> (ADAstArtifact6 (Flip OR.Array) r n, Dual AstRanked r n)
-{-# INLINE revDtInit #-}
-revDtInit hasDt f vals envInit parameters0 =
-  let revDtInterpret :: Domains (DynamicOf ranked) r -> Domains AstDynamic r
-                     -> [AstDynamicVarName r]
-                     -> ranked r n
-      revDtInterpret varInputs domains vars1 =
-        let ast = f $ parseDomains vals domains
-            env1 = foldr extendEnvD envInit $ zip vars1 $ V.toList varInputs
-        in snd $ interpretAst env1 emptyMemo ast
-  in revAstOnDomainsFun hasDt parameters0 revDtInterpret
-
 rev
-  :: forall r n vals astvals ranked.
-     ( ranked ~ ADVal AstRanked
-     , InterpretAstR ranked r, KnownNat n
+  :: forall r n vals astvals.
+     ( GoodScalar r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
@@ -93,9 +125,8 @@ rev f vals = revDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
 revDt
-  :: forall r n vals astvals ranked.
-     ( ranked ~ ADVal AstRanked
-     , InterpretAstR ranked r, KnownNat n
+  :: forall r n vals astvals.
+     ( GoodScalar r, KnownNat n
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
@@ -129,25 +160,6 @@ revAstOnDomainsFun hasDt parameters0 f =
        , unletAstDomains6 astBindings l (dmkDomains gradient)
        , unletAst6 l primalBody )
      , deltaTopLevel )
-
-revAstOnDomainsEval
-  :: forall r n ranked.
-     ( ranked ~ Flip OR.Array
-     , InterpretAstR ranked r, KnownNat n )
-  => ADAstArtifact6 (Flip OR.Array) r n -> Domains OD.Array r
-  -> Maybe (ranked r n)
-  -> (Domains OD.Array r, ranked r n)
-{-# INLINE revAstOnDomainsEval #-}
-revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
-  let env1 = foldr extendEnvD EM.empty $ zip vars1 $ V.toList parameters
-      dtValue = case dt of
-        Just a -> a
-        Nothing -> treplicate0N (tshape primal) 1
-      envDt = extendEnvR varDt dtValue env1
-      (memo1, gradientDomain) =
-        interpretAstDomainsDummy envDt emptyMemo gradient
-      primalTensor = snd $ interpretAst env1 memo1 primal
-  in (gradientDomain, primalTensor)
 
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt.

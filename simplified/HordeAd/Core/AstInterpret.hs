@@ -24,6 +24,7 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
+import           Data.Kind (Type)
 import           Data.List (foldl1', mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -45,13 +46,14 @@ import           HordeAd.Core.SizedList
 import           HordeAd.Core.TensorADVal
 import           HordeAd.Core.TensorClass
 
-type AstEnv ranked r = EM.EnumMap AstVarId (AstEnvElem ranked r)
+type AstEnv (f :: Type -> k -> Type) r =
+  EM.EnumMap AstVarId (AstEnvElem f r)
 
-data AstEnvElem ranked r =
-    AstVarR (DynamicOf ranked r)
-  | AstVarI (IntOf ranked r)
-deriving instance (Show (DynamicOf ranked r), Show (IntOf ranked r))
-                  => Show (AstEnvElem ranked r)
+data AstEnvElem f r =
+    AstVarR (DynamicOf f r)
+  | AstVarI (IntOf f r)
+deriving instance (Show (DynamicOf f r), Show (IntOf f r))
+                  => Show (AstEnvElem f r)
 
 extendEnvS :: forall ranked shaped r sh.
               (OS.Shape sh, ConvertTensor ranked shaped, GoodScalar r)
@@ -75,14 +77,14 @@ extendEnvD :: (ConvertTensor ranked shaped, GoodScalar r)
            -> AstEnv ranked r
 extendEnvD (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
 
-extendEnvDId :: AstVarId -> DynamicOf ranked r -> AstEnv ranked r
-             -> AstEnv ranked r
+extendEnvDId :: AstVarId -> DynamicOf f r -> AstEnv f r
+             -> AstEnv f r
 extendEnvDId var d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvDId: duplicate " ++ show var)
                    var (AstVarR d)
 
-extendEnvI :: AstVarId -> IntOf ranked r -> AstEnv ranked r
-           -> AstEnv ranked r
+extendEnvI :: AstVarId -> IntOf f r -> AstEnv f r
+           -> AstEnv f r
 extendEnvI var i =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
                    var (AstVarI i)
@@ -107,41 +109,41 @@ extendEnvVarsS vars ix env =
 -- for each iteration, with differently extended environment,
 -- and also because the created function is not expected to return a @memo@.
 interpretLambdaI
-  :: (AstEnv ranked r -> AstMemo r -> AstRanked r n
-      -> (AstMemo r, ranked r n))
-  -> AstEnv ranked r -> AstMemo r -> (AstVarId, AstRanked r n)
-  -> IntOf ranked r
-  -> ranked r n
+  :: (AstEnv f r -> AstMemo r -> AstRanked r n
+      -> (AstMemo r, f r n))
+  -> AstEnv f r -> AstMemo r -> (AstVarId, AstRanked r n)
+  -> IntOf f r
+  -> f r n
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env memo (var, ast) =
   \i -> snd $ f (extendEnvI var i env) memo ast
 
 interpretLambdaIS
-  :: (AstEnv ranked r -> AstMemo r -> AstShaped r sh
+  :: (AstEnv f r -> AstMemo r -> AstShaped r sh
       -> (AstMemo r, shaped r sh))
-  -> AstEnv ranked r -> AstMemo r -> (AstVarId, AstShaped r sh)
-  -> IntSh ranked r n
+  -> AstEnv f r -> AstMemo r -> (AstVarId, AstShaped r sh)
+  -> IntSh f r n
   -> shaped r sh
 {-# INLINE interpretLambdaIS #-}
 interpretLambdaIS f env memo (var, ast) =
   \i -> snd $ f (extendEnvI var (ShapedList.unShapedNat i) env) memo ast
 
 interpretLambdaIndex
-  :: (AstEnv ranked r -> AstMemo r -> AstRanked r n
-      -> (AstMemo r, ranked r n))
-  -> AstEnv ranked r -> AstMemo r
-  -> (AstVarList m, AstRanked r n) -> IndexOf ranked r m
-  -> ranked r n
+  :: (AstEnv f r -> AstMemo r -> AstRanked r n
+      -> (AstMemo r, f r n))
+  -> AstEnv f r -> AstMemo r
+  -> (AstVarList m, AstRanked r n) -> IndexOf f r m
+  -> f r n
 {-# INLINE interpretLambdaIndex #-}
 interpretLambdaIndex f env memo (vars, ast) =
   \ix -> snd $ f (extendEnvVars vars ix env) memo ast
 
 interpretLambdaIndexS
-  :: forall sh sh2 ranked shaped r.
-     (AstEnv ranked r -> AstMemo r -> AstShaped r sh
+  :: forall sh sh2 f shaped r.
+     (AstEnv f r -> AstMemo r -> AstShaped r sh
       -> (AstMemo r, shaped r sh))
-  -> AstEnv ranked r -> AstMemo r
-  -> (AstVarListS sh2, AstShaped r sh) -> IndexSh ranked r sh2
+  -> AstEnv f r -> AstMemo r
+  -> (AstVarListS sh2, AstShaped r sh) -> IndexSh f r sh2
   -> shaped r sh
 {-# INLINE interpretLambdaIndexS #-}
 interpretLambdaIndexS f env memo (vars, ast) =
@@ -149,11 +151,11 @@ interpretLambdaIndexS f env memo (vars, ast) =
 
 interpretLambdaIndexToIndex
   :: KnownNat p
-  => (AstEnv ranked r -> AstMemo r -> AstInt q
-      -> (AstMemo r, IntOf ranked r)) -> AstEnv ranked r
+  => (AstEnv f r -> AstMemo r -> AstInt q
+      -> (AstMemo r, IntOf f r)) -> AstEnv f r
   -> AstMemo r -> (AstVarList m, AstIndex q p)
-  -> IndexOf ranked r m
-  -> IndexOf ranked r p
+  -> IndexOf f r m
+  -> IndexOf f r p
 {-# INLINE interpretLambdaIndexToIndex #-}
 interpretLambdaIndexToIndex f env memo (vars, asts) =
   \ix -> listToIndex $ snd
@@ -161,11 +163,11 @@ interpretLambdaIndexToIndex f env memo (vars, asts) =
 
 interpretLambdaIndexToIndexS
   :: OS.Shape sh2
-  => (AstEnv ranked r -> AstMemo r -> AstInt q
-      -> (AstMemo r, IntOf ranked r)) -> AstEnv ranked r
+  => (AstEnv f r -> AstMemo r -> AstInt q
+      -> (AstMemo r, IntOf f r)) -> AstEnv f r
   -> AstMemo r -> (AstVarListS sh, AstIndexS q sh2)
-  -> IndexSh ranked r sh
-  -> IndexSh ranked r sh2
+  -> IndexSh f r sh
+  -> IndexSh f r sh2
 {-# INLINE interpretLambdaIndexToIndexS #-}
 interpretLambdaIndexToIndexS f env memo (vars, asts) =
   \ix -> ShapedList.listToSized $ snd

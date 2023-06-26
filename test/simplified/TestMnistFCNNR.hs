@@ -271,8 +271,7 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCase2VTO
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array
-     , ADReady ranked r, InterpretAstR ranked r
+     ( ranked ~ Flip OR.Array, ADReady ranked r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r
@@ -592,8 +591,7 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCase2VT2O
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array
-     , ADReady ranked r, Random r, InterpretAstR ranked r
+     ( ranked ~ Flip OR.Array, ADReady ranked r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> r -> Int -> r

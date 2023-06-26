@@ -267,8 +267,7 @@ tensorADValMnistTestsCNNI = testGroup "CNN Intermediate MNIST tests"
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCaseCNNO
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array
-     , ADReady ranked r, Random r, InterpretAstR ranked r
+     ( ranked ~ Flip OR.Array, ADReady ranked r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r

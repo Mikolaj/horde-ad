@@ -13,6 +13,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (Nat)
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
 import           Test.Tasty
@@ -264,8 +265,7 @@ _tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
 mnistTestCaseRNNSO
   :: forall shaped width batch_size r.
      ( shaped ~ Flip OS.Array
-     , ADReadyS shaped r, Random r, InterpretAstS shaped r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     , ADReadyS shaped r, Random r, PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
@@ -331,7 +331,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
-                   fst $ revAstOnDomainsEval @r @777 undefined -- TODO
+                   fst $ revAstOnDomainsEval @[Nat] @(Flip OS.Array) @r @'[]
+                                             undefined -- TODO
                                              parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientDomain)
