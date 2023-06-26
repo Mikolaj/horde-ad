@@ -5,9 +5,10 @@
 -- high-level API of the horde-ad library. Adaptors, optimizers, etc.,
 -- are add-ons.
 module HordeAd.Core.Engine
-  ( revDtFun, revDtInit, rev, revDt
-  , crev, crevDt, revOnDomains
-  , revAstOnDomainsFun, revAstOnDomainsEval, revOnADInputs
+  ( rev, revDt
+  , Adaptable (..)
+  , revDtFun, revAstOnDomainsFun
+  , crev, crevDt, revOnADInputs, revOnDomains
   , fwd, slowFwdOnADInputs, slowFwdOnDomains
   , generateDeltaInputs, makeADInputs, shapedToRanked
   ) where
@@ -39,6 +40,36 @@ import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 
 -- * Gradient adaptors
+
+rev
+  :: forall r n vals astvals.
+     ( GoodScalar r, KnownNat n
+     , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
+     , vals ~ Value vals, vals ~ Value astvals
+     , Underlying vals ~ r, Underlying astvals ~ r )
+  => (astvals -> AstRanked r n) -> vals -> vals
+rev f vals = revDtMaybe f vals Nothing
+
+-- This version additionally takes the sensitivity parameter.
+revDt
+  :: forall r n vals astvals.
+     ( GoodScalar r, KnownNat n
+     , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
+     , vals ~ Value vals, vals ~ Value astvals
+     , Underlying vals ~ r, Underlying astvals ~ r )
+  => (astvals -> AstRanked r n) -> vals -> Flip OR.Array r n -> vals
+revDt f vals dt = revDtMaybe f vals (Just dt)
+
+revDtMaybe
+  :: forall r n vals astvals.
+     ( GoodScalar r, KnownNat n
+     , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
+     , vals ~ Value vals, vals ~ Value astvals
+     , Underlying vals ~ r, Underlying astvals ~ r )
+  => (astvals -> AstRanked r n) -> vals -> Maybe (Flip OR.Array r n) -> vals
+revDtMaybe f vals mdt =
+  let asts4 = fst $ revDtFun (isJust mdt) f vals
+  in parseDomains vals $ fst $ revAstOnDomainsEval asts4 (toDomains vals) mdt
 
 type Adaptable :: forall k. (Type -> k -> Type) -> Constraint
 class Adaptable f where
@@ -93,17 +124,6 @@ instance Adaptable @Nat (Flip OR.Array) where
 
 instance Adaptable @[Nat] (Flip OS.Array) where
 
-revDtMaybe
-  :: forall r n vals astvals.
-     ( GoodScalar r, KnownNat n
-     , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals
-     , Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> AstRanked r n) -> vals -> Maybe (Flip OR.Array r n) -> vals
-revDtMaybe f vals mdt =
-  let asts4 = fst $ revDtFun (isJust mdt) f vals
-  in parseDomains vals $ fst $ revAstOnDomainsEval asts4 (toDomains vals) mdt
-
 revDtFun
   :: forall r n vals astvals.
      ( GoodScalar r, KnownNat n
@@ -113,25 +133,6 @@ revDtFun
   -> (ADAstArtifact6 (Flip OR.Array) r n, Dual AstRanked r n)
 {-# INLINE revDtFun #-}
 revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
-
-rev
-  :: forall r n vals astvals.
-     ( GoodScalar r, KnownNat n
-     , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals
-     , Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> AstRanked r n) -> vals -> vals
-rev f vals = revDtMaybe f vals Nothing
-
--- This version additionally takes the sensitivity parameter.
-revDt
-  :: forall r n vals astvals.
-     ( GoodScalar r, KnownNat n
-     , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals
-     , Underlying vals ~ r, Underlying astvals ~ r )
-  => (astvals -> AstRanked r n) -> vals -> Flip OR.Array r n -> vals
-revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revAstOnDomainsFun
   :: forall r n. (KnownNat n, GoodScalar r)
