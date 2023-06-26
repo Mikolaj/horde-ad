@@ -31,7 +31,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 
 type instance DynamicOf (Clown AstDynamic) = AstDynamic
 
-type instance IntOf (AstRanked r n) = AstInt r
+type instance IntOf AstRanked r = AstInt r
 
 type instance PrimalOf AstRanked = AstPrimalPart
 
@@ -166,7 +166,7 @@ astBuild1Vectorize :: (KnownNat n, GoodScalar r)
                    => Int -> (AstInt r -> AstRanked r n) -> AstRanked r (1 + n)
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
-type instance IntOf (AstPrimalPart r n) = AstInt r
+type instance IntOf AstPrimalPart r = AstInt r
 
 type instance PrimalOf AstPrimalPart = AstPrimalPart
 
@@ -213,7 +213,7 @@ instance Tensor AstPrimalPart where
   tD u _ = u
   tScale _ _ = DummyDual
 
-type instance IntOf (AstNoVectorize r n) = AstInt r
+type instance IntOf AstNoVectorize r = AstInt r
 
 type instance PrimalOf AstNoVectorize = AstNoVectorize
 
@@ -263,7 +263,7 @@ instance Tensor AstNoVectorize where
   tD u u' = AstNoVectorize $ AstD (AstPrimalPart $ unAstNoVectorize u) u'
   tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-type instance IntOf (AstNoSimplify r n) = AstInt r
+type instance IntOf AstNoSimplify r = AstInt r
 
 type instance PrimalOf AstNoSimplify = AstNoSimplify
 
@@ -319,7 +319,7 @@ astLetFunUnSimp a f =
       (AstVarName var, ast) = funToAstR sh f
   in AstLet var a ast
 
-type instance IntOf (AstShaped r sh) = AstInt r
+type instance IntOf AstShaped r = AstInt r
 
 type instance PrimalOf AstShaped = AstPrimalPartS
 
@@ -335,7 +335,7 @@ instance ShapedTensor AstShaped where
   sindex = AstIndexS
   ssum = AstSumS
   sfromIndex0 :: forall n r. KnownNat n
-              => IntSh (AstShaped r '[]) n -> AstShaped r '[]
+              => IntSh AstShaped r n -> AstShaped r '[]
   sfromIndex0 i = AstConstantS $ AstPrimalPartS
                   $ AstIndexS (AstIotaS @n) (ShapedList.consShaped i ZSH)
     -- toInteger is not defined for Ast, hence a special implementation
@@ -398,12 +398,12 @@ astLetFunS a f =
   in AstLetS var a ast  -- astLet var a ast  -- safe, because subsitution ruled out above
 
 astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r)
-                    => (IntSh (AstShaped r '[]) n -> AstShaped r sh)
+                    => (IntSh AstShaped r n -> AstShaped r sh)
                     -> AstShaped r (n ': sh)
 astBuild1VectorizeS f =
   build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)
 
-type instance IntOf (AstPrimalPartS r n) = AstInt r
+type instance IntOf AstPrimalPartS r = AstInt r
 
 type instance PrimalOf AstPrimalPartS = AstPrimalPartS
 
@@ -421,7 +421,7 @@ instance ShapedTensor AstPrimalPartS where
   sindex v ix = AstPrimalPartS $ AstIndexS (unAstPrimalPartS v) ix
   ssum = AstPrimalPartS . AstSumS . unAstPrimalPartS
   sfromIndex0 :: forall n r. KnownNat n
-              => IntSh (AstShaped r '[]) n -> AstPrimalPartS r '[]
+              => IntSh AstShaped r n -> AstPrimalPartS r '[]
   sfromIndex0 i = AstPrimalPartS
                   $ AstIndexS (AstIotaS @n) (ShapedList.consShaped i ZSH)
     -- toInteger is not defined for Ast, hence a special implementation

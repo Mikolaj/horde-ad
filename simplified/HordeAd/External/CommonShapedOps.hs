@@ -169,7 +169,7 @@ slicezS
      ( OS.Shape sh, OS.Shape shOut, OS.Shape (OS.Take (OS.Rank sh) shOut)
      , KnownNat (OS.Rank sh)
      , OS.Rank shOut ~ OS.Rank sh, ADReadyS shaped r )
-  => shaped r sh -> IndexSh (shaped r '[]) sh -> shaped r shOut
+  => shaped r sh -> IndexSh shaped r sh -> shaped r shOut
 slicezS d ixBase =
   gcastWith (unsafeCoerce Refl
              :: OS.Rank (OS.Take (OS.Rank shOut) shOut) :~: OS.Rank shOut) $
@@ -189,7 +189,7 @@ slicezS d ixBase =
 -- such invalid indexes and returns 0.
 indexz0S
   :: forall shOut sh shaped r. (OS.Shape shOut, OS.Shape sh, ADReadyS shaped r)
-  => shaped r sh -> IndexOf (shaped r '[]) (OS.Rank shOut) -> shaped r '[]
+  => shaped r sh -> IndexOf shaped r (OS.Rank shOut) -> shaped r '[]
 indexz0S d ix =
   gcastWith (unsafeCoerce Refl :: sh OS.++ '[] :~: sh) $
   ifB (within0S @shOut @shaped @r ix)
@@ -200,13 +200,13 @@ indexz0S d ix =
 -- | Given an index and shape, check if the index is fully within the shape.
 within0S
   :: forall shOut shaped r. (OS.Shape shOut, ADReadyS shaped r)
-  => IndexOf (shaped r '[]) (OS.Rank shOut)
+  => IndexOf shaped r (OS.Rank shOut)
        -- the indexes may be outside shOut and even negative (e.g., for
        -- convolutions with padding)
-  -> BooleanOf (IntOf (shaped r '[]))
+  -> BooleanOf (IntOf shaped r)
 within0S ix =
-  let within :: IntOf (shaped r '[]) -> IntOf (shaped r '[])
-             -> BooleanOf (IntOf (shaped r '[]))
+  let within :: IntOf shaped r -> IntOf shaped r
+             -> BooleanOf (IntOf shaped r)
       within i dim = 0 <=* i &&* dim >* i
   in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ OS.shapeT @shOut)

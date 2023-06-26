@@ -155,7 +155,7 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
 
   IndexS :: (OS.Shape sh1, OS.Shape (sh1 OS.++ sh2))
          => DeltaS ranked shaped r (sh1 OS.++ sh2)
-         -> IndexSh (shaped r '[]) sh1
+         -> IndexSh shaped r sh1
          -> DeltaS ranked shaped r sh2
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
@@ -170,8 +170,8 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
               ( OS.Shape sh2, OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh)
               , OS.Shape (sh2 OS.++ OS.Drop p sh) )
            => DeltaS ranked shaped r (sh2 OS.++ OS.Drop p sh)
-           -> (IndexSh (shaped r '[]) sh2
-               -> IndexSh (shaped r '[]) (OS.Take p sh))
+           -> (IndexSh shaped r sh2
+               -> IndexSh shaped r (OS.Take p sh))
            -> DeltaS ranked shaped r sh
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
@@ -225,7 +225,7 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- ^ Change the shape of the tensor from the first to the second.
   BuildS :: forall ranked shaped r n sh.
             (OS.Shape sh, KnownNat n)
-         => (IntSh (shaped r '[]) n -> DeltaS ranked shaped r sh)
+         => (IntSh shaped r n -> DeltaS ranked shaped r sh)
          -> DeltaS ranked shaped r (n ': sh)
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
@@ -233,8 +233,8 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
              ( OS.Shape sh2, OS.Shape sh
              , OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh) )
           => DeltaS ranked shaped r sh
-          -> (IndexSh (shaped r '[]) sh2
-              -> IndexSh (shaped r '[]) (OS.Take p sh))
+          -> (IndexSh shaped r sh2
+              -> IndexSh shaped r (OS.Take p sh))
           -> DeltaS ranked shaped r (sh2 OS.++ OS.Drop p sh)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
@@ -255,8 +255,8 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
 deriving instance ( OS.Shape sh0
                   , (forall n. Show (ranked r n))
                   , (forall sh. OS.Shape sh => Show (shaped r sh))
-                  , Show (IntOf (ranked r 0))
-                  , Show (IntOf (shaped r '[])) )
+                  , Show (IntOf ranked r)
+                  , Show (IntOf shaped r) )
                   => Show (DeltaS ranked shaped r sh0)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
@@ -274,7 +274,7 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
   LetR :: NodeId -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
 
   IndexR :: (KnownNat n, KnownNat m)
-         => DeltaR ranked shaped r (m + n) -> IndexOf (ranked r 0) m
+         => DeltaR ranked shaped r (m + n) -> IndexOf ranked r m
          -> ShapeInt (m + n) -> DeltaR ranked shaped r n
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. If index is out of bounds, the result is defined and is 0.
@@ -286,7 +286,7 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
        => ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r 0
   ScatterR :: (KnownNat m, KnownNat p, KnownNat n)
            => ShapeInt (p + n) -> DeltaR ranked shaped r (m + n)
-           -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
+           -> (IndexOf ranked r m -> IndexOf ranked r p)
            -> ShapeInt (m + n)
            -> DeltaR ranked shaped r (p + n)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
@@ -334,13 +334,13 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
           -> DeltaR ranked shaped r m
     -- ^ Change the shape of the tensor from the first to the second.
   BuildR :: KnownNat n
-         => Int -> (IntOf (ranked r 0) -> DeltaR ranked shaped r n)
+         => Int -> (IntOf ranked r -> DeltaR ranked shaped r n)
          -> DeltaR ranked shaped r (1 + n)
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
   GatherR :: (KnownNat m, KnownNat p, KnownNat n)
           => ShapeInt (m + n) -> DeltaR ranked shaped r (p + n)
-          -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
+          -> (IndexOf ranked r m -> IndexOf ranked r p)
           -> ShapeInt (p + n)
           -> DeltaR ranked shaped r (m + n)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
@@ -361,8 +361,8 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
 
 deriving instance ( (forall n. Show (ranked r n))
                   , (forall sh. OS.Shape sh => Show (shaped r sh))
-                  , Show (IntOf (ranked r 0))
-                  , Show (IntOf (shaped r '[])) )
+                  , Show (IntOf ranked r)
+                  , Show (IntOf shaped r) )
                   => Show (DeltaR ranked shaped r n0)
 
 data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
@@ -374,8 +374,8 @@ data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
 
 deriving instance ( (forall n. Show (ranked r n))
                   , (forall sh. OS.Shape sh => Show (shaped r sh))
-                  , Show (IntOf (ranked r 0))
-                  , Show (IntOf (shaped r '[])) )
+                  , Show (IntOf ranked r)
+                  , Show (IntOf shaped r) )
                   => Show (DeltaD ranked shaped r '())
 
 

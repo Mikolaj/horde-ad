@@ -54,7 +54,7 @@ import           HordeAd.Core.TensorOps
 -- but leads to irregular tensors, especially after vectorization,
 -- and prevents statically known shapes.
 
-type family IntOf a
+type family IntOf (f :: Type -> k -> Type) r :: Type
 
 -- | Thanks to the OverloadedLists mechanism, values of this type can be
 -- written using the normal list notation. However, such values, if not
@@ -62,40 +62,32 @@ type family IntOf a
 -- of the list until runtime. That means that some errors are hidden
 -- and also extra type applications may be needed to satisfy the compiler.
 -- Therefore, there is a real trade-off between @[2]@ and @(2 :. ZI).
-type IndexOf a n = Index n (IntOf a)
+type IndexOf f r n = Index n (IntOf f r)
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The value of this type has to be positive and less than the @n@ bound.
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
-type IntSh a (n :: Nat) = ShapedNat n (IntOf a)
+type IntSh f r (n :: Nat) = ShapedNat n (IntOf f r)
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The values of this type are bounded by the shape.
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
-type IndexSh a (sh :: [Nat]) = ShapedList sh (IntOf a)
+type IndexSh f r (sh :: [Nat]) = ShapedList sh (IntOf f r)
 
 type GoodScalar r = (ShowAst r, RealFloat r, Floating (Vector r), RowSum r)
 
-class Integral (IntOf a) => IntegralIntOf a where
-instance Integral (IntOf a) => IntegralIntOf a where
+class Integral (IntOf f r) => IntegralIntOf f r where
+instance Integral (IntOf f r) => IntegralIntOf f r where
 
 class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
       => CRankedR ranked c where
 instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
          => CRankedR ranked c where
 
-class (forall r20. GoodScalar r20 => c (ranked r20 0))
-      => CRankedRR ranked c where
-instance (forall r20. GoodScalar r20 => c (ranked r20 0))
-         => CRankedRR ranked c where
-
-class (forall r31. GoodScalar r31 => c (shaped r31 '[]))
-      => CRankedSS shaped c where
-instance
-      (forall r31. GoodScalar r31 => c (shaped r31 '[]))
-      => CRankedSS shaped c where
+class (forall r20. GoodScalar r20 => c f r20) => CRankedRR f c where
+instance (forall r20. GoodScalar r20 => c f r20) => CRankedRR f c where
 
 -- k is intended to be Nat or [Nat] (or nothing, if we support scalars)
 type family PrimalOf (tensor :: Type -> k -> Type) :: Type -> k -> Type
@@ -129,24 +121,24 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   tlength v = case tshape v of
     ZS -> error "tlength: impossible pattern needlessly required"
     k :$ _ -> k
-  tminIndex0 :: GoodScalar r => ranked r 1 -> IntOf (ranked r 0)  -- partial
+  tminIndex0 :: GoodScalar r => ranked r 1 -> IntOf ranked r  -- partial
   tminIndex :: (KnownNat n, GoodScalar r)
-            => ranked r n -> IndexOf (ranked r 0) n
+            => ranked r n -> IndexOf ranked r n
   tminIndex t = fromLinearIdx (tshape t) (tminIndex0 (tflatten t))
-  tmaxIndex0 :: GoodScalar r => ranked r 1 -> IntOf (ranked r 0)  -- partial
+  tmaxIndex0 :: GoodScalar r => ranked r 1 -> IntOf ranked r  -- partial
   tmaxIndex :: (GoodScalar r, KnownNat n)
-            => ranked r n -> IndexOf (ranked r 0) n
+            => ranked r n -> IndexOf ranked r n
   tmaxIndex t = fromLinearIdx (tshape t) (tmaxIndex0 (tflatten t))
-  tfloor :: GoodScalar r => ranked r 0 -> IntOf (ranked r 0)
+  tfloor :: GoodScalar r => ranked r 0 -> IntOf ranked r
 
   -- Typically scalar codomain, often tensor reduction
   -- (a number suffix in the name indicates the rank of codomain)
   tindex, (!) :: (GoodScalar r, KnownNat m, KnownNat n)
-              => ranked r (m + n) -> IndexOf (ranked r 0) m -> ranked r n
+              => ranked r (m + n) -> IndexOf ranked r m -> ranked r n
   infixl 9 !
   (!) = tindex  -- prefix form better when type applications are necessary
   tindex0 :: (GoodScalar r, KnownNat m)
-          => ranked r m -> IndexOf (ranked r 0) m -> ranked r 0
+          => ranked r m -> IndexOf ranked r m -> ranked r 0
   tindex0 = tindex
   tsum :: (GoodScalar r, KnownNat n) => ranked r (1 + n) -> ranked r n
   tsum0 :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r 0
@@ -183,16 +175,16 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   tmaximum t0 = tlet t0 $ \t ->
                   tlet (tflatten t) $ \tf ->
                     tindex0 t $ fromLinearIdx (tshape t) (tmaxIndex0 tf)
-  tfromIndex0 :: GoodScalar r => IntOf (ranked r 0) -> ranked r 0
-  tfromIndex1 :: GoodScalar r => IndexOf (ranked r 0) n -> ranked r 1
+  tfromIndex0 :: GoodScalar r => IntOf ranked r -> ranked r 0
+  tfromIndex1 :: GoodScalar r => IndexOf ranked r n -> ranked r 1
   tfromIndex1 = tfromList . map tfromIndex0 . indexToList
   tscatter :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
            => ShapeInt (p + n) -> ranked r (m + n)
-           -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
+           -> (IndexOf ranked r m -> IndexOf ranked r p)
            -> ranked r (p + n)
   tscatter1 :: forall r n p. (GoodScalar r, KnownNat n, KnownNat p)
             => ShapeInt (p + n) -> ranked r (1 + n)
-            -> (IntOf (ranked r 0) -> IndexOf (ranked r 0) p)
+            -> (IntOf ranked r -> IndexOf ranked r p)
             -> ranked r (p + n)
   tscatter1 sh v f = tscatter @ranked @r @1 sh v
                               (\(i :. ZI) -> f i)
@@ -238,11 +230,11 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   treshape :: (GoodScalar r, KnownNat n, KnownNat m)
            => ShapeInt m -> ranked r n -> ranked r m
   tbuild :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
-         => ShapeInt (m + n) -> (IndexOf (ranked r 0) m -> ranked r n)
+         => ShapeInt (m + n) -> (IndexOf ranked r m -> ranked r n)
          -> ranked r (m + n)
   tbuild sh0 f0 =
     let buildSh :: KnownNat m1
-                => ShapeInt m1 -> (IndexOf (ranked r 0) m1 -> ranked r n)
+                => ShapeInt m1 -> (IndexOf ranked r m1 -> ranked r n)
                 -> ranked r (m1 + n)
         buildSh ZS f = f ZI
         buildSh (k :$ sh) f =
@@ -250,7 +242,7 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
           in tbuild1 k g
     in buildSh (takeShape @m @n sh0) f0
   tbuild1 :: (GoodScalar r, KnownNat n)  -- this form needs less typeapps
-          => Int -> (IntOf (ranked r 0) -> ranked r n) -> ranked r (1 + n)
+          => Int -> (IntOf ranked r -> ranked r n) -> ranked r (1 + n)
   tmap :: (GoodScalar r, KnownNat m, KnownNat n)
        => (ranked r n -> ranked r n)
        -> ranked r (m + n) -> ranked r (m + n)
@@ -276,11 +268,11 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   tzipWith0N f u v = tbuild (tshape v) (\ix -> f (tindex0 u ix) (tindex0 v ix))
   tgather :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
           => ShapeInt (m + n) -> ranked r (p + n)
-          -> (IndexOf (ranked r 0) m -> IndexOf (ranked r 0) p)
+          -> (IndexOf ranked r m -> IndexOf ranked r p)
           -> ranked r (m + n)
   tgather1 :: forall r n p. (GoodScalar r, KnownNat n, KnownNat p)
            => Int -> ranked r (p + n)
-           -> (IntOf (ranked r 0) -> IndexOf (ranked r 0) p)
+           -> (IntOf ranked r -> IndexOf ranked r p)
            -> ranked r (1 + n)
   tgather1 k v f = tgather @ranked @r @1 (k :$ dropShape (tshape v)) v
                            (\(i :. ZI) -> f i)
@@ -345,7 +337,7 @@ instance
       (forall r30 y30. (OS.Shape y30, GoodScalar r30) => c (shaped r30 y30))
       => CRankedS shaped c where
 
-class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
+class (CRankedRR shaped IntegralIntOf, CRankedS shaped RealFloat)
       => ShapedTensor (shaped :: Type -> [Nat] -> Type) where
 
   slet :: (OS.Shape sh, OS.Shape sh2, GoodScalar r)
@@ -366,16 +358,16 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
           => shaped r (n ': sh) -> Int
   slength _ = valueOf @n
   sminIndex0 :: (GoodScalar r, KnownNat n)
-             => shaped r '[n] -> IntSh (shaped r '[]) n  -- partial
+             => shaped r '[n] -> IntSh shaped r n  -- partial
   sminIndex :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
-            => shaped r sh -> IndexSh (shaped r '[]) sh
+            => shaped r sh -> IndexSh shaped r sh
   sminIndex t = ShapedList.fromLinearIdx (sshape t) (sminIndex0 (sflatten t))
   smaxIndex0 :: (GoodScalar r, KnownNat n)
-             => shaped r '[n] -> IntSh (shaped r '[]) n  -- partial
+             => shaped r '[n] -> IntSh shaped r n  -- partial
   smaxIndex :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
-            => shaped r sh -> IndexSh (shaped r '[]) sh
+            => shaped r sh -> IndexSh shaped r sh
   smaxIndex t = ShapedList.fromLinearIdx (sshape t) (smaxIndex0 (sflatten t))
-  sfloor :: GoodScalar r => shaped r '[] -> IntOf (shaped r '[])
+  sfloor :: GoodScalar r => shaped r '[] -> IntOf shaped r
     -- not IntSh, because the integer can be negative
     -- TODO: shall we make it abs (floor v)?
 
@@ -384,12 +376,12 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   sindex, (!$) :: forall r sh1 sh2.
                   ( GoodScalar r, OS.Shape sh1, OS.Shape sh2
                   , OS.Shape (sh1 OS.++ sh2) )
-               => shaped r (sh1 OS.++ sh2) -> IndexSh (shaped r '[]) sh1
+               => shaped r (sh1 OS.++ sh2) -> IndexSh shaped r sh1
                -> shaped r sh2
   infixl 9 !$
   (!$) = sindex  -- prefix form better when type applications are necessary
   sindex0 :: forall r sh1. (GoodScalar r, OS.Shape sh1)
-          => shaped r sh1 -> IndexSh (shaped r '[]) sh1
+          => shaped r sh1 -> IndexSh shaped r sh1
           -> shaped r '[]
   sindex0 = gcastWith (unsafeCoerce Refl :: sh1 OS.++ '[] :~: sh1)
             $ sindex
@@ -418,11 +410,11 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
   smaximum t = gcastWith (unsafeCoerce Refl :: (sh OS.++ '[])  :~: sh)
                $ t !$ smaxIndex t
   sfromIndex0 :: forall n r. (GoodScalar r, KnownNat n)
-              => IntSh (shaped r '[]) n -> shaped r '[]
+              => IntSh shaped r n -> shaped r '[]
   sfromIndex1 :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
-              => IndexSh (shaped r '[]) sh -> shaped r '[OS.Rank sh]
+              => IndexSh shaped r sh -> shaped r '[OS.Rank sh]
   sfromIndex1 =
-    let go :: IndexSh (shaped r '[]) sh1 -> [shaped r '[]]
+    let go :: IndexSh shaped r sh1 -> [shaped r '[]]
         go ZSH = []
         go ((:$:) @n i rest) = sfromIndex0 @shaped @n (ShapedList.shapedNat i)
                                : go rest
@@ -432,14 +424,14 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
        ( GoodScalar r, OS.Shape sh2, OS.Shape sh, OS.Shape (OS.Take p sh)
        , OS.Shape (OS.Drop p sh), OS.Shape (sh2 OS.++ OS.Drop p sh) )
     => shaped r (sh2 OS.++ OS.Drop p sh)
-    -> (IndexSh (shaped r '[]) sh2 -> IndexSh (shaped r '[]) (OS.Take p sh))
+    -> (IndexSh shaped r sh2 -> IndexSh shaped r (OS.Take p sh))
     -> shaped r sh
   sscatter1
     :: forall r n2 p sh.
        ( GoodScalar r, KnownNat n2, OS.Shape sh, OS.Shape (OS.Take p sh)
        , OS.Shape (OS.Drop p sh) )
     => shaped r (n2 ': OS.Drop p sh)
-    -> (IntSh (shaped r '[]) n2 -> IndexSh (shaped r '[]) (OS.Take p sh))
+    -> (IntSh shaped r n2 -> IndexSh shaped r (OS.Take p sh))
     -> shaped r sh
   sscatter1 v f = sscatter @shaped @r @'[n2] v (ShapedList.unconsContShaped f)
 
@@ -502,13 +494,13 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
     -- and than the order of value arguments in the ranked version
   sbuild :: forall r m sh.
             (GoodScalar r, OS.Shape sh, OS.Shape (OS.Take m sh))
-         => (IndexSh (shaped r '[]) (OS.Take m sh) -> shaped r (OS.Drop m sh))
+         => (IndexSh shaped r (OS.Take m sh) -> shaped r (OS.Drop m sh))
          -> shaped r sh
   sbuild =
     let buildSh
           :: forall sh1.
              ShapeSh sh1 -> ShapeSh (sh1 OS.++ OS.Drop m sh)
-          -> (IndexSh (shaped r '[]) sh1 -> shaped r (OS.Drop m sh))
+          -> (IndexSh shaped r sh1 -> shaped r (OS.Drop m sh))
           -> shaped r (sh1 OS.++ OS.Drop m sh)
         buildSh sh1 sh1m f = case (sh1, sh1m) of
           (ZSH, _) -> f ZSH
@@ -519,7 +511,7 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
                   :: sh :~: OS.Take m sh OS.++ OS.Drop m sh)
        $ buildSh (ShapedList.shapeSh @(OS.Take m sh)) (ShapedList.shapeSh @sh)
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, OS.Shape sh)
-          => (IntSh (shaped r '[]) n -> shaped r sh)
+          => (IntSh shaped r n -> shaped r sh)
           -> shaped r (n ': sh)
   smap :: forall r m sh. ( GoodScalar r, KnownNat m, OS.Shape sh
                          , OS.Shape (OS.Take m sh), OS.Shape (OS.Drop m sh) )
@@ -567,14 +559,14 @@ class (CRankedSS shaped IntegralIntOf, CRankedS shaped RealFloat)
        ( GoodScalar r, OS.Shape sh2, OS.Shape sh, OS.Shape (OS.Take p sh)
        , OS.Shape (OS.Drop p sh), OS.Shape (sh2 OS.++ OS.Drop p sh) )
     => shaped r sh
-    -> (IndexSh (shaped r '[]) sh2 -> IndexSh (shaped r '[]) (OS.Take p sh))
+    -> (IndexSh shaped r sh2 -> IndexSh shaped r (OS.Take p sh))
     -> shaped r (sh2 OS.++ OS.Drop p sh)
   sgather1
     :: forall r n2 p sh.
        ( GoodScalar r, KnownNat n2, OS.Shape sh, OS.Shape (OS.Take p sh)
        , OS.Shape (OS.Drop p sh) )
     => shaped r sh
-    -> (IntSh (shaped r '[]) n2 -> IndexSh (shaped r '[]) (OS.Take p sh))
+    -> (IntSh shaped r n2 -> IndexSh shaped r (OS.Take p sh))
     -> shaped r (n2 ': OS.Drop p sh)
   sgather1 v f = sgather @shaped @r @'[n2] v (ShapedList.unconsContShaped f)
 
@@ -676,63 +668,63 @@ type Many ranked (f :: Type -> Constraint) r = (f (ranked r 0), f (ranked r 1), 
 
 type ADReady ranked r =
   ( Tensor ranked, GoodScalar r, Tensor (PrimalOf ranked)
-  , IfB (IntOf (ranked r 0)), Many ranked IfB r
+  , IfB (IntOf ranked r), Many ranked IfB r
   , Many (PrimalOf ranked) IfB r
-  , EqB r, EqB (IntOf (ranked r 0)), Many ranked EqB r
+  , EqB r, EqB (IntOf ranked r), Many ranked EqB r
   , Many (PrimalOf ranked) EqB r
-  , OrdB r, OrdB (IntOf (ranked r 0)), Many ranked OrdB r
+  , OrdB r, OrdB (IntOf ranked r), Many ranked OrdB r
   , Many (PrimalOf ranked) OrdB r
-  , Boolean (BooleanOf (IntOf (ranked r 0)))
-  , ( BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 1)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 2)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 3)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 4)
+  , Boolean (BooleanOf (IntOf ranked r))
+  , ( BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 1)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 2)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 3)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 4)
 {- TODO: GHC 9.4 and 9.6 can't cope with too many of these:
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 5)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 6) -}
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 7)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 5)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 6) -}
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 7)
 {-
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 8)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 9)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 10)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 11)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 12) -} )
-  , ( BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 0)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 1)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 2)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 3)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 4)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 8)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 9)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 10)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 11)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 12) -} )
+  , ( BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 0)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 1)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 2)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 3)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 4)
 {-
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 5)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 6)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 7)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 8)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 9)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 10)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 11)
-    , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (PrimalOf ranked r 12) -} )
-  , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 0)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 5)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 6)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 7)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 8)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 9)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 10)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 11)
+    , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 12) -} )
+  , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0)
       -- placing this last gives better errors
   )
 
 type ADReadyS shaped r =
   ( ShapedTensor shaped, GoodScalar r, ShapedTensor (PrimalOf shaped)
-  , IfB (IntOf (shaped r '[])), IfB (shaped r '[])
+  , IfB (IntOf shaped r), IfB (shaped r '[])
   , IfB (PrimalOf shaped r '[])
-  , EqB r, EqB (IntOf (shaped r '[])), EqB (shaped r '[])
+  , EqB r, EqB (IntOf shaped r), EqB (shaped r '[])
   , EqB (PrimalOf shaped r '[])
-  , OrdB r, OrdB (IntOf (shaped r '[])), OrdB (shaped r '[])
+  , OrdB r, OrdB (IntOf shaped r), OrdB (shaped r '[])
   , OrdB (PrimalOf shaped r '[])
-  , Boolean (BooleanOf (IntOf (shaped r '[])))
-  , BooleanOf (IntOf (shaped r '[])) ~ BooleanOf (PrimalOf shaped r '[])
-  , BooleanOf (IntOf (shaped r '[])) ~ BooleanOf (shaped r '[])
+  , Boolean (BooleanOf (IntOf shaped r))
+  , BooleanOf (IntOf shaped r) ~ BooleanOf (PrimalOf shaped r '[])
+  , BooleanOf (IntOf shaped r) ~ BooleanOf (shaped r '[])
       -- placing this last gives better errors
   )
 
 
 -- * Ranked tensor class instance for concrete arrays
 
-type instance IntOf (Flip OR.Array r n) = CInt
+type instance IntOf (Flip OR.Array) r = CInt
 
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 
@@ -825,7 +817,7 @@ instance RandomDomains (Flip OR.Array r n) where
 
 -- * Shaped tensor class instance for concrete arrays
 
-type instance IntOf (Flip OS.Array r sh) = CInt
+type instance IntOf (Flip OS.Array) r = CInt
 
 type instance PrimalOf (Flip OS.Array) = Flip OS.Array
 

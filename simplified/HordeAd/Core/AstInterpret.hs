@@ -49,8 +49,8 @@ type AstEnv ranked r = EM.EnumMap AstVarId (AstEnvElem ranked r)
 
 data AstEnvElem ranked r =
     AstVarR (DynamicOf ranked r)
-  | AstVarI (IntOf (ranked r 0))
-deriving instance (Show (DynamicOf ranked r), Show (IntOf (ranked r 0)))
+  | AstVarI (IntOf ranked r)
+deriving instance (Show (DynamicOf ranked r), Show (IntOf ranked r))
                   => Show (AstEnvElem ranked r)
 
 extendEnvS :: forall ranked shaped r sh.
@@ -81,20 +81,20 @@ extendEnvDId var d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvDId: duplicate " ++ show var)
                    var (AstVarR d)
 
-extendEnvI :: AstVarId -> IntOf (ranked r 0) -> AstEnv ranked r
+extendEnvI :: AstVarId -> IntOf ranked r -> AstEnv ranked r
            -> AstEnv ranked r
 extendEnvI var i =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
                    var (AstVarI i)
 
-extendEnvVars :: AstVarList m -> IndexOf (ranked r 0) m
+extendEnvVars :: AstVarList m -> IndexOf ranked r m
               -> AstEnv ranked r
               -> AstEnv ranked r
 extendEnvVars vars ix env =
   let assocs = zip (sizedListToList vars) (indexToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
-extendEnvVarsS :: AstVarListS sh -> IndexSh (ranked r 0) sh
+extendEnvVarsS :: AstVarListS sh -> IndexSh ranked r sh
                -> AstEnv ranked r
                -> AstEnv ranked r
 extendEnvVarsS vars ix env =
@@ -110,7 +110,7 @@ interpretLambdaI
   :: (AstEnv ranked r -> AstMemo r -> AstRanked r n
       -> (AstMemo r, ranked r n))
   -> AstEnv ranked r -> AstMemo r -> (AstVarId, AstRanked r n)
-  -> IntOf (ranked r 0)
+  -> IntOf ranked r
   -> ranked r n
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env memo (var, ast) =
@@ -120,7 +120,7 @@ interpretLambdaIS
   :: (AstEnv ranked r -> AstMemo r -> AstShaped r sh
       -> (AstMemo r, shaped r sh))
   -> AstEnv ranked r -> AstMemo r -> (AstVarId, AstShaped r sh)
-  -> IntSh (ranked r 0) n
+  -> IntSh ranked r n
   -> shaped r sh
 {-# INLINE interpretLambdaIS #-}
 interpretLambdaIS f env memo (var, ast) =
@@ -130,7 +130,7 @@ interpretLambdaIndex
   :: (AstEnv ranked r -> AstMemo r -> AstRanked r n
       -> (AstMemo r, ranked r n))
   -> AstEnv ranked r -> AstMemo r
-  -> (AstVarList m, AstRanked r n) -> IndexOf (ranked r 0) m
+  -> (AstVarList m, AstRanked r n) -> IndexOf ranked r m
   -> ranked r n
 {-# INLINE interpretLambdaIndex #-}
 interpretLambdaIndex f env memo (vars, ast) =
@@ -141,7 +141,7 @@ interpretLambdaIndexS
      (AstEnv ranked r -> AstMemo r -> AstShaped r sh
       -> (AstMemo r, shaped r sh))
   -> AstEnv ranked r -> AstMemo r
-  -> (AstVarListS sh2, AstShaped r sh) -> IndexSh (ranked r 0) sh2
+  -> (AstVarListS sh2, AstShaped r sh) -> IndexSh ranked r sh2
   -> shaped r sh
 {-# INLINE interpretLambdaIndexS #-}
 interpretLambdaIndexS f env memo (vars, ast) =
@@ -150,10 +150,10 @@ interpretLambdaIndexS f env memo (vars, ast) =
 interpretLambdaIndexToIndex
   :: KnownNat p
   => (AstEnv ranked r -> AstMemo r -> AstInt q
-      -> (AstMemo r, IntOf (ranked r 0))) -> AstEnv ranked r
+      -> (AstMemo r, IntOf ranked r)) -> AstEnv ranked r
   -> AstMemo r -> (AstVarList m, AstIndex q p)
-  -> IndexOf (ranked r 0) m
-  -> IndexOf (ranked r 0) p
+  -> IndexOf ranked r m
+  -> IndexOf ranked r p
 {-# INLINE interpretLambdaIndexToIndex #-}
 interpretLambdaIndexToIndex f env memo (vars, asts) =
   \ix -> listToIndex $ snd
@@ -162,10 +162,10 @@ interpretLambdaIndexToIndex f env memo (vars, asts) =
 interpretLambdaIndexToIndexS
   :: OS.Shape sh2
   => (AstEnv ranked r -> AstMemo r -> AstInt q
-      -> (AstMemo r, IntOf (ranked r 0))) -> AstEnv ranked r
+      -> (AstMemo r, IntOf ranked r)) -> AstEnv ranked r
   -> AstMemo r -> (AstVarListS sh, AstIndexS q sh2)
-  -> IndexSh (ranked r 0) sh
-  -> IndexSh (ranked r 0) sh2
+  -> IndexSh ranked r sh
+  -> IndexSh ranked r sh2
 {-# INLINE interpretLambdaIndexToIndexS #-}
 interpretLambdaIndexToIndexS f env memo (vars, asts) =
   \ix -> ShapedList.listToSized $ snd
@@ -189,30 +189,30 @@ instance
 
 type InterpretAstR ranked r =
   ( GoodScalar r
-  , Integral (IntOf (PrimalOf ranked r 0)), EqB (IntOf (ranked r 0))
-  , OrdB (IntOf (ranked r 0)), IfB (IntOf (ranked r 0))
-  , IntOf (PrimalOf ranked r 0) ~ IntOf (ranked r 0)
+  , Integral (IntOf (PrimalOf ranked) r), EqB (IntOf ranked r)
+  , OrdB (IntOf ranked r), IfB (IntOf ranked r)
+  , IntOf (PrimalOf ranked) r ~ IntOf ranked r
   , CRanked (PrimalOf ranked) r EqB
   , CRanked (PrimalOf ranked) r OrdB
   , CRanked ranked r RealFloat
   , CRanked (PrimalOf ranked) r
-            (BooleanOfMatches (BooleanOf (IntOf (ranked r 0))))
-  , BooleanOf (ranked r 0) ~ BooleanOf (IntOf (ranked r 0))
-  , BooleanOf (IntOf (ranked r 0)) ~ BooleanOf (ranked r 0)
+            (BooleanOfMatches (BooleanOf (IntOf ranked r)))
+  , BooleanOf (ranked r 0) ~ BooleanOf (IntOf ranked r)
+  , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0)
   )
 
 type InterpretAstS shaped r =
   ( GoodScalar r
-  , Integral (IntOf (PrimalOf shaped r '[])), EqB (IntOf (shaped r '[]))
-  , OrdB (IntOf (shaped r '[])), IfB (IntOf (shaped r '[]))
-  , IntOf (PrimalOf shaped r '[]) ~ IntOf (shaped r '[])
+  , Integral (IntOf (PrimalOf shaped) r), EqB (IntOf shaped r)
+  , OrdB (IntOf shaped r), IfB (IntOf shaped r)
+  , IntOf (PrimalOf shaped) r ~ IntOf shaped r
   , CShaped (PrimalOf shaped) r EqB
   , CShaped (PrimalOf shaped) r OrdB
   , CShaped shaped r RealFloat
   , CShaped (PrimalOf shaped) r
-            (BooleanOfMatches (BooleanOf (IntOf (shaped r '[]))))
-  , BooleanOf (shaped r '[]) ~ BooleanOf (IntOf (shaped r '[]))
-  , BooleanOf (IntOf (shaped r '[])) ~ BooleanOf (shaped r '[])
+            (BooleanOfMatches (BooleanOf (IntOf shaped r)))
+  , BooleanOf (shaped r '[]) ~ BooleanOf (IntOf shaped r)
+  , BooleanOf (IntOf shaped r) ~ BooleanOf (shaped r '[])
   )
 
 type InterpretAst ranked shaped r =
@@ -221,7 +221,7 @@ type InterpretAst ranked shaped r =
   , ConvertTensor ranked shaped
   , InterpretAstR ranked r
   , InterpretAstS shaped r
-  , IntOf (ranked r 0) ~ IntOf (shaped r '[])
+  , IntOf ranked r ~ IntOf shaped r
   )
 
 type AstMemo r = ()  -- unused for now, but likely to be used in the future,
@@ -581,7 +581,7 @@ interpretAstDomains env memo = \case
 interpretAstInt :: forall ranked shaped r.
                    InterpretAst ranked shaped r
                 => AstEnv ranked r -> AstMemo r
-                -> AstInt r -> (AstMemo r, IntOf (ranked r 0))
+                -> AstInt r -> (AstMemo r, IntOf ranked r)
 interpretAstInt env memo = \case
   AstIntVar var -> case EM.lookup var env of
     Just AstVarR{} ->

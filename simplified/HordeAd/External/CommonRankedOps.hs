@@ -142,7 +142,7 @@ conv2dUnpadded arrK arrA =
 --   elements are set to zero.
 slicez
   :: (ADReady ranked r, KnownNat n)
-  => ShapeInt n -> ranked r n -> IndexOf (ranked r 0) n -> ranked r n
+  => ShapeInt n -> ranked r n -> IndexOf ranked r n -> ranked r n
 slicez shOut d ixBase =
   tbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
 
@@ -150,16 +150,16 @@ slicez shOut d ixBase =
 --   returning zero for out of range indices.
 indexz0
   :: forall ranked r n. (ADReady ranked r, KnownNat n)
-  => ranked r n -> IndexOf (ranked r 0) n -> ranked r 0
+  => ranked r n -> IndexOf ranked r n -> ranked r 0
 indexz0 d ix = ifB (within0 @ranked @r (tshape @ranked d) ix) (d ! ix) 0
 
 -- | Given an index and shape, check if the index is fully within the shape.
 within0
   :: forall ranked r n. ADReady ranked r
-  => ShapeInt n -> IndexOf (ranked r 0) n -> BooleanOf (IntOf (ranked r 0))
+  => ShapeInt n -> IndexOf ranked r n -> BooleanOf (IntOf ranked r)
 within0 sh ix =
-  let within :: IntOf (ranked r 0) -> IntOf (ranked r 0)
-             -> BooleanOf (IntOf (ranked r 0))
+  let within :: IntOf ranked r -> IntOf ranked r
+             -> BooleanOf (IntOf ranked r)
       within i dim = 0 <=* i &&* dim >* i
   in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)
