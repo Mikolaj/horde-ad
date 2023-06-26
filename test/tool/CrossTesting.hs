@@ -45,8 +45,8 @@ rev' :: forall r m n v g.
      -> g
      -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g
         , AstRanked r m, AstRanked r m
-        , v, v, v, v, v, v, v, v, v, v, v, v, v
-        , g, g, g, g, g, g, g, g, g, g, g, g, g )
+        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
+        , g, g, g, g, g, g, g, g, g, g, g, g, g, g )
 rev' f vals =
   let value0 = f vals
       parameters = toDomains vals
@@ -62,14 +62,15 @@ rev' f vals =
       revAstOnDomainsF
         :: forall r2 n2.
            (KnownNat n2, GoodScalar r2)
-        => (Domains (ADValClown AstDynamic) r2 -> ADVal AstRanked r2 n2)
+        => Bool -> (Domains (ADValClown AstDynamic) r2 -> ADVal AstRanked r2 n2)
         -> DomainsOD r2
         -> (ADAstArtifact6 AstRanked r2 n2, Dual AstRanked r2 n2)
       {-# INLINE revAstOnDomainsF #-}
-      revAstOnDomainsF f2 parameters2  =
-        revAstOnDomainsFun True parameters2 (\varInputs _ _ -> f2 varInputs)
+      revAstOnDomainsF hasDt f2 parameters2  =
+        revAstOnDomainsFun hasDt parameters2 (\varInputs _ _ -> f2 varInputs)
       (advalGrad9, value9) =
-        revAstOnDomainsEval (fst $ revAstOnDomainsF g9 parameters) parameters dt
+        revAstOnDomainsEval (fst $ revAstOnDomainsF False g9 parameters)
+                            parameters dt
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady f1 r
         => (f1 r m -> AstRanked r m) -> (AstRanked r n -> f1 r n)
@@ -117,15 +118,20 @@ rev' f vals =
             env = extendEnvR var (parseDomains vals inputs) EM.empty
         in snd $ interpretAst env emptyMemo (gx ast)
       artifactsGradAst =
-        fst $ revAstOnDomainsF (hAst id id id) parameters
+        fst $ revAstOnDomainsF False (hAst id id id) parameters
       (astGradAst, value2Ast) =
         revAstOnDomainsEval artifactsGradAst parameters dt
       gradient2Ast = parseDomains vals astGradAst
       (astGradAstS, value2AstS) =
         revAstOnDomainsEval (simplifyArtifact6 artifactsGradAst) parameters dt
       gradient2AstS = parseDomains vals astGradAstS
+      artifactsGradAstT =
+        fst $ revAstOnDomainsF True (hAst id id id) parameters
+      (astGradAstST, value2AstST) =
+        revAstOnDomainsEval (simplifyArtifact6 artifactsGradAstT) parameters dt
+      gradient2AstST = parseDomains vals astGradAstST
       artifactsSimpleAst =
-        fst $ revAstOnDomainsF (hAst id id simplifyAst6) parameters
+        fst $ revAstOnDomainsF False (hAst id id simplifyAst6) parameters
       (astSimpleAst, value3Ast) =
         revAstOnDomainsEval artifactsSimpleAst parameters dt
       gradient3Ast = parseDomains vals astSimpleAst
@@ -133,7 +139,7 @@ rev' f vals =
         revAstOnDomainsEval (simplifyArtifact6 artifactsSimpleAst) parameters dt
       gradient3AstS = parseDomains vals astSimpleAstS
       artifactsGradAstUnSimp =
-        fst $ revAstOnDomainsF (hAst unAstNoSimplify AstNoSimplify id)
+        fst $ revAstOnDomainsF False (hAst unAstNoSimplify AstNoSimplify id)
                                parameters
       (astGradAstUnSimp, value2AstUnSimp) =
         revAstOnDomainsEval artifactsGradAstUnSimp parameters dt
@@ -143,7 +149,7 @@ rev' f vals =
                             parameters dt
       gradient2AstSUnSimp = parseDomains vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
-        fst $ revAstOnDomainsF (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
+        fst $ revAstOnDomainsF False (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
                                parameters
       (astSimpleAstUnSimp, value3AstUnSimp) =
         revAstOnDomainsEval artifactsSimpleAstUnSimp parameters dt
@@ -153,7 +159,7 @@ rev' f vals =
                             parameters dt
       gradient3AstSUnSimp = parseDomains vals astSimpleAstSUnSimp
       artifactsPrimalAst =
-        fst $ revAstOnDomainsF (hAst unAstNoVectorize AstNoVectorize id)
+        fst $ revAstOnDomainsF False (hAst unAstNoVectorize AstNoVectorize id)
                                parameters
       (astPrimalAst, value4Ast) =
         revAstOnDomainsEval artifactsPrimalAst parameters dt
@@ -162,7 +168,7 @@ rev' f vals =
         revAstOnDomainsEval (simplifyArtifact6 artifactsPrimalAst) parameters dt
       gradient4AstS = parseDomains vals astPrimalAstS
       artifactsPSimpleAst =
-        fst $ revAstOnDomainsF
+        fst $ revAstOnDomainsF False
                 (hAst unAstNoVectorize AstNoVectorize simplifyAst6)
                 parameters
       (astPSimpleAst, value5Ast) =
@@ -177,10 +183,11 @@ rev' f vals =
      , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp
      , gradient4, gradient5
      , astVectSimp, astSimp
-     , value9, value2Ast, value2AstS, value3Ast, value3AstS
+     , value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
      , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
      , value4Ast, value4AstS, value5Ast, value5AstS
-     , gradient9, gradient2Ast, gradient2AstS, gradient3Ast, gradient3AstS
+     , gradient9, gradient2Ast, gradient2AstS, gradient2AstST
+     , gradient3Ast, gradient3AstS
      , gradient2AstUnSimp, gradient2AstSUnSimp
      , gradient3AstUnSimp, gradient3AstSUnSimp
      , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS )
@@ -193,8 +200,8 @@ assertEqualUpToEpsilon'
     -> OR.Array n r  -- ^ expected value
     -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g
        , AstRanked r m, AstRanked r m
-       , v, v, v, v, v, v, v, v, v, v, v, v, v
-       , g, g, g, g, g, g, g, g, g, g, g, g, g )
+       , v, v, v, v, v, v, v, v, v, v, v, v, v, v
+       , g, g, g, g, g, g, g, g, g, g, g, g, g, g )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
@@ -204,10 +211,11 @@ assertEqualUpToEpsilon'
     , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp
     , gradient4, gradient5
     , astVectSimp, astSimp
-    , value9, value2Ast, value2AstS, value3Ast, value3AstS
+    , value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
     , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
     , value4Ast, value4AstS, value5Ast, value5AstS
-    , gradient9, gradient2Ast, gradient2AstS, gradient3Ast, gradient3AstS
+    , gradient9, gradient2Ast, gradient2AstS, gradient2AstST
+    , gradient3Ast, gradient3AstS
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS ) = do
@@ -229,6 +237,7 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
   assertEqualUpToEpsilonWithMark "Val Ast Vectorized" errMargin value0 value2Ast
   assertEqualUpToEpsilonWithMark "Val Ast V S" errMargin value0 value2AstS
+  assertEqualUpToEpsilonWithMark "Val Ast V ST" errMargin value0 value2AstST
   assertEqualUpToEpsilonWithMark "Val Ast Vect+Simp" errMargin value0 value3Ast
   assertEqualUpToEpsilonWithMark "Val Ast V+S S" errMargin value0 value3AstS
   assertEqualUpToEpsilonWithMark "Val Ast V UnS" errMargin value0
@@ -247,6 +256,8 @@ assertEqualUpToEpsilon'
                                  errMargin expected gradient2Ast
   assertEqualUpToEpsilonWithMark "Grad Ast Vectorized S"
                                  errMargin expected gradient2AstS
+  assertEqualUpToEpsilonWithMark "Grad Ast Vectorized ST"
+                                 errMargin expected gradient2AstST
   assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp"
                                  errMargin expected gradient3Ast
   assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp S"
@@ -281,8 +292,8 @@ assertEqualUpToEpsilonShort
     -> OR.Array n r  -- ^ expected value
     -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g
        , AstRanked r m, AstRanked r m
-       , v, v, v, v, v, v, v, v, v, v, v, v, v
-       , g, g, g, g, g, g, g, g, g, g, g, g, g )
+       , v, v, v, v, v, v, v, v, v, v, v, v, v, v
+       , g, g, g, g, g, g, g, g, g, g, g, g, g, g )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShort
@@ -292,10 +303,11 @@ assertEqualUpToEpsilonShort
     , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp
     , _gradient4, gradient5
     , astVectSimp, astSimp
-    , _value9, value2Ast, value2AstS, value3Ast, value3AstS
+    , _value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
     , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
     , _value4Ast, _value4AstS, _value5Ast, _value5AstS
-    , _gradient9, gradient2Ast, gradient2AstS, gradient3Ast, gradient3AstS
+    , _gradient9, gradient2Ast, gradient2AstS, gradient2AstST
+    , gradient3Ast, gradient3AstS
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS ) = do
@@ -315,6 +327,7 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
   assertEqualUpToEpsilonWithMark "Val Ast Vectorized" errMargin value0 value2Ast
   assertEqualUpToEpsilonWithMark "Val Ast V S" errMargin value0 value2AstS
+  assertEqualUpToEpsilonWithMark "Val Ast V ST" errMargin value0 value2AstST
   assertEqualUpToEpsilonWithMark "Val Ast Vect+Simp" errMargin value0 value3Ast
   assertEqualUpToEpsilonWithMark "Val Ast V+S S" errMargin value0 value3AstS
   assertEqualUpToEpsilonWithMark "Val Ast V UnS" errMargin value0
@@ -329,6 +342,8 @@ assertEqualUpToEpsilonShort
                                  errMargin expected gradient2Ast
   assertEqualUpToEpsilonWithMark "Grad Ast Vectorized S"
                                  errMargin expected gradient2AstS
+  assertEqualUpToEpsilonWithMark "Grad Ast Vectorized ST"
+                                 errMargin expected gradient2AstST
   assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp"
                                  errMargin expected gradient3Ast
   assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp S"
