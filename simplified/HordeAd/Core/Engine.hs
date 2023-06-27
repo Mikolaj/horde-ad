@@ -45,7 +45,7 @@ rev
   :: forall r y f vals astvals.
      ( Adaptable f, GoodScalar r, HasSingletonDict f y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals
+     , RandomDomains vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> AstOf f r y) -> vals -> vals
 rev f vals = revDtMaybe f vals Nothing
@@ -55,7 +55,7 @@ revDt
   :: forall r y f vals astvals.
      ( Adaptable f, GoodScalar r, HasSingletonDict f y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals
+     , RandomDomains vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> AstOf f r y) -> vals -> f r y -> vals
 revDt f vals dt = revDtMaybe f vals (Just dt)
@@ -64,12 +64,13 @@ revDtMaybe
   :: forall r y f vals astvals.
      ( Adaptable f, GoodScalar r, HasSingletonDict f y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value vals, vals ~ Value astvals
+     , RandomDomains vals, vals ~ Value astvals
      , Underlying vals ~ r, Underlying astvals ~ r )
   => (astvals -> AstOf f r y) -> vals -> Maybe (f r y) -> vals
 revDtMaybe f vals mdt =
   let asts4 = fst $ revDtFun (isJust mdt) f vals
-  in parseDomains vals $ fst $ revAstOnDomainsEval asts4 (toDomains vals) mdt
+  in parseDomains (toValue vals)
+     $ fst $ revAstOnDomainsEval asts4 (toDomains vals) mdt
 
 type Adaptable :: forall k. (Type -> k -> Type) -> Constraint
 class Adaptable f where
