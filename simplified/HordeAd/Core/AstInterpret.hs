@@ -44,26 +44,30 @@ import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.SizedList
 import           HordeAd.Core.TensorADVal
 import           HordeAd.Core.TensorClass
+import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 
 type AstEnv ranked r = EM.EnumMap AstVarId (AstEnvElem ranked r)
 
 data AstEnvElem ranked r =
     AstEnvElemD (DynamicOf ranked r)
   | forall n. KnownNat n => AstEnvElemR (ranked r n)
-  | AstEnvElemS (DynamicOf ranked r)
+  | forall sh. OS.Shape sh => AstEnvElemS (ShapedOf ranked r sh)
   | AstEnvElemI (IntOf ranked r)
 deriving instance ( Show (DynamicOf ranked r)
                   , forall n. Show (ranked r n)
+                  , forall sh. ShowShapedOf ranked r sh
                   , Show (IntOf ranked r) )
                   => Show (AstEnvElem ranked r)
 
+class Show (ShapedOf ranked r sh) => ShowShapedOf ranked r sh
+
 extendEnvS :: forall ranked shaped r sh.
-              (OS.Shape sh, ConvertTensor ranked shaped, GoodScalar r)
+              (OS.Shape sh, shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked)
            => AstVarName (Flip OS.Array r sh) -> shaped r sh
            -> AstEnv ranked r -> AstEnv ranked r
-extendEnvS v@(AstVarName var) d =
+extendEnvS v@(AstVarName var) t =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show v)
-                   var (AstEnvElemS $ dfromS d)
+                   var (AstEnvElemS t)
 
 extendEnvR :: forall ranked r n. KnownNat n
            => AstVarName (Flip OR.Array r n) -> ranked r n
@@ -761,8 +765,9 @@ interpretAstS
   -> AstShaped r sh -> (AstMemo r, shaped r sh)
 interpretAstS env memo = \case
   AstVarS var -> case EM.lookup var env of
-    Just (AstEnvElemS d) -> let t = sfromD d
-                            in (memo, t)
+    Just (AstEnvElemS @_ @_ @sh2 t) -> case sameShape @sh2 @sh of
+      Just Refl -> (memo, t)
+      Nothing -> error "interpretAstS: wrong shape in environment"
     Just _ ->
       error $ "interpretAstS: type mismatch for " ++ show var
     Nothing -> error $ "interpretAstS: unknown variable " ++ show var
