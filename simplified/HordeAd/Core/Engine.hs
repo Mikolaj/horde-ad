@@ -23,7 +23,7 @@ import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Constraint, Type)
-import           Data.Maybe (isJust)
+import           Data.Maybe (fromMaybe, isJust)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -89,15 +89,15 @@ class Adaptable f where
     -> (ADAstArtifact6 f r y, Dual (AstOf f) r y)
 
 instance Adaptable @() (Clown OD.Array) where
+  revAstOnDomainsEval = undefined  -- TODO
+  revDtInit = undefined  -- TODO
 
 instance Adaptable @Nat (Flip OR.Array) where
   {-# INLINE revAstOnDomainsEval #-}
-  revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters dt =
+  revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters mdt =
     let env1 = foldr extendEnvDR EM.empty $ zip vars1 $ V.toList parameters
-        dtValue = case dt of
-          Just a -> a
-          Nothing -> treplicate0N (tshape primal) 1
-        envDt = extendEnvR varDt dtValue env1
+        dt = fromMaybe (treplicate0N (tshape primal) 1) mdt
+        envDt = extendEnvR varDt dt env1
         (memo1, gradientDomain) =
           interpretAstDomainsDummy envDt emptyMemo gradient
         primalTensor = snd $ interpretAst env1 memo1 primal
@@ -125,6 +125,35 @@ instance Adaptable @Nat (Flip OR.Array) where
     in revAstOnDomainsFun hasDt parameters0 revDtInterpret
 
 instance Adaptable @[Nat] (Flip OS.Array) where
+  {-# INLINE revAstOnDomainsEval #-}
+  revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters mdt =
+    let env1 = foldr extendEnvDR EM.empty $ zip vars1 $ V.toList parameters
+        dt = fromMaybe 1 mdt
+        envDt = extendEnvS varDt dt env1
+        (memo1, gradientDomain) =
+          interpretAstDomainsDummy envDt emptyMemo gradient
+        primalTensor = snd $ interpretAstS env1 memo1 primal
+    in (gradientDomain, primalTensor)
+
+  revDtInit
+    :: forall r y vals astvals.
+       ( GoodScalar r, OS.Shape y, KnownNat (OS.Size y)
+       , AdaptableDomains AstDynamic astvals
+       , vals ~ Value astvals, Underlying astvals ~ r )
+    => Bool -> (astvals -> AstShaped r y) -> vals -> AstEnv (ADVal AstRanked) r
+    -> DomainsOD r
+    -> (ADAstArtifact6 (Flip OS.Array) r y, Dual AstShaped r y)
+  {-# INLINE revDtInit #-}
+  revDtInit hasDt f vals envInit parameters0 =
+    let revDtInterpret :: Domains (ADValClown AstDynamic) r
+                       -> Domains AstDynamic r
+                       -> [AstDynamicVarName r]
+                       -> ADVal AstShaped r y
+        revDtInterpret varInputs domains vars1 =
+          let ast = f $ parseDomains vals domains
+              env1 = foldr extendEnvDR envInit $ zip vars1 $ V.toList varInputs
+          in snd $ interpretAstS env1 emptyMemo ast
+    in revAstOnDomainsFunS hasDt parameters0 revDtInterpret
 
 revDtFun
   :: forall r y f vals astvals.
@@ -162,6 +191,34 @@ revAstOnDomainsFun hasDt parameters0 f =
   in ( ( vars
        , unletAstDomains6 astBindings l (dmkDomains gradient)
        , unletAst6 l primalBody )
+     , deltaTopLevel )
+
+revAstOnDomainsFunS
+  :: forall r sh. (OS.Shape sh, KnownNat (OS.Size sh), GoodScalar r)
+  => Bool -> DomainsOD r
+  -> (Domains (ADValClown AstDynamic) r
+      -> Domains AstDynamic r
+      -> [AstDynamicVarName r]
+      -> ADVal AstShaped r sh)
+  -> (ADAstArtifact6 (Flip OS.Array) r sh, Dual AstShaped r sh)
+{-# INLINE revAstOnDomainsFunS #-}
+revAstOnDomainsFunS hasDt parameters0 f =
+  let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList parameters0
+      -- Bangs and the compound function to fix the numbering of variables
+      -- for pretty-printing and prevent sharing the impure values/effects.
+      !(!vars@(!_, vars1), (astDt, asts1)) = funToAstAllS shapes1 in
+  let domains = V.fromList asts1
+      deltaInputs = generateDeltaInputs @AstRanked domains
+      varInputs = makeADInputs domains deltaInputs
+      -- Evaluate completely after terms constructed, to free memory
+      -- before gradientFromDelta allocates new memory and new FFI is started.
+      !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
+  let mdt = if hasDt then Just astDt else Nothing
+      !(!astBindings, !gradient) =
+        reverseDervative (length shapes1) primalBody mdt deltaTopLevel
+  in ( ( vars
+       , unletAstDomains6 astBindings l (dmkDomains gradient)
+       , unletAst6S l primalBody )
      , deltaTopLevel )
 
 

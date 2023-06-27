@@ -22,7 +22,7 @@ module HordeAd.Core.AstSimplify
   , astConstant, astDomainsLet
   , astIntCond
   , simplifyArtifact6, simplifyAst6, simplifyAstDomains6
-  , unletAstDomains6, unletAst6
+  , unletAstDomains6, unletAst6, unletAst6S
   , substituteAst, substituteAstDomains, substituteAstInt, substituteAstBool
   , substituteAstS
   , astLetS, astSumS, astScatterS, astFromListS, astFromVectorS, astReplicateS
@@ -1339,12 +1339,6 @@ data UnletEnv r = UnletEnv
 emptyUnletEnv :: ADShare r -> UnletEnv r
 emptyUnletEnv l = UnletEnv ES.empty l
 
-unletAst6
-  :: (GoodScalar r, KnownNat n)
-  => ADShare r -> AstRanked r n -> AstRanked r n
-unletAst6 l t = unletAst (emptyUnletEnv l)
-                $ bindsToLet t (assocsADShare l)
-
 unletAstDomains6
   :: GoodScalar r
   => [(AstVarId, AstDynamic r)] -> ADShare r -> AstDomains r
@@ -1352,6 +1346,18 @@ unletAstDomains6
 unletAstDomains6 astBindings l t =
   unletAstDomains (emptyUnletEnv l)
   $ bindsToDomainsLet (bindsToDomainsLet t astBindings) (assocsADShare l)
+
+unletAst6
+  :: (GoodScalar r, KnownNat n)
+  => ADShare r -> AstRanked r n -> AstRanked r n
+unletAst6 l t = unletAst (emptyUnletEnv l)
+                $ bindsToLet t (assocsADShare l)
+
+unletAst6S
+  :: (GoodScalar r, OS.Shape sh)
+  => ADShare r -> AstShaped r sh -> AstShaped r sh
+unletAst6S l t = unletAstS (emptyUnletEnv l)
+                 $ bindsToLetS t (assocsADShare l)
 
 -- TODO: if a nested let is alone, eliminate the nesting let instead;
 -- this probably requires many passes though

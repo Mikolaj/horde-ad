@@ -465,14 +465,14 @@ instance DualPart @[Nat] AstShaped where
   reverseDervative = gradientDtS
 
 gradientDtS :: forall ranked shaped r y.
-               ( OS.Shape y, KnownNat (OS.Size y), GoodScalar r
+               ( OS.Shape y, GoodScalar r
                , Tensor ranked, ShapedTensor shaped
                , ConvertTensor ranked shaped )
             => Int -> shaped r y -> Maybe (shaped r y)
             -> DeltaS ranked shaped r y
             -> ([(AstVarId, DynamicOf shaped r)], Domains (DynamicOf shaped) r)
 gradientDtS dims _ mdt deltaTopLevel =
-  let dt = fromMaybe (sreplicate0N @shaped @r @y 1) mdt
+  let dt = fromMaybe 1 mdt
       deltaDt = DeltaDtS dt deltaTopLevel
   in gradientFromDelta dims deltaDt
 
