@@ -24,6 +24,7 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorADVal
@@ -305,23 +306,17 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
          funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
        (varLabel, astLabel) <-
          funToAstIOS {-@'[batch_size, SizeMnistLabel]-} id
-       let _envInit = extendEnvS @(ADVal AstRanked) @(ADVal AstShaped) @r
-                                @'[batch_size, SizeMnistHeight, SizeMnistWidth]
-                                varGlyph (sconstant astGlyph)
-                     $ extendEnvS @(ADVal AstRanked) @(ADVal AstShaped) @r
-                                  @'[batch_size, SizeMnistLabel]
-                                  varLabel (sconstant astLabel) EM.empty
-           _f = MnistRnnShaped2.rnnMnistLossFusedS @AstShaped
-                 width batch_size (sprimalPart astGlyph, sprimalPart astLabel :: AstPrimalPartS r '[batch_size, SizeMnistLabel])
-           {-
+       let envInit = extendEnvS varGlyph (sconstant astGlyph)
+                     $ extendEnvS varLabel (sconstant astLabel) EM.empty
+           f = MnistRnnShaped2.rnnMnistLossFusedS
+                 width batch_size (sprimalPart astGlyph, sprimalPart astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
-             revDtInit f valsInit envInit domainsInit
+             revDtInit False f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain =
              vars1Again
-             ++ [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
+             ++ [AstDynamicVarNameS varGlyph, AstDynamicVarNameS varLabel]
            vars = (varDtAgain, vars1AndInputAgain)
-           -}
            go :: [MnistDataBatchS batch_size r] -> (DomainsOD r, StateAdam r)
               -> (DomainsOD r, StateAdam r)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
@@ -331,8 +326,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
-                   fst $ revAstOnDomainsEval @[Nat] @(Flip OS.Array) @r @'[]
-                                             undefined -- TODO
+                   fst $ revAstOnDomainsEval @[Nat] @(Flip OS.Array)
+                                             (vars, gradient, primal)
                                              parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientDomain)
