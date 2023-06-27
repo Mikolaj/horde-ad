@@ -265,6 +265,8 @@ newtype AstVarName t = AstVarName AstVarId
 data AstDynamicVarName :: Type -> Type where
   AstDynamicVarName :: KnownNat n
                     => AstVarName (Flip OR.Array r n) -> AstDynamicVarName r
+  AstDynamicVarNameS :: OS.Shape sh
+                     => AstVarName (Flip OS.Array r sh) -> AstDynamicVarName r
 deriving instance ShowAst r => Show (AstDynamicVarName r)
 
 -- The argument is the underlying scalar.

@@ -424,9 +424,16 @@ printAstVarName :: KnownNat n
 printAstVarName renames var =
   printAstVar (defaulPrintConfig False renames) var ""
 
+printAstVarNameS :: OS.Shape sh
+                 => IntMap String -> AstVarName (Flip OS.Array r sh) -> String
+printAstVarNameS renames var =
+  printAstVarS (defaulPrintConfig False renames) var ""
+
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName r -> String
 printAstDynamicVarName renames (AstDynamicVarName var) =
   printAstVarName renames var
+printAstDynamicVarName renames (AstDynamicVarNameS var) =
+  printAstVarNameS renames var
 
 printAstS :: forall sh r. (ShowAst r, OS.Shape sh)
           => PrintConfig -> Int -> AstShaped r sh -> ShowS

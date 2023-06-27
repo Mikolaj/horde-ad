@@ -81,6 +81,7 @@ extendEnvDR :: (ConvertTensor ranked shaped, GoodScalar r)
             -> AstEnv ranked r
             -> AstEnv ranked r
 extendEnvDR (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
+extendEnvDR (AstDynamicVarNameS var, d) = extendEnvS var (sfromD d)
 
 extendEnvD :: AstVarId -> DynamicOf ranked r -> AstEnv ranked r
            -> AstEnv ranked r
