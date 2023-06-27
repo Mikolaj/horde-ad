@@ -1,3 +1,4 @@
+{-# LANGUAGE ImpredicativeTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
 module TestMnistCNNR

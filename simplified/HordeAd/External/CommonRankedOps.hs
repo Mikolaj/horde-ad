@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 -- | Commonly used operations on tensors. Too large, too ad hoc or too unlikely
 -- to have specialized implementations to be included in the `Tensor` class.
 module HordeAd.External.CommonRankedOps

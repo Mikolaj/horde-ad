@@ -4,6 +4,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 -- | A class containing array operations, with some extra algebraic operations
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library.
@@ -26,7 +27,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Boolean
-import           Data.Kind (Constraint, Type)
+import           Data.Kind (Type)
 import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -675,7 +676,30 @@ class DomainsTensor (ranked :: Type -> Nat -> Type)
 
 -- * The giga-constraint
 
-type Many ranked (f :: Type -> Constraint) r = (f (ranked r 0), f (ranked r 1), f (ranked r 2), f (ranked r 3), f (ranked r 4), f (ranked r 5), f (ranked r 6), f (ranked r 7), f (ranked r 8), f (ranked r 9), f (ranked r 10), f (ranked r 11), f (ranked r 12))
+-- Ordinary quantified constraints don't work due to the PrimalOf type family
+-- but also due to the RankedOf type family inside ADShaped.
+class (forall y71. KnownNat y71 => c ranked r y71)
+      => CRanked71 ranked r c where
+instance (forall y71. KnownNat y71 => c ranked r y71)
+         => CRanked71 ranked r c where
+
+class IfB (ranked r n) => IfBRanked ranked r n where
+instance IfB (ranked r n) => IfBRanked ranked r n where
+
+class EqB (ranked r n) => EqBRanked ranked r n where
+instance EqB (ranked r n) => EqBRanked ranked r n where
+
+class OrdB (ranked r n) => OrdBRanked ranked r n where
+instance OrdB (ranked r n) => OrdBRanked ranked r n where
+
+class IfB (PrimalOf ranked r n) => IfBPrimalOf ranked r n where
+instance IfB (PrimalOf ranked r n) => IfBPrimalOf ranked r n where
+
+class EqB (PrimalOf ranked r n) => EqBPrimalOf ranked r n where
+instance EqB (PrimalOf ranked r n) => EqBPrimalOf ranked r n where
+
+class OrdB (PrimalOf ranked r n) => OrdBPrimalOf ranked r n where
+instance OrdB (PrimalOf ranked r n) => OrdBPrimalOf ranked r n where
 
 type ADReady ranked r = ADRanked ranked r  -- backward compatibility
 
@@ -685,12 +709,12 @@ type ADShaped shaped r = (ADReadyR (RankedOf shaped) r, ADReadyS shaped r)
 
 type ADReadyR ranked r =
   ( Tensor ranked, GoodScalar r, Tensor (PrimalOf ranked)
-  , IfB (IntOf ranked r), Many ranked IfB r
-  , Many (PrimalOf ranked) IfB r
-  , EqB r, EqB (IntOf ranked r), Many ranked EqB r
-  , Many (PrimalOf ranked) EqB r
-  , OrdB r, OrdB (IntOf ranked r), Many ranked OrdB r
-  , Many (PrimalOf ranked) OrdB r
+  , IfB (IntOf ranked r)
+  , CRanked71 ranked r IfBRanked, CRanked71 ranked r IfBPrimalOf
+  , EqB r, EqB (IntOf ranked r)
+  , CRanked71 ranked r EqBRanked, CRanked71 ranked r EqBPrimalOf
+  , OrdB r, OrdB (IntOf ranked r)
+  , CRanked71 ranked r OrdBRanked, CRanked71 ranked r OrdBPrimalOf
   , Boolean (BooleanOf (IntOf ranked r))
   , ( BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 1)
     , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 2)
