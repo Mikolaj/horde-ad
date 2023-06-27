@@ -39,11 +39,15 @@ testTrees =
   , testCase "2zeroS" testZeroS
   , testCase "2zero2S" testZero2S
   , testCase "2zero3S" testZero3S
+  , testCase "2zero4S" testZero4S
+  , testCase "2zero5S" testZero5S
+  , testCase "2zero6S" testZero6S
   , testCase "2piecewiseLinearPP" testPiecewiseLinearPP
   , testCase "2piecewiseLinear2PP" testPiecewiseLinear2PP
   , testCase "2overleaf" testOverleaf
   , testCase "2overleafPP" testOverleafPP
   , testCase "2foo" testFoo
+  , testCase "2fooS" testFooS
   , testCase "2fooPP" testFooPP
   , testCase "2fooLet" testFooLet
   , testCase "2fooLetPP" testFooLetPP
@@ -53,8 +57,8 @@ testTrees =
   , testCase "2reluSimplerPP" testReluSimplerPP
   , testCase "2reluSimplerPP2" testReluSimplerPP2
   , testCase "2reluSimplerPP3" testReluSimplerPP3
-  , testCase "2reluSimplerPP4" testReluSimplerPP4
   , testCase "2reluSimpler3" testReluSimpler3
+  , testCase "2reluSimplerPP4" testReluSimplerPP4
   , testCase "2reluSimpler4" testReluSimpler4
   , testCase "2reluMax" testReluMax
   , testCase "2reluMaxPP" testReluMaxPP
@@ -66,6 +70,7 @@ testTrees =
   , testCase "2matmul2PP" testMatmul2PP
   , testCase "2bar" testBar
   , testCase "2barS" testBarS
+  , testCase "2bar2S" testBar2S
   , testCase "2baz old to force fooConstant" testBaz
   , testCase "2baz if repetition breaks things" testBaz
   , testCase "2baz again with renumbered terms" testBazRenumbered
@@ -117,24 +122,49 @@ testZero =
 testZeroS :: Assertion
 testZeroS =
   assertEqualUpToEpsilon 1e-9
-    (Flip $ OS.fromList @'[] [0])
+    (Flip $ OS.fromList @'[0, 2, 4, 0, 1] [])
     (crev (let f :: Num a => a -> a
                f = const 3
-           in f @(ADVal (Flip OS.Array) Double '[])) 42)
+           in f @(ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])) 42)
 
 testZero2S :: Assertion
 testZero2S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[] [1])
-    (crev (let f :: a -> a
+    (crev @Double @'[] @(Flip OS.Array)
+          (let f :: a -> a
                f = id
-           in f @(ADVal (Flip OS.Array) Double '[])) 42)
+           in f) 42)
 
 testZero3S :: Assertion
 testZero3S =
   assertEqualUpToEpsilon 1e-9
-    (Flip $ OS.fromList @'[] [3.6174114266850617])
-    (crev (\x -> bar @(ADVal (Flip OS.Array) Double '[]) (x, x)) 1)
+    (Flip $ OS.fromList @'[33, 2] (replicate 66 3.6174114266850617))
+    (crev (\x -> bar @(ADVal (Flip OS.Array) Double '[33, 2]) (x, x)) 1)
+
+testZero4S :: Assertion
+testZero4S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[] [0])
+    (rev @Double @'[] @(Flip OS.Array)
+         (let f :: Num a => a -> a
+              f = const 3
+          in f) 42)
+
+testZero5S :: Assertion
+testZero5S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[44] (replicate 44 1))
+    (rev (let f :: a -> a
+              f = id
+          in f @(AstOf (Flip OS.Array) Double '[44])) 42)
+
+testZero6S :: Assertion
+testZero6S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] (replicate (product ([2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] :: [Int])) 3.6174114266850617))
+    (rev @Double @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2]
+         @(Flip OS.Array) (\x -> bar (x, x)) 1)
 
 testPiecewiseLinearPP :: Assertion
 testPiecewiseLinearPP = do
@@ -216,6 +246,12 @@ testFoo = do
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
     (rev @Double @0 @(Flip OR.Array) foo (1.1, 2.2, 3.3))
 
+testFooS :: Assertion
+testFooS = do
+  assertEqualUpToEpsilon 1e-10
+    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+    (rev @Double @'[3, 534, 3] @(Flip OS.Array) foo (1.1, 2.2, 3.3))
+
 testFooPP :: Assertion
 testFooPP = do
   resetVarCounter
@@ -233,7 +269,8 @@ testFooPP = do
   printPrimal6Simple renames artifact6
     @?= "\\x y z -> tlet (sin y) (\\x5 -> tlet (x * x5) (\\x6 -> tlet (recip (z * z + x6 * x6)) (\\x7 -> tlet (sin y) (\\x8 -> tlet (x * x8) (\\x9 -> atan2 z x6 + z * x9)))))"
 
-fooLet :: forall ranked r n. (RealFloat (ranked r n), Tensor ranked, KnownNat n, GoodScalar r)
+fooLet :: forall ranked r n.
+          (RealFloat (ranked r n), Tensor ranked, KnownNat n, GoodScalar r)
        => (ranked r n, ranked r n, ranked r n) -> ranked r n
 fooLet (x, y, z) =
   let w0 = x * sin y
@@ -398,6 +435,17 @@ testReluSimplerPP3 = do
   show deltas
     @?= "LetR 100000014 (ScaleR (AstVar [3,4] (AstVarId 100000009)) (LetR 100000013 (AddR (ScaleR (AstReplicate 3 (AstReplicate 4 (AstVar [] (AstVarId 100000003)))) (InputR (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000002)) (LetR 100000012 (ReplicateR 3 (LetR 100000011 (ReplicateR 4 (InputR (InputId 1))))))))))"
 
+testReluSimpler3 :: Assertion
+testReluSimpler3 = do
+  let reluT2 :: (AstRanked Double 2, AstRanked Double 0)
+             -> AstRanked Double 2
+      reluT2 (t, r) = relu (t * treplicate 3 (treplicate 4 r))
+  assertEqualUpToEpsilon 1e-10
+    ( Flip
+      $ OR.fromList [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
+    , 57.1 )
+    (rev @Double @2 reluT2 (Flip $ OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
+
 testReluSimplerPP4 :: Assertion
 testReluSimplerPP4 = do
   resetVarCounter
@@ -422,17 +470,6 @@ testReluSimplerPP4 = do
     @?= "\\m2 x3 -> tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i7, i8] -> [ifB (m2 ! [i7, i8] * x3 <=* tconst 0.0) 0 1]) * (m2 * treplicate 3 (treplicate 4 x3))"
   show deltas
     @?= "LetR 100000021 (ScaleR (AstVar [3,4] (AstVarId 100000010)) (LetR 100000020 (AddR (ScaleR (AstVar [3,4] (AstVarId 100000009)) (InputR (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000002)) (LetR 100000019 (ReshapeR [12] [3,4] (LetR 100000018 (ReplicateR 12 (InputR (InputId 1))))))))))"
-
-testReluSimpler3 :: Assertion
-testReluSimpler3 = do
-  let reluT2 :: (AstRanked Double 2, AstRanked Double 0)
-             -> AstRanked Double 2
-      reluT2 (t, r) = relu (t * treplicate 3 (treplicate 4 r))
-  assertEqualUpToEpsilon 1e-10
-    ( Flip
-      $ OR.fromList [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
-    , 57.1 )
-    (rev @Double @2 reluT2 (Flip $ OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
 
 testReluSimpler4 :: Assertion
 testReluSimpler4 = do
@@ -597,6 +634,12 @@ testBarS =
   assertEqualUpToEpsilon 1e-9
     (3.1435239435581166,-1.1053869545195814)
     (crev (bar @(ADVal (Flip OS.Array) Double '[])) (1.1, 2.2))
+
+testBar2S :: Assertion
+testBar2S =
+  assertEqualUpToEpsilon 1e-9
+    (3.1435239435581166,-1.1053869545195814)
+    (rev (bar @(AstOf (Flip OS.Array) Double '[52, 2, 2, 1, 1, 3])) (1.1, 2.2))
 
 barADVal2 :: forall a. RealFloat a
           => (a, a, a) -> a
