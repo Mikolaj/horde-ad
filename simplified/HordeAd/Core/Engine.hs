@@ -227,7 +227,7 @@ revAstOnDomainsFunS hasDt parameters0 f =
 
 -- These work for f both ranked and shaped.
 crev
-  :: forall y r f vals advals.
+  :: forall r y f vals advals.
      ( DualPart f, HasSingletonDict f y, GoodScalar r
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
@@ -239,7 +239,7 @@ crev f vals = crevDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
 crevDt
-  :: forall y r f vals advals.
+  :: forall r y f vals advals.
      ( DualPart f, HasSingletonDict f y, GoodScalar r
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
@@ -250,7 +250,7 @@ crevDt
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
-  :: forall y r f vals advals.
+  :: forall r y f vals advals.
      ( DualPart f, HasSingletonDict f y, GoodScalar r
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals

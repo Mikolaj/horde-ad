@@ -727,7 +727,7 @@ testFooNoGoAst =
                            (fooNoGoAst (AstVar [5] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon1 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
-       (crev @1 f
+       (crev @Double @1 f
              (Flip $ OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
 fooNoGo :: forall ranked r. ADReady ranked r
@@ -866,7 +866,7 @@ testBarReluAst0 =
                            (barReluAst (AstVar [] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [191.20462646925841])
-       (crevDt @0 @Double f (Flip $ OR.fromList [] [1.1]) 42.2)
+       (crevDt @Double @0 f (Flip $ OR.fromList [] [1.1]) 42.2)
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
@@ -879,7 +879,7 @@ testBarReluAst1 =
                            (barReluAst (AstVar [5] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
-       (crev @1 @Double f (Flip $ OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
+       (crev @Double @1 f (Flip $ OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
 
 konstReluAst
   :: forall r. ADReady AstRanked r
@@ -897,7 +897,7 @@ testReplicateReluAst =
                            (konstReluAst (AstVar [] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [295.4])
-       (crevDt @0 @Double f (Flip $ OR.fromList [] [1.1]) 42.2)
+       (crevDt @Double @0 f (Flip $ OR.fromList [] [1.1]) 42.2)
 
 
 -- * Tests by TomS
