@@ -707,6 +707,17 @@ type ADRanked ranked r = (ADReadyR ranked r, ADReadyS (ShapedOf ranked) r)
 
 type ADShaped shaped r = (ADReadyR (RankedOf shaped) r, ADReadyS shaped r)
 
+class ( BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r n)
+      , BooleanOf (ranked r n) ~ BooleanOf (IntOf ranked r) )
+      => BooleanOfMatches ranked r n where
+instance
+      ( BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r n)
+      , BooleanOf (ranked r n) ~ BooleanOf (IntOf ranked r) )
+      => BooleanOfMatches ranked r n where
+
+class (forall yf. c ranked r yf) => CRankedF ranked r c where
+instance (forall yf. c ranked r yf) => CRankedF ranked r c where
+
 type ADReadyR ranked r =
   ( Tensor ranked, GoodScalar r, Tensor (PrimalOf ranked)
   , IfB (IntOf ranked r)
@@ -716,20 +727,7 @@ type ADReadyR ranked r =
   , OrdB r, OrdB (IntOf ranked r)
   , CRanked71 ranked r OrdBRanked, CRanked71 ranked r OrdBPrimalOf
   , Boolean (BooleanOf (IntOf ranked r))
-  , ( BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 1)
-    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 2)
-    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 3)
-    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 4)
-{- TODO: GHC 9.4 and 9.6 can't cope with too many of these:
-    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 5)
-    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 6) -}
-    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 7)
-{-
-    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 8)
-    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 9)
-    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 10)
-    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 11)
-    , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 12) -} )
+  , CRankedF ranked r BooleanOfMatches
   , ( BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 0)
     , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 1)
     , BooleanOf (IntOf ranked r) ~ BooleanOf (PrimalOf ranked r 2)
