@@ -3,11 +3,13 @@
 -- | Pretty-printing of AST of the code to be differentiated or resulting
 -- from the differentiation.
 module HordeAd.Core.AstPrettyPrint
-  ( printAstVarName
+  ( printAstVarName, printAstVarNameS
   , printAstSimple, printAstPretty, printAstSimpleS, printAstPrettyS
   , printAstDomainsSimple, printAstDomainsPretty
   , printGradient6Simple, printGradient6Pretty
   , printPrimal6Simple, printPrimal6Pretty
+  , printGradient6SimpleS, printGradient6PrettyS
+  , printPrimal6SimpleS, printPrimal6PrettyS
   ) where
 
 import Prelude
@@ -623,3 +625,37 @@ printPrimal6Pretty renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstPretty renames primal
+
+printGradient6SimpleS :: (ShowAst r, OS.Shape sh)
+                      => IntMap String -> ADAstArtifact6 (Flip OS.Array) r sh
+                      -> String
+printGradient6SimpleS renames ((varDt, vars1), gradient, _) =
+  let varsPP = printAstVarNameS renames varDt
+               : map (printAstDynamicVarName renames) vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstDomainsSimple renames gradient
+
+printGradient6PrettyS :: (ShowAst r, OS.Shape sh)
+                      => IntMap String -> ADAstArtifact6 (Flip OS.Array) r sh
+                      -> String
+printGradient6PrettyS renames ((varDt, vars1), gradient, _) =
+  let varsPP = printAstVarNameS renames varDt
+               : map (printAstDynamicVarName renames) vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstDomainsPretty renames gradient
+
+printPrimal6SimpleS :: (ShowAst r, OS.Shape sh)
+                    => IntMap String -> ADAstArtifact6 (Flip OS.Array) r sh
+                    -> String
+printPrimal6SimpleS renames ((_, vars1), _, primal) =
+  let varsPP = map (printAstDynamicVarName renames) vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstSimpleS renames primal
+
+printPrimal6PrettyS :: (ShowAst r, OS.Shape sh)
+                    => IntMap String -> ADAstArtifact6 (Flip OS.Array) r sh
+                    -> String
+printPrimal6PrettyS renames ((_, vars1), _, primal) =
+  let varsPP = map (printAstDynamicVarName renames) vars1
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstPrettyS renames primal

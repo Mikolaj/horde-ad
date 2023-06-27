@@ -21,7 +21,8 @@ module HordeAd.Core.AstSimplify
   , astAppend, astSlice, astSliceS, astReverse, astFromDynamic, astFromDynamicS
   , astConstant, astDomainsLet
   , astIntCond
-  , simplifyArtifact6, simplifyAst6, simplifyAstDomains6
+  , simplifyArtifact6, simplifyArtifact6S, simplifyAst6, simplifyAst6S
+  , simplifyAstDomains6
   , unletAstDomains6, unletAst6, unletAst6S
   , substituteAst, substituteAstDomains, substituteAstInt, substituteAstBool
   , substituteAstS
@@ -36,6 +37,7 @@ import           Control.Arrow (second)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.EnumSet as ES
@@ -1013,6 +1015,12 @@ simplifyArtifact6 :: (GoodScalar r, KnownNat n)
 simplifyArtifact6 (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6 primal)
 
+simplifyArtifact6S :: (GoodScalar r, OS.Shape sh)
+                   => ADAstArtifact6 (Flip OS.Array) r sh
+                   -> ADAstArtifact6 (Flip OS.Array) r sh
+simplifyArtifact6S (vars, gradient, primal) =
+  (vars, simplifyAstDomains6 gradient, simplifyAst6S primal)
+
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.
 -- The second simplification is very likely to trigger, because substitution
@@ -1021,6 +1029,11 @@ simplifyAst6
   :: (GoodScalar r, KnownNat n)
   => AstRanked r n -> AstRanked r n
 simplifyAst6 = simplifyAst . snd . inlineAst () EM.empty . simplifyAst
+
+simplifyAst6S
+  :: (GoodScalar r, OS.Shape sh)
+  => AstShaped r sh -> AstShaped r sh
+simplifyAst6S = simplifyAstS . snd . inlineAstS () EM.empty . simplifyAstS
 
 simplifyAstDomains6
   :: GoodScalar r

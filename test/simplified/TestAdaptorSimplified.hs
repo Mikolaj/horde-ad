@@ -28,6 +28,7 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorOps
 import HordeAd.External.CommonRankedOps
+import HordeAd.External.CommonShapedOps
 
 import CrossTesting
 import EqEpsilon
@@ -60,6 +61,8 @@ testTrees =
   , testCase "2reluSimpler3" testReluSimpler3
   , testCase "2reluSimplerPP4" testReluSimplerPP4
   , testCase "2reluSimpler4" testReluSimpler4
+  , testCase "2reluSimplerPP4S" testReluSimplerPP4S
+  , testCase "2reluSimpler4S" testReluSimpler4S
   , testCase "2reluMax" testReluMax
   , testCase "2reluMaxPP" testReluMaxPP
   , testCase "2reluMaxPP2" testReluMaxPP2
@@ -68,6 +71,7 @@ testTrees =
   , testCase "2dot2PP" testDot2PP
   , testCase "2matvecmulPP" testMatvecmulPP
   , testCase "2matmul2PP" testMatmul2PP
+  , testCase "2matmul2PPS" testMatmul2PPS
   , testCase "2bar" testBar
   , testCase "2barS" testBarS
   , testCase "2bar2S" testBar2S
@@ -448,7 +452,7 @@ testReluSimpler3 = do
 
 testReluSimplerPP4 :: Assertion
 testReluSimplerPP4 = do
-  resetVarCounter
+  resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
       reluT2 :: (AstRanked Double 2, AstRanked Double 0)
@@ -469,7 +473,7 @@ testReluSimplerPP4 = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\m2 x3 -> tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i7, i8] -> [ifB (m2 ! [i7, i8] * x3 <=* tconst 0.0) 0 1]) * (m2 * treplicate 3 (treplicate 4 x3))"
   show deltas
-    @?= "LetR 100000021 (ScaleR (AstVar [3,4] (AstVarId 100000010)) (LetR 100000020 (AddR (ScaleR (AstVar [3,4] (AstVarId 100000009)) (InputR (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000002)) (LetR 100000019 (ReshapeR [12] [3,4] (LetR 100000018 (ReplicateR 12 (InputR (InputId 1))))))))))"
+    @?= "LetR 100000005 (ScaleR (AstVar [3,4] (AstVarId 100000010)) (LetR 100000004 (AddR (ScaleR (AstVar [3,4] (AstVarId 100000009)) (InputR (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000002)) (LetR 100000003 (ReshapeR [12] [3,4] (LetR 100000002 (ReplicateR 12 (InputR (InputId 1))))))))))"
 
 testReluSimpler4 :: Assertion
 testReluSimpler4 = do
@@ -481,6 +485,42 @@ testReluSimpler4 = do
       $ OR.fromList [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , 57.1 )
     (rev @Double @2 reluT2 (Flip $ OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
+
+testReluSimplerPP4S :: Assertion
+testReluSimplerPP4S = do
+  resetVarCounter >> resetIdCounter
+  let renames = IM.empty
+      renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
+      reluT2 :: (AstShaped Double '[3, 4], AstShaped Double '[])
+             -> AstShaped Double '[3, 4]
+      reluT2 (t, r) = reluS (t * sreplicate0N r)
+      (var3, ast3) = funToAstS (\t -> reluT2 (t, 7))
+  "\\" ++ printAstVarNameS renamesNull var3
+       ++ " -> " ++ printAstSimpleS renamesNull ast3
+    @?= "\\v1 -> sconstant (sgather (sreplicate (sfromList [sconst 0.0, sconst 1.0])) (\\[i4, i3] -> [i4, ifB ((v1 * sreshape (sconstant (sreplicate (sconst 7.0)))) ! [i4, i3] <=* sconst 0.0) 0 1])) * (v1 * sreshape (sreplicate (sconst 7.0)))"
+  resetVarCounter
+  let (artifact6, deltas) = revDtFun True reluT2 (Flip $ OS.constant 128, 42)
+  printGradient6PrettyS renames artifact6
+    @?= "\\dret m2 x3 -> let m8 = sreshape (sreplicate x3) ; m9 = sgather (sreplicate (sfromList [sconst 0.0, sconst 1.0])) (\\[i6, i7] -> [i6, ifB ((let m13 = sreshape (sreplicate x3) in (m2 * m13) ! [i6, i7]) <=* sconst 0.0) 0 1]) ; m10 = m2 * m8 ; m11 = m9 * dret in (m8 * m11, ssum (sreshape (m2 * m11)))"
+  printPrimal6PrettyS renames artifact6
+    @?= "\\m2 x3 -> let m8 = sreshape (sreplicate x3) ; m9 = sgather (sreplicate (sfromList [sconst 0.0, sconst 1.0])) (\\[i6, i7] -> [i6, ifB ((let m13 = sreshape (sreplicate x3) in (m2 * m13) ! [i6, i7]) <=* sconst 0.0) 0 1]) ; m10 = m2 * m8 in m9 * m10"
+  printGradient6PrettyS renames (simplifyArtifact6S artifact6)
+    @?= "\\dret m2 x3 -> let m11 = sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i6, i7] -> [i6, ifB ((m2 * sreshape (sreplicate x3)) ! [i6, i7] <=* sconst 0.0) 0 1]) * dret in (sreshape (sreplicate x3) * m11, ssum (sreshape (m2 * m11)))"
+  printPrimal6PrettyS renames (simplifyArtifact6S artifact6)
+    @?= "\\m2 x3 -> sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i6, i7] -> [i6, ifB ((m2 * sreshape (sreplicate x3)) ! [i6, i7] <=* sconst 0.0) 0 1]) * (m2 * sreshape (sreplicate x3))"
+  show deltas
+    @?= "LetS 100000007 (ScaleS (AstVarS (AstVarId 100000009)) (LetS 100000006 (AddS (ScaleS (AstVarS (AstVarId 100000008)) (RToS (InputR (InputId 0)))) (ScaleS (AstRToS (AstVar [3,4] (AstVarId 100000002))) (LetS 100000005 (ReshapeS (LetS 100000004 (ReplicateS (RToS (InputR (InputId 1)))))))))))"
+
+testReluSimpler4S :: Assertion
+testReluSimpler4S = do
+  let reluT2 :: (AstShaped Double '[3, 4], AstShaped Double '[])
+             -> AstShaped Double '[3, 4]
+      reluT2 (t, r) = reluS (t * sreplicate0N r)
+  assertEqualUpToEpsilon 1e-10
+    ( Flip
+      $ OS.fromList @'[3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
+    , 57.1 )
+    (rev @Double @'[3, 4] reluT2 (Flip $ OS.fromList @'[3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], 7))
 
 reluMax :: forall ranked n r. (ADReady ranked r, KnownNat n)
         => ranked r n -> ranked r n
@@ -617,6 +657,23 @@ testMatmul2PP = do
     @?= "\\dret m2 m3 -> (tsum (ttranspose [2,0,1] (treplicate 2 m3) * ttranspose [2,1,0] (treplicate 3 dret)), tsum (ttranspose [1,2,0] (treplicate 4 m2) * ttranspose [1,0] (treplicate 3 dret)))"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\m2 m3 -> tsum (ttranspose [2,1,0] (treplicate 4 m2) * ttranspose [1,0] (treplicate 2 m3))"
+
+testMatmul2PPS :: Assertion
+testMatmul2PPS = do
+  resetVarCounter
+  let renames = IM.empty
+      (artifact6, _) =
+        revDtFun True (uncurry smatmul2)
+                 ( Flip $ OS.fromList @'[2,3] [1 :: Double .. 6]
+                 , Flip $ OS.fromList @'[3,4] [7 .. 18] )
+  printGradient6PrettyS renames artifact6
+    @?= "\\dret m2 m3 -> (ssum (stranspose (stranspose (sreplicate m3) * sreplicate dret)), ssum (stranspose (stranspose (sreplicate m2) * sreplicate dret)))"
+  printPrimal6PrettyS renames artifact6
+    @?= "\\m2 m3 -> ssum (stranspose (sreplicate m2) * stranspose (sreplicate m3))"
+  printGradient6PrettyS renames (simplifyArtifact6S artifact6)
+    @?= "\\dret m2 m3 -> (ssum (stranspose (stranspose (sreplicate m3) * sreplicate dret)), ssum (stranspose (stranspose (sreplicate m2) * sreplicate dret)))"
+  printPrimal6PrettyS renames (simplifyArtifact6S artifact6)
+    @?= "\\m2 m3 -> ssum (stranspose (sreplicate m2) * stranspose (sreplicate m3))"
 
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =
