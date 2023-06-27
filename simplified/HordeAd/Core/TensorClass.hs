@@ -11,7 +11,7 @@ module HordeAd.Core.TensorClass
   ( ShapeInt, IntOf, IndexOf, ShapeSh, IntSh, IndexSh
   , PrimalOf, DualOf, DynamicOf, RankedOf, ShapedOf
   , ShapedTensor(..), Tensor(..), ConvertTensor(..), DomainsTensor(..)
-  , ADReady, ADReadyS
+  , ADReady, ADReadyS, ADRanked, ADShaped
   , GoodScalar, DummyDual(..)
   ) where
 
@@ -677,7 +677,13 @@ class DomainsTensor (ranked :: Type -> Nat -> Type)
 
 type Many ranked (f :: Type -> Constraint) r = (f (ranked r 0), f (ranked r 1), f (ranked r 2), f (ranked r 3), f (ranked r 4), f (ranked r 5), f (ranked r 6), f (ranked r 7), f (ranked r 8), f (ranked r 9), f (ranked r 10), f (ranked r 11), f (ranked r 12))
 
-type ADReady ranked r =
+type ADReady ranked r = ADRanked ranked r  -- backward compatibility
+
+type ADRanked ranked r = (ADReadyR ranked r, ADReadyS (ShapedOf ranked) r)
+
+type ADShaped shaped r = (ADReadyR (RankedOf shaped) r, ADReadyS shaped r)
+
+type ADReadyR ranked r =
   ( Tensor ranked, GoodScalar r, Tensor (PrimalOf ranked)
   , IfB (IntOf ranked r), Many ranked IfB r
   , Many (PrimalOf ranked) IfB r

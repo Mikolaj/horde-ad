@@ -39,7 +39,7 @@ type ADCnnMnistParameters ranked r =
     , ranked r 1 ) )
 
 convMnistLayerR
-  :: ADReady ranked r
+  :: ADReady ranked r  -- TODO: ADRanked ranked r  ???
   => ranked r 4  -- [c_out, c_in, kh + 1, kw + 1]
   -> ranked r 4  -- [batch_size, c_in, h, w]
   -> ranked r 1  -- [c_out]

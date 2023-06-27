@@ -178,6 +178,10 @@ type instance PrimalOf AstPrimalPart = AstPrimalPart
 
 type instance DualOf AstPrimalPart = DummyDual
 
+type instance RankedOf AstPrimalPart = AstPrimalPart
+
+type instance ShapedOf AstPrimalPart = AstPrimalPartS
+
 instance Tensor AstPrimalPart where
   tlet a f =
     AstPrimalPart
@@ -224,6 +228,10 @@ type instance IntOf AstNoVectorize r = AstInt r
 type instance PrimalOf AstNoVectorize = AstNoVectorize
 
 type instance DualOf AstNoVectorize = AstDualPart
+
+type instance RankedOf AstNoVectorize = AstNoVectorize
+
+type instance ShapedOf AstNoVectorize = AstShaped
 
 instance Tensor AstNoVectorize where
   tlet a f =
@@ -274,6 +282,10 @@ type instance IntOf AstNoSimplify r = AstInt r
 type instance PrimalOf AstNoSimplify = AstNoSimplify
 
 type instance DualOf AstNoSimplify = AstDualPart
+
+type instance RankedOf AstNoSimplify = AstNoSimplify
+
+type instance ShapedOf AstNoSimplify = AstShaped
 
 instance Tensor AstNoSimplify where
   tlet a f =
@@ -330,6 +342,10 @@ type instance IntOf AstShaped r = AstInt r
 type instance PrimalOf AstShaped = AstPrimalPartS
 
 type instance DualOf AstShaped = AstDualPartS
+
+type instance RankedOf AstShaped = AstRanked
+
+type instance ShapedOf AstShaped = AstShaped
 
 instance ShapedTensor AstShaped where
   slet a f = astLetFunS a f
@@ -415,9 +431,9 @@ type instance PrimalOf AstPrimalPartS = AstPrimalPartS
 
 type instance DualOf AstPrimalPartS = DummyDual
 
-type instance RankedOf AstShaped = AstRanked
+type instance RankedOf AstPrimalPartS = AstPrimalPart
 
-type instance ShapedOf AstShaped = AstShaped
+type instance ShapedOf AstPrimalPartS = AstPrimalPartS
 
 instance ShapedTensor AstPrimalPartS where
   slet a f =

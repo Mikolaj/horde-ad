@@ -36,7 +36,7 @@ convMnistLayerS
   :: forall kh kw h w c_in c_out batch_size shaped r.
      ( 1 <= kh
      , 1 <= kw  -- wrongly reported as redundant due to plugins
-     , ADReadyS shaped r )
+     , ADReadyS shaped r )  -- TODO: ADShaped shaped r  ???
   => SNat kh -> SNat kw
   -> SNat h -> SNat w
   -> SNat c_in -> SNat c_out
