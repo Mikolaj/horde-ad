@@ -55,7 +55,7 @@ rev' f vals =
       g :: Domains (ADValClown OD.Array) r
         -> ADVal (Flip OR.Array) r m
       g inputs = f $ parseDomains vals inputs
-      (advalGrad, value1) = revOnDomains dt g parameters
+      (advalGrad, value1) = crevOnDomains dt g parameters
       gradient1 = parseDomains vals advalGrad
       g9 :: Domains (ADValClown AstDynamic) r
          -> ADVal AstRanked r m
@@ -82,27 +82,27 @@ rev' f vals =
             env = extendEnvR var (parseDomains vals inputs) EM.empty
         in snd $ interpretAst env emptyMemo (gx ast)
       (astGrad, value2) =
-        revOnDomains dt (h id id id) parameters
+        crevOnDomains dt (h id id id) parameters
       gradient2 = parseDomains vals astGrad
       (astSimple, value3) =
-        revOnDomains dt (h id id simplifyAst6) parameters
+        crevOnDomains dt (h id id simplifyAst6) parameters
       gradient3 = parseDomains vals astSimple
       (astGradUnSimp, value2UnSimp) =
-        revOnDomains dt (h unAstNoSimplify AstNoSimplify id) parameters
+        crevOnDomains dt (h unAstNoSimplify AstNoSimplify id) parameters
       gradient2UnSimp = parseDomains vals astGradUnSimp
       (astSimpleUnSimp, value3UnSimp) =
-        revOnDomains dt (h unAstNoSimplify AstNoSimplify simplifyAst6)
-                     parameters
+        crevOnDomains dt (h unAstNoSimplify AstNoSimplify simplifyAst6)
+                      parameters
       gradient3UnSimp = parseDomains vals astSimpleUnSimp
       (astPrimal, value4) =
-        revOnDomains dt (h unAstNoVectorize AstNoVectorize id)
-                        parameters
+        crevOnDomains dt (h unAstNoVectorize AstNoVectorize id)
+                         parameters
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradient4 = parseDomains vals astPrimal
       (astPSimple, value5) =
-        revOnDomains dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
-                        parameters
+        crevOnDomains dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
+                         parameters
       gradient5 = parseDomains vals astPSimple
       astVectSimp = simplifyAst6 $ snd $ funToAstR (tshape vals) f
       astSimp =
