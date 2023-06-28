@@ -325,7 +325,7 @@ slowFwdOnADInputs
 slowFwdOnADInputs inputs f ds =
   let dim = V.length inputs
       !(D _ v deltaTopLevel) = f inputs in
-  let derivative = derivativeFromDeltaR @(Flip OR.Array) dim deltaTopLevel ds
+  let derivative = forwardDerivative dim deltaTopLevel ds
   in (derivative, v)
 
 -- The direction vector ds is taken as an extra argument.

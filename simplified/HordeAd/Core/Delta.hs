@@ -43,7 +43,6 @@ module HordeAd.Core.Delta
     NodeId (..), InputId, toInputId, DualPart(..)
   , -- * Evaluation of the delta expressions
     DeltaDt (..)
-  , derivativeFromDeltaR, derivativeFromDeltaS
   ) where
 
 import Prelude
@@ -399,16 +398,22 @@ class DualPart (f :: Type -> k -> Type) where
     :: (HasSingletonDict f y, GoodScalar r)
     => Int -> f r y -> Maybe (f r y) -> Dual f r y
     -> ([(AstVarId, DynamicOf f r)], Domains (DynamicOf f) r)
+  forwardDerivative
+    :: (HasSingletonDict f y, GoodScalar r)
+    => Int -> Dual f r y -> Domains (DynamicOf f) r
+    -> f r y
 
 instance DualPart @() (Clown OD.Array) where
   type Dual (Clown OD.Array) = DeltaD (Flip OR.Array) (Flip OS.Array)
   type HasSingletonDict (Clown OD.Array) '() = ()
   reverseDervative = gradientDtD
+  forwardDerivative = derivativeFromDeltaD
 
 instance DualPart @() (Clown AstDynamic) where
   type Dual (Clown AstDynamic) = DeltaD AstRanked AstShaped
   type HasSingletonDict (Clown AstDynamic) '() = ()
   reverseDervative = gradientDtD
+  forwardDerivative = derivativeFromDeltaD
 
 gradientDtD :: forall ranked shaped r (y :: ()).
                ( GoodScalar r
@@ -431,15 +436,32 @@ gradientDtD dims value mdt deltaTopLevel =
       in gradientFromDelta dims deltaDt
     Nothing -> error "gradientDtD: impossible someNatVal error"
 
+derivativeFromDeltaD
+  :: forall ranked shaped r (y :: ()).
+       ( DynamicOf @Nat (Clown (DynamicOf ranked)) ~ DynamicOf ranked
+       , GoodScalar r, Tensor ranked, ShapedTensor shaped
+       , ConvertTensor ranked shaped )
+  => Int -> DeltaD ranked shaped r y
+  -> Domains (DynamicOf @Nat (Clown (DynamicOf ranked))) r
+  -> Clown (DynamicOf ranked) r y
+derivativeFromDeltaD dim deltaTopLevel ds =
+  case runST $ buildDerivative dim (DeltaDtD (dfromR @ranked @shaped @r @0 0)
+                                             deltaTopLevel) ds of
+    DeltaDtD @_ @_ @_ @_ res _ -> Clown res
+    DeltaDtR{} -> error "derivativeFromDeltaD"
+    DeltaDtS{} -> error "derivativeFromDeltaD"
+
 instance DualPart @Nat (Flip OR.Array) where
   type Dual (Flip OR.Array) = DeltaR (Flip OR.Array) (Flip OS.Array)
   type HasSingletonDict (Flip OR.Array) n = KnownNat n
   reverseDervative = gradientDtR
+  forwardDerivative = derivativeFromDeltaR
 
 instance DualPart @Nat AstRanked where
   type Dual AstRanked = DeltaR AstRanked AstShaped
   type HasSingletonDict AstRanked n = KnownNat n
   reverseDervative = gradientDtR
+  forwardDerivative = derivativeFromDeltaR
 
 gradientDtR :: ( KnownNat y, GoodScalar r
                , Tensor ranked, ShapedTensor shaped
@@ -452,17 +474,34 @@ gradientDtR dims value mdt deltaTopLevel =
       deltaDt = DeltaDtR dt deltaTopLevel
   in gradientFromDelta dims deltaDt
 
+derivativeFromDeltaR
+  :: forall ranked shaped r n.
+       ( KnownNat n
+       , GoodScalar r, Tensor ranked, ShapedTensor shaped
+       , ConvertTensor ranked shaped
+       , Dual ranked ~ DeltaR ranked shaped )
+  => Int -> Dual ranked r n -> Domains (DynamicOf ranked) r -> ranked r n
+derivativeFromDeltaR dim deltaTopLevel ds =
+  case runST $ buildDerivative dim (DeltaDtR 0 deltaTopLevel) ds of
+    DeltaDtR @_ @_ @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
+      Just Refl -> res
+      _ -> error "derivativeFromDeltaR"
+    DeltaDtS{} -> error "derivativeFromDeltaR"
+    DeltaDtD{} -> error "derivativeFromDeltaR"
+
 instance DualPart @[Nat] (Flip OS.Array) where
   type Dual (Flip OS.Array) = DeltaS (Flip OR.Array) (Flip OS.Array)
   type HasSingletonDict (Flip OS.Array) sh =
     (OS.Shape sh, KnownNat (OS.Size sh))
   reverseDervative = gradientDtS
+  forwardDerivative = derivativeFromDeltaS
 
 instance DualPart @[Nat] AstShaped where
   type Dual AstShaped = DeltaS AstRanked AstShaped
   type HasSingletonDict AstShaped sh =
     (OS.Shape sh, KnownNat (OS.Size sh))
   reverseDervative = gradientDtS
+  forwardDerivative = derivativeFromDeltaS
 
 gradientDtS :: forall ranked shaped r y.
                ( OS.Shape y, GoodScalar r
@@ -475,6 +514,21 @@ gradientDtS dims _ mdt deltaTopLevel =
   let dt = fromMaybe 1 mdt
       deltaDt = DeltaDtS dt deltaTopLevel
   in gradientFromDelta dims deltaDt
+
+derivativeFromDeltaS
+  :: forall ranked shaped r sh.
+       ( OS.Shape sh
+       , GoodScalar r, Tensor ranked, ShapedTensor shaped
+       , ConvertTensor ranked shaped
+       , Dual shaped ~ DeltaS ranked shaped )
+  => Int -> Dual shaped r sh -> Domains (DynamicOf shaped) r -> shaped r sh
+derivativeFromDeltaS dim deltaTopLevel ds =
+  case runST $ buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
+    DeltaDtS @_ @_ @_ @sh2 res _ -> case sameShape @sh @sh2 of
+      Just Refl -> res
+      _ -> error "derivativeFromDeltaS"
+    DeltaDtR{} -> error "derivativeFromDeltaS"
+    DeltaDtD{} -> error "derivativeFromDeltaS"
 
 
 -- * Reverse pass, transpose/evaluation of the delta expressions
@@ -900,37 +954,8 @@ buildFinMaps s0 deltaDt =
 -- represented by the parameters of the objective function and used
 -- to compute it's dual number result) and along the direction vector(s)
 -- given in the last parameter called @ds@.
-derivativeFromDeltaR
-  :: forall ranked shaped r n.
-       ( KnownNat n
-       , GoodScalar r, Tensor ranked, ShapedTensor shaped
-       , ConvertTensor ranked shaped
-       , Dual ranked ~ DeltaR ranked shaped )
-  => Int -> Dual ranked r n -> Domains (DynamicOf ranked) r -> ranked r n
-derivativeFromDeltaR dim deltaTopLevel ds =
-  case runST $ buildDerivative dim (DeltaDtR 0 deltaTopLevel) ds of
-    DeltaDtR @_ @_ @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
-      Just Refl -> res
-      _ -> error "derivativeFromDelta"
-    DeltaDtS{} -> error "derivativeFromDelta"
-    DeltaDtD{} -> error "derivativeFromDelta"
-
-derivativeFromDeltaS
-  :: forall ranked shaped r sh.
-       ( OS.Shape sh
-       , GoodScalar r, Tensor ranked, ShapedTensor shaped
-       , ConvertTensor ranked shaped
-       , Dual shaped ~ DeltaS ranked shaped )
-  => Int -> Dual shaped r sh -> Domains (DynamicOf shaped) r -> shaped r sh
-derivativeFromDeltaS dim deltaTopLevel ds =
-  case runST $ buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
-    DeltaDtS @_ @_ @_ @sh2 res _ -> case sameShape @sh @sh2 of
-      Just Refl -> res
-      _ -> error "derivativeFromDelta"
-    DeltaDtR{} -> error "derivativeFromDelta"
-    DeltaDtD{} -> error "derivativeFromDelta"
-
--- | This mimics 'buildFinMaps', but in reverse. Perhaps this can be
+--
+-- This mimics 'buildFinMaps', but in reverse. Perhaps this can be
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
