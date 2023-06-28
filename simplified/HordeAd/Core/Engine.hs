@@ -233,8 +233,7 @@ crev
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals, RandomDomains vals
      , vals ~ Value advals, r ~ Underlying vals, Underlying advals ~ r )
-  => (advals -> ADVal f r y) -> vals
-  -> vals
+  => (advals -> ADVal f r y) -> vals -> vals
 crev f vals = crevDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
@@ -245,8 +244,7 @@ crevDt
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals, RandomDomains vals
      , vals ~ Value advals, r ~ Underlying vals, Underlying advals ~ r )
-  => (advals -> ADVal f r y) -> vals -> f r y
-  -> vals
+  => (advals -> ADVal f r y) -> vals -> f r y -> vals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
@@ -256,8 +254,7 @@ crevDtMaybe
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals, RandomDomains vals
      , vals ~ Value advals, r ~ Underlying vals, Underlying advals ~ r )
-  => (advals -> ADVal f r y) -> vals -> Maybe (f r y)
-  -> vals
+  => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
 crevDtMaybe f vals dt =
   let g inputs = f $ parseDomains vals inputs
   in parseDomains (toValue vals) $ fst $ revOnDomains dt g (toDomains vals)

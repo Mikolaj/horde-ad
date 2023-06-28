@@ -43,6 +43,11 @@ testTrees =
   , testCase "2zero4S" testZero4S
   , testCase "2zero5S" testZero5S
   , testCase "2zero6S" testZero6S
+  , testCase "2zero7S" testZero7S
+  , testCase "2zero8" testZero8
+  , testCase "2zero9S" testZero9S
+  , testCase "2zero10S" testZero10S
+  , testCase "2zero11S" testZero11S
   , testCase "2piecewiseLinearPP" testPiecewiseLinearPP
   , testCase "2piecewiseLinear2PP" testPiecewiseLinear2PP
   , testCase "2overleaf" testOverleaf
@@ -169,6 +174,50 @@ testZero6S =
     (Flip $ OS.fromList @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] (replicate (product ([2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] :: [Int])) 3.6174114266850617))
     (rev @Double @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2]
          @(Flip OS.Array) (\x -> bar (x, x)) 1)
+
+testZero7S :: Assertion
+testZero7S =
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OS.fromList @'[] [0])
+    (rev (const 3 :: AstShaped Double '[] -> AstRanked Double 0) 42)
+
+testZero8 :: Assertion
+testZero8 =
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.fromList [] [0])
+    (rev (const 3 :: AstRanked Double 0 -> AstShaped Double '[]) 42)
+
+testZero9S :: Assertion
+testZero9S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OR.fromList [0, 2, 4, 0, 1] [])
+    (crev (let f :: Num a => b -> a
+               f = const 3
+           in f @(ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])
+                @(ADVal (Flip OR.Array) Double 5))
+          (treplicate0N [0, 2, 4, 0, 1] 42))
+
+testZero10S :: Assertion
+testZero10S =
+  assertEqualUpToEpsilon 1e-9
+    ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
+    , Flip $ OS.fromList @'[0, 2, 4, 0, 1] [] )
+    (crev (let f = const 3 . snd
+           in f :: ( ADVal (Flip OR.Array) Double 5
+                   , ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1] )
+                   -> ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])
+          (treplicate0N [0, 2, 4, 0, 1] 42, 21))
+
+testZero11S :: Assertion
+testZero11S =
+  assertEqualUpToEpsilon 1e-9
+    ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
+    , Flip $ OS.fromList @'[0, 2, 4, 0, 1] [] )
+    (crev (let f = const (treplicate0N [0, 2, 4, 0, 1] 3) . snd
+           in f :: ( ADVal (Flip OR.Array) Double 5
+                   , ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1] )
+                   -> ADVal (Flip OR.Array) Double 5)
+          (treplicate0N [0, 2, 4, 0, 1] 42, 21))
 
 testPiecewiseLinearPP :: Assertion
 testPiecewiseLinearPP = do
