@@ -185,7 +185,7 @@ revAstOnDomainsFun hasDt parameters0 f =
       -- for pretty-printing and prevent sharing the impure values/effects.
       !(!vars@(!_, vars1), (astDt, asts1)) = funToAstAll shapes1 in
   let domains = V.fromList asts1
-      deltaInputs = generateDeltaInputs @AstRanked domains
+      deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
@@ -213,7 +213,7 @@ revAstOnDomainsFunS hasDt parameters0 f =
       -- for pretty-printing and prevent sharing the impure values/effects.
       !(!vars@(!_, vars1), (astDt, asts1)) = funToAstAllS shapes1 in
   let domains = V.fromList asts1
-      deltaInputs = generateDeltaInputs @AstRanked domains
+      deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
@@ -359,7 +359,7 @@ generateDeltaInputs params =
       arrayToInput i t = case someNatVal $ toInteger $ length
                               $ dshape @ranked t of
         Just (SomeNat (_ :: Proxy n)) ->
-          RToD @ranked $ InputR @ranked @r @n $ toInputId i
+          RToD $ InputR @ranked @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
   in V.imap arrayToInput params
 {- TODO: this can't be specified without a proxy
