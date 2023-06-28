@@ -38,16 +38,22 @@ testTrees =
   [ -- Tensor tests
     testCase "2zero" testZero
   , testCase "2zeroS" testZeroS
+  , testCase "2fwdZeroS" testFwdZeroS
   , testCase "2zero2S" testZero2S
+  , testCase "2fwdZero2S" testFwdZero2S
   , testCase "2zero3S" testZero3S
+  , testCase "2fwdZero3S" testFwdZero3S
   , testCase "2zero4S" testZero4S
   , testCase "2zero5S" testZero5S
   , testCase "2zero6S" testZero6S
   , testCase "2zero7S" testZero7S
   , testCase "2zero8" testZero8
   , testCase "2zero9S" testZero9S
+  , testCase "2fwdZero9S" testFwdZero9S
   , testCase "2zero10S" testZero10S
+  , testCase "2fwdZero10S" testFwdZero10S
   , testCase "2zero11S" testZero11S
+  , testCase "2fwdZero11S" testFwdZero11S
   , testCase "2piecewiseLinearPP" testPiecewiseLinearPP
   , testCase "2piecewiseLinear2PP" testPiecewiseLinear2PP
   , testCase "2overleaf" testOverleaf
@@ -136,6 +142,14 @@ testZeroS =
                f = const 3
            in f @(ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])) 42)
 
+testFwdZeroS :: Assertion
+testFwdZeroS =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (cfwd (let f :: Num a => a -> a
+               f = const 3
+           in f @(ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])) 42 41)
+
 testZero2S :: Assertion
 testZero2S =
   assertEqualUpToEpsilon 1e-9
@@ -145,11 +159,26 @@ testZero2S =
                f = id
            in f) 42)
 
+testFwdZero2S :: Assertion
+testFwdZero2S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[] [41])
+    (cfwd @Double @'[] @(Flip OS.Array)
+          (let f :: a -> a
+               f = id
+           in f) 42 41)
+
 testZero3S :: Assertion
 testZero3S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[33, 2] (replicate 66 3.6174114266850617))
     (crev (\x -> bar @(ADVal (Flip OS.Array) Double '[33, 2]) (x, x)) 1)
+
+testFwdZero3S :: Assertion
+testFwdZero3S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[33, 2] (replicate 66 3.9791525693535674))
+    (cfwd (\x -> bar @(ADVal (Flip OS.Array) Double '[33, 2]) (x, x)) 1 1.1)
 
 testZero4S :: Assertion
 testZero4S =
@@ -197,6 +226,16 @@ testZero9S =
                 @(ADVal (Flip OR.Array) Double 5))
           (treplicate0N [0, 2, 4, 0, 1] 42))
 
+testFwdZero9S :: Assertion
+testFwdZero9S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (cfwd (let f :: Num a => b -> a
+               f = const 3
+           in f @(ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])
+                @(ADVal (Flip OR.Array) Double 5))
+          42 41)
+
 testZero10S :: Assertion
 testZero10S =
   assertEqualUpToEpsilon 1e-9
@@ -208,6 +247,19 @@ testZero10S =
                    -> ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])
           (treplicate0N [0, 2, 4, 0, 1] 42, 21))
 
+testFwdZero10S :: Assertion
+testFwdZero10S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (cfwd (let f = const 3 . snd
+           in f :: ( ADVal (Flip OR.Array) Double 5
+                   , ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1] )
+                   -> ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])
+          ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
+          , Flip $ OS.fromList @'[0, 2, 4, 0, 1] [] )
+          ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
+          , Flip $ OS.fromList @'[0, 2, 4, 0, 1] [] ))
+
 testZero11S :: Assertion
 testZero11S =
   assertEqualUpToEpsilon 1e-9
@@ -218,6 +270,19 @@ testZero11S =
                    , ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1] )
                    -> ADVal (Flip OR.Array) Double 5)
           (treplicate0N [0, 2, 4, 0, 1] 42, 21))
+
+testFwdZero11S :: Assertion
+testFwdZero11S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OR.fromList [0, 2, 4, 0, 1] [])
+    (cfwd (let f = const (treplicate0N [0, 2, 4, 0, 1] 3) . snd
+           in f :: ( ADVal (Flip OR.Array) Double 5
+                   , ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1] )
+                   -> ADVal (Flip OR.Array) Double 5)
+          ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
+          , Flip $ OS.fromList @'[0, 2, 4, 0, 1] [] )
+          ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
+          , Flip $ OS.fromList @'[0, 2, 4, 0, 1] [] ))
 
 testPiecewiseLinearPP :: Assertion
 testPiecewiseLinearPP = do
