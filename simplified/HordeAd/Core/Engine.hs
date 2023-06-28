@@ -89,9 +89,13 @@ class Adaptable f where
     -> DomainsOD r
     -> (ADAstArtifact6 f r y, Dual (AstOf f) r y)
 
+-- TODO: it's not clear if the instance should be of Clown OD.Array or of
+-- Domains OD.Array, for which we already have unletAstDomains6, etc.;
+-- let's wait until we have rev as a function of Tensor class in case
+-- that affects rev and/or Delta
 instance Adaptable @() (Clown OD.Array) where
-  revAstOnDomainsEval = undefined  -- TODO
-  revDtInit = undefined  -- TODO
+  revAstOnDomainsEval = undefined
+  revDtInit = undefined
 
 instance Adaptable @Nat (Flip OR.Array) where
   {-# INLINE revAstOnDomainsEval #-}
