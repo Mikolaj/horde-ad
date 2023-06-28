@@ -303,43 +303,42 @@ revOnADInputs mdt f inputs =
 
 -- This takes the sensitivity parameter, by convention.
 cfwd
-  :: forall a r n vals advals dynamic.
-     ( dynamic ~ ADValClown OD.Array, a ~ Flip OR.Array r n
-     , GoodScalar r, KnownNat n
-     , AdaptableDomains dynamic advals, AdaptableDomains OD.Array vals
-     , r ~ Underlying vals, vals ~ Value advals, Underlying advals ~ r )
-  => (advals -> ADVal (Flip OR.Array) r n) -> vals -> vals
-  -> a
+  :: forall r y f vals advals.
+     ( DualPart f, HasSingletonDict f y, GoodScalar r
+     , DynamicOf f ~ OD.Array
+     , AdaptableDomains (DynamicOf (ADVal f)) advals
+     , AdaptableDomains OD.Array vals
+     , vals ~ Value advals, r ~ Underlying vals, Underlying advals ~ r )
+  => (advals -> ADVal f r y) -> vals -> vals
+  -> f r y
 cfwd f x ds =
   let g inputs = f $ parseDomains ds inputs
   in fst $ slowFwdOnDomains (toDomains x) g (toDomains ds)
 
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
-  :: forall a r n dynamic.
-     ( dynamic ~ ADValClown OD.Array, a ~ Flip OR.Array r n
-     , GoodScalar r, KnownNat n )
+  :: ( DualPart f, HasSingletonDict f y, GoodScalar r
+     , DynamicOf f ~ OD.Array )
   => DomainsOD r
-  -> (Domains dynamic r -> ADVal (Flip OR.Array) r n)
+  -> (Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
   -> DomainsOD r
-  -> (a, a)
+  -> (f r y, f r y)
 slowFwdOnDomains parameters f ds =
-  let deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters
+  let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in slowFwdOnADInputs inputs f ds
 
 slowFwdOnADInputs
-  :: ( dynamic ~ ADValClown OD.Array, a ~ Flip OR.Array r n
-     , GoodScalar r, KnownNat n )
-  => Domains dynamic r
-  -> (Domains dynamic r -> ADVal (Flip OR.Array) r n)
+  :: ( DualPart f, HasSingletonDict f y, GoodScalar r
+     , DynamicOf f ~ OD.Array )
+  => Domains (DynamicOf (ADVal f)) r
+  -> (Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
   -> DomainsOD r
-  -> (a, a)
+  -> (f r y, f r y)
 {-# INLINE slowFwdOnADInputs #-}
 slowFwdOnADInputs inputs f ds =
-  let dim = V.length inputs
-      !(D _ v deltaTopLevel) = f inputs in
-  let derivative = forwardDerivative dim deltaTopLevel ds
+  let !(D _ v deltaTopLevel) = f inputs in
+  let derivative = forwardDerivative (V.length inputs) deltaTopLevel ds
   in (derivative, v)
 
 
