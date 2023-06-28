@@ -482,7 +482,8 @@ derivativeFromDeltaR
        , Dual ranked ~ DeltaR ranked shaped )
   => Int -> Dual ranked r n -> Domains (DynamicOf ranked) r -> ranked r n
 derivativeFromDeltaR dim deltaTopLevel ds =
-  case runST $ buildDerivative dim (DeltaDtR 0 deltaTopLevel) ds of
+  let dummyZero = tzero $ listShapeToShape $ replicate (valueOf @n) 1
+  in case runST $ buildDerivative dim (DeltaDtR dummyZero deltaTopLevel) ds of
     DeltaDtR @_ @_ @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
       Just Refl -> res
       _ -> error "derivativeFromDeltaR"
@@ -974,7 +975,7 @@ buildDerivative dimR deltaDt params = do
         InputS (InputId i) ->
           if i < dimR
           then return $! sfromD $ params V.! i
-          else error "derivativeFromDelta.eval': wrong index for an input"
+          else error "buildDerivative: wrong index for an input"
         ScaleS _ ZeroS -> evalS ZeroS
         ScaleS k d -> smult k <$> evalS d
         AddS ZeroS e -> evalS e
@@ -1043,14 +1044,14 @@ buildDerivative dimR deltaDt params = do
       evalR :: forall n. KnownNat n
             => DeltaR ranked shaped r n -> ST s (ranked r n)
       evalR = \case
-        ZeroR -> return $! tzero $ listShapeToShape $ replicate (valueOf @n) 1
-          -- TODO: wrong shape but it often works and the special cases
-          -- for ZeroR help, but the real solution would be shaped tensors
-          -- or simplification of delta terms
+        ZeroR -> case sameNat (Proxy @n) (Proxy @0) of
+          Just Refl -> return 0
+          Nothing -> error $ "buildDerivative: shape unknown at rank "
+                             ++ show (valueOf @n :: Int)
         InputR (InputId i) ->
           if i < dimR
           then return $! tfromD $ params V.! i
-          else error "derivativeFromDelta.eval': wrong index for an input"
+          else error "buildDerivative': wrong index for an input"
         ScaleR _ ZeroR -> evalR ZeroR
         ScaleR k d -> tmult k <$> evalR d
         AddR ZeroR e -> evalR e
