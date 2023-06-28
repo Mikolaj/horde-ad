@@ -8,8 +8,8 @@ module HordeAd.Core.Engine
   ( rev, revDt
   , Adaptable (..)
   , revDtFun, revAstOnDomainsFun
-  , crev, crevDt, revOnADInputs, revOnDomains
-  , fwd, slowFwdOnADInputs, slowFwdOnDomains
+  , crev, crevDt, revOnDomains, revOnADInputs
+  , cfwd, slowFwdOnDomains, slowFwdOnADInputs
   , generateDeltaInputs, makeADInputs, shapedToRanked
   ) where
 
@@ -259,6 +259,20 @@ crevDtMaybe f vals dt =
   let g inputs = f $ parseDomains vals inputs
   in parseDomains (toValue vals) $ fst $ revOnDomains dt g (toDomains vals)
 
+-- VJP (vector-jacobian product) or Lop (left operations) are alternative
+-- names, but newcomers may have trouble understanding them.
+revOnDomains
+  :: ( DualPart f, HasSingletonDict f y, GoodScalar r
+     , DynamicOf f ~ OD.Array )
+  => Maybe (f r y)
+  -> (Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
+  -> DomainsOD r
+  -> (DomainsOD r, f r y)
+revOnDomains dt f parameters =
+  let deltaInputs = generateDeltaInputs parameters
+      inputs = makeADInputs parameters deltaInputs
+  in revOnADInputs dt f inputs
+
 -- The old versions that use the fixed input and dt to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 -- These work for f both ranked and shaped.
@@ -281,20 +295,6 @@ revOnADInputs mdt f inputs =
   in assert (null astBindings)
      $ (gradient, v)
 
--- VJP (vector-jacobian product) or Lop (left operations) are alternative
--- names, but newcomers may have trouble understanding them.
-revOnDomains
-  :: ( DualPart f, HasSingletonDict f y, GoodScalar r
-     , DynamicOf f ~ OD.Array )
-  => Maybe (f r y)
-  -> (Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
-  -> DomainsOD r
-  -> (DomainsOD r, f r y)
-revOnDomains dt f parameters =
-  let deltaInputs = generateDeltaInputs parameters
-      inputs = makeADInputs parameters deltaInputs
-  in revOnADInputs dt f inputs
-
 
 -- * The old derivative adaptors
 
@@ -302,7 +302,7 @@ revOnDomains dt f parameters =
 -- for a fast variant (TODO: not ported from the old code yet).
 
 -- This takes the sensitivity parameter, by convention.
-fwd
+cfwd
   :: forall a r n vals advals dynamic.
      ( dynamic ~ ADValClown OD.Array, a ~ Flip OR.Array r n
      , GoodScalar r, KnownNat n
@@ -310,23 +310,9 @@ fwd
      , r ~ Underlying vals, vals ~ Value advals, Underlying advals ~ r )
   => (advals -> ADVal (Flip OR.Array) r n) -> vals -> vals
   -> a
-fwd f x ds =
+cfwd f x ds =
   let g inputs = f $ parseDomains ds inputs
   in fst $ slowFwdOnDomains (toDomains x) g (toDomains ds)
-
-slowFwdOnADInputs
-  :: ( dynamic ~ ADValClown OD.Array, a ~ Flip OR.Array r n
-     , GoodScalar r, KnownNat n )
-  => Domains dynamic r
-  -> (Domains dynamic r -> ADVal (Flip OR.Array) r n)
-  -> DomainsOD r
-  -> (a, a)
-{-# INLINE slowFwdOnADInputs #-}
-slowFwdOnADInputs inputs f ds =
-  let dim = V.length inputs
-      !(D _ v deltaTopLevel) = f inputs in
-  let derivative = forwardDerivative dim deltaTopLevel ds
-  in (derivative, v)
 
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
@@ -341,6 +327,20 @@ slowFwdOnDomains parameters f ds =
   let deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters
       inputs = makeADInputs parameters deltaInputs
   in slowFwdOnADInputs inputs f ds
+
+slowFwdOnADInputs
+  :: ( dynamic ~ ADValClown OD.Array, a ~ Flip OR.Array r n
+     , GoodScalar r, KnownNat n )
+  => Domains dynamic r
+  -> (Domains dynamic r -> ADVal (Flip OR.Array) r n)
+  -> DomainsOD r
+  -> (a, a)
+{-# INLINE slowFwdOnADInputs #-}
+slowFwdOnADInputs inputs f ds =
+  let dim = V.length inputs
+      !(D _ v deltaTopLevel) = f inputs in
+  let derivative = forwardDerivative dim deltaTopLevel ds
+  in (derivative, v)
 
 
 -- * Additional mechanisms
