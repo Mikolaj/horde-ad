@@ -5,7 +5,8 @@
 -- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
 module HordeAd.Core.AstInterpret
   ( InterpretAstR, InterpretAstS
-  , interpretAst, interpretAstDomainsDummy, interpretAstS
+  , interpretAst, interpretAstS
+  , interpretAstDynamicDummy, interpretAstDomainsDummy
   , AstEnv, extendEnvS, extendEnvR, extendEnvDR, extendEnvD, AstMemo, emptyMemo
   , AstEnvElem(AstEnvElemR)  -- for a test only
   ) where

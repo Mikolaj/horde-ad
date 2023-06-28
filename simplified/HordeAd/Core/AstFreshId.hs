@@ -2,7 +2,7 @@
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR, funToAstD
-  , ADAstVars, funToAstAll, ADAstVarsS, funToAstAllS
+  , ADAstVars, funToAstAll, ADAstVarsS, funToAstAllS, ADAstVarsD, funToAstAllD
   , funToAstIIO, funToAstI, funToAstIndexIO, funToAstIndex
   , funToAstIOS, funToAstS, astRegisterFunS, funToAstIndexIOS, funToAstIndexS
   , resetVarCounter
@@ -11,14 +11,16 @@ module HordeAd.Core.AstFreshId
 import Prelude
 
 import           Control.Monad (replicateM)
+import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
-import           Data.Proxy (Proxy)
+import           Data.Proxy (Proxy (Proxy))
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -94,6 +96,15 @@ funToAstRshIO = do
   freshId <- unsafeGetFreshAstVarId
   return (AstVarName freshId, \sh -> AstVar sh freshId)
 
+funToAstDshIO :: IO ( AstVarName (Clown OD.Array r '())
+                    , [Int] -> AstDynamic r )
+{-# INLINE funToAstDshIO #-}
+funToAstDshIO = do
+  freshId <- unsafeGetFreshAstVarId
+  return ( AstVarName freshId
+         , \sh -> OS.withShapeP sh $ \(Proxy @sh) ->
+                    AstSToD @sh $ AstVarS freshId )
+
 -- The "fun"ction in this case is fixed to be @id@.
 funToAstDIO :: forall r. [Int] -> IO (AstDynamicVarName r, AstDynamic r)
 {-# INLINE funToAstDIO #-}
@@ -127,6 +138,16 @@ funToAstAllS shapes1 = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   (vn1, v1) <- unzip <$> (mapM funToAstDIO shapes1)
   return ((AstVarName freshId, vn1), (AstVarS freshId, v1))
+
+type ADAstVarsD r n = ([Int] -> AstDynamic r, [AstDynamic r])
+
+funToAstAllD :: [[Int]]
+             -> (ADAstVarNames (Clown OD.Array) r '(), ADAstVarsD r '())
+{-# NOINLINE funToAstAllD #-}
+funToAstAllD shapes1 = unsafePerformIO $ do
+  (vnDt, vDt) <- funToAstDshIO
+  (vn1, v1) <- unzip <$> (mapM funToAstDIO shapes1)
+  return ((vnDt, vn1), (vDt, v1))
 
 funToAstIIO :: (AstInt r -> t) -> IO (AstVarId, t)
 {-# INLINE funToAstIIO #-}
