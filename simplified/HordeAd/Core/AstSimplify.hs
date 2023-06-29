@@ -1028,183 +1028,181 @@ simplifyArtifact6S (vars, gradient, primal) =
 simplifyAst6
   :: (GoodScalar r, KnownNat n)
   => AstRanked r n -> AstRanked r n
-simplifyAst6 = simplifyAst . snd . inlineAst () EM.empty . simplifyAst
+simplifyAst6 = simplifyAst . snd . inlineAst EM.empty . simplifyAst
 
 simplifyAst6S
   :: (GoodScalar r, OS.Shape sh)
   => AstShaped r sh -> AstShaped r sh
-simplifyAst6S = simplifyAstS . snd . inlineAstS () EM.empty . simplifyAstS
+simplifyAst6S = simplifyAstS . snd . inlineAstS EM.empty . simplifyAstS
 
 simplifyAstDomains6
   :: GoodScalar r
   => AstDomains r -> AstDomains r
 simplifyAstDomains6 =
-  simplifyAstDomains . snd . inlineAstDomains () EM.empty . simplifyAstDomains
+  simplifyAstDomains . snd . inlineAstDomains EM.empty . simplifyAstDomains
 
 
 -- * The pass inlining lets with the bottom-up strategy
-
-type AstEnv a = ()  -- unused for now
 
 type AstMemo = EM.EnumMap AstVarId Int
 
 inlineAstPrimal
   :: forall n r. (GoodScalar r, KnownNat n)
-  => AstEnv r -> AstMemo
+  => AstMemo
   -> AstPrimalPart r n -> (AstMemo, AstPrimalPart r n)
-inlineAstPrimal env memo (AstPrimalPart v1) =
-  second AstPrimalPart $ inlineAst env memo v1
+inlineAstPrimal memo (AstPrimalPart v1) =
+  second AstPrimalPart $ inlineAst memo v1
 
 inlineAstDual
   :: forall n r. (GoodScalar r, KnownNat n)
-  => AstEnv r -> AstMemo
+  => AstMemo
   -> AstDualPart r n -> (AstMemo, AstDualPart r n)
-inlineAstDual env memo (AstDualPart v1) =
-  second AstDualPart $ inlineAst env memo v1
+inlineAstDual memo (AstDualPart v1) =
+  second AstDualPart $ inlineAst memo v1
 
 inlineAst
   :: forall n r. (GoodScalar r, KnownNat n)
-  => AstEnv r -> AstMemo
+  => AstMemo
   -> AstRanked r n -> (AstMemo, AstRanked r n)
-inlineAst env memo v0 = case v0 of
+inlineAst memo v0 = case v0 of
   Ast.AstVar _ var -> let f Nothing = Just 1
                           f (Just count) = Just $ succ count
                       in (EM.alter f var memo, v0)
   Ast.AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
-    let (memo1, v2) = inlineAst env memo v
+    let (memo1, v2) = inlineAst memo v
         memo1NoVar = EM.delete var memo1
-        (memo2, u2) = inlineAst env memo1NoVar u
+        (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 var memo1 of
       0 -> (memo1, v2)
       1 -> (memo2, substitute1Ast (SubstitutionPayloadRanked u2) var v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
       count | astIsSmall (count < 10) u ->
-        let (memoU0, u0) = inlineAst env EM.empty u
+        let (memoU0, u0) = inlineAst EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
         in (memo3, substitute1Ast (SubstitutionPayloadRanked u0) var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstLetADShare{} -> error "inlineAst: AstLetADShare"
   Ast.AstOp opCode args ->
-    let (memo2, args2) = mapAccumR (inlineAst env) memo args
+    let (memo2, args2) = mapAccumR inlineAst memo args
     in (memo2, Ast.AstOp opCode args2)
   Ast.AstSumOfList args ->
-    let (memo2, args2) = mapAccumR (inlineAst env) memo args
+    let (memo2, args2) = mapAccumR inlineAst memo args
     in (memo2, Ast.AstSumOfList args2)
   Ast.AstIota -> (memo, v0)
   Ast.AstIndex v ix ->
-    let (memo1, v2) = inlineAst env memo v
-        (memo2, ix2) = mapAccumR (inlineAstInt env) EM.empty (indexToList ix)
+    let (memo1, v2) = inlineAst memo v
+        (memo2, ix2) = mapAccumR inlineAstInt EM.empty (indexToList ix)
         count = 10  -- don't inline into integer expressions until we share them
         memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memo2
     in (memo3, Ast.AstIndex v2 (listToIndex ix2))
-  Ast.AstSum v -> second Ast.AstSum (inlineAst env memo v)
+  Ast.AstSum v -> second Ast.AstSum (inlineAst memo v)
   Ast.AstScatter sh v (vars, ix) ->
-    let (memo1, v2) = inlineAst env memo v
-        (memoI0, ix2) = mapAccumR (inlineAstInt env) EM.empty (indexToList ix)
+    let (memo1, v2) = inlineAst memo v
+        (memoI0, ix2) = mapAccumR inlineAstInt EM.empty (indexToList ix)
         count = sizeShape sh + 10  -- don't inline into integer expressions
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatter sh v2 (vars, listToIndex ix2))
   Ast.AstFromList l ->
-    let (memo2, l2) = mapAccumR (inlineAst env) memo l
+    let (memo2, l2) = mapAccumR inlineAst memo l
     in (memo2, Ast.AstFromList l2)
   Ast.AstFromVector l ->
-    let (memo2, l2) = mapAccumR (inlineAst env) memo (V.toList l)
+    let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
     in (memo2, Ast.AstFromVector $ V.fromList l2)
       -- TODO: emulate mapAccum using mapM?
-  Ast.AstReplicate k v -> second (Ast.AstReplicate k) (inlineAst env memo v)
+  Ast.AstReplicate k v -> second (Ast.AstReplicate k) (inlineAst memo v)
   Ast.AstAppend x y ->
-    let (memo1, t1) = inlineAst env memo x
-        (memo2, t2) = inlineAst env memo1 y
+    let (memo1, t1) = inlineAst memo x
+        (memo2, t2) = inlineAst memo1 y
     in (memo2, Ast.AstAppend t1 t2)
-  Ast.AstSlice i k v -> second (Ast.AstSlice i k) (inlineAst env memo v)
-  Ast.AstReverse v -> second Ast.AstReverse (inlineAst env memo v)
+  Ast.AstSlice i k v -> second (Ast.AstSlice i k) (inlineAst memo v)
+  Ast.AstReverse v -> second Ast.AstReverse (inlineAst memo v)
   Ast.AstTranspose perm v ->
-    second (Ast.AstTranspose perm) $ inlineAst env memo v
-  Ast.AstReshape sh v -> second (Ast.AstReshape sh) (inlineAst env memo v)
+    second (Ast.AstTranspose perm) $ inlineAst memo v
+  Ast.AstReshape sh v -> second (Ast.AstReshape sh) (inlineAst memo v)
   Ast.AstBuild1 k (var, v) ->
-    let (memoV0, v2) = inlineAst env EM.empty v
+    let (memoV0, v2) = inlineAst EM.empty v
         memo1 = EM.unionWith (\c1 c0 -> c1 + k * c0) memo memoV0
     in (memo1, Ast.AstBuild1 k (var, v2))
   Ast.AstGather sh v (vars, ix) ->
-    let (memo1, v2) = inlineAst env memo v
-        (memoI0, ix2) = mapAccumR (inlineAstInt env) EM.empty (indexToList ix)
+    let (memo1, v2) = inlineAst memo v
+        (memoI0, ix2) = mapAccumR inlineAstInt EM.empty (indexToList ix)
         count = sizeShape sh + 10  -- don't inline into integer expressions
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
-  Ast.AstSToR v -> second Ast.AstSToR $ inlineAstS env memo v
+  Ast.AstSToR v -> second Ast.AstSToR $ inlineAstS memo v
   Ast.AstConst{} -> (memo, v0)
-  Ast.AstConstant a -> second Ast.AstConstant $ inlineAstPrimal env memo a
+  Ast.AstConstant a -> second Ast.AstConstant $ inlineAstPrimal memo a
   Ast.AstD u u' ->
-    let (memo1, t1) = inlineAstPrimal env memo u
-        (memo2, t2) = inlineAstDual env memo1 u'
+    let (memo1, t1) = inlineAstPrimal memo u
+        (memo2, t2) = inlineAstDual memo1 u'
     in (memo2, Ast.AstD t1 t2)
   Ast.AstLetDomains vars l v ->  -- TODO: actually inline
-    let (memo1, l2) = inlineAstDomains env memo l
-        (memo2, v2) = inlineAst env memo1 v
+    let (memo1, l2) = inlineAstDomains memo l
+        (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetDomains vars l2 v2)
 
 inlineAstDynamic
   :: GoodScalar r
-  => AstEnv r -> AstMemo
+  => AstMemo
   -> AstDynamic r -> (AstMemo, AstDynamic r)
-inlineAstDynamic env memo = \case
-  AstRToD w -> second AstRToD $ inlineAst env memo w
-  AstSToD w -> second AstSToD $ inlineAstS env memo w
+inlineAstDynamic memo = \case
+  AstRToD w -> second AstRToD $ inlineAst memo w
+  AstSToD w -> second AstSToD $ inlineAstS memo w
 
 inlineAstDomains
   :: GoodScalar r
-  => AstEnv r -> AstMemo
+  => AstMemo
   -> AstDomains r -> (AstMemo, AstDomains r)
-inlineAstDomains env memo v0 = case v0 of
+inlineAstDomains memo v0 = case v0 of
   Ast.AstDomains l ->
-    second Ast.AstDomains $ mapAccumR (inlineAstDynamic env) memo l
+    second Ast.AstDomains $ mapAccumR inlineAstDynamic memo l
   Ast.AstDomainsLet var u v ->
     -- We assume there are no nested lets with the same variable.
-    let (memo1, v2) = inlineAstDomains env memo v
+    let (memo1, v2) = inlineAstDomains memo v
         memo1NoVar = EM.delete var memo1
-        (memo2, u2) = inlineAst env memo1NoVar u
+        (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 var memo1 of
       0 -> (memo1, v2)
       1 -> (memo2, substitute1AstDomains (SubstitutionPayloadRanked u2) var v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
       count | astIsSmall (count < 10) u ->
-        let (memoU0, u0) = inlineAst env EM.empty u
+        let (memoU0, u0) = inlineAst EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
            , substitute1AstDomains (SubstitutionPayloadRanked u0) var v2 )
       _ -> (memo2, Ast.AstDomainsLet var u2 v2)
   Ast.AstDomainsLetS var u v ->
     -- We assume there are no nested lets with the same variable.
-    let (memo1, v2) = inlineAstDomains env memo v
+    let (memo1, v2) = inlineAstDomains memo v
         memo1NoVar = EM.delete var memo1
-        (memo2, u2) = inlineAstS env memo1NoVar u
+        (memo2, u2) = inlineAstS memo1NoVar u
     in case EM.findWithDefault 0 var memo1 of
       0 -> (memo1, v2)
       1 -> (memo2, substitute1AstDomains (SubstitutionPayloadShaped u2) var v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
       count | astIsSmallS (count < 10) u ->
-        let (memoU0, u0) = inlineAstS env EM.empty u
+        let (memoU0, u0) = inlineAstS EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
            , substitute1AstDomains (SubstitutionPayloadShaped u0) var v2 )
       _ -> (memo2, Ast.AstDomainsLetS var u2 v2)
 
 inlineAstInt :: GoodScalar r
-             => AstEnv r -> AstMemo
+             => AstMemo
              -> AstInt r -> (AstMemo, AstInt r)
-inlineAstInt env memo v0 = case v0 of
+inlineAstInt memo v0 = case v0 of
   AstIntVar{} -> (memo, v0)
   AstIntOp opCodeInt args ->
-    let (memo2, args2) = mapAccumR (inlineAstInt env) memo args
+    let (memo2, args2) = mapAccumR inlineAstInt memo args
     in (memo2, AstIntOp opCodeInt args2)
   AstIntConst{} -> (memo, v0)
-  Ast.AstIntFloor v -> second Ast.AstIntFloor $ inlineAstPrimal env memo v
-  Ast.AstIntFloorS v -> second Ast.AstIntFloorS $ inlineAstPrimalS env memo v
+  Ast.AstIntFloor v -> second Ast.AstIntFloor $ inlineAstPrimal memo v
+  Ast.AstIntFloorS v -> second Ast.AstIntFloorS $ inlineAstPrimalS memo v
   Ast.AstIntCond b a2 a3 ->
     -- This is the only place where our inlining may increase code size
     -- by enlarging both branches due to not considering number of syntactic
@@ -1212,134 +1210,134 @@ inlineAstInt env memo v0 = case v0 of
     -- in integer conditionals are problematic and special enough
     -- that we can let it be until problems are encountered in the wild.
     -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
-    let (memo1, b1) = inlineAstBool env memo b
-        (memoA2, t2) = inlineAstInt env EM.empty a2
-        (memoA3, t3) = inlineAstInt env EM.empty a3
+    let (memo1, b1) = inlineAstBool memo b
+        (memoA2, t2) = inlineAstInt EM.empty a2
+        (memoA3, t3) = inlineAstInt EM.empty a3
         memo4 = EM.unionWith max memoA2 memoA3
         memo5 = EM.unionWith (+) memo1 memo4
     in (memo5, Ast.AstIntCond b1 t2 t3)
-  Ast.AstMinIndex1 v -> second Ast.AstMinIndex1 $ inlineAstPrimal env memo v
-  Ast.AstMaxIndex1 v -> second Ast.AstMaxIndex1 $ inlineAstPrimal env memo v
-  Ast.AstMinIndex1S v -> second Ast.AstMinIndex1S $ inlineAstPrimalS env memo v
-  Ast.AstMaxIndex1S v -> second Ast.AstMaxIndex1S $ inlineAstPrimalS env memo v
+  Ast.AstMinIndex1 v -> second Ast.AstMinIndex1 $ inlineAstPrimal memo v
+  Ast.AstMaxIndex1 v -> second Ast.AstMaxIndex1 $ inlineAstPrimal memo v
+  Ast.AstMinIndex1S v -> second Ast.AstMinIndex1S $ inlineAstPrimalS memo v
+  Ast.AstMaxIndex1S v -> second Ast.AstMaxIndex1S $ inlineAstPrimalS memo v
 
 inlineAstBool :: forall r. GoodScalar r
-              => AstEnv r -> AstMemo
+              => AstMemo
               -> AstBool r -> (AstMemo, AstBool r)
-inlineAstBool env memo v0 = case v0 of
+inlineAstBool memo v0 = case v0 of
   Ast.AstBoolOp opCodeBool args ->
-    let (memo2, args2) = mapAccumR (inlineAstBool env) memo args
+    let (memo2, args2) = mapAccumR inlineAstBool memo args
     in (memo2, Ast.AstBoolOp opCodeBool args2)
   AstBoolConst{} -> (memo, v0)
   Ast.AstRel @n opCodeRel args ->
-    let (memo2, args2) =  mapAccumR (inlineAstPrimal env) memo args
+    let (memo2, args2) =  mapAccumR inlineAstPrimal memo args
     in (memo2, Ast.AstRel opCodeRel args2)
   Ast.AstRelS @n opCodeRel args ->
-    let (memo2, args2) =  mapAccumR (inlineAstPrimalS env) memo args
+    let (memo2, args2) =  mapAccumR inlineAstPrimalS memo args
     in (memo2, Ast.AstRelS opCodeRel args2)
   Ast.AstRelInt opCodeRel args ->
-    let (memo2, args2) = mapAccumR (inlineAstInt env) memo args
+    let (memo2, args2) = mapAccumR inlineAstInt memo args
     in (memo2, Ast.AstRelInt opCodeRel args2)
 
 inlineAstPrimalS
   :: forall sh r. (GoodScalar r, OS.Shape sh)
-  => AstEnv r -> AstMemo
+  => AstMemo
   -> AstPrimalPartS r sh -> (AstMemo, AstPrimalPartS r sh)
-inlineAstPrimalS env memo (AstPrimalPartS v1) =
-  second AstPrimalPartS $ inlineAstS env memo v1
+inlineAstPrimalS memo (AstPrimalPartS v1) =
+  second AstPrimalPartS $ inlineAstS memo v1
 
 inlineAstDualS
   :: forall sh r. (GoodScalar r, OS.Shape sh)
-  => AstEnv r -> AstMemo
+  => AstMemo
   -> AstDualPartS r sh -> (AstMemo, AstDualPartS r sh)
-inlineAstDualS env memo (AstDualPartS v1) =
-  second AstDualPartS $ inlineAstS env memo v1
+inlineAstDualS memo (AstDualPartS v1) =
+  second AstDualPartS $ inlineAstS memo v1
 
 inlineAstS
   :: forall sh r. (GoodScalar r, OS.Shape sh)
-  => AstEnv r -> AstMemo
+  => AstMemo
   -> AstShaped r sh -> (AstMemo, AstShaped r sh)
-inlineAstS env memo v0 = case v0 of
+inlineAstS memo v0 = case v0 of
   Ast.AstVarS var -> let f Nothing = Just 1
                          f (Just count) = Just $ succ count
                      in (EM.alter f var memo, v0)
   Ast.AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
-    let (memo1, v2) = inlineAstS env memo v
+    let (memo1, v2) = inlineAstS memo v
         memo1NoVar = EM.delete var memo1
-        (memo2, u2) = inlineAstS env memo1NoVar u
+        (memo2, u2) = inlineAstS memo1NoVar u
     in case EM.findWithDefault 0 var memo1 of
       0 -> (memo1, v2)
       1 -> (memo2, substitute1AstS (SubstitutionPayloadShaped u2) var v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
       count | astIsSmallS (count < 10) u ->
-        let (memoU0, u0) = inlineAstS env EM.empty u
+        let (memoU0, u0) = inlineAstS EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
         in (memo3, substitute1AstS (SubstitutionPayloadShaped u0) var v2)
       _ -> (memo2, Ast.AstLetS var u2 v2)
   Ast.AstLetADShareS{} -> error "inlineAstS: AstLetADShareS"
   Ast.AstOpS opCode args ->
-    let (memo2, args2) = mapAccumR (inlineAstS env) memo args
+    let (memo2, args2) = mapAccumR inlineAstS memo args
     in (memo2, Ast.AstOpS opCode args2)
   Ast.AstSumOfListS args ->
-    let (memo2, args2) = mapAccumR (inlineAstS env) memo args
+    let (memo2, args2) = mapAccumR inlineAstS memo args
     in (memo2, Ast.AstSumOfListS args2)
   Ast.AstIotaS -> (memo, v0)
   Ast.AstIndexS @sh1 v ix ->
-    let (memo1, v2) = inlineAstS env memo v
-        (memo2, ix2) = mapAccumR (inlineAstInt env) EM.empty
+    let (memo1, v2) = inlineAstS memo v
+        (memo2, ix2) = mapAccumR inlineAstInt EM.empty
                                  (ShapedList.sizedListToList ix)
         count = 10  -- don't inline into integer expressions until we share them
         memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memo2
     in (memo3, Ast.AstIndexS @sh1 v2 (ShapedList.listToSized ix2))
-  Ast.AstSumS v -> second Ast.AstSumS (inlineAstS env memo v)
+  Ast.AstSumS v -> second Ast.AstSumS (inlineAstS memo v)
   Ast.AstScatterS @sh2 @p v (vars, ix) ->
-    let (memo1, v2) = inlineAstS env memo v
-        (memoI0, ix2) = mapAccumR (inlineAstInt env) EM.empty
+    let (memo1, v2) = inlineAstS memo v
+        (memoI0, ix2) = mapAccumR inlineAstInt EM.empty
                                   (ShapedList.sizedListToList ix)
         count = OS.sizeT @sh + 10  -- don't inline into integer expressions
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToSized ix2))
   Ast.AstFromListS l ->
-    let (memo2, l2) = mapAccumR (inlineAstS env) memo l
+    let (memo2, l2) = mapAccumR inlineAstS memo l
     in (memo2, Ast.AstFromListS l2)
   Ast.AstFromVectorS l ->
-    let (memo2, l2) = mapAccumR (inlineAstS env) memo (V.toList l)
+    let (memo2, l2) = mapAccumR inlineAstS memo (V.toList l)
     in (memo2, Ast.AstFromVectorS $ V.fromList l2)
       -- TODO: emulate mapAccum using mapM?
-  Ast.AstReplicateS v -> second Ast.AstReplicateS (inlineAstS env memo v)
+  Ast.AstReplicateS v -> second Ast.AstReplicateS (inlineAstS memo v)
   Ast.AstAppendS x y ->
-    let (memo1, t1) = inlineAstS env memo x
-        (memo2, t2) = inlineAstS env memo1 y
+    let (memo1, t1) = inlineAstS memo x
+        (memo2, t2) = inlineAstS memo1 y
     in (memo2, Ast.AstAppendS t1 t2)
-  Ast.AstSliceS @i v -> second (Ast.AstSliceS @i) (inlineAstS env memo v)
-  Ast.AstReverseS v -> second Ast.AstReverseS (inlineAstS env memo v)
+  Ast.AstSliceS @i v -> second (Ast.AstSliceS @i) (inlineAstS memo v)
+  Ast.AstReverseS v -> second Ast.AstReverseS (inlineAstS memo v)
   Ast.AstTransposeS @perm v ->
-    second (Ast.AstTransposeS @perm) $ inlineAstS env memo v
-  Ast.AstReshapeS v -> second Ast.AstReshapeS (inlineAstS env memo v)
+    second (Ast.AstTransposeS @perm) $ inlineAstS memo v
+  Ast.AstReshapeS v -> second Ast.AstReshapeS (inlineAstS memo v)
   Ast.AstBuild1S @n (var, v) ->
-    let (memoV0, v2) = inlineAstS env EM.empty v
+    let (memoV0, v2) = inlineAstS EM.empty v
         memo1 = EM.unionWith (\c1 c0 -> c1 + valueOf @n * c0) memo memoV0
     in (memo1, Ast.AstBuild1S (var, v2))
   Ast.AstGatherS @sh2 @p v (vars, ix) ->
-    let (memo1, v2) = inlineAstS env memo v
-        (memoI0, ix2) = mapAccumR (inlineAstInt env) EM.empty
+    let (memo1, v2) = inlineAstS memo v
+        (memoI0, ix2) = mapAccumR inlineAstInt EM.empty
                                   (ShapedList.sizedListToList ix)
         count = OS.sizeT @sh + 10  -- don't inline into integer expressions
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToSized ix2))
-  Ast.AstRToS v -> second Ast.AstRToS $ inlineAst env memo v
+  Ast.AstRToS v -> second Ast.AstRToS $ inlineAst memo v
   Ast.AstConstS{} -> (memo, v0)
-  Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstPrimalS env memo a
+  Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstPrimalS memo a
   Ast.AstDS u u' ->
-    let (memo1, t1) = inlineAstPrimalS env memo u
-        (memo2, t2) = inlineAstDualS env memo1 u'
+    let (memo1, t1) = inlineAstPrimalS memo u
+        (memo2, t2) = inlineAstDualS memo1 u'
     in (memo2, Ast.AstDS t1 t2)
   Ast.AstLetDomainsS vars l v ->  -- TODO: actually inline
-    let (memo1, l2) = inlineAstDomains env memo l
-        (memo2, v2) = inlineAstS env memo1 v
+    let (memo1, l2) = inlineAstDomains memo l
+        (memo2, v2) = inlineAstS memo1 v
     in (memo2, Ast.AstLetDomainsS vars l2 v2)
 
 
