@@ -35,9 +35,9 @@ import HordeAd.Core.DualClass
 -- given as the second type argument and the dual component (with the type
 -- determined by the type faimly @Dual@) is defined elsewhere.
 data ADVal (f :: Type -> k -> Type) (r :: Type) (z :: k) =
-  D (ADShare r) (f r z) (Dual f r z)
+  D ADShare (f r z) (Dual f r z)
 
-deriving instance (Show (f r z), Show (ADShare r), Show (Dual f r z))
+deriving instance (Show (f r z), Show (Dual f r z))
                   => Show (ADVal f r z)
 
 -- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
@@ -45,7 +45,7 @@ deriving instance (Show (f r z), Show (ADShare r), Show (Dual f r z))
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
 dD :: CanRecordSharing f r z
-   => ADShare r -> f r z -> Dual f r z -> ADVal f r z
+   => ADShare -> f r z -> Dual f r z -> ADVal f r z
 dD l a dual = D l a (recordSharing dual)
 
 -- | This a not so smart constructor for 'D' of 'ADVal' that does not record
@@ -54,7 +54,7 @@ dD l a dual = D l a (recordSharing dual)
 -- in backpropagation phase. In contexts without sharing, it saves
 -- some evaluation time and memory (in term structure, but even more
 -- in the per-node data stored while evaluating).
-dDnotShared :: ADShare r -> f r z -> Dual f r z -> ADVal f r z
+dDnotShared :: ADShare -> f r z -> Dual f r z -> ADVal f r z
 dDnotShared = D
 
 

@@ -1347,14 +1347,14 @@ inlineAstS env memo v0 = case v0 of
 
 data UnletEnv r = UnletEnv
   { unletSet     :: ES.EnumSet AstVarId
-  , unletADShare :: ADShare r }
+  , unletADShare :: ADShare }
 
-emptyUnletEnv :: ADShare r -> UnletEnv r
+emptyUnletEnv :: ADShare -> UnletEnv r
 emptyUnletEnv l = UnletEnv ES.empty l
 
 unletAstDomains6
   :: GoodScalar r
-  => [(AstVarId, AstDynamic r)] -> ADShare r -> AstDomains r
+  => [(AstVarId, AstDynamic r)] -> ADShare -> AstDomains r
   -> AstDomains r
 unletAstDomains6 astBindings l t =
   unletAstDomains (emptyUnletEnv l)
@@ -1362,13 +1362,13 @@ unletAstDomains6 astBindings l t =
 
 unletAst6
   :: (GoodScalar r, KnownNat n)
-  => ADShare r -> AstRanked r n -> AstRanked r n
+  => ADShare -> AstRanked r n -> AstRanked r n
 unletAst6 l t = unletAst (emptyUnletEnv l)
                 $ bindsToLet t (assocsADShare l)
 
 unletAst6S
   :: (GoodScalar r, OS.Shape sh)
-  => ADShare r -> AstShaped r sh -> AstShaped r sh
+  => ADShare -> AstShaped r sh -> AstShaped r sh
 unletAst6S l t = unletAstS (emptyUnletEnv l)
                  $ bindsToLetS t (assocsADShare l)
 

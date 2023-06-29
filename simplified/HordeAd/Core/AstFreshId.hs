@@ -54,8 +54,8 @@ astRegisterFun !r !l = unsafePerformIO $ do
   return ((freshId, AstRToD r) : l, r2)
 
 astRegisterADShare :: (GoodScalar r, KnownNat n)
-                   => AstRanked r n -> ADShare r
-                   -> (ADShare r, AstRanked r n)
+                   => AstRanked r n -> ADShare
+                   -> (ADShare, AstRanked r n)
 {-# NOINLINE astRegisterADShare #-}
 astRegisterADShare !r !l | astIsSmall True r = (l, r)
 astRegisterADShare !r !l = unsafePerformIO $ do
@@ -64,9 +64,9 @@ astRegisterADShare !r !l = unsafePerformIO $ do
       !r2 = AstVar (shapeAst r) freshId
   return (l2, r2)
 
-astRegisterADShareS :: OS.Shape sh
-                    => AstShaped r sh -> ADShare r
-                    -> (ADShare r, AstShaped r sh)
+astRegisterADShareS :: (GoodScalar r, OS.Shape sh)
+                    => AstShaped r sh -> ADShare
+                    -> (ADShare, AstShaped r sh)
 {-# NOINLINE astRegisterADShareS #-}
 astRegisterADShareS !r !l | astIsSmallS True r = (l, r)
 astRegisterADShareS !r !l = unsafePerformIO $ do

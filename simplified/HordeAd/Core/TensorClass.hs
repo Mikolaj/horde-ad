@@ -312,7 +312,7 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   tconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
   tconstBare :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
   tconstBare = tconst
-  tletWrap :: ADShare r -> ranked r n -> ranked r n
+  tletWrap :: ADShare -> ranked r n -> ranked r n
   tletWrap _l u = u
   raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
               => ranked r n -> DynamicOf ranked r -> DynamicOf ranked r
@@ -603,7 +603,7 @@ class (CRankedRR shaped IntegralIntOf, CRankedS shaped RealFloat)
   sconst :: (GoodScalar r, OS.Shape sh) => OS.Array sh r -> shaped r sh
   sconstBare :: (GoodScalar r, OS.Shape sh) => OS.Array sh r -> shaped r sh
   sconstBare = sconst
-  sletWrap :: ADShare r -> shaped r sh -> shaped r sh
+  sletWrap :: ADShare -> shaped r sh -> shaped r sh
   sletWrap _l u = u
   saddDynamic :: forall r sh. (GoodScalar r, OS.Shape sh)
               => shaped r sh -> DynamicOf shaped r -> DynamicOf shaped r

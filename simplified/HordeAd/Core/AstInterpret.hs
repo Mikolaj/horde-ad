@@ -24,6 +24,7 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
+import           Data.Functor.Const
 import           Data.List (foldl1', mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -1084,25 +1085,25 @@ interpretAstS env memo = \case
   => AstEnv (ADVal (Flip OR.Array)) Double
   -> AstMemo Double
   -> AstDualPart Double n
-  -> (AstMemo Double, Product (Clown ADShare) (DeltaR (Flip OR.Array) (Flip OS.Array)) Double n) #-}
+  -> (AstMemo Double, Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array) (Flip OS.Array)) Double n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array)) Float
   -> AstMemo Float
   -> AstDualPart Float n
-  -> (AstMemo Float, Product (Clown ADShare) (DeltaR (Flip OR.Array) (Flip OS.Array)) Float n) #-}
+  -> (AstMemo Float, Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array) (Flip OS.Array)) Float n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal AstRanked) Double
   -> AstMemo Double
   -> AstDualPart Double n
-  -> (AstMemo Double, Product (Clown ADShare) (DeltaR AstRanked AstShaped) Double n) #-}
+  -> (AstMemo Double, Product (Clown (Const ADShare)) (DeltaR AstRanked AstShaped) Double n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal AstRanked) Float
   -> AstMemo Float
   -> AstDualPart Float n
-  -> (AstMemo Float, Product (Clown ADShare) (DeltaR AstRanked AstShaped) Float n) #-}
+  -> (AstMemo Float, Product (Clown (Const ADShare)) (DeltaR AstRanked AstShaped) Float n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (Flip OR.Array) Double

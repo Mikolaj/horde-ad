@@ -52,8 +52,8 @@ class IsPrimalPart f r z where
   dScale :: f r z -> Dual f r z -> Dual f r z
   dAdd :: Dual f r z -> Dual f r z -> Dual f r z
   intOfShape :: f r z -> Int -> f r z
-  recordSharingPrimal :: f r z -> ADShare r -> (ADShare r, f r z)
-  letWrapPrimal :: ADShare r -> f r z -> f r z
+  recordSharingPrimal :: f r z -> ADShare -> (ADShare, f r z)
+  letWrapPrimal :: ADShare -> f r z -> f r z
 
 class CanRecordSharing f r z where
   recordSharing :: Dual f r z -> Dual f r z

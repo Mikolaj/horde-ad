@@ -93,7 +93,7 @@ data AstRanked :: Type -> Nat -> Type where
   AstVar :: ShapeInt n -> AstVarId -> AstRanked r n
   AstLet :: (KnownNat n, KnownNat m)
          => AstVarId -> AstRanked r n -> AstRanked r m -> AstRanked r m
-  AstLetADShare :: ADShare r -> AstRanked r n -> AstRanked r n
+  AstLetADShare :: ADShare -> AstRanked r n -> AstRanked r n
    -- there are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
@@ -167,7 +167,7 @@ data AstShaped :: Type -> [Nat] -> Type where
   AstVarS :: forall sh r. AstVarId -> AstShaped r sh
   AstLetS :: forall sh sh2 r. (OS.Shape sh, OS.Shape sh2)
           => AstVarId -> AstShaped r sh -> AstShaped r sh2 -> AstShaped r sh2
-  AstLetADShareS :: ADShare r -> AstShaped r sh -> AstShaped r sh
+  AstLetADShareS :: ADShare -> AstShaped r sh -> AstShaped r sh
    -- there are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
@@ -848,21 +848,23 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 -- in the presence of impurity for generating fresh variables.
 -- The first integer field permits something akin to pointer equality
 -- but with less false negatives, because it's stable.
-data ADShare r = ADShareNil
-               | ADShareCons Int AstVarId (AstDynamic r) (ADShare r)
-deriving instance GoodScalar r => Show (ADShare r)
+data ADShare = ADShareNil
+             | forall r. GoodScalar r
+               => ADShareCons Int AstVarId (AstDynamic r) ADShare
+deriving instance Show ADShare
 
-emptyADShare :: ADShare r
+emptyADShare :: ADShare
 emptyADShare = ADShareNil
 
-insertADShare :: forall r. AstVarId -> AstDynamic r -> ADShare r -> ADShare r
+insertADShare :: forall r. GoodScalar r
+              => AstVarId -> AstDynamic r -> ADShare -> ADShare
 insertADShare !key !t !s =
   -- The Maybe over-engineering ensures that we never refresh an id
   -- unnecessarily. In theory, when merging alternating equal lists
   -- with different ids, this improves runtime from quadratic to linear,
   -- but we apparently don't have such tests or they are too small,
   -- so this causes a couple percent overhead instead.
-  let insertAD :: ADShare r -> Maybe (ADShare r)
+  let insertAD :: ADShare -> Maybe ADShare
       insertAD ADShareNil = Just $ ADShareCons (- fromEnum key) key t ADShareNil
       insertAD l2@(ADShareCons _id2 key2 t2 rest2) =
         case compare key key2 of
@@ -875,15 +877,15 @@ insertADShare !key !t !s =
           GT -> Just $ freshInsertADShare key t l2
   in fromMaybe s (insertAD s)
 
-freshInsertADShare :: AstVarId -> AstDynamic r -> ADShare r -> ADShare r
+freshInsertADShare :: GoodScalar r => AstVarId -> AstDynamic r -> ADShare -> ADShare
 {-# NOINLINE freshInsertADShare #-}
 freshInsertADShare !key !t !s = unsafePerformIO $ do
   id0 <- unsafeGetFreshId
   return $! ADShareCons id0 key t s
 
-mergeADShare :: forall r. ADShare r -> ADShare r -> ADShare r
+mergeADShare :: ADShare -> ADShare -> ADShare
 mergeADShare !s1 !s2 =
-  let mergeAD :: ADShare r -> ADShare r -> Maybe (ADShare r)
+  let mergeAD :: ADShare -> ADShare -> Maybe ADShare
       mergeAD ADShareNil ADShareNil = Nothing
       mergeAD !l ADShareNil = Just l
       mergeAD ADShareNil !l = Just l
@@ -911,11 +913,10 @@ data AstUniversal = forall r. GoodScalar r => AstUniversal (AstDynamic r)
 
 -- The result type is not as expected. The result is as if assocsADShare
 -- was applied to the expected one.
-subtractADShare :: forall r. GoodScalar r
-                => ADShare r -> ADShare r -> [(AstVarId, AstUniversal)]
+subtractADShare :: ADShare -> ADShare -> [(AstVarId, AstUniversal)]
 {-# INLINE subtractADShare #-}  -- help list fusion
 subtractADShare !s1 !s2 =
-  let subAD :: ADShare r -> ADShare r -> [(AstVarId, AstUniversal)]
+  let subAD :: ADShare -> ADShare -> [(AstVarId, AstUniversal)]
       subAD !l ADShareNil = assocsADShare l
       subAD ADShareNil _ = []
       subAD l1@(ADShareCons id1 key1 t1 rest1)
@@ -930,16 +931,15 @@ subtractADShare !s1 !s2 =
           GT -> (key1, AstUniversal t1) : subAD rest1 l2
   in subAD s1 s2
 
-flattenADShare :: [ADShare r] -> ADShare r
+flattenADShare :: [ADShare] -> ADShare
 flattenADShare = foldl' mergeADShare emptyADShare
 
-assocsADShare :: GoodScalar r
-              => ADShare r -> [(AstVarId, AstUniversal)]
+assocsADShare :: ADShare -> [(AstVarId, AstUniversal)]
 {-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
 assocsADShare (ADShareCons _ key t rest) =
   (key, AstUniversal t) : assocsADShare rest
 
-_lengthADShare :: Int -> ADShare r -> Int
+_lengthADShare :: Int -> ADShare -> Int
 _lengthADShare acc ADShareNil = acc
 _lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest

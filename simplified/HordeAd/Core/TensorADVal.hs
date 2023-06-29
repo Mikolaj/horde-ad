@@ -18,6 +18,7 @@ import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Boolean
+import           Data.Functor.Const
 import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
@@ -62,7 +63,7 @@ type instance IntOf (ADVal f) r = IntOf f r
 
 type instance PrimalOf (ADVal f) = f
 
-type instance DualOf (ADVal f) = Product (Clown ADShare) (Dual f)
+type instance DualOf (ADVal f) = Product (Clown (Const ADShare)) (Dual f)
 
 type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
 
@@ -211,8 +212,8 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 
   tconstant t = dDnotShared emptyADShare t dZero
   tprimalPart (D l u _) = tletWrap l u
-  tdualPart (D l _ u') = Pair (Clown l) u'
-  tD ast (Pair (Clown l) delta) = dD l ast delta
+  tdualPart (D l _ u') = Pair (Clown (Const l)) u'
+  tD ast (Pair (Clown (Const l)) delta) = dD l ast delta
   tScale ast (Pair l delta) = Pair l (dScale ast delta)
 
 
@@ -365,8 +366,8 @@ instance ( Dual shaped ~ DeltaS ranked shaped
 
   sconstant t = dDnotShared emptyADShare t dZero
   sprimalPart (D l u _) = sletWrap l u
-  sdualPart (D l _ u') = Pair (Clown l) u'
-  sD ast (Pair (Clown l) delta) = dD l ast delta
+  sdualPart (D l _ u') = Pair (Clown (Const l)) u'
+  sD ast (Pair (Clown (Const l)) delta) = dD l ast delta
   sScale ast (Pair l delta) = Pair l (dScale ast delta)
 
 
