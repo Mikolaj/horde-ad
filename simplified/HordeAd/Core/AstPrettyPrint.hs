@@ -286,7 +286,7 @@ printAstDomains cfg d = \case
               . core
     else
       showParen (d > 10)
-      $ showString "rletToDomainsOf "
+      $ showString "sletToDomainsOf "
         . printAstS cfg 11 u0
         . showString " "
         . (showParen True
@@ -482,7 +482,7 @@ printAstS cfg d = \case
   AstIndexS v ix ->
     showParen (d > 9)
     $ printAstS cfg 10 v
-      . showString " ! "
+      . showString " !$ "
       . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix)
   AstSumS v -> printPrefixOp printAstS cfg d "ssum" [v]
   AstScatterS v (vars, ix) ->

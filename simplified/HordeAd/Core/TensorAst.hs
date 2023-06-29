@@ -123,6 +123,8 @@ instance ConvertTensor AstRanked AstShaped where
 
 instance DomainsTensor AstRanked AstShaped AstDomains where
   dmkDomains = AstDomains
+  -- The operations below, for this instance, are not used ATM.
+  -- They may be used once trev is a method of Tensor.
   rletDomainsOf = astLetDomainsFun
   rletToDomainsOf = astDomainsLetFun
   sletDomainsOf = undefined
