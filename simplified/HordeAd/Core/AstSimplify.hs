@@ -1358,7 +1358,7 @@ unletAstDomains6
   -> AstDomains r
 unletAstDomains6 astBindings l t =
   unletAstDomains (emptyUnletEnv l)
-  $ bindsToDomainsLet (bindsToDomainsLet t astBindings) (assocsADShare l)
+  $ bindsToDomainsLetUniversal (bindsToDomainsLet t astBindings) (assocsADShare l)
 
 unletAst6
   :: (GoodScalar r, KnownNat n)

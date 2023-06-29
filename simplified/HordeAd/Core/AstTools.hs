@@ -11,7 +11,8 @@ module HordeAd.Core.AstTools
   , substitute1Ast, substitute1AstDomains, substitute1AstInt, substitute1AstBool
   , substitute1AstS
   , astIsSmall, astIsSmallS
-  , unwrapAstDomains, bindsToLet, bindsToLetS, bindsToDomainsLet
+  , unwrapAstDomains, bindsToLet, bindsToLetS
+  , bindsToDomainsLet, bindsToDomainsLetUniversal
   ) where
 
 import Prelude
@@ -419,12 +420,13 @@ unwrapAstDomains = \case
   AstDomainsLet _ _ v -> unwrapAstDomains v
   AstDomainsLetS _ _ v -> unwrapAstDomains v
 
-bindsToLet :: KnownNat n
-           => AstRanked r n -> [(AstVarId, AstDynamic r)] -> AstRanked r n
+bindsToLet :: forall n r. KnownNat n
+           => AstRanked r n -> [(AstVarId, AstUniversal)] -> AstRanked r n
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
  where
-  bindToLet u (var, d) = case d of
+  bindToLet :: AstRanked r n -> (AstVarId, AstUniversal) -> AstRanked r n
+  bindToLet u (var, AstUniversal @r2 d) = gcastWith (unsafeCoerce Refl :: r :~: r2) $ case d of  -- TODO
     AstRToD w -> AstLet var w u
     AstSToD @sh w ->  -- rare or impossible, but let's implement it anyway:
       let p = length $ OS.shapeT @sh
@@ -435,12 +437,13 @@ bindsToLet = foldl' bindToLet
           AstLet var (AstSToR w) u
         Nothing -> error "bindsToLet: impossible someNatVal error"
 
-bindsToLetS :: (GoodScalar r, OS.Shape sh)
-            => AstShaped r sh -> [(AstVarId, AstDynamic r)] -> AstShaped r sh
+bindsToLetS :: forall sh r. (GoodScalar r, OS.Shape sh)
+            => AstShaped r sh -> [(AstVarId, AstUniversal)] -> AstShaped r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS
  where
-  bindToLetS u (var, d) = case d of
+  bindToLetS :: AstShaped r sh -> (AstVarId, AstUniversal) -> AstShaped r sh
+  bindToLetS u (var, AstUniversal @r2 d) = gcastWith (unsafeCoerce Refl :: r :~: r2) $ case d of  -- TODO
     AstRToD @n w ->  -- rare or impossible, but let's implement it anyway:
       let sh = shapeToList $ shapeAst w
       in if valueOf @n == length sh
@@ -450,10 +453,20 @@ bindsToLetS = foldl' bindToLetS
          else error "bindsToLetS: rank mismatch"
     AstSToD w -> AstLetS var w u
 
-bindsToDomainsLet :: AstDomains r -> [(AstVarId, AstDynamic r)] -> AstDomains r
+bindsToDomainsLet
+  :: AstDomains r -> [(AstVarId, AstDynamic r)] -> AstDomains r
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
   bindToDomainsLet u (var, d) = case d of
+    AstRToD w -> AstDomainsLet var w u
+    AstSToD w -> AstDomainsLetS var w u
+
+bindsToDomainsLetUniversal
+  :: forall r. AstDomains r -> [(AstVarId, AstUniversal)] -> AstDomains r
+{-# INLINE bindsToDomainsLetUniversal #-}   -- help list fusion
+bindsToDomainsLetUniversal = foldl' bindToDomainsLet
+ where
+  bindToDomainsLet u (var, AstUniversal @r2 d) = gcastWith (unsafeCoerce Refl :: r :~: r2) $ case d of  -- TODO
     AstRToD w -> AstDomainsLet var w u
     AstSToD w -> AstDomainsLetS var w u

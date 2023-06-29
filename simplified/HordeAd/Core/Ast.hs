@@ -19,7 +19,7 @@ module HordeAd.Core.Ast
   , astCond  -- exposed only for tests
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
-  , flattenADShare, assocsADShare
+  , flattenADShare, assocsADShare, AstUniversal(..)
   ) where
 
 import Prelude
@@ -907,13 +907,15 @@ mergeADShare !s1 !s2 =
              Just l3 -> Just $ freshInsertADShare key1 t1 l3
   in fromMaybe s1 (mergeAD s1 s2)
 
+data AstUniversal = forall r. GoodScalar r => AstUniversal (AstDynamic r)
+
 -- The result type is not as expected. The result is as if assocsADShare
 -- was applied to the expected one.
-subtractADShare :: forall r.
-                   ADShare r -> ADShare r -> [(AstVarId, AstDynamic r)]
+subtractADShare :: forall r. GoodScalar r
+                => ADShare r -> ADShare r -> [(AstVarId, AstUniversal)]
 {-# INLINE subtractADShare #-}  -- help list fusion
 subtractADShare !s1 !s2 =
-  let subAD :: ADShare r -> ADShare r -> [(AstVarId, AstDynamic r)]
+  let subAD :: ADShare r -> ADShare r -> [(AstVarId, AstUniversal)]
       subAD !l ADShareNil = assocsADShare l
       subAD ADShareNil _ = []
       subAD l1@(ADShareCons id1 key1 t1 rest1)
@@ -925,16 +927,18 @@ subtractADShare !s1 !s2 =
         else case compare key1 key2 of
           EQ -> subAD rest1 rest2
           LT -> subAD l1 rest2
-          GT -> (key1, t1) : subAD rest1 l2
+          GT -> (key1, AstUniversal t1) : subAD rest1 l2
   in subAD s1 s2
 
 flattenADShare :: [ADShare r] -> ADShare r
 flattenADShare = foldl' mergeADShare emptyADShare
 
-assocsADShare :: ADShare r -> [(AstVarId, AstDynamic r)]
+assocsADShare :: GoodScalar r
+              => ADShare r -> [(AstVarId, AstUniversal)]
 {-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
-assocsADShare (ADShareCons _ key t rest) = (key, t) : assocsADShare rest
+assocsADShare (ADShareCons _ key t rest) =
+  (key, AstUniversal t) : assocsADShare rest
 
 _lengthADShare :: Int -> ADShare r -> Int
 _lengthADShare acc ADShareNil = acc
