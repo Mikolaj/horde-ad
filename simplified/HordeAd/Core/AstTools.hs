@@ -40,7 +40,7 @@ import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 -- only one path and fail if it doesn't contain enough information
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
-shapeAst :: forall n r. (KnownNat n, ShowAst r)
+shapeAst :: forall n r. (KnownNat n, GoodScalar r)
          => AstRanked r n -> ShapeInt n
 shapeAst v1 = case v1 of
   AstVar sh _var -> sh
@@ -85,7 +85,7 @@ shapeAst v1 = case v1 of
   AstLetDomains _ _ v -> shapeAst v
 
 -- Length of the outermost dimension.
-lengthAst :: (KnownNat n, ShowAst r) => AstRanked r (1 + n) -> Int
+lengthAst :: (KnownNat n, GoodScalar r) => AstRanked r (1 + n) -> Int
 lengthAst v1 = case shapeAst v1 of
   ZS -> error "lengthAst: impossible pattern needlessly required"
   k :$ _ -> k
@@ -212,7 +212,7 @@ data SubstitutionPayload r =
 -- variables to any variable in the bindings.
 --
 -- The Either is a hack until we merge Ast and AstInt.
-substitute1Ast :: forall n r. (ShowAst r, KnownNat n)
+substitute1Ast :: forall n r. (GoodScalar r, KnownNat n)
                => SubstitutionPayload r -> AstVarId -> AstRanked r n
                -> AstRanked r n
 substitute1Ast i var v1 = case v1 of
@@ -260,7 +260,7 @@ substitute1Ast i var v1 = case v1 of
                        (substitute1Ast i var v)
 
 substitute1AstDynamic
-  :: ShowAst r
+  :: GoodScalar r
   => SubstitutionPayload r -> AstVarId -> AstDynamic r
   -> AstDynamic r
 substitute1AstDynamic i var = \case
@@ -268,7 +268,7 @@ substitute1AstDynamic i var = \case
   AstSToD t -> AstSToD $ substitute1AstS i var t
 
 substitute1AstDomains
-  :: ShowAst r
+  :: GoodScalar r
   => SubstitutionPayload r -> AstVarId -> AstDomains r
   -> AstDomains r
 substitute1AstDomains i var = \case
@@ -280,7 +280,7 @@ substitute1AstDomains i var = \case
     AstDomainsLetS var2 (substitute1AstS i var u)
                         (substitute1AstDomains i var v)
 
-substitute1AstInt :: ShowAst r
+substitute1AstInt :: GoodScalar r
                   => SubstitutionPayload r -> AstVarId -> AstInt r
                   -> AstInt r
 substitute1AstInt i var i2 = case i2 of
@@ -309,7 +309,7 @@ substitute1AstInt i var i2 = case i2 of
   AstMaxIndex1S (AstPrimalPartS v) ->
     AstMaxIndex1S $ AstPrimalPartS $ substitute1AstS i var v
 
-substitute1AstBool :: ShowAst r
+substitute1AstBool :: GoodScalar r
                    => SubstitutionPayload r -> AstVarId -> AstBool r
                    -> AstBool r
 substitute1AstBool i var b1 = case b1 of
@@ -325,7 +325,7 @@ substitute1AstBool i var b1 = case b1 of
   AstRelInt opCodeRel args ->
     AstRelInt opCodeRel $ map (substitute1AstInt i var) args
 
-substitute1AstS :: forall sh r. (ShowAst r, OS.Shape sh)
+substitute1AstS :: forall sh r. (GoodScalar r, OS.Shape sh)
                 => SubstitutionPayload r -> AstVarId -> AstShaped r sh
                 -> AstShaped r sh
 substitute1AstS i var v1 = case v1 of
@@ -435,7 +435,7 @@ bindsToLet = foldl' bindToLet
           AstLet var (AstSToR w) u
         Nothing -> error "bindsToLet: impossible someNatVal error"
 
-bindsToLetS :: (ShowAst r, OS.Shape sh)
+bindsToLetS :: (GoodScalar r, OS.Shape sh)
             => AstShaped r sh -> [(AstVarId, AstDynamic r)] -> AstShaped r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS

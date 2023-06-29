@@ -209,7 +209,7 @@ simplifyStepNonIndexS
   => AstShaped r sh -> AstShaped r sh
 simplifyStepNonIndexS t = t  -- TODO
 
-astLet :: forall n m r. (KnownNat m, KnownNat n, ShowAst r)
+astLet :: forall n m r. (KnownNat m, KnownNat n, GoodScalar r)
        => AstVarId -> AstRanked r n -> AstRanked r m -> AstRanked r m
 astLet var u v | astIsSmall True u =
   substitute1Ast (SubstitutionPayloadRanked u) var v
@@ -947,7 +947,7 @@ astFromDynamicS (AstRToD @n2 v) =
 -- @var@ does not occur in @v@ but occurs in @i1@. This is done by pattern
 -- matching on @i1@ as opposed to on @v@.
 gatherSimplify
-  :: (KnownNat n, ShowAst r)
+  :: (KnownNat n, GoodScalar r)
   => Int -> AstVarId -> AstRanked r (1 + n) -> AstInt r
   -> Maybe (AstRanked r (1 + n))
 gatherSimplify k var v0 i1 =
@@ -971,7 +971,7 @@ gatherSimplify k var v0 i1 =
 -- still crashes with illegal parameters.
 -- This function is so complex in order to guarantee that even though
 -- vectorization changes tensor values, it doesn't change their shapes.
-astSliceLax :: (KnownNat n, ShowAst r)
+astSliceLax :: (KnownNat n, GoodScalar r)
             => Int -> Int -> AstRanked r (1 + n) -> AstRanked r (1 + n)
 astSliceLax i k v =
   let len = lengthAst v
@@ -991,7 +991,7 @@ astConstant :: AstPrimalPart r n -> AstRanked r n
 astConstant (AstPrimalPart (Ast.AstConstant t)) = astConstant t
 astConstant v = Ast.AstConstant v
 
-astDomainsLet :: forall n r. (KnownNat n, ShowAst r)
+astDomainsLet :: forall n r. (KnownNat n, GoodScalar r)
               => AstVarId -> AstRanked r n -> AstDomains r -> AstDomains r
 astDomainsLet var u v | astIsSmall True u =
   substitute1AstDomains (SubstitutionPayloadRanked u) var v
@@ -2051,7 +2051,7 @@ astConstantS :: AstPrimalPartS r sh -> AstShaped r sh
 astConstantS (AstPrimalPartS (Ast.AstConstantS t)) = astConstantS t
 astConstantS v = Ast.AstConstantS v
 
-astDomainsLetS :: forall sh r. (ShowAst r, OS.Shape sh)
+astDomainsLetS :: forall sh r. (GoodScalar r, OS.Shape sh)
                => AstVarId -> AstShaped r sh -> AstDomains r -> AstDomains r
 astDomainsLetS var u v | astIsSmallS True u =
   substitute1AstDomains (SubstitutionPayloadShaped u) var v

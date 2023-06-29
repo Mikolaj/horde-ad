@@ -130,7 +130,7 @@ instance DomainsTensor AstRanked AstShaped AstDomains where
   sletDomainsOf = undefined
   sletToDomainsOf = undefined
 
-astLetFun :: (KnownNat n, KnownNat m, ShowAst r)
+astLetFun :: (KnownNat n, KnownNat m, GoodScalar r)
           => AstRanked r n -> (AstRanked r n -> AstRanked r m) -> AstRanked r m
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f =
@@ -139,7 +139,7 @@ astLetFun a f =
   in astLet var a ast  -- safe, because subsitution ruled out above
 
 astLetDomainsFun
-  :: forall m r. ShowAst r
+  :: forall m r. GoodScalar r
   => AstDomains r
   -> (AstDomains r -> AstRanked r m)
   -> AstRanked r m
@@ -155,7 +155,7 @@ astLetDomainsFun a f =
       (vars, asts) = V.unzip $ V.map genVar (unwrapAstDomains a)
   in AstLetDomains vars a (f $ AstDomains asts)
 
-astDomainsLetFun :: (KnownNat n, ShowAst r)
+astDomainsLetFun :: (KnownNat n, GoodScalar r)
                  => AstRanked r n -> (AstRanked r n -> AstDomains r)
                  -> AstDomains r
 astDomainsLetFun a f | astIsSmall True a = f a
@@ -332,7 +332,7 @@ instance Tensor AstNoSimplify where
   tD u u' = AstNoSimplify $ AstD (AstPrimalPart $ unAstNoSimplify u) u'
   tScale (AstNoSimplify s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-astLetFunUnSimp :: (KnownNat n, KnownNat m, ShowAst r)
+astLetFunUnSimp :: (KnownNat n, KnownNat m, GoodScalar r)
                 => AstRanked r n -> (AstRanked r n -> AstRanked r m) -> AstRanked r m
 astLetFunUnSimp a f =
   let sh = shapeAst a

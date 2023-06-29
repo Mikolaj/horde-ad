@@ -43,7 +43,7 @@ unsafeGetFreshAstVarId :: IO AstVarId
 unsafeGetFreshAstVarId =
   intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astRegisterFun :: (ShowAst r, KnownNat n)
+astRegisterFun :: (GoodScalar r, KnownNat n)
                => AstRanked r n -> [(AstVarId, AstDynamic r)]
                -> ([(AstVarId, AstDynamic r)], AstRanked r n)
 {-# NOINLINE astRegisterFun #-}
@@ -53,7 +53,7 @@ astRegisterFun !r !l = unsafePerformIO $ do
   let !r2 = AstVar (shapeAst r) freshId
   return ((freshId, AstRToD r) : l, r2)
 
-astRegisterADShare :: (ShowAst r, KnownNat n)
+astRegisterADShare :: (GoodScalar r, KnownNat n)
                    => AstRanked r n -> ADShare r
                    -> (ADShare r, AstRanked r n)
 {-# NOINLINE astRegisterADShare #-}

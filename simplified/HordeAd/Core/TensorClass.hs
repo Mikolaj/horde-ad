@@ -36,7 +36,7 @@ import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits
   (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 import           Unsafe.Coerce (unsafeCoerce)
@@ -76,8 +76,6 @@ type IntSh f r (n :: Nat) = ShapedNat n (IntOf f r)
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
 type IndexSh f r (sh :: [Nat]) = ShapedList sh (IntOf f r)
-
-type GoodScalar r = (ShowAst r, RealFloat r, Floating (Vector r), RowSum r)
 
 class Integral (IntOf f r) => IntegralIntOf f r where
 instance Integral (IntOf f r) => IntegralIntOf f r where
