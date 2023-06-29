@@ -1345,11 +1345,11 @@ inlineAstS env memo v0 = case v0 of
 
 -- * The pass eliminating nested lets bottom-up
 
-data UnletEnv r = UnletEnv
+data UnletEnv = UnletEnv
   { unletSet     :: ES.EnumSet AstVarId
   , unletADShare :: ADShare }
 
-emptyUnletEnv :: ADShare -> UnletEnv r
+emptyUnletEnv :: ADShare -> UnletEnv
 emptyUnletEnv l = UnletEnv ES.empty l
 
 unletAstDomains6
@@ -1376,12 +1376,12 @@ unletAst6S l t = unletAstS (emptyUnletEnv l)
 -- this probably requires many passes though
 unletAstPrimal
   :: (GoodScalar r, KnownNat n)
-  => UnletEnv r -> AstPrimalPart r n -> AstPrimalPart r n
+  => UnletEnv -> AstPrimalPart r n -> AstPrimalPart r n
 unletAstPrimal env (AstPrimalPart t) = AstPrimalPart $ unletAst env t
 
 unletAst
   :: (GoodScalar r, KnownNat n)
-  => UnletEnv r -> AstRanked r n -> AstRanked r n
+  => UnletEnv -> AstRanked r n -> AstRanked r n
 unletAst env t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v ->
@@ -1434,14 +1434,14 @@ unletAst env t = case t of
 
 unletAstDynamic
   :: GoodScalar r
-  => UnletEnv r -> AstDynamic r -> AstDynamic r
+  => UnletEnv -> AstDynamic r -> AstDynamic r
 unletAstDynamic env = \case
   AstRToD u -> AstRToD $ unletAst env u
   AstSToD u -> AstSToD $ unletAstS env u
 
 unletAstDomains
   :: GoodScalar r
-  => UnletEnv r -> AstDomains r -> AstDomains r
+  => UnletEnv -> AstDomains r -> AstDomains r
 unletAstDomains env = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic env) l
   Ast.AstDomainsLet var u v ->
@@ -1461,7 +1461,7 @@ unletAstDomains env = \case
 -- created by vectorization and can be a deciding factor in whether
 -- a tensor terms can be simplified in turn.
 unletAstInt :: GoodScalar r
-            => UnletEnv r -> AstInt r -> AstInt r
+            => UnletEnv -> AstInt r -> AstInt r
 unletAstInt env t = case t of
   AstIntVar{} -> t
   AstIntOp opCodeInt args ->
@@ -1478,7 +1478,7 @@ unletAstInt env t = case t of
   Ast.AstMaxIndex1S v -> Ast.AstMaxIndex1S $ unletAstPrimalS env v
 
 unletAstBool :: GoodScalar r
-             => UnletEnv r -> AstBool r -> AstBool r
+             => UnletEnv -> AstBool r -> AstBool r
 unletAstBool env t = case t of
   Ast.AstBoolOp opCodeBool args ->
     Ast.AstBoolOp opCodeBool (map (unletAstBool env) args)
@@ -1492,12 +1492,12 @@ unletAstBool env t = case t of
 
 unletAstPrimalS
   :: (GoodScalar r, OS.Shape sh)
-  => UnletEnv r -> AstPrimalPartS r sh -> AstPrimalPartS r sh
+  => UnletEnv -> AstPrimalPartS r sh -> AstPrimalPartS r sh
 unletAstPrimalS env (AstPrimalPartS t) = AstPrimalPartS $ unletAstS env t
 
 unletAstS
   :: (GoodScalar r, OS.Shape sh)
-  => UnletEnv r -> AstShaped r sh -> AstShaped r sh
+  => UnletEnv -> AstShaped r sh -> AstShaped r sh
 unletAstS env t = case t of
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v ->
