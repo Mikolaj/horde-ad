@@ -210,7 +210,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                               $ zip vars1 $ V.toList varInputs
                        envMnist = extendEnvS varGlyph (sconst glyph)
                                   $ extendEnvS varLabel (sconst label) env1
-                   in snd $ interpretAstS envMnist emptyMemo ast
+                   in interpretAstS envMnist ast
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk

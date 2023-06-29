@@ -80,7 +80,7 @@ rev' f vals =
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseDomains vals inputs) EM.empty
-        in snd $ interpretAst env emptyMemo (gx ast)
+        in interpretAst env (gx ast)
       (astGrad, value2) =
         crevOnDomains dt (h id id id) parameters
       gradient2 = parseDomains vals astGrad
@@ -117,7 +117,7 @@ rev' f vals =
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseDomains vals inputs) EM.empty
-        in snd $ interpretAst env emptyMemo (gx ast)
+        in interpretAst env (gx ast)
       artifactsGradAst =
         fst $ revAstOnDomainsF False (hAst id id id) parameters
       (astGradAst, value2Ast) =

@@ -103,9 +103,8 @@ instance Adaptable @Nat (Flip OR.Array) where
     let env1 = foldr extendEnvDR EM.empty $ zip vars1 $ V.toList parameters
         dt = fromMaybe (treplicate0N (tshape primal) 1) mdt
         envDt = extendEnvR varDt dt env1
-        (memo1, gradientDomain) =
-          interpretAstDomainsDummy envDt emptyMemo gradient
-        primalTensor = snd $ interpretAst env1 memo1 primal
+        gradientDomain = interpretAstDomainsDummy envDt gradient
+        primalTensor = interpretAst env1 primal
     in (gradientDomain, primalTensor)
 
   revDtInit
@@ -126,7 +125,7 @@ instance Adaptable @Nat (Flip OR.Array) where
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
               env1 = foldr extendEnvDR envInit $ zip vars1 $ V.toList varInputs
-          in snd $ interpretAst env1 emptyMemo ast
+          in interpretAst env1 ast
     in revAstOnDomainsFun hasDt parameters0 revDtInterpret
 
 instance Adaptable @[Nat] (Flip OS.Array) where
@@ -135,9 +134,8 @@ instance Adaptable @[Nat] (Flip OS.Array) where
     let env1 = foldr extendEnvDR EM.empty $ zip vars1 $ V.toList parameters
         dt = fromMaybe 1 mdt
         envDt = extendEnvS varDt dt env1
-        (memo1, gradientDomain) =
-          interpretAstDomainsDummy envDt emptyMemo gradient
-        primalTensor = snd $ interpretAstS env1 memo1 primal
+        gradientDomain = interpretAstDomainsDummy envDt gradient
+        primalTensor = interpretAstS env1 primal
     in (gradientDomain, primalTensor)
 
   revDtInit
@@ -157,7 +155,7 @@ instance Adaptable @[Nat] (Flip OS.Array) where
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
               env1 = foldr extendEnvDR envInit $ zip vars1 $ V.toList varInputs
-          in snd $ interpretAstS env1 emptyMemo ast
+          in interpretAstS env1 ast
     in revAstOnDomainsFunS hasDt parameters0 revDtInterpret
 
 revDtFun

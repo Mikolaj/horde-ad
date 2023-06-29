@@ -227,7 +227,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                          $ extendEnvR varLabel
                              (tconst $ OR.fromVector [sizeMnistLabelInt] label)
                              env1
-                   in snd $ interpretAst envMnist emptyMemo ast
+                   in interpretAst envMnist ast
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -548,7 +548,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                          $ extendEnvR varLabel
                              (tconst $ OR.fromVector [sizeMnistLabelInt] label)
                              env1
-                   in snd $ interpretAst envMnist emptyMemo ast
+                   in interpretAst envMnist ast
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
                  testScore = ftest testData res

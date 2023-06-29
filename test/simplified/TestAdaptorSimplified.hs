@@ -935,10 +935,8 @@ testFooNoGoAst :: Assertion
 testFooNoGoAst =
   let f :: ( InterpretAstR (ADVal (Flip OR.Array)) r )
         => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
-      f x = snd
-            $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR x))
-                           emptyMemo
-                           (fooNoGoAst (AstVar [5] (intToAstVarId 100000000)))
+      f x = interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR x))
+                         (fooNoGoAst (AstVar [5] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon1 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
        (crev @Double @1 f
@@ -1074,10 +1072,7 @@ testBarReluAst0 =
   let f :: ( ADReady AstRanked r
            , InterpretAstR (ADVal (Flip OR.Array)) r )
         => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
-      f x = snd
-            $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR x))
-                           emptyMemo
-                           (barReluAst (AstVar [] (intToAstVarId 100000000)))
+      f x = interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR x))                        (barReluAst (AstVar [] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [191.20462646925841])
        (crevDt @Double @0 f (Flip $ OR.fromList [] [1.1]) 42.2)
@@ -1087,10 +1082,8 @@ testBarReluAst1 =
   let f :: ( ADReady AstRanked r
            , InterpretAstR (ADVal (Flip OR.Array)) r )
         => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
-      f x = snd
-            $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR x))
-                           emptyMemo
-                           (barReluAst (AstVar [5] (intToAstVarId 100000000)))
+      f x = interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR x))
+                         (barReluAst (AstVar [5] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
        (crev @Double @1 f (Flip $ OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
@@ -1105,10 +1098,8 @@ testReplicateReluAst =
   let f :: ( ADReady AstRanked r
            , InterpretAstR (ADVal (Flip OR.Array)) r )
         => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
-      f x = snd
-            $ interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR x))
-                           emptyMemo
-                           (konstReluAst (AstVar [] (intToAstVarId 100000000)))
+      f x = interpretAst (EM.singleton (intToAstVarId 100000000) (AstEnvElemR x))
+                         (konstReluAst (AstVar [] (intToAstVarId 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [295.4])
        (crevDt @Double @0 f (Flip $ OR.fromList [] [1.1]) 42.2)
