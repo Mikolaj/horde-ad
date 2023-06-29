@@ -149,7 +149,7 @@ instance (Num (f r z), IsPrimal f r z) => Num (ADVal f r z) where
         !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dAdd (dScale v u') (dScale u v'))
   negate (D l v v') = dD l (negate v) (dScale (intOfShape v (-1)) v')
-  abs (D l ve v') = let (l2, v) = recordSharingPrimal ve l
+  abs (D l ve v') = let !(!l2, v) = recordSharingPrimal ve l
                     in dD l2 (abs v) (dScale (signum v) v')
   signum (D l v _) = dD l (signum v) dZero
   fromInteger = constantADVal . fromInteger
@@ -166,22 +166,22 @@ instance (Fractional (f r z), IsPrimal f r z) => Fractional (ADVal f r z) where
     in dD l4 (u / v)
              (dAdd (dScale (recip v) u') (dScale (- u / (v * v)) v'))
   recip (D l ve v') =
-    let (l2, v) = recordSharingPrimal ve l
+    let !(!l2, v) = recordSharingPrimal ve l
         minusRecipSq = - recip (v * v)
     in dD l2 (recip v) (dScale minusRecipSq v')
   fromRational = constantADVal . fromRational
 
 instance (Floating (f r z), IsPrimal f r z) => Floating (ADVal f r z) where
   pi = constantADVal pi
-  exp (D l ue u') = let (l2, expU) = recordSharingPrimal (exp ue) l
+  exp (D l ue u') = let !(!l2, expU) = recordSharingPrimal (exp ue) l
                     in dD l2 expU (dScale expU u')
-  log (D l ue u') = let (l2, u) = recordSharingPrimal ue l
+  log (D l ue u') = let !(!l2, u) = recordSharingPrimal ue l
                     in dD l2 (log u) (dScale (recip u) u')
-  sqrt (D l ue u') = let (l2, sqrtU) = recordSharingPrimal (sqrt ue) l
+  sqrt (D l ue u') = let !(!l2, sqrtU) = recordSharingPrimal (sqrt ue) l
                      in dD l2 sqrtU (dScale (recip (sqrtU + sqrtU)) u')
   D l1 ue u' ** D l2 ve v' =
-    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        (l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v 1))) u')
                             (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x

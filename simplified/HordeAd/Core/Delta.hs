@@ -67,7 +67,6 @@ import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.Exts (inline)
 import           GHC.TypeLits
   (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
 import           Text.Show.Functions ()
@@ -678,10 +677,9 @@ buildFinMaps s0 deltaDt =
             => EvalState ranked shaped r
             -> shaped r sh -> DeltaS ranked shaped r sh
             -> EvalState ranked shaped r
-      evalS s !c = let (abShared, cShared) =
-                         inline sregister c (astBindings s)
-                       sShared = s {astBindings = abShared}
-                   in \case
+      evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
+                        sShared = s {astBindings = abShared}
+                    in \case
         ZeroS -> s
         InputS (InputId i) ->
           s {iMap = EM.adjust (saddDynamic c) (InputId i) $ iMap s}
@@ -801,10 +799,9 @@ buildFinMaps s0 deltaDt =
             => EvalState ranked shaped r
             -> ranked r n -> DeltaR ranked shaped r n
             -> EvalState ranked shaped r
-      evalR s !c = let (abShared, cShared) =
-                         inline tregister c (astBindings s)
-                       sShared = s {astBindings = abShared}
-                   in \case
+      evalR !s !c = let (abShared, cShared) = tregister c (astBindings s)
+                        sShared = s {astBindings = abShared}
+                    in \case
         ZeroR -> s
         InputR (InputId i) ->
           s {iMap = EM.adjust (raddDynamic c) (InputId i) $ iMap s}

@@ -149,7 +149,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          , Tensor ranked )
          => Tensor (ADVal ranked) where
   tlet (D l u u') f =
-    let (l2, var2) = recordSharingPrimal u l
+    let !(!l2, var2) = recordSharingPrimal u l
     in f (D l2 var2 u')
       -- TODO: What about sharing u'?
 
@@ -198,12 +198,12 @@ instance ( Dual ranked ~ DeltaR ranked shaped
        (tsumOfList $ map (\(D _ u _) -> u) lu)
        (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
   tmult (D l1 ue ZeroR) (D l2 ve v') =
-    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        (l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dScale u v')
   tmult (D l1 ue u') (D l2 ve ZeroR) =
-    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        (l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
+        !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dScale v u')
   tmult d e = d * e
   tconst t = dDnotShared emptyADShare (tconstBare t) dZero
