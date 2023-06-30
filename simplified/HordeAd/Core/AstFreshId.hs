@@ -75,15 +75,15 @@ astRegisterADShareS !r !l = unsafePerformIO $ do
       !r2 = AstVarS freshId
   return (l2, r2)
 
-funToAstIOR :: ShapeInt n -> (AstRanked r n -> AstRanked r m)
-            -> IO (AstVarName (Flip OR.Array r n), AstRanked r m)
+funToAstIOR :: ShapeInt n -> (AstRanked r n -> AstRanked r2 m)
+            -> IO (AstVarName (Flip OR.Array r n), AstRanked r2 m)
 {-# INLINE funToAstIOR #-}
 funToAstIOR sh f = do
   freshId <- unsafeGetFreshAstVarId
   return (AstVarName freshId, f (AstVar sh freshId))
 
-funToAstR :: ShapeInt n -> (AstRanked r n -> AstRanked r m)
-          -> (AstVarName (Flip OR.Array r n), AstRanked r m)
+funToAstR :: ShapeInt n -> (AstRanked r n -> AstRanked r2 m)
+          -> (AstVarName (Flip OR.Array r n), AstRanked r2 m)
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ funToAstIOR sh f
 
@@ -152,15 +152,15 @@ funToAstIndex
 {-# NOINLINE funToAstIndex #-}
 funToAstIndex = unsafePerformIO . funToAstIndexIO (valueOf @m)
 
-funToAstIOS :: forall sh sh2 r. (AstShaped r sh -> AstShaped r sh2)
-            -> IO (AstVarName (Flip OS.Array r sh), AstShaped r sh2)
+funToAstIOS :: forall sh sh2 r r2. (AstShaped r sh -> AstShaped r2 sh2)
+            -> IO (AstVarName (Flip OS.Array r sh), AstShaped r2 sh2)
 {-# INLINE funToAstIOS #-}
 funToAstIOS f = do
   freshId <- unsafeGetFreshAstVarId
   return (AstVarName freshId, f (AstVarS freshId))
 
-funToAstS :: forall sh sh2 r. (AstShaped r sh -> AstShaped r sh2)
-          -> (AstVarName (Flip OS.Array r sh), AstShaped r sh2)
+funToAstS :: forall sh sh2 r r2. (AstShaped r sh -> AstShaped r2 sh2)
+          -> (AstVarName (Flip OS.Array r sh), AstShaped r2 sh2)
 {-# NOINLINE funToAstS #-}
 funToAstS f = unsafePerformIO $ funToAstIOS f
 

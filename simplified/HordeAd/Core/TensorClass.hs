@@ -115,9 +115,9 @@ class (CRankedRR ranked IntegralIntOf, CRankedR ranked RealFloat)
   -- TODO: type Scalar r = ranked r 0
   -- is a macro/TH the only way?
 
-  tlet :: (KnownNat n, KnownNat m, GoodScalar r)
-       => ranked r n -> (ranked r n -> ranked r m)
-       -> ranked r m
+  tlet :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
+       => ranked r n -> (ranked r n -> ranked r2 m)
+       -> ranked r2 m
   tlet a f = f a
 
   -- Integer codomain
@@ -350,8 +350,8 @@ class (CRankedRR shaped IntegralIntOf, CRankedS shaped RealFloat)
       => ShapedTensor (shaped :: Type -> [Nat] -> Type) where
 
   slet :: (OS.Shape sh, OS.Shape sh2, GoodScalar r)
-       => shaped r sh -> (shaped r sh -> shaped r sh2)
-       -> shaped r sh2
+       => shaped r sh -> (shaped r sh -> shaped r2 sh2)
+       -> shaped r2 sh2
   slet a f = f a
 
   -- Integer codomain
@@ -658,18 +658,18 @@ class DomainsTensor (ranked :: Type -> Nat -> Type)
   dmkDomains :: Domains (DynamicOf ranked) r -> domainsOf r
   rletDomainsOf :: (GoodScalar r, KnownNat n)
               => domainsOf r
-              -> (domainsOf r -> ranked r n)
-              -> ranked r n
-  rletToDomainsOf :: (GoodScalar r, KnownNat n)
-       => ranked r n -> (ranked r n -> domainsOf r)
-       -> domainsOf r
+              -> (domainsOf r -> ranked r2 n)
+              -> ranked r2 n
+  rletToDomainsOf :: (GoodScalar r, GoodScalar r2, KnownNat n)
+       => ranked r n -> (ranked r n -> domainsOf r2)
+       -> domainsOf r2
   sletDomainsOf :: (GoodScalar r, OS.Shape sh)
               => domainsOf r
-              -> (domainsOf r -> shaped r sh)
-              -> shaped r sh
+              -> (domainsOf r -> shaped r2 sh)
+              -> shaped r2 sh
   sletToDomainsOf :: (GoodScalar r, OS.Shape sh)
-       => shaped r sh -> (shaped r sh -> domainsOf r)
-       -> domainsOf r
+       => shaped r sh -> (shaped r sh -> domainsOf r2)
+       -> domainsOf r2
 
 
 -- * The giga-constraint
