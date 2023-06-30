@@ -39,8 +39,8 @@ import qualified MnistRnnShaped2
 
 testTrees :: [TestTree]
 testTrees = [ tensorADValMnistTestsRNNSA
--- TODO            , tensorADValMnistTestsRNNSI
--- TODO            , tensorADValMnistTestsRNNSO
+            , tensorADValMnistTestsRNNSI
+            , tensorADValMnistTestsRNNSO
             ]
 
 -- POPL differentiation, straight via the ADVal instance of Tensor
@@ -250,14 +250,16 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> Double
   -> TestTree #-}
 
-_tensorADValMnistTestsRNNSI :: TestTree
-_tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
-  [ mnistTestCaseRNNSI "RNNSI 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 50
-                       (0.84 :: Double)
-  , mnistTestCaseRNNSI "RNNSI artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
-                       (0.8933333 :: Float)
-  , mnistTestCaseRNNSI "RNNSI artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
-                       (0.8928571428571429 :: Double)
+tensorADValMnistTestsRNNSI :: TestTree
+tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
+  [ mnistTestCaseRNNSI "RNNSI 1 epoch, 1 batch" 1 1 (SNat @32) (SNat @5) 2
+                       (1 :: Double)
+--  [ mnistTestCaseRNNSI "RNNSI 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 50
+--                       (0.84 :: Double)
+--  , mnistTestCaseRNNSI "RNNSI artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
+--                       (0.8933333 :: Float)
+--  , mnistTestCaseRNNSI "RNNSI artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
+--                       (0.8928571428571429 :: Double)
   , mnistTestCaseRNNSI "RNNSI 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
                        (1.0 :: Float)
   ]
@@ -373,14 +375,16 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> Double
   -> TestTree #-}
 
-_tensorADValMnistTestsRNNSO :: TestTree
-_tensorADValMnistTestsRNNSO = testGroup "RNNS Once MNIST tests"
-  [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 500
-                       (0.898 :: Double)
-  , mnistTestCaseRNNSO "RNNSO artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
-                       (0.8933333 :: Float)
-  , mnistTestCaseRNNSO "RNNSO artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
-                       (0.8928571428571429 :: Double)
+tensorADValMnistTestsRNNSO :: TestTree
+tensorADValMnistTestsRNNSO = testGroup "RNNS Once MNIST tests"
+  [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @32) (SNat @5) 2
+                       (1 :: Double)
+--  [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 500
+--                       (0.898 :: Double)
+--  , mnistTestCaseRNNSO "RNNSO artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
+--                       (0.8933333 :: Float)
+--  , mnistTestCaseRNNSO "RNNSO artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
+--                       (0.8928571428571429 :: Double)
   , mnistTestCaseRNNSO "RNNSO 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
                        (1.0 :: Float)
   ]
