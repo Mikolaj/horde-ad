@@ -30,7 +30,7 @@ import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat, sameNat)
+import           GHC.TypeLits (KnownNat, Nat, sameNat)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
@@ -54,17 +54,13 @@ data AstEnvElem ranked =
   | forall n r. KnownNat n => AstEnvElemR (ranked r n)
   | forall sh r. OS.Shape sh => AstEnvElemS (ShapedOf ranked r sh)
   | forall r. AstEnvElemI (IntOf ranked r)
-deriving instance ( forall r. ShowDynamicOf ranked r
-                  , forall n r. Show (ranked r n)
-                  , forall sh r. ShowShapedOf ranked r sh
-                  , forall r. ShowIntOf ranked r )
+deriving instance (forall r n sh. ShowDynamicOf ranked r n sh)
                   => Show (AstEnvElem ranked)
 
-class Show (DynamicOf ranked r) => ShowDynamicOf ranked r
-
-class Show (ShapedOf ranked r sh) => ShowShapedOf ranked r sh
-
-class Show (IntOf ranked r) => ShowIntOf ranked r
+class ( Show (DynamicOf ranked r)
+      , Show (ranked r n)
+      , Show (ShapedOf ranked r sh)
+      , Show (IntOf ranked r) ) => ShowDynamicOf ranked r n sh
 
 extendEnvS :: forall ranked shaped r sh.
               (OS.Shape sh, shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked)
@@ -179,47 +175,116 @@ interpretLambdaIndexToIndexS
 interpretLambdaIndexToIndexS f env (vars, asts) =
   \ix -> f (extendEnvVarsS @r vars ix env) <$> asts
 
-class (BooleanOf r ~ b, b ~ BooleanOf r) => BooleanOfMatches b r where
-instance (BooleanOf r ~ b, b ~ BooleanOf r) => BooleanOfMatches b r where
-
-class (forall y41. KnownNat y41 => c (ranked r y41))
-      => CRanked ranked r c where
+class ( EqB (IntOf ranked r)
+      , OrdB (IntOf ranked r)
+      , IfB (IntOf ranked r)
+      , IntOf ranked r ~ IntOf (ShapedOf ranked) r
+      , IntOf (ShapedOf ranked) r ~ IntOf ranked r
+      , IntOf ranked r ~ IntOf (PrimalOf ranked) r
+      , IntOf (PrimalOf ranked) r ~ IntOf ranked r
+      , IntOf (PrimalOf ranked) r ~ IntOf (ShapedOf ranked) r
+      , IntOf (ShapedOf ranked) r ~ IntOf (PrimalOf ranked) r
+      , IntOf ranked r ~ IntOf (ShapedOf ranked) r
+      , IntOf (ShapedOf ranked) r ~ IntOf ranked r )
+      => BooleanMatches ranked r where
 instance
-      (forall y41. KnownNat y41 => c (ranked r y41))
-      => CRanked ranked r c where
+      ( EqB (IntOf ranked r)
+      , OrdB (IntOf ranked r)
+      , IfB (IntOf ranked r)
+      , IntOf ranked r ~ IntOf (ShapedOf ranked) r
+      , IntOf (ShapedOf ranked) r ~ IntOf ranked r
+      , IntOf ranked r ~ IntOf (PrimalOf ranked) r
+      , IntOf (PrimalOf ranked) r ~ IntOf ranked r
+      , IntOf (PrimalOf ranked) r ~ IntOf (ShapedOf ranked) r
+      , IntOf (ShapedOf ranked) r ~ IntOf (PrimalOf ranked) r )
+      => BooleanMatches ranked r where
 
-class (forall y41. OS.Shape y41 => c (shaped r y41))
-      => CShaped shaped r c where
+class ( BooleanOf (ShapedOf ranked r '[]) ~ BooleanOf (IntOf ranked r)
+      , BooleanOf (IntOf ranked r) ~ BooleanOf (ShapedOf ranked r '[]) )
+      => BooleanMatchesR ranked r where
 instance
-      (forall y41. OS.Shape y41 => c (shaped r y41))
-      => CShaped shaped r c where
+      ( BooleanOf (ShapedOf ranked r '[]) ~ BooleanOf (IntOf ranked r)
+      , BooleanOf (IntOf ranked r) ~ BooleanOf (ShapedOf ranked r '[]) )
+      => BooleanMatchesR ranked r where
+
+class ( Boolean (BooleanOf (ranked r y))
+      , RealFloat (ranked r y)
+      , EqB (PrimalOf ranked r y)
+      , OrdB (PrimalOf ranked r y)
+      , BooleanOf (PrimalOf ranked r y) ~ BooleanOf (ShapedOf ranked r '[])
+      , BooleanOf (ShapedOf ranked r '[]) ~ BooleanOf (PrimalOf ranked r y)
+      , BooleanOf (PrimalOf ranked r y) ~ BooleanOf (ranked r 0)
+      , BooleanOf (ranked r 0) ~ BooleanOf (PrimalOf ranked r y) )
+      => BooleanMatchesYR ranked r (y :: Nat) where
+instance
+      ( Boolean (BooleanOf (ranked r y))
+      , RealFloat (ranked r y)
+      , EqB (PrimalOf ranked r y)
+      , OrdB (PrimalOf ranked r y)
+      , BooleanOf (PrimalOf ranked r y) ~ BooleanOf (ShapedOf ranked r '[])
+      , BooleanOf (ShapedOf ranked r '[]) ~ BooleanOf (PrimalOf ranked r y)
+      , BooleanOf (PrimalOf ranked r y) ~ BooleanOf (ranked r 0)
+      , BooleanOf (ranked r 0) ~ BooleanOf (PrimalOf ranked r y) )
+      => BooleanMatchesYR ranked r y where
+
+class ( BooleanOf (RankedOf shaped r 0) ~ BooleanOf (IntOf shaped r)
+      , BooleanOf (IntOf shaped r) ~ BooleanOf (RankedOf shaped r 0) )
+      => BooleanMatchesS shaped r where
+instance
+      ( BooleanOf (RankedOf shaped r 0) ~ BooleanOf (IntOf shaped r)
+      , BooleanOf (IntOf shaped r) ~ BooleanOf (RankedOf shaped r 0) )
+      => BooleanMatchesS shaped r where
+
+class ( Boolean (BooleanOf (shaped r y))
+      , RealFloat (shaped r y)
+      , EqB (PrimalOf shaped r y)
+      , OrdB (PrimalOf shaped r y)
+      , BooleanOf (PrimalOf shaped r y) ~ BooleanOf (RankedOf shaped r 0)
+      , BooleanOf (RankedOf shaped r 0) ~ BooleanOf (PrimalOf shaped r y)
+      , BooleanOf (PrimalOf shaped r y) ~ BooleanOf (shaped r '[])
+      , BooleanOf (shaped r '[]) ~ BooleanOf (PrimalOf shaped r y) )
+      => BooleanMatchesYS shaped r (y :: [Nat]) where
+instance
+      ( Boolean (BooleanOf (shaped r y))
+      , RealFloat (shaped r y)
+      , EqB (PrimalOf shaped r y)
+      , OrdB (PrimalOf shaped r y)
+      , BooleanOf (PrimalOf shaped r y) ~ BooleanOf (RankedOf shaped r 0)
+      , BooleanOf (RankedOf shaped r 0) ~ BooleanOf (PrimalOf shaped r y)
+      , BooleanOf (PrimalOf shaped r y) ~ BooleanOf (shaped r '[])
+      , BooleanOf (shaped r '[]) ~ BooleanOf (PrimalOf shaped r y) )
+      => BooleanMatchesYS shaped r y where
+
+class (forall rb41. GoodScalar rb41 => c ranked rb41)
+      => CRanked2 ranked c where
+instance
+      (forall rb41. GoodScalar rb41 => c ranked rb41)
+      => CRanked2 ranked c where
+
+class (forall rc42 y42. (GoodScalar rc42, KnownNat y42) => c ranked rc42 y42)
+      => CRankedY2 ranked c where
+instance
+      (forall rc42 y42. (GoodScalar rc42, KnownNat y42) => c ranked rc42 y42)
+      => CRankedY2 ranked c where
+
+class (forall rd43 y43. (GoodScalar rd43, OS.Shape y43) => c shaped rd43 y43)
+      => CShapedY2 shaped c where
+instance
+      (forall rd43 y43. (GoodScalar rd43, OS.Shape y43) => c shaped rd43 y43)
+      => CShapedY2 shaped c where
 
 type InterpretAstR ranked r =
   ( GoodScalar r
-  , Integral (IntOf (PrimalOf ranked) r), EqB (IntOf ranked r)
-  , OrdB (IntOf ranked r), IfB (IntOf ranked r)
-  , IntOf (PrimalOf ranked) r ~ IntOf ranked r
-  , CRanked (PrimalOf ranked) r EqB
-  , CRanked (PrimalOf ranked) r OrdB
-  , CRanked ranked r RealFloat
-  , CRanked (PrimalOf ranked) r
-            (BooleanOfMatches (BooleanOf (IntOf ranked r)))
-  , BooleanOf (ranked r 0) ~ BooleanOf (IntOf ranked r)
-  , BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r 0)
+  , CRanked2 ranked BooleanMatches
+  , CRanked2 ranked BooleanMatchesR
+  , CRankedY2 ranked BooleanMatchesYR
   )
 
 type InterpretAstS shaped r =
   ( GoodScalar r
-  , Integral (IntOf (PrimalOf shaped) r), EqB (IntOf shaped r)
-  , OrdB (IntOf shaped r), IfB (IntOf shaped r)
-  , IntOf (PrimalOf shaped) r ~ IntOf shaped r
-  , CShaped (PrimalOf shaped) r EqB
-  , CShaped (PrimalOf shaped) r OrdB
-  , CShaped shaped r RealFloat
-  , CShaped (PrimalOf shaped) r
-            (BooleanOfMatches (BooleanOf (IntOf shaped r)))
-  , BooleanOf (shaped r '[]) ~ BooleanOf (IntOf shaped r)
-  , BooleanOf (IntOf shaped r) ~ BooleanOf (shaped r '[])
+  , CRanked2 shaped BooleanMatches
+  , CRanked2 shaped BooleanMatchesS
+  , CShapedY2 shaped BooleanMatchesYS
   )
 
 type InterpretAst ranked r =
@@ -228,7 +293,9 @@ type InterpretAst ranked r =
   , ConvertTensor ranked (ShapedOf ranked)
   , InterpretAstR ranked r
   , InterpretAstS (ShapedOf ranked) r
+  -- TODO: why are any of the below needed?
   , IntOf ranked r ~ IntOf (ShapedOf ranked) r
+  , IntOf (ShapedOf ranked) r ~ IntOf ranked r
   )
 
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
@@ -725,8 +792,7 @@ interpretAstRelOp opCodeRel args =
 
 interpretAstPrimalS
   :: forall ranked shaped sh r.
-     (OS.Shape sh, shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked)
-  => InterpretAst ranked r
+     ( OS.Shape sh, shaped ~ ShapedOf ranked, ShapedOf ranked ~ shaped, ranked ~ RankedOf shaped, RankedOf shaped ~ ranked, InterpretAst ranked r )
   => AstEnv ranked
   -> AstPrimalPartS r sh -> PrimalOf shaped r sh
 interpretAstPrimalS env (AstPrimalPartS v1) = case v1 of
@@ -735,8 +801,7 @@ interpretAstPrimalS env (AstPrimalPartS v1) = case v1 of
 
 interpretAstDualS
   :: forall ranked shaped sh r.
-     (OS.Shape sh, shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked)
-  => InterpretAst ranked r
+     ( OS.Shape sh, shaped ~ ShapedOf ranked, ShapedOf ranked ~ shaped, ranked ~ RankedOf shaped, RankedOf shaped ~ ranked, InterpretAst ranked r )
   => AstEnv ranked
   -> AstDualPartS r sh -> DualOf shaped r sh
 interpretAstDualS env (AstDualPartS v1) = case v1 of
@@ -745,8 +810,7 @@ interpretAstDualS env (AstDualPartS v1) = case v1 of
 
 interpretAstS
   :: forall ranked shaped sh r.
-     (OS.Shape sh, shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked)
-  => InterpretAst ranked r
+     ( OS.Shape sh, shaped ~ ShapedOf ranked, ShapedOf ranked ~ shaped, ranked ~ RankedOf shaped, RankedOf shaped ~ ranked, InterpretAst ranked r )
   => AstEnv ranked
   -> AstShaped r sh -> shaped r sh
 interpretAstS env = \case
@@ -1021,7 +1085,7 @@ interpretAstS env = \case
         env2 = V.foldr (\(var, d) -> extendEnvD var d) env (V.zip vars l2)
     in interpretAstS env2 v
 
-
+{-
 
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
@@ -1282,3 +1346,4 @@ interpretAstS env = \case
   :: OpCodeRel -> [AstInt Double] -> AstBool Double #-}
 {-# SPECIALIZE interpretAstRelOp
   :: OpCodeRel -> [AstInt Float] -> AstBool Float #-}
+-}
