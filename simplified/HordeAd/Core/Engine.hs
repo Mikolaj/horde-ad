@@ -85,7 +85,7 @@ class Adaptable f where
        , AdaptableDomains AstDynamic astvals
        , vals ~ Value astvals, Underlying astvals ~ r )
     => Bool -> (astvals -> AstOf f r y) -> vals
-    -> AstEnv (ADVal (AstOf (RankedOf f))) r
+    -> AstEnv (ADVal (AstOf (RankedOf f)))
     -> DomainsOD r
     -> (ADAstArtifact6 f r y, Dual (AstOf f) r y)
 
@@ -113,7 +113,7 @@ instance Adaptable @Nat (Flip OR.Array) where
        , AdaptableDomains AstDynamic astvals
        , vals ~ Value astvals, Underlying astvals ~ r )
     => Bool -> (astvals -> AstRanked r y) -> vals
-    -> AstEnv (ADVal AstRanked) r
+    -> AstEnv (ADVal AstRanked)
     -> DomainsOD r
     -> (ADAstArtifact6 (Flip OR.Array) r y, Dual AstRanked r y)
   {-# INLINE revDtInit #-}
@@ -143,7 +143,7 @@ instance Adaptable @[Nat] (Flip OS.Array) where
        ( GoodScalar r, OS.Shape y, KnownNat (OS.Size y)
        , AdaptableDomains AstDynamic astvals
        , vals ~ Value astvals, Underlying astvals ~ r )
-    => Bool -> (astvals -> AstShaped r y) -> vals -> AstEnv (ADVal AstRanked) r
+    => Bool -> (astvals -> AstShaped r y) -> vals -> AstEnv (ADVal AstRanked)
     -> DomainsOD r
     -> (ADAstArtifact6 (Flip OS.Array) r y, Dual AstShaped r y)
   {-# INLINE revDtInit #-}
