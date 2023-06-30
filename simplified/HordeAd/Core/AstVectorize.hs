@@ -33,7 +33,6 @@ import           HordeAd.Core.AstTools
 import           HordeAd.Core.ShapedList (ShapedList (..))
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.SizedList
-import           HordeAd.Core.TensorClass (GoodScalar)
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (trustMeThisIsAPermutation)
 
@@ -81,7 +80,7 @@ astTr = astTranspose [1, 0]
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
 -- @var@ occurs in @v@.
 build1VOccurenceUnknown
-  :: (KnownNat n, GoodScalar r)
+  ::  (KnownNat n, GoodScalar r)
   => Int -> (AstVarId, AstRanked r n) -> AstRanked r (1 + n)
 build1VOccurenceUnknown k (var, v0) =
   let traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 k (var, v0)) v0 1
@@ -91,12 +90,12 @@ build1VOccurenceUnknown k (var, v0) =
        astReplicate k v0
 
 build1VOccurenceUnknownRefresh
-  :: (KnownNat n, GoodScalar r)
+  :: forall n r. (KnownNat n, GoodScalar r)
   => Int -> (AstVarId, AstRanked r n) -> AstRanked r (1 + n)
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIIO id
-  let v2 = substitute1Ast (SubstitutionPayloadInt astVarFresh) var v0
+  let v2 = substitute1Ast (SubstitutionPayloadInt @r astVarFresh) var v0
   return $! build1VOccurenceUnknown k (varFresh, v2)
 
 intBindingRefresh
@@ -113,7 +112,7 @@ intBindingRefresh var ix = unsafePerformIO $ do
 -- the term @AstBuild1 k (var, v)@, where it's known that
 -- @var@ occurs in @v@.
 build1V
-  :: (KnownNat n, GoodScalar r)
+  :: forall n r. (KnownNat n, GoodScalar r)
   => Int -> (AstVarId, AstRanked r n) -> AstRanked r (1 + n)
 build1V k (var, v00) =
   let v0 = simplifyStepNonIndex v00
@@ -130,7 +129,7 @@ build1V k (var, v00) =
       let sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                      (Ast.AstIntVar var :. ZI)
-          v2 = substitute1Ast (SubstitutionPayloadRanked projection) var2 v
+          v2 = substitute1Ast (SubstitutionPayloadRanked @r projection) var2 v
             -- we use the substitution that does not simplify, which is sad,
             -- because very low hanging fruits may be left hanging, but we
             -- don't want to simplify the whole term; a better alternative
@@ -206,15 +205,15 @@ build1V k (var, v00) =
             let sh = shapeAst u1
                 projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var1)
                                           (Ast.AstIntVar var :. ZI)
-            in substitute1Ast (SubstitutionPayloadRanked projection) var1
+            in substitute1Ast (SubstitutionPayloadRanked @r projection) var1
           subst (var1, AstSToD @sh1 _) =
             let ls = OS.shapeT @sh1
             in case someNatVal $ toInteger (length ls) of
-              Just (SomeNat @n _proxy) ->
-                let sh = listShapeToShape @n ls
+              Just (SomeNat @n2 _proxy) ->
+                let sh = listShapeToShape @n2 ls
                     projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var1)
                                               (Ast.AstIntVar var :. ZI)
-                in substitute1Ast (SubstitutionPayloadRanked projection) var1
+                in substitute1Ast (SubstitutionPayloadRanked @r projection) var1
               Nothing -> error "build1V: impossible someNatVal error"
           v2 = V.foldr subst v (V.zip vars (unwrapAstDomains l))
             -- we use the substitution that does not simplify
@@ -233,7 +232,7 @@ build1VOccurenceUnknownDynamic k (var, d) = case d of
       error "build1VOccurenceUnknownDynamic: impossible someNatVal error"
 
 build1VOccurenceUnknownDomains
-  :: GoodScalar r
+  :: forall r. GoodScalar r
   => Int -> (AstVarId, AstDomains r) -> AstDomains r
 build1VOccurenceUnknownDomains k (var, v0) = case v0 of
   Ast.AstDomains l ->
@@ -242,7 +241,7 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
     let sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                   (Ast.AstIntVar var :. ZI)
-        v2 = substitute1AstDomains (SubstitutionPayloadRanked projection) var2 v
+        v2 = substitute1AstDomains (SubstitutionPayloadRanked @r projection) var2 v
           -- we use the substitution that does not simplify
     in astDomainsLet var2 (build1VOccurenceUnknownRefresh k (var, u))
                           (build1VOccurenceUnknownDomains k (var, v2))
@@ -250,7 +249,7 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
     Just (SomeNat @k _proxy) ->
       let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :$: ZSH)
-          v2 = substitute1AstDomains (SubstitutionPayloadShaped projection)
+          v2 = substitute1AstDomains (SubstitutionPayloadShaped @r projection)
                                      var2 v
             -- we use the substitution that does not simplify
       in astDomainsLetS var2 (build1VOccurenceUnknownRefreshS @k (var, u))
@@ -375,7 +374,7 @@ build1VOccurenceUnknownRefreshS
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIIO id
-  let v2 = substitute1AstS (SubstitutionPayloadInt astVarFresh) var v0
+  let v2 = substitute1AstS (SubstitutionPayloadInt @r astVarFresh) var v0
   return $! build1VOccurenceUnknownS (varFresh, v2)
 
 intBindingRefreshS
@@ -408,7 +407,7 @@ build1VS (var, v00) =
     Ast.AstLetS @_ @sh2 var2 u v ->
       let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :$: ZSH)
-          v2 = substitute1AstS (SubstitutionPayloadShaped projection) var2 v
+          v2 = substitute1AstS (SubstitutionPayloadShaped @r projection) var2 v
             -- we use the substitution that does not simplify, which is sad,
             -- because very low hanging fruits may be left hanging, but we
             -- don't want to simplify the whole term; a better alternative
@@ -501,11 +500,11 @@ build1VS (var, v00) =
             OS.withShapeP (shapeToList $ shapeAst u1) $ \(_ :: Proxy sh1) ->
             let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var1)
                                            (Ast.AstIntVar var :$: ZSH)
-            in substitute1AstS (SubstitutionPayloadShaped projection) var1
+            in substitute1AstS (SubstitutionPayloadShaped @r projection) var1
           subst (var1, AstSToD @sh1 _) =
             let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var1)
                                            (Ast.AstIntVar var :$: ZSH)
-            in substitute1AstS (SubstitutionPayloadShaped projection) var1
+            in substitute1AstS (SubstitutionPayloadShaped @r projection) var1
           v2 = V.foldr subst v (V.zip vars (unwrapAstDomains l))
             -- we use the substitution that does not simplify
       in Ast.AstLetDomainsS

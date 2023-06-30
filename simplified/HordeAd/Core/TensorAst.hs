@@ -130,8 +130,9 @@ instance DomainsTensor AstRanked AstShaped AstDomains where
   sletDomainsOf = undefined
   sletToDomainsOf = undefined
 
-astLetFun :: (KnownNat n, KnownNat m, GoodScalar r)
-          => AstRanked r n -> (AstRanked r n -> AstRanked r m) -> AstRanked r m
+astLetFun :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
+          => AstRanked r n -> (AstRanked r n -> AstRanked r2 m)
+          -> AstRanked r2 m
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f =
   let sh = shapeAst a
@@ -139,10 +140,10 @@ astLetFun a f =
   in astLet var a ast  -- safe, because subsitution ruled out above
 
 astLetDomainsFun
-  :: forall m r. GoodScalar r
+  :: forall m r r2. GoodScalar r
   => AstDomains r
-  -> (AstDomains r -> AstRanked r m)
-  -> AstRanked r m
+  -> (AstDomains r -> AstRanked r2 m)
+  -> AstRanked r2 m
 astLetDomainsFun a f =
   let genVar :: AstDynamic r -> (AstVarId, AstDynamic r)
       genVar (AstRToD t) =
@@ -155,9 +156,9 @@ astLetDomainsFun a f =
       (vars, asts) = V.unzip $ V.map genVar (unwrapAstDomains a)
   in AstLetDomains vars a (f $ AstDomains asts)
 
-astDomainsLetFun :: (KnownNat n, GoodScalar r)
-                 => AstRanked r n -> (AstRanked r n -> AstDomains r)
-                 -> AstDomains r
+astDomainsLetFun :: (KnownNat n, GoodScalar r, GoodScalar r2)
+                 => AstRanked r n -> (AstRanked r n -> AstDomains r2)
+                 -> AstDomains r2
 astDomainsLetFun a f | astIsSmall True a = f a
 astDomainsLetFun a f =
   let sh = shapeAst a
@@ -333,7 +334,8 @@ instance Tensor AstNoSimplify where
   tScale (AstNoSimplify s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
 astLetFunUnSimp :: (KnownNat n, KnownNat m, GoodScalar r)
-                => AstRanked r n -> (AstRanked r n -> AstRanked r m) -> AstRanked r m
+                => AstRanked r n -> (AstRanked r n -> AstRanked r2 m)
+                -> AstRanked r2 m
 astLetFunUnSimp a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh f
@@ -413,9 +415,9 @@ instance ShapedTensor AstShaped where
   sD = AstDS
   sScale (AstPrimalPartS s) (AstDualPartS t) = AstDualPartS $ s `smult` t
 
-astLetFunS :: (OS.Shape sh, OS.Shape sh2)
-          => AstShaped r sh -> (AstShaped r sh -> AstShaped r sh2)
-          -> AstShaped r sh2
+astLetFunS :: (OS.Shape sh, OS.Shape sh2, GoodScalar r)
+          => AstShaped r sh -> (AstShaped r sh -> AstShaped r2 sh2)
+          -> AstShaped r2 sh2
 astLetFunS a f | astIsSmallS True a = f a
 astLetFunS a f =
   let (AstVarName var, ast) = funToAstS f

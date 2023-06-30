@@ -44,7 +44,7 @@ import qualified Data.EnumSet as ES
 import           Data.List (dropWhileEnd, mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
+import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import           Data.Type.Ord (Compare)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
@@ -60,6 +60,7 @@ import           GHC.TypeLits
   , type (<=)
   )
 import           System.IO.Unsafe (unsafePerformIO)
+import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Ast
@@ -77,7 +78,6 @@ import           HordeAd.Core.ShapedList (ShapedList (..))
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.SizedList
-import           HordeAd.Core.TensorClass
 import           HordeAd.Core.TensorOps
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape, trustMeThisIsAPermutation)
@@ -209,8 +209,8 @@ simplifyStepNonIndexS
   => AstShaped r sh -> AstShaped r sh
 simplifyStepNonIndexS t = t  -- TODO
 
-astLet :: forall n m r. (KnownNat m, KnownNat n, GoodScalar r)
-       => AstVarId -> AstRanked r n -> AstRanked r m -> AstRanked r m
+astLet :: forall n m r r2. (KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2)
+       => AstVarId -> AstRanked r n -> AstRanked r2 m -> AstRanked r2 m
 astLet var u v | astIsSmall True u =
   substitute1Ast (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -221,7 +221,9 @@ astLet var u v | astIsSmall True u =
 astLet var u v@(Ast.AstVar _ var2) =
   if var2 == var
   then case sameNat (Proxy @n) (Proxy @m) of
-    Just Refl -> u
+    Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+      Just Refl -> u
+      _ -> error "astLet: type mismatch"
     _ -> error "astLet: rank mismatch"
   else v
 astLet var u v = Ast.AstLet var u v
@@ -515,7 +517,7 @@ astSlice i n w@(Ast.AstAppend (u :: AstRanked r (1 + k)) (v :: AstRanked r (1 + 
         | otherwise -> Ast.AstSlice @k i n w  -- cheap iff fits in one
 astSlice i n (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
   let ivar = AstIntOp PlusIntOp [AstIntVar var, AstIntConst i]
-      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt ivar) var) ix
+      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt @r ivar) var) ix
   in astGatherR (n :$ sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
 
@@ -535,7 +537,7 @@ astReverse (Ast.AstReplicate k v) = Ast.AstReplicate k v
 astReverse (Ast.AstReverse v) = v
 astReverse (Ast.AstGather sh@(k :$ _) v (var ::: vars, ix)) =
   let ivar = AstIntOp Ast.MinusIntOp [AstIntConst k, AstIntVar var]
-      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt ivar) var) ix
+      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt @r ivar) var) ix
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
@@ -861,7 +863,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       let (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
             foldr (uncurry substituteAstInt) i
-                  (zipSized (fmap SubstitutionPayloadInt
+                  (zipSized (fmap (SubstitutionPayloadInt @r)
                              $ indexToSizedList ixFresh) vars4)
           ix5 = fmap subst ix4
       in Ast.AstD (AstPrimalPart $ astGatherRec sh4 u (vars4, ix4))
@@ -991,8 +993,8 @@ astConstant :: AstPrimalPart r n -> AstRanked r n
 astConstant (AstPrimalPart (Ast.AstConstant t)) = astConstant t
 astConstant v = Ast.AstConstant v
 
-astDomainsLet :: forall n r. (KnownNat n, GoodScalar r)
-              => AstVarId -> AstRanked r n -> AstDomains r -> AstDomains r
+astDomainsLet :: forall n r r2. (KnownNat n, GoodScalar r, GoodScalar r2)
+              => AstVarId -> AstRanked r n -> AstDomains r2 -> AstDomains r2
 astDomainsLet var u v | astIsSmall True u =
   substitute1AstDomains (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -1912,8 +1914,9 @@ simplifyAstS t = case t of
   Ast.AstLetDomainsS vars l v ->
     Ast.AstLetDomainsS vars (simplifyAstDomains l) (simplifyAstS v)
 
-astLetS :: forall sh1 sh2 r. (OS.Shape sh1, OS.Shape sh2, GoodScalar r)
-        => AstVarId -> AstShaped r sh1 -> AstShaped r sh2 -> AstShaped r sh2
+astLetS :: forall sh1 sh2 r r2.
+           (OS.Shape sh1, OS.Shape sh2, GoodScalar r, GoodScalar r2)
+        => AstVarId -> AstShaped r sh1 -> AstShaped r2 sh2 -> AstShaped r2 sh2
 astLetS var u v | astIsSmallS True u =
   substitute1AstS (SubstitutionPayloadShaped u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -1924,7 +1927,9 @@ astLetS var u v | astIsSmallS True u =
 astLetS var u v@(Ast.AstVarS var2) =
   if var2 == var
   then case sameShape @sh1 @sh2 of
-    Just Refl -> u
+    Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+      Just Refl -> u
+      _ -> error "astLetS: type mismatch"
     _ -> error "astLetS: shape mismatch"
   else v
 astLetS var u v = Ast.AstLetS var u v
@@ -2032,7 +2037,7 @@ astReverseS (Ast.AstReplicateS v) = Ast.AstReplicateS v
 astReverseS (Ast.AstReverseS v) = v
 astReverseS (Ast.AstGatherS v ((:$:) @k var vars, ix)) =
   let ivar = AstIntOp Ast.MinusIntOp [AstIntConst (valueOf @k), AstIntVar var]
-      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt ivar) var) ix
+      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt @r ivar) var) ix
   in astGatherS v (var :$: vars, ix2)
 astReverseS v = Ast.AstReverseS v
 
@@ -2049,8 +2054,8 @@ astConstantS :: AstPrimalPartS r sh -> AstShaped r sh
 astConstantS (AstPrimalPartS (Ast.AstConstantS t)) = astConstantS t
 astConstantS v = Ast.AstConstantS v
 
-astDomainsLetS :: forall sh r. (GoodScalar r, OS.Shape sh)
-               => AstVarId -> AstShaped r sh -> AstDomains r -> AstDomains r
+astDomainsLetS :: forall sh r r2. (GoodScalar r, GoodScalar r2, OS.Shape sh)
+               => AstVarId -> AstShaped r sh -> AstDomains r2 -> AstDomains r2
 astDomainsLetS var u v | astIsSmallS True u =
   substitute1AstDomains (SubstitutionPayloadShaped u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -2061,29 +2066,29 @@ astDomainsLetS var u v | astIsSmallS True u =
 astDomainsLetS var u v = Ast.AstDomainsLetS var u v
 
 -- We have to simplify after substitution or simplifying is not idempotent.
-substituteAst :: forall n r. (GoodScalar r, KnownNat n)
-              => SubstitutionPayload r -> AstVarId -> AstRanked r n
+substituteAst :: forall n r r2. (GoodScalar r, GoodScalar r2, KnownNat n)
+              => SubstitutionPayload r2 -> AstVarId -> AstRanked r n
               -> AstRanked r n
 substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
 
 substituteAstDomains
-  :: GoodScalar r
-  => SubstitutionPayload r -> AstVarId -> AstDomains r
+  :: (GoodScalar r, GoodScalar r2)
+  => SubstitutionPayload r2 -> AstVarId -> AstDomains r
   -> AstDomains r
 substituteAstDomains i var v1 =
   simplifyAstDomains $ substitute1AstDomains i var v1
 
-substituteAstInt :: GoodScalar r
-                 => SubstitutionPayload r -> AstVarId -> AstInt r
+substituteAstInt :: (GoodScalar r, GoodScalar r2)
+                 => SubstitutionPayload r2 -> AstVarId -> AstInt r
                  -> AstInt r
 substituteAstInt i var i2 = simplifyAstInt $ substitute1AstInt i var i2
 
-substituteAstBool :: GoodScalar r
-                  => SubstitutionPayload r -> AstVarId -> AstBool r
+substituteAstBool :: (GoodScalar r, GoodScalar r2)
+                  => SubstitutionPayload r2 -> AstVarId -> AstBool r
                   -> AstBool r
 substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1
 
-substituteAstS :: forall sh r. (GoodScalar r, OS.Shape sh)
-               => SubstitutionPayload r -> AstVarId -> AstShaped r sh
+substituteAstS :: forall sh r r2. (GoodScalar r, GoodScalar r2, OS.Shape sh)
+               => SubstitutionPayload r2 -> AstVarId -> AstShaped r sh
                -> AstShaped r sh
 substituteAstS i var v1 = {-simplifyAstS $-} substitute1AstS i var v1

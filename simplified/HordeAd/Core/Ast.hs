@@ -39,6 +39,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import           GHC.TypeLits (KnownNat, Nat, type (+), type (<=))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
+import           Type.Reflection (Typeable)
 
 import HordeAd.Core.ShapedList (ShapedList (..))
 import HordeAd.Core.SizedIndex
@@ -48,7 +49,7 @@ import HordeAd.Core.TensorOps
 -- * Ast and related definitions
 
 type GoodScalar r =
-  (Show r, Numeric r, RealFloat r, Floating (Vector r), RowSum r)
+  (Show r, Numeric r, RealFloat r, Floating (Vector r), RowSum r, Typeable r)
 
 -- | The type family that to a concrete tensor type assigns its
 -- corresponding AST type.
@@ -91,8 +92,8 @@ type AstVarListS sh = ShapedList sh AstVarId
 data AstRanked :: Type -> Nat -> Type where
   -- To permit defining objective functions in Ast, not just constants:
   AstVar :: ShapeInt n -> AstVarId -> AstRanked r n
-  AstLet :: (KnownNat n, KnownNat m)
-         => AstVarId -> AstRanked r n -> AstRanked r m -> AstRanked r m
+  AstLet :: (KnownNat n, KnownNat m, GoodScalar r)
+         => AstVarId -> AstRanked r n -> AstRanked r2 m -> AstRanked r2 m
   AstLetADShare :: ADShare -> AstRanked r n -> AstRanked r n
    -- there are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
@@ -146,8 +147,10 @@ data AstRanked :: Type -> Nat -> Type where
   AstConst :: OR.Array n r -> AstRanked r n
   AstConstant :: AstPrimalPart r n -> AstRanked r n
   AstD :: AstPrimalPart r n -> AstDualPart r n -> AstRanked r n
-  AstLetDomains :: Data.Vector.Vector AstVarId -> AstDomains r -> AstRanked r n
-                -> AstRanked r n
+  AstLetDomains :: GoodScalar r
+                => Data.Vector.Vector AstVarId -> AstDomains r
+                -> AstRanked r2 n
+                -> AstRanked r2 n
 deriving instance GoodScalar r => Show (AstRanked r n)
 
 newtype AstNoVectorize r n = AstNoVectorize {unAstNoVectorize :: AstRanked r n}
@@ -165,8 +168,8 @@ deriving instance GoodScalar r => Show (AstDualPart r n)
 data AstShaped :: Type -> [Nat] -> Type where
   -- To permit defining objective functions in Ast, not just constants:
   AstVarS :: forall sh r. AstVarId -> AstShaped r sh
-  AstLetS :: forall sh sh2 r. (OS.Shape sh, OS.Shape sh2)
-          => AstVarId -> AstShaped r sh -> AstShaped r sh2 -> AstShaped r sh2
+  AstLetS :: (OS.Shape sh, OS.Shape sh2, GoodScalar r)
+          => AstVarId -> AstShaped r sh -> AstShaped r2 sh2 -> AstShaped r2 sh2
   AstLetADShareS :: ADShare -> AstShaped r sh -> AstShaped r sh
    -- there are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
@@ -234,9 +237,10 @@ data AstShaped :: Type -> [Nat] -> Type where
   AstConstS :: OS.Array sh r -> AstShaped r sh
   AstConstantS :: AstPrimalPartS r sh -> AstShaped r sh
   AstDS :: AstPrimalPartS r sh -> AstDualPartS r sh -> AstShaped r sh
-  AstLetDomainsS :: Data.Vector.Vector AstVarId -> AstDomains r
-                 -> AstShaped r sh
-                 -> AstShaped r sh
+  AstLetDomainsS :: GoodScalar r
+                 => Data.Vector.Vector AstVarId -> AstDomains r
+                 -> AstShaped r2 sh
+                 -> AstShaped r2 sh
 deriving instance (GoodScalar r, OS.Shape sh) => Show (AstShaped r sh)
 
 newtype AstPrimalPartS r sh =
@@ -255,10 +259,10 @@ deriving instance GoodScalar r => Show (AstDynamic r)
 
 data AstDomains :: Type -> Type where
   AstDomains :: Data.Vector.Vector (AstDynamic r) -> AstDomains r
-  AstDomainsLet :: KnownNat n
-                => AstVarId -> AstRanked r n -> AstDomains r -> AstDomains r
-  AstDomainsLetS :: OS.Shape sh
-                 => AstVarId -> AstShaped r sh -> AstDomains r -> AstDomains r
+  AstDomainsLet :: (KnownNat n, GoodScalar r)
+                => AstVarId -> AstRanked r n -> AstDomains r2 -> AstDomains r2
+  AstDomainsLetS :: (OS.Shape sh, GoodScalar r)
+                 => AstVarId -> AstShaped r sh -> AstDomains r2 -> AstDomains r2
 deriving instance GoodScalar r => Show (AstDomains r)
 
 newtype AstVarName t = AstVarName AstVarId
