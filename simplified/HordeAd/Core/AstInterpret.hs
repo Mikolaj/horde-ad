@@ -273,16 +273,14 @@ instance
       (forall rd yd. c shaped rd yd)
       => CShapedX2 shaped c where
 
-type InterpretAstR ranked r =
-  ( GoodScalar r
-  , CRanked2 ranked BooleanMatches
+type InterpretAstR ranked =
+  ( CRanked2 ranked BooleanMatches
   , CRankedY2 ranked BooleanMatchesYR
   , CRankedX2 ranked BooleanMatchesXR
   )
 
-type InterpretAstS shaped r =
-  ( GoodScalar r
-  , CRanked2 shaped BooleanMatches
+type InterpretAstS shaped =
+  ( CRanked2 shaped BooleanMatches
   , CRanked2 shaped BooleanMatchesS
   , CShapedY2 shaped BooleanMatchesYS
   , CShapedX2 shaped BooleanMatchesXS
@@ -292,8 +290,8 @@ type InterpretAst ranked r =
   ( Tensor ranked, Tensor (PrimalOf ranked)
   , ShapedTensor (ShapedOf ranked), ShapedTensor (PrimalOf (ShapedOf ranked))
   , ConvertTensor ranked (ShapedOf ranked)
-  , InterpretAstR ranked r
-  , InterpretAstS (ShapedOf ranked) r
+  , InterpretAstR ranked
+  , InterpretAstS (ShapedOf ranked)
   -- TODO: why are any of the below needed?
   , IntOf ranked r ~ IntOf (ShapedOf ranked) r
   , IntOf (ShapedOf ranked) r ~ IntOf ranked r
@@ -308,7 +306,7 @@ type InterpretAst ranked r =
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
   :: forall ranked n r.
-     (KnownNat n, InterpretAst ranked r)
+     (KnownNat n, InterpretAst ranked r, GoodScalar r)
   => AstEnv ranked
   -> AstPrimalPart r n -> PrimalOf ranked r n
 interpretAstPrimal env (AstPrimalPart v1) = case v1 of
@@ -317,7 +315,7 @@ interpretAstPrimal env (AstPrimalPart v1) = case v1 of
 
 interpretAstDual
   :: forall ranked n r.
-     (KnownNat n, InterpretAst ranked r)
+     (KnownNat n, InterpretAst ranked r, GoodScalar r)
   => AstEnv ranked
   -> AstDualPart r n -> DualOf ranked r n
 interpretAstDual env (AstDualPart v1) = case v1 of
@@ -326,7 +324,7 @@ interpretAstDual env (AstDualPart v1) = case v1 of
 
 interpretAst
   :: forall ranked n r.
-     (KnownNat n, InterpretAst ranked r)
+     (KnownNat n, InterpretAst ranked r, GoodScalar r)
   => AstEnv ranked
   -> AstRanked r n -> ranked r n
 interpretAst env = \case
@@ -618,7 +616,7 @@ interpretAst env = \case
 
 interpretAstDynamic
   :: forall ranked r.
-     InterpretAst ranked r
+     (InterpretAst ranked r, GoodScalar r)
   => AstEnv ranked
   -> AstDynamic r -> DynamicOf ranked r
 interpretAstDynamic env = \case
@@ -627,7 +625,7 @@ interpretAstDynamic env = \case
 
 interpretAstDomains
   :: forall ranked r.
-     InterpretAst ranked r
+     (InterpretAst ranked r, GoodScalar r)
   => AstEnv ranked
   -> AstDomains r -> Domains (DynamicOf ranked) r
 interpretAstDomains env = \case
@@ -644,7 +642,7 @@ interpretAstDomains env = \case
       -- TODO: preserve let, as in AstLet case
 
 interpretAstInt :: forall ranked r.
-                   InterpretAst ranked r
+                   (InterpretAst ranked r, GoodScalar r)
                 => AstEnv ranked
                 -> AstInt r -> IntOf ranked r
 interpretAstInt env = \case
@@ -675,7 +673,7 @@ interpretAstInt env = \case
                      $ interpretAstPrimalS env v
 
 interpretAstBool :: forall ranked r.
-                    InterpretAst ranked r
+                    (InterpretAst ranked r, GoodScalar r)
                  => AstEnv ranked
                  -> AstBool r -> BooleanOf (ranked r 0)
 interpretAstBool env = \case
@@ -695,7 +693,7 @@ interpretAstBool env = \case
 
 interpretAstDynamicDummy
   :: forall ranked r.
-     InterpretAst ranked r
+     (InterpretAst ranked r, GoodScalar r)
   => AstEnv ranked
   -> AstDynamic r -> DynamicOf ranked r
 interpretAstDynamicDummy env = \case
@@ -706,7 +704,7 @@ interpretAstDynamicDummy env = \case
 
 interpretAstDomainsDummy
   :: forall ranked r.
-     InterpretAst ranked r
+     (InterpretAst ranked r, GoodScalar r)
   => AstEnv ranked
   -> AstDomains r -> Domains (DynamicOf ranked) r
 interpretAstDomainsDummy env = \case
@@ -798,7 +796,7 @@ interpretAstRelOp opCodeRel args =
 
 interpretAstPrimalS
   :: forall ranked shaped sh r.
-     ( OS.Shape sh, shaped ~ ShapedOf ranked, ShapedOf ranked ~ shaped, ranked ~ RankedOf shaped, RankedOf shaped ~ ranked, InterpretAst ranked r )
+     ( OS.Shape sh, shaped ~ ShapedOf ranked, ShapedOf ranked ~ shaped, ranked ~ RankedOf shaped, RankedOf shaped ~ ranked, InterpretAst ranked r, GoodScalar r )
   => AstEnv ranked
   -> AstPrimalPartS r sh -> PrimalOf shaped r sh
 interpretAstPrimalS env (AstPrimalPartS v1) = case v1 of
@@ -807,7 +805,7 @@ interpretAstPrimalS env (AstPrimalPartS v1) = case v1 of
 
 interpretAstDualS
   :: forall ranked shaped sh r.
-     ( OS.Shape sh, shaped ~ ShapedOf ranked, ShapedOf ranked ~ shaped, ranked ~ RankedOf shaped, RankedOf shaped ~ ranked, InterpretAst ranked r )
+     ( OS.Shape sh, shaped ~ ShapedOf ranked, ShapedOf ranked ~ shaped, ranked ~ RankedOf shaped, RankedOf shaped ~ ranked, InterpretAst ranked r, GoodScalar r )
   => AstEnv ranked
   -> AstDualPartS r sh -> DualOf shaped r sh
 interpretAstDualS env (AstDualPartS v1) = case v1 of
@@ -816,7 +814,7 @@ interpretAstDualS env (AstDualPartS v1) = case v1 of
 
 interpretAstS
   :: forall ranked shaped sh r.
-     ( OS.Shape sh, shaped ~ ShapedOf ranked, ShapedOf ranked ~ shaped, ranked ~ RankedOf shaped, RankedOf shaped ~ ranked, InterpretAst ranked r )
+     ( OS.Shape sh, shaped ~ ShapedOf ranked, ShapedOf ranked ~ shaped, ranked ~ RankedOf shaped, RankedOf shaped ~ ranked, InterpretAst ranked r, GoodScalar r )
   => AstEnv ranked
   -> AstShaped r sh -> shaped r sh
 interpretAstS env = \case

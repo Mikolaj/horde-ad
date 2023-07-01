@@ -153,7 +153,7 @@ tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
 mnistTestCaseCNNI
   :: forall ranked r.
      ( ranked ~ Flip OR.Array
-     , ADReady ranked r, Random r, InterpretAstR (ADVal ranked) r
+     , ADReady ranked r, Random r, InterpretAstR (ADVal ranked)
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r

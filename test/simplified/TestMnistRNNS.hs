@@ -149,7 +149,7 @@ tensorADValMnistTestsRNNSA = testGroup "RNNS ADVal MNIST tests"
 mnistTestCaseRNNSI
   :: forall shaped width batch_size r.
      ( shaped ~ Flip OS.Array
-     , ADReadyS shaped r, Random r, InterpretAstS (ADVal shaped) r
+     , ADReadyS shaped r, Random r, InterpretAstS (ADVal shaped)
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r

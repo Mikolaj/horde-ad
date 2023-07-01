@@ -39,8 +39,8 @@ assertEqualUpToEpsilon1 eps expected result =
 
 rev' :: forall r m n v g.
         ( KnownNat n, KnownNat m, ADReady AstRanked r
-        , InterpretAstR (Flip OR.Array) r
-        , InterpretAstR (ADVal (Flip OR.Array)) r
+        , InterpretAstR (Flip OR.Array)
+        , InterpretAstR (ADVal (Flip OR.Array))
         , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n )
      => (forall f x. ADReady f x => f x n -> f x m)
      -> g
