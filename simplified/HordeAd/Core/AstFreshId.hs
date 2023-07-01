@@ -128,13 +128,13 @@ funToAstAllS shapes1 = unsafePerformIO $ do
   (vn1, v1) <- unzip <$> (mapM funToAstDIO shapes1)
   return ((AstVarName freshId, vn1), (AstVarS freshId, v1))
 
-funToAstIIO :: (AstInt r -> t) -> IO (AstVarId, t)
+funToAstIIO :: (AstInt -> t) -> IO (AstVarId, t)
 {-# INLINE funToAstIIO #-}
 funToAstIIO f = do
   freshId <- unsafeGetFreshAstVarId
   return (freshId, f (AstIntVar freshId))
 
-funToAstI :: (AstInt r -> t) -> (AstVarId, t)
+funToAstI :: (AstInt -> t) -> (AstVarId, t)
 {-# NOINLINE funToAstI #-}
 funToAstI = unsafePerformIO . funToAstIIO
 

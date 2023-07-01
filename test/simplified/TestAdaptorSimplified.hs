@@ -1238,7 +1238,7 @@ fblowup k inputs =
   in blowup k y0
 
 fblowupLet :: forall ranked r. ADReady ranked r
-           => IntOf ranked r -> Int -> ranked r 1 -> ranked r 0
+           => IntOf ranked -> Int -> ranked r 1 -> ranked r 0
 fblowupLet i k inputs =
   let blowup :: Int -> ranked r 0 -> ranked r 0
       blowup 0 y = y - tfromIndex0 i
@@ -1264,7 +1264,7 @@ fblowupMult k inputs =
   in blowup k y0
 
 fblowupMultLet :: forall ranked r. ADReady ranked r
-               => IntOf ranked r -> Int -> ranked r 1 -> ranked r 0
+               => IntOf ranked -> Int -> ranked r 1 -> ranked r 0
 fblowupMultLet i k inputs =
   let blowup :: Int -> ranked r 0 -> ranked r 0
       blowup 0 y = y

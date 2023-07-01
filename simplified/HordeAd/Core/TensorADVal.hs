@@ -59,7 +59,7 @@ instance IfB (ADVal (Flip OR.Array) r n) where
 
 type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
 
-type instance IntOf (ADVal f) r = IntOf f r
+type instance IntOf (ADVal f) = IntOf f
 
 type instance PrimalOf (ADVal f) = f
 
@@ -422,7 +422,7 @@ _build1Closure
   :: ( Tensor ranked, KnownNat n, GoodScalar r
      , Dual ranked ~ DeltaR ranked shaped
      , IsPrimal ranked r (1 + n) )
-  => Int -> (IntOf ranked r -> ADVal ranked r n)
+  => Int -> (IntOf ranked -> ADVal ranked r n)
   -> ADVal ranked r (1 + n)
 _build1Closure k f =  -- stores closures on tape
   let g i = let D _ u _ = f i in u

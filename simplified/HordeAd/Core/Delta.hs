@@ -253,8 +253,8 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
 deriving instance ( OS.Shape sh0
                   , (forall n. Show (ranked r n))
                   , (forall sh. OS.Shape sh => Show (shaped r sh))
-                  , Show (IntOf ranked r)
-                  , Show (IntOf shaped r) )
+                  , Show (IntOf ranked)
+                  , Show (IntOf shaped) )
                   => Show (DeltaS ranked shaped r sh0)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
@@ -332,7 +332,7 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
           -> DeltaR ranked shaped r m
     -- ^ Change the shape of the tensor from the first to the second.
   BuildR :: KnownNat n
-         => Int -> (IntOf ranked r -> DeltaR ranked shaped r n)
+         => Int -> (IntOf ranked -> DeltaR ranked shaped r n)
          -> DeltaR ranked shaped r (1 + n)
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
@@ -359,8 +359,8 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
 
 deriving instance ( (forall n. Show (ranked r n))
                   , (forall sh. OS.Shape sh => Show (shaped r sh))
-                  , Show (IntOf ranked r)
-                  , Show (IntOf shaped r) )
+                  , Show (IntOf ranked)
+                  , Show (IntOf shaped) )
                   => Show (DeltaR ranked shaped r n0)
 
 data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
@@ -372,8 +372,8 @@ data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
 
 deriving instance ( (forall n. Show (ranked r n))
                   , (forall sh. OS.Shape sh => Show (shaped r sh))
-                  , Show (IntOf ranked r)
-                  , Show (IntOf shaped r) )
+                  , Show (IntOf ranked)
+                  , Show (IntOf shaped) )
                   => Show (DeltaD ranked shaped r '())
 
 

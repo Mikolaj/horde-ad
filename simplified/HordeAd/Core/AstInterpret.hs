@@ -30,7 +30,7 @@ import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat, Nat, sameNat)
+import           GHC.TypeLits (KnownNat, sameNat)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -55,18 +55,17 @@ data AstEnvElem ranked =
   | forall n r. (KnownNat n, GoodScalar r) => AstEnvElemR (ranked r n)
   | forall sh r. (OS.Shape sh, GoodScalar r)
                  => AstEnvElemS (ShapedOf ranked r sh)
-  | forall r. GoodScalar r => AstEnvElemI (IntOf ranked r)
+  | AstEnvElemI (IntOf ranked)
 deriving instance (forall r n sh. ShowDynamicOf ranked r n sh)
                   => Show (AstEnvElem ranked)
 
 class ( Show (DynamicOf ranked r)
       , Show (ranked r n)
       , Show (ShapedOf ranked r sh)
-      , Show (IntOf ranked r) ) => ShowDynamicOf ranked r n sh
+      , Show (IntOf ranked) ) => ShowDynamicOf ranked r n sh
 
 extendEnvS :: forall ranked shaped r sh.
-              ( OS.Shape sh, shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked
-              , GoodScalar r )
+              (OS.Shape sh, shaped ~ ShapedOf ranked, GoodScalar r)
            => AstVarName (Flip OS.Array r sh) -> shaped r sh
            -> AstEnv ranked -> AstEnv ranked
 extendEnvS v@(AstVarName var) t =
@@ -94,53 +93,52 @@ extendEnvD var d =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvD: duplicate " ++ show var)
                    var (AstEnvElemD d)
 
-extendEnvI :: forall r ranked. GoodScalar r
-           => AstVarId -> IntOf ranked r -> AstEnv ranked
+extendEnvI :: AstVarId -> IntOf ranked -> AstEnv ranked
            -> AstEnv ranked
 extendEnvI var i =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
-                   var (AstEnvElemI @ranked @r i)
+                   var (AstEnvElemI i)
 
-extendEnvVars :: forall r ranked m. GoodScalar r
-              => AstVarList m -> IndexOf ranked r m
+extendEnvVars :: forall r ranked m.
+                 AstVarList m -> IndexOf ranked r m
               -> AstEnv ranked
               -> AstEnv ranked
 extendEnvVars vars ix env =
   let assocs = zip (sizedListToList vars) (indexToList ix)
-  in foldr (uncurry (extendEnvI @r)) env assocs
+  in foldr (uncurry extendEnvI) env assocs
 
-extendEnvVarsS :: forall r ranked sh. GoodScalar r
-               => AstVarListS sh -> IndexSh ranked r sh
+extendEnvVarsS :: forall r ranked sh.
+                  AstVarListS sh -> IndexSh ranked r sh
                -> AstEnv ranked
                -> AstEnv ranked
 extendEnvVarsS vars ix env =
   let assocs = zip (ShapedList.sizedListToList vars)
                    (ShapedList.sizedListToList ix)
-  in foldr (uncurry (extendEnvI @r)) env assocs
+  in foldr (uncurry extendEnvI) env assocs
 
 interpretLambdaI
-  :: forall ranked n r. GoodScalar r
-  => (AstEnv ranked -> AstRanked r n -> ranked r n)
+  :: forall ranked n r.
+     (AstEnv ranked -> AstRanked r n -> ranked r n)
   -> AstEnv ranked -> (AstVarId, AstRanked r n)
-  -> IntOf ranked r
+  -> IntOf ranked
   -> ranked r n
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env (var, ast) =
-  \i -> f (extendEnvI @r var i env) ast
+  \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIS
-  :: forall ranked shaped sh n r. GoodScalar r
-  => (AstEnv ranked -> AstShaped r sh -> shaped r sh)
+  :: forall ranked shaped sh n r.
+     (AstEnv ranked -> AstShaped r sh -> shaped r sh)
   -> AstEnv ranked -> (AstVarId, AstShaped r sh)
   -> IntSh ranked r n
   -> shaped r sh
 {-# INLINE interpretLambdaIS #-}
 interpretLambdaIS f env (var, ast) =
-  \i -> f (extendEnvI @r var (ShapedList.unShapedNat i) env) ast
+  \i -> f (extendEnvI var (ShapedList.unShapedNat i) env) ast
 
 interpretLambdaIndex
-  :: forall ranked r m n. GoodScalar r
-  => (AstEnv ranked -> AstRanked r n -> ranked r n)
+  :: forall ranked r m n.
+     (AstEnv ranked -> AstRanked r n -> ranked r n)
   -> AstEnv ranked -> (AstVarList m, AstRanked r n)
   -> IndexOf ranked r m
   -> ranked r n
@@ -150,8 +148,7 @@ interpretLambdaIndex f env (vars, ast) =
 
 interpretLambdaIndexS
   :: forall sh sh2 ranked shaped r.
-     (shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked, GoodScalar r)
-  => (AstEnv ranked -> AstShaped r sh -> shaped r sh)
+     (AstEnv ranked -> AstShaped r sh -> shaped r sh)
   -> AstEnv ranked -> (AstVarListS sh2, AstShaped r sh)
   -> IndexSh ranked r sh2
   -> shaped r sh
@@ -160,8 +157,8 @@ interpretLambdaIndexS f env (vars, ast) =
   \ix -> f (extendEnvVarsS @r vars ix env) ast
 
 interpretLambdaIndexToIndex
-  :: forall ranked r m n. GoodScalar r
-  => (AstEnv ranked -> AstInt r -> IntOf ranked r)
+  :: forall ranked r m n.
+     (AstEnv ranked -> AstInt -> IntOf ranked)
   -> AstEnv ranked -> (AstVarList m, AstIndex r n)
   -> IndexOf ranked r m
   -> IndexOf ranked r n
@@ -170,8 +167,8 @@ interpretLambdaIndexToIndex f env (vars, asts) =
   \ix -> f (extendEnvVars @r vars ix env) <$> asts
 
 interpretLambdaIndexToIndexS
-  :: forall ranked r sh sh2. GoodScalar r
-  => (AstEnv ranked -> AstInt r -> IntOf ranked r)
+  :: forall ranked r sh sh2.
+     (AstEnv ranked -> AstInt -> IntOf ranked)
   -> AstEnv ranked -> (AstVarListS sh, AstIndexS r sh2)
   -> IndexSh ranked r sh
   -> IndexSh ranked r sh2
@@ -179,75 +176,59 @@ interpretLambdaIndexToIndexS
 interpretLambdaIndexToIndexS f env (vars, asts) =
   \ix -> f (extendEnvVarsS @r vars ix env) <$> asts
 
-class ( EqB (IntOf ranked r)
-      , OrdB (IntOf ranked r)
-      , IfB (IntOf ranked r)
-      , IntOf ranked r ~ IntOf (ShapedOf ranked) r
-      , IntOf (ShapedOf ranked) r ~ IntOf ranked r
-      , IntOf ranked r ~ IntOf (PrimalOf ranked) r
-      , IntOf (PrimalOf ranked) r ~ IntOf ranked r
-      , IntOf (PrimalOf ranked) r ~ IntOf (ShapedOf ranked) r
-      , IntOf (ShapedOf ranked) r ~ IntOf (PrimalOf ranked) r )
-      => BooleanMatches ranked r where
+class ( BooleanOf (ranked r 0)
+        ~ BooleanOf (IntOf (PrimalOf (ShapedOf ranked)))
+      , BooleanOf (IntOf (PrimalOf (ShapedOf ranked)))
+        ~ BooleanOf (ranked r 0) )
+      => BooleanMatchesR ranked r where
 instance
-      ( EqB (IntOf ranked r)
-      , OrdB (IntOf ranked r)
-      , IfB (IntOf ranked r)
-      , IntOf ranked r ~ IntOf (ShapedOf ranked) r
-      , IntOf (ShapedOf ranked) r ~ IntOf ranked r
-      , IntOf ranked r ~ IntOf (PrimalOf ranked) r
-      , IntOf (PrimalOf ranked) r ~ IntOf ranked r
-      , IntOf (PrimalOf ranked) r ~ IntOf (ShapedOf ranked) r
-      , IntOf (ShapedOf ranked) r ~ IntOf (PrimalOf ranked) r )
-      => BooleanMatches ranked r where
+      ( BooleanOf (ranked r 0)
+        ~ BooleanOf (IntOf (PrimalOf (ShapedOf ranked)))
+      , BooleanOf (IntOf (PrimalOf (ShapedOf ranked)))
+        ~ BooleanOf (ranked r 0) )
+      => BooleanMatchesR ranked r where
+
+class ( BooleanOf (ranked () 0)
+        ~ BooleanOf (PrimalOf (ShapedOf ranked) r y)
+      , BooleanOf (PrimalOf (ShapedOf ranked) r y)
+        ~ BooleanOf (ranked () 0) )
+      => BooleanMatchesR2 ranked r y where
+instance
+      ( BooleanOf (ranked () 0)
+        ~ BooleanOf (PrimalOf (ShapedOf ranked) r y)
+      , BooleanOf (PrimalOf (ShapedOf ranked) r y)
+        ~ BooleanOf (ranked () 0) )
+      => BooleanMatchesR2 ranked r y where
 
 class ( EqB (PrimalOf ranked r y)
       , OrdB (PrimalOf ranked r y) )
-      => BooleanMatchesYR ranked r (y :: Nat) where
+      => BooleanMatchesYR ranked r y where
 instance
       ( EqB (PrimalOf ranked r y)
       , OrdB (PrimalOf ranked r y) )
       => BooleanMatchesYR ranked r y where
 
-class ( Boolean (BooleanOf (ranked r y))
-      , BooleanOf (PrimalOf ranked r y) ~ BooleanOf (ranked r 0)
-      , BooleanOf (ranked r 0) ~ BooleanOf (PrimalOf ranked r y) )
-      => BooleanMatchesXR ranked r (y :: Nat) where
-instance
-      ( Boolean (BooleanOf (ranked r y))
-      , BooleanOf (PrimalOf ranked r y) ~ BooleanOf (ranked r 0)
-      , BooleanOf (ranked r 0) ~ BooleanOf (PrimalOf ranked r y) )
-      => BooleanMatchesXR ranked r y where
-
-class ( BooleanOf (RankedOf shaped r 0) ~ BooleanOf (IntOf shaped r)
-      , BooleanOf (IntOf shaped r) ~ BooleanOf (RankedOf shaped r 0) )
-      => BooleanMatchesS shaped r where
-instance
-      ( BooleanOf (RankedOf shaped r 0) ~ BooleanOf (IntOf shaped r)
-      , BooleanOf (IntOf shaped r) ~ BooleanOf (RankedOf shaped r 0) )
-      => BooleanMatchesS shaped r where
-
 class ( EqB (PrimalOf shaped r y)
       , OrdB (PrimalOf shaped r y) )
-      => BooleanMatchesYS shaped r (y :: [Nat]) where
+      => BooleanMatchesYS shaped r y where
 instance
       ( EqB (PrimalOf shaped r y)
       , OrdB (PrimalOf shaped r y) )
       => BooleanMatchesYS shaped r y where
 
-class ( BooleanOf (PrimalOf shaped r y) ~ BooleanOf (RankedOf shaped r 0)
-      , BooleanOf (RankedOf shaped r 0) ~ BooleanOf (PrimalOf shaped r y) )
-      => BooleanMatchesXS shaped r (y :: [Nat]) where
+class ( Boolean (BooleanOf (ranked r y)) )
+      => BooleanMatchesXR ranked r y where
 instance
-      ( BooleanOf (PrimalOf shaped r y) ~ BooleanOf (RankedOf shaped r 0)
-      , BooleanOf (RankedOf shaped r 0) ~ BooleanOf (PrimalOf shaped r y) )
-      => BooleanMatchesXS shaped r y where
+      ( Boolean (BooleanOf (ranked r y)) )
+      => BooleanMatchesXR ranked r y where
 
-class (forall rb. c ranked rb)
-      => CRanked2 ranked c where
+class ( BooleanOf (PrimalOf ranked r y) ~ BooleanOf (ranked r2 0)
+      , BooleanOf (ranked r2 0) ~ BooleanOf (PrimalOf ranked r y) )
+      => BooleanMatchesXR8 ranked r r2 y where
 instance
-      (forall rb. c ranked rb)
-      => CRanked2 ranked c where
+      ( BooleanOf (PrimalOf ranked r y) ~ BooleanOf (ranked r2 0)
+      , BooleanOf (ranked r2 0) ~ BooleanOf (PrimalOf ranked r y) )
+      => BooleanMatchesXR8 ranked r r2 y where
 
 class (forall rc yc. (GoodScalar rc, KnownNat yc) => c ranked rc yc)
       => CRankedY2 ranked c where
@@ -255,11 +236,29 @@ instance
       (forall rc yc. (GoodScalar rc, KnownNat yc) => c ranked rc yc)
       => CRankedY2 ranked c where
 
+class (forall re. c ranked re)
+      => CRanked ranked c where
+instance
+      (forall re. c ranked re)
+      => CRanked ranked c where
+
 class (forall re ye. c ranked re ye)
       => CRankedX2 ranked c where
 instance
       (forall re ye. c ranked re ye)
       => CRankedX2 ranked c where
+
+class (forall re re2. c ranked re re2)
+      => CRankedX4 ranked c where
+instance
+      (forall re re2. c ranked re re2)
+      => CRankedX4 ranked c where
+
+class (forall re re2 ye. c ranked re re2 ye)
+      => CRankedX8 ranked c where
+instance
+      (forall re re2 ye. c ranked re re2 ye)
+      => CRankedX8 ranked c where
 
 class (forall rd yd. (GoodScalar rd, OS.Shape yd) => c shaped rd yd)
       => CShapedY2 shaped c where
@@ -267,34 +266,36 @@ instance
       (forall rd yd. (GoodScalar rd, OS.Shape yd) => c shaped rd yd)
       => CShapedY2 shaped c where
 
-class (forall rd yd. c shaped rd yd)
-      => CShapedX2 shaped c where
-instance
-      (forall rd yd. c shaped rd yd)
-      => CShapedX2 shaped c where
-
 type InterpretAstR ranked =
-  ( CRanked2 ranked BooleanMatches
+  ( EqB (IntOf ranked)
+  , OrdB (IntOf ranked)
+  , IfB (IntOf ranked)
+  , IntOf ranked ~ IntOf (ShapedOf ranked)
+  , IntOf (ShapedOf ranked) ~ IntOf ranked
+  , IntOf ranked ~ IntOf (PrimalOf ranked)
+  , IntOf (PrimalOf ranked) ~ IntOf ranked
   , CRankedY2 ranked BooleanMatchesYR
   , CRankedX2 ranked BooleanMatchesXR
+  , CRankedX2 ranked BooleanMatchesR2
+  , CRankedX8 ranked BooleanMatchesXR8
+  , CRanked ranked BooleanMatchesR
   )
 
 type InterpretAstS shaped =
-  ( CRanked2 shaped BooleanMatches
-  , CRanked2 shaped BooleanMatchesS
+  ( EqB (IntOf shaped)
+  , OrdB (IntOf shaped)
+  , IfB (IntOf shaped)
+  , IntOf shaped ~ IntOf (PrimalOf shaped)
+  , IntOf (PrimalOf shaped) ~ IntOf shaped
   , CShapedY2 shaped BooleanMatchesYS
-  , CShapedX2 shaped BooleanMatchesXS
   )
 
-type InterpretAst ranked r =
+type InterpretAst ranked =
   ( Tensor ranked, Tensor (PrimalOf ranked)
   , ShapedTensor (ShapedOf ranked), ShapedTensor (PrimalOf (ShapedOf ranked))
   , ConvertTensor ranked (ShapedOf ranked)
   , InterpretAstR ranked
   , InterpretAstS (ShapedOf ranked)
-  -- TODO: why are any of the below needed?
-  , IntOf ranked r ~ IntOf (ShapedOf ranked) r
-  , IntOf (ShapedOf ranked) r ~ IntOf ranked r
   )
 
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
@@ -306,7 +307,7 @@ type InterpretAst ranked r =
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
   :: forall ranked n r.
-     (KnownNat n, InterpretAst ranked r, GoodScalar r)
+     (KnownNat n, InterpretAst ranked, GoodScalar r)
   => AstEnv ranked
   -> AstPrimalPart r n -> PrimalOf ranked r n
 interpretAstPrimal env (AstPrimalPart v1) = case v1 of
@@ -315,7 +316,7 @@ interpretAstPrimal env (AstPrimalPart v1) = case v1 of
 
 interpretAstDual
   :: forall ranked n r.
-     (KnownNat n, InterpretAst ranked r, GoodScalar r)
+     (KnownNat n, InterpretAst ranked, GoodScalar r)
   => AstEnv ranked
   -> AstDualPart r n -> DualOf ranked r n
 interpretAstDual env (AstDualPart v1) = case v1 of
@@ -324,7 +325,7 @@ interpretAstDual env (AstDualPart v1) = case v1 of
 
 interpretAst
   :: forall ranked n r.
-     (KnownNat n, InterpretAst ranked r, GoodScalar r)
+     (KnownNat n, InterpretAst ranked, GoodScalar r)
   => AstEnv ranked
   -> AstRanked r n -> ranked r n
 interpretAst env = \case
@@ -616,7 +617,7 @@ interpretAst env = \case
 
 interpretAstDynamic
   :: forall ranked r.
-     (InterpretAst ranked r, GoodScalar r)
+     (InterpretAst ranked, GoodScalar r)
   => AstEnv ranked
   -> AstDynamic r -> DynamicOf ranked r
 interpretAstDynamic env = \case
@@ -625,7 +626,7 @@ interpretAstDynamic env = \case
 
 interpretAstDomains
   :: forall ranked r.
-     (InterpretAst ranked r, GoodScalar r)
+     (InterpretAst ranked, GoodScalar r)
   => AstEnv ranked
   -> AstDomains r -> Domains (DynamicOf ranked) r
 interpretAstDomains env = \case
@@ -641,16 +642,11 @@ interpretAstDomains env = \case
     in interpretAstDomains env2 v
       -- TODO: preserve let, as in AstLet case
 
-interpretAstInt :: forall ranked r.
-                   (InterpretAst ranked r, GoodScalar r)
-                => AstEnv ranked
-                -> AstInt r -> IntOf ranked r
+interpretAstInt :: InterpretAst ranked
+                => AstEnv ranked -> AstInt -> IntOf ranked
 interpretAstInt env = \case
   AstIntVar var -> case EM.lookup var env of
-    Just (AstEnvElemI @_ @r2 i) ->
-      case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> i
-        _ -> error "interpretAstInt: type mismatch"
+    Just (AstEnvElemI i) -> i
     Just _ ->
       error $ "interpretAstInt: type mismatch for " ++ show var
     Nothing -> error $ "interpretAstInt: unknown variable " ++ show var
@@ -672,10 +668,8 @@ interpretAstInt env = \case
   AstMaxIndex1S v -> ShapedList.unShapedNat . smaxIndex0
                      $ interpretAstPrimalS env v
 
-interpretAstBool :: forall ranked r.
-                    (InterpretAst ranked r, GoodScalar r)
-                 => AstEnv ranked
-                 -> AstBool r -> BooleanOf (ranked r 0)
+interpretAstBool :: InterpretAst ranked
+                 => AstEnv ranked -> AstBool -> BooleanOf (ranked () 0)
 interpretAstBool env = \case
   AstBoolOp opCodeBool args ->
     let args2 = interpretAstBool env <$> args
@@ -693,7 +687,7 @@ interpretAstBool env = \case
 
 interpretAstDynamicDummy
   :: forall ranked r.
-     (InterpretAst ranked r, GoodScalar r)
+     (InterpretAst ranked, GoodScalar r)
   => AstEnv ranked
   -> AstDynamic r -> DynamicOf ranked r
 interpretAstDynamicDummy env = \case
@@ -704,7 +698,7 @@ interpretAstDynamicDummy env = \case
 
 interpretAstDomainsDummy
   :: forall ranked r.
-     (InterpretAst ranked r, GoodScalar r)
+     (InterpretAst ranked, GoodScalar r)
   => AstEnv ranked
   -> AstDomains r -> Domains (DynamicOf ranked) r
 interpretAstDomainsDummy env = \case
@@ -796,7 +790,7 @@ interpretAstRelOp opCodeRel args =
 
 interpretAstPrimalS
   :: forall ranked shaped sh r.
-     ( OS.Shape sh, shaped ~ ShapedOf ranked, ShapedOf ranked ~ shaped, ranked ~ RankedOf shaped, RankedOf shaped ~ ranked, InterpretAst ranked r, GoodScalar r )
+     ( OS.Shape sh, shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped, InterpretAst ranked, GoodScalar r )
   => AstEnv ranked
   -> AstPrimalPartS r sh -> PrimalOf shaped r sh
 interpretAstPrimalS env (AstPrimalPartS v1) = case v1 of
@@ -805,7 +799,7 @@ interpretAstPrimalS env (AstPrimalPartS v1) = case v1 of
 
 interpretAstDualS
   :: forall ranked shaped sh r.
-     ( OS.Shape sh, shaped ~ ShapedOf ranked, ShapedOf ranked ~ shaped, ranked ~ RankedOf shaped, RankedOf shaped ~ ranked, InterpretAst ranked r, GoodScalar r )
+     ( OS.Shape sh, shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped, InterpretAst ranked, GoodScalar r )
   => AstEnv ranked
   -> AstDualPartS r sh -> DualOf shaped r sh
 interpretAstDualS env (AstDualPartS v1) = case v1 of
@@ -814,7 +808,7 @@ interpretAstDualS env (AstDualPartS v1) = case v1 of
 
 interpretAstS
   :: forall ranked shaped sh r.
-     ( OS.Shape sh, shaped ~ ShapedOf ranked, ShapedOf ranked ~ shaped, ranked ~ RankedOf shaped, RankedOf shaped ~ ranked, InterpretAst ranked r, GoodScalar r )
+     ( OS.Shape sh, shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped, InterpretAst ranked, GoodScalar r )
   => AstEnv ranked
   -> AstShaped r sh -> shaped r sh
 interpretAstS env = \case
@@ -1238,52 +1232,28 @@ interpretAstS env = \case
 
 {-# SPECIALIZE interpretAstInt
   :: AstEnv (ADVal (Flip OR.Array))
-  -> AstInt Double
-  -> CInt #-}
-{-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal (Flip OR.Array))
-  -> AstInt Float
+  -> AstInt
   -> CInt #-}
 {-# SPECIALIZE interpretAstInt
   :: AstEnv (ADVal AstRanked)
-  -> AstInt Double
-  -> AstInt Double #-}
-{-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal AstRanked)
-  -> AstInt Float
-  -> AstInt Float #-}
+  -> AstInt
+  -> AstInt #-}
 {-# SPECIALIZE interpretAstInt
   :: AstEnv (Flip OR.Array)
-  -> AstInt Double
-  -> CInt #-}
-{-# SPECIALIZE interpretAstInt
-  :: AstEnv (Flip OR.Array)
-  -> AstInt Float
+  -> AstInt
   -> CInt #-}
 
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal (Flip OR.Array))
-  -> AstBool Double
-  -> Bool #-}
-{-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal (Flip OR.Array))
-  -> AstBool Float
+  -> AstBool
   -> Bool #-}
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal AstRanked)
-  -> AstBool Double
-  -> AstBool Double #-}
-{-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal AstRanked)
-  -> AstBool Float
-  -> AstBool Float #-}
+  -> AstBool
+  -> AstBool #-}
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (Flip OR.Array)
-  -> AstBool Double
-  -> Bool #-}
-{-# SPECIALIZE interpretAstBool
-  :: AstEnv (Flip OR.Array)
-  -> AstBool Float
+  -> AstBool
   -> Bool #-}
 
 {-# SPECIALIZE interpretAstDynamicDummy
@@ -1323,16 +1293,14 @@ interpretAstS env = \case
 {-# SPECIALIZE interpretAstIntOp
   :: OpCodeInt -> [Int] -> Int #-}
 {-# SPECIALIZE interpretAstIntOp
-  :: OpCodeInt -> [AstInt Double] -> AstInt Double #-}
-{-# SPECIALIZE interpretAstIntOp
-  :: OpCodeInt -> [AstInt Float] -> AstInt Float #-}
+  :: OpCodeInt -> [AstInt] -> AstInt #-}
 
 {-# SPECIALIZE interpretAstBoolOp
   :: OpCodeBool -> [Bool] -> Bool #-}
 {-# SPECIALIZE interpretAstBoolOp
-  :: OpCodeBool -> [AstBool Double] -> AstBool Double #-}
+  :: OpCodeBool -> [AstBool Double] -> AstBool #-}
 {-# SPECIALIZE interpretAstBoolOp
-  :: OpCodeBool -> [AstBool Float] -> AstBool Float #-}
+  :: OpCodeBool -> [AstBool Float] -> AstBool #-}
 -}
 
 {-# SPECIALIZE interpretAstRelOp
@@ -1341,14 +1309,12 @@ interpretAstS env = \case
   :: OpCodeRel -> [Flip OR.Array Float n] -> Bool #-}
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n
-  => OpCodeRel -> [AstRanked Double n] -> AstBool Double #-}
+  => OpCodeRel -> [AstRanked Double n] -> AstBool #-}
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n
-  => OpCodeRel -> [AstRanked Float n] -> AstBool Float #-}
+  => OpCodeRel -> [AstRanked Float n] -> AstBool #-}
 
 {-# SPECIALIZE interpretAstRelOp
   :: OpCodeRel -> [CInt] -> Bool #-}
 {-# SPECIALIZE interpretAstRelOp
-  :: OpCodeRel -> [AstInt Double] -> AstBool Double #-}
-{-# SPECIALIZE interpretAstRelOp
-  :: OpCodeRel -> [AstInt Float] -> AstBool Float #-}
+  :: OpCodeRel -> [AstInt] -> AstBool #-}

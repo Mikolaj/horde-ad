@@ -33,7 +33,7 @@ type instance RankedOf (Clown AstDynamic) = AstRanked
 
 type instance ShapedOf (Clown AstDynamic) = AstShaped
 
-type instance IntOf AstRanked r = AstInt r
+type instance IntOf AstRanked = AstInt
 
 type instance PrimalOf AstRanked = AstPrimalPart
 
@@ -172,10 +172,10 @@ astDomainsLetFun a f =
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
 astBuild1Vectorize :: (KnownNat n, GoodScalar r)
-                   => Int -> (AstInt r -> AstRanked r n) -> AstRanked r (1 + n)
+                   => Int -> (AstInt -> AstRanked r n) -> AstRanked r (1 + n)
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
-type instance IntOf AstPrimalPart r = AstInt r
+type instance IntOf AstPrimalPart = AstInt
 
 type instance PrimalOf AstPrimalPart = AstPrimalPart
 
@@ -226,7 +226,7 @@ instance Tensor AstPrimalPart where
   tD u _ = u
   tScale _ _ = DummyDual
 
-type instance IntOf AstNoVectorize r = AstInt r
+type instance IntOf AstNoVectorize = AstInt
 
 type instance PrimalOf AstNoVectorize = AstNoVectorize
 
@@ -280,7 +280,7 @@ instance Tensor AstNoVectorize where
   tD u u' = AstNoVectorize $ AstD (AstPrimalPart $ unAstNoVectorize u) u'
   tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-type instance IntOf AstNoSimplify r = AstInt r
+type instance IntOf AstNoSimplify = AstInt
 
 type instance PrimalOf AstNoSimplify = AstNoSimplify
 
@@ -341,7 +341,7 @@ astLetFunUnSimp a f =
       (AstVarName var, ast) = funToAstR sh f
   in AstLet var a ast
 
-type instance IntOf AstShaped r = AstInt r
+type instance IntOf AstShaped = AstInt
 
 type instance PrimalOf AstShaped = AstPrimalPartS
 
@@ -429,7 +429,7 @@ astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r)
 astBuild1VectorizeS f =
   build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)
 
-type instance IntOf AstPrimalPartS r = AstInt r
+type instance IntOf AstPrimalPartS = AstInt
 
 type instance PrimalOf AstPrimalPartS = AstPrimalPartS
 

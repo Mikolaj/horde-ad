@@ -517,7 +517,7 @@ astSlice i n w@(Ast.AstAppend (u :: AstRanked r (1 + k)) (v :: AstRanked r (1 + 
         | otherwise -> Ast.AstSlice @k i n w  -- cheap iff fits in one
 astSlice i n (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
   let ivar = AstIntOp PlusIntOp [AstIntVar var, AstIntConst i]
-      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt @r ivar) var) ix
+      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt ivar) var) ix
   in astGatherR (n :$ sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
 
@@ -537,7 +537,7 @@ astReverse (Ast.AstReplicate k v) = Ast.AstReplicate k v
 astReverse (Ast.AstReverse v) = v
 astReverse (Ast.AstGather sh@(k :$ _) v (var ::: vars, ix)) =
   let ivar = AstIntOp Ast.MinusIntOp [AstIntConst k, AstIntVar var]
-      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt @r ivar) var) ix
+      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt ivar) var) ix
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
@@ -832,7 +832,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
       -- TODO: we need integer let to preserve sharing while substituting here:
-      let subst :: AstIndex r m7 -> AstVarList m7 -> AstInt r -> AstInt r
+      let subst :: AstIndex r m7 -> AstVarList m7 -> AstInt -> AstInt
           subst ix vars i =
             foldr (uncurry substituteAstInt) i
                   (zipSized (fmap SubstitutionPayloadInt
@@ -863,7 +863,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       let (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
             foldr (uncurry substituteAstInt) i
-                  (zipSized (fmap (SubstitutionPayloadInt @r)
+                  (zipSized (fmap SubstitutionPayloadInt
                              $ indexToSizedList ixFresh) vars4)
           ix5 = fmap subst ix4
       in Ast.AstD (AstPrimalPart $ astGatherRec sh4 u (vars4, ix4))
@@ -950,7 +950,7 @@ astFromDynamicS (AstRToD @n2 v) =
 -- matching on @i1@ as opposed to on @v@.
 gatherSimplify
   :: (KnownNat n, GoodScalar r)
-  => Int -> AstVarId -> AstRanked r (1 + n) -> AstInt r
+  => Int -> AstVarId -> AstRanked r (1 + n) -> AstInt
   -> Maybe (AstRanked r (1 + n))
 gatherSimplify k var v0 i1 =
   case i1 of
@@ -1004,7 +1004,7 @@ astDomainsLet var u v | astIsSmall True u =
   -- terms with one step lookahead, as normally when vectorizing
 astDomainsLet var u v = Ast.AstDomainsLet var u v
 
-astIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
+astIntCond :: AstBool -> AstInt -> AstInt -> AstInt
 astIntCond (AstBoolConst b) v w = if b then v else w
 astIntCond b v w = Ast.AstIntCond b v w
 
@@ -1194,9 +1194,7 @@ inlineAstDomains memo v0 = case v0 of
            , substitute1AstDomains (SubstitutionPayloadShaped u0) var v2 )
       _ -> (memo2, Ast.AstDomainsLetS var u2 v2)
 
-inlineAstInt :: GoodScalar r
-             => AstMemo
-             -> AstInt r -> (AstMemo, AstInt r)
+inlineAstInt :: AstMemo -> AstInt -> (AstMemo, AstInt)
 inlineAstInt memo v0 = case v0 of
   AstIntVar{} -> (memo, v0)
   AstIntOp opCodeInt args ->
@@ -1223,9 +1221,7 @@ inlineAstInt memo v0 = case v0 of
   Ast.AstMinIndex1S v -> second Ast.AstMinIndex1S $ inlineAstPrimalS memo v
   Ast.AstMaxIndex1S v -> second Ast.AstMaxIndex1S $ inlineAstPrimalS memo v
 
-inlineAstBool :: forall r. GoodScalar r
-              => AstMemo
-              -> AstBool r -> (AstMemo, AstBool r)
+inlineAstBool :: AstMemo -> AstBool -> (AstMemo, AstBool)
 inlineAstBool memo v0 = case v0 of
   Ast.AstBoolOp opCodeBool args ->
     let (memo2, args2) = mapAccumR inlineAstBool memo args
@@ -1460,8 +1456,7 @@ unletAstDomains env = \case
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether
 -- a tensor terms can be simplified in turn.
-unletAstInt :: GoodScalar r
-            => UnletEnv -> AstInt r -> AstInt r
+unletAstInt :: UnletEnv -> AstInt -> AstInt
 unletAstInt env t = case t of
   AstIntVar{} -> t
   AstIntOp opCodeInt args ->
@@ -1477,8 +1472,7 @@ unletAstInt env t = case t of
   Ast.AstMinIndex1S v -> Ast.AstMinIndex1S $ unletAstPrimalS env v
   Ast.AstMaxIndex1S v -> Ast.AstMaxIndex1S $ unletAstPrimalS env v
 
-unletAstBool :: GoodScalar r
-             => UnletEnv -> AstBool r -> AstBool r
+unletAstBool :: UnletEnv -> AstBool -> AstBool
 unletAstBool env t = case t of
   Ast.AstBoolOp opCodeBool args ->
     Ast.AstBoolOp opCodeBool (map (unletAstBool env) args)
@@ -1650,8 +1644,7 @@ simplifyAstDomains = \case
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether
 -- a tensor terms can be simplified in turn.
-simplifyAstInt :: GoodScalar r
-               => AstInt r -> AstInt r
+simplifyAstInt :: AstInt -> AstInt
 simplifyAstInt t = case t of
   AstIntVar{} -> t
   AstIntOp opCodeInt args ->
@@ -1667,8 +1660,7 @@ simplifyAstInt t = case t of
   Ast.AstMinIndex1S v -> Ast.AstMinIndex1S $ simplifyAstPrimalS v
   Ast.AstMaxIndex1S v -> Ast.AstMaxIndex1S $ simplifyAstPrimalS v
 
-simplifyAstBool :: GoodScalar r
-                => AstBool r -> AstBool r
+simplifyAstBool :: AstBool -> AstBool
 simplifyAstBool t = case t of
   Ast.AstBoolOp opCodeBool args ->
     simplifyAstBoolOp opCodeBool (map simplifyAstBool args)
@@ -1690,7 +1682,7 @@ simplifyAstBool t = case t of
 -- or that would duplicate a non-constant term, as well as most rules
 -- informed by inequalities, expressed via max or min, such as
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
-simplifyAstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
+simplifyAstIntOp :: OpCodeInt -> [AstInt] -> AstInt
 simplifyAstIntOp PlusIntOp [AstIntConst u, AstIntConst v] = AstIntConst $ u + v
 simplifyAstIntOp PlusIntOp [AstIntConst 0, v] = v
 simplifyAstIntOp PlusIntOp [u, AstIntConst 0] = u
@@ -1846,7 +1838,7 @@ simplifyAstIntOp opCodeInt arg = AstIntOp opCodeInt arg
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right.
-simplifyAstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
+simplifyAstBoolOp :: OpCodeBool -> [AstBool] -> AstBool
 simplifyAstBoolOp NotOp [AstBoolConst b] = AstBoolConst $ not b
 simplifyAstBoolOp AndOp [AstBoolConst True, b] = b
 simplifyAstBoolOp AndOp [AstBoolConst False, _b] = AstBoolConst False
@@ -1858,7 +1850,7 @@ simplifyAstBoolOp OrOp [_b, AstBoolConst True] = AstBoolConst True
 simplifyAstBoolOp OrOp [b, AstBoolConst False] = b
 simplifyAstBoolOp opCodeBool arg = Ast.AstBoolOp opCodeBool arg
 
-simplifyRelIntOp :: OpCodeRel -> [AstInt r] -> AstBool r
+simplifyRelIntOp :: OpCodeRel -> [AstInt] -> AstBool
 simplifyRelIntOp EqOp [AstIntConst u, AstIntConst v] = AstBoolConst $ u == v
 simplifyRelIntOp NeqOp [AstIntConst u, AstIntConst v] = AstBoolConst $ u /= v
 simplifyRelIntOp LeqOp [AstIntConst u, AstIntConst v] = AstBoolConst $ u <= v
@@ -2037,7 +2029,7 @@ astReverseS (Ast.AstReplicateS v) = Ast.AstReplicateS v
 astReverseS (Ast.AstReverseS v) = v
 astReverseS (Ast.AstGatherS v ((:$:) @k var vars, ix)) =
   let ivar = AstIntOp Ast.MinusIntOp [AstIntConst (valueOf @k), AstIntVar var]
-      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt @r ivar) var) ix
+      ix2 = fmap (substituteAstInt (SubstitutionPayloadInt ivar) var) ix
   in astGatherS v (var :$: vars, ix2)
 astReverseS v = Ast.AstReverseS v
 
@@ -2066,29 +2058,27 @@ astDomainsLetS var u v | astIsSmallS True u =
 astDomainsLetS var u v = Ast.AstDomainsLetS var u v
 
 -- We have to simplify after substitution or simplifying is not idempotent.
-substituteAst :: forall n r r2. (GoodScalar r, GoodScalar r2, KnownNat n)
-              => SubstitutionPayload r2 -> AstVarId -> AstRanked r n
+substituteAst :: forall n r. (GoodScalar r, KnownNat n)
+              => SubstitutionPayload -> AstVarId -> AstRanked r n
               -> AstRanked r n
 substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
 
 substituteAstDomains
-  :: (GoodScalar r, GoodScalar r2)
-  => SubstitutionPayload r2 -> AstVarId -> AstDomains r
+  :: GoodScalar r
+  => SubstitutionPayload -> AstVarId -> AstDomains r
   -> AstDomains r
 substituteAstDomains i var v1 =
   simplifyAstDomains $ substitute1AstDomains i var v1
 
-substituteAstInt :: (GoodScalar r, GoodScalar r2)
-                 => SubstitutionPayload r2 -> AstVarId -> AstInt r
-                 -> AstInt r
+substituteAstInt :: SubstitutionPayload -> AstVarId -> AstInt
+                 -> AstInt
 substituteAstInt i var i2 = simplifyAstInt $ substitute1AstInt i var i2
 
-substituteAstBool :: (GoodScalar r, GoodScalar r2)
-                  => SubstitutionPayload r2 -> AstVarId -> AstBool r
-                  -> AstBool r
+substituteAstBool :: SubstitutionPayload -> AstVarId -> AstBool
+                  -> AstBool
 substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1
 
-substituteAstS :: forall sh r r2. (GoodScalar r, GoodScalar r2, OS.Shape sh)
-               => SubstitutionPayload r2 -> AstVarId -> AstShaped r sh
+substituteAstS :: forall sh r. (GoodScalar r, OS.Shape sh)
+               => SubstitutionPayload -> AstVarId -> AstShaped r sh
                -> AstShaped r sh
 substituteAstS i var v1 = {-simplifyAstS $-} substitute1AstS i var v1

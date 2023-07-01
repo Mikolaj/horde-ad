@@ -95,12 +95,11 @@ build1VOccurenceUnknownRefresh
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIIO id
-  let v2 = substitute1Ast (SubstitutionPayloadInt @r astVarFresh) var v0
+  let v2 = substitute1Ast (SubstitutionPayloadInt astVarFresh) var v0
   return $! build1VOccurenceUnknown k (varFresh, v2)
 
 intBindingRefresh
-  :: GoodScalar r
-  => AstVarId -> AstIndex r n -> (AstVarId, AstInt r, AstIndex r n)
+  :: AstVarId -> AstIndex r n -> (AstVarId, AstInt, AstIndex r n)
 {-# NOINLINE intBindingRefresh #-}
 intBindingRefresh var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIIO id
@@ -374,12 +373,11 @@ build1VOccurenceUnknownRefreshS
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIIO id
-  let v2 = substitute1AstS (SubstitutionPayloadInt @r astVarFresh) var v0
+  let v2 = substitute1AstS (SubstitutionPayloadInt astVarFresh) var v0
   return $! build1VOccurenceUnknownS (varFresh, v2)
 
 intBindingRefreshS
-  :: GoodScalar r
-  => AstVarId -> AstIndexS r sh -> (AstVarId, AstInt r, AstIndexS r sh)
+  :: AstVarId -> AstIndexS r sh -> (AstVarId, AstInt, AstIndexS r sh)
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIIO id

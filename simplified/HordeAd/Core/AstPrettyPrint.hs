@@ -295,7 +295,7 @@ printAstDomains cfg d = \case
              . showString " -> "
              . printAstDomains cfg 0 v0)
 
-printAstInt :: GoodScalar r => PrintConfig -> Int -> AstInt r -> ShowS
+printAstInt :: PrintConfig -> Int -> AstInt -> ShowS
 printAstInt cfg d = \case
   AstIntVar var -> printAstIntVar cfg var
   AstIntOp opCode args -> printAstIntOp cfg d opCode args
@@ -319,7 +319,7 @@ printAstInt cfg d = \case
   AstMaxIndex1S (AstPrimalPartS v) ->
     printPrefixOp printAstS cfg d "smaxIndex0" [v]
 
-printAstBool :: GoodScalar r => PrintConfig -> Int -> AstBool r -> ShowS
+printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
 printAstBool cfg d = \case
   AstBoolOp opCode args -> printAstBoolOp cfg d opCode args
   AstBoolConst b -> showString $ if b then "true" else "false"
@@ -382,8 +382,7 @@ printBinaryOp pr cfg d left (prec, opstr) right =
     . showString opstr
     . pr cfg (prec + 1) right
 
-printAstIntOp :: GoodScalar r
-              => PrintConfig -> Int -> OpCodeInt -> [AstInt r] -> ShowS
+printAstIntOp :: PrintConfig -> Int -> OpCodeInt -> [AstInt] -> ShowS
 printAstIntOp cfg d opCode args = case (opCode, args) of
   (PlusIntOp, [u, v]) -> printBinaryOp printAstInt cfg d u (6, " + ") v
   (MinusIntOp, [u, v]) -> printBinaryOp printAstInt cfg d u (6, " - ") v
@@ -399,7 +398,7 @@ printAstIntOp cfg d opCode args = case (opCode, args) of
                ++ show (opCode, length args)
 
 printAstBoolOp
-  :: GoodScalar r => PrintConfig -> Int -> OpCodeBool -> [AstBool r] -> ShowS
+  :: PrintConfig -> Int -> OpCodeBool -> [AstBool] -> ShowS
 printAstBoolOp cfg d opCode args = case (opCode, args) of
   (NotOp, [u]) -> printPrefixOp printAstBool cfg d "notB" [u]
   (AndOp, [u, v]) -> printBinaryOp printAstBool cfg d u (3, " &&* ") v

@@ -55,7 +55,7 @@ shapeAst v1 = case v1 of
     [] -> error "shapeAst: AstSumOfList with no arguments"
     t : _ -> shapeAst t
   AstIota -> singletonShape (maxBound :: Int)  -- ought to be enough
-  AstIndex v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
+  AstIndex v (_is :: Index m AstInt) -> dropShape @m (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
   AstScatter sh _ _ -> sh
   AstFromList l -> case l of
@@ -140,7 +140,7 @@ intVarInAstDomains var = \case
   AstDomainsLet _var2 u v -> intVarInAst var u || intVarInAstDomains var v
   AstDomainsLetS _var2 u v -> intVarInAstS var u || intVarInAstDomains var v
 
-intVarInAstInt :: AstVarId -> AstInt r -> Bool
+intVarInAstInt :: AstVarId -> AstInt -> Bool
 intVarInAstInt var = \case
   AstIntVar var2 -> var == var2  -- the only int variable not in binder position
   AstIntOp _ l -> any (intVarInAstInt var) l
@@ -154,7 +154,7 @@ intVarInAstInt var = \case
   AstMinIndex1S (AstPrimalPartS v) -> intVarInAstS var v
   AstMaxIndex1S (AstPrimalPartS v) -> intVarInAstS var v
 
-intVarInAstBool :: AstVarId -> AstBool r -> Bool
+intVarInAstBool :: AstVarId -> AstBool -> Bool
 intVarInAstBool var = \case
   AstBoolOp _ l -> any (intVarInAstBool var) l
   AstBoolConst{} -> False
@@ -203,10 +203,12 @@ intVarInIndexS var = any (intVarInAstInt var)
 
 -- * Substitution
 
-data SubstitutionPayload r =
-    SubstitutionPayloadInt (AstInt r)
-  | forall n. KnownNat n => SubstitutionPayloadRanked (AstRanked r n)
-  | forall sh. OS.Shape sh => SubstitutionPayloadShaped (AstShaped r sh)
+data SubstitutionPayload =
+    SubstitutionPayloadInt AstInt
+  | forall r n. (KnownNat n, GoodScalar r)
+                => SubstitutionPayloadRanked (AstRanked r n)
+  | forall r sh. (OS.Shape sh, GoodScalar r)
+                 => SubstitutionPayloadShaped (AstShaped r sh)
 
 -- We assume no variable is shared between a binding and its nested binding
 -- and nobody substitutes into variables that are bound.
@@ -214,19 +216,20 @@ data SubstitutionPayload r =
 -- variables to any variable in the bindings.
 --
 -- The Either is a hack until we merge Ast and AstInt.
-substitute1Ast :: forall n r r2.
-                  (GoodScalar r, GoodScalar r2, KnownNat n)
-               => SubstitutionPayload r2 -> AstVarId -> AstRanked r n
+substitute1Ast :: forall n r.
+                  (GoodScalar r, KnownNat n)
+               => SubstitutionPayload -> AstVarId -> AstRanked r n
                -> AstRanked r n
 substitute1Ast i var v1 = case v1 of
   AstVar sh var2 ->
     if var == var2
     then case i of
-      SubstitutionPayloadRanked @_ @m t -> case sameNat (Proxy @m) (Proxy @n) of
-        Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> assert (shapeAst t == sh) t
-          _ -> error "substitute1Ast: type of payload"
-        _ -> error "substitute1Ast: payload"
+      SubstitutionPayloadRanked @r2 @m t ->
+        case sameNat (Proxy @m) (Proxy @n) of
+          Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+            Just Refl -> assert (shapeAst t == sh) t
+            _ -> error "substitute1Ast: type of payload"
+          _ -> error "substitute1Ast: payload"
       _ -> error "substitute1Ast: n"
     else v1
   AstLet var2 u v ->
@@ -265,16 +268,16 @@ substitute1Ast i var v1 = case v1 of
                        (substitute1Ast i var v)
 
 substitute1AstDynamic
-  :: (GoodScalar r, GoodScalar r2)
-  => SubstitutionPayload r2 -> AstVarId -> AstDynamic r
+  :: GoodScalar r
+  => SubstitutionPayload -> AstVarId -> AstDynamic r
   -> AstDynamic r
 substitute1AstDynamic i var = \case
   AstRToD t -> AstRToD $ substitute1Ast i var t
   AstSToD t -> AstSToD $ substitute1AstS i var t
 
 substitute1AstDomains
-  :: (GoodScalar r, GoodScalar r2)
-  => SubstitutionPayload r2 -> AstVarId -> AstDomains r
+  :: GoodScalar r
+  => SubstitutionPayload -> AstVarId -> AstDomains r
   -> AstDomains r
 substitute1AstDomains i var = \case
   AstDomains l -> AstDomains $ V.map (substitute1AstDynamic i var) l
@@ -285,16 +288,12 @@ substitute1AstDomains i var = \case
     AstDomainsLetS var2 (substitute1AstS i var u)
                         (substitute1AstDomains i var v)
 
-substitute1AstInt :: forall r r2. (GoodScalar r, GoodScalar r2)
-                  => SubstitutionPayload r2 -> AstVarId -> AstInt r
-                  -> AstInt r
+substitute1AstInt :: SubstitutionPayload -> AstVarId -> AstInt
+                  -> AstInt
 substitute1AstInt i var i2 = case i2 of
   AstIntVar var2 ->
     if var == var2 then case i of
-      SubstitutionPayloadInt t ->
-        case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> t
-          _ -> error "substitute1AstInt: type of payload"
+      SubstitutionPayloadInt t -> t
       _ -> error "substitute1AstInt: payload"
     else i2
   AstIntOp opCodeInt args ->
@@ -316,9 +315,8 @@ substitute1AstInt i var i2 = case i2 of
   AstMaxIndex1S (AstPrimalPartS v) ->
     AstMaxIndex1S $ AstPrimalPartS $ substitute1AstS i var v
 
-substitute1AstBool :: (GoodScalar r, GoodScalar r2)
-                   => SubstitutionPayload r2 -> AstVarId -> AstBool r
-                   -> AstBool r
+substitute1AstBool :: SubstitutionPayload -> AstVarId -> AstBool
+                   -> AstBool
 substitute1AstBool i var b1 = case b1 of
   AstBoolOp opCodeBool args ->
     AstBoolOp opCodeBool $ map (substitute1AstBool i var) args
@@ -332,15 +330,15 @@ substitute1AstBool i var b1 = case b1 of
   AstRelInt opCodeRel args ->
     AstRelInt opCodeRel $ map (substitute1AstInt i var) args
 
-substitute1AstS :: forall sh r r2.
-                   (GoodScalar r, GoodScalar r2, OS.Shape sh)
-                => SubstitutionPayload r2 -> AstVarId -> AstShaped r sh
+substitute1AstS :: forall sh r.
+                   (GoodScalar r, OS.Shape sh)
+                => SubstitutionPayload -> AstVarId -> AstShaped r sh
                 -> AstShaped r sh
 substitute1AstS i var v1 = case v1 of
   AstVarS var2 ->
     if var == var2
     then case i of
-      SubstitutionPayloadShaped @_ @sh2 t -> case sameShape @sh2 @sh of
+      SubstitutionPayloadShaped @r2 @sh2 t -> case sameShape @sh2 @sh of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
           Just Refl -> t
           _ -> error "substitute1AstS: type of payload"

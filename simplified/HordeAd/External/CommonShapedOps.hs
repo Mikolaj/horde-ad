@@ -203,10 +203,9 @@ within0S
   => IndexOf shaped r (OS.Rank shOut)
        -- the indexes may be outside shOut and even negative (e.g., for
        -- convolutions with padding)
-  -> BooleanOf (IntOf shaped r)
+  -> BooleanOf (IntOf shaped)
 within0S ix =
-  let within :: IntOf shaped r -> IntOf shaped r
-             -> BooleanOf (IntOf shaped r)
+  let within :: IntOf shaped -> IntOf shaped -> BooleanOf (IntOf shaped)
       within i dim = 0 <=* i &&* dim >* i
   in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ OS.shapeT @shOut)

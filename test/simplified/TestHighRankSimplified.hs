@@ -127,7 +127,7 @@ testFooBuild0 =
 fooBuildOut
   :: forall ranked r n.
      ( ADReady ranked r, KnownNat n
-     , IfB (ranked r n), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r n) )
+     , IfB (ranked r n), BooleanOf (IntOf ranked) ~ BooleanOf (ranked r n) )
   => ranked r (1 + n) -> ranked r (1 + n)
 fooBuildOut v =
   tbuild1 2 $ \ix -> ifB (ix ==* 0)
@@ -143,7 +143,7 @@ testFooBuildOut =
 fooBuild2
   :: forall ranked r n.
      ( ADReady ranked r, KnownNat n, Floating (ranked r n)
-     , IfB (ranked r n), BooleanOf (IntOf ranked r) ~ BooleanOf (ranked r n) )
+     , IfB (ranked r n), BooleanOf (IntOf ranked) ~ BooleanOf (ranked r n) )
   => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild2 v =
   tbuild1 2 $ \ix ->
@@ -344,7 +344,7 @@ testNestedBuildMap7 =
 nestedSumBuild
   :: forall ranked n r.
      ( ADReady ranked r, n <= 4, KnownNat n
-     , BooleanOf (ranked r n) ~ BooleanOf (IntOf ranked r), IfB (ranked r n) )
+     , BooleanOf (ranked r n) ~ BooleanOf (IntOf ranked), IfB (ranked r n) )
   => ranked r n -> ranked r (2 + n)
 nestedSumBuild v =
   tbuild1 13 $ \ix1 -> tbuild1 4 $ \ix2 ->
@@ -490,7 +490,7 @@ testRecycled1 =
     (rev' @Double @7 recycled (treplicate0N [5, 4, 2] 0.0002))
 
 concatBuild :: ( ADReady ranked r, KnownNat n, OrdB (ranked r (1 + n))
-               , BooleanOf (ranked r (1 + n)) ~ BooleanOf (IntOf ranked r) )
+               , BooleanOf (ranked r (1 + n)) ~ BooleanOf (IntOf ranked) )
             => ranked r (1 + n) -> ranked r (3 + n)
 concatBuild r =
   tbuild1 7 (\i ->

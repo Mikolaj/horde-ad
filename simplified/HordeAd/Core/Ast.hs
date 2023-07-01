@@ -1,4 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
@@ -80,15 +81,15 @@ type ADAstVarNames f r y = (AstVarName (f r y), [AstDynamicVarName r])
 type ADAstArtifact6 f r y =
   (ADAstVarNames f r y, AstDomains r, AstOf f r y)
 
-type AstIndex r n = Index n (AstInt r)
+type AstIndex r n = Index n AstInt
 
 type AstVarList n = SizedList n AstVarId
 
-type AstIndexS r sh = ShapedList sh (AstInt r)
+type AstIndexS r sh = ShapedList sh AstInt
 
 type AstVarListS sh = ShapedList sh AstVarId
 
--- We use here @ShapeInt@ for simplicity. @Shape n (AstInt r)@ gives
+-- We use here @ShapeInt@ for simplicity. @Shape n AstInt@ gives
 -- more expressiveness, but leads to irregular tensors,
 -- especially after vectorization, and prevents statically known shapes.
 
@@ -281,28 +282,34 @@ data AstDynamicVarName :: Type -> Type where
 deriving instance GoodScalar r => Show (AstDynamicVarName r)
 
 -- The argument is the underlying scalar.
-data AstInt :: Type -> Type where
-  AstIntVar :: AstVarId -> AstInt r
-  AstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
-  AstIntConst :: Int -> AstInt r
-  AstIntFloor :: AstPrimalPart r 0 -> AstInt r
-  AstIntFloorS :: AstPrimalPartS r '[] -> AstInt r
-  AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
-  AstMinIndex1 :: AstPrimalPart r 1 -> AstInt r
-  AstMaxIndex1 :: AstPrimalPart r 1 -> AstInt r
-  AstMinIndex1S :: KnownNat n => AstPrimalPartS r '[n] -> AstInt r
-  AstMaxIndex1S :: KnownNat n => AstPrimalPartS r '[n] -> AstInt r
-deriving instance GoodScalar r => Show (AstInt r)
+data AstInt where
+  AstIntVar :: AstVarId -> AstInt
+  AstIntOp :: OpCodeInt -> [AstInt] -> AstInt
+  AstIntConst :: Int -> AstInt
+  AstIntFloor :: GoodScalar r
+              => AstPrimalPart r 0 -> AstInt
+  AstIntFloorS :: GoodScalar r
+               => AstPrimalPartS r '[] -> AstInt
+  AstIntCond :: AstBool -> AstInt -> AstInt -> AstInt
+  AstMinIndex1 :: GoodScalar r
+               => AstPrimalPart r 1 -> AstInt
+  AstMaxIndex1 :: GoodScalar r
+               => AstPrimalPart r 1 -> AstInt
+  AstMinIndex1S :: (KnownNat n, GoodScalar r)
+                => AstPrimalPartS r '[n] -> AstInt
+  AstMaxIndex1S :: (KnownNat n, GoodScalar r)
+                => AstPrimalPartS r '[n] -> AstInt
+deriving instance Show AstInt
 
-data AstBool :: Type -> Type where
-  AstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
-  AstBoolConst :: Bool -> AstBool r
-  AstRel :: KnownNat n
-         => OpCodeRel -> [AstPrimalPart r n] -> AstBool r
-  AstRelS :: OS.Shape sh
-          => OpCodeRel -> [AstPrimalPartS r sh] -> AstBool r
-  AstRelInt :: OpCodeRel -> [AstInt r] -> AstBool r
-deriving instance GoodScalar r => Show (AstBool r)
+data AstBool where
+  AstBoolOp :: OpCodeBool -> [AstBool] -> AstBool
+  AstBoolConst :: Bool -> AstBool
+  AstRel :: (KnownNat n, GoodScalar r)
+         => OpCodeRel -> [AstPrimalPart r n] -> AstBool
+  AstRelS :: (OS.Shape sh, GoodScalar r)
+          => OpCodeRel -> [AstPrimalPartS r sh] -> AstBool
+  AstRelInt :: OpCodeRel -> [AstInt] -> AstBool
+deriving instance Show AstBool
 
 -- Copied from the outlining mechanism deleted in
 -- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
@@ -335,17 +342,17 @@ data OpCodeRel =
 
 -- * Unlawful instances of int and bool AST types; they are lawful modulo evaluation
 
-type instance BooleanOf (AstInt r) = AstBool r
+type instance BooleanOf AstInt = AstBool
 
-instance IfB (AstInt r) where
+instance IfB AstInt where
   ifB (AstBoolConst b) v w = if b then v else w  -- common in indexing
   ifB b v w = AstIntCond b v w
 
-instance EqB (AstInt r) where
+instance EqB AstInt where
   v ==* u = AstRelInt EqOp [v, u]
   v /=* u = AstRelInt NeqOp [v, u]
 
-instance OrdB (AstInt r) where
+instance OrdB AstInt where
   AstIntConst u <* AstIntConst v = AstBoolConst $ u < v  -- common in indexing
   v <* u = AstRelInt LsOp [v, u]
   AstIntConst u <=* AstIntConst v = AstBoolConst $ u <= v  -- common in indexing
@@ -355,15 +362,15 @@ instance OrdB (AstInt r) where
   AstIntConst u >=* AstIntConst v = AstBoolConst $ u >= v  -- common in indexing
   v >=* u = AstRelInt GeqOp [v, u]
 
-instance Eq (AstInt r) where
+instance Eq AstInt where
   _ == _ = error "AstInt: can't evaluate terms for Eq"
 
-instance Ord (AstInt r) where
+instance Ord AstInt where
   max u v = AstIntOp MaxIntOp [u, v]
   min u v = AstIntOp MinIntOp [u, v]
   _ <= _ = error "AstInt: can't evaluate terms for Ord"
 
-instance Num (AstInt r) where
+instance Num AstInt where
   AstIntConst u + AstIntConst v = AstIntConst $ u + v  -- common in indexing
   u + v = AstIntOp PlusIntOp [u, v]  -- simplification relies on binary form
   AstIntConst u - AstIntConst v = AstIntConst $ u - v  -- common in indexing
@@ -375,11 +382,11 @@ instance Num (AstInt r) where
   signum v = AstIntOp SignumIntOp [v]
   fromInteger = AstIntConst . fromInteger
 
-instance Real (AstInt r) where
+instance Real AstInt where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance Enum (AstInt r) where
+instance Enum AstInt where
   toEnum = AstIntConst
   fromEnum = undefined  -- do we need to define our own Enum for this?
 
@@ -388,14 +395,14 @@ instance Enum (AstInt r) where
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance Integral (AstInt r) where
+instance Integral AstInt where
   quot u v = AstIntOp QuotIntOp [u, v]
   rem u v = AstIntOp RemIntOp [u, v]
   quotRem u v = (AstIntOp QuotIntOp [u, v], AstIntOp RemIntOp [u, v])
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
 
-instance Boolean (AstBool r) where
+instance Boolean AstBool where
   true = AstBoolConst True
   false = AstBoolConst False
   notB b = AstBoolOp NotOp [b]
@@ -407,7 +414,7 @@ instance Boolean (AstBool r) where
 
 -- * Unlawful boolean package instances of ranked AST types; they are lawful modulo evaluation
 
-type instance BooleanOf (AstRanked r n) = AstBool r
+type instance BooleanOf (AstRanked r n) = AstBool
 
 instance KnownNat n => IfB (AstRanked r n) where
   ifB = astCond
@@ -415,7 +422,7 @@ instance KnownNat n => IfB (AstRanked r n) where
 -- No simplification yet done at this point, so constant boolean unlikely,
 -- but it's a constant time simplification, so no harm done.
 astCond :: KnownNat n
-        => AstBool r -> AstRanked r n -> AstRanked r n -> AstRanked r n
+        => AstBool -> AstRanked r n -> AstRanked r n -> AstRanked r n
 astCond (AstBoolConst b) v w = if b then v else w
 astCond b (AstConstant (AstPrimalPart v)) (AstConstant (AstPrimalPart w)) =
   AstConstant $ AstPrimalPart $ AstIndex (AstFromList [v, w])
@@ -423,29 +430,29 @@ astCond b (AstConstant (AstPrimalPart v)) (AstConstant (AstPrimalPart w)) =
 astCond b v w = AstIndex (AstFromList [v, w])
                          (singletonIndex $ AstIntCond b 0 1)
 
-instance KnownNat n => EqB (AstRanked r n) where
+instance (KnownNat n, GoodScalar r) => EqB (AstRanked r n) where
   v ==* u = AstRel EqOp [AstPrimalPart v, AstPrimalPart u]
   v /=* u = AstRel NeqOp [AstPrimalPart v, AstPrimalPart u]
 
-instance KnownNat n => OrdB (AstRanked r n) where
+instance (KnownNat n, GoodScalar r) => OrdB (AstRanked r n) where
   v <* u = AstRel LsOp [AstPrimalPart v, AstPrimalPart u]
   v <=* u = AstRel LeqOp [AstPrimalPart v, AstPrimalPart u]
   v >* u = AstRel GtOp [AstPrimalPart v, AstPrimalPart u]
   v >=* u = AstRel GeqOp [AstPrimalPart v, AstPrimalPart u]
 
-type instance BooleanOf (AstNoVectorize r n) = AstBool r
+type instance BooleanOf (AstNoVectorize r n) = AstBool
 
 instance KnownNat n => IfB (AstNoVectorize r n) where
   ifB b v w = AstNoVectorize $ astCond b (unAstNoVectorize v)
                                          (unAstNoVectorize w)
 
-instance KnownNat n => EqB (AstNoVectorize r n) where
+instance (KnownNat n, GoodScalar r) => EqB (AstNoVectorize r n) where
   v ==* u = AstRel EqOp [ AstPrimalPart $ unAstNoVectorize v
                         , AstPrimalPart $ unAstNoVectorize u ]
   v /=* u = AstRel NeqOp [ AstPrimalPart $ unAstNoVectorize v
                          , AstPrimalPart $ unAstNoVectorize u ]
 
-instance KnownNat n => OrdB (AstNoVectorize r n) where
+instance (KnownNat n, GoodScalar r) => OrdB (AstNoVectorize r n) where
   v <* u = AstRel LsOp [ AstPrimalPart $ unAstNoVectorize v
                        , AstPrimalPart $ unAstNoVectorize u ]
   v <=* u = AstRel LeqOp [ AstPrimalPart $ unAstNoVectorize v
@@ -455,19 +462,19 @@ instance KnownNat n => OrdB (AstNoVectorize r n) where
   v >=* u = AstRel GeqOp [ AstPrimalPart $ unAstNoVectorize v
                          , AstPrimalPart $ unAstNoVectorize u ]
 
-type instance BooleanOf (AstNoSimplify r n) = AstBool r
+type instance BooleanOf (AstNoSimplify r n) = AstBool
 
 instance KnownNat n => IfB (AstNoSimplify r n) where
   ifB b v w = AstNoSimplify $ astCond b (unAstNoSimplify v)
                                          (unAstNoSimplify w)
 
-instance KnownNat n => EqB (AstNoSimplify r n) where
+instance (KnownNat n, GoodScalar r) => EqB (AstNoSimplify r n) where
   v ==* u = AstRel EqOp [ AstPrimalPart $ unAstNoSimplify v
                         , AstPrimalPart $ unAstNoSimplify u ]
   v /=* u = AstRel NeqOp [ AstPrimalPart $ unAstNoSimplify v
                          , AstPrimalPart $ unAstNoSimplify u ]
 
-instance KnownNat n => OrdB (AstNoSimplify r n) where
+instance (KnownNat n, GoodScalar r) => OrdB (AstNoSimplify r n) where
   v <* u = AstRel LsOp [ AstPrimalPart $ unAstNoSimplify v
                        , AstPrimalPart $ unAstNoSimplify u ]
   v <=* u = AstRel LeqOp [ AstPrimalPart $ unAstNoSimplify v
@@ -477,16 +484,16 @@ instance KnownNat n => OrdB (AstNoSimplify r n) where
   v >=* u = AstRel GeqOp [ AstPrimalPart $ unAstNoSimplify v
                          , AstPrimalPart $ unAstNoSimplify u ]
 
-type instance BooleanOf (AstPrimalPart r n) = AstBool r
+type instance BooleanOf (AstPrimalPart r n) = AstBool
 
 instance KnownNat n => IfB (AstPrimalPart r n) where
   ifB b v w = AstPrimalPart $ astCond b (unAstPrimalPart v) (unAstPrimalPart w)
 
-instance KnownNat n => EqB (AstPrimalPart r n) where
+instance (KnownNat n, GoodScalar r) => EqB (AstPrimalPart r n) where
   v ==* u = AstRel EqOp [v, u]
   v /=* u = AstRel NeqOp [v, u]
 
-instance KnownNat n => OrdB (AstPrimalPart r n) where
+instance (KnownNat n, GoodScalar r) => OrdB (AstPrimalPart r n) where
   v <* u = AstRel LsOp [v, u]
   v <=* u = AstRel LeqOp [v, u]
   v >* u = AstRel GtOp [v, u]
@@ -622,7 +629,7 @@ deriving instance RealFloat (AstRanked r n) => RealFloat (AstPrimalPart r n)
 
 -- * Unlawful boolean package instances of shaped AST types; they are lawful modulo evaluation
 
-type instance BooleanOf (AstShaped r sh) = AstBool r
+type instance BooleanOf (AstShaped r sh) = AstBool
 
 instance OS.Shape sh => IfB (AstShaped r sh) where
   ifB = astCondS
@@ -630,7 +637,7 @@ instance OS.Shape sh => IfB (AstShaped r sh) where
 -- No simplification yet done at this point, so constant boolean unlikely,
 -- but it's a constant time simplification, so no harm done.
 astCondS :: OS.Shape sh
-         => AstBool r -> AstShaped r sh -> AstShaped r sh -> AstShaped r sh
+         => AstBool -> AstShaped r sh -> AstShaped r sh -> AstShaped r sh
 astCondS (AstBoolConst b) v w = if b then v else w
 astCondS b (AstConstantS (AstPrimalPartS v)) (AstConstantS (AstPrimalPartS w)) =
   AstConstantS $ AstPrimalPartS $ AstIndexS @'[2] (AstFromListS [v, w])
@@ -638,18 +645,18 @@ astCondS b (AstConstantS (AstPrimalPartS v)) (AstConstantS (AstPrimalPartS w)) =
 astCondS b v w = AstIndexS @'[2] (AstFromListS [v, w])
                                  (AstIntCond b 0 1 :$: ZSH)
 
-instance OS.Shape sh => EqB (AstShaped r sh) where
+instance (OS.Shape sh, GoodScalar r) => EqB (AstShaped r sh) where
   v ==* u = AstRelS EqOp [AstPrimalPartS v, AstPrimalPartS u]
   v /=* u = AstRelS NeqOp [AstPrimalPartS v, AstPrimalPartS u]
 
-instance OS.Shape sh => OrdB (AstShaped r sh) where
+instance (OS.Shape sh, GoodScalar r) => OrdB (AstShaped r sh) where
   v <* u = AstRelS LsOp [AstPrimalPartS v, AstPrimalPartS u]
   v <=* u = AstRelS LeqOp [AstPrimalPartS v, AstPrimalPartS u]
   v >* u = AstRelS GtOp [AstPrimalPartS v, AstPrimalPartS u]
   v >=* u = AstRelS GeqOp [AstPrimalPartS v, AstPrimalPartS u]
 
 {-
-type instance BooleanOf (AstNoVectorize r n) = AstBool r
+type instance BooleanOf (AstNoVectorize r n) = AstBool
 
 instance KnownNat n => IfB (AstNoVectorize r n) where
   ifB b v w = AstNoVectorize $ astCond b (unAstNoVectorize v)
@@ -671,7 +678,7 @@ instance KnownNat n => OrdB (AstNoVectorize r n) where
   v >=* u = AstRel GeqOp [ AstPrimalPartS $ unAstNoVectorize v
                          , AstPrimalPartS $ unAstNoVectorize u ]
 
-type instance BooleanOf (AstNoSimplify r n) = AstBool r
+type instance BooleanOf (AstNoSimplify r n) = AstBool
 
 instance KnownNat n => IfB (AstNoSimplify r n) where
   ifB b v w = AstNoSimplify $ astCond b (unAstNoSimplify v)
@@ -694,17 +701,17 @@ instance KnownNat n => OrdB (AstNoSimplify r n) where
                          , AstPrimalPartS $ unAstNoSimplify u ]
 -}
 
-type instance BooleanOf (AstPrimalPartS r sh) = AstBool r
+type instance BooleanOf (AstPrimalPartS r sh) = AstBool
 
 instance OS.Shape sh => IfB (AstPrimalPartS r sh) where
   ifB b v w =
     AstPrimalPartS $ astCondS b (unAstPrimalPartS v) (unAstPrimalPartS w)
 
-instance OS.Shape sh => EqB (AstPrimalPartS r sh) where
+instance (OS.Shape sh, GoodScalar r) => EqB (AstPrimalPartS r sh) where
   v ==* u = AstRelS EqOp [v, u]
   v /=* u = AstRelS NeqOp [v, u]
 
-instance OS.Shape sh => OrdB (AstPrimalPartS r sh) where
+instance (OS.Shape sh, GoodScalar r) => OrdB (AstPrimalPartS r sh) where
   v <* u = AstRelS LsOp [v, u]
   v <=* u = AstRelS LeqOp [v, u]
   v >* u = AstRelS GtOp [v, u]
