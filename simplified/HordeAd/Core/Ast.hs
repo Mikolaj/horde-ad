@@ -48,8 +48,13 @@ import HordeAd.Core.TensorOps
 
 -- * Ast and related definitions
 
-type GoodScalar r =
+type GoodScalarConstraint r =
   (Show r, Numeric r, RealFloat r, Floating (Vector r), RowSum r, Typeable r)
+
+-- Attempted optimization via storing one pointer to a class dictionary
+-- in existential datatypes instead of six pointers. No effect, strangely.
+class GoodScalarConstraint r => GoodScalar r
+instance GoodScalarConstraint r => GoodScalar r
 
 -- | The type family that to a concrete tensor type assigns its
 -- corresponding AST type.
