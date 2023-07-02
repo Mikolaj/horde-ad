@@ -144,7 +144,7 @@ newtype NodeId = NodeId Int
 data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> [Nat] -> Type where
   ZeroS :: DeltaS ranked shaped r sh
-  InputS :: InputId (shaped r sh) -> DeltaS ranked shaped r sh
+  InputS :: InputId ranked -> DeltaS ranked shaped r sh
   ScaleS :: shaped r sh -> DeltaS ranked shaped r sh
          -> DeltaS ranked shaped r sh
   AddS :: DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
@@ -265,7 +265,7 @@ deriving instance ( OS.Shape sh0
 data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> Nat -> Type where
   ZeroR :: DeltaR ranked shaped r n
-  InputR :: InputId (ranked r n) -> DeltaR ranked shaped r n
+  InputR :: InputId ranked -> DeltaR ranked shaped r n
   ScaleR :: ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
   AddR :: DeltaR ranked shaped r n -> DeltaR ranked shaped r n
        -> DeltaR ranked shaped r n
@@ -379,12 +379,12 @@ deriving instance ( (forall n. Show (ranked r n))
 
 -- * Related datatypes and classes
 
-newtype InputId a = InputId Int
+newtype InputId (f :: Type -> k -> Type) = InputId Int
  deriving (Show, Enum)
    -- No Eq instance to limit hacks outside this module.
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
-toInputId :: Int -> InputId a
+toInputId :: Int -> InputId f
 toInputId i = assert (i >= 0) $ InputId i
 
 type DualPart :: forall k. (Type -> k -> Type) -> Constraint
@@ -553,8 +553,7 @@ data DeltaDt ranked shaped r =
 -- 2. key `member` dMap == nMap!key is DeltaBindingR
 
 data EvalState ranked shaped r = EvalState
-  { iMap        :: EM.EnumMap (InputId (DynamicOf ranked r))
-                              (DynamicOf ranked r)
+  { iMap        :: EM.EnumMap (InputId ranked) (DynamicOf ranked r)
       -- ^ eventually, cotangents of objective function inputs
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
@@ -685,8 +684,7 @@ buildFinMaps s0 deltaDt =
                         sShared = s {astBindings = abShared}
                     in \case
         ZeroS -> s
-        InputS (InputId i) ->
-          s {iMap = EM.adjust (saddDynamic c) (InputId i) $ iMap s}
+        InputS i -> s {iMap = EM.adjust (saddDynamic c) i $ iMap s}
         ScaleS k d -> evalS s (k `smult` c) d
         AddS d e -> evalS (evalS sShared cShared d) cShared e
         LetS n d ->
@@ -775,12 +773,12 @@ buildFinMaps s0 deltaDt =
         -- BTW, such an optimization doesn't really belong in the simplified
         -- horde-ad and no consistent benefit should be expected here.
         Index0 ZeroR _ _ -> s  -- shortcut
-        Index0 (InputR (InputId i)) ixs' sh ->
+        Index0 (InputR i) ixs' sh ->
           let ixs = indexToList ixs'
               f v = if isTensorDummy v
                     then treplicate0ND sh 0 `OD.update` [(ixs, c)]
                     else v `OD.update` [(ixs, v `tindex0D` ixs + c)]
-          in s {iMap = EM.adjust f (InputId i) $ iMap s}
+          in s {iMap = EM.adjust f i $ iMap s}
         Index0 (LetR n d) ixs' sh ->
           let ixs = indexToList ixs'
           in case EM.lookup n $ nMap s of
@@ -807,8 +805,7 @@ buildFinMaps s0 deltaDt =
                         sShared = s {astBindings = abShared}
                     in \case
         ZeroR -> s
-        InputR (InputId i) ->
-          s {iMap = EM.adjust (raddDynamic c) (InputId i) $ iMap s}
+        InputR i -> s {iMap = EM.adjust (raddDynamic c) i $ iMap s}
         ScaleR k d -> evalR s (k `tmult` c) d
         AddR d e -> evalR (evalR sShared cShared d) cShared e
         LetR n d ->

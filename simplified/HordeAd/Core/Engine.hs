@@ -355,7 +355,7 @@ generateDeltaInputs params =
       arrayToInput i t = case someNatVal $ toInteger $ length
                               $ dshape @ranked t of
         Just (SomeNat (_ :: Proxy n)) ->
-          RToD $ InputR @ranked @r @n $ toInputId i
+          RToD $ InputR @ranked @shaped @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
   in V.imap arrayToInput params
 {- TODO: this can't be specified without a proxy
