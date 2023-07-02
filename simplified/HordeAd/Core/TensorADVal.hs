@@ -111,7 +111,6 @@ instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
          , ConvertTensor ranked shaped )
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal ranked r n) where
-  type Underlying (ADVal ranked r n) = r
   type Value (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
@@ -258,7 +257,6 @@ instance ( OS.Shape sh, GoodScalar r, dynamic ~ DynamicOf shaped
          , ConvertTensor ranked shaped )
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal shaped r sh) where
-  type Underlying (ADVal shaped r sh) = r
   type Value (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of

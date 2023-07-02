@@ -832,7 +832,6 @@ data DummyDual a (b :: k) = DummyDual
 
 instance (GoodScalar r, KnownNat n)
          => AdaptableDomains OD.Array (Flip OR.Array r n) where
-  type Underlying (Flip OR.Array r n) = r
   type Value (Flip OR.Array r n) = Flip OR.Array r n
   toDomains a = V.singleton $ DynamicExists $ dfromR a
   fromDomains aInit params = case V.uncons params of
@@ -845,7 +844,6 @@ instance (GoodScalar r, KnownNat n)
 instance ( GoodScalar r, KnownNat n
          , Tensor AstRanked, ConvertTensor AstRanked AstShaped )
          => AdaptableDomains AstDynamic (AstRanked r n) where
-  type Underlying (AstRanked r n) = r
   type Value (AstRanked r n) = Flip OR.Array r n
   toDomains = undefined
   fromDomains aInit params = case V.uncons params of
@@ -864,6 +862,7 @@ toRankedOrDummy sh x = if disDummy @ranked x
                        else tfromD x
 
 instance RandomDomains (Flip OR.Array r n) where
+  type Underlying (Flip OR.Array r n) = r
   randomVals = undefined
   toValue = id
 
@@ -938,7 +937,6 @@ instance ShapedTensor (Flip OS.Array) where
 
 instance (GoodScalar r, OS.Shape sh)
          => AdaptableDomains OD.Array (Flip OS.Array r sh) where
-  type Underlying (Flip OS.Array r sh) = r
   type Value (Flip OS.Array r sh) = Flip OR.Array r (OS.Rank sh) -- ! not shaped
   toDomains a = V.singleton $ DynamicExists $ dfromS a
   fromDomains _aInit params = case V.uncons params of
@@ -951,7 +949,6 @@ instance (GoodScalar r, OS.Shape sh)
 instance ( GoodScalar r, OS.Shape sh
          , ShapedTensor AstShaped, ConvertTensor AstRanked AstShaped )
          => AdaptableDomains AstDynamic (AstShaped r sh) where
-  type Underlying (AstShaped r sh) = r
   type Value (AstShaped r sh) = Flip OS.Array r sh
   toDomains = undefined
   fromDomains _aInit params = case V.uncons params of
@@ -972,6 +969,7 @@ toShapedOrDummy x = if disDummy @ranked x
 
 instance OS.Shape sh
          => RandomDomains (Flip OS.Array r sh) where
+  type Underlying (Flip OS.Array r sh) = r
   randomVals range g =
     let createRandomVector n seed =
           LA.scale (2 * range)

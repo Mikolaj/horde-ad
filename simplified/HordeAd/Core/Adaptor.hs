@@ -54,13 +54,13 @@ sizeDomainsOD d = let f (DynamicExists t) = OD.size t
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class AdaptableDomains (dynamic :: Type -> Type) vals where
-  type Underlying vals
   type Value vals
   toDomains :: vals -> Domains dynamic
   fromDomains :: Value vals -> Domains dynamic
               -> Maybe (vals, Domains dynamic)
 
 class RandomDomains vals where
+  type Underlying vals
   randomVals
     :: forall r g.
        ( RandomGen g
@@ -82,7 +82,6 @@ parseDomains aInit domains =
 
 instance AdaptableDomains dynamic a
          => AdaptableDomains dynamic [a] where
-  type Underlying [a] = Underlying a
   type Value [a] = [Value a]
   toDomains = V.concat . map toDomains
   fromDomains lInit source =
@@ -99,13 +98,12 @@ instance AdaptableDomains dynamic a
 
 instance RandomDomains a
          => RandomDomains [a] where
+  type Underlying [a] = Underlying a
   randomVals = undefined  -- TODO: split RandomDomains?
   toValue as = map toValue as
 
-instance ( r ~ Underlying a, r ~ Underlying b
-         , AdaptableDomains dynamic a
+instance ( AdaptableDomains dynamic a
          , AdaptableDomains dynamic b ) => AdaptableDomains dynamic (a, b) where
-  type Underlying (a, b) = Underlying a
   type Value (a, b) = (Value a, Value b)
   toDomains (a, b) =
     let a1 = toDomains a
@@ -119,17 +117,16 @@ instance ( r ~ Underlying a, r ~ Underlying b
 instance ( r ~ Underlying a, r ~ Underlying b
          , RandomDomains a
          , RandomDomains b ) => RandomDomains (a, b) where
+  type Underlying (a, b) = Underlying a
   randomVals range g =
     let (v1, g1) = randomVals range g
         (v2, g2) = randomVals range g1
     in ((v1, v2), g2)
   toValue (a, b) = (toValue a, toValue b)
 
-instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c
-         , AdaptableDomains dynamic a
+instance ( AdaptableDomains dynamic a
          , AdaptableDomains dynamic b
          , AdaptableDomains dynamic c ) => AdaptableDomains dynamic (a, b, c) where
-  type Underlying (a, b, c) = Underlying a
   type Value (a, b, c) = (Value a, Value b, Value c)
   toDomains (a, b, c) =
     let a1 = toDomains a
@@ -146,6 +143,7 @@ instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c
          , RandomDomains a
          , RandomDomains b
          , RandomDomains c ) => RandomDomains (a, b, c) where
+  type Underlying (a, b, c) = Underlying a
   randomVals range g =
     let (v1, g1) = randomVals range g
         (v2, g2) = randomVals range g1
@@ -153,12 +151,10 @@ instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c
     in ((v1, v2, v3), g3)
   toValue (a, b, c) = (toValue a, toValue b, toValue c)
 
-instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c, r ~ Underlying d
-         , AdaptableDomains dynamic a
+instance ( AdaptableDomains dynamic a
          , AdaptableDomains dynamic b
          , AdaptableDomains dynamic c
          , AdaptableDomains dynamic d ) => AdaptableDomains dynamic (a, b, c, d) where
-  type Underlying (a, b, c, d) = Underlying a
   type Value (a, b, c, d) = (Value a, Value b, Value c, Value d)
   toDomains (a, b, c, d) =
     let a1 = toDomains a
@@ -178,6 +174,7 @@ instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c, r ~ Underlying 
          , RandomDomains b
          , RandomDomains c
          , RandomDomains d ) => RandomDomains (a, b, c, d) where
+  type Underlying (a, b, c, d) = Underlying a
   randomVals range g =
     let (v1, g1) = randomVals range g
         (v2, g2) = randomVals range g1
@@ -186,10 +183,8 @@ instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c, r ~ Underlying 
     in ((v1, v2, v3, v4), g4)
   toValue (a, b, c, d) = (toValue a, toValue b, toValue c, toValue d)
 
-instance ( r ~ Underlying a, r ~ Underlying b
-         , AdaptableDomains dynamic a, AdaptableDomains dynamic b )
+instance ( AdaptableDomains dynamic a, AdaptableDomains dynamic b )
          => AdaptableDomains dynamic (Either a b) where
-  type Underlying (Either a b) = Underlying a
   type Value (Either a b) = Either (Value a) (Value b)
   toDomains e = case e of
     Left a -> toDomains a
@@ -204,7 +199,6 @@ instance ( r ~ Underlying a, r ~ Underlying b
 
 instance AdaptableDomains dynamic a
          => AdaptableDomains dynamic (Maybe a) where
-  type Underlying (Maybe a) = Underlying a
   type Value (Maybe a) = Maybe (Value a)
   toDomains e = case e of
     Nothing -> V.concat []
