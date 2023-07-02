@@ -63,7 +63,7 @@ mnistTestCase2VTA
      , ADReady ranked r, ADReady (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
-  -> Int -> Int -> Int -> Int -> r -> Int -> r
+  -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
@@ -160,7 +160,7 @@ mnistTestCase2VTI
      , ADReady ranked r, InterpretAstR (ADVal ranked)
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
-  -> Int -> Int -> Int -> Int -> r -> Int -> r
+  -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
@@ -275,7 +275,7 @@ mnistTestCase2VTO
      ( ranked ~ Flip OR.Array, ADReady ranked r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
-  -> Int -> Int -> Int -> Int -> r -> Int -> r
+  -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
@@ -397,7 +397,7 @@ mnistTestCase2VT2A
      , ADReady ranked r, Random r, ADReady (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
-  -> Int -> Int -> Int -> Int -> r -> Int -> r
+  -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
@@ -488,7 +488,7 @@ mnistTestCase2VT2I
      , ADReady ranked r, Random r, InterpretAstR (ADVal ranked)
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
-  -> Int -> Int -> Int -> Int -> r -> Int -> r
+  -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
@@ -595,7 +595,7 @@ mnistTestCase2VT2O
      ( ranked ~ Flip OR.Array, ADReady ranked r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
-  -> Int -> Int -> Int -> Int -> r -> Int -> r
+  -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =

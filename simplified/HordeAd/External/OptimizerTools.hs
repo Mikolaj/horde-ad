@@ -19,10 +19,10 @@ import HordeAd.Core.TensorOps (isTensorDummy)
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVD2)
 
 updateWithGradient
-  :: (Numeric r, Show r, Floating (Vector r))
-  => r -> DomainsOD r -> DomainsOD r -> DomainsOD r
+  :: (Numeric r, Fractional r, Show r, Floating (Vector r))
+  => Double -> DomainsOD r -> DomainsOD r -> DomainsOD r
 updateWithGradient gamma paramsR gradientR =
-  let updateVector i r = i - LA.scale gamma r
+  let updateVector i r = i - LA.scale (realToFrac gamma) r
       updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVD2 updateVector i r
@@ -30,10 +30,10 @@ updateWithGradient gamma paramsR gradientR =
 {-# SPECIALIZE updateWithGradient :: Double -> DomainsOD Double -> DomainsOD Double -> DomainsOD Double #-}
 
 updateWithGradientR
-  :: (Numeric r, Show r, Floating (Vector r))
-  => r -> DomainsOD r -> DomainsOD r -> DomainsOD r
+  :: (Numeric r, Fractional r, Show r, Floating (Vector r))
+  => Double -> DomainsOD r -> DomainsOD r -> DomainsOD r
 updateWithGradientR gamma params gradient =
-  let updateVector i r = i - LA.scale gamma r
+  let updateVector i r = i - LA.scale (realToFrac gamma) r
       updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVD2 updateVector i r
