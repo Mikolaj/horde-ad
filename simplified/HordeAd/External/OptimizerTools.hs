@@ -59,16 +59,16 @@ maximumGradient (DomainsOD gradient0 gradientR) =
        else V.maximum (V.map OD.maximumA gradientR))
 -}
 
-data ArgsAdam r = ArgsAdam
-  { alpha   :: r
-  , betaOne :: r
-  , betaTwo :: r
-  , epsilon :: r
+data ArgsAdam = ArgsAdam
+  { alpha   :: Double
+  , betaOne :: Double
+  , betaTwo :: Double
+  , epsilon :: Double
   }
 
 -- The defaults taken from
 -- https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adam
-defaultArgsAdam :: Fractional r => ArgsAdam r
+defaultArgsAdam :: ArgsAdam
 defaultArgsAdam = ArgsAdam
   { alpha = 0.001
   , betaOne = 0.9
@@ -125,7 +125,7 @@ liftArray43 f m1 m2 m3 m4 =
 updateWithGradientAdam
   :: forall r.
      (Numeric r, Floating r, Floating (Vector r))
-  => ArgsAdam r -> StateAdam r -> DomainsOD r -> DomainsOD r
+  => ArgsAdam -> StateAdam r -> DomainsOD r -> DomainsOD r
   -> (DomainsOD r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                        paramsR gradientR =
@@ -138,14 +138,17 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                    -> Vector r -> Vector r
                    -> (Vector r, Vector r, Vector r)
       updateVector mA vA p g =
-        let mANew = LA.scale betaOne mA + LA.scale oneMinusBeta1 g
-            vANew = LA.scale betaTwo vA + LA.scale oneMinusBeta2 (g * g)
+        let mANew = LA.scale (realToFrac betaOne) mA
+                    + LA.scale (realToFrac oneMinusBeta1) g
+            vANew = LA.scale (realToFrac betaTwo) vA
+                    + LA.scale (realToFrac oneMinusBeta2) (g * g)
             alphat = alpha * sqrt (1 - betaTwo ^ tAdamNew)
                              / (1 - betaOne ^ tAdamNew)
         in ( mANew
            , vANew
-           , p - LA.scale alphat mANew
-                 / (sqrt vANew + LA.scalar epsilon) )  -- the @scalar@ is safe
+           , p - LA.scale (realToFrac alphat) mANew
+                 / (sqrt vANew + LA.scalar (realToFrac epsilon)) )
+                      -- the @scalar@ is safe here;
                       -- @addConstant@ would be better, but it's not exposed
       updateR mA vA p g = if isTensorDummy g  -- eval didn't update it
                           then (mA, vA, p)

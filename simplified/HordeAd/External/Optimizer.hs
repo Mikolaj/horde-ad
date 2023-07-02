@@ -61,7 +61,7 @@ sgdAdam = sgdAdamArgs defaultArgsAdam
 sgdAdamArgs :: forall f r a y.
                ( DualPart f, HasSingletonDict f y, GoodScalar r
                , DynamicOf f ~ OD.Array, Num (f r y) )
-            => ArgsAdam r
+            => ArgsAdam
             -> (a -> Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
             -> [a]
             -> DomainsOD r
