@@ -81,11 +81,11 @@ type ADAstVarNames f r y = (AstVarName (f r y), [AstDynamicVarName r])
 type ADAstArtifact6 f r y =
   (ADAstVarNames f r y, AstDomains r, AstOf f r y)
 
-type AstIndex r n = Index n AstInt
+type AstIndex n = Index n AstInt
 
 type AstVarList n = SizedList n AstVarId
 
-type AstIndexS r sh = ShapedList sh AstInt
+type AstIndexS sh = ShapedList sh AstInt
 
 type AstVarListS sh = ShapedList sh AstVarId
 
@@ -113,14 +113,14 @@ data AstRanked :: Type -> Nat -> Type where
 
   -- For the Tensor class:
   AstIndex :: forall m n r. KnownNat m
-           => AstRanked r (m + n) -> AstIndex r m -> AstRanked r n
+           => AstRanked r (m + n) -> AstIndex m -> AstRanked r n
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
     -- but vectorization is permitted to change the value
   AstSum :: AstRanked r (1 + n) -> AstRanked r n
   AstScatter :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
              => ShapeInt (p + n)
-             -> AstRanked r (m + n) -> (AstVarList m, AstIndex r p)
+             -> AstRanked r (m + n) -> (AstVarList m, AstIndex p)
              -> AstRanked r (p + n)
 
   AstFromList :: KnownNat n
@@ -142,7 +142,7 @@ data AstRanked :: Type -> Nat -> Type where
             => Int -> (AstVarId, AstRanked r n) -> AstRanked r (1 + n)
   AstGather :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
             => ShapeInt (m + n)
-            -> AstRanked r (p + n) -> (AstVarList m, AstIndex r p)
+            -> AstRanked r (p + n) -> (AstVarList m, AstIndex p)
             -> AstRanked r (m + n)
     -- out of bounds indexing is permitted
 
@@ -190,7 +190,7 @@ data AstShaped :: Type -> [Nat] -> Type where
   -- For the Tensor class:
   AstIndexS :: forall sh1 sh2 r.
                (OS.Shape sh1, OS.Shape sh2, OS.Shape (sh1 OS.++ sh2))
-            => AstShaped r (sh1 OS.++ sh2) -> AstIndexS r sh1
+            => AstShaped r (sh1 OS.++ sh2) -> AstIndexS sh1
             -> AstShaped r sh2
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
@@ -202,7 +202,7 @@ data AstShaped :: Type -> [Nat] -> Type where
                  , OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh)
                  , OS.Shape (sh2 OS.++ OS.Drop p sh) )
               => AstShaped r (sh2 OS.++ OS.Drop p sh)
-              -> (AstVarListS sh2, AstIndexS r (OS.Take p sh))
+              -> (AstVarListS sh2, AstIndexS (OS.Take p sh))
               -> AstShaped r sh
 
   AstFromListS :: (KnownNat n, OS.Shape sh)
@@ -232,7 +232,7 @@ data AstShaped :: Type -> [Nat] -> Type where
                 ( OS.Shape sh, OS.Shape sh2
                 , OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh) )
              => AstShaped r sh
-             -> (AstVarListS sh2, AstIndexS r (OS.Take p sh))
+             -> (AstVarListS sh2, AstIndexS (OS.Take p sh))
              -> AstShaped r (sh2 OS.++ OS.Drop p sh)
     -- out of bounds indexing is permitted
 

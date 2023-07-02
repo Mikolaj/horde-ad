@@ -139,16 +139,16 @@ funToAstI :: (AstInt -> t) -> (AstVarId, t)
 funToAstI = unsafePerformIO . funToAstIIO
 
 funToAstIndexIO
-  :: forall m p r. KnownNat m
-  => Int -> (AstIndex r m -> AstIndex r p) -> IO (AstVarList m, AstIndex r p)
+  :: forall m p. KnownNat m
+  => Int -> (AstIndex m -> AstIndex p) -> IO (AstVarList m, AstIndex p)
 {-# INLINE funToAstIndexIO #-}
 funToAstIndexIO p f = do
   varList <- replicateM p unsafeGetFreshAstVarId
   return (listToSized varList, f (listToIndex $ map AstIntVar varList))
 
 funToAstIndex
-  :: forall m p r. KnownNat m
-  => (AstIndex r m -> AstIndex r p) -> (AstVarList m, AstIndex r p)
+  :: forall m p. KnownNat m
+  => (AstIndex m -> AstIndex p) -> (AstVarList m, AstIndex p)
 {-# NOINLINE funToAstIndex #-}
 funToAstIndex = unsafePerformIO . funToAstIndexIO (valueOf @m)
 
@@ -175,9 +175,9 @@ astRegisterFunS !r !l = unsafePerformIO $ do
   return ((freshId, AstSToD r) : l, r2)
 
 funToAstIndexIOS
-  :: forall sh1 sh2 r. OS.Shape sh1
-  => (AstIndexS r sh1 -> AstIndexS r sh2)
-  -> IO (AstVarListS sh1, AstIndexS r sh2)
+  :: forall sh1 sh2. OS.Shape sh1
+  => (AstIndexS sh1 -> AstIndexS sh2)
+  -> IO (AstVarListS sh1, AstIndexS sh2)
 {-# INLINE funToAstIndexIOS #-}
 funToAstIndexIOS f = do
   let p = length $ OS.shapeT @sh1
@@ -186,7 +186,7 @@ funToAstIndexIOS f = do
          , f (ShapedList.listToSized $ map AstIntVar varList) )
 
 funToAstIndexS
-  :: forall sh1 sh2 r. OS.Shape sh1
-  => (AstIndexS r sh1 -> AstIndexS r sh2) -> (AstVarListS sh1, AstIndexS r sh2)
+  :: forall sh1 sh2. OS.Shape sh1
+  => (AstIndexS sh1 -> AstIndexS sh2) -> (AstVarListS sh1, AstIndexS sh2)
 {-# NOINLINE funToAstIndexS #-}
 funToAstIndexS = unsafePerformIO . funToAstIndexIOS

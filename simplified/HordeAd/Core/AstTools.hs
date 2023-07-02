@@ -162,7 +162,7 @@ intVarInAstBool var = \case
   AstRelS _ l -> any (intVarInAstS var . unAstPrimalPartS) l
   AstRelInt _ l  -> any (intVarInAstInt var) l
 
-intVarInIndex :: AstVarId -> AstIndex r n -> Bool
+intVarInIndex :: AstVarId -> AstIndex n -> Bool
 intVarInIndex var = any (intVarInAstInt var)
 
 intVarInAstS :: AstVarId -> AstShaped r sh -> Bool
@@ -197,7 +197,7 @@ intVarInAstS var = \case
     intVarInAstS var u || intVarInAstS var u'
   AstLetDomainsS _vars l v -> intVarInAstDomains var l || intVarInAstS var v
 
-intVarInIndexS :: AstVarId -> AstIndexS r sh -> Bool
+intVarInIndexS :: AstVarId -> AstIndexS sh -> Bool
 intVarInIndexS var = any (intVarInAstInt var)
 
 

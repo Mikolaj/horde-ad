@@ -361,7 +361,7 @@ instance ShapedTensor AstShaped where
   sindex = AstIndexS
   ssum = AstSumS
   sfromIndex0 :: forall n r. KnownNat n
-              => IntSh AstShaped r n -> AstShaped r '[]
+              => IntSh AstShaped n -> AstShaped r '[]
   sfromIndex0 i = AstConstantS $ AstPrimalPartS
                   $ AstIndexS (AstIotaS @n) (ShapedList.consShaped i ZSH)
     -- toInteger is not defined for Ast, hence a special implementation
@@ -424,7 +424,7 @@ astLetFunS a f =
   in AstLetS var a ast  -- astLet var a ast  -- safe, because subsitution ruled out above
 
 astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r)
-                    => (IntSh AstShaped r n -> AstShaped r sh)
+                    => (IntSh AstShaped n -> AstShaped r sh)
                     -> AstShaped r (n ': sh)
 astBuild1VectorizeS f =
   build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)
@@ -451,7 +451,7 @@ instance ShapedTensor AstPrimalPartS where
   sindex v ix = AstPrimalPartS $ AstIndexS (unAstPrimalPartS v) ix
   ssum = AstPrimalPartS . AstSumS . unAstPrimalPartS
   sfromIndex0 :: forall n r. KnownNat n
-              => IntSh AstShaped r n -> AstPrimalPartS r '[]
+              => IntSh AstShaped n -> AstPrimalPartS r '[]
   sfromIndex0 i = AstPrimalPartS
                   $ AstIndexS (AstIotaS @n) (ShapedList.consShaped i ZSH)
     -- toInteger is not defined for Ast, hence a special implementation

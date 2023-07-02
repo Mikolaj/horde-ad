@@ -89,7 +89,7 @@ index :: forall ranked shaped m n r.
          ( Tensor ranked, IsPrimal ranked r n
          , Dual ranked ~ DeltaR ranked shaped
          , KnownNat m, KnownNat n, GoodScalar r )
-      => ADVal ranked r (m + n) -> IndexOf ranked r m
+      => ADVal ranked r (m + n) -> IndexOf ranked m
       -> ADVal ranked r n
 index (D l u u') ix = dD l (tindex u ix) (IndexR u' ix (tshape u))
 
@@ -233,7 +233,7 @@ indexS :: forall ranked shaped sh1 sh2 r.
           ( ShapedTensor shaped, IsPrimal shaped r sh2
           , Dual shaped ~ DeltaS ranked shaped
           , OS.Shape sh1, OS.Shape sh2, OS.Shape (sh1 OS.++ sh2), GoodScalar r )
-       => ADVal shaped r (sh1 OS.++ sh2) -> IndexSh shaped r sh1
+       => ADVal shaped r (sh1 OS.++ sh2) -> IndexSh shaped sh1
        -> ADVal shaped r sh2
 indexS (D l u u') ix = dD l (sindex u ix) (IndexS u' ix)
 
@@ -341,7 +341,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     Just Refl -> t
     _ -> dD l (sreshape u) (ReshapeS u')
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, OS.Shape sh)
-          => (IntSh (ADVal shaped) r n -> ADVal shaped r sh)
+          => (IntSh (ADVal shaped) n -> ADVal shaped r sh)
           -> ADVal shaped r (n ': sh)
   sbuild1 f = fromListS $ map (f . ShapedList.shapedNat)
                               [0 .. valueOf @n - 1]

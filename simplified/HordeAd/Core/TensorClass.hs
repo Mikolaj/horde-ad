@@ -63,19 +63,19 @@ type family IntOf (f :: Type -> k -> Type) :: Type
 -- of the list until runtime. That means that some errors are hidden
 -- and also extra type applications may be needed to satisfy the compiler.
 -- Therefore, there is a real trade-off between @[2]@ and @(2 :. ZI).
-type IndexOf f r n = Index n (IntOf f)
+type IndexOf f n = Index n (IntOf f)
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The value of this type has to be positive and less than the @n@ bound.
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
-type IntSh f r (n :: Nat) = ShapedNat n (IntOf f)
+type IntSh f (n :: Nat) = ShapedNat n (IntOf f)
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The values of this type are bounded by the shape.
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
-type IndexSh f r (sh :: [Nat]) = ShapedList sh (IntOf f)
+type IndexSh f (sh :: [Nat]) = ShapedList sh (IntOf f)
 
 class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
       => CRankedR ranked c where
@@ -126,22 +126,22 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
     k :$ _ -> k
   tminIndex0 :: GoodScalar r => ranked r 1 -> IntOf ranked  -- partial
   tminIndex :: (KnownNat n, GoodScalar r)
-            => ranked r n -> IndexOf ranked r n
+            => ranked r n -> IndexOf ranked n
   tminIndex t = fromLinearIdx (tshape t) (tminIndex0 (tflatten t))
   tmaxIndex0 :: GoodScalar r => ranked r 1 -> IntOf ranked  -- partial
   tmaxIndex :: (GoodScalar r, KnownNat n)
-            => ranked r n -> IndexOf ranked r n
+            => ranked r n -> IndexOf ranked n
   tmaxIndex t = fromLinearIdx (tshape t) (tmaxIndex0 (tflatten t))
   tfloor :: GoodScalar r => ranked r 0 -> IntOf ranked
 
   -- Typically scalar codomain, often tensor reduction
   -- (a number suffix in the name indicates the rank of codomain)
   tindex, (!) :: (GoodScalar r, KnownNat m, KnownNat n)
-              => ranked r (m + n) -> IndexOf ranked r m -> ranked r n
+              => ranked r (m + n) -> IndexOf ranked m -> ranked r n
   infixl 9 !
   (!) = tindex  -- prefix form better when type applications are necessary
   tindex0 :: (GoodScalar r, KnownNat m)
-          => ranked r m -> IndexOf ranked r m -> ranked r 0
+          => ranked r m -> IndexOf ranked m -> ranked r 0
   tindex0 = tindex
   tsum :: (GoodScalar r, KnownNat n) => ranked r (1 + n) -> ranked r n
   tsum0 :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r 0
@@ -179,15 +179,15 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
                   tlet (tflatten t) $ \tf ->
                     tindex0 t $ fromLinearIdx (tshape t) (tmaxIndex0 tf)
   tfromIndex0 :: GoodScalar r => IntOf ranked -> ranked r 0
-  tfromIndex1 :: GoodScalar r => IndexOf ranked r n -> ranked r 1
+  tfromIndex1 :: GoodScalar r => IndexOf ranked n -> ranked r 1
   tfromIndex1 = tfromList . map tfromIndex0 . indexToList
   tscatter :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
            => ShapeInt (p + n) -> ranked r (m + n)
-           -> (IndexOf ranked r m -> IndexOf ranked r p)
+           -> (IndexOf ranked m -> IndexOf ranked p)
            -> ranked r (p + n)
   tscatter1 :: forall r n p. (GoodScalar r, KnownNat n, KnownNat p)
             => ShapeInt (p + n) -> ranked r (1 + n)
-            -> (IntOf ranked -> IndexOf ranked r p)
+            -> (IntOf ranked -> IndexOf ranked p)
             -> ranked r (p + n)
   tscatter1 sh v f = tscatter @ranked @r @1 sh v
                               (\(i :. ZI) -> f i)
@@ -233,11 +233,11 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
   treshape :: (GoodScalar r, KnownNat n, KnownNat m)
            => ShapeInt m -> ranked r n -> ranked r m
   tbuild :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
-         => ShapeInt (m + n) -> (IndexOf ranked r m -> ranked r n)
+         => ShapeInt (m + n) -> (IndexOf ranked m -> ranked r n)
          -> ranked r (m + n)
   tbuild sh0 f0 =
     let buildSh :: KnownNat m1
-                => ShapeInt m1 -> (IndexOf ranked r m1 -> ranked r n)
+                => ShapeInt m1 -> (IndexOf ranked m1 -> ranked r n)
                 -> ranked r (m1 + n)
         buildSh ZS f = f ZI
         buildSh (k :$ sh) f =
@@ -271,11 +271,11 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
   tzipWith0N f u v = tbuild (tshape v) (\ix -> f (tindex0 u ix) (tindex0 v ix))
   tgather :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
           => ShapeInt (m + n) -> ranked r (p + n)
-          -> (IndexOf ranked r m -> IndexOf ranked r p)
+          -> (IndexOf ranked m -> IndexOf ranked p)
           -> ranked r (m + n)
   tgather1 :: forall r n p. (GoodScalar r, KnownNat n, KnownNat p)
            => Int -> ranked r (p + n)
-           -> (IntOf ranked -> IndexOf ranked r p)
+           -> (IntOf ranked -> IndexOf ranked p)
            -> ranked r (1 + n)
   tgather1 k v f = tgather @ranked @r @1 (k :$ dropShape (tshape v)) v
                            (\(i :. ZI) -> f i)
@@ -361,14 +361,14 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
           => shaped r (n ': sh) -> Int
   slength _ = valueOf @n
   sminIndex0 :: (GoodScalar r, KnownNat n)
-             => shaped r '[n] -> IntSh shaped r n  -- partial
+             => shaped r '[n] -> IntSh shaped n  -- partial
   sminIndex :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
-            => shaped r sh -> IndexSh shaped r sh
+            => shaped r sh -> IndexSh shaped sh
   sminIndex t = ShapedList.fromLinearIdx (sshape t) (sminIndex0 (sflatten t))
   smaxIndex0 :: (GoodScalar r, KnownNat n)
-             => shaped r '[n] -> IntSh shaped r n  -- partial
+             => shaped r '[n] -> IntSh shaped n  -- partial
   smaxIndex :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
-            => shaped r sh -> IndexSh shaped r sh
+            => shaped r sh -> IndexSh shaped sh
   smaxIndex t = ShapedList.fromLinearIdx (sshape t) (smaxIndex0 (sflatten t))
   sfloor :: GoodScalar r => shaped r '[] -> IntOf shaped
     -- not IntSh, because the integer can be negative
@@ -379,12 +379,12 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
   sindex, (!$) :: forall r sh1 sh2.
                   ( GoodScalar r, OS.Shape sh1, OS.Shape sh2
                   , OS.Shape (sh1 OS.++ sh2) )
-               => shaped r (sh1 OS.++ sh2) -> IndexSh shaped r sh1
+               => shaped r (sh1 OS.++ sh2) -> IndexSh shaped sh1
                -> shaped r sh2
   infixl 9 !$
   (!$) = sindex  -- prefix form better when type applications are necessary
   sindex0 :: forall r sh1. (GoodScalar r, OS.Shape sh1)
-          => shaped r sh1 -> IndexSh shaped r sh1
+          => shaped r sh1 -> IndexSh shaped sh1
           -> shaped r '[]
   sindex0 = gcastWith (unsafeCoerce Refl :: sh1 OS.++ '[] :~: sh1)
             $ sindex
@@ -413,11 +413,11 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
   smaximum t = gcastWith (unsafeCoerce Refl :: (sh OS.++ '[])  :~: sh)
                $ t !$ smaxIndex t
   sfromIndex0 :: forall n r. (GoodScalar r, KnownNat n)
-              => IntSh shaped r n -> shaped r '[]
+              => IntSh shaped n -> shaped r '[]
   sfromIndex1 :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
-              => IndexSh shaped r sh -> shaped r '[OS.Rank sh]
+              => IndexSh shaped sh -> shaped r '[OS.Rank sh]
   sfromIndex1 =
-    let go :: IndexSh shaped r sh1 -> [shaped r '[]]
+    let go :: IndexSh shaped sh1 -> [shaped r '[]]
         go ZSH = []
         go ((:$:) @n i rest) = sfromIndex0 @shaped @n (ShapedList.shapedNat i)
                                : go rest
@@ -427,14 +427,14 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
        ( GoodScalar r, OS.Shape sh2, OS.Shape sh, OS.Shape (OS.Take p sh)
        , OS.Shape (OS.Drop p sh), OS.Shape (sh2 OS.++ OS.Drop p sh) )
     => shaped r (sh2 OS.++ OS.Drop p sh)
-    -> (IndexSh shaped r sh2 -> IndexSh shaped r (OS.Take p sh))
+    -> (IndexSh shaped sh2 -> IndexSh shaped (OS.Take p sh))
     -> shaped r sh
   sscatter1
     :: forall r n2 p sh.
        ( GoodScalar r, KnownNat n2, OS.Shape sh, OS.Shape (OS.Take p sh)
        , OS.Shape (OS.Drop p sh) )
     => shaped r (n2 ': OS.Drop p sh)
-    -> (IntSh shaped r n2 -> IndexSh shaped r (OS.Take p sh))
+    -> (IntSh shaped n2 -> IndexSh shaped (OS.Take p sh))
     -> shaped r sh
   sscatter1 v f = sscatter @shaped @r @'[n2] v (ShapedList.unconsContShaped f)
 
@@ -497,13 +497,13 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
     -- and than the order of value arguments in the ranked version
   sbuild :: forall r m sh.
             (GoodScalar r, OS.Shape sh, OS.Shape (OS.Take m sh))
-         => (IndexSh shaped r (OS.Take m sh) -> shaped r (OS.Drop m sh))
+         => (IndexSh shaped (OS.Take m sh) -> shaped r (OS.Drop m sh))
          -> shaped r sh
   sbuild =
     let buildSh
           :: forall sh1.
              ShapeSh sh1 -> ShapeSh (sh1 OS.++ OS.Drop m sh)
-          -> (IndexSh shaped r sh1 -> shaped r (OS.Drop m sh))
+          -> (IndexSh shaped sh1 -> shaped r (OS.Drop m sh))
           -> shaped r (sh1 OS.++ OS.Drop m sh)
         buildSh sh1 sh1m f = case (sh1, sh1m) of
           (ZSH, _) -> f ZSH
@@ -514,7 +514,7 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
                   :: sh :~: OS.Take m sh OS.++ OS.Drop m sh)
        $ buildSh (ShapedList.shapeSh @(OS.Take m sh)) (ShapedList.shapeSh @sh)
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, OS.Shape sh)
-          => (IntSh shaped r n -> shaped r sh)
+          => (IntSh shaped n -> shaped r sh)
           -> shaped r (n ': sh)
   smap :: forall r m sh. ( GoodScalar r, KnownNat m, OS.Shape sh
                          , OS.Shape (OS.Take m sh), OS.Shape (OS.Drop m sh) )
@@ -562,14 +562,14 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
        ( GoodScalar r, OS.Shape sh2, OS.Shape sh, OS.Shape (OS.Take p sh)
        , OS.Shape (OS.Drop p sh), OS.Shape (sh2 OS.++ OS.Drop p sh) )
     => shaped r sh
-    -> (IndexSh shaped r sh2 -> IndexSh shaped r (OS.Take p sh))
+    -> (IndexSh shaped sh2 -> IndexSh shaped (OS.Take p sh))
     -> shaped r (sh2 OS.++ OS.Drop p sh)
   sgather1
     :: forall r n2 p sh.
        ( GoodScalar r, KnownNat n2, OS.Shape sh, OS.Shape (OS.Take p sh)
        , OS.Shape (OS.Drop p sh) )
     => shaped r sh
-    -> (IntSh shaped r n2 -> IndexSh shaped r (OS.Take p sh))
+    -> (IntSh shaped n2 -> IndexSh shaped (OS.Take p sh))
     -> shaped r (n2 ': OS.Drop p sh)
   sgather1 v f = sgather @shaped @r @'[n2] v (ShapedList.unconsContShaped f)
 

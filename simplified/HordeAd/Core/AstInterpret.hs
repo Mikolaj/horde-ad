@@ -99,16 +99,16 @@ extendEnvI var i =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
                    var (AstEnvElemI i)
 
-extendEnvVars :: forall r ranked m.
-                 AstVarList m -> IndexOf ranked r m
+extendEnvVars :: forall ranked m.
+                 AstVarList m -> IndexOf ranked m
               -> AstEnv ranked
               -> AstEnv ranked
 extendEnvVars vars ix env =
   let assocs = zip (sizedListToList vars) (indexToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
-extendEnvVarsS :: forall r ranked sh.
-                  AstVarListS sh -> IndexSh ranked r sh
+extendEnvVarsS :: forall ranked sh.
+                  AstVarListS sh -> IndexSh ranked sh
                -> AstEnv ranked
                -> AstEnv ranked
 extendEnvVarsS vars ix env =
@@ -130,7 +130,7 @@ interpretLambdaIS
   :: forall ranked shaped sh n r.
      (AstEnv ranked -> AstShaped r sh -> shaped r sh)
   -> AstEnv ranked -> (AstVarId, AstShaped r sh)
-  -> IntSh ranked r n
+  -> IntSh ranked n
   -> shaped r sh
 {-# INLINE interpretLambdaIS #-}
 interpretLambdaIS f env (var, ast) =
@@ -140,41 +140,41 @@ interpretLambdaIndex
   :: forall ranked r m n.
      (AstEnv ranked -> AstRanked r n -> ranked r n)
   -> AstEnv ranked -> (AstVarList m, AstRanked r n)
-  -> IndexOf ranked r m
+  -> IndexOf ranked m
   -> ranked r n
 {-# INLINE interpretLambdaIndex #-}
 interpretLambdaIndex f env (vars, ast) =
-  \ix -> f (extendEnvVars @r vars ix env) ast
+  \ix -> f (extendEnvVars vars ix env) ast
 
 interpretLambdaIndexS
   :: forall sh sh2 ranked shaped r.
      (AstEnv ranked -> AstShaped r sh -> shaped r sh)
   -> AstEnv ranked -> (AstVarListS sh2, AstShaped r sh)
-  -> IndexSh ranked r sh2
+  -> IndexSh ranked sh2
   -> shaped r sh
 {-# INLINE interpretLambdaIndexS #-}
 interpretLambdaIndexS f env (vars, ast) =
-  \ix -> f (extendEnvVarsS @r vars ix env) ast
+  \ix -> f (extendEnvVarsS vars ix env) ast
 
 interpretLambdaIndexToIndex
-  :: forall ranked r m n.
+  :: forall ranked m n.
      (AstEnv ranked -> AstInt -> IntOf ranked)
-  -> AstEnv ranked -> (AstVarList m, AstIndex r n)
-  -> IndexOf ranked r m
-  -> IndexOf ranked r n
+  -> AstEnv ranked -> (AstVarList m, AstIndex n)
+  -> IndexOf ranked m
+  -> IndexOf ranked n
 {-# INLINE interpretLambdaIndexToIndex #-}
 interpretLambdaIndexToIndex f env (vars, asts) =
-  \ix -> f (extendEnvVars @r vars ix env) <$> asts
+  \ix -> f (extendEnvVars vars ix env) <$> asts
 
 interpretLambdaIndexToIndexS
-  :: forall ranked r sh sh2.
+  :: forall ranked sh sh2.
      (AstEnv ranked -> AstInt -> IntOf ranked)
-  -> AstEnv ranked -> (AstVarListS sh, AstIndexS r sh2)
-  -> IndexSh ranked r sh
-  -> IndexSh ranked r sh2
+  -> AstEnv ranked -> (AstVarListS sh, AstIndexS sh2)
+  -> IndexSh ranked sh
+  -> IndexSh ranked sh2
 {-# INLINE interpretLambdaIndexToIndexS #-}
 interpretLambdaIndexToIndexS f env (vars, asts) =
-  \ix -> f (extendEnvVarsS @r vars ix env) <$> asts
+  \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
 class ( BooleanOf (ranked r 0)
         ~ BooleanOf (IntOf (PrimalOf (ShapedOf ranked)))

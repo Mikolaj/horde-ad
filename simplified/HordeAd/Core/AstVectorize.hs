@@ -99,7 +99,7 @@ build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
   return $! build1VOccurenceUnknown k (varFresh, v2)
 
 intBindingRefresh
-  :: AstVarId -> AstIndex r n -> (AstVarId, AstInt, AstIndex r n)
+  :: AstVarId -> AstIndex n -> (AstVarId, AstInt, AstIndex n)
 {-# NOINLINE intBindingRefresh #-}
 intBindingRefresh var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIIO id
@@ -127,7 +127,7 @@ build1V k (var, v00) =
     Ast.AstLet var2 u v ->
       let sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
-                                     (Ast.AstIntVar var :. ZI)
+                                    (Ast.AstIntVar var :. ZI)
           v2 = substitute1Ast (SubstitutionPayloadRanked @r projection) var2 v
             -- we use the substitution that does not simplify, which is sad,
             -- because very low hanging fruits may be left hanging, but we
@@ -279,7 +279,7 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
   :: forall m n r. (KnownNat m, KnownNat n, GoodScalar r)
-  => Int -> (AstVarId, AstRanked r (m + n), AstIndex r m)
+  => Int -> (AstVarId, AstRanked r (m + n), AstIndex m)
   -> AstRanked r (1 + n)
 build1VIndex k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
 build1VIndex k (var, v0, ix@(_ :. _)) =
@@ -377,7 +377,7 @@ build1VOccurenceUnknownRefreshS (var, v0) = unsafePerformIO $ do
   return $! build1VOccurenceUnknownS (varFresh, v2)
 
 intBindingRefreshS
-  :: AstVarId -> AstIndexS r sh -> (AstVarId, AstInt, AstIndexS r sh)
+  :: AstVarId -> AstIndexS sh -> (AstVarId, AstInt, AstIndexS sh)
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIIO id
@@ -535,7 +535,7 @@ build1VIndexS
   :: forall k p sh r.
      ( GoodScalar r, KnownNat k, OS.Shape sh
      , OS.Shape (OS.Drop p (OS.Take p sh OS.++ OS.Drop p sh)) )
-  => (AstVarId, AstShaped r sh, AstIndexS r (OS.Take p sh))
+  => (AstVarId, AstShaped r sh, AstIndexS (OS.Take p sh))
   -> AstShaped r (k ': OS.Drop p sh)
 build1VIndexS (var, v0, ZSH) =
   gcastWith (unsafeCoerce Refl :: p :~: 0)
