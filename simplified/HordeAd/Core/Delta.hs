@@ -555,7 +555,7 @@ data DeltaDt ranked shaped r =
 -- 1. keys nMap == keys dMap
 -- 2. key `member` dMap == nMap!key is DeltaBindingR
 
-data EvalState ranked shaped r = EvalState
+data EvalState ranked shaped = EvalState
   { iMap        :: EM.EnumMap (InputId ranked)
                               (DynamicExists (DynamicOf ranked))
       -- ^ eventually, cotangents of objective function inputs
@@ -565,7 +565,7 @@ data EvalState ranked shaped r = EvalState
   , dMap        :: EM.EnumMap (NodeId ranked) (DynamicExists (DynamicOf ranked))
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
-  , nMap        :: EM.EnumMap (NodeId ranked) (DeltaBinding ranked shaped r)
+  , nMap        :: EM.EnumMap (NodeId ranked) (DeltaBinding ranked shaped)
       -- ^ nodes left to be evaluated
   , astBindings :: [(AstVarId, DynamicExists (DynamicOf ranked))]
   }
@@ -574,10 +574,10 @@ data EvalState ranked shaped r = EvalState
 -- We can't evaluate them at once, because their other shared copies
 -- may still not be processed, so we'd not take advantage of the sharing
 -- and not take into account the whole summed context when finally evaluating.
-data DeltaBinding ranked shaped r =
-    forall sh. OS.Shape sh
+data DeltaBinding ranked shaped =
+    forall sh r. (OS.Shape sh, GoodScalar r)
     => DeltaBindingS (DeltaS ranked shaped r sh)
-  | forall n. KnownNat n
+  | forall n r. (KnownNat n, GoodScalar r)
     => DeltaBindingR (DeltaR ranked shaped r n)
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
@@ -671,20 +671,20 @@ gradientFromDelta dims deltaDt =
   -> ([(AstVarId, DynamicExists AstDynamic)], Domains AstDynamic) #-}
 
 buildFinMaps
-  :: forall ranked shaped r.
-     ( GoodScalar r, Tensor ranked, ShapedTensor shaped
+  :: forall ranked shaped r0.
+     ( GoodScalar r0, Tensor ranked, ShapedTensor shaped
      , ConvertTensor ranked shaped )
-  => EvalState ranked shaped r -> DeltaDt ranked shaped r
-  -> EvalState ranked shaped r
+  => EvalState ranked shaped -> DeltaDt ranked shaped r0
+  -> EvalState ranked shaped
 buildFinMaps s0 deltaDt =
   -- The first argument is the evaluation state being modified,
   -- the second is the cotangent accumulator that will become an actual
   -- cotangent contribution when complete (see below for an explanation)
   -- and the third argument is the node to evaluate.
-  let evalS :: forall sh. OS.Shape sh
-            => EvalState ranked shaped r
+  let evalS :: forall sh r. (OS.Shape sh, GoodScalar r)
+            => EvalState ranked shaped
             -> shaped r sh -> DeltaS ranked shaped r sh
-            -> EvalState ranked shaped r
+            -> EvalState ranked shaped
       evalS !s !c = let (abShared, cShared) = sregister c (astBindings s)
                         sShared = s {astBindings = abShared}
                     in \case
@@ -802,10 +802,10 @@ buildFinMaps s0 deltaDt =
             _ -> error "buildFinMaps: corrupted nMap"
 -}
 
-      evalR :: forall n. KnownNat n
-            => EvalState ranked shaped r
+      evalR :: forall n r. (KnownNat n, GoodScalar r)
+            => EvalState ranked shaped
             -> ranked r n -> DeltaR ranked shaped r n
-            -> EvalState ranked shaped r
+            -> EvalState ranked shaped
       evalR !s !c = let (abShared, cShared) = tregister c (astBindings s)
                         sShared = s {astBindings = abShared}
                     in \case
@@ -905,31 +905,31 @@ buildFinMaps s0 deltaDt =
         SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
         SToR d -> evalS s (sfromR c) d
 
-      evalFromnMap :: EvalState ranked shaped r
-                   -> EvalState ranked shaped r
+      evalFromnMap :: EvalState ranked shaped -> EvalState ranked shaped
       evalFromnMap s@EvalState{nMap, dMap} =
         case EM.maxViewWithKey nMap of
           Just ((n, b), nMap2) ->
             let s2 = s {nMap = nMap2}
                 s3 = case b of
-                  DeltaBindingS d -> case dMap EM.! n of
+                  DeltaBindingS @_ @_ @_ @r1 d -> case dMap EM.! n of
                     DynamicExists @_ @r2 e ->
-                      case testEquality (typeRep @r) (typeRep @r2) of
+                      case testEquality (typeRep @r1) (typeRep @r2) of
                         Just Refl -> let c = sfromD e
                                      in evalS s2 c d
                         _ -> error "buildFinMaps: type mismatch"
-                  DeltaBindingR d -> case dMap EM.! n of
+                  DeltaBindingR @_ @_ @_ @r1 d -> case dMap EM.! n of
                     DynamicExists @_ @r2 e ->
-                      case testEquality (typeRep @r) (typeRep @r2) of
+                      case testEquality (typeRep @r1) (typeRep @r2) of
                         Just Refl -> let c = tfromD e
                                      in evalR s2 c d
                         _ -> error "buildFinMaps: type mismatch"
             in evalFromnMap s3
           Nothing -> s  -- loop ends
 
-      evalD :: EvalState ranked shaped r
+      evalD :: GoodScalar r
+            => EvalState ranked shaped
             -> DynamicOf ranked r -> DeltaD ranked shaped r y
-            -> EvalState ranked shaped r
+            -> EvalState ranked shaped
       evalD s !c = \case
         RToD d -> evalR s (tfromD c) d
         SToD d -> evalS s (sfromD c) d
@@ -940,9 +940,9 @@ buildFinMaps s0 deltaDt =
         DeltaDtD dt deltaTopLevel -> evalD s0 dt deltaTopLevel
   in evalFromnMap s1
 {-# SPECIALIZE buildFinMaps
-  :: EvalState (Flip OR.Array) (Flip OS.Array) Double -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) Double #-}
+  :: EvalState (Flip OR.Array) (Flip OS.Array) -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) #-}
 {-# SPECIALIZE buildFinMaps
-  :: EvalState AstRanked AstShaped Double -> DeltaDt AstRanked AstShaped Double -> EvalState AstRanked AstShaped Double #-}
+  :: EvalState AstRanked AstShaped -> DeltaDt AstRanked AstShaped Double -> EvalState AstRanked AstShaped #-}
 
 -- * Forward derivative computation from the delta expressions
 
@@ -964,15 +964,15 @@ buildFinMaps s0 deltaDt =
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
-  :: forall ranked shaped r s.
-     ( GoodScalar r, Tensor ranked, ShapedTensor shaped
+  :: forall ranked shaped r0 s.
+     ( GoodScalar r0, Tensor ranked, ShapedTensor shaped
      , ConvertTensor ranked shaped )
-  => Int -> DeltaDt ranked shaped r -> Domains (DynamicOf ranked)
-  -> ST s (DeltaDt ranked shaped r)
+  => Int -> DeltaDt ranked shaped r0 -> Domains (DynamicOf ranked)
+  -> ST s (DeltaDt ranked shaped r0)
 buildDerivative dimR deltaDt params = do
   dMap <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
-  let evalS :: forall sh. OS.Shape sh
+  let evalS :: forall sh r. (OS.Shape sh, GoodScalar r)
             => DeltaS ranked shaped r sh -> ST s (shaped r sh)
       evalS = \case
         ZeroS -> return 0
@@ -994,13 +994,17 @@ buildDerivative dimR deltaDt params = do
           case EM.lookup n nm of
             Just (DeltaBindingS _) -> do
               dm <- readSTRef dMap
-              return $! sfromD (dm EM.! n :: DynamicOf shaped r)
+              case dm EM.! n of
+                DynamicExists @_ @r2 t ->
+                  case testEquality (typeRep @r) (typeRep @r2) of
+                    Just Refl -> return $! sfromD t
+                    _ -> error "buildDerivative: type mismatch"
             Nothing -> do
               c <- evalS d
               nmNew <- readSTRef nMap
               dm <- readSTRef dMap
               writeSTRef nMap $! EM.insert n (DeltaBindingS d) nmNew
-              writeSTRef dMap $! EM.insert n (dfromS c) dm
+              writeSTRef dMap $! EM.insert n (DynamicExists $ dfromS c) dm
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
@@ -1049,7 +1053,7 @@ buildDerivative dimR deltaDt params = do
             _ -> error "buildDerivative: different shapes in RToS(SToR)"
         RToS d -> sfromR <$> evalR d
 
-      evalR :: forall n. KnownNat n
+      evalR :: forall n r. (KnownNat n, GoodScalar r)
             => DeltaR ranked shaped r n -> ST s (ranked r n)
       evalR = \case
         ZeroR -> case sameNat (Proxy @n) (Proxy @0) of
@@ -1074,13 +1078,17 @@ buildDerivative dimR deltaDt params = do
           case EM.lookup n nm of
             Just (DeltaBindingR _) -> do
               dm <- readSTRef dMap
-              return $! tfromD (dm EM.! n :: DynamicOf ranked r)
+              case dm EM.! n of
+                DynamicExists @_ @r2 t ->
+                  case testEquality (typeRep @r) (typeRep @r2) of
+                    Just Refl -> return $! tfromD t
+                    _ -> error "buildDerivative: type mismatch"
             Nothing -> do
               c <- evalR d
               nmNew <- readSTRef nMap
               dm <- readSTRef dMap
               writeSTRef nMap $! EM.insert n (DeltaBindingR d) nmNew
-              writeSTRef dMap $! EM.insert n (dfromR c) dm
+              writeSTRef dMap $! EM.insert n (DynamicExists $ dfromR c) dm
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
@@ -1125,7 +1133,8 @@ buildDerivative dimR deltaDt params = do
         SToR (RToS d) -> evalR d  -- no information lost, so no checks
         SToR d -> tfromS <$> evalS d
 
-      evalD :: DeltaD ranked shaped r y -> ST s (DynamicOf ranked r)
+      evalD :: GoodScalar r
+            => DeltaD ranked shaped r y -> ST s (DynamicOf ranked r)
       evalD = \case
         RToD d -> dfromR <$> evalR d
         SToD d -> dfromS <$> evalS d
