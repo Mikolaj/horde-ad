@@ -244,7 +244,7 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
-  CastS :: (GoodScalar r1, Show (DeltaS ranked shaped r1 sh))
+  CastS :: GoodScalar r1
         => DeltaS ranked shaped r1 sh -> DeltaS ranked shaped r sh
 
   DToS :: forall ranked shaped sh r.
@@ -254,12 +254,13 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
        => DeltaR ranked shaped r (OS.Rank sh)
        -> DeltaS ranked shaped r sh
 
-deriving instance ( OS.Shape sh0
-                  , (forall n. Show (ranked r n))
-                  , (forall sh. OS.Shape sh => Show (shaped r sh))
+deriving instance ( OS.Shape sh0, GoodScalar r0
+                  , (forall n r. GoodScalar r => Show (ranked r n))
+                  , (forall sh r. (OS.Shape sh, GoodScalar r)
+                                  => Show (shaped r sh))
                   , Show (IntOf ranked)
                   , Show (IntOf shaped) )
-                  => Show (DeltaS ranked shaped r sh0)
+                  => Show (DeltaS ranked shaped r0 sh0)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 -- The comments refer to the ordinary (forward) semantics of the terms,
@@ -354,7 +355,7 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
-  CastR :: (GoodScalar r1, Show (DeltaR ranked shaped r1 n))
+  CastR :: GoodScalar r1
         => DeltaR ranked shaped r1 n -> DeltaR ranked shaped r n
 
   DToR :: forall ranked shaped n r.
@@ -364,11 +365,13 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
        => DeltaS ranked shaped r sh
        -> DeltaR ranked shaped r (OS.Rank sh)
 
-deriving instance ( (forall n. Show (ranked r n))
-                  , (forall sh. OS.Shape sh => Show (shaped r sh))
+deriving instance ( GoodScalar r0
+                  , (forall n r. GoodScalar r => Show (ranked r n))
+                  , (forall sh r. (OS.Shape sh, GoodScalar r)
+                                  => Show (shaped r sh))
                   , Show (IntOf ranked)
                   , Show (IntOf shaped) )
-                  => Show (DeltaR ranked shaped r n0)
+                  => Show (DeltaR ranked shaped r0 n0)
 
 data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
             -> Type -> () -> Type where
@@ -377,11 +380,13 @@ data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
   SToD :: forall ranked shaped sh r. OS.Shape sh
        => DeltaS ranked shaped r sh -> DeltaD ranked shaped r '()
 
-deriving instance ( (forall n. Show (ranked r n))
-                  , (forall sh. OS.Shape sh => Show (shaped r sh))
+deriving instance ( GoodScalar r0
+                  , (forall n r. GoodScalar r => Show (ranked r n))
+                  , (forall sh r. (OS.Shape sh, GoodScalar r)
+                                  => Show (shaped r sh))
                   , Show (IntOf ranked)
                   , Show (IntOf shaped) )
-                  => Show (DeltaD ranked shaped r '())
+                  => Show (DeltaD ranked shaped r0 '())
 
 
 -- * Related datatypes and classes
