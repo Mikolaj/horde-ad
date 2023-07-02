@@ -24,13 +24,13 @@ import HordeAd.External.OptimizerTools
 -- | Stochastic Gradient Descent.
 sgd :: forall n r a. (KnownNat n, GoodScalar r)
     => Double
-    -> (a -> Domains (ADValClown OD.Array) r -> ADVal (Flip OR.Array) r n)
+    -> (a -> Domains (ADValClown OD.Array) -> ADVal (Flip OR.Array) r n)
     -> [a]  -- ^ training data
-    -> DomainsOD r  -- ^ initial parameters
-    -> (DomainsOD r, Flip OR.Array r n)
+    -> DomainsOD  -- ^ initial parameters
+    -> (DomainsOD, Flip OR.Array r n)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters0
-  go :: [a] -> DomainsOD r -> (DomainsOD r, Flip OR.Array r n)
+  go :: [a] -> DomainsOD -> (DomainsOD, Flip OR.Array r n)
   go [] parameters = (parameters, 0)
   go (a : rest) !parameters =
     let inputs = makeADInputs parameters deltaInputs
@@ -42,36 +42,36 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 {-# SPECIALIZE sgd
   :: Double
   -> ((Vector Double, Vector Double)
-      -> Domains (ADValClown OD.Array) Double
+      -> Domains (ADValClown OD.Array)
       -> ADVal (Flip OR.Array) Double 0)
   -> [(Vector Double, Vector Double)]
-  -> DomainsOD Double
-  -> (DomainsOD Double, Flip OR.Array Double 0) #-}
+  -> DomainsOD
+  -> (DomainsOD, Flip OR.Array Double 0) #-}
 
 sgdAdam :: forall f r a y.
            ( DualPart f, HasSingletonDict f y, GoodScalar r
            , DynamicOf f ~ OD.Array, Num (f r y) )
-        => (a -> Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
+        => (a -> Domains (DynamicOf (ADVal f)) -> ADVal f r y)
         -> [a]
-        -> DomainsOD r
-        -> StateAdam r
-        -> (DomainsOD r, StateAdam r)
+        -> DomainsOD
+        -> StateAdam
+        -> (DomainsOD, StateAdam)
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs :: forall f r a y.
                ( DualPart f, HasSingletonDict f y, GoodScalar r
                , DynamicOf f ~ OD.Array, Num (f r y) )
             => ArgsAdam
-            -> (a -> Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
+            -> (a -> Domains (DynamicOf (ADVal f)) -> ADVal f r y)
             -> [a]
-            -> DomainsOD r
-            -> StateAdam r
-            -> (DomainsOD r, StateAdam r)
+            -> DomainsOD
+            -> StateAdam
+            -> (DomainsOD, StateAdam)
 sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
   deltaInputs = generateDeltaInputs parameters0
-  go :: [a] -> DomainsOD r -> StateAdam r -> (DomainsOD r, StateAdam r)
+  go :: [a] -> DomainsOD -> StateAdam -> (DomainsOD, StateAdam)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =
     let inputs = makeADInputs parameters deltaInputs

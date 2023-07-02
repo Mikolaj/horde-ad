@@ -63,6 +63,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
   , AstDomains
@@ -993,8 +994,8 @@ astConstant :: AstPrimalPart r n -> AstRanked r n
 astConstant (AstPrimalPart (Ast.AstConstant t)) = astConstant t
 astConstant v = Ast.AstConstant v
 
-astDomainsLet :: forall n r r2. (KnownNat n, GoodScalar r, GoodScalar r2)
-              => AstVarId -> AstRanked r n -> AstDomains r2 -> AstDomains r2
+astDomainsLet :: forall n r. (KnownNat n, GoodScalar r)
+              => AstVarId -> AstRanked r n -> AstDomains -> AstDomains
 astDomainsLet var u v | astIsSmall True u =
   substitute1AstDomains (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -1038,8 +1039,7 @@ simplifyAst6S
 simplifyAst6S = simplifyAstS . snd . inlineAstS EM.empty . simplifyAstS
 
 simplifyAstDomains6
-  :: GoodScalar r
-  => AstDomains r -> AstDomains r
+  :: AstDomains -> AstDomains
 simplifyAstDomains6 =
   simplifyAstDomains . snd . inlineAstDomains EM.empty . simplifyAstDomains
 
@@ -1147,17 +1147,15 @@ inlineAst memo v0 = case v0 of
     in (memo2, Ast.AstLetDomains vars l2 v2)
 
 inlineAstDynamic
-  :: GoodScalar r
-  => AstMemo
-  -> AstDynamic r -> (AstMemo, AstDynamic r)
+  :: AstMemo -> DynamicExists AstDynamic -> (AstMemo, DynamicExists AstDynamic)
 inlineAstDynamic memo = \case
-  AstRToD w -> second AstRToD $ inlineAst memo w
-  AstSToD w -> second AstSToD $ inlineAstS memo w
+  DynamicExists (AstRToD w) ->
+    second (DynamicExists . AstRToD) $ inlineAst memo w
+  DynamicExists (AstSToD w) ->
+    second (DynamicExists . AstSToD) $ inlineAstS memo w
 
 inlineAstDomains
-  :: GoodScalar r
-  => AstMemo
-  -> AstDomains r -> (AstMemo, AstDomains r)
+  :: AstMemo -> AstDomains -> (AstMemo, AstDomains)
 inlineAstDomains memo v0 = case v0 of
   Ast.AstDomains l ->
     second Ast.AstDomains $ mapAccumR inlineAstDynamic memo l
@@ -1349,9 +1347,8 @@ emptyUnletEnv :: ADShare -> UnletEnv
 emptyUnletEnv l = UnletEnv ES.empty l
 
 unletAstDomains6
-  :: GoodScalar r
-  => [(AstVarId, DynamicExists AstDynamic)] -> ADShare -> AstDomains r
-  -> AstDomains r
+  :: [(AstVarId, DynamicExists AstDynamic)] -> ADShare -> AstDomains
+  -> AstDomains
 unletAstDomains6 astBindings l t =
   unletAstDomains (emptyUnletEnv l)
   $ bindsToDomainsLet (bindsToDomainsLet t astBindings) (assocsADShare l)
@@ -1429,15 +1426,13 @@ unletAst env t = case t of
     in Ast.AstLetDomains vars (unletAstDomains env l) (unletAst env2 v)
 
 unletAstDynamic
-  :: GoodScalar r
-  => UnletEnv -> AstDynamic r -> AstDynamic r
+  :: UnletEnv -> DynamicExists AstDynamic -> DynamicExists AstDynamic
 unletAstDynamic env = \case
-  AstRToD u -> AstRToD $ unletAst env u
-  AstSToD u -> AstSToD $ unletAstS env u
+  DynamicExists (AstRToD u) -> DynamicExists $ AstRToD $ unletAst env u
+  DynamicExists (AstSToD u) -> DynamicExists $ AstSToD $ unletAstS env u
 
 unletAstDomains
-  :: GoodScalar r
-  => UnletEnv -> AstDomains r -> AstDomains r
+  :: UnletEnv -> AstDomains -> AstDomains
 unletAstDomains env = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic env) l
   Ast.AstDomainsLet var u v ->
@@ -1626,14 +1621,14 @@ simplifyAst t = case t of
     Ast.AstLetDomains vars (simplifyAstDomains l) (simplifyAst v)
 
 simplifyAstDynamic
-  :: GoodScalar r
-  => AstDynamic r -> AstDynamic r
-simplifyAstDynamic (AstRToD u) = AstRToD $ simplifyAst u
-simplifyAstDynamic (AstSToD u) = AstSToD $ simplifyAstS u
+  :: DynamicExists AstDynamic -> DynamicExists AstDynamic
+simplifyAstDynamic (DynamicExists (AstRToD u)) =
+  DynamicExists $ AstRToD $ simplifyAst u
+simplifyAstDynamic (DynamicExists (AstSToD u)) =
+  DynamicExists $ AstSToD $ simplifyAstS u
 
 simplifyAstDomains
-  :: GoodScalar r
-  => AstDomains r -> AstDomains r
+  :: AstDomains -> AstDomains
 simplifyAstDomains = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map simplifyAstDynamic l
   Ast.AstDomainsLet var u v ->
@@ -2046,8 +2041,8 @@ astConstantS :: AstPrimalPartS r sh -> AstShaped r sh
 astConstantS (AstPrimalPartS (Ast.AstConstantS t)) = astConstantS t
 astConstantS v = Ast.AstConstantS v
 
-astDomainsLetS :: forall sh r r2. (GoodScalar r, GoodScalar r2, OS.Shape sh)
-               => AstVarId -> AstShaped r sh -> AstDomains r2 -> AstDomains r2
+astDomainsLetS :: forall sh r. (GoodScalar r, OS.Shape sh)
+               => AstVarId -> AstShaped r sh -> AstDomains -> AstDomains
 astDomainsLetS var u v | astIsSmallS True u =
   substitute1AstDomains (SubstitutionPayloadShaped u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -2064,9 +2059,8 @@ substituteAst :: forall n r. (GoodScalar r, KnownNat n)
 substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
 
 substituteAstDomains
-  :: GoodScalar r
-  => SubstitutionPayload -> AstVarId -> AstDomains r
-  -> AstDomains r
+  :: SubstitutionPayload -> AstVarId -> AstDomains
+  -> AstDomains
 substituteAstDomains i var v1 =
   simplifyAstDomains $ substitute1AstDomains i var v1
 

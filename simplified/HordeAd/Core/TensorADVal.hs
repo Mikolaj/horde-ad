@@ -21,9 +21,10 @@ import           Data.Boolean
 import           Data.Functor.Const
 import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality ((:~:) (Refl))
+import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
@@ -111,10 +112,13 @@ instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal ranked r n) where
   type Underlying (ADVal ranked r n) = r
-  type Value (ADVal ranked r n) = Flip OR.Array r n  -- !!! not ranked
+  type Value (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
-    Just (a, rest) -> Just (dToR (runFlip a), rest)
+    Just (DynamicExists @_ @r2 a, rest) ->
+      case testEquality (typeRep @r) (typeRep @r2) of
+        Just Refl -> Just (dToR (runFlip a), rest)
+        _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
 
 dToR :: forall ranked shaped n r.
@@ -255,10 +259,13 @@ instance ( OS.Shape sh, GoodScalar r, dynamic ~ DynamicOf shaped
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal shaped r sh) where
   type Underlying (ADVal shaped r sh) = r
-  type Value (ADVal shaped r sh) = Flip OS.Array r sh  -- !!! not shaped
+  type Value (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
-    Just (a, rest) -> Just (dToS (runFlip a), rest)
+    Just (DynamicExists @_ @r2 a, rest) ->
+      case testEquality (typeRep @r) (typeRep @r2) of
+        Just Refl -> Just (dToS (runFlip a), rest)
+        _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
 
 dToS :: forall ranked shaped sh r.

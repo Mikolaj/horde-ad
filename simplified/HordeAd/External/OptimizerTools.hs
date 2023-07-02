@@ -1,6 +1,6 @@
 -- | Tools for implementing (and debugging the use of) gradient descent schemes.
 module HordeAd.External.OptimizerTools
-  ( updateWithGradient, updateWithGradientR
+  ( updateWithGradient
 --  , gradientIsNil, minimumGradient, maximumGradient
   , ArgsAdam(..), defaultArgsAdam
   , StateAdam(..), initialStateAdam
@@ -10,49 +10,44 @@ module HordeAd.External.OptimizerTools
 import Prelude
 
 import qualified Data.Array.DynamicS as OD
+import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
+import           Type.Reflection (typeRep)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.TensorOps (isTensorDummy)
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVD2)
 
-updateWithGradient
-  :: (Numeric r, Fractional r, Show r, Floating (Vector r))
-  => Double -> DomainsOD r -> DomainsOD r -> DomainsOD r
-updateWithGradient gamma paramsR gradientR =
-  let updateVector i r = i - LA.scale (realToFrac gamma) r
-      updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
-                    then i
-                    else liftVD2 updateVector i r
-  in V.zipWith updateR paramsR gradientR
-{-# SPECIALIZE updateWithGradient :: Double -> DomainsOD Double -> DomainsOD Double -> DomainsOD Double #-}
-
-updateWithGradientR
-  :: (Numeric r, Fractional r, Show r, Floating (Vector r))
-  => Double -> DomainsOD r -> DomainsOD r -> DomainsOD r
-updateWithGradientR gamma params gradient =
-  let updateVector i r = i - LA.scale (realToFrac gamma) r
-      updateR i r = if isTensorDummy r  -- eval didn't update it, would crash
-                    then i
-                    else liftVD2 updateVector i r
+updateWithGradient :: Double -> DomainsOD -> DomainsOD -> DomainsOD
+updateWithGradient gamma params gradient =
+  let updateVector :: (Numeric r, Floating r, Floating (Vector r))
+                   => Vector r -> Vector r -> Vector r
+      updateVector i r = i - LA.scale (realToFrac gamma) r
+      updateR :: DynamicExists OD.Array -> DynamicExists OD.Array
+              -> DynamicExists OD.Array
+      updateR ei@(DynamicExists @_ @r1 i) (DynamicExists @_ @r2 r) =
+        if isTensorDummy r  -- eval didn't update it, would crash
+        then ei
+        else case testEquality (typeRep @r1) (typeRep @r2) of
+          Just Refl -> DynamicExists $ liftVD2 updateVector i r
+          _ -> error "updateWithGradient: type mismatch"
   in V.zipWith updateR params gradient
-{-# SPECIALIZE updateWithGradientR :: Double -> DomainsOD Double -> DomainsOD Double -> DomainsOD Double #-}
 
 {-
-gradientIsNil :: (Eq r, Numeric r) => DomainsOD r -> Bool
+gradientIsNil :: (Eq r, Numeric r) => DomainsOD -> Bool
 gradientIsNil (DomainsOD gradient0 gradientR) =
   V.all (== 0) gradient0
   && V.all isTensorDummy gradientR
 
-minimumGradient :: (Ord r, Numeric r) => DomainsOD r -> r
+minimumGradient :: (Ord r, Numeric r) => DomainsOD -> r
 minimumGradient (DomainsOD gradient0 gradientR) =
   min (if V.null gradient0 then 0 else LA.minElement gradient0)
       (if V.null gradientR then 0
        else V.minimum (V.map OD.minimumA gradientR))
 
-maximumGradient :: (Ord r, Numeric r) => DomainsOD r -> r
+maximumGradient :: (Ord r, Numeric r) => DomainsOD -> r
 maximumGradient (DomainsOD gradient0 gradientR) =
   max (if V.null gradient0 then 0 else LA.maxElement gradient0)
       (if V.null gradientR then 0
@@ -76,21 +71,20 @@ defaultArgsAdam = ArgsAdam
   , epsilon = 1e-7
   }
 
-data StateAdam r = StateAdam
+data StateAdam = StateAdam
   { tAdam :: Int  -- iteration count
-  , mAdam :: DomainsOD r
-  , vAdam :: DomainsOD r
+  , mAdam :: DomainsOD
+  , vAdam :: DomainsOD
   }
 
 -- The arguments are just sample params0, for dimensions.
-zeroParameters
-  :: Numeric r
-  => DomainsOD r -> DomainsOD r
-zeroParameters params = V.map (\a -> OD.constant (OD.shapeL a) 0) params
+zeroParameters :: DomainsOD -> DomainsOD
+zeroParameters params =
+  V.map (\(DynamicExists @_ @r a) -> DynamicExists @OD.Array @r
+                                     $ OD.constant (OD.shapeL a) 0)
+        params
 
-initialStateAdam
-  :: Numeric r
-  => DomainsOD r -> StateAdam r
+initialStateAdam :: DomainsOD -> StateAdam
 initialStateAdam parameters0 =
   let zeroP = zeroParameters parameters0
   in StateAdam
@@ -123,10 +117,8 @@ liftArray43 f m1 m2 m3 m4 =
             ++ show (OD.shapeL m1, OD.shapeL m2, OD.shapeL m3, OD.shapeL m4)
 
 updateWithGradientAdam
-  :: forall r.
-     (Numeric r, Floating r, Floating (Vector r))
-  => ArgsAdam -> StateAdam r -> DomainsOD r -> DomainsOD r
-  -> (DomainsOD r, StateAdam r)
+  :: ArgsAdam -> StateAdam -> DomainsOD -> DomainsOD
+  -> (DomainsOD, StateAdam)
 updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                        paramsR gradientR =
   let mAdamR = mAdam
@@ -134,7 +126,8 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
       tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
-      updateVector :: Vector r -> Vector r
+      updateVector :: (Numeric r, Floating r, Floating (Vector r))
+                   => Vector r -> Vector r
                    -> Vector r -> Vector r
                    -> (Vector r, Vector r, Vector r)
       updateVector mA vA p g =
@@ -150,9 +143,22 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                  / (sqrt vANew + LA.scalar (realToFrac epsilon)) )
                       -- the @scalar@ is safe here;
                       -- @addConstant@ would be better, but it's not exposed
-      updateR mA vA p g = if isTensorDummy g  -- eval didn't update it
-                          then (mA, vA, p)
-                          else liftArray43 updateVector mA vA p g
+      updateR :: DynamicExists OD.Array -> DynamicExists OD.Array
+              -> DynamicExists OD.Array -> DynamicExists OD.Array
+              -> ( DynamicExists OD.Array
+                 , DynamicExists OD.Array
+                 , DynamicExists OD.Array )
+      updateR emA@(DynamicExists @_ @r1 mA) evA@(DynamicExists @_ @r2 vA)
+              ep@(DynamicExists @_ @r3 p) (DynamicExists @_ @r4 g) =
+        if isTensorDummy g  -- eval didn't update it
+        then (emA, evA, ep)
+        else case ( testEquality (typeRep @r1) (typeRep @r2)
+                  , testEquality (typeRep @r2) (typeRep @r3)
+                  , testEquality (typeRep @r3) (typeRep @r4) ) of
+               (Just Refl, Just Refl, Just Refl) ->
+                 let (od1, od2, od3) = liftArray43 updateVector mA vA p g
+                 in (DynamicExists od1, DynamicExists od2, DynamicExists od3)
+               _ -> error "updateWithGradientAdam: type mismatch"
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         V.unzip3 $ V.zipWith4 updateR mAdamR vAdamR paramsR gradientR
   in ( paramsRNew

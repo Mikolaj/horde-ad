@@ -8,8 +8,8 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( AstOf, DynamicExists(..), AstVarId, intToAstVarId
-  , ADAstVarNames, ADAstArtifact6, GoodScalar, AstIndex, AstVarList
+  ( AstOf, AstVarId, intToAstVarId
+  , ADAstVarNames, ADAstArtifact6, AstIndex, AstVarList
   , AstIndexS, AstVarListS
   , AstRanked(..), AstNoVectorize(..), AstNoSimplify(..)
   , AstPrimalPart(..), AstDualPart(..)
@@ -38,24 +38,14 @@ import           Data.List (foldl')
 import           Data.Maybe (fromMaybe)
 import qualified Data.Strict.Vector as Data.Vector
 import           GHC.TypeLits (KnownNat, Nat, type (+), type (<=))
-import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
-import           Type.Reflection (Typeable)
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.ShapedList (ShapedList (..))
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.SizedList
-import HordeAd.Core.TensorOps
 
 -- * Ast and related definitions
-
-type GoodScalarConstraint r =
-  (Show r, Numeric r, RealFloat r, Floating (Vector r), RowSum r, Typeable r)
-
--- Attempted optimization via storing one pointer to a class dictionary
--- in existential datatypes instead of six pointers. No effect, strangely.
-class GoodScalarConstraint r => GoodScalar r
-instance GoodScalarConstraint r => GoodScalar r
 
 -- | The type family that to a concrete tensor type assigns its
 -- corresponding AST type.
@@ -64,9 +54,6 @@ type family AstOf f = result | result -> f where
   AstOf (Clown OD.Array) = Clown AstDynamic
   AstOf (Flip OR.Array) = AstRanked
   AstOf (Flip OS.Array) = AstShaped
-
-data DynamicExists (dynamic :: Type -> Type) =
-  forall r. GoodScalar r => DynamicExists (dynamic r)
 
 -- We avoid adding a phantom type denoting the underlying scalar,
 -- because the type families over tensor ranks make quanitified constraints
@@ -78,11 +65,11 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-type ADAstVarNames f r y = (AstVarName (f r y), [AstDynamicVarName r])
+type ADAstVarNames f r y = (AstVarName (f r y), [AstDynamicVarName])
 
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 f r y =
-  (ADAstVarNames f r y, AstDomains r, AstOf f r y)
+  (ADAstVarNames f r y, AstDomains, AstOf f r y)
 
 type AstIndex n = Index n AstInt
 
@@ -156,10 +143,9 @@ data AstRanked :: Type -> Nat -> Type where
   AstConst :: OR.Array n r -> AstRanked r n
   AstConstant :: AstPrimalPart r n -> AstRanked r n
   AstD :: AstPrimalPart r n -> AstDualPart r n -> AstRanked r n
-  AstLetDomains :: GoodScalar r
-                => Data.Vector.Vector AstVarId -> AstDomains r
-                -> AstRanked r2 n
-                -> AstRanked r2 n
+  AstLetDomains :: Data.Vector.Vector AstVarId -> AstDomains
+                -> AstRanked r n
+                -> AstRanked r n
 deriving instance GoodScalar r => Show (AstRanked r n)
 
 newtype AstNoVectorize r n = AstNoVectorize {unAstNoVectorize :: AstRanked r n}
@@ -246,10 +232,9 @@ data AstShaped :: Type -> [Nat] -> Type where
   AstConstS :: OS.Array sh r -> AstShaped r sh
   AstConstantS :: AstPrimalPartS r sh -> AstShaped r sh
   AstDS :: AstPrimalPartS r sh -> AstDualPartS r sh -> AstShaped r sh
-  AstLetDomainsS :: GoodScalar r
-                 => Data.Vector.Vector AstVarId -> AstDomains r
-                 -> AstShaped r2 sh
-                 -> AstShaped r2 sh
+  AstLetDomainsS :: Data.Vector.Vector AstVarId -> AstDomains
+                 -> AstShaped r sh
+                 -> AstShaped r sh
 deriving instance (GoodScalar r, OS.Shape sh) => Show (AstShaped r sh)
 
 newtype AstPrimalPartS r sh =
@@ -266,23 +251,23 @@ data AstDynamic :: Type -> Type where
           => AstShaped r sh -> AstDynamic r
 deriving instance GoodScalar r => Show (AstDynamic r)
 
-data AstDomains :: Type -> Type where
-  AstDomains :: Data.Vector.Vector (AstDynamic r) -> AstDomains r
+data AstDomains where
+  AstDomains :: Data.Vector.Vector (DynamicExists AstDynamic) -> AstDomains
   AstDomainsLet :: (KnownNat n, GoodScalar r)
-                => AstVarId -> AstRanked r n -> AstDomains r2 -> AstDomains r2
+                => AstVarId -> AstRanked r n -> AstDomains -> AstDomains
   AstDomainsLetS :: (OS.Shape sh, GoodScalar r)
-                 => AstVarId -> AstShaped r sh -> AstDomains r2 -> AstDomains r2
-deriving instance GoodScalar r => Show (AstDomains r)
+                 => AstVarId -> AstShaped r sh -> AstDomains -> AstDomains
+deriving instance Show AstDomains
 
 newtype AstVarName t = AstVarName AstVarId
  deriving (Eq, Show)
 
-data AstDynamicVarName :: Type -> Type where
-  AstDynamicVarName :: KnownNat n
-                    => AstVarName (Flip OR.Array r n) -> AstDynamicVarName r
-  AstDynamicVarNameS :: OS.Shape sh
-                     => AstVarName (Flip OS.Array r sh) -> AstDynamicVarName r
-deriving instance GoodScalar r => Show (AstDynamicVarName r)
+data AstDynamicVarName where
+  AstDynamicVarName :: (KnownNat n, GoodScalar r)
+                    => AstVarName (Flip OR.Array r n) -> AstDynamicVarName
+  AstDynamicVarNameS :: (OS.Shape sh, GoodScalar r)
+                     => AstVarName (Flip OS.Array r sh) -> AstDynamicVarName
+deriving instance Show AstDynamicVarName
 
 -- The argument is the underlying scalar.
 data AstInt where

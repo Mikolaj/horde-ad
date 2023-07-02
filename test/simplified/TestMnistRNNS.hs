@@ -12,6 +12,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (Nat)
 import           System.IO (hPutStrLn, stderr)
@@ -65,8 +66,8 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
              ++ unwords [ show epochs, show maxBatches
                         , show (sNatValue width :: Int), show miniBatchSize
                         , show (V.length domainsInit)
-                        , show (V.sum (V.map OD.size domainsInit)) ]
-      ftest :: Int -> MnistDataBatchR r -> DomainsOD r -> r
+                        , show (sizeDomainsOD domainsInit) ]
+      ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
       ftest 0 _ _ = 0
       ftest miniBatchSize' (glyphs, labels) testParams =
         assert (miniBatchSize' == tlength (Flip glyphs)) $
@@ -84,11 +85,11 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           runBatch :: (DomainsOD r, StateAdam r) -> (Int, [MnistDataS r])
-                    -> IO (DomainsOD r, StateAdam r)
+           runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataS r])
+                    -> IO (DomainsOD, StateAdam)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchS batch_size r
-                   -> Domains (ADValClown OD.Array) r
+                   -> Domains (ADValClown OD.Array)
                    -> ADVal shaped r '[]
                  f (glyphS, labelS) adinputs =
                    MnistRnnShaped2.rnnMnistLossFusedS
@@ -112,7 +113,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (DomainsOD r, StateAdam r) -> IO (DomainsOD r)
+       let runEpoch :: Int -> (DomainsOD, StateAdam) -> IO DomainsOD
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n !paramsStateAdam@(!_, !_) = do
              unless (sNatValue width < (10 :: Int)) $
@@ -167,8 +168,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
              ++ unwords [ show epochs, show maxBatches
                         , show (sNatValue width :: Int), show miniBatchSize
                         , show (V.length domainsInit)
-                        , show (V.sum (V.map OD.size domainsInit)) ]
-      ftest :: Int -> MnistDataBatchR r -> DomainsOD r -> r
+                        , show (sizeDomainsOD domainsInit) ]
+      ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
       ftest 0 _ _ = 0
       ftest miniBatchSize' (glyphs, labels) testParams =
         assert (miniBatchSize' == tlength (Flip glyphs)) $
@@ -187,9 +188,10 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           shapes1 = map (dshape @(Flip OR.Array) @shaped)
-                     $ V.toList domainsInit
-           (vars1, asts1) = unzip $ map funToAstD shapes1
+           shapes1 = map (\(DynamicExists e) ->
+                           dshape @(Flip OR.Array) @shaped e)
+                         (V.toList domainsInit)
+           (vars1, asts1) = unzip $ map (funToAstD (Proxy @r)) shapes1
            doms = V.fromList asts1
        (varGlyph, astGlyph) <-
          funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
@@ -199,11 +201,11 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (sprimalPart astGlyph, sprimalPart astLabel)
                                     (parseDomains valsInit doms)
-           runBatch :: (DomainsOD r, StateAdam r) -> (Int, [MnistDataS r])
-                    -> IO (DomainsOD r, StateAdam r)
+           runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataS r])
+                    -> IO (DomainsOD, StateAdam)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchS batch_size r
-                   -> Domains (ADValClown OD.Array) r
+                   -> Domains (ADValClown OD.Array)
                    -> ADVal shaped r '[]
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvDR EM.empty
@@ -229,7 +231,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (DomainsOD r, StateAdam r) -> IO (DomainsOD r)
+       let runEpoch :: Int -> (DomainsOD, StateAdam) -> IO DomainsOD
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n !paramsStateAdam@(!_, !_) = do
              unless (sNatValue width < (10 :: Int)) $
@@ -285,8 +287,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                ++ unwords [ show epochs, show maxBatches
                           , show (sNatValue width :: Int), show miniBatchSize
                           , show (V.length domainsInit)
-                          , show (V.sum (V.map OD.size domainsInit)) ]
-        ftest :: Int -> MnistDataBatchR r -> DomainsOD r -> r
+                          , show (sizeDomainsOD domainsInit) ]
+        ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
         ftest 0 _ _ = 0
         ftest miniBatchSize' (glyphs, labels) testParams =
           assert (miniBatchSize' == tlength (Flip glyphs)) $
@@ -319,12 +321,12 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
              vars1Again
              ++ [AstDynamicVarNameS varGlyph, AstDynamicVarNameS varLabel]
            vars = (varDtAgain, vars1AndInputAgain)
-           go :: [MnistDataBatchS batch_size r] -> (DomainsOD r, StateAdam r)
-              -> (DomainsOD r, StateAdam r)
+           go :: [MnistDataBatchS batch_size r] -> (DomainsOD, StateAdam)
+              -> (DomainsOD, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) !(!parameters, !stateAdam) =
-             let glyphD = dfromS @(Flip OR.Array) $ sconst glyph
-                 labelD = dfromS @(Flip OR.Array) $ sconst label
+             let glyphD = DynamicExists $ dfromS @(Flip OR.Array) $ sconst glyph
+                 labelD = DynamicExists $ dfromS @(Flip OR.Array) $ sconst label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
@@ -333,8 +335,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                                              parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientDomain)
-           runBatch :: (DomainsOD r, StateAdam r) -> (Int, [MnistDataS r])
-                    -> IO (DomainsOD r, StateAdam r)
+           runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataS r])
+                    -> IO (DomainsOD, StateAdam)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
              let chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -354,7 +356,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (DomainsOD r, StateAdam r) -> IO (DomainsOD r)
+       let runEpoch :: Int -> (DomainsOD, StateAdam) -> IO DomainsOD
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n !paramsStateAdam@(!_, !_) = do
              unless (sNatValue width < (10 :: Int)) $

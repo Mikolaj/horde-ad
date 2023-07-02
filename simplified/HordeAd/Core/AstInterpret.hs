@@ -79,12 +79,18 @@ extendEnvR v@(AstVarName var) t =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstEnvElemR t)
 
-extendEnvDR :: (ConvertTensor ranked shaped, GoodScalar r)
-            => (AstDynamicVarName r, DynamicOf ranked r)
+extendEnvDR :: ConvertTensor ranked shaped
+            => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
             -> AstEnv ranked
             -> AstEnv ranked
-extendEnvDR (AstDynamicVarName var, d) = extendEnvR var (tfromD d)
-extendEnvDR (AstDynamicVarNameS var, d) = extendEnvS var (sfromD d)
+extendEnvDR (AstDynamicVarName @_ @r var, DynamicExists @_ @r2 d) =
+  case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> extendEnvR var (tfromD d)
+    _ -> error "extendEnvDR: type mismatch"
+extendEnvDR (AstDynamicVarNameS @_ @r var, DynamicExists @_ @r2 d) =
+  case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> extendEnvS var (sfromD d)
+    _ -> error "extendEnvDR: type mismatch"
 
 extendEnvD :: GoodScalar r
            => AstVarId -> DynamicOf ranked r -> AstEnv ranked
@@ -612,23 +618,21 @@ interpretAst env = \case
     in tD t1 t2
   AstLetDomains vars l v ->
     let l2 = interpretAstDomains env l
-        env2 = V.foldr (\(var, d) -> extendEnvD var d) env (V.zip vars l2)
+        env2 = V.foldr (\(var, DynamicExists d) ->
+          extendEnvD var d) env (V.zip vars l2)
     in interpretAst env2 v
 
 interpretAstDynamic
-  :: forall ranked r.
-     (InterpretAst ranked, GoodScalar r)
-  => AstEnv ranked
-  -> AstDynamic r -> DynamicOf ranked r
+  :: forall ranked. InterpretAst ranked
+  => AstEnv ranked -> DynamicExists AstDynamic
+  -> DynamicExists (DynamicOf ranked)
 interpretAstDynamic env = \case
-  AstRToD w -> dfromR $ interpretAst env w
-  AstSToD w -> dfromS $ interpretAstS env w
+  DynamicExists (AstRToD w) -> DynamicExists $ dfromR $ interpretAst env w
+  DynamicExists (AstSToD w) -> DynamicExists $ dfromS $ interpretAstS env w
 
 interpretAstDomains
-  :: forall ranked r.
-     (InterpretAst ranked, GoodScalar r)
-  => AstEnv ranked
-  -> AstDomains r -> Domains (DynamicOf ranked) r
+  :: forall ranked . InterpretAst ranked
+  => AstEnv ranked -> AstDomains -> Domains (DynamicOf ranked)
 interpretAstDomains env = \case
   AstDomains l -> interpretAstDynamic env <$> l
   AstDomainsLet var u v ->
@@ -686,21 +690,20 @@ interpretAstBool env = \case
     in interpretAstRelOp opCodeRel args2
 
 interpretAstDynamicDummy
-  :: forall ranked r.
-     (InterpretAst ranked, GoodScalar r)
+  :: forall ranked. InterpretAst ranked
   => AstEnv ranked
-  -> AstDynamic r -> DynamicOf ranked r
+  -> DynamicExists AstDynamic -> DynamicExists (DynamicOf ranked)
 interpretAstDynamicDummy env = \case
-  AstRToD AstIota -> ddummy @ranked
-  AstRToD w -> dfromR $ interpretAst env w
-  AstSToD AstIotaS -> ddummy @ranked
-  AstSToD w -> dfromS $ interpretAstS env w
+  DynamicExists @_ @r (AstRToD AstIota) ->
+    DynamicExists $ ddummy @ranked @(ShapedOf ranked) @r
+  DynamicExists (AstRToD w) -> DynamicExists $ dfromR $ interpretAst env w
+  DynamicExists @_ @r (AstSToD AstIotaS) ->
+    DynamicExists $ ddummy @ranked @(ShapedOf ranked) @r
+  DynamicExists (AstSToD w) -> DynamicExists $ dfromS $ interpretAstS env w
 
 interpretAstDomainsDummy
-  :: forall ranked r.
-     (InterpretAst ranked, GoodScalar r)
-  => AstEnv ranked
-  -> AstDomains r -> Domains (DynamicOf ranked) r
+  :: forall ranked . InterpretAst ranked
+  => AstEnv ranked -> AstDomains -> Domains (DynamicOf ranked)
 interpretAstDomainsDummy env = \case
   AstDomains l -> interpretAstDynamicDummy env <$> l
   AstDomainsLet var u v ->
@@ -1082,7 +1085,8 @@ interpretAstS env = \case
     in sD t1 t2
   AstLetDomainsS vars l v ->
     let l2 = interpretAstDomains env l
-        env2 = V.foldr (\(var, d) -> extendEnvD var d) env (V.zip vars l2)
+        env2 = V.foldr (\(var, DynamicExists d) ->
+          extendEnvD var d) env (V.zip vars l2)
     in interpretAstS env2 v
 
 
@@ -1182,53 +1186,29 @@ interpretAstS env = \case
 
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv (ADVal (Flip OR.Array))
-  -> AstDynamic Double
-  -> ADValClown OD.Array Double #-}
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal (Flip OR.Array))
-  -> AstDynamic Float
-  -> ADValClown OD.Array Float #-}
+  -> DynamicExists AstDynamic
+  -> DynamicExists (ADValClown OD.Array) #-}
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv (ADVal AstRanked)
-  -> AstDynamic Double
-  -> ADValClown AstDynamic Double #-}
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal AstRanked)
-  -> AstDynamic Float
-  -> ADValClown AstDynamic Float #-}
+  -> DynamicExists AstDynamic
+  -> DynamicExists (ADValClown AstDynamic) #-}
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv (Flip OR.Array)
-  -> AstDynamic Double
-  -> OD.Array Double #-}
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (Flip OR.Array)
-  -> AstDynamic Float
-  -> OD.Array Float #-}
+  -> DynamicExists AstDynamic
+  -> DynamicExists OD.Array #-}
 
 {-# SPECIALIZE interpretAstDomains
   :: AstEnv (ADVal (Flip OR.Array))
-  -> AstDomains Double
-  -> Domains (ADValClown OD.Array) Double #-}
-{-# SPECIALIZE interpretAstDomains
-  :: AstEnv (ADVal (Flip OR.Array))
-  -> AstDomains Float
-  -> Domains (ADValClown OD.Array) Float #-}
+  -> AstDomains
+  -> Domains (ADValClown OD.Array) #-}
 {-# SPECIALIZE interpretAstDomains
   :: AstEnv (ADVal AstRanked)
-  -> AstDomains Double
-  -> Domains (ADValClown AstDynamic) Double #-}
-{-# SPECIALIZE interpretAstDomains
-  :: AstEnv (ADVal AstRanked)
-  -> AstDomains Float
-  -> Domains (ADValClown AstDynamic) Float #-}
+  -> AstDomains
+  -> Domains (ADValClown AstDynamic) #-}
 {-# SPECIALIZE interpretAstDomains
   :: AstEnv (Flip OR.Array)
-  -> AstDomains Double
-  -> Domains OD.Array Double #-}
-{-# SPECIALIZE interpretAstDomains
-  :: AstEnv  (Flip OR.Array)
-  -> AstDomains Float
-  -> Domains OD.Array Float #-}
+  -> AstDomains
+  -> Domains OD.Array #-}
 
 {-# SPECIALIZE interpretAstInt
   :: AstEnv (ADVal (Flip OR.Array))
@@ -1258,21 +1238,13 @@ interpretAstS env = \case
 
 {-# SPECIALIZE interpretAstDynamicDummy
   :: AstEnv (Flip OR.Array)
-  -> AstDynamic Double
-  -> OD.Array Double #-}
-{-# SPECIALIZE interpretAstDynamicDummy
-  :: AstEnv (Flip OR.Array)
-  -> AstDynamic Float
-  -> OD.Array Float #-}
+  -> DynamicExists AstDynamic
+  -> DynamicExists OD.Array #-}
 
 {-# SPECIALIZE interpretAstDomainsDummy
   :: AstEnv (Flip OR.Array)
-  -> AstDomains Double
-  -> Domains OD.Array Double #-}
-{-# SPECIALIZE interpretAstDomainsDummy
-  :: AstEnv (Flip OR.Array)
-  -> AstDomains Float
-  -> Domains OD.Array Float #-}
+  -> AstDomains
+  -> Domains OD.Array #-}
 
 {- outdated and inlined anyway:
 {-# SPECIALIZE interpretAstOp

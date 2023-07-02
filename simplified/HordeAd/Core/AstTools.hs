@@ -31,6 +31,7 @@ import           GHC.TypeLits
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
@@ -131,11 +132,11 @@ intVarInAst var = \case
     intVarInAst var u || intVarInAst var u'
   AstLetDomains _vars l v -> intVarInAstDomains var l || intVarInAst var v
 
-intVarInAstDomains :: AstVarId -> AstDomains r -> Bool
+intVarInAstDomains :: AstVarId -> AstDomains -> Bool
 intVarInAstDomains var = \case
   AstDomains l ->
-    let f (AstRToD t) = intVarInAst var t
-        f (AstSToD t) = intVarInAstS var t
+    let f (DynamicExists (AstRToD t)) = intVarInAst var t
+        f (DynamicExists (AstSToD t)) = intVarInAstS var t
     in any f l
   AstDomainsLet _var2 u v -> intVarInAst var u || intVarInAstDomains var v
   AstDomainsLetS _var2 u v -> intVarInAstS var u || intVarInAstDomains var v
@@ -276,11 +277,11 @@ substitute1AstDynamic i var = \case
   AstSToD t -> AstSToD $ substitute1AstS i var t
 
 substitute1AstDomains
-  :: GoodScalar r
-  => SubstitutionPayload -> AstVarId -> AstDomains r
-  -> AstDomains r
+  :: SubstitutionPayload -> AstVarId -> AstDomains -> AstDomains
 substitute1AstDomains i var = \case
-  AstDomains l -> AstDomains $ V.map (substitute1AstDynamic i var) l
+  AstDomains l ->
+    AstDomains $ V.map (\(DynamicExists d) ->
+                          DynamicExists $ substitute1AstDynamic i var d) l
   AstDomainsLet var2 u v ->
     AstDomainsLet var2 (substitute1Ast i var u)
                        (substitute1AstDomains i var v)
@@ -421,7 +422,7 @@ astIsSmallS relaxed = \case
 
 -- * Odds and ends
 
-unwrapAstDomains :: AstDomains r -> Data.Vector.Vector (AstDynamic r)
+unwrapAstDomains :: AstDomains -> Data.Vector.Vector (DynamicExists AstDynamic)
 unwrapAstDomains = \case
   AstDomains l -> l
   AstDomainsLet _ _ v -> unwrapAstDomains v
@@ -435,7 +436,7 @@ bindsToLet = foldl' bindToLet
  where
   bindToLet :: AstRanked r n -> (AstVarId, DynamicExists AstDynamic)
             -> AstRanked r n
-  bindToLet u (var, DynamicExists @r2 d) = case d of
+  bindToLet u (var, DynamicExists @_ @r2 d) = case d of
     AstRToD w -> AstLet var w u
     AstSToD @sh w ->  -- rare or impossible, but let's implement it anyway:
       let p = length $ OS.shapeT @sh
@@ -454,7 +455,7 @@ bindsToLetS = foldl' bindToLetS
  where
   bindToLetS :: AstShaped r sh -> (AstVarId, DynamicExists AstDynamic)
              -> AstShaped r sh
-  bindToLetS u (var, DynamicExists @r2 d) = case d of
+  bindToLetS u (var, DynamicExists @_ @r2 d) = case d of
     AstRToD @n w ->  -- rare or impossible, but let's implement it anyway:
       let sh = shapeToList $ shapeAst w
       in if valueOf @n == length sh
@@ -465,7 +466,7 @@ bindsToLetS = foldl' bindToLetS
     AstSToD w -> AstLetS var w u
 
 bindsToDomainsLet
-   :: AstDomains r -> [(AstVarId, DynamicExists AstDynamic)] -> AstDomains r
+   :: AstDomains -> [(AstVarId, DynamicExists AstDynamic)] -> AstDomains
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where

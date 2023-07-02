@@ -22,6 +22,7 @@ import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast (AstDomains, AstInt, AstRanked, AstShaped)
 import           HordeAd.Core.Ast hiding
   (AstBool (..), AstDomains (..), AstInt (..), AstRanked (..), AstShaped (..))
@@ -200,12 +201,12 @@ build1V k (var, v00) =
                (AstDualPart $ build1VOccurenceUnknown k (var, u'))
     Ast.AstLetDomains vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
-      let subst (var1, AstRToD u1) =
+      let subst (var1, DynamicExists (AstRToD u1)) =
             let sh = shapeAst u1
                 projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var1)
                                           (Ast.AstIntVar var :. ZI)
             in substitute1Ast (SubstitutionPayloadRanked @r projection) var1
-          subst (var1, AstSToD @sh1 _) =
+          subst (var1, DynamicExists (AstSToD @sh1 _)) =
             let ls = OS.shapeT @sh1
             in case someNatVal $ toInteger (length ls) of
               Just (SomeNat @n2 _proxy) ->
@@ -220,23 +221,22 @@ build1V k (var, v00) =
                                 (build1VOccurenceUnknownRefresh k (var, v2))
 
 build1VOccurenceUnknownDynamic
-  :: GoodScalar r
-  => Int -> (AstVarId, AstDynamic r) -> AstDynamic r
+  :: Int -> (AstVarId, DynamicExists AstDynamic) -> DynamicExists AstDynamic
 build1VOccurenceUnknownDynamic k (var, d) = case d of
-  AstRToD u -> AstRToD $ build1VOccurenceUnknown k (var, u)
-  AstSToD u -> case someNatVal $ toInteger k of
+  DynamicExists (AstRToD u) ->
+    DynamicExists $ AstRToD $ build1VOccurenceUnknown k (var, u)
+  DynamicExists (AstSToD u) -> case someNatVal $ toInteger k of
     Just (SomeNat @k _proxy) ->
-      AstSToD $ build1VOccurenceUnknownS @k (var, u)
+      DynamicExists $ AstSToD $ build1VOccurenceUnknownS @k (var, u)
     Nothing ->
       error "build1VOccurenceUnknownDynamic: impossible someNatVal error"
 
 build1VOccurenceUnknownDomains
-  :: forall r. GoodScalar r
-  => Int -> (AstVarId, AstDomains r) -> AstDomains r
+  :: Int -> (AstVarId, AstDomains) -> AstDomains
 build1VOccurenceUnknownDomains k (var, v0) = case v0 of
   Ast.AstDomains l ->
     Ast.AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
-  Ast.AstDomainsLet var2 u v ->
+  Ast.AstDomainsLet @_ @r var2 u v ->
     let sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                   (Ast.AstIntVar var :. ZI)
@@ -244,7 +244,7 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
           -- we use the substitution that does not simplify
     in astDomainsLet var2 (build1VOccurenceUnknownRefresh k (var, u))
                           (build1VOccurenceUnknownDomains k (var, v2))
-  Ast.AstDomainsLetS @sh2 var2 u v -> case someNatVal $ toInteger k of
+  Ast.AstDomainsLetS @sh2 @r var2 u v -> case someNatVal $ toInteger k of
     Just (SomeNat @k _proxy) ->
       let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :$: ZSH)
@@ -494,12 +494,12 @@ build1VS (var, v00) =
                 (AstDualPartS $ build1VOccurenceUnknownS (var, u'))
     Ast.AstLetDomainsS vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
-      let subst (var1, AstRToD u1) =
+      let subst (var1, DynamicExists (AstRToD u1)) =
             OS.withShapeP (shapeToList $ shapeAst u1) $ \(_ :: Proxy sh1) ->
             let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var1)
                                            (Ast.AstIntVar var :$: ZSH)
             in substitute1AstS (SubstitutionPayloadShaped @r projection) var1
-          subst (var1, AstSToD @sh1 _) =
+          subst (var1, DynamicExists (AstSToD @sh1 _)) =
             let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var1)
                                            (Ast.AstIntVar var :$: ZSH)
             in substitute1AstS (SubstitutionPayloadShaped @r projection) var1

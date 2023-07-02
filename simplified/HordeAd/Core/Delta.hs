@@ -65,11 +65,12 @@ import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (gcastWith, (:~:) (Refl))
+import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
   (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
 import           Text.Show.Functions ()
+import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
@@ -398,10 +399,10 @@ class DualPart (f :: Type -> k -> Type) where
   reverseDervative
     :: (HasSingletonDict f y, GoodScalar r)
     => Int -> f r y -> Maybe (f r y) -> Dual f r y
-    -> ([(AstVarId, DynamicExists (DynamicOf f))], Domains (DynamicOf f) r)
+    -> ([(AstVarId, DynamicExists (DynamicOf f))], Domains (DynamicOf f))
   forwardDerivative
     :: (HasSingletonDict f y, GoodScalar r)
-    => Int -> Dual f r y -> Domains (DynamicOf f) r
+    => Int -> Dual f r y -> Domains (DynamicOf f)
     -> f r y
 
 instance DualPart @() (Clown OD.Array) where
@@ -424,7 +425,7 @@ gradientDtD
   -> Maybe (Clown (DynamicOf ranked) r y)
   -> DeltaD ranked shaped r y
   -> ( [(AstVarId, DynamicExists (DynamicOf ranked))]
-     , Domains (DynamicOf ranked) r )
+     , Domains (DynamicOf ranked) )
 gradientDtD dims value mdt deltaTopLevel =
   let shl = dshape @ranked (runClown value)
       n = length shl
@@ -440,7 +441,7 @@ derivativeFromDeltaD
   :: forall ranked shaped r (y :: ()).
      ( GoodScalar r
      , Tensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
-  => Int -> DeltaD ranked shaped r y -> Domains (DynamicOf ranked) r
+  => Int -> DeltaD ranked shaped r y -> Domains (DynamicOf ranked)
   -> Clown (DynamicOf ranked) r y
 derivativeFromDeltaD dim deltaTopLevel ds =
   case runST $ buildDerivative dim (DeltaDtD (dfromR @ranked @shaped @r @0 0)
@@ -467,7 +468,7 @@ gradientDtR
   => Int -> ranked r y -> Maybe (ranked r y)
   -> DeltaR ranked shaped r y
   -> ( [(AstVarId, DynamicExists (DynamicOf ranked))]
-     , Domains (DynamicOf ranked) r )
+     , Domains (DynamicOf ranked) )
 gradientDtR dims value mdt deltaTopLevel =
   let dt = fromMaybe (treplicate0N (tshape value) 1) mdt
       deltaDt = DeltaDtR dt deltaTopLevel
@@ -477,7 +478,7 @@ derivativeFromDeltaR
   :: forall ranked shaped r n.
        ( KnownNat n, GoodScalar r
        , Tensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
-  => Int -> DeltaR ranked shaped r n -> Domains (DynamicOf ranked) r
+  => Int -> DeltaR ranked shaped r n -> Domains (DynamicOf ranked)
   -> ranked r n
 derivativeFromDeltaR dim deltaTopLevel ds =
   let dummyZero = tzero $ listShapeToShape $ replicate (valueOf @n) 1
@@ -509,7 +510,7 @@ gradientDtS
   => Int -> shaped r y -> Maybe (shaped r y)
   -> DeltaS ranked shaped r y
   -> ( [(AstVarId, DynamicExists (DynamicOf ranked))]
-     , Domains (DynamicOf shaped) r )
+     , Domains (DynamicOf shaped) )
 gradientDtS dims _ mdt deltaTopLevel =
   let dt = fromMaybe 1 mdt
       deltaDt = DeltaDtS dt deltaTopLevel
@@ -519,7 +520,7 @@ derivativeFromDeltaS
   :: forall ranked shaped r sh.
        ( OS.Shape sh, GoodScalar r
        , Tensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
-  => Int -> DeltaS ranked shaped r sh -> Domains (DynamicOf shaped) r
+  => Int -> DeltaS ranked shaped r sh -> Domains (DynamicOf shaped)
   -> shaped r sh
 derivativeFromDeltaS dim deltaTopLevel ds =
   case runST $ buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
@@ -555,12 +556,13 @@ data DeltaDt ranked shaped r =
 -- 2. key `member` dMap == nMap!key is DeltaBindingR
 
 data EvalState ranked shaped r = EvalState
-  { iMap        :: EM.EnumMap (InputId ranked) (DynamicOf ranked r)
+  { iMap        :: EM.EnumMap (InputId ranked)
+                              (DynamicExists (DynamicOf ranked))
       -- ^ eventually, cotangents of objective function inputs
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap        :: EM.EnumMap (NodeId ranked) (DynamicOf ranked r)
+  , dMap        :: EM.EnumMap (NodeId ranked) (DynamicExists (DynamicOf ranked))
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
   , nMap        :: EM.EnumMap (NodeId ranked) (DeltaBinding ranked shaped r)
@@ -638,7 +640,7 @@ gradientFromDelta
       , ConvertTensor ranked shaped )
   => Int -> DeltaDt ranked shaped r
   -> ( [(AstVarId, DynamicExists (DynamicOf ranked))]
-     , Domains (DynamicOf ranked) r )
+     , Domains (DynamicOf ranked) )
 gradientFromDelta dims deltaDt =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
@@ -649,8 +651,9 @@ gradientFromDelta dims deltaDt =
   -- and especially using them as cotangent accumulators is wasteful;
   -- additionally, it may not be easy to deduce the sizes of the vectors).
   let s0 =
-        let iMap = EM.fromDistinctAscList
-                   $ zip [toInputId 0 ..] (replicate dims (ddummy @ranked))
+        let dummy = ddummy @ranked @shaped @Double  -- any GoodScalar is fine
+            iMap = EM.fromDistinctAscList
+                   $ zip [toInputId 0 ..] (replicate dims (DynamicExists dummy))
             dMap = EM.empty
             nMap = EM.empty
             astBindings = []
@@ -662,10 +665,10 @@ gradientFromDelta dims deltaDt =
      in (astBindings, gradient)
 {-# SPECIALIZE gradientFromDelta
   :: Int -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
-  -> ([(AstVarId, DynamicExists OD.Array)], DomainsOD Double) #-}
+  -> ([(AstVarId, DynamicExists OD.Array)], DomainsOD) #-}
 {-# SPECIALIZE gradientFromDelta
   :: Int -> DeltaDt AstRanked AstShaped Double
-  -> ([(AstVarId, DynamicExists AstDynamic)], Domains AstDynamic Double) #-}
+  -> ([(AstVarId, DynamicExists AstDynamic)], Domains AstDynamic) #-}
 
 buildFinMaps
   :: forall ranked shaped r.
@@ -699,7 +702,7 @@ buildFinMaps s0 deltaDt =
               Just (DeltaBindingS _) ->
                 s {dMap = EM.adjust (saddDynamic c) n $ dMap s}
               Nothing ->
-                let cs = dfromS c
+                let cs = DynamicExists $ dfromS c
                 in s { nMap = EM.insert n (DeltaBindingS d) $ nMap s
                      , dMap = EM.insert n cs $ dMap s }
               _ -> error "buildFinMaps: corrupted nMap"
@@ -850,7 +853,7 @@ buildFinMaps s0 deltaDt =
               Just (DeltaBindingR _) ->
                 s {dMap = EM.adjust (raddDynamic c) n $ dMap s}
               Nothing ->
-                let cs = dfromR c
+                let cs = DynamicExists $ dfromR c
                 in s { nMap = EM.insert n (DeltaBindingR d) $ nMap s
                      , dMap = EM.insert n cs $ dMap s }
               _ -> error "buildFinMaps: corrupted nMap"
@@ -909,10 +912,18 @@ buildFinMaps s0 deltaDt =
           Just ((n, b), nMap2) ->
             let s2 = s {nMap = nMap2}
                 s3 = case b of
-                  DeltaBindingS d -> let c = sfromD $ dMap EM.! n
+                  DeltaBindingS d -> case dMap EM.! n of
+                    DynamicExists @_ @r2 e ->
+                      case testEquality (typeRep @r) (typeRep @r2) of
+                        Just Refl -> let c = sfromD e
                                      in evalS s2 c d
-                  DeltaBindingR d -> let c = tfromD $ dMap EM.! n
+                        _ -> error "buildFinMaps: type mismatch"
+                  DeltaBindingR d -> case dMap EM.! n of
+                    DynamicExists @_ @r2 e ->
+                      case testEquality (typeRep @r) (typeRep @r2) of
+                        Just Refl -> let c = tfromD e
                                      in evalR s2 c d
+                        _ -> error "buildFinMaps: type mismatch"
             in evalFromnMap s3
           Nothing -> s  -- loop ends
 
@@ -932,7 +943,6 @@ buildFinMaps s0 deltaDt =
   :: EvalState (Flip OR.Array) (Flip OS.Array) Double -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) Double #-}
 {-# SPECIALIZE buildFinMaps
   :: EvalState AstRanked AstShaped Double -> DeltaDt AstRanked AstShaped Double -> EvalState AstRanked AstShaped Double #-}
-
 
 -- * Forward derivative computation from the delta expressions
 
@@ -957,7 +967,7 @@ buildDerivative
   :: forall ranked shaped r s.
      ( GoodScalar r, Tensor ranked, ShapedTensor shaped
      , ConvertTensor ranked shaped )
-  => Int -> DeltaDt ranked shaped r -> Domains (DynamicOf ranked) r
+  => Int -> DeltaDt ranked shaped r -> Domains (DynamicOf ranked)
   -> ST s (DeltaDt ranked shaped r)
 buildDerivative dimR deltaDt params = do
   dMap <- newSTRef EM.empty
@@ -968,7 +978,11 @@ buildDerivative dimR deltaDt params = do
         ZeroS -> return 0
         InputS (InputId i) ->
           if i < dimR
-          then return $! sfromD $ params V.! i
+          then case params V.! i of
+            DynamicExists @_ @r2 e ->
+              case testEquality (typeRep @r) (typeRep @r2) of
+                Just Refl -> return $! sfromD e
+                _ -> error "buildDerivative: type mismatch"
           else error "buildDerivative: wrong index for an input"
         ScaleS _ ZeroS -> evalS ZeroS
         ScaleS k d -> smult k <$> evalS d
@@ -1044,7 +1058,11 @@ buildDerivative dimR deltaDt params = do
                              ++ show (valueOf @n :: Int)
         InputR (InputId i) ->
           if i < dimR
-          then return $! tfromD $ params V.! i
+          then case params V.! i of
+            DynamicExists @_ @r2 e ->
+              case testEquality (typeRep @r) (typeRep @r2) of
+                Just Refl -> return $! tfromD e
+                _ -> error "buildDerivative: type mismatch"
           else error "buildDerivative': wrong index for an input"
         ScaleR _ ZeroR -> evalR ZeroR
         ScaleR k d -> tmult k <$> evalR d

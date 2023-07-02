@@ -13,10 +13,12 @@ import Prelude
 import qualified Data.Array.Shape as OS
 import           Data.Bifunctor.Clown
 import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality ((:~:) (Refl))
+import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           Type.Reflection (typeRep)
 
+import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstSimplify
@@ -78,25 +80,31 @@ instance Tensor AstRanked where
     -- sharing that is not visible in this restricted context.
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
-  raddDynamic :: forall n r. KnownNat n
-              => AstRanked r n -> AstDynamic r -> AstDynamic r
-  raddDynamic r (AstRToD AstIota) = AstRToD r
-  raddDynamic r (AstRToD @n2 (AstSumOfList l)) =
-    case sameNat (Proxy @n) (Proxy @n2) of
-      Just Refl -> AstRToD (AstSumOfList (r : l))
-      _ -> error "raddDynamic: type mismatch"
-  raddDynamic r (AstRToD @n2 v) =
-    case sameNat (Proxy @n) (Proxy @n2) of
-      Just Refl -> AstRToD (AstSumOfList [r, v])
-      _ -> error "raddDynamic: type mismatch"
-  raddDynamic r (AstSToD AstIotaS) = AstRToD r
-  raddDynamic r (AstSToD @sh2 (AstSumOfListS l)) =
-    case matchingRank @sh2 @n of
-      Just Refl -> AstSToD (AstSumOfListS (AstRToS r : l))
-      _ -> error "raddDynamic: type mismatch"
-  raddDynamic r (AstSToD @sh2 v) =
-    case matchingRank @sh2 @n of
-      Just Refl -> AstSToD (AstSumOfListS [AstRToS r, v])
+  raddDynamic :: forall n r. (GoodScalar r, KnownNat n)
+              => AstRanked r n -> DynamicExists AstDynamic
+              -> DynamicExists AstDynamic
+  raddDynamic r (DynamicExists @_ @r2 d) = DynamicExists $
+    if disDummy @AstRanked d then AstRToD r
+    else case testEquality (typeRep @r) (typeRep @r2) of
+      Just Refl -> case d of
+        AstRToD AstIota -> AstRToD r
+        AstRToD @n2 (AstSumOfList l) ->
+          case sameNat (Proxy @n) (Proxy @n2) of
+            Just Refl -> AstRToD (AstSumOfList (r : l))
+            _ -> error "raddDynamic: type mismatch"
+        AstRToD @n2 v ->
+          case sameNat (Proxy @n) (Proxy @n2) of
+            Just Refl -> AstRToD (AstSumOfList [r, v])
+            _ -> error "raddDynamic: type mismatch"
+        AstSToD AstIotaS -> AstRToD r
+        AstSToD @sh2 (AstSumOfListS l) ->
+          case matchingRank @sh2 @n of
+            Just Refl -> AstSToD (AstSumOfListS (AstRToS r : l))
+            _ -> error "raddDynamic: type mismatch"
+        AstSToD @sh2 v ->
+          case matchingRank @sh2 @n of
+            Just Refl -> AstSToD (AstSumOfListS [AstRToS r, v])
+            _ -> error "raddDynamic: type mismatch"
       _ -> error "raddDynamic: type mismatch"
   tregister = astRegisterFun
 
@@ -140,25 +148,22 @@ astLetFun a f =
   in astLet var a ast  -- safe, because subsitution ruled out above
 
 astLetDomainsFun
-  :: forall m r r2. GoodScalar r
-  => AstDomains r
-  -> (AstDomains r -> AstRanked r2 m)
-  -> AstRanked r2 m
+  :: forall m r. AstDomains -> (AstDomains -> AstRanked r m) -> AstRanked r m
 astLetDomainsFun a f =
-  let genVar :: AstDynamic r -> (AstVarId, AstDynamic r)
-      genVar (AstRToD t) =
+  let genVar :: DynamicExists AstDynamic -> (AstVarId, DynamicExists AstDynamic)
+      genVar (DynamicExists @_ @r2 (AstRToD t)) =
         let sh = shapeAst t
             (AstVarName var, ast) = funToAstR sh id
-        in (var, AstRToD ast)
-      genVar (AstSToD @sh _t) =
+        in (var, DynamicExists @AstDynamic @r2 $ AstRToD ast)
+      genVar (DynamicExists @_ @r2 (AstSToD @sh _t)) =
         let (AstVarName var, ast) = funToAstS @sh id
-        in (var, AstSToD ast)
+        in (var, DynamicExists @AstDynamic @r2 $ AstSToD ast)
       (vars, asts) = V.unzip $ V.map genVar (unwrapAstDomains a)
   in AstLetDomains vars a (f $ AstDomains asts)
 
-astDomainsLetFun :: (KnownNat n, GoodScalar r, GoodScalar r2)
-                 => AstRanked r n -> (AstRanked r n -> AstDomains r2)
-                 -> AstDomains r2
+astDomainsLetFun :: (KnownNat n, GoodScalar r)
+                 => AstRanked r n -> (AstRanked r n -> AstDomains)
+                 -> AstDomains
 astDomainsLetFun a f | astIsSmall True a = f a
 astDomainsLetFun a f =
   let sh = shapeAst a
@@ -387,25 +392,31 @@ instance ShapedTensor AstShaped where
     -- sharing that is not visible in this restricted context.
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
-  saddDynamic :: forall sh r. OS.Shape sh
-              => AstShaped r sh -> AstDynamic r -> AstDynamic r
-  saddDynamic r (AstSToD AstIotaS) = AstSToD r
-  saddDynamic r (AstSToD @sh2 (AstSumOfListS l)) =
-    case sameShape @sh @sh2 of
-      Just Refl -> AstSToD (AstSumOfListS (r : l))
-      _ -> error "saddDynamic: type mismatch"
-  saddDynamic r (AstSToD @sh2 v) =
-    case sameShape @sh @sh2 of
-      Just Refl -> AstSToD (AstSumOfListS [r, v])
-      _ -> error "saddDynamic: type mismatch"
-  saddDynamic r (AstRToD AstIota) = AstSToD r
-  saddDynamic r (AstRToD @n2 (AstSumOfList l)) =
-    case matchingRank @sh @n2 of
-      Just Refl -> AstRToD (AstSumOfList (AstSToR r : l))
-      _ -> error "saddDynamic: type mismatch"
-  saddDynamic r (AstRToD @n2 v) =
-    case matchingRank @sh @n2 of
-      Just Refl -> AstRToD (AstSumOfList [AstSToR r, v])
+  saddDynamic :: forall sh r. (GoodScalar r, OS.Shape sh)
+              => AstShaped r sh -> DynamicExists AstDynamic
+              -> DynamicExists AstDynamic
+  saddDynamic r (DynamicExists @_ @r2 d) = DynamicExists $
+    if disDummy @AstRanked d then AstSToD r
+    else case testEquality (typeRep @r) (typeRep @r2) of
+      Just Refl -> case d of
+        AstSToD AstIotaS -> AstSToD r
+        AstSToD @sh2 (AstSumOfListS l) ->
+          case sameShape @sh @sh2 of
+            Just Refl -> AstSToD (AstSumOfListS (r : l))
+            _ -> error "saddDynamic: type mismatch"
+        AstSToD @sh2 v ->
+          case sameShape @sh @sh2 of
+            Just Refl -> AstSToD (AstSumOfListS [r, v])
+            _ -> error "saddDynamic: type mismatch"
+        AstRToD AstIota -> AstSToD r
+        AstRToD @n2 (AstSumOfList l) ->
+          case matchingRank @sh @n2 of
+            Just Refl -> AstRToD (AstSumOfList (AstSToR r : l))
+            _ -> error "saddDynamic: type mismatch"
+        AstRToD @n2 v ->
+          case matchingRank @sh @n2 of
+            Just Refl -> AstRToD (AstSumOfList [AstSToR r, v])
+            _ -> error "saddDynamic: type mismatch"
       _ -> error "saddDynamic: type mismatch"
   sregister = astRegisterFunS
 

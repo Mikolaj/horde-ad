@@ -25,6 +25,7 @@ import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 
+import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.ShapedList (ShapedList (..))
@@ -202,11 +203,13 @@ printAst cfg d = \case
            . printAst cfg 0 v)
       -- TODO: this does not roundtrip yet
 
-printAstVarFromDomains :: forall r. PrintConfig -> (AstVarId, AstDynamic r)
-                       -> ShowS
+printAstVarFromDomains
+  :: PrintConfig -> (AstVarId, DynamicExists AstDynamic) -> ShowS
 printAstVarFromDomains cfg (var, d) = case d of
-  AstRToD @n _ -> printAstVar cfg (AstVarName @(Flip OR.Array r n) var)
-  AstSToD @sh _ -> printAstVarS cfg (AstVarName @(Flip OS.Array r sh) var)
+  DynamicExists @_ @r (AstRToD @n _) ->
+    printAstVar cfg (AstVarName @(Flip OR.Array r n) var)
+  DynamicExists @_ @r (AstSToD @sh _) ->
+    printAstVarS cfg (AstVarName @(Flip OS.Array r sh) var)
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
@@ -229,23 +232,24 @@ printAstUnDynamic cfg d = \case
   AstRToD v -> printAst cfg d v
   AstSToD v -> printAstS cfg d v
 
-printAstDomains :: forall r. GoodScalar r
-                => PrintConfig -> Int -> AstDomains r -> ShowS
+printAstDomains :: PrintConfig -> Int -> AstDomains -> ShowS
 printAstDomains cfg d = \case
   AstDomains l ->
     if prettifyLosingSharing cfg
     then
-      showCollectionWith "(" ")" (printAstUnDynamic cfg 0) (V.toList l)
+      showCollectionWith "(" ")" (\(DynamicExists e) ->
+                                    printAstUnDynamic cfg 0 e) (V.toList l)
     else
       showParen (d > 10)
       $ showString "dmkDomains "
         . (showParen True
            $ showString "fromList "
-             . showListWith (printAstDynamic cfg 0) (V.toList l))
-  t@(AstDomainsLet @m0 var0 u0 v0) ->
+             . showListWith (\(DynamicExists e) ->
+                               printAstDynamic cfg 0 e) (V.toList l))
+  t@(AstDomainsLet @m0 @r0 var0 u0 v0) ->
     if prettifyLosingSharing cfg
-    then let collect :: AstDomains r -> ([(ShowS, ShowS)], ShowS)
-             collect (AstDomainsLet @m var u v) =
+    then let collect :: AstDomains -> ([(ShowS, ShowS)], ShowS)
+             collect (AstDomainsLet @m @r var u v) =
                let name = printAstVar cfg (AstVarName @(Flip OR.Array r m) var)
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
@@ -265,13 +269,13 @@ printAstDomains cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVar cfg (AstVarName @(Flip OR.Array r m0) var0)
+             . printAstVar cfg (AstVarName @(Flip OR.Array r0 m0) var0)
              . showString " -> "
              . printAstDomains cfg 0 v0)
-  t@(AstDomainsLetS @sh0 var0 u0 v0) ->
+  t@(AstDomainsLetS @sh0 @r0 var0 u0 v0) ->
     if prettifyLosingSharing cfg
-    then let collect :: AstDomains r -> ([(ShowS, ShowS)], ShowS)
-             collect (AstDomainsLetS @sh var u v) =
+    then let collect :: AstDomains -> ([(ShowS, ShowS)], ShowS)
+             collect (AstDomainsLetS @sh @r var u v) =
                let name = printAstVarS cfg (AstVarName @(Flip OS.Array r sh) var)
                    uPP = printAstS cfg 0 u
                    (rest, corePP) = collect v
@@ -291,7 +295,7 @@ printAstDomains cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVarS cfg (AstVarName @(Flip OS.Array r sh0) var0)
+             . printAstVarS cfg (AstVarName @(Flip OS.Array r0 sh0) var0)
              . showString " -> "
              . printAstDomains cfg 0 v0)
 
@@ -430,7 +434,7 @@ printAstVarNameS :: OS.Shape sh
 printAstVarNameS renames var =
   printAstVarS (defaulPrintConfig False renames) var ""
 
-printAstDynamicVarName :: IntMap String -> AstDynamicVarName r -> String
+printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarName renames (AstDynamicVarName var) =
   printAstVarName renames var
 printAstDynamicVarName renames (AstDynamicVarNameS var) =
@@ -583,15 +587,15 @@ printAstPrettyS :: (GoodScalar r, OS.Shape sh)
                 => IntMap String -> AstShaped r sh -> String
 printAstPrettyS renames t = printAstS (defaulPrintConfig True renames) 0 t ""
 
-printAstDomainsSimple :: GoodScalar r => IntMap String -> AstDomains r -> String
+printAstDomainsSimple :: IntMap String -> AstDomains -> String
 printAstDomainsSimple renames t =
   printAstDomains (defaulPrintConfig False renames) 0 t ""
 
-printAstDomainsPretty :: GoodScalar r => IntMap String -> AstDomains r -> String
+printAstDomainsPretty :: IntMap String -> AstDomains -> String
 printAstDomainsPretty renames t =
   printAstDomains (defaulPrintConfig True renames) 0 t ""
 
-printGradient6Simple :: (GoodScalar r, KnownNat n)
+printGradient6Simple :: KnownNat n
                      => IntMap String -> ADAstArtifact6 (Flip OR.Array) r n
                      -> String
 printGradient6Simple renames ((varDt, vars1), gradient, _) =
@@ -600,7 +604,7 @@ printGradient6Simple renames ((varDt, vars1), gradient, _) =
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstDomainsSimple renames gradient
 
-printGradient6Pretty :: (GoodScalar r, KnownNat n)
+printGradient6Pretty :: KnownNat n
                      => IntMap String -> ADAstArtifact6 (Flip OR.Array) r n
                      -> String
 printGradient6Pretty renames ((varDt, vars1), gradient, _) =
@@ -625,7 +629,7 @@ printPrimal6Pretty renames ((_, vars1), _, primal) =
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstPretty renames primal
 
-printGradient6SimpleS :: (GoodScalar r, OS.Shape sh)
+printGradient6SimpleS :: OS.Shape sh
                       => IntMap String -> ADAstArtifact6 (Flip OS.Array) r sh
                       -> String
 printGradient6SimpleS renames ((varDt, vars1), gradient, _) =
@@ -634,7 +638,7 @@ printGradient6SimpleS renames ((varDt, vars1), gradient, _) =
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstDomainsSimple renames gradient
 
-printGradient6PrettyS :: (GoodScalar r, OS.Shape sh)
+printGradient6PrettyS :: OS.Shape sh
                       => IntMap String -> ADAstArtifact6 (Flip OS.Array) r sh
                       -> String
 printGradient6PrettyS renames ((varDt, vars1), gradient, _) =

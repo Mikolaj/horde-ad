@@ -12,6 +12,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.List.Index (imap)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (SomeNat (..), someNatVal)
@@ -91,7 +92,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                         , show (length params1Init)
                         , show (sum (map OD.size params1Init))
                         , show gamma ]
-      ftest :: [MnistData r] -> DomainsOD r -> r
+      ftest :: [MnistData r] -> DomainsOD -> r
       ftest mnist testParams =
         MnistFcnnRanked1.afcnnMnistTest1
           widthHidden widthHidden2 mnist
@@ -105,9 +106,9 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
+       let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (ADValClown OD.Array) r
+             let f :: MnistData r -> Domains (ADValClown OD.Array)
                    -> ADVal ranked r 0
                  f mnist adinputs =
                    MnistFcnnRanked1.afcnnMnistLoss1
@@ -122,7 +123,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> DomainsOD r -> IO (DomainsOD r)
+       let runEpoch :: Int -> DomainsOD -> IO DomainsOD
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -132,7 +133,8 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (V.fromList params1Init)
+       res <- runEpoch 1 (V.fromList
+                          $ map (DynamicExists @OD.Array @r) params1Init)
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
@@ -172,7 +174,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                           - LA.scalar 0.5)
              nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList params1Init
+      domainsInit = V.fromList $ map (DynamicExists @OD.Array @r) params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -189,7 +191,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                         , show (length params1Init)
                         , show (sum (map OD.size params1Init))
                         , show gamma ]
-      ftest :: [MnistData r] -> DomainsOD r -> r
+      ftest :: [MnistData r] -> DomainsOD -> r
       ftest mnist testParams =
         MnistFcnnRanked1.afcnnMnistTest1
           widthHidden widthHidden2 mnist
@@ -202,7 +204,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let shapes1 = map (: []) nParams1
-           (vars1, asts1) = unzip $ map funToAstD shapes1
+           (vars1, asts1) = unzip $ map (funToAstD (Proxy @r)) shapes1
            doms = V.fromList asts1
        (varGlyph, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
@@ -214,9 +216,9 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    (parseDomains valsInit doms)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
+       let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (ADValClown OD.Array) r
+             let f :: MnistData r -> Domains (ADValClown OD.Array)
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvDR EM.empty
@@ -237,7 +239,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> DomainsOD r -> IO (DomainsOD r)
+       let runEpoch :: Int -> DomainsOD -> IO DomainsOD
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -287,7 +289,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                           - LA.scalar 0.5)
              nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList params1Init
+      domainsInit = V.fromList $ map (DynamicExists @OD.Array @r) params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -304,7 +306,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                         , show (length params1Init)
                         , show (sum (map OD.size params1Init))
                         , show gamma ]
-      ftest :: [MnistData r] -> DomainsOD r -> r
+      ftest :: [MnistData r] -> DomainsOD -> r
       ftest mnist testParams =
         MnistFcnnRanked1.afcnnMnistTest1
           widthHidden widthHidden2 mnist
@@ -331,20 +333,22 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
              vars1Again
              ++ [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
            vars = (varDtAgain, vars1AndInputAgain)
-           go :: [MnistData r] -> DomainsOD r -> DomainsOD r
+           go :: [MnistData r] -> DomainsOD -> DomainsOD
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
-             let glyphD = OD.fromVector [sizeMnistGlyphInt] glyph
-                 labelD = OD.fromVector [sizeMnistLabelInt] label
+             let glyphD = DynamicExists
+                          $ OD.fromVector [sizeMnistGlyphInt] glyph
+                 labelD = DynamicExists
+                          $ OD.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
                    fst $ revAstOnDomainsEval (vars, gradient, primal)
                                              parametersAndInput Nothing
-             in go rest (updateWithGradientR gamma parameters gradientDomain)
+             in go rest (updateWithGradient gamma parameters gradientDomain)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
+       let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
            runBatch !domains (k, chunk) = do
              let res = go chunk domains
                  trainScore = ftest chunk res
@@ -355,7 +359,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> DomainsOD r -> IO (DomainsOD r)
+       let runEpoch :: Int -> DomainsOD -> IO DomainsOD
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -419,9 +423,9 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show (V.length domainsInit)
-                        , show (V.sum (V.map OD.size domainsInit))
+                        , show (sizeDomainsOD domainsInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> DomainsOD r -> r
+      ftest :: [MnistData r] -> DomainsOD -> r
       ftest mnist testParams =
         MnistFcnnRanked2.afcnnMnistTest2 mnist
           (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
@@ -434,9 +438,9 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
+       let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (ADValClown OD.Array) r
+             let f :: MnistData r -> Domains (ADValClown OD.Array)
                    -> ADVal ranked r 0
                  f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
@@ -450,7 +454,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> DomainsOD r -> IO (DomainsOD r)
+       let runEpoch :: Int -> DomainsOD -> IO DomainsOD
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -510,9 +514,9 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show (V.length domainsInit)
-                        , show (V.sum (V.map OD.size domainsInit))
+                        , show (sizeDomainsOD domainsInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> DomainsOD r -> r
+      ftest :: [MnistData r] -> DomainsOD -> r
       ftest mnist testParams =
         MnistFcnnRanked2.afcnnMnistTest2 mnist
           (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
@@ -523,8 +527,9 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList domainsInit
-           (vars1, asts1) = unzip $ map funToAstD shapes1
+       let shapes1 = map (\(DynamicExists e) -> dshape @(Flip OR.Array) e)
+                         (V.toList domainsInit)
+           (vars1, asts1) = unzip $ map (funToAstD (Proxy @r)) shapes1
            doms = V.fromList asts1
        (varGlyph, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
@@ -535,9 +540,9 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                    (astGlyph, astLabel) (parseDomains valsInit doms)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
+       let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (ADValClown OD.Array) r
+             let f :: MnistData r -> Domains (ADValClown OD.Array)
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
                    let env1 = foldr extendEnvDR EM.empty
@@ -558,7 +563,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> DomainsOD r -> IO (DomainsOD r)
+       let runEpoch :: Int -> DomainsOD -> IO DomainsOD
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -620,9 +625,9 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                ++ unwords [ show epochs, show maxBatches
                           , show widthHidden, show widthHidden2
                           , show (V.length domainsInit)
-                          , show (V.sum (V.map OD.size domainsInit))
+                          , show (sizeDomainsOD domainsInit)
                           , show gamma ]
-        ftest :: [MnistData r] -> DomainsOD r -> r
+        ftest :: [MnistData r] -> DomainsOD -> r
         ftest mnist testParams =
           MnistFcnnRanked2.afcnnMnistTest2 mnist
             (\f -> OR.toVector $ runFlip $ f
@@ -649,20 +654,22 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
              vars1Again
              ++ [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
            vars = (varDtAgain, vars1AndInputAgain)
-           go :: [MnistData r] -> DomainsOD r -> DomainsOD r
+           go :: [MnistData r] -> DomainsOD -> DomainsOD
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
-             let glyphD = OD.fromVector [sizeMnistGlyphInt] glyph
-                 labelD = OD.fromVector [sizeMnistLabelInt] label
+             let glyphD = DynamicExists
+                          $ OD.fromVector [sizeMnistGlyphInt] glyph
+                 labelD = DynamicExists
+                          $ OD.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
                    fst $ revAstOnDomainsEval (vars, gradient, primal)
                                              parametersAndInput Nothing
-             in go rest (updateWithGradientR gamma parameters gradientDomain)
+             in go rest (updateWithGradient gamma parameters gradientDomain)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: DomainsOD r -> (Int, [MnistData r]) -> IO (DomainsOD r)
+       let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
            runBatch !domains (k, chunk) = do
              let res = go chunk domains
                  trainScore = ftest chunk res
@@ -673,7 +680,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> DomainsOD r -> IO (DomainsOD r)
+       let runEpoch :: Int -> DomainsOD -> IO DomainsOD
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $

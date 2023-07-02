@@ -10,6 +10,7 @@ module HordeAd.Core.AstFreshId
 
 import Prelude
 
+import           Control.Arrow (second)
 import           Control.Monad (replicateM)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
@@ -22,6 +23,7 @@ import           Data.Proxy (Proxy)
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import           System.IO.Unsafe (unsafePerformIO)
 
+import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
 import qualified HordeAd.Core.ShapedList as ShapedList
@@ -95,7 +97,8 @@ funToAstRshIO = do
   return (AstVarName freshId, \sh -> AstVar sh freshId)
 
 -- The "fun"ction in this case is fixed to be @id@.
-funToAstDIO :: forall r. [Int] -> IO (AstDynamicVarName r, AstDynamic r)
+funToAstDIO :: forall r. GoodScalar r
+            => [Int] -> IO (AstDynamicVarName, AstDynamic r)
 {-# INLINE funToAstDIO #-}
 funToAstDIO sh = do
   freshId <- unsafeGetFreshAstVarId
@@ -106,13 +109,15 @@ funToAstDIO sh = do
       in (AstDynamicVarName varName, AstRToD (AstVar shn freshId))
     Nothing -> error "funToAstD: impossible someNatVal error"
 
-funToAstD :: forall r. [Int] -> (AstDynamicVarName r, AstDynamic r)
+funToAstD :: forall r. GoodScalar r
+          => Proxy r -> [Int] -> (AstDynamicVarName, DynamicExists AstDynamic)
 {-# NOINLINE funToAstD #-}
-funToAstD sh = unsafePerformIO $ funToAstDIO sh
+funToAstD _ sh = second DynamicExists $ unsafePerformIO $ funToAstDIO @r sh
 
 type ADAstVars r n = (ShapeInt n -> AstRanked r n, [AstDynamic r])
 
-funToAstAll :: [[Int]] -> (ADAstVarNames (Flip OR.Array) r n, ADAstVars r n)
+funToAstAll ::  GoodScalar r
+            => [[Int]] -> (ADAstVarNames (Flip OR.Array) r n, ADAstVars r n)
 {-# NOINLINE funToAstAll #-}
 funToAstAll shapes1 = unsafePerformIO $ do
   (vnDt, vDt) <- funToAstRshIO
@@ -121,7 +126,8 @@ funToAstAll shapes1 = unsafePerformIO $ do
 
 type ADAstVarsS r sh = (AstShaped r sh, [AstDynamic r])
 
-funToAstAllS :: [[Int]] -> (ADAstVarNames (Flip OS.Array) r sh, ADAstVarsS r sh)
+funToAstAllS ::  GoodScalar r
+             => [[Int]] -> (ADAstVarNames (Flip OS.Array) r sh, ADAstVarsS r sh)
 {-# NOINLINE funToAstAllS #-}
 funToAstAllS shapes1 = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId

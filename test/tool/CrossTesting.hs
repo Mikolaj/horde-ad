@@ -54,19 +54,19 @@ rev' f vals =
       parameters = toDomains vals
       dt = Nothing
 -- TODO: disabled to type-check on GHC 9.4.5:
---      g :: Domains (ADValClown OD.Array) r
+--      g :: Domains (ADValClown OD.Array)
 --        -> ADVal (Flip OR.Array) r m
 --      g inputs = f $ parseDomains vals inputs
       (advalGrad, value1) = (astGrad, value2)  -- crevOnDomains dt g parameters
       gradient1 = parseDomains vals advalGrad
-      g9 :: Domains (ADValClown AstDynamic) r
+      g9 :: Domains (ADValClown AstDynamic)
          -> ADVal AstRanked r m
       g9 inputs = f $ parseDomains vals inputs
       revAstOnDomainsF
         :: forall r2 n2.
            (KnownNat n2, GoodScalar r2)
-        => Bool -> (Domains (ADValClown AstDynamic) r2 -> ADVal AstRanked r2 n2)
-        -> DomainsOD r2
+        => Bool -> (Domains (ADValClown AstDynamic) -> ADVal AstRanked r2 n2)
+        -> DomainsOD
         -> (ADAstArtifact6 (Flip OR.Array) r2 n2, Dual AstRanked r2 n2)
       {-# INLINE revAstOnDomainsF #-}
       revAstOnDomainsF hasDt f2 parameters2  =
@@ -77,7 +77,7 @@ rev' f vals =
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady f1 r
         => (f1 r m -> AstRanked r m) -> (AstRanked r n -> f1 r n)
-        -> (AstRanked r m -> AstRanked r m) -> Domains (ADValClown OD.Array) r
+        -> (AstRanked r m -> AstRanked r m) -> Domains (ADValClown OD.Array)
         -> ADVal (Flip OR.Array) r m
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
@@ -114,7 +114,7 @@ rev' f vals =
       hAst :: ADReady f1 r
            => (f1 r m -> AstRanked r m) -> (AstRanked r n -> f1 r n)
            -> (AstRanked r m -> AstRanked r m)
-           -> Domains (ADValClown AstDynamic) r
+           -> Domains (ADValClown AstDynamic)
            -> ADVal AstRanked r m
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)

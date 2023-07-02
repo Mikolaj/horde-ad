@@ -26,8 +26,10 @@ import           Data.Kind (Constraint, Type)
 import           Data.Maybe (fromMaybe, isJust)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
+import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
+import           Type.Reflection (typeRep)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -45,8 +47,7 @@ rev
   :: forall r y f vals astvals.
      ( Adaptable f, GoodScalar r, HasSingletonDict f y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , RandomDomains vals, vals ~ Value astvals
-     , Underlying vals ~ r, Underlying astvals ~ r )
+     , RandomDomains vals, vals ~ Value astvals )
   => (astvals -> AstOf f r y) -> vals -> vals
 rev f vals = revDtMaybe f vals Nothing
 
@@ -55,8 +56,7 @@ revDt
   :: forall r y f vals astvals.
      ( Adaptable f, GoodScalar r, HasSingletonDict f y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , RandomDomains vals, vals ~ Value astvals
-     , Underlying vals ~ r, Underlying astvals ~ r )
+     , RandomDomains vals, vals ~ Value astvals )
   => (astvals -> AstOf f r y) -> vals -> f r y -> vals
 revDt f vals dt = revDtMaybe f vals (Just dt)
 
@@ -64,8 +64,7 @@ revDtMaybe
   :: forall r y f vals astvals.
      ( Adaptable f, GoodScalar r, HasSingletonDict f y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , RandomDomains vals, vals ~ Value astvals
-     , Underlying vals ~ r, Underlying astvals ~ r )
+     , RandomDomains vals, vals ~ Value astvals )
   => (astvals -> AstOf f r y) -> vals -> Maybe (f r y) -> vals
 revDtMaybe f vals mdt =
   let asts4 = fst $ revDtFun (isJust mdt) f vals
@@ -76,17 +75,17 @@ type Adaptable :: forall k. (Type -> k -> Type) -> Constraint
 class Adaptable f where
   revAstOnDomainsEval
     :: forall r y. (GoodScalar r, HasSingletonDict f y)
-    => ADAstArtifact6 f r y -> Domains OD.Array r -> Maybe (f r y)
-    -> (Domains OD.Array r, f r y)
+    => ADAstArtifact6 f r y -> Domains OD.Array -> Maybe (f r y)
+    -> (Domains OD.Array, f r y)
 
   revDtInit
     :: forall r y vals astvals.
        ( GoodScalar r, HasSingletonDict f y
        , AdaptableDomains AstDynamic astvals
-       , vals ~ Value astvals, Underlying astvals ~ r )
+       , vals ~ Value astvals )
     => Bool -> (astvals -> AstOf f r y) -> vals
     -> AstEnv (ADVal (AstOf (RankedOf f)))
-    -> DomainsOD r
+    -> DomainsOD
     -> (ADAstArtifact6 f r y, Dual (AstOf f) r y)
 
 -- TODO: it's not clear if the instance should be of Clown OD.Array or of
@@ -110,17 +109,16 @@ instance Adaptable @Nat (Flip OR.Array) where
   revDtInit
     :: forall r y vals astvals.
        ( GoodScalar r, KnownNat y
-       , AdaptableDomains AstDynamic astvals
-       , vals ~ Value astvals, Underlying astvals ~ r )
+       , AdaptableDomains AstDynamic astvals, vals ~ Value astvals )
     => Bool -> (astvals -> AstRanked r y) -> vals
     -> AstEnv (ADVal AstRanked)
-    -> DomainsOD r
+    -> DomainsOD
     -> (ADAstArtifact6 (Flip OR.Array) r y, Dual AstRanked r y)
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
-    let revDtInterpret :: Domains (ADValClown AstDynamic) r
-                       -> Domains AstDynamic r
-                       -> [AstDynamicVarName r]
+    let revDtInterpret :: Domains (ADValClown AstDynamic)
+                       -> Domains AstDynamic
+                       -> [AstDynamicVarName]
                        -> ADVal AstRanked r y
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
@@ -141,16 +139,15 @@ instance Adaptable @[Nat] (Flip OS.Array) where
   revDtInit
     :: forall r y vals astvals.
        ( GoodScalar r, OS.Shape y, KnownNat (OS.Size y)
-       , AdaptableDomains AstDynamic astvals
-       , vals ~ Value astvals, Underlying astvals ~ r )
+       , AdaptableDomains AstDynamic astvals, vals ~ Value astvals )
     => Bool -> (astvals -> AstShaped r y) -> vals -> AstEnv (ADVal AstRanked)
-    -> DomainsOD r
+    -> DomainsOD
     -> (ADAstArtifact6 (Flip OS.Array) r y, Dual AstShaped r y)
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
-    let revDtInterpret :: Domains (ADValClown AstDynamic) r
-                       -> Domains AstDynamic r
-                       -> [AstDynamicVarName r]
+    let revDtInterpret :: Domains (ADValClown AstDynamic)
+                       -> Domains AstDynamic
+                       -> [AstDynamicVarName]
                        -> ADVal AstShaped r y
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
@@ -162,7 +159,7 @@ revDtFun
   :: forall r y f vals astvals.
      ( Adaptable f, GoodScalar r, HasSingletonDict f y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
-     , vals ~ Value astvals, Underlying vals ~ r, Underlying astvals ~ r )
+     , vals ~ Value astvals )
   => Bool -> (astvals -> AstOf f r y) -> vals
   -> (ADAstArtifact6 f r y, Dual (AstOf f) r y)
 {-# INLINE revDtFun #-}
@@ -170,19 +167,20 @@ revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
 revAstOnDomainsFun
   :: forall r n. (KnownNat n, GoodScalar r)
-  => Bool -> DomainsOD r
-  -> (Domains (ADValClown AstDynamic) r
-      -> Domains AstDynamic r
-      -> [AstDynamicVarName r]
+  => Bool -> DomainsOD
+  -> (Domains (ADValClown AstDynamic)
+      -> Domains AstDynamic
+      -> [AstDynamicVarName]
       -> ADVal AstRanked r n)
   -> (ADAstArtifact6 (Flip OR.Array) r n, Dual AstRanked r n)
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun hasDt parameters0 f =
-  let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList parameters0
+  let shapes1 = map (\(DynamicExists e) -> dshape @(Flip OR.Array) e)
+                    (V.toList parameters0)
       -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
       !(!vars@(!_, vars1), (astDt, asts1)) = funToAstAll shapes1 in
-  let domains = V.fromList asts1
+  let domains = V.fromList $ map DynamicExists asts1
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
@@ -198,19 +196,20 @@ revAstOnDomainsFun hasDt parameters0 f =
 
 revAstOnDomainsFunS
   :: forall r sh. (OS.Shape sh, KnownNat (OS.Size sh), GoodScalar r)
-  => Bool -> DomainsOD r
-  -> (Domains (ADValClown AstDynamic) r
-      -> Domains AstDynamic r
-      -> [AstDynamicVarName r]
+  => Bool -> DomainsOD
+  -> (Domains (ADValClown AstDynamic)
+      -> Domains AstDynamic
+      -> [AstDynamicVarName]
       -> ADVal AstShaped r sh)
   -> (ADAstArtifact6 (Flip OS.Array) r sh, Dual AstShaped r sh)
 {-# INLINE revAstOnDomainsFunS #-}
 revAstOnDomainsFunS hasDt parameters0 f =
-  let shapes1 = map (dshape @(Flip OR.Array)) $ V.toList parameters0
+  let shapes1 = map (\(DynamicExists e) -> dshape @(Flip OR.Array) e)
+                    (V.toList parameters0)
       -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
       !(!vars@(!_, vars1), (astDt, asts1)) = funToAstAllS shapes1 in
-  let domains = V.fromList asts1
+  let domains = V.fromList $ map DynamicExists asts1
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
@@ -234,7 +233,7 @@ crev
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals, RandomDomains vals
-     , vals ~ Value advals, r ~ Underlying vals, Underlying advals ~ r )
+     , vals ~ Value advals )
   => (advals -> ADVal f r y) -> vals -> vals
 crev f vals = crevDtMaybe f vals Nothing
 
@@ -245,7 +244,7 @@ crevDt
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals, RandomDomains vals
-     , vals ~ Value advals, r ~ Underlying vals, Underlying advals ~ r )
+     , vals ~ Value advals )
   => (advals -> ADVal f r y) -> vals -> f r y -> vals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
@@ -255,7 +254,7 @@ crevDtMaybe
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals, RandomDomains vals
-     , vals ~ Value advals, r ~ Underlying vals, Underlying advals ~ r )
+     , vals ~ Value advals )
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
 crevDtMaybe f vals dt =
   let g inputs = f $ parseDomains vals inputs
@@ -267,9 +266,9 @@ crevOnDomains
   :: ( DualPart f, HasSingletonDict f y, GoodScalar r
      , DynamicOf f ~ OD.Array )
   => Maybe (f r y)
-  -> (Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
-  -> DomainsOD r
-  -> (DomainsOD r, f r y)
+  -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
+  -> DomainsOD
+  -> (DomainsOD, f r y)
 crevOnDomains dt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
@@ -282,9 +281,9 @@ crevOnADInputs
   :: ( DualPart f, HasSingletonDict f y, GoodScalar r
      , DynamicOf f ~ OD.Array )
   => Maybe (f r y)
-  -> (Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
-  -> Domains (DynamicOf (ADVal f)) r
-  -> (DomainsOD r, f r y)
+  -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
+  -> Domains (DynamicOf (ADVal f))
+  -> (DomainsOD, f r y)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
@@ -308,7 +307,7 @@ cfwd
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals
-     , vals ~ Value advals, r ~ Underlying vals, Underlying advals ~ r )
+     , vals ~ Value advals )
   => (advals -> ADVal f r y) -> vals -> vals
   -> f r y
 cfwd f x ds =
@@ -319,9 +318,9 @@ cfwd f x ds =
 cfwdOnDomains
   :: ( DualPart f, HasSingletonDict f y, GoodScalar r
      , DynamicOf f ~ OD.Array )
-  => DomainsOD r
-  -> (Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
-  -> DomainsOD r
+  => DomainsOD
+  -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
+  -> DomainsOD
   -> (f r y, f r y)
 cfwdOnDomains parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
@@ -331,9 +330,9 @@ cfwdOnDomains parameters f ds =
 cfwdOnADInputs
   :: ( DualPart f, HasSingletonDict f y, GoodScalar r
      , DynamicOf f ~ OD.Array )
-  => Domains (DynamicOf (ADVal f)) r
-  -> (Domains (DynamicOf (ADVal f)) r -> ADVal f r y)
-  -> DomainsOD r
+  => Domains (DynamicOf (ADVal f))
+  -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
+  -> DomainsOD
   -> (f r y, f r y)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
@@ -345,38 +344,44 @@ cfwdOnADInputs inputs f ds =
 -- * Additional mechanisms
 
 generateDeltaInputs
-  :: forall ranked shaped r dynamic.
-     ( dynamic ~ DynamicOf ranked, ConvertTensor ranked shaped, GoodScalar r
+  :: forall ranked shaped dynamic.
+     ( dynamic ~ DynamicOf ranked, ConvertTensor ranked shaped
      , Dual (Clown dynamic) ~ DeltaD ranked shaped )
-  => Domains dynamic r
-  -> Data.Vector.Vector (Dual (Clown dynamic) r '())
+  => Domains dynamic
+  -> Data.Vector.Vector (DeltaInputsExists dynamic)
 generateDeltaInputs params =
-  let arrayToInput :: Int -> dynamic r -> Dual (Clown dynamic) r '()
-      arrayToInput i t = case someNatVal $ toInteger $ length
-                              $ dshape @ranked t of
-        Just (SomeNat (_ :: Proxy n)) ->
-          RToD $ InputR @ranked @shaped @r @n $ toInputId i
-        Nothing -> error "generateDeltaInputs: impossible someNatVal error"
+  let arrayToInput :: Int -> DynamicExists dynamic -> DeltaInputsExists dynamic
+      arrayToInput i (DynamicExists @_ @r t) =
+        case someNatVal $ toInteger $ length $ dshape @ranked t of
+          Just (SomeNat (_ :: Proxy n)) ->
+            DeltaInputsExists $ RToD $ InputR @ranked @shaped @r @n
+                                     $ toInputId i
+          Nothing -> error "generateDeltaInputs: impossible someNatVal error"
   in V.imap arrayToInput params
 {- TODO: this can't be specified without a proxy
 {-# SPECIALIZE generateDeltaInputs
-  :: DomainsOD Double
-  -> Data.Vector.Vector (Dual OD.Array Double) #-}
+  :: DomainsOD -> Data.Vector.Vector (Dual OD.Array Double) #-}
 -}
 
+data DeltaInputsExists (dynamic :: Type -> Type) =
+  forall r. GoodScalar r => DeltaInputsExists (Dual (Clown dynamic) r '())
+
 makeADInputs
-  :: Domains dynamic r
-  -> Data.Vector.Vector (Dual (Clown dynamic) r '())
-  -> Domains (ADValClown dynamic) r
+  :: Domains dynamic -> Data.Vector.Vector (DeltaInputsExists dynamic)
+  -> Domains (ADValClown dynamic)
 {-# INLINE makeADInputs #-}
-makeADInputs = V.zipWith (\p d -> Flip $ dDnotShared emptyADShare (Clown p) d)
+makeADInputs =
+  V.zipWith (\(DynamicExists @_ @r p)
+              (DeltaInputsExists @_ @r2 d) ->
+    case testEquality (typeRep @r) (typeRep @r2) of
+      Just Refl -> DynamicExists $ Flip $ dDnotShared emptyADShare (Clown p) d
+      _ -> error "makeADInputs: type mismatch")
 
 shapedToRanked
-  :: forall vals svals dynamic r.
+  :: forall vals svals dynamic.
      ( dynamic ~ OD.Array, Value svals ~ vals, Value vals ~ vals
      , AdaptableDomains dynamic vals
-     , AdaptableDomains dynamic svals, RandomDomains svals
-     , r ~ Underlying vals, r ~ Underlying svals )
+     , AdaptableDomains dynamic svals, RandomDomains svals )
   => svals -> vals
 shapedToRanked svals =
   parseDomains @dynamic (toValue svals) $ toDomains @dynamic svals
