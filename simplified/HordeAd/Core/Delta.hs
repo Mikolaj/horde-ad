@@ -84,7 +84,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 
 -- * Abstract syntax trees of the delta expressions
 
-newtype NodeId = NodeId Int
+newtype NodeId (f :: Type -> k -> Type) = NodeId Int
  deriving newtype (Show, Enum)
    -- No Eq instance to limit hacks.
 
@@ -149,7 +149,8 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
          -> DeltaS ranked shaped r sh
   AddS :: DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
        -> DeltaS ranked shaped r sh
-  LetS :: NodeId -> DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
+  LetS :: NodeId ranked -> DeltaS ranked shaped r sh
+       -> DeltaS ranked shaped r sh
 
   IndexS :: (OS.Shape sh1, OS.Shape (sh1 OS.++ sh2))
          => DeltaS ranked shaped r (sh1 OS.++ sh2)
@@ -269,7 +270,8 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
   ScaleR :: ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
   AddR :: DeltaR ranked shaped r n -> DeltaR ranked shaped r n
        -> DeltaR ranked shaped r n
-  LetR :: NodeId -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
+  LetR :: NodeId ranked -> DeltaR ranked shaped r n
+       -> DeltaR ranked shaped r n
 
   IndexR :: (KnownNat n, KnownNat m)
          => DeltaR ranked shaped r (m + n) -> IndexOf ranked m
@@ -558,10 +560,10 @@ data EvalState ranked shaped r = EvalState
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap        :: EM.EnumMap NodeId (DynamicOf ranked r)
+  , dMap        :: EM.EnumMap (NodeId ranked) (DynamicOf ranked r)
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
-  , nMap        :: EM.EnumMap NodeId (DeltaBinding ranked shaped r)
+  , nMap        :: EM.EnumMap (NodeId ranked) (DeltaBinding ranked shaped r)
       -- ^ nodes left to be evaluated
   , astBindings :: [(AstVarId, DynamicExists (DynamicOf ranked))]
   }
