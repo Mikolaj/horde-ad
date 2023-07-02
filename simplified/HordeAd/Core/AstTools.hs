@@ -12,7 +12,7 @@ module HordeAd.Core.AstTools
   , substitute1AstS
   , astIsSmall, astIsSmallS
   , unwrapAstDomains, bindsToLet, bindsToLetS
-  , bindsToDomainsLet, bindsToDomainsLetUniversal
+  , bindsToDomainsLet
   ) where
 
 import Prelude
@@ -427,13 +427,15 @@ unwrapAstDomains = \case
   AstDomainsLet _ _ v -> unwrapAstDomains v
   AstDomainsLetS _ _ v -> unwrapAstDomains v
 
-bindsToLet :: forall n r. (KnownNat n, GoodScalar r)
-           => AstRanked r n -> [(AstVarId, AstUniversal)] -> AstRanked r n
+bindsToLet :: forall n r. KnownNat n
+           => AstRanked r n -> [(AstVarId, DynamicExists AstDynamic)]
+           -> AstRanked r n
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
  where
-  bindToLet :: AstRanked r n -> (AstVarId, AstUniversal) -> AstRanked r n
-  bindToLet u (var, AstUniversal @r2 d) = gcastWith (unsafeCoerce Refl :: r :~: r2) $ case d of  -- TODO
+  bindToLet :: AstRanked r n -> (AstVarId, DynamicExists AstDynamic)
+            -> AstRanked r n
+  bindToLet u (var, DynamicExists @r2 d) = case d of
     AstRToD w -> AstLet var w u
     AstSToD @sh w ->  -- rare or impossible, but let's implement it anyway:
       let p = length $ OS.shapeT @sh
@@ -444,13 +446,15 @@ bindsToLet = foldl' bindToLet
           AstLet var (AstSToR w) u
         Nothing -> error "bindsToLet: impossible someNatVal error"
 
-bindsToLetS :: forall sh r. (GoodScalar r, OS.Shape sh)
-            => AstShaped r sh -> [(AstVarId, AstUniversal)] -> AstShaped r sh
+bindsToLetS :: forall sh r. OS.Shape sh
+            => AstShaped r sh -> [(AstVarId, DynamicExists AstDynamic)]
+            -> AstShaped r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS
  where
-  bindToLetS :: AstShaped r sh -> (AstVarId, AstUniversal) -> AstShaped r sh
-  bindToLetS u (var, AstUniversal @r2 d) = gcastWith (unsafeCoerce Refl :: r :~: r2) $ case d of  -- TODO
+  bindToLetS :: AstShaped r sh -> (AstVarId, DynamicExists AstDynamic)
+             -> AstShaped r sh
+  bindToLetS u (var, DynamicExists @r2 d) = case d of
     AstRToD @n w ->  -- rare or impossible, but let's implement it anyway:
       let sh = shapeToList $ shapeAst w
       in if valueOf @n == length sh
@@ -461,20 +465,10 @@ bindsToLetS = foldl' bindToLetS
     AstSToD w -> AstLetS var w u
 
 bindsToDomainsLet
-   :: GoodScalar r
-   => AstDomains r -> [(AstVarId, AstDynamic r)] -> AstDomains r
+   :: AstDomains r -> [(AstVarId, DynamicExists AstDynamic)] -> AstDomains r
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
-  bindToDomainsLet u (var, d) = case d of
-    AstRToD w -> AstDomainsLet var w u
-    AstSToD w -> AstDomainsLetS var w u
-
-bindsToDomainsLetUniversal
-  :: forall r. AstDomains r -> [(AstVarId, AstUniversal)] -> AstDomains r
-{-# INLINE bindsToDomainsLetUniversal #-}   -- help list fusion
-bindsToDomainsLetUniversal = foldl' bindToDomainsLet
- where
-  bindToDomainsLet u (var, AstUniversal @r2 d) = gcastWith (unsafeCoerce Refl :: r :~: r2) $ case d of  -- TODO
+  bindToDomainsLet u (var, DynamicExists d) = case d of
     AstRToD w -> AstDomainsLet var w u
     AstSToD w -> AstDomainsLetS var w u

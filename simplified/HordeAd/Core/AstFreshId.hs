@@ -44,14 +44,14 @@ unsafeGetFreshAstVarId =
   intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 astRegisterFun :: (GoodScalar r, KnownNat n)
-               => AstRanked r n -> [(AstVarId, AstDynamic r)]
-               -> ([(AstVarId, AstDynamic r)], AstRanked r n)
+               => AstRanked r n -> [(AstVarId, DynamicExists AstDynamic)]
+               -> ([(AstVarId, DynamicExists AstDynamic)], AstRanked r n)
 {-# NOINLINE astRegisterFun #-}
 astRegisterFun !r !l | astIsSmall True r = (l, r)
 astRegisterFun !r !l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !r2 = AstVar (shapeAst r) freshId
-  return ((freshId, AstRToD r) : l, r2)
+  return ((freshId, DynamicExists $ AstRToD r) : l, r2)
 
 astRegisterADShare :: (GoodScalar r, KnownNat n)
                    => AstRanked r n -> ADShare
@@ -164,15 +164,15 @@ funToAstS :: forall sh sh2 r r2. (AstShaped r sh -> AstShaped r2 sh2)
 {-# NOINLINE funToAstS #-}
 funToAstS f = unsafePerformIO $ funToAstIOS f
 
-astRegisterFunS :: OS.Shape sh
-                => AstShaped r sh -> [(AstVarId, AstDynamic r)]
-                -> ([(AstVarId, AstDynamic r)], AstShaped r sh)
+astRegisterFunS :: (OS.Shape sh, GoodScalar r)
+                => AstShaped r sh -> [(AstVarId, DynamicExists AstDynamic)]
+                -> ([(AstVarId, DynamicExists AstDynamic)], AstShaped r sh)
 {-# NOINLINE astRegisterFunS #-}
 astRegisterFunS !r !l | astIsSmallS True r = (l, r)
 astRegisterFunS !r !l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !r2 = AstVarS freshId
-  return ((freshId, AstSToD r) : l, r2)
+  return ((freshId, DynamicExists $ AstSToD r) : l, r2)
 
 funToAstIndexIOS
   :: forall sh1 sh2. OS.Shape sh1

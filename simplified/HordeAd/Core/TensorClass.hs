@@ -312,8 +312,8 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
   raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
               => ranked r n -> DynamicOf ranked r -> DynamicOf ranked r
   tregister :: (GoodScalar r, KnownNat n)
-            => ranked r n -> [(AstVarId, DynamicOf ranked r)]
-            -> ([(AstVarId, DynamicOf ranked r)], ranked r n)
+            => ranked r n -> [(AstVarId, DynamicExists (DynamicOf ranked))]
+            -> ([(AstVarId, DynamicExists (DynamicOf ranked))], ranked r n)
   tregister r l = (l, r)
 
   -- Primal/dual things.
@@ -609,8 +609,8 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
   saddDynamic :: forall r sh. (GoodScalar r, OS.Shape sh)
               => shaped r sh -> DynamicOf shaped r -> DynamicOf shaped r
   sregister :: (GoodScalar r, OS.Shape sh)
-            => shaped r sh -> [(AstVarId, DynamicOf shaped r)]
-            -> ([(AstVarId, DynamicOf shaped r)], shaped r sh)
+            => shaped r sh -> [(AstVarId, DynamicExists (DynamicOf shaped))]
+            -> ([(AstVarId, DynamicExists (DynamicOf shaped))], shaped r sh)
   sregister r l = (l, r)
 
   -- Primal/dual things.

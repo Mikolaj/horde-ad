@@ -1350,11 +1350,11 @@ emptyUnletEnv l = UnletEnv ES.empty l
 
 unletAstDomains6
   :: GoodScalar r
-  => [(AstVarId, AstDynamic r)] -> ADShare -> AstDomains r
+  => [(AstVarId, DynamicExists AstDynamic)] -> ADShare -> AstDomains r
   -> AstDomains r
 unletAstDomains6 astBindings l t =
   unletAstDomains (emptyUnletEnv l)
-  $ bindsToDomainsLetUniversal (bindsToDomainsLet t astBindings) (assocsADShare l)
+  $ bindsToDomainsLet (bindsToDomainsLet t astBindings) (assocsADShare l)
 
 unletAst6
   :: (GoodScalar r, KnownNat n)

@@ -8,7 +8,7 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( AstOf, AstVarId, intToAstVarId
+  ( AstOf, DynamicExists(..), AstVarId, intToAstVarId
   , ADAstVarNames, ADAstArtifact6, GoodScalar, AstIndex, AstVarList
   , AstIndexS, AstVarListS
   , AstRanked(..), AstNoVectorize(..), AstNoSimplify(..)
@@ -20,7 +20,7 @@ module HordeAd.Core.Ast
   , astCond  -- exposed only for tests
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
-  , flattenADShare, assocsADShare, AstUniversal(..)
+  , flattenADShare, assocsADShare
   ) where
 
 import Prelude
@@ -64,6 +64,9 @@ type family AstOf f = result | result -> f where
   AstOf (Clown OD.Array) = Clown AstDynamic
   AstOf (Flip OR.Array) = AstRanked
   AstOf (Flip OS.Array) = AstShaped
+
+data DynamicExists (dynamic :: Type -> Type) =
+  forall r. GoodScalar r => DynamicExists (dynamic r)
 
 -- We avoid adding a phantom type denoting the underlying scalar,
 -- because the type families over tensor ranks make quanitified constraints
@@ -925,14 +928,12 @@ mergeADShare !s1 !s2 =
              Just l3 -> Just $ freshInsertADShare key1 t1 l3
   in fromMaybe s1 (mergeAD s1 s2)
 
-data AstUniversal = forall r. GoodScalar r => AstUniversal (AstDynamic r)
-
 -- The result type is not as expected. The result is as if assocsADShare
 -- was applied to the expected one.
-subtractADShare :: ADShare -> ADShare -> [(AstVarId, AstUniversal)]
+subtractADShare :: ADShare -> ADShare -> [(AstVarId, DynamicExists AstDynamic)]
 {-# INLINE subtractADShare #-}  -- help list fusion
 subtractADShare !s1 !s2 =
-  let subAD :: ADShare -> ADShare -> [(AstVarId, AstUniversal)]
+  let subAD :: ADShare -> ADShare -> [(AstVarId, DynamicExists AstDynamic)]
       subAD !l ADShareNil = assocsADShare l
       subAD ADShareNil _ = []
       subAD l1@(ADShareCons id1 key1 t1 rest1)
@@ -944,17 +945,17 @@ subtractADShare !s1 !s2 =
         else case compare key1 key2 of
           EQ -> subAD rest1 rest2
           LT -> subAD l1 rest2
-          GT -> (key1, AstUniversal t1) : subAD rest1 l2
+          GT -> (key1, DynamicExists t1) : subAD rest1 l2
   in subAD s1 s2
 
 flattenADShare :: [ADShare] -> ADShare
 flattenADShare = foldl' mergeADShare emptyADShare
 
-assocsADShare :: ADShare -> [(AstVarId, AstUniversal)]
+assocsADShare :: ADShare -> [(AstVarId, DynamicExists AstDynamic)]
 {-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
 assocsADShare (ADShareCons _ key t rest) =
-  (key, AstUniversal t) : assocsADShare rest
+  (key, DynamicExists t) : assocsADShare rest
 
 _lengthADShare :: Int -> ADShare -> Int
 _lengthADShare acc ADShareNil = acc
