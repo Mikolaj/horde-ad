@@ -461,17 +461,16 @@ tbuild1R k f = OR.ravel $ ORB.fromList [k]
                $ map f [0 .. fromIntegral k - 1]  -- hope this fuses
 
 tmap0NR
-  :: Numeric r
-  => (OR.Array 0 r -> OR.Array 0 r) -> OR.Array n r -> OR.Array n r
+  :: (Numeric r, Numeric r2)
+  => (OR.Array 0 r -> OR.Array 0 r2) -> OR.Array n r -> OR.Array n r2
 tmap0NR f = OR.mapA (tunScalarR . f . tscalarR)
             -- too slow: tbuildNR (tshapeR v) (\ix -> f $ v `tindexNR` ix)
             -- bad type: liftVR . LA.cmap
 
 tzipWith0NR
-  :: Numeric r
-  => (OR.Array 0 r -> OR.Array 0 r -> OR.Array 0 r)
-  -> OR.Array n r -> OR.Array n r
-  -> OR.Array n r
+  :: (Numeric r, Numeric r2, Numeric r3)
+  => (OR.Array 0 r -> OR.Array 0 r2 -> OR.Array 0 r3)
+  -> OR.Array n r -> OR.Array n r2 -> OR.Array n r3
 tzipWith0NR f = OR.zipWithA (\x y -> tunScalarR $ f (tscalarR x) (tscalarR y))
                 -- bad type: liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
@@ -843,17 +842,16 @@ tbuild1S f =
      $ map (f . ShapedList.shapedNat) [0 .. k - 1]  -- hope this fuses
 
 tmap0NS
-  :: (Numeric r, OS.Shape sh)
-  => (OS.Array '[] r -> OS.Array '[] r) -> OS.Array sh r -> OS.Array sh r
+  :: (Numeric r, Numeric r2, OS.Shape sh)
+  => (OS.Array '[] r -> OS.Array '[] r2) -> OS.Array sh r -> OS.Array sh r2
 tmap0NS f = OS.mapA (tunScalarS . f . tscalarS)
             -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
             -- bad type: liftVS . LA.cmap
 
 tzipWith0NS
-  :: (Numeric r, OS.Shape sh)
-  => (OS.Array '[] r -> OS.Array '[] r -> OS.Array '[] r)
-  -> OS.Array sh r -> OS.Array sh r
-  -> OS.Array sh r
+  :: (Numeric r, Numeric r2, Numeric r3, OS.Shape sh)
+  => (OS.Array '[] r -> OS.Array '[] r2 -> OS.Array '[] r3)
+  -> OS.Array sh r -> OS.Array sh r2 -> OS.Array sh r3
 tzipWith0NS f = OS.zipWithA (\x y -> tunScalarS $ f (tscalarS x) (tscalarS y))
                 -- bad type: liftVS2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
