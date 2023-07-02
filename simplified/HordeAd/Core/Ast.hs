@@ -135,6 +135,8 @@ data AstRanked :: Type -> Nat -> Type where
             -> AstRanked r (p + n) -> (AstVarList m, AstIndex p)
             -> AstRanked r (m + n)
     -- out of bounds indexing is permitted
+  AstCast :: GoodScalar r1
+          => AstRanked r1 n -> AstRanked r n
 
   AstSToR :: OS.Shape sh
           => AstShaped r sh -> AstRanked r (OS.Rank sh)
@@ -224,6 +226,8 @@ data AstShaped :: Type -> [Nat] -> Type where
              -> (AstVarListS sh2, AstIndexS (OS.Take p sh))
              -> AstShaped r (sh2 OS.++ OS.Drop p sh)
     -- out of bounds indexing is permitted
+  AstCastS :: GoodScalar r1
+           => AstShaped r1 sh -> AstShaped r1 sh
 
   AstRToS :: (OS.Shape sh, KnownNat (OS.Rank sh))
           => AstRanked r (OS.Rank sh) -> AstShaped r sh

@@ -185,6 +185,7 @@ build1V k (var, v00) =
       in astGatherStep (k :$ sh)
                        (build1VOccurenceUnknown k (var, v))
                        (varFresh ::: vars, astVarFresh :. ix2)
+    Ast.AstCast v -> Ast.AstCast $ build1V k (var, v)
 
     Ast.AstSToR @sh1 v -> case someNatVal $ toInteger k of
       Just (SomeNat @k _proxy) ->
@@ -482,6 +483,7 @@ build1VS (var, v00) =
       in astGatherStepS @(k ': sh2) @(1 + p)
                         (build1VOccurenceUnknownS @k (var, v))
                         (varFresh :$: vars, astVarFresh :$: ix2)
+    Ast.AstCastS v -> Ast.AstCastS $ build1VS (var, v)
 
     Ast.AstRToS v -> Ast.AstRToS $ build1V (valueOf @k) (var, v)
 

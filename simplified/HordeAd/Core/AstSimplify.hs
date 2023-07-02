@@ -198,7 +198,8 @@ simplifyStepNonIndex t = case t of
   Ast.AstBuild1{} -> t
   Ast.AstGather _ v0 (Z, ix) -> Ast.AstIndex v0 ix
   Ast.AstGather sh v0 (_, ZI) -> astReplicateN sh v0
-  Ast.AstGather {} -> t
+  Ast.AstGather{} -> t
+  Ast.AstCast{} -> t
   Ast.AstSToR{} -> t  -- TODO
   Ast.AstConst{} -> t
   Ast.AstConstant v -> astConstant v
@@ -370,6 +371,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     in astIndex @m1 @n w rest1
   Ast.AstGather{} ->
     error "astIndex: AstGather: impossible pattern needlessly required"
+  Ast.AstCast t -> Ast.AstCast $ astIndexROrStepOnly stepOnly t ix  -- TODO
   Ast.AstSToR{} ->  -- TODO
     Ast.AstIndex v0 ix
   Ast.AstConst t ->
@@ -854,6 +856,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
         LTI -> composedGather
         EQI -> assimilatedGather
         GTI -> gcastWith (flipCompare @p' @m2) assimilatedGather
+    Ast.AstCast{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstSToR{} ->  -- TODO
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstConst{} ->  -- free variables possible, so can't compute the tensor
@@ -1134,6 +1137,7 @@ inlineAst memo v0 = case v0 of
         count = sizeShape sh + 10  -- don't inline into integer expressions
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
+  Ast.AstCast v -> second Ast.AstCast $ inlineAst memo v
   Ast.AstSToR v -> second Ast.AstSToR $ inlineAstS memo v
   Ast.AstConst{} -> (memo, v0)
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAstPrimal memo a
@@ -1324,6 +1328,7 @@ inlineAstS memo v0 = case v0 of
         count = OS.sizeT @sh + 10  -- don't inline into integer expressions
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToSized ix2))
+  Ast.AstCastS v -> second Ast.AstCastS $ inlineAstS memo v
   Ast.AstRToS v -> second Ast.AstRToS $ inlineAst memo v
   Ast.AstConstS{} -> (memo, v0)
   Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstPrimalS memo a
@@ -1415,6 +1420,7 @@ unletAst env t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, unletAst env v)
   Ast.AstGather sh v (vars, ix) ->
     Ast.AstGather sh (unletAst env v) (vars, fmap (unletAstInt env) ix)
+  Ast.AstCast v -> Ast.AstCast (unletAst env v)
   Ast.AstSToR v -> Ast.AstSToR (unletAstS env v)
   Ast.AstConst{} -> t
   Ast.AstConstant v -> Ast.AstConstant (unletAstPrimal env v)
@@ -1527,6 +1533,7 @@ unletAstS env t = case t of
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, unletAstS env v)
   Ast.AstGatherS v (vars, ix) ->
     Ast.AstGatherS (unletAstS env v) (vars, fmap (unletAstInt env) ix)
+  Ast.AstCastS v -> Ast.AstCastS (unletAstS env v)
   Ast.AstRToS v -> Ast.AstRToS (unletAst env v)
   Ast.AstConstS{} -> t
   Ast.AstConstantS v -> Ast.AstConstantS (unletAstPrimalS env v)
@@ -1612,6 +1619,7 @@ simplifyAst t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
   Ast.AstGather sh v (vars, ix) ->
     astGatherR sh (simplifyAst v) (vars, fmap simplifyAstInt ix)
+  Ast.AstCast v -> Ast.AstCast $ simplifyAst v
   Ast.AstSToR v -> Ast.AstSToR $ simplifyAstS v
   Ast.AstConst{} -> t
   Ast.AstConstant v -> astConstant (simplifyAstPrimal v)
@@ -1893,6 +1901,7 @@ simplifyAstS t = case t of
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, simplifyAstS v)
   Ast.AstGatherS v (vars, ix) ->
     astGatherS (simplifyAstS v) (vars, fmap simplifyAstInt ix)
+  Ast.AstCastS v -> Ast.AstCastS $ simplifyAstS v
   Ast.AstRToS v -> Ast.AstRToS $ simplifyAst v
   Ast.AstConstS{} -> t
   Ast.AstConstantS v -> astConstantS (simplifyAstPrimalS v)

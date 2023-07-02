@@ -175,6 +175,7 @@ printAst cfg d = \case
                           (sizedListToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (indexToList ix))
+  AstCast v -> printPrefixOp printAst cfg d "tcast" [v]
   AstSToR v -> printAstS cfg d v
   AstConst a ->
     showParen (d > 10)
@@ -543,6 +544,7 @@ printAstS cfg d = \case
                           (ShapedList.sizedListToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix))
+  AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
   AstRToS v -> printAst cfg d v
   AstConstS a ->
     showParen (d > 10)
