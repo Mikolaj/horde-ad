@@ -244,6 +244,8 @@ data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
+  CastS :: (GoodScalar r1, Show (DeltaS ranked shaped r1 sh))
+        => DeltaS ranked shaped r1 sh -> DeltaS ranked shaped r sh
 
   DToS :: forall ranked shaped sh r.
           DeltaD ranked shaped r '()
@@ -352,6 +354,8 @@ data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
+  CastR :: (GoodScalar r1, Show (DeltaR ranked shaped r1 n))
+        => DeltaR ranked shaped r1 n -> DeltaR ranked shaped r n
 
   DToR :: forall ranked shaped n r.
           DeltaD ranked shaped r '()
@@ -757,6 +761,7 @@ buildFinMaps s0 deltaDt =
                                  (f $ ShapedList.shapedNat i))
                  sShared (fromIntegral <$> [0 .. (valueOf @n :: Int) - 1])
         GatherS d f -> evalS s (sscatter c f) d
+        CastS d -> evalS s (realToFrac c) d
 
         DToS (SToD @_ @_ @sh2 d) ->
           case sameShape @sh @sh2 of
@@ -893,6 +898,7 @@ buildFinMaps s0 deltaDt =
           foldl' (\s2 i -> evalR s2 (tindex cShared (i :. ZI)) (f i))
                  sShared (fromIntegral <$> [0 .. n - 1])
         GatherR _sh d f shd -> evalR s (tscatter shd c f) d
+        CastR d -> evalR s (realToFrac c) d
 
         DToR (RToD @_ @_ @n2 d) ->
           case sameNat (Proxy @n) (Proxy @n2) of
@@ -1038,6 +1044,9 @@ buildDerivative dimR deltaDt params = do
         GatherS d f -> do
           t <- evalS d
           return $! sgather t f
+        CastS d -> do
+          t <- evalS d
+          return $! realToFrac t
 
         DToS (SToD @_ @_ @sh2 d) ->
           case sameShape @sh @sh2 of
@@ -1121,6 +1130,9 @@ buildDerivative dimR deltaDt params = do
         GatherR sh d f _shd -> do
           t <- evalR d
           return $! tgather sh t f
+        CastR d -> do
+          t <- evalR d
+          return $! realToFrac t
 
         DToR (RToD @_ @_ @n2 d) ->
           case sameNat (Proxy @n) (Proxy @n2) of
