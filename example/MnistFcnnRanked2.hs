@@ -18,7 +18,7 @@ import MnistData
 type ADFcnnMnist2ParametersShaped shaped widthHidden widthHidden2 r =
   ( ( shaped r '[widthHidden, SizeMnistGlyph]
     , shaped r '[widthHidden] )
-  , ( shaped r '[widthHidden2, widthHidden]
+  , ( shaped Float '[widthHidden2, widthHidden]
     , shaped r '[widthHidden2] )
   , ( shaped r '[SizeMnistLabel, widthHidden2]
     , shaped r '[SizeMnistLabel] )
@@ -28,7 +28,7 @@ type ADFcnnMnist2ParametersShaped shaped widthHidden widthHidden2 r =
 type ADFcnnMnist2Parameters ranked r =
   ( ( ranked r 2
     , ranked r 1 )
-  , ( ranked r 2
+  , ( ranked Float 2
     , ranked r 1 )
   , ( ranked r 2
     , ranked r 1 )
@@ -52,7 +52,7 @@ afcnnMnist2 factivationHidden factivationOutput
   let !_A = assert (sizeMnistGlyphInt == tlength datum) ()
       hiddenLayer1 = tmatvecmul hidden datum + bias
       nonlinearLayer1 = factivationHidden hiddenLayer1
-      hiddenLayer2 = tmatvecmul hidden2 nonlinearLayer1 + bias2
+      hiddenLayer2 = tcast (tmatvecmul hidden2 (tcast nonlinearLayer1)) + bias2
       nonlinearLayer2 = factivationHidden hiddenLayer2
       outputLayer = tmatvecmul readout nonlinearLayer2 + biasr
   in factivationOutput outputLayer
