@@ -12,7 +12,6 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.List.Index (imap)
-import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (SomeNat (..), someNatVal)
@@ -203,8 +202,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let shapes1 = map (: []) nParams1
-           (vars1, asts1) = unzip $ map (funToAstD (Proxy @r)) shapes1
+       let (vars1, asts1) = funToAst2 domainsInit
            doms = V.fromList asts1
        (varGlyph, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
@@ -527,9 +525,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let shapes1 = map (\(DynamicExists e) -> dshape @(Flip OR.Array) e)
-                         (V.toList domainsInit)
-           (vars1, asts1) = unzip $ map (funToAstD (Proxy @r)) shapes1
+       let (vars1, asts1) = funToAst2 domainsInit
            doms = V.fromList asts1
        (varGlyph, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id

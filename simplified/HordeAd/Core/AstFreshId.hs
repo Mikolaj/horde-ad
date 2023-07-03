@@ -1,7 +1,7 @@
 -- | Operations that (usually impurely) generate fresh variables.
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
-  , funToAstIOR, funToAstR, funToAstD, funToAst2, funToAstAll
+  , funToAstIOR, funToAstR, funToAst2, funToAstAll
   , funToAstIIO, funToAstI, funToAstIndexIO, funToAstIndex
   , funToAstIOS, funToAstS, astRegisterFunS, funToAstIndexIOS, funToAstIndexS
   , resetVarCounter
@@ -103,12 +103,6 @@ funToAstDIO _ sh = do
       in ( AstDynamicVarName varName
          , DynamicExists @AstDynamic @r $ AstRToD (AstVar shn freshId) )
     Nothing -> error "funToAstD: impossible someNatVal error"
-
-funToAstD :: forall r. GoodScalar r
-          => Proxy r -> [Int]
-          -> (AstDynamicVarName, DynamicExists AstDynamic)
-{-# NOINLINE funToAstD #-}
-funToAstD proxy sh = unsafePerformIO $ funToAstDIO proxy sh
 
 funToAst2IO :: DomainsOD
             -> IO ([AstDynamicVarName], [DynamicExists AstDynamic])

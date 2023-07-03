@@ -11,7 +11,6 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (Nat, SomeNat (..), someNatVal)
@@ -181,9 +180,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           shapes1 = map (\(DynamicExists e) -> dshape @(Flip OR.Array) e)
-                         (V.toList domainsInit)
-           (vars1, asts1) = unzip $ map (funToAstD (Proxy @r)) shapes1
+           (vars1, asts1) = funToAst2 domainsInit
            doms = V.fromList asts1
        (varGlyph, astGlyph) <-
          funToAstIOR
