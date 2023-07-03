@@ -177,16 +177,16 @@ revAstOnDomainsFun
 revAstOnDomainsFun hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !(!vars@(!(AstVarName varDtId), vars1), asts1) =
+      !(!vars@(AstVarName varDtId, vars1), asts1) =
         funToAstAll parameters0 in
   let domains = V.fromList asts1
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D l primalBody deltaTopLevel) = f varInputs domains vars1
-      astDt = AstVar (tshape primalBody) varDtId in
-  let mdt = if hasDt then Just astDt else Nothing
+      !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
+  let astDt = AstVar (tshape primalBody) varDtId
+      mdt = if hasDt then Just astDt else Nothing
       !(!astBindings, !gradient) =
         reverseDervative (V.length parameters0) primalBody mdt deltaTopLevel
   in ( ( vars
@@ -206,16 +206,16 @@ revAstOnDomainsFunS
 revAstOnDomainsFunS hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !(!vars@(!(AstVarName varDtId), vars1), asts1) =
-        funToAstAllS parameters0 in
+      !(!vars@(AstVarName varDtId, vars1), asts1) =
+        funToAstAll parameters0 in
   let domains = V.fromList asts1
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D l primalBody deltaTopLevel) = f varInputs domains vars1
-      astDt = AstVarS varDtId in
-  let mdt = if hasDt then Just astDt else Nothing
+      !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
+  let astDt = AstVarS varDtId
+      mdt = if hasDt then Just astDt else Nothing
       !(!astBindings, !gradient) =
         reverseDervative (V.length parameters0) primalBody mdt deltaTopLevel
   in ( ( vars

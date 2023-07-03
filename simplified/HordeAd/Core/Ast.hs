@@ -9,7 +9,7 @@
 -- to what AST captures.
 module HordeAd.Core.Ast
   ( AstOf, AstVarId, intToAstVarId
-  , ADAstVarNames, ADAstArtifact6, AstIndex, AstVarList
+  , ADAstArtifact6, AstIndex, AstVarList
   , AstIndexS, AstVarListS
   , AstRanked(..), AstNoVectorize(..), AstNoSimplify(..)
   , AstPrimalPart(..), AstDualPart(..)
@@ -65,11 +65,9 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-type ADAstVarNames f r y = (AstVarName (f r y), [AstDynamicVarName])
-
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 f r y =
-  (ADAstVarNames f r y, AstDomains, AstOf f r y)
+  ((AstVarName (f r y), [AstDynamicVarName]), AstDomains, AstOf f r y)
 
 type AstIndex n = Index n AstInt
 

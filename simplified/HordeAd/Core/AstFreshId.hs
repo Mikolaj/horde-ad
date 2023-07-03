@@ -1,8 +1,7 @@
 -- | Operations that (usually impurely) generate fresh variables.
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
-  , funToAstIOR, funToAstR, funToAstD
-  , funToAstAll, funToAstAllS
+  , funToAstIOR, funToAstR, funToAstD, funToAst2, funToAstAll
   , funToAstIIO, funToAstI, funToAstIndexIO, funToAstIndex
   , funToAstIOS, funToAstS, astRegisterFunS, funToAstIndexIOS, funToAstIndexS
   , resetVarCounter
@@ -111,25 +110,27 @@ funToAstD :: forall r. GoodScalar r
 {-# NOINLINE funToAstD #-}
 funToAstD proxy sh = unsafePerformIO $ funToAstDIO proxy sh
 
-funToAstAll :: forall r n.
-               DomainsOD
-            -> (ADAstVarNames (Flip OR.Array) r n, [DynamicExists AstDynamic])
+funToAst2IO :: DomainsOD
+            -> IO ([AstDynamicVarName], [DynamicExists AstDynamic])
+{-# INLINE funToAst2IO #-}
+funToAst2IO parameters0 = do
+  let f (DynamicExists @_ @r2 e) = funToAstDIO (Proxy @r2) (OD.shapeL e)
+  unzip <$> mapM f (V.toList parameters0)
+
+funToAst2 :: DomainsOD -> ([AstDynamicVarName], [DynamicExists AstDynamic])
+{-# NOINLINE funToAst2 #-}
+funToAst2 parameters0 = unsafePerformIO $ funToAst2IO parameters0
+
+-- The AstVarName type with its parameter somehow prevents cse and crashes
+-- compared with a bare AstVarId, so let's keep it.
+funToAstAll :: DomainsOD
+            -> ( (AstVarName t, [AstDynamicVarName])
+               , [DynamicExists AstDynamic] )
 {-# NOINLINE funToAstAll #-}
 funToAstAll parameters0 = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
-  let f (DynamicExists @_ @r2 e) = funToAstDIO (Proxy @r2) (OD.shapeL e)
-  (vn1, v1) <- unzip <$> (mapM f (V.toList parameters0))
-  return ((AstVarName freshId, vn1), v1)
-
-funToAstAllS :: forall r n.
-                DomainsOD
-             -> (ADAstVarNames (Flip OS.Array) r n, [DynamicExists AstDynamic])
-{-# NOINLINE funToAstAllS #-}
-funToAstAllS parameters0 = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
-  let f (DynamicExists @_ @r2 e) = funToAstDIO (Proxy @r2) (OD.shapeL e)
-  (vn1, v1) <- unzip <$> (mapM f (V.toList parameters0))
-  return ((AstVarName freshId, vn1), v1)
+  (vars1, asts1) <- funToAst2IO parameters0
+  return ((AstVarName freshId, vars1), asts1)
 
 funToAstIIO :: (AstInt -> t) -> IO (AstVarId, t)
 {-# INLINE funToAstIIO #-}
