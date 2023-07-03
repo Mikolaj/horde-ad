@@ -60,13 +60,8 @@ class AdaptableDomains (dynamic :: Type -> Type) vals where
               -> Maybe (vals, Domains dynamic)
 
 class RandomDomains vals where
-  type Underlying vals
-  randomVals
-    :: forall r g.
-       ( RandomGen g
-       , r ~ Underlying vals, Numeric r, Fractional r, Random r
-       , Num (Vector r) )
-    => r -> g -> (vals, g)
+  randomVals :: forall g. RandomGen g
+             => Double -> g -> (vals, g)
   toValue :: vals -> Value vals
 
 parseDomains
@@ -98,7 +93,6 @@ instance AdaptableDomains dynamic a
 
 instance RandomDomains a
          => RandomDomains [a] where
-  type Underlying [a] = Underlying a
   randomVals = undefined  -- TODO: split RandomDomains?
   toValue as = map toValue as
 
@@ -114,10 +108,8 @@ instance ( AdaptableDomains dynamic a
     (b, bRest) <- fromDomains bInit aRest
     return ((a, b), bRest)
 
-instance ( r ~ Underlying a, r ~ Underlying b
-         , RandomDomains a
+instance ( RandomDomains a
          , RandomDomains b ) => RandomDomains (a, b) where
-  type Underlying (a, b) = Underlying a
   randomVals range g =
     let (v1, g1) = randomVals range g
         (v2, g2) = randomVals range g1
@@ -139,11 +131,9 @@ instance ( AdaptableDomains dynamic a
     (c, cRest) <- fromDomains cInit bRest
     return ((a, b, c), cRest)
 
-instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c
-         , RandomDomains a
+instance ( RandomDomains a
          , RandomDomains b
          , RandomDomains c ) => RandomDomains (a, b, c) where
-  type Underlying (a, b, c) = Underlying a
   randomVals range g =
     let (v1, g1) = randomVals range g
         (v2, g2) = randomVals range g1
@@ -169,12 +159,10 @@ instance ( AdaptableDomains dynamic a
     (d, dRest) <- fromDomains dInit cRest
     return ((a, b, c, d), dRest)
 
-instance ( r ~ Underlying a, r ~ Underlying b, r ~ Underlying c, r ~ Underlying d
-         , RandomDomains a
+instance ( RandomDomains a
          , RandomDomains b
          , RandomDomains c
          , RandomDomains d ) => RandomDomains (a, b, c, d) where
-  type Underlying (a, b, c, d) = Underlying a
   randomVals range g =
     let (v1, g1) = randomVals range g
         (v2, g2) = randomVals range g1

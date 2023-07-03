@@ -36,7 +36,7 @@ import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits
   (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
-import           Numeric.LinearAlgebra (Numeric)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 import           Type.Reflection (typeRep)
@@ -867,7 +867,6 @@ toRankedOrDummy sh x = if disDummy @ranked x
                        else tfromD x
 
 instance RandomDomains (Flip OR.Array r n) where
-  type Underlying (Flip OR.Array r n) = r
   randomVals = undefined
   toValue = id
 
@@ -973,12 +972,11 @@ toShapedOrDummy x = if disDummy @ranked x
                     then 0
                     else sfromD x
 
-instance OS.Shape sh
+instance (OS.Shape sh, Numeric r, Fractional r, Random r, Num (Vector r))
          => RandomDomains (Flip OS.Array r sh) where
-  type Underlying (Flip OS.Array r sh) = r
   randomVals range g =
     let createRandomVector n seed =
-          LA.scale (2 * range)
+          LA.scale (2 * realToFrac range)
           $ V.fromListN n (randoms seed) - LA.scalar 0.5
         (g1, g2) = split g
         arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
