@@ -2,7 +2,7 @@
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR, funToAstD
-  , ADAstVars, funToAstAll, ADAstVarsS, funToAstAllS
+  , funToAstAll, funToAstAllS
   , funToAstIIO, funToAstI, funToAstIndexIO, funToAstIndex
   , funToAstIOS, funToAstS, astRegisterFunS, funToAstIndexIOS, funToAstIndexS
   , resetVarCounter
@@ -10,7 +10,6 @@ module HordeAd.Core.AstFreshId
 
 import Prelude
 
-import           Control.Arrow (second)
 import           Control.Monad (replicateM)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
@@ -19,7 +18,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
-import           Data.Proxy (Proxy)
+import           Data.Proxy (Proxy (Proxy))
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -89,50 +88,44 @@ funToAstR :: ShapeInt n -> (AstRanked r n -> AstRanked r2 m)
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ funToAstIOR sh f
 
-funToAstRshIO :: IO ( AstVarName (Flip OR.Array r n)
-                    , ShapeInt n -> AstRanked r n )
-{-# INLINE funToAstRshIO #-}
-funToAstRshIO = do
-  freshId <- unsafeGetFreshAstVarId
-  return (AstVarName freshId, \sh -> AstVar sh freshId)
-
 -- The "fun"ction in this case is fixed to be @id@.
 funToAstDIO :: forall r. GoodScalar r
-            => [Int] -> IO (AstDynamicVarName, AstDynamic r)
+            => Proxy r -> [Int]
+            -> IO (AstDynamicVarName, DynamicExists AstDynamic)
 {-# INLINE funToAstDIO #-}
-funToAstDIO sh = do
+funToAstDIO _ sh = do
   freshId <- unsafeGetFreshAstVarId
   return $! case someNatVal $ toInteger $ length sh of
     Just (SomeNat (_proxy :: Proxy p)) ->
       let shn = listShapeToShape @p sh
           varName = AstVarName @(Flip OR.Array r p) freshId
-      in (AstDynamicVarName varName, AstRToD (AstVar shn freshId))
+      in ( AstDynamicVarName varName
+         , DynamicExists @AstDynamic @r $ AstRToD (AstVar shn freshId) )
     Nothing -> error "funToAstD: impossible someNatVal error"
 
 funToAstD :: forall r. GoodScalar r
-          => Proxy r -> [Int] -> (AstDynamicVarName, DynamicExists AstDynamic)
+          => Proxy r -> [Int]
+          -> (AstDynamicVarName, DynamicExists AstDynamic)
 {-# NOINLINE funToAstD #-}
-funToAstD _ sh = second DynamicExists $ unsafePerformIO $ funToAstDIO @r sh
+funToAstD proxy sh = unsafePerformIO $ funToAstDIO proxy sh
 
-type ADAstVars r n = (ShapeInt n -> AstRanked r n, [AstDynamic r])
-
-funToAstAll ::  GoodScalar r
-            => [[Int]] -> (ADAstVarNames (Flip OR.Array) r n, ADAstVars r n)
+funToAstAll :: forall r n. GoodScalar r
+            => [[Int]]
+            -> (ADAstVarNames (Flip OR.Array) r n, [DynamicExists AstDynamic])
 {-# NOINLINE funToAstAll #-}
 funToAstAll shapes1 = unsafePerformIO $ do
-  (vnDt, vDt) <- funToAstRshIO
-  (vn1, v1) <- unzip <$> (mapM funToAstDIO shapes1)
-  return ((vnDt, vn1), (vDt, v1))
+  freshId <- unsafeGetFreshAstVarId
+  (vn1, v1) <- unzip <$> (mapM (funToAstDIO (Proxy @r)) shapes1)
+  return ((AstVarName freshId, vn1), v1)
 
-type ADAstVarsS r sh = (AstShaped r sh, [AstDynamic r])
-
-funToAstAllS ::  GoodScalar r
-             => [[Int]] -> (ADAstVarNames (Flip OS.Array) r sh, ADAstVarsS r sh)
+funToAstAllS :: forall r sh. GoodScalar r
+             => [[Int]]
+             -> (ADAstVarNames (Flip OS.Array) r sh, [DynamicExists AstDynamic])
 {-# NOINLINE funToAstAllS #-}
 funToAstAllS shapes1 = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
-  (vn1, v1) <- unzip <$> (mapM funToAstDIO shapes1)
-  return ((AstVarName freshId, vn1), (AstVarS freshId, v1))
+  (vn1, v1) <- unzip <$> (mapM (funToAstDIO (Proxy @r)) shapes1)
+  return ((AstVarName freshId, vn1), v1)
 
 funToAstIIO :: (AstInt -> t) -> IO (AstVarId, t)
 {-# INLINE funToAstIIO #-}

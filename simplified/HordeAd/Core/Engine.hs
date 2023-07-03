@@ -179,16 +179,17 @@ revAstOnDomainsFun hasDt parameters0 f =
                     (V.toList parameters0)
       -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !(!vars@(!_, vars1), (astDt, asts1)) = funToAstAll shapes1 in
-  let domains = V.fromList $ map DynamicExists asts1
+      !(!vars@(!(AstVarName varDtId), vars1), asts1) = funToAstAll shapes1 in
+  let domains = V.fromList asts1
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
-  let mdt = if hasDt then Just $ astDt (tshape primalBody) else Nothing
+      !(D l primalBody deltaTopLevel) = f varInputs domains vars1
+      astDt = AstVar (tshape primalBody) varDtId in
+  let mdt = if hasDt then Just astDt else Nothing
       !(!astBindings, !gradient) =
-        reverseDervative (length shapes1) primalBody mdt deltaTopLevel
+        reverseDervative (V.length parameters0) primalBody mdt deltaTopLevel
   in ( ( vars
        , unletAstDomains6 astBindings l (dmkDomains gradient)
        , unletAst6 l primalBody )
@@ -208,16 +209,17 @@ revAstOnDomainsFunS hasDt parameters0 f =
                     (V.toList parameters0)
       -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !(!vars@(!_, vars1), (astDt, asts1)) = funToAstAllS shapes1 in
-  let domains = V.fromList $ map DynamicExists asts1
+      !(!vars@(!(AstVarName varDtId), vars1), asts1) = funToAstAllS shapes1 in
+  let domains = V.fromList asts1
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
+      !(D l primalBody deltaTopLevel) = f varInputs domains vars1
+      astDt = AstVarS varDtId in
   let mdt = if hasDt then Just astDt else Nothing
       !(!astBindings, !gradient) =
-        reverseDervative (length shapes1) primalBody mdt deltaTopLevel
+        reverseDervative (V.length parameters0) primalBody mdt deltaTopLevel
   in ( ( vars
        , unletAstDomains6 astBindings l (dmkDomains gradient)
        , unletAst6S l primalBody )
