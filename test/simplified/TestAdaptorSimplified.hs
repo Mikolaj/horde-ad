@@ -61,6 +61,8 @@ testTrees =
   , testCase "2foo" testFoo
   , testCase "2fooS" testFooS
   , testCase "2fooSToFloat" testFooSToFloat
+  , testCase "2fooSBoth" testFooSBoth
+  , testCase "2fooBoth" testFooBoth
   , testCase "2fooPP" testFooPP
   , testCase "2fooLet" testFooLet
   , testCase "2fooLetPP" testFooLetPP
@@ -378,6 +380,26 @@ testFooSToFloat = do
     (rev @Float @'[3, 534, 3] @(Flip OS.Array)
          (scast . foo)
          (1.1 :: Flip OS.Array Double '[3, 534, 3], 2.2, 3.3))
+
+testFooSBoth :: Assertion
+testFooSBoth = do
+  assertEqualUpToEpsilon 1e-10
+    (2.439628436155373, -1.9533749, 0.9654825479484146)
+    (rev @Float @'[3, 534, 3] @(Flip OS.Array)
+         (scast . foo . (\(d, f, d2) -> (d, scast f, d2)))
+         ( 1.1 :: Flip OS.Array Double '[3, 534, 3]
+         , 2.2 :: Flip OS.Array Float '[3, 534, 3]
+         , 3.3 ))
+
+testFooBoth :: Assertion
+testFooBoth = do
+  assertEqualUpToEpsilon 1e-10
+    (2.439628436155373, -1.9533749, 0.9654825479484146)
+    (rev @Float @0 @(Flip OR.Array)
+         (tcast . foo . (\(d, f, d2) -> (d, tcast f, d2)))
+         ( 1.1 :: Flip OR.Array Double 0
+         , 2.2 :: Flip OR.Array Float 0
+         , 3.3 ))
 
 testFooPP :: Assertion
 testFooPP = do
