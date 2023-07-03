@@ -60,6 +60,7 @@ testTrees =
   , testCase "2overleafPP" testOverleafPP
   , testCase "2foo" testFoo
   , testCase "2fooS" testFooS
+  , testCase "2fooSToFloat" testFooSToFloat
   , testCase "2fooPP" testFooPP
   , testCase "2fooLet" testFooLet
   , testCase "2fooLetPP" testFooLetPP
@@ -369,6 +370,14 @@ testFooS = do
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
     (rev @Double @'[3, 534, 3] @(Flip OS.Array) foo (1.1, 2.2, 3.3))
+
+testFooSToFloat :: Assertion
+testFooSToFloat = do
+  assertEqualUpToEpsilon 1e-10
+    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+    (rev @Float @'[3, 534, 3] @(Flip OS.Array)
+         (scast . foo)
+         (1.1 :: Flip OS.Array Double '[3, 534, 3], 2.2, 3.3))
 
 testFooPP :: Assertion
 testFooPP = do

@@ -175,11 +175,10 @@ revAstOnDomainsFun
   -> (ADAstArtifact6 (Flip OR.Array) r n, Dual AstRanked r n)
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun hasDt parameters0 f =
-  let shapes1 = map (\(DynamicExists e) -> dshape @(Flip OR.Array) e)
-                    (V.toList parameters0)
-      -- Bangs and the compound function to fix the numbering of variables
+  let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !(!vars@(!(AstVarName varDtId), vars1), asts1) = funToAstAll shapes1 in
+      !(!vars@(!(AstVarName varDtId), vars1), asts1) =
+        funToAstAll parameters0 in
   let domains = V.fromList asts1
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs
@@ -205,11 +204,10 @@ revAstOnDomainsFunS
   -> (ADAstArtifact6 (Flip OS.Array) r sh, Dual AstShaped r sh)
 {-# INLINE revAstOnDomainsFunS #-}
 revAstOnDomainsFunS hasDt parameters0 f =
-  let shapes1 = map (\(DynamicExists e) -> dshape @(Flip OR.Array) e)
-                    (V.toList parameters0)
-      -- Bangs and the compound function to fix the numbering of variables
+  let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !(!vars@(!(AstVarName varDtId), vars1), asts1) = funToAstAllS shapes1 in
+      !(!vars@(!(AstVarName varDtId), vars1), asts1) =
+        funToAstAllS parameters0 in
   let domains = V.fromList asts1
       deltaInputs = generateDeltaInputs domains
       varInputs = makeADInputs domains deltaInputs

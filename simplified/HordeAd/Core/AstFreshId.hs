@@ -11,6 +11,7 @@ module HordeAd.Core.AstFreshId
 import Prelude
 
 import           Control.Monad (replicateM)
+import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
@@ -19,6 +20,7 @@ import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.Proxy (Proxy (Proxy))
+import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -109,22 +111,24 @@ funToAstD :: forall r. GoodScalar r
 {-# NOINLINE funToAstD #-}
 funToAstD proxy sh = unsafePerformIO $ funToAstDIO proxy sh
 
-funToAstAll :: forall r n. GoodScalar r
-            => [[Int]]
+funToAstAll :: forall r n.
+               DomainsOD
             -> (ADAstVarNames (Flip OR.Array) r n, [DynamicExists AstDynamic])
 {-# NOINLINE funToAstAll #-}
-funToAstAll shapes1 = unsafePerformIO $ do
+funToAstAll parameters0 = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
-  (vn1, v1) <- unzip <$> (mapM (funToAstDIO (Proxy @r)) shapes1)
+  let f (DynamicExists @_ @r2 e) = funToAstDIO (Proxy @r2) (OD.shapeL e)
+  (vn1, v1) <- unzip <$> (mapM f (V.toList parameters0))
   return ((AstVarName freshId, vn1), v1)
 
-funToAstAllS :: forall r sh. GoodScalar r
-             => [[Int]]
-             -> (ADAstVarNames (Flip OS.Array) r sh, [DynamicExists AstDynamic])
+funToAstAllS :: forall r n.
+                DomainsOD
+             -> (ADAstVarNames (Flip OS.Array) r n, [DynamicExists AstDynamic])
 {-# NOINLINE funToAstAllS #-}
-funToAstAllS shapes1 = unsafePerformIO $ do
+funToAstAllS parameters0 = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
-  (vn1, v1) <- unzip <$> (mapM (funToAstDIO (Proxy @r)) shapes1)
+  let f (DynamicExists @_ @r2 e) = funToAstDIO (Proxy @r2) (OD.shapeL e)
+  (vn1, v1) <- unzip <$> (mapM f (V.toList parameters0))
   return ((AstVarName freshId, vn1), v1)
 
 funToAstIIO :: (AstInt -> t) -> IO (AstVarId, t)
