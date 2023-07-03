@@ -519,6 +519,11 @@ tgatherZ1R k t f =
   let l = map (\i -> t `tindexZR` f i) [0 .. fromIntegral k - 1]
   in OR.ravel $ ORB.fromList [k] l
 
+-- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
+tcastR :: (Numeric r1, Numeric r, KnownNat n, Real r1, Fractional r)
+       => OR.Array n r1 -> OR.Array n r
+tcastR = liftVR (V.map realToFrac)
+
 tscalarR
   :: Numeric r
   => r -> OR.Array 0 r
@@ -906,6 +911,11 @@ tgatherZ1S t f =
           $ map (\i -> t `tindexZS` f (ShapedList.shapedNat i))
                 [0 .. valueOf @n2 - 1]
   in OS.ravel $ OSB.fromList l
+
+-- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
+tcastS :: (Numeric r1, Numeric r, OS.Shape sh, Real r1, Fractional r)
+       => OS.Array sh r1 -> OS.Array sh r
+tcastS = liftVS (V.map realToFrac)
 
 tscalarS
   :: Numeric r

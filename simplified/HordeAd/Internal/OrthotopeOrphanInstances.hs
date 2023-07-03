@@ -39,9 +39,9 @@ import           Unsafe.Coerce (unsafeCoerce)
 -- * Numeric instances for tensor
 
 liftVD
-  :: Numeric r
-  => (Vector r -> Vector r)
-  -> OD.Array r -> OD.Array r
+  :: (Numeric r1, Numeric r)
+  => (Vector r1 -> Vector r)
+  -> OD.Array r1 -> OD.Array r
 liftVD op t@(DS.A (DG.A sh oit)) =
   if product sh >= V.length (OI.values oit)
   then DS.A $ DG.A sh $ oit {OI.values = op $ OI.values oit}
@@ -122,9 +122,9 @@ liftVD2NoAdapt op t@(DS.A (DG.A sh oit@(OI.T sst _ vt)))
 
 -- See the various comments above; we don't repeat them below.
 liftVR
-  :: (Numeric r, KnownNat n)
-  => (Vector r -> Vector r)
-  -> OR.Array n r -> OR.Array n r
+  :: (Numeric r1, Numeric r, KnownNat n)
+  => (Vector r1 -> Vector r)
+  -> OR.Array n r1 -> OR.Array n r
 liftVR op t@(RS.A (RG.A sh oit)) =
   if product sh >= V.length (OI.values oit)
   then RS.A $ RG.A sh $ oit {OI.values = op $ OI.values oit}
@@ -185,9 +185,9 @@ liftVR2NoAdapt op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
       else OR.fromVector sh $ OR.toVector t `op` OR.toVector u
 
 liftVS
-  :: forall sh r. (Numeric r, OS.Shape sh)
-  => (Vector r -> Vector r)
-  -> OS.Array sh r -> OS.Array sh r
+  :: forall sh r1 r. (Numeric r1, Numeric r, OS.Shape sh)
+  => (Vector r1 -> Vector r)
+  -> OS.Array sh r1 -> OS.Array sh r
 liftVS op t@(SS.A (SG.A oit)) =
   if OS.sizeT @sh >= V.length (OI.values oit)
   then SS.A $ SG.A $ oit {OI.values = op $ OI.values oit}
