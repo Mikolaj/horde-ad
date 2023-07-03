@@ -196,6 +196,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
                    -- element-wise (POPL) version
   tgather sh (D l u u') f =
     dD l (tgather sh u f) (GatherR sh u' f (tshape u))
+  tcast (D l u u') = dD l (tcast u) (CastR u')
 
   tsumOfList lu =
     dD (flattenADShare $ map (\(D l _ _) -> l) lu)
@@ -352,6 +353,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
                               [0 .. valueOf @n - 1]
                    -- element-wise (POPL) version
   sgather (D l u u') f = dD l (sgather u f) (GatherS u' f)
+  scast (D l u u') = dD l (scast u) (CastS u')
 
   ssumOfList lu =
     dD (flattenADShare $ map (\(D l _ _) -> l) lu)

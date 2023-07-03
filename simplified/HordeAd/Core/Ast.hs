@@ -227,7 +227,7 @@ data AstShaped :: Type -> [Nat] -> Type where
              -> AstShaped r (sh2 OS.++ OS.Drop p sh)
     -- out of bounds indexing is permitted
   AstCastS :: GoodScalar r1
-           => AstShaped r1 sh -> AstShaped r1 sh
+           => AstShaped r1 sh -> AstShaped r sh
 
   AstRToS :: (OS.Shape sh, KnownNat (OS.Rank sh))
           => AstRanked r (OS.Rank sh) -> AstShaped r sh

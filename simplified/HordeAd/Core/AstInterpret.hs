@@ -609,7 +609,7 @@ interpretAst env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstCast v -> realToFrac $ interpretAst env v
+  AstCast v -> tcast $ interpretAst env v
   AstSToR v -> tfromS $ interpretAstS env v
   AstConst a -> tconstBare a
   AstConstant a -> tconstant $ interpretAstPrimal env a
@@ -1077,7 +1077,7 @@ interpretAstS env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstCastS v -> realToFrac $ interpretAstS env v
+  AstCastS v -> scast $ interpretAstS env v
   AstRToS v -> sfromR $ interpretAst env v
   AstConstS a -> sconstBare a
   AstConstantS a -> sconstant $ interpretAstPrimalS env a

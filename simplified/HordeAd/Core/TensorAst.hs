@@ -70,6 +70,7 @@ instance Tensor AstRanked where
   treshape = astReshape
   tbuild1 = astBuild1Vectorize
   tgather sh t f = AstGather sh t (funToAstIndex f)  -- introduces new vars
+  tcast = AstCast
 
   tsumOfList = AstSumOfList
   tconst = AstConstant . AstPrimalPart . AstConst
@@ -220,6 +221,7 @@ instance Tensor AstPrimalPart where
   tbuild1 k f = AstPrimalPart $ astBuild1Vectorize k (unAstPrimalPart . f)
   tgather sh t f = AstPrimalPart $ AstGather sh (unAstPrimalPart t)
                    $ funToAstIndex f  -- this introduces new variable names
+  tcast = AstPrimalPart . AstCast . unAstPrimalPart
 
   tsumOfList = AstPrimalPart . AstSumOfList . map unAstPrimalPart
   tconst = AstPrimalPart . AstConst
@@ -273,6 +275,7 @@ instance Tensor AstNoVectorize where
                 $ unAstNoVectorize . f
   tgather sh t f = AstNoVectorize $ AstGather sh (unAstNoVectorize t)
                    $ funToAstIndex f  -- this introduces new variable names
+  tcast = AstNoVectorize . AstCast . unAstNoVectorize
 
   tsumOfList = AstNoVectorize . AstSumOfList . map unAstNoVectorize
   tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
@@ -325,6 +328,7 @@ instance Tensor AstNoSimplify where
   tbuild1 k f = AstNoSimplify $ astBuild1Vectorize k (unAstNoSimplify . f)
   tgather sh t f = AstNoSimplify $ AstGather sh (unAstNoSimplify t)
                    $ funToAstIndex f  -- this introduces new variable names
+  tcast = AstNoSimplify . AstCast . unAstNoSimplify
 
   tsumOfList = AstNoSimplify . AstSumOfList . map unAstNoSimplify
   tconst = AstNoSimplify . AstConstant . AstPrimalPart . AstConst
@@ -382,6 +386,7 @@ instance ShapedTensor AstShaped where
   sreshape = AstReshapeS  -- astReshape
   sbuild1 = astBuild1VectorizeS
   sgather t f = AstGatherS t (funToAstIndexS f)  -- introduces new vars
+  scast = AstCastS
 
   ssumOfList = AstSumOfListS
   sconst = AstConstantS . AstPrimalPartS . AstConstS
@@ -482,6 +487,7 @@ instance ShapedTensor AstPrimalPartS where
   sbuild1 f = AstPrimalPartS $ astBuild1VectorizeS (unAstPrimalPartS . f)
   sgather t f = AstPrimalPartS $ AstGatherS (unAstPrimalPartS t)
                 $ funToAstIndexS f  -- introduces new vars
+  scast = AstPrimalPartS . AstCastS . unAstPrimalPartS
 
   ssumOfList = AstPrimalPartS . AstSumOfListS . map unAstPrimalPartS
   sconst = AstPrimalPartS . AstConstS
