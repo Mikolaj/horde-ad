@@ -7,7 +7,7 @@
 module HordeAd.Core.AstInterpret
   ( InterpretAstR, InterpretAstS
   , interpretAst, interpretAstDomainsDummy, interpretAstS
-  , AstEnv, extendEnvS, extendEnvR, extendEnvDR, extendEnvD
+  , AstEnv, extendEnvS, extendEnvR, extendEnvDR
   , AstEnvElem(AstEnvElemR)  -- for a test only
   ) where
 
@@ -51,8 +51,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 type AstEnv ranked = EM.EnumMap AstVarId (AstEnvElem ranked)
 
 data AstEnvElem ranked =
-    forall r. GoodScalar r => AstEnvElemD (DynamicOf ranked r)
-  | forall n r. (KnownNat n, GoodScalar r) => AstEnvElemR (ranked r n)
+    forall n r. (KnownNat n, GoodScalar r) => AstEnvElemR (ranked r n)
   | forall sh r. (OS.Shape sh, GoodScalar r)
                  => AstEnvElemS (ShapedOf ranked r sh)
   | AstEnvElemI (IntOf ranked)
@@ -91,13 +90,6 @@ extendEnvDR (AstDynamicVarNameS @_ @r var, DynamicExists @_ @r2 d) =
   case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> extendEnvS var (sfromD d)
     _ -> error "extendEnvDR: type mismatch"
-
-extendEnvD :: GoodScalar r
-           => AstVarId -> DynamicOf ranked r -> AstEnv ranked
-           -> AstEnv ranked
-extendEnvD var d =
-  EM.insertWithKey (\_ _ _ -> error $ "extendEnvD: duplicate " ++ show var)
-                   var (AstEnvElemD d)
 
 extendEnvI :: AstVarId -> IntOf ranked -> AstEnv ranked
            -> AstEnv ranked
@@ -619,8 +611,12 @@ interpretAst env = \case
     in tD t1 t2
   AstLetDomains vars l v ->
     let l2 = interpretAstDomains env l
-        env2 = V.foldr (\(var, DynamicExists d) ->
-          extendEnvD var d) env (V.zip vars l2)
+        f (varId, DynamicExists @_ @r2 d) =
+          let sh2 = dshape @ranked d
+          in OS.withShapeP sh2 $ \(Proxy @sh2) ->
+            extendEnvS @ranked @(ShapedOf ranked) @r2 @sh2
+                       (AstVarName varId) (sfromD d)
+        env2 = V.foldr f env (V.zip vars l2)
     in interpretAst env2 v
 
 interpretAstDynamic
@@ -1087,8 +1083,12 @@ interpretAstS env = \case
     in sD t1 t2
   AstLetDomainsS vars l v ->
     let l2 = interpretAstDomains env l
-        env2 = V.foldr (\(var, DynamicExists d) ->
-          extendEnvD var d) env (V.zip vars l2)
+        f (varId, DynamicExists @_ @r2 d) =
+          let sh2 = dshape @ranked d
+          in OS.withShapeP sh2 $ \(Proxy @sh2) ->
+            extendEnvS @ranked @(ShapedOf ranked) @r2 @sh2
+                       (AstVarName varId) (sfromD d)
+        env2 = V.foldr f env (V.zip vars l2)
     in interpretAstS env2 v
 
 
