@@ -8,12 +8,10 @@ module HordeAd.Core.AstInterpret
   ( InterpretAstR, InterpretAstS
   , interpretAst, interpretAstDomainsDummy, interpretAstS
   , AstEnv, extendEnvS, extendEnvR, extendEnvDR
-  , AstEnvElem(AstEnvElemR)  -- for a test only
   ) where
 
 import Prelude hiding ((<*))
 
-import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
@@ -51,8 +49,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 type AstEnv ranked = EM.EnumMap AstVarId (AstEnvElem ranked)
 
 data AstEnvElem ranked =
-    forall n r. (KnownNat n, GoodScalar r) => AstEnvElemR (ranked r n)
-  | forall sh r. (OS.Shape sh, GoodScalar r)
+    forall sh r. (OS.Shape sh, GoodScalar r)
                  => AstEnvElemS (ShapedOf ranked r sh)
   | AstEnvElemI (IntOf ranked)
 deriving instance (forall r n sh. ShowDynamicOf ranked r n sh)
@@ -71,14 +68,19 @@ extendEnvS v@(AstVarName var) t =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show v)
                    var (AstEnvElemS t)
 
-extendEnvR :: forall ranked r n. (KnownNat n, GoodScalar r)
+extendEnvR :: forall ranked r n.
+              ( Tensor ranked, ConvertTensor ranked (ShapedOf ranked)
+              , KnownNat n, GoodScalar r )
            => AstVarName (Flip OR.Array r n) -> ranked r n
            -> AstEnv ranked -> AstEnv ranked
-extendEnvR v@(AstVarName var) t =
-  EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
-                   var (AstEnvElemR t)
+extendEnvR (AstVarName var) t =
+  let sh2 = tshape t
+  in OS.withShapeP (shapeToList sh2) $ \(Proxy @sh2) ->
+    gcastWith (unsafeCoerce Refl :: OS.Rank sh2 :~: n)
+    $ extendEnvS (AstVarName var)
+                 (sfromR @ranked @(ShapedOf ranked) @r @sh2 t)
 
-extendEnvDR :: ConvertTensor ranked shaped
+extendEnvDR :: (ConvertTensor ranked shaped, Tensor ranked)
             => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
             -> AstEnv ranked
             -> AstEnv ranked
@@ -328,11 +330,13 @@ interpretAst
   -> AstRanked r n -> ranked r n
 interpretAst env = \case
   AstVar sh var -> case EM.lookup var env of
-    Just (AstEnvElemR @_ @n2 @r2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
-      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> assert (sh == tshape t) t
-        _ -> error "interpretAst: type mismatch"
-      Nothing -> error "interpretAst: wrong rank in environment"
+    Just (AstEnvElemS @_ @sh2 @r2 t) ->
+      if shapeToList sh == OS.shapeT @sh2 then
+        gcastWith (unsafeCoerce Refl :: OS.Rank sh2 :~: n)
+        $ case testEquality (typeRep @r) (typeRep @r2) of
+            Just Refl -> tfromS t
+            _ -> error "interpretAst: type mismatch"
+      else error "interpretAst: wrong shape in environment"
     Just _  ->
       error $ "interpretAst: type mismatch for " ++ show var
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
