@@ -461,15 +461,7 @@ build1VS (var, v00) =
       astTrS $ astSliceS @i $ astTrS $ build1VS (var, v)
     Ast.AstReverseS v -> traceRule $
       astTrS $ astReverseS $ astTrS $ build1VS (var, v)
-    Ast.AstTransposeS @perm @sh1 v -> traceRule $
-      let zsuccPerm = 0 : map succ (OS.shapeT @perm)
-      in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccPerm) ->
-        gcastWith (unsafeCoerce Refl
-                   :: OS.Permute zsuccPerm (k : sh1) :~: k : sh) $
-        gcastWith (unsafeCoerce Refl
-                   :: OS.Rank zsuccPerm :~: 1 + OS.Rank perm) $
-        trustMeThisIsAPermutation @zsuccPerm
-        $ astTransposeS @zsuccPerm $ build1VS @k (var, v)
+    Ast.AstTransposeS @perm @sh1 v -> undefined
     Ast.AstReshapeS @sh2 v -> traceRule $
       gcastWith (unsafeCoerce Refl
                  :: OS.Size (k ': sh) :~: OS.Size (k ': sh2)) $

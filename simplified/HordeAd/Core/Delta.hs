@@ -725,25 +725,7 @@ buildFinMaps s0 deltaDt =
         SliceS @_ @_ @i d ->
           evalS s (sappend @shaped @r @i 0 (sappend c 0)) d
         ReverseS d -> evalS s (sreverse c) d
-        TransposeS @_ @_ @perm @_ @sh2 d ->
-          -- Reversing the permutation at the type level would be too hard,
-          -- so we unsafeCoerce, knowing that it's safe in this case.
-          -- TODO: instead add a tensor operation that permutes
-          -- in the other direction? What if backend don't have it?
-          let perm = OS.shapeT @perm
-              permRev = map snd $ sort $ zip perm [0 .. length perm - 1]
-          in OS.withShapeP permRev $ \(_proxy :: Proxy permRev) ->
-            gcastWith (unsafeCoerce Refl
-                       :: OS.Permute permRev sh :~: sh2)
-            $ gcastWith (unsafeCoerce Refl
-                         :: OS.Rank sh :~: OS.Rank sh2)
-            $ gcastWith (unsafeCoerce Refl
-                         :: OS.Rank permRev :~: OS.Rank perm)
-            $ evalS s
-                    (trustMeThisIsAPermutation @permRev
-                       (stranspose (Proxy @permRev))
-                       c)
-                    d
+        TransposeS @_ @_ @perm @_ @sh2 d -> undefined
         ReshapeS d -> evalS s (sreshape c) d
         BuildS @_ @_ @_ @n f ->
           foldl' (\s2 i -> evalS s2 (sindex cShared (i :$: ZSH))
