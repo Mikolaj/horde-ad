@@ -1999,15 +1999,7 @@ astReplicateS :: forall n sh r. (KnownNat n, OS.Shape sh, GoodScalar r)
 astReplicateS = \case
   Ast.AstConstantS (AstPrimalPartS v) ->
     astConstantS $ AstPrimalPartS $ astReplicateS v
-  Ast.AstTransposeS @perm @sh1 v ->
-    let zsuccPerm = 0 : map succ (OS.shapeT @perm)
-    in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccPerm) ->
---      gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccPerm) $
-      gcastWith (unsafeCoerce Refl
-                 :: OS.Permute zsuccPerm (n : sh1) :~: n : sh) $
-      gcastWith (unsafeCoerce Refl :: OS.Rank zsuccPerm :~: 1 + OS.Rank perm) $
-      trustMeThisIsAPermutation @zsuccPerm
-      $ astTransposeS @zsuccPerm $ astReplicateS @n v
+  Ast.AstTransposeS @perm @sh1 v -> undefined
   v -> Ast.AstReplicateS v
 
 astAppendS :: (KnownNat m, KnownNat n, OS.Shape sh, GoodScalar r)
