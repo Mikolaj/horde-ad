@@ -65,6 +65,16 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
+newtype AstVarName t = AstVarName AstVarId
+ deriving (Eq, Show)
+
+data AstDynamicVarName where
+  AstDynamicVarName :: (KnownNat n, GoodScalar r)
+                    => AstVarName (Flip OR.Array r n) -> AstDynamicVarName
+  AstDynamicVarNameS :: (OS.Shape sh, GoodScalar r)
+                     => AstVarName (Flip OS.Array r sh) -> AstDynamicVarName
+deriving instance Show AstDynamicVarName
+
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 f r y =
   ((AstVarName (f r y), [AstDynamicVarName]), AstDomains, AstOf f r y)
@@ -260,16 +270,6 @@ data AstDomains where
   AstDomainsLetS :: (OS.Shape sh, GoodScalar r)
                  => AstVarId -> AstShaped r sh -> AstDomains -> AstDomains
 deriving instance Show AstDomains
-
-newtype AstVarName t = AstVarName AstVarId
- deriving (Eq, Show)
-
-data AstDynamicVarName where
-  AstDynamicVarName :: (KnownNat n, GoodScalar r)
-                    => AstVarName (Flip OR.Array r n) -> AstDynamicVarName
-  AstDynamicVarNameS :: (OS.Shape sh, GoodScalar r)
-                     => AstVarName (Flip OS.Array r sh) -> AstDynamicVarName
-deriving instance Show AstDynamicVarName
 
 -- The argument is the underlying scalar.
 data AstInt where
