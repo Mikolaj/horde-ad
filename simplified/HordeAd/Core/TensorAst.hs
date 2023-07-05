@@ -117,10 +117,19 @@ instance Tensor AstRanked where
 
 instance ConvertTensor AstRanked AstShaped where
   tfromD = astFromDynamic
-  tfromS = AstSToR
-  dfromR = AstRToD
-  dfromS = AstSToD
-  sfromR = AstRToS
+  tfromS (AstRToS t) = t
+  tfromS t = AstSToR t
+--  dfromR (AstDToR t) = t
+  dfromR t = AstRToD t
+--  dfromS (AstDToS t) = t
+  dfromS t = AstSToD t
+  sfromR :: forall sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
+         => AstRanked r (OS.Rank sh) -> AstShaped r sh
+  sfromR (AstSToR @sh1 t) =
+    case sameShape @sh1 @sh of
+      Just Refl -> t
+      _ -> error "sfromR: different ranks in SToD(DToS)"
+  sfromR t = AstRToS t
   sfromD = astFromDynamicS
   ddummy = AstRToD AstIota
   disDummy t = case t of
