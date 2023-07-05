@@ -46,7 +46,7 @@ testTrees = [ tensorADValMnistTestsRNNA
             , tensorMnistTestsPP
             ]
 
--- POPL differentiation, straight via the ADVal instance of Tensor
+-- POPL differentiation, straight via the ADVal instance of RankedTensor
 mnistTestCaseRNNA
   :: forall ranked r.
      ( ranked ~ Flip OR.Array

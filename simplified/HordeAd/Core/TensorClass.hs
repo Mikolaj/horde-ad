@@ -11,7 +11,7 @@
 module HordeAd.Core.TensorClass
   ( ShapeInt, IntOf, IndexOf, ShapeSh, IntSh, IndexSh
   , PrimalOf, DualOf, DynamicOf, RankedOf, ShapedOf
-  , ShapedTensor(..), Tensor(..), ConvertTensor(..), DomainsTensor(..)
+  , ShapedTensor(..), RankedTensor(..), ConvertTensor(..), DomainsTensor(..)
   , ADReady, ADReadyS, ADRanked, ADShaped
   , GoodScalar, DummyDual(..)
   ) where
@@ -105,7 +105,7 @@ type instance ShapedOf (Clown OD.Array) = Flip OS.Array
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
 class (Integral (IntOf ranked), CRankedR ranked RealFloat)
-      => Tensor (ranked :: RankedTensorKind) where
+      => RankedTensor (ranked :: RankedTensorKind) where
 
   -- TODO: type Scalar r = ranked r 0
   -- is a macro/TH the only way?
@@ -708,7 +708,7 @@ type ADRanked ranked r = (ADReadyR ranked r, ADReadyS (ShapedOf ranked) r)
 type ADShaped shaped r = (ADReadyR (RankedOf shaped) r, ADReadyS shaped r)
 
 type ADReadyR ranked r =
-  ( Tensor ranked, GoodScalar r, Tensor (PrimalOf ranked)
+  ( RankedTensor ranked, GoodScalar r, RankedTensor (PrimalOf ranked)
   , IfB (IntOf ranked)
   , CRanked71 ranked r IfBRanked, CRanked71 ranked r IfBPrimalOf
   , EqB r, EqB (IntOf ranked)
@@ -779,7 +779,7 @@ type instance RankedOf (Flip OR.Array) = Flip OR.Array
 
 type instance ShapedOf (Flip OR.Array) = Flip OS.Array
 
-instance Tensor (Flip OR.Array) where
+instance RankedTensor (Flip OR.Array) where
   tshape = tshapeR . runFlip
   tminIndex0 = tminIndex0R . runFlip
   tmaxIndex0 = tmaxIndex0R . runFlip
@@ -847,7 +847,7 @@ instance (GoodScalar r, KnownNat n)
     Nothing -> Nothing
 
 instance ( GoodScalar r, KnownNat n
-         , Tensor AstRanked, ConvertTensor AstRanked AstShaped )
+         , RankedTensor AstRanked, ConvertTensor AstRanked AstShaped )
          => AdaptableDomains AstDynamic (AstRanked r n) where
   type Value (AstRanked r n) = Flip OR.Array r n
   toDomains = undefined
@@ -860,7 +860,8 @@ instance ( GoodScalar r, KnownNat n
 
 toRankedOrDummy
   :: forall ranked shaped n r.
-     (KnownNat n, Tensor ranked, GoodScalar r, ConvertTensor ranked shaped)
+     ( KnownNat n, RankedTensor ranked, GoodScalar r
+     , ConvertTensor ranked shaped )
   => ShapeInt n -> DynamicOf ranked r -> ranked r n
 toRankedOrDummy sh x = if disDummy @ranked x
                        then tzero sh

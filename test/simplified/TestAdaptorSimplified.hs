@@ -35,8 +35,7 @@ import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees =
-  [ -- Tensor tests
-    testCase "2zero" testZero
+  [ testCase "2zero" testZero
   , testCase "2zeroS" testZeroS
   , testCase "2fwdZeroS" testFwdZeroS
   , testCase "2zero2S" testZero2S
@@ -110,14 +109,12 @@ testTrees =
   , testCase "2barReluAst0" testBarReluAst0
   , testCase "2barReluAst1" testBarReluAst1
   , testCase "2konstReluAst" testReplicateReluAst
-  , -- Tests by TomS:
-    testCase "2F1" testF1
+  , testCase "2F1" testF1
   , testCase "2F11" testF11
   , testCase "2F2" testF2
   , testCase "2F21" testF21
 --  , testCase "2F3" testF3
-  , -- Hairy tests
-    testCase "2braidedBuilds1" testBraidedBuilds1
+  , testCase "2braidedBuilds1" testBraidedBuilds1
   , testCase "2recycled1" testRecycled1
   , testCase "2concatBuild1" testConcatBuild1
   , testCase "2emptyArgs0" testEmptyArgs0
@@ -127,9 +124,6 @@ testTrees =
   , testCase "2blowupLetPP" fblowupLetPP
   , blowupTests
   ]
-
-
--- * Tensor tests
 
 testZero :: Assertion
 testZero =
@@ -321,7 +315,7 @@ testPiecewiseLinear2PP = do
   show deltas
     @?= "LetR 100000007 (ScaleR (AstVar [] (AstVarId 100000003)) (InputR (InputId 0)))"
 
-overleaf :: forall ranked r. (Tensor ranked, GoodScalar r) => ranked r 1 -> ranked r 0
+overleaf :: forall ranked r. (RankedTensor ranked, GoodScalar r) => ranked r 1 -> ranked r 0
 overleaf v = let wrap i = i `rem` fromIntegral (tlength v)
              in tsum (tbuild @ranked @r @1 [50] (\[i] -> tindex v [wrap i]))
 
@@ -419,7 +413,7 @@ testFooPP = do
     @?= "\\x y z -> tlet (sin y) (\\x5 -> tlet (x * x5) (\\x6 -> tlet (recip (z * z + x6 * x6)) (\\x7 -> tlet (sin y) (\\x8 -> tlet (x * x8) (\\x9 -> atan2 z x6 + z * x9)))))"
 
 fooLet :: forall ranked r n.
-          (RealFloat (ranked r n), Tensor ranked, KnownNat n, GoodScalar r)
+          (RealFloat (ranked r n), RankedTensor ranked, KnownNat n, GoodScalar r)
        => (ranked r n, ranked r n, ranked r n) -> ranked r n
 fooLet (x, y, z) =
   let w0 = x * sin y
@@ -1144,9 +1138,6 @@ testReplicateReluAst =
        (OR.fromList [] [295.4])
        (crevDt @Double @0 f (Flip $ OR.fromList [] [1.1]) 42.2)
 
-
--- * Tests by TomS
-
 f1 :: ADReady ranked r => ranked r 0 -> ranked r 0
 f1 = \arg -> tsum0 (tbuild1 10 (\i -> arg * tfromIndex0 i))
 
@@ -1183,9 +1174,6 @@ testF21 =
   assertEqualUpToEpsilon' 1e-10
     470
     (rev' @Double @0 f2 1.1)
-
-
--- * Hairy tests (many by TomS as well)
 
 braidedBuilds :: forall ranked r. ADReady ranked r => ranked r 0 -> ranked r 2
 braidedBuilds r =

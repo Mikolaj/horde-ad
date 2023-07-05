@@ -429,7 +429,7 @@ instance DualPart @() (Clown AstDynamic) where
 gradientDtD
   :: forall ranked shaped r (y :: ()).
      ( GoodScalar r
-     , Tensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
+     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> Clown (DynamicOf ranked) r y
   -> Maybe (Clown (DynamicOf ranked) r y)
   -> DeltaD ranked shaped r y
@@ -449,7 +449,7 @@ gradientDtD dims value mdt deltaTopLevel =
 derivativeFromDeltaD
   :: forall ranked shaped r (y :: ()).
      ( GoodScalar r
-     , Tensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
+     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> DeltaD ranked shaped r y -> Domains (DynamicOf ranked)
   -> Clown (DynamicOf ranked) r y
 derivativeFromDeltaD dim deltaTopLevel ds =
@@ -473,7 +473,7 @@ instance DualPart @Nat AstRanked where
 
 gradientDtR
   :: ( KnownNat y, GoodScalar r
-     , Tensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
+     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> ranked r y -> Maybe (ranked r y)
   -> DeltaR ranked shaped r y
   -> ( [(AstVarId, DynamicExists (DynamicOf ranked))]
@@ -486,7 +486,7 @@ gradientDtR dims value mdt deltaTopLevel =
 derivativeFromDeltaR
   :: forall ranked shaped r n.
        ( KnownNat n, GoodScalar r
-       , Tensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
+       , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> DeltaR ranked shaped r n -> Domains (DynamicOf ranked)
   -> ranked r n
 derivativeFromDeltaR dim deltaTopLevel ds =
@@ -515,7 +515,7 @@ instance DualPart @[Nat] AstShaped where
 gradientDtS
   :: forall ranked shaped r y.
      ( OS.Shape y, GoodScalar r
-     , Tensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
+     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> shaped r y -> Maybe (shaped r y)
   -> DeltaS ranked shaped r y
   -> ( [(AstVarId, DynamicExists (DynamicOf ranked))]
@@ -528,7 +528,7 @@ gradientDtS dims _ mdt deltaTopLevel =
 derivativeFromDeltaS
   :: forall ranked shaped r sh.
        ( OS.Shape sh, GoodScalar r
-       , Tensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
+       , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> DeltaS ranked shaped r sh -> Domains (DynamicOf shaped)
   -> shaped r sh
 derivativeFromDeltaS dim deltaTopLevel ds =
@@ -645,7 +645,7 @@ data DeltaBinding ranked shaped =
 -- value (usually set to @1@) is given in the @DeltaDt ranked r@ parameter.
 gradientFromDelta
   :: forall ranked shaped r.
-      ( GoodScalar r, Tensor ranked, ShapedTensor shaped
+      ( GoodScalar r, RankedTensor ranked, ShapedTensor shaped
       , ConvertTensor ranked shaped )
   => Int -> DeltaDt ranked shaped r
   -> ( [(AstVarId, DynamicExists (DynamicOf ranked))]
@@ -681,7 +681,7 @@ gradientFromDelta dims deltaDt =
 
 buildFinMaps
   :: forall ranked shaped r0.
-     ( GoodScalar r0, Tensor ranked, ShapedTensor shaped
+     ( GoodScalar r0, RankedTensor ranked, ShapedTensor shaped
      , ConvertTensor ranked shaped )
   => EvalState ranked shaped -> DeltaDt ranked shaped r0
   -> EvalState ranked shaped
@@ -976,7 +976,7 @@ buildFinMaps s0 deltaDt =
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
   :: forall ranked shaped r0 s.
-     ( GoodScalar r0, Tensor ranked, ShapedTensor shaped
+     ( GoodScalar r0, RankedTensor ranked, ShapedTensor shaped
      , ConvertTensor ranked shaped )
   => Int -> DeltaDt ranked shaped r0 -> Domains (DynamicOf ranked)
   -> ST s (DeltaDt ranked shaped r0)

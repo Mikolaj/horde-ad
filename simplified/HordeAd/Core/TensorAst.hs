@@ -45,7 +45,7 @@ type instance RankedOf AstRanked = AstRanked
 
 type instance ShapedOf AstRanked = AstShaped
 
-instance Tensor AstRanked where
+instance RankedTensor AstRanked where
   tlet a f = astLetFun a f
 
   tshape = shapeAst
@@ -200,7 +200,7 @@ type instance RankedOf AstPrimalPart = AstPrimalPart
 
 type instance ShapedOf AstPrimalPart = AstPrimalPartS
 
-instance Tensor AstPrimalPart where
+instance RankedTensor AstPrimalPart where
   tlet a f =
     AstPrimalPart
     $ astLetFun (unAstPrimalPart a) (unAstPrimalPart . f . AstPrimalPart)
@@ -252,7 +252,7 @@ type instance RankedOf AstNoVectorize = AstNoVectorize
 
 type instance ShapedOf AstNoVectorize = AstShaped
 
-instance Tensor AstNoVectorize where
+instance RankedTensor AstNoVectorize where
   tlet a f =
     AstNoVectorize
     $ astLetFun (unAstNoVectorize a) (unAstNoVectorize . f . AstNoVectorize)
@@ -307,7 +307,7 @@ type instance RankedOf AstNoSimplify = AstNoSimplify
 
 type instance ShapedOf AstNoSimplify = AstShaped
 
-instance Tensor AstNoSimplify where
+instance RankedTensor AstNoSimplify where
   tlet a f =
     AstNoSimplify
     $ astLetFunUnSimp (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)

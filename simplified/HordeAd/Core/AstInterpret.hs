@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
--- | Interpretation of @Ast@ terms in an aribtrary @Tensor@ class instance..
+-- | Interpretation of @Ast@ terms in an aribtrary @RankedTensor@ class instance..
 module HordeAd.Core.AstInterpret
   ( InterpretAstR, InterpretAstS
   , interpretAst, interpretAstDomainsDummy, interpretAstS
@@ -69,7 +69,7 @@ extendEnvS v@(AstVarName var) t =
                    var (AstEnvElemS t)
 
 extendEnvR :: forall ranked r n.
-              ( Tensor ranked, ConvertTensor ranked (ShapedOf ranked)
+              ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
               , KnownNat n, GoodScalar r )
            => AstVarName (Flip OR.Array r n) -> ranked r n
            -> AstEnv ranked -> AstEnv ranked
@@ -287,7 +287,7 @@ type InterpretAstS shaped =
   )
 
 type InterpretAst ranked =
-  ( Tensor ranked, Tensor (PrimalOf ranked)
+  ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
   , ShapedTensor (ShapedOf ranked), ShapedTensor (PrimalOf (ShapedOf ranked))
   , ConvertTensor ranked (ShapedOf ranked)
   , InterpretAstR ranked

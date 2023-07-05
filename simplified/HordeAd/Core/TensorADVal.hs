@@ -87,14 +87,14 @@ instance (KnownNat n, GoodScalar r)
 -- First index is for outermost dimension; empty index means identity,
 -- index ouf of bounds produces zero (but beware of vectorization).
 index :: forall ranked shaped m n r.
-         ( Tensor ranked, IsPrimal ranked r n
+         ( RankedTensor ranked, IsPrimal ranked r n
          , Dual ranked ~ DeltaR ranked shaped
          , KnownNat m, KnownNat n, GoodScalar r )
       => ADVal ranked r (m + n) -> IndexOf ranked m
       -> ADVal ranked r n
 index (D l u u') ix = dD l (tindex u ix) (IndexR u' ix (tshape u))
 
-fromList :: ( Tensor ranked, IsPrimal ranked r (1 + n)
+fromList :: ( RankedTensor ranked, IsPrimal ranked r (1 + n)
             , Dual ranked ~ DeltaR ranked shaped
             , KnownNat n, GoodScalar r )
          => [ADVal ranked r n]
@@ -150,8 +150,8 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          , DeltaR ranked shaped ~ Dual ranked
          , CRankedIP ranked IsPrimalPart
          , CRankedIP ranked CanRecordSharing
-         , Tensor ranked )
-         => Tensor (ADVal ranked) where
+         , RankedTensor ranked )
+         => RankedTensor (ADVal ranked) where
   tlet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
     in f (D l2 var2 u')
@@ -448,7 +448,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 -- This may be a problem with gatherNClosure, too, as soon as we have
 -- integer sharing and it's shared in the whole transpose result.
 _build1Closure
-  :: ( Tensor ranked, KnownNat n, GoodScalar r
+  :: ( RankedTensor ranked, KnownNat n, GoodScalar r
      , Dual ranked ~ DeltaR ranked shaped
      , IsPrimal ranked r (1 + n) )
   => Int -> (IntOf ranked -> ADVal ranked r n)

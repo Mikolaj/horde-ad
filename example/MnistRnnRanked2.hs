@@ -42,14 +42,14 @@ type LayerWeigthsRNN (ranked :: RankedTensorKind) r =
   , ranked r 1 )
 
 zeroStateR
-  :: (Tensor ranked, GoodScalar r, KnownNat n)
+  :: (RankedTensor ranked, GoodScalar r, KnownNat n)
   => ShapeInt n -> (ranked r n  -- state
                     -> a)
   -> a
 zeroStateR sh f = f (tzero sh)
 
 unrollLastR :: forall ranked state c w r n.
-               (Tensor ranked, GoodScalar r, KnownNat n, KnownNat (1 + n))
+               (RankedTensor ranked, GoodScalar r, KnownNat n, KnownNat (1 + n))
             => (state -> ranked r n -> w -> (c, state))
             -> (state -> ranked r (1 + n) -> w -> (c, state))
 unrollLastR f s0 xs w =

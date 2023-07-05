@@ -37,10 +37,10 @@ reluLeaky v =
   let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.01 1.0) v
   in oneIfGtZero * v
 
--- TODO: verify how faster a dedicated Tensor method would be
+-- TODO: verify how faster a dedicated RankedTensor method would be
 logistic :: forall ranked r n.
-            ( Tensor ranked
-            , Tensor (PrimalOf ranked), KnownNat n, GoodScalar r
+            ( RankedTensor ranked
+            , RankedTensor (PrimalOf ranked), KnownNat n, GoodScalar r
             , Floating (PrimalOf ranked r n), Num (PrimalOf ranked r 0) )
          => ranked r n -> ranked r n
 logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
@@ -54,7 +54,7 @@ logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
 square :: forall ranked r n.
-          (Tensor ranked, KnownNat n, Num (PrimalOf ranked r n), GoodScalar r)
+          (RankedTensor ranked, KnownNat n, Num (PrimalOf ranked r n), GoodScalar r)
        => ranked r n -> ranked r n
 square d = let u = tprimalPart @ranked d
                u' = tdualPart @ranked d
@@ -62,11 +62,11 @@ square d = let u = tprimalPart @ranked d
 
 squaredDifference
   :: forall ranked n r.
-     (Tensor ranked, KnownNat n, Num (PrimalOf ranked r n), GoodScalar r)
+     (RankedTensor ranked, KnownNat n, Num (PrimalOf ranked r n), GoodScalar r)
   => PrimalOf ranked r n -> ranked r n -> ranked r n
 squaredDifference targ res = square @ranked $ res - tconstant @ranked targ
 
-lossCrossEntropyV :: (Tensor ranked, KnownNat n, GoodScalar r)
+lossCrossEntropyV :: (RankedTensor ranked, KnownNat n, GoodScalar r)
                   => ranked r n
                   -> ranked r n
                   -> ranked r 0
@@ -77,7 +77,7 @@ lossCrossEntropyV targ res = negate $ log res `tdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
   :: forall ranked n r.
-     (Tensor ranked, Tensor (PrimalOf ranked), KnownNat n, GoodScalar r)
+     (RankedTensor ranked, RankedTensor (PrimalOf ranked), KnownNat n, GoodScalar r)
   => PrimalOf ranked r n -> ranked r n -> ranked r 0
 lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
@@ -100,13 +100,13 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
          -- tDot0 (softMaxU - target) u'
 
 -- No padding; remaining areas ignored.
-maxPool1 :: (Tensor ranked, GoodScalar r)
+maxPool1 :: (RankedTensor ranked, GoodScalar r)
          => Int -> Int -> ranked r 1 -> ranked r 1
 maxPool1 ksize stride v =
   let slices = [tslice i ksize v | i <- [0, stride .. tlength v - ksize]]
   in tfromList $ map tmaximum slices
 
-softMax1 :: (Tensor ranked, KnownNat n, GoodScalar r)
+softMax1 :: (RankedTensor ranked, KnownNat n, GoodScalar r)
          => ranked r n -> ranked r n
 softMax1 d =
   let expU0 = exp d
