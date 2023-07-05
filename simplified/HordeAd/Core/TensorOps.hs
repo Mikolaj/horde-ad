@@ -520,8 +520,8 @@ tgatherZ1R k t f =
   in OR.ravel $ ORB.fromList [k] l
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
-tcastR :: (Numeric r1, Numeric r, KnownNat n, Real r1, Fractional r)
-       => OR.Array n r1 -> OR.Array n r
+tcastR :: (Numeric r1, Numeric r2, KnownNat n, Real r1, Fractional r2)
+       => OR.Array n r1 -> OR.Array n r2
 tcastR = liftVR (V.map realToFrac)
 
 tscalarR
@@ -913,8 +913,8 @@ tgatherZ1S t f =
   in OS.ravel $ OSB.fromList l
 
 -- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
-tcastS :: (Numeric r1, Numeric r, OS.Shape sh, Real r1, Fractional r)
-       => OS.Array sh r1 -> OS.Array sh r
+tcastS :: (Numeric r1, Numeric r2, OS.Shape sh, Real r1, Fractional r2)
+       => OS.Array sh r1 -> OS.Array sh r2
 tcastS = liftVS (V.map realToFrac)
 
 tscalarS

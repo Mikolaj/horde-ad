@@ -281,8 +281,8 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
            -> ranked r (1 + n)
   tgather1 k v f = tgather @ranked @r @1 (k :$ dropShape (tshape v)) v
                            (\(i :. ZI) -> f i)
-  tcast :: (GoodScalar r1, GoodScalar r, KnownNat n)
-        => ranked r1 n -> ranked r n
+  tcast :: (GoodScalar r1, GoodScalar r2, KnownNat n)
+        => ranked r1 n -> ranked r2 n
 
   -- ** No serviceable parts beyond this point ** --
 
@@ -583,8 +583,8 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
     -> (IntSh shaped n2 -> IndexSh shaped (OS.Take p sh))
     -> shaped r (n2 ': OS.Drop p sh)
   sgather1 v f = sgather @shaped @r @'[n2] v (ShapedList.unconsContShaped f)
-  scast :: (GoodScalar r1, GoodScalar r, OS.Shape sh)
-        => shaped r1 sh -> shaped r sh
+  scast :: (GoodScalar r1, GoodScalar r2, OS.Shape sh)
+        => shaped r1 sh -> shaped r2 sh
 
   -- ** No serviceable parts beyond this point ** --
 
