@@ -41,3 +41,21 @@ void column_sum_float(int nrows, int ncols, const float *x, float *y) {
     }
   }
 }
+
+void row_sum_int64(int nrows, int ncols, const long long *x, long long *y) {
+  for (int j = 0; j < ncols; j++) {
+    const long long *column = x + j * nrows;
+    for (int i = 0; i < nrows; i++) {
+      y[i] += column[i];
+    }
+  }
+}
+void column_sum_int64(int nrows, int ncols, const long long *x, long long *y) {
+  for (int j = 0; j < ncols; j++) {
+    const long long *column = &x[j * nrows];
+    y[j] = 0;
+    for (int i = 0; i < nrows; i++) {
+      y[j] += column[i];
+    }
+  }
+}

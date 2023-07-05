@@ -26,6 +26,7 @@ import qualified Data.Array.Shape as OS
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.Functor (void)
+import           Data.Int (Int64)
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Map as M
@@ -234,6 +235,12 @@ foreign import ccall unsafe "row_sum_float"
 foreign import ccall unsafe "column_sum_float"
   c_column_sum_float :: CInt -> CInt -> Ptr Float -> Ptr Float -> IO ()
 
+foreign import ccall unsafe "row_sum_float"
+  c_row_sum_int64 :: CInt -> CInt -> Ptr Int64 -> Ptr Int64 -> IO ()
+
+foreign import ccall unsafe "column_sum_float"
+  c_column_sum_int64 :: CInt -> CInt -> Ptr Int64 -> Ptr Int64 -> IO ()
+
 class RowSum r where
   rowSum :: Int -> Int -> Ptr r -> Ptr r -> IO ()
   columnSum :: Int -> Int -> Ptr r -> Ptr r -> IO ()
@@ -249,6 +256,12 @@ instance RowSum Float where
     c_row_sum_float (fromIntegral n) (fromIntegral k) ptr ptr2
   columnSum n k ptr ptr2 =
     c_column_sum_float (fromIntegral n) (fromIntegral k) ptr ptr2
+
+instance RowSum Int64 where
+  rowSum n k ptr ptr2 =
+    c_row_sum_int64 (fromIntegral n) (fromIntegral k) ptr ptr2
+  columnSum n k ptr ptr2 =
+    c_column_sum_int64 (fromIntegral n) (fromIntegral k) ptr ptr2
 
 instance {-# OVERLAPPABLE #-} Numeric r => RowSum r where
   rowSum = error "RowSum: TODO"

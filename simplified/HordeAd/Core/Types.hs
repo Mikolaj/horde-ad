@@ -55,10 +55,10 @@ sizeDomainsOD :: DomainsOD -> Int
 sizeDomainsOD d = let f (DynamicExists t) = OD.size t
                   in V.sum (V.map f d)
 
--- @IntOf a@ as size or shape gives more expressiveness,
+-- This is used only in indexing and similar contexts.
+-- If used as size or shape gives more expressiveness,
 -- but leads to irregular tensors, especially after vectorization,
 -- and prevents statically known shapes.
-
 type family IntOf (f :: TensorKind k) :: Type
 
 -- | Thanks to the OverloadedLists mechanism, values of this type can be
