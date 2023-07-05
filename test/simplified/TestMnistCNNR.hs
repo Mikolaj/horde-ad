@@ -33,6 +33,7 @@ import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
 import HordeAd.External.Optimizer
 import HordeAd.External.OptimizerTools
 

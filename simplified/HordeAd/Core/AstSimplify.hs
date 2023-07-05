@@ -63,7 +63,6 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
   , AstDomains
@@ -80,6 +79,7 @@ import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.SizedList
 import           HordeAd.Core.TensorOps
+import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape, trustMeThisIsAPermutation)
 

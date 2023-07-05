@@ -40,7 +40,6 @@ import qualified Data.Strict.Vector as Data.Vector
 import           GHC.TypeLits (KnownNat, type (+), type (<=))
 import           System.IO.Unsafe (unsafePerformIO)
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.ShapedList (ShapedList (..))
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.SizedList

@@ -16,8 +16,8 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Type.Reflection (typeRep)
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.TensorOps (isTensorDummy)
+import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVD2)
 
 updateWithGradient :: Double -> DomainsOD -> DomainsOD -> DomainsOD

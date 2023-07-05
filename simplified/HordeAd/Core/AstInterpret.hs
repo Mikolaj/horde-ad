@@ -33,7 +33,6 @@ import           GHC.TypeLits (KnownNat, sameNat)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools

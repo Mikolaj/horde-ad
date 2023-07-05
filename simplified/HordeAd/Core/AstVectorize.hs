@@ -22,7 +22,6 @@ import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast (AstDomains, AstInt, AstRanked, AstShaped)
 import           HordeAd.Core.Ast hiding
   (AstBool (..), AstDomains (..), AstInt (..), AstRanked (..), AstShaped (..))
@@ -34,6 +33,7 @@ import           HordeAd.Core.AstTools
 import           HordeAd.Core.ShapedList (ShapedList (..))
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.SizedList
+import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (trustMeThisIsAPermutation)
 

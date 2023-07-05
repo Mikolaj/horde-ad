@@ -31,9 +31,9 @@ import           GHC.TypeLits
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 
 -- * Shape calculation

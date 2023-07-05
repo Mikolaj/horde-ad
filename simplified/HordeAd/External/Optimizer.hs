@@ -13,12 +13,12 @@ import           Data.Bifunctor.Flip
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.Delta (DualPart (..))
 import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
 
 -- | Stochastic Gradient Descent.
