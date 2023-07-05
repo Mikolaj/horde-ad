@@ -436,10 +436,8 @@ printAstVarNameS renames var =
   printAstVarS (defaulPrintConfig False renames) var ""
 
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
-printAstDynamicVarName renames (AstDynamicVarName var) =
-  printAstVarName renames var
-printAstDynamicVarName renames (AstDynamicVarNameS var) =
-  printAstVarNameS renames var
+printAstDynamicVarName renames (AstDynamicVarName @sh @r var) =
+  printAstVarNameS renames (AstVarName @(Flip OS.Array r sh) var)
 
 printAstS :: forall sh r. (GoodScalar r, OS.Shape sh)
           => PrintConfig -> Int -> AstShaped r sh -> ShowS

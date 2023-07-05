@@ -204,9 +204,9 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let (vars1, asts1) = funToAst2 domainsInit
            doms = V.fromList asts1
-       (varGlyph, astGlyph) <-
+       (varGlyph, _, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
-       (varLabel, astLabel) <-
+       (varLabel, _, astLabel) <-
          funToAstIOR (singletonShape sizeMnistLabelInt) id
        let ast :: AstRanked r 0
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
@@ -316,9 +316,9 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (varGlyph, astGlyph) <-
+       (varGlyph, varGlyphD, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
-       (varLabel, astLabel) <-
+       (varLabel, varLabelD, astLabel) <-
          funToAstIOR (singletonShape sizeMnistLabelInt) id
        let envInit = extendEnvR varGlyph (tconstant astGlyph)
                      $ extendEnvR varLabel (tconstant astLabel) EM.empty
@@ -327,9 +327,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit False f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
-           vars1AndInputAgain =
-             vars1Again
-             ++ [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
+           vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)
            go :: [MnistData r] -> DomainsOD -> DomainsOD
            go [] parameters = parameters
@@ -527,9 +525,9 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let (vars1, asts1) = funToAst2 domainsInit
            doms = V.fromList asts1
-       (varGlyph, astGlyph) <-
+       (varGlyph, _, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
-       (varLabel, astLabel) <-
+       (varLabel, _, astLabel) <-
          funToAstIOR (singletonShape sizeMnistLabelInt) id
        let ast :: AstRanked r 0
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
@@ -635,9 +633,9 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (varGlyph, astGlyph) <-
+       (varGlyph, varGlyphD, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
-       (varLabel, astLabel) <-
+       (varLabel, varLabelD, astLabel) <-
          funToAstIOR (singletonShape sizeMnistLabelInt) id
        let envInit = extendEnvR varGlyph (tconstant astGlyph)
                      $ extendEnvR varLabel (tconstant astLabel) EM.empty
@@ -646,9 +644,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit False f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
-           vars1AndInputAgain =
-             vars1Again
-             ++ [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
+           vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)
            go :: [MnistData r] -> DomainsOD -> DomainsOD
            go [] parameters = parameters

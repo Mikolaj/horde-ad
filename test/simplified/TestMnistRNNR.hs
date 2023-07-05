@@ -182,11 +182,11 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
        let testDataR = packBatchR testData
            (vars1, asts1) = funToAst2 domainsInit
            doms = V.fromList asts1
-       (varGlyph, astGlyph) <-
+       (varGlyph, _, astGlyph) <-
          funToAstIOR
            (miniBatchSize :$ sizeMnistHeightInt :$ sizeMnistWidthInt :$ ZS)
            id
-       (varLabel, astLabel) <-
+       (varLabel, _, astLabel) <-
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
        let ast :: AstRanked r 0
            ast = MnistRnnRanked2.rnnMnistLossFusedR
@@ -288,11 +288,11 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-       (varGlyph, astGlyph) <-
+       (varGlyph, varGlyphD, astGlyph) <-
          funToAstIOR
            (miniBatchSize :$ sizeMnistHeightInt :$ sizeMnistWidthInt :$ ZS)
            id
-       (varLabel, astLabel) <-
+       (varLabel, varLabelD, astLabel) <-
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
        let envInit = extendEnvR varGlyph (tconstant astGlyph)
                      $ extendEnvR varLabel (tconstant astLabel) EM.empty
@@ -302,9 +302,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
              revDtInit @Nat @(Flip OR.Array)
                        False f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
-           vars1AndInputAgain =
-             vars1Again
-             ++ [AstDynamicVarName varGlyph, AstDynamicVarName varLabel]
+           vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)
            go :: [MnistDataBatchR r] -> (DomainsOD, StateAdam)
               -> (DomainsOD, StateAdam)

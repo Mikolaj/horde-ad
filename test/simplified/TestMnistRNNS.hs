@@ -189,9 +189,9 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
        let testDataR = packBatchR testData
            (vars1, asts1) = funToAst2 domainsInit
            doms = V.fromList asts1
-       (varGlyph, astGlyph) <-
+       (varGlyph, _, astGlyph) <-
          funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
-       (varLabel, astLabel) <-
+       (varLabel, _, astLabel) <-
          funToAstIOS {-@'[batch_size, SizeMnistLabel]-} id
        let ast :: AstShaped r '[]
            ast = MnistRnnShaped2.rnnMnistLossFusedS
@@ -302,9 +302,9 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-       (varGlyph, astGlyph) <-
+       (varGlyph, varGlyphD, astGlyph) <-
          funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
-       (varLabel, astLabel) <-
+       (varLabel, varLabelD, astLabel) <-
          funToAstIOS {-@'[batch_size, SizeMnistLabel]-} id
        let envInit = extendEnvS varGlyph (sconstant astGlyph)
                      $ extendEnvS varLabel (sconstant astLabel) EM.empty
@@ -313,9 +313,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit False f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
-           vars1AndInputAgain =
-             vars1Again
-             ++ [AstDynamicVarNameS varGlyph, AstDynamicVarNameS varLabel]
+           vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)
            go :: [MnistDataBatchS batch_size r] -> (DomainsOD, StateAdam)
               -> (DomainsOD, StateAdam)

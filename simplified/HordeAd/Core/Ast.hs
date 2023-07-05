@@ -69,10 +69,8 @@ newtype AstVarName t = AstVarName AstVarId
  deriving (Eq, Show)
 
 data AstDynamicVarName where
-  AstDynamicVarName :: (KnownNat n, GoodScalar r)
-                    => AstVarName (Flip OR.Array r n) -> AstDynamicVarName
-  AstDynamicVarNameS :: (OS.Shape sh, GoodScalar r)
-                     => AstVarName (Flip OS.Array r sh) -> AstDynamicVarName
+  AstDynamicVarName :: (OS.Shape sh, GoodScalar r)
+                    => AstVarId -> AstDynamicVarName
 deriving instance Show AstDynamicVarName
 
 -- The artifact from step 6) of our full pipeline.

@@ -80,17 +80,13 @@ extendEnvR (AstVarName var) t =
     $ extendEnvS (AstVarName var)
                  (sfromR @ranked @(ShapedOf ranked) @r @sh2 t)
 
-extendEnvDR :: (ConvertTensor ranked shaped, Tensor ranked)
+extendEnvDR :: ConvertTensor ranked shaped
             => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
             -> AstEnv ranked
             -> AstEnv ranked
-extendEnvDR (AstDynamicVarName @_ @r var, DynamicExists @_ @r2 d) =
+extendEnvDR (AstDynamicVarName @sh @r var, DynamicExists @_ @r2 d) =
   case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> extendEnvR var (tfromD d)
-    _ -> error "extendEnvDR: type mismatch"
-extendEnvDR (AstDynamicVarNameS @_ @r var, DynamicExists @_ @r2 d) =
-  case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> extendEnvS var (sfromD d)
+    Just Refl -> extendEnvS (AstVarName @(Flip OS.Array r sh) var) (sfromD d)
     _ -> error "extendEnvDR: type mismatch"
 
 extendEnvI :: AstVarId -> IntOf ranked -> AstEnv ranked
