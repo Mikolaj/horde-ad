@@ -15,13 +15,14 @@ import           GHC.TypeLits (type (*), type (+), type (<=), type Div)
 import           Numeric.LinearAlgebra (Vector)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import HordeAd.Core.Ast
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonShapedOps
 import MnistData
 
 type ADCnnMnistParametersShaped
-       shaped h w kh kw c_out n_hidden r =
+       (shaped :: ShapedTensorKind) h w kh kw c_out n_hidden r =
   ( ( shaped r '[c_out, 1, kh + 1, kw + 1]
     , shaped r '[c_out] )
   , ( shaped r '[c_out, c_out, kh + 1, kw + 1]

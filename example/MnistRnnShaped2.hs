@@ -15,22 +15,24 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (*))
 import           Numeric.LinearAlgebra (Vector)
 
+import HordeAd.Core.Ast
 import HordeAd.Core.DualNumber
 import HordeAd.Core.ShapedList (ShapedList (..))
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
 import MnistData
 
-type LayerWeigthsRNNShaped shaped in_width out_width r =
-  ( shaped r '[out_width, in_width]   -- input weight
-  , shaped r '[out_width, out_width]  -- state weight
-  , shaped r '[out_width] )           -- bias
-
-type ADRnnMnistParametersShaped shaped sizeMnistHeight width r =
+type ADRnnMnistParametersShaped
+       (shaped :: ShapedTensorKind) sizeMnistHeight width r =
   ( LayerWeigthsRNNShaped shaped sizeMnistHeight width r
   , LayerWeigthsRNNShaped shaped width width r
   , ( shaped r '[SizeMnistLabel, width]
     , shaped r '[SizeMnistLabel] ) )
+
+type LayerWeigthsRNNShaped shaped in_width out_width r =
+  ( shaped r '[out_width, in_width]   -- input weight
+  , shaped r '[out_width, out_width]  -- state weight
+  , shaped r '[out_width] )           -- bias
 
 zeroStateS
   :: (ShapedTensor shaped, OS.Shape sh, GoodScalar r)

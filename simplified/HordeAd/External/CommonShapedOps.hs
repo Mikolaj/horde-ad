@@ -20,6 +20,7 @@ import           GHC.TypeLits
   (Div, KnownNat, SomeNat (..), someNatVal, type (-), type (<=))
 import           Unsafe.Coerce (unsafeCoerce)
 
+import           HordeAd.Core.Ast
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
@@ -140,7 +141,8 @@ softMax1S d =
 -- If another value than 0 was needed, the conditional
 -- would be necessary even without vectorization.
 conv2dUnpaddedS
-  :: forall nCoutK nCinpK nKh nKw nImgs nCinpA nAh nAw shaped r shB shK1.
+  :: forall nCoutK nCinpK nKh nKw nImgs nCinpA nAh nAw
+            (shaped :: ShapedTensorKind) r shB shK1.
      ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh, KnownNat nKw
      , KnownNat nImgs, KnownNat nAh, KnownNat nAw
      , ADReadyS shaped r

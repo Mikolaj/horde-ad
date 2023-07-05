@@ -12,26 +12,22 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Vector)
 
+import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData
 
-type LayerWeigthsRNNShaped shaped in_width out_width r =
-  ( shaped r '[out_width, in_width]   -- input weight
-  , shaped r '[out_width, out_width]  -- state weight
-  , shaped r '[out_width] )           -- bias
-
-type ADRnnMnistParametersShaped shaped width r =
+type ADRnnMnistParametersShaped (shaped :: ShapedTensorKind) width r =
   ( LayerWeigthsRNNShaped shaped SizeMnistHeight width r
   , LayerWeigthsRNNShaped shaped width width r
   , ( shaped r '[SizeMnistLabel, width]
     , shaped r '[SizeMnistLabel] ) )
 
-type LayerWeigthsRNN ranked r =
-  ( ranked r 2
-  , ranked r 2
-  , ranked r 1 )
+type LayerWeigthsRNNShaped shaped in_width out_width r =
+  ( shaped r '[out_width, in_width]   -- input weight
+  , shaped r '[out_width, out_width]  -- state weight
+  , shaped r '[out_width] )           -- bias
 
 -- The differentiable type of all trainable parameters of this nn.
 type ADRnnMnistParameters ranked r =
@@ -39,6 +35,11 @@ type ADRnnMnistParameters ranked r =
   , LayerWeigthsRNN ranked r
   , ( ranked r 2
     , ranked r 1 ) )
+
+type LayerWeigthsRNN (ranked :: RankedTensorKind) r =
+  ( ranked r 2
+  , ranked r 2
+  , ranked r 1 )
 
 zeroStateR
   :: (Tensor ranked, GoodScalar r, KnownNat n)

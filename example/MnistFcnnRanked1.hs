@@ -11,6 +11,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)
 
+import HordeAd.Core.Ast
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData
@@ -22,7 +23,7 @@ afcnnMnistLen1 widthHidden widthHidden2 =
   ++ replicate sizeMnistLabelInt widthHidden2 ++ [sizeMnistLabelInt]
 
 -- The differentiable type of all trainable parameters of this nn.
-type ADFcnnMnist1Parameters ranked r =
+type ADFcnnMnist1Parameters (ranked :: RankedTensorKind) r =
   ( ( [ranked r 1]  -- @widthHidden@ copies, length @sizeMnistGlyphInt@
     , ranked r 1 )  -- length @widthHidden@
   , ( [ranked r 1]  -- @widthHidden2@ copies, length @widthHidden@

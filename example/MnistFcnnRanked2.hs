@@ -7,15 +7,21 @@ import Prelude
 import           Control.Exception (assert)
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
+import           Data.Kind (Type)
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
+import           GHC.TypeLits (Nat)
 import           Numeric.LinearAlgebra (Vector)
 
+import HordeAd.Core.Ast
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData
 
-type ADFcnnMnist2ParametersShaped shaped widthHidden widthHidden2 r =
+type ADFcnnMnist2ParametersShaped (shaped :: ShapedTensorKind)
+                                  (widthHidden :: Nat)
+                                  (widthHidden2 :: Nat)
+                                  (r :: Type) =
   ( ( shaped r '[widthHidden, SizeMnistGlyph]
     , shaped r '[widthHidden] )
   , ( shaped Float '[widthHidden2, widthHidden]
@@ -25,7 +31,7 @@ type ADFcnnMnist2ParametersShaped shaped widthHidden widthHidden2 r =
   )
 
 -- The differentiable type of all trainable parameters of this nn.
-type ADFcnnMnist2Parameters ranked r =
+type ADFcnnMnist2Parameters (ranked :: RankedTensorKind) r =
   ( ( ranked r 2
     , ranked r 1 )
   , ( ranked Float 2

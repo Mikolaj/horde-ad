@@ -11,13 +11,14 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (type (*), type (+), type Div)
 import           Numeric.LinearAlgebra (Vector)
 
+import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.External.CommonRankedOps
 import MnistData
 
 type ADCnnMnistParametersShaped
-       shaped h w kh kw c_out n_hidden r =
+       (shaped :: ShapedTensorKind) h w kh kw c_out n_hidden r =
   ( ( shaped r '[c_out, 1, kh + 1, kw + 1]
     , shaped r '[c_out] )
   , ( shaped r '[c_out, c_out, kh + 1, kw + 1]
@@ -29,7 +30,7 @@ type ADCnnMnistParametersShaped
   )
 
 -- The differentiable type of all trainable parameters of this nn.
-type ADCnnMnistParameters ranked r =
+type ADCnnMnistParameters (ranked :: RankedTensorKind) r =
   ( ( ranked r 4
     , ranked r 1 )
   , ( ranked r 4
