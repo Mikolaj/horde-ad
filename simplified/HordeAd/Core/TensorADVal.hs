@@ -398,18 +398,40 @@ instance ( Dual ranked ~ DeltaR ranked shaped
           Just Refl -> d
           _ -> error "sToR: different shapes in SToR(RToS)"
       dSToR d = SToR d
-        -- TODO: add all the other optimizations about not storing
-        -- trivial conversions on tape
   dfromR = Flip . rToD
    where
-    rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (RToD u')
+    rToD :: forall r n. (GoodScalar r, KnownNat n)
+         => ADVal ranked r n -> ADVal (Clown (DynamicOf ranked)) r '()
+    rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (dRToD u')
+     where
+      dRToD (DToR @_ @_ @n1 d) =
+        case sameNat (Proxy @n1) (Proxy @n) of
+          Just Refl -> d
+          _ -> error "rToD: different ranks in RToD(DToR)"
+      dRToD d = RToD d
   dfromS = Flip . sToD
    where
-    sToD (D l u u') = dDnotShared l (Clown $ dfromS u) (SToD u')
+    sToD :: forall r sh. (GoodScalar r, OS.Shape sh)
+         => ADVal shaped r sh -> ADVal (Clown (DynamicOf ranked)) r '()
+    sToD (D l u u') = dDnotShared l (Clown $ dfromS u) (dSToD u')
+     where
+      dSToD (DToS @_ @_ @sh1 d) =
+        case sameShape @sh1 @sh of
+          Just Refl -> d
+          _ -> error "sToD: different ranks in SToD(DToS)"
+      dSToD d = SToD d
   sfromD = dToS . runFlip
   sfromR = rToS
    where
-    rToS (D l u u') = dDnotShared l (sfromR u) (RToS u')
+    rToS :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+         => ADVal ranked r (OS.Rank sh) -> ADVal shaped r sh
+    rToS (D l u u') = dDnotShared l (sfromR u) (dRToS u')
+     where
+      dRToS (SToR @_ @_ @sh1 d) =
+        case sameShape @sh1 @sh of
+          Just Refl -> d
+          _ -> error "rToS: different shapes in RToS(SToR)"
+      dRToS d = RToS d
   ddummy = undefined
   disDummy = undefined
   dshape = undefined
