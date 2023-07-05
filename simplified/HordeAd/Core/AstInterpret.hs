@@ -23,6 +23,7 @@ import           Data.Bifunctor.Product
 import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Const
+import           Data.Kind (Type)
 import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -44,14 +45,15 @@ import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.SizedList
 import           HordeAd.Core.TensorADVal
 import           HordeAd.Core.TensorClass
+import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 
 type AstEnv ranked = EM.EnumMap AstVarId (AstEnvElem ranked)
 
-data AstEnvElem ranked =
-    forall sh r. (OS.Shape sh, GoodScalar r)
-                 => AstEnvElemS (ShapedOf ranked r sh)
-  | AstEnvElemI (IntOf ranked)
+data AstEnvElem :: RankedTensorKind -> Type where
+  AstEnvElemS :: (OS.Shape sh, GoodScalar r)
+              => ShapedOf ranked r sh -> AstEnvElem ranked
+  AstEnvElemI :: IntOf ranked -> AstEnvElem ranked
 deriving instance (forall r n sh. ShowDynamicOf ranked r n sh)
                   => Show (AstEnvElem ranked)
 
@@ -75,7 +77,7 @@ extendEnvR :: forall ranked r n.
            -> AstEnv ranked -> AstEnv ranked
 extendEnvR (AstVarName var) t =
   let sh2 = tshape t
-  in OS.withShapeP (shapeToList sh2) $ \(Proxy @sh2) ->
+  in OS.withShapeP (shapeToList sh2) $ \(Proxy :: Proxy sh2) ->
     gcastWith (unsafeCoerce Refl :: OS.Rank sh2 :~: n)
     $ extendEnvS (AstVarName var)
                  (sfromR @ranked @(ShapedOf ranked) @r @sh2 t)
@@ -326,7 +328,7 @@ interpretAst
   -> AstRanked r n -> ranked r n
 interpretAst env = \case
   AstVar sh var -> case EM.lookup var env of
-    Just (AstEnvElemS @_ @sh2 @r2 t) ->
+    Just (AstEnvElemS @sh2 @r2 t) ->
       if shapeToList sh == OS.shapeT @sh2 then
         gcastWith (unsafeCoerce Refl :: OS.Rank sh2 :~: n)
         $ case testEquality (typeRep @r) (typeRep @r2) of
@@ -613,7 +615,7 @@ interpretAst env = \case
     let l2 = interpretAstDomains env l
         f (varId, DynamicExists @_ @r2 d) =
           let sh2 = dshape @ranked d
-          in OS.withShapeP sh2 $ \(Proxy @sh2) ->
+          in OS.withShapeP sh2 $ \(Proxy :: Proxy sh2) ->
             extendEnvS @ranked @(ShapedOf ranked) @r2 @sh2
                        (AstVarName varId) (sfromD d)
         env2 = V.foldr f env (V.zip vars l2)
@@ -813,7 +815,7 @@ interpretAstS
   -> AstShaped r sh -> shaped r sh
 interpretAstS env = \case
   AstVarS var -> case EM.lookup var env of
-    Just (AstEnvElemS @_ @sh2 @r2 t) -> case sameShape @sh2 @sh of
+    Just (AstEnvElemS @sh2 @r2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> t
         _ -> error "interpretAstS: type mismatch"
@@ -1085,7 +1087,7 @@ interpretAstS env = \case
     let l2 = interpretAstDomains env l
         f (varId, DynamicExists @_ @r2 d) =
           let sh2 = dshape @ranked d
-          in OS.withShapeP sh2 $ \(Proxy @sh2) ->
+          in OS.withShapeP sh2 $ \(Proxy :: Proxy sh2) ->
             extendEnvS @ranked @(ShapedOf ranked) @r2 @sh2
                        (AstVarName varId) (sfromD d)
         env2 = V.foldr f env (V.zip vars l2)

@@ -95,7 +95,7 @@ funToAstIOR :: forall n m r r2. GoodScalar r
 {-# INLINE funToAstIOR #-}
 funToAstIOR sh f = do
   freshId <- unsafeGetFreshAstVarId
-  return $! OS.withShapeP (shapeToList sh) $ \(Proxy @sh) ->
+  return $! OS.withShapeP (shapeToList sh) $ \(Proxy :: Proxy sh) ->
     ( AstVarName freshId
     , AstDynamicVarName @sh @r freshId
     , f (AstVar sh freshId) )
@@ -135,7 +135,7 @@ funToAstDIO :: forall r. GoodScalar r
 {-# INLINE funToAstDIO #-}
 funToAstDIO _ sh = do
   freshId <- unsafeGetFreshAstVarId
-  return $! OS.withShapeP sh $ \(Proxy @sh) ->
+  return $! OS.withShapeP sh $ \(Proxy :: Proxy sh) ->
     ( AstDynamicVarName @sh @r freshId
     , DynamicExists @AstDynamic @r $ AstSToD (AstVarS @sh freshId) )
 
