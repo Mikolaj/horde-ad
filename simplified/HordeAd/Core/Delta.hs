@@ -58,7 +58,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           Data.Kind (Constraint)
+import           Data.Kind (Constraint, Type)
 import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
@@ -456,7 +456,7 @@ derivativeFromDeltaD
 derivativeFromDeltaD dim deltaTopLevel ds =
   case runST $ buildDerivative dim (DeltaDtD (dfromR @ranked @shaped @r @0 0)
                                              deltaTopLevel) ds of
-    DeltaDtD @_ @_ @_ @_ res _ -> Clown res
+    DeltaDtD res _ -> Clown res
     DeltaDtR{} -> error "derivativeFromDeltaD"
     DeltaDtS{} -> error "derivativeFromDeltaD"
 
@@ -493,7 +493,7 @@ derivativeFromDeltaR
 derivativeFromDeltaR dim deltaTopLevel ds =
   let dummyZero = tzero $ listShapeToShape $ replicate (valueOf @n) 1
   in case runST $ buildDerivative dim (DeltaDtR dummyZero deltaTopLevel) ds of
-    DeltaDtR @_ @_ @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
+    DeltaDtR @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
       Just Refl -> res
       _ -> error "derivativeFromDeltaR"
     DeltaDtS{} -> error "derivativeFromDeltaR"
@@ -534,7 +534,7 @@ derivativeFromDeltaS
   -> shaped r sh
 derivativeFromDeltaS dim deltaTopLevel ds =
   case runST $ buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
-    DeltaDtS @_ @_ @_ @sh2 res _ -> case sameShape @sh @sh2 of
+    DeltaDtS @_ @sh2 res _ -> case sameShape @sh @sh2 of
       Just Refl -> res
       _ -> error "derivativeFromDeltaS"
     DeltaDtR{} -> error "derivativeFromDeltaS"
@@ -547,13 +547,16 @@ derivativeFromDeltaS dim deltaTopLevel ds =
 -- the delta expression to be differentiated and the dt perturbation
 -- (small change) of the objective function codomain, for which we compute
 -- the gradient.
-data DeltaDt ranked shaped r =
-    forall sh. OS.Shape sh
-    => DeltaDtS (shaped r sh) (DeltaS ranked shaped r sh)
-  | forall n. KnownNat n
-    => DeltaDtR (ranked r n) (DeltaR ranked shaped r n)
-  | forall (y :: ()).
-    DeltaDtD (DynamicOf ranked r) (DeltaD ranked shaped r y)
+data DeltaDt :: RankedTensorKind -> ShapedTensorKind -> Type -> Type where
+  DeltaDtS :: forall r sh ranked shaped. OS.Shape sh
+           => shaped r sh -> DeltaS ranked shaped r sh
+           -> DeltaDt ranked shaped r
+  DeltaDtR :: forall r n ranked shaped. KnownNat n
+           => ranked r n -> DeltaR ranked shaped r n
+           -> DeltaDt ranked shaped r
+  DeltaDtD :: forall r (y :: ()) ranked shaped.
+              DynamicOf ranked r -> DeltaD ranked shaped r y
+           -> DeltaDt ranked shaped r
 
 -- | The state of evaluation. It consists of several maps.
 -- The maps indexed by input identifiers and node identifiers
@@ -584,11 +587,11 @@ data EvalState ranked shaped = EvalState
 -- We can't evaluate them at once, because their other shared copies
 -- may still not be processed, so we'd not take advantage of the sharing
 -- and not take into account the whole summed context when finally evaluating.
-data DeltaBinding ranked shaped =
-    forall sh r. (OS.Shape sh, GoodScalar r)
-    => DeltaBindingS (DeltaS ranked shaped r sh)
-  | forall n r. (KnownNat n, GoodScalar r)
-    => DeltaBindingR (DeltaR ranked shaped r n)
+data DeltaBinding :: RankedTensorKind -> ShapedTensorKind -> Type where
+  DeltaBindingS :: forall sh r ranked shaped. (OS.Shape sh, GoodScalar r)
+                => DeltaS ranked shaped r sh -> DeltaBinding ranked shaped
+  DeltaBindingR :: forall n r ranked shaped. (KnownNat n, GoodScalar r)
+                => DeltaR ranked shaped r n -> DeltaBinding ranked shaped
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
 -- in function 'derivativeFromDelta'. However, we are usually more
@@ -923,13 +926,13 @@ buildFinMaps s0 deltaDt =
           Just ((n, b), nMap2) ->
             let s2 = s {nMap = nMap2}
                 s3 = case b of
-                  DeltaBindingS @_ @_ @_ @r1 d -> case dMap EM.! n of
+                  DeltaBindingS @_ @r1 d -> case dMap EM.! n of
                     DynamicExists @r2 e ->
                       case testEquality (typeRep @r1) (typeRep @r2) of
                         Just Refl -> let c = sfromD e
                                      in evalS s2 c d
                         _ -> error "buildFinMaps: type mismatch"
-                  DeltaBindingR @_ @_ @_ @r1 d -> case dMap EM.! n of
+                  DeltaBindingR @_ @r1 d -> case dMap EM.! n of
                     DynamicExists @r2 e ->
                       case testEquality (typeRep @r1) (typeRep @r2) of
                         Just Refl -> let c = tfromD e

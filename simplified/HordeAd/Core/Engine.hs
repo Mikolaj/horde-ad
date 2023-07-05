@@ -364,8 +364,10 @@ generateDeltaInputs params =
   :: DomainsOD -> Data.Vector.Vector (Dual OD.Array Double) #-}
 -}
 
-data DeltaInputsExists (dynamic :: Type -> Type) =
-  forall r. GoodScalar r => DeltaInputsExists (Dual (Clown dynamic) r '())
+data DeltaInputsExists :: (Type -> Type) -> Type where
+  DeltaInputsExists :: forall r dynamic. GoodScalar r
+                    =>  (Dual (Clown dynamic) r '())
+                    -> DeltaInputsExists dynamic
 
 makeADInputs
   :: Domains dynamic -> Data.Vector.Vector (DeltaInputsExists dynamic)
@@ -373,7 +375,7 @@ makeADInputs
 {-# INLINE makeADInputs #-}
 makeADInputs =
   V.zipWith (\(DynamicExists @r p)
-              (DeltaInputsExists @_ @r2 d) ->
+              (DeltaInputsExists @r2 d) ->
     case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> DynamicExists $ Flip $ dDnotShared emptyADShare (Clown p) d
       _ -> error "makeADInputs: type mismatch")
