@@ -13,10 +13,12 @@ import Prelude
 import qualified Data.Array.Shape as OS
 import           Data.Bifunctor.Clown
 import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
+import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits
+  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import           Type.Reflection (typeRep)
+import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
@@ -117,6 +119,13 @@ instance RankedTensor AstRanked where
 
 instance ConvertTensor AstRanked AstShaped where
   tfromD = astFromDynamic
+  tfromS (AstVarS @sh var) =
+    let sh = OS.shapeT @sh
+    in case someNatVal $ toInteger $ length sh of
+      Just (SomeNat @p _proxy) ->
+        gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: p) $
+        AstVar (listShapeToShape sh) var
+      Nothing -> error "tfromS: impossible someNatVal error"
   tfromS (AstRToS t) = t
   tfromS t = AstSToR t
 --  dfromR (AstDToR t) = t
@@ -125,6 +134,7 @@ instance ConvertTensor AstRanked AstShaped where
   dfromS t = AstSToD t
   sfromR :: forall sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
          => AstRanked r (OS.Rank sh) -> AstShaped r sh
+  sfromR (AstVar _sh var) = AstVarS var
   sfromR (AstSToR @sh1 t) =
     case sameShape @sh1 @sh of
       Just Refl -> t

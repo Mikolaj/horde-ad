@@ -648,7 +648,7 @@ testReluSimplerPP4S = do
   printPrimal6PrettyS renames (simplifyArtifact6S artifact6)
     @?= "\\m2 x3 -> sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i6, i7] -> [i6, ifB ((m2 * sreshape (sreplicate x3)) !$ [i6, i7] <=* sconst 0.0) 0 1]) * (m2 * sreshape (sreplicate x3))"
   show deltas
-    @?= "LetS 100000007 (ScaleS (AstVarS (AstVarId 100000009)) (LetS 100000006 (AddS (ScaleS (AstVarS (AstVarId 100000008)) (RToS (InputR (InputId 0)))) (ScaleS (AstRToS (AstVar [3,4] (AstVarId 100000002))) (LetS 100000005 (ReshapeS (LetS 100000004 (ReplicateS (RToS (InputR (InputId 1)))))))))))"
+    @?= "LetS 100000007 (ScaleS (AstVarS (AstVarId 100000009)) (LetS 100000006 (AddS (ScaleS (AstVarS (AstVarId 100000008)) (RToS (InputR (InputId 0)))) (ScaleS (AstVarS (AstVarId 100000002)) (LetS 100000005 (ReshapeS (LetS 100000004 (ReplicateS (RToS (InputR (InputId 1)))))))))))"
 
 testReluSimpler4S :: Assertion
 testReluSimpler4S = do
