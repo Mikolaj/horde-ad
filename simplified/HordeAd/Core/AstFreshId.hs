@@ -55,6 +55,16 @@ astRegisterFun !r !l = unsafePerformIO $ do
   let !r2 = AstVar (shapeAst r) freshId
   return ((freshId, DynamicExists $ AstRToD r) : l, r2)
 
+astRegisterFunS :: (OS.Shape sh, GoodScalar r)
+                => AstShaped r sh -> [(AstVarId, DynamicExists AstDynamic)]
+                -> ([(AstVarId, DynamicExists AstDynamic)], AstShaped r sh)
+{-# NOINLINE astRegisterFunS #-}
+astRegisterFunS !r !l | astIsSmallS True r = (l, r)
+astRegisterFunS !r !l = unsafePerformIO $ do
+  freshId <- unsafeGetFreshAstVarId
+  let !r2 = AstVarS freshId
+  return ((freshId, DynamicExists $ AstSToD r) : l, r2)
+
 astRegisterADShare :: (GoodScalar r, KnownNat n)
                    => AstRanked r n -> ADShare
                    -> (ADShare, AstRanked r n)
@@ -96,6 +106,26 @@ funToAstR :: GoodScalar r
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ do
   (var, _, ast) <- funToAstIOR sh f
+  return (var, ast)
+
+funToAstIOS :: forall sh sh2 r r2. (OS.Shape sh, GoodScalar r)
+            => (AstShaped r sh -> AstShaped r2 sh2)
+            -> IO ( AstVarName (Flip OS.Array r sh)
+                  , AstDynamicVarName
+                  , AstShaped r2 sh2 )
+{-# INLINE funToAstIOS #-}
+funToAstIOS f = do
+  freshId <- unsafeGetFreshAstVarId
+  return ( AstVarName freshId
+         , AstDynamicVarName @sh @r freshId
+         , f (AstVarS freshId) )
+
+funToAstS :: forall sh sh2 r r2. (OS.Shape sh, GoodScalar r)
+          => (AstShaped r sh -> AstShaped r2 sh2)
+          -> (AstVarName (Flip OS.Array r sh), AstShaped r2 sh2)
+{-# NOINLINE funToAstS #-}
+funToAstS f = unsafePerformIO $ do
+  (var, _, ast) <- funToAstIOS f
   return (var, ast)
 
 -- The "fun"ction in this case is fixed to be @id@.
@@ -154,36 +184,6 @@ funToAstIndex
   => (AstIndex m -> AstIndex p) -> (AstVarList m, AstIndex p)
 {-# NOINLINE funToAstIndex #-}
 funToAstIndex = unsafePerformIO . funToAstIndexIO (valueOf @m)
-
-funToAstIOS :: forall sh sh2 r r2. (OS.Shape sh, GoodScalar r)
-            => (AstShaped r sh -> AstShaped r2 sh2)
-            -> IO ( AstVarName (Flip OS.Array r sh)
-                  , AstDynamicVarName
-                  , AstShaped r2 sh2 )
-{-# INLINE funToAstIOS #-}
-funToAstIOS f = do
-  freshId <- unsafeGetFreshAstVarId
-  return ( AstVarName freshId
-         , AstDynamicVarName @sh @r freshId
-         , f (AstVarS freshId) )
-
-funToAstS :: forall sh sh2 r r2. (OS.Shape sh, GoodScalar r)
-          => (AstShaped r sh -> AstShaped r2 sh2)
-          -> (AstVarName (Flip OS.Array r sh), AstShaped r2 sh2)
-{-# NOINLINE funToAstS #-}
-funToAstS f = unsafePerformIO $ do
-  (var, _, ast) <- funToAstIOS f
-  return (var, ast)
-
-astRegisterFunS :: (OS.Shape sh, GoodScalar r)
-                => AstShaped r sh -> [(AstVarId, DynamicExists AstDynamic)]
-                -> ([(AstVarId, DynamicExists AstDynamic)], AstShaped r sh)
-{-# NOINLINE astRegisterFunS #-}
-astRegisterFunS !r !l | astIsSmallS True r = (l, r)
-astRegisterFunS !r !l = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
-  let !r2 = AstVarS freshId
-  return ((freshId, DynamicExists $ AstSToD r) : l, r2)
 
 funToAstIndexIOS
   :: forall sh1 sh2. OS.Shape sh1
