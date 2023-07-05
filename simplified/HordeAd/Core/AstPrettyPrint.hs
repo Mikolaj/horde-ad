@@ -207,9 +207,9 @@ printAst cfg d = \case
 printAstVarFromDomains
   :: PrintConfig -> (AstVarId, DynamicExists AstDynamic) -> ShowS
 printAstVarFromDomains cfg (var, d) = case d of
-  DynamicExists @_ @r (AstRToD @n _) ->
+  DynamicExists @r (AstRToD @n _) ->
     printAstVar cfg (AstVarName @(Flip OR.Array r n) var)
-  DynamicExists @_ @r (AstSToD @sh _) ->
+  DynamicExists @r (AstSToD @sh _) ->
     printAstVarS cfg (AstVarName @(Flip OS.Array r sh) var)
 
 -- Differs from standard only in the space after comma.

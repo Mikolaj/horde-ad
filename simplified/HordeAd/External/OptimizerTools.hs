@@ -27,7 +27,7 @@ updateWithGradient gamma params gradient =
       updateVector i r = i - LA.scale (realToFrac gamma) r
       updateR :: DynamicExists OD.Array -> DynamicExists OD.Array
               -> DynamicExists OD.Array
-      updateR ei@(DynamicExists @_ @r1 i) (DynamicExists @_ @r2 r) =
+      updateR ei@(DynamicExists @r1 i) (DynamicExists @r2 r) =
         if isTensorDummy r  -- eval didn't update it, would crash
         then ei
         else case testEquality (typeRep @r1) (typeRep @r2) of
@@ -80,8 +80,8 @@ data StateAdam = StateAdam
 -- The arguments are just sample params0, for dimensions.
 zeroParameters :: DomainsOD -> DomainsOD
 zeroParameters params =
-  V.map (\(DynamicExists @_ @r a) -> DynamicExists @OD.Array @r
-                                     $ OD.constant (OD.shapeL a) 0)
+  V.map (\(DynamicExists @r a) -> DynamicExists @r
+                                  $ OD.constant (OD.shapeL a) 0)
         params
 
 initialStateAdam :: DomainsOD -> StateAdam
@@ -148,8 +148,8 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
               -> ( DynamicExists OD.Array
                  , DynamicExists OD.Array
                  , DynamicExists OD.Array )
-      updateR emA@(DynamicExists @_ @r1 mA) evA@(DynamicExists @_ @r2 vA)
-              ep@(DynamicExists @_ @r3 p) (DynamicExists @_ @r4 g) =
+      updateR emA@(DynamicExists @r1 mA) evA@(DynamicExists @r2 vA)
+              ep@(DynamicExists @r3 p) (DynamicExists @r4 g) =
         if isTensorDummy g  -- eval didn't update it
         then (emA, evA, ep)
         else case ( testEquality (typeRep @r1) (typeRep @r2)

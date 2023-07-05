@@ -86,7 +86,7 @@ instance RankedTensor AstRanked where
   raddDynamic :: forall n r. (GoodScalar r, KnownNat n)
               => AstRanked r n -> DynamicExists AstDynamic
               -> DynamicExists AstDynamic
-  raddDynamic r (DynamicExists @_ @r2 d) = DynamicExists $
+  raddDynamic r (DynamicExists @r2 d) = DynamicExists $
     if disDummy @AstRanked d then AstRToD r
     else case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> case d of
@@ -171,13 +171,13 @@ astLetDomainsFun
   :: forall m r. AstDomains -> (AstDomains -> AstRanked r m) -> AstRanked r m
 astLetDomainsFun a f =
   let genVar :: DynamicExists AstDynamic -> (AstVarId, DynamicExists AstDynamic)
-      genVar (DynamicExists @_ @r2 (AstRToD t)) =
+      genVar (DynamicExists @r2 (AstRToD t)) =
         let sh = shapeAst t
             (AstVarName var, ast) = funToAstR sh id
-        in (var, DynamicExists @AstDynamic @r2 $ AstRToD ast)
-      genVar (DynamicExists @_ @r2 (AstSToD @sh _t)) =
+        in (var, DynamicExists @r2 $ AstRToD ast)
+      genVar (DynamicExists @r2 (AstSToD @sh _t)) =
         let (AstVarName var, ast) = funToAstS @sh id
-        in (var, DynamicExists @AstDynamic @r2 $ AstSToD ast)
+        in (var, DynamicExists @r2 $ AstSToD ast)
       (vars, asts) = V.unzip $ V.map genVar (unwrapAstDomains a)
   in AstLetDomains vars a (f $ AstDomains asts)
 
@@ -419,7 +419,7 @@ instance ShapedTensor AstShaped where
   saddDynamic :: forall sh r. (GoodScalar r, OS.Shape sh)
               => AstShaped r sh -> DynamicExists AstDynamic
               -> DynamicExists AstDynamic
-  saddDynamic r (DynamicExists @_ @r2 d) = DynamicExists $
+  saddDynamic r (DynamicExists @r2 d) = DynamicExists $
     if disDummy @AstRanked d then AstSToD r
     else case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> case d of

@@ -924,13 +924,13 @@ buildFinMaps s0 deltaDt =
             let s2 = s {nMap = nMap2}
                 s3 = case b of
                   DeltaBindingS @_ @_ @_ @r1 d -> case dMap EM.! n of
-                    DynamicExists @_ @r2 e ->
+                    DynamicExists @r2 e ->
                       case testEquality (typeRep @r1) (typeRep @r2) of
                         Just Refl -> let c = sfromD e
                                      in evalS s2 c d
                         _ -> error "buildFinMaps: type mismatch"
                   DeltaBindingR @_ @_ @_ @r1 d -> case dMap EM.! n of
-                    DynamicExists @_ @r2 e ->
+                    DynamicExists @r2 e ->
                       case testEquality (typeRep @r1) (typeRep @r2) of
                         Just Refl -> let c = tfromD e
                                      in evalR s2 c d
@@ -991,7 +991,7 @@ buildDerivative dimR deltaDt params = do
         InputS (InputId i) ->
           if i < dimR
           then case params V.! i of
-            DynamicExists @_ @r2 e ->
+            DynamicExists @r2 e ->
               case testEquality (typeRep @r) (typeRep @r2) of
                 Just Refl -> return $! sfromD e
                 _ -> error "buildDerivative: type mismatch"
@@ -1007,7 +1007,7 @@ buildDerivative dimR deltaDt params = do
             Just (DeltaBindingS _) -> do
               dm <- readSTRef dMap
               case dm EM.! n of
-                DynamicExists @_ @r2 t ->
+                DynamicExists @r2 t ->
                   case testEquality (typeRep @r) (typeRep @r2) of
                     Just Refl -> return $! sfromD t
                     _ -> error "buildDerivative: type mismatch"
@@ -1078,7 +1078,7 @@ buildDerivative dimR deltaDt params = do
         InputR (InputId i) ->
           if i < dimR
           then case params V.! i of
-            DynamicExists @_ @r2 e ->
+            DynamicExists @r2 e ->
               case testEquality (typeRep @r) (typeRep @r2) of
                 Just Refl -> return $! tfromD e
                 _ -> error "buildDerivative: type mismatch"
@@ -1094,7 +1094,7 @@ buildDerivative dimR deltaDt params = do
             Just (DeltaBindingR _) -> do
               dm <- readSTRef dMap
               case dm EM.! n of
-                DynamicExists @_ @r2 t ->
+                DynamicExists @r2 t ->
                   case testEquality (typeRep @r) (typeRep @r2) of
                     Just Refl -> return $! tfromD t
                     _ -> error "buildDerivative: type mismatch"

@@ -137,13 +137,13 @@ funToAstDIO _ sh = do
   freshId <- unsafeGetFreshAstVarId
   return $! OS.withShapeP sh $ \(Proxy :: Proxy sh) ->
     ( AstDynamicVarName @sh @r freshId
-    , DynamicExists @AstDynamic @r $ AstSToD (AstVarS @sh freshId) )
+    , DynamicExists @r $ AstSToD (AstVarS @sh freshId) )
 
 funToAst2IO :: DomainsOD
             -> IO ([AstDynamicVarName], [DynamicExists AstDynamic])
 {-# INLINE funToAst2IO #-}
 funToAst2IO parameters0 = do
-  let f (DynamicExists @_ @r2 e) = funToAstDIO (Proxy @r2) (OD.shapeL e)
+  let f (DynamicExists @r2 e) = funToAstDIO (Proxy @r2) (OD.shapeL e)
   unzip <$> mapM f (V.toList parameters0)
 
 funToAst2 :: DomainsOD -> ([AstDynamicVarName], [DynamicExists AstDynamic])

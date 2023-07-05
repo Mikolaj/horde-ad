@@ -30,8 +30,9 @@ type GoodScalarConstraint r =
 class GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
 
-data DynamicExists (dynamic :: Type -> Type) =
-  forall r. GoodScalar r => DynamicExists (dynamic r)
+data DynamicExists :: (Type -> Type) -> Type where
+  DynamicExists :: forall r dynamic. GoodScalar r
+                => dynamic r -> DynamicExists dynamic
 deriving instance (forall r. GoodScalar r => Show (dynamic r))
                   => Show (DynamicExists dynamic)
 

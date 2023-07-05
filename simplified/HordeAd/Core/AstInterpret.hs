@@ -86,7 +86,7 @@ extendEnvDR :: ConvertTensor ranked shaped
             => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
             -> AstEnv ranked
             -> AstEnv ranked
-extendEnvDR (AstDynamicVarName @sh @r var, DynamicExists @_ @r2 d) =
+extendEnvDR (AstDynamicVarName @sh @r var, DynamicExists @r2 d) =
   case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> extendEnvS (AstVarName @(Flip OS.Array r sh) var) (sfromD d)
     _ -> error "extendEnvDR: type mismatch"
@@ -613,7 +613,7 @@ interpretAst env = \case
     in tD t1 t2
   AstLetDomains vars l v ->
     let l2 = interpretAstDomains env l
-        f (varId, DynamicExists @_ @r2 d) =
+        f (varId, DynamicExists @r2 d) =
           let sh2 = dshape @ranked d
           in OS.withShapeP sh2 $ \(Proxy :: Proxy sh2) ->
             extendEnvS @ranked @(ShapedOf ranked) @r2 @sh2
@@ -693,10 +693,10 @@ interpretAstDynamicDummy
   => AstEnv ranked
   -> DynamicExists AstDynamic -> DynamicExists (DynamicOf ranked)
 interpretAstDynamicDummy env = \case
-  DynamicExists @_ @r (AstRToD AstIota) ->
+  DynamicExists @r (AstRToD AstIota) ->
     DynamicExists $ ddummy @ranked @(ShapedOf ranked) @r
   DynamicExists (AstRToD w) -> DynamicExists $ dfromR $ interpretAst env w
-  DynamicExists @_ @r (AstSToD AstIotaS) ->
+  DynamicExists @r (AstSToD AstIotaS) ->
     DynamicExists $ ddummy @ranked @(ShapedOf ranked) @r
   DynamicExists (AstSToD w) -> DynamicExists $ dfromS $ interpretAstS env w
 
@@ -1085,7 +1085,7 @@ interpretAstS env = \case
     in sD t1 t2
   AstLetDomainsS vars l v ->
     let l2 = interpretAstDomains env l
-        f (varId, DynamicExists @_ @r2 d) =
+        f (varId, DynamicExists @r2 d) =
           let sh2 = dshape @ranked d
           in OS.withShapeP sh2 $ \(Proxy :: Proxy sh2) ->
             extendEnvS @ranked @(ShapedOf ranked) @r2 @sh2

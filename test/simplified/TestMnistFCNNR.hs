@@ -133,7 +133,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 (V.fromList
-                          $ map (DynamicExists @OD.Array @r) params1Init)
+                          $ map (DynamicExists @r) params1Init)
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
@@ -173,7 +173,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                           - LA.scalar 0.5)
              nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList $ map (DynamicExists @OD.Array @r) params1Init
+      domainsInit = V.fromList $ map (DynamicExists @r) params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -287,7 +287,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                           - LA.scalar 0.5)
              nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList $ map (DynamicExists @OD.Array @r) params1Init
+      domainsInit = V.fromList $ map (DynamicExists @r) params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)

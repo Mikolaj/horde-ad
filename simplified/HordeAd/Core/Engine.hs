@@ -352,7 +352,7 @@ generateDeltaInputs
   -> Data.Vector.Vector (DeltaInputsExists dynamic)
 generateDeltaInputs params =
   let arrayToInput :: Int -> DynamicExists dynamic -> DeltaInputsExists dynamic
-      arrayToInput i (DynamicExists @_ @r t) =
+      arrayToInput i (DynamicExists @r t) =
         case someNatVal $ toInteger $ length $ dshape @ranked t of
           Just (SomeNat (_ :: Proxy n)) ->
             DeltaInputsExists $ RToD $ InputR @ranked @shaped @r @n
@@ -372,7 +372,7 @@ makeADInputs
   -> Domains (ADValClown dynamic)
 {-# INLINE makeADInputs #-}
 makeADInputs =
-  V.zipWith (\(DynamicExists @_ @r p)
+  V.zipWith (\(DynamicExists @r p)
               (DeltaInputsExists @_ @r2 d) ->
     case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> DynamicExists $ Flip $ dDnotShared emptyADShare (Clown p) d

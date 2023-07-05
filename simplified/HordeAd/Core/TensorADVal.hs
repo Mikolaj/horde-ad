@@ -115,7 +115,7 @@ instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
   type Value (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
-    Just (DynamicExists @_ @r2 a, rest) ->
+    Just (DynamicExists @r2 a, rest) ->
       case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> Just (dToR (runFlip a), rest)
         _ -> error "fromDomains: type mismatch"
@@ -265,7 +265,7 @@ instance ( OS.Shape sh, GoodScalar r, dynamic ~ DynamicOf shaped
   type Value (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
-    Just (DynamicExists @_ @r2 a, rest) ->
+    Just (DynamicExists @r2 a, rest) ->
       case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> Just (dToS (runFlip a), rest)
         _ -> error "fromDomains: type mismatch"

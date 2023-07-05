@@ -822,7 +822,7 @@ instance RankedTensor (Flip OR.Array) where
   raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
               => Flip OR.Array r n -> DynamicExists OD.Array
               -> DynamicExists OD.Array
-  raddDynamic r (DynamicExists @_ @r2 d) = DynamicExists $
+  raddDynamic r (DynamicExists @r2 d) = DynamicExists $
     if isTensorDummy d then dfromR r
     else case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> dfromR r + d
@@ -841,7 +841,7 @@ instance (GoodScalar r, KnownNat n)
   type Value (Flip OR.Array r n) = Flip OR.Array r n
   toDomains a = V.singleton $ DynamicExists $ dfromR a
   fromDomains aInit params = case V.uncons params of
-    Just (DynamicExists @_ @r2 a, rest) ->
+    Just (DynamicExists @r2 a, rest) ->
       case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> Just (toRankedOrDummy (tshape aInit) a, rest)
         _ -> error "fromDomains: type mismatch"
@@ -853,7 +853,7 @@ instance ( GoodScalar r, KnownNat n
   type Value (AstRanked r n) = Flip OR.Array r n
   toDomains = undefined
   fromDomains aInit params = case V.uncons params of
-    Just (DynamicExists @_ @r2 a, rest) ->
+    Just (DynamicExists @r2 a, rest) ->
       case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> Just (toRankedOrDummy (tshape aInit) a, rest)
         _ -> error "fromDomains: type mismatch"
@@ -930,7 +930,7 @@ instance ShapedTensor (Flip OS.Array) where
   saddDynamic :: forall r sh. (GoodScalar r, OS.Shape sh)
               => Flip OS.Array r sh -> DynamicExists OD.Array
               -> DynamicExists OD.Array
-  saddDynamic r (DynamicExists @_ @r2 d) = DynamicExists $
+  saddDynamic r (DynamicExists @r2 d) = DynamicExists $
     if isTensorDummy d then dfromS r
     else case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> dfromS r + d
@@ -947,7 +947,7 @@ instance (GoodScalar r, OS.Shape sh)
   type Value (Flip OS.Array r sh) = Flip OR.Array r (OS.Rank sh) -- ! not shaped
   toDomains a = V.singleton $ DynamicExists $ dfromS a
   fromDomains _aInit params = case V.uncons params of
-    Just (DynamicExists @_ @r2 a, rest) ->
+    Just (DynamicExists @r2 a, rest) ->
       case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> Just (toShapedOrDummy a, rest)
         _ -> error "fromDomains: type mismatch"
@@ -959,7 +959,7 @@ instance ( GoodScalar r, OS.Shape sh
   type Value (AstShaped r sh) = Flip OS.Array r sh
   toDomains = undefined
   fromDomains _aInit params = case V.uncons params of
-    Just (DynamicExists @_ @r2 a, rest) ->
+    Just (DynamicExists @r2 a, rest) ->
       case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> Just (toShapedOrDummy a, rest)
         _ -> error "fromDomains: type mismatch"
