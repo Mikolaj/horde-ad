@@ -3,6 +3,7 @@
 module HordeAd.Core.Types
   ( TensorKind, RankedTensorKind, ShapedTensorKind
   , GoodScalar, DynamicExists(..), Domains, DomainsOD, sizeDomainsOD
+  , IntOf, IndexOf, IntSh, IndexSh
   ) where
 
 import Prelude
@@ -15,6 +16,8 @@ import           GHC.TypeLits (Nat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Type.Reflection (Typeable)
 
+import HordeAd.Core.ShapedList (ShapedList, ShapedNat)
+import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorOps
 
 type TensorKind k = Type -> k -> Type
@@ -51,3 +54,29 @@ type DomainsOD = Domains OD.Array
 sizeDomainsOD :: DomainsOD -> Int
 sizeDomainsOD d = let f (DynamicExists t) = OD.size t
                   in V.sum (V.map f d)
+
+-- @IntOf a@ as size or shape gives more expressiveness,
+-- but leads to irregular tensors, especially after vectorization,
+-- and prevents statically known shapes.
+
+type family IntOf (f :: TensorKind k) :: Type
+
+-- | Thanks to the OverloadedLists mechanism, values of this type can be
+-- written using the normal list notation. However, such values, if not
+-- explicitly typed, do not inform the compiler about the length
+-- of the list until runtime. That means that some errors are hidden
+-- and also extra type applications may be needed to satisfy the compiler.
+-- Therefore, there is a real trade-off between @[2]@ and @(2 :. ZI).
+type IndexOf (f :: TensorKind k) n = Index n (IntOf f)
+
+-- TODO: ensure this is checked (runtime-checked, if necessary):
+-- | The value of this type has to be positive and less than the @n@ bound.
+-- If the values are terms, this is relative to environment
+-- and up to evaluation.
+type IntSh (f :: TensorKind k) (n :: Nat) = ShapedNat n (IntOf f)
+
+-- TODO: ensure this is checked (runtime-checked, if necessary):
+-- | The values of this type are bounded by the shape.
+-- If the values are terms, this is relative to environment
+-- and up to evaluation.
+type IndexSh (f :: TensorKind k) (sh :: [Nat]) = ShapedList sh (IntOf f)

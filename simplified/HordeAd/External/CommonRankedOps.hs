@@ -16,6 +16,7 @@ import GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
 
 scale :: forall ranked r n.
          (ADReady ranked r, KnownNat n)

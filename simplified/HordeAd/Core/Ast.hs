@@ -8,9 +8,8 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( AstOf, AstVarId, intToAstVarId
-  , ADAstArtifact6, AstIndex, AstVarList
-  , AstIndexS, AstVarListS
+  ( AstOf, AstVarId, intToAstVarId, ADAstArtifact6
+  , AstIndex, AstVarList, AstIndexS, AstVarListS
   , AstRanked(..), AstNoVectorize(..), AstNoSimplify(..)
   , AstPrimalPart(..), AstDualPart(..)
   , AstShaped(..), AstPrimalPartS(..), AstDualPartS(..)

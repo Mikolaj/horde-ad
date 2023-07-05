@@ -9,7 +9,7 @@
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
-  ( ShapeInt, IntOf, IndexOf, ShapeSh, IntSh, IndexSh
+  ( ShapeInt, ShapeSh
   , PrimalOf, DualOf, DynamicOf, RankedOf, ShapedOf
   , ShapedTensor(..), RankedTensor(..), ConvertTensor(..), DomainsTensor(..)
   , ADReady, ADReadyS, ADRanked, ADShaped
@@ -35,7 +35,7 @@ import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits
-  (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
+  (KnownNat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
@@ -44,40 +44,13 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
-import           HordeAd.Core.ShapedList
-  (ShapeSh, ShapedList (..), ShapedNat, consShaped)
+import           HordeAd.Core.ShapedList (ShapeSh, ShapedList (..), consShaped)
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorOps
 import           HordeAd.Core.Types
 
 -- * Ranked tensor class definition
-
--- @IntOf a@ as size or shape gives more expressiveness,
--- but leads to irregular tensors, especially after vectorization,
--- and prevents statically known shapes.
-
-type family IntOf (f :: TensorKind k) :: Type
-
--- | Thanks to the OverloadedLists mechanism, values of this type can be
--- written using the normal list notation. However, such values, if not
--- explicitly typed, do not inform the compiler about the length
--- of the list until runtime. That means that some errors are hidden
--- and also extra type applications may be needed to satisfy the compiler.
--- Therefore, there is a real trade-off between @[2]@ and @(2 :. ZI).
-type IndexOf f n = Index n (IntOf f)
-
--- TODO: ensure this is checked (runtime-checked, if necessary):
--- | The value of this type has to be positive and less than the @n@ bound.
--- If the values are terms, this is relative to environment
--- and up to evaluation.
-type IntSh f (n :: Nat) = ShapedNat n (IntOf f)
-
--- TODO: ensure this is checked (runtime-checked, if necessary):
--- | The values of this type are bounded by the shape.
--- If the values are terms, this is relative to environment
--- and up to evaluation.
-type IndexSh f (sh :: [Nat]) = ShapedList sh (IntOf f)
 
 class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
       => CRankedR ranked c where
