@@ -35,7 +35,8 @@ import           HordeAd.Core.ShapedList (ShapedList (..))
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
-import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (matchingRank, sameShape)
 
 -- * Assorted instances for any functor argument
 
@@ -132,7 +133,10 @@ dToR (D l u u') = dDnotShared l (tfromD $ runClown u) (dDToR u')
     case sameNat (Proxy @n1) (Proxy @n) of
       Just Refl -> d
       _ -> error "dToR: different ranks in DToR(RToD)"
-  dDToR d = DToR d
+  dDToR (SToD @_ @_ @sh1 d) =
+    case matchingRank @sh1 @n of
+      Just Refl -> SToR d
+      _ -> error "dToR: different ranks in DToR(SToD)"
 
 class (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
       => CRankedIP ranked c where
@@ -279,7 +283,10 @@ dToS (D l u u') = dDnotShared l (sfromD $ runClown u) (dDToS u')
     case sameShape @sh1 @sh of
       Just Refl -> d
       _ -> error "dToS: different ranks in DToS(SToD)"
-  dDToS d = DToS d
+  dDToS (RToD @_ @_ @n1 d) =
+    case matchingRank @sh @n1 of
+      Just Refl -> RToS d
+      _ -> error "dToS: different ranks in DToS(RToD)"
 
 class (forall r15 y. GoodScalar r15 => c shaped r15 y)
       => CRankedIPS shaped c where
