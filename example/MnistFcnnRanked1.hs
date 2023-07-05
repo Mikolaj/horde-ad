@@ -11,8 +11,8 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.Ast
 import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import MnistData
 

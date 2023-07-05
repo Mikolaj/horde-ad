@@ -531,6 +531,7 @@ library horde-ad-simplified
                       HordeAd.Core.TensorAst
                       HordeAd.Core.TensorClass
                       HordeAd.Core.TensorOps
+                      HordeAd.Core.Types
                       HordeAd.External.CommonRankedOps
                       HordeAd.External.CommonShapedOps
                       HordeAd.External.Optimizer

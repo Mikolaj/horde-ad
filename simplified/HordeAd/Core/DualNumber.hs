@@ -21,6 +21,7 @@ import GHC.TypeLits (KnownNat, Nat, SomeNat (..), natVal, someNatVal)
 import HordeAd.Core.Ast
 import HordeAd.Core.Delta (Dual)
 import HordeAd.Core.DualClass
+import HordeAd.Core.Types
 
 -- * The main dual number type
 

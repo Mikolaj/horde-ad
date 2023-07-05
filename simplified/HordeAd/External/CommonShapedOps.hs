@@ -20,10 +20,10 @@ import           GHC.TypeLits
   (Div, KnownNat, SomeNat (..), someNatVal, type (-), type (<=))
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           HordeAd.Core.Ast
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
+import           HordeAd.Core.Types
 
 scaleS :: forall shaped r sh.
           (OS.Shape sh, ADReadyS shaped r)

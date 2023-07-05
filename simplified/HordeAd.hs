@@ -9,6 +9,7 @@ module HordeAd
   , module HordeAd.Core.Engine
   , module HordeAd.Core.SizedIndex
   , module HordeAd.Core.TensorClass
+  , module HordeAd.Core.Types
   , module HordeAd.External.CommonRankedOps
   , module HordeAd.External.Optimizer
   ) where
@@ -21,5 +22,6 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import HordeAd.External.Optimizer

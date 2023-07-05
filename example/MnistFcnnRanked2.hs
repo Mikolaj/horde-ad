@@ -13,8 +13,8 @@ import           GHC.Exts (inline)
 import           GHC.TypeLits (Nat)
 import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.Ast
 import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import MnistData
 

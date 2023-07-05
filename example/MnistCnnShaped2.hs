@@ -15,9 +15,9 @@ import           GHC.TypeLits (type (*), type (+), type (<=), type Div)
 import           Numeric.LinearAlgebra (Vector)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import HordeAd.Core.Ast
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
 import MnistData
 

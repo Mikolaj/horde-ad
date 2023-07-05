@@ -8,8 +8,7 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( TensorKind, RankedTensorKind, ShapedTensorKind
-  , AstOf, AstVarId, intToAstVarId
+  ( AstOf, AstVarId, intToAstVarId
   , ADAstArtifact6, AstIndex, AstVarList
   , AstIndexS, AstVarListS
   , AstRanked(..), AstNoVectorize(..), AstNoSimplify(..)
@@ -38,21 +37,16 @@ import           Data.Kind (Type)
 import           Data.List (foldl')
 import           Data.Maybe (fromMaybe)
 import qualified Data.Strict.Vector as Data.Vector
-import           GHC.TypeLits (KnownNat, Nat, type (+), type (<=))
+import           GHC.TypeLits (KnownNat, type (+), type (<=))
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.ShapedList (ShapedList (..))
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.SizedList
+import HordeAd.Core.Types
 
 -- * Ast and related definitions
-
-type TensorKind k = Type -> k -> Type
-
-type RankedTensorKind = TensorKind Nat
-
-type ShapedTensorKind = TensorKind [Nat]
 
 -- | The type family that to a concrete tensor type assigns its
 -- corresponding AST type.

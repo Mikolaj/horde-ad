@@ -49,6 +49,7 @@ import           HordeAd.Core.ShapedList
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorOps
+import           HordeAd.Core.Types
 
 -- * Ranked tensor class definition
 
