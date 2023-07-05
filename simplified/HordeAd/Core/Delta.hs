@@ -248,10 +248,10 @@ data DeltaS :: RankedTensorKind -> ShapedTensorKind
   CastS :: GoodScalar r1
         => DeltaS ranked shaped r1 sh -> DeltaS ranked shaped r2 sh
 
-  DToS :: forall ranked shaped sh r.
+  DToS :: forall sh r ranked shaped.
           DeltaD ranked shaped r '()
        -> DeltaS ranked shaped r sh
-  RToS :: forall ranked shaped sh r. KnownNat (OS.Rank sh)
+  RToS :: forall sh r ranked shaped. KnownNat (OS.Rank sh)
        => DeltaR ranked shaped r (OS.Rank sh)
        -> DeltaS ranked shaped r sh
 
@@ -359,10 +359,10 @@ data DeltaR :: RankedTensorKind -> ShapedTensorKind
   CastR :: GoodScalar r1
         => DeltaR ranked shaped r1 n -> DeltaR ranked shaped r2 n
 
-  DToR :: forall ranked shaped n r.
+  DToR :: forall n r ranked shaped.
           DeltaD ranked shaped r '()
        -> DeltaR ranked shaped r n
-  SToR :: forall ranked shaped sh r. OS.Shape sh
+  SToR :: forall sh r ranked shaped. OS.Shape sh
        => DeltaS ranked shaped r sh
        -> DeltaR ranked shaped r (OS.Rank sh)
 
@@ -376,9 +376,9 @@ deriving instance ( GoodScalar r0
 
 data DeltaD :: RankedTensorKind -> ShapedTensorKind
             -> TensorKind () where
-  RToD :: forall ranked shaped n r. KnownNat n
+  RToD :: forall n r ranked shaped. KnownNat n
        => DeltaR ranked shaped r n -> DeltaD ranked shaped r '()
-  SToD :: forall ranked shaped sh r. OS.Shape sh
+  SToD :: forall sh r ranked shaped. OS.Shape sh
        => DeltaS ranked shaped r sh -> DeltaD ranked shaped r '()
 
 deriving instance ( GoodScalar r0
@@ -772,15 +772,15 @@ buildFinMaps s0 deltaDt =
         GatherS d f -> evalS s (sscatter c f) d
         CastS d -> evalS s (scast c) d
 
-        DToS (SToD @_ @_ @sh2 d) ->
+        DToS (SToD @sh2 d) ->
           case sameShape @sh @sh2 of
             Just Refl -> evalS s c d
             _ -> error "buildFinMaps: different shapes in DToS(SToD)"
-        DToS (RToD @_ @_ @n2 d) ->
+        DToS (RToD @n2 d) ->
           case matchingRank @sh @n2 of
             Just Refl -> evalS s c (RToS d)
             _ -> error "buildFinMaps: different ranks in DToS(RToD)"
-        RToS (SToR @_ @_ @sh2 d) ->
+        RToS (SToR @sh2 d) ->
           case sameShape @sh @sh2 of
             Just Refl -> evalS s c d
             _ -> error "buildFinMaps: different shapes in RToS(SToR)"
@@ -909,11 +909,11 @@ buildFinMaps s0 deltaDt =
         GatherR _sh d f shd -> evalR s (tscatter shd c f) d
         CastR d -> evalR s (tcast c) d
 
-        DToR (RToD @_ @_ @n2 d) ->
+        DToR (RToD @n2 d) ->
           case sameNat (Proxy @n) (Proxy @n2) of
             Just Refl -> evalR s c d
             _ -> error "buildFinMaps: different ranks in DToR(RToD)"
-        DToR (SToD @_ @_ @sh2 d) ->
+        DToR (SToD @sh2 d) ->
           case matchingRank @sh2 @n of
             Just Refl -> evalR s c (SToR d)
             _ -> error "buildFinMaps: different ranks in DToR(SToD)"
@@ -1057,15 +1057,15 @@ buildDerivative dimR deltaDt params = do
           t <- evalS d
           return $! scast t
 
-        DToS (SToD @_ @_ @sh2 d) ->
+        DToS (SToD @sh2 d) ->
           case sameShape @sh @sh2 of
             Just Refl -> evalS d
             _ -> error "buildDerivative: different ranks in DToR(RToD)"
-        DToS (RToD @_ @_ @n2 d) ->
+        DToS (RToD @n2 d) ->
           case matchingRank @sh @n2 of
             Just Refl -> evalS (RToS d)
             _ -> error "buildDerivative: different ranks in DToR(SToD)"
-        RToS (SToR @_ @_ @sh2 d) ->
+        RToS (SToR @sh2 d) ->
           case sameShape @sh @sh2 of
             Just Refl -> evalS d
             _ -> error "buildDerivative: different shapes in RToS(SToR)"
@@ -1143,11 +1143,11 @@ buildDerivative dimR deltaDt params = do
           t <- evalR d
           return $! tcast t
 
-        DToR (RToD @_ @_ @n2 d) ->
+        DToR (RToD @n2 d) ->
           case sameNat (Proxy @n) (Proxy @n2) of
             Just Refl -> evalR d
             _ -> error "buildDerivative: different ranks in DToR(RToD)"
-        DToR (SToD @_ @_ @sh2 d) ->
+        DToR (SToD @sh2 d) ->
           case matchingRank @sh2 @n of
             Just Refl -> evalR (SToR d)
             _ -> error "buildDerivative: different ranks in DToR(SToD)"
@@ -1168,4 +1168,4 @@ buildDerivative dimR deltaDt params = do
     DeltaDtR _dt deltaTopLevel ->
       flip DeltaDtR ZeroR <$> evalR deltaTopLevel
     DeltaDtD _dt deltaTopLevel ->
-      flip DeltaDtD (RToD @ranked @shaped @0 ZeroR) <$> evalD deltaTopLevel
+      flip DeltaDtD (RToD @0 ZeroR) <$> evalD deltaTopLevel

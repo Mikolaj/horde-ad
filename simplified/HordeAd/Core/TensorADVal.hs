@@ -129,11 +129,11 @@ dToR :: forall ranked shaped n r.
       => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal ranked r n
 dToR (D l u u') = dDnotShared l (tfromD $ runClown u) (dDToR u')
  where
-  dDToR (RToD @_ @_ @n1 d) =
+  dDToR (RToD @n1 d) =
     case sameNat (Proxy @n1) (Proxy @n) of
       Just Refl -> d
       _ -> error "dToR: different ranks in DToR(RToD)"
-  dDToR (SToD @_ @_ @sh1 d) =
+  dDToR (SToD @sh1 d) =
     case matchingRank @sh1 @n of
       Just Refl -> SToR d
       _ -> error "dToR: different ranks in DToR(SToD)"
@@ -279,11 +279,11 @@ dToS :: forall ranked shaped sh r.
       => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal shaped r sh
 dToS (D l u u') = dDnotShared l (sfromD $ runClown u) (dDToS u')
  where
-  dDToS (SToD @_ @_ @sh1 d) =
+  dDToS (SToD @sh1 d) =
     case sameShape @sh1 @sh of
       Just Refl -> d
       _ -> error "dToS: different ranks in DToS(SToD)"
-  dDToS (RToD @_ @_ @n1 d) =
+  dDToS (RToD @n1 d) =
     case matchingRank @sh @n1 of
       Just Refl -> RToS d
       _ -> error "dToS: different ranks in DToS(RToD)"
@@ -400,7 +400,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          => ADVal shaped r sh -> ADVal ranked r (OS.Rank sh)
     sToR (D l u u') = dDnotShared l (tfromS u) (dSToR u')
      where
-      dSToR (RToS @_ @_ @sh1 d) =
+      dSToR (RToS @sh1 d) =
         case sameShape @sh1 @sh of
           Just Refl -> d
           _ -> error "sToR: different shapes in SToR(RToS)"
@@ -411,7 +411,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          => ADVal ranked r n -> ADVal (Clown (DynamicOf ranked)) r '()
     rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (dRToD u')
      where
-      dRToD (DToR @_ @_ @n1 d) =
+      dRToD (DToR @n1 d) =
         case sameNat (Proxy @n1) (Proxy @n) of
           Just Refl -> d
           _ -> error "rToD: different ranks in RToD(DToR)"
@@ -422,7 +422,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          => ADVal shaped r sh -> ADVal (Clown (DynamicOf ranked)) r '()
     sToD (D l u u') = dDnotShared l (Clown $ dfromS u) (dSToD u')
      where
-      dSToD (DToS @_ @_ @sh1 d) =
+      dSToD (DToS @sh1 d) =
         case sameShape @sh1 @sh of
           Just Refl -> d
           _ -> error "sToD: different ranks in SToD(DToS)"
@@ -434,7 +434,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          => ADVal ranked r (OS.Rank sh) -> ADVal shaped r sh
     rToS (D l u u') = dDnotShared l (sfromR u) (dRToS u')
      where
-      dRToS (SToR @_ @_ @sh1 d) =
+      dRToS (SToR @sh1 d) =
         case sameShape @sh1 @sh of
           Just Refl -> d
           _ -> error "rToS: different shapes in RToS(SToR)"
