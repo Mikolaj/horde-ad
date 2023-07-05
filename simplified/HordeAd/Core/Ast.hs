@@ -8,7 +8,8 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( AstOf, AstVarId, intToAstVarId
+  ( TensorKind, RankedTensorKind, ShapedTensorKind
+  , AstOf, AstVarId, intToAstVarId
   , ADAstArtifact6, AstIndex, AstVarList
   , AstIndexS, AstVarListS
   , AstRanked(..), AstNoVectorize(..), AstNoSimplify(..)
@@ -47,9 +48,15 @@ import HordeAd.Core.SizedList
 
 -- * Ast and related definitions
 
+type TensorKind k = Type -> k -> Type
+
+type RankedTensorKind = TensorKind Nat
+
+type ShapedTensorKind = TensorKind [Nat]
+
 -- | The type family that to a concrete tensor type assigns its
 -- corresponding AST type.
-type AstOf :: forall k. (Type -> k -> Type) -> Type -> k -> Type
+type AstOf :: forall k. (TensorKind k) -> TensorKind k
 type family AstOf f = result | result -> f where
   AstOf (Clown OD.Array) = Clown AstDynamic
   AstOf (Flip OR.Array) = AstRanked
@@ -91,7 +98,7 @@ type AstVarListS sh = ShapedList sh AstVarId
 
 -- | AST for a tensor of rank n and elements r that is meant
 -- to be differentiated.
-data AstRanked :: Type -> Nat -> Type where
+data AstRanked :: RankedTensorKind where
   -- To permit defining objective functions in Ast, not just constants:
   AstVar :: ShapeInt n -> AstVarId -> AstRanked r n
   AstLet :: (KnownNat n, KnownNat m, GoodScalar r)
@@ -168,7 +175,7 @@ deriving instance GoodScalar r => Show (AstPrimalPart r n)
 newtype AstDualPart r n = AstDualPart {unAstDualPart :: AstRanked r n}
 deriving instance GoodScalar r => Show (AstDualPart r n)
 
-data AstShaped :: Type -> [Nat] -> Type where
+data AstShaped :: ShapedTensorKind where
   -- To permit defining objective functions in Ast, not just constants:
   AstVarS :: forall sh r. AstVarId -> AstShaped r sh
   AstLetS :: (OS.Shape sh, OS.Shape sh2, GoodScalar r)

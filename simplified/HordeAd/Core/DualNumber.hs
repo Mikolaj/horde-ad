@@ -34,7 +34,7 @@ import HordeAd.Core.DualClass
 -- can be any containers of scalars. The primal component has the type
 -- given as the second type argument and the dual component (with the type
 -- determined by the type faimly @Dual@) is defined elsewhere.
-data ADVal (f :: Type -> k -> Type) (r :: Type) (z :: k) =
+data ADVal (f :: TensorKind k) (r :: Type) (z :: k) =
   D ADShare (f r z) (Dual f r z)
 
 deriving instance (Show (f r z), Show (Dual f r z))

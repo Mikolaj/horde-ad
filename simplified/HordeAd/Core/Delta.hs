@@ -58,7 +58,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           Data.Kind (Constraint, Type)
+import           Data.Kind (Constraint)
 import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
@@ -85,7 +85,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 
 -- * Abstract syntax trees of the delta expressions
 
-newtype NodeId (f :: Type -> k -> Type) = NodeId Int
+newtype NodeId (f :: TensorKind k) = NodeId Int
  deriving newtype (Show, Enum)
    -- No Eq instance to limit hacks.
 
@@ -142,8 +142,8 @@ newtype NodeId (f :: Type -> k -> Type) = NodeId Int
 -- in the objective function domain. The collection of all such
 -- vectors of partial derivatives across all ranks is the gradient.
 
-data DeltaS :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
-            -> Type -> [Nat] -> Type where
+data DeltaS :: RankedTensorKind -> ShapedTensorKind
+            -> ShapedTensorKind where
   ZeroS :: DeltaS ranked shaped r sh
   InputS :: InputId ranked -> DeltaS ranked shaped r sh
   ScaleS :: shaped r sh -> DeltaS ranked shaped r sh
@@ -267,8 +267,8 @@ deriving instance ( OS.Shape sh0, GoodScalar r0
 -- as given in @buildDerivative@. Evaluating the terms backwards
 -- (transposing the represented linear map) in order to compute gradients
 -- provides a different semantics.
-data DeltaR :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
-            -> Type -> Nat -> Type where
+data DeltaR :: RankedTensorKind -> ShapedTensorKind
+            -> RankedTensorKind where
   ZeroR :: DeltaR ranked shaped r n
   InputR :: InputId ranked -> DeltaR ranked shaped r n
   ScaleR :: ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
@@ -373,8 +373,8 @@ deriving instance ( GoodScalar r0
                   , Show (IntOf shaped) )
                   => Show (DeltaR ranked shaped r0 n0)
 
-data DeltaD :: (Type -> Nat -> Type) -> (Type -> [Nat] -> Type)
-            -> Type -> () -> Type where
+data DeltaD :: RankedTensorKind -> ShapedTensorKind
+            -> TensorKind () where
   RToD :: forall ranked shaped n r. KnownNat n
        => DeltaR ranked shaped r n -> DeltaD ranked shaped r '()
   SToD :: forall ranked shaped sh r. OS.Shape sh
@@ -391,7 +391,7 @@ deriving instance ( GoodScalar r0
 
 -- * Related datatypes and classes
 
-newtype InputId (f :: Type -> k -> Type) = InputId Int
+newtype InputId (f :: TensorKind k) = InputId Int
  deriving (Show, Enum)
    -- No Eq instance to limit hacks outside this module.
 
@@ -399,11 +399,11 @@ newtype InputId (f :: Type -> k -> Type) = InputId Int
 toInputId :: Int -> InputId f
 toInputId i = assert (i >= 0) $ InputId i
 
-type DualPart :: forall k. (Type -> k -> Type) -> Constraint
-class DualPart (f :: Type -> k -> Type) where
+type DualPart :: forall k. (TensorKind k) -> Constraint
+class DualPart (f :: TensorKind k) where
   -- | The type family that to each basic differentiable type
   -- assigns its delta expression type.
-  type Dual f = (result :: Type -> k -> Type) | result -> f
+  type Dual f = (result :: TensorKind k) | result -> f
   type HasSingletonDict f (y :: k) :: Constraint
   reverseDervative
     :: (HasSingletonDict f y, GoodScalar r)

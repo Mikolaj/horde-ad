@@ -56,7 +56,7 @@ import           HordeAd.Core.TensorOps
 -- but leads to irregular tensors, especially after vectorization,
 -- and prevents statically known shapes.
 
-type family IntOf (f :: Type -> k -> Type) :: Type
+type family IntOf (f :: TensorKind k) :: Type
 
 -- | Thanks to the OverloadedLists mechanism, values of this type can be
 -- written using the normal list notation. However, such values, if not
@@ -84,28 +84,28 @@ instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
          => CRankedR ranked c where
 
 -- k is intended to be Nat or [Nat] (or nothing, if we support scalars)
-type family PrimalOf (f :: Type -> k -> Type) :: Type -> k -> Type
+type family PrimalOf (f :: TensorKind k) :: TensorKind k
 
-type family DualOf (f :: Type -> k -> Type) :: Type -> k -> Type
+type family DualOf (f :: TensorKind k) :: TensorKind k
 
-type family DynamicOf (f :: Type -> k -> Type) :: Type -> Type
+type family DynamicOf (f :: TensorKind k) :: Type -> Type
 
 type instance DynamicOf (Clown OD.Array) = OD.Array
 
 type instance DynamicOf (Clown AstDynamic) = AstDynamic
 
-type family RankedOf (f :: Type -> k -> Type) :: Type -> Nat -> Type
+type family RankedOf (f :: TensorKind k) :: RankedTensorKind
 
 type instance RankedOf (Clown OD.Array) = Flip OR.Array
 
-type family ShapedOf (f :: Type -> k -> Type) :: Type -> [Nat] -> Type
+type family ShapedOf (f :: TensorKind k) :: ShapedTensorKind
 
 type instance ShapedOf (Clown OD.Array) = Flip OS.Array
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
 class (Integral (IntOf ranked), CRankedR ranked RealFloat)
-      => Tensor (ranked :: Type -> Nat -> Type) where
+      => Tensor (ranked :: RankedTensorKind) where
 
   -- TODO: type Scalar r = ranked r 0
   -- is a macro/TH the only way?
@@ -346,7 +346,7 @@ instance
       => CRankedS shaped c where
 
 class (Integral (IntOf shaped), CRankedS shaped RealFloat)
-      => ShapedTensor (shaped :: Type -> [Nat] -> Type) where
+      => ShapedTensor (shaped :: ShapedTensorKind) where
 
   slet :: (OS.Shape sh, OS.Shape sh2, GoodScalar r)
        => shaped r sh -> (shaped r sh -> shaped r2 sh2)
@@ -638,8 +638,8 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
 class ( RankedOf shaped ~ ranked, ShapedOf ranked ~ shaped
       , DynamicOf ranked ~ DynamicOf shaped
       , DynamicOf shaped ~ DynamicOf ranked )
-      => ConvertTensor (ranked :: Type -> Nat -> Type)
-                       (shaped :: Type -> [Nat] -> Type)
+      => ConvertTensor (ranked :: RankedTensorKind)
+                       (shaped :: ShapedTensorKind)
                        | ranked -> shaped, shaped -> ranked where
   tfromD :: (GoodScalar r, KnownNat n)
          => DynamicOf ranked r -> ranked r n
@@ -657,8 +657,8 @@ class ( RankedOf shaped ~ ranked, ShapedOf ranked ~ shaped
   disDummy :: Numeric r => DynamicOf ranked r -> Bool
   dshape :: GoodScalar r => DynamicOf ranked r -> [Int]
 
-class DomainsTensor (ranked :: Type -> Nat -> Type)
-                    (shaped :: Type -> [Nat] -> Type)
+class DomainsTensor (ranked :: RankedTensorKind)
+                    (shaped :: ShapedTensorKind)
                     (domainsOf :: Type)
                     | ranked -> shaped domainsOf
                     , shaped -> ranked domainsOf
