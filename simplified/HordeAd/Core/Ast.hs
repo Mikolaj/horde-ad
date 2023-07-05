@@ -56,7 +56,7 @@ type ShapedTensorKind = TensorKind [Nat]
 
 -- | The type family that to a concrete tensor type assigns its
 -- corresponding AST type.
-type AstOf :: forall k. (TensorKind k) -> TensorKind k
+type AstOf :: forall k. TensorKind k -> TensorKind k
 type family AstOf f = result | result -> f where
   AstOf (Clown OD.Array) = Clown AstDynamic
   AstOf (Flip OR.Array) = AstRanked
@@ -306,8 +306,6 @@ data AstBool where
   AstRelInt :: OpCodeRel -> [AstInt] -> AstBool
 deriving instance Show AstBool
 
--- Copied from the outlining mechanism deleted in
--- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
 data OpCode =
     MinusOp | TimesOp | NegateOp | AbsOp | SignumOp
   | DivideOp | RecipOp
@@ -335,7 +333,7 @@ data OpCodeRel =
  deriving Show
 
 
--- * Unlawful instances of int and bool AST types; they are lawful modulo evaluation
+-- * Unlawful instances of AST int and bool; they are lawful modulo evaluation
 
 type instance BooleanOf AstInt = AstBool
 
@@ -407,7 +405,7 @@ instance Boolean AstBool where
   b ||* c = AstBoolOp OrOp [b, c]
 
 
--- * Unlawful boolean package instances of ranked AST types; they are lawful modulo evaluation
+-- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation
 
 type instance BooleanOf (AstRanked r n) = AstBool
 
@@ -495,7 +493,7 @@ instance (KnownNat n, GoodScalar r) => OrdB (AstPrimalPart r n) where
   v >=* u = AstRel GeqOp [v, u]
 
 
--- * Unlawful numeric instances of ranked AST types; they are lawful modulo evaluation
+-- * Unlawful numeric instances of ranked AST; they are lawful modulo evaluation
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
 instance Eq (AstRanked r n) where
@@ -622,7 +620,7 @@ deriving instance RealFrac (AstRanked r n) => RealFrac (AstPrimalPart r n)
 deriving instance RealFloat (AstRanked r n) => RealFloat (AstPrimalPart r n)
 
 
--- * Unlawful boolean package instances of shaped AST types; they are lawful modulo evaluation
+-- * Unlawful boolean instances of shaped AST; they are lawful modulo evaluation
 
 type instance BooleanOf (AstShaped r sh) = AstBool
 
@@ -713,7 +711,7 @@ instance (OS.Shape sh, GoodScalar r) => OrdB (AstPrimalPartS r sh) where
   v >=* u = AstRelS GeqOp [v, u]
 
 
--- * Unlawful numeric instances of shaped AST types; they are lawful modulo evaluation
+-- * Unlawful numeric instances of shaped AST; they are lawful modulo evaluation
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
 instance Eq (AstShaped r sh) where
@@ -888,7 +886,8 @@ insertADShare !key !t !s =
           GT -> Just $ freshInsertADShare key t l2
   in fromMaybe s (insertAD s)
 
-freshInsertADShare :: GoodScalar r => AstVarId -> AstDynamic r -> ADShare -> ADShare
+freshInsertADShare :: GoodScalar r => AstVarId -> AstDynamic r -> ADShare
+                   -> ADShare
 {-# NOINLINE freshInsertADShare #-}
 freshInsertADShare !key !t !s = unsafePerformIO $ do
   id0 <- unsafeGetFreshId
@@ -931,9 +930,8 @@ subtractADShare !s1 !s2 =
       subAD l1@(ADShareCons id1 key1 t1 rest1)
             l2@(ADShareCons id2 key2 _ rest2) =
         if id1 == id2
-        then []
-               -- the lists only ever grow and only in fresh/unique way,
-               -- so an identical id means the rest is the same
+        then []  -- the lists only ever grow and only in fresh/unique way,
+                 -- so an identical id means the rest is the same
         else case compare key1 key2 of
           EQ -> subAD rest1 rest2
           LT -> subAD l1 rest2

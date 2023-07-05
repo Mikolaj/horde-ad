@@ -71,7 +71,7 @@ revDtMaybe f vals mdt =
   in parseDomains (toValue vals)
      $ fst $ revAstOnDomainsEval asts4 (toDomains vals) mdt
 
-type Adaptable :: forall k. (TensorKind k) -> Constraint
+type Adaptable :: forall k. TensorKind k -> Constraint
 class Adaptable f where
   revAstOnDomainsEval
     :: forall r y. (GoodScalar r, HasSingletonDict f y)

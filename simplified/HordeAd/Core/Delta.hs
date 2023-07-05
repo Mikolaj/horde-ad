@@ -399,7 +399,7 @@ newtype InputId (f :: TensorKind k) = InputId Int
 toInputId :: Int -> InputId f
 toInputId i = assert (i >= 0) $ InputId i
 
-type DualPart :: forall k. (TensorKind k) -> Constraint
+type DualPart :: forall k. TensorKind k -> Constraint
 class DualPart (f :: TensorKind k) where
   -- | The type family that to each basic differentiable type
   -- assigns its delta expression type.
