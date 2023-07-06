@@ -33,6 +33,7 @@ import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Numeric.LinearAlgebra.Data (arctan2)
+import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Type.Reflection (eqTypeRep, typeRep, (:~~:) (HRefl))
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -277,6 +278,40 @@ instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
   signum = liftVS signum
   fromInteger = OS.constant . fromInteger
 
+instance Enum (OR.Array n r) where  -- dummy, to satisfy Integral below
+  toEnum = undefined
+  fromEnum = undefined
+
+instance (Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
+         => Integral (OR.Array n r) where
+  quot = liftVR2 quot
+  rem = liftVR2 rem
+  quotRem x y = (quot x y, rem x y)  -- TODO, another variant of liftVR2 needed
+  div = liftVR2 div
+  mod = liftVR2 mod
+  -- divMod  -- TODO
+  toInteger = case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> toInteger . OR.unScalar
+    _ -> error $ "OR.toInteger: rank not zero: "
+                 ++ show (valueOf @n :: Int)
+
+instance Enum (OS.Array sh r) where  -- dummy, to satisfy Integral below
+  toEnum = undefined
+  fromEnum = undefined
+
+instance (Num (Vector r), Integral r, OS.Shape sh, Numeric r, Show r)
+         => Integral (OS.Array sh r) where
+  quot = liftVS2 quot
+  rem = liftVS2 rem
+  quotRem x y = (quot x y, rem x y)  -- TODO, another variant of liftVS2 needed
+  div = liftVS2 div
+  mod = liftVS2 mod
+  -- divMod  -- TODO
+  toInteger = case sameShape @sh @'[] of
+    Just Refl -> toInteger . OS.unScalar
+    _ -> error $ "OS.toInteger: shape not empty: "
+                 ++ show (OS.shapeT @sh)
+
 instance (Num (Vector r), Numeric r, Show r, Fractional r)
          => Fractional (OD.Array r) where
   (/) = liftVD2 (/)
@@ -489,6 +524,10 @@ deriving instance OrdB (f a b) => OrdB (Flip f b a)
 
 deriving instance Num (f a b) => Num (Flip f b a)
 
+deriving instance Enum (f a b) => Enum (Flip f b a)
+
+deriving instance Integral (f a b) => Integral (Flip f b a)
+
 deriving instance Fractional (f a b) => Fractional (Flip f b a)
 
 deriving instance Floating (f a b) => Floating (Flip f b a)
@@ -536,6 +575,20 @@ matchingRank =
   if length (OS.shapeT @sh1) == valueOf @n2
   then Just (unsafeCoerce Refl :: OS.Rank sh1 :~: n2)
   else Nothing
+
+instance Enum (Vector r) where  -- dummy, to satisfy Integral below
+  toEnum = undefined
+  fromEnum = undefined
+
+instance (Num (Vector r), Integral r, Numeric r, Show r)
+         => Integral (Vector r) where
+  quot = zipVectorWith quot
+  rem = zipVectorWith rem
+  quotRem x y = (quot x y, rem x y)  -- TODO
+  div = zipVectorWith div
+  mod = zipVectorWith mod
+  -- divMod  -- TODO
+  toInteger = undefined  -- not needed
 
 instance (Num (Vector r), Numeric r, Ord r)
          => Real (Vector r) where
