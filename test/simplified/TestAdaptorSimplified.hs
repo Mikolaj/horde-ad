@@ -949,12 +949,12 @@ fooNoGoAst v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, tindex v [(ix + tfloor r) `min` 2 `max` 0]))
-       + astCond (AstBoolOp AndOp
+       + ifB (AstBoolOp AndOp
                     [ tindex v (ix * 2 :. ZI) <=* 0
                         -- @1 not required thanks to :.; see below for @ and []
                     , 6 >* abs ix ])
                  r (5 * r))
-     / tslice 1 3 (tmap0N (\x -> astCond (x >* r) r x) v)
+     / tslice 1 3 (tmap0N (\x -> ifB (x >* r) r x) v)
      * tbuild1 3 (const 1)
 
 testFooNoGoAst :: Assertion

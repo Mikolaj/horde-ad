@@ -16,7 +16,6 @@ module HordeAd.Core.Ast
   , AstDynamic(..), AstDomains(..)
   , AstVarName(..), AstDynamicVarName(..), AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
-  , astCond  -- exposed only for tests
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare
