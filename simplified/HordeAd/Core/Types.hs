@@ -3,7 +3,7 @@
 module HordeAd.Core.Types
   ( TensorKind, RankedTensorKind, ShapedTensorKind
   , GoodScalar, DynamicExists(..), Domains, DomainsOD, sizeDomainsOD
-  , IntOf, IndexOf, IntSh, IndexSh
+  , RankedOf, ShapedOf, IntOf, IndexOf, IntSh, IndexSh
   ) where
 
 import Prelude
@@ -54,6 +54,10 @@ type DomainsOD = Domains OD.Array
 sizeDomainsOD :: DomainsOD -> Int
 sizeDomainsOD d = let f (DynamicExists t) = OD.size t
                   in V.sum (V.map f d)
+
+type family RankedOf (f :: TensorKind k) :: RankedTensorKind
+
+type family ShapedOf (f :: TensorKind k) :: ShapedTensorKind
 
 -- This is used only in indexing and similar contexts.
 -- If used as size or shape gives more expressiveness,

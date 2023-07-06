@@ -9,8 +9,7 @@
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
-  ( ShapeInt, ShapeSh
-  , PrimalOf, DualOf, DynamicOf, RankedOf, ShapedOf
+  ( ShapeInt, ShapeSh, PrimalOf, DualOf, DynamicOf
   , ShapedTensor(..), RankedTensor(..), ConvertTensor(..), DomainsTensor(..)
   , ADReady, ADReadyS, ADRanked, ADShaped
   , GoodScalar, DummyDual(..)
@@ -68,11 +67,7 @@ type instance DynamicOf (Clown OD.Array) = OD.Array
 
 type instance DynamicOf (Clown AstDynamic) = AstDynamic
 
-type family RankedOf (f :: TensorKind k) :: RankedTensorKind
-
 type instance RankedOf (Clown OD.Array) = Flip OR.Array
-
-type family ShapedOf (f :: TensorKind k) :: ShapedTensorKind
 
 type instance ShapedOf (Clown OD.Array) = Flip OS.Array
 
