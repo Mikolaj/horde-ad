@@ -203,6 +203,20 @@ printAst cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
       -- TODO: this does not roundtrip yet
+  AstFloor (AstPrimalPart a) ->
+    printPrefixOp printAst cfg d "tfloor" [a]
+  AstCond b a1 a2 ->
+    showParen (d > 10)
+    $ showString "ifB "
+      . printAstBool cfg 11 b
+      . showString " "
+      . printAst cfg 11 a1
+      . showString " "
+      . printAst cfg 11 a2
+  AstMinIndex (AstPrimalPart a) ->
+    printPrefixOp printAst cfg d "tminIndex" [a]
+  AstMaxIndex (AstPrimalPart a) ->
+    printPrefixOp printAst cfg d "tmaxIndex" [a]
 
 printAstVarFromDomains
   :: PrintConfig -> (AstVarId, DynamicExists AstDynamic) -> ShowS
@@ -570,6 +584,20 @@ printAstS cfg d = \case
            . showString " -> "
            . printAstS cfg 0 v)
       -- TODO: this does not roundtrip yet
+  AstFloorS (AstPrimalPartS a) ->
+    printPrefixOp printAstS cfg d "sfloor" [a]
+  AstCondS b a1 a2 ->
+    showParen (d > 10)
+    $ showString "ifB "
+      . printAstBool cfg 11 b
+      . showString " "
+      . printAstS cfg 11 a1
+      . showString " "
+      . printAstS cfg 11 a2
+  AstMinIndexS (AstPrimalPartS a) ->
+    printPrefixOp printAstS cfg d "sminIndex" [a]
+  AstMaxIndexS (AstPrimalPartS a) ->
+    printPrefixOp printAstS cfg d "smaxIndex" [a]
 
 printAstSimple :: (GoodScalar r, KnownNat n)
                => IntMap String -> AstRanked r n -> String

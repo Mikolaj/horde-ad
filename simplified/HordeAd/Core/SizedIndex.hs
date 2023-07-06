@@ -14,8 +14,8 @@ module HordeAd.Core.SizedIndex
   , listToIndex, indexToList, indexToSizedList, sizedListToIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$), pattern ZS
-  , singletonShape, appendShape, tailShape, takeShape, dropShape, splitAt_Shape
-  , lengthShape, sizeShape, flattenShape
+  , singletonShape, appendShape, tailShape, takeShape, dropShape
+  , splitAt_Shape, lastShape, initShape, lengthShape, sizeShape, flattenShape
   , backpermutePrefixShape
   , listShapeToShape, shapeToList
     -- * Operations involving both indexes and shapes
@@ -229,6 +229,12 @@ dropShape (Shape ix) = Shape $ dropSized ix
 splitAt_Shape :: (KnownNat m, KnownNat n)
               => Shape (m + n) i -> (Shape m i, Shape n i)
 splitAt_Shape ix = (takeShape ix, dropShape ix)
+
+lastShape :: Shape (1 + n) i -> i
+lastShape (Shape ix) = lastSized ix
+
+initShape :: Shape (1 + n) i -> Shape n i
+initShape (Shape ix) = Shape $ initSized ix
 
 lengthShape :: forall n i. KnownNat n => Shape n i -> Int
 lengthShape _ = valueOf @n

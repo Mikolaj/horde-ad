@@ -31,6 +31,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Boolean
+import           Data.Int (Int64)
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
 import           Data.List (foldl')
@@ -153,6 +154,16 @@ data AstRanked :: RankedTensorKind where
   AstLetDomains :: Data.Vector.Vector AstVarId -> AstDomains
                 -> AstRanked r n
                 -> AstRanked r n
+
+  AstFloor :: GoodScalar r
+           => AstPrimalPart r n -> AstRanked Int64 n
+  AstCond :: AstBool
+          -> AstRanked r n -> AstRanked r n -> AstRanked r n
+  AstMinIndex :: GoodScalar r
+              => AstPrimalPart r (1 + n) -> AstRanked Int64 n
+  AstMaxIndex :: GoodScalar r
+              => AstPrimalPart r (1 + n) -> AstRanked Int64 n
+
 deriving instance GoodScalar r => Show (AstRanked r n)
 
 newtype AstNoVectorize r n = AstNoVectorize {unAstNoVectorize :: AstRanked r n}
@@ -244,6 +255,18 @@ data AstShaped :: ShapedTensorKind where
   AstLetDomainsS :: Data.Vector.Vector AstVarId -> AstDomains
                  -> AstShaped r sh
                  -> AstShaped r sh
+
+  AstFloorS :: GoodScalar r
+            => AstPrimalPartS r sh -> AstShaped Int64 sh
+  AstCondS :: AstBool
+           -> AstShaped r sh -> AstShaped r sh -> AstShaped r sh
+  AstMinIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
+               => AstPrimalPartS r (n ': sh)
+               -> AstShaped Int64 (OS.Init (n ': sh))
+  AstMaxIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
+               => AstPrimalPartS r (n ': sh)
+               -> AstShaped Int64 (OS.Init (n ': sh))
+
 deriving instance (GoodScalar r, OS.Shape sh) => Show (AstShaped r sh)
 
 newtype AstPrimalPartS r sh =

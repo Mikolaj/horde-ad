@@ -12,6 +12,7 @@ import           Control.Exception.Assert.Sugar
 import           Control.Monad (when)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as OS
+import           Data.Boolean
 import           Data.IORef
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.IntMap as IM
@@ -220,6 +221,14 @@ build1V k (var, v00) =
             -- we use the substitution that does not simplify
       in Ast.AstLetDomains vars (build1VOccurenceUnknownDomains k (var, l))
                                 (build1VOccurenceUnknownRefresh k (var, v2))
+
+    Ast.AstFloor (AstPrimalPart v) ->
+      Ast.AstFloor $ AstPrimalPart $ build1V k (var, v)
+    Ast.AstCond b v w -> build1V k (var, ifB b v w)
+    Ast.AstMinIndex (AstPrimalPart v) ->
+      Ast.AstMinIndex $ AstPrimalPart $ build1V k (var, v)
+    Ast.AstMaxIndex (AstPrimalPart v) ->
+      Ast.AstMaxIndex $ AstPrimalPart $ build1V k (var, v)
 
 build1VOccurenceUnknownDynamic
   :: Int -> (AstVarId, DynamicExists AstDynamic) -> DynamicExists AstDynamic
@@ -511,6 +520,14 @@ build1VS (var, v00) =
            vars
            (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
            (build1VOccurenceUnknownRefreshS (var, v2))
+
+    Ast.AstFloorS (AstPrimalPartS v) ->
+      Ast.AstFloorS $ AstPrimalPartS $ build1VS (var, v)
+    Ast.AstCondS b v w -> build1VS (var, ifB b v w)
+    Ast.AstMinIndexS (AstPrimalPartS v) ->
+      Ast.AstMinIndexS $ AstPrimalPartS $ build1VS (var, v)
+    Ast.AstMaxIndexS (AstPrimalPartS v) ->
+      Ast.AstMaxIndexS $ AstPrimalPartS $ build1VS (var, v)
 
 -- | The application @build1VIndexS k (var, v, ix)@ vectorizes
 -- the term @AstBuild1S k (var, AstIndexS v ix)@, where it's unknown whether

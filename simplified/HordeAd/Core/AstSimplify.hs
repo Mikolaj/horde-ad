@@ -205,6 +205,10 @@ simplifyStepNonIndex t = case t of
   Ast.AstConstant v -> astConstant v
   Ast.AstD{} -> t
   Ast.AstLetDomains{} -> t
+  Ast.AstFloor{} -> t
+  Ast.AstCond{} -> t
+  Ast.AstMinIndex{} -> t
+  Ast.AstMaxIndex{} -> t
 
 simplifyStepNonIndexS
   :: ()
@@ -389,6 +393,13 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
              (AstDualPart $ astIndexRec u' ix)
   Ast.AstLetDomains vars l v ->
     Ast.AstLetDomains vars l (astIndexRec v ix)
+  Ast.AstFloor (AstPrimalPart v) ->
+    Ast.AstFloor $ AstPrimalPart $ astIndexROrStepOnly stepOnly v ix
+  Ast.AstCond b v w -> Ast.AstCond b (astIndexRec v ix) (astIndexRec w ix)
+  Ast.AstMinIndex (AstPrimalPart v) ->
+    Ast.AstMinIndex $ AstPrimalPart $ astIndexROrStepOnly stepOnly v ix
+  Ast.AstMaxIndex (AstPrimalPart v) ->
+    Ast.AstMaxIndex $ AstPrimalPart $ astIndexROrStepOnly stepOnly v ix
 
 astSum :: (KnownNat n, GoodScalar r)
        => AstRanked r (1 + n) -> AstRanked r n
@@ -874,6 +885,21 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                   (AstDualPart $ astGatherRec sh4 u' (varsFresh, ix5))
     Ast.AstLetDomains vars l v ->
       Ast.AstLetDomains vars l (astGatherCase sh4 v (vars4, ix4))
+    Ast.AstFloor (AstPrimalPart v) ->
+      Ast.AstFloor $ AstPrimalPart
+      $ astGatherROrStepOnly stepOnly sh4 v (vars4, ix4)
+    Ast.AstCond b v w -> Ast.AstCond b (astGather sh4 v (vars4, ix4))
+                                       (astGather sh4 w (vars4, ix4))
+    Ast.AstMinIndex (AstPrimalPart v) ->
+      Ast.AstMinIndex $ AstPrimalPart
+      $ astGatherROrStepOnly stepOnly
+          (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
+          v (vars4, ix4)
+    Ast.AstMaxIndex (AstPrimalPart v) ->
+      Ast.AstMaxIndex $ AstPrimalPart
+      $ astGatherROrStepOnly stepOnly
+          (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
+          v (vars4, ix4)
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) -> Bool
@@ -1149,6 +1175,22 @@ inlineAst memo v0 = case v0 of
     let (memo1, l2) = inlineAstDomains memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetDomains vars l2 v2)
+  Ast.AstFloor a -> second Ast.AstFloor $ inlineAstPrimal memo a
+  Ast.AstCond b a2 a3 ->
+    -- This is a place where our inlining may increase code size
+    -- by enlarging both branches due to not considering number of syntactic
+    -- occurences, but only dynamic occurences. Tensor expressions
+    -- in conditionals are problematic and special enough
+    -- that we can let it be until problems are encountered in the wild.
+    -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
+    let (memo1, b1) = inlineAstBool memo b
+        (memoA2, t2) = inlineAst EM.empty a2
+        (memoA3, t3) = inlineAst EM.empty a3
+        memo4 = EM.unionWith max memoA2 memoA3
+        memo5 = EM.unionWith (+) memo1 memo4
+    in (memo5, Ast.AstCond b1 t2 t3)
+  Ast.AstMinIndex a -> second Ast.AstMinIndex $ inlineAstPrimal memo a
+  Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ inlineAstPrimal memo a
 
 inlineAstDynamic
   :: AstMemo -> DynamicExists AstDynamic -> (AstMemo, DynamicExists AstDynamic)
@@ -1206,7 +1248,7 @@ inlineAstInt memo v0 = case v0 of
   Ast.AstIntFloor v -> second Ast.AstIntFloor $ inlineAstPrimal memo v
   Ast.AstIntFloorS v -> second Ast.AstIntFloorS $ inlineAstPrimalS memo v
   Ast.AstIntCond b a2 a3 ->
-    -- This is the only place where our inlining may increase code size
+    -- This is a place where our inlining may increase code size
     -- by enlarging both branches due to not considering number of syntactic
     -- occurences, but only dynamic occurences. Tensor expressions
     -- in integer conditionals are problematic and special enough
@@ -1340,6 +1382,22 @@ inlineAstS memo v0 = case v0 of
     let (memo1, l2) = inlineAstDomains memo l
         (memo2, v2) = inlineAstS memo1 v
     in (memo2, Ast.AstLetDomainsS vars l2 v2)
+  Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAstPrimalS memo a
+  Ast.AstCondS b a2 a3 ->
+    -- This is a place where our inlining may increase code size
+    -- by enlarging both branches due to not considering number of syntactic
+    -- occurences, but only dynamic occurences. Tensor expressions
+    -- in conditionals are problematic and special enough
+    -- that we can let it be until problems are encountered in the wild.
+    -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
+    let (memo1, b1) = inlineAstBool memo b
+        (memoA2, t2) = inlineAstS EM.empty a2
+        (memoA3, t3) = inlineAstS EM.empty a3
+        memo4 = EM.unionWith max memoA2 memoA3
+        memo5 = EM.unionWith (+) memo1 memo4
+    in (memo5, Ast.AstCondS b1 t2 t3)
+  Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAstPrimalS memo a
+  Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAstPrimalS memo a
 
 
 -- * The pass eliminating nested lets bottom-up
@@ -1430,6 +1488,12 @@ unletAst env t = case t of
     let env2 = env {unletSet = unletSet env
                                `ES.union` ES.fromList (V.toList vars)}
     in Ast.AstLetDomains vars (unletAstDomains env l) (unletAst env2 v)
+  Ast.AstFloor a -> Ast.AstFloor $ unletAstPrimal env a
+  Ast.AstCond b a1 a2 ->
+    Ast.AstCond
+      (unletAstBool env b) (unletAst env a1) (unletAst env a2)
+  Ast.AstMinIndex a -> Ast.AstMinIndex $ unletAstPrimal env a
+  Ast.AstMaxIndex a -> Ast.AstMaxIndex $ unletAstPrimal env a
 
 unletAstDynamic
   :: UnletEnv -> DynamicExists AstDynamic -> DynamicExists AstDynamic
@@ -1543,6 +1607,12 @@ unletAstS env t = case t of
     let env2 = env {unletSet = unletSet env
                                `ES.union` ES.fromList (V.toList vars)}
     in Ast.AstLetDomainsS vars (unletAstDomains env l) (unletAstS env2 v)
+  Ast.AstFloorS a -> Ast.AstFloorS $ unletAstPrimalS env a
+  Ast.AstCondS b a1 a2 ->
+    Ast.AstCondS
+      (unletAstBool env b) (unletAstS env a1) (unletAstS env a2)
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS $ unletAstPrimalS env a
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS $ unletAstPrimalS env a
 
 
 -- * The simplifying bottom-up pass
@@ -1627,6 +1697,11 @@ simplifyAst t = case t of
                                   (AstDualPart $ simplifyAst u')
   Ast.AstLetDomains vars l v ->
     Ast.AstLetDomains vars (simplifyAstDomains l) (simplifyAst v)
+  Ast.AstFloor a -> Ast.AstFloor (simplifyAstPrimal a)
+  Ast.AstCond b a2 a3 ->
+    Ast.AstCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
+  Ast.AstMinIndex a -> Ast.AstMinIndex (simplifyAstPrimal a)
+  Ast.AstMaxIndex a -> Ast.AstMaxIndex (simplifyAstPrimal a)
 
 simplifyAstDynamic
   :: DynamicExists AstDynamic -> DynamicExists AstDynamic
@@ -1909,6 +1984,11 @@ simplifyAstS t = case t of
                                      (AstDualPartS $ simplifyAstS u')
   Ast.AstLetDomainsS vars l v ->
     Ast.AstLetDomainsS vars (simplifyAstDomains l) (simplifyAstS v)
+  Ast.AstFloorS a -> Ast.AstFloorS (simplifyAstPrimalS a)
+  Ast.AstCondS b a2 a3 ->
+    Ast.AstCondS (simplifyAstBool b) (simplifyAstS a2) (simplifyAstS a3)
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAstPrimalS a)
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAstPrimalS a)
 
 astLetS :: forall sh1 sh2 r r2.
            (OS.Shape sh1, OS.Shape sh2, GoodScalar r, GoodScalar r2)

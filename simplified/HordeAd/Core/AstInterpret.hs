@@ -188,35 +188,47 @@ instance
 class ( BooleanOf (ranked () 0)
         ~ BooleanOf (PrimalOf (ShapedOf ranked) r y)
       , BooleanOf (PrimalOf (ShapedOf ranked) r y)
-        ~ BooleanOf (ranked () 0) )
+        ~ BooleanOf (ranked () 0)
+      , BooleanOf (ranked () 0) ~ BooleanOf ((ShapedOf ranked) r y)
+      , BooleanOf ((ShapedOf ranked) r y) ~ BooleanOf (ranked () 0) )
       => BooleanMatchesR2 ranked r y where
 instance
       ( BooleanOf (ranked () 0)
         ~ BooleanOf (PrimalOf (ShapedOf ranked) r y)
       , BooleanOf (PrimalOf (ShapedOf ranked) r y)
-        ~ BooleanOf (ranked () 0) )
+        ~ BooleanOf (ranked () 0)
+      , BooleanOf (ranked () 0) ~ BooleanOf ((ShapedOf ranked) r y)
+      , BooleanOf ((ShapedOf ranked) r y) ~ BooleanOf (ranked () 0) )
       => BooleanMatchesR2 ranked r y where
 
 class ( EqB (PrimalOf ranked r y)
-      , OrdB (PrimalOf ranked r y) )
+      , OrdB (PrimalOf ranked r y)
+      , IfB (ranked r y) )
       => BooleanMatchesYR ranked r y where
 instance
       ( EqB (PrimalOf ranked r y)
-      , OrdB (PrimalOf ranked r y) )
+      , OrdB (PrimalOf ranked r y)
+      , IfB (ranked r y) )
       => BooleanMatchesYR ranked r y where
 
 class ( EqB (PrimalOf shaped r y)
-      , OrdB (PrimalOf shaped r y) )
+      , OrdB (PrimalOf shaped r y)
+      , IfB (shaped r y) )
       => BooleanMatchesYS shaped r y where
 instance
       ( EqB (PrimalOf shaped r y)
-      , OrdB (PrimalOf shaped r y) )
+      , OrdB (PrimalOf shaped r y)
+      , IfB (shaped r y) )
       => BooleanMatchesYS shaped r y where
 
-class ( Boolean (BooleanOf (ranked r y)) )
+class ( Boolean (BooleanOf (ranked r y))
+      , BooleanOf (ranked () 0) ~ BooleanOf (ranked r y)
+      , BooleanOf (ranked r y) ~ BooleanOf (ranked () 0) )
       => BooleanMatchesXR ranked r y where
 instance
-      ( Boolean (BooleanOf (ranked r y)) )
+      ( Boolean (BooleanOf (ranked r y))
+      , BooleanOf (ranked () 0) ~ BooleanOf (ranked r y)
+      , BooleanOf (ranked r y) ~ BooleanOf (ranked () 0) )
       => BooleanMatchesXR ranked r y where
 
 class ( BooleanOf (PrimalOf ranked r y) ~ BooleanOf (ranked r2 0)
@@ -619,6 +631,14 @@ interpretAst env = \case
                        (AstVarName varId) (sfromD d)
         env2 = V.foldr f env (V.zip vars l2)
     in interpretAst env2 v
+  AstFloor _v -> undefined  -- TODO: tfloor $ interpretAstPrimal env v
+  AstCond b a1 a2 ->
+    let b1 = interpretAstBool env b
+        t2 = interpretAst env a1
+        t3 = interpretAst env a2
+    in ifB b1 t2 t3
+  AstMinIndex _v -> undefined -- TODO: tminIndex $ interpretAstPrimal env v
+  AstMaxIndex _v -> undefined -- TODO: tmaxIndex $ interpretAstPrimal env v
 
 interpretAstDynamic
   :: forall ranked. InterpretAst ranked
@@ -1091,6 +1111,16 @@ interpretAstS env = \case
                        (AstVarName varId) (sfromD d)
         env2 = V.foldr f env (V.zip vars l2)
     in interpretAstS env2 v
+  AstFloorS _v -> undefined -- TODO: sfloor $ interpretAstPrimalS env v
+  AstCondS b a1 a2 ->
+    let b1 = interpretAstBool env b
+        t2 = interpretAstS env a1
+        t3 = interpretAstS env a2
+    in ifB b1 t2 t3
+  AstMinIndexS _v -> undefined -- TODO: ShapedList.unShapedNat . sminIndex
+                   --  $ interpretAstPrimalS env v
+  AstMaxIndexS _v -> undefined -- TODO: ShapedList.unShapedNat . smaxIndex
+                     -- $ interpretAstPrimalS env v
 
 
 

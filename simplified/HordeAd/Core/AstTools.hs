@@ -87,6 +87,10 @@ shapeAst v1 = case v1 of
   AstConstant (AstPrimalPart a) -> shapeAst a
   AstD (AstPrimalPart u) _ -> shapeAst u
   AstLetDomains _ _ v -> shapeAst v
+  AstFloor (AstPrimalPart a) -> shapeAst a
+  AstCond _b v _w -> shapeAst v
+  AstMinIndex (AstPrimalPart a) -> initShape $ shapeAst a
+  AstMaxIndex (AstPrimalPart a) -> initShape $ shapeAst a
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, GoodScalar r) => AstRanked r (1 + n) -> Int
@@ -133,6 +137,11 @@ intVarInAst var = \case
   AstD (AstPrimalPart u) (AstDualPart u') ->
     intVarInAst var u || intVarInAst var u'
   AstLetDomains _vars l v -> intVarInAstDomains var l || intVarInAst var v
+  AstFloor (AstPrimalPart a) -> intVarInAst var a
+  AstCond b v w ->
+    intVarInAstBool var b || intVarInAst var v || intVarInAst var w
+  AstMinIndex (AstPrimalPart a) -> intVarInAst var a
+  AstMaxIndex (AstPrimalPart a) -> intVarInAst var a
 
 intVarInAstDomains :: AstVarId -> AstDomains -> Bool
 intVarInAstDomains var = \case
@@ -200,6 +209,11 @@ intVarInAstS var = \case
   AstDS (AstPrimalPartS u) (AstDualPartS u') ->
     intVarInAstS var u || intVarInAstS var u'
   AstLetDomainsS _vars l v -> intVarInAstDomains var l || intVarInAstS var v
+  AstFloorS (AstPrimalPartS a) -> intVarInAstS var a
+  AstCondS b v w ->
+    intVarInAstBool var b || intVarInAstS var v || intVarInAstS var w
+  AstMinIndexS (AstPrimalPartS a) -> intVarInAstS var a
+  AstMaxIndexS (AstPrimalPartS a) -> intVarInAstS var a
 
 intVarInIndexS :: AstVarId -> AstIndexS sh -> Bool
 intVarInIndexS var = any (intVarInAstInt var)
@@ -271,6 +285,15 @@ substitute1Ast i var v1 = case v1 of
   AstLetDomains vars l v ->
     AstLetDomains vars (substitute1AstDomains i var l)
                        (substitute1Ast i var v)
+  AstFloor (AstPrimalPart a) ->
+    AstFloor (AstPrimalPart $ substitute1Ast i var a)
+  AstCond b v w -> AstCond (substitute1AstBool i var b)
+                           (substitute1Ast i var v)
+                           (substitute1Ast i var w)
+  AstMinIndex (AstPrimalPart a) ->
+    AstMinIndex (AstPrimalPart $ substitute1Ast i var a)
+  AstMaxIndex (AstPrimalPart a) ->
+    AstMaxIndex (AstPrimalPart $ substitute1Ast i var a)
 
 substitute1AstDynamic
   :: GoodScalar r
@@ -386,7 +409,15 @@ substitute1AstS i var v1 = case v1 of
   AstLetDomainsS vars l v ->
     AstLetDomainsS vars (substitute1AstDomains i var l)
                         (substitute1AstS i var v)
-
+  AstFloorS (AstPrimalPartS a) ->
+    AstFloorS (AstPrimalPartS $ substitute1AstS i var a)
+  AstCondS b v w -> AstCondS (substitute1AstBool i var b)
+                             (substitute1AstS i var v)
+                             (substitute1AstS i var w)
+  AstMinIndexS (AstPrimalPartS a) ->
+    AstMinIndexS (AstPrimalPartS $ substitute1AstS i var a)
+  AstMaxIndexS (AstPrimalPartS a) ->
+    AstMaxIndexS (AstPrimalPartS $ substitute1AstS i var a)
 
 -- * Determining if a term is too small to require sharing
 
