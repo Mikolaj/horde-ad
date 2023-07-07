@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, CPP, UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances
   ( liftVD, liftVD2, liftVR, liftVR2, liftVS, liftVS2
@@ -25,6 +26,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Boolean
+import           Data.Int (Int64)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -611,3 +613,16 @@ instance ( Floating (Vector r), Numeric r, RealFloat r )
   isDenormalized = undefined
   isNegativeZero = undefined
   isIEEE = undefined
+
+
+-- * TODO: A hack to make AstInterpret type-check
+
+instance Fractional Int64
+
+instance Floating Int64
+
+instance RealFrac Int64
+
+instance RealFloat Int64
+
+instance Floating (Vector Int64)

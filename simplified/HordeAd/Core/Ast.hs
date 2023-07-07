@@ -15,7 +15,8 @@ module HordeAd.Core.Ast
   , AstShaped(..), AstPrimalPartS(..), AstDualPartS(..)
   , AstDynamic(..), AstDomains(..)
   , AstVarName(..), AstDynamicVarName(..), AstInt(..), AstBool(..)
-  , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
+  , OpCode(..), OpCodeNum(..), OpCodeIntegral(..)
+  , OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare
@@ -101,7 +102,10 @@ data AstRanked :: RankedTensorKind where
    -- even in trivial cases until the transpose pass eliminates D
 
   -- For the numeric classes:
+  AstNm :: OpCodeNum -> [AstRanked r n] -> AstRanked r n
+             -- name of the same length as AstOp for tests
   AstOp :: OpCode -> [AstRanked r n] -> AstRanked r n
+  AstOpIntegral :: OpCodeIntegral -> [AstRanked Int64 n] -> AstRanked Int64 n
   AstSumOfList :: [AstRanked r n] -> AstRanked r n
   AstIota :: AstRanked r 1
     -- needed, because toInteger and so fromIntegral is not defined for Ast
@@ -188,7 +192,9 @@ data AstShaped :: ShapedTensorKind where
    -- even in trivial cases until the transpose pass eliminates D
 
   -- For the numeric classes:
+  AstNmS :: OpCodeNum -> [AstShaped r sh] -> AstShaped r sh
   AstOpS :: OpCode -> [AstShaped r sh] -> AstShaped r sh
+  AstOpIntegralS :: OpCodeIntegral -> [AstShaped Int64 sh] -> AstShaped Int64 sh
   AstSumOfListS :: [AstShaped r sh] -> AstShaped r sh
   AstIotaS :: forall n r. KnownNat n => AstShaped r '[n]
     -- needed, because toInteger and so fromIntegral is not defined for Ast
@@ -320,14 +326,21 @@ data AstBool where
   AstRelInt :: OpCodeRel -> [AstInt] -> AstBool
 deriving instance Show AstBool
 
-data OpCode =
+data OpCodeNum =
     MinusOp | TimesOp | NegateOp | AbsOp | SignumOp
-  | DivideOp | RecipOp
+  | MaxOp | MinOp
+ deriving Show
+
+data OpCode =
+    DivideOp | RecipOp
   | ExpOp | LogOp | SqrtOp | PowerOp | LogBaseOp
   | SinOp | CosOp | TanOp | AsinOp | AcosOp | AtanOp
   | SinhOp | CoshOp | TanhOp | AsinhOp | AcoshOp | AtanhOp
   | Atan2Op
-  | MaxOp | MinOp
+ deriving Show
+
+data OpCodeIntegral =
+  QuotOp | RemOp
  deriving Show
 
 data OpCodeInt =
@@ -513,36 +526,55 @@ instance (KnownNat n, GoodScalar r) => OrdB (AstPrimalPart r n) where
 instance Eq (AstRanked r n) where
   _ == _ = error "Ast: can't evaluate terms for Eq"
 
-instance Ord (OR.Array n r) => Ord (AstRanked r n) where
-  max u v = AstOp MaxOp [u, v]
-  min u v = AstOp MinOp [u, v]
+instance (Ord r, Num r, Ord (OR.Array n r)) => Ord (AstRanked r n) where
+  max u v = AstNm MaxOp [u, v]
+  min u v = AstNm MinOp [u, v]
   -- Unfortunately, the others can't be made to return @AstBool@.
   _ <= _ = error "Ast: can't evaluate terms for Ord"
 
-instance Num (OR.Array n r) => Num (AstRanked r n) where
+instance (Num (OR.Array n r)) => Num (AstRanked r n) where
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
   u + AstSumOfList l = AstSumOfList (u : l)
   AstSumOfList l + u = AstSumOfList (u : l)
   u + v = AstSumOfList [u, v]
-  u - v = AstOp MinusOp [u, v]
-  u * v = AstOp TimesOp [u, v]
+  u - v = AstNm MinusOp [u, v]
+  u * v = AstNm TimesOp [u, v]
     -- no hacks like for AstSumOfList, because when tscaleByScalar
     -- is reconstructed, it looks for the binary form
-  negate u = AstOp NegateOp [u]
-  abs v = AstOp AbsOp [v]
-  signum v = AstOp SignumOp [v]
+  negate u = AstNm NegateOp [u]
+  abs v = AstNm AbsOp [v]
+  signum v = AstNm SignumOp [v]
   fromInteger = AstConstant . AstPrimalPart . AstConst . fromInteger
 
-instance Real (OR.Array n r) => Real (AstRanked r n) where
+instance Enum (AstRanked Int64 n) where
+  toEnum = undefined  -- AstConst . OR.scalar . toEnum
+  fromEnum = undefined  -- do we need to define our own Enum for this?
+
+-- Warning: this class lacks toInteger, which also makes it impossible
+-- to include AstInt in Ast via fromIntegral, hence AstIota.
+-- Warning: div and mod operations are very costly (simplifying them
+-- requires constructing conditionals, etc). If this error is removed,
+-- they are going to work, but slowly.
+instance Integral (OR.Array n Int64) => Integral (AstRanked Int64 n) where
+  quot u v = AstOpIntegral QuotOp [u, v]
+  rem u v = AstOpIntegral RemOp [u, v]
+  quotRem u v = (AstOpIntegral QuotOp [u, v], AstOpIntegral RemOp [u, v])
+  divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
+  toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
+
+instance (Real r, Real (OR.Array n r))
+         => Real (AstRanked r n) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance Fractional (OR.Array n r) => Fractional (AstRanked r n) where
+instance Fractional (OR.Array n r)
+         => Fractional (AstRanked r n) where
   u / v = AstOp DivideOp  [u, v]
   recip v = AstOp RecipOp [v]
   fromRational = AstConstant . AstPrimalPart . AstConst . fromRational
 
-instance (Floating (OR.Array n r)) => Floating (AstRanked r n) where
+instance (RealFloat r, Floating (OR.Array n r))
+         => Floating (AstRanked r n) where
   pi = AstConstant $ AstPrimalPart $ AstConst pi
   exp u = AstOp ExpOp [u]
   log u = AstOp LogOp [u]
@@ -562,12 +594,14 @@ instance (Floating (OR.Array n r)) => Floating (AstRanked r n) where
   acosh u = AstOp AcoshOp [u]
   atanh u = AstOp AtanhOp [u]
 
-instance RealFrac (OR.Array n r) => RealFrac (AstRanked r n) where
+instance (RealFloat r, RealFrac (OR.Array n r))
+         => RealFrac (AstRanked r n) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance RealFloat (OR.Array n r) => RealFloat (AstRanked r n) where
+instance (RealFloat r,  RealFloat (OR.Array n r))
+         => RealFloat (AstRanked r n) where
   atan2 u v = AstOp Atan2Op [u, v]
   -- We can be selective here and omit the other methods,
   -- most of which don't even have a differentiable codomain.
@@ -585,53 +619,71 @@ instance RealFloat (OR.Array n r) => RealFloat (AstRanked r n) where
 instance Eq (AstNoVectorize r n) where
   _ == _ = error "AstNoVectorize: can't evaluate terms for Eq"
 
-instance Ord (AstRanked r n) => Ord (AstNoVectorize r n) where
+instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstNoVectorize r n) where
   max (AstNoVectorize u) (AstNoVectorize v) =
-    AstNoVectorize (AstOp MaxOp [u, v])
+    AstNoVectorize (AstNm MaxOp [u, v])
   min (AstNoVectorize u) (AstNoVectorize v) =
-    AstNoVectorize (AstOp MinOp [u, v])
+    AstNoVectorize (AstNm MinOp [u, v])
   _ <= _ = error "AstNoVectorize: can't evaluate terms for Ord"
 
 deriving instance Num (AstRanked r n) => Num (AstNoVectorize r n)
-deriving instance Real (AstRanked r n) => Real (AstNoVectorize r n)
+deriving instance (Real r, Real (AstRanked r n))
+                   => Real (AstNoVectorize r n)
+deriving instance Enum (AstRanked r n) => Enum (AstNoVectorize r n)
+deriving instance (Real r, Integral (AstRanked r n))
+                  => Integral (AstNoVectorize r n)
 deriving instance Fractional (AstRanked r n) => Fractional (AstNoVectorize r n)
 deriving instance Floating (AstRanked r n) => Floating (AstNoVectorize r n)
-deriving instance RealFrac (AstRanked r n) => RealFrac (AstNoVectorize r n)
-deriving instance RealFloat (AstRanked r n) => RealFloat (AstNoVectorize r n)
+deriving instance (RealFloat r, RealFrac (AstRanked r n))
+                  => RealFrac (AstNoVectorize r n)
+deriving instance (RealFloat r, RealFloat (AstRanked r n))
+                  => RealFloat (AstNoVectorize r n)
 
 instance Eq (AstNoSimplify r n) where
   _ == _ = error "AstNoSimplify: can't evaluate terms for Eq"
 
-instance Ord (AstRanked r n) => Ord (AstNoSimplify r n) where
+instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstNoSimplify r n) where
   max (AstNoSimplify u) (AstNoSimplify v) =
-    AstNoSimplify (AstOp MaxOp [u, v])
+    AstNoSimplify (AstNm MaxOp [u, v])
   min (AstNoSimplify u) (AstNoSimplify v) =
-    AstNoSimplify (AstOp MinOp [u, v])
+    AstNoSimplify (AstNm MinOp [u, v])
   _ <= _ = error "AstNoSimplify: can't evaluate terms for Ord"
 
 deriving instance Num (AstRanked r n) => Num (AstNoSimplify r n)
-deriving instance Real (AstRanked r n) => Real (AstNoSimplify r n)
+deriving instance (Real r, Real (AstRanked r n))
+                  => Real (AstNoSimplify r n)
+deriving instance Enum (AstRanked r n) => Enum (AstNoSimplify r n)
+deriving instance (Real r, Integral (AstRanked r n))
+                  => Integral (AstNoSimplify r n)
 deriving instance Fractional (AstRanked r n) => Fractional (AstNoSimplify r n)
 deriving instance Floating (AstRanked r n) => Floating (AstNoSimplify r n)
-deriving instance RealFrac (AstRanked r n) => RealFrac (AstNoSimplify r n)
-deriving instance RealFloat (AstRanked r n) => RealFloat (AstNoSimplify r n)
+deriving instance (RealFloat r, RealFrac (AstRanked r n))
+                  => RealFrac (AstNoSimplify r n)
+deriving instance (RealFloat r, RealFloat (AstRanked r n))
+                  => RealFloat (AstNoSimplify r n)
 
 instance Eq (AstPrimalPart r n) where
   _ == _ = error "AstPrimalPart: can't evaluate terms for Eq"
 
-instance Ord (AstRanked r n) => Ord (AstPrimalPart r n) where
+instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstPrimalPart r n) where
   max (AstPrimalPart u) (AstPrimalPart v) =
-    AstPrimalPart (AstOp MaxOp [u, v])
+    AstPrimalPart (AstNm MaxOp [u, v])
   min (AstPrimalPart u) (AstPrimalPart v) =
-    AstPrimalPart (AstOp MinOp [u, v])
+    AstPrimalPart (AstNm MinOp [u, v])
   _ <= _ = error "AstPrimalPart: can't evaluate terms for Ord"
 
 deriving instance Num (AstRanked r n) => Num (AstPrimalPart r n)
-deriving instance Real (AstRanked r n) => Real (AstPrimalPart r n)
+deriving instance (Real r, Real (AstRanked r n))
+                  => Real (AstPrimalPart r n)
+deriving instance Enum (AstRanked r n) => Enum (AstPrimalPart r n)
+deriving instance (Real r, Integral (AstRanked r n))
+                  => Integral (AstPrimalPart r n)
 deriving instance Fractional (AstRanked r n) => Fractional (AstPrimalPart r n)
 deriving instance Floating (AstRanked r n) => Floating (AstPrimalPart r n)
-deriving instance RealFrac (AstRanked r n) => RealFrac (AstPrimalPart r n)
-deriving instance RealFloat (AstRanked r n) => RealFloat (AstPrimalPart r n)
+deriving instance (RealFloat r, RealFrac (AstRanked r n))
+                  => RealFrac (AstPrimalPart r n)
+deriving instance (RealFloat r,  RealFloat (AstRanked r n))
+                  => RealFloat (AstPrimalPart r n)
 
 
 -- * Unlawful boolean instances of shaped AST; they are lawful modulo evaluation
@@ -662,52 +714,6 @@ instance (OS.Shape sh, GoodScalar r) => OrdB (AstShaped r sh) where
   v >* u = AstRelS GtOp [AstPrimalPartS v, AstPrimalPartS u]
   v >=* u = AstRelS GeqOp [AstPrimalPartS v, AstPrimalPartS u]
 
-{-
-type instance BooleanOf (AstNoVectorize r n) = AstBool
-
-instance IfB (AstNoVectorize r n) where
-  ifB b v w = AstNoVectorize $ astCond b (unAstNoVectorize v)
-                                         (unAstNoVectorize w)
-
-instance KnownNat n => EqB (AstNoVectorize r n) where
-  v ==* u = AstRel EqOp [ AstPrimalPartS $ unAstNoVectorize v
-                        , AstPrimalPartS $ unAstNoVectorize u ]
-  v /=* u = AstRel NeqOp [ AstPrimalPartS $ unAstNoVectorize v
-                         , AstPrimalPartS $ unAstNoVectorize u ]
-
-instance KnownNat n => OrdB (AstNoVectorize r n) where
-  v <* u = AstRel LsOp [ AstPrimalPartS $ unAstNoVectorize v
-                       , AstPrimalPartS $ unAstNoVectorize u ]
-  v <=* u = AstRel LeqOp [ AstPrimalPartS $ unAstNoVectorize v
-                         , AstPrimalPartS $ unAstNoVectorize u ]
-  v >* u = AstRel GtOp [ AstPrimalPartS $ unAstNoVectorize v
-                       , AstPrimalPartS $ unAstNoVectorize u ]
-  v >=* u = AstRel GeqOp [ AstPrimalPartS $ unAstNoVectorize v
-                         , AstPrimalPartS $ unAstNoVectorize u ]
-
-type instance BooleanOf (AstNoSimplify r n) = AstBool
-
-instance IfB (AstNoSimplify r n) where
-  ifB b v w = AstNoSimplify $ astCond b (unAstNoSimplify v)
-                                         (unAstNoSimplify w)
-
-instance KnownNat n => EqB (AstNoSimplify r n) where
-  v ==* u = AstRel EqOp [ AstPrimalPartS $ unAstNoSimplify v
-                        , AstPrimalPartS $ unAstNoSimplify u ]
-  v /=* u = AstRel NeqOp [ AstPrimalPartS $ unAstNoSimplify v
-                         , AstPrimalPartS $ unAstNoSimplify u ]
-
-instance KnownNat n => OrdB (AstNoSimplify r n) where
-  v <* u = AstRel LsOp [ AstPrimalPartS $ unAstNoSimplify v
-                       , AstPrimalPartS $ unAstNoSimplify u ]
-  v <=* u = AstRel LeqOp [ AstPrimalPartS $ unAstNoSimplify v
-                         , AstPrimalPartS $ unAstNoSimplify u ]
-  v >* u = AstRel GtOp [ AstPrimalPartS $ unAstNoSimplify v
-                       , AstPrimalPartS $ unAstNoSimplify u ]
-  v >=* u = AstRel GeqOp [ AstPrimalPartS $ unAstNoSimplify v
-                         , AstPrimalPartS $ unAstNoSimplify u ]
--}
-
 type instance BooleanOf (AstPrimalPartS r sh) = AstBool
 
 instance IfB (AstPrimalPartS r sh) where
@@ -731,36 +737,54 @@ instance (OS.Shape sh, GoodScalar r) => OrdB (AstPrimalPartS r sh) where
 instance Eq (AstShaped r sh) where
   _ == _ = error "Ast: can't evaluate terms for Eq"
 
-instance Ord (OS.Array sh r) => Ord (AstShaped r sh) where
-  max u v = AstOpS MaxOp [u, v]
-  min u v = AstOpS MinOp [u, v]
+instance (Ord r, Num r, Ord (OS.Array sh r)) => Ord (AstShaped r sh) where
+  max u v = AstNmS MaxOp [u, v]
+  min u v = AstNmS MinOp [u, v]
   -- Unfortunately, the others can't be made to return @AstBool@.
   _ <= _ = error "Ast: can't evaluate terms for Ord"
 
-instance Num (OS.Array sh r) => Num (AstShaped r sh) where
+instance (Num (OS.Array sh r)) => Num (AstShaped r sh) where
   AstSumOfListS lu + AstSumOfListS lv = AstSumOfListS (lu ++ lv)
   u + AstSumOfListS l = AstSumOfListS (u : l)
   AstSumOfListS l + u = AstSumOfListS (u : l)
   u + v = AstSumOfListS [u, v]
-  u - v = AstOpS MinusOp [u, v]
-  u * v = AstOpS TimesOp [u, v]
+  u - v = AstNmS MinusOp [u, v]
+  u * v = AstNmS TimesOp [u, v]
     -- no hacks like for AstSumOfListS, because when tscaleByScalar
     -- is reconstructed, it looks for the binary form
-  negate u = AstOpS NegateOp [u]
-  abs v = AstOpS AbsOp [v]
-  signum v = AstOpS SignumOp [v]
+  negate u = AstNmS NegateOp [u]
+  abs v = AstNmS AbsOp [v]
+  signum v = AstNmS SignumOp [v]
   fromInteger = AstConstantS . AstPrimalPartS . AstConstS . fromInteger
 
-instance Real (OS.Array sh r) => Real (AstShaped r sh) where
+instance (Real r, Real (OS.Array sh r)) => Real (AstShaped r sh) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance Fractional (OS.Array sh r) => Fractional (AstShaped r sh) where
+instance Enum (AstShaped Int64 n) where
+  toEnum = undefined
+  fromEnum = undefined  -- do we need to define our own Enum for this?
+
+-- Warning: this class lacks toInteger, which also makes it impossible
+-- to include AstInt in Ast via fromIntegral, hence AstIota.
+-- Warning: div and mod operations are very costly (simplifying them
+-- requires constructing conditionals, etc). If this error is removed,
+-- they are going to work, but slowly.
+instance Integral (OS.Array sh Int64) => Integral (AstShaped Int64 sh) where
+  quot u v = AstOpIntegralS QuotOp [u, v]
+  rem u v = AstOpIntegralS RemOp [u, v]
+  quotRem u v = (AstOpIntegralS QuotOp [u, v], AstOpIntegralS RemOp [u, v])
+  divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
+  toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
+
+instance Fractional (OS.Array sh r)
+         => Fractional (AstShaped r sh) where
   u / v = AstOpS DivideOp  [u, v]
   recip v = AstOpS RecipOp [v]
   fromRational = AstConstantS . AstPrimalPartS . AstConstS . fromRational
 
-instance (Floating (OS.Array sh r)) => Floating (AstShaped r sh) where
+instance (RealFloat r, Floating (OS.Array sh r))
+         => Floating (AstShaped r sh) where
   pi = AstConstantS $ AstPrimalPartS $ AstConstS pi
   exp u = AstOpS ExpOp [u]
   log u = AstOpS LogOp [u]
@@ -780,12 +804,14 @@ instance (Floating (OS.Array sh r)) => Floating (AstShaped r sh) where
   acosh u = AstOpS AcoshOp [u]
   atanh u = AstOpS AtanhOp [u]
 
-instance RealFrac (OS.Array sh r) => RealFrac (AstShaped r sh) where
+instance (RealFloat r, RealFrac (OS.Array sh r))
+         => RealFrac (AstShaped r sh) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance RealFloat (OS.Array sh r) => RealFloat (AstShaped r sh) where
+instance (RealFloat r, RealFloat (OS.Array sh r))
+         => RealFloat (AstShaped r sh) where
   atan2 u v = AstOpS Atan2Op [u, v]
   -- We can be selective here and omit the other methods,
   -- most of which don't even have a differentiable codomain.
@@ -800,59 +826,29 @@ instance RealFloat (OS.Array sh r) => RealFloat (AstShaped r sh) where
   isNegativeZero = undefined
   isIEEE = undefined
 
-{-
-instance Eq (AstNoVectorize r n) where
-  _ == _ = error "AstNoVectorize: can't evaluate terms for Eq"
-
-instance Ord (AstShaped r sh) => Ord (AstNoVectorize r n) where
-  max (AstNoVectorize u) (AstNoVectorize v) =
-    AstNoVectorize (AstOpS MaxOp [u, v])
-  min (AstNoVectorize u) (AstNoVectorize v) =
-    AstNoVectorize (AstOpS MinOp [u, v])
-  _ <= _ = error "AstNoVectorize: can't evaluate terms for Ord"
-
-deriving instance Num (AstShaped r sh) => Num (AstNoVectorize r n)
-deriving instance Real (AstShaped r sh) => Real (AstNoVectorize r n)
-deriving instance Fractional (AstShaped r sh) => Fractional (AstNoVectorize r n)
-deriving instance Floating (AstShaped r sh) => Floating (AstNoVectorize r n)
-deriving instance RealFrac (AstShaped r sh) => RealFrac (AstNoVectorize r n)
-deriving instance RealFloat (AstShaped r sh) => RealFloat (AstNoVectorize r n)
-
-instance Eq (AstNoSimplify r n) where
-  _ == _ = error "AstNoSimplify: can't evaluate terms for Eq"
-
-instance Ord (AstShaped r sh) => Ord (AstNoSimplify r n) where
-  max (AstNoSimplify u) (AstNoSimplify v) =
-    AstNoSimplify (AstOpS MaxOp [u, v])
-  min (AstNoSimplify u) (AstNoSimplify v) =
-    AstNoSimplify (AstOpS MinOp [u, v])
-  _ <= _ = error "AstNoSimplify: can't evaluate terms for Ord"
-
-deriving instance Num (AstShaped r sh) => Num (AstNoSimplify r n)
-deriving instance Real (AstShaped r sh) => Real (AstNoSimplify r n)
-deriving instance Fractional (AstShaped r sh) => Fractional (AstNoSimplify r n)
-deriving instance Floating (AstShaped r sh) => Floating (AstNoSimplify r n)
-deriving instance RealFrac (AstShaped r sh) => RealFrac (AstNoSimplify r n)
-deriving instance RealFloat (AstShaped r sh) => RealFloat (AstNoSimplify r n)
--}
-
 instance Eq (AstPrimalPartS r sh) where
   _ == _ = error "AstPrimalPartS: can't evaluate terms for Eq"
 
-instance Ord (AstShaped r sh) => Ord (AstPrimalPartS r sh) where
+instance (Ord r, Num r, Ord (AstShaped r sh)) => Ord (AstPrimalPartS r sh) where
   max (AstPrimalPartS u) (AstPrimalPartS v) =
-    AstPrimalPartS (AstOpS MaxOp [u, v])
+    AstPrimalPartS (AstNmS MaxOp [u, v])
   min (AstPrimalPartS u) (AstPrimalPartS v) =
-    AstPrimalPartS (AstOpS MinOp [u, v])
+    AstPrimalPartS (AstNmS MinOp [u, v])
   _ <= _ = error "AstPrimalPartS: can't evaluate terms for Ord"
 
 deriving instance Num (AstShaped r sh) => Num (AstPrimalPartS r sh)
-deriving instance Real (AstShaped r sh) => Real (AstPrimalPartS r sh)
+deriving instance (Real r, Real (AstShaped r sh))
+                  => Real (AstPrimalPartS r sh)
+deriving instance Enum (AstShaped r sh) => Enum (AstPrimalPartS r sh)
+deriving instance (Real r, Integral (AstShaped r sh))
+                  => Integral (AstPrimalPartS r sh)
 deriving instance Fractional (AstShaped r sh)
                   => Fractional (AstPrimalPartS r sh)
 deriving instance Floating (AstShaped r sh) => Floating (AstPrimalPartS r sh)
-deriving instance RealFrac (AstShaped r sh) => RealFrac (AstPrimalPartS r sh)
-deriving instance RealFloat (AstShaped r sh) => RealFloat (AstPrimalPartS r sh)
+deriving instance (RealFloat r, RealFrac (AstShaped r sh))
+                  => RealFrac (AstPrimalPartS r sh)
+deriving instance (RealFloat r, RealFloat (AstShaped r sh))
+                  => RealFloat (AstPrimalPartS r sh)
 
 
 -- * ADShare definition

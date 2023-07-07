@@ -141,11 +141,16 @@ build1V k (var, v00) =
                         -- than what we need for simple substitution, etc.
     Ast.AstLetADShare{} -> error "build1V: AstLetADShare"
 
-    Ast.AstOp opCode args -> traceRule $
-      Ast.AstOp opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
+    Ast.AstNm opCode args -> traceRule $
+      Ast.AstNm opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
         -- we permit duplicated bindings, because they can't easily
         -- be substituted into one another, unlike inside a let,
         -- which may get inlined
+    Ast.AstOp opCode args -> traceRule $
+      Ast.AstOp opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
+    Ast.AstOpIntegral opCode args -> traceRule $
+      Ast.AstOpIntegral opCode
+      $ map (\v -> build1VOccurenceUnknown k (var, v)) args
     Ast.AstSumOfList args -> traceRule $
       Ast.AstSumOfList $ map (\v -> build1VOccurenceUnknown k (var, v)) args
     Ast.AstIota ->
@@ -435,11 +440,16 @@ build1VS (var, v00) =
                          -- than what we need for simple substitution, etc.
     Ast.AstLetADShareS{} -> error "build1VS: AstLetADShareS"
 
-    Ast.AstOpS opCode args -> traceRule $
-      Ast.AstOpS opCode $ map (\v -> build1VOccurenceUnknownS (var, v)) args
+    Ast.AstNmS opCode args -> traceRule $
+      Ast.AstNmS opCode $ map (\v -> build1VOccurenceUnknownS (var, v)) args
         -- we permit duplicated bindings, because they can't easily
         -- be substituted into one another, unlike inside a let,
         -- which may get inlined
+    Ast.AstOpS opCode args -> traceRule $
+      Ast.AstOpS opCode $ map (\v -> build1VOccurenceUnknownS (var, v)) args
+    Ast.AstOpIntegralS opCode args -> traceRule $
+      Ast.AstOpIntegralS opCode
+      $ map (\v -> build1VOccurenceUnknownS (var, v)) args
     Ast.AstSumOfListS args -> traceRule $
       Ast.AstSumOfListS $ map (\v -> build1VOccurenceUnknownS (var, v)) args
     Ast.AstIotaS ->

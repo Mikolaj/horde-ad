@@ -145,7 +145,7 @@ instance (Num (f r z), IsPrimal f r z) => Num (ADVal f r z) where
   D l1 u u' - D l2 v v' =
     dD (l1 `mergeADShare` l2) (u - v) (dAdd u' (dScale (intOfShape v (-1)) v'))
   D l1 ue u' * D l2 ve v' =
-    -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
+    -- The bangs are neccessary for GHC 9.2.7 test results to match 9.4.
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dAdd (dScale v u') (dScale u v'))
@@ -159,9 +159,20 @@ instance (Real (f r z), IsPrimal f r z) => Real (ADVal f r z) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
+instance Enum (ADVal f r z) where  -- dummy, to satisfy Integral below
+  toEnum = undefined
+  fromEnum = undefined
+
+instance (Integral (f r z), IsPrimal f r z)
+         => Integral (ADVal f r z) where
+  quot (D l1 u _) (D l2 v _) = dD (l1 `mergeADShare` l2) (quot u v) dZero
+  rem (D l1 u _) (D l2 v _) = dD (l1 `mergeADShare` l2) (rem u v) dZero
+  quotRem x y = (quot x y, rem x y)
+  divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
+  toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
+
 instance (Fractional (f r z), IsPrimal f r z) => Fractional (ADVal f r z) where
   D l1 ue u' / D l2 ve v' =
-    -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u / v)
@@ -225,7 +236,6 @@ instance (RealFrac (f r z), IsPrimal f r z) => RealFrac (ADVal f r z) where
 
 instance (RealFloat (f r z), IsPrimal f r z) => RealFloat (ADVal f r z) where
   atan2 (D l1 ue u') (D l2 ve v') =
-    -- The bangs below are neccessary for GHC 9.2.7.
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
     let !(!l4, v) = recordSharingPrimal ve l3 in
     let !(!l5, t) = recordSharingPrimal (recip (u * u + v * v)) l4

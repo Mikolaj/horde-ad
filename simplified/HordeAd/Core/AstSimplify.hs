@@ -181,7 +181,9 @@ simplifyStepNonIndex t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var u v
   Ast.AstLetADShare{} -> error "simplifyStepNonIndex: AstLetADShare"
+  Ast.AstNm{} -> t
   Ast.AstOp{} -> t
+  Ast.AstOpIntegral{} -> t
   Ast.AstSumOfList{} -> t
   Ast.AstIota -> t
   Ast.AstIndex{} -> t
@@ -288,9 +290,12 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstVar{} -> Ast.AstIndex v0 ix
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   Ast.AstLetADShare{} -> error "astIndexROrStepOnly: AstLetADShare"
+  Ast.AstNm opCode args ->
+    Ast.AstNm opCode (map (`astIndexRec` ix) args)
   Ast.AstOp opCode args ->
-    -- TODO: we need integer let to preserve sharing of ix here and elsewhere:
     Ast.AstOp opCode (map (`astIndexRec` ix) args)
+  Ast.AstOpIntegral opCode args ->
+    Ast.AstOpIntegral opCode (map (`astIndexRec` ix) args)
   Ast.AstSumOfList args ->
     Ast.AstSumOfList (map (`astIndexRec` ix) args)
   Ast.AstIota | AstIntConst i <- i1 -> case sameNat (Proxy @m) (Proxy @1) of
@@ -567,6 +572,12 @@ astTranspose :: forall n r. (GoodScalar r, KnownNat n)
 astTranspose perm0 t0 = case (perm0, t0) of
   ([], t) -> t
   (perm, Ast.AstLet var u v) -> astLet var u (astTranspose perm v)
+  (perm, Ast.AstNm opCode args@[Ast.AstTranspose{}, _]) ->
+    Ast.AstNm opCode (map (astTranspose perm) args)
+  (perm, Ast.AstNm opCode args@[_,  Ast.AstTranspose{}]) ->
+    Ast.AstNm opCode (map (astTranspose perm) args)
+  (perm, Ast.AstNm opCode args) | not (length args > 1 || all isVar args) ->
+    Ast.AstNm opCode (map (astTranspose perm) args)
   (perm, Ast.AstOp opCode args@[Ast.AstTranspose{}, _]) ->
     Ast.AstOp opCode (map (astTranspose perm) args)
   (perm, Ast.AstOp opCode args@[_,  Ast.AstTranspose{}]) ->
@@ -610,6 +621,13 @@ astTransposeS = AstTransposeS @perm
 astReshape :: forall p m r. (KnownNat p, KnownNat m, GoodScalar r)
            => ShapeInt m -> AstRanked r p -> AstRanked r m
 astReshape shOut (Ast.AstLet var u v) = astLet var u (astReshape shOut v)
+astReshape shOut (Ast.AstNm opCode args@[Ast.AstReshape{}, _]) =
+  Ast.AstNm opCode (map (astReshape shOut) args)
+astReshape shOut (Ast.AstNm opCode args@[_, Ast.AstReshape{}]) =
+  Ast.AstNm opCode (map (astReshape shOut) args)
+astReshape shOut (Ast.AstNm opCode args)
+  | not (length args > 1 || all isVar args) =
+      Ast.AstNm opCode (map (astReshape shOut) args)
 astReshape shOut (Ast.AstOp opCode args@[Ast.AstReshape{}, _]) =
   Ast.AstOp opCode (map (astReshape shOut) args)
 astReshape shOut (Ast.AstOp opCode args@[_, Ast.AstReshape{}]) =
@@ -728,12 +746,19 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
     Ast.AstLetADShare{} -> error "astGatherCase: AstLetADShare"
-    Ast.AstOp opCode args | not (length args > 1 || all isVar args) ->
+    Ast.AstNm opCode args | not (length args > 1 || all isVar args) ->
       -- Going inside AstOp usually makes the term more expensive to interpret
       -- and reverting this transformation requires comparing many arguments,
       -- so it's not practical.
+      Ast.AstNm opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
+    Ast.AstNm{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstOp opCode args | not (length args > 1 || all isVar args) ->
       Ast.AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     Ast.AstOp{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstOpIntegral opCode args | not (length args > 1 || all isVar args) ->
+      Ast.AstOpIntegral
+        opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
+    Ast.AstOpIntegral{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstSumOfList args | not (length args > 1 || all isVar args) ->
       Ast.AstSumOfList (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     Ast.AstSumOfList{} -> Ast.AstGather sh4 v4 (vars4, ix4)
@@ -1123,9 +1148,15 @@ inlineAst memo v0 = case v0 of
         in (memo3, substitute1Ast (SubstitutionPayloadRanked u0) var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstLetADShare{} -> error "inlineAst: AstLetADShare"
+  Ast.AstNm opCode args ->
+    let (memo2, args2) = mapAccumR inlineAst memo args
+    in (memo2, Ast.AstNm opCode args2)
   Ast.AstOp opCode args ->
     let (memo2, args2) = mapAccumR inlineAst memo args
     in (memo2, Ast.AstOp opCode args2)
+  Ast.AstOpIntegral opCode args ->
+    let (memo2, args2) = mapAccumR inlineAst memo args
+    in (memo2, Ast.AstOpIntegral opCode args2)
   Ast.AstSumOfList args ->
     let (memo2, args2) = mapAccumR inlineAst memo args
     in (memo2, Ast.AstSumOfList args2)
@@ -1327,9 +1358,15 @@ inlineAstS memo v0 = case v0 of
         in (memo3, substitute1AstS (SubstitutionPayloadShaped u0) var v2)
       _ -> (memo2, Ast.AstLetS var u2 v2)
   Ast.AstLetADShareS{} -> error "inlineAstS: AstLetADShareS"
+  Ast.AstNmS opCode args ->
+    let (memo2, args2) = mapAccumR inlineAstS memo args
+    in (memo2, Ast.AstNmS opCode args2)
   Ast.AstOpS opCode args ->
     let (memo2, args2) = mapAccumR inlineAstS memo args
     in (memo2, Ast.AstOpS opCode args2)
+  Ast.AstOpIntegralS opCode args ->
+    let (memo2, args2) = mapAccumR inlineAstS memo args
+    in (memo2, Ast.AstOpIntegralS opCode args2)
   Ast.AstSumOfListS args ->
     let (memo2, args2) = mapAccumR inlineAstS memo args
     in (memo2, Ast.AstSumOfListS args2)
@@ -1466,7 +1503,10 @@ unletAst env t = case t of
           -- and via unletAst, but if many lets can be eliminated,
           -- subtractADShare does it much faster
     in unletAst env $ bindsToLet v lassocs
+  Ast.AstNm opCode args -> Ast.AstNm opCode (map (unletAst env) args)
   Ast.AstOp opCode args -> Ast.AstOp opCode (map (unletAst env) args)
+  Ast.AstOpIntegral opCode args ->
+    Ast.AstOpIntegral opCode (map (unletAst env) args)
   Ast.AstSumOfList args -> Ast.AstSumOfList (map (unletAst env) args)
   Ast.AstIota -> t
   Ast.AstIndex v ix ->
@@ -1585,7 +1625,10 @@ unletAstS env t = case t of
           -- and via unletAst, but if many lets can be eliminated,
           -- subtractADShare does it much faster
     in unletAstS env $ bindsToLetS v lassocs
+  Ast.AstNmS opCode args -> Ast.AstNmS opCode (map (unletAstS env) args)
   Ast.AstOpS opCode args -> Ast.AstOpS opCode (map (unletAstS env) args)
+  Ast.AstOpIntegralS opCode args ->
+    Ast.AstOpIntegralS opCode (map (unletAstS env) args)
   Ast.AstSumOfListS args -> Ast.AstSumOfListS (map (unletAstS env) args)
   Ast.AstIotaS -> t
   Ast.AstIndexS v ix ->
@@ -1639,7 +1682,10 @@ simplifyAst t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   Ast.AstLetADShare{} -> error "simplifyAst: AstLetADShare"
+  Ast.AstNm opCode args -> Ast.AstNm opCode (map simplifyAst args)
   Ast.AstOp opCode args -> Ast.AstOp opCode (map simplifyAst args)
+  Ast.AstOpIntegral opCode args ->
+    Ast.AstOpIntegral opCode (map simplifyAst args)
   Ast.AstSumOfList args -> Ast.AstSumOfList (map simplifyAst args)
     -- We do not simplify, e.g., addition or multiplication by zero.
     -- There are too many cases and values are often unknown.
@@ -1664,8 +1710,10 @@ simplifyAst t = case t of
         -- no luck, let's try simplifying the argument
         case astTranspose perm2 (simplifyAst v2) of
           u@(Ast.AstTranspose _ Ast.AstVar{}) -> u  -- normal form
-          u@(Ast.AstTranspose _ (Ast.AstOp _ args))
+          u@(Ast.AstTranspose _ (Ast.AstNm _ args))
             | length args > 1 || all isVar args -> u  -- normal form
+          u@(Ast.AstTranspose _ (Ast.AstOp _ args))
+            | length args > 1 || all isVar args -> u
           u@(Ast.AstTranspose _ (Ast.AstSumOfList args))
             | length args > 1 || all isVar args -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
@@ -1681,9 +1729,11 @@ simplifyAst t = case t of
       Ast.AstReshape sh2 v2 ->
         case astReshape sh2 (simplifyAst v2) of
           u@(Ast.AstReshape _ Ast.AstVar{}) -> u  -- normal form
+          u@(Ast.AstReshape _ (Ast.AstNm _ args))
+            | length args > 1 || all isVar args -> u
+              -- normal form, because gather doesn't go inside AstNm either
           u@(Ast.AstReshape _ (Ast.AstOp _ args))
             | length args > 1 || all isVar args -> u
-              -- normal form, because gather doesn't go inside such AstOp either
           u@(Ast.AstReshape _ (Ast.AstSumOfList args))
             | length args > 1 || all isVar args -> u  -- normal form
           u@(Ast.AstReshape _ Ast.AstScatter{}) -> u  -- normal form
@@ -1962,7 +2012,10 @@ simplifyAstS t = case t of
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v -> astLetS var (simplifyAstS u) (simplifyAstS v)
   Ast.AstLetADShareS{} -> error "simplifyAstS: AstLetADShareS"
+  Ast.AstNmS opCode args -> Ast.AstNmS opCode (map simplifyAstS args)
   Ast.AstOpS opCode args -> Ast.AstOpS opCode (map simplifyAstS args)
+  Ast.AstOpIntegralS opCode args ->
+    Ast.AstOpIntegralS opCode (map simplifyAstS args)
   Ast.AstSumOfListS args -> Ast.AstSumOfListS (map simplifyAstS args)
     -- We do not simplify, e.g., addition or multiplication by zero.
     -- There are too many cases and values are often unknown.

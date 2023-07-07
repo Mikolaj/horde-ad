@@ -108,7 +108,9 @@ printAst cfg d = \case
              . showString " -> "
              . printAst cfg 0 v0)
   AstLetADShare l v -> printAst cfg d $ bindsToLet v (assocsADShare l)
+  AstNm opCode args -> printAstNm printAst cfg d opCode args
   AstOp opCode args -> printAstOp printAst cfg d opCode args
+  AstOpIntegral opCode args -> printAstOpIntegral printAst cfg d opCode args
   AstSumOfList [] -> error "printAst: empty AstSumOfList"
   AstSumOfList (left : args) ->
     let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
@@ -348,14 +350,22 @@ printAstBool cfg d = \case
                          $ map unAstPrimalPartS args
   AstRelInt opCode args -> printAstRelOp printAstInt cfg d opCode args
 
-printAstOp :: (PrintConfig -> Int -> a -> ShowS)
-           -> PrintConfig -> Int -> OpCode -> [a] -> ShowS
-printAstOp pr cfg d opCode args = case (opCode, args) of
+printAstNm :: (PrintConfig -> Int -> a -> ShowS)
+              -> PrintConfig -> Int -> OpCodeNum -> [a] -> ShowS
+printAstNm pr cfg d opCode args = case (opCode, args) of
   (MinusOp, [u, v]) -> printBinaryOp pr cfg d u (6, " - ") v
   (TimesOp, [u, v]) -> printBinaryOp pr cfg d u (7, " * ") v
   (NegateOp, [u]) -> printPrefixOp pr cfg d "negate" [u]
   (AbsOp, [u]) -> printPrefixOp pr cfg d "abs" [u]
   (SignumOp, [u]) -> printPrefixOp pr cfg d "signum" [u]
+  (MaxOp, [u, v]) -> printPrefixOp pr cfg d "max" [u, v]
+  (MinOp, [u, v]) -> printPrefixOp pr cfg d "min" [u, v]
+  _ -> error $ "printAstNm: wrong number of arguments"
+               ++ show (opCode, length args)
+
+printAstOp :: (PrintConfig -> Int -> a -> ShowS)
+           -> PrintConfig -> Int -> OpCode -> [a] -> ShowS
+printAstOp pr cfg d opCode args = case (opCode, args) of
   (DivideOp, [u, v]) -> printBinaryOp pr cfg d u (7, " / ") v
   (RecipOp, [u]) -> printPrefixOp pr cfg d "recip" [u]
   (ExpOp, [u]) -> printPrefixOp pr cfg d "exp" [u]
@@ -376,9 +386,15 @@ printAstOp pr cfg d opCode args = case (opCode, args) of
   (AcoshOp, [u]) -> printPrefixOp pr cfg d "acosh" [u]
   (AtanhOp, [u]) -> printPrefixOp pr cfg d "atanh" [u]
   (Atan2Op, [u, v]) -> printPrefixOp pr cfg d "atan2" [u, v]
-  (MaxOp, [u, v]) -> printPrefixOp pr cfg d "max" [u, v]
-  (MinOp, [u, v]) -> printPrefixOp pr cfg d "min" [u, v]
   _ -> error $ "printAstOp: wrong number of arguments"
+               ++ show (opCode, length args)
+
+printAstOpIntegral :: (PrintConfig -> Int -> a -> ShowS)
+                   -> PrintConfig -> Int -> OpCodeIntegral -> [a] -> ShowS
+printAstOpIntegral pr cfg d opCode args = case (opCode, args) of
+  (QuotOp, [u, v]) -> printPrefixOp pr cfg d "quot" [u, v]
+  (RemOp, [u, v]) -> printPrefixOp pr cfg d "rem" [u, v]
+  _ -> error $ "printAstOpIntegral: wrong number of arguments"
                ++ show (opCode, length args)
 
 printPrefixOp :: (PrintConfig -> Int -> a -> ShowS)
@@ -485,7 +501,9 @@ printAstS cfg d = \case
              . showString " -> "
              . printAstS cfg 0 v0)
   AstLetADShareS l v -> printAstS cfg d $ bindsToLetS v (assocsADShare l)
+  AstNmS opCode args -> printAstNm printAstS cfg d opCode args
   AstOpS opCode args -> printAstOp printAstS cfg d opCode args
+  AstOpIntegralS opCode args -> printAstOpIntegral printAstS cfg d opCode args
   AstSumOfListS [] -> error "printAst: empty AstSumOfList"
   AstSumOfListS (left : args) ->
     let rs = map (\arg -> showString " + " . printAstS cfg 7 arg) args

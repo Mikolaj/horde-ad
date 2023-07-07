@@ -49,8 +49,14 @@ shapeAst v1 = case v1 of
   AstVar sh _var -> sh
   AstLet _ _ v -> shapeAst v
   AstLetADShare _ v-> shapeAst v
+  AstNm _opCode args -> case args of
+    [] -> error "shapeAst: AstNm with no arguments"
+    t : _ -> shapeAst t
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
+    t : _ -> shapeAst t
+  AstOpIntegral _opCode args -> case args of
+    [] -> error "shapeAst: AstOpIntegral with no arguments"
     t : _ -> shapeAst t
   AstSumOfList args -> case args of
     [] -> error "shapeAst: AstSumOfList with no arguments"
@@ -114,7 +120,9 @@ intVarInAst var = \case
     -- traversal; in (almost?) all cases this is also the true answer,
     -- because the let definitions come from the outside and so can't
     -- contain a local variable we (always?) ask about
+  AstNm _ l -> any (intVarInAst var) l
   AstOp _ l -> any (intVarInAst var) l
+  AstOpIntegral _ l -> any (intVarInAst var) l
   AstSumOfList l -> any (intVarInAst var) l
   AstIota -> False
   AstIndex v ix -> intVarInAst var v || intVarInIndex var ix
@@ -186,7 +194,9 @@ intVarInAstS var = \case
     -- traversal; in (almost?) all cases this is also the true answer,
     -- because the let definitions come from the outside and so can't
     -- contain a local variable we (always?) ask about
+  AstNmS _ l -> any (intVarInAstS var) l
   AstOpS _ l -> any (intVarInAstS var) l
+  AstOpIntegralS _ l -> any (intVarInAstS var) l
   AstSumOfListS l -> any (intVarInAstS var) l
   AstIotaS -> False
   AstIndexS v ix -> intVarInAstS var v || intVarInIndexS var ix
@@ -253,7 +263,10 @@ substitute1Ast i var v1 = case v1 of
   AstLet var2 u v ->
     AstLet var2 (substitute1Ast i var u) (substitute1Ast i var v)
   AstLetADShare{} -> error "substitute1Ast: AstLetADShare"
+  AstNm opCode args -> AstNm opCode $ map (substitute1Ast i var) args
   AstOp opCode args -> AstOp opCode $ map (substitute1Ast i var) args
+  AstOpIntegral opCode args ->
+    AstOpIntegral opCode $ map (substitute1Ast i var) args
   AstSumOfList args -> AstSumOfList $ map (substitute1Ast i var) args
   AstIota -> v1
   AstIndex v is ->
@@ -376,7 +389,10 @@ substitute1AstS i var v1 = case v1 of
   AstLetS var2 u v ->
     AstLetS var2 (substitute1AstS i var u) (substitute1AstS i var v)
   AstLetADShareS{} -> error "substitute1AstS: AstLetADShareS"
+  AstNmS opCode args -> AstNmS opCode $ map (substitute1AstS i var) args
   AstOpS opCode args -> AstOpS opCode $ map (substitute1AstS i var) args
+  AstOpIntegralS opCode args ->
+    AstOpIntegralS opCode $ map (substitute1AstS i var) args
   AstSumOfListS args -> AstSumOfListS $ map (substitute1AstS i var) args
   AstIotaS -> v1
   AstIndexS v is ->
