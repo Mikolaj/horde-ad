@@ -637,19 +637,19 @@ testReluSimplerPP4S = do
       (var3, ast3) = funToAstS (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarNameS renamesNull var3
        ++ " -> " ++ printAstSimpleS renamesNull ast3
-    @?= "\\v1 -> sconstant (sgather (sreplicate (sfromList [sconst 0.0, sconst 1.0])) (\\[i4, i3] -> [i4, ifB ((v1 * sreshape (sconstant (sreplicate (sconst 7.0)))) !$ [i4, i3] <=* sconst 0.0) 0 1])) * (v1 * sreshape (sreplicate (sconst 7.0)))"
+    @?= "\\v1 -> sconstant (sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i4, i3] -> [i4, ifB ((v1 * sreshape (sconstant (sreplicate (sconst 7.0)))) !$ [i4, i3] <=* sconst 0.0) 0 1])) * (v1 * sreshape (sreplicate (sconst 7.0)))"
   resetVarCounter
   let (artifact6, deltas) = revDtFun True reluT2 (Flip $ OS.constant 128, 42)
   printGradient6PrettyS renames artifact6
-    @?= "\\dret m2 x3 -> let m8 = sreshape (sreplicate x3) ; m9 = sgather (sreplicate (sfromList [sconst 0.0, sconst 1.0])) (\\[i6, i7] -> [i6, ifB ((let m13 = sreshape (sreplicate x3) in (m2 * m13) !$ [i6, i7]) <=* sconst 0.0) 0 1]) ; m10 = m2 * m8 ; m11 = m9 * dret in (m8 * m11, ssum (sreshape (m2 * m11)))"
+    @?= "\\dret m2 x3 -> let m8 = sreshape (sreplicate x3) ; m9 = sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i6, i7] -> [i6, ifB ((let m13 = sreshape (sreplicate x3) in (m2 * m13) !$ [i6, i7]) <=* sconst 0.0) 0 1]) ; m10 = m2 * m8 ; m11 = m9 * dret in (m8 * m11, ssum (sreshape (m2 * m11)))"
   printPrimal6PrettyS renames artifact6
-    @?= "\\m2 x3 -> let m8 = sreshape (sreplicate x3) ; m9 = sgather (sreplicate (sfromList [sconst 0.0, sconst 1.0])) (\\[i6, i7] -> [i6, ifB ((let m13 = sreshape (sreplicate x3) in (m2 * m13) !$ [i6, i7]) <=* sconst 0.0) 0 1]) ; m10 = m2 * m8 in m9 * m10"
+    @?= "\\m2 x3 -> let m8 = sreshape (sreplicate x3) ; m9 = sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i6, i7] -> [i6, ifB ((let m13 = sreshape (sreplicate x3) in (m2 * m13) !$ [i6, i7]) <=* sconst 0.0) 0 1]) ; m10 = m2 * m8 in m9 * m10"
   printGradient6PrettyS renames (simplifyArtifact6S artifact6)
     @?= "\\dret m2 x3 -> let m11 = sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i6, i7] -> [i6, ifB ((m2 * sreshape (sreplicate x3)) !$ [i6, i7] <=* sconst 0.0) 0 1]) * dret in (sreshape (sreplicate x3) * m11, ssum (sreshape (m2 * m11)))"
   printPrimal6PrettyS renames (simplifyArtifact6S artifact6)
     @?= "\\m2 x3 -> sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i6, i7] -> [i6, ifB ((m2 * sreshape (sreplicate x3)) !$ [i6, i7] <=* sconst 0.0) 0 1]) * (m2 * sreshape (sreplicate x3))"
   show deltas
-    @?= "LetS 100000007 (ScaleS (AstVarS (AstVarId 100000009)) (LetS 100000006 (AddS (ScaleS (AstVarS (AstVarId 100000008)) (RToS (InputR (InputId 0)))) (ScaleS (AstVarS (AstVarId 100000002)) (LetS 100000005 (ReshapeS (LetS 100000004 (ReplicateS (RToS (InputR (InputId 1)))))))))))"
+    @?= "LetS 100000006 (ScaleS (AstVarS (AstVarId 100000009)) (LetS 100000005 (AddS (ScaleS (AstVarS (AstVarId 100000008)) (RToS (InputR (InputId 0)))) (ScaleS (AstVarS (AstVarId 100000002)) (LetS 100000004 (ReshapeS (LetS 100000003 (ReplicateS (RToS (InputR (InputId 1)))))))))))"
 
 testReluSimpler4S :: Assertion
 testReluSimpler4S = do

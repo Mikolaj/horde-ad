@@ -12,7 +12,6 @@ import           Control.Exception.Assert.Sugar
 import           Control.Monad (when)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as OS
-import           Data.Boolean
 import           Data.IORef
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.IntMap as IM
@@ -224,7 +223,16 @@ build1V k (var, v00) =
 
     Ast.AstFloor (AstPrimalPart v) ->
       Ast.AstFloor $ AstPrimalPart $ build1V k (var, v)
-    Ast.AstCond b v w -> build1V k (var, ifB b v w)
+    Ast.AstCond b (Ast.AstConstant (AstPrimalPart v))
+                  (Ast.AstConstant (AstPrimalPart w)) ->
+      let t = astConstant $ AstPrimalPart
+              $ astIndexStep (astFromList [v, w])
+                             (singletonIndex $ astIntCond b 0 1)
+      in build1V k (var, t)
+    Ast.AstCond b v w ->
+      let t = astIndexStep (astFromList [v, w])
+                           (singletonIndex $ astIntCond b 0 1)
+      in build1V k (var, t)
     Ast.AstMinIndex (AstPrimalPart v) ->
       Ast.AstMinIndex $ AstPrimalPart $ build1V k (var, v)
     Ast.AstMaxIndex (AstPrimalPart v) ->
@@ -523,7 +531,16 @@ build1VS (var, v00) =
 
     Ast.AstFloorS (AstPrimalPartS v) ->
       Ast.AstFloorS $ AstPrimalPartS $ build1VS (var, v)
-    Ast.AstCondS b v w -> build1VS (var, ifB b v w)
+    Ast.AstCondS b (Ast.AstConstantS (AstPrimalPartS v))
+                   (Ast.AstConstantS (AstPrimalPartS w)) ->
+      let t = astConstantS $ AstPrimalPartS
+              $ astIndexStepS @'[2] (astFromListS [v, w])
+                                    (astIntCond b 0 1 :$: ZSH)
+      in build1VS (var, t)
+    Ast.AstCondS b v w ->
+      let t = astIndexStepS @'[2] (astFromListS [v, w])
+                                  (astIntCond b 0 1 :$: ZSH)
+      in build1VS (var, t)
     Ast.AstMinIndexS (AstPrimalPartS v) ->
       Ast.AstMinIndexS $ AstPrimalPartS $ build1VS (var, v)
     Ast.AstMaxIndexS (AstPrimalPartS v) ->

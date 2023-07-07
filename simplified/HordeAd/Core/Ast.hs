@@ -423,19 +423,19 @@ instance Boolean AstBool where
 
 type instance BooleanOf (AstRanked r n) = AstBool
 
-instance KnownNat n => IfB (AstRanked r n) where
+instance IfB (AstRanked r n) where
   ifB = astCond
 
--- No simplification yet done at this point, so constant boolean unlikely,
+-- No simplification yet done at this point, so AstBoolConst unlikely,
 -- but it's a constant time simplification, so no harm done.
-astCond :: KnownNat n
-        => AstBool -> AstRanked r n -> AstRanked r n -> AstRanked r n
+-- The AstConstant is more helpful, making Delta expressions smaller.
+-- A stronger version of this function is in AstSimplify.
+astCond :: AstBool -> AstRanked r n -> AstRanked r n -> AstRanked r n
 astCond (AstBoolConst b) v w = if b then v else w
-astCond b (AstConstant (AstPrimalPart v)) (AstConstant (AstPrimalPart w)) =
-  AstConstant $ AstPrimalPart $ AstIndex (AstFromList [v, w])
-                                         (singletonIndex $ AstIntCond b 0 1)
-astCond b v w = AstIndex (AstFromList [v, w])
-                         (singletonIndex $ AstIntCond b 0 1)
+astCond b (AstConstant (AstPrimalPart v))
+          (AstConstant (AstPrimalPart w)) =
+  AstConstant $ AstPrimalPart $ AstCond b v w
+astCond b v w = AstCond b v w
 
 instance (KnownNat n, GoodScalar r) => EqB (AstRanked r n) where
   v ==* u = AstRel EqOp [AstPrimalPart v, AstPrimalPart u]
@@ -449,7 +449,7 @@ instance (KnownNat n, GoodScalar r) => OrdB (AstRanked r n) where
 
 type instance BooleanOf (AstNoVectorize r n) = AstBool
 
-instance KnownNat n => IfB (AstNoVectorize r n) where
+instance IfB (AstNoVectorize r n) where
   ifB b v w = AstNoVectorize $ astCond b (unAstNoVectorize v)
                                          (unAstNoVectorize w)
 
@@ -471,9 +471,9 @@ instance (KnownNat n, GoodScalar r) => OrdB (AstNoVectorize r n) where
 
 type instance BooleanOf (AstNoSimplify r n) = AstBool
 
-instance KnownNat n => IfB (AstNoSimplify r n) where
+instance IfB (AstNoSimplify r n) where
   ifB b v w = AstNoSimplify $ astCond b (unAstNoSimplify v)
-                                         (unAstNoSimplify w)
+                                        (unAstNoSimplify w)
 
 instance (KnownNat n, GoodScalar r) => EqB (AstNoSimplify r n) where
   v ==* u = AstRel EqOp [ AstPrimalPart $ unAstNoSimplify v
@@ -493,7 +493,7 @@ instance (KnownNat n, GoodScalar r) => OrdB (AstNoSimplify r n) where
 
 type instance BooleanOf (AstPrimalPart r n) = AstBool
 
-instance KnownNat n => IfB (AstPrimalPart r n) where
+instance IfB (AstPrimalPart r n) where
   ifB b v w = AstPrimalPart $ astCond b (unAstPrimalPart v) (unAstPrimalPart w)
 
 instance (KnownNat n, GoodScalar r) => EqB (AstPrimalPart r n) where
@@ -638,19 +638,19 @@ deriving instance RealFloat (AstRanked r n) => RealFloat (AstPrimalPart r n)
 
 type instance BooleanOf (AstShaped r sh) = AstBool
 
-instance OS.Shape sh => IfB (AstShaped r sh) where
+instance IfB (AstShaped r sh) where
   ifB = astCondS
 
--- No simplification yet done at this point, so constant boolean unlikely,
+-- No simplification yet done at this point, so AstBoolConst unlikely,
 -- but it's a constant time simplification, so no harm done.
-astCondS :: OS.Shape sh
-         => AstBool -> AstShaped r sh -> AstShaped r sh -> AstShaped r sh
+-- The AstConstant is more helpful, making Delta expressions smaller.
+-- A stronger version of this function is in AstSimplify.
+astCondS :: AstBool -> AstShaped r sh -> AstShaped r sh -> AstShaped r sh
 astCondS (AstBoolConst b) v w = if b then v else w
-astCondS b (AstConstantS (AstPrimalPartS v)) (AstConstantS (AstPrimalPartS w)) =
-  AstConstantS $ AstPrimalPartS $ AstIndexS @'[2] (AstFromListS [v, w])
-                                                  (AstIntCond b 0 1 :$: ZSH)
-astCondS b v w = AstIndexS @'[2] (AstFromListS [v, w])
-                                 (AstIntCond b 0 1 :$: ZSH)
+astCondS b (AstConstantS (AstPrimalPartS v))
+           (AstConstantS (AstPrimalPartS w)) =
+  AstConstantS $ AstPrimalPartS $ AstCondS b v w
+astCondS b v w = AstCondS b v w
 
 instance (OS.Shape sh, GoodScalar r) => EqB (AstShaped r sh) where
   v ==* u = AstRelS EqOp [AstPrimalPartS v, AstPrimalPartS u]
@@ -665,7 +665,7 @@ instance (OS.Shape sh, GoodScalar r) => OrdB (AstShaped r sh) where
 {-
 type instance BooleanOf (AstNoVectorize r n) = AstBool
 
-instance KnownNat n => IfB (AstNoVectorize r n) where
+instance IfB (AstNoVectorize r n) where
   ifB b v w = AstNoVectorize $ astCond b (unAstNoVectorize v)
                                          (unAstNoVectorize w)
 
@@ -687,7 +687,7 @@ instance KnownNat n => OrdB (AstNoVectorize r n) where
 
 type instance BooleanOf (AstNoSimplify r n) = AstBool
 
-instance KnownNat n => IfB (AstNoSimplify r n) where
+instance IfB (AstNoSimplify r n) where
   ifB b v w = AstNoSimplify $ astCond b (unAstNoSimplify v)
                                          (unAstNoSimplify w)
 
@@ -710,9 +710,9 @@ instance KnownNat n => OrdB (AstNoSimplify r n) where
 
 type instance BooleanOf (AstPrimalPartS r sh) = AstBool
 
-instance OS.Shape sh => IfB (AstPrimalPartS r sh) where
-  ifB b v w =
-    AstPrimalPartS $ astCondS b (unAstPrimalPartS v) (unAstPrimalPartS w)
+instance IfB (AstPrimalPartS r sh) where
+  ifB b v w = AstPrimalPartS $ astCondS b (unAstPrimalPartS v)
+                                          (unAstPrimalPartS w)
 
 instance (OS.Shape sh, GoodScalar r) => EqB (AstPrimalPartS r sh) where
   v ==* u = AstRelS EqOp [v, u]

@@ -19,7 +19,7 @@ module HordeAd.Core.AstSimplify
   , astReshape, astTranspose, astReshapeS, astTransposeS
   , astLet, astSum, astScatter, astFromList, astFromVector, astReplicate
   , astAppend, astSlice, astSliceS, astReverse, astFromDynamic, astFromDynamicS
-  , astConstant, astDomainsLet
+  , astConstant, astDomainsLet, astCond
   , astIntCond
   , simplifyArtifact6, simplifyArtifact6S, simplifyAst6, simplifyAst6S
   , simplifyAstDomains6
@@ -28,7 +28,7 @@ module HordeAd.Core.AstSimplify
   , substituteAstS
   , astLetS, astSumS, astScatterS, astFromListS, astFromVectorS, astReplicateS
   , astAppendS, astReverseS
-  , astConstantS, astDomainsLetS
+  , astConstantS, astDomainsLetS, astCondS
   ) where
 
 import Prelude
@@ -206,7 +206,7 @@ simplifyStepNonIndex t = case t of
   Ast.AstD{} -> t
   Ast.AstLetDomains{} -> t
   Ast.AstFloor{} -> t
-  Ast.AstCond{} -> t
+  Ast.AstCond a b c -> astCond a b c
   Ast.AstMinIndex{} -> t
   Ast.AstMaxIndex{} -> t
 
@@ -320,7 +320,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     astIndex (if 0 <= i && i < length l
               then l !! i
               else astReplicate0N @(m1 + n)
-                                 (dropShape $ shapeAst v0) 0) rest1
+                                  (dropShape $ shapeAst v0) 0) rest1
   Ast.AstFromList{} | ZI <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromList l ->
@@ -336,7 +336,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     Ast.AstIndex v0 ix
   Ast.AstFromVector l ->
     Ast.AstIndex (astFromVector $ V.map (`astIndexRec` rest1) l)
-                  (singletonIndex i1)
+                 (singletonIndex i1)
   Ast.AstReplicate _k v ->
     astIndex v rest1
   Ast.AstAppend{} ->
@@ -395,7 +395,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     Ast.AstLetDomains vars l (astIndexRec v ix)
   Ast.AstFloor (AstPrimalPart v) ->
     Ast.AstFloor $ AstPrimalPart $ astIndexROrStepOnly stepOnly v ix
-  Ast.AstCond b v w -> Ast.AstCond b (astIndexRec v ix) (astIndexRec w ix)
+  Ast.AstCond b v w -> astCond b (astIndexRec v ix) (astIndexRec w ix)
   Ast.AstMinIndex (AstPrimalPart v) ->
     Ast.AstMinIndex $ AstPrimalPart $ astIndexROrStepOnly stepOnly v ix
   Ast.AstMaxIndex (AstPrimalPart v) ->
@@ -888,8 +888,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFloor (AstPrimalPart v) ->
       Ast.AstFloor $ AstPrimalPart
       $ astGatherROrStepOnly stepOnly sh4 v (vars4, ix4)
-    Ast.AstCond b v w -> Ast.AstCond b (astGather sh4 v (vars4, ix4))
-                                       (astGather sh4 w (vars4, ix4))
+    Ast.AstCond b v w -> astCond b (astGather sh4 v (vars4, ix4))
+                                   (astGather sh4 w (vars4, ix4))
     Ast.AstMinIndex (AstPrimalPart v) ->
       Ast.AstMinIndex $ AstPrimalPart
       $ astGatherROrStepOnly stepOnly
@@ -1033,6 +1033,13 @@ astDomainsLet var u v | astIsSmall True u =
   -- would be a substitution that only simplifies the touched
   -- terms with one step lookahead, as normally when vectorizing
 astDomainsLet var u v = Ast.AstDomainsLet var u v
+
+astCond :: AstBool -> AstRanked r n -> AstRanked r n -> AstRanked r n
+astCond (AstBoolConst b) v w = if b then v else w
+astCond b (Ast.AstConstant (AstPrimalPart v))
+          (Ast.AstConstant (AstPrimalPart w)) =
+  astConstant $ AstPrimalPart $ astCond b v w
+astCond b v w = Ast.AstCond b v w
 
 astIntCond :: AstBool -> AstInt -> AstInt -> AstInt
 astIntCond (AstBoolConst b) v w = if b then v else w
@@ -1699,7 +1706,7 @@ simplifyAst t = case t of
     Ast.AstLetDomains vars (simplifyAstDomains l) (simplifyAst v)
   Ast.AstFloor a -> Ast.AstFloor (simplifyAstPrimal a)
   Ast.AstCond b a2 a3 ->
-    Ast.AstCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
+    astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
   Ast.AstMinIndex a -> Ast.AstMinIndex (simplifyAstPrimal a)
   Ast.AstMaxIndex a -> Ast.AstMaxIndex (simplifyAstPrimal a)
 
@@ -1986,7 +1993,7 @@ simplifyAstS t = case t of
     Ast.AstLetDomainsS vars (simplifyAstDomains l) (simplifyAstS v)
   Ast.AstFloorS a -> Ast.AstFloorS (simplifyAstPrimalS a)
   Ast.AstCondS b a2 a3 ->
-    Ast.AstCondS (simplifyAstBool b) (simplifyAstS a2) (simplifyAstS a3)
+    astCondS (simplifyAstBool b) (simplifyAstS a2) (simplifyAstS a3)
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAstPrimalS a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAstPrimalS a)
 
@@ -2140,6 +2147,13 @@ astDomainsLetS var u v | astIsSmallS True u =
   -- would be a substitution that only simplifies the touched
   -- terms with one step lookahead, as normally when vectorizing
 astDomainsLetS var u v = Ast.AstDomainsLetS var u v
+
+astCondS :: AstBool -> AstShaped r sh -> AstShaped r sh -> AstShaped r sh
+astCondS (AstBoolConst b) v w = if b then v else w
+astCondS b (Ast.AstConstantS (AstPrimalPartS v))
+           (Ast.AstConstantS (AstPrimalPartS w)) =
+  astConstantS $ AstPrimalPartS $ astCondS b v w
+astCondS b v w = Ast.AstCondS b v w
 
 -- We have to simplify after substitution or simplifying is not idempotent.
 substituteAst :: forall n r. (GoodScalar r, KnownNat n)
