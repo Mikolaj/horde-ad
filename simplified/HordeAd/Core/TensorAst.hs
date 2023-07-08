@@ -254,7 +254,7 @@ instance RankedTensor AstPrimalPart where
 
 type instance IntOf AstNoVectorize = AstInt
 
-type instance PrimalOf AstNoVectorize = AstNoVectorize
+type instance PrimalOf AstNoVectorize = AstPrimalPart
 
 type instance DualOf AstNoVectorize = AstDualPart
 
@@ -301,15 +301,15 @@ instance RankedTensor AstNoVectorize where
   tconstBare = AstNoVectorize . AstConst
   raddDynamic = undefined
 
-  tconstant = AstNoVectorize . astConstant . AstPrimalPart . unAstNoVectorize
-  tprimalPart = id
+  tconstant = AstNoVectorize . astConstant
+  tprimalPart = AstPrimalPart . unAstNoVectorize
   tdualPart = AstDualPart . unAstNoVectorize
-  tD u u' = AstNoVectorize $ AstD (AstPrimalPart $ unAstNoVectorize u) u'
-  tScale (AstNoVectorize s) (AstDualPart t) = AstDualPart $ s `tmult` t
+  tD u u' = AstNoVectorize $ AstD u u'
+  tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
 type instance IntOf AstNoSimplify = AstInt
 
-type instance PrimalOf AstNoSimplify = AstNoSimplify
+type instance PrimalOf AstNoSimplify = AstPrimalPart
 
 type instance DualOf AstNoSimplify = AstDualPart
 
@@ -354,12 +354,12 @@ instance RankedTensor AstNoSimplify where
   tconstBare = AstNoSimplify . AstConst
   raddDynamic = undefined
 
-  tconstant = AstNoSimplify . astConstant . AstPrimalPart . unAstNoSimplify
+  tconstant = AstNoSimplify . astConstant
     -- exceptionally we do simplify AstConstant to avoid long boring chains
-  tprimalPart = id
+  tprimalPart = AstPrimalPart . unAstNoSimplify
   tdualPart = AstDualPart . unAstNoSimplify
-  tD u u' = AstNoSimplify $ AstD (AstPrimalPart $ unAstNoSimplify u) u'
-  tScale (AstNoSimplify s) (AstDualPart t) = AstDualPart $ s `tmult` t
+  tD u u' = AstNoSimplify $ AstD u u'
+  tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
 astLetFunUnSimp :: (KnownNat n, KnownNat m, GoodScalar r)
                 => AstRanked r n -> (AstRanked r n -> AstRanked r2 m)
