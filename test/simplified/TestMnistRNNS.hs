@@ -307,10 +307,12 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
          funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOS {-@'[batch_size, SizeMnistLabel]-} id
-       let envInit = extendEnvS varGlyph (sconstant astGlyph)
-                     $ extendEnvS varLabel (sconstant astLabel) EM.empty
+       let envInit = extendEnvS varGlyph (sconstant $ AstPrimalPartS astGlyph)
+                     $ extendEnvS varLabel (sconstant $ AstPrimalPartS astLabel)
+                       EM.empty
            f = MnistRnnShaped2.rnnMnistLossFusedS
-                 width batch_size (sprimalPart astGlyph, sprimalPart astLabel)
+                 width batch_size
+                   (AstPrimalPartS astGlyph, AstPrimalPartS astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit False f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw

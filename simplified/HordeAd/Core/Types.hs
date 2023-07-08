@@ -3,7 +3,8 @@
 module HordeAd.Core.Types
   ( TensorKind, RankedTensorKind, ShapedTensorKind
   , GoodScalar, DynamicExists(..), Domains, DomainsOD, sizeDomainsOD
-  , RankedOf, ShapedOf, IntOf, IndexOf, IntSh, IndexSh
+  , RankedOf, ShapedOf, PrimalOf, DualOf, IntOf, IndexOf, IntSh, IndexSh
+  , DummyDual(..)
   ) where
 
 import Prelude
@@ -55,9 +56,14 @@ sizeDomainsOD :: DomainsOD -> Int
 sizeDomainsOD d = let f (DynamicExists t) = OD.size t
                   in V.sum (V.map f d)
 
+-- k is intended to be Nat or [Nat] (or nothing, if we support scalars)
 type family RankedOf (f :: TensorKind k) :: RankedTensorKind
 
 type family ShapedOf (f :: TensorKind k) :: ShapedTensorKind
+
+type family PrimalOf (f :: TensorKind k) :: TensorKind k
+
+type family DualOf (f :: TensorKind k) :: TensorKind k
 
 -- This is used only in indexing and similar contexts.
 -- If used as size or shape gives more expressiveness,
@@ -84,3 +90,5 @@ type IntSh (f :: TensorKind k) (n :: Nat) = ShapedNat n (IntOf f)
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
 type IndexSh (f :: TensorKind k) (sh :: [Nat]) = ShapedList sh (IntOf f)
+
+data DummyDual a (b :: k) = DummyDual

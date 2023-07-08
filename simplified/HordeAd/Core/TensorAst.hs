@@ -10,8 +10,8 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
+import           Control.Arrow (second)
 import qualified Data.Array.Shape as OS
-import           Data.Bifunctor.Clown
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -33,19 +33,7 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
 
-type instance RankedOf (Clown AstDynamic) = AstRanked
-
-type instance ShapedOf (Clown AstDynamic) = AstShaped
-
 type instance IntOf AstRanked = AstInt
-
-type instance PrimalOf AstRanked = AstPrimalPart
-
-type instance DualOf AstRanked = AstDualPart
-
-type instance RankedOf AstRanked = AstRanked
-
-type instance ShapedOf AstRanked = AstShaped
 
 instance RankedTensor AstRanked where
   tlet a f = astLetFun a f
@@ -149,6 +137,17 @@ instance ConvertTensor AstRanked AstShaped where
   dshape (AstRToD v) = shapeToList $ shapeAst v
   dshape (AstSToD @sh _) = OS.shapeT @sh
 
+instance ConvertTensor AstPrimalPart AstPrimalPartS where
+  tfromD = AstPrimalPart . tfromD
+  tfromS = AstPrimalPart . tfromS . unAstPrimalPartS
+  dfromR = dfromR . unAstPrimalPart
+  dfromS = dfromS . unAstPrimalPartS
+  sfromR = AstPrimalPartS . sfromR . unAstPrimalPart
+  sfromD = AstPrimalPartS . sfromD
+  ddummy = ddummy @AstRanked
+  disDummy = disDummy @AstRanked
+  dshape = dshape @AstRanked
+
 instance DomainsTensor AstRanked AstShaped AstDomains where
   dmkDomains = AstDomains
   -- The operations below, for this instance, are not used ATM.
@@ -202,14 +201,6 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 type instance IntOf AstPrimalPart = AstInt
 
-type instance PrimalOf AstPrimalPart = AstPrimalPart
-
-type instance DualOf AstPrimalPart = DummyDual
-
-type instance RankedOf AstPrimalPart = AstPrimalPart
-
-type instance ShapedOf AstPrimalPart = AstPrimalPartS
-
 instance RankedTensor AstPrimalPart where
   tlet a f =
     AstPrimalPart
@@ -235,7 +226,7 @@ instance RankedTensor AstPrimalPart where
     AstPrimalPart $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
   tslice i n = AstPrimalPart . AstSlice i n . unAstPrimalPart
   treverse = AstPrimalPart . AstReverse . unAstPrimalPart
-  ttranspose perm = AstPrimalPart . AstTranspose perm . unAstPrimalPart
+  ttranspose perm = AstPrimalPart . astTranspose perm . unAstPrimalPart
   treshape sh = AstPrimalPart . astReshape sh . unAstPrimalPart
   tbuild1 k f = AstPrimalPart $ astBuild1Vectorize k (unAstPrimalPart . f)
   tgather sh t f = AstPrimalPart $ AstGather sh (unAstPrimalPart t)
@@ -244,7 +235,9 @@ instance RankedTensor AstPrimalPart where
 
   tsumOfList = AstPrimalPart . AstSumOfList . map unAstPrimalPart
   tconst = AstPrimalPart . AstConst
-  raddDynamic = undefined
+  tletWrap l u = AstPrimalPart $ AstLetADShare l (unAstPrimalPart u)
+  raddDynamic (AstPrimalPart r) d = raddDynamic r d
+  tregister r l = second AstPrimalPart $ astRegisterFun (unAstPrimalPart r) l
 
   tconstant = id
   tprimalPart = id
@@ -253,14 +246,6 @@ instance RankedTensor AstPrimalPart where
   tScale _ _ = DummyDual
 
 type instance IntOf AstNoVectorize = AstInt
-
-type instance PrimalOf AstNoVectorize = AstPrimalPart
-
-type instance DualOf AstNoVectorize = AstDualPart
-
-type instance RankedOf AstNoVectorize = AstNoVectorize
-
-type instance ShapedOf AstNoVectorize = AstShaped
 
 instance RankedTensor AstNoVectorize where
   tlet a f =
@@ -308,14 +293,6 @@ instance RankedTensor AstNoVectorize where
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
 type instance IntOf AstNoSimplify = AstInt
-
-type instance PrimalOf AstNoSimplify = AstPrimalPart
-
-type instance DualOf AstNoSimplify = AstDualPart
-
-type instance RankedOf AstNoSimplify = AstNoSimplify
-
-type instance ShapedOf AstNoSimplify = AstShaped
 
 instance RankedTensor AstNoSimplify where
   tlet a f =
@@ -370,14 +347,6 @@ astLetFunUnSimp a f =
   in AstLet var a ast
 
 type instance IntOf AstShaped = AstInt
-
-type instance PrimalOf AstShaped = AstPrimalPartS
-
-type instance DualOf AstShaped = AstDualPartS
-
-type instance RankedOf AstShaped = AstRanked
-
-type instance ShapedOf AstShaped = AstShaped
 
 instance ShapedTensor AstShaped where
   slet a f = astLetFunS a f
@@ -466,14 +435,6 @@ astBuild1VectorizeS f =
 
 type instance IntOf AstPrimalPartS = AstInt
 
-type instance PrimalOf AstPrimalPartS = AstPrimalPartS
-
-type instance DualOf AstPrimalPartS = DummyDual
-
-type instance RankedOf AstPrimalPartS = AstPrimalPart
-
-type instance ShapedOf AstPrimalPartS = AstPrimalPartS
-
 instance ShapedTensor AstPrimalPartS where
   slet a f =
     AstPrimalPartS
@@ -510,7 +471,9 @@ instance ShapedTensor AstPrimalPartS where
 
   ssumOfList = AstPrimalPartS . AstSumOfListS . map unAstPrimalPartS
   sconst = AstPrimalPartS . AstConstS
-  saddDynamic = undefined
+  sletWrap l u = AstPrimalPartS $ AstLetADShareS l (unAstPrimalPartS u)
+  saddDynamic (AstPrimalPartS r) d = saddDynamic r d
+  sregister r l = second AstPrimalPartS $ astRegisterFunS (unAstPrimalPartS r) l
 
   sconstant = id
   sprimalPart = id

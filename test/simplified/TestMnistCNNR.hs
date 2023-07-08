@@ -315,10 +315,11 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
            id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
-       let envInit = extendEnvR varGlyph (tconstant astGlyph)
-                     $ extendEnvR varLabel (tconstant astLabel) EM.empty
+       let envInit = extendEnvR varGlyph (tconstant $ AstPrimalPart astGlyph)
+                     $ extendEnvR varLabel (tconstant $ AstPrimalPart astLabel)
+                       EM.empty
            f = MnistCnnRanked2.convMnistLossFusedR
-                 miniBatchSize (tprimalPart astGlyph, tprimalPart astLabel)
+                 miniBatchSize (AstPrimalPart astGlyph, AstPrimalPart astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit @Nat @(Flip OR.Array)
                        False f valsInit envInit domainsInit

@@ -79,7 +79,7 @@ type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
 
 -- This requires the Tensor instance, hence the definitions must in this module.
 instance (KnownNat n, GoodScalar r)
-         => IfB (ADVal AstRanked r n) where
+         => IfB (ADVal AstPrimalPart r n) where
   ifB b v w = index (fromList [v, w]) (singletonIndex $ ifB b 0 1)
 
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
@@ -233,7 +233,7 @@ instance IfB (ADVal (Flip OS.Array) r sh) where
 
 -- This requires the Tensor instance, hence the definitions must in this module.
 instance (GoodScalar r, OS.Shape sh)
-         => IfB (ADVal AstShaped r sh) where
+         => IfB (ADVal AstPrimalPartS r sh) where
   ifB b v w = indexS (fromListS @2 [v, w]) (ifB b 0 1 :$: ZSH)
 
 -- First index is for outermost dimension; empty index means identity,

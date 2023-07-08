@@ -45,6 +45,36 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Core.SizedList
 import HordeAd.Core.Types
 
+-- * Basic type family instances
+
+type instance RankedOf (Clown AstDynamic) = AstRanked
+type instance ShapedOf (Clown AstDynamic) = AstShaped
+type instance RankedOf AstRanked = AstRanked
+type instance ShapedOf AstRanked = AstShaped
+type instance PrimalOf AstRanked = AstPrimalPart
+type instance DualOf AstRanked = AstDualPart
+type instance RankedOf AstPrimalPart = AstPrimalPart
+type instance ShapedOf AstPrimalPart = AstPrimalPartS
+type instance PrimalOf AstPrimalPart = AstPrimalPart
+type instance DualOf AstPrimalPart = DummyDual
+type instance RankedOf AstNoVectorize = AstNoVectorize
+type instance ShapedOf AstNoVectorize = AstShaped
+type instance PrimalOf AstNoVectorize = AstPrimalPart
+type instance DualOf AstNoVectorize = AstDualPart
+type instance RankedOf AstNoSimplify = AstNoSimplify
+type instance ShapedOf AstNoSimplify = AstShaped
+type instance PrimalOf AstNoSimplify = AstPrimalPart
+type instance DualOf AstNoSimplify = AstDualPart
+type instance RankedOf AstShaped = AstRanked
+type instance ShapedOf AstShaped = AstShaped
+type instance PrimalOf AstShaped = AstPrimalPartS
+type instance DualOf AstShaped = AstDualPartS
+type instance RankedOf AstPrimalPartS = AstPrimalPart
+type instance ShapedOf AstPrimalPartS = AstPrimalPartS
+type instance PrimalOf AstPrimalPartS = AstPrimalPartS
+type instance DualOf AstPrimalPartS = DummyDual
+
+
 -- * Ast and related definitions
 
 -- | The type family that to a concrete tensor type assigns its
@@ -75,7 +105,8 @@ deriving instance Show AstDynamicVarName
 
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 f r y =
-  ((AstVarName (f r y), [AstDynamicVarName]), AstDomains, AstOf f r y)
+  ( (AstVarName (f r y), [AstDynamicVarName]), AstDomains
+  , PrimalOf (AstOf f) r y )
 
 type AstIndex n = Index n AstInt
 

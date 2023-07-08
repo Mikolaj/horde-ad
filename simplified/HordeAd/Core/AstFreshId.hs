@@ -66,25 +66,25 @@ astRegisterFunS !r !l = unsafePerformIO $ do
   return ((freshId, DynamicExists $ AstSToD r) : l, r2)
 
 astRegisterADShare :: (GoodScalar r, KnownNat n)
-                   => AstRanked r n -> ADShare
-                   -> (ADShare, AstRanked r n)
+                   => AstPrimalPart r n -> ADShare
+                   -> (ADShare, AstPrimalPart r n)
 {-# NOINLINE astRegisterADShare #-}
-astRegisterADShare !r !l | astIsSmall True r = (l, r)
-astRegisterADShare !r !l = unsafePerformIO $ do
+astRegisterADShare !r !l | astIsSmall True (unAstPrimalPart r) = (l, r)
+astRegisterADShare !(AstPrimalPart r) !l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !l2 = insertADShare freshId (AstRToD r) l
-      !r2 = AstVar (shapeAst r) freshId
+      !r2 = AstPrimalPart $ AstVar (shapeAst r) freshId
   return (l2, r2)
 
 astRegisterADShareS :: (GoodScalar r, OS.Shape sh)
-                    => AstShaped r sh -> ADShare
-                    -> (ADShare, AstShaped r sh)
+                    => AstPrimalPartS r sh -> ADShare
+                    -> (ADShare, AstPrimalPartS r sh)
 {-# NOINLINE astRegisterADShareS #-}
-astRegisterADShareS !r !l | astIsSmallS True r = (l, r)
-astRegisterADShareS !r !l = unsafePerformIO $ do
+astRegisterADShareS !r !l | astIsSmallS True (unAstPrimalPartS r) = (l, r)
+astRegisterADShareS !(AstPrimalPartS r) !l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !l2 = insertADShare freshId (AstSToD r) l
-      !r2 = AstVarS freshId
+      !r2 = AstPrimalPartS $ AstVarS freshId
   return (l2, r2)
 
 funToAstIOR :: forall n m r r2. GoodScalar r

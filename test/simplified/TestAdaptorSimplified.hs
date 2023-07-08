@@ -295,7 +295,7 @@ testPiecewiseLinearPP = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\x2 -> tfromList [tconst 2.0 * x2, tconst 5.0 * x2] ! [ifB (x2 >* tconst 0.0) 0 1]"
   show deltas
-    @?= "LetR 100000004 (IndexR (LetR 100000003 (FromListR [LetR 100000001 (ScaleR (AstVar [] (AstVarId 100000003)) (InputR (InputId 0))),LetR 100000002 (ScaleR (AstVar [] (AstVarId 100000004)) (InputR (InputId 0)))])) [AstIntCond (AstRel GtOp [AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstVar [] (AstVarId 100000002))},AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstLetADShare ADShareNil (AstConst (fromList [] [0.0])))}]) (AstIntConst 0) (AstIntConst 1)] [2])"
+    @?= "LetR 100000004 (IndexR (LetR 100000003 (FromListR [LetR 100000001 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [] (AstVarId 100000003)}) (InputR (InputId 0))),LetR 100000002 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [] (AstVarId 100000004)}) (InputR (InputId 0)))])) [AstIntCond (AstRel GtOp [AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstVar [] (AstVarId 100000002))},AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstLetADShare ADShareNil (AstConst (fromList [] [0.0])))}]) (AstIntConst 0) (AstIntConst 1)] [2])"
 
 testPiecewiseLinear2PP :: Assertion
 testPiecewiseLinear2PP = do
@@ -314,7 +314,7 @@ testPiecewiseLinear2PP = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\x2 -> tconst (fromList [2] [2.0,5.0]) ! [ifB (x2 >* tconst 0.0) 0 1] * x2"
   show deltas
-    @?= "LetR 100000007 (ScaleR (AstVar [] (AstVarId 100000003)) (InputR (InputId 0)))"
+    @?= "LetR 100000007 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [] (AstVarId 100000003)}) (InputR (InputId 0)))"
 
 overleaf :: forall ranked r. (RankedTensor ranked, GoodScalar r) => ranked r 1 -> ranked r 0
 overleaf v = let wrap i = i `rem` fromIntegral (tlength v)
@@ -476,7 +476,7 @@ testReluPP = do
   printPrimal6Pretty renames artifact6
     @?= "\\m2 -> let m8 = tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i6, i7] -> [ifB (m2 ! [i6, i7] <=* tconst 0.0) 0 1]) in m8 * m2"
   show deltas
-    @?= "LetR 100000002 (ScaleR (AstVar [3,4] (AstVarId 100000008)) (InputR (InputId 0)))"
+    @?= "LetR 100000002 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [3,4] (AstVarId 100000008)}) (InputR (InputId 0)))"
 
 testReluPP2 :: Assertion
 testReluPP2 = do
@@ -501,7 +501,7 @@ testReluPP2 = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\v2 x3 -> tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (v2 ! [i5] * x3 <=* tconst 0.0) 0 1]) * (v2 * treplicate 5 x3)"
   show deltas
-    @?= "LetR 100000007 (ScaleR (AstVar [5] (AstVarId 100000006)) (LetR 100000006 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000005 (ReplicateR 5 (InputR (InputId 1))))))))"
+    @?= "LetR 100000007 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [5] (AstVarId 100000006)}) (LetR 100000006 (AddR (ScaleR (AstPrimalPart {unAstPrimalPart = AstReplicate 5 (AstVar [] (AstVarId 100000003))}) (InputR (InputId 0))) (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [5] (AstVarId 100000002)}) (LetR 100000005 (ReplicateR 5 (InputR (InputId 1))))))))"
 
 testReluSimpler :: Assertion
 testReluSimpler = do
@@ -527,7 +527,7 @@ testReluSimplerPP = do
   printPrimal6Pretty renames artifact6
     @?= "\\m2 -> let m8 = tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i6, i7] -> [ifB (m2 ! [i6, i7] <=* tconst 0.0) 0 1]) in m8 * m2"
   show deltas
-    @?= "LetR 100000002 (ScaleR (AstVar [3,4] (AstVarId 100000008)) (InputR (InputId 0)))"
+    @?= "LetR 100000002 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [3,4] (AstVarId 100000008)}) (InputR (InputId 0)))"
 
 testReluSimplerPP2 :: Assertion
 testReluSimplerPP2 = do
@@ -552,7 +552,7 @@ testReluSimplerPP2 = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\v2 x3 -> tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifB (v2 ! [i5] * x3 <=* tconst 0.0) 0 1]) * (v2 * treplicate 5 x3)"
   show deltas
-    @?= "LetR 100000007 (ScaleR (AstVar [5] (AstVarId 100000006)) (LetR 100000006 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000005 (ReplicateR 5 (InputR (InputId 1))))))))"
+    @?= "LetR 100000007 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [5] (AstVarId 100000006)}) (LetR 100000006 (AddR (ScaleR (AstPrimalPart {unAstPrimalPart = AstReplicate 5 (AstVar [] (AstVarId 100000003))}) (InputR (InputId 0))) (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [5] (AstVarId 100000002)}) (LetR 100000005 (ReplicateR 5 (InputR (InputId 1))))))))"
 
 testReluSimplerPP3 :: Assertion
 testReluSimplerPP3 = do
@@ -577,7 +577,7 @@ testReluSimplerPP3 = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\m2 x3 -> tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i7, i8] -> [ifB (m2 ! [i7, i8] * x3 <=* tconst 0.0) 0 1]) * (m2 * treplicate 3 (treplicate 4 x3))"
   show deltas
-    @?= "LetR 100000014 (ScaleR (AstVar [3,4] (AstVarId 100000009)) (LetR 100000013 (AddR (ScaleR (AstReplicate 3 (AstReplicate 4 (AstVar [] (AstVarId 100000003)))) (InputR (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000002)) (LetR 100000012 (ReplicateR 3 (LetR 100000011 (ReplicateR 4 (InputR (InputId 1))))))))))"
+    @?= "LetR 100000014 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [3,4] (AstVarId 100000009)}) (LetR 100000013 (AddR (ScaleR (AstPrimalPart {unAstPrimalPart = AstReplicate 3 (AstReplicate 4 (AstVar [] (AstVarId 100000003)))}) (InputR (InputId 0))) (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [3,4] (AstVarId 100000002)}) (LetR 100000012 (ReplicateR 3 (LetR 100000011 (ReplicateR 4 (InputR (InputId 1))))))))))"
 
 testReluSimpler3 :: Assertion
 testReluSimpler3 = do
@@ -613,7 +613,7 @@ testReluSimplerPP4 = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\m2 x3 -> tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i7, i8] -> [ifB (m2 ! [i7, i8] * x3 <=* tconst 0.0) 0 1]) * (m2 * treplicate 3 (treplicate 4 x3))"
   show deltas
-    @?= "LetR 100000005 (ScaleR (AstVar [3,4] (AstVarId 100000010)) (LetR 100000004 (AddR (ScaleR (AstVar [3,4] (AstVarId 100000009)) (InputR (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000002)) (LetR 100000003 (ReshapeR [12] [3,4] (LetR 100000002 (ReplicateR 12 (InputR (InputId 1))))))))))"
+    @?= "LetR 100000005 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [3,4] (AstVarId 100000010)}) (LetR 100000004 (AddR (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [3,4] (AstVarId 100000009)}) (InputR (InputId 0))) (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [3,4] (AstVarId 100000002)}) (LetR 100000003 (ReshapeR [12] [3,4] (LetR 100000002 (ReplicateR 12 (InputR (InputId 1))))))))))"
 
 testReluSimpler4 :: Assertion
 testReluSimpler4 = do
@@ -649,7 +649,7 @@ testReluSimplerPP4S = do
   printPrimal6PrettyS renames (simplifyArtifact6S artifact6)
     @?= "\\m2 x3 -> sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i6, i7] -> [i6, ifB ((m2 * sreshape (sreplicate x3)) !$ [i6, i7] <=* sconst 0.0) 0 1]) * (m2 * sreshape (sreplicate x3))"
   show deltas
-    @?= "LetS 100000006 (ScaleS (AstVarS (AstVarId 100000009)) (LetS 100000005 (AddS (ScaleS (AstVarS (AstVarId 100000008)) (RToS (InputR (InputId 0)))) (ScaleS (AstVarS (AstVarId 100000002)) (LetS 100000004 (ReshapeS (LetS 100000003 (ReplicateS (RToS (InputR (InputId 1)))))))))))"
+    @?= "LetS 100000006 (ScaleS (AstPrimalPartS {unAstPrimalPartS = AstVarS (AstVarId 100000009)}) (LetS 100000005 (AddS (ScaleS (AstPrimalPartS {unAstPrimalPartS = AstVarS (AstVarId 100000008)}) (RToS (InputR (InputId 0)))) (ScaleS (AstPrimalPartS {unAstPrimalPartS = AstVarS (AstVarId 100000002)}) (LetS 100000004 (ReshapeS (LetS 100000003 (ReplicateS (RToS (InputR (InputId 1)))))))))))"
 
 testReluSimpler4S :: Assertion
 testReluSimpler4S = do
@@ -719,7 +719,7 @@ testReluMaxPP2 = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\v2 x3 -> tgather [5] (tfromList [treplicate 5 (tconst 0.0), v2 * treplicate 5 x3]) (\\[i6] -> [ifB (tconst 0.0 >=* v2 ! [i6] * x3) 0 1, i6])"
   show deltas
-    @?= "LetR 100000011 (GatherR [5] (LetR 100000010 (FromListR [ZeroR,LetR 100000009 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000008 (ReplicateR 5 (InputR (InputId 1))))))])) <function> [2,5])"
+    @?= "LetR 100000011 (GatherR [5] (LetR 100000010 (FromListR [ZeroR,LetR 100000009 (AddR (ScaleR (AstPrimalPart {unAstPrimalPart = AstReplicate 5 (AstVar [] (AstVarId 100000003))}) (InputR (InputId 0))) (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [5] (AstVarId 100000002)}) (LetR 100000008 (ReplicateR 5 (InputR (InputId 1))))))])) <function> [2,5])"
 
 testReluMax3 :: Assertion
 testReluMax3 = do
@@ -762,7 +762,7 @@ testDot2PP = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\m2 m3 -> tsum (treshape [6] (m2 * m3))"
   show deltas
-    @?= "LetR 100000002 (AddR (Dot0R (AstVar [2,3] (AstVarId 100000003)) (InputR (InputId 0))) (Dot0R (AstVar [2,3] (AstVarId 100000002)) (InputR (InputId 1))))"
+    @?= "LetR 100000002 (AddR (Dot0R (AstPrimalPart {unAstPrimalPart = AstVar [2,3] (AstVarId 100000003)}) (InputR (InputId 0))) (Dot0R (AstPrimalPart {unAstPrimalPart = AstVar [2,3] (AstVarId 100000002)}) (InputR (InputId 1))))"
 
 testMatvecmulPP :: Assertion
 testMatvecmulPP = do

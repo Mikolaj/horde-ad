@@ -21,7 +21,8 @@ module HordeAd.Core.AstSimplify
   , astAppend, astSlice, astSliceS, astReverse, astFromDynamic, astFromDynamicS
   , astConstant, astDomainsLet, astCond
   , astIntCond
-  , simplifyArtifact6, simplifyArtifact6S, simplifyAst6, simplifyAst6S
+  , simplifyArtifact6, simplifyArtifact6S
+  , simplifyAstPrimal6, simplifyAst6, simplifyAstPrimal6S, simplifyAst6S
   , simplifyAstDomains6
   , unletAstDomains6, unletAst6, unletAst6S
   , substituteAst, substituteAstDomains, substituteAstInt, substituteAstBool
@@ -562,6 +563,7 @@ astReverse v = Ast.AstReverse v
 
 isVar :: AstRanked r n -> Bool
 isVar Ast.AstVar{} = True
+isVar (Ast.AstConstant (AstPrimalPart Ast.AstVar{})) = True
 isVar _ = False
 
 -- Beware, this does not do full simplification, which often requires
@@ -574,13 +576,21 @@ astTranspose perm0 t0 = case (perm0, t0) of
   (perm, Ast.AstLet var u v) -> astLet var u (astTranspose perm v)
   (perm, Ast.AstNm opCode args@[Ast.AstTranspose{}, _]) ->
     Ast.AstNm opCode (map (astTranspose perm) args)
-  (perm, Ast.AstNm opCode args@[_,  Ast.AstTranspose{}]) ->
+  (perm, Ast.AstNm opCode args@[Ast.AstConstant (AstPrimalPart Ast.AstTranspose{}), _]) ->
+    Ast.AstNm opCode (map (astTranspose perm) args)
+  (perm, Ast.AstNm opCode args@[_, Ast.AstTranspose{}]) ->
+    Ast.AstNm opCode (map (astTranspose perm) args)
+  (perm, Ast.AstNm opCode args@[_, Ast.AstConstant (AstPrimalPart Ast.AstTranspose{})]) ->
     Ast.AstNm opCode (map (astTranspose perm) args)
   (perm, Ast.AstNm opCode args) | not (length args > 1 || all isVar args) ->
     Ast.AstNm opCode (map (astTranspose perm) args)
   (perm, Ast.AstOp opCode args@[Ast.AstTranspose{}, _]) ->
     Ast.AstOp opCode (map (astTranspose perm) args)
-  (perm, Ast.AstOp opCode args@[_,  Ast.AstTranspose{}]) ->
+  (perm, Ast.AstOp opCode args@[Ast.AstConstant (AstPrimalPart Ast.AstTranspose{}), _]) ->
+    Ast.AstOp opCode (map (astTranspose perm) args)
+  (perm, Ast.AstOp opCode args@[_, Ast.AstTranspose{}]) ->
+    Ast.AstOp opCode (map (astTranspose perm) args)
+  (perm, Ast.AstOp opCode args@[_, Ast.AstConstant (AstPrimalPart Ast.AstTranspose{})]) ->
     Ast.AstOp opCode (map (astTranspose perm) args)
   (perm, Ast.AstOp opCode args) | not (length args > 1 || all isVar args) ->
     Ast.AstOp opCode (map (astTranspose perm) args)
@@ -623,12 +633,20 @@ astReshape :: forall p m r. (KnownNat p, KnownNat m, GoodScalar r)
 astReshape shOut (Ast.AstLet var u v) = astLet var u (astReshape shOut v)
 astReshape shOut (Ast.AstNm opCode args@[Ast.AstReshape{}, _]) =
   Ast.AstNm opCode (map (astReshape shOut) args)
+astReshape shOut (Ast.AstNm opCode args@[Ast.AstConstant (AstPrimalPart Ast.AstReshape{}), _]) =
+  Ast.AstNm opCode (map (astReshape shOut) args)
 astReshape shOut (Ast.AstNm opCode args@[_, Ast.AstReshape{}]) =
+  Ast.AstNm opCode (map (astReshape shOut) args)
+astReshape shOut (Ast.AstNm opCode args@[_, Ast.AstConstant (AstPrimalPart Ast.AstReshape{})]) =
   Ast.AstNm opCode (map (astReshape shOut) args)
 astReshape shOut (Ast.AstNm opCode args)
   | not (length args > 1 || all isVar args) =
       Ast.AstNm opCode (map (astReshape shOut) args)
 astReshape shOut (Ast.AstOp opCode args@[Ast.AstReshape{}, _]) =
+  Ast.AstOp opCode (map (astReshape shOut) args)
+astReshape shOut (Ast.AstOp opCode args@[Ast.AstConstant (AstPrimalPart Ast.AstReshape{}), _]) =
+  Ast.AstOp opCode (map (astReshape shOut) args)
+astReshape shOut (Ast.AstOp opCode args@[_, Ast.AstConstant (AstPrimalPart Ast.AstReshape{})]) =
   Ast.AstOp opCode (map (astReshape shOut) args)
 astReshape shOut (Ast.AstOp opCode args@[_, Ast.AstReshape{}]) =
   Ast.AstOp opCode (map (astReshape shOut) args)
@@ -1077,22 +1095,34 @@ simplifyArtifact6 :: (GoodScalar r, KnownNat n)
                   => ADAstArtifact6 (Flip OR.Array) r n
                   -> ADAstArtifact6 (Flip OR.Array) r n
 simplifyArtifact6 (vars, gradient, primal) =
-  (vars, simplifyAstDomains6 gradient, simplifyAst6 primal)
+  (vars, simplifyAstDomains6 gradient, simplifyAstPrimal6 primal)
 
 simplifyArtifact6S :: (GoodScalar r, OS.Shape sh)
                    => ADAstArtifact6 (Flip OS.Array) r sh
                    -> ADAstArtifact6 (Flip OS.Array) r sh
 simplifyArtifact6S (vars, gradient, primal) =
-  (vars, simplifyAstDomains6 gradient, simplifyAst6S primal)
+  (vars, simplifyAstDomains6 gradient, simplifyAstPrimal6S primal)
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
+simplifyAstPrimal6
+  :: (GoodScalar r, KnownNat n)
+  => AstPrimalPart r n -> AstPrimalPart r n
+simplifyAstPrimal6 =
+  simplifyAstPrimal . snd . inlineAstPrimal EM.empty . simplifyAstPrimal
+
 simplifyAst6
   :: (GoodScalar r, KnownNat n)
   => AstRanked r n -> AstRanked r n
 simplifyAst6 = simplifyAst . snd . inlineAst EM.empty . simplifyAst
+
+simplifyAstPrimal6S
+  :: (GoodScalar r, OS.Shape sh)
+  => AstPrimalPartS r sh -> AstPrimalPartS r sh
+simplifyAstPrimal6S =
+  simplifyAstPrimalS . snd . inlineAstPrimalS EM.empty . simplifyAstPrimalS
 
 simplifyAst6S
   :: (GoodScalar r, OS.Shape sh)
@@ -1462,15 +1492,15 @@ unletAstDomains6 astBindings l t =
 
 unletAst6
   :: (GoodScalar r, KnownNat n)
-  => ADShare -> AstRanked r n -> AstRanked r n
-unletAst6 l t = unletAst (emptyUnletEnv l)
-                $ bindsToLet t (assocsADShare l)
+  => ADShare -> AstPrimalPart r n -> AstPrimalPart r n
+unletAst6 l (AstPrimalPart t) = AstPrimalPart $ unletAst (emptyUnletEnv l)
+                                $ bindsToLet t (assocsADShare l)
 
 unletAst6S
   :: (GoodScalar r, OS.Shape sh)
-  => ADShare -> AstShaped r sh -> AstShaped r sh
-unletAst6S l t = unletAstS (emptyUnletEnv l)
-                 $ bindsToLetS t (assocsADShare l)
+  => ADShare -> AstPrimalPartS r sh -> AstPrimalPartS r sh
+unletAst6S l (AstPrimalPartS t) = AstPrimalPartS $ unletAstS (emptyUnletEnv l)
+                                  $ bindsToLetS t (assocsADShare l)
 
 -- TODO: if a nested let is alone, eliminate the nesting let instead;
 -- this probably requires many passes though

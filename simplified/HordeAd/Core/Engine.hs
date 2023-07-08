@@ -85,9 +85,9 @@ class Adaptable f where
        , AdaptableDomains AstDynamic astvals
        , vals ~ Value astvals )
     => Bool -> (astvals -> AstOf f r y) -> vals
-    -> AstEnv (ADVal (AstOf (RankedOf f)))
+    -> AstEnv (ADVal (PrimalOf (AstOf (RankedOf f))))
     -> DomainsOD
-    -> (ADAstArtifact6 f r y, Dual (AstOf f) r y)
+    -> (ADAstArtifact6 f r y, Dual (PrimalOf (AstOf f)) r y)
 
 -- TODO: it's not clear if the instance should be of Clown OD.Array or of
 -- Domains OD.Array, for which we already have unletAstDomains6, etc.;
@@ -104,7 +104,7 @@ instance Adaptable @Nat (Flip OR.Array) where
         dt = fromMaybe (treplicate0N (tshape primal) 1) mdt
         envDt = extendEnvR varDt dt env1
         gradientDomain = interpretAstDomainsDummy envDt gradient
-        primalTensor = interpretAst env1 primal
+        primalTensor = interpretAstPrimal env1 primal
     in (gradientDomain, primalTensor)
 
   revDtInit
@@ -112,15 +112,15 @@ instance Adaptable @Nat (Flip OR.Array) where
        ( GoodScalar r, KnownNat y
        , AdaptableDomains AstDynamic astvals, vals ~ Value astvals )
     => Bool -> (astvals -> AstRanked r y) -> vals
-    -> AstEnv (ADVal AstRanked)
+    -> AstEnv (ADVal AstPrimalPart)
     -> DomainsOD
-    -> (ADAstArtifact6 (Flip OR.Array) r y, Dual AstRanked r y)
+    -> (ADAstArtifact6 (Flip OR.Array) r y, Dual AstPrimalPart r y)
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown AstDynamic)
                        -> Domains AstDynamic
                        -> [AstDynamicVarName]
-                       -> ADVal AstRanked r y
+                       -> ADVal AstPrimalPart r y
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
               env1 = foldr extendEnvDR envInit $ zip vars1 $ V.toList varInputs
@@ -134,22 +134,22 @@ instance Adaptable @[Nat] (Flip OS.Array) where
         dt = fromMaybe 1 mdt
         envDt = extendEnvS varDt dt env1
         gradientDomain = interpretAstDomainsDummy envDt gradient
-        primalTensor = interpretAstS env1 primal
+        primalTensor = interpretAstPrimalS env1 primal
     in (gradientDomain, primalTensor)
 
   revDtInit
     :: forall r y vals astvals.
        ( GoodScalar r, OS.Shape y, KnownNat (OS.Size y)
        , AdaptableDomains AstDynamic astvals, vals ~ Value astvals )
-    => Bool -> (astvals -> AstShaped r y) -> vals -> AstEnv (ADVal AstRanked)
-    -> DomainsOD
-    -> (ADAstArtifact6 (Flip OS.Array) r y, Dual AstShaped r y)
+    => Bool -> (astvals -> AstShaped r y) -> vals
+    -> AstEnv (ADVal AstPrimalPart) -> DomainsOD
+    -> (ADAstArtifact6 (Flip OS.Array) r y, Dual AstPrimalPartS r y)
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown AstDynamic)
                        -> Domains AstDynamic
                        -> [AstDynamicVarName]
-                       -> ADVal AstShaped r y
+                       -> ADVal AstPrimalPartS r y
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
               env1 = foldr extendEnvDR envInit $ zip vars1 $ V.toList varInputs
@@ -162,7 +162,7 @@ revDtFun
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
   => Bool -> (astvals -> AstOf f r y) -> vals
-  -> (ADAstArtifact6 f r y, Dual (AstOf f) r y)
+  -> (ADAstArtifact6 f r y, Dual (PrimalOf (AstOf f)) r y)
 {-# INLINE revDtFun #-}
 revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
@@ -172,8 +172,8 @@ revAstOnDomainsFun
   -> (Domains (ADValClown AstDynamic)
       -> Domains AstDynamic
       -> [AstDynamicVarName]
-      -> ADVal AstRanked r n)
-  -> (ADAstArtifact6 (Flip OR.Array) r n, Dual AstRanked r n)
+      -> ADVal AstPrimalPart r n)
+  -> (ADAstArtifact6 (Flip OR.Array) r n, Dual AstPrimalPart r n)
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
@@ -187,7 +187,7 @@ revAstOnDomainsFun hasDt parameters0 f =
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
   let astDt = AstVar (tshape primalBody) varDtId
-      mdt = if hasDt then Just astDt else Nothing
+      mdt = if hasDt then Just $ AstPrimalPart astDt else Nothing
       !(!astBindings, !gradient) =
         reverseDervative (V.length parameters0) primalBody mdt deltaTopLevel
   in ( ( vars
@@ -201,8 +201,8 @@ revAstOnDomainsFunS
   -> (Domains (ADValClown AstDynamic)
       -> Domains AstDynamic
       -> [AstDynamicVarName]
-      -> ADVal AstShaped r sh)
-  -> (ADAstArtifact6 (Flip OS.Array) r sh, Dual AstShaped r sh)
+      -> ADVal AstPrimalPartS r sh)
+  -> (ADAstArtifact6 (Flip OS.Array) r sh, Dual AstPrimalPartS r sh)
 {-# INLINE revAstOnDomainsFunS #-}
 revAstOnDomainsFunS hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
@@ -216,7 +216,7 @@ revAstOnDomainsFunS hasDt parameters0 f =
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
   let astDt = AstVarS varDtId
-      mdt = if hasDt then Just astDt else Nothing
+      mdt = if hasDt then Just $ AstPrimalPartS astDt else Nothing
       !(!astBindings, !gradient) =
         reverseDervative (V.length parameters0) primalBody mdt deltaTopLevel
   in ( ( vars

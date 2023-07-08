@@ -9,10 +9,10 @@
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
-  ( ShapeInt, ShapeSh, PrimalOf, DualOf, DynamicOf
+  ( ShapeInt, ShapeSh, DynamicOf
   , ShapedTensor(..), RankedTensor(..), ConvertTensor(..), DomainsTensor(..)
   , ADReady, ADReadyS, ADRanked, ADShaped
-  , GoodScalar, DummyDual(..)
+  , GoodScalar
   ) where
 
 import Prelude
@@ -55,11 +55,6 @@ class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
       => CRankedR ranked c where
 instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
          => CRankedR ranked c where
-
--- k is intended to be Nat or [Nat] (or nothing, if we support scalars)
-type family PrimalOf (f :: TensorKind k) :: TensorKind k
-
-type family DualOf (f :: TensorKind k) :: TensorKind k
 
 type family DynamicOf (f :: TensorKind k) :: Type -> Type
 
@@ -744,6 +739,8 @@ type instance DynamicOf (Flip OR.Array) = OD.Array
 
 type instance DynamicOf AstRanked = AstDynamic
 
+type instance DynamicOf AstPrimalPart = AstDynamic
+
 type instance RankedOf (Flip OR.Array) = Flip OR.Array
 
 type instance ShapedOf (Flip OR.Array) = Flip OS.Array
@@ -802,8 +799,6 @@ instance RankedTensor (Flip OR.Array) where
   tD u _ = u
   tScale _ _ = DummyDual
 
-data DummyDual a (b :: k) = DummyDual
-
 instance (GoodScalar r, KnownNat n)
          => AdaptableDomains OD.Array (Flip OR.Array r n) where
   type Value (Flip OR.Array r n) = Flip OR.Array r n
@@ -852,6 +847,8 @@ type instance DualOf (Flip OS.Array) = DummyDual
 type instance DynamicOf (Flip OS.Array) = OD.Array
 
 type instance DynamicOf AstShaped = AstDynamic
+
+type instance DynamicOf AstPrimalPartS = AstDynamic
 
 type instance RankedOf (Flip OS.Array) = Flip OR.Array
 

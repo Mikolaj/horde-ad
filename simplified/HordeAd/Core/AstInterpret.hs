@@ -6,7 +6,8 @@
 -- | Interpretation of @Ast@ terms in an aribtrary @RankedTensor@ class instance..
 module HordeAd.Core.AstInterpret
   ( InterpretAstR, InterpretAstS
-  , interpretAst, interpretAstDomainsDummy, interpretAstS
+  , interpretAstPrimal, interpretAst, interpretAstDomainsDummy
+  , interpretAstPrimalS, interpretAstS
   , AstEnv, extendEnvS, extendEnvR, extendEnvDR
   ) where
 
@@ -1185,14 +1186,14 @@ interpretAstS env = \case
   -> Flip OR.Array Float n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal AstRanked)
+  => AstEnv (ADVal AstPrimalPart)
   -> AstPrimalPart Double n
-  -> AstRanked Double n #-}
+  -> AstPrimalPart Double n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal AstRanked)
+  => AstEnv (ADVal AstPrimalPart)
   -> AstPrimalPart Float n
-  -> AstRanked Float n #-}
+  -> AstPrimalPart Float n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (Flip OR.Array)
@@ -1216,14 +1217,14 @@ interpretAstS env = \case
   -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array) (Flip OS.Array)) Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal AstRanked)
+  => AstEnv (ADVal AstPrimalPart)
   -> AstDualPart Double n
-  -> Product (Clown (Const ADShare)) (DeltaR AstRanked AstShaped) Double n #-}
+  -> Product (Clown (Const ADShare)) (DeltaR AstPrimalPart AstPrimalPartS) Double n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal AstRanked)
+  => AstEnv (ADVal AstPrimalPart)
   -> AstDualPart Float n
-  -> Product (Clown (Const ADShare)) (DeltaR AstRanked AstShaped) Float n #-}
+  -> Product (Clown (Const ADShare)) (DeltaR AstPrimalPart AstPrimalPartS) Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (Flip OR.Array)
@@ -1247,14 +1248,14 @@ interpretAstS env = \case
   -> ADVal (Flip OR.Array) Float n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv (ADVal AstRanked)
+  => AstEnv (ADVal AstPrimalPart)
   -> AstRanked Double n
-  -> ADVal AstRanked Double n #-}
+  -> ADVal AstPrimalPart Double n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv (ADVal AstRanked)
+  => AstEnv (ADVal AstPrimalPart)
   -> AstRanked Float n
-  -> ADVal AstRanked Float n #-}
+  -> ADVal AstPrimalPart Float n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
   => AstEnv (Flip OR.Array)
@@ -1271,7 +1272,7 @@ interpretAstS env = \case
   -> DynamicExists AstDynamic
   -> DynamicExists (ADValClown OD.Array) #-}
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal AstRanked)
+  :: AstEnv (ADVal AstPrimalPart)
   -> DynamicExists AstDynamic
   -> DynamicExists (ADValClown AstDynamic) #-}
 {-# SPECIALIZE interpretAstDynamic
@@ -1284,7 +1285,7 @@ interpretAstS env = \case
   -> AstDomains
   -> Domains (ADValClown OD.Array) #-}
 {-# SPECIALIZE interpretAstDomains
-  :: AstEnv (ADVal AstRanked)
+  :: AstEnv (ADVal AstPrimalPart)
   -> AstDomains
   -> Domains (ADValClown AstDynamic) #-}
 {-# SPECIALIZE interpretAstDomains
@@ -1297,7 +1298,7 @@ interpretAstS env = \case
   -> AstInt
   -> CInt #-}
 {-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal AstRanked)
+  :: AstEnv (ADVal AstPrimalPart)
   -> AstInt
   -> AstInt #-}
 {-# SPECIALIZE interpretAstInt
@@ -1310,7 +1311,7 @@ interpretAstS env = \case
   -> AstBool
   -> Bool #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal AstRanked)
+  :: AstEnv (ADVal AstPrimalPart)
   -> AstBool
   -> AstBool #-}
 {-# SPECIALIZE interpretAstBool

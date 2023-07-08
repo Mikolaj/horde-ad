@@ -321,8 +321,9 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOR (singletonShape sizeMnistLabelInt) id
-       let envInit = extendEnvR varGlyph (tconstant astGlyph)
-                     $ extendEnvR varLabel (tconstant astLabel) EM.empty
+       let envInit = extendEnvR varGlyph (tconstant $ AstPrimalPart astGlyph)
+                     $ extendEnvR varLabel (tconstant $ AstPrimalPart astLabel)
+                     EM.empty
            f = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                  widthHidden widthHidden2 (astGlyph, astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
@@ -638,8 +639,9 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOR (singletonShape sizeMnistLabelInt) id
-       let envInit = extendEnvR varGlyph (tconstant astGlyph)
-                     $ extendEnvR varLabel (tconstant astLabel) EM.empty
+       let envInit = extendEnvR varGlyph (tconstant $ AstPrimalPart astGlyph)
+                     $ extendEnvR varLabel (tconstant $ AstPrimalPart astLabel)
+                       EM.empty
            f = MnistFcnnRanked2.afcnnMnistLoss2TensorData
                  (astGlyph, astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =

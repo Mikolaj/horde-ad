@@ -113,7 +113,7 @@ instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance (GoodScalar r, KnownNat n) => IsPrimalPart AstRanked r n where
+instance (GoodScalar r, KnownNat n) => IsPrimalPart AstPrimalPart r n where
   dZero = ZeroR
   dScale = ScaleR
   dAdd = AddR
@@ -122,7 +122,7 @@ instance (GoodScalar r, KnownNat n) => IsPrimalPart AstRanked r n where
   recordSharingPrimal = astRegisterADShare
   letWrapPrimal = tletWrap
 
-instance GoodScalar r => CanRecordSharing AstRanked r n where
+instance GoodScalar r => CanRecordSharing AstPrimalPart r n where
   recordSharing d = case d of
     ZeroR -> d
     InputR{} -> d
@@ -147,7 +147,7 @@ instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
-instance (GoodScalar r, OS.Shape sh) => IsPrimalPart AstShaped r sh where
+instance (GoodScalar r, OS.Shape sh) => IsPrimalPart AstPrimalPartS r sh where
   dZero = ZeroS
   dScale = ScaleS
   dAdd = AddS
@@ -156,7 +156,7 @@ instance (GoodScalar r, OS.Shape sh) => IsPrimalPart AstShaped r sh where
   recordSharingPrimal = astRegisterADShareS
   letWrapPrimal = sletWrap
 
-instance CanRecordSharing AstShaped r sh where
+instance CanRecordSharing AstPrimalPartS r sh where
   recordSharing d = case d of
     ZeroS -> d
     InputS{} -> d

@@ -421,7 +421,7 @@ instance DualPart @() (Clown OD.Array) where
   forwardDerivative = derivativeFromDeltaD
 
 instance DualPart @() (Clown AstDynamic) where
-  type Dual (Clown AstDynamic) = DeltaD AstRanked AstShaped
+  type Dual (Clown AstDynamic) = DeltaD AstPrimalPart AstPrimalPartS
   type HasSingletonDict (Clown AstDynamic) '() = ()
   reverseDervative = gradientDtD
   forwardDerivative = derivativeFromDeltaD
@@ -465,9 +465,9 @@ instance DualPart @Nat (Flip OR.Array) where
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
-instance DualPart @Nat AstRanked where
-  type Dual AstRanked = DeltaR AstRanked AstShaped
-  type HasSingletonDict AstRanked n = KnownNat n
+instance DualPart @Nat AstPrimalPart where
+  type Dual AstPrimalPart = DeltaR AstPrimalPart AstPrimalPartS
+  type HasSingletonDict AstPrimalPart n = KnownNat n
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
@@ -502,25 +502,24 @@ instance DualPart @[Nat] (Flip OS.Array) where
   type Dual (Flip OS.Array) = DeltaS (Flip OR.Array) (Flip OS.Array)
   type HasSingletonDict (Flip OS.Array) sh =
     (OS.Shape sh, KnownNat (OS.Size sh))
-  reverseDervative = gradientDtS
+  reverseDervative dims _ = gradientDtS dims
   forwardDerivative = derivativeFromDeltaS
 
-instance DualPart @[Nat] AstShaped where
-  type Dual AstShaped = DeltaS AstRanked AstShaped
-  type HasSingletonDict AstShaped sh =
+instance DualPart @[Nat] AstPrimalPartS where
+  type Dual AstPrimalPartS = DeltaS AstPrimalPart AstPrimalPartS
+  type HasSingletonDict AstPrimalPartS sh =
     (OS.Shape sh, KnownNat (OS.Size sh))
-  reverseDervative = gradientDtS
+  reverseDervative dims _ = gradientDtS dims
   forwardDerivative = derivativeFromDeltaS
 
 gradientDtS
   :: forall ranked shaped r y.
      ( OS.Shape y, GoodScalar r
      , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
-  => Int -> shaped r y -> Maybe (shaped r y)
-  -> DeltaS ranked shaped r y
+  => Int -> Maybe (shaped r y) -> DeltaS ranked shaped r y
   -> ( [(AstVarId, DynamicExists (DynamicOf ranked))]
      , Domains (DynamicOf shaped) )
-gradientDtS dims _ mdt deltaTopLevel =
+gradientDtS dims mdt deltaTopLevel =
   let dt = fromMaybe 1 mdt
       deltaDt = DeltaDtS dt deltaTopLevel
   in gradientFromDelta dims deltaDt
