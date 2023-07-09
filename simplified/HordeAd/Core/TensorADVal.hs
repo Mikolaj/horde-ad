@@ -177,7 +177,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (tdot0 u v) (dAdd (Dot0R v u') (Dot0R u v'))
-  tfromIndex0 = \ix -> dDnotShared emptyADShare (tfromIndex0 ix) dZero
+  tfromIndex0 = \ix -> constantADVal (tfromIndex0 ix)
   tscatter sh (D l u u') f =
     dD l (tscatter sh u f) (ScatterR sh u' f (tshape u))
 
@@ -216,10 +216,10 @@ instance ( Dual ranked ~ DeltaR ranked shaped
         !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dScale v u')
   tmult d e = d * e
-  tconst t = dDnotShared emptyADShare (tconstBare t) dZero
+  tconst t = constantADVal (tconstBare t)
   raddDynamic = undefined
 
-  tconstant t = dDnotShared emptyADShare t dZero
+  tconstant t = constantADVal t
   tprimalPart (D l u _) = tletWrap l u
   tdualPart (D l _ u') = Pair (Clown (Const l)) u'
   tD ast (Pair (Clown (Const l)) delta) = dD l ast delta
@@ -331,7 +331,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (sdot0 u v) (dAdd (Dot0S v u') (Dot0S u v'))
-  sfromIndex0 = \ix -> dDnotShared emptyADShare (sfromIndex0 ix) dZero
+  sfromIndex0 = \ix -> constantADVal (sfromIndex0 ix)
   sscatter (D l u u') f = dD l (sscatter u f) (ScatterS u' f)
 
   sfromList = fromListS
@@ -376,10 +376,10 @@ instance ( Dual shaped ~ DeltaS ranked shaped
         (l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dScale v u')
   smult d e = d * e
-  sconst t = dDnotShared emptyADShare (sconstBare t) dZero
+  sconst t = constantADVal (sconstBare t)
   saddDynamic = undefined
 
-  sconstant t = dDnotShared emptyADShare t dZero
+  sconstant t = constantADVal t
   sprimalPart (D l u _) = sletWrap l u
   sdualPart (D l _ u') = Pair (Clown (Const l)) u'
   sD ast (Pair (Clown (Const l)) delta) = dD l ast delta

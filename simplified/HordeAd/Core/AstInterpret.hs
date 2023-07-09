@@ -588,6 +588,8 @@ interpretAst env = \case
         t2 = interpretAst env y
     in tappend t1 t2
   AstSlice i n AstIota ->
+    -- AstConstant not needed, because when AstIota is introduced
+    -- in tfromIndex0, AstConstant is wrapped over it.
     interpretAst env
     $ AstConst $ OR.fromList [n] $ map fromIntegral [i .. i + n - 1]
   AstSlice i n v -> tslice i n (interpretAst env v)
