@@ -558,9 +558,6 @@ instance Eq (AstRanked r n) where
   _ == _ = error "Ast: can't evaluate terms for Eq"
 
 instance (Ord r, Num r, Ord (OR.Array n r)) => Ord (AstRanked r n) where
-  max u v = AstNm MaxOp [u, v]
-  min u v = AstNm MinOp [u, v]
-  -- Unfortunately, the others can't be made to return @AstBool@.
   _ <= _ = error "Ast: can't evaluate terms for Ord"
 
 instance (Num (OR.Array n r)) => Num (AstRanked r n) where
@@ -651,10 +648,6 @@ instance Eq (AstNoVectorize r n) where
   _ == _ = error "AstNoVectorize: can't evaluate terms for Eq"
 
 instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstNoVectorize r n) where
-  max (AstNoVectorize u) (AstNoVectorize v) =
-    AstNoVectorize (AstNm MaxOp [u, v])
-  min (AstNoVectorize u) (AstNoVectorize v) =
-    AstNoVectorize (AstNm MinOp [u, v])
   _ <= _ = error "AstNoVectorize: can't evaluate terms for Ord"
 
 deriving instance Num (AstRanked r n) => Num (AstNoVectorize r n)
@@ -674,10 +667,6 @@ instance Eq (AstNoSimplify r n) where
   _ == _ = error "AstNoSimplify: can't evaluate terms for Eq"
 
 instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstNoSimplify r n) where
-  max (AstNoSimplify u) (AstNoSimplify v) =
-    AstNoSimplify (AstNm MaxOp [u, v])
-  min (AstNoSimplify u) (AstNoSimplify v) =
-    AstNoSimplify (AstNm MinOp [u, v])
   _ <= _ = error "AstNoSimplify: can't evaluate terms for Ord"
 
 deriving instance Num (AstRanked r n) => Num (AstNoSimplify r n)
@@ -699,6 +688,7 @@ instance Eq (AstPrimalPart r n) where
 instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstPrimalPart r n) where
   max (AstPrimalPart u) (AstPrimalPart v) =
     AstPrimalPart (AstNm MaxOp [u, v])
+      -- these are only correct when the dual part is empty, as it's here
   min (AstPrimalPart u) (AstPrimalPart v) =
     AstPrimalPart (AstNm MinOp [u, v])
   _ <= _ = error "AstPrimalPart: can't evaluate terms for Ord"
@@ -769,8 +759,6 @@ instance Eq (AstShaped r sh) where
   _ == _ = error "Ast: can't evaluate terms for Eq"
 
 instance (Ord r, Num r, Ord (OS.Array sh r)) => Ord (AstShaped r sh) where
-  max u v = AstNmS MaxOp [u, v]
-  min u v = AstNmS MinOp [u, v]
   -- Unfortunately, the others can't be made to return @AstBool@.
   _ <= _ = error "Ast: can't evaluate terms for Ord"
 
@@ -863,6 +851,7 @@ instance Eq (AstPrimalPartS r sh) where
 instance (Ord r, Num r, Ord (AstShaped r sh)) => Ord (AstPrimalPartS r sh) where
   max (AstPrimalPartS u) (AstPrimalPartS v) =
     AstPrimalPartS (AstNmS MaxOp [u, v])
+      -- these are only correct when the dual part is empty, as it's here
   min (AstPrimalPartS u) (AstPrimalPartS v) =
     AstPrimalPartS (AstNmS MinOp [u, v])
   _ <= _ = error "AstPrimalPartS: can't evaluate terms for Ord"
