@@ -295,7 +295,7 @@ testPiecewiseLinearPP = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\x2 -> tfromList [tconst 2.0 * x2, tconst 5.0 * x2] ! [ifB (x2 >* tconst 0.0) 0 1]"
   show deltas
-    @?= "LetR 100000004 (IndexR (LetR 100000003 (FromListR [LetR 100000001 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [] (AstVarId 100000003)}) (InputR (InputId 0))),LetR 100000002 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [] (AstVarId 100000004)}) (InputR (InputId 0)))])) [AstIntCond (AstRel GtOp [AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstVar [] (AstVarId 100000002))},AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstLetADShare ADShareNil (AstConst (fromList [] [0.0])))}]) (AstIntConst 0) (AstIntConst 1)] [2])"
+    @?= "LetR 100000004 (IndexR (LetR 100000003 (FromListR [LetR 100000001 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [] (AstVarId 100000003)}) (InputR (InputId 0))),LetR 100000002 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [] (AstVarId 100000004)}) (InputR (InputId 0)))])) [AstIntCond (AstRel GtOp [AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstVar [] (AstVarId 100000002))},AstPrimalPart {unAstPrimalPart = AstLetADShare ADShareNil (AstConst (fromList [] [0.0]))}]) (AstIntConst 0) (AstIntConst 1)] [2])"
 
 testPiecewiseLinear2PP :: Assertion
 testPiecewiseLinear2PP = do

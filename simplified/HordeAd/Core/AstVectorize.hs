@@ -201,9 +201,9 @@ build1V k (var, v00) =
     Ast.AstConst{} ->
       error "build1V: AstConst can't have free int variables"
     Ast.AstConstant (AstPrimalPart v) -> traceRule $
-      astConstant $ AstPrimalPart $ build1V k (var, v)
+      astConstant $ astPrimalPart $ build1V k (var, v)
     Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
-      Ast.AstD (AstPrimalPart $ build1VOccurenceUnknown k (var, u))
+      Ast.AstD (astPrimalPart $ build1VOccurenceUnknown k (var, u))
                (AstDualPart $ build1VOccurenceUnknown k (var, u'))
     Ast.AstLetDomains vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
@@ -227,10 +227,10 @@ build1V k (var, v00) =
                                 (build1VOccurenceUnknownRefresh k (var, v2))
 
     Ast.AstFloor (AstPrimalPart v) ->
-      Ast.AstFloor $ AstPrimalPart $ build1V k (var, v)
+      Ast.AstFloor $ astPrimalPart $ build1V k (var, v)
     Ast.AstCond b (Ast.AstConstant (AstPrimalPart v))
                   (Ast.AstConstant (AstPrimalPart w)) ->
-      let t = astConstant $ AstPrimalPart
+      let t = astConstant $ astPrimalPart
               $ astIndexStep (astFromList [v, w])
                              (singletonIndex $ astIntCond b 0 1)
       in build1V k (var, t)
@@ -239,9 +239,9 @@ build1V k (var, v00) =
                            (singletonIndex $ astIntCond b 0 1)
       in build1V k (var, t)
     Ast.AstMinIndex (AstPrimalPart v) ->
-      Ast.AstMinIndex $ AstPrimalPart $ build1V k (var, v)
+      Ast.AstMinIndex $ astPrimalPart $ build1V k (var, v)
     Ast.AstMaxIndex (AstPrimalPart v) ->
-      Ast.AstMaxIndex $ AstPrimalPart $ build1V k (var, v)
+      Ast.AstMaxIndex $ astPrimalPart $ build1V k (var, v)
 
 build1VOccurenceUnknownDynamic
   :: Int -> (AstVarId, DynamicExists AstDynamic) -> DynamicExists AstDynamic
@@ -517,9 +517,9 @@ build1VS (var, v00) =
     Ast.AstConstS{} ->
       error "build1VS: AstConstS can't have free int variables"
     Ast.AstConstantS (AstPrimalPartS v) -> traceRule $
-      astConstantS $ AstPrimalPartS $ build1VS (var, v)
+      astConstantS $ astPrimalPartS $ build1VS (var, v)
     Ast.AstDS (AstPrimalPartS u) (AstDualPartS u') ->
-      Ast.AstDS (AstPrimalPartS $ build1VOccurenceUnknownS (var, u))
+      Ast.AstDS (astPrimalPartS $ build1VOccurenceUnknownS (var, u))
                 (AstDualPartS $ build1VOccurenceUnknownS (var, u'))
     Ast.AstLetDomainsS vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
@@ -540,10 +540,10 @@ build1VS (var, v00) =
            (build1VOccurenceUnknownRefreshS (var, v2))
 
     Ast.AstFloorS (AstPrimalPartS v) ->
-      Ast.AstFloorS $ AstPrimalPartS $ build1VS (var, v)
+      Ast.AstFloorS $ astPrimalPartS $ build1VS (var, v)
     Ast.AstCondS b (Ast.AstConstantS (AstPrimalPartS v))
                    (Ast.AstConstantS (AstPrimalPartS w)) ->
-      let t = astConstantS $ AstPrimalPartS
+      let t = astConstantS $ astPrimalPartS
               $ astIndexStepS @'[2] (astFromListS [v, w])
                                     (astIntCond b 0 1 :$: ZSH)
       in build1VS (var, t)
@@ -552,9 +552,9 @@ build1VS (var, v00) =
                                   (astIntCond b 0 1 :$: ZSH)
       in build1VS (var, t)
     Ast.AstMinIndexS (AstPrimalPartS v) ->
-      Ast.AstMinIndexS $ AstPrimalPartS $ build1VS (var, v)
+      Ast.AstMinIndexS $ astPrimalPartS $ build1VS (var, v)
     Ast.AstMaxIndexS (AstPrimalPartS v) ->
-      Ast.AstMaxIndexS $ AstPrimalPartS $ build1VS (var, v)
+      Ast.AstMaxIndexS $ astPrimalPartS $ build1VS (var, v)
 
 -- | The application @build1VIndexS k (var, v, ix)@ vectorizes
 -- the term @AstBuild1S k (var, AstIndexS v ix)@, where it's unknown whether

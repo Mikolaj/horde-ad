@@ -187,7 +187,7 @@ revAstOnDomainsFun hasDt parameters0 f =
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
   let astDt = AstVar (tshape primalBody) varDtId
-      mdt = if hasDt then Just $ AstPrimalPart astDt else Nothing
+      mdt = if hasDt then Just $ astPrimalPart astDt else Nothing
       !(!astBindings, !gradient) =
         reverseDervative (V.length parameters0) primalBody mdt deltaTopLevel
   in ( ( vars
@@ -216,7 +216,7 @@ revAstOnDomainsFunS hasDt parameters0 f =
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
   let astDt = AstVarS varDtId
-      mdt = if hasDt then Just $ AstPrimalPartS astDt else Nothing
+      mdt = if hasDt then Just $ astPrimalPartS astDt else Nothing
       !(!astBindings, !gradient) =
         reverseDervative (V.length parameters0) primalBody mdt deltaTopLevel
   in ( ( vars

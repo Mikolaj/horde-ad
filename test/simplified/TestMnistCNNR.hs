@@ -315,11 +315,11 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
            id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
-       let envInit = extendEnvR varGlyph (tconstant $ AstPrimalPart astGlyph)
-                     $ extendEnvR varLabel (tconstant $ AstPrimalPart astLabel)
+       let envInit = extendEnvR varGlyph (tconstant $ astPrimalPart astGlyph)
+                     $ extendEnvR varLabel (tconstant $ astPrimalPart astLabel)
                        EM.empty
            f = MnistCnnRanked2.convMnistLossFusedR
-                 miniBatchSize (AstPrimalPart astGlyph, AstPrimalPart astLabel)
+                 miniBatchSize (astPrimalPart astGlyph, astPrimalPart astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit @Nat @(Flip OR.Array)
                        False f valsInit envInit domainsInit
@@ -403,7 +403,7 @@ testCNNOPP = do
       sizeMnistWidthI = 4  -- 4; to make weightsDense empty and so speedup
       sizeMnistHeightI = 4  -- 4; to make weightsDense empty and so speedup
       blackGlyph :: AstPrimalPart Double 4
-      blackGlyph = AstPrimalPart
+      blackGlyph = astPrimalPart
                    $ AstReplicate batch_size
                    $ AstReplicate 1
                    $ AstReplicate sizeMnistWidthI

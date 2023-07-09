@@ -39,13 +39,13 @@ instance RankedTensor AstRanked where
   tlet a f = astLetFun a f
 
   tshape = shapeAst
-  tminIndex0 = AstMinIndex1 . AstPrimalPart
-  tmaxIndex0 = AstMaxIndex1 . AstPrimalPart
-  tfloor = AstIntFloor . AstPrimalPart
+  tminIndex0 = AstMinIndex1 . astPrimalPart
+  tmaxIndex0 = AstMaxIndex1 . astPrimalPart
+  tfloor = AstIntFloor . astPrimalPart
 
   tindex = AstIndex
   tsum = AstSum
-  tfromIndex0 i = AstConstant $ AstPrimalPart
+  tfromIndex0 i = AstConstant $ astPrimalPart
                   $ AstIndex AstIota (singletonIndex i)
     -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = astScatter sh t (funToAstIndex f)  -- introduces new vars
@@ -100,9 +100,9 @@ instance RankedTensor AstRanked where
   tregister = astRegisterFun
 
   tconstant = astConstant
-  tprimalPart = AstPrimalPart
+  tprimalPart = astPrimalPart
   tdualPart = AstDualPart
-  tD = AstD
+  tD = AstD  -- TODO: simplify when it's know that dual part is AstConstant
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
 instance ConvertTensor AstRanked AstShaped where
@@ -138,12 +138,12 @@ instance ConvertTensor AstRanked AstShaped where
   dshape (AstSToD @sh _) = OS.shapeT @sh
 
 instance ConvertTensor AstPrimalPart AstPrimalPartS where
-  tfromD = AstPrimalPart . tfromD
-  tfromS = AstPrimalPart . tfromS . unAstPrimalPartS
+  tfromD = astPrimalPart . tfromD
+  tfromS = astPrimalPart . tfromS . unAstPrimalPartS
   dfromR = dfromR . unAstPrimalPart
   dfromS = dfromS . unAstPrimalPartS
-  sfromR = AstPrimalPartS . sfromR . unAstPrimalPart
-  sfromD = AstPrimalPartS . sfromD
+  sfromR = astPrimalPartS . sfromR . unAstPrimalPart
+  sfromD = astPrimalPartS . sfromD
   ddummy = ddummy @AstRanked
   disDummy = disDummy @AstRanked
   dshape = dshape @AstRanked
@@ -203,41 +203,41 @@ type instance IntOf AstPrimalPart = AstInt
 
 instance RankedTensor AstPrimalPart where
   tlet a f =
-    AstPrimalPart
-    $ astLetFun (unAstPrimalPart a) (unAstPrimalPart . f . AstPrimalPart)
+    astPrimalPart
+    $ astLetFun (unAstPrimalPart a) (unAstPrimalPart . f . astPrimalPart)
 
   tshape = shapeAst . unAstPrimalPart
   tminIndex0 = AstMinIndex1
   tmaxIndex0 = AstMaxIndex1
   tfloor = AstIntFloor
 
-  tindex v ix = AstPrimalPart $ AstIndex (unAstPrimalPart v) ix
-  tsum = AstPrimalPart . AstSum . unAstPrimalPart
-  tfromIndex0 i = AstPrimalPart
+  tindex v ix = astPrimalPart $ AstIndex (unAstPrimalPart v) ix
+  tsum = astPrimalPart . AstSum . unAstPrimalPart
+  tfromIndex0 i = astPrimalPart
                   $ AstIndex AstIota (singletonIndex i)
     -- toInteger is not defined for Ast, hence a special implementation
-  tscatter sh t f = AstPrimalPart $ astScatter sh (unAstPrimalPart t)
+  tscatter sh t f = astPrimalPart $ astScatter sh (unAstPrimalPart t)
                     $ funToAstIndex f  -- this introduces new variable names
 
-  tfromList = AstPrimalPart . AstFromList . map unAstPrimalPart
-  tfromVector = AstPrimalPart . AstFromVector . V.map unAstPrimalPart
-  treplicate k = AstPrimalPart . AstReplicate k . unAstPrimalPart
+  tfromList = astPrimalPart . AstFromList . map unAstPrimalPart
+  tfromVector = astPrimalPart . AstFromVector . V.map unAstPrimalPart
+  treplicate k = astPrimalPart . AstReplicate k . unAstPrimalPart
   tappend u v =
-    AstPrimalPart $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
-  tslice i n = AstPrimalPart . AstSlice i n . unAstPrimalPart
-  treverse = AstPrimalPart . AstReverse . unAstPrimalPart
-  ttranspose perm = AstPrimalPart . astTranspose perm . unAstPrimalPart
-  treshape sh = AstPrimalPart . astReshape sh . unAstPrimalPart
-  tbuild1 k f = AstPrimalPart $ astBuild1Vectorize k (unAstPrimalPart . f)
-  tgather sh t f = AstPrimalPart $ AstGather sh (unAstPrimalPart t)
+    astPrimalPart $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
+  tslice i n = astPrimalPart . AstSlice i n . unAstPrimalPart
+  treverse = astPrimalPart . AstReverse . unAstPrimalPart
+  ttranspose perm = astPrimalPart . astTranspose perm . unAstPrimalPart
+  treshape sh = astPrimalPart . astReshape sh . unAstPrimalPart
+  tbuild1 k f = astPrimalPart $ astBuild1Vectorize k (unAstPrimalPart . f)
+  tgather sh t f = astPrimalPart $ AstGather sh (unAstPrimalPart t)
                    $ funToAstIndex f  -- this introduces new variable names
-  tcast = AstPrimalPart . AstCast . unAstPrimalPart
+  tcast = astPrimalPart . AstCast . unAstPrimalPart
 
-  tsumOfList = AstPrimalPart . AstSumOfList . map unAstPrimalPart
+  tsumOfList = astPrimalPart . AstSumOfList . map unAstPrimalPart
   tconst = AstPrimalPart . AstConst
-  tletWrap l u = AstPrimalPart $ AstLetADShare l (unAstPrimalPart u)
+  tletWrap l u = astPrimalPart $ AstLetADShare l (unAstPrimalPart u)
   raddDynamic (AstPrimalPart r) d = raddDynamic r d
-  tregister r l = second AstPrimalPart $ astRegisterFun (unAstPrimalPart r) l
+  tregister r l = second astPrimalPart $ astRegisterFun (unAstPrimalPart r) l
 
   tconstant = id
   tprimalPart = id
@@ -351,15 +351,15 @@ type instance IntOf AstShaped = AstInt
 instance ShapedTensor AstShaped where
   slet a f = astLetFunS a f
 
-  sminIndex0 = ShapedList.shapedNat . AstMinIndex1S . AstPrimalPartS
-  smaxIndex0 = ShapedList.shapedNat . AstMaxIndex1S . AstPrimalPartS
-  sfloor = AstIntFloorS . AstPrimalPartS
+  sminIndex0 = ShapedList.shapedNat . AstMinIndex1S . astPrimalPartS
+  smaxIndex0 = ShapedList.shapedNat . AstMaxIndex1S . astPrimalPartS
+  sfloor = AstIntFloorS . astPrimalPartS
 
   sindex = AstIndexS
   ssum = AstSumS
   sfromIndex0 :: forall n r. KnownNat n
               => IntSh AstShaped n -> AstShaped r '[]
-  sfromIndex0 i = AstConstantS $ AstPrimalPartS
+  sfromIndex0 i = AstConstantS $ astPrimalPartS
                   $ AstIndexS (AstIotaS @n) (ShapedList.consShaped i ZSH)
     -- toInteger is not defined for Ast, hence a special implementation
   sscatter t f = AstScatterS t (funToAstIndexS f)  -- astScatter t (funToAstIndexS f)  -- introduces new vars
@@ -414,7 +414,7 @@ instance ShapedTensor AstShaped where
   sregister = astRegisterFunS
 
   sconstant = AstConstantS  -- astConstant
-  sprimalPart = AstPrimalPartS
+  sprimalPart = astPrimalPartS
   sdualPart = AstDualPartS
   sD = AstDS
   sScale (AstPrimalPartS s) (AstDualPartS t) = AstDualPartS $ s `smult` t
@@ -437,43 +437,43 @@ type instance IntOf AstPrimalPartS = AstInt
 
 instance ShapedTensor AstPrimalPartS where
   slet a f =
-    AstPrimalPartS
-    $ astLetFunS (unAstPrimalPartS a) (unAstPrimalPartS . f . AstPrimalPartS)
+    astPrimalPartS
+    $ astLetFunS (unAstPrimalPartS a) (unAstPrimalPartS . f . astPrimalPartS)
 
   sminIndex0 = ShapedList.shapedNat . AstMinIndex1S
   smaxIndex0 = ShapedList.shapedNat . AstMaxIndex1S
   sfloor = AstIntFloorS
 
-  sindex v ix = AstPrimalPartS $ AstIndexS (unAstPrimalPartS v) ix
-  ssum = AstPrimalPartS . AstSumS . unAstPrimalPartS
+  sindex v ix = astPrimalPartS $ AstIndexS (unAstPrimalPartS v) ix
+  ssum = astPrimalPartS . AstSumS . unAstPrimalPartS
   sfromIndex0 :: forall n r. KnownNat n
               => IntSh AstShaped n -> AstPrimalPartS r '[]
-  sfromIndex0 i = AstPrimalPartS
+  sfromIndex0 i = astPrimalPartS
                   $ AstIndexS (AstIotaS @n) (ShapedList.consShaped i ZSH)
     -- toInteger is not defined for Ast, hence a special implementation
-  sscatter t f = AstPrimalPartS $ AstScatterS (unAstPrimalPartS t)
+  sscatter t f = astPrimalPartS $ AstScatterS (unAstPrimalPartS t)
                  $ funToAstIndexS f  -- astScatter  -- introduces new vars
 
-  sfromList = AstPrimalPartS . AstFromListS . map unAstPrimalPartS
-  sfromVector = AstPrimalPartS . AstFromVectorS . V.map unAstPrimalPartS
-  sreplicate = AstPrimalPartS . AstReplicateS . unAstPrimalPartS
+  sfromList = astPrimalPartS . AstFromListS . map unAstPrimalPartS
+  sfromVector = astPrimalPartS . AstFromVectorS . V.map unAstPrimalPartS
+  sreplicate = astPrimalPartS . AstReplicateS . unAstPrimalPartS
   sappend u v =
-    AstPrimalPartS $ AstAppendS (unAstPrimalPartS u) (unAstPrimalPartS v)
-  sslice (_ :: Proxy i) Proxy = AstPrimalPartS . AstSliceS @i . unAstPrimalPartS
-  sreverse = AstPrimalPartS . AstReverseS . unAstPrimalPartS
+    astPrimalPartS $ AstAppendS (unAstPrimalPartS u) (unAstPrimalPartS v)
+  sslice (_ :: Proxy i) Proxy = astPrimalPartS . AstSliceS @i . unAstPrimalPartS
+  sreverse = astPrimalPartS . AstReverseS . unAstPrimalPartS
   stranspose (_ :: Proxy perm) =
-    AstPrimalPartS . AstTransposeS @perm . unAstPrimalPartS  -- astTranspose
-  sreshape = AstPrimalPartS . AstReshapeS . unAstPrimalPartS  -- astReshape
-  sbuild1 f = AstPrimalPartS $ astBuild1VectorizeS (unAstPrimalPartS . f)
-  sgather t f = AstPrimalPartS $ AstGatherS (unAstPrimalPartS t)
+    astPrimalPartS . AstTransposeS @perm . unAstPrimalPartS  -- astTranspose
+  sreshape = astPrimalPartS . AstReshapeS . unAstPrimalPartS  -- astReshape
+  sbuild1 f = astPrimalPartS $ astBuild1VectorizeS (unAstPrimalPartS . f)
+  sgather t f = astPrimalPartS $ AstGatherS (unAstPrimalPartS t)
                 $ funToAstIndexS f  -- introduces new vars
-  scast = AstPrimalPartS . AstCastS . unAstPrimalPartS
+  scast = astPrimalPartS . AstCastS . unAstPrimalPartS
 
-  ssumOfList = AstPrimalPartS . AstSumOfListS . map unAstPrimalPartS
+  ssumOfList = astPrimalPartS . AstSumOfListS . map unAstPrimalPartS
   sconst = AstPrimalPartS . AstConstS
-  sletWrap l u = AstPrimalPartS $ AstLetADShareS l (unAstPrimalPartS u)
+  sletWrap l u = astPrimalPartS $ AstLetADShareS l (unAstPrimalPartS u)
   saddDynamic (AstPrimalPartS r) d = saddDynamic r d
-  sregister r l = second AstPrimalPartS $ astRegisterFunS (unAstPrimalPartS r) l
+  sregister r l = second astPrimalPartS $ astRegisterFunS (unAstPrimalPartS r) l
 
   sconstant = id
   sprimalPart = id

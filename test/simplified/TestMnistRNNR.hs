@@ -295,11 +295,11 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
            id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
-       let envInit = extendEnvR varGlyph (tconstant $ AstPrimalPart astGlyph)
-                     $ extendEnvR varLabel (tconstant $ AstPrimalPart astLabel)
+       let envInit = extendEnvR varGlyph (tconstant $ astPrimalPart astGlyph)
+                     $ extendEnvR varLabel (tconstant $ astPrimalPart astLabel)
                        EM.empty
            f = MnistRnnRanked2.rnnMnistLossFusedR
-                 miniBatchSize (AstPrimalPart astGlyph, AstPrimalPart astLabel)
+                 miniBatchSize (astPrimalPart astGlyph, astPrimalPart astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit @Nat @(Flip OR.Array)
                        False f valsInit envInit domainsInit
@@ -408,7 +408,7 @@ testRNNOPP = do
       sizeMnistWidthI = 1
       sizeMnistHeightI = 1
       blackGlyph :: AstPrimalPart Double 3
-      blackGlyph = AstPrimalPart
+      blackGlyph = astPrimalPart
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
@@ -433,7 +433,7 @@ testRNNOPP2 = do
       sizeMnistWidthI = 2
       sizeMnistHeightI = 2
       blackGlyph :: AstPrimalPart Double 3
-      blackGlyph = AstPrimalPart
+      blackGlyph = astPrimalPart
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7

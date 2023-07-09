@@ -392,26 +392,26 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndex v0 ix
   Ast.AstConstant (AstPrimalPart v) ->
-    astConstant $ AstPrimalPart $ astIndex v ix
+    astConstant $ astPrimalPart $ astIndex v ix
   Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
     -- TODO: we need integer let to preserve sharing while substituting here:
-    Ast.AstD (AstPrimalPart $ astIndexRec u ix)
+    Ast.AstD (astPrimalPart $ astIndexRec u ix)
              (AstDualPart $ astIndexRec u' ix)
   Ast.AstLetDomains vars l v ->
     Ast.AstLetDomains vars l (astIndexRec v ix)
   Ast.AstFloor (AstPrimalPart v) ->
-    Ast.AstFloor $ AstPrimalPart $ astIndexROrStepOnly stepOnly v ix
+    Ast.AstFloor $ astPrimalPart $ astIndexROrStepOnly stepOnly v ix
   Ast.AstCond b v w -> astCond b (astIndexRec v ix) (astIndexRec w ix)
   Ast.AstMinIndex (AstPrimalPart v) ->
-    Ast.AstMinIndex $ AstPrimalPart $ astIndexROrStepOnly stepOnly v ix
+    Ast.AstMinIndex $ astPrimalPart $ astIndexROrStepOnly stepOnly v ix
   Ast.AstMaxIndex (AstPrimalPart v) ->
-    Ast.AstMaxIndex $ AstPrimalPart $ astIndexROrStepOnly stepOnly v ix
+    Ast.AstMaxIndex $ astPrimalPart $ astIndexROrStepOnly stepOnly v ix
 
 astSum :: (KnownNat n, GoodScalar r)
        => AstRanked r (1 + n) -> AstRanked r n
 astSum (Ast.AstConst t) = Ast.AstConst $ tsumR t
 astSum (Ast.AstConstant (AstPrimalPart v)) =
-  astConstant $ AstPrimalPart $ astSum v
+  astConstant $ astPrimalPart $ astSum v
 astSum (Ast.AstScatter (_ :$ sh) v (vars, _ :. ix)) = astScatter sh v (vars, ix)
 astSum (Ast.AstReverse v) = Ast.AstSum v
 astSum v = Ast.AstSum v
@@ -427,7 +427,7 @@ astScatter sh v (var ::: vars, ix) | not $ var `intVarInIndex` ix =
   astScatter sh (astSum v) (vars, ix)
 -- astScatter sh v (Z, ix) = update (tzero sh 0) ix v
 astScatter sh (Ast.AstConstant (AstPrimalPart v)) (vars, ix) =
-  astConstant $ AstPrimalPart $ astScatter sh v (vars, ix)
+  astConstant $ astPrimalPart $ astScatter sh v (vars, ix)
 astScatter sh v (vars, ix) = Ast.AstScatter sh v (vars, ix)
 
 astFromList :: (KnownNat n, GoodScalar r)
@@ -438,7 +438,7 @@ astFromList l =
       unConstant _ = Nothing
   in case mapM unConstant l of
     Just [] -> Ast.AstFromList []
-    Just l2 -> astConstant $ AstPrimalPart $ astFromList l2
+    Just l2 -> astConstant $ astPrimalPart $ astFromList l2
     Nothing ->
       let unConst (Ast.AstConst t) = Just t
           unConst _ = Nothing
@@ -454,7 +454,7 @@ astFromVector l =
       unConstant _ = Nothing
   in case V.mapM unConstant l of
     Just l2 | V.null l2 -> Ast.AstFromVector l2
-    Just l2 -> astConstant $ AstPrimalPart $ astFromVector l2
+    Just l2 -> astConstant $ astPrimalPart $ astFromVector l2
     Nothing ->
       let unConst (Ast.AstConst t) = Just t
           unConst _ = Nothing
@@ -470,7 +470,7 @@ astReplicate k = \case
 -- This would also hide AstReplicate from hacks that recover tmatmul2, etc.
 --  Ast.AstConst t -> Ast.AstConst $ treplicateR k t
   Ast.AstConstant (AstPrimalPart v) ->
-    astConstant $ AstPrimalPart $ astReplicate k v
+    astConstant $ astPrimalPart $ astReplicate k v
 {- TODO: these may be counterproductive with many gathers and their fusion
          though these let transpose cancel out with each other sometimes
          (instead we should try to cancel out inside replicate and only move
@@ -505,7 +505,7 @@ astAppend :: (KnownNat n, GoodScalar r)
 astAppend (Ast.AstConst u) (Ast.AstConst v) = Ast.AstConst $ tappendR u v
 astAppend (Ast.AstConstant (AstPrimalPart u))
           (Ast.AstConstant (AstPrimalPart v)) =
-  astConstant $ AstPrimalPart $ astAppend u v
+  astConstant $ astPrimalPart $ astAppend u v
 astAppend (Ast.AstFromList l1) (Ast.AstFromList l2) = astFromList $ l1 ++ l2
 astAppend (Ast.AstFromList l1) (Ast.AstFromVector l2) =
   astFromList $ l1 ++ V.toList l2
@@ -519,7 +519,7 @@ astSlice :: forall k r. (KnownNat k, GoodScalar r)
          => Int -> Int -> AstRanked r (1 + k) -> AstRanked r (1 + k)
 astSlice i n (Ast.AstConst t) = Ast.AstConst $ tsliceR i n t
 astSlice i n (Ast.AstConstant (AstPrimalPart v)) =
-  astConstant $ AstPrimalPart $ astSlice i n v
+  astConstant $ astPrimalPart $ astSlice i n v
 astSlice 0 n v | n == lengthAst v = v
 astSlice i n (Ast.AstFromList l) = astFromList $ take n (drop i l)
 astSlice i n (Ast.AstFromVector l) = astFromVector $ V.take n (V.drop i l)
@@ -550,7 +550,7 @@ astReverse :: forall n r. (KnownNat n, GoodScalar r)
            => AstRanked r (1 + n) -> AstRanked r (1 + n)
 astReverse (Ast.AstConst t) = Ast.AstConst $ treverseR t
 astReverse (Ast.AstConstant (AstPrimalPart v)) =
-  astConstant $ AstPrimalPart $ astReverse v
+  astConstant $ astPrimalPart $ astReverse v
 astReverse (Ast.AstFromList l) = Ast.AstFromList $ reverse l
 astReverse (Ast.AstFromVector l) = Ast.AstFromVector $ V.reverse l
 astReverse (Ast.AstReplicate k v) = Ast.AstReplicate k v
@@ -616,7 +616,7 @@ astTranspose perm0 t0 = case (perm0, t0) of
   (perm, Ast.AstConst t) ->
     Ast.AstConst $ ttransposeR perm t
   (perm, Ast.AstConstant (AstPrimalPart v)) ->
-    astConstant $ AstPrimalPart $ astTranspose perm v
+    astConstant $ astPrimalPart $ astTranspose perm v
   (perm, u) -> Ast.AstTranspose perm u
 
 astTransposeS :: forall perm sh r.
@@ -661,7 +661,7 @@ astReshape shOut (Ast.AstReshape _ v) = astReshape shOut v
 astReshape shOut (Ast.AstConst t) =
   Ast.AstConst $ OR.reshape (shapeToList shOut) t
 astReshape shOut (Ast.AstConstant (AstPrimalPart v)) =
-  astConstant $ AstPrimalPart $ astReshape shOut v
+  astConstant $ astPrimalPart $ astReshape shOut v
 astReshape shOut v =
   let shIn = shapeAst v
   in case sameNat (Proxy @p) (Proxy @m) of
@@ -916,7 +916,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstConst{} ->  -- free variables possible, so can't compute the tensor
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstConstant (AstPrimalPart v) ->
-      astConstant $ AstPrimalPart $ astGather sh4 v (vars4, ix4)
+      astConstant $ astPrimalPart $ astGather sh4 v (vars4, ix4)
     Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
       let (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
@@ -924,22 +924,22 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                   (zipSized (fmap SubstitutionPayloadInt
                              $ indexToSizedList ixFresh) vars4)
           ix5 = fmap subst ix4
-      in Ast.AstD (AstPrimalPart $ astGatherRec sh4 u (vars4, ix4))
+      in Ast.AstD (astPrimalPart $ astGatherRec sh4 u (vars4, ix4))
                   (AstDualPart $ astGatherRec sh4 u' (varsFresh, ix5))
     Ast.AstLetDomains vars l v ->
       Ast.AstLetDomains vars l (astGatherCase sh4 v (vars4, ix4))
     Ast.AstFloor (AstPrimalPart v) ->
-      Ast.AstFloor $ AstPrimalPart
+      Ast.AstFloor $ astPrimalPart
       $ astGatherROrStepOnly stepOnly sh4 v (vars4, ix4)
     Ast.AstCond b v w -> astCond b (astGather sh4 v (vars4, ix4))
                                    (astGather sh4 w (vars4, ix4))
     Ast.AstMinIndex (AstPrimalPart v) ->
-      Ast.AstMinIndex $ AstPrimalPart
+      Ast.AstMinIndex $ astPrimalPart
       $ astGatherROrStepOnly stepOnly
           (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
           v (vars4, ix4)
     Ast.AstMaxIndex (AstPrimalPart v) ->
-      Ast.AstMaxIndex $ AstPrimalPart
+      Ast.AstMaxIndex $ astPrimalPart
       $ astGatherROrStepOnly stepOnly
           (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
           v (vars4, ix4)
@@ -1081,7 +1081,7 @@ astCond :: AstBool -> AstRanked r n -> AstRanked r n -> AstRanked r n
 astCond (AstBoolConst b) v w = if b then v else w
 astCond b (Ast.AstConstant (AstPrimalPart v))
           (Ast.AstConstant (AstPrimalPart w)) =
-  astConstant $ AstPrimalPart $ astCond b v w
+  astConstant $ astPrimalPart $ astCond b v w
 astCond b v w = Ast.AstCond b v w
 
 astIntCond :: AstBool -> AstInt -> AstInt -> AstInt
@@ -1144,7 +1144,7 @@ inlineAstPrimal
   => AstMemo
   -> AstPrimalPart r n -> (AstMemo, AstPrimalPart r n)
 inlineAstPrimal memo (AstPrimalPart v1) =
-  second AstPrimalPart $ inlineAst memo v1
+  second astPrimalPart $ inlineAst memo v1
 
 inlineAstDual
   :: forall n r. (GoodScalar r, KnownNat n)
@@ -1354,7 +1354,7 @@ inlineAstPrimalS
   => AstMemo
   -> AstPrimalPartS r sh -> (AstMemo, AstPrimalPartS r sh)
 inlineAstPrimalS memo (AstPrimalPartS v1) =
-  second AstPrimalPartS $ inlineAstS memo v1
+  second astPrimalPartS $ inlineAstS memo v1
 
 inlineAstDualS
   :: forall sh r. (GoodScalar r, OS.Shape sh)
@@ -1493,13 +1493,13 @@ unletAstDomains6 astBindings l t =
 unletAst6
   :: (GoodScalar r, KnownNat n)
   => ADShare -> AstPrimalPart r n -> AstPrimalPart r n
-unletAst6 l (AstPrimalPart t) = AstPrimalPart $ unletAst (emptyUnletEnv l)
+unletAst6 l (AstPrimalPart t) = astPrimalPart $ unletAst (emptyUnletEnv l)
                                 $ bindsToLet t (assocsADShare l)
 
 unletAst6S
   :: (GoodScalar r, OS.Shape sh)
   => ADShare -> AstPrimalPartS r sh -> AstPrimalPartS r sh
-unletAst6S l (AstPrimalPartS t) = AstPrimalPartS $ unletAstS (emptyUnletEnv l)
+unletAst6S l (AstPrimalPartS t) = astPrimalPartS $ unletAstS (emptyUnletEnv l)
                                   $ bindsToLetS t (assocsADShare l)
 
 -- TODO: if a nested let is alone, eliminate the nesting let instead;
@@ -1507,7 +1507,7 @@ unletAst6S l (AstPrimalPartS t) = AstPrimalPartS $ unletAstS (emptyUnletEnv l)
 unletAstPrimal
   :: (GoodScalar r, KnownNat n)
   => UnletEnv -> AstPrimalPart r n -> AstPrimalPart r n
-unletAstPrimal env (AstPrimalPart t) = AstPrimalPart $ unletAst env t
+unletAstPrimal env (AstPrimalPart t) = astPrimalPart $ unletAst env t
 
 unletAst
   :: (GoodScalar r, KnownNat n)
@@ -1629,7 +1629,7 @@ unletAstBool env t = case t of
 unletAstPrimalS
   :: (GoodScalar r, OS.Shape sh)
   => UnletEnv -> AstPrimalPartS r sh -> AstPrimalPartS r sh
-unletAstPrimalS env (AstPrimalPartS t) = AstPrimalPartS $ unletAstS env t
+unletAstPrimalS env (AstPrimalPartS t) = astPrimalPartS $ unletAstS env t
 
 unletAstS
   :: (GoodScalar r, OS.Shape sh)
@@ -1700,7 +1700,7 @@ unletAstS env t = case t of
 simplifyAstPrimal
   :: (GoodScalar r, KnownNat n)
   => AstPrimalPart r n -> AstPrimalPart r n
-simplifyAstPrimal (AstPrimalPart t) = AstPrimalPart $ simplifyAst t
+simplifyAstPrimal (AstPrimalPart t) = astPrimalPart $ simplifyAst t
 
 -- This function guarantees full simplification: every redex
 -- is visited and each combinator applied. The most exhaustive and costly
@@ -2033,7 +2033,7 @@ simplifyRelIntOp opCodeRel arg = Ast.AstRelInt opCodeRel arg
 simplifyAstPrimalS
   :: (OS.Shape sh, GoodScalar r)
   => AstPrimalPartS r sh -> AstPrimalPartS r sh
-simplifyAstPrimalS (AstPrimalPartS t) = AstPrimalPartS $ simplifyAstS t
+simplifyAstPrimalS (AstPrimalPartS t) = astPrimalPartS $ simplifyAstS t
 
 simplifyAstS
   :: (OS.Shape sh, GoodScalar r)
@@ -2104,7 +2104,7 @@ astSumS :: (KnownNat n, OS.Shape sh, GoodScalar r)
         => AstShaped r (n ': sh) -> AstShaped r sh
 astSumS (Ast.AstConstS t) = Ast.AstConstS $ tsumS t
 astSumS (Ast.AstConstantS (AstPrimalPartS v)) =
-  astConstantS $ AstPrimalPartS $ astSumS v
+  astConstantS $ astPrimalPartS $ astSumS v
 astSumS (Ast.AstReverseS v) = Ast.AstSumS v
 astSumS v = Ast.AstSumS v
 
@@ -2125,7 +2125,7 @@ astScatterS v (ZSH, ZSH) =
   -- TODO: ^^^
 -- astScatterS v (Z, ix) = update (tzero sh 0) ix v
 astScatterS (Ast.AstConstantS (AstPrimalPartS v)) (vars, ix) =
-  astConstantS $ AstPrimalPartS $ astScatterS v (vars, ix)
+  astConstantS $ astPrimalPartS $ astScatterS v (vars, ix)
 astScatterS v (vars, ix) = Ast.AstScatterS v (vars, ix)
 
 astFromListS :: (KnownNat n, OS.Shape sh, GoodScalar r)
@@ -2136,7 +2136,7 @@ astFromListS l =
       unConstant _ = Nothing
   in case mapM unConstant l of
     Just [] -> Ast.AstFromListS []
-    Just l2 -> astConstantS $ AstPrimalPartS $ astFromListS l2
+    Just l2 -> astConstantS $ astPrimalPartS $ astFromListS l2
     Nothing ->
       let unConst (Ast.AstConstS t) = Just t
           unConst _ = Nothing
@@ -2152,7 +2152,7 @@ astFromVectorS l =
       unConstant _ = Nothing
   in case V.mapM unConstant l of
     Just l2 | V.null l2 -> Ast.AstFromVectorS l2
-    Just l2 -> astConstantS $ AstPrimalPartS $ astFromVectorS l2
+    Just l2 -> astConstantS $ astPrimalPartS $ astFromVectorS l2
     Nothing ->
       let unConst (Ast.AstConstS t) = Just t
           unConst _ = Nothing
@@ -2164,7 +2164,7 @@ astReplicateS :: forall n sh r. (KnownNat n, OS.Shape sh, GoodScalar r)
               => AstShaped r sh -> AstShaped r (n ': sh)
 astReplicateS = \case
   Ast.AstConstantS (AstPrimalPartS v) ->
-    astConstantS $ AstPrimalPartS $ astReplicateS v
+    astConstantS $ astPrimalPartS $ astReplicateS v
   Ast.AstTransposeS @perm @sh1 v ->
     let zsuccPerm = 0 : map succ (OS.shapeT @perm)
     in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccPerm) ->
@@ -2182,7 +2182,7 @@ astAppendS :: (KnownNat m, KnownNat n, OS.Shape sh, GoodScalar r)
 astAppendS (Ast.AstConstS u) (Ast.AstConstS v) = Ast.AstConstS $ tappendS u v
 astAppendS (Ast.AstConstantS (AstPrimalPartS u))
            (Ast.AstConstantS (AstPrimalPartS v)) =
-  astConstantS $ AstPrimalPartS $ astAppendS u v
+  astConstantS $ astPrimalPartS $ astAppendS u v
 astAppendS (Ast.AstFromListS l1) (Ast.AstFromListS l2) = astFromListS $ l1 ++ l2
 astAppendS (Ast.AstFromListS l1) (Ast.AstFromVectorS l2) =
   astFromListS $ l1 ++ V.toList l2
@@ -2196,7 +2196,7 @@ astReverseS :: forall n sh r. (KnownNat n, OS.Shape sh, GoodScalar r)
             => AstShaped r (n ': sh) -> AstShaped r (n ': sh)
 astReverseS (Ast.AstConstS t) = Ast.AstConstS $ treverseS t
 astReverseS (Ast.AstConstantS (AstPrimalPartS v)) =
-  astConstantS $ AstPrimalPartS $ astReverseS v
+  astConstantS $ astPrimalPartS $ astReverseS v
 astReverseS (Ast.AstFromListS l) = Ast.AstFromListS $ reverse l
 astReverseS (Ast.AstFromVectorS l) = Ast.AstFromVectorS $ V.reverse l
 astReverseS (Ast.AstReplicateS v) = Ast.AstReplicateS v
@@ -2235,7 +2235,7 @@ astCondS :: AstBool -> AstShaped r sh -> AstShaped r sh -> AstShaped r sh
 astCondS (AstBoolConst b) v w = if b then v else w
 astCondS b (Ast.AstConstantS (AstPrimalPartS v))
            (Ast.AstConstantS (AstPrimalPartS w)) =
-  astConstantS $ AstPrimalPartS $ astCondS b v w
+  astConstantS $ astPrimalPartS $ astCondS b v w
 astCondS b v w = Ast.AstCondS b v w
 
 -- We have to simplify after substitution or simplifying is not idempotent.

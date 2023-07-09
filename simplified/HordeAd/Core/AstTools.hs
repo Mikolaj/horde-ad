@@ -238,6 +238,24 @@ data SubstitutionPayload =
   | forall r sh. (OS.Shape sh, GoodScalar r)
                  => SubstitutionPayloadShaped (AstShaped r sh)
 
+substitute1AstPrimal :: forall n r.
+                        (GoodScalar r, KnownNat n)
+                     => SubstitutionPayload -> AstVarId -> AstPrimalPart r n
+                     -> AstPrimalPart r n
+substitute1AstPrimal i var (AstPrimalPart v1) = case v1 of
+  AstVar sh var2 ->
+    if var == var2
+    then case i of
+      SubstitutionPayloadRanked @r2 @m t ->  -- TODO: understand why this case is needed
+        case sameNat (Proxy @m) (Proxy @n) of
+          Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+            Just Refl -> assert (shapeAst t == sh) $ astPrimalPart t
+            _ -> error "substitute1AstPrimal: type of payload"
+          _ -> error "substitute1AstPrimal: n"
+      _ -> error "substitute1AstPrimal: payload"
+    else astPrimalPart v1
+  _ -> astPrimalPart $ substitute1Ast i var v1
+
 -- We assume no variable is shared between a binding and its nested binding
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
@@ -291,22 +309,19 @@ substitute1Ast i var v1 = case v1 of
   AstSToR v -> AstSToR $ substitute1AstS i var v
   AstConst _a -> v1
   AstConstant (AstPrimalPart a) ->
-    AstConstant (AstPrimalPart $ substitute1Ast i var a)
+    AstConstant (astPrimalPart $ substitute1Ast i var a)
   AstD (AstPrimalPart u) (AstDualPart u') ->
-    AstD (AstPrimalPart $ substitute1Ast i var u)
+    AstD (astPrimalPart $ substitute1Ast i var u)
          (AstDualPart $ substitute1Ast i var u')
   AstLetDomains vars l v ->
     AstLetDomains vars (substitute1AstDomains i var l)
                        (substitute1Ast i var v)
-  AstFloor (AstPrimalPart a) ->
-    AstFloor (AstPrimalPart $ substitute1Ast i var a)
+  AstFloor a -> AstFloor (substitute1AstPrimal i var a)
   AstCond b v w -> AstCond (substitute1AstBool i var b)
                            (substitute1Ast i var v)
                            (substitute1Ast i var w)
-  AstMinIndex (AstPrimalPart a) ->
-    AstMinIndex (AstPrimalPart $ substitute1Ast i var a)
-  AstMaxIndex (AstPrimalPart a) ->
-    AstMaxIndex (AstPrimalPart $ substitute1Ast i var a)
+  AstMinIndex a -> AstMinIndex (substitute1AstPrimal i var a)
+  AstMaxIndex a -> AstMaxIndex (substitute1AstPrimal i var a)
 
 substitute1AstDynamic
   :: GoodScalar r
@@ -341,20 +356,20 @@ substitute1AstInt i var i2 = case i2 of
     AstIntOp opCodeInt $ map (substitute1AstInt i var) args
   AstIntConst _a -> i2
   AstIntFloor (AstPrimalPart v) ->
-    AstIntFloor $ AstPrimalPart $ substitute1Ast i var v
+    AstIntFloor $ astPrimalPart $ substitute1Ast i var v
   AstIntFloorS (AstPrimalPartS v) ->
-    AstIntFloorS $ AstPrimalPartS $ substitute1AstS i var v
+    AstIntFloorS $ astPrimalPartS $ substitute1AstS i var v
   AstIntCond b a1 a2 ->
     AstIntCond (substitute1AstBool i var b)
                (substitute1AstInt i var a1) (substitute1AstInt i var a2)
   AstMinIndex1 (AstPrimalPart v) ->
-    AstMinIndex1 $ AstPrimalPart $ substitute1Ast i var v
+    AstMinIndex1 $ astPrimalPart $ substitute1Ast i var v
   AstMaxIndex1 (AstPrimalPart v) ->
-    AstMaxIndex1 $ AstPrimalPart $ substitute1Ast i var v
+    AstMaxIndex1 $ astPrimalPart $ substitute1Ast i var v
   AstMinIndex1S (AstPrimalPartS v) ->
-    AstMinIndex1S $ AstPrimalPartS $ substitute1AstS i var v
+    AstMinIndex1S $ astPrimalPartS $ substitute1AstS i var v
   AstMaxIndex1S (AstPrimalPartS v) ->
-    AstMaxIndex1S $ AstPrimalPartS $ substitute1AstS i var v
+    AstMaxIndex1S $ astPrimalPartS $ substitute1AstS i var v
 
 substitute1AstBool :: SubstitutionPayload -> AstVarId -> AstBool
                    -> AstBool
@@ -364,10 +379,10 @@ substitute1AstBool i var b1 = case b1 of
   AstBoolConst _a -> b1
   AstRel opCodeRel args ->
     AstRel opCodeRel
-    $ map (AstPrimalPart . substitute1Ast i var . unAstPrimalPart) args
+    $ map (astPrimalPart . substitute1Ast i var . unAstPrimalPart) args
   AstRelS opCodeRel args ->
     AstRelS opCodeRel
-    $ map (AstPrimalPartS . substitute1AstS i var . unAstPrimalPartS) args
+    $ map (astPrimalPartS . substitute1AstS i var . unAstPrimalPartS) args
   AstRelInt opCodeRel args ->
     AstRelInt opCodeRel $ map (substitute1AstInt i var) args
 
@@ -418,22 +433,22 @@ substitute1AstS i var v1 = case v1 of
   AstRToS v -> AstRToS $ substitute1Ast i var v
   AstConstS _a -> v1
   AstConstantS (AstPrimalPartS a) ->
-    AstConstantS (AstPrimalPartS $ substitute1AstS i var a)
+    AstConstantS (astPrimalPartS $ substitute1AstS i var a)
   AstDS (AstPrimalPartS u) (AstDualPartS u') ->
-    AstDS (AstPrimalPartS $ substitute1AstS i var u)
+    AstDS (astPrimalPartS $ substitute1AstS i var u)
           (AstDualPartS $ substitute1AstS i var u')
   AstLetDomainsS vars l v ->
     AstLetDomainsS vars (substitute1AstDomains i var l)
                         (substitute1AstS i var v)
   AstFloorS (AstPrimalPartS a) ->
-    AstFloorS (AstPrimalPartS $ substitute1AstS i var a)
+    AstFloorS (astPrimalPartS $ substitute1AstS i var a)
   AstCondS b v w -> AstCondS (substitute1AstBool i var b)
                              (substitute1AstS i var v)
                              (substitute1AstS i var w)
   AstMinIndexS (AstPrimalPartS a) ->
-    AstMinIndexS (AstPrimalPartS $ substitute1AstS i var a)
+    AstMinIndexS (astPrimalPartS $ substitute1AstS i var a)
   AstMaxIndexS (AstPrimalPartS a) ->
-    AstMaxIndexS (AstPrimalPartS $ substitute1AstS i var a)
+    AstMaxIndexS (astPrimalPartS $ substitute1AstS i var a)
 
 -- * Determining if a term is too small to require sharing
 
