@@ -99,7 +99,7 @@ instance RankedTensor AstRanked where
       _ -> error "raddDynamic: type mismatch"
   tregister = astRegisterFun
 
-  tconstant = astConstant
+  tconstant = AstConstant
   tprimalPart = astPrimalPart
   tdualPart = AstDualPart
   tD = AstD  -- TODO: simplify when it's know that dual part is AstConstant
@@ -286,7 +286,7 @@ instance RankedTensor AstNoVectorize where
   tconstBare = AstNoVectorize . AstConst
   raddDynamic = undefined
 
-  tconstant = AstNoVectorize . astConstant
+  tconstant = AstNoVectorize . AstConstant
   tprimalPart = AstPrimalPart . unAstNoVectorize
   tdualPart = AstDualPart . unAstNoVectorize
   tD u u' = AstNoVectorize $ AstD u u'
@@ -331,7 +331,7 @@ instance RankedTensor AstNoSimplify where
   tconstBare = AstNoSimplify . AstConst
   raddDynamic = undefined
 
-  tconstant = AstNoSimplify . astConstant
+  tconstant = AstNoSimplify . AstConstant
     -- exceptionally we do simplify AstConstant to avoid long boring chains
   tprimalPart = AstPrimalPart . unAstNoSimplify
   tdualPart = AstDualPart . unAstNoSimplify
@@ -413,7 +413,7 @@ instance ShapedTensor AstShaped where
       _ -> error "saddDynamic: type mismatch"
   sregister = astRegisterFunS
 
-  sconstant = AstConstantS  -- astConstant
+  sconstant = AstConstantS
   sprimalPart = astPrimalPartS
   sdualPart = AstDualPartS
   sD = AstDS

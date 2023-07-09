@@ -308,10 +308,9 @@ substitute1Ast i var v1 = case v1 of
   AstCast v -> AstCast $ substitute1Ast i var v
   AstSToR v -> AstSToR $ substitute1AstS i var v
   AstConst _a -> v1
-  AstConstant (AstPrimalPart a) ->
-    AstConstant (astPrimalPart $ substitute1Ast i var a)
-  AstD (AstPrimalPart u) (AstDualPart u') ->
-    AstD (astPrimalPart $ substitute1Ast i var u)
+  AstConstant a -> AstConstant $ substitute1AstPrimal i var a
+  AstD a (AstDualPart u') ->
+    AstD (substitute1AstPrimal i var a)
          (AstDualPart $ substitute1Ast i var u')
   AstLetDomains vars l v ->
     AstLetDomains vars (substitute1AstDomains i var l)

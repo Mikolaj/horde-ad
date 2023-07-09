@@ -201,7 +201,7 @@ build1V k (var, v00) =
     Ast.AstConst{} ->
       error "build1V: AstConst can't have free int variables"
     Ast.AstConstant (AstPrimalPart v) -> traceRule $
-      astConstant $ astPrimalPart $ build1V k (var, v)
+      Ast.AstConstant $ astPrimalPart $ build1V k (var, v)
     Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
       Ast.AstD (astPrimalPart $ build1VOccurenceUnknown k (var, u))
                (AstDualPart $ build1VOccurenceUnknown k (var, u'))
@@ -230,7 +230,7 @@ build1V k (var, v00) =
       Ast.AstFloor $ astPrimalPart $ build1V k (var, v)
     Ast.AstCond b (Ast.AstConstant (AstPrimalPart v))
                   (Ast.AstConstant (AstPrimalPart w)) ->
-      let t = astConstant $ astPrimalPart
+      let t = Ast.AstConstant $ astPrimalPart
               $ astIndexStep (astFromList [v, w])
                              (singletonIndex $ astIntCond b 0 1)
       in build1V k (var, t)
@@ -517,7 +517,7 @@ build1VS (var, v00) =
     Ast.AstConstS{} ->
       error "build1VS: AstConstS can't have free int variables"
     Ast.AstConstantS (AstPrimalPartS v) -> traceRule $
-      astConstantS $ astPrimalPartS $ build1VS (var, v)
+      Ast.AstConstantS $ astPrimalPartS $ build1VS (var, v)
     Ast.AstDS (AstPrimalPartS u) (AstDualPartS u') ->
       Ast.AstDS (astPrimalPartS $ build1VOccurenceUnknownS (var, u))
                 (AstDualPartS $ build1VOccurenceUnknownS (var, u'))
@@ -543,7 +543,7 @@ build1VS (var, v00) =
       Ast.AstFloorS $ astPrimalPartS $ build1VS (var, v)
     Ast.AstCondS b (Ast.AstConstantS (AstPrimalPartS v))
                    (Ast.AstConstantS (AstPrimalPartS w)) ->
-      let t = astConstantS $ astPrimalPartS
+      let t = Ast.AstConstantS $ astPrimalPartS
               $ astIndexStepS @'[2] (astFromListS [v, w])
                                     (astIntCond b 0 1 :$: ZSH)
       in build1VS (var, t)
