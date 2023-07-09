@@ -5,7 +5,7 @@
 -- the mid-level API of the horde-ad library, together with
 -- the safely impure "HordeAd.Core.DualClass".
 module HordeAd.Core.DualNumber
-  ( ADVal, dD, pattern D, dDnotShared
+  ( ADVal, dD, pattern D, dDnotShared, constantADVal
   , SNat(..), withSNat, sNatValue, proxyFromSNat
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
@@ -256,7 +256,7 @@ instance (RealFloat (f r z), IsPrimal f r z) => RealFloat (ADVal f r z) where
   floatDigits (D _ u _) = floatDigits u
   floatRange (D _ u _) = floatRange u
   decodeFloat (D _ u _) = decodeFloat u
-  encodeFloat i j = D emptyADShare (encodeFloat i j) dZero
+  encodeFloat i j = constantADVal (encodeFloat i j)
   isNaN (D _ u _) = isNaN u
   isInfinite (D _ u _) = isInfinite u
   isDenormalized (D _ u _) = isDenormalized u
