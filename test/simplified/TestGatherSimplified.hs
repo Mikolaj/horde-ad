@@ -306,14 +306,14 @@ testGatherSimp23 = do
                 (t * treplicate0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
   length (show t1) @?= 305
-  length (show (simplifyAst6 @Float t1)) @?= 650
+  length (show (simplifyAst6 @Float t1)) @?= 566
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               treshape @AstRanked @Float @2 @2 [2, 6]
                 (t * treplicate0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
   length (show t2) @?= 305
-  length (show (simplifyAst6 @Float t2)) @?= 650
+  length (show (simplifyAst6 @Float t2)) @?= 566
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -372,7 +372,7 @@ testGatherSimp33 = do
   let !t1 = gatherTranspose33
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t1) @?= 613
-  length (show (simplifyAst6 @Float t1)) @?= 19386
+  length (show (simplifyAst6 @Float t1)) @?= 8657
   resetVarCounter
   let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
                             (treshape @AstRanked @Float @10 [8, 16] t))
@@ -387,7 +387,7 @@ testGatherSimp34 = do
              gatherTranspose33 (t * treplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t1) @?= 893
-  length (show (simplifyAst6 @Float t1)) @?= 33649
+  length (show (simplifyAst6 @Float t1)) @?= 17073
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               (\t' -> tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
@@ -395,7 +395,7 @@ testGatherSimp34 = do
                 (t * treplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
   length (show t2) @?= 789
-  length (show (simplifyAst6 @Float t2)) @?= 1135
+  length (show (simplifyAst6 @Float t2)) @?= 1052
 
 -- scatters instead of gathers
 
