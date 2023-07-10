@@ -62,8 +62,6 @@ instance IfB (ADVal (Flip OR.Array) r n) where
 
 type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
 
-type instance IntOf (ADVal f) = IntOf f
-
 type instance PrimalOf (ADVal f) = f
 
 type instance DualOf (ADVal f) = Product (Clown (Const ADShare)) (Dual f)
@@ -153,6 +151,8 @@ instance (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
 -- in tests. None others are used anywhere.
 instance ( Dual ranked ~ DeltaR ranked shaped
          , DeltaR ranked shaped ~ Dual ranked
+         , PrimalOf ranked ~ ranked
+         , ranked ~ PrimalOf ranked
          , CRankedIP ranked IsPrimalPart
          , CRankedIP ranked CanRecordSharing
          , RankedTensor ranked )
@@ -165,9 +165,15 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   tshape (D _ u _) = tshape u
   -- This is very slow, but is fortunately not needed:
   -- tshape (D l u _) = tshape (tletWrap l u)
-  tminIndex0 (D l u _) = tminIndex0 (tletWrap l u)
-  tmaxIndex0 (D l u _) = tmaxIndex0 (tletWrap l u)
-  tfloor (D l u _) = tfloor (tletWrap l u)
+  --
+  -- All underlying scalars supporting these operations
+  -- result in empty delta expression, but it's still advantageous to store
+  -- @l@ in the @D@ triple instead of in @u@ via @letWrap@.
+  -- When, later on, these are to be treated as indexes, sprimalPart needs
+  -- to be called, which moves @l@ to @u@ via @letWrap@.
+  tminIndex (D l u _) = dDnotShared l (tminIndex u) dZero
+  tmaxIndex (D l u _) = dDnotShared l (tmaxIndex u) dZero
+  tfloor (D l u _) = dDnotShared l (tfloor u) dZero
 
   tindex v ix = index v ix
   tsum (D l u u') = dD l (tsum u) (SumR (tlength u) u')
@@ -308,6 +314,8 @@ instance (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
 -- in tests. None others are used anywhere.
 instance ( Dual shaped ~ DeltaS ranked shaped
          , DeltaS ranked shaped ~ Dual shaped
+         , PrimalOf shaped ~ shaped
+         , shaped ~ PrimalOf shaped
          , CRankedIPSh shaped IsPrimalPart
          , CRankedIPS shaped CanRecordSharing
          , ShapedTensor shaped )
@@ -319,9 +327,15 @@ instance ( Dual shaped ~ DeltaS ranked shaped
 
   -- This is very slow, but is fortunately not needed:
   -- tshape (D l u _) = tshape (tletWrap l u)
-  sminIndex0 (D l u _) = sminIndex0 (sletWrap l u)
-  smaxIndex0 (D l u _) = smaxIndex0 (sletWrap l u)
-  sfloor (D l u _) = sfloor (sletWrap l u)
+  --
+  -- All underlying scalars supporting these operations
+  -- result in empty delta expression, but it's still advantageous to store
+  -- @l@ in the @D@ triple instead of in @u@ via @letWrap@.
+  -- When, later on, these are to be treated as indexes, sprimalPart needs
+  -- to be called, which moves @l@ to @u@ via @letWrap@.
+  sminIndex (D l u _) = dDnotShared l (sminIndex u) dZero
+  smaxIndex (D l u _) = dDnotShared l (smaxIndex u) dZero
+  sfloor (D l u _) = dDnotShared l (sfloor u) dZero
 
   sindex v ix = indexS v ix
   ssum (D l u u') = dD l (ssum u) (SumS u')

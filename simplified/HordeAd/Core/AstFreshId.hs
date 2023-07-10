@@ -2,7 +2,7 @@
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR, funToAst2, funToAstAll
-  , funToAstIIO, funToAstI, funToAstIndexIO, funToAstIndex
+  , funToAstIOI, funToAstI, funToAstIndexIO, funToAstIndex
   , funToAstIOS, funToAstS, astRegisterFunS, funToAstIndexIOS, funToAstIndexS
   , resetVarCounter
   ) where
@@ -161,15 +161,15 @@ funToAstAll parameters0 = unsafePerformIO $ do
   (vars1, asts1) <- funToAst2IO parameters0
   return ((AstVarName freshId, vars1), asts1)
 
-funToAstIIO :: (AstInt -> t) -> IO (AstVarId, t)
-{-# INLINE funToAstIIO #-}
-funToAstIIO f = do
+funToAstIOI :: (AstInt -> t) -> IO (AstVarId, t)
+{-# INLINE funToAstIOI #-}
+funToAstIOI f = do
   freshId <- unsafeGetFreshAstVarId
   return (freshId, f (AstIntVar freshId))
 
 funToAstI :: (AstInt -> t) -> (AstVarId, t)
 {-# NOINLINE funToAstI #-}
-funToAstI = unsafePerformIO . funToAstIIO
+funToAstI = unsafePerformIO . funToAstIOI
 
 funToAstIndexIO
   :: forall m p. KnownNat m

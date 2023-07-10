@@ -18,6 +18,37 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
+tminIndexN :: ( RankedTensor ranked, KnownNat n, GoodScalar r
+              , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+           => ranked r n -> IndexOf ranked n
+tminIndexN t = fromLinearIdx (tshape t) (tprimalPart $ tminIndex (tflatten t))
+
+tmaxIndexN :: ( RankedTensor ranked, KnownNat n, GoodScalar r
+              , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+           => ranked r n -> IndexOf ranked n
+tmaxIndexN t = fromLinearIdx (tshape t) (tprimalPart $ tmaxIndex (tflatten t))
+
+tminimum :: ( RankedTensor ranked, KnownNat n, GoodScalar r
+            , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+         => ranked r n -> ranked r 0
+-- The let is required to preserve the sharing of the argument, which is
+-- used twice: in tminIndex and in tindex0.
+-- TODO: this simpler form will be possible when intLet is available
+-- and so sharing of integer expressions is not broken.
+-- tminimum t0 = tlet t0 $ \t -> tindex0 t (tminIndex t)
+tminimum t0 = tlet t0 $ \t ->
+                tlet (tflatten t) $ \tf ->
+                  tindex0 t $ fromLinearIdx (tshape t)
+                                            (tprimalPart $ tminIndex tf)
+
+tmaximum :: ( RankedTensor ranked, KnownNat n, GoodScalar r
+            , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+         => ranked r n -> ranked r 0
+tmaximum t0 = tlet t0 $ \t ->
+                tlet (tflatten t) $ \tf ->
+                  tindex0 t $ fromLinearIdx (tshape t)
+                                            (tprimalPart $ tmaxIndex tf)
+
 scale :: forall ranked r n.
          (ADReady ranked r, KnownNat n)
       => PrimalOf ranked r n -> ranked r n -> ranked r n
@@ -78,7 +109,9 @@ lossCrossEntropyV targ res = negate $ log res `tdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
   :: forall ranked n r.
-     (RankedTensor ranked, RankedTensor (PrimalOf ranked), KnownNat n, GoodScalar r)
+     ( RankedTensor ranked, RankedTensor (PrimalOf ranked), KnownNat n
+     , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked
+     , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked )
   => PrimalOf ranked r n -> ranked r n -> ranked r 0
 lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
@@ -101,7 +134,8 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
          -- tDot0 (softMaxU - target) u'
 
 -- No padding; remaining areas ignored.
-maxPool1 :: (RankedTensor ranked, GoodScalar r)
+maxPool1 :: ( RankedTensor ranked, GoodScalar r
+            , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
          => Int -> Int -> ranked r 1 -> ranked r 1
 maxPool1 ksize stride v =
   let slices = [tslice i ksize v | i <- [0, stride .. tlength v - ksize]]

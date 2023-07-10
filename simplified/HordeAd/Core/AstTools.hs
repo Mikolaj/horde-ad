@@ -5,11 +5,11 @@
 -- or resulting from the differentiation.
 module HordeAd.Core.AstTools
   ( shapeAst, lengthAst
-  , intVarInAst, intVarInAstInt, intVarInAstBool, intVarInIndex
+  , intVarInAstPrimal, intVarInAst, intVarInAstBool, intVarInIndex
   , intVarInAstS, intVarInIndexS
   , SubstitutionPayload(..)
-  , substitute1Ast, substitute1AstDomains, substitute1AstInt, substitute1AstBool
-  , substitute1AstS
+  , substitute1AstPrimal, substitute1Ast, substitute1AstDomains
+  , substitute1AstBool, substitute1AstS
   , astIsSmall, astIsSmallS
   , unwrapAstDomains, bindsToLet, bindsToLetS
   , bindsToDomainsLet
@@ -21,6 +21,7 @@ import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
+import           Data.Int (Int64)
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -62,7 +63,7 @@ shapeAst v1 = case v1 of
     [] -> error "shapeAst: AstSumOfList with no arguments"
     t : _ -> shapeAst t
   AstIota -> singletonShape (maxBound :: Int)  -- ought to be enough
-  AstIndex v (_is :: Index m AstInt) -> dropShape @m (shapeAst v)
+  AstIndex v _is -> dropShape (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
   AstScatter sh _ _ -> sh
   AstFromList l -> case l of
@@ -111,11 +112,16 @@ lengthAst v1 = case shapeAst v1 of
 -- and nobody asks about occurences of variables that are bound.
 -- This keeps the occurence checking code simple, because we never need
 -- to compare variables to any variable in the bindings.
+-- This code works, in fact, for any variables, not only int variables.
+intVarInAstPrimal :: AstVarId -> AstPrimalPart r n -> Bool
+intVarInAstPrimal var (AstPrimalPart v) = intVarInAst var v
+
 intVarInAst :: AstVarId -> AstRanked r n -> Bool
 intVarInAst var = \case
-  AstVar{} -> False  -- not an int variable
+  AstVar _ var2 -> var == var2
   AstLet _var2 u v -> intVarInAst var u || intVarInAst var v
-  AstLetADShare _l v -> intVarInAst var v
+  AstLetADShare l v -> intVarInADShare intVarInAstDynamic var l
+                       || intVarInAst var v
     -- this is a (we assume) conservative approximation, to avoid a costly
     -- traversal; in (almost?) all cases this is also the true answer,
     -- because the let definitions come from the outside and so can't
@@ -141,38 +147,27 @@ intVarInAst var = \case
   AstCast t -> intVarInAst var t
   AstSToR v -> intVarInAstS var v
   AstConst{} -> False
-  AstConstant (AstPrimalPart v) -> intVarInAst var v
+  AstConstant v -> intVarInAstPrimal var v
   AstD (AstPrimalPart u) (AstDualPart u') ->
     intVarInAst var u || intVarInAst var u'
   AstLetDomains _vars l v -> intVarInAstDomains var l || intVarInAst var v
-  AstFloor (AstPrimalPart a) -> intVarInAst var a
+  AstFloor a -> intVarInAstPrimal var a
   AstCond b v w ->
     intVarInAstBool var b || intVarInAst var v || intVarInAst var w
-  AstMinIndex (AstPrimalPart a) -> intVarInAst var a
-  AstMaxIndex (AstPrimalPart a) -> intVarInAst var a
+  AstMinIndex a -> intVarInAstPrimal var a
+  AstMaxIndex a -> intVarInAstPrimal var a
 
 intVarInAstDomains :: AstVarId -> AstDomains -> Bool
 intVarInAstDomains var = \case
-  AstDomains l ->
-    let f (DynamicExists (AstRToD t)) = intVarInAst var t
-        f (DynamicExists (AstSToD t)) = intVarInAstS var t
-    in any f l
+  AstDomains l -> let f (DynamicExists d) = intVarInAstDynamic var d
+                  in any f l
   AstDomainsLet _var2 u v -> intVarInAst var u || intVarInAstDomains var v
   AstDomainsLetS _var2 u v -> intVarInAstS var u || intVarInAstDomains var v
 
-intVarInAstInt :: AstVarId -> AstInt -> Bool
-intVarInAstInt var = \case
-  AstIntVar var2 -> var == var2  -- the only int variable not in binder position
-  AstIntOp _ l -> any (intVarInAstInt var) l
-  AstIntConst{} -> False
-  AstIntFloor (AstPrimalPart v) -> intVarInAst var v
-  AstIntFloorS (AstPrimalPartS v) -> intVarInAstS var v
-  AstIntCond b x y ->
-    intVarInAstBool var b || intVarInAstInt var x || intVarInAstInt var y
-  AstMinIndex1 (AstPrimalPart v) -> intVarInAst var v
-  AstMaxIndex1 (AstPrimalPart v) -> intVarInAst var v
-  AstMinIndex1S (AstPrimalPartS v) -> intVarInAstS var v
-  AstMaxIndex1S (AstPrimalPartS v) -> intVarInAstS var v
+intVarInAstDynamic :: AstVarId -> AstDynamic r -> Bool
+intVarInAstDynamic var = \case
+  AstRToD t -> intVarInAst var t
+  AstSToD t -> intVarInAstS var t
 
 intVarInAstBool :: AstVarId -> AstBool -> Bool
 intVarInAstBool var = \case
@@ -180,16 +175,16 @@ intVarInAstBool var = \case
   AstBoolConst{} -> False
   AstRel _ l -> any (intVarInAst var . unAstPrimalPart) l
   AstRelS _ l -> any (intVarInAstS var . unAstPrimalPartS) l
-  AstRelInt _ l  -> any (intVarInAstInt var) l
 
 intVarInIndex :: AstVarId -> AstIndex n -> Bool
-intVarInIndex var = any (intVarInAstInt var)
+intVarInIndex var = any (intVarInAstPrimal var)
 
 intVarInAstS :: AstVarId -> AstShaped r sh -> Bool
 intVarInAstS var = \case
-  AstVarS{} -> False  -- not an int variable
+  AstVarS var2 -> var == var2
   AstLetS _var2 u v -> intVarInAstS var u || intVarInAstS var v
-  AstLetADShareS _l v -> intVarInAstS var v
+  AstLetADShareS l v -> intVarInADShare intVarInAstDynamic var l
+                        || intVarInAstS var v
     -- this is a (we assume) conservative approximation, to avoid a costly
     -- traversal; in (almost?) all cases this is also the true answer,
     -- because the let definitions come from the outside and so can't
@@ -226,7 +221,7 @@ intVarInAstS var = \case
   AstMaxIndexS (AstPrimalPartS a) -> intVarInAstS var a
 
 intVarInIndexS :: AstVarId -> AstIndexS sh -> Bool
-intVarInIndexS var = any (intVarInAstInt var)
+intVarInIndexS var = any (intVarInAstPrimal var)
 
 
 -- * Substitution
@@ -246,7 +241,16 @@ substitute1AstPrimal i var (AstPrimalPart v1) = case v1 of
   AstVar sh var2 ->
     if var == var2
     then case i of
-      SubstitutionPayloadRanked @r2 @m t ->  -- TODO: understand why this case is needed
+      SubstitutionPayloadInt t ->
+        case sameNat (Proxy @0) (Proxy @n) of
+          Just Refl -> case testEquality (typeRep @Int64) (typeRep @r) of
+            Just Refl -> t
+            _ -> error "substitute1AstPrimal: type of payload"
+          _ -> error "substitute1AstPrimal: n"
+      -- This is needed, because sometimes user's program takes the primal
+      -- part of a full dual number and so the corresponding full term gets
+      -- wrapped in AstPrimalPart. Rarely, the term is a variable.
+      SubstitutionPayloadRanked @r2 @m t ->
         case sameNat (Proxy @m) (Proxy @n) of
           Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
             Just Refl -> assert (shapeAst t == sh) $ astPrimalPart t
@@ -260,8 +264,6 @@ substitute1AstPrimal i var (AstPrimalPart v1) = case v1 of
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
---
--- The Either is a hack until we merge Ast and AstInt.
 substitute1Ast :: forall n r.
                   (GoodScalar r, KnownNat n)
                => SubstitutionPayload -> AstVarId -> AstRanked r n
@@ -270,13 +272,22 @@ substitute1Ast i var v1 = case v1 of
   AstVar sh var2 ->
     if var == var2
     then case i of
+      -- This is needed, because AstPrimalPart is always moved to the top
+      -- of the primal part term tree and so may not wrap a variable
+      -- that is very much intended as primal and resides in a primal tree.
+      SubstitutionPayloadInt (AstPrimalPart t) ->
+        case sameNat (Proxy @0) (Proxy @n) of
+          Just Refl -> case testEquality (typeRep @Int64) (typeRep @r) of
+            Just Refl -> t
+            _ -> error "substitute1Ast: type of payload"
+          _ -> error "substitute1Ast: n"
       SubstitutionPayloadRanked @r2 @m t ->
         case sameNat (Proxy @m) (Proxy @n) of
-          Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+          Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
             Just Refl -> assert (shapeAst t == sh) t
             _ -> error "substitute1Ast: type of payload"
-          _ -> error "substitute1Ast: payload"
-      _ -> error "substitute1Ast: n"
+          _ -> error "substitute1Ast: n"
+      _ -> error "substitute1Ast: payload"
     else v1
   AstLet var2 u v ->
     AstLet var2 (substitute1Ast i var u) (substitute1Ast i var v)
@@ -287,12 +298,12 @@ substitute1Ast i var v1 = case v1 of
     AstOpIntegral opCode $ map (substitute1Ast i var) args
   AstSumOfList args -> AstSumOfList $ map (substitute1Ast i var) args
   AstIota -> v1
-  AstIndex v is ->
-    AstIndex (substitute1Ast i var v) (fmap (substitute1AstInt i var) is)
+  AstIndex v ix ->
+    AstIndex (substitute1Ast i var v) (fmap (substitute1AstPrimal i var) ix)
   AstSum v -> AstSum (substitute1Ast i var v)
   AstScatter sh v (vars, ix) ->
     AstScatter sh (substitute1Ast i var v)
-                  (vars, fmap (substitute1AstInt i var) ix)
+                  (vars, fmap (substitute1AstPrimal i var) ix)
   AstFromList l -> AstFromList $ map (substitute1Ast i var) l
   AstFromVector l -> AstFromVector $ V.map (substitute1Ast i var) l
   AstReplicate s v -> AstReplicate s (substitute1Ast i var v)
@@ -304,7 +315,7 @@ substitute1Ast i var v1 = case v1 of
   AstBuild1 k (var2, v) -> AstBuild1 k (var2, substitute1Ast i var v)
   AstGather sh v (vars, ix) ->
     AstGather sh (substitute1Ast i var v)
-                  (vars, fmap (substitute1AstInt i var) ix)
+                  (vars, fmap (substitute1AstPrimal i var) ix)
   AstCast v -> AstCast $ substitute1Ast i var v
   AstSToR v -> AstSToR $ substitute1AstS i var v
   AstConst _a -> v1
@@ -343,33 +354,6 @@ substitute1AstDomains i var = \case
     AstDomainsLetS var2 (substitute1AstS i var u)
                         (substitute1AstDomains i var v)
 
-substitute1AstInt :: SubstitutionPayload -> AstVarId -> AstInt
-                  -> AstInt
-substitute1AstInt i var i2 = case i2 of
-  AstIntVar var2 ->
-    if var == var2 then case i of
-      SubstitutionPayloadInt t -> t
-      _ -> error "substitute1AstInt: payload"
-    else i2
-  AstIntOp opCodeInt args ->
-    AstIntOp opCodeInt $ map (substitute1AstInt i var) args
-  AstIntConst _a -> i2
-  AstIntFloor (AstPrimalPart v) ->
-    AstIntFloor $ astPrimalPart $ substitute1Ast i var v
-  AstIntFloorS (AstPrimalPartS v) ->
-    AstIntFloorS $ astPrimalPartS $ substitute1AstS i var v
-  AstIntCond b a1 a2 ->
-    AstIntCond (substitute1AstBool i var b)
-               (substitute1AstInt i var a1) (substitute1AstInt i var a2)
-  AstMinIndex1 (AstPrimalPart v) ->
-    AstMinIndex1 $ astPrimalPart $ substitute1Ast i var v
-  AstMaxIndex1 (AstPrimalPart v) ->
-    AstMaxIndex1 $ astPrimalPart $ substitute1Ast i var v
-  AstMinIndex1S (AstPrimalPartS v) ->
-    AstMinIndex1S $ astPrimalPartS $ substitute1AstS i var v
-  AstMaxIndex1S (AstPrimalPartS v) ->
-    AstMaxIndex1S $ astPrimalPartS $ substitute1AstS i var v
-
 substitute1AstBool :: SubstitutionPayload -> AstVarId -> AstBool
                    -> AstBool
 substitute1AstBool i var b1 = case b1 of
@@ -382,8 +366,6 @@ substitute1AstBool i var b1 = case b1 of
   AstRelS opCodeRel args ->
     AstRelS opCodeRel
     $ map (astPrimalPartS . substitute1AstS i var . unAstPrimalPartS) args
-  AstRelInt opCodeRel args ->
-    AstRelInt opCodeRel $ map (substitute1AstInt i var) args
 
 substitute1AstS :: forall sh r.
                    (GoodScalar r, OS.Shape sh)
@@ -394,7 +376,7 @@ substitute1AstS i var v1 = case v1 of
     if var == var2
     then case i of
       SubstitutionPayloadShaped @r2 @sh2 t -> case sameShape @sh2 @sh of
-        Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+        Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
           Just Refl -> t
           _ -> error "substitute1AstS: type of payload"
         _ -> error "substitute1AstS: payload"
@@ -409,12 +391,12 @@ substitute1AstS i var v1 = case v1 of
     AstOpIntegralS opCode $ map (substitute1AstS i var) args
   AstSumOfListS args -> AstSumOfListS $ map (substitute1AstS i var) args
   AstIotaS -> v1
-  AstIndexS v is ->
-    AstIndexS (substitute1AstS i var v) (fmap (substitute1AstInt i var) is)
+  AstIndexS v ix ->
+    AstIndexS (substitute1AstS i var v) (fmap (substitute1AstPrimal i var) ix)
   AstSumS v -> AstSumS (substitute1AstS i var v)
   AstScatterS v (vars, ix) ->
     AstScatterS (substitute1AstS i var v)
-                (vars, fmap (substitute1AstInt i var) ix)
+                (vars, fmap (substitute1AstPrimal i var) ix)
   AstFromListS l -> AstFromListS $ map (substitute1AstS i var) l
   AstFromVectorS l -> AstFromVectorS $ V.map (substitute1AstS i var) l
   AstReplicateS v -> AstReplicateS (substitute1AstS i var v)
@@ -427,7 +409,7 @@ substitute1AstS i var v1 = case v1 of
   AstBuild1S (var2, v) -> AstBuild1S (var2, substitute1AstS i var v)
   AstGatherS v (vars, ix) ->
     AstGatherS (substitute1AstS i var v)
-               (vars, fmap (substitute1AstInt i var) ix)
+               (vars, fmap (substitute1AstPrimal i var) ix)
   AstCastS v -> AstCastS $ substitute1AstS i var v
   AstRToS v -> AstRToS $ substitute1Ast i var v
   AstConstS _a -> v1

@@ -10,6 +10,7 @@ module HordeAd.Core.Types
 import Prelude
 
 import qualified Data.Array.DynamicS as OD
+import           Data.Int (Int64)
 import           Data.Kind (Type)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -69,7 +70,7 @@ type family DualOf (f :: TensorKind k) :: TensorKind k
 -- If used as size or shape gives more expressiveness,
 -- but leads to irregular tensors, especially after vectorization,
 -- and prevents statically known shapes.
-type family IntOf (f :: TensorKind k) :: Type
+type IntOf (f :: TensorKind k) = RankedOf (PrimalOf f) Int64 0
 
 -- | Thanks to the OverloadedLists mechanism, values of this type can be
 -- written using the normal list notation. However, such values, if not

@@ -25,6 +25,29 @@ import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 
+sminIndexN :: (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh))
+           => shaped r sh -> IndexSh shaped sh
+sminIndexN t =
+  ShapedList.fromLinearIdx
+    (sshape t)
+    (ShapedList.shapedNat $ tfromS $ sprimalPart $ sminIndex (sflatten t))
+
+smaxIndexN :: (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh))
+           => shaped r sh -> IndexSh shaped sh
+smaxIndexN t =
+  ShapedList.fromLinearIdx
+    (sshape t)
+    (ShapedList.shapedNat $ tfromS $ sprimalPart $ smaxIndex (sflatten t))
+
+sminimum :: forall r sh shaped.
+            (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh))
+         => shaped r sh -> shaped r '[]
+sminimum t = sindex0 t (sminIndexN t)
+smaximum :: forall r sh shaped.
+            (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh))
+         => shaped r sh -> shaped r '[]
+smaximum t = sindex0 t (smaxIndexN t)
+
 scaleS :: forall shaped r sh.
           (OS.Shape sh, ADReadyS shaped r)
        => PrimalOf shaped r sh -> shaped r sh -> shaped r sh
@@ -85,8 +108,7 @@ lossCrossEntropyVS targ res = negate $ log res `sdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyS
   :: forall shaped sh r.
-     ( OS.Shape sh, KnownNat (OS.Size sh)
-     , ShapedTensor shaped, ShapedTensor (PrimalOf shaped), GoodScalar r)
+     (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh))
   => PrimalOf shaped r sh -> shaped r sh -> shaped r '[]
 lossSoftMaxCrossEntropyS target d' = slet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
@@ -110,8 +132,7 @@ lossSoftMaxCrossEntropyS target d' = slet d' $ \d ->
 
 -- No padding; remaining areas ignored.
 maxPool1S :: forall ksize stride m shaped r.
-             ( KnownNat ksize, KnownNat stride, KnownNat m
-             , ShapedTensor shaped, GoodScalar r )
+             (ADReadyS shaped r, KnownNat ksize, KnownNat stride, KnownNat m)
           => shaped r '[m] -> shaped r '[m]
 maxPool1S v =
   let l = [0, valueOf @stride .. slength v - valueOf @ksize]

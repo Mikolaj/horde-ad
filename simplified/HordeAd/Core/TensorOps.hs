@@ -25,6 +25,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Flip
 import           Data.Functor (void)
 import           Data.Int (Int64)
 import           Data.List (foldl')
@@ -36,16 +37,19 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable.Mutable as VM
 import           Foreign (Ptr)
 import           Foreign.C (CInt (..))
-import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
+import           GHC.TypeLits
+  (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
+import           Numeric.LinearAlgebra.Data (toZ)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.ShapedList (ShapedList (..), ShapedNat)
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
-import           HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVS)
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (liftVR, liftVS, sameShape)
 
 -- * Odds and ends
 
@@ -86,7 +90,7 @@ type NumAndShow r = (Numeric r, Show r, Num (Vector r))
 
 -- * Ranked tensor operations
 
-type IndexInt n = Index n CInt
+type IndexInt n = Index n Int64
 
 -- There is no OR.update, so we convert.
 updateR :: (Numeric a, KnownNat n)
@@ -126,17 +130,31 @@ tlengthR u = case OR.shapeL u of
   [] -> error "tlength: missing dimensions"
   k : _ -> k
 
-tminIndex0R
-  :: Numeric r
-  => OR.Array 1 r -> CInt
-tminIndex0R = fromIntegral . LA.minIndex . OR.toVector
+tminIndexR
+  :: forall n r. (Numeric r, KnownNat n)
+  => OR.Array (1 + n) r -> OR.Array n Int64
+tminIndexR =
+  let f :: OR.Array 1 r -> OR.Array 0 Int64
+      f = OR.scalar . fromIntegral . LA.minIndex . OR.toVector
+  in case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> f
+    _ -> OR.rerank f
 
-tmaxIndex0R
-  :: Numeric r
-  => OR.Array 1 r -> CInt
-tmaxIndex0R = fromIntegral . LA.maxIndex . OR.toVector
+tmaxIndexR
+  :: forall n r. (Numeric r, KnownNat n)
+  => OR.Array (1 + n) r -> OR.Array n Int64
+tmaxIndexR =
+  let f :: OR.Array 1 r -> OR.Array 0 Int64
+      f = OR.scalar . fromIntegral . LA.maxIndex . OR.toVector
+  in case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> f
+    _ -> OR.rerank f
 
-ixInBounds :: [CInt] -> [Int] -> Bool
+tfloorR :: (Numeric r, KnownNat n)
+        => OR.Array n r -> OR.Array n Int64
+tfloorR = liftVR toZ
+
+ixInBounds :: [Int64] -> [Int] -> Bool
 ixInBounds ix sh =
   and $ zipWith (\i dim -> 0 <= i && i < fromIntegral dim) ix sh
 
@@ -164,7 +182,7 @@ tindexZR v ix =
 
 tindex1R
   :: Numeric r
-  => OR.Array (1 + n) r -> CInt -> OR.Array n r
+  => OR.Array (1 + n) r -> Int64 -> OR.Array n r
 tindex1R t i = OR.index t (fromIntegral i)
 
 -- TODO: optimize to tindex1R for n == 0
@@ -368,7 +386,7 @@ tscatterZR sh t f =
 -- and then freezing it and calling OR.fromVector
 -- or optimize tscatterNR and instantiate it instead
 tscatterZ1R :: (NumAndShow r, KnownNat p, KnownNat n)
-            => ShapeInt (p + n) -> OR.Array (1 + n) r -> (CInt -> IndexInt p)
+            => ShapeInt (p + n) -> OR.Array (1 + n) r -> (Int64 -> IndexInt p)
             -> OR.Array (p + n) r
 tscatterZ1R sh t f = case OR.shapeL t of
   0 : _ -> OR.constant (shapeToList sh) 0
@@ -468,7 +486,7 @@ tbuildNR = undefined  -- using tbuild definition instead
 
 tbuild1R
   :: forall n r. (KnownNat n, Numeric r)
-  => Int -> (CInt -> OR.Array n r) -> OR.Array (1 + n) r
+  => Int -> (Int64 -> OR.Array n r) -> OR.Array (1 + n) r
 tbuild1R 0 _ = tfromListR []  -- if we applied f, we'd change strictness
 tbuild1R k f = OR.ravel $ ORB.fromList [k]
                $ map f [0 .. fromIntegral k - 1]  -- hope this fuses
@@ -500,7 +518,7 @@ tgatherNR sh t f =
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
 tgather1R :: forall p n r. (KnownNat p, KnownNat n, NumAndShow r)
-          => Int -> OR.Array (p + n) r -> (CInt -> IndexInt p)
+          => Int -> OR.Array (p + n) r -> (Int64 -> IndexInt p)
           -> OR.Array (1 + n) r
 tgather1R 0 t _ = OR.fromList (0 : drop (valueOf @p) (OR.shapeL t)) []
 tgather1R k t f =
@@ -525,7 +543,7 @@ tgatherZR sh t f =
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
 tgatherZ1R :: forall p n r. (KnownNat p, KnownNat n, NumAndShow r)
-           => Int -> OR.Array (p + n) r -> (CInt -> IndexInt p)
+           => Int -> OR.Array (p + n) r -> (Int64 -> IndexInt p)
            -> OR.Array (1 + n) r
 tgatherZ1R 0 t _ = OR.fromList (0 : drop (valueOf @p) (OR.shapeL t)) []
 tgatherZ1R k t f =
@@ -551,12 +569,17 @@ tscaleByScalarR :: (Numeric r, KnownNat n)
                 => r -> OR.Array n r -> OR.Array n r
 tscaleByScalarR s v = liftVR (LA.scale s) v
 
+toIndexOfR :: IndexInt n -> Index n (Flip OR.Array Int64 0)
+toIndexOfR ix = Flip . tscalarR <$> ix
+
+fromIndexOfR :: Index n (Flip OR.Array Int64 0) -> IndexInt n
+fromIndexOfR ixOf = tunScalarR . runFlip <$> ixOf
 
 -- * Shaped tensor operations
 
-type CIntSh (n :: Nat) = ShapedNat n CInt
+type Int64Sh (n :: Nat) = ShapedNat n Int64
 
-type IndexIntSh sh = ShapedList sh CInt
+type IndexIntSh sh = ShapedList sh Int64
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
@@ -582,15 +605,61 @@ updateNS arr upd =
            in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
      in OS.fromVector (foldl' f values upd)
 
-tminIndex0S
-  :: (Numeric r, KnownNat n)
-  => OS.Array '[n] r -> CIntSh n
-tminIndex0S = ShapedList.shapedNat . fromIntegral . LA.minIndex . OS.toVector
+tminIndexS
+  :: forall n sh r. ( Numeric r, OS.Shape sh, KnownNat n
+                    , OS.Shape (OS.Init (n ': sh)) )
+  => OS.Array (n ': sh) r -> OS.Array (OS.Init (n ': sh)) Int64
+tminIndexS =
+  let f :: KnownNat m => OS.Array '[m] r -> OS.Array '[] Int64
+      f = OS.scalar . fromIntegral . LA.minIndex . OS.toVector
+  in case sameShape @sh @'[] of
+    Just Refl -> f @n
+    _ ->
+      let sh = OS.shapeT @sh
+      in case someNatVal $ toInteger $ last sh of
+        Just (SomeNat @m _proxy) ->
+          case someNatVal $ toInteger $ length sh of
+            Just (SomeNat @shRank _proxy) ->
+              gcastWith (unsafeCoerce Refl
+                           :: OS.Take (OS.Rank sh) (n ': sh) OS.++ '[]
+                              :~: OS.Init (n ': sh) ) $
+              gcastWith (unsafeCoerce Refl
+                           :: OS.Drop (OS.Rank sh) (n ': sh) :~: '[m]) $
+              gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: shRank) $
+                -- to avoid adding @KnownNat (OS.Rank sh)@ all over the code
+              OS.rerank @(OS.Rank sh) (f @m)
+            Nothing -> error "tmaxIndexS: impossible someNatVal error"
+        Nothing -> error "tmaxIndexS: impossible someNatVal error"
 
-tmaxIndex0S
-  :: (Numeric r, KnownNat n)
-  => OS.Array '[n] r -> CIntSh n
-tmaxIndex0S = ShapedList.shapedNat . fromIntegral . LA.maxIndex . OS.toVector
+tmaxIndexS
+  :: forall n sh r. ( Numeric r, OS.Shape sh, KnownNat n
+                    , OS.Shape (OS.Init (n ': sh)) )
+  => OS.Array (n ': sh) r -> OS.Array (OS.Init (n ': sh)) Int64
+tmaxIndexS =
+  let f :: KnownNat m => OS.Array '[m] r -> OS.Array '[] Int64
+      f = OS.scalar . fromIntegral . LA.maxIndex . OS.toVector
+  in case sameShape @sh @'[] of
+    Just Refl -> f @n
+    _ ->
+      let sh = OS.shapeT @sh
+      in case someNatVal $ toInteger $ last sh of
+        Just (SomeNat @m _proxy) ->
+          case someNatVal $ toInteger $ length sh of
+            Just (SomeNat @shRank _proxy) ->
+              gcastWith (unsafeCoerce Refl
+                           :: OS.Take (OS.Rank sh) (n ': sh) OS.++ '[]
+                              :~: OS.Init (n ': sh) ) $
+              gcastWith (unsafeCoerce Refl
+                           :: OS.Drop (OS.Rank sh) (n ': sh) :~: '[m]) $
+              gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: shRank) $
+                -- to avoid adding @KnownNat (OS.Rank sh)@ all over the code
+              OS.rerank @(OS.Rank sh) (f @m)
+            Nothing -> error "tmaxIndexS: impossible someNatVal error"
+        Nothing -> error "tmaxIndexS: impossible someNatVal error"
+
+tfloorS :: (Numeric r, OS.Shape sh)
+        => OS.Array sh r -> OS.Array sh Int64
+tfloorS = liftVS toZ
 
 tindexNS
   :: forall sh1 sh2 r.
@@ -618,7 +687,7 @@ tindexZS v ix =
 
 tindex1S
   :: (Numeric r, KnownNat n)
-  => OS.Array (n ': sh) r -> CIntSh n -> OS.Array sh r
+  => OS.Array (n ': sh) r -> Int64Sh n -> OS.Array sh r
 tindex1S t i = OS.index t (fromIntegral $ ShapedList.unShapedNat i)
 
 -- TODO: optimize to tindex1S for n == 0
@@ -772,7 +841,7 @@ tscatterZ1S :: forall r n2 p sh.
                ( NumAndShow r, KnownNat n2
                , OS.Shape sh, OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh) )
             => OS.Array (n2 ': OS.Drop p sh) r
-            -> (CIntSh n2 -> IndexIntSh (OS.Take p sh))
+            -> (Int64Sh n2 -> IndexIntSh (OS.Take p sh))
             -> OS.Array sh r
 tscatterZ1S t f =
   V.sum $ V.imap (\i ti ->
@@ -853,7 +922,7 @@ tbuildNS = undefined  -- using sbuild definition instead
 
 tbuild1S
   :: forall n sh r. (KnownNat n, Numeric r, OS.Shape sh)
-  => (CIntSh n -> OS.Array sh r) -> OS.Array (n ': sh) r
+  => (Int64Sh n -> OS.Array sh r) -> OS.Array (n ': sh) r
 tbuild1S f =
   let k = valueOf @n
   in OS.ravel $ OSB.fromList
@@ -916,7 +985,7 @@ tgatherZS t f =
 
 tgatherZ1S :: forall n2 p sh r.
               (KnownNat n2, NumAndShow r, OS.Shape sh, OS.Shape (OS.Drop p sh))
-           => OS.Array sh r -> (CIntSh n2 -> IndexIntSh (OS.Take p sh))
+           => OS.Array sh r -> (Int64Sh n2 -> IndexIntSh (OS.Take p sh))
            -> OS.Array (n2 ': OS.Drop p sh) r
 tgatherZ1S t f =
   let l = gcastWith (unsafeCoerce Refl
@@ -943,3 +1012,9 @@ tunScalarS = OS.unScalar
 tscaleByScalarS :: (Numeric r, OS.Shape sh)
                 => r -> OS.Array sh r -> OS.Array sh r
 tscaleByScalarS s v = liftVS (LA.scale s) v
+
+toIndexOfS :: IndexIntSh sh -> ShapedList sh (Flip OR.Array Int64 0)
+toIndexOfS ix = Flip . tscalarR <$> ix
+
+fromIndexOfS :: ShapedList sh (Flip OR.Array Int64 0) -> IndexIntSh sh
+fromIndexOfS ixOf = tunScalarR . runFlip <$> ixOf

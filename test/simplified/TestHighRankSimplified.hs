@@ -148,14 +148,14 @@ fooBuild2
   => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild2 v =
   tbuild1 2 $ \ix ->
-    ifB (ix - tfloor (tsum0 @ranked @r @5
+    ifB (ix - (tprimalPart . tfloor) (tsum0 @ranked @r @5
                       $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001 >=* 0
-         &&* ix - tfloor (tsum0 @ranked @r @5
+         &&* ix - (tprimalPart . tfloor) (tsum0 @ranked @r @5
                           $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001 <=* 1)
-        (tindex v [ix - tfloor (tsum0 @ranked @r @5
+        (tindex v [ix - (tprimalPart . tfloor) (tsum0 @ranked @r @5
                                 $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001])
            -- index out of bounds; also fine
-        (sqrt $ abs $ tindex v [let rr = (ix - tfloor (tsum0 v) - 10001) `rem` 2
+        (sqrt $ abs $ tindex v [let rr = (ix - (tprimalPart . tfloor) (tsum0 v) - 10001) `rem` 2
                                 in ifB (signum rr ==* negate (signum 2))
                                    (rr + 2)
                                    rr])
@@ -500,17 +500,17 @@ concatBuild r =
             , tbuild1 11 (\j ->
                 tmap0N (* (tfromIndex0
                   (125 * (j `rem` (abs (signum i + abs i) + 1))
-                   + max j (i `quot` (j + 1)) * tfloor (tsum0 r)
+                   + max j (i `quot` (j + 1)) * (tprimalPart . tfloor) (tsum0 r)
                    - ifB (r <* r &&* i <* j)
-                         (tminIndex0 (tflatten r))
-                         (tfloor $ tsum0 $ r ! ((i * j) `rem` 7 :. ZI))))) r)
+                         (tprimalPart $ tminIndex (tflatten r))
+                         ((tprimalPart . tfloor) $ tsum0 $ r ! ((i * j) `rem` 7 :. ZI))))) r)
             , tbuild1 13 (\_k ->
                 tsum $ ttr $ treplicate (tlength r) (tslice 0 1 r)) ])
 
 testConcatBuild0 :: Assertion
 testConcatBuild0 =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [7] [17070.0,16433.0,16433.0,16433.0,16433.0,16433.0,16433.0])
+    (OR.fromList [7] [17061.0,16424.0,16424.0,16424.0,16424.0,16424.0,16424.0])
     (rev' @Double @3 concatBuild
        (Flip $ OR.fromList [7] [0.651,0.14,0.3414,-0.14,0.0014,0.0020014,0.9999]))
 

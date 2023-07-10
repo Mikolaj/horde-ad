@@ -26,7 +26,6 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Const
 import           Data.Int (Int64)
 import           Data.Kind (Type)
-import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -54,11 +53,23 @@ type AstEnv ranked = EM.EnumMap AstVarId (AstEnvElem ranked)
 data AstEnvElem :: RankedTensorKind -> Type where
   AstEnvElemS :: (OS.Shape sh, GoodScalar r)
               => ShapedOf ranked r sh -> AstEnvElem ranked
-  AstEnvElemI :: IntOf ranked -> AstEnvElem ranked
-deriving instance (forall r n sh. ShowDynamicOf ranked r n sh)
+deriving instance CRankedRNS ranked ShowDynamicOf
                   => Show (AstEnvElem ranked)
 
+class (forall re ne she. (GoodScalar re, OS.Shape she)
+       => c ranked re ne she)
+      => CRankedRNS ranked c where
+instance
+      (forall re ne she. (GoodScalar re, OS.Shape she)
+       => c ranked re ne she)
+      => CRankedRNS ranked c where
+
 class ( Show (DynamicOf ranked r)
+      , Show (ranked r n)
+      , Show (ShapedOf ranked r sh)
+      , Show (IntOf ranked) ) => ShowDynamicOf ranked r n sh
+instance
+      ( Show (DynamicOf ranked r)
       , Show (ranked r n)
       , Show (ShapedOf ranked r sh)
       , Show (IntOf ranked) ) => ShowDynamicOf ranked r n sh
@@ -92,14 +103,16 @@ extendEnvDR (AstDynamicVarName @sh @r var, DynamicExists @r2 d) =
     Just Refl -> extendEnvS (AstVarName @(Flip OS.Array r sh) var) (sfromD d)
     _ -> error "extendEnvDR: type mismatch"
 
-extendEnvI :: AstVarId -> IntOf ranked -> AstEnv ranked
+extendEnvI :: ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
+              , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+           => AstVarId -> IntOf ranked -> AstEnv ranked
            -> AstEnv ranked
-extendEnvI var i =
-  EM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show var)
-                   var (AstEnvElemI i)
+extendEnvI var i = extendEnvR (AstVarName var) (tconstant i)
 
 extendEnvVars :: forall ranked m.
-                 AstVarList m -> IndexOf ranked m
+                 ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
+                 , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+              => AstVarList m -> IndexOf ranked m
               -> AstEnv ranked
               -> AstEnv ranked
 extendEnvVars vars ix env =
@@ -107,7 +120,9 @@ extendEnvVars vars ix env =
   in foldr (uncurry extendEnvI) env assocs
 
 extendEnvVarsS :: forall ranked sh.
-                  AstVarListS sh -> IndexSh ranked sh
+                  ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
+                  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+               => AstVarListS sh -> IndexSh ranked sh
                -> AstEnv ranked
                -> AstEnv ranked
 extendEnvVarsS vars ix env =
@@ -117,7 +132,9 @@ extendEnvVarsS vars ix env =
 
 interpretLambdaI
   :: forall ranked n r.
-     (AstEnv ranked -> AstRanked r n -> ranked r n)
+     ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
+     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+  => (AstEnv ranked -> AstRanked r n -> ranked r n)
   -> AstEnv ranked -> (AstVarId, AstRanked r n)
   -> IntOf ranked
   -> ranked r n
@@ -127,7 +144,9 @@ interpretLambdaI f env (var, ast) =
 
 interpretLambdaIS
   :: forall ranked shaped sh n r.
-     (AstEnv ranked -> AstShaped r sh -> shaped r sh)
+     ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
+     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+  => (AstEnv ranked -> AstShaped r sh -> shaped r sh)
   -> AstEnv ranked -> (AstVarId, AstShaped r sh)
   -> IntSh ranked n
   -> shaped r sh
@@ -137,7 +156,9 @@ interpretLambdaIS f env (var, ast) =
 
 interpretLambdaIndex
   :: forall ranked r m n.
-     (AstEnv ranked -> AstRanked r n -> ranked r n)
+     ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
+     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+  => (AstEnv ranked -> AstRanked r n -> ranked r n)
   -> AstEnv ranked -> (AstVarList m, AstRanked r n)
   -> IndexOf ranked m
   -> ranked r n
@@ -147,7 +168,9 @@ interpretLambdaIndex f env (vars, ast) =
 
 interpretLambdaIndexS
   :: forall sh sh2 ranked shaped r.
-     (AstEnv ranked -> AstShaped r sh -> shaped r sh)
+     ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
+     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+  => (AstEnv ranked -> AstShaped r sh -> shaped r sh)
   -> AstEnv ranked -> (AstVarListS sh2, AstShaped r sh)
   -> IndexSh ranked sh2
   -> shaped r sh
@@ -157,7 +180,9 @@ interpretLambdaIndexS f env (vars, ast) =
 
 interpretLambdaIndexToIndex
   :: forall ranked m n.
-     (AstEnv ranked -> AstInt -> IntOf ranked)
+     ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
+     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+  => (AstEnv ranked -> AstInt -> IntOf ranked)
   -> AstEnv ranked -> (AstVarList m, AstIndex n)
   -> IndexOf ranked m
   -> IndexOf ranked n
@@ -167,7 +192,9 @@ interpretLambdaIndexToIndex f env (vars, asts) =
 
 interpretLambdaIndexToIndexS
   :: forall ranked sh sh2.
-     (AstEnv ranked -> AstInt -> IntOf ranked)
+     ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
+     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+  => (AstEnv ranked -> AstInt -> IntOf ranked)
   -> AstEnv ranked -> (AstVarListS sh, AstIndexS sh2)
   -> IndexSh ranked sh
   -> IndexSh ranked sh2
@@ -205,21 +232,25 @@ instance
 
 class ( EqB (PrimalOf ranked r y)
       , OrdB (PrimalOf ranked r y)
+      , IfB (PrimalOf ranked r y)
       , IfB (ranked r y) )
       => BooleanMatchesYR ranked r y where
 instance
       ( EqB (PrimalOf ranked r y)
       , OrdB (PrimalOf ranked r y)
+      , IfB (PrimalOf ranked r y)
       , IfB (ranked r y) )
       => BooleanMatchesYR ranked r y where
 
 class ( EqB (PrimalOf shaped r y)
       , OrdB (PrimalOf shaped r y)
+      , IfB (PrimalOf shaped r y)
       , IfB (shaped r y) )
       => BooleanMatchesYS shaped r y where
 instance
       ( EqB (PrimalOf shaped r y)
       , OrdB (PrimalOf shaped r y)
+      , IfB (PrimalOf shaped r y)
       , IfB (shaped r y) )
       => BooleanMatchesYS shaped r y where
 
@@ -299,23 +330,22 @@ type InterpretAstR ranked =
   ( EqB (IntOf ranked)
   , OrdB (IntOf ranked)
   , IfB (IntOf ranked)
-  , IntOf ranked ~ IntOf (ShapedOf ranked)
-  , IntOf (ShapedOf ranked) ~ IntOf ranked
-  , IntOf ranked ~ IntOf (PrimalOf ranked)
-  , IntOf (PrimalOf ranked) ~ IntOf ranked
+  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
+  , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
   , CRankedY2 ranked BooleanMatchesYR
   , CRankedX2 ranked BooleanMatchesXR
   , CRankedX2 ranked BooleanMatchesR2
   , CRankedX8 ranked BooleanMatchesXR8
   , CRanked ranked BooleanMatchesR
+  , CRankedRNS ranked ShowDynamicOf
   )
 
 type InterpretAstS shaped =
   ( EqB (IntOf shaped)
   , OrdB (IntOf shaped)
   , IfB (IntOf shaped)
-  , IntOf shaped ~ IntOf (PrimalOf shaped)
-  , IntOf (PrimalOf shaped) ~ IntOf shaped
+  , RankedOf (PrimalOf shaped) ~ PrimalOf (RankedOf shaped)
+  , PrimalOf (RankedOf shaped) ~ RankedOf (PrimalOf shaped)
   , CShapedY2 shaped BooleanMatchesYS
   )
 
@@ -343,6 +373,11 @@ interpretAstPrimal
   -> AstPrimalPart r n -> PrimalOf ranked r n
 interpretAstPrimal env (AstPrimalPart v1) = case v1 of
   AstD u _-> interpretAstPrimal env u
+  AstCond b a1 a2 ->  -- this avoids multiple ifB expansions via ifB(ADVal)
+    let b1 = interpretAstBool env b
+        t2 = interpretAstPrimal env $ AstPrimalPart a1
+        t3 = interpretAstPrimal env $ AstPrimalPart a2
+    in ifB b1 t2 t3  -- this is ifB from PrimalOf ranked
   _ -> tprimalPart $ interpretAst env v1
 
 interpretAstDual
@@ -368,9 +403,8 @@ interpretAst env = \case
             Just Refl -> tfromS t
             _ -> error "interpretAst: type mismatch"
       else error "interpretAst: wrong shape in environment"
-    Just _  ->
-      error $ "interpretAst: type mismatch for " ++ show var
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
+                       ++ " in environment " ++ show env
   AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAst env u
@@ -429,10 +463,10 @@ interpretAst env = \case
     let args2 = interpretAst env <$> args
     in tsumOfList args2
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"
-  AstIndex AstIota (i :. ZI) -> tfromIndex0 $ interpretAstInt env i
+  AstIndex AstIota (i :. ZI) -> tfromIndex0 $ interpretAstPrimal env i
   AstIndex v ix ->
     let v2 = interpretAst env v
-        ix3 = interpretAstInt env <$> ix
+        ix3 = interpretAstPrimal env <$> ix
     in tindex v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
@@ -567,7 +601,7 @@ interpretAst env = \case
     -- is cheaper, too
   AstScatter sh v (vars, ix) ->
     let t1 = interpretAst env v
-        f2 = interpretLambdaIndexToIndex interpretAstInt env (vars, ix)
+        f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
     in tscatter sh t1 f2
   AstFromList l ->
     let l2 = interpretAst env <$> l
@@ -632,7 +666,7 @@ interpretAst env = \case
                                     (vars, tfromIndex0 i))
   AstGather sh v (vars, ix) ->
     let t1 = interpretAst env v
-        f2 = interpretLambdaIndexToIndex interpretAstInt env (vars, ix)
+        f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
     in tgather sh t1 f2
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
@@ -661,14 +695,14 @@ interpretAst env = \case
                        (AstVarName varId) (sfromD d)
         env2 = V.foldr f env (V.zip vars l2)
     in interpretAst env2 v
-  AstFloor _v -> undefined  -- TODO: tfloor $ interpretAstPrimal env v
   AstCond b a1 a2 ->
     let b1 = interpretAstBool env b
         t2 = interpretAst env a1
         t3 = interpretAst env a2
     in ifB b1 t2 t3
-  AstMinIndex _v -> undefined -- TODO: tminIndex $ interpretAstPrimal env v
-  AstMaxIndex _v -> undefined -- TODO: tmaxIndex $ interpretAstPrimal env v
+  AstFloor v -> tfloor $ tconstant $ interpretAstPrimal env v
+  AstMinIndex v -> tminIndex $ tconstant $ interpretAstPrimal env v
+  AstMaxIndex v -> tmaxIndex $ tconstant $ interpretAstPrimal env v
 
 interpretAstDynamic
   :: forall ranked. InterpretAst ranked
@@ -694,32 +728,6 @@ interpretAstDomains env = \case
     in interpretAstDomains env2 v
       -- TODO: preserve let, as in AstLet case
 
-interpretAstInt :: InterpretAst ranked
-                => AstEnv ranked -> AstInt -> IntOf ranked
-interpretAstInt env = \case
-  AstIntVar var -> case EM.lookup var env of
-    Just (AstEnvElemI i) -> i
-    Just _ ->
-      error $ "interpretAstInt: type mismatch for " ++ show var
-    Nothing -> error $ "interpretAstInt: unknown variable " ++ show var
-  AstIntOp opCodeInt args ->
-    let args2 = interpretAstInt env <$> args
-    in interpretAstIntOp opCodeInt args2
-  AstIntConst a -> fromIntegral a
-  AstIntFloor v -> tfloor $ interpretAstPrimal env v
-  AstIntFloorS v -> sfloor $ interpretAstPrimalS env v
-  AstIntCond b a1 a2 ->
-    let b1 = interpretAstBool env b
-        t2 = interpretAstInt env a1
-        t3 = interpretAstInt env a2
-    in ifB b1 t2 t3
-  AstMinIndex1 v -> tminIndex0 $ interpretAstPrimal env v
-  AstMaxIndex1 v -> tmaxIndex0 $ interpretAstPrimal env v
-  AstMinIndex1S v -> ShapedList.unShapedNat . sminIndex0
-                     $ interpretAstPrimalS env v
-  AstMaxIndex1S v -> ShapedList.unShapedNat . smaxIndex0
-                     $ interpretAstPrimalS env v
-
 interpretAstBool :: InterpretAst ranked
                  => AstEnv ranked -> AstBool -> BooleanOf (ranked () 0)
 interpretAstBool env = \case
@@ -732,9 +740,6 @@ interpretAstBool env = \case
     in interpretAstRelOp opCodeRel args2
   AstRelS opCodeRel args ->
     let args2 = interpretAstPrimalS env <$> args
-    in interpretAstRelOp opCodeRel args2
-  AstRelInt opCodeRel args ->
-    let args2 = interpretAstInt env <$> args
     in interpretAstRelOp opCodeRel args2
 
 interpretAstDynamicDummy
@@ -816,23 +821,6 @@ interpretAstOpIntegral opCode args =
   error $ "interpretAstOpIntegral: wrong number of arguments"
           ++ show (opCode, length args)
 
-interpretAstIntOp :: Integral a
-                  => OpCodeInt -> [a] -> a
-{-# INLINE interpretAstIntOp #-}
-interpretAstIntOp PlusIntOp l = foldl1' (+) l  -- TODO: use or remove
-interpretAstIntOp MinusIntOp [u, v] = u - v
-interpretAstIntOp TimesIntOp l = foldl1' (*) l  -- TODO: use or remove
-interpretAstIntOp NegateIntOp [u] = negate u
-interpretAstIntOp AbsIntOp [u] = abs u
-interpretAstIntOp SignumIntOp [u] = signum u
-interpretAstIntOp MaxIntOp [u, v] = max u v
-interpretAstIntOp MinIntOp [u, v] = min u v
-interpretAstIntOp QuotIntOp [u, v] = quot u v
-interpretAstIntOp RemIntOp [u, v] = rem u v
-interpretAstIntOp opCodeInt args =
-  error $ "interpretAstIntOp: wrong number of arguments"
-          ++ show (opCodeInt, length args)
-
 interpretAstBoolOp :: Boolean b
                    => OpCodeBool -> [b] -> b
 {-# INLINE interpretAstBoolOp #-}
@@ -862,6 +850,11 @@ interpretAstPrimalS
   -> AstPrimalPartS r sh -> PrimalOf shaped r sh
 interpretAstPrimalS env (AstPrimalPartS v1) = case v1 of
   AstDS u _-> interpretAstPrimalS env u
+  AstCondS b a1 a2 ->  -- this avoids multiple ifB expansions via ifB(ADVal)
+    let b1 = interpretAstBool env b
+        t2 = interpretAstPrimalS env $ AstPrimalPartS a1
+        t3 = interpretAstPrimalS env $ AstPrimalPartS a2
+    in ifB b1 t2 t3  -- this is ifB from PrimalOf ranked
   _ -> sprimalPart $ interpretAstS env v1
 
 interpretAstDualS
@@ -885,8 +878,6 @@ interpretAstS env = \case
         Just Refl -> t
         _ -> error "interpretAstS: type mismatch"
       Nothing -> error "interpretAstS: wrong shape in environment"
-    Just _ ->
-      error $ "interpretAstS: type mismatch for " ++ show var
     Nothing -> error $ "interpretAstS: unknown variable " ++ show var
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
@@ -932,10 +923,10 @@ interpretAstS env = \case
     in ssumOfList args2
   AstIotaS -> error "interpretAstS: bare AstIotaS, most likely a bug"
   AstIndexS (AstIotaS @n) (i :$: ZSH) ->
-    sfromIndex0 . ShapedList.shapedNat @n $ interpretAstInt env i
+    sfromIndex0 . ShapedList.shapedNat @n $ interpretAstPrimal env i
   AstIndexS @sh1 v ix ->
     let v2 = interpretAstS env v
-        ix3 = interpretAstInt env <$> ix
+        ix3 = interpretAstPrimal env <$> ix
     in sindex @shaped @r @sh1 v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
@@ -1058,7 +1049,7 @@ interpretAstS env = \case
     -- is cheaper, too
   AstScatterS v (vars, ix) ->
     let t1 = interpretAstS env v
-        f2 = interpretLambdaIndexToIndexS interpretAstInt env (vars, ix)
+        f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
     in sscatter t1 f2
   AstFromListS l ->
     let l2 = interpretAstS env <$> l
@@ -1134,7 +1125,7 @@ interpretAstS env = \case
                 (vars, sfromIndex0 (ShapedList.shapedNat @n i)))
   AstGatherS v (vars, ix) ->
     let t1 = interpretAstS env v
-        f2 = interpretLambdaIndexToIndexS interpretAstInt env (vars, ix)
+        f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
     in sgather t1 f2
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
@@ -1163,16 +1154,14 @@ interpretAstS env = \case
                        (AstVarName varId) (sfromD d)
         env2 = V.foldr f env (V.zip vars l2)
     in interpretAstS env2 v
-  AstFloorS _v -> undefined -- TODO: sfloor $ interpretAstPrimalS env v
   AstCondS b a1 a2 ->
     let b1 = interpretAstBool env b
         t2 = interpretAstS env a1
         t3 = interpretAstS env a2
     in ifB b1 t2 t3
-  AstMinIndexS _v -> undefined -- TODO: ShapedList.unShapedNat . sminIndex
-                   --  $ interpretAstPrimalS env v
-  AstMaxIndexS _v -> undefined -- TODO: ShapedList.unShapedNat . smaxIndex
-                     -- $ interpretAstPrimalS env v
+  AstFloorS v -> sfloor $ sconstant $ interpretAstPrimalS env v
+  AstMinIndexS v -> sminIndex $ sconstant $ interpretAstPrimalS env v
+  AstMaxIndexS v -> smaxIndex $ sconstant $ interpretAstPrimalS env v
 
 
 
@@ -1295,19 +1284,6 @@ interpretAstS env = \case
   -> AstDomains
   -> Domains OD.Array #-}
 
-{-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal (Flip OR.Array))
-  -> AstInt
-  -> CInt #-}
-{-# SPECIALIZE interpretAstInt
-  :: AstEnv (ADVal AstPrimalPart)
-  -> AstInt
-  -> AstInt #-}
-{-# SPECIALIZE interpretAstInt
-  :: AstEnv (Flip OR.Array)
-  -> AstInt
-  -> CInt #-}
-
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal (Flip OR.Array))
   -> AstBool
@@ -1347,11 +1323,6 @@ interpretAstS env = \case
 -}
 
 {- make compilation even longer and inlined anyway:
-{-# SPECIALIZE interpretAstIntOp
-  :: OpCodeInt -> [Int] -> Int #-}
-{-# SPECIALIZE interpretAstIntOp
-  :: OpCodeInt -> [AstInt] -> AstInt #-}
-
 {-# SPECIALIZE interpretAstBoolOp
   :: OpCodeBool -> [Bool] -> Bool #-}
 {-# SPECIALIZE interpretAstBoolOp

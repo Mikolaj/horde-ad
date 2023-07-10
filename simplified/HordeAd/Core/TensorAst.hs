@@ -33,15 +33,13 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
 
-type instance IntOf AstRanked = AstInt
-
 instance RankedTensor AstRanked where
   tlet a f = astLetFun a f
 
   tshape = shapeAst
-  tminIndex0 = AstMinIndex1 . astPrimalPart
-  tmaxIndex0 = AstMaxIndex1 . astPrimalPart
-  tfloor = AstIntFloor . astPrimalPart
+  tminIndex = AstMinIndex . astPrimalPart
+  tmaxIndex = AstMaxIndex . astPrimalPart
+  tfloor = AstFloor . astPrimalPart
 
   tindex = AstIndex
   tsum = AstSum
@@ -199,17 +197,15 @@ astBuild1Vectorize :: (KnownNat n, GoodScalar r)
                    => Int -> (AstInt -> AstRanked r n) -> AstRanked r (1 + n)
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
-type instance IntOf AstPrimalPart = AstInt
-
 instance RankedTensor AstPrimalPart where
   tlet a f =
     astPrimalPart
     $ astLetFun (unAstPrimalPart a) (unAstPrimalPart . f . astPrimalPart)
 
   tshape = shapeAst . unAstPrimalPart
-  tminIndex0 = AstMinIndex1
-  tmaxIndex0 = AstMaxIndex1
-  tfloor = AstIntFloor
+  tminIndex = AstPrimalPart . AstMinIndex
+  tmaxIndex = AstPrimalPart . AstMaxIndex
+  tfloor = AstPrimalPart . AstFloor
 
   tindex v ix = astPrimalPart $ AstIndex (unAstPrimalPart v) ix
   tsum = astPrimalPart . AstSum . unAstPrimalPart
@@ -246,21 +242,19 @@ instance RankedTensor AstPrimalPart where
   tD u _ = u
   tScale _ _ = DummyDual
 
-type instance IntOf AstNoVectorize = AstInt
-
 instance RankedTensor AstNoVectorize where
   tlet a f =
     AstNoVectorize
     $ astLetFun (unAstNoVectorize a) (unAstNoVectorize . f . AstNoVectorize)
 
   tshape = shapeAst . unAstNoVectorize
-  tminIndex0 = AstMinIndex1 . AstPrimalPart . unAstNoVectorize
-  tmaxIndex0 = AstMaxIndex1 . AstPrimalPart . unAstNoVectorize
-  tfloor = AstIntFloor . AstPrimalPart . unAstNoVectorize
+  tminIndex = AstNoVectorize . AstMinIndex . astPrimalPart . unAstNoVectorize
+  tmaxIndex = AstNoVectorize . AstMaxIndex . astPrimalPart . unAstNoVectorize
+  tfloor = AstNoVectorize . AstFloor . astPrimalPart . unAstNoVectorize
 
   tindex v ix = AstNoVectorize $ AstIndex (unAstNoVectorize v) ix
   tsum = AstNoVectorize . AstSum . unAstNoVectorize
-  tfromIndex0 i = AstNoVectorize $ AstConstant $ AstPrimalPart
+  tfromIndex0 i = AstNoVectorize $ AstConstant $ astPrimalPart
                   $ AstIndex AstIota (singletonIndex i)
     -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = AstNoVectorize $ astScatter sh (unAstNoVectorize t)
@@ -288,12 +282,10 @@ instance RankedTensor AstNoVectorize where
   raddDynamic = undefined
 
   tconstant = AstNoVectorize . AstConstant
-  tprimalPart = AstPrimalPart . unAstNoVectorize
+  tprimalPart = astPrimalPart . unAstNoVectorize
   tdualPart = AstDualPart . unAstNoVectorize
   tD u u' = AstNoVectorize $ AstD u u'
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
-
-type instance IntOf AstNoSimplify = AstInt
 
 instance RankedTensor AstNoSimplify where
   tlet a f =
@@ -301,13 +293,13 @@ instance RankedTensor AstNoSimplify where
     $ astLetFunUnSimp (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)
 
   tshape = shapeAst . unAstNoSimplify
-  tminIndex0 = AstMinIndex1 . AstPrimalPart . unAstNoSimplify
-  tmaxIndex0 = AstMaxIndex1 . AstPrimalPart . unAstNoSimplify
-  tfloor = AstIntFloor . AstPrimalPart . unAstNoSimplify
+  tminIndex = AstNoSimplify . AstMinIndex . astPrimalPart . unAstNoSimplify
+  tmaxIndex = AstNoSimplify . AstMaxIndex . astPrimalPart . unAstNoSimplify
+  tfloor = AstNoSimplify . AstFloor . astPrimalPart . unAstNoSimplify
 
   tindex v ix = AstNoSimplify $ AstIndex (unAstNoSimplify v) ix
   tsum = AstNoSimplify . AstSum . unAstNoSimplify
-  tfromIndex0 i = AstNoSimplify $ AstConstant $ AstPrimalPart
+  tfromIndex0 i = AstNoSimplify $ AstConstant $ astPrimalPart
                   $ AstIndex AstIota (singletonIndex i)
     -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = AstNoSimplify $ AstScatter sh (unAstNoSimplify t)
@@ -334,7 +326,7 @@ instance RankedTensor AstNoSimplify where
 
   tconstant = AstNoSimplify . AstConstant
     -- exceptionally we do simplify AstConstant to avoid long boring chains
-  tprimalPart = AstPrimalPart . unAstNoSimplify
+  tprimalPart = astPrimalPart . unAstNoSimplify
   tdualPart = AstDualPart . unAstNoSimplify
   tD u u' = AstNoSimplify $ AstD u u'
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
@@ -347,14 +339,12 @@ astLetFunUnSimp a f =
       (AstVarName var, ast) = funToAstR sh f
   in AstLet var a ast
 
-type instance IntOf AstShaped = AstInt
-
 instance ShapedTensor AstShaped where
   slet a f = astLetFunS a f
 
-  sminIndex0 = ShapedList.shapedNat . AstMinIndex1S . astPrimalPartS
-  smaxIndex0 = ShapedList.shapedNat . AstMaxIndex1S . astPrimalPartS
-  sfloor = AstIntFloorS . astPrimalPartS
+  sminIndex = AstMinIndexS . astPrimalPartS
+  smaxIndex = AstMaxIndexS . astPrimalPartS
+  sfloor = AstFloorS . astPrimalPartS
 
   sindex = AstIndexS
   ssum = AstSumS
@@ -434,16 +424,14 @@ astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r)
 astBuild1VectorizeS f =
   build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)
 
-type instance IntOf AstPrimalPartS = AstInt
-
 instance ShapedTensor AstPrimalPartS where
   slet a f =
     astPrimalPartS
     $ astLetFunS (unAstPrimalPartS a) (unAstPrimalPartS . f . astPrimalPartS)
 
-  sminIndex0 = ShapedList.shapedNat . AstMinIndex1S
-  smaxIndex0 = ShapedList.shapedNat . AstMaxIndex1S
-  sfloor = AstIntFloorS
+  sminIndex = AstPrimalPartS . AstMinIndexS
+  smaxIndex = AstPrimalPartS . AstMaxIndexS
+  sfloor = AstPrimalPartS . AstFloorS
 
   sindex v ix = astPrimalPartS $ AstIndexS (unAstPrimalPartS v) ix
   ssum = astPrimalPartS . AstSumS . unAstPrimalPartS

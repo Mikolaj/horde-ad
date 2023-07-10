@@ -295,7 +295,7 @@ testPiecewiseLinearPP = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\x2 -> tfromList [tconst 2.0 * x2, tconst 5.0 * x2] ! [ifB (x2 >* tconst 0.0) 0 1]"
   show deltas
-    @?= "LetR 100000004 (IndexR (LetR 100000003 (FromListR [LetR 100000001 (ScaleR (AstPrimalPart {unAstPrimalPart = AstConst (fromList [] [2.0])}) (InputR (InputId 0))),LetR 100000002 (ScaleR (AstPrimalPart {unAstPrimalPart = AstConst (fromList [] [5.0])}) (InputR (InputId 0)))])) [AstIntCond (AstRel GtOp [AstPrimalPart {unAstPrimalPart = AstVar [] (AstVarId 100000002)},AstPrimalPart {unAstPrimalPart = AstConst (fromList [] [0.0])}]) (AstIntConst 0) (AstIntConst 1)] [2])"
+    @?= "LetR 100000004 (IndexR (LetR 100000003 (FromListR [LetR 100000001 (ScaleR (AstPrimalPart {unAstPrimalPart = AstConst (fromList [] [2.0])}) (InputR (InputId 0))),LetR 100000002 (ScaleR (AstPrimalPart {unAstPrimalPart = AstConst (fromList [] [5.0])}) (InputR (InputId 0)))])) [AstPrimalPart {unAstPrimalPart = AstCond (AstRel GtOp [AstPrimalPart {unAstPrimalPart = AstVar [] (AstVarId 100000002)},AstPrimalPart {unAstPrimalPart = AstConst (fromList [] [0.0])}]) (AstConst (fromList [] [0])) (AstConst (fromList [] [1]))}] [2])"
 
 testPiecewiseLinear2PP :: Assertion
 testPiecewiseLinear2PP = do
@@ -306,15 +306,15 @@ testPiecewiseLinear2PP = do
       fT x = ifB (x >* 0) 2 5 * x
       (artifact6, deltas) = revDtFun True fT 42
   printGradient6Pretty renames artifact6
-    @?= "\\dret x2 -> let x3 = tfromList [tconst 2.0, tconst 5.0] ! [ifB (x2 >* tconst 0.0) 0 1] in (x3 * dret)"
+    @?= "\\dret x2 -> let x3 = ifB (x2 >* tconst 0.0) (tconst 2.0) (tconst 5.0) in (x3 * dret)"
   printPrimal6Pretty renames artifact6
-    @?= "\\x2 -> let x3 = tfromList [tconst 2.0, tconst 5.0] ! [ifB (x2 >* tconst 0.0) 0 1] in x3 * x2"
+    @?= "\\x2 -> let x3 = ifB (x2 >* tconst 0.0) (tconst 2.0) (tconst 5.0) in x3 * x2"
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\dret x2 -> (tconst (fromList [2] [2.0,5.0]) ! [ifB (x2 >* tconst 0.0) 0 1] * dret)"
+    @?= "\\dret x2 -> (ifB (x2 >* tconst 0.0) (tconst 2.0) (tconst 5.0) * dret)"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
-    @?= "\\x2 -> tconst (fromList [2] [2.0,5.0]) ! [ifB (x2 >* tconst 0.0) 0 1] * x2"
+    @?= "\\x2 -> ifB (x2 >* tconst 0.0) (tconst 2.0) (tconst 5.0) * x2"
   show deltas
-    @?= "LetR 100000007 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [] (AstVarId 100000003)}) (InputR (InputId 0)))"
+    @?= "LetR 100000005 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [] (AstVarId 100000003)}) (InputR (InputId 0)))"
 
 overleaf :: forall ranked r. (RankedTensor ranked, GoodScalar r) => ranked r 1 -> ranked r 0
 overleaf v = let wrap i = i `rem` fromIntegral (tlength v)
@@ -948,7 +948,7 @@ fooNoGoAst :: forall r. GoodScalar r
 fooNoGoAst v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
-       barAst (3.14, bar (3.14, tindex v [(ix + tfloor r) `min` 2 `max` 0]))
+       barAst (3.14, bar (3.14, tindex v [(ix + (tprimalPart . tfloor) r) `min` 2 `max` 0]))
        + ifB (AstBoolOp AndOp
                     [ tindex v (ix * 2 :. ZI) <=* 0
                         -- @1 not required thanks to :.; see below for @ and []
@@ -975,7 +975,7 @@ fooNoGo :: forall ranked r. ADReady ranked r
 fooNoGo v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
-       bar (3.14, bar (3.14, tindex v [(ix + tfloor r) `min` 2 `max` 0]))
+       bar (3.14, bar (3.14, tindex v [(ix + (tprimalPart . tfloor) r) `min` 2 `max` 0]))
        + ifB ((&&*) (tindex @ranked @r @1 v [ix * 2] <=* 0)
                     (6 >* abs ix))
                r (5 * r))

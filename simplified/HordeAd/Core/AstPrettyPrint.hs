@@ -19,11 +19,15 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
+import           Data.Int (Int64)
 import           Data.List (intersperse)
+import           Data.Proxy (Proxy (Proxy))
 import           Data.Strict.IntMap (IntMap)
 import qualified Data.Strict.IntMap as IM
+import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat)
+import           GHC.TypeLits (KnownNat, sameNat)
+import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
@@ -40,7 +44,14 @@ import           HordeAd.Core.Types
 data PrintConfig = PrintConfig
   { prettifyLosingSharing :: Bool
   , varRenames            :: IntMap String
+  , representsIntIndex    :: Bool
   }
+
+defaulPrintConfig :: Bool -> IntMap String -> PrintConfig
+defaulPrintConfig prettifyLosingSharing renames =
+  let varRenames = renames `IM.union` IM.fromList [(1, "dret")]
+      representsIntIndex = False
+  in PrintConfig {..}
 
 printAstVarId :: String -> PrintConfig -> AstVarId -> ShowS
 printAstVarId prefix cfg var =
@@ -71,21 +82,96 @@ printAstVarS = printAstVarN (length (OS.shapeT @sh))
 printAstIntVar :: PrintConfig -> AstVarId -> ShowS
 printAstIntVar = printAstVarId "i"
 
-defaulPrintConfig :: Bool -> IntMap String -> PrintConfig
-defaulPrintConfig prettifyLosingSharing renames =
-  let varRenames = renames `IM.union` IM.fromList [(1, "dret")]
-  in PrintConfig {..}
+printAstVarFromLet
+  :: forall n r. (GoodScalar r, KnownNat n)
+  => AstRanked r n -> PrintConfig -> AstVarName (Flip OR.Array r n) -> ShowS
+printAstVarFromLet u cfg vn@(AstVarName var) =
+  if representsIntIndex cfg && areAllArgsInts u
+  then case ( sameNat (Proxy @n) (Proxy @0)
+            , testEquality (typeRep @r) (typeRep @Int64) ) of
+    (Just Refl, Just Refl) ->  -- the heuristics may have been correct
+      printAstIntVar cfg var
+    _ ->  -- the heuristics failed
+      printAstVar cfg vn
+  else printAstVar cfg vn
 
--- Precedences used are as in Haskell.
+areAllArgsInts :: AstRanked r n -> Bool
+areAllArgsInts = \case
+  -- A heuristics for whether all the arguments are still Int64 rank 0 tensors
+  -- morally representing integer indexes. This mostly just rules out
+  -- rank > 0, but also a likely float, as in the argument of AstFloor,
+  -- or a likely dual number. There is an anavoidable ambiguity
+  -- and so also aribtrary choices in resolving it.
+  AstConst{} -> True
+  AstVar{} -> True
+  AstLet{} -> True  -- too early to tell, but displays the same
+  AstLetADShare{} -> True  -- too early to tell
+  AstNm{} -> True  -- has to keep rank and scalar, so it's ints
+  AstOp{} -> True  -- has to keep rank and scalar
+  AstOpIntegral{} -> True  -- has to keep rank and scalar
+  AstSumOfList{} -> True  -- has to keep rank and scalar
+  AstIota -> False  -- ???
+  AstIndex AstIota (_ :. ZI) -> True
+  AstIndex{} -> False  -- the index arguments are taken care of via printAstInt
+  AstSum{} -> False
+  AstScatter{} -> False
+  AstFromList{} -> False
+  AstFromVector{} -> False
+  AstReplicate{} -> False
+  AstAppend{} -> False
+  AstSlice{} -> False
+  AstReverse{} -> False
+  AstTranspose{} -> False
+  AstReshape{} -> False
+  AstBuild1{} -> False
+  AstGather{} -> False
+  AstCast{} -> False  -- wrong if the cast is void
+  AstSToR{} -> False
+  AstConstant{} -> True  -- the argument is emphatically a primal number; fine
+  AstD{} -> False  -- dual number
+  AstLetDomains{} -> True  -- too early to tell
+  AstCond{} -> True  -- too early to tell
+  AstFloor{} -> False
+  AstMinIndex{} -> False
+  AstMaxIndex{} -> False
+
+printAstInt :: PrintConfig -> Int -> AstInt -> ShowS
+printAstInt cfgOld d (AstPrimalPart t) =
+  let cfg = cfgOld {representsIntIndex = True}
+  in printAst cfg d t
+
 printAst :: forall n r. (GoodScalar r, KnownNat n)
          => PrintConfig -> Int -> AstRanked r n -> ShowS
-printAst cfg d = \case
+printAst cfgOld d t =
+  if representsIntIndex cfgOld
+  then case ( sameNat (Proxy @n) (Proxy @0)
+            , testEquality (typeRep @r) (typeRep @Int64) ) of
+    (Just Refl, Just Refl) ->  -- the heuristics may have been correct
+      case t of
+        AstVar _ var -> printAstIntVar cfgOld var
+        AstConst i -> shows $ OR.unScalar i
+        AstConstant (AstPrimalPart (AstConst i)) -> shows $ OR.unScalar i
+          -- this case looks like a result of a bug, but we can print it well
+        _ -> if areAllArgsInts t
+             then printAstAux cfgOld d t
+             else let cfg = cfgOld {representsIntIndex = False}
+                  in printAstAux cfg d t
+    _ ->  -- the heuristics failed
+      let cfg = cfgOld {representsIntIndex = False}
+      in printAstAux cfg d t
+  else printAstAux cfgOld d t
+
+-- Precedences used are as in Haskell.
+printAstAux :: forall n r. (GoodScalar r, KnownNat n)
+            => PrintConfig -> Int -> AstRanked r n -> ShowS
+printAstAux cfg d = \case
   AstVar _sh var -> printAstVar cfg (AstVarName @(Flip OR.Array r n) var)
-  t@(AstLet @n0 var0 u0 v0) ->
+  t@(AstLet @n0 @_ @r20 var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstRanked r n -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLet @n2 var u v) =
-               let name = printAstVar cfg (AstVarName @(Flip OR.Array r n2) var)
+             collect (AstLet @n2 @_ @r2 var u v) =
+               let name = printAstVarFromLet
+                            u cfg (AstVarName @(Flip OR.Array r2 n2) var)
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -104,7 +190,8 @@ printAst cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVar cfg (AstVarName @(Flip OR.Array r n0) var0)
+             . printAstVarFromLet
+                 u0 cfg (AstVarName @(Flip OR.Array r20 n0) var0)
              . showString " -> "
              . printAst cfg 0 v0)
   AstLetADShare l v -> printAst cfg d $ bindsToLet v (assocsADShare l)
@@ -267,7 +354,8 @@ printAstDomains cfg d = \case
     if prettifyLosingSharing cfg
     then let collect :: AstDomains -> ([(ShowS, ShowS)], ShowS)
              collect (AstDomainsLet @m @r var u v) =
-               let name = printAstVar cfg (AstVarName @(Flip OR.Array r m) var)
+               let name = printAstVarFromLet
+                            u cfg (AstVarName @(Flip OR.Array r m) var)
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -286,14 +374,16 @@ printAstDomains cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVar cfg (AstVarName @(Flip OR.Array r0 m0) var0)
+             . printAstVarFromLet
+                 u0 cfg (AstVarName @(Flip OR.Array r0 m0) var0)
              . showString " -> "
              . printAstDomains cfg 0 v0)
   t@(AstDomainsLetS @sh0 @r0 var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstDomains -> ([(ShowS, ShowS)], ShowS)
              collect (AstDomainsLetS @sh @r var u v) =
-               let name = printAstVarS cfg (AstVarName @(Flip OS.Array r sh) var)
+               let name = printAstVarS
+                            cfg (AstVarName @(Flip OS.Array r sh) var)
                    uPP = printAstS cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -316,30 +406,6 @@ printAstDomains cfg d = \case
              . showString " -> "
              . printAstDomains cfg 0 v0)
 
-printAstInt :: PrintConfig -> Int -> AstInt -> ShowS
-printAstInt cfg d = \case
-  AstIntVar var -> printAstIntVar cfg var
-  AstIntOp opCode args -> printAstIntOp cfg d opCode args
-  AstIntConst a -> shows a
-  AstIntFloor (AstPrimalPart v) -> printPrefixOp printAst cfg d "floor" [v]
-  AstIntFloorS (AstPrimalPartS v) -> printPrefixOp printAstS cfg d "floor" [v]
-  AstIntCond b a1 a2 ->
-    showParen (d > 10)
-    $ showString "ifB "
-      . printAstBool cfg 11 b
-      . showString " "
-      . printAstInt cfg 11 a1
-      . showString " "
-      . printAstInt cfg 11 a2
-  AstMinIndex1 (AstPrimalPart v) ->
-    printPrefixOp printAst cfg d "tminIndex0" [v]
-  AstMaxIndex1 (AstPrimalPart v) ->
-    printPrefixOp printAst cfg d "tmaxIndex0" [v]
-  AstMinIndex1S (AstPrimalPartS v) ->
-    printPrefixOp printAstS cfg d "sminIndex0" [v]
-  AstMaxIndex1S (AstPrimalPartS v) ->
-    printPrefixOp printAstS cfg d "smaxIndex0" [v]
-
 printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
 printAstBool cfg d = \case
   AstBoolOp opCode args -> printAstBoolOp cfg d opCode args
@@ -348,7 +414,6 @@ printAstBool cfg d = \case
                         $ map unAstPrimalPart args
   AstRelS opCode args -> printAstRelOp printAstS cfg d opCode
                          $ map unAstPrimalPartS args
-  AstRelInt opCode args -> printAstRelOp printAstInt cfg d opCode args
 
 printAstNm :: (PrintConfig -> Int -> a -> ShowS)
               -> PrintConfig -> Int -> OpCodeNum -> [a] -> ShowS
@@ -417,21 +482,6 @@ printBinaryOp pr cfg d left (prec, opstr) right =
     . showString opstr
     . pr cfg (prec + 1) right
 
-printAstIntOp :: PrintConfig -> Int -> OpCodeInt -> [AstInt] -> ShowS
-printAstIntOp cfg d opCode args = case (opCode, args) of
-  (PlusIntOp, [u, v]) -> printBinaryOp printAstInt cfg d u (6, " + ") v
-  (MinusIntOp, [u, v]) -> printBinaryOp printAstInt cfg d u (6, " - ") v
-  (TimesIntOp, [u, v]) -> printBinaryOp printAstInt cfg d u (7, " * ") v
-  (NegateIntOp, [u]) -> printPrefixOp printAstInt cfg d "negate" [u]
-  (AbsIntOp, [u]) -> printPrefixOp printAstInt cfg d "abs" [u]
-  (SignumIntOp, [u]) -> printPrefixOp printAstInt cfg d "signum" [u]
-  (MaxIntOp, [u, v]) -> printPrefixOp printAstInt cfg d "max" [u, v]
-  (MinIntOp, [u, v]) -> printPrefixOp printAstInt cfg d "min" [u, v]
-  (QuotIntOp, [u, v]) -> printPrefixOp printAstInt cfg d "quot" [u, v]
-  (RemIntOp, [u, v]) -> printPrefixOp printAstInt cfg d "rem" [u, v]
-  _ -> error $ "printAstIntOp: wrong number of arguments"
-               ++ show (opCode, length args)
-
 printAstBoolOp
   :: PrintConfig -> Int -> OpCodeBool -> [AstBool] -> ShowS
 printAstBoolOp cfg d opCode args = case (opCode, args) of
@@ -473,12 +523,12 @@ printAstS :: forall sh r. (GoodScalar r, OS.Shape sh)
           => PrintConfig -> Int -> AstShaped r sh -> ShowS
 printAstS cfg d = \case
   AstVarS var -> printAstVarS cfg (AstVarName @(Flip OS.Array r sh) var)
-  t@(AstLetS @sh0 var0 u0 v0) ->
+  t@(AstLetS @sh0 @_ @r20 var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstShaped r sh -> ([(ShowS, ShowS)], ShowS)
-             collect (AstLetS @sh2 var u v) =
-               let name = printAstVarS cfg (AstVarName @(Flip OS.Array r sh2)
-                                                       var)
+             collect (AstLetS @sh2 @_ @r2 var u v) =
+               let name = printAstVarS
+                            cfg (AstVarName @(Flip OS.Array r2 sh2) var)
                    uPP = printAstS cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -497,7 +547,7 @@ printAstS cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVarS cfg (AstVarName @(Flip OS.Array r sh0) var0)
+             . printAstVarS cfg (AstVarName @(Flip OS.Array r20 sh0) var0)
              . showString " -> "
              . printAstS cfg 0 v0)
   AstLetADShareS l v -> printAstS cfg d $ bindsToLetS v (assocsADShare l)

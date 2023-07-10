@@ -8,18 +8,19 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( AstOf, AstVarId, intToAstVarId, ADAstArtifact6
+  ( AstInt
+  , pattern AstIntVar, pattern AstPVar, pattern AstIntConst, pattern AstPConst
+  , AstOf, AstVarId, intToAstVarId, ADAstArtifact6
   , AstIndex, AstVarList, AstIndexS, AstVarListS
   , AstRanked(..), AstNoVectorize(..), AstNoSimplify(..)
   , AstPrimalPart(..), AstDualPart(..)
   , AstShaped(..), AstPrimalPartS(..), AstDualPartS(..)
   , AstDynamic(..), AstDomains(..)
-  , AstVarName(..), AstDynamicVarName(..), AstInt(..), AstBool(..)
-  , OpCode(..), OpCodeNum(..), OpCodeIntegral(..)
-  , OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
+  , AstVarName(..), AstDynamicVarName(..), AstBool(..)
+  , OpCode(..), OpCodeNum(..), OpCodeIntegral(..), OpCodeBool(..), OpCodeRel(..)
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
-  , flattenADShare, assocsADShare, nullADShare
+  , flattenADShare, assocsADShare, intVarInADShare, nullADShare
   , astPrimalPart, astPrimalPartS
   ) where
 
@@ -78,6 +79,20 @@ type instance DualOf AstPrimalPartS = DummyDual
 
 -- * Ast and related definitions
 
+type AstInt = AstPrimalPart Int64 0
+
+pattern AstIntVar :: AstVarId -> AstInt
+pattern AstIntVar var = AstPrimalPart (AstVar ZS var)
+
+pattern AstPVar :: AstVarId -> AstPrimalPart r n
+pattern AstPVar var <- AstPrimalPart (AstVar _ var)
+
+pattern AstIntConst :: OR.Array 0 Int64 -> AstInt
+pattern AstIntConst i = AstPrimalPart (AstConst i)
+
+pattern AstPConst :: OR.Array n r -> AstPrimalPart r n
+pattern AstPConst r = AstPrimalPart (AstConst r)
+
 -- | The type family that to a concrete tensor type assigns its
 -- corresponding AST type.
 type AstOf :: forall k. TensorKind k -> TensorKind k
@@ -116,10 +131,6 @@ type AstVarList n = SizedList n AstVarId
 type AstIndexS sh = ShapedList sh AstInt
 
 type AstVarListS sh = ShapedList sh AstVarId
-
--- We use here @ShapeInt@ for simplicity. @Shape n AstInt@ gives
--- more expressiveness, but leads to irregular tensors,
--- especially after vectorization, and prevents statically known shapes.
 
 -- | AST for a tensor of rank n and elements r that is meant
 -- to be differentiated.
@@ -190,10 +201,13 @@ data AstRanked :: RankedTensorKind where
                 -> AstRanked r n
                 -> AstRanked r n
 
-  AstFloor :: GoodScalar r
-           => AstPrimalPart r n -> AstRanked Int64 n
   AstCond :: AstBool
           -> AstRanked r n -> AstRanked r n -> AstRanked r n
+  -- Morally these should live in AstPrimalPart, but that would complicate
+  -- things, so they are least have AstPrimalPart domains, which often makes
+  -- it possible to simplify terms, e.g., deleting AstDualPart applications.
+  AstFloor :: GoodScalar r
+           => AstPrimalPart r n -> AstRanked Int64 n
   AstMinIndex :: GoodScalar r
               => AstPrimalPart r (1 + n) -> AstRanked Int64 n
   AstMaxIndex :: GoodScalar r
@@ -293,10 +307,13 @@ data AstShaped :: ShapedTensorKind where
                  -> AstShaped r sh
                  -> AstShaped r sh
 
-  AstFloorS :: GoodScalar r
-            => AstPrimalPartS r sh -> AstShaped Int64 sh
   AstCondS :: AstBool
            -> AstShaped r sh -> AstShaped r sh -> AstShaped r sh
+  -- Morally these should live in AstPrimalPartS, but that would complicate
+  -- things, so they are least have AstPrimalPartS domains, which often makes
+  -- it possible to simplify terms, e.g., deleting AstDualPartS applications.
+  AstFloorS :: GoodScalar r
+            => AstPrimalPartS r sh -> AstShaped Int64 sh
   AstMinIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
                => AstPrimalPartS r (n ': sh)
                -> AstShaped Int64 (OS.Init (n ': sh))
@@ -328,26 +345,6 @@ data AstDomains where
                  => AstVarId -> AstShaped r sh -> AstDomains -> AstDomains
 deriving instance Show AstDomains
 
--- The argument is the underlying scalar.
-data AstInt where
-  AstIntVar :: AstVarId -> AstInt
-  AstIntOp :: OpCodeInt -> [AstInt] -> AstInt
-  AstIntConst :: Int -> AstInt
-  AstIntFloor :: GoodScalar r
-              => AstPrimalPart r 0 -> AstInt
-  AstIntFloorS :: GoodScalar r
-               => AstPrimalPartS r '[] -> AstInt
-  AstIntCond :: AstBool -> AstInt -> AstInt -> AstInt
-  AstMinIndex1 :: GoodScalar r
-               => AstPrimalPart r 1 -> AstInt
-  AstMaxIndex1 :: GoodScalar r
-               => AstPrimalPart r 1 -> AstInt
-  AstMinIndex1S :: (KnownNat n, GoodScalar r)
-                => AstPrimalPartS r '[n] -> AstInt
-  AstMaxIndex1S :: (KnownNat n, GoodScalar r)
-                => AstPrimalPartS r '[n] -> AstInt
-deriving instance Show AstInt
-
 data AstBool where
   AstBoolOp :: OpCodeBool -> [AstBool] -> AstBool
   AstBoolConst :: Bool -> AstBool
@@ -355,7 +352,6 @@ data AstBool where
          => OpCodeRel -> [AstPrimalPart r n] -> AstBool
   AstRelS :: (OS.Shape sh, GoodScalar r)
           => OpCodeRel -> [AstPrimalPartS r sh] -> AstBool
-  AstRelInt :: OpCodeRel -> [AstInt] -> AstBool
 deriving instance Show AstBool
 
 data OpCodeNum =
@@ -375,13 +371,6 @@ data OpCodeIntegral =
   QuotOp | RemOp
  deriving Show
 
-data OpCodeInt =
-    PlusIntOp | MinusIntOp | TimesIntOp | NegateIntOp
-  | AbsIntOp | SignumIntOp
-  | MaxIntOp | MinIntOp
-  | QuotIntOp | RemIntOp
- deriving Show
-
 data OpCodeBool =
     NotOp | AndOp | OrOp
  deriving Show
@@ -392,67 +381,7 @@ data OpCodeRel =
  deriving Show
 
 
--- * Unlawful instances of AST int and bool; they are lawful modulo evaluation
-
-type instance BooleanOf AstInt = AstBool
-
-instance IfB AstInt where
-  ifB (AstBoolConst b) v w = if b then v else w  -- common in indexing
-  ifB b v w = AstIntCond b v w
-
-instance EqB AstInt where
-  v ==* u = AstRelInt EqOp [v, u]
-  v /=* u = AstRelInt NeqOp [v, u]
-
-instance OrdB AstInt where
-  AstIntConst u <* AstIntConst v = AstBoolConst $ u < v  -- common in indexing
-  v <* u = AstRelInt LsOp [v, u]
-  AstIntConst u <=* AstIntConst v = AstBoolConst $ u <= v  -- common in indexing
-  v <=* u = AstRelInt LeqOp [v, u]
-  AstIntConst u >* AstIntConst v = AstBoolConst $ u > v  -- common in indexing
-  v >* u = AstRelInt GtOp [v, u]
-  AstIntConst u >=* AstIntConst v = AstBoolConst $ u >= v  -- common in indexing
-  v >=* u = AstRelInt GeqOp [v, u]
-
-instance Eq AstInt where
-  _ == _ = error "AstInt: can't evaluate terms for Eq"
-
-instance Ord AstInt where
-  max u v = AstIntOp MaxIntOp [u, v]
-  min u v = AstIntOp MinIntOp [u, v]
-  _ <= _ = error "AstInt: can't evaluate terms for Ord"
-
-instance Num AstInt where
-  AstIntConst u + AstIntConst v = AstIntConst $ u + v  -- common in indexing
-  u + v = AstIntOp PlusIntOp [u, v]  -- simplification relies on binary form
-  AstIntConst u - AstIntConst v = AstIntConst $ u - v  -- common in indexing
-  u - v = AstIntOp MinusIntOp [u, v]
-  AstIntConst u * AstIntConst v = AstIntConst $ u * v  -- common in indexing
-  u * v = AstIntOp TimesIntOp [u, v]
-  negate u = AstIntOp NegateIntOp [u]
-  abs v = AstIntOp AbsIntOp [v]
-  signum v = AstIntOp SignumIntOp [v]
-  fromInteger = AstIntConst . fromInteger
-
-instance Real AstInt where
-  toRational = undefined
-    -- very low priority, since these are all extremely not continuous
-
-instance Enum AstInt where
-  toEnum = AstIntConst
-  fromEnum = undefined  -- do we need to define our own Enum for this?
-
--- Warning: this class lacks toInteger, which also makes it impossible
--- to include AstInt in Ast via fromIntegral, hence AstIota.
--- Warning: div and mod operations are very costly (simplifying them
--- requires constructing conditionals, etc). If this error is removed,
--- they are going to work, but slowly.
-instance Integral AstInt where
-  quot u v = AstIntOp QuotIntOp [u, v]
-  rem u v = AstIntOp RemIntOp [u, v]
-  quotRem u v = (AstIntOp QuotIntOp [u, v], AstIntOp RemIntOp [u, v])
-  divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
-  toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
+-- * Unlawful instances of AST for bool; they are lawful modulo evaluation
 
 instance Boolean AstBool where
   true = AstBoolConst True
@@ -550,9 +479,13 @@ instance (KnownNat n, GoodScalar r) => EqB (AstPrimalPart r n) where
   v /=* u = AstRel NeqOp [v, u]
 
 instance (KnownNat n, GoodScalar r) => OrdB (AstPrimalPart r n) where
+  AstPConst u <* AstPConst v = AstBoolConst $ u < v  -- common in indexing
   v <* u = AstRel LsOp [v, u]
+  AstPConst u <=* AstPConst v = AstBoolConst $ u <= v  -- common in indexing
   v <=* u = AstRel LeqOp [v, u]
+  AstPConst u >* AstPConst v = AstBoolConst $ u > v  -- common in indexing
   v >* u = AstRel GtOp [v, u]
+  AstPConst u >=* AstPConst v = AstBoolConst $ u >= v  -- common in indexing
   v >=* u = AstRel GeqOp [v, u]
 
 
@@ -565,7 +498,7 @@ instance Eq (AstRanked r n) where
 instance (Ord r, Num r, Ord (OR.Array n r)) => Ord (AstRanked r n) where
   _ <= _ = error "Ast: can't evaluate terms for Ord"
 
-instance (Num (OR.Array n r)) => Num (AstRanked r n) where
+instance Num (OR.Array n r) => Num (AstRanked r n) where
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
   u + AstSumOfList l = AstSumOfList (u : l)
   AstSumOfList l + u = AstSumOfList (u : l)
@@ -583,8 +516,6 @@ instance Enum (AstRanked Int64 n) where
   toEnum = undefined  -- AstConst . OR.scalar . toEnum
   fromEnum = undefined  -- do we need to define our own Enum for this?
 
--- Warning: this class lacks toInteger, which also makes it impossible
--- to include AstInt in Ast via fromIntegral, hence AstIota.
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
@@ -633,7 +564,7 @@ instance (RealFloat r, RealFrac (OR.Array n r))
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (RealFloat r,  RealFloat (OR.Array n r))
+instance (RealFloat r, RealFloat (OR.Array n r))
          => RealFloat (AstRanked r n) where
   atan2 u v = AstOp Atan2Op [u, v]
   -- We can be selective here and omit the other methods,
@@ -793,8 +724,6 @@ instance Enum (AstShaped Int64 n) where
   toEnum = undefined
   fromEnum = undefined  -- do we need to define our own Enum for this?
 
--- Warning: this class lacks toInteger, which also makes it impossible
--- to include AstInt in Ast via fromIntegral, hence AstIota.
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
@@ -989,6 +918,15 @@ assocsADShare (ADShareCons _ key t rest) =
 _lengthADShare :: Int -> ADShare -> Int
 _lengthADShare acc ADShareNil = acc
 _lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
+
+intVarInADShare :: (forall r. AstVarId -> AstDynamic r -> Bool)
+                -> AstVarId -> ADShare
+                -> Bool
+{-# INLINE intVarInADShare #-}
+intVarInADShare _ _ ADShareNil = False
+intVarInADShare intVarInAstDynamic var (ADShareCons _ _ d rest) =
+  intVarInAstDynamic var d || intVarInADShare intVarInAstDynamic var rest
+    -- TODO: for good Core, probably a local recursive 'go' is needed
 
 nullADShare :: ADShare -> Bool
 {-# INLINE nullADShare #-}

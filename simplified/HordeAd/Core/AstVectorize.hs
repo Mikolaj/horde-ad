@@ -22,9 +22,9 @@ import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           HordeAd.Core.Ast (AstDomains, AstInt, AstRanked, AstShaped)
 import           HordeAd.Core.Ast hiding
-  (AstBool (..), AstDomains (..), AstInt (..), AstRanked (..), AstShaped (..))
+  (AstBool (..), AstDomains (..), AstRanked (..), AstShaped (..))
+import           HordeAd.Core.Ast (AstDomains, AstRanked, AstShaped)
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstPrettyPrint
@@ -95,7 +95,7 @@ build1VOccurenceUnknownRefresh
   => Int -> (AstVarId, AstRanked r n) -> AstRanked r (1 + n)
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
-  (varFresh, astVarFresh) <- funToAstIIO id
+  (varFresh, astVarFresh) <- funToAstIOI id
   let v2 = substitute1Ast (SubstitutionPayloadInt astVarFresh) var v0
   return $! build1VOccurenceUnknown k (varFresh, v2)
 
@@ -103,9 +103,9 @@ intBindingRefresh
   :: AstVarId -> AstIndex n -> (AstVarId, AstInt, AstIndex n)
 {-# NOINLINE intBindingRefresh #-}
 intBindingRefresh var ix = unsafePerformIO $ do
-  (varFresh, astVarFresh) <- funToAstIIO id
-  let ix2 =
-        fmap (substituteAstInt (SubstitutionPayloadInt astVarFresh) var) ix
+  (varFresh, astVarFresh) <- funToAstIOI id
+  let ix2 = fmap (substituteAstPrimal
+                    (SubstitutionPayloadInt astVarFresh) var) ix
   return $! (varFresh, astVarFresh, ix2)
 
 -- | The application @build1V k (var, v)@ vectorizes
@@ -232,11 +232,11 @@ build1V k (var, v00) =
                   (Ast.AstConstant (AstPrimalPart w)) ->
       let t = Ast.AstConstant $ astPrimalPart
               $ astIndexStep (astFromList [v, w])
-                             (singletonIndex $ astIntCond b 0 1)
+                             (singletonIndex $ astPrimalPart (astCond b 0 1))
       in build1V k (var, t)
     Ast.AstCond b v w ->
       let t = astIndexStep (astFromList [v, w])
-                           (singletonIndex $ astIntCond b 0 1)
+                           (singletonIndex $ astPrimalPart (astCond b 0 1))
       in build1V k (var, t)
     Ast.AstMinIndex (AstPrimalPart v) ->
       Ast.AstMinIndex $ astPrimalPart $ build1V k (var, v)
@@ -395,7 +395,7 @@ build1VOccurenceUnknownRefreshS
   => (AstVarId, AstShaped r sh) -> AstShaped r (k ': sh)
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS (var, v0) = unsafePerformIO $ do
-  (varFresh, astVarFresh) <- funToAstIIO id
+  (varFresh, astVarFresh) <- funToAstIOI id
   let v2 = substitute1AstS (SubstitutionPayloadInt astVarFresh) var v0
   return $! build1VOccurenceUnknownS (varFresh, v2)
 
@@ -403,9 +403,9 @@ intBindingRefreshS
   :: AstVarId -> AstIndexS sh -> (AstVarId, AstInt, AstIndexS sh)
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS var ix = unsafePerformIO $ do
-  (varFresh, astVarFresh) <- funToAstIIO id
-  let ix2 =
-        fmap (substituteAstInt (SubstitutionPayloadInt astVarFresh) var) ix
+  (varFresh, astVarFresh) <- funToAstIOI id
+  let ix2 = fmap (substituteAstPrimal
+                    (SubstitutionPayloadInt astVarFresh) var) ix
   return $! (varFresh, astVarFresh, ix2)
 
 -- | The application @build1VS k (var, v)@ vectorizes
@@ -545,11 +545,11 @@ build1VS (var, v00) =
                    (Ast.AstConstantS (AstPrimalPartS w)) ->
       let t = Ast.AstConstantS $ astPrimalPartS
               $ astIndexStepS @'[2] (astFromListS [v, w])
-                                    (astIntCond b 0 1 :$: ZSH)
+                                    (astPrimalPart (astCond b 0 1) :$: ZSH)
       in build1VS (var, t)
     Ast.AstCondS b v w ->
       let t = astIndexStepS @'[2] (astFromListS [v, w])
-                                  (astIntCond b 0 1 :$: ZSH)
+                                  (astPrimalPart (astCond b 0 1) :$: ZSH)
       in build1VS (var, t)
     Ast.AstMinIndexS (AstPrimalPartS v) ->
       Ast.AstMinIndexS $ astPrimalPartS $ build1VS (var, v)

@@ -26,13 +26,13 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Boolean
+import           Data.Int (Int64)
 import           Data.Kind (Type)
 import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           Foreign.C (CInt)
 import           GHC.TypeLits
   (KnownNat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -43,7 +43,8 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
-import           HordeAd.Core.ShapedList (ShapeSh, ShapedList (..), consShaped)
+import           HordeAd.Core.ShapedList
+  (ShapeSh, ShapedList (..), consShaped, shapedNat, unShapedNat)
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorOps
@@ -89,15 +90,12 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
   tlength v = case tshape v of
     ZS -> error "tlength: impossible pattern needlessly required"
     k :$ _ -> k
-  tminIndex0 :: GoodScalar r => ranked r 1 -> IntOf ranked  -- partial
-  tminIndex :: (KnownNat n, GoodScalar r)
-            => ranked r n -> IndexOf ranked n
-  tminIndex t = fromLinearIdx (tshape t) (tminIndex0 (tflatten t))
-  tmaxIndex0 :: GoodScalar r => ranked r 1 -> IntOf ranked  -- partial
+  tminIndex :: (GoodScalar r, KnownNat n)
+            => ranked r (1 + n) -> ranked Int64 n  -- partial
   tmaxIndex :: (GoodScalar r, KnownNat n)
-            => ranked r n -> IndexOf ranked n
-  tmaxIndex t = fromLinearIdx (tshape t) (tmaxIndex0 (tflatten t))
-  tfloor :: GoodScalar r => ranked r 0 -> IntOf ranked
+            => ranked r (1 + n) -> ranked Int64 n  -- partial
+  tfloor :: (GoodScalar r, KnownNat n)
+         => ranked r n -> ranked Int64 n
 
   -- Typically scalar codomain, often tensor reduction
   -- (a number suffix in the name indicates the rank of codomain)
@@ -128,21 +126,6 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
     _ :$ width2 :$ ZS -> tsum (ttranspose [2,1,0] (treplicate width2 m1)
                                * ttranspose [1,0] (treplicate (tlength m1) m2))
     _ -> error "impossible pattern needlessly required"
-  tminimum :: (GoodScalar r, KnownNat n)
-           => ranked r n -> ranked r 0
-  -- The let is required to preserve the sharing of the argument, which is
-  -- used twice: in tminIndex0 and in tindex0.
-  -- TODO: this simpler form will be possible when intLet is available
-  -- and so sharing of integer expressions is not broken.
-  -- tminimum t0 = tlet t0 $ \t -> tindex0 t (tminIndex t)
-  tminimum t0 = tlet t0 $ \t ->
-                  tlet (tflatten t) $ \tf ->
-                    tindex0 t $ fromLinearIdx (tshape t) (tminIndex0 tf)
-  tmaximum :: (GoodScalar r, KnownNat n)
-           => ranked r n -> ranked r 0
-  tmaximum t0 = tlet t0 $ \t ->
-                  tlet (tflatten t) $ \tf ->
-                    tindex0 t $ fromLinearIdx (tshape t) (tmaxIndex0 tf)
   tfromIndex0 :: GoodScalar r => IntOf ranked -> ranked r 0
   tfromIndex1 :: GoodScalar r => IndexOf ranked n -> ranked r 1
   tfromIndex1 = tfromList . map tfromIndex0 . indexToList
@@ -329,17 +312,14 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
   slength :: forall r n sh. (GoodScalar r, KnownNat n)
           => shaped r (n ': sh) -> Int
   slength _ = valueOf @n
-  sminIndex0 :: (GoodScalar r, KnownNat n)
-             => shaped r '[n] -> IntSh shaped n  -- partial
-  sminIndex :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
-            => shaped r sh -> IndexSh shaped sh
-  sminIndex t = ShapedList.fromLinearIdx (sshape t) (sminIndex0 (sflatten t))
-  smaxIndex0 :: (GoodScalar r, KnownNat n)
-             => shaped r '[n] -> IntSh shaped n  -- partial
-  smaxIndex :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
-            => shaped r sh -> IndexSh shaped sh
-  smaxIndex t = ShapedList.fromLinearIdx (sshape t) (smaxIndex0 (sflatten t))
-  sfloor :: GoodScalar r => shaped r '[] -> IntOf shaped
+  sminIndex :: ( GoodScalar r, OS.Shape sh, KnownNat n
+               , OS.Shape (OS.Init (n ': sh)) )  -- partial
+            => shaped r (n ': sh) -> shaped Int64 (OS.Init (n ': sh))
+  smaxIndex :: ( GoodScalar r, OS.Shape sh, KnownNat n
+               , OS.Shape (OS.Init (n ': sh)) )  -- partial
+            => shaped r (n ': sh) -> shaped Int64 (OS.Init (n ': sh))
+  sfloor :: (GoodScalar r, OS.Shape sh)
+         => shaped r sh -> shaped Int64 sh
     -- not IntSh, because the integer can be negative
     -- TODO: shall we make it abs (floor v)?
 
@@ -373,14 +353,6 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
   smatmul2 m1 m2 =
     ssum (stranspose (Proxy @'[2, 1, 0]) (sreplicate @shaped @r @p m1)
           * stranspose (Proxy @'[1, 0]) (sreplicate @shaped @r @m m2))
-  sminimum :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
-           => shaped r sh -> shaped r '[]
-  sminimum t = gcastWith (unsafeCoerce Refl :: (sh OS.++ '[])  :~: sh)
-               $ t !$ sminIndex t
-  smaximum :: forall r sh.(GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
-           => shaped r sh -> shaped r '[]
-  smaximum t = gcastWith (unsafeCoerce Refl :: (sh OS.++ '[])  :~: sh)
-               $ t !$ smaxIndex t
   sfromIndex0 :: forall n r. (GoodScalar r, KnownNat n)
               => IntSh shaped n -> shaped r '[]
   sfromIndex1 :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
@@ -388,8 +360,7 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
   sfromIndex1 =
     let go :: IndexSh shaped sh1 -> [shaped r '[]]
         go ZSH = []
-        go ((:$:) @n i rest) = sfromIndex0 @shaped @n (ShapedList.shapedNat i)
-                               : go rest
+        go ((:$:) @n i rest) = sfromIndex0 @shaped @n (shapedNat i) : go rest
     in sfromList . go
   sscatter
     :: forall r sh2 p sh.
@@ -576,7 +547,7 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
   sconstBare = sconst
   sletWrap :: ADShare -> shaped r sh -> shaped r sh
   sletWrap _l u = u
-  saddDynamic :: forall r sh. (GoodScalar r, OS.Shape sh)
+  saddDynamic :: forall sh r. (GoodScalar r, OS.Shape sh)
               => shaped r sh -> DynamicExists (DynamicOf shaped)
               -> DynamicExists (DynamicOf shaped)
   sregister :: (GoodScalar r, OS.Shape sh)
@@ -673,6 +644,9 @@ type ADShaped shaped r = (ADReadyR (RankedOf shaped) r, ADReadyS shaped r)
 
 type ADReadyR ranked r =
   ( RankedTensor ranked, GoodScalar r, RankedTensor (PrimalOf ranked)
+  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
+  , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked
+  , BooleanOf (ranked Int64 0) ~ BooleanOf (ranked r 0)
   , IfB (IntOf ranked)
   , CRanked71 ranked r IfBRanked, CRanked71 ranked r IfBPrimalOf
   , EqB r, EqB (IntOf ranked)
@@ -714,6 +688,9 @@ type ADReadyR ranked r =
 
 type ADReadyS shaped r =
   ( ShapedTensor shaped, GoodScalar r, ShapedTensor (PrimalOf shaped)
+  , ShapedOf (PrimalOf shaped) ~ PrimalOf shaped
+  , PrimalOf (PrimalOf shaped) ~ PrimalOf shaped
+  , PrimalOf (PrimalOf (RankedOf shaped)) ~ PrimalOf (RankedOf shaped)
   , IfB (IntOf shaped), IfB (shaped r '[])
   , IfB (PrimalOf shaped r '[])
   , EqB r, EqB (IntOf shaped), EqB (shaped r '[])
@@ -722,14 +699,13 @@ type ADReadyS shaped r =
   , OrdB (PrimalOf shaped r '[])
   , Boolean (BooleanOf (IntOf shaped))
   , BooleanOf (IntOf shaped) ~ BooleanOf (PrimalOf shaped r '[])
+  , ConvertTensor (PrimalOf (RankedOf shaped)) (PrimalOf shaped)
   , BooleanOf (IntOf shaped) ~ BooleanOf (shaped r '[])
       -- placing this last gives better errors
   )
 
 
 -- * Ranked tensor class instance for concrete arrays
-
-type instance IntOf (Flip OR.Array) = CInt
 
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 
@@ -747,19 +723,21 @@ type instance ShapedOf (Flip OR.Array) = Flip OS.Array
 
 instance RankedTensor (Flip OR.Array) where
   tshape = tshapeR . runFlip
-  tminIndex0 = tminIndex0R . runFlip
-  tmaxIndex0 = tmaxIndex0R . runFlip
-  tfloor = floor . tunScalarR . runFlip
-  tindex v ix = Flip $ tindexZR (runFlip v) ix
-  tindex0 v ix = Flip . tscalarR $ tindex0R (runFlip v) ix
+  tminIndex = Flip . tminIndexR . runFlip
+  tmaxIndex = Flip . tmaxIndexR . runFlip
+  tfloor = Flip . tfloorR . runFlip
+  tindex v ix = Flip $ tindexZR (runFlip v) (fromIndexOfR ix)
+  tindex0 v ix = Flip . tscalarR $ tindex0R (runFlip v) (fromIndexOfR ix)
   tsum = Flip . tsumR . runFlip
   tsum0 = Flip . tscalarR . tsum0R . runFlip
   tdot0 u v = Flip $ tscalarR $ tdot0R (runFlip u) (runFlip v)
   tmatvecmul m v = Flip $ tmatvecmulR (runFlip m) (runFlip v)
   tmatmul2 m1 m2 = Flip $ tmatmul2R (runFlip m1) (runFlip m2)
   tfromIndex0 = Flip . tscalarR . fromIntegral
-  tscatter sh t f = Flip $ tscatterZR sh (runFlip t) f
-  tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t) f
+  tscatter sh t f = Flip $ tscatterZR sh (runFlip t)
+                                         (fromIndexOfR . f . toIndexOfR)
+  tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t)
+                                           (fromIndexOfR . f . Flip . tscalarR)
   tfromList = Flip . tfromListR . map runFlip
   tfromList0N sh = Flip . tfromList0NR sh . map (tunScalarR . runFlip)
   tfromVector = Flip . tfromVectorR . V.map runFlip
@@ -771,12 +749,14 @@ instance RankedTensor (Flip OR.Array) where
   treverse = Flip . treverseR . runFlip
   ttranspose perm = Flip . ttransposeR perm . runFlip
   treshape sh = Flip . treshapeR sh . runFlip
-  tbuild1 k f = Flip $ tbuild1R k (runFlip . f)
+  tbuild1 k f = Flip $ tbuild1R k (runFlip . f . Flip . tscalarR)
   tmap0N f t = Flip $ tmap0NR (runFlip . f . Flip) (runFlip t)
   tzipWith0N f t u = Flip $ tzipWith0NR (\v w -> runFlip $ f (Flip v) (Flip w))
                                         (runFlip t) (runFlip u)
-  tgather sh t f = Flip $ tgatherZR sh (runFlip t) f
-  tgather1 k t f = Flip $ tgatherZ1R k (runFlip t) f
+  tgather sh t f = Flip $ tgatherZR sh (runFlip t)
+                                       (fromIndexOfR . f . toIndexOfR)
+  tgather1 k t f = Flip $ tgatherZ1R k (runFlip t)
+                                       (fromIndexOfR . f . Flip . tscalarR)
   tcast = Flip . tcastR . runFlip
 
   tscaleByScalar s v =
@@ -838,8 +818,6 @@ instance RandomDomains (Flip OR.Array r n) where
 
 -- * Shaped tensor class instance for concrete arrays
 
-type instance IntOf (Flip OS.Array) = CInt
-
 type instance PrimalOf (Flip OS.Array) = Flip OS.Array
 
 type instance DualOf (Flip OS.Array) = DummyDual
@@ -855,19 +833,23 @@ type instance RankedOf (Flip OS.Array) = Flip OR.Array
 type instance ShapedOf (Flip OS.Array) = Flip OS.Array
 
 instance ShapedTensor (Flip OS.Array) where
-  sminIndex0 = tminIndex0S . runFlip
-  smaxIndex0 = tmaxIndex0S . runFlip
-  sfloor = floor . tunScalarS . runFlip
-  sindex v ix = Flip $ tindexZS (runFlip v) ix
-  sindex0 v ix = Flip . tscalarS $ tindex0S (runFlip v) ix
+  sminIndex = Flip . tminIndexS . runFlip
+  smaxIndex = Flip . tmaxIndexS . runFlip
+  sfloor = Flip . tfloorS . runFlip
+  sindex v ix = Flip $ tindexZS (runFlip v) (fromIndexOfS ix)
+  sindex0 v ix = Flip . tscalarS $ tindex0S (runFlip v) (fromIndexOfS ix)
   ssum = Flip . tsumS . runFlip
   ssum0 = Flip . tscalarS . tsum0S . runFlip
   sdot0 u v = Flip $ tscalarS $ tdot0S (runFlip u) (runFlip v)
   smatvecmul m v = Flip $ tmatvecmulS (runFlip m) (runFlip v)
   smatmul2 m1 m2 = Flip $ tmatmul2S (runFlip m1) (runFlip m2)
-  sfromIndex0 = Flip . tscalarS . fromIntegral . ShapedList.unShapedNat
-  sscatter t f = Flip $ tscatterZS (runFlip t) f
-  sscatter1 t f = Flip $ tscatterZ1S (runFlip t) f
+  sfromIndex0 =
+    Flip . tscalarS . fromIntegral . tunScalarR . runFlip . unShapedNat
+  sscatter t f = Flip $ tscatterZS (runFlip t)
+                                   (fromIndexOfS . f . toIndexOfS)
+  sscatter1 t f = Flip $ tscatterZ1S (runFlip t)
+                                     (fromIndexOfS . f . shapedNat . Flip
+                                      . tscalarR . unShapedNat)
   sfromList = Flip . tfromListS . map runFlip
   sfromList0N = Flip . tfromList0NS . map (tunScalarS . runFlip)
   sfromVector = Flip . tfromVectorS . V.map runFlip
@@ -879,12 +861,16 @@ instance ShapedTensor (Flip OS.Array) where
   sreverse = Flip . treverseS . runFlip
   stranspose (_ :: Proxy perm) = Flip . ttransposeS @perm . runFlip
   sreshape = Flip . treshapeS . runFlip
-  sbuild1 f = Flip $ tbuild1S (runFlip . f)
+  sbuild1 f = Flip $ tbuild1S (runFlip . f . shapedNat . Flip
+                               . tscalarR . unShapedNat)
   smap0N f t = Flip $ tmap0NS (runFlip . f . Flip) (runFlip t)
   szipWith0N f t u = Flip $ tzipWith0NS (\v w -> runFlip $ f (Flip v) (Flip w))
                                         (runFlip t) (runFlip u)
-  sgather t f = Flip $ tgatherZS (runFlip t) f
-  sgather1 t f = Flip $ tgatherZ1S (runFlip t) f
+  sgather t f = Flip $ tgatherZS (runFlip t)
+                                 (fromIndexOfS . f . toIndexOfS)
+  sgather1 t f = Flip $ tgatherZ1S (runFlip t)
+                                   (fromIndexOfS . f . shapedNat . Flip
+                                    . tscalarR . unShapedNat)
   scast = Flip . tcastS . runFlip
 
   sscaleByScalar s v =
