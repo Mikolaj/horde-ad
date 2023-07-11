@@ -65,7 +65,7 @@ instance RankedTensor AstRanked where
   tsumOfList = AstSumOfList
   tconst = AstConstant . AstPrimalPart . AstConst
   tconstBare = AstConst
-  tletWrap = AstLetADShare
+  tletWrap l u = if nullADShare l then u else AstLetADShare l u
     -- We can't use astLet here, because it may inline a let that is
     -- present at the top level of the dual number and so we'd lose
     -- sharing that is not visible in this restricted context.
@@ -235,7 +235,8 @@ instance RankedTensor AstPrimalPart where
 
   tsumOfList = astPrimalPart . AstSumOfList . map unAstPrimalPart
   tconst = AstPrimalPart . AstConst
-  tletWrap l u = astPrimalPart $ AstLetADShare l (unAstPrimalPart u)
+  tletWrap l u = if nullADShare l then u
+                 else astPrimalPart $ AstLetADShare l (unAstPrimalPart u)
   raddDynamic (AstPrimalPart r) d = raddDynamic r d
   tregister r l = second astPrimalPart $ astRegisterFun (unAstPrimalPart r) l
 
@@ -379,7 +380,7 @@ instance ShapedTensor AstShaped where
   ssumOfList = AstSumOfListS
   sconst = AstConstantS . AstPrimalPartS . AstConstS
   sconstBare = AstConstS
-  sletWrap = AstLetADShareS
+  sletWrap l u = if nullADShare l then u else AstLetADShareS l u
     -- We can't use astLet here, because it may inline a let that is
     -- present at the top level of the dual number and so we'd lose
     -- sharing that is not visible in this restricted context.
@@ -471,7 +472,8 @@ instance ShapedTensor AstPrimalPartS where
 
   ssumOfList = astPrimalPartS . AstSumOfListS . map unAstPrimalPartS
   sconst = AstPrimalPartS . AstConstS
-  sletWrap l u = astPrimalPartS $ AstLetADShareS l (unAstPrimalPartS u)
+  sletWrap l u = if nullADShare l then u
+                 else astPrimalPartS $ AstLetADShareS l (unAstPrimalPartS u)
   saddDynamic (AstPrimalPartS r) d = saddDynamic r d
   sregister r l = second astPrimalPartS $ astRegisterFunS (unAstPrimalPartS r) l
 

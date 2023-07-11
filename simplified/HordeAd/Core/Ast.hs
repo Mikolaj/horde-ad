@@ -19,7 +19,7 @@ module HordeAd.Core.Ast
   , OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
-  , flattenADShare, assocsADShare
+  , flattenADShare, assocsADShare, nullADShare
   , astPrimalPart, astPrimalPartS
   ) where
 
@@ -989,3 +989,8 @@ assocsADShare (ADShareCons _ key t rest) =
 _lengthADShare :: Int -> ADShare -> Int
 _lengthADShare acc ADShareNil = acc
 _lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
+
+nullADShare :: ADShare -> Bool
+{-# INLINE nullADShare #-}
+nullADShare ADShareNil = True
+nullADShare ADShareCons{} = False
