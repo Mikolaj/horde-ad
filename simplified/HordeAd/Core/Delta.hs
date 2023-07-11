@@ -794,13 +794,13 @@ buildFinMaps s0 deltaDt =
           let ixs = indexToList ixs'
               f v = if isTensorDummy v
                     then treplicate0ND sh 0 `OD.update` [(ixs, c)]
-                    else v `OD.update` [(ixs, v `tindex0D` ixs + c)]
+                    else v `OD.update` [(ixs, v `tindex0D` ixs + c)] -- tsumOfList
           in s {iMap = EM.adjust f i $ iMap s}
         Index0 (LetR n d) ixs' sh ->
           let ixs = indexToList ixs'
           in case EM.lookup n $ nMap s of
             Just (DeltaBindingR _) ->
-              let f v = v `OD.update` [(ixs, v `tindex0D` ixs + c)]
+              let f v = v `OD.update` [(ixs, v `tindex0D` ixs + c)] -- tsumOfList
               in s {dMap = EM.adjust f n $ dMap s}
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,

@@ -629,17 +629,64 @@ instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstPrimalPart r n) where
     AstPrimalPart (AstNm MinOp [u, v])
   _ <= _ = error "AstPrimalPart: can't evaluate terms for Ord"
 
-deriving instance Num (AstRanked r n) => Num (AstPrimalPart r n)
-deriving instance (Real r, Real (AstRanked r n))
+instance Num (OR.Array n r) => Num (AstPrimalPart r n) where
+  -- The normal form has AstConst, if any, as the first element of the list.
+  AstPrimalPart (AstSumOfList (AstConst u : lu))
+    + AstPrimalPart (AstSumOfList (AstConst v : lv)) =
+      AstPrimalPart $ AstSumOfList (AstConst (u + v) : lu ++ lv)
+  AstPrimalPart (AstSumOfList lu)
+    + AstPrimalPart (AstSumOfList (AstConst v : lv)) =
+      AstPrimalPart $ AstSumOfList (AstConst v : lv ++ lu)
+  AstPrimalPart (AstSumOfList lu) + AstPrimalPart (AstSumOfList lv) =
+    AstPrimalPart $ AstSumOfList (lu ++ lv)
+
+  AstPrimalPart (AstConst u) + AstPrimalPart (AstSumOfList (AstConst v : lv)) =
+    AstPrimalPart $ AstSumOfList (AstConst (u + v) : lv)
+  AstPrimalPart u + AstPrimalPart (AstSumOfList (AstConst v : lv)) =
+    AstPrimalPart $ AstSumOfList (AstConst v : u : lv)
+  AstPrimalPart u + AstPrimalPart (AstSumOfList lv) =
+    AstPrimalPart $ AstSumOfList (u : lv)
+
+  AstPrimalPart (AstSumOfList (AstConst u : lu)) + AstPrimalPart (AstConst v) =
+    AstPrimalPart $ AstSumOfList (AstConst (u + v) : lu)
+  AstPrimalPart (AstSumOfList (AstConst u : lu)) + AstPrimalPart v =
+    AstPrimalPart $ AstSumOfList (AstConst u : v : lu)
+  AstPrimalPart (AstSumOfList lu) + AstPrimalPart v =
+    AstPrimalPart $ AstSumOfList (v : lu)
+
+  AstPrimalPart (AstConst u) + AstPrimalPart (AstConst v) =
+    AstPrimalPart $ AstConst (u + v)
+  AstPrimalPart u + AstPrimalPart (AstConst v) =
+    AstPrimalPart $ AstSumOfList [AstConst v, u]
+  AstPrimalPart u + AstPrimalPart v = AstPrimalPart $ AstSumOfList [u, v]
+
+  AstPrimalPart (AstConst u) - AstPrimalPart (AstConst v) =
+    AstPrimalPart $ AstConst (u - v)  -- common in indexing
+  AstPrimalPart u - AstPrimalPart v = AstPrimalPart $ AstNm MinusOp [u, v]
+  AstPrimalPart (AstConst u) * AstPrimalPart (AstConst v) =
+    AstPrimalPart $ AstConst (u * v)  -- common in indexing
+  AstPrimalPart u * AstPrimalPart v = AstPrimalPart $ AstNm TimesOp [u, v]
+    -- no hacks like for AstSumOfList, because when tscaleByScalar
+    -- is reconstructed, it looks for the binary form
+  negate (AstPrimalPart u) = AstPrimalPart $ AstNm NegateOp [u]
+  abs (AstPrimalPart v) = AstPrimalPart $ AstNm AbsOp [v]
+  signum (AstPrimalPart v) = AstPrimalPart $ AstNm SignumOp [v]
+  fromInteger = AstPrimalPart . AstConst . fromInteger
+    -- it's crucial that there is no AstConstant in fromInteger code
+    -- so that we don't need 4 times the simplification rules
+
+deriving instance (Real r, Real (AstRanked r n), Num (OR.Array n r))
                   => Real (AstPrimalPart r n)
 deriving instance Enum (AstRanked r n) => Enum (AstPrimalPart r n)
-deriving instance (Real r, Integral (AstRanked r n))
+deriving instance (Real r, Integral (AstRanked r n), Num (OR.Array n r))
                   => Integral (AstPrimalPart r n)
-deriving instance Fractional (AstRanked r n) => Fractional (AstPrimalPart r n)
-deriving instance Floating (AstRanked r n) => Floating (AstPrimalPart r n)
-deriving instance (RealFloat r, RealFrac (AstRanked r n))
+deriving instance (Fractional (AstRanked r n), Num (OR.Array n r))
+                  => Fractional (AstPrimalPart r n)
+deriving instance (Floating (AstRanked r n), Num (OR.Array n r))
+                  => Floating (AstPrimalPart r n)
+deriving instance (RealFloat r, RealFrac (AstRanked r n), Num (OR.Array n r))
                   => RealFrac (AstPrimalPart r n)
-deriving instance (RealFloat r,  RealFloat (AstRanked r n))
+deriving instance (RealFloat r, RealFloat (AstRanked r n), Num (OR.Array n r))
                   => RealFloat (AstPrimalPart r n)
 
 
