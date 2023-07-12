@@ -1801,14 +1801,11 @@ simplifyAstBool t = case t of
   Ast.AstRelS opCodeRel args ->
     Ast.AstRelS opCodeRel (map simplifyAstPrimalS args)
 
+-- TODO: when we have more tests, try to limit this rewrite
+-- (or only the first half) to Int64 at rank 0 and see if performance improves
+-- even more.
 simplifyRelOp :: (KnownNat n, GoodScalar r)
               => OpCodeRel -> [AstPrimalPart r n] -> AstBool
-{- TODO: For some reason, this slows down Conv tests a lot,
-   at least when integer simplication below is disabled.
-   Possibly integer terms are rare enough among primal part terms
-   and consequently constant and variable terms are rare among them,
-   so simplification happens rarely, but term inspection a lot.
-   A solution might be to trigger this only when n is 0 and r is Int64.
 simplifyRelOp EqOp [AstPConst u, AstPConst v] = AstBoolConst $ u == v
 simplifyRelOp NeqOp [AstPConst u, AstPConst v] = AstBoolConst $ u /= v
 simplifyRelOp LeqOp [AstPConst u, AstPConst v] = AstBoolConst $ u <= v
@@ -1821,7 +1818,6 @@ simplifyRelOp GeqOp [AstPVar u, AstPVar v] | u == v = AstBoolConst True
 simplifyRelOp NeqOp [AstPVar u, AstPVar v] | u == v = AstBoolConst False
 simplifyRelOp LsOp [AstPVar u, AstPVar v] | u == v = AstBoolConst False
 simplifyRelOp GtOp [AstPVar u, AstPVar v] | u == v = AstBoolConst False
--}
 simplifyRelOp opCodeRel arg = Ast.AstRel opCodeRel arg
 
 -- Normally, we wouldn't simplify tensor arithmetic so much, but some
