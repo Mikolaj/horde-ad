@@ -43,7 +43,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.EnumSet as ES
 import           Data.Int (Int64)
-import           Data.List (dropWhileEnd, foldl1', foldr1, mapAccumR)
+import           Data.List (dropWhileEnd, foldl1', mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -186,7 +186,7 @@ simplifyStepNonIndex t = case t of
   AstNm{} -> t
   Ast.AstOp{} -> t
   Ast.AstOpIntegral{} -> t
-  AstSumOfList{} -> t
+  AstSumOfList l -> astSumOfList l
   Ast.AstIota -> t
   Ast.AstIndex{} -> t
   Ast.AstSum v -> astSum v
@@ -237,6 +237,14 @@ astLet var u v@(Ast.AstVar _ var2) =
     _ -> error "astLet: rank mismatch"
   else v
 astLet var u v = Ast.AstLet var u v
+
+astSumOfList :: (KnownNat n, GoodScalar r)
+             => [AstRanked r n] -> AstRanked r n
+astSumOfList = foldr1 (+)
+  -- TODO: try that and if it helps, define Num (AstRanked r n)
+  -- the same as for AstPrimalPart
+  -- foldl1' (\i j -> unAstPrimalPart $ AstPrimalPart i + AstPrimalPart j)
+  -- also try foldl1' instead of foldlr everywhere
 
 astIndexR
   :: forall m n r.
@@ -299,7 +307,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstOpIntegral opCode args ->
     Ast.AstOpIntegral opCode (map (`astIndexRec` ix) args)
   AstSumOfList args ->
-    AstSumOfList (map (`astIndexRec` ix) args)
+    astSumOfList (map (`astIndexRec` ix) args)
   Ast.AstIota | AstIntConst i <- i1 -> case sameNat (Proxy @m) (Proxy @1) of
     Just Refl ->
       -- AstConstant not needed, because when AstIota is introduced
@@ -364,7 +372,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     -}
     Ast.AstIndex v0 ix
   Ast.AstSlice i _k v ->
-    let ii = simplifyAst (AstSumOfList
+    let ii = simplifyAst (astSumOfList
                            [ unAstPrimalPart i1
                            , AstConst $ OR.scalar $ fromIntegral i ])
     in astIndex v (astPrimalPart ii :. rest1)
@@ -548,8 +556,8 @@ astSlice i n w@(Ast.AstAppend (u :: AstRanked r (1 + k)) (v :: AstRanked r (1 + 
         | otherwise -> Ast.AstSlice @k i n w  -- cheap iff fits in one
 astSlice i n (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
   let ivar = astPrimalPart
-             $ AstSumOfList [ Ast.AstVar ZS var
-                                , AstConst $ OR.scalar $ fromIntegral i ]
+             $ astSumOfList [ Ast.AstVar ZS var
+                            , AstConst $ OR.scalar $ fromIntegral i ]
       ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt ivar) var) ix
   in astGatherR (n :$ sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
@@ -614,7 +622,7 @@ astTranspose perm0 t0 = case (perm0, t0) of
   (perm, Ast.AstOp opCode args) | not (length args > 1 || all isVar args) ->
     Ast.AstOp opCode (map (astTranspose perm) args)
   (perm, AstSumOfList args) | not (length args > 1 || all isVar args) ->
-    AstSumOfList (map (astTranspose perm) args)
+    astSumOfList (map (astTranspose perm) args)
   (perm, Ast.AstSum v) -> astSum $ astTranspose (0 : map succ perm) v
   (perm, Ast.AstScatter @_ @_ @p sh v (vars, ix)) | length perm <= valueOf @p ->
     astScatter (backpermutePrefixShape perm sh) v
@@ -682,7 +690,7 @@ astReshape shOut (Ast.AstOp opCode args)
       Ast.AstOp opCode (map (astReshape shOut) args)
 astReshape shOut (AstSumOfList args)
   | not (length args > 1 || all isVar args) =
-      AstSumOfList (map (astReshape shOut) args)
+      astSumOfList (map (astReshape shOut) args)
 astReshape shOut (Ast.AstReshape _ v) = astReshape shOut v
   -- this rule can be disabled to test fusion of gathers
 astReshape shOut (AstConst t) =
@@ -805,7 +813,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
         opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     Ast.AstOpIntegral{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     AstSumOfList args | not (length args > 1 || all isVar args) ->
-      AstSumOfList (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
+      astSumOfList (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     AstSumOfList{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstIota | AstIntConst i <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
       Just Refl -> astReplicate0N sh4 $ AstConst
@@ -902,7 +910,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       -}
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstSlice i _k v ->
-      let ii = simplifyAst (AstSumOfList
+      let ii = simplifyAst (astSumOfList
                               [ unAstPrimalPart i4
                               , AstConst $ OR.scalar $ fromIntegral i ])
       in astGather sh4 v (vars4, astPrimalPart ii :. rest4)
@@ -1697,7 +1705,7 @@ simplifyAst t = case t of
   AstSumOfList args ->
     case testEquality (typeRep @r) (typeRep @Int64) of
       Just Refl -> foldr1 simplifyAstPlusOp (map simplifyAst args)
-      _ -> AstSumOfList (map simplifyAst args)
+      _ -> astSumOfList (map simplifyAst args)
   Ast.AstIota -> t
   Ast.AstIndex v ix -> astIndexR (simplifyAst v) (fmap simplifyAstPrimal ix)
   Ast.AstSum v -> astSum (simplifyAst v)
