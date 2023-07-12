@@ -202,8 +202,8 @@ data DeltaS :: RankedTensorKind -> ShapedTensorKind
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
     -- The integer argument is the outermost size of the first array.
-  SliceS :: forall ranked shaped i k n r sh.
-            (KnownNat i, KnownNat k, KnownNat n, OS.Shape sh)
+  SliceS :: forall ranked shaped i n k r sh.
+            (KnownNat i, KnownNat n, KnownNat k, OS.Shape sh)
          => DeltaS ranked shaped r (i + n + k ': sh)
          -> DeltaS ranked shaped r (n ': sh)
     -- ^ Extract a slice of an array along the outermost dimension.

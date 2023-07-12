@@ -1071,11 +1071,11 @@ interpretAstS env = \case
     let t1 = interpretAstS env x
         t2 = interpretAstS env y
     in sappend t1 t2
-  AstSliceS @i @k AstIotaS ->
+  AstSliceS @i @n AstIotaS ->
     let i = valueOf @i
-        k = valueOf @k
+        n = valueOf @n
     in interpretAstS env
-       $ AstConstS $ OS.fromList $ map fromIntegral [i :: Int .. i + k - 1]
+       $ AstConstS $ OS.fromList $ map fromIntegral [i :: Int .. i + n - 1]
   AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAstS env v)
   AstReverseS v -> sreverse (interpretAstS env v)
   AstTransposeS @perm v -> stranspose (Proxy @perm) $ interpretAstS env v

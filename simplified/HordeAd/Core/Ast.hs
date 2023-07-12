@@ -265,7 +265,7 @@ data AstShaped :: ShapedTensorKind where
   AstAppendS :: (KnownNat n, KnownNat m, OS.Shape sh)
              => AstShaped r (m ': sh) -> AstShaped r (n ': sh)
              -> AstShaped r ((m + n) ': sh)
-  AstSliceS :: (KnownNat i, KnownNat k, KnownNat n, OS.Shape sh)
+  AstSliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape sh)
             => AstShaped r (i + n + k ': sh) -> AstShaped r (n ': sh)
   AstReverseS :: (KnownNat n, OS.Shape sh)
               => AstShaped r (n ': sh) -> AstShaped r (n ': sh)

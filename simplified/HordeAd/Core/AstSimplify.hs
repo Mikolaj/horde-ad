@@ -563,7 +563,7 @@ astSlice i n (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
 astSlice i n v = Ast.AstSlice i n v
 
 astSliceS :: forall i n k sh r.
-             (KnownNat i, KnownNat k, KnownNat n, OS.Shape sh)
+             (KnownNat i, KnownNat n, KnownNat k, OS.Shape sh)
           => AstShaped r (i + n + k ': sh) -> AstShaped r (n ': sh)
 astSliceS = Ast.AstSliceS @i  -- TODO
 
