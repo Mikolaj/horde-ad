@@ -127,8 +127,11 @@ type AstVarListS sh = ShapedList sh AstVarId
 
 -- * ASTs
 
--- | AST for a tensor of rank n and elements r that is meant
--- to be differentiated.
+-- | AST for ranked tensors that are meant to be differentiated.
+--
+-- We use here @ShapeInt@ for simplicity. @Shape n AstInt@ gives
+-- more expressiveness, but leads to irregular tensors,
+-- especially after vectorization, and prevents static checking of shapes.
 data AstRanked :: RankedTensorKind where
   -- To permit defining objective functions in Ast, not just constants:
   AstVar :: ShapeInt n -> AstVarId -> AstRanked r n
@@ -216,6 +219,7 @@ deriving instance GoodScalar r => Show (AstPrimalPart r n)
 newtype AstDualPart r n = AstDualPart {unAstDualPart :: AstRanked r n}
 deriving instance GoodScalar r => Show (AstDualPart r n)
 
+-- | AST for shaped tensors that are meant to be differentiated.
 data AstShaped :: ShapedTensorKind where
   -- To permit defining objective functions in Ast, not just constants:
   AstVarS :: forall sh r. AstVarId -> AstShaped r sh
