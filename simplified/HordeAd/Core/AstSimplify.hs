@@ -20,7 +20,7 @@ module HordeAd.Core.AstSimplify
   , astReshape, astTranspose, astReshapeS, astTransposeS
   , astLet, astSum, astScatter, astFromList, astFromVector, astReplicate
   , astAppend, astSlice, astSliceS, astReverse, astFromDynamic, astFromDynamicS
-  , astDomainsLet, astCond
+  , astDomainsLet
   , simplifyArtifact6, simplifyArtifact6S
   , simplifyAstPrimal6, simplifyAst6, simplifyAstPrimal6S, simplifyAst6S
   , simplifyAstDomains6
@@ -29,7 +29,7 @@ module HordeAd.Core.AstSimplify
   , substituteAstBool, substituteAstS
   , astLetS, astSumS, astScatterS, astFromListS, astFromVectorS, astReplicateS
   , astAppendS, astReverseS
-  , astDomainsLetS, astCondS
+  , astDomainsLetS
   ) where
 
 import Prelude
@@ -1112,13 +1112,6 @@ astDomainsLet var u v | astIsSmall True u =
   -- would be a substitution that only simplifies the touched
   -- terms with one step lookahead, as normally when vectorizing
 astDomainsLet var u v = Ast.AstDomainsLet var u v
-
-astCond :: AstBool -> AstRanked r n -> AstRanked r n -> AstRanked r n
-astCond (AstBoolConst b) v w = if b then v else w
-astCond b (Ast.AstConstant (AstPrimalPart v))
-          (Ast.AstConstant (AstPrimalPart w)) =
-  Ast.AstConstant $ astPrimalPart $ astCond b v w
-astCond b v w = Ast.AstCond b v w
 
 
 -- * Simplification pass applied to code with eliminated nested lets
@@ -2263,13 +2256,6 @@ astDomainsLetS var u v | astIsSmallS True u =
   -- would be a substitution that only simplifies the touched
   -- terms with one step lookahead, as normally when vectorizing
 astDomainsLetS var u v = Ast.AstDomainsLetS var u v
-
-astCondS :: AstBool -> AstShaped r sh -> AstShaped r sh -> AstShaped r sh
-astCondS (AstBoolConst b) v w = if b then v else w
-astCondS b (Ast.AstConstantS (AstPrimalPartS v))
-           (Ast.AstConstantS (AstPrimalPartS w)) =
-  Ast.AstConstantS $ astPrimalPartS $ astCondS b v w
-astCondS b v w = Ast.AstCondS b v w
 
 -- We have to simplify after substitution or simplifying is not idempotent.
 substituteAstPrimal :: forall n r. (GoodScalar r, KnownNat n)

@@ -21,7 +21,7 @@ module HordeAd.Core.Ast
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare, intVarInADShare, nullADShare
-  , astPrimalPart, astPrimalPartS
+  , astCond, astCondS, astPrimalPart, astPrimalPartS
   ) where
 
 import Prelude
