@@ -30,12 +30,16 @@ main = do
     ingredients = includingOptions [Option (Proxy :: Proxy EqEpsilon)]
 
 tests :: TestTree
-tests = testGroup "Only special tests for simplified horde-ad" $
-  TestGatherSimplified.testTrees
-  ++ TestHighRankSimplified.testTrees
-  ++ TestConvSimplified.testTrees
-  ++ TestAdaptorSimplified.testTrees
-  ++ TestMnistFCNNR.testTrees
-  ++ TestMnistCNNR.testTrees
-  ++ TestMnistRNNR.testTrees
-  ++ TestMnistRNNS.testTrees
+tests =
+  testGroup "Tests for simplified horde-ad"
+    [ testGroup "Short tests"
+        (TestGatherSimplified.testTrees
+         ++ TestHighRankSimplified.testTrees
+         ++ TestConvSimplified.testTrees
+         ++ TestAdaptorSimplified.testTrees)
+    , testGroup "Neural network tests"
+        (TestMnistFCNNR.testTrees
+         ++ TestMnistCNNR.testTrees
+         ++ TestMnistRNNR.testTrees
+         ++ TestMnistRNNS.testTrees)
+    ]
