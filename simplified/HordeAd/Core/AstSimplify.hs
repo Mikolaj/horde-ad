@@ -43,7 +43,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.EnumSet as ES
 import           Data.Int (Int64)
-import           Data.List (dropWhileEnd, mapAccumR)
+import           Data.List (dropWhileEnd, foldl1', foldr1, mapAccumR)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -1696,7 +1696,7 @@ simplifyAst t = case t of
       _ -> Ast.AstOpIntegral opCode (map simplifyAst args)
   AstSumOfList args ->
     case testEquality (typeRep @r) (typeRep @Int64) of
-      Just Refl -> simplifySumOfList (map simplifyAst args)
+      Just Refl -> foldr1 simplifyAstPlusOp (map simplifyAst args)
       _ -> AstSumOfList (map simplifyAst args)
   Ast.AstIota -> t
   Ast.AstIndex v ix -> astIndexR (simplifyAst v) (fmap simplifyAstPrimal ix)
@@ -1847,36 +1847,85 @@ simplifyRelOp opCodeRel arg = Ast.AstRel opCodeRel arg
 -- or that would duplicate a non-constant term, as well as most rules
 -- informed by inequalities, expressed via max or min, such as
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
-simplifySumOfList :: KnownNat n => [AstRanked Int64 n] -> AstRanked Int64 n
-simplifySumOfList [AstConst u, AstConst v] = AstConst $ u + v
-simplifySumOfList [AstConst 0, v] = v
-simplifySumOfList [u, AstConst 0] = u
-simplifySumOfList [ AstConst u, AstSumOfList [AstConst v, w] ] =
-  simplifySumOfList [AstConst $ u + v, w]
-simplifySumOfList [u, AstConst n] =
-  simplifySumOfList [AstConst n, u]  -- make the constant available
-simplifySumOfList [AstSumOfList [u, v], w] =
-  simplifySumOfList [u, simplifySumOfList [v, w]]
-simplifySumOfList [ AstNm NegateOp [Ast.AstVar _ var]
-                  , Ast.AstVar _ var' ] | var == var' = 0
-simplifySumOfList [ Ast.AstVar _ var'
-                  , AstNm NegateOp [Ast.AstVar _ var] ] | var == var' = 0
-simplifySumOfList
-  [ Ast.AstOpIntegral RemOp [ AstNm NegateOp [Ast.AstVar _ var]
-                            , AstConst v ]
-  , Ast.AstOpIntegral RemOp [ Ast.AstVar _ var'
-                            , AstConst v' ] ] | var == var' && v == v' = 0
-simplifySumOfList
-  [ Ast.AstOpIntegral RemOp [ Ast.AstVar _ var'
-                            , AstConst v' ]
-  , Ast.AstOpIntegral RemOp [ AstNm NegateOp [Ast.AstVar _ var]
-                            , AstConst v ] ] | var == var' && v == v' = 0
-simplifySumOfList l = AstSumOfList l
+--
+-- Several first paragraphs are modelled on Num (AstPrimalPart r n)
+-- and depend on the normal form where AstConst, if any, is the first element
+-- and the list if fully flattened and of length >= 2.
+-- Additionally we here ensure the AstConst is never zero.
+simplifyAstPlusOp :: KnownNat n
+                  => AstRanked Int64 n -> AstRanked Int64 n
+                  -> AstRanked Int64 n
+simplifyAstPlusOp (AstSumOfList (AstConst u : lu))
+                  (AstSumOfList (AstConst v : lv)) =
+  addConstToList (u + v) (lu ++ lv)
+simplifyAstPlusOp (AstSumOfList lu)
+                  (AstSumOfList (AstConst v : lv)) =
+  AstSumOfList (AstConst v : lv ++ lu)
+simplifyAstPlusOp (AstSumOfList lu)
+                  (AstSumOfList lv) =
+  AstSumOfList (lu ++ lv)
+
+simplifyAstPlusOp (AstConst u)
+                  (AstSumOfList (AstConst v : lv)) =
+  addConstToList (u + v) lv
+simplifyAstPlusOp u
+                  (AstSumOfList (AstConst v : lv)) =
+  AstSumOfList (AstConst v : u : lv)
+simplifyAstPlusOp u
+                  (AstSumOfList lv) =
+  AstSumOfList (u : lv)
+
+simplifyAstPlusOp (AstSumOfList (AstConst u : lu))
+                  (AstConst v) =
+  addConstToList (u + v) lu
+simplifyAstPlusOp (AstSumOfList (AstConst u : lu))
+                  v =
+  AstSumOfList (AstConst u : v : lu)
+simplifyAstPlusOp (AstSumOfList lu)
+                  v =
+  AstSumOfList (v : lu)
+
+simplifyAstPlusOp (AstConst u) (AstConst v) = AstConst $ u + v
+simplifyAstPlusOp u (AstConst v) = addConstToList v [u]
+simplifyAstPlusOp (AstConst u) v = addConstToList u [v]
+
+-- Unfortunately, these won't fire if the required terms are scattered
+-- among elements of the AstSumOfList list. However, in many cases,
+-- binary addition is used interspersed with other operations,
+-- so longer lists don't form and so these terms have a chance to be adjacent,
+-- especially that AstConst is guaranteed not to intervene.
+simplifyAstPlusOp (AstNm NegateOp [Ast.AstVar _ var])
+                  (Ast.AstVar _ var')
+  | var == var' = 0
+simplifyAstPlusOp (Ast.AstVar _ var')
+                  (AstNm NegateOp [Ast.AstVar _ var])
+  | var == var' = 0
+simplifyAstPlusOp
+  (Ast.AstOpIntegral RemOp [ AstNm NegateOp [Ast.AstVar _ var]
+                           , AstConst v ])
+  (Ast.AstOpIntegral RemOp [ Ast.AstVar _ var'
+                           , AstConst v' ])
+  | var == var' && v == v' = 0
+simplifyAstPlusOp
+  (Ast.AstOpIntegral RemOp [ Ast.AstVar _ var'
+                           , AstConst v' ])
+  (Ast.AstOpIntegral RemOp [ AstNm NegateOp [Ast.AstVar _ var]
+                           , AstConst v ])
+  | var == var' && v == v' = 0
+
+simplifyAstPlusOp u v = AstSumOfList [u, v]
+
+addConstToList :: OR.Array n Int64 -> [AstRanked Int64 n] -> AstRanked Int64 n
+addConstToList _ [] = error "addConstToList: AstSumOfList list too short"
+addConstToList arr [i] =
+  if OR.allA (== 0) arr then i else AstSumOfList [AstConst arr, i]
+addConstToList arr l =
+  if OR.allA (== 0) arr then AstSumOfList l else AstSumOfList (AstConst arr : l)
 
 simplifyAstNumOp :: KnownNat n
                  => OpCodeNum -> [AstRanked Int64 n] -> AstRanked Int64 n
 simplifyAstNumOp MinusOp [u, v] =
-  simplifySumOfList [u, simplifyAstNumOp NegateOp [v]]
+  simplifyAstPlusOp u (simplifyAstNumOp NegateOp [v])
 simplifyAstNumOp TimesOp [AstConst u, AstConst v] = AstConst $ u * v
 simplifyAstNumOp TimesOp [AstConst 0, _v] = AstConst 0
   -- this is suspect for floats, but needed for index integers
@@ -1885,16 +1934,16 @@ simplifyAstNumOp TimesOp [AstConst 1, v] = v
 simplifyAstNumOp TimesOp [u, AstConst 1] = u
 {- TODO: these break sharing as long as we don't have @let@ for AstInt:
 simplifyAstNumOp TimesOp [AstNm PlusOp [u, v], w] =
-  simplifySumOfList [ simplifyAstNumOp TimesOp [u, w]
+  simplifyAstPlusOp [ simplifyAstNumOp TimesOp [u, w]
                              , simplifyAstNumOp TimesOp [v, w] ]
 simplifyAstNumOp TimesOp [u, AstNm PlusOp [v, w]] =
-  simplifySumOfList [ simplifyAstNumOp TimesOp [u, v]
+  simplifyAstPlusOp [ simplifyAstNumOp TimesOp [u, v]
                              , simplifyAstNumOp TimesOp [u, w] ]
 -}
 simplifyAstNumOp TimesOp [AstSumOfList l, w@AstConst{}] =
-  simplifySumOfList (map (\u -> simplifyAstNumOp TimesOp [u, w]) l)
+  foldl1' simplifyAstPlusOp (map (\u -> simplifyAstNumOp TimesOp [u, w]) l)
 simplifyAstNumOp TimesOp [u@AstConst{}, AstSumOfList l] =
-  simplifySumOfList (map (\w -> simplifyAstNumOp TimesOp [u, w]) l)
+  foldl1' simplifyAstPlusOp (map (\w -> simplifyAstNumOp TimesOp [u, w]) l)
 -- TODO: perhaps aim for a polynomial normal form? but that requires global
 -- inspection of the whole expression
 simplifyAstNumOp TimesOp [ AstConst u
@@ -1906,7 +1955,7 @@ simplifyAstNumOp TimesOp [AstNm TimesOp [u, v], w] =
   simplifyAstNumOp TimesOp [u, simplifyAstNumOp TimesOp [v, w]]
 
 -- With static shapes, the second argument to QuotOp and RemOp
--- is always a constant, which makes such rules worth including,
+-- is often a constant, which makes such rules worth including,
 -- since they are likely to fire. To help them fire, we avoid changing
 -- that constant, if possible, e.g., in rules for NegateOp.
 simplifyAstNumOp
@@ -1919,7 +1968,7 @@ simplifyAstNumOp
 
 simplifyAstNumOp NegateOp [AstConst u] = AstConst $ negate u
 simplifyAstNumOp NegateOp [AstSumOfList l] =
-  simplifySumOfList (map (simplifyAstNumOp NegateOp . (: [])) l)
+  foldl1' simplifyAstPlusOp (map (simplifyAstNumOp NegateOp . (: [])) l)
 simplifyAstNumOp NegateOp [AstNm TimesOp [AstConst u, v]] =
   simplifyAstNumOp TimesOp [AstConst $ negate u, v]
     -- given a choice, prefer to negate a constant

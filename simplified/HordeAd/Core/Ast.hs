@@ -630,7 +630,8 @@ instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstPrimalPart r n) where
   _ <= _ = error "AstPrimalPart: can't evaluate terms for Ord"
 
 instance Num (OR.Array n r) => Num (AstPrimalPart r n) where
-  -- The normal form has AstConst, if any, as the first element of the list.
+  -- The normal form has AstConst, if any, as the first element of the list
+  -- all lists fully flattened and length >= 2.
   AstPrimalPart (AstSumOfList (AstConst u : lu))
     + AstPrimalPart (AstSumOfList (AstConst v : lv)) =
       AstPrimalPart $ AstSumOfList (AstConst (u + v) : lu ++ lv)
