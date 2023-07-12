@@ -13,11 +13,12 @@ import           Control.Monad (when)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as OS
 import           Data.IORef
-import           Data.Proxy (Proxy)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.IntMap as IM
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal, type (+))
+import           GHC.TypeLits
+  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -35,7 +36,7 @@ import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.SizedList
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (trustMeThisIsAPermutation)
+  (sameShape, trustMeThisIsAPermutation)
 
 -- * Vectorization of AstRanked
 
@@ -123,8 +124,12 @@ build1V k (var, v00) =
       bv = Ast.AstBuild1 k (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
+    Ast.AstVar _ var2 | var2 == var ->
+      case sameNat (Proxy @n) (Proxy @0) of
+        Just Refl -> astSlice 0 k Ast.AstIota
+        _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
-      error "build1V: AstVar can't have free int variables"
+      error "build1V: AstVar can't contain other free index variables"
     Ast.AstLet var2 u v ->
       let sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
@@ -154,7 +159,7 @@ build1V k (var, v00) =
     Ast.AstSumOfList args -> traceRule $
       Ast.AstSumOfList $ map (\v -> build1VOccurenceUnknown k (var, v)) args
     Ast.AstIota ->
-      error "build1V: AstIota can't have free int variables"
+      error "build1V: AstIota can't have free index variables"
 
     Ast.AstIndex v ix -> traceRule $
       build1VIndex k (var, v, ix)  -- @var@ is in @v@ or @ix@
@@ -199,7 +204,7 @@ build1V k (var, v00) =
         error "build1V: impossible someNatVal error"
 
     Ast.AstConst{} ->
-      error "build1V: AstConst can't have free int variables"
+      error "build1V: AstConst can't have free index variables"
     Ast.AstConstant (AstPrimalPart v) -> traceRule $
       Ast.AstConstant $ astPrimalPart $ build1V k (var, v)
     Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
@@ -423,8 +428,12 @@ build1VS (var, v00) =
       bv = Ast.AstBuild1S (var, v0)
       traceRule = mkTraceRuleS "build1VS" bv v0 1
   in case v0 of
+    Ast.AstVarS var2 | var2 == var ->
+      case sameShape @sh @'[] of
+        Just Refl -> astSliceS @0 @k @k Ast.AstIotaS
+        _ -> error "build1VS: build variable is not an index variable"
     Ast.AstVarS{} ->
-      error "build1VS: AstVarS can't have free int variables"
+      error "build1VS: AstVarS can't contain other free index variables"
     Ast.AstLetS @_ @sh2 var2 u v ->
       let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :$: ZSH)
@@ -453,7 +462,7 @@ build1VS (var, v00) =
     Ast.AstSumOfListS args -> traceRule $
       Ast.AstSumOfListS $ map (\v -> build1VOccurenceUnknownS (var, v)) args
     Ast.AstIotaS ->
-      error "build1VS: AstIotaS can't have free int variables"
+      error "build1VS: AstIotaS can't have free index variables"
 
     Ast.AstIndexS @sh1 v ix -> traceRule $
       gcastWith (unsafeCoerce Refl
@@ -515,7 +524,7 @@ build1VS (var, v00) =
     Ast.AstRToS v -> Ast.AstRToS $ build1V (valueOf @k) (var, v)
 
     Ast.AstConstS{} ->
-      error "build1VS: AstConstS can't have free int variables"
+      error "build1VS: AstConstS can't have free index variables"
     Ast.AstConstantS (AstPrimalPartS v) -> traceRule $
       Ast.AstConstantS $ astPrimalPartS $ build1VS (var, v)
     Ast.AstDS (AstPrimalPartS u) (AstDualPartS u') ->
