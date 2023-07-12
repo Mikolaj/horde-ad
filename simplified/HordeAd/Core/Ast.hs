@@ -12,8 +12,7 @@ module HordeAd.Core.Ast
   , pattern AstIntVar, pattern AstPVar, pattern AstIntConst, pattern AstPConst
   , AstOf, AstVarId, intToAstVarId, ADAstArtifact6
   , AstIndex, AstVarList, AstIndexS, AstVarListS
-  , AstRanked(..), AstNoVectorize(..), AstNoSimplify(..)
-  , AstPrimalPart(..), AstDualPart(..)
+  , AstRanked(..), AstPrimalPart(..), AstDualPart(..)
   , AstShaped(..), AstPrimalPartS(..), AstDualPartS(..)
   , AstDynamic(..), AstDomains(..)
   , AstVarName(..), AstDynamicVarName(..), AstBool(..)
@@ -22,6 +21,7 @@ module HordeAd.Core.Ast
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare, intVarInADShare, nullADShare
   , astCond, astCondS, astPrimalPart, astPrimalPartS
+  , AstNoVectorize(..), AstNoSimplify(..)
   ) where
 
 import Prelude
@@ -59,14 +59,6 @@ type instance RankedOf AstPrimalPart = AstPrimalPart
 type instance ShapedOf AstPrimalPart = AstPrimalPartS
 type instance PrimalOf AstPrimalPart = AstPrimalPart
 type instance DualOf AstPrimalPart = DummyDual
-type instance RankedOf AstNoVectorize = AstNoVectorize
-type instance ShapedOf AstNoVectorize = AstShaped
-type instance PrimalOf AstNoVectorize = AstPrimalPart
-type instance DualOf AstNoVectorize = AstDualPart
-type instance RankedOf AstNoSimplify = AstNoSimplify
-type instance ShapedOf AstNoSimplify = AstShaped
-type instance PrimalOf AstNoSimplify = AstPrimalPart
-type instance DualOf AstNoSimplify = AstDualPart
 type instance RankedOf AstShaped = AstRanked
 type instance ShapedOf AstShaped = AstShaped
 type instance PrimalOf AstShaped = AstPrimalPartS
@@ -77,7 +69,7 @@ type instance PrimalOf AstPrimalPartS = AstPrimalPartS
 type instance DualOf AstPrimalPartS = DummyDual
 
 
--- * Ast and related definitions
+-- * Assorted small definitions
 
 type AstInt = AstPrimalPart Int64 0
 
@@ -131,6 +123,9 @@ type AstVarList n = SizedList n AstVarId
 type AstIndexS sh = ShapedList sh AstInt
 
 type AstVarListS sh = ShapedList sh AstVarId
+
+
+-- * ASTs
 
 -- | AST for a tensor of rank n and elements r that is meant
 -- to be differentiated.
@@ -214,12 +209,6 @@ data AstRanked :: RankedTensorKind where
               => AstPrimalPart r (1 + n) -> AstRanked Int64 n
 
 deriving instance GoodScalar r => Show (AstRanked r n)
-
-newtype AstNoVectorize r n = AstNoVectorize {unAstNoVectorize :: AstRanked r n}
-deriving instance GoodScalar r => Show (AstNoVectorize r n)
-
-newtype AstNoSimplify r n = AstNoSimplify {unAstNoSimplify :: AstRanked r n}
-deriving instance GoodScalar r => Show (AstNoSimplify r n)
 
 newtype AstPrimalPart r n = AstPrimalPart {unAstPrimalPart :: AstRanked r n}
 deriving instance GoodScalar r => Show (AstPrimalPart r n)
@@ -425,50 +414,6 @@ instance (KnownNat n, GoodScalar r) => OrdB (AstRanked r n) where
   v >* u = AstRel GtOp [astPrimalPart v, astPrimalPart u]
   v >=* u = AstRel GeqOp [astPrimalPart v, astPrimalPart u]
 
-type instance BooleanOf (AstNoVectorize r n) = AstBool
-
-instance IfB (AstNoVectorize r n) where
-  ifB b v w = AstNoVectorize $ astCond b (unAstNoVectorize v)
-                                         (unAstNoVectorize w)
-
-instance (KnownNat n, GoodScalar r) => EqB (AstNoVectorize r n) where
-  v ==* u = AstRel EqOp [ astPrimalPart $ unAstNoVectorize v
-                        , astPrimalPart $ unAstNoVectorize u ]
-  v /=* u = AstRel NeqOp [ astPrimalPart $ unAstNoVectorize v
-                         , astPrimalPart $ unAstNoVectorize u ]
-
-instance (KnownNat n, GoodScalar r) => OrdB (AstNoVectorize r n) where
-  v <* u = AstRel LsOp [ astPrimalPart $ unAstNoVectorize v
-                       , astPrimalPart $ unAstNoVectorize u ]
-  v <=* u = AstRel LeqOp [ astPrimalPart $ unAstNoVectorize v
-                         , astPrimalPart $ unAstNoVectorize u ]
-  v >* u = AstRel GtOp [ astPrimalPart $ unAstNoVectorize v
-                       , astPrimalPart $ unAstNoVectorize u ]
-  v >=* u = AstRel GeqOp [ astPrimalPart $ unAstNoVectorize v
-                         , astPrimalPart $ unAstNoVectorize u ]
-
-type instance BooleanOf (AstNoSimplify r n) = AstBool
-
-instance IfB (AstNoSimplify r n) where
-  ifB b v w = AstNoSimplify $ astCond b (unAstNoSimplify v)
-                                        (unAstNoSimplify w)
-
-instance (KnownNat n, GoodScalar r) => EqB (AstNoSimplify r n) where
-  v ==* u = AstRel EqOp [ astPrimalPart $ unAstNoSimplify v
-                        , astPrimalPart $ unAstNoSimplify u ]
-  v /=* u = AstRel NeqOp [ astPrimalPart $ unAstNoSimplify v
-                         , astPrimalPart $ unAstNoSimplify u ]
-
-instance (KnownNat n, GoodScalar r) => OrdB (AstNoSimplify r n) where
-  v <* u = AstRel LsOp [ astPrimalPart $ unAstNoSimplify v
-                       , astPrimalPart $ unAstNoSimplify u ]
-  v <=* u = AstRel LeqOp [ astPrimalPart $ unAstNoSimplify v
-                         , astPrimalPart $ unAstNoSimplify u ]
-  v >* u = AstRel GtOp [ astPrimalPart $ unAstNoSimplify v
-                       , astPrimalPart $ unAstNoSimplify u ]
-  v >=* u = AstRel GeqOp [ astPrimalPart $ unAstNoSimplify v
-                         , astPrimalPart $ unAstNoSimplify u ]
-
 type instance BooleanOf (AstPrimalPart r n) = AstBool
 
 instance IfB (AstPrimalPart r n) where
@@ -579,44 +524,6 @@ instance (RealFloat r, RealFloat (OR.Array n r))
   isDenormalized = undefined
   isNegativeZero = undefined
   isIEEE = undefined
-
-instance Eq (AstNoVectorize r n) where
-  _ == _ = error "AstNoVectorize: can't evaluate terms for Eq"
-
-instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstNoVectorize r n) where
-  _ <= _ = error "AstNoVectorize: can't evaluate terms for Ord"
-
-deriving instance Num (AstRanked r n) => Num (AstNoVectorize r n)
-deriving instance (Real r, Real (AstRanked r n))
-                   => Real (AstNoVectorize r n)
-deriving instance Enum (AstRanked r n) => Enum (AstNoVectorize r n)
-deriving instance (Real r, Integral (AstRanked r n))
-                  => Integral (AstNoVectorize r n)
-deriving instance Fractional (AstRanked r n) => Fractional (AstNoVectorize r n)
-deriving instance Floating (AstRanked r n) => Floating (AstNoVectorize r n)
-deriving instance (RealFloat r, RealFrac (AstRanked r n))
-                  => RealFrac (AstNoVectorize r n)
-deriving instance (RealFloat r, RealFloat (AstRanked r n))
-                  => RealFloat (AstNoVectorize r n)
-
-instance Eq (AstNoSimplify r n) where
-  _ == _ = error "AstNoSimplify: can't evaluate terms for Eq"
-
-instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstNoSimplify r n) where
-  _ <= _ = error "AstNoSimplify: can't evaluate terms for Ord"
-
-deriving instance Num (AstRanked r n) => Num (AstNoSimplify r n)
-deriving instance (Real r, Real (AstRanked r n))
-                  => Real (AstNoSimplify r n)
-deriving instance Enum (AstRanked r n) => Enum (AstNoSimplify r n)
-deriving instance (Real r, Integral (AstRanked r n))
-                  => Integral (AstNoSimplify r n)
-deriving instance Fractional (AstRanked r n) => Fractional (AstNoSimplify r n)
-deriving instance Floating (AstRanked r n) => Floating (AstNoSimplify r n)
-deriving instance (RealFloat r, RealFrac (AstRanked r n))
-                  => RealFrac (AstNoSimplify r n)
-deriving instance (RealFloat r, RealFloat (AstRanked r n))
-                  => RealFloat (AstNoSimplify r n)
 
 instance Eq (AstPrimalPart r n) where
   _ == _ = error "AstPrimalPart: can't evaluate terms for Eq"
@@ -980,3 +887,103 @@ nullADShare :: ADShare -> Bool
 {-# INLINE nullADShare #-}
 nullADShare ADShareNil = True
 nullADShare ADShareCons{} = False
+
+
+-- * The auxiliary AstNoVectorize and AstNoSimplify definitions, for tests
+
+type instance RankedOf AstNoVectorize = AstNoVectorize
+type instance ShapedOf AstNoVectorize = AstShaped
+type instance PrimalOf AstNoVectorize = AstPrimalPart
+type instance DualOf AstNoVectorize = AstDualPart
+type instance RankedOf AstNoSimplify = AstNoSimplify
+type instance ShapedOf AstNoSimplify = AstShaped
+type instance PrimalOf AstNoSimplify = AstPrimalPart
+type instance DualOf AstNoSimplify = AstDualPart
+
+newtype AstNoVectorize r n = AstNoVectorize {unAstNoVectorize :: AstRanked r n}
+deriving instance GoodScalar r => Show (AstNoVectorize r n)
+
+newtype AstNoSimplify r n = AstNoSimplify {unAstNoSimplify :: AstRanked r n}
+deriving instance GoodScalar r => Show (AstNoSimplify r n)
+
+type instance BooleanOf (AstNoVectorize r n) = AstBool
+
+instance IfB (AstNoVectorize r n) where
+  ifB b v w = AstNoVectorize $ astCond b (unAstNoVectorize v)
+                                         (unAstNoVectorize w)
+
+instance (KnownNat n, GoodScalar r) => EqB (AstNoVectorize r n) where
+  v ==* u = AstRel EqOp [ astPrimalPart $ unAstNoVectorize v
+                        , astPrimalPart $ unAstNoVectorize u ]
+  v /=* u = AstRel NeqOp [ astPrimalPart $ unAstNoVectorize v
+                         , astPrimalPart $ unAstNoVectorize u ]
+
+instance (KnownNat n, GoodScalar r) => OrdB (AstNoVectorize r n) where
+  v <* u = AstRel LsOp [ astPrimalPart $ unAstNoVectorize v
+                       , astPrimalPart $ unAstNoVectorize u ]
+  v <=* u = AstRel LeqOp [ astPrimalPart $ unAstNoVectorize v
+                         , astPrimalPart $ unAstNoVectorize u ]
+  v >* u = AstRel GtOp [ astPrimalPart $ unAstNoVectorize v
+                       , astPrimalPart $ unAstNoVectorize u ]
+  v >=* u = AstRel GeqOp [ astPrimalPart $ unAstNoVectorize v
+                         , astPrimalPart $ unAstNoVectorize u ]
+
+type instance BooleanOf (AstNoSimplify r n) = AstBool
+
+instance IfB (AstNoSimplify r n) where
+  ifB b v w = AstNoSimplify $ astCond b (unAstNoSimplify v)
+                                        (unAstNoSimplify w)
+
+instance (KnownNat n, GoodScalar r) => EqB (AstNoSimplify r n) where
+  v ==* u = AstRel EqOp [ astPrimalPart $ unAstNoSimplify v
+                        , astPrimalPart $ unAstNoSimplify u ]
+  v /=* u = AstRel NeqOp [ astPrimalPart $ unAstNoSimplify v
+                         , astPrimalPart $ unAstNoSimplify u ]
+
+instance (KnownNat n, GoodScalar r) => OrdB (AstNoSimplify r n) where
+  v <* u = AstRel LsOp [ astPrimalPart $ unAstNoSimplify v
+                       , astPrimalPart $ unAstNoSimplify u ]
+  v <=* u = AstRel LeqOp [ astPrimalPart $ unAstNoSimplify v
+                         , astPrimalPart $ unAstNoSimplify u ]
+  v >* u = AstRel GtOp [ astPrimalPart $ unAstNoSimplify v
+                       , astPrimalPart $ unAstNoSimplify u ]
+  v >=* u = AstRel GeqOp [ astPrimalPart $ unAstNoSimplify v
+                         , astPrimalPart $ unAstNoSimplify u ]
+
+instance Eq (AstNoVectorize r n) where
+  _ == _ = error "AstNoVectorize: can't evaluate terms for Eq"
+
+instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstNoVectorize r n) where
+  _ <= _ = error "AstNoVectorize: can't evaluate terms for Ord"
+
+deriving instance Num (AstRanked r n) => Num (AstNoVectorize r n)
+deriving instance (Real r, Real (AstRanked r n))
+                   => Real (AstNoVectorize r n)
+deriving instance Enum (AstRanked r n) => Enum (AstNoVectorize r n)
+deriving instance (Real r, Integral (AstRanked r n))
+                  => Integral (AstNoVectorize r n)
+deriving instance Fractional (AstRanked r n) => Fractional (AstNoVectorize r n)
+deriving instance Floating (AstRanked r n) => Floating (AstNoVectorize r n)
+deriving instance (RealFloat r, RealFrac (AstRanked r n))
+                  => RealFrac (AstNoVectorize r n)
+deriving instance (RealFloat r, RealFloat (AstRanked r n))
+                  => RealFloat (AstNoVectorize r n)
+
+instance Eq (AstNoSimplify r n) where
+  _ == _ = error "AstNoSimplify: can't evaluate terms for Eq"
+
+instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstNoSimplify r n) where
+  _ <= _ = error "AstNoSimplify: can't evaluate terms for Ord"
+
+deriving instance Num (AstRanked r n) => Num (AstNoSimplify r n)
+deriving instance (Real r, Real (AstRanked r n))
+                  => Real (AstNoSimplify r n)
+deriving instance Enum (AstRanked r n) => Enum (AstNoSimplify r n)
+deriving instance (Real r, Integral (AstRanked r n))
+                  => Integral (AstNoSimplify r n)
+deriving instance Fractional (AstRanked r n) => Fractional (AstNoSimplify r n)
+deriving instance Floating (AstRanked r n) => Floating (AstNoSimplify r n)
+deriving instance (RealFloat r, RealFrac (AstRanked r n))
+                  => RealFrac (AstNoSimplify r n)
+deriving instance (RealFloat r, RealFloat (AstRanked r n))
+                  => RealFloat (AstNoSimplify r n)
