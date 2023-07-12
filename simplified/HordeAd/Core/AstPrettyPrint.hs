@@ -31,7 +31,6 @@ import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
-import           HordeAd.Core.ShapedList (ShapedList (..))
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.SizedList
@@ -110,8 +109,7 @@ areAllArgsInts = \case
   AstOp{} -> True  -- has to keep rank and scalar
   AstOpIntegral{} -> True  -- has to keep rank and scalar
   AstSumOfList{} -> True  -- has to keep rank and scalar
-  AstIota -> False  -- ???
-  AstIndex AstIota (_ :. ZI) -> True
+  AstIota -> False
   AstIndex{} -> False  -- the index arguments are taken care of via printAstInt
   AstSum{} -> False
   AstScatter{} -> False
@@ -205,8 +203,6 @@ printAstAux cfg d = \case
        $ printAst cfg 7 left
          . foldr (.) id rs
   AstIota -> showString "tiota"  -- TODO: no surface syntax, so no roundtrip
-  AstIndex AstIota (i :. ZI) ->
-    printPrefixOp printAstInt cfg d "tfromIndex0" [i]
   AstIndex v ix ->
     showParen (d > 9)
     $ printAst cfg 10 v
@@ -274,8 +270,6 @@ printAstAux cfg d = \case
         else showParen True
              $ shows a
   AstConstant (AstPrimalPart a@AstConst{}) -> printAst cfg d a
-  AstConstant (AstPrimalPart a@(AstIndex AstIota (_ :. ZI))) ->
-    printAst cfg d a
   AstConstant (AstPrimalPart a) ->
     printPrefixOp printAst cfg d "tconstant" [a]
   AstD (AstPrimalPart u) (AstDualPart u') ->
@@ -559,8 +553,6 @@ printAstS cfg d = \case
        $ printAstS cfg 7 left
          . foldr (.) id rs
   AstIotaS -> showString "siota"  -- TODO: no surface syntax, so no roundtrip
-  AstIndexS AstIotaS (i :$: ZSH) ->
-    printPrefixOp printAstInt cfg d "sfromIndex0" [i]
   AstIndexS v ix ->
     showParen (d > 9)
     $ printAstS cfg 10 v
@@ -632,8 +624,6 @@ printAstS cfg d = \case
         else showParen True
              $ shows a
   AstConstantS (AstPrimalPartS a@AstConstS{}) -> printAstS cfg d a
-  AstConstantS (AstPrimalPartS a@(AstIndexS AstIotaS (_ :$: ZSH))) ->
-    printAstS cfg d a
   AstConstantS (AstPrimalPartS a) ->
     printPrefixOp printAstS cfg d "sconstant" [a]
   AstDS (AstPrimalPartS u) (AstDualPartS u') ->

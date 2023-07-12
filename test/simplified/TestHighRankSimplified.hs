@@ -9,12 +9,14 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Boolean
+import qualified Data.Strict.IntMap as IM
 import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
+import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -65,6 +67,10 @@ testTrees =
   , testCase "3recycled1" testRecycled1
   , testCase "3concatBuild0" testConcatBuild0
   , testCase "3concatBuild1" testConcatBuild1
+  , testCase "3concatBuild2" testConcatBuild2
+  , testCase "3concatBuild22" testConcatBuild22
+  , testCase "3concatBuild3" testConcatBuild3
+  , testCase "3concatBuild3PP" testConcatBuild3PP
   ]
 
 foo :: RealFloat a => (a,a,a) -> a
@@ -519,3 +525,52 @@ testConcatBuild1 =
   assertEqualUpToEpsilonShort 1e-10
     (OR.fromList [3,1,2,2,1,2,2] [392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,392187.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0,391914.0])
     (rev' @Double @9 concatBuild t48)
+
+concatBuild2 :: (ADReady ranked r, KnownNat n)
+             => ranked r (1 + n) -> ranked r (3 + n)
+concatBuild2 r =
+  tbuild1 5 (\i ->
+    tbuild1 2 (\j -> tmap0N (* (tfromIndex0 (maxB j (i `quot` (j + 1))))) r))
+
+testConcatBuild2 :: Assertion
+testConcatBuild2 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [3] [16.0,16.0,16.0])
+    (rev' @Double @3 concatBuild2 (Flip $ OR.fromList [3] [0.651,0.14,0.3414]))
+
+testConcatBuild22 :: Assertion
+testConcatBuild22 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [3,1,2,2,1,2,2] [16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0])
+    (rev' @Double @9 concatBuild2 t48)
+
+concatBuild3 :: ADReady ranked r
+             => ranked r 1 -> ranked r 2
+concatBuild3 _r =
+  tbuild1 5 (\i ->
+    tbuild1 2 (\j -> tfromIndex0 (maxB j (i `quot` (j + 1)))))
+
+testConcatBuild3 :: Assertion
+testConcatBuild3 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [0] [])
+    (rev' @Double @2 concatBuild3 (Flip $ OR.fromList [0] []))
+
+testConcatBuild3PP :: Assertion
+testConcatBuild3PP = do
+  resetVarCounter
+  let renames = IM.empty
+      t = concatBuild3 @AstRanked @Double
+      (var3, ast3) = funToAstR [3] t
+  "\\" ++ printAstVarName renames var3
+       ++ " -> " ++ printAstSimple renames ast3
+    @?= "\\dret -> tconstant (tcast (tgather [5,2] (tfromList [treplicate 5 (tslice 0 2 tiota), quot (ttranspose [1,0] (treplicate 2 (tslice 0 5 tiota))) (treplicate 5 (treplicate 2 (tconst 1) + tslice 0 2 tiota))]) (\\[i5, i4] -> [ifB (i4 >=* quot i5 (1 + i4)) 0 1, i5, i4])))"
+  resetVarCounter
+  let (artifact6, _) = revDtFun True t
+                                (Flip $ OR.fromList [3] [0.651,0.14,0.3414])
+  printGradient6Simple renames artifact6
+    @?= "\\dret v2 -> dmkDomains (fromList [dfromR tiota])"
+  printPrimal6Simple renames artifact6
+    @?= "\\v2 -> tcast (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (treplicate 2 (tconst 1) + tconst (fromList [2] [0,1])))]) (\\[i3, i4] -> [ifB (i4 >=* quot i3 (1 + i4)) 0 1, i3, i4]))"
+  printPrimal6Simple renames (simplifyArtifact6 artifact6)
+    @?= "\\v2 -> tcast (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (tconst (fromList [2] [0,1]) + treplicate 2 (tconst 1)))]) (\\[i3, i4] -> [ifB (i4 >=* quot i3 (1 + i4)) 0 1, i3, i4]))"

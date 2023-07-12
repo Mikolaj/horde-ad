@@ -183,7 +183,6 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (tdot0 u v) (dAdd (Dot0R v u') (Dot0R u v'))
-  tfromIndex0 = \ix -> constantADVal (tfromIndex0 ix)
   tscatter sh (D l u u') f =
     dD l (tscatter sh u f) (ScatterR sh u' f (tshape u))
 
@@ -345,7 +344,6 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
         !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (sdot0 u v) (dAdd (Dot0S v u') (Dot0S u v'))
-  sfromIndex0 = \ix -> constantADVal (sfromIndex0 ix)
   sscatter (D l u u') f = dD l (sscatter u f) (ScatterS u' f)
 
   sfromList = fromListS

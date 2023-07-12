@@ -126,9 +126,6 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
     _ :$ width2 :$ ZS -> tsum (ttranspose [2,1,0] (treplicate width2 m1)
                                * ttranspose [1,0] (treplicate (tlength m1) m2))
     _ -> error "impossible pattern needlessly required"
-  tfromIndex0 :: GoodScalar r => IntOf ranked -> ranked r 0
-  tfromIndex1 :: GoodScalar r => IndexOf ranked n -> ranked r 1
-  tfromIndex1 = tfromList . map tfromIndex0 . indexToList
   tscatter :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
            => ShapeInt (p + n) -> ranked r (m + n)
            -> (IndexOf ranked m -> IndexOf ranked p)
@@ -353,15 +350,6 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
   smatmul2 m1 m2 =
     ssum (stranspose (Proxy @'[2, 1, 0]) (sreplicate @shaped @r @p m1)
           * stranspose (Proxy @'[1, 0]) (sreplicate @shaped @r @m m2))
-  sfromIndex0 :: forall n r. (GoodScalar r, KnownNat n)
-              => IntSh shaped n -> shaped r '[]
-  sfromIndex1 :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
-              => IndexSh shaped sh -> shaped r '[OS.Rank sh]
-  sfromIndex1 =
-    let go :: IndexSh shaped sh1 -> [shaped r '[]]
-        go ZSH = []
-        go ((:$:) @n i rest) = sfromIndex0 @shaped @n (shapedNat i) : go rest
-    in sfromList . go
   sscatter
     :: forall r sh2 p sh.
        ( GoodScalar r, OS.Shape sh2, OS.Shape sh, OS.Shape (OS.Take p sh)
@@ -733,7 +721,6 @@ instance RankedTensor (Flip OR.Array) where
   tdot0 u v = Flip $ tscalarR $ tdot0R (runFlip u) (runFlip v)
   tmatvecmul m v = Flip $ tmatvecmulR (runFlip m) (runFlip v)
   tmatmul2 m1 m2 = Flip $ tmatmul2R (runFlip m1) (runFlip m2)
-  tfromIndex0 = Flip . tscalarR . fromIntegral
   tscatter sh t f = Flip $ tscatterZR sh (runFlip t)
                                          (fromIndexOfR . f . toIndexOfR)
   tscatter1 sh t f = Flip $ tscatterZ1R sh (runFlip t)
@@ -843,8 +830,6 @@ instance ShapedTensor (Flip OS.Array) where
   sdot0 u v = Flip $ tscalarS $ tdot0S (runFlip u) (runFlip v)
   smatvecmul m v = Flip $ tmatvecmulS (runFlip m) (runFlip v)
   smatmul2 m1 m2 = Flip $ tmatmul2S (runFlip m1) (runFlip m2)
-  sfromIndex0 =
-    Flip . tscalarS . fromIntegral . tunScalarR . runFlip . unShapedNat
   sscatter t f = Flip $ tscatterZS (runFlip t)
                                    (fromIndexOfS . f . toIndexOfS)
   sscatter1 t f = Flip $ tscatterZ1S (runFlip t)

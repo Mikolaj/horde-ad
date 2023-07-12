@@ -49,6 +49,18 @@ tmaximum t0 = tlet t0 $ \t ->
                   tindex0 t $ fromLinearIdx (tshape t)
                                             (tprimalPart $ tmaxIndex tf)
 
+tfromIndex0 :: forall r ranked.
+               ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+               , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+            => IntOf ranked -> ranked r 0
+tfromIndex0 = tconstant . tcast
+
+tfromIndex1 :: forall n r ranked.
+               ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+               , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+            => IndexOf ranked n -> ranked r 1
+tfromIndex1 = tfromList . map tfromIndex0 . indexToList
+
 scale :: forall ranked r n.
          (ADReady ranked r, KnownNat n)
       => PrimalOf ranked r n -> ranked r n -> ranked r n
@@ -86,7 +98,8 @@ logistic d0 = tlet d0 $ \d ->  -- used in tprimalPart and in tdualPart
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
 square :: forall ranked r n.
-          (RankedTensor ranked, KnownNat n, Num (PrimalOf ranked r n), GoodScalar r)
+          ( RankedTensor ranked, KnownNat n, Num (PrimalOf ranked r n)
+          , GoodScalar r )
        => ranked r n -> ranked r n
 square d = let u = tprimalPart @ranked d
                u' = tdualPart @ranked d

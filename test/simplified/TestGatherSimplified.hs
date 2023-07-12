@@ -16,6 +16,7 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
+import HordeAd.External.CommonRankedOps
 
 import CrossTesting
 
@@ -305,15 +306,15 @@ testGatherSimp23 = do
               gatherReshape22
                 (t * treplicate0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
-  length (show t1) @?= 305
-  length (show (simplifyAst6 @Float t1)) @?= 551
+  length (show t1) @?= 224
+  length (show (simplifyAst6 @Float t1)) @?= 576
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               treshape @AstRanked @Float @2 @2 [2, 6]
                 (t * treplicate0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (intToAstVarId 100000000)
-  length (show t2) @?= 305
-  length (show (simplifyAst6 @Float t2)) @?= 551
+  length (show t2) @?= 224
+  length (show (simplifyAst6 @Float t2)) @?= 576
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -386,16 +387,16 @@ testGatherSimp34 = do
   let !t1 = (\t -> tbuild1 4 (\i ->
              gatherTranspose33 (t * treplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
-  length (show t1) @?= 893
-  length (show (simplifyAst6 @Float t1)) @?= 15978
+  length (show t1) @?= 812
+  length (show (simplifyAst6 @Float t1)) @?= 16003
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               (\t' -> tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
                                (treshape @AstRanked @Float @10 [8, 16] t'))
                 (t * treplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (intToAstVarId 100000000)
-  length (show t2) @?= 789
-  length (show (simplifyAst6 @Float t2)) @?= 1037
+  length (show t2) @?= 708
+  length (show (simplifyAst6 @Float t2)) @?= 1062
 
 -- scatters instead of gathers
 

@@ -310,8 +310,8 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     astSumOfList (map (`astIndexRec` ix) args)
   Ast.AstIota | AstIntConst i <- i1 -> case sameNat (Proxy @m) (Proxy @1) of
     Just Refl ->
-      -- AstConstant not needed, because when AstIota is introduced
-      -- in tfromIndex0, AstConstant is wrapped over it.
+      -- AstConstant not needed, because when AstIota is entered by the user,
+      -- AstConstant is wrapped over it.
       AstConst $ OR.scalar $ fromIntegral i
     _ -> error "astIndex: AstIota: impossible pattern needlessly required"
   Ast.AstIota -> Ast.AstIndex v0 ix

@@ -20,6 +20,7 @@ import           GHC.TypeLits
   (Div, KnownNat, SomeNat (..), someNatVal, type (-), type (<=))
 import           Unsafe.Coerce (unsafeCoerce)
 
+import           HordeAd.Core.ShapedList (ShapedList (..))
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
@@ -47,6 +48,18 @@ smaximum :: forall r sh shaped.
             (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh))
          => shaped r sh -> shaped r '[]
 smaximum t = sindex0 t (smaxIndexN t)
+
+sfromIndex0 :: forall n r shaped. ADReadyS shaped r
+            => IntSh shaped n -> shaped r '[]
+sfromIndex0 = sconstant . scast . sfromR . ShapedList.unShapedNat
+
+sfromIndex1 :: forall r sh shaped. (ADReadyS shaped r, KnownNat (OS.Rank sh))
+            => IndexSh shaped sh -> shaped r '[OS.Rank sh]
+sfromIndex1 =
+  let go :: IndexSh shaped sh1 -> [shaped r '[]]
+      go ZSH = []
+      go ((:$:) @n i rest) = sfromIndex0 @n (ShapedList.shapedNat i) : go rest
+  in sfromList . go
 
 scaleS :: forall shaped r sh.
           (OS.Shape sh, ADReadyS shaped r)

@@ -25,7 +25,6 @@ import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.AstVectorize
-import           HordeAd.Core.ShapedList (ShapedList (..))
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
@@ -43,9 +42,6 @@ instance RankedTensor AstRanked where
 
   tindex = AstIndex
   tsum = AstSum
-  tfromIndex0 i = AstConstant $ astPrimalPart
-                  $ AstIndex AstIota (singletonIndex i)
-    -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = astScatter sh t (funToAstIndex f)  -- introduces new vars
 
   tfromList = AstFromList
@@ -209,9 +205,6 @@ instance RankedTensor AstPrimalPart where
 
   tindex v ix = astPrimalPart $ AstIndex (unAstPrimalPart v) ix
   tsum = astPrimalPart . AstSum . unAstPrimalPart
-  tfromIndex0 i = astPrimalPart
-                  $ AstIndex AstIota (singletonIndex i)
-    -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = astPrimalPart $ astScatter sh (unAstPrimalPart t)
                     $ funToAstIndex f  -- this introduces new variable names
 
@@ -251,11 +244,6 @@ instance ShapedTensor AstShaped where
 
   sindex = AstIndexS
   ssum = AstSumS
-  sfromIndex0 :: forall n r. KnownNat n
-              => IntSh AstShaped n -> AstShaped r '[]
-  sfromIndex0 i = AstConstantS $ astPrimalPartS
-                  $ AstIndexS (AstIotaS @n) (ShapedList.consShaped i ZSH)
-    -- toInteger is not defined for Ast, hence a special implementation
   sscatter t f = AstScatterS t (funToAstIndexS f)  -- astScatter t (funToAstIndexS f)  -- introduces new vars
 
   sfromList = AstFromListS
@@ -338,11 +326,6 @@ instance ShapedTensor AstPrimalPartS where
 
   sindex v ix = astPrimalPartS $ AstIndexS (unAstPrimalPartS v) ix
   ssum = astPrimalPartS . AstSumS . unAstPrimalPartS
-  sfromIndex0 :: forall n r. KnownNat n
-              => IntSh AstShaped n -> AstPrimalPartS r '[]
-  sfromIndex0 i = astPrimalPartS
-                  $ AstIndexS (AstIotaS @n) (ShapedList.consShaped i ZSH)
-    -- toInteger is not defined for Ast, hence a special implementation
   sscatter t f = astPrimalPartS $ AstScatterS (unAstPrimalPartS t)
                  $ funToAstIndexS f  -- astScatter  -- introduces new vars
 
@@ -389,9 +372,6 @@ instance RankedTensor AstNoVectorize where
 
   tindex v ix = AstNoVectorize $ AstIndex (unAstNoVectorize v) ix
   tsum = AstNoVectorize . AstSum . unAstNoVectorize
-  tfromIndex0 i = AstNoVectorize $ AstConstant $ astPrimalPart
-                  $ AstIndex AstIota (singletonIndex i)
-    -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = AstNoVectorize $ astScatter sh (unAstNoVectorize t)
                     $ funToAstIndex f  -- this introduces new variable names
 
@@ -434,9 +414,6 @@ instance RankedTensor AstNoSimplify where
 
   tindex v ix = AstNoSimplify $ AstIndex (unAstNoSimplify v) ix
   tsum = AstNoSimplify . AstSum . unAstNoSimplify
-  tfromIndex0 i = AstNoSimplify $ AstConstant $ astPrimalPart
-                  $ AstIndex AstIota (singletonIndex i)
-    -- toInteger is not defined for Ast, hence a special implementation
   tscatter sh t f = AstNoSimplify $ AstScatter sh (unAstNoSimplify t)
                     $ funToAstIndex f  -- this introduces new variable names
 

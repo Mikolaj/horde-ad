@@ -353,6 +353,7 @@ type InterpretAst ranked =
   ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
   , ShapedTensor (ShapedOf ranked), ShapedTensor (PrimalOf (ShapedOf ranked))
   , ConvertTensor ranked (ShapedOf ranked)
+  , ConvertTensor (PrimalOf ranked) (PrimalOf (ShapedOf ranked))
   , InterpretAstR ranked
   , InterpretAstS (ShapedOf ranked)
   , IRanked ranked Int64 Integral
@@ -463,7 +464,9 @@ interpretAst env = \case
     let args2 = interpretAst env <$> args
     in tsumOfList args2
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"
-  AstIndex AstIota (i :. ZI) -> tfromIndex0 $ interpretAstPrimal env i
+  AstIndex AstIota (i :. ZI) ->
+    let tfromIndex0 = tconstant . tcast
+    in tfromIndex0 $ interpretAstPrimal env i
   AstIndex v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
@@ -623,7 +626,7 @@ interpretAst env = \case
     in tappend t1 t2
   AstSlice i n AstIota ->
     -- AstConstant not needed, because when AstIota is introduced
-    -- in tfromIndex0, AstConstant is wrapped over it.
+    -- by the user, AstConstant is wrapped over it.
     interpretAst env
     $ AstConst $ OR.fromList [n] $ map fromIntegral [i .. i + n - 1]
   AstSlice i n v -> tslice i n (interpretAst env v)
@@ -662,8 +665,9 @@ interpretAst env = \case
     tbuild1 k (interpretLambdaI interpretAst env (var, v))
       -- to be used only in tests
   AstGather sh AstIota (vars, (i :. ZI)) ->
-    tbuild sh (interpretLambdaIndex interpretAst env
-                                    (vars, tfromIndex0 i))
+    let tfromIndex0 = tconstant . tcast
+    in tbuild sh (interpretLambdaIndex interpretAst env
+                                       (vars, tfromIndex0 i))
   AstGather sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
@@ -921,7 +925,8 @@ interpretAstS env = \case
     in ssumOfList args2
   AstIotaS -> error "interpretAstS: bare AstIotaS, most likely a bug"
   AstIndexS (AstIotaS @n) (i :$: ZSH) ->
-    sfromIndex0 . ShapedList.shapedNat @n $ interpretAstPrimal env i
+    let sfromIndex = sconstant . scast . sfromR
+    in sfromIndex $ interpretAstPrimal env i
   AstIndexS @sh1 v ix ->
     let v2 = interpretAstS env v
         ix3 = interpretAstPrimal env <$> ix
@@ -1112,15 +1117,15 @@ interpretAstS env = \case
     sbuild1 (interpretLambdaIS interpretAstS env (var, v))
       -- to be used only in tests
   AstGatherS @sh2 (AstIotaS @n) (vars, (i :$: ZSH)) ->
-    gcastWith (unsafeCoerce Refl :: OS.Take (OS.Rank sh) sh :~: sh)
-    $ gcastWith (unsafeCoerce Refl :: OS.Drop (OS.Rank sh) sh :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh)
-        -- transitivity of type equality doesn't work, by design,
-        -- so this direct cast is needed instead of more basic laws
-    $ sbuild @shaped @r @(OS.Rank sh)
-             (interpretLambdaIndexS
-                interpretAstS env
-                (vars, sfromIndex0 (ShapedList.shapedNat @n i)))
+    let sfromIndex :: AstInt -> AstShaped r '[]
+        sfromIndex = sconstant . scast . sfromR
+    in gcastWith (unsafeCoerce Refl :: OS.Take (OS.Rank sh) sh :~: sh)
+       $ gcastWith (unsafeCoerce Refl :: OS.Drop (OS.Rank sh) sh :~: '[])
+       $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh)
+           -- transitivity of type equality doesn't work, by design,
+           -- so this direct cast is needed instead of more basic laws
+       $ sbuild @shaped @r @(OS.Rank sh)
+                (interpretLambdaIndexS interpretAstS env (vars, sfromIndex i))
   AstGatherS v (vars, ix) ->
     let t1 = interpretAstS env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
