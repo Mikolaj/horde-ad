@@ -3,12 +3,11 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestHighRankSimplified (testTrees) where
 
-import Prelude hiding ((<*))
+import Prelude
 
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
-import           Data.Boolean
 import qualified Data.Strict.IntMap as IM
 import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import           Test.Tasty
@@ -132,12 +131,10 @@ testFooBuild0 =
     (rev' @Double @5 fooBuild0 t16)
 
 fooBuildOut
-  :: forall ranked r n.
-     ( ADReady ranked r, KnownNat n
-     , IfB (ranked r n), BooleanOf (IntOf ranked) ~ BooleanOf (ranked r n) )
+  :: forall ranked r n. (ADReady ranked r, KnownNat n)
   => ranked r (1 + n) -> ranked r (1 + n)
 fooBuildOut v =
-  tbuild1 2 $ \ix -> ifB (ix ==* 0)
+  tbuild1 2 $ \ix -> ifF (ix ==. 0)
                          (tindex v [ix + 1])  -- index out of bounds; guarded
                          (tsum v)
 
@@ -149,20 +146,19 @@ testFooBuildOut =
 
 fooBuild2
   :: forall ranked r n.
-     ( ADReady ranked r, KnownNat n, Floating (ranked r n)
-     , IfB (ranked r n), BooleanOf (IntOf ranked) ~ BooleanOf (ranked r n) )
+     (ADReady ranked r, KnownNat n, Floating (ranked r n))
   => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild2 v =
   tbuild1 2 $ \ix ->
-    ifB (ix - (tprimalPart . tfloor) (tsum0 @ranked @r @5
-                      $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001 >=* 0
+    ifF (ix - (tprimalPart . tfloor) (tsum0 @ranked @r @5
+                      $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001 >=. 0
          &&* ix - (tprimalPart . tfloor) (tsum0 @ranked @r @5
-                          $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001 <=* 1)
+                          $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001 <=. 1)
         (tindex v [ix - (tprimalPart . tfloor) (tsum0 @ranked @r @5
                                 $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001])
            -- index out of bounds; also fine
         (sqrt $ abs $ tindex v [let rr = (ix - (tprimalPart . tfloor) (tsum0 v) - 10001) `rem` 2
-                                in ifB (signum rr ==* negate (signum 2))
+                                in ifF (signum rr ==. negate (signum 2))
                                    (rr + 2)
                                    rr])
 
@@ -198,7 +194,7 @@ fooBuild3 :: forall ranked r n.
 fooBuild3 v =
   tbuild1 22 $ \ix ->
     bar ( treplicate0N (tailShape $ tshape v) 1
-        , tindex v [minB 1 (ix + 1)] )  -- index not out of bounds
+        , tindex v [minF 1 (ix + 1)] )  -- index not out of bounds
 
 testFooBuild3 :: Assertion
 testFooBuild3 =
@@ -216,7 +212,7 @@ fooBuild5 v =
        r * foo ( treplicate0N (tailShape $ tshape v) 3
                , tscaleByScalar 5 r
                , r * v')
-       + bar (r, tindex v [minB 1 (ix + 1)])  -- index not out of bounds
+       + bar (r, tindex v [minF 1 (ix + 1)])  -- index not out of bounds
 
 testFooBuildDt :: Assertion
 testFooBuildDt =
@@ -241,7 +237,7 @@ fooBuild1 v =
        r * foo ( tk 3
                , tk 5 * r
                , r * v')
-       + bar (r, tindex v [minB 1 (ix + 1)])
+       + bar (r, tindex v [minF 1 (ix + 1)])
 
 testFooBuild1 :: Assertion
 testFooBuild1 =
@@ -271,9 +267,7 @@ testFooMap1 =
 
 fooNoGo :: forall ranked r n.
            ( ADReady ranked r, KnownNat n, RealFloat (ranked r n)
-           , RealFloat (ranked r (1 + n))
-           , BooleanOf (ranked r 0) ~ BooleanOf (ranked r n)
-           , OrdB (ranked r n), IfB (ranked r n) )
+           , RealFloat (ranked r (1 + n)) )
         => ranked r (1 + n) -> ranked r (1 + n)
 fooNoGo v =
   let r = tsum v
@@ -283,9 +277,9 @@ fooNoGo v =
        bar ( treplicate0N shTail 3.14
            , bar ( tconst (OR.constant (shapeToList shTail) 3.14)
                  , tindex v [ix]) )
-       + ifB (tindex v (ix * 2 :. ZI) <=* treplicate0N shTail 0 &&* 6 >* abs ix)
+       + ifF (tindex v (ix * 2 :. ZI) <=. treplicate0N shTail 0 &&* 6 >. abs ix)
                r (treplicate0N shTail 5 * r))
-     / tslice 1 3 (tmap0N (\x -> ifB (x >* r0) r0 x) v)
+     / tslice 1 3 (tmap0N (\x -> ifF (x >. r0) r0 x) v)
      * tbuild1 3 (const $ tconst $ OR.constant (shapeToList shTail) 1)
 
 testFooNoGo :: Assertion
@@ -349,18 +343,16 @@ testNestedBuildMap7 =
 -- The n <= 4 is necessary despite what GHC claims. Applying @(2 + n)
 -- to nestedBuildMap doesn't help.
 nestedSumBuild
-  :: forall ranked n r.
-     ( ADReady ranked r, n <= 4, KnownNat n
-     , BooleanOf (ranked r n) ~ BooleanOf (IntOf ranked), IfB (ranked r n) )
+  :: forall ranked n r. (ADReady ranked r, n <= 4, KnownNat n)
   => ranked r n -> ranked r (2 + n)
 nestedSumBuild v =
   tbuild1 13 $ \ix1 -> tbuild1 4 $ \ix2 ->
-    ifB (ix2 >* ix1)
+    ifF (ix2 >. ix1)
         (tmap0N ((* (-0.00000003)) . sqrt . abs)
          $ nestedBuildMap (tsum0 v)
-           `tindex` (ix2 `rem` 3 :. minB 1 ix1 :. minB ix1 3 :. ZI))
+           `tindex` (ix2 `rem` 3 :. minF 1 ix1 :. minF ix1 3 :. ZI))
         (nestedBuildMap 0.00042
-         `tindex` (ix2 `rem` 3 :. minB 1 ix1 :. minB ix1 3 :. ZI))
+         `tindex` (ix2 `rem` 3 :. minF 1 ix1 :. minF ix1 3 :. ZI))
 
 testNestedSumBuild1 :: Assertion
 testNestedSumBuild1 =
@@ -385,7 +377,7 @@ nestedSumBuildB v =
              , tsum $ tbuild [9, 2] $ const $ tfromIndex0 ix
              , tindex v (listToIndex @n
                          $ replicate (trank v - 1)
-                             (maxB 0 $ minB 1 $ ix2 `quot` 2 + ix `quot` 4 - 1))
+                             (maxF 0 $ minF 1 $ ix2 `quot` 2 + ix `quot` 4 - 1))
              , tbuild1 2 (\_ -> tsum0 v)
              , tsum (tbuild1 7 (\ix7 ->
                  treplicate 2 (tfromIndex0 ix7)))
@@ -496,8 +488,7 @@ testRecycled1 =
     (runFlip $ tfromList0N (5 :$ 4 :$ 2 :$ ZS) [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
     (rev' @Double @7 recycled (treplicate0N [5, 4, 2] 0.0002))
 
-concatBuild :: ( ADReady ranked r, KnownNat n, OrdB (ranked r (1 + n))
-               , BooleanOf (ranked r (1 + n)) ~ BooleanOf (IntOf ranked) )
+concatBuild :: (ADReady ranked r, KnownNat n)
             => ranked r (1 + n) -> ranked r (3 + n)
 concatBuild r =
   tbuild1 7 (\i ->
@@ -506,8 +497,8 @@ concatBuild r =
             , tbuild1 11 (\j ->
                 tmap0N (* (tfromIndex0
                   (125 * (j `rem` (abs (signum i + abs i) + 1))
-                   + maxB j (i `quot` (j + 1)) * (tprimalPart . tfloor) (tsum0 r)
-                   - ifB (r <=* r &&* i <* j)
+                   + maxF j (i `quot` (j + 1)) * (tprimalPart . tfloor) (tsum0 r)
+                   - ifF (r <=. r &&* i <. j)
                          (tprimalPart $ tminIndex (tflatten r))
                          ((tprimalPart . tfloor) $ tsum0 $ r ! ((i * j) `rem` 7 :. ZI))))) r)
             , tbuild1 13 (\_k ->
@@ -530,7 +521,7 @@ concatBuild2 :: (ADReady ranked r, KnownNat n)
              => ranked r (1 + n) -> ranked r (3 + n)
 concatBuild2 r =
   tbuild1 5 (\i ->
-    tbuild1 2 (\j -> tmap0N (* (tfromIndex0 (maxB j (i `quot` (j + 1))))) r))
+    tbuild1 2 (\j -> tmap0N (* (tfromIndex0 (maxF j (i `quot` (j + 1))))) r))
 
 testConcatBuild2 :: Assertion
 testConcatBuild2 =
@@ -548,7 +539,7 @@ concatBuild3 :: ADReady ranked r
              => ranked r 1 -> ranked r 2
 concatBuild3 _r =
   tbuild1 5 (\i ->
-    tbuild1 2 (\j -> tfromIndex0 (maxB j (i `quot` (j + 1)))))
+    tbuild1 2 (\j -> tfromIndex0 (maxF j (i `quot` (j + 1)))))
 
 testConcatBuild3 :: Assertion
 testConcatBuild3 =
@@ -564,13 +555,13 @@ testConcatBuild3PP = do
       (var3, ast3) = funToAstR [3] t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\dret -> tconstant (tcast (tgather [5,2] (tfromList [treplicate 5 (tslice 0 2 tiota), quot (ttranspose [1,0] (treplicate 2 (tslice 0 5 tiota))) (treplicate 5 (treplicate 2 (tconst 1) + tslice 0 2 tiota))]) (\\[i5, i4] -> [ifB (i4 >=* quot i5 (1 + i4)) 0 1, i5, i4])))"
+    @?= "\\dret -> tconstant (tcast (tgather [5,2] (tfromList [treplicate 5 (tslice 0 2 tiota), quot (ttranspose [1,0] (treplicate 2 (tslice 0 5 tiota))) (treplicate 5 (treplicate 2 (tconst 1) + tslice 0 2 tiota))]) (\\[i5, i4] -> [ifF (i4 >=. quot i5 (1 + i4)) 0 1, i5, i4])))"
   resetVarCounter
   let (artifact6, _) = revDtFun True t
                                 (Flip $ OR.fromList [3] [0.651,0.14,0.3414])
   printGradient6Simple renames artifact6
     @?= "\\dret v2 -> dmkDomains (fromList [dfromR tiota])"
   printPrimal6Simple renames artifact6
-    @?= "\\v2 -> tcast (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (treplicate 2 (tconst 1) + tconst (fromList [2] [0,1])))]) (\\[i3, i4] -> [ifB (i4 >=* quot i3 (1 + i4)) 0 1, i3, i4]))"
+    @?= "\\v2 -> tcast (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (treplicate 2 (tconst 1) + tconst (fromList [2] [0,1])))]) (\\[i3, i4] -> [ifF (i4 >=. quot i3 (1 + i4)) 0 1, i3, i4]))"
   printPrimal6Simple renames (simplifyArtifact6 artifact6)
-    @?= "\\v2 -> tcast (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (tconst (fromList [2] [0,1]) + treplicate 2 (tconst 1)))]) (\\[i3, i4] -> [ifB (i4 >=* quot i3 (1 + i4)) 0 1, i3, i4]))"
+    @?= "\\v2 -> tcast (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (tconst (fromList [2] [0,1]) + treplicate 2 (tconst 1)))]) (\\[i3, i4] -> [ifF (i4 >=. quot i3 (1 + i4)) 0 1, i3, i4]))"

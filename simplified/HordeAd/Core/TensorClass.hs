@@ -25,7 +25,6 @@ import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
-import           Data.Boolean
 import           Data.Int (Int64)
 import           Data.Kind (Type)
 import           Data.List (foldl1')
@@ -603,31 +602,6 @@ class DomainsTensor (ranked :: RankedTensorKind)
 
 -- * The giga-constraint
 
--- Ordinary quantified constraints don't work due to the PrimalOf type family
--- but also due to the RankedOf type family inside ADShaped.
-class (forall y71. KnownNat y71 => c ranked r y71)
-      => CRanked71 ranked r c where
-instance (forall y71. KnownNat y71 => c ranked r y71)
-         => CRanked71 ranked r c where
-
-class IfB (ranked r n) => IfBRanked ranked r n where
-instance IfB (ranked r n) => IfBRanked ranked r n where
-
-class EqB (ranked r n) => EqBRanked ranked r n where
-instance EqB (ranked r n) => EqBRanked ranked r n where
-
-class OrdB (ranked r n) => OrdBRanked ranked r n where
-instance OrdB (ranked r n) => OrdBRanked ranked r n where
-
-class IfB (PrimalOf ranked r n) => IfBPrimalOf ranked r n where
-instance IfB (PrimalOf ranked r n) => IfBPrimalOf ranked r n where
-
-class EqB (PrimalOf ranked r n) => EqBPrimalOf ranked r n where
-instance EqB (PrimalOf ranked r n) => EqBPrimalOf ranked r n where
-
-class OrdB (PrimalOf ranked r n) => OrdBPrimalOf ranked r n where
-instance OrdB (PrimalOf ranked r n) => OrdBPrimalOf ranked r n where
-
 type ADReady ranked r = ADRanked ranked r  -- backward compatibility
 
 type ADRanked ranked r = (ADReadyR ranked r, ADReadyS (ShapedOf ranked) r)
@@ -638,44 +612,12 @@ type ADReadyR ranked r =
   ( RankedTensor ranked, GoodScalar r, RankedTensor (PrimalOf ranked)
   , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
   , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked
-  , BooleanOf (ranked Int64 0) ~ BooleanOf (ranked r 0)
-  , IfB (IntOf ranked)
-  , CRanked71 ranked r IfBRanked, CRanked71 ranked r IfBPrimalOf
-  , EqB r, EqB (IntOf ranked)
-  , CRanked71 ranked r EqBRanked, CRanked71 ranked r EqBPrimalOf
-  , OrdB r, OrdB (IntOf ranked)
-  , CRanked71 ranked r OrdBRanked, CRanked71 ranked r OrdBPrimalOf
-  , Boolean (BooleanOf (IntOf ranked))
-  , ( BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 1)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 2)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 3)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 4)
-{- TODO: GHC 9.4 and 9.6 can't cope with too many of these:
-    , BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 5)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 6) -}
-    , BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 7)
-{-
-    , BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 8)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 9)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 10)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 11)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 12) -} )
-  , ( BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 0)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 1)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 2)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 3)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 4)
-{-
-    , BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 5)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 6)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 7)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 8)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 9)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 10)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 11)
-    , BooleanOf (IntOf ranked) ~ BooleanOf (PrimalOf ranked r 12) -} )
-  , BooleanOf (IntOf ranked) ~ BooleanOf (ranked r 0)
-      -- placing this last gives better errors
+  , IfF ranked, IfF (ShapedOf ranked), IfF (PrimalOf ranked)
+  , EqF ranked, EqF (ShapedOf ranked), EqF (PrimalOf ranked)
+  , OrdF ranked, OrdF (ShapedOf ranked), OrdF (PrimalOf ranked)
+  , Boolean (BoolOf ranked)
+  , BoolOf ranked ~ BoolOf (ShapedOf ranked)
+  , BoolOf ranked ~ BoolOf (PrimalOf ranked)
   )
 
 type ADReadyS shaped r =
@@ -683,17 +625,17 @@ type ADReadyS shaped r =
   , ShapedOf (PrimalOf shaped) ~ PrimalOf shaped
   , PrimalOf (PrimalOf shaped) ~ PrimalOf shaped
   , PrimalOf (PrimalOf (RankedOf shaped)) ~ PrimalOf (RankedOf shaped)
-  , IfB (IntOf shaped), IfB (shaped r '[])
-  , IfB (PrimalOf shaped r '[])
-  , EqB r, EqB (IntOf shaped), EqB (shaped r '[])
-  , EqB (PrimalOf shaped r '[])
-  , OrdB r, OrdB (IntOf shaped), OrdB (shaped r '[])
-  , OrdB (PrimalOf shaped r '[])
-  , Boolean (BooleanOf (IntOf shaped))
-  , BooleanOf (IntOf shaped) ~ BooleanOf (PrimalOf shaped r '[])
+  , IfF shaped, IfF (RankedOf shaped), IfF (PrimalOf shaped)
+  , IfF (PrimalOf (RankedOf shaped))
+  , EqF shaped, EqF (RankedOf shaped), EqF (PrimalOf shaped)
+  , EqF (PrimalOf (RankedOf shaped))
+  , OrdF shaped, OrdF (RankedOf shaped), OrdF (PrimalOf shaped)
+  , OrdF (PrimalOf (RankedOf shaped))
+  , Boolean (BoolOf shaped)
+  , BoolOf shaped ~ BoolOf (RankedOf shaped)
+  , BoolOf shaped ~ BoolOf (PrimalOf shaped)
+  , BoolOf shaped ~ BoolOf (PrimalOf (RankedOf shaped))
   , ConvertTensor (PrimalOf (RankedOf shaped)) (PrimalOf shaped)
-  , BooleanOf (IntOf shaped) ~ BooleanOf (shaped r '[])
-      -- placing this last gives better errors
   )
 
 

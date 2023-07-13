@@ -11,7 +11,6 @@ module HordeAd.External.CommonRankedOps
 import Prelude
 
 import Control.Exception (assert)
-import Data.Boolean
 import GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.SizedIndex
@@ -74,11 +73,11 @@ relu, reluLeaky
   :: forall ranked n r. (ADReady ranked r, KnownNat n)
   => ranked r n -> ranked r n
 relu v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.0 1.0) v
+  let oneIfGtZero = tmap0N (\x -> ifF (x <=. 0) 0.0 1.0) v
   in oneIfGtZero * v
 
 reluLeaky v =
-  let oneIfGtZero = tmap0N (\x -> ifB (x <=* 0) 0.01 1.0) v
+  let oneIfGtZero = tmap0N (\x -> ifF (x <=. 0) 0.01 1.0) v
   in oneIfGtZero * v
 
 -- TODO: verify how faster a dedicated RankedTensor method would be
@@ -200,15 +199,15 @@ slicez shOut d ixBase =
 indexz0
   :: forall ranked r n. (ADReady ranked r, KnownNat n)
   => ranked r n -> IndexOf ranked n -> ranked r 0
-indexz0 d ix = ifB (within0 @ranked @r (tshape @ranked d) ix) (d ! ix) 0
+indexz0 d ix = ifF (within0 @ranked @r (tshape @ranked d) ix) (d ! ix) 0
 
 -- | Given an index and shape, check if the index is fully within the shape.
 within0
   :: forall ranked r n. ADReady ranked r
-  => ShapeInt n -> IndexOf ranked n -> BooleanOf (IntOf ranked)
+  => ShapeInt n -> IndexOf ranked n -> BoolOf ranked
 within0 sh ix =
-  let within :: IntOf ranked -> IntOf ranked -> BooleanOf (IntOf ranked)
-      within i dim = 0 <=* i &&* dim >* i
+  let within :: IntOf ranked -> IntOf ranked -> BoolOf ranked
+      within i dim = 0 <=. i &&* dim >. i
   in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)
 

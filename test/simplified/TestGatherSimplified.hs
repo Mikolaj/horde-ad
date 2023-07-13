@@ -7,7 +7,6 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
-import           Data.Boolean
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -16,6 +15,7 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 
 import CrossTesting
@@ -88,7 +88,7 @@ testGatherNestedBuild1 =
                  [3.0,1.0,1.0,1.0,1.0,3.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
-             ifB (i >* 2) (gatherNested1 t) (t ! [i])))
+             ifF (i >. 2) (gatherNested1 t) (t ! [i])))
           (treplicate 7 $ tfromList [0, 1]))
 
 gather1 :: forall ranked r. ADReady ranked r
@@ -114,7 +114,7 @@ testGatherBuild1 =
                  [3.0,1.0,1.0,1.0,1.0,3.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
-             ifB (i >* 2) (gather1 t) (t ! [i])))
+             ifF (i >. 2) (gather1 t) (t ! [i])))
           (treplicate 7 $ tfromList [0, 1]))
 
 testGatherSimp1 :: Assertion
@@ -218,7 +218,7 @@ testGatherNestedBuild12 =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> tindex (tbuild1 5 (\i ->
-             ifB (i >* 2) (gatherNested12 t)
+             ifF (i >. 2) (gatherNested12 t)
                           (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
           (treplicate 7 $ tfromList [0, 1]))
 
@@ -245,7 +245,7 @@ testGatherBuild12 =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> tindex (tbuild1 5 (\i ->
-             ifB (i >* 2) (gather12 t)
+             ifF (i >. 2) (gather12 t)
                           (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
           (treplicate 7 $ tfromList [0, 1]))
 
@@ -424,7 +424,7 @@ testScatterNestedBuild1 =
                  [3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
     (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
-             ifB (i >* 2) (scatterNested1 t) (t ! [i])))
+             ifF (i >. 2) (scatterNested1 t) (t ! [i])))
           (treplicate 7 $ tfromList [0, 1]))
 
 scatter1 :: forall ranked r. ADReady ranked r
@@ -433,7 +433,7 @@ scatter1 t =
   tscatter @ranked @r @2
           (2 :$ ZS)
           t
-          (\(i1 :. i2 :. ZI) -> minB (i2 + 2 * i1) 1 :. ZI)
+          (\(i1 :. i2 :. ZI) -> minF (i2 + 2 * i1) 1 :. ZI)
 
 testScatter1 :: Assertion
 testScatter1 =
@@ -449,7 +449,7 @@ testScatterBuild1 =
                  [3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
     (rev' @Double @2
           (\t -> tbuild1 5 (\i ->
-             ifB (i >* 2) (scatter1 t) (t ! [i])))
+             ifF (i >. 2) (scatter1 t) (t ! [i])))
           (treplicate 7 $ tfromList [0, 1]))
 
 testScatterSimp1 :: Assertion
@@ -470,9 +470,9 @@ scatterNested2 t =
           (2 :$ 3 :$ ZS)
           (tscatter @ranked @r @1
                    (2 :$ 3 :$ 4 :$ 2 :$ ZS) t
-                   (\(k1 :. ZI) -> minB k1 1 :. minB k1 2  :. minB k1 3 :. ZI))
+                   (\(k1 :. ZI) -> minF k1 1 :. minF k1 2  :. minF k1 3 :. ZI))
           (\(i1 :. i2 :. _i3 :. i4 :. ZI) ->
-            minB (i1 + i2) 1 :. minB (i4 + i1) 2 :. ZI)
+            minF (i1 + i2) 1 :. minF (i4 + i1) 2 :. ZI)
 
 testScatterNested2 :: Assertion
 testScatterNested2 =
@@ -498,7 +498,7 @@ scatter2 t =
   tscatter @ranked @r @2
           (2 :$ 3 :$ ZS)
           t
-          (\(i1 :. i2 :. ZI) -> minB (i1 + i2 + i1 + i2) 1 :. minB i1 2 :. ZI)
+          (\(i1 :. i2 :. ZI) -> minF (i1 + i2 + i1 + i2) 1 :. minF i1 2 :. ZI)
 
 testScatter2 :: Assertion
 testScatter2 =
@@ -537,8 +537,8 @@ scatterNested12 t =
           (tscatter @ranked @r @2
                    (2 :$ 3 :$ 4 :$ ZS) t
                    (\(k1 :. k2 :. ZI) ->
-                     minB k1 1 :. minB (k2 + k1) 2 :. minB k1 3 :. ZI))
-          (\(i1 :. _i2 :. ZI) -> minB (i1 + i1) 1 :. ZI)
+                     minF k1 1 :. minF (k2 + k1) 2 :. minF k1 3 :. ZI))
+          (\(i1 :. _i2 :. ZI) -> minF (i1 + i1) 1 :. ZI)
 
 testScatterNested12 :: Assertion
 testScatterNested12 =
@@ -555,7 +555,7 @@ testScatterNestedBuild12 =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> tindex (tbuild1 5 (\i ->
-             ifB (i >* 2) (scatterNested12 t)
+             ifF (i >. 2) (scatterNested12 t)
                           (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
           (treplicate 7 $ tfromList [0, 1]))
 
@@ -565,7 +565,7 @@ scatter12 t =
   tscatter @ranked @r @2
           (2 :$ 4 :$ ZS)
           t
-          (\(i1 :. k3 :. ZI) -> minB (i1 + i1 + i1 + k3) 1 :. minB i1 3 :. ZI)
+          (\(i1 :. k3 :. ZI) -> minF (i1 + i1 + i1 + k3) 1 :. minF i1 3 :. ZI)
 
 testScatter12 :: Assertion
 testScatter12 =
@@ -582,7 +582,7 @@ testScatterBuild12 =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> tindex (tbuild1 5 (\i ->
-             ifB (i >* 2) (scatter12 t)
+             ifF (i >. 2) (scatter12 t)
                           (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
           (treplicate 7 $ tfromList [0, 1]))
 

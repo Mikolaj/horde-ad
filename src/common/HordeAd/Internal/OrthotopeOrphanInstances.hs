@@ -23,11 +23,9 @@ import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
-import           Data.Boolean
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
@@ -190,36 +188,6 @@ liftVS2 :: (Numeric r, OS.Shape sh)
         => (Vector r -> Vector r -> Vector r)
         -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
 liftVS2 op t u = OS.fromVector $ OS.toVector t `op` OS.toVector u
-
-type instance BooleanOf CInt = Bool
-
-instance IfB CInt where
-  ifB b v w = if b then v else w
-
-instance EqB CInt where
-  (==*) = (==)
-  (/=*) = (/=)
-
-instance OrdB CInt where
-  (<*) = (<)
-  (<=*) = (<=)
-  (>*) = (>)
-  (>=*) = (>=)
-
-type instance BooleanOf (OR.Array n r) = Bool
-
-instance IfB (OR.Array n r) where
-  ifB b v w = if b then v else w
-
-instance (Eq r, Numeric r) => EqB (OR.Array n r) where
-  (==*) = (==)
-  (/=*) = (/=)
-
-instance (Ord r, Numeric r) => OrdB (OR.Array n r) where
-  (<*) = (<)
-  (<=*) = (<=)
-  (>*) = (>)
-  (>=*) = (>=)
 
 -- These constraints force @UndecidableInstances@.
 instance (Num (Vector r), Numeric r) => Num (OD.Array r) where
@@ -420,14 +388,6 @@ instance Convert (OR.Array n a) (OD.Array a) where
 instance (OS.Shape sh, OS.Rank sh ~ n)
          => Convert (OS.Array sh a) (OR.Array n a) where
   convert (SS.A a@(SG.A t)) = RS.A (RG.A (SG.shapeL a) t)
-
-type instance BooleanOf (Flip f a b) = BooleanOf (f b a)
-
-deriving instance IfB (f a b) => IfB (Flip f b a)
-
-deriving instance EqB (f a b) => EqB (Flip f b a)
-
-deriving instance OrdB (f a b) => OrdB (Flip f b a)
 
 deriving instance Num (f a b) => Num (Flip f b a)
 

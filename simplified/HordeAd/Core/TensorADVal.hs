@@ -8,7 +8,7 @@ module HordeAd.Core.TensorADVal
   ( ADValClown
   ) where
 
-import Prelude hiding ((<*))
+import Prelude
 
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
@@ -17,7 +17,6 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
-import           Data.Boolean
 import           Data.Functor.Const
 import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
@@ -41,24 +40,24 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 
 -- * Assorted instances for any functor argument
 
-type instance BooleanOf (ADVal f r z) = BooleanOf (f r z)
+type instance BoolOf (ADVal f) = BoolOf f
 
 -- Boolean and numeric instances are easy to define for ADVal f r z
 -- and then Clown, Flip and other instances are auto-derived on top of them.
 -- OTOH, AdaptableDomains and other such instances are best defined
 -- directly for Clown and others applied to ADVal.
-instance (EqB (f r z), IsPrimal f r z) => EqB (ADVal f r z) where
-  D l1 u _ ==* D l2 v _ = letWrapPrimal l1 u ==* letWrapPrimal l2 v
-  D l1 u _ /=* D l2 v _ = letWrapPrimal l1 u /=* letWrapPrimal l2 v
+instance (EqF f, IsPrimalPartF f) => EqF (ADVal f) where
+  D l1 u _ ==. D l2 v _ = letWrapPrimal l1 u ==. letWrapPrimal l2 v
+  D l1 u _ /=. D l2 v _ = letWrapPrimal l1 u /=. letWrapPrimal l2 v
 
-instance (OrdB (f r z), IsPrimal f r z) => OrdB (ADVal f r z) where
-  D l1 u _ <* D l2 v _ = letWrapPrimal l1 u <* letWrapPrimal l2 v
-  D l1 u _ <=* D l2 v _ = letWrapPrimal l1 u <=* letWrapPrimal l2 v
-  D l1 u _ >* D l2 v _ = letWrapPrimal l1 u >* letWrapPrimal l2 v
-  D l1 u _ >=* D l2 v _ = letWrapPrimal l1 u >=* letWrapPrimal l2 v
+instance (OrdF f, IsPrimalPartF f) => OrdF (ADVal f) where
+  D l1 u _ <. D l2 v _ = letWrapPrimal l1 u <. letWrapPrimal l2 v
+  D l1 u _ <=. D l2 v _ = letWrapPrimal l1 u <=. letWrapPrimal l2 v
+  D l1 u _ >. D l2 v _ = letWrapPrimal l1 u >. letWrapPrimal l2 v
+  D l1 u _ >=. D l2 v _ = letWrapPrimal l1 u >=. letWrapPrimal l2 v
 
-instance IfB (ADVal (Flip OR.Array) r n) where
-  ifB b v w = if b then v else w
+instance IfF (ADVal (Flip OR.Array)) where
+  ifF b v w = if b then v else w
 
 type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
 
@@ -76,9 +75,8 @@ type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
 -- * Ranked tensor instances
 
 -- This requires the Tensor instance, hence the definitions must in this module.
-instance (KnownNat n, GoodScalar r)
-         => IfB (ADVal AstPrimalPart r n) where
-  ifB b v w = index (fromList [v, w]) (singletonIndex $ ifB b 0 1)
+instance IfF (ADVal AstPrimalPart) where
+  ifF b v w = index (fromList [v, w]) (singletonIndex $ ifF b 0 1)
 
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
 -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
@@ -233,13 +231,12 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 
 -- * Shaped tensor instances
 
-instance IfB (ADVal (Flip OS.Array) r sh) where
-  ifB b v w = if b then v else w
+instance IfF (ADVal (Flip OS.Array)) where
+  ifF b v w = if b then v else w
 
 -- This requires the Tensor instance, hence the definitions must in this module.
-instance (GoodScalar r, OS.Shape sh)
-         => IfB (ADVal AstPrimalPartS r sh) where
-  ifB b v w = indexS (fromListS @2 [v, w]) (ifB b 0 1 :$: ZSH)
+instance IfF (ADVal AstPrimalPartS) where
+  ifF b v w = indexS (fromListS @2 [v, w]) (ifF b 0 1 :$: ZSH)
 
 -- First index is for outermost dimension; empty index means identity,
 -- index ouf of bounds produces zero (but beware of vectorization).

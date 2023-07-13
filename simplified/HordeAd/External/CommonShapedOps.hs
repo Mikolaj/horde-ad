@@ -12,7 +12,6 @@ import Prelude
 
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as OS
-import           Data.Boolean
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import           Data.Type.Ord (Compare)
@@ -74,11 +73,11 @@ reluS, reluLeakyS
   :: forall shaped sh r. (OS.Shape sh, KnownNat (OS.Rank sh), ADReadyS shaped r)
   => shaped r sh -> shaped r sh
 reluS v =
-  let oneIfGtZero = smap0N (\x -> ifB (x <=* 0) 0.0 1.0) v
+  let oneIfGtZero = smap0N (\x -> ifF (x <=. 0) 0.0 1.0) v
   in oneIfGtZero * v
 
 reluLeakyS v =
-  let oneIfGtZero = smap0N (\x -> ifB (x <=* 0) 0.01 1.0) v
+  let oneIfGtZero = smap0N (\x -> ifF (x <=. 0) 0.01 1.0) v
   in oneIfGtZero * v
 
 -- TODO: verify how faster a dedicated ShapedTensor method would be
@@ -228,7 +227,7 @@ indexz0S
   => shaped r sh -> IndexOf shaped (OS.Rank shOut) -> shaped r '[]
 indexz0S d ix =
   gcastWith (unsafeCoerce Refl :: sh OS.++ '[] :~: sh) $
-  ifB (within0S @shOut @shaped @r ix)
+  ifF (within0S @shOut @shaped @r ix)
       (sindex @shaped @r @sh
               d (ShapedList.listToSized (indexToList ix)))
       0
@@ -239,10 +238,10 @@ within0S
   => IndexOf shaped (OS.Rank shOut)
        -- the indexes may be outside shOut and even negative (e.g., for
        -- convolutions with padding)
-  -> BooleanOf (IntOf shaped)
+  -> BoolOf shaped
 within0S ix =
-  let within :: IntOf shaped -> IntOf shaped -> BooleanOf (IntOf shaped)
-      within i dim = 0 <=* i &&* dim >* i
+  let within :: IntOf shaped -> IntOf shaped -> BoolOf shaped
+      within i dim = 0 <=. i &&* dim >. i
   in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ OS.shapeT @shOut)
        -- or use sfromIndex1 and compare vectors?

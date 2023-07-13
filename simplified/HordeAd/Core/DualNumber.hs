@@ -12,7 +12,7 @@ module HordeAd.Core.DualNumber
   , IsPrimal
   ) where
 
-import Prelude hiding ((<*))
+import Prelude
 
 import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))

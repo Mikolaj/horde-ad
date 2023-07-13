@@ -32,7 +32,6 @@ import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
-import           Data.Boolean
 import           Data.Int (Int64)
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
@@ -385,10 +384,10 @@ instance Boolean AstBool where
 
 -- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation
 
-type instance BooleanOf (AstRanked r n) = AstBool
+type instance BoolOf AstRanked = AstBool
 
-instance IfB (AstRanked r n) where
-  ifB = astCond
+instance IfF AstRanked where
+  ifF = astCond
 
 -- No simplification yet done at this point, so AstBoolConst unlikely,
 -- but it's a constant time simplification, so no harm done.
@@ -405,45 +404,45 @@ astPrimalPart :: AstRanked r n -> AstPrimalPart r n
 astPrimalPart (AstConstant t) = t
 astPrimalPart t = AstPrimalPart t
 
-instance (KnownNat n, GoodScalar r) => EqB (AstRanked r n) where
-  v ==* u = AstRel EqOp [astPrimalPart v, astPrimalPart u]
-  v /=* u = AstRel NeqOp [astPrimalPart v, astPrimalPart u]
+instance EqF AstRanked where
+  v ==. u = AstRel EqOp [astPrimalPart v, astPrimalPart u]
+  v /=. u = AstRel NeqOp [astPrimalPart v, astPrimalPart u]
 
-instance (KnownNat n, GoodScalar r) => OrdB (AstRanked r n) where
-  v <* u = AstRel LsOp [astPrimalPart v, astPrimalPart u]
-  v <=* u = AstRel LeqOp [astPrimalPart v, astPrimalPart u]
-  v >* u = AstRel GtOp [astPrimalPart v, astPrimalPart u]
-  v >=* u = AstRel GeqOp [astPrimalPart v, astPrimalPart u]
+instance OrdF AstRanked where
+  v <. u = AstRel LsOp [astPrimalPart v, astPrimalPart u]
+  v <=. u = AstRel LeqOp [astPrimalPart v, astPrimalPart u]
+  v >. u = AstRel GtOp [astPrimalPart v, astPrimalPart u]
+  v >=. u = AstRel GeqOp [astPrimalPart v, astPrimalPart u]
 
-type instance BooleanOf (AstPrimalPart r n) = AstBool
+type instance BoolOf AstPrimalPart = AstBool
 
-instance IfB (AstPrimalPart r n) where
-  ifB b v w = astPrimalPart $ astCond b (unAstPrimalPart v) (unAstPrimalPart w)
+instance IfF AstPrimalPart where
+  ifF b v w = astPrimalPart $ astCond b (unAstPrimalPart v) (unAstPrimalPart w)
 
-instance (KnownNat n, GoodScalar r) => EqB (AstPrimalPart r n) where
-  v ==* u = AstRel EqOp [v, u]
-  v /=* u = AstRel NeqOp [v, u]
+instance EqF AstPrimalPart where
+  v ==. u = AstRel EqOp [v, u]
+  v /=. u = AstRel NeqOp [v, u]
 
-instance (KnownNat n, GoodScalar r) => OrdB (AstPrimalPart r n) where
-  AstPConst u <* AstPConst v = AstBoolConst $ u < v  -- common in indexing
-  v <* u = AstRel LsOp [v, u]
-  AstPConst u <=* AstPConst v = AstBoolConst $ u <= v  -- common in indexing
-  v <=* u = AstRel LeqOp [v, u]
-  AstPConst u >* AstPConst v = AstBoolConst $ u > v  -- common in indexing
-  v >* u = AstRel GtOp [v, u]
-  AstPConst u >=* AstPConst v = AstBoolConst $ u >= v  -- common in indexing
-  v >=* u = AstRel GeqOp [v, u]
+instance OrdF AstPrimalPart where
+  AstPConst u <. AstPConst v = AstBoolConst $ u < v  -- common in indexing
+  v <. u = AstRel LsOp [v, u]
+  AstPConst u <=. AstPConst v = AstBoolConst $ u <= v  -- common in indexing
+  v <=. u = AstRel LeqOp [v, u]
+  AstPConst u >. AstPConst v = AstBoolConst $ u > v  -- common in indexing
+  v >. u = AstRel GtOp [v, u]
+  AstPConst u >=. AstPConst v = AstBoolConst $ u >= v  -- common in indexing
+  v >=. u = AstRel GeqOp [v, u]
 
 
 -- * Unlawful numeric instances of ranked AST; they are lawful modulo evaluation
 
 -- These are, unfortunately, required by some numeric instances.
 instance Eq (AstRanked r n) where
-  (==) = error "AST requires that EqB be used instead"
-  (/=) = error "AST requires that EqB be used instead"
+  (==) = error "AST requires that EqF be used instead"
+  (/=) = error "AST requires that EqF be used instead"
 
 instance Ord (AstRanked r n) where
-  (<=) = error "AST requires that OrdB be used instead"
+  (<=) = error "AST requires that OrdF be used instead"
 
 instance Num (OR.Array n r) => Num (AstRanked r n) where
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
@@ -528,11 +527,11 @@ instance (RealFloat r, RealFloat (OR.Array n r))
   isIEEE = undefined
 
 instance Eq (AstPrimalPart r n) where
-  (==) = error "AST requires that EqB be used instead"
-  (/=) = error "AST requires that EqB be used instead"
+  (==) = error "AST requires that EqF be used instead"
+  (/=) = error "AST requires that EqF be used instead"
 
 instance Ord (AstPrimalPart r n) where
-  (<=) = error "AST requires that OrdB be used instead"
+  (<=) = error "AST requires that OrdF be used instead"
 
 instance Num (OR.Array n r) => Num (AstPrimalPart r n) where
   -- The normal form has AstConst, if any, as the first element of the list
@@ -598,10 +597,10 @@ deriving instance (RealFloat (AstRanked r n), Num (OR.Array n r))
 
 -- * Unlawful boolean instances of shaped AST; they are lawful modulo evaluation
 
-type instance BooleanOf (AstShaped r sh) = AstBool
+type instance BoolOf AstShaped = AstBool
 
-instance IfB (AstShaped r sh) where
-  ifB = astCondS
+instance IfF AstShaped where
+  ifF = astCondS
 
 -- No simplification yet done at this point, so AstBoolConst unlikely,
 -- but it's a constant time simplification, so no harm done.
@@ -618,41 +617,41 @@ astPrimalPartS :: AstShaped r n -> AstPrimalPartS r n
 astPrimalPartS (AstConstantS t) = t
 astPrimalPartS t = AstPrimalPartS t
 
-instance (OS.Shape sh, GoodScalar r) => EqB (AstShaped r sh) where
-  v ==* u = AstRelS EqOp [astPrimalPartS v, astPrimalPartS u]
-  v /=* u = AstRelS NeqOp [astPrimalPartS v, astPrimalPartS u]
+instance EqF AstShaped where
+  v ==. u = AstRelS EqOp [astPrimalPartS v, astPrimalPartS u]
+  v /=. u = AstRelS NeqOp [astPrimalPartS v, astPrimalPartS u]
 
-instance (OS.Shape sh, GoodScalar r) => OrdB (AstShaped r sh) where
-  v <* u = AstRelS LsOp [astPrimalPartS v, astPrimalPartS u]
-  v <=* u = AstRelS LeqOp [astPrimalPartS v, astPrimalPartS u]
-  v >* u = AstRelS GtOp [astPrimalPartS v, astPrimalPartS u]
-  v >=* u = AstRelS GeqOp [astPrimalPartS v, astPrimalPartS u]
+instance OrdF AstShaped where
+  v <. u = AstRelS LsOp [astPrimalPartS v, astPrimalPartS u]
+  v <=. u = AstRelS LeqOp [astPrimalPartS v, astPrimalPartS u]
+  v >. u = AstRelS GtOp [astPrimalPartS v, astPrimalPartS u]
+  v >=. u = AstRelS GeqOp [astPrimalPartS v, astPrimalPartS u]
 
-type instance BooleanOf (AstPrimalPartS r sh) = AstBool
+type instance BoolOf AstPrimalPartS = AstBool
 
-instance IfB (AstPrimalPartS r sh) where
-  ifB b v w = astPrimalPartS $ astCondS b (unAstPrimalPartS v)
+instance IfF AstPrimalPartS where
+  ifF b v w = astPrimalPartS $ astCondS b (unAstPrimalPartS v)
                                           (unAstPrimalPartS w)
 
-instance (OS.Shape sh, GoodScalar r) => EqB (AstPrimalPartS r sh) where
-  v ==* u = AstRelS EqOp [v, u]
-  v /=* u = AstRelS NeqOp [v, u]
+instance EqF AstPrimalPartS where
+  v ==. u = AstRelS EqOp [v, u]
+  v /=. u = AstRelS NeqOp [v, u]
 
-instance (OS.Shape sh, GoodScalar r) => OrdB (AstPrimalPartS r sh) where
-  v <* u = AstRelS LsOp [v, u]
-  v <=* u = AstRelS LeqOp [v, u]
-  v >* u = AstRelS GtOp [v, u]
-  v >=* u = AstRelS GeqOp [v, u]
+instance OrdF AstPrimalPartS where
+  v <. u = AstRelS LsOp [v, u]
+  v <=. u = AstRelS LeqOp [v, u]
+  v >. u = AstRelS GtOp [v, u]
+  v >=. u = AstRelS GeqOp [v, u]
 
 
 -- * Unlawful numeric instances of shaped AST; they are lawful modulo evaluation
 
 instance Eq (AstShaped r sh) where
-  (==) = error "AST requires that EqB be used instead"
-  (/=) = error "AST requires that EqB be used instead"
+  (==) = error "AST requires that EqF be used instead"
+  (/=) = error "AST requires that EqF be used instead"
 
 instance Ord (AstShaped r sh) where
-  (<=) = error "AST requires that OrdB be used instead"
+  (<=) = error "AST requires that OrdF be used instead"
 
 instance (Num (OS.Array sh r)) => Num (AstShaped r sh) where
   AstSumOfListS lu + AstSumOfListS lv = AstSumOfListS (lu ++ lv)
@@ -736,11 +735,11 @@ instance (RealFloat r, RealFloat (OS.Array sh r))
   isIEEE = undefined
 
 instance Eq (AstPrimalPartS r sh) where
-  (==) = error "AST requires that EqB be used instead"
-  (/=) = error "AST requires that EqB be used instead"
+  (==) = error "AST requires that EqF be used instead"
+  (/=) = error "AST requires that EqF be used instead"
 
 instance Ord (AstPrimalPartS r sh) where
-  (<=) = error "AST requires that OrdB be used instead"
+  (<=) = error "AST requires that OrdF be used instead"
 
 deriving instance Num (AstShaped r sh) => Num (AstPrimalPartS r sh)
 deriving instance (Real (AstShaped r sh))
@@ -899,56 +898,56 @@ deriving instance GoodScalar r => Show (AstNoVectorize r n)
 newtype AstNoSimplify r n = AstNoSimplify {unAstNoSimplify :: AstRanked r n}
 deriving instance GoodScalar r => Show (AstNoSimplify r n)
 
-type instance BooleanOf (AstNoVectorize r n) = AstBool
+type instance BoolOf AstNoVectorize = AstBool
 
-instance IfB (AstNoVectorize r n) where
-  ifB b v w = AstNoVectorize $ astCond b (unAstNoVectorize v)
+instance IfF AstNoVectorize where
+  ifF b v w = AstNoVectorize $ astCond b (unAstNoVectorize v)
                                          (unAstNoVectorize w)
 
-instance (KnownNat n, GoodScalar r) => EqB (AstNoVectorize r n) where
-  v ==* u = AstRel EqOp [ astPrimalPart $ unAstNoVectorize v
+instance EqF AstNoVectorize where
+  v ==. u = AstRel EqOp [ astPrimalPart $ unAstNoVectorize v
                         , astPrimalPart $ unAstNoVectorize u ]
-  v /=* u = AstRel NeqOp [ astPrimalPart $ unAstNoVectorize v
+  v /=. u = AstRel NeqOp [ astPrimalPart $ unAstNoVectorize v
                          , astPrimalPart $ unAstNoVectorize u ]
 
-instance (KnownNat n, GoodScalar r) => OrdB (AstNoVectorize r n) where
-  v <* u = AstRel LsOp [ astPrimalPart $ unAstNoVectorize v
+instance OrdF AstNoVectorize where
+  v <. u = AstRel LsOp [ astPrimalPart $ unAstNoVectorize v
                        , astPrimalPart $ unAstNoVectorize u ]
-  v <=* u = AstRel LeqOp [ astPrimalPart $ unAstNoVectorize v
+  v <=. u = AstRel LeqOp [ astPrimalPart $ unAstNoVectorize v
                          , astPrimalPart $ unAstNoVectorize u ]
-  v >* u = AstRel GtOp [ astPrimalPart $ unAstNoVectorize v
+  v >. u = AstRel GtOp [ astPrimalPart $ unAstNoVectorize v
                        , astPrimalPart $ unAstNoVectorize u ]
-  v >=* u = AstRel GeqOp [ astPrimalPart $ unAstNoVectorize v
+  v >=. u = AstRel GeqOp [ astPrimalPart $ unAstNoVectorize v
                          , astPrimalPart $ unAstNoVectorize u ]
 
-type instance BooleanOf (AstNoSimplify r n) = AstBool
+type instance BoolOf AstNoSimplify = AstBool
 
-instance IfB (AstNoSimplify r n) where
-  ifB b v w = AstNoSimplify $ astCond b (unAstNoSimplify v)
+instance IfF AstNoSimplify where
+  ifF b v w = AstNoSimplify $ astCond b (unAstNoSimplify v)
                                         (unAstNoSimplify w)
 
-instance (KnownNat n, GoodScalar r) => EqB (AstNoSimplify r n) where
-  v ==* u = AstRel EqOp [ astPrimalPart $ unAstNoSimplify v
+instance EqF AstNoSimplify where
+  v ==. u = AstRel EqOp [ astPrimalPart $ unAstNoSimplify v
                         , astPrimalPart $ unAstNoSimplify u ]
-  v /=* u = AstRel NeqOp [ astPrimalPart $ unAstNoSimplify v
+  v /=. u = AstRel NeqOp [ astPrimalPart $ unAstNoSimplify v
                          , astPrimalPart $ unAstNoSimplify u ]
 
-instance (KnownNat n, GoodScalar r) => OrdB (AstNoSimplify r n) where
-  v <* u = AstRel LsOp [ astPrimalPart $ unAstNoSimplify v
+instance OrdF AstNoSimplify where
+  v <. u = AstRel LsOp [ astPrimalPart $ unAstNoSimplify v
                        , astPrimalPart $ unAstNoSimplify u ]
-  v <=* u = AstRel LeqOp [ astPrimalPart $ unAstNoSimplify v
+  v <=. u = AstRel LeqOp [ astPrimalPart $ unAstNoSimplify v
                          , astPrimalPart $ unAstNoSimplify u ]
-  v >* u = AstRel GtOp [ astPrimalPart $ unAstNoSimplify v
+  v >. u = AstRel GtOp [ astPrimalPart $ unAstNoSimplify v
                        , astPrimalPart $ unAstNoSimplify u ]
-  v >=* u = AstRel GeqOp [ astPrimalPart $ unAstNoSimplify v
+  v >=. u = AstRel GeqOp [ astPrimalPart $ unAstNoSimplify v
                          , astPrimalPart $ unAstNoSimplify u ]
 
 instance Eq (AstNoVectorize r n) where
-  (==) = error "AST requires that EqB be used instead"
-  (/=) = error "AST requires that EqB be used instead"
+  (==) = error "AST requires that EqF be used instead"
+  (/=) = error "AST requires that EqF be used instead"
 
 instance Ord (AstNoVectorize r n) where
-  (<=) = error "AST requires that OrdB be used instead"
+  (<=) = error "AST requires that OrdF be used instead"
 
 deriving instance Num (AstRanked r n) => Num (AstNoVectorize r n)
 deriving instance (Real (AstRanked r n))
@@ -964,11 +963,11 @@ deriving instance (RealFloat (AstRanked r n))
                   => RealFloat (AstNoVectorize r n)
 
 instance Eq (AstNoSimplify r n) where
-  (==) = error "AST requires that EqB be used instead"
-  (/=) = error "AST requires that EqB be used instead"
+  (==) = error "AST requires that EqF be used instead"
+  (/=) = error "AST requires that EqF be used instead"
 
 instance Ord (AstNoSimplify r n) where
-  (<=) = error "AST requires that OrdB be used instead"
+  (<=) = error "AST requires that OrdF be used instead"
 
 deriving instance Num (AstRanked r n) => Num (AstNoSimplify r n)
 deriving instance (Real (AstRanked r n))

@@ -25,12 +25,10 @@ import qualified Data.Array.Internal.ShapedS as SS
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
-import           Data.Boolean
 import           Data.Int (Int64)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
@@ -467,62 +465,6 @@ instance (RealFloat (Vector r), OS.Shape sh, Numeric r, Floating r, Ord r)
   isDenormalized = undefined
   isNegativeZero = undefined
   isIEEE = undefined
-
-
--- * Boolean instances
-
-type instance BooleanOf CInt = Bool
-
-instance IfB CInt where
-  ifB b v w = if b then v else w
-
-instance EqB CInt where
-  (==*) = (==)
-  (/=*) = (/=)
-
-instance OrdB CInt where
-  (<*) = (<)
-  (<=*) = (<=)
-  (>*) = (>)
-  (>=*) = (>=)
-
-type instance BooleanOf (OR.Array n r) = Bool
-
-instance IfB (OR.Array n r) where
-  ifB b v w = if b then v else w
-
-instance (Eq r, Numeric r) => EqB (OR.Array n r) where
-  (==*) = (==)
-  (/=*) = (/=)
-
-instance (Ord r, Numeric r) => OrdB (OR.Array n r) where
-  (<*) = (<)
-  (<=*) = (<=)
-  (>*) = (>)
-  (>=*) = (>=)
-
-type instance BooleanOf (OS.Array sh r) = Bool
-
-instance IfB (OS.Array sh r) where
-  ifB b v w = if b then v else w
-
-instance (Eq r, OS.Shape sh, Numeric r) => EqB (OS.Array sh r) where
-  (==*) = (==)
-  (/=*) = (/=)
-
-instance (Ord r, OS.Shape sh, Numeric r) => OrdB (OS.Array sh r) where
-  (<*) = (<)
-  (<=*) = (<=)
-  (>*) = (>)
-  (>=*) = (>=)
-
-type instance BooleanOf (Flip f a b) = BooleanOf (f b a)
-
-deriving instance IfB (f a b) => IfB (Flip f b a)
-
-deriving instance EqB (f a b) => EqB (Flip f b a)
-
-deriving instance OrdB (f a b) => OrdB (Flip f b a)
 
 deriving instance Num (f a b) => Num (Flip f b a)
 

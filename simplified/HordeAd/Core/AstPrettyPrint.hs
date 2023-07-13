@@ -290,7 +290,7 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d "tfloor" [a]
   AstCond b a1 a2 ->
     showParen (d > 10)
-    $ showString "ifB "
+    $ showString "ifF "
       . printAstBool cfg 11 b
       . showString " "
       . printAst cfg 11 a1
@@ -488,12 +488,12 @@ printAstRelOp :: (PrintConfig -> Int -> a -> ShowS)
               -> ShowS
 {-# INLINE printAstRelOp #-}
 printAstRelOp pr cfg d opCode args = case (opCode, args) of
-  (EqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " ==* ") v
-  (NeqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " /=* ") v
-  (LeqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " <=* ") v
-  (GeqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " >=* ") v
-  (LsOp, [u, v]) -> printBinaryOp pr cfg d u (4, " <* ") v
-  (GtOp, [u, v]) -> printBinaryOp pr cfg d u (4, " >* ") v
+  (EqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " ==. ") v
+  (NeqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " /=. ") v
+  (LeqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " <=. ") v
+  (GeqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " >=. ") v
+  (LsOp, [u, v]) -> printBinaryOp pr cfg d u (4, " <. ") v
+  (GtOp, [u, v]) -> printBinaryOp pr cfg d u (4, " >. ") v
   _ -> error $ "printAstRelOp: wrong number of arguments"
                ++ show (opCode, length args)
 
@@ -644,7 +644,7 @@ printAstS cfg d = \case
     printPrefixOp printAstS cfg d "sfloor" [a]
   AstCondS b a1 a2 ->
     showParen (d > 10)
-    $ showString "ifB "
+    $ showString "ifF "
       . printAstBool cfg 11 b
       . showString " "
       . printAstS cfg 11 a1

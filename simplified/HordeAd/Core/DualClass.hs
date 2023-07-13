@@ -22,7 +22,7 @@
 -- sharing. This applies regardless of impurity, because repeated processing
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
-  ( IsPrimal, IsPrimalPart(..), CanRecordSharing(..)
+  ( IsPrimal, IsPrimalPart(..), CanRecordSharing(..), IsPrimalPartF(..)
   , unsafeGetFreshId, resetIdCounter
   ) where
 
@@ -53,13 +53,14 @@ class IsPrimalPart f r z where
   dAdd :: Dual f r z -> Dual f r z -> Dual f r z
   intOfShape :: f r z -> Int -> f r z
   recordSharingPrimal :: f r z -> ADShare -> (ADShare, f r z)
-  letWrapPrimal :: ADShare -> f r z -> f r z
 
 class CanRecordSharing f r z where
   recordSharing :: Dual f r z -> Dual f r z
 
 type IsPrimal f r z = (IsPrimalPart f r z, CanRecordSharing f r z)
 
+class IsPrimalPartF f where
+  letWrapPrimal :: ADShare -> f r z -> f r z
 
 -- * Delta expression method instances
 
@@ -103,7 +104,6 @@ instance (GoodScalar r, KnownNat n) => IsPrimalPart (Flip OR.Array) r n where
   intOfShape tsh c =
     tconst $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
   recordSharingPrimal r l = (l, r)
-  letWrapPrimal _ r = r
 
 instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
   recordSharing d = case d of
@@ -113,6 +113,9 @@ instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
+instance IsPrimalPartF (Flip OR.Array) where
+  letWrapPrimal _ r = r
+
 instance (GoodScalar r, KnownNat n) => IsPrimalPart AstPrimalPart r n where
   dZero = ZeroR
   dScale = ScaleR
@@ -120,7 +123,6 @@ instance (GoodScalar r, KnownNat n) => IsPrimalPart AstPrimalPart r n where
   intOfShape tsh c =
     tconst $ OR.constant (shapeToList $ tshape tsh) (fromIntegral c)
   recordSharingPrimal = astRegisterADShare
-  letWrapPrimal = tletWrap
 
 instance GoodScalar r => CanRecordSharing AstPrimalPart r n where
   recordSharing d = case d of
@@ -130,6 +132,9 @@ instance GoodScalar r => CanRecordSharing AstPrimalPart r n where
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
+instance IsPrimalPartF AstPrimalPart where
+  letWrapPrimal = tletWrap
+
 instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (Flip OS.Array) r sh where
   dZero = ZeroS
   dScale = ScaleS
@@ -137,7 +142,6 @@ instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (Flip OS.Array) r sh where
   intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
     sconst $ fromIntegral c
   recordSharingPrimal r l = (l, r)
-  letWrapPrimal _ r = r
 
 instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
   recordSharing d = case d of
@@ -147,6 +151,9 @@ instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
+instance IsPrimalPartF (Flip OS.Array) where
+  letWrapPrimal _ r = r
+
 instance (GoodScalar r, OS.Shape sh) => IsPrimalPart AstPrimalPartS r sh where
   dZero = ZeroS
   dScale = ScaleS
@@ -154,7 +161,6 @@ instance (GoodScalar r, OS.Shape sh) => IsPrimalPart AstPrimalPartS r sh where
   intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
     sconst $ fromIntegral c
   recordSharingPrimal = astRegisterADShareS
-  letWrapPrimal = sletWrap
 
 instance CanRecordSharing AstPrimalPartS r sh where
   recordSharing d = case d of
@@ -163,6 +169,9 @@ instance CanRecordSharing AstPrimalPartS r sh where
     DToS{} -> d
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
+
+instance IsPrimalPartF AstPrimalPartS where
+  letWrapPrimal = sletWrap
 
 
 -- * Counter handling

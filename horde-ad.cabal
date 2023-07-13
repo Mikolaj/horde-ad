@@ -156,7 +156,6 @@ library
         assert-failure
       , base >= 4.16 && < 99
       , bifunctors
-      , Boolean
       , deepseq
       , enummapset
       , hmatrix
@@ -660,7 +659,6 @@ test-suite simplifiedOnlyTest
       , assert-failure
       , base
       , bifunctors
-      , Boolean
       , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise

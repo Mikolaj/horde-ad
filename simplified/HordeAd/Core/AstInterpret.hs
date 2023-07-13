@@ -11,7 +11,7 @@ module HordeAd.Core.AstInterpret
   , AstEnv, extendEnvS, extendEnvR, extendEnvDR
   ) where
 
-import Prelude hiding ((<*))
+import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
@@ -21,7 +21,6 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
-import           Data.Boolean
 import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Const
 import           Data.Int (Int64)
@@ -29,7 +28,6 @@ import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, sameNat)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -202,93 +200,11 @@ interpretLambdaIndexToIndexS
 interpretLambdaIndexToIndexS f env (vars, asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
-class ( BooleanOf (ranked r 0)
-        ~ BooleanOf (IntOf (PrimalOf (ShapedOf ranked)))
-      , BooleanOf (IntOf (PrimalOf (ShapedOf ranked)))
-        ~ BooleanOf (ranked r 0) )
-      => BooleanMatchesR ranked r where
-instance
-      ( BooleanOf (ranked r 0)
-        ~ BooleanOf (IntOf (PrimalOf (ShapedOf ranked)))
-      , BooleanOf (IntOf (PrimalOf (ShapedOf ranked)))
-        ~ BooleanOf (ranked r 0) )
-      => BooleanMatchesR ranked r where
-
-class ( BooleanOf (ranked () 0)
-        ~ BooleanOf (PrimalOf (ShapedOf ranked) r y)
-      , BooleanOf (PrimalOf (ShapedOf ranked) r y)
-        ~ BooleanOf (ranked () 0)
-      , BooleanOf (ranked () 0) ~ BooleanOf ((ShapedOf ranked) r y)
-      , BooleanOf ((ShapedOf ranked) r y) ~ BooleanOf (ranked () 0) )
-      => BooleanMatchesR2 ranked r y where
-instance
-      ( BooleanOf (ranked () 0)
-        ~ BooleanOf (PrimalOf (ShapedOf ranked) r y)
-      , BooleanOf (PrimalOf (ShapedOf ranked) r y)
-        ~ BooleanOf (ranked () 0)
-      , BooleanOf (ranked () 0) ~ BooleanOf ((ShapedOf ranked) r y)
-      , BooleanOf ((ShapedOf ranked) r y) ~ BooleanOf (ranked () 0) )
-      => BooleanMatchesR2 ranked r y where
-
-class ( EqB (PrimalOf ranked r y)
-      , OrdB (PrimalOf ranked r y)
-      , IfB (PrimalOf ranked r y)
-      , IfB (ranked r y) )
-      => BooleanMatchesYR ranked r y where
-instance
-      ( EqB (PrimalOf ranked r y)
-      , OrdB (PrimalOf ranked r y)
-      , IfB (PrimalOf ranked r y)
-      , IfB (ranked r y) )
-      => BooleanMatchesYR ranked r y where
-
-class ( EqB (PrimalOf shaped r y)
-      , OrdB (PrimalOf shaped r y)
-      , IfB (PrimalOf shaped r y)
-      , IfB (shaped r y) )
-      => BooleanMatchesYS shaped r y where
-instance
-      ( EqB (PrimalOf shaped r y)
-      , OrdB (PrimalOf shaped r y)
-      , IfB (PrimalOf shaped r y)
-      , IfB (shaped r y) )
-      => BooleanMatchesYS shaped r y where
-
-class ( Boolean (BooleanOf (ranked r y))
-      , BooleanOf (ranked () 0) ~ BooleanOf (ranked r y)
-      , BooleanOf (ranked r y) ~ BooleanOf (ranked () 0) )
-      => BooleanMatchesXR ranked r y where
-instance
-      ( Boolean (BooleanOf (ranked r y))
-      , BooleanOf (ranked () 0) ~ BooleanOf (ranked r y)
-      , BooleanOf (ranked r y) ~ BooleanOf (ranked () 0) )
-      => BooleanMatchesXR ranked r y where
-
-class ( BooleanOf (PrimalOf ranked r y) ~ BooleanOf (ranked r2 0)
-      , BooleanOf (ranked r2 0) ~ BooleanOf (PrimalOf ranked r y) )
-      => BooleanMatchesXR8 ranked r r2 y where
-instance
-      ( BooleanOf (PrimalOf ranked r y) ~ BooleanOf (ranked r2 0)
-      , BooleanOf (ranked r2 0) ~ BooleanOf (PrimalOf ranked r y) )
-      => BooleanMatchesXR8 ranked r r2 y where
-
 class ( Integral (ShapedOf ranked r y) )
       => IsIntegralShapedOf ranked r y where
 instance
       ( Integral (ShapedOf ranked r y) )
       => IsIntegralShapedOf ranked r y where
-
-class (forall rc yc. (GoodScalar rc, KnownNat yc) => c ranked rc yc)
-      => CRankedY2 ranked c where
-instance
-      (forall rc yc. (GoodScalar rc, KnownNat yc) => c ranked rc yc)
-      => CRankedY2 ranked c where
-
-class (forall re. c ranked re)
-      => CRanked ranked c where
-instance
-      (forall re. c ranked re)
-      => CRanked ranked c where
 
 class (forall y. KnownNat y => c (ranked r y))
       => IRanked ranked r c where
@@ -302,51 +218,28 @@ instance
       (forall y. OS.Shape y => c ranked r y)
       => YRanked ranked r c where
 
-class (forall re ye. c ranked re ye)
-      => CRankedX2 ranked c where
-instance
-      (forall re ye. c ranked re ye)
-      => CRankedX2 ranked c where
-
-class (forall re re2. c ranked re re2)
-      => CRankedX4 ranked c where
-instance
-      (forall re re2. c ranked re re2)
-      => CRankedX4 ranked c where
-
-class (forall re re2 ye. c ranked re re2 ye)
-      => CRankedX8 ranked c where
-instance
-      (forall re re2 ye. c ranked re re2 ye)
-      => CRankedX8 ranked c where
-
-class (forall rd yd. (GoodScalar rd, OS.Shape yd) => c shaped rd yd)
-      => CShapedY2 shaped c where
-instance
-      (forall rd yd. (GoodScalar rd, OS.Shape yd) => c shaped rd yd)
-      => CShapedY2 shaped c where
-
 type InterpretAstR ranked =
-  ( EqB (IntOf ranked)
-  , OrdB (IntOf ranked)
-  , IfB (IntOf ranked)
-  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
+  ( RankedOf (PrimalOf ranked) ~ PrimalOf ranked
   , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
-  , CRankedY2 ranked BooleanMatchesYR
-  , CRankedX2 ranked BooleanMatchesXR
-  , CRankedX2 ranked BooleanMatchesR2
-  , CRankedX8 ranked BooleanMatchesXR8
-  , CRanked ranked BooleanMatchesR
   , CRankedRNS ranked ShowDynamicOf
+  , IfF ranked, IfF (ShapedOf ranked), IfF (PrimalOf ranked)
+  , EqF ranked, EqF (ShapedOf ranked), EqF (PrimalOf ranked)
+  , OrdF ranked, OrdF (ShapedOf ranked), OrdF (PrimalOf ranked)
+  , Boolean (BoolOf ranked)
+  , BoolOf ranked ~ BoolOf (ShapedOf ranked)
+  , BoolOf ranked ~ BoolOf (PrimalOf ranked)
+  , BoolOf ranked ~ BoolOf (PrimalOf (ShapedOf ranked))
   )
 
 type InterpretAstS shaped =
-  ( EqB (IntOf shaped)
-  , OrdB (IntOf shaped)
-  , IfB (IntOf shaped)
-  , RankedOf (PrimalOf shaped) ~ PrimalOf (RankedOf shaped)
+  ( RankedOf (PrimalOf shaped) ~ PrimalOf (RankedOf shaped)
   , PrimalOf (RankedOf shaped) ~ RankedOf (PrimalOf shaped)
-  , CShapedY2 shaped BooleanMatchesYS
+  , IfF shaped, IfF (RankedOf shaped), IfF (PrimalOf shaped)
+  , EqF shaped, EqF (RankedOf shaped), EqF (PrimalOf shaped)
+  , OrdF shaped, OrdF (RankedOf shaped), OrdF (PrimalOf shaped)
+  , Boolean (BoolOf shaped)
+  , BoolOf shaped ~ BoolOf (RankedOf shaped)
+  , BoolOf shaped ~ BoolOf (PrimalOf shaped)
   )
 
 type InterpretAst ranked =
@@ -374,11 +267,11 @@ interpretAstPrimal
   -> AstPrimalPart r n -> PrimalOf ranked r n
 interpretAstPrimal env (AstPrimalPart v1) = case v1 of
   AstD u _-> interpretAstPrimal env u
-  AstCond b a1 a2 ->  -- this avoids multiple ifB expansions via ifB(ADVal)
+  AstCond b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
     let b1 = interpretAstBool env b
         t2 = interpretAstPrimal env $ AstPrimalPart a1
         t3 = interpretAstPrimal env $ AstPrimalPart a2
-    in ifB b1 t2 t3  -- this is ifB from PrimalOf ranked
+    in ifF b1 t2 t3  -- this is ifF from PrimalOf ranked
   _ -> tprimalPart $ interpretAst env v1
 
 interpretAstDual
@@ -703,7 +596,7 @@ interpretAst env = \case
     let b1 = interpretAstBool env b
         t2 = interpretAst env a1
         t3 = interpretAst env a2
-    in ifB b1 t2 t3
+    in ifF b1 t2 t3
   AstFloor v -> tfloor $ tconstant $ interpretAstPrimal env v
   AstMinIndex v -> tminIndex $ tconstant $ interpretAstPrimal env v
   AstMaxIndex v -> tmaxIndex $ tconstant $ interpretAstPrimal env v
@@ -733,7 +626,7 @@ interpretAstDomains env = \case
       -- TODO: preserve let, as in AstLet case
 
 interpretAstBool :: InterpretAst ranked
-                 => AstEnv ranked -> AstBool -> BooleanOf (ranked () 0)
+                 => AstEnv ranked -> AstBool -> BoolOf ranked
 interpretAstBool env = \case
   AstBoolOp opCodeBool args ->
     let args2 = interpretAstBool env <$> args
@@ -833,14 +726,14 @@ interpretAstBoolOp opCodeBool args =
   error $ "interpretAstBoolOp: wrong number of arguments"
           ++ show (opCodeBool, length args)
 
-interpretAstRelOp :: (EqB b, OrdB b)
-                  => OpCodeRel -> [b] -> BooleanOf b
-interpretAstRelOp EqOp [u, v] = u ==* v
-interpretAstRelOp NeqOp [u, v] = u /=* v
-interpretAstRelOp LeqOp [u, v] = u <=* v
-interpretAstRelOp GeqOp [u, v] = u >=* v
-interpretAstRelOp LsOp [u, v] = u <* v
-interpretAstRelOp GtOp [u, v] = u >* v
+interpretAstRelOp :: (EqF f, OrdF f, GoodScalar r, HasSingletonDict y)
+                  => OpCodeRel -> [f r y] -> BoolOf f
+interpretAstRelOp EqOp [u, v] = u ==. v
+interpretAstRelOp NeqOp [u, v] = u /=. v
+interpretAstRelOp LeqOp [u, v] = u <=. v
+interpretAstRelOp GeqOp [u, v] = u >=. v
+interpretAstRelOp LsOp [u, v] = u <. v
+interpretAstRelOp GtOp [u, v] = u >. v
 interpretAstRelOp opCodeRel args =
   error $ "interpretAstRelOp: wrong number of arguments"
           ++ show (opCodeRel, length args)
@@ -852,11 +745,11 @@ interpretAstPrimalS
   -> AstPrimalPartS r sh -> PrimalOf shaped r sh
 interpretAstPrimalS env (AstPrimalPartS v1) = case v1 of
   AstDS u _-> interpretAstPrimalS env u
-  AstCondS b a1 a2 ->  -- this avoids multiple ifB expansions via ifB(ADVal)
+  AstCondS b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
     let b1 = interpretAstBool env b
         t2 = interpretAstPrimalS env $ AstPrimalPartS a1
         t3 = interpretAstPrimalS env $ AstPrimalPartS a2
-    in ifB b1 t2 t3  -- this is ifB from PrimalOf ranked
+    in ifF b1 t2 t3  -- this is ifF from PrimalOf ranked
   _ -> sprimalPart $ interpretAstS env v1
 
 interpretAstDualS
@@ -1161,7 +1054,7 @@ interpretAstS env = \case
     let b1 = interpretAstBool env b
         t2 = interpretAstS env a1
         t3 = interpretAstS env a2
-    in ifB b1 t2 t3
+    in ifF b1 t2 t3
   AstFloorS v -> sfloor $ sconstant $ interpretAstPrimalS env v
   AstMinIndexS v -> sminIndex $ sconstant $ interpretAstPrimalS env v
   AstMaxIndexS v -> smaxIndex $ sconstant $ interpretAstPrimalS env v
@@ -1335,9 +1228,11 @@ interpretAstS env = \case
 -}
 
 {-# SPECIALIZE interpretAstRelOp
-  :: OpCodeRel -> [Flip OR.Array Double n] -> Bool #-}
+  :: KnownNat n => OpCodeRel -> [Flip OR.Array Double n] -> Bool #-}
 {-# SPECIALIZE interpretAstRelOp
-  :: OpCodeRel -> [Flip OR.Array Float n] -> Bool #-}
+  :: KnownNat n => OpCodeRel -> [Flip OR.Array Float n] -> Bool #-}
+{-# SPECIALIZE interpretAstRelOp
+  :: KnownNat n => OpCodeRel -> [Flip OR.Array Int64 n] -> Bool #-}
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n
   => OpCodeRel -> [AstRanked Double n] -> AstBool #-}
@@ -1346,6 +1241,5 @@ interpretAstS env = \case
   => OpCodeRel -> [AstRanked Float n] -> AstBool #-}
 
 {-# SPECIALIZE interpretAstRelOp
-  :: OpCodeRel -> [CInt] -> Bool #-}
-{-# SPECIALIZE interpretAstRelOp
-  :: OpCodeRel -> [AstInt] -> AstBool #-}
+  :: KnownNat n
+  => OpCodeRel -> [AstRanked Int64 n] -> AstBool #-}
