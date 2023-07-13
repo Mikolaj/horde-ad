@@ -423,8 +423,6 @@ printAstNm pr cfg d opCode args = case (opCode, args) of
   (NegateOp, [u]) -> printPrefixOp pr cfg d "negate" [u]
   (AbsOp, [u]) -> printPrefixOp pr cfg d "abs" [u]
   (SignumOp, [u]) -> printPrefixOp pr cfg d "signum" [u]
-  (MaxOp, [u, v]) -> printPrefixOp pr cfg d "max" [u, v]
-  (MinOp, [u, v]) -> printPrefixOp pr cfg d "min" [u, v]
   _ -> error $ "printAstNm: wrong number of arguments"
                ++ show (opCode, length args)
 

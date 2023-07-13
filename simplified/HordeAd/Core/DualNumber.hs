@@ -128,12 +128,8 @@ constantADVal a = dDnotShared emptyADShare a dZero
 -- These two instances are required for the numeric tensor instances.
 -- Note that for the Ast instances this is invalid without an extra let
 -- containing the first field of @D@. However, for terms this is invalid
--- anyway, except the max/min, because they require interpretation before
--- they can be compared with an instant Bool result. However, the max/min
--- implementation is only good if the dual part was empty, because correct
--- max/min should not zero the dual part. In particular, this is correct
--- for AstPrimalPart tensors that act as indexes. TODO: enforce in types
--- or via runtime errors that it's not used elsewhere.
+-- anyway, because they require interpretation before
+-- they can be compared with an instant Bool result.
 instance Eq (f r z) => Eq (ADVal f r z) where
   D _ u _ == D _ v _ = u == v
   D _ u _ /= D _ v _ = u /= v
@@ -144,10 +140,6 @@ instance (Ord (f r z), IsPrimal f r z) => Ord (ADVal f r z) where
   D _ u _ <= D _ v _ = u <= v
   D _ u _ > D _ v _ = u > v
   D _ u _ >= D _ v _ = u >= v
-  max (D l1 u _) (D l2 v _) =
-    constantADVal (max (letWrapPrimal l1 u) (letWrapPrimal l2 v))
-  min (D l1 u _) (D l2 v _) =
-    constantADVal (min (letWrapPrimal l1 u) (letWrapPrimal l2 v))
 
 instance (Num (f r z), IsPrimal f r z) => Num (ADVal f r z) where
   D l1 u u' + D l2 v v' = dD (l1 `mergeADShare` l2) (u + v) (dAdd u' v')

@@ -948,7 +948,7 @@ fooNoGoAst :: forall r. GoodScalar r
 fooNoGoAst v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
-       barAst (3.14, bar (3.14, tindex v [(ix + (tprimalPart . tfloor) r) `min` 2 `max` 0]))
+       barAst (3.14, bar (3.14, tindex v [(ix + (tprimalPart . tfloor) r) `minB` 2 `maxB` 0]))
        + ifB (AstBoolOp AndOp
                     [ tindex v (ix * 2 :. ZI) <=* 0
                         -- @1 not required thanks to :.; see below for @ and []
@@ -975,7 +975,7 @@ fooNoGo :: forall ranked r. ADReady ranked r
 fooNoGo v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
-       bar (3.14, bar (3.14, tindex v [(ix + (tprimalPart . tfloor) r) `min` 2 `max` 0]))
+       bar (3.14, bar (3.14, tindex v [(ix + (tprimalPart . tfloor) r) `minB` 2 `maxB` 0]))
        + ifB ((&&*) (tindex @ranked @r @1 v [ix * 2] <=* 0)
                     (6 >* abs ix))
                r (5 * r))
@@ -1025,7 +1025,7 @@ nestedSumBuild v0 = tlet v0 $ \v ->
                  tsum (treplicate 5 (tfromIndex0 ix7))))
              ]))))))
  + tlet (nestedBuildMap (tsum0 v)) (\nbmt -> (tbuild1 13 (\ix ->
-     nbmt `tindex` [min ix 4])))
+     nbmt `tindex` [minB ix 4])))
 
 testNestedSumBuild :: Assertion
 testNestedSumBuild =

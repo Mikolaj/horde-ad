@@ -772,15 +772,13 @@ interpretAstDomainsDummy env = \case
 
 -- TODO: when the code again tests with GHC >= 9.6, check whether
 -- these INLINEs are still needed (removal causes 10% slowdown ATM).
-interpretAstNm :: (Ord a, Num a)
+interpretAstNm :: Num a
                   => OpCodeNum -> [a] -> a
 {-# INLINE interpretAstNm #-}
 interpretAstNm MinusOp [u, v] = u - v
 interpretAstNm NegateOp [u] = negate u
 interpretAstNm AbsOp [u] = abs u
 interpretAstNm SignumOp [u] = signum u
-interpretAstNm MaxOp [u, v] = max u v
-interpretAstNm MinOp [u, v] = min u v
 interpretAstNm opCode args =
   error $ "interpretAstNm: wrong number of arguments"
           ++ show (opCode, length args)

@@ -432,7 +432,7 @@ scatter1 t =
   tscatter @ranked @r @2
           (2 :$ ZS)
           t
-          (\(i1 :. i2 :. ZI) -> min (i2 + 2 * i1) 1 :. ZI)
+          (\(i1 :. i2 :. ZI) -> minB (i2 + 2 * i1) 1 :. ZI)
 
 testScatter1 :: Assertion
 testScatter1 =
@@ -458,9 +458,9 @@ testScatterSimp1 = do
   length (show t1) @?= 364
   resetVarCounter
   let !t2 = scatter1 $ AstVar [7, 2] (intToAstVarId 100000000)
-  length (show t2) @?= 289
+  length (show t2) @?= 519
   length (show (simplifyAst6 @Float t1)) @?= 364
-  length (show (simplifyAst6 @Float t2)) @?= 289
+  length (show (simplifyAst6 @Float t2)) @?= 519
 
 scatterNested2 :: forall ranked r. ADReady ranked r
               => ranked r 2 -> ranked r 2
@@ -469,9 +469,9 @@ scatterNested2 t =
           (2 :$ 3 :$ ZS)
           (tscatter @ranked @r @1
                    (2 :$ 3 :$ 4 :$ 2 :$ ZS) t
-                   (\(k1 :. ZI) -> min k1 1 :. min k1 2  :. min k1 3 :. ZI))
+                   (\(k1 :. ZI) -> minB k1 1 :. minB k1 2  :. minB k1 3 :. ZI))
           (\(i1 :. i2 :. _i3 :. i4 :. ZI) ->
-            min (i1 + i2) 1 :. min (i4 + i1) 2 :. ZI)
+            minB (i1 + i2) 1 :. minB (i4 + i1) 2 :. ZI)
 
 testScatterNested2 :: Assertion
 testScatterNested2 =
@@ -497,7 +497,7 @@ scatter2 t =
   tscatter @ranked @r @2
           (2 :$ 3 :$ ZS)
           t
-          (\(i1 :. i2 :. ZI) -> min (i1 + i2 + i1 + i2) 1 :. min i1 2 :. ZI)
+          (\(i1 :. i2 :. ZI) -> minB (i1 + i2 + i1 + i2) 1 :. minB i1 2 :. ZI)
 
 testScatter2 :: Assertion
 testScatter2 =
@@ -521,12 +521,12 @@ testScatterSimp2 :: Assertion
 testScatterSimp2 = do
   resetVarCounter
   let !t1 = scatterNested2 $ AstVar [7, 2] (intToAstVarId 100000000)
-  length (show t1) @?= 804
+  length (show t1) @?= 1601
   resetVarCounter
   let !t2 = scatter2 $ AstVar [7, 2] (intToAstVarId 100000000)
-  length (show t2) @?= 416
-  length (show (simplifyAst6 @Float t1)) @?= 804
-  length (show (simplifyAst6 @Float t2)) @?= 416
+  length (show t2) @?= 806
+  length (show (simplifyAst6 @Float t1)) @?= 1601
+  length (show (simplifyAst6 @Float t2)) @?= 806
 
 scatterNested12 :: forall ranked r. ADReady ranked r
                => ranked r 2 -> ranked r 2
@@ -536,8 +536,8 @@ scatterNested12 t =
           (tscatter @ranked @r @2
                    (2 :$ 3 :$ 4 :$ ZS) t
                    (\(k1 :. k2 :. ZI) ->
-                     min k1 1 :. min (k2 + k1) 2 :. min k1 3 :. ZI))
-          (\(i1 :. _i2 :. ZI) -> min (i1 + i1) 1 :. ZI)
+                     minB k1 1 :. minB (k2 + k1) 2 :. minB k1 3 :. ZI))
+          (\(i1 :. _i2 :. ZI) -> minB (i1 + i1) 1 :. ZI)
 
 testScatterNested12 :: Assertion
 testScatterNested12 =
@@ -564,7 +564,7 @@ scatter12 t =
   tscatter @ranked @r @2
           (2 :$ 4 :$ ZS)
           t
-          (\(i1 :. k3 :. ZI) -> min (i1 + i1 + i1 + k3) 1 :. min i1 3 :. ZI)
+          (\(i1 :. k3 :. ZI) -> minB (i1 + i1 + i1 + k3) 1 :. minB i1 3 :. ZI)
 
 testScatter12 :: Assertion
 testScatter12 =
@@ -589,9 +589,9 @@ testScatterSimp12 :: Assertion
 testScatterSimp12 = do
   resetVarCounter
   let !t1 = scatterNested12 $ AstVar [7, 2] (intToAstVarId 100000000)
-  length (show t1) @?= 677
+  length (show t1) @?= 1333
   resetVarCounter
   let !t2 = scatter12 $ AstVar [7, 2] (intToAstVarId 100000000)
-  length (show t2) @?= 416
-  length (show (simplifyAst6 @Float t1)) @?= 677
-  length (show (simplifyAst6 @Float t2)) @?= 416
+  length (show t2) @?= 806
+  length (show (simplifyAst6 @Float t1)) @?= 1333
+  length (show (simplifyAst6 @Float t2)) @?= 806

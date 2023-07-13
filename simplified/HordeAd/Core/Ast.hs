@@ -349,7 +349,6 @@ deriving instance Show AstBool
 
 data OpCodeNum =
     MinusOp | TimesOp | NegateOp | AbsOp | SignumOp
-  | MaxOp | MinOp
  deriving Show
 
 data OpCode =
@@ -533,11 +532,6 @@ instance Eq (AstPrimalPart r n) where
   _ == _ = error "AstPrimalPart: can't evaluate terms for Eq"
 
 instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstPrimalPart r n) where
-  max (AstPrimalPart u) (AstPrimalPart v) =
-    AstPrimalPart (AstNm MaxOp [u, v])
-      -- these are only correct when the dual part is empty, as it's here
-  min (AstPrimalPart u) (AstPrimalPart v) =
-    AstPrimalPart (AstNm MinOp [u, v])
   _ <= _ = error "AstPrimalPart: can't evaluate terms for Ord"
 
 instance Num (OR.Array n r) => Num (AstPrimalPart r n) where
@@ -746,11 +740,6 @@ instance Eq (AstPrimalPartS r sh) where
   _ == _ = error "AstPrimalPartS: can't evaluate terms for Eq"
 
 instance (Ord r, Num r, Ord (AstShaped r sh)) => Ord (AstPrimalPartS r sh) where
-  max (AstPrimalPartS u) (AstPrimalPartS v) =
-    AstPrimalPartS (AstNmS MaxOp [u, v])
-      -- these are only correct when the dual part is empty, as it's here
-  min (AstPrimalPartS u) (AstPrimalPartS v) =
-    AstPrimalPartS (AstNmS MinOp [u, v])
   _ <= _ = error "AstPrimalPartS: can't evaluate terms for Ord"
 
 deriving instance Num (AstShaped r sh) => Num (AstPrimalPartS r sh)

@@ -1974,12 +1974,6 @@ simplifyAstNumOp NegateOp [AstNm TimesOp [u, v]] =
 simplifyAstNumOp NegateOp [AstNm NegateOp [u]] = u
 simplifyAstNumOp NegateOp [AstNm SignumOp [u]] =
   simplifyAstNumOp SignumOp [simplifyAstNumOp NegateOp [u]]
-simplifyAstNumOp NegateOp [AstNm MaxOp [u, v]] =
-  simplifyAstNumOp MinOp [ simplifyAstNumOp NegateOp [u]
-                         , simplifyAstNumOp NegateOp [v] ]
-simplifyAstNumOp NegateOp [AstNm MinOp [u, v]] =
-  simplifyAstNumOp MaxOp [ simplifyAstNumOp NegateOp [u]
-                         , simplifyAstNumOp NegateOp [v] ]
 simplifyAstNumOp NegateOp [Ast.AstOpIntegral QuotOp [AstConst u, v]] =
   simplifyAstIntegralOp QuotOp [AstConst $ negate u, v]
 simplifyAstNumOp NegateOp [Ast.AstOpIntegral QuotOp [u, v]] =
@@ -1996,20 +1990,6 @@ simplifyAstNumOp SignumOp [AstConst u] = AstConst $ signum u
 simplifyAstNumOp SignumOp [AstNm SignumOp [u]] = AstNm SignumOp [u]
 simplifyAstNumOp SignumOp [AstNm AbsOp [u]] =
   simplifyAstNumOp AbsOp [AstNm SignumOp [u]]
-simplifyAstNumOp MaxOp [AstConst u, AstConst v] = AstConst $ max u v
-simplifyAstNumOp MaxOp [ AstConst u
-                       , AstNm MaxOp [AstConst v, w] ] =
-  simplifyAstNumOp MaxOp [AstConst $ max u v, w]
-simplifyAstNumOp MaxOp [u, AstConst n] = AstNm MaxOp [AstConst n, u]
-simplifyAstNumOp MaxOp [AstNm MaxOp [u, v], w] =
-  simplifyAstNumOp MaxOp [u, simplifyAstNumOp MaxOp [v, w]]
-simplifyAstNumOp MinOp [AstConst u, AstConst v] = AstConst $ min u v
-simplifyAstNumOp MinOp [ AstConst u
-                       , AstNm MinOp [AstConst v, w] ] =
-  simplifyAstNumOp MinOp [AstConst $ min u v, w]
-simplifyAstNumOp MinOp [u, AstConst n] = AstNm MinOp [AstConst n, u]
-simplifyAstNumOp MinOp [AstNm MinOp [u, v], w] =
-  simplifyAstNumOp MinOp [u, simplifyAstNumOp MinOp [v, w]]
 
 simplifyAstNumOp opCode arg = AstNm opCode arg
 

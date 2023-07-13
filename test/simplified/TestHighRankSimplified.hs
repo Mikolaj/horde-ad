@@ -192,7 +192,7 @@ fooBuild3 :: forall ranked r n.
 fooBuild3 v =
   tbuild1 22 $ \ix ->
     bar ( treplicate0N (tailShape $ tshape v) 1
-        , tindex v [min 1 (ix + 1)] )  -- index not out of bounds
+        , tindex v [minB 1 (ix + 1)] )  -- index not out of bounds
 
 testFooBuild3 :: Assertion
 testFooBuild3 =
@@ -210,7 +210,7 @@ fooBuild5 v =
        r * foo ( treplicate0N (tailShape $ tshape v) 3
                , tscaleByScalar 5 r
                , r * v')
-       + bar (r, tindex v [min 1 (ix + 1)])  -- index not out of bounds
+       + bar (r, tindex v [minB 1 (ix + 1)])  -- index not out of bounds
 
 testFooBuildDt :: Assertion
 testFooBuildDt =
@@ -235,7 +235,7 @@ fooBuild1 v =
        r * foo ( tk 3
                , tk 5 * r
                , r * v')
-       + bar (r, tindex v [min 1 (ix + 1)])
+       + bar (r, tindex v [minB 1 (ix + 1)])
 
 testFooBuild1 :: Assertion
 testFooBuild1 =
@@ -352,9 +352,9 @@ nestedSumBuild v =
     ifB (ix2 >* ix1)
         (tmap0N ((* (-0.00000003)) . sqrt . abs)
          $ nestedBuildMap (tsum0 v)
-           `tindex` (ix2 `rem` 3 :. min 1 ix1 :. min ix1 3 :. ZI))
+           `tindex` (ix2 `rem` 3 :. minB 1 ix1 :. minB ix1 3 :. ZI))
         (nestedBuildMap 0.00042
-         `tindex` (ix2 `rem` 3 :. min 1 ix1 :. min ix1 3 :. ZI))
+         `tindex` (ix2 `rem` 3 :. minB 1 ix1 :. minB ix1 3 :. ZI))
 
 testNestedSumBuild1 :: Assertion
 testNestedSumBuild1 =
@@ -379,7 +379,7 @@ nestedSumBuildB v =
              , tsum $ tbuild [9, 2] $ const $ tfromIndex0 ix
              , tindex v (listToIndex @n
                          $ replicate (trank v - 1)
-                             (max 0 $ min 1 $ ix2 `quot` 2 + ix `quot` 4 - 1))
+                             (maxB 0 $ minB 1 $ ix2 `quot` 2 + ix `quot` 4 - 1))
              , tbuild1 2 (\_ -> tsum0 v)
              , tsum (tbuild1 7 (\ix7 ->
                  treplicate 2 (tfromIndex0 ix7)))
@@ -500,7 +500,7 @@ concatBuild r =
             , tbuild1 11 (\j ->
                 tmap0N (* (tfromIndex0
                   (125 * (j `rem` (abs (signum i + abs i) + 1))
-                   + max j (i `quot` (j + 1)) * (tprimalPart . tfloor) (tsum0 r)
+                   + maxB j (i `quot` (j + 1)) * (tprimalPart . tfloor) (tsum0 r)
                    - ifB (r <* r &&* i <* j)
                          (tprimalPart $ tminIndex (tflatten r))
                          ((tprimalPart . tfloor) $ tsum0 $ r ! ((i * j) `rem` 7 :. ZI))))) r)
