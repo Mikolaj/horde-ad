@@ -202,7 +202,7 @@ printAstAux cfg d = \case
     in showParen (d > 6)
        $ printAst cfg 7 left
          . foldr (.) id rs
-  AstIota -> showString "tiota"  -- TODO: no surface syntax, so no roundtrip
+  AstIota -> showString "tiota"
   AstIndex v ix ->
     showParen (d > 9)
     $ printAst cfg 10 v
@@ -552,7 +552,7 @@ printAstS cfg d = \case
     in showParen (d > 6)
        $ printAstS cfg 7 left
          . foldr (.) id rs
-  AstIotaS -> showString "siota"  -- TODO: no surface syntax, so no roundtrip
+  AstIotaS -> showString "siota"
   AstIndexS v ix ->
     showParen (d > 9)
     $ printAstS cfg 10 v

@@ -923,8 +923,8 @@ interpretAstS env = \case
   AstSumOfListS args ->
     let args2 = interpretAstS env <$> args
     in ssumOfList args2
-  AstIotaS -> error "interpretAstS: bare AstIotaS, most likely a bug"
-  AstIndexS (AstIotaS @n) (i :$: ZSH) ->
+  AstIotaS -> siota  -- TODO: siotaBare might be needed to avoid AstConstant
+  AstIndexS AstIotaS (i :$: ZSH) ->
     let sfromIndex = sconstant . scast . sfromR
     in sfromIndex $ interpretAstPrimal env i
   AstIndexS @sh1 v ix ->
@@ -1116,7 +1116,7 @@ interpretAstS env = \case
   AstBuild1S (var, v) ->
     sbuild1 (interpretLambdaIS interpretAstS env (var, v))
       -- to be used only in tests
-  AstGatherS @sh2 (AstIotaS @n) (vars, (i :$: ZSH)) ->
+  AstGatherS @sh2 AstIotaS (vars, (i :$: ZSH)) ->
     let sfromIndex :: AstInt -> AstShaped r '[]
         sfromIndex = sconstant . scast . sfromR
     in gcastWith (unsafeCoerce Refl :: OS.Take (OS.Rank sh) sh :~: sh)

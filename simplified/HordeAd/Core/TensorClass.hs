@@ -99,6 +99,8 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
 
   -- Typically scalar codomain, often tensor reduction
   -- (a number suffix in the name indicates the rank of codomain)
+  tiota :: ranked r 1  -- 0, 1 .. infinity
+  tiota = undefined  -- infinite, hence diverges; don't override
   tindex, (!) :: (GoodScalar r, KnownNat m, KnownNat n)
               => ranked r (m + n) -> IndexOf ranked m -> ranked r n
   infixl 9 !
@@ -322,6 +324,8 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
 
   -- Typically scalar codomain, often tensor reduction
   -- (a number suffix in the name indicates the rank of codomain)
+  siota :: forall n r. (GoodScalar r, KnownNat n)
+        => shaped r '[n]  -- from 0 to n - 1
   sindex, (!$) :: forall r sh1 sh2.
                   ( GoodScalar r, OS.Shape sh1, OS.Shape sh2
                   , OS.Shape (sh1 OS.++ sh2) )
@@ -823,6 +827,10 @@ instance ShapedTensor (Flip OS.Array) where
   sminIndex = Flip . tminIndexS . runFlip
   smaxIndex = Flip . tmaxIndexS . runFlip
   sfloor = Flip . tfloorS . runFlip
+  siota :: forall n r. (GoodScalar r, KnownNat n)
+        => Flip OS.Array r '[n]  -- from 0 to n - 1
+  siota = let n = valueOf @n :: Int
+          in Flip $ OS.fromList $ map fromIntegral [0 .. n - 1]
   sindex v ix = Flip $ tindexZS (runFlip v) (fromIndexOfS ix)
   sindex0 v ix = Flip . tscalarS $ tindex0S (runFlip v) (fromIndexOfS ix)
   ssum = Flip . tsumS . runFlip

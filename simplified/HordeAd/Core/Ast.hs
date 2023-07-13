@@ -149,7 +149,6 @@ data AstRanked :: RankedTensorKind where
   AstOpIntegral :: OpCodeIntegral -> [AstRanked Int64 n] -> AstRanked Int64 n
   AstSumOfList :: [AstRanked r n] -> AstRanked r n
   AstIota :: AstRanked r 1
-    -- needed, because toInteger and so fromIntegral is not defined for Ast
 
   -- For the Tensor class:
   AstIndex :: forall m n r. KnownNat m
@@ -236,7 +235,6 @@ data AstShaped :: ShapedTensorKind where
   AstOpIntegralS :: OpCodeIntegral -> [AstShaped Int64 sh] -> AstShaped Int64 sh
   AstSumOfListS :: [AstShaped r sh] -> AstShaped r sh
   AstIotaS :: forall n r. KnownNat n => AstShaped r '[n]
-    -- needed, because toInteger and so fromIntegral is not defined for Ast
 
   -- For the Tensor class:
   AstIndexS :: forall sh1 sh2 r.
@@ -475,7 +473,7 @@ instance Integral (OR.Array n Int64) => Integral (AstRanked Int64 n) where
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
 
-instance (Real r, Real (OR.Array n r))
+instance (Real (OR.Array n r))
          => Real (AstRanked r n) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
@@ -583,18 +581,18 @@ instance Num (OR.Array n r) => Num (AstPrimalPart r n) where
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
 
-deriving instance (Real r, Real (AstRanked r n), Num (OR.Array n r))
+deriving instance (Real (AstRanked r n), Num (OR.Array n r))
                   => Real (AstPrimalPart r n)
 deriving instance Enum (AstRanked r n) => Enum (AstPrimalPart r n)
-deriving instance (Real r, Integral (AstRanked r n), Num (OR.Array n r))
+deriving instance (Integral (AstRanked r n), Num (OR.Array n r))
                   => Integral (AstPrimalPart r n)
 deriving instance (Fractional (AstRanked r n), Num (OR.Array n r))
                   => Fractional (AstPrimalPart r n)
 deriving instance (Floating (AstRanked r n), Num (OR.Array n r))
                   => Floating (AstPrimalPart r n)
-deriving instance (RealFloat r, RealFrac (AstRanked r n), Num (OR.Array n r))
+deriving instance (RealFrac (AstRanked r n), Num (OR.Array n r))
                   => RealFrac (AstPrimalPart r n)
-deriving instance (RealFloat r, RealFloat (AstRanked r n), Num (OR.Array n r))
+deriving instance (RealFloat (AstRanked r n), Num (OR.Array n r))
                   => RealFloat (AstPrimalPart r n)
 
 
@@ -670,7 +668,7 @@ instance (Num (OS.Array sh r)) => Num (AstShaped r sh) where
   signum v = AstNmS SignumOp [v]
   fromInteger = AstConstantS . AstPrimalPartS . AstConstS . fromInteger
 
-instance (Real r, Real (OS.Array sh r)) => Real (AstShaped r sh) where
+instance (Real (OS.Array sh r)) => Real (AstShaped r sh) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
@@ -745,17 +743,17 @@ instance Ord (AstPrimalPartS r sh) where
   (<=) = error "AST requires that OrdB be used instead"
 
 deriving instance Num (AstShaped r sh) => Num (AstPrimalPartS r sh)
-deriving instance (Real r, Real (AstShaped r sh))
+deriving instance (Real (AstShaped r sh))
                   => Real (AstPrimalPartS r sh)
 deriving instance Enum (AstShaped r sh) => Enum (AstPrimalPartS r sh)
-deriving instance (Real r, Integral (AstShaped r sh))
+deriving instance (Integral (AstShaped r sh))
                   => Integral (AstPrimalPartS r sh)
 deriving instance Fractional (AstShaped r sh)
                   => Fractional (AstPrimalPartS r sh)
 deriving instance Floating (AstShaped r sh) => Floating (AstPrimalPartS r sh)
-deriving instance (RealFloat r, RealFrac (AstShaped r sh))
+deriving instance (RealFrac (AstShaped r sh))
                   => RealFrac (AstPrimalPartS r sh)
-deriving instance (RealFloat r, RealFloat (AstShaped r sh))
+deriving instance (RealFloat (AstShaped r sh))
                   => RealFloat (AstPrimalPartS r sh)
 
 
@@ -953,16 +951,16 @@ instance Ord (AstNoVectorize r n) where
   (<=) = error "AST requires that OrdB be used instead"
 
 deriving instance Num (AstRanked r n) => Num (AstNoVectorize r n)
-deriving instance (Real r, Real (AstRanked r n))
+deriving instance (Real (AstRanked r n))
                    => Real (AstNoVectorize r n)
 deriving instance Enum (AstRanked r n) => Enum (AstNoVectorize r n)
-deriving instance (Real r, Integral (AstRanked r n))
+deriving instance (Integral (AstRanked r n))
                   => Integral (AstNoVectorize r n)
 deriving instance Fractional (AstRanked r n) => Fractional (AstNoVectorize r n)
 deriving instance Floating (AstRanked r n) => Floating (AstNoVectorize r n)
-deriving instance (RealFloat r, RealFrac (AstRanked r n))
+deriving instance (RealFrac (AstRanked r n))
                   => RealFrac (AstNoVectorize r n)
-deriving instance (RealFloat r, RealFloat (AstRanked r n))
+deriving instance (RealFloat (AstRanked r n))
                   => RealFloat (AstNoVectorize r n)
 
 instance Eq (AstNoSimplify r n) where
@@ -973,14 +971,14 @@ instance Ord (AstNoSimplify r n) where
   (<=) = error "AST requires that OrdB be used instead"
 
 deriving instance Num (AstRanked r n) => Num (AstNoSimplify r n)
-deriving instance (Real r, Real (AstRanked r n))
+deriving instance (Real (AstRanked r n))
                   => Real (AstNoSimplify r n)
 deriving instance Enum (AstRanked r n) => Enum (AstNoSimplify r n)
-deriving instance (Real r, Integral (AstRanked r n))
+deriving instance (Integral (AstRanked r n))
                   => Integral (AstNoSimplify r n)
 deriving instance Fractional (AstRanked r n) => Fractional (AstNoSimplify r n)
 deriving instance Floating (AstRanked r n) => Floating (AstNoSimplify r n)
-deriving instance (RealFloat r, RealFrac (AstRanked r n))
+deriving instance (RealFrac (AstRanked r n))
                   => RealFrac (AstNoSimplify r n)
-deriving instance (RealFloat r, RealFloat (AstRanked r n))
+deriving instance (RealFloat (AstRanked r n))
                   => RealFloat (AstNoSimplify r n)

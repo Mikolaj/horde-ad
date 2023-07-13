@@ -336,6 +336,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   smaxIndex (D l u _) = dDnotShared l (smaxIndex u) dZero
   sfloor (D l u _) = dDnotShared l (sfloor u) dZero
 
+  siota = constantADVal siota -- TODO: siotaBare may be needed
   sindex v ix = indexS v ix
   ssum (D l u u') = dD l (ssum u) (SumS u')
   ssum0 (D l u u') = dD l (ssum0 u) (Sum0S u')

@@ -40,6 +40,7 @@ instance RankedTensor AstRanked where
   tmaxIndex = AstMaxIndex . astPrimalPart
   tfloor = AstFloor . astPrimalPart
 
+  tiota = AstConstant . AstPrimalPart $ AstIota
   tindex = AstIndex
   tsum = AstSum
   tscatter sh t f = astScatter sh t (funToAstIndex f)  -- introduces new vars
@@ -203,6 +204,7 @@ instance RankedTensor AstPrimalPart where
   tmaxIndex = AstPrimalPart . AstMaxIndex
   tfloor = AstPrimalPart . AstFloor
 
+  tiota = AstPrimalPart AstIota
   tindex v ix = astPrimalPart $ AstIndex (unAstPrimalPart v) ix
   tsum = astPrimalPart . AstSum . unAstPrimalPart
   tscatter sh t f = astPrimalPart $ astScatter sh (unAstPrimalPart t)
@@ -242,6 +244,7 @@ instance ShapedTensor AstShaped where
   smaxIndex = AstMaxIndexS . astPrimalPartS
   sfloor = AstFloorS . astPrimalPartS
 
+  siota = AstConstantS . AstPrimalPartS $ AstIotaS
   sindex = AstIndexS
   ssum = AstSumS
   sscatter t f = AstScatterS t (funToAstIndexS f)  -- astScatter t (funToAstIndexS f)  -- introduces new vars
@@ -324,6 +327,7 @@ instance ShapedTensor AstPrimalPartS where
   smaxIndex = AstPrimalPartS . AstMaxIndexS
   sfloor = AstPrimalPartS . AstFloorS
 
+  siota = AstPrimalPartS AstIotaS
   sindex v ix = astPrimalPartS $ AstIndexS (unAstPrimalPartS v) ix
   ssum = astPrimalPartS . AstSumS . unAstPrimalPartS
   sscatter t f = astPrimalPartS $ AstScatterS (unAstPrimalPartS t)
@@ -370,6 +374,7 @@ instance RankedTensor AstNoVectorize where
   tmaxIndex = AstNoVectorize . AstMaxIndex . astPrimalPart . unAstNoVectorize
   tfloor = AstNoVectorize . AstFloor . astPrimalPart . unAstNoVectorize
 
+  tiota = AstNoVectorize . AstConstant . AstPrimalPart $ AstIota
   tindex v ix = AstNoVectorize $ AstIndex (unAstNoVectorize v) ix
   tsum = AstNoVectorize . AstSum . unAstNoVectorize
   tscatter sh t f = AstNoVectorize $ astScatter sh (unAstNoVectorize t)
@@ -412,6 +417,7 @@ instance RankedTensor AstNoSimplify where
   tmaxIndex = AstNoSimplify . AstMaxIndex . astPrimalPart . unAstNoSimplify
   tfloor = AstNoSimplify . AstFloor . astPrimalPart . unAstNoSimplify
 
+  tiota = AstNoSimplify . AstConstant . AstPrimalPart $ AstIota
   tindex v ix = AstNoSimplify $ AstIndex (unAstNoSimplify v) ix
   tsum = AstNoSimplify . AstSum . unAstNoSimplify
   tscatter sh t f = AstNoSimplify $ AstScatter sh (unAstNoSimplify t)
