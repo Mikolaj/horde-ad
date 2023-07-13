@@ -439,12 +439,13 @@ instance (KnownNat n, GoodScalar r) => OrdB (AstPrimalPart r n) where
 
 -- * Unlawful numeric instances of ranked AST; they are lawful modulo evaluation
 
--- See the comment about @Eq@ and @Ord@ in "DualNumber".
+-- These are, unfortunately, required by some numeric instances.
 instance Eq (AstRanked r n) where
-  _ == _ = error "Ast: can't evaluate terms for Eq"
+  (==) = error "AST requires that EqB be used instead"
+  (/=) = error "AST requires that EqB be used instead"
 
-instance (Ord r, Num r, Ord (OR.Array n r)) => Ord (AstRanked r n) where
-  _ <= _ = error "Ast: can't evaluate terms for Ord"
+instance Ord (AstRanked r n) where
+  (<=) = error "AST requires that OrdB be used instead"
 
 instance Num (OR.Array n r) => Num (AstRanked r n) where
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
@@ -529,10 +530,11 @@ instance (RealFloat r, RealFloat (OR.Array n r))
   isIEEE = undefined
 
 instance Eq (AstPrimalPart r n) where
-  _ == _ = error "AstPrimalPart: can't evaluate terms for Eq"
+  (==) = error "AST requires that EqB be used instead"
+  (/=) = error "AST requires that EqB be used instead"
 
-instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstPrimalPart r n) where
-  _ <= _ = error "AstPrimalPart: can't evaluate terms for Ord"
+instance Ord (AstPrimalPart r n) where
+  (<=) = error "AST requires that OrdB be used instead"
 
 instance Num (OR.Array n r) => Num (AstPrimalPart r n) where
   -- The normal form has AstConst, if any, as the first element of the list
@@ -647,13 +649,12 @@ instance (OS.Shape sh, GoodScalar r) => OrdB (AstPrimalPartS r sh) where
 
 -- * Unlawful numeric instances of shaped AST; they are lawful modulo evaluation
 
--- See the comment about @Eq@ and @Ord@ in "DualNumber".
 instance Eq (AstShaped r sh) where
-  _ == _ = error "Ast: can't evaluate terms for Eq"
+  (==) = error "AST requires that EqB be used instead"
+  (/=) = error "AST requires that EqB be used instead"
 
-instance (Ord r, Num r, Ord (OS.Array sh r)) => Ord (AstShaped r sh) where
-  -- Unfortunately, the others can't be made to return @AstBool@.
-  _ <= _ = error "Ast: can't evaluate terms for Ord"
+instance Ord (AstShaped r sh) where
+  (<=) = error "AST requires that OrdB be used instead"
 
 instance (Num (OS.Array sh r)) => Num (AstShaped r sh) where
   AstSumOfListS lu + AstSumOfListS lv = AstSumOfListS (lu ++ lv)
@@ -737,10 +738,11 @@ instance (RealFloat r, RealFloat (OS.Array sh r))
   isIEEE = undefined
 
 instance Eq (AstPrimalPartS r sh) where
-  _ == _ = error "AstPrimalPartS: can't evaluate terms for Eq"
+  (==) = error "AST requires that EqB be used instead"
+  (/=) = error "AST requires that EqB be used instead"
 
-instance (Ord r, Num r, Ord (AstShaped r sh)) => Ord (AstPrimalPartS r sh) where
-  _ <= _ = error "AstPrimalPartS: can't evaluate terms for Ord"
+instance Ord (AstPrimalPartS r sh) where
+  (<=) = error "AST requires that OrdB be used instead"
 
 deriving instance Num (AstShaped r sh) => Num (AstPrimalPartS r sh)
 deriving instance (Real r, Real (AstShaped r sh))
@@ -944,10 +946,11 @@ instance (KnownNat n, GoodScalar r) => OrdB (AstNoSimplify r n) where
                          , astPrimalPart $ unAstNoSimplify u ]
 
 instance Eq (AstNoVectorize r n) where
-  _ == _ = error "AstNoVectorize: can't evaluate terms for Eq"
+  (==) = error "AST requires that EqB be used instead"
+  (/=) = error "AST requires that EqB be used instead"
 
-instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstNoVectorize r n) where
-  _ <= _ = error "AstNoVectorize: can't evaluate terms for Ord"
+instance Ord (AstNoVectorize r n) where
+  (<=) = error "AST requires that OrdB be used instead"
 
 deriving instance Num (AstRanked r n) => Num (AstNoVectorize r n)
 deriving instance (Real r, Real (AstRanked r n))
@@ -963,10 +966,11 @@ deriving instance (RealFloat r, RealFloat (AstRanked r n))
                   => RealFloat (AstNoVectorize r n)
 
 instance Eq (AstNoSimplify r n) where
-  _ == _ = error "AstNoSimplify: can't evaluate terms for Eq"
+  (==) = error "AST requires that EqB be used instead"
+  (/=) = error "AST requires that EqB be used instead"
 
-instance (Ord r, Num r, Ord (AstRanked r n)) => Ord (AstNoSimplify r n) where
-  _ <= _ = error "AstNoSimplify: can't evaluate terms for Ord"
+instance Ord (AstNoSimplify r n) where
+  (<=) = error "AST requires that OrdB be used instead"
 
 deriving instance Num (AstRanked r n) => Num (AstNoSimplify r n)
 deriving instance (Real r, Real (AstRanked r n))
