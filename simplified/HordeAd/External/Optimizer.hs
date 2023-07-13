@@ -49,7 +49,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   -> (DomainsOD, Flip OR.Array Double 0) #-}
 
 sgdAdam :: forall f r a y.
-           ( DualPart f, HasSingletonDict f y, GoodScalar r
+           ( DualPart f, HasSingletonDict y, GoodScalar r
            , DynamicOf f ~ OD.Array, Num (f r y) )
         => (a -> Domains (DynamicOf (ADVal f)) -> ADVal f r y)
         -> [a]
@@ -59,7 +59,7 @@ sgdAdam :: forall f r a y.
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs :: forall f r a y.
-               ( DualPart f, HasSingletonDict f y, GoodScalar r
+               ( DualPart f, HasSingletonDict y, GoodScalar r
                , DynamicOf f ~ OD.Array, Num (f r y) )
             => ArgsAdam
             -> (a -> Domains (DynamicOf (ADVal f)) -> ADVal f r y)

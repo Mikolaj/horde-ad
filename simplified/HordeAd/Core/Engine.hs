@@ -46,7 +46,7 @@ import HordeAd.Core.Types
 
 rev
   :: forall r y f vals astvals.
-     ( Adaptable f, GoodScalar r, HasSingletonDict f y
+     ( Adaptable f, GoodScalar r, HasSingletonDict y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
   => (astvals -> AstOf f r y) -> vals -> vals
@@ -55,7 +55,7 @@ rev f vals = revDtMaybe f vals Nothing
 -- This version additionally takes the sensitivity parameter.
 revDt
   :: forall r y f vals astvals.
-     ( Adaptable f, GoodScalar r, HasSingletonDict f y
+     ( Adaptable f, GoodScalar r, HasSingletonDict y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
   => (astvals -> AstOf f r y) -> vals -> f r y -> vals
@@ -63,7 +63,7 @@ revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revDtMaybe
   :: forall r y f vals astvals.
-     ( Adaptable f, GoodScalar r, HasSingletonDict f y
+     ( Adaptable f, GoodScalar r, HasSingletonDict y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
   => (astvals -> AstOf f r y) -> vals -> Maybe (f r y) -> vals
@@ -75,13 +75,13 @@ revDtMaybe f vals mdt =
 type Adaptable :: forall k. TensorKind k -> Constraint
 class Adaptable f where
   revAstOnDomainsEval
-    :: forall r y. (GoodScalar r, HasSingletonDict f y)
+    :: forall r y. (GoodScalar r, HasSingletonDict y)
     => ADAstArtifact6 f r y -> Domains OD.Array -> Maybe (f r y)
     -> (Domains OD.Array, f r y)
 
   revDtInit
     :: forall r y vals astvals.
-       ( GoodScalar r, HasSingletonDict f y
+       ( GoodScalar r, HasSingletonDict y
        , AdaptableDomains AstDynamic astvals
        , vals ~ Value astvals )
     => Bool -> (astvals -> AstOf f r y) -> vals
@@ -158,7 +158,7 @@ instance Adaptable @[Nat] (Flip OS.Array) where
 
 revDtFun
   :: forall r y f vals astvals.
-     ( Adaptable f, GoodScalar r, HasSingletonDict f y
+     ( Adaptable f, GoodScalar r, HasSingletonDict y
      , AdaptableDomains AstDynamic astvals, AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
   => Bool -> (astvals -> AstOf f r y) -> vals
@@ -230,7 +230,7 @@ revAstOnDomainsFunS hasDt parameters0 f =
 -- These work for f both ranked and shaped.
 crev
   :: forall r y f vals advals.
-     ( DualPart f, HasSingletonDict f y, GoodScalar r
+     ( DualPart f, HasSingletonDict y, GoodScalar r
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals, RandomDomains vals
@@ -241,7 +241,7 @@ crev f vals = crevDtMaybe f vals Nothing
 -- This version additionally takes the sensitivity parameter.
 crevDt
   :: forall r y f vals advals.
-     ( DualPart f, HasSingletonDict f y, GoodScalar r
+     ( DualPart f, HasSingletonDict y, GoodScalar r
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals, RandomDomains vals
@@ -251,7 +251,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall r y f vals advals.
-     ( DualPart f, HasSingletonDict f y, GoodScalar r
+     ( DualPart f, HasSingletonDict y, GoodScalar r
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals, RandomDomains vals
@@ -264,7 +264,7 @@ crevDtMaybe f vals dt =
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 crevOnDomains
-  :: ( DualPart f, HasSingletonDict f y, GoodScalar r
+  :: ( DualPart f, HasSingletonDict y, GoodScalar r
      , DynamicOf f ~ OD.Array )
   => Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
@@ -279,7 +279,7 @@ crevOnDomains dt f parameters =
 -- only at these values, both transposing and evaluating at the same time.
 -- These work for f both ranked and shaped.
 crevOnADInputs
-  :: ( DualPart f, HasSingletonDict f y, GoodScalar r
+  :: ( DualPart f, HasSingletonDict y, GoodScalar r
      , DynamicOf f ~ OD.Array )
   => Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
@@ -304,7 +304,7 @@ crevOnADInputs mdt f inputs =
 -- It uses the same delta expressions as for gradients.
 cfwd
   :: forall r y f vals advals.
-     ( DualPart f, HasSingletonDict f y, GoodScalar r
+     ( DualPart f, HasSingletonDict y, GoodScalar r
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals
@@ -317,7 +317,7 @@ cfwd f x ds =
 
 -- The direction vector ds is taken as an extra argument.
 cfwdOnDomains
-  :: ( DualPart f, HasSingletonDict f y, GoodScalar r
+  :: ( DualPart f, HasSingletonDict y, GoodScalar r
      , DynamicOf f ~ OD.Array )
   => DomainsOD
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
@@ -329,7 +329,7 @@ cfwdOnDomains parameters f ds =
   in cfwdOnADInputs inputs f ds
 
 cfwdOnADInputs
-  :: ( DualPart f, HasSingletonDict f y, GoodScalar r
+  :: ( DualPart f, HasSingletonDict y, GoodScalar r
      , DynamicOf f ~ OD.Array )
   => Domains (DynamicOf (ADVal f))
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)

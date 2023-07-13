@@ -2,7 +2,8 @@
 -- | Some fundamental kinds, type families and types.
 module HordeAd.Core.Types
   ( TensorKind, RankedTensorKind, ShapedTensorKind
-  , GoodScalar, DynamicExists(..), Domains, DomainsOD, sizeDomainsOD
+  , GoodScalar, HasSingletonDict
+  , DynamicExists(..), Domains, DomainsOD, sizeDomainsOD
   , RankedOf, ShapedOf, PrimalOf, DualOf, IntOf, IndexOf, IntSh, IndexSh
   , DummyDual(..)
   ) where
@@ -10,11 +11,12 @@ module HordeAd.Core.Types
 import Prelude
 
 import qualified Data.Array.DynamicS as OD
+import qualified Data.Array.Internal.Shape as OS
 import           Data.Int (Int64)
-import           Data.Kind (Type)
+import           Data.Kind (Constraint, Type)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (Nat)
+import           GHC.TypeLits (KnownNat, Nat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Type.Reflection (Typeable)
 
@@ -35,6 +37,12 @@ type GoodScalarConstraint r =
 -- in existential datatypes instead of six pointers. No effect, strangely.
 class GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
+
+type HasSingletonDict :: k -> Constraint
+type family HasSingletonDict (y :: k) where
+  HasSingletonDict '() = ()
+  HasSingletonDict n = KnownNat n
+  HasSingletonDict sh = (OS.Shape sh, KnownNat (OS.Size sh))
 
 data DynamicExists :: (Type -> Type) -> Type where
   DynamicExists :: forall r dynamic. GoodScalar r

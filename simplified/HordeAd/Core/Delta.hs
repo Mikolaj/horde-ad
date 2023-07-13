@@ -399,30 +399,27 @@ newtype InputId (f :: TensorKind k) = InputId Int
 toInputId :: Int -> InputId f
 toInputId i = assert (i >= 0) $ InputId i
 
-type DualPart :: forall k. TensorKind k -> Constraint
+type DualPart :: TensorKind k -> Constraint
 class DualPart (f :: TensorKind k) where
   -- | The type family that to each basic differentiable type
   -- assigns its delta expression type.
   type Dual f = (result :: TensorKind k) | result -> f
-  type HasSingletonDict f (y :: k) :: Constraint
   reverseDervative
-    :: (HasSingletonDict f y, GoodScalar r)
+    :: (HasSingletonDict y, GoodScalar r)
     => Int -> f r y -> Maybe (f r y) -> Dual f r y
     -> ([(AstVarId, DynamicExists (DynamicOf f))], Domains (DynamicOf f))
   forwardDerivative
-    :: (HasSingletonDict f y, GoodScalar r)
+    :: (HasSingletonDict y, GoodScalar r)
     => Int -> Dual f r y -> Domains (DynamicOf f)
     -> f r y
 
 instance DualPart @() (Clown OD.Array) where
   type Dual (Clown OD.Array) = DeltaD (Flip OR.Array) (Flip OS.Array)
-  type HasSingletonDict (Clown OD.Array) '() = ()
   reverseDervative = gradientDtD
   forwardDerivative = derivativeFromDeltaD
 
 instance DualPart @() (Clown AstDynamic) where
   type Dual (Clown AstDynamic) = DeltaD AstPrimalPart AstPrimalPartS
-  type HasSingletonDict (Clown AstDynamic) '() = ()
   reverseDervative = gradientDtD
   forwardDerivative = derivativeFromDeltaD
 
@@ -461,13 +458,11 @@ derivativeFromDeltaD dim deltaTopLevel ds =
 
 instance DualPart @Nat (Flip OR.Array) where
   type Dual (Flip OR.Array) = DeltaR (Flip OR.Array) (Flip OS.Array)
-  type HasSingletonDict (Flip OR.Array) n = KnownNat n
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
 instance DualPart @Nat AstPrimalPart where
   type Dual AstPrimalPart = DeltaR AstPrimalPart AstPrimalPartS
-  type HasSingletonDict AstPrimalPart n = KnownNat n
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
@@ -500,15 +495,11 @@ derivativeFromDeltaR dim deltaTopLevel ds =
 
 instance DualPart @[Nat] (Flip OS.Array) where
   type Dual (Flip OS.Array) = DeltaS (Flip OR.Array) (Flip OS.Array)
-  type HasSingletonDict (Flip OS.Array) sh =
-    (OS.Shape sh, KnownNat (OS.Size sh))
   reverseDervative dims _ = gradientDtS dims
   forwardDerivative = derivativeFromDeltaS
 
 instance DualPart @[Nat] AstPrimalPartS where
   type Dual AstPrimalPartS = DeltaS AstPrimalPart AstPrimalPartS
-  type HasSingletonDict AstPrimalPartS sh =
-    (OS.Shape sh, KnownNat (OS.Size sh))
   reverseDervative dims _ = gradientDtS dims
   forwardDerivative = derivativeFromDeltaS
 
