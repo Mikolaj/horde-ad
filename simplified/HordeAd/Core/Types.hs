@@ -42,7 +42,7 @@ type HasSingletonDict :: k -> Constraint
 type family HasSingletonDict (y :: k) where
   HasSingletonDict '() = ()
   HasSingletonDict n = KnownNat n
-  HasSingletonDict sh = (OS.Shape sh, KnownNat (OS.Size sh))
+  HasSingletonDict sh = OS.Shape sh
 
 data DynamicExists :: (Type -> Type) -> Type where
   DynamicExists :: forall r dynamic. GoodScalar r

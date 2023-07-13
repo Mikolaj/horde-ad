@@ -139,7 +139,7 @@ instance Adaptable @[Nat] (Flip OS.Array) where
 
   revDtInit
     :: forall r y vals astvals.
-       ( GoodScalar r, OS.Shape y, KnownNat (OS.Size y)
+       ( GoodScalar r, OS.Shape y
        , AdaptableDomains AstDynamic astvals, vals ~ Value astvals )
     => Bool -> (astvals -> AstShaped r y) -> vals
     -> AstEnv (ADVal AstPrimalPart) -> DomainsOD
@@ -196,7 +196,7 @@ revAstOnDomainsFun hasDt parameters0 f =
      , deltaTopLevel )
 
 revAstOnDomainsFunS
-  :: forall r sh. (OS.Shape sh, KnownNat (OS.Size sh), GoodScalar r)
+  :: forall r sh. (OS.Shape sh, GoodScalar r)
   => Bool -> DomainsOD
   -> (Domains (ADValClown AstDynamic)
       -> Domains AstDynamic
