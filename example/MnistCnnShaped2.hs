@@ -37,7 +37,7 @@ convMnistLayerS
   :: forall kh kw h w c_in c_out batch_size shaped r.
      ( 1 <= kh
      , 1 <= kw  -- wrongly reported as redundant due to plugins
-     , ADReadyS shaped r, RealFloat r )  -- TODO: ADShaped shaped r  ???
+     , ADReadyS shaped r, Differentiable r )  -- TODO: ADShaped shaped r  ???
   => SNat kh -> SNat kw
   -> SNat h -> SNat w
   -> SNat c_in -> SNat c_out
@@ -61,7 +61,7 @@ convMnistTwoS
        -- @h@ and @w@ are fixed for MNIST, but may be different, e.g., in tests
      ( 1 <= kh             -- kernel height is large enough
      , 1 <= kw             -- kernel width is large enough
-     , ADReadyS shaped r, RealFloat r )
+     , ADReadyS shaped r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat h -> SNat w
   -> SNat c_out -> SNat n_hidden -> SNat batch_size
@@ -101,7 +101,7 @@ convMnistLossFusedS
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
      , 1 <= kh
      , 1 <= kw
-     , ADReadyS shaped r, RealFloat r )
+     , ADReadyS shaped r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat c_out
   -> SNat n_hidden -> SNat batch_size
@@ -127,7 +127,7 @@ convMnistTestS
      , 1 <= kh
      , 1 <= kw
      , shaped ~ Flip OS.Array
-     , ADReadyS shaped r, RealFloat r )
+     , ADReadyS shaped r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat c_out
   -> SNat n_hidden -> SNat batch_size

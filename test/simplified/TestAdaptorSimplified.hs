@@ -450,7 +450,7 @@ testFooLetPP = do
 
 reluPrimal
   :: forall ranked n r.
-     (ADReady ranked r, KnownNat n, RealFloat r)
+     (ADReady ranked r, KnownNat n, Differentiable r)
   => ranked r n -> ranked r n
 reluPrimal v =
   let oneIfGtZero = tmap0N (\x -> ifF (x <=. 0) 0.0 1.0)
@@ -903,7 +903,7 @@ testFooD =
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
     (crev fooD [1.1, 2.2, 3.3])
 
-fooBuild1 :: (ADReady ranked r, RealFloat r)
+fooBuild1 :: (ADReady ranked r, Differentiable r)
           => ranked r 1 -> ranked r 1
 fooBuild1 v =
   let r = tsum0 v
@@ -926,7 +926,7 @@ testFooBuild =
     (OR.fromList [4] [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
     (rev' @Double @1 fooBuild1 (Flip $ OR.fromList [4] [1.1, 2.2, 3.3, 4]))
 
-fooMap1 :: (ADReady ranked r, RealFloat r)
+fooMap1 :: (ADReady ranked r, Differentiable r)
         => ranked r 0 -> ranked r 1
 fooMap1 r =
   let v = fooBuild1 $ treplicate0N [130] r
@@ -944,7 +944,7 @@ barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
-fooNoGoAst :: forall r. (GoodScalar r, RealFloat r)
+fooNoGoAst :: forall r. (GoodScalar r, Differentiable r)
            => AstRanked r 1 -> AstRanked r 1
 fooNoGoAst v =
   let r = tsum0 v
@@ -960,7 +960,7 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: (InterpretAstR (ADVal (Flip OR.Array)), GoodScalar r, RealFloat r)
+  let f :: (InterpretAstR (ADVal (Flip OR.Array)), GoodScalar r, Differentiable r)
         => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
@@ -971,7 +971,7 @@ testFooNoGoAst =
        (crev @Double @1 f
              (Flip $ OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
-fooNoGo :: forall ranked r. (ADReady ranked r, RealFloat r)
+fooNoGo :: forall ranked r. (ADReady ranked r, Differentiable r)
         => ranked r 1 -> ranked r 1
 fooNoGo v =
   let r = tsum0 v
@@ -990,7 +990,7 @@ testFooNoGo =
    (rev' @Double @1 fooNoGo
          (Flip $ OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
-nestedBuildMap :: forall ranked r. (ADReady ranked r, RealFloat r)
+nestedBuildMap :: forall ranked r. (ADReady ranked r, Differentiable r)
                => ranked r 0 -> ranked r 1
 nestedBuildMap r =
   let w = treplicate0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
@@ -1011,7 +1011,7 @@ testNestedBuildMap1 =
     107.25984443006627
     (rev' @Double @1 nestedBuildMap 1.1)
 
-nestedSumBuild :: (ADReady ranked r, RealFloat r)
+nestedSumBuild :: (ADReady ranked r, Differentiable r)
                => ranked r 1 -> ranked r 1
 nestedSumBuild v0 = tlet v0 $ \v ->
  tlet (tsum (tbuild1 9 tfromIndex0)) (\tbtf ->
@@ -1047,7 +1047,7 @@ testNestedBuildIndex =
     (rev' @Double @1 nestedBuildIndex (Flip $ OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 barRelu
-  :: ( ADReady ranked r, KnownNat n, RealFloat (ranked r n), RealFloat r )
+  :: ( ADReady ranked r, KnownNat n, Differentiable r )
   => ranked r n -> ranked r n
 barRelu x = relu $ bar (x, relu x)
 
@@ -1094,13 +1094,13 @@ testBarReluADValMax3 =
 
 barReluAst
   :: forall n r.
-     (KnownNat n, ADReady AstRanked r, RealFloat r)
+     (KnownNat n, ADReady AstRanked r, Differentiable r)
   => AstRanked r n -> AstRanked r n
 barReluAst x = relu $ bar (x, relu x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
-  let f :: ( ADReady AstRanked r, RealFloat r
+  let f :: ( ADReady AstRanked r, Differentiable r
            , InterpretAstR (ADVal (Flip OR.Array)) )
         => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
       f x = interpretAst (extendEnvR
@@ -1113,7 +1113,7 @@ testBarReluAst0 =
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
-  let f :: ( ADReady AstRanked r, RealFloat r
+  let f :: ( ADReady AstRanked r, Differentiable r
            , InterpretAstR (ADVal (Flip OR.Array)) )
         => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
       f x = interpretAst (extendEnvR
@@ -1125,13 +1125,13 @@ testBarReluAst1 =
        (crev @Double @1 f (Flip $ OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
 
 konstReluAst
-  :: forall r. (ADReady AstRanked r, RealFloat r)
+  :: forall r. (ADReady AstRanked r, Differentiable r)
   => AstRanked r 0 -> AstRanked r 0
 konstReluAst x = tsum0 $ relu $ treplicate0N (7 :$ ZS) x
 
 testReplicateReluAst :: Assertion
 testReplicateReluAst =
-  let f :: ( ADReady AstRanked r, RealFloat r
+  let f :: ( ADReady AstRanked r, Differentiable r
            , InterpretAstR (ADVal (Flip OR.Array)) )
         => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
       f x = interpretAst (extendEnvR
@@ -1157,7 +1157,7 @@ testF11 =
     45.0
     (rev' @Double @0 f1 1.1)
 
-f2 :: (ADReady ranked r, RealFloat r)
+f2 :: ADReady ranked r
    => ranked r 0 -> ranked r 0
 f2 = \arg ->
   let fun1 i = arg * tfromIndex0 i
@@ -1180,7 +1180,7 @@ testF21 =
     470
     (rev' @Double @0 f2 1.1)
 
-braidedBuilds :: forall ranked r. (ADReady ranked r, RealFloat r)
+braidedBuilds :: forall ranked r. (ADReady ranked r, Differentiable r)
               => ranked r 0 -> ranked r 2
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
@@ -1193,7 +1193,7 @@ testBraidedBuilds1 =
     4.0
     (rev' @Double @2 braidedBuilds 3.4)
 
-recycled :: (ADReady ranked r, RealFloat r)
+recycled :: (ADReady ranked r, Differentiable r)
          => ranked r 0 -> ranked r 5
 recycled r =
   tlet (nestedSumBuild (treplicate0N [7] r)) $ \nsb ->
@@ -1218,7 +1218,7 @@ testConcatBuild1 =
     126.0
     (rev' @Double @2 concatBuild 3.4)
 
-emptyArgs :: forall ranked r. (ADReady ranked r, RealFloat r)
+emptyArgs :: forall ranked r. (ADReady ranked r, Differentiable r)
           => ranked r 1 -> ranked r 1
 emptyArgs t =
   tfromList @ranked @r @0 []
@@ -1260,7 +1260,7 @@ testEmptyArgs4 =
           (Flip $ OR.fromList [1] [0.24]))
 
 -- Catastrophic loss of sharing prevented.
-fblowup :: forall ranked r. (ADReady ranked r, RealFloat r)
+fblowup :: forall ranked r. (ADReady ranked r, Differentiable r)
         => Int -> ranked r 1 -> ranked r 0
 fblowup k inputs =
   let blowup :: Int -> ranked r 0 -> ranked r 0
@@ -1273,7 +1273,7 @@ fblowup k inputs =
       y0 = (inputs ! [0]) / (inputs ! [1])
   in blowup k y0
 
-fblowupLet :: forall ranked r. (ADReady ranked r, RealFloat r)
+fblowupLet :: forall ranked r. (ADReady ranked r, Differentiable r)
            => IntOf ranked -> Int -> ranked r 1 -> ranked r 0
 fblowupLet i k inputs =
   let blowup :: Int -> ranked r 0 -> ranked r 0
@@ -1287,7 +1287,7 @@ fblowupLet i k inputs =
   in blowup k y0
 
 -- Catastrophic loss of sharing prevented also with non-trivial multiplication.
-fblowupMult :: forall ranked r. (ADReady ranked r, RealFloat r)
+fblowupMult :: forall ranked r. (ADReady ranked r, Differentiable r)
             => Int -> ranked r 1 -> ranked r 0
 fblowupMult k inputs =
   let blowup :: Int -> ranked r 0 -> ranked r 0
@@ -1300,7 +1300,7 @@ fblowupMult k inputs =
       y0 = (inputs ! [0 `rem` 2]) * (inputs ! [1])
   in blowup k y0
 
-fblowupMultLet :: forall ranked r. (ADReady ranked r, RealFloat r)
+fblowupMultLet :: forall ranked r. (ADReady ranked r, Differentiable r)
                => IntOf ranked -> Int -> ranked r 1 -> ranked r 0
 fblowupMultLet i k inputs =
   let blowup :: Int -> ranked r 0 -> ranked r 0

@@ -2,7 +2,7 @@
 -- | Some fundamental kinds, type families and types.
 module HordeAd.Core.Types
   ( TensorKind, RankedTensorKind, ShapedTensorKind
-  , GoodScalar, HasSingletonDict, IfDifferentiable(..)
+  , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
   , DynamicExists(..), Domains, DomainsOD, sizeDomainsOD
   , RankedOf, ShapedOf, PrimalOf, DualOf, IntOf, IndexOf, IntSh, IndexSh
   , DummyDual(..)
@@ -42,11 +42,8 @@ type GoodScalarConstraint r =
 -- Attempted optimization via storing one pointer to a class dictionary
 -- in existential datatypes instead of six pointers. No effect, strangely.
 -- As a side effect, this avoids ImpredicativeTypes.
-class (GoodScalarConstraint r, Floating r => Floating (Vector r))
-      => GoodScalar r
-instance
-      (GoodScalarConstraint r, Floating r => Floating (Vector r))
-      => GoodScalar r
+class GoodScalarConstraint r => GoodScalar r
+instance GoodScalarConstraint r => GoodScalar r
 
 type HasSingletonDict :: k -> Constraint
 type family HasSingletonDict (y :: k) where
@@ -54,12 +51,15 @@ type family HasSingletonDict (y :: k) where
   HasSingletonDict n = KnownNat n
   HasSingletonDict sh = OS.Shape sh
 
+type Differentiable r = (RealFloat r, RealFloat (Vector r))
+
 -- We white-list all types on which we permit differentiation (e.g., SGD)
 -- to work. This is for technical typing purposes and imposes updates
 -- (and buggy omissions) when new scalar types are added, but it has
--- the advantage of giving more control and visiblity.
+-- the advantage of giving more control and visiblity. As of the time
+-- of writing, this is the only place underlying scalars are enumerated.
 class IfDifferentiable r where
-  ifDifferentiable :: (RealFloat r => a) -> a -> a
+  ifDifferentiable :: (Differentiable r => a) -> a -> a
 
 instance {-# OVERLAPPABLE #-} IfDifferentiable r where
   ifDifferentiable _ a = a

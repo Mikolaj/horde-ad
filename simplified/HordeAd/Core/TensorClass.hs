@@ -68,7 +68,8 @@ type instance ShapedOf (Clown OD.Array) = Flip OS.Array
 
 type TensorSupports :: (Type -> Constraint) -> TensorKind k -> Constraint
 type TensorSupports c f =
-  forall r y. (GoodScalar r, HasSingletonDict y) => c r => c (f r y)
+  forall r y. (GoodScalar r, HasSingletonDict y)
+              => (c r, c (Vector r)) => c (f r y)
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.

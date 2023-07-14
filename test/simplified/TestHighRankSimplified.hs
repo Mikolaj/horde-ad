@@ -245,7 +245,7 @@ testFooBuild1 =
     (OR.fromList [2,2,1,2,2] [394056.00100873224,2652.651012139068,-190115.65273218407,9038.358355005721,1481231.4430045108,8665.8566966351,-686561.2828884773,975098.0370838332,405610.50900167174,247.29268093759174,-190893.00285812665,9131.411216464405,1388249.3520251075,8636.104329095837,-692176.9903632513,1027508.6863491047])
     (rev' @Double @5 fooBuild1 t16)
 
-fooMap1 :: (ADReady ranked r, KnownNat n, RealFloat r)
+fooMap1 :: (ADReady ranked r, KnownNat n, Differentiable r)
         => ShapeInt (1 + n) -> ranked r 0 -> ranked r (1 + n)
 fooMap1 sh r =
   let v = fooBuild1 $ treplicate0N sh (r * r)
@@ -266,8 +266,7 @@ testFooMap1 =
     (rev' @Double @7 (fooMap1 [4, 3, 2, 3, 4, 5, 3]) 0.1)
 
 fooNoGo :: forall ranked r n.
-           ( ADReady ranked r, KnownNat n, RealFloat (ranked r n), RealFloat r
-           , RealFloat (ranked r (1 + n)) )
+           ( ADReady ranked r, KnownNat n, Differentiable r )
         => ranked r (1 + n) -> ranked r (1 + n)
 fooNoGo v =
   let r = tsum v
@@ -296,7 +295,7 @@ testFooNoGo10 =
    (rev' @Double @8 (tmap0N (* 0.000000001) . fooNoGo) (tmap0N (* 0.01) $ treplicate 5 t48))
 
 nestedBuildMap :: forall ranked n r.
-                  (ADReady ranked r, n <= 6, KnownNat n, RealFloat r)
+                  (ADReady ranked r, n <= 6, KnownNat n, Differentiable r)
                => ranked r 0 -> ranked r (1 + n)
 nestedBuildMap r =
   let w = treplicate0N [4]
@@ -343,7 +342,7 @@ testNestedBuildMap7 =
 -- The n <= 4 is necessary despite what GHC claims. Applying @(2 + n)
 -- to nestedBuildMap doesn't help.
 nestedSumBuild
-  :: forall ranked n r. (ADReady ranked r, n <= 4, KnownNat n, RealFloat r)
+  :: forall ranked n r. (ADReady ranked r, n <= 4, KnownNat n, Differentiable r)
   => ranked r n -> ranked r (2 + n)
 nestedSumBuild v =
   tbuild1 13 $ \ix1 -> tbuild1 4 $ \ix2 ->
@@ -401,7 +400,7 @@ testNestedBuildIndex =
     (rev' @Double @3 nestedBuildIndex t16)
 
 barRelu
-  :: ( ADReady ranked r, KnownNat n, RealFloat (ranked r n), RealFloat r )
+  :: ( ADReady ranked r, KnownNat n, Differentiable r )
   => ranked r n -> ranked r n
 barRelu x = let t = treplicate0N (tshape x) 0.001 * x
             in relu $ bar (t, relu t)
@@ -426,7 +425,7 @@ testBarReluADVal3 =
          (Flip $ OR.mapA (* 0.001) $ runFlip t48))
 
 barRelu10xSlower
-  :: ( ADReady ranked r, KnownNat n, RealFloat (ranked r n), RealFloat r )
+  :: ( ADReady ranked r, KnownNat n, Differentiable r )
   => ranked r n -> ranked r n
 barRelu10xSlower x = let t = tmap0N (* 0.001) x
                      in relu $ bar (t, relu t)
@@ -451,7 +450,7 @@ testBarReluADVal320 =
     (rev' @Double @10 barRelu10xSlower
          (Flip $ OR.mapA (* 0.001) $ runFlip t128))
 
-braidedBuilds :: forall ranked n r. (ADReady ranked r, KnownNat n, RealFloat r)
+braidedBuilds :: forall ranked n r. (ADReady ranked r, KnownNat n, Differentiable r)
               => ranked r (1 + n) -> ranked r 2
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
@@ -488,7 +487,7 @@ testRecycled1 =
     (runFlip $ tfromList0N (5 :$ 4 :$ 2 :$ ZS) [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
     (rev' @Double @7 recycled (treplicate0N [5, 4, 2] 0.0002))
 
-concatBuild :: (ADReady ranked r, KnownNat n, RealFloat r)
+concatBuild :: (ADReady ranked r, KnownNat n, Differentiable r)
             => ranked r (1 + n) -> ranked r (3 + n)
 concatBuild r =
   tbuild1 7 (\i ->

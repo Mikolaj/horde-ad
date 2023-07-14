@@ -144,7 +144,7 @@ data AstRanked :: RankedTensorKind where
   -- For the numeric classes:
   AstNm :: OpCodeNum -> [AstRanked r n] -> AstRanked r n
              -- name of the same length as AstOp for tests
-  AstOp :: RealFloat r
+  AstOp :: Differentiable r
         => OpCode -> [AstRanked r n] -> AstRanked r n
   AstOpIntegral :: OpCodeIntegral -> [AstRanked Int64 n] -> AstRanked Int64 n
   AstSumOfList :: [AstRanked r n] -> AstRanked r n
@@ -232,7 +232,7 @@ data AstShaped :: ShapedTensorKind where
 
   -- For the numeric classes:
   AstNmS :: OpCodeNum -> [AstShaped r sh] -> AstShaped r sh
-  AstOpS :: RealFloat r
+  AstOpS :: Differentiable r
          => OpCode -> [AstShaped r sh] -> AstShaped r sh
   AstOpIntegralS :: OpCodeIntegral -> [AstShaped Int64 sh] -> AstShaped Int64 sh
   AstSumOfListS :: [AstShaped r sh] -> AstShaped r sh
@@ -481,13 +481,13 @@ instance (Real (OR.Array n r))
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (RealFloat r, Fractional (OR.Array n r))
+instance (Differentiable r, Fractional (OR.Array n r))
          => Fractional (AstRanked r n) where
   u / v = AstOp DivideOp  [u, v]
   recip v = AstOp RecipOp [v]
   fromRational = AstConstant . AstPrimalPart . AstConst . fromRational
 
-instance (RealFloat r, Floating (OR.Array n r))
+instance (Differentiable r, Floating (OR.Array n r))
          => Floating (AstRanked r n) where
   pi = AstConstant $ AstPrimalPart $ AstConst pi
   exp u = AstOp ExpOp [u]
@@ -508,13 +508,13 @@ instance (RealFloat r, Floating (OR.Array n r))
   acosh u = AstOp AcoshOp [u]
   atanh u = AstOp AtanhOp [u]
 
-instance (RealFloat r, RealFrac (OR.Array n r))
+instance (Differentiable r, RealFrac (OR.Array n r))
          => RealFrac (AstRanked r n) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (RealFloat r, RealFloat (OR.Array n r))
+instance (Differentiable r, RealFloat (OR.Array n r))
          => RealFloat (AstRanked r n) where
   atan2 u v = AstOp Atan2Op [u, v]
   -- We can be selective here and omit the other methods,
@@ -689,13 +689,13 @@ instance Integral (OS.Array sh Int64) => Integral (AstShaped Int64 sh) where
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
 
-instance (RealFloat r, Fractional (OS.Array sh r))
+instance (Differentiable r, Fractional (OS.Array sh r))
          => Fractional (AstShaped r sh) where
   u / v = AstOpS DivideOp  [u, v]
   recip v = AstOpS RecipOp [v]
   fromRational = AstConstantS . AstPrimalPartS . AstConstS . fromRational
 
-instance (RealFloat r, Floating (OS.Array sh r))
+instance (Differentiable r, Floating (OS.Array sh r))
          => Floating (AstShaped r sh) where
   pi = AstConstantS $ AstPrimalPartS $ AstConstS pi
   exp u = AstOpS ExpOp [u]
@@ -716,13 +716,13 @@ instance (RealFloat r, Floating (OS.Array sh r))
   acosh u = AstOpS AcoshOp [u]
   atanh u = AstOpS AtanhOp [u]
 
-instance (RealFloat r, RealFrac (OS.Array sh r))
+instance (Differentiable r, RealFrac (OS.Array sh r))
          => RealFrac (AstShaped r sh) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (RealFloat r, RealFloat (OS.Array sh r))
+instance (Differentiable r, RealFloat (OS.Array sh r))
          => RealFloat (AstShaped r sh) where
   atan2 u v = AstOpS Atan2Op [u, v]
   -- We can be selective here and omit the other methods,

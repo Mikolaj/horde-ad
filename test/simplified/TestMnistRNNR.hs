@@ -50,7 +50,7 @@ testTrees = [ tensorADValMnistTestsRNNA
 -- POPL differentiation, straight via the ADVal instance of RankedTensor
 mnistTestCaseRNNA
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array, RealFloat r
+     ( ranked ~ Flip OR.Array, Differentiable r
      , ADReady ranked r, Random r, ADReady (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
@@ -145,7 +145,7 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCaseRNNI
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array, RealFloat r
+     ( ranked ~ Flip OR.Array, Differentiable r
      , ADReady ranked r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
@@ -254,7 +254,7 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCaseRNNO
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array, RealFloat r
+     ( ranked ~ Flip OR.Array, Differentiable r
      , ADReady ranked r, Random r, PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r

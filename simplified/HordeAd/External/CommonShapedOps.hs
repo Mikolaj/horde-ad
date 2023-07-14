@@ -71,7 +71,7 @@ scaleS a d = sconstant a `smult` d
 
 reluS, reluLeakyS
   :: forall shaped sh r.
-     (OS.Shape sh, KnownNat (OS.Rank sh), ADReadyS shaped r, RealFloat r)
+     (OS.Shape sh, KnownNat (OS.Rank sh), ADReadyS shaped r, Differentiable r)
   => shaped r sh -> shaped r sh
 reluS v =
   let oneIfGtZero = smap0N (\x -> ifF (x <=. 0) 0.0 1.0) v
@@ -110,7 +110,7 @@ squaredDifferenceS
 squaredDifferenceS targ res = squareS $ res - sconstant targ
 
 lossCrossEntropyVS :: ( OS.Shape sh, KnownNat (OS.Size sh)
-                      , ShapedTensor shaped, GoodScalar r, RealFloat r )
+                      , ShapedTensor shaped, GoodScalar r, Differentiable r )
                    => shaped r sh
                    -> shaped r sh
                    -> shaped r '[]
@@ -121,7 +121,7 @@ lossCrossEntropyVS targ res = negate $ log res `sdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyS
   :: forall shaped sh r.
-     (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh), RealFloat r)
+     (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh), Differentiable r)
   => PrimalOf shaped r sh -> shaped r sh -> shaped r '[]
 lossSoftMaxCrossEntropyS target d' = slet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
@@ -160,7 +160,7 @@ maxPool1S v =
   in sfromList $ map maxOfSlice l
 
 softMax1S :: ( OS.Shape sh, KnownNat (OS.Size sh)
-             , ShapedTensor shaped, GoodScalar r, RealFloat r )
+             , ShapedTensor shaped, GoodScalar r, Differentiable r )
           => shaped r sh -> shaped r sh
 softMax1S d =
   let expU0 = exp d

@@ -70,7 +70,7 @@ scale a d = tconstant @ranked a `tmult` d
 -- scale a d = tD (a * tprimalPart d) (tScale @r a (tdualPart d))
 
 relu, reluLeaky
-  :: forall ranked n r. (ADReady ranked r, KnownNat n, RealFloat r)
+  :: forall ranked n r. (ADReady ranked r, KnownNat n, Differentiable r)
   => ranked r n -> ranked r n
 relu v =
   let oneIfGtZero = tmap0N (\x -> ifF (x <=. 0) 0.0 1.0) v
@@ -111,7 +111,7 @@ squaredDifference
 squaredDifference targ res = square @ranked $ res - tconstant @ranked targ
 
 lossCrossEntropyV
-  :: (RankedTensor ranked, KnownNat n, GoodScalar r, RealFloat r)
+  :: (RankedTensor ranked, KnownNat n, GoodScalar r, Differentiable r)
   => ranked r n -> ranked r n -> ranked r 0
 lossCrossEntropyV targ res = negate $ log res `tdot0` targ
 
@@ -122,7 +122,7 @@ lossSoftMaxCrossEntropyR
   :: forall ranked n r.
      ( RankedTensor ranked, RankedTensor (PrimalOf ranked), KnownNat n
      , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked
-     , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked, RealFloat r )
+     , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked, Differentiable r )
   => PrimalOf ranked r n -> ranked r n -> ranked r 0
 lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
@@ -152,7 +152,7 @@ maxPool1 ksize stride v =
   let slices = [tslice i ksize v | i <- [0, stride .. tlength v - ksize]]
   in tfromList $ map tmaximum slices
 
-softMax1 :: (RankedTensor ranked, KnownNat n, GoodScalar r, RealFloat r)
+softMax1 :: (RankedTensor ranked, KnownNat n, GoodScalar r, Differentiable r)
          => ranked r n -> ranked r n
 softMax1 d =
   let expU0 = exp d

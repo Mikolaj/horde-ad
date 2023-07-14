@@ -24,7 +24,6 @@ import qualified Data.Array.Internal.ShapedS as SS
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
-import           Data.Int (Int64)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -554,33 +553,3 @@ instance ( Floating (Vector r), Numeric r, RealFloat r )
   isDenormalized = undefined
   isNegativeZero = undefined
   isIEEE = undefined
-
-
--- * A hack needed for AST Show instances; no idea
-
--- In the worst case we'll need to write the Show instances by hand.
-
-instance Fractional Int64 where
-  (/) = undefined
-  recip = undefined
-  fromRational = undefined
-
-instance Floating (Vector Int64) where
-  pi = undefined
-  exp = undefined
-  log = undefined
-  sqrt = undefined
-  (**) = undefined
-  logBase = undefined
-  sin = undefined
-  cos = undefined
-  tan = undefined
-  asin = undefined
-  acos = undefined
-  atan = undefined
-  sinh = undefined
-  cosh = undefined
-  tanh = undefined
-  asinh = undefined
-  acosh = undefined
-  atanh = undefined
