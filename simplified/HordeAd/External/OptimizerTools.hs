@@ -22,7 +22,7 @@ import HordeAd.Internal.OrthotopeOrphanInstances (liftVD2)
 
 updateWithGradient :: Double -> DomainsOD -> DomainsOD -> DomainsOD
 updateWithGradient gamma params gradient =
-  let updateVector :: (Numeric r, Floating r, Floating (Vector r))
+  let updateVector :: (Numeric r, Fractional r, Num (Vector r))
                    => Vector r -> Vector r -> Vector r
       updateVector i r = i - LA.scale (realToFrac gamma) r
       updateR :: DynamicExists OD.Array -> DynamicExists OD.Array
@@ -30,9 +30,11 @@ updateWithGradient gamma params gradient =
       updateR ei@(DynamicExists @r1 i) (DynamicExists @r2 r) =
         if isTensorDummy r  -- eval didn't update it, would crash
         then ei
-        else case testEquality (typeRep @r1) (typeRep @r2) of
-          Just Refl -> DynamicExists $ liftVD2 updateVector i r
-          _ -> error "updateWithGradient: type mismatch"
+        else ifDifferentiable @r1
+          (case testEquality (typeRep @r1) (typeRep @r2) of
+             Just Refl -> DynamicExists $ liftVD2 updateVector i r
+             _ -> error "updateWithGradient: type mismatch")
+          ei
   in V.zipWith updateR params gradient
 
 {-
@@ -126,7 +128,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
       tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
-      updateVector :: (Numeric r, Floating r, Floating (Vector r))
+      updateVector :: (Numeric r, Fractional r, Floating (Vector r))
                    => Vector r -> Vector r
                    -> Vector r -> Vector r
                    -> (Vector r, Vector r, Vector r)
@@ -152,13 +154,15 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
               ep@(DynamicExists @r3 p) (DynamicExists @r4 g) =
         if isTensorDummy g  -- eval didn't update it
         then (emA, evA, ep)
-        else case ( testEquality (typeRep @r1) (typeRep @r2)
-                  , testEquality (typeRep @r2) (typeRep @r3)
-                  , testEquality (typeRep @r3) (typeRep @r4) ) of
-               (Just Refl, Just Refl, Just Refl) ->
-                 let (od1, od2, od3) = liftArray43 updateVector mA vA p g
-                 in (DynamicExists od1, DynamicExists od2, DynamicExists od3)
-               _ -> error "updateWithGradientAdam: type mismatch"
+        else ifDifferentiable @r1
+          (case ( testEquality (typeRep @r1) (typeRep @r2)
+                , testEquality (typeRep @r2) (typeRep @r3)
+                , testEquality (typeRep @r3) (typeRep @r4) ) of
+             (Just Refl, Just Refl, Just Refl) ->
+               let (od1, od2, od3) = liftArray43 updateVector mA vA p g
+               in (DynamicExists od1, DynamicExists od2, DynamicExists od3)
+             _ -> error "updateWithGradientAdam: type mismatch")
+          (emA, evA, ep)
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         V.unzip3 $ V.zipWith4 updateR mAdamR vAdamR paramsR gradientR
   in ( paramsRNew

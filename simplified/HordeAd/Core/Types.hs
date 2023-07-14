@@ -2,7 +2,7 @@
 -- | Some fundamental kinds, type families and types.
 module HordeAd.Core.Types
   ( TensorKind, RankedTensorKind, ShapedTensorKind
-  , GoodScalar, HasSingletonDict
+  , GoodScalar, HasSingletonDict, IfDifferentiable(..)
   , DynamicExists(..), Domains, DomainsOD, sizeDomainsOD
   , RankedOf, ShapedOf, PrimalOf, DualOf, IntOf, IndexOf, IntSh, IndexSh
   , DummyDual(..)
@@ -36,7 +36,8 @@ type RankedTensorKind = TensorKind Nat
 type ShapedTensorKind = TensorKind [Nat]
 
 type GoodScalarConstraint r =
-  (Show r, Numeric r, RealFloat r, Floating (Vector r), RowSum r, Typeable r)
+  ( Show r, Numeric r, RealFloat r, Floating (Vector r), RowSum r, Typeable r
+  , IfDifferentiable r )
 
 -- Attempted optimization via storing one pointer to a class dictionary
 -- in existential datatypes instead of six pointers. No effect, strangely.
@@ -48,6 +49,22 @@ type family HasSingletonDict (y :: k) where
   HasSingletonDict '() = ()
   HasSingletonDict n = KnownNat n
   HasSingletonDict sh = OS.Shape sh
+
+-- We white-list all types on which we permit differentiation (e.g., SGD)
+-- to work. This is for technical typing purposes and imposes updates
+-- (and buggy omissions) when new scalar types are added, but it has
+-- the advantage of giving more control and visiblity.
+class IfDifferentiable r where
+  ifDifferentiable :: (RealFloat r => a) -> a -> a
+
+instance {-# OVERLAPPABLE #-} IfDifferentiable r where
+  ifDifferentiable _ a = a
+
+-- The white-listed differentiable types.
+instance IfDifferentiable Double where
+  ifDifferentiable ra _ = ra
+instance IfDifferentiable Float where
+  ifDifferentiable ra _ = ra
 
 data DynamicExists :: (Type -> Type) -> Type where
   DynamicExists :: forall r dynamic. GoodScalar r
