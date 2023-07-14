@@ -89,6 +89,7 @@ shapeAst v1 = case v1 of
   AstBuild1 k (_var, v) -> k :$ shapeAst v
   AstGather sh _v (_vars, _ix) -> sh
   AstCast t -> shapeAst t
+  AstFromIntegral (AstPrimalPart a) -> shapeAst a
   AstSToR @sh _ -> listShapeToShape $ OS.shapeT @sh
   AstConst a -> listShapeToShape $ OR.shapeL a
   AstConstant (AstPrimalPart a) -> shapeAst a
@@ -145,6 +146,7 @@ intVarInAst var = \case
   AstBuild1 _ (_var2, v) -> intVarInAst var v
   AstGather _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
   AstCast t -> intVarInAst var t
+  AstFromIntegral t -> intVarInAstPrimal var t
   AstSToR v -> intVarInAstS var v
   AstConst{} -> False
   AstConstant v -> intVarInAstPrimal var v
@@ -208,6 +210,7 @@ intVarInAstS var = \case
   AstBuild1S (_var2, v) -> intVarInAstS var v
   AstGatherS v (_vars, ix) -> intVarInIndexS var ix || intVarInAstS var v
   AstCastS t -> intVarInAstS var t
+  AstFromIntegralS (AstPrimalPartS a) -> intVarInAstS var a
   AstRToS v -> intVarInAst var v
   AstConstS{} -> False
   AstConstantS (AstPrimalPartS v) -> intVarInAstS var v
@@ -317,6 +320,7 @@ substitute1Ast i var v1 = case v1 of
     AstGather sh (substitute1Ast i var v)
                   (vars, fmap (substitute1AstPrimal i var) ix)
   AstCast v -> AstCast $ substitute1Ast i var v
+  AstFromIntegral v -> AstFromIntegral $ substitute1AstPrimal i var v
   AstSToR v -> AstSToR $ substitute1AstS i var v
   AstConst _a -> v1
   AstConstant a -> AstConstant $ substitute1AstPrimal i var a
@@ -411,6 +415,8 @@ substitute1AstS i var v1 = case v1 of
     AstGatherS (substitute1AstS i var v)
                (vars, fmap (substitute1AstPrimal i var) ix)
   AstCastS v -> AstCastS $ substitute1AstS i var v
+  AstFromIntegralS (AstPrimalPartS a) ->
+    AstFromIntegralS (astPrimalPartS $ substitute1AstS i var a)
   AstRToS v -> AstRToS $ substitute1Ast i var v
   AstConstS _a -> v1
   AstConstantS (AstPrimalPartS a) ->

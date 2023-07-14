@@ -185,6 +185,7 @@ data AstRanked :: RankedTensorKind where
     -- out of bounds indexing is permitted
   AstCast :: GoodScalar r1
           => AstRanked r1 n -> AstRanked r2 n
+  AstFromIntegral :: AstPrimalPart Int64 n -> AstRanked r2 n
 
   AstSToR :: OS.Shape sh
           => AstShaped r sh -> AstRanked r (OS.Rank sh)
@@ -285,6 +286,7 @@ data AstShaped :: ShapedTensorKind where
     -- out of bounds indexing is permitted
   AstCastS :: GoodScalar r1
            => AstShaped r1 sh -> AstShaped r2 sh
+  AstFromIntegralS :: AstPrimalPartS Int64 sh -> AstShaped r2 sh
 
   AstRToS :: (OS.Shape sh, KnownNat (OS.Rank sh))
           => AstRanked r (OS.Rank sh) -> AstShaped r sh

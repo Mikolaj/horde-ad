@@ -555,6 +555,11 @@ tcastR :: (Numeric r1, Numeric r2, KnownNat n, Real r1, Fractional r2)
        => OR.Array n r1 -> OR.Array n r2
 tcastR = liftVR (V.map realToFrac)
 
+-- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
+tfromIntegralR :: (Numeric r1, Numeric r2, KnownNat n, Integral r1)
+               => OR.Array n r1 -> OR.Array n r2
+tfromIntegralR = liftVR (V.map fromIntegral)
+
 tscalarR
   :: Numeric r
   => r -> OR.Array 0 r
@@ -998,6 +1003,11 @@ tgatherZ1S t f =
 tcastS :: (Numeric r1, Numeric r2, OS.Shape sh, Real r1, Fractional r2)
        => OS.Array sh r1 -> OS.Array sh r2
 tcastS = liftVS (V.map realToFrac)
+
+-- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
+tfromIntegralS :: (Numeric r1, Numeric r2, OS.Shape sh, Integral r1)
+               => OS.Array sh r1 -> OS.Array sh r2
+tfromIntegralS = liftVS (V.map fromIntegral)
 
 tscalarS
   :: Numeric r

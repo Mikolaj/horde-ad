@@ -555,13 +555,13 @@ testConcatBuild3PP = do
       (var3, ast3) = funToAstR [3] t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\dret -> tconstant (tcast (tgather [5,2] (tfromList [treplicate 5 (tslice 0 2 tiota), quot (ttranspose [1,0] (treplicate 2 (tslice 0 5 tiota))) (treplicate 5 (treplicate 2 (tconst 1) + tslice 0 2 tiota))]) (\\[i5, i4] -> [ifF (i4 >=. quot i5 (1 + i4)) 0 1, i5, i4])))"
+    @?= "\\dret -> tfromIntegral (tgather [5,2] (tfromList [treplicate 5 (tslice 0 2 tiota), quot (ttranspose [1,0] (treplicate 2 (tslice 0 5 tiota))) (treplicate 5 (treplicate 2 (tconst 1) + tslice 0 2 tiota))]) (\\[i5, i4] -> [ifF (i4 >=. quot i5 (1 + i4)) 0 1, i5, i4]))"
   resetVarCounter
   let (artifact6, _) = revDtFun True t
                                 (Flip $ OR.fromList [3] [0.651,0.14,0.3414])
   printGradient6Simple renames artifact6
     @?= "\\dret v2 -> dmkDomains (fromList [dfromR tiota])"
   printPrimal6Simple renames artifact6
-    @?= "\\v2 -> tcast (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (treplicate 2 (tconst 1) + tconst (fromList [2] [0,1])))]) (\\[i3, i4] -> [ifF (i4 >=. quot i3 (1 + i4)) 0 1, i3, i4]))"
+    @?= "\\v2 -> tfromIntegral (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (treplicate 2 (tconst 1) + tconst (fromList [2] [0,1])))]) (\\[i3, i4] -> [ifF (i4 >=. quot i3 (1 + i4)) 0 1, i3, i4]))"
   printPrimal6Simple renames (simplifyArtifact6 artifact6)
-    @?= "\\v2 -> tcast (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (tconst (fromList [2] [0,1]) + treplicate 2 (tconst 1)))]) (\\[i3, i4] -> [ifF (i4 >=. quot i3 (1 + i4)) 0 1, i3, i4]))"
+    @?= "\\v2 -> tfromIntegral (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (tconst (fromList [2] [0,1]) + treplicate 2 (tconst 1)))]) (\\[i3, i4] -> [ifF (i4 >=. quot i3 (1 + i4)) 0 1, i3, i4]))"

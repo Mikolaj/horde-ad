@@ -228,6 +228,8 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
                            (\(i :. ZI) -> f i)
   tcast :: (GoodScalar r1, GoodScalar r2, KnownNat n)
         => ranked r1 n -> ranked r2 n
+  tfromIntegral :: (GoodScalar r2, KnownNat n)
+                => ranked Int64 n -> ranked r2 n
 
   -- ** No serviceable parts beyond this point ** --
 
@@ -511,6 +513,8 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
   sgather1 v f = sgather @shaped @r @'[n2] v (ShapedList.unconsContShaped f)
   scast :: (GoodScalar r1, GoodScalar r2, OS.Shape sh)
         => shaped r1 sh -> shaped r2 sh
+  sfromIntegral :: (GoodScalar r2, OS.Shape sh)
+                => shaped Int64 sh -> shaped r2 sh
 
   -- ** No serviceable parts beyond this point ** --
 
@@ -691,6 +695,7 @@ instance RankedTensor (Flip OR.Array) where
   tgather1 k t f = Flip $ tgatherZ1R k (runFlip t)
                                        (fromIndexOfR . f . Flip . tscalarR)
   tcast = Flip . tcastR . runFlip
+  tfromIntegral = Flip . tfromIntegralR . runFlip
 
   tscaleByScalar s v =
     Flip $ tscaleByScalarR (tunScalarR $ runFlip s) (runFlip v)
@@ -807,6 +812,7 @@ instance ShapedTensor (Flip OS.Array) where
                                    (fromIndexOfS . f . shapedNat . Flip
                                     . tscalarR . unShapedNat)
   scast = Flip . tcastS . runFlip
+  sfromIntegral = Flip . tfromIntegralS . runFlip
 
   sscaleByScalar s v =
     Flip $ tscaleByScalarS (tunScalarS $ runFlip s) (runFlip v)

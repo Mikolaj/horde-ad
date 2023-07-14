@@ -49,13 +49,13 @@ tmaximum t0 = tlet t0 $ \t ->
                                             (tprimalPart $ tmaxIndex tf)
 
 tfromIndex0 :: forall r ranked.
-               ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+               ( RankedTensor ranked
                , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
             => IntOf ranked -> ranked r 0
-tfromIndex0 = tconstant . tcast
+tfromIndex0 = tfromIntegral . tconstant
 
 tfromIndex1 :: forall n r ranked.
-               ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+               ( RankedTensor ranked
                , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
             => IndexOf ranked n -> ranked r 1
 tfromIndex1 = tfromList . map tfromIndex0 . indexToList

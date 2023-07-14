@@ -123,7 +123,8 @@ areAllArgsInts = \case
   AstReshape{} -> False
   AstBuild1{} -> False
   AstGather{} -> False
-  AstCast{} -> False  -- wrong if the cast is void
+  AstCast{} -> False
+  AstFromIntegral{} -> True
   AstSToR{} -> False
   AstConstant{} -> True  -- the argument is emphatically a primal number; fine
   AstD{} -> False  -- dual number
@@ -261,6 +262,8 @@ printAstAux cfg d = \case
            . showString " -> "
            . showListWith (printAstInt cfg 0) (indexToList ix))
   AstCast v -> printPrefixOp printAst cfg d "tcast" [v]
+  AstFromIntegral (AstPrimalPart a) ->
+    printPrefixOp printAst cfg d "tfromIntegral" [a]
   AstSToR v -> printAstS cfg d v
   AstConst a ->
     showParen (d > 10)
@@ -615,6 +618,8 @@ printAstS cfg d = \case
            . showString " -> "
            . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix))
   AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
+  AstFromIntegralS (AstPrimalPartS a) ->
+    printPrefixOp printAstS cfg d "sfromIntegral" [a]
   AstRToS v -> printAst cfg d v
   AstConstS a ->
     showParen (d > 10)

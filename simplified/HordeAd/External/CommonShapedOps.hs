@@ -50,7 +50,7 @@ smaximum t = sindex0 t (smaxIndexN t)
 
 sfromIndex0 :: forall n r shaped. ADReadyS shaped r
             => IntSh shaped n -> shaped r '[]
-sfromIndex0 = sconstant . scast . sfromR . ShapedList.unShapedNat
+sfromIndex0 = sfromIntegral . sconstant . sfromR . ShapedList.unShapedNat
 
 sfromIndex1 :: forall r sh shaped. (ADReadyS shaped r, KnownNat (OS.Rank sh))
             => IndexSh shaped sh -> shaped r '[OS.Rank sh]

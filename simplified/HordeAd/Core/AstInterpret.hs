@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
+{-# OPTIONS_GHC -freduction-depth=10000 #-}
 -- | Interpretation of @Ast@ terms in an aribtrary @RankedTensor@ class instance..
 module HordeAd.Core.AstInterpret
   ( InterpretAstR, InterpretAstS
@@ -358,8 +359,7 @@ interpretAst env = \case
     in tsumOfList args2
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"
   AstIndex AstIota (i :. ZI) ->
-    let tfromIndex0 = tconstant . tcast
-    in tfromIndex0 $ interpretAstPrimal env i
+    tfromIntegral $ tconstant $ interpretAstPrimal env i
   AstIndex v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
@@ -558,9 +558,8 @@ interpretAst env = \case
     tbuild1 k (interpretLambdaI interpretAst env (var, v))
       -- to be used only in tests
   AstGather sh AstIota (vars, (i :. ZI)) ->
-    let tfromIndex0 = tconstant . tcast
-    in tbuild sh (interpretLambdaIndex interpretAst env
-                                       (vars, tfromIndex0 i))
+    tbuild sh (interpretLambdaIndex interpretAst env
+                                    (vars, tfromIntegral $ tconstant i))
   AstGather sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
@@ -576,6 +575,7 @@ interpretAst env = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
   AstCast v -> tcast $ interpretAst env v
+  AstFromIntegral v -> tfromIntegral $ tconstant $ interpretAstPrimal env v
   AstSToR v -> tfromS $ interpretAstS env v
   AstConst a -> tconstBare a
   AstConstant a -> tconstant $ interpretAstPrimal env a
@@ -818,8 +818,7 @@ interpretAstS env = \case
     in ssumOfList args2
   AstIotaS -> siota  -- TODO: siotaBare might be needed to avoid AstConstant
   AstIndexS AstIotaS (i :$: ZSH) ->
-    let sfromIndex = sconstant . scast . sfromR
-    in sfromIndex $ interpretAstPrimal env i
+    sfromIntegral . sconstant . sfromR $ interpretAstPrimal env i
   AstIndexS @sh1 v ix ->
     let v2 = interpretAstS env v
         ix3 = interpretAstPrimal env <$> ix
@@ -1010,15 +1009,15 @@ interpretAstS env = \case
     sbuild1 (interpretLambdaIS interpretAstS env (var, v))
       -- to be used only in tests
   AstGatherS @sh2 AstIotaS (vars, (i :$: ZSH)) ->
-    let sfromIndex :: AstInt -> AstShaped r '[]
-        sfromIndex = sconstant . scast . sfromR
-    in gcastWith (unsafeCoerce Refl :: OS.Take (OS.Rank sh) sh :~: sh)
-       $ gcastWith (unsafeCoerce Refl :: OS.Drop (OS.Rank sh) sh :~: '[])
-       $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh)
-           -- transitivity of type equality doesn't work, by design,
-           -- so this direct cast is needed instead of more basic laws
-       $ sbuild @shaped @r @(OS.Rank sh)
-                (interpretLambdaIndexS interpretAstS env (vars, sfromIndex i))
+    gcastWith (unsafeCoerce Refl :: OS.Take (OS.Rank sh) sh :~: sh)
+    $ gcastWith (unsafeCoerce Refl :: OS.Drop (OS.Rank sh) sh :~: '[])
+    $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh)
+        -- transitivity of type equality doesn't work, by design,
+        -- so this direct cast is needed instead of more basic laws
+    $ sbuild @shaped @r @(OS.Rank sh)
+             (interpretLambdaIndexS
+                interpretAstS env
+                (vars, sfromIntegral $ sconstant $ sfromR i))
   AstGatherS v (vars, ix) ->
     let t1 = interpretAstS env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
@@ -1034,6 +1033,7 @@ interpretAstS env = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
   AstCastS v -> scast $ interpretAstS env v
+  AstFromIntegralS v -> sfromIntegral $ sconstant $ interpretAstPrimalS env v
   AstRToS v -> sfromR $ interpretAst env v
   AstConstS a -> sconstBare a
   AstConstantS a -> sconstant $ interpretAstPrimalS env a
