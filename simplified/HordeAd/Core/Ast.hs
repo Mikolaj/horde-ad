@@ -144,7 +144,8 @@ data AstRanked :: RankedTensorKind where
   -- For the numeric classes:
   AstNm :: OpCodeNum -> [AstRanked r n] -> AstRanked r n
              -- name of the same length as AstOp for tests
-  AstOp :: OpCode -> [AstRanked r n] -> AstRanked r n
+  AstOp :: RealFloat r
+        => OpCode -> [AstRanked r n] -> AstRanked r n
   AstOpIntegral :: OpCodeIntegral -> [AstRanked Int64 n] -> AstRanked Int64 n
   AstSumOfList :: [AstRanked r n] -> AstRanked r n
   AstIota :: AstRanked r 1
@@ -183,7 +184,7 @@ data AstRanked :: RankedTensorKind where
             -> AstRanked r (p + n) -> (AstVarList m, AstIndex p)
             -> AstRanked r (m + n)
     -- out of bounds indexing is permitted
-  AstCast :: GoodScalar r1
+  AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2)
           => AstRanked r1 n -> AstRanked r2 n
   AstFromIntegral :: AstPrimalPart Int64 n -> AstRanked r2 n
 
@@ -203,7 +204,7 @@ data AstRanked :: RankedTensorKind where
   -- Morally these should live in AstPrimalPart, but that would complicate
   -- things, so they are least have AstPrimalPart domains, which often makes
   -- it possible to simplify terms, e.g., deleting AstDualPart applications.
-  AstFloor :: GoodScalar r
+  AstFloor :: (GoodScalar r, RealFrac r)
            => AstPrimalPart r n -> AstRanked Int64 n
   AstMinIndex :: GoodScalar r
               => AstPrimalPart r (1 + n) -> AstRanked Int64 n
@@ -231,7 +232,8 @@ data AstShaped :: ShapedTensorKind where
 
   -- For the numeric classes:
   AstNmS :: OpCodeNum -> [AstShaped r sh] -> AstShaped r sh
-  AstOpS :: OpCode -> [AstShaped r sh] -> AstShaped r sh
+  AstOpS :: RealFloat r
+         => OpCode -> [AstShaped r sh] -> AstShaped r sh
   AstOpIntegralS :: OpCodeIntegral -> [AstShaped Int64 sh] -> AstShaped Int64 sh
   AstSumOfListS :: [AstShaped r sh] -> AstShaped r sh
   AstIotaS :: forall n r. KnownNat n => AstShaped r '[n]
@@ -284,7 +286,7 @@ data AstShaped :: ShapedTensorKind where
              -> (AstVarListS sh2, AstIndexS (OS.Take p sh))
              -> AstShaped r (sh2 OS.++ OS.Drop p sh)
     -- out of bounds indexing is permitted
-  AstCastS :: GoodScalar r1
+  AstCastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
            => AstShaped r1 sh -> AstShaped r2 sh
   AstFromIntegralS :: AstPrimalPartS Int64 sh -> AstShaped r2 sh
 
@@ -304,7 +306,7 @@ data AstShaped :: ShapedTensorKind where
   -- Morally these should live in AstPrimalPartS, but that would complicate
   -- things, so they are least have AstPrimalPartS domains, which often makes
   -- it possible to simplify terms, e.g., deleting AstDualPartS applications.
-  AstFloorS :: GoodScalar r
+  AstFloorS :: (GoodScalar r, RealFrac r)
             => AstPrimalPartS r sh -> AstShaped Int64 sh
   AstMinIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
                => AstPrimalPartS r (n ': sh)
@@ -479,7 +481,7 @@ instance (Real (OR.Array n r))
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance Fractional (OR.Array n r)
+instance (RealFloat r, Fractional (OR.Array n r))
          => Fractional (AstRanked r n) where
   u / v = AstOp DivideOp  [u, v]
   recip v = AstOp RecipOp [v]
@@ -687,7 +689,7 @@ instance Integral (OS.Array sh Int64) => Integral (AstShaped Int64 sh) where
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
 
-instance Fractional (OS.Array sh r)
+instance (RealFloat r, Fractional (OS.Array sh r))
          => Fractional (AstShaped r sh) where
   u / v = AstOpS DivideOp  [u, v]
   recip v = AstOpS RecipOp [v]

@@ -36,13 +36,17 @@ type RankedTensorKind = TensorKind Nat
 type ShapedTensorKind = TensorKind [Nat]
 
 type GoodScalarConstraint r =
-  ( Show r, Numeric r, RealFloat r, Floating (Vector r), RowSum r, Typeable r
+  ( Show r, Ord r, Numeric r, Num r, Num (Vector r), RowSum r, Typeable r
   , IfDifferentiable r )
 
 -- Attempted optimization via storing one pointer to a class dictionary
 -- in existential datatypes instead of six pointers. No effect, strangely.
-class GoodScalarConstraint r => GoodScalar r
-instance GoodScalarConstraint r => GoodScalar r
+-- As a side effect, this avoids ImpredicativeTypes.
+class (GoodScalarConstraint r, Floating r => Floating (Vector r))
+      => GoodScalar r
+instance
+      (GoodScalarConstraint r, Floating r => Floating (Vector r))
+      => GoodScalar r
 
 type HasSingletonDict :: k -> Constraint
 type family HasSingletonDict (y :: k) where

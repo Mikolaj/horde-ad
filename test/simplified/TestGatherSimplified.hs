@@ -318,7 +318,7 @@ testGatherSimp23 = do
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
-gatherTranspose33 :: forall ranked r. ADReady ranked r
+gatherTranspose33 :: forall ranked r. (ADReady ranked r, RealFloat r)
                   => ranked r 10 -> ranked r 2
 gatherTranspose33 t =
   tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))

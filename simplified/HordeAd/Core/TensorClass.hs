@@ -26,7 +26,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Int (Int64)
-import           Data.Kind (Type)
+import           Data.Kind (Constraint, Type)
 import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -66,9 +66,14 @@ type instance RankedOf (Clown OD.Array) = Flip OR.Array
 
 type instance ShapedOf (Clown OD.Array) = Flip OS.Array
 
+type TensorSupports :: (Type -> Constraint) -> TensorKind k -> Constraint
+type TensorSupports c f =
+  forall r y. (GoodScalar r, HasSingletonDict y) => c r => c (f r y)
+
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
-class (Integral (IntOf ranked), CRankedR ranked RealFloat)
+class ( Integral (IntOf ranked), CRankedR ranked Num
+      , TensorSupports RealFloat ranked )
       => RankedTensor (ranked :: RankedTensorKind) where
 
   -- TODO: type Scalar r = ranked r 0
@@ -93,7 +98,7 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
             => ranked r (1 + n) -> ranked Int64 n  -- partial
   tmaxIndex :: (GoodScalar r, KnownNat n)
             => ranked r (1 + n) -> ranked Int64 n  -- partial
-  tfloor :: (GoodScalar r, KnownNat n)
+  tfloor :: (GoodScalar r, RealFrac r, KnownNat n)
          => ranked r n -> ranked Int64 n
 
   -- Typically scalar codomain, often tensor reduction
@@ -226,7 +231,7 @@ class (Integral (IntOf ranked), CRankedR ranked RealFloat)
            -> ranked r (1 + n)
   tgather1 k v f = tgather @ranked @r @1 (k :$ dropShape (tshape v)) v
                            (\(i :. ZI) -> f i)
-  tcast :: (GoodScalar r1, GoodScalar r2, KnownNat n)
+  tcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, KnownNat n)
         => ranked r1 n -> ranked r2 n
   tfromIntegral :: (GoodScalar r2, KnownNat n)
                 => ranked Int64 n -> ranked r2 n
@@ -292,7 +297,8 @@ instance
       (forall r30 y30. (OS.Shape y30, GoodScalar r30) => c (shaped r30 y30))
       => CRankedS shaped c where
 
-class (Integral (IntOf shaped), CRankedS shaped RealFloat)
+class ( Integral (IntOf shaped), CRankedS shaped Num
+      , TensorSupports RealFloat shaped )
       => ShapedTensor (shaped :: ShapedTensorKind) where
 
   slet :: (OS.Shape sh, OS.Shape sh2, GoodScalar r)
@@ -318,7 +324,7 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
   smaxIndex :: ( GoodScalar r, OS.Shape sh, KnownNat n
                , OS.Shape (OS.Init (n ': sh)) )  -- partial
             => shaped r (n ': sh) -> shaped Int64 (OS.Init (n ': sh))
-  sfloor :: (GoodScalar r, OS.Shape sh)
+  sfloor :: (GoodScalar r, RealFrac r, OS.Shape sh)
          => shaped r sh -> shaped Int64 sh
     -- not IntSh, because the integer can be negative
     -- TODO: shall we make it abs (floor v)?
@@ -511,7 +517,7 @@ class (Integral (IntOf shaped), CRankedS shaped RealFloat)
     -> (IntSh shaped n2 -> IndexSh shaped (OS.Take p sh))
     -> shaped r (n2 ': OS.Drop p sh)
   sgather1 v f = sgather @shaped @r @'[n2] v (ShapedList.unconsContShaped f)
-  scast :: (GoodScalar r1, GoodScalar r2, OS.Shape sh)
+  scast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, OS.Shape sh)
         => shaped r1 sh -> shaped r2 sh
   sfromIntegral :: (GoodScalar r2, OS.Shape sh)
                 => shaped Int64 sh -> shaped r2 sh

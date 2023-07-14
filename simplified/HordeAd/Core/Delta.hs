@@ -244,7 +244,7 @@ data DeltaS :: RankedTensorKind -> ShapedTensorKind
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
-  CastS :: GoodScalar r1
+  CastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaS ranked shaped r1 sh -> DeltaS ranked shaped r2 sh
 
   DToS :: forall sh r ranked shaped.
@@ -355,7 +355,7 @@ data DeltaR :: RankedTensorKind -> ShapedTensorKind
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
-  CastR :: GoodScalar r1
+  CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaR ranked shaped r1 n -> DeltaR ranked shaped r2 n
 
   DToR :: forall n r ranked shaped.

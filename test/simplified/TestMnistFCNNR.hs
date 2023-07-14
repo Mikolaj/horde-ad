@@ -60,7 +60,7 @@ testTrees = [ tensorADValMnistTests
 -- POPL differentiation, straight via the ADVal instance of Tensor
 mnistTestCase2VTA
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array
+     ( ranked ~ Flip OR.Array, RealFloat r
      , ADReady ranked r, ADReady (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
@@ -158,7 +158,7 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCase2VTI
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array
+     ( ranked ~ Flip OR.Array, RealFloat r
      , ADReady ranked r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
@@ -273,8 +273,8 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCase2VTO
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array, ADReady ranked r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     ( ranked ~ Flip OR.Array, RealFloat r
+     , ADReady ranked r, PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
@@ -395,7 +395,7 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
 -- POPL differentiation, straight via the ADVal instance of Tensor
 mnistTestCase2VT2A
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array
+     ( ranked ~ Flip OR.Array, RealFloat r
      , ADReady ranked r, Random r, ADReady (ADVal ranked) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
@@ -486,7 +486,7 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCase2VT2I
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array
+     ( ranked ~ Flip OR.Array, RealFloat r
      , ADReady ranked r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
@@ -593,8 +593,8 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCase2VT2O
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array, ADReady ranked r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     ( ranked ~ Flip OR.Array, RealFloat r
+     , ADReady ranked r, Random r , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree

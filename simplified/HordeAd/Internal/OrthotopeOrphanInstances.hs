@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, CPP, UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances
   ( liftVD, liftVD2, liftVR, liftVR2, liftVS, liftVS2
@@ -557,14 +556,31 @@ instance ( Floating (Vector r), Numeric r, RealFloat r )
   isIEEE = undefined
 
 
--- * TODO: A hack to make AstInterpret type-check
+-- * A hack needed for AST Show instances; no idea
 
-instance Fractional Int64
+-- In the worst case we'll need to write the Show instances by hand.
 
-instance Floating Int64
+instance Fractional Int64 where
+  (/) = undefined
+  recip = undefined
+  fromRational = undefined
 
-instance RealFrac Int64
-
-instance RealFloat Int64
-
-instance Floating (Vector Int64)
+instance Floating (Vector Int64) where
+  pi = undefined
+  exp = undefined
+  log = undefined
+  sqrt = undefined
+  (**) = undefined
+  logBase = undefined
+  sin = undefined
+  cos = undefined
+  tan = undefined
+  asin = undefined
+  acos = undefined
+  atan = undefined
+  sinh = undefined
+  cosh = undefined
+  tanh = undefined
+  asinh = undefined
+  acosh = undefined
+  atanh = undefined

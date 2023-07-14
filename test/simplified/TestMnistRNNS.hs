@@ -47,7 +47,7 @@ testTrees = [ tensorADValMnistTestsRNNSA
 -- POPL differentiation, straight via the ADVal instance of Tensor
 mnistTestCaseRNNSA
   :: forall shaped width batch_size r.
-     ( shaped ~ Flip OS.Array
+     ( shaped ~ Flip OS.Array, RealFloat r
      , ADReadyS shaped r, Random r, ADReadyS (ADVal shaped) r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
@@ -149,7 +149,7 @@ tensorADValMnistTestsRNNSA = testGroup "RNNS ADVal MNIST tests"
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCaseRNNSI
   :: forall shaped width batch_size r.
-     ( shaped ~ Flip OS.Array
+     ( shaped ~ Flip OS.Array, RealFloat r
      , ADReadyS shaped r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
@@ -266,7 +266,7 @@ tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCaseRNNSO
   :: forall shaped width batch_size r.
-     ( shaped ~ Flip OS.Array
+     ( shaped ~ Flip OS.Array, RealFloat r
      , ADReadyS shaped r, Random r, PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r

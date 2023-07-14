@@ -62,7 +62,7 @@ unrollLastR f s0 xs w =
   in foldl' g (undefined, s0) projections
 
 rnnMnistLayerR
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 2  -- in state, [out_width, batch_size]
   -> ranked r 2  -- in, [in_width, batch_size]
   -> LayerWeigthsRNN ranked r  -- in_width out_width
@@ -75,7 +75,7 @@ rnnMnistLayerR s x (wX, wS, b) = case tshape s of
   _ -> error "rnnMnistLayerR: wrong shape of the state"
 
 rnnMnistTwoR
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 2  -- initial state, [2 * out_width, batch_size]
   -> PrimalOf ranked r 2  -- [sizeMnistHeight, batch_size]
   -> ( LayerWeigthsRNN ranked r  -- sizeMnistHeight out_width
@@ -95,7 +95,7 @@ rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case tshape s' of
   _ -> error "rnnMnistTwoR: wrong shape of the state"
 
 rnnMnistZeroR
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => Int
   -> PrimalOf ranked r 3  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
   -> ADRnnMnistParameters ranked r  -- sizeMnistHeight out_width
@@ -110,7 +110,7 @@ rnnMnistZeroR batch_size xs
   _ -> error "rnnMnistZeroR: wrong shape"
 
 rnnMnistLossFusedR
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => Int
   -> (PrimalOf ranked r 3, PrimalOf ranked r 2)  -- batch_size
   -> ADRnnMnistParameters ranked r  -- SizeMnistHeight out_width
@@ -123,7 +123,7 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   in tconstant (recip $ fromIntegral batch_size) * loss
 
 rnnMnistTestR
-  :: forall ranked r. (ranked ~ Flip OR.Array, ADReady ranked r)
+  :: forall ranked r. (ranked ~ Flip OR.Array, ADReady ranked r, RealFloat r)
   => Int
   -> MnistDataBatchR r  -- batch_size
   -> ((ADRnnMnistParameters ranked r  -- SizeMnistHeight out_width

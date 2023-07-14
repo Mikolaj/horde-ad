@@ -41,7 +41,7 @@ type ADCnnMnistParameters (ranked :: RankedTensorKind) r =
     , ranked r 1 ) )
 
 convMnistLayerR
-  :: ADReady ranked r  -- TODO: ADRanked ranked r  ???
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 4  -- [c_out, c_in, kh + 1, kw + 1]
   -> ranked r 4  -- [batch_size, c_in, h, w]
   -> ranked r 1  -- [c_out]
@@ -55,7 +55,7 @@ convMnistLayerR ker input bias =
   in maxPool2dUnpadded 2 2 yRelu
 
 convMnistTwoR
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => Int -> Int -> Int
   -> PrimalOf ranked r 4  -- [batch_size, 1, SizeMnistHeight, SizeMnistWidth]
                           -- ^ input images
@@ -83,7 +83,7 @@ convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
      + ttr (treplicate batch_size biasesReadout)
 
 convMnistLossFusedR
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => Int
   -> ( PrimalOf ranked r 3  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
      , PrimalOf ranked r 2 )  -- [batch_size, SizeMnistLabel]
@@ -104,7 +104,7 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 
 convMnistTestR
   :: forall ranked r.
-     (ranked ~ Flip OR.Array, ADReady ranked r)
+     (ranked ~ Flip OR.Array, ADReady ranked r, RealFloat r)
   => Int
   -> MnistDataBatchR r
   -> ((ADCnnMnistParameters ranked r

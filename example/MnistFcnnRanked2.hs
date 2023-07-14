@@ -47,7 +47,7 @@ type ADFcnnMnist2Parameters (ranked :: RankedTensorKind) r =
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (inputs) to be given to the program.
-afcnnMnist2 :: ADReady ranked r
+afcnnMnist2 :: (ADReady ranked r, RealFloat r)
             => (ranked r 1 -> ranked r 1)
             -> (ranked r 1 -> ranked r 1)
             -> ranked r 1
@@ -66,7 +66,7 @@ afcnnMnist2 factivationHidden factivationOutput
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 afcnnMnistLoss2
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => MnistData r -> ADFcnnMnist2Parameters ranked r
   -> ranked r 0
 afcnnMnistLoss2 (datum, target) =
@@ -75,7 +75,7 @@ afcnnMnistLoss2 (datum, target) =
   in afcnnMnistLoss2TensorData (datum1, target1)
 
 afcnnMnistLoss2TensorData
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => (ranked r 1, ranked r 1) -> ADFcnnMnist2Parameters ranked r
   -> ranked r 0
 afcnnMnistLoss2TensorData (datum, target) adparams =
@@ -85,7 +85,7 @@ afcnnMnistLoss2TensorData (datum, target) adparams =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 afcnnMnistTest2
-  :: forall ranked r. (ranked ~ Flip OR.Array, ADReady ranked r)
+  :: forall ranked r. (ranked ~ Flip OR.Array, ADReady ranked r, RealFloat r)
   => [MnistData r]
   -> ((ADFcnnMnist2Parameters ranked r
        -> ranked r 1)

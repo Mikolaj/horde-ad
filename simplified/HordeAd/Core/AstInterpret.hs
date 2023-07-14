@@ -243,13 +243,14 @@ type InterpretAstS shaped =
   , BoolOf shaped ~ BoolOf (PrimalOf shaped)
   )
 
-type InterpretAst ranked =
-  ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
-  , ShapedTensor (ShapedOf ranked), ShapedTensor (PrimalOf (ShapedOf ranked))
-  , ConvertTensor ranked (ShapedOf ranked)
-  , ConvertTensor (PrimalOf ranked) (PrimalOf (ShapedOf ranked))
+type InterpretAst ranked shaped =
+  ( shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped
+  , RankedTensor ranked, RankedTensor (PrimalOf ranked)
+  , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
+  , ConvertTensor ranked shaped
+  , ConvertTensor (PrimalOf ranked) (PrimalOf shaped)
   , InterpretAstR ranked
-  , InterpretAstS (ShapedOf ranked)
+  , InterpretAstS shaped
   , IRanked ranked Int64 Integral
   , YRanked ranked Int64 IsIntegralShapedOf
   )
@@ -262,8 +263,8 @@ type InterpretAst ranked =
 -- It helps that usually the dual part is either trivially computed
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
-  :: forall ranked n r.
-     (KnownNat n, InterpretAst ranked, GoodScalar r)
+  :: forall ranked shaped n r.
+     (KnownNat n, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked
   -> AstPrimalPart r n -> PrimalOf ranked r n
 interpretAstPrimal env (AstPrimalPart v1) = case v1 of
@@ -276,8 +277,8 @@ interpretAstPrimal env (AstPrimalPart v1) = case v1 of
   _ -> tprimalPart $ interpretAst env v1
 
 interpretAstDual
-  :: forall ranked n r.
-     (KnownNat n, InterpretAst ranked, GoodScalar r)
+  :: forall ranked shaped n r.
+     (KnownNat n, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked
   -> AstDualPart r n -> DualOf ranked r n
 interpretAstDual env (AstDualPart v1) = case v1 of
@@ -285,8 +286,8 @@ interpretAstDual env (AstDualPart v1) = case v1 of
   _ -> tdualPart $ interpretAst env v1
 
 interpretAst
-  :: forall ranked n r.
-     (KnownNat n, InterpretAst ranked, GoodScalar r)
+  :: forall ranked shaped n r.
+     (KnownNat n, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked
   -> AstRanked r n -> ranked r n
 interpretAst env = \case
@@ -588,7 +589,7 @@ interpretAst env = \case
         f (varId, DynamicExists @r2 d) =
           let sh2 = dshape @ranked d
           in OS.withShapeP sh2 $ \(Proxy :: Proxy sh2) ->
-            extendEnvS @ranked @(ShapedOf ranked) @r2 @sh2
+            extendEnvS @ranked @shaped @r2 @sh2
                        (AstVarName varId) (sfromD d)
         env2 = V.foldr f env (V.zip vars l2)
     in interpretAst env2 v
@@ -602,7 +603,7 @@ interpretAst env = \case
   AstMaxIndex v -> tmaxIndex $ tconstant $ interpretAstPrimal env v
 
 interpretAstDynamic
-  :: forall ranked. InterpretAst ranked
+  :: forall ranked shaped. InterpretAst ranked shaped
   => AstEnv ranked -> DynamicExists AstDynamic
   -> DynamicExists (DynamicOf ranked)
 interpretAstDynamic env = \case
@@ -610,7 +611,7 @@ interpretAstDynamic env = \case
   DynamicExists (AstSToD w) -> DynamicExists $ dfromS $ interpretAstS env w
 
 interpretAstDomains
-  :: forall ranked . InterpretAst ranked
+  :: forall ranked shaped. InterpretAst ranked shaped
   => AstEnv ranked -> AstDomains -> Domains (DynamicOf ranked)
 interpretAstDomains env = \case
   AstDomains l -> interpretAstDynamic env <$> l
@@ -625,7 +626,7 @@ interpretAstDomains env = \case
     in interpretAstDomains env2 v
       -- TODO: preserve let, as in AstLet case
 
-interpretAstBool :: InterpretAst ranked
+interpretAstBool :: InterpretAst ranked shaped
                  => AstEnv ranked -> AstBool -> BoolOf ranked
 interpretAstBool env = \case
   AstBoolOp opCodeBool args ->
@@ -640,19 +641,19 @@ interpretAstBool env = \case
     in interpretAstRelOp opCodeRel args2
 
 interpretAstDynamicDummy
-  :: forall ranked. InterpretAst ranked
+  :: forall ranked shaped. InterpretAst ranked shaped
   => AstEnv ranked
   -> DynamicExists AstDynamic -> DynamicExists (DynamicOf ranked)
 interpretAstDynamicDummy env = \case
   DynamicExists @r (AstRToD AstIota) ->
-    DynamicExists $ ddummy @ranked @(ShapedOf ranked) @r
+    DynamicExists $ ddummy @ranked @shaped @r
   DynamicExists (AstRToD w) -> DynamicExists $ dfromR $ interpretAst env w
   DynamicExists @r (AstSToD AstIotaS) ->
-    DynamicExists $ ddummy @ranked @(ShapedOf ranked) @r
+    DynamicExists $ ddummy @ranked @shaped @r
   DynamicExists (AstSToD w) -> DynamicExists $ dfromS $ interpretAstS env w
 
 interpretAstDomainsDummy
-  :: forall ranked . InterpretAst ranked
+  :: forall ranked shaped. InterpretAst ranked shaped
   => AstEnv ranked -> AstDomains -> Domains (DynamicOf ranked)
 interpretAstDomainsDummy env = \case
   AstDomains l -> interpretAstDynamicDummy env <$> l
@@ -670,7 +671,7 @@ interpretAstDomainsDummy env = \case
 -- TODO: when the code again tests with GHC >= 9.6, check whether
 -- these INLINEs are still needed (removal causes 10% slowdown ATM).
 interpretAstNm :: Num a
-                  => OpCodeNum -> [a] -> a
+               => OpCodeNum -> [a] -> a
 {-# INLINE interpretAstNm #-}
 interpretAstNm MinusOp [u, v] = u - v
 interpretAstNm NegateOp [u] = negate u
@@ -740,7 +741,7 @@ interpretAstRelOp opCodeRel args =
 
 interpretAstPrimalS
   :: forall ranked shaped sh r.
-     ( OS.Shape sh, shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped, InterpretAst ranked, GoodScalar r )
+     (OS.Shape sh, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked
   -> AstPrimalPartS r sh -> PrimalOf shaped r sh
 interpretAstPrimalS env (AstPrimalPartS v1) = case v1 of
@@ -754,7 +755,7 @@ interpretAstPrimalS env (AstPrimalPartS v1) = case v1 of
 
 interpretAstDualS
   :: forall ranked shaped sh r.
-     ( OS.Shape sh, shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped, InterpretAst ranked, GoodScalar r )
+     (OS.Shape sh, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked
   -> AstDualPartS r sh -> DualOf shaped r sh
 interpretAstDualS env (AstDualPartS v1) = case v1 of
@@ -763,7 +764,7 @@ interpretAstDualS env (AstDualPartS v1) = case v1 of
 
 interpretAstS
   :: forall ranked shaped sh r.
-     ( OS.Shape sh, shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped, InterpretAst ranked, GoodScalar r )
+     (OS.Shape sh, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked
   -> AstShaped r sh -> shaped r sh
 interpretAstS env = \case
@@ -1046,7 +1047,7 @@ interpretAstS env = \case
         f (varId, DynamicExists @r2 d) =
           let sh2 = dshape @ranked d
           in OS.withShapeP sh2 $ \(Proxy :: Proxy sh2) ->
-            extendEnvS @ranked @(ShapedOf ranked) @r2 @sh2
+            extendEnvS @ranked @shaped @r2 @sh2
                        (AstVarName varId) (sfromD d)
         env2 = V.foldr f env (V.zip vars l2)
     in interpretAstS env2 v
@@ -1058,6 +1059,7 @@ interpretAstS env = \case
   AstFloorS v -> sfloor $ sconstant $ interpretAstPrimalS env v
   AstMinIndexS v -> sminIndex $ sconstant $ interpretAstPrimalS env v
   AstMaxIndexS v -> smaxIndex $ sconstant $ interpretAstPrimalS env v
+
 
 
 
@@ -1239,7 +1241,6 @@ interpretAstS env = \case
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n
   => OpCodeRel -> [AstRanked Float n] -> AstBool #-}
-
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n
   => OpCodeRel -> [AstRanked Int64 n] -> AstBool #-}

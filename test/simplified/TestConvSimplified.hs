@@ -100,17 +100,17 @@ slicezF shOut d ixBase =
       -- tindex0 would not require a single type application here
 
 conv2d1
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 4 -> ranked r 4
 conv2d1 = conv2d $ tconst $ OR.fromList [1, 1, 1, 1] [-0.2]
 
 conv2dA
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 4 -> ranked r 4
 conv2dA = conv2d $ tconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25.0003]
 
 conv2dB
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 4 -> ranked r 4
 conv2dB = conv2d $ tconst $ runFlip t16b
 
@@ -155,42 +155,43 @@ testKonstG0LittleA =
 -- the same.
 
 conv2d1Laborious
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 4 -> ranked r 4
 conv2d1Laborious = conv2dUnpadded $ tconst $ OR.fromList [1, 1, 1, 1] [-0.2]
 
 conv2dALaborious
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 4 -> ranked r 4
-conv2dALaborious = conv2dUnpadded $ tconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25.0003]
+conv2dALaborious =
+  conv2dUnpadded $ tconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25.0003]
 
 conv2dBLaborious
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 4 -> ranked r 4
 conv2dBLaborious = conv2dUnpadded $ tconst $ runFlip t16b
 
 conv2dCLaborious
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 4 -> ranked r 4
 conv2dCLaborious = flip conv2dUnpadded $ tconst $ runFlip t16b
 
 conv2dBLaborious128b
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 4 -> ranked r 4
 conv2dBLaborious128b = conv2dUnpadded $ tconst $ runFlip t128b
 
 conv2dCLaborious128b
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 4 -> ranked r 4
 conv2dCLaborious128b = flip conv2dUnpadded $ tconst $ runFlip t128b
 
 conv2dBLaborious128c
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 4 -> ranked r 4
 conv2dBLaborious128c = conv2dUnpadded $ tconst $ runFlip t128c
 
 conv2dCLaborious128c
-  :: ADReady ranked r
+  :: (ADReady ranked r, RealFloat r)
   => ranked r 4 -> ranked r 4
 conv2dCLaborious128c = flip conv2dUnpadded $ tconst $ runFlip t128c
 
@@ -451,9 +452,9 @@ costVolume iStart nCount arrL arrR =
 
 test_disparityKonst :: Assertion
 test_disparityKonst = do
-  let arrL :: ADReady ranked r => ranked r 4
+  let arrL :: (ADReady ranked r, RealFloat r) => ranked r 4
       arrL = treplicate0N [1, 2, 4, 6] (-0.2)
-      arrR :: ADReady ranked r => ranked r 4
+      arrR :: (ADReady ranked r, RealFloat r) => ranked r 4
       arrR = treplicate0N [1, 2, 4, 6] 0.3
       arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
@@ -479,9 +480,9 @@ test_disparityKonst = do
 
 test_disparityKonst2 :: Assertion
 test_disparityKonst2 = do
-  let arrL :: (RankedTensor ranked, GoodScalar r) => ranked r 4
+  let arrL :: (RankedTensor ranked, GoodScalar r, RealFloat r) => ranked r 4
       arrL = tfromList0N [1, 2, 4, 6] [0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0, 1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,2.808238290463863,1.21999,-0.5672067811865474,0.7867666666666666,1.986339795093316,0.6964466094067263]
-      arrR :: (RankedTensor ranked, GoodScalar r) => ranked r 4
+      arrR :: (RankedTensor ranked, GoodScalar r, RealFloat r) => ranked r 4
       arrR = tfromList0N [1, 2, 4, 6] [0.2, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40, -0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25, -2.808238290463863,-1.21999,-0.5672067811865474,-0.7867666666666666,-1.986339795093316,-0.6964466094067263,2.808238290463863,1.21999,-0.5672067811865474,0.7867666666666666,0.6964466094067263,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,0.50001,0.42000000000000004,0.2801,0.78,1.1,0.50001,0.42000000000000004,0.2801,0.78]
       arrO = OR.constant [1, 4, 4, 6] (1 :: Double)
       res1 = OR.fromList [1,2,4,6] [4.0,2.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,0.0,0.0,-2.0,0.0,4.0,4.0,2.0,0.0,-4.0,1.0,4.0,4.0,4.0,-4.0,2.0,4.0,2.0]
@@ -503,9 +504,9 @@ test_disparityKonst2 = do
 
 test_disparitySmall :: Assertion
 test_disparitySmall = do
-  let arrL :: ADReady ranked r => ranked r 4
+  let arrL :: (ADReady ranked r, RealFloat r) => ranked r 4
       arrL = tfromList0N [1, 2, 3, 2] [0.2, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40]
-      arrR :: ADReady ranked r => ranked r 4
+      arrR :: (ADReady ranked r, RealFloat r) => ranked r 4
       arrR = tfromList0N [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
       arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
