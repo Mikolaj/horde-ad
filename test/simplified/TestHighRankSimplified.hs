@@ -298,8 +298,7 @@ nestedBuildMap :: forall ranked n r.
                   (ADReady ranked r, n <= 6, KnownNat n, Differentiable r)
                => ranked r 0 -> ranked r (1 + n)
 nestedBuildMap r =
-  let w :: ranked r 0 -> ranked r 1  -- TODO: this should not be needed
-      w = treplicate0N [4]
+  let w x = treplicate0N [4] x :: ranked r 1
       v' = treplicate0N (177 :$ ZS) r
       nestedMap x = tmap0N (x /) (w x)
       variableLengthBuild iy = tbuild1 7 (\ix ->
