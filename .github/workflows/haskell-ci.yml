@@ -32,22 +32,22 @@ jobs:
             compilerKind: ghc
             compilerVersion: 9.2.7
             allow-failure: false
-            tests-short: basic
+            tests-short: true
           - compiler: ghc-9.2.7-nn
             compilerKind: ghc
             compilerVersion: 9.2.7
             allow-failure: false
-            tests-short: nn
+            tests-short: false
           - compiler: ghc-9.4.4
             compilerKind: ghc
             compilerVersion: 9.4.4
             allow-failure: false
-            tests-short: basic
+            tests-short: true
           - compiler: ghc-9.4.4-nn
             compilerKind: ghc
             compilerVersion: 9.4.4
             allow-failure: false
-            tests-short: nn
+            tests-short: false
       fail-fast: false
     steps:
       - name: apt
@@ -186,9 +186,9 @@ jobs:
         run: |
           ln -s $GITHUB_WORKSPACE/source/samplesData ${PKGDIR_horde_ad}
           if [ "${{ matrix.tests-short }}" ]; then
-            $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest -ftest_seq --test-options='-p "Short tests"'
+            $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest -ftest_seq --test-options="-p Short_tests"
           else
-            $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedNNTest -ftest_seq --test-options='-p "Neural network tests"
+            $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedNNTest -ftest_seq --test-options="-p Neural_network_tests"
           fi
 #      - name: prod benches
 #        if: ${{ false }}  # disable for now
@@ -199,12 +199,12 @@ jobs:
 #        run: |
 #          $CABAL v2-bench $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortMnistForCI
       - name: cabal check
-        if: ${{ matrix.tests-short }}
+        if: matrix.tests-short
         run: |
           cd ${PKGDIR_horde_ad} || false
           ${CABAL} -vnormal check
       - name: haddock
-        if: ${{ matrix.tests-short }}
+        if: matrix.tests-short
         run: |
           $CABAL v2-haddock --disable-documentation $ARG_COMPILER --with-haddock $HADDOCK $ARG_TESTS $ARG_BENCH all
 #      - name: unconstrained build

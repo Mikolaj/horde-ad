@@ -32,12 +32,12 @@ main = do
 tests :: TestTree
 tests =
   testGroup "Tests for simplified horde-ad"
-    [ testGroup "Short tests"
+    [ testGroup "Short_tests"
         (TestGatherSimplified.testTrees
          ++ TestHighRankSimplified.testTrees
          ++ TestConvSimplified.testTrees
          ++ TestAdaptorSimplified.testTrees)
-    , testGroup "Neural network tests"
+    , testGroup "Neural_network_tests"
         (TestMnistFCNNR.testTrees
          ++ TestMnistCNNR.testTrees
          ++ TestMnistRNNR.testTrees
