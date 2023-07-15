@@ -50,15 +50,13 @@ rev' :: forall r m n v g.
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , g, g, g, g, g, g, g, g, g, g, g, g, g, g )
 rev' f vals =
--- TODO: disabled to type-check on GHC 9.4.5:
-  let value0 = value1  -- f vals
+  let value0 = f vals
       parameters = toDomains vals
       dt = Nothing
--- TODO: disabled to type-check on GHC 9.4.5:
---      g :: Domains (ADValClown OD.Array)
---        -> ADVal (Flip OR.Array) r m
---      g inputs = f $ parseDomains vals inputs
-      (advalGrad, value1) = (astGrad, value2)  -- crevOnDomains dt g parameters
+      g :: Domains (ADValClown OD.Array)
+        -> ADVal (Flip OR.Array) r m
+      g inputs = f $ parseDomains vals inputs
+      (advalGrad, value1) = crevOnDomains dt g parameters
       gradient1 = parseDomains vals advalGrad
       g9 :: Domains (ADValClown AstDynamic)
          -> ADVal AstPrimalPart r m
