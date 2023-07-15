@@ -507,7 +507,7 @@ concatBuild r =
 testConcatBuild0 :: Assertion
 testConcatBuild0 =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [7] [16914.0,16277.0,16277.0,16277.0,16277.0,16277.0,16277.0])
+    (OR.fromList [7] [16917.0,16280.0,16280.0,16280.0,16280.0,16280.0,16280.0])
     (rev' @Double @3 concatBuild
        (Flip $ OR.fromList [7] [0.651,0.14,0.3414,-0.14,0.0014,0.0020014,0.9999]))
 

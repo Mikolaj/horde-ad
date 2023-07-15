@@ -13,4 +13,7 @@ void column_sum_float(int nrows, int ncols, const float *x, float *y);
 void row_sum_int64(int nrows, int ncols, const long long *x, long long *y);
 void column_sum_int64(int nrows, int ncols, const long long *x, long long *y);
 
+void row_sum_cInt(int nrows, int ncols, const int *x, int *y);
+void column_sum_cInt(int nrows, int ncols, const int *x, int *y);
+
 #endif /* MATRIX_REDUCE_H */

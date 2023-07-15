@@ -59,3 +59,21 @@ void column_sum_int64(int nrows, int ncols, const long long *x, long long *y) {
     }
   }
 }
+
+void row_sum_cInt(int nrows, int ncols, const int *x, int *y) {
+  for (int j = 0; j < ncols; j++) {
+    const int *column = x + j * nrows;
+    for (int i = 0; i < nrows; i++) {
+      y[i] += column[i];
+    }
+  }
+}
+void column_sum_cInt(int nrows, int ncols, const int *x, int *y) {
+  for (int j = 0; j < ncols; j++) {
+    const int *column = &x[j * nrows];
+    y[j] = 0;
+    for (int i = 0; i < nrows; i++) {
+      y[j] += column[i];
+    }
+  }
+}

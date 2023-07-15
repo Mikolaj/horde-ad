@@ -41,7 +41,6 @@ import           GHC.TypeLits
   (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
-import           Numeric.LinearAlgebra.Data (toZ)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -131,28 +130,29 @@ tlengthR u = case OR.shapeL u of
   k : _ -> k
 
 tminIndexR
-  :: forall n r. (Numeric r, KnownNat n)
-  => OR.Array (1 + n) r -> OR.Array n Int64
+  :: forall n r r2. (NumAndShow r, NumAndShow r2, KnownNat n)
+  => OR.Array (1 + n) r -> OR.Array n r2
 tminIndexR =
-  let f :: OR.Array 1 r -> OR.Array 0 Int64
+  let f :: OR.Array 1 r -> OR.Array 0 r2
       f = OR.scalar . fromIntegral . LA.minIndex . OR.toVector
   in case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> f
     _ -> OR.rerank f
 
 tmaxIndexR
-  :: forall n r. (Numeric r, KnownNat n)
-  => OR.Array (1 + n) r -> OR.Array n Int64
+  :: forall n r r2. (NumAndShow r, NumAndShow r2, KnownNat n)
+  => OR.Array (1 + n) r -> OR.Array n r2
 tmaxIndexR =
-  let f :: OR.Array 1 r -> OR.Array 0 Int64
+  let f :: OR.Array 1 r -> OR.Array 0 r2
       f = OR.scalar . fromIntegral . LA.maxIndex . OR.toVector
   in case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> f
     _ -> OR.rerank f
 
-tfloorR :: (Numeric r, KnownNat n)
-        => OR.Array n r -> OR.Array n Int64
-tfloorR = liftVR toZ
+-- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
+tfloorR :: (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, KnownNat n)
+        => OR.Array n r -> OR.Array n r2
+tfloorR = liftVR (V.map floor)
 
 ixInBounds :: [Int64] -> [Int] -> Bool
 ixInBounds ix sh =
@@ -259,6 +259,12 @@ foreign import ccall unsafe "row_sum_float"
 foreign import ccall unsafe "column_sum_float"
   c_column_sum_int64 :: CInt -> CInt -> Ptr Int64 -> Ptr Int64 -> IO ()
 
+foreign import ccall unsafe "row_sum_float"
+  c_row_sum_cInt :: CInt -> CInt -> Ptr CInt -> Ptr CInt -> IO ()
+
+foreign import ccall unsafe "column_sum_float"
+  c_column_sum_cInt :: CInt -> CInt -> Ptr CInt -> Ptr CInt -> IO ()
+
 class RowSum r where
   rowSum :: Int -> Int -> Ptr r -> Ptr r -> IO ()
   columnSum :: Int -> Int -> Ptr r -> Ptr r -> IO ()
@@ -280,6 +286,12 @@ instance RowSum Int64 where
     c_row_sum_int64 (fromIntegral n) (fromIntegral k) ptr ptr2
   columnSum n k ptr ptr2 =
     c_column_sum_int64 (fromIntegral n) (fromIntegral k) ptr ptr2
+
+instance RowSum CInt where
+  rowSum n k ptr ptr2 =
+    c_row_sum_cInt (fromIntegral n) (fromIntegral k) ptr ptr2
+  columnSum n k ptr ptr2 =
+    c_column_sum_cInt (fromIntegral n) (fromIntegral k) ptr ptr2
 
 instance {-# OVERLAPPABLE #-} Numeric r => RowSum r where
   rowSum = error "RowSum: TODO"
@@ -611,11 +623,11 @@ updateNS arr upd =
      in OS.fromVector (foldl' f values upd)
 
 tminIndexS
-  :: forall n sh r. ( Numeric r, OS.Shape sh, KnownNat n
-                    , OS.Shape (OS.Init (n ': sh)) )
-  => OS.Array (n ': sh) r -> OS.Array (OS.Init (n ': sh)) Int64
+  :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, OS.Shape sh, KnownNat n
+                       , OS.Shape (OS.Init (n ': sh)) )
+  => OS.Array (n ': sh) r -> OS.Array (OS.Init (n ': sh)) r2
 tminIndexS =
-  let f :: KnownNat m => OS.Array '[m] r -> OS.Array '[] Int64
+  let f :: KnownNat m => OS.Array '[m] r -> OS.Array '[] r2
       f = OS.scalar . fromIntegral . LA.minIndex . OS.toVector
   in case sameShape @sh @'[] of
     Just Refl -> f @n
@@ -637,11 +649,11 @@ tminIndexS =
         Nothing -> error "tmaxIndexS: impossible someNatVal error"
 
 tmaxIndexS
-  :: forall n sh r. ( Numeric r, OS.Shape sh, KnownNat n
-                    , OS.Shape (OS.Init (n ': sh)) )
-  => OS.Array (n ': sh) r -> OS.Array (OS.Init (n ': sh)) Int64
+  :: forall n sh r r2. ( NumAndShow r, NumAndShow r2, OS.Shape sh, KnownNat n
+                       , OS.Shape (OS.Init (n ': sh)) )
+  => OS.Array (n ': sh) r -> OS.Array (OS.Init (n ': sh)) r2
 tmaxIndexS =
-  let f :: KnownNat m => OS.Array '[m] r -> OS.Array '[] Int64
+  let f :: KnownNat m => OS.Array '[m] r -> OS.Array '[] r2
       f = OS.scalar . fromIntegral . LA.maxIndex . OS.toVector
   in case sameShape @sh @'[] of
     Just Refl -> f @n
@@ -662,9 +674,10 @@ tmaxIndexS =
             Nothing -> error "tmaxIndexS: impossible someNatVal error"
         Nothing -> error "tmaxIndexS: impossible someNatVal error"
 
-tfloorS :: (Numeric r, OS.Shape sh)
-        => OS.Array sh r -> OS.Array sh Int64
-tfloorS = liftVS toZ
+-- TODO: use Convert, fromInt/toInt and fromZ/toZ from hmatrix
+tfloorS :: (NumAndShow r, RealFrac r, NumAndShow r2, Integral r2, OS.Shape sh)
+        => OS.Array sh r -> OS.Array sh r2
+tfloorS = liftVS (V.map floor)
 
 tindexNS
   :: forall sh1 sh2 r.

@@ -25,7 +25,6 @@ import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
-import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
 import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
@@ -95,12 +94,12 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
   tlength v = case tshape v of
     ZS -> error "tlength: impossible pattern needlessly required"
     k :$ _ -> k
-  tminIndex :: (GoodScalar r, KnownNat n)
-            => ranked r (1 + n) -> ranked Int64 n  -- partial
-  tmaxIndex :: (GoodScalar r, KnownNat n)
-            => ranked r (1 + n) -> ranked Int64 n  -- partial
-  tfloor :: (GoodScalar r, RealFrac r, KnownNat n)
-         => ranked r n -> ranked Int64 n
+  tminIndex :: (GoodScalar r, GoodScalar r2, KnownNat n)
+            => ranked r (1 + n) -> ranked r2 n  -- partial
+  tmaxIndex :: (GoodScalar r, GoodScalar r2, KnownNat n)
+            => ranked r (1 + n) -> ranked r2 n  -- partial
+  tfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownNat n)
+         => ranked r n -> ranked r2 n
 
   -- Typically scalar codomain, often tensor reduction
   -- (a number suffix in the name indicates the rank of codomain)
@@ -234,8 +233,8 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
                            (\(i :. ZI) -> f i)
   tcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, KnownNat n)
         => ranked r1 n -> ranked r2 n
-  tfromIntegral :: (GoodScalar r2, KnownNat n)
-                => ranked Int64 n -> ranked r2 n
+  tfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
+                => ranked r1 n -> ranked r2 n
 
   -- ** No serviceable parts beyond this point ** --
 
@@ -319,14 +318,14 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
   slength :: forall r n sh. (GoodScalar r, KnownNat n)
           => shaped r (n ': sh) -> Int
   slength _ = valueOf @n
-  sminIndex :: ( GoodScalar r, OS.Shape sh, KnownNat n
+  sminIndex :: ( GoodScalar r, GoodScalar r2, OS.Shape sh, KnownNat n
                , OS.Shape (OS.Init (n ': sh)) )  -- partial
-            => shaped r (n ': sh) -> shaped Int64 (OS.Init (n ': sh))
-  smaxIndex :: ( GoodScalar r, OS.Shape sh, KnownNat n
+            => shaped r (n ': sh) -> shaped r2 (OS.Init (n ': sh))
+  smaxIndex :: ( GoodScalar r, GoodScalar r2, OS.Shape sh, KnownNat n
                , OS.Shape (OS.Init (n ': sh)) )  -- partial
-            => shaped r (n ': sh) -> shaped Int64 (OS.Init (n ': sh))
-  sfloor :: (GoodScalar r, RealFrac r, OS.Shape sh)
-         => shaped r sh -> shaped Int64 sh
+            => shaped r (n ': sh) -> shaped r2 (OS.Init (n ': sh))
+  sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, OS.Shape sh)
+         => shaped r sh -> shaped r2 sh
     -- not IntSh, because the integer can be negative
     -- TODO: shall we make it abs (floor v)?
 
@@ -520,8 +519,8 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
   sgather1 v f = sgather @shaped @r @'[n2] v (ShapedList.unconsContShaped f)
   scast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, OS.Shape sh)
         => shaped r1 sh -> shaped r2 sh
-  sfromIntegral :: (GoodScalar r2, OS.Shape sh)
-                => shaped Int64 sh -> shaped r2 sh
+  sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, OS.Shape sh)
+                => shaped r1 sh -> shaped r2 sh
 
   -- ** No serviceable parts beyond this point ** --
 

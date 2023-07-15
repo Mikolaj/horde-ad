@@ -187,7 +187,8 @@ data AstRanked :: RankedTensorKind where
     -- out of bounds indexing is permitted
   AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2)
           => AstRanked r1 n -> AstRanked r2 n
-  AstFromIntegral :: AstPrimalPart Int64 n -> AstRanked r2 n
+  AstFromIntegral :: (GoodScalar r1, Integral r1)
+                  => AstPrimalPart r1 n -> AstRanked r2 n
 
   AstSToR :: OS.Shape sh
           => AstShaped r sh -> AstRanked r (OS.Rank sh)
@@ -205,12 +206,12 @@ data AstRanked :: RankedTensorKind where
   -- Morally these should live in AstPrimalPart, but that would complicate
   -- things, so they are least have AstPrimalPart domains, which often makes
   -- it possible to simplify terms, e.g., deleting AstDualPart applications.
-  AstFloor :: (GoodScalar r, RealFrac r)
-           => AstPrimalPart r n -> AstRanked Int64 n
+  AstFloor :: (GoodScalar r, RealFrac r, Integral r2)
+           => AstPrimalPart r n -> AstRanked r2 n
   AstMinIndex :: GoodScalar r
-              => AstPrimalPart r (1 + n) -> AstRanked Int64 n
+              => AstPrimalPart r (1 + n) -> AstRanked r2 n
   AstMaxIndex :: GoodScalar r
-              => AstPrimalPart r (1 + n) -> AstRanked Int64 n
+              => AstPrimalPart r (1 + n) -> AstRanked r2 n
 
 deriving instance GoodScalar r => Show (AstRanked r n)
 
@@ -290,7 +291,8 @@ data AstShaped :: ShapedTensorKind where
     -- out of bounds indexing is permitted
   AstCastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
            => AstShaped r1 sh -> AstShaped r2 sh
-  AstFromIntegralS :: AstPrimalPartS Int64 sh -> AstShaped r2 sh
+  AstFromIntegralS :: (GoodScalar r1, Integral r1)
+                   => AstPrimalPartS r1 sh -> AstShaped r2 sh
 
   AstRToS :: (OS.Shape sh, KnownNat (OS.Rank sh))
           => AstRanked r (OS.Rank sh) -> AstShaped r sh
@@ -308,14 +310,14 @@ data AstShaped :: ShapedTensorKind where
   -- Morally these should live in AstPrimalPartS, but that would complicate
   -- things, so they are least have AstPrimalPartS domains, which often makes
   -- it possible to simplify terms, e.g., deleting AstDualPartS applications.
-  AstFloorS :: (GoodScalar r, RealFrac r)
-            => AstPrimalPartS r sh -> AstShaped Int64 sh
+  AstFloorS :: (GoodScalar r, RealFrac r, Integral r2)
+            => AstPrimalPartS r sh -> AstShaped r2 sh
   AstMinIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
                => AstPrimalPartS r (n ': sh)
-               -> AstShaped Int64 (OS.Init (n ': sh))
+               -> AstShaped r2 (OS.Init (n ': sh))
   AstMaxIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
                => AstPrimalPartS r (n ': sh)
-               -> AstShaped Int64 (OS.Init (n ': sh))
+               -> AstShaped r2 (OS.Init (n ': sh))
 
 deriving instance (GoodScalar r, OS.Shape sh) => Show (AstShaped r sh)
 
