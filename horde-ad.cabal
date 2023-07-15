@@ -161,7 +161,7 @@ library
       , hmatrix
       , ilist
       , mono-traversable
-      , orthotope
+      , orthotope >= 0.1.4.0
       , pretty-show
       , primitive
       , random
@@ -547,7 +547,7 @@ library horde-ad-simplified
       , ghc-typelits-natnormalise
       , hmatrix
       , ilist
-      , orthotope
+      , orthotope >= 0.1.4.0
       , random
       , strict-containers
       , unboxed-ref
