@@ -993,7 +993,8 @@ testFooNoGo =
 nestedBuildMap :: forall ranked r. (ADReady ranked r, Differentiable r)
                => ranked r 0 -> ranked r 1
 nestedBuildMap r =
-  let w = treplicate0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
+  let w :: ranked r 0 -> ranked r 1  -- TODO: this should not be needed
+      w = treplicate0N [4]
       v0' = treplicate0N [177] r :: ranked r 1
   in tlet v0' $ \v' ->
     let nestedMap x0 = tlet x0 $ \x -> tmap0N (x /) (w x)
@@ -1157,12 +1158,14 @@ testF11 =
     45.0
     (rev' @Double @0 f1 1.1)
 
-f2 :: ADReady ranked r
+f2 :: forall ranked r. ADReady ranked r
    => ranked r 0 -> ranked r 0
 f2 = \arg ->
   let fun1 i = arg * tfromIndex0 i
       v1a = tsum0 (tbuild1 10 fun1)
       v1b = tsum0 (tbuild1 20 fun1)
+      fun2 :: ranked r 0 -> IntOf ranked -> ranked r 0
+                -- TODO: this should not be needed
       fun2 y i = y * tfromIndex0 i
       v2a = tsum0 (tbuild1 10 (fun2 arg))
       v2b = tsum0 (tbuild1 20 (fun2 (arg + 1)))

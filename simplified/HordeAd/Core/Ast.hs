@@ -146,7 +146,8 @@ data AstRanked :: RankedTensorKind where
              -- name of the same length as AstOp for tests
   AstOp :: Differentiable r
         => OpCode -> [AstRanked r n] -> AstRanked r n
-  AstOpIntegral :: OpCodeIntegral -> [AstRanked Int64 n] -> AstRanked Int64 n
+  AstOpIntegral :: Integral r
+                => OpCodeIntegral -> [AstRanked r n] -> AstRanked r n
   AstSumOfList :: [AstRanked r n] -> AstRanked r n
   AstIota :: AstRanked r 1
 
@@ -234,7 +235,8 @@ data AstShaped :: ShapedTensorKind where
   AstNmS :: OpCodeNum -> [AstShaped r sh] -> AstShaped r sh
   AstOpS :: Differentiable r
          => OpCode -> [AstShaped r sh] -> AstShaped r sh
-  AstOpIntegralS :: OpCodeIntegral -> [AstShaped Int64 sh] -> AstShaped Int64 sh
+  AstOpIntegralS :: Integral r
+                 => OpCodeIntegral -> [AstShaped r sh] -> AstShaped r sh
   AstSumOfListS :: [AstShaped r sh] -> AstShaped r sh
   AstIotaS :: forall n r. KnownNat n => AstShaped r '[n]
 
@@ -462,14 +464,14 @@ instance Num (OR.Array n r) => Num (AstRanked r n) where
   signum v = AstNm SignumOp [v]
   fromInteger = AstConstant . AstPrimalPart . AstConst . fromInteger
 
-instance Enum (AstRanked Int64 n) where
+instance Enum r => Enum (AstRanked r n) where
   toEnum = undefined  -- AstConst . OR.scalar . toEnum
   fromEnum = undefined  -- do we need to define our own Enum for this?
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance Integral (OR.Array n Int64) => Integral (AstRanked Int64 n) where
+instance (Integral r, Integral (OR.Array n r)) => Integral (AstRanked r n) where
   quot u v = AstOpIntegral QuotOp [u, v]
   rem u v = AstOpIntegral RemOp [u, v]
   quotRem u v = (AstOpIntegral QuotOp [u, v], AstOpIntegral RemOp [u, v])
@@ -675,14 +677,15 @@ instance (Real (OS.Array sh r)) => Real (AstShaped r sh) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance Enum (AstShaped Int64 n) where
+instance Enum r => Enum (AstShaped r n) where
   toEnum = undefined
   fromEnum = undefined  -- do we need to define our own Enum for this?
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance Integral (OS.Array sh Int64) => Integral (AstShaped Int64 sh) where
+instance (Integral r, Integral (OS.Array sh r))
+         => Integral (AstShaped r sh) where
   quot u v = AstOpIntegralS QuotOp [u, v]
   rem u v = AstOpIntegralS RemOp [u, v]
   quotRem u v = (AstOpIntegralS QuotOp [u, v], AstOpIntegralS RemOp [u, v])

@@ -74,7 +74,7 @@ type TensorSupports c f =
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
 class ( Integral (IntOf ranked), CRankedR ranked Num
-      , TensorSupports RealFloat ranked )
+      , TensorSupports RealFloat ranked, TensorSupports Integral ranked )
       => RankedTensor (ranked :: RankedTensorKind) where
 
   -- TODO: type Scalar r = ranked r 0
@@ -299,7 +299,7 @@ instance
       => CRankedS shaped c where
 
 class ( Integral (IntOf shaped), CRankedS shaped Num
-      , TensorSupports RealFloat shaped )
+      , TensorSupports RealFloat shaped, TensorSupports Integral shaped )
       => ShapedTensor (shaped :: ShapedTensorKind) where
 
   slet :: (OS.Shape sh, OS.Shape sh2, GoodScalar r)
