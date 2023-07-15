@@ -67,6 +67,7 @@ import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import           Foreign.C (CInt)
 import           GHC.TypeLits
   (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
 import           Text.Show.Functions ()
@@ -653,7 +654,7 @@ gradientFromDelta dims deltaDt =
   -- and especially using them as cotangent accumulators is wasteful;
   -- additionally, it may not be easy to deduce the sizes of the vectors).
   let s0 =
-        let dummy = ddummy @ranked @shaped @Double  -- any GoodScalar is fine
+        let dummy = ddummy @ranked @shaped @CInt  -- any GoodScalar is fine
             iMap = EM.fromDistinctAscList
                    $ zip [toInputId 0 ..] (replicate dims (DynamicExists dummy))
             dMap = EM.empty

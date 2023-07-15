@@ -11,8 +11,10 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
+import           Data.Int (Int64)
 import           Data.IORef
 import qualified Data.Vector.Storable as VS
+import           Foreign.C (CInt)
 import           System.IO.Unsafe
 import           Test.Tasty.HUnit
 import           Test.Tasty.Options
@@ -156,6 +158,12 @@ instance AssertEqualUpToEpsilon Double where
   assertEqualUpToEpsilonWithMsg = assert_close_eps ""
 
 instance AssertEqualUpToEpsilon Float where
+  assertEqualUpToEpsilonWithMsg = assert_close_eps ""
+
+instance AssertEqualUpToEpsilon Int64 where
+  assertEqualUpToEpsilonWithMsg = assert_close_eps ""
+
+instance AssertEqualUpToEpsilon CInt where
   assertEqualUpToEpsilonWithMsg = assert_close_eps ""
 
 instance (AssertEqualUpToEpsilon a,

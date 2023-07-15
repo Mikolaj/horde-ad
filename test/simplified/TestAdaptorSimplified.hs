@@ -9,7 +9,9 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
+import           Data.Int (Int64)
 import qualified Data.Strict.IntMap as IM
+import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty
@@ -56,6 +58,12 @@ testTrees =
   , testCase "2piecewiseLinearPP" testPiecewiseLinearPP
   , testCase "2piecewiseLinear2PP" testPiecewiseLinear2PP
   , testCase "2overleaf" testOverleaf
+  , testCase "2overleafInt64n" testOverleafInt64
+  , testCase "2overleafCIntn" testOverleafCInt
+  , testCase "2overleafCIntToFloatn" testOverleafCIntToFloat
+  , testCase "2overleafInt64p" testOverleafInt64p
+  , testCase "2overleafCIntp" testOverleafCIntp
+  , testCase "2overleafCIntToFloatp" testOverleafCIntToFloatp
   , testCase "2overleafPP" testOverleafPP
   , testCase "2foo" testFoo
   , testCase "2fooS" testFooS
@@ -315,7 +323,8 @@ testPiecewiseLinear2PP = do
   show deltas
     @?= "LetR 100000005 (ScaleR (AstPrimalPart {unAstPrimalPart = AstVar [] (AstVarId 100000003)}) (InputR (InputId 0)))"
 
-overleaf :: forall ranked r. (RankedTensor ranked, GoodScalar r) => ranked r 1 -> ranked r 0
+overleaf :: forall r ranked. (RankedTensor ranked, GoodScalar r)
+         => ranked r 1 -> ranked r 0
 overleaf v = let wrap i = i `rem` fromIntegral (tlength v)
              in tsum (tbuild @ranked @r @1 [50] (\[i] -> tindex v [wrap i]))
 
@@ -324,6 +333,44 @@ testOverleaf =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Double @1 [28] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @0 overleaf (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+
+testOverleafInt64 :: Assertion
+testOverleafInt64 =
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.fromList @Int64 [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
+    (crev @Int64 @0 overleaf (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+
+testOverleafCInt :: Assertion
+testOverleafCInt =
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.fromList @CInt [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
+    (rev @CInt @0 @(Flip OR.Array) overleaf (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+
+testOverleafCIntToFloat :: Assertion
+testOverleafCIntToFloat =
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.fromList @Float @1 [28] (replicate 28 0.0))
+    (rev @Float @0 @(Flip OR.Array) (tfromIntegral . overleaf @CInt . tfloor) (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+
+testOverleafInt64p :: Assertion
+testOverleafInt64p =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList @Int64 [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
+    (rev' @Int64 @0 overleaf (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+
+testOverleafCIntp :: Assertion
+testOverleafCIntp =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList @CInt [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
+    (rev' @CInt @0 overleaf (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+
+testOverleafCIntToFloatp :: Assertion
+testOverleafCIntToFloatp =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList @Float @1 [28] (replicate 28 0.0))
+    (let f :: forall f. ADReady f Float => f Float 1 -> f Float 0
+         f = tfromIntegral . overleaf @CInt . tfloor
+     in rev' @Float @0 f (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
 
 testOverleafPP :: Assertion
 testOverleafPP = do

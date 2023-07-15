@@ -729,9 +729,11 @@ instance (GoodScalar r, KnownNat n)
   toDomains a = V.singleton $ DynamicExists $ dfromR a
   fromDomains aInit params = case V.uncons params of
     Just (DynamicExists @r2 a, rest) ->
-      case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> Just (toRankedOrDummy (tshape aInit) a, rest)
-        _ -> error "fromDomains: type mismatch"
+      if disDummy @(Flip OR.Array) a then Just (tzero (tshape aInit), rest) else
+        case testEquality (typeRep @r) (typeRep @r2) of
+          Just Refl -> Just (tfromD a, rest)
+          _ -> error $ "fromDomains: type mismatch: "
+                       ++ show (typeRep @r) ++ " " ++ show (typeRep @r2)
     Nothing -> Nothing
 
 instance ( GoodScalar r, KnownNat n
@@ -741,19 +743,12 @@ instance ( GoodScalar r, KnownNat n
   toDomains = undefined
   fromDomains aInit params = case V.uncons params of
     Just (DynamicExists @r2 a, rest) ->
-      case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> Just (toRankedOrDummy (tshape aInit) a, rest)
-        _ -> error "fromDomains: type mismatch"
+      if disDummy @AstRanked a then Just (tzero (tshape aInit), rest) else
+        case testEquality (typeRep @r) (typeRep @r2) of
+          Just Refl -> Just (tfromD a, rest)
+          _ -> error $ "fromDomains: type mismatch: "
+                       ++ show (typeRep @r) ++ " " ++ show (typeRep @r2)
     Nothing -> Nothing
-
-toRankedOrDummy
-  :: forall ranked shaped n r.
-     ( KnownNat n, RankedTensor ranked, GoodScalar r
-     , ConvertTensor ranked shaped )
-  => ShapeInt n -> DynamicOf ranked r -> ranked r n
-toRankedOrDummy sh x = if disDummy @ranked x
-                       then tzero sh
-                       else tfromD x
 
 instance RandomDomains (Flip OR.Array r n) where
   randomVals = undefined
@@ -846,9 +841,10 @@ instance (GoodScalar r, OS.Shape sh)
   toDomains a = V.singleton $ DynamicExists $ dfromS a
   fromDomains _aInit params = case V.uncons params of
     Just (DynamicExists @r2 a, rest) ->
-      case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> Just (toShapedOrDummy a, rest)
-        _ -> error "fromDomains: type mismatch"
+      if disDummy @(Flip OR.Array) a then Just (0, rest) else
+        case testEquality (typeRep @r) (typeRep @r2) of
+          Just Refl -> Just (sfromD a, rest)
+          _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
 
 instance ( GoodScalar r, OS.Shape sh
@@ -858,19 +854,11 @@ instance ( GoodScalar r, OS.Shape sh
   toDomains = undefined
   fromDomains _aInit params = case V.uncons params of
     Just (DynamicExists @r2 a, rest) ->
-      case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> Just (toShapedOrDummy a, rest)
-        _ -> error "fromDomains: type mismatch"
+      if disDummy @AstRanked a then Just (0, rest) else
+        case testEquality (typeRep @r) (typeRep @r2) of
+          Just Refl -> Just (sfromD a, rest)
+          _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
-
-toShapedOrDummy
-  :: forall ranked shaped sh r.
-     ( OS.Shape sh, ShapedTensor shaped, GoodScalar r
-     , ConvertTensor ranked shaped )
-  => DynamicOf shaped r -> shaped r sh
-toShapedOrDummy x = if disDummy @ranked x
-                    then 0
-                    else sfromD x
 
 instance (OS.Shape sh, Numeric r, Fractional r, Random r, Num (Vector r))
          => RandomDomains (Flip OS.Array r sh) where
