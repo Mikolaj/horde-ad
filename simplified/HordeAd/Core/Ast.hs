@@ -417,29 +417,20 @@ instance EqF AstRanked where
   v /=. u = AstRel NeqOp [astPrimalPart v, astPrimalPart u]
 
 instance OrdF AstRanked where
+  AstConst u <. AstConst v = AstBoolConst $ u < v  -- common in indexing
   v <. u = AstRel LsOp [astPrimalPart v, astPrimalPart u]
+  AstConst u <=. AstConst v = AstBoolConst $ u <= v  -- common in indexing
   v <=. u = AstRel LeqOp [astPrimalPart v, astPrimalPart u]
+  AstConst u >. AstConst v = AstBoolConst $ u > v  -- common in indexing
   v >. u = AstRel GtOp [astPrimalPart v, astPrimalPart u]
+  AstConst u >=. AstConst v = AstBoolConst $ u >= v  -- common in indexing
   v >=. u = AstRel GeqOp [astPrimalPart v, astPrimalPart u]
 
 type instance BoolOf AstPrimalPart = AstBool
 
-instance IfF AstPrimalPart where
-  ifF b v w = astPrimalPart $ astCond b (unAstPrimalPart v) (unAstPrimalPart w)
-
-instance EqF AstPrimalPart where
-  v ==. u = AstRel EqOp [v, u]
-  v /=. u = AstRel NeqOp [v, u]
-
-instance OrdF AstPrimalPart where
-  AstPConst u <. AstPConst v = AstBoolConst $ u < v  -- common in indexing
-  v <. u = AstRel LsOp [v, u]
-  AstPConst u <=. AstPConst v = AstBoolConst $ u <= v  -- common in indexing
-  v <=. u = AstRel LeqOp [v, u]
-  AstPConst u >. AstPConst v = AstBoolConst $ u > v  -- common in indexing
-  v >. u = AstRel GtOp [v, u]
-  AstPConst u >=. AstPConst v = AstBoolConst $ u >= v  -- common in indexing
-  v >=. u = AstRel GeqOp [v, u]
+deriving instance IfF AstRanked => IfF AstPrimalPart
+deriving instance EqF AstRanked => EqF AstPrimalPart
+deriving instance OrdF AstRanked => OrdF AstPrimalPart
 
 
 -- * Unlawful numeric instances of ranked AST; they are lawful modulo evaluation
@@ -453,18 +444,45 @@ instance Ord (AstRanked r n) where
   (<=) = error "AST requires that OrdF be used instead"
 
 instance Num (OR.Array n r) => Num (AstRanked r n) where
+  -- The normal form has AstConst, if any, as the first element of the list
+  -- all lists fully flattened and length >= 2.
+  AstSumOfList (AstConst u : lu) + AstSumOfList (AstConst v : lv) =
+    AstSumOfList (AstConst (u + v) : lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConst v : lv) =
+    AstSumOfList (AstConst v : lv ++ lu)
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
-  u + AstSumOfList l = AstSumOfList (u : l)
-  AstSumOfList l + u = AstSumOfList (u : l)
+
+  AstConst u + AstSumOfList (AstConst v : lv) =
+    AstSumOfList (AstConst (u + v) : lv)
+  u + AstSumOfList (AstConst v : lv) = AstSumOfList (AstConst v : u : lv)
+  u + AstSumOfList lv = AstSumOfList (u : lv)
+
+  AstSumOfList (AstConst u : lu) + AstConst v =
+    AstSumOfList (AstConst (u + v) : lu)
+  AstSumOfList (AstConst u : lu) + v = AstSumOfList (AstConst u : v : lu)
+  AstSumOfList lu + v = AstSumOfList (v : lu)
+
+  AstConst u + AstConst v = AstConst (u + v)
+  u + AstConst v = AstSumOfList [AstConst v, u]
   u + v = AstSumOfList [u, v]
+
+  AstConst u - AstConst v = AstConst (u - v)  -- common in indexing
   u - v = AstNm MinusOp [u, v]
+  AstConst u * AstConst v = AstConst (u * v)  -- common in indexing
   u * v = AstNm TimesOp [u, v]
     -- no hacks like for AstSumOfList, because when tscaleByScalar
     -- is reconstructed, it looks for the binary form
-  negate u = AstNm NegateOp [u]
-  abs v = AstNm AbsOp [v]
-  signum v = AstNm SignumOp [v]
+  negate (u) = AstNm NegateOp [u]
+  abs (v) = AstNm AbsOp [v]
+  signum (v) = AstNm SignumOp [v]
   fromInteger = AstConstant . AstPrimalPart . AstConst . fromInteger
+    -- it's crucial that there is no AstConstant in fromInteger code
+    -- so that we don't need 4 times the simplification rules
+
+instance (Real (OR.Array n r))
+         => Real (AstRanked r n) where
+  toRational = undefined
+    -- very low priority, since these are all extremely not continuous
 
 instance Enum r => Enum (AstRanked r n) where
   toEnum = undefined  -- AstConst . OR.scalar . toEnum
@@ -479,11 +497,6 @@ instance (Integral r, Integral (OR.Array n r)) => Integral (AstRanked r n) where
   quotRem u v = (AstOpIntegral QuotOp [u, v], AstOpIntegral RemOp [u, v])
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
-
-instance (Real (OR.Array n r))
-         => Real (AstRanked r n) where
-  toRational = undefined
-    -- very low priority, since these are all extremely not continuous
 
 instance (Differentiable r, Fractional (OR.Array n r))
          => Fractional (AstRanked r n) where
@@ -541,65 +554,32 @@ instance Eq (AstPrimalPart r n) where
 instance Ord (AstPrimalPart r n) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance Num (OR.Array n r) => Num (AstPrimalPart r n) where
-  -- The normal form has AstConst, if any, as the first element of the list
-  -- all lists fully flattened and length >= 2.
-  AstPrimalPart (AstSumOfList (AstConst u : lu))
-    + AstPrimalPart (AstSumOfList (AstConst v : lv)) =
-      AstPrimalPart $ AstSumOfList (AstConst (u + v) : lu ++ lv)
-  AstPrimalPart (AstSumOfList lu)
-    + AstPrimalPart (AstSumOfList (AstConst v : lv)) =
-      AstPrimalPart $ AstSumOfList (AstConst v : lv ++ lu)
-  AstPrimalPart (AstSumOfList lu) + AstPrimalPart (AstSumOfList lv) =
-    AstPrimalPart $ AstSumOfList (lu ++ lv)
-
-  AstPrimalPart (AstConst u) + AstPrimalPart (AstSumOfList (AstConst v : lv)) =
-    AstPrimalPart $ AstSumOfList (AstConst (u + v) : lv)
-  AstPrimalPart u + AstPrimalPart (AstSumOfList (AstConst v : lv)) =
-    AstPrimalPart $ AstSumOfList (AstConst v : u : lv)
-  AstPrimalPart u + AstPrimalPart (AstSumOfList lv) =
-    AstPrimalPart $ AstSumOfList (u : lv)
-
-  AstPrimalPart (AstSumOfList (AstConst u : lu)) + AstPrimalPart (AstConst v) =
-    AstPrimalPart $ AstSumOfList (AstConst (u + v) : lu)
-  AstPrimalPart (AstSumOfList (AstConst u : lu)) + AstPrimalPart v =
-    AstPrimalPart $ AstSumOfList (AstConst u : v : lu)
-  AstPrimalPart (AstSumOfList lu) + AstPrimalPart v =
-    AstPrimalPart $ AstSumOfList (v : lu)
-
-  AstPrimalPart (AstConst u) + AstPrimalPart (AstConst v) =
-    AstPrimalPart $ AstConst (u + v)
-  AstPrimalPart u + AstPrimalPart (AstConst v) =
-    AstPrimalPart $ AstSumOfList [AstConst v, u]
-  AstPrimalPart u + AstPrimalPart v = AstPrimalPart $ AstSumOfList [u, v]
-
-  AstPrimalPart (AstConst u) - AstPrimalPart (AstConst v) =
-    AstPrimalPart $ AstConst (u - v)  -- common in indexing
-  AstPrimalPart u - AstPrimalPart v = AstPrimalPart $ AstNm MinusOp [u, v]
-  AstPrimalPart (AstConst u) * AstPrimalPart (AstConst v) =
-    AstPrimalPart $ AstConst (u * v)  -- common in indexing
-  AstPrimalPart u * AstPrimalPart v = AstPrimalPart $ AstNm TimesOp [u, v]
-    -- no hacks like for AstSumOfList, because when tscaleByScalar
-    -- is reconstructed, it looks for the binary form
-  negate (AstPrimalPart u) = AstPrimalPart $ AstNm NegateOp [u]
-  abs (AstPrimalPart v) = AstPrimalPart $ AstNm AbsOp [v]
-  signum (AstPrimalPart v) = AstPrimalPart $ AstNm SignumOp [v]
+instance (Num (AstRanked r n), Num (OR.Array n r))
+         => Num (AstPrimalPart r n) where
+  (AstPrimalPart u) + (AstPrimalPart v) = AstPrimalPart $ u + v
+  (AstPrimalPart u) - (AstPrimalPart v) = AstPrimalPart $ u - v
+  (AstPrimalPart u) * (AstPrimalPart v) = AstPrimalPart $ u * v
+  negate (AstPrimalPart u) = AstPrimalPart $ negate u
+  abs (AstPrimalPart v) = AstPrimalPart $ abs v
+  signum (AstPrimalPart v) = AstPrimalPart $ signum v
   fromInteger = AstPrimalPart . AstConst . fromInteger
-    -- it's crucial that there is no AstConstant in fromInteger code
-    -- so that we don't need 4 times the simplification rules
+
+instance (Fractional (AstRanked r n), Fractional (OR.Array n r))
+         => Fractional (AstPrimalPart r n) where
+  (AstPrimalPart u) / (AstPrimalPart v) = AstPrimalPart $ u / v
+  recip (AstPrimalPart v) = AstPrimalPart $ recip v
+  fromRational = AstPrimalPart . AstConst . fromRational
 
 deriving instance (Real (AstRanked r n), Num (OR.Array n r))
                   => Real (AstPrimalPart r n)
-deriving instance Enum (AstRanked r n) => Enum (AstPrimalPart r n)
+deriving instance (Enum (AstRanked r n)) => Enum (AstPrimalPart r n)
 deriving instance (Integral (AstRanked r n), Num (OR.Array n r))
                   => Integral (AstPrimalPart r n)
-deriving instance (Fractional (AstRanked r n), Num (OR.Array n r))
-                  => Fractional (AstPrimalPart r n)
-deriving instance (Floating (AstRanked r n), Num (OR.Array n r))
+deriving instance (Floating (AstRanked r n), Floating (OR.Array n r))
                   => Floating (AstPrimalPart r n)
-deriving instance (RealFrac (AstRanked r n), Num (OR.Array n r))
+deriving instance (RealFrac (AstRanked r n), RealFrac (OR.Array n r))
                   => RealFrac (AstPrimalPart r n)
-deriving instance (RealFloat (AstRanked r n), Num (OR.Array n r))
+deriving instance (RealFloat (AstRanked r n), RealFloat (OR.Array n r))
                   => RealFloat (AstPrimalPart r n)
 
 
@@ -630,26 +610,20 @@ instance EqF AstShaped where
   v /=. u = AstRelS NeqOp [astPrimalPartS v, astPrimalPartS u]
 
 instance OrdF AstShaped where
+  AstConstS u <. AstConstS v = AstBoolConst $ u < v  -- common in indexing
   v <. u = AstRelS LsOp [astPrimalPartS v, astPrimalPartS u]
+  AstConstS u <=. AstConstS v = AstBoolConst $ u <= v  -- common in indexing
   v <=. u = AstRelS LeqOp [astPrimalPartS v, astPrimalPartS u]
+  AstConstS u >. AstConstS v = AstBoolConst $ u > v  -- common in indexing
   v >. u = AstRelS GtOp [astPrimalPartS v, astPrimalPartS u]
+  AstConstS u >=. AstConstS v = AstBoolConst $ u >= v  -- common in indexing
   v >=. u = AstRelS GeqOp [astPrimalPartS v, astPrimalPartS u]
 
 type instance BoolOf AstPrimalPartS = AstBool
 
-instance IfF AstPrimalPartS where
-  ifF b v w = astPrimalPartS $ astCondS b (unAstPrimalPartS v)
-                                          (unAstPrimalPartS w)
-
-instance EqF AstPrimalPartS where
-  v ==. u = AstRelS EqOp [v, u]
-  v /=. u = AstRelS NeqOp [v, u]
-
-instance OrdF AstPrimalPartS where
-  v <. u = AstRelS LsOp [v, u]
-  v <=. u = AstRelS LeqOp [v, u]
-  v >. u = AstRelS GtOp [v, u]
-  v >=. u = AstRelS GeqOp [v, u]
+deriving instance IfF AstRanked => IfF AstPrimalPartS
+deriving instance EqF AstRanked => EqF AstPrimalPartS
+deriving instance OrdF AstRanked => OrdF AstPrimalPartS
 
 
 -- * Unlawful numeric instances of shaped AST; they are lawful modulo evaluation
@@ -661,19 +635,41 @@ instance Eq (AstShaped r sh) where
 instance Ord (AstShaped r sh) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance (Num (OS.Array sh r)) => Num (AstShaped r sh) where
+instance Num (OS.Array sh r) => Num (AstShaped r sh) where
+  -- The normal form has AstConst, if any, as the first element of the list
+  -- all lists fully flattened and length >= 2.
+  AstSumOfListS (AstConstS u : lu) + AstSumOfListS (AstConstS v : lv) =
+    AstSumOfListS (AstConstS (u + v) : lu ++ lv)
+  AstSumOfListS lu + AstSumOfListS (AstConstS v : lv) =
+    AstSumOfListS (AstConstS v : lv ++ lu)
   AstSumOfListS lu + AstSumOfListS lv = AstSumOfListS (lu ++ lv)
-  u + AstSumOfListS l = AstSumOfListS (u : l)
-  AstSumOfListS l + u = AstSumOfListS (u : l)
+
+  AstConstS u + AstSumOfListS (AstConstS v : lv) =
+    AstSumOfListS (AstConstS (u + v) : lv)
+  u + AstSumOfListS (AstConstS v : lv) = AstSumOfListS (AstConstS v : u : lv)
+  u + AstSumOfListS lv = AstSumOfListS (u : lv)
+
+  AstSumOfListS (AstConstS u : lu) + AstConstS v =
+    AstSumOfListS (AstConstS (u + v) : lu)
+  AstSumOfListS (AstConstS u : lu) + v = AstSumOfListS (AstConstS u : v : lu)
+  AstSumOfListS lu + v = AstSumOfListS (v : lu)
+
+  AstConstS u + AstConstS v = AstConstS (u + v)
+  u + AstConstS v = AstSumOfListS [AstConstS v, u]
   u + v = AstSumOfListS [u, v]
+
+  AstConstS u - AstConstS v = AstConstS (u - v)  -- common in indexing
   u - v = AstNmS MinusOp [u, v]
+  AstConstS u * AstConstS v = AstConstS (u * v)  -- common in indexing
   u * v = AstNmS TimesOp [u, v]
-    -- no hacks like for AstSumOfListS, because when tscaleByScalar
+    -- no hacks like for AstSumOfList, because when tscaleByScalar
     -- is reconstructed, it looks for the binary form
-  negate u = AstNmS NegateOp [u]
-  abs v = AstNmS AbsOp [v]
-  signum v = AstNmS SignumOp [v]
+  negate (u) = AstNmS NegateOp [u]
+  abs (v) = AstNmS AbsOp [v]
+  signum (v) = AstNmS SignumOp [v]
   fromInteger = AstConstantS . AstPrimalPartS . AstConstS . fromInteger
+    -- it's crucial that there is no AstConstant in fromInteger code
+    -- so that we don't need 4 times the simplification rules
 
 instance (Real (OS.Array sh r)) => Real (AstShaped r sh) where
   toRational = undefined
@@ -750,18 +746,32 @@ instance Eq (AstPrimalPartS r sh) where
 instance Ord (AstPrimalPartS r sh) where
   (<=) = error "AST requires that OrdF be used instead"
 
-deriving instance Num (AstShaped r sh) => Num (AstPrimalPartS r sh)
-deriving instance (Real (AstShaped r sh))
+instance (Num (AstShaped r sh), Num (OS.Array sh r))
+         => Num (AstPrimalPartS r sh) where
+  (AstPrimalPartS u) + (AstPrimalPartS v) = AstPrimalPartS $ u + v
+  (AstPrimalPartS u) - (AstPrimalPartS v) = AstPrimalPartS $ u - v
+  (AstPrimalPartS u) * (AstPrimalPartS v) = AstPrimalPartS $ u * v
+  negate (AstPrimalPartS u) = AstPrimalPartS $ negate u
+  abs (AstPrimalPartS v) = AstPrimalPartS $ abs v
+  signum (AstPrimalPartS v) = AstPrimalPartS $ signum v
+  fromInteger = AstPrimalPartS . AstConstS . fromInteger
+
+instance (Fractional (AstShaped r sh), Fractional (OS.Array sh r))
+         => Fractional (AstPrimalPartS r sh) where
+  (AstPrimalPartS u) / (AstPrimalPartS v) = AstPrimalPartS $ u / v
+  recip (AstPrimalPartS v) = AstPrimalPartS $ recip v
+  fromRational = AstPrimalPartS . AstConstS . fromRational
+
+deriving instance (Real (AstShaped r sh), Num (OS.Array sh r))
                   => Real (AstPrimalPartS r sh)
 deriving instance Enum (AstShaped r sh) => Enum (AstPrimalPartS r sh)
-deriving instance (Integral (AstShaped r sh))
+deriving instance (Integral (AstShaped r sh), Num (OS.Array sh r))
                   => Integral (AstPrimalPartS r sh)
-deriving instance Fractional (AstShaped r sh)
-                  => Fractional (AstPrimalPartS r sh)
-deriving instance Floating (AstShaped r sh) => Floating (AstPrimalPartS r sh)
-deriving instance (RealFrac (AstShaped r sh))
+deriving instance (Floating (AstShaped r sh), Floating (OS.Array sh r))
+                  => Floating (AstPrimalPartS r sh)
+deriving instance (RealFrac (AstShaped r sh), RealFrac (OS.Array sh r))
                   => RealFrac (AstPrimalPartS r sh)
-deriving instance (RealFloat (AstShaped r sh))
+deriving instance (RealFloat (AstShaped r sh), RealFloat (OS.Array sh r))
                   => RealFloat (AstPrimalPartS r sh)
 
 
@@ -904,60 +914,13 @@ type instance DualOf AstNoSimplify = AstDualPart
 newtype AstNoVectorize r n = AstNoVectorize {unAstNoVectorize :: AstRanked r n}
 deriving instance GoodScalar r => Show (AstNoVectorize r n)
 
-newtype AstNoSimplify r n = AstNoSimplify {unAstNoSimplify :: AstRanked r n}
-deriving instance GoodScalar r => Show (AstNoSimplify r n)
-
 type instance BoolOf AstNoVectorize = AstBool
 
-instance IfF AstNoVectorize where
-  ifF b v w = AstNoVectorize $ astCond b (unAstNoVectorize v)
-                                         (unAstNoVectorize w)
-
-instance EqF AstNoVectorize where
-  v ==. u = AstRel EqOp [ astPrimalPart $ unAstNoVectorize v
-                        , astPrimalPart $ unAstNoVectorize u ]
-  v /=. u = AstRel NeqOp [ astPrimalPart $ unAstNoVectorize v
-                         , astPrimalPart $ unAstNoVectorize u ]
-
-instance OrdF AstNoVectorize where
-  v <. u = AstRel LsOp [ astPrimalPart $ unAstNoVectorize v
-                       , astPrimalPart $ unAstNoVectorize u ]
-  v <=. u = AstRel LeqOp [ astPrimalPart $ unAstNoVectorize v
-                         , astPrimalPart $ unAstNoVectorize u ]
-  v >. u = AstRel GtOp [ astPrimalPart $ unAstNoVectorize v
-                       , astPrimalPart $ unAstNoVectorize u ]
-  v >=. u = AstRel GeqOp [ astPrimalPart $ unAstNoVectorize v
-                         , astPrimalPart $ unAstNoVectorize u ]
-
-type instance BoolOf AstNoSimplify = AstBool
-
-instance IfF AstNoSimplify where
-  ifF b v w = AstNoSimplify $ astCond b (unAstNoSimplify v)
-                                        (unAstNoSimplify w)
-
-instance EqF AstNoSimplify where
-  v ==. u = AstRel EqOp [ astPrimalPart $ unAstNoSimplify v
-                        , astPrimalPart $ unAstNoSimplify u ]
-  v /=. u = AstRel NeqOp [ astPrimalPart $ unAstNoSimplify v
-                         , astPrimalPart $ unAstNoSimplify u ]
-
-instance OrdF AstNoSimplify where
-  v <. u = AstRel LsOp [ astPrimalPart $ unAstNoSimplify v
-                       , astPrimalPart $ unAstNoSimplify u ]
-  v <=. u = AstRel LeqOp [ astPrimalPart $ unAstNoSimplify v
-                         , astPrimalPart $ unAstNoSimplify u ]
-  v >. u = AstRel GtOp [ astPrimalPart $ unAstNoSimplify v
-                       , astPrimalPart $ unAstNoSimplify u ]
-  v >=. u = AstRel GeqOp [ astPrimalPart $ unAstNoSimplify v
-                         , astPrimalPart $ unAstNoSimplify u ]
-
-instance Eq (AstNoVectorize r n) where
-  (==) = error "AST requires that EqF be used instead"
-  (/=) = error "AST requires that EqF be used instead"
-
-instance Ord (AstNoVectorize r n) where
-  (<=) = error "AST requires that OrdF be used instead"
-
+deriving instance IfF AstRanked => IfF AstNoVectorize
+deriving instance EqF AstRanked => EqF AstNoVectorize
+deriving instance OrdF AstRanked => OrdF AstNoVectorize
+deriving instance Eq (AstNoVectorize r n)
+deriving instance Ord (AstRanked r n) => Ord (AstNoVectorize r n)
 deriving instance Num (AstRanked r n) => Num (AstNoVectorize r n)
 deriving instance (Real (AstRanked r n))
                    => Real (AstNoVectorize r n)
@@ -971,13 +934,16 @@ deriving instance (RealFrac (AstRanked r n))
 deriving instance (RealFloat (AstRanked r n))
                   => RealFloat (AstNoVectorize r n)
 
-instance Eq (AstNoSimplify r n) where
-  (==) = error "AST requires that EqF be used instead"
-  (/=) = error "AST requires that EqF be used instead"
+newtype AstNoSimplify r n = AstNoSimplify {unAstNoSimplify :: AstRanked r n}
+deriving instance GoodScalar r => Show (AstNoSimplify r n)
 
-instance Ord (AstNoSimplify r n) where
-  (<=) = error "AST requires that OrdF be used instead"
+type instance BoolOf AstNoSimplify = AstBool
 
+deriving instance IfF AstRanked => IfF AstNoSimplify
+deriving instance EqF AstRanked => EqF AstNoSimplify
+deriving instance OrdF AstRanked => OrdF AstNoSimplify
+deriving instance Eq (AstNoSimplify r n)
+deriving instance Ord (AstRanked r n) => Ord (AstNoSimplify r n)
 deriving instance Num (AstRanked r n) => Num (AstNoSimplify r n)
 deriving instance (Real (AstRanked r n))
                   => Real (AstNoSimplify r n)
