@@ -229,16 +229,16 @@ intVarInIndexS var = any (intVarInAstPrimal var)
 
 -- * Substitution
 
-data SubstitutionPayload =
+data SubstitutionPayload r =
     SubstitutionPayloadInt AstInt
-  | forall r n. (KnownNat n, GoodScalar r)
-                => SubstitutionPayloadRanked (AstRanked r n)
-  | forall r sh. (OS.Shape sh, GoodScalar r)
-                 => SubstitutionPayloadShaped (AstShaped r sh)
+  | forall n. KnownNat n
+    => SubstitutionPayloadRanked (AstRanked r n)
+  | forall sh. OS.Shape sh
+    => SubstitutionPayloadShaped (AstShaped r sh)
 
-substitute1AstPrimal :: forall n r.
-                        (GoodScalar r, KnownNat n)
-                     => SubstitutionPayload -> AstVarId -> AstPrimalPart r n
+substitute1AstPrimal :: forall n r r2.
+                        (GoodScalar r, GoodScalar r2, KnownNat n)
+                     => SubstitutionPayload r2 -> AstVarId -> AstPrimalPart r n
                      -> AstPrimalPart r n
 substitute1AstPrimal i var (AstPrimalPart v1) = case v1 of
   AstVar sh var2 ->
@@ -253,7 +253,7 @@ substitute1AstPrimal i var (AstPrimalPart v1) = case v1 of
       -- This is needed, because sometimes user's program takes the primal
       -- part of a full dual number and so the corresponding full term gets
       -- wrapped in AstPrimalPart. Rarely, the term is a variable.
-      SubstitutionPayloadRanked @r2 @m t ->
+      SubstitutionPayloadRanked @_ @m t ->
         case sameNat (Proxy @m) (Proxy @n) of
           Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
             Just Refl -> assert (shapeAst t == sh) $ astPrimalPart t
@@ -267,9 +267,9 @@ substitute1AstPrimal i var (AstPrimalPart v1) = case v1 of
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
-substitute1Ast :: forall n r.
-                  (GoodScalar r, KnownNat n)
-               => SubstitutionPayload -> AstVarId -> AstRanked r n
+substitute1Ast :: forall n r r2.
+                  (GoodScalar r, GoodScalar r2, KnownNat n)
+               => SubstitutionPayload r2 -> AstVarId -> AstRanked r n
                -> AstRanked r n
 substitute1Ast i var v1 = case v1 of
   AstVar sh var2 ->
@@ -284,7 +284,7 @@ substitute1Ast i var v1 = case v1 of
             Just Refl -> t
             _ -> error "substitute1Ast: type of payload"
           _ -> error "substitute1Ast: n"
-      SubstitutionPayloadRanked @r2 @m t ->
+      SubstitutionPayloadRanked @_ @m t ->
         case sameNat (Proxy @m) (Proxy @n) of
           Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
             Just Refl -> assert (shapeAst t == sh) t
@@ -338,15 +338,16 @@ substitute1Ast i var v1 = case v1 of
   AstMaxIndex a -> AstMaxIndex (substitute1AstPrimal i var a)
 
 substitute1AstDynamic
-  :: GoodScalar r
-  => SubstitutionPayload -> AstVarId -> AstDynamic r
+  :: (GoodScalar r, GoodScalar r2)
+  => SubstitutionPayload r2 -> AstVarId -> AstDynamic r
   -> AstDynamic r
 substitute1AstDynamic i var = \case
   AstRToD t -> AstRToD $ substitute1Ast i var t
   AstSToD t -> AstSToD $ substitute1AstS i var t
 
 substitute1AstDomains
-  :: SubstitutionPayload -> AstVarId -> AstDomains -> AstDomains
+  :: GoodScalar r2
+  => SubstitutionPayload r2 -> AstVarId -> AstDomains -> AstDomains
 substitute1AstDomains i var = \case
   AstDomains l ->
     AstDomains $ V.map (\(DynamicExists d) ->
@@ -358,7 +359,8 @@ substitute1AstDomains i var = \case
     AstDomainsLetS var2 (substitute1AstS i var u)
                         (substitute1AstDomains i var v)
 
-substitute1AstBool :: SubstitutionPayload -> AstVarId -> AstBool
+substitute1AstBool :: GoodScalar r2
+                   => SubstitutionPayload r2 -> AstVarId -> AstBool
                    -> AstBool
 substitute1AstBool i var b1 = case b1 of
   AstBoolOp opCodeBool args ->
@@ -371,15 +373,15 @@ substitute1AstBool i var b1 = case b1 of
     AstRelS opCodeRel
     $ map (astPrimalPartS . substitute1AstS i var . unAstPrimalPartS) args
 
-substitute1AstS :: forall sh r.
-                   (GoodScalar r, OS.Shape sh)
-                => SubstitutionPayload -> AstVarId -> AstShaped r sh
+substitute1AstS :: forall sh r r2.
+                   (GoodScalar r, GoodScalar r2, OS.Shape sh)
+                => SubstitutionPayload r2 -> AstVarId -> AstShaped r sh
                 -> AstShaped r sh
 substitute1AstS i var v1 = case v1 of
   AstVarS var2 ->
     if var == var2
     then case i of
-      SubstitutionPayloadShaped @r2 @sh2 t -> case sameShape @sh2 @sh of
+      SubstitutionPayloadShaped @_ @sh2 t -> case sameShape @sh2 @sh of
         Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
           Just Refl -> t
           _ -> error "substitute1AstS: type of payload"

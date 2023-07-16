@@ -12,6 +12,7 @@ import           Control.Exception.Assert.Sugar
 import           Control.Monad (when)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as OS
+import           Data.Int (Int64)
 import           Data.IORef
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.IntMap as IM
@@ -97,7 +98,7 @@ build1VOccurenceUnknownRefresh
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let v2 = substitute1Ast (SubstitutionPayloadInt astVarFresh) var v0
+  let v2 = substitute1Ast (SubstitutionPayloadInt @Int64 astVarFresh) var v0
   return $! build1VOccurenceUnknown k (varFresh, v2)
 
 intBindingRefresh
@@ -106,7 +107,7 @@ intBindingRefresh
 intBindingRefresh var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
   let ix2 = fmap (substituteAstPrimal
-                    (SubstitutionPayloadInt astVarFresh) var) ix
+                    (SubstitutionPayloadInt @Int64 astVarFresh) var) ix
   return $! (varFresh, astVarFresh, ix2)
 
 -- | The application @build1V k (var, v)@ vectorizes
@@ -403,7 +404,7 @@ build1VOccurenceUnknownRefreshS
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let v2 = substitute1AstS (SubstitutionPayloadInt astVarFresh) var v0
+  let v2 = substitute1AstS (SubstitutionPayloadInt @Int64 astVarFresh) var v0
   return $! build1VOccurenceUnknownS (varFresh, v2)
 
 intBindingRefreshS
@@ -412,7 +413,7 @@ intBindingRefreshS
 intBindingRefreshS var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
   let ix2 = fmap (substituteAstPrimal
-                    (SubstitutionPayloadInt astVarFresh) var) ix
+                    (SubstitutionPayloadInt @Int64 astVarFresh) var) ix
   return $! (varFresh, astVarFresh, ix2)
 
 -- | The application @build1VS k (var, v)@ vectorizes

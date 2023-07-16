@@ -390,11 +390,11 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstReshape sh v ->
     astIndex (astReshapeAsGather sh v) ix
   Ast.AstBuild1 _n2 (var2, v) ->
-    astIndex (substituteAst (SubstitutionPayloadInt i1) var2 v) rest1
+    astIndex (substituteAst (SubstitutionPayloadInt @Int64 i1) var2 v) rest1
   Ast.AstGather _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
   Ast.AstGather (_ :$ sh') v (var2 ::: vars, ix2) ->
     -- TODO: we need integer let to preserve sharing while substituting here:
-    let ix3 = fmap (substituteAstPrimal (SubstitutionPayloadInt i1) var2) ix2
+    let ix3 = fmap (substituteAstPrimal (SubstitutionPayloadInt @Int64 i1) var2) ix2
         w :: AstRanked r (m1 + n)
         w = unsafeCoerce $ astGather sh' v (vars, ix3)
     in astIndex @m1 @n w rest1
@@ -562,7 +562,7 @@ astSlice i n (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
   let ivar = astPrimalPart
              $ astSumOfList [ Ast.AstVar ZS var
                             , AstConst $ OR.scalar $ fromIntegral i ]
-      ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt ivar) var) ix
+      ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt @Int64 ivar) var) ix
   in astGatherR (n :$ sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
 
@@ -584,7 +584,7 @@ astReverse (Ast.AstGather sh@(k :$ _) v (var ::: vars, ix)) =
   let ivar = astPrimalPart
              $ AstNm Ast.MinusOp [ AstConst $ OR.scalar $ fromIntegral k
                                  , Ast.AstVar ZS var ]
-      ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt ivar) var) ix
+      ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt @Int64 ivar) var) ix
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
@@ -868,7 +868,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
             foldr (uncurry substituteAstPrimal) i
-                  (zipSized (fmap SubstitutionPayloadInt
+                  (zipSized (fmap (SubstitutionPayloadInt @Int64)
                              $ indexToSizedList ixFresh) vars4)
           i5 = subst i4
       in astGather sh4 (astFromList $ map f l) (varsFresh, i5 :. ixFresh)
@@ -886,7 +886,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
             foldr (uncurry substituteAstPrimal) i
-                  (zipSized (fmap SubstitutionPayloadInt
+                  (zipSized (fmap (SubstitutionPayloadInt @Int64)
                              $ indexToSizedList ixFresh) vars4)
           i5 = subst i4
      in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :. ixFresh)
@@ -936,7 +936,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       let subst :: AstIndex m7 -> AstVarList m7 -> AstInt -> AstInt
           subst ix vars i =
             foldr (uncurry substituteAstPrimal) i
-                  (zipSized (fmap SubstitutionPayloadInt
+                  (zipSized (fmap (SubstitutionPayloadInt @Int64)
                              $ indexToSizedList ix) vars)
           composedGather :: p' <= m2 => AstRanked r (m' + n')
           composedGather =
@@ -966,7 +966,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       let (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
             foldr (uncurry substituteAstPrimal) i
-                  (zipSized (fmap SubstitutionPayloadInt
+                  (zipSized (fmap (SubstitutionPayloadInt @Int64)
                              $ indexToSizedList ixFresh) vars4)
           ix5 = fmap subst ix4
       in Ast.AstD (astPrimalPart $ astGatherRec sh4 u (vars4, ix4))
@@ -2225,7 +2225,7 @@ astReverseS (Ast.AstGatherS v ((:$:) @k var vars, ix)) =
              $ AstNm Ast.MinusOp [ AstConst
                                    $ OR.scalar (valueOf @k :: Int64)
                                  , Ast.AstVar ZS var ]
-      ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt ivar) var) ix
+      ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt @Int64 ivar) var) ix
   in astGatherS v (var :$: vars, ix2)
 astReverseS v = Ast.AstReverseS v
 
@@ -2250,28 +2250,30 @@ astDomainsLetS var u v | astIsSmallS True u =
 astDomainsLetS var u v = Ast.AstDomainsLetS var u v
 
 -- We have to simplify after substitution or simplifying is not idempotent.
-substituteAstPrimal :: forall n r. (GoodScalar r, KnownNat n)
-                    => SubstitutionPayload -> AstVarId
+substituteAstPrimal :: forall n r r2. (GoodScalar r, GoodScalar r2, KnownNat n)
+                    => SubstitutionPayload r2 -> AstVarId
                     -> AstPrimalPart r n
                     -> AstPrimalPart r n
 substituteAstPrimal i var v1 = simplifyAstPrimal $ substitute1AstPrimal i var v1
 
-substituteAst :: forall n r. (GoodScalar r, KnownNat n)
-              => SubstitutionPayload -> AstVarId -> AstRanked r n
+substituteAst :: forall n r r2. (GoodScalar r, GoodScalar r2, KnownNat n)
+              => SubstitutionPayload r2 -> AstVarId -> AstRanked r n
               -> AstRanked r n
 substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
 
 substituteAstDomains
-  :: SubstitutionPayload -> AstVarId -> AstDomains
+  :: GoodScalar r2
+  => SubstitutionPayload r2 -> AstVarId -> AstDomains
   -> AstDomains
 substituteAstDomains i var v1 =
   simplifyAstDomains $ substitute1AstDomains i var v1
 
-substituteAstBool :: SubstitutionPayload -> AstVarId -> AstBool
+substituteAstBool :: GoodScalar r2
+                  => SubstitutionPayload r2 -> AstVarId -> AstBool
                   -> AstBool
 substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1
 
-substituteAstS :: forall sh r. (GoodScalar r, OS.Shape sh)
-               => SubstitutionPayload -> AstVarId -> AstShaped r sh
+substituteAstS :: forall sh r r2. (GoodScalar r, GoodScalar r2, OS.Shape sh)
+               => SubstitutionPayload r2 -> AstVarId -> AstShaped r sh
                -> AstShaped r sh
 substituteAstS i var v1 = simplifyAstS $ substitute1AstS i var v1
