@@ -8,7 +8,8 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( AstInt
+  ( AstSpanType(..), AstSpan, sameAstSpan, astSpanT
+  , AstInt
   , pattern AstIntVar, pattern AstPVar, pattern AstIntConst, pattern AstPConst
   , AstOf, AstVarId, intToAstVarId, ADAstArtifact6
   , AstIndex, AstVarList, AstIndexS, AstVarListS
@@ -37,16 +38,36 @@ import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
 import           Data.List (foldl')
 import           Data.Maybe (fromMaybe)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
+import           Data.Type.Equality ((:~:) (Refl))
 import           GHC.TypeLits (KnownNat, type (+), type (<=))
 import           System.IO.Unsafe (unsafePerformIO)
+import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import HordeAd.Core.ShapedList (ShapedList (..))
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.SizedList
 import HordeAd.Core.Types
 
--- * Basic type family instances
+-- * Basic types and type family instances
+
+-- To be promoted.
+data AstSpanType = AstPrimal | AstDual | AstFull
+  deriving Typeable
+
+-- A poor man's singleton type, modelled after orthotope's @Shape@.
+class Typeable s => AstSpan (s :: AstSpanType) where
+  astSpanP :: Proxy s -> AstSpanType
+
+astSpanT :: forall s. AstSpan s => AstSpanType
+{-# INLINE astSpanT #-}
+astSpanT = astSpanP (Proxy :: Proxy s)
+
+sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
+sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
+                Just HRefl -> Just Refl
+                Nothing -> Nothing
 
 type instance RankedOf (Clown AstDynamic) = AstRanked
 type instance ShapedOf (Clown AstDynamic) = AstShaped
