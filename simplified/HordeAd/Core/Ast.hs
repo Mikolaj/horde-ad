@@ -449,9 +449,9 @@ instance OrdF AstRanked where
 
 type instance BoolOf AstPrimalPart = AstBool
 
-deriving instance IfF AstRanked => IfF AstPrimalPart
-deriving instance EqF AstRanked => EqF AstPrimalPart
-deriving instance OrdF AstRanked => OrdF AstPrimalPart
+deriving instance IfF AstPrimalPart
+deriving instance EqF AstPrimalPart
+deriving instance OrdF AstPrimalPart
 
 
 -- * Unlawful numeric instances of ranked AST; they are lawful modulo evaluation
@@ -642,9 +642,9 @@ instance OrdF AstShaped where
 
 type instance BoolOf AstPrimalPartS = AstBool
 
-deriving instance IfF AstRanked => IfF AstPrimalPartS
-deriving instance EqF AstRanked => EqF AstPrimalPartS
-deriving instance OrdF AstRanked => OrdF AstPrimalPartS
+deriving instance IfF AstPrimalPartS
+deriving instance EqF AstPrimalPartS
+deriving instance OrdF AstPrimalPartS
 
 
 -- * Unlawful numeric instances of shaped AST; they are lawful modulo evaluation
@@ -937,11 +937,11 @@ deriving instance GoodScalar r => Show (AstNoVectorize r n)
 
 type instance BoolOf AstNoVectorize = AstBool
 
-deriving instance IfF AstRanked => IfF AstNoVectorize
-deriving instance EqF AstRanked => EqF AstNoVectorize
-deriving instance OrdF AstRanked => OrdF AstNoVectorize
+deriving instance IfF AstNoVectorize
+deriving instance EqF AstNoVectorize
+deriving instance OrdF AstNoVectorize
 deriving instance Eq (AstNoVectorize r n)
-deriving instance Ord (AstRanked r n) => Ord (AstNoVectorize r n)
+deriving instance Ord (AstNoVectorize r n)
 deriving instance Num (AstRanked r n) => Num (AstNoVectorize r n)
 deriving instance (Real (AstRanked r n))
                    => Real (AstNoVectorize r n)
@@ -960,11 +960,11 @@ deriving instance GoodScalar r => Show (AstNoSimplify r n)
 
 type instance BoolOf AstNoSimplify = AstBool
 
-deriving instance IfF AstRanked => IfF AstNoSimplify
-deriving instance EqF AstRanked => EqF AstNoSimplify
-deriving instance OrdF AstRanked => OrdF AstNoSimplify
+deriving instance IfF AstNoSimplify
+deriving instance EqF AstNoSimplify
+deriving instance OrdF AstNoSimplify
 deriving instance Eq (AstNoSimplify r n)
-deriving instance Ord (AstRanked r n) => Ord (AstNoSimplify r n)
+deriving instance Ord (AstNoSimplify r n)
 deriving instance Num (AstRanked r n) => Num (AstNoSimplify r n)
 deriving instance (Real (AstRanked r n))
                   => Real (AstNoSimplify r n)
