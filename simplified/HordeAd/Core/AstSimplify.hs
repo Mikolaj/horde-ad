@@ -2274,4 +2274,4 @@ substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1
 substituteAstS :: forall sh r. (GoodScalar r, OS.Shape sh)
                => SubstitutionPayload -> AstVarId -> AstShaped r sh
                -> AstShaped r sh
-substituteAstS i var v1 = {-simplifyAstS $-} substitute1AstS i var v1
+substituteAstS i var v1 = simplifyAstS $ substitute1AstS i var v1
