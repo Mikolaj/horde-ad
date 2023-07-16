@@ -6,7 +6,6 @@ module EqEpsilon
   , assertCloseElem, assertClose, (@?~)
   ) where
 
-import Data.Typeable
 import Prelude
 
 import qualified Data.Array.RankedS as OR
@@ -22,7 +21,6 @@ import           Test.Tasty.Options
 import Shared
 
 newtype EqEpsilon = EqEpsilon Rational
-  deriving (Typeable, Num, Fractional)
 
 instance IsOption EqEpsilon where
   defaultValue = EqEpsilon eqEpsilonDefault
