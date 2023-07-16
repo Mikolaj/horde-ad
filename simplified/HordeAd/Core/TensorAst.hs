@@ -133,16 +133,16 @@ instance ConvertTensor (AstRanked s) (AstShaped s) where
   dshape (AstRToD v) = shapeToList $ shapeAst v
   dshape (AstSToD @sh _) = OS.shapeT @sh
 
-instance ConvertTensor (AstPrimalPart s) (AstPrimalPartS s) where
+instance ConvertTensor (AstPrimalPart) (AstPrimalPartS) where
   tfromD = astPrimalPart . tfromD
   tfromS = astPrimalPart . tfromS . unAstPrimalPartS
   dfromR = dfromR . unAstPrimalPart
   dfromS = dfromS . unAstPrimalPartS
   sfromR = astPrimalPartS . sfromR . unAstPrimalPart
   sfromD = astPrimalPartS . sfromD
-  ddummy = ddummy @(AstRanked s)
-  disDummy = disDummy @(AstRanked s)
-  dshape = dshape @(AstRanked s)
+  ddummy = ddummy @(AstRanked AstPrimal)
+  disDummy = disDummy @(AstRanked AstPrimal)
+  dshape = dshape @(AstRanked AstPrimal)
 
 instance DomainsTensor (AstRanked AstPrimal) (AstShaped AstPrimal) (AstDomains AstPrimal) where
   dmkDomains = AstDomains
@@ -195,7 +195,7 @@ astBuild1Vectorize :: (KnownNat n, GoodScalar r, AstSpan s)
                    => Int -> (AstInt -> AstRanked s r n) -> AstRanked s r (1 + n)
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
-instance RankedTensor (AstPrimalPart AstPrimal) where
+instance RankedTensor AstPrimalPart where
   tlet a f =
     astPrimalPart
     $ astLetFun (unAstPrimalPart a) (unAstPrimalPart . f . astPrimalPart)
@@ -321,7 +321,7 @@ astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r)
 astBuild1VectorizeS f =
   build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)
 
-instance ShapedTensor (AstPrimalPartS AstPrimal) where
+instance ShapedTensor (AstPrimalPartS) where
   slet a f =
     astPrimalPartS
     $ astLetFunS (unAstPrimalPartS a) (unAstPrimalPartS . f . astPrimalPartS)

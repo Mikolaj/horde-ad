@@ -191,7 +191,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
        let ast :: AstRanked AstPrimal r 0
            ast = MnistRnnRanked2.rnnMnistLossFusedR
-                   miniBatchSize (tprimalPart astGlyph, tprimalPart astLabel)
+                   miniBatchSize (tprimalPart @(AstRanked AstPrimal) astGlyph, tprimalPart @(AstRanked AstPrimal) astLabel)
                                  (parseDomains @(AstDynamic AstPrimal) valsInit doms)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
@@ -407,7 +407,7 @@ testRNNOPP = do
       batch_size = 1
       sizeMnistWidthI = 1
       sizeMnistHeightI = 1
-      blackGlyph :: AstPrimalPart AstPrimal Double 3
+      blackGlyph :: AstPrimalPart Double 3
       blackGlyph = astPrimalPart
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
@@ -432,7 +432,7 @@ testRNNOPP2 = do
       batch_size = 2
       sizeMnistWidthI = 2
       sizeMnistHeightI = 2
-      blackGlyph :: AstPrimalPart AstPrimal Double 3
+      blackGlyph :: AstPrimalPart Double 3
       blackGlyph = astPrimalPart
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI

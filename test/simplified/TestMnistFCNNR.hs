@@ -796,7 +796,20 @@ testVT2OPPNonLin = do
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked AstPrimal) Double
                     -> AstRanked AstPrimal Double 1
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
-      (artifact6nonLin, _) = revDtFun True afcnn2TnonLin valsInitVT2OPP
+      constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
+                 in ( ( AstConstant $ AstPrimalPart $ AstConst $ runFlip a1
+                      , AstConstant $ AstPrimalPart $ AstConst $ runFlip a2 )
+                    , ( AstConstant $ AstPrimalPart $ AstConst $ runFlip a3
+                      , AstConstant $ AstPrimalPart $ AstConst $ runFlip a4 )
+                    , ( AstConstant $ AstPrimalPart $ AstConst $ runFlip a5
+                      , AstConstant $ AstPrimalPart $ AstConst $ runFlip a6 ) )
+      (_, ast3) = funToAstR @Double (singletonShape 0)
+                                    (const $ afcnn2TnonLin constant)
+  "\\dummy"
+       ++ " -> " ++ printAstSimple renames ast3
+    @?= "\\dummy -> tlet (exp (tsum (ttranspose [1,0] (treplicate 5 (tlet (tcast (tsum (ttranspose [1,0] (treplicate 4 (tcast (tlet (tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * tconst (fromList [3,3] [1.0,2.0,3.0,1.0,2.0,3.0,1.0,2.0,3.0]))) + tconst (fromList [3] [1.0,2.0,3.0])) (\\v6 -> tlet (tconstant (recip (treplicate 3 (tconst 1.0) + exp (negate v6)))) (\\v7 -> tD v7 ((v7 * (treplicate 3 (tconst 1.0) - v7)) * v6))))) * tconst (fromList [4,4] [1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0])))) + tconst (fromList [4] [1.0,2.0,3.0,4.0])) (\\v8 -> tlet (tconstant (recip (treplicate 4 (tconst 1.0) + exp (negate v8)))) (\\v9 -> tD v9 ((v9 * (treplicate 4 (tconst 1.0) - v9)) * v8)))) * tconst (fromList [5,5] [1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0]))) + tconst (fromList [5] [1.0,2.0,3.0,4.0,5.0]))) (\\v2 -> treplicate 5 (recip (tsum v2)) * v2)"
+  resetVarCounter
+  let (artifact6nonLin, _) = revDtFun True afcnn2TnonLin valsInitVT2OPP
   printGradient6Pretty renames artifact6nonLin
     @?= "\\dret m2 v3 m4 v5 m6 v7 -> let v16 = tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * m2)) + v3 ; v19 = let v17 = exp (negate v16) ; v18 = treplicate 3 (tconst 1.0) + v17 in recip v18 ; v20 = treplicate 3 (tconst 1.0) - v19 ; v21 = v19 * v20 ; m22 = treplicate 4 (tcast v19) ; v23 = tcast (tsum (ttranspose [1,0] (m22 * m4))) + v5 ; v26 = let v24 = exp (negate v23) ; v25 = treplicate 4 (tconst 1.0) + v24 in recip v25 ; v27 = treplicate 4 (tconst 1.0) - v26 ; v28 = v26 * v27 ; m29 = treplicate 5 v26 ; v30 = exp (tsum (ttranspose [1,0] (m29 * m6)) + v7) ; x31 = tsum v30 ; v32 = treplicate 5 (recip x31) ; v33 = v30 * (treplicate 5 (negate (recip (x31 * x31)) * tsum (v30 * dret)) + v32 * dret) ; v34 = tsum (m6 * ttranspose [1,0] (treplicate 4 v33)) ; v35 = v26 * (v23 * v34) ; v36 = v28 * v34 ; m37 = ttranspose [1,0] (treplicate 3 (tcast v36)) ; v38 = tcast (tsum (m4 * m37)) ; v39 = v19 * (v16 * v38) ; v40 = v21 * v38 in (treplicate 3 (treplicate 784 (tconst 7.0)) * ttranspose [1,0] (treplicate 784 v40), v40, m22 * m37, v36, m29 * ttranspose [1,0] (treplicate 4 v33), v33)"
   printPrimal6Pretty renames artifact6nonLin

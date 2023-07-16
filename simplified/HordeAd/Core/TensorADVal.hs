@@ -75,7 +75,7 @@ type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
 -- * Ranked tensor instances
 
 -- This requires the Tensor instance, hence the definitions must in this module.
-instance IfF (ADVal (AstPrimalPart AstPrimal)) where
+instance IfF (ADVal (AstPrimalPart)) where
   ifF b v w = index (fromList [v, w]) (singletonIndex $ ifF b 0 1)
 
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
@@ -236,7 +236,7 @@ instance IfF (ADVal (Flip OS.Array)) where
   ifF b v w = if b then v else w
 
 -- This requires the Tensor instance, hence the definitions must in this module.
-instance IfF (ADVal (AstPrimalPartS AstPrimal)) where
+instance IfF (ADVal (AstPrimalPartS)) where
   ifF b v w = indexS (fromListS @2 [v, w]) (ifF b 0 1 :$: ZSH)
 
 -- First index is for outermost dimension; empty index means identity,

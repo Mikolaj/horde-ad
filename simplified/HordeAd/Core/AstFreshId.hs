@@ -66,8 +66,8 @@ astRegisterFunS !r !l = unsafePerformIO $ do
   return ((freshId, DynamicExists $ AstSToD r) : l, r2)
 
 astRegisterADShare :: (GoodScalar r, KnownNat n)
-                   => AstPrimalPart AstPrimal r n -> ADShare
-                   -> (ADShare, AstPrimalPart AstPrimal r n)
+                   => AstPrimalPart r n -> ADShare
+                   -> (ADShare, AstPrimalPart r n)
 {-# NOINLINE astRegisterADShare #-}
 astRegisterADShare !r !l | astIsSmall True (unAstPrimalPart r) = (l, r)
 astRegisterADShare !(AstPrimalPart r) !l = unsafePerformIO $ do
@@ -77,8 +77,8 @@ astRegisterADShare !(AstPrimalPart r) !l = unsafePerformIO $ do
   return (l2, r2)
 
 astRegisterADShareS :: (GoodScalar r, OS.Shape sh)
-                    => AstPrimalPartS AstPrimal r sh -> ADShare
-                    -> (ADShare, AstPrimalPartS AstPrimal r sh)
+                    => AstPrimalPartS r sh -> ADShare
+                    -> (ADShare, AstPrimalPartS r sh)
 {-# NOINLINE astRegisterADShareS #-}
 astRegisterADShareS !r !l | astIsSmallS True (unAstPrimalPartS r) = (l, r)
 astRegisterADShareS !(AstPrimalPartS r) !l = unsafePerformIO $ do

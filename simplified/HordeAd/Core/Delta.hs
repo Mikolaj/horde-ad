@@ -420,7 +420,7 @@ instance DualPart @() (Clown OD.Array) where
   forwardDerivative = derivativeFromDeltaD
 
 instance DualPart @() (Clown (AstDynamic AstPrimal)) where
-  type Dual (Clown (AstDynamic AstPrimal)) = DeltaD (AstPrimalPart AstPrimal) (AstPrimalPartS AstPrimal)
+  type Dual (Clown (AstDynamic AstPrimal)) = DeltaD (AstPrimalPart) (AstPrimalPartS)
   reverseDervative = gradientDtD
   forwardDerivative = derivativeFromDeltaD
 
@@ -462,8 +462,8 @@ instance DualPart @Nat (Flip OR.Array) where
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
-instance DualPart @Nat (AstPrimalPart AstPrimal) where
-  type Dual (AstPrimalPart AstPrimal) = DeltaR (AstPrimalPart AstPrimal) (AstPrimalPartS AstPrimal)
+instance DualPart @Nat (AstPrimalPart) where
+  type Dual (AstPrimalPart) = DeltaR (AstPrimalPart) (AstPrimalPartS)
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
@@ -499,8 +499,8 @@ instance DualPart @[Nat] (Flip OS.Array) where
   reverseDervative dims _ = gradientDtS dims
   forwardDerivative = derivativeFromDeltaS
 
-instance DualPart @[Nat] (AstPrimalPartS AstPrimal) where
-  type Dual (AstPrimalPartS AstPrimal) = DeltaS (AstPrimalPart AstPrimal) (AstPrimalPartS AstPrimal)
+instance DualPart @[Nat] (AstPrimalPartS) where
+  type Dual (AstPrimalPartS) = DeltaS (AstPrimalPart) (AstPrimalPartS)
   reverseDervative dims _ = gradientDtS dims
   forwardDerivative = derivativeFromDeltaS
 

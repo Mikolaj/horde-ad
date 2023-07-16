@@ -44,6 +44,7 @@ import           Data.Type.Equality ((:~:) (Refl))
 import           GHC.TypeLits (KnownNat, type (+), type (<=))
 import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.ShapedList (ShapedList (..))
 import HordeAd.Core.SizedIndex
@@ -82,42 +83,42 @@ type instance RankedOf (Clown (AstDynamic s)) = AstRanked s
 type instance ShapedOf (Clown (AstDynamic s)) = AstShaped s
 type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
-type instance PrimalOf (AstRanked s) = AstPrimalPart s  -- AstRanked AstPrimal
-type instance DualOf (AstRanked s) = AstDualPart s
+type instance PrimalOf (AstRanked s) = AstPrimalPart  -- AstRanked AstPrimal
+type instance DualOf (AstRanked s) = AstDualPart
 -- type instance DualOf (AstRanked AstFull) = AstRanked AstDual
 -- type instance DualOf (AstRanked AstPrimal) = DummyDual
 type instance RankedOf (AstShaped s) = AstRanked s
 type instance ShapedOf (AstShaped s) = AstShaped s
-type instance PrimalOf (AstShaped s) = AstPrimalPartS s  -- AstShaped AstPrimal
-type instance DualOf (AstShaped s) = AstDualPartS s
+type instance PrimalOf (AstShaped s) = AstPrimalPartS  -- AstShaped AstPrimal
+type instance DualOf (AstShaped s) = AstDualPartS
 -- type instance DualOf (AstShaped AstFull) = AstShaped AstDual
 -- type instance DualOf (AstShaped AstPrimal) = DummyDual
 
 -- TODO: remove
-type instance RankedOf (AstPrimalPart s) = AstPrimalPart s
-type instance ShapedOf (AstPrimalPart s) = AstPrimalPartS s
-type instance PrimalOf (AstPrimalPart s) = AstPrimalPart s
-type instance DualOf (AstPrimalPart s) = DummyDual
-type instance RankedOf (AstPrimalPartS s) = AstPrimalPart s
-type instance ShapedOf (AstPrimalPartS s) = AstPrimalPartS s
-type instance PrimalOf (AstPrimalPartS s) = AstPrimalPartS s
-type instance DualOf (AstPrimalPartS s) = DummyDual
+type instance RankedOf (AstPrimalPart) = AstPrimalPart
+type instance ShapedOf (AstPrimalPart) = AstPrimalPartS
+type instance PrimalOf (AstPrimalPart) = AstPrimalPart
+type instance DualOf (AstPrimalPart) = DummyDual
+type instance RankedOf (AstPrimalPartS) = AstPrimalPart
+type instance ShapedOf (AstPrimalPartS) = AstPrimalPartS
+type instance PrimalOf (AstPrimalPartS) = AstPrimalPartS
+type instance DualOf (AstPrimalPartS) = DummyDual
 
 
 -- * Assorted small definitions
 
-type AstInt = AstPrimalPart AstPrimal Int64 0
+type AstInt = AstPrimalPart Int64 0
 
 pattern AstIntVar :: AstVarId -> AstInt
 pattern AstIntVar var = AstPrimalPart (AstVar ZS var)
 
-pattern AstPVar :: AstVarId -> AstPrimalPart s r n
+pattern AstPVar :: AstVarId -> AstPrimalPart r n
 pattern AstPVar var <- AstPrimalPart (AstVar _ var)
 
 pattern AstIntConst :: OR.Array 0 Int64 -> AstInt
 pattern AstIntConst i = AstPrimalPart (AstConst i)
 
-pattern AstPConst :: OR.Array n r -> AstPrimalPart s r n
+pattern AstPConst :: OR.Array n r -> AstPrimalPart r n
 pattern AstPConst r = AstPrimalPart (AstConst r)
 
 -- | The type family that to a concrete tensor type assigns its
@@ -225,15 +226,15 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
   AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2)
           => AstRanked s r1 n -> AstRanked s r2 n
   AstFromIntegral :: (GoodScalar r1, Integral r1)
-                  => AstPrimalPart s r1 n -> AstRanked s r2 n
+                  => AstPrimalPart r1 n -> AstRanked s r2 n
 
   AstSToR :: OS.Shape sh
           => AstShaped s r sh -> AstRanked s r (OS.Rank sh)
 
   -- For the forbidden half of the Tensor class:
   AstConst :: OR.Array n r -> AstRanked s r n
-  AstConstant :: AstPrimalPart s r n -> AstRanked s r n
-  AstD :: AstPrimalPart s r n -> AstDualPart s r n -> AstRanked s r n
+  AstConstant :: AstPrimalPart r n -> AstRanked s r n
+  AstD :: AstPrimalPart r n -> AstDualPart r n -> AstRanked s r n
   AstLetDomains :: Data.Vector.Vector AstVarId -> AstDomains s
                 -> AstRanked s r n
                 -> AstRanked s r n
@@ -244,21 +245,21 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
   -- things, so they are least have AstPrimalPart domains, which often makes
   -- it possible to simplify terms, e.g., deleting AstDualPart applications.
   AstFloor :: (GoodScalar r, RealFrac r, Integral r2)
-           => AstPrimalPart s r n -> AstRanked s r2 n
+           => AstPrimalPart r n -> AstRanked s r2 n
   AstMinIndex :: GoodScalar r
-              => AstPrimalPart s r (1 + n) -> AstRanked s r2 n
+              => AstPrimalPart r (1 + n) -> AstRanked s r2 n
   AstMaxIndex :: GoodScalar r
-              => AstPrimalPart s r (1 + n) -> AstRanked s r2 n
+              => AstPrimalPart r (1 + n) -> AstRanked s r2 n
 
 deriving instance GoodScalar r => Show (AstRanked s r n)
 
-newtype AstPrimalPart s r n =
-  AstPrimalPart {unAstPrimalPart :: AstRanked s r n}
-deriving instance GoodScalar r => Show (AstPrimalPart s r n)
+newtype AstPrimalPart r n =
+  AstPrimalPart {unAstPrimalPart :: AstRanked AstPrimal r n}
+deriving instance GoodScalar r => Show (AstPrimalPart r n)
 
-newtype AstDualPart s r n =
-  AstDualPart {unAstDualPart :: AstRanked s r n}
-deriving instance GoodScalar r => Show (AstDualPart s r n)
+newtype AstDualPart r n =
+  AstDualPart {unAstDualPart :: AstRanked AstPrimal r n}
+deriving instance GoodScalar r => Show (AstDualPart r n)
 
 -- | AST for shaped tensors that are meant to be differentiated.
 data AstShaped :: AstSpanType -> ShapedTensorKind where
@@ -333,15 +334,15 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
   AstCastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
            => AstShaped s r1 sh -> AstShaped s r2 sh
   AstFromIntegralS :: (GoodScalar r1, Integral r1)
-                   => AstPrimalPartS s r1 sh -> AstShaped s r2 sh
+                   => AstPrimalPartS r1 sh -> AstShaped s r2 sh
 
   AstRToS :: (OS.Shape sh, KnownNat (OS.Rank sh))
           => AstRanked s r (OS.Rank sh) -> AstShaped s r sh
 
   -- For the forbidden half of the Tensor class:
   AstConstS :: OS.Array sh r -> AstShaped s r sh
-  AstConstantS :: AstPrimalPartS s r sh -> AstShaped s r sh
-  AstDS :: AstPrimalPartS s r sh -> AstDualPartS s r sh -> AstShaped s r sh
+  AstConstantS :: AstPrimalPartS r sh -> AstShaped s r sh
+  AstDS :: AstPrimalPartS r sh -> AstDualPartS r sh -> AstShaped s r sh
   AstLetDomainsS :: Data.Vector.Vector AstVarId -> AstDomains s
                  -> AstShaped s r sh
                  -> AstShaped s r sh
@@ -352,23 +353,23 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
   -- things, so they are least have AstPrimalPartS domains, which often makes
   -- it possible to simplify terms, e.g., deleting AstDualPartS applications.
   AstFloorS :: (GoodScalar r, RealFrac r, Integral r2)
-            => AstPrimalPartS s r sh -> AstShaped s r2 sh
+            => AstPrimalPartS r sh -> AstShaped s r2 sh
   AstMinIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
-               => AstPrimalPartS s r (n ': sh)
+               => AstPrimalPartS r (n ': sh)
                -> AstShaped s r2 (OS.Init (n ': sh))
   AstMaxIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
-               => AstPrimalPartS s r (n ': sh)
+               => AstPrimalPartS r (n ': sh)
                -> AstShaped s r2 (OS.Init (n ': sh))
 
 deriving instance (GoodScalar r, OS.Shape sh) => Show (AstShaped s r sh)
 
-newtype AstPrimalPartS s r sh =
-  AstPrimalPartS {unAstPrimalPartS :: AstShaped s r sh}
-deriving instance (GoodScalar r, OS.Shape sh) => Show (AstPrimalPartS s r sh)
+newtype AstPrimalPartS r sh =
+  AstPrimalPartS {unAstPrimalPartS :: AstShaped AstPrimal r sh}
+deriving instance (GoodScalar r, OS.Shape sh) => Show (AstPrimalPartS r sh)
 
-newtype AstDualPartS s r sh =
-  AstDualPartS {unAstDualPartS :: AstShaped s r sh}
-deriving instance (GoodScalar r, OS.Shape sh) => Show (AstDualPartS s r sh)
+newtype AstDualPartS r sh =
+  AstDualPartS {unAstDualPartS :: AstShaped AstPrimal r sh}
+deriving instance (GoodScalar r, OS.Shape sh) => Show (AstDualPartS r sh)
 
 data AstDynamic :: AstSpanType -> Type -> Type where
   AstRToD :: KnownNat n
@@ -391,10 +392,10 @@ deriving instance Show (AstDomains s)
 data AstBool where
   AstBoolOp :: OpCodeBool -> [AstBool] -> AstBool
   AstBoolConst :: Bool -> AstBool
-  AstRel :: (KnownNat n, GoodScalar r, AstSpan s)
-         => OpCodeRel -> [AstPrimalPart s r n] -> AstBool
-  AstRelS :: (OS.Shape sh, GoodScalar r, AstSpan s)
-          => OpCodeRel -> [AstPrimalPartS s r sh] -> AstBool
+  AstRel :: (KnownNat n, GoodScalar r)
+         => OpCodeRel -> [AstPrimalPart r n] -> AstBool
+  AstRelS :: (OS.Shape sh, GoodScalar r)
+          => OpCodeRel -> [AstPrimalPartS r sh] -> AstBool
 deriving instance Show AstBool
 
 data OpCodeNum =
@@ -453,15 +454,15 @@ astCond b (AstConstant (AstPrimalPart v))
   AstConstant $ astPrimalPart $ AstCond b v w
 astCond b v w = AstCond b v w
 
-astPrimalPart :: AstRanked s r n -> AstPrimalPart s r n
+astPrimalPart :: AstRanked s r n -> AstPrimalPart r n
 astPrimalPart (AstConstant t) = t
-astPrimalPart t = AstPrimalPart t
+astPrimalPart t = AstPrimalPart $ unsafeCoerce t
 
-instance AstSpan s => EqF (AstRanked s) where
+instance EqF (AstRanked s) where
   v ==. u = AstRel EqOp [astPrimalPart v, astPrimalPart u]
   v /=. u = AstRel NeqOp [astPrimalPart v, astPrimalPart u]
 
-instance AstSpan s => OrdF (AstRanked s) where
+instance OrdF (AstRanked s) where
   AstConst u <. AstConst v = AstBoolConst $ u < v  -- common in indexing
   v <. u = AstRel LsOp [astPrimalPart v, astPrimalPart u]
   AstConst u <=. AstConst v = AstBoolConst $ u <= v  -- common in indexing
@@ -471,11 +472,11 @@ instance AstSpan s => OrdF (AstRanked s) where
   AstConst u >=. AstConst v = AstBoolConst $ u >= v  -- common in indexing
   v >=. u = AstRel GeqOp [astPrimalPart v, astPrimalPart u]
 
-type instance BoolOf (AstPrimalPart s) = AstBool
+type instance BoolOf (AstPrimalPart) = AstBool
 
-deriving instance IfF (AstPrimalPart s)
-deriving instance AstSpan s => EqF (AstPrimalPart s)
-deriving instance AstSpan s => OrdF (AstPrimalPart s)
+deriving instance IfF (AstPrimalPart)
+deriving instance EqF (AstPrimalPart)
+deriving instance OrdF (AstPrimalPart)
 
 
 -- * Unlawful numeric instances of ranked AST; they are lawful modulo evaluation
@@ -593,15 +594,15 @@ instance (Differentiable r, RealFloat (OR.Array n r))
   isNegativeZero = undefined
   isIEEE = undefined
 
-instance Eq (AstPrimalPart s r n) where
+instance Eq (AstPrimalPart r n) where
   (==) = error "AST requires that EqF be used instead"
   (/=) = error "AST requires that EqF be used instead"
 
-instance Ord (AstPrimalPart s r n) where
+instance Ord (AstPrimalPart r n) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance (Num (AstRanked s r n), Num (OR.Array n r))
-         => Num (AstPrimalPart s r n) where
+instance (Num (AstRanked AstPrimal r n), Num (OR.Array n r))
+         => Num (AstPrimalPart r n) where
   (AstPrimalPart u) + (AstPrimalPart v) = AstPrimalPart $ u + v
   (AstPrimalPart u) - (AstPrimalPart v) = AstPrimalPart $ u - v
   (AstPrimalPart u) * (AstPrimalPart v) = AstPrimalPart $ u * v
@@ -610,23 +611,23 @@ instance (Num (AstRanked s r n), Num (OR.Array n r))
   signum (AstPrimalPart v) = AstPrimalPart $ signum v
   fromInteger = AstPrimalPart . AstConst . fromInteger
 
-instance (Fractional (AstRanked s r n), Fractional (OR.Array n r))
-         => Fractional (AstPrimalPart s r n) where
+instance (Fractional (AstRanked AstPrimal r n), Fractional (OR.Array n r))
+         => Fractional (AstPrimalPart r n) where
   (AstPrimalPart u) / (AstPrimalPart v) = AstPrimalPart $ u / v
   recip (AstPrimalPart v) = AstPrimalPart $ recip v
   fromRational = AstPrimalPart . AstConst . fromRational
 
-deriving instance (Real (AstRanked s r n), Num (OR.Array n r))
-                  => Real (AstPrimalPart s r n)
-deriving instance (Enum (AstRanked s r n)) => Enum (AstPrimalPart s r n)
-deriving instance (Integral (AstRanked s r n), Num (OR.Array n r))
-                  => Integral (AstPrimalPart s r n)
-deriving instance (Floating (AstRanked s r n), Floating (OR.Array n r))
-                  => Floating (AstPrimalPart s r n)
-deriving instance (RealFrac (AstRanked s r n), RealFrac (OR.Array n r))
-                  => RealFrac (AstPrimalPart s r n)
-deriving instance (RealFloat (AstRanked s r n), RealFloat (OR.Array n r))
-                  => RealFloat (AstPrimalPart s r n)
+deriving instance (Real (AstRanked AstPrimal r n), Num (OR.Array n r))
+                  => Real (AstPrimalPart r n)
+deriving instance (Enum (AstRanked AstPrimal r n)) => Enum (AstPrimalPart r n)
+deriving instance (Integral (AstRanked AstPrimal r n), Num (OR.Array n r))
+                  => Integral (AstPrimalPart r n)
+deriving instance (Floating (AstRanked AstPrimal r n), Floating (OR.Array n r))
+                  => Floating (AstPrimalPart r n)
+deriving instance (RealFrac (AstRanked AstPrimal r n), RealFrac (OR.Array n r))
+                  => RealFrac (AstPrimalPart r n)
+deriving instance (RealFloat (AstRanked AstPrimal r n), RealFloat (OR.Array n r))
+                  => RealFloat (AstPrimalPart r n)
 
 
 -- * Unlawful boolean instances of shaped AST; they are lawful modulo evaluation
@@ -647,15 +648,15 @@ astCondS b (AstConstantS (AstPrimalPartS v))
   AstConstantS $ astPrimalPartS $ AstCondS b v w
 astCondS b v w = AstCondS b v w
 
-astPrimalPartS :: AstShaped s r n -> AstPrimalPartS s r n
+astPrimalPartS :: AstShaped s r n -> AstPrimalPartS r n
 astPrimalPartS (AstConstantS t) = t
-astPrimalPartS t = AstPrimalPartS t
+astPrimalPartS t = AstPrimalPartS $ unsafeCoerce t
 
-instance AstSpan s => EqF (AstShaped s) where
+instance EqF (AstShaped s) where
   v ==. u = AstRelS EqOp [astPrimalPartS v, astPrimalPartS u]
   v /=. u = AstRelS NeqOp [astPrimalPartS v, astPrimalPartS u]
 
-instance AstSpan s => OrdF (AstShaped s) where
+instance OrdF (AstShaped s) where
   AstConstS u <. AstConstS v = AstBoolConst $ u < v  -- common in indexing
   v <. u = AstRelS LsOp [astPrimalPartS v, astPrimalPartS u]
   AstConstS u <=. AstConstS v = AstBoolConst $ u <= v  -- common in indexing
@@ -665,11 +666,11 @@ instance AstSpan s => OrdF (AstShaped s) where
   AstConstS u >=. AstConstS v = AstBoolConst $ u >= v  -- common in indexing
   v >=. u = AstRelS GeqOp [astPrimalPartS v, astPrimalPartS u]
 
-type instance BoolOf (AstPrimalPartS s) = AstBool
+type instance BoolOf (AstPrimalPartS) = AstBool
 
-deriving instance IfF (AstPrimalPartS s)
-deriving instance AstSpan s => EqF (AstPrimalPartS s)
-deriving instance AstSpan s => OrdF (AstPrimalPartS s)
+deriving instance IfF (AstPrimalPartS)
+deriving instance EqF (AstPrimalPartS)
+deriving instance OrdF (AstPrimalPartS)
 
 
 -- * Unlawful numeric instances of shaped AST; they are lawful modulo evaluation
@@ -785,15 +786,15 @@ instance (Differentiable r, RealFloat (OS.Array sh r))
   isNegativeZero = undefined
   isIEEE = undefined
 
-instance Eq (AstPrimalPartS s r sh) where
+instance Eq (AstPrimalPartS r sh) where
   (==) = error "AST requires that EqF be used instead"
   (/=) = error "AST requires that EqF be used instead"
 
-instance Ord (AstPrimalPartS s r sh) where
+instance Ord (AstPrimalPartS r sh) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance (Num (AstShaped s r sh), Num (OS.Array sh r))
-         => Num (AstPrimalPartS s r sh) where
+instance (Num (AstShaped AstPrimal r sh), Num (OS.Array sh r))
+         => Num (AstPrimalPartS r sh) where
   (AstPrimalPartS u) + (AstPrimalPartS v) = AstPrimalPartS $ u + v
   (AstPrimalPartS u) - (AstPrimalPartS v) = AstPrimalPartS $ u - v
   (AstPrimalPartS u) * (AstPrimalPartS v) = AstPrimalPartS $ u * v
@@ -802,23 +803,23 @@ instance (Num (AstShaped s r sh), Num (OS.Array sh r))
   signum (AstPrimalPartS v) = AstPrimalPartS $ signum v
   fromInteger = AstPrimalPartS . AstConstS . fromInteger
 
-instance (Fractional (AstShaped s r sh), Fractional (OS.Array sh r))
-         => Fractional (AstPrimalPartS s r sh) where
+instance (Fractional (AstShaped AstPrimal r sh), Fractional (OS.Array sh r))
+         => Fractional (AstPrimalPartS r sh) where
   (AstPrimalPartS u) / (AstPrimalPartS v) = AstPrimalPartS $ u / v
   recip (AstPrimalPartS v) = AstPrimalPartS $ recip v
   fromRational = AstPrimalPartS . AstConstS . fromRational
 
-deriving instance (Real (AstShaped s r sh), Num (OS.Array sh r))
-                  => Real (AstPrimalPartS s r sh)
-deriving instance Enum (AstShaped s r sh) => Enum (AstPrimalPartS s r sh)
-deriving instance (Integral (AstShaped s r sh), Num (OS.Array sh r))
-                  => Integral (AstPrimalPartS s r sh)
-deriving instance (Floating (AstShaped s r sh), Floating (OS.Array sh r))
-                  => Floating (AstPrimalPartS s r sh)
-deriving instance (RealFrac (AstShaped s r sh), RealFrac (OS.Array sh r))
-                  => RealFrac (AstPrimalPartS s r sh)
-deriving instance (RealFloat (AstShaped s r sh), RealFloat (OS.Array sh r))
-                  => RealFloat (AstPrimalPartS s r sh)
+deriving instance (Real (AstShaped AstPrimal r sh), Num (OS.Array sh r))
+                  => Real (AstPrimalPartS r sh)
+deriving instance Enum (AstShaped AstPrimal r sh) => Enum (AstPrimalPartS r sh)
+deriving instance (Integral (AstShaped AstPrimal r sh), Num (OS.Array sh r))
+                  => Integral (AstPrimalPartS r sh)
+deriving instance (Floating (AstShaped AstPrimal r sh), Floating (OS.Array sh r))
+                  => Floating (AstPrimalPartS r sh)
+deriving instance (RealFrac (AstShaped AstPrimal r sh), RealFrac (OS.Array sh r))
+                  => RealFrac (AstPrimalPartS r sh)
+deriving instance (RealFloat (AstShaped AstPrimal r sh), RealFloat (OS.Array sh r))
+                  => RealFloat (AstPrimalPartS r sh)
 
 
 -- * ADShare definition
@@ -951,12 +952,12 @@ nullADShare ADShareCons{} = False
 
 type instance RankedOf AstNoVectorize = AstNoVectorize
 type instance ShapedOf AstNoVectorize = AstShaped AstPrimal
-type instance PrimalOf AstNoVectorize = AstPrimalPart AstPrimal
-type instance DualOf AstNoVectorize = AstDualPart AstPrimal
+type instance PrimalOf AstNoVectorize = AstPrimalPart
+type instance DualOf AstNoVectorize = AstDualPart
 type instance RankedOf AstNoSimplify = AstNoSimplify
 type instance ShapedOf AstNoSimplify = AstShaped AstPrimal
-type instance PrimalOf AstNoSimplify = AstPrimalPart AstPrimal
-type instance DualOf AstNoSimplify = AstDualPart AstPrimal
+type instance PrimalOf AstNoSimplify = AstPrimalPart
+type instance DualOf AstNoSimplify = AstDualPart
 
 newtype AstNoVectorize r n =
   AstNoVectorize {unAstNoVectorize :: AstRanked AstPrimal r n}

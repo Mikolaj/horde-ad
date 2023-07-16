@@ -659,7 +659,7 @@ type instance DynamicOf (Flip OR.Array) = OD.Array
 
 type instance DynamicOf (AstRanked s) = AstDynamic s
 
-type instance DynamicOf (AstPrimalPart s) = AstDynamic s
+type instance DynamicOf (AstPrimalPart) = AstDynamic AstPrimal
 
 type instance RankedOf (Flip OR.Array) = Flip OR.Array
 
@@ -765,7 +765,7 @@ type instance DynamicOf (Flip OS.Array) = OD.Array
 
 type instance DynamicOf (AstShaped s) = AstDynamic s
 
-type instance DynamicOf (AstPrimalPartS s) = AstDynamic s
+type instance DynamicOf (AstPrimalPartS) = AstDynamic AstPrimal
 
 type instance RankedOf (Flip OS.Array) = Flip OR.Array
 

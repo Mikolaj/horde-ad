@@ -205,7 +205,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
        let ast :: AstRanked AstPrimal r 0
            ast = MnistCnnRanked2.convMnistLossFusedR
-                   miniBatchSize (tprimalPart astGlyph, tprimalPart astLabel)
+                   miniBatchSize (tprimalPart @(AstRanked AstPrimal) astGlyph, tprimalPart @(AstRanked AstPrimal) astLabel)
                                  (parseDomains @(AstDynamic AstPrimal) valsInit doms)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
@@ -402,7 +402,7 @@ testCNNOPP = do
       batch_size = 1
       sizeMnistWidthI = 4  -- 4; to make weightsDense empty and so speedup
       sizeMnistHeightI = 4  -- 4; to make weightsDense empty and so speedup
-      blackGlyph :: AstPrimalPart AstPrimal Double 4
+      blackGlyph :: AstPrimalPart Double 4
       blackGlyph = astPrimalPart
                    $ AstReplicate batch_size
                    $ AstReplicate 1

@@ -112,15 +112,15 @@ instance Adaptable @Nat (Flip OR.Array) where
        ( GoodScalar r, KnownNat y
        , AdaptableDomains (AstDynamic AstPrimal) astvals, vals ~ Value astvals )
     => Bool -> (astvals -> AstRanked AstPrimal r y) -> vals
-    -> AstEnv (ADVal (AstPrimalPart AstPrimal))
+    -> AstEnv (ADVal (AstPrimalPart))
     -> DomainsOD
-    -> (ADAstArtifact6 (Flip OR.Array) AstPrimal r y, Dual (AstPrimalPart AstPrimal) r y)
+    -> (ADAstArtifact6 (Flip OR.Array) AstPrimal r y, Dual (AstPrimalPart) r y)
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown (AstDynamic AstPrimal))
                        -> Domains (AstDynamic AstPrimal)
                        -> [AstDynamicVarName]
-                       -> ADVal (AstPrimalPart AstPrimal) r y
+                       -> ADVal (AstPrimalPart) r y
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
               env1 = foldr extendEnvDR envInit $ zip vars1 $ V.toList varInputs
@@ -142,14 +142,14 @@ instance Adaptable @[Nat] (Flip OS.Array) where
        ( GoodScalar r, OS.Shape y
        , AdaptableDomains (AstDynamic AstPrimal) astvals, vals ~ Value astvals )
     => Bool -> (astvals -> AstShaped AstPrimal r y) -> vals
-    -> AstEnv (ADVal (AstPrimalPart AstPrimal)) -> DomainsOD
-    -> (ADAstArtifact6 (Flip OS.Array) AstPrimal r y, Dual (AstPrimalPartS AstPrimal) r y)
+    -> AstEnv (ADVal (AstPrimalPart)) -> DomainsOD
+    -> (ADAstArtifact6 (Flip OS.Array) AstPrimal r y, Dual (AstPrimalPartS) r y)
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown (AstDynamic AstPrimal))
                        -> Domains (AstDynamic AstPrimal)
                        -> [AstDynamicVarName]
-                       -> ADVal (AstPrimalPartS AstPrimal) r y
+                       -> ADVal (AstPrimalPartS) r y
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
               env1 = foldr extendEnvDR envInit $ zip vars1 $ V.toList varInputs
@@ -172,8 +172,8 @@ revAstOnDomainsFun
   -> (Domains (ADValClown (AstDynamic AstPrimal))
       -> Domains (AstDynamic AstPrimal)
       -> [AstDynamicVarName]
-      -> ADVal (AstPrimalPart AstPrimal) r n)
-  -> (ADAstArtifact6 (Flip OR.Array) AstPrimal r n, Dual (AstPrimalPart AstPrimal) r n)
+      -> ADVal (AstPrimalPart) r n)
+  -> (ADAstArtifact6 (Flip OR.Array) AstPrimal r n, Dual (AstPrimalPart) r n)
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
@@ -201,8 +201,8 @@ revAstOnDomainsFunS
   -> (Domains (ADValClown (AstDynamic AstPrimal))
       -> Domains (AstDynamic AstPrimal)
       -> [AstDynamicVarName]
-      -> ADVal (AstPrimalPartS AstPrimal) r sh)
-  -> (ADAstArtifact6 (Flip OS.Array) AstPrimal r sh, Dual (AstPrimalPartS AstPrimal) r sh)
+      -> ADVal (AstPrimalPartS) r sh)
+  -> (ADAstArtifact6 (Flip OS.Array) AstPrimal r sh, Dual (AstPrimalPartS) r sh)
 {-# INLINE revAstOnDomainsFunS #-}
 revAstOnDomainsFunS hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables

@@ -476,7 +476,7 @@ astFromVector l =
   let unConstant (Ast.AstConstant (AstPrimalPart t)) = Just t
       unConstant _ = Nothing
   in case V.mapM unConstant l of
-    Just l2 | V.null l2 -> Ast.AstFromVector l2
+    Just l2 | V.null l2 -> Ast.AstFromVector V.empty
     Just l2 -> Ast.AstConstant $ astPrimalPart $ astFromVector l2
     Nothing ->
       let unConst (AstConst t) = Just t
@@ -783,11 +783,11 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
            => AstRanked s' r (m' + n') -> AstIndex m' -> AstRanked s' r n'
   astIndex = if stepOnly then astIndexStep else astIndexR
   astGatherRec, astGather
-    :: forall m' n' p'.
-       (KnownNat m', KnownNat p', KnownNat n')
-    => ShapeInt (m' + n') -> AstRanked s r (p' + n')
+    :: forall m' n' p' s'.
+       (KnownNat m', KnownNat p', KnownNat n', AstSpan s')
+    => ShapeInt (m' + n') -> AstRanked s' r (p' + n')
     -> (AstVarList m', AstIndex p')
-    -> AstRanked s r (m' + n')
+    -> AstRanked s' r (m' + n')
   astGatherRec = if stepOnly then Ast.AstGather else astGatherR
   astGather = if stepOnly then astGatherStep else astGatherR
   -- Note that v4 is in weak head normal form and so can't one-step reduce
@@ -961,7 +961,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     AstConst{} ->  -- free variables possible, so can't compute the tensor
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstConstant (AstPrimalPart v) ->
-      Ast.AstConstant $ astPrimalPart $ astGather sh4 v (vars4, ix4)
+      Ast.AstConstant $ astPrimalPart $ (if stepOnly then astGatherStep else astGatherR) sh4 v (vars4, ix4)
     Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
       let (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
@@ -1138,8 +1138,8 @@ simplifyArtifact6S (vars, gradient, primal) =
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
 simplifyAstPrimal6
-  :: (GoodScalar r, KnownNat n, AstSpan s)
-  => AstPrimalPart s r n -> AstPrimalPart s r n
+  :: (GoodScalar r, KnownNat n)
+  => AstPrimalPart r n -> AstPrimalPart r n
 simplifyAstPrimal6 =
   simplifyAstPrimal . snd . inlineAstPrimal EM.empty . simplifyAstPrimal
 
@@ -1149,8 +1149,8 @@ simplifyAst6
 simplifyAst6 = simplifyAst . snd . inlineAst EM.empty . simplifyAst
 
 simplifyAstPrimal6S
-  :: (GoodScalar r, OS.Shape sh, AstSpan s)
-  => AstPrimalPartS s r sh -> AstPrimalPartS s r sh
+  :: (GoodScalar r, OS.Shape sh)
+  => AstPrimalPartS r sh -> AstPrimalPartS r sh
 simplifyAstPrimal6S =
   simplifyAstPrimalS . snd . inlineAstPrimalS EM.empty . simplifyAstPrimalS
 
@@ -1170,16 +1170,16 @@ simplifyAstDomains6 =
 type AstMemo = EM.EnumMap AstVarId Int
 
 inlineAstPrimal
-  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
+  :: forall n r. (GoodScalar r, KnownNat n)
   => AstMemo
-  -> AstPrimalPart s r n -> (AstMemo, AstPrimalPart s r n)
+  -> AstPrimalPart r n -> (AstMemo, AstPrimalPart r n)
 inlineAstPrimal memo (AstPrimalPart v1) =
   second astPrimalPart $ inlineAst memo v1
 
 inlineAstDual
-  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
+  :: forall n r. (GoodScalar r, KnownNat n)
   => AstMemo
-  -> AstDualPart s r n -> (AstMemo, AstDualPart s r n)
+  -> AstDualPart r n -> (AstMemo, AstDualPart r n)
 inlineAstDual memo (AstDualPart v1) =
   second AstDualPart $ inlineAst memo v1
 
@@ -1351,16 +1351,16 @@ inlineAstBool memo v0 = case v0 of
     in (memo2, Ast.AstRelS opCodeRel args2)
 
 inlineAstPrimalS
-  :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
+  :: forall sh r. (GoodScalar r, OS.Shape sh)
   => AstMemo
-  -> AstPrimalPartS s r sh -> (AstMemo, AstPrimalPartS s r sh)
+  -> AstPrimalPartS r sh -> (AstMemo, AstPrimalPartS r sh)
 inlineAstPrimalS memo (AstPrimalPartS v1) =
   second astPrimalPartS $ inlineAstS memo v1
 
 inlineAstDualS
-  :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
+  :: forall sh r. (GoodScalar r, OS.Shape sh)
   => AstMemo
-  -> AstDualPartS s r sh -> (AstMemo, AstDualPartS s r sh)
+  -> AstDualPartS r sh -> (AstMemo, AstDualPartS r sh)
 inlineAstDualS memo (AstDualPartS v1) =
   second AstDualPartS $ inlineAstS memo v1
 
@@ -1495,21 +1495,21 @@ unletAstDomains6 astBindings l t =
 
 unletAst6
   :: (GoodScalar r, KnownNat n)
-  => ADShare -> AstPrimalPart AstPrimal r n -> AstPrimalPart AstPrimal r n
+  => ADShare -> AstPrimalPart r n -> AstPrimalPart r n
 unletAst6 l (AstPrimalPart t) = astPrimalPart $ unletAst (emptyUnletEnv l)
                                 $ bindsToLet t (assocsADShare l)
 
 unletAst6S
   :: (GoodScalar r, OS.Shape sh)
-  => ADShare -> AstPrimalPartS AstPrimal r sh -> AstPrimalPartS AstPrimal r sh
+  => ADShare -> AstPrimalPartS r sh -> AstPrimalPartS r sh
 unletAst6S l (AstPrimalPartS t) = astPrimalPartS $ unletAstS (emptyUnletEnv l)
                                   $ bindsToLetS t (assocsADShare l)
 
 -- TODO: if a nested let is alone, eliminate the nesting let instead;
 -- this probably requires many passes though
 unletAstPrimal
-  :: (GoodScalar r, KnownNat n, AstSpan s)
-  => UnletEnv -> AstPrimalPart s r n -> AstPrimalPart s r n
+  :: (GoodScalar r, KnownNat n)
+  => UnletEnv -> AstPrimalPart r n -> AstPrimalPart r n
 unletAstPrimal env (AstPrimalPart t) = astPrimalPart $ unletAst env t
 
 unletAst
@@ -1610,8 +1610,8 @@ unletAstBool env t = case t of
     Ast.AstRelS opCodeRel (map (unletAstPrimalS env) args)
 
 unletAstPrimalS
-  :: (GoodScalar r, OS.Shape sh, AstSpan s)
-  => UnletEnv -> AstPrimalPartS s r sh -> AstPrimalPartS s r sh
+  :: (GoodScalar r, OS.Shape sh)
+  => UnletEnv -> AstPrimalPartS r sh -> AstPrimalPartS r sh
 unletAstPrimalS env (AstPrimalPartS t) = astPrimalPartS $ unletAstS env t
 
 unletAstS
@@ -1682,8 +1682,8 @@ unletAstS env t = case t of
 -- * The simplifying bottom-up pass
 
 simplifyAstPrimal
-  :: (GoodScalar r, KnownNat n, AstSpan s)
-  => AstPrimalPart s r n -> AstPrimalPart s r n
+  :: (GoodScalar r, KnownNat n)
+  => AstPrimalPart r n -> AstPrimalPart r n
 simplifyAstPrimal (AstPrimalPart t) = astPrimalPart $ simplifyAst t
 
 -- This function guarantees full simplification: every redex
@@ -1816,8 +1816,8 @@ simplifyAstBool t = case t of
 -- TODO: when we have more tests, try to limit this rewrite
 -- (or only the first half) to Int64 at rank 0 and see if performance improves
 -- even more.
-simplifyRelOp :: (KnownNat n, GoodScalar r, AstSpan s)
-              => OpCodeRel -> [AstPrimalPart s r n] -> AstBool
+simplifyRelOp :: (KnownNat n, GoodScalar r)
+              => OpCodeRel -> [AstPrimalPart r n] -> AstBool
 simplifyRelOp EqOp [AstPConst u, AstPConst v] = AstBoolConst $ u == v
 simplifyRelOp NeqOp [AstPConst u, AstPConst v] = AstBoolConst $ u /= v
 simplifyRelOp LeqOp [AstPConst u, AstPConst v] = AstBoolConst $ u <= v
@@ -1856,7 +1856,7 @@ simplifyRelOp opCodeRel arg = Ast.AstRel opCodeRel arg
 -- informed by inequalities, expressed via max or min, such as
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
 --
--- Several first paragraphs are modelled on Num (AstPrimalPart s r n)
+-- Several first paragraphs are modelled on Num (AstPrimalPart r n)
 -- and depend on the normal form where AstConst, if any, is the first element
 -- and the list if fully flattened and of length >= 2.
 -- Additionally we here ensure the AstConst is never zero.
@@ -2049,8 +2049,8 @@ simplifyAstBoolOp OrOp [b, AstBoolConst False] = b
 simplifyAstBoolOp opCodeBool arg = Ast.AstBoolOp opCodeBool arg
 
 simplifyAstPrimalS
-  :: (OS.Shape sh, GoodScalar r, AstSpan s)
-  => AstPrimalPartS s r sh -> AstPrimalPartS s r sh
+  :: (OS.Shape sh, GoodScalar r)
+  => AstPrimalPartS r sh -> AstPrimalPartS r sh
 simplifyAstPrimalS (AstPrimalPartS t) = astPrimalPartS $ simplifyAstS t
 
 simplifyAstS
@@ -2170,7 +2170,7 @@ astFromVectorS l =
   let unConstant (Ast.AstConstantS (AstPrimalPartS t)) = Just t
       unConstant _ = Nothing
   in case V.mapM unConstant l of
-    Just l2 | V.null l2 -> Ast.AstFromVectorS l2
+    Just l2 | V.null l2 -> Ast.AstFromVectorS V.empty
     Just l2 -> Ast.AstConstantS $ astPrimalPartS $ astFromVectorS l2
     Nothing ->
       let unConst (AstConstS t) = Just t
@@ -2250,11 +2250,11 @@ astDomainsLetS var u v | astIsSmallS True u =
 astDomainsLetS var u v = Ast.AstDomainsLetS var u v
 
 -- We have to simplify after substitution or simplifying is not idempotent.
-substituteAstPrimal :: forall n s s2 r r2.
-                       (GoodScalar r, GoodScalar r2, KnownNat n, AstSpan s, AstSpan s2)
+substituteAstPrimal :: forall n s2 r r2.
+                       (GoodScalar r, GoodScalar r2, KnownNat n, AstSpan s2)
                     => SubstitutionPayload s2 r2 -> AstVarId
-                    -> AstPrimalPart s r n
-                    -> AstPrimalPart s r n
+                    -> AstPrimalPart r n
+                    -> AstPrimalPart r n
 substituteAstPrimal i var v1 = simplifyAstPrimal $ substitute1AstPrimal i var v1
 
 substituteAst :: forall n s s2 r r2. (GoodScalar r, GoodScalar r2, KnownNat n, AstSpan s, AstSpan s2)

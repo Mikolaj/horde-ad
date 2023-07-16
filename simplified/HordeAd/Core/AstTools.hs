@@ -114,7 +114,7 @@ lengthAst v1 = case shapeAst v1 of
 -- This keeps the occurence checking code simple, because we never need
 -- to compare variables to any variable in the bindings.
 -- This code works, in fact, for any variables, not only int variables.
-intVarInAstPrimal :: AstVarId -> AstPrimalPart s r n -> Bool
+intVarInAstPrimal :: AstVarId -> AstPrimalPart r n -> Bool
 intVarInAstPrimal var (AstPrimalPart v) = intVarInAst var v
 
 intVarInAst :: AstVarId -> AstRanked s r n -> Bool
@@ -236,17 +236,17 @@ data SubstitutionPayload s r =
   | forall sh. OS.Shape sh
     => SubstitutionPayloadShaped (AstShaped s r sh)
 
-substitute1AstPrimal :: forall n s s2 r r2.
-                        (GoodScalar r, GoodScalar r2, KnownNat n, AstSpan s, AstSpan s2)
-                     => SubstitutionPayload s2 r2 -> AstVarId -> AstPrimalPart s r n
-                     -> AstPrimalPart s r n
+substitute1AstPrimal :: forall n s2 r r2.
+                        (GoodScalar r, GoodScalar r2, KnownNat n, AstSpan s2)
+                     => SubstitutionPayload s2 r2 -> AstVarId -> AstPrimalPart r n
+                     -> AstPrimalPart r n
 
 substitute1AstPrimal i var (AstPrimalPart v1) = case v1 of
   AstVar sh var2 ->
     if var == var2
     then case i of
-      SubstitutionPayloadInt t -> case (sameAstSpan @AstPrimal @s, sameAstSpan @AstPrimal @s2) of
-        (Just Refl, Just Refl) -> case sameNat (Proxy @0) (Proxy @n) of
+      SubstitutionPayloadInt t -> case sameAstSpan @AstPrimal @s2 of
+        Just Refl -> case sameNat (Proxy @0) (Proxy @n) of
           Just Refl -> case testEquality (typeRep @Int64) (typeRep @r) of
             Just Refl -> t
             _ -> error "substitute1AstPrimal: scalar"
@@ -255,7 +255,7 @@ substitute1AstPrimal i var (AstPrimalPart v1) = case v1 of
       -- This is needed, because sometimes user's program takes the primal
       -- part of a full dual number and so the corresponding full term gets
       -- wrapped in AstPrimalPart. Rarely, the term is a variable.
-      SubstitutionPayloadRanked @_ @_ @m t -> case sameAstSpan @s @s2 of
+      SubstitutionPayloadRanked @s @_ @m t -> case sameAstSpan @s @s2 of
         Just Refl -> case sameNat (Proxy @m) (Proxy @n) of
           Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
             Just Refl -> assert (shapeAst t == sh) $ astPrimalPart t
