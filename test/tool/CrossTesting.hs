@@ -39,14 +39,14 @@ assertEqualUpToEpsilon1 eps expected result =
   assertEqualUpToEpsilon eps expected (runFlip result)
 
 rev' :: forall r m n v g.
-        ( KnownNat n, KnownNat m, ADReady AstRanked r
+        ( KnownNat n, KnownNat m, ADReady (AstRanked AstPrimal) r
         , InterpretAstR (Flip OR.Array)
         , InterpretAstR (ADVal (Flip OR.Array))
         , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n )
      => (forall f. ADReady f r => f r n -> f r m)
      -> g
      -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g
-        , AstRanked r m, AstRanked r m
+        , AstRanked AstPrimal r m, AstRanked AstPrimal r m
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , g, g, g, g, g, g, g, g, g, g, g, g, g, g )
 rev' f vals =
@@ -58,16 +58,16 @@ rev' f vals =
       g inputs = f $ parseDomains vals inputs
       (advalGrad, value1) = crevOnDomains dt g parameters
       gradient1 = parseDomains vals advalGrad
-      g9 :: Domains (ADValClown AstDynamic)
-         -> ADVal AstPrimalPart r m
+      g9 :: Domains (ADValClown (AstDynamic AstPrimal))
+         -> ADVal (AstPrimalPart AstPrimal) r m
       g9 inputs = f $ parseDomains vals inputs
       revAstOnDomainsF
         :: forall r2 n2.
            (KnownNat n2, GoodScalar r2)
         => Bool
-        -> (Domains (ADValClown AstDynamic) -> ADVal AstPrimalPart r2 n2)
+        -> (Domains (ADValClown (AstDynamic AstPrimal)) -> ADVal (AstPrimalPart AstPrimal) r2 n2)
         -> DomainsOD
-        -> (ADAstArtifact6 (Flip OR.Array) r2 n2, Dual AstPrimalPart r2 n2)
+        -> (ADAstArtifact6 (Flip OR.Array) AstPrimal r2 n2, Dual (AstPrimalPart AstPrimal) r2 n2)
       {-# INLINE revAstOnDomainsF #-}
       revAstOnDomainsF hasDt f2 parameters2  =
         revAstOnDomainsFun hasDt parameters2 (\varInputs _ _ -> f2 varInputs)
@@ -76,8 +76,8 @@ rev' f vals =
                             parameters dt
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady f1 r
-        => (f1 r m -> AstRanked r m) -> (AstRanked r n -> f1 r n)
-        -> (AstRanked r m -> AstRanked r m) -> Domains (ADValClown OD.Array)
+        => (f1 r m -> AstRanked AstPrimal r m) -> (AstRanked AstPrimal r n -> f1 r n)
+        -> (AstRanked AstPrimal r m -> AstRanked AstPrimal r m) -> Domains (ADValClown OD.Array)
         -> ADVal (Flip OR.Array) r m
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
@@ -112,10 +112,10 @@ rev' f vals =
         $ funToAstR (tshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1 r
-           => (f1 r m -> AstRanked r m) -> (AstRanked r n -> f1 r n)
-           -> (AstRanked r m -> AstRanked r m)
-           -> Domains (ADValClown AstDynamic)
-           -> ADVal AstPrimalPart r m
+           => (f1 r m -> AstRanked AstPrimal r m) -> (AstRanked AstPrimal r n -> f1 r n)
+           -> (AstRanked AstPrimal r m -> AstRanked AstPrimal r m)
+           -> Domains (ADValClown (AstDynamic AstPrimal))
+           -> ADVal (AstPrimalPart AstPrimal) r m
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseDomains vals inputs) EM.empty
@@ -202,7 +202,7 @@ assertEqualUpToEpsilon'
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected value
     -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g
-       , AstRanked r m, AstRanked r m
+       , AstRanked AstPrimal r m, AstRanked AstPrimal r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , g, g, g, g, g, g, g, g, g, g, g, g, g, g )
          -- ^ actual values
@@ -294,7 +294,7 @@ assertEqualUpToEpsilonShort
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected value
     -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g
-       , AstRanked r m, AstRanked r m
+       , AstRanked AstPrimal r m, AstRanked AstPrimal r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , g, g, g, g, g, g, g, g, g, g, g, g, g, g )
          -- ^ actual values

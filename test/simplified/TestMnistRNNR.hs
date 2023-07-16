@@ -189,10 +189,10 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
            id
        (varLabel, _, astLabel) <-
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
-       let ast :: AstRanked r 0
+       let ast :: AstRanked AstPrimal r 0
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (tprimalPart astGlyph, tprimalPart astLabel)
-                                 (parseDomains valsInit doms)
+                                 (parseDomains @(AstDynamic AstPrimal) valsInit doms)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
@@ -407,13 +407,13 @@ testRNNOPP = do
       batch_size = 1
       sizeMnistWidthI = 1
       sizeMnistHeightI = 1
-      blackGlyph :: AstPrimalPart Double 3
+      blackGlyph :: AstPrimalPart AstPrimal Double 3
       blackGlyph = astPrimalPart
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
-      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters AstRanked Double
-              -> AstRanked Double 2
+      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked AstPrimal) Double
+              -> AstRanked AstPrimal Double 2
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
       (artifact6, _) = revDtFun True afcnn2T (valsInitRNNOPP 1 sizeMnistHeightI)
   printGradient6Pretty renames artifact6
@@ -432,13 +432,13 @@ testRNNOPP2 = do
       batch_size = 2
       sizeMnistWidthI = 2
       sizeMnistHeightI = 2
-      blackGlyph :: AstPrimalPart Double 3
+      blackGlyph :: AstPrimalPart AstPrimal Double 3
       blackGlyph = astPrimalPart
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
-      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters AstRanked Double
-              -> AstRanked Double 2
+      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked AstPrimal) Double
+              -> AstRanked AstPrimal Double 2
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
       (artifact6, _) = revDtFun True afcnn2T (valsInitRNNOPP 2 sizeMnistHeightI)
   printGradient6Pretty renames artifact6

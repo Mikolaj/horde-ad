@@ -433,12 +433,12 @@ barRelu10xSlower x = let t = tmap0N (* 0.001) x
 testReluSimp :: Assertion
 testReluSimp = do
   resetVarCounter
-  let !t1 = barRelu10xSlower
+  let !t1 = barRelu10xSlower @(AstRanked AstPrimal)
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (intToAstVarId 100000000)
   length (show t1) @?= 36578
   length (show (simplifyAst6 @Float @10 t1)) @?= 36578
   resetVarCounter
-  let !t2 = barRelu
+  let !t2 = barRelu @(AstRanked AstPrimal)
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (intToAstVarId 100000000)
   length (show t2) @?= 34722
   length (show (simplifyAst6 @Float @10 t2)) @?= 36578
@@ -550,7 +550,7 @@ testConcatBuild3PP :: Assertion
 testConcatBuild3PP = do
   resetVarCounter
   let renames = IM.empty
-      t = concatBuild3 @AstRanked @Double
+      t = concatBuild3 @(AstRanked AstPrimal) @Double
       (var3, ast3) = funToAstR [3] t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3

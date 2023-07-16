@@ -92,8 +92,8 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 -- and nesting with reshape and gather they don't fuse, which is when
 -- this function is invoked.
 astTransposeAsGather
-  :: forall n r. (KnownNat n, GoodScalar r)
-  => Permutation -> AstRanked r n -> AstRanked r n
+  :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
+  => Permutation -> AstRanked s r n -> AstRanked s r n
 {-# NOINLINE astTransposeAsGather #-}
 astTransposeAsGather perm v = unsafePerformIO $ do
   let p = length perm
@@ -138,8 +138,8 @@ astTransposeAsGather perm v = unsafePerformIO $ do
 -- where term size blowup can't be avoided, because the index has to be
 -- normalized between each reshape.
 astReshapeAsGather
-  :: forall p m r. (KnownNat p, KnownNat m, GoodScalar r)
-  => ShapeInt m -> AstRanked r p -> AstRanked r m
+  :: forall p m s r. (KnownNat p, KnownNat m, GoodScalar r, AstSpan s)
+  => ShapeInt m -> AstRanked s r p -> AstRanked s r m
 {-# NOINLINE astReshapeAsGather #-}
 astReshapeAsGather shOut v = unsafePerformIO $ do
   (vars, ix) <- funToAstIndexIO (lengthShape shOut) id
@@ -177,8 +177,8 @@ permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
 -- (many steps if guaranteed net beneficial). Terms representing integers
 -- and and AstBool terms are simplified as much as possible.
 simplifyStepNonIndex
-  :: (KnownNat n, GoodScalar r)
-  => AstRanked r n -> AstRanked r n
+  :: (KnownNat n, GoodScalar r, AstSpan s)
+  => AstRanked s r n -> AstRanked s r n
 simplifyStepNonIndex t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var u v
@@ -217,11 +217,11 @@ simplifyStepNonIndex t = case t of
 
 simplifyStepNonIndexS
   :: ()
-  => AstShaped r sh -> AstShaped r sh
+  => AstShaped s r sh -> AstShaped s r sh
 simplifyStepNonIndexS t = t  -- TODO
 
-astLet :: forall n m r r2. (KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2)
-       => AstVarId -> AstRanked r n -> AstRanked r2 m -> AstRanked r2 m
+astLet :: forall n m s r r2. (KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2, AstSpan s)
+       => AstVarId -> AstRanked s r n -> AstRanked s r2 m -> AstRanked s r2 m
 astLet var u v | astIsSmall True u =
   substitute1Ast (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -240,31 +240,31 @@ astLet var u v@(Ast.AstVar _ var2) =
 astLet var u v = Ast.AstLet var u v
 
 astSumOfList :: (KnownNat n, GoodScalar r)
-             => [AstRanked r n] -> AstRanked r n
+             => [AstRanked s r n] -> AstRanked s r n
 astSumOfList = foldr1 (+)
-  -- TODO: try that and if it helps, define Num (AstRanked r n)
+  -- TODO: try that and if it helps, define Num (AstRanked s r n)
   -- the same as for AstPrimalPart
   -- foldl1' (\i j -> unAstPrimalPart $ AstPrimalPart i + AstPrimalPart j)
   -- also try foldl1' instead of foldlr everywhere
 
 astIndexR
-  :: forall m n r.
-     (KnownNat m, KnownNat n, GoodScalar r)
-  => AstRanked r (m + n) -> AstIndex m -> AstRanked r n
+  :: forall m n s r.
+     (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
+  => AstRanked s r (m + n) -> AstIndex m -> AstRanked s r n
 astIndexR = astIndexROrStepOnly False
 
 astIndexStep
-  :: forall m n r.
-     (KnownNat m, KnownNat n, GoodScalar r)
-  => AstRanked r (m + n) -> AstIndex m -> AstRanked r n
+  :: forall m n s r.
+     (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
+  => AstRanked s r (m + n) -> AstIndex m -> AstRanked s r n
 astIndexStep v ix = astIndexROrStepOnly True (simplifyStepNonIndex v)
                                              (fmap simplifyAstPrimal ix)
 
 astIndexStepS
-  :: forall sh1 sh2 r.
+  :: forall sh1 sh2 s r.
      (OS.Shape sh1, OS.Shape sh2, OS.Shape (sh1 OS.++ sh2))
-  => AstShaped r (sh1 OS.++ sh2) -> AstIndexS sh1
-  -> AstShaped r sh2
+  => AstShaped s r (sh1 OS.++ sh2) -> AstIndexS sh1
+  -> AstShaped s r sh2
 astIndexStepS v ix = Ast.AstIndexS v ix  -- TODO
 
 -- If stepOnly is set, we reduce only as long as needed to reveal
@@ -276,16 +276,16 @@ astIndexStepS v ix = Ast.AstIndexS v ix  -- TODO
 -- The v0 term is already at least one step simplified,
 -- either from full recursive simplification or from astIndexStep.
 astIndexROrStepOnly
-  :: forall m n r.
-     (KnownNat m, KnownNat n, GoodScalar r)
-  => Bool -> AstRanked r (m + n) -> AstIndex m -> AstRanked r n
+  :: forall m n s r.
+     (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
+  => Bool -> AstRanked s r (m + n) -> AstIndex m -> AstRanked s r n
 astIndexROrStepOnly stepOnly (Ast.AstIndex v ix) ZI =
   astIndexROrStepOnly stepOnly v ix  -- no non-indexing constructor yet revealed
 astIndexROrStepOnly _ v0 ZI = v0
 astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
- let astIndexRec, astIndex :: forall m' n'. (KnownNat m', KnownNat n')
-                           => AstRanked r (m' + n') -> AstIndex m'
-                           -> AstRanked r n'
+ let astIndexRec, astIndex :: forall m' n' s'. (KnownNat m', KnownNat n', AstSpan s')
+                           => AstRanked s' r (m' + n') -> AstIndex m'
+                           -> AstRanked s' r n'
      astIndexRec vRec ZI = vRec
      astIndexRec vRec ixRec =
        if stepOnly then Ast.AstIndex vRec ixRec else astIndexR vRec ixRec
@@ -293,9 +293,9 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
      astGather
        :: forall m' n' p'.
           (KnownNat m', KnownNat p', KnownNat n')
-       => ShapeInt (m' + n') -> AstRanked r (p' + n')
+       => ShapeInt (m' + n') -> AstRanked s r (p' + n')
        -> (AstVarList m', AstIndex p')
-       -> AstRanked r (m' + n')
+       -> AstRanked s r (m' + n')
      astGather = if stepOnly then astGatherStep else astGatherR
  in case v0 of
   Ast.AstVar{} -> Ast.AstIndex v0 ix
@@ -390,12 +390,12 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstReshape sh v ->
     astIndex (astReshapeAsGather sh v) ix
   Ast.AstBuild1 _n2 (var2, v) ->
-    astIndex (substituteAst (SubstitutionPayloadInt @Int64 i1) var2 v) rest1
+    astIndex (substituteAst (SubstitutionPayloadInt @AstPrimal @Int64 i1) var2 v) rest1
   Ast.AstGather _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
   Ast.AstGather (_ :$ sh') v (var2 ::: vars, ix2) ->
     -- TODO: we need integer let to preserve sharing while substituting here:
-    let ix3 = fmap (substituteAstPrimal (SubstitutionPayloadInt @Int64 i1) var2) ix2
-        w :: AstRanked r (m1 + n)
+    let ix3 = fmap (substituteAstPrimal (SubstitutionPayloadInt @AstPrimal @Int64 i1) var2) ix2
+        w :: AstRanked s r (m1 + n)
         w = unsafeCoerce $ astGather sh' v (vars, ix3)
     in astIndex @m1 @n w rest1
   Ast.AstGather{} ->
@@ -431,7 +431,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     Ast.AstMaxIndex $ astPrimalPart $ astIndexROrStepOnly stepOnly v ix
 
 astSum :: (KnownNat n, GoodScalar r)
-       => AstRanked r (1 + n) -> AstRanked r n
+       => AstRanked s r (1 + n) -> AstRanked s r n
 astSum (AstConst t) = AstConst $ tsumR t
 astSum (Ast.AstConstant (AstPrimalPart v)) =
   Ast.AstConstant $ astPrimalPart $ astSum v
@@ -440,11 +440,11 @@ astSum (Ast.AstReverse v) = Ast.AstSum v
 astSum v = Ast.AstSum v
 
 -- TODO: fuse scatters, scatter and sum, perhaps more (fromList?)
-astScatter :: forall m n p r.
+astScatter :: forall m n p s r.
               (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
-           => ShapeInt (p + n) -> AstRanked r (m + n)
+           => ShapeInt (p + n) -> AstRanked s r (m + n)
            -> (AstVarList m, AstIndex p)
-           -> AstRanked r (p + n)
+           -> AstRanked s r (p + n)
 astScatter _sh v (Z, ZI) = v
 astScatter sh v (var ::: vars, ix) | not $ var `intVarInIndex` ix =
   astScatter sh (astSum v) (vars, ix)
@@ -453,8 +453,8 @@ astScatter sh (Ast.AstConstant (AstPrimalPart v)) (vars, ix) =
   Ast.AstConstant $ astPrimalPart $ astScatter sh v (vars, ix)
 astScatter sh v (vars, ix) = Ast.AstScatter sh v (vars, ix)
 
-astFromList :: (KnownNat n, GoodScalar r)
-            => [AstRanked r n] -> AstRanked r (1 + n)
+astFromList :: (KnownNat n, GoodScalar r, AstSpan s)
+            => [AstRanked s r n] -> AstRanked s r (1 + n)
 astFromList [a] = astReplicate 1 a
 astFromList l =
   let unConstant (Ast.AstConstant (AstPrimalPart t)) = Just t
@@ -469,8 +469,8 @@ astFromList l =
         Just l3 -> AstConst $ tfromListR l3
         Nothing -> Ast.AstFromList l
 
-astFromVector :: (KnownNat n, GoodScalar r)
-              => Data.Vector.Vector (AstRanked r n) -> AstRanked r (1 + n)
+astFromVector :: (KnownNat n, GoodScalar r, AstSpan s)
+              => Data.Vector.Vector (AstRanked s r n) -> AstRanked s r (1 + n)
 astFromVector v | V.length v == 1 = astReplicate 1 (v V.! 0)
 astFromVector l =
   let unConstant (Ast.AstConstant (AstPrimalPart t)) = Just t
@@ -485,8 +485,8 @@ astFromVector l =
         Just l3 -> AstConst $ tfromVectorR l3
         Nothing -> Ast.AstFromVector l
 
-astReplicate :: (KnownNat n, GoodScalar r)
-             => Int -> AstRanked r n -> AstRanked r (1 + n)
+astReplicate :: (KnownNat n, GoodScalar r, AstSpan s)
+             => Int -> AstRanked s r n -> AstRanked s r (1 + n)
 astReplicate k = \case
 -- This allocates a big tensor too early, while it's still possible
 -- a projection reduces this away. The cost to AD should not be too high.
@@ -507,24 +507,24 @@ astReplicate k = \case
 -}
   v -> Ast.AstReplicate k v
 
-astReplicateN :: forall n p r. (KnownNat n, KnownNat p, GoodScalar r)
-              => ShapeInt (n + p) -> AstRanked r p -> AstRanked r (n + p)
+astReplicateN :: forall n p s r. (KnownNat n, KnownNat p, GoodScalar r, AstSpan s)
+              => ShapeInt (n + p) -> AstRanked s r p -> AstRanked s r (n + p)
 astReplicateN sh =
-  let go :: KnownNat n' => ShapeInt n' -> AstRanked r p -> AstRanked r (n' + p)
+  let go :: KnownNat n' => ShapeInt n' -> AstRanked s r p -> AstRanked s r (n' + p)
       go ZS v = v
       go (k :$ sh') v = astReplicate k $ go sh' v
   in go (takeShape sh)
 
-astReplicate0N :: forall n r. (KnownNat n, GoodScalar r)
-               => ShapeInt n -> AstRanked r 0 -> AstRanked r n
+astReplicate0N :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
+               => ShapeInt n -> AstRanked s r 0 -> AstRanked s r n
 astReplicate0N sh =
-  let go :: KnownNat n' => ShapeInt n' -> AstRanked r 0 -> AstRanked r n'
+  let go :: KnownNat n' => ShapeInt n' -> AstRanked s r 0 -> AstRanked s r n'
       go ZS v = v
       go (k :$ sh') v = astReplicate k $ go sh' v
   in go sh
 
-astAppend :: (KnownNat n, GoodScalar r)
-          => AstRanked r (1 + n) -> AstRanked r (1 + n) -> AstRanked r (1 + n)
+astAppend :: (KnownNat n, GoodScalar r, AstSpan s)
+          => AstRanked s r (1 + n) -> AstRanked s r (1 + n) -> AstRanked s r (1 + n)
 astAppend (AstConst u) (AstConst v) = AstConst $ tappendR u v
 astAppend (Ast.AstConstant (AstPrimalPart u))
           (Ast.AstConstant (AstPrimalPart v)) =
@@ -538,8 +538,8 @@ astAppend (Ast.AstFromVector l1) (Ast.AstFromVector l2) =
   astFromVector $ l1 V.++ l2
 astAppend u v = Ast.AstAppend u v
 
-astSlice :: forall k r. (KnownNat k, GoodScalar r)
-         => Int -> Int -> AstRanked r (1 + k) -> AstRanked r (1 + k)
+astSlice :: forall k s r. (KnownNat k, GoodScalar r, AstSpan s)
+         => Int -> Int -> AstRanked s r (1 + k) -> AstRanked s r (1 + k)
 astSlice i n (AstConst t) = AstConst $ tsliceR i n t
 astSlice i n (Ast.AstConstant (AstPrimalPart v)) =
   Ast.AstConstant $ astPrimalPart $ astSlice i n v
@@ -547,7 +547,7 @@ astSlice 0 n v | n == lengthAst v = v
 astSlice i n (Ast.AstFromList l) = astFromList $ take n (drop i l)
 astSlice i n (Ast.AstFromVector l) = astFromVector $ V.take n (V.drop i l)
 astSlice _i n (Ast.AstReplicate _n2 v) = astReplicate n v
-astSlice i n w@(Ast.AstAppend (u :: AstRanked r (1 + k)) (v :: AstRanked r (1 + k))) =
+astSlice i n w@(Ast.AstAppend (u :: AstRanked s r (1 + k)) (v :: AstRanked s r (1 + k))) =
   -- GHC 9.2.7 -- 9.6.1 with the plugins demand so much verbiage ^^^
   -- It seems this is caused by only having (1 + n) in the type
   -- signature and + not being injective. Quite hopless in cases
@@ -562,17 +562,17 @@ astSlice i n (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
   let ivar = astPrimalPart
              $ astSumOfList [ Ast.AstVar ZS var
                             , AstConst $ OR.scalar $ fromIntegral i ]
-      ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt @Int64 ivar) var) ix
+      ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt @AstPrimal @Int64 ivar) var) ix
   in astGatherR (n :$ sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
 
-astSliceS :: forall i n k sh r.
+astSliceS :: forall i n k sh s r.
              (KnownNat i, KnownNat n, KnownNat k, OS.Shape sh)
-          => AstShaped r (i + n + k ': sh) -> AstShaped r (n ': sh)
+          => AstShaped s r (i + n + k ': sh) -> AstShaped s r (n ': sh)
 astSliceS = Ast.AstSliceS @i  -- TODO
 
-astReverse :: forall n r. (KnownNat n, GoodScalar r)
-           => AstRanked r (1 + n) -> AstRanked r (1 + n)
+astReverse :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
+           => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
 astReverse (AstConst t) = AstConst $ treverseR t
 astReverse (Ast.AstConstant (AstPrimalPart v)) =
   Ast.AstConstant $ astPrimalPart $ astReverse v
@@ -584,11 +584,11 @@ astReverse (Ast.AstGather sh@(k :$ _) v (var ::: vars, ix)) =
   let ivar = astPrimalPart
              $ AstNm Ast.MinusOp [ AstConst $ OR.scalar $ fromIntegral k
                                  , Ast.AstVar ZS var ]
-      ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt @Int64 ivar) var) ix
+      ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt @AstPrimal @Int64 ivar) var) ix
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
-isVar :: AstRanked r n -> Bool
+isVar :: AstRanked s r n -> Bool
 isVar Ast.AstVar{} = True
 isVar (Ast.AstConstant (AstPrimalPart Ast.AstVar{})) = True
 isVar _ = False
@@ -596,8 +596,8 @@ isVar _ = False
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astTransposeAsGather needs to be called in addition
 -- if full simplification is required.
-astTranspose :: forall n r. (GoodScalar r, KnownNat n)
-             => Permutation -> AstRanked r n -> AstRanked r n
+astTranspose :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
+             => Permutation -> AstRanked s r n -> AstRanked s r n
 astTranspose perm0 t0 = case (perm0, t0) of
   ([], t) -> t
   (perm, Ast.AstLet var u v) -> astLet var u (astTranspose perm v)
@@ -650,17 +650,17 @@ astTranspose perm0 t0 = case (perm0, t0) of
     Ast.AstConstant $ astPrimalPart $ astTranspose perm v
   (perm, u) -> Ast.AstTranspose perm u
 
-astTransposeS :: forall perm sh r.
+astTransposeS :: forall perm sh s r.
                  ( OS.Permutation perm, OS.Shape perm, OS.Shape sh
                  , KnownNat (OS.Rank sh), OS.Rank perm <= OS.Rank sh )
-              => AstShaped r sh -> AstShaped r (OS.Permute perm sh)
+              => AstShaped s r sh -> AstShaped s r (OS.Permute perm sh)
 astTransposeS = Ast.AstTransposeS @perm
 
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
 -- if full simplification is required.
-astReshape :: forall p m r. (KnownNat p, KnownNat m, GoodScalar r)
-           => ShapeInt m -> AstRanked r p -> AstRanked r m
+astReshape :: forall p m s r. (KnownNat p, KnownNat m, GoodScalar r, AstSpan s)
+           => ShapeInt m -> AstRanked s r p -> AstRanked s r m
 astReshape shOut (Ast.AstLet var u v) = astLet var u (astReshape shOut v)
 astReshape shOut (AstNm opCode args@[Ast.AstReshape{}, _]) =
   AstNm opCode (map (astReshape shOut) args)
@@ -710,30 +710,30 @@ astReshape shOut v =
     _ -> Ast.AstReshape shOut v
 
 astReshapeS :: (OS.Shape sh, OS.Size sh ~ OS.Size sh2)
-            => AstShaped r sh -> AstShaped r sh2
+            => AstShaped s r sh -> AstShaped s r sh2
 astReshapeS = Ast.AstReshapeS  -- TODO
 
 astGatherR
-  :: forall m n p r. (KnownNat m, KnownNat p, KnownNat n, GoodScalar r)
-  => ShapeInt (m + n) -> AstRanked r (p + n) -> (AstVarList m, AstIndex p)
-  -> AstRanked r (m + n)
+  :: forall m n p s r. (KnownNat m, KnownNat p, KnownNat n, GoodScalar r, AstSpan s)
+  => ShapeInt (m + n) -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
+  -> AstRanked s r (m + n)
 astGatherR = astGatherROrStepOnly False
 
 astGatherStep
-  :: forall m n p r. (KnownNat m, KnownNat p, KnownNat n, GoodScalar r)
-  => ShapeInt (m + n) -> AstRanked r (p + n) -> (AstVarList m, AstIndex p)
-  -> AstRanked r (m + n)
+  :: forall m n p s r. (KnownNat m, KnownNat p, KnownNat n, GoodScalar r, AstSpan s)
+  => ShapeInt (m + n) -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
+  -> AstRanked s r (m + n)
 astGatherStep sh v (vars, ix) =
   astGatherROrStepOnly True sh (simplifyStepNonIndex v)
                             (vars, fmap simplifyAstPrimal ix)
 
 astGatherStepS
-  :: forall sh2 p sh r.
+  :: forall sh2 p sh s r.
      ( OS.Shape sh, OS.Shape sh2
      , OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh) )
-  => AstShaped r sh
+  => AstShaped s r sh
   -> (AstVarListS sh2, AstIndexS (OS.Take p sh))
-  -> AstShaped r (sh2 OS.++ OS.Drop p sh)
+  -> AstShaped s r (sh2 OS.++ OS.Drop p sh)
 astGatherStepS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
 
 -- Assumption: vars0 don't not occur in v0. The assumption only holds
@@ -744,10 +744,10 @@ astGatherStepS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
 -- The v0 term is already at least one step simplified,
 -- either from full recursive simplification or from astGatherStep.
 astGatherROrStepOnly
-  :: forall m n p r. (KnownNat m, KnownNat p, KnownNat n, GoodScalar r)
-  => Bool -> ShapeInt (m + n) -> AstRanked r (p + n)
+  :: forall m n p s r. (KnownNat m, KnownNat p, KnownNat n, GoodScalar r, AstSpan s)
+  => Bool -> ShapeInt (m + n) -> AstRanked s r (p + n)
   -> (AstVarList m, AstIndex p)
-  -> AstRanked r (m + n)
+  -> AstRanked s r (m + n)
 astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
   case (sh0, (vars0, ix0)) of
     _ | any (`intVarInAst` v0) vars0 ->
@@ -779,24 +779,24 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     _ ->
       error "astGather: impossible pattern needlessly required"
  where
-  astIndex :: forall m' n'. (KnownNat m', KnownNat n')
-           => AstRanked r (m' + n') -> AstIndex m' -> AstRanked r n'
+  astIndex :: forall m' n' s'. (KnownNat m', KnownNat n', AstSpan s')
+           => AstRanked s' r (m' + n') -> AstIndex m' -> AstRanked s' r n'
   astIndex = if stepOnly then astIndexStep else astIndexR
   astGatherRec, astGather
     :: forall m' n' p'.
        (KnownNat m', KnownNat p', KnownNat n')
-    => ShapeInt (m' + n') -> AstRanked r (p' + n')
+    => ShapeInt (m' + n') -> AstRanked s r (p' + n')
     -> (AstVarList m', AstIndex p')
-    -> AstRanked r (m' + n')
+    -> AstRanked s r (m' + n')
   astGatherRec = if stepOnly then Ast.AstGather else astGatherR
   astGather = if stepOnly then astGatherStep else astGatherR
   -- Note that v4 is in weak head normal form and so can't one-step reduce
   -- and so we don't have to reduce it to expose any top redexes.
   astGatherCase
     :: forall m' n' p'. (KnownNat m', KnownNat p', KnownNat n')
-    => ShapeInt (m' + n') -> AstRanked r (p' + n')
+    => ShapeInt (m' + n') -> AstRanked s r (p' + n')
     -> (AstVarList m', AstIndex p')
-    -> AstRanked r (m' + n')
+    -> AstRanked s r (m' + n')
   astGatherCase sh4 v4 (_, ZI) = astReplicateN sh4 v4  -- not really possible
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :. (rest4 :: AstIndex p1')) ) = case v4 of
@@ -868,7 +868,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
             foldr (uncurry substituteAstPrimal) i
-                  (zipSized (fmap (SubstitutionPayloadInt @Int64)
+                  (zipSized (fmap (SubstitutionPayloadInt @AstPrimal @Int64)
                              $ indexToSizedList ixFresh) vars4)
           i5 = subst i4
       in astGather sh4 (astFromList $ map f l) (varsFresh, i5 :. ixFresh)
@@ -886,7 +886,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
             foldr (uncurry substituteAstPrimal) i
-                  (zipSized (fmap (SubstitutionPayloadInt @Int64)
+                  (zipSized (fmap (SubstitutionPayloadInt @AstPrimal @Int64)
                              $ indexToSizedList ixFresh) vars4)
           i5 = subst i4
      in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :. ixFresh)
@@ -936,15 +936,15 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       let subst :: AstIndex m7 -> AstVarList m7 -> AstInt -> AstInt
           subst ix vars i =
             foldr (uncurry substituteAstPrimal) i
-                  (zipSized (fmap (SubstitutionPayloadInt @Int64)
+                  (zipSized (fmap (SubstitutionPayloadInt @AstPrimal @Int64)
                              $ indexToSizedList ix) vars)
-          composedGather :: p' <= m2 => AstRanked r (m' + n')
+          composedGather :: p' <= m2 => AstRanked s r (m' + n')
           composedGather =
             let (vars2p, vars22) = splitAt_Sized @p' @(m2 - p') vars2
                 ix22 = fmap (subst ix4 vars2p) ix2
             in gcastWith (unsafeCoerce Refl :: m2 + n2 - p' :~: n')
                $ astGather sh4 v2 (appendSized vars4 vars22, ix22)
-          assimilatedGather :: m2 <= p' => AstRanked r (m' + n')
+          assimilatedGather :: m2 <= p' => AstRanked s r (m' + n')
           assimilatedGather =
             let (ix42, ix44) = splitAt_Index @m2 @(p' - m2) ix4
                 ix22 = fmap (subst ix42 vars2) ix2
@@ -966,7 +966,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       let (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
             foldr (uncurry substituteAstPrimal) i
-                  (zipSized (fmap (SubstitutionPayloadInt @Int64)
+                  (zipSized (fmap (SubstitutionPayloadInt @AstPrimal @Int64)
                              $ indexToSizedList ixFresh) vars4)
           ix5 = fmap subst ix4
       in Ast.AstD (astPrimalPart $ astGatherRec sh4 u (vars4, ix4))
@@ -1008,8 +1008,8 @@ gatherFromNF vars (i :. rest) = case cmpNat (Proxy @p) (Proxy @m) of
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
 flipCompare = unsafeCoerce Refl
 
-astFromDynamic :: forall n r. KnownNat n
-               => AstDynamic r -> AstRanked r n
+astFromDynamic :: forall n s r. KnownNat n
+               => AstDynamic s r -> AstRanked s r n
 astFromDynamic (AstRToD Ast.AstIota) = error "astFromDynamic: dummy"
 astFromDynamic (AstRToD @n2 v) =
   case sameNat (Proxy @n) (Proxy @n2) of
@@ -1020,8 +1020,8 @@ astFromDynamic (AstSToD @sh2 v) =
     Just Refl -> Ast.AstSToR v
     _ -> error "astFromDynamic: different rank expected and uncovered"
 
-astFromDynamicS :: forall sh r. OS.Shape sh
-                => AstDynamic r -> AstShaped r sh
+astFromDynamicS :: forall sh s r. OS.Shape sh
+                => AstDynamic s r -> AstShaped s r sh
 astFromDynamicS (AstSToD Ast.AstIotaS) = error "astFromDynamicS: dummy"
 astFromDynamicS (AstSToD @sh2 v) =
   case sameShape @sh @sh2 of
@@ -1047,7 +1047,7 @@ astFromDynamicS (AstRToD @n2 v) =
                   -- gather outside
 {-
             | intVarInAst var i1 ->
-                let w :: AstRanked r (1 + n)
+                let w :: AstRanked s r (1 + n)
                     w = astIndexR v2 rest1
                 in case gatherSimplify k var w i1 of
                   Just u -> u  -- an extremely simple form found
@@ -1068,8 +1068,8 @@ astFromDynamicS (AstRToD @n2 v) =
 -- matching on @i1@ as opposed to on @v@.
 gatherSimplify
   :: (KnownNat n, GoodScalar r)
-  => Int -> AstVarId -> AstRanked r (1 + n) -> AstInt
-  -> Maybe (AstRanked r (1 + n))
+  => Int -> AstVarId -> AstRanked s r (1 + n) -> AstInt
+  -> Maybe (AstRanked s r (1 + n))
 gatherSimplify k var v0 i1 =
   case i1 of
     AstIntVar var2 | var2 == var ->
@@ -1092,7 +1092,7 @@ gatherSimplify k var v0 i1 =
 -- This function is so complex in order to guarantee that even though
 -- vectorization changes tensor values, it doesn't change their shapes.
 astSliceLax :: (KnownNat n, GoodScalar r)
-            => Int -> Int -> AstRanked r (1 + n) -> AstRanked r (1 + n)
+            => Int -> Int -> AstRanked s r (1 + n) -> AstRanked s r (1 + n)
 astSliceLax i k v =
   let len = lengthAst v
       kMax = len - i
@@ -1107,8 +1107,8 @@ astSliceLax i k v =
         | otherwise -> AstAppend (AstSlice i kMax v) v2
 -}
 
-astDomainsLet :: forall n r. (KnownNat n, GoodScalar r)
-              => AstVarId -> AstRanked r n -> AstDomains -> AstDomains
+astDomainsLet :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
+              => AstVarId -> AstRanked s r n -> AstDomains s -> AstDomains s
 astDomainsLet var u v | astIsSmall True u =
   substitute1AstDomains (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -1121,15 +1121,15 @@ astDomainsLet var u v = Ast.AstDomainsLet var u v
 
 -- * Simplification pass applied to code with eliminated nested lets
 
-simplifyArtifact6 :: (GoodScalar r, KnownNat n)
-                  => ADAstArtifact6 (Flip OR.Array) r n
-                  -> ADAstArtifact6 (Flip OR.Array) r n
+simplifyArtifact6 :: (GoodScalar r, KnownNat n, AstSpan s)
+                  => ADAstArtifact6 (Flip OR.Array) s r n
+                  -> ADAstArtifact6 (Flip OR.Array) s r n
 simplifyArtifact6 (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAstPrimal6 primal)
 
-simplifyArtifact6S :: (GoodScalar r, OS.Shape sh)
-                   => ADAstArtifact6 (Flip OS.Array) r sh
-                   -> ADAstArtifact6 (Flip OS.Array) r sh
+simplifyArtifact6S :: (GoodScalar r, OS.Shape sh, AstSpan s)
+                   => ADAstArtifact6 (Flip OS.Array) s r sh
+                   -> ADAstArtifact6 (Flip OS.Array) s r sh
 simplifyArtifact6S (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAstPrimal6S primal)
 
@@ -1138,29 +1138,29 @@ simplifyArtifact6S (vars, gradient, primal) =
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
 simplifyAstPrimal6
-  :: (GoodScalar r, KnownNat n)
-  => AstPrimalPart r n -> AstPrimalPart r n
+  :: (GoodScalar r, KnownNat n, AstSpan s)
+  => AstPrimalPart s r n -> AstPrimalPart s r n
 simplifyAstPrimal6 =
   simplifyAstPrimal . snd . inlineAstPrimal EM.empty . simplifyAstPrimal
 
 simplifyAst6
-  :: (GoodScalar r, KnownNat n)
-  => AstRanked r n -> AstRanked r n
+  :: (GoodScalar r, KnownNat n, AstSpan s)
+  => AstRanked s r n -> AstRanked s r n
 simplifyAst6 = simplifyAst . snd . inlineAst EM.empty . simplifyAst
 
 simplifyAstPrimal6S
-  :: (GoodScalar r, OS.Shape sh)
-  => AstPrimalPartS r sh -> AstPrimalPartS r sh
+  :: (GoodScalar r, OS.Shape sh, AstSpan s)
+  => AstPrimalPartS s r sh -> AstPrimalPartS s r sh
 simplifyAstPrimal6S =
   simplifyAstPrimalS . snd . inlineAstPrimalS EM.empty . simplifyAstPrimalS
 
 simplifyAst6S
-  :: (GoodScalar r, OS.Shape sh)
-  => AstShaped r sh -> AstShaped r sh
+  :: (GoodScalar r, OS.Shape sh, AstSpan s)
+  => AstShaped s r sh -> AstShaped s r sh
 simplifyAst6S = simplifyAstS . snd . inlineAstS EM.empty . simplifyAstS
 
 simplifyAstDomains6
-  :: AstDomains -> AstDomains
+  :: AstSpan s => AstDomains s -> AstDomains s
 simplifyAstDomains6 =
   simplifyAstDomains . snd . inlineAstDomains EM.empty . simplifyAstDomains
 
@@ -1170,23 +1170,23 @@ simplifyAstDomains6 =
 type AstMemo = EM.EnumMap AstVarId Int
 
 inlineAstPrimal
-  :: forall n r. (GoodScalar r, KnownNat n)
+  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
   => AstMemo
-  -> AstPrimalPart r n -> (AstMemo, AstPrimalPart r n)
+  -> AstPrimalPart s r n -> (AstMemo, AstPrimalPart s r n)
 inlineAstPrimal memo (AstPrimalPart v1) =
   second astPrimalPart $ inlineAst memo v1
 
 inlineAstDual
-  :: forall n r. (GoodScalar r, KnownNat n)
+  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
   => AstMemo
-  -> AstDualPart r n -> (AstMemo, AstDualPart r n)
+  -> AstDualPart s r n -> (AstMemo, AstDualPart s r n)
 inlineAstDual memo (AstDualPart v1) =
   second AstDualPart $ inlineAst memo v1
 
 inlineAst
-  :: forall n r. (GoodScalar r, KnownNat n)
+  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
   => AstMemo
-  -> AstRanked r n -> (AstMemo, AstRanked r n)
+  -> AstRanked s r n -> (AstMemo, AstRanked s r n)
 inlineAst memo v0 = case v0 of
   Ast.AstVar _ var -> let f Nothing = Just 1
                           f (Just count) = Just $ succ count
@@ -1292,7 +1292,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ inlineAstPrimal memo a
 
 inlineAstDynamic
-  :: AstMemo -> DynamicExists AstDynamic -> (AstMemo, DynamicExists AstDynamic)
+  :: AstSpan s => AstMemo -> DynamicExists (AstDynamic s) -> (AstMemo, DynamicExists (AstDynamic s))
 inlineAstDynamic memo = \case
   DynamicExists (AstRToD w) ->
     second (DynamicExists . AstRToD) $ inlineAst memo w
@@ -1300,7 +1300,7 @@ inlineAstDynamic memo = \case
     second (DynamicExists . AstSToD) $ inlineAstS memo w
 
 inlineAstDomains
-  :: AstMemo -> AstDomains -> (AstMemo, AstDomains)
+  :: AstSpan s => AstMemo -> AstDomains s -> (AstMemo, AstDomains s)
 inlineAstDomains memo v0 = case v0 of
   Ast.AstDomains l ->
     second Ast.AstDomains $ mapAccumR inlineAstDynamic memo l
@@ -1351,23 +1351,23 @@ inlineAstBool memo v0 = case v0 of
     in (memo2, Ast.AstRelS opCodeRel args2)
 
 inlineAstPrimalS
-  :: forall sh r. (GoodScalar r, OS.Shape sh)
+  :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
   => AstMemo
-  -> AstPrimalPartS r sh -> (AstMemo, AstPrimalPartS r sh)
+  -> AstPrimalPartS s r sh -> (AstMemo, AstPrimalPartS s r sh)
 inlineAstPrimalS memo (AstPrimalPartS v1) =
   second astPrimalPartS $ inlineAstS memo v1
 
 inlineAstDualS
-  :: forall sh r. (GoodScalar r, OS.Shape sh)
+  :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
   => AstMemo
-  -> AstDualPartS r sh -> (AstMemo, AstDualPartS r sh)
+  -> AstDualPartS s r sh -> (AstMemo, AstDualPartS s r sh)
 inlineAstDualS memo (AstDualPartS v1) =
   second AstDualPartS $ inlineAstS memo v1
 
 inlineAstS
-  :: forall sh r. (GoodScalar r, OS.Shape sh)
+  :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
   => AstMemo
-  -> AstShaped r sh -> (AstMemo, AstShaped r sh)
+  -> AstShaped s r sh -> (AstMemo, AstShaped s r sh)
 inlineAstS memo v0 = case v0 of
   Ast.AstVarS var -> let f Nothing = Just 1
                          f (Just count) = Just $ succ count
@@ -1487,34 +1487,34 @@ emptyUnletEnv :: ADShare -> UnletEnv
 emptyUnletEnv l = UnletEnv ES.empty l
 
 unletAstDomains6
-  :: [(AstVarId, DynamicExists AstDynamic)] -> ADShare -> AstDomains
-  -> AstDomains
+  :: [(AstVarId, DynamicExists (AstDynamic AstPrimal))] -> ADShare -> AstDomains AstPrimal
+  -> AstDomains AstPrimal
 unletAstDomains6 astBindings l t =
   unletAstDomains (emptyUnletEnv l)
   $ bindsToDomainsLet (bindsToDomainsLet t astBindings) (assocsADShare l)
 
 unletAst6
   :: (GoodScalar r, KnownNat n)
-  => ADShare -> AstPrimalPart r n -> AstPrimalPart r n
+  => ADShare -> AstPrimalPart AstPrimal r n -> AstPrimalPart AstPrimal r n
 unletAst6 l (AstPrimalPart t) = astPrimalPart $ unletAst (emptyUnletEnv l)
                                 $ bindsToLet t (assocsADShare l)
 
 unletAst6S
   :: (GoodScalar r, OS.Shape sh)
-  => ADShare -> AstPrimalPartS r sh -> AstPrimalPartS r sh
+  => ADShare -> AstPrimalPartS AstPrimal r sh -> AstPrimalPartS AstPrimal r sh
 unletAst6S l (AstPrimalPartS t) = astPrimalPartS $ unletAstS (emptyUnletEnv l)
                                   $ bindsToLetS t (assocsADShare l)
 
 -- TODO: if a nested let is alone, eliminate the nesting let instead;
 -- this probably requires many passes though
 unletAstPrimal
-  :: (GoodScalar r, KnownNat n)
-  => UnletEnv -> AstPrimalPart r n -> AstPrimalPart r n
+  :: (GoodScalar r, KnownNat n, AstSpan s)
+  => UnletEnv -> AstPrimalPart s r n -> AstPrimalPart s r n
 unletAstPrimal env (AstPrimalPart t) = astPrimalPart $ unletAst env t
 
 unletAst
-  :: (GoodScalar r, KnownNat n)
-  => UnletEnv -> AstRanked r n -> AstRanked r n
+  :: (GoodScalar r, KnownNat n, AstSpan s)
+  => UnletEnv -> AstRanked s r n -> AstRanked s r n
 unletAst env t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v ->
@@ -1577,13 +1577,13 @@ unletAst env t = case t of
   Ast.AstMaxIndex a -> Ast.AstMaxIndex $ unletAstPrimal env a
 
 unletAstDynamic
-  :: UnletEnv -> DynamicExists AstDynamic -> DynamicExists AstDynamic
+  :: AstSpan s => UnletEnv -> DynamicExists (AstDynamic s) -> DynamicExists (AstDynamic s)
 unletAstDynamic env = \case
   DynamicExists (AstRToD u) -> DynamicExists $ AstRToD $ unletAst env u
   DynamicExists (AstSToD u) -> DynamicExists $ AstSToD $ unletAstS env u
 
 unletAstDomains
-  :: UnletEnv -> AstDomains -> AstDomains
+  :: AstSpan s => UnletEnv -> AstDomains s -> AstDomains s
 unletAstDomains env = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic env) l
   Ast.AstDomainsLet var u v ->
@@ -1610,13 +1610,13 @@ unletAstBool env t = case t of
     Ast.AstRelS opCodeRel (map (unletAstPrimalS env) args)
 
 unletAstPrimalS
-  :: (GoodScalar r, OS.Shape sh)
-  => UnletEnv -> AstPrimalPartS r sh -> AstPrimalPartS r sh
+  :: (GoodScalar r, OS.Shape sh, AstSpan s)
+  => UnletEnv -> AstPrimalPartS s r sh -> AstPrimalPartS s r sh
 unletAstPrimalS env (AstPrimalPartS t) = astPrimalPartS $ unletAstS env t
 
 unletAstS
-  :: (GoodScalar r, OS.Shape sh)
-  => UnletEnv -> AstShaped r sh -> AstShaped r sh
+  :: (GoodScalar r, OS.Shape sh, AstSpan s)
+  => UnletEnv -> AstShaped s r sh -> AstShaped s r sh
 unletAstS env t = case t of
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v ->
@@ -1682,32 +1682,32 @@ unletAstS env t = case t of
 -- * The simplifying bottom-up pass
 
 simplifyAstPrimal
-  :: (GoodScalar r, KnownNat n)
-  => AstPrimalPart r n -> AstPrimalPart r n
+  :: (GoodScalar r, KnownNat n, AstSpan s)
+  => AstPrimalPart s r n -> AstPrimalPart s r n
 simplifyAstPrimal (AstPrimalPart t) = astPrimalPart $ simplifyAst t
 
 -- This function guarantees full simplification: every redex
 -- is visited and each combinator applied. The most exhaustive and costly
 -- variants of each combinator are used, e.g., astIndexR.
 simplifyAst
-  :: forall n r. (GoodScalar r, KnownNat n)
-  => AstRanked r n -> AstRanked r n
+  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
+  => AstRanked s r n -> AstRanked s r n
 simplifyAst t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   Ast.AstLetADShare{} -> error "simplifyAst: AstLetADShare"
   AstNm opCode args ->
-    case testEquality (typeRep @r) (typeRep @Int64) of
-      Just Refl -> simplifyAstNumOp opCode (map simplifyAst args)
+    case (sameAstSpan @AstPrimal @s, testEquality (typeRep @r) (typeRep @Int64)) of
+      (Just Refl, Just Refl) -> simplifyAstNumOp opCode (map simplifyAst args)
       _ -> AstNm opCode (map simplifyAst args)
   Ast.AstOp opCode args -> Ast.AstOp opCode (map simplifyAst args)
   Ast.AstOpIntegral opCode args ->
-    case testEquality (typeRep @r) (typeRep @Int64) of
-      Just Refl -> simplifyAstIntegralOp opCode (map simplifyAst args)
+    case (sameAstSpan @AstPrimal @s, testEquality (typeRep @r) (typeRep @Int64)) of
+      (Just Refl, Just Refl) -> simplifyAstIntegralOp opCode (map simplifyAst args)
       _ -> Ast.AstOpIntegral opCode (map simplifyAst args)
   AstSumOfList args ->
-    case testEquality (typeRep @r) (typeRep @Int64) of
-      Just Refl -> foldr1 simplifyAstPlusOp (map simplifyAst args)
+    case (sameAstSpan @AstPrimal @s, testEquality (typeRep @r) (typeRep @Int64)) of
+      (Just Refl, Just Refl) -> foldr1 simplifyAstPlusOp (map simplifyAst args)
       _ -> astSumOfList (map simplifyAst args)
   Ast.AstIota -> t
   Ast.AstIndex v ix -> astIndexR (simplifyAst v) (fmap simplifyAstPrimal ix)
@@ -1782,14 +1782,14 @@ simplifyAst t = case t of
   Ast.AstMaxIndex a -> Ast.AstMaxIndex (simplifyAstPrimal a)
 
 simplifyAstDynamic
-  :: DynamicExists AstDynamic -> DynamicExists AstDynamic
+  :: AstSpan s => DynamicExists (AstDynamic s) -> DynamicExists (AstDynamic s)
 simplifyAstDynamic (DynamicExists (AstRToD u)) =
   DynamicExists $ AstRToD $ simplifyAst u
 simplifyAstDynamic (DynamicExists (AstSToD u)) =
   DynamicExists $ AstSToD $ simplifyAstS u
 
 simplifyAstDomains
-  :: AstDomains -> AstDomains
+  :: AstSpan s => AstDomains s -> AstDomains s
 simplifyAstDomains = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map simplifyAstDynamic l
   Ast.AstDomainsLet var u v ->
@@ -1816,8 +1816,8 @@ simplifyAstBool t = case t of
 -- TODO: when we have more tests, try to limit this rewrite
 -- (or only the first half) to Int64 at rank 0 and see if performance improves
 -- even more.
-simplifyRelOp :: (KnownNat n, GoodScalar r)
-              => OpCodeRel -> [AstPrimalPart r n] -> AstBool
+simplifyRelOp :: (KnownNat n, GoodScalar r, AstSpan s)
+              => OpCodeRel -> [AstPrimalPart s r n] -> AstBool
 simplifyRelOp EqOp [AstPConst u, AstPConst v] = AstBoolConst $ u == v
 simplifyRelOp NeqOp [AstPConst u, AstPConst v] = AstBoolConst $ u /= v
 simplifyRelOp LeqOp [AstPConst u, AstPConst v] = AstBoolConst $ u <= v
@@ -1856,13 +1856,13 @@ simplifyRelOp opCodeRel arg = Ast.AstRel opCodeRel arg
 -- informed by inequalities, expressed via max or min, such as
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
 --
--- Several first paragraphs are modelled on Num (AstPrimalPart r n)
+-- Several first paragraphs are modelled on Num (AstPrimalPart s r n)
 -- and depend on the normal form where AstConst, if any, is the first element
 -- and the list if fully flattened and of length >= 2.
 -- Additionally we here ensure the AstConst is never zero.
 simplifyAstPlusOp :: KnownNat n
-                  => AstRanked Int64 n -> AstRanked Int64 n
-                  -> AstRanked Int64 n
+                  => AstRanked AstPrimal Int64 n -> AstRanked AstPrimal Int64 n
+                  -> AstRanked AstPrimal Int64 n
 simplifyAstPlusOp (AstSumOfList (AstConst u : lu))
                   (AstSumOfList (AstConst v : lv)) =
   addConstToList (u + v) (lu ++ lv)
@@ -1923,7 +1923,7 @@ simplifyAstPlusOp
 
 simplifyAstPlusOp u v = AstSumOfList [u, v]
 
-addConstToList :: OR.Array n Int64 -> [AstRanked Int64 n] -> AstRanked Int64 n
+addConstToList :: OR.Array n Int64 -> [AstRanked AstPrimal Int64 n] -> AstRanked AstPrimal Int64 n
 addConstToList _ [] = error "addConstToList: AstSumOfList list too short"
 addConstToList arr [i] =
   if OR.allA (== 0) arr then i else AstSumOfList [AstConst arr, i]
@@ -1931,7 +1931,7 @@ addConstToList arr l =
   if OR.allA (== 0) arr then AstSumOfList l else AstSumOfList (AstConst arr : l)
 
 simplifyAstNumOp :: KnownNat n
-                 => OpCodeNum -> [AstRanked Int64 n] -> AstRanked Int64 n
+                 => OpCodeNum -> [AstRanked AstPrimal Int64 n] -> AstRanked AstPrimal Int64 n
 simplifyAstNumOp MinusOp [u, v] =
   simplifyAstPlusOp u (simplifyAstNumOp NegateOp [v])
 simplifyAstNumOp TimesOp [AstConst u, AstConst v] = AstConst $ u * v
@@ -2005,8 +2005,8 @@ simplifyAstNumOp SignumOp [AstNm AbsOp [u]] =
 simplifyAstNumOp opCode arg = AstNm opCode arg
 
 simplifyAstIntegralOp :: KnownNat n
-                      => OpCodeIntegral -> [AstRanked Int64 n]
-                      -> AstRanked Int64 n
+                      => OpCodeIntegral -> [AstRanked AstPrimal Int64 n]
+                      -> AstRanked AstPrimal Int64 n
 simplifyAstIntegralOp QuotOp [AstConst u, AstConst v] = AstConst $ quot u v
 simplifyAstIntegralOp QuotOp [AstConst 0, _v] = AstConst 0
 simplifyAstIntegralOp QuotOp [u, AstConst 1] = u
@@ -2049,13 +2049,13 @@ simplifyAstBoolOp OrOp [b, AstBoolConst False] = b
 simplifyAstBoolOp opCodeBool arg = Ast.AstBoolOp opCodeBool arg
 
 simplifyAstPrimalS
-  :: (OS.Shape sh, GoodScalar r)
-  => AstPrimalPartS r sh -> AstPrimalPartS r sh
+  :: (OS.Shape sh, GoodScalar r, AstSpan s)
+  => AstPrimalPartS s r sh -> AstPrimalPartS s r sh
 simplifyAstPrimalS (AstPrimalPartS t) = astPrimalPartS $ simplifyAstS t
 
 simplifyAstS
-  :: (OS.Shape sh, GoodScalar r)
-  => AstShaped r sh -> AstShaped r sh
+  :: (OS.Shape sh, GoodScalar r, AstSpan s)
+  => AstShaped s r sh -> AstShaped s r sh
 simplifyAstS t = case t of
   Ast.AstVarS{} -> t
   Ast.AstLetS var u v -> astLetS var (simplifyAstS u) (simplifyAstS v)
@@ -2099,9 +2099,9 @@ simplifyAstS t = case t of
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAstPrimalS a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAstPrimalS a)
 
-astLetS :: forall sh1 sh2 r r2.
-           (OS.Shape sh1, OS.Shape sh2, GoodScalar r, GoodScalar r2)
-        => AstVarId -> AstShaped r sh1 -> AstShaped r2 sh2 -> AstShaped r2 sh2
+astLetS :: forall sh1 sh2 s r r2.
+           (OS.Shape sh1, OS.Shape sh2, GoodScalar r, GoodScalar r2, AstSpan s)
+        => AstVarId -> AstShaped s r sh1 -> AstShaped s r2 sh2 -> AstShaped s r2 sh2
 astLetS var u v | astIsSmallS True u =
   substitute1AstS (SubstitutionPayloadShaped u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -2120,7 +2120,7 @@ astLetS var u v@(Ast.AstVarS var2) =
 astLetS var u v = Ast.AstLetS var u v
 
 astSumS :: (KnownNat n, OS.Shape sh, GoodScalar r)
-        => AstShaped r (n ': sh) -> AstShaped r sh
+        => AstShaped s r (n ': sh) -> AstShaped s r sh
 astSumS (AstConstS t) = AstConstS $ tsumS t
 astSumS (Ast.AstConstantS (AstPrimalPartS v)) =
   Ast.AstConstantS $ astPrimalPartS $ astSumS v
@@ -2128,13 +2128,13 @@ astSumS (Ast.AstReverseS v) = Ast.AstSumS v
 astSumS v = Ast.AstSumS v
 
 -- TODO: fuse scatters, scatter and sum, perhaps more (fromList?)
-astScatterS :: forall sh2 p sh r.
+astScatterS :: forall sh2 p sh s r.
                ( OS.Shape sh2, OS.Shape sh
                , OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh)
                , OS.Shape (sh2 OS.++ OS.Drop p sh), GoodScalar r )
-            => AstShaped r (sh2 OS.++ OS.Drop p sh)
+            => AstShaped s r (sh2 OS.++ OS.Drop p sh)
             -> (AstVarListS sh2, AstIndexS (OS.Take p sh))
-            -> AstShaped r sh
+            -> AstShaped s r sh
 astScatterS v (ZSH, ZSH) =
   gcastWith (unsafeCoerce Refl
              :: OS.Take p sh OS.++ OS.Drop p sh :~: sh)
@@ -2148,7 +2148,7 @@ astScatterS (Ast.AstConstantS (AstPrimalPartS v)) (vars, ix) =
 astScatterS v (vars, ix) = Ast.AstScatterS v (vars, ix)
 
 astFromListS :: (KnownNat n, OS.Shape sh, GoodScalar r)
-             => [AstShaped r sh] -> AstShaped r (n ': sh)
+             => [AstShaped s r sh] -> AstShaped s r (n ': sh)
 astFromListS [a] = astReplicateS a
 astFromListS l =
   let unConstant (Ast.AstConstantS (AstPrimalPartS t)) = Just t
@@ -2164,7 +2164,7 @@ astFromListS l =
         Nothing -> Ast.AstFromListS l
 
 astFromVectorS :: (KnownNat n, OS.Shape sh, GoodScalar r)
-               => Data.Vector.Vector (AstShaped r sh) -> AstShaped r (n ': sh)
+               => Data.Vector.Vector (AstShaped s r sh) -> AstShaped s r (n ': sh)
 astFromVectorS v | V.length v == 1 = astReplicateS (v V.! 0)
 astFromVectorS l =
   let unConstant (Ast.AstConstantS (AstPrimalPartS t)) = Just t
@@ -2179,8 +2179,8 @@ astFromVectorS l =
         Just l3 -> AstConstS $ tfromVectorS l3
         Nothing -> Ast.AstFromVectorS l
 
-astReplicateS :: forall n sh r. (KnownNat n, OS.Shape sh, GoodScalar r)
-              => AstShaped r sh -> AstShaped r (n ': sh)
+astReplicateS :: forall n sh s r. (KnownNat n, OS.Shape sh, GoodScalar r)
+              => AstShaped s r sh -> AstShaped s r (n ': sh)
 astReplicateS = \case
   Ast.AstConstantS (AstPrimalPartS v) ->
     Ast.AstConstantS $ astPrimalPartS $ astReplicateS v
@@ -2196,8 +2196,8 @@ astReplicateS = \case
   v -> Ast.AstReplicateS v
 
 astAppendS :: (KnownNat m, KnownNat n, OS.Shape sh, GoodScalar r)
-           => AstShaped r (m ': sh) -> AstShaped r (n ': sh)
-           -> AstShaped r ((m + n) ': sh)
+           => AstShaped s r (m ': sh) -> AstShaped s r (n ': sh)
+           -> AstShaped s r ((m + n) ': sh)
 astAppendS (AstConstS u) (AstConstS v) = AstConstS $ tappendS u v
 astAppendS (Ast.AstConstantS (AstPrimalPartS u))
            (Ast.AstConstantS (AstPrimalPartS v)) =
@@ -2211,8 +2211,8 @@ astAppendS (Ast.AstFromVectorS l1) (Ast.AstFromVectorS l2) =
   astFromVectorS $ l1 V.++ l2
 astAppendS u v = Ast.AstAppendS u v
 
-astReverseS :: forall n sh r. (KnownNat n, OS.Shape sh, GoodScalar r)
-            => AstShaped r (n ': sh) -> AstShaped r (n ': sh)
+astReverseS :: forall n sh s r. (KnownNat n, OS.Shape sh, GoodScalar r)
+            => AstShaped s r (n ': sh) -> AstShaped s r (n ': sh)
 astReverseS (AstConstS t) = AstConstS $ treverseS t
 astReverseS (Ast.AstConstantS (AstPrimalPartS v)) =
   Ast.AstConstantS $ astPrimalPartS $ astReverseS v
@@ -2225,21 +2225,21 @@ astReverseS (Ast.AstGatherS v ((:$:) @k var vars, ix)) =
              $ AstNm Ast.MinusOp [ AstConst
                                    $ OR.scalar (valueOf @k :: Int64)
                                  , Ast.AstVar ZS var ]
-      ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt @Int64 ivar) var) ix
+      ix2 = fmap (substituteAstPrimal (SubstitutionPayloadInt @AstPrimal @Int64 ivar) var) ix
   in astGatherS v (var :$: vars, ix2)
 astReverseS v = Ast.AstReverseS v
 
 astGatherS
-  :: forall sh2 p sh r.
+  :: forall sh2 p sh s r.
      ( OS.Shape sh, OS.Shape sh2
      , OS.Shape (OS.Take p sh), OS.Shape (OS.Drop p sh) )
-  => AstShaped r sh
+  => AstShaped s r sh
   -> (AstVarListS sh2, AstIndexS (OS.Take p sh))
-  -> AstShaped r (sh2 OS.++ OS.Drop p sh)
+  -> AstShaped s r (sh2 OS.++ OS.Drop p sh)
 astGatherS = Ast.AstGatherS  -- TODO
 
-astDomainsLetS :: forall sh r. (GoodScalar r, OS.Shape sh)
-               => AstVarId -> AstShaped r sh -> AstDomains -> AstDomains
+astDomainsLetS :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
+               => AstVarId -> AstShaped s r sh -> AstDomains s -> AstDomains s
 astDomainsLetS var u v | astIsSmallS True u =
   substitute1AstDomains (SubstitutionPayloadShaped u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -2250,30 +2250,32 @@ astDomainsLetS var u v | astIsSmallS True u =
 astDomainsLetS var u v = Ast.AstDomainsLetS var u v
 
 -- We have to simplify after substitution or simplifying is not idempotent.
-substituteAstPrimal :: forall n r r2. (GoodScalar r, GoodScalar r2, KnownNat n)
-                    => SubstitutionPayload r2 -> AstVarId
-                    -> AstPrimalPart r n
-                    -> AstPrimalPart r n
+substituteAstPrimal :: forall n s s2 r r2.
+                       (GoodScalar r, GoodScalar r2, KnownNat n, AstSpan s, AstSpan s2)
+                    => SubstitutionPayload s2 r2 -> AstVarId
+                    -> AstPrimalPart s r n
+                    -> AstPrimalPart s r n
 substituteAstPrimal i var v1 = simplifyAstPrimal $ substitute1AstPrimal i var v1
 
-substituteAst :: forall n r r2. (GoodScalar r, GoodScalar r2, KnownNat n)
-              => SubstitutionPayload r2 -> AstVarId -> AstRanked r n
-              -> AstRanked r n
+substituteAst :: forall n s s2 r r2. (GoodScalar r, GoodScalar r2, KnownNat n, AstSpan s, AstSpan s2)
+              => SubstitutionPayload s2 r2 -> AstVarId -> AstRanked s r n
+              -> AstRanked s r n
 substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
 
 substituteAstDomains
-  :: GoodScalar r2
-  => SubstitutionPayload r2 -> AstVarId -> AstDomains
-  -> AstDomains
+  :: (GoodScalar r2, AstSpan s, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarId -> AstDomains s
+  -> AstDomains s
 substituteAstDomains i var v1 =
   simplifyAstDomains $ substitute1AstDomains i var v1
 
-substituteAstBool :: GoodScalar r2
-                  => SubstitutionPayload r2 -> AstVarId -> AstBool
+substituteAstBool :: (GoodScalar r2, AstSpan s2)
+                  => SubstitutionPayload s2 r2 -> AstVarId -> AstBool
                   -> AstBool
 substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1
 
-substituteAstS :: forall sh r r2. (GoodScalar r, GoodScalar r2, OS.Shape sh)
-               => SubstitutionPayload r2 -> AstVarId -> AstShaped r sh
-               -> AstShaped r sh
+substituteAstS :: forall sh s2 s r r2.
+                  (GoodScalar r, GoodScalar r2, OS.Shape sh, AstSpan s, AstSpan s2)
+               => SubstitutionPayload s2 r2 -> AstVarId -> AstShaped s r sh
+               -> AstShaped s r sh
 substituteAstS i var v1 = simplifyAstS $ substitute1AstS i var v1

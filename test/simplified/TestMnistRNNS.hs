@@ -194,10 +194,10 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
          funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
        (varLabel, _, astLabel) <-
          funToAstIOS {-@'[batch_size, SizeMnistLabel]-} id
-       let ast :: AstShaped r '[]
+       let ast :: AstShaped AstPrimal r '[]
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (sprimalPart astGlyph, sprimalPart astLabel)
-                                    (parseDomains valsInit doms)
+                                    (parseDomains @(AstDynamic AstPrimal) valsInit doms)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataS r])
                     -> IO (DomainsOD, StateAdam)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do

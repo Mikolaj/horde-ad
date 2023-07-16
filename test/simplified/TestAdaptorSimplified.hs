@@ -213,13 +213,13 @@ testZero7S :: Assertion
 testZero7S =
   assertEqualUpToEpsilon 1e-10
     (Flip $ OS.fromList @'[] [0])
-    (rev (const 3 :: AstShaped Double '[] -> AstRanked Double 0) 42)
+    (rev (const 3 :: AstShaped AstPrimal Double '[] -> AstRanked AstPrimal Double 0) 42)
 
 testZero8 :: Assertion
 testZero8 =
   assertEqualUpToEpsilon 1e-10
     (Flip $ OR.fromList [] [0])
-    (rev (const 3 :: AstRanked Double 0 -> AstShaped Double '[]) 42)
+    (rev (const 3 :: AstRanked AstPrimal Double 0 -> AstShaped AstPrimal Double '[]) 42)
 
 testZero9S :: Assertion
 testZero9S =
@@ -293,8 +293,8 @@ testPiecewiseLinearPP :: Assertion
 testPiecewiseLinearPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: AstRanked Double 0
-         -> AstRanked Double 0
+      fT :: AstRanked AstPrimal Double 0
+         -> AstRanked AstPrimal Double 0
       fT x = ifF (x >. 0) (2 * x) (5 * x)
       (artifact6, deltas) = revDtFun True fT 42
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
@@ -308,8 +308,8 @@ testPiecewiseLinear2PP :: Assertion
 testPiecewiseLinear2PP = do
   resetVarCounter
   let renames = IM.empty
-      fT :: AstRanked Double 0
-         -> AstRanked Double 0
+      fT :: AstRanked AstPrimal Double 0
+         -> AstRanked AstPrimal Double 0
       fT x = ifF (x >. 0) 2 5 * x
       (artifact6, deltas) = revDtFun True fT 42
   printGradient6Pretty renames artifact6
@@ -377,8 +377,8 @@ testOverleafPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v"), (2, "i")]
-      fT :: (AstRanked Double 1)
-         -> AstRanked Double 0
+      fT :: (AstRanked AstPrimal Double 1)
+         -> AstRanked AstPrimal Double 0
       fT = overleaf
       (var3, ast3) = funToAstR [28] fT
   "\\" ++ printAstVarName renamesNull var3
@@ -446,7 +446,7 @@ testFooPP :: Assertion
 testFooPP = do
   resetVarCounter
   let renames = IM.fromList [(2, "x"), (3, "y"), (4, "z")]
-      fooT = foo @(AstRanked Double 0)
+      fooT = foo @(AstRanked AstPrimal Double 0)
       foo3 x = fooT (x, x, x)
       (var3, ast3) = funToAstR ZS foo3
   "\\" ++ printAstVarName IM.empty var3
@@ -478,7 +478,7 @@ testFooLetPP = do
   resetVarCounter
   let renames = IM.fromList [(2, "x"), (3, "y"), (4, "z")]
       renamesNull = IM.fromList [(1, "x1"), (2, "x2")]
-      fooLetT = fooLet @AstRanked @Double
+      fooLetT = fooLet @(AstRanked AstPrimal) @Double
       fooLet3 x = fooLetT (x, x, x)
       (var3, ast3) = funToAstR ZS fooLet3
   "\\" ++ printAstVarName renamesNull var3
@@ -509,7 +509,7 @@ testReluPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "m1"), (2, "i2")]
-      reluT :: AstRanked Double 2 -> AstRanked Double 2
+      reluT :: AstRanked AstPrimal Double 2 -> AstRanked AstPrimal Double 2
       reluT = reluPrimal
       (var3, ast3) = funToAstR [3, 4] reluT
   "\\" ++ printAstVarName renamesNull var3
@@ -529,8 +529,8 @@ testReluPP2 = do
   resetVarCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
-      reluT2 :: (AstRanked Double 1, AstRanked Double 0)
-             -> AstRanked Double 1
+      reluT2 :: (AstRanked AstPrimal Double 1, AstRanked AstPrimal Double 0)
+             -> AstRanked AstPrimal Double 1
       reluT2 (t, r) = reluPrimal (t * treplicate 5 r)
       (var3, ast3) = funToAstR [5] (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
@@ -560,7 +560,7 @@ testReluSimplerPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "m1"), (2, "i2")]
-      reluT :: AstRanked Double 2 -> AstRanked Double 2
+      reluT :: AstRanked AstPrimal Double 2 -> AstRanked AstPrimal Double 2
       reluT = relu
       (var3, ast3) = funToAstR [3, 4] reluT
   "\\" ++ printAstVarName renamesNull var3
@@ -580,8 +580,8 @@ testReluSimplerPP2 = do
   resetVarCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
-      reluT2 :: (AstRanked Double 1, AstRanked Double 0)
-             -> AstRanked Double 1
+      reluT2 :: (AstRanked AstPrimal Double 1, AstRanked AstPrimal Double 0)
+             -> AstRanked AstPrimal Double 1
       reluT2 (t, r) = relu (t * treplicate 5 r)
       (var3, ast3) = funToAstR [5] (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
@@ -605,8 +605,8 @@ testReluSimplerPP3 = do
   resetVarCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
-      reluT2 :: (AstRanked Double 2, AstRanked Double 0)
-             -> AstRanked Double 2
+      reluT2 :: (AstRanked AstPrimal Double 2, AstRanked AstPrimal Double 0)
+             -> AstRanked AstPrimal Double 2
       reluT2 (t, r) = relu (t * treplicate 3 (treplicate 4 r))
       (var3, ast3) = funToAstR [3, 4] (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
@@ -627,8 +627,8 @@ testReluSimplerPP3 = do
 
 testReluSimpler3 :: Assertion
 testReluSimpler3 = do
-  let reluT2 :: (AstRanked Double 2, AstRanked Double 0)
-             -> AstRanked Double 2
+  let reluT2 :: (AstRanked AstPrimal Double 2, AstRanked AstPrimal Double 0)
+             -> AstRanked AstPrimal Double 2
       reluT2 (t, r) = relu (t * treplicate 3 (treplicate 4 r))
   assertEqualUpToEpsilon 1e-10
     ( Flip
@@ -641,8 +641,8 @@ testReluSimplerPP4 = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
-      reluT2 :: (AstRanked Double 2, AstRanked Double 0)
-             -> AstRanked Double 2
+      reluT2 :: (AstRanked AstPrimal Double 2, AstRanked AstPrimal Double 0)
+             -> AstRanked AstPrimal Double 2
       reluT2 (t, r) = relu (t * treplicate0N [3, 4] r)
       (var3, ast3) = funToAstR [3, 4] (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
@@ -663,8 +663,8 @@ testReluSimplerPP4 = do
 
 testReluSimpler4 :: Assertion
 testReluSimpler4 = do
-  let reluT2 :: (AstRanked Double 2, AstRanked Double 0)
-             -> AstRanked Double 2
+  let reluT2 :: (AstRanked AstPrimal Double 2, AstRanked AstPrimal Double 0)
+             -> AstRanked AstPrimal Double 2
       reluT2 (t, r) = relu (t * treplicate0N [3, 4] r)
   assertEqualUpToEpsilon 1e-10
     ( Flip
@@ -677,8 +677,8 @@ testReluSimplerPP4S = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
-      reluT2 :: (AstShaped Double '[3, 4], AstShaped Double '[])
-             -> AstShaped Double '[3, 4]
+      reluT2 :: (AstShaped AstPrimal Double '[3, 4], AstShaped AstPrimal Double '[])
+             -> AstShaped AstPrimal Double '[3, 4]
       reluT2 (t, r) = reluS (t * sreplicate0N r)
       (var3, ast3) = funToAstS (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarNameS renamesNull var3
@@ -699,8 +699,8 @@ testReluSimplerPP4S = do
 
 testReluSimpler4S :: Assertion
 testReluSimpler4S = do
-  let reluT2 :: (AstShaped Double '[3, 4], AstShaped Double '[])
-             -> AstShaped Double '[3, 4]
+  let reluT2 :: (AstShaped AstPrimal Double '[3, 4], AstShaped AstPrimal Double '[])
+             -> AstShaped AstPrimal Double '[3, 4]
       reluT2 (t, r) = reluS (t * sreplicate0N r)
   assertEqualUpToEpsilon 1e-10
     ( Flip
@@ -723,7 +723,7 @@ testReluMaxPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "m1"), (2, "i2")]
-      reluT :: AstRanked Double 2 -> AstRanked Double 2
+      reluT :: AstRanked AstPrimal Double 2 -> AstRanked AstPrimal Double 2
       reluT = reluMax
       (var3, ast3) = funToAstR [3, 4] reluT
   "\\" ++ printAstVarName renamesNull var3
@@ -747,8 +747,8 @@ testReluMaxPP2 = do
   resetVarCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
-      reluT2 :: (AstRanked Double 1, AstRanked Double 0)
-             -> AstRanked Double 1
+      reluT2 :: (AstRanked AstPrimal Double 1, AstRanked AstPrimal Double 0)
+             -> AstRanked AstPrimal Double 1
       reluT2 (t, r) = reluMax (t * treplicate 5 r)
       (var3, ast3) = funToAstR [5] (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
@@ -769,8 +769,8 @@ testReluMaxPP2 = do
 
 testReluMax3 :: Assertion
 testReluMax3 = do
-  let reluT2 :: (AstRanked Double 2, AstRanked Double 0)
-             -> AstRanked Double 2
+  let reluT2 :: (AstRanked AstPrimal Double 2, AstRanked AstPrimal Double 0)
+             -> AstRanked AstPrimal Double 2
       reluT2 (t, r) = reluMax (t * treplicate 3 (treplicate 4 r))
   assertEqualUpToEpsilon 1e-10
     ( Flip
@@ -783,7 +783,7 @@ testDot1PP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       (artifact6, _) =
-        revDtFun True (uncurry (tdot0 @AstRanked @Double @1))
+        revDtFun True (uncurry (tdot0 @(AstRanked AstPrimal) @Double @1))
                  ( Flip $ OR.fromList [3] [1 .. 3]
                  , Flip $ OR.fromList [3] [4 .. 6] )
   printGradient6Pretty renames artifact6
@@ -796,7 +796,7 @@ testDot2PP = do
   resetVarCounter
   let renames = IM.empty
       (artifact6, deltas) =
-        revDtFun True (uncurry (tdot0 @AstRanked @Double @2))
+        revDtFun True (uncurry (tdot0 @(AstRanked AstPrimal) @Double @2))
                  ( Flip $ OR.fromList [2,3] [1 .. 6]
                  , Flip $ OR.fromList [2,3] [7 .. 12] )
   printGradient6Pretty renames artifact6
@@ -986,13 +986,13 @@ testFooMap1 =
     (rev' @Double @1 fooMap1 1.1)
 
 barAst :: (Numeric r, Show r, RealFloat r, RealFloat (Vector r))
-       => (AstRanked r 0, AstRanked r 0) -> AstRanked r 0
+       => (AstRanked AstPrimal r 0, AstRanked AstPrimal r 0) -> AstRanked AstPrimal r 0
 barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
 fooNoGoAst :: forall r. (GoodScalar r, Differentiable r)
-           => AstRanked r 1 -> AstRanked r 1
+           => AstRanked AstPrimal r 1 -> AstRanked AstPrimal r 1
 fooNoGoAst v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
@@ -1141,13 +1141,13 @@ testBarReluADValMax3 =
 
 barReluAst
   :: forall n r.
-     (KnownNat n, ADReady AstRanked r, Differentiable r)
-  => AstRanked r n -> AstRanked r n
+     (KnownNat n, ADReady (AstRanked AstPrimal) r, Differentiable r)
+  => AstRanked AstPrimal r n -> AstRanked AstPrimal r n
 barReluAst x = relu $ bar (x, relu x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
-  let f :: ( ADReady AstRanked r, Differentiable r
+  let f :: ( ADReady (AstRanked AstPrimal) r, Differentiable r
            , InterpretAstR (ADVal (Flip OR.Array)) )
         => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
       f x = interpretAst (extendEnvR
@@ -1160,7 +1160,7 @@ testBarReluAst0 =
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
-  let f :: ( ADReady AstRanked r, Differentiable r
+  let f :: ( ADReady (AstRanked AstPrimal) r, Differentiable r
            , InterpretAstR (ADVal (Flip OR.Array)) )
         => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
       f x = interpretAst (extendEnvR
@@ -1172,13 +1172,13 @@ testBarReluAst1 =
        (crev @Double @1 f (Flip $ OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
 
 konstReluAst
-  :: forall r. (ADReady AstRanked r, Differentiable r)
-  => AstRanked r 0 -> AstRanked r 0
+  :: forall r. (ADReady (AstRanked AstPrimal) r, Differentiable r)
+  => AstRanked AstPrimal r 0 -> AstRanked AstPrimal r 0
 konstReluAst x = tsum0 $ relu $ treplicate0N (7 :$ ZS) x
 
 testReplicateReluAst :: Assertion
 testReplicateReluAst =
-  let f :: ( ADReady AstRanked r, Differentiable r
+  let f :: ( ADReady (AstRanked AstPrimal) r, Differentiable r
            , InterpretAstR (ADVal (Flip OR.Array)) )
         => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
       f x = interpretAst (extendEnvR
@@ -1365,7 +1365,7 @@ fblowupPP :: Assertion
 fblowupPP = do
   resetVarCounter
   let renames = IM.empty
-      fblowupT = fblowup @AstRanked @Double 1
+      fblowupT = fblowup @(AstRanked AstPrimal) @Double 1
   let (artifact6, _) = revDtFun True fblowupT (Flip $ OR.constant [4] 4)
   printGradient6Simple renames artifact6
     @?= "\\dret v2 -> rletToDomainsOf (v2 ! [0]) (\\x3 -> rletToDomainsOf (v2 ! [1]) (\\x4 -> rletToDomainsOf (v2 ! [0]) (\\x5 -> rletToDomainsOf (v2 ! [1]) (\\x6 -> rletToDomainsOf ((x3 / x4 + x5 / x6) - tfromIntegral (tconst 0)) (\\x7 -> rletToDomainsOf (tconst 0.499999985 * dret) (\\x8 -> dmkDomains (fromList [dfromR (tscatter [4] (recip x4 * x8) (\\[] -> [0]) + tscatter [4] (negate (x3 / (x4 * x4)) * x8) (\\[] -> [1]) + tscatter [4] (recip x6 * x8) (\\[] -> [0]) + tscatter [4] (negate (x5 / (x6 * x6)) * x8) (\\[] -> [1]))])))))))"
@@ -1376,7 +1376,7 @@ fblowupLetPP :: Assertion
 fblowupLetPP = do
   resetVarCounter
   let renames = IM.empty
-      fblowupLetT = fblowupLet @AstRanked @Double 0 1
+      fblowupLetT = fblowupLet @(AstRanked AstPrimal) @Double 0 1
   let (artifact6, _) = revDtFun True fblowupLetT (Flip $ OR.constant [4] 4)
   printGradient6Simple renames artifact6
     @?= "\\dret v2 -> rletToDomainsOf (v2 ! [0]) (\\x4 -> rletToDomainsOf (v2 ! [1]) (\\x5 -> rletToDomainsOf (x4 / x5) (\\x6 -> rletToDomainsOf ((x6 + x6) - tfromIntegral (tconst 0)) (\\x7 -> rletToDomainsOf (tconst 0.499999985 * dret) (\\x8 -> rletToDomainsOf (x8 + x8) (\\x9 -> dmkDomains (fromList [dfromR (tscatter [4] (recip x5 * x9) (\\[] -> [0]) + tscatter [4] (negate (x4 / (x5 * x5)) * x9) (\\[] -> [1]))])))))))"

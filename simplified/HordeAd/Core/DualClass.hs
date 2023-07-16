@@ -116,7 +116,7 @@ instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
 instance IsPrimalPartF (Flip OR.Array) where
   letWrapPrimal _ r = r
 
-instance (GoodScalar r, KnownNat n) => IsPrimalPart AstPrimalPart r n where
+instance (GoodScalar r, KnownNat n) => IsPrimalPart (AstPrimalPart AstPrimal) r n where
   dZero = ZeroR
   dScale = ScaleR
   dAdd = AddR
@@ -124,7 +124,7 @@ instance (GoodScalar r, KnownNat n) => IsPrimalPart AstPrimalPart r n where
     tconst $ OR.constant (shapeToList $ tshape tsh) (fromIntegral c)
   recordSharingPrimal = astRegisterADShare
 
-instance GoodScalar r => CanRecordSharing AstPrimalPart r n where
+instance GoodScalar r => CanRecordSharing (AstPrimalPart AstPrimal) r n where
   recordSharing d = case d of
     ZeroR -> d
     InputR{} -> d
@@ -132,7 +132,7 @@ instance GoodScalar r => CanRecordSharing AstPrimalPart r n where
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance IsPrimalPartF AstPrimalPart where
+instance IsPrimalPartF (AstPrimalPart AstPrimal) where
   letWrapPrimal = tletWrap
 
 instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (Flip OS.Array) r sh where
@@ -154,7 +154,7 @@ instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
 instance IsPrimalPartF (Flip OS.Array) where
   letWrapPrimal _ r = r
 
-instance (GoodScalar r, OS.Shape sh) => IsPrimalPart AstPrimalPartS r sh where
+instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (AstPrimalPartS AstPrimal) r sh where
   dZero = ZeroS
   dScale = ScaleS
   dAdd = AddS
@@ -162,7 +162,7 @@ instance (GoodScalar r, OS.Shape sh) => IsPrimalPart AstPrimalPartS r sh where
     sconst $ fromIntegral c
   recordSharingPrimal = astRegisterADShareS
 
-instance CanRecordSharing AstPrimalPartS r sh where
+instance CanRecordSharing (AstPrimalPartS AstPrimal) r sh where
   recordSharing d = case d of
     ZeroS -> d
     InputS{} -> d
@@ -170,7 +170,7 @@ instance CanRecordSharing AstPrimalPartS r sh where
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
-instance IsPrimalPartF AstPrimalPartS where
+instance IsPrimalPartF (AstPrimalPartS AstPrimal) where
   letWrapPrimal = sletWrap
 
 

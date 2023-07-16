@@ -130,11 +130,11 @@ extendEnvVarsS vars ix env =
   in foldr (uncurry extendEnvI) env assocs
 
 interpretLambdaI
-  :: forall ranked n r.
+  :: forall ranked n s r.
      ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-  => (AstEnv ranked -> AstRanked r n -> ranked r n)
-  -> AstEnv ranked -> (AstVarId, AstRanked r n)
+  => (AstEnv ranked -> AstRanked s r n -> ranked r n)
+  -> AstEnv ranked -> (AstVarId, AstRanked s r n)
   -> IntOf ranked
   -> ranked r n
 {-# INLINE interpretLambdaI #-}
@@ -142,11 +142,11 @@ interpretLambdaI f env (var, ast) =
   \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIS
-  :: forall ranked shaped sh n r.
+  :: forall ranked shaped sh n s r.
      ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-  => (AstEnv ranked -> AstShaped r sh -> shaped r sh)
-  -> AstEnv ranked -> (AstVarId, AstShaped r sh)
+  => (AstEnv ranked -> AstShaped s r sh -> shaped r sh)
+  -> AstEnv ranked -> (AstVarId, AstShaped s r sh)
   -> IntSh ranked n
   -> shaped r sh
 {-# INLINE interpretLambdaIS #-}
@@ -154,11 +154,11 @@ interpretLambdaIS f env (var, ast) =
   \i -> f (extendEnvI var (ShapedList.unShapedNat i) env) ast
 
 interpretLambdaIndex
-  :: forall ranked r m n.
+  :: forall ranked s r m n.
      ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-  => (AstEnv ranked -> AstRanked r n -> ranked r n)
-  -> AstEnv ranked -> (AstVarList m, AstRanked r n)
+  => (AstEnv ranked -> AstRanked s r n -> ranked r n)
+  -> AstEnv ranked -> (AstVarList m, AstRanked s r n)
   -> IndexOf ranked m
   -> ranked r n
 {-# INLINE interpretLambdaIndex #-}
@@ -166,11 +166,11 @@ interpretLambdaIndex f env (vars, ast) =
   \ix -> f (extendEnvVars vars ix env) ast
 
 interpretLambdaIndexS
-  :: forall sh sh2 ranked shaped r.
+  :: forall sh sh2 ranked shaped s r.
      ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-  => (AstEnv ranked -> AstShaped r sh -> shaped r sh)
-  -> AstEnv ranked -> (AstVarListS sh2, AstShaped r sh)
+  => (AstEnv ranked -> AstShaped s r sh -> shaped r sh)
+  -> AstEnv ranked -> (AstVarListS sh2, AstShaped s r sh)
   -> IndexSh ranked sh2
   -> shaped r sh
 {-# INLINE interpretLambdaIndexS #-}
@@ -266,7 +266,7 @@ interpretAstPrimal
   :: forall ranked shaped n r.
      (KnownNat n, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked
-  -> AstPrimalPart r n -> PrimalOf ranked r n
+  -> AstPrimalPart AstPrimal r n -> PrimalOf ranked r n
 interpretAstPrimal env (AstPrimalPart v1) = case v1 of
   AstD u _-> interpretAstPrimal env u
   AstCond b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
@@ -280,7 +280,7 @@ interpretAstDual
   :: forall ranked shaped n r.
      (KnownNat n, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked
-  -> AstDualPart r n -> DualOf ranked r n
+  -> AstDualPart AstPrimal r n -> DualOf ranked r n
 interpretAstDual env (AstDualPart v1) = case v1 of
   AstD _ u'-> interpretAstDual env u'
   _ -> tdualPart $ interpretAst env v1
@@ -289,7 +289,7 @@ interpretAst
   :: forall ranked shaped n r.
      (KnownNat n, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked
-  -> AstRanked r n -> ranked r n
+  -> AstRanked AstPrimal r n -> ranked r n
 interpretAst env = \case
   AstVar sh var -> case EM.lookup var env of
     Just (AstEnvElemS @sh2 @r2 t) ->
@@ -604,7 +604,7 @@ interpretAst env = \case
 
 interpretAstDynamic
   :: forall ranked shaped. InterpretAst ranked shaped
-  => AstEnv ranked -> DynamicExists AstDynamic
+  => AstEnv ranked -> DynamicExists (AstDynamic AstPrimal)
   -> DynamicExists (DynamicOf ranked)
 interpretAstDynamic env = \case
   DynamicExists (AstRToD w) -> DynamicExists $ dfromR $ interpretAst env w
@@ -612,7 +612,7 @@ interpretAstDynamic env = \case
 
 interpretAstDomains
   :: forall ranked shaped. InterpretAst ranked shaped
-  => AstEnv ranked -> AstDomains -> Domains (DynamicOf ranked)
+  => AstEnv ranked -> AstDomains AstPrimal -> Domains (DynamicOf ranked)
 interpretAstDomains env = \case
   AstDomains l -> interpretAstDynamic env <$> l
   AstDomainsLet var u v ->
@@ -633,17 +633,17 @@ interpretAstBool env = \case
     let args2 = interpretAstBool env <$> args
     in interpretAstBoolOp opCodeBool args2
   AstBoolConst a -> if a then true else false
-  AstRel opCodeRel args ->
-    let args2 = interpretAstPrimal env <$> args
+  AstRel @n @r @s opCodeRel args ->
+    let args2 = interpretAstPrimal env <$> (unsafeCoerce :: [AstPrimalPart s r n] -> [AstPrimalPart AstPrimal r n]) args  -- TODO
     in interpretAstRelOp opCodeRel args2
-  AstRelS opCodeRel args ->
-    let args2 = interpretAstPrimalS env <$> args
+  AstRelS @sh @r @s opCodeRel args ->
+    let args2 = interpretAstPrimalS env <$> (unsafeCoerce :: [AstPrimalPartS s r sh] -> [AstPrimalPartS AstPrimal r sh]) args  -- TODO
     in interpretAstRelOp opCodeRel args2
 
 interpretAstDynamicDummy
   :: forall ranked shaped. InterpretAst ranked shaped
   => AstEnv ranked
-  -> DynamicExists AstDynamic -> DynamicExists (DynamicOf ranked)
+  -> DynamicExists (AstDynamic AstPrimal) -> DynamicExists (DynamicOf ranked)
 interpretAstDynamicDummy env = \case
   DynamicExists @r (AstRToD AstIota) ->
     DynamicExists $ ddummy @ranked @shaped @r
@@ -654,7 +654,7 @@ interpretAstDynamicDummy env = \case
 
 interpretAstDomainsDummy
   :: forall ranked shaped. InterpretAst ranked shaped
-  => AstEnv ranked -> AstDomains -> Domains (DynamicOf ranked)
+  => AstEnv ranked -> AstDomains AstPrimal -> Domains (DynamicOf ranked)
 interpretAstDomainsDummy env = \case
   AstDomains l -> interpretAstDynamicDummy env <$> l
   AstDomainsLet var u v ->
@@ -743,7 +743,7 @@ interpretAstPrimalS
   :: forall ranked shaped sh r.
      (OS.Shape sh, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked
-  -> AstPrimalPartS r sh -> PrimalOf shaped r sh
+  -> AstPrimalPartS AstPrimal r sh -> PrimalOf shaped r sh
 interpretAstPrimalS env (AstPrimalPartS v1) = case v1 of
   AstDS u _-> interpretAstPrimalS env u
   AstCondS b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
@@ -757,7 +757,7 @@ interpretAstDualS
   :: forall ranked shaped sh r.
      (OS.Shape sh, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked
-  -> AstDualPartS r sh -> DualOf shaped r sh
+  -> AstDualPartS AstPrimal r sh -> DualOf shaped r sh
 interpretAstDualS env (AstDualPartS v1) = case v1 of
   AstDS _ u'-> interpretAstDualS env u'
   _ -> sdualPart $ interpretAstS env v1
@@ -766,7 +766,7 @@ interpretAstS
   :: forall ranked shaped sh r.
      (OS.Shape sh, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked
-  -> AstShaped r sh -> shaped r sh
+  -> AstShaped AstPrimal r sh -> shaped r sh
 interpretAstS env = \case
   AstVarS var -> case EM.lookup var env of
     Just (AstEnvElemS @sh2 @r2 t) -> case sameShape @sh2 @sh of
@@ -1066,120 +1066,120 @@ interpretAstS env = \case
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array))
-  -> AstPrimalPart Double n
+  -> AstPrimalPart AstPrimal Double n
   -> Flip OR.Array Double n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array))
-  -> AstPrimalPart Float n
+  -> AstPrimalPart AstPrimal Float n
   -> Flip OR.Array Float n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal AstPrimalPart)
-  -> AstPrimalPart Double n
-  -> AstPrimalPart Double n #-}
+  => AstEnv (ADVal (AstPrimalPart AstPrimal))
+  -> AstPrimalPart AstPrimal Double n
+  -> AstPrimalPart AstPrimal Double n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal AstPrimalPart)
-  -> AstPrimalPart Float n
-  -> AstPrimalPart Float n #-}
+  => AstEnv (ADVal (AstPrimalPart AstPrimal))
+  -> AstPrimalPart AstPrimal Float n
+  -> AstPrimalPart AstPrimal Float n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (Flip OR.Array)
-  -> AstPrimalPart Double n
+  -> AstPrimalPart AstPrimal Double n
   -> Flip OR.Array Double n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (Flip OR.Array)
-  -> AstPrimalPart Float n
+  -> AstPrimalPart AstPrimal Float n
   -> Flip OR.Array Float n #-}
 
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array))
-  -> AstDualPart Double n
+  -> AstDualPart AstPrimal Double n
   -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array) (Flip OS.Array)) Double n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array))
-  -> AstDualPart Float n
+  -> AstDualPart AstPrimal Float n
   -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array) (Flip OS.Array)) Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal AstPrimalPart)
-  -> AstDualPart Double n
-  -> Product (Clown (Const ADShare)) (DeltaR AstPrimalPart AstPrimalPartS) Double n #-}
+  => AstEnv (ADVal (AstPrimalPart AstPrimal))
+  -> AstDualPart AstPrimal Double n
+  -> Product (Clown (Const ADShare)) (DeltaR (AstPrimalPart AstPrimal) (AstPrimalPartS AstPrimal)) Double n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal AstPrimalPart)
-  -> AstDualPart Float n
-  -> Product (Clown (Const ADShare)) (DeltaR AstPrimalPart AstPrimalPartS) Float n #-}
+  => AstEnv (ADVal (AstPrimalPart AstPrimal))
+  -> AstDualPart AstPrimal Float n
+  -> Product (Clown (Const ADShare)) (DeltaR (AstPrimalPart AstPrimal) (AstPrimalPartS AstPrimal)) Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (Flip OR.Array)
-  -> AstDualPart Double n
+  -> AstDualPart AstPrimal Double n
   -> DummyDual Double n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (Flip OR.Array)
-  -> AstDualPart Float n
+  -> AstDualPart AstPrimal Float n
   -> DummyDual Float n #-}
 
 {-# SPECIALIZE interpretAst
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array))
-  -> AstRanked Double n
+  -> AstRanked AstPrimal Double n
   -> ADVal (Flip OR.Array) Double n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array))
-  -> AstRanked Float n
+  -> AstRanked AstPrimal Float n
   -> ADVal (Flip OR.Array) Float n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv (ADVal AstPrimalPart)
-  -> AstRanked Double n
-  -> ADVal AstPrimalPart Double n #-}
+  => AstEnv (ADVal (AstPrimalPart AstPrimal))
+  -> AstRanked AstPrimal Double n
+  -> ADVal (AstPrimalPart AstPrimal) Double n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
-  => AstEnv (ADVal AstPrimalPart)
-  -> AstRanked Float n
-  -> ADVal AstPrimalPart Float n #-}
+  => AstEnv (ADVal (AstPrimalPart AstPrimal))
+  -> AstRanked AstPrimal Float n
+  -> ADVal (AstPrimalPart AstPrimal) Float n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
   => AstEnv (Flip OR.Array)
-  -> AstRanked Double n
+  -> AstRanked AstPrimal Double n
   -> Flip OR.Array Double n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
   => AstEnv (Flip OR.Array)
-  -> AstRanked Float n
+  -> AstRanked AstPrimal Float n
   -> Flip OR.Array Float n #-}
 
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv (ADVal (Flip OR.Array))
-  -> DynamicExists AstDynamic
+  -> DynamicExists (AstDynamic AstPrimal)
   -> DynamicExists (ADValClown OD.Array) #-}
 {-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal AstPrimalPart)
-  -> DynamicExists AstDynamic
-  -> DynamicExists (ADValClown AstDynamic) #-}
+  :: AstEnv (ADVal (AstPrimalPart AstPrimal))
+  -> DynamicExists (AstDynamic AstPrimal)
+  -> DynamicExists (ADValClown (AstDynamic AstPrimal)) #-}
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv (Flip OR.Array)
-  -> DynamicExists AstDynamic
+  -> DynamicExists (AstDynamic AstPrimal)
   -> DynamicExists OD.Array #-}
 
 {-# SPECIALIZE interpretAstDomains
   :: AstEnv (ADVal (Flip OR.Array))
-  -> AstDomains
+  -> AstDomains AstPrimal
   -> Domains (ADValClown OD.Array) #-}
 {-# SPECIALIZE interpretAstDomains
-  :: AstEnv (ADVal AstPrimalPart)
-  -> AstDomains
-  -> Domains (ADValClown AstDynamic) #-}
+  :: AstEnv (ADVal (AstPrimalPart AstPrimal))
+  -> AstDomains AstPrimal
+  -> Domains (ADValClown (AstDynamic AstPrimal)) #-}
 {-# SPECIALIZE interpretAstDomains
   :: AstEnv (Flip OR.Array)
-  -> AstDomains
+  -> AstDomains AstPrimal
   -> Domains OD.Array #-}
 
 {-# SPECIALIZE interpretAstBool
@@ -1187,7 +1187,7 @@ interpretAstS env = \case
   -> AstBool
   -> Bool #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal AstPrimalPart)
+  :: AstEnv (ADVal (AstPrimalPart AstPrimal))
   -> AstBool
   -> AstBool #-}
 {-# SPECIALIZE interpretAstBool
@@ -1197,12 +1197,12 @@ interpretAstS env = \case
 
 {-# SPECIALIZE interpretAstDynamicDummy
   :: AstEnv (Flip OR.Array)
-  -> DynamicExists AstDynamic
+  -> DynamicExists (AstDynamic AstPrimal)
   -> DynamicExists OD.Array #-}
 
 {-# SPECIALIZE interpretAstDomainsDummy
   :: AstEnv (Flip OR.Array)
-  -> AstDomains
+  -> AstDomains AstPrimal
   -> Domains OD.Array #-}
 
 {- outdated and inlined anyway:
@@ -1237,10 +1237,10 @@ interpretAstS env = \case
   :: KnownNat n => OpCodeRel -> [Flip OR.Array Int64 n] -> Bool #-}
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n
-  => OpCodeRel -> [AstRanked Double n] -> AstBool #-}
+  => OpCodeRel -> [AstRanked AstPrimal Double n] -> AstBool #-}
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n
-  => OpCodeRel -> [AstRanked Float n] -> AstBool #-}
+  => OpCodeRel -> [AstRanked AstPrimal Float n] -> AstBool #-}
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n
-  => OpCodeRel -> [AstRanked Int64 n] -> AstBool #-}
+  => OpCodeRel -> [AstRanked AstPrimal Int64 n] -> AstBool #-}

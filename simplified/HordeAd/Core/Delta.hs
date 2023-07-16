@@ -419,8 +419,8 @@ instance DualPart @() (Clown OD.Array) where
   reverseDervative = gradientDtD
   forwardDerivative = derivativeFromDeltaD
 
-instance DualPart @() (Clown AstDynamic) where
-  type Dual (Clown AstDynamic) = DeltaD AstPrimalPart AstPrimalPartS
+instance DualPart @() (Clown (AstDynamic AstPrimal)) where
+  type Dual (Clown (AstDynamic AstPrimal)) = DeltaD (AstPrimalPart AstPrimal) (AstPrimalPartS AstPrimal)
   reverseDervative = gradientDtD
   forwardDerivative = derivativeFromDeltaD
 
@@ -462,8 +462,8 @@ instance DualPart @Nat (Flip OR.Array) where
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
-instance DualPart @Nat AstPrimalPart where
-  type Dual AstPrimalPart = DeltaR AstPrimalPart AstPrimalPartS
+instance DualPart @Nat (AstPrimalPart AstPrimal) where
+  type Dual (AstPrimalPart AstPrimal) = DeltaR (AstPrimalPart AstPrimal) (AstPrimalPartS AstPrimal)
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
@@ -499,8 +499,8 @@ instance DualPart @[Nat] (Flip OS.Array) where
   reverseDervative dims _ = gradientDtS dims
   forwardDerivative = derivativeFromDeltaS
 
-instance DualPart @[Nat] AstPrimalPartS where
-  type Dual AstPrimalPartS = DeltaS AstPrimalPart AstPrimalPartS
+instance DualPart @[Nat] (AstPrimalPartS AstPrimal) where
+  type Dual (AstPrimalPartS AstPrimal) = DeltaS (AstPrimalPart AstPrimal) (AstPrimalPartS AstPrimal)
   reverseDervative dims _ = gradientDtS dims
   forwardDerivative = derivativeFromDeltaS
 
@@ -670,8 +670,8 @@ gradientFromDelta dims deltaDt =
   :: Int -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
   -> ([(AstVarId, DynamicExists OD.Array)], DomainsOD) #-}
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> DeltaDt AstRanked AstShaped Double
-  -> ([(AstVarId, DynamicExists AstDynamic)], Domains AstDynamic) #-}
+  :: Int -> DeltaDt (AstRanked AstPrimal) (AstShaped AstPrimal) Double
+  -> ([(AstVarId, DynamicExists (AstDynamic AstPrimal))], Domains (AstDynamic AstPrimal)) #-}
 
 buildFinMaps
   :: forall ranked shaped r0.
@@ -947,7 +947,7 @@ buildFinMaps s0 deltaDt =
 {-# SPECIALIZE buildFinMaps
   :: EvalState (Flip OR.Array) (Flip OS.Array) -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) #-}
 {-# SPECIALIZE buildFinMaps
-  :: EvalState AstRanked AstShaped -> DeltaDt AstRanked AstShaped Double -> EvalState AstRanked AstShaped #-}
+  :: EvalState (AstRanked AstPrimal) (AstShaped AstPrimal) -> DeltaDt (AstRanked AstPrimal) (AstShaped AstPrimal) Double -> EvalState (AstRanked AstPrimal) (AstShaped AstPrimal) #-}
 
 -- * Forward derivative computation from the delta expressions
 

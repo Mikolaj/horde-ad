@@ -32,7 +32,7 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
 
-instance RankedTensor AstRanked where
+instance RankedTensor (AstRanked AstPrimal) where
   tlet a f = astLetFun a f
 
   tshape = shapeAst
@@ -67,11 +67,11 @@ instance RankedTensor AstRanked where
     -- sharing that is not visible in this restricted context.
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
-  raddDynamic :: forall n r. (GoodScalar r, KnownNat n)
-              => AstRanked r n -> DynamicExists AstDynamic
-              -> DynamicExists AstDynamic
+  raddDynamic :: forall n s r. (GoodScalar r, KnownNat n)
+              => AstRanked s r n -> DynamicExists (AstDynamic s)
+              -> DynamicExists (AstDynamic s)
   raddDynamic r (DynamicExists @r2 d) = DynamicExists $
-    if disDummy @AstRanked d then AstRToD r
+    if disDummy @(AstRanked s) d then AstRToD r
     else case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> case d of
         AstRToD AstIota -> AstRToD r
@@ -101,7 +101,7 @@ instance RankedTensor AstRanked where
   tD = AstD  -- TODO: simplify when it's know that dual part is AstConstant
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
-instance ConvertTensor AstRanked AstShaped where
+instance ConvertTensor (AstRanked s) (AstShaped s) where
   tfromD = astFromDynamic
   tfromS (AstVarS @sh var) =
     let sh = OS.shapeT @sh
@@ -117,7 +117,7 @@ instance ConvertTensor AstRanked AstShaped where
 --  dfromS (AstDToS t) = t
   dfromS t = AstSToD t
   sfromR :: forall sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
-         => AstRanked r (OS.Rank sh) -> AstShaped r sh
+         => AstRanked s r (OS.Rank sh) -> AstShaped s r sh
   sfromR (AstVar _sh var) = AstVarS var
   sfromR (AstSToR @sh1 t) =
     case sameShape @sh1 @sh of
@@ -133,18 +133,18 @@ instance ConvertTensor AstRanked AstShaped where
   dshape (AstRToD v) = shapeToList $ shapeAst v
   dshape (AstSToD @sh _) = OS.shapeT @sh
 
-instance ConvertTensor AstPrimalPart AstPrimalPartS where
+instance ConvertTensor (AstPrimalPart s) (AstPrimalPartS s) where
   tfromD = astPrimalPart . tfromD
   tfromS = astPrimalPart . tfromS . unAstPrimalPartS
   dfromR = dfromR . unAstPrimalPart
   dfromS = dfromS . unAstPrimalPartS
   sfromR = astPrimalPartS . sfromR . unAstPrimalPart
   sfromD = astPrimalPartS . sfromD
-  ddummy = ddummy @AstRanked
-  disDummy = disDummy @AstRanked
-  dshape = dshape @AstRanked
+  ddummy = ddummy @(AstRanked s)
+  disDummy = disDummy @(AstRanked s)
+  dshape = dshape @(AstRanked s)
 
-instance DomainsTensor AstRanked AstShaped AstDomains where
+instance DomainsTensor (AstRanked AstPrimal) (AstShaped AstPrimal) (AstDomains AstPrimal) where
   dmkDomains = AstDomains
   -- The operations below, for this instance, are not used ATM.
   -- They may be used once trev is a method of Tensor.
@@ -153,9 +153,9 @@ instance DomainsTensor AstRanked AstShaped AstDomains where
   sletDomainsOf = undefined
   sletToDomainsOf = undefined
 
-astLetFun :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
-          => AstRanked r n -> (AstRanked r n -> AstRanked r2 m)
-          -> AstRanked r2 m
+astLetFun :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
+          => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)
+          -> AstRanked s r2 m
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f =
   let sh = shapeAst a
@@ -163,9 +163,9 @@ astLetFun a f =
   in astLet var a ast  -- safe, because subsitution ruled out above
 
 astLetDomainsFun
-  :: forall m r. AstDomains -> (AstDomains -> AstRanked r m) -> AstRanked r m
+  :: forall m s r. AstDomains s -> (AstDomains s -> AstRanked s r m) -> AstRanked s r m
 astLetDomainsFun a f =
-  let genVar :: DynamicExists AstDynamic -> (AstVarId, DynamicExists AstDynamic)
+  let genVar :: DynamicExists (AstDynamic s) -> (AstVarId, DynamicExists (AstDynamic s))
       genVar (DynamicExists @r2 (AstRToD t)) =
         let sh = shapeAst t
             (AstVarName var, ast) = funToAstR sh id
@@ -176,9 +176,9 @@ astLetDomainsFun a f =
       (vars, asts) = V.unzip $ V.map genVar (unwrapAstDomains a)
   in AstLetDomains vars a (f $ AstDomains asts)
 
-astDomainsLetFun :: (KnownNat n, GoodScalar r)
-                 => AstRanked r n -> (AstRanked r n -> AstDomains)
-                 -> AstDomains
+astDomainsLetFun :: (KnownNat n, GoodScalar r, AstSpan s)
+                 => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
+                 -> AstDomains s
 astDomainsLetFun a f | astIsSmall True a = f a
 astDomainsLetFun a f =
   let sh = shapeAst a
@@ -191,11 +191,11 @@ astDomainsLetFun a f =
 -- works bottom-up, which removes the need to backtrack in the vectorization
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
-astBuild1Vectorize :: (KnownNat n, GoodScalar r)
-                   => Int -> (AstInt -> AstRanked r n) -> AstRanked r (1 + n)
+astBuild1Vectorize :: (KnownNat n, GoodScalar r, AstSpan s)
+                   => Int -> (AstInt -> AstRanked s r n) -> AstRanked s r (1 + n)
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
-instance RankedTensor AstPrimalPart where
+instance RankedTensor (AstPrimalPart AstPrimal) where
   tlet a f =
     astPrimalPart
     $ astLetFun (unAstPrimalPart a) (unAstPrimalPart . f . astPrimalPart)
@@ -239,7 +239,7 @@ instance RankedTensor AstPrimalPart where
   tD u _ = u
   tScale _ _ = DummyDual
 
-instance ShapedTensor AstShaped where
+instance ShapedTensor (AstShaped AstPrimal) where
   slet a f = astLetFunS a f
 
   sminIndex = AstMinIndexS . astPrimalPartS
@@ -273,11 +273,11 @@ instance ShapedTensor AstShaped where
     -- sharing that is not visible in this restricted context.
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
-  saddDynamic :: forall sh r. (GoodScalar r, OS.Shape sh)
-              => AstShaped r sh -> DynamicExists AstDynamic
-              -> DynamicExists AstDynamic
+  saddDynamic :: forall sh s r. (GoodScalar r, OS.Shape sh)
+              => AstShaped s r sh -> DynamicExists (AstDynamic s)
+              -> DynamicExists (AstDynamic s)
   saddDynamic r (DynamicExists @r2 d) = DynamicExists $
-    if disDummy @AstRanked d then AstSToD r
+    if disDummy @(AstRanked s) d then AstSToD r
     else case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> case d of
         AstSToD AstIotaS -> AstSToD r
@@ -308,20 +308,20 @@ instance ShapedTensor AstShaped where
   sScale (AstPrimalPartS s) (AstDualPartS t) = AstDualPartS $ s `smult` t
 
 astLetFunS :: (OS.Shape sh, OS.Shape sh2, GoodScalar r)
-          => AstShaped r sh -> (AstShaped r sh -> AstShaped r2 sh2)
-          -> AstShaped r2 sh2
+          => AstShaped s r sh -> (AstShaped s r sh -> AstShaped s r2 sh2)
+          -> AstShaped s r2 sh2
 astLetFunS a f | astIsSmallS True a = f a
 astLetFunS a f =
   let (AstVarName var, ast) = funToAstS f
   in AstLetS var a ast  -- astLet var a ast  -- safe, because subsitution ruled out above
 
 astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r)
-                    => (IntSh AstShaped n -> AstShaped r sh)
-                    -> AstShaped r (n ': sh)
+                    => (IntSh (AstShaped AstPrimal) n -> AstShaped AstPrimal r sh)
+                    -> AstShaped AstPrimal r (n ': sh)
 astBuild1VectorizeS f =
   build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)
 
-instance ShapedTensor AstPrimalPartS where
+instance ShapedTensor (AstPrimalPartS AstPrimal) where
   slet a f =
     astPrimalPartS
     $ astLetFunS (unAstPrimalPartS a) (unAstPrimalPartS . f . astPrimalPartS)
@@ -458,8 +458,8 @@ instance RankedTensor AstNoSimplify where
   tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
 
 astLetFunUnSimp :: (KnownNat n, KnownNat m, GoodScalar r)
-                => AstRanked r n -> (AstRanked r n -> AstRanked r2 m)
-                -> AstRanked r2 m
+                => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)
+                -> AstRanked s r2 m
 astLetFunUnSimp a f =
   let sh = shapeAst a
       (AstVarName var, ast) = funToAstR sh f
