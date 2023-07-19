@@ -263,9 +263,9 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
   [ mnistTestCase2VTI "VTI 1 epoch, 1 batch" 1 1 300 100 0.02 5000
                       (0.16479999999999995 :: Double)
   , mnistTestCase2VTI "VTI artificial 1 2 3 4 5" 1 2 3 4 5 5000
-                      (0.9108 :: Float)
+                      (0.902 :: Float)
   , mnistTestCase2VTI "VTI artificial 5 4 3 2 1" 5 4 3 2 1 4999
-                      (0.7034 :: Double)
+                      (0.7541 :: Double)
   , mnistTestCase2VTI "VTI 1 epoch, 0 batch" 1 0 300 100 0.02 5000
                       (1 :: Float)
   ]
@@ -321,11 +321,11 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOR (singletonShape sizeMnistLabelInt) id
-       let envInit = extendEnvR varGlyph (tconstant $ astPrimalPart astGlyph)
-                     $ extendEnvR varLabel (tconstant $ astPrimalPart astLabel)
+       let envInit = extendEnvR varGlyph (tconstant astGlyph)
+                     $ extendEnvR varLabel (tconstant astLabel)
                      EM.empty
-           f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked AstPrimal)
-                 widthHidden widthHidden2 (astGlyph, astLabel)
+           f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked AstFull)
+                 widthHidden widthHidden2 (tconstant astGlyph, tconstant astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit False f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
@@ -585,7 +585,7 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
   , mnistTestCase2VT2I "VT2I artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.884 :: Float)
   , mnistTestCase2VT2I "VT2I artificial 5 4 3 2 1" 5 4 3 2 1 499
-                       (0.7945891783567134 :: Double)
+                       (0.7464929859719439 :: Double)
   , mnistTestCase2VT2I "VT2I 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
@@ -639,11 +639,11 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOR (singletonShape sizeMnistLabelInt) id
-       let envInit = extendEnvR varGlyph (tconstant $ astPrimalPart astGlyph)
-                     $ extendEnvR varLabel (tconstant $ astPrimalPart astLabel)
+       let envInit = extendEnvR varGlyph (tconstant astGlyph)
+                     $ extendEnvR varLabel (tconstant astLabel)
                        EM.empty
-           f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked AstPrimal)
-                 (astGlyph, astLabel)
+           f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked AstFull)
+                 (tconstant astGlyph, tconstant astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit False f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
@@ -729,8 +729,8 @@ testVTOPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked AstPrimal) Double
-              -> AstRanked AstPrimal Double 1
+      afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked AstFull) Double
+              -> AstRanked AstFull Double 1
       afcnn2T = MnistFcnnRanked1.afcnnMnist1 id id 3 4 blackGlyph
       (artifact6, _) = revDtFun True afcnn2T valsInitVTOPP
   printGradient6Pretty renames artifact6
@@ -747,19 +747,19 @@ testVTOPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked AstPrimal) Double
-                    -> AstRanked AstPrimal Double 1
+      afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked AstFull) Double
+                    -> AstRanked AstFull Double 1
       afcnn2TnonLin =
         MnistFcnnRanked1.afcnnMnist1 logistic softMax1 3 4 blackGlyph
       (artifact6nonLin, _) = revDtFun True afcnn2TnonLin valsInitVTOPP
   printGradient6Pretty renames artifact6nonLin
-    @?= "\\dret v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 -> let v24 = tfromList [tsum (v2 * treplicate 784 (tconst 7.0)), tsum (v3 * treplicate 784 (tconst 7.0)), tsum (v4 * treplicate 784 (tconst 7.0))] + v5 ; v27 = let v25 = exp (negate v24) ; v26 = treplicate 3 (tconst 1.0) + v25 in recip v26 ; v28 = treplicate 3 (tconst 1.0) - v27 ; v29 = v27 * v28 ; v30 = v27 ; v31 = tfromList [tsum (v6 * v30), tsum (v7 * v30), tsum (v8 * v30), tsum (v9 * v30)] + v10 ; v34 = let v32 = exp (negate v31) ; v33 = treplicate 4 (tconst 1.0) + v32 in recip v33 ; v35 = treplicate 4 (tconst 1.0) - v34 ; v36 = v34 * v35 ; v37 = v34 ; v38 = exp (tfromList [tsum (v11 * v37), tsum (v12 * v37), tsum (v13 * v37), tsum (v14 * v37), tsum (v15 * v37)] + v16) ; x39 = tsum v38 ; v40 = treplicate 5 (recip x39) ; v41 = v38 * (treplicate 5 (negate (recip (x39 * x39)) * tsum (v38 * dret)) + v40 * dret) ; x42 = v41 ! [4] ; x43 = v41 ! [3] ; x44 = v41 ! [2] ; x45 = v41 ! [1] ; x46 = v41 ! [0] ; v47 = v11 * treplicate 5 x46 + v12 * treplicate 5 x45 + v13 * treplicate 5 x44 + v14 * treplicate 5 x43 + v15 * treplicate 5 x42 ; v48 = v34 * (v31 * v47) ; v49 = v36 * v47 ; x50 = v49 ! [3] ; x51 = v49 ! [2] ; x52 = v49 ! [1] ; x53 = v49 ! [0] ; v54 = v6 * treplicate 4 x53 + v7 * treplicate 4 x52 + v8 * treplicate 4 x51 + v9 * treplicate 4 x50 ; v55 = v27 * (v24 * v54) ; v56 = v29 * v54 ; x57 = v56 ! [2] ; x58 = v56 ! [1] ; x59 = v56 ! [0] in (treplicate 784 (tconst 7.0) * treplicate 784 x59, treplicate 784 (tconst 7.0) * treplicate 784 x58, treplicate 784 (tconst 7.0) * treplicate 784 x57, v56, v30 * treplicate 3 x53, v30 * treplicate 3 x52, v30 * treplicate 3 x51, v30 * treplicate 3 x50, v49, v37 * treplicate 4 x46, v37 * treplicate 4 x45, v37 * treplicate 4 x44, v37 * treplicate 4 x43, v37 * treplicate 4 x42, v41)"
+    @?= "\\dret v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 -> let v24 = tfromList [tsum (v2 * treplicate 784 (tconst 7.0)), tsum (v3 * treplicate 784 (tconst 7.0)), tsum (v4 * treplicate 784 (tconst 7.0))] + v5 ; v29 = let v27 = let v25 = exp (negate v24) ; v26 = treplicate 3 (tconst 1.0) + v25 in recip v26 ; v28 = treplicate 3 (tconst 1.0) - v27 in v27 * v28 ; v30 = let v27 = let v25 = exp (negate v24) ; v26 = treplicate 3 (tconst 1.0) + v25 in recip v26 in v27 ; v31 = tfromList [tsum (v6 * v30), tsum (v7 * v30), tsum (v8 * v30), tsum (v9 * v30)] + v10 ; v36 = let v34 = let v32 = exp (negate v31) ; v33 = treplicate 4 (tconst 1.0) + v32 in recip v33 ; v35 = treplicate 4 (tconst 1.0) - v34 in v34 * v35 ; v37 = let v34 = let v32 = exp (negate v31) ; v33 = treplicate 4 (tconst 1.0) + v32 in recip v33 in v34 ; v38 = exp (tfromList [tsum (v11 * v37), tsum (v12 * v37), tsum (v13 * v37), tsum (v14 * v37), tsum (v15 * v37)] + v16) ; x39 = tsum v38 ; v40 = treplicate 5 (recip x39) ; v41 = v38 * (treplicate 5 (negate (recip (x39 * x39)) * tsum (v38 * dret)) + v40 * dret) ; x42 = v41 ! [4] ; x43 = v41 ! [3] ; x44 = v41 ! [2] ; x45 = v41 ! [1] ; x46 = v41 ! [0] ; v47 = v36 * (v11 * treplicate 5 x46 + v12 * treplicate 5 x45 + v13 * treplicate 5 x44 + v14 * treplicate 5 x43 + v15 * treplicate 5 x42) ; x48 = v47 ! [3] ; x49 = v47 ! [2] ; x50 = v47 ! [1] ; x51 = v47 ! [0] ; v52 = v29 * (v6 * treplicate 4 x51 + v7 * treplicate 4 x50 + v8 * treplicate 4 x49 + v9 * treplicate 4 x48) ; x53 = v52 ! [2] ; x54 = v52 ! [1] ; x55 = v52 ! [0] in (treplicate 784 (tconst 7.0) * treplicate 784 x55, treplicate 784 (tconst 7.0) * treplicate 784 x54, treplicate 784 (tconst 7.0) * treplicate 784 x53, v52, v30 * treplicate 3 x51, v30 * treplicate 3 x50, v30 * treplicate 3 x49, v30 * treplicate 3 x48, v47, v37 * treplicate 4 x46, v37 * treplicate 4 x45, v37 * treplicate 4 x44, v37 * treplicate 4 x43, v37 * treplicate 4 x42, v41)"
   printPrimal6Pretty renames artifact6nonLin
-    @?= "\\v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 -> let v24 = tfromList [tsum (v2 * treplicate 784 (tconst 7.0)), tsum (v3 * treplicate 784 (tconst 7.0)), tsum (v4 * treplicate 784 (tconst 7.0))] + v5 ; v27 = let v25 = exp (negate v24) ; v26 = treplicate 3 (tconst 1.0) + v25 in recip v26 ; v28 = treplicate 3 (tconst 1.0) - v27 ; v29 = v27 * v28 ; v30 = v27 ; v31 = tfromList [tsum (v6 * v30), tsum (v7 * v30), tsum (v8 * v30), tsum (v9 * v30)] + v10 ; v34 = let v32 = exp (negate v31) ; v33 = treplicate 4 (tconst 1.0) + v32 in recip v33 ; v35 = treplicate 4 (tconst 1.0) - v34 ; v36 = v34 * v35 ; v37 = v34 ; v38 = exp (tfromList [tsum (v11 * v37), tsum (v12 * v37), tsum (v13 * v37), tsum (v14 * v37), tsum (v15 * v37)] + v16) ; x39 = tsum v38 ; v40 = treplicate 5 (recip x39) in v40 * v38"
+    @?= "\\v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 -> let v24 = tfromList [tsum (v2 * treplicate 784 (tconst 7.0)), tsum (v3 * treplicate 784 (tconst 7.0)), tsum (v4 * treplicate 784 (tconst 7.0))] + v5 ; v29 = let v27 = let v25 = exp (negate v24) ; v26 = treplicate 3 (tconst 1.0) + v25 in recip v26 ; v28 = treplicate 3 (tconst 1.0) - v27 in v27 * v28 ; v30 = let v27 = let v25 = exp (negate v24) ; v26 = treplicate 3 (tconst 1.0) + v25 in recip v26 in v27 ; v31 = tfromList [tsum (v6 * v30), tsum (v7 * v30), tsum (v8 * v30), tsum (v9 * v30)] + v10 ; v36 = let v34 = let v32 = exp (negate v31) ; v33 = treplicate 4 (tconst 1.0) + v32 in recip v33 ; v35 = treplicate 4 (tconst 1.0) - v34 in v34 * v35 ; v37 = let v34 = let v32 = exp (negate v31) ; v33 = treplicate 4 (tconst 1.0) + v32 in recip v33 in v34 ; v38 = exp (tfromList [tsum (v11 * v37), tsum (v12 * v37), tsum (v13 * v37), tsum (v14 * v37), tsum (v15 * v37)] + v16) ; x39 = tsum v38 ; v40 = treplicate 5 (recip x39) in v40 * v38"
   printGradient6Pretty renames (simplifyArtifact6 artifact6nonLin)
-    @?= "\\dret v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 -> let v27 = recip (treplicate 3 (tconst 1.0) + exp (negate (tfromList [tsum (v2 * treplicate 784 (tconst 7.0)), tsum (v3 * treplicate 784 (tconst 7.0)), tsum (v4 * treplicate 784 (tconst 7.0))] + v5))) ; v34 = recip (treplicate 4 (tconst 1.0) + exp (negate (tfromList [tsum (v6 * v27), tsum (v7 * v27), tsum (v8 * v27), tsum (v9 * v27)] + v10))) ; v38 = exp (tfromList [tsum (v11 * v34), tsum (v12 * v34), tsum (v13 * v34), tsum (v14 * v34), tsum (v15 * v34)] + v16) ; x39 = tsum v38 ; v41 = v38 * (treplicate 5 (negate (recip (x39 * x39)) * tsum (v38 * dret)) + treplicate 5 (recip x39) * dret) ; x42 = v41 ! [4] ; x43 = v41 ! [3] ; x44 = v41 ! [2] ; x45 = v41 ! [1] ; x46 = v41 ! [0] ; v49 = (v34 * (treplicate 4 (tconst 1.0) - v34)) * (v11 * treplicate 5 x46 + v12 * treplicate 5 x45 + v13 * treplicate 5 x44 + v14 * treplicate 5 x43 + v15 * treplicate 5 x42) ; x50 = v49 ! [3] ; x51 = v49 ! [2] ; x52 = v49 ! [1] ; x53 = v49 ! [0] ; v56 = (v27 * (treplicate 3 (tconst 1.0) - v27)) * (v6 * treplicate 4 x53 + v7 * treplicate 4 x52 + v8 * treplicate 4 x51 + v9 * treplicate 4 x50) in (treplicate 784 (tconst 7.0) * treplicate 784 (v56 ! [0]), treplicate 784 (tconst 7.0) * treplicate 784 (v56 ! [1]), treplicate 784 (tconst 7.0) * treplicate 784 (v56 ! [2]), v56, v27 * treplicate 3 x53, v27 * treplicate 3 x52, v27 * treplicate 3 x51, v27 * treplicate 3 x50, v49, v34 * treplicate 4 x46, v34 * treplicate 4 x45, v34 * treplicate 4 x44, v34 * treplicate 4 x43, v34 * treplicate 4 x42, v41)"
+    @?= "\\dret v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 -> let v24 = tfromList [tsum (v2 * treplicate 784 (tconst 7.0)), tsum (v3 * treplicate 784 (tconst 7.0)), tsum (v4 * treplicate 784 (tconst 7.0))] + v5 ; v30 = recip (treplicate 3 (tconst 1.0) + exp (negate v24)) ; v31 = tfromList [tsum (v6 * v30), tsum (v7 * v30), tsum (v8 * v30), tsum (v9 * v30)] + v10 ; v37 = recip (treplicate 4 (tconst 1.0) + exp (negate v31)) ; v38 = exp (tfromList [tsum (v11 * v37), tsum (v12 * v37), tsum (v13 * v37), tsum (v14 * v37), tsum (v15 * v37)] + v16) ; x39 = tsum v38 ; v41 = v38 * (treplicate 5 (negate (recip (x39 * x39)) * tsum (v38 * dret)) + treplicate 5 (recip x39) * dret) ; x42 = v41 ! [4] ; x43 = v41 ! [3] ; x44 = v41 ! [2] ; x45 = v41 ! [1] ; x46 = v41 ! [0] ; v47 = (let v34 = recip (treplicate 4 (tconst 1.0) + exp (negate v31)) in v34 * (treplicate 4 (tconst 1.0) - v34)) * (v11 * treplicate 5 x46 + v12 * treplicate 5 x45 + v13 * treplicate 5 x44 + v14 * treplicate 5 x43 + v15 * treplicate 5 x42) ; x48 = v47 ! [3] ; x49 = v47 ! [2] ; x50 = v47 ! [1] ; x51 = v47 ! [0] ; v52 = (let v27 = recip (treplicate 3 (tconst 1.0) + exp (negate v24)) in v27 * (treplicate 3 (tconst 1.0) - v27)) * (v6 * treplicate 4 x51 + v7 * treplicate 4 x50 + v8 * treplicate 4 x49 + v9 * treplicate 4 x48) in (treplicate 784 (tconst 7.0) * treplicate 784 (v52 ! [0]), treplicate 784 (tconst 7.0) * treplicate 784 (v52 ! [1]), treplicate 784 (tconst 7.0) * treplicate 784 (v52 ! [2]), v52, v30 * treplicate 3 x51, v30 * treplicate 3 x50, v30 * treplicate 3 x49, v30 * treplicate 3 x48, v47, v37 * treplicate 4 x46, v37 * treplicate 4 x45, v37 * treplicate 4 x44, v37 * treplicate 4 x43, v37 * treplicate 4 x42, v41)"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6nonLin)
-    @?= "\\v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 -> let v27 = recip (treplicate 3 (tconst 1.0) + exp (negate (tfromList [tsum (v2 * treplicate 784 (tconst 7.0)), tsum (v3 * treplicate 784 (tconst 7.0)), tsum (v4 * treplicate 784 (tconst 7.0))] + v5))) ; v34 = recip (treplicate 4 (tconst 1.0) + exp (negate (tfromList [tsum (v6 * v27), tsum (v7 * v27), tsum (v8 * v27), tsum (v9 * v27)] + v10))) ; v38 = exp (tfromList [tsum (v11 * v34), tsum (v12 * v34), tsum (v13 * v34), tsum (v14 * v34), tsum (v15 * v34)] + v16) in treplicate 5 (recip (tsum v38)) * v38"
+    @?= "\\v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 -> let v30 = recip (treplicate 3 (tconst 1.0) + exp (negate (tfromList [tsum (v2 * treplicate 784 (tconst 7.0)), tsum (v3 * treplicate 784 (tconst 7.0)), tsum (v4 * treplicate 784 (tconst 7.0))] + v5))) ; v37 = recip (treplicate 4 (tconst 1.0) + exp (negate (tfromList [tsum (v6 * v30), tsum (v7 * v30), tsum (v8 * v30), tsum (v9 * v30)] + v10))) ; v38 = exp (tfromList [tsum (v11 * v37), tsum (v12 * v37), tsum (v13 * v37), tsum (v14 * v37), tsum (v15 * v37)] + v16) in treplicate 5 (recip (tsum v38)) * v38"
 
 valsInitVT2OPP :: MnistFcnnRanked2.ADFcnnMnist2Parameters (Flip OR.Array) Double
 valsInitVT2OPP =
@@ -775,8 +775,8 @@ testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked AstPrimal) Double
-              -> AstRanked AstPrimal Double 1
+      afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked AstFull) Double
+              -> AstRanked AstFull Double 1
       afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id blackGlyph
       (artifact6, _) = revDtFun True afcnn2T valsInitVT2OPP
   printGradient6Pretty renames artifact6
@@ -793,28 +793,28 @@ testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked AstPrimal) Double
-                    -> AstRanked AstPrimal Double 1
+      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked AstFull) Double
+                    -> AstRanked AstFull Double 1
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
-                 in ( ( AstConstant $ AstPrimalPart $ AstConst $ runFlip a1
-                      , AstConstant $ AstPrimalPart $ AstConst $ runFlip a2 )
-                    , ( AstConstant $ AstPrimalPart $ AstConst $ runFlip a3
-                      , AstConstant $ AstPrimalPart $ AstConst $ runFlip a4 )
-                    , ( AstConstant $ AstPrimalPart $ AstConst $ runFlip a5
-                      , AstConstant $ AstPrimalPart $ AstConst $ runFlip a6 ) )
+                 in ( ( AstConstant $ AstConst $ runFlip a1
+                      , AstConstant $ AstConst $ runFlip a2 )
+                    , ( AstConstant $ AstConst $ runFlip a3
+                      , AstConstant $ AstConst $ runFlip a4 )
+                    , ( AstConstant $ AstConst $ runFlip a5
+                      , AstConstant $ AstConst $ runFlip a6 ) )
       (_, ast3) = funToAstR @Double (singletonShape 0)
                                     (const $ afcnn2TnonLin constant)
   "\\dummy"
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\dummy -> tlet (exp (tsum (ttranspose [1,0] (treplicate 5 (tlet (tcast (tsum (ttranspose [1,0] (treplicate 4 (tcast (tlet (tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * tconst (fromList [3,3] [1.0,2.0,3.0,1.0,2.0,3.0,1.0,2.0,3.0]))) + tconst (fromList [3] [1.0,2.0,3.0])) (\\v6 -> tlet (tconstant (recip (treplicate 3 (tconst 1.0) + exp (negate v6)))) (\\v7 -> tD v7 ((v7 * (treplicate 3 (tconst 1.0) - v7)) * v6))))) * tconst (fromList [4,4] [1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0])))) + tconst (fromList [4] [1.0,2.0,3.0,4.0])) (\\v8 -> tlet (tconstant (recip (treplicate 4 (tconst 1.0) + exp (negate v8)))) (\\v9 -> tD v9 ((v9 * (treplicate 4 (tconst 1.0) - v9)) * v8)))) * tconst (fromList [5,5] [1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0]))) + tconst (fromList [5] [1.0,2.0,3.0,4.0,5.0]))) (\\v2 -> treplicate 5 (recip (tsum v2)) * v2)"
+    @?= "\\dummy -> tlet (exp (tsum (ttranspose [1,0] (treplicate 5 (tlet (tcast (tsum (ttranspose [1,0] (treplicate 4 (tcast (tlet (tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * tconst (fromList [3,3] [1.0,2.0,3.0,1.0,2.0,3.0,1.0,2.0,3.0]))) + tconst (fromList [3] [1.0,2.0,3.0])) (\\v5 -> tlet (tconstant (recip (treplicate 3 (tconst 1.0) + exp (negate (tprimalPart v5))))) (\\v6 -> tD (tprimalPart v6) (tdualPart (tconstant (tprimalPart v6 * (treplicate 3 (tconst 1.0) - tprimalPart v6)) * tD (treplicate 3 (tconst 0.0)) (tdualPart v5))))))) * tconst (fromList [4,4] [1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0])))) + tconst (fromList [4] [1.0,2.0,3.0,4.0])) (\\v7 -> tlet (tconstant (recip (treplicate 4 (tconst 1.0) + exp (negate (tprimalPart v7))))) (\\v8 -> tD (tprimalPart v8) (tdualPart (tconstant (tprimalPart v8 * (treplicate 4 (tconst 1.0) - tprimalPart v8)) * tD (treplicate 4 (tconst 0.0)) (tdualPart v7)))))) * tconst (fromList [5,5] [1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0]))) + tconst (fromList [5] [1.0,2.0,3.0,4.0,5.0]))) (\\v9 -> treplicate 5 (recip (tsum v9)) * v9)"
   resetVarCounter
   let (artifact6nonLin, _) = revDtFun True afcnn2TnonLin valsInitVT2OPP
   printGradient6Pretty renames artifact6nonLin
-    @?= "\\dret m2 v3 m4 v5 m6 v7 -> let v16 = tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * m2)) + v3 ; v19 = let v17 = exp (negate v16) ; v18 = treplicate 3 (tconst 1.0) + v17 in recip v18 ; v20 = treplicate 3 (tconst 1.0) - v19 ; v21 = v19 * v20 ; m22 = treplicate 4 (tcast v19) ; v23 = tcast (tsum (ttranspose [1,0] (m22 * m4))) + v5 ; v26 = let v24 = exp (negate v23) ; v25 = treplicate 4 (tconst 1.0) + v24 in recip v25 ; v27 = treplicate 4 (tconst 1.0) - v26 ; v28 = v26 * v27 ; m29 = treplicate 5 v26 ; v30 = exp (tsum (ttranspose [1,0] (m29 * m6)) + v7) ; x31 = tsum v30 ; v32 = treplicate 5 (recip x31) ; v33 = v30 * (treplicate 5 (negate (recip (x31 * x31)) * tsum (v30 * dret)) + v32 * dret) ; v34 = tsum (m6 * ttranspose [1,0] (treplicate 4 v33)) ; v35 = v26 * (v23 * v34) ; v36 = v28 * v34 ; m37 = ttranspose [1,0] (treplicate 3 (tcast v36)) ; v38 = tcast (tsum (m4 * m37)) ; v39 = v19 * (v16 * v38) ; v40 = v21 * v38 in (treplicate 3 (treplicate 784 (tconst 7.0)) * ttranspose [1,0] (treplicate 784 v40), v40, m22 * m37, v36, m29 * ttranspose [1,0] (treplicate 4 v33), v33)"
+    @?= "\\dret m2 v3 m4 v5 m6 v7 -> let v16 = tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * m2)) + v3 ; v21 = let v19 = let v17 = exp (negate v16) ; v18 = treplicate 3 (tconst 1.0) + v17 in recip v18 ; v20 = treplicate 3 (tconst 1.0) - v19 in v19 * v20 ; m22 = treplicate 4 (tcast (let v19 = let v17 = exp (negate v16) ; v18 = treplicate 3 (tconst 1.0) + v17 in recip v18 in v19)) ; v23 = tcast (tsum (ttranspose [1,0] (m22 * m4))) + v5 ; v28 = let v26 = let v24 = exp (negate v23) ; v25 = treplicate 4 (tconst 1.0) + v24 in recip v25 ; v27 = treplicate 4 (tconst 1.0) - v26 in v26 * v27 ; m29 = treplicate 5 (let v26 = let v24 = exp (negate v23) ; v25 = treplicate 4 (tconst 1.0) + v24 in recip v25 in v26) ; v30 = exp (tsum (ttranspose [1,0] (m29 * m6)) + v7) ; x31 = tsum v30 ; v32 = treplicate 5 (recip x31) ; v33 = v30 * (treplicate 5 (negate (recip (x31 * x31)) * tsum (v30 * dret)) + v32 * dret) ; v34 = v28 * tsum (m6 * ttranspose [1,0] (treplicate 4 v33)) ; m35 = ttranspose [1,0] (treplicate 3 (tcast v34)) ; v36 = v21 * tcast (tsum (m4 * m35)) in (treplicate 3 (treplicate 784 (tconst 7.0)) * ttranspose [1,0] (treplicate 784 v36), v36, m22 * m35, v34, m29 * ttranspose [1,0] (treplicate 4 v33), v33)"
   printPrimal6Pretty renames artifact6nonLin
-    @?= "\\m2 v3 m4 v5 m6 v7 -> let v16 = tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * m2)) + v3 ; v19 = let v17 = exp (negate v16) ; v18 = treplicate 3 (tconst 1.0) + v17 in recip v18 ; v20 = treplicate 3 (tconst 1.0) - v19 ; v21 = v19 * v20 ; m22 = treplicate 4 (tcast v19) ; v23 = tcast (tsum (ttranspose [1,0] (m22 * m4))) + v5 ; v26 = let v24 = exp (negate v23) ; v25 = treplicate 4 (tconst 1.0) + v24 in recip v25 ; v27 = treplicate 4 (tconst 1.0) - v26 ; v28 = v26 * v27 ; m29 = treplicate 5 v26 ; v30 = exp (tsum (ttranspose [1,0] (m29 * m6)) + v7) ; x31 = tsum v30 ; v32 = treplicate 5 (recip x31) in v32 * v30"
+    @?= "\\m2 v3 m4 v5 m6 v7 -> let v16 = tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * m2)) + v3 ; v21 = let v19 = let v17 = exp (negate v16) ; v18 = treplicate 3 (tconst 1.0) + v17 in recip v18 ; v20 = treplicate 3 (tconst 1.0) - v19 in v19 * v20 ; m22 = treplicate 4 (tcast (let v19 = let v17 = exp (negate v16) ; v18 = treplicate 3 (tconst 1.0) + v17 in recip v18 in v19)) ; v23 = tcast (tsum (ttranspose [1,0] (m22 * m4))) + v5 ; v28 = let v26 = let v24 = exp (negate v23) ; v25 = treplicate 4 (tconst 1.0) + v24 in recip v25 ; v27 = treplicate 4 (tconst 1.0) - v26 in v26 * v27 ; m29 = treplicate 5 (let v26 = let v24 = exp (negate v23) ; v25 = treplicate 4 (tconst 1.0) + v24 in recip v25 in v26) ; v30 = exp (tsum (ttranspose [1,0] (m29 * m6)) + v7) ; x31 = tsum v30 ; v32 = treplicate 5 (recip x31) in v32 * v30"
   printGradient6Pretty renames (simplifyArtifact6 artifact6nonLin)
-    @?= "\\dret m2 v3 m4 v5 m6 v7 -> let v19 = recip (treplicate 3 (tconst 1.0) + exp (negate (tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * m2)) + v3))) ; m22 = treplicate 4 (tcast v19) ; v26 = recip (treplicate 4 (tconst 1.0) + exp (negate (tcast (tsum (ttranspose [1,0] (m22 * m4))) + v5))) ; v30 = exp (tsum (ttranspose [1,0] (treplicate 5 v26 * m6)) + v7) ; x31 = tsum v30 ; v33 = v30 * (treplicate 5 (negate (recip (x31 * x31)) * tsum (v30 * dret)) + treplicate 5 (recip x31) * dret) ; v36 = (v26 * (treplicate 4 (tconst 1.0) - v26)) * tsum (m6 * ttranspose [1,0] (treplicate 4 v33)) ; m37 = ttranspose [1,0] (treplicate 3 (tcast v36)) ; v40 = (v19 * (treplicate 3 (tconst 1.0) - v19)) * tcast (tsum (m4 * m37)) in (treplicate 3 (treplicate 784 (tconst 7.0)) * ttranspose [1,0] (treplicate 784 v40), v40, m22 * m37, v36, treplicate 5 v26 * ttranspose [1,0] (treplicate 4 v33), v33)"
+    @?= "\\dret m2 v3 m4 v5 m6 v7 -> let v16 = tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * m2)) + v3 ; m22 = treplicate 4 (tcast (recip (treplicate 3 (tconst 1.0) + exp (negate v16)))) ; v23 = tcast (tsum (ttranspose [1,0] (m22 * m4))) + v5 ; m29 = treplicate 5 (recip (treplicate 4 (tconst 1.0) + exp (negate v23))) ; v30 = exp (tsum (ttranspose [1,0] (m29 * m6)) + v7) ; x31 = tsum v30 ; v33 = v30 * (treplicate 5 (negate (recip (x31 * x31)) * tsum (v30 * dret)) + treplicate 5 (recip x31) * dret) ; v34 = (let v26 = recip (treplicate 4 (tconst 1.0) + exp (negate v23)) in v26 * (treplicate 4 (tconst 1.0) - v26)) * tsum (m6 * ttranspose [1,0] (treplicate 4 v33)) ; m35 = ttranspose [1,0] (treplicate 3 (tcast v34)) ; v36 = (let v19 = recip (treplicate 3 (tconst 1.0) + exp (negate v16)) in v19 * (treplicate 3 (tconst 1.0) - v19)) * tcast (tsum (m4 * m35)) in (treplicate 3 (treplicate 784 (tconst 7.0)) * ttranspose [1,0] (treplicate 784 v36), v36, m22 * m35, v34, m29 * ttranspose [1,0] (treplicate 4 v33), v33)"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6nonLin)
     @?= "\\m2 v3 m4 v5 m6 v7 -> let v30 = exp (tsum (ttranspose [1,0] (treplicate 5 (recip (treplicate 4 (tconst 1.0) + exp (negate (tcast (tsum (ttranspose [1,0] (treplicate 4 (tcast (recip (treplicate 3 (tconst 1.0) + exp (negate (tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * m2)) + v3))))) * m4))) + v5)))) * m6)) + v7) in treplicate 5 (recip (tsum v30)) * v30"

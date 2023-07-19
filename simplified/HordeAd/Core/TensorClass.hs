@@ -12,7 +12,6 @@ module HordeAd.Core.TensorClass
   ( ShapeInt, ShapeSh, DynamicOf
   , ShapedTensor(..), RankedTensor(..), ConvertTensor(..), DomainsTensor(..)
   , ADReady, ADReadyS, ADRanked, ADShaped
-  , GoodScalar
   ) where
 
 import Prelude
@@ -262,7 +261,8 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
   tconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
   tconstBare :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
   tconstBare = tconst
-  tletWrap :: ADShare -> ranked r n -> ranked r n
+  tletWrap :: (GoodScalar r, KnownNat n)
+           => ADShare -> ranked r n -> ranked r n
   tletWrap _l u = u
   raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
               => ranked r n -> DynamicExists (DynamicOf ranked)
@@ -546,7 +546,8 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
   sconst :: (GoodScalar r, OS.Shape sh) => OS.Array sh r -> shaped r sh
   sconstBare :: (GoodScalar r, OS.Shape sh) => OS.Array sh r -> shaped r sh
   sconstBare = sconst
-  sletWrap :: ADShare -> shaped r sh -> shaped r sh
+  sletWrap :: (GoodScalar r, OS.Shape sh)
+           => ADShare -> shaped r sh -> shaped r sh
   sletWrap _l u = u
   saddDynamic :: forall sh r. (GoodScalar r, OS.Shape sh)
               => shaped r sh -> DynamicExists (DynamicOf shaped)
@@ -559,9 +560,9 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
   -- Primal/dual things.
   sconstant :: (GoodScalar r, OS.Shape sh)
             => PrimalOf shaped r sh -> shaped r sh
-  sprimalPart :: GoodScalar r
+  sprimalPart :: (GoodScalar r, OS.Shape sh)
               => shaped r sh -> PrimalOf shaped r sh
-  sdualPart :: GoodScalar r
+  sdualPart :: (GoodScalar r, OS.Shape sh)
             => shaped r sh -> DualOf shaped r sh
   sD :: (GoodScalar r, OS.Shape sh)
      => PrimalOf shaped r sh -> DualOf shaped r sh -> shaped r sh
@@ -658,8 +659,6 @@ type instance DualOf (Flip OR.Array) = DummyDual
 type instance DynamicOf (Flip OR.Array) = OD.Array
 
 type instance DynamicOf (AstRanked s) = AstDynamic s
-
-type instance DynamicOf (AstPrimalPart) = AstDynamic AstPrimal
 
 type instance RankedOf (Flip OR.Array) = Flip OR.Array
 
@@ -764,8 +763,6 @@ type instance DualOf (Flip OS.Array) = DummyDual
 type instance DynamicOf (Flip OS.Array) = OD.Array
 
 type instance DynamicOf (AstShaped s) = AstDynamic s
-
-type instance DynamicOf (AstPrimalPartS) = AstDynamic AstPrimal
 
 type instance RankedOf (Flip OS.Array) = Flip OR.Array
 

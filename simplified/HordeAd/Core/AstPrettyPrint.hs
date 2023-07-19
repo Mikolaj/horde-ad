@@ -127,6 +127,8 @@ areAllArgsInts = \case
   AstFromIntegral{} -> True
   AstSToR{} -> False
   AstConstant{} -> True  -- the argument is emphatically a primal number; fine
+  AstPrimalPart{} -> False
+  AstDualPart{} -> False
   AstD{} -> False  -- dual number
   AstLetDomains{} -> True  -- too early to tell
   AstCond{} -> True  -- too early to tell
@@ -135,7 +137,7 @@ areAllArgsInts = \case
   AstMaxIndex{} -> False
 
 printAstInt :: PrintConfig -> Int -> AstInt -> ShowS
-printAstInt cfgOld d (AstPrimalPart t) =
+printAstInt cfgOld d t =
   let cfg = cfgOld {representsIntIndex = True}
   in printAst cfg d t
 
@@ -149,7 +151,7 @@ printAst cfgOld d t =
       case t of
         AstVar _ var -> printAstIntVar cfgOld var
         AstConst i -> shows $ OR.unScalar i
-        AstConstant (AstPrimalPart (AstConst i)) -> shows $ OR.unScalar i
+        AstConstant (AstConst i) -> shows $ OR.unScalar i
           -- this case looks like a result of a bug, but we can print it well
         _ -> if areAllArgsInts t
              then printAstAux cfgOld d t
@@ -262,7 +264,7 @@ printAstAux cfg d = \case
            . showString " -> "
            . showListWith (printAstInt cfg 0) (indexToList ix))
   AstCast v -> printPrefixOp printAst cfg d "tcast" [v]
-  AstFromIntegral (AstPrimalPart a) ->
+  AstFromIntegral a ->
     printPrefixOp printAst cfg d "tfromIntegral" [a]
   AstSToR v -> printAstS cfg d v
   AstConst a ->
@@ -272,11 +274,11 @@ printAstAux cfg d = \case
         then shows $ head $ OR.toList a
         else showParen True
              $ shows a
-  AstConstant (AstPrimalPart a@AstConst{}) -> printAst cfg d a
-  AstConstant (AstPrimalPart a) ->
-    printPrefixOp printAst cfg d "tconstant" [a]
-  AstD (AstPrimalPart u) (AstDualPart u') ->
-    printPrefixOp printAst cfg d "tD" [u, u']
+  AstConstant a@AstConst{} -> printAst cfg d a
+  AstConstant a -> printPrefixOp printAst cfg d "tconstant" [a]
+  AstPrimalPart a -> printPrefixOp printAst cfg d "tprimalPart" [a]
+  AstDualPart a -> printPrefixOp printAst cfg d "tdualPart" [a]
+  AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "tD" u u'
   AstLetDomains vars l v ->
     showParen (d > 10)
     $ showString "rletDomainsOf "
@@ -289,8 +291,6 @@ printAstAux cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
       -- TODO: this does not roundtrip yet
-  AstFloor (AstPrimalPart a) ->
-    printPrefixOp printAst cfg d "tfloor" [a]
   AstCond b a1 a2 ->
     showParen (d > 10)
     $ showString "ifF "
@@ -299,9 +299,11 @@ printAstAux cfg d = \case
       . printAst cfg 11 a1
       . showString " "
       . printAst cfg 11 a2
-  AstMinIndex (AstPrimalPart a) ->
+  AstFloor a ->
+    printPrefixOp printAst cfg d "tfloor" [a]
+  AstMinIndex a ->
     printPrefixOp printAst cfg d "tminIndex" [a]
-  AstMaxIndex (AstPrimalPart a) ->
+  AstMaxIndex a ->
     printPrefixOp printAst cfg d "tmaxIndex" [a]
 
 printAstVarFromDomains
@@ -407,10 +409,8 @@ printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
 printAstBool cfg d = \case
   AstBoolOp opCode args -> printAstBoolOp cfg d opCode args
   AstBoolConst b -> showString $ if b then "true" else "false"
-  AstRel opCode args -> printAstRelOp printAst cfg d opCode
-                        $ map unAstPrimalPart args
-  AstRelS opCode args -> printAstRelOp printAstS cfg d opCode
-                         $ map unAstPrimalPartS args
+  AstRel opCode args -> printAstRelOp printAst cfg d opCode args
+  AstRelS opCode args -> printAstRelOp printAstS cfg d opCode args
 
 printAstNm :: (PrintConfig -> Int -> a -> ShowS)
               -> PrintConfig -> Int -> OpCodeNum -> [a] -> ShowS
@@ -463,6 +463,17 @@ printPrefixOp :: (PrintConfig -> Int -> a -> ShowS)
 {-# INLINE printPrefixOp #-}
 printPrefixOp pr cfg d funcname args =
   let rs = map (\arg -> showString " " . pr cfg 11 arg) args
+  in showParen (d > 10)
+     $ showString funcname
+       . foldr (.) id rs
+
+printPrefixBinaryOp :: (PrintConfig -> Int -> a -> ShowS)
+                    -> (PrintConfig -> Int -> b -> ShowS)
+                    -> PrintConfig -> Int -> String -> a -> b
+                    -> ShowS
+{-# INLINE printPrefixBinaryOp #-}
+printPrefixBinaryOp pra prb cfg d funcname a b =
+  let rs = [showString " " . pra cfg 11 a, showString " " . prb cfg 11 b]
   in showParen (d > 10)
      $ showString funcname
        . foldr (.) id rs
@@ -618,7 +629,7 @@ printAstS cfg d = \case
            . showString " -> "
            . showListWith (printAstInt cfg 0) (ShapedList.sizedListToList ix))
   AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
-  AstFromIntegralS (AstPrimalPartS a) ->
+  AstFromIntegralS a ->
     printPrefixOp printAstS cfg d "sfromIntegral" [a]
   AstRToS v -> printAst cfg d v
   AstConstS a ->
@@ -628,11 +639,12 @@ printAstS cfg d = \case
         then shows $ head $ OS.toList a
         else showParen True
              $ shows a
-  AstConstantS (AstPrimalPartS a@AstConstS{}) -> printAstS cfg d a
-  AstConstantS (AstPrimalPartS a) ->
+  AstConstantS a@AstConstS{} -> printAstS cfg d a
+  AstConstantS a ->
     printPrefixOp printAstS cfg d "sconstant" [a]
-  AstDS (AstPrimalPartS u) (AstDualPartS u') ->
-    printPrefixOp printAstS cfg d "tDS" [u, u']
+  AstPrimalPartS a -> printPrefixOp printAstS cfg d "sprimalPart" [a]
+  AstDualPartS a -> printPrefixOp printAstS cfg d "sdualPart" [a]
+  AstDS u u' -> printPrefixBinaryOp printAstS printAstS cfg d "tDS" u u'
   AstLetDomainsS vars l v ->
     showParen (d > 10)
     $ showString "sletDomainsOf "
@@ -645,8 +657,6 @@ printAstS cfg d = \case
            . showString " -> "
            . printAstS cfg 0 v)
       -- TODO: this does not roundtrip yet
-  AstFloorS (AstPrimalPartS a) ->
-    printPrefixOp printAstS cfg d "sfloor" [a]
   AstCondS b a1 a2 ->
     showParen (d > 10)
     $ showString "ifF "
@@ -655,10 +665,9 @@ printAstS cfg d = \case
       . printAstS cfg 11 a1
       . showString " "
       . printAstS cfg 11 a2
-  AstMinIndexS (AstPrimalPartS a) ->
-    printPrefixOp printAstS cfg d "sminIndex" [a]
-  AstMaxIndexS (AstPrimalPartS a) ->
-    printPrefixOp printAstS cfg d "smaxIndex" [a]
+  AstFloorS a ->  printPrefixOp printAstS cfg d "sfloor" [a]
+  AstMinIndexS a -> printPrefixOp printAstS cfg d "sminIndex" [a]
+  AstMaxIndexS a -> printPrefixOp printAstS cfg d "smaxIndex" [a]
 
 printAstSimple :: (GoodScalar r, KnownNat n)
                => IntMap String -> AstRanked s r n -> String
@@ -685,7 +694,7 @@ printAstDomainsPretty renames t =
   printAstDomains (defaulPrintConfig True renames) 0 t ""
 
 printGradient6Simple :: KnownNat n
-                     => IntMap String -> ADAstArtifact6 (Flip OR.Array) s r n
+                     => IntMap String -> ADAstArtifact6 (Flip OR.Array) r n
                      -> String
 printGradient6Simple renames ((varDt, vars1), gradient, _) =
   let varsPP = printAstVarName renames varDt
@@ -694,7 +703,7 @@ printGradient6Simple renames ((varDt, vars1), gradient, _) =
           ++ " -> " ++ printAstDomainsSimple renames gradient
 
 printGradient6Pretty :: KnownNat n
-                     => IntMap String -> ADAstArtifact6 (Flip OR.Array) s r n
+                     => IntMap String -> ADAstArtifact6 (Flip OR.Array) r n
                      -> String
 printGradient6Pretty renames ((varDt, vars1), gradient, _) =
   let varsPP = printAstVarName renames varDt
@@ -703,23 +712,23 @@ printGradient6Pretty renames ((varDt, vars1), gradient, _) =
           ++ " -> " ++ printAstDomainsPretty renames gradient
 
 printPrimal6Simple :: (GoodScalar r, KnownNat n)
-                   => IntMap String -> ADAstArtifact6 (Flip OR.Array) s r n
+                   => IntMap String -> ADAstArtifact6 (Flip OR.Array) r n
                    -> String
-printPrimal6Simple renames ((_, vars1), _, AstPrimalPart primal) =
+printPrimal6Simple renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstSimple renames primal
 
 printPrimal6Pretty :: (GoodScalar r, KnownNat n)
-                   => IntMap String -> ADAstArtifact6 (Flip OR.Array) s r n
+                   => IntMap String -> ADAstArtifact6 (Flip OR.Array) r n
                    -> String
-printPrimal6Pretty renames ((_, vars1), _, AstPrimalPart primal) =
+printPrimal6Pretty renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstPretty renames primal
 
 printGradient6SimpleS :: OS.Shape sh
-                      => IntMap String -> ADAstArtifact6 (Flip OS.Array) s r sh
+                      => IntMap String -> ADAstArtifact6 (Flip OS.Array) r sh
                       -> String
 printGradient6SimpleS renames ((varDt, vars1), gradient, _) =
   let varsPP = printAstVarNameS renames varDt
@@ -728,7 +737,7 @@ printGradient6SimpleS renames ((varDt, vars1), gradient, _) =
           ++ " -> " ++ printAstDomainsSimple renames gradient
 
 printGradient6PrettyS :: OS.Shape sh
-                      => IntMap String -> ADAstArtifact6 (Flip OS.Array) s r sh
+                      => IntMap String -> ADAstArtifact6 (Flip OS.Array) r sh
                       -> String
 printGradient6PrettyS renames ((varDt, vars1), gradient, _) =
   let varsPP = printAstVarNameS renames varDt
@@ -737,17 +746,17 @@ printGradient6PrettyS renames ((varDt, vars1), gradient, _) =
           ++ " -> " ++ printAstDomainsPretty renames gradient
 
 printPrimal6SimpleS :: (GoodScalar r, OS.Shape sh)
-                    => IntMap String -> ADAstArtifact6 (Flip OS.Array) s r sh
+                    => IntMap String -> ADAstArtifact6 (Flip OS.Array) r sh
                     -> String
-printPrimal6SimpleS renames ((_, vars1), _, AstPrimalPartS primal) =
+printPrimal6SimpleS renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstSimpleS renames primal
 
 printPrimal6PrettyS :: (GoodScalar r, OS.Shape sh)
-                    => IntMap String -> ADAstArtifact6 (Flip OS.Array) s r sh
+                    => IntMap String -> ADAstArtifact6 (Flip OS.Array) r sh
                     -> String
-printPrimal6PrettyS renames ((_, vars1), _, AstPrimalPartS primal) =
+printPrimal6PrettyS renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarName renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstPrettyS renames primal

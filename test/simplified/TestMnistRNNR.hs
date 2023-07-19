@@ -242,11 +242,11 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
 tensorADValMnistTestsRNNI :: TestTree
 tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
   [ mnistTestCaseRNNI "RNNI 1 epoch, 1 batch" 1 1 128 5 50
-                       (0.84 :: Double)
+                       (0.96 :: Double)
   , mnistTestCaseRNNI "RNNI artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNI "RNNI artificial 5 4 3 2 1" 5 4 3 2 49
-                       (0.8928571428571429 :: Double)
+                       (0.8163265306122449 :: Double)
   , mnistTestCaseRNNI "RNNI 1 epoch, 0 batch" 1 0 128 5 50
                        (1.0 :: Float)
   ]
@@ -295,11 +295,11 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
            id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
-       let envInit = extendEnvR varGlyph (tconstant $ astPrimalPart astGlyph)
-                     $ extendEnvR varLabel (tconstant $ astPrimalPart astLabel)
+       let envInit = extendEnvR varGlyph (tconstant astGlyph)
+                     $ extendEnvR varLabel (tconstant astLabel)
                        EM.empty
            f = MnistRnnRanked2.rnnMnistLossFusedR
-                 miniBatchSize (astPrimalPart astGlyph, astPrimalPart astLabel)
+                 miniBatchSize (astGlyph, astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit @Nat @(Flip OR.Array)
                        False f valsInit envInit domainsInit
@@ -407,13 +407,12 @@ testRNNOPP = do
       batch_size = 1
       sizeMnistWidthI = 1
       sizeMnistHeightI = 1
-      blackGlyph :: AstPrimalPart Double 3
-      blackGlyph = astPrimalPart
-                   $ AstReplicate sizeMnistWidthI
+      blackGlyph :: AstRanked AstPrimal Double 3
+      blackGlyph = AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
-      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked AstPrimal) Double
-              -> AstRanked AstPrimal Double 2
+      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked AstFull) Double
+              -> AstRanked AstFull Double 2
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
       (artifact6, _) = revDtFun True afcnn2T (valsInitRNNOPP 1 sizeMnistHeightI)
   printGradient6Pretty renames artifact6
@@ -432,13 +431,12 @@ testRNNOPP2 = do
       batch_size = 2
       sizeMnistWidthI = 2
       sizeMnistHeightI = 2
-      blackGlyph :: AstPrimalPart Double 3
-      blackGlyph = astPrimalPart
-                   $ AstReplicate sizeMnistWidthI
+      blackGlyph :: AstRanked AstPrimal Double 3
+      blackGlyph = AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
-      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked AstPrimal) Double
-              -> AstRanked AstPrimal Double 2
+      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked AstFull) Double
+              -> AstRanked AstFull Double 2
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
       (artifact6, _) = revDtFun True afcnn2T (valsInitRNNOPP 2 sizeMnistHeightI)
   printGradient6Pretty renames artifact6

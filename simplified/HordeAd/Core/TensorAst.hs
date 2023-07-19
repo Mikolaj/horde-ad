@@ -10,7 +10,6 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
-import           Control.Arrow (second)
 import qualified Data.Array.Shape as OS
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -32,15 +31,63 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
 
-instance RankedTensor (AstRanked AstPrimal) where
+
+-- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation
+
+type instance BoolOf (AstRanked s) = AstBool
+
+instance IfF (AstRanked s) where
+  ifF = astCond
+
+instance AstSpan s => EqF (AstRanked s) where
+  v ==. u = AstRel EqOp [astSpanPrimal v, astSpanPrimal u]
+  v /=. u = AstRel NeqOp [astSpanPrimal v, astSpanPrimal u]
+
+instance AstSpan s => OrdF (AstRanked s) where
+  AstConst u <. AstConst v = AstBoolConst $ u < v  -- common in indexing
+  v <. u = AstRel LsOp [astSpanPrimal v, astSpanPrimal u]
+  AstConst u <=. AstConst v = AstBoolConst $ u <= v  -- common in indexing
+  v <=. u = AstRel LeqOp [astSpanPrimal v, astSpanPrimal u]
+  AstConst u >. AstConst v = AstBoolConst $ u > v  -- common in indexing
+  v >. u = AstRel GtOp [astSpanPrimal v, astSpanPrimal u]
+  AstConst u >=. AstConst v = AstBoolConst $ u >= v  -- common in indexing
+  v >=. u = AstRel GeqOp [astSpanPrimal v, astSpanPrimal u]
+
+
+-- * Unlawful boolean instances of shaped AST; they are lawful modulo evaluation
+
+type instance BoolOf (AstShaped s) = AstBool
+
+instance IfF (AstShaped s) where
+  ifF = astCondS
+
+instance AstSpan s => EqF (AstShaped s) where
+  v ==. u = AstRelS EqOp [astSpanPrimalS v, astSpanPrimalS u]
+  v /=. u = AstRelS NeqOp [astSpanPrimalS v, astSpanPrimalS u]
+
+instance AstSpan s => OrdF (AstShaped s) where
+  AstConstS u <. AstConstS v = AstBoolConst $ u < v  -- common in indexing
+  v <. u = AstRelS LsOp [astSpanPrimalS v, astSpanPrimalS u]
+  AstConstS u <=. AstConstS v = AstBoolConst $ u <= v  -- common in indexing
+  v <=. u = AstRelS LeqOp [astSpanPrimalS v, astSpanPrimalS u]
+  AstConstS u >. AstConstS v = AstBoolConst $ u > v  -- common in indexing
+  v >. u = AstRelS GtOp [astSpanPrimalS v, astSpanPrimalS u]
+  AstConstS u >=. AstConstS v = AstBoolConst $ u >= v  -- common in indexing
+  v >=. u = AstRelS GeqOp [astSpanPrimalS v, astSpanPrimalS u]
+
+
+-- * Ranked tensor AST instances
+
+instance AstSpan s
+         => RankedTensor (AstRanked s) where
   tlet a f = astLetFun a f
 
   tshape = shapeAst
-  tminIndex = AstMinIndex . astPrimalPart
-  tmaxIndex = AstMaxIndex . astPrimalPart
-  tfloor = AstFloor . astPrimalPart
+  tminIndex = fromPrimal . AstMinIndex . astSpanPrimal
+  tmaxIndex = fromPrimal . AstMaxIndex . astSpanPrimal
+  tfloor = fromPrimal . AstFloor . astSpanPrimal
 
-  tiota = AstConstant . AstPrimalPart $ AstIota
+  tiota = fromPrimal AstIota
   tindex = AstIndex
   tsum = AstSum
   tscatter sh t f = astScatter sh t (funToAstIndex f)  -- introduces new vars
@@ -56,18 +103,19 @@ instance RankedTensor (AstRanked AstPrimal) where
   tbuild1 = astBuild1Vectorize
   tgather sh t f = AstGather sh t (funToAstIndex f)  -- introduces new vars
   tcast = AstCast
-  tfromIntegral = AstFromIntegral . astPrimalPart
+  tfromIntegral = fromPrimal . AstFromIntegral . astSpanPrimal
 
   tsumOfList = AstSumOfList
-  tconst = AstConstant . AstPrimalPart . AstConst
-  tconstBare = AstConst
-  tletWrap l u = if nullADShare l then u else AstLetADShare l u
+  tconst = fromPrimal . AstConst
+  tconstBare = fromPrimal . AstConst
+  tletWrap l u = if nullADShare l then u
+                 else fromPrimal $ AstLetADShare l (astSpanPrimal u)
     -- We can't use astLet here, because it may inline a let that is
     -- present at the top level of the dual number and so we'd lose
     -- sharing that is not visible in this restricted context.
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
-  raddDynamic :: forall n s r. (GoodScalar r, KnownNat n)
+  raddDynamic :: forall n r. (GoodScalar r, KnownNat n)
               => AstRanked s r n -> DynamicExists (AstDynamic s)
               -> DynamicExists (AstDynamic s)
   raddDynamic r (DynamicExists @r2 d) = DynamicExists $
@@ -95,13 +143,13 @@ instance RankedTensor (AstRanked AstPrimal) where
       _ -> error "raddDynamic: type mismatch"
   tregister = astRegisterFun
 
-  tconstant = AstConstant
-  tprimalPart = astPrimalPart
-  tdualPart = AstDualPart
-  tD = AstD  -- TODO: simplify when it's know that dual part is AstConstant
-  tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
+  tconstant = fromPrimal
+  tprimalPart = astSpanPrimal
+  tdualPart = astSpanDual
+  tD = astSpanD
+  tScale s t = astDualPart $ AstConstant s `tmult` AstD (tzero (tshape s)) t
 
-instance ConvertTensor (AstRanked s) (AstShaped s) where
+instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   tfromD = astFromDynamic
   tfromS (AstVarS @sh var) =
     let sh = OS.shapeT @sh
@@ -125,7 +173,7 @@ instance ConvertTensor (AstRanked s) (AstShaped s) where
       _ -> error "sfromR: different ranks in SToD(DToS)"
   sfromR t = AstRToS t
   sfromD = astFromDynamicS
-  ddummy = AstRToD AstIota
+  ddummy = AstRToD $ fromPrimal AstIota
   disDummy t = case t of
     AstRToD AstIota -> True
     AstSToD AstIotaS -> True
@@ -133,18 +181,8 @@ instance ConvertTensor (AstRanked s) (AstShaped s) where
   dshape (AstRToD v) = shapeToList $ shapeAst v
   dshape (AstSToD @sh _) = OS.shapeT @sh
 
-instance ConvertTensor (AstPrimalPart) (AstPrimalPartS) where
-  tfromD = astPrimalPart . tfromD
-  tfromS = astPrimalPart . tfromS . unAstPrimalPartS
-  dfromR = dfromR . unAstPrimalPart
-  dfromS = dfromS . unAstPrimalPartS
-  sfromR = astPrimalPartS . sfromR . unAstPrimalPart
-  sfromD = astPrimalPartS . sfromD
-  ddummy = ddummy @(AstRanked AstPrimal)
-  disDummy = disDummy @(AstRanked AstPrimal)
-  dshape = dshape @(AstRanked AstPrimal)
-
-instance DomainsTensor (AstRanked AstPrimal) (AstShaped AstPrimal) (AstDomains AstPrimal) where
+instance AstSpan s
+         => DomainsTensor (AstRanked s) (AstShaped s) (AstDomains s) where
   dmkDomains = AstDomains
   -- The operations below, for this instance, are not used ATM.
   -- They may be used once trev is a method of Tensor.
@@ -152,6 +190,34 @@ instance DomainsTensor (AstRanked AstPrimal) (AstShaped AstPrimal) (AstDomains A
   rletToDomainsOf = astDomainsLetFun
   sletDomainsOf = undefined
   sletToDomainsOf = undefined
+
+astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
+              => AstRanked s r n -> AstRanked AstPrimal r n
+astSpanPrimal t | Just Refl <- sameAstSpan @s @AstPrimal = t
+astSpanPrimal _ | Just Refl <- sameAstSpan @s @AstDual =
+  error "astSpanPrimal: can't recover primal from dual"
+    -- or we could return zero, but this is unlikely to happen
+    -- except by user error
+astSpanPrimal t | Just Refl <- sameAstSpan @s @AstFull = case t of
+  AstConstant v -> v
+  AstD u _ -> u
+  _ -> astPrimalPart t
+astSpanPrimal _ = error "a spuriuos case for pattern match coverage"
+
+astSpanDual :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
+            => AstRanked s r n -> AstRanked AstDual r n
+astSpanDual t | Just Refl <- sameAstSpan @s @AstPrimal =
+  AstDualPart $ AstConstant t  -- this is nil; likely to happen
+astSpanDual t | Just Refl <- sameAstSpan @s @AstDual = t
+astSpanDual t | Just Refl <- sameAstSpan @s @AstFull = astDualPart t
+astSpanDual _ = error "a spuriuos case for pattern match coverage"
+
+astSpanD :: forall s r n. AstSpan s
+         => AstRanked AstPrimal r n -> AstRanked AstDual r n -> AstRanked s r n
+astSpanD u _ | Just Refl <- sameAstSpan @s @AstPrimal = u
+astSpanD _ u' | Just Refl <- sameAstSpan @s @AstDual = u'
+astSpanD u u' | Just Refl <- sameAstSpan @s @AstFull = AstD u u'
+astSpanD _ _ = error "a spuriuos case for pattern match coverage"
 
 astLetFun :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
           => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)
@@ -163,7 +229,8 @@ astLetFun a f =
   in astLet var a ast  -- safe, because subsitution ruled out above
 
 astLetDomainsFun
-  :: forall m s r. AstDomains s -> (AstDomains s -> AstRanked s r m) -> AstRanked s r m
+  :: forall m s r. AstSpan s
+  => AstDomains s -> (AstDomains s -> AstRanked s r m) -> AstRanked s r m
 astLetDomainsFun a f =
   let genVar :: DynamicExists (AstDynamic s) -> (AstVarId, DynamicExists (AstDynamic s))
       genVar (DynamicExists @r2 (AstRToD t)) =
@@ -195,58 +262,18 @@ astBuild1Vectorize :: (KnownNat n, GoodScalar r, AstSpan s)
                    => Int -> (AstInt -> AstRanked s r n) -> AstRanked s r (1 + n)
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
-instance RankedTensor AstPrimalPart where
-  tlet a f =
-    astPrimalPart
-    $ astLetFun (unAstPrimalPart a) (unAstPrimalPart . f . astPrimalPart)
 
-  tshape = shapeAst . unAstPrimalPart
-  tminIndex = AstPrimalPart . AstMinIndex
-  tmaxIndex = AstPrimalPart . AstMaxIndex
-  tfloor = AstPrimalPart . AstFloor
+-- * Shaped tensor AST instances
 
-  tiota = AstPrimalPart AstIota
-  tindex v ix = astPrimalPart $ AstIndex (unAstPrimalPart v) ix
-  tsum = astPrimalPart . AstSum . unAstPrimalPart
-  tscatter sh t f = astPrimalPart $ astScatter sh (unAstPrimalPart t)
-                    $ funToAstIndex f  -- this introduces new variable names
-
-  tfromList = astPrimalPart . AstFromList . map unAstPrimalPart
-  tfromVector = astPrimalPart . AstFromVector . V.map unAstPrimalPart
-  treplicate k = astPrimalPart . AstReplicate k . unAstPrimalPart
-  tappend u v =
-    astPrimalPart $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
-  tslice i n = astPrimalPart . AstSlice i n . unAstPrimalPart
-  treverse = astPrimalPart . AstReverse . unAstPrimalPart
-  ttranspose perm = astPrimalPart . astTranspose perm . unAstPrimalPart
-  treshape sh = astPrimalPart . astReshape sh . unAstPrimalPart
-  tbuild1 k f = astPrimalPart $ astBuild1Vectorize k (unAstPrimalPart . f)
-  tgather sh t f = astPrimalPart $ AstGather sh (unAstPrimalPart t)
-                   $ funToAstIndex f  -- this introduces new variable names
-  tcast = astPrimalPart . AstCast . unAstPrimalPart
-  tfromIntegral = AstPrimalPart . AstFromIntegral
-
-  tsumOfList = astPrimalPart . AstSumOfList . map unAstPrimalPart
-  tconst = AstPrimalPart . AstConst
-  tletWrap l u = if nullADShare l then u
-                 else astPrimalPart $ AstLetADShare l (unAstPrimalPart u)
-  raddDynamic (AstPrimalPart r) d = raddDynamic r d
-  tregister r l = second astPrimalPart $ astRegisterFun (unAstPrimalPart r) l
-
-  tconstant = id
-  tprimalPart = id
-  tdualPart _ = DummyDual
-  tD u _ = u
-  tScale _ _ = DummyDual
-
-instance ShapedTensor (AstShaped AstPrimal) where
+instance AstSpan s
+         => ShapedTensor (AstShaped s) where
   slet a f = astLetFunS a f
 
-  sminIndex = AstMinIndexS . astPrimalPartS
-  smaxIndex = AstMaxIndexS . astPrimalPartS
-  sfloor = AstFloorS . astPrimalPartS
+  sminIndex = fromPrimalS . AstMinIndexS . astSpanPrimalS
+  smaxIndex = fromPrimalS . AstMaxIndexS . astSpanPrimalS
+  sfloor = fromPrimalS . AstFloorS . astSpanPrimalS
 
-  siota = AstConstantS . AstPrimalPartS $ AstIotaS
+  siota = fromPrimalS AstIotaS
   sindex = AstIndexS
   ssum = AstSumS
   sscatter t f = AstScatterS t (funToAstIndexS f)  -- astScatter t (funToAstIndexS f)  -- introduces new vars
@@ -262,18 +289,19 @@ instance ShapedTensor (AstShaped AstPrimal) where
   sbuild1 = astBuild1VectorizeS
   sgather t f = AstGatherS t (funToAstIndexS f)  -- introduces new vars
   scast = AstCastS
-  sfromIntegral = AstFromIntegralS . astPrimalPartS
+  sfromIntegral = fromPrimalS . AstFromIntegralS . astSpanPrimalS
 
   ssumOfList = AstSumOfListS
-  sconst = AstConstantS . AstPrimalPartS . AstConstS
-  sconstBare = AstConstS
-  sletWrap l u = if nullADShare l then u else AstLetADShareS l u
+  sconst = fromPrimalS . AstConstS
+  sconstBare = fromPrimalS . AstConstS
+  sletWrap l u = if nullADShare l then u
+                 else fromPrimalS $ AstLetADShareS l (astSpanPrimalS u)
     -- We can't use astLet here, because it may inline a let that is
     -- present at the top level of the dual number and so we'd lose
     -- sharing that is not visible in this restricted context.
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
-  saddDynamic :: forall sh s r. (GoodScalar r, OS.Shape sh)
+  saddDynamic :: forall sh r. (GoodScalar r, OS.Shape sh)
               => AstShaped s r sh -> DynamicExists (AstDynamic s)
               -> DynamicExists (AstDynamic s)
   saddDynamic r (DynamicExists @r2 d) = DynamicExists $
@@ -301,13 +329,42 @@ instance ShapedTensor (AstShaped AstPrimal) where
       _ -> error "saddDynamic: type mismatch"
   sregister = astRegisterFunS
 
-  sconstant = AstConstantS
-  sprimalPart = astPrimalPartS
-  sdualPart = AstDualPartS
-  sD = AstDS
-  sScale (AstPrimalPartS s) (AstDualPartS t) = AstDualPartS $ s `smult` t
+  sconstant = fromPrimalS
+  sprimalPart = astSpanPrimalS
+  sdualPart = astSpanDualS
+  sD = astSpanDS
+  sScale s t = astDualPartS $ AstConstantS s `smult` AstDS 0 t
 
-astLetFunS :: (OS.Shape sh, OS.Shape sh2, GoodScalar r)
+astSpanPrimalS :: forall s r sh. (OS.Shape sh, GoodScalar r, AstSpan s)
+               => AstShaped s r sh -> AstShaped AstPrimal r sh
+astSpanPrimalS t | Just Refl <- sameAstSpan @s @AstPrimal = t
+astSpanPrimalS _ | Just Refl <- sameAstSpan @s @AstDual =
+  error "astSpanPrimalS: can't recover primal from dual"
+    -- or we could return zero, but this is unlikely to happen
+    -- except by user error
+astSpanPrimalS t | Just Refl <- sameAstSpan @s @AstFull = case t of
+  AstConstantS v -> v
+  AstDS u _ -> u
+  _ -> astPrimalPartS t
+astSpanPrimalS _ = error "a spuriuos case for pattern match coverage"
+
+astSpanDualS :: forall s r sh. (OS.Shape sh, GoodScalar r, AstSpan s)
+             => AstShaped s r sh -> AstShaped AstDual r sh
+astSpanDualS t | Just Refl <- sameAstSpan @s @AstPrimal =
+  AstDualPartS $ AstConstantS t  -- this is nil; likely to happen
+astSpanDualS t | Just Refl <- sameAstSpan @s @AstDual = t
+astSpanDualS t | Just Refl <- sameAstSpan @s @AstFull = astDualPartS t
+astSpanDualS _ = error "a spuriuos case for pattern match coverage"
+
+astSpanDS :: forall s r sh. AstSpan s
+          => AstShaped AstPrimal r sh -> AstShaped AstDual r sh
+          -> AstShaped s r sh
+astSpanDS u _ | Just Refl <- sameAstSpan @s @AstPrimal = u
+astSpanDS _ u' | Just Refl <- sameAstSpan @s @AstDual = u'
+astSpanDS u u' | Just Refl <- sameAstSpan @s @AstFull = AstDS u u'
+astSpanDS _ _ = error "a spuriuos case for pattern match coverage"
+
+astLetFunS :: (OS.Shape sh, OS.Shape sh2, GoodScalar r, AstSpan s)
           => AstShaped s r sh -> (AstShaped s r sh -> AstShaped s r2 sh2)
           -> AstShaped s r2 sh2
 astLetFunS a f | astIsSmallS True a = f a
@@ -315,70 +372,68 @@ astLetFunS a f =
   let (AstVarName var, ast) = funToAstS f
   in AstLetS var a ast  -- astLet var a ast  -- safe, because subsitution ruled out above
 
-astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r)
-                    => (IntSh (AstShaped AstPrimal) n -> AstShaped AstPrimal r sh)
-                    -> AstShaped AstPrimal r (n ': sh)
+astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r, AstSpan s)
+                    => (IntSh (AstShaped AstPrimal) n -> AstShaped s r sh)
+                    -> AstShaped s r (n ': sh)
 astBuild1VectorizeS f =
   build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)
-
-instance ShapedTensor (AstPrimalPartS) where
-  slet a f =
-    astPrimalPartS
-    $ astLetFunS (unAstPrimalPartS a) (unAstPrimalPartS . f . astPrimalPartS)
-
-  sminIndex = AstPrimalPartS . AstMinIndexS
-  smaxIndex = AstPrimalPartS . AstMaxIndexS
-  sfloor = AstPrimalPartS . AstFloorS
-
-  siota = AstPrimalPartS AstIotaS
-  sindex v ix = astPrimalPartS $ AstIndexS (unAstPrimalPartS v) ix
-  ssum = astPrimalPartS . AstSumS . unAstPrimalPartS
-  sscatter t f = astPrimalPartS $ AstScatterS (unAstPrimalPartS t)
-                 $ funToAstIndexS f  -- astScatter  -- introduces new vars
-
-  sfromList = astPrimalPartS . AstFromListS . map unAstPrimalPartS
-  sfromVector = astPrimalPartS . AstFromVectorS . V.map unAstPrimalPartS
-  sreplicate = astPrimalPartS . AstReplicateS . unAstPrimalPartS
-  sappend u v =
-    astPrimalPartS $ AstAppendS (unAstPrimalPartS u) (unAstPrimalPartS v)
-  sslice (_ :: Proxy i) Proxy = astPrimalPartS . AstSliceS @i . unAstPrimalPartS
-  sreverse = astPrimalPartS . AstReverseS . unAstPrimalPartS
-  stranspose (_ :: Proxy perm) =
-    astPrimalPartS . AstTransposeS @perm . unAstPrimalPartS  -- astTranspose
-  sreshape = astPrimalPartS . AstReshapeS . unAstPrimalPartS  -- astReshape
-  sbuild1 f = astPrimalPartS $ astBuild1VectorizeS (unAstPrimalPartS . f)
-  sgather t f = astPrimalPartS $ AstGatherS (unAstPrimalPartS t)
-                $ funToAstIndexS f  -- introduces new vars
-  scast = astPrimalPartS . AstCastS . unAstPrimalPartS
-  sfromIntegral = AstPrimalPartS . AstFromIntegralS
-
-  ssumOfList = astPrimalPartS . AstSumOfListS . map unAstPrimalPartS
-  sconst = AstPrimalPartS . AstConstS
-  sletWrap l u = if nullADShare l then u
-                 else astPrimalPartS $ AstLetADShareS l (unAstPrimalPartS u)
-  saddDynamic (AstPrimalPartS r) d = saddDynamic r d
-  sregister r l = second astPrimalPartS $ astRegisterFunS (unAstPrimalPartS r) l
-
-  sconstant = id
-  sprimalPart = id
-  sdualPart _ = DummyDual
-  sD u _ = u
-  sScale _ _ = DummyDual
 
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
 
-instance RankedTensor AstNoVectorize where
+type instance BoolOf (AstNoVectorize s) = AstBool
+
+deriving instance IfF (AstNoVectorize s)
+deriving instance AstSpan s => EqF (AstNoVectorize s)
+deriving instance AstSpan s => OrdF (AstNoVectorize s)
+deriving instance Eq ((AstNoVectorize s) r n)
+deriving instance Ord ((AstNoVectorize s) r n)
+deriving instance Num (AstRanked s r n) => Num ((AstNoVectorize s) r n)
+deriving instance (Real (AstRanked s r n))
+                   => Real ((AstNoVectorize s) r n)
+deriving instance Enum (AstRanked s r n) => Enum ((AstNoVectorize s) r n)
+deriving instance (Integral (AstRanked s r n))
+                  => Integral ((AstNoVectorize s) r n)
+deriving instance Fractional (AstRanked s r n)
+                  => Fractional ((AstNoVectorize s) r n)
+deriving instance Floating (AstRanked s r n) => Floating ((AstNoVectorize s) r n)
+deriving instance (RealFrac (AstRanked s r n))
+                  => RealFrac ((AstNoVectorize s) r n)
+deriving instance (RealFloat (AstRanked s r n))
+                  => RealFloat ((AstNoVectorize s) r n)
+
+type instance BoolOf (AstNoSimplify s) = AstBool
+
+deriving instance IfF (AstNoSimplify s)
+deriving instance AstSpan s => EqF (AstNoSimplify s)
+deriving instance AstSpan s => OrdF (AstNoSimplify s)
+deriving instance Eq ((AstNoSimplify s) r n)
+deriving instance Ord ((AstNoSimplify s) r n)
+deriving instance Num (AstRanked s r n) => Num ((AstNoSimplify s) r n)
+deriving instance (Real (AstRanked s r n))
+                  => Real ((AstNoSimplify s) r n)
+deriving instance Enum (AstRanked s r n) => Enum ((AstNoSimplify s) r n)
+deriving instance (Integral (AstRanked s r n))
+                  => Integral ((AstNoSimplify s) r n)
+deriving instance Fractional (AstRanked s r n) => Fractional ((AstNoSimplify s) r n)
+deriving instance Floating (AstRanked s r n) => Floating ((AstNoSimplify s) r n)
+deriving instance (RealFrac (AstRanked s r n))
+                  => RealFrac ((AstNoSimplify s) r n)
+deriving instance (RealFloat (AstRanked s r n))
+                  => RealFloat ((AstNoSimplify s) r n)
+
+instance AstSpan s
+         => RankedTensor (AstNoVectorize s) where
   tlet a f =
     AstNoVectorize
     $ astLetFun (unAstNoVectorize a) (unAstNoVectorize . f . AstNoVectorize)
 
   tshape = shapeAst . unAstNoVectorize
-  tminIndex = AstNoVectorize . AstMinIndex . astPrimalPart . unAstNoVectorize
-  tmaxIndex = AstNoVectorize . AstMaxIndex . astPrimalPart . unAstNoVectorize
-  tfloor = AstNoVectorize . AstFloor . astPrimalPart . unAstNoVectorize
+  tminIndex = AstNoVectorize . fromPrimal . AstMinIndex . astSpanPrimal . unAstNoVectorize
+  tmaxIndex = AstNoVectorize . fromPrimal . AstMaxIndex . astSpanPrimal . unAstNoVectorize
+  tfloor = AstNoVectorize . fromPrimal . AstFloor . astSpanPrimal . unAstNoVectorize
 
-  tiota = AstNoVectorize . AstConstant . AstPrimalPart $ AstIota
+  tiota = AstNoVectorize . fromPrimal $ AstIota
   tindex v ix = AstNoVectorize $ AstIndex (unAstNoVectorize v) ix
   tsum = AstNoVectorize . AstSum . unAstNoVectorize
   tscatter sh t f = AstNoVectorize $ astScatter sh (unAstNoVectorize t)
@@ -400,30 +455,31 @@ instance RankedTensor AstNoVectorize where
                    $ funToAstIndex f  -- this introduces new variable names
   tcast = AstNoVectorize . AstCast . unAstNoVectorize
   tfromIntegral =
-    AstNoVectorize . AstFromIntegral . astPrimalPart . unAstNoVectorize
+    AstNoVectorize . fromPrimal . AstFromIntegral . astSpanPrimal . unAstNoVectorize
 
   tsumOfList = AstNoVectorize . AstSumOfList . map unAstNoVectorize
-  tconst = AstNoVectorize . AstConstant . AstPrimalPart . AstConst
-  tconstBare = AstNoVectorize . AstConst
+  tconst = AstNoVectorize . fromPrimal . AstConst
+  tconstBare = AstNoVectorize . fromPrimal . AstConst
   raddDynamic = undefined
 
-  tconstant = AstNoVectorize . AstConstant
-  tprimalPart = astPrimalPart . unAstNoVectorize
-  tdualPart = AstDualPart . unAstNoVectorize
-  tD u u' = AstNoVectorize $ AstD u u'
-  tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
+  tconstant = AstNoVectorize . fromPrimal
+  tprimalPart = astSpanPrimal . unAstNoVectorize
+  tdualPart = astSpanDual . unAstNoVectorize
+  tD u u' = AstNoVectorize $ astSpanD u u'
+  tScale s t = astSpanDual s `tmult` t
 
-instance RankedTensor AstNoSimplify where
+instance AstSpan s
+         => RankedTensor (AstNoSimplify s) where
   tlet a f =
     AstNoSimplify
     $ astLetFunUnSimp (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)
 
   tshape = shapeAst . unAstNoSimplify
-  tminIndex = AstNoSimplify . AstMinIndex . astPrimalPart . unAstNoSimplify
-  tmaxIndex = AstNoSimplify . AstMaxIndex . astPrimalPart . unAstNoSimplify
-  tfloor = AstNoSimplify . AstFloor . astPrimalPart . unAstNoSimplify
+  tminIndex = AstNoSimplify . fromPrimal . AstMinIndex . astSpanPrimal . unAstNoSimplify
+  tmaxIndex = AstNoSimplify . fromPrimal . AstMaxIndex . astSpanPrimal . unAstNoSimplify
+  tfloor = AstNoSimplify . fromPrimal . AstFloor . astSpanPrimal . unAstNoSimplify
 
-  tiota = AstNoSimplify . AstConstant . AstPrimalPart $ AstIota
+  tiota = AstNoSimplify . fromPrimal $ AstIota
   tindex v ix = AstNoSimplify $ AstIndex (unAstNoSimplify v) ix
   tsum = AstNoSimplify . AstSum . unAstNoSimplify
   tscatter sh t f = AstNoSimplify $ AstScatter sh (unAstNoSimplify t)
@@ -443,21 +499,21 @@ instance RankedTensor AstNoSimplify where
                    $ funToAstIndex f  -- this introduces new variable names
   tcast = AstNoSimplify . AstCast . unAstNoSimplify
   tfromIntegral =
-    AstNoSimplify . AstFromIntegral . astPrimalPart . unAstNoSimplify
+    AstNoSimplify . fromPrimal . AstFromIntegral . astSpanPrimal . unAstNoSimplify
 
   tsumOfList = AstNoSimplify . AstSumOfList . map unAstNoSimplify
-  tconst = AstNoSimplify . AstConstant . AstPrimalPart . AstConst
-  tconstBare = AstNoSimplify . AstConst
+  tconst = AstNoSimplify . fromPrimal . AstConst
+  tconstBare = AstNoSimplify . fromPrimal . AstConst
   raddDynamic = undefined
 
-  tconstant = AstNoSimplify . AstConstant
+  tconstant = AstNoSimplify . fromPrimal
     -- exceptionally we do simplify AstConstant to avoid long boring chains
-  tprimalPart = astPrimalPart . unAstNoSimplify
-  tdualPart = AstDualPart . unAstNoSimplify
-  tD u u' = AstNoSimplify $ AstD u u'
-  tScale (AstPrimalPart s) (AstDualPart t) = AstDualPart $ s `tmult` t
+  tprimalPart = astSpanPrimal . unAstNoSimplify
+  tdualPart = astSpanDual . unAstNoSimplify
+  tD u u' = AstNoSimplify $ astSpanD u u'
+  tScale s t = astSpanDual s `tmult` t
 
-astLetFunUnSimp :: (KnownNat n, KnownNat m, GoodScalar r)
+astLetFunUnSimp :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
                 => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)
                 -> AstRanked s r2 m
 astLetFunUnSimp a f =

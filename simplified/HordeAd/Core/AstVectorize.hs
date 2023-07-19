@@ -98,7 +98,7 @@ build1VOccurenceUnknownRefresh
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let v2 = substitute1Ast (SubstitutionPayloadInt @AstPrimal @Int64 astVarFresh) var v0
+  let v2 = substitute1Ast (SubstitutionPayloadRanked @AstPrimal @Int64 astVarFresh) var v0
   return $! build1VOccurenceUnknown k (varFresh, v2)
 
 intBindingRefresh
@@ -106,8 +106,8 @@ intBindingRefresh
 {-# NOINLINE intBindingRefresh #-}
 intBindingRefresh var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let ix2 = fmap (substituteAstPrimal
-                    (SubstitutionPayloadInt @AstPrimal @Int64 astVarFresh) var) ix
+  let ix2 = fmap (substituteAst
+                    (SubstitutionPayloadRanked @AstPrimal @Int64 astVarFresh) var) ix
   return $! (varFresh, astVarFresh, ix2)
 
 -- | The application @build1V k (var, v)@ vectorizes
@@ -127,7 +127,7 @@ build1V k (var, v00) =
   in case v0 of
     Ast.AstVar _ var2 | var2 == var ->
       case sameNat (Proxy @n) (Proxy @0) of
-        Just Refl -> astSlice 0 k Ast.AstIota
+        Just Refl -> fromPrimal $ astSlice 0 k Ast.AstIota
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
@@ -197,8 +197,7 @@ build1V k (var, v00) =
                        (build1VOccurenceUnknown k (var, v))
                        (varFresh ::: vars, astVarFresh :. ix2)
     Ast.AstCast v -> Ast.AstCast $ build1V k (var, v)
-    Ast.AstFromIntegral (AstPrimalPart v) ->
-      Ast.AstFromIntegral $ astPrimalPart $ build1V k (var, v)
+    Ast.AstFromIntegral v -> Ast.AstFromIntegral $ build1V k (var, v)
 
     Ast.AstSToR @sh1 v -> case someNatVal $ toInteger k of
       Just (SomeNat @k _proxy) ->
@@ -208,11 +207,15 @@ build1V k (var, v00) =
 
     Ast.AstConst{} ->
       error "build1V: AstConst can't have free index variables"
-    Ast.AstConstant (AstPrimalPart v) -> traceRule $
-      Ast.AstConstant $ astPrimalPart $ build1V k (var, v)
-    Ast.AstD (AstPrimalPart u) (AstDualPart u') ->
-      Ast.AstD (astPrimalPart $ build1VOccurenceUnknown k (var, u))
-               (AstDualPart $ build1VOccurenceUnknown k (var, u'))
+    Ast.AstConstant v -> traceRule $
+      Ast.AstConstant $ build1V k (var, v)
+    Ast.AstPrimalPart v -> traceRule $
+      Ast.AstPrimalPart $ build1V k (var, v)
+    Ast.AstDualPart v -> traceRule $
+      Ast.AstDualPart $ build1V k (var, v)
+    Ast.AstD u u' ->
+      Ast.AstD (build1VOccurenceUnknown k (var, u))
+               (build1VOccurenceUnknown k (var, u'))
     Ast.AstLetDomains vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
       let subst (var1, DynamicExists (AstRToD u1)) =
@@ -234,25 +237,22 @@ build1V k (var, v00) =
       in Ast.AstLetDomains vars (build1VOccurenceUnknownDomains k (var, l))
                                 (build1VOccurenceUnknownRefresh k (var, v2))
 
-    Ast.AstFloor (AstPrimalPart v) ->
-      Ast.AstFloor $ astPrimalPart $ build1V k (var, v)
-    Ast.AstCond b (Ast.AstConstant (AstPrimalPart v))
-                  (Ast.AstConstant (AstPrimalPart w)) ->
-      let t = Ast.AstConstant $ astPrimalPart
+    Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
+      let t = Ast.AstConstant
               $ astIndexStep (astFromList [v, w])
-                             (singletonIndex $ astPrimalPart (astCond b 0 1))
+                             (singletonIndex (astCond b 0 1))
       in build1V k (var, t)
     Ast.AstCond b v w ->
       let t = astIndexStep (astFromList [v, w])
-                           (singletonIndex $ astPrimalPart (astCond b 0 1))
+                           (singletonIndex (astCond b 0 1))
       in build1V k (var, t)
-    Ast.AstMinIndex (AstPrimalPart v) ->
-      Ast.AstMinIndex $ astPrimalPart $ build1V k (var, v)
-    Ast.AstMaxIndex (AstPrimalPart v) ->
-      Ast.AstMaxIndex $ astPrimalPart $ build1V k (var, v)
+    Ast.AstFloor v -> Ast.AstFloor $ build1V k (var, v)
+    Ast.AstMinIndex v -> Ast.AstMinIndex $ build1V k (var, v)
+    Ast.AstMaxIndex v -> Ast.AstMaxIndex $ build1V k (var, v)
 
 build1VOccurenceUnknownDynamic
-  :: AstSpan s => Int -> (AstVarId, DynamicExists (AstDynamic s)) -> DynamicExists (AstDynamic s)
+  :: AstSpan s
+  => Int -> (AstVarId, DynamicExists (AstDynamic s)) -> DynamicExists (AstDynamic s)
 build1VOccurenceUnknownDynamic k (var, d) = case d of
   DynamicExists (AstRToD u) ->
     DynamicExists $ AstRToD $ build1VOccurenceUnknown k (var, u)
@@ -263,7 +263,8 @@ build1VOccurenceUnknownDynamic k (var, d) = case d of
       error "build1VOccurenceUnknownDynamic: impossible someNatVal error"
 
 build1VOccurenceUnknownDomains
-  :: forall s. AstSpan s => Int -> (AstVarId, AstDomains s) -> AstDomains s
+  :: forall s. AstSpan s
+  => Int -> (AstVarId, AstDomains s) -> AstDomains s
 build1VOccurenceUnknownDomains k (var, v0) = case v0 of
   Ast.AstDomains l ->
     Ast.AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
@@ -404,7 +405,7 @@ build1VOccurenceUnknownRefreshS
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let v2 = substitute1AstS (SubstitutionPayloadInt @AstPrimal @Int64 astVarFresh) var v0
+  let v2 = substitute1AstS (SubstitutionPayloadRanked @AstPrimal @Int64 astVarFresh) var v0
   return $! build1VOccurenceUnknownS (varFresh, v2)
 
 intBindingRefreshS
@@ -412,8 +413,8 @@ intBindingRefreshS
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let ix2 = fmap (substituteAstPrimal
-                    (SubstitutionPayloadInt @AstPrimal @Int64 astVarFresh) var) ix
+  let ix2 = fmap (substituteAst
+                    (SubstitutionPayloadRanked @AstPrimal @Int64 astVarFresh) var) ix
   return $! (varFresh, astVarFresh, ix2)
 
 -- | The application @build1VS k (var, v)@ vectorizes
@@ -433,7 +434,7 @@ build1VS (var, v00) =
   in case v0 of
     Ast.AstVarS var2 | var2 == var ->
       case sameShape @sh @'[] of
-        Just Refl -> astSliceS @0 @k @k Ast.AstIotaS
+        Just Refl -> fromPrimalS $ astSliceS @0 @k @k Ast.AstIotaS
         _ -> error "build1VS: build variable is not an index variable"
     Ast.AstVarS{} ->
       error "build1VS: AstVarS can't contain other free index variables"
@@ -523,18 +524,21 @@ build1VS (var, v00) =
                         (build1VOccurenceUnknownS @k (var, v))
                         (varFresh :$: vars, astVarFresh :$: ix2)
     Ast.AstCastS v -> Ast.AstCastS $ build1VS (var, v)
-    Ast.AstFromIntegralS (AstPrimalPartS v) ->
-      Ast.AstFromIntegralS $ astPrimalPartS $ build1VS (var, v)
+    Ast.AstFromIntegralS v -> Ast.AstFromIntegralS $ build1VS (var, v)
 
     Ast.AstRToS v -> Ast.AstRToS $ build1V (valueOf @k) (var, v)
 
     Ast.AstConstS{} ->
       error "build1VS: AstConstS can't have free index variables"
-    Ast.AstConstantS (AstPrimalPartS v) -> traceRule $
-      Ast.AstConstantS $ astPrimalPartS $ build1VS (var, v)
-    Ast.AstDS (AstPrimalPartS u) (AstDualPartS u') ->
-      Ast.AstDS (astPrimalPartS $ build1VOccurenceUnknownS (var, u))
-                (AstDualPartS $ build1VOccurenceUnknownS (var, u'))
+    Ast.AstConstantS v -> traceRule $
+      Ast.AstConstantS $ build1VS (var, v)
+    Ast.AstPrimalPartS v -> traceRule $
+      Ast.AstPrimalPartS $ build1VS (var, v)
+    Ast.AstDualPartS v -> traceRule $
+      Ast.AstDualPartS $ build1VS (var, v)
+    Ast.AstDS u u' ->
+      Ast.AstDS (build1VOccurenceUnknownS (var, u))
+                (build1VOccurenceUnknownS (var, u'))
     Ast.AstLetDomainsS vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
       let subst (var1, DynamicExists (AstRToD u1)) =
@@ -553,22 +557,18 @@ build1VS (var, v00) =
            (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
            (build1VOccurenceUnknownRefreshS (var, v2))
 
-    Ast.AstFloorS (AstPrimalPartS v) ->
-      Ast.AstFloorS $ astPrimalPartS $ build1VS (var, v)
-    Ast.AstCondS b (Ast.AstConstantS (AstPrimalPartS v))
-                   (Ast.AstConstantS (AstPrimalPartS w)) ->
-      let t = Ast.AstConstantS $ astPrimalPartS
+    Ast.AstCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) ->
+      let t = Ast.AstConstantS
               $ astIndexStepS @'[2] (astFromListS [v, w])
-                                    (astPrimalPart (astCond b 0 1) :$: ZSH)
+                                    (astCond b 0 1 :$: ZSH)
       in build1VS (var, t)
     Ast.AstCondS b v w ->
       let t = astIndexStepS @'[2] (astFromListS [v, w])
-                                  (astPrimalPart (astCond b 0 1) :$: ZSH)
+                                  (astCond b 0 1 :$: ZSH)
       in build1VS (var, t)
-    Ast.AstMinIndexS (AstPrimalPartS v) ->
-      Ast.AstMinIndexS $ astPrimalPartS $ build1VS (var, v)
-    Ast.AstMaxIndexS (AstPrimalPartS v) ->
-      Ast.AstMaxIndexS $ astPrimalPartS $ build1VS (var, v)
+    Ast.AstFloorS v -> Ast.AstFloorS $ build1VS (var, v)
+    Ast.AstMinIndexS v -> Ast.AstMinIndexS $ build1VS (var, v)
+    Ast.AstMaxIndexS v -> Ast.AstMaxIndexS $ build1VS (var, v)
 
 -- | The application @build1VIndexS k (var, v, ix)@ vectorizes
 -- the term @AstBuild1S k (var, AstIndexS v ix)@, where it's unknown whether

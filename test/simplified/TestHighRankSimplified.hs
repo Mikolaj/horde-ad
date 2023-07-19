@@ -435,13 +435,13 @@ testReluSimp = do
   resetVarCounter
   let !t1 = barRelu10xSlower @(AstRanked AstPrimal)
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (intToAstVarId 100000000)
-  length (show t1) @?= 36578
-  length (show (simplifyAst6 @Float @10 t1)) @?= 36578
+  length (show t1) @?= 21920
+  length (show (simplifyAst6 @Float @10 t1)) @?= 21920
   resetVarCounter
   let !t2 = barRelu @(AstRanked AstPrimal)
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (intToAstVarId 100000000)
-  length (show t2) @?= 34722
-  length (show (simplifyAst6 @Float @10 t2)) @?= 36578
+  length (show t2) @?= 20064
+  length (show (simplifyAst6 @Float @10 t2)) @?= 21920
 
 testBarReluADVal320 :: Assertion
 testBarReluADVal320 =
@@ -550,11 +550,11 @@ testConcatBuild3PP :: Assertion
 testConcatBuild3PP = do
   resetVarCounter
   let renames = IM.empty
-      t = concatBuild3 @(AstRanked AstPrimal) @Double
+      t = concatBuild3 @(AstRanked AstFull) @Double
       (var3, ast3) = funToAstR [3] t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\dret -> tfromIntegral (tgather [5,2] (tfromList [treplicate 5 (tslice 0 2 tiota), quot (ttranspose [1,0] (treplicate 2 (tslice 0 5 tiota))) (treplicate 5 (treplicate 2 (tconst 1) + tslice 0 2 tiota))]) (\\[i5, i4] -> [ifF (i4 >=. quot i5 (1 + i4)) 0 1, i5, i4]))"
+    @?= "\\dret -> tconstant (tfromIntegral (tgather [5,2] (tfromList [treplicate 5 (tslice 0 2 tiota), quot (ttranspose [1,0] (treplicate 2 (tslice 0 5 tiota))) (treplicate 5 (treplicate 2 (tconst 1) + tslice 0 2 tiota))]) (\\[i5, i4] -> [ifF (i4 >=. quot i5 (1 + i4)) 0 1, i5, i4])))"
   resetVarCounter
   let (artifact6, _) = revDtFun True t
                                 (Flip $ OR.fromList [3] [0.651,0.14,0.3414])

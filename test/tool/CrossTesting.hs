@@ -59,15 +59,15 @@ rev' f vals =
       (advalGrad, value1) = crevOnDomains dt g parameters
       gradient1 = parseDomains vals advalGrad
       g9 :: Domains (ADValClown (AstDynamic AstPrimal))
-         -> ADVal (AstPrimalPart) r m
+         -> ADVal (AstRanked AstPrimal) r m
       g9 inputs = f $ parseDomains vals inputs
       revAstOnDomainsF
         :: forall r2 n2.
            (KnownNat n2, GoodScalar r2)
         => Bool
-        -> (Domains (ADValClown (AstDynamic AstPrimal)) -> ADVal (AstPrimalPart) r2 n2)
+        -> (Domains (ADValClown (AstDynamic AstPrimal)) -> ADVal (AstRanked AstPrimal) r2 n2)
         -> DomainsOD
-        -> (ADAstArtifact6 (Flip OR.Array) AstPrimal r2 n2, Dual (AstPrimalPart) r2 n2)
+        -> (ADAstArtifact6 (Flip OR.Array) r2 n2, Dual (AstRanked AstPrimal) r2 n2)
       {-# INLINE revAstOnDomainsF #-}
       revAstOnDomainsF hasDt f2 parameters2  =
         revAstOnDomainsFun hasDt parameters2 (\varInputs _ _ -> f2 varInputs)
@@ -115,7 +115,7 @@ rev' f vals =
            => (f1 r m -> AstRanked AstPrimal r m) -> (AstRanked AstPrimal r n -> f1 r n)
            -> (AstRanked AstPrimal r m -> AstRanked AstPrimal r m)
            -> Domains (ADValClown (AstDynamic AstPrimal))
-           -> ADVal (AstPrimalPart) r m
+           -> ADVal (AstRanked AstPrimal) r m
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseDomains vals inputs) EM.empty

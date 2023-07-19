@@ -315,11 +315,11 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
            id
        (varLabel, varLabelD, astLabel) <-
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
-       let envInit = extendEnvR varGlyph (tconstant $ astPrimalPart astGlyph)
-                     $ extendEnvR varLabel (tconstant $ astPrimalPart astLabel)
+       let envInit = extendEnvR varGlyph (tconstant astGlyph)
+                     $ extendEnvR varLabel (tconstant astLabel)
                        EM.empty
            f = MnistCnnRanked2.convMnistLossFusedR
-                 miniBatchSize (astPrimalPart astGlyph, astPrimalPart astLabel)
+                 miniBatchSize (astGlyph, astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit @Nat @(Flip OR.Array)
                        False f valsInit envInit domainsInit
@@ -402,9 +402,8 @@ testCNNOPP = do
       batch_size = 1
       sizeMnistWidthI = 4  -- 4; to make weightsDense empty and so speedup
       sizeMnistHeightI = 4  -- 4; to make weightsDense empty and so speedup
-      blackGlyph :: AstPrimalPart Double 4
-      blackGlyph = astPrimalPart
-                   $ AstReplicate batch_size
+      blackGlyph :: AstRanked AstPrimal Double 4
+      blackGlyph = AstReplicate batch_size
                    $ AstReplicate 1
                    $ AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI 7
@@ -415,8 +414,8 @@ testCNNOPP = do
                          (Flip OS.Array) 4 4  -- see sizeMnistWidthI, etc.
                          1 1 1 1 Double)
                      0.4 (mkStdGen 44)
-      afcnn2T :: MnistCnnRanked2.ADCnnMnistParameters (AstRanked AstPrimal) Double
-              -> AstRanked AstPrimal Double 2
+      afcnn2T :: MnistCnnRanked2.ADCnnMnistParameters (AstRanked AstFull) Double
+              -> AstRanked AstFull Double 2
       afcnn2T = MnistCnnRanked2.convMnistTwoR sizeMnistHeightI sizeMnistWidthI
                                               batch_size blackGlyph
       (artifact6, _) = revDtFun True afcnn2T valsInit
