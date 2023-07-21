@@ -45,7 +45,7 @@ unsafeGetFreshAstId :: IO AstId
 unsafeGetFreshAstId =
   intToAstId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-unsafeGetFreshAstVarId :: IO AstVarId
+unsafeGetFreshAstVarId :: IO (AstVarId s)
 {-# INLINE unsafeGetFreshAstVarId #-}
 unsafeGetFreshAstVarId =
   intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
@@ -96,7 +96,7 @@ astRegisterADShareS !r !l = unsafePerformIO $ do
 
 funToAstIOR :: forall n m s r r2. GoodScalar r
             => ShapeInt n -> (AstRanked s r n -> AstRanked s r2 m)
-            -> IO ( AstVarName (Flip OR.Array r n)
+            -> IO ( AstVarName s (Flip OR.Array r n)
                   , AstDynamicVarName
                   , AstRanked s r2 m )
 {-# INLINE funToAstIOR #-}
@@ -109,7 +109,7 @@ funToAstIOR sh f = do
 
 funToAstR :: GoodScalar r
           => ShapeInt n -> (AstRanked s r n -> AstRanked s r2 m)
-          -> (AstVarName (Flip OR.Array r n), AstRanked s r2 m)
+          -> (AstVarName s (Flip OR.Array r n), AstRanked s r2 m)
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ do
   (var, _, ast) <- funToAstIOR sh f
@@ -117,7 +117,7 @@ funToAstR sh f = unsafePerformIO $ do
 
 funToAstIOS :: forall sh sh2 s r r2. (OS.Shape sh, GoodScalar r)
             => (AstShaped s r sh -> AstShaped s r2 sh2)
-            -> IO ( AstVarName (Flip OS.Array r sh)
+            -> IO ( AstVarName s (Flip OS.Array r sh)
                   , AstDynamicVarName
                   , AstShaped s r2 sh2 )
 {-# INLINE funToAstIOS #-}
@@ -129,7 +129,7 @@ funToAstIOS f = do
 
 funToAstS :: forall sh sh2 s r r2. (OS.Shape sh, GoodScalar r)
           => (AstShaped s r sh -> AstShaped s r2 sh2)
-          -> (AstVarName (Flip OS.Array r sh), AstShaped s r2 sh2)
+          -> (AstVarName s (Flip OS.Array r sh), AstShaped s r2 sh2)
 {-# NOINLINE funToAstS #-}
 funToAstS f = unsafePerformIO $ do
   (var, _, ast) <- funToAstIOS f
@@ -165,7 +165,9 @@ funToAstAllIO :: DomainsOD
 funToAstAllIO parameters0 = do
   let f (DynamicExists @r2 e) = do
         let sh = OD.shapeL e
-        freshId <- unsafeGetFreshAstVarId
+        fId <- unsafeGetFreshAstVarId
+        let freshId :: AstVarId s
+            freshId = intToAstVarId (fromEnum fId)
         return $! OS.withShapeP sh $ \(Proxy :: Proxy sh) ->
           let dynE :: DynamicExists (AstDynamic s)
               dynE = DynamicExists @r2 $ AstSToD (AstVarS @sh freshId)
@@ -175,7 +177,7 @@ funToAstAllIO parameters0 = do
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
 funToAstAll :: DomainsOD
-            -> ( (AstVarName t, [AstDynamicVarName])
+            -> ( (AstVarName AstPrimal t, [AstDynamicVarName])
                , [DynamicExists (AstDynamic AstFull)]
                , [DynamicExists (AstDynamic AstPrimal)] )
 {-# NOINLINE funToAstAll #-}
@@ -184,13 +186,13 @@ funToAstAll parameters0 = unsafePerformIO $ do
   (vars1, asts1, astsPrimal1) <- funToAstAllIO parameters0
   return ((AstVarName freshId, vars1), asts1, astsPrimal1)
 
-funToAstIOI :: (AstInt -> t) -> IO (AstVarId, t)
+funToAstIOI :: (AstInt -> t) -> IO (AstVarId AstPrimal, t)
 {-# INLINE funToAstIOI #-}
 funToAstIOI f = do
   freshId <- unsafeGetFreshAstVarId
   return (freshId, f (AstIntVar freshId))
 
-funToAstI :: (AstInt -> t) -> (AstVarId, t)
+funToAstI :: (AstInt -> t) -> (AstVarId AstPrimal, t)
 {-# NOINLINE funToAstI #-}
 funToAstI = unsafePerformIO . funToAstIOI
 

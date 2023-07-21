@@ -232,7 +232,8 @@ astLetDomainsFun
   :: forall m s r. AstSpan s
   => AstDomains s -> (AstDomains s -> AstRanked s r m) -> AstRanked s r m
 astLetDomainsFun a f =
-  let genVar :: DynamicExists (AstDynamic s) -> (AstVarId, DynamicExists (AstDynamic s))
+  let genVar :: DynamicExists (AstDynamic s)
+                -> (AstVarId s, DynamicExists (AstDynamic s))
       genVar (DynamicExists @r2 (AstRToD t)) =
         let sh = shapeAst t
             (AstVarName var, ast) = funToAstR sh id

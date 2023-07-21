@@ -223,7 +223,8 @@ simplifyStepNonIndexS t = t  -- TODO
 
 astLet :: forall n m s s2 r r2.
           (KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2, AstSpan s, AstSpan s2)
-       => AstVarId -> AstRanked s r n -> AstRanked s2 r2 m -> AstRanked s2 r2 m
+       => AstVarId s -> AstRanked s r n -> AstRanked s2 r2 m
+       -> AstRanked s2 r2 m
 astLet var u v | astIsSmall True u =
   substitute1Ast (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -232,7 +233,7 @@ astLet var u v | astIsSmall True u =
   -- would be a substitution that only simplifies the touched
   -- terms with one step lookahead, as normally when vectorizing
 astLet var u v@(Ast.AstVar _ var2) =
-  if var2 == var
+  if fromEnum var2 == fromEnum var
   then case sameAstSpan @s @s2 of
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -1245,7 +1246,7 @@ astSliceLax i k v =
 -}
 
 astDomainsLet :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-              => AstVarId -> AstRanked s r n -> AstDomains s -> AstDomains s
+              => AstVarId s -> AstRanked s r n -> AstDomains s -> AstDomains s
 astDomainsLet var u v | astIsSmall True u =
   substitute1AstDomains (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -2205,7 +2206,8 @@ simplifyAstS t = case t of
 
 astLetS :: forall sh1 sh2 s s2 r r2.
            (OS.Shape sh1, OS.Shape sh2, GoodScalar r, GoodScalar r2, AstSpan s, AstSpan s2)
-        => AstVarId -> AstShaped s r sh1 -> AstShaped s2 r2 sh2 -> AstShaped s2 r2 sh2
+        => AstVarId s -> AstShaped s r sh1 -> AstShaped s2 r2 sh2
+        -> AstShaped s2 r2 sh2
 astLetS var u v | astIsSmallS True u =
   substitute1AstS (SubstitutionPayloadShaped u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -2214,7 +2216,7 @@ astLetS var u v | astIsSmallS True u =
   -- would be a substitution that only simplifies the touched
   -- terms with one step lookahead, as normally when vectorizing
 astLetS var u v@(Ast.AstVarS var2) =
-  if var2 == var
+  if fromEnum var2 == fromEnum var
   then case sameAstSpan @s @s2 of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -2351,7 +2353,7 @@ astGatherS
 astGatherS = Ast.AstGatherS  -- TODO
 
 astDomainsLetS :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
-               => AstVarId -> AstShaped s r sh -> AstDomains s -> AstDomains s
+               => AstVarId s -> AstShaped s r sh -> AstDomains s -> AstDomains s
 astDomainsLetS var u v | astIsSmallS True u =
   substitute1AstDomains (SubstitutionPayloadShaped u) var v
   -- we use the substitution that does not simplify, which is sad,
@@ -2362,24 +2364,24 @@ astDomainsLetS var u v | astIsSmallS True u =
 astDomainsLetS var u v = Ast.AstDomainsLetS var u v
 
 substituteAst :: forall n s s2 r r2. (GoodScalar r, GoodScalar r2, KnownNat n, AstSpan s, AstSpan s2)
-              => SubstitutionPayload s2 r2 -> AstVarId -> AstRanked s r n
+              => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstRanked s r n
               -> AstRanked s r n
 substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
 
 substituteAstDomains
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId -> AstDomains s
+  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstDomains s
   -> AstDomains s
 substituteAstDomains i var v1 =
   simplifyAstDomains $ substitute1AstDomains i var v1
 
 substituteAstBool :: (GoodScalar r2, AstSpan s2)
-                  => SubstitutionPayload s2 r2 -> AstVarId -> AstBool
+                  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstBool
                   -> AstBool
 substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1
 
 substituteAstS :: forall sh s2 s r r2.
                   (GoodScalar r, GoodScalar r2, OS.Shape sh, AstSpan s, AstSpan s2)
-               => SubstitutionPayload s2 r2 -> AstVarId -> AstShaped s r sh
+               => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstShaped s r sh
                -> AstShaped s r sh
 substituteAstS i var v1 = simplifyAstS $ substitute1AstS i var v1

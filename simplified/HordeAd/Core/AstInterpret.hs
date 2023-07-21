@@ -73,18 +73,18 @@ instance
       , Show (ShapedOf ranked r sh)
       , Show (IntOf ranked) ) => ShowDynamicOf ranked r n sh
 
-extendEnvS :: forall ranked shaped r sh.
+extendEnvS :: forall ranked shaped r sh s.
               (OS.Shape sh, shaped ~ ShapedOf ranked, GoodScalar r)
-           => AstVarName (Flip OS.Array r sh) -> shaped r sh
+           => AstVarName s (Flip OS.Array r sh) -> shaped r sh
            -> AstEnv ranked -> AstEnv ranked
 extendEnvS v@(AstVarName var) t =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show v)
                    (astVarIdToAstId var) (AstEnvElemS t)
 
-extendEnvR :: forall ranked r n.
+extendEnvR :: forall ranked r n s.
               ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
               , KnownNat n, GoodScalar r )
-           => AstVarName (Flip OR.Array r n) -> ranked r n
+           => AstVarName s (Flip OR.Array r n) -> ranked r n
            -> AstEnv ranked -> AstEnv ranked
 extendEnvR (AstVarName var) t =
   let sh2 = tshape t
@@ -97,14 +97,14 @@ extendEnvDR :: ConvertTensor ranked shaped
             => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
             -> AstEnv ranked
             -> AstEnv ranked
-extendEnvDR (AstDynamicVarName @sh @r var, DynamicExists @r2 d) =
+extendEnvDR (AstDynamicVarName @sh @r @s var, DynamicExists @r2 d) =
   case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> extendEnvS (AstVarName @(Flip OS.Array r sh) var) (sfromD d)
+    Just Refl -> extendEnvS (AstVarName @s @(Flip OS.Array r sh) var) (sfromD d)
     _ -> error "extendEnvDR: type mismatch"
 
 extendEnvI :: ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-           => AstVarId -> IntOf ranked -> AstEnv ranked
+           => AstVarId AstPrimal -> IntOf ranked -> AstEnv ranked
            -> AstEnv ranked
 extendEnvI var i = extendEnvR (AstVarName var) (tconstant i)
 
@@ -134,7 +134,7 @@ interpretLambdaI
      ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
   => (AstEnv ranked -> AstRanked s r n -> ranked r n)
-  -> AstEnv ranked -> (AstVarId, AstRanked s r n)
+  -> AstEnv ranked -> (AstVarId AstPrimal, AstRanked s r n)
   -> IntOf ranked
   -> ranked r n
 {-# INLINE interpretLambdaI #-}
@@ -146,7 +146,7 @@ interpretLambdaIS
      ( RankedTensor ranked, ConvertTensor ranked shaped
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
   => (AstEnv ranked -> AstShaped s r sh -> shaped r sh)
-  -> AstEnv ranked -> (AstVarId, AstShaped s r sh)
+  -> AstEnv ranked -> (AstVarId AstPrimal, AstShaped s r sh)
   -> IntSh ranked n
   -> shaped r sh
 {-# INLINE interpretLambdaIS #-}

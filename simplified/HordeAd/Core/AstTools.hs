@@ -115,9 +115,13 @@ lengthAst v1 = case shapeAst v1 of
 -- This keeps the occurence checking code simple, because we never need
 -- to compare variables to any variable in the bindings.
 -- This code works, in fact, for any variables, not only int variables.
-intVarInAst :: forall s r n. AstSpan s => AstVarId -> AstRanked s r n -> Bool
+intVarInAst :: forall s s2 r n. (AstSpan s, AstSpan s2)
+            => AstVarId s -> AstRanked s2 r n -> Bool
 intVarInAst var = \case
-  AstVar _ var2 -> var == var2
+  AstVar _ var2 -> fromEnum var == fromEnum var2
+                   && case sameAstSpan @s @s2 of
+                        Just Refl -> True
+                        _ -> error "intVarInAst: wrong span"
   AstLet _var2 u v -> intVarInAst var u || intVarInAst var v
   AstLetADShare l v | Just Refl <- sameAstSpan @s @AstPrimal ->
     intVarInADShare intIdInAstDynamic (astVarIdToAstId var) l
@@ -156,36 +160,42 @@ intVarInAst var = \case
   AstMinIndex a -> intVarInAst var a
   AstMaxIndex a -> intVarInAst var a
 
-intVarInAstDomains :: AstSpan s => AstVarId -> AstDomains s -> Bool
+intVarInAstDomains :: (AstSpan s, AstSpan s2)
+                   => AstVarId s -> AstDomains s2 -> Bool
 intVarInAstDomains var = \case
   AstDomains l -> let f (DynamicExists d) = intVarInAstDynamic var d
                   in any f l
   AstDomainsLet _var2 u v -> intVarInAst var u || intVarInAstDomains var v
   AstDomainsLetS _var2 u v -> intVarInAstS var u || intVarInAstDomains var v
 
-intVarInAstDynamic :: AstSpan s => AstVarId -> AstDynamic s r -> Bool
+intVarInAstDynamic :: (AstSpan s, AstSpan s2)
+                   => AstVarId s -> AstDynamic s2 r -> Bool
 intVarInAstDynamic var = \case
   AstRToD t -> intVarInAst var t
   AstSToD t -> intVarInAstS var t
 
 intIdInAstDynamic :: AstSpan s => AstId -> AstDynamic s r -> Bool
 intIdInAstDynamic var = \case
-  AstRToD t -> intVarInAst (astIdToAstVarId var) t
-  AstSToD t -> intVarInAstS (astIdToAstVarId var) t
+  AstRToD t -> intVarInAst (astIdToAstVarId @AstPrimal var) t
+  AstSToD t -> intVarInAstS (astIdToAstVarId @AstPrimal var) t
 
-intVarInAstBool :: AstVarId -> AstBool -> Bool
+intVarInAstBool :: AstSpan s => AstVarId s -> AstBool -> Bool
 intVarInAstBool var = \case
   AstBoolOp _ l -> any (intVarInAstBool var) l
   AstBoolConst{} -> False
   AstRel _ l -> any (intVarInAst var) l
   AstRelS _ l -> any (intVarInAstS var) l
 
-intVarInIndex :: AstVarId -> AstIndex n -> Bool
+intVarInIndex :: AstSpan s => AstVarId s -> AstIndex n -> Bool
 intVarInIndex var = any (intVarInAst var)
 
-intVarInAstS :: forall s r sh. AstSpan s => AstVarId -> AstShaped s r sh -> Bool
+intVarInAstS :: forall s s2 r sh. (AstSpan s, AstSpan s2)
+             => AstVarId s -> AstShaped s2 r sh -> Bool
 intVarInAstS var = \case
-  AstVarS var2 -> var == var2
+  AstVarS var2 -> fromEnum var == fromEnum var2
+                  && case sameAstSpan @s @s2 of
+                       Just Refl -> True
+                       _ -> error "intVarInAst: wrong span"
   AstLetS _var2 u v -> intVarInAstS var u || intVarInAstS var v
   AstLetADShareS l v | Just Refl <- sameAstSpan @s @AstPrimal ->
     intVarInADShare intIdInAstDynamic (astVarIdToAstId var) l
@@ -224,7 +234,7 @@ intVarInAstS var = \case
   AstMinIndexS a -> intVarInAstS var a
   AstMaxIndexS a -> intVarInAstS var a
 
-intVarInIndexS :: AstVarId -> AstIndexS sh -> Bool
+intVarInIndexS :: AstSpan s => AstVarId s -> AstIndexS sh -> Bool
 intVarInIndexS var = any (intVarInAst var)
 
 
@@ -242,11 +252,11 @@ data SubstitutionPayload s r =
 -- variables to any variable in the bindings.
 substitute1Ast :: forall n s s2 r r2.
                   (GoodScalar r, GoodScalar r2, KnownNat n, AstSpan s, AstSpan s2)
-               => SubstitutionPayload s2 r2 -> AstVarId -> AstRanked s r n
+               => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstRanked s r n
                -> AstRanked s r n
 substitute1Ast i var v1 = case v1 of
   AstVar sh var2 ->
-    if var == var2
+    if fromEnum var == fromEnum var2
     then case i of
       SubstitutionPayloadRanked @_ @_ @m t -> case sameAstSpan @s @s2 of
         Just Refl -> case sameNat (Proxy @m) (Proxy @n) of
@@ -304,7 +314,7 @@ substitute1Ast i var v1 = case v1 of
 
 substitute1AstDynamic
   :: (GoodScalar r, GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId -> AstDynamic s r
+  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstDynamic s r
   -> AstDynamic s r
 substitute1AstDynamic i var = \case
   AstRToD t -> AstRToD $ substitute1Ast i var t
@@ -312,7 +322,7 @@ substitute1AstDynamic i var = \case
 
 substitute1AstDomains
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId -> AstDomains s -> AstDomains s
+  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstDomains s -> AstDomains s
 substitute1AstDomains i var = \case
   AstDomains l ->
     AstDomains $ V.map (\(DynamicExists d) ->
@@ -325,7 +335,7 @@ substitute1AstDomains i var = \case
                         (substitute1AstDomains i var v)
 
 substitute1AstBool :: (GoodScalar r2, AstSpan s2)
-                   => SubstitutionPayload s2 r2 -> AstVarId -> AstBool
+                   => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstBool
                    -> AstBool
 substitute1AstBool i var b1 = case b1 of
   AstBoolOp opCodeBool args ->
@@ -336,11 +346,11 @@ substitute1AstBool i var b1 = case b1 of
 
 substitute1AstS :: forall sh s s2 r r2.
                    (GoodScalar r, GoodScalar r2, OS.Shape sh, AstSpan s, AstSpan s2)
-                => SubstitutionPayload s2 r2 -> AstVarId -> AstShaped s r sh
+                => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstShaped s r sh
                 -> AstShaped s r sh
 substitute1AstS i var v1 = case v1 of
   AstVarS var2 ->
-    if var == var2
+    if fromEnum var == fromEnum var2
     then case i of
       SubstitutionPayloadShaped @_ @_ @sh2 t -> case sameAstSpan @s @s2 of
         Just Refl -> case sameShape @sh2 @sh of

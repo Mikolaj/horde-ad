@@ -48,7 +48,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 -- the total number of @AstBuild1@ occuring in the term.
 build1Vectorize
   :: (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (AstVarId, AstRanked s r n) -> AstRanked s r (1 + n)
+  => Int -> (AstVarId AstPrimal, AstRanked s r n) -> AstRanked s r (1 + n)
 {-# NOINLINE build1Vectorize #-}
 build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -83,8 +83,8 @@ astTr = astTranspose [1, 0]
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
 -- @var@ occurs in @v@.
 build1VOccurenceUnknown
-  ::  (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (AstVarId, AstRanked s r n) -> AstRanked s r (1 + n)
+  :: (KnownNat n, GoodScalar r, AstSpan s)
+  => Int -> (AstVarId AstPrimal, AstRanked s r n) -> AstRanked s r (1 + n)
 build1VOccurenceUnknown k (var, v0) =
   let traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 k (var, v0)) v0 1
   in if intVarInAst var v0
@@ -94,7 +94,7 @@ build1VOccurenceUnknown k (var, v0) =
 
 build1VOccurenceUnknownRefresh
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (AstVarId, AstRanked s r n) -> AstRanked s r (1 + n)
+  => Int -> (AstVarId AstPrimal, AstRanked s r n) -> AstRanked s r (1 + n)
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
@@ -102,7 +102,7 @@ build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
   return $! build1VOccurenceUnknown k (varFresh, v2)
 
 intBindingRefresh
-  :: AstVarId -> AstIndex n -> (AstVarId, AstInt, AstIndex n)
+  :: AstVarId AstPrimal -> AstIndex n -> (AstVarId AstPrimal, AstInt, AstIndex n)
 {-# NOINLINE intBindingRefresh #-}
 intBindingRefresh var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
@@ -115,7 +115,7 @@ intBindingRefresh var ix = unsafePerformIO $ do
 -- @var@ occurs in @v@.
 build1V
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (AstVarId, AstRanked s r n) -> AstRanked s r (1 + n)
+  => Int -> (AstVarId AstPrimal, AstRanked s r n) -> AstRanked s r (1 + n)
 build1V k (var, v00) =
   let v0 = simplifyStepNonIndex v00
         -- Almost surely the term will be transformed, so it can just
@@ -125,17 +125,19 @@ build1V k (var, v00) =
       bv = Ast.AstBuild1 k (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
-    Ast.AstVar _ var2 | var2 == var ->
-      case sameNat (Proxy @n) (Proxy @0) of
-        Just Refl -> fromPrimal $ astSlice 0 k Ast.AstIota
+    Ast.AstVar _ var2 | fromEnum var2 == fromEnum var ->
+      case ( sameAstSpan @s @AstPrimal
+           , sameNat (Proxy @n) (Proxy @0) ) of
+        (Just Refl, Just Refl) -> fromPrimal $ astSlice 0 k Ast.AstIota
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
-    Ast.AstLet var2 u v ->
+    Ast.AstLet @_ @_ @_ @s1 var2 u v ->
       let sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                     (Ast.AstIntVar var :. ZI)
-          v2 = substitute1Ast (SubstitutionPayloadRanked @s @r projection) var2 v
+          v2 = substitute1Ast (SubstitutionPayloadRanked @s1 @r projection)
+                              var2 v
             -- we use the substitution that does not simplify, which is sad,
             -- because very low hanging fruits may be left hanging, but we
             -- don't want to simplify the whole term; a better alternative
@@ -216,13 +218,14 @@ build1V k (var, v00) =
     Ast.AstD u u' ->
       Ast.AstD (build1VOccurenceUnknown k (var, u))
                (build1VOccurenceUnknown k (var, u'))
-    Ast.AstLetDomains vars l v ->
+    Ast.AstLetDomains @s1 vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
       let subst (var1, DynamicExists (AstRToD u1)) =
             let sh = shapeAst u1
                 projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var1)
                                           (Ast.AstIntVar var :. ZI)
-            in substitute1Ast (SubstitutionPayloadRanked @s @r projection) var1
+            in substitute1Ast (SubstitutionPayloadRanked @s1 @r projection)
+                              var1
           subst (var1, DynamicExists (AstSToD @sh1 _)) =
             let ls = OS.shapeT @sh1
             in case someNatVal $ toInteger (length ls) of
@@ -230,7 +233,8 @@ build1V k (var, v00) =
                 let sh = listShapeToShape @n2 ls
                     projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var1)
                                               (Ast.AstIntVar var :. ZI)
-                in substitute1Ast (SubstitutionPayloadRanked @s @r projection) var1
+                in substitute1Ast (SubstitutionPayloadRanked @s1 @r projection)
+                                   var1
               Nothing -> error "build1V: impossible someNatVal error"
           v2 = V.foldr subst v (V.zip vars (unwrapAstDomains l))
             -- we use the substitution that does not simplify
@@ -252,7 +256,7 @@ build1V k (var, v00) =
 
 build1VOccurenceUnknownDynamic
   :: AstSpan s
-  => Int -> (AstVarId, DynamicExists (AstDynamic s)) -> DynamicExists (AstDynamic s)
+  => Int -> (AstVarId AstPrimal, DynamicExists (AstDynamic s)) -> DynamicExists (AstDynamic s)
 build1VOccurenceUnknownDynamic k (var, d) = case d of
   DynamicExists (AstRToD u) ->
     DynamicExists $ AstRToD $ build1VOccurenceUnknown k (var, u)
@@ -264,7 +268,7 @@ build1VOccurenceUnknownDynamic k (var, d) = case d of
 
 build1VOccurenceUnknownDomains
   :: forall s. AstSpan s
-  => Int -> (AstVarId, AstDomains s) -> AstDomains s
+  => Int -> (AstVarId AstPrimal, AstDomains s) -> AstDomains s
 build1VOccurenceUnknownDomains k (var, v0) = case v0 of
   Ast.AstDomains l ->
     Ast.AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
@@ -311,7 +315,7 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
   :: forall m n s r. (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
-  => Int -> (AstVarId, AstRanked s r (m + n), AstIndex m)
+  => Int -> (AstVarId AstPrimal, AstRanked s r (m + n), AstIndex m)
   -> AstRanked s r (1 + n)
 build1VIndex k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
 build1VIndex k (var, v0, ix@(_ :. _)) =
@@ -351,7 +355,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
 -- the total number of @AstBuild1@ occuring in the term.
 build1VectorizeS
   :: forall k sh s r. (GoodScalar r, KnownNat k, OS.Shape sh, AstSpan s)
-  => (AstVarId, AstShaped s r sh) -> AstShaped s r (k ': sh)
+  => (AstVarId AstPrimal, AstShaped s r sh) -> AstShaped s r (k ': sh)
 {-# NOINLINE build1VectorizeS #-}
 build1VectorizeS (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -391,7 +395,7 @@ astTrS =
 
 build1VOccurenceUnknownS
   :: forall k sh s r. (GoodScalar r, KnownNat k, OS.Shape sh, AstSpan s)
-  => (AstVarId, AstShaped s r sh) -> AstShaped s r (k ': sh)
+  => (AstVarId AstPrimal, AstShaped s r sh) -> AstShaped s r (k ': sh)
 build1VOccurenceUnknownS (var, v0) =
   let traceRule = mkTraceRuleS "build1VOccS" (Ast.AstBuild1S (var, v0)) v0 1
   in if intVarInAstS var v0
@@ -401,7 +405,7 @@ build1VOccurenceUnknownS (var, v0) =
 
 build1VOccurenceUnknownRefreshS
   :: forall k sh s r. (GoodScalar r, KnownNat k, OS.Shape sh, AstSpan s)
-  => (AstVarId, AstShaped s r sh) -> AstShaped s r (k ': sh)
+  => (AstVarId AstPrimal, AstShaped s r sh) -> AstShaped s r (k ': sh)
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
@@ -409,7 +413,7 @@ build1VOccurenceUnknownRefreshS (var, v0) = unsafePerformIO $ do
   return $! build1VOccurenceUnknownS (varFresh, v2)
 
 intBindingRefreshS
-  :: AstVarId -> AstIndexS sh -> (AstVarId, AstInt, AstIndexS sh)
+  :: AstVarId AstPrimal -> AstIndexS sh -> (AstVarId AstPrimal, AstInt, AstIndexS sh)
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
@@ -422,7 +426,7 @@ intBindingRefreshS var ix = unsafePerformIO $ do
 -- @var@ occurs in @v@.
 build1VS
   :: forall k sh s r. (GoodScalar r, KnownNat k, OS.Shape sh, AstSpan s)
-  => (AstVarId, AstShaped s r sh) -> AstShaped s r (k ': sh)
+  => (AstVarId AstPrimal, AstShaped s r sh) -> AstShaped s r (k ': sh)
 build1VS (var, v00) =
   let v0 = simplifyStepNonIndexS v00
         -- Almost surely the term will be transformed, so it can just
@@ -432,16 +436,18 @@ build1VS (var, v00) =
       bv = Ast.AstBuild1S (var, v0)
       traceRule = mkTraceRuleS "build1VS" bv v0 1
   in case v0 of
-    Ast.AstVarS var2 | var2 == var ->
-      case sameShape @sh @'[] of
-        Just Refl -> fromPrimalS $ astSliceS @0 @k @k Ast.AstIotaS
+    Ast.AstVarS var2 | fromEnum var2 == fromEnum var ->
+      case ( sameAstSpan @s @AstPrimal
+           , sameShape @sh @'[] ) of
+        (Just Refl, Just Refl) -> fromPrimalS $ astSliceS @0 @k @k Ast.AstIotaS
         _ -> error "build1VS: build variable is not an index variable"
     Ast.AstVarS{} ->
       error "build1VS: AstVarS can't contain other free index variables"
-    Ast.AstLetS @_ @sh2 var2 u v ->
+    Ast.AstLetS @_ @sh2 @_ @s1 var2 u v ->
       let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :$: ZSH)
-          v2 = substitute1AstS (SubstitutionPayloadShaped @s @r projection) var2 v
+          v2 = substitute1AstS (SubstitutionPayloadShaped @s1 @r projection)
+                               var2 v
             -- we use the substitution that does not simplify, which is sad,
             -- because very low hanging fruits may be left hanging, but we
             -- don't want to simplify the whole term; a better alternative
@@ -539,17 +545,19 @@ build1VS (var, v00) =
     Ast.AstDS u u' ->
       Ast.AstDS (build1VOccurenceUnknownS (var, u))
                 (build1VOccurenceUnknownS (var, u'))
-    Ast.AstLetDomainsS vars l v ->
+    Ast.AstLetDomainsS @s1 vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
       let subst (var1, DynamicExists (AstRToD u1)) =
             OS.withShapeP (shapeToList $ shapeAst u1) $ \(_ :: Proxy sh1) ->
             let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var1)
                                            (Ast.AstIntVar var :$: ZSH)
-            in substitute1AstS (SubstitutionPayloadShaped @s @r projection) var1
+            in substitute1AstS (SubstitutionPayloadShaped @s1 @r projection)
+                               var1
           subst (var1, DynamicExists (AstSToD @sh1 _)) =
             let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var1)
                                            (Ast.AstIntVar var :$: ZSH)
-            in substitute1AstS (SubstitutionPayloadShaped @s @r projection) var1
+            in substitute1AstS (SubstitutionPayloadShaped @s1 @r projection)
+                               var1
           v2 = V.foldr subst v (V.zip vars (unwrapAstDomains l))
             -- we use the substitution that does not simplify
       in Ast.AstLetDomainsS
@@ -595,7 +603,7 @@ build1VIndexS
   :: forall k p sh s r.
      ( GoodScalar r, KnownNat k, OS.Shape sh
      , OS.Shape (OS.Drop p (OS.Take p sh OS.++ OS.Drop p sh)), AstSpan s )
-  => (AstVarId, AstShaped s r sh, AstIndexS (OS.Take p sh))
+  => (AstVarId AstPrimal, AstShaped s r sh, AstIndexS (OS.Take p sh))
   -> AstShaped s r (k ': OS.Drop p sh)
 build1VIndexS (var, v0, ZSH) =
   gcastWith (unsafeCoerce Refl :: p :~: 0)
@@ -663,7 +671,7 @@ ellipsisString width full = let cropped = take width full
                                then cropped
                                else take (width - 3) cropped ++ "..."
 
-mkTraceRule :: (KnownNat n, KnownNat m, GoodScalar r)
+mkTraceRule :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
             => String -> AstRanked s r n -> AstRanked s r m -> Int -> AstRanked s r n -> AstRanked s r n
 {-# NOINLINE mkTraceRule #-}
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
@@ -691,7 +699,7 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
     modifyIORef' traceNestingLevel pred
   return $! to
 
-mkTraceRuleS :: forall sh sh2 s r. (GoodScalar r, OS.Shape sh, OS.Shape sh2)
+mkTraceRuleS :: forall sh sh2 s r. (GoodScalar r, OS.Shape sh, OS.Shape sh2, AstSpan s)
              => String -> AstShaped s r sh -> AstShaped s r sh2 -> Int
              -> AstShaped s r sh -> AstShaped s r sh
 {-# NOINLINE mkTraceRuleS #-}
