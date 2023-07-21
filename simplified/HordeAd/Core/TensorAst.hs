@@ -89,7 +89,7 @@ instance AstSpan s
 
   tiota = fromPrimal AstIota
   tindex = AstIndex
-  tsum = AstSum
+  tsum = astSum
   tscatter sh t f = astScatter sh t (funToAstIndex f)  -- introduces new vars
 
   tfromList = AstFromList
@@ -280,8 +280,8 @@ instance AstSpan s
 
   siota = fromPrimalS AstIotaS
   sindex = AstIndexS
-  ssum = AstSumS
-  sscatter t f = AstScatterS t (funToAstIndexS f)  -- astScatter t (funToAstIndexS f)  -- introduces new vars
+  ssum = astSumS
+  sscatter t f = astScatterS t (funToAstIndexS f)  -- introduces new vars
 
   sfromList = AstFromListS
   sfromVector = AstFromVectorS
@@ -289,8 +289,8 @@ instance AstSpan s
   sappend = AstAppendS
   sslice (_ :: Proxy i) Proxy = AstSliceS @i
   sreverse = AstReverseS
-  stranspose (_ :: Proxy perm) = AstTransposeS @perm  -- astTranspose
-  sreshape = AstReshapeS  -- astReshape
+  stranspose (_ :: Proxy perm) = astTransposeS @perm
+  sreshape = astReshapeS
   sbuild1 = astBuild1VectorizeS
   sgather t f = AstGatherS t (funToAstIndexS f)  -- introduces new vars
   scast = AstCastS

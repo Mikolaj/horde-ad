@@ -222,7 +222,8 @@ simplifyStepNonIndexS
 simplifyStepNonIndexS t = t  -- TODO
 
 astLet :: forall n m s s2 r r2.
-          (KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2, AstSpan s, AstSpan s2)
+          ( KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2
+          , AstSpan s, AstSpan s2 )
        => AstVarId s -> AstRanked s r n -> AstRanked s2 r2 m
        -> AstRanked s2 r2 m
 astLet var u v | astIsSmall True u =
@@ -438,6 +439,12 @@ astSum :: (KnownNat n, GoodScalar r)
        => AstRanked s r (1 + n) -> AstRanked s r n
 astSum (AstConst t) = AstConst $ tsumR t
 astSum (Ast.AstConstant v) = Ast.AstConstant $ astSum v
+-- astSum (Ast.AstLet var u v) = astLet var u (astSum v)
+  -- this is problematic, because it keep huge tensor alive for longer;
+  -- but for AstLetADShare it's usually fine, because they are often
+  -- either global or duplicated and rarely local and unique
+  -- and we prefer the global to duplicated
+astSum (Ast.AstLetADShare l v) = Ast.AstLetADShare l (astSum v)
 astSum (Ast.AstScatter (_ :$ sh) v (vars, _ :. ix)) = astScatter sh v (vars, ix)
 astSum (Ast.AstReverse v) = Ast.AstSum v
 astSum v = Ast.AstSum v
@@ -454,6 +461,8 @@ astScatter sh v (var ::: vars, ix) | not $ var `intVarInIndex` ix =
 -- astScatter sh v (Z, ix) = update (tzero sh 0) ix v
 astScatter sh (Ast.AstConstant v) (vars, ix) =
   Ast.AstConstant $ astScatter sh v (vars, ix)
+astScatter sh (Ast.AstLetADShare l v) (vars, ix) =
+  Ast.AstLetADShare l $ astScatter sh v (vars, ix)
 astScatter sh v (vars, ix) = Ast.AstScatter sh v (vars, ix)
 
 astFromList :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
@@ -653,13 +662,17 @@ astTranspose perm0 t0 = case (perm0, t0) of
                (backpermutePrefixSized perm vars, ix)
   (perm, AstConst t) -> AstConst $ ttransposeR perm t
   (perm, Ast.AstConstant v) -> Ast.AstConstant $ astTranspose perm v
+  (perm, Ast.AstLetADShare l v) -> Ast.AstLetADShare l $ astTranspose perm v
   (perm, u) -> Ast.AstTranspose perm u
 
 astTransposeS :: forall perm sh s r.
                  ( OS.Permutation perm, OS.Shape perm, OS.Shape sh
                  , KnownNat (OS.Rank sh), OS.Rank perm <= OS.Rank sh )
               => AstShaped s r sh -> AstShaped s r (OS.Permute perm sh)
-astTransposeS = Ast.AstTransposeS @perm
+astTransposeS (Ast.AstConstantS v) = Ast.AstConstantS $ astTransposeS @perm v
+astTransposeS (Ast.AstLetADShareS l v) =
+  Ast.AstLetADShareS l $ astTransposeS @perm v
+astTransposeS t = Ast.AstTransposeS @perm t  -- TODO
 
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
@@ -705,6 +718,8 @@ astReshape shOut (Ast.AstReshape _ v) = astReshape shOut v
 astReshape shOut (AstConst t) =
   AstConst $ OR.reshape (shapeToList shOut) t
 astReshape shOut (Ast.AstConstant v) = Ast.AstConstant $ astReshape shOut v
+astReshape shOut (Ast.AstLetADShare l v) =
+  Ast.AstLetADShare l $ astReshape shOut v
 astReshape shOut v =
   let shIn = shapeAst v
   in case sameNat (Proxy @p) (Proxy @m) of
@@ -715,7 +730,9 @@ astReshape shOut v =
 
 astReshapeS :: (OS.Shape sh, OS.Size sh ~ OS.Size sh2)
             => AstShaped s r sh -> AstShaped s r sh2
-astReshapeS = Ast.AstReshapeS  -- TODO
+astReshapeS (Ast.AstConstantS v) = Ast.AstConstantS $ astReshapeS v
+astReshapeS (Ast.AstLetADShareS l v) = Ast.AstLetADShareS l $ astReshapeS v
+astReshapeS t = Ast.AstReshapeS t  -- TODO
 
 astGatherR
   :: forall m n p s r. (KnownNat m, KnownNat p, KnownNat n, GoodScalar r, AstSpan s)
@@ -2231,6 +2248,12 @@ astSumS :: (KnownNat n, OS.Shape sh, GoodScalar r)
         => AstShaped s r (n ': sh) -> AstShaped s r sh
 astSumS (AstConstS t) = AstConstS $ tsumS t
 astSumS (Ast.AstConstantS v) = Ast.AstConstantS $ astSumS v
+-- astSumS (Ast.AstLetS var u v) = astLetS var u (astSumS v)
+  -- this is problematic, because it keep huge tensor alive for longer;
+  -- but for AstLetADShare it's usually fine, because they are often
+  -- either global or duplicated and rarely local and unique
+  -- and we prefer the global to duplicated
+astSumS (Ast.AstLetADShareS l v) = Ast.AstLetADShareS l (astSumS v)
 astSumS (Ast.AstReverseS v) = Ast.AstSumS v
 astSumS v = Ast.AstSumS v
 
@@ -2252,6 +2275,8 @@ astScatterS v (ZSH, ZSH) =
 -- astScatterS v (Z, ix) = update (tzero sh 0) ix v
 astScatterS (Ast.AstConstantS v) (vars, ix) =
   Ast.AstConstantS $ astScatterS v (vars, ix)
+astScatterS (Ast.AstLetADShareS l v) (vars, ix) =
+  Ast.AstLetADShareS l $ astScatterS v (vars, ix)
 astScatterS v (vars, ix) = Ast.AstScatterS v (vars, ix)
 
 astFromListS :: forall s r n sh.
