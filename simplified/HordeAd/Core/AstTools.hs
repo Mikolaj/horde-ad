@@ -414,8 +414,6 @@ astIsSmall :: forall n s r. KnownNat n
 astIsSmall relaxed = \case
   AstVar{} -> True
   AstIota -> True
-  AstConst{} -> valueOf @n == (0 :: Int)
-  AstConstant v -> astIsSmall relaxed v
   AstReplicate _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
   AstSlice _ _ v ->
@@ -423,6 +421,10 @@ astIsSmall relaxed = \case
   AstTranspose _ v ->
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
   AstSToR v -> astIsSmallS relaxed v
+  AstConst{} -> valueOf @n == (0 :: Int)
+  AstConstant v -> astIsSmall relaxed v
+  AstPrimalPart v -> astIsSmall relaxed v
+  AstDualPart v -> astIsSmall relaxed v
   _ -> False
 
 astIsSmallS :: forall sh s r. OS.Shape sh
@@ -430,8 +432,6 @@ astIsSmallS :: forall sh s r. OS.Shape sh
 astIsSmallS relaxed = \case
   AstVarS{} -> True
   AstIotaS -> True
-  AstConstS{} -> null (OS.shapeT @sh)
-  AstConstantS v -> astIsSmallS relaxed v
   AstReplicateS v ->
     relaxed && astIsSmallS relaxed v  -- materialized via tricks, so prob. safe
   AstSliceS v ->
@@ -439,6 +439,10 @@ astIsSmallS relaxed = \case
   AstTransposeS v ->
     relaxed && astIsSmallS relaxed v  -- often cheap and often fuses
   AstRToS v -> astIsSmall relaxed v
+  AstConstS{} -> null (OS.shapeT @sh)
+  AstConstantS v -> astIsSmallS relaxed v
+  AstPrimalPartS v -> astIsSmallS relaxed v
+  AstDualPartS v -> astIsSmallS relaxed v
   _ -> False
 
 

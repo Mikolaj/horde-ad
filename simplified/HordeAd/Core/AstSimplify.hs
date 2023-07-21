@@ -243,6 +243,36 @@ astLet var u v@(Ast.AstVar _ var2) =
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
   else v
+astLet var u v@(Ast.AstConstant (Ast.AstVar _ var2)) =  -- a common noop
+  if fromEnum var2 == fromEnum var
+  then case sameAstSpan @s @AstPrimal of
+    Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
+      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+        Just Refl -> Ast.AstConstant u
+        _ -> error "astLet: type mismatch"
+      _ -> error "astLet: rank mismatch"
+    _ -> error "astLet: span mismatch"
+  else v
+astLet var u v@(Ast.AstPrimalPart (Ast.AstVar _ var2)) =  -- a common noop
+  if fromEnum var2 == fromEnum var
+  then case sameAstSpan @s @AstFull of
+    Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
+      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+        Just Refl -> astPrimalPart u
+        _ -> error "astLet: type mismatch"
+      _ -> error "astLet: rank mismatch"
+    _ -> error "astLet: span mismatch"
+  else v
+astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
+  if fromEnum var2 == fromEnum var
+  then case sameAstSpan @s @AstFull of
+    Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
+      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+        Just Refl -> astDualPart u
+        _ -> error "astLet: type mismatch"
+      _ -> error "astLet: rank mismatch"
+    _ -> error "astLet: span mismatch"
+  else v
 astLet var u v = Ast.AstLet var u v
 
 astSumOfList :: (KnownNat n, GoodScalar r, AstSpan s)
@@ -2238,6 +2268,36 @@ astLetS var u v@(Ast.AstVarS var2) =
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> u
+        _ -> error "astLetS: type mismatch"
+      _ -> error "astLetS: shape mismatch"
+    _ -> error "astLetS: span mismatch"
+  else v
+astLetS var u v@(Ast.AstConstantS (Ast.AstVarS var2)) =  -- a common noop
+  if fromEnum var2 == fromEnum var
+  then case sameAstSpan @s @AstPrimal of
+    Just Refl -> case sameShape @sh1 @sh2 of
+      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+        Just Refl -> Ast.AstConstantS u
+        _ -> error "astLetS: type mismatch"
+      _ -> error "astLetS: shape mismatch"
+    _ -> error "astLetS: span mismatch"
+  else v
+astLetS var u v@(Ast.AstPrimalPartS (Ast.AstVarS var2)) =  -- a common noop
+  if fromEnum var2 == fromEnum var
+  then case sameAstSpan @s @AstFull of
+    Just Refl -> case sameShape @sh1 @sh2 of
+      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+        Just Refl -> astPrimalPartS u
+        _ -> error "astLetS: type mismatch"
+      _ -> error "astLetS: shape mismatch"
+    _ -> error "astLetS: span mismatch"
+  else v
+astLetS var u v@(Ast.AstDualPartS (Ast.AstVarS var2)) =  -- a noop
+  if fromEnum var2 == fromEnum var
+  then case sameAstSpan @s @AstFull of
+    Just Refl -> case sameShape @sh1 @sh2 of
+      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+        Just Refl -> astDualPartS u
         _ -> error "astLetS: type mismatch"
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"

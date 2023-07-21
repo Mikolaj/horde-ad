@@ -153,8 +153,6 @@ printAst cfgOld d t =
       case t of
         AstVar _ var -> printAstIntVar cfgOld var
         AstConst i -> shows $ OR.unScalar i
-        AstConstant (AstConst i) -> shows $ OR.unScalar i
-          -- this case looks like a result of a bug, but we can print it well
         _ -> if areAllArgsInts t
              then printAstAux cfgOld d t
              else let cfg = cfgOld {representsIntIndex = False}
