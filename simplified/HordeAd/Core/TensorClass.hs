@@ -264,6 +264,8 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
   tletWrap :: (GoodScalar r, KnownNat n)
            => ADShare -> ranked r n -> ranked r n
   tletWrap _l u = u
+  tletUnwrap :: ranked r n -> (ADShare, ranked r n)
+  tletUnwrap u = (emptyADShare, u)
   raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
               => ranked r n -> DynamicExists (DynamicOf ranked)
               -> DynamicExists (DynamicOf ranked)
@@ -549,6 +551,8 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
   sletWrap :: (GoodScalar r, OS.Shape sh)
            => ADShare -> shaped r sh -> shaped r sh
   sletWrap _l u = u
+  sletUnwrap :: shaped r sh -> (ADShare, shaped r sh)
+  sletUnwrap u = (emptyADShare, u)
   saddDynamic :: forall sh r. (GoodScalar r, OS.Shape sh)
               => shaped r sh -> DynamicExists (DynamicOf shaped)
               -> DynamicExists (DynamicOf shaped)

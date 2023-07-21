@@ -223,11 +223,15 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   tconst t = constantADVal (tconstBare t)
   raddDynamic = undefined
 
-  tconstant t = constantADVal t
+  tconstant t = let (l, r) = tletUnwrap t in dDnotShared l r dZero
   tprimalPart (D l u _) = tletWrap l u
   tdualPart (D l _ u') = Pair (Clown (Const l)) u'
-  tD ast (Pair (Clown (Const l)) delta) = dD l ast delta
-  tScale ast (Pair l delta) = Pair l (dScale ast delta)
+  tD ast (Pair (Clown (Const l)) delta) =
+    let (l2, r) = tletUnwrap ast
+    in dD (l `mergeADShare` l2) r delta
+  tScale ast (Pair  (Clown (Const l)) delta) =
+    let (l2, r) = tletUnwrap ast
+    in Pair (Clown (Const (l `mergeADShare` l2))) (dScale r delta)
 
 
 -- * Shaped tensor instances
@@ -391,11 +395,15 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   sconst t = constantADVal (sconstBare t)
   saddDynamic = undefined
 
-  sconstant t = constantADVal t
+  sconstant t = let (l, r) = sletUnwrap t in dDnotShared l r dZero
   sprimalPart (D l u _) = sletWrap l u
   sdualPart (D l _ u') = Pair (Clown (Const l)) u'
-  sD ast (Pair (Clown (Const l)) delta) = dD l ast delta
-  sScale ast (Pair l delta) = Pair l (dScale ast delta)
+  sD ast (Pair (Clown (Const l)) delta) =
+    let (l2, r) = sletUnwrap ast
+    in dD (l `mergeADShare` l2) r delta
+  sScale ast (Pair  (Clown (Const l)) delta) =
+    let (l2, r) = sletUnwrap ast
+    in Pair (Clown (Const (l `mergeADShare` l2))) (dScale r delta)
 
 
 -- * ConvertTensor instance

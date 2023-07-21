@@ -115,6 +115,10 @@ instance AstSpan s
     -- sharing that is not visible in this restricted context.
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
+  tletUnwrap u = case u of
+    AstLetADShare l t -> (l, t)
+    AstConstant (AstLetADShare l t) -> (l, AstConstant t)
+    _ -> (emptyADShare, u)
   raddDynamic :: forall n r. (GoodScalar r, KnownNat n)
               => AstRanked s r n -> DynamicExists (AstDynamic s)
               -> DynamicExists (AstDynamic s)
@@ -302,6 +306,10 @@ instance AstSpan s
     -- sharing that is not visible in this restricted context.
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
+  sletUnwrap u = case u of
+    AstLetADShareS l t -> (l, t)
+    AstConstantS (AstLetADShareS l t) -> (l, AstConstantS t)
+    _ -> (emptyADShare, u)
   saddDynamic :: forall sh r. (GoodScalar r, OS.Shape sh)
               => AstShaped s r sh -> DynamicExists (AstDynamic s)
               -> DynamicExists (AstDynamic s)
