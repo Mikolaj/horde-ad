@@ -47,7 +47,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 
-type AstEnv ranked = EM.EnumMap AstVarId (AstEnvElem ranked)
+type AstEnv ranked = EM.EnumMap AstId (AstEnvElem ranked)
 
 data AstEnvElem :: RankedTensorKind -> Type where
   AstEnvElemS :: (OS.Shape sh, GoodScalar r)
@@ -79,7 +79,7 @@ extendEnvS :: forall ranked shaped r sh.
            -> AstEnv ranked -> AstEnv ranked
 extendEnvS v@(AstVarName var) t =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show v)
-                   var (AstEnvElemS t)
+                   (astVarIdToAstId var) (AstEnvElemS t)
 
 extendEnvR :: forall ranked r n.
               ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
@@ -291,7 +291,7 @@ interpretAst
   => AstEnv ranked
   -> AstRanked s r n -> ranked r n
 interpretAst env = \case
-  AstVar sh var -> case EM.lookup var env of
+  AstVar sh var -> case EM.lookup (astVarIdToAstId var) env of
     Just (AstEnvElemS @sh2 @r2 t) ->
       if shapeToList sh == OS.shapeT @sh2 then
         gcastWith (unsafeCoerce Refl :: OS.Rank sh2 :~: n)
@@ -770,7 +770,7 @@ interpretAstS
   => AstEnv ranked
   -> AstShaped s r sh -> shaped r sh
 interpretAstS env = \case
-  AstVarS var -> case EM.lookup var env of
+  AstVarS var -> case EM.lookup (astVarIdToAstId var) env of
     Just (AstEnvElemS @sh2 @r2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> t

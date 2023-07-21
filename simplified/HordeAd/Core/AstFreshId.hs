@@ -40,29 +40,36 @@ unsafeAstVarCounter = unsafePerformIO (newCounter 100000001)
 resetVarCounter :: IO ()
 resetVarCounter = writeIORefU unsafeAstVarCounter 100000001
 
+unsafeGetFreshAstId :: IO AstId
+{-# INLINE unsafeGetFreshAstId #-}
+unsafeGetFreshAstId =
+  intToAstId <$> atomicAddCounter_ unsafeAstVarCounter 1
+
 unsafeGetFreshAstVarId :: IO AstVarId
 {-# INLINE unsafeGetFreshAstVarId #-}
 unsafeGetFreshAstVarId =
   intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astRegisterFun :: (GoodScalar r, KnownNat n)
-               => AstRanked s r n -> [(AstVarId, DynamicExists (AstDynamic s))]
-               -> ([(AstVarId, DynamicExists (AstDynamic s))], AstRanked s r n)
+astRegisterFun
+  :: (GoodScalar r, KnownNat n)
+  => AstRanked s r n -> [(AstId, DynamicExists (AstDynamic s))]
+  -> ([(AstId, DynamicExists (AstDynamic s))], AstRanked s r n)
 {-# NOINLINE astRegisterFun #-}
 astRegisterFun !r !l | astIsSmall True r = (l, r)
 astRegisterFun !r !l = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
-  let !r2 = AstVar (shapeAst r) freshId
+  freshId <- unsafeGetFreshAstId
+  let !r2 = AstVar (shapeAst r) $ astIdToAstVarId freshId
   return ((freshId, DynamicExists $ AstRToD r) : l, r2)
 
-astRegisterFunS :: (OS.Shape sh, GoodScalar r)
-                => AstShaped s r sh -> [(AstVarId, DynamicExists (AstDynamic s))]
-                -> ([(AstVarId, DynamicExists (AstDynamic s))], AstShaped s r sh)
+astRegisterFunS
+  :: (OS.Shape sh, GoodScalar r)
+  => AstShaped s r sh -> [(AstId, DynamicExists (AstDynamic s))]
+  -> ([(AstId, DynamicExists (AstDynamic s))], AstShaped s r sh)
 {-# NOINLINE astRegisterFunS #-}
 astRegisterFunS !r !l | astIsSmallS True r = (l, r)
 astRegisterFunS !r !l = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
-  let !r2 = AstVarS freshId
+  freshId <- unsafeGetFreshAstId
+  let !r2 = AstVarS $ astIdToAstVarId freshId
   return ((freshId, DynamicExists $ AstSToD r) : l, r2)
 
 astRegisterADShare :: (GoodScalar r, KnownNat n)
@@ -71,9 +78,9 @@ astRegisterADShare :: (GoodScalar r, KnownNat n)
 {-# NOINLINE astRegisterADShare #-}
 astRegisterADShare !r !l | astIsSmall True r = (l, r)
 astRegisterADShare !r !l = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
+  freshId <- unsafeGetFreshAstId
   let !l2 = insertADShare freshId (AstRToD r) l
-      !r2 = AstVar (shapeAst r) freshId
+      !r2 = AstVar (shapeAst r) $ astIdToAstVarId freshId
   return (l2, r2)
 
 astRegisterADShareS :: (GoodScalar r, OS.Shape sh)
@@ -82,9 +89,9 @@ astRegisterADShareS :: (GoodScalar r, OS.Shape sh)
 {-# NOINLINE astRegisterADShareS #-}
 astRegisterADShareS !r !l | astIsSmallS True r = (l, r)
 astRegisterADShareS !r !l = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
+  freshId <- unsafeGetFreshAstId
   let !l2 = insertADShare freshId (AstSToD r) l
-      !r2 = AstVarS freshId
+      !r2 = AstVarS $ astIdToAstVarId freshId
   return (l2, r2)
 
 funToAstIOR :: forall n m s r r2. GoodScalar r

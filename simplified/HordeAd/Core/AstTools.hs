@@ -120,7 +120,8 @@ intVarInAst var = \case
   AstVar _ var2 -> var == var2
   AstLet _var2 u v -> intVarInAst var u || intVarInAst var v
   AstLetADShare l v | Just Refl <- sameAstSpan @s @AstPrimal ->
-    intVarInADShare intVarInAstDynamic var l || intVarInAst var v
+    intVarInADShare intIdInAstDynamic (astVarIdToAstId var) l
+    || intVarInAst var v
   AstLetADShare{} -> False
   AstNm _ l -> any (intVarInAst var) l
   AstOp _ l -> any (intVarInAst var) l
@@ -167,6 +168,11 @@ intVarInAstDynamic var = \case
   AstRToD t -> intVarInAst var t
   AstSToD t -> intVarInAstS var t
 
+intIdInAstDynamic :: AstSpan s => AstId -> AstDynamic s r -> Bool
+intIdInAstDynamic var = \case
+  AstRToD t -> intVarInAst (astIdToAstVarId var) t
+  AstSToD t -> intVarInAstS (astIdToAstVarId var) t
+
 intVarInAstBool :: AstVarId -> AstBool -> Bool
 intVarInAstBool var = \case
   AstBoolOp _ l -> any (intVarInAstBool var) l
@@ -182,7 +188,8 @@ intVarInAstS var = \case
   AstVarS var2 -> var == var2
   AstLetS _var2 u v -> intVarInAstS var u || intVarInAstS var v
   AstLetADShareS l v | Just Refl <- sameAstSpan @s @AstPrimal ->
-    intVarInADShare intVarInAstDynamic var l || intVarInAstS var v
+    intVarInADShare intIdInAstDynamic (astVarIdToAstId var) l
+    || intVarInAstS var v
   AstLetADShareS{} -> False
   AstNmS _ l -> any (intVarInAstS var) l
   AstOpS _ l -> any (intVarInAstS var) l
@@ -434,31 +441,31 @@ unwrapAstDomains = \case
   AstDomainsLetS _ _ v -> unwrapAstDomains v
 
 bindsToLet :: forall n s r. (KnownNat n, AstSpan s)
-           => AstRanked s r n -> [(AstVarId, DynamicExists (AstDynamic s))]
+           => AstRanked s r n -> [(AstId, DynamicExists (AstDynamic s))]
            -> AstRanked s r n
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
  where
-  bindToLet :: AstRanked s r n -> (AstVarId, DynamicExists (AstDynamic s))
+  bindToLet :: AstRanked s r n -> (AstId, DynamicExists (AstDynamic s))
             -> AstRanked s r n
   bindToLet u (var, DynamicExists @_ @r2 d) = case d of
-    AstRToD w -> AstLet var w u
+    AstRToD w -> AstLet (astIdToAstVarId var) w u
     AstSToD @sh w ->  -- rare or impossible, but let's implement it anyway:
       let p = length $ OS.shapeT @sh
       in case someNatVal $ toInteger p of
         Just (SomeNat @p _proxy) ->
           -- I can't use sameNat to compare the types, because no KnownNat!
           gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: p) $
-          AstLet var (AstSToR w) u
+          AstLet (astIdToAstVarId var) (AstSToR w) u
         Nothing -> error "bindsToLet: impossible someNatVal error"
 
 bindsToLetS :: forall sh s r. (OS.Shape sh, AstSpan s)
-            => AstShaped s r sh -> [(AstVarId, DynamicExists (AstDynamic s))]
+            => AstShaped s r sh -> [(AstId, DynamicExists (AstDynamic s))]
             -> AstShaped s r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS
  where
-  bindToLetS :: AstShaped s r sh -> (AstVarId, DynamicExists (AstDynamic s))
+  bindToLetS :: AstShaped s r sh -> (AstId, DynamicExists (AstDynamic s))
              -> AstShaped s r sh
   bindToLetS u (var, DynamicExists @_ @r2 d) = case d of
     AstRToD @n w ->  -- rare or impossible, but let's implement it anyway:
@@ -466,15 +473,15 @@ bindsToLetS = foldl' bindToLetS
       in if valueOf @n == length sh
          then OS.withShapeP sh $ \(_proxy :: Proxy sh2) ->
            gcastWith (unsafeCoerce Refl :: n :~: OS.Rank sh2)
-           $ AstLetS var (AstRToS @sh2 w) u
+           $ AstLetS (astIdToAstVarId var) (AstRToS @sh2 w) u
          else error "bindsToLetS: rank mismatch"
-    AstSToD w -> AstLetS var w u
+    AstSToD w -> AstLetS (astIdToAstVarId var) w u
 
 bindsToDomainsLet
-   :: AstDomains s -> [(AstVarId, DynamicExists (AstDynamic s))] -> AstDomains s
+   :: AstDomains s -> [(AstId, DynamicExists (AstDynamic s))] -> AstDomains s
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
   bindToDomainsLet u (var, DynamicExists d) = case d of
-    AstRToD w -> AstDomainsLet var w u
-    AstSToD w -> AstDomainsLetS var w u
+    AstRToD w -> AstDomainsLet (astIdToAstVarId var) w u
+    AstSToD w -> AstDomainsLetS (astIdToAstVarId var) w u

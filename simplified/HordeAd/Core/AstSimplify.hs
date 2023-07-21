@@ -1292,7 +1292,7 @@ simplifyAstDomains6 =
 
 -- * The pass inlining lets with the bottom-up strategy
 
-type AstMemo = EM.EnumMap AstVarId Int
+type AstMemo = EM.EnumMap AstId Int
 
 inlineAst
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
@@ -1301,13 +1301,14 @@ inlineAst
 inlineAst memo v0 = case v0 of
   Ast.AstVar _ var -> let f Nothing = Just 1
                           f (Just count) = Just $ succ count
-                      in (EM.alter f var memo, v0)
+                      in (EM.alter f (astVarIdToAstId var) memo, v0)
   Ast.AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
-    let (memo1, v2) = inlineAst memo v
-        memo1NoVar = EM.delete var memo1
+    let vv = astVarIdToAstId var
+        (memo1, v2) = inlineAst memo v
+        memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAst memo1NoVar u
-    in case EM.findWithDefault 0 var memo1 of
+    in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
       1 -> (memo2, substitute1Ast (SubstitutionPayloadRanked u2) var v2)
         -- this is the substitution that doesn't simplify, so that
@@ -1421,10 +1422,11 @@ inlineAstDomains memo v0 = case v0 of
     second Ast.AstDomains $ mapAccumR inlineAstDynamic memo l
   Ast.AstDomainsLet var u v ->
     -- We assume there are no nested lets with the same variable.
-    let (memo1, v2) = inlineAstDomains memo v
-        memo1NoVar = EM.delete var memo1
+    let vv = astVarIdToAstId var
+        (memo1, v2) = inlineAstDomains memo v
+        memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAst memo1NoVar u
-    in case EM.findWithDefault 0 var memo1 of
+    in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
       1 -> (memo2, substitute1AstDomains (SubstitutionPayloadRanked u2) var v2)
         -- this is the substitution that doesn't simplify, so that
@@ -1437,10 +1439,11 @@ inlineAstDomains memo v0 = case v0 of
       _ -> (memo2, Ast.AstDomainsLet var u2 v2)
   Ast.AstDomainsLetS var u v ->
     -- We assume there are no nested lets with the same variable.
-    let (memo1, v2) = inlineAstDomains memo v
-        memo1NoVar = EM.delete var memo1
+    let vv = astVarIdToAstId var
+        (memo1, v2) = inlineAstDomains memo v
+        memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAstS memo1NoVar u
-    in case EM.findWithDefault 0 var memo1 of
+    in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
       1 -> (memo2, substitute1AstDomains (SubstitutionPayloadShaped u2) var v2)
         -- this is the substitution that doesn't simplify, so that
@@ -1472,13 +1475,14 @@ inlineAstS
 inlineAstS memo v0 = case v0 of
   Ast.AstVarS var -> let f Nothing = Just 1
                          f (Just count) = Just $ succ count
-                     in (EM.alter f var memo, v0)
+                     in (EM.alter f (astVarIdToAstId var) memo, v0)
   Ast.AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
-    let (memo1, v2) = inlineAstS memo v
-        memo1NoVar = EM.delete var memo1
+    let vv = astVarIdToAstId var
+        (memo1, v2) = inlineAstS memo v
+        memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAstS memo1NoVar u
-    in case EM.findWithDefault 0 var memo1 of
+    in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
       1 -> (memo2, substitute1AstS (SubstitutionPayloadShaped u2) var v2)
         -- this is the substitution that doesn't simplify, so that
@@ -1583,14 +1587,15 @@ inlineAstS memo v0 = case v0 of
 -- * The pass eliminating nested lets bottom-up
 
 data UnletEnv = UnletEnv
-  { unletSet     :: ES.EnumSet AstVarId
+  { unletSet     :: ES.EnumSet AstId
   , unletADShare :: ADShare }
 
 emptyUnletEnv :: ADShare -> UnletEnv
 emptyUnletEnv l = UnletEnv ES.empty l
 
 unletAstDomains6
-  :: [(AstVarId, DynamicExists (AstDynamic AstPrimal))] -> ADShare -> AstDomains AstPrimal
+  :: [(AstId, DynamicExists (AstDynamic AstPrimal))] -> ADShare
+  -> AstDomains AstPrimal
   -> AstDomains AstPrimal
 unletAstDomains6 astBindings l t =
   unletAstDomains (emptyUnletEnv l)
@@ -1620,9 +1625,10 @@ unletAst env t = case t of
     -- a term into the same term). If that changes, let's refresh
     -- let variables whenever substituting into let bodies.
     -- See the same assumption in AstInterpret.
-    if var `ES.member` unletSet env
+    if astVarIdToAstId var `ES.member` unletSet env
     then unletAst env v
-    else let env2 = env {unletSet = ES.insert var (unletSet env)}
+    else let env2 = env {unletSet =
+                           ES.insert (astVarIdToAstId var) (unletSet env)}
          in Ast.AstLet var (unletAst env u) (unletAst env2 v)
   Ast.AstLetADShare l v ->
     let lassocs = subtractADShare l $ unletADShare env
@@ -1664,7 +1670,8 @@ unletAst env t = case t of
   Ast.AstD u u' -> Ast.AstD (unletAst env u) (unletAst env u')
   Ast.AstLetDomains vars l v ->
     let env2 = env {unletSet = unletSet env
-                               `ES.union` ES.fromList (V.toList vars)}
+                               `ES.union` ES.fromList (map astVarIdToAstId
+                                                       $ V.toList vars)}
     in Ast.AstLetDomains vars (unletAstDomains env l) (unletAst env2 v)
   Ast.AstCond b a1 a2 ->
     Ast.AstCond
@@ -1685,15 +1692,17 @@ unletAstDomains
 unletAstDomains env = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic env) l
   Ast.AstDomainsLet var u v ->
-    if var `ES.member` unletSet env
+    if astVarIdToAstId var `ES.member` unletSet env
     then unletAstDomains env v
-    else let env2 = env {unletSet = ES.insert var (unletSet env)}
+    else let env2 = env {unletSet =
+                           ES.insert (astVarIdToAstId var) (unletSet env)}
          in Ast.AstDomainsLet var (unletAst env u)
                                   (unletAstDomains env2 v)
   Ast.AstDomainsLetS var u v ->
-    if var `ES.member` unletSet env
+    if astVarIdToAstId var `ES.member` unletSet env
     then unletAstDomains env v
-    else let env2 = env {unletSet = ES.insert var (unletSet env)}
+    else let env2 = env {unletSet =
+                           ES.insert (astVarIdToAstId var) (unletSet env)}
          in Ast.AstDomainsLetS var (unletAstS env u)
                                    (unletAstDomains env2 v)
 
@@ -1719,9 +1728,10 @@ unletAstS env t = case t of
     -- a term into the same term). If that changes, let's refresh
     -- let variables whenever substituting into let bodies.
     -- See the same assumption in AstInterpret.
-    if var `ES.member` unletSet env
+    if astVarIdToAstId var `ES.member` unletSet env
     then unletAstS env v
-    else let env2 = env {unletSet = ES.insert var (unletSet env)}
+    else let env2 = env {unletSet =
+                           ES.insert (astVarIdToAstId var) (unletSet env)}
          in Ast.AstLetS var (unletAstS env u) (unletAstS env2 v)
   Ast.AstLetADShareS l v ->
     let lassocs = subtractADShare l $ unletADShare env
@@ -1763,7 +1773,8 @@ unletAstS env t = case t of
   Ast.AstDS u u' -> Ast.AstDS (unletAstS env u) (unletAstS env u')
   Ast.AstLetDomainsS vars l v ->
     let env2 = env {unletSet = unletSet env
-                               `ES.union` ES.fromList (V.toList vars)}
+                               `ES.union` ES.fromList (map astVarIdToAstId
+                                                       $ V.toList vars)}
     in Ast.AstLetDomainsS vars (unletAstDomains env l) (unletAstS env2 v)
   Ast.AstCondS b a1 a2 ->
     Ast.AstCondS

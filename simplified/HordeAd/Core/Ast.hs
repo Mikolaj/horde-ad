@@ -10,7 +10,9 @@
 module HordeAd.Core.Ast
   ( AstSpanType(..), AstSpan(..), sameAstSpan, astSpanT
   , AstInt, pattern AstIntVar
-  , AstOf, AstVarId, intToAstVarId, ADAstArtifact6
+  , AstOf, AstId, intToAstId
+  , AstVarId, intToAstVarId, astIdToAstVarId, astVarIdToAstId
+  , ADAstArtifact6
   , AstIndex, AstVarList, AstIndexS, AstVarListS
   , AstRanked(..), AstShaped(..), AstDynamic(..), AstDomains(..)
   , AstVarName(..), AstDynamicVarName(..), AstBool(..)
@@ -109,6 +111,12 @@ type family AstOf f = result | result -> f where
   AstOf (Flip OR.Array) = AstRanked AstFull
   AstOf (Flip OS.Array) = AstShaped AstFull
 
+newtype AstId = AstId Int
+ deriving (Eq, Ord, Show, Enum)
+
+intToAstId :: Int -> AstId
+intToAstId = AstId
+
 -- We avoid adding a phantom type denoting the underlying scalar,
 -- because the type families over tensor ranks make quanitified constraints
 -- impossible and so the phantom type leads to passing explicit (and implicit)
@@ -118,6 +126,12 @@ newtype AstVarId = AstVarId Int
 
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
+
+astIdToAstVarId :: AstId -> AstVarId
+astIdToAstVarId (AstId x) = AstVarId x
+
+astVarIdToAstId :: AstVarId -> AstId
+astVarIdToAstId (AstVarId x) = AstId x
 
 newtype AstVarName t = AstVarName AstVarId
  deriving (Eq, Show)
@@ -660,14 +674,14 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 -- but with less false negatives, because it's stable.
 data ADShare = ADShareNil
              | forall r. GoodScalar r
-               => ADShareCons Int AstVarId (AstDynamic AstPrimal r) ADShare
+               => ADShareCons Int AstId (AstDynamic AstPrimal r) ADShare
 deriving instance Show ADShare
 
 emptyADShare :: ADShare
 emptyADShare = ADShareNil
 
 insertADShare :: forall r. GoodScalar r
-              => AstVarId -> AstDynamic AstPrimal r -> ADShare -> ADShare
+              => AstId -> AstDynamic AstPrimal r -> ADShare -> ADShare
 insertADShare !key !t !s =
   -- The Maybe over-engineering ensures that we never refresh an id
   -- unnecessarily. In theory, when merging alternating equal lists
@@ -687,7 +701,7 @@ insertADShare !key !t !s =
           GT -> Just $ freshInsertADShare key t l2
   in fromMaybe s (insertAD s)
 
-freshInsertADShare :: GoodScalar r => AstVarId -> AstDynamic AstPrimal r -> ADShare
+freshInsertADShare :: GoodScalar r => AstId -> AstDynamic AstPrimal r -> ADShare
                    -> ADShare
 {-# NOINLINE freshInsertADShare #-}
 freshInsertADShare !key !t !s = unsafePerformIO $ do
@@ -723,10 +737,10 @@ mergeADShare !s1 !s2 =
 -- The result type is not as expected. The result is as if assocsADShare
 -- was applied to the expected one.
 subtractADShare :: ADShare -> ADShare
-                -> [(AstVarId, DynamicExists (AstDynamic AstPrimal))]
+                -> [(AstId, DynamicExists (AstDynamic AstPrimal))]
 {-# INLINE subtractADShare #-}  -- help list fusion
 subtractADShare !s1 !s2 =
-  let subAD :: ADShare -> ADShare -> [(AstVarId, DynamicExists (AstDynamic AstPrimal))]
+  let subAD :: ADShare -> ADShare -> [(AstId, DynamicExists (AstDynamic AstPrimal))]
       subAD !l ADShareNil = assocsADShare l
       subAD ADShareNil _ = []
       subAD l1@(ADShareCons id1 key1 t1 rest1)
@@ -743,7 +757,7 @@ subtractADShare !s1 !s2 =
 flattenADShare :: [ADShare] -> ADShare
 flattenADShare = foldl' mergeADShare emptyADShare
 
-assocsADShare :: ADShare -> [(AstVarId, DynamicExists (AstDynamic AstPrimal))]
+assocsADShare :: ADShare -> [(AstId, DynamicExists (AstDynamic AstPrimal))]
 {-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
 assocsADShare (ADShareCons _ key t rest) =
@@ -753,8 +767,8 @@ _lengthADShare :: Int -> ADShare -> Int
 _lengthADShare acc ADShareNil = acc
 _lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
 
-intVarInADShare :: (forall r. AstVarId -> AstDynamic AstPrimal r -> Bool)
-                -> AstVarId -> ADShare
+intVarInADShare :: (forall r. AstId -> AstDynamic AstPrimal r -> Bool)
+                -> AstId -> ADShare
                 -> Bool
 {-# INLINE intVarInADShare #-}
 intVarInADShare _ _ ADShareNil = False

@@ -408,7 +408,7 @@ class DualPart (f :: TensorKind k) where
   reverseDervative
     :: (HasSingletonDict y, GoodScalar r)
     => Int -> f r y -> Maybe (f r y) -> Dual f r y
-    -> ([(AstVarId, DynamicExists (DynamicOf f))], Domains (DynamicOf f))
+    -> ([(AstId, DynamicExists (DynamicOf f))], Domains (DynamicOf f))
   forwardDerivative
     :: (HasSingletonDict y, GoodScalar r)
     => Int -> Dual f r y -> Domains (DynamicOf f)
@@ -431,7 +431,7 @@ gradientDtD
   => Int -> Clown (DynamicOf ranked) r y
   -> Maybe (Clown (DynamicOf ranked) r y)
   -> DeltaD ranked shaped r y
-  -> ( [(AstVarId, DynamicExists (DynamicOf ranked))]
+  -> ( [(AstId, DynamicExists (DynamicOf ranked))]
      , Domains (DynamicOf ranked) )
 gradientDtD dims value mdt deltaTopLevel =
   let shl = dshape @ranked (runClown value)
@@ -472,7 +472,7 @@ gradientDtR
      , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> ranked r y -> Maybe (ranked r y)
   -> DeltaR ranked shaped r y
-  -> ( [(AstVarId, DynamicExists (DynamicOf ranked))]
+  -> ( [(AstId, DynamicExists (DynamicOf ranked))]
      , Domains (DynamicOf ranked) )
 gradientDtR dims value mdt deltaTopLevel =
   let dt = fromMaybe (treplicate0N (tshape value) 1) mdt
@@ -509,7 +509,7 @@ gradientDtS
      ( OS.Shape y, GoodScalar r
      , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> Maybe (shaped r y) -> DeltaS ranked shaped r y
-  -> ( [(AstVarId, DynamicExists (DynamicOf ranked))]
+  -> ( [(AstId, DynamicExists (DynamicOf ranked))]
      , Domains (DynamicOf shaped) )
 gradientDtS dims mdt deltaTopLevel =
   let dt = fromMaybe 1 mdt
@@ -570,7 +570,7 @@ data EvalState ranked shaped = EvalState
       -- by their node identifiers
   , nMap        :: EM.EnumMap (NodeId ranked) (DeltaBinding ranked shaped)
       -- ^ nodes left to be evaluated
-  , astBindings :: [(AstVarId, DynamicExists (DynamicOf ranked))]
+  , astBindings :: [(AstId, DynamicExists (DynamicOf ranked))]
   }
 
 -- | Nodes left to be evaluated.
@@ -642,7 +642,7 @@ gradientFromDelta
       ( GoodScalar r, RankedTensor ranked, ShapedTensor shaped
       , ConvertTensor ranked shaped )
   => Int -> DeltaDt ranked shaped r
-  -> ( [(AstVarId, DynamicExists (DynamicOf ranked))]
+  -> ( [(AstId, DynamicExists (DynamicOf ranked))]
      , Domains (DynamicOf ranked) )
 gradientFromDelta dims deltaDt =
   -- Create finite maps that hold values associated with inputs
@@ -668,10 +668,10 @@ gradientFromDelta dims deltaDt =
      in (astBindings, gradient)
 {-# SPECIALIZE gradientFromDelta
   :: Int -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
-  -> ([(AstVarId, DynamicExists OD.Array)], DomainsOD) #-}
+  -> ([(AstId, DynamicExists OD.Array)], DomainsOD) #-}
 {-# SPECIALIZE gradientFromDelta
   :: Int -> DeltaDt (AstRanked AstPrimal) (AstShaped AstPrimal) Double
-  -> ([(AstVarId, DynamicExists (AstDynamic AstPrimal))], Domains (AstDynamic AstPrimal)) #-}
+  -> ([(AstId, DynamicExists (AstDynamic AstPrimal))], Domains (AstDynamic AstPrimal)) #-}
 
 buildFinMaps
   :: forall ranked shaped r0.
