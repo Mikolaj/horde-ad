@@ -26,7 +26,7 @@ import           Data.Strict.IntMap (IntMap)
 import qualified Data.Strict.IntMap as IM
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat)
+import           GHC.TypeLits (KnownNat, Nat, sameNat)
 import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Ast
@@ -59,7 +59,7 @@ printAstVarId prefix cfg var =
     Just name | name /= "" -> name
     _ -> prefix ++ show n
 
-printAstVarN :: Int -> PrintConfig -> AstVarName s a -> ShowS
+printAstVarN :: Int -> PrintConfig -> AstVarName s f r y -> ShowS
 printAstVarN n cfg (AstVarName var) =
   let prefix = case n of
         0 -> "x"
@@ -71,11 +71,11 @@ printAstVarN n cfg (AstVarName var) =
   in printAstVarId prefix cfg var
 
 printAstVar :: forall n s r. KnownNat n
-            => PrintConfig -> AstVarName s (Flip OR.Array r n) -> ShowS
+            => PrintConfig -> AstVarName s (Flip OR.Array) r n -> ShowS
 printAstVar = printAstVarN (valueOf @n)
 
 printAstVarS :: forall sh s r. OS.Shape sh
-             => PrintConfig -> AstVarName s (Flip OS.Array r sh) -> ShowS
+             => PrintConfig -> AstVarName s (Flip OS.Array) r sh -> ShowS
 printAstVarS = printAstVarN (length (OS.shapeT @sh))
 
 printAstIntVar :: PrintConfig -> AstVarId AstPrimal -> ShowS
@@ -83,7 +83,7 @@ printAstIntVar = printAstVarId "i"
 
 printAstVarFromLet
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => AstRanked s r n -> PrintConfig -> AstVarName s (Flip OR.Array r n) -> ShowS
+  => AstRanked s r n -> PrintConfig -> AstVarName s (Flip OR.Array) r n -> ShowS
 printAstVarFromLet u cfg vn@(AstVarName var) =
   if representsIntIndex cfg && areAllArgsInts u
   then case ( sameAstSpan @s @AstPrimal
@@ -166,13 +166,13 @@ printAst cfgOld d t =
 printAstAux :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
             => PrintConfig -> Int -> AstRanked s r n -> ShowS
 printAstAux cfg d = \case
-  AstVar _sh var -> printAstVar cfg (AstVarName @s @(Flip OR.Array r n) var)
+  AstVar _sh var -> printAstVar cfg (AstVarName @Nat @s @(Flip OR.Array) @r @n var)
   t@(AstLet @n0 @_ @r20 @s0 var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstRanked s r n -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet @n2 @_ @r2 @s2 var u v) =
                let name = printAstVarFromLet
-                            u cfg (AstVarName @s2 @(Flip OR.Array r2 n2) var)
+                            u cfg (AstVarName @Nat @s2 @(Flip OR.Array) @r2 @n2 var)
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -192,7 +192,7 @@ printAstAux cfg d = \case
         . (showParen True
            $ showString "\\"
              . printAstVarFromLet
-                 u0 cfg (AstVarName @s0 @(Flip OR.Array r20 n0) var0)
+                 u0 cfg (AstVarName @Nat @s0 @(Flip OR.Array) @r20 @n0 var0)
              . showString " -> "
              . printAst cfg 0 v0)
   AstLetADShare l v -> printAst cfg d $ bindsToLet v (assocsADShare l)
@@ -310,9 +310,9 @@ printAstVarFromDomains
   :: forall s. PrintConfig -> (AstVarId s, DynamicExists (AstDynamic s)) -> ShowS
 printAstVarFromDomains cfg (var, d) = case d of
   DynamicExists @r (AstRToD @n _) ->
-    printAstVar cfg (AstVarName @s @(Flip OR.Array r n) var)
+    printAstVar cfg (AstVarName @Nat @s @(Flip OR.Array) @r @n var)
   DynamicExists @r (AstSToD @sh _) ->
-    printAstVarS cfg (AstVarName @s @(Flip OS.Array r sh) var)
+    printAstVarS cfg (AstVarName @[Nat] @s @(Flip OS.Array) @r @sh var)
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
@@ -357,7 +357,7 @@ printAstDomains cfg d = \case
     then let collect :: AstDomains s -> ([(ShowS, ShowS)], ShowS)
              collect (AstDomainsLet @m @r var u v) =
                let name = printAstVarFromLet
-                            u cfg (AstVarName @s @(Flip OR.Array r m) var)
+                            u cfg (AstVarName @Nat @s @(Flip OR.Array) @r @m var)
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -377,7 +377,7 @@ printAstDomains cfg d = \case
         . (showParen True
            $ showString "\\"
              . printAstVarFromLet
-                 u0 cfg (AstVarName @s @(Flip OR.Array r0 m0) var0)
+                 u0 cfg (AstVarName @Nat @s @(Flip OR.Array) @r0 @m0 var0)
              . showString " -> "
              . printAstDomains cfg 0 v0)
   t@(AstDomainsLetS @sh0 @r0 var0 u0 v0) ->
@@ -385,7 +385,7 @@ printAstDomains cfg d = \case
     then let collect :: AstDomains s -> ([(ShowS, ShowS)], ShowS)
              collect (AstDomainsLetS @sh @r var u v) =
                let name = printAstVarS
-                            cfg (AstVarName @s @(Flip OS.Array r sh) var)
+                            cfg (AstVarName @[Nat] @s @(Flip OS.Array) @r @sh var)
                    uPP = printAstS cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -404,7 +404,7 @@ printAstDomains cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVarS cfg (AstVarName @s @(Flip OS.Array r0 sh0) var0)
+             . printAstVarS cfg (AstVarName @[Nat] @s @(Flip OS.Array) @r0 @sh0 var0)
              . showString " -> "
              . printAstDomains cfg 0 v0)
 
@@ -515,29 +515,31 @@ printAstRelOp pr cfg d opCode args = case (opCode, args) of
                ++ show (opCode, length args)
 
 printAstVarName :: KnownNat n
-                => IntMap String -> AstVarName s (Flip OR.Array r n) -> String
+                => IntMap String -> AstVarName s (Flip OR.Array) r n
+                -> String
 printAstVarName renames var =
   printAstVar (defaulPrintConfig False renames) var ""
 
 printAstVarNameS :: OS.Shape sh
-                 => IntMap String -> AstVarName s (Flip OS.Array r sh) -> String
+                 => IntMap String -> AstVarName s (Flip OS.Array) r sh
+                 -> String
 printAstVarNameS renames var =
   printAstVarS (defaulPrintConfig False renames) var ""
 
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarName renames (AstDynamicVarName @sh @r @s var) =
-  printAstVarNameS renames (AstVarName @s @(Flip OS.Array r sh) var)
+  printAstVarNameS renames (AstVarName @[Nat] @s @(Flip OS.Array) @r @sh var)
 
 printAstS :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
           => PrintConfig -> Int -> AstShaped s r sh -> ShowS
 printAstS cfg d = \case
-  AstVarS var -> printAstVarS cfg (AstVarName @s @(Flip OS.Array r sh) var)
+  AstVarS var -> printAstVarS cfg (AstVarName @[Nat] @s @(Flip OS.Array) @r @sh var)
   t@(AstLetS @sh0 @_ @r20 @s0 var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstShaped s r sh -> ([(ShowS, ShowS)], ShowS)
              collect (AstLetS @sh2 @_ @r2 @s2 var u v) =
                let name = printAstVarS
-                            cfg (AstVarName @s2 @(Flip OS.Array r2 sh2) var)
+                            cfg (AstVarName @[Nat] @s2 @(Flip OS.Array) @r2 @sh2 var)
                    uPP = printAstS cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -556,7 +558,7 @@ printAstS cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVarS cfg (AstVarName @s0 @(Flip OS.Array r20 sh0) var0)
+             . printAstVarS cfg (AstVarName @[Nat] @s0 @(Flip OS.Array) @r20 @sh0 var0)
              . showString " -> "
              . printAstS cfg 0 v0)
   AstLetADShareS l v -> printAstS cfg d $ bindsToLetS v (assocsADShare l)

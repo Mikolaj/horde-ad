@@ -117,10 +117,11 @@ newtype AstId = AstId Int
 intToAstId :: Int -> AstId
 intToAstId = AstId
 
--- We avoid adding a phantom type denoting the underlying scalar,
--- because the type families over tensor ranks make quanitified constraints
--- impossible and so the phantom type leads to passing explicit (and implicit)
--- type equality proofs around.
+-- We avoid adding a phantom type denoting the tensor functor,
+-- because it can't be easily compared (even fully applies) and so the phantom
+-- is useless. We don't add the underlying scalar nor the rank/shape,
+-- because some collections differ in those to, e.g., domain,
+-- e.g. in AstLetDomainsS.
 newtype AstVarId (s :: AstSpanType) = AstVarId Int
  deriving (Eq, Ord, Show, Enum)
 
@@ -133,7 +134,9 @@ astIdToAstVarId (AstId x) = AstVarId x
 astVarIdToAstId :: AstVarId s -> AstId
 astVarIdToAstId (AstVarId x) = AstId x
 
-newtype AstVarName (s :: AstSpanType) t = AstVarName (AstVarId s)
+newtype AstVarName
+          (s :: AstSpanType) (f :: TensorKind k) (r :: Type) (y :: k) =
+            AstVarName (AstVarId s)
  deriving (Eq, Show)
 
 data AstDynamicVarName where
@@ -143,7 +146,7 @@ deriving instance Show AstDynamicVarName
 
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 f r y =
-  ( (AstVarName AstPrimal (f r y), [AstDynamicVarName]), AstDomains AstPrimal
+  ( (AstVarName AstPrimal f r y, [AstDynamicVarName]), AstDomains AstPrimal
   , PrimalOf (AstOf f) r y )
 
 type AstIndex n = Index n AstInt

@@ -29,7 +29,7 @@ import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat)
+import           GHC.TypeLits (KnownNat, Nat, sameNat)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -75,7 +75,7 @@ instance
 
 extendEnvS :: forall ranked shaped r sh s.
               (OS.Shape sh, shaped ~ ShapedOf ranked, GoodScalar r)
-           => AstVarName s (Flip OS.Array r sh) -> shaped r sh
+           => AstVarName s (Flip OS.Array) r sh -> shaped r sh
            -> AstEnv ranked -> AstEnv ranked
 extendEnvS v@(AstVarName var) t =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show v)
@@ -84,7 +84,7 @@ extendEnvS v@(AstVarName var) t =
 extendEnvR :: forall ranked r n s.
               ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
               , KnownNat n, GoodScalar r )
-           => AstVarName s (Flip OR.Array r n) -> ranked r n
+           => AstVarName s (Flip OR.Array) r n -> ranked r n
            -> AstEnv ranked -> AstEnv ranked
 extendEnvR (AstVarName var) t =
   let sh2 = tshape t
@@ -99,7 +99,7 @@ extendEnvDR :: ConvertTensor ranked shaped
             -> AstEnv ranked
 extendEnvDR (AstDynamicVarName @sh @r @s var, DynamicExists @r2 d) =
   case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> extendEnvS (AstVarName @s @(Flip OS.Array r sh) var) (sfromD d)
+    Just Refl -> extendEnvS (AstVarName @[Nat] @s @(Flip OS.Array) @r @sh var) (sfromD d)
     _ -> error "extendEnvDR: type mismatch"
 
 extendEnvI :: ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
