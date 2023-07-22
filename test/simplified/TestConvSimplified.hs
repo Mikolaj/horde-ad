@@ -11,6 +11,7 @@ import           GHC.TypeLits (KnownNat)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
+import HordeAd.Core.Ast
 import HordeAd.Core.Engine
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
@@ -118,7 +119,7 @@ testKonstG0Rev :: Assertion
 testKonstG0Rev =
   assertEqualUpToEpsilon1 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @Double @4 @(Flip OR.Array) conv2dB (tzero [2, 2, 2, 2]))
+    (rev @Double @4 @AstRanked conv2dB (tzero [2, 2, 2, 2]))
 
 testKonstG0Tiny1 :: Assertion
 testKonstG0Tiny1 =
@@ -199,7 +200,7 @@ testReplicate0RevLaborious :: Assertion
 testReplicate0RevLaborious =
   assertEqualUpToEpsilon1 1e-4
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @Double @4 @(Flip OR.Array) conv2dBLaborious (tzero [2, 2, 2, 2]))
+    (rev @Double @4 @AstRanked conv2dBLaborious (tzero [2, 2, 2, 2]))
 
 testReplicate0Tiny1Laborious :: Assertion
 testReplicate0Tiny1Laborious =

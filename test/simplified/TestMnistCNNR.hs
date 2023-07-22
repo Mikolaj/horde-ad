@@ -321,7 +321,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
            f = MnistCnnRanked2.convMnistLossFusedR
                  miniBatchSize (astGlyph, astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
-             revDtInit @Nat @(Flip OR.Array)
+             revDtInit @Nat @AstRanked
                        False f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
@@ -335,8 +335,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
-                   fst $ revAstOnDomainsEval @Nat @(Flip OR.Array)
-                                             (vars, gradient, primal)
+                   fst $ revAstOnDomainsEval (vars, gradient, primal)
                                              parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientDomain)

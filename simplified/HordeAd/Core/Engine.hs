@@ -17,8 +17,7 @@ import Prelude
 
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
+import qualified Data.Array.Shape as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
@@ -28,7 +27,7 @@ import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
+import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import           Type.Reflection (typeRep)
 
 import HordeAd.Core.Adaptor
@@ -45,59 +44,62 @@ import HordeAd.Core.Types
 -- * Gradient adaptors
 
 rev
-  :: forall r y f vals astvals.
-     ( Adaptable f, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic AstFull) astvals, AdaptableDomains OD.Array vals
+  :: forall r y g vals astvals.
+     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic AstFull) astvals
+     , AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
-  => (astvals -> AstOf f r y) -> vals -> vals
+  => (astvals -> g AstFull r y) -> vals -> vals
 rev f vals = revDtMaybe f vals Nothing
 
 -- This version additionally takes the sensitivity parameter.
 revDt
-  :: forall r y f vals astvals.
-     ( Adaptable f, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic AstFull) astvals, AdaptableDomains OD.Array vals
+  :: forall r y g vals astvals.
+     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic AstFull) astvals
+     , AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
-  => (astvals -> AstOf f r y) -> vals -> f r y -> vals
+  => (astvals -> g AstFull r y) -> vals -> ConcreteOf g r y -> vals
 revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revDtMaybe
-  :: forall r y f vals astvals.
-     ( Adaptable f, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic AstFull) astvals, AdaptableDomains OD.Array vals
+  :: forall r y g vals astvals.
+     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic AstFull) astvals
+     , AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
-  => (astvals -> AstOf f r y) -> vals -> Maybe (f r y) -> vals
+  => (astvals -> g AstFull r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
 revDtMaybe f vals mdt =
   let asts4 = fst $ revDtFun (isJust mdt) f vals
   in parseDomains (toValue vals)
      $ fst $ revAstOnDomainsEval asts4 (toDomains vals) mdt
 
-type Adaptable :: forall k. TensorKind k -> Constraint
-class Adaptable f where
+type Adaptable :: forall k. (AstSpanType -> TensorKind k) -> Constraint
+class Adaptable g where
   revAstOnDomainsEval
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => ADAstArtifact6 (PrimalOf (AstOf f)) r y -> Domains OD.Array
-    -> Maybe (f r y)
-    -> (Domains OD.Array, f r y)
+    => ADAstArtifact6 (g AstPrimal) r y -> Domains OD.Array
+    -> Maybe (ConcreteOf g r y)
+    -> (Domains OD.Array, ConcreteOf g r y)
 
   revDtInit
     :: forall r y vals astvals.
        ( GoodScalar r, HasSingletonDict y
        , AdaptableDomains (AstDynamic AstFull) astvals, vals ~ Value astvals )
-    => Bool -> (astvals -> AstOf f r y) -> vals
-    -> AstEnv (ADVal (PrimalOf (AstOf (RankedOf f))))
+    => Bool -> (astvals -> g AstFull r y) -> vals
+    -> AstEnv (ADVal (RankedOf (g AstPrimal)))
     -> DomainsOD
-    -> (ADAstArtifact6 (PrimalOf (AstOf f)) r y, Dual (PrimalOf (AstOf f)) r y)
+    -> (ADAstArtifact6 (g AstPrimal) r y, Dual (g AstPrimal) r y)
 
 -- TODO: it's not clear if the instance should be of Clown OD.Array or of
 -- Domains OD.Array, for which we already have unletAstDomains6, etc.;
 -- let's wait until we have rev as a function of Tensor class in case
 -- that affects rev and/or Delta
-instance Adaptable @() (Clown OD.Array) where
-  revAstOnDomainsEval = undefined
-  revDtInit = undefined
+--instance Adaptable @() (Clown OD.Array) where
+--  revAstOnDomainsEval = undefined
+--  revDtInit = undefined
 
-instance Adaptable @Nat (Flip OR.Array) where
+instance Adaptable AstRanked where
   {-# INLINE revAstOnDomainsEval #-}
   revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters mdt =
     let env1 = foldr extendEnvDR EM.empty $ zip vars1 $ V.toList parameters
@@ -114,7 +116,8 @@ instance Adaptable @Nat (Flip OR.Array) where
     => Bool -> (astvals -> AstRanked AstFull r y) -> vals
     -> AstEnv (ADVal (AstRanked AstPrimal))
     -> DomainsOD
-    -> (ADAstArtifact6 (AstRanked AstPrimal) r y, Dual (AstRanked AstPrimal) r y)
+    -> ( ADAstArtifact6 (AstRanked AstPrimal) r y
+       , Dual (AstRanked AstPrimal) r y )
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown (AstDynamic AstPrimal))
@@ -127,7 +130,7 @@ instance Adaptable @Nat (Flip OR.Array) where
           in interpretAst env1 ast
     in revAstOnDomainsFun hasDt parameters0 revDtInterpret
 
-instance Adaptable @[Nat] (Flip OS.Array) where
+instance Adaptable AstShaped where
   {-# INLINE revAstOnDomainsEval #-}
   revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters mdt =
     let env1 = foldr extendEnvDR EM.empty $ zip vars1 $ V.toList parameters
@@ -143,7 +146,8 @@ instance Adaptable @[Nat] (Flip OS.Array) where
        , AdaptableDomains (AstDynamic AstFull) astvals, vals ~ Value astvals )
     => Bool -> (astvals -> AstShaped AstFull r y) -> vals
     -> AstEnv (ADVal (AstRanked AstPrimal)) -> DomainsOD
-    -> (ADAstArtifact6 (AstShaped AstPrimal) r y, Dual (AstShaped AstPrimal) r y)
+    -> ( ADAstArtifact6 (AstShaped AstPrimal) r y
+       , Dual (AstShaped AstPrimal) r y )
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown (AstDynamic AstPrimal))
@@ -157,12 +161,13 @@ instance Adaptable @[Nat] (Flip OS.Array) where
     in revAstOnDomainsFunS hasDt parameters0 revDtInterpret
 
 revDtFun
-  :: forall r y f vals astvals.
-     ( Adaptable f, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic AstFull) astvals, AdaptableDomains OD.Array vals
+  :: forall r y g vals astvals.
+     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic AstFull) astvals
+     , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
-  => Bool -> (astvals -> AstOf f r y) -> vals
-  -> (ADAstArtifact6 (PrimalOf (AstOf f)) r y, Dual (PrimalOf (AstOf f)) r y)
+  => Bool -> (astvals -> g AstFull r y) -> vals
+  -> (ADAstArtifact6 (g AstPrimal) r y, Dual (g AstPrimal) r y)
 {-# INLINE revDtFun #-}
 revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
@@ -173,7 +178,8 @@ revAstOnDomainsFun
       -> Domains (AstDynamic AstFull)
       -> [AstDynamicVarName]
       -> ADVal (AstRanked AstPrimal) r n)
-  -> (ADAstArtifact6 (AstRanked AstPrimal) r n, Dual (AstRanked AstPrimal) r n)
+  -> ( ADAstArtifact6 (AstRanked AstPrimal) r n
+     , Dual (AstRanked AstPrimal) r n )
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
@@ -203,7 +209,8 @@ revAstOnDomainsFunS
       -> Domains (AstDynamic AstFull)
       -> [AstDynamicVarName]
       -> ADVal (AstShaped AstPrimal) r sh)
-  -> (ADAstArtifact6 (AstShaped AstPrimal) r sh, Dual (AstShaped AstPrimal) r sh)
+  -> ( ADAstArtifact6 (AstShaped AstPrimal) r sh
+     , Dual (AstShaped AstPrimal) r sh )
 {-# INLINE revAstOnDomainsFunS #-}
 revAstOnDomainsFunS hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables

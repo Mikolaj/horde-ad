@@ -341,7 +341,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
-                   fst $ revAstOnDomainsEval @Nat @(Flip OR.Array)
+                   fst $ revAstOnDomainsEval @Nat @AstRanked
                                              (vars, gradient, primal)
                                              parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientDomain)
@@ -660,7 +660,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
-                   fst $ revAstOnDomainsEval @Nat @(Flip OR.Array)
+                   fst $ revAstOnDomainsEval @Nat @AstRanked
                                              (vars, gradient, primal)
                                              parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientDomain)

@@ -189,7 +189,7 @@ testZero4S :: Assertion
 testZero4S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[] [0])
-    (rev @Double @'[] @(Flip OS.Array)
+    (rev @Double @'[] @AstShaped
          (let f :: Num a => a -> a
               f = const 3
           in f) 42)
@@ -207,7 +207,7 @@ testZero6S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] (replicate (product ([2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] :: [Int])) 3.6174114266850617))
     (rev @Double @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2]
-         @(Flip OS.Array) (\x -> bar (x, x)) 1)
+         @AstShaped (\x -> bar (x, x)) 1)
 
 testZero7S :: Assertion
 testZero7S =
@@ -344,13 +344,13 @@ testOverleafCInt :: Assertion
 testOverleafCInt =
   assertEqualUpToEpsilon 1e-10
     (Flip $ OR.fromList @CInt [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (rev @CInt @0 @(Flip OR.Array) overleaf (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+    (rev @CInt @0 @AstRanked overleaf (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
 
 testOverleafCIntToFloat :: Assertion
 testOverleafCIntToFloat =
   assertEqualUpToEpsilon 1e-10
     (Flip $ OR.fromList @Float @1 [28] (replicate 28 0.0))
-    (rev @Float @0 @(Flip OR.Array) (tfromIntegral . overleaf @CInt . tfloor) (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+    (rev @Float @0 @AstRanked (tfromIntegral . overleaf @CInt . tfloor) (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
 
 testOverleafInt64p :: Assertion
 testOverleafInt64p =
@@ -406,19 +406,19 @@ testFoo :: Assertion
 testFoo = do
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (rev @Double @0 @(Flip OR.Array) foo (1.1, 2.2, 3.3))
+    (rev @Double @0 @AstRanked foo (1.1, 2.2, 3.3))
 
 testFooS :: Assertion
 testFooS = do
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (rev @Double @'[3, 534, 3] @(Flip OS.Array) foo (1.1, 2.2, 3.3))
+    (rev @Double @'[3, 534, 3] @AstShaped foo (1.1, 2.2, 3.3))
 
 testFooSToFloat :: Assertion
 testFooSToFloat = do
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (rev @Float @'[3, 534, 3] @(Flip OS.Array)
+    (rev @Float @'[3, 534, 3] @AstShaped
          (scast . foo)
          (1.1 :: Flip OS.Array Double '[3, 534, 3], 2.2, 3.3))
 
@@ -426,7 +426,7 @@ testFooSBoth :: Assertion
 testFooSBoth = do
   assertEqualUpToEpsilon 1e-10
     (2.439628436155373, -1.9533749, 0.9654825479484146)
-    (rev @Float @'[3, 534, 3] @(Flip OS.Array)
+    (rev @Float @'[3, 534, 3] @AstShaped
          (scast . foo . (\(d, f, d2) -> (d, scast f, d2)))
          ( 1.1 :: Flip OS.Array Double '[3, 534, 3]
          , 2.2 :: Flip OS.Array Float '[3, 534, 3]
@@ -436,7 +436,7 @@ testFooBoth :: Assertion
 testFooBoth = do
   assertEqualUpToEpsilon 1e-10
     (2.439628436155373, -1.9533749, 0.9654825479484146)
-    (rev @Float @0 @(Flip OR.Array)
+    (rev @Float @0 @AstRanked
          (tcast . foo . (\(d, f, d2) -> (d, tcast f, d2)))
          ( 1.1 :: Flip OR.Array Double 0
          , 2.2 :: Flip OR.Array Float 0
@@ -471,7 +471,7 @@ testFooLet :: Assertion
 testFooLet = do
   assertEqualUpToEpsilon 1e-10
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
-    (rev @Double @0 @(Flip OR.Array) fooLet (1.1, 2.2, 3.3))
+    (rev @Double @0 @AstRanked fooLet (1.1, 2.2, 3.3))
 
 testFooLetPP :: Assertion
 testFooLetPP = do
@@ -815,7 +815,7 @@ testMatvecmulPP = do
   resetVarCounter
   let renames = IM.empty
       (artifact6, _) =
-        revDtFun @Double @1 @(Flip OR.Array)
+        revDtFun @Double @1 @AstRanked
                  True (uncurry tmatvecmul)
                  ( Flip $ OR.fromList [2,3] [1 :: Double .. 6]
                  , Flip $ OR.fromList [3] [7 .. 9] )
@@ -833,7 +833,7 @@ testMatmul2PP = do
   resetVarCounter
   let renames = IM.empty
       (artifact6, _) =
-        revDtFun @Double @2 @(Flip OR.Array)
+        revDtFun @Double @2 @AstRanked
                  True (uncurry tmatmul2)
                  ( Flip $ OR.fromList [2,3] [1 :: Double .. 6]
                  , Flip $ OR.fromList [3,4] [7 .. 18] )
@@ -851,7 +851,7 @@ testMatmul2PPS = do
   resetVarCounter
   let renames = IM.empty
       (artifact6, _) =
-        revDtFun @Double @[2, 4] @(Flip OS.Array)
+        revDtFun @Double @[2, 4] @AstShaped
                  True (uncurry smatmul2)
                  ( Flip $ OS.fromList @'[2,3] [1 :: Double .. 6]
                  , Flip $ OS.fromList @'[3,4] [7 .. 18] )
@@ -1105,7 +1105,7 @@ testBarReluADValDt :: Assertion
 testBarReluADValDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @Double @0 @(Flip OR.Array) barRelu (Flip $ OR.fromList [] [1.1]) 42.2)
+    (revDt @Double @0 @AstRanked barRelu (Flip $ OR.fromList [] [1.1]) 42.2)
 
 testBarReluADVal :: Assertion
 testBarReluADVal =
@@ -1128,7 +1128,7 @@ testBarReluADValMaxDt :: Assertion
 testBarReluADValMaxDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
-    (revDt @Double @0 @(Flip OR.Array) barReluMax (Flip $ OR.fromList [] [1.1]) 42.2)
+    (revDt @Double @0 @AstRanked barReluMax (Flip $ OR.fromList [] [1.1]) 42.2)
 
 testBarReluADValMax :: Assertion
 testBarReluADValMax =
@@ -1199,7 +1199,7 @@ testF1 :: Assertion
 testF1 =
   assertEqualUpToEpsilon 1e-10
     45.0
-    (rev @Double @0 @(Flip OR.Array) f1 1.1)
+    (rev @Double @0 @AstRanked f1 1.1)
 
 testF11 :: Assertion
 testF11 =
@@ -1222,7 +1222,7 @@ testF2 :: Assertion
 testF2 =
   assertEqualUpToEpsilon 1e-10
     470
-    (rev @Double @0 @(Flip OR.Array) f2 1.1)
+    (rev @Double @0 @AstRanked f2 1.1)
 
 testF21 :: Assertion
 testF21 =

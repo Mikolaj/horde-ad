@@ -10,7 +10,7 @@
 module HordeAd.Core.Ast
   ( AstSpanType(..), AstSpan(..), sameAstSpan, astSpanT
   , AstInt, IntVarName, pattern AstIntVar
-  , AstOf, AstId, intToAstId
+  , ConcreteOf, AstId, intToAstId
   , AstVarId, intToAstVarId, astIdToAstVarId, astVarIdToAstId
   , ADAstArtifact6
   , AstIndex, AstVarList, AstIndexS, AstVarListS
@@ -105,13 +105,12 @@ type IntVarName = AstVarName AstPrimal (AstRanked AstPrimal) Int64 0
 pattern AstIntVar :: IntVarName -> AstInt
 pattern AstIntVar var = AstVar ZS var
 
--- | The type family that to a concrete tensor type assigns its
+-- | The type family that a concrete tensor type assigns to its
 -- corresponding AST type.
-type AstOf :: forall k. TensorKind k -> TensorKind k
-type family AstOf f = result | result -> f where
-  AstOf (Clown OD.Array) = Clown (AstDynamic AstFull)
-  AstOf (Flip OR.Array) = AstRanked AstFull
-  AstOf (Flip OS.Array) = AstShaped AstFull
+type ConcreteOf :: forall k. (AstSpanType -> TensorKind k) -> TensorKind k
+type family ConcreteOf f = result | result -> f where
+  ConcreteOf AstRanked = Flip OR.Array
+  ConcreteOf AstShaped = Flip OS.Array
 
 newtype AstId = AstId Int
  deriving (Eq, Ord, Show, Enum)
