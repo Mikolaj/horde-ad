@@ -9,11 +9,12 @@ module HordeAd.Core.AstInterpret
   ( InterpretAstR, InterpretAstS
   , interpretAstPrimal, interpretAst, interpretAstDomainsDummy
   , interpretAstPrimalS, interpretAstS
-  , AstEnv, extendEnvS, extendEnvR, extendEnvDR
+  , AstEnv, extendEnvS, extendEnvR, extendEnvDR, extendEnvDS
   ) where
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
@@ -29,7 +30,7 @@ import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, sameNat)
+import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), sameNat, someNatVal)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -50,28 +51,24 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 type AstEnv ranked shaped = EM.EnumMap AstId (AstEnvElem ranked shaped)
 
 data AstEnvElem :: RankedTensorKind -> ShapedTensorKind -> Type where
+  AstEnvElem :: (KnownNat n, GoodScalar r)
+             => ranked r n -> AstEnvElem ranked shaped
   AstEnvElemS :: (OS.Shape sh, GoodScalar r)
-              =>  shaped r sh -> AstEnvElem ranked shaped
-deriving instance CRankedRNS ranked shaped ShowDynamicOf
+              => shaped r sh -> AstEnvElem ranked shaped
+deriving instance (ShowRanked ranked, ShowShaped shaped)
                   => Show (AstEnvElem ranked shaped)
 
-class (forall re ne she. (GoodScalar re, OS.Shape she)
-       => c ranked shaped re ne she)
-      => CRankedRNS ranked shaped c where
+class (forall re ne. GoodScalar re => Show (ranked re ne))
+      => ShowRanked ranked where
 instance
-      (forall re ne she. (GoodScalar re, OS.Shape she)
-       => c ranked shaped re ne she)
-      => CRankedRNS ranked shaped c where
+      (forall re ne. GoodScalar re => Show (ranked re ne))
+      => ShowRanked ranked where
 
-class ( Show (DynamicOf ranked r)
-      , Show (ranked r n)
-      , Show (shaped r sh)
-      , Show (IntOf ranked) ) => ShowDynamicOf ranked shaped r n sh
+class (forall re she. (GoodScalar re, OS.Shape she) => Show (shaped re she))
+      => ShowShaped shaped
 instance
-      ( Show (DynamicOf ranked r)
-      , Show (ranked r n)
-      , Show (shaped r sh)
-      , Show (IntOf ranked) ) => ShowDynamicOf ranked shaped r n sh
+      (forall re she. (GoodScalar re, OS.Shape she) => Show (shaped re she))
+      => ShowShaped shaped
 
 extendEnvS :: forall ranked shaped r sh s.
               (OS.Shape sh, GoodScalar r)
@@ -82,16 +79,12 @@ extendEnvS (AstVarName var) t =
                    (astVarIdToAstId var) (AstEnvElemS t)
 
 extendEnvR :: forall ranked shaped r n s.
-              ( RankedTensor ranked, ConvertTensor ranked shaped
-              , KnownNat n, GoodScalar r )
+              (KnownNat n, GoodScalar r)
            => AstVarName s (AstRanked s) r n -> ranked r n
            -> AstEnv ranked shaped -> AstEnv ranked shaped
 extendEnvR (AstVarName var) t =
-  let sh2 = tshape t
-  in OS.withShapeP (shapeToList sh2) $ \(Proxy :: Proxy sh2) ->
-    gcastWith (unsafeCoerce Refl :: OS.Rank sh2 :~: n)
-    $ extendEnvS (AstVarName var)
-                 (sfromR @ranked @shaped @r @sh2 t)
+  EM.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
+                   (astVarIdToAstId var) (AstEnvElem t)
 
 extendEnvDR :: ConvertTensor ranked shaped
             => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
@@ -99,17 +92,31 @@ extendEnvDR :: ConvertTensor ranked shaped
             -> AstEnv ranked shaped
 extendEnvDR (AstDynamicVarName @sh @r @s var, DynamicExists @r2 d) =
   case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> extendEnvS (AstVarName @[Nat] @s @(AstShaped s) @r @sh var) (sfromD d)
+    Just Refl ->
+      let n = length $ OS.shapeT @sh
+      in case someNatVal $ toInteger n of
+        Just (SomeNat @n _) ->
+          extendEnvR (AstVarName @Nat @s @(AstRanked s) @r @n var) (tfromD d)
+        Nothing -> error "extendEnvDR: impossible someNatVal error"
     _ -> error "extendEnvDR: type mismatch"
 
-extendEnvI :: ( RankedTensor ranked, ConvertTensor ranked shaped
+extendEnvDS :: ConvertTensor ranked shaped
+            => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
+            -> AstEnv ranked shaped
+            -> AstEnv ranked shaped
+extendEnvDS (AstDynamicVarName @sh @r @s var, DynamicExists @r2 d) =
+  case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> extendEnvS (AstVarName @[Nat] @s @(AstShaped s) @r @sh var) (sfromD d)
+    _ -> error "extendEnvDS: type mismatch"
+
+extendEnvI :: ( RankedTensor ranked
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
            => IntVarName -> IntOf ranked -> AstEnv ranked shaped
            -> AstEnv ranked shaped
 extendEnvI var i = extendEnvR var (tconstant i)
 
 extendEnvVars :: forall ranked shaped m.
-                 ( RankedTensor ranked, ConvertTensor ranked shaped
+                 ( RankedTensor ranked
                  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
               => AstVarList m -> IndexOf ranked m
               -> AstEnv ranked shaped
@@ -119,7 +126,7 @@ extendEnvVars vars ix env =
   in foldr (uncurry extendEnvI) env assocs
 
 extendEnvVarsS :: forall ranked shaped sh.
-                  ( RankedTensor ranked, ConvertTensor ranked shaped
+                  ( RankedTensor ranked
                   , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
                => AstVarListS sh -> IndexSh ranked sh
                -> AstEnv ranked shaped
@@ -131,7 +138,7 @@ extendEnvVarsS vars ix env =
 
 interpretLambdaI
   :: forall ranked shaped n s r.
-     ( RankedTensor ranked, ConvertTensor ranked shaped
+     ( RankedTensor ranked
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
   => (AstEnv ranked shaped -> AstRanked s r n -> ranked r n)
   -> AstEnv ranked shaped -> (IntVarName, AstRanked s r n)
@@ -143,7 +150,7 @@ interpretLambdaI f env (var, ast) =
 
 interpretLambdaIS
   :: forall ranked shaped sh n s r.
-     ( RankedTensor ranked, ConvertTensor ranked shaped
+     ( RankedTensor ranked
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
   => (AstEnv ranked shaped -> AstShaped s r sh -> shaped r sh)
   -> AstEnv ranked shaped -> (IntVarName, AstShaped s r sh)
@@ -155,7 +162,7 @@ interpretLambdaIS f env (var, ast) =
 
 interpretLambdaIndex
   :: forall ranked shaped s r m n.
-     ( RankedTensor ranked, ConvertTensor ranked shaped
+     ( RankedTensor ranked
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
   => (AstEnv ranked shaped -> AstRanked s r n -> ranked r n)
   -> AstEnv ranked shaped -> (AstVarList m, AstRanked s r n)
@@ -167,7 +174,7 @@ interpretLambdaIndex f env (vars, ast) =
 
 interpretLambdaIndexS
   :: forall sh sh2 ranked shaped s r.
-     ( RankedTensor ranked, ConvertTensor ranked shaped
+     ( RankedTensor ranked
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
   => (AstEnv ranked shaped -> AstShaped s r sh -> shaped r sh)
   -> AstEnv ranked shaped -> (AstVarListS sh2, AstShaped s r sh)
@@ -179,7 +186,7 @@ interpretLambdaIndexS f env (vars, ast) =
 
 interpretLambdaIndexToIndex
   :: forall ranked shaped m n.
-     ( RankedTensor ranked, ConvertTensor ranked shaped
+     ( RankedTensor ranked
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
   => (AstEnv ranked shaped -> AstInt -> IntOf ranked)
   -> AstEnv ranked shaped -> (AstVarList m, AstIndex n)
@@ -191,7 +198,7 @@ interpretLambdaIndexToIndex f env (vars, asts) =
 
 interpretLambdaIndexToIndexS
   :: forall ranked shaped sh sh2.
-     ( RankedTensor ranked, ConvertTensor ranked shaped
+     ( RankedTensor ranked
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
   => (AstEnv ranked shaped -> AstInt -> IntOf ranked)
   -> AstEnv ranked shaped -> (AstVarListS sh, AstIndexS sh2)
@@ -222,7 +229,6 @@ instance
 type InterpretAstR ranked =
   ( RankedOf (PrimalOf ranked) ~ PrimalOf ranked
   , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
-  , CRankedRNS ranked (ShapedOf ranked) ShowDynamicOf
   , IfF ranked, IfF (ShapedOf ranked), IfF (PrimalOf ranked)
   , EqF ranked, EqF (ShapedOf ranked), EqF (PrimalOf ranked)
   , OrdF ranked, OrdF (ShapedOf ranked), OrdF (PrimalOf ranked)
@@ -245,6 +251,7 @@ type InterpretAstS shaped =
 
 type InterpretAst ranked shaped =
   ( shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped
+  , ShowRanked ranked, ShowShaped shaped
   , RankedTensor ranked, RankedTensor (PrimalOf ranked)
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , ConvertTensor ranked shaped
@@ -292,13 +299,12 @@ interpretAst
   -> AstRanked s r n -> ranked r n
 interpretAst env = \case
   AstVar sh (AstVarName var) -> case EM.lookup (astVarIdToAstId var) env of
-    Just (AstEnvElemS @sh2 @r2 t) ->
-      if shapeToList sh == OS.shapeT @sh2 then
-        gcastWith (unsafeCoerce Refl :: OS.Rank sh2 :~: n)
-        $ case testEquality (typeRep @r) (typeRep @r2) of
-            Just Refl -> tfromS t
-            _ -> error "interpretAst: type mismatch"
-      else error "interpretAst: wrong shape in environment"
+    Just (AstEnvElem @n2 @r2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
+      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+        Just Refl -> assert (tshape t == sh) t
+        _ -> error "interpretAst: type mismatch"
+      _ -> error "interpretAst: wrong shape in environment"
+    Just{} -> error "interpretAst: wrong tensor kind in environment"
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
                        ++ " in environment " ++ show env
   AstLet var u v ->
@@ -776,6 +782,7 @@ interpretAstS env = \case
         Just Refl -> t
         _ -> error "interpretAstS: type mismatch"
       Nothing -> error "interpretAstS: wrong shape in environment"
+    Just{} -> error "interpretAstS: wrong tensor kind in environment"
     Nothing -> error $ "interpretAstS: unknown variable " ++ show var
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.

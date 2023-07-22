@@ -187,8 +187,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
+       (vars1, _, asts1) <- funToAstAllIOS domainsInit
        let testDataR = packBatchR testData
-           (vars1, asts1) = funToAst2 domainsInit
            doms = V.fromList asts1
        (varGlyph, _, astGlyph) <-
          funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id

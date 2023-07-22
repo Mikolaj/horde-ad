@@ -194,8 +194,8 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
+       (vars1, _, asts1) <- funToAstAllIO domainsInit
        let testDataR = packBatchR testData
-           (vars1, asts1) = funToAst2 domainsInit
            doms = V.fromList asts1
        (varGlyph, _, astGlyph) <-
          funToAstIOR

@@ -133,7 +133,7 @@ instance Adaptable AstRanked where
 instance Adaptable AstShaped where
   {-# INLINE revAstOnDomainsEval #-}
   revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters mdt =
-    let env1 = foldr extendEnvDR EM.empty $ zip vars1 $ V.toList parameters
+    let env1 = foldr extendEnvDS EM.empty $ zip vars1 $ V.toList parameters
         dt = fromMaybe 1 mdt
         envDt = extendEnvS varDt dt env1
         gradientDomain = interpretAstDomainsDummy envDt gradient
@@ -157,7 +157,7 @@ instance Adaptable AstShaped where
                        -> ADVal (AstShaped AstPrimal) r y
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
-              env1 = foldr extendEnvDR envInit $ zip vars1 $ V.toList varInputs
+              env1 = foldr extendEnvDS envInit $ zip vars1 $ V.toList varInputs
           in interpretAstS env1 ast
     in revAstOnDomainsFunS hasDt parameters0 revDtInterpret
 
@@ -217,7 +217,7 @@ revAstOnDomainsFunS hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
       !(!vars@(varDtId, vars1), asts1, astsPrimal1) =
-        funToAstAll parameters0 in
+        funToAstAllS parameters0 in
   let domains = V.fromList asts1
       domainsPrimal = V.fromList astsPrimal1
       deltaInputs = generateDeltaInputs domainsPrimal
