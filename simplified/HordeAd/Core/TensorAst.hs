@@ -12,12 +12,10 @@ import Prelude
 
 import qualified Data.Array.Shape as OS
 import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
-  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
-import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstFreshId
@@ -155,13 +153,6 @@ instance AstSpan s
 
 instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   tfromD = astFromDynamic
-  tfromS (AstVarS @sh (AstVarName var)) =
-    let sh = OS.shapeT @sh
-    in case someNatVal $ toInteger $ length sh of
-      Just (SomeNat @p _proxy) ->
-        gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: p) $
-        AstVar (listShapeToShape sh) (AstVarName var)
-      Nothing -> error "tfromS: impossible someNatVal error"
   tfromS (AstRToS t) = t
   tfromS t = AstSToR t
 --  dfromR (AstDToR t) = t
@@ -170,7 +161,6 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   dfromS t = AstSToD t
   sfromR :: forall sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
          => AstRanked s r (OS.Rank sh) -> AstShaped s r sh
-  sfromR (AstVar _sh (AstVarName var)) = AstVarS (AstVarName var)
   sfromR (AstSToR @sh1 t) =
     case sameShape @sh1 @sh of
       Just Refl -> t
