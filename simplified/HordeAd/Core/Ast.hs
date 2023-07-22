@@ -9,7 +9,7 @@
 -- to what AST captures.
 module HordeAd.Core.Ast
   ( AstSpanType(..), AstSpan(..), sameAstSpan, astSpanT
-  , AstInt, pattern AstIntVar
+  , AstInt, IntVarName, pattern AstIntVar
   , AstOf, AstId, intToAstId
   , AstVarId, intToAstVarId, astIdToAstVarId, astVarIdToAstId
   , ADAstArtifact6
@@ -100,7 +100,9 @@ type instance DualOf (AstShaped s) = AstShaped AstDual
 
 type AstInt = AstRanked AstPrimal Int64 0
 
-pattern AstIntVar :: AstVarId AstPrimal -> AstInt
+type IntVarName = AstVarName AstPrimal (AstRanked AstPrimal) Int64 0
+
+pattern AstIntVar :: IntVarName -> AstInt
 pattern AstIntVar var = AstVar ZS var
 
 -- | The type family that to a concrete tensor type assigns its
@@ -137,7 +139,11 @@ astVarIdToAstId (AstVarId x) = AstId x
 newtype AstVarName
           (s :: AstSpanType) (f :: TensorKind k) (r :: Type) (y :: k) =
             AstVarName (AstVarId s)
- deriving (Eq, Show)
+ deriving (Eq, Ord, Enum)
+
+instance Show (AstVarName s f r y) where
+  showsPrec d (AstVarName var) =
+    showsPrec d var  -- backward compatibility vs test results
 
 data AstDynamicVarName where
   AstDynamicVarName :: (OS.Shape sh, GoodScalar r)
@@ -147,15 +153,15 @@ deriving instance Show AstDynamicVarName
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 f r y =
   ( (AstVarName AstPrimal f r y, [AstDynamicVarName]), AstDomains AstPrimal
-  , PrimalOf (AstOf f) r y )
+  , f r y )
 
 type AstIndex n = Index n AstInt
 
-type AstVarList n = SizedList n (AstVarId AstPrimal)
+type AstVarList n = SizedList n IntVarName
 
 type AstIndexS sh = ShapedList sh AstInt
 
-type AstVarListS sh = ShapedList sh (AstVarId AstPrimal)
+type AstVarListS sh = ShapedList sh IntVarName
 
 
 -- * ASTs
@@ -167,9 +173,10 @@ type AstVarListS sh = ShapedList sh (AstVarId AstPrimal)
 -- especially after vectorization, and prevents static checking of shapes.
 data AstRanked :: AstSpanType -> RankedTensorKind where
   -- To permit defining objective functions in Ast, not just constants:
-  AstVar :: ShapeInt n -> AstVarId  s-> AstRanked s r n
+  AstVar :: ShapeInt n -> AstVarName s (AstRanked s) r n -> AstRanked s r n
   AstLet :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
-         => AstVarId s -> AstRanked s r n -> AstRanked s2 r2 m
+         => AstVarName s (AstRanked s) r n -> AstRanked s r n
+         -> AstRanked s2 r2 m
          -> AstRanked s2 r2 m
   AstLetADShare :: ADShare -> AstRanked AstPrimal r n -> AstRanked AstPrimal r n
    -- there are mixed local/global lets, because they can be identical
@@ -215,7 +222,7 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
   AstReshape :: KnownNat n
              => ShapeInt m -> AstRanked s r n -> AstRanked s r m
   AstBuild1 :: KnownNat n
-            => Int -> (AstVarId AstPrimal, AstRanked s r n)
+            => Int -> (IntVarName, AstRanked s r n)
             -> AstRanked s r (1 + n)
   AstGather :: forall m n p r s. (KnownNat m, KnownNat n, KnownNat p)
             => ShapeInt (m + n)
@@ -259,9 +266,10 @@ deriving instance GoodScalar r => Show (AstRanked s r n)
 -- | AST for shaped tensors that are meant to be differentiated.
 data AstShaped :: AstSpanType -> ShapedTensorKind where
   -- To permit defining objective functions in Ast, not just constants:
-  AstVarS :: forall sh r s. AstVarId s -> AstShaped s r sh
+  AstVarS :: forall sh r s. AstVarName s (AstShaped s) r sh -> AstShaped s r sh
   AstLetS :: (OS.Shape sh, OS.Shape sh2, GoodScalar r, AstSpan s)
-          => AstVarId s -> AstShaped s r sh -> AstShaped s2 r2 sh2
+          => AstVarName s (AstShaped s) r sh -> AstShaped s r sh
+          -> AstShaped s2 r2 sh2
           -> AstShaped s2 r2 sh2
   AstLetADShareS :: ADShare -> AstShaped AstPrimal r sh
                  -> AstShaped AstPrimal r sh
@@ -319,7 +327,7 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
   AstBuild1S :: (KnownNat n, OS.Shape sh)
-             => (AstVarId AstPrimal, AstShaped s r sh)
+             => (IntVarName, AstShaped s r sh)
              -> AstShaped s r (n ': sh)
   AstGatherS :: forall sh2 p sh r s.
                 ( OS.Shape sh, OS.Shape sh2
@@ -375,10 +383,12 @@ data AstDomains s where
   AstDomains :: Data.Vector.Vector (DynamicExists (AstDynamic s))
              -> AstDomains s
   AstDomainsLet :: (KnownNat n, GoodScalar r)
-                => AstVarId s -> AstRanked s r n -> AstDomains s
+                => AstVarName s (AstRanked s) r n
+                -> AstRanked s r n -> AstDomains s
                 -> AstDomains s
   AstDomainsLetS :: (OS.Shape sh, GoodScalar r)
-                 => AstVarId s -> AstShaped s r sh -> AstDomains s
+                 => AstVarName s (AstShaped s) r sh
+                 -> AstShaped s r sh -> AstDomains s
                  -> AstDomains s
 deriving instance Show (AstDomains s)
 

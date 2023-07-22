@@ -6,7 +6,7 @@
 module HordeAd.Core.AstTools
   ( shapeAst, lengthAst
   , intVarInAst, intVarInAstBool, intVarInIndex
-  , intVarInAstS, intVarInIndexS
+  , intVarInAstS, intVarInIndexS, varNameInAst, varNameInAstS
   , SubstitutionPayload(..)
   , substitute1Ast, substitute1AstDomains
   , substitute1AstBool, substitute1AstS
@@ -237,6 +237,14 @@ intVarInAstS var = \case
 intVarInIndexS :: AstSpan s => AstVarId s -> AstIndexS sh -> Bool
 intVarInIndexS var = any (intVarInAst var)
 
+varNameInAst :: (AstSpan s, AstSpan s2)
+             => AstVarName s (AstRanked s) r n -> AstRanked s2 r2 n2 -> Bool
+varNameInAst (AstVarName var) = intVarInAst var
+
+varNameInAstS :: (AstSpan s, AstSpan s2)
+              => AstVarName s f r sh -> AstShaped s2 r2 sh2 -> Bool
+varNameInAstS (AstVarName var) = intVarInAstS var
+
 
 -- * Substitution
 
@@ -250,8 +258,15 @@ data SubstitutionPayload s r =
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
+--
+-- We can't use AstVarName in place of AstVarId, because of the recursive calls,
+-- e.g. AstSToR and AstCast, due to which, the extra type parameters would
+-- need to be kept unrelated to anything else (except the existentially bound
+-- parameters in SubstitutionPayload, which would need to be checked
+-- at runtime). TODO: bundle the variable inside the payload instead.
 substitute1Ast :: forall n s s2 r r2.
-                  (GoodScalar r, GoodScalar r2, KnownNat n, AstSpan s, AstSpan s2)
+                  ( GoodScalar r, GoodScalar r2, KnownNat n
+                  , AstSpan s, AstSpan s2 )
                => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstRanked s r n
                -> AstRanked s r n
 substitute1Ast i var v1 = case v1 of
@@ -345,7 +360,8 @@ substitute1AstBool i var b1 = case b1 of
   AstRelS opCodeRel args -> AstRelS opCodeRel $ map (substitute1AstS i var) args
 
 substitute1AstS :: forall sh s s2 r r2.
-                   (GoodScalar r, GoodScalar r2, OS.Shape sh, AstSpan s, AstSpan s2)
+                   ( GoodScalar r, GoodScalar r2, OS.Shape sh
+                   , AstSpan s, AstSpan s2 )
                 => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstShaped s r sh
                 -> AstShaped s r sh
 substitute1AstS i var v1 = case v1 of
@@ -463,14 +479,14 @@ bindsToLet = foldl' bindToLet
   bindToLet :: AstRanked s r n -> (AstId, DynamicExists (AstDynamic s))
             -> AstRanked s r n
   bindToLet u (var, DynamicExists @_ @r2 d) = case d of
-    AstRToD w -> AstLet (astIdToAstVarId var) w u
+    AstRToD w -> AstLet (AstVarName $ astIdToAstVarId var) w u
     AstSToD @sh w ->  -- rare or impossible, but let's implement it anyway:
       let p = length $ OS.shapeT @sh
       in case someNatVal $ toInteger p of
         Just (SomeNat @p _proxy) ->
           -- I can't use sameNat to compare the types, because no KnownNat!
           gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: p) $
-          AstLet (astIdToAstVarId var) (AstSToR w) u
+          AstLet (AstVarName $ astIdToAstVarId var) (AstSToR w) u
         Nothing -> error "bindsToLet: impossible someNatVal error"
 
 bindsToLetS :: forall sh s r. (OS.Shape sh, AstSpan s)
@@ -487,9 +503,9 @@ bindsToLetS = foldl' bindToLetS
       in if valueOf @n == length sh
          then OS.withShapeP sh $ \(_proxy :: Proxy sh2) ->
            gcastWith (unsafeCoerce Refl :: n :~: OS.Rank sh2)
-           $ AstLetS (astIdToAstVarId var) (AstRToS @sh2 w) u
+           $ AstLetS (AstVarName $ astIdToAstVarId var) (AstRToS @sh2 w) u
          else error "bindsToLetS: rank mismatch"
-    AstSToD w -> AstLetS (astIdToAstVarId var) w u
+    AstSToD w -> AstLetS (AstVarName $ astIdToAstVarId var) w u
 
 bindsToDomainsLet
    :: AstDomains s -> [(AstId, DynamicExists (AstDynamic s))] -> AstDomains s
@@ -497,5 +513,5 @@ bindsToDomainsLet
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
   bindToDomainsLet u (var, DynamicExists d) = case d of
-    AstRToD w -> AstDomainsLet (astIdToAstVarId var) w u
-    AstSToD w -> AstDomainsLetS (astIdToAstVarId var) w u
+    AstRToD w -> AstDomainsLet (AstVarName $ astIdToAstVarId var) w u
+    AstSToD w -> AstDomainsLetS (AstVarName $ astIdToAstVarId var) w u

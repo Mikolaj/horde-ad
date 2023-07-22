@@ -76,7 +76,8 @@ type Adaptable :: forall k. TensorKind k -> Constraint
 class Adaptable f where
   revAstOnDomainsEval
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => ADAstArtifact6 f r y -> Domains OD.Array -> Maybe (f r y)
+    => ADAstArtifact6 (PrimalOf (AstOf f)) r y -> Domains OD.Array
+    -> Maybe (f r y)
     -> (Domains OD.Array, f r y)
 
   revDtInit
@@ -86,7 +87,7 @@ class Adaptable f where
     => Bool -> (astvals -> AstOf f r y) -> vals
     -> AstEnv (ADVal (PrimalOf (AstOf (RankedOf f))))
     -> DomainsOD
-    -> (ADAstArtifact6 f r y, Dual (PrimalOf (AstOf f)) r y)
+    -> (ADAstArtifact6 (PrimalOf (AstOf f)) r y, Dual (PrimalOf (AstOf f)) r y)
 
 -- TODO: it's not clear if the instance should be of Clown OD.Array or of
 -- Domains OD.Array, for which we already have unletAstDomains6, etc.;
@@ -113,7 +114,7 @@ instance Adaptable @Nat (Flip OR.Array) where
     => Bool -> (astvals -> AstRanked AstFull r y) -> vals
     -> AstEnv (ADVal (AstRanked AstPrimal))
     -> DomainsOD
-    -> (ADAstArtifact6 (Flip OR.Array) r y, Dual (AstRanked AstPrimal) r y)
+    -> (ADAstArtifact6 (AstRanked AstPrimal) r y, Dual (AstRanked AstPrimal) r y)
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown (AstDynamic AstPrimal))
@@ -142,7 +143,7 @@ instance Adaptable @[Nat] (Flip OS.Array) where
        , AdaptableDomains (AstDynamic AstFull) astvals, vals ~ Value astvals )
     => Bool -> (astvals -> AstShaped AstFull r y) -> vals
     -> AstEnv (ADVal (AstRanked AstPrimal)) -> DomainsOD
-    -> (ADAstArtifact6 (Flip OS.Array) r y, Dual (AstShaped AstPrimal) r y)
+    -> (ADAstArtifact6 (AstShaped AstPrimal) r y, Dual (AstShaped AstPrimal) r y)
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown (AstDynamic AstPrimal))
@@ -161,7 +162,7 @@ revDtFun
      , AdaptableDomains (AstDynamic AstFull) astvals, AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
   => Bool -> (astvals -> AstOf f r y) -> vals
-  -> (ADAstArtifact6 f r y, Dual (PrimalOf (AstOf f)) r y)
+  -> (ADAstArtifact6 (PrimalOf (AstOf f)) r y, Dual (PrimalOf (AstOf f)) r y)
 {-# INLINE revDtFun #-}
 revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
@@ -172,12 +173,12 @@ revAstOnDomainsFun
       -> Domains (AstDynamic AstFull)
       -> [AstDynamicVarName]
       -> ADVal (AstRanked AstPrimal) r n)
-  -> (ADAstArtifact6 (Flip OR.Array) r n, Dual (AstRanked AstPrimal) r n)
+  -> (ADAstArtifact6 (AstRanked AstPrimal) r n, Dual (AstRanked AstPrimal) r n)
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !(!vars@(AstVarName varDtId, vars1), asts1, astsPrimal1) =
+      !(!vars@(varDtId, vars1), asts1, astsPrimal1) =
         funToAstAll parameters0 in
   let domains = V.fromList asts1
       domainsPrimal = V.fromList astsPrimal1
@@ -202,12 +203,12 @@ revAstOnDomainsFunS
       -> Domains (AstDynamic AstFull)
       -> [AstDynamicVarName]
       -> ADVal (AstShaped AstPrimal) r sh)
-  -> (ADAstArtifact6 (Flip OS.Array) r sh, Dual (AstShaped AstPrimal) r sh)
+  -> (ADAstArtifact6 (AstShaped AstPrimal) r sh, Dual (AstShaped AstPrimal) r sh)
 {-# INLINE revAstOnDomainsFunS #-}
 revAstOnDomainsFunS hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects.
-      !(!vars@(AstVarName varDtId, vars1), asts1, astsPrimal1) =
+      !(!vars@(varDtId, vars1), asts1, astsPrimal1) =
         funToAstAll parameters0 in
   let domains = V.fromList asts1
       domainsPrimal = V.fromList astsPrimal1

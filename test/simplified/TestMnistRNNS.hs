@@ -313,7 +313,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
            f = MnistRnnShaped2.rnnMnistLossFusedS
                  width batch_size (astGlyph, astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
-             revDtInit False f valsInit envInit domainsInit
+             revDtInit @[Nat] @(Flip OS.Array) False f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)

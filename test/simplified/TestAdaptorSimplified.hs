@@ -200,7 +200,7 @@ testZero5S =
     (Flip $ OS.fromList @'[44] (replicate 44 1))
     (rev (let f :: a -> a
               f = id
-          in f @(AstOf (Flip OS.Array) Double '[44])) 42)
+          in f @(AstShaped AstFull Double '[44])) 42)
 
 testZero6S :: Assertion
 testZero6S =
@@ -815,7 +815,8 @@ testMatvecmulPP = do
   resetVarCounter
   let renames = IM.empty
       (artifact6, _) =
-        revDtFun True (uncurry tmatvecmul)
+        revDtFun @Double @1 @(Flip OR.Array)
+                 True (uncurry tmatvecmul)
                  ( Flip $ OR.fromList [2,3] [1 :: Double .. 6]
                  , Flip $ OR.fromList [3] [7 .. 9] )
   printGradient6Pretty renames artifact6
@@ -832,7 +833,8 @@ testMatmul2PP = do
   resetVarCounter
   let renames = IM.empty
       (artifact6, _) =
-        revDtFun True (uncurry tmatmul2)
+        revDtFun @Double @2 @(Flip OR.Array)
+                 True (uncurry tmatmul2)
                  ( Flip $ OR.fromList [2,3] [1 :: Double .. 6]
                  , Flip $ OR.fromList [3,4] [7 .. 18] )
   printGradient6Pretty renames artifact6
@@ -849,7 +851,8 @@ testMatmul2PPS = do
   resetVarCounter
   let renames = IM.empty
       (artifact6, _) =
-        revDtFun True (uncurry smatmul2)
+        revDtFun @Double @[2, 4] @(Flip OS.Array)
+                 True (uncurry smatmul2)
                  ( Flip $ OS.fromList @'[2,3] [1 :: Double .. 6]
                  , Flip $ OS.fromList @'[3,4] [7 .. 18] )
   printGradient6PrettyS renames artifact6
@@ -882,7 +885,7 @@ testBar2S :: Assertion
 testBar2S =
   assertEqualUpToEpsilon 1e-9
     (3.1435239435581166,-1.1053869545195814)
-    (rev (bar @(AstOf (Flip OS.Array) Double '[52, 2, 2, 1, 1, 3])) (1.1, 2.2))
+    (rev (bar @(AstShaped AstFull Double '[52, 2, 2, 1, 1, 3])) (1.1, 2.2))
 
 barADVal2 :: forall a. RealFloat a
           => (a, a, a) -> a
@@ -1012,7 +1015,7 @@ testFooNoGoAst =
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
                             x EM.empty)
-                         (fooNoGoAst (AstVar [5] (intToAstVarId 100000000)))
+                         (fooNoGoAst (AstVar [5] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
        (crev @Double @1 f
@@ -1153,7 +1156,7 @@ testBarReluAst0 =
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
                             x EM.empty)
-                         (barReluAst (AstVar [] (intToAstVarId 100000000)))
+                         (barReluAst (AstVar [] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [191.20462646925841])
        (crevDt @Double @0 f (Flip $ OR.fromList [] [1.1]) 42.2)
@@ -1166,7 +1169,7 @@ testBarReluAst1 =
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
                             x EM.empty)
-                         (barReluAst (AstVar [5] (intToAstVarId 100000000)))
+                         (barReluAst (AstVar [5] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
        (crev @Double @1 f (Flip $ OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
@@ -1184,7 +1187,7 @@ testReplicateReluAst =
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
                             x EM.empty)
-                         (konstReluAst (AstVar [] (intToAstVarId 100000000)))
+                         (konstReluAst (AstVar [] (AstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [295.4])
        (crevDt @Double @0 f (Flip $ OR.fromList [] [1.1]) 42.2)

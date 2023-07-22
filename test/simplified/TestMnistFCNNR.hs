@@ -14,7 +14,7 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.List.Index (imap)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (SomeNat (..), someNatVal)
+import           GHC.TypeLits (Nat, SomeNat (..), someNatVal)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
@@ -341,7 +341,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
-                   fst $ revAstOnDomainsEval (vars, gradient, primal)
+                   fst $ revAstOnDomainsEval @Nat @(Flip OR.Array)
+                                             (vars, gradient, primal)
                                              parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientDomain)
        -- Mimic how backprop tests and display it, even though tests
@@ -659,7 +660,8 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
-                   fst $ revAstOnDomainsEval (vars, gradient, primal)
+                   fst $ revAstOnDomainsEval @Nat @(Flip OR.Array)
+                                             (vars, gradient, primal)
                                              parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientDomain)
        -- Mimic how backprop tests and display it, even though tests

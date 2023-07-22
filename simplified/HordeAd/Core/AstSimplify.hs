@@ -38,7 +38,6 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.EnumSet as ES
 import           Data.Int (Int64)
@@ -224,9 +223,10 @@ simplifyStepNonIndexS t = t  -- TODO
 astLet :: forall n m s s2 r r2.
           ( KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2
           , AstSpan s, AstSpan s2 )
-       => AstVarId s -> AstRanked s r n -> AstRanked s2 r2 m
+       => AstVarName s (AstRanked s) r n
+       -> AstRanked s r n -> AstRanked s2 r2 m
        -> AstRanked s2 r2 m
-astLet var u v | astIsSmall True u =
+astLet (AstVarName var) u v | astIsSmall True u =
   substitute1Ast (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
   -- because very low hanging fruits may be left hanging, but we
@@ -486,7 +486,7 @@ astScatter :: forall m n p s r.
            -> (AstVarList m, AstIndex p)
            -> AstRanked s r (p + n)
 astScatter _sh v (Z, ZI) = v
-astScatter sh v (var ::: vars, ix) | not $ var `intVarInIndex` ix =
+astScatter sh v (AstVarName var ::: vars, ix) | not $ var `intVarInIndex` ix =
   astScatter sh (astSum v) (vars, ix)
 -- astScatter sh v (Z, ix) = update (tzero sh 0) ix v
 astScatter sh (Ast.AstConstant v) (vars, ix) =
@@ -628,7 +628,8 @@ astReverse (Ast.AstReverse v) = v
 astReverse (Ast.AstGather sh@(k :$ _) v (var ::: vars, ix)) =
   let ivar = AstNm Ast.MinusOp [ AstConst $ OR.scalar $ fromIntegral k
                                , AstIntVar var ]
-      ix2 = fmap (substituteAst (SubstitutionPayloadRanked @AstPrimal @Int64 ivar) var) ix
+      ix2 = fmap (substituteAst
+                    (SubstitutionPayloadRanked @AstPrimal @Int64 ivar) var) ix
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
@@ -801,19 +802,19 @@ astGatherROrStepOnly
   -> AstRanked s r (m + n)
 astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
   case (sh0, (vars0, ix0)) of
-    _ | any (`intVarInAst` v0) vars0 ->
+    _ | any (`varNameInAst` v0) vars0 ->
       error $ "astGather: gather vars in v0: "
               ++ show (vars0, v0)
     (_, (Z, _)) -> astIndex v0 ix0
     (sh, (_, ZI)) -> astReplicateN sh v0
-    (k :$ sh', (var ::: vars, i1 :. rest1)) ->
-      if | not (any (`intVarInAst` i1) vars0) ->
+    (k :$ sh', (AstVarName var ::: vars, i1 :. rest1)) ->
+      if | not (any (`varNameInAst` i1) vars0) ->
            astGatherROrStepOnly stepOnly sh0 (astIndex v0 (i1 :. ZI))
                                 (vars0, rest1)
          | case iN of
              AstIntVar varN' ->
                varN' == varN
-               && not (any (varN `intVarInAst`) restN)
+               && not (any (varN `varNameInAst`) restN)
                && case ( dropShape @(m - 1) sh0
                        , dropShape @(p - 1) (shapeAst v0) ) of
                  (kN :$ _, vkN :$ _) -> kN == vkN
@@ -1020,7 +1021,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           subst i =
             foldr (uncurry substituteAst) i
                   (zipSized (fmap (SubstitutionPayloadRanked @AstPrimal @Int64)
-                             $ indexToSizedList ixFresh) vars4)
+                             $ indexToSizedList ixFresh)
+                            vars4)
           ix5 = fmap subst ix4
       in Ast.AstD (astGatherRec sh4 u (vars4, ix4))
                   (astGatherRec sh4 u' (varsFresh, ix5))
@@ -1051,7 +1053,7 @@ gatherFromNF vars (i :. rest) = case cmpNat (Proxy @p) (Proxy @m) of
         cmp _ = False
         (varsP, varsPM) = splitAt_Sized @p @(m - p) vars
     in all cmp (zipIndex rest (sizedListToIndex (fmap AstIntVar varsP)))
-       && not (any (`intVarInAst` i) varsPM)
+       && not (any (`varNameInAst` i) varsPM)
   EQI ->
     let cmp (AstIntVar var1, AstIntVar var2) = var1 == var2
         cmp _ = False
@@ -1293,8 +1295,10 @@ astSliceLax i k v =
 -}
 
 astDomainsLet :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-              => AstVarId s -> AstRanked s r n -> AstDomains s -> AstDomains s
-astDomainsLet var u v | astIsSmall True u =
+              => AstVarName s (AstRanked s) r n -> AstRanked s r n
+              -> AstDomains s
+              -> AstDomains s
+astDomainsLet (AstVarName var) u v | astIsSmall True u =
   substitute1AstDomains (SubstitutionPayloadRanked u) var v
   -- we use the substitution that does not simplify, which is sad,
   -- because very low hanging fruits may be left hanging, but we
@@ -1307,14 +1311,14 @@ astDomainsLet var u v = Ast.AstDomainsLet var u v
 -- * Simplification pass applied to code with eliminated nested lets
 
 simplifyArtifact6 :: (GoodScalar r, KnownNat n)
-                  => ADAstArtifact6 (Flip OR.Array) r n
-                  -> ADAstArtifact6 (Flip OR.Array) r n
+                  => ADAstArtifact6 (AstRanked AstPrimal) r n
+                  -> ADAstArtifact6 (AstRanked AstPrimal) r n
 simplifyArtifact6 (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6 primal)
 
 simplifyArtifact6S :: (GoodScalar r, OS.Shape sh)
-                   => ADAstArtifact6 (Flip OS.Array) r sh
-                   -> ADAstArtifact6 (Flip OS.Array) r sh
+                   => ADAstArtifact6 (AstShaped AstPrimal) r sh
+                   -> ADAstArtifact6 (AstShaped AstPrimal) r sh
 simplifyArtifact6S (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6S primal)
 
@@ -1347,25 +1351,26 @@ inlineAst
   => AstMemo
   -> AstRanked s r n -> (AstMemo, AstRanked s r n)
 inlineAst memo v0 = case v0 of
-  Ast.AstVar _ var -> let f Nothing = Just 1
-                          f (Just count) = Just $ succ count
-                      in (EM.alter f (astVarIdToAstId var) memo, v0)
-  Ast.AstLet var u v ->
+  Ast.AstVar _ (AstVarName var) ->
+    let f Nothing = Just 1
+        f (Just count) = Just $ succ count
+    in (EM.alter f (astVarIdToAstId var) memo, v0)
+  Ast.AstLet var@(AstVarName vvv) u v ->
     -- We assume there are no nested lets with the same variable.
-    let vv = astVarIdToAstId var
+    let vv = astVarIdToAstId vvv
         (memo1, v2) = inlineAst memo v
         memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substitute1Ast (SubstitutionPayloadRanked u2) var v2)
+      1 -> (memo2, substitute1Ast (SubstitutionPayloadRanked u2) vvv v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
       count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
-        in (memo3, substitute1Ast (SubstitutionPayloadRanked u0) var v2)
+        in (memo3, substitute1Ast (SubstitutionPayloadRanked u0) vvv v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstLetADShare{} -> error "inlineAst: AstLetADShare"
   AstNm opCode args ->
@@ -1468,39 +1473,39 @@ inlineAstDomains
 inlineAstDomains memo v0 = case v0 of
   Ast.AstDomains l ->
     second Ast.AstDomains $ mapAccumR inlineAstDynamic memo l
-  Ast.AstDomainsLet var u v ->
+  Ast.AstDomainsLet var@(AstVarName vvv) u v ->
     -- We assume there are no nested lets with the same variable.
-    let vv = astVarIdToAstId var
+    let vv = astVarIdToAstId vvv
         (memo1, v2) = inlineAstDomains memo v
         memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substitute1AstDomains (SubstitutionPayloadRanked u2) var v2)
+      1 -> (memo2, substitute1AstDomains (SubstitutionPayloadRanked u2) vvv v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
       count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
-           , substitute1AstDomains (SubstitutionPayloadRanked u0) var v2 )
+           , substitute1AstDomains (SubstitutionPayloadRanked u0) vvv v2 )
       _ -> (memo2, Ast.AstDomainsLet var u2 v2)
-  Ast.AstDomainsLetS var u v ->
+  Ast.AstDomainsLetS var@(AstVarName vvv) u v ->
     -- We assume there are no nested lets with the same variable.
-    let vv = astVarIdToAstId var
+    let vv = astVarIdToAstId vvv
         (memo1, v2) = inlineAstDomains memo v
         memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAstS memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substitute1AstDomains (SubstitutionPayloadShaped u2) var v2)
+      1 -> (memo2, substitute1AstDomains (SubstitutionPayloadShaped u2) vvv v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
       count | astIsSmallS (count < 10) u ->
         let (memoU0, u0) = inlineAstS EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
-           , substitute1AstDomains (SubstitutionPayloadShaped u0) var v2 )
+           , substitute1AstDomains (SubstitutionPayloadShaped u0) vvv v2 )
       _ -> (memo2, Ast.AstDomainsLetS var u2 v2)
 
 inlineAstBool :: AstMemo -> AstBool -> (AstMemo, AstBool)
@@ -1521,25 +1526,26 @@ inlineAstS
   => AstMemo
   -> AstShaped s r sh -> (AstMemo, AstShaped s r sh)
 inlineAstS memo v0 = case v0 of
-  Ast.AstVarS var -> let f Nothing = Just 1
-                         f (Just count) = Just $ succ count
-                     in (EM.alter f (astVarIdToAstId var) memo, v0)
-  Ast.AstLetS var u v ->
+  Ast.AstVarS (AstVarName var) ->
+    let f Nothing = Just 1
+        f (Just count) = Just $ succ count
+    in (EM.alter f (astVarIdToAstId var) memo, v0)
+  Ast.AstLetS var@(AstVarName vvv) u v ->
     -- We assume there are no nested lets with the same variable.
-    let vv = astVarIdToAstId var
+    let vv = astVarIdToAstId vvv
         (memo1, v2) = inlineAstS memo v
         memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAstS memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substitute1AstS (SubstitutionPayloadShaped u2) var v2)
+      1 -> (memo2, substitute1AstS (SubstitutionPayloadShaped u2) vvv v2)
         -- this is the substitution that doesn't simplify, so that
         -- inlining can be applied with and without simplification
       count | astIsSmallS (count < 10) u ->
         let (memoU0, u0) = inlineAstS EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
-        in (memo3, substitute1AstS (SubstitutionPayloadShaped u0) var v2)
+        in (memo3, substitute1AstS (SubstitutionPayloadShaped u0) vvv v2)
       _ -> (memo2, Ast.AstLetS var u2 v2)
   Ast.AstLetADShareS{} -> error "inlineAstS: AstLetADShareS"
   AstNmS opCode args ->
@@ -1666,17 +1672,17 @@ unletAst
   => UnletEnv -> AstRanked s r n -> AstRanked s r n
 unletAst env t = case t of
   Ast.AstVar{} -> t
-  Ast.AstLet var u v ->
+  Ast.AstLet var@(AstVarName vv) u v ->
     -- This optimization is sound, because there is no mechanism
     -- that would nest lets with the same variable (e.g., our lets always
     -- bind fresh variables at creation time and we never substitute
     -- a term into the same term). If that changes, let's refresh
     -- let variables whenever substituting into let bodies.
     -- See the same assumption in AstInterpret.
-    if astVarIdToAstId var `ES.member` unletSet env
+    if astVarIdToAstId vv `ES.member` unletSet env
     then unletAst env v
     else let env2 = env {unletSet =
-                           ES.insert (astVarIdToAstId var) (unletSet env)}
+                           ES.insert (astVarIdToAstId vv) (unletSet env)}
          in Ast.AstLet var (unletAst env u) (unletAst env2 v)
   Ast.AstLetADShare l v ->
     let lassocs = subtractADShare l $ unletADShare env
@@ -1739,18 +1745,18 @@ unletAstDomains
   :: AstSpan s => UnletEnv -> AstDomains s -> AstDomains s
 unletAstDomains env = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic env) l
-  Ast.AstDomainsLet var u v ->
-    if astVarIdToAstId var `ES.member` unletSet env
+  Ast.AstDomainsLet var@(AstVarName vv) u v ->
+    if astVarIdToAstId vv `ES.member` unletSet env
     then unletAstDomains env v
     else let env2 = env {unletSet =
-                           ES.insert (astVarIdToAstId var) (unletSet env)}
+                           ES.insert (astVarIdToAstId vv) (unletSet env)}
          in Ast.AstDomainsLet var (unletAst env u)
                                   (unletAstDomains env2 v)
-  Ast.AstDomainsLetS var u v ->
-    if astVarIdToAstId var `ES.member` unletSet env
+  Ast.AstDomainsLetS var@(AstVarName vv) u v ->
+    if astVarIdToAstId vv `ES.member` unletSet env
     then unletAstDomains env v
     else let env2 = env {unletSet =
-                           ES.insert (astVarIdToAstId var) (unletSet env)}
+                           ES.insert (astVarIdToAstId vv) (unletSet env)}
          in Ast.AstDomainsLetS var (unletAstS env u)
                                    (unletAstDomains env2 v)
 
@@ -1769,17 +1775,17 @@ unletAstS
   => UnletEnv -> AstShaped s r sh -> AstShaped s r sh
 unletAstS env t = case t of
   Ast.AstVarS{} -> t
-  Ast.AstLetS var u v ->
+  Ast.AstLetS var@(AstVarName vv) u v ->
     -- This optimization is sound, because there is no mechanism
     -- that would nest lets with the same variable (e.g., our lets always
     -- bind fresh variables at creation time and we never substitute
     -- a term into the same term). If that changes, let's refresh
     -- let variables whenever substituting into let bodies.
     -- See the same assumption in AstInterpret.
-    if astVarIdToAstId var `ES.member` unletSet env
+    if astVarIdToAstId vv `ES.member` unletSet env
     then unletAstS env v
     else let env2 = env {unletSet =
-                           ES.insert (astVarIdToAstId var) (unletSet env)}
+                           ES.insert (astVarIdToAstId vv) (unletSet env)}
          in Ast.AstLetS var (unletAstS env u) (unletAstS env2 v)
   Ast.AstLetADShareS l v ->
     let lassocs = subtractADShare l $ unletADShare env
@@ -2253,9 +2259,10 @@ simplifyAstS t = case t of
 
 astLetS :: forall sh1 sh2 s s2 r r2.
            (OS.Shape sh1, OS.Shape sh2, GoodScalar r, GoodScalar r2, AstSpan s, AstSpan s2)
-        => AstVarId s -> AstShaped s r sh1 -> AstShaped s2 r2 sh2
+        => AstVarName s (AstShaped s) r sh1
+        -> AstShaped s r sh1 -> AstShaped s2 r2 sh2
         -> AstShaped s2 r2 sh2
-astLetS var u v | astIsSmallS True u =
+astLetS (AstVarName var) u v | astIsSmallS True u =
   substitute1AstS (SubstitutionPayloadShaped u) var v
   -- we use the substitution that does not simplify, which is sad,
   -- because very low hanging fruits may be left hanging, but we
@@ -2438,8 +2445,9 @@ astGatherS
 astGatherS = Ast.AstGatherS  -- TODO
 
 astDomainsLetS :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
-               => AstVarId s -> AstShaped s r sh -> AstDomains s -> AstDomains s
-astDomainsLetS var u v | astIsSmallS True u =
+               => AstVarName s (AstShaped s) r sh
+               -> AstShaped s r sh -> AstDomains s -> AstDomains s
+astDomainsLetS (AstVarName var) u v | astIsSmallS True u =
   substitute1AstDomains (SubstitutionPayloadShaped u) var v
   -- we use the substitution that does not simplify, which is sad,
   -- because very low hanging fruits may be left hanging, but we
@@ -2448,25 +2456,32 @@ astDomainsLetS var u v | astIsSmallS True u =
   -- terms with one step lookahead, as normally when vectorizing
 astDomainsLetS var u v = Ast.AstDomainsLetS var u v
 
-substituteAst :: forall n s s2 r r2. (GoodScalar r, GoodScalar r2, KnownNat n, AstSpan s, AstSpan s2)
-              => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstRanked s r n
+substituteAst :: forall n n2 s s2 r r2.
+                 ( GoodScalar r, GoodScalar r2, KnownNat n
+                 , AstSpan s, AstSpan s2 )
+              => SubstitutionPayload s2 r2 -> AstVarName s2 (AstRanked s2) r2 n2
               -> AstRanked s r n
-substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
+              -> AstRanked s r n
+substituteAst i (AstVarName var) v1 = simplifyAst $ substitute1Ast i var v1
 
 substituteAstDomains
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstDomains s
+  => SubstitutionPayload s2 r2 -> AstVarName s2 f r2 y -> AstDomains s
   -> AstDomains s
-substituteAstDomains i var v1 =
+substituteAstDomains i (AstVarName var) v1 =
   simplifyAstDomains $ substitute1AstDomains i var v1
 
 substituteAstBool :: (GoodScalar r2, AstSpan s2)
-                  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstBool
+                  => SubstitutionPayload s2 r2 -> AstVarName s2 f r2 y
                   -> AstBool
-substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1
+                  -> AstBool
+substituteAstBool i (AstVarName var) b1 =
+  simplifyAstBool $ substitute1AstBool i var b1
 
-substituteAstS :: forall sh s2 s r r2.
-                  (GoodScalar r, GoodScalar r2, OS.Shape sh, AstSpan s, AstSpan s2)
-               => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstShaped s r sh
+substituteAstS :: forall sh sh2 s2 s r r2 f.
+                  ( GoodScalar r, GoodScalar r2, OS.Shape sh
+                  , AstSpan s, AstSpan s2 )
+               => SubstitutionPayload s2 r2 -> AstVarName s2 f r2 sh2
                -> AstShaped s r sh
-substituteAstS i var v1 = simplifyAstS $ substitute1AstS i var v1
+               -> AstShaped s r sh
+substituteAstS i (AstVarName var) v1 = simplifyAstS $ substitute1AstS i var v1

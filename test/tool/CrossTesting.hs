@@ -67,7 +67,7 @@ rev' f vals =
         => Bool
         -> (Domains (ADValClown (AstDynamic AstPrimal)) -> ADVal (AstRanked AstPrimal) r2 n2)
         -> DomainsOD
-        -> (ADAstArtifact6 (Flip OR.Array) r2 n2, Dual (AstRanked AstPrimal) r2 n2)
+        -> (ADAstArtifact6 (AstRanked AstPrimal) r2 n2, Dual (AstRanked AstPrimal) r2 n2)
       {-# INLINE revAstOnDomainsF #-}
       revAstOnDomainsF hasDt f2 parameters2  =
         revAstOnDomainsFun hasDt parameters2 (\varInputs _ _ -> f2 varInputs)

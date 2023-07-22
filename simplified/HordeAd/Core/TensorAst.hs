@@ -155,12 +155,12 @@ instance AstSpan s
 
 instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   tfromD = astFromDynamic
-  tfromS (AstVarS @sh var) =
+  tfromS (AstVarS @sh (AstVarName var)) =
     let sh = OS.shapeT @sh
     in case someNatVal $ toInteger $ length sh of
       Just (SomeNat @p _proxy) ->
         gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: p) $
-        AstVar (listShapeToShape sh) var
+        AstVar (listShapeToShape sh) (AstVarName var)
       Nothing -> error "tfromS: impossible someNatVal error"
   tfromS (AstRToS t) = t
   tfromS t = AstSToR t
@@ -170,7 +170,7 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   dfromS t = AstSToD t
   sfromR :: forall sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
          => AstRanked s r (OS.Rank sh) -> AstShaped s r sh
-  sfromR (AstVar _sh var) = AstVarS var
+  sfromR (AstVar _sh (AstVarName var)) = AstVarS (AstVarName var)
   sfromR (AstSToR @sh1 t) =
     case sameShape @sh1 @sh of
       Just Refl -> t
@@ -229,7 +229,7 @@ astLetFun :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f =
   let sh = shapeAst a
-      (AstVarName var, ast) = funToAstR sh f
+      (var, ast) = funToAstR sh f
   in astLet var a ast  -- safe, because subsitution ruled out above
 
 astLetDomainsFun
@@ -254,7 +254,7 @@ astDomainsLetFun :: (KnownNat n, GoodScalar r, AstSpan s)
 astDomainsLetFun a f | astIsSmall True a = f a
 astDomainsLetFun a f =
   let sh = shapeAst a
-      (AstVarName var, ast) = funToAstR sh id
+      (var, ast) = funToAstR sh id
   in astDomainsLet var a (f ast)  -- safe, because subsitution ruled out above
 
 -- This is a vectorizing combinator that also simplifies
@@ -378,7 +378,7 @@ astLetFunS :: (OS.Shape sh, OS.Shape sh2, GoodScalar r, AstSpan s)
           -> AstShaped s r2 sh2
 astLetFunS a f | astIsSmallS True a = f a
 astLetFunS a f =
-  let (AstVarName var, ast) = funToAstS f
+  let (var, ast) = funToAstS f
   in AstLetS var a ast  -- astLet var a ast  -- safe, because subsitution ruled out above
 
 astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r, AstSpan s)
@@ -527,5 +527,5 @@ astLetFunUnSimp :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
                 -> AstRanked s r2 m
 astLetFunUnSimp a f =
   let sh = shapeAst a
-      (AstVarName var, ast) = funToAstR sh f
+      (var, ast) = funToAstR sh f
   in AstLet var a ast

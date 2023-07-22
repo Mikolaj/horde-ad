@@ -75,16 +75,16 @@ instance
 
 extendEnvS :: forall ranked shaped r sh s.
               (OS.Shape sh, shaped ~ ShapedOf ranked, GoodScalar r)
-           => AstVarName s (Flip OS.Array) r sh -> shaped r sh
+           => AstVarName s (AstShaped s) r sh -> shaped r sh
            -> AstEnv ranked -> AstEnv ranked
-extendEnvS v@(AstVarName var) t =
-  EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show v)
+extendEnvS (AstVarName var) t =
+  EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show var)
                    (astVarIdToAstId var) (AstEnvElemS t)
 
 extendEnvR :: forall ranked r n s.
               ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
               , KnownNat n, GoodScalar r )
-           => AstVarName s (Flip OR.Array) r n -> ranked r n
+           => AstVarName s (AstRanked s) r n -> ranked r n
            -> AstEnv ranked -> AstEnv ranked
 extendEnvR (AstVarName var) t =
   let sh2 = tshape t
@@ -99,14 +99,14 @@ extendEnvDR :: ConvertTensor ranked shaped
             -> AstEnv ranked
 extendEnvDR (AstDynamicVarName @sh @r @s var, DynamicExists @r2 d) =
   case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> extendEnvS (AstVarName @[Nat] @s @(Flip OS.Array) @r @sh var) (sfromD d)
+    Just Refl -> extendEnvS (AstVarName @[Nat] @s @(AstShaped s) @r @sh var) (sfromD d)
     _ -> error "extendEnvDR: type mismatch"
 
 extendEnvI :: ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-           => AstVarId AstPrimal -> IntOf ranked -> AstEnv ranked
+           => IntVarName -> IntOf ranked -> AstEnv ranked
            -> AstEnv ranked
-extendEnvI var i = extendEnvR (AstVarName var) (tconstant i)
+extendEnvI var i = extendEnvR var (tconstant i)
 
 extendEnvVars :: forall ranked m.
                  ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
@@ -134,7 +134,7 @@ interpretLambdaI
      ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
   => (AstEnv ranked -> AstRanked s r n -> ranked r n)
-  -> AstEnv ranked -> (AstVarId AstPrimal, AstRanked s r n)
+  -> AstEnv ranked -> (IntVarName, AstRanked s r n)
   -> IntOf ranked
   -> ranked r n
 {-# INLINE interpretLambdaI #-}
@@ -146,7 +146,7 @@ interpretLambdaIS
      ( RankedTensor ranked, ConvertTensor ranked shaped
      , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
   => (AstEnv ranked -> AstShaped s r sh -> shaped r sh)
-  -> AstEnv ranked -> (AstVarId AstPrimal, AstShaped s r sh)
+  -> AstEnv ranked -> (IntVarName, AstShaped s r sh)
   -> IntSh ranked n
   -> shaped r sh
 {-# INLINE interpretLambdaIS #-}
@@ -291,7 +291,7 @@ interpretAst
   => AstEnv ranked
   -> AstRanked s r n -> ranked r n
 interpretAst env = \case
-  AstVar sh var -> case EM.lookup (astVarIdToAstId var) env of
+  AstVar sh (AstVarName var) -> case EM.lookup (astVarIdToAstId var) env of
     Just (AstEnvElemS @sh2 @r2 t) ->
       if shapeToList sh == OS.shapeT @sh2 then
         gcastWith (unsafeCoerce Refl :: OS.Rank sh2 :~: n)
@@ -304,7 +304,7 @@ interpretAst env = \case
   AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAst env u
-        env2 w = extendEnvR (AstVarName var) w env
+        env2 w = extendEnvR var w env
     in tlet t (\w -> interpretAst (env2 w) v)
   AstLetADShare{} -> error "interpretAst: AstLetADShare"
   {- TODO: revise when we handle GPUs. For now, this is done in TensorOps
@@ -325,8 +325,8 @@ interpretAst env = \case
         in tscaleByScalar0 t2 t1
   -}
   AstNm TimesOp [v, AstLet var u (AstReshape sh (AstReplicate @m k s))]
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
-        -- The intVarInAst check is needed, because although variable
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
+        -- The varNameInAst check is needed, because although variable
         -- capture is impossible, because we don't create nested lets
         -- with the same variable, we could create such nested lets
         -- if we omitted this check.
@@ -334,12 +334,12 @@ interpretAst env = \case
           (AstLet var u (AstNm TimesOp [v, AstReshape sh
                                              (AstReplicate @m k s)]))
   AstNm TimesOp [v, AstReshape sh (AstLet var u (AstReplicate @m k s))]
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
         interpretAst env
           (AstLet var u (AstNm TimesOp [v, AstReshape sh
                                              (AstReplicate @m k s)]))
   AstNm TimesOp [v, AstLet var u (AstReplicate @m k s)]
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
         interpretAst env
           (AstLet var u (AstNm TimesOp [v, AstReplicate @m k s]))
   AstNm TimesOp [v, u] ->
@@ -619,12 +619,12 @@ interpretAstDomains env = \case
   AstDomains l -> interpretAstDynamic env <$> l
   AstDomainsLet var u v ->
     let t = interpretAst env u
-        env2 = extendEnvR (AstVarName var) t env
+        env2 = extendEnvR var t env
     in interpretAstDomains env2 v
       -- TODO: preserve let, as in AstLet case
   AstDomainsLetS var u v ->
     let t = interpretAstS env u
-        env2 = extendEnvS (AstVarName var) t env
+        env2 = extendEnvS var t env
     in interpretAstDomains env2 v
       -- TODO: preserve let, as in AstLet case
 
@@ -661,12 +661,12 @@ interpretAstDomainsDummy env = \case
   AstDomains l -> interpretAstDynamicDummy env <$> l
   AstDomainsLet var u v ->
     let t = interpretAst env u
-        env2 = extendEnvR (AstVarName var) t env
+        env2 = extendEnvR var t env
     in interpretAstDomainsDummy env2 v
       -- TODO: preserve let, as in AstLet case
   AstDomainsLetS var u v ->
     let t = interpretAstS env u
-        env2 = extendEnvS (AstVarName var) t env
+        env2 = extendEnvS var t env
     in interpretAstDomainsDummy env2 v
       -- TODO: preserve let, as in AstLet case
 
@@ -770,7 +770,7 @@ interpretAstS
   => AstEnv ranked
   -> AstShaped s r sh -> shaped r sh
 interpretAstS env = \case
-  AstVarS var -> case EM.lookup (astVarIdToAstId var) env of
+  AstVarS (AstVarName var) -> case EM.lookup (astVarIdToAstId var) env of
     Just (AstEnvElemS @sh2 @r2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> t
@@ -780,7 +780,7 @@ interpretAstS env = \case
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstS env u
-        env2 w = extendEnvS (AstVarName var) w env
+        env2 w = extendEnvS var w env
     in slet t (\w -> interpretAstS (env2 w) v)
   AstLetADShareS{} -> error "interpretAst: AstLetADShare"
 {- TODO:

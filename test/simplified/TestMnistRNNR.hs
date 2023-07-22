@@ -315,7 +315,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
-                   fst $ revAstOnDomainsEval (vars, gradient, primal)
+                   fst $ revAstOnDomainsEval @Nat @(Flip OR.Array)
+                                             (vars, gradient, primal)
                                              parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientDomain)
