@@ -30,7 +30,7 @@ import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), sameNat, someNatVal)
+import           GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -87,26 +87,29 @@ extendEnvR (AstVarName var) t =
                    (astVarIdToAstId var) (AstEnvElem t)
 
 extendEnvDR :: forall ranked shaped s. ConvertTensor ranked shaped
-            => (AstDynamicVarName s, DynamicExists (DynamicOf ranked))
+            => ( AstDynamicVarName s (AstRanked s)
+               , DynamicExists (DynamicOf ranked) )
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
-extendEnvDR (AstDynamicVarName @sh @r var, DynamicExists @r2 d) =
+extendEnvDR (AstDynamicVarName @sh @r @y var, DynamicExists @r2 d) =
   case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl ->
       let n = length $ OS.shapeT @sh
       in case someNatVal $ toInteger n of
-        Just (SomeNat @n _) ->
-          extendEnvR (AstVarName @Nat @s @(AstRanked s) @r @n var) (tfromD d)
+        Just (SomeNat @n _) -> gcastWith (unsafeCoerce Refl :: n :~: y) $
+                               extendEnvR var (tfromD d)
         Nothing -> error "extendEnvDR: impossible someNatVal error"
     _ -> error "extendEnvDR: type mismatch"
 
 extendEnvDS :: ConvertTensor ranked shaped
-            => (AstDynamicVarName s, DynamicExists (DynamicOf ranked))
+            => ( AstDynamicVarName s (AstShaped s)
+               , DynamicExists (DynamicOf ranked) )
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
-extendEnvDS (AstDynamicVarName @sh @r @s var, DynamicExists @r2 d) =
+extendEnvDS (AstDynamicVarName @sh @r @y var, DynamicExists @r2 d) =
   case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> extendEnvS (AstVarName @[Nat] @s @(AstShaped s) @r @sh var) (sfromD d)
+    Just Refl -> gcastWith (unsafeCoerce Refl :: sh :~: y) $
+                 extendEnvS var (sfromD d)
     _ -> error "extendEnvDS: type mismatch"
 
 extendEnvI :: ( RankedTensor ranked

@@ -100,7 +100,7 @@ astRegisterADShareS !r !l = unsafePerformIO $ do
 funToAstIOR :: forall n m s r r2. GoodScalar r
             => ShapeInt n -> (AstRanked s r n -> AstRanked s r2 m)
             -> IO ( AstVarName s (AstRanked s) r n
-                  , AstDynamicVarName s
+                  , AstDynamicVarName s (AstRanked s)
                   , AstRanked s r2 m )
 {-# INLINE funToAstIOR #-}
 funToAstIOR sh f = do
@@ -108,7 +108,7 @@ funToAstIOR sh f = do
   return $! OS.withShapeP (shapeToList sh) $ \(Proxy :: Proxy sh) ->
     let varName = AstVarName freshId
     in ( varName
-       , AstDynamicVarName @sh @r freshId
+       , AstDynamicVarName @sh varName
        , f (AstVar sh varName) )
 
 funToAstR :: GoodScalar r
@@ -122,14 +122,14 @@ funToAstR sh f = unsafePerformIO $ do
 funToAstIOS :: forall sh sh2 s r r2. (OS.Shape sh, GoodScalar r)
             => (AstShaped s r sh -> AstShaped s r2 sh2)
             -> IO ( AstVarName s (AstShaped s) r sh
-                  , AstDynamicVarName s
+                  , AstDynamicVarName s (AstShaped s)
                   , AstShaped s r2 sh2 )
 {-# INLINE funToAstIOS #-}
 funToAstIOS f = do
   freshId <- unsafeGetFreshAstVarId
   let varName = AstVarName freshId
   return ( varName
-         , AstDynamicVarName @sh @r freshId
+         , AstDynamicVarName @sh varName
          , f (AstVarS varName) )
 
 funToAstS :: forall sh sh2 s r r2. (OS.Shape sh, GoodScalar r)
@@ -141,7 +141,7 @@ funToAstS f = unsafePerformIO $ do
   return (var, ast)
 
 funToAstAllIO :: DomainsOD
-              -> IO ( [AstDynamicVarName s]
+              -> IO ( [AstDynamicVarName AstPrimal (AstRanked AstPrimal)]
                     , [DynamicExists (AstDynamic AstFull)]
                     , [DynamicExists (AstDynamic AstPrimal)] )
 {-# INLINE funToAstAllIO #-}
@@ -158,14 +158,15 @@ funToAstAllIO parameters0 = do
                   dynE = DynamicExists @r2
                          $ AstRToD @n (AstVar (listShapeToShape sh)
                                               (AstVarName freshId))
-              in (AstDynamicVarName @sh @r2 freshId, dynE, dynE)
+              in (AstDynamicVarName @sh @r2 (AstVarName freshId), dynE, dynE)
             Nothing -> error "funToAstAllIO: impossible someNatVal error"
   unzip3 <$> mapM f (V.toList parameters0)
 
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
 funToAstAll :: DomainsOD
-            -> ( (AstVarName AstPrimal f r y, [AstDynamicVarName AstPrimal])
+            -> ( ( AstVarName AstPrimal f r y
+                 , [AstDynamicVarName AstPrimal (AstRanked AstPrimal)] )
                , [DynamicExists (AstDynamic AstFull)]
                , [DynamicExists (AstDynamic AstPrimal)] )
 {-# NOINLINE funToAstAll #-}
@@ -175,7 +176,7 @@ funToAstAll parameters0 = unsafePerformIO $ do
   return ((AstVarName freshId, vars1), asts1, astsPrimal1)
 
 funToAstAllIOS :: DomainsOD
-               -> IO ( [AstDynamicVarName AstPrimal]
+               -> IO ( [AstDynamicVarName AstPrimal (AstShaped AstPrimal)]
                      , [DynamicExists (AstDynamic AstFull)]
                      , [DynamicExists (AstDynamic AstPrimal)] )
 {-# INLINE funToAstAllIOS #-}
@@ -189,13 +190,14 @@ funToAstAllIOS parameters0 = do
           let dynE :: DynamicExists (AstDynamic s)
               dynE = DynamicExists @r2
                      $ AstSToD (AstVarS @sh (AstVarName freshId))
-          in (AstDynamicVarName @sh @r2 freshId, dynE, dynE)
+          in (AstDynamicVarName @sh @r2 (AstVarName freshId), dynE, dynE)
   unzip3 <$> mapM f (V.toList parameters0)
 
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
 funToAstAllS :: DomainsOD
-             -> ( (AstVarName AstPrimal f r y, [AstDynamicVarName AstPrimal])
+             -> ( ( AstVarName AstPrimal f r y
+                  , [AstDynamicVarName AstPrimal (AstShaped AstPrimal)] )
                 , [DynamicExists (AstDynamic AstFull)]
                 , [DynamicExists (AstDynamic AstPrimal)] )
 {-# NOINLINE funToAstAllS #-}

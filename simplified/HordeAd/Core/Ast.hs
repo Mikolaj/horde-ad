@@ -143,14 +143,16 @@ instance Show (AstVarName s f r y) where
   showsPrec d (AstVarName var) =
     showsPrec d var  -- backward compatibility vs test results
 
-data AstDynamicVarName s where
-  AstDynamicVarName :: (OS.Shape sh, GoodScalar r)
-                    => AstVarId s -> AstDynamicVarName s
-deriving instance Show (AstDynamicVarName s)
+-- This needs to carry sh regardless of f, even for AstRanked, because
+-- then it needs to recover the shape argument for AstVar.
+data AstDynamicVarName s f where
+  AstDynamicVarName :: forall sh r y s f. (OS.Shape sh, GoodScalar r)
+                    => AstVarName s f r y -> AstDynamicVarName s f
+deriving instance Show (AstDynamicVarName s f)
 
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 f r y =
-  ( (AstVarName AstPrimal f r y, [AstDynamicVarName AstPrimal])
+  ( (AstVarName AstPrimal f r y, [AstDynamicVarName AstPrimal f])
   , AstDomains AstPrimal, f r y )
 
 type AstIndex n = Index n AstInt
