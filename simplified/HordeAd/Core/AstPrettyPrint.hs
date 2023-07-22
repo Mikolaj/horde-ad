@@ -520,8 +520,9 @@ printAstVarNameS :: OS.Shape sh
 printAstVarNameS renames var =
   printAstVarS (defaulPrintConfig False renames) var ""
 
-printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
-printAstDynamicVarName renames (AstDynamicVarName @sh @r @s var) =
+printAstDynamicVarName :: forall s.
+                          IntMap String -> AstDynamicVarName s -> String
+printAstDynamicVarName renames (AstDynamicVarName @sh @r var) =
   printAstVarNameS renames (AstVarName @[Nat] @s @(AstShaped s) @r @sh var)
 
 printAstS :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)

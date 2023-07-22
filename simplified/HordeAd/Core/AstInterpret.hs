@@ -86,11 +86,11 @@ extendEnvR (AstVarName var) t =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
                    (astVarIdToAstId var) (AstEnvElem t)
 
-extendEnvDR :: ConvertTensor ranked shaped
-            => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
+extendEnvDR :: forall ranked shaped s. ConvertTensor ranked shaped
+            => (AstDynamicVarName s, DynamicExists (DynamicOf ranked))
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
-extendEnvDR (AstDynamicVarName @sh @r @s var, DynamicExists @r2 d) =
+extendEnvDR (AstDynamicVarName @sh @r var, DynamicExists @r2 d) =
   case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl ->
       let n = length $ OS.shapeT @sh
@@ -101,7 +101,7 @@ extendEnvDR (AstDynamicVarName @sh @r @s var, DynamicExists @r2 d) =
     _ -> error "extendEnvDR: type mismatch"
 
 extendEnvDS :: ConvertTensor ranked shaped
-            => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
+            => (AstDynamicVarName s, DynamicExists (DynamicOf ranked))
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
 extendEnvDS (AstDynamicVarName @sh @r @s var, DynamicExists @r2 d) =

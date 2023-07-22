@@ -25,7 +25,6 @@ module HordeAd.Core.Ast
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
@@ -144,15 +143,15 @@ instance Show (AstVarName s f r y) where
   showsPrec d (AstVarName var) =
     showsPrec d var  -- backward compatibility vs test results
 
-data AstDynamicVarName where
+data AstDynamicVarName s where
   AstDynamicVarName :: (OS.Shape sh, GoodScalar r)
-                    => AstVarId s -> AstDynamicVarName
-deriving instance Show AstDynamicVarName
+                    => AstVarId s -> AstDynamicVarName s
+deriving instance Show (AstDynamicVarName s)
 
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 f r y =
-  ( (AstVarName AstPrimal f r y, [AstDynamicVarName]), AstDomains AstPrimal
-  , f r y )
+  ( (AstVarName AstPrimal f r y, [AstDynamicVarName AstPrimal])
+  , AstDomains AstPrimal, f r y )
 
 type AstIndex n = Index n AstInt
 

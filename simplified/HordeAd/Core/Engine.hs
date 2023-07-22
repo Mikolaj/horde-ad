@@ -122,7 +122,7 @@ instance Adaptable AstRanked where
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown (AstDynamic AstPrimal))
                        -> Domains (AstDynamic AstFull)
-                       -> [AstDynamicVarName]
+                       -> [AstDynamicVarName AstPrimal]
                        -> ADVal (AstRanked AstPrimal) r y
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
@@ -153,7 +153,7 @@ instance Adaptable AstShaped where
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown (AstDynamic AstPrimal))
                        -> Domains (AstDynamic AstFull)
-                       -> [AstDynamicVarName]
+                       -> [AstDynamicVarName AstPrimal]
                        -> ADVal (AstShaped AstPrimal) r y
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
@@ -177,7 +177,7 @@ revAstOnDomainsFun
   => Bool -> DomainsOD
   -> (Domains (ADValClown (AstDynamic AstPrimal))
       -> Domains (AstDynamic AstFull)
-      -> [AstDynamicVarName]
+      -> [AstDynamicVarName AstPrimal]
       -> ADVal (AstRanked AstPrimal) r n)
   -> ( ADAstArtifact6 (AstRanked AstPrimal) r n
      , Dual (AstRanked AstPrimal) r n )
@@ -208,7 +208,7 @@ revAstOnDomainsFunS
   => Bool -> DomainsOD
   -> (Domains (ADValClown (AstDynamic AstPrimal))
       -> Domains (AstDynamic AstFull)
-      -> [AstDynamicVarName]
+      -> [AstDynamicVarName AstPrimal]
       -> ADVal (AstShaped AstPrimal) r sh)
   -> ( ADAstArtifact6 (AstShaped AstPrimal) r sh
      , Dual (AstShaped AstPrimal) r sh )
