@@ -1088,6 +1088,11 @@ interpretAstS env = \case
   -> Flip OR.Array Float n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
+  => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
+  -> AstRanked AstPrimal Int64 n
+  -> Flip OR.Array Int64 n #-}
+{-# SPECIALIZE interpretAstPrimal
+  :: KnownNat n
   => AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
   -> AstRanked AstPrimal Double n
   -> AstRanked AstPrimal Double n #-}
@@ -1098,6 +1103,11 @@ interpretAstS env = \case
   -> AstRanked AstPrimal Float n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
+  => AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
+  -> AstRanked AstPrimal Int64 n
+  -> AstRanked AstPrimal Int64 n #-}
+{-# SPECIALIZE interpretAstPrimal
+  :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked AstPrimal Double n
   -> Flip OR.Array Double n #-}
@@ -1106,6 +1116,11 @@ interpretAstS env = \case
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked AstPrimal Float n
   -> Flip OR.Array Float n #-}
+{-# SPECIALIZE interpretAstPrimal
+  :: KnownNat n
+  => AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstRanked AstPrimal Int64 n
+  -> Flip OR.Array Int64 n #-}
 
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
@@ -1119,6 +1134,11 @@ interpretAstS env = \case
   -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array) (Flip OS.Array)) Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
+  => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
+  -> AstRanked AstDual Int64 n
+  -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array) (Flip OS.Array)) Int64 n #-}
+{-# SPECIALIZE interpretAstDual
+  :: KnownNat n
   => AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
   -> AstRanked AstDual Double n
   -> Product (Clown (Const ADShare)) (DeltaR (AstRanked AstPrimal) (AstShaped AstPrimal)) Double n #-}
@@ -1129,6 +1149,11 @@ interpretAstS env = \case
   -> Product (Clown (Const ADShare)) (DeltaR (AstRanked AstPrimal) (AstShaped AstPrimal)) Float n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
+  => AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
+  -> AstRanked AstDual Int64 n
+  -> Product (Clown (Const ADShare)) (DeltaR (AstRanked AstPrimal) (AstShaped AstPrimal)) Int64 n #-}
+{-# SPECIALIZE interpretAstDual
+  :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked AstDual Double n
   -> DummyDual Double n #-}
@@ -1137,6 +1162,11 @@ interpretAstS env = \case
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked AstDual Float n
   -> DummyDual Float n #-}
+{-# SPECIALIZE interpretAstDual
+  :: KnownNat n
+  => AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstRanked AstDual Int64 n
+  -> DummyDual Int64 n #-}
 
 {-# SPECIALIZE interpretAst
   :: KnownNat n
@@ -1150,6 +1180,11 @@ interpretAstS env = \case
   -> ADVal (Flip OR.Array) Float n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
+  => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
+  -> AstRanked AstPrimal Int64 n
+  -> ADVal (Flip OR.Array) Int64 n #-}
+{-# SPECIALIZE interpretAst
+  :: KnownNat n
   => AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
   -> AstRanked AstPrimal Double n
   -> ADVal (AstRanked AstPrimal) Double n #-}
@@ -1160,6 +1195,11 @@ interpretAstS env = \case
   -> ADVal (AstRanked AstPrimal) Float n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
+  => AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
+  -> AstRanked AstPrimal Int64 n
+  -> ADVal (AstRanked AstPrimal) Int64 n #-}
+{-# SPECIALIZE interpretAst
+  :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked AstPrimal Double n
   -> Flip OR.Array Double n #-}
@@ -1168,6 +1208,11 @@ interpretAstS env = \case
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked AstPrimal Float n
   -> Flip OR.Array Float n #-}
+{-# SPECIALIZE interpretAst
+  :: KnownNat n
+  => AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstRanked AstPrimal Int64 n
+  -> Flip OR.Array Int64 n #-}
 
 {-# SPECIALIZE interpretAst
   :: KnownNat n
@@ -1181,6 +1226,11 @@ interpretAstS env = \case
   -> ADVal (Flip OR.Array) Float n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
+  => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
+  -> AstRanked AstFull Int64 n
+  -> ADVal (Flip OR.Array) Int64 n #-}
+{-# SPECIALIZE interpretAst
+  :: KnownNat n
   => AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
   -> AstRanked AstFull Double n
   -> ADVal (AstRanked AstPrimal) Double n #-}
@@ -1191,6 +1241,11 @@ interpretAstS env = \case
   -> ADVal (AstRanked AstPrimal) Float n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
+  => AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
+  -> AstRanked AstFull Int64 n
+  -> ADVal (AstRanked AstPrimal) Int64 n #-}
+{-# SPECIALIZE interpretAst
+  :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked AstFull Double n
   -> Flip OR.Array Double n #-}
@@ -1199,6 +1254,11 @@ interpretAstS env = \case
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked AstFull Float n
   -> Flip OR.Array Float n #-}
+{-# SPECIALIZE interpretAst
+  :: KnownNat n
+  => AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstRanked AstFull Int64 n
+  -> Flip OR.Array Int64 n #-}
 
 {-# SPECIALIZE interpretAstDynamic
   :: AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
@@ -1301,27 +1361,3 @@ interpretAstS env = \case
   :: KnownNat n
   => OpCodeRel -> [AstRanked AstPrimal Int64 n] -> AstBool #-}
 -- AstFull not needed, because relations are computed on primal parts
-
-{- outdated and inlined anyway:
-{-# SPECIALIZE interpretAstOp
-  :: OpCode -> [(ADVal Double)] -> (ADVal Double) #-}
-{-# SPECIALIZE interpretAstOp
-  :: OpCode -> [(ADVal Float)] -> (ADVal Float) #-}
-{-# SPECIALIZE interpretAstOp
-  :: OpCode -> [(ADVal (Ast0 Double))] -> (ADVal (Ast0 Double)) #-}
-{-# SPECIALIZE interpretAstOp
-  :: OpCode -> [(ADVal (Ast0 Float))] -> (ADVal (Ast0 Float)) #-}
-{-# SPECIALIZE interpretAstOp
-  :: OpCode -> [Double] -> Double #-}
-{-# SPECIALIZE interpretAstOp
-  :: OpCode -> [Float] -> Float #-}
--}
-
-{- make compilation even longer and inlined anyway:
-{-# SPECIALIZE interpretAstBoolOp
-  :: OpCodeBool -> [Bool] -> Bool #-}
-{-# SPECIALIZE interpretAstBoolOp
-  :: OpCodeBool -> [AstBool Double] -> AstBool #-}
-{-# SPECIALIZE interpretAstBoolOp
-  :: OpCodeBool -> [AstBool Float] -> AstBool #-}
--}

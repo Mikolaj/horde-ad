@@ -478,6 +478,18 @@ gradientDtR dims value mdt deltaTopLevel =
   let dt = fromMaybe (treplicate0N (tshape value) 1) mdt
       deltaDt = DeltaDtR dt deltaTopLevel
   in gradientFromDelta dims deltaDt
+{-# SPECIALIZE gradientDtR
+  :: KnownNat y
+  => Int -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
+  -> DeltaR (Flip OR.Array) (Flip OS.Array) Double y
+  -> ( [(AstId, DynamicExists (DynamicOf (Flip OR.Array)))]
+     , Domains (DynamicOf (Flip OR.Array)) ) #-}
+{-# SPECIALIZE gradientDtR
+  :: KnownNat y
+  => Int -> AstRanked AstPrimal Double y -> Maybe (AstRanked AstPrimal Double y)
+  -> DeltaR (AstRanked AstPrimal) (AstShaped AstPrimal) Double y
+  -> ( [(AstId, DynamicExists (DynamicOf (AstRanked AstPrimal)))]
+     , Domains (DynamicOf (AstRanked AstPrimal)) ) #-}
 
 derivativeFromDeltaR
   :: forall ranked shaped r n.
@@ -515,6 +527,18 @@ gradientDtS dims mdt deltaTopLevel =
   let dt = fromMaybe 1 mdt
       deltaDt = DeltaDtS dt deltaTopLevel
   in gradientFromDelta dims deltaDt
+{-# SPECIALIZE gradientDtS
+  :: OS.Shape y
+  => Int -> Maybe (Flip OS.Array Double y)
+  -> DeltaS (Flip OR.Array) (Flip OS.Array) Double y
+  -> ( [(AstId, DynamicExists (DynamicOf (Flip OS.Array)))]
+     , Domains (DynamicOf (Flip OS.Array)) ) #-}
+{-# SPECIALIZE gradientDtS
+  :: OS.Shape y
+  => Int -> Maybe (AstShaped AstPrimal Double y)
+  -> DeltaS (AstRanked AstPrimal) (AstShaped AstPrimal) Double y
+  -> ( [(AstId, DynamicExists (DynamicOf (AstShaped AstPrimal)))]
+     , Domains (DynamicOf (AstShaped AstPrimal)) ) #-}
 
 derivativeFromDeltaS
   :: forall ranked shaped r sh.

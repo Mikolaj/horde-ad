@@ -51,6 +51,15 @@ rev
      , RandomDomains vals, vals ~ Value astvals )
   => (astvals -> g AstFull r y) -> vals -> vals
 rev f vals = revDtMaybe f vals Nothing
+{- TODO: check with GHC 9.6.3: RULE left-hand side too complicated to desugar
+{-# SPECIALIZE rev
+  :: ( HasSingletonDict y
+     , AdaptableDomains (AstDynamic AstFull) astvals
+     , AdaptableDomains OD.Array vals
+     , RandomDomains vals, vals ~ Value astvals )
+  => (astvals -> AstRanked AstFull Double y) -> vals
+  -> vals #-}
+-}
 
 -- This version additionally takes the sensitivity parameter.
 revDt
@@ -61,6 +70,15 @@ revDt
      , RandomDomains vals, vals ~ Value astvals )
   => (astvals -> g AstFull r y) -> vals -> ConcreteOf g r y -> vals
 revDt f vals dt = revDtMaybe f vals (Just dt)
+{- TODO: check with GHC 9.6.3: RULE left-hand side too complicated to desugar
+{-# SPECIALIZE revDt
+  :: ( HasSingletonDict y
+     , AdaptableDomains (AstDynamic AstFull) astvals
+     , AdaptableDomains OD.Array vals
+     , RandomDomains vals, vals ~ Value astvals )
+  => (astvals -> AstRanked AstFull Double y) -> vals -> Flip OR.Array Double y
+  -> vals #-}
+-}
 
 revDtMaybe
   :: forall r y g vals astvals.
@@ -69,6 +87,7 @@ revDtMaybe
      , AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
   => (astvals -> g AstFull r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
+{-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
   let asts4 = fst $ revDtFun (isJust mdt) f vals
   in parseDomains (toValue vals)
@@ -360,6 +379,7 @@ generateDeltaInputs
      , Dual (Clown dynamic) ~ DeltaD ranked shaped )
   => Domains dynamic
   -> Data.Vector.Vector (DeltaInputsExists dynamic)
+{-# INLINE generateDeltaInputs #-}
 generateDeltaInputs params =
   let arrayToInput :: Int -> DynamicExists dynamic -> DeltaInputsExists dynamic
       arrayToInput i (DynamicExists @r t) =
@@ -369,7 +389,7 @@ generateDeltaInputs params =
                                      $ toInputId i
           Nothing -> error "generateDeltaInputs: impossible someNatVal error"
   in V.imap arrayToInput params
-{- TODO: this can't be specified without a proxy
+{- TODO: this can't be specified without a proxy, so we inline instead
 {-# SPECIALIZE generateDeltaInputs
   :: DomainsOD -> Data.Vector.Vector (Dual OD.Array Double) #-}
 -}
