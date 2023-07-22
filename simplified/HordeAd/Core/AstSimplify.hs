@@ -1672,17 +1672,17 @@ unletAst
   => UnletEnv -> AstRanked s r n -> AstRanked s r n
 unletAst env t = case t of
   Ast.AstVar{} -> t
-  Ast.AstLet var@(AstVarName vv) u v ->
+  Ast.AstLet var@(AstVarName vvv) u v ->
     -- This optimization is sound, because there is no mechanism
     -- that would nest lets with the same variable (e.g., our lets always
     -- bind fresh variables at creation time and we never substitute
     -- a term into the same term). If that changes, let's refresh
     -- let variables whenever substituting into let bodies.
     -- See the same assumption in AstInterpret.
-    if astVarIdToAstId vv `ES.member` unletSet env
+    if astVarIdToAstId vvv `ES.member` unletSet env
     then unletAst env v
     else let env2 = env {unletSet =
-                           ES.insert (astVarIdToAstId vv) (unletSet env)}
+                           ES.insert (astVarIdToAstId vvv) (unletSet env)}
          in Ast.AstLet var (unletAst env u) (unletAst env2 v)
   Ast.AstLetADShare l v ->
     let lassocs = subtractADShare l $ unletADShare env
@@ -1745,18 +1745,18 @@ unletAstDomains
   :: AstSpan s => UnletEnv -> AstDomains s -> AstDomains s
 unletAstDomains env = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic env) l
-  Ast.AstDomainsLet var@(AstVarName vv) u v ->
-    if astVarIdToAstId vv `ES.member` unletSet env
+  Ast.AstDomainsLet var@(AstVarName vvv) u v ->
+    if astVarIdToAstId vvv `ES.member` unletSet env
     then unletAstDomains env v
     else let env2 = env {unletSet =
-                           ES.insert (astVarIdToAstId vv) (unletSet env)}
+                           ES.insert (astVarIdToAstId vvv) (unletSet env)}
          in Ast.AstDomainsLet var (unletAst env u)
                                   (unletAstDomains env2 v)
-  Ast.AstDomainsLetS var@(AstVarName vv) u v ->
-    if astVarIdToAstId vv `ES.member` unletSet env
+  Ast.AstDomainsLetS var@(AstVarName vvv) u v ->
+    if astVarIdToAstId vvv `ES.member` unletSet env
     then unletAstDomains env v
     else let env2 = env {unletSet =
-                           ES.insert (astVarIdToAstId vv) (unletSet env)}
+                           ES.insert (astVarIdToAstId vvv) (unletSet env)}
          in Ast.AstDomainsLetS var (unletAstS env u)
                                    (unletAstDomains env2 v)
 
@@ -1775,17 +1775,17 @@ unletAstS
   => UnletEnv -> AstShaped s r sh -> AstShaped s r sh
 unletAstS env t = case t of
   Ast.AstVarS{} -> t
-  Ast.AstLetS var@(AstVarName vv) u v ->
+  Ast.AstLetS var@(AstVarName vvv) u v ->
     -- This optimization is sound, because there is no mechanism
     -- that would nest lets with the same variable (e.g., our lets always
     -- bind fresh variables at creation time and we never substitute
     -- a term into the same term). If that changes, let's refresh
     -- let variables whenever substituting into let bodies.
     -- See the same assumption in AstInterpret.
-    if astVarIdToAstId vv `ES.member` unletSet env
+    if astVarIdToAstId vvv `ES.member` unletSet env
     then unletAstS env v
     else let env2 = env {unletSet =
-                           ES.insert (astVarIdToAstId vv) (unletSet env)}
+                           ES.insert (astVarIdToAstId vvv) (unletSet env)}
          in Ast.AstLetS var (unletAstS env u) (unletAstS env2 v)
   Ast.AstLetADShareS l v ->
     let lassocs = subtractADShare l $ unletADShare env
