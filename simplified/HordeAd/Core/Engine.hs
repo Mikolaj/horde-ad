@@ -87,7 +87,7 @@ class Adaptable g where
        ( GoodScalar r, HasSingletonDict y
        , AdaptableDomains (AstDynamic AstFull) astvals, vals ~ Value astvals )
     => Bool -> (astvals -> g AstFull r y) -> vals
-    -> AstEnv (ADVal (RankedOf (g AstPrimal)))
+    -> AstEnv (ADVal (RankedOf (g AstPrimal))) (ADVal (ShapedOf (g AstPrimal)))
     -> DomainsOD
     -> (ADAstArtifact6 (g AstPrimal) r y, Dual (g AstPrimal) r y)
 
@@ -114,7 +114,7 @@ instance Adaptable AstRanked where
        ( GoodScalar r, KnownNat y
        , AdaptableDomains (AstDynamic AstFull) astvals, vals ~ Value astvals )
     => Bool -> (astvals -> AstRanked AstFull r y) -> vals
-    -> AstEnv (ADVal (AstRanked AstPrimal))
+    -> AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
     -> DomainsOD
     -> ( ADAstArtifact6 (AstRanked AstPrimal) r y
        , Dual (AstRanked AstPrimal) r y )
@@ -145,7 +145,8 @@ instance Adaptable AstShaped where
        ( GoodScalar r, OS.Shape y
        , AdaptableDomains (AstDynamic AstFull) astvals, vals ~ Value astvals )
     => Bool -> (astvals -> AstShaped AstFull r y) -> vals
-    -> AstEnv (ADVal (AstRanked AstPrimal)) -> DomainsOD
+    -> AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
+    -> DomainsOD
     -> ( ADAstArtifact6 (AstShaped AstPrimal) r y
        , Dual (AstShaped AstPrimal) r y )
   {-# INLINE revDtInit #-}
