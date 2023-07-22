@@ -220,7 +220,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
         !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dScale v u')
   tmult d e = d * e
-  tconst t = constantADVal (tconstBare t)
+  tconst t = constantADVal (tconst t)
   raddDynamic = undefined
 
   tconstant t = let (l, r) = tletUnwrap t in dDnotShared l r dZero

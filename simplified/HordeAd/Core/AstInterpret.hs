@@ -587,7 +587,7 @@ interpretAst env = \case
   AstCast v -> tcast $ interpretAst env v
   AstFromIntegral v -> tfromIntegral $ tconstant $ interpretAstPrimal env v
   AstSToR v -> tfromS $ interpretAstS env v
-  AstConst a -> tconstBare a
+  AstConst a -> tconst a
   AstConstant a -> tconstant $ interpretAstPrimal env a
   AstPrimalPart a -> interpretAst env a  -- TODO
   AstDualPart a -> interpretAst env a  -- TODO

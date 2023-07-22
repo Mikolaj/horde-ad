@@ -259,8 +259,6 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
   tdot1In t u = tsumIn (t `tmult` u)
     -- TODO: generalize, replace by stride analysis, etc.
   tconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
-  tconstBare :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
-  tconstBare = tconst
   tletWrap :: (GoodScalar r, KnownNat n)
            => ADShare -> ranked r n -> ranked r n
   tletWrap _l u = u

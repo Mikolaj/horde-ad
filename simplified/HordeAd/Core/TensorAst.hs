@@ -105,7 +105,6 @@ instance AstSpan s
 
   tsumOfList = AstSumOfList
   tconst = fromPrimal . AstConst
-  tconstBare = fromPrimal . AstConst
   tletWrap l u = if nullADShare l then u
                  else fromPrimal $ AstLetADShare l (astSpanPrimal u)
     -- We can't use astLet here, because it may inline a let that is
@@ -458,7 +457,6 @@ instance AstSpan s
 
   tsumOfList = AstNoVectorize . AstSumOfList . map unAstNoVectorize
   tconst = AstNoVectorize . fromPrimal . AstConst
-  tconstBare = AstNoVectorize . fromPrimal . AstConst
   raddDynamic = undefined
 
   tconstant = AstNoVectorize . fromPrimal
@@ -502,7 +500,6 @@ instance AstSpan s
 
   tsumOfList = AstNoSimplify . AstSumOfList . map unAstNoSimplify
   tconst = AstNoSimplify . fromPrimal . AstConst
-  tconstBare = AstNoSimplify . fromPrimal . AstConst
   raddDynamic = undefined
 
   tconstant = AstNoSimplify . fromPrimal
