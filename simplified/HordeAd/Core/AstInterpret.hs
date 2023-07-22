@@ -91,7 +91,7 @@ extendEnvDR :: forall ranked shaped s. ConvertTensor ranked shaped
                , DynamicExists (DynamicOf ranked) )
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
-extendEnvDR (AstDynamicVarName @sh @r @y var, DynamicExists @r2 d) =
+extendEnvDR (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) =
   case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl ->
       let n = length $ OS.shapeT @sh
@@ -106,7 +106,7 @@ extendEnvDS :: ConvertTensor ranked shaped
                , DynamicExists (DynamicOf ranked) )
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
-extendEnvDS (AstDynamicVarName @sh @r @y var, DynamicExists @r2 d) =
+extendEnvDS (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) =
   case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> gcastWith (unsafeCoerce Refl :: sh :~: y) $
                  extendEnvS var (sfromD d)

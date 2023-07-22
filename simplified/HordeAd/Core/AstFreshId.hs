@@ -18,7 +18,7 @@ import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
+import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import           HordeAd.Core.Ast
@@ -108,7 +108,7 @@ funToAstIOR sh f = do
   return $! OS.withShapeP (shapeToList sh) $ \(Proxy :: Proxy sh) ->
     let varName = AstVarName freshId
     in ( varName
-       , AstDynamicVarName @sh varName
+       , AstDynamicVarName @Nat @sh varName
        , f (AstVar sh varName) )
 
 funToAstR :: GoodScalar r
@@ -129,7 +129,7 @@ funToAstIOS f = do
   freshId <- unsafeGetFreshAstVarId
   let varName = AstVarName freshId
   return ( varName
-         , AstDynamicVarName @sh varName
+         , AstDynamicVarName @[Nat] @sh varName
          , f (AstVarS varName) )
 
 funToAstS :: forall sh sh2 s r r2. (OS.Shape sh, GoodScalar r)
@@ -158,7 +158,7 @@ funToAstAllIO parameters0 = do
                   dynE = DynamicExists @r2
                          $ AstRToD @n (AstVar (listShapeToShape sh)
                                               (AstVarName freshId))
-              in (AstDynamicVarName @sh @r2 (AstVarName freshId), dynE, dynE)
+              in (AstDynamicVarName @Nat @sh @r2 (AstVarName freshId), dynE, dynE)
             Nothing -> error "funToAstAllIO: impossible someNatVal error"
   unzip3 <$> mapM f (V.toList parameters0)
 
@@ -190,7 +190,7 @@ funToAstAllIOS parameters0 = do
           let dynE :: DynamicExists (AstDynamic s)
               dynE = DynamicExists @r2
                      $ AstSToD (AstVarS @sh (AstVarName freshId))
-          in (AstDynamicVarName @sh @r2 (AstVarName freshId), dynE, dynE)
+          in (AstDynamicVarName @[Nat] @sh @r2 (AstVarName freshId), dynE, dynE)
   unzip3 <$> mapM f (V.toList parameters0)
 
 -- The AstVarName type with its parameter somehow prevents cse and crashes

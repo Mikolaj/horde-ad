@@ -145,8 +145,11 @@ instance Show (AstVarName s f r y) where
 
 -- This needs to carry sh regardless of f, even for AstRanked, because
 -- then it needs to recover the shape argument for AstVar.
+--
+-- The explicit kind is required to compile with GHC 9.2.
 data AstDynamicVarName s f where
-  AstDynamicVarName :: forall sh r y s f. (OS.Shape sh, GoodScalar r)
+  AstDynamicVarName :: forall k sh r y s (f :: TensorKind k).
+                       (OS.Shape sh, GoodScalar r)
                     => AstVarName s f r y -> AstDynamicVarName s f
 deriving instance Show (AstDynamicVarName s f)
 

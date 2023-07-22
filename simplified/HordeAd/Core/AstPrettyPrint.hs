@@ -522,7 +522,7 @@ printAstVarNameS renames var =
 
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName s f -> String
 printAstDynamicVarName renames
-                       (AstDynamicVarName @sh @r @_ @s (AstVarName var)) =
+                       (AstDynamicVarName @_ @sh @r @_ @s (AstVarName var)) =
   printAstVarNameS renames (AstVarName @[Nat] @s @(AstShaped s) @r @sh var)
 
 printAstS :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
