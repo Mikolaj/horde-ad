@@ -206,8 +206,8 @@ simplifyStepNonIndex t = case t of
   Ast.AstSToR{} -> t  -- TODO
   AstConst{} -> t
   Ast.AstConstant{} -> t
-  Ast.AstPrimalPart{} -> t
-  Ast.AstDualPart{} -> t
+  Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
+  Ast.AstDualPart v -> astDualPart v
   Ast.AstD{} -> t
   Ast.AstLetDomains{} -> t
   Ast.AstCond a b c -> astCond a b c
@@ -453,7 +453,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndex v0 ix
   Ast.AstConstant v -> Ast.AstConstant $ astIndex v ix
-  Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix
+  Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndex v0 ix
   Ast.AstD u u' ->
     -- TODO: we need integer let to preserve sharing while substituting here:
@@ -1130,7 +1130,7 @@ astDualPart :: (GoodScalar r, KnownNat n)
 astDualPart t = case t of
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstLet var u v -> astLet var u (astDualPart v)
-  AstNm{} -> Ast.AstDualPart t
+  AstNm{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
   Ast.AstOp{} -> Ast.AstDualPart t
   Ast.AstOpIntegral{} -> Ast.AstDualPart t
   AstSumOfList args -> AstSumOfList (map astDualPart args)

@@ -191,10 +191,7 @@ astSpanPrimal _ | Just Refl <- sameAstSpan @s @AstDual =
   error "astSpanPrimal: can't recover primal from dual"
     -- or we could return zero, but this is unlikely to happen
     -- except by user error
-astSpanPrimal t | Just Refl <- sameAstSpan @s @AstFull = case t of
-  AstConstant v -> v
-  AstD u _ -> u
-  _ -> astPrimalPart t
+astSpanPrimal t | Just Refl <- sameAstSpan @s @AstFull = astPrimalPart t
 astSpanPrimal _ = error "a spuriuos case for pattern match coverage"
 
 astSpanDual :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
@@ -340,10 +337,7 @@ astSpanPrimalS _ | Just Refl <- sameAstSpan @s @AstDual =
   error "astSpanPrimalS: can't recover primal from dual"
     -- or we could return zero, but this is unlikely to happen
     -- except by user error
-astSpanPrimalS t | Just Refl <- sameAstSpan @s @AstFull = case t of
-  AstConstantS v -> v
-  AstDS u _ -> u
-  _ -> astPrimalPartS t
+astSpanPrimalS t | Just Refl <- sameAstSpan @s @AstFull = astPrimalPartS t
 astSpanPrimalS _ = error "a spuriuos case for pattern match coverage"
 
 astSpanDualS :: forall s r sh. (OS.Shape sh, GoodScalar r, AstSpan s)
