@@ -307,14 +307,14 @@ testGatherSimp23 = do
                 (t * treplicate0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 184
-  length (show (simplifyAst6 @Float t1)) @?= 502
+  length (show (simplifyAst6 @Float t1)) @?= 487
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               treshape @(AstRanked AstPrimal) @Float @2 @2 [2, 6]
                 (t * treplicate0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 184
-  length (show (simplifyAst6 @Float t2)) @?= 502
+  length (show (simplifyAst6 @Float t2)) @?= 487
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -388,7 +388,7 @@ testGatherSimp34 = do
              gatherTranspose33 @(AstRanked AstPrimal) (t * treplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 724
-  length (show (simplifyAst6 @Float t1)) @?= 15507
+  length (show (simplifyAst6 @Float t1)) @?= 15492
   resetVarCounter
   let !t2 = (\t -> tbuild1 4 (\i ->
               (\t' -> tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
@@ -396,7 +396,7 @@ testGatherSimp34 = do
                 (t * treplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 620
-  length (show (simplifyAst6 @Float t2)) @?= 940
+  length (show (simplifyAst6 @Float t2)) @?= 925
 
 -- scatters instead of gathers
 

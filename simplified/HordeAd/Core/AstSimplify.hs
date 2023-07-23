@@ -19,7 +19,8 @@ module HordeAd.Core.AstSimplify
   , astIndexStepS, astGatherStepS
   , astReshape, astTranspose, astReshapeS, astTransposeS
   , astLet, astSum, astScatter, astFromList, astFromVector, astReplicate
-  , astAppend, astSlice, astSliceS, astReverse, astPrimalPart, astDualPart
+  , astAppend, astSlice, astSliceS, astReverse, astCast, astFromIntegral
+  , astPrimalPart, astDualPart
   , astCond, astFromDynamic, astFromDynamicS, astDomainsLet
   , simplifyArtifact6, simplifyArtifact6S, simplifyAst6, simplifyAst6S
   , simplifyAstDomains6
@@ -201,8 +202,8 @@ simplifyStepNonIndex t = case t of
   Ast.AstGather _ v0 (Z, ix) -> Ast.AstIndex v0 ix
   Ast.AstGather sh v0 (_, ZI) -> astReplicateN sh v0
   Ast.AstGather{} -> t
-  Ast.AstCast{} -> t
-  Ast.AstFromIntegral{} -> t
+  Ast.AstCast v -> astCast v
+  Ast.AstFromIntegral v -> astFromIntegral v
   Ast.AstSToR{} -> t  -- TODO
   AstConst{} -> t
   Ast.AstConstant{} -> t
@@ -436,10 +437,8 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     in astIndex @m1 @n w rest1
   Ast.AstGather{} ->
     error "astIndex: AstGather: impossible pattern needlessly required"
-  Ast.AstCast t -> Ast.AstCast $ astIndexROrStepOnly stepOnly t ix  -- TODO
-  Ast.AstFromIntegral v ->
-    Ast.AstFromIntegral $ astIndexROrStepOnly stepOnly v ix
-      -- TODO
+  Ast.AstCast t -> astCast $ astIndexROrStepOnly stepOnly t ix
+  Ast.AstFromIntegral v -> astFromIntegral $ astIndexROrStepOnly stepOnly v ix
   Ast.AstSToR{} ->  -- TODO
     Ast.AstIndex v0 ix
   AstConst t ->
@@ -835,20 +834,21 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
            => AstRanked s' r (m' + n') -> AstIndex m' -> AstRanked s' r n'
   astIndex = if stepOnly then astIndexStep else astIndexR
   astGatherRec, astGather
-    :: forall m' n' p' s'.
-       (KnownNat m', KnownNat p', KnownNat n', AstSpan s')
-    => ShapeInt (m' + n') -> AstRanked s' r (p' + n')
+    :: forall m' n' p' s' r'.
+       (KnownNat m', KnownNat p', KnownNat n', AstSpan s', GoodScalar r')
+    => ShapeInt (m' + n') -> AstRanked s' r' (p' + n')
     -> (AstVarList m', AstIndex p')
-    -> AstRanked s' r (m' + n')
+    -> AstRanked s' r' (m' + n')
   astGatherRec = if stepOnly then Ast.AstGather else astGatherR
   astGather = if stepOnly then astGatherStep else astGatherR
   -- Note that v4 is in weak head normal form and so can't one-step reduce
   -- and so we don't have to reduce it to expose any top redexes.
   astGatherCase
-    :: forall m' n' p'. (KnownNat m', KnownNat p', KnownNat n')
-    => ShapeInt (m' + n') -> AstRanked s r (p' + n')
+    :: forall m' n' p' r'.
+       (KnownNat m', KnownNat p', KnownNat n', GoodScalar r')
+    => ShapeInt (m' + n') -> AstRanked s r' (p' + n')
     -> (AstVarList m', AstIndex p')
-    -> AstRanked s r (m' + n')
+    -> AstRanked s r' (m' + n')
   astGatherCase sh4 v4 (_, ZI) = astReplicateN sh4 v4  -- not really possible
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :. (rest4 :: AstIndex p1')) ) = case v4 of
@@ -990,13 +990,13 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
             foldr (uncurry substituteAst) i
                   (zipSized (fmap (SubstitutionPayloadRanked @AstPrimal @Int64)
                              $ indexToSizedList ix) vars)
-          composedGather :: p' <= m2 => AstRanked s r (m' + n')
+          composedGather :: p' <= m2 => AstRanked s r' (m' + n')
           composedGather =
             let (vars2p, vars22) = splitAt_Sized @p' @(m2 - p') vars2
                 ix22 = fmap (subst ix4 vars2p) ix2
             in gcastWith (unsafeCoerce Refl :: m2 + n2 - p' :~: n')
                $ astGather sh4 v2 (appendSized vars4 vars22, ix22)
-          assimilatedGather :: m2 <= p' => AstRanked s r (m' + n')
+          assimilatedGather :: m2 <= p' => AstRanked s r' (m' + n')
           assimilatedGather =
             let (ix42, ix44) = splitAt_Index @m2 @(p' - m2) ix4
                 ix22 = fmap (subst ix42 vars2) ix2
@@ -1006,8 +1006,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
         LTI -> composedGather
         EQI -> assimilatedGather
         GTI -> gcastWith (flipCompare @p' @m2) assimilatedGather
-    Ast.AstCast{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstFromIntegral{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstCast v -> astCast $ astGather sh4 v (vars4, ix4)
+    Ast.AstFromIntegral v -> astFromIntegral $ astGather sh4 v (vars4, ix4)
     Ast.AstSToR{} ->  -- TODO
       Ast.AstGather sh4 v4 (vars4, ix4)
     AstConst{} ->  -- free variables possible, so can't compute the tensor
@@ -1062,6 +1062,18 @@ gatherFromNF vars (i :. rest) = case cmpNat (Proxy @p) (Proxy @m) of
 
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
 flipCompare = unsafeCoerce Refl
+
+astCast :: (GoodScalar r1, RealFrac r1, RealFrac r2)
+        => AstRanked s r1 n -> AstRanked s r2 n
+astCast (Ast.AstConstant v) = Ast.AstConstant $ astCast v
+astCast (Ast.AstCast v) = astCast v
+astCast (Ast.AstFromIntegral v) = astFromIntegral v
+astCast v = Ast.AstCast v
+
+astFromIntegral :: (GoodScalar r1, Integral r1)
+                => AstRanked AstPrimal r1 n -> AstRanked AstPrimal r2 n
+astFromIntegral (Ast.AstFromIntegral v) = astFromIntegral v
+astFromIntegral v = Ast.AstFromIntegral v
 
 astPrimalPart :: (GoodScalar r, KnownNat n)
               => AstRanked AstFull r n -> AstRanked AstPrimal r n
@@ -1920,8 +1932,8 @@ simplifyAst t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
   Ast.AstGather sh v (vars, ix) ->
     astGatherR sh (simplifyAst v) (vars, fmap simplifyAst ix)
-  Ast.AstCast v -> Ast.AstCast $ simplifyAst v
-  Ast.AstFromIntegral v -> Ast.AstFromIntegral $ simplifyAst v
+  Ast.AstCast v -> astCast $ simplifyAst v
+  Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
   Ast.AstSToR v -> Ast.AstSToR $ simplifyAstS v
   AstConst{} -> t
   Ast.AstConstant v -> Ast.AstConstant (simplifyAst v)
