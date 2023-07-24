@@ -22,7 +22,7 @@
 -- sharing. This applies regardless of impurity, because repeated processing
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
-  ( IsPrimal, IsPrimalPart(..), CanRecordSharing(..), IsPrimalPartF(..)
+  ( IsPrimal, IsPrimalPart(..), CanRecordSharing(..)
   , unsafeGetFreshId, resetIdCounter
   ) where
 
@@ -60,9 +60,6 @@ class CanRecordSharing f r z where
 
 type IsPrimal f r z = (IsPrimalPart f r z, CanRecordSharing f r z)
 
-class IsPrimalPartF f where
-  letWrapPrimal :: (GoodScalar r, HasSingletonDict z)
-                => ADShare -> f r z -> f r z
 
 -- * Delta expression method instances
 
@@ -118,9 +115,6 @@ instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance IsPrimalPartF (Flip OR.Array) where
-  letWrapPrimal _ r = r
-
 instance (GoodScalar r, KnownNat n) => IsPrimalPart (AstRanked AstPrimal) r n where
   dZero = ZeroR
   dScale _ ZeroR = ZeroR
@@ -139,9 +133,6 @@ instance GoodScalar r => CanRecordSharing (AstRanked AstPrimal) r n where
     DToR{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
-
-instance IsPrimalPartF (AstRanked AstPrimal) where
-  letWrapPrimal = tletWrap
 
 instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (Flip OS.Array) r sh where
   dZero = ZeroS
@@ -162,9 +153,6 @@ instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
-instance IsPrimalPartF (Flip OS.Array) where
-  letWrapPrimal _ r = r
-
 instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (AstShaped AstPrimal) r sh where
   dZero = ZeroS
   dScale _ ZeroS = ZeroS
@@ -183,9 +171,6 @@ instance CanRecordSharing (AstShaped AstPrimal) r sh where
     DToS{} -> d
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
-
-instance IsPrimalPartF (AstShaped AstPrimal) where
-  letWrapPrimal = sletWrap
 
 
 -- * Counter handling
