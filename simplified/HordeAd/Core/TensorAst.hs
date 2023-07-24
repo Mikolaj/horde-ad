@@ -135,11 +135,11 @@ instance AstSpan s
         AstSToD AstIotaS -> AstRToD r
         AstSToD @sh2 (AstSumOfListS l) ->
           case matchingRank @sh2 @n of
-            Just Refl -> AstSToD (AstSumOfListS (AstRToS r : l))
+            Just Refl -> AstSToD (AstSumOfListS (astRToS r : l))
             _ -> error "raddDynamic: type mismatch"
         AstSToD @sh2 v ->
           case matchingRank @sh2 @n of
-            Just Refl -> AstSToD (AstSumOfListS [AstRToS r, v])
+            Just Refl -> AstSToD (AstSumOfListS [astRToS r, v])
             _ -> error "raddDynamic: type mismatch"
       _ -> error "raddDynamic: type mismatch"
   tregister = astRegisterFun
@@ -152,19 +152,12 @@ instance AstSpan s
 
 instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   tfromD = astFromDynamic
-  tfromS (AstRToS t) = t
-  tfromS t = AstSToR t
+  tfromS = astSToR
 --  dfromR (AstDToR t) = t
   dfromR t = AstRToD t
 --  dfromS (AstDToS t) = t
   dfromS t = AstSToD t
-  sfromR :: forall sh r. (OS.Shape sh, KnownNat (OS.Rank sh))
-         => AstRanked s r (OS.Rank sh) -> AstShaped s r sh
-  sfromR (AstSToR @sh1 t) =
-    case sameShape @sh1 @sh of
-      Just Refl -> t
-      _ -> error "sfromR: different ranks in SToD(DToS)"
-  sfromR t = AstRToS t
+  sfromR = astRToS
   sfromD = astFromDynamicS
   ddummy = AstRToD $ fromPrimal AstIota
   disDummy t = case t of
@@ -315,11 +308,11 @@ instance AstSpan s
         AstRToD AstIota -> AstSToD r
         AstRToD @n2 (AstSumOfList l) ->
           case matchingRank @sh @n2 of
-            Just Refl -> AstRToD (AstSumOfList (AstSToR r : l))
+            Just Refl -> AstRToD (AstSumOfList (astSToR r : l))
             _ -> error "saddDynamic: type mismatch"
         AstRToD @n2 v ->
           case matchingRank @sh @n2 of
-            Just Refl -> AstRToD (AstSumOfList [AstSToR r, v])
+            Just Refl -> AstRToD (AstSumOfList [astSToR r, v])
             _ -> error "saddDynamic: type mismatch"
       _ -> error "saddDynamic: type mismatch"
   sregister = astRegisterFunS

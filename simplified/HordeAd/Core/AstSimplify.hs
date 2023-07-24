@@ -20,7 +20,7 @@ module HordeAd.Core.AstSimplify
   , astReshape, astTranspose, astReshapeS, astTransposeS
   , astLet, astSum, astScatter, astFromList, astFromVector, astReplicate
   , astAppend, astSlice, astSliceS, astReverse, astCast, astFromIntegral
-  , astPrimalPart, astDualPart
+  , astSToR, astRToS, astPrimalPart, astDualPart
   , astCond, astFromDynamic, astFromDynamicS, astDomainsLet
   , simplifyArtifact6, simplifyArtifact6S, simplifyAst6, simplifyAst6S
   , simplifyAstDomains6
@@ -204,7 +204,7 @@ simplifyStepNonIndex t = case t of
   Ast.AstGather{} -> t
   Ast.AstCast v -> astCast v
   Ast.AstFromIntegral v -> astFromIntegral v
-  Ast.AstSToR{} -> t  -- TODO
+  Ast.AstSToR v -> astSToR v
   AstConst{} -> t
   Ast.AstConstant{} -> t
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
@@ -279,10 +279,6 @@ astLet var u v = Ast.AstLet var u v
 astSumOfList :: (KnownNat n, GoodScalar r, AstSpan s)
              => [AstRanked s r n] -> AstRanked s r n
 astSumOfList = foldr1 (+)
-  -- TODO: try that and if it helps, define Num (AstRanked s r n)
-  -- the same as for AstPrimalPart
-  -- foldl1' (\i j -> unAstPrimalPart $ AstPrimalPart i + AstPrimalPart j)
-  -- also try foldl1' instead of foldlr everywhere
 
 astIndexR
   :: forall m n s r.
@@ -439,8 +435,14 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     error "astIndex: AstGather: impossible pattern needlessly required"
   Ast.AstCast t -> astCast $ astIndexROrStepOnly stepOnly t ix
   Ast.AstFromIntegral v -> astFromIntegral $ astIndexROrStepOnly stepOnly v ix
-  Ast.AstSToR{} ->  -- TODO
-    Ast.AstIndex v0 ix
+  Ast.AstSToR @sh t ->
+    let (takeSh, dropSh) = splitAt (valueOf @m) (OS.shapeT @sh)
+    in OS.withShapeP takeSh $ \(Proxy @take) ->
+       OS.withShapeP dropSh $ \(Proxy @drop) ->
+       gcastWith (unsafeCoerce Refl :: sh :~: take OS.++ drop) $
+       gcastWith (unsafeCoerce Refl :: OS.Rank drop :~: n) $
+       astSToR $ astIndexStepS @take @drop
+                               t (ShapedList.listToSized $ indexToList ix)
   AstConst t ->
     let unConst :: AstRanked AstPrimal Int64 0 -> Maybe [OR.Array 0 Int64]
                 -> Maybe [OR.Array 0 Int64]
@@ -1008,8 +1010,17 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
         GTI -> gcastWith (flipCompare @p' @m2) assimilatedGather
     Ast.AstCast v -> astCast $ astGather sh4 v (vars4, ix4)
     Ast.AstFromIntegral v -> astFromIntegral $ astGather sh4 v (vars4, ix4)
-    Ast.AstSToR{} ->  -- TODO
-      Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstSToR @sh v ->
+      let (takeSh, dropSh) = splitAt (valueOf @p') (OS.shapeT @sh)
+      in OS.withShapeP takeSh $ \(Proxy @take) ->
+         OS.withShapeP dropSh $ \(Proxy @drop) ->
+         gcastWith (unsafeCoerce Refl :: sh :~: take OS.++ drop) $
+         gcastWith (unsafeCoerce Refl :: take :~: OS.Take p' sh) $
+         gcastWith (unsafeCoerce Refl :: drop :~: OS.Drop p' sh) $
+         gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: m' + n') $
+         astSToR $ astGatherStepS @take @p' @sh v
+                     ( ShapedList.listToSized $ sizedListToList vars4
+                     , ShapedList.listToSized $ indexToList ix4 )
     AstConst{} ->  -- free variables possible, so can't compute the tensor
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstConstant v ->
@@ -1075,6 +1086,21 @@ astFromIntegral :: (GoodScalar r1, Integral r1)
 astFromIntegral (Ast.AstFromIntegral v) = astFromIntegral v
 astFromIntegral v = Ast.AstFromIntegral v
 
+astSToR :: OS.Shape sh
+        => AstShaped s r sh -> AstRanked s r (OS.Rank sh)
+astSToR (Ast.AstConstantS v) = Ast.AstConstant $ astSToR v
+astSToR (Ast.AstRToS v) = v
+astSToR v = Ast.AstSToR v
+
+astRToS :: forall sh s r. (OS.Shape sh, KnownNat (OS.Rank sh))
+        => AstRanked s r (OS.Rank sh) -> AstShaped s r sh
+astRToS (Ast.AstConstant v) = Ast.AstConstantS $ astRToS v
+astRToS (Ast.AstSToR @sh1 v) =
+  case sameShape @sh1 @sh of
+    Just Refl -> v
+    _ -> error "astRToS: different ranks in SToD(DToS)"
+astRToS v = Ast.AstRToS v
+
 astPrimalPart :: (GoodScalar r, KnownNat n)
               => AstRanked AstFull r n -> AstRanked AstPrimal r n
 astPrimalPart t = case t of
@@ -1098,8 +1124,8 @@ astPrimalPart t = case t of
   Ast.AstReshape sh v -> astReshape sh (astPrimalPart v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astPrimalPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astPrimalPart v) (vars, ix)
-  Ast.AstCast v -> Ast.AstCast $ astPrimalPart v
-  Ast.AstSToR v -> Ast.AstSToR $ astPrimalPartS v
+  Ast.AstCast v -> astCast $ astPrimalPart v
+  Ast.AstSToR v -> astSToR $ astPrimalPartS v
   Ast.AstConstant v -> v
   Ast.AstD u _ -> u
   Ast.AstLetDomains vars l v -> Ast.AstLetDomains vars l (astPrimalPart v)
@@ -1129,7 +1155,7 @@ astPrimalPartS t = case t of
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astPrimalPartS v)
   Ast.AstGatherS v (vars, ix) -> astGatherS (astPrimalPartS v) (vars, ix)
   Ast.AstCastS v -> Ast.AstCastS $ astPrimalPartS v
-  Ast.AstRToS v -> Ast.AstRToS $ astPrimalPart v
+  Ast.AstRToS v -> astRToS $ astPrimalPart v
   Ast.AstConstantS v -> v
   Ast.AstDS u _ -> u
   Ast.AstLetDomainsS vars l v -> Ast.AstLetDomainsS vars l (astPrimalPartS v)
@@ -1159,8 +1185,8 @@ astDualPart t = case t of
   Ast.AstReshape sh v -> astReshape sh (astDualPart v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astDualPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astDualPart v) (vars, ix)
-  Ast.AstCast v -> Ast.AstCast $ astDualPart v
-  Ast.AstSToR v -> Ast.AstSToR $ astDualPartS v
+  Ast.AstCast v -> astCast $ astDualPart v
+  Ast.AstSToR v -> astSToR $ astDualPartS v
   Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
   Ast.AstLetDomains vars l v -> Ast.AstLetDomains vars l (astDualPart v)
@@ -1189,7 +1215,7 @@ astDualPartS t = case t of
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astDualPartS v)
   Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPartS v) (vars, ix)
   Ast.AstCastS v -> Ast.AstCastS $ astDualPartS v
-  Ast.AstRToS v -> Ast.AstRToS $ astDualPart v
+  Ast.AstRToS v -> astRToS $ astDualPart v
   Ast.AstConstantS{}  -> Ast.AstDualPartS t  -- this equals nil (not primal 0)
   Ast.AstDS _ u' -> u'
   Ast.AstLetDomainsS vars l v -> Ast.AstLetDomainsS vars l (astDualPartS v)
@@ -1216,7 +1242,7 @@ astFromDynamic (AstRToD @n2 v) =
     _ -> error "astFromDynamic: different rank expected and uncovered"
 astFromDynamic (AstSToD @sh2 v) =
   case matchingRank @sh2 @n of
-    Just Refl -> Ast.AstSToR v
+    Just Refl -> astSToR v
     _ -> error "astFromDynamic: different rank expected and uncovered"
 
 astFromDynamicS :: forall sh s r. OS.Shape sh
@@ -1228,7 +1254,7 @@ astFromDynamicS (AstSToD @sh2 v) =
     _ -> error "astFromDynamicS: different shape expected and uncovered"
 astFromDynamicS (AstRToD @n2 v) =
   case matchingRank @sh @n2 of
-    Just Refl -> Ast.AstRToS v
+    Just Refl -> astRToS v
     _ -> error "astFromDynamicS: different rank expected and uncovered"
 
 {-
@@ -1934,7 +1960,7 @@ simplifyAst t = case t of
     astGatherR sh (simplifyAst v) (vars, fmap simplifyAst ix)
   Ast.AstCast v -> astCast $ simplifyAst v
   Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
-  Ast.AstSToR v -> Ast.AstSToR $ simplifyAstS v
+  Ast.AstSToR v -> astSToR $ simplifyAstS v
   AstConst{} -> t
   Ast.AstConstant v -> Ast.AstConstant (simplifyAst v)
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
@@ -2255,7 +2281,7 @@ simplifyAstS t = case t of
     astGatherS (simplifyAstS v) (vars, fmap simplifyAst ix)
   Ast.AstCastS v -> Ast.AstCastS $ simplifyAstS v
   Ast.AstFromIntegralS v -> Ast.AstFromIntegralS $ simplifyAstS v
-  Ast.AstRToS v -> Ast.AstRToS $ simplifyAst v
+  Ast.AstRToS v -> astRToS $ simplifyAst v
   AstConstS{} -> t
   Ast.AstConstantS v -> Ast.AstConstantS (simplifyAstS v)
   Ast.AstPrimalPartS v -> astPrimalPartS (simplifyAstS v)
