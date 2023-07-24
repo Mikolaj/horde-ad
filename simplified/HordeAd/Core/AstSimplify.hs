@@ -437,8 +437,8 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstFromIntegral v -> astFromIntegral $ astIndexROrStepOnly stepOnly v ix
   Ast.AstSToR @sh t ->
     let (takeSh, dropSh) = splitAt (valueOf @m) (OS.shapeT @sh)
-    in OS.withShapeP takeSh $ \(Proxy @take) ->
-       OS.withShapeP dropSh $ \(Proxy @drop) ->
+    in OS.withShapeP takeSh $ \(Proxy :: Proxy take) ->
+       OS.withShapeP dropSh $ \(Proxy :: Proxy drop) ->
        gcastWith (unsafeCoerce Refl :: sh :~: take OS.++ drop) $
        gcastWith (unsafeCoerce Refl :: OS.Rank drop :~: n) $
        astSToR $ astIndexStepS @take @drop
@@ -1019,8 +1019,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFromIntegral v -> astFromIntegral $ astGather sh4 v (vars4, ix4)
     Ast.AstSToR @sh v ->
       let (takeSh, dropSh) = splitAt (valueOf @p') (OS.shapeT @sh)
-      in OS.withShapeP takeSh $ \(Proxy @take) ->
-         OS.withShapeP dropSh $ \(Proxy @drop) ->
+      in OS.withShapeP takeSh $ \(Proxy :: Proxy take) ->
+         OS.withShapeP dropSh $ \(Proxy :: Proxy drop) ->
          gcastWith (unsafeCoerce Refl :: sh :~: take OS.++ drop) $
          gcastWith (unsafeCoerce Refl :: take :~: OS.Take p' sh) $
          gcastWith (unsafeCoerce Refl :: drop :~: OS.Drop p' sh) $

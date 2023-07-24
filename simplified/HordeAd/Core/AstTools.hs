@@ -263,7 +263,7 @@ data SubstitutionPayload s r =
 -- e.g. AstSToR and AstCast, due to which, the extra type parameters would
 -- need to be kept unrelated to anything else (except the existentially bound
 -- parameters in SubstitutionPayload, which would need to be checked
--- at runtime). TODO: bundle the variable inside the payload instead.
+-- at runtime).
 substitute1Ast :: forall n s s2 r r2.
                   ( GoodScalar r, GoodScalar r2, KnownNat n
                   , AstSpan s, AstSpan s2 )
