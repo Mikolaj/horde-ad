@@ -34,9 +34,6 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 
 type instance BoolOf (AstRanked s) = AstBool
 
-instance IfF (AstRanked s) where
-  ifF = astCond
-
 instance AstSpan s => EqF (AstRanked s) where
   v ==. u = AstRel EqOp [astSpanPrimal v, astSpanPrimal u]
   v /=. u = AstRel NeqOp [astSpanPrimal v, astSpanPrimal u]
@@ -51,13 +48,13 @@ instance AstSpan s => OrdF (AstRanked s) where
   AstConst u >=. AstConst v = AstBoolConst $ u >= v  -- common in indexing
   v >=. u = AstRel GeqOp [astSpanPrimal v, astSpanPrimal u]
 
+instance IfF (AstRanked s) where
+  ifF = astCond
+
 
 -- * Unlawful boolean instances of shaped AST; they are lawful modulo evaluation
 
 type instance BoolOf (AstShaped s) = AstBool
-
-instance IfF (AstShaped s) where
-  ifF = astCondS
 
 instance AstSpan s => EqF (AstShaped s) where
   v ==. u = AstRelS EqOp [astSpanPrimalS v, astSpanPrimalS u]
@@ -72,6 +69,9 @@ instance AstSpan s => OrdF (AstShaped s) where
   v >. u = AstRelS GtOp [astSpanPrimalS v, astSpanPrimalS u]
   AstConstS u >=. AstConstS v = AstBoolConst $ u >= v  -- common in indexing
   v >=. u = AstRelS GeqOp [astSpanPrimalS v, astSpanPrimalS u]
+
+instance IfF (AstShaped s) where
+  ifF = astCondS
 
 
 -- * Ranked tensor AST instances

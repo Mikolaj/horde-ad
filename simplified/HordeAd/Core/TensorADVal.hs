@@ -56,9 +56,6 @@ instance (OrdF f, IsPrimalPartF f) => OrdF (ADVal f) where
   D l1 u _ >. D l2 v _ = letWrapPrimal l1 u >. letWrapPrimal l2 v
   D l1 u _ >=. D l2 v _ = letWrapPrimal l1 u >=. letWrapPrimal l2 v
 
-instance IfF (ADVal (Flip OR.Array)) where
-  ifF b v w = if b then v else w
-
 type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
 
 type instance PrimalOf (ADVal f) = f
@@ -73,6 +70,9 @@ type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
 
 
 -- * Ranked tensor instances
+
+instance IfF (ADVal (Flip OR.Array)) where
+  ifF b v w = if b then v else w
 
 -- This requires the Tensor instance, hence the definitions must in this module.
 instance IfF (ADVal (AstRanked AstPrimal)) where

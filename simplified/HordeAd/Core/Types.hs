@@ -166,9 +166,6 @@ maxF u v = ifF (u >=. v) u v
 
 type instance BoolOf (Flip OR.Array) = Bool
 
-instance IfF (Flip OR.Array) where
-  ifF b v w = if b then v else w
-
 instance EqF (Flip OR.Array) where
   (==.) = (==)
   (/=.) = (/=)
@@ -179,10 +176,10 @@ instance OrdF (Flip OR.Array) where
   (>.) = (>)
   (>=.) = (>=)
 
-type instance BoolOf (Flip OS.Array) = Bool
-
-instance IfF (Flip OS.Array) where
+instance IfF (Flip OR.Array) where
   ifF b v w = if b then v else w
+
+type instance BoolOf (Flip OS.Array) = Bool
 
 instance EqF (Flip OS.Array) where
   (==.) = (==)
@@ -193,3 +190,6 @@ instance OrdF (Flip OS.Array) where
   (<=.) = (<=)
   (>.) = (>)
   (>=.) = (>=)
+
+instance IfF (Flip OS.Array) where
+  ifF b v w = if b then v else w
