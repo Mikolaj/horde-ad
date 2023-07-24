@@ -544,6 +544,7 @@ astReplicate k = \case
 -- This would also hide AstReplicate from hacks that recover tmatmul2, etc.
 --  AstConst t -> AstConst $ treplicateR k t
   Ast.AstConstant v -> Ast.AstConstant $ astReplicate k v
+  Ast.AstLetADShare l v -> Ast.AstLetADShare l $ astReplicate k v
 {- TODO: these may be counterproductive with many gathers and their fusion
          though these let transpose cancel out with each other sometimes
          (instead we should try to cancel out inside replicate and only move
@@ -578,6 +579,10 @@ astAppend :: (KnownNat n, GoodScalar r, AstSpan s)
 astAppend (AstConst u) (AstConst v) = AstConst $ tappendR u v
 astAppend (Ast.AstConstant u) (Ast.AstConstant v) =
   Ast.AstConstant $ astAppend u v
+astAppend (Ast.AstLetADShare l u) v =
+  Ast.AstLetADShare l $ astAppend u v
+astAppend u (Ast.AstLetADShare l v) =
+  Ast.AstLetADShare l $ astAppend u v
 astAppend (Ast.AstFromList l1) (Ast.AstFromList l2) = astFromList $ l1 ++ l2
 astAppend (Ast.AstFromList l1) (Ast.AstFromVector l2) =
   astFromList $ l1 ++ V.toList l2
@@ -591,6 +596,7 @@ astSlice :: forall k s r. (KnownNat k, GoodScalar r, AstSpan s)
          => Int -> Int -> AstRanked s r (1 + k) -> AstRanked s r (1 + k)
 astSlice i n (AstConst t) = AstConst $ tsliceR i n t
 astSlice i n (Ast.AstConstant v) = Ast.AstConstant $ astSlice i n v
+astSlice i n (Ast.AstLetADShare l v) = Ast.AstLetADShare l $ astSlice i n v
 astSlice 0 n v | n == lengthAst v = v
 astSlice i n (Ast.AstFromList l) = astFromList $ take n (drop i l)
 astSlice i n (Ast.AstFromVector l) = astFromVector $ V.take n (V.drop i l)
@@ -622,6 +628,7 @@ astReverse :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
            => AstRanked s r (1 + n) -> AstRanked s r (1 + n)
 astReverse (AstConst t) = AstConst $ treverseR t
 astReverse (Ast.AstConstant v) = Ast.AstConstant $ astReverse v
+astReverse (Ast.AstLetADShare l v) = Ast.AstLetADShare l $ astReverse v
 astReverse (Ast.AstFromList l) = Ast.AstFromList $ reverse l
 astReverse (Ast.AstFromVector l) = Ast.AstFromVector $ V.reverse l
 astReverse (Ast.AstReplicate k v) = Ast.AstReplicate k v
@@ -1077,24 +1084,29 @@ flipCompare = unsafeCoerce Refl
 astCast :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => AstRanked s r1 n -> AstRanked s r2 n
 astCast (Ast.AstConstant v) = Ast.AstConstant $ astCast v
+astCast (Ast.AstLetADShare l v) = Ast.AstLetADShare l $ astCast v
 astCast (Ast.AstCast v) = astCast v
 astCast (Ast.AstFromIntegral v) = astFromIntegral v
 astCast v = Ast.AstCast v
 
 astFromIntegral :: (GoodScalar r1, Integral r1)
                 => AstRanked AstPrimal r1 n -> AstRanked AstPrimal r2 n
+astFromIntegral (Ast.AstLetADShare l v) =
+  Ast.AstLetADShare l $ astFromIntegral v
 astFromIntegral (Ast.AstFromIntegral v) = astFromIntegral v
 astFromIntegral v = Ast.AstFromIntegral v
 
 astSToR :: OS.Shape sh
         => AstShaped s r sh -> AstRanked s r (OS.Rank sh)
 astSToR (Ast.AstConstantS v) = Ast.AstConstant $ astSToR v
+astSToR (Ast.AstLetADShareS l v) = Ast.AstLetADShare l $ astSToR v
 astSToR (Ast.AstRToS v) = v
 astSToR v = Ast.AstSToR v
 
 astRToS :: forall sh s r. (OS.Shape sh, KnownNat (OS.Rank sh))
         => AstRanked s r (OS.Rank sh) -> AstShaped s r sh
 astRToS (Ast.AstConstant v) = Ast.AstConstantS $ astRToS v
+astRToS (Ast.AstLetADShare l v) = Ast.AstLetADShareS l $ astRToS v
 astRToS (Ast.AstSToR @sh1 v) =
   case sameShape @sh1 @sh of
     Just Refl -> v
@@ -1225,12 +1237,20 @@ astCond :: AstBool -> AstRanked s r n -> AstRanked s r n -> AstRanked s r n
 astCond (AstBoolConst b) v w = if b then v else w
 astCond b (Ast.AstConstant v) (Ast.AstConstant w) =
   Ast.AstConstant $ Ast.AstCond b v w
+astCond b (Ast.AstLetADShare l v) w =
+  Ast.AstLetADShare l $ Ast.AstCond b v w
+astCond b v (Ast.AstLetADShare l w) =
+  Ast.AstLetADShare l $ Ast.AstCond b v w
 astCond b v w = Ast.AstCond b v w
 
 astCondS :: AstBool -> AstShaped s r sh -> AstShaped s r sh -> AstShaped s r sh
 astCondS (AstBoolConst b) v w = if b then v else w
 astCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) =
   Ast.AstConstantS $ Ast.AstCondS b v w
+astCondS b (Ast.AstLetADShareS l v) w =
+  Ast.AstLetADShareS l $ Ast.AstCondS b v w
+astCondS b v (Ast.AstLetADShareS l w) =
+  Ast.AstLetADShareS l $ Ast.AstCondS b v w
 astCondS b v w = Ast.AstCondS b v w
 
 astFromDynamic :: forall n s r. KnownNat n
