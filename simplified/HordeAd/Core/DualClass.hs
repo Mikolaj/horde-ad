@@ -101,8 +101,11 @@ class IsPrimalPartF f where
 -- | This is an impure instance. See above.
 instance (GoodScalar r, KnownNat n) => IsPrimalPart (Flip OR.Array) r n where
   dZero = ZeroR
-  dScale = ScaleR
-  dAdd = AddR
+  dScale _ ZeroR = ZeroR
+  dScale v u' = ScaleR v u'
+  dAdd ZeroR w = w
+  dAdd v ZeroR = v
+  dAdd v w = AddR v w
   intOfShape tsh c =
     tconst $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
   recordSharingPrimal r l = (l, r)
@@ -120,8 +123,11 @@ instance IsPrimalPartF (Flip OR.Array) where
 
 instance (GoodScalar r, KnownNat n) => IsPrimalPart (AstRanked AstPrimal) r n where
   dZero = ZeroR
-  dScale = ScaleR
-  dAdd = AddR
+  dScale _ ZeroR = ZeroR
+  dScale v u' = ScaleR v u'
+  dAdd ZeroR w = w
+  dAdd v ZeroR = v
+  dAdd v w = AddR v w
   intOfShape tsh c =
     tconst $ OR.constant (shapeToList $ tshape tsh) (fromIntegral c)
   recordSharingPrimal = astRegisterADShare
@@ -139,8 +145,11 @@ instance IsPrimalPartF (AstRanked AstPrimal) where
 
 instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (Flip OS.Array) r sh where
   dZero = ZeroS
-  dScale = ScaleS
-  dAdd = AddS
+  dScale _ ZeroS = ZeroS
+  dScale v u' = ScaleS v u'
+  dAdd ZeroS w = w
+  dAdd v ZeroS = v
+  dAdd v w = AddS v w
   intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
     sconst $ fromIntegral c
   recordSharingPrimal r l = (l, r)
@@ -158,8 +167,11 @@ instance IsPrimalPartF (Flip OS.Array) where
 
 instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (AstShaped AstPrimal) r sh where
   dZero = ZeroS
-  dScale = ScaleS
-  dAdd = AddS
+  dScale _ ZeroS = ZeroS
+  dScale v u' = ScaleS v u'
+  dAdd ZeroS w = w
+  dAdd v ZeroS = v
+  dAdd v w = AddS v w
   intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
     sconst $ fromIntegral c
   recordSharingPrimal = astRegisterADShareS

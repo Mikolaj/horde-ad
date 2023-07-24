@@ -354,7 +354,7 @@ interpretAst env = \case
   AstNm TimesOp [v, u] ->
     let v5 = interpretAst env v
         u5 = interpretAst env u
-    in v5 `tmult` u5
+    in v5 * u5
   AstNm opCode args ->
     let args2 = interpretAst env <$> args
     in interpretAstNm opCode args2
@@ -685,6 +685,7 @@ interpretAstNm :: Num a
                => OpCodeNum -> [a] -> a
 {-# INLINE interpretAstNm #-}
 interpretAstNm MinusOp [u, v] = u - v
+interpretAstNm TimesOp [u, v] = u * v
 interpretAstNm NegateOp [u] = negate u
 interpretAstNm AbsOp [u] = abs u
 interpretAstNm SignumOp [u] = signum u
@@ -813,10 +814,6 @@ interpretAstS env = \case
         interpretAst env
           (AstLet var u (AstNm TimesOp [v, AstReplicate @m k s]))
 -}
-  AstNmS TimesOp [v, u] ->
-    let v5 = interpretAstS env v
-        u5 = interpretAstS env u
-    in v5 `smult` u5
   AstNmS opCode args ->
     let args2 = interpretAstS env <$> args
     in interpretAstNm opCode args2

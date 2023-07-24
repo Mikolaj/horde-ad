@@ -480,8 +480,6 @@ instance (Num (OR.Array n r), AstSpan s)
   u - v = AstNm MinusOp [u, v]
   AstConst u * AstConst v = AstConst (u * v)  -- common in indexing
   u * v = AstNm TimesOp [u, v]
-    -- no hacks like for AstSumOfList, because when tscaleByScalar
-    -- is reconstructed, it looks for the binary form
   negate (u) = AstNm NegateOp [u]
   abs (v) = AstNm AbsOp [v]
   signum (v) = AstNm SignumOp [v]
@@ -596,8 +594,6 @@ instance (Num (OS.Array sh r), AstSpan s)
   u - v = AstNmS MinusOp [u, v]
   AstConstS u * AstConstS v = AstConstS (u * v)  -- common in indexing
   u * v = AstNmS TimesOp [u, v]
-    -- no hacks like for AstSumOfList, because when tscaleByScalar
-    -- is reconstructed, it looks for the binary form
   negate (u) = AstNmS NegateOp [u]
   abs (v) = AstNmS AbsOp [v]
   signum (v) = AstNmS SignumOp [v]

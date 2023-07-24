@@ -212,15 +212,6 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     dD (flattenADShare $ map (\(D l _ _) -> l) lu)
        (tsumOfList $ map (\(D _ u _) -> u) lu)
        (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
-  tmult (D l1 ue ZeroR) (D l2 ve v') =
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        !(!l4, v) = recordSharingPrimal ve l3
-    in dD l4 (u * v) (dScale u v')
-  tmult (D l1 ue u') (D l2 ve ZeroR) =
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        !(!l4, v) = recordSharingPrimal ve l3
-    in dD l4 (u * v) (dScale v u')
-  tmult d e = d * e
   raddDynamic = undefined
 
   tconstant t = let (l, r) = tletUnwrap t in dDnotShared l r dZero
@@ -384,15 +375,6 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     dD (flattenADShare $ map (\(D l _ _) -> l) lu)
        (ssumOfList $ map (\(D _ u _) -> u) lu)
        (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
-  smult (D l1 ue ZeroS) (D l2 ve v') =
-    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        (l4, v) = recordSharingPrimal ve l3
-    in dD l4 (u * v) (dScale u v')
-  smult (D l1 ue u') (D l2 ve ZeroS) =
-    let (l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        (l4, v) = recordSharingPrimal ve l3
-    in dD l4 (u * v) (dScale v u')
-  smult d e = d * e
   saddDynamic = undefined
 
   sconstant t = let (l, r) = sletUnwrap t in dDnotShared l r dZero

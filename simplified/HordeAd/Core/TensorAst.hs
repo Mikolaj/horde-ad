@@ -148,7 +148,7 @@ instance AstSpan s
   tprimalPart = astSpanPrimal
   tdualPart = astSpanDual
   tD = astSpanD
-  tScale s t = astDualPart $ AstConstant s `tmult` AstD (tzero (tshape s)) t
+  tScale s t = astDualPart $ AstConstant s * AstD (tzero (tshape s)) t
 
 instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   tfromD = astFromDynamic
@@ -320,7 +320,7 @@ instance AstSpan s
   sprimalPart = astSpanPrimalS
   sdualPart = astSpanDualS
   sD = astSpanDS
-  sScale s t = astDualPartS $ AstConstantS s `smult` AstDS 0 t
+  sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
 astSpanPrimalS :: forall s r sh. (OS.Shape sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped AstPrimal r sh
@@ -449,7 +449,7 @@ instance AstSpan s
   tprimalPart = astSpanPrimal . unAstNoVectorize
   tdualPart = astSpanDual . unAstNoVectorize
   tD u u' = AstNoVectorize $ astSpanD u u'
-  tScale s t = astSpanDual s `tmult` t
+  tScale s t = astSpanDual s * t
 
 instance AstSpan s
          => RankedTensor (AstNoSimplify s) where
@@ -493,7 +493,7 @@ instance AstSpan s
   tprimalPart = astSpanPrimal . unAstNoSimplify
   tdualPart = astSpanDual . unAstNoSimplify
   tD u u' = AstNoSimplify $ astSpanD u u'
-  tScale s t = astSpanDual s `tmult` t
+  tScale s t = astSpanDual s * t
 
 astLetFunUnSimp :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
                 => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)

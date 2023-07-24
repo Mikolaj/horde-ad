@@ -63,9 +63,8 @@ sfromIndex1 =
 scaleS :: forall shaped r sh.
           (OS.Shape sh, ADReadyS shaped r)
        => PrimalOf shaped r sh -> shaped r sh -> shaped r sh
-scaleS a d = sconstant a `smult` d
--- This should be faster, but is slower even before `tmult` is optimized
--- for the scaling case. This may be caused by the lets repeated
+scaleS a d = sconstant a * d
+-- This should be faster, but is slower. This may be caused by the lets repeated
 -- both in primal part and the D constructor.
 -- scale a d = tD (a * tprimalPart d) (tScale @r a (tdualPart d))
 

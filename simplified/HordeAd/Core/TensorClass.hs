@@ -116,7 +116,7 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
   tsum0 :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r 0
   tsum0 = tsum . tflatten
   tdot0 :: (GoodScalar r, KnownNat n) => ranked r n -> ranked r n -> ranked r 0
-  tdot0 t u = tsum (tflatten (t `tmult` u))
+  tdot0 t u = tsum (tflatten (t * u))
   tmatvecmul :: GoodScalar r => ranked r 2 -> ranked r 1 -> ranked r 1
 -- How to generalize (#69)? The few straightforward generalizations
 -- differ in types but all are far from matmul2.
@@ -249,17 +249,14 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
              => [ranked r n] -> ranked r n  -- TODO: declare nonempty
   tsumOfList [] = 0
   tsumOfList l = foldl1' (+) l  -- avoid unknown shape of @0@ in @sum@
-  tmult :: (GoodScalar r, KnownNat n)
-        => ranked r n -> ranked r n -> ranked r n
-  tmult = (*)
   tscaleByScalar :: (GoodScalar r, KnownNat n)
                  => ranked r 0 -> ranked r n -> ranked r n
-  tscaleByScalar s v = v `tmult` treplicate0N (tshape v) s
+  tscaleByScalar s v = v * treplicate0N (tshape v) s
   tsumIn :: (GoodScalar r, KnownNat n) => ranked r (2 + n) -> ranked r (1 + n)
   tsumIn = tsum . ttr
     -- TODO: generalize, replace by stride analysis, etc.
   tdot1In :: GoodScalar r => ranked r 2 -> ranked r 2 -> ranked r 1
-  tdot1In t u = tsumIn (t `tmult` u)
+  tdot1In t u = tsumIn (t * u)
     -- TODO: generalize, replace by stride analysis, etc.
   tletWrap :: (GoodScalar r, KnownNat n)
            => ADShare -> ranked r n -> ranked r n
@@ -355,7 +352,7 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
   ssum0 = ssum . sflatten
   sdot0 :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
         => shaped r sh -> shaped r sh -> shaped r '[]
-  sdot0 t u = ssum (sflatten (t `smult` u))
+  sdot0 t u = ssum (sflatten (t * u))
   smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
              => shaped r '[m, n] -> shaped r '[n] -> shaped r '[m]
   smatvecmul m v = sbuild1 (\i -> sdot0 v (m !$ (consShaped i ZSH)))
@@ -531,13 +528,10 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
   ssumOfList :: (GoodScalar r, OS.Shape sh)
              => [shaped r sh] -> shaped r sh  -- TODO: declare nonempty
   ssumOfList = sum
-  smult :: (GoodScalar r, OS.Shape sh)
-        => shaped r sh -> shaped r sh -> shaped r sh
-  smult = (*)
   sscaleByScalar
     :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
     => shaped r '[] -> shaped r sh -> shaped r sh
-  sscaleByScalar s v = v `smult` sreplicate0N s
+  sscaleByScalar s v = v * sreplicate0N s
   ssumIn :: ( GoodScalar r, OS.Shape sh, KnownNat n, KnownNat m
             , KnownNat (OS.Rank sh) )
          => shaped r (n ': m ': sh) -> shaped r (n ': sh)
@@ -545,7 +539,7 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
     -- TODO: generalize, replace by stride analysis, etc.
   sdot1In :: (GoodScalar r, KnownNat n, KnownNat m)
           => shaped r '[n, m] -> shaped r '[n, m] -> shaped r '[n]
-  sdot1In t u = ssumIn (t `smult` u)
+  sdot1In t u = ssumIn (t * u)
     -- TODO: generalize, replace by stride analysis, etc.
   sletWrap :: (GoodScalar r, OS.Shape sh)
            => ADShare -> shaped r sh -> shaped r sh

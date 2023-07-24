@@ -63,9 +63,8 @@ tfromIndex1 = tfromList . map tfromIndex0 . indexToList
 scale :: forall ranked r n.
          (ADReady ranked r, KnownNat n)
       => PrimalOf ranked r n -> ranked r n -> ranked r n
-scale a d = tconstant @ranked a `tmult` d
--- This should be faster, but is slower even before `tmult` is optimized
--- for the scaling case. This may be caused by the lets repeated
+scale a d = tconstant @ranked a * d
+-- This should be faster, but is slower. This may be caused by the lets repeated
 -- both in primal part and the D constructor.
 -- scale a d = tD (a * tprimalPart d) (tScale @r a (tdualPart d))
 

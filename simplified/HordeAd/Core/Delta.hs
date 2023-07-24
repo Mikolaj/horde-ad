@@ -717,7 +717,7 @@ buildFinMaps s0 deltaDt =
                     in \case
         ZeroS -> s
         InputS i -> s {iMap = EM.adjust (saddDynamic c) i $ iMap s}
-        ScaleS k d -> evalS s (k `smult` c) d
+        ScaleS k d -> evalS s (k * c) d
         AddS d e -> evalS (evalS sShared cShared d) cShared e
         LetS n d ->
           assert (case d of
@@ -743,7 +743,7 @@ buildFinMaps s0 deltaDt =
           -- equivalent: evalS s (updateNR (replicate0NR sh 0) [(ix, c)]) d
         SumS d -> evalS s (sreplicate c) d
         Sum0S d -> evalS s (sreplicate0N c) d
-        Dot0S v vd -> evalS s (v `smult` sreplicate0N c) vd
+        Dot0S v vd -> evalS s (v * sreplicate0N c) vd
           -- too slow: evalS s (smap0N (* (sscalar c)) v) vd
         ScatterS d f -> evalS s (sgather c f) d
         FromListS ld ->
@@ -839,7 +839,7 @@ buildFinMaps s0 deltaDt =
                     in \case
         ZeroR -> s
         InputR i -> s {iMap = EM.adjust (raddDynamic c) i $ iMap s}
-        ScaleR k d -> evalR s (k `tmult` c) d
+        ScaleR k d -> evalR s (k * c) d
         AddR d e -> evalR (evalR sShared cShared d) cShared e
         LetR n d ->
           -- In this context, by construction, @d@ is the dual component
@@ -890,7 +890,7 @@ buildFinMaps s0 deltaDt =
           -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
         SumR n d -> evalR s (treplicate n c) d
         Sum0R sh d -> evalR s (treplicate0N sh c) d
-        Dot0R v vd -> evalR s (v `tmult `treplicate0N (tshape v) c) vd
+        Dot0R v vd -> evalR s (v * treplicate0N (tshape v) c) vd
                      -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
         ScatterR _sh d f shd -> evalR s (tgather shd c f) d
         FromListR ld ->
@@ -1013,10 +1013,7 @@ buildDerivative dimR deltaDt params = do
                 Just Refl -> return $! sfromD e
                 _ -> error "buildDerivative: type mismatch"
           else error "buildDerivative: wrong index for an input"
-        ScaleS _ ZeroS -> evalS ZeroS
-        ScaleS k d -> smult k <$> evalS d
-        AddS ZeroS e -> evalS e
-        AddS d ZeroS -> evalS d
+        ScaleS k d -> (* k) <$> evalS d
         AddS d e -> liftM2 (\u v -> ssumOfList [u, v]) (evalS d) (evalS e)
         LetS n d -> do
           nm <- readSTRef nMap
@@ -1100,10 +1097,7 @@ buildDerivative dimR deltaDt params = do
                 Just Refl -> return $! tfromD e
                 _ -> error "buildDerivative: type mismatch"
           else error "buildDerivative': wrong index for an input"
-        ScaleR _ ZeroR -> evalR ZeroR
-        ScaleR k d -> tmult k <$> evalR d
-        AddR ZeroR e -> evalR e
-        AddR d ZeroR -> evalR d
+        ScaleR k d -> (* k) <$> evalR d
         AddR d e -> liftM2 (\u v -> tsumOfList [u, v]) (evalR d) (evalR e)
         LetR n d -> do
           nm <- readSTRef nMap
