@@ -277,7 +277,6 @@ instance AstSpan s
 
   ssumOfList = AstSumOfListS
   sconst = fromPrimalS . AstConstS
-  sconstBare = fromPrimalS . AstConstS
   sletWrap l u = if nullADShare l then u
                  else fromPrimalS $ AstLetADShareS l (astSpanPrimalS u)
     -- We can't use astLet here, because it may inline a let that is

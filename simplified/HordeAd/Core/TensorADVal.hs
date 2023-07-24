@@ -206,6 +206,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     dD l (tgather sh u f) (GatherR sh u' f (tshape u))
   tcast (D l u u') = dD l (tcast u) (CastR u')
   tfromIntegral (D l u _) = dDnotShared l (tfromIntegral u) dZero
+  tconst t = constantADVal (tconst t)
 
   tsumOfList lu =
     dD (flattenADShare $ map (\(D l _ _) -> l) lu)
@@ -220,7 +221,6 @@ instance ( Dual ranked ~ DeltaR ranked shaped
         !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dScale v u')
   tmult d e = d * e
-  tconst t = constantADVal (tconst t)
   raddDynamic = undefined
 
   tconstant t = let (l, r) = tletUnwrap t in dDnotShared l r dZero
@@ -378,6 +378,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   sgather (D l u u') f = dD l (sgather u f) (GatherS u' f)
   scast (D l u u') = dD l (scast u) (CastS u')
   sfromIntegral (D l u _) = dDnotShared l (sfromIntegral u) dZero
+  sconst t = constantADVal (sconst t)
 
   ssumOfList lu =
     dD (flattenADShare $ map (\(D l _ _) -> l) lu)
@@ -392,7 +393,6 @@ instance ( Dual shaped ~ DeltaS ranked shaped
         (l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dScale v u')
   smult d e = d * e
-  sconst t = constantADVal (sconstBare t)
   saddDynamic = undefined
 
   sconstant t = let (l, r) = sletUnwrap t in dDnotShared l r dZero

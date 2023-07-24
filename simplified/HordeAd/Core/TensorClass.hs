@@ -99,11 +99,12 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
             => ranked r (1 + n) -> ranked r2 n  -- partial
   tfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownNat n)
          => ranked r n -> ranked r2 n
-
-  -- Typically scalar codomain, often tensor reduction
-  -- (a number suffix in the name indicates the rank of codomain)
   tiota :: ranked r 1  -- 0, 1 .. infinity
   tiota = undefined  -- infinite, hence diverges; don't override
+
+  -- Typically scalar (rank 0) codomain or a generalization of such
+  -- an operation, often a tensor reduction. A number suffix in the name
+  -- may indicate the rank of the codomain, if bounded.
   tindex, (!) :: (GoodScalar r, KnownNat m, KnownNat n)
               => ranked r (m + n) -> IndexOf ranked m -> ranked r n
   infixl 9 !
@@ -144,7 +145,7 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
-  -- by one rank, and is omitted if a more general variant is not defined)
+  -- by one rank, and is omitted if a more general variant is not defined).
   tfromList :: (GoodScalar r, KnownNat n)
             => [ranked r n] -> ranked r (1 + n)
   tfromList0N :: (GoodScalar r, KnownNat n)
@@ -234,14 +235,16 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
         => ranked r1 n -> ranked r2 n
   tfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
                 => ranked r1 n -> ranked r2 n
+  tconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
 
-  -- ** No serviceable parts beyond this point ** --
-
-  -- Needed to avoid Num (ranked r n) constraints all over the place
-  -- and also wrong shape in @0@ with ranked (not shaped) tensors.
+  -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
+  -- at any rank greater than zero.
   tzero :: (GoodScalar r, KnownNat n)
         => ShapeInt n -> ranked r n
   tzero sh = treplicate0N sh 0
+
+  -- ** No serviceable parts beyond this point ** --
+
   tsumOfList :: (GoodScalar r, KnownNat n)
              => [ranked r n] -> ranked r n  -- TODO: declare nonempty
   tsumOfList [] = 0
@@ -258,7 +261,6 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
   tdot1In :: GoodScalar r => ranked r 2 -> ranked r 2 -> ranked r 1
   tdot1In t u = tsumIn (t `tmult` u)
     -- TODO: generalize, replace by stride analysis, etc.
-  tconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
   tletWrap :: (GoodScalar r, KnownNat n)
            => ADShare -> ranked r n -> ranked r n
   tletWrap _l u = u
@@ -328,11 +330,12 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
          => shaped r sh -> shaped r2 sh
     -- not IntSh, because the integer can be negative
     -- TODO: shall we make it abs (floor v)?
-
-  -- Typically scalar codomain, often tensor reduction
-  -- (a number suffix in the name indicates the rank of codomain)
   siota :: forall n r. (GoodScalar r, KnownNat n)
         => shaped r '[n]  -- from 0 to n - 1
+
+  -- Typically scalar (rank 0) codomain or a generalization of such
+  -- an operation, often a tensor reduction. A number suffix in the name
+  -- indicates the rank of the codomain, if bounded.
   sindex, (!$) :: forall r sh1 sh2.
                   ( GoodScalar r, OS.Shape sh1, OS.Shape sh2
                   , OS.Shape (sh1 OS.++ sh2) )
@@ -379,7 +382,7 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
-  -- by one rank, and is omitted if a more general variant is not defined)
+  -- by one rank, and is omitted if a more general variant is not defined).
   sfromList :: (GoodScalar r, KnownNat n, OS.Shape sh)
             => [shaped r sh] -> shaped r (n ': sh)
   sfromList0N :: forall r sh.
@@ -521,6 +524,7 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
         => shaped r1 sh -> shaped r2 sh
   sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, OS.Shape sh)
                 => shaped r1 sh -> shaped r2 sh
+  sconst :: (GoodScalar r, OS.Shape sh) => OS.Array sh r -> shaped r sh
 
   -- ** No serviceable parts beyond this point ** --
 
@@ -543,9 +547,6 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
           => shaped r '[n, m] -> shaped r '[n, m] -> shaped r '[n]
   sdot1In t u = ssumIn (t `smult` u)
     -- TODO: generalize, replace by stride analysis, etc.
-  sconst :: (GoodScalar r, OS.Shape sh) => OS.Array sh r -> shaped r sh
-  sconstBare :: (GoodScalar r, OS.Shape sh) => OS.Array sh r -> shaped r sh
-  sconstBare = sconst
   sletWrap :: (GoodScalar r, OS.Shape sh)
            => ADShare -> shaped r sh -> shaped r sh
   sletWrap _l u = u
