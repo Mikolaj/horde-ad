@@ -32,46 +32,54 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 
 -- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation
 
-type instance BoolOf (AstRanked s) = AstBool
+type instance SimpleBoolOf (AstRanked s) = AstBool
 
 instance AstSpan s => EqF (AstRanked s) where
-  v ==. u = AstRel EqOp [astSpanPrimal v, astSpanPrimal u]
-  v /=. u = AstRel NeqOp [astSpanPrimal v, astSpanPrimal u]
+  v ==. u = (emptyADShare, AstRel EqOp [astSpanPrimal v, astSpanPrimal u])
+  v /=. u = (emptyADShare, AstRel NeqOp [astSpanPrimal v, astSpanPrimal u])
 
 instance AstSpan s => OrdF (AstRanked s) where
-  AstConst u <. AstConst v = AstBoolConst $ u < v  -- common in indexing
-  v <. u = AstRel LsOp [astSpanPrimal v, astSpanPrimal u]
-  AstConst u <=. AstConst v = AstBoolConst $ u <= v  -- common in indexing
-  v <=. u = AstRel LeqOp [astSpanPrimal v, astSpanPrimal u]
-  AstConst u >. AstConst v = AstBoolConst $ u > v  -- common in indexing
-  v >. u = AstRel GtOp [astSpanPrimal v, astSpanPrimal u]
-  AstConst u >=. AstConst v = AstBoolConst $ u >= v  -- common in indexing
-  v >=. u = AstRel GeqOp [astSpanPrimal v, astSpanPrimal u]
+  AstConst u <. AstConst v = (emptyADShare, AstBoolConst $ u < v)
+    -- common in indexing
+  v <. u = (emptyADShare, AstRel LsOp [astSpanPrimal v, astSpanPrimal u])
+  AstConst u <=. AstConst v = (emptyADShare, AstBoolConst $ u <= v)
+    -- common in indexing
+  v <=. u = (emptyADShare, AstRel LeqOp [astSpanPrimal v, astSpanPrimal u])
+  AstConst u >. AstConst v = (emptyADShare, AstBoolConst $ u > v)
+    -- common in indexing
+  v >. u = (emptyADShare, AstRel GtOp [astSpanPrimal v, astSpanPrimal u])
+  AstConst u >=. AstConst v = (emptyADShare, AstBoolConst $ u >= v)
+    -- common in indexing
+  v >=. u = (emptyADShare, AstRel GeqOp [astSpanPrimal v, astSpanPrimal u])
 
 instance IfF (AstRanked s) where
-  ifF = astCond
+  ifF (_, b) v w = astCond b v w
 
 
 -- * Unlawful boolean instances of shaped AST; they are lawful modulo evaluation
 
-type instance BoolOf (AstShaped s) = AstBool
+type instance SimpleBoolOf (AstShaped s) = AstBool
 
 instance AstSpan s => EqF (AstShaped s) where
-  v ==. u = AstRelS EqOp [astSpanPrimalS v, astSpanPrimalS u]
-  v /=. u = AstRelS NeqOp [astSpanPrimalS v, astSpanPrimalS u]
+  v ==. u = (emptyADShare, AstRelS EqOp [astSpanPrimalS v, astSpanPrimalS u])
+  v /=. u = (emptyADShare, AstRelS NeqOp [astSpanPrimalS v, astSpanPrimalS u])
 
 instance AstSpan s => OrdF (AstShaped s) where
-  AstConstS u <. AstConstS v = AstBoolConst $ u < v  -- common in indexing
-  v <. u = AstRelS LsOp [astSpanPrimalS v, astSpanPrimalS u]
-  AstConstS u <=. AstConstS v = AstBoolConst $ u <= v  -- common in indexing
-  v <=. u = AstRelS LeqOp [astSpanPrimalS v, astSpanPrimalS u]
-  AstConstS u >. AstConstS v = AstBoolConst $ u > v  -- common in indexing
-  v >. u = AstRelS GtOp [astSpanPrimalS v, astSpanPrimalS u]
-  AstConstS u >=. AstConstS v = AstBoolConst $ u >= v  -- common in indexing
-  v >=. u = AstRelS GeqOp [astSpanPrimalS v, astSpanPrimalS u]
+  AstConstS u <. AstConstS v = (emptyADShare, AstBoolConst $ u < v)
+    -- common in indexing
+  v <. u = (emptyADShare, AstRelS LsOp [astSpanPrimalS v, astSpanPrimalS u])
+  AstConstS u <=. AstConstS v = (emptyADShare, AstBoolConst $ u <= v)
+    -- common in indexing
+  v <=. u = (emptyADShare, AstRelS LeqOp [astSpanPrimalS v, astSpanPrimalS u])
+  AstConstS u >. AstConstS v = (emptyADShare, AstBoolConst $ u > v)
+    -- common in indexing
+  v >. u = (emptyADShare, AstRelS GtOp [astSpanPrimalS v, astSpanPrimalS u])
+  AstConstS u >=. AstConstS v = (emptyADShare, AstBoolConst $ u >= v)
+    -- common in indexing
+  v >=. u = (emptyADShare, AstRelS GeqOp [astSpanPrimalS v, astSpanPrimalS u])
 
 instance IfF (AstShaped s) where
-  ifF = astCondS
+  ifF (_, b) v w = astCondS b v w
 
 
 -- * Ranked tensor AST instances
@@ -365,7 +373,7 @@ astBuild1VectorizeS f =
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
 
-type instance BoolOf (AstNoVectorize s) = AstBool
+type instance SimpleBoolOf (AstNoVectorize s) = AstBool
 
 deriving instance IfF (AstNoVectorize s)
 deriving instance AstSpan s => EqF (AstNoVectorize s)
@@ -386,7 +394,7 @@ deriving instance (RealFrac (AstRanked s r n))
 deriving instance (RealFloat (AstRanked s r n))
                   => RealFloat ((AstNoVectorize s) r n)
 
-type instance BoolOf (AstNoSimplify s) = AstBool
+type instance SimpleBoolOf (AstNoSimplify s) = AstBool
 
 deriving instance IfF (AstNoSimplify s)
 deriving instance AstSpan s => EqF (AstNoSimplify s)

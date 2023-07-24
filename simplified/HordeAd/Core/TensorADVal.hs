@@ -40,21 +40,17 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 
 -- * Assorted instances for any functor argument
 
-type instance BoolOf (ADVal f) = BoolOf f
+type instance SimpleBoolOf (ADVal f) = SimpleBoolOf f
 
--- Boolean and numeric instances are easy to define for ADVal f r z
--- and then Clown, Flip and other instances are auto-derived on top of them.
--- OTOH, AdaptableDomains and other such instances are best defined
--- directly for Clown and others applied to ADVal.
-instance (EqF f, IsPrimalPartF f) => EqF (ADVal f) where
-  D l1 u _ ==. D l2 v _ = letWrapPrimal l1 u ==. letWrapPrimal l2 v
-  D l1 u _ /=. D l2 v _ = letWrapPrimal l1 u /=. letWrapPrimal l2 v
+instance EqF f => EqF (ADVal f) where
+  D l1 u _ ==. D l2 v _ = (l1 `mergeADShare` l2, snd $ u ==. v)
+  D l1 u _ /=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u /=. v)
 
-instance (OrdF f, IsPrimalPartF f) => OrdF (ADVal f) where
-  D l1 u _ <. D l2 v _ = letWrapPrimal l1 u <. letWrapPrimal l2 v
-  D l1 u _ <=. D l2 v _ = letWrapPrimal l1 u <=. letWrapPrimal l2 v
-  D l1 u _ >. D l2 v _ = letWrapPrimal l1 u >. letWrapPrimal l2 v
-  D l1 u _ >=. D l2 v _ = letWrapPrimal l1 u >=. letWrapPrimal l2 v
+instance OrdF f => OrdF (ADVal f) where
+  D l1 u _ <. D l2 v _ = (l1 `mergeADShare` l2, snd $ u <. v)
+  D l1 u _ <=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u <=. v)
+  D l1 u _ >. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >. v)
+  D l1 u _ >=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >=. v)
 
 type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
 
@@ -72,11 +68,14 @@ type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
 -- * Ranked tensor instances
 
 instance IfF (ADVal (Flip OR.Array)) where
-  ifF b v w = if b then v else w
+  ifF (_, b) v w = if b then v else w
 
 -- This requires the Tensor instance, hence the definitions must in this module.
 instance IfF (ADVal (AstRanked AstPrimal)) where
-  ifF b v w = index (fromList [v, w]) (singletonIndex $ ifF b 0 1)
+  ifF (l1, b) v w =
+    let D l2 u u' = index (fromList [v, w])
+                          (singletonIndex $ ifF (emptyADShare, b) 0 1)
+    in D (l1 `mergeADShare` l2) u u'
 
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
 -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
@@ -228,11 +227,14 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 -- * Shaped tensor instances
 
 instance IfF (ADVal (Flip OS.Array)) where
-  ifF b v w = if b then v else w
+  ifF (_, b) v w = if b then v else w
 
 -- This requires the Tensor instance, hence the definitions must in this module.
 instance IfF (ADVal (AstShaped AstPrimal)) where
-  ifF b v w = indexS (fromListS @2 [v, w]) (ifF b 0 1 :$: ZSH)
+  ifF (l1, b) v w =
+    let D l2 u u' = indexS (fromListS @2 [v, w])
+                           (ifF (emptyADShare, b) 0 1 :$: ZSH)
+    in D (l1 `mergeADShare` l2) u u'
 
 -- First index is for outermost dimension; empty index means identity,
 -- index ouf of bounds produces zero (but beware of vectorization).

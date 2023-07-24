@@ -13,6 +13,7 @@ import Prelude
 import Control.Exception (assert)
 import GHC.TypeLits (KnownNat)
 
+import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types

@@ -6,16 +6,13 @@ module HordeAd.Core.Types
   , DynamicExists(..), Domains, DomainsOD, sizeDomainsOD
   , RankedOf, ShapedOf, PrimalOf, DualOf, IntOf, IndexOf, IntSh, IndexSh
   , DummyDual(..)
-  , BoolOf, Boolean(..), IfF(..), EqF(..), OrdF(..), minF, maxF
+  , SimpleBoolOf, Boolean(..)
   ) where
 
 import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.Internal.Shape as OS
-import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
 import           Data.Boolean (Boolean (..))
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
@@ -133,63 +130,4 @@ data DummyDual a (b :: k) = DummyDual
 -- and modified to depend on the tensor structure functor only,
 -- not on the type resulting from applying the functor to the underlying
 -- scalar and rank/shape.
-type family BoolOf (t :: k) :: Type
-
-class Boolean (BoolOf f) => IfF (f :: TensorKind k) where
-  ifF :: (GoodScalar r, HasSingletonDict y)
-      => BoolOf f -> f r y -> f r y -> f r y
-
-infix 4 ==., /=.
-class Boolean (BoolOf f) => EqF (f :: TensorKind k) where
-  (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
-               => f r y -> f r y -> BoolOf f
-  u /=. v = notB (u ==. v)
-
-infix 4 <., <=., >=., >.
-class Boolean (BoolOf f) => OrdF (f :: TensorKind k) where
-  (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
-                           => f r y -> f r y -> BoolOf f
-  u >. v = v <. u
-  u >=. v = notB (u <. v)
-  u <=. v = v >=. u
-
-minF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
-     => f r y -> f r y -> f r y
-minF u v = ifF (u <=. v) u v
-
-maxF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
-     => f r y -> f r y -> f r y
-maxF u v = ifF (u >=. v) u v
-
-
--- * Boolean instances
-
-type instance BoolOf (Flip OR.Array) = Bool
-
-instance EqF (Flip OR.Array) where
-  (==.) = (==)
-  (/=.) = (/=)
-
-instance OrdF (Flip OR.Array) where
-  (<.) = (<)
-  (<=.) = (<=)
-  (>.) = (>)
-  (>=.) = (>=)
-
-instance IfF (Flip OR.Array) where
-  ifF b v w = if b then v else w
-
-type instance BoolOf (Flip OS.Array) = Bool
-
-instance EqF (Flip OS.Array) where
-  (==.) = (==)
-  (/=.) = (/=)
-
-instance OrdF (Flip OS.Array) where
-  (<.) = (<)
-  (<=.) = (<=)
-  (>.) = (>)
-  (>=.) = (>=)
-
-instance IfF (Flip OS.Array) where
-  ifF b v w = if b then v else w
+type family SimpleBoolOf (t :: k) :: Type

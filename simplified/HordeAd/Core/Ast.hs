@@ -21,6 +21,7 @@ module HordeAd.Core.Ast
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare, intVarInADShare, nullADShare
   , AstNoVectorize(..), AstNoSimplify(..)
+  , BoolOf, IfF(..), EqF(..), OrdF(..), minF, maxF
   ) where
 
 import Prelude
@@ -794,6 +795,44 @@ nullADShare :: ADShare -> Bool
 {-# INLINE nullADShare #-}
 nullADShare ADShareNil = True
 nullADShare ADShareCons{} = False
+
+
+-- * Boolean definitions and instances
+
+type BoolOf f = (ADShare, SimpleBoolOf f)
+
+instance Boolean b => Boolean (ADShare, b) where
+  true = (emptyADShare, true)
+  false = (emptyADShare, false)
+  notB (l, b) = (l, notB b)
+  (l1, b) &&* (l2, c) = (l1 `mergeADShare` l2, b &&* c)
+  (l1, b) ||* (l2, c) = (l1 `mergeADShare` l2, b ||* c)
+
+class Boolean (BoolOf f) => IfF (f :: TensorKind k) where
+  ifF :: (GoodScalar r, HasSingletonDict y)
+      => BoolOf f -> f r y -> f r y -> f r y
+
+infix 4 ==., /=.
+class Boolean (BoolOf f) => EqF (f :: TensorKind k) where
+  (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
+               => f r y -> f r y -> BoolOf f
+  u /=. v = notB (u ==. v)
+
+infix 4 <., <=., >=., >.
+class Boolean (BoolOf f) => OrdF (f :: TensorKind k) where
+  (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
+                           => f r y -> f r y -> BoolOf f
+  u >. v = v <. u
+  u >=. v = notB (u <. v)
+  u <=. v = v >=. u
+
+minF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
+     => f r y -> f r y -> f r y
+minF u v = ifF (u <=. v) u v
+
+maxF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
+     => f r y -> f r y -> f r y
+maxF u v = ifF (u >=. v) u v
 
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify definitions, for tests

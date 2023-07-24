@@ -649,6 +649,21 @@ type ADReadyS shaped r =
 
 -- * Ranked tensor class instance for concrete arrays
 
+type instance SimpleBoolOf (Flip OR.Array) = Bool
+
+instance EqF (Flip OR.Array) where
+  u ==. v = (emptyADShare, u == v)
+  u /=. v = (emptyADShare, u /= v)
+
+instance OrdF (Flip OR.Array) where
+  u <. v = (emptyADShare, u < v)
+  u <=. v = (emptyADShare, u <= v)
+  u >. v = (emptyADShare, u > v)
+  u >=. v = (emptyADShare, u >= v)
+
+instance IfF (Flip OR.Array) where
+  ifF (_, b) v w = if b then v else w
+
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 
 type instance DualOf (Flip OR.Array) = DummyDual
@@ -752,6 +767,21 @@ instance RandomDomains (Flip OR.Array r n) where
 
 
 -- * Shaped tensor class instance for concrete arrays
+
+type instance SimpleBoolOf (Flip OS.Array) = Bool
+
+instance EqF (Flip OS.Array) where
+  u ==. v = (emptyADShare, u == v)
+  u /=. v = (emptyADShare, u /= v)
+
+instance OrdF (Flip OS.Array) where
+  u <. v = (emptyADShare, u < v)
+  u <=. v = (emptyADShare, u <= v)
+  u >. v = (emptyADShare, u > v)
+  u >=. v = (emptyADShare, u >= v)
+
+instance IfF (Flip OS.Array) where
+  ifF (_, b) v w = if b then v else w
 
 type instance PrimalOf (Flip OS.Array) = Flip OS.Array
 

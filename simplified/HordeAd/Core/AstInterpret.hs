@@ -235,10 +235,10 @@ type InterpretAstR ranked =
   , IfF ranked, IfF (ShapedOf ranked), IfF (PrimalOf ranked)
   , EqF ranked, EqF (ShapedOf ranked), EqF (PrimalOf ranked)
   , OrdF ranked, OrdF (ShapedOf ranked), OrdF (PrimalOf ranked)
-  , Boolean (BoolOf ranked)
-  , BoolOf ranked ~ BoolOf (ShapedOf ranked)
-  , BoolOf ranked ~ BoolOf (PrimalOf ranked)
-  , BoolOf ranked ~ BoolOf (PrimalOf (ShapedOf ranked))
+  , Boolean (SimpleBoolOf ranked)
+  , SimpleBoolOf ranked ~ SimpleBoolOf (ShapedOf ranked)
+  , SimpleBoolOf ranked ~ SimpleBoolOf (PrimalOf ranked)
+  , SimpleBoolOf ranked ~ SimpleBoolOf (PrimalOf (ShapedOf ranked))
   )
 
 type InterpretAstS shaped =
@@ -247,9 +247,9 @@ type InterpretAstS shaped =
   , IfF shaped, IfF (RankedOf shaped), IfF (PrimalOf shaped)
   , EqF shaped, EqF (RankedOf shaped), EqF (PrimalOf shaped)
   , OrdF shaped, OrdF (RankedOf shaped), OrdF (PrimalOf shaped)
-  , Boolean (BoolOf shaped)
-  , BoolOf shaped ~ BoolOf (RankedOf shaped)
-  , BoolOf shaped ~ BoolOf (PrimalOf shaped)
+  , Boolean (SimpleBoolOf shaped)
+  , SimpleBoolOf shaped ~ SimpleBoolOf (RankedOf shaped)
+  , SimpleBoolOf shaped ~ SimpleBoolOf (PrimalOf shaped)
   )
 
 type InterpretAst ranked shaped =
@@ -1312,15 +1312,15 @@ interpretAstS env = \case
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstBool
-  -> Bool #-}
+  -> (ADShare, Bool) #-}
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
   -> AstBool
-  -> AstBool #-}
+  -> (ADShare, AstBool) #-}
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstBool
-  -> Bool #-}
+  -> (ADShare, Bool) #-}
 
 {-# SPECIALIZE interpretAstDynamicDummy
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
@@ -1343,18 +1343,18 @@ interpretAstS env = \case
   -> Domains OD.Array #-}
 
 {-# SPECIALIZE interpretAstRelOp
-  :: KnownNat n => OpCodeRel -> [Flip OR.Array Double n] -> Bool #-}
+  :: KnownNat n => OpCodeRel -> [Flip OR.Array Double n] -> (ADShare, Bool) #-}
 {-# SPECIALIZE interpretAstRelOp
-  :: KnownNat n => OpCodeRel -> [Flip OR.Array Float n] -> Bool #-}
+  :: KnownNat n => OpCodeRel -> [Flip OR.Array Float n] -> (ADShare, Bool) #-}
 {-# SPECIALIZE interpretAstRelOp
-  :: KnownNat n => OpCodeRel -> [Flip OR.Array Int64 n] -> Bool #-}
-{-# SPECIALIZE interpretAstRelOp
-  :: KnownNat n
-  => OpCodeRel -> [AstRanked AstPrimal Double n] -> AstBool #-}
+  :: KnownNat n => OpCodeRel -> [Flip OR.Array Int64 n] -> (ADShare, Bool) #-}
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n
-  => OpCodeRel -> [AstRanked AstPrimal Float n] -> AstBool #-}
+  => OpCodeRel -> [AstRanked AstPrimal Double n] -> (ADShare, AstBool) #-}
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n
-  => OpCodeRel -> [AstRanked AstPrimal Int64 n] -> AstBool #-}
+  => OpCodeRel -> [AstRanked AstPrimal Float n] -> (ADShare, AstBool) #-}
+{-# SPECIALIZE interpretAstRelOp
+  :: KnownNat n
+  => OpCodeRel -> [AstRanked AstPrimal Int64 n] -> (ADShare, AstBool) #-}
 -- AstFull not needed, because relations are computed on primal parts

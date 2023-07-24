@@ -302,7 +302,7 @@ testPiecewiseLinearPP = do
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\x2 -> tfromList [tconst 2.0 * x2, tconst 5.0 * x2] ! [ifF (x2 >. tconst 0.0) 0 1]"
   show deltas
-    @?= "LetR 100000004 (IndexR (LetR 100000003 (FromListR [LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR (InputId 0))),LetR 100000002 (ScaleR (AstConst (fromList [] [5.0])) (InputR (InputId 0)))])) [AstCond (AstRel GtOp [AstVar [] (AstVarId 100000002),AstConst (fromList [] [0.0])]) (AstConst (fromList [] [0])) (AstConst (fromList [] [1]))] [2])"
+    @?= "LetR 100000003 (IndexR (LetR 100000001 (FromListR [LetR 100000002 (ScaleR (AstConst (fromList [] [2.0])) (InputR (InputId 0))),LetR 100000004 (ScaleR (AstConst (fromList [] [5.0])) (InputR (InputId 0)))])) [AstCond (AstRel GtOp [AstVar [] (AstVarId 100000002),AstConst (fromList [] [0.0])]) (AstConst (fromList [] [0])) (AstConst (fromList [] [1]))] [2])"
 
 testPiecewiseLinear2PP :: Assertion
 testPiecewiseLinear2PP = do
@@ -1000,10 +1000,10 @@ fooNoGoAst v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, tindex v [(ix + (tprimalPart . tfloor) r) `minF` 2 `maxF` 0]))
-       + ifF (AstBoolOp AndOp
-                    [ tindex v (ix * 2 :. ZI) <=. 0
+       + ifF ( (&&*)
+                    (tindex v (ix * 2 :. ZI) <=. 0)
                         -- @1 not required thanks to :.; see below for @ and []
-                    , 6 >. abs ix ])
+                    (6 >. abs ix) )
                  r (5 * r))
      / tslice 1 3 (tmap0N (\x -> ifF (x >. r) r x) v)
      * tbuild1 3 (const 1)
