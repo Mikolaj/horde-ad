@@ -1909,17 +1909,26 @@ simplifyAst t = case t of
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   Ast.AstLetADShare{} -> error "simplifyAst: AstLetADShare"
   AstNm opCode args ->
-    case (sameAstSpan @AstPrimal @s, testEquality (typeRep @r) (typeRep @Int64)) of
-      (Just Refl, Just Refl) -> simplifyAstNumOp opCode (map simplifyAst args)
+    case ( sameAstSpan @AstPrimal @s
+         , sameNat (Proxy @n) (Proxy @0)
+         , testEquality (typeRep @r) (typeRep @Int64) ) of
+      (Just Refl, Just Refl, Just Refl) ->
+        simplifyAstNumOp opCode (map simplifyAst args)
       _ -> AstNm opCode (map simplifyAst args)
   Ast.AstOp opCode args -> Ast.AstOp opCode (map simplifyAst args)
   Ast.AstOpIntegral opCode args ->
-    case (sameAstSpan @AstPrimal @s, testEquality (typeRep @r) (typeRep @Int64)) of
-      (Just Refl, Just Refl) -> simplifyAstIntegralOp opCode (map simplifyAst args)
+    case ( sameAstSpan @AstPrimal @s
+         , sameNat (Proxy @n) (Proxy @0)
+         , testEquality (typeRep @r) (typeRep @Int64) ) of
+      (Just Refl, Just Refl, Just Refl) ->
+        simplifyAstIntegralOp opCode (map simplifyAst args)
       _ -> Ast.AstOpIntegral opCode (map simplifyAst args)
   AstSumOfList args ->
-    case (sameAstSpan @AstPrimal @s, testEquality (typeRep @r) (typeRep @Int64)) of
-      (Just Refl, Just Refl) -> foldr1 simplifyAstPlusOp (map simplifyAst args)
+    case ( sameAstSpan @AstPrimal @s
+         , sameNat (Proxy @n) (Proxy @0)
+         , testEquality (typeRep @r) (typeRep @Int64) ) of
+      (Just Refl, Just Refl, Just Refl) ->
+        foldr1 simplifyAstPlusOp (map simplifyAst args)
       _ -> astSumOfList (map simplifyAst args)
   Ast.AstIota -> t
   Ast.AstIndex v ix -> astIndexR (simplifyAst v) (fmap simplifyAst ix)
@@ -2080,9 +2089,10 @@ simplifyRelOp opCodeRel arg = Ast.AstRel opCodeRel arg
 -- and depend on the normal form where AstConst, if any, is the first element
 -- and the list if fully flattened and of length >= 2.
 -- Additionally we here ensure the AstConst is never zero.
-simplifyAstPlusOp :: KnownNat n
-                  => AstRanked AstPrimal Int64 n -> AstRanked AstPrimal Int64 n
-                  -> AstRanked AstPrimal Int64 n
+--
+-- Rank has to be 0 so that the expressions 0 below don't crash.
+simplifyAstPlusOp :: AstRanked AstPrimal Int64 0 -> AstRanked AstPrimal Int64 0
+                  -> AstRanked AstPrimal Int64 0
 simplifyAstPlusOp (AstSumOfList (AstConst u : lu))
                   (AstSumOfList (AstConst v : lv)) =
   addConstToList (u + v) (lu ++ lv)
@@ -2143,15 +2153,16 @@ simplifyAstPlusOp
 
 simplifyAstPlusOp u v = AstSumOfList [u, v]
 
-addConstToList :: OR.Array n Int64 -> [AstRanked AstPrimal Int64 n] -> AstRanked AstPrimal Int64 n
+addConstToList :: OR.Array 0 Int64 -> [AstRanked AstPrimal Int64 0]
+               -> AstRanked AstPrimal Int64 0
 addConstToList _ [] = error "addConstToList: AstSumOfList list too short"
 addConstToList arr [i] =
   if OR.allA (== 0) arr then i else AstSumOfList [AstConst arr, i]
 addConstToList arr l =
   if OR.allA (== 0) arr then AstSumOfList l else AstSumOfList (AstConst arr : l)
 
-simplifyAstNumOp :: KnownNat n
-                 => OpCodeNum -> [AstRanked AstPrimal Int64 n] -> AstRanked AstPrimal Int64 n
+simplifyAstNumOp :: OpCodeNum -> [AstRanked AstPrimal Int64 0]
+                 -> AstRanked AstPrimal Int64 0
 simplifyAstNumOp MinusOp [u, v] =
   simplifyAstPlusOp u (simplifyAstNumOp NegateOp [v])
 simplifyAstNumOp TimesOp [AstConst u, AstConst v] = AstConst $ u * v
@@ -2224,9 +2235,8 @@ simplifyAstNumOp SignumOp [AstNm AbsOp [u]] =
 
 simplifyAstNumOp opCode arg = AstNm opCode arg
 
-simplifyAstIntegralOp :: KnownNat n
-                      => OpCodeIntegral -> [AstRanked AstPrimal Int64 n]
-                      -> AstRanked AstPrimal Int64 n
+simplifyAstIntegralOp :: OpCodeIntegral -> [AstRanked AstPrimal Int64 0]
+                      -> AstRanked AstPrimal Int64 0
 simplifyAstIntegralOp QuotOp [AstConst u, AstConst v] = AstConst $ quot u v
 simplifyAstIntegralOp QuotOp [AstConst 0, _v] = AstConst 0
 simplifyAstIntegralOp QuotOp [u, AstConst 1] = u
