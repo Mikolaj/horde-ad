@@ -47,7 +47,7 @@ deriving instance (Show (f r z), Show (Dual f r z))
 -- by the types yet), except when deconstructing via pattern-matching.
 dD :: CanRecordSharing f r z
    => ADShare -> f r z -> Dual f r z -> ADVal f r z
-dD l a dual = D l a (recordSharing dual)
+dD !l !a !dual = D l a (recordSharing dual)
 
 -- | This a not so smart constructor for 'D' of 'ADVal' that does not record
 -- sharing information. If used in contexts where sharing may occur,
@@ -142,8 +142,8 @@ instance (Num (f r z), IsPrimal f r z) => Num (ADVal f r z) where
     dD (l1 `mergeADShare` l2) (u - v) (dAdd u' (dScale (intOfShape v (-1)) v'))
   D l1 ue u' * D l2 ve v' =
     -- The bangs are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        !(!l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
+    let !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u * v) (dAdd (dScale v u') (dScale u v'))
   negate (D l v v') = dD l (negate v) (dScale (intOfShape v (-1)) v')
   abs (D l ve v') = let !(!l2, v) = recordSharingPrimal ve l
@@ -169,8 +169,8 @@ instance (Integral (f r z), IsPrimal f r z)
 
 instance (Fractional (f r z), IsPrimal f r z) => Fractional (ADVal f r z) where
   D l1 ue u' / D l2 ve v' =
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        !(!l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
+    let !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u / v)
              (dAdd (dScale (recip v) u') (dScale (- u / (v * v)) v'))
   recip (D l ve v') =
@@ -188,8 +188,8 @@ instance (Floating (f r z), IsPrimal f r z) => Floating (ADVal f r z) where
   sqrt (D l ue u') = let !(!l2, sqrtU) = recordSharingPrimal (sqrt ue) l
                      in dD l2 sqrtU (dScale (recip (sqrtU + sqrtU)) u')
   D l1 ue u' ** D l2 ve v' =
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        !(!l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
+    let !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v 1))) u')
                             (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x

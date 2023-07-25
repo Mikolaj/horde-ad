@@ -715,6 +715,7 @@ tensorMnistTestsPP = testGroup "PP tests for Short Ranked MNIST tests"
   , testCase "VTOPPNonLin" testVTOPPNonLin
   , testCase "VT2OPP" testVT2OPP
   , testCase "VT2OPPNonLin" testVT2OPPNonLin
+  , testCase "VT2OPPNonLin2" testVT2OPPNonLin2
   ]
 
 valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters (Flip OR.Array) Double
@@ -795,22 +796,30 @@ testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked AstFull) Double
-                    -> AstRanked AstFull Double 1
+      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked AstFull) Float
+                    -> AstRanked AstFull Float 1
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
-                 in ( ( AstConstant $ AstConst $ runFlip a1
-                      , AstConstant $ AstConst $ runFlip a2 )
-                    , ( AstConstant $ AstConst $ runFlip a3
-                      , AstConstant $ AstConst $ runFlip a4 )
-                    , ( AstConstant $ AstConst $ runFlip a5
-                      , AstConstant $ AstConst $ runFlip a6 ) )
-      (_, ast3) = funToAstR @Double (singletonShape 0)
+                 in ( ( AstCast $ AstConstant $ AstConst $ runFlip a1
+                      , AstCast $ AstConstant $ AstConst $ runFlip a2 )
+                    , ( AstConstant $ AstCast $ AstConst $ runFlip a3
+                      , AstConstant $ AstCast $ AstConst $ runFlip a4 )
+                    , ( AstCast $ AstConstant $ AstConst $ runFlip a5
+                      , AstConstant $ AstCast $ AstConst $ runFlip a6 ) )
+      (_, ast3) = funToAstR @Float (singletonShape 0)
                                     (const $ afcnn2TnonLin constant)
   "\\dummy"
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\dummy -> tlet (exp (tsum (ttranspose [1,0] (treplicate 5 (tlet (tcast (tsum (ttranspose [1,0] (treplicate 4 (tcast (tlet (tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * tconst (fromList [3,3] [1.0,2.0,3.0,1.0,2.0,3.0,1.0,2.0,3.0]))) + tconst (fromList [3] [1.0,2.0,3.0])) (\\v5 -> tlet (tconstant (recip (treplicate 3 (tconst 1.0) + exp (negate (tprimalPart v5))))) (\\v6 -> tD (tprimalPart v6) (tdualPart (tconstant (tprimalPart v6 * (treplicate 3 (tconst 1.0) - tprimalPart v6)) * tD (treplicate 3 (tconst 0.0)) (tdualPart v5))))))) * tconst (fromList [4,4] [1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0])))) + tconst (fromList [4] [1.0,2.0,3.0,4.0])) (\\v7 -> tlet (tconstant (recip (treplicate 4 (tconst 1.0) + exp (negate (tprimalPart v7))))) (\\v8 -> tD (tprimalPart v8) (tdualPart (tconstant (tprimalPart v8 * (treplicate 4 (tconst 1.0) - tprimalPart v8)) * tD (treplicate 4 (tconst 0.0)) (tdualPart v7)))))) * tconst (fromList [5,5] [1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0]))) + tconst (fromList [5] [1.0,2.0,3.0,4.0,5.0]))) (\\v9 -> treplicate 5 (recip (tsum v9)) * v9)"
+    @?= "\\dummy -> tlet (exp (tsum (ttranspose [1,0] (treplicate 5 (tlet (tcast (tsum (ttranspose [1,0] (treplicate 4 (tcast (tlet (tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * tconstant (tcast (tconst (fromList [3,3] [1.0,2.0,3.0,1.0,2.0,3.0,1.0,2.0,3.0]))))) + tcast (tconst (fromList [3] [1.0,2.0,3.0]))) (\\v5 -> tlet (tconstant (recip (treplicate 3 (tconst 1.0) + exp (negate (tprimalPart v5))))) (\\v6 -> tD (tprimalPart v6) (tdualPart (tconstant (tprimalPart v6 * (treplicate 3 (tconst 1.0) - tprimalPart v6)) * tD (treplicate 3 (tconst 0.0)) (tdualPart v5))))))) * tconstant (tcast (tconst (fromList [4,4] [1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0,1.0,2.0,3.0,4.0])))))) + tconstant (tcast (tconst (fromList [4] [1.0,2.0,3.0,4.0])))) (\\v7 -> tlet (tconstant (recip (treplicate 4 (tconst 1.0) + exp (negate (tprimalPart v7))))) (\\v8 -> tD (tprimalPart v8) (tdualPart (tconstant (tprimalPart v8 * (treplicate 4 (tconst 1.0) - tprimalPart v8)) * tD (treplicate 4 (tconst 0.0)) (tdualPart v7)))))) * tconstant (tcast (tconst (fromList [5,5] [1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0]))))) + tconstant (tcast (tconst (fromList [5] [1.0,2.0,3.0,4.0,5.0]))))) (\\v9 -> treplicate 5 (recip (tsum v9)) * v9)"
+
+testVT2OPPNonLin2 :: Assertion
+testVT2OPPNonLin2 = do
   resetVarCounter
+  let renames = IM.empty
+      blackGlyph = AstReplicate sizeMnistGlyphInt 7
+      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked AstFull) Double
+                    -> AstRanked AstFull Double 1
+      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
   let (artifact6nonLin, _) = revDtFun True afcnn2TnonLin valsInitVT2OPP
   printGradient6Pretty renames artifact6nonLin
     @?= "\\dret m2 v3 m4 v5 m6 v7 -> let v16 = tsum (ttranspose [1,0] (treplicate 3 (treplicate 784 (tconst 7.0)) * m2)) + v3 ; v17 = exp (negate v16) ; v18 = treplicate 3 (tconst 1.0) + v17 ; v19 = recip v18 ; v20 = treplicate 3 (tconst 1.0) - v19 ; v21 = v19 * v20 ; m22 = treplicate 4 (tcast v19) ; v23 = tcast (tsum (ttranspose [1,0] (m22 * m4))) + v5 ; v24 = exp (negate v23) ; v25 = treplicate 4 (tconst 1.0) + v24 ; v26 = recip v25 ; v27 = treplicate 4 (tconst 1.0) - v26 ; v28 = v26 * v27 ; v29 = exp (tsum (ttranspose [1,0] (treplicate 5 v26 * m6)) + v7) ; x30 = tsum v29 ; v31 = treplicate 5 (recip x30) ; v32 = v29 * (treplicate 5 (negate (recip (x30 * x30)) * tsum (v29 * dret)) + v31 * dret) ; v33 = v28 * tsum (m6 * ttranspose [1,0] (treplicate 4 v32)) ; m34 = ttranspose [1,0] (treplicate 3 (tcast v33)) ; v35 = v21 * tcast (tsum (m4 * m34)) in (treplicate 3 (treplicate 784 (tconst 7.0)) * ttranspose [1,0] (treplicate 784 v35), v35, m22 * m34, v33, treplicate 5 v26 * ttranspose [1,0] (treplicate 4 v32), v32)"

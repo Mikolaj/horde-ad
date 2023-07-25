@@ -89,7 +89,7 @@ index :: forall ranked shaped m n r.
          , KnownNat m, KnownNat n, GoodScalar r )
       => ADVal ranked r (m + n) -> IndexOf ranked m
       -> ADVal ranked r n
-index (D l u u') ix = dD l (tindex u ix) (IndexR u' ix (tshape u))
+index !(D l u u') ix = dD l (tindex u ix) (IndexR u' ix (tshape u))
 
 fromList :: ( RankedTensor ranked, IsPrimal ranked r (1 + n)
             , Dual ranked ~ DeltaR ranked shaped
@@ -177,8 +177,8 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   tsum0 (D l u u') = dD l (tsum0 u) (Sum0R (tshape u) u')
   tdot0 (D l1 ue u') (D l2 ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        !(!l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
+    let !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (tdot0 u v) (dAdd (Dot0R v u') (Dot0R u v'))
   tscatter sh (D l u u') f =
     dD l (tscatter sh u f) (ScatterR sh u' f (tshape u))
@@ -337,8 +337,8 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   ssum0 (D l u u') = dD l (ssum0 u) (Sum0S u')
   sdot0 (D l1 ue u') (D l2 ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2
-        !(!l4, v) = recordSharingPrimal ve l3
+    let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
+    let !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (sdot0 u v) (dAdd (Dot0S v u') (Dot0S u v'))
   sscatter (D l u u') f = dD l (sscatter u f) (ScatterS u' f)
 
