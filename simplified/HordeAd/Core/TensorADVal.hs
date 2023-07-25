@@ -315,7 +315,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
          , ShapedTensor shaped )
          => ShapedTensor (ADVal shaped) where
   slet (D l u u') f =
-    let (l2, var2) = recordSharingPrimal u l
+    let !(!l2, var2) = recordSharingPrimal u l
     in f (D l2 var2 u')
       -- TODO: What about sharing u'?
 

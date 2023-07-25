@@ -65,19 +65,16 @@ scaleS :: forall shaped r sh.
           (OS.Shape sh, ADReadyS shaped r)
        => PrimalOf shaped r sh -> shaped r sh -> shaped r sh
 scaleS a d = sconstant a * d
--- This should be faster, but is slower. This may be caused by the lets repeated
--- both in primal part and the D constructor.
--- scale a d = tD (a * tprimalPart d) (tScale @r a (tdualPart d))
 
 reluS, reluLeakyS
   :: forall shaped sh r.
      (OS.Shape sh, KnownNat (OS.Rank sh), ADReadyS shaped r, Differentiable r)
   => shaped r sh -> shaped r sh
-reluS v =
+reluS v0 = slet v0 $ \v ->
   let oneIfGtZero = smap0N (\x -> ifF (x <=. 0) 0.0 1.0) v
   in oneIfGtZero * v
 
-reluLeakyS v =
+reluLeakyS v0 = slet v0 $ \v ->
   let oneIfGtZero = smap0N (\x -> ifF (x <=. 0) 0.01 1.0) v
   in oneIfGtZero * v
 
@@ -86,7 +83,7 @@ logisticS :: forall shaped r sh.
              ( OS.Shape sh, ShapedTensor shaped, GoodScalar r
              , Floating (PrimalOf shaped r sh) )
           => shaped r sh -> shaped r sh
-logisticS d0 = slet d0 $ \d ->  -- used in tprimalPart and in tdualPart
+logisticS d0 = slet d0 $ \d ->  -- used in tprimalPart and in sdualPart
   let y0 = recip (1 + exp (- sprimalPart d))
   in slet (sconstant y0)  -- we don't have sletPrimal
      $ \y1 -> let y = sprimalPart y1

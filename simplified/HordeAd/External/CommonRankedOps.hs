@@ -72,11 +72,11 @@ scale a d = tconstant @ranked a * d
 relu, reluLeaky
   :: forall ranked n r. (ADReady ranked r, KnownNat n, Differentiable r)
   => ranked r n -> ranked r n
-relu v =
+relu v0 = tlet v0 $ \v ->
   let oneIfGtZero = tmap0N (\x -> ifF (x <=. 0) 0.0 1.0) v
   in oneIfGtZero * v
 
-reluLeaky v =
+reluLeaky v0 = tlet v0 $ \v ->
   let oneIfGtZero = tmap0N (\x -> ifF (x <=. 0) 0.01 1.0) v
   in oneIfGtZero * v
 

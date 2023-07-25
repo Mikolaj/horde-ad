@@ -53,7 +53,7 @@ convMnistLayerS SNat SNat SNat SNat SNat SNat SNat
                       $ sreplicate {-@batch_size-}
                       $ sreplicate {-@h-}
                       $ sreplicate {-@w-} bias
-      yRelu = slet (yConv + biasStretched) reluS
+      yRelu = reluS $ yConv + biasStretched
   in maxPool2dUnpaddedS @2 @2 yRelu
 
 convMnistTwoS
@@ -92,7 +92,7 @@ convMnistTwoS kh@SNat kw@SNat
       m2 = str m1
       denseLayer = weightsDense `smatmul2` m2
                    + str (sreplicate {-@batch_size-} biasesDense)
-      denseRelu = slet denseLayer reluS
+      denseRelu = reluS denseLayer
   in weightsReadout `smatmul2` denseRelu
      + str (sreplicate {-@batch_size-} biasesReadout)
 
