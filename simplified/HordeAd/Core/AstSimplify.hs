@@ -43,6 +43,7 @@ import qualified Data.EnumMap.Strict as EM
 import qualified Data.EnumSet as ES
 import           Data.Int (Int64)
 import           Data.List (dropWhileEnd, foldl1', mapAccumR)
+import           Data.Maybe (catMaybes)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -335,17 +336,15 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   Ast.AstLetADShare{} -> error "astIndexROrStepOnly: AstLetADShare"
   AstNm opCode args ->
-    AstNm opCode (map (`astIndexRec` ix) args)
+    shareIx ix $ \ix2 -> AstNm opCode (map (`astIndexRec` ix2) args)
   Ast.AstOp opCode args ->
-    Ast.AstOp opCode (map (`astIndexRec` ix) args)
+    shareIx ix $ \ix2 -> Ast.AstOp opCode (map (`astIndexRec` ix2) args)
   Ast.AstOpIntegral opCode args ->
-    Ast.AstOpIntegral opCode (map (`astIndexRec` ix) args)
+    shareIx ix $ \ix2 -> Ast.AstOpIntegral opCode (map (`astIndexRec` ix2) args)
   AstSumOfList args ->
-    astSumOfList (map (`astIndexRec` ix) args)
+    shareIx ix $ \ix2 -> astSumOfList (map (`astIndexRec` ix2) args)
   Ast.AstIota | AstConst i <- i1 -> case sameNat (Proxy @m) (Proxy @1) of
     Just Refl ->
-      -- AstConstant not needed, because when AstIota is entered by the user,
-      -- AstConstant is wrapped over it.
       AstConst $ OR.scalar $ fromIntegral i
     _ -> error "astIndex: AstIota: impossible pattern needlessly required"
   Ast.AstIota -> Ast.AstIndex v0 ix
@@ -377,9 +376,9 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstFromList{} | ZI <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromList l ->
-    -- TODO: we need integer let to preserve sharing of ix here and elsewhere:
-    Ast.AstIndex (astFromList $ map (`astIndexRec` rest1) l)
-                  (singletonIndex i1)
+    shareIx rest1 $ \ix2 ->
+      Ast.AstIndex (astFromList $ map (`astIndexRec` ix2) l)
+                   (singletonIndex i1)
   Ast.AstFromVector l | AstConst it <- i1 ->
     let i = fromIntegral $ OR.unScalar it
     in astIndex (if 0 <= i && i < V.length l
@@ -389,8 +388,9 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstFromVector{} | ZI <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromVector l ->
-    Ast.AstIndex (astFromVector $ V.map (`astIndexRec` rest1) l)
-                 (singletonIndex i1)
+    shareIx rest1 $ \ix2 ->
+      Ast.AstIndex (astFromVector $ V.map (`astIndexRec` ix2) l)
+                   (singletonIndex i1)
   Ast.AstReplicate _k v ->
     astIndex v rest1
   Ast.AstAppend{} ->
@@ -423,14 +423,13 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstReshape sh v ->
     astIndex (astReshapeAsGather sh v) ix
   Ast.AstBuild1 _n2 (var2, v) ->
-    astIndex (substituteAst (SubstitutionPayloadRanked @AstPrimal @Int64 i1) var2 v) rest1
+    astIndex (substituteAst (SubstitutionPayloadRanked @AstPrimal @Int64 i1)
+                            var2 v) rest1
   Ast.AstGather _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
   Ast.AstGather (_ :$ sh') v (var2 ::: vars, ix2) ->
-    -- TODO: we need integer let to preserve sharing while substituting here:
-    let ix3 = fmap (substituteAst (SubstitutionPayloadRanked @AstPrimal @Int64 i1) var2) ix2
-        w :: AstRanked s r (m1 + n)
-        w = unsafeCoerce $ astGather sh' v (vars, ix3)
-    in astIndex @m1 @n w rest1
+    let w :: AstRanked s r (m1 + n)
+        w = unsafeCoerce $ astGather sh' v (vars, ix2)
+    in astLet var2 i1 $ astIndex @m1 @n w rest1
   Ast.AstGather{} ->
     error "astIndex: AstGather: impossible pattern needlessly required"
   Ast.AstCast t -> astCast $ astIndexROrStepOnly stepOnly t ix
@@ -457,14 +456,29 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndex v0 ix
   Ast.AstD u u' ->
-    -- TODO: we need integer let to preserve sharing while substituting here:
-    Ast.AstD (astIndexRec u ix) (astIndexRec u' ix)
+    shareIx ix $ \ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstLetDomains vars l v ->
     Ast.AstLetDomains vars l (astIndexRec v ix)
-  Ast.AstCond b v w -> astCond b (astIndexRec v ix) (astIndexRec w ix)
+  Ast.AstCond b v w ->
+    shareIx ix $ \ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstFloor v -> Ast.AstFloor $ astIndexROrStepOnly stepOnly v ix
   Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexROrStepOnly stepOnly v ix
   Ast.AstMaxIndex v -> Ast.AstMaxIndex $ astIndexROrStepOnly stepOnly v ix
+
+shareIx :: (KnownNat n, KnownNat m)
+        => AstIndex n -> (AstIndex n -> AstRanked s r m) -> AstRanked s r m
+{-# NOINLINE shareIx #-}
+shareIx ix f = unsafePerformIO $ do
+  let shareI :: AstRanked AstPrimal Int64 0
+             -> IO ( Maybe (IntVarName, AstRanked AstPrimal Int64 0)
+                   , AstRanked AstPrimal Int64 0 )
+      shareI i | astIsSmall True i = return (Nothing, i)
+      shareI i = do
+        (varFresh, astVarFresh) <- funToAstIOI id
+        return (Just (varFresh, i), astVarFresh)
+  (bindings, ix2) <- unzip <$> mapM shareI (indexToList ix)
+  return $! foldr (uncurry Ast.AstLet) (f $ listToIndex ix2)
+                                       (catMaybes bindings)
 
 astSum :: (KnownNat n, GoodScalar r)
        => AstRanked s r (1 + n) -> AstRanked s r n

@@ -92,6 +92,11 @@ build1VOccurenceUnknown k (var, v0) =
      else traceRule $
        astReplicate k v0
 
+-- This is used to avoid biding the same variable twice in the code,
+-- (unless in very safe situations, e.g., different branches
+-- of an arithmetic expression) which may end up as nested bindings eventually
+-- and break our invariants that we need for simplified handling of bindings
+-- when rewriting terms.
 build1VOccurenceUnknownRefresh
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
   => Int -> (IntVarName, AstRanked s r n) -> AstRanked s r (1 + n)
@@ -107,7 +112,8 @@ intBindingRefresh
 intBindingRefresh var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
   let ix2 = fmap (substituteAst
-                    (SubstitutionPayloadRanked @AstPrimal @Int64 astVarFresh) var) ix
+                    (SubstitutionPayloadRanked @AstPrimal @Int64 astVarFresh)
+                    var) ix
   return $! (varFresh, astVarFresh, ix2)
 
 -- | The application @build1V k (var, v)@ vectorizes
@@ -147,14 +153,13 @@ build1V k (var, v00) =
             -- terms with one step lookahead, as normally when vectorizing
       in astLet var2 (build1VOccurenceUnknown k (var, u))
                      (build1VOccurenceUnknownRefresh k (var, v2))
-                        -- ensure no duplicated bindings; this is stronger
-                        -- than what we need for simple substitution, etc.
+                        -- ensure no duplicated bindings, see below
     Ast.AstLetADShare{} -> error "build1V: AstLetADShare"
 
     Ast.AstNm opCode args -> traceRule $
       Ast.AstNm opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
         -- we permit duplicated bindings, because they can't easily
-        -- be substituted into one another, unlike inside a let,
+        -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
     Ast.AstOp opCode args -> traceRule $
       Ast.AstOp opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
@@ -171,6 +176,8 @@ build1V k (var, v00) =
     Ast.AstSum v -> traceRule $
       astSum $ astTr $ build1V k (var, v)
     Ast.AstScatter sh v (vars, ix) -> traceRule $
+      -- We use a refreshed var binding in the new scatter expression so as
+      -- not to duplicate the var binding from build1VOccurenceUnknown call.
       let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix
       in astScatter (k :$ sh)
                     (build1VOccurenceUnknown k (var, v))
@@ -422,7 +429,8 @@ intBindingRefreshS
 intBindingRefreshS var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
   let ix2 = fmap (substituteAst
-                    (SubstitutionPayloadRanked @AstPrimal @Int64 astVarFresh) var) ix
+                    (SubstitutionPayloadRanked @AstPrimal @Int64 astVarFresh)
+                    var) ix
   return $! (varFresh, astVarFresh, ix2)
 
 -- | The application @build1VS k (var, v)@ vectorizes
@@ -454,15 +462,8 @@ build1VS (var, v00) =
                                      (Ast.AstIntVar var :$: ZSH)
           v2 = substitute1AstS (SubstitutionPayloadShaped @s1 @r1 projection)
                                vvv2 v
-            -- we use the substitution that does not simplify, which is sad,
-            -- because very low hanging fruits may be left hanging, but we
-            -- don't want to simplify the whole term; a better alternative
-            -- would be a substitution that only simplifies the touched
-            -- terms with one step lookahead, as normally when vectorizing
       in astLetS var2 (build1VOccurenceUnknownS @k (var, u))
                       (build1VOccurenceUnknownRefreshS (var, v2))
-                         -- ensure no duplicated bindings; this is stronger
-                         -- than what we need for simple substitution, etc.
     Ast.AstLetADShareS{} -> error "build1VS: AstLetADShareS"
 
     Ast.AstNmS opCode args -> traceRule $

@@ -33,21 +33,16 @@ tminimum :: ( RankedTensor ranked, KnownNat n, GoodScalar r
          => ranked r n -> ranked r 0
 -- The let is required to preserve the sharing of the argument, which is
 -- used twice: in tminIndex and in tindex0.
--- TODO: this simpler form will be possible when intLet is available
--- and so sharing of integer expressions is not broken.
--- tminimum t0 = tlet t0 $ \t -> tindex0 t (tminIndex t)
 tminimum t0 = tlet t0 $ \t ->
-                tlet (tflatten t) $ \tf ->
-                  tindex0 t $ fromLinearIdx (tshape t)
-                                            (tprimalPart $ tminIndex tf)
+                tindex0 t $ fromLinearIdx (tshape t)
+                                          (tprimalPart $ tminIndex (tflatten t))
 
 tmaximum :: ( RankedTensor ranked, KnownNat n, GoodScalar r
             , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
          => ranked r n -> ranked r 0
 tmaximum t0 = tlet t0 $ \t ->
-                tlet (tflatten t) $ \tf ->
-                  tindex0 t $ fromLinearIdx (tshape t)
-                                            (tprimalPart $ tmaxIndex tf)
+                tindex0 t $ fromLinearIdx (tshape t)
+                                          (tprimalPart $ tmaxIndex (tflatten t))
 
 tfromIndex0 :: forall r ranked.
                ( RankedTensor ranked
