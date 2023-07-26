@@ -88,14 +88,12 @@ inlineAst memo v0 = case v0 of
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substitute1Ast (SubstitutionPayloadRanked u2) vvv v2)
-        -- this is the substitution that doesn't simplify, so that
-        -- inlining can be applied with and without simplification
+      1 -> (memo2, substituteAst (SubstitutionPayloadRanked u2) var v2)
       count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
-        in (memo3, substitute1Ast (SubstitutionPayloadRanked u0) vvv v2)
+        in (memo3, substituteAst (SubstitutionPayloadRanked u0) var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstLetADShare{} -> error "inlineAst: AstLetADShare"
   AstNm opCode args ->
@@ -206,14 +204,12 @@ inlineAstDomains memo v0 = case v0 of
         (memo2, u2) = inlineAst memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substitute1AstDomains (SubstitutionPayloadRanked u2) vvv v2)
-        -- this is the substitution that doesn't simplify, so that
-        -- inlining can be applied with and without simplification
+      1 -> (memo2, substituteAstDomains (SubstitutionPayloadRanked u2) var v2)
       count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
-           , substitute1AstDomains (SubstitutionPayloadRanked u0) vvv v2 )
+           , substituteAstDomains (SubstitutionPayloadRanked u0) var v2 )
       _ -> (memo2, Ast.AstDomainsLet var u2 v2)
   Ast.AstDomainsLetS var@(AstVarName vvv) u v ->
     -- We assume there are no nested lets with the same variable.
@@ -223,14 +219,12 @@ inlineAstDomains memo v0 = case v0 of
         (memo2, u2) = inlineAstS memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substitute1AstDomains (SubstitutionPayloadShaped u2) vvv v2)
-        -- this is the substitution that doesn't simplify, so that
-        -- inlining can be applied with and without simplification
+      1 -> (memo2, substituteAstDomains (SubstitutionPayloadShaped u2) var v2)
       count | astIsSmallS (count < 10) u ->
         let (memoU0, u0) = inlineAstS EM.empty u
         in ( EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                -- u is small, so the union is fast
-           , substitute1AstDomains (SubstitutionPayloadShaped u0) vvv v2 )
+           , substituteAstDomains (SubstitutionPayloadShaped u0) var v2 )
       _ -> (memo2, Ast.AstDomainsLetS var u2 v2)
 
 inlineAstBool :: AstMemo -> AstBool -> (AstMemo, AstBool)
@@ -263,14 +257,12 @@ inlineAstS memo v0 = case v0 of
         (memo2, u2) = inlineAstS memo1NoVar u
     in case EM.findWithDefault 0 vv memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substitute1AstS (SubstitutionPayloadShaped u2) vvv v2)
-        -- this is the substitution that doesn't simplify, so that
-        -- inlining can be applied with and without simplification
+      1 -> (memo2, substituteAstS (SubstitutionPayloadShaped u2) var v2)
       count | astIsSmallS (count < 10) u ->
         let (memoU0, u0) = inlineAstS EM.empty u
             memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
                       -- u is small, so the union is fast
-        in (memo3, substitute1AstS (SubstitutionPayloadShaped u0) vvv v2)
+        in (memo3, substituteAstS (SubstitutionPayloadShaped u0) var v2)
       _ -> (memo2, Ast.AstLetS var u2 v2)
   Ast.AstLetADShareS{} -> error "inlineAstS: AstLetADShareS"
   AstNmS opCode args ->

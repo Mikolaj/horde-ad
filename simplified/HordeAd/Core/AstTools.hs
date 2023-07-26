@@ -7,9 +7,6 @@ module HordeAd.Core.AstTools
   ( shapeAst, lengthAst
   , intVarInAst, intVarInAstBool, intVarInIndex
   , intVarInAstS, intVarInIndexS, varNameInAst, varNameInAstS
-  , SubstitutionPayload(..)
-  , substitute1Ast, substitute1AstDomains
-  , substitute1AstBool, substitute1AstS
   , astIsSmall, astIsSmallS
   , unwrapAstDomains, bindsToLet, bindsToLetS
   , bindsToDomainsLet
@@ -17,24 +14,21 @@ module HordeAd.Core.AstTools
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
   (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
-import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 
 -- * Shape calculation
 
@@ -245,183 +239,6 @@ varNameInAstS :: (AstSpan s, AstSpan s2)
               => AstVarName s f r sh -> AstShaped s2 r2 sh2 -> Bool
 varNameInAstS (AstVarName var) = intVarInAstS var
 
-
--- * Substitution
-
-data SubstitutionPayload s r =
-    forall n. KnownNat n
-    => SubstitutionPayloadRanked (AstRanked s r n)
-  | forall sh. OS.Shape sh
-    => SubstitutionPayloadShaped (AstShaped s r sh)
-
--- We assume no variable is shared between a binding and its nested binding
--- and nobody substitutes into variables that are bound.
--- This keeps the substitution code simple, because we never need to compare
--- variables to any variable in the bindings.
---
--- We can't use AstVarName in place of AstVarId, because of the recursive calls,
--- e.g. AstSToR and AstCast, due to which, the extra type parameters would
--- need to be kept unrelated to anything else (except the existentially bound
--- parameters in SubstitutionPayload, which would need to be checked
--- at runtime).
-substitute1Ast :: forall n s s2 r r2.
-                  ( GoodScalar r, GoodScalar r2, KnownNat n
-                  , AstSpan s, AstSpan s2 )
-               => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstRanked s r n
-               -> AstRanked s r n
-substitute1Ast i var v1 = case v1 of
-  AstVar sh var2 ->
-    if fromEnum var == fromEnum var2
-    then case i of
-      SubstitutionPayloadRanked @_ @_ @m t -> case sameAstSpan @s @s2 of
-        Just Refl -> case sameNat (Proxy @m) (Proxy @n) of
-          Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-            Just Refl -> assert (shapeAst t == sh) t
-            _ -> error "substitute1Ast: scalar"
-          _ -> error "substitute1Ast: rank"
-        _ -> error "substitute1Ast: span"
-      _ -> error "substitute1Ast: type"
-    else v1
-  AstLet var2 u v ->
-    AstLet var2 (substitute1Ast i var u) (substitute1Ast i var v)
-  AstLetADShare{} -> error "substitute1Ast: AstLetADShare"
-  AstNm opCode args -> AstNm opCode $ map (substitute1Ast i var) args
-  AstOp opCode args -> AstOp opCode $ map (substitute1Ast i var) args
-  AstOpIntegral opCode args ->
-    AstOpIntegral opCode $ map (substitute1Ast i var) args
-  AstSumOfList args -> AstSumOfList $ map (substitute1Ast i var) args
-  AstIota -> v1
-  AstIndex v ix ->
-    AstIndex (substitute1Ast i var v) (fmap (substitute1Ast i var) ix)
-  AstSum v -> AstSum (substitute1Ast i var v)
-  AstScatter sh v (vars, ix) ->
-    AstScatter sh (substitute1Ast i var v)
-                  (vars, fmap (substitute1Ast i var) ix)
-  AstFromList l -> AstFromList $ map (substitute1Ast i var) l
-  AstFromVector l -> AstFromVector $ V.map (substitute1Ast i var) l
-  AstReplicate s v -> AstReplicate s (substitute1Ast i var v)
-  AstAppend x y -> AstAppend (substitute1Ast i var x) (substitute1Ast i var y)
-  AstSlice i2 n v -> AstSlice i2 n (substitute1Ast i var v)
-  AstReverse v -> AstReverse (substitute1Ast i var v)
-  AstTranspose perm v -> AstTranspose perm (substitute1Ast i var v)
-  AstReshape sh v -> AstReshape sh (substitute1Ast i var v)
-  AstBuild1 k (var2, v) -> AstBuild1 k (var2, substitute1Ast i var v)
-  AstGather sh v (vars, ix) ->
-    AstGather sh (substitute1Ast i var v)
-                  (vars, fmap (substitute1Ast i var) ix)
-  AstCast v -> AstCast $ substitute1Ast i var v
-  AstFromIntegral v -> AstFromIntegral $ substitute1Ast i var v
-  AstSToR v -> AstSToR $ substitute1AstS i var v
-  AstConst _a -> v1
-  AstConstant a -> AstConstant $ substitute1Ast i var a
-  AstPrimalPart a -> AstPrimalPart $ substitute1Ast i var a
-  AstDualPart a -> AstDualPart $ substitute1Ast i var a
-  AstD u u' -> AstD (substitute1Ast i var u) (substitute1Ast i var u')
-  AstLetDomains vars l v ->
-    AstLetDomains vars (substitute1AstDomains i var l)
-                       (substitute1Ast i var v)
-  AstCond b v w -> AstCond (substitute1AstBool i var b)
-                           (substitute1Ast i var v)
-                           (substitute1Ast i var w)
-  AstFloor a -> AstFloor (substitute1Ast i var a)
-  AstMinIndex a -> AstMinIndex (substitute1Ast i var a)
-  AstMaxIndex a -> AstMaxIndex (substitute1Ast i var a)
-
-substitute1AstDynamic
-  :: (GoodScalar r, GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstDynamic s r
-  -> AstDynamic s r
-substitute1AstDynamic i var = \case
-  AstRToD t -> AstRToD $ substitute1Ast i var t
-  AstSToD t -> AstSToD $ substitute1AstS i var t
-
-substitute1AstDomains
-  :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstDomains s -> AstDomains s
-substitute1AstDomains i var = \case
-  AstDomains l ->
-    AstDomains $ V.map (\(DynamicExists d) ->
-                          DynamicExists $ substitute1AstDynamic i var d) l
-  AstDomainsLet var2 u v ->
-    AstDomainsLet var2 (substitute1Ast i var u)
-                       (substitute1AstDomains i var v)
-  AstDomainsLetS var2 u v ->
-    AstDomainsLetS var2 (substitute1AstS i var u)
-                        (substitute1AstDomains i var v)
-
-substitute1AstBool :: (GoodScalar r2, AstSpan s2)
-                   => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstBool
-                   -> AstBool
-substitute1AstBool i var b1 = case b1 of
-  AstBoolOp opCodeBool args ->
-    AstBoolOp opCodeBool $ map (substitute1AstBool i var) args
-  AstBoolConst _a -> b1
-  AstRel opCodeRel args -> AstRel opCodeRel $ map (substitute1Ast i var) args
-  AstRelS opCodeRel args -> AstRelS opCodeRel $ map (substitute1AstS i var) args
-
-substitute1AstS :: forall sh s s2 r r2.
-                   ( GoodScalar r, GoodScalar r2, OS.Shape sh
-                   , AstSpan s, AstSpan s2 )
-                => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstShaped s r sh
-                -> AstShaped s r sh
-substitute1AstS i var v1 = case v1 of
-  AstVarS var2 ->
-    if fromEnum var == fromEnum var2
-    then case i of
-      SubstitutionPayloadShaped @_ @_ @sh2 t -> case sameAstSpan @s @s2 of
-        Just Refl -> case sameShape @sh2 @sh of
-          Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-            Just Refl -> t
-            _ -> error "substitute1AstS: scalar"
-          _ -> error "substitute1AstS: shape"
-        _ -> error "substitute1Ast: span"
-      _ -> error "substitute1AstS: type"
-    else v1
-  AstLetS var2 u v ->
-    AstLetS var2 (substitute1AstS i var u) (substitute1AstS i var v)
-  AstLetADShareS{} -> error "substitute1AstS: AstLetADShareS"
-  AstNmS opCode args -> AstNmS opCode $ map (substitute1AstS i var) args
-  AstOpS opCode args -> AstOpS opCode $ map (substitute1AstS i var) args
-  AstOpIntegralS opCode args ->
-    AstOpIntegralS opCode $ map (substitute1AstS i var) args
-  AstSumOfListS args -> AstSumOfListS $ map (substitute1AstS i var) args
-  AstIotaS -> v1
-  AstIndexS v ix ->
-    AstIndexS (substitute1AstS i var v) (fmap (substitute1Ast i var) ix)
-  AstSumS v -> AstSumS (substitute1AstS i var v)
-  AstScatterS v (vars, ix) ->
-    AstScatterS (substitute1AstS i var v)
-                (vars, fmap (substitute1Ast i var) ix)
-  AstFromListS l -> AstFromListS $ map (substitute1AstS i var) l
-  AstFromVectorS l -> AstFromVectorS $ V.map (substitute1AstS i var) l
-  AstReplicateS v -> AstReplicateS (substitute1AstS i var v)
-  AstAppendS x y ->
-    AstAppendS (substitute1AstS i var x) (substitute1AstS i var y)
-  AstSliceS @i v -> AstSliceS @i (substitute1AstS i var v)
-  AstReverseS v -> AstReverseS (substitute1AstS i var v)
-  AstTransposeS @perm v -> AstTransposeS @perm (substitute1AstS i var v)
-  AstReshapeS v -> AstReshapeS (substitute1AstS i var v)
-  AstBuild1S (var2, v) -> AstBuild1S (var2, substitute1AstS i var v)
-  AstGatherS v (vars, ix) ->
-    AstGatherS (substitute1AstS i var v)
-               (vars, fmap (substitute1Ast i var) ix)
-  AstCastS v -> AstCastS $ substitute1AstS i var v
-  AstFromIntegralS a -> AstFromIntegralS (substitute1AstS i var a)
-  AstRToS v -> AstRToS $ substitute1Ast i var v
-  AstConstS _a -> v1
-  AstConstantS a -> AstConstantS (substitute1AstS i var a)
-  AstPrimalPartS a -> AstPrimalPartS $ substitute1AstS i var a
-  AstDualPartS a -> AstDualPartS $ substitute1AstS i var a
-  AstDS u u' -> AstDS (substitute1AstS i var u) (substitute1AstS i var u')
-  AstLetDomainsS vars l v ->
-    AstLetDomainsS vars (substitute1AstDomains i var l)
-                        (substitute1AstS i var v)
-  AstCondS b v w -> AstCondS (substitute1AstBool i var b)
-                             (substitute1AstS i var v)
-                             (substitute1AstS i var w)
-  AstFloorS a -> AstFloorS (substitute1AstS i var a)
-  AstMinIndexS a -> AstMinIndexS (substitute1AstS i var a)
-  AstMaxIndexS a -> AstMaxIndexS (substitute1AstS i var a)
 
 -- * Determining if a term is too small to require sharing
 
