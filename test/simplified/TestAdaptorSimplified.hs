@@ -19,9 +19,9 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
+import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstPrettyPrint
-import HordeAd.Core.AstSimplify
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -297,7 +297,7 @@ testPiecewiseLinearPP = do
       fT :: AstRanked AstFull Double 0
          -> AstRanked AstFull Double 0
       fT x = ifF (x >. 0) (2 * x) (5 * x)
-      (!artifact6, !deltas) = revDtFun True fT 42
+      (artifact6, _deltas) = revDtFun True fT 42
   printGradient6Pretty renames (simplifyArtifact6 artifact6)
     @?= "\\dret x2 -> let v3 = tscatter [2] dret (\\[] -> [ifF (x2 >. tconst 0.0) 0 1]) in (tconst 2.0 * v3 ! [0] + tconst 5.0 * v3 ! [1])"
   printPrimal6Pretty renames (simplifyArtifact6 artifact6)

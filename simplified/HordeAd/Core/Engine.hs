@@ -33,8 +33,8 @@ import           Type.Reflection (typeRep)
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
+import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
-import HordeAd.Core.AstSimplify
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorADVal

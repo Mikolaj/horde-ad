@@ -513,6 +513,7 @@ library horde-ad-simplified
     exposed-modules:  HordeAd
                       HordeAd.Core.Ast
                       HordeAd.Core.AstFreshId
+                      HordeAd.Core.AstInline
                       HordeAd.Core.AstInterpret
                       HordeAd.Core.AstPrettyPrint
                       HordeAd.Core.AstSimplify
