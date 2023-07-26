@@ -51,24 +51,20 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 type AstEnv ranked shaped = EM.EnumMap AstId (AstEnvElem ranked shaped)
 
 data AstEnvElem :: RankedTensorKind -> ShapedTensorKind -> Type where
-  AstEnvElem :: (KnownNat n, GoodScalar r)
-             => ranked r n -> AstEnvElem ranked shaped
+  AstEnvElemR :: (KnownNat n, GoodScalar r)
+              => ranked r n -> AstEnvElem ranked shaped
   AstEnvElemS :: (OS.Shape sh, GoodScalar r)
               => shaped r sh -> AstEnvElem ranked shaped
 deriving instance (ShowRanked ranked, ShowShaped shaped)
                   => Show (AstEnvElem ranked shaped)
 
-class (forall re ne. GoodScalar re => Show (ranked re ne))
-      => ShowRanked ranked where
-instance
-      (forall re ne. GoodScalar re => Show (ranked re ne))
-      => ShowRanked ranked where
-
-class (forall re she. (GoodScalar re, OS.Shape she) => Show (shaped re she))
-      => ShowShaped shaped where
-instance
-      (forall re she. (GoodScalar re, OS.Shape she) => Show (shaped re she))
-      => ShowShaped shaped where
+extendEnvR :: forall ranked shaped r n s.
+              (KnownNat n, GoodScalar r)
+           => AstVarName s (AstRanked s) r n -> ranked r n
+           -> AstEnv ranked shaped -> AstEnv ranked shaped
+extendEnvR (AstVarName var) t =
+  EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show var)
+                   (astVarIdToAstId var) (AstEnvElemR t)
 
 extendEnvS :: forall ranked shaped r sh s.
               (OS.Shape sh, GoodScalar r)
@@ -77,14 +73,6 @@ extendEnvS :: forall ranked shaped r sh s.
 extendEnvS (AstVarName var) t =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show var)
                    (astVarIdToAstId var) (AstEnvElemS t)
-
-extendEnvR :: forall ranked shaped r n s.
-              (KnownNat n, GoodScalar r)
-           => AstVarName s (AstRanked s) r n -> ranked r n
-           -> AstEnv ranked shaped -> AstEnv ranked shaped
-extendEnvR (AstVarName var) t =
-  EM.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
-                   (astVarIdToAstId var) (AstEnvElem t)
 
 extendEnvDR :: forall ranked shaped s. ConvertTensor ranked shaped
             => ( AstDynamicVarName s (AstRanked s)
@@ -211,58 +199,52 @@ interpretLambdaIndexToIndexS
 interpretLambdaIndexToIndexS f env (vars, asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
-class ( Integral (ShapedOf ranked r y) )
-      => IsIntegralShapedOf ranked r y where
+class (forall re ne. GoodScalar re => Show (ranked re ne))
+      => ShowRanked ranked where
 instance
-      ( Integral (ShapedOf ranked r y) )
-      => IsIntegralShapedOf ranked r y where
+      (forall re ne. GoodScalar re => Show (ranked re ne))
+      => ShowRanked ranked where
 
-class (forall y. KnownNat y => c (ranked r y))
-      => IRanked ranked r c where
+class (forall re she. (GoodScalar re, OS.Shape she) => Show (shaped re she))
+      => ShowShaped shaped where
 instance
-      (forall y. KnownNat y => c (ranked r y))
-      => IRanked ranked r c where
+      (forall re she. (GoodScalar re, OS.Shape she) => Show (shaped re she))
+      => ShowShaped shaped where
 
-class (forall y. OS.Shape y => c ranked r y)
-      => YRanked ranked r c where
+class (forall yc. KnownNat yc => c (f r yc)) => YRanked f r c where
 instance
-      (forall y. OS.Shape y => c ranked r y)
-      => YRanked ranked r c where
+      (forall yc. KnownNat yc => c (f r yc)) => YRanked f r c where
 
-type InterpretAstR ranked =
-  ( RankedOf (PrimalOf ranked) ~ PrimalOf ranked
-  , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
-  , IfF ranked, IfF (ShapedOf ranked), IfF (PrimalOf ranked)
-  , EqF ranked, EqF (ShapedOf ranked), EqF (PrimalOf ranked)
-  , OrdF ranked, OrdF (ShapedOf ranked), OrdF (PrimalOf ranked)
-  , Boolean (SimpleBoolOf ranked)
-  , SimpleBoolOf ranked ~ SimpleBoolOf (ShapedOf ranked)
-  , SimpleBoolOf ranked ~ SimpleBoolOf (PrimalOf ranked)
-  , SimpleBoolOf ranked ~ SimpleBoolOf (PrimalOf (ShapedOf ranked))
-  )
+class (forall yd. OS.Shape yd => c (f r yd)) => YShaped f r c where
+instance
+      (forall yd. OS.Shape yd => c (f r yd)) => YShaped f r c where
 
-type InterpretAstS shaped =
-  ( RankedOf (PrimalOf shaped) ~ PrimalOf (RankedOf shaped)
-  , PrimalOf (RankedOf shaped) ~ RankedOf (PrimalOf shaped)
-  , IfF shaped, IfF (RankedOf shaped), IfF (PrimalOf shaped)
-  , EqF shaped, EqF (RankedOf shaped), EqF (PrimalOf shaped)
-  , OrdF shaped, OrdF (RankedOf shaped), OrdF (PrimalOf shaped)
-  , Boolean (SimpleBoolOf shaped)
-  , SimpleBoolOf shaped ~ SimpleBoolOf (RankedOf shaped)
-  , SimpleBoolOf shaped ~ SimpleBoolOf (PrimalOf shaped)
-  )
+type InterpretAstR ranked = InterpretAst ranked (ShapedOf ranked)
+
+type InterpretAstS shaped = InterpretAst (RankedOf shaped) shaped
 
 type InterpretAst ranked shaped =
   ( shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped
-  , ShowRanked ranked, ShowShaped shaped
+  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
+  , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
+  , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
+  , PrimalOf ranked ~ RankedOf (PrimalOf shaped)
+  , SimpleBoolOf ranked ~ SimpleBoolOf shaped
+  , SimpleBoolOf shaped ~ SimpleBoolOf ranked
+  , SimpleBoolOf ranked ~ SimpleBoolOf (PrimalOf ranked)
+  , SimpleBoolOf (PrimalOf ranked) ~ SimpleBoolOf ranked
+  , SimpleBoolOf shaped ~ SimpleBoolOf (PrimalOf shaped)
+  , SimpleBoolOf (PrimalOf shaped) ~ SimpleBoolOf shaped
+  , Boolean (SimpleBoolOf ranked)
+  , IfF ranked, IfF shaped, IfF (PrimalOf ranked), IfF (PrimalOf shaped)
+  , EqF ranked, EqF shaped, EqF (PrimalOf ranked), EqF (PrimalOf shaped)
+  , OrdF ranked, OrdF shaped, OrdF (PrimalOf ranked), OrdF (PrimalOf shaped)
   , RankedTensor ranked, RankedTensor (PrimalOf ranked)
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , ConvertTensor ranked shaped
   , ConvertTensor (PrimalOf ranked) (PrimalOf shaped)
-  , InterpretAstR ranked
-  , InterpretAstS shaped
-  , IRanked ranked Int64 Integral
-  , YRanked ranked Int64 IsIntegralShapedOf
+  , ShowRanked ranked, ShowShaped shaped
+  , YRanked ranked Int64 Integral, YShaped shaped Int64 Integral
   )
 
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
@@ -302,7 +284,7 @@ interpretAst
   -> AstRanked s r n -> ranked r n
 interpretAst env = \case
   AstVar sh (AstVarName var) -> case EM.lookup (astVarIdToAstId var) env of
-    Just (AstEnvElem @n2 @r2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
+    Just (AstEnvElemR @n2 @r2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (tshape t == sh) t
         _ -> error "interpretAst: type mismatch"
@@ -515,7 +497,6 @@ interpretAst env = \case
   AstFromVector l ->
     let l2 = V.map (interpretAst env) l
     in tfromVector l2
-      -- TODO: emulate mapAccum using mapM?
   AstReshape sh (AstReplicate @m _ s)
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let t1 = interpretAst env s
@@ -528,8 +509,6 @@ interpretAst env = \case
         t2 = interpretAst env y
     in tappend t1 t2
   AstSlice i n AstIota ->
-    -- AstConstant not needed, because when AstIota is introduced
-    -- by the user, AstConstant is wrapped over it.
     interpretAst env
     $ AstConst $ OR.fromList [n] $ map fromIntegral [i .. i + n - 1]
   AstSlice i n v -> tslice i n (interpretAst env v)
@@ -826,7 +805,7 @@ interpretAstS env = \case
   AstSumOfListS args ->
     let args2 = interpretAstS env <$> args
     in ssumOfList args2
-  AstIotaS -> siota  -- TODO: siotaBare might be needed to avoid AstConstant
+  AstIotaS -> siota
   AstIndexS AstIotaS (i :$: ZSH) ->
     sfromIntegral . sconstant . sfromR $ interpretPrimalSpan env i
   AstIndexS @sh1 v ix ->
@@ -962,7 +941,6 @@ interpretAstS env = \case
   AstFromVectorS l ->
     let l2 = V.map (interpretAstS env) l
     in sfromVector l2
-      -- TODO: emulate mapAccum using mapM?
 {- TODO:
   AstReshape sh (AstReplicate @m _ s)
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
