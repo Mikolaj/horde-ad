@@ -1817,7 +1817,8 @@ simplifyAstS t = case t of
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAstS a)
 
 astLetS :: forall sh1 sh2 s s2 r r2.
-           (OS.Shape sh1, OS.Shape sh2, GoodScalar r, GoodScalar r2, AstSpan s, AstSpan s2)
+           ( OS.Shape sh1, OS.Shape sh2, GoodScalar r, GoodScalar r2
+           , AstSpan s, AstSpan s2 )
         => AstVarName s (AstShaped s) r sh1
         -> AstShaped s r sh1 -> AstShaped s2 r2 sh2
         -> AstShaped s2 r2 sh2
@@ -2082,7 +2083,12 @@ substitute1Ast i var = \case
   Ast.AstNm opCode args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
-       then Just $ Ast.AstNm opCode $ zipWith fromMaybe args margs
+       then Just $ case ( sameAstSpan @AstPrimal @s
+                        , sameNat (Proxy @n) (Proxy @0)
+                        , testEquality (typeRep @r) (typeRep @Int64) ) of
+         (Just Refl, Just Refl, Just Refl) ->
+           simplifyAstNumOp opCode $ zipWith fromMaybe args margs
+         _ -> Ast.AstNm opCode $ zipWith fromMaybe args margs
        else Nothing
   Ast.AstOp opCode args ->
     let margs = map (substitute1Ast i var) args
@@ -2092,12 +2098,22 @@ substitute1Ast i var = \case
   Ast.AstOpIntegral opCode args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
-       then Just $ Ast.AstOpIntegral opCode $ zipWith fromMaybe args margs
+       then Just $ case ( sameAstSpan @AstPrimal @s
+                        , sameNat (Proxy @n) (Proxy @0)
+                        , testEquality (typeRep @r) (typeRep @Int64) ) of
+         (Just Refl, Just Refl, Just Refl) ->
+           simplifyAstIntegralOp opCode $ zipWith fromMaybe args margs
+         _ -> Ast.AstOpIntegral opCode $ zipWith fromMaybe args margs
        else Nothing
   Ast.AstSumOfList args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
-       then Just $ astSumOfList $ zipWith fromMaybe args margs
+       then Just $ case ( sameAstSpan @AstPrimal @s
+                        , sameNat (Proxy @n) (Proxy @0)
+                        , testEquality (typeRep @r) (typeRep @Int64) ) of
+         (Just Refl, Just Refl, Just Refl) ->
+           foldr1 simplifyAstPlusOp $ zipWith fromMaybe args margs
+         _ -> astSumOfList $ zipWith fromMaybe args margs
        else Nothing
   Ast.AstIota -> Nothing
   Ast.AstIndex v ix ->
@@ -2208,13 +2224,13 @@ substitute1AstBool i var = \case
   Ast.AstBoolOp opCodeBool args ->
     let margs = map (substitute1AstBool i var) args
     in if any isJust margs
-       then Just $ Ast.AstBoolOp opCodeBool $ zipWith fromMaybe args margs
+       then Just $ simplifyAstBoolOp opCodeBool $ zipWith fromMaybe args margs
        else Nothing
   Ast.AstBoolConst{} -> Nothing
   Ast.AstRel opCodeRel args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
-       then Just $ Ast.AstRel opCodeRel $ zipWith fromMaybe args margs
+       then Just $ simplifyRelOp opCodeRel $ zipWith fromMaybe args margs
        else Nothing
   Ast.AstRelS opCodeRel args ->
     let margs = map (substitute1AstS i var) args
