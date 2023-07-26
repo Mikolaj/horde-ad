@@ -75,9 +75,6 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
       , TensorSupports RealFloat ranked, TensorSupports Integral ranked )
       => RankedTensor (ranked :: RankedTensorKind) where
 
-  -- TODO: type Scalar r = ranked r 0
-  -- is a macro/TH the only way?
-
   tlet :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
        => ranked r n -> (ranked r n -> ranked r2 m)
        -> ranked r2 m

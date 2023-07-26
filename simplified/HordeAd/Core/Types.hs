@@ -4,8 +4,8 @@ module HordeAd.Core.Types
   ( TensorKind, RankedTensorKind, ShapedTensorKind
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
   , DynamicExists(..), Domains, DomainsOD, sizeDomainsOD
-  , RankedOf, ShapedOf, PrimalOf, DualOf, IntOf, IndexOf, IntSh, IndexSh
-  , DummyDual(..)
+  , RankedOf, ShapedOf, PrimalOf, DualOf, DummyDual(..)
+  , IntOf, IndexOf, IntSh, IndexSh
   , SimpleBoolOf, Boolean(..)
   ) where
 
@@ -97,6 +97,8 @@ type family PrimalOf (f :: TensorKind k) :: TensorKind k
 
 type family DualOf (f :: TensorKind k) :: TensorKind k
 
+data DummyDual a (b :: k) = DummyDual
+
 -- This is used only in indexing and similar contexts.
 -- If used as size or shape gives more expressiveness,
 -- but leads to irregular tensors, especially after vectorization,
@@ -123,11 +125,4 @@ type IntSh (f :: TensorKind k) (n :: Nat) = ShapedNat n (IntOf f)
 -- and up to evaluation.
 type IndexSh (f :: TensorKind k) (sh :: [Nat]) = ShapedList sh (IntOf f)
 
-data DummyDual a (b :: k) = DummyDual
-
--- This and below is inspired by https://hackage.haskell.org/package/Boolean,
--- but renamed so that it does not conflict with it nor with Applicative
--- and modified to depend on the tensor structure functor only,
--- not on the type resulting from applying the functor to the underlying
--- scalar and rank/shape.
 type family SimpleBoolOf (t :: k) :: Type

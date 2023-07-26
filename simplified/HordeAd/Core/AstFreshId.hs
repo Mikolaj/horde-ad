@@ -143,7 +143,7 @@ funToAstAllIO parameters0 = do
         let sh = OD.shapeL e
         freshId <- unsafeGetFreshAstId
         let varId :: AstVarId s
-            varId = intToAstVarId (fromEnum freshId)
+            varId = astIdToAstVarId freshId
         return $! OS.withShapeP sh $ \(Proxy :: Proxy sh) ->
           case someNatVal $ toInteger $ length sh of
             Just (SomeNat @n _) ->
@@ -178,7 +178,7 @@ funToAstAllIOS parameters0 = do
         let sh = OD.shapeL e
         freshId <- unsafeGetFreshAstId
         let varId :: AstVarId s
-            varId = intToAstVarId (fromEnum freshId)
+            varId = astIdToAstVarId freshId
         return $! OS.withShapeP sh $ \(Proxy :: Proxy sh) ->
           let dynE :: DynamicExists (AstDynamic s)
               dynE = DynamicExists @r2

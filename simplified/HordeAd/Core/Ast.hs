@@ -1,5 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
-             UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
@@ -20,8 +19,8 @@ module HordeAd.Core.Ast
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare, intVarInADShare, nullADShare
-  , AstNoVectorize(..), AstNoSimplify(..)
   , BoolOf, IfF(..), EqF(..), OrdF(..), minF, maxF
+  , AstNoVectorize(..), AstNoSimplify(..)
   ) where
 
 import Prelude
@@ -185,7 +184,6 @@ type AstVarListS sh = ShapedList sh IntVarName
 -- more expressiveness, but leads to irregular tensors,
 -- especially after vectorization, and prevents static checking of shapes.
 data AstRanked :: AstSpanType -> RankedTensorKind where
-  -- To permit defining objective functions in Ast, not just constants:
   AstVar :: ShapeInt n -> AstVarName s (AstRanked s) r n -> AstRanked s r n
   AstLet :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
          => AstVarName s (AstRanked s) r n -> AstRanked s r n
@@ -195,6 +193,16 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
    -- there are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
+  AstCond :: AstBool
+          -> AstRanked s r n -> AstRanked s r n -> AstRanked s r n
+
+  AstMinIndex :: GoodScalar r
+              => AstRanked AstPrimal r (1 + n) -> AstRanked AstPrimal r2 n
+  AstMaxIndex :: GoodScalar r
+              => AstRanked AstPrimal r (1 + n) -> AstRanked AstPrimal r2 n
+  AstFloor :: (GoodScalar r, RealFrac r, Integral r2)
+           => AstRanked AstPrimal r n -> AstRanked AstPrimal r2 n
+  AstIota :: AstRanked AstPrimal r 1
 
   -- For the numeric classes:
   AstNm :: OpCodeNum -> [AstRanked s r n] -> AstRanked s r n
@@ -204,9 +212,8 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
   AstOpIntegral :: Integral r
                 => OpCodeIntegral -> [AstRanked s r n] -> AstRanked s r n
   AstSumOfList :: [AstRanked s r n] -> AstRanked s r n
-  AstIota :: AstRanked AstPrimal r 1
 
-  -- For the Tensor class:
+  -- For the main part of the RankedTensor class:
   AstIndex :: forall m n r s. KnownNat m
            => AstRanked s r (m + n) -> AstIndex m -> AstRanked s r n
     -- first ix is for outermost dimension; empty index means identity,
@@ -246,12 +253,12 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
           => AstRanked s r1 n -> AstRanked s r2 n
   AstFromIntegral :: (GoodScalar r1, Integral r1)
                   => AstRanked AstPrimal r1 n -> AstRanked AstPrimal r2 n
+  AstConst :: OR.Array n r -> AstRanked AstPrimal r n
 
   AstSToR :: OS.Shape sh
           => AstShaped s r sh -> AstRanked s r (OS.Rank sh)
 
-  -- For the forbidden half of the Tensor class:
-  AstConst :: OR.Array n r -> AstRanked AstPrimal r n
+  -- For the forbidden half of the RankedTensor class:
   AstConstant :: AstRanked AstPrimal r n -> AstRanked AstFull r n
   AstPrimalPart :: AstRanked AstFull r n -> AstRanked AstPrimal r n
   AstDualPart :: AstRanked AstFull r n -> AstRanked AstDual r n
@@ -261,18 +268,6 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
                 => Data.Vector.Vector (AstVarId s) -> AstDomains s
                 -> AstRanked s2 r n
                 -> AstRanked s2 r n
-
-  AstCond :: AstBool
-          -> AstRanked s r n -> AstRanked s r n -> AstRanked s r n
-  -- Morally these should live in AstRanked AstPrimal, but that would complicate
-  -- things, so they are least have AstRanked AstPrimal domains, which often makes
-  -- it possible to simplify terms, e.g., deleting AstRanked AstDual applications.
-  AstFloor :: (GoodScalar r, RealFrac r, Integral r2)
-           => AstRanked AstPrimal r n -> AstRanked AstPrimal r2 n
-  AstMinIndex :: GoodScalar r
-              => AstRanked AstPrimal r (1 + n) -> AstRanked AstPrimal r2 n
-  AstMaxIndex :: GoodScalar r
-              => AstRanked AstPrimal r (1 + n) -> AstRanked AstPrimal r2 n
 
 deriving instance GoodScalar r => Show (AstRanked s r n)
 
@@ -289,6 +284,18 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
    -- there are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
+  AstCondS :: AstBool
+           -> AstShaped s r sh -> AstShaped s r sh -> AstShaped s r sh
+
+  AstMinIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
+               => AstShaped AstPrimal r (n ': sh)
+               -> AstShaped AstPrimal r2 (OS.Init (n ': sh))
+  AstMaxIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
+               => AstShaped AstPrimal r (n ': sh)
+               -> AstShaped AstPrimal r2 (OS.Init (n ': sh))
+  AstFloorS :: (GoodScalar r, RealFrac r, Integral r2)
+            => AstShaped AstPrimal r sh -> AstShaped AstPrimal r2 sh
+  AstIotaS :: forall n r. KnownNat n => AstShaped AstPrimal r '[n]
 
   -- For the numeric classes:
   AstNmS :: OpCodeNum -> [AstShaped s r sh] -> AstShaped s r sh
@@ -297,9 +304,8 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
   AstOpIntegralS :: Integral r
                  => OpCodeIntegral -> [AstShaped s r sh] -> AstShaped s r sh
   AstSumOfListS :: [AstShaped s r sh] -> AstShaped s r sh
-  AstIotaS :: forall n r. KnownNat n => AstShaped AstPrimal r '[n]
 
-  -- For the Tensor class:
+  -- For the main part of the ShapedTensor class:
   AstIndexS :: forall sh1 sh2 s r.
                (OS.Shape sh1, OS.Shape sh2, OS.Shape (sh1 OS.++ sh2))
             => AstShaped s r (sh1 OS.++ sh2) -> AstIndexS sh1
@@ -353,12 +359,12 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
            => AstShaped s r1 sh -> AstShaped s r2 sh
   AstFromIntegralS :: (GoodScalar r1, Integral r1)
                    => AstShaped AstPrimal r1 sh -> AstShaped AstPrimal r2 sh
+  AstConstS :: OS.Array sh r -> AstShaped AstPrimal r sh
 
   AstRToS :: (OS.Shape sh, KnownNat (OS.Rank sh))
           => AstRanked s r (OS.Rank sh) -> AstShaped s r sh
 
-  -- For the forbidden half of the Tensor class:
-  AstConstS :: OS.Array sh r -> AstShaped AstPrimal r sh
+  -- For the forbidden half of the ShapedTensor class:
   AstConstantS :: AstShaped AstPrimal r sh -> AstShaped AstFull r sh
   AstPrimalPartS :: AstShaped AstFull r sh -> AstShaped AstPrimal r sh
   AstDualPartS :: AstShaped AstFull r sh -> AstShaped AstDual r sh
@@ -368,20 +374,6 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
                  => Data.Vector.Vector (AstVarId s) -> AstDomains s
                  -> AstShaped s2 r sh
                  -> AstShaped s2 r sh
-
-  AstCondS :: AstBool
-           -> AstShaped s r sh -> AstShaped s r sh -> AstShaped s r sh
-  -- Morally these should live in AstShaped AstPrimal, but that would complicate
-  -- things, so they are least have AstShaped AstPrimal domains, which often makes
-  -- it possible to simplify terms, e.g., deleting AstShaped AstDual applications.
-  AstFloorS :: (GoodScalar r, RealFrac r, Integral r2)
-            => AstShaped AstPrimal r sh -> AstShaped AstPrimal r2 sh
-  AstMinIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
-               => AstShaped AstPrimal r (n ': sh)
-               -> AstShaped AstPrimal r2 (OS.Init (n ': sh))
-  AstMaxIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
-               => AstShaped AstPrimal r (n ': sh)
-               -> AstShaped AstPrimal r2 (OS.Init (n ': sh))
 
 deriving instance (GoodScalar r, OS.Shape sh) => Show (AstShaped s r sh)
 
@@ -427,7 +419,7 @@ data OpCode =
  deriving Show
 
 data OpCodeIntegral =
-  QuotOp | RemOp
+    QuotOp | RemOp
  deriving Show
 
 data OpCodeBool =
@@ -438,18 +430,6 @@ data OpCodeRel =
     EqOp | NeqOp
   | LeqOp| GeqOp | LsOp | GtOp
  deriving Show
-
-
--- * Unlawful instances of AST for bool; they are lawful modulo evaluation
-
-instance Boolean AstBool where
-  true = AstBoolConst True
-  false = AstBoolConst False
-  notB b = AstBoolOp NotOp [b]
-  AstBoolConst b &&* AstBoolConst c = AstBoolConst $ b && c
-                                        -- common in indexing
-  b &&* c = AstBoolOp AndOp [b, c]
-  b ||* c = AstBoolOp OrOp [b, c]
 
 
 -- * Unlawful numeric instances of ranked AST; they are lawful modulo evaluation
@@ -617,7 +597,7 @@ instance (Real (OS.Array sh r), AstSpan s) => Real (AstShaped s r sh) where
 
 instance Enum r => Enum (AstShaped s r n) where
   toEnum = undefined
-  fromEnum = undefined  -- do we need to define our own Enum for this?
+  fromEnum = undefined  -- do we need to define our own Enum class for this?
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
@@ -678,6 +658,61 @@ instance (Differentiable r, RealFloat (OS.Array sh r), AstSpan s)
   isDenormalized = undefined
   isNegativeZero = undefined
   isIEEE = undefined
+
+
+-- * Unlawful instances of AST for bool; they are lawful modulo evaluation
+
+instance Boolean AstBool where
+  true = AstBoolConst True
+  false = AstBoolConst False
+  notB b = AstBoolOp NotOp [b]
+  AstBoolConst b &&* AstBoolConst c = AstBoolConst $ b && c
+                                        -- common in indexing
+  b &&* c = AstBoolOp AndOp [b, c]
+  b ||* c = AstBoolOp OrOp [b, c]
+
+
+-- * Boolean definitions and instances
+
+type BoolOf f = (ADShare, SimpleBoolOf f)
+
+-- This and below is inspired by https://hackage.haskell.org/package/Boolean,
+-- but renamed so that it does not conflict with it nor with Applicative
+-- and modified to depend on the tensor structure functor only,
+-- not on the type resulting from applying the functor to the underlying
+-- scalar and rank/shape.
+instance Boolean b => Boolean (ADShare, b) where
+  true = (emptyADShare, true)
+  false = (emptyADShare, false)
+  notB (l, b) = (l, notB b)
+  (l1, b) &&* (l2, c) = (l1 `mergeADShare` l2, b &&* c)
+  (l1, b) ||* (l2, c) = (l1 `mergeADShare` l2, b ||* c)
+
+class Boolean (BoolOf f) => IfF (f :: TensorKind k) where
+  ifF :: (GoodScalar r, HasSingletonDict y)
+      => BoolOf f -> f r y -> f r y -> f r y
+
+infix 4 ==., /=.
+class Boolean (BoolOf f) => EqF (f :: TensorKind k) where
+  (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
+               => f r y -> f r y -> BoolOf f
+  u /=. v = notB (u ==. v)
+
+infix 4 <., <=., >=., >.
+class Boolean (BoolOf f) => OrdF (f :: TensorKind k) where
+  (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
+                           => f r y -> f r y -> BoolOf f
+  u >. v = v <. u
+  u >=. v = notB (u <. v)
+  u <=. v = v >=. u
+
+minF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
+     => f r y -> f r y -> f r y
+minF u v = ifF (u <=. v) u v
+
+maxF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
+     => f r y -> f r y -> f r y
+maxF u v = ifF (u >=. v) u v
 
 
 -- * ADShare definition
@@ -764,7 +799,8 @@ subtractADShare :: ADShare -> ADShare
                 -> [(AstId, DynamicExists (AstDynamic AstPrimal))]
 {-# INLINE subtractADShare #-}  -- help list fusion
 subtractADShare !s1 !s2 =
-  let subAD :: ADShare -> ADShare -> [(AstId, DynamicExists (AstDynamic AstPrimal))]
+  let subAD :: ADShare -> ADShare
+            -> [(AstId, DynamicExists (AstDynamic AstPrimal))]
       subAD !l ADShareNil = assocsADShare l
       subAD ADShareNil _ = []
       subAD l1@(ADShareCons id1 key1 t1 rest1)
@@ -804,44 +840,6 @@ nullADShare :: ADShare -> Bool
 {-# INLINE nullADShare #-}
 nullADShare ADShareNil = True
 nullADShare ADShareCons{} = False
-
-
--- * Boolean definitions and instances
-
-type BoolOf f = (ADShare, SimpleBoolOf f)
-
-instance Boolean b => Boolean (ADShare, b) where
-  true = (emptyADShare, true)
-  false = (emptyADShare, false)
-  notB (l, b) = (l, notB b)
-  (l1, b) &&* (l2, c) = (l1 `mergeADShare` l2, b &&* c)
-  (l1, b) ||* (l2, c) = (l1 `mergeADShare` l2, b ||* c)
-
-class Boolean (BoolOf f) => IfF (f :: TensorKind k) where
-  ifF :: (GoodScalar r, HasSingletonDict y)
-      => BoolOf f -> f r y -> f r y -> f r y
-
-infix 4 ==., /=.
-class Boolean (BoolOf f) => EqF (f :: TensorKind k) where
-  (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
-               => f r y -> f r y -> BoolOf f
-  u /=. v = notB (u ==. v)
-
-infix 4 <., <=., >=., >.
-class Boolean (BoolOf f) => OrdF (f :: TensorKind k) where
-  (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
-                           => f r y -> f r y -> BoolOf f
-  u >. v = v <. u
-  u >=. v = notB (u <. v)
-  u <=. v = v >=. u
-
-minF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
-     => f r y -> f r y -> f r y
-minF u v = ifF (u <=. v) u v
-
-maxF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
-     => f r y -> f r y -> f r y
-maxF u v = ifF (u >=. v) u v
 
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify definitions, for tests
