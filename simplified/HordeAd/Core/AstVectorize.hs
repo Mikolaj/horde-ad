@@ -102,7 +102,7 @@ build1VOccurenceUnknownRefresh
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let v2 = substituteAst (SubstitutionPayloadRanked @AstPrimal @Int64 astVarFresh) var v0
+  let v2 = substituteAst (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
   return $! build1VOccurenceUnknown k (varFresh, v2)
 
 intBindingRefresh
@@ -111,7 +111,7 @@ intBindingRefresh
 intBindingRefresh var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
   let ix2 = fmap (substituteAst
-                    (SubstitutionPayloadRanked @AstPrimal @Int64 astVarFresh)
+                    (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
                     var) ix
   return $! (varFresh, astVarFresh, ix2)
 
@@ -213,10 +213,10 @@ build1V k (var, v00) =
       error "build1V: AstConst can't have free index variables"
     Ast.AstConstant v -> traceRule $
       Ast.AstConstant $ build1V k (var, v)
-    Ast.AstPrimalPart v -> traceRule $
-      Ast.AstPrimalPart $ build1V k (var, v)
-    Ast.AstDualPart v -> traceRule $
-      Ast.AstDualPart $ build1V k (var, v)
+    Ast.PrimalSpanPart v -> traceRule $
+      Ast.PrimalSpanPart $ build1V k (var, v)
+    Ast.DualSpanPart v -> traceRule $
+      Ast.DualSpanPart $ build1V k (var, v)
     Ast.AstD u u' ->
       Ast.AstD (build1VOccurenceUnknown k (var, u))
                (build1VOccurenceUnknown k (var, u'))
@@ -411,7 +411,7 @@ build1VOccurenceUnknownRefreshS
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let v2 = substituteAstS (SubstitutionPayloadRanked @AstPrimal @Int64 astVarFresh) var v0
+  let v2 = substituteAstS (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
   return $! build1VOccurenceUnknownS (varFresh, v2)
 
 intBindingRefreshS
@@ -420,7 +420,7 @@ intBindingRefreshS
 intBindingRefreshS var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
   let ix2 = fmap (substituteAst
-                    (SubstitutionPayloadRanked @AstPrimal @Int64 astVarFresh)
+                    (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
                     var) ix
   return $! (varFresh, astVarFresh, ix2)
 
@@ -531,10 +531,10 @@ build1VS (var, v00) =
       error "build1VS: AstConstS can't have free index variables"
     Ast.AstConstantS v -> traceRule $
       Ast.AstConstantS $ build1VS (var, v)
-    Ast.AstPrimalPartS v -> traceRule $
-      Ast.AstPrimalPartS $ build1VS (var, v)
-    Ast.AstDualPartS v -> traceRule $
-      Ast.AstDualPartS $ build1VS (var, v)
+    Ast.PrimalSpanPartS v -> traceRule $
+      Ast.PrimalSpanPartS $ build1VS (var, v)
+    Ast.DualSpanPartS v -> traceRule $
+      Ast.DualSpanPartS $ build1VS (var, v)
     Ast.AstDS u u' ->
       Ast.AstDS (build1VOccurenceUnknownS (var, u))
                 (build1VOccurenceUnknownS (var, u'))

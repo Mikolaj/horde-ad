@@ -419,8 +419,8 @@ instance DualPart @() (Clown OD.Array) where
   reverseDervative = gradientDtD
   forwardDerivative = derivativeFromDeltaD
 
-instance DualPart @() (Clown (AstDynamic AstPrimal)) where
-  type Dual (Clown (AstDynamic AstPrimal)) = DeltaD (AstRanked AstPrimal) (AstShaped AstPrimal)
+instance DualPart @() (Clown (AstDynamic PrimalSpan)) where
+  type Dual (Clown (AstDynamic PrimalSpan)) = DeltaD (AstRanked PrimalSpan) (AstShaped PrimalSpan)
   reverseDervative = gradientDtD
   forwardDerivative = derivativeFromDeltaD
 
@@ -462,8 +462,8 @@ instance DualPart @Nat (Flip OR.Array) where
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
-instance DualPart @Nat (AstRanked AstPrimal) where
-  type Dual (AstRanked AstPrimal) = DeltaR (AstRanked AstPrimal) (AstShaped AstPrimal)
+instance DualPart @Nat (AstRanked PrimalSpan) where
+  type Dual (AstRanked PrimalSpan) = DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan)
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
@@ -486,10 +486,10 @@ gradientDtR dims value mdt deltaTopLevel =
      , Domains (DynamicOf (Flip OR.Array)) ) #-}
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
-  => Int -> AstRanked AstPrimal Double y -> Maybe (AstRanked AstPrimal Double y)
-  -> DeltaR (AstRanked AstPrimal) (AstShaped AstPrimal) Double y
-  -> ( [(AstId, DynamicExists (DynamicOf (AstRanked AstPrimal)))]
-     , Domains (DynamicOf (AstRanked AstPrimal)) ) #-}
+  => Int -> AstRanked PrimalSpan Double y -> Maybe (AstRanked PrimalSpan Double y)
+  -> DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double y
+  -> ( [(AstId, DynamicExists (DynamicOf (AstRanked PrimalSpan)))]
+     , Domains (DynamicOf (AstRanked PrimalSpan)) ) #-}
 
 derivativeFromDeltaR
   :: forall ranked shaped r n.
@@ -511,8 +511,8 @@ instance DualPart @[Nat] (Flip OS.Array) where
   reverseDervative dims _ = gradientDtS dims
   forwardDerivative = derivativeFromDeltaS
 
-instance DualPart @[Nat] (AstShaped AstPrimal) where
-  type Dual (AstShaped AstPrimal) = DeltaS (AstRanked AstPrimal) (AstShaped AstPrimal)
+instance DualPart @[Nat] (AstShaped PrimalSpan) where
+  type Dual (AstShaped PrimalSpan) = DeltaS (AstRanked PrimalSpan) (AstShaped PrimalSpan)
   reverseDervative dims _ = gradientDtS dims
   forwardDerivative = derivativeFromDeltaS
 
@@ -535,10 +535,10 @@ gradientDtS dims mdt deltaTopLevel =
      , Domains (DynamicOf (Flip OS.Array)) ) #-}
 {-# SPECIALIZE gradientDtS
   :: OS.Shape y
-  => Int -> Maybe (AstShaped AstPrimal Double y)
-  -> DeltaS (AstRanked AstPrimal) (AstShaped AstPrimal) Double y
-  -> ( [(AstId, DynamicExists (DynamicOf (AstShaped AstPrimal)))]
-     , Domains (DynamicOf (AstShaped AstPrimal)) ) #-}
+  => Int -> Maybe (AstShaped PrimalSpan Double y)
+  -> DeltaS (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double y
+  -> ( [(AstId, DynamicExists (DynamicOf (AstShaped PrimalSpan)))]
+     , Domains (DynamicOf (AstShaped PrimalSpan)) ) #-}
 
 derivativeFromDeltaS
   :: forall ranked shaped r sh.
@@ -694,8 +694,8 @@ gradientFromDelta dims deltaDt =
   :: Int -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
   -> ([(AstId, DynamicExists OD.Array)], DomainsOD) #-}
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> DeltaDt (AstRanked AstPrimal) (AstShaped AstPrimal) Double
-  -> ([(AstId, DynamicExists (AstDynamic AstPrimal))], Domains (AstDynamic AstPrimal)) #-}
+  :: Int -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
+  -> ([(AstId, DynamicExists (AstDynamic PrimalSpan))], Domains (AstDynamic PrimalSpan)) #-}
 
 buildFinMaps
   :: forall ranked shaped r0.
@@ -971,7 +971,7 @@ buildFinMaps s0 deltaDt =
 {-# SPECIALIZE buildFinMaps
   :: EvalState (Flip OR.Array) (Flip OS.Array) -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) #-}
 {-# SPECIALIZE buildFinMaps
-  :: EvalState (AstRanked AstPrimal) (AstShaped AstPrimal) -> DeltaDt (AstRanked AstPrimal) (AstShaped AstPrimal) Double -> EvalState (AstRanked AstPrimal) (AstShaped AstPrimal) #-}
+  :: EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double -> EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) #-}
 
 -- * Forward derivative computation from the delta expressions
 

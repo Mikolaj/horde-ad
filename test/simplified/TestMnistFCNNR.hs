@@ -209,10 +209,10 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
          funToAstIOR (singletonShape sizeMnistLabelInt) id
-       let ast :: AstRanked AstPrimal r 0
+       let ast :: AstRanked PrimalSpan r 0
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                    widthHidden widthHidden2 (astGlyph, astLabel)
-                   (parseDomains @(AstDynamic AstPrimal) valsInit doms)
+                   (parseDomains @(AstDynamic PrimalSpan) valsInit doms)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
@@ -324,7 +324,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
        let envInit = extendEnvR varGlyph (tconstant astGlyph)
                      $ extendEnvR varLabel (tconstant astLabel)
                      EM.empty
-           f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked AstFull)
+           f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
                  widthHidden widthHidden2 (tconstant astGlyph, tconstant astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit False f valsInit envInit domainsInit
@@ -532,9 +532,9 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
          funToAstIOR (singletonShape sizeMnistLabelInt) id
-       let ast :: AstRanked AstPrimal r 0
+       let ast :: AstRanked PrimalSpan r 0
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
-                   (astGlyph, astLabel) (parseDomains @(AstDynamic AstPrimal) valsInit doms)
+                   (astGlyph, astLabel) (parseDomains @(AstDynamic PrimalSpan) valsInit doms)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
@@ -643,7 +643,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
        let envInit = extendEnvR varGlyph (tconstant astGlyph)
                      $ extendEnvR varLabel (tconstant astLabel)
                        EM.empty
-           f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked AstFull)
+           f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
                  (tconstant astGlyph, tconstant astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit False f valsInit envInit domainsInit
@@ -732,8 +732,8 @@ testVTOPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked AstFull) Double
-              -> AstRanked AstFull Double 1
+      afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked FullSpan) Double
+              -> AstRanked FullSpan Double 1
       afcnn2T = MnistFcnnRanked1.afcnnMnist1 id id 3 4 blackGlyph
       (artifact6, _) = revDtFun True afcnn2T valsInitVTOPP
   printGradient6Pretty renames artifact6
@@ -750,8 +750,8 @@ testVTOPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked AstFull) Double
-                    -> AstRanked AstFull Double 1
+      afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked FullSpan) Double
+                    -> AstRanked FullSpan Double 1
       afcnn2TnonLin =
         MnistFcnnRanked1.afcnnMnist1 logistic softMax1 3 4 blackGlyph
       (artifact6nonLin, _) = revDtFun True afcnn2TnonLin valsInitVTOPP
@@ -778,8 +778,8 @@ testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked AstFull) Double
-              -> AstRanked AstFull Double 1
+      afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked FullSpan) Double
+              -> AstRanked FullSpan Double 1
       afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id blackGlyph
       (artifact6, _) = revDtFun True afcnn2T valsInitVT2OPP
   printGradient6Pretty renames artifact6
@@ -796,8 +796,8 @@ testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked AstFull) Float
-                    -> AstRanked AstFull Float 1
+      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked FullSpan) Float
+                    -> AstRanked FullSpan Float 1
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
                  in ( ( AstCast $ AstConstant $ AstConst $ runFlip a1
@@ -817,8 +817,8 @@ testVT2OPPNonLin2 = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked AstFull) Double
-                    -> AstRanked AstFull Double 1
+      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked FullSpan) Double
+                    -> AstRanked FullSpan Double 1
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
   let (artifact6nonLin, _) = revDtFun True afcnn2TnonLin valsInitVT2OPP
   printGradient6Pretty renames artifact6nonLin

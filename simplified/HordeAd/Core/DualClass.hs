@@ -115,7 +115,7 @@ instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance (GoodScalar r, KnownNat n) => IsPrimalPart (AstRanked AstPrimal) r n where
+instance (GoodScalar r, KnownNat n) => IsPrimalPart (AstRanked PrimalSpan) r n where
   dZero = ZeroR
   dScale _ ZeroR = ZeroR
   dScale v u' = ScaleR v u'
@@ -126,7 +126,7 @@ instance (GoodScalar r, KnownNat n) => IsPrimalPart (AstRanked AstPrimal) r n wh
     tconst $ OR.constant (shapeToList $ tshape tsh) (fromIntegral c)
   recordSharingPrimal = astRegisterADShare
 
-instance GoodScalar r => CanRecordSharing (AstRanked AstPrimal) r n where
+instance GoodScalar r => CanRecordSharing (AstRanked PrimalSpan) r n where
   recordSharing d = case d of
     ZeroR -> d
     InputR{} -> d
@@ -153,7 +153,7 @@ instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
-instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (AstShaped AstPrimal) r sh where
+instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (AstShaped PrimalSpan) r sh where
   dZero = ZeroS
   dScale _ ZeroS = ZeroS
   dScale v u' = ScaleS v u'
@@ -164,7 +164,7 @@ instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (AstShaped AstPrimal) r sh 
     sconst $ fromIntegral c
   recordSharingPrimal = astRegisterADShareS
 
-instance CanRecordSharing (AstShaped AstPrimal) r sh where
+instance CanRecordSharing (AstShaped PrimalSpan) r sh where
   recordSharing d = case d of
     ZeroS -> d
     InputS{} -> d

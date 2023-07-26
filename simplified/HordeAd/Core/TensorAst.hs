@@ -186,28 +186,28 @@ instance AstSpan s
   sletToDomainsOf = undefined
 
 astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
-              => AstRanked s r n -> AstRanked AstPrimal r n
-astSpanPrimal t | Just Refl <- sameAstSpan @s @AstPrimal = t
-astSpanPrimal _ | Just Refl <- sameAstSpan @s @AstDual =
+              => AstRanked s r n -> AstRanked PrimalSpan r n
+astSpanPrimal t | Just Refl <- sameAstSpan @s @PrimalSpan = t
+astSpanPrimal _ | Just Refl <- sameAstSpan @s @DualSpan =
   error "astSpanPrimal: can't recover primal from dual"
     -- or we could return zero, but this is unlikely to happen
     -- except by user error
-astSpanPrimal t | Just Refl <- sameAstSpan @s @AstFull = astPrimalPart t
+astSpanPrimal t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPart t
 astSpanPrimal _ = error "a spuriuos case for pattern match coverage"
 
 astSpanDual :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
-            => AstRanked s r n -> AstRanked AstDual r n
-astSpanDual t | Just Refl <- sameAstSpan @s @AstPrimal =
-  AstDualPart $ AstConstant t  -- this is nil; likely to happen
-astSpanDual t | Just Refl <- sameAstSpan @s @AstDual = t
-astSpanDual t | Just Refl <- sameAstSpan @s @AstFull = astDualPart t
+            => AstRanked s r n -> AstRanked DualSpan r n
+astSpanDual t | Just Refl <- sameAstSpan @s @PrimalSpan =
+  DualSpanPart $ AstConstant t  -- this is nil; likely to happen
+astSpanDual t | Just Refl <- sameAstSpan @s @DualSpan = t
+astSpanDual t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
 astSpanDual _ = error "a spuriuos case for pattern match coverage"
 
 astSpanD :: forall s r n. AstSpan s
-         => AstRanked AstPrimal r n -> AstRanked AstDual r n -> AstRanked s r n
-astSpanD u _ | Just Refl <- sameAstSpan @s @AstPrimal = u
-astSpanD _ u' | Just Refl <- sameAstSpan @s @AstDual = u'
-astSpanD u u' | Just Refl <- sameAstSpan @s @AstFull = AstD u u'
+         => AstRanked PrimalSpan r n -> AstRanked DualSpan r n -> AstRanked s r n
+astSpanD u _ | Just Refl <- sameAstSpan @s @PrimalSpan = u
+astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
+astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
 astSpanD _ _ = error "a spuriuos case for pattern match coverage"
 
 astLetFun :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2, AstSpan s)
@@ -331,29 +331,29 @@ instance AstSpan s
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
 astSpanPrimalS :: forall s r sh. (OS.Shape sh, GoodScalar r, AstSpan s)
-               => AstShaped s r sh -> AstShaped AstPrimal r sh
-astSpanPrimalS t | Just Refl <- sameAstSpan @s @AstPrimal = t
-astSpanPrimalS _ | Just Refl <- sameAstSpan @s @AstDual =
+               => AstShaped s r sh -> AstShaped PrimalSpan r sh
+astSpanPrimalS t | Just Refl <- sameAstSpan @s @PrimalSpan = t
+astSpanPrimalS _ | Just Refl <- sameAstSpan @s @DualSpan =
   error "astSpanPrimalS: can't recover primal from dual"
     -- or we could return zero, but this is unlikely to happen
     -- except by user error
-astSpanPrimalS t | Just Refl <- sameAstSpan @s @AstFull = astPrimalPartS t
+astSpanPrimalS t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPartS t
 astSpanPrimalS _ = error "a spuriuos case for pattern match coverage"
 
 astSpanDualS :: forall s r sh. (OS.Shape sh, GoodScalar r, AstSpan s)
-             => AstShaped s r sh -> AstShaped AstDual r sh
-astSpanDualS t | Just Refl <- sameAstSpan @s @AstPrimal =
-  AstDualPartS $ AstConstantS t  -- this is nil; likely to happen
-astSpanDualS t | Just Refl <- sameAstSpan @s @AstDual = t
-astSpanDualS t | Just Refl <- sameAstSpan @s @AstFull = astDualPartS t
+             => AstShaped s r sh -> AstShaped DualSpan r sh
+astSpanDualS t | Just Refl <- sameAstSpan @s @PrimalSpan =
+  DualSpanPartS $ AstConstantS t  -- this is nil; likely to happen
+astSpanDualS t | Just Refl <- sameAstSpan @s @DualSpan = t
+astSpanDualS t | Just Refl <- sameAstSpan @s @FullSpan = astDualPartS t
 astSpanDualS _ = error "a spuriuos case for pattern match coverage"
 
 astSpanDS :: forall s r sh. AstSpan s
-          => AstShaped AstPrimal r sh -> AstShaped AstDual r sh
+          => AstShaped PrimalSpan r sh -> AstShaped DualSpan r sh
           -> AstShaped s r sh
-astSpanDS u _ | Just Refl <- sameAstSpan @s @AstPrimal = u
-astSpanDS _ u' | Just Refl <- sameAstSpan @s @AstDual = u'
-astSpanDS u u' | Just Refl <- sameAstSpan @s @AstFull = AstDS u u'
+astSpanDS u _ | Just Refl <- sameAstSpan @s @PrimalSpan = u
+astSpanDS _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
+astSpanDS u u' | Just Refl <- sameAstSpan @s @FullSpan = AstDS u u'
 astSpanDS _ _ = error "a spuriuos case for pattern match coverage"
 
 astLetFunS :: (OS.Shape sh, OS.Shape sh2, GoodScalar r, AstSpan s)
@@ -365,7 +365,7 @@ astLetFunS a f =
   in AstLetS var a ast  -- astLet var a ast  -- safe, because subsitution ruled out above
 
 astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r, AstSpan s)
-                    => (IntSh (AstShaped AstPrimal) n -> AstShaped s r sh)
+                    => (IntSh (AstShaped PrimalSpan) n -> AstShaped s r sh)
                     -> AstShaped s r (n ': sh)
 astBuild1VectorizeS f =
   build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)

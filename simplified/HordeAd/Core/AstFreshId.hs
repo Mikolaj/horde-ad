@@ -71,8 +71,8 @@ astRegisterFunS !r !l = unsafePerformIO $ do
   return ((freshId, DynamicExists $ AstSToD r) : l, r2)
 
 astRegisterADShare :: (GoodScalar r, KnownNat n)
-                   => AstRanked AstPrimal r n -> ADShare
-                   -> (ADShare, AstRanked AstPrimal r n)
+                   => AstRanked PrimalSpan r n -> ADShare
+                   -> (ADShare, AstRanked PrimalSpan r n)
 {-# NOINLINE astRegisterADShare #-}
 astRegisterADShare !r !l | astIsSmall True r = (l, r)
 astRegisterADShare !r !l = unsafePerformIO $ do
@@ -82,8 +82,8 @@ astRegisterADShare !r !l = unsafePerformIO $ do
   return (l2, r2)
 
 astRegisterADShareS :: (GoodScalar r, OS.Shape sh)
-                    => AstShaped AstPrimal r sh -> ADShare
-                    -> (ADShare, AstShaped AstPrimal r sh)
+                    => AstShaped PrimalSpan r sh -> ADShare
+                    -> (ADShare, AstShaped PrimalSpan r sh)
 {-# NOINLINE astRegisterADShareS #-}
 astRegisterADShareS !r !l | astIsSmallS True r = (l, r)
 astRegisterADShareS !r !l = unsafePerformIO $ do
@@ -134,9 +134,9 @@ funToAstS f = unsafePerformIO $ do
   return (var, ast)
 
 funToAstAllIO :: DomainsOD
-              -> IO ( [AstDynamicVarName AstPrimal (AstRanked AstPrimal)]
-                    , [DynamicExists (AstDynamic AstFull)]
-                    , [DynamicExists (AstDynamic AstPrimal)] )
+              -> IO ( [AstDynamicVarName PrimalSpan (AstRanked PrimalSpan)]
+                    , [DynamicExists (AstDynamic FullSpan)]
+                    , [DynamicExists (AstDynamic PrimalSpan)] )
 {-# INLINE funToAstAllIO #-}
 funToAstAllIO parameters0 = do
   let f (DynamicExists @r2 e) = do
@@ -158,10 +158,10 @@ funToAstAllIO parameters0 = do
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
 funToAstAll :: DomainsOD
-            -> ( ( AstVarName AstPrimal f r y
-                 , [AstDynamicVarName AstPrimal (AstRanked AstPrimal)] )
-               , [DynamicExists (AstDynamic AstFull)]
-               , [DynamicExists (AstDynamic AstPrimal)] )
+            -> ( ( AstVarName PrimalSpan f r y
+                 , [AstDynamicVarName PrimalSpan (AstRanked PrimalSpan)] )
+               , [DynamicExists (AstDynamic FullSpan)]
+               , [DynamicExists (AstDynamic PrimalSpan)] )
 {-# NOINLINE funToAstAll #-}
 funToAstAll parameters0 = unsafePerformIO $ do
   varName <- unsafeGetFreshAstVarName
@@ -169,9 +169,9 @@ funToAstAll parameters0 = unsafePerformIO $ do
   return ((varName, vars1), asts1, astsPrimal1)
 
 funToAstAllIOS :: DomainsOD
-               -> IO ( [AstDynamicVarName AstPrimal (AstShaped AstPrimal)]
-                     , [DynamicExists (AstDynamic AstFull)]
-                     , [DynamicExists (AstDynamic AstPrimal)] )
+               -> IO ( [AstDynamicVarName PrimalSpan (AstShaped PrimalSpan)]
+                     , [DynamicExists (AstDynamic FullSpan)]
+                     , [DynamicExists (AstDynamic PrimalSpan)] )
 {-# INLINE funToAstAllIOS #-}
 funToAstAllIOS parameters0 = do
   let f (DynamicExists @r2 e) = do
@@ -189,10 +189,10 @@ funToAstAllIOS parameters0 = do
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
 funToAstAllS :: DomainsOD
-             -> ( ( AstVarName AstPrimal f r y
-                  , [AstDynamicVarName AstPrimal (AstShaped AstPrimal)] )
-                , [DynamicExists (AstDynamic AstFull)]
-                , [DynamicExists (AstDynamic AstPrimal)] )
+             -> ( ( AstVarName PrimalSpan f r y
+                  , [AstDynamicVarName PrimalSpan (AstShaped PrimalSpan)] )
+                , [DynamicExists (AstDynamic FullSpan)]
+                , [DynamicExists (AstDynamic PrimalSpan)] )
 {-# NOINLINE funToAstAllS #-}
 funToAstAllS parameters0 = unsafePerformIO $ do
   varName <- unsafeGetFreshAstVarName

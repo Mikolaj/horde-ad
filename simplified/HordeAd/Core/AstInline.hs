@@ -36,14 +36,14 @@ import           HordeAd.Core.Types
 -- * Simplification pass applied to code with eliminated nested lets
 
 simplifyArtifact6 :: (GoodScalar r, KnownNat n)
-                  => ADAstArtifact6 (AstRanked AstPrimal) r n
-                  -> ADAstArtifact6 (AstRanked AstPrimal) r n
+                  => ADAstArtifact6 (AstRanked PrimalSpan) r n
+                  -> ADAstArtifact6 (AstRanked PrimalSpan) r n
 simplifyArtifact6 (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6 primal)
 
 simplifyArtifact6S :: (GoodScalar r, OS.Shape sh)
-                   => ADAstArtifact6 (AstShaped AstPrimal) r sh
-                   -> ADAstArtifact6 (AstShaped AstPrimal) r sh
+                   => ADAstArtifact6 (AstShaped PrimalSpan) r sh
+                   -> ADAstArtifact6 (AstShaped PrimalSpan) r sh
 simplifyArtifact6S (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6S primal)
 
@@ -154,8 +154,8 @@ inlineAst memo v0 = case v0 of
   Ast.AstSToR v -> second Ast.AstSToR $ inlineAstS memo v
   AstConst{} -> (memo, v0)
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
-  Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
-  Ast.AstDualPart a -> second Ast.AstDualPart $ inlineAst memo a
+  Ast.PrimalSpanPart a -> second Ast.PrimalSpanPart $ inlineAst memo a
+  Ast.DualSpanPart a -> second Ast.DualSpanPart $ inlineAst memo a
   Ast.AstD u u' ->
     let (memo1, t1) = inlineAst memo u
         (memo2, t2) = inlineAst memo1 u'
@@ -327,8 +327,8 @@ inlineAstS memo v0 = case v0 of
   Ast.AstRToS v -> second Ast.AstRToS $ inlineAst memo v
   AstConstS{} -> (memo, v0)
   Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstS memo a
-  Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ inlineAstS memo a
-  Ast.AstDualPartS a -> second Ast.AstDualPartS $ inlineAstS memo a
+  Ast.PrimalSpanPartS a -> second Ast.PrimalSpanPartS $ inlineAstS memo a
+  Ast.DualSpanPartS a -> second Ast.DualSpanPartS $ inlineAstS memo a
   Ast.AstDS u u' ->
     let (memo1, t1) = inlineAstS memo u
         (memo2, t2) = inlineAstS memo1 u'
@@ -365,21 +365,21 @@ emptyUnletEnv :: ADShare -> UnletEnv
 emptyUnletEnv l = UnletEnv ES.empty l
 
 unletAstDomains6
-  :: [(AstId, DynamicExists (AstDynamic AstPrimal))] -> ADShare
-  -> AstDomains AstPrimal
-  -> AstDomains AstPrimal
+  :: [(AstId, DynamicExists (AstDynamic PrimalSpan))] -> ADShare
+  -> AstDomains PrimalSpan
+  -> AstDomains PrimalSpan
 unletAstDomains6 astBindings l t =
   unletAstDomains (emptyUnletEnv l)
   $ bindsToDomainsLet (bindsToDomainsLet t astBindings) (assocsADShare l)
 
 unletAst6
   :: (GoodScalar r, KnownNat n)
-  => ADShare -> AstRanked AstPrimal r n -> AstRanked AstPrimal r n
+  => ADShare -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
 unletAst6 l t = unletAst (emptyUnletEnv l) $ bindsToLet t (assocsADShare l)
 
 unletAst6S
   :: (GoodScalar r, OS.Shape sh)
-  => ADShare -> AstShaped AstPrimal r sh -> AstShaped AstPrimal r sh
+  => ADShare -> AstShaped PrimalSpan r sh -> AstShaped PrimalSpan r sh
 unletAst6S l t = unletAstS (emptyUnletEnv l) $ bindsToLetS t (assocsADShare l)
 
 -- TODO: if a nested let is alone, eliminate the nesting let instead;
@@ -436,8 +436,8 @@ unletAst env t = case t of
   Ast.AstSToR v -> Ast.AstSToR (unletAstS env v)
   AstConst{} -> t
   Ast.AstConstant v -> Ast.AstConstant (unletAst env v)
-  Ast.AstPrimalPart v -> Ast.AstPrimalPart (unletAst env v)
-  Ast.AstDualPart v -> Ast.AstDualPart (unletAst env v)
+  Ast.PrimalSpanPart v -> Ast.PrimalSpanPart (unletAst env v)
+  Ast.DualSpanPart v -> Ast.DualSpanPart (unletAst env v)
   Ast.AstD u u' -> Ast.AstD (unletAst env u) (unletAst env u')
   Ast.AstLetDomains vars l v ->
     let env2 = env {unletSet = unletSet env
@@ -539,8 +539,8 @@ unletAstS env t = case t of
   Ast.AstRToS v -> Ast.AstRToS (unletAst env v)
   AstConstS{} -> t
   Ast.AstConstantS v -> Ast.AstConstantS (unletAstS env v)
-  Ast.AstPrimalPartS v -> Ast.AstPrimalPartS (unletAstS env v)
-  Ast.AstDualPartS v -> Ast.AstDualPartS (unletAstS env v)
+  Ast.PrimalSpanPartS v -> Ast.PrimalSpanPartS (unletAstS env v)
+  Ast.DualSpanPartS v -> Ast.DualSpanPartS (unletAstS env v)
   Ast.AstDS u u' -> Ast.AstDS (unletAstS env u) (unletAstS env u')
   Ast.AstLetDomainsS vars l v ->
     let env2 = env {unletSet = unletSet env

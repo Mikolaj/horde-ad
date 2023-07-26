@@ -71,7 +71,7 @@ instance IfF (ADVal (Flip OR.Array)) where
   ifF (_, b) v w = if b then v else w
 
 -- This requires the Tensor instance, hence the definitions must in this module.
-instance IfF (ADVal (AstRanked AstPrimal)) where
+instance IfF (ADVal (AstRanked PrimalSpan)) where
   ifF (l1, b) v w =
     let D l2 u u' = index (fromList [v, w])
                           (singletonIndex $ ifF (emptyADShare, b) 0 1)
@@ -230,7 +230,7 @@ instance IfF (ADVal (Flip OS.Array)) where
   ifF (_, b) v w = if b then v else w
 
 -- This requires the Tensor instance, hence the definitions must in this module.
-instance IfF (ADVal (AstShaped AstPrimal)) where
+instance IfF (ADVal (AstShaped PrimalSpan)) where
   ifF (l1, b) v w =
     let D l2 u u' = indexS (fromListS @2 [v, w])
                            (ifF (emptyADShare, b) 0 1 :$: ZSH)

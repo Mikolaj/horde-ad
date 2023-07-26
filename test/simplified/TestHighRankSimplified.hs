@@ -434,12 +434,12 @@ barRelu10xSlower x = let t = tmap0N (* 0.001) x
 testReluSimp :: Assertion
 testReluSimp = do
   resetVarCounter
-  let !t1 = barRelu10xSlower @(AstRanked AstPrimal)
+  let !t1 = barRelu10xSlower @(AstRanked PrimalSpan)
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 11384
   length (show (simplifyAst6 @Float @10 t1)) @?= 11384
   resetVarCounter
-  let !t2 = barRelu @(AstRanked AstPrimal)
+  let !t2 = barRelu @(AstRanked PrimalSpan)
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (AstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 9528
   length (show (simplifyAst6 @Float @10 t2)) @?= 11384
@@ -551,7 +551,7 @@ testConcatBuild3PP :: Assertion
 testConcatBuild3PP = do
   resetVarCounter
   let renames = IM.empty
-      t = concatBuild3 @(AstRanked AstFull) @Float
+      t = concatBuild3 @(AstRanked FullSpan) @Float
       (var3, ast3) = funToAstR [3] t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
@@ -561,7 +561,7 @@ testConcatBuild3PP2 :: Assertion
 testConcatBuild3PP2 = do
   resetVarCounter
   let renames = IM.empty
-      t = concatBuild3 @(AstRanked AstFull) @Double
+      t = concatBuild3 @(AstRanked FullSpan) @Double
   let (artifact6, _) = revDtFun True t
                                 (Flip $ OR.fromList [3] [0.651,0.14,0.3414])
   printGradient6Simple renames artifact6

@@ -50,27 +50,27 @@ import HordeAd.Core.Types
 -- * Basic types and type family instances
 
 -- To be promoted.
-data AstSpanType = AstPrimal | AstDual | AstFull
+data AstSpanType = PrimalSpan | DualSpan | FullSpan
   deriving Typeable
 
 -- A poor man's singleton type, modelled after orthotope's @Shape@.
 class Typeable s => AstSpan (s :: AstSpanType) where
   astSpanP :: Proxy s -> AstSpanType
-  fromPrimal :: AstRanked AstPrimal r y -> AstRanked s r y
-  fromPrimalS :: AstShaped AstPrimal r y -> AstShaped s r y
+  fromPrimal :: AstRanked PrimalSpan r y -> AstRanked s r y
+  fromPrimalS :: AstShaped PrimalSpan r y -> AstShaped s r y
 
-instance AstSpan AstPrimal where
-  astSpanP _ = AstPrimal
+instance AstSpan PrimalSpan where
+  astSpanP _ = PrimalSpan
   fromPrimal = id
   fromPrimalS = id
 
-instance AstSpan AstDual where
-  astSpanP _ = AstDual
-  fromPrimal t = AstDualPart $ AstConstant t  -- this is nil (not primal 0)
-  fromPrimalS t = AstDualPartS $ AstConstantS t
+instance AstSpan DualSpan where
+  astSpanP _ = DualSpan
+  fromPrimal t = DualSpanPart $ AstConstant t  -- this is nil (not primal 0)
+  fromPrimalS t = DualSpanPartS $ AstConstantS t
 
-instance AstSpan AstFull where
-  astSpanP _ = AstFull
+instance AstSpan FullSpan where
+  astSpanP _ = FullSpan
   fromPrimal = AstConstant
   fromPrimalS = AstConstantS
 
@@ -85,8 +85,8 @@ sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
 
 isRankedInt :: forall s r n. (AstSpan s, GoodScalar r, KnownNat n)
             => AstRanked s r n
-            -> Maybe (AstRanked s r n :~: AstRanked AstPrimal Int64 0)
-isRankedInt _ = case ( sameAstSpan @s @AstPrimal
+            -> Maybe (AstRanked s r n :~: AstRanked PrimalSpan Int64 0)
+isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
                      , testEquality (typeRep @r) (typeRep @Int64)
                      , sameNat (Proxy @n) (Proxy @0) ) of
                   (Just Refl, Just Refl, Just Refl) -> Just Refl
@@ -96,19 +96,19 @@ type instance RankedOf (Clown (AstDynamic s)) = AstRanked s
 type instance ShapedOf (Clown (AstDynamic s)) = AstShaped s
 type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
-type instance PrimalOf (AstRanked s) = AstRanked AstPrimal
-type instance DualOf (AstRanked s) = AstRanked AstDual
+type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
+type instance DualOf (AstRanked s) = AstRanked DualSpan
 type instance RankedOf (AstShaped s) = AstRanked s
 type instance ShapedOf (AstShaped s) = AstShaped s
-type instance PrimalOf (AstShaped s) = AstShaped AstPrimal
-type instance DualOf (AstShaped s) = AstShaped AstDual
+type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
+type instance DualOf (AstShaped s) = AstShaped DualSpan
 
 
 -- * Assorted small definitions
 
-type AstInt = AstRanked AstPrimal Int64 0
+type AstInt = AstRanked PrimalSpan Int64 0
 
-type IntVarName = AstVarName AstPrimal (AstRanked AstPrimal) Int64 0
+type IntVarName = AstVarName PrimalSpan (AstRanked PrimalSpan) Int64 0
 
 pattern AstIntVar :: IntVarName -> AstInt
 pattern AstIntVar var = AstVar ZS var
@@ -164,8 +164,8 @@ deriving instance Show (AstDynamicVarName s f)
 
 -- The artifact from step 6) of our full pipeline.
 type ADAstArtifact6 f r y =
-  ( (AstVarName AstPrimal f r y, [AstDynamicVarName AstPrimal f])
-  , AstDomains AstPrimal, f r y )
+  ( (AstVarName PrimalSpan f r y, [AstDynamicVarName PrimalSpan f])
+  , AstDomains PrimalSpan, f r y )
 
 type AstIndex n = Index n AstInt
 
@@ -189,7 +189,7 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
          => AstVarName s (AstRanked s) r n -> AstRanked s r n
          -> AstRanked s2 r2 m
          -> AstRanked s2 r2 m
-  AstLetADShare :: ADShare -> AstRanked AstPrimal r n -> AstRanked AstPrimal r n
+  AstLetADShare :: ADShare -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
    -- there are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
@@ -197,12 +197,12 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
           -> AstRanked s r n -> AstRanked s r n -> AstRanked s r n
 
   AstMinIndex :: GoodScalar r
-              => AstRanked AstPrimal r (1 + n) -> AstRanked AstPrimal r2 n
+              => AstRanked PrimalSpan r (1 + n) -> AstRanked PrimalSpan r2 n
   AstMaxIndex :: GoodScalar r
-              => AstRanked AstPrimal r (1 + n) -> AstRanked AstPrimal r2 n
+              => AstRanked PrimalSpan r (1 + n) -> AstRanked PrimalSpan r2 n
   AstFloor :: (GoodScalar r, RealFrac r, Integral r2)
-           => AstRanked AstPrimal r n -> AstRanked AstPrimal r2 n
-  AstIota :: AstRanked AstPrimal r 1
+           => AstRanked PrimalSpan r n -> AstRanked PrimalSpan r2 n
+  AstIota :: AstRanked PrimalSpan r 1
 
   -- For the numeric classes:
   AstNm :: OpCodeNum -> [AstRanked s r n] -> AstRanked s r n
@@ -252,18 +252,18 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
   AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2)
           => AstRanked s r1 n -> AstRanked s r2 n
   AstFromIntegral :: (GoodScalar r1, Integral r1)
-                  => AstRanked AstPrimal r1 n -> AstRanked AstPrimal r2 n
-  AstConst :: OR.Array n r -> AstRanked AstPrimal r n
+                  => AstRanked PrimalSpan r1 n -> AstRanked PrimalSpan r2 n
+  AstConst :: OR.Array n r -> AstRanked PrimalSpan r n
 
   AstSToR :: OS.Shape sh
           => AstShaped s r sh -> AstRanked s r (OS.Rank sh)
 
   -- For the forbidden half of the RankedTensor class:
-  AstConstant :: AstRanked AstPrimal r n -> AstRanked AstFull r n
-  AstPrimalPart :: AstRanked AstFull r n -> AstRanked AstPrimal r n
-  AstDualPart :: AstRanked AstFull r n -> AstRanked AstDual r n
-  AstD :: AstRanked AstPrimal r n -> AstRanked AstDual r n
-       -> AstRanked AstFull r n
+  AstConstant :: AstRanked PrimalSpan r n -> AstRanked FullSpan r n
+  PrimalSpanPart :: AstRanked FullSpan r n -> AstRanked PrimalSpan r n
+  DualSpanPart :: AstRanked FullSpan r n -> AstRanked DualSpan r n
+  AstD :: AstRanked PrimalSpan r n -> AstRanked DualSpan r n
+       -> AstRanked FullSpan r n
   AstLetDomains :: AstSpan s
                 => Data.Vector.Vector (AstVarId s) -> AstDomains s
                 -> AstRanked s2 r n
@@ -279,8 +279,8 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
           => AstVarName s (AstShaped s) r sh -> AstShaped s r sh
           -> AstShaped s2 r2 sh2
           -> AstShaped s2 r2 sh2
-  AstLetADShareS :: ADShare -> AstShaped AstPrimal r sh
-                 -> AstShaped AstPrimal r sh
+  AstLetADShareS :: ADShare -> AstShaped PrimalSpan r sh
+                 -> AstShaped PrimalSpan r sh
    -- there are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
@@ -288,14 +288,14 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
            -> AstShaped s r sh -> AstShaped s r sh -> AstShaped s r sh
 
   AstMinIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
-               => AstShaped AstPrimal r (n ': sh)
-               -> AstShaped AstPrimal r2 (OS.Init (n ': sh))
+               => AstShaped PrimalSpan r (n ': sh)
+               -> AstShaped PrimalSpan r2 (OS.Init (n ': sh))
   AstMaxIndexS :: (OS.Shape sh, KnownNat n, GoodScalar r)
-               => AstShaped AstPrimal r (n ': sh)
-               -> AstShaped AstPrimal r2 (OS.Init (n ': sh))
+               => AstShaped PrimalSpan r (n ': sh)
+               -> AstShaped PrimalSpan r2 (OS.Init (n ': sh))
   AstFloorS :: (GoodScalar r, RealFrac r, Integral r2)
-            => AstShaped AstPrimal r sh -> AstShaped AstPrimal r2 sh
-  AstIotaS :: forall n r. KnownNat n => AstShaped AstPrimal r '[n]
+            => AstShaped PrimalSpan r sh -> AstShaped PrimalSpan r2 sh
+  AstIotaS :: forall n r. KnownNat n => AstShaped PrimalSpan r '[n]
 
   -- For the numeric classes:
   AstNmS :: OpCodeNum -> [AstShaped s r sh] -> AstShaped s r sh
@@ -358,18 +358,18 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
   AstCastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
            => AstShaped s r1 sh -> AstShaped s r2 sh
   AstFromIntegralS :: (GoodScalar r1, Integral r1)
-                   => AstShaped AstPrimal r1 sh -> AstShaped AstPrimal r2 sh
-  AstConstS :: OS.Array sh r -> AstShaped AstPrimal r sh
+                   => AstShaped PrimalSpan r1 sh -> AstShaped PrimalSpan r2 sh
+  AstConstS :: OS.Array sh r -> AstShaped PrimalSpan r sh
 
   AstRToS :: (OS.Shape sh, KnownNat (OS.Rank sh))
           => AstRanked s r (OS.Rank sh) -> AstShaped s r sh
 
   -- For the forbidden half of the ShapedTensor class:
-  AstConstantS :: AstShaped AstPrimal r sh -> AstShaped AstFull r sh
-  AstPrimalPartS :: AstShaped AstFull r sh -> AstShaped AstPrimal r sh
-  AstDualPartS :: AstShaped AstFull r sh -> AstShaped AstDual r sh
-  AstDS :: AstShaped AstPrimal r sh -> AstShaped AstDual r sh
-        -> AstShaped AstFull r sh
+  AstConstantS :: AstShaped PrimalSpan r sh -> AstShaped FullSpan r sh
+  PrimalSpanPartS :: AstShaped FullSpan r sh -> AstShaped PrimalSpan r sh
+  DualSpanPartS :: AstShaped FullSpan r sh -> AstShaped DualSpan r sh
+  AstDS :: AstShaped PrimalSpan r sh -> AstShaped DualSpan r sh
+        -> AstShaped FullSpan r sh
   AstLetDomainsS :: AstSpan s
                  => Data.Vector.Vector (AstVarId s) -> AstDomains s
                  -> AstShaped s2 r sh
@@ -401,9 +401,9 @@ data AstBool where
   AstBoolOp :: OpCodeBool -> [AstBool] -> AstBool
   AstBoolConst :: Bool -> AstBool
   AstRel :: (KnownNat n, GoodScalar r)
-         => OpCodeRel -> [AstRanked AstPrimal r n] -> AstBool
+         => OpCodeRel -> [AstRanked PrimalSpan r n] -> AstBool
   AstRelS :: (OS.Shape sh, GoodScalar r)
-          => OpCodeRel -> [AstShaped AstPrimal r sh] -> AstBool
+          => OpCodeRel -> [AstShaped PrimalSpan r sh] -> AstBool
 deriving instance Show AstBool
 
 data OpCodeNum =
@@ -733,14 +733,14 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 -- but with less false negatives, because it's stable.
 data ADShare = ADShareNil
              | forall r. GoodScalar r
-               => ADShareCons Int AstId (AstDynamic AstPrimal r) ADShare
+               => ADShareCons Int AstId (AstDynamic PrimalSpan r) ADShare
 deriving instance Show ADShare
 
 emptyADShare :: ADShare
 emptyADShare = ADShareNil
 
 insertADShare :: forall r. GoodScalar r
-              => AstId -> AstDynamic AstPrimal r -> ADShare -> ADShare
+              => AstId -> AstDynamic PrimalSpan r -> ADShare -> ADShare
 insertADShare !key !t !s =
   -- The Maybe over-engineering ensures that we never refresh an id
   -- unnecessarily. In theory, when merging alternating equal lists
@@ -760,7 +760,7 @@ insertADShare !key !t !s =
           GT -> Just $ freshInsertADShare key t l2
   in fromMaybe s (insertAD s)
 
-freshInsertADShare :: GoodScalar r => AstId -> AstDynamic AstPrimal r -> ADShare
+freshInsertADShare :: GoodScalar r => AstId -> AstDynamic PrimalSpan r -> ADShare
                    -> ADShare
 {-# NOINLINE freshInsertADShare #-}
 freshInsertADShare !key !t !s = unsafePerformIO $ do
@@ -796,11 +796,11 @@ mergeADShare !s1 !s2 =
 -- The result type is not as expected. The result is as if assocsADShare
 -- was applied to the expected one.
 subtractADShare :: ADShare -> ADShare
-                -> [(AstId, DynamicExists (AstDynamic AstPrimal))]
+                -> [(AstId, DynamicExists (AstDynamic PrimalSpan))]
 {-# INLINE subtractADShare #-}  -- help list fusion
 subtractADShare !s1 !s2 =
   let subAD :: ADShare -> ADShare
-            -> [(AstId, DynamicExists (AstDynamic AstPrimal))]
+            -> [(AstId, DynamicExists (AstDynamic PrimalSpan))]
       subAD !l ADShareNil = assocsADShare l
       subAD ADShareNil _ = []
       subAD l1@(ADShareCons id1 key1 t1 rest1)
@@ -817,7 +817,7 @@ subtractADShare !s1 !s2 =
 flattenADShare :: [ADShare] -> ADShare
 flattenADShare = foldl' mergeADShare emptyADShare
 
-assocsADShare :: ADShare -> [(AstId, DynamicExists (AstDynamic AstPrimal))]
+assocsADShare :: ADShare -> [(AstId, DynamicExists (AstDynamic PrimalSpan))]
 {-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
 assocsADShare (ADShareCons _ key t rest) =
@@ -827,7 +827,7 @@ _lengthADShare :: Int -> ADShare -> Int
 _lengthADShare acc ADShareNil = acc
 _lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
 
-intVarInADShare :: (forall r. AstId -> AstDynamic AstPrimal r -> Bool)
+intVarInADShare :: (forall r. AstId -> AstDynamic PrimalSpan r -> Bool)
                 -> AstId -> ADShare
                 -> Bool
 {-# INLINE intVarInADShare #-}
@@ -846,12 +846,12 @@ nullADShare ADShareCons{} = False
 
 type instance RankedOf (AstNoVectorize s) = (AstNoVectorize s)
 type instance ShapedOf (AstNoVectorize s) = AstShaped s
-type instance PrimalOf (AstNoVectorize s) = AstRanked AstPrimal
-type instance DualOf (AstNoVectorize s) = AstRanked AstDual
+type instance PrimalOf (AstNoVectorize s) = AstRanked PrimalSpan
+type instance DualOf (AstNoVectorize s) = AstRanked DualSpan
 type instance RankedOf (AstNoSimplify s) = (AstNoSimplify s)
 type instance ShapedOf (AstNoSimplify s) = AstShaped s
-type instance PrimalOf (AstNoSimplify s) = AstRanked AstPrimal
-type instance DualOf (AstNoSimplify s) = AstRanked AstDual
+type instance PrimalOf (AstNoSimplify s) = AstRanked PrimalSpan
+type instance DualOf (AstNoSimplify s) = AstRanked DualSpan
 
 newtype AstNoVectorize s r n =
   AstNoVectorize {unAstNoVectorize :: AstRanked s r n}

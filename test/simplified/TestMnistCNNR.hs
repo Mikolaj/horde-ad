@@ -203,10 +203,10 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
            id
        (varLabel, _, astLabel) <-
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
-       let ast :: AstRanked AstPrimal r 0
+       let ast :: AstRanked PrimalSpan r 0
            ast = MnistCnnRanked2.convMnistLossFusedR
-                   miniBatchSize (tprimalPart @(AstRanked AstPrimal) astGlyph, tprimalPart @(AstRanked AstPrimal) astLabel)
-                                 (parseDomains @(AstDynamic AstPrimal) valsInit doms)
+                   miniBatchSize (tprimalPart @(AstRanked PrimalSpan) astGlyph, tprimalPart @(AstRanked PrimalSpan) astLabel)
+                                 (parseDomains @(AstDynamic PrimalSpan) valsInit doms)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
@@ -402,7 +402,7 @@ testCNNOPP = do
       batch_size = 1
       sizeMnistWidthI = 4  -- 4; to make weightsDense empty and so speedup
       sizeMnistHeightI = 4  -- 4; to make weightsDense empty and so speedup
-      blackGlyph :: AstRanked AstPrimal Double 4
+      blackGlyph :: AstRanked PrimalSpan Double 4
       blackGlyph = AstReplicate batch_size
                    $ AstReplicate 1
                    $ AstReplicate sizeMnistWidthI
@@ -414,8 +414,8 @@ testCNNOPP = do
                          (Flip OS.Array) 4 4  -- see sizeMnistWidthI, etc.
                          1 1 1 1 Double)
                      0.4 (mkStdGen 44)
-      afcnn2T :: MnistCnnRanked2.ADCnnMnistParameters (AstRanked AstFull) Double
-              -> AstRanked AstFull Double 2
+      afcnn2T :: MnistCnnRanked2.ADCnnMnistParameters (AstRanked FullSpan) Double
+              -> AstRanked FullSpan Double 2
       afcnn2T = MnistCnnRanked2.convMnistTwoR sizeMnistHeightI sizeMnistWidthI
                                               batch_size blackGlyph
       (artifact6, _) = revDtFun True afcnn2T valsInit

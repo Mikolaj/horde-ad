@@ -46,18 +46,18 @@ import HordeAd.Core.Types
 rev
   :: forall r y g vals astvals.
      ( Adaptable g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic AstFull) astvals
+     , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
-  => (astvals -> g AstFull r y) -> vals -> vals
+  => (astvals -> g FullSpan r y) -> vals -> vals
 rev f vals = revDtMaybe f vals Nothing
 {- TODO: check with GHC 9.6.3: RULE left-hand side too complicated to desugar
 {-# SPECIALIZE rev
   :: ( HasSingletonDict y
-     , AdaptableDomains (AstDynamic AstFull) astvals
+     , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
-  => (astvals -> AstRanked AstFull Double y) -> vals
+  => (astvals -> AstRanked FullSpan Double y) -> vals
   -> vals #-}
 -}
 
@@ -65,28 +65,28 @@ rev f vals = revDtMaybe f vals Nothing
 revDt
   :: forall r y g vals astvals.
      ( Adaptable g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic AstFull) astvals
+     , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
-  => (astvals -> g AstFull r y) -> vals -> ConcreteOf g r y -> vals
+  => (astvals -> g FullSpan r y) -> vals -> ConcreteOf g r y -> vals
 revDt f vals dt = revDtMaybe f vals (Just dt)
 {- TODO: check with GHC 9.6.3: RULE left-hand side too complicated to desugar
 {-# SPECIALIZE revDt
   :: ( HasSingletonDict y
-     , AdaptableDomains (AstDynamic AstFull) astvals
+     , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
-  => (astvals -> AstRanked AstFull Double y) -> vals -> Flip OR.Array Double y
+  => (astvals -> AstRanked FullSpan Double y) -> vals -> Flip OR.Array Double y
   -> vals #-}
 -}
 
 revDtMaybe
   :: forall r y g vals astvals.
      ( Adaptable g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic AstFull) astvals
+     , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
-  => (astvals -> g AstFull r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
+  => (astvals -> g FullSpan r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
   let asts4 = fst $ revDtFun (isJust mdt) f vals
@@ -97,18 +97,18 @@ type Adaptable :: forall k. (AstSpanType -> TensorKind k) -> Constraint
 class Adaptable g where
   revAstOnDomainsEval
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => ADAstArtifact6 (g AstPrimal) r y -> Domains OD.Array
+    => ADAstArtifact6 (g PrimalSpan) r y -> Domains OD.Array
     -> Maybe (ConcreteOf g r y)
     -> (Domains OD.Array, ConcreteOf g r y)
 
   revDtInit
     :: forall r y vals astvals.
        ( GoodScalar r, HasSingletonDict y
-       , AdaptableDomains (AstDynamic AstFull) astvals, vals ~ Value astvals )
-    => Bool -> (astvals -> g AstFull r y) -> vals
-    -> AstEnv (ADVal (RankedOf (g AstPrimal))) (ADVal (ShapedOf (g AstPrimal)))
+       , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
+    => Bool -> (astvals -> g FullSpan r y) -> vals
+    -> AstEnv (ADVal (RankedOf (g PrimalSpan))) (ADVal (ShapedOf (g PrimalSpan)))
     -> DomainsOD
-    -> (ADAstArtifact6 (g AstPrimal) r y, Dual (g AstPrimal) r y)
+    -> (ADAstArtifact6 (g PrimalSpan) r y, Dual (g PrimalSpan) r y)
 
 -- TODO: it's not clear if the instance should be of Clown OD.Array or of
 -- Domains OD.Array, for which we already have unletAstDomains6, etc.;
@@ -125,24 +125,24 @@ instance Adaptable AstRanked where
         dt = fromMaybe (treplicate0N (tshape primal) 1) mdt
         envDt = extendEnvR varDt dt env1
         gradientDomain = interpretAstDomainsDummy envDt gradient
-        primalTensor = interpretAstPrimal env1 primal
+        primalTensor = interpretPrimalSpan env1 primal
     in (gradientDomain, primalTensor)
 
   revDtInit
     :: forall r y vals astvals.
        ( GoodScalar r, KnownNat y
-       , AdaptableDomains (AstDynamic AstFull) astvals, vals ~ Value astvals )
-    => Bool -> (astvals -> AstRanked AstFull r y) -> vals
-    -> AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
+       , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
+    => Bool -> (astvals -> AstRanked FullSpan r y) -> vals
+    -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
     -> DomainsOD
-    -> ( ADAstArtifact6 (AstRanked AstPrimal) r y
-       , Dual (AstRanked AstPrimal) r y )
+    -> ( ADAstArtifact6 (AstRanked PrimalSpan) r y
+       , Dual (AstRanked PrimalSpan) r y )
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
-    let revDtInterpret :: Domains (ADValClown (AstDynamic AstPrimal))
-                       -> Domains (AstDynamic AstFull)
-                       -> [AstDynamicVarName AstPrimal (AstRanked AstPrimal)]
-                       -> ADVal (AstRanked AstPrimal) r y
+    let revDtInterpret :: Domains (ADValClown (AstDynamic PrimalSpan))
+                       -> Domains (AstDynamic FullSpan)
+                       -> [AstDynamicVarName PrimalSpan (AstRanked PrimalSpan)]
+                       -> ADVal (AstRanked PrimalSpan) r y
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
               env1 = foldr extendEnvDR envInit $ zip vars1 $ V.toList varInputs
@@ -156,24 +156,24 @@ instance Adaptable AstShaped where
         dt = fromMaybe 1 mdt
         envDt = extendEnvS varDt dt env1
         gradientDomain = interpretAstDomainsDummy envDt gradient
-        primalTensor = interpretAstPrimalS env1 primal
+        primalTensor = interpretPrimalSpanS env1 primal
     in (gradientDomain, primalTensor)
 
   revDtInit
     :: forall r y vals astvals.
        ( GoodScalar r, OS.Shape y
-       , AdaptableDomains (AstDynamic AstFull) astvals, vals ~ Value astvals )
-    => Bool -> (astvals -> AstShaped AstFull r y) -> vals
-    -> AstEnv (ADVal (AstRanked AstPrimal)) (ADVal (AstShaped AstPrimal))
+       , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
+    => Bool -> (astvals -> AstShaped FullSpan r y) -> vals
+    -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
     -> DomainsOD
-    -> ( ADAstArtifact6 (AstShaped AstPrimal) r y
-       , Dual (AstShaped AstPrimal) r y )
+    -> ( ADAstArtifact6 (AstShaped PrimalSpan) r y
+       , Dual (AstShaped PrimalSpan) r y )
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
-    let revDtInterpret :: Domains (ADValClown (AstDynamic AstPrimal))
-                       -> Domains (AstDynamic AstFull)
-                       -> [AstDynamicVarName AstPrimal (AstShaped AstPrimal)]
-                       -> ADVal (AstShaped AstPrimal) r y
+    let revDtInterpret :: Domains (ADValClown (AstDynamic PrimalSpan))
+                       -> Domains (AstDynamic FullSpan)
+                       -> [AstDynamicVarName PrimalSpan (AstShaped PrimalSpan)]
+                       -> ADVal (AstShaped PrimalSpan) r y
         revDtInterpret varInputs domains vars1 =
           let ast = f $ parseDomains vals domains
               env1 = foldr extendEnvDS envInit $ zip vars1 $ V.toList varInputs
@@ -183,23 +183,23 @@ instance Adaptable AstShaped where
 revDtFun
   :: forall r y g vals astvals.
      ( Adaptable g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic AstFull) astvals
+     , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
-  => Bool -> (astvals -> g AstFull r y) -> vals
-  -> (ADAstArtifact6 (g AstPrimal) r y, Dual (g AstPrimal) r y)
+  => Bool -> (astvals -> g FullSpan r y) -> vals
+  -> (ADAstArtifact6 (g PrimalSpan) r y, Dual (g PrimalSpan) r y)
 {-# INLINE revDtFun #-}
 revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
 revAstOnDomainsFun
   :: forall r n. (KnownNat n, GoodScalar r)
   => Bool -> DomainsOD
-  -> (Domains (ADValClown (AstDynamic AstPrimal))
-      -> Domains (AstDynamic AstFull)
-      -> [AstDynamicVarName AstPrimal (AstRanked AstPrimal)]
-      -> ADVal (AstRanked AstPrimal) r n)
-  -> ( ADAstArtifact6 (AstRanked AstPrimal) r n
-     , Dual (AstRanked AstPrimal) r n )
+  -> (Domains (ADValClown (AstDynamic PrimalSpan))
+      -> Domains (AstDynamic FullSpan)
+      -> [AstDynamicVarName PrimalSpan (AstRanked PrimalSpan)]
+      -> ADVal (AstRanked PrimalSpan) r n)
+  -> ( ADAstArtifact6 (AstRanked PrimalSpan) r n
+     , Dual (AstRanked PrimalSpan) r n )
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
@@ -225,12 +225,12 @@ revAstOnDomainsFun hasDt parameters0 f =
 revAstOnDomainsFunS
   :: forall r sh. (OS.Shape sh, GoodScalar r)
   => Bool -> DomainsOD
-  -> (Domains (ADValClown (AstDynamic AstPrimal))
-      -> Domains (AstDynamic AstFull)
-      -> [AstDynamicVarName AstPrimal (AstShaped AstPrimal)]
-      -> ADVal (AstShaped AstPrimal) r sh)
-  -> ( ADAstArtifact6 (AstShaped AstPrimal) r sh
-     , Dual (AstShaped AstPrimal) r sh )
+  -> (Domains (ADValClown (AstDynamic PrimalSpan))
+      -> Domains (AstDynamic FullSpan)
+      -> [AstDynamicVarName PrimalSpan (AstShaped PrimalSpan)]
+      -> ADVal (AstShaped PrimalSpan) r sh)
+  -> ( ADAstArtifact6 (AstShaped PrimalSpan) r sh
+     , Dual (AstShaped PrimalSpan) r sh )
 {-# INLINE revAstOnDomainsFunS #-}
 revAstOnDomainsFunS hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
