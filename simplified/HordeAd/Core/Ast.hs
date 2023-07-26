@@ -8,7 +8,7 @@
 -- at the cost of limiting expressiveness of transformed fragments
 -- to what AST captures.
 module HordeAd.Core.Ast
-  ( AstSpanType(..), AstSpan(..), sameAstSpan, astSpanT
+  ( AstSpanType(..), AstSpan(..), astSpanT, sameAstSpan, isRankedInt
   , AstInt, IntVarName, pattern AstIntVar
   , ConcreteOf, AstId, intToAstId
   , AstVarId, intToAstVarId, astIdToAstVarId, astVarIdToAstId
@@ -38,8 +38,8 @@ import           Data.List (foldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality ((:~:) (Refl))
-import           GHC.TypeLits (KnownNat, type (+), type (<=))
+import           Data.Type.Equality (testEquality, (:~:) (Refl))
+import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
@@ -83,6 +83,15 @@ sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
                 Just HRefl -> Just Refl
                 Nothing -> Nothing
+
+isRankedInt :: forall s r n. (AstSpan s, GoodScalar r, KnownNat n)
+            => AstRanked s r n
+            -> Maybe (AstRanked s r n :~: AstRanked AstPrimal Int64 0)
+isRankedInt _ = case ( sameAstSpan @s @AstPrimal
+                     , testEquality (typeRep @r) (typeRep @Int64)
+                     , sameNat (Proxy @n) (Proxy @0) ) of
+                  (Just Refl, Just Refl, Just Refl) -> Just Refl
+                  _ -> Nothing
 
 type instance RankedOf (Clown (AstDynamic s)) = AstRanked s
 type instance ShapedOf (Clown (AstDynamic s)) = AstShaped s

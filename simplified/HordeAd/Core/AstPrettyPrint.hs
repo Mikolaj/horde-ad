@@ -18,15 +18,12 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
-import           Data.Int (Int64)
 import           Data.List (intersperse)
-import           Data.Proxy (Proxy (Proxy))
 import           Data.Strict.IntMap (IntMap)
 import qualified Data.Strict.IntMap as IM
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, sameNat)
-import           Type.Reflection (typeRep)
+import           GHC.TypeLits (KnownNat, Nat)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
@@ -85,10 +82,8 @@ printAstVarFromLet
   => AstRanked s r n -> PrintConfig -> AstVarName s (AstRanked s) r n -> ShowS
 printAstVarFromLet u cfg var =
   if representsIntIndex cfg && areAllArgsInts u
-  then case ( sameAstSpan @s @AstPrimal
-            , sameNat (Proxy @n) (Proxy @0)
-            , testEquality (typeRep @r) (typeRep @Int64) ) of
-    (Just Refl, Just Refl, Just Refl) ->  -- the heuristics may have been correct
+  then case isRankedInt u of
+    Just Refl ->  -- the heuristics may have been correct
       printAstIntVar cfg var
     _ ->  -- the heuristics failed
       printAstVar cfg var
@@ -145,10 +140,8 @@ printAst :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
          => PrintConfig -> Int -> AstRanked s r n -> ShowS
 printAst cfgOld d t =
   if representsIntIndex cfgOld
-  then case ( sameAstSpan @s @AstPrimal
-            , sameNat (Proxy @n) (Proxy @0)
-            , testEquality (typeRep @r) (typeRep @Int64) ) of
-    (Just Refl, Just Refl, Just Refl) ->  -- the heuristics may have been correct
+  then case isRankedInt t of
+    Just Refl ->  -- the heuristics may have been correct
       case t of
         AstVar _ var -> printAstIntVar cfgOld var
         AstConst i -> shows $ OR.unScalar i

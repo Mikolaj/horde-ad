@@ -1400,26 +1400,17 @@ simplifyAst t = case t of
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   Ast.AstLetADShare{} -> error "simplifyAst: AstLetADShare"
   AstNm opCode args ->
-    case ( sameAstSpan @AstPrimal @s
-         , sameNat (Proxy @n) (Proxy @0)
-         , testEquality (typeRep @r) (typeRep @Int64) ) of
-      (Just Refl, Just Refl, Just Refl) ->
-        simplifyAstNumOp opCode (map simplifyAst args)
+    case isRankedInt t of
+      Just Refl -> simplifyAstNumOp opCode (map simplifyAst args)
       _ -> AstNm opCode (map simplifyAst args)
   Ast.AstOp opCode args -> Ast.AstOp opCode (map simplifyAst args)
   Ast.AstOpIntegral opCode args ->
-    case ( sameAstSpan @AstPrimal @s
-         , sameNat (Proxy @n) (Proxy @0)
-         , testEquality (typeRep @r) (typeRep @Int64) ) of
-      (Just Refl, Just Refl, Just Refl) ->
-        simplifyAstIntegralOp opCode (map simplifyAst args)
+    case isRankedInt t of
+      Just Refl -> simplifyAstIntegralOp opCode (map simplifyAst args)
       _ -> Ast.AstOpIntegral opCode (map simplifyAst args)
   AstSumOfList args ->
-    case ( sameAstSpan @AstPrimal @s
-         , sameNat (Proxy @n) (Proxy @0)
-         , testEquality (typeRep @r) (typeRep @Int64) ) of
-      (Just Refl, Just Refl, Just Refl) ->
-        foldr1 simplifyAstPlusOp (map simplifyAst args)
+    case isRankedInt t of
+      Just Refl -> foldr1 simplifyAstPlusOp (map simplifyAst args)
       _ -> astSumOfList (map simplifyAst args)
   Ast.AstIota -> t
   Ast.AstIndex v ix -> astIndexR (simplifyAst v) (fmap simplifyAst ix)
@@ -2062,7 +2053,7 @@ substitute1Ast :: forall n s s2 r r2.
                   , AstSpan s, AstSpan s2 )
                => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstRanked s r n
                -> Maybe (AstRanked s r n)
-substitute1Ast i var = \case
+substitute1Ast i var v1 = case v1 of
   Ast.AstVar sh var2 ->
     if fromEnum var == fromEnum var2
     then case i of
@@ -2083,11 +2074,8 @@ substitute1Ast i var = \case
   Ast.AstNm opCode args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
-       then Just $ case ( sameAstSpan @AstPrimal @s
-                        , sameNat (Proxy @n) (Proxy @0)
-                        , testEquality (typeRep @r) (typeRep @Int64) ) of
-         (Just Refl, Just Refl, Just Refl) ->
-           simplifyAstNumOp opCode $ zipWith fromMaybe args margs
+       then Just $ case isRankedInt v1 of
+         Just Refl -> simplifyAstNumOp opCode $ zipWith fromMaybe args margs
          _ -> Ast.AstNm opCode $ zipWith fromMaybe args margs
        else Nothing
   Ast.AstOp opCode args ->
@@ -2098,21 +2086,16 @@ substitute1Ast i var = \case
   Ast.AstOpIntegral opCode args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
-       then Just $ case ( sameAstSpan @AstPrimal @s
-                        , sameNat (Proxy @n) (Proxy @0)
-                        , testEquality (typeRep @r) (typeRep @Int64) ) of
-         (Just Refl, Just Refl, Just Refl) ->
+       then Just $ case isRankedInt v1 of
+         Just Refl ->
            simplifyAstIntegralOp opCode $ zipWith fromMaybe args margs
          _ -> Ast.AstOpIntegral opCode $ zipWith fromMaybe args margs
        else Nothing
   Ast.AstSumOfList args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
-       then Just $ case ( sameAstSpan @AstPrimal @s
-                        , sameNat (Proxy @n) (Proxy @0)
-                        , testEquality (typeRep @r) (typeRep @Int64) ) of
-         (Just Refl, Just Refl, Just Refl) ->
-           foldr1 simplifyAstPlusOp $ zipWith fromMaybe args margs
+       then Just $ case isRankedInt v1 of
+         Just Refl -> foldr1 simplifyAstPlusOp $ zipWith fromMaybe args margs
          _ -> astSumOfList $ zipWith fromMaybe args margs
        else Nothing
   Ast.AstIota -> Nothing
