@@ -43,11 +43,6 @@ unsafeGetFreshAstId :: IO AstId
 unsafeGetFreshAstId =
   intToAstId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-unsafeGetFreshAstVarId :: IO (AstVarId s)
-{-# INLINE unsafeGetFreshAstVarId #-}
-unsafeGetFreshAstVarId =
-  intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
-
 unsafeGetFreshAstVarName :: IO (AstVarName s f r y)
 {-# INLINE unsafeGetFreshAstVarName #-}
 unsafeGetFreshAstVarName =
@@ -104,12 +99,11 @@ funToAstIOR :: forall n m s r r2. GoodScalar r
                   , AstRanked s r2 m )
 {-# INLINE funToAstIOR #-}
 funToAstIOR sh f = do
-  freshId <- unsafeGetFreshAstVarId
+  varName <- unsafeGetFreshAstVarName
   return $! OS.withShapeP (shapeToList sh) $ \(Proxy :: Proxy sh) ->
-    let varName = AstVarName freshId
-    in ( varName
-       , AstDynamicVarName @Nat @sh varName
-       , f (AstVar sh varName) )
+    ( varName
+    , AstDynamicVarName @Nat @sh varName
+    , f (AstVar sh varName) )
 
 funToAstR :: GoodScalar r
           => ShapeInt n -> (AstRanked s r n -> AstRanked s r2 m)
@@ -126,8 +120,7 @@ funToAstIOS :: forall sh sh2 s r r2. (OS.Shape sh, GoodScalar r)
                   , AstShaped s r2 sh2 )
 {-# INLINE funToAstIOS #-}
 funToAstIOS f = do
-  freshId <- unsafeGetFreshAstVarId
-  let varName = AstVarName freshId
+  varName <- unsafeGetFreshAstVarName
   return ( varName
          , AstDynamicVarName @[Nat] @sh varName
          , f (AstVarS varName) )
@@ -148,17 +141,17 @@ funToAstAllIO :: DomainsOD
 funToAstAllIO parameters0 = do
   let f (DynamicExists @r2 e) = do
         let sh = OD.shapeL e
-        fId <- unsafeGetFreshAstVarId
-        let freshId :: AstVarId s
-            freshId = intToAstVarId (fromEnum fId)
+        freshId <- unsafeGetFreshAstId
+        let varId :: AstVarId s
+            varId = intToAstVarId (fromEnum freshId)
         return $! OS.withShapeP sh $ \(Proxy :: Proxy sh) ->
           case someNatVal $ toInteger $ length sh of
             Just (SomeNat @n _) ->
               let dynE :: DynamicExists (AstDynamic s)
                   dynE = DynamicExists @r2
                          $ AstRToD @n (AstVar (listShapeToShape sh)
-                                              (AstVarName freshId))
-              in (AstDynamicVarName @Nat @sh @r2 (AstVarName freshId), dynE, dynE)
+                                              (AstVarName varId))
+              in (AstDynamicVarName @Nat @sh @r2 (AstVarName varId), dynE, dynE)
             Nothing -> error "funToAstAllIO: impossible someNatVal error"
   unzip3 <$> mapM f (V.toList parameters0)
 
@@ -171,9 +164,9 @@ funToAstAll :: DomainsOD
                , [DynamicExists (AstDynamic AstPrimal)] )
 {-# NOINLINE funToAstAll #-}
 funToAstAll parameters0 = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
+  varName <- unsafeGetFreshAstVarName
   (vars1, asts1, astsPrimal1) <- funToAstAllIO parameters0
-  return ((AstVarName freshId, vars1), asts1, astsPrimal1)
+  return ((varName, vars1), asts1, astsPrimal1)
 
 funToAstAllIOS :: DomainsOD
                -> IO ( [AstDynamicVarName AstPrimal (AstShaped AstPrimal)]
@@ -183,14 +176,14 @@ funToAstAllIOS :: DomainsOD
 funToAstAllIOS parameters0 = do
   let f (DynamicExists @r2 e) = do
         let sh = OD.shapeL e
-        fId <- unsafeGetFreshAstVarId
-        let freshId :: AstVarId s
-            freshId = intToAstVarId (fromEnum fId)
+        freshId <- unsafeGetFreshAstId
+        let varId :: AstVarId s
+            varId = intToAstVarId (fromEnum freshId)
         return $! OS.withShapeP sh $ \(Proxy :: Proxy sh) ->
           let dynE :: DynamicExists (AstDynamic s)
               dynE = DynamicExists @r2
-                     $ AstSToD (AstVarS @sh (AstVarName freshId))
-          in (AstDynamicVarName @[Nat] @sh @r2 (AstVarName freshId), dynE, dynE)
+                     $ AstSToD (AstVarS @sh (AstVarName varId))
+          in (AstDynamicVarName @[Nat] @sh @r2 (AstVarName varId), dynE, dynE)
   unzip3 <$> mapM f (V.toList parameters0)
 
 -- The AstVarName type with its parameter somehow prevents cse and crashes
@@ -202,15 +195,15 @@ funToAstAllS :: DomainsOD
                 , [DynamicExists (AstDynamic AstPrimal)] )
 {-# NOINLINE funToAstAllS #-}
 funToAstAllS parameters0 = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
+  varName <- unsafeGetFreshAstVarName
   (vars1, asts1, astsPrimal1) <- funToAstAllIOS parameters0
-  return ((AstVarName freshId, vars1), asts1, astsPrimal1)
+  return ((varName, vars1), asts1, astsPrimal1)
 
 funToAstIOI :: (AstInt -> t) -> IO (IntVarName, t)
 {-# INLINE funToAstIOI #-}
 funToAstIOI f = do
-  freshId <- unsafeGetFreshAstVarName
-  return (freshId, f (AstIntVar freshId))
+  varName <- unsafeGetFreshAstVarName
+  return (varName, f (AstIntVar varName))
 
 funToAstI :: (AstInt -> t) -> (IntVarName, t)
 {-# NOINLINE funToAstI #-}
@@ -220,8 +213,8 @@ funToAstIndexIO
   :: forall m p. KnownNat m
   => Int -> (AstIndex m -> AstIndex p) -> IO (AstVarList m, AstIndex p)
 {-# INLINE funToAstIndexIO #-}
-funToAstIndexIO p f = do
-  varList <- replicateM p unsafeGetFreshAstVarName
+funToAstIndexIO m f = do
+  varList <- replicateM m unsafeGetFreshAstVarName
   return (listToSized varList, f (listToIndex $ map AstIntVar varList))
 
 funToAstIndex
@@ -232,8 +225,7 @@ funToAstIndex = unsafePerformIO . funToAstIndexIO (valueOf @m)
 
 funToAstIndexIOS
   :: forall sh1 sh2. OS.Shape sh1
-  => (AstIndexS sh1 -> AstIndexS sh2)
-  -> IO (AstVarListS sh1, AstIndexS sh2)
+  => (AstIndexS sh1 -> AstIndexS sh2) -> IO (AstVarListS sh1, AstIndexS sh2)
 {-# INLINE funToAstIndexIOS #-}
 funToAstIndexIOS f = do
   let p = length $ OS.shapeT @sh1
