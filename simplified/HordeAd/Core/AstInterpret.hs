@@ -1,10 +1,10 @@
-{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
-             UndecidableInstances #-}
+{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
 {-# OPTIONS_GHC -freduction-depth=10000 #-}
--- | Interpretation of @Ast@ terms in an aribtrary @RankedTensor@ class instance..
+-- | Interpretation of @Ast@ terms in an aribtrary @RankedTensor@
+-- and/or @ShapedTensor@ class instance.
 module HordeAd.Core.AstInterpret
   ( InterpretAstR, InterpretAstS
   , interpretPrimalSpan, interpretAst, interpretAstDomainsDummy
@@ -65,10 +65,10 @@ instance
       => ShowRanked ranked where
 
 class (forall re she. (GoodScalar re, OS.Shape she) => Show (shaped re she))
-      => ShowShaped shaped
+      => ShowShaped shaped where
 instance
       (forall re she. (GoodScalar re, OS.Shape she) => Show (shaped re she))
-      => ShowShaped shaped
+      => ShowShaped shaped where
 
 extendEnvS :: forall ranked shaped r sh s.
               (OS.Shape sh, GoodScalar r)

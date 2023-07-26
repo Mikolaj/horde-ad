@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
 -- higher order operations such as build and map and for producing reusable
 -- gradients, but can be used for arbitrary code transformations
@@ -189,7 +188,8 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
          => AstVarName s (AstRanked s) r n -> AstRanked s r n
          -> AstRanked s2 r2 m
          -> AstRanked s2 r2 m
-  AstLetADShare :: ADShare -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
+  AstLetADShare :: ADShare -> AstRanked PrimalSpan r n
+                -> AstRanked PrimalSpan r n
    -- there are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D

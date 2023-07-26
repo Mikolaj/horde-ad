@@ -18,12 +18,7 @@ import           Data.List (mapAccumR)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 
-import           HordeAd.Core.Ast
-  ( AstBool (AstBoolConst)
-  , AstDomains
-  , AstRanked (AstConst, AstNm, AstSumOfList)
-  , AstShaped (AstConstS, AstNmS, AstSumOfListS)
-  )
+import           HordeAd.Core.Ast (AstBool, AstDomains, AstRanked, AstShaped)
 import           HordeAd.Core.Ast hiding
   (AstBool (..), AstDomains (..), AstRanked (..), AstShaped (..))
 import qualified HordeAd.Core.Ast as Ast
@@ -33,7 +28,7 @@ import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.Types
 
--- * Simplification pass applied to code with eliminated nested lets
+-- * Inlining and simplification pass to be applied after unlet
 
 simplifyArtifact6 :: (GoodScalar r, KnownNat n)
                   => ADAstArtifact6 (AstRanked PrimalSpan) r n
@@ -96,19 +91,35 @@ inlineAst memo v0 = case v0 of
         in (memo3, substituteAst (SubstitutionPayloadRanked u0) var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
   Ast.AstLetADShare{} -> error "inlineAst: AstLetADShare"
-  AstNm opCode args ->
+  Ast.AstCond b a2 a3 ->
+    -- This is a place where our inlining may increase code size
+    -- by enlarging both branches due to not considering number of syntactic
+    -- occurences, but only dynamic occurences. Tensor expressions
+    -- in conditionals are problematic and special enough
+    -- that we can let it be until problems are encountered in the wild.
+    -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
+    let (memo1, b1) = inlineAstBool memo b
+        (memoA2, t2) = inlineAst EM.empty a2
+        (memoA3, t3) = inlineAst EM.empty a3
+        memo4 = EM.unionWith max memoA2 memoA3
+        memo5 = EM.unionWith (+) memo1 memo4
+    in (memo5, Ast.AstCond b1 t2 t3)
+  Ast.AstMinIndex a -> second Ast.AstMinIndex $ inlineAst memo a
+  Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ inlineAst memo a
+  Ast.AstFloor a -> second Ast.AstFloor $ inlineAst memo a
+  Ast.AstIota -> (memo, v0)
+  Ast.AstNm opCode args ->
     let (memo2, args2) = mapAccumR inlineAst memo args
-    in (memo2, AstNm opCode args2)
+    in (memo2, Ast.AstNm opCode args2)
   Ast.AstOp opCode args ->
     let (memo2, args2) = mapAccumR inlineAst memo args
     in (memo2, Ast.AstOp opCode args2)
   Ast.AstOpIntegral opCode args ->
     let (memo2, args2) = mapAccumR inlineAst memo args
     in (memo2, Ast.AstOpIntegral opCode args2)
-  AstSumOfList args ->
+  Ast.AstSumOfList args ->
     let (memo2, args2) = mapAccumR inlineAst memo args
-    in (memo2, AstSumOfList args2)
-  Ast.AstIota -> (memo, v0)
+    in (memo2, Ast.AstSumOfList args2)
   Ast.AstIndex v ix ->
     let (memo1, v2) = inlineAst memo v
         (memo2, ix2) = mapAccumR inlineAst EM.empty (indexToList ix)
@@ -151,8 +162,8 @@ inlineAst memo v0 = case v0 of
     in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
   Ast.AstCast v -> second Ast.AstCast $ inlineAst memo v
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ inlineAst memo v
+  Ast.AstConst{} -> (memo, v0)
   Ast.AstSToR v -> second Ast.AstSToR $ inlineAstS memo v
-  AstConst{} -> (memo, v0)
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
   Ast.PrimalSpanPart a -> second Ast.PrimalSpanPart $ inlineAst memo a
   Ast.DualSpanPart a -> second Ast.DualSpanPart $ inlineAst memo a
@@ -164,26 +175,11 @@ inlineAst memo v0 = case v0 of
     let (memo1, l2) = inlineAstDomains memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetDomains vars l2 v2)
-  Ast.AstCond b a2 a3 ->
-    -- This is a place where our inlining may increase code size
-    -- by enlarging both branches due to not considering number of syntactic
-    -- occurences, but only dynamic occurences. Tensor expressions
-    -- in conditionals are problematic and special enough
-    -- that we can let it be until problems are encountered in the wild.
-    -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
-    let (memo1, b1) = inlineAstBool memo b
-        (memoA2, t2) = inlineAst EM.empty a2
-        (memoA3, t3) = inlineAst EM.empty a3
-        memo4 = EM.unionWith max memoA2 memoA3
-        memo5 = EM.unionWith (+) memo1 memo4
-    in (memo5, Ast.AstCond b1 t2 t3)
-  Ast.AstFloor a -> second Ast.AstFloor $ inlineAst memo a
-  Ast.AstMinIndex a -> second Ast.AstMinIndex $ inlineAst memo a
-  Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ inlineAst memo a
 
 inlineAstDynamic
   :: AstSpan s
-  => AstMemo -> DynamicExists (AstDynamic s) -> (AstMemo, DynamicExists (AstDynamic s))
+  => AstMemo -> DynamicExists (AstDynamic s)
+  -> (AstMemo, DynamicExists (AstDynamic s))
 inlineAstDynamic memo = \case
   DynamicExists (AstRToD w) ->
     second (DynamicExists . AstRToD) $ inlineAst memo w
@@ -232,7 +228,7 @@ inlineAstBool memo v0 = case v0 of
   Ast.AstBoolOp opCodeBool args ->
     let (memo2, args2) = mapAccumR inlineAstBool memo args
     in (memo2, Ast.AstBoolOp opCodeBool args2)
-  AstBoolConst{} -> (memo, v0)
+  Ast.AstBoolConst{} -> (memo, v0)
   Ast.AstRel @n opCodeRel args ->
     let (memo2, args2) =  mapAccumR inlineAst memo args
     in (memo2, Ast.AstRel opCodeRel args2)
@@ -265,19 +261,35 @@ inlineAstS memo v0 = case v0 of
         in (memo3, substituteAstS (SubstitutionPayloadShaped u0) var v2)
       _ -> (memo2, Ast.AstLetS var u2 v2)
   Ast.AstLetADShareS{} -> error "inlineAstS: AstLetADShareS"
-  AstNmS opCode args ->
+  Ast.AstCondS b a2 a3 ->
+    -- This is a place where our inlining may increase code size
+    -- by enlarging both branches due to not considering number of syntactic
+    -- occurences, but only dynamic occurences. Tensor expressions
+    -- in conditionals are problematic and special enough
+    -- that we can let it be until problems are encountered in the wild.
+    -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
+    let (memo1, b1) = inlineAstBool memo b
+        (memoA2, t2) = inlineAstS EM.empty a2
+        (memoA3, t3) = inlineAstS EM.empty a3
+        memo4 = EM.unionWith max memoA2 memoA3
+        memo5 = EM.unionWith (+) memo1 memo4
+    in (memo5, Ast.AstCondS b1 t2 t3)
+  Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAstS memo a
+  Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAstS memo a
+  Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAstS memo a
+  Ast.AstIotaS -> (memo, v0)
+  Ast.AstNmS opCode args ->
     let (memo2, args2) = mapAccumR inlineAstS memo args
-    in (memo2, AstNmS opCode args2)
+    in (memo2, Ast.AstNmS opCode args2)
   Ast.AstOpS opCode args ->
     let (memo2, args2) = mapAccumR inlineAstS memo args
     in (memo2, Ast.AstOpS opCode args2)
   Ast.AstOpIntegralS opCode args ->
     let (memo2, args2) = mapAccumR inlineAstS memo args
     in (memo2, Ast.AstOpIntegralS opCode args2)
-  AstSumOfListS args ->
+  Ast.AstSumOfListS args ->
     let (memo2, args2) = mapAccumR inlineAstS memo args
-    in (memo2, AstSumOfListS args2)
-  Ast.AstIotaS -> (memo, v0)
+    in (memo2, Ast.AstSumOfListS args2)
   Ast.AstIndexS @sh1 v ix ->
     let (memo1, v2) = inlineAstS memo v
         (memo2, ix2) = mapAccumR inlineAst EM.empty
@@ -324,8 +336,8 @@ inlineAstS memo v0 = case v0 of
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAstS memo v
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ inlineAstS memo v
+  Ast.AstConstS{} -> (memo, v0)
   Ast.AstRToS v -> second Ast.AstRToS $ inlineAst memo v
-  AstConstS{} -> (memo, v0)
   Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstS memo a
   Ast.PrimalSpanPartS a -> second Ast.PrimalSpanPartS $ inlineAstS memo a
   Ast.DualSpanPartS a -> second Ast.DualSpanPartS $ inlineAstS memo a
@@ -337,25 +349,9 @@ inlineAstS memo v0 = case v0 of
     let (memo1, l2) = inlineAstDomains memo l
         (memo2, v2) = inlineAstS memo1 v
     in (memo2, Ast.AstLetDomainsS vars l2 v2)
-  Ast.AstCondS b a2 a3 ->
-    -- This is a place where our inlining may increase code size
-    -- by enlarging both branches due to not considering number of syntactic
-    -- occurences, but only dynamic occurences. Tensor expressions
-    -- in conditionals are problematic and special enough
-    -- that we can let it be until problems are encountered in the wild.
-    -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
-    let (memo1, b1) = inlineAstBool memo b
-        (memoA2, t2) = inlineAstS EM.empty a2
-        (memoA3, t3) = inlineAstS EM.empty a3
-        memo4 = EM.unionWith max memoA2 memoA3
-        memo5 = EM.unionWith (+) memo1 memo4
-    in (memo5, Ast.AstCondS b1 t2 t3)
-  Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAstS memo a
-  Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAstS memo a
-  Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAstS memo a
 
 
--- * The pass eliminating nested lets bottom-up
+-- * The unlet pass eliminating nested lets bottom-up
 
 data UnletEnv = UnletEnv
   { unletSet     :: ES.EnumSet AstId
@@ -409,12 +405,18 @@ unletAst env t = case t of
           -- and via unletAst, but if many lets can be eliminated,
           -- subtractADShare does it much faster
     in unletAst env $ bindsToLet v lassocs
-  AstNm opCode args -> AstNm opCode (map (unletAst env) args)
+  Ast.AstCond b a1 a2 ->
+    Ast.AstCond
+      (unletAstBool env b) (unletAst env a1) (unletAst env a2)
+  Ast.AstMinIndex a -> Ast.AstMinIndex $ unletAst env a
+  Ast.AstMaxIndex a -> Ast.AstMaxIndex $ unletAst env a
+  Ast.AstFloor a -> Ast.AstFloor $ unletAst env a
+  Ast.AstIota -> t
+  Ast.AstNm opCode args -> Ast.AstNm opCode (map (unletAst env) args)
   Ast.AstOp opCode args -> Ast.AstOp opCode (map (unletAst env) args)
   Ast.AstOpIntegral opCode args ->
     Ast.AstOpIntegral opCode (map (unletAst env) args)
-  AstSumOfList args -> AstSumOfList (map (unletAst env) args)
-  Ast.AstIota -> t
+  Ast.AstSumOfList args -> Ast.AstSumOfList (map (unletAst env) args)
   Ast.AstIndex v ix ->
     Ast.AstIndex (unletAst env v) (fmap (unletAst env) ix)
   Ast.AstSum v -> Ast.AstSum (unletAst env v)
@@ -433,8 +435,8 @@ unletAst env t = case t of
     Ast.AstGather sh (unletAst env v) (vars, fmap (unletAst env) ix)
   Ast.AstCast v -> Ast.AstCast (unletAst env v)
   Ast.AstFromIntegral v -> Ast.AstFromIntegral (unletAst env v)
+  Ast.AstConst{} -> t
   Ast.AstSToR v -> Ast.AstSToR (unletAstS env v)
-  AstConst{} -> t
   Ast.AstConstant v -> Ast.AstConstant (unletAst env v)
   Ast.PrimalSpanPart v -> Ast.PrimalSpanPart (unletAst env v)
   Ast.DualSpanPart v -> Ast.DualSpanPart (unletAst env v)
@@ -444,12 +446,6 @@ unletAst env t = case t of
                                `ES.union` ES.fromList (map astVarIdToAstId
                                                        $ V.toList vars)}
     in Ast.AstLetDomains vars (unletAstDomains env l) (unletAst env2 v)
-  Ast.AstCond b a1 a2 ->
-    Ast.AstCond
-      (unletAstBool env b) (unletAst env a1) (unletAst env a2)
-  Ast.AstFloor a -> Ast.AstFloor $ unletAst env a
-  Ast.AstMinIndex a -> Ast.AstMinIndex $ unletAst env a
-  Ast.AstMaxIndex a -> Ast.AstMaxIndex $ unletAst env a
 
 unletAstDynamic
   :: AstSpan s
@@ -481,7 +477,7 @@ unletAstBool :: UnletEnv -> AstBool -> AstBool
 unletAstBool env t = case t of
   Ast.AstBoolOp opCodeBool args ->
     Ast.AstBoolOp opCodeBool (map (unletAstBool env) args)
-  AstBoolConst{} -> t
+  Ast.AstBoolConst{} -> t
   Ast.AstRel opCodeRel args ->
     Ast.AstRel opCodeRel (map (unletAst env) args)
   Ast.AstRelS opCodeRel args ->
@@ -512,12 +508,18 @@ unletAstS env t = case t of
           -- and via unletAst, but if many lets can be eliminated,
           -- subtractADShare does it much faster
     in unletAstS env $ bindsToLetS v lassocs
-  AstNmS opCode args -> AstNmS opCode (map (unletAstS env) args)
+  Ast.AstCondS b a1 a2 ->
+    Ast.AstCondS
+      (unletAstBool env b) (unletAstS env a1) (unletAstS env a2)
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS $ unletAstS env a
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS $ unletAstS env a
+  Ast.AstFloorS a -> Ast.AstFloorS $ unletAstS env a
+  Ast.AstIotaS -> t
+  Ast.AstNmS opCode args -> Ast.AstNmS opCode (map (unletAstS env) args)
   Ast.AstOpS opCode args -> Ast.AstOpS opCode (map (unletAstS env) args)
   Ast.AstOpIntegralS opCode args ->
     Ast.AstOpIntegralS opCode (map (unletAstS env) args)
-  AstSumOfListS args -> AstSumOfListS (map (unletAstS env) args)
-  Ast.AstIotaS -> t
+  Ast.AstSumOfListS args -> Ast.AstSumOfListS (map (unletAstS env) args)
   Ast.AstIndexS v ix ->
     Ast.AstIndexS (unletAstS env v) (fmap (unletAst env) ix)
   Ast.AstSumS v -> Ast.AstSumS (unletAstS env v)
@@ -536,8 +538,8 @@ unletAstS env t = case t of
     Ast.AstGatherS (unletAstS env v) (vars, fmap (unletAst env) ix)
   Ast.AstCastS v -> Ast.AstCastS (unletAstS env v)
   Ast.AstFromIntegralS v -> Ast.AstFromIntegralS (unletAstS env v)
+  Ast.AstConstS{} -> t
   Ast.AstRToS v -> Ast.AstRToS (unletAst env v)
-  AstConstS{} -> t
   Ast.AstConstantS v -> Ast.AstConstantS (unletAstS env v)
   Ast.PrimalSpanPartS v -> Ast.PrimalSpanPartS (unletAstS env v)
   Ast.DualSpanPartS v -> Ast.DualSpanPartS (unletAstS env v)
@@ -547,9 +549,3 @@ unletAstS env t = case t of
                                `ES.union` ES.fromList (map astVarIdToAstId
                                                        $ V.toList vars)}
     in Ast.AstLetDomainsS vars (unletAstDomains env l) (unletAstS env2 v)
-  Ast.AstCondS b a1 a2 ->
-    Ast.AstCondS
-      (unletAstBool env b) (unletAstS env a1) (unletAstS env a2)
-  Ast.AstFloorS a -> Ast.AstFloorS $ unletAstS env a
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS $ unletAstS env a
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS $ unletAstS env a
