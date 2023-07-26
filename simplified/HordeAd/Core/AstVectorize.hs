@@ -14,12 +14,11 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as OS
 import           Data.Int (Int64)
 import           Data.IORef
-import           Data.Proxy (Proxy (Proxy))
+import           Data.Proxy (Proxy)
 import qualified Data.Strict.IntMap as IM
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
-  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
+import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal, type (+))
 import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -37,7 +36,7 @@ import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.SizedList
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (sameShape, trustMeThisIsAPermutation)
+  (trustMeThisIsAPermutation)
 
 -- * Vectorization of AstRanked
 
@@ -132,9 +131,8 @@ build1V k (var, v00) =
       traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
     Ast.AstVar _ var2 | fromEnum var2 == fromEnum var ->
-      case ( sameAstSpan @s @AstPrimal
-           , sameNat (Proxy @n) (Proxy @0) ) of
-        (Just Refl, Just Refl) -> fromPrimal $ astSlice 0 k Ast.AstIota
+      case isRankedInt v0 of
+        Just Refl -> fromPrimal $ astSlice 0 k Ast.AstIota
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
@@ -441,13 +439,8 @@ build1VS (var, v00) =
       bv = Ast.AstBuild1S (var, v0)
       traceRule = mkTraceRuleS "build1VS" bv v0 1
   in case v0 of
-    Ast.AstVarS var2 | fromEnum var2 == fromEnum var ->
-      case ( sameAstSpan @s @AstPrimal
-           , sameShape @sh @'[] ) of
-        (Just Refl, Just Refl) -> fromPrimalS $ astSliceS @0 @k @k Ast.AstIotaS
-        _ -> error "build1VS: build variable is not an index variable"
     Ast.AstVarS{} ->
-      error "build1VS: AstVarS can't contain other free index variables"
+      error "build1VS: AstVarS can't contain free index variables"
     Ast.AstLetS @sh1 @_ @r1 @s1 (AstVarName vvv2) u v ->
       let var2 = AstVarName vvv2
             -- changed shape; shall we rename, too?
