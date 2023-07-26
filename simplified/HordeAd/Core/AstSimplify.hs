@@ -41,7 +41,7 @@ import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
 import           Data.Int (Int64)
 import           Data.List (dropWhileEnd, foldl1')
-import           Data.Maybe (catMaybes)
+import           Data.Maybe (catMaybes, fromMaybe, isJust)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -2024,19 +2024,21 @@ substituteAst :: forall n n2 s s2 r r2.
               => SubstitutionPayload s2 r2 -> AstVarName s2 (AstRanked s2) r2 n2
               -> AstRanked s r n
               -> AstRanked s r n
-substituteAst i (AstVarName var) v1 = substitute1Ast i var v1
+substituteAst i (AstVarName var) v1 = fromMaybe v1 (substitute1Ast i var v1)
 
 substituteAstDomains
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarName s2 f r2 y -> AstDomains s
   -> AstDomains s
-substituteAstDomains i (AstVarName var) v1 = substitute1AstDomains i var v1
+substituteAstDomains i (AstVarName var) v1 =
+  fromMaybe v1 (substitute1AstDomains i var v1)
 
 substituteAstBool :: (GoodScalar r2, AstSpan s2)
                   => SubstitutionPayload s2 r2 -> AstVarName s2 f r2 y
                   -> AstBool
                   -> AstBool
-substituteAstBool i (AstVarName var) b1 = substitute1AstBool i var b1
+substituteAstBool i (AstVarName var) b1 =
+  fromMaybe b1 (substitute1AstBool i var b1)
 
 substituteAstS :: forall sh sh2 s2 s r r2 f.
                   ( GoodScalar r, GoodScalar r2, OS.Shape sh
@@ -2044,7 +2046,7 @@ substituteAstS :: forall sh sh2 s2 s r r2 f.
                => SubstitutionPayload s2 r2 -> AstVarName s2 f r2 sh2
                -> AstShaped s r sh
                -> AstShaped s r sh
-substituteAstS i (AstVarName var) v1 = substitute1AstS i var v1
+substituteAstS i (AstVarName var) v1 = fromMaybe v1 (substitute1AstS i var v1)
 
 
 -- * Substitution workers
@@ -2058,158 +2060,281 @@ substitute1Ast :: forall n s s2 r r2.
                   ( GoodScalar r, GoodScalar r2, KnownNat n
                   , AstSpan s, AstSpan s2 )
                => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstRanked s r n
-               -> AstRanked s r n
-substitute1Ast i var v1 = case v1 of
+               -> Maybe (AstRanked s r n)
+substitute1Ast i var = \case
   Ast.AstVar sh var2 ->
     if fromEnum var == fromEnum var2
     then case i of
       SubstitutionPayloadRanked @_ @_ @m t -> case sameAstSpan @s @s2 of
         Just Refl -> case sameNat (Proxy @m) (Proxy @n) of
           Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-            Just Refl -> assert (shapeAst t == sh) t
+            Just Refl -> assert (shapeAst t == sh) $ Just t
             _ -> error "substitute1Ast: scalar"
           _ -> error "substitute1Ast: rank"
         _ -> error "substitute1Ast: span"
       _ -> error "substitute1Ast: type"
-    else v1
+    else Nothing
   Ast.AstLet var2 u v ->
-    astLet var2 (substitute1Ast i var u) (substitute1Ast i var v)
+    case (substitute1Ast i var u, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) -> Just $ astLet var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstLetADShare{} -> error "substitute1Ast: AstLetADShare"
-  Ast.AstNm opCode args -> Ast.AstNm opCode $ map (substitute1Ast i var) args
-  Ast.AstOp opCode args -> Ast.AstOp opCode $ map (substitute1Ast i var) args
+  Ast.AstNm opCode args ->
+    let margs = map (substitute1Ast i var) args
+    in if any isJust margs
+       then Just $ Ast.AstNm opCode $ zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstOp opCode args ->
+    let margs = map (substitute1Ast i var) args
+    in if any isJust margs
+       then Just $ Ast.AstOp opCode $ zipWith fromMaybe args margs
+       else Nothing
   Ast.AstOpIntegral opCode args ->
-    Ast.AstOpIntegral opCode $ map (substitute1Ast i var) args
-  Ast.AstSumOfList args -> astSumOfList $ map (substitute1Ast i var) args
-  Ast.AstIota -> v1
+    let margs = map (substitute1Ast i var) args
+    in if any isJust margs
+       then Just $ Ast.AstOpIntegral opCode $ zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstSumOfList args ->
+    let margs = map (substitute1Ast i var) args
+    in if any isJust margs
+       then Just $ astSumOfList $ zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstIota -> Nothing
   Ast.AstIndex v ix ->
-    astIndexR (substitute1Ast i var v) (fmap (substitute1Ast i var) ix)
-  Ast.AstSum v -> astSum (substitute1Ast i var v)
+    case (substitute1Ast i var v, substitute1AstIndex i var ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ astIndexR (fromMaybe v mv) (fromMaybe ix mix)
+  Ast.AstSum v -> astSum <$> substitute1Ast i var v
   Ast.AstScatter sh v (vars, ix) ->
-    astScatter sh (substitute1Ast i var v)
-                  (vars, fmap (substitute1Ast i var) ix)
-  Ast.AstFromList l -> astFromList $ map (substitute1Ast i var) l
-  Ast.AstFromVector l -> astFromVector $ V.map (substitute1Ast i var) l
-  Ast.AstReplicate s v -> astReplicate s (substitute1Ast i var v)
+    case (substitute1Ast i var v, substitute1AstIndex i var ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ astScatter sh (fromMaybe v mv)
+                                        (vars, fromMaybe ix mix)
+  Ast.AstFromList args ->
+    let margs = map (substitute1Ast i var) args
+    in if any isJust margs
+       then Just $ astFromList $ zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstFromVector args ->
+    let margs = V.map (substitute1Ast i var) args
+    in if V.any isJust margs
+       then Just $ astFromVector $ V.zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstReplicate k v -> astReplicate k <$> substitute1Ast i var v
   Ast.AstAppend x y ->
-    astAppend (substitute1Ast i var x) (substitute1Ast i var y)
-  Ast.AstSlice i2 n v -> astSlice i2 n (substitute1Ast i var v)
-  Ast.AstReverse v -> astReverse (substitute1Ast i var v)
-  Ast.AstTranspose perm v -> astTranspose perm (substitute1Ast i var v)
-  Ast.AstReshape sh v -> astReshape sh (substitute1Ast i var v)
-  Ast.AstBuild1 k (var2, v) -> Ast.AstBuild1 k (var2, substitute1Ast i var v)
+    case (substitute1Ast i var x, substitute1Ast i var y) of
+      (Nothing, Nothing) -> Nothing
+      (mx, my) -> Just $ astAppend (fromMaybe x mx) (fromMaybe y my)
+  Ast.AstSlice i2 n v -> astSlice i2 n <$> substitute1Ast i var v
+  Ast.AstReverse v -> astReverse <$> substitute1Ast i var v
+  Ast.AstTranspose perm v -> astTranspose perm <$> substitute1Ast i var v
+  Ast.AstReshape sh v -> astReshape sh <$> substitute1Ast i var v
+  Ast.AstBuild1 k (var2, v) ->
+    Ast.AstBuild1 k . (\t -> (var2, t)) <$> substitute1Ast i var v
   Ast.AstGather sh v (vars, ix) ->
-    astGatherR sh (substitute1Ast i var v)
-                  (vars, fmap (substitute1Ast i var) ix)
-  Ast.AstCast v -> astCast $ substitute1Ast i var v
-  Ast.AstFromIntegral v -> astFromIntegral $ substitute1Ast i var v
-  Ast.AstSToR v -> astSToR $ substitute1AstS i var v
-  Ast.AstConst{} -> v1
-  Ast.AstConstant a -> Ast.AstConstant $ substitute1Ast i var a
-  Ast.AstPrimalPart a -> astPrimalPart $ substitute1Ast i var a
-  Ast.AstDualPart a -> astDualPart $ substitute1Ast i var a
-  Ast.AstD u u' -> Ast.AstD (substitute1Ast i var u) (substitute1Ast i var u')
+    case (substitute1Ast i var v, substitute1AstIndex i var ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ astGatherR sh (fromMaybe v mv)
+                                        (vars, fromMaybe ix mix)
+  Ast.AstCast v -> astCast <$> substitute1Ast i var v
+  Ast.AstFromIntegral v -> astFromIntegral <$> substitute1Ast i var v
+  Ast.AstSToR v -> astSToR <$> substitute1AstS i var v
+  Ast.AstConst{} -> Nothing
+  Ast.AstConstant a -> Ast.AstConstant <$> substitute1Ast i var a
+  Ast.AstPrimalPart a -> astPrimalPart <$> substitute1Ast i var a
+  Ast.AstDualPart a -> astDualPart <$> substitute1Ast i var a
+  Ast.AstD x y ->
+    case (substitute1Ast i var x, substitute1Ast i var y) of
+      (Nothing, Nothing) -> Nothing
+      (mx, my) -> Just $ Ast.AstD (fromMaybe x mx) (fromMaybe y my)
   Ast.AstLetDomains vars l v ->
-    Ast.AstLetDomains vars (substitute1AstDomains i var l)
-                           (substitute1Ast i var v)
-  Ast.AstCond b v w -> astCond (substitute1AstBool i var b)
-                               (substitute1Ast i var v)
-                               (substitute1Ast i var w)
-  Ast.AstFloor a -> Ast.AstFloor (substitute1Ast i var a)
-  Ast.AstMinIndex a -> Ast.AstMinIndex (substitute1Ast i var a)
-  Ast.AstMaxIndex a -> Ast.AstMaxIndex (substitute1Ast i var a)
+    case (substitute1AstDomains i var l, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (ml, mv) ->
+        Just $ Ast.AstLetDomains vars (fromMaybe l ml) (fromMaybe v mv)
+  Ast.AstCond b v w ->
+    case ( substitute1AstBool i var b
+         , substitute1Ast i var v
+         , substitute1Ast i var w ) of
+      (Nothing, Nothing, Nothing) -> Nothing
+      (mb, mv, mw) ->
+        Just $ astCond (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
+  Ast.AstFloor a -> Ast.AstFloor <$> substitute1Ast i var a
+  Ast.AstMinIndex a -> Ast.AstMinIndex <$> substitute1Ast i var a
+  Ast.AstMaxIndex a -> Ast.AstMaxIndex <$> substitute1Ast i var a
+
+substitute1AstIndex
+  :: (GoodScalar r2, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstIndex n
+  -> Maybe (AstIndex n)
+substitute1AstIndex i var ix =
+  let mix = fmap (substitute1Ast i var) ix
+  in if any isJust mix
+     then Just $ zipWith_Index fromMaybe ix mix
+     else Nothing
 
 substitute1AstDynamic
   :: (GoodScalar r, GoodScalar r2, AstSpan s, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstDynamic s r
-  -> AstDynamic s r
+  -> Maybe (AstDynamic s r)
 substitute1AstDynamic i var = \case
-  Ast.AstRToD t -> Ast.AstRToD $ substitute1Ast i var t
-  Ast.AstSToD t -> Ast.AstSToD $ substitute1AstS i var t
+  Ast.AstRToD t -> Ast.AstRToD <$> substitute1Ast i var t
+  Ast.AstSToD t -> Ast.AstSToD <$> substitute1AstS i var t
 
 substitute1AstDomains
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstDomains s -> AstDomains s
+  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstDomains s
+  -> Maybe (AstDomains s)
 substitute1AstDomains i var = \case
-  Ast.AstDomains l ->
-    Ast.AstDomains $ V.map (\(DynamicExists d) ->
-                              DynamicExists $ substitute1AstDynamic i var d) l
+  Ast.AstDomains args ->
+    let margs = V.map (\(DynamicExists d) ->
+                         DynamicExists <$> substitute1AstDynamic i var d) args
+    in if V.any isJust margs
+       then Just $ Ast.AstDomains $ V.zipWith fromMaybe args margs
+       else Nothing
   Ast.AstDomainsLet var2 u v ->
-    astDomainsLet var2 (substitute1Ast i var u)
-                       (substitute1AstDomains i var v)
+    case (substitute1Ast i var u, substitute1AstDomains i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) -> Just $ astDomainsLet var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstDomainsLetS var2 u v ->
-    astDomainsLetS var2 (substitute1AstS i var u)
-                        (substitute1AstDomains i var v)
+    case (substitute1AstS i var u, substitute1AstDomains i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) -> Just $ astDomainsLetS var2 (fromMaybe u mu) (fromMaybe v mv)
 
 substitute1AstBool :: (GoodScalar r2, AstSpan s2)
                    => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstBool
-                   -> AstBool
-substitute1AstBool i var b1 = case b1 of
+                   -> Maybe AstBool
+substitute1AstBool i var = \case
   Ast.AstBoolOp opCodeBool args ->
-    Ast.AstBoolOp opCodeBool $ map (substitute1AstBool i var) args
-  Ast.AstBoolConst{} -> b1
-  Ast.AstRel opCodeRel args -> Ast.AstRel opCodeRel $ map (substitute1Ast i var) args
-  Ast.AstRelS opCodeRel args -> Ast.AstRelS opCodeRel $ map (substitute1AstS i var) args
+    let margs = map (substitute1AstBool i var) args
+    in if any isJust margs
+       then Just $ Ast.AstBoolOp opCodeBool $ zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstBoolConst{} -> Nothing
+  Ast.AstRel opCodeRel args ->
+    let margs = map (substitute1Ast i var) args
+    in if any isJust margs
+       then Just $ Ast.AstRel opCodeRel $ zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstRelS opCodeRel args ->
+    let margs = map (substitute1AstS i var) args
+    in if any isJust margs
+       then Just $ Ast.AstRelS opCodeRel $ zipWith fromMaybe args margs
+       else Nothing
 
 substitute1AstS :: forall sh s s2 r r2.
                    ( GoodScalar r, GoodScalar r2, OS.Shape sh
                    , AstSpan s, AstSpan s2 )
                 => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstShaped s r sh
-                -> AstShaped s r sh
-substitute1AstS i var v1 = case v1 of
+                -> Maybe (AstShaped s r sh)
+substitute1AstS i var = \case
   Ast.AstVarS var2 ->
     if fromEnum var == fromEnum var2
     then case i of
       SubstitutionPayloadShaped @_ @_ @sh2 t -> case sameAstSpan @s @s2 of
         Just Refl -> case sameShape @sh2 @sh of
           Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-            Just Refl -> t
+            Just Refl -> Just t
             _ -> error "substitute1AstS: scalar"
           _ -> error "substitute1AstS: shape"
         _ -> error "substitute1Ast: span"
       _ -> error "substitute1AstS: type"
-    else v1
+    else Nothing
   Ast.AstLetS var2 u v ->
-    astLetS var2 (substitute1AstS i var u) (substitute1AstS i var v)
+    case (substitute1AstS i var u, substitute1AstS i var v) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) -> Just $ astLetS var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstLetADShareS{} -> error "substitute1AstS: AstLetADShareS"
-  Ast.AstNmS opCode args -> Ast.AstNmS opCode $ map (substitute1AstS i var) args
-  Ast.AstOpS opCode args -> Ast.AstOpS opCode $ map (substitute1AstS i var) args
+  Ast.AstNmS opCode args ->
+    let margs = map (substitute1AstS i var) args
+    in if any isJust margs
+       then Just $ Ast.AstNmS opCode $ zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstOpS opCode args ->
+    let margs = map (substitute1AstS i var) args
+    in if any isJust margs
+       then Just $ Ast.AstOpS opCode $ zipWith fromMaybe args margs
+       else Nothing
   Ast.AstOpIntegralS opCode args ->
-    Ast.AstOpIntegralS opCode $ map (substitute1AstS i var) args
-  Ast.AstSumOfListS args -> astSumOfListS $ map (substitute1AstS i var) args
-  Ast.AstIotaS -> v1
+    let margs = map (substitute1AstS i var) args
+    in if any isJust margs
+       then Just $ Ast.AstOpIntegralS opCode $ zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstSumOfListS args ->
+    let margs = map (substitute1AstS i var) args
+    in if any isJust margs
+       then Just $ astSumOfListS $ zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstIotaS -> Nothing
   Ast.AstIndexS v ix ->
-    astIndexStepS (substitute1AstS i var v) (fmap (substitute1Ast i var) ix)
-  Ast.AstSumS v -> astSumS (substitute1AstS i var v)
+    case (substitute1AstS i var v, substitute1AstIndexS i var ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ astIndexStepS (fromMaybe v mv) (fromMaybe ix mix)
+  Ast.AstSumS v -> astSumS <$> substitute1AstS i var v
   Ast.AstScatterS v (vars, ix) ->
-    astScatterS (substitute1AstS i var v)
-                (vars, fmap (substitute1Ast i var) ix)
-  Ast.AstFromListS l -> astFromListS $ map (substitute1AstS i var) l
-  Ast.AstFromVectorS l -> astFromVectorS $ V.map (substitute1AstS i var) l
-  Ast.AstReplicateS v -> astReplicateS (substitute1AstS i var v)
+    case (substitute1AstS i var v, substitute1AstIndexS i var ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ astScatterS (fromMaybe v mv)
+                                      (vars, fromMaybe ix mix)
+  Ast.AstFromListS args ->
+    let margs = map (substitute1AstS i var) args
+    in if any isJust margs
+       then Just $ astFromListS $ zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstFromVectorS args ->
+    let margs = V.map (substitute1AstS i var) args
+    in if V.any isJust margs
+       then Just $ astFromVectorS $ V.zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstReplicateS v -> astReplicateS <$> substitute1AstS i var v
   Ast.AstAppendS x y ->
-    astAppendS (substitute1AstS i var x) (substitute1AstS i var y)
-  Ast.AstSliceS @i v -> astSliceS @i (substitute1AstS i var v)
-  Ast.AstReverseS v -> astReverseS (substitute1AstS i var v)
-  Ast.AstTransposeS @perm v -> astTransposeS @perm (substitute1AstS i var v)
-  Ast.AstReshapeS v -> astReshapeS (substitute1AstS i var v)
-  Ast.AstBuild1S (var2, v) -> Ast.AstBuild1S (var2, substitute1AstS i var v)
+    case (substitute1AstS i var x, substitute1AstS i var y) of
+      (Nothing, Nothing) -> Nothing
+      (mx, my) -> Just $ astAppendS (fromMaybe x mx) (fromMaybe y my)
+  Ast.AstSliceS @i v -> astSliceS @i <$> substitute1AstS i var v
+  Ast.AstReverseS v -> astReverseS <$> substitute1AstS i var v
+  Ast.AstTransposeS @perm v -> astTransposeS @perm <$> substitute1AstS i var v
+  Ast.AstReshapeS v -> astReshapeS <$> substitute1AstS i var v
+  Ast.AstBuild1S (var2, v) ->
+    Ast.AstBuild1S . (\t -> (var2, t)) <$> substitute1AstS i var v
   Ast.AstGatherS v (vars, ix) ->
-    astGatherS (substitute1AstS i var v)
-               (vars, fmap (substitute1Ast i var) ix)
-  Ast.AstCastS v -> astCastS $ substitute1AstS i var v
-  Ast.AstFromIntegralS a -> astFromIntegralS (substitute1AstS i var a)
-  Ast.AstRToS v -> astRToS $ substitute1Ast i var v
-  Ast.AstConstS{} -> v1
-  Ast.AstConstantS a -> Ast.AstConstantS (substitute1AstS i var a)
-  Ast.AstPrimalPartS a -> astPrimalPartS $ substitute1AstS i var a
-  Ast.AstDualPartS a -> astDualPartS $ substitute1AstS i var a
-  Ast.AstDS u u' -> Ast.AstDS (substitute1AstS i var u) (substitute1AstS i var u')
+    case (substitute1AstS i var v, substitute1AstIndexS i var ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ astGatherS (fromMaybe v mv)
+                                     (vars, fromMaybe ix mix)
+  Ast.AstCastS v -> astCastS <$> substitute1AstS i var v
+  Ast.AstFromIntegralS a -> astFromIntegralS <$> substitute1AstS i var a
+  Ast.AstRToS v -> astRToS <$> substitute1Ast i var v
+  Ast.AstConstS{} -> Nothing
+  Ast.AstConstantS a -> Ast.AstConstantS <$> substitute1AstS i var a
+  Ast.AstPrimalPartS a -> astPrimalPartS <$> substitute1AstS i var a
+  Ast.AstDualPartS a -> astDualPartS <$> substitute1AstS i var a
+  Ast.AstDS x y ->
+    case (substitute1AstS i var x, substitute1AstS i var y) of
+      (Nothing, Nothing) -> Nothing
+      (mx, my) -> Just $ Ast.AstDS (fromMaybe x mx) (fromMaybe y my)
   Ast.AstLetDomainsS vars l v ->
-    Ast.AstLetDomainsS vars (substitute1AstDomains i var l)
-                            (substitute1AstS i var v)
-  Ast.AstCondS b v w -> astCondS (substitute1AstBool i var b)
-                                 (substitute1AstS i var v)
-                                 (substitute1AstS i var w)
-  Ast.AstFloorS a -> Ast.AstFloorS (substitute1AstS i var a)
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS (substitute1AstS i var a)
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (substitute1AstS i var a)
+    case (substitute1AstDomains i var l, substitute1AstS i var v) of
+      (Nothing, Nothing) -> Nothing
+      (ml, mv) ->
+        Just $ Ast.AstLetDomainsS vars (fromMaybe l ml) (fromMaybe v mv)
+  Ast.AstCondS b v w ->
+    case ( substitute1AstBool i var b
+         , substitute1AstS i var v
+         , substitute1AstS i var w ) of
+      (Nothing, Nothing, Nothing) -> Nothing
+      (mb, mv, mw) ->
+        Just $ astCondS (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
+  Ast.AstFloorS a -> Ast.AstFloorS <$> substitute1AstS i var a
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS <$> substitute1AstS i var a
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1AstS i var a
+
+substitute1AstIndexS
+  :: (GoodScalar r2, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstIndexS sh
+  -> Maybe (AstIndexS sh)
+substitute1AstIndexS i var ix =
+  let mix = fmap (substitute1Ast i var) ix
+  in if any isJust mix
+     then Just $ ShapedList.zipWith_Sized fromMaybe ix mix
+     else Nothing
