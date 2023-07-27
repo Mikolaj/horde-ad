@@ -20,7 +20,6 @@ import           GHC.TypeLits
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Ast
-import           HordeAd.Core.ShapedList (ShapedList (..))
 import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
@@ -56,10 +55,7 @@ sfromIndex0 = sfromIntegral . sconstant . sfromR . ShapedList.unShapedNat
 sfromIndex1 :: forall r sh shaped. (ADReadyS shaped r, KnownNat (OS.Rank sh))
             => IndexSh shaped sh -> shaped r '[OS.Rank sh]
 sfromIndex1 =
-  let go :: IndexSh shaped sh1 -> [shaped r '[]]
-      go ZSH = []
-      go ((:$:) @n i rest) = sfromIndex0 @n (ShapedList.shapedNat i) : go rest
-  in sfromList . go
+  sfromIntegral . sconstant . sfromR . tfromList . ShapedList.sizedListToList
 
 scaleS :: forall shaped r sh.
           (OS.Shape sh, ADReadyS shaped r)

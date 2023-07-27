@@ -641,6 +641,7 @@ type ADReadyS shaped r =
   , BoolOf shaped ~ BoolOf (PrimalOf shaped)
   , BoolOf shaped ~ BoolOf (PrimalOf (RankedOf shaped))
   , ConvertTensor (PrimalOf (RankedOf shaped)) (PrimalOf shaped)
+  , RankedTensor (PrimalOf (RankedOf shaped))
   )
 
 

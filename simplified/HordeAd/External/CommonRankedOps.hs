@@ -51,10 +51,10 @@ tfromIndex0 :: forall r ranked.
 tfromIndex0 = tfromIntegral . tconstant
 
 tfromIndex1 :: forall n r ranked.
-               ( RankedTensor ranked
+               ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
                , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
             => IndexOf ranked n -> ranked r 1
-tfromIndex1 = tfromList . map tfromIndex0 . indexToList
+tfromIndex1 = tfromIntegral . tconstant . tfromList . indexToList
 
 scale :: forall ranked r n.
          (ADReady ranked r, KnownNat n)
