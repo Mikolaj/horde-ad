@@ -351,9 +351,11 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     Ast.AstIndex v0 ix
   Ast.AstSlice i _k v ->
     let ii = simplifyAst (i1 + fromIntegral i)
+      -- we generate this index, so we simplify on the spot
     in astIndex v (ii :. rest1)
   Ast.AstReverse v ->
     let iRev = simplifyAst (fromIntegral (lengthAst v - 1) - i1)
+      -- we generate this index, so we simplify on the spot
     in astIndex v (iRev :. rest1)
   Ast.AstTranspose perm v | valueOf @m >= length perm ->
     astIndex v (permutePrefixIndex perm ix)
@@ -643,9 +645,11 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstSlice i _k v ->
       let ii = simplifyAst (i4 + fromIntegral i)
+        -- we generate this index, so we simplify on the spot
       in astGather sh4 v (vars4, ii :. rest4)
     Ast.AstReverse v ->
       let iRev = simplifyAst (fromIntegral (lengthAst v - 1) - i4)
+        -- we generate this index, so we simplify on the spot
       in astGather sh4 v (vars4, iRev :. rest4)
     Ast.AstTranspose perm v | valueOf @p' >= length perm ->
       astGather sh4 v (vars4, permutePrefixIndex perm ix4)
@@ -657,23 +661,26 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
       -- Term ix4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use tlet.
-      -- Also, the sharing would be dissolved by the substitution, anyway,
-      -- and the same subsitution would be unsound with sharing.
-      let subst :: AstIndex m7 -> AstVarList m7 -> AstInt -> AstInt
-          subst ix vars i =
-            foldr (uncurry substituteAst) i
-                  (zipSized (fmap (SubstitutionPayloadRanked @PrimalSpan @Int64)
-                             $ indexToSizedList ix) vars)
+      --
+      -- Independently, we need to insert lets to each index element,
+      -- bloating the term. TODO: would going via a rank 1 vector,
+      -- as in tletIx help or would we need to switch indexes to vector
+      -- altogether (terrible for user comfort, especially wrt typing).
+      let substLet :: AstIndex m7 -> AstVarList m7 -> AstInt -> AstInt
+          substLet ix vars i =
+            simplifyAst  -- we generate this index, so we simplify on the spot
+            $ foldr (uncurry astLetInt) i
+                    (zipSized vars (indexToSizedList ix))
           composedGather :: p' <= m2 => AstRanked s r' (m' + n')
           composedGather =
             let (vars2p, vars22) = splitAt_Sized @p' @(m2 - p') vars2
-                ix22 = fmap (subst ix4 vars2p) ix2
+                ix22 = fmap (substLet ix4 vars2p) ix2
             in gcastWith (unsafeCoerce Refl :: m2 + n2 - p' :~: n')
                $ astGather sh4 v2 (appendSized vars4 vars22, ix22)
           assimilatedGather :: m2 <= p' => AstRanked s r' (m' + n')
           assimilatedGather =
             let (ix42, ix44) = splitAt_Index @m2 @(p' - m2) ix4
-                ix22 = fmap (subst ix42 vars2) ix2
+                ix22 = fmap (substLet ix42 vars2) ix2
             in gcastWith (unsafeCoerce Refl :: n' + p' - m2 :~: n2)
                $ astGather sh4 v2 (vars4, appendIndex ix22 ix44)
       in case cmpNat (Proxy @p') (Proxy @m2) of
@@ -880,6 +887,17 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
     _ -> error "astLet: span mismatch"
   else v
 astLet var u v = Ast.AstLet var u v
+
+-- A special variant to bind integer expressions inside indexes.
+-- It check if the boundvariables appears in the body at all.
+-- Normally, that's asymptotically worse than doing this
+-- in a global inlining pass, but we assume indexes expressions
+-- are short and nwe eed them simple ASAP.
+astLetInt :: AstVarName PrimalSpan (AstRanked PrimalSpan) Int64 0
+          -> AstRanked PrimalSpan Int64 0 -> AstRanked PrimalSpan Int64 0
+          -> AstRanked PrimalSpan Int64 0
+astLetInt var u v | var `varNameInAst` v = astLet var u v
+astLetInt _ _ v = v
 
 astLetS :: forall sh1 sh2 s s2 r r2.
            ( OS.Shape sh1, OS.Shape sh2, GoodScalar r, GoodScalar r2
