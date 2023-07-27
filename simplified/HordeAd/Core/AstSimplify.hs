@@ -591,6 +591,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       -- because it needs to be in scope of vars4, so we can't use tlet.
       let f v = astGatherRec sh4 v (vars4, rest4)
           (varsFresh, ixFresh) = funToAstIndex @m' id
+          -- This subst doesn't currently break sharing, because it's a rename.
           subst i =
             foldr (uncurry substituteAst) i
                   (zipSized (fmap (SubstitutionPayloadRanked @PrimalSpan @Int64)
@@ -611,6 +612,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       -- because it needs to be in scope of vars4, so we can't use tlet.
       let f v = astGatherRec sh4 v (vars4, rest4)
           (varsFresh, ixFresh) = funToAstIndex @m' id
+          -- This subst doesn't currently break sharing, because it's a rename.
           subst i =
             foldr (uncurry substituteAst) i
                   (zipSized (fmap (SubstitutionPayloadRanked @PrimalSpan @Int64)
@@ -705,6 +707,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       -- Also, the sharing would be dissolved by the substitution, anyway,
       -- and the same subsitution would be unsound with sharing.
       let (varsFresh, ixFresh) = funToAstIndex @m' id
+          -- This subst doesn't currently break sharing, because it's a rename.
           subst i =
             foldr (uncurry substituteAst) i
                   (zipSized (fmap (SubstitutionPayloadRanked @PrimalSpan @Int64)
@@ -1217,7 +1220,7 @@ astSlice i n w@(Ast.AstAppend (u :: AstRanked s r (1 + k))
         | otherwise -> Ast.AstSlice @k i n w  -- cheap iff fits in one
 astSlice i n (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
   let ivar = AstIntVar var + fromIntegral i
-      ix2 = substituteAstIndex
+      ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
               var ix
   in astGatherR (n :$ sh') v (var ::: vars, ix2)
@@ -1239,7 +1242,7 @@ astReverse (Ast.AstReplicate k v) = Ast.AstReplicate k v
 astReverse (Ast.AstReverse v) = v
 astReverse (Ast.AstGather sh@(k :$ _) v (var ::: vars, ix)) =
   let ivar = fromIntegral k - AstIntVar var
-      ix2 = substituteAstIndex
+      ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
               var ix
   in astGatherR sh v (var ::: vars, ix2)
@@ -1255,7 +1258,7 @@ astReverseS (Ast.AstReplicateS v) = Ast.AstReplicateS v
 astReverseS (Ast.AstReverseS v) = v
 astReverseS (Ast.AstGatherS v ((:$:) @k var vars, ix)) =
   let ivar = valueOf @k - AstIntVar var
-      ix2 = substituteAstIndexS
+      ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
               var ix
   in astGatherS v (var :$: vars, ix2)

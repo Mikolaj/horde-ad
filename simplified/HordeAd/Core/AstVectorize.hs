@@ -102,7 +102,8 @@ build1VOccurenceUnknownRefresh
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let v2 = substituteAst (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
+  let v2 = substituteAst  -- cheap subst, because only a renaming
+             (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
   return $! build1VOccurenceUnknown k (varFresh, v2)
 
 intBindingRefresh
@@ -110,7 +111,7 @@ intBindingRefresh
 {-# NOINLINE intBindingRefresh #-}
 intBindingRefresh var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let ix2 = substituteAstIndex
+  let ix2 = substituteAstIndex  -- cheap subst, because only a renaming
               (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
               var ix
   return $! (varFresh, astVarFresh, ix2)
@@ -142,6 +143,9 @@ build1V k (var, v00) =
           sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                     (Ast.AstIntVar var :. ZI)
+          -- The subsitutions of projections don't break sharing,
+          -- because they don't duplicate variables and the added var
+          -- is eventually being eliminated instead of substituted for.
           v2 = substituteAst (SubstitutionPayloadRanked @s1 @r1 projection)
                              var2 v
       in astLet var2 (build1VOccurenceUnknown k (var, u))
@@ -411,7 +415,8 @@ build1VOccurenceUnknownRefreshS
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS (var, v0) = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let v2 = substituteAstS (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
+  let v2 = substituteAstS  -- cheap subst, because only a renaming
+             (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
   return $! build1VOccurenceUnknownS (varFresh, v2)
 
 intBindingRefreshS
@@ -419,7 +424,7 @@ intBindingRefreshS
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let ix2 = substituteAstIndexS
+  let ix2 = substituteAstIndexS  -- cheap subst, because only a renaming
               (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
               var ix
   return $! (varFresh, astVarFresh, ix2)
