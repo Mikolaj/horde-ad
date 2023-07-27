@@ -108,7 +108,7 @@ rev' f vals =
       gradient5 = parseDomains vals astPSimple
       astVectSimp = simplifyAst6 $ snd $ funToAstR (tshape vals) f
       astSimp =
-        simplifyAst6 $ snd
+        simplifyAst6 $ simplifyAst6 $ snd  -- builds simplify with difficulty
         $ funToAstR (tshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1 r
