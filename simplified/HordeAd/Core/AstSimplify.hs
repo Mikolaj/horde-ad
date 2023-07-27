@@ -572,6 +572,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFromList{} | gatherFromNF vars4 ix4 ->
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromList l ->
+      -- Term rest4 is duplicated without sharing and we can't help it,
+      -- because it needs to be in scope of vars4, so we can't use tlet.
       let f v = astGatherRec sh4 v (vars4, rest4)
           (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
@@ -590,6 +592,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFromVector{} | gatherFromNF vars4 ix4 ->
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromVector l ->
+      -- Term rest4 is duplicated without sharing and we can't help it,
+      -- because it needs to be in scope of vars4, so we can't use tlet.
       let f v = astGatherRec sh4 v (vars4, rest4)
           (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
@@ -640,7 +644,10 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       astGather sh4 (astReshapeAsGather sh v) (vars4, ix4)
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
-      -- TODO: we need integer let to preserve sharing while substituting here:
+      -- Term ix4 is duplicated without sharing and we can't help it,
+      -- because it needs to be in scope of vars4, so we can't use tlet.
+      -- Also, the sharing would be dissolved by the substitution, anyway,
+      -- and the same subsitution would be unsound with sharing.
       let subst :: AstIndex m7 -> AstVarList m7 -> AstInt -> AstInt
           subst ix vars i =
             foldr (uncurry substituteAst) i
@@ -682,6 +689,10 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstPrimalPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstDualPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstD u u' ->
+      -- Term ix4 is duplicated without sharing and we can't help it,
+      -- because it needs to be in scope of vars4, so we can't use tlet.
+      -- Also, the sharing would be dissolved by the substitution, anyway,
+      -- and the same subsitution would be unsound with sharing.
       let (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
             foldr (uncurry substituteAst) i
