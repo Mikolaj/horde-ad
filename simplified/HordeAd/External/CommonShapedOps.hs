@@ -12,6 +12,7 @@ import Prelude
 
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as OS
+import           Data.Int (Int64)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import           Data.Type.Ord (Compare)
@@ -24,6 +25,7 @@ import qualified HordeAd.Core.ShapedList as ShapedList
 import           HordeAd.Core.SizedIndex
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
+import           HordeAd.External.CommonRankedOps
 
 sminIndexN :: (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh))
            => shaped r sh -> IndexSh shaped sh
@@ -56,6 +58,13 @@ sfromIndex1 :: forall r sh shaped. (ADReadyS shaped r, KnownNat (OS.Rank sh))
             => IndexSh shaped sh -> shaped r '[OS.Rank sh]
 sfromIndex1 =
   sfromIntegral . sconstant . sfromR . tfromList . ShapedList.sizedListToList
+
+sletIx :: forall r sh n shaped.
+          (ADReadyS shaped r, OS.Shape sh, KnownNat n)
+       => IndexOf shaped n -> (IndexOf shaped n -> shaped r sh) -> shaped r sh
+sletIx ix0 f = slet (sfromR @(RankedOf shaped) @shaped @Int64 @'[n]
+                     $ tint64FromIndex1 ix0) $ \ixT ->
+                 f $ tint64ToIndex1 $ tfromS ixT
 
 scaleS :: forall shaped r sh.
           (OS.Shape sh, ADReadyS shaped r)
@@ -209,24 +218,48 @@ slicezS d ixBase =
                                        (ShapedList.shapedListToIndex ixBase)
                                        (ShapedList.shapedListToIndex ixResult))
 
+-- TODO: this makes tests unbearably slow
+--
+-- TODO: explain why the argument is not IndexSh but IndexOf (is it because
+-- of the spurious verification thata index fits in?)
+--
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
 --
 -- The @ShapedList.listToSized@ in the implementation here should not verify
--- that the index fitw inside the type-level shape, because vectorization
--- may make it not fit and that's fine. In the worst case, indexing ingores
+-- that the index fits inside the type-level shape, because vectorization
+-- may make it not fit and that's fine. In the worst case, indexing ignores
 -- such invalid indexes and returns 0.
+indexz0SLet
+  :: forall shOut sh shaped r.
+     (OS.Shape shOut, KnownNat (OS.Rank shOut), OS.Shape sh, ADReadyS shaped r)
+  => shaped r sh -> IndexOf shaped (OS.Rank shOut) -> shaped r '[]
+indexz0SLet d ix0 =
+  sletIx ix0 $ \ix ->
+    ifF (within0S @shOut @shaped @r ix)
+        (sindex0 d (ShapedList.listToSized (indexToList ix)))
+        0
+
+-- | Retrieve the element at the given index,
+--   returning zero for out of range indices.
+--
+-- Warning: this uses ix twice and within0 again uses it twice,
+-- so this variant without tlet should be used only when it's known
+-- that ix is of small constant size (e.g., if it contains conditionals
+-- that compare big tensors or their minimal elements, it likely is not,
+-- unless the tensors are under tlet and only variables representing them
+-- are used).
 indexz0S
-  :: forall shOut sh shaped r. (OS.Shape shOut, OS.Shape sh, ADReadyS shaped r)
+  :: forall shOut sh shaped r.
+     (OS.Shape shOut, OS.Shape sh, ADReadyS shaped r)
   => shaped r sh -> IndexOf shaped (OS.Rank shOut) -> shaped r '[]
 indexz0S d ix =
-  gcastWith (unsafeCoerce Refl :: sh OS.++ '[] :~: sh) $
   ifF (within0S @shOut @shaped @r ix)
-      (sindex @shaped @r @sh
-              d (ShapedList.listToSized (indexToList ix)))
+      (sindex0 d (ShapedList.listToSized (indexToList ix)))
       0
 
 -- | Given an index and shape, check if the index is fully within the shape.
+-- Note that @ix@ is used twice, so should be shared outside.
 within0S
   :: forall shOut shaped r. (OS.Shape shOut, ADReadyS shaped r)
   => IndexOf shaped (OS.Rank shOut)

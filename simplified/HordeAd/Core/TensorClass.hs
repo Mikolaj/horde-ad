@@ -630,6 +630,7 @@ type ADReadyS shaped r =
   , ShapedOf (PrimalOf shaped) ~ PrimalOf shaped
   , PrimalOf (PrimalOf shaped) ~ PrimalOf shaped
   , PrimalOf (PrimalOf (RankedOf shaped)) ~ PrimalOf (RankedOf shaped)
+  , RankedOf (PrimalOf (RankedOf shaped)) ~ PrimalOf (RankedOf shaped)
   , IfF shaped, IfF (RankedOf shaped), IfF (PrimalOf shaped)
   , IfF (PrimalOf (RankedOf shaped))
   , EqF shaped, EqF (RankedOf shaped), EqF (PrimalOf shaped)
@@ -640,7 +641,9 @@ type ADReadyS shaped r =
   , BoolOf shaped ~ BoolOf (RankedOf shaped)
   , BoolOf shaped ~ BoolOf (PrimalOf shaped)
   , BoolOf shaped ~ BoolOf (PrimalOf (RankedOf shaped))
+  , ConvertTensor (RankedOf shaped) shaped
   , ConvertTensor (PrimalOf (RankedOf shaped)) (PrimalOf shaped)
+  , RankedTensor (RankedOf shaped)
   , RankedTensor (PrimalOf (RankedOf shaped))
   )
 

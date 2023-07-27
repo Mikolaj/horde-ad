@@ -405,6 +405,10 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstLetDomains vars l v ->
     Ast.AstLetDomains vars l (astIndexRec v ix)
 
+-- TODO: compared to tletIx, it adds many lets, not one, but does not
+-- create other (and non-simplified!) big terms and also uses astIsSmall,
+-- so it's probably more efficient. Use this instead of tletIx/sletIx
+-- or design something even better.
 shareIx :: (KnownNat n, KnownNat m)
         => AstIndex n -> (AstIndex n -> AstRanked s r m) -> AstRanked s r m
 {-# NOINLINE shareIx #-}

@@ -13,6 +13,7 @@ import Prelude
 import Control.Exception (assert)
 import GHC.TypeLits (KnownNat)
 
+import Data.Int (Int64)
 import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
@@ -55,6 +56,28 @@ tfromIndex1 :: forall n r ranked.
                , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
             => IndexOf ranked n -> ranked r 1
 tfromIndex1 = tfromIntegral . tconstant . tfromList . indexToList
+
+tint64FromIndex1 :: forall n ranked.
+                    ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
+                    , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+                 => IndexOf ranked n -> ranked Int64 1
+tint64FromIndex1 = tconstant . tfromList . indexToList
+
+tint64ToIndex1 :: forall n ranked.
+                  ( KnownNat n
+                  , RankedTensor ranked, RankedTensor (PrimalOf ranked)
+                  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+               => ranked Int64 1 -> IndexOf ranked n
+tint64ToIndex1 v =
+  let t = tprimalPart v
+      l = map (tindex0 t . singletonIndex . fromIntegral) [0 .. tlength v - 1]
+  in listToIndex l
+
+tletIx :: ( KnownNat n, KnownNat m, GoodScalar r
+          , RankedTensor ranked, RankedTensor (PrimalOf ranked)
+          , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+       => IndexOf ranked n -> (IndexOf ranked n -> ranked r m) -> ranked r m
+tletIx ix0 f = tlet (tint64FromIndex1 ix0) $ \ixT -> f $ tint64ToIndex1 ixT
 
 scale :: forall ranked r n.
          (ADReady ranked r, KnownNat n)
@@ -188,14 +211,31 @@ slicez
 slicez shOut d ixBase =
   tbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
 
+-- TODO: this makes tests unbearably slow
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
+indexz0Let
+  :: forall ranked r n. (ADReady ranked r, KnownNat n)
+  => ranked r n -> IndexOf ranked n -> ranked r 0
+indexz0Let d ix0 = tletIx ix0 $ \ix ->
+                     ifF (within0 @ranked @r (tshape @ranked d) ix) (d ! ix) 0
+
+-- | Retrieve the element at the given index,
+--   returning zero for out of range indices.
+--
+-- Warning: this uses ix twice and within0 again uses it twice,
+-- so this variant without tlet should be used only when it's known
+-- that ix is of small constant size (e.g., if it contains conditionals
+-- that compare big tensors or their minimal elements, it likely is not,
+-- unless the tensors are under tlet and only variables representing them
+-- are used).
 indexz0
   :: forall ranked r n. (ADReady ranked r, KnownNat n)
   => ranked r n -> IndexOf ranked n -> ranked r 0
 indexz0 d ix = ifF (within0 @ranked @r (tshape @ranked d) ix) (d ! ix) 0
 
 -- | Given an index and shape, check if the index is fully within the shape.
+-- Note that @ix@ is used twice, so should be shared outside.
 within0
   :: forall ranked r n. ADReady ranked r
   => ShapeInt n -> IndexOf ranked n -> BoolOf ranked
