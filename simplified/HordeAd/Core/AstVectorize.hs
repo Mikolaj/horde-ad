@@ -110,9 +110,9 @@ intBindingRefresh
 {-# NOINLINE intBindingRefresh #-}
 intBindingRefresh var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let ix2 = fmap (substituteAst
-                    (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
-                    var) ix
+  let ix2 = substituteAstIndex
+              (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
+              var ix
   return $! (varFresh, astVarFresh, ix2)
 
 -- | The application @build1V k (var, v)@ vectorizes
@@ -419,9 +419,9 @@ intBindingRefreshS
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS var ix = unsafePerformIO $ do
   (varFresh, astVarFresh) <- funToAstIOI id
-  let ix2 = fmap (substituteAst
-                    (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
-                    var) ix
+  let ix2 = substituteAstIndexS
+              (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
+              var ix
   return $! (varFresh, astVarFresh, ix2)
 
 -- | The application @build1VS k (var, v)@ vectorizes

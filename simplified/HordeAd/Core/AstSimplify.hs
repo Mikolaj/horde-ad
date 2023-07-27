@@ -29,8 +29,8 @@ module HordeAd.Core.AstSimplify
   , astDomainsLet, astDomainsLetS
   , simplifyAst, simplifyAstDomains, simplifyAstS
   , SubstitutionPayload(..)
-  , substituteAst, substituteAstDomains
-  , substituteAstBool, substituteAstS
+  , substituteAst, substituteAstIndex, substituteAstDomains
+  , substituteAstBool, substituteAstS, substituteAstIndexS
   ) where
 
 import Prelude
@@ -1207,7 +1207,9 @@ astSlice i n w@(Ast.AstAppend (u :: AstRanked s r (1 + k)) (v :: AstRanked s r (
 astSlice i n (Ast.AstGather (_ :$ sh') v (var ::: vars, ix)) =
   let ivar = astSumOfList [ AstIntVar var
                           , AstConst $ OR.scalar $ fromIntegral i ]
-      ix2 = fmap (substituteAst (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar) var) ix
+      ix2 = substituteAstIndex
+              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
+              var ix
   in astGatherR (n :$ sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
 
@@ -1228,8 +1230,9 @@ astReverse (Ast.AstReverse v) = v
 astReverse (Ast.AstGather sh@(k :$ _) v (var ::: vars, ix)) =
   let ivar = AstNm Ast.MinusOp [ AstConst $ OR.scalar $ fromIntegral k
                                , AstIntVar var ]
-      ix2 = fmap (substituteAst
-                    (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar) var) ix
+      ix2 = substituteAstIndex
+              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
+              var ix
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
@@ -1245,7 +1248,9 @@ astReverseS (Ast.AstGatherS v ((:$:) @k var vars, ix)) =
   let ivar = AstNm Ast.MinusOp [ AstConst
                                  $ OR.scalar (valueOf @k :: Int64)
                                , AstIntVar var ]
-      ix2 = fmap (substituteAst (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar) var) ix
+      ix2 = substituteAstIndexS
+              (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
+              var ix
   in astGatherS v (var :$: vars, ix2)
 astReverseS v = Ast.AstReverseS v
 
@@ -1971,9 +1976,7 @@ simplifyAstS t = case t of
   Ast.AstOpS opCode args -> Ast.AstOpS opCode (map simplifyAstS args)
   Ast.AstOpIntegralS opCode args ->
     Ast.AstOpIntegralS opCode (map simplifyAstS args)
-  AstSumOfListS args -> AstSumOfListS (map simplifyAstS args)
-    -- We do not simplify, e.g., addition or multiplication by zero.
-    -- There are too many cases and values are often unknown.
+  AstSumOfListS args -> astSumOfListS (map simplifyAstS args)
   Ast.AstIndexS v ix ->
     Ast.AstIndexS (simplifyAstS v) (fmap simplifyAst ix)  -- TODO
   Ast.AstSumS v -> astSumS (simplifyAstS v)
@@ -1983,15 +1986,15 @@ simplifyAstS t = case t of
   Ast.AstFromVectorS l -> astFromVectorS (V.map simplifyAstS l)
   Ast.AstReplicateS v -> astReplicateS (simplifyAstS v)
   Ast.AstAppendS x y -> astAppendS (simplifyAstS x) (simplifyAstS y)
-  Ast.AstSliceS @i v -> Ast.AstSliceS @i (simplifyAstS v)  -- TODO
+  Ast.AstSliceS @i v -> astSliceS @i (simplifyAstS v)
   Ast.AstReverseS v -> astReverseS (simplifyAstS v)
-  Ast.AstTransposeS @perm v -> Ast.AstTransposeS @perm $ simplifyAstS v  -- TODO
-  Ast.AstReshapeS v -> Ast.AstReshapeS $ simplifyAstS v  -- TODO
+  Ast.AstTransposeS @perm v -> astTransposeS @perm $ simplifyAstS v
+  Ast.AstReshapeS v -> astReshapeS $ simplifyAstS v
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, simplifyAstS v)
   Ast.AstGatherS v (vars, ix) ->
     astGatherS (simplifyAstS v) (vars, fmap simplifyAst ix)
-  Ast.AstCastS v -> Ast.AstCastS $ simplifyAstS v
-  Ast.AstFromIntegralS v -> Ast.AstFromIntegralS $ simplifyAstS v
+  Ast.AstCastS v -> astCastS $ simplifyAstS v
+  Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAstS v
   AstConstS{} -> t
   Ast.AstRToS v -> astRToS $ simplifyAst v
   Ast.AstConstantS v -> Ast.AstConstantS (simplifyAstS v)
@@ -2020,21 +2023,29 @@ substituteAst :: forall n n2 s s2 r r2.
               => SubstitutionPayload s2 r2 -> AstVarName s2 (AstRanked s2) r2 n2
               -> AstRanked s r n
               -> AstRanked s r n
-substituteAst i (AstVarName var) v1 = fromMaybe v1 (substitute1Ast i var v1)
+substituteAst i (AstVarName var) v1 = fromMaybe v1 $ substitute1Ast i var v1
+
+substituteAstIndex
+  :: (GoodScalar r2, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarName s2 (AstRanked s2) r2 n2
+  -> AstIndex n
+  -> AstIndex n
+substituteAstIndex i (AstVarName var) ix =
+  fromMaybe ix $ substitute1AstIndex i var ix
 
 substituteAstDomains
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarName s2 f r2 y -> AstDomains s
   -> AstDomains s
 substituteAstDomains i (AstVarName var) v1 =
-  fromMaybe v1 (substitute1AstDomains i var v1)
+  fromMaybe v1 $ substitute1AstDomains i var v1
 
 substituteAstBool :: (GoodScalar r2, AstSpan s2)
                   => SubstitutionPayload s2 r2 -> AstVarName s2 f r2 y
                   -> AstBool
                   -> AstBool
 substituteAstBool i (AstVarName var) b1 =
-  fromMaybe b1 (substitute1AstBool i var b1)
+  fromMaybe b1 $ substitute1AstBool i var b1
 
 substituteAstS :: forall sh sh2 s2 s r r2 f.
                   ( GoodScalar r, GoodScalar r2, OS.Shape sh
@@ -2042,7 +2053,15 @@ substituteAstS :: forall sh sh2 s2 s r r2 f.
                => SubstitutionPayload s2 r2 -> AstVarName s2 f r2 sh2
                -> AstShaped s r sh
                -> AstShaped s r sh
-substituteAstS i (AstVarName var) v1 = fromMaybe v1 (substitute1AstS i var v1)
+substituteAstS i (AstVarName var) v1 = fromMaybe v1 $ substitute1AstS i var v1
+
+substituteAstIndexS
+  :: (GoodScalar r2, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarName s2 (AstRanked s2) r2 n2
+  -> AstIndexS sh
+  -> AstIndexS sh
+substituteAstIndexS i (AstVarName var) ix =
+  fromMaybe ix $ substitute1AstIndexS i var ix
 
 
 -- * Substitution workers
