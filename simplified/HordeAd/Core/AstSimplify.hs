@@ -1863,13 +1863,15 @@ simplifyAstNumOp TimesOp [AstConst 0, _v] = AstConst 0
 simplifyAstNumOp TimesOp [_u, AstConst 0] = AstConst 0
 simplifyAstNumOp TimesOp [AstConst 1, v] = v
 simplifyAstNumOp TimesOp [u, AstConst 1] = u
-{- TODO: these break sharing as long as we don't have @let@ for AstInt:
+{- TODO: is it worth adding AstLet with a fresh variables
+   to share w and so make these rules safe? Perhaps after we decide
+   a normal form (e.g., a polynomial)?
 simplifyAstNumOp TimesOp [AstNm PlusOp [u, v], w] =
   simplifyAstPlusOp [ simplifyAstNumOp TimesOp [u, w]
-                             , simplifyAstNumOp TimesOp [v, w] ]
+                    , simplifyAstNumOp TimesOp [v, w] ]
 simplifyAstNumOp TimesOp [u, AstNm PlusOp [v, w]] =
   simplifyAstPlusOp [ simplifyAstNumOp TimesOp [u, v]
-                             , simplifyAstNumOp TimesOp [u, w] ]
+                    , simplifyAstNumOp TimesOp [u, w] ]
 -}
 simplifyAstNumOp TimesOp [AstSumOfList l, w@AstConst{}] =
   foldl1' simplifyAstPlusOp (map (\u -> simplifyAstNumOp TimesOp [u, w]) l)
