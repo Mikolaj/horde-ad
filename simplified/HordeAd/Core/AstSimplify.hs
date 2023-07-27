@@ -182,11 +182,15 @@ simplifyStepNonIndex t = case t of
   Ast.AstVar{} -> t
   Ast.AstLet var u v -> astLet var u v
   Ast.AstLetADShare{} -> error "simplifyStepNonIndex: AstLetADShare"
+  Ast.AstCond a b c -> astCond a b c
+  Ast.AstMinIndex{} -> t
+  Ast.AstMaxIndex{} -> t
+  Ast.AstFloor{} -> t
+  Ast.AstIota -> t
   AstNm{} -> t
   Ast.AstOp{} -> t
   Ast.AstOpIntegral{} -> t
   AstSumOfList l -> astSumOfList l
-  Ast.AstIota -> t
   Ast.AstIndex{} -> t
   Ast.AstSum v -> astSum v
   Ast.AstScatter sh v (vars, ix) -> astScatter sh v (vars, ix)
@@ -204,17 +208,13 @@ simplifyStepNonIndex t = case t of
   Ast.AstGather{} -> t
   Ast.AstCast v -> astCast v
   Ast.AstFromIntegral v -> astFromIntegral v
-  Ast.AstSToR v -> astSToR v
   AstConst{} -> t
+  Ast.AstSToR v -> astSToR v
   Ast.AstConstant{} -> t
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
   Ast.AstDualPart v -> astDualPart v
   Ast.AstD{} -> t
   Ast.AstLetDomains{} -> t
-  Ast.AstCond a b c -> astCond a b c
-  Ast.AstFloor{} -> t
-  Ast.AstMinIndex{} -> t
-  Ast.AstMaxIndex{} -> t
 
 simplifyStepNonIndexS
   :: ()
@@ -275,6 +275,16 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstVar{} -> Ast.AstIndex v0 ix
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   Ast.AstLetADShare{} -> error "astIndexROrStepOnly: AstLetADShare"
+  Ast.AstCond b v w ->
+    shareIx ix $ \ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
+  Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexROrStepOnly stepOnly v ix
+  Ast.AstMaxIndex v -> Ast.AstMaxIndex $ astIndexROrStepOnly stepOnly v ix
+  Ast.AstFloor v -> Ast.AstFloor $ astIndexROrStepOnly stepOnly v ix
+  Ast.AstIota | AstConst i <- i1 -> case sameNat (Proxy @m) (Proxy @1) of
+    Just Refl ->
+      AstConst $ OR.scalar $ fromIntegral i
+    _ -> error "astIndex: AstIota: impossible pattern needlessly required"
+  Ast.AstIota -> Ast.AstIndex v0 ix
   AstNm opCode args ->
     shareIx ix $ \ix2 -> AstNm opCode (map (`astIndexRec` ix2) args)
   Ast.AstOp opCode args ->
@@ -283,11 +293,6 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     shareIx ix $ \ix2 -> Ast.AstOpIntegral opCode (map (`astIndexRec` ix2) args)
   AstSumOfList args ->
     shareIx ix $ \ix2 -> astSumOfList (map (`astIndexRec` ix2) args)
-  Ast.AstIota | AstConst i <- i1 -> case sameNat (Proxy @m) (Proxy @1) of
-    Just Refl ->
-      AstConst $ OR.scalar $ fromIntegral i
-    _ -> error "astIndex: AstIota: impossible pattern needlessly required"
-  Ast.AstIota -> Ast.AstIndex v0 ix
   Ast.AstIndex v ix2 ->
     astIndex v (appendIndex ix2 ix)
   Ast.AstSum v ->  -- almost neutral; transposition is likely to fuse away
@@ -374,14 +379,6 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     error "astIndex: AstGather: impossible pattern needlessly required"
   Ast.AstCast t -> astCast $ astIndexROrStepOnly stepOnly t ix
   Ast.AstFromIntegral v -> astFromIntegral $ astIndexROrStepOnly stepOnly v ix
-  Ast.AstSToR @sh t ->
-    let (takeSh, dropSh) = splitAt (valueOf @m) (OS.shapeT @sh)
-    in OS.withShapeP takeSh $ \(Proxy :: Proxy take) ->
-       OS.withShapeP dropSh $ \(Proxy :: Proxy drop) ->
-       gcastWith (unsafeCoerce Refl :: sh :~: take OS.++ drop) $
-       gcastWith (unsafeCoerce Refl :: OS.Rank drop :~: n) $
-       astSToR $ astIndexStepS @take @drop
-                               t (ShapedList.listToSized $ indexToList ix)
   AstConst t ->
     let unConst :: AstRanked PrimalSpan Int64 0 -> Maybe [OR.Array 0 Int64]
                 -> Maybe [OR.Array 0 Int64]
@@ -392,6 +389,14 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
                     $ map OR.unScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndex v0 ix
+  Ast.AstSToR @sh t ->
+    let (takeSh, dropSh) = splitAt (valueOf @m) (OS.shapeT @sh)
+    in OS.withShapeP takeSh $ \(Proxy :: Proxy take) ->
+       OS.withShapeP dropSh $ \(Proxy :: Proxy drop) ->
+       gcastWith (unsafeCoerce Refl :: sh :~: take OS.++ drop) $
+       gcastWith (unsafeCoerce Refl :: OS.Rank drop :~: n) $
+       astSToR $ astIndexStepS @take @drop
+                               t (ShapedList.listToSized $ indexToList ix)
   Ast.AstConstant v -> Ast.AstConstant $ astIndex v ix
   Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndex v0 ix
@@ -399,11 +404,6 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     shareIx ix $ \ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstLetDomains vars l v ->
     Ast.AstLetDomains vars l (astIndexRec v ix)
-  Ast.AstCond b v w ->
-    shareIx ix $ \ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
-  Ast.AstFloor v -> Ast.AstFloor $ astIndexROrStepOnly stepOnly v ix
-  Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexROrStepOnly stepOnly v ix
-  Ast.AstMaxIndex v -> Ast.AstMaxIndex $ astIndexROrStepOnly stepOnly v ix
 
 shareIx :: (KnownNat n, KnownNat m)
         => AstIndex n -> (AstIndex n -> AstRanked s r m) -> AstRanked s r m
@@ -511,6 +511,27 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
     Ast.AstLetADShare{} -> error "astGatherCase: AstLetADShare"
+    Ast.AstCond b v w -> astCond b (astGather sh4 v (vars4, ix4))
+                                   (astGather sh4 w (vars4, ix4))
+    Ast.AstMinIndex v ->
+      Ast.AstMinIndex
+      $ astGatherROrStepOnly stepOnly
+          (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
+          v (vars4, ix4)
+    Ast.AstMaxIndex v ->
+      Ast.AstMaxIndex
+      $ astGatherROrStepOnly stepOnly
+          (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
+          v (vars4, ix4)
+    Ast.AstFloor v ->
+      Ast.AstFloor
+      $ astGatherROrStepOnly stepOnly sh4 v (vars4, ix4)
+    Ast.AstIota | AstConst i <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
+      Just Refl -> astReplicate0N sh4 $ AstConst
+                   $ OR.scalar $ fromIntegral i
+      _ -> error "astGather: AstIota: impossible pattern needlessly required"
+    Ast.AstIota ->  -- probably nothing can be simplified; a normal form
+      Ast.AstGather sh4 v4 (vars4, ix4)
     AstNm opCode args | not (length args > 1 || all isVar args) ->
       -- Going inside AstOp usually makes the term more expensive to interpret
       -- and reverting this transformation requires comparing many arguments,
@@ -527,12 +548,6 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     AstSumOfList args | not (length args > 1 || all isVar args) ->
       astSumOfList (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
     AstSumOfList{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstIota | AstConst i <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
-      Just Refl -> astReplicate0N sh4 $ AstConst
-                   $ OR.scalar $ fromIntegral i
-      _ -> error "astGather: AstIota: impossible pattern needlessly required"
-    Ast.AstIota ->  -- probably nothing can be simplified; a normal form
-      Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstIndex v2 ix2 -> case (v2, ix2) of
       (Ast.AstFromList{}, i2 :. ZI) -> astGather sh4 v2 (vars4, i2 :. ix4)
       (Ast.AstFromVector{}, i2 :. ZI) -> astGather sh4 v2 (vars4, i2 :. ix4)
@@ -671,6 +686,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
         GTI -> gcastWith (flipCompare @p' @m2) assimilatedGather
     Ast.AstCast v -> astCast $ astGather sh4 v (vars4, ix4)
     Ast.AstFromIntegral v -> astFromIntegral $ astGather sh4 v (vars4, ix4)
+    AstConst{} ->  -- free variables possible, so can't compute the tensor
+      Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstSToR @sh v ->
       let (takeSh, dropSh) = splitAt (valueOf @p') (OS.shapeT @sh)
       in OS.withShapeP takeSh $ \(Proxy :: Proxy take) ->
@@ -682,8 +699,6 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
          astSToR $ astGatherStepS @take @p' @sh v
                      ( ShapedList.listToSized $ sizedListToList vars4
                      , ShapedList.listToSized $ indexToList ix4 )
-    AstConst{} ->  -- free variables possible, so can't compute the tensor
-      Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstConstant v ->
       Ast.AstConstant $ (if stepOnly then astGatherStep else astGatherR) sh4 v (vars4, ix4)
     Ast.AstPrimalPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
@@ -704,21 +719,6 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                   (astGatherRec sh4 u' (varsFresh, ix5))
     Ast.AstLetDomains vars l v ->
       Ast.AstLetDomains vars l (astGatherCase sh4 v (vars4, ix4))
-    Ast.AstCond b v w -> astCond b (astGather sh4 v (vars4, ix4))
-                                   (astGather sh4 w (vars4, ix4))
-    Ast.AstFloor v ->
-      Ast.AstFloor
-      $ astGatherROrStepOnly stepOnly sh4 v (vars4, ix4)
-    Ast.AstMinIndex v ->
-      Ast.AstMinIndex
-      $ astGatherROrStepOnly stepOnly
-          (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
-          v (vars4, ix4)
-    Ast.AstMaxIndex v ->
-      Ast.AstMaxIndex
-      $ astGatherROrStepOnly stepOnly
-          (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
-          v (vars4, ix4)
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) -> Bool
@@ -2105,6 +2105,17 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLet var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstLetADShare{} -> error "substitute1Ast: AstLetADShare"
+  Ast.AstCond b v w ->
+    case ( substitute1AstBool i var b
+         , substitute1Ast i var v
+         , substitute1Ast i var w ) of
+      (Nothing, Nothing, Nothing) -> Nothing
+      (mb, mv, mw) ->
+        Just $ astCond (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
+  Ast.AstMinIndex a -> Ast.AstMinIndex <$> substitute1Ast i var a
+  Ast.AstMaxIndex a -> Ast.AstMaxIndex <$> substitute1Ast i var a
+  Ast.AstFloor a -> Ast.AstFloor <$> substitute1Ast i var a
+  Ast.AstIota -> Nothing
   Ast.AstNm opCode args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
@@ -2132,7 +2143,6 @@ substitute1Ast i var v1 = case v1 of
          Just Refl -> foldr1 simplifyAstPlusOp $ zipWith fromMaybe args margs
          _ -> astSumOfList $ zipWith fromMaybe args margs
        else Nothing
-  Ast.AstIota -> Nothing
   Ast.AstIndex v ix ->
     case (substitute1Ast i var v, substitute1AstIndex i var ix) of
       (Nothing, Nothing) -> Nothing
@@ -2171,8 +2181,8 @@ substitute1Ast i var v1 = case v1 of
                                         (vars, fromMaybe ix mix)
   Ast.AstCast v -> astCast <$> substitute1Ast i var v
   Ast.AstFromIntegral v -> astFromIntegral <$> substitute1Ast i var v
-  Ast.AstSToR v -> astSToR <$> substitute1AstS i var v
   Ast.AstConst{} -> Nothing
+  Ast.AstSToR v -> astSToR <$> substitute1AstS i var v
   Ast.AstConstant a -> Ast.AstConstant <$> substitute1Ast i var a
   Ast.AstPrimalPart a -> astPrimalPart <$> substitute1Ast i var a
   Ast.AstDualPart a -> astDualPart <$> substitute1Ast i var a
@@ -2185,16 +2195,6 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
         Just $ Ast.AstLetDomains vars (fromMaybe l ml) (fromMaybe v mv)
-  Ast.AstCond b v w ->
-    case ( substitute1AstBool i var b
-         , substitute1Ast i var v
-         , substitute1Ast i var w ) of
-      (Nothing, Nothing, Nothing) -> Nothing
-      (mb, mv, mw) ->
-        Just $ astCond (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
-  Ast.AstFloor a -> Ast.AstFloor <$> substitute1Ast i var a
-  Ast.AstMinIndex a -> Ast.AstMinIndex <$> substitute1Ast i var a
-  Ast.AstMaxIndex a -> Ast.AstMaxIndex <$> substitute1Ast i var a
 
 substitute1AstIndex
   :: (GoodScalar r2, AstSpan s2)
@@ -2278,6 +2278,17 @@ substitute1AstS i var = \case
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLetS var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstLetADShareS{} -> error "substitute1AstS: AstLetADShareS"
+  Ast.AstCondS b v w ->
+    case ( substitute1AstBool i var b
+         , substitute1AstS i var v
+         , substitute1AstS i var w ) of
+      (Nothing, Nothing, Nothing) -> Nothing
+      (mb, mv, mw) ->
+        Just $ astCondS (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS <$> substitute1AstS i var a
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1AstS i var a
+  Ast.AstFloorS a -> Ast.AstFloorS <$> substitute1AstS i var a
+  Ast.AstIotaS -> Nothing
   Ast.AstNmS opCode args ->
     let margs = map (substitute1AstS i var) args
     in if any isJust margs
@@ -2298,7 +2309,6 @@ substitute1AstS i var = \case
     in if any isJust margs
        then Just $ astSumOfListS $ zipWith fromMaybe args margs
        else Nothing
-  Ast.AstIotaS -> Nothing
   Ast.AstIndexS v ix ->
     case (substitute1AstS i var v, substitute1AstIndexS i var ix) of
       (Nothing, Nothing) -> Nothing
@@ -2337,8 +2347,8 @@ substitute1AstS i var = \case
                                      (vars, fromMaybe ix mix)
   Ast.AstCastS v -> astCastS <$> substitute1AstS i var v
   Ast.AstFromIntegralS a -> astFromIntegralS <$> substitute1AstS i var a
-  Ast.AstRToS v -> astRToS <$> substitute1Ast i var v
   Ast.AstConstS{} -> Nothing
+  Ast.AstRToS v -> astRToS <$> substitute1Ast i var v
   Ast.AstConstantS a -> Ast.AstConstantS <$> substitute1AstS i var a
   Ast.AstPrimalPartS a -> astPrimalPartS <$> substitute1AstS i var a
   Ast.AstDualPartS a -> astDualPartS <$> substitute1AstS i var a
@@ -2351,16 +2361,6 @@ substitute1AstS i var = \case
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
         Just $ Ast.AstLetDomainsS vars (fromMaybe l ml) (fromMaybe v mv)
-  Ast.AstCondS b v w ->
-    case ( substitute1AstBool i var b
-         , substitute1AstS i var v
-         , substitute1AstS i var w ) of
-      (Nothing, Nothing, Nothing) -> Nothing
-      (mb, mv, mw) ->
-        Just $ astCondS (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
-  Ast.AstFloorS a -> Ast.AstFloorS <$> substitute1AstS i var a
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS <$> substitute1AstS i var a
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1AstS i var a
 
 substitute1AstIndexS
   :: (GoodScalar r2, AstSpan s2)
