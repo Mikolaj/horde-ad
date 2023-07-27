@@ -96,15 +96,18 @@ areAllArgsInts = \case
   -- rank > 0, but also a likely float, as in the argument of AstFloor,
   -- or a likely dual number. There is an anavoidable ambiguity
   -- and so also aribtrary choices in resolving it.
-  AstConst{} -> True
   AstVar{} -> True
   AstLet{} -> True  -- too early to tell, but displays the same
   AstLetADShare{} -> True  -- too early to tell
+  AstCond{} -> True  -- too early to tell
+  AstMinIndex{} -> False
+  AstMaxIndex{} -> False
+  AstFloor{} -> False
+  AstIota -> False
   AstNm{} -> True  -- has to keep rank and scalar, so it's ints
   AstOp{} -> True  -- has to keep rank and scalar
   AstOpIntegral{} -> True  -- has to keep rank and scalar
   AstSumOfList{} -> True  -- has to keep rank and scalar
-  AstIota -> False
   AstIndex{} -> False  -- the index arguments are taken care of via printAstInt
   AstSum{} -> False
   AstScatter{} -> False
@@ -120,16 +123,13 @@ areAllArgsInts = \case
   AstGather{} -> False
   AstCast{} -> False
   AstFromIntegral{} -> True
+  AstConst{} -> True
   AstSToR{} -> False
   AstConstant{} -> True  -- the argument is emphatically a primal number; fine
   AstPrimalPart{} -> False
   AstDualPart{} -> False
   AstD{} -> False  -- dual number
   AstLetDomains{} -> True  -- too early to tell
-  AstCond{} -> True  -- too early to tell
-  AstFloor{} -> False
-  AstMinIndex{} -> False
-  AstMaxIndex{} -> False
 
 printAstInt :: PrintConfig -> Int -> AstInt -> ShowS
 printAstInt cfgOld d t =
@@ -186,6 +186,21 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v0)
   AstLetADShare l v -> printAst cfg d $ bindsToLet v (assocsADShare l)
+  AstCond b a1 a2 ->
+    showParen (d > 10)
+    $ showString "ifF "
+      . printAstBool cfg 11 b
+      . showString " "
+      . printAst cfg 11 a1
+      . showString " "
+      . printAst cfg 11 a2
+  AstMinIndex a ->
+    printPrefixOp printAst cfg d "tminIndex" [a]
+  AstMaxIndex a ->
+    printPrefixOp printAst cfg d "tmaxIndex" [a]
+  AstFloor a ->
+    printPrefixOp printAst cfg d "tfloor" [a]
+  AstIota -> showString "tiota"
   AstNm opCode args -> printAstNm printAst cfg d opCode args
   AstOp opCode args -> printAstOp printAst cfg d opCode args
   AstOpIntegral opCode args -> printAstOpIntegral printAst cfg d opCode args
@@ -195,7 +210,6 @@ printAstAux cfg d = \case
     in showParen (d > 6)
        $ printAst cfg 7 left
          . foldr (.) id rs
-  AstIota -> showString "tiota"
   AstIndex v ix ->
     showParen (d > 9)
     $ printAst cfg 10 v
@@ -256,7 +270,6 @@ printAstAux cfg d = \case
   AstCast v -> printPrefixOp printAst cfg d "tcast" [v]
   AstFromIntegral a ->
     printPrefixOp printAst cfg d "tfromIntegral" [a]
-  AstSToR v -> printAstS cfg d v
   AstConst a ->
     showParen (d > 10)
     $ showString "tconst "
@@ -264,6 +277,7 @@ printAstAux cfg d = \case
         then shows $ head $ OR.toList a
         else showParen True
              $ shows a
+  AstSToR v -> printAstS cfg d v
   AstConstant a@AstConst{} -> printAst cfg d a
   AstConstant a -> printPrefixOp printAst cfg d "tconstant" [a]
   AstPrimalPart a -> printPrefixOp printAst cfg d "tprimalPart" [a]
@@ -281,20 +295,6 @@ printAstAux cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
       -- TODO: this does not roundtrip yet
-  AstCond b a1 a2 ->
-    showParen (d > 10)
-    $ showString "ifF "
-      . printAstBool cfg 11 b
-      . showString " "
-      . printAst cfg 11 a1
-      . showString " "
-      . printAst cfg 11 a2
-  AstFloor a ->
-    printPrefixOp printAst cfg d "tfloor" [a]
-  AstMinIndex a ->
-    printPrefixOp printAst cfg d "tminIndex" [a]
-  AstMaxIndex a ->
-    printPrefixOp printAst cfg d "tmaxIndex" [a]
 
 printAstVarFromDomains
   :: forall s. PrintConfig -> (AstVarId s, DynamicExists (AstDynamic s)) -> ShowS
@@ -549,6 +549,18 @@ printAstS cfg d = \case
              . showString " -> "
              . printAstS cfg 0 v0)
   AstLetADShareS l v -> printAstS cfg d $ bindsToLetS v (assocsADShare l)
+  AstCondS b a1 a2 ->
+    showParen (d > 10)
+    $ showString "ifF "
+      . printAstBool cfg 11 b
+      . showString " "
+      . printAstS cfg 11 a1
+      . showString " "
+      . printAstS cfg 11 a2
+  AstMinIndexS a -> printPrefixOp printAstS cfg d "sminIndex" [a]
+  AstMaxIndexS a -> printPrefixOp printAstS cfg d "smaxIndex" [a]
+  AstFloorS a ->  printPrefixOp printAstS cfg d "sfloor" [a]
+  AstIotaS -> showString "siota"
   AstNmS opCode args -> printAstNm printAstS cfg d opCode args
   AstOpS opCode args -> printAstOp printAstS cfg d opCode args
   AstOpIntegralS opCode args -> printAstOpIntegral printAstS cfg d opCode args
@@ -558,7 +570,6 @@ printAstS cfg d = \case
     in showParen (d > 6)
        $ printAstS cfg 7 left
          . foldr (.) id rs
-  AstIotaS -> showString "siota"
   AstIndexS v ix ->
     showParen (d > 9)
     $ printAstS cfg 10 v
@@ -623,7 +634,6 @@ printAstS cfg d = \case
   AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAstS cfg d "sfromIntegral" [a]
-  AstRToS v -> printAst cfg d v
   AstConstS a ->
     showParen (d > 10)
     $ showString "sconst "
@@ -631,6 +641,7 @@ printAstS cfg d = \case
         then shows $ head $ OS.toList a
         else showParen True
              $ shows a
+  AstRToS v -> printAst cfg d v
   AstConstantS a@AstConstS{} -> printAstS cfg d a
   AstConstantS a ->
     printPrefixOp printAstS cfg d "sconstant" [a]
@@ -649,17 +660,6 @@ printAstS cfg d = \case
            . showString " -> "
            . printAstS cfg 0 v)
       -- TODO: this does not roundtrip yet
-  AstCondS b a1 a2 ->
-    showParen (d > 10)
-    $ showString "ifF "
-      . printAstBool cfg 11 b
-      . showString " "
-      . printAstS cfg 11 a1
-      . showString " "
-      . printAstS cfg 11 a2
-  AstFloorS a ->  printPrefixOp printAstS cfg d "sfloor" [a]
-  AstMinIndexS a -> printPrefixOp printAstS cfg d "sminIndex" [a]
-  AstMaxIndexS a -> printPrefixOp printAstS cfg d "smaxIndex" [a]
 
 printAstSimple :: (GoodScalar r, KnownNat n, AstSpan s)
                => IntMap String -> AstRanked s r n -> String

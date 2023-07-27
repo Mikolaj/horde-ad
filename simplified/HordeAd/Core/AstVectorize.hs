@@ -148,6 +148,21 @@ build1V k (var, v00) =
                      (build1VOccurenceUnknownRefresh k (var, v2))
                         -- ensure no duplicated bindings, see below
     Ast.AstLetADShare{} -> error "build1V: AstLetADShare"
+    Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
+      let t = Ast.AstConstant
+              $ astIndexStep (astFromList [v, w])
+                             (singletonIndex (astCond b 0 1))
+      in build1V k (var, t)
+    Ast.AstCond b v w ->
+      let t = astIndexStep (astFromList [v, w])
+                           (singletonIndex (astCond b 0 1))
+      in build1V k (var, t)
+
+    Ast.AstMinIndex v -> Ast.AstMinIndex $ build1V k (var, v)
+    Ast.AstMaxIndex v -> Ast.AstMaxIndex $ build1V k (var, v)
+    Ast.AstFloor v -> Ast.AstFloor $ build1V k (var, v)
+    Ast.AstIota ->
+      error "build1V: AstIota can't have free index variables"
 
     Ast.AstNm opCode args -> traceRule $
       Ast.AstNm opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
@@ -161,8 +176,6 @@ build1V k (var, v00) =
       $ map (\v -> build1VOccurenceUnknown k (var, v)) args
     Ast.AstSumOfList args -> traceRule $
       Ast.AstSumOfList $ map (\v -> build1VOccurenceUnknown k (var, v)) args
-    Ast.AstIota ->
-      error "build1V: AstIota can't have free index variables"
 
     Ast.AstIndex v ix -> traceRule $
       build1VIndex k (var, v, ix)  -- @var@ is in @v@ or @ix@
@@ -202,6 +215,8 @@ build1V k (var, v00) =
                        (varFresh ::: vars, astVarFresh :. ix2)
     Ast.AstCast v -> Ast.AstCast $ build1V k (var, v)
     Ast.AstFromIntegral v -> Ast.AstFromIntegral $ build1V k (var, v)
+    Ast.AstConst{} ->
+      error "build1V: AstConst can't have free index variables"
 
     Ast.AstSToR @sh1 v -> case someNatVal $ toInteger k of
       Just (SomeNat @k _proxy) ->
@@ -209,8 +224,6 @@ build1V k (var, v00) =
       Nothing ->
         error "build1V: impossible someNatVal error"
 
-    Ast.AstConst{} ->
-      error "build1V: AstConst can't have free index variables"
     Ast.AstConstant v -> traceRule $
       Ast.AstConstant $ build1V k (var, v)
     Ast.AstPrimalPart v -> traceRule $
@@ -241,19 +254,6 @@ build1V k (var, v00) =
           v2 = V.foldr subst v (V.zip vars (unwrapAstDomains l))
       in Ast.AstLetDomains vars (build1VOccurenceUnknownDomains k (var, l))
                                 (build1VOccurenceUnknownRefresh k (var, v2))
-
-    Ast.AstCond b (Ast.AstConstant v) (Ast.AstConstant w) ->
-      let t = Ast.AstConstant
-              $ astIndexStep (astFromList [v, w])
-                             (singletonIndex (astCond b 0 1))
-      in build1V k (var, t)
-    Ast.AstCond b v w ->
-      let t = astIndexStep (astFromList [v, w])
-                           (singletonIndex (astCond b 0 1))
-      in build1V k (var, t)
-    Ast.AstFloor v -> Ast.AstFloor $ build1V k (var, v)
-    Ast.AstMinIndex v -> Ast.AstMinIndex $ build1V k (var, v)
-    Ast.AstMaxIndex v -> Ast.AstMaxIndex $ build1V k (var, v)
 
 build1VOccurenceUnknownDynamic
   :: AstSpan s
@@ -451,6 +451,21 @@ build1VS (var, v00) =
       in astLetS var2 (build1VOccurenceUnknownS @k (var, u))
                       (build1VOccurenceUnknownRefreshS (var, v2))
     Ast.AstLetADShareS{} -> error "build1VS: AstLetADShareS"
+    Ast.AstCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) ->
+      let t = Ast.AstConstantS
+              $ astIndexStepS @'[2] (astFromListS [v, w])
+                                    (astCond b 0 1 :$: ZSH)
+      in build1VS (var, t)
+    Ast.AstCondS b v w ->
+      let t = astIndexStepS @'[2] (astFromListS [v, w])
+                                  (astCond b 0 1 :$: ZSH)
+      in build1VS (var, t)
+
+    Ast.AstMinIndexS v -> Ast.AstMinIndexS $ build1VS (var, v)
+    Ast.AstMaxIndexS v -> Ast.AstMaxIndexS $ build1VS (var, v)
+    Ast.AstFloorS v -> Ast.AstFloorS $ build1VS (var, v)
+    Ast.AstIotaS ->
+      error "build1VS: AstIotaS can't have free index variables"
 
     Ast.AstNmS opCode args -> traceRule $
       Ast.AstNmS opCode $ map (\v -> build1VOccurenceUnknownS (var, v)) args
@@ -464,8 +479,6 @@ build1VS (var, v00) =
       $ map (\v -> build1VOccurenceUnknownS (var, v)) args
     Ast.AstSumOfListS args -> traceRule $
       Ast.AstSumOfListS $ map (\v -> build1VOccurenceUnknownS (var, v)) args
-    Ast.AstIotaS ->
-      error "build1VS: AstIotaS can't have free index variables"
 
     Ast.AstIndexS @sh1 v ix -> traceRule $
       gcastWith (unsafeCoerce Refl
@@ -524,11 +537,11 @@ build1VS (var, v00) =
                         (varFresh :$: vars, astVarFresh :$: ix2)
     Ast.AstCastS v -> Ast.AstCastS $ build1VS (var, v)
     Ast.AstFromIntegralS v -> Ast.AstFromIntegralS $ build1VS (var, v)
+    Ast.AstConstS{} ->
+      error "build1VS: AstConstS can't have free index variables"
 
     Ast.AstRToS v -> Ast.AstRToS $ build1V (valueOf @k) (var, v)
 
-    Ast.AstConstS{} ->
-      error "build1VS: AstConstS can't have free index variables"
     Ast.AstConstantS v -> traceRule $
       Ast.AstConstantS $ build1VS (var, v)
     Ast.AstPrimalPartS v -> traceRule $
@@ -556,19 +569,6 @@ build1VS (var, v00) =
            vars
            (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
            (build1VOccurenceUnknownRefreshS (var, v2))
-
-    Ast.AstCondS b (Ast.AstConstantS v) (Ast.AstConstantS w) ->
-      let t = Ast.AstConstantS
-              $ astIndexStepS @'[2] (astFromListS [v, w])
-                                    (astCond b 0 1 :$: ZSH)
-      in build1VS (var, t)
-    Ast.AstCondS b v w ->
-      let t = astIndexStepS @'[2] (astFromListS [v, w])
-                                  (astCond b 0 1 :$: ZSH)
-      in build1VS (var, t)
-    Ast.AstFloorS v -> Ast.AstFloorS $ build1VS (var, v)
-    Ast.AstMinIndexS v -> Ast.AstMinIndexS $ build1VS (var, v)
-    Ast.AstMaxIndexS v -> Ast.AstMaxIndexS $ build1VS (var, v)
 
 -- | The application @build1VIndexS k (var, v, ix)@ vectorizes
 -- the term @AstBuild1S k (var, AstIndexS v ix)@, where it's unknown whether

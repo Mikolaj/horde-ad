@@ -298,6 +298,15 @@ interpretAst env = \case
         env2 w = extendEnvR var w env
     in tlet t (\w -> interpretAst (env2 w) v)
   AstLetADShare{} -> error "interpretAst: AstLetADShare"
+  AstCond b a1 a2 ->
+    let b1 = interpretAstBool env b
+        t2 = interpretAst env a1
+        t3 = interpretAst env a2
+    in ifF b1 t2 t3
+  AstMinIndex v -> tminIndex $ tconstant $ interpretAstPrimal env v
+  AstMaxIndex v -> tmaxIndex $ tconstant $ interpretAstPrimal env v
+  AstFloor v -> tfloor $ tconstant $ interpretAstPrimal env v
+  AstIota -> error "interpretAst: bare AstIota, most likely a bug"
   {- TODO: revise when we handle GPUs. For now, this is done in TensorOps
      instead and that's fine, because for one-element carriers,
      reshape and replicate are very cheap. OTOH, this was introducing
@@ -349,7 +358,6 @@ interpretAst env = \case
   AstSumOfList args ->
     let args2 = interpretAst env <$> args
     in tsumOfList args2
-  AstIota -> error "interpretAst: bare AstIota, most likely a bug"
   AstIndex AstIota (i :. ZI) ->
     tfromIntegral $ tconstant $ interpretAstPrimal env i
   AstIndex v ix ->
@@ -565,8 +573,8 @@ interpretAst env = \case
     -- leads to a tensor of deltas
   AstCast v -> tcast $ interpretAst env v
   AstFromIntegral v -> tfromIntegral $ tconstant $ interpretAstPrimal env v
-  AstSToR v -> tfromS $ interpretAstS env v
   AstConst a -> tconst a
+  AstSToR v -> tfromS $ interpretAstS env v
   AstConstant a -> tconstant $ interpretAstPrimal env a
   AstPrimalPart a -> interpretAst env a  -- TODO
   AstDualPart a -> interpretAst env a  -- TODO
@@ -583,14 +591,6 @@ interpretAst env = \case
                        (AstVarName varId) (sfromD d)
         env2 = V.foldr f env (V.zip vars l2)
     in interpretAst env2 v
-  AstCond b a1 a2 ->
-    let b1 = interpretAstBool env b
-        t2 = interpretAst env a1
-        t3 = interpretAst env a2
-    in ifF b1 t2 t3
-  AstFloor v -> tfloor $ tconstant $ interpretAstPrimal env v
-  AstMinIndex v -> tminIndex $ tconstant $ interpretAstPrimal env v
-  AstMaxIndex v -> tmaxIndex $ tconstant $ interpretAstPrimal env v
 
 interpretAstDynamic
   :: forall ranked shaped s. (InterpretAst ranked shaped, AstSpan s)
@@ -773,6 +773,15 @@ interpretAstS env = \case
         env2 w = extendEnvS var w env
     in slet t (\w -> interpretAstS (env2 w) v)
   AstLetADShareS{} -> error "interpretAst: AstLetADShare"
+  AstCondS b a1 a2 ->
+    let b1 = interpretAstBool env b
+        t2 = interpretAstS env a1
+        t3 = interpretAstS env a2
+    in ifF b1 t2 t3
+  AstMinIndexS v -> sminIndex $ sconstant $ interpretAstPrimalS env v
+  AstMaxIndexS v -> smaxIndex $ sconstant $ interpretAstPrimalS env v
+  AstFloorS v -> sfloor $ sconstant $ interpretAstPrimalS env v
+  AstIotaS -> siota
 {- TODO:
   AstNm TimesOp [v, AstLet var u (AstReshape sh (AstReplicate @m k s))]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
@@ -805,7 +814,6 @@ interpretAstS env = \case
   AstSumOfListS args ->
     let args2 = interpretAstS env <$> args
     in ssumOfList args2
-  AstIotaS -> siota
   AstIndexS AstIotaS (i :$: ZSH) ->
     sfromIntegral . sconstant . sfromR $ interpretAstPrimal env i
   AstIndexS @sh1 v ix ->
@@ -1022,8 +1030,8 @@ interpretAstS env = \case
     -- leads to a tensor of deltas
   AstCastS v -> scast $ interpretAstS env v
   AstFromIntegralS v -> sfromIntegral $ sconstant $ interpretAstPrimalS env v
-  AstRToS v -> sfromR $ interpretAst env v
   AstConstS a -> sconst a
+  AstRToS v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a
   AstPrimalPartS a -> interpretAstS env a  -- TODO
   AstDualPartS a -> interpretAstS env a  -- TODO
@@ -1040,14 +1048,6 @@ interpretAstS env = \case
                        (AstVarName varId) (sfromD d)
         env2 = V.foldr f env (V.zip vars l2)
     in interpretAstS env2 v
-  AstCondS b a1 a2 ->
-    let b1 = interpretAstBool env b
-        t2 = interpretAstS env a1
-        t3 = interpretAstS env a2
-    in ifF b1 t2 t3
-  AstFloorS v -> sfloor $ sconstant $ interpretAstPrimalS env v
-  AstMinIndexS v -> sminIndex $ sconstant $ interpretAstPrimalS env v
-  AstMaxIndexS v -> smaxIndex $ sconstant $ interpretAstPrimalS env v
 
 
 

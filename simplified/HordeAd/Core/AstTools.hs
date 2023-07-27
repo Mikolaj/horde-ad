@@ -43,6 +43,11 @@ shapeAst v1 = case v1 of
   AstVar sh _var -> sh
   AstLet _ _ v -> shapeAst v
   AstLetADShare _ v-> shapeAst v
+  AstCond _b v _w -> shapeAst v
+  AstMinIndex a -> initShape $ shapeAst a
+  AstMaxIndex a -> initShape $ shapeAst a
+  AstFloor a -> shapeAst a
+  AstIota -> singletonShape (maxBound :: Int)  -- ought to be enough
   AstNm _opCode args -> case args of
     [] -> error "shapeAst: AstNm with no arguments"
     t : _ -> shapeAst t
@@ -55,7 +60,6 @@ shapeAst v1 = case v1 of
   AstSumOfList args -> case args of
     [] -> error "shapeAst: AstSumOfList with no arguments"
     t : _ -> shapeAst t
-  AstIota -> singletonShape (maxBound :: Int)  -- ought to be enough
   AstIndex v _is -> dropShape (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
   AstScatter sh _ _ -> sh
@@ -83,17 +87,13 @@ shapeAst v1 = case v1 of
   AstGather sh _v (_vars, _ix) -> sh
   AstCast t -> shapeAst t
   AstFromIntegral a -> shapeAst a
-  AstSToR @sh _ -> listShapeToShape $ OS.shapeT @sh
   AstConst a -> listShapeToShape $ OR.shapeL a
+  AstSToR @sh _ -> listShapeToShape $ OS.shapeT @sh
   AstConstant a -> shapeAst a
   AstPrimalPart a -> shapeAst a
   AstDualPart a -> shapeAst a
   AstD u _ -> shapeAst u
   AstLetDomains _ _ v -> shapeAst v
-  AstCond _b v _w -> shapeAst v
-  AstFloor a -> shapeAst a
-  AstMinIndex a -> initShape $ shapeAst a
-  AstMaxIndex a -> initShape $ shapeAst a
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, GoodScalar r) => AstRanked s r (1 + n) -> Int
@@ -121,11 +121,16 @@ intVarInAst var = \case
     intVarInADShare intIdInAstDynamic (astVarIdToAstId var) l
     || intVarInAst var v
   AstLetADShare{} -> False
+  AstCond b v w ->
+    intVarInAstBool var b || intVarInAst var v || intVarInAst var w
+  AstMinIndex a -> intVarInAst var a
+  AstMaxIndex a -> intVarInAst var a
+  AstFloor a -> intVarInAst var a
+  AstIota -> False
   AstNm _ l -> any (intVarInAst var) l
   AstOp _ l -> any (intVarInAst var) l
   AstOpIntegral _ l -> any (intVarInAst var) l
   AstSumOfList l -> any (intVarInAst var) l
-  AstIota -> False
   AstIndex v ix -> intVarInAst var v || intVarInIndex var ix
   AstSum v -> intVarInAst var v
   AstScatter _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
@@ -141,18 +146,13 @@ intVarInAst var = \case
   AstGather _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
   AstCast t -> intVarInAst var t
   AstFromIntegral t -> intVarInAst var t
-  AstSToR v -> intVarInAstS var v
   AstConst{} -> False
+  AstSToR v -> intVarInAstS var v
   AstConstant v -> intVarInAst var v
   AstPrimalPart a -> intVarInAst var a
   AstDualPart a -> intVarInAst var a
   AstD u u' -> intVarInAst var u || intVarInAst var u'
   AstLetDomains _vars l v -> intVarInAstDomains var l || intVarInAst var v
-  AstCond b v w ->
-    intVarInAstBool var b || intVarInAst var v || intVarInAst var w
-  AstFloor a -> intVarInAst var a
-  AstMinIndex a -> intVarInAst var a
-  AstMaxIndex a -> intVarInAst var a
 
 intVarInAstDomains :: (AstSpan s, AstSpan s2)
                    => AstVarId s -> AstDomains s2 -> Bool
@@ -195,11 +195,16 @@ intVarInAstS var = \case
     intVarInADShare intIdInAstDynamic (astVarIdToAstId var) l
     || intVarInAstS var v
   AstLetADShareS{} -> False
+  AstCondS b v w ->
+    intVarInAstBool var b || intVarInAstS var v || intVarInAstS var w
+  AstMinIndexS a -> intVarInAstS var a
+  AstMaxIndexS a -> intVarInAstS var a
+  AstFloorS a -> intVarInAstS var a
+  AstIotaS -> False
   AstNmS _ l -> any (intVarInAstS var) l
   AstOpS _ l -> any (intVarInAstS var) l
   AstOpIntegralS _ l -> any (intVarInAstS var) l
   AstSumOfListS l -> any (intVarInAstS var) l
-  AstIotaS -> False
   AstIndexS v ix -> intVarInAstS var v || intVarInIndexS var ix
   AstSumS v -> intVarInAstS var v
   AstScatterS v (_vars, ix) -> intVarInIndexS var ix || intVarInAstS var v
@@ -215,18 +220,13 @@ intVarInAstS var = \case
   AstGatherS v (_vars, ix) -> intVarInIndexS var ix || intVarInAstS var v
   AstCastS t -> intVarInAstS var t
   AstFromIntegralS a -> intVarInAstS var a
-  AstRToS v -> intVarInAst var v
   AstConstS{} -> False
+  AstRToS v -> intVarInAst var v
   AstConstantS v -> intVarInAstS var v
   AstPrimalPartS a -> intVarInAstS var a
   AstDualPartS a -> intVarInAstS var a
   AstDS u u' -> intVarInAstS var u || intVarInAstS var u'
   AstLetDomainsS _vars l v -> intVarInAstDomains var l || intVarInAstS var v
-  AstCondS b v w ->
-    intVarInAstBool var b || intVarInAstS var v || intVarInAstS var w
-  AstFloorS a -> intVarInAstS var a
-  AstMinIndexS a -> intVarInAstS var a
-  AstMaxIndexS a -> intVarInAstS var a
 
 intVarInIndexS :: AstSpan s => AstVarId s -> AstIndexS sh -> Bool
 intVarInIndexS var = any (intVarInAst var)
@@ -253,8 +253,8 @@ astIsSmall relaxed = \case
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTranspose _ v ->
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
-  AstSToR v -> astIsSmallS relaxed v
   AstConst{} -> valueOf @n == (0 :: Int)
+  AstSToR v -> astIsSmallS relaxed v
   AstConstant v -> astIsSmall relaxed v
   AstPrimalPart v -> astIsSmall relaxed v
   AstDualPart v -> astIsSmall relaxed v
@@ -271,8 +271,8 @@ astIsSmallS relaxed = \case
     relaxed && astIsSmallS relaxed v  -- materialized via vector slice; cheap
   AstTransposeS v ->
     relaxed && astIsSmallS relaxed v  -- often cheap and often fuses
-  AstRToS v -> astIsSmall relaxed v
   AstConstS{} -> null (OS.shapeT @sh)
+  AstRToS v -> astIsSmall relaxed v
   AstConstantS v -> astIsSmallS relaxed v
   AstPrimalPartS v -> astIsSmallS relaxed v
   AstDualPartS v -> astIsSmallS relaxed v
