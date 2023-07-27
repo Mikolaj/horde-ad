@@ -405,10 +405,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          => ADVal shaped r sh -> ADVal ranked r (OS.Rank sh)
     sToR (D l u u') = dDnotShared l (tfromS u) (dSToR u')
      where
-      dSToR (RToS @sh1 d) =
-        case sameShape @sh1 @sh of
-          Just Refl -> d
-          _ -> error "sToR: different shapes in SToR(RToS)"
+      dSToR (RToS d) = d  -- no information lost, so no checks
       dSToR d = SToR d
   dfromR = Flip . rToD
    where
@@ -416,10 +413,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          => ADVal ranked r n -> ADVal (Clown (DynamicOf ranked)) r '()
     rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (dRToD u')
      where
-      dRToD (DToR @n1 d) =
-        case sameNat (Proxy @n1) (Proxy @n) of
-          Just Refl -> d
-          _ -> error "rToD: different ranks in RToD(DToR)"
+      dRToD (DToR d) = d  -- no information lost, so no checks
       dRToD d = RToD d
   dfromS = Flip . sToD
    where
@@ -427,10 +421,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          => ADVal shaped r sh -> ADVal (Clown (DynamicOf ranked)) r '()
     sToD (D l u u') = dDnotShared l (Clown $ dfromS u) (dSToD u')
      where
-      dSToD (DToS @sh1 d) =
-        case sameShape @sh1 @sh of
-          Just Refl -> d
-          _ -> error "sToD: different ranks in SToD(DToS)"
+      dSToD (DToS d) = d  -- no information lost, so no checks
       dSToD d = SToD d
   sfromD = dToS . runFlip
   sfromR = rToS

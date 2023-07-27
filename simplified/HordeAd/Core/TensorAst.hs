@@ -161,9 +161,7 @@ instance AstSpan s
 instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   tfromD = astFromDynamic
   tfromS = astSToR
---  dfromR (AstDToR t) = t
   dfromR t = AstRToD t
---  dfromS (AstDToS t) = t
   dfromS t = AstSToD t
   sfromR = astRToS
   sfromD = astFromDynamicS

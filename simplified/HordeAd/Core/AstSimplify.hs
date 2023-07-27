@@ -1424,7 +1424,7 @@ astSToR :: OS.Shape sh
         => AstShaped s r sh -> AstRanked s r (OS.Rank sh)
 astSToR (Ast.AstConstantS v) = Ast.AstConstant $ astSToR v
 astSToR (Ast.AstLetADShareS l v) = Ast.AstLetADShare l $ astSToR v
-astSToR (Ast.AstRToS v) = v
+astSToR (Ast.AstRToS v) = v  -- no information lost, so no checks
 astSToR v = Ast.AstSToR v
 
 astRToS :: forall sh s r. (OS.Shape sh, KnownNat (OS.Rank sh))
@@ -1434,7 +1434,7 @@ astRToS (Ast.AstLetADShare l v) = Ast.AstLetADShareS l $ astRToS v
 astRToS (Ast.AstSToR @sh1 v) =
   case sameShape @sh1 @sh of
     Just Refl -> v
-    _ -> error "astRToS: different ranks in SToD(DToS)"
+    _ -> error "astRToS: different ranks in RToS(SToR)"
 astRToS v = Ast.AstRToS v
 
 astFromDynamic :: forall n s r. KnownNat n
