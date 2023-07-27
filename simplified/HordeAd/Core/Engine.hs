@@ -125,7 +125,7 @@ instance Adaptable AstRanked where
         dt = fromMaybe (treplicate0N (tshape primal) 1) mdt
         envDt = extendEnvR varDt dt env1
         gradientDomain = interpretAstDomainsDummy envDt gradient
-        primalTensor = interpretPrimalSpan env1 primal
+        primalTensor = interpretAstPrimal env1 primal
     in (gradientDomain, primalTensor)
 
   revDtInit
@@ -156,7 +156,7 @@ instance Adaptable AstShaped where
         dt = fromMaybe 1 mdt
         envDt = extendEnvS varDt dt env1
         gradientDomain = interpretAstDomainsDummy envDt gradient
-        primalTensor = interpretPrimalSpanS env1 primal
+        primalTensor = interpretAstPrimalS env1 primal
     in (gradientDomain, primalTensor)
 
   revDtInit

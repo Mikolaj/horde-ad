@@ -7,8 +7,8 @@
 -- and/or @ShapedTensor@ class instance.
 module HordeAd.Core.AstInterpret
   ( InterpretAstR, InterpretAstS
-  , interpretPrimalSpan, interpretAst, interpretAstDomainsDummy
-  , interpretPrimalSpanS, interpretAstS
+  , interpretAstPrimal, interpretAst, interpretAstDomainsDummy
+  , interpretAstPrimalS, interpretAstS
   , AstEnv, extendEnvS, extendEnvR, extendEnvDR, extendEnvDS
   ) where
 
@@ -254,27 +254,27 @@ type InterpretAst ranked shaped =
 -- is negligible, so we optimize only minimally.
 -- It helps that usually the dual part is either trivially computed
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
-interpretPrimalSpan
+interpretAstPrimal
   :: forall ranked shaped n r.
      (KnownNat n, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked shaped
   -> AstRanked PrimalSpan r n -> PrimalOf ranked r n
-interpretPrimalSpan env v1 = case v1 of
-  PrimalSpanPart (AstD u _) -> interpretPrimalSpan env u
+interpretAstPrimal env v1 = case v1 of
+  AstPrimalPart (AstD u _) -> interpretAstPrimal env u
   AstCond b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
     let b1 = interpretAstBool env b
-        t2 = interpretPrimalSpan env a1
-        t3 = interpretPrimalSpan env a2
+        t2 = interpretAstPrimal env a1
+        t3 = interpretAstPrimal env a2
     in ifF b1 t2 t3  -- this is ifF from PrimalOf ranked
   _ -> tprimalPart $ interpretAst env v1
 
-interpretDualSpan
+interpretAstDual
   :: forall ranked shaped n r.
      (KnownNat n, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked shaped
   -> AstRanked DualSpan r n -> DualOf ranked r n
-interpretDualSpan env v1 = case v1 of
-  DualSpanPart (AstD _ u') -> interpretDualSpan env u'
+interpretAstDual env v1 = case v1 of
+  AstDualPart (AstD _ u') -> interpretAstDual env u'
   _ -> tdualPart $ interpretAst env v1
 
 interpretAst
@@ -351,10 +351,10 @@ interpretAst env = \case
     in tsumOfList args2
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"
   AstIndex AstIota (i :. ZI) ->
-    tfromIntegral $ tconstant $ interpretPrimalSpan env i
+    tfromIntegral $ tconstant $ interpretAstPrimal env i
   AstIndex v ix ->
     let v2 = interpretAst env v
-        ix3 = interpretPrimalSpan env <$> ix
+        ix3 = interpretAstPrimal env <$> ix
     in tindex v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
@@ -489,7 +489,7 @@ interpretAst env = \case
     -- is cheaper, too
   AstScatter sh v (vars, ix) ->
     let t1 = interpretAst env v
-        f2 = interpretLambdaIndexToIndex interpretPrimalSpan env (vars, ix)
+        f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
     in tscatter sh t1 f2
   AstFromList l ->
     let l2 = interpretAst env <$> l
@@ -542,7 +542,7 @@ interpretAst env = \case
   -- AstBuild1 k (var, AstConstant v) ->
   --   tconst
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
-  --   $ interpretLambdaI interpretPrimalSpan env (var, v)
+  --   $ interpretLambdaI interpretAstPrimal env (var, v)
   AstBuild1 k (var, v) ->
     tbuild1 k (interpretLambdaI interpretAst env (var, v))
       -- to be used only in tests
@@ -551,7 +551,7 @@ interpretAst env = \case
                                     (vars, tfromIntegral i))
   AstGather sh v (vars, ix) ->
     let t1 = interpretAst env v
-        f2 = interpretLambdaIndexToIndex interpretPrimalSpan env (vars, ix)
+        f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
     in tgather sh t1 f2
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
@@ -564,15 +564,15 @@ interpretAst env = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
   AstCast v -> tcast $ interpretAst env v
-  AstFromIntegral v -> tfromIntegral $ tconstant $ interpretPrimalSpan env v
+  AstFromIntegral v -> tfromIntegral $ tconstant $ interpretAstPrimal env v
   AstSToR v -> tfromS $ interpretAstS env v
   AstConst a -> tconst a
-  AstConstant a -> tconstant $ interpretPrimalSpan env a
-  PrimalSpanPart a -> interpretAst env a  -- TODO
-  DualSpanPart a -> interpretAst env a  -- TODO
+  AstConstant a -> tconstant $ interpretAstPrimal env a
+  AstPrimalPart a -> interpretAst env a  -- TODO
+  AstDualPart a -> interpretAst env a  -- TODO
   AstD u u' ->
-    let t1 = interpretPrimalSpan env u
-        t2 = interpretDualSpan env u'
+    let t1 = interpretAstPrimal env u
+        t2 = interpretAstDual env u'
     in tD t1 t2
   AstLetDomains vars l v ->
     let l2 = interpretAstDomains env l
@@ -588,9 +588,9 @@ interpretAst env = \case
         t2 = interpretAst env a1
         t3 = interpretAst env a2
     in ifF b1 t2 t3
-  AstFloor v -> tfloor $ tconstant $ interpretPrimalSpan env v
-  AstMinIndex v -> tminIndex $ tconstant $ interpretPrimalSpan env v
-  AstMaxIndex v -> tmaxIndex $ tconstant $ interpretPrimalSpan env v
+  AstFloor v -> tfloor $ tconstant $ interpretAstPrimal env v
+  AstMinIndex v -> tminIndex $ tconstant $ interpretAstPrimal env v
+  AstMaxIndex v -> tmaxIndex $ tconstant $ interpretAstPrimal env v
 
 interpretAstDynamic
   :: forall ranked shaped s. (InterpretAst ranked shaped, AstSpan s)
@@ -624,10 +624,10 @@ interpretAstBool env = \case
     in interpretAstBoolOp opCodeBool args2
   AstBoolConst a -> if a then true else false
   AstRel opCodeRel args ->
-    let args2 = interpretPrimalSpan env <$> args
+    let args2 = interpretAstPrimal env <$> args
     in interpretAstRelOp opCodeRel args2
   AstRelS opCodeRel args ->
-    let args2 = interpretPrimalSpanS env <$> args
+    let args2 = interpretAstPrimalS env <$> args
     in interpretAstRelOp opCodeRel args2
 
 interpretAstDynamicDummy
@@ -730,27 +730,27 @@ interpretAstRelOp opCodeRel args =
   error $ "interpretAstRelOp: wrong number of arguments"
           ++ show (opCodeRel, length args)
 
-interpretPrimalSpanS
+interpretAstPrimalS
   :: forall ranked shaped sh r.
      (OS.Shape sh, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked shaped
   -> AstShaped PrimalSpan r sh -> PrimalOf shaped r sh
-interpretPrimalSpanS env v1 = case v1 of
-  PrimalSpanPartS (AstDS u _) -> interpretPrimalSpanS env u
+interpretAstPrimalS env v1 = case v1 of
+  AstPrimalPartS (AstDS u _) -> interpretAstPrimalS env u
   AstCondS b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
     let b1 = interpretAstBool env b
-        t2 = interpretPrimalSpanS env a1
-        t3 = interpretPrimalSpanS env a2
+        t2 = interpretAstPrimalS env a1
+        t3 = interpretAstPrimalS env a2
     in ifF b1 t2 t3  -- this is ifF from PrimalOf ranked
   _ -> sprimalPart $ interpretAstS env v1
 
-interpretDualSpanS
+interpretAstDualS
   :: forall ranked shaped sh r.
      (OS.Shape sh, InterpretAst ranked shaped, GoodScalar r)
   => AstEnv ranked shaped
   -> AstShaped DualSpan r sh -> DualOf shaped r sh
-interpretDualSpanS env v1 = case v1 of
-  DualSpanPartS (AstDS _ u') -> interpretDualSpanS env u'
+interpretAstDualS env v1 = case v1 of
+  AstDualPartS (AstDS _ u') -> interpretAstDualS env u'
   _ -> sdualPart $ interpretAstS env v1
 
 interpretAstS
@@ -807,10 +807,10 @@ interpretAstS env = \case
     in ssumOfList args2
   AstIotaS -> siota
   AstIndexS AstIotaS (i :$: ZSH) ->
-    sfromIntegral . sconstant . sfromR $ interpretPrimalSpan env i
+    sfromIntegral . sconstant . sfromR $ interpretAstPrimal env i
   AstIndexS @sh1 v ix ->
     let v2 = interpretAstS env v
-        ix3 = interpretPrimalSpan env <$> ix
+        ix3 = interpretAstPrimal env <$> ix
     in sindex @shaped @r @sh1 v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
@@ -933,7 +933,7 @@ interpretAstS env = \case
     -- is cheaper, too
   AstScatterS v (vars, ix) ->
     let t1 = interpretAstS env v
-        f2 = interpretLambdaIndexToIndexS interpretPrimalSpan env (vars, ix)
+        f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
     in sscatter t1 f2
   AstFromListS l ->
     let l2 = interpretAstS env <$> l
@@ -991,7 +991,7 @@ interpretAstS env = \case
   -- AstBuild1 k (var, AstConstant v) ->
   --   tconst
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
-  --   $ interpretLambdaI interpretPrimalSpan env (var, v)
+  --   $ interpretLambdaI interpretAstPrimal env (var, v)
 -}
   AstBuild1S (var, v) ->
     sbuild1 (interpretLambdaIS interpretAstS env (var, v))
@@ -1008,7 +1008,7 @@ interpretAstS env = \case
                 (vars, sfromIntegral $ sfromR i))
   AstGatherS v (vars, ix) ->
     let t1 = interpretAstS env v
-        f2 = interpretLambdaIndexToIndexS interpretPrimalSpan env (vars, ix)
+        f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
     in sgather t1 f2
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
@@ -1021,15 +1021,15 @@ interpretAstS env = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
   AstCastS v -> scast $ interpretAstS env v
-  AstFromIntegralS v -> sfromIntegral $ sconstant $ interpretPrimalSpanS env v
+  AstFromIntegralS v -> sfromIntegral $ sconstant $ interpretAstPrimalS env v
   AstRToS v -> sfromR $ interpretAst env v
   AstConstS a -> sconst a
-  AstConstantS a -> sconstant $ interpretPrimalSpanS env a
-  PrimalSpanPartS a -> interpretAstS env a  -- TODO
-  DualSpanPartS a -> interpretAstS env a  -- TODO
+  AstConstantS a -> sconstant $ interpretAstPrimalS env a
+  AstPrimalPartS a -> interpretAstS env a  -- TODO
+  AstDualPartS a -> interpretAstS env a  -- TODO
   AstDS u u' ->
-    let t1 = interpretPrimalSpanS env u
-        t2 = interpretDualSpanS env u'
+    let t1 = interpretAstPrimalS env u
+        t2 = interpretAstDualS env u'
     in sD t1 t2
   AstLetDomainsS vars l v ->
     let l2 = interpretAstDomains env l
@@ -1045,99 +1045,99 @@ interpretAstS env = \case
         t2 = interpretAstS env a1
         t3 = interpretAstS env a2
     in ifF b1 t2 t3
-  AstFloorS v -> sfloor $ sconstant $ interpretPrimalSpanS env v
-  AstMinIndexS v -> sminIndex $ sconstant $ interpretPrimalSpanS env v
-  AstMaxIndexS v -> smaxIndex $ sconstant $ interpretPrimalSpanS env v
+  AstFloorS v -> sfloor $ sconstant $ interpretAstPrimalS env v
+  AstMinIndexS v -> sminIndex $ sconstant $ interpretAstPrimalS env v
+  AstMaxIndexS v -> smaxIndex $ sconstant $ interpretAstPrimalS env v
 
 
 
-{-# SPECIALIZE interpretPrimalSpan
+{-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstRanked PrimalSpan Double n
   -> Flip OR.Array Double n #-}
-{-# SPECIALIZE interpretPrimalSpan
+{-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstRanked PrimalSpan Float n
   -> Flip OR.Array Float n #-}
-{-# SPECIALIZE interpretPrimalSpan
+{-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstRanked PrimalSpan Int64 n
   -> Flip OR.Array Int64 n #-}
-{-# SPECIALIZE interpretPrimalSpan
+{-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked PrimalSpan Double n
   -> AstRanked PrimalSpan Double n #-}
-{-# SPECIALIZE interpretPrimalSpan
+{-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked PrimalSpan Float n
   -> AstRanked PrimalSpan Float n #-}
-{-# SPECIALIZE interpretPrimalSpan
+{-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked PrimalSpan Int64 n
   -> AstRanked PrimalSpan Int64 n #-}
-{-# SPECIALIZE interpretPrimalSpan
+{-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked PrimalSpan Double n
   -> Flip OR.Array Double n #-}
-{-# SPECIALIZE interpretPrimalSpan
+{-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked PrimalSpan Float n
   -> Flip OR.Array Float n #-}
-{-# SPECIALIZE interpretPrimalSpan
+{-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked PrimalSpan Int64 n
   -> Flip OR.Array Int64 n #-}
 
-{-# SPECIALIZE interpretDualSpan
+{-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstRanked DualSpan Double n
   -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array) (Flip OS.Array)) Double n #-}
-{-# SPECIALIZE interpretDualSpan
+{-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstRanked DualSpan Float n
   -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array) (Flip OS.Array)) Float n #-}
-{-# SPECIALIZE interpretDualSpan
+{-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstRanked DualSpan Int64 n
   -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array) (Flip OS.Array)) Int64 n #-}
-{-# SPECIALIZE interpretDualSpan
+{-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked DualSpan Double n
   -> Product (Clown (Const ADShare)) (DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan)) Double n #-}
-{-# SPECIALIZE interpretDualSpan
+{-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked DualSpan Float n
   -> Product (Clown (Const ADShare)) (DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan)) Float n #-}
-{-# SPECIALIZE interpretDualSpan
+{-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked DualSpan Int64 n
   -> Product (Clown (Const ADShare)) (DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan)) Int64 n #-}
-{-# SPECIALIZE interpretDualSpan
+{-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked DualSpan Double n
   -> DummyDual Double n #-}
-{-# SPECIALIZE interpretDualSpan
+{-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked DualSpan Float n
   -> DummyDual Float n #-}
-{-# SPECIALIZE interpretDualSpan
+{-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked DualSpan Int64 n

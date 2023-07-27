@@ -86,8 +86,8 @@ shapeAst v1 = case v1 of
   AstSToR @sh _ -> listShapeToShape $ OS.shapeT @sh
   AstConst a -> listShapeToShape $ OR.shapeL a
   AstConstant a -> shapeAst a
-  PrimalSpanPart a -> shapeAst a
-  DualSpanPart a -> shapeAst a
+  AstPrimalPart a -> shapeAst a
+  AstDualPart a -> shapeAst a
   AstD u _ -> shapeAst u
   AstLetDomains _ _ v -> shapeAst v
   AstCond _b v _w -> shapeAst v
@@ -144,8 +144,8 @@ intVarInAst var = \case
   AstSToR v -> intVarInAstS var v
   AstConst{} -> False
   AstConstant v -> intVarInAst var v
-  PrimalSpanPart a -> intVarInAst var a
-  DualSpanPart a -> intVarInAst var a
+  AstPrimalPart a -> intVarInAst var a
+  AstDualPart a -> intVarInAst var a
   AstD u u' -> intVarInAst var u || intVarInAst var u'
   AstLetDomains _vars l v -> intVarInAstDomains var l || intVarInAst var v
   AstCond b v w ->
@@ -218,8 +218,8 @@ intVarInAstS var = \case
   AstRToS v -> intVarInAst var v
   AstConstS{} -> False
   AstConstantS v -> intVarInAstS var v
-  PrimalSpanPartS a -> intVarInAstS var a
-  DualSpanPartS a -> intVarInAstS var a
+  AstPrimalPartS a -> intVarInAstS var a
+  AstDualPartS a -> intVarInAstS var a
   AstDS u u' -> intVarInAstS var u || intVarInAstS var u'
   AstLetDomainsS _vars l v -> intVarInAstDomains var l || intVarInAstS var v
   AstCondS b v w ->
@@ -256,8 +256,8 @@ astIsSmall relaxed = \case
   AstSToR v -> astIsSmallS relaxed v
   AstConst{} -> valueOf @n == (0 :: Int)
   AstConstant v -> astIsSmall relaxed v
-  PrimalSpanPart v -> astIsSmall relaxed v
-  DualSpanPart v -> astIsSmall relaxed v
+  AstPrimalPart v -> astIsSmall relaxed v
+  AstDualPart v -> astIsSmall relaxed v
   _ -> False
 
 astIsSmallS :: forall sh s r. OS.Shape sh
@@ -274,8 +274,8 @@ astIsSmallS relaxed = \case
   AstRToS v -> astIsSmall relaxed v
   AstConstS{} -> null (OS.shapeT @sh)
   AstConstantS v -> astIsSmallS relaxed v
-  PrimalSpanPartS v -> astIsSmallS relaxed v
-  DualSpanPartS v -> astIsSmallS relaxed v
+  AstPrimalPartS v -> astIsSmallS relaxed v
+  AstDualPartS v -> astIsSmallS relaxed v
   _ -> False
 
 

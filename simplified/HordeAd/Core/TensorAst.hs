@@ -198,7 +198,7 @@ astSpanPrimal _ = error "a spuriuos case for pattern match coverage"
 astSpanDual :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
             => AstRanked s r n -> AstRanked DualSpan r n
 astSpanDual t | Just Refl <- sameAstSpan @s @PrimalSpan =
-  DualSpanPart $ AstConstant t  -- this is nil; likely to happen
+  AstDualPart $ AstConstant t  -- this is nil; likely to happen
 astSpanDual t | Just Refl <- sameAstSpan @s @DualSpan = t
 astSpanDual t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
 astSpanDual _ = error "a spuriuos case for pattern match coverage"
@@ -343,7 +343,7 @@ astSpanPrimalS _ = error "a spuriuos case for pattern match coverage"
 astSpanDualS :: forall s r sh. (OS.Shape sh, GoodScalar r, AstSpan s)
              => AstShaped s r sh -> AstShaped DualSpan r sh
 astSpanDualS t | Just Refl <- sameAstSpan @s @PrimalSpan =
-  DualSpanPartS $ AstConstantS t  -- this is nil; likely to happen
+  AstDualPartS $ AstConstantS t  -- this is nil; likely to happen
 astSpanDualS t | Just Refl <- sameAstSpan @s @DualSpan = t
 astSpanDualS t | Just Refl <- sameAstSpan @s @FullSpan = astDualPartS t
 astSpanDualS _ = error "a spuriuos case for pattern match coverage"

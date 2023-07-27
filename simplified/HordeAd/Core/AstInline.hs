@@ -165,8 +165,8 @@ inlineAst memo v0 = case v0 of
   Ast.AstConst{} -> (memo, v0)
   Ast.AstSToR v -> second Ast.AstSToR $ inlineAstS memo v
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
-  Ast.PrimalSpanPart a -> second Ast.PrimalSpanPart $ inlineAst memo a
-  Ast.DualSpanPart a -> second Ast.DualSpanPart $ inlineAst memo a
+  Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
+  Ast.AstDualPart a -> second Ast.AstDualPart $ inlineAst memo a
   Ast.AstD u u' ->
     let (memo1, t1) = inlineAst memo u
         (memo2, t2) = inlineAst memo1 u'
@@ -339,8 +339,8 @@ inlineAstS memo v0 = case v0 of
   Ast.AstConstS{} -> (memo, v0)
   Ast.AstRToS v -> second Ast.AstRToS $ inlineAst memo v
   Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstS memo a
-  Ast.PrimalSpanPartS a -> second Ast.PrimalSpanPartS $ inlineAstS memo a
-  Ast.DualSpanPartS a -> second Ast.DualSpanPartS $ inlineAstS memo a
+  Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ inlineAstS memo a
+  Ast.AstDualPartS a -> second Ast.AstDualPartS $ inlineAstS memo a
   Ast.AstDS u u' ->
     let (memo1, t1) = inlineAstS memo u
         (memo2, t2) = inlineAstS memo1 u'
@@ -438,8 +438,8 @@ unletAst env t = case t of
   Ast.AstConst{} -> t
   Ast.AstSToR v -> Ast.AstSToR (unletAstS env v)
   Ast.AstConstant v -> Ast.AstConstant (unletAst env v)
-  Ast.PrimalSpanPart v -> Ast.PrimalSpanPart (unletAst env v)
-  Ast.DualSpanPart v -> Ast.DualSpanPart (unletAst env v)
+  Ast.AstPrimalPart v -> Ast.AstPrimalPart (unletAst env v)
+  Ast.AstDualPart v -> Ast.AstDualPart (unletAst env v)
   Ast.AstD u u' -> Ast.AstD (unletAst env u) (unletAst env u')
   Ast.AstLetDomains vars l v ->
     let env2 = env {unletSet = unletSet env
@@ -541,8 +541,8 @@ unletAstS env t = case t of
   Ast.AstConstS{} -> t
   Ast.AstRToS v -> Ast.AstRToS (unletAst env v)
   Ast.AstConstantS v -> Ast.AstConstantS (unletAstS env v)
-  Ast.PrimalSpanPartS v -> Ast.PrimalSpanPartS (unletAstS env v)
-  Ast.DualSpanPartS v -> Ast.DualSpanPartS (unletAstS env v)
+  Ast.AstPrimalPartS v -> Ast.AstPrimalPartS (unletAstS env v)
+  Ast.AstDualPartS v -> Ast.AstDualPartS (unletAstS env v)
   Ast.AstDS u u' -> Ast.AstDS (unletAstS env u) (unletAstS env u')
   Ast.AstLetDomainsS vars l v ->
     let env2 = env {unletSet = unletSet env

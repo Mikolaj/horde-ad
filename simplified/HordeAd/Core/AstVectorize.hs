@@ -213,10 +213,10 @@ build1V k (var, v00) =
       error "build1V: AstConst can't have free index variables"
     Ast.AstConstant v -> traceRule $
       Ast.AstConstant $ build1V k (var, v)
-    Ast.PrimalSpanPart v -> traceRule $
-      Ast.PrimalSpanPart $ build1V k (var, v)
-    Ast.DualSpanPart v -> traceRule $
-      Ast.DualSpanPart $ build1V k (var, v)
+    Ast.AstPrimalPart v -> traceRule $
+      Ast.AstPrimalPart $ build1V k (var, v)
+    Ast.AstDualPart v -> traceRule $
+      Ast.AstDualPart $ build1V k (var, v)
     Ast.AstD u u' ->
       Ast.AstD (build1VOccurenceUnknown k (var, u))
                (build1VOccurenceUnknown k (var, u'))
@@ -531,10 +531,10 @@ build1VS (var, v00) =
       error "build1VS: AstConstS can't have free index variables"
     Ast.AstConstantS v -> traceRule $
       Ast.AstConstantS $ build1VS (var, v)
-    Ast.PrimalSpanPartS v -> traceRule $
-      Ast.PrimalSpanPartS $ build1VS (var, v)
-    Ast.DualSpanPartS v -> traceRule $
-      Ast.DualSpanPartS $ build1VS (var, v)
+    Ast.AstPrimalPartS v -> traceRule $
+      Ast.AstPrimalPartS $ build1VS (var, v)
+    Ast.AstDualPartS v -> traceRule $
+      Ast.AstDualPartS $ build1VS (var, v)
     Ast.AstDS u u' ->
       Ast.AstDS (build1VOccurenceUnknownS (var, u))
                 (build1VOccurenceUnknownS (var, u'))

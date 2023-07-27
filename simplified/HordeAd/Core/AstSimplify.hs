@@ -206,8 +206,8 @@ simplifyStepNonIndex t = case t of
   Ast.AstSToR v -> astSToR v
   AstConst{} -> t
   Ast.AstConstant{} -> t
-  Ast.PrimalSpanPart v -> astPrimalPart v  -- has to be done sooner or later
-  Ast.DualSpanPart v -> astDualPart v
+  Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
+  Ast.AstDualPart v -> astDualPart v
   Ast.AstD{} -> t
   Ast.AstLetDomains{} -> t
   Ast.AstCond a b c -> astCond a b c
@@ -248,7 +248,7 @@ astLet var u v@(Ast.AstConstant (Ast.AstVar _ var2)) =  -- a common noop
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
   else v
-astLet var u v@(Ast.PrimalSpanPart (Ast.AstVar _ var2)) =  -- a common noop
+astLet var u v@(Ast.AstPrimalPart (Ast.AstVar _ var2)) =  -- a common noop
   if fromEnum var2 == fromEnum var
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
@@ -258,7 +258,7 @@ astLet var u v@(Ast.PrimalSpanPart (Ast.AstVar _ var2)) =  -- a common noop
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
   else v
-astLet var u v@(Ast.DualSpanPart (Ast.AstVar _ var2)) =  -- a noop
+astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
   if fromEnum var2 == fromEnum var
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
@@ -450,8 +450,8 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndex v0 ix
   Ast.AstConstant v -> Ast.AstConstant $ astIndex v ix
-  Ast.PrimalSpanPart{} -> Ast.AstIndex v0 ix  -- must be a NF
-  Ast.DualSpanPart{} -> Ast.AstIndex v0 ix
+  Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix  -- must be a NF
+  Ast.AstDualPart{} -> Ast.AstIndex v0 ix
   Ast.AstD u u' ->
     shareIx ix $ \ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstLetDomains vars l v ->
@@ -655,8 +655,8 @@ astReverse v = Ast.AstReverse v
 isVar :: AstRanked s r n -> Bool
 isVar Ast.AstVar{} = True
 isVar (Ast.AstConstant (Ast.AstVar{})) = True
-isVar (Ast.PrimalSpanPart (Ast.AstVar{})) = True
-isVar (Ast.DualSpanPart (Ast.AstVar{})) = True
+isVar (Ast.AstPrimalPart (Ast.AstVar{})) = True
+isVar (Ast.AstDualPart (Ast.AstVar{})) = True
 isVar _ = False
 
 -- Beware, this does not do full simplification, which often requires
@@ -1043,8 +1043,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstConstant v ->
       Ast.AstConstant $ (if stepOnly then astGatherStep else astGatherR) sh4 v (vars4, ix4)
-    Ast.PrimalSpanPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.DualSpanPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstPrimalPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstDualPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstD u u' ->
       let (varsFresh, ixFresh) = funToAstIndex @m' id
           subst i =
@@ -1142,7 +1142,7 @@ astRToS v = Ast.AstRToS v
 astPrimalPart :: (GoodScalar r, KnownNat n)
               => AstRanked FullSpan r n -> AstRanked PrimalSpan r n
 astPrimalPart t = case t of
-  Ast.AstVar{} -> Ast.PrimalSpanPart t  -- the only normal form
+  Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
   AstNm opCode args -> AstNm opCode (map astPrimalPart args)
   Ast.AstOp opCode args -> Ast.AstOp opCode (map astPrimalPart args)
@@ -1172,7 +1172,7 @@ astPrimalPart t = case t of
 astPrimalPartS :: (OS.Shape sh, GoodScalar r)
                => AstShaped FullSpan r sh -> AstShaped PrimalSpan r sh
 astPrimalPartS t = case t of
-  Ast.AstVarS{} -> Ast.PrimalSpanPartS t  -- the only normal form
+  Ast.AstVarS{} -> Ast.AstPrimalPartS t  -- the only normal form
   Ast.AstLetS var u v -> astLetS var u (astPrimalPartS v)
   AstNmS opCode args -> AstNmS opCode (map astPrimalPartS args)
   Ast.AstOpS opCode args -> Ast.AstOpS opCode (map astPrimalPartS args)
@@ -1204,11 +1204,11 @@ astPrimalPartS t = case t of
 astDualPart :: (GoodScalar r, KnownNat n)
             => AstRanked FullSpan r n -> AstRanked DualSpan r n
 astDualPart t = case t of
-  Ast.AstVar{} -> Ast.DualSpanPart t
+  Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstLet var u v -> astLet var u (astDualPart v)
-  AstNm{} -> Ast.DualSpanPart t  -- stuck; the ops are not defined on dual part
-  Ast.AstOp{} -> Ast.DualSpanPart t
-  Ast.AstOpIntegral{} -> Ast.DualSpanPart t
+  AstNm{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
+  Ast.AstOp{} -> Ast.AstDualPart t
+  Ast.AstOpIntegral{} -> Ast.AstDualPart t
   AstSumOfList args -> AstSumOfList (map astDualPart args)
   Ast.AstIndex v ix -> astIndexR (astDualPart v) ix
   Ast.AstSum v -> astSum (astDualPart v)
@@ -1225,7 +1225,7 @@ astDualPart t = case t of
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astDualPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astDualPart v
   Ast.AstSToR v -> astSToR $ astDualPartS v
-  Ast.AstConstant{}  -> Ast.DualSpanPart t  -- this equals nil (not primal 0)
+  Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
   Ast.AstLetDomains vars l v -> Ast.AstLetDomains vars l (astDualPart v)
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
@@ -1233,11 +1233,11 @@ astDualPart t = case t of
 astDualPartS :: (OS.Shape sh, GoodScalar r)
              => AstShaped FullSpan r sh -> AstShaped DualSpan r sh
 astDualPartS t = case t of
-  Ast.AstVarS{} -> Ast.DualSpanPartS t
+  Ast.AstVarS{} -> Ast.AstDualPartS t
   Ast.AstLetS var u v -> astLetS var u (astDualPartS v)
-  AstNmS{} -> Ast.DualSpanPartS t
-  Ast.AstOpS{} -> Ast.DualSpanPartS t
-  Ast.AstOpIntegralS{} -> Ast.DualSpanPartS t
+  AstNmS{} -> Ast.AstDualPartS t
+  Ast.AstOpS{} -> Ast.AstDualPartS t
+  Ast.AstOpIntegralS{} -> Ast.AstDualPartS t
   AstSumOfListS args -> AstSumOfListS (map astDualPartS args)
   Ast.AstIndexS v ix -> Ast.AstIndexS (astDualPartS v) ix
   Ast.AstSumS v -> astSumS (astDualPartS v)
@@ -1254,7 +1254,7 @@ astDualPartS t = case t of
   Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPartS v) (vars, ix)
   Ast.AstCastS v -> Ast.AstCastS $ astDualPartS v
   Ast.AstRToS v -> astRToS $ astDualPart v
-  Ast.AstConstantS{}  -> Ast.DualSpanPartS t  -- this equals nil (not primal 0)
+  Ast.AstConstantS{}  -> Ast.AstDualPartS t  -- this equals nil (not primal 0)
   Ast.AstDS _ u' -> u'
   Ast.AstLetDomainsS vars l v -> Ast.AstLetDomainsS vars l (astDualPartS v)
   Ast.AstCondS b a2 a3 -> astCondS b (astDualPartS a2) (astDualPartS a3)
@@ -1474,8 +1474,8 @@ simplifyAst t = case t of
   Ast.AstSToR v -> astSToR $ simplifyAstS v
   AstConst{} -> t
   Ast.AstConstant v -> Ast.AstConstant (simplifyAst v)
-  Ast.PrimalSpanPart v -> astPrimalPart (simplifyAst v)
-  Ast.DualSpanPart v -> astDualPart (simplifyAst v)
+  Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
+  Ast.AstDualPart v -> astDualPart (simplifyAst v)
   Ast.AstD u u' -> Ast.AstD (simplifyAst u) (simplifyAst u')
   Ast.AstLetDomains vars l v ->
     Ast.AstLetDomains vars (simplifyAstDomains l) (simplifyAst v)
@@ -1567,7 +1567,7 @@ simplifyRelOp opCodeRel arg = Ast.AstRel opCodeRel arg
 -- informed by inequalities, expressed via max or min, such as
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
 --
--- Several first paragraphs are modelled on Num (PrimalSpanPart r n)
+-- Several first paragraphs are modelled on Num (AstPrimalPart r n)
 -- and depend on the normal form where AstConst, if any, is the first element
 -- and the list if fully flattened and of length >= 2.
 -- Additionally we here ensure the AstConst is never zero.
@@ -1796,8 +1796,8 @@ simplifyAstS t = case t of
   Ast.AstRToS v -> astRToS $ simplifyAst v
   AstConstS{} -> t
   Ast.AstConstantS v -> Ast.AstConstantS (simplifyAstS v)
-  Ast.PrimalSpanPartS v -> astPrimalPartS (simplifyAstS v)
-  Ast.DualSpanPartS v -> astDualPartS (simplifyAstS v)
+  Ast.AstPrimalPartS v -> astPrimalPartS (simplifyAstS v)
+  Ast.AstDualPartS v -> astDualPartS (simplifyAstS v)
   Ast.AstDS u u' -> Ast.AstDS (simplifyAstS u) (simplifyAstS u')
   Ast.AstLetDomainsS vars l v ->
     Ast.AstLetDomainsS vars (simplifyAstDomains l) (simplifyAstS v)
@@ -1835,7 +1835,7 @@ astLetS var u v@(Ast.AstConstantS (Ast.AstVarS var2)) =  -- a common noop
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
   else v
-astLetS var u v@(Ast.PrimalSpanPartS (Ast.AstVarS var2)) =  -- a common noop
+astLetS var u v@(Ast.AstPrimalPartS (Ast.AstVarS var2)) =  -- a common noop
   if fromEnum var2 == fromEnum var
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameShape @sh1 @sh2 of
@@ -1845,7 +1845,7 @@ astLetS var u v@(Ast.PrimalSpanPartS (Ast.AstVarS var2)) =  -- a common noop
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
   else v
-astLetS var u v@(Ast.DualSpanPartS (Ast.AstVarS var2)) =  -- a noop
+astLetS var u v@(Ast.AstDualPartS (Ast.AstVarS var2)) =  -- a noop
   if fromEnum var2 == fromEnum var
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameShape @sh1 @sh2 of
@@ -2140,8 +2140,8 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstSToR v -> astSToR <$> substitute1AstS i var v
   Ast.AstConst{} -> Nothing
   Ast.AstConstant a -> Ast.AstConstant <$> substitute1Ast i var a
-  Ast.PrimalSpanPart a -> astPrimalPart <$> substitute1Ast i var a
-  Ast.DualSpanPart a -> astDualPart <$> substitute1Ast i var a
+  Ast.AstPrimalPart a -> astPrimalPart <$> substitute1Ast i var a
+  Ast.AstDualPart a -> astDualPart <$> substitute1Ast i var a
   Ast.AstD x y ->
     case (substitute1Ast i var x, substitute1Ast i var y) of
       (Nothing, Nothing) -> Nothing
@@ -2306,8 +2306,8 @@ substitute1AstS i var = \case
   Ast.AstRToS v -> astRToS <$> substitute1Ast i var v
   Ast.AstConstS{} -> Nothing
   Ast.AstConstantS a -> Ast.AstConstantS <$> substitute1AstS i var a
-  Ast.PrimalSpanPartS a -> astPrimalPartS <$> substitute1AstS i var a
-  Ast.DualSpanPartS a -> astDualPartS <$> substitute1AstS i var a
+  Ast.AstPrimalPartS a -> astPrimalPartS <$> substitute1AstS i var a
+  Ast.AstDualPartS a -> astDualPartS <$> substitute1AstS i var a
   Ast.AstDS x y ->
     case (substitute1AstS i var x, substitute1AstS i var y) of
       (Nothing, Nothing) -> Nothing

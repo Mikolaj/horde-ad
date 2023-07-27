@@ -65,8 +65,8 @@ instance AstSpan PrimalSpan where
 
 instance AstSpan DualSpan where
   astSpanP _ = DualSpan
-  fromPrimal t = DualSpanPart $ AstConstant t  -- this is nil (not primal 0)
-  fromPrimalS t = DualSpanPartS $ AstConstantS t
+  fromPrimal t = AstDualPart $ AstConstant t  -- this is nil (not primal 0)
+  fromPrimalS t = AstDualPartS $ AstConstantS t
 
 instance AstSpan FullSpan where
   astSpanP _ = FullSpan
@@ -260,8 +260,8 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
 
   -- For the forbidden half of the RankedTensor class:
   AstConstant :: AstRanked PrimalSpan r n -> AstRanked FullSpan r n
-  PrimalSpanPart :: AstRanked FullSpan r n -> AstRanked PrimalSpan r n
-  DualSpanPart :: AstRanked FullSpan r n -> AstRanked DualSpan r n
+  AstPrimalPart :: AstRanked FullSpan r n -> AstRanked PrimalSpan r n
+  AstDualPart :: AstRanked FullSpan r n -> AstRanked DualSpan r n
   AstD :: AstRanked PrimalSpan r n -> AstRanked DualSpan r n
        -> AstRanked FullSpan r n
   AstLetDomains :: AstSpan s
@@ -366,8 +366,8 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
 
   -- For the forbidden half of the ShapedTensor class:
   AstConstantS :: AstShaped PrimalSpan r sh -> AstShaped FullSpan r sh
-  PrimalSpanPartS :: AstShaped FullSpan r sh -> AstShaped PrimalSpan r sh
-  DualSpanPartS :: AstShaped FullSpan r sh -> AstShaped DualSpan r sh
+  AstPrimalPartS :: AstShaped FullSpan r sh -> AstShaped PrimalSpan r sh
+  AstDualPartS :: AstShaped FullSpan r sh -> AstShaped DualSpan r sh
   AstDS :: AstShaped PrimalSpan r sh -> AstShaped DualSpan r sh
         -> AstShaped FullSpan r sh
   AstLetDomainsS :: AstSpan s
