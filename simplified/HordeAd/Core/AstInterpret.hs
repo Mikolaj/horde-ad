@@ -261,6 +261,8 @@ interpretAstPrimal
   -> AstRanked PrimalSpan r n -> PrimalOf ranked r n
 interpretAstPrimal env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimal env u
+  AstPrimalPart (AstConstant u) -> interpretAstPrimal env u
+  AstPrimalPart t -> tprimalPart $ interpretAst env t
   AstCond b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
     let b1 = interpretAstBool env b
         t2 = interpretAstPrimal env a1
@@ -275,6 +277,7 @@ interpretAstDual
   -> AstRanked DualSpan r n -> DualOf ranked r n
 interpretAstDual env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
+  AstDualPart t -> tdualPart $ interpretAst env t
   _ -> tdualPart $ interpretAst env v1
 
 interpretAst
@@ -576,8 +579,14 @@ interpretAst env = \case
   AstConst a -> tconst a
   AstSToR v -> tfromS $ interpretAstS env v
   AstConstant a -> tconstant $ interpretAstPrimal env a
-  AstPrimalPart a -> interpretAst env a  -- TODO
-  AstDualPart a -> interpretAst env a  -- TODO
+  AstPrimalPart a -> interpretAst env a
+    -- This is correct, because @s@ must be @PrimalSpan@ and so @ranked@ must
+    -- be morally a primal part of the same AST interpreted with @FullSpan@
+    -- and so the result is a primal part, despite the appearances.
+    -- This whole notation abuse is for user comfort (less @PrimalOf@
+    -- in the tensor classes) and to avoid repeating the @interpretAst@ code
+    -- in @interpretAstPrimal@. TODO: make this sane.
+  AstDualPart a -> interpretAst env a
   AstD u u' ->
     let t1 = interpretAstPrimal env u
         t2 = interpretAstDual env u'
@@ -737,6 +746,8 @@ interpretAstPrimalS
   -> AstShaped PrimalSpan r sh -> PrimalOf shaped r sh
 interpretAstPrimalS env v1 = case v1 of
   AstPrimalPartS (AstDS u _) -> interpretAstPrimalS env u
+  AstPrimalPartS (AstConstantS u) -> interpretAstPrimalS env u
+  AstPrimalPartS t -> sprimalPart $ interpretAstS env t
   AstCondS b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
     let b1 = interpretAstBool env b
         t2 = interpretAstPrimalS env a1
@@ -751,6 +762,7 @@ interpretAstDualS
   -> AstShaped DualSpan r sh -> DualOf shaped r sh
 interpretAstDualS env v1 = case v1 of
   AstDualPartS (AstDS _ u') -> interpretAstDualS env u'
+  AstDualPartS t -> sdualPart $ interpretAstS env t
   _ -> sdualPart $ interpretAstS env v1
 
 interpretAstS
@@ -772,7 +784,7 @@ interpretAstS env = \case
     let t = interpretAstS env u
         env2 w = extendEnvS var w env
     in slet t (\w -> interpretAstS (env2 w) v)
-  AstLetADShareS{} -> error "interpretAst: AstLetADShare"
+  AstLetADShareS{} -> error "interpretAstS: AstLetADShare"
   AstCondS b a1 a2 ->
     let b1 = interpretAstBool env b
         t2 = interpretAstS env a1
@@ -1033,8 +1045,8 @@ interpretAstS env = \case
   AstConstS a -> sconst a
   AstRToS v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a
-  AstPrimalPartS a -> interpretAstS env a  -- TODO
-  AstDualPartS a -> interpretAstS env a  -- TODO
+  AstPrimalPartS a -> interpretAstS env a
+  AstDualPartS a -> interpretAstS env a
   AstDS u u' ->
     let t1 = interpretAstPrimalS env u
         t2 = interpretAstDualS env u'
