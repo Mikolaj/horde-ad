@@ -9,7 +9,7 @@ module HordeAd.Core.Ast
   ( AstSpanType(..), AstSpan(..), astSpanT, sameAstSpan, isRankedInt
   , AstInt, IntVarName, pattern AstIntVar
   , ConcreteOf, AstId, intToAstId
-  , AstVarId, intToAstVarId, astIdToAstVarId, astVarIdToAstId
+  , AstVarId, intToAstVarId, astIdToAstVarId, astVarIdToAstId, varNameToAstId
   , ADAstArtifact6
   , AstIndex, AstVarList, AstIndexS, AstVarListS
   , AstRanked(..), AstShaped(..), AstDynamic(..), AstDomains(..)
@@ -147,6 +147,9 @@ astIdToAstVarId (AstId x) = AstVarId x
 
 astVarIdToAstId :: AstVarId s -> AstId
 astVarIdToAstId (AstVarId x) = AstId x
+
+varNameToAstId :: AstVarName s f r y -> AstId
+varNameToAstId (AstVarName var) = astVarIdToAstId var
 
 newtype AstVarName
           (s :: AstSpanType) (f :: TensorKind k) (r :: Type) (y :: k) =

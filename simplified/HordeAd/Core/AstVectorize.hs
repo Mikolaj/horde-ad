@@ -137,9 +137,8 @@ build1V k (var, v00) =
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
-    Ast.AstLet @_ @_ @r1 @s1 (AstVarName vvv2) u v ->
-      let var2 = AstVarName vvv2
-            -- changed shape; TODO: shall we rename, too?
+    Ast.AstLet @_ @_ @r1 @s1 (AstVarName oldVar2) u v ->
+      let var2 = AstVarName oldVar2  -- changed shape; TODO: shall we rename?
           sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                     (Ast.AstIntVar var :. ZI)
@@ -280,8 +279,8 @@ build1VOccurenceUnknownDomains
 build1VOccurenceUnknownDomains k (var, v0) = case v0 of
   Ast.AstDomains l ->
     Ast.AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
-  Ast.AstDomainsLet @_ @r (AstVarName vvv2) u v ->
-    let var2 = AstVarName vvv2  -- changed shape; TODO: shall we rename, too?
+  Ast.AstDomainsLet @_ @r (AstVarName oldVar2) u v ->
+    let var2 = AstVarName oldVar2  -- changed shape; TODO: shall we rename, too?
         sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                   (Ast.AstIntVar var :. ZI)
@@ -290,9 +289,10 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
     in astDomainsLet var2 (build1VOccurenceUnknownRefresh k (var, u))
                           (build1VOccurenceUnknownDomains k (var, v2))
   Ast.AstDomainsLetS @sh2 @r
-                     (AstVarName vvv2) u v -> case someNatVal $ toInteger k of
+                     (AstVarName oldVar2) u v -> case someNatVal
+                                                      $ toInteger k of
     Just (SomeNat @k _proxy) ->
-      let var2 = AstVarName vvv2  -- changed shape; TODO: shall we rename, too?
+      let var2 = AstVarName oldVar2  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :$: ZSH)
           v2 = substituteAstDomains (SubstitutionPayloadShaped @s @r projection)
@@ -450,9 +450,8 @@ build1VS (var, v00) =
   in case v0 of
     Ast.AstVarS{} ->
       error "build1VS: AstVarS can't contain free index variables"
-    Ast.AstLetS @sh1 @_ @r1 @s1 (AstVarName vvv2) u v ->
-      let var2 = AstVarName vvv2
-            -- changed shape; TODO: shall we rename, too?
+    Ast.AstLetS @sh1 @_ @r1 @s1 (AstVarName oldVar2) u v ->
+      let var2 = AstVarName oldVar2  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                                      (Ast.AstIntVar var :$: ZSH)
           v2 = substituteAstS (SubstitutionPayloadShaped @s1 @r1 projection)

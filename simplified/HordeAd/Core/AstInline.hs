@@ -75,9 +75,9 @@ inlineAst memo v0 = case v0 of
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
     in (EM.alter f (astVarIdToAstId var) memo, v0)
-  Ast.AstLet var@(AstVarName vvv) u v ->
+  Ast.AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
-    let vv = astVarIdToAstId vvv
+    let vv = varNameToAstId var
         (memo1, v2) = inlineAst memo v
         memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAst memo1NoVar u
@@ -190,9 +190,9 @@ inlineAstDomains
 inlineAstDomains memo v0 = case v0 of
   Ast.AstDomains l ->
     second Ast.AstDomains $ mapAccumR inlineAstDynamic memo l
-  Ast.AstDomainsLet var@(AstVarName vvv) u v ->
+  Ast.AstDomainsLet var u v ->
     -- We assume there are no nested lets with the same variable.
-    let vv = astVarIdToAstId vvv
+    let vv = varNameToAstId var
         (memo1, v2) = inlineAstDomains memo v
         memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAst memo1NoVar u
@@ -205,9 +205,9 @@ inlineAstDomains memo v0 = case v0 of
                -- u is small, so the union is fast
            , substituteAstDomains (SubstitutionPayloadRanked u0) var v2 )
       _ -> (memo2, Ast.AstDomainsLet var u2 v2)
-  Ast.AstDomainsLetS var@(AstVarName vvv) u v ->
+  Ast.AstDomainsLetS var u v ->
     -- We assume there are no nested lets with the same variable.
-    let vv = astVarIdToAstId vvv
+    let vv = varNameToAstId var
         (memo1, v2) = inlineAstDomains memo v
         memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAstS memo1NoVar u
@@ -243,9 +243,9 @@ inlineAstS memo v0 = case v0 of
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
     in (EM.alter f (astVarIdToAstId var) memo, v0)
-  Ast.AstLetS var@(AstVarName vvv) u v ->
+  Ast.AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
-    let vv = astVarIdToAstId vvv
+    let vv = varNameToAstId var
         (memo1, v2) = inlineAstS memo v
         memo1NoVar = EM.delete vv memo1
         (memo2, u2) = inlineAstS memo1NoVar u
@@ -381,18 +381,18 @@ unletAst
   => UnletEnv -> AstRanked s r n -> AstRanked s r n
 unletAst env t = case t of
   Ast.AstVar{} -> t
-  Ast.AstLet var@(AstVarName vvv) u v ->
+  Ast.AstLet var u v ->
     -- This optimization is sound, because there is no mechanism
     -- that would nest lets with the same variable (e.g., our lets always
     -- bind fresh variables at creation time and we never substitute
     -- a term into the same term). If that changes, let's refresh
     -- let variables whenever substituting into let bodies.
     -- See the same assumption in AstInterpret.
-    if astVarIdToAstId vvv `ES.member` unletSet env
-    then unletAst env v
-    else let env2 = env {unletSet =
-                           ES.insert (astVarIdToAstId vvv) (unletSet env)}
-         in Ast.AstLet var (unletAst env u) (unletAst env2 v)
+    let vv = varNameToAstId var
+    in if vv `ES.member` unletSet env
+       then unletAst env v
+       else let env2 = env {unletSet = ES.insert vv (unletSet env)}
+            in Ast.AstLet var (unletAst env u) (unletAst env2 v)
   Ast.AstLetADShare l v ->
     let lassocs = subtractADShare l $ unletADShare env
           -- potentially prevents quadratic cost induced by tletWrap
@@ -454,20 +454,20 @@ unletAstDomains
   :: AstSpan s => UnletEnv -> AstDomains s -> AstDomains s
 unletAstDomains env = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic env) l
-  Ast.AstDomainsLet var@(AstVarName vvv) u v ->
-    if astVarIdToAstId vvv `ES.member` unletSet env
-    then unletAstDomains env v
-    else let env2 = env {unletSet =
-                           ES.insert (astVarIdToAstId vvv) (unletSet env)}
-         in Ast.AstDomainsLet var (unletAst env u)
-                                  (unletAstDomains env2 v)
-  Ast.AstDomainsLetS var@(AstVarName vvv) u v ->
-    if astVarIdToAstId vvv `ES.member` unletSet env
-    then unletAstDomains env v
-    else let env2 = env {unletSet =
-                           ES.insert (astVarIdToAstId vvv) (unletSet env)}
-         in Ast.AstDomainsLetS var (unletAstS env u)
-                                   (unletAstDomains env2 v)
+  Ast.AstDomainsLet var u v ->
+    let vv = varNameToAstId var
+    in if vv `ES.member` unletSet env
+      then unletAstDomains env v
+      else let env2 = env {unletSet = ES.insert vv (unletSet env)}
+           in Ast.AstDomainsLet var (unletAst env u)
+                                    (unletAstDomains env2 v)
+  Ast.AstDomainsLetS var u v ->
+    let vv = varNameToAstId var
+    in if vv `ES.member` unletSet env
+       then unletAstDomains env v
+       else let env2 = env {unletSet = ES.insert vv (unletSet env)}
+            in Ast.AstDomainsLetS var (unletAstS env u)
+                                      (unletAstDomains env2 v)
 
 unletAstBool :: UnletEnv -> AstBool -> AstBool
 unletAstBool env t = case t of
@@ -484,18 +484,18 @@ unletAstS
   => UnletEnv -> AstShaped s r sh -> AstShaped s r sh
 unletAstS env t = case t of
   Ast.AstVarS{} -> t
-  Ast.AstLetS var@(AstVarName vvv) u v ->
+  Ast.AstLetS var u v ->
     -- This optimization is sound, because there is no mechanism
     -- that would nest lets with the same variable (e.g., our lets always
     -- bind fresh variables at creation time and we never substitute
     -- a term into the same term). If that changes, let's refresh
     -- let variables whenever substituting into let bodies.
     -- See the same assumption in AstInterpret.
-    if astVarIdToAstId vvv `ES.member` unletSet env
-    then unletAstS env v
-    else let env2 = env {unletSet =
-                           ES.insert (astVarIdToAstId vvv) (unletSet env)}
-         in Ast.AstLetS var (unletAstS env u) (unletAstS env2 v)
+    let vv = varNameToAstId var
+    in if vv `ES.member` unletSet env
+       then unletAstS env v
+       else let env2 = env {unletSet = ES.insert vv (unletSet env)}
+            in Ast.AstLetS var (unletAstS env u) (unletAstS env2 v)
   Ast.AstLetADShareS l v ->
     let lassocs = subtractADShare l $ unletADShare env
           -- potentially prevents quadratic cost induced by tletWrap

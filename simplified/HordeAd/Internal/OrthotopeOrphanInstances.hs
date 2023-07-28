@@ -493,8 +493,8 @@ instance (OS.Shape sh, OS.Rank sh ~ n)
   convert (SS.A a@(SG.A t)) = RS.A (RG.A (SG.shapeL a) t)
 
 type family MapSucc (xs :: [Nat]) :: [Nat] where
-    MapSucc '[] = '[]
-    MapSucc (x ': xs) = 1 + x ': MapSucc xs
+  MapSucc '[] = '[]
+  MapSucc (x ': xs) = 1 + x ': MapSucc xs
 
 data Dict c where
   Dict :: c => Dict c
@@ -540,7 +540,7 @@ instance (Num (Vector r), Numeric r, Fractional r, Ord r)
          => RealFrac (Vector r) where
   properFraction = error "Vector.properFraction: can't be implemented"
 
-instance ( Floating (Vector r), Numeric r, RealFloat r )
+instance (Floating (Vector r), Numeric r, RealFloat r)
          => RealFloat (Vector r) where
   atan2 = arctan2
   floatRadix = undefined  -- TODO (and below)

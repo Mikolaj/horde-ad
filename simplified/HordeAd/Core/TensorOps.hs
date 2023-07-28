@@ -71,12 +71,6 @@ tindex0D (Data.Array.Internal.DynamicS.A
   values V.! (offset + sum (zipWith (*) is strides))
     -- TODO: tests are needed to verify if order of dimensions is right
 
-tsum0D
-  :: Numeric r
-  => OD.Array r -> r
-tsum0D (Data.Array.Internal.DynamicS.A (Data.Array.Internal.DynamicG.A sh t)) =
-  LA.sumElements $ OI.toUnorderedVectorT sh t
-
 treplicate0ND
   :: Numeric r
   => ShapeInt n -> r -> OD.Array r
