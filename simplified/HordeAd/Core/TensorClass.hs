@@ -627,20 +627,7 @@ instance
 
 type ADReady ranked = ADReadyR ranked  -- backward compatibility
 
--- TODO: this causes GHC 9.4.5 and 9.6.2 to insist AstNoVectorize ~ AstRanked,
--- so it has to be disabled for now and replaces by something hand-crafted.
--- type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
-type ADReadyR ranked =
-  ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
-  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
-  , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked
-  , IfF ranked, IfF (ShapedOf ranked), IfF (PrimalOf ranked)
-  , EqF ranked, EqF (ShapedOf ranked), EqF (PrimalOf ranked)
-  , OrdF ranked, OrdF (ShapedOf ranked), OrdF (PrimalOf ranked)
-  , Boolean (BoolOf ranked)
-  , BoolOf ranked ~ BoolOf (ShapedOf ranked)
-  , BoolOf ranked ~ BoolOf (PrimalOf ranked)
-  )
+type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
 
 type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
 

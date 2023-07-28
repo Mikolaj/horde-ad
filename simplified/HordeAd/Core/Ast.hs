@@ -19,7 +19,8 @@ module HordeAd.Core.Ast
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare, intVarInADShare, nullADShare
   , BoolOf, IfF(..), EqF(..), OrdF(..), minF, maxF
-  , AstNoVectorize(..), AstNoSimplify(..)
+  , AstNoVectorize(..), AstNoVectorizeS(..)
+  , AstNoSimplify(..), AstNoSimplifyS(..)
   ) where
 
 import Prelude
@@ -844,19 +845,35 @@ nullADShare ADShareCons{} = False
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify definitions, for tests
 
-type instance RankedOf (AstNoVectorize s) = (AstNoVectorize s)
-type instance ShapedOf (AstNoVectorize s) = AstShaped s
+type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
+type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
 type instance PrimalOf (AstNoVectorize s) = AstRanked PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstRanked DualSpan
-type instance RankedOf (AstNoSimplify s) = (AstNoSimplify s)
-type instance ShapedOf (AstNoSimplify s) = AstShaped s
+type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
+type instance ShapedOf (AstNoVectorizeS s) = AstNoVectorizeS s
+type instance PrimalOf (AstNoVectorizeS s) = AstShaped PrimalSpan
+type instance DualOf (AstNoVectorizeS s) = AstShaped DualSpan
+type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
+type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
 type instance PrimalOf (AstNoSimplify s) = AstRanked PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstRanked DualSpan
+type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
+type instance ShapedOf (AstNoSimplifyS s) = AstNoSimplifyS s
+type instance PrimalOf (AstNoSimplifyS s) = AstShaped PrimalSpan
+type instance DualOf (AstNoSimplifyS s) = AstShaped DualSpan
 
 newtype AstNoVectorize s r n =
   AstNoVectorize {unAstNoVectorize :: AstRanked s r n}
 deriving instance GoodScalar r => Show (AstNoVectorize s r n)
 
+newtype AstNoVectorizeS s r sh =
+  AstNoVectorizeS {unAstNoVectorizeS :: AstShaped s r sh}
+deriving instance (GoodScalar r, OS.Shape sh) => Show (AstNoVectorizeS s r sh)
+
 newtype AstNoSimplify s r n =
   AstNoSimplify {unAstNoSimplify :: AstRanked s r n}
 deriving instance GoodScalar r => Show (AstNoSimplify s r n)
+
+newtype AstNoSimplifyS s r sh =
+  AstNoSimplifyS {unAstNoSimplifyS :: AstShaped s r sh}
+deriving instance (GoodScalar r, OS.Shape sh) => Show (AstNoSimplifyS s r sh)

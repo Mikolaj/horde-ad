@@ -2,6 +2,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | 'Tensor' class instances for 'Ast' terms. Some of these instances
 -- vectorize any terms starting with 'build1' and so eliminated the constructor.
 module HordeAd.Core.TensorAst
@@ -373,49 +374,97 @@ astBuild1VectorizeS f =
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
 
+type instance DynamicOf (AstNoVectorize s) = AstDynamic s
 type instance SimpleBoolOf (AstNoVectorize s) = AstBool
 
 deriving instance IfF (AstNoVectorize s)
 deriving instance AstSpan s => EqF (AstNoVectorize s)
 deriving instance AstSpan s => OrdF (AstNoVectorize s)
-deriving instance Eq ((AstNoVectorize s) r n)
-deriving instance Ord ((AstNoVectorize s) r n)
-deriving instance Num (AstRanked s r n) => Num ((AstNoVectorize s) r n)
+deriving instance Eq (AstNoVectorize s r n)
+deriving instance Ord (AstNoVectorize s r n)
+deriving instance Num (AstRanked s r n) => Num (AstNoVectorize s r n)
 deriving instance (Real (AstRanked s r n))
-                   => Real ((AstNoVectorize s) r n)
-deriving instance Enum (AstRanked s r n) => Enum ((AstNoVectorize s) r n)
+                   => Real (AstNoVectorize s r n)
+deriving instance Enum (AstRanked s r n) => Enum (AstNoVectorize s r n)
 deriving instance (Integral (AstRanked s r n))
-                  => Integral ((AstNoVectorize s) r n)
+                  => Integral (AstNoVectorize s r n)
 deriving instance Fractional (AstRanked s r n)
-                  => Fractional ((AstNoVectorize s) r n)
+                  => Fractional (AstNoVectorize s r n)
 deriving instance Floating (AstRanked s r n)
-                  => Floating ((AstNoVectorize s) r n)
+                  => Floating (AstNoVectorize s r n)
 deriving instance (RealFrac (AstRanked s r n))
-                  => RealFrac ((AstNoVectorize s) r n)
+                  => RealFrac (AstNoVectorize s r n)
 deriving instance (RealFloat (AstRanked s r n))
-                  => RealFloat ((AstNoVectorize s) r n)
+                  => RealFloat (AstNoVectorize s r n)
 
+type instance DynamicOf (AstNoVectorizeS s) = AstDynamic s
+type instance SimpleBoolOf (AstNoVectorizeS s) = AstBool
+
+deriving instance IfF (AstNoVectorizeS s)
+deriving instance AstSpan s => EqF (AstNoVectorizeS s)
+deriving instance AstSpan s => OrdF (AstNoVectorizeS s)
+deriving instance Eq ((AstNoVectorizeS s) r sh)
+deriving instance Ord ((AstNoVectorizeS s) r sh)
+deriving instance Num (AstShaped s r sh) => Num (AstNoVectorizeS s r sh)
+deriving instance (Real (AstShaped s r sh))
+                   => Real (AstNoVectorizeS s r sh)
+deriving instance Enum (AstShaped s r sh) => Enum (AstNoVectorizeS s r sh)
+deriving instance (Integral (AstShaped s r sh))
+                  => Integral (AstNoVectorizeS s r sh)
+deriving instance Fractional (AstShaped s r sh)
+                  => Fractional (AstNoVectorizeS s r sh)
+deriving instance Floating (AstShaped s r sh)
+                  => Floating (AstNoVectorizeS s r sh)
+deriving instance (RealFrac (AstShaped s r sh))
+                  => RealFrac (AstNoVectorizeS s r sh)
+deriving instance (RealFloat (AstShaped s r sh))
+                  => RealFloat (AstNoVectorizeS s r sh)
+
+type instance DynamicOf (AstNoSimplify s) = AstDynamic s
 type instance SimpleBoolOf (AstNoSimplify s) = AstBool
 
 deriving instance IfF (AstNoSimplify s)
 deriving instance AstSpan s => EqF (AstNoSimplify s)
 deriving instance AstSpan s => OrdF (AstNoSimplify s)
-deriving instance Eq ((AstNoSimplify s) r n)
-deriving instance Ord ((AstNoSimplify s) r n)
-deriving instance Num (AstRanked s r n) => Num ((AstNoSimplify s) r n)
+deriving instance Eq (AstNoSimplify s r n)
+deriving instance Ord (AstNoSimplify s r n)
+deriving instance Num (AstRanked s r n) => Num (AstNoSimplify s r n)
 deriving instance (Real (AstRanked s r n))
-                  => Real ((AstNoSimplify s) r n)
-deriving instance Enum (AstRanked s r n) => Enum ((AstNoSimplify s) r n)
+                  => Real (AstNoSimplify s r n)
+deriving instance Enum (AstRanked s r n) => Enum (AstNoSimplify s r n)
 deriving instance (Integral (AstRanked s r n))
-                  => Integral ((AstNoSimplify s) r n)
+                  => Integral (AstNoSimplify s r n)
 deriving instance Fractional (AstRanked s r n)
-                  => Fractional ((AstNoSimplify s) r n)
+                  => Fractional (AstNoSimplify s r n)
 deriving instance Floating (AstRanked s r n)
-                  => Floating ((AstNoSimplify s) r n)
+                  => Floating (AstNoSimplify s r n)
 deriving instance (RealFrac (AstRanked s r n))
-                  => RealFrac ((AstNoSimplify s) r n)
+                  => RealFrac (AstNoSimplify s r n)
 deriving instance (RealFloat (AstRanked s r n))
-                  => RealFloat ((AstNoSimplify s) r n)
+                  => RealFloat (AstNoSimplify s r n)
+
+type instance DynamicOf (AstNoSimplifyS s) = AstDynamic s
+type instance SimpleBoolOf (AstNoSimplifyS s) = AstBool
+
+deriving instance IfF (AstNoSimplifyS s)
+deriving instance AstSpan s => EqF (AstNoSimplifyS s)
+deriving instance AstSpan s => OrdF (AstNoSimplifyS s)
+deriving instance Eq (AstNoSimplifyS s r sh)
+deriving instance Ord (AstNoSimplifyS s r sh)
+deriving instance Num (AstShaped s r sh) => Num (AstNoSimplifyS s r sh)
+deriving instance (Real (AstShaped s r sh))
+                  => Real (AstNoSimplifyS s r sh)
+deriving instance Enum (AstShaped s r sh) => Enum (AstNoSimplifyS s r sh)
+deriving instance (Integral (AstShaped s r sh))
+                  => Integral (AstNoSimplifyS s r sh)
+deriving instance Fractional (AstShaped s r sh)
+                  => Fractional (AstNoSimplifyS s r sh)
+deriving instance Floating (AstShaped s r sh)
+                  => Floating (AstNoSimplifyS s r sh)
+deriving instance (RealFrac (AstShaped s r sh))
+                  => RealFrac (AstNoSimplifyS s r sh)
+deriving instance (RealFloat (AstShaped s r sh))
+                  => RealFloat (AstNoSimplifyS s r sh)
 
 instance AstSpan s
          => RankedTensor (AstNoVectorize s) where
@@ -464,6 +513,12 @@ instance AstSpan s
   tdualPart = astSpanDual . unAstNoVectorize
   tD u u' = AstNoVectorize $ astSpanD u u'
   tScale s t = astDualPart $ AstConstant s * AstD (tzero (tshape s)) t
+
+instance AstSpan s
+         => ShapedTensor (AstNoVectorizeS s) where
+
+instance ConvertTensor (AstNoVectorize 'PrimalSpan)
+                       (AstNoVectorizeS 'PrimalSpan) where
 
 instance AstSpan s
          => RankedTensor (AstNoSimplify s) where
@@ -519,3 +574,9 @@ astLetFunUnSimp a f =
   let sh = shapeAst a
       (var, ast) = funToAstR sh f
   in AstLet var a ast
+
+instance AstSpan s
+         => ShapedTensor (AstNoSimplifyS s) where
+
+instance ConvertTensor (AstNoSimplify 'PrimalSpan)
+                       (AstNoSimplifyS 'PrimalSpan) where

@@ -52,8 +52,7 @@ testTrees = [ tensorADValMnistTestsCNNA
 -- POPL differentiation, straight via the ADVal instance of Tensor
 mnistTestCaseCNNA
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array, Differentiable r
-     , ADReady ranked, GoodScalar r, Random r
+     ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -153,8 +152,7 @@ tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
 -- POPL differentiation, Ast term defined only once but differentiated each time
 mnistTestCaseCNNI
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array, Differentiable r
-     , ADReady ranked, GoodScalar r, Random r
+     ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -268,8 +266,7 @@ tensorADValMnistTestsCNNI = testGroup "CNN Intermediate MNIST tests"
 -- JAX differentiation, Ast term built and differentiated only once
 mnistTestCaseCNNO
   :: forall ranked r.
-     ( ranked ~ Flip OR.Array, Differentiable r
-     , ADReady ranked, GoodScalar r, Random r
+     ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
