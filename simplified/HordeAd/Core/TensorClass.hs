@@ -4,7 +4,6 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
-{-# LANGUAGE ImpredicativeTypes #-}
 -- | A class containing array operations, with some extra algebraic operations
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library.
@@ -54,15 +53,15 @@ class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
 instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
          => CRankedR ranked c where
 
+type instance RankedOf (Clown OD.Array) = Flip OR.Array
+
+type instance ShapedOf (Clown OD.Array) = Flip OS.Array
+
 type family DynamicOf (f :: TensorKind k) :: Type -> Type
 
 type instance DynamicOf (Clown OD.Array) = OD.Array
 
 type instance DynamicOf (Clown (AstDynamic s)) = AstDynamic s
-
-type instance RankedOf (Clown OD.Array) = Flip OR.Array
-
-type instance ShapedOf (Clown OD.Array) = Flip OS.Array
 
 type TensorSupports :: (Type -> Constraint) -> TensorKind k -> Constraint
 type TensorSupports c f =
@@ -233,7 +232,6 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
   tfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
                 => ranked r1 n -> ranked r2 n
   tconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
-
   -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
   -- at any rank greater than zero.
   tzero :: (GoodScalar r, KnownNat n)
@@ -665,6 +663,10 @@ instance OrdF (Flip OR.Array) where
 instance IfF (Flip OR.Array) where
   ifF (_, b) v w = if b then v else w
 
+type instance RankedOf (Flip OR.Array) = Flip OR.Array
+
+type instance ShapedOf (Flip OR.Array) = Flip OS.Array
+
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 
 type instance DualOf (Flip OR.Array) = DummyDual
@@ -672,10 +674,6 @@ type instance DualOf (Flip OR.Array) = DummyDual
 type instance DynamicOf (Flip OR.Array) = OD.Array
 
 type instance DynamicOf (AstRanked s) = AstDynamic s
-
-type instance RankedOf (Flip OR.Array) = Flip OR.Array
-
-type instance ShapedOf (Flip OR.Array) = Flip OS.Array
 
 instance RankedTensor (Flip OR.Array) where
   tshape = tshapeR . runFlip
@@ -749,7 +747,8 @@ instance (GoodScalar r, KnownNat n)
     Nothing -> Nothing
 
 instance ( GoodScalar r, KnownNat n
-         , RankedTensor (AstRanked s), ConvertTensor (AstRanked s) (AstShaped s) )
+         , RankedTensor (AstRanked s)
+         , ConvertTensor (AstRanked s) (AstShaped s) )
          => AdaptableDomains (AstDynamic s) (AstRanked s r n) where
   type Value (AstRanked s r n) = Flip OR.Array r n
   toDomains = undefined
@@ -873,7 +872,8 @@ instance (GoodScalar r, OS.Shape sh)
     Nothing -> Nothing
 
 instance ( GoodScalar r, OS.Shape sh
-         , ShapedTensor (AstShaped s), ConvertTensor (AstRanked s) (AstShaped s) )
+         , ShapedTensor (AstShaped s)
+         , ConvertTensor (AstRanked s) (AstShaped s) )
          => AdaptableDomains (AstDynamic s) (AstShaped s r sh) where
   type Value (AstShaped s r sh) = Flip OS.Array r sh
   toDomains = undefined
