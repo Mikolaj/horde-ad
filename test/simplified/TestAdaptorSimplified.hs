@@ -1021,7 +1021,7 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: (InterpretAstR (ADVal (Flip OR.Array)), GoodScalar r, Differentiable r)
+  let f :: (ADReadyR (ADVal (Flip OR.Array)), GoodScalar r, Differentiable r)
         => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
@@ -1165,7 +1165,7 @@ barReluAst x = relu $ bar (x, relu x)
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
   let f :: ( GoodScalar r, Differentiable r
-           , InterpretAstR (ADVal (Flip OR.Array)) )
+           , ADReadyR (ADVal (Flip OR.Array)) )
         => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
@@ -1178,7 +1178,7 @@ testBarReluAst0 =
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
   let f :: ( GoodScalar r, Differentiable r
-           , InterpretAstR (ADVal (Flip OR.Array)) )
+           , ADReadyR (ADVal (Flip OR.Array)) )
         => ADVal (Flip OR.Array) r 1 -> ADVal (Flip OR.Array) r 1
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)
@@ -1197,7 +1197,7 @@ konstReluAst x = tsum0 $ relu $ treplicate0N (7 :$ ZS) x
 testReplicateReluAst :: Assertion
 testReplicateReluAst =
   let f :: ( GoodScalar r, Differentiable r
-           , InterpretAstR (ADVal (Flip OR.Array)) )
+           , ADReadyR (ADVal (Flip OR.Array)) )
         => ADVal (Flip OR.Array) r 0 -> ADVal (Flip OR.Array) r 0
       f x = interpretAst (extendEnvR
                             (AstVarName $ intToAstVarId 100000000)

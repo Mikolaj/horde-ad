@@ -39,9 +39,7 @@ assertEqualUpToEpsilon1 eps expected result =
   assertEqualUpToEpsilon eps expected (runFlip result)
 
 rev' :: forall r m n v g.
-        ( KnownNat n, KnownNat m, ADReady (AstRanked PrimalSpan), GoodScalar r
-        , InterpretAstR (Flip OR.Array)
-        , InterpretAstR (ADVal (Flip OR.Array))
+        ( KnownNat n, KnownNat m, GoodScalar r
         , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n )
      => (forall f. ADReady f => f r n -> f r m)
      -> g

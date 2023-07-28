@@ -10,7 +10,7 @@
 module HordeAd.Core.TensorClass
   ( ShapeInt, ShapeSh, DynamicOf
   , ShapedTensor(..), RankedTensor(..), ConvertTensor(..), DomainsTensor(..)
-  , ADReady, ADReadyS, ADRanked, ADShaped
+  , ADReady, ADReadyR, ADReadyS, ADReadyBoth, ShowRanked, ShowShaped
   ) where
 
 import Prelude
@@ -23,6 +23,7 @@ import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
+import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
 import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
@@ -564,8 +565,7 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
 
 -- * ConvertTensor and DomainsTensor class definitions
 
-class ( RankedOf shaped ~ ranked, ShapedOf ranked ~ shaped
-      , DynamicOf ranked ~ DynamicOf shaped
+class ( DynamicOf ranked ~ DynamicOf shaped
       , DynamicOf shaped ~ DynamicOf ranked )
       => ConvertTensor (ranked :: RankedTensorKind)
                        (shaped :: ShapedTensorKind)
@@ -605,12 +605,31 @@ class DomainsTensor (ranked :: RankedTensorKind)
 
 -- * The giga-constraint
 
-type ADReady ranked = ADRanked ranked  -- backward compatibility
+class (forall re ne. GoodScalar re => Show (ranked re ne))
+      => ShowRanked ranked where
+instance
+      (forall re ne. GoodScalar re => Show (ranked re ne))
+      => ShowRanked ranked where
 
-type ADRanked ranked = (ADReadyR ranked, ADReadyS (ShapedOf ranked))
+class (forall re she. (GoodScalar re, OS.Shape she) => Show (shaped re she))
+      => ShowShaped shaped where
+instance
+      (forall re she. (GoodScalar re, OS.Shape she) => Show (shaped re she))
+      => ShowShaped shaped where
 
-type ADShaped shaped = (ADReadyR (RankedOf shaped), ADReadyS shaped)
+class (forall yc. KnownNat yc => c (f r yc)) => YRanked f r c where
+instance
+      (forall yc. KnownNat yc => c (f r yc)) => YRanked f r c where
 
+class (forall yd. OS.Shape yd => c (f r yd)) => YShaped f r c where
+instance
+      (forall yd. OS.Shape yd => c (f r yd)) => YShaped f r c where
+
+type ADReady ranked = ADReadyR ranked  -- backward compatibility
+
+-- TODO: this causes GHC 9.4.5 and 9.6.2 to insist AstNoVectorize ~ AstRanked,
+-- so it has to be disabled for now and replaces by something hand-crafted.
+-- type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
 type ADReadyR ranked =
   ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
   , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
@@ -623,26 +642,37 @@ type ADReadyR ranked =
   , BoolOf ranked ~ BoolOf (PrimalOf ranked)
   )
 
-type ADReadyS shaped =
-  ( ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
-  , ShapedOf (PrimalOf shaped) ~ PrimalOf shaped
+type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
+
+type ADReadyBoth ranked shaped =
+  ( shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped
+  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
+  , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
+  , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
+  , PrimalOf ranked ~ RankedOf (PrimalOf shaped)
+  , ShapedOf (PrimalOf ranked) ~ PrimalOf shaped
+  , PrimalOf shaped ~ ShapedOf (PrimalOf ranked)
+  , SimpleBoolOf ranked ~ SimpleBoolOf shaped
+  , SimpleBoolOf shaped ~ SimpleBoolOf ranked
+  , SimpleBoolOf ranked ~ SimpleBoolOf (PrimalOf ranked)
+  , SimpleBoolOf (PrimalOf ranked) ~ SimpleBoolOf ranked
+  , SimpleBoolOf shaped ~ SimpleBoolOf (PrimalOf shaped)
+  , SimpleBoolOf (PrimalOf shaped) ~ SimpleBoolOf shaped
+  , Boolean (SimpleBoolOf ranked)
+  , IfF ranked, IfF shaped, IfF (PrimalOf ranked), IfF (PrimalOf shaped)
+  , EqF ranked, EqF shaped, EqF (PrimalOf ranked), EqF (PrimalOf shaped)
+  , OrdF ranked, OrdF shaped, OrdF (PrimalOf ranked), OrdF (PrimalOf shaped)
+  , RankedTensor ranked, RankedTensor (PrimalOf ranked)
+  , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
+  , ConvertTensor ranked shaped
+  , ConvertTensor (PrimalOf ranked) (PrimalOf shaped)
+  , ShowRanked ranked, ShowRanked (PrimalOf ranked)
+  , ShowShaped shaped, ShowShaped (PrimalOf shaped)
+  , YRanked ranked Int64 Integral, YShaped shaped Int64 Integral
+  , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked
+  , PrimalOf ranked ~ PrimalOf (PrimalOf ranked)
   , PrimalOf (PrimalOf shaped) ~ PrimalOf shaped
-  , PrimalOf (PrimalOf (RankedOf shaped)) ~ PrimalOf (RankedOf shaped)
-  , RankedOf (PrimalOf (RankedOf shaped)) ~ PrimalOf (RankedOf shaped)
-  , IfF shaped, IfF (RankedOf shaped), IfF (PrimalOf shaped)
-  , IfF (PrimalOf (RankedOf shaped))
-  , EqF shaped, EqF (RankedOf shaped), EqF (PrimalOf shaped)
-  , EqF (PrimalOf (RankedOf shaped))
-  , OrdF shaped, OrdF (RankedOf shaped), OrdF (PrimalOf shaped)
-  , OrdF (PrimalOf (RankedOf shaped))
-  , Boolean (BoolOf shaped)
-  , BoolOf shaped ~ BoolOf (RankedOf shaped)
-  , BoolOf shaped ~ BoolOf (PrimalOf shaped)
-  , BoolOf shaped ~ BoolOf (PrimalOf (RankedOf shaped))
-  , ConvertTensor (RankedOf shaped) shaped
-  , ConvertTensor (PrimalOf (RankedOf shaped)) (PrimalOf shaped)
-  , RankedTensor (RankedOf shaped)
-  , RankedTensor (PrimalOf (RankedOf shaped))
+  , PrimalOf shaped ~ PrimalOf (PrimalOf shaped)
   )
 
 
