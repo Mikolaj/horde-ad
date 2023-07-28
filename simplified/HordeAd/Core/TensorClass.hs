@@ -10,7 +10,7 @@
 module HordeAd.Core.TensorClass
   ( ShapeInt, ShapeSh, DynamicOf
   , ShapedTensor(..), RankedTensor(..), ConvertTensor(..), DomainsTensor(..)
-  , ADReady, ADReadyR, ADReadyS, ADReadyBoth, ShowRanked, ShowShaped
+  , ADReady, ADReadyR, ADReadyS, ADReadyBoth, CRanked, CShaped
   ) where
 
 import Prelude
@@ -50,9 +50,9 @@ import           HordeAd.Core.Types
 -- * Ranked tensor class definition
 
 class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
-      => CRankedR ranked c where
+      => CRanked ranked c where
 instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
-         => CRankedR ranked c where
+         => CRanked ranked c where
 
 type instance RankedOf (Clown OD.Array) = Flip OR.Array
 
@@ -71,7 +71,7 @@ type TensorSupports c f =
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
-class ( Integral (IntOf ranked), CRankedR ranked Num
+class ( Integral (IntOf ranked), CRanked ranked Num
       , TensorSupports RealFloat ranked, TensorSupports Integral ranked )
       => RankedTensor (ranked :: RankedTensorKind) where
 
@@ -287,12 +287,12 @@ class ( Integral (IntOf ranked), CRankedR ranked Num
 -- * Shaped tensor class definition
 
 class (forall r30 y30. (OS.Shape y30, GoodScalar r30) => c (shaped r30 y30))
-      => CRankedS shaped c where
+      => CShaped shaped c where
 instance
       (forall r30 y30. (OS.Shape y30, GoodScalar r30) => c (shaped r30 y30))
-      => CRankedS shaped c where
+      => CShaped shaped c where
 
-class ( Integral (IntOf shaped), CRankedS shaped Num
+class ( Integral (IntOf shaped), CShaped shaped Num
       , TensorSupports RealFloat shaped, TensorSupports Integral shaped )
       => ShapedTensor (shaped :: ShapedTensorKind) where
 
@@ -605,18 +605,6 @@ class DomainsTensor (ranked :: RankedTensorKind)
 
 -- * The giga-constraint
 
-class (forall re ne. GoodScalar re => Show (ranked re ne))
-      => ShowRanked ranked where
-instance
-      (forall re ne. GoodScalar re => Show (ranked re ne))
-      => ShowRanked ranked where
-
-class (forall re she. (GoodScalar re, OS.Shape she) => Show (shaped re she))
-      => ShowShaped shaped where
-instance
-      (forall re she. (GoodScalar re, OS.Shape she) => Show (shaped re she))
-      => ShowShaped shaped where
-
 class (forall yc. KnownNat yc => c (f r yc)) => YRanked f r c where
 instance
       (forall yc. KnownNat yc => c (f r yc)) => YRanked f r c where
@@ -653,8 +641,8 @@ type ADReadyBoth ranked shaped =
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , ConvertTensor ranked shaped
   , ConvertTensor (PrimalOf ranked) (PrimalOf shaped)
-  , ShowRanked ranked, ShowRanked (PrimalOf ranked)
-  , ShowShaped shaped, ShowShaped (PrimalOf shaped)
+  , CRanked ranked Show, CRanked (PrimalOf ranked) Show
+  , CShaped shaped Show, CShaped (PrimalOf shaped) Show
   , YRanked ranked Int64 Integral, YShaped shaped Int64 Integral
   , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked
   , PrimalOf ranked ~ PrimalOf (PrimalOf ranked)

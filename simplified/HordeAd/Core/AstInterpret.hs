@@ -54,7 +54,7 @@ data AstEnvElem :: RankedTensorKind -> ShapedTensorKind -> Type where
               => ranked r n -> AstEnvElem ranked shaped
   AstEnvElemS :: (OS.Shape sh, GoodScalar r)
               => shaped r sh -> AstEnvElem ranked shaped
-deriving instance (ShowRanked ranked, ShowShaped shaped)
+deriving instance (CRanked ranked Show, CShaped shaped Show)
                   => Show (AstEnvElem ranked shaped)
 
 extendEnvR :: forall ranked shaped r n s.
