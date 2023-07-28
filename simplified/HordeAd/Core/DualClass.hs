@@ -22,7 +22,7 @@
 -- sharing. This applies regardless of impurity, because repeated processing
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
-  ( IsPrimal, IsPrimalPart(..), CanRecordSharing(..)
+  ( IsPrimal(..)
   , unsafeGetFreshId, resetIdCounter
   ) where
 
@@ -48,17 +48,13 @@ import HordeAd.Core.Types
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
-class IsPrimalPart f r z where
+class IsPrimal f r z where
   dZero :: Dual f r z
   dScale :: f r z -> Dual f r z -> Dual f r z
   dAdd :: Dual f r z -> Dual f r z -> Dual f r z
   intOfShape :: f r z -> Int -> f r z
   recordSharingPrimal :: f r z -> ADShare -> (ADShare, f r z)
-
-class CanRecordSharing f r z where
   recordSharing :: Dual f r z -> Dual f r z
-
-type IsPrimal f r z = (IsPrimalPart f r z, CanRecordSharing f r z)
 
 
 -- * Delta expression method instances
@@ -95,7 +91,8 @@ type IsPrimal f r z = (IsPrimalPart f r z, CanRecordSharing f r z)
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
 
-instance (GoodScalar r, KnownNat n) => IsPrimalPart (Flip OR.Array) r n where
+-- | This is an impure instance. See above.
+instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
   dZero = ZeroR
   dScale _ ZeroR = ZeroR
   dScale v u' = ScaleR v u'
@@ -105,9 +102,6 @@ instance (GoodScalar r, KnownNat n) => IsPrimalPart (Flip OR.Array) r n where
   intOfShape tsh c =
     tconst $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
   recordSharingPrimal r l = (l, r)
-
--- | This is an impure instance. See above.
-instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
   recordSharing d = case d of
     ZeroR -> d
     InputR{} -> d
@@ -115,8 +109,7 @@ instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance (GoodScalar r, KnownNat n)
-         => IsPrimalPart (AstRanked PrimalSpan) r n where
+instance (GoodScalar r, KnownNat n) => IsPrimal (AstRanked PrimalSpan) r n where
   dZero = ZeroR
   dScale _ ZeroR = ZeroR
   dScale v u' = ScaleR v u'
@@ -126,8 +119,6 @@ instance (GoodScalar r, KnownNat n)
   intOfShape tsh c =
     tconst $ OR.constant (shapeToList $ tshape tsh) (fromIntegral c)
   recordSharingPrimal = astRegisterADShare
-
-instance GoodScalar r => CanRecordSharing (AstRanked PrimalSpan) r n where
   recordSharing d = case d of
     ZeroR -> d
     InputR{} -> d
@@ -135,7 +126,7 @@ instance GoodScalar r => CanRecordSharing (AstRanked PrimalSpan) r n where
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (Flip OS.Array) r sh where
+instance (GoodScalar r, OS.Shape sh) => IsPrimal (Flip OS.Array) r sh where
   dZero = ZeroS
   dScale _ ZeroS = ZeroS
   dScale v u' = ScaleS v u'
@@ -145,8 +136,6 @@ instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (Flip OS.Array) r sh where
   intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
     sconst $ fromIntegral c
   recordSharingPrimal r l = (l, r)
-
-instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
   recordSharing d = case d of
     ZeroS -> d
     InputS{} -> d
@@ -154,8 +143,8 @@ instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
-instance (GoodScalar r, OS.Shape sh) =>
-         IsPrimalPart (AstShaped PrimalSpan) r sh where
+instance (GoodScalar r, OS.Shape sh)
+         => IsPrimal (AstShaped PrimalSpan) r sh where
   dZero = ZeroS
   dScale _ ZeroS = ZeroS
   dScale v u' = ScaleS v u'
@@ -165,8 +154,6 @@ instance (GoodScalar r, OS.Shape sh) =>
   intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
     sconst $ fromIntegral c
   recordSharingPrimal = astRegisterADShareS
-
-instance CanRecordSharing (AstShaped PrimalSpan) r sh where
   recordSharing d = case d of
     ZeroS -> d
     InputS{} -> d

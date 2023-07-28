@@ -45,7 +45,7 @@ deriving instance (Show (f r z), Show (Dual f r z))
 -- information, if applicable for the differentiation mode in question.
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
-dD :: CanRecordSharing f r z
+dD :: IsPrimal f r z
    => ADShare -> f r z -> Dual f r z -> ADVal f r z
 dD !l !a !dual = D l a (recordSharing dual)
 

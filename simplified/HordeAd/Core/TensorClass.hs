@@ -419,9 +419,9 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
       => shaped r (n ': m ': sh) -> shaped r (m ': n ': sh)
   str = stranspose (Proxy @'[1, 0])
   stranspose :: forall perm r sh.
-                ( OS.Permutation perm, OS.Shape perm, GoodScalar r
-                , OS.Shape sh, KnownNat (OS.Rank sh)
-                , OS.Rank perm <= OS.Rank sh )
+                ( OS.Permutation perm, OS.Shape perm, OS.Shape sh
+                , KnownNat (OS.Rank sh), OS.Shape (OS.Permute perm sh)
+                , OS.Rank perm <= OS.Rank sh, GoodScalar r )
              => Proxy perm -> shaped r sh -> shaped r (OS.Permute perm sh)
   sflatten :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
            => shaped r sh -> shaped r '[OS.Size sh]

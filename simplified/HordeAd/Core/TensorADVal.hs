@@ -150,8 +150,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          , DeltaR ranked shaped ~ Dual ranked
          , PrimalOf ranked ~ ranked
          , ranked ~ PrimalOf ranked
-         , CRankedIP ranked IsPrimalPart
-         , CRankedIP ranked CanRecordSharing
+         , CRankedIP ranked IsPrimal
          , RankedTensor ranked )
          => RankedTensor (ADVal ranked) where
   tlet (D l u u') f =
@@ -310,8 +309,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
          , DeltaS ranked shaped ~ Dual shaped
          , PrimalOf shaped ~ shaped
          , shaped ~ PrimalOf shaped
-         , CRankedIPSh shaped IsPrimalPart
-         , CRankedIPS shaped CanRecordSharing
+         , CRankedIPSh shaped IsPrimal
          , ShapedTensor shaped )
          => ShapedTensor (ADVal shaped) where
   slet (D l u u') f =
