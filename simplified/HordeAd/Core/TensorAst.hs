@@ -29,7 +29,6 @@ import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
 
-
 -- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation
 
 type instance SimpleBoolOf (AstRanked s) = AstBool
@@ -202,7 +201,8 @@ astSpanDual t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
 astSpanDual _ = error "a spuriuos case for pattern match coverage"
 
 astSpanD :: forall s r n. AstSpan s
-         => AstRanked PrimalSpan r n -> AstRanked DualSpan r n -> AstRanked s r n
+         => AstRanked PrimalSpan r n -> AstRanked DualSpan r n
+         -> AstRanked s r n
 astSpanD u _ | Just Refl <- sameAstSpan @s @PrimalSpan = u
 astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
@@ -249,7 +249,8 @@ astDomainsLetFun a f =
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
 astBuild1Vectorize :: (KnownNat n, GoodScalar r, AstSpan s)
-                   => Int -> (AstInt -> AstRanked s r n) -> AstRanked s r (1 + n)
+                   => Int -> (AstInt -> AstRanked s r n)
+                   -> AstRanked s r (1 + n)
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 
@@ -354,13 +355,14 @@ astSpanDS _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanDS u u' | Just Refl <- sameAstSpan @s @FullSpan = AstDS u u'
 astSpanDS _ _ = error "a spuriuos case for pattern match coverage"
 
-astLetFunS :: (OS.Shape sh, OS.Shape sh2, GoodScalar r, AstSpan s)
+astLetFunS :: ( OS.Shape sh, OS.Shape sh2, GoodScalar r, GoodScalar r2
+              , AstSpan s )
           => AstShaped s r sh -> (AstShaped s r sh -> AstShaped s r2 sh2)
           -> AstShaped s r2 sh2
 astLetFunS a f | astIsSmallS True a = f a
 astLetFunS a f =
   let (var, ast) = funToAstS f
-  in AstLetS var a ast  -- astLet var a ast  -- safe, because subsitution ruled out above
+  in astLetS var a ast  -- safe, because subsitution ruled out above
 
 astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r, AstSpan s)
                     => (IntSh (AstShaped PrimalSpan) n -> AstShaped s r sh)
@@ -386,7 +388,8 @@ deriving instance (Integral (AstRanked s r n))
                   => Integral ((AstNoVectorize s) r n)
 deriving instance Fractional (AstRanked s r n)
                   => Fractional ((AstNoVectorize s) r n)
-deriving instance Floating (AstRanked s r n) => Floating ((AstNoVectorize s) r n)
+deriving instance Floating (AstRanked s r n)
+                  => Floating ((AstNoVectorize s) r n)
 deriving instance (RealFrac (AstRanked s r n))
                   => RealFrac ((AstNoVectorize s) r n)
 deriving instance (RealFloat (AstRanked s r n))
@@ -405,8 +408,10 @@ deriving instance (Real (AstRanked s r n))
 deriving instance Enum (AstRanked s r n) => Enum ((AstNoSimplify s) r n)
 deriving instance (Integral (AstRanked s r n))
                   => Integral ((AstNoSimplify s) r n)
-deriving instance Fractional (AstRanked s r n) => Fractional ((AstNoSimplify s) r n)
-deriving instance Floating (AstRanked s r n) => Floating ((AstNoSimplify s) r n)
+deriving instance Fractional (AstRanked s r n)
+                  => Fractional ((AstNoSimplify s) r n)
+deriving instance Floating (AstRanked s r n)
+                  => Floating ((AstNoSimplify s) r n)
 deriving instance (RealFrac (AstRanked s r n))
                   => RealFrac ((AstNoSimplify s) r n)
 deriving instance (RealFloat (AstRanked s r n))
@@ -419,13 +424,16 @@ instance AstSpan s
     $ astLetFun (unAstNoVectorize a) (unAstNoVectorize . f . AstNoVectorize)
 
   tshape = shapeAst . unAstNoVectorize
-  tminIndex = AstNoVectorize . fromPrimal . AstMinIndex . astSpanPrimal . unAstNoVectorize
-  tmaxIndex = AstNoVectorize . fromPrimal . AstMaxIndex . astSpanPrimal . unAstNoVectorize
-  tfloor = AstNoVectorize . fromPrimal . AstFloor . astSpanPrimal . unAstNoVectorize
+  tminIndex = AstNoVectorize . fromPrimal . AstMinIndex
+              . astSpanPrimal . unAstNoVectorize
+  tmaxIndex = AstNoVectorize . fromPrimal . AstMaxIndex
+              . astSpanPrimal . unAstNoVectorize
+  tfloor = AstNoVectorize . fromPrimal . AstFloor
+           . astSpanPrimal . unAstNoVectorize
 
   tiota = AstNoVectorize . fromPrimal $ AstIota
   tindex v ix = AstNoVectorize $ AstIndex (unAstNoVectorize v) ix
-  tsum = AstNoVectorize . AstSum . unAstNoVectorize
+  tsum = AstNoVectorize . astSum . unAstNoVectorize
   tscatter sh t f = AstNoVectorize $ astScatter sh (unAstNoVectorize t)
                     $ funToAstIndex f  -- this introduces new variable names
 
@@ -436,7 +444,7 @@ instance AstSpan s
     AstNoVectorize $ AstAppend (unAstNoVectorize u) (unAstNoVectorize v)
   tslice i n = AstNoVectorize . AstSlice i n . unAstNoVectorize
   treverse = AstNoVectorize . AstReverse . unAstNoVectorize
-  ttranspose perm = AstNoVectorize . AstTranspose perm . unAstNoVectorize
+  ttranspose perm = AstNoVectorize . astTranspose perm . unAstNoVectorize
   treshape sh = AstNoVectorize . astReshape sh . unAstNoVectorize
   tbuild1 k f = AstNoVectorize $ AstBuild1 k
                 $ funToAstI  -- this introduces new variable names
@@ -444,8 +452,8 @@ instance AstSpan s
   tgather sh t f = AstNoVectorize $ AstGather sh (unAstNoVectorize t)
                    $ funToAstIndex f  -- this introduces new variable names
   tcast = AstNoVectorize . AstCast . unAstNoVectorize
-  tfromIntegral =
-    AstNoVectorize . fromPrimal . AstFromIntegral . astSpanPrimal . unAstNoVectorize
+  tfromIntegral = AstNoVectorize . fromPrimal . AstFromIntegral
+                  . astSpanPrimal . unAstNoVectorize
 
   tsumOfList = AstNoVectorize . AstSumOfList . map unAstNoVectorize
   tconst = AstNoVectorize . fromPrimal . AstConst
@@ -455,7 +463,7 @@ instance AstSpan s
   tprimalPart = astSpanPrimal . unAstNoVectorize
   tdualPart = astSpanDual . unAstNoVectorize
   tD u u' = AstNoVectorize $ astSpanD u u'
-  tScale s t = astSpanDual s * t
+  tScale s t = astDualPart $ AstConstant s * AstD (tzero (tshape s)) t
 
 instance AstSpan s
          => RankedTensor (AstNoSimplify s) where
@@ -464,9 +472,12 @@ instance AstSpan s
     $ astLetFunUnSimp (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)
 
   tshape = shapeAst . unAstNoSimplify
-  tminIndex = AstNoSimplify . fromPrimal . AstMinIndex . astSpanPrimal . unAstNoSimplify
-  tmaxIndex = AstNoSimplify . fromPrimal . AstMaxIndex . astSpanPrimal . unAstNoSimplify
-  tfloor = AstNoSimplify . fromPrimal . AstFloor . astSpanPrimal . unAstNoSimplify
+  tminIndex = AstNoSimplify . fromPrimal . AstMinIndex
+              . astSpanPrimal . unAstNoSimplify
+  tmaxIndex = AstNoSimplify . fromPrimal . AstMaxIndex
+              . astSpanPrimal . unAstNoSimplify
+  tfloor = AstNoSimplify . fromPrimal . AstFloor
+           . astSpanPrimal . unAstNoSimplify
 
   tiota = AstNoSimplify . fromPrimal $ AstIota
   tindex v ix = AstNoSimplify $ AstIndex (unAstNoSimplify v) ix
@@ -487,8 +498,8 @@ instance AstSpan s
   tgather sh t f = AstNoSimplify $ AstGather sh (unAstNoSimplify t)
                    $ funToAstIndex f  -- this introduces new variable names
   tcast = AstNoSimplify . AstCast . unAstNoSimplify
-  tfromIntegral =
-    AstNoSimplify . fromPrimal . AstFromIntegral . astSpanPrimal . unAstNoSimplify
+  tfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
+                  . astSpanPrimal . unAstNoSimplify
 
   tsumOfList = AstNoSimplify . AstSumOfList . map unAstNoSimplify
   tconst = AstNoSimplify . fromPrimal . AstConst
@@ -499,7 +510,7 @@ instance AstSpan s
   tprimalPart = astSpanPrimal . unAstNoSimplify
   tdualPart = astSpanDual . unAstNoSimplify
   tD u u' = AstNoSimplify $ astSpanD u u'
-  tScale s t = astSpanDual s * t
+  tScale s t = astDualPart $ AstConstant s * AstD (tzero (tshape s)) t
 
 astLetFunUnSimp :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
                 => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)

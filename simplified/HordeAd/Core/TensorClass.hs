@@ -297,7 +297,7 @@ class ( Integral (IntOf shaped), CRankedS shaped Num
       , TensorSupports RealFloat shaped, TensorSupports Integral shaped )
       => ShapedTensor (shaped :: ShapedTensorKind) where
 
-  slet :: (OS.Shape sh, OS.Shape sh2, GoodScalar r)
+  slet :: (OS.Shape sh, OS.Shape sh2, GoodScalar r, GoodScalar r2)
        => shaped r sh -> (shaped r sh -> shaped r2 sh2)
        -> shaped r2 sh2
   slet a f = f a

@@ -54,15 +54,15 @@ instance OrdF f => OrdF (ADVal f) where
 
 type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
 
+type instance RankedOf (ADVal f) = ADVal (RankedOf f)
+
+type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
+
 type instance PrimalOf (ADVal f) = f
 
 type instance DualOf (ADVal f) = Product (Clown (Const ADShare)) (Dual f)
 
 type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
-
-type instance RankedOf (ADVal f) = ADVal (RankedOf f)
-
-type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
 
 
 -- * Ranked tensor instances
@@ -287,11 +287,6 @@ dToS (D l u u') = dDnotShared l (sfromD $ runClown u) (dDToS u')
     case matchingRank @sh @n1 of
       Just Refl -> RToS d
       _ -> error "dToS: different ranks in DToS(RToD)"
-
-class (forall r15 y. GoodScalar r15 => c shaped r15 y)
-      => CRankedIPS shaped c where
-instance (forall r15 y. GoodScalar r15 => c shaped r15 y)
-         => CRankedIPS shaped c where
 
 class (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
       => CRankedIPSh shaped c where
