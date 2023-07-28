@@ -17,7 +17,6 @@ import HordeAd.Core.Delta (DualPart (..))
 import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorADVal
-import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
 

@@ -374,7 +374,6 @@ astBuild1VectorizeS f =
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
 
-type instance DynamicOf (AstNoVectorize s) = AstDynamic s
 type instance SimpleBoolOf (AstNoVectorize s) = AstBool
 
 deriving instance IfF (AstNoVectorize s)
@@ -397,7 +396,6 @@ deriving instance (RealFrac (AstRanked s r n))
 deriving instance (RealFloat (AstRanked s r n))
                   => RealFloat (AstNoVectorize s r n)
 
-type instance DynamicOf (AstNoVectorizeS s) = AstDynamic s
 type instance SimpleBoolOf (AstNoVectorizeS s) = AstBool
 
 deriving instance IfF (AstNoVectorizeS s)
@@ -420,7 +418,6 @@ deriving instance (RealFrac (AstShaped s r sh))
 deriving instance (RealFloat (AstShaped s r sh))
                   => RealFloat (AstNoVectorizeS s r sh)
 
-type instance DynamicOf (AstNoSimplify s) = AstDynamic s
 type instance SimpleBoolOf (AstNoSimplify s) = AstBool
 
 deriving instance IfF (AstNoSimplify s)
@@ -443,7 +440,6 @@ deriving instance (RealFrac (AstRanked s r n))
 deriving instance (RealFloat (AstRanked s r n))
                   => RealFloat (AstNoSimplify s r n)
 
-type instance DynamicOf (AstNoSimplifyS s) = AstDynamic s
 type instance SimpleBoolOf (AstNoSimplifyS s) = AstBool
 
 deriving instance IfF (AstNoSimplifyS s)

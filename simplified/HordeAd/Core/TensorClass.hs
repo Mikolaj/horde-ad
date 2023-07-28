@@ -8,7 +8,7 @@
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library.
 module HordeAd.Core.TensorClass
-  ( ShapeInt, ShapeSh, DynamicOf
+  ( ShapeInt, ShapeSh
   , ShapedTensor(..), RankedTensor(..), ConvertTensor(..), DomainsTensor(..)
   , ADReady, ADReadyR, ADReadyS, ADReadyBoth, CRanked, CShaped
   ) where
@@ -53,16 +53,6 @@ class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
       => CRanked ranked c where
 instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
          => CRanked ranked c where
-
-type instance RankedOf (Clown OD.Array) = Flip OR.Array
-
-type instance ShapedOf (Clown OD.Array) = Flip OS.Array
-
-type family DynamicOf (f :: TensorKind k) :: Type -> Type
-
-type instance DynamicOf (Clown OD.Array) = OD.Array
-
-type instance DynamicOf (Clown (AstDynamic s)) = AstDynamic s
 
 type TensorSupports :: (Type -> Constraint) -> TensorKind k -> Constraint
 type TensorSupports c f =
@@ -651,6 +641,15 @@ type ADReadyBoth ranked shaped =
   )
 
 
+-- * Instances for concrete dynamic arrays
+
+type instance RankedOf (Clown OD.Array) = Flip OR.Array
+
+type instance ShapedOf (Clown OD.Array) = Flip OS.Array
+
+type instance DynamicOf (Clown OD.Array) = OD.Array
+
+
 -- * Ranked tensor class instance for concrete arrays
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
@@ -672,13 +671,11 @@ type instance RankedOf (Flip OR.Array) = Flip OR.Array
 
 type instance ShapedOf (Flip OR.Array) = Flip OS.Array
 
+type instance DynamicOf (Flip OR.Array) = OD.Array
+
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 
 type instance DualOf (Flip OR.Array) = DummyDual
-
-type instance DynamicOf (Flip OR.Array) = OD.Array
-
-type instance DynamicOf (AstRanked s) = AstDynamic s
 
 instance RankedTensor (Flip OR.Array) where
   tshape = tshapeR . runFlip
@@ -788,17 +785,15 @@ instance OrdF (Flip OS.Array) where
 instance IfF (Flip OS.Array) where
   ifF (_, b) v w = if b then v else w
 
-type instance PrimalOf (Flip OS.Array) = Flip OS.Array
-
-type instance DualOf (Flip OS.Array) = DummyDual
-
-type instance DynamicOf (Flip OS.Array) = OD.Array
-
-type instance DynamicOf (AstShaped s) = AstDynamic s
-
 type instance RankedOf (Flip OS.Array) = Flip OR.Array
 
 type instance ShapedOf (Flip OS.Array) = Flip OS.Array
+
+type instance DynamicOf (Flip OS.Array) = OD.Array
+
+type instance PrimalOf (Flip OS.Array) = Flip OS.Array
+
+type instance DualOf (Flip OS.Array) = DummyDual
 
 instance ShapedTensor (Flip OS.Array) where
   sminIndex = Flip . tminIndexS . runFlip

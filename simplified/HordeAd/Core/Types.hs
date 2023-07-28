@@ -4,7 +4,7 @@ module HordeAd.Core.Types
   ( TensorKind, RankedTensorKind, ShapedTensorKind
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
   , DynamicExists(..), Domains, DomainsOD, sizeDomainsOD
-  , RankedOf, ShapedOf, PrimalOf, DualOf, DummyDual(..)
+  , RankedOf, ShapedOf, DynamicOf, PrimalOf, DualOf, DummyDual(..)
   , IntOf, IndexOf, IntSh, IndexSh
   , SimpleBoolOf, Boolean(..)
   ) where
@@ -92,6 +92,8 @@ sizeDomainsOD d = let f (DynamicExists t) = OD.size t
 type family RankedOf (f :: TensorKind k) :: RankedTensorKind
 
 type family ShapedOf (f :: TensorKind k) :: ShapedTensorKind
+
+type family DynamicOf (f :: TensorKind k) :: Type -> Type
 
 type family PrimalOf (f :: TensorKind k) :: TensorKind k
 

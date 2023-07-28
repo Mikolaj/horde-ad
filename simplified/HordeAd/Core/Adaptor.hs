@@ -82,7 +82,8 @@ instance ( RandomDomains a
 
 instance ( AdaptableDomains dynamic a
          , AdaptableDomains dynamic b
-         , AdaptableDomains dynamic c ) => AdaptableDomains dynamic (a, b, c) where
+         , AdaptableDomains dynamic c )
+         => AdaptableDomains dynamic (a, b, c) where
   type Value (a, b, c) = (Value a, Value b, Value c)
   toDomains (a, b, c) =
     let a1 = toDomains a
@@ -108,7 +109,8 @@ instance ( RandomDomains a
 instance ( AdaptableDomains dynamic a
          , AdaptableDomains dynamic b
          , AdaptableDomains dynamic c
-         , AdaptableDomains dynamic d ) => AdaptableDomains dynamic (a, b, c, d) where
+         , AdaptableDomains dynamic d )
+         => AdaptableDomains dynamic (a, b, c, d) where
   type Value (a, b, c, d) = (Value a, Value b, Value c, Value d)
   toDomains (a, b, c, d) =
     let a1 = toDomains a

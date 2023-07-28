@@ -94,12 +94,17 @@ isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
 
 type instance RankedOf (Clown (AstDynamic s)) = AstRanked s
 type instance ShapedOf (Clown (AstDynamic s)) = AstShaped s
+type instance DynamicOf (Clown (AstDynamic s)) = AstDynamic s
+
 type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
+type instance DynamicOf (AstRanked s) = AstDynamic s
 type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
 type instance DualOf (AstRanked s) = AstRanked DualSpan
+
 type instance RankedOf (AstShaped s) = AstRanked s
 type instance ShapedOf (AstShaped s) = AstShaped s
+type instance DynamicOf (AstShaped s) = AstDynamic s
 type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
 type instance DualOf (AstShaped s) = AstShaped DualSpan
 
@@ -847,18 +852,22 @@ nullADShare ADShareCons{} = False
 
 type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
+type instance DynamicOf (AstNoVectorize s) = AstDynamic s
 type instance PrimalOf (AstNoVectorize s) = AstRanked PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstRanked DualSpan
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorizeS s) = AstNoVectorizeS s
+type instance DynamicOf (AstNoVectorizeS s) = AstDynamic s
 type instance PrimalOf (AstNoVectorizeS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoVectorizeS s) = AstShaped DualSpan
 type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
+type instance DynamicOf (AstNoSimplify s) = AstDynamic s
 type instance PrimalOf (AstNoSimplify s) = AstRanked PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstRanked DualSpan
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplifyS s) = AstNoSimplifyS s
+type instance DynamicOf (AstNoSimplifyS s) = AstDynamic s
 type instance PrimalOf (AstNoSimplifyS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoSimplifyS s) = AstShaped DualSpan
 
