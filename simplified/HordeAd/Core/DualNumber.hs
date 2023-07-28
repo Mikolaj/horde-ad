@@ -1,6 +1,4 @@
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Dual numbers and arithmetic operations on them. This is a part of
 -- the mid-level API of the horde-ad library, together with
 -- the safely impure "HordeAd.Core.DualClass".
@@ -237,8 +235,8 @@ instance (RealFloat (f r z), IsPrimal f r z) => RealFloat (ADVal f r z) where
     let !(!l5, t) = recordSharingPrimal (recip (u * u + v * v)) l4
     in dD l5 (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
   -- Note that for term types @a@ this is invalid without an extra let
-  -- containing the first field of @D@. However, for terms this unimplemented
-  -- anyway, for unrelated reasons.
+  -- containing the first field of @D@. However, for terms this is
+  -- unimplemented anyway.
   floatRadix (D _ u _) = floatRadix u
   floatDigits (D _ u _) = floatDigits u
   floatRange (D _ u _) = floatRange u

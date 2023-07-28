@@ -170,6 +170,7 @@ indexToSizedList (Index l) = l
 sizedListToIndex :: SizedList n i -> Index n i
 sizedListToIndex = Index
 
+
 -- * Tensor shapes as fully encapsulated sized lists, with operations
 
 -- | The shape of an n-dimensional array represented as a sized list.

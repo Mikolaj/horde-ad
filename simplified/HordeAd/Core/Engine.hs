@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 -- | The implementation of calculating gradient and derivative
 -- of an objective function expressed wtih the `Tensor` class.
 -- Together with "HordeAd.Core.TensorClass", this forms the basic
@@ -21,10 +20,9 @@ import qualified Data.Array.Shape as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           Data.Kind (Constraint, Type)
+import           Data.Kind (Constraint)
 import           Data.Maybe (fromMaybe, isJust)
 import           Data.Proxy (Proxy)
-import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
@@ -106,7 +104,8 @@ class Adaptable g where
        ( GoodScalar r, HasSingletonDict y
        , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
     => Bool -> (astvals -> g FullSpan r y) -> vals
-    -> AstEnv (ADVal (RankedOf (g PrimalSpan))) (ADVal (ShapedOf (g PrimalSpan)))
+    -> AstEnv (ADVal (RankedOf (g PrimalSpan)))
+              (ADVal (ShapedOf (g PrimalSpan)))
     -> DomainsOD
     -> (ADAstArtifact6 (g PrimalSpan) r y, Dual (g PrimalSpan) r y)
 
@@ -373,20 +372,24 @@ cfwdOnADInputs inputs f ds =
 
 -- * Additional mechanisms
 
+type DualClown dynamic = Flip (Dual (Clown dynamic)) '()
+
 generateDeltaInputs
   :: forall ranked shaped dynamic.
      ( dynamic ~ DynamicOf ranked, ConvertTensor ranked shaped
      , Dual (Clown dynamic) ~ DeltaD ranked shaped )
   => Domains dynamic
-  -> Data.Vector.Vector (DeltaInputsExists dynamic)
+  -> Domains (DualClown dynamic)
 {-# INLINE generateDeltaInputs #-}
 generateDeltaInputs params =
-  let arrayToInput :: Int -> DynamicExists dynamic -> DeltaInputsExists dynamic
+  let arrayToInput :: Int
+                   -> DynamicExists dynamic
+                   -> DynamicExists (DualClown dynamic)
       arrayToInput i (DynamicExists @r t) =
         case someNatVal $ toInteger $ length $ dshape @ranked t of
           Just (SomeNat (_ :: Proxy n)) ->
-            DeltaInputsExists $ RToD $ InputR @ranked @shaped @r @n
-                                     $ toInputId i
+            DynamicExists $ Flip $ RToD $ InputR @ranked @shaped @r @n
+                                 $ toInputId i
           Nothing -> error "generateDeltaInputs: impossible someNatVal error"
   in V.imap arrayToInput params
 {- TODO: this can't be specified without a proxy, so we inline instead
@@ -394,20 +397,17 @@ generateDeltaInputs params =
   :: DomainsOD -> Data.Vector.Vector (Dual OD.Array Double) #-}
 -}
 
-data DeltaInputsExists :: (Type -> Type) -> Type where
-  DeltaInputsExists :: forall r dynamic. GoodScalar r
-                    => (Dual (Clown dynamic) r '())
-                    -> DeltaInputsExists dynamic
-
 makeADInputs
-  :: Domains dynamic -> Data.Vector.Vector (DeltaInputsExists dynamic)
+  :: Domains dynamic
+  -> Domains (DualClown dynamic)
   -> Domains (ADValClown dynamic)
 {-# INLINE makeADInputs #-}
 makeADInputs =
   V.zipWith (\(DynamicExists @r p)
-              (DeltaInputsExists @r2 d) ->
+              (DynamicExists @r2 d) ->
     case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> DynamicExists $ Flip $ dDnotShared emptyADShare (Clown p) d
+      Just Refl -> DynamicExists
+                   $ Flip $ dDnotShared emptyADShare (Clown p) $ runFlip d
       _ -> error "makeADInputs: type mismatch")
 
 shapedToRanked

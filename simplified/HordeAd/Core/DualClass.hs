@@ -1,6 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The classes generalizing delta expressions and exposing them
 -- in a more polymorphic way.
 -- This is a mid-level API ("HordeAd.Core.Delta" is low level)
