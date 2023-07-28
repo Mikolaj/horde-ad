@@ -106,6 +106,7 @@ instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
     ZeroR -> d
     InputR{} -> d
     DToR{} -> d
+    SToR{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
@@ -123,6 +124,7 @@ instance (GoodScalar r, KnownNat n) => IsPrimal (AstRanked PrimalSpan) r n where
     ZeroR -> d
     InputR{} -> d
     DToR{} -> d
+    SToR{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
@@ -140,6 +142,7 @@ instance (GoodScalar r, OS.Shape sh) => IsPrimal (Flip OS.Array) r sh where
     ZeroS -> d
     InputS{} -> d
     DToS{} -> d
+    RToS{} -> d
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
@@ -158,6 +161,7 @@ instance (GoodScalar r, OS.Shape sh)
     ZeroS -> d
     InputS{} -> d
     DToS{} -> d
+    RToS{} -> d
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
