@@ -15,6 +15,7 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 
 import CrossTesting
@@ -62,7 +63,7 @@ testTrees =
   , testCase "scatterSimp12" testScatterSimp12
   ]
 
-gatherNested1 :: forall ranked r. ADReady ranked r
+gatherNested1 :: forall ranked r. (ADReady ranked, GoodScalar r)
               => ranked r 2 -> ranked r 1
 gatherNested1 t =
   tgather @ranked @r @1
@@ -90,7 +91,7 @@ testGatherNestedBuild1 =
              ifF (i >. 2) (gatherNested1 t) (t ! [i])))
           (treplicate 7 $ tfromList [0, 1]))
 
-gather1 :: forall ranked r. ADReady ranked r
+gather1 :: forall ranked r. (ADReady ranked, GoodScalar r)
         => ranked r 2 -> ranked r 1
 gather1 t =
   tgather @ranked @r @1
@@ -127,7 +128,7 @@ testGatherSimp1 = do
   length (show (simplifyAst6 @Float t1))
     @?= length (show (simplifyAst6 @Float t2))
 
-gatherNested2 :: forall ranked r. ADReady ranked r
+gatherNested2 :: forall ranked r. (ADReady ranked, GoodScalar r)
               => ranked r 2 -> ranked r 2
 gatherNested2 t =
   tgather @ranked @r @2
@@ -155,7 +156,7 @@ testGatherNestedBuild2 =
              gatherNested2 (t * treplicate0N [7, 2] (tfromIndex0 i))))
           (treplicate 7 $ tfromList [0, 1]))
 
-gather2 :: forall ranked r. ADReady ranked r
+gather2 :: forall ranked r. (ADReady ranked, GoodScalar r)
         => ranked r 2 -> ranked r 2
 gather2 t =
   tgather @ranked @r @2
@@ -192,7 +193,7 @@ testGatherSimp2 = do
   length (show (simplifyAst6 @Float t1)) @?= 265
   length (show (simplifyAst6 @Float t2)) @?= 265
 
-gatherNested12 :: forall ranked r. ADReady ranked r
+gatherNested12 :: forall ranked r. (ADReady ranked, GoodScalar r)
                => ranked r 2 -> ranked r 2
 gatherNested12 t =
   tgather @ranked @r @1
@@ -221,7 +222,7 @@ testGatherNestedBuild12 =
                           (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
           (treplicate 7 $ tfromList [0, 1]))
 
-gather12 :: forall ranked r. ADReady ranked r
+gather12 :: forall ranked r. (ADReady ranked, GoodScalar r)
          => ranked r 2 -> ranked r 2
 gather12 t =
   tgather @ranked @r @2
@@ -259,7 +260,7 @@ testGatherSimp12 = do
   length (show (simplifyAst6 @Float t1)) @?= 265
   length (show (simplifyAst6 @Float t2)) @?= 265
 
-gatherReshape22 :: forall ranked r. ADReady ranked r
+gatherReshape22 :: forall ranked r. (ADReady ranked, GoodScalar r)
                 => ranked r 2 -> ranked r 2
 gatherReshape22 t =
   treshape @ranked @r @6 [2, 6]
@@ -317,7 +318,7 @@ testGatherSimp23 = do
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
-gatherTranspose33 :: forall ranked r. (ADReady ranked r, RealFloat r)
+gatherTranspose33 :: forall ranked r. (ADReady ranked, GoodScalar r, RealFloat r)
                   => ranked r 10 -> ranked r 2
 gatherTranspose33 t =
   tmatmul2 (treshape [6, 8] (tconst $ runFlip t48))
@@ -399,7 +400,7 @@ testGatherSimp34 = do
 
 -- scatters instead of gathers
 
-scatterNested1 :: forall ranked r. ADReady ranked r
+scatterNested1 :: forall ranked r. (ADReady ranked, GoodScalar r)
                => ranked r 2 -> ranked r 1
 scatterNested1 t =
   tscatter @ranked @r @2
@@ -426,7 +427,7 @@ testScatterNestedBuild1 =
              ifF (i >. 2) (scatterNested1 t) (t ! [i])))
           (treplicate 7 $ tfromList [0, 1]))
 
-scatter1 :: forall ranked r. ADReady ranked r
+scatter1 :: forall ranked r. (ADReady ranked, GoodScalar r)
          => ranked r 2 -> ranked r 1
 scatter1 t =
   tscatter @ranked @r @2
@@ -462,7 +463,7 @@ testScatterSimp1 = do
   length (show (simplifyAst6 @Float t1)) @?= 296
   length (show (simplifyAst6 @Float t2)) @?= 417
 
-scatterNested2 :: forall ranked r. ADReady ranked r
+scatterNested2 :: forall ranked r. (ADReady ranked, GoodScalar r)
               => ranked r 2 -> ranked r 2
 scatterNested2 t =
   tscatter @ranked @r @4
@@ -491,7 +492,7 @@ testScatterNestedBuild2 =
              scatterNested2 (t * treplicate0N [7, 2] (tfromIndex0 i))))
           (treplicate 7 $ tfromList [0, 1]))
 
-scatter2 :: forall ranked r. ADReady ranked r
+scatter2 :: forall ranked r. (ADReady ranked, GoodScalar r)
         => ranked r 2 -> ranked r 2
 scatter2 t =
   tscatter @ranked @r @2
@@ -528,7 +529,7 @@ testScatterSimp2 = do
   length (show (simplifyAst6 @Float t1)) @?= 1091
   length (show (simplifyAst6 @Float t2)) @?= 602
 
-scatterNested12 :: forall ranked r. ADReady ranked r
+scatterNested12 :: forall ranked r. (ADReady ranked, GoodScalar r)
                => ranked r 2 -> ranked r 2
 scatterNested12 t =
   tscatter @ranked @r @2
@@ -558,7 +559,7 @@ testScatterNestedBuild12 =
                           (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
           (treplicate 7 $ tfromList [0, 1]))
 
-scatter12 :: forall ranked r. ADReady ranked r
+scatter12 :: forall ranked r. (ADReady ranked, GoodScalar r)
          => ranked r 2 -> ranked r 2
 scatter12 t =
   tscatter @ranked @r @2

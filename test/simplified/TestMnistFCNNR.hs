@@ -61,7 +61,7 @@ testTrees = [ tensorADValMnistTests
 mnistTestCase2VTA
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r
-     , ADReady ranked r, ADReady (ADVal ranked) r
+     , ADReady ranked, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -159,7 +159,7 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
 mnistTestCase2VTI
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r
-     , ADReady ranked r
+     , ADReady ranked, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -274,7 +274,7 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
 mnistTestCase2VTO
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r
-     , ADReady ranked r, PrintfArg r, AssertEqualUpToEpsilon r )
+     , GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
@@ -397,7 +397,7 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
 mnistTestCase2VT2A
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r
-     , ADReady ranked r, Random r, ADReady (ADVal ranked) r
+     , ADReady ranked, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -488,7 +488,7 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
 mnistTestCase2VT2I
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r
-     , ADReady ranked r, Random r
+     , ADReady ranked, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -595,7 +595,8 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
 mnistTestCase2VT2O
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r
-     , ADReady ranked r, Random r , PrintfArg r, AssertEqualUpToEpsilon r )
+     , GoodScalar r, Random r
+     , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree

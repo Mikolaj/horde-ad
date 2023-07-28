@@ -53,7 +53,7 @@ testTrees = [ tensorADValMnistTestsCNNA
 mnistTestCaseCNNA
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r
-     , ADReady ranked r, Random r, ADReady (ADVal ranked) r
+     , ADReady ranked, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -154,7 +154,7 @@ tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
 mnistTestCaseCNNI
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r
-     , ADReady ranked r, Random r
+     , ADReady ranked, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -269,7 +269,8 @@ tensorADValMnistTestsCNNI = testGroup "CNN Intermediate MNIST tests"
 mnistTestCaseCNNO
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r
-     , ADReady ranked r, Random r, PrintfArg r, AssertEqualUpToEpsilon r )
+     , ADReady ranked, GoodScalar r, Random r
+     , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree

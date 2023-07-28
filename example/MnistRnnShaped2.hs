@@ -54,7 +54,7 @@ unrollLastS f s0 xs w =
   in foldl' g (undefined, s0) projections
 
 rnnMnistLayerS
-  :: (ADReadyS shaped r, Differentiable r)
+  :: (ADReadyS shaped, GoodScalar r, Differentiable r)
   => SNat in_width -> SNat out_width -> SNat batch_size
   -> shaped r '[out_width, batch_size]  -- in state
   -> shaped r '[in_width, batch_size]  -- in
@@ -67,7 +67,7 @@ rnnMnistLayerS SNat SNat SNat
     in tanh y
 
 rnnMnistTwoS
-  :: (ADReadyS shaped r, Differentiable r)
+  :: (ADReadyS shaped, GoodScalar r, Differentiable r)
   => SNat out_width -> SNat batch_size -> SNat sizeMnistHeight
   -> shaped r '[2 * out_width, batch_size]  -- initial state
   -> PrimalOf shaped r '[sizeMnistHeight, batch_size]
@@ -94,7 +94,7 @@ rnnMnistTwoS out_width@SNat
     in (sslice (proxyFromSNat out_width) (proxyFromSNat out_width) s3, s3)
 
 rnnMnistZeroS
-  :: (ADReadyS shaped r, Differentiable r)
+  :: (ADReadyS shaped, GoodScalar r, Differentiable r)
   => SNat out_width
   -> SNat batch_size
   -> SNat sizeMnistHeight -> SNat sizeMnistWidth
@@ -113,7 +113,7 @@ rnnMnistZeroS out_width@SNat
 rnnMnistLossFusedS
   :: forall shaped h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth, Differentiable r
-     , ADReadyS shaped r )
+     , ADReadyS shaped, GoodScalar r )
   => SNat out_width
   -> SNat batch_size
   -> ( PrimalOf shaped r '[batch_size, h, w]
@@ -136,7 +136,7 @@ rnnMnistTestS
   :: forall shaped h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
      , shaped ~ Flip OS.Array, Differentiable r
-     , ADReadyS shaped r )
+     , ADReadyS shaped, GoodScalar r )
   => SNat out_width
   -> SNat batch_size
   -> MnistDataBatchS batch_size r

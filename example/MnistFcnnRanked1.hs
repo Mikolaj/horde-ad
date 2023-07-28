@@ -48,7 +48,7 @@ listMatmul1 x0 weights = tlet x0 $ \x ->
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (inputs) to be given to the program.
-afcnnMnist1 :: ADReady ranked r
+afcnnMnist1 :: (ADReady ranked, GoodScalar r)
             => (ranked r 1 -> ranked r 1)
             -> (ranked r 1 -> ranked r 1)
             -> Int -> Int
@@ -71,7 +71,7 @@ afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 afcnnMnistLoss1
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => Int -> Int -> MnistData r -> ADFcnnMnist1Parameters ranked r
   -> ranked r 0
 afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
@@ -80,7 +80,7 @@ afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
   in afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum1, target1)
 
 afcnnMnistLoss1TensorData
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => Int -> Int -> (ranked r 1, ranked r 1) -> ADFcnnMnist1Parameters ranked r
   -> ranked r 0
 afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
@@ -91,7 +91,8 @@ afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 afcnnMnistTest1
-  :: forall ranked r. (ranked ~ Flip OR.Array, ADReady ranked r, Differentiable r)
+  :: forall ranked r.
+     (ranked ~ Flip OR.Array, ADReady ranked, GoodScalar r, Differentiable r)
   => Int -> Int
   -> [MnistData r]
   -> ((ADFcnnMnist1Parameters ranked r

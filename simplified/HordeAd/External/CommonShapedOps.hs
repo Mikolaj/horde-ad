@@ -27,14 +27,16 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.External.CommonRankedOps
 
-sminIndexN :: (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh))
+sminIndexN :: ( ADReadyS shaped, GoodScalar r
+              , OS.Shape sh, KnownNat (OS.Size sh) )
            => shaped r sh -> IndexSh shaped sh
 sminIndexN t =
   ShapedList.fromLinearIdx
     (sshape t)
     (ShapedList.shapedNat $ tfromS $ sprimalPart $ sminIndex (sflatten t))
 
-smaxIndexN :: (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh))
+smaxIndexN :: ( ADReadyS shaped, GoodScalar r
+              , OS.Shape sh, KnownNat (OS.Size sh) )
            => shaped r sh -> IndexSh shaped sh
 smaxIndexN t =
   ShapedList.fromLinearIdx
@@ -42,38 +44,41 @@ smaxIndexN t =
     (ShapedList.shapedNat $ tfromS $ sprimalPart $ smaxIndex (sflatten t))
 
 sminimum :: forall r sh shaped.
-            (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh))
+            (ADReadyS shaped, GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
          => shaped r sh -> shaped r '[]
 sminimum t = sindex0 t (sminIndexN t)
+
 smaximum :: forall r sh shaped.
-            (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh))
+            (ADReadyS shaped, GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
          => shaped r sh -> shaped r '[]
 smaximum t = sindex0 t (smaxIndexN t)
 
-sfromIndex0 :: forall n r shaped. ADReadyS shaped r
+sfromIndex0 :: forall n r shaped. (ADReadyS shaped, GoodScalar r)
             => IntSh shaped n -> shaped r '[]
 sfromIndex0 = sfromIntegral . sconstant . sfromR . ShapedList.unShapedNat
 
-sfromIndex1 :: forall r sh shaped. (ADReadyS shaped r, KnownNat (OS.Rank sh))
+sfromIndex1 :: forall r sh shaped.
+               (ADReadyS shaped, GoodScalar r, KnownNat (OS.Rank sh))
             => IndexSh shaped sh -> shaped r '[OS.Rank sh]
 sfromIndex1 =
   sfromIntegral . sconstant . sfromR . tfromList . ShapedList.sizedListToList
 
 sletIx :: forall r sh n shaped.
-          (ADReadyS shaped r, OS.Shape sh, KnownNat n)
+          (ADReadyS shaped, GoodScalar r, OS.Shape sh, KnownNat n)
        => IndexOf shaped n -> (IndexOf shaped n -> shaped r sh) -> shaped r sh
 sletIx ix0 f = slet (sfromR @(RankedOf shaped) @shaped @Int64 @'[n]
                      $ tint64FromIndex1 ix0) $ \ixT ->
                  f $ tint64ToIndex1 $ tfromS ixT
 
 scaleS :: forall shaped r sh.
-          (OS.Shape sh, ADReadyS shaped r)
+          (OS.Shape sh, ADReadyS shaped, GoodScalar r)
        => PrimalOf shaped r sh -> shaped r sh -> shaped r sh
 scaleS a d = sconstant a * d
 
 reluS, reluLeakyS
   :: forall shaped sh r.
-     (OS.Shape sh, KnownNat (OS.Rank sh), ADReadyS shaped r, Differentiable r)
+     ( OS.Shape sh, KnownNat (OS.Rank sh), ADReadyS shaped, GoodScalar r
+     , Differentiable r )
   => shaped r sh -> shaped r sh
 reluS v0 = slet v0 $ \v ->
   let oneIfGtZero = smap0N (\x -> ifF (x <=. 0) 0.0 1.0) v
@@ -123,7 +128,8 @@ lossCrossEntropyVS targ res = negate $ log res `sdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyS
   :: forall shaped sh r.
-     (ADReadyS shaped r, OS.Shape sh, KnownNat (OS.Size sh), Differentiable r)
+     ( ADReadyS shaped, GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh)
+     , Differentiable r )
   => PrimalOf shaped r sh -> shaped r sh -> shaped r '[]
 lossSoftMaxCrossEntropyS target d' = slet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
@@ -147,7 +153,8 @@ lossSoftMaxCrossEntropyS target d' = slet d' $ \d ->
 
 -- No padding; remaining areas ignored.
 maxPool1S :: forall ksize stride m shaped r.
-             (ADReadyS shaped r, KnownNat ksize, KnownNat stride, KnownNat m)
+             ( ADReadyS shaped, GoodScalar r
+             , KnownNat ksize, KnownNat stride, KnownNat m )
           => shaped r '[m] -> shaped r '[m]
 maxPool1S v =
   let l = [0, valueOf @stride .. slength v - valueOf @ksize]
@@ -181,7 +188,7 @@ conv2dUnpaddedS
             (shaped :: ShapedTensorKind) r shB shK1.
      ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh, KnownNat nKw
      , KnownNat nImgs, KnownNat nAh, KnownNat nAw
-     , ADReadyS shaped r
+     , ADReadyS shaped, GoodScalar r
      , nCinpA ~ nCinpK
      , shB ~ '[nImgs, nCoutK, nAh, nAw]
      , shK1 ~ '[1, nCinpA, nKh, nKw]
@@ -206,7 +213,7 @@ slicezS
   :: forall shOut sh shaped r.
      ( OS.Shape sh, OS.Shape shOut, OS.Shape (OS.Take (OS.Rank sh) shOut)
      , KnownNat (OS.Rank sh)
-     , OS.Rank shOut ~ OS.Rank sh, ADReadyS shaped r )
+     , OS.Rank shOut ~ OS.Rank sh, ADReadyS shaped, GoodScalar r )
   => shaped r sh -> IndexSh shaped sh -> shaped r shOut
 slicezS d ixBase =
   gcastWith (unsafeCoerce Refl
@@ -232,11 +239,12 @@ slicezS d ixBase =
 -- such invalid indexes and returns 0.
 indexz0SLet
   :: forall shOut sh shaped r.
-     (OS.Shape shOut, KnownNat (OS.Rank shOut), OS.Shape sh, ADReadyS shaped r)
+     ( OS.Shape shOut, KnownNat (OS.Rank shOut), OS.Shape sh
+     , ADReadyS shaped, GoodScalar r )
   => shaped r sh -> IndexOf shaped (OS.Rank shOut) -> shaped r '[]
 indexz0SLet d ix0 =
   sletIx ix0 $ \ix ->
-    ifF (within0S @shOut @shaped @r ix)
+    ifF (within0S @shOut @shaped ix)
         (sindex0 d (ShapedList.listToSized (indexToList ix)))
         0
 
@@ -251,17 +259,17 @@ indexz0SLet d ix0 =
 -- are used).
 indexz0S
   :: forall shOut sh shaped r.
-     (OS.Shape shOut, OS.Shape sh, ADReadyS shaped r)
+     (OS.Shape shOut, OS.Shape sh, ADReadyS shaped, GoodScalar r)
   => shaped r sh -> IndexOf shaped (OS.Rank shOut) -> shaped r '[]
 indexz0S d ix =
-  ifF (within0S @shOut @shaped @r ix)
+  ifF (within0S @shOut @shaped ix)
       (sindex0 d (ShapedList.listToSized (indexToList ix)))
       0
 
 -- | Given an index and shape, check if the index is fully within the shape.
 -- Note that @ix@ is used twice, so should be shared outside.
 within0S
-  :: forall shOut shaped r. (OS.Shape shOut, ADReadyS shaped r)
+  :: forall shOut shaped. (OS.Shape shOut, ADReadyS shaped)
   => IndexOf shaped (OS.Rank shOut)
        -- the indexes may be outside shOut and even negative (e.g., for
        -- convolutions with padding)
@@ -278,7 +286,7 @@ maxPool2dUnpaddedS
      ( KnownNat ksize, KnownNat stride, KnownNat batch_size, KnownNat channels
      , KnownNat h, KnownNat w
      , 1 <= stride  -- wrongly reported as redundant due to plugins
-     , ADReadyS shaped r
+     , ADReadyS shaped, GoodScalar r
      , shOut ~ '[batch_size, channels, h `Div` stride, w `Div` stride]
      , shK1 ~ '[1, 1, ksize, ksize]
      )

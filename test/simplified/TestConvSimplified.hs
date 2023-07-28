@@ -73,7 +73,7 @@ testTrees =
 -- | Unpadded full convolution,
 --   where the output size is the same as the input size.
 conv2d
-  :: ADReady ranked r
+  :: (ADReady ranked, GoodScalar r)
   => ranked r 4 -> ranked r 4 -> ranked r 4
 conv2d arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = tshape arrA
@@ -93,7 +93,7 @@ conv2d arrK arrA =
 --
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
-slicezF :: forall ranked n r. (ADReady ranked r, KnownNat n)
+slicezF :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n)
         => ShapeInt n -> ranked r n -> IndexOf ranked n -> ranked r n
 slicezF shOut d ixBase =
   tbuild shOut $ \ixResult ->
@@ -101,17 +101,17 @@ slicezF shOut d ixBase =
       -- tindex0 would not require a single type application here
 
 conv2d1
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2d1 = conv2d $ tconst $ OR.fromList [1, 1, 1, 1] [-0.2]
 
 conv2dA
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2dA = conv2d $ tconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25.0003]
 
 conv2dB
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2dB = conv2d $ tconst $ runFlip t16b
 
@@ -156,43 +156,43 @@ testKonstG0LittleA =
 -- the same.
 
 conv2d1Laborious
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2d1Laborious = conv2dUnpadded $ tconst $ OR.fromList [1, 1, 1, 1] [-0.2]
 
 conv2dALaborious
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2dALaborious =
   conv2dUnpadded $ tconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25.0003]
 
 conv2dBLaborious
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2dBLaborious = conv2dUnpadded $ tconst $ runFlip t16b
 
 conv2dCLaborious
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2dCLaborious = flip conv2dUnpadded $ tconst $ runFlip t16b
 
 conv2dBLaborious128b
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2dBLaborious128b = conv2dUnpadded $ tconst $ runFlip t128b
 
 conv2dCLaborious128b
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2dCLaborious128b = flip conv2dUnpadded $ tconst $ runFlip t128b
 
 conv2dBLaborious128c
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2dBLaborious128c = conv2dUnpadded $ tconst $ runFlip t128c
 
 conv2dCLaborious128c
-  :: (ADReady ranked r, Differentiable r)
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 4 -> ranked r 4
 conv2dCLaborious128c = flip conv2dUnpadded $ tconst $ runFlip t128c
 
@@ -438,7 +438,7 @@ testKonstNotBigCLaborious128cb =
 --    Section III b).
 --
 costVolume
-  :: forall r ranked. ADReady ranked r
+  :: forall r ranked. (ADReady ranked, GoodScalar r)
   => Int -> Int -> ranked r 4 -> ranked r 4 -> ranked r 4
 costVolume iStart nCount arrL arrR =
   let [nImgs, nChas, nRows, nCols] = tshape arrL
@@ -453,9 +453,9 @@ costVolume iStart nCount arrL arrR =
 
 test_disparityKonst :: Assertion
 test_disparityKonst = do
-  let arrL :: (ADReady ranked r, Differentiable r) => ranked r 4
+  let arrL :: (ADReady ranked, GoodScalar r, Differentiable r) => ranked r 4
       arrL = treplicate0N [1, 2, 4, 6] (-0.2)
-      arrR :: (ADReady ranked r, Differentiable r) => ranked r 4
+      arrR :: (ADReady ranked, GoodScalar r, Differentiable r) => ranked r 4
       arrR = treplicate0N [1, 2, 4, 6] 0.3
       arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
@@ -505,9 +505,9 @@ test_disparityKonst2 = do
 
 test_disparitySmall :: Assertion
 test_disparitySmall = do
-  let arrL :: (ADReady ranked r, Differentiable r) => ranked r 4
+  let arrL :: (ADReady ranked, GoodScalar r, Differentiable r) => ranked r 4
       arrL = tfromList0N [1, 2, 3, 2] [0.2, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40]
-      arrR :: (ADReady ranked r, Differentiable r) => ranked r 4
+      arrR :: (ADReady ranked, GoodScalar r, Differentiable r) => ranked r 4
       arrR = tfromList0N [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
       arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO

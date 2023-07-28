@@ -605,14 +605,14 @@ class DomainsTensor (ranked :: RankedTensorKind)
 
 -- * The giga-constraint
 
-type ADReady ranked r = ADRanked ranked r  -- backward compatibility
+type ADReady ranked = ADRanked ranked  -- backward compatibility
 
-type ADRanked ranked r = (ADReadyR ranked r, ADReadyS (ShapedOf ranked) r)
+type ADRanked ranked = (ADReadyR ranked, ADReadyS (ShapedOf ranked))
 
-type ADShaped shaped r = (ADReadyR (RankedOf shaped) r, ADReadyS shaped r)
+type ADShaped shaped = (ADReadyR (RankedOf shaped), ADReadyS shaped)
 
-type ADReadyR ranked r =
-  ( RankedTensor ranked, GoodScalar r, RankedTensor (PrimalOf ranked)
+type ADReadyR ranked =
+  ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
   , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
   , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked
   , IfF ranked, IfF (ShapedOf ranked), IfF (PrimalOf ranked)
@@ -623,8 +623,8 @@ type ADReadyR ranked r =
   , BoolOf ranked ~ BoolOf (PrimalOf ranked)
   )
 
-type ADReadyS shaped r =
-  ( ShapedTensor shaped, GoodScalar r, ShapedTensor (PrimalOf shaped)
+type ADReadyS shaped =
+  ( ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , ShapedOf (PrimalOf shaped) ~ PrimalOf shaped
   , PrimalOf (PrimalOf shaped) ~ PrimalOf shaped
   , PrimalOf (PrimalOf (RankedOf shaped)) ~ PrimalOf (RankedOf shaped)

@@ -39,11 +39,11 @@ assertEqualUpToEpsilon1 eps expected result =
   assertEqualUpToEpsilon eps expected (runFlip result)
 
 rev' :: forall r m n v g.
-        ( KnownNat n, KnownNat m, ADReady (AstRanked PrimalSpan) r
+        ( KnownNat n, KnownNat m, ADReady (AstRanked PrimalSpan), GoodScalar r
         , InterpretAstR (Flip OR.Array)
         , InterpretAstR (ADVal (Flip OR.Array))
         , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n )
-     => (forall f. ADReady f r => f r n -> f r m)
+     => (forall f. ADReady f => f r n -> f r m)
      -> g
      -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g
         , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
@@ -75,7 +75,7 @@ rev' f vals =
         revAstOnDomainsEval (fst $ revAstOnDomainsF False g9 parameters)
                             parameters dt
       gradient9 = parseDomains vals advalGrad9
-      h :: ADReady f1 r
+      h :: ADReady f1
         => (f1 r m -> AstRanked PrimalSpan r m) -> (AstRanked PrimalSpan r n -> f1 r n)
         -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m) -> Domains (ADValClown OD.Array)
         -> ADVal (Flip OR.Array) r m
@@ -111,7 +111,7 @@ rev' f vals =
         simplifyAst6 $ simplifyAst6 $ snd  -- builds simplify with difficulty
         $ funToAstR (tshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
-      hAst :: ADReady f1 r
+      hAst :: ADReady f1
            => (f1 r m -> AstRanked PrimalSpan r m) -> (AstRanked PrimalSpan r n -> f1 r n)
            -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
            -> Domains (ADValClown (AstDynamic PrimalSpan))

@@ -119,7 +119,7 @@ testFooD =
                  $ OR.constant [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (0.7 :: Double)
                , t128 ])
 
-fooBuild0 :: forall ranked r n. (ADReady ranked r, KnownNat n)
+fooBuild0 :: forall ranked r n. (ADReady ranked, GoodScalar r, KnownNat n)
           => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild0 v =
   let r = tsum v
@@ -132,7 +132,7 @@ testFooBuild0 =
     (rev' @Double @5 fooBuild0 t16)
 
 fooBuildOut
-  :: forall ranked r n. (ADReady ranked r, KnownNat n)
+  :: forall ranked r n. (ADReady ranked, GoodScalar r, KnownNat n)
   => ranked r (1 + n) -> ranked r (1 + n)
 fooBuildOut v =
   tbuild1 2 $ \ix -> ifF (ix ==. 0)
@@ -147,7 +147,7 @@ testFooBuildOut =
 
 fooBuild2
   :: forall ranked r n.
-     (ADReady ranked r, KnownNat n, Floating (ranked r n), RealFloat r)
+     (ADReady ranked, GoodScalar r, KnownNat n, Floating (ranked r n), RealFloat r)
   => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild2 v =
   tbuild1 2 $ \ix ->
@@ -190,7 +190,7 @@ testFooBuild25 =
     (rev' @Double @5 fooBuild2 t16)
 
 fooBuild3 :: forall ranked r n.
-             ( ADReady ranked r, KnownNat n, RealFloat (ranked r n) )
+             ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
           => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild3 v =
   tbuild1 22 $ \ix ->
@@ -204,7 +204,7 @@ testFooBuild3 =
     (rev' @Double @5 fooBuild3 t16)
 
 fooBuild5 :: forall ranked r n.
-             ( ADReady ranked r, KnownNat n, RealFloat (ranked r n) )
+             ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
           => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild5 v =
   let r = tsum v
@@ -228,7 +228,7 @@ testFooBuild5 =
     (rev' @Double @7 fooBuild5 t48)
 
 fooBuild1 :: forall ranked r n.
-             ( ADReady ranked r, KnownNat n, RealFloat (ranked r n) )
+             ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
           => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild1 v =
   let r = tsum v
@@ -246,7 +246,7 @@ testFooBuild1 =
     (OR.fromList [2,2,1,2,2] [394056.00100873224,2652.651012139068,-190115.65273218407,9038.358355005721,1481231.4430045108,8665.8566966351,-686561.2828884773,975098.0370838332,405610.50900167174,247.29268093759174,-190893.00285812665,9131.411216464405,1388249.3520251075,8636.104329095837,-692176.9903632513,1027508.6863491047])
     (rev' @Double @5 fooBuild1 t16)
 
-fooMap1 :: (ADReady ranked r, KnownNat n, Differentiable r)
+fooMap1 :: (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
         => ShapeInt (1 + n) -> ranked r 0 -> ranked r (1 + n)
 fooMap1 sh r =
   let v = fooBuild1 $ treplicate0N sh (r * r)
@@ -267,7 +267,7 @@ testFooMap1 =
     (rev' @Double @7 (fooMap1 [4, 3, 2, 3, 4, 5, 3]) 0.1)
 
 fooNoGo :: forall ranked r n.
-           ( ADReady ranked r, KnownNat n, Differentiable r )
+           ( ADReady ranked, GoodScalar r, KnownNat n, Differentiable r )
         => ranked r (1 + n) -> ranked r (1 + n)
 fooNoGo v =
   let r = tsum v
@@ -296,7 +296,7 @@ testFooNoGo10 =
    (rev' @Double @8 (tmap0N (* 0.000000001) . fooNoGo) (tmap0N (* 0.01) $ treplicate 5 t48))
 
 nestedBuildMap :: forall ranked n r.
-                  (ADReady ranked r, n <= 6, KnownNat n, Differentiable r)
+                  (ADReady ranked, GoodScalar r, n <= 6, KnownNat n, Differentiable r)
                => ranked r 0 -> ranked r (1 + n)
 nestedBuildMap r =
   let w x = treplicate0N [4] x :: ranked r 1
@@ -343,7 +343,8 @@ testNestedBuildMap7 =
 -- The n <= 4 is necessary despite what GHC claims. Applying @(2 + n)
 -- to nestedBuildMap doesn't help.
 nestedSumBuild
-  :: forall ranked n r. (ADReady ranked r, n <= 4, KnownNat n, Differentiable r)
+  :: forall ranked n r.
+     (ADReady ranked, GoodScalar r, n <= 4, KnownNat n, Differentiable r)
   => ranked r n -> ranked r (2 + n)
 nestedSumBuild v =
   tbuild1 13 $ \ix1 -> tbuild1 4 $ \ix2 ->
@@ -366,7 +367,7 @@ testNestedSumBuild5 =
     (OR.fromList [1,2,2] [3.5330436757054903e-3,3.5330436757054903e-3,3.5330436757054903e-3,3.5330436757054903e-3])
     (rev' @Double @5 nestedSumBuild (tsum $ tsum t16))
 
-nestedSumBuildB :: forall ranked n r. (ADReady ranked r, KnownNat n)
+nestedSumBuildB :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n)
                 => ranked r (1 + n) -> ranked r 3
 nestedSumBuildB v =
   tbuild @ranked @r @2 [13, 4, 2] $ \case
@@ -390,7 +391,8 @@ testNestedSumBuildB =
     (OR.fromList [2,3,2,2,2] [30.0,30.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,35.0,35.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0])
     (rev' @Double @3 nestedSumBuildB (tsum $ tsum $ ttranspose [1, 4, 2, 0, 3] t48))
 
-nestedBuildIndex :: forall ranked r. ADReady ranked r => ranked r 5 -> ranked r 3
+nestedBuildIndex :: forall ranked r. (ADReady ranked, GoodScalar r)
+                 => ranked r 5 -> ranked r 3
 nestedBuildIndex v =
   tbuild1 2 $ \ix2 -> tindex (tbuild1 3 $ \ix3 -> tindex (tbuild1 3 $ \ix4 -> tindex v (ix4 `rem` 2:. ix2 :. 0 :. ZI)) [ix3]) (ix2 :. ZI)
 
@@ -401,7 +403,7 @@ testNestedBuildIndex =
     (rev' @Double @3 nestedBuildIndex t16)
 
 barRelu
-  :: ( ADReady ranked r, KnownNat n, Differentiable r )
+  :: ( ADReady ranked, GoodScalar r, KnownNat n, Differentiable r )
   => ranked r n -> ranked r n
 barRelu x = let t = treplicate0N (tshape x) 0.001 * x
             in relu $ bar (t, relu t)
@@ -426,7 +428,7 @@ testBarReluADVal3 =
          (Flip $ OR.mapA (* 0.001) $ runFlip t48))
 
 barRelu10xSlower
-  :: ( ADReady ranked r, KnownNat n, Differentiable r )
+  :: ( ADReady ranked, GoodScalar r, KnownNat n, Differentiable r )
   => ranked r n -> ranked r n
 barRelu10xSlower x = let t = tmap0N (* 0.001) x
                      in relu $ bar (t, relu t)
@@ -451,7 +453,7 @@ testBarReluADVal320 =
     (rev' @Double @10 barRelu10xSlower
           (Flip $ OR.mapA (* 0.001) $ runFlip t128))
 
-braidedBuilds :: forall ranked n r. (ADReady ranked r, KnownNat n, Differentiable r)
+braidedBuilds :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
               => ranked r (1 + n) -> ranked r 2
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
@@ -470,7 +472,7 @@ testBraidedBuilds1 =
     (OR.fromList [2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0])
     (rev' @Double @2 braidedBuilds t16)
 
-recycled :: (ADReady ranked r, KnownNat n)
+recycled :: (ADReady ranked, GoodScalar r, KnownNat n)
          => ranked r n -> ranked r 7
 recycled r =
   tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ ->
@@ -488,7 +490,7 @@ testRecycled1 =
     (runFlip $ tfromList0N (5 :$ 4 :$ 2 :$ ZS) [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
     (rev' @Double @7 recycled (treplicate0N [5, 4, 2] 0.0002))
 
-concatBuild :: (ADReady ranked r, KnownNat n, Differentiable r)
+concatBuild :: (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
             => ranked r (1 + n) -> ranked r (3 + n)
 concatBuild r =
   tbuild1 7 (\i ->
@@ -517,7 +519,7 @@ testConcatBuild1 =
     (OR.fromList [3,1,2,2,1,2,2] [403920.0,403920.0,403920.0,403920.0,403920.0,403920.0,403920.0,403920.0,403920.0,403920.0,403920.0,403920.0,403920.0,403920.0,403920.0,403920.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0,403647.0])
     (rev' @Double @9 concatBuild t48)
 
-concatBuild2 :: (ADReady ranked r, KnownNat n)
+concatBuild2 :: (ADReady ranked, GoodScalar r, KnownNat n)
              => ranked r (1 + n) -> ranked r (3 + n)
 concatBuild2 r =
   tbuild1 5 (\i ->
@@ -535,7 +537,7 @@ testConcatBuild22 =
     (OR.fromList [3,1,2,2,1,2,2] [16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0])
     (rev' @Double @9 concatBuild2 t48)
 
-concatBuild3 :: ADReady ranked r
+concatBuild3 :: (ADReady ranked, GoodScalar r)
              => ranked r 1 -> ranked r 2
 concatBuild3 _r =
   tbuild1 5 (\i ->
