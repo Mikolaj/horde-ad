@@ -95,7 +95,6 @@ type IsPrimal f r z = (IsPrimalPart f r z, CanRecordSharing f r z)
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
 
--- | This is an impure instance. See above.
 instance (GoodScalar r, KnownNat n) => IsPrimalPart (Flip OR.Array) r n where
   dZero = ZeroR
   dScale _ ZeroR = ZeroR
@@ -107,6 +106,7 @@ instance (GoodScalar r, KnownNat n) => IsPrimalPart (Flip OR.Array) r n where
     tconst $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
   recordSharingPrimal r l = (l, r)
 
+-- | This is an impure instance. See above.
 instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
   recordSharing d = case d of
     ZeroR -> d
@@ -115,7 +115,8 @@ instance GoodScalar r => CanRecordSharing (Flip OR.Array) r n where
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance (GoodScalar r, KnownNat n) => IsPrimalPart (AstRanked PrimalSpan) r n where
+instance (GoodScalar r, KnownNat n)
+         => IsPrimalPart (AstRanked PrimalSpan) r n where
   dZero = ZeroR
   dScale _ ZeroR = ZeroR
   dScale v u' = ScaleR v u'
@@ -153,7 +154,8 @@ instance GoodScalar r => CanRecordSharing (Flip OS.Array) r sh where
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
-instance (GoodScalar r, OS.Shape sh) => IsPrimalPart (AstShaped PrimalSpan) r sh where
+instance (GoodScalar r, OS.Shape sh) =>
+         IsPrimalPart (AstShaped PrimalSpan) r sh where
   dZero = ZeroS
   dScale _ ZeroS = ZeroS
   dScale v u' = ScaleS v u'

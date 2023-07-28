@@ -420,7 +420,8 @@ instance DualPart @() (Clown OD.Array) where
   forwardDerivative = derivativeFromDeltaD
 
 instance DualPart @() (Clown (AstDynamic PrimalSpan)) where
-  type Dual (Clown (AstDynamic PrimalSpan)) = DeltaD (AstRanked PrimalSpan) (AstShaped PrimalSpan)
+  type Dual (Clown (AstDynamic PrimalSpan)) =
+    DeltaD (AstRanked PrimalSpan) (AstShaped PrimalSpan)
   reverseDervative = gradientDtD
   forwardDerivative = derivativeFromDeltaD
 
@@ -463,7 +464,8 @@ instance DualPart @Nat (Flip OR.Array) where
   forwardDerivative = derivativeFromDeltaR
 
 instance DualPart @Nat (AstRanked PrimalSpan) where
-  type Dual (AstRanked PrimalSpan) = DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan)
+  type Dual (AstRanked PrimalSpan) =
+    DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan)
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
@@ -486,7 +488,8 @@ gradientDtR dims value mdt deltaTopLevel =
      , Domains (DynamicOf (Flip OR.Array)) ) #-}
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
-  => Int -> AstRanked PrimalSpan Double y -> Maybe (AstRanked PrimalSpan Double y)
+  => Int -> AstRanked PrimalSpan Double y
+  -> Maybe (AstRanked PrimalSpan Double y)
   -> DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double y
   -> ( [(AstId, DynamicExists (DynamicOf (AstRanked PrimalSpan)))]
      , Domains (DynamicOf (AstRanked PrimalSpan)) ) #-}
@@ -512,7 +515,8 @@ instance DualPart @[Nat] (Flip OS.Array) where
   forwardDerivative = derivativeFromDeltaS
 
 instance DualPart @[Nat] (AstShaped PrimalSpan) where
-  type Dual (AstShaped PrimalSpan) = DeltaS (AstRanked PrimalSpan) (AstShaped PrimalSpan)
+  type Dual (AstShaped PrimalSpan) =
+    DeltaS (AstRanked PrimalSpan) (AstShaped PrimalSpan)
   reverseDervative dims _ = gradientDtS dims
   forwardDerivative = derivativeFromDeltaS
 
@@ -542,8 +546,8 @@ gradientDtS dims mdt deltaTopLevel =
 
 derivativeFromDeltaS
   :: forall ranked shaped r sh.
-       ( OS.Shape sh, GoodScalar r
-       , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
+     ( OS.Shape sh, GoodScalar r
+     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> DeltaS ranked shaped r sh -> Domains (DynamicOf shaped)
   -> shaped r sh
 derivativeFromDeltaS dim deltaTopLevel ds =
@@ -746,6 +750,7 @@ buildFinMaps s0 deltaDt =
         Dot0S v vd -> evalS s (v * sreplicate0N c) vd
           -- too slow: evalS s (smap0N (* (sscalar c)) v) vd
         ScatterS d f -> evalS s (sgather c f) d
+
         FromListS ld ->
           ifoldl' (\s2 i d2 ->
             evalS s2 (cShared !$ (fromIntegral i :$: ZSH)) d2) sShared ld
@@ -893,6 +898,7 @@ buildFinMaps s0 deltaDt =
         Dot0R v vd -> evalR s (v * treplicate0N (tshape v) c) vd
                      -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
         ScatterR _sh d f shd -> evalR s (tgather shd c f) d
+
         FromListR ld ->
           ifoldl' (\s2 i d2 ->
             evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) sShared ld
@@ -1043,6 +1049,7 @@ buildDerivative dimR deltaDt params = do
         ScatterS d f ->  do
           t <- evalS d
           return $! sscatter t f
+
         FromListS lsd -> do
           l <- mapM evalS lsd
           return $! sfromList l
@@ -1127,6 +1134,7 @@ buildDerivative dimR deltaDt params = do
         ScatterR sh d f _shd ->  do
           t <- evalR d
           return $! tscatter sh t f
+
         FromListR lsd -> do
           l <- mapM evalR lsd
           return $! tfromList l

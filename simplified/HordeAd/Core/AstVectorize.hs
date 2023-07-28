@@ -139,7 +139,7 @@ build1V k (var, v00) =
       error "build1V: AstVar can't contain other free index variables"
     Ast.AstLet @_ @_ @r1 @s1 (AstVarName vvv2) u v ->
       let var2 = AstVarName vvv2
-            -- changed shape; shall we rename, too?
+            -- changed shape; TODO: shall we rename, too?
           sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                     (Ast.AstIntVar var :. ZI)
@@ -241,8 +241,9 @@ build1V k (var, v00) =
       -- Here substitution traverses @v@ term tree @length vars@ times.
       let subst (var1, DynamicExists (AstRToD u1)) =
             let sh = shapeAst u1
-                projection = Ast.AstIndex (Ast.AstVar (k :$ sh) $ AstVarName var1)
-                                          (Ast.AstIntVar var :. ZI)
+                projection =
+                  Ast.AstIndex (Ast.AstVar (k :$ sh) $ AstVarName var1)
+                               (Ast.AstIntVar var :. ZI)
             in substituteAst (SubstitutionPayloadRanked @s1 @r projection)
                              (AstVarName var1)
           subst (var1, DynamicExists (AstSToD @sh1 _)) =
@@ -250,8 +251,9 @@ build1V k (var, v00) =
             in case someNatVal $ toInteger (length ls) of
               Just (SomeNat @n2 _proxy) ->
                 let sh = listShapeToShape @n2 ls
-                    projection = Ast.AstIndex (Ast.AstVar (k :$ sh) $ AstVarName var1)
-                                              (Ast.AstIntVar var :. ZI)
+                    projection =
+                      Ast.AstIndex (Ast.AstVar (k :$ sh) $ AstVarName var1)
+                                   (Ast.AstIntVar var :. ZI)
                 in substituteAst (SubstitutionPayloadRanked @s1 @r projection)
                                  (AstVarName var1)
               Nothing -> error "build1V: impossible someNatVal error"
@@ -261,7 +263,8 @@ build1V k (var, v00) =
 
 build1VOccurenceUnknownDynamic
   :: AstSpan s
-  => Int -> (IntVarName, DynamicExists (AstDynamic s)) -> DynamicExists (AstDynamic s)
+  => Int -> (IntVarName, DynamicExists (AstDynamic s))
+  -> DynamicExists (AstDynamic s)
 build1VOccurenceUnknownDynamic k (var, d) = case d of
   DynamicExists (AstRToD u) ->
     DynamicExists $ AstRToD $ build1VOccurenceUnknown k (var, u)
@@ -278,7 +281,7 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
   Ast.AstDomains l ->
     Ast.AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
   Ast.AstDomainsLet @_ @r (AstVarName vvv2) u v ->
-    let var2 = AstVarName vvv2  -- changed shape; shall we rename, too?
+    let var2 = AstVarName vvv2  -- changed shape; TODO: shall we rename, too?
         sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                   (Ast.AstIntVar var :. ZI)
@@ -286,9 +289,10 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
                                   var2 v
     in astDomainsLet var2 (build1VOccurenceUnknownRefresh k (var, u))
                           (build1VOccurenceUnknownDomains k (var, v2))
-  Ast.AstDomainsLetS @sh2 @r (AstVarName vvv2) u v -> case someNatVal $ toInteger k of
+  Ast.AstDomainsLetS @sh2 @r
+                     (AstVarName vvv2) u v -> case someNatVal $ toInteger k of
     Just (SomeNat @k _proxy) ->
-      let var2 = AstVarName vvv2  -- changed shape; shall we rename, too?
+      let var2 = AstVarName vvv2  -- changed shape; TODO: shall we rename, too?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :$: ZSH)
           v2 = substituteAstDomains (SubstitutionPayloadShaped @s @r projection)
@@ -448,7 +452,7 @@ build1VS (var, v00) =
       error "build1VS: AstVarS can't contain free index variables"
     Ast.AstLetS @sh1 @_ @r1 @s1 (AstVarName vvv2) u v ->
       let var2 = AstVarName vvv2
-            -- changed shape; shall we rename, too?
+            -- changed shape; TODO: shall we rename, too?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                                      (Ast.AstIntVar var :$: ZSH)
           v2 = substituteAstS (SubstitutionPayloadShaped @s1 @r1 projection)
@@ -560,13 +564,15 @@ build1VS (var, v00) =
       -- Here substitution traverses @v@ term tree @length vars@ times.
       let subst (var1, DynamicExists (AstRToD u1)) =
             OS.withShapeP (shapeToList $ shapeAst u1) $ \(_ :: Proxy sh1) ->
-            let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
-                                           (Ast.AstIntVar var :$: ZSH)
+            let projection =
+                  Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
+                                (Ast.AstIntVar var :$: ZSH)
             in substituteAstS (SubstitutionPayloadShaped @s1 @r projection)
                               (AstVarName var1)
           subst (var1, DynamicExists (AstSToD @sh1 _)) =
-            let projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
-                                           (Ast.AstIntVar var :$: ZSH)
+            let projection =
+                  Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
+                                (Ast.AstIntVar var :$: ZSH)
             in substituteAstS (SubstitutionPayloadShaped @s1 @r projection)
                               (AstVarName var1)
           v2 = V.foldr subst v (V.zip vars (unwrapAstDomains l))
@@ -669,7 +675,9 @@ ellipsisString width full = let cropped = take width full
                                else take (width - 3) cropped ++ "..."
 
 mkTraceRule :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
-            => String -> AstRanked s r n -> AstRanked s r m -> Int -> AstRanked s r n -> AstRanked s r n
+            => String -> AstRanked s r n -> AstRanked s r m -> Int
+            -> AstRanked s r n
+            -> AstRanked s r n
 {-# NOINLINE mkTraceRule #-}
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -696,7 +704,8 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
     modifyIORef' traceNestingLevel pred
   return $! to
 
-mkTraceRuleS :: forall sh sh2 s r. (GoodScalar r, OS.Shape sh, OS.Shape sh2, AstSpan s)
+mkTraceRuleS :: forall sh sh2 s r.
+                (GoodScalar r, OS.Shape sh, OS.Shape sh2, AstSpan s)
              => String -> AstShaped s r sh -> AstShaped s r sh2 -> Int
              -> AstShaped s r sh -> AstShaped s r sh
 {-# NOINLINE mkTraceRuleS #-}

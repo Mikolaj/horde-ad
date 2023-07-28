@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 -- | An assortment of operations on AST of the code to be differentiated
 -- or resulting from the differentiation.
@@ -8,8 +7,7 @@ module HordeAd.Core.AstTools
   , intVarInAst, intVarInAstBool, intVarInIndex
   , intVarInAstS, intVarInIndexS, varNameInAst, varNameInAstS
   , astIsSmall, astIsSmallS
-  , unwrapAstDomains, bindsToLet, bindsToLetS
-  , bindsToDomainsLet
+  , unwrapAstDomains, bindsToLet, bindsToLetS, bindsToDomainsLet
   ) where
 
 import Prelude
@@ -281,7 +279,8 @@ astIsSmallS relaxed = \case
 
 -- * Odds and ends
 
-unwrapAstDomains :: AstDomains s -> Data.Vector.Vector (DynamicExists (AstDynamic s))
+unwrapAstDomains :: AstDomains s
+                 -> Data.Vector.Vector (DynamicExists (AstDynamic s))
 unwrapAstDomains = \case
   AstDomains l -> l
   AstDomainsLet _ _ v -> unwrapAstDomains v
