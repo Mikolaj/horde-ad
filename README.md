@@ -15,6 +15,9 @@ The benchmarks at SOMEWHERE show that this library has performance highly compet
 It is hoped that the separation of AD logic from matrix and tensor manipulation (deferred to [hmatrix] and [orthotope], respectively) will enable similar speedups on numerical accelerators.
 
 
+# WIP: Everything below is outdated and will be replaces soon using a new API
+
+
 ## Computing the derivative of a simple function
 
 Here is an example of a Haskell function to be differentiated:
@@ -77,7 +80,7 @@ TODO: show how the 2x3 Jacobian emerges from here
 -->
 
 
-# Forall shapes and sizes
+## Forall shapes and sizes
 
 An additional feature of this library is a type system for tensor shape arithmetic. The following code is a part of convolutional neural network definition, for which horde-ad computes the gradient of a shape determined by the shape of input data and initial parameters. The compiler is able to infer a lot of tensor shapes, deriving them both from dynamic dimension arguments (the first two lines of parameters to the function) and from static type-level hints. Look at this beauty.
 ```hs
@@ -199,7 +202,7 @@ Prefer assertions instead of comments, unless too verbose.
 Copyright
 ---------
 
-Copyright 2022 Mikolaj Konarski and others (see git history)
+Copyright 2023 Mikolaj Konarski and others (see git history)
 
 License: BSD-3-Clause (see file LICENSE)
 
