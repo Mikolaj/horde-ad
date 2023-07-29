@@ -1,4 +1,3 @@
-{-# LANGUAGE ImpredicativeTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
 module TestMnistCNNR
@@ -40,7 +39,8 @@ testTrees = [ tensorADValMnistTestsCNNA
             , tensorMnistTestsPP
             ]
 
--- POPL differentiation, straight via the ADVal instance of Tensor
+-- POPL differentiation, straight via the ADVal instance of RankedTensor,
+-- which side-steps vectorization.
 mnistTestCaseCNNA
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
@@ -140,7 +140,8 @@ tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
                        (1.0 :: Float)
   ]
 
--- POPL differentiation, Ast term defined only once but differentiated each time
+-- POPL differentiation, with Ast term defined and vectorized only once,
+-- but differentiated anew in each gradient descent iteration.
 mnistTestCaseCNNI
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
@@ -194,8 +195,10 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistCnnRanked2.convMnistLossFusedR
-                   miniBatchSize (tprimalPart @(AstRanked PrimalSpan) astGlyph, tprimalPart @(AstRanked PrimalSpan) astLabel)
-                                 (parseDomains @(AstDynamic PrimalSpan) valsInit doms)
+                   miniBatchSize
+                     ( tprimalPart @(AstRanked PrimalSpan) astGlyph
+                     , tprimalPart @(AstRanked PrimalSpan) astLabel )
+                     (parseDomains @(AstDynamic PrimalSpan) valsInit doms)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
@@ -255,6 +258,8 @@ tensorADValMnistTestsCNNI = testGroup "CNN Intermediate MNIST tests"
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
+-- and the result interpreted with different inputs in each gradient
+-- descent iteration.
 mnistTestCaseCNNO
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
@@ -403,7 +408,8 @@ testCNNOPP = do
                          (Flip OS.Array) 4 4  -- see sizeMnistWidthI, etc.
                          1 1 1 1 Double)
                      0.4 (mkStdGen 44)
-      afcnn2T :: MnistCnnRanked2.ADCnnMnistParameters (AstRanked FullSpan) Double
+      afcnn2T :: MnistCnnRanked2.ADCnnMnistParameters (AstRanked FullSpan)
+                                                      Double
               -> AstRanked FullSpan Double 2
       afcnn2T = MnistCnnRanked2.convMnistTwoR sizeMnistHeightI sizeMnistWidthI
                                               batch_size blackGlyph

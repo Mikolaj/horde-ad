@@ -1,4 +1,3 @@
-{-# LANGUAGE ImpredicativeTypes #-}
 module TestMnistFCNNR
   ( testTrees
   ) where
@@ -48,7 +47,8 @@ testTrees = [ tensorADValMnistTests
 
 -- * Using vectors, which is rank 1
 
--- POPL differentiation, straight via the ADVal instance of Tensor
+-- POPL differentiation, straight via the ADVal instance of RankedTensor,
+-- which side-steps vectorization.
 mnistTestCase2VTA
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r
@@ -145,7 +145,8 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
                       (1 :: Float)
   ]
 
--- POPL differentiation, Ast term defined only once but differentiated each time
+-- POPL differentiation, with Ast term defined and vectorized only once,
+-- but differentiated anew in each gradient descent iteration.
 mnistTestCase2VTI
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r
@@ -260,6 +261,8 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
+-- and the result interpreted with different inputs in each gradient
+-- descent iteration.
 mnistTestCase2VTO
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r
@@ -314,7 +317,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                      $ extendEnvR varLabel (tconstant astLabel)
                      EM.empty
            f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
-                 widthHidden widthHidden2 (tconstant astGlyph, tconstant astLabel)
+                 widthHidden widthHidden2
+                 (tconstant astGlyph, tconstant astLabel)
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit False f valsInit envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
@@ -382,7 +386,8 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
 
 -- * Using matrices, which is rank 2
 
--- POPL differentiation, straight via the ADVal instance of Tensor
+-- POPL differentiation, straight via the ADVal instance of RankedTensor,
+-- which side-steps vectorization.
 mnistTestCase2VT2A
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
@@ -472,7 +477,8 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
                        (1 :: Float)
   ]
 
--- POPL differentiation, Ast term defined only once but differentiated each time
+-- POPL differentiation, with Ast term defined and vectorized only once,
+-- but differentiated anew in each gradient descent iteration.
 mnistTestCase2VT2I
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
@@ -521,7 +527,8 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistLabelInt) id
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
-                   (astGlyph, astLabel) (parseDomains @(AstDynamic PrimalSpan) valsInit doms)
+                   (astGlyph, astLabel) (parseDomains @(AstDynamic PrimalSpan)
+                   valsInit doms)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
@@ -561,6 +568,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        res <- runEpoch 1 domainsInit
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
+
 {-# SPECIALIZE mnistTestCase2VT2I
   :: String
   -> Int -> Int -> Int -> Int -> Double -> Int -> Double
@@ -579,6 +587,8 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
+-- and the result interpreted with different inputs in each gradient
+-- descent iteration.
 mnistTestCase2VT2O
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
@@ -719,7 +729,8 @@ testVTOPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked FullSpan) Double
+      afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked FullSpan)
+                                                         Double
               -> AstRanked FullSpan Double 1
       afcnn2T = MnistFcnnRanked1.afcnnMnist1 id id 3 4 blackGlyph
       (artifact6, _) = revDtFun True afcnn2T valsInitVTOPP
@@ -737,7 +748,8 @@ testVTOPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked FullSpan) Double
+      afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters
+                         (AstRanked FullSpan) Double
                     -> AstRanked FullSpan Double 1
       afcnn2TnonLin =
         MnistFcnnRanked1.afcnnMnist1 logistic softMax1 3 4 blackGlyph
@@ -765,7 +777,8 @@ testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked FullSpan) Double
+      afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters
+                   (AstRanked FullSpan) Double
               -> AstRanked FullSpan Double 1
       afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id blackGlyph
       (artifact6, _) = revDtFun True afcnn2T valsInitVT2OPP
@@ -783,7 +796,8 @@ testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked FullSpan) Float
+      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
+                         (AstRanked FullSpan) Float
                     -> AstRanked FullSpan Float 1
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
@@ -804,7 +818,8 @@ testVT2OPPNonLin2 = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate sizeMnistGlyphInt 7
-      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters (AstRanked FullSpan) Double
+      afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
+                         (AstRanked FullSpan) Double
                     -> AstRanked FullSpan Double 1
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
   let (artifact6nonLin, _) = revDtFun True afcnn2TnonLin valsInitVT2OPP

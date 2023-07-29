@@ -1,4 +1,3 @@
-{-# LANGUAGE ImpredicativeTypes #-}
 module TestMnistRNNR
   ( testTrees
   ) where
@@ -38,7 +37,8 @@ testTrees = [ tensorADValMnistTestsRNNA
             , tensorMnistTestsPP
             ]
 
--- POPL differentiation, straight via the ADVal instance of RankedTensor
+-- POPL differentiation, straight via the ADVal instance of RankedTensor,
+-- which side-steps vectorization.
 mnistTestCaseRNNA
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
@@ -132,7 +132,8 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
                        (1.0 :: Float)
   ]
 
--- POPL differentiation, Ast term defined only once but differentiated each time
+-- POPL differentiation, with Ast term defined and vectorized only once,
+-- but differentiated anew in each gradient descent iteration.
 mnistTestCaseRNNI
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
@@ -180,8 +181,10 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistRnnRanked2.rnnMnistLossFusedR
-                   miniBatchSize (tprimalPart @(AstRanked PrimalSpan) astGlyph, tprimalPart @(AstRanked PrimalSpan) astLabel)
-                                 (parseDomains @(AstDynamic PrimalSpan) valsInit doms)
+                   miniBatchSize
+                     ( tprimalPart @(AstRanked PrimalSpan) astGlyph
+                     , tprimalPart @(AstRanked PrimalSpan) astLabel )
+                     (parseDomains @(AstDynamic PrimalSpan) valsInit doms)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
@@ -241,6 +244,8 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
+-- and the result interpreted with different inputs in each gradient
+-- descent iteration.
 mnistTestCaseRNNO
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
@@ -400,7 +405,8 @@ testRNNOPP = do
       blackGlyph = AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
-      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked FullSpan) Double
+      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked FullSpan)
+                                                      Double
               -> AstRanked FullSpan Double 2
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
       (artifact6, _) = revDtFun True afcnn2T (valsInitRNNOPP 1 sizeMnistHeightI)
@@ -424,7 +430,8 @@ testRNNOPP2 = do
       blackGlyph = AstReplicate sizeMnistWidthI
                    $ AstReplicate sizeMnistHeightI
                    $ AstReplicate batch_size 7
-      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked FullSpan) Double
+      afcnn2T :: MnistRnnRanked2.ADRnnMnistParameters (AstRanked FullSpan)
+                                                      Double
               -> AstRanked FullSpan Double 2
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
       (artifact6, _) = revDtFun True afcnn2T (valsInitRNNOPP 2 sizeMnistHeightI)

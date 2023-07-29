@@ -37,7 +37,8 @@ testTrees = [ tensorADValMnistTestsRNNSA
             , tensorADValMnistTestsRNNSO
             ]
 
--- POPL differentiation, straight via the ADVal instance of Tensor
+-- POPL differentiation, straight via the ADVal instance of RankedTensor,
+-- which side-steps vectorization.
 mnistTestCaseRNNSA
   :: forall shaped width batch_size r.
      ( shaped ~ Flip OS.Array, Differentiable r, GoodScalar r, Random r
@@ -138,7 +139,8 @@ tensorADValMnistTestsRNNSA = testGroup "RNNS ADVal MNIST tests"
                        (1.0 :: Float)
   ]
 
--- POPL differentiation, Ast term defined only once but differentiated each time
+-- POPL differentiation, with Ast term defined and vectorized only once,
+-- but differentiated anew in each gradient descent iteration.
 mnistTestCaseRNNSI
   :: forall shaped width batch_size r.
      ( shaped ~ Flip OS.Array, Differentiable r, GoodScalar r, Random r
@@ -147,8 +149,7 @@ mnistTestCaseRNNSI
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
 mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
-                   totalBatchSize
-                   expected =
+                   totalBatchSize expected =
   let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
                     shaped SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
@@ -187,8 +188,10 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
          funToAstIOS {-@'[batch_size, SizeMnistLabel]-} id
        let ast :: AstShaped PrimalSpan r '[]
            ast = MnistRnnShaped2.rnnMnistLossFusedS
-                   width batch_size (sprimalPart @(AstShaped PrimalSpan) astGlyph, sprimalPart @(AstShaped PrimalSpan) astLabel)
-                                    (parseDomains @(AstDynamic PrimalSpan) valsInit doms)
+                   width batch_size
+                   ( sprimalPart @(AstShaped PrimalSpan) astGlyph
+                   , sprimalPart @(AstShaped PrimalSpan) astLabel )
+                   (parseDomains @(AstDynamic PrimalSpan) valsInit doms)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataS r])
                     -> IO (DomainsOD, StateAdam)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
@@ -255,6 +258,8 @@ tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
+-- and the result interpreted with different inputs in each gradient
+-- descent iteration.
 mnistTestCaseRNNSO
   :: forall shaped width batch_size r.
      ( shaped ~ Flip OS.Array, Differentiable r, GoodScalar r, Random r
