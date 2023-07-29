@@ -231,148 +231,6 @@ library exampleLibrary
     -- Directories containing source files.
     hs-source-dirs:   example
 
-library testCommonLibrary
-    -- Import common warning flags.
-    import:           options
-
-    -- Modules exported by the library.
-    exposed-modules:  EqEpsilon
-                      Prop
-                      Shared
-                      TestConditionalSynth
-                      TestDescentSimple
-                      TestGradientSimple
-                      TestMnistFCNNSimple
-                      TestMnistRNNSimple
-
-  if flag(use_typelits_plugins) {
-    exposed-modules:  OldMnistCnnShaped
-                      OldMnistFcnnShaped
-                      OldMnistRnnShaped
-                      TestDescent
-                      TestGradient
-                      TestMnistCNN
-                      TestMnistFCNN
-                      TestMnistRNN
-  }
-
-    -- Other library packages from which modules are imported.
-    build-depends:
-      , horde-ad:exampleLibrary
-      , horde-ad
-
-      , base
-      , bifunctors
-      , deepseq
-      , hmatrix
-      , ilist
-      , orthotope
-      , random
-      , storable-tuple
-      , strict-containers
-      , tasty >= 1.0
-      , tasty-hunit
-      , tasty-quickcheck
-      , time
-      , vector
-
-  if flag(use_typelits_plugins) {
-    build-depends:
-        ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-  }
-
-    -- Directories containing source files.
-    hs-source-dirs:   test/common test/tool
-
--- These tests don't require any dataset, so can be enabled in Hackage package.
--- This is fully contained in shortTestForCI, so CI doesn't need to run it
--- separately.
-test-suite minimalTest
-    import:           options, exe-options-test
-
-    -- The interface type and version of the test suite.
-    type:             exitcode-stdio-1.0
-
-    -- Directories containing source files.
-    hs-source-dirs:   test
-
-    -- The entrypoint to the test suite.
-    main-is:          MinimalTest.hs
-
-    -- Test dependencies.
-    build-depends:
-      , horde-ad:testCommonLibrary
-
-      , base
-      , tasty >= 1.0
-
-  if flag(use_typelits_plugins) {
-    build-depends:
-        ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-  }
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-test-suite shortTestForCI
-    import:           options, exe-options-test
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-
-    main-is:          ShortTestForCI.hs
-
-    build-depends:
-      , horde-ad:testCommonLibrary
-
-      , base
-      , tasty >= 1.0
-
-  if flag(use_typelits_plugins) {
-    build-depends:
-        ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-  }
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-test-suite extremelyLongTest
-    import:           options, exe-options-test
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    -- The interface type and version of the test suite.
-    type:             exitcode-stdio-1.0
-
-    -- Directories containing source files.
-    hs-source-dirs:   test
-
-    -- The entrypoint to the test suite.
-    main-is:          ExtremelyLongTest.hs
-
-    -- Test dependencies.
-    build-depends:
-      , horde-ad:testCommonLibrary
-
-      , base
-      , tasty >= 1.0
-
-  if flag(use_typelits_plugins) {
-    build-depends:
-        ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-  }
-
 library benchCommonLibrary
     import:           options
 
@@ -628,22 +486,12 @@ library testToolLibrarySimplified
 
     hs-source-dirs:   test/tool
 
-test-suite simplifiedOnlyTest
-    import:           options, exe-options-test
+library testCommonLibrary
+    import:           options
 
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
+    hs-source-dirs:   test/simplified
 
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-                      test/simplified
-
-    main-is:          SimplifiedOnlyTest.hs
-
-    other-modules:    TestAdaptorSimplified
+    exposed-modules:  TestAdaptorSimplified
                       TestConvSimplified
                       TestGatherSimplified
                       TestHighRankSimplified
@@ -652,6 +500,7 @@ test-suite simplifiedOnlyTest
                       TestMnistRNNR
                       TestMnistRNNS
 
+    -- Other library packages from which modules are imported.
     build-depends:
       , horde-ad:horde-ad-simplified
       , horde-ad:exampleLibrarySimplified
@@ -671,3 +520,49 @@ test-suite simplifiedOnlyTest
       , tasty >= 1.0
       , tasty-hunit
       , vector
+
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
+test-suite simplifiedOnlyTest
+    import:           options, exe-options-test
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    type:             exitcode-stdio-1.0
+
+    hs-source-dirs:   test
+
+    main-is:          SimplifiedOnlyTest.hs
+
+    build-depends:
+      , horde-ad:testCommonLibrary
+      , horde-ad:testToolLibrarySimplified
+
+      , base
+      , tasty >= 1.0
+
+-- These tests don't require any dataset, so can be enabled in Hackage package.
+-- This is fully contained in other tests, so CI doesn't need to run it
+-- separately.
+test-suite minimalTest
+    import:           options, exe-options-test
+
+    -- The interface type and version of the test suite.
+    type:             exitcode-stdio-1.0
+
+    -- Directories containing source files.
+    hs-source-dirs:   test
+
+    -- The entrypoint to the test suite.
+    main-is:          MinimalTest.hs
+
+    -- Test dependencies.
+    build-depends:
+      , horde-ad:testCommonLibrary
+      , horde-ad:testToolLibrarySimplified
+
+      , base
+      , tasty >= 1.0

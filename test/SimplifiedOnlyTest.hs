@@ -26,8 +26,8 @@ main = do
   opts <- parseOptions (ingredients : defaultIngredients) tests
   setEpsilonEq (lookupOption opts :: EqEpsilon)
   defaultMainWithIngredients (ingredients : defaultIngredients) tests
-  where
-    ingredients = includingOptions [Option (Proxy :: Proxy EqEpsilon)]
+ where
+  ingredients = includingOptions [Option (Proxy :: Proxy EqEpsilon)]
 
 tests :: TestTree
 tests =
