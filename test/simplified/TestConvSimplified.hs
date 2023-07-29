@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, ImpredicativeTypes, OverloadedLists #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TestConvSimplified (testTrees) where
 
@@ -398,7 +398,7 @@ testKonstNotBigCLaborious128cb =
     (rev' @Double @4 conv2dCLaborious128c t128b)
 
 
--- * A failed version (tests had to be removed)
+-- * A failed version (all tests had to be removed)
 
 -- That's due to the conditional not being lazy and the indexing
 -- (and gather) crashing when out of bounds. Either of these needs to be
