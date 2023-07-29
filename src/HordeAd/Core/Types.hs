@@ -1,12 +1,19 @@
 {-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
 -- | Some fundamental kinds, type families and types.
 module HordeAd.Core.Types
-  ( TensorKind, RankedTensorKind, ShapedTensorKind
+  ( -- * Kinds of the functors that determine the structure of a tensor type
+    TensorKind, RankedTensorKind, ShapedTensorKind
+    -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
+    -- * Type definitions for dynamic tensors and tensor collections
   , DynamicExists(..), Domains, DomainsOD, sizeDomainsOD
+    -- * Type families that tensors will belong to
   , RankedOf, ShapedOf, DynamicOf, PrimalOf, DualOf, DummyDual(..)
+    -- * Generic types of indexes used in tensor operations
   , IntOf, IndexOf, IntSh, IndexSh
+    -- * Generic types of booleans used in tensor operations
   , SimpleBoolOf, Boolean(..)
+    -- * Definitions to help express and manipulate type-level natural numbers
   , SNat(..), withSNat, sNatValue, proxyFromSNat
   ) where
 
@@ -29,6 +36,8 @@ import HordeAd.Internal.TensorFFI
 import HordeAd.Util.ShapedList (ShapedList, ShapedNat)
 import HordeAd.Util.SizedIndex
 
+-- * Kinds of the functors that determine the structure of a tensor type
+
 type TensorKind k = Type -> k -> Type
 
 type RankedTensorKind = TensorKind Nat
@@ -38,6 +47,9 @@ type ShapedTensorKind = TensorKind [Nat]
 type GoodScalarConstraint r =
   ( Show r, Ord r, Numeric r, Num r, Num (Vector r), RowSum r, Typeable r
   , IfDifferentiable r )
+
+
+-- * Some fundamental constraints
 
 -- Attempted optimization via storing one pointer to a class dictionary
 -- in existential datatypes instead of six pointers. No effect, strangely.
@@ -70,6 +82,9 @@ instance IfDifferentiable Double where
 instance IfDifferentiable Float where
   ifDifferentiable ra _ = ra
 
+
+-- * Type definitions for dynamic tensors and tensor collections
+
 data DynamicExists :: (Type -> Type) -> Type where
   DynamicExists :: forall r dynamic. GoodScalar r
                 => dynamic r -> DynamicExists dynamic
@@ -91,6 +106,9 @@ sizeDomainsOD :: DomainsOD -> Int
 sizeDomainsOD d = let f (DynamicExists t) = OD.size t
                   in V.sum (V.map f d)
 
+
+-- * Type families that tensors will belong to
+
 -- k is intended to be Nat or [Nat] (or nothing, if we support scalars)
 type family RankedOf (f :: TensorKind k) :: RankedTensorKind
 
@@ -103,6 +121,9 @@ type family PrimalOf (f :: TensorKind k) :: TensorKind k
 type family DualOf (f :: TensorKind k) :: TensorKind k
 
 data DummyDual a (b :: k) = DummyDual
+
+
+-- * Generic types of integer indexes used in tensor operations
 
 -- This is used only in indexing and similar contexts.
 -- If used as size or shape gives more expressiveness,
@@ -130,7 +151,13 @@ type IntSh (f :: TensorKind k) (n :: Nat) = ShapedNat n (IntOf f)
 -- and up to evaluation.
 type IndexSh (f :: TensorKind k) (sh :: [Nat]) = ShapedList sh (IntOf f)
 
+
+-- * Generic types of booleans used in tensor operations
+
 type family SimpleBoolOf (t :: k) :: Type
+
+
+-- * Definitions to help express and manipulate type-level natural numbers
 
 -- TODO: Use SNat from base once we use GHC >= 9.6 exclusively.
 -- | Sizes of tensor dimensions, of batches, etc., packed for passing

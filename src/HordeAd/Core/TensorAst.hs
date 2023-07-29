@@ -3,8 +3,10 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
--- | 'Tensor' class instances for 'Ast' terms. Some of these instances
--- vectorize any terms starting with 'build1' and so eliminated the constructor.
+-- | Tensor class instances for AST terms. Most of these instances
+-- vectorize any terms starting with the build constructor.
+-- The AST term instances can be used as building blocks for 'ADVal'
+-- instances defined in "TensorADVal" but may also be used standalone.
 module HordeAd.Core.TensorAst
   (
   ) where
@@ -23,12 +25,12 @@ import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.AstVectorize
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
 
 -- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation
 

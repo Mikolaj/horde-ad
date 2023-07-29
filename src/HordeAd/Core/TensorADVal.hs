@@ -2,8 +2,11 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
--- | 'Tensor' class instances for dual number. The dual numbers are built
--- either from concrete floats or from 'Ast' term.
+-- | Tensor class instances for dual numbers. Most of the definitions
+-- are generic over whether the dual numbers are built from concrete arrays
+-- of floats or from AST terms. However, since we are not using
+-- a middle layer such as "DualClass", separate instances are given
+-- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
   ( ADValClown
   ) where
@@ -38,7 +41,7 @@ import           HordeAd.Util.ShapedList (ShapedList (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 
--- * Assorted instances for any functor argument
+-- * Assorted instances
 
 type instance SimpleBoolOf (ADVal f) = SimpleBoolOf f
 
@@ -70,7 +73,8 @@ type instance DualOf (ADVal f) = Product (Clown (Const ADShare)) (Dual f)
 instance IfF (ADVal (Flip OR.Array)) where
   ifF (_, b) v w = if b then v else w
 
--- This requires the Tensor instance, hence the definitions must in this module.
+-- This requires the RankedTensor instance for ADVal, hence it must be
+-- in this module.
 instance IfF (ADVal (AstRanked PrimalSpan)) where
   ifF (l1, b) v w =
     let D l2 u u' = index (fromList [v, w])

@@ -6,10 +6,14 @@
 {-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
 -- | A class containing array operations, with some extra algebraic operations
 -- and dual numbers operations added in. This is a part of the high-level
--- API of the horde-ad library.
+-- API of the horde-ad library and it's relatively orthogonal to the
+-- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
-  ( ShapeInt, ShapeSh
-  , ShapedTensor(..), RankedTensor(..), ConvertTensor(..), DomainsTensor(..)
+  ( -- * Re-exports
+    ShapeInt, ShapeSh
+    -- * The tensor classes
+  , RankedTensor(..), ShapedTensor(..), ConvertTensor(..), DomainsTensor(..)
+    -- * The related constraints
   , ADReady, ADReadyR, ADReadyS, ADReadyBoth, CRanked, CShaped
   ) where
 
@@ -40,12 +44,12 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
+import           HordeAd.Core.Types
+import           HordeAd.Internal.TensorOps
 import           HordeAd.Util.ShapedList
   (ShapeSh, ShapedList (..), consShaped, shapedNat, unShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
-import           HordeAd.Internal.TensorOps
-import           HordeAd.Core.Types
 
 -- * Ranked tensor class definition
 
