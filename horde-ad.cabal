@@ -124,59 +124,54 @@ common exe-options-test
     -- Beware, -with-rtsopts is not cumulative!
     ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0 -N"
 
-library
-    -- Import common warning flags.
+library horde-ad-simplified
     import:           options
 
-    -- Modules exported by the library.
     exposed-modules:  HordeAd
+                      HordeAd.Core.Ast
+                      HordeAd.Core.AstFreshId
+                      HordeAd.Core.AstInline
+                      HordeAd.Core.AstInterpret
+                      HordeAd.Core.AstPrettyPrint
+                      HordeAd.Core.AstSimplify
+                      HordeAd.Core.AstTools
+                      HordeAd.Core.AstVectorize
+                      HordeAd.Core.Delta
+                      HordeAd.Core.Adaptor
                       HordeAd.Core.DualClass
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
-                      HordeAd.Core.PairOfVectors
+                      HordeAd.Core.ShapedList
+                      HordeAd.Core.SizedIndex
+                      HordeAd.Core.SizedList
+                      HordeAd.Core.TensorADVal
+                      HordeAd.Core.TensorAst
+                      HordeAd.Core.TensorClass
+                      HordeAd.Core.TensorOps
+                      HordeAd.Core.Types
+                      HordeAd.External.CommonRankedOps
+                      HordeAd.External.CommonShapedOps
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
-                      HordeAd.Internal.Delta
-                      HordeAd.Internal.MatrixOuter
                       HordeAd.Internal.OrthotopeOrphanInstances
-                      HordeAd.Internal.TensorOps
 
-  if flag(use_typelits_plugins) {
-    exposed-modules:  HordeAd.External.Adaptor
-  }
-
-    -- Modules included in this library but not exported.
-    -- other-modules:
-
-    -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
-
-    -- Other library packages from which modules are imported.
     build-depends:
         assert-failure
-      , base >= 4.16 && < 99
+      , base >= 4.14 && < 99
       , bifunctors
-      , deepseq
+      , Boolean
       , enummapset
+      , ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
       , hmatrix
       , ilist
-      , mono-traversable
       , orthotope >= 0.1.4.0
-      , pretty-show
-      , primitive
       , random
       , strict-containers
       , unboxed-ref
       , vector
 
-  if flag(use_typelits_plugins) {
-    build-depends:
-        ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-  }
-
-    -- Directories containing source files.
-    hs-source-dirs:   src src/common
+    hs-source-dirs:   simplified
 
     C-sources:        src/cbits/matrix_reduce.c
     cc-options:         -O4 -Wall -std=c99
@@ -191,46 +186,6 @@ library
         if arch(x86_64)
             cc-options: -fPIC
 
-library exampleLibrary
-    -- Import common warning flags.
-    import:           options
-
-    -- Modules exported by the library.
-    exposed-modules:  Disparity
-                      MnistData
-                      MnistFcnnMatrix
-                      MnistFcnnScalar
-                      MnistFcnnVector
-                      OldMnistFcnnVector
-
-  if flag(use_typelits_plugins) {
-    exposed-modules:  MnistCnnShaped
-                      MnistFcnnShaped
-                      MnistRnnShaped
-  }
-
-    build-depends:
-      , horde-ad
-
-      , base
-      , bytestring
-      , hmatrix
-      , mnist-idx
-      , orthotope
-      , random
-      , strict-containers
-      , vector
-      , zlib
-
-  if flag(use_typelits_plugins) {
-    build-depends:
-        ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-  }
-
-    -- Directories containing source files.
-    hs-source-dirs:   example
-
 library benchCommonLibrary
     import:           options
 
@@ -244,8 +199,8 @@ library benchCommonLibrary
 
 
     build-depends:
-      , horde-ad:exampleLibrary
-      , horde-ad
+      , horde-ad:exampleLibrarySimplified
+      , horde-ad:horde-ad-simplified
 
       , base
       , criterion
@@ -310,7 +265,7 @@ benchmark longMnistBench
     main-is:          LongMnistBench.hs
     build-depends:
       , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrary
+      , horde-ad:exampleLibrarySimplified
 
       , base
       , criterion
@@ -331,7 +286,7 @@ benchmark shortMnistForCI
     main-is:          ShortMnistForCI.hs
     build-depends:
       , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrary
+      , horde-ad:exampleLibrarySimplified
 
       , base
       , criterion
@@ -351,82 +306,14 @@ benchmark realisticMnistBench
     main-is:          RealisticMnistBench.hs
     build-depends:
       , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrary
+      , horde-ad:exampleLibrarySimplified
 
       , base
       , criterion
       , random
 
-
--- Not buildable in release mode, because this is educational version
--- of the code, not a part of the real library API.
-library horde-ad-simplified
-    import:           options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    exposed-modules:  HordeAd
-                      HordeAd.Core.Ast
-                      HordeAd.Core.AstFreshId
-                      HordeAd.Core.AstInline
-                      HordeAd.Core.AstInterpret
-                      HordeAd.Core.AstPrettyPrint
-                      HordeAd.Core.AstSimplify
-                      HordeAd.Core.AstTools
-                      HordeAd.Core.AstVectorize
-                      HordeAd.Core.Delta
-                      HordeAd.Core.Adaptor
-                      HordeAd.Core.DualClass
-                      HordeAd.Core.DualNumber
-                      HordeAd.Core.Engine
-                      HordeAd.Core.ShapedList
-                      HordeAd.Core.SizedIndex
-                      HordeAd.Core.SizedList
-                      HordeAd.Core.TensorADVal
-                      HordeAd.Core.TensorAst
-                      HordeAd.Core.TensorClass
-                      HordeAd.Core.TensorOps
-                      HordeAd.Core.Types
-                      HordeAd.External.CommonRankedOps
-                      HordeAd.External.CommonShapedOps
-                      HordeAd.External.Optimizer
-                      HordeAd.External.OptimizerTools
-                      HordeAd.Internal.OrthotopeOrphanInstances
-
-    build-depends:
-        assert-failure
-      , base >= 4.14 && < 99
-      , bifunctors
-      , Boolean
-      , enummapset
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-      , hmatrix
-      , ilist
-      , orthotope >= 0.1.4.0
-      , random
-      , strict-containers
-      , unboxed-ref
-      , vector
-
-    hs-source-dirs:   simplified
-
-    C-sources:        src/cbits/matrix_reduce.c
-    cc-options:         -O4 -Wall -std=c99
-
-    if arch(x86_64)
-        cc-options:     -msse2
-    if arch(i386)
-        cc-options:     -msse2
-
-    if os(linux)
-        -- cargo-culting this one:
-        if arch(x86_64)
-            cc-options: -fPIC
-
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
 library exampleLibrarySimplified
     import:           options
 
@@ -462,11 +349,6 @@ library exampleLibrarySimplified
 
 library testToolLibrarySimplified
     import:           options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
 
     exposed-modules:  CrossTesting
                       EqEpsilon
