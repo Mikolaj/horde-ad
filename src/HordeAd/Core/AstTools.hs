@@ -6,8 +6,8 @@ module HordeAd.Core.AstTools
   ( -- * Shape calculation
     shapeAst, lengthAst
     -- * Variable occurence detection
-  , intVarInAst, intVarInAstBool, intVarInIndex
-  , intVarInAstS, intVarInIndexS, varNameInAst, varNameInAstS
+  , varInAst, varInAstBool, varInIndex
+  , varInAstS, varInIndexS, varNameInAst, varNameInAstS
     -- * Determining if a term is too small to require sharing
   , astIsSmall, astIsSmallS
     -- * Odds and ends
@@ -110,136 +110,135 @@ lengthAst v1 = case shapeAst v1 of
 -- and nobody asks about occurences of variables that are bound.
 -- This keeps the occurence checking code simple, because we never need
 -- to compare variables to any variable in the bindings.
--- This code works, in fact, for any variables, not only int variables.
-intVarInAst :: forall s s2 r n. (AstSpan s, AstSpan s2)
-            => AstVarId s -> AstRanked s2 r n -> Bool
-intVarInAst var = \case
+varInAst :: forall s s2 r n. (AstSpan s, AstSpan s2)
+         => AstVarId s -> AstRanked s2 r n -> Bool
+varInAst var = \case
   AstVar _ var2 -> fromEnum var == fromEnum var2
                    && case sameAstSpan @s @s2 of
                         Just Refl -> True
-                        _ -> error "intVarInAst: wrong span"
-  AstLet _var2 u v -> intVarInAst var u || intVarInAst var v
+                        _ -> error "varInAst: wrong span"
+  AstLet _var2 u v -> varInAst var u || varInAst var v
   AstLetADShare l v | Just Refl <- sameAstSpan @s @PrimalSpan ->
-    intVarInADShare intIdInAstDynamic (astVarIdToAstId var) l
-    || intVarInAst var v
+    varInADShare intIdInAstDynamic (astVarIdToAstId var) l
+    || varInAst var v
   AstLetADShare{} -> False
   AstCond b v w ->
-    intVarInAstBool var b || intVarInAst var v || intVarInAst var w
-  AstMinIndex a -> intVarInAst var a
-  AstMaxIndex a -> intVarInAst var a
-  AstFloor a -> intVarInAst var a
+    varInAstBool var b || varInAst var v || varInAst var w
+  AstMinIndex a -> varInAst var a
+  AstMaxIndex a -> varInAst var a
+  AstFloor a -> varInAst var a
   AstIota -> False
-  AstNm _ l -> any (intVarInAst var) l
-  AstOp _ l -> any (intVarInAst var) l
-  AstOpIntegral _ l -> any (intVarInAst var) l
-  AstSumOfList l -> any (intVarInAst var) l
-  AstIndex v ix -> intVarInAst var v || intVarInIndex var ix
-  AstSum v -> intVarInAst var v
-  AstScatter _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
-  AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
-  AstFromVector vl -> any (intVarInAst var) $ V.toList vl
-  AstReplicate _ v -> intVarInAst var v
-  AstAppend v u -> intVarInAst var v || intVarInAst var u
-  AstSlice _ _ v -> intVarInAst var v
-  AstReverse v -> intVarInAst var v
-  AstTranspose _ v -> intVarInAst var v
-  AstReshape _ v -> intVarInAst var v
-  AstBuild1 _ (_var2, v) -> intVarInAst var v
-  AstGather _ v (_vars, ix) -> intVarInIndex var ix || intVarInAst var v
-  AstCast t -> intVarInAst var t
-  AstFromIntegral t -> intVarInAst var t
+  AstNm _ l -> any (varInAst var) l
+  AstOp _ l -> any (varInAst var) l
+  AstOpIntegral _ l -> any (varInAst var) l
+  AstSumOfList l -> any (varInAst var) l
+  AstIndex v ix -> varInAst var v || varInIndex var ix
+  AstSum v -> varInAst var v
+  AstScatter _ v (_vars, ix) -> varInIndex var ix || varInAst var v
+  AstFromList l -> any (varInAst var) l  -- down from rank 1 to 0
+  AstFromVector vl -> any (varInAst var) $ V.toList vl
+  AstReplicate _ v -> varInAst var v
+  AstAppend v u -> varInAst var v || varInAst var u
+  AstSlice _ _ v -> varInAst var v
+  AstReverse v -> varInAst var v
+  AstTranspose _ v -> varInAst var v
+  AstReshape _ v -> varInAst var v
+  AstBuild1 _ (_var2, v) -> varInAst var v
+  AstGather _ v (_vars, ix) -> varInIndex var ix || varInAst var v
+  AstCast t -> varInAst var t
+  AstFromIntegral t -> varInAst var t
   AstConst{} -> False
-  AstSToR v -> intVarInAstS var v
-  AstConstant v -> intVarInAst var v
-  AstPrimalPart a -> intVarInAst var a
-  AstDualPart a -> intVarInAst var a
-  AstD u u' -> intVarInAst var u || intVarInAst var u'
-  AstLetDomains _vars l v -> intVarInAstDomains var l || intVarInAst var v
+  AstSToR v -> varInAstS var v
+  AstConstant v -> varInAst var v
+  AstPrimalPart a -> varInAst var a
+  AstDualPart a -> varInAst var a
+  AstD u u' -> varInAst var u || varInAst var u'
+  AstLetDomains _vars l v -> varInAstDomains var l || varInAst var v
 
-intVarInAstDomains :: (AstSpan s, AstSpan s2)
-                   => AstVarId s -> AstDomains s2 -> Bool
-intVarInAstDomains var = \case
-  AstDomains l -> let f (DynamicExists d) = intVarInAstDynamic var d
+varInAstDomains :: (AstSpan s, AstSpan s2)
+                => AstVarId s -> AstDomains s2 -> Bool
+varInAstDomains var = \case
+  AstDomains l -> let f (DynamicExists d) = varInAstDynamic var d
                   in any f l
-  AstDomainsLet _var2 u v -> intVarInAst var u || intVarInAstDomains var v
-  AstDomainsLetS _var2 u v -> intVarInAstS var u || intVarInAstDomains var v
+  AstDomainsLet _var2 u v -> varInAst var u || varInAstDomains var v
+  AstDomainsLetS _var2 u v -> varInAstS var u || varInAstDomains var v
 
-intVarInAstDynamic :: (AstSpan s, AstSpan s2)
+varInAstDynamic :: (AstSpan s, AstSpan s2)
                    => AstVarId s -> AstDynamic s2 r -> Bool
-intVarInAstDynamic var = \case
-  AstRToD t -> intVarInAst var t
-  AstSToD t -> intVarInAstS var t
+varInAstDynamic var = \case
+  AstRToD t -> varInAst var t
+  AstSToD t -> varInAstS var t
 
 intIdInAstDynamic :: AstSpan s => AstId -> AstDynamic s r -> Bool
 intIdInAstDynamic var = \case
-  AstRToD t -> intVarInAst (astIdToAstVarId @PrimalSpan var) t
-  AstSToD t -> intVarInAstS (astIdToAstVarId @PrimalSpan var) t
+  AstRToD t -> varInAst (astIdToAstVarId @PrimalSpan var) t
+  AstSToD t -> varInAstS (astIdToAstVarId @PrimalSpan var) t
 
-intVarInAstBool :: AstSpan s => AstVarId s -> AstBool -> Bool
-intVarInAstBool var = \case
-  AstBoolOp _ l -> any (intVarInAstBool var) l
+varInAstBool :: AstSpan s => AstVarId s -> AstBool -> Bool
+varInAstBool var = \case
+  AstBoolOp _ l -> any (varInAstBool var) l
   AstBoolConst{} -> False
-  AstRel _ l -> any (intVarInAst var) l
-  AstRelS _ l -> any (intVarInAstS var) l
+  AstRel _ l -> any (varInAst var) l
+  AstRelS _ l -> any (varInAstS var) l
 
-intVarInIndex :: AstSpan s => AstVarId s -> AstIndex n -> Bool
-intVarInIndex var = any (intVarInAst var)
+varInIndex :: AstSpan s => AstVarId s -> AstIndex n -> Bool
+varInIndex var = any (varInAst var)
 
-intVarInAstS :: forall s s2 r sh. (AstSpan s, AstSpan s2)
-             => AstVarId s -> AstShaped s2 r sh -> Bool
-intVarInAstS var = \case
+varInAstS :: forall s s2 r sh. (AstSpan s, AstSpan s2)
+          => AstVarId s -> AstShaped s2 r sh -> Bool
+varInAstS var = \case
   AstVarS var2 -> fromEnum var == fromEnum var2
                   && case sameAstSpan @s @s2 of
                        Just Refl -> True
-                       _ -> error "intVarInAst: wrong span"
-  AstLetS _var2 u v -> intVarInAstS var u || intVarInAstS var v
+                       _ -> error "varInAst: wrong span"
+  AstLetS _var2 u v -> varInAstS var u || varInAstS var v
   AstLetADShareS l v | Just Refl <- sameAstSpan @s @PrimalSpan ->
-    intVarInADShare intIdInAstDynamic (astVarIdToAstId var) l
-    || intVarInAstS var v
+    varInADShare intIdInAstDynamic (astVarIdToAstId var) l
+    || varInAstS var v
   AstLetADShareS{} -> False
   AstCondS b v w ->
-    intVarInAstBool var b || intVarInAstS var v || intVarInAstS var w
-  AstMinIndexS a -> intVarInAstS var a
-  AstMaxIndexS a -> intVarInAstS var a
-  AstFloorS a -> intVarInAstS var a
+    varInAstBool var b || varInAstS var v || varInAstS var w
+  AstMinIndexS a -> varInAstS var a
+  AstMaxIndexS a -> varInAstS var a
+  AstFloorS a -> varInAstS var a
   AstIotaS -> False
-  AstNmS _ l -> any (intVarInAstS var) l
-  AstOpS _ l -> any (intVarInAstS var) l
-  AstOpIntegralS _ l -> any (intVarInAstS var) l
-  AstSumOfListS l -> any (intVarInAstS var) l
-  AstIndexS v ix -> intVarInAstS var v || intVarInIndexS var ix
-  AstSumS v -> intVarInAstS var v
-  AstScatterS v (_vars, ix) -> intVarInIndexS var ix || intVarInAstS var v
-  AstFromListS l -> any (intVarInAstS var) l  -- down from rank 1 to 0
-  AstFromVectorS vl -> any (intVarInAstS var) $ V.toList vl
-  AstReplicateS v -> intVarInAstS var v
-  AstAppendS v u -> intVarInAstS var v || intVarInAstS var u
-  AstSliceS v -> intVarInAstS var v
-  AstReverseS v -> intVarInAstS var v
-  AstTransposeS v -> intVarInAstS var v
-  AstReshapeS v -> intVarInAstS var v
-  AstBuild1S (_var2, v) -> intVarInAstS var v
-  AstGatherS v (_vars, ix) -> intVarInIndexS var ix || intVarInAstS var v
-  AstCastS t -> intVarInAstS var t
-  AstFromIntegralS a -> intVarInAstS var a
+  AstNmS _ l -> any (varInAstS var) l
+  AstOpS _ l -> any (varInAstS var) l
+  AstOpIntegralS _ l -> any (varInAstS var) l
+  AstSumOfListS l -> any (varInAstS var) l
+  AstIndexS v ix -> varInAstS var v || varInIndexS var ix
+  AstSumS v -> varInAstS var v
+  AstScatterS v (_vars, ix) -> varInIndexS var ix || varInAstS var v
+  AstFromListS l -> any (varInAstS var) l  -- down from rank 1 to 0
+  AstFromVectorS vl -> any (varInAstS var) $ V.toList vl
+  AstReplicateS v -> varInAstS var v
+  AstAppendS v u -> varInAstS var v || varInAstS var u
+  AstSliceS v -> varInAstS var v
+  AstReverseS v -> varInAstS var v
+  AstTransposeS v -> varInAstS var v
+  AstReshapeS v -> varInAstS var v
+  AstBuild1S (_var2, v) -> varInAstS var v
+  AstGatherS v (_vars, ix) -> varInIndexS var ix || varInAstS var v
+  AstCastS t -> varInAstS var t
+  AstFromIntegralS a -> varInAstS var a
   AstConstS{} -> False
-  AstRToS v -> intVarInAst var v
-  AstConstantS v -> intVarInAstS var v
-  AstPrimalPartS a -> intVarInAstS var a
-  AstDualPartS a -> intVarInAstS var a
-  AstDS u u' -> intVarInAstS var u || intVarInAstS var u'
-  AstLetDomainsS _vars l v -> intVarInAstDomains var l || intVarInAstS var v
+  AstRToS v -> varInAst var v
+  AstConstantS v -> varInAstS var v
+  AstPrimalPartS a -> varInAstS var a
+  AstDualPartS a -> varInAstS var a
+  AstDS u u' -> varInAstS var u || varInAstS var u'
+  AstLetDomainsS _vars l v -> varInAstDomains var l || varInAstS var v
 
-intVarInIndexS :: AstSpan s => AstVarId s -> AstIndexS sh -> Bool
-intVarInIndexS var = any (intVarInAst var)
+varInIndexS :: AstSpan s => AstVarId s -> AstIndexS sh -> Bool
+varInIndexS var = any (varInAst var)
 
 varNameInAst :: (AstSpan s, AstSpan s2)
              => AstVarName s (AstRanked s) r n -> AstRanked s2 r2 n2 -> Bool
-varNameInAst (AstVarName var) = intVarInAst var
+varNameInAst (AstVarName var) = varInAst var
 
 varNameInAstS :: (AstSpan s, AstSpan s2)
               => AstVarName s f r sh -> AstShaped s2 r2 sh2 -> Bool
-varNameInAstS (AstVarName var) = intVarInAstS var
+varNameInAstS (AstVarName var) = varInAstS var
 
 
 -- * Determining if a term is too small to require sharing

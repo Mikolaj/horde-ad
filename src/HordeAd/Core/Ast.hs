@@ -23,7 +23,7 @@ module HordeAd.Core.Ast
     -- * ADShare definition
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
-  , flattenADShare, assocsADShare, intVarInADShare, nullADShare
+  , flattenADShare, assocsADShare, varInADShare, nullADShare
     -- * The auxiliary AstNoVectorize and AstNoSimplify definitions, for tests
   , AstNoVectorize(..), AstNoVectorizeS(..)
   , AstNoSimplify(..), AstNoSimplifyS(..)
@@ -853,13 +853,13 @@ _lengthADShare :: Int -> ADShare -> Int
 _lengthADShare acc ADShareNil = acc
 _lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
 
-intVarInADShare :: (forall r. AstId -> AstDynamic PrimalSpan r -> Bool)
+varInADShare :: (forall r. AstId -> AstDynamic PrimalSpan r -> Bool)
                 -> AstId -> ADShare
                 -> Bool
-{-# INLINE intVarInADShare #-}
-intVarInADShare _ _ ADShareNil = False
-intVarInADShare intVarInAstDynamic var (ADShareCons _ _ d rest) =
-  intVarInAstDynamic var d || intVarInADShare intVarInAstDynamic var rest
+{-# INLINE varInADShare #-}
+varInADShare _ _ ADShareNil = False
+varInADShare varInAstDynamic var (ADShareCons _ _ d rest) =
+  varInAstDynamic var d || varInADShare varInAstDynamic var rest
     -- TODO: for good Core, probably a local recursive 'go' is needed
 
 nullADShare :: ADShare -> Bool

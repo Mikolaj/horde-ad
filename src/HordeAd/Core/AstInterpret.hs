@@ -758,8 +758,8 @@ interpretAstS env = \case
   AstIotaS -> siota
 {- TODO:
   AstNm TimesOp [v, AstLet var u (AstReshape sh (AstReplicate @m k s))]
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
-        -- The intVarInAst check is needed, because although variable
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varInAst var v) ->
+        -- The varInAst check is needed, because although variable
         -- capture is impossible, because we don't create nested lets
         -- with the same variable, we could create such nested lets
         -- if we omitted this check.
@@ -767,12 +767,12 @@ interpretAstS env = \case
           (AstLet var u (AstNm TimesOp [v, AstReshape sh
                                              (AstReplicate @m k s)]))
   AstNm TimesOp [v, AstReshape sh (AstLet var u (AstReplicate @m k s))]
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varInAst var v) ->
         interpretAst env
           (AstLet var u (AstNm TimesOp [v, AstReshape sh
                                              (AstReplicate @m k s)]))
   AstNm TimesOp [v, AstLet var u (AstReplicate @m k s)]
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (intVarInAst var v) ->
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varInAst var v) ->
         interpretAst env
           (AstLet var u (AstNm TimesOp [v, AstReplicate @m k s]))
 -}

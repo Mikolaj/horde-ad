@@ -484,7 +484,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                  _ -> error "impossible pattern needlessly required"
              _ -> False
            -> astGatherROrStepOnly stepOnly sh0 v0 (varsN, restN)
-         | intVarInIndex var ix0 ->
+         | varInIndex var ix0 ->
            astGatherCase sh0 v0 (vars0, ix0)
          | otherwise ->
            astReplicate k (astGatherROrStepOnly stepOnly sh' v0 (vars, ix0))
@@ -780,7 +780,7 @@ astGatherS = Ast.AstGatherS  -- TODO
                   -- and sometimes is not possible without leaving a small
                   -- gather outside
 {-
-            | intVarInAst var i1 ->
+            | varInAst var i1 ->
                 let w :: AstRanked s r (1 + n)
                     w = astIndexR v2 rest1
                 in case gatherSimplify k var w i1 of
@@ -1017,7 +1017,7 @@ astScatter :: forall m n p s r.
            -> (AstVarList m, AstIndex p)
            -> AstRanked s r (p + n)
 astScatter _sh v (Z, ZI) = v
-astScatter sh v (AstVarName var ::: vars, ix) | not $ var `intVarInIndex` ix =
+astScatter sh v (AstVarName var ::: vars, ix) | not $ var `varInIndex` ix =
   astScatter sh (astSum v) (vars, ix)
 -- astScatter sh v (Z, ix) = update (tzero sh 0) ix v
 astScatter sh (Ast.AstConstant v) (vars, ix) =
@@ -1038,7 +1038,7 @@ astScatterS v (ZSH, ZSH) =
   gcastWith (unsafeCoerce Refl
              :: OS.Take p sh OS.++ OS.Drop p sh :~: sh)
   v
--- astScatterS v (var :$: vars, ix) | not $ var `intVarInIndexS` ix =
+-- astScatterS v (var :$: vars, ix) | not $ var `varInIndexS` ix =
 --   astScatterS (astSumS v) (vars, ix)
   -- TODO: ^^^
 -- astScatterS v (Z, ix) = update (tzero sh 0) ix v
