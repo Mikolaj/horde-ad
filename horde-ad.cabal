@@ -128,6 +128,7 @@ library horde-ad-simplified
     import:           options
 
     exposed-modules:  HordeAd
+                      HordeAd.Core.Adaptor
                       HordeAd.Core.Ast
                       HordeAd.Core.AstFreshId
                       HordeAd.Core.AstInline
@@ -137,23 +138,23 @@ library horde-ad-simplified
                       HordeAd.Core.AstTools
                       HordeAd.Core.AstVectorize
                       HordeAd.Core.Delta
-                      HordeAd.Core.Adaptor
                       HordeAd.Core.DualClass
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
-                      HordeAd.Util.ShapedList
-                      HordeAd.Util.SizedIndex
-                      HordeAd.Util.SizedList
                       HordeAd.Core.TensorADVal
                       HordeAd.Core.TensorAst
                       HordeAd.Core.TensorClass
-                      HordeAd.Internal.TensorOps
                       HordeAd.Core.Types
                       HordeAd.External.CommonRankedOps
                       HordeAd.External.CommonShapedOps
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.OrthotopeOrphanInstances
+                      HordeAd.Internal.TensorFFI
+                      HordeAd.Internal.TensorOps
+                      HordeAd.Util.ShapedList
+                      HordeAd.Util.SizedIndex
+                      HordeAd.Util.SizedList
 
     hs-source-dirs:   src
 
