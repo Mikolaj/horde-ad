@@ -79,7 +79,7 @@ import           HordeAd.Util.ShapedList (ShapedList (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
-import           HordeAd.Core.TensorOps
+import           HordeAd.Internal.TensorOps
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape, trustMeThisIsAPermutation)

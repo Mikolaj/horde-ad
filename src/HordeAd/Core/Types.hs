@@ -24,7 +24,7 @@ import           Type.Reflection (Typeable)
 
 import HordeAd.Util.ShapedList (ShapedList, ShapedNat)
 import HordeAd.Util.SizedIndex
-import HordeAd.Core.TensorOps
+import HordeAd.Internal.TensorOps
 
 type TensorKind k = Type -> k -> Type
 

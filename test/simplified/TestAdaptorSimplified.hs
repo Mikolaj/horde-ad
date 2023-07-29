@@ -27,7 +27,7 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Util.SizedIndex
 import HordeAd.Core.TensorClass
-import HordeAd.Core.TensorOps
+import HordeAd.Internal.TensorOps
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import HordeAd.External.CommonShapedOps

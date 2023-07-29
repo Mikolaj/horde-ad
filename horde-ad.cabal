@@ -147,7 +147,7 @@ library horde-ad-simplified
                       HordeAd.Core.TensorADVal
                       HordeAd.Core.TensorAst
                       HordeAd.Core.TensorClass
-                      HordeAd.Core.TensorOps
+                      HordeAd.Internal.TensorOps
                       HordeAd.Core.Types
                       HordeAd.External.CommonRankedOps
                       HordeAd.External.CommonShapedOps

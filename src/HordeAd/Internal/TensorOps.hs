@@ -2,8 +2,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Miscellaneous more or less general purpose tensor operations.
-module HordeAd.Core.TensorOps
-  ( module HordeAd.Core.TensorOps
+module HordeAd.Internal.TensorOps
+  ( module HordeAd.Internal.TensorOps
   ) where
 
 import Prelude
@@ -44,11 +44,11 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (liftVR, liftVS, sameShape)
 import           HordeAd.Util.ShapedList (ShapedList (..), ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
-import           HordeAd.Internal.OrthotopeOrphanInstances
-  (liftVR, liftVS, sameShape)
 
 -- * Odds and ends
 
