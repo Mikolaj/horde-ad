@@ -186,6 +186,41 @@ library horde-ad-simplified
         if arch(x86_64)
             cc-options: -fPIC
 
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
+library exampleLibrary
+    import:           options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    exposed-modules:  MnistData
+                      MnistCnnRanked2
+                      MnistCnnShaped2
+                      MnistFcnnRanked1
+                      MnistFcnnRanked2
+                      MnistRnnRanked2
+                      MnistRnnShaped2
+
+    build-depends:
+      , horde-ad:horde-ad-simplified
+
+      , base
+      , bifunctors
+      , bytestring
+      , ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
+      , hmatrix
+      , mnist-idx
+      , orthotope
+      , random
+      , vector
+      , zlib
+
+    hs-source-dirs:   example
+
 library benchCommonLibrary
     import:           options
 
@@ -199,7 +234,7 @@ library benchCommonLibrary
 
 
     build-depends:
-      , horde-ad:exampleLibrarySimplified
+      , horde-ad:exampleLibrary
       , horde-ad:horde-ad-simplified
 
       , base
@@ -265,7 +300,7 @@ benchmark longMnistBench
     main-is:          LongMnistBench.hs
     build-depends:
       , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrarySimplified
+      , horde-ad:exampleLibrary
 
       , base
       , criterion
@@ -286,7 +321,7 @@ benchmark shortMnistForCI
     main-is:          ShortMnistForCI.hs
     build-depends:
       , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrarySimplified
+      , horde-ad:exampleLibrary
 
       , base
       , criterion
@@ -306,48 +341,13 @@ benchmark realisticMnistBench
     main-is:          RealisticMnistBench.hs
     build-depends:
       , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrarySimplified
+      , horde-ad:exampleLibrary
 
       , base
       , criterion
       , random
 
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-library exampleLibrarySimplified
-    import:           options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    exposed-modules:  MnistData
-                      MnistCnnRanked2
-                      MnistCnnShaped2
-                      MnistFcnnRanked1
-                      MnistFcnnRanked2
-                      MnistRnnRanked2
-                      MnistRnnShaped2
-
-    build-depends:
-      , horde-ad:horde-ad-simplified
-
-      , base
-      , bifunctors
-      , bytestring
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-      , hmatrix
-      , mnist-idx
-      , orthotope
-      , random
-      , vector
-      , zlib
-
-    hs-source-dirs:   example
-
-library testToolLibrarySimplified
+library testToolLibrary
     import:           options
 
     exposed-modules:  CrossTesting
@@ -385,8 +385,8 @@ library testCommonLibrary
     -- Other library packages from which modules are imported.
     build-depends:
       , horde-ad:horde-ad-simplified
-      , horde-ad:exampleLibrarySimplified
-      , horde-ad:testToolLibrarySimplified
+      , horde-ad:exampleLibrary
+      , horde-ad:testToolLibrary
 
       , assert-failure
       , base
@@ -421,7 +421,7 @@ test-suite simplifiedOnlyTest
 
     build-depends:
       , horde-ad:testCommonLibrary
-      , horde-ad:testToolLibrarySimplified
+      , horde-ad:testToolLibrary
 
       , base
       , tasty >= 1.0
@@ -443,7 +443,7 @@ test-suite minimalTest
     -- Test dependencies.
     build-depends:
       , horde-ad:testCommonLibrary
-      , horde-ad:testToolLibrarySimplified
+      , horde-ad:testToolLibrary
 
       , base
       , tasty >= 1.0
