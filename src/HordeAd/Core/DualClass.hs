@@ -36,7 +36,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.Delta
-import HordeAd.Core.SizedIndex
+import HordeAd.Util.SizedIndex
 import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types

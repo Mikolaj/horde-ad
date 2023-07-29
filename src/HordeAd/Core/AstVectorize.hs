@@ -31,9 +31,9 @@ import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstPrettyPrint
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
-import           HordeAd.Core.ShapedList (ShapedList (..))
-import           HordeAd.Core.SizedIndex
-import           HordeAd.Core.SizedList
+import           HordeAd.Util.ShapedList (ShapedList (..))
+import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (trustMeThisIsAPermutation)

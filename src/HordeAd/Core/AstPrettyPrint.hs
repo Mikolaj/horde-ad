@@ -28,9 +28,9 @@ import           GHC.TypeLits (KnownNat, Nat)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
-import qualified HordeAd.Core.ShapedList as ShapedList
-import           HordeAd.Core.SizedIndex
-import           HordeAd.Core.SizedList
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 import           HordeAd.Core.Types
 
 -- * Pretty-printing

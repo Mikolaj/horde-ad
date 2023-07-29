@@ -24,8 +24,8 @@ import           HordeAd.Core.Ast hiding
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
-import qualified HordeAd.Core.ShapedList as ShapedList
-import           HordeAd.Core.SizedIndex
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
 import           HordeAd.Core.Types
 
 -- * Inlining and simplification pass to be applied after unlet

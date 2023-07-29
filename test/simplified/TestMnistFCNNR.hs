@@ -30,7 +30,7 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
-import HordeAd.Core.SizedIndex
+import HordeAd.Util.SizedIndex
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types

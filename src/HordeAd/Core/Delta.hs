@@ -75,9 +75,9 @@ import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Ast
-import           HordeAd.Core.ShapedList (ShapedList (..))
-import qualified HordeAd.Core.ShapedList as ShapedList
-import           HordeAd.Core.SizedIndex
+import           HordeAd.Util.ShapedList (ShapedList (..))
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
 import           HordeAd.Core.TensorAst ()
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types

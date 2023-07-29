@@ -23,8 +23,8 @@ import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.AstVectorize
-import qualified HordeAd.Core.ShapedList as ShapedList
-import           HordeAd.Core.SizedIndex
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances

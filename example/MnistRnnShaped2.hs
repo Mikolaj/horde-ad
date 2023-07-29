@@ -16,7 +16,7 @@ import           GHC.TypeLits (KnownNat, type (*))
 import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
-import HordeAd.Core.ShapedList (ShapedList (..))
+import HordeAd.Util.ShapedList (ShapedList (..))
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)

@@ -30,9 +30,9 @@ import           HordeAd.Core.Ast
 import           HordeAd.Core.Delta
 import           HordeAd.Core.DualClass
 import           HordeAd.Core.DualNumber
-import           HordeAd.Core.ShapedList (ShapedList (..))
-import qualified HordeAd.Core.ShapedList as ShapedList
-import           HordeAd.Core.SizedIndex
+import           HordeAd.Util.ShapedList (ShapedList (..))
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances

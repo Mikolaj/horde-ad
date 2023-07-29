@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Sized indexes and shapes for tensors.
-module HordeAd.Core.SizedIndex
+module HordeAd.Util.SizedIndex
   ( -- * Concrete type synonyms to be used in many other modules
     ShapeInt, Permutation
     -- * Tensor indexes as fully encapsulated sized lists, with operations
@@ -31,7 +31,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 
-import HordeAd.Core.SizedList
+import HordeAd.Util.SizedList
 
 -- * Concrete type synonyms to be used in many other modules
 

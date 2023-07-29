@@ -22,8 +22,8 @@ import           GHC.TypeLits (KnownNat, Nat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Type.Reflection (Typeable)
 
-import HordeAd.Core.ShapedList (ShapedList, ShapedNat)
-import HordeAd.Core.SizedIndex
+import HordeAd.Util.ShapedList (ShapedList, ShapedNat)
+import HordeAd.Util.SizedIndex
 import HordeAd.Core.TensorOps
 
 type TensorKind k = Type -> k -> Type

@@ -19,7 +19,7 @@ import HordeAd.Core.AstInline
 import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.SizedIndex
+import HordeAd.Util.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps

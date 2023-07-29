@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | @GHC.Nat@-indexed lists.
-module HordeAd.Core.SizedList
+module HordeAd.Util.SizedList
   ( SizedList(..)
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized

@@ -40,10 +40,10 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
-import           HordeAd.Core.ShapedList
+import           HordeAd.Util.ShapedList
   (ShapeSh, ShapedList (..), consShaped, shapedNat, unShapedNat)
-import qualified HordeAd.Core.ShapedList as ShapedList
-import           HordeAd.Core.SizedIndex
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
 import           HordeAd.Core.TensorOps
 import           HordeAd.Core.Types
 

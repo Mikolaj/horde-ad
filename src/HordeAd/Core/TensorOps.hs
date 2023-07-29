@@ -44,9 +44,9 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           HordeAd.Core.ShapedList (ShapedList (..), ShapedNat)
-import qualified HordeAd.Core.ShapedList as ShapedList
-import           HordeAd.Core.SizedIndex
+import           HordeAd.Util.ShapedList (ShapedList (..), ShapedNat)
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (liftVR, liftVS, sameShape)
 

@@ -75,10 +75,10 @@ import           HordeAd.Core.Ast hiding
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstTools
-import           HordeAd.Core.ShapedList (ShapedList (..))
-import qualified HordeAd.Core.ShapedList as ShapedList
-import           HordeAd.Core.SizedIndex
-import           HordeAd.Core.SizedList
+import           HordeAd.Util.ShapedList (ShapedList (..))
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 import           HordeAd.Core.TensorOps
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances

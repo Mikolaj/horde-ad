@@ -13,7 +13,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Engine
-import HordeAd.Core.SizedIndex
+import HordeAd.Util.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorOps
 import HordeAd.Core.Types

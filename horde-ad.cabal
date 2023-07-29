@@ -141,9 +141,9 @@ library horde-ad-simplified
                       HordeAd.Core.DualClass
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
-                      HordeAd.Core.ShapedList
-                      HordeAd.Core.SizedIndex
-                      HordeAd.Core.SizedList
+                      HordeAd.Util.ShapedList
+                      HordeAd.Util.SizedIndex
+                      HordeAd.Util.SizedList
                       HordeAd.Core.TensorADVal
                       HordeAd.Core.TensorAst
                       HordeAd.Core.TensorClass

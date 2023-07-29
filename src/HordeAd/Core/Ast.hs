@@ -42,9 +42,9 @@ import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
-import HordeAd.Core.ShapedList (ShapedList (..))
-import HordeAd.Core.SizedIndex
-import HordeAd.Core.SizedList
+import HordeAd.Util.ShapedList (ShapedList (..))
+import HordeAd.Util.SizedIndex
+import HordeAd.Util.SizedList
 import HordeAd.Core.Types
 
 -- * Basic types and type family instances

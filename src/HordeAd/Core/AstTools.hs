@@ -25,7 +25,7 @@ import           GHC.TypeLits
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.SizedIndex
+import HordeAd.Util.SizedIndex
 import HordeAd.Core.Types
 
 -- * Shape calculation

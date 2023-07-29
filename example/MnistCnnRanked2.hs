@@ -11,7 +11,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (type (*), type (+), type Div)
 import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.SizedIndex
+import HordeAd.Util.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps

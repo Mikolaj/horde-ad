@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 -- | @[Nat]@-indexed lists.
-module HordeAd.Core.ShapedList
+module HordeAd.Util.ShapedList
   ( ShapedNat, shapedNat, unShapedNat
   , ShapeSh, shapeSh
   , ShapedList(..), consShaped, unconsContShaped
@@ -29,9 +29,9 @@ import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import qualified HordeAd.Core.SizedIndex as SizedIndex
-import           HordeAd.Core.SizedList (Permutation)
-import qualified HordeAd.Core.SizedList as SizedList
+import qualified HordeAd.Util.SizedIndex as SizedIndex
+import           HordeAd.Util.SizedList (Permutation)
+import qualified HordeAd.Util.SizedList as SizedList
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The value of this type has to be positive and less than the @n@ bound.
