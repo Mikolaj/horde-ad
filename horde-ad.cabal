@@ -76,11 +76,6 @@ flag test_seq
   default:            False
   manual:             True
 
-flag use_typelits_plugins
-  description:        use typelits plugins, without which a lot of functionality needs to be disabled
-  default:            True
-  manual:             False
-
 common options
   default-language:   GHC2021
   default-extensions: StrictData, GADTs, TypeFamilies,
