@@ -155,6 +155,8 @@ library horde-ad-simplified
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.OrthotopeOrphanInstances
 
+    hs-source-dirs:   simplified
+
     build-depends:
         assert-failure
       , base >= 4.14 && < 99
@@ -170,8 +172,6 @@ library horde-ad-simplified
       , strict-containers
       , unboxed-ref
       , vector
-
-    hs-source-dirs:   simplified
 
     C-sources:        src/cbits/matrix_reduce.c
     cc-options:         -O4 -Wall -std=c99
@@ -197,6 +197,8 @@ library exampleLibrary
                       MnistRnnRanked2
                       MnistRnnShaped2
 
+    hs-source-dirs:   example
+
     build-depends:
       , horde-ad:horde-ad-simplified
 
@@ -212,8 +214,6 @@ library exampleLibrary
       , vector
       , zlib
 
-    hs-source-dirs:   example
-
 library benchCommonLibrary
     import:           options
 
@@ -225,6 +225,7 @@ library benchCommonLibrary
     exposed-modules:  BenchMnistTools
                       BenchProdTools
 
+    hs-source-dirs:   bench/common
 
     build-depends:
       , horde-ad:exampleLibrary
@@ -238,8 +239,6 @@ library benchCommonLibrary
       , random
       , vector
 
-    hs-source-dirs:   bench/common
-
 benchmark longProdBench
     import:           options, exe-options
 
@@ -249,8 +248,11 @@ benchmark longProdBench
       buildable: True
 
     type:             exitcode-stdio-1.0
+
     hs-source-dirs:   bench
+
     main-is:          LongProdBench.hs
+
     build-depends:
       , horde-ad:benchCommonLibrary
 
@@ -268,8 +270,11 @@ benchmark shortProdForCI
       buildable: True
 
     type:             exitcode-stdio-1.0
+
     hs-source-dirs:   bench
+
     main-is:          ShortProdForCI.hs
+
     build-depends:
       , horde-ad:benchCommonLibrary
 
@@ -289,8 +294,11 @@ benchmark longMnistBench
       buildable: True
 
     type:             exitcode-stdio-1.0
+
     hs-source-dirs:   bench
+
     main-is:          LongMnistBench.hs
+
     build-depends:
       , horde-ad:benchCommonLibrary
       , horde-ad:exampleLibrary
@@ -310,8 +318,11 @@ benchmark shortMnistForCI
       buildable: True
 
     type:             exitcode-stdio-1.0
+
     hs-source-dirs:   bench
+
     main-is:          ShortMnistForCI.hs
+
     build-depends:
       , horde-ad:benchCommonLibrary
       , horde-ad:exampleLibrary
@@ -330,8 +341,11 @@ benchmark realisticMnistBench
       buildable: True
 
     type:             exitcode-stdio-1.0
+
     hs-source-dirs:   bench
+
     main-is:          RealisticMnistBench.hs
+
     build-depends:
       , horde-ad:benchCommonLibrary
       , horde-ad:exampleLibrary
@@ -347,6 +361,8 @@ library testToolLibrary
                       EqEpsilon
                       Shared
 
+    hs-source-dirs:   test/tool
+
     build-depends:
       , horde-ad:horde-ad-simplified
 
@@ -359,12 +375,8 @@ library testToolLibrary
       , tasty-hunit
       , vector
 
-    hs-source-dirs:   test/tool
-
 library testCommonLibrary
     import:           options
-
-    hs-source-dirs:   test/simplified
 
     exposed-modules:  TestAdaptorSimplified
                       TestConvSimplified
@@ -374,6 +386,8 @@ library testCommonLibrary
                       TestMnistFCNNR
                       TestMnistRNNR
                       TestMnistRNNS
+
+    hs-source-dirs:   test/simplified
 
     -- Other library packages from which modules are imported.
     build-depends:
@@ -424,16 +438,12 @@ test-suite simplifiedOnlyTest
 test-suite minimalTest
     import:           options, exe-options-test
 
-    -- The interface type and version of the test suite.
     type:             exitcode-stdio-1.0
 
-    -- Directories containing source files.
     hs-source-dirs:   test
 
-    -- The entrypoint to the test suite.
     main-is:          MinimalTest.hs
 
-    -- Test dependencies.
     build-depends:
       , horde-ad:testCommonLibrary
       , horde-ad:testToolLibrary
