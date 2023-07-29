@@ -544,9 +544,8 @@ test-suite simplifiedOnlyTest
       , base
       , tasty >= 1.0
 
--- These tests don't require any dataset, so can be enabled in Hackage package.
--- This is fully contained in other tests, so CI doesn't need to run it
--- separately.
+-- These tests don't require any dataset, so can be enabled in the Hackage
+-- package.
 test-suite minimalTest
     import:           options, exe-options-test
 
