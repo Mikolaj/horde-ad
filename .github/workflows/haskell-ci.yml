@@ -184,7 +184,7 @@ jobs:
           $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH all --write-ghc-environment-files=always
       - name: minimalTest
         run: |
-          $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH minimalTest --test-options='-p "! /Simp/"'
+          $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH minimalTest --test-options='-p "! /PP/"'
       - name: tests
         run: |
           ln -s $GITHUB_WORKSPACE/source/samplesData ${PKGDIR_horde_ad}

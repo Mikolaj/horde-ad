@@ -58,7 +58,7 @@ testTrees =
   , testCase "3barReluADValDt" testBarReluADValDt
   , testCase "3barReluADVal" testBarReluADVal
   , testCase "3barReluADVal3" testBarReluADVal3
-  , testCase "3reluSimp" testReluSimp
+  , testCase "3reluSimpPP" testReluSimpPP
   , testCase "3barReluADVal320" testBarReluADVal320
   , testCase "3braidedBuilds" testBraidedBuilds
   , testCase "3braidedBuilds1" testBraidedBuilds1
@@ -433,8 +433,8 @@ barRelu10xSlower
 barRelu10xSlower x = let t = tmap0N (* 0.001) x
                      in relu $ bar (t, relu t)
 
-testReluSimp :: Assertion
-testReluSimp = do
+testReluSimpPP :: Assertion
+testReluSimpPP = do
   resetVarCounter
   let !t1 = barRelu10xSlower @(AstRanked PrimalSpan)
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (AstVarName . intToAstVarId $ 100000000)

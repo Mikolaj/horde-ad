@@ -15,7 +15,7 @@ The benchmarks at SOMEWHERE show that this library has performance highly compet
 It is hoped that the separation of AD logic from matrix and tensor manipulation (deferred to [hmatrix] and [orthotope], respectively) will enable similar speedups on numerical accelerators.
 
 
-# WIP: Everything below is outdated and will be replaces soon using a new API
+# WIP: The examples below are outdated and will be replaces soon using a new API
 
 
 ## Computing the derivative of a simple function
@@ -156,28 +156,31 @@ as well, e.g., package zlib needs C library zlib1g-dev.
 
 For development, copying the included `cabal.project.local.development`
 to `cabal.project.local` provides a sensible default to run `cabal build` with.
-Then a command like
+For extensive testing, a command like
 
-    cabal test minimalTest --enable-optimization --test-options='-p "Simple QuickCheck of gradient vs derivative vs perturbation"'
+    cabal test minimalTest --enable-optimization -f test_seq
 
 ensures that the code is compiled with optimization and so executes the rather
-computation-intensive testsuite in reasonable time.
+computation-intensive testsuites in reasonable time.
 
 
 Running tests
 -------------
 
-The test suite is run in parallel mode by default:
+The test suite can run in parallel but, if so, the PP tests need to be disabled:
 
-    cabal test shortTestForCI --enable-optimization
+    cabal test simplifiedOnlyTest --enable-optimization --test-options='-p "! /PP/"'
 
-However, this may cause extra printf messages from within the tests to be out of order. To keep your screen tidy, simply redirect `stderr`, e.g.: `2>/dev/null`:
+Parallel run may cause the extra printf messages coming from within the tests
+to be out of order. To keep your screen tidy, simply redirect `stderr`,
+e.g. via: `2>/dev/null`:
 
-    cabal test shortTestForCI --enable-optimization 2>/dev/null
+    cabal test simplifiedOnlyTest --enable-optimization --test-options='-p "! /PP/"' 2>/dev/null
 
-You can also run the test suite sequentially:
+You can also run the test suite sequentially and then all tests can be included
+and the extra printf messages are displayed fine most of the time:
 
-    cabal test shortTestForCI --enable-optimization -f test_seq
+    cabal test simplifiedOnlyTest --enable-optimization -f test_seq
 
 
 Coding style

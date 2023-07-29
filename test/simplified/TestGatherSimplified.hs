@@ -26,41 +26,41 @@ testTrees =
   , testCase "gatherNestedBuild1" testGatherNestedBuild1
   , testCase "gather1" testGather1
   , testCase "gatherBuild1" testGatherBuild1
-  , testCase "gatherSimp1" testGatherSimp1
+  , testCase "gatherSimpPP1" testGatherSimpPP1
   , testCase "gatherNested2" testGatherNested2
   , testCase "gatherNestedBuild2" testGatherNestedBuild2
   , testCase "gather2" testGather2
   , testCase "gatherBuild2" testGatherBuild2
-  , testCase "gatherSimp2" testGatherSimp2
+  , testCase "gatherSimpPP2" testGatherSimpPP2
   , testCase "gatherNested12" testGatherNested12
   , testCase "gatherNestedBuild12" testGatherNestedBuild12
   , testCase "gather12" testGather12
   , testCase "gatherBuild12" testGatherBuild12
-  , testCase "gatherSimp12" testGatherSimp12
+  , testCase "gatherSimpPP12" testGatherSimpPP12
   , testCase "gatherReshape22" testGatherReshape22
   , testCase "gatherReshapeBuild22" testGatherReshapeBuild22
-  , testCase "gatherSimp22" testGatherSimp22
-  , testCase "gatherSimp23" testGatherSimp23
+  , testCase "gatherSimpPP22" testGatherSimpPP22
+  , testCase "gatherSimpPP23" testGatherSimpPP23
   , testCase "gatherTranspose33" testGatherTranspose33
   , testCase "gatherTransposeBuild33" testGatherTransposeBuild33
-  , testCase "gatherSimp33" testGatherSimp33
-  , testCase "gatherSimp34" testGatherSimp34
+  , testCase "gatherSimpPP33" testGatherSimpPP33
+  , testCase "gatherSimpPP34" testGatherSimpPP34
 
   , testCase "scatterNested1" testScatterNested1
   , testCase "scatterNestedBuild1" testScatterNestedBuild1
   , testCase "scatter1" testScatter1
   , testCase "scatterBuild1" testScatterBuild1
-  , testCase "scatterSimp1" testScatterSimp1
+  , testCase "scatterSimpPP1" testScatterSimpPP1
   , testCase "scatterNested2" testScatterNested2
   , testCase "scatterNestedBuild2" testScatterNestedBuild2
   , testCase "scatter2" testScatter2
   , testCase "scatterBuild2" testScatterBuild2
-  , testCase "scatterSimp2" testScatterSimp2
+  , testCase "scatterSimpPP2" testScatterSimpPP2
   , testCase "scatterNested12" testScatterNested12
   , testCase "scatterNestedBuild12" testScatterNestedBuild12
   , testCase "scatter12" testScatter12
   , testCase "scatterBuild12" testScatterBuild12
-  , testCase "scatterSimp12" testScatterSimp12
+  , testCase "scatterSimpPP12" testScatterSimpPP12
   ]
 
 gatherNested1 :: forall ranked r. (ADReady ranked, GoodScalar r)
@@ -117,8 +117,8 @@ testGatherBuild1 =
              ifF (i >. 2) (gather1 t) (t ! [i])))
           (treplicate 7 $ tfromList [0, 1]))
 
-testGatherSimp1 :: Assertion
-testGatherSimp1 = do
+testGatherSimpPP1 :: Assertion
+testGatherSimpPP1 = do
   resetVarCounter
   let !t1 = gatherNested1 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 256
@@ -182,8 +182,8 @@ testGatherBuild2 =
              gather2 (t * treplicate0N [7, 2] (tfromIndex0 i))))
           (treplicate 7 $ tfromList [0, 1]))
 
-testGatherSimp2 :: Assertion
-testGatherSimp2 = do
+testGatherSimpPP2 :: Assertion
+testGatherSimpPP2 = do
   resetVarCounter
   let !t1 = gatherNested2 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 458
@@ -249,8 +249,8 @@ testGatherBuild12 =
                           (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
           (treplicate 7 $ tfromList [0, 1]))
 
-testGatherSimp12 :: Assertion
-testGatherSimp12 = do
+testGatherSimpPP12 :: Assertion
+testGatherSimpPP12 = do
   resetVarCounter
   let !t1 = gatherNested12 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 406
@@ -287,8 +287,8 @@ testGatherReshapeBuild22 =
              gatherReshape22 (t * treplicate0N [6, 2] (tfromIndex0 i))))
           (treplicate 6 $ tfromList [0, 1]))
 
-testGatherSimp22 :: Assertion
-testGatherSimp22 = do
+testGatherSimpPP22 :: Assertion
+testGatherSimpPP22 = do
   resetVarCounter
   let !t1 = gatherReshape22 @(AstRanked PrimalSpan) $ AstVar [6, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 52
@@ -299,8 +299,8 @@ testGatherSimp22 = do
   length (show t2) @?= 52
   length (show (simplifyAst6 @Float t2)) @?= 52
 
-testGatherSimp23 :: Assertion
-testGatherSimp23 = do
+testGatherSimpPP23 :: Assertion
+testGatherSimpPP23 = do
   resetVarCounter
   let !t1 = (\t -> tbuild1 4 (\i ->
               gatherReshape22 @(AstRanked PrimalSpan)
@@ -367,8 +367,8 @@ testGatherTransposeBuild33 =
 -- because they differ only by single transpose and reshape, most probably,
 -- and all the rest of the element reordering should cancel out.
 -- Still, probably impossible to lower the gap to zero.
-testGatherSimp33 :: Assertion
-testGatherSimp33 = do
+testGatherSimpPP33 :: Assertion
+testGatherSimpPP33 = do
   resetVarCounter
   let !t1 = gatherTranspose33 @(AstRanked PrimalSpan)
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName . intToAstVarId $ 100000000)
@@ -381,8 +381,8 @@ testGatherSimp33 = do
   length (show t2) @?= 465
   length (show (simplifyAst6 @Float t2)) @?= 465
 
-testGatherSimp34 :: Assertion
-testGatherSimp34 = do
+testGatherSimpPP34 :: Assertion
+testGatherSimpPP34 = do
   resetVarCounter
   let !t1 = (\t -> tbuild1 4 (\i ->
              gatherTranspose33 @(AstRanked PrimalSpan) (t * treplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
@@ -452,8 +452,8 @@ testScatterBuild1 =
              ifF (i >. 2) (scatter1 t) (t ! [i])))
           (treplicate 7 $ tfromList [0, 1]))
 
-testScatterSimp1 :: Assertion
-testScatterSimp1 = do
+testScatterSimpPP1 :: Assertion
+testScatterSimpPP1 = do
   resetVarCounter
   let !t1 = scatterNested1 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 296
@@ -518,8 +518,8 @@ testScatterBuild2 =
              scatter2 (t * treplicate0N [7, 2] (tfromIndex0 i))))
           (treplicate 7 $ tfromList [0, 1]))
 
-testScatterSimp2 :: Assertion
-testScatterSimp2 = do
+testScatterSimpPP2 :: Assertion
+testScatterSimpPP2 = do
   resetVarCounter
   let !t1 = scatterNested2 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 1091
@@ -586,8 +586,8 @@ testScatterBuild12 =
                           (ttranspose [1, 0] $ treplicate 4 $ t ! [i]))) [1])
           (treplicate 7 $ tfromList [0, 1]))
 
-testScatterSimp12 :: Assertion
-testScatterSimp12 = do
+testScatterSimpPP12 :: Assertion
+testScatterSimpPP12 = do
   resetVarCounter
   let !t1 = scatterNested12 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 925
