@@ -20,17 +20,10 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
+import HordeAd
 import HordeAd.Core.Adaptor
-import HordeAd.Core.Ast
-import HordeAd.Core.AstFreshId
-import HordeAd.Core.AstInline
-import HordeAd.Core.AstInterpret
-import HordeAd.Core.DualNumber
-import HordeAd.Core.Engine
+import HordeAd.Core.AstFreshId (funToAstAllIOS, funToAstIOS)
 import HordeAd.Core.TensorADVal
-import HordeAd.Core.TensorClass
-import HordeAd.Core.Types
-import HordeAd.External.Optimizer
 import HordeAd.External.OptimizerTools
 
 import EqEpsilon

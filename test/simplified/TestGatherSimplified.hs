@@ -10,13 +10,8 @@ import           Data.Bifunctor.Flip
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd.Core.Ast
-import HordeAd.Core.AstFreshId
-import HordeAd.Core.AstInline
-import HordeAd.Util.SizedIndex
-import HordeAd.Core.TensorClass
-import HordeAd.Core.Types
-import HordeAd.External.CommonRankedOps
+import HordeAd
+import HordeAd.Core.AstFreshId (resetVarCounter)
 
 import CrossTesting
 

@@ -17,20 +17,9 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd.Core.Ast
-import HordeAd.Core.AstFreshId
-import HordeAd.Core.AstInline
-import HordeAd.Core.AstInterpret
-import HordeAd.Core.AstPrettyPrint
-import HordeAd.Core.DualClass
-import HordeAd.Core.DualNumber
-import HordeAd.Core.Engine
-import HordeAd.Util.SizedIndex
-import HordeAd.Core.TensorClass
-import HordeAd.Internal.TensorOps
-import HordeAd.Core.Types
-import HordeAd.External.CommonRankedOps
-import HordeAd.External.CommonShapedOps
+import HordeAd
+import HordeAd.Core.AstFreshId (funToAstR, funToAstS, resetVarCounter)
+import HordeAd.Core.DualClass (resetIdCounter)
 
 import CrossTesting
 import EqEpsilon
@@ -335,37 +324,37 @@ testOverleaf :: Assertion
 testOverleaf =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Double @1 [28] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @Double @0 overleaf (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+    (rev' @Double @0 overleaf (tfromList0N [28] (map (Flip . OR.scalar) $ [0 .. 27])))
 
 testOverleafInt64 :: Assertion
 testOverleafInt64 =
   assertEqualUpToEpsilon 1e-10
     (Flip $ OR.fromList @Int64 [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (crev @Int64 @0 overleaf (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+    (crev @Int64 @0 overleaf (tfromList0N [28] (map (Flip . OR.scalar) $ [0 .. 27])))
 
 testOverleafCInt :: Assertion
 testOverleafCInt =
   assertEqualUpToEpsilon 1e-10
     (Flip $ OR.fromList @CInt [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (rev @CInt @0 @AstRanked overleaf (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+    (rev @CInt @0 @AstRanked overleaf (tfromList0N [28] (map (Flip . OR.scalar) $ [0 .. 27])))
 
 testOverleafCIntToFloat :: Assertion
 testOverleafCIntToFloat =
   assertEqualUpToEpsilon 1e-10
     (Flip $ OR.fromList @Float @1 [28] (replicate 28 0.0))
-    (rev @Float @0 @AstRanked (tfromIntegral . overleaf @CInt . tfloor) (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+    (rev @Float @0 @AstRanked (tfromIntegral . overleaf @CInt . tfloor) (tfromList0N [28] (map (Flip . OR.scalar) $ [0 .. 27])))
 
 testOverleafInt64p :: Assertion
 testOverleafInt64p =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Int64 [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (rev' @Int64 @0 overleaf (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+    (rev' @Int64 @0 overleaf (tfromList0N [28] (map (Flip . OR.scalar) $ [0 .. 27])))
 
 testOverleafCIntp :: Assertion
 testOverleafCIntp =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @CInt [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (rev' @CInt @0 overleaf (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+    (rev' @CInt @0 overleaf (tfromList0N [28] (map (Flip . OR.scalar) $ [0 .. 27])))
 
 testOverleafCIntToFloatp :: Assertion
 testOverleafCIntToFloatp =
@@ -373,7 +362,7 @@ testOverleafCIntToFloatp =
     (OR.fromList @Float @1 [28] (replicate 28 0.0))
     (let f :: forall f. ADReady f => f Float 1 -> f Float 0
          f = tfromIntegral . overleaf @CInt . tfloor
-     in rev' @Float @0 f (tfromList0N [28] (map (Flip . tscalarR) $ [0 .. 27])))
+     in rev' @Float @0 f (tfromList0N [28] (map (Flip . OR.scalar) $ [0 .. 27])))
 
 testOverleafPP :: Assertion
 testOverleafPP = do

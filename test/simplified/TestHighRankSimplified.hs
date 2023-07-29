@@ -13,16 +13,8 @@ import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd.Core.Ast
-import HordeAd.Core.AstFreshId
-import HordeAd.Core.AstInline
-import HordeAd.Core.AstPrettyPrint
-import HordeAd.Core.DualNumber
-import HordeAd.Core.Engine
-import HordeAd.Util.SizedIndex
-import HordeAd.Core.TensorClass
-import HordeAd.Core.Types
-import HordeAd.External.CommonRankedOps
+import HordeAd
+import HordeAd.Core.AstFreshId (funToAstR, resetVarCounter)
 
 import CrossTesting
 import EqEpsilon
