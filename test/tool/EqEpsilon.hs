@@ -24,7 +24,8 @@ newtype EqEpsilon = EqEpsilon Rational
 
 instance IsOption EqEpsilon where
   defaultValue = EqEpsilon eqEpsilonDefault
-  parseValue s = fmap (EqEpsilon . toRational) ((safeRead :: String -> Maybe Double) s)
+  parseValue s = fmap (EqEpsilon . toRational)
+                      ((safeRead :: String -> Maybe Double) s)
   optionName = return "eq-epsilon"
   optionHelp = return $ "Epsilon to use for floating point comparisons: abs(a-b) <= epsilon. Default: " ++ show (fromRational eqEpsilonDefault :: Double)
 
@@ -56,7 +57,9 @@ assert_list make_assert expected actual =
   if lenE == lenA then
     go_assert_list expected actual
   else
-    assertFailure $ "List too " ++ (if lenE < lenA then "long" else "short") ++ ": expected " ++ show lenE ++ " elements, but got: " ++ show lenA
+    assertFailure $ "List too " ++ (if lenE < lenA then "long" else "short")
+                    ++ ": expected " ++ show lenE ++ " elements, but got: "
+                    ++ show lenA
   where
     lenE :: Int = length expected
     lenA :: Int = length actual
@@ -70,16 +73,19 @@ assert_list make_assert expected actual =
     go_assert_list (head_exp:tail_exp) (head_act:tail_act) =
           make_assert head_exp head_act >> go_assert_list tail_exp tail_act
 
-assert_shape :: forall a b. (HasShape a, Linearizable a b, HasCallStack)
-             => (b -> b -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
-             -> a                     -- ^ The expected value
-             -> a                     -- ^ The actual value
-             -> Assertion
+assert_shape
+  :: forall a b. (HasShape a, Linearizable a b, HasCallStack)
+  => (b -> b -> Assertion) -- ^ The function used to make an assertion
+                           -- on two elements (expected, actual)
+  -> a                     -- ^ The expected value
+  -> a                     -- ^ The actual value
+  -> Assertion
 assert_shape make_assert expected actual =
   if shapeE == shapeA then
     assert_list make_assert (linearize expected) (linearize actual)
   else
-    assertFailure $ "Expected shape: " ++ show shapeE ++ ", but got: " ++ show shapeA
+    assertFailure $ "Expected shape: " ++ show shapeE ++ ", but got: "
+                    ++ show shapeA
   where
     shapeE = shapeL expected
     shapeA = shapeL actual
@@ -88,19 +94,19 @@ assert_shape make_assert expected actual =
 -- Generic comparisons with explicit error margin
 ----------------------------------------------------------------------------
 
--- | Asserts that the specified actual floating point value is close to the expected value.
--- The output message will contain the prefix, the expected value, and the
--- actual value.
+-- | Asserts that the specified actual floating point value is close
+-- to the expected value. The output message will contain the prefix,
+-- the expected value, and the actual value.
 --
 -- If the prefix is the empty string (i.e., @\"\"@), then the prefix is omitted
 -- and only the expected and actual values are output.
 assert_close_eps :: (Real a, Show a, HasCallStack)
-                   => String -- ^ The message prefix
-                   -> String -- ^ The message suffix
-                   -> Rational  -- ^ The error margin
-                   -> a      -- ^ The expected value
-                   -> a      -- ^ The actual value
-                   -> Assertion
+                 => String -- ^ The message prefix
+                 -> String -- ^ The message suffix
+                 -> Rational  -- ^ The error margin
+                 -> a      -- ^ The expected value
+                 -> a      -- ^ The actual value
+                 -> Assertion
 assert_close_eps preface epilogue eqEpsilon expected actual = do
   assertBool (message eqEpsilon)
              (realToFrac (abs (expected - actual)) <= eqEpsilon)
@@ -121,7 +127,6 @@ assert_close_eps preface epilogue eqEpsilon expected actual = do
 ----------------------------------------------------------------------------
 
 class Show a => AssertEqualUpToEpsilon a where
-
   assertEqualUpToEpsilonWithMsg
     :: String  -- ^ message suffix
     -> Rational  -- ^ error margin (i.e., the epsilon)
@@ -197,7 +202,8 @@ instance (AssertEqualUpToEpsilon a,
           AssertEqualUpToEpsilon d,
           AssertEqualUpToEpsilon e)
          => AssertEqualUpToEpsilon (a,b,c,d,e) where
-  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5) (a1,a2,a3,a4,a5) =
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5)
+                                              (a1,a2,a3,a4,a5) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3 >>
@@ -211,7 +217,8 @@ instance (AssertEqualUpToEpsilon a,
           AssertEqualUpToEpsilon e,
           AssertEqualUpToEpsilon f)
          => AssertEqualUpToEpsilon (a,b,c,d,e,f) where
-  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6) (a1,a2,a3,a4,a5,a6) =
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6)
+                                              (a1,a2,a3,a4,a5,a6) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3 >>
@@ -227,7 +234,8 @@ instance (AssertEqualUpToEpsilon a,
           AssertEqualUpToEpsilon f,
           AssertEqualUpToEpsilon g)
          => AssertEqualUpToEpsilon (a,b,c,d,e,f,g) where
-  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7) (a1,a2,a3,a4,a5,a6,a7) =
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7)
+                                              (a1,a2,a3,a4,a5,a6,a7) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3 >>
@@ -245,7 +253,8 @@ instance (AssertEqualUpToEpsilon a,
           AssertEqualUpToEpsilon g,
           AssertEqualUpToEpsilon h)
          => AssertEqualUpToEpsilon (a,b,c,d,e,f,g,h) where
-  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8) (a1,a2,a3,a4,a5,a6,a7,a8) =
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8)
+                                              (a1,a2,a3,a4,a5,a6,a7,a8) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3 >>
@@ -265,7 +274,8 @@ instance (AssertEqualUpToEpsilon a,
           AssertEqualUpToEpsilon h,
           AssertEqualUpToEpsilon i)
          => AssertEqualUpToEpsilon (a,b,c,d,e,f,g,h,i) where
-  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8,e9) (a1,a2,a3,a4,a5,a6,a7,a8,a9) =
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8,e9)
+                                              (a1,a2,a3,a4,a5,a6,a7,a8,a9) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3 >>
@@ -287,7 +297,8 @@ instance (AssertEqualUpToEpsilon a,
           AssertEqualUpToEpsilon i,
           AssertEqualUpToEpsilon j)
          => AssertEqualUpToEpsilon (a,b,c,d,e,f,g,h,i,j) where
-  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8,e9,e10) (a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) =
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8,e9,e10)
+                                              (a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1  a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2  a2 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e3  a3 >>
@@ -323,7 +334,8 @@ instance {-# OVERLAPPABLE #-}
 -- Generic comparisons without explicit error margin
 ----------------------------------------------------------------------------
 
--- | Asserts that the specified actual floating point value is close to at least one of the expected values.
+-- | Asserts that the specified actual floating point value is close
+-- to at least one of the expected values.
 assertCloseElem :: forall a. (Real a, Fractional a, Show a, HasCallStack)
                 => String   -- ^ The message prefix
                 -> [a]      -- ^ The expected values
@@ -333,12 +345,15 @@ assertCloseElem preface expected actual = do
   eqEpsilon <- readIORef eqEpsilonRef
   go_assert eqEpsilon expected
   where
-    msg = (if null preface then "" else preface ++ "\n") ++
-           "wrong result: " ++ show actual ++ " is expected to be a member of " ++ show expected
+    msg = (if null preface then "" else preface ++ "\n")
+          ++ "wrong result: " ++ show actual
+          ++ " is expected to be a member of " ++ show expected
     go_assert :: Rational -> [a] -> Assertion
     go_assert _ [] = assertFailure msg
     go_assert eqEps (h:t) =
-      if abs (h-actual) <= fromRational eqEps then assert_close_eps msg "" (fromRational eqEps) h actual else go_assert eqEps t
+      if abs (h-actual) <= fromRational eqEps
+      then assert_close_eps msg "" (fromRational eqEps) h actual
+      else go_assert eqEps t
 
 assertClose :: (AssertEqualUpToEpsilon a, HasCallStack)
       => a -- ^ The expected value

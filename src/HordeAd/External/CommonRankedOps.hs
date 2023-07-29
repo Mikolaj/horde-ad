@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-{-# LANGUAGE ImpredicativeTypes #-}
 -- | Commonly used operations on tensors. Too large, too ad hoc or too unlikely
 -- to have specialized implementations to be included in the `Tensor` class.
 module HordeAd.External.CommonRankedOps
@@ -15,9 +14,9 @@ import GHC.TypeLits (KnownNat)
 
 import Data.Int (Int64)
 import HordeAd.Core.Ast
-import HordeAd.Util.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Util.SizedIndex
 
 tminIndexN :: ( RankedTensor ranked, KnownNat n, GoodScalar r
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )

@@ -1,4 +1,3 @@
-{-# LANGUAGE ImpredicativeTypes #-}
 module CrossTesting
   ( assertEqualUpToEpsilon1
   , rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
@@ -63,9 +62,11 @@ rev' f vals =
         :: forall r2 n2.
            (KnownNat n2, GoodScalar r2)
         => Bool
-        -> (Domains (ADValClown (AstDynamic PrimalSpan)) -> ADVal (AstRanked PrimalSpan) r2 n2)
+        -> (Domains (ADValClown (AstDynamic PrimalSpan))
+        -> ADVal (AstRanked PrimalSpan) r2 n2)
         -> DomainsOD
-        -> (ADAstArtifact6 (AstRanked PrimalSpan) r2 n2, Dual (AstRanked PrimalSpan) r2 n2)
+        -> ( ADAstArtifact6 (AstRanked PrimalSpan) r2 n2
+           , Dual (AstRanked PrimalSpan) r2 n2 )
       {-# INLINE revAstOnDomainsF #-}
       revAstOnDomainsF hasDt f2 parameters2  =
         revAstOnDomainsFun hasDt parameters2 (\varInputs _ _ -> f2 varInputs)
@@ -74,8 +75,10 @@ rev' f vals =
                             parameters dt
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady f1
-        => (f1 r m -> AstRanked PrimalSpan r m) -> (AstRanked PrimalSpan r n -> f1 r n)
-        -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m) -> Domains (ADValClown OD.Array)
+        => (f1 r m -> AstRanked PrimalSpan r m)
+        -> (AstRanked PrimalSpan r n -> f1 r n)
+        -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
+        -> Domains (ADValClown OD.Array)
         -> ADVal (Flip OR.Array) r m
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
@@ -110,7 +113,8 @@ rev' f vals =
         $ funToAstR (tshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1
-           => (f1 r m -> AstRanked PrimalSpan r m) -> (AstRanked PrimalSpan r n -> f1 r n)
+           => (f1 r m -> AstRanked PrimalSpan r m)
+           -> (AstRanked PrimalSpan r n -> f1 r n)
            -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
            -> Domains (ADValClown (AstDynamic PrimalSpan))
            -> ADVal (AstRanked PrimalSpan) r m
@@ -150,7 +154,8 @@ rev' f vals =
                             parameters dt
       gradient2AstSUnSimp = parseDomains vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
-        fst $ revAstOnDomainsF False (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
+        fst $ revAstOnDomainsF False
+                               (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
                                parameters
       (astSimpleAstUnSimp, value3AstUnSimp) =
         revAstOnDomainsEval artifactsSimpleAstUnSimp parameters dt
