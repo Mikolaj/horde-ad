@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Vectorization of @Ast@, eliminating the @build1@ operation.
+-- | Vectorization of the AST, eliminating the build operation.
 module HordeAd.Core.AstVectorize
   ( build1Vectorize, build1VectorizeS, traceRuleEnabledRef
   ) where
@@ -31,12 +31,12 @@ import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstPrettyPrint
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
-import           HordeAd.Util.ShapedList (ShapedList (..))
-import           HordeAd.Util.SizedIndex
-import           HordeAd.Util.SizedList
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (trustMeThisIsAPermutation)
+import           HordeAd.Util.ShapedList (ShapedList (..))
+import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 
 -- * Vectorization of AstRanked
 
@@ -45,6 +45,8 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 -- with the same value, but not containing the outermost @AstBuild1@
 -- constructor and not increasing (and potentially decreasing)
 -- the total number of @AstBuild1@ occuring in the term.
+-- If no @AstBuild1@ terms occur in @v@, the resulting term won't
+-- have any, either.
 build1Vectorize
   :: (KnownNat n, GoodScalar r, AstSpan s)
   => Int -> (IntVarName, AstRanked s r n) -> AstRanked s r (1 + n)
@@ -358,11 +360,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
 
 -- * Vectorization of AstShaped
 
--- | The application @build1Vectorize k (var, v)@ vectorizes
--- the term @AstBuild1 k (var, v)@, that is, rewrites it to a term
--- with the same value, but not containing the outermost @AstBuild1@
--- constructor and not increasing (and potentially decreasing)
--- the total number of @AstBuild1@ occuring in the term.
+-- | This works analogously to @build1Vectorize@m.
 build1VectorizeS
   :: forall k sh s r. (GoodScalar r, KnownNat k, OS.Shape sh, AstSpan s)
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
@@ -433,9 +431,6 @@ intBindingRefreshS var ix = unsafePerformIO $ do
               var ix
   return $! (varFresh, astVarFresh, ix2)
 
--- | The application @build1VS k (var, v)@ vectorizes
--- the term @AstBuild1S k (var, v)@, where it's known that
--- @var@ occurs in @v@.
 build1VS
   :: forall k sh s r. (GoodScalar r, KnownNat k, OS.Shape sh, AstSpan s)
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
@@ -580,27 +575,6 @@ build1VS (var, v00) =
            (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
            (build1VOccurenceUnknownRefreshS (var, v2))
 
--- | The application @build1VIndexS k (var, v, ix)@ vectorizes
--- the term @AstBuild1S k (var, AstIndexS v ix)@, where it's unknown whether
--- @var@ occurs in any of @v@, @ix@.
---
--- We try to push indexing down as far as needed to eliminate any occurences
--- of @var@ from @v@ (but not necessarily from @ix@), which is enough
--- to replace @AstBuild1S@ with @AstGatherS@ and so complete
--- the vectorization.
---
--- This pushing down is performed by alternating steps of simplification,
--- in @astIndexStepS@, that eliminated indexing from the top of a term
--- position (except two permissible normal forms) and vectorization,
--- @build1VOccurenceUnknownS@, that recursively goes down under constructors
--- until it encounter indexing again. We have to do this in lockstep
--- so that we simplify terms only as much as needed to vectorize.
---
--- If simplification can't proceed, which means that we reached one of the few
--- normal forms wrt simplification, we invoke the pure desperation rule (D)
--- which produces large tensors, which are hard to simplify even when
--- eventually proven unnecessary. The rule changes the index to a gather
--- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndexS
   :: forall k p sh s r.
      ( GoodScalar r, KnownNat k, OS.Shape sh

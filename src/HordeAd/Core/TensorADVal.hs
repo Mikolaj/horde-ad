@@ -30,13 +30,13 @@ import           HordeAd.Core.Ast
 import           HordeAd.Core.Delta
 import           HordeAd.Core.DualClass
 import           HordeAd.Core.DualNumber
-import           HordeAd.Util.ShapedList (ShapedList (..))
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
+import           HordeAd.Util.ShapedList (ShapedList (..))
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
 
 -- * Assorted instances for any functor argument
 

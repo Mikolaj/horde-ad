@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
--- | TODO: This and most of other haddocks are out of date.
+-- | TODO: This and most of other haddocks in this module are out of date.
 --
 -- The second component of our rendition of dual numbers:
 -- delta expressions, with their semantics.
@@ -40,9 +40,9 @@ module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
     DeltaS (..), DeltaR (..), DeltaD (..)
   , -- * Delta expression identifiers
-    NodeId (..), InputId, toInputId, DualPart(..)
+    NodeId (..), InputId, toInputId
   , -- * Evaluation of the delta expressions
-    DeltaDt (..)
+    DualPart(..), DeltaDt (..)
   ) where
 
 import Prelude
@@ -75,20 +75,16 @@ import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Ast
-import           HordeAd.Util.ShapedList (ShapedList (..))
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
 import           HordeAd.Core.TensorAst ()
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape, trustMeThisIsAPermutation)
+import           HordeAd.Util.ShapedList (ShapedList (..))
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
 
 -- * Abstract syntax trees of the delta expressions
-
-newtype NodeId (f :: TensorKind k) = NodeId Int
- deriving newtype (Show, Enum)
-   -- No Eq instance to limit hacks.
 
 -- | TODO: This and most of other haddocks are out of date.
 --
@@ -390,7 +386,11 @@ deriving instance ( GoodScalar r0
                   => Show (DeltaD ranked shaped r0 '())
 
 
--- * Related datatypes and classes
+-- * Delta expression identifiers
+
+newtype NodeId (f :: TensorKind k) = NodeId Int
+ deriving newtype (Show, Enum)
+   -- No Eq instance to limit hacks.
 
 newtype InputId (f :: TensorKind k) = InputId Int
  deriving (Show, Enum)
@@ -399,6 +399,9 @@ newtype InputId (f :: TensorKind k) = InputId Int
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
 toInputId :: Int -> InputId f
 toInputId i = assert (i >= 0) $ InputId i
+
+
+-- * Evaluation of the delta expressions
 
 type DualPart :: TensorKind k -> Constraint
 class DualPart (f :: TensorKind k) where
@@ -558,9 +561,6 @@ derivativeFromDeltaS dim deltaTopLevel ds =
     DeltaDtR{} -> error "derivativeFromDeltaS"
     DeltaDtD{} -> error "derivativeFromDeltaS"
 
-
--- * Reverse pass, transpose/evaluation of the delta expressions
-
 -- | The main input of the differentiation functions:
 -- the delta expression to be differentiated and the dt perturbation
 -- (small change) of the objective function codomain, for which we compute
@@ -576,6 +576,9 @@ data DeltaDt :: RankedTensorKind -> ShapedTensorKind -> Type -> Type where
               DynamicOf ranked r -> DeltaD ranked shaped r y
            -> DeltaDt ranked shaped r
 
+
+-- * Reverse pass, transpose/evaluation of the delta expressions
+
 -- | The state of evaluation. It consists of several maps.
 -- The maps indexed by input identifiers and node identifiers
 -- eventually store cotangents for their respective nodes.
@@ -585,7 +588,6 @@ data DeltaDt :: RankedTensorKind -> ShapedTensorKind -> Type -> Type where
 -- Data invariant:
 -- 1. keys nMap == keys dMap
 -- 2. key `member` dMap == nMap!key is DeltaBindingR
-
 data EvalState ranked shaped = EvalState
   { iMap        :: EM.EnumMap (InputId ranked)
                               (DynamicExists (DynamicOf ranked))
@@ -978,6 +980,7 @@ buildFinMaps s0 deltaDt =
   :: EvalState (Flip OR.Array) (Flip OS.Array) -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) #-}
 {-# SPECIALIZE buildFinMaps
   :: EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double -> EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) #-}
+
 
 -- * Forward derivative computation from the delta expressions
 

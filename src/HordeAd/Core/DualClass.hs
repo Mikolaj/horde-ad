@@ -1,23 +1,27 @@
--- | The classes generalizing delta expressions and exposing them
--- in a more polymorphic way.
+-- | The classe generalizing the most basic delta expression
+-- of the ranked and shaped kind.
 -- This is a mid-level API ("HordeAd.Core.Delta" is low level)
 -- used to define types and operations in "HordeAd.Core.DualNumber"
 -- that is the foundation of the high-level API.
+-- WIthout this module, all dual number definitions for arithmetic
+-- operations would need to be duplicated, one copy with ranked types
+-- and another with shaped types.
 --
--- This module contains impurity, which produces pure data with a particular
--- property. The property is an order of per-node integer identifiers
--- that represents data dependencies and sharing. The low-level API
+-- This module also contains and rather safely encapsulates impure side-effects.
+-- The impurity produces pure data with a particular property.
+-- The property is an order of per-node integer identifiers that represents
+-- data dependencies and sharing between delta expressions. The low-level API
 -- depends on this property, but is completely isolated from the impurity.
--- The high-level API introducess the impurity but can't observe
+-- The high-level API triggers the impurity but can't observe
 -- any impure behaviour. Neither can any other module in the package,
--- except for the testing modules that import testing-exclusive operations
--- and instances.
+-- except for the testing modules that import testing-exclusive class instances
+-- and operations for reading or reseting the impure counter.
 --
--- @Show@ is such a testing-only instance and so should be used
+-- @Show@ is such a testing-only class instance and so should be used
 -- only in debugging or testing. Similarly, instances such as @Eq@
 -- or @Read@ should not be auto-derived, but carefully crafted to respect
 -- sharing. This applies regardless of impurity, because repeated processing
--- of the same shared terms is prohibitive expensive.
+-- of the same shared terms is prohibitively expensive.
 module HordeAd.Core.DualClass
   ( IsPrimal(..)
   , unsafeGetFreshId, resetIdCounter
@@ -36,15 +40,15 @@ import           System.IO.Unsafe (unsafePerformIO)
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.Delta
-import HordeAd.Util.SizedIndex
 import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Util.SizedIndex
 
--- * Class definitions
+-- * The class and its instances
 
--- | Second argument is the primal component of a dual number at some rank
--- wrt the differentiation mode given in the first argument.
+-- | The class states that @f r z@ type is the primal component
+-- of a dual number as exeplified by the operations.
 class IsPrimal f r z where
   dZero :: Dual f r z
   dScale :: f r z -> Dual f r z -> Dual f r z
@@ -53,12 +57,9 @@ class IsPrimal f r z where
   recordSharingPrimal :: f r z -> ADShare -> (ADShare, f r z)
   recordSharing :: Dual f r z -> Dual f r z
 
-
--- * Delta expression method instances
-
--- | This is an impure instance, because 'recordSharing' adorns terms
--- with an @Int@ identifier from a counter that is afterwards incremented
--- (and never changed in any other way).
+-- | This and some others are impure instances, because 'recordSharing'
+-- adorns terms with an @Int@ identifier from a counter that is afterwards
+-- incremented (and never changed in any other way).
 --
 -- The identifiers are not part of any non-internal module API
 -- and the impure counter that gets incremented is not exposed
@@ -87,8 +88,6 @@ class IsPrimal f r z where
 -- and it could, presumably, be extended to further limit which
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
-
--- | This is an impure instance. See above.
 instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
   dZero = ZeroR
   dScale _ ZeroR = ZeroR

@@ -23,7 +23,7 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
-import HordeAd.Core.DualNumber
+import HordeAd.Core.Types
 
 type SizeMnistWidth = 28 :: Nat
 

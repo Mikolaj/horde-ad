@@ -1,14 +1,19 @@
--- | The implementation of calculating gradient and derivative
--- of an objective function expressed wtih the `Tensor` class.
+-- | The implementation of reverse derivative and derivative calculation
+-- for an objective function on values of complicated types (e.g., with
+-- tuple domains) expressed using the tensor classes.
 -- Together with "HordeAd.Core.TensorClass", this forms the basic
--- high-level API of the horde-ad library. Adaptors, optimizers, etc.,
--- are add-ons.
+-- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.Core.Engine
-  ( rev, revDt
+  ( -- * Reverse derivative adaptors
+    rev, revDt
   , Adaptable (..)
+    -- * Lower level function related to reverse derivative adaptors
   , revDtFun, revAstOnDomainsFun
+    -- * Old gradient adaptors, with constant and fixed inputs and dt
   , crev, crevDt, crevOnDomains, crevOnADInputs
+    -- * Old derivative adaptors, with constant and fixed inputs
   , cfwd, cfwdOnDomains, cfwdOnADInputs
+    -- * Additional common mechanisms
   , generateDeltaInputs, makeADInputs, shapedToRanked
   ) where
 
@@ -39,8 +44,9 @@ import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
--- * Gradient adaptors
+-- * Reverse derivative adaptors
 
+-- These work for g of Adaptable class.
 rev
   :: forall r y g vals astvals.
      ( Adaptable g, GoodScalar r, HasSingletonDict y
@@ -179,6 +185,9 @@ instance Adaptable AstShaped where
           in interpretAstS env1 ast
     in revAstOnDomainsFunS hasDt parameters0 revDtInterpret
 
+
+-- * Lower level function related to reverse derivative adaptors
+
 revDtFun
   :: forall r y g vals astvals.
      ( Adaptable g, GoodScalar r, HasSingletonDict y
@@ -253,7 +262,7 @@ revAstOnDomainsFunS hasDt parameters0 f =
      , deltaTopLevel )
 
 
--- * Old gradient adaptors, with constant and fixed inputs and dt.
+-- * Old gradient adaptors, with constant and fixed inputs and dt
 
 -- These work for f both ranked and shaped.
 crev
@@ -326,7 +335,7 @@ crevOnADInputs mdt f inputs =
      $ (gradient, v)
 
 
--- * The old derivative adaptors
+-- * Old derivative adaptors, with constant and fixed inputs
 
 -- This takes the sensitivity parameter, by convention.
 -- It uses the same delta expressions as for gradients.
@@ -370,7 +379,7 @@ cfwdOnADInputs inputs f ds =
   in (derivative, v)
 
 
--- * Additional mechanisms
+-- * Additional common mechanisms
 
 type DualClown dynamic = Flip (Dual (Clown dynamic)) '()
 

@@ -1,6 +1,8 @@
 -- | Operations that (impurely, via a strictly increasing thread-safe counter)
 -- generate fresh variables and sometimes also produce AST terms
--- by applying functions to such variables.
+-- by applying functions to such variables. This modules encapsulates
+-- the impurity, though some functions are in IO and they are used
+-- with @unsafePerformIO@ outside, so some of it escapes.
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR

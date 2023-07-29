@@ -7,6 +7,7 @@ module HordeAd.Core.Types
   , RankedOf, ShapedOf, DynamicOf, PrimalOf, DualOf, DummyDual(..)
   , IntOf, IndexOf, IntSh, IndexSh
   , SimpleBoolOf, Boolean(..)
+  , SNat(..), withSNat, sNatValue, proxyFromSNat
   ) where
 
 import Prelude
@@ -16,9 +17,10 @@ import qualified Data.Array.Internal.Shape as OS
 import           Data.Boolean (Boolean (..))
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat)
+import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), natVal, someNatVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Type.Reflection (Typeable)
 
@@ -129,3 +131,21 @@ type IntSh (f :: TensorKind k) (n :: Nat) = ShapedNat n (IntOf f)
 type IndexSh (f :: TensorKind k) (sh :: [Nat]) = ShapedList sh (IntOf f)
 
 type family SimpleBoolOf (t :: k) :: Type
+
+-- TODO: Use SNat from base once we use GHC >= 9.6 exclusively.
+-- | Sizes of tensor dimensions, of batches, etc., packed for passing
+-- between functions as witnesses of type variable values.
+data SNat (n :: Nat) where
+  SNat :: KnownNat n => SNat n
+
+withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
+withSNat i f = case someNatVal $ toInteger $ abs i of
+  Just (SomeNat @n _) -> f (SNat @n)
+  Nothing -> error "withSNat: impossible"
+
+sNatValue :: forall n i. (KnownNat n, Num i) => SNat n -> i
+{-# INLINE sNatValue #-}
+sNatValue = fromInteger . natVal
+
+proxyFromSNat :: SNat n -> Proxy n
+proxyFromSNat SNat = Proxy

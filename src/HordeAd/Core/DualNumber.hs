@@ -3,18 +3,16 @@
 -- the mid-level API of the horde-ad library, together with
 -- the safely impure "HordeAd.Core.DualClass".
 module HordeAd.Core.DualNumber
-  ( ADVal, dD, pattern D, dDnotShared, constantADVal
-  , SNat(..), withSNat, sNatValue, proxyFromSNat
+  ( -- * The main dual number type
+    ADVal, dD, pattern D, dDnotShared, constantADVal
+    -- * Auxiliary definitions
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , IsPrimal
   ) where
 
 import Prelude
 
 import Data.Kind (Type)
-import Data.Proxy (Proxy (Proxy))
-import GHC.TypeLits (KnownNat, Nat, SomeNat (..), natVal, someNatVal)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Delta (Dual)
@@ -23,31 +21,34 @@ import HordeAd.Core.Types
 
 -- * The main dual number type
 
--- | Values the objective functions operate on. The first type argument
--- is the automatic differentiation mode and the second is the underlying
--- basic values (scalars, vectors, matrices, tensors and any other
--- supported containers of scalars).
+-- | Values that the objective functions operate on when they are being
+-- differentiated. The values are, in general, tensors.
+-- The first type argument is the functor determining the structure
+-- of the tensors (whether ranked, shaped, dynamic, storable, unboxed, etc.).
+-- The second argument is the underlying scalar type. The third
+-- is the rank or shape of the tensor value.
 --
--- Here, the datatype is implemented as dual numbers (hence @D@),
--- where the primal component, the basic value, the \"number\"
--- can be any containers of scalars. The primal component has the type
--- given as the second type argument and the dual component (with the type
--- determined by the type faimly @Dual@) is defined elsewhere.
+-- The datatype is implemented as dual numbers (hence @D@),
+-- where @ADShare@ holds the sharing information if the values are,
+-- in fact, AST terms. The @f r z@ value is the primal component,
+-- which is the normal, the basic value. The exact type of the dual component
+-- is determined by a definition of type family @Dual@ provided elsewhere.
 data ADVal (f :: TensorKind k) (r :: Type) (z :: k) =
   D ADShare (f r z) (Dual f r z)
 
 deriving instance (Show (f r z), Show (Dual f r z))
                   => Show (ADVal f r z)
 
--- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
--- information, if applicable for the differentiation mode in question.
+-- | Smart constructor for 'D' of 'ADVal' that additionally records delta
+-- expression sharing information (regardless if the basic value
+-- of the dual number is an AST term or not).
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
 dD :: IsPrimal f r z
    => ADShare -> f r z -> Dual f r z -> ADVal f r z
 dD !l !a !dual = D l a (recordSharing dual)
 
--- | This a not so smart constructor for 'D' of 'ADVal' that does not record
+-- | This a not so smart a constructor for 'D' of 'ADVal' that does not record
 -- sharing information. If used in contexts where sharing may occur,
 -- it may cause exponential blowup when evaluating the term
 -- in backpropagation phase. In contexts without sharing, it saves
@@ -56,28 +57,11 @@ dD !l !a !dual = D l a (recordSharing dual)
 dDnotShared :: ADShare -> f r z -> Dual f r z -> ADVal f r z
 dDnotShared = D
 
+constantADVal :: IsPrimal f r z => f r z -> ADVal f r z
+constantADVal a = dDnotShared emptyADShare a dZero
+
 
 -- * Auxiliary definitions
-
--- All this is not needed in the simplified version, except for compilation
--- with the common test code.
--- TODO: Use SNat from base once we use GHC >= 9.6 exclusively.
--- | Sizes of tensor dimensions, of batches, etc., packed for passing
--- between functions as witnesses of type variable values.
-data SNat (n :: Nat) where
-  SNat :: KnownNat n => SNat n
-
-withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
-withSNat i f = case someNatVal $ toInteger $ abs i of
-  Just (SomeNat @n _) -> f (SNat @n)
-  Nothing -> error "withSNat: impossible"
-
-sNatValue :: forall n i. (KnownNat n, Num i) => SNat n -> i
-{-# INLINE sNatValue #-}
-sNatValue = fromInteger . natVal
-
-proxyFromSNat :: SNat n -> Proxy n
-proxyFromSNat SNat = Proxy
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.
@@ -116,9 +100,6 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
       then 0
       else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
 -}
-
-constantADVal :: IsPrimal f r z => f r z -> ADVal f r z
-constantADVal a = dDnotShared emptyADShare a dZero
 
 
 -- * Numeric instances for ADVal

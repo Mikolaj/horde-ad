@@ -17,7 +17,6 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (*))
 import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
