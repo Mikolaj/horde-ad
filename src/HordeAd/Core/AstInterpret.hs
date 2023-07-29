@@ -3,12 +3,14 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
 {-# OPTIONS_GHC -freduction-depth=10000 #-}
--- | Interpretation of @Ast@ terms in an aribtrary @RankedTensor@
+-- | Interpretation of AST terms in an aribtrary @RankedTensor@
 -- and/or @ShapedTensor@ class instance.
 module HordeAd.Core.AstInterpret
-  ( interpretAstPrimal, interpretAst, interpretAstDomainsDummy
+  ( -- * The environment and operations for extending it
+    AstEnv, extendEnvS, extendEnvR, extendEnvDR, extendEnvDS
+    -- * AST interpretation functions
+  , interpretAstPrimal, interpretAst, interpretAstDomainsDummy
   , interpretAstPrimalS, interpretAstS
-  , AstEnv, extendEnvS, extendEnvR, extendEnvDR, extendEnvDS
   ) where
 
 import Prelude
@@ -38,15 +40,18 @@ import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.Delta
 import           HordeAd.Core.DualNumber
-import           HordeAd.Util.ShapedList (ShapedList (..))
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
-import           HordeAd.Util.SizedList
 import           HordeAd.Core.TensorADVal
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import           HordeAd.Util.ShapedList (ShapedList (..))
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
+import           HordeAd.Util.SizedList
 
+-- * The environment and operations for extending it
+
+-- | The environment that keeps variables values during interpretation
 type AstEnv ranked shaped = EM.EnumMap AstId (AstEnvElem ranked shaped)
 
 data AstEnvElem :: RankedTensorKind -> ShapedTensorKind -> Type where
@@ -126,6 +131,9 @@ extendEnvVarsS vars ix env =
                    (ShapedList.sizedListToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
+
+-- * Interpretation of bindings
+
 interpretLambdaI
   :: forall ranked shaped n s r.
      ( RankedTensor ranked
@@ -197,6 +205,9 @@ interpretLambdaIndexToIndexS
 {-# INLINE interpretLambdaIndexToIndexS #-}
 interpretLambdaIndexToIndexS f env (vars, asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
+
+
+-- * AST interpretation functions
 
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
 -- Either the environment has to be traversed to remove the dual parts or

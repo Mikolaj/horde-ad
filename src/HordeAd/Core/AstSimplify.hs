@@ -8,15 +8,19 @@
 -- argument term trees. If the arguments get modified as a result,
 -- the modified forms are again inspected and may be simplified.
 -- The latter traverse and simplify the whole term.
+--
 -- The limited simplification via combinators is enough to uncover redexes
 -- for the vectorization rules to fire and to undo some of the complication
 -- introduced by vectorization. The intention is to leave as much
 -- of the original terms provided by the user as possible while making
--- sure everything introduced by vectorization is maximally simplified.
+-- sure subterms introduced by vectorization are maximally simplified.
 module HordeAd.Core.AstSimplify
-  ( simplifyPermutation
+  ( -- * Permutation operations
+    simplifyPermutation
+    -- * The combinators for indexing and gather
   , simplifyStepNonIndex, simplifyStepNonIndexS, astIndexStep, astIndexStepS
   , astGatherStep, astGatherStepS
+    -- * The simplifying combinators, one for most AST constructors
   , astLet, astLetS, astCond, astCondS, astSumOfList, astSumOfListS
   , astSum, astSumS, astScatter, astScatterS
   , astFromList, astFromListS, astFromVector, astFromVectorS
@@ -27,7 +31,9 @@ module HordeAd.Core.AstSimplify
   , astSToR, astRToS, astFromDynamic, astFromDynamicS
   , astPrimalPart, astPrimalPartS, astDualPart, astDualPartS
   , astDomainsLet, astDomainsLetS
+    -- * The simplifying bottom-up pass
   , simplifyAst, simplifyAstDomains, simplifyAstS
+    -- * Substitution payload and adaptors for AstVarName
   , SubstitutionPayload(..)
   , substituteAst, substituteAstIndex, substituteAstDomains
   , substituteAstBool, substituteAstS, substituteAstIndexS
@@ -75,14 +81,14 @@ import           HordeAd.Core.Ast hiding
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstTools
+import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (matchingRank, sameShape, trustMeThisIsAPermutation)
+import           HordeAd.Internal.TensorOps
 import           HordeAd.Util.ShapedList (ShapedList (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
-import           HordeAd.Internal.TensorOps
-import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
-  (matchingRank, sameShape, trustMeThisIsAPermutation)
 
 -- * Expressing operations as Gather; introduces new variable names
 
@@ -836,7 +842,7 @@ astSliceLax i k v =
 -}
 
 
--- * The simplifying combinators
+-- * The simplifying combinators, one for most AST constructors
 
 astLet :: forall n m s s2 r r2.
           ( KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2
@@ -1603,7 +1609,7 @@ astDomainsLetS var u v = Ast.AstDomainsLetS var u v
 
 -- * The simplifying bottom-up pass
 
--- This function guarantees full simplification: every redex
+-- | This function guarantees full simplification: every redex
 -- is visited and each combinator applied. The most exhaustive and costly
 -- variants of each combinator are used, e.g., astIndexR.
 simplifyAst
@@ -1757,7 +1763,11 @@ simplifyRelOp GtOp [Ast.AstVar _ u, Ast.AstVar _ v] | u == v =
   AstBoolConst False
 simplifyRelOp opCodeRel arg = Ast.AstRel opCodeRel arg
 
--- Normally, we wouldn't simplify tensor arithmetic so much, but some
+-- TODO: let's aim at SOP (Sum-of-Products) form, just as
+-- ghc-typelits-natnormalise does. Also, let's associate to the right
+-- and let's push negation down.
+--
+-- | Normally, we wouldn't simplify tensor arithmetic so much, but some
 -- of these ranked tensors can represent integers in indexes, so we have to.
 -- Integer terms need to be simplified, because large ones they are sometimes
 -- created due to vectorization, e.g., via astTransposeAsGather
@@ -1773,20 +1783,19 @@ simplifyRelOp opCodeRel arg = Ast.AstRel opCodeRel arg
 -- only tensors from inside bare AstConst and float tensors are always
 -- wrapped in AstConstant, so they can't be involved.
 --
--- TODO: let's aim at SOP (Sum-of-Products) form, just as
--- ghc-typelits-natnormalise does. Also, let's associate to the right
--- and let's push negation down.
+-- Rank has to be 0 so that the value expressions @0@ below don't crash.
+--
+-- Several first paragraphs are modelled on @Num@ instance for @AstRanked@
+-- and depend on the normal form where @AstConst@, if any, is the first element
+-- and the list if fully flattened and of length >= 2.
+-- Additionally we here ensure the @AstConst@ is never zero.
+--
 -- Not considered are rules that would require comparing non-constant terms
 -- or that would duplicate a non-constant term, as well as most rules
 -- informed by inequalities, expressed via max or min, such as
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
---
--- Several first paragraphs are modelled on Num (AstPrimalPart r n)
--- and depend on the normal form where AstConst, if any, is the first element
--- and the list if fully flattened and of length >= 2.
--- Additionally we here ensure the AstConst is never zero.
---
--- Rank has to be 0 so that the expressions 0 below don't crash.
+-- We could use sharing via @tlet@ when terms are duplicated, but it's
+-- unclear if the term bloat is worth it.
 simplifyAstPlusOp :: AstRanked PrimalSpan Int64 0
                   -> AstRanked PrimalSpan Int64 0
                   -> AstRanked PrimalSpan Int64 0
@@ -2022,15 +2031,18 @@ simplifyAstS t = case t of
     Ast.AstLetDomainsS vars (simplifyAstDomains l) (simplifyAstS v)
 
 
--- * Substitution payload and wrappers for AstVarName
+-- * Substitution payload and adaptors for AstVarName
 
+-- | The term to substitute for a variable. Without this variant type,
+-- we'd need to duplicate the whole sibstitution code, one copy
+-- for each of the cases.
 data SubstitutionPayload s r =
     forall n. KnownNat n
     => SubstitutionPayloadRanked (AstRanked s r n)
   | forall sh. OS.Shape sh
     => SubstitutionPayloadShaped (AstShaped s r sh)
 
--- We assume no variable is shared between a binding and its nested binding
+-- | We assume no variable is shared between a binding and its nested binding
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.

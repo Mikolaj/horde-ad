@@ -1,12 +1,16 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
--- | An assortment of operations on AST of the code to be differentiated
+-- | An assortment of operations working on AST of the code to be differentiated
 -- or resulting from the differentiation.
 module HordeAd.Core.AstTools
-  ( shapeAst, lengthAst
+  ( -- * Shape calculation
+    shapeAst, lengthAst
+    -- * Variable occurence detection
   , intVarInAst, intVarInAstBool, intVarInIndex
   , intVarInAstS, intVarInIndexS, varNameInAst, varNameInAstS
+    -- * Determining if a term is too small to require sharing
   , astIsSmall, astIsSmallS
+    -- * Odds and ends
   , unwrapAstDomains, bindsToLet, bindsToLetS, bindsToDomainsLet
   ) where
 
@@ -25,8 +29,8 @@ import           GHC.TypeLits
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
-import HordeAd.Util.SizedIndex
 import HordeAd.Core.Types
+import HordeAd.Util.SizedIndex
 
 -- * Shape calculation
 

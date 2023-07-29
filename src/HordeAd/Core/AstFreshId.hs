@@ -1,4 +1,6 @@
--- | Operations that (usually impurely) generate fresh variables.
+-- | Operations that (impurely, via a strictly increasing thread-safe counter)
+-- generate fresh variables and sometimes also produce AST terms
+-- by applying functions to such variables.
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR
@@ -23,17 +25,17 @@ import           System.IO.Unsafe (unsafePerformIO)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
+import           HordeAd.Core.Types
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
-import           HordeAd.Core.Types
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
 {-# NOINLINE unsafeAstVarCounter #-}
 unsafeAstVarCounter = unsafePerformIO (newCounter 100000001)
 
--- Only for tests, e.g., to ensure show applied to terms has stable length.
+-- | Only for tests, e.g., to ensure show applied to terms has stable length.
 -- Tests using this need to be run with -ftest_seq to avoid variable confusion.
 resetVarCounter :: IO ()
 resetVarCounter = writeIORefU unsafeAstVarCounter 100000001

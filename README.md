@@ -195,11 +195,12 @@ Generally, relax and try to stick to the style apparent in a file
 you are editing. Put big formatting changes in separate commits.
 
 Haddocks should be provided for all module headers and for all functions
-and types from most important modules. Apart of that, only particularly
-significant functions and types are distinguished by having a haddock.
-If minor ones have comments, they should not be haddocks and they are
-permitted to describe implementation details and be out of date.
-Prefer assertions instead of comments, unless too verbose.
+and types, or at least main sections, from the most important modules.
+Apart of that, only particularly significant functions and types
+are distinguished by having a haddock. If minor ones have comments,
+they should not be haddocks and they are permitted to describe
+implementation details and be out of date. Prefer assertions instead
+of comments, unless too verbose.
 
 
 Copyright

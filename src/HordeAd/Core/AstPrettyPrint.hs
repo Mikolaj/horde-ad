@@ -3,7 +3,9 @@
 -- | Pretty-printing of AST of the code to be differentiated or resulting
 -- from the differentiation.
 module HordeAd.Core.AstPrettyPrint
-  ( printAstVarName, printAstVarNameS
+  ( -- * Pretty-print variables
+    printAstVarName, printAstVarNameS
+    -- * User-friendly API for pretty-printing AST terms
   , printAstSimple, printAstPretty
   , printAstSimpleS, printAstPrettyS
   , printAstDomainsSimple, printAstDomainsPretty
@@ -28,12 +30,12 @@ import           GHC.TypeLits (KnownNat, Nat)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
+import           HordeAd.Core.Types
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
-import           HordeAd.Core.Types
 
--- * Pretty-printing
+-- * Pretty-printing setup and checks
 
 -- Modeled after https://github.com/VMatthijs/CHAD/blob/755fc47e1f8d1c3d91455f123338f44a353fc265/src/TargetLanguage.hs#L335.
 
@@ -48,47 +50,6 @@ defaulPrintConfig prettifyLosingSharing renames =
   let varRenames = renames `IM.union` IM.fromList [(1, "dret")]
       representsIntIndex = False
   in PrintConfig {..}
-
-printAstVarId :: String -> PrintConfig -> AstVarId s -> ShowS
-printAstVarId prefix cfg var =
-  let n = fromEnum var - 100000000
-  in showString $ case IM.lookup n (varRenames cfg) of
-    Just name | name /= "" -> name
-    _ -> prefix ++ show n
-
-printAstVarN :: Int -> PrintConfig -> AstVarName s f r y -> ShowS
-printAstVarN n cfg (AstVarName var) =
-  let prefix = case n of
-        0 -> "x"
-        1 -> "v"
-        2 -> "m"
-        3 -> "t"
-        4 -> "u"
-        _ -> "w"
-  in printAstVarId prefix cfg var
-
-printAstVar :: forall n s r. KnownNat n
-            => PrintConfig -> AstVarName s (AstRanked s) r n -> ShowS
-printAstVar = printAstVarN (valueOf @n)
-
-printAstVarS :: forall sh s r. OS.Shape sh
-             => PrintConfig -> AstVarName s (AstShaped s) r sh -> ShowS
-printAstVarS = printAstVarN (length (OS.shapeT @sh))
-
-printAstIntVar :: PrintConfig -> IntVarName -> ShowS
-printAstIntVar cfg (AstVarName var) = printAstVarId "i" cfg var
-
-printAstVarFromLet
-  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => AstRanked s r n -> PrintConfig -> AstVarName s (AstRanked s) r n -> ShowS
-printAstVarFromLet u cfg var =
-  if representsIntIndex cfg && areAllArgsInts u
-  then case isRankedInt u of
-    Just Refl ->  -- the heuristics may have been correct
-      printAstIntVar cfg var
-    _ ->  -- the heuristics failed
-      printAstVar cfg var
-  else printAstVar cfg var
 
 areAllArgsInts :: AstRanked s r n -> Bool
 areAllArgsInts = \case
@@ -131,6 +92,80 @@ areAllArgsInts = \case
   AstDualPart{} -> False
   AstD{} -> False  -- dual number
   AstLetDomains{} -> True  -- too early to tell
+
+
+-- * Pretty-print variables
+
+printAstVarId :: String -> PrintConfig -> AstVarId s -> ShowS
+printAstVarId prefix cfg var =
+  let n = fromEnum var - 100000000
+  in showString $ case IM.lookup n (varRenames cfg) of
+    Just name | name /= "" -> name
+    _ -> prefix ++ show n
+
+printAstVarN :: Int -> PrintConfig -> AstVarName s f r y -> ShowS
+printAstVarN n cfg (AstVarName var) =
+  let prefix = case n of
+        0 -> "x"
+        1 -> "v"
+        2 -> "m"
+        3 -> "t"
+        4 -> "u"
+        _ -> "w"
+  in printAstVarId prefix cfg var
+
+printAstVar :: forall n s r. KnownNat n
+            => PrintConfig -> AstVarName s (AstRanked s) r n -> ShowS
+printAstVar = printAstVarN (valueOf @n)
+
+printAstVarS :: forall sh s r. OS.Shape sh
+             => PrintConfig -> AstVarName s (AstShaped s) r sh -> ShowS
+printAstVarS = printAstVarN (length (OS.shapeT @sh))
+
+printAstIntVar :: PrintConfig -> IntVarName -> ShowS
+printAstIntVar cfg (AstVarName var) = printAstVarId "i" cfg var
+
+printAstVarFromLet
+  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
+  => AstRanked s r n -> PrintConfig -> AstVarName s (AstRanked s) r n -> ShowS
+printAstVarFromLet u cfg var =
+  if representsIntIndex cfg && areAllArgsInts u
+  then case isRankedInt u of
+    Just Refl ->  -- the heuristics may have been correct
+      printAstIntVar cfg var
+    _ ->  -- the heuristics failed
+      printAstVar cfg var
+  else printAstVar cfg var
+
+printAstVarName :: KnownNat n
+                => IntMap String -> AstVarName s (AstRanked s) r n
+                -> String
+printAstVarName renames var =
+  printAstVar (defaulPrintConfig False renames) var ""
+
+printAstVarNameS :: OS.Shape sh
+                 => IntMap String -> AstVarName s (AstShaped s) r sh
+                 -> String
+printAstVarNameS renames var =
+  printAstVarS (defaulPrintConfig False renames) var ""
+
+printAstDynamicVarName :: forall s f.
+                          IntMap String -> AstDynamicVarName s f -> String
+printAstDynamicVarName renames
+                       (AstDynamicVarName @_ @sh @r (AstVarName var)) =
+  printAstVarNameS renames (AstVarName @[Nat] @s @(AstShaped s) @r @sh var)
+
+printAstVarFromDomains
+  :: forall s.
+     PrintConfig -> (AstVarId s, DynamicExists (AstDynamic s)) -> ShowS
+printAstVarFromDomains cfg (var, d) = case d of
+  DynamicExists @r (AstRToD @n _) ->
+    printAstVar cfg (AstVarName @Nat @s @(AstRanked s) @r @n var)
+  DynamicExists @r (AstSToD @sh _) ->
+    printAstVarS cfg (AstVarName @[Nat] @s @(AstShaped s) @r @sh var)
+
+
+-- * General pretty-printing of AST terms
 
 printAstInt :: PrintConfig -> Int -> AstInt -> ShowS
 printAstInt cfgOld d t =
@@ -296,15 +331,6 @@ printAstAux cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
       -- TODO: this does not roundtrip yet
-
-printAstVarFromDomains
-  :: forall s.
-     PrintConfig -> (AstVarId s, DynamicExists (AstDynamic s)) -> ShowS
-printAstVarFromDomains cfg (var, d) = case d of
-  DynamicExists @r (AstRToD @n _) ->
-    printAstVar cfg (AstVarName @Nat @s @(AstRanked s) @r @n var)
-  DynamicExists @r (AstSToD @sh _) ->
-    printAstVarS cfg (AstVarName @[Nat] @s @(AstShaped s) @r @sh var)
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
@@ -505,24 +531,6 @@ printAstRelOp pr cfg d opCode args = case (opCode, args) of
   _ -> error $ "printAstRelOp: wrong number of arguments"
                ++ show (opCode, length args)
 
-printAstVarName :: KnownNat n
-                => IntMap String -> AstVarName s (AstRanked s) r n
-                -> String
-printAstVarName renames var =
-  printAstVar (defaulPrintConfig False renames) var ""
-
-printAstVarNameS :: OS.Shape sh
-                 => IntMap String -> AstVarName s (AstShaped s) r sh
-                 -> String
-printAstVarNameS renames var =
-  printAstVarS (defaulPrintConfig False renames) var ""
-
-printAstDynamicVarName :: forall s f.
-                          IntMap String -> AstDynamicVarName s f -> String
-printAstDynamicVarName renames
-                       (AstDynamicVarName @_ @sh @r (AstVarName var)) =
-  printAstVarNameS renames (AstVarName @[Nat] @s @(AstShaped s) @r @sh var)
-
 printAstS :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
           => PrintConfig -> Int -> AstShaped s r sh -> ShowS
 printAstS cfg d = \case
@@ -665,6 +673,9 @@ printAstS cfg d = \case
            . showString " -> "
            . printAstS cfg 0 v)
       -- TODO: this does not roundtrip yet
+
+
+-- * User-friendly API for pretty-printing AST terms
 
 printAstSimple :: (GoodScalar r, KnownNat n, AstSpan s)
                => IntMap String -> AstRanked s r n -> String

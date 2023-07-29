@@ -2,9 +2,11 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Inlining and other manipulations of the let-like constructors.
 module HordeAd.Core.AstInline
-  ( simplifyArtifact6, simplifyArtifact6S, simplifyAst6, simplifyAst6S
-  , simplifyAstDomains6
-  , unletAstDomains6, unletAst6, unletAst6S
+  ( -- * Inlining and simplification pass operations to be applied after unlet
+    simplifyArtifact6, simplifyArtifact6S
+  , simplifyAst6, simplifyAst6S, simplifyAstDomains6
+    -- * The unlet pass eliminating nested lets bottom-up
+  , unletAst6, unletAst6S, unletAstDomains6
   ) where
 
 import Prelude
@@ -24,11 +26,11 @@ import           HordeAd.Core.Ast hiding
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
+import           HordeAd.Core.Types
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
-import           HordeAd.Core.Types
 
--- * Inlining and simplification pass to be applied after unlet
+-- * Inlining and simplification pass operations to be applied after unlet
 
 simplifyArtifact6 :: (GoodScalar r, KnownNat n)
                   => ADAstArtifact6 (AstRanked PrimalSpan) r n
@@ -62,7 +64,7 @@ simplifyAstDomains6 =
   simplifyAstDomains . snd . inlineAstDomains EM.empty . simplifyAstDomains
 
 
--- * The pass inlining lets with the bottom-up strategy
+-- * The pass that inlines lets with the bottom-up strategy
 
 type AstMemo = EM.EnumMap AstId Int
 

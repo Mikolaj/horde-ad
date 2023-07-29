@@ -1,24 +1,30 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
--- higher order operations such as build and map and for producing reusable
--- gradients, but can be used for arbitrary code transformations
--- at the cost of limiting expressiveness of transformed fragments
--- to what AST captures.
+-- higher order operations such as build and map, via vectorization,
+-- and for producing reusable reverse derivative terms. However,
+-- it can also be used for other code transformations, e.g., simplification.
 module HordeAd.Core.Ast
-  ( AstSpanType(..), AstSpan(..), astSpanT, sameAstSpan, isRankedInt
-  , AstInt, IntVarName, pattern AstIntVar
-  , ConcreteOf, AstId, intToAstId
+  ( -- * The AstSpan kind
+    AstSpanType(..), AstSpan(..), astSpanT, sameAstSpan
+    -- * Assorted small definitions
+  , AstInt, IntVarName, pattern AstIntVar, isRankedInt, ConcreteOf
+    -- * More and less typed variables and type synonyms containing them
+  , AstId, intToAstId
   , AstVarId, intToAstVarId, astIdToAstVarId, astVarIdToAstId, varNameToAstId
   , ADAstArtifact6
   , AstIndex, AstVarList, AstIndexS, AstVarListS
+    -- * ASTs
   , AstRanked(..), AstShaped(..), AstDynamic(..), AstDomains(..)
   , AstVarName(..), AstDynamicVarName(..), AstBool(..)
   , OpCode(..), OpCodeNum(..), OpCodeIntegral(..), OpCodeBool(..), OpCodeRel(..)
+    -- * Boolean definitions and instances
+  , BoolOf, IfF(..), EqF(..), OrdF(..), minF, maxF
+    -- * ADShare definition
   , ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare, intVarInADShare, nullADShare
-  , BoolOf, IfF(..), EqF(..), OrdF(..), minF, maxF
+    -- * The auxiliary AstNoVectorize and AstNoSimplify definitions, for tests
   , AstNoVectorize(..), AstNoVectorizeS(..)
   , AstNoSimplify(..), AstNoSimplifyS(..)
   ) where
@@ -42,14 +48,17 @@ import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
+import HordeAd.Core.Types
 import HordeAd.Util.ShapedList (ShapedList (..))
 import HordeAd.Util.SizedIndex
 import HordeAd.Util.SizedList
-import HordeAd.Core.Types
 
--- * Basic types and type family instances
+-- * The AstSpan kind
 
--- To be promoted.
+-- | A kind (a type intended to be promoted) marking whether an AST term
+-- is supposed to denote the primal part of a dual number, the dual part
+-- or the whole dual number. It's mainly used to index the terms
+-- of the AstRanked and realated GADTs.
 data AstSpanType = PrimalSpan | DualSpan | FullSpan
   deriving Typeable
 
@@ -83,14 +92,8 @@ sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
                 Just HRefl -> Just Refl
                 Nothing -> Nothing
 
-isRankedInt :: forall s r n. (AstSpan s, GoodScalar r, KnownNat n)
-            => AstRanked s r n
-            -> Maybe (AstRanked s r n :~: AstRanked PrimalSpan Int64 0)
-isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
-                     , testEquality (typeRep @r) (typeRep @Int64)
-                     , sameNat (Proxy @n) (Proxy @0) ) of
-                  (Just Refl, Just Refl, Just Refl) -> Just Refl
-                  _ -> Nothing
+
+-- * Basic type family instances
 
 type instance RankedOf (Clown (AstDynamic s)) = AstRanked s
 type instance ShapedOf (Clown (AstDynamic s)) = AstShaped s
@@ -111,6 +114,8 @@ type instance DualOf (AstShaped s) = AstShaped DualSpan
 
 -- * Assorted small definitions
 
+-- | This is the (arbitrarily) chosen representation of terms representing
+-- integers in the indexes of tensor operations.
 type AstInt = AstRanked PrimalSpan Int64 0
 
 type IntVarName = AstVarName PrimalSpan (AstRanked PrimalSpan) Int64 0
@@ -118,12 +123,24 @@ type IntVarName = AstVarName PrimalSpan (AstRanked PrimalSpan) Int64 0
 pattern AstIntVar :: IntVarName -> AstInt
 pattern AstIntVar var = AstVar ZS var
 
--- | The type family that a concrete tensor type assigns to its
--- corresponding AST type.
+isRankedInt :: forall s r n. (AstSpan s, GoodScalar r, KnownNat n)
+            => AstRanked s r n
+            -> Maybe (AstRanked s r n :~: AstRanked PrimalSpan Int64 0)
+isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
+                     , testEquality (typeRep @r) (typeRep @Int64)
+                     , sameNat (Proxy @n) (Proxy @0) ) of
+                  (Just Refl, Just Refl, Just Refl) -> Just Refl
+                  _ -> Nothing
+
+-- | The closed type family that assigns a concrete tensor type
+-- to its corresponding AST type.
 type ConcreteOf :: forall k. (AstSpanType -> TensorKind k) -> TensorKind k
 type family ConcreteOf f = result | result -> f where
   ConcreteOf AstRanked = Flip OR.Array
   ConcreteOf AstShaped = Flip OS.Array
+
+
+-- * More and less typed variables and type synonyms containing them
 
 newtype AstId = AstId Int
  deriving (Eq, Ord, Show, Enum)

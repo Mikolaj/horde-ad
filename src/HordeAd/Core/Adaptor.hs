@@ -1,5 +1,5 @@
 -- | A general representation of the domains of objective functions
--- that become the codomains of the gradient functions.
+-- that become the codomains of the reverse derivative functions.
 module HordeAd.Core.Adaptor
   ( AdaptableDomains(..), parseDomains, RandomDomains(..)
   ) where
@@ -18,16 +18,21 @@ import HordeAd.Core.Types
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class AdaptableDomains (dynamic :: Type -> Type) vals where
-  type Value vals
+  type Value vals  -- ^ a helper type, with the same general shape,
+                   -- but possibly more concrete, e.g., arrays instead of terms
   toDomains :: vals -> Domains dynamic
+    -- ^ represent a value of the domain of objective function
+    -- in a canonical, much less typed way common to all possible types
   fromDomains :: Value vals -> Domains dynamic
               -> Maybe (vals, Domains dynamic)
+    -- ^ recovers a value of the domain of objective function
+    -- from its canonical representation, using the general shape
+    -- recorded in a value of a more concrete type; the remainder
+    -- may be used in a different recursive call working on the same data
 
-class RandomDomains vals where
-  randomVals :: forall g. RandomGen g
-             => Double -> g -> (vals, g)
-  toValue :: vals -> Value vals
-
+-- | Recovers a value of the domain of objective function and asserts
+-- there is no remainder. This is the main call of the recursive
+-- procedure where @fromDomains@ calls itself for sub-values.
 parseDomains
   :: AdaptableDomains dynamic vals
   => Value vals -> Domains dynamic -> vals
@@ -35,6 +40,13 @@ parseDomains aInit domains =
   case fromDomains aInit domains of
     Just (vals, rest) -> assert (V.null rest) vals
     Nothing -> error "parseDomains: Nothing"
+
+-- | A helper class for initial random parameters and for transforming
+-- them from shaped to ranked forms.
+class RandomDomains vals where
+  randomVals :: forall g. RandomGen g
+             => Double -> g -> (vals, g)
+  toValue :: vals -> Value vals
 
 
 -- * Basic Adaptor class instances
