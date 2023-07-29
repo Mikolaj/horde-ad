@@ -1,4 +1,4 @@
-cabal-version:      3.8
+cabal-version:      3.6
 -- The cabal-version field refers to the version of the .cabal specification,
 -- and can be different from the cabal-install (the tool) version and the
 -- Cabal (the library) version you are using. As such, the Cabal (the library)
@@ -53,7 +53,7 @@ extra-doc-files:    README.md,
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 extra-source-files: src/cbits/matrix_reduce.h
 
-tested-with:        GHC ==9.2.7 || ==9.4.4
+tested-with:        GHC ==9.2.8 || ==9.4.5
 
 bug-reports:        https://github.com/Mikolaj/horde-ad/issues
 

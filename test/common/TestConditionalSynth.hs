@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
+-- | TODO: outdated, uses the old API
 module TestConditionalSynth (testTrees) where
 
 import Prelude

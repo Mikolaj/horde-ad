@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -Wno-compat-unqualified-imports #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-
+-- | TODO: outdated, uses the old API
 module Disparity where
 import qualified Data.Array.ShapedS as OS
 import           Data.List

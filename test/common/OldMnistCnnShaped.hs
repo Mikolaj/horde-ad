@@ -3,7 +3,9 @@
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Shaped tensor-based implementation of Convolutional Neural Network
+-- | TODO: outdated, uses the old API
+--
+-- Shaped tensor-based implementation of Convolutional Neural Network
 -- for classification of MNIST digits. Sports 2 hidden layers.
 -- Written in the old style without adaptors and with convMnistLenS
 -- and the @atS@ function instead.

@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+-- | TODO: outdated, uses the old API
 module BenchMnistTools where
 
 import Prelude
