@@ -15,7 +15,7 @@ The benchmarks at SOMEWHERE show that this library has performance highly compet
 It is hoped that the separation of AD logic from matrix and tensor manipulation (deferred to [hmatrix] and [orthotope], respectively) will enable similar speedups on numerical accelerators.
 
 
-# WIP: The examples below are outdated and will be replaces soon using a new API
+# WIP: The examples below are outdated and will be replaced soon using a new API
 
 
 ## Computing the derivative of a simple function

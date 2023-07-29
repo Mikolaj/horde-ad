@@ -221,7 +221,7 @@ library benchCommonLibrary
     if flag(release)
       buildable: False
     else
-      buildable: True
+      buildable: False
 
     exposed-modules:  BenchMnistTools
                       BenchProdTools
@@ -246,7 +246,7 @@ benchmark longProdBench
     if flag(release)
       buildable: False
     else
-      buildable: True
+      buildable: False
 
     type:             exitcode-stdio-1.0
 
@@ -268,7 +268,7 @@ benchmark shortProdForCI
     if flag(release)
       buildable: False
     else
-      buildable: True
+      buildable: False
 
     type:             exitcode-stdio-1.0
 
@@ -292,7 +292,7 @@ benchmark longMnistBench
     if flag(release)
       buildable: False
     else
-      buildable: True
+      buildable: False
 
     type:             exitcode-stdio-1.0
 
@@ -316,7 +316,7 @@ benchmark shortMnistForCI
     if flag(release)
       buildable: False
     else
-      buildable: True
+      buildable: False
 
     type:             exitcode-stdio-1.0
 
@@ -339,7 +339,7 @@ benchmark realisticMnistBench
     if flag(release)
       buildable: False
     else
-      buildable: True
+      buildable: False
 
     type:             exitcode-stdio-1.0
 
