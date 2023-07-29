@@ -1,4 +1,6 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+-- | Ranked tensor-based implementation of Recurrent Neural Network
+-- for classification of MNIST digits. Sports 2 hidden layers.
 module MnistRnnRanked2 where
 
 import Prelude
@@ -65,9 +67,9 @@ unrollLastR f s0 xs w =
 rnnMnistLayerR
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => ranked r 2  -- in state, [out_width, batch_size]
-  -> ranked r 2  -- in, [in_width, batch_size]
+  -> ranked r 2  -- input, [in_width, batch_size]
   -> LayerWeigthsRNN ranked r  -- in_width out_width
-  -> ranked r 2  -- out, [out_width, batch_size]
+  -> ranked r 2  -- output state, [out_width, batch_size]
 rnnMnistLayerR s x (wX, wS, b) = case tshape s of
   _out_width :$ batch_size :$ ZS ->
     let y = wX `tmatmul2` x + wS `tmatmul2` s

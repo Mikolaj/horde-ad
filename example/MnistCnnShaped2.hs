@@ -1,6 +1,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+-- | Shaped tensor-based implementation of Convolutional Neural Network
+-- for classification of MNIST digits. Sports 2 hidden layers.
 module MnistCnnShaped2 where
 
 import Prelude
@@ -23,6 +25,10 @@ import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
 -- Shaped version, statically checking all dimension widths.
+--
+-- Due to subtraction complicating posititive number type inference,
+-- @kh@ denotes kernel height minus one and analogously @kw@ is kernel
+-- width minus one.
 type ADCnnMnistParametersShaped
        (shaped :: ShapedTensorKind) h w kh kw c_out n_hidden r =
   ( ( shaped r '[c_out, 1, kh + 1, kw + 1]
@@ -37,6 +43,7 @@ type ADCnnMnistParametersShaped
 
 convMnistLayerS
   :: forall kh kw h w c_in c_out batch_size shaped r.
+     -- @c_in@ will be alwayst 1, grayscale, but this function works for any
      ( 1 <= kh
      , 1 <= kw  -- wrongly reported as redundant due to plugins
      , ADReadyS shaped, GoodScalar r, Differentiable r )
@@ -71,7 +78,7 @@ convMnistTwoS
        -- value parameters (@SNat@ below) denoting basic dimensions
   -> PrimalOf shaped r '[batch_size, 1, h, w]  -- ^ input images
   -> ADCnnMnistParametersShaped shaped h w kh kw c_out n_hidden r
-  -> shaped r '[SizeMnistLabel, batch_size]  -- classification
+  -> shaped r '[SizeMnistLabel, batch_size]  -- ^ classification
 convMnistTwoS kh@SNat kw@SNat
               h@SNat w@SNat
               c_out@SNat _n_hidden@SNat batch_size@SNat

@@ -1,4 +1,7 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+-- | Ranked tensor-based implementation of fully connected neutral network
+-- for classification of MNIST digits. Sports 2 hidden layers. No mini-batches,
+-- so the maximum rank of the tensors is 2.
 module MnistFcnnRanked2 where
 
 import Prelude
@@ -66,6 +69,14 @@ afcnnMnist2 factivationHidden factivationOutput
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
+afcnnMnistLoss2TensorData
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
+  => (ranked r 1, ranked r 1) -> ADFcnnMnist2Parameters ranked r
+  -> ranked r 0
+afcnnMnistLoss2TensorData (datum, target) adparams =
+  let result = inline afcnnMnist2 logistic softMax1 datum adparams
+  in lossCrossEntropyV target result
+
 afcnnMnistLoss2
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => MnistData r -> ADFcnnMnist2Parameters ranked r
@@ -74,14 +85,6 @@ afcnnMnistLoss2 (datum, target) =
   let datum1 = tconst $ OR.fromVector [sizeMnistGlyphInt] datum
       target1 = tconst $ OR.fromVector [sizeMnistLabelInt] target
   in afcnnMnistLoss2TensorData (datum1, target1)
-
-afcnnMnistLoss2TensorData
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => (ranked r 1, ranked r 1) -> ADFcnnMnist2Parameters ranked r
-  -> ranked r 0
-afcnnMnistLoss2TensorData (datum, target) adparams =
-  let result = inline afcnnMnist2 logistic softMax1 datum adparams
-  in lossCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.

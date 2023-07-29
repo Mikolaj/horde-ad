@@ -1,4 +1,7 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+-- | Implementation of fully connected neutral network for classification
+-- of MNIST digits with lists of rank 1 tensors (vectors)
+-- as the trainable parameters. Sports 2 hidden layers. No mini-batches.
 module MnistFcnnRanked1 where
 
 import Prelude
@@ -69,15 +72,6 @@ afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-afcnnMnistLoss1
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => Int -> Int -> MnistData r -> ADFcnnMnist1Parameters ranked r
-  -> ranked r 0
-afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
-  let datum1 = tconst $ OR.fromVector [sizeMnistGlyphInt] datum
-      target1 = tconst $ OR.fromVector [sizeMnistLabelInt] target
-  in afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum1, target1)
-
 afcnnMnistLoss1TensorData
   :: (ADReady ranked, GoodScalar r, Differentiable r)
   => Int -> Int -> (ranked r 1, ranked r 1) -> ADFcnnMnist1Parameters ranked r
@@ -86,6 +80,15 @@ afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
   let result = inline afcnnMnist1 logistic softMax1
                                   widthHidden widthHidden2 datum adparams
   in lossCrossEntropyV target result
+
+afcnnMnistLoss1
+  :: (ADReady ranked, GoodScalar r, Differentiable r)
+  => Int -> Int -> MnistData r -> ADFcnnMnist1Parameters ranked r
+  -> ranked r 0
+afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
+  let datum1 = tconst $ OR.fromVector [sizeMnistGlyphInt] datum
+      target1 = tconst $ OR.fromVector [sizeMnistLabelInt] target
+  in afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum1, target1)
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.

@@ -1,4 +1,6 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+-- | Ranked tensor-based implementation of Convolutional Neural Network
+-- for classification of MNIST digits. Sports 2 hidden layers.
 module MnistCnnRanked2 where
 
 import Prelude
@@ -18,6 +20,10 @@ import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
 -- Shaped version, statically checking all dimension widths.
+--
+-- Due to subtraction complicating posititive number type inference,
+-- @kh@ denotes kernel height minus one and analogously @kw@ is kernel
+-- width minus one.
 type ADCnnMnistParametersShaped
        (shaped :: ShapedTensorKind) h w kh kw c_out n_hidden r =
   ( ( shaped r '[c_out, 1, kh + 1, kw + 1]

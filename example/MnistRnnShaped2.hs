@@ -1,6 +1,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+-- | Shaped tensor-based implementation of Recurrent Neural Network
+-- for classification of MNIST digits. Sports 2 hidden layers.
 module MnistRnnShaped2 where
 
 import Prelude
@@ -58,10 +60,12 @@ unrollLastS f s0 xs w =
 rnnMnistLayerS
   :: (ADReadyS shaped, GoodScalar r, Differentiable r)
   => SNat in_width -> SNat out_width -> SNat batch_size
-  -> shaped r '[out_width, batch_size]  -- in state
-  -> shaped r '[in_width, batch_size]  -- in
+       -- ^ these boilerplate lines tie type parameters to the corresponding
+       -- value parameters (@SNat@ below) denoting basic dimensions
+  -> shaped r '[out_width, batch_size]  -- state
+  -> shaped r '[in_width, batch_size]  -- input
   -> LayerWeigthsRNNShaped shaped in_width out_width r
-  -> shaped r '[out_width, batch_size]  -- out
+  -> shaped r '[out_width, batch_size]  -- output state
 rnnMnistLayerS SNat SNat SNat
                s x (wX, wS, b) =
     let y = wX `smatmul2` x + wS `smatmul2` s
