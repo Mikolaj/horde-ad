@@ -1,4 +1,3 @@
-{-# LANGUAGE ImpredicativeTypes #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module MnistFcnnRanked2 where
 
@@ -18,6 +17,8 @@ import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import MnistData
 
+-- | The differentiable type of all trainable parameters of this nn.
+-- Shaped version, statically checking all dimension widths.
 type ADFcnnMnist2ParametersShaped (shaped :: ShapedTensorKind)
                                   (widthHidden :: Nat)
                                   (widthHidden2 :: Nat)
@@ -30,7 +31,7 @@ type ADFcnnMnist2ParametersShaped (shaped :: ShapedTensorKind)
     , shaped r '[SizeMnistLabel] )
   )
 
--- The differentiable type of all trainable parameters of this nn.
+-- | The differentiable type of all trainable parameters of this nn.
 type ADFcnnMnist2Parameters (ranked :: RankedTensorKind) r =
   ( ( ranked r 2
     , ranked r 1 )
@@ -86,7 +87,7 @@ afcnnMnistLoss2TensorData (datum, target) adparams =
 -- and the trained parameters.
 afcnnMnistTest2
   :: forall ranked r.
-     (ranked ~ Flip OR.Array, ADReady ranked, GoodScalar r, Differentiable r)
+     (ranked ~ Flip OR.Array, GoodScalar r, Differentiable r)
   => [MnistData r]
   -> ((ADFcnnMnist2Parameters ranked r
        -> ranked r 1)

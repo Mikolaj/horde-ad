@@ -16,12 +16,14 @@ import           GHC.TypeLits (KnownNat, type (*))
 import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
-import HordeAd.Util.ShapedList (ShapedList (..))
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
+import HordeAd.Util.ShapedList (ShapedList (..))
 import MnistData
 
+-- | The differentiable type of all trainable parameters of this nn.
+-- Shaped version, statically checking all dimension widths.
 type ADRnnMnistParametersShaped
        (shaped :: ShapedTensorKind) sizeMnistHeight width r =
   ( LayerWeigthsRNNShaped shaped sizeMnistHeight width r
@@ -136,7 +138,7 @@ rnnMnistTestS
   :: forall shaped h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
      , shaped ~ Flip OS.Array, Differentiable r
-     , ADReadyS shaped, GoodScalar r )
+     , GoodScalar r )
   => SNat out_width
   -> SNat batch_size
   -> MnistDataBatchS batch_size r

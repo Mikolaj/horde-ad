@@ -1,4 +1,3 @@
-{-# LANGUAGE ImpredicativeTypes #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module MnistFcnnRanked1 where
 
@@ -22,14 +21,14 @@ afcnnMnistLen1 widthHidden widthHidden2 =
   ++ replicate widthHidden2 widthHidden ++ [widthHidden2]
   ++ replicate sizeMnistLabelInt widthHidden2 ++ [sizeMnistLabelInt]
 
--- The differentiable type of all trainable parameters of this nn.
+-- | The differentiable type of all trainable parameters of this nn.
 type ADFcnnMnist1Parameters (ranked :: RankedTensorKind) r =
-  ( ( [ranked r 1]  -- @widthHidden@ copies, length @sizeMnistGlyphInt@
-    , ranked r 1 )  -- length @widthHidden@
-  , ( [ranked r 1]  -- @widthHidden2@ copies, length @widthHidden@
-    , ranked r 1 )  -- length @widthHidden2@
-  , ( [ranked r 1]  -- @sizeMnistLabelInt@ copies, length @widthHidden2@
-    , ranked r 1 )  -- length @sizeMnistLabelInt@
+  ( ( [ranked r 1]  -- ^ @widthHidden@ copies, length @sizeMnistGlyphInt@
+    , ranked r 1 )  -- ^ length @widthHidden@
+  , ( [ranked r 1]  -- ^ @widthHidden2@ copies, length @widthHidden@
+    , ranked r 1 )  -- ^ length @widthHidden2@
+  , ( [ranked r 1]  -- ^ @sizeMnistLabelInt@ copies, length @widthHidden2@
+    , ranked r 1 )  -- ^ length @sizeMnistLabelInt@
   )
 
 listMatmul1
@@ -92,7 +91,7 @@ afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
 -- and the trained parameters.
 afcnnMnistTest1
   :: forall ranked r.
-     (ranked ~ Flip OR.Array, ADReady ranked, GoodScalar r, Differentiable r)
+     (ranked ~ Flip OR.Array, GoodScalar r, Differentiable r)
   => Int -> Int
   -> [MnistData r]
   -> ((ADFcnnMnist1Parameters ranked r

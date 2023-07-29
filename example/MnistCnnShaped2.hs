@@ -21,6 +21,8 @@ import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
 import MnistData
 
+-- | The differentiable type of all trainable parameters of this nn.
+-- Shaped version, statically checking all dimension widths.
 type ADCnnMnistParametersShaped
        (shaped :: ShapedTensorKind) h w kh kw c_out n_hidden r =
   ( ( shaped r '[c_out, 1, kh + 1, kw + 1]
@@ -127,7 +129,7 @@ convMnistTestS
      , 1 <= kh
      , 1 <= kw
      , shaped ~ Flip OS.Array
-     , ADReadyS shaped, GoodScalar r, Differentiable r )
+     , GoodScalar r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat c_out
   -> SNat n_hidden -> SNat batch_size

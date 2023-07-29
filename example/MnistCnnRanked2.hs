@@ -1,4 +1,3 @@
-{-# LANGUAGE ImpredicativeTypes #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module MnistCnnRanked2 where
 
@@ -11,12 +10,14 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (type (*), type (+), type Div)
 import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Util.SizedIndex
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
+import HordeAd.Util.SizedIndex
 import MnistData
 
+-- | The differentiable type of all trainable parameters of this nn.
+-- Shaped version, statically checking all dimension widths.
 type ADCnnMnistParametersShaped
        (shaped :: ShapedTensorKind) h w kh kw c_out n_hidden r =
   ( ( shaped r '[c_out, 1, kh + 1, kw + 1]
@@ -29,7 +30,7 @@ type ADCnnMnistParametersShaped
     , shaped r '[SizeMnistLabel] )
   )
 
--- The differentiable type of all trainable parameters of this nn.
+-- | The differentiable type of all trainable parameters of this nn.
 type ADCnnMnistParameters (ranked :: RankedTensorKind) r =
   ( ( ranked r 4
     , ranked r 1 )
@@ -104,7 +105,7 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 
 convMnistTestR
   :: forall ranked r.
-     (ranked ~ Flip OR.Array, ADReady ranked, GoodScalar r, Differentiable r)
+     (ranked ~ Flip OR.Array, GoodScalar r, Differentiable r)
   => Int
   -> MnistDataBatchR r
   -> ((ADCnnMnistParameters ranked r
