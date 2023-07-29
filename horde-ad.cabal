@@ -155,7 +155,7 @@ library horde-ad-simplified
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.OrthotopeOrphanInstances
 
-    hs-source-dirs:   simplified
+    hs-source-dirs:   src
 
     build-depends:
         assert-failure
