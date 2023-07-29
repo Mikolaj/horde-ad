@@ -186,15 +186,8 @@ library horde-ad-simplified
         if arch(x86_64)
             cc-options: -fPIC
 
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
 library exampleLibrary
     import:           options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
 
     exposed-modules:  MnistData
                       MnistCnnRanked2
