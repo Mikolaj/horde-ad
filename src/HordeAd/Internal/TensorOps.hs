@@ -1,7 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Miscellaneous more or less general purpose tensor operations.
+-- | Miscellaneous more or less general purpose tensor operations using
+-- the orthotope package tensor representation and hmatrix package
+-- (and also our own) FFI bindings.
 module HordeAd.Internal.TensorOps
   ( module HordeAd.Internal.TensorOps
   , tsumR, tsum0R, tsumInR
@@ -473,6 +475,7 @@ toIndexOfR ix = Flip . tscalarR <$> ix
 
 fromIndexOfR :: Index n (Flip OR.Array Int64 0) -> IndexInt n
 fromIndexOfR ixOf = tunScalarR . runFlip <$> ixOf
+
 
 -- * Shaped tensor operations
 

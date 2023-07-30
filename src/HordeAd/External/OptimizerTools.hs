@@ -16,9 +16,9 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Type.Reflection (typeRep)
 
-import HordeAd.Internal.TensorOps (isTensorDummy)
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVD2)
+import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient :: Double -> DomainsOD -> DomainsOD -> DomainsOD
 updateWithGradient gamma params gradient =

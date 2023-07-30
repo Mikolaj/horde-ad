@@ -1,9 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Commonly used operations on tensors. Too large, too ad hoc
--- or too unlikely to have specialized implementations to be included
--- in the `ShapedTensor` class.
+-- | Commonly used operations on tensors. Too large, too ad hoc or too unlikely
+-- to have specialized implementations to be included in the 'ShapedTensor'
+-- class. Some of the operations may also depend on more than 'ShapedTensor',
+-- e.g., also on the 'ConvertTensor' class.
 module HordeAd.External.CommonShapedOps
   ( module HordeAd.External.CommonShapedOps
   ) where
@@ -21,11 +22,11 @@ import           GHC.TypeLits
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Ast
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.External.CommonRankedOps
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
 
 sminIndexN :: ( ADReadyS shaped, GoodScalar r
               , OS.Shape sh, KnownNat (OS.Size sh) )

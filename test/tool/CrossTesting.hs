@@ -1,3 +1,5 @@
+-- | Testing harness that differentiates a single objective function using
+-- over a twenty different pipeline variants and compares the results.
 module CrossTesting
   ( assertEqualUpToEpsilon1
   , rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort

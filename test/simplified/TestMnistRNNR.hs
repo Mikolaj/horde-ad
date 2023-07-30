@@ -1,3 +1,5 @@
+-- | Tests of "MnistRnnRanked2" neural networks using a few different
+-- optimization pipelines.
 module TestMnistRNNR
   ( testTrees
   ) where

@@ -1,3 +1,4 @@
+-- | Additional classes that help in comparing values in tests.
 module Shared
   ( lowercase, HasShape (shapeL), Linearizable (linearize)
   ) where

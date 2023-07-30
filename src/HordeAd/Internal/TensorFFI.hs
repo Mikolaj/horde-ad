@@ -1,5 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
--- | FFI bindings to the C code for tensor (in vector representation)
+-- | FFI bindings to the C code for optimized tensor (in vector representation)
 -- operations.
 module HordeAd.Internal.TensorFFI
   ( module HordeAd.Internal.TensorFFI
@@ -24,6 +24,7 @@ import           Numeric.LinearAlgebra (Numeric)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 
+-- | Sum all elements of a tensor.
 tsum0R
   :: Numeric r
   => OR.Array n r -> r
@@ -33,7 +34,7 @@ tsum0R (RS.A (RG.A sh (OI.T _ _ vt))) | V.length vt == 1 =
 tsum0R (RS.A (RG.A sh t)) =
   LA.sumElements $ OI.toUnorderedVectorT sh t
 
--- Sum the outermost dimension.
+-- | Sum the outermost dimension.
 --
 -- No NOINLINE, because apparently nothing breaks and hmatrix, etc.
 -- also don't put NOINLINE in the functions using FFI.
@@ -57,7 +58,7 @@ tsumR t = case OR.shapeL t of
           void $ V.unsafeFreeze v
           V.unsafeFreeze v2
 
--- Sum the innermost dimension (at least at rank 2; TODO: generalize).
+-- | Sum the innermost dimension (at least at rank 2; TODO: generalize).
 tsumInR
   :: forall n r. (KnownNat n, Numeric r, RowSum r)
   => OR.Array (1 + n) r -> OR.Array n r

@@ -2,7 +2,9 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Commonly used operations on tensors. Too large, too ad hoc or too unlikely
--- to have specialized implementations to be included in the `Tensor` class.
+-- to have specialized implementations to be included in the 'RankedTensor'
+-- class. Some of the operations may also depend on more than 'RankedTensor',
+-- e.g., also on the 'ConvertTensor' class.
 module HordeAd.External.CommonRankedOps
   ( module HordeAd.External.CommonRankedOps
   ) where

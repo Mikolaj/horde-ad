@@ -1,4 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
+-- | Operations for comparing values up to a tolerance marging, to be used
+-- for tests.
 module EqEpsilon
   ( EqEpsilon, setEpsilonEq
   , AssertEqualUpToEpsilon(..)

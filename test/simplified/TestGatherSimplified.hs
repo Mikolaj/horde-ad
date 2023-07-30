@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+-- | Tests of the gather and scatter operations, operations that expand
+-- to gather and fusion of all of these.
 module TestGatherSimplified (testTrees) where
 
 import Prelude

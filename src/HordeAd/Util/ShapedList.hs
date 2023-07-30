@@ -2,7 +2,11 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
--- | @[Nat]@-indexed lists.
+-- TODO: we may or may not split this similarly to SizedList/SizedIndex
+-- depending on the user experience. That would be 6 incompatible
+-- types of sized lists in total in place of the current 4 types.
+-- | @[Nat]@-indexed lists to be used as is for lists of tensor variables,
+-- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
   ( ShapedNat, shapedNat, unShapedNat
   , ShapeSh, shapeSh

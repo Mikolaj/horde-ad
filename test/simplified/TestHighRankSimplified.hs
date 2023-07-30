@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+-- | Assorted mostly high rank tensor tests.
 module TestHighRankSimplified (testTrees) where
 
 import Prelude

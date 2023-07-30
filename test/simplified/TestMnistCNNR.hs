@@ -1,5 +1,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
+-- | Tests of "MnistCnnRanked2" neural networks using a few different
+-- optimization pipelines.
 module TestMnistCNNR
   ( testTrees
   ) where

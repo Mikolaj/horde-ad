@@ -1,3 +1,5 @@
+-- | Tests of "MnistFcnnRanked1" and "MnistFcnnRanked2" neural networks
+-- using a few different optimization pipelines.
 module TestMnistFCNNR
   ( testTrees
   ) where

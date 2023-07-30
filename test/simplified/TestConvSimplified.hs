@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+-- | Tests of convolution and disparity cost volume defined using the build
+-- operation of ranked tensors.
 module TestConvSimplified (testTrees) where
 
 import Prelude

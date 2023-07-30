@@ -35,7 +35,7 @@ import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Type.Reflection (eqTypeRep, typeRep, (:~~:) (HRefl))
 import           Unsafe.Coerce (unsafeCoerce)
 
--- * Numeric instances for tensor
+-- * Numeric instances for tensors
 
 liftVD
   :: (Numeric r1, Numeric r)

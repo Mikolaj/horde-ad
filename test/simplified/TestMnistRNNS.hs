@@ -1,3 +1,5 @@
+-- | Tests of "MnistRnnShaped2" neural networks using a few different
+-- optimization pipelines.
 module TestMnistRNNS
   ( testTrees
   ) where
