@@ -1245,7 +1245,7 @@ interpretAstS env = \case
 {-# SPECIALIZE interpretAstDomains
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstDomains PrimalSpan
-  -> Domains OD.Array #-}
+  -> DomainsOD #-}
 
 {-# SPECIALIZE interpretAstDomains
   :: AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
@@ -1258,7 +1258,7 @@ interpretAstS env = \case
 {-# SPECIALIZE interpretAstDomains
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstDomains FullSpan
-  -> Domains OD.Array #-}
+  -> DomainsOD #-}
 
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
@@ -1281,7 +1281,7 @@ interpretAstS env = \case
 {-# SPECIALIZE interpretAstDomainsDummy
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstDomains PrimalSpan
-  -> Domains OD.Array #-}
+  -> DomainsOD #-}
 
 {-# SPECIALIZE interpretAstDynamicDummy
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
@@ -1291,7 +1291,7 @@ interpretAstS env = \case
 {-# SPECIALIZE interpretAstDomainsDummy
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstDomains FullSpan
-  -> Domains OD.Array #-}
+  -> DomainsOD #-}
 
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n => OpCodeRel -> [Flip OR.Array Double n] -> (ADShare, Bool) #-}

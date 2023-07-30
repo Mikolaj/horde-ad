@@ -116,8 +116,8 @@ class Adaptable g where
 
   revAstOnDomainsEval
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => AstArtifactRev g r y -> Domains OD.Array -> Maybe (ConcreteOf g r y)
-    -> (Domains OD.Array, ConcreteOf g r y)
+    => AstArtifactRev g r y -> DomainsOD -> Maybe (ConcreteOf g r y)
+    -> (DomainsOD, ConcreteOf g r y)
 
   fwdDtInit
     :: forall r y vals astvals.
@@ -131,12 +131,12 @@ class Adaptable g where
 
   fwdAstOnDomainsEval
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => AstArtifactFwd g r y -> Domains OD.Array -> Domains OD.Array
+    => AstArtifactFwd g r y -> DomainsOD -> DomainsOD
     -> (ConcreteOf g r y, ConcreteOf g r y)
 
 
 -- TODO: it's not clear if the instance should be of Clown OD.Array or of
--- Domains OD.Array, for which we already have unletAstDomains6, etc.;
+-- DomainsOD, for which we already have unletAstDomains6, etc.;
 -- let's wait until we have rev as a function of Tensor class in case
 -- that affects rev and/or Delta
 --instance Adaptable @() (Clown OD.Array) where
@@ -195,11 +195,13 @@ instance Adaptable AstRanked where
 
   {-# INLINE fwdAstOnDomainsEval #-}
   fwdAstOnDomainsEval ((varDs, vars), derivative, primal) parameters ds =
-    let env = foldr extendEnvDR EM.empty $ zip vars $ V.toList parameters
-        envDs = foldr extendEnvDR env $ zip varDs $ V.toList ds
-        derivativeTensor = interpretAstPrimal envDs derivative
-        primalTensor = interpretAstPrimal @(Flip OR.Array) env primal
-    in (derivativeTensor, primalTensor)
+    if sameShapesDomainsOD parameters ds then
+      let env = foldr extendEnvDR EM.empty $ zip vars $ V.toList parameters
+          envDs = foldr extendEnvDR env $ zip varDs $ V.toList ds
+          derivativeTensor = interpretAstPrimal envDs derivative
+          primalTensor = interpretAstPrimal @(Flip OR.Array) env primal
+      in (derivativeTensor, primalTensor)
+   else error "forward derivative input and sensitivity arguments should have same shapes"
 
 instance Adaptable AstShaped where
   revDtInit

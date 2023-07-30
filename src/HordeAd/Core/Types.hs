@@ -6,7 +6,7 @@ module HordeAd.Core.Types
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type definitions for dynamic tensors and tensor collections
-  , DynamicExists(..), Domains, DomainsOD, sizeDomainsOD
+  , DynamicExists(..), Domains, DomainsOD, sizeDomainsOD, sameShapesDomainsOD
     -- * Type families that tensors will belong to
   , RankedOf, ShapedOf, DynamicOf, PrimalOf, DualOf, DummyDual(..)
     -- * Generic types of indexes used in tensor operations
@@ -105,6 +105,12 @@ type DomainsOD = Domains OD.Array
 sizeDomainsOD :: DomainsOD -> Int
 sizeDomainsOD d = let f (DynamicExists t) = OD.size t
                   in V.sum (V.map f d)
+
+sameShapesDomainsOD :: DomainsOD -> DomainsOD -> Bool
+sameShapesDomainsOD v1 v2 =
+  let sameExShape (DynamicExists arr1, DynamicExists arr2) =
+        OD.shapeL arr1 == OD.shapeL arr2
+  in V.all sameExShape $ V.zip v1 v2
 
 
 -- * Type families that tensors will belong to
