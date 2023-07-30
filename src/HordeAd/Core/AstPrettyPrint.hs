@@ -703,7 +703,7 @@ printAstDomainsPretty renames t =
 
 printGradient6Simple :: KnownNat n
                      => IntMap String
-                     -> ADAstArtifact6 AstRanked r n
+                     -> AstArtifactRev AstRanked r n
                      -> String
 printGradient6Simple renames ((varDt, vars1), gradient, _) =
   let varsPP = printAstVarName renames varDt
@@ -713,7 +713,7 @@ printGradient6Simple renames ((varDt, vars1), gradient, _) =
 
 printGradient6Pretty :: KnownNat n
                      => IntMap String
-                     -> ADAstArtifact6 AstRanked r n
+                     -> AstArtifactRev AstRanked r n
                      -> String
 printGradient6Pretty renames ((varDt, vars1), gradient, _) =
   let varsPP = printAstVarName renames varDt
@@ -723,7 +723,7 @@ printGradient6Pretty renames ((varDt, vars1), gradient, _) =
 
 printPrimal6Simple :: (GoodScalar r, KnownNat n)
                    => IntMap String
-                   -> ADAstArtifact6 AstRanked r n
+                   -> AstArtifactRev AstRanked r n
                    -> String
 printPrimal6Simple renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarName renames) vars1
@@ -732,7 +732,7 @@ printPrimal6Simple renames ((_, vars1), _, primal) =
 
 printPrimal6Pretty :: (GoodScalar r, KnownNat n)
                    => IntMap String
-                   -> ADAstArtifact6 AstRanked r n
+                   -> AstArtifactRev AstRanked r n
                    -> String
 printPrimal6Pretty renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarName renames) vars1
@@ -741,7 +741,7 @@ printPrimal6Pretty renames ((_, vars1), _, primal) =
 
 printGradient6SimpleS :: OS.Shape sh
                       => IntMap String
-                      -> ADAstArtifact6 AstShaped r sh
+                      -> AstArtifactRev AstShaped r sh
                       -> String
 printGradient6SimpleS renames ((varDt, vars1), gradient, _) =
   let varsPP = printAstVarNameS renames varDt
@@ -751,7 +751,7 @@ printGradient6SimpleS renames ((varDt, vars1), gradient, _) =
 
 printGradient6PrettyS :: OS.Shape sh
                       => IntMap String
-                      -> ADAstArtifact6 AstShaped r sh
+                      -> AstArtifactRev AstShaped r sh
                       -> String
 printGradient6PrettyS renames ((varDt, vars1), gradient, _) =
   let varsPP = printAstVarNameS renames varDt
@@ -761,7 +761,7 @@ printGradient6PrettyS renames ((varDt, vars1), gradient, _) =
 
 printPrimal6SimpleS :: (GoodScalar r, OS.Shape sh)
                     => IntMap String
-                    -> ADAstArtifact6 AstShaped r sh
+                    -> AstArtifactRev AstShaped r sh
                     -> String
 printPrimal6SimpleS renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarName renames) vars1
@@ -770,7 +770,7 @@ printPrimal6SimpleS renames ((_, vars1), _, primal) =
 
 printPrimal6PrettyS :: (GoodScalar r, OS.Shape sh)
                     => IntMap String
-                    -> ADAstArtifact6 AstShaped r sh
+                    -> AstArtifactRev AstShaped r sh
                     -> String
 printPrimal6PrettyS renames ((_, vars1), _, primal) =
   let varsPP = map (printAstDynamicVarName renames) vars1

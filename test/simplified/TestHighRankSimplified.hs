@@ -557,11 +557,11 @@ testConcatBuild3PP2 = do
   resetVarCounter
   let renames = IM.empty
       t = concatBuild3 @(AstRanked FullSpan) @Double
-  let (artifact6, _) = revDtFun True t
+  let (artifactRev, _) = revDtFun True t
                                 (Flip $ OR.fromList [3] [0.651,0.14,0.3414])
-  printGradient6Simple renames artifact6
+  printGradient6Simple renames artifactRev
     @?= "\\dret v2 -> dmkDomains (fromList [dfromR tiota])"
-  printPrimal6Simple renames artifact6
+  printPrimal6Simple renames artifactRev
     @?= "\\v2 -> tfromIntegral (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (treplicate 2 (tconst 1) + tconst (fromList [2] [0,1])))]) (\\[i7, i8] -> [ifF (i8 >=. quot i7 (1 + i8)) 0 1, i7, i8]))"
-  printPrimal6Simple renames (simplifyArtifact6 artifact6)
+  printPrimal6Simple renames (simplifyArtifactRev artifactRev)
     @?= "\\v2 -> tfromIntegral (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (tconst (fromList [2] [0,1]) + treplicate 2 (tconst 1)))]) (\\[i7, i8] -> [ifF (i8 >=. quot i7 (1 + i8)) 0 1, i7, i8]))"

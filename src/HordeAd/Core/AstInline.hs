@@ -3,7 +3,7 @@
 -- | Inlining and other manipulations of the let-like constructors.
 module HordeAd.Core.AstInline
   ( -- * Inlining and simplification pass operations to be applied after unlet
-    simplifyArtifact6, simplifyArtifact6S
+    simplifyArtifactRev, simplifyArtifactRevS
   , simplifyAst6, simplifyAst6S, simplifyAstDomains6
     -- * The unlet pass eliminating nested lets bottom-up
   , unletAst6, unletAst6S, unletAstDomains6
@@ -32,16 +32,16 @@ import           HordeAd.Util.SizedIndex
 
 -- * Inlining and simplification pass operations to be applied after unlet
 
-simplifyArtifact6 :: (GoodScalar r, KnownNat n)
-                  => ADAstArtifact6 AstRanked r n
-                  -> ADAstArtifact6 AstRanked r n
-simplifyArtifact6 (vars, gradient, primal) =
+simplifyArtifactRev :: (GoodScalar r, KnownNat n)
+                  => AstArtifactRev AstRanked r n
+                  -> AstArtifactRev AstRanked r n
+simplifyArtifactRev (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6 primal)
 
-simplifyArtifact6S :: (GoodScalar r, OS.Shape sh)
-                   => ADAstArtifact6 AstShaped r sh
-                   -> ADAstArtifact6 AstShaped r sh
-simplifyArtifact6S (vars, gradient, primal) =
+simplifyArtifactRevS :: (GoodScalar r, OS.Shape sh)
+                   => AstArtifactRev AstShaped r sh
+                   -> AstArtifactRev AstShaped r sh
+simplifyArtifactRevS (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6S primal)
 
 -- Potentially, some more inlining could be triggered after the second

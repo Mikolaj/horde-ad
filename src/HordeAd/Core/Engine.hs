@@ -112,11 +112,11 @@ class Adaptable g where
     -> AstEnv (ADVal (RankedOf (g PrimalSpan)))
               (ADVal (ShapedOf (g PrimalSpan)))
     -> DomainsOD
-    -> (ADAstArtifact6 g r y, Dual (g PrimalSpan) r y)
+    -> (AstArtifactRev g r y, Dual (g PrimalSpan) r y)
 
   revAstOnDomainsEval
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => ADAstArtifact6 g r y -> Domains OD.Array -> Maybe (ConcreteOf g r y)
+    => AstArtifactRev g r y -> Domains OD.Array -> Maybe (ConcreteOf g r y)
     -> (Domains OD.Array, ConcreteOf g r y)
 
   fwdDtInit
@@ -151,7 +151,7 @@ instance Adaptable AstRanked where
     => Bool -> (astvals -> AstRanked FullSpan r y) -> vals
     -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
     -> DomainsOD
-    -> (ADAstArtifact6 AstRanked r y, Dual (AstRanked PrimalSpan) r y)
+    -> (AstArtifactRev AstRanked r y, Dual (AstRanked PrimalSpan) r y)
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown (AstDynamic PrimalSpan))
@@ -209,7 +209,7 @@ instance Adaptable AstShaped where
     => Bool -> (astvals -> AstShaped FullSpan r y) -> vals
     -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
     -> DomainsOD
-    -> (ADAstArtifact6 AstShaped r y, Dual (AstShaped PrimalSpan) r y)
+    -> (AstArtifactRev AstShaped r y, Dual (AstShaped PrimalSpan) r y)
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown (AstDynamic PrimalSpan))
@@ -245,7 +245,7 @@ revDtFun
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
   => Bool -> (astvals -> g FullSpan r y) -> vals
-  -> (ADAstArtifact6 g r y, Dual (g PrimalSpan) r y)
+  -> (AstArtifactRev g r y, Dual (g PrimalSpan) r y)
 {-# INLINE revDtFun #-}
 revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
@@ -256,7 +256,7 @@ revAstOnDomainsFun
       -> Domains (AstDynamic FullSpan)
       -> [AstDynamicVarName FullSpan AstRanked]
       -> ADVal (AstRanked PrimalSpan) r n)
-  -> (ADAstArtifact6 AstRanked r n, Dual (AstRanked PrimalSpan) r n)
+  -> (AstArtifactRev AstRanked r n, Dual (AstRanked PrimalSpan) r n)
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
@@ -288,7 +288,7 @@ revAstOnDomainsFunS
       -> Domains (AstDynamic FullSpan)
       -> [AstDynamicVarName FullSpan AstShaped]
       -> ADVal (AstShaped PrimalSpan) r sh)
-  -> (ADAstArtifact6 AstShaped r sh, Dual (AstShaped PrimalSpan) r sh)
+  -> (AstArtifactRev AstShaped r sh, Dual (AstShaped PrimalSpan) r sh)
 {-# INLINE revAstOnDomainsFunS #-}
 revAstOnDomainsFunS hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
