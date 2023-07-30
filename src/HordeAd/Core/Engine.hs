@@ -135,21 +135,21 @@ instance Adaptable AstRanked where
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown (AstDynamic PrimalSpan))
                        -> Domains (AstDynamic FullSpan)
-                       -> [AstDynamicVarName PrimalSpan AstRanked]
+                       -> [AstDynamicVarName FullSpan AstRanked]
                        -> ADVal (AstRanked PrimalSpan) r y
-        revDtInterpret varInputs domains vars1 =
+        revDtInterpret varInputs domains vars =
           let ast = f $ parseDomains vals domains
-              env1 = foldr extendEnvDR envInit $ zip vars1 $ V.toList varInputs
-          in interpretAst env1 ast
+              env = foldr extendEnvDR envInit $ zip vars $ V.toList varInputs
+          in interpretAst env ast
     in revAstOnDomainsFun hasDt parameters0 revDtInterpret
 
   {-# INLINE revAstOnDomainsEval #-}
-  revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters mdt =
-    let env1 = foldr extendEnvDR EM.empty $ zip vars1 $ V.toList parameters
+  revAstOnDomainsEval ((varDt, vars), gradient, primal) parameters mdt =
+    let env = foldr extendEnvDR EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe (treplicate0N (tshape primal) 1) mdt
-        envDt = extendEnvR varDt dt env1
+        envDt = extendEnvR varDt dt env
         gradientDomain = interpretAstDomainsDummy envDt gradient
-        primalTensor = interpretAstPrimal env1 primal
+        primalTensor = interpretAstPrimal env primal
     in (gradientDomain, primalTensor)
 
 instance Adaptable AstShaped where
@@ -165,21 +165,21 @@ instance Adaptable AstShaped where
   revDtInit hasDt f vals envInit parameters0 =
     let revDtInterpret :: Domains (ADValClown (AstDynamic PrimalSpan))
                        -> Domains (AstDynamic FullSpan)
-                       -> [AstDynamicVarName PrimalSpan AstShaped]
+                       -> [AstDynamicVarName FullSpan AstShaped]
                        -> ADVal (AstShaped PrimalSpan) r y
-        revDtInterpret varInputs domains vars1 =
+        revDtInterpret varInputs domains vars =
           let ast = f $ parseDomains vals domains
-              env1 = foldr extendEnvDS envInit $ zip vars1 $ V.toList varInputs
-          in interpretAstS env1 ast
+              env = foldr extendEnvDS envInit $ zip vars $ V.toList varInputs
+          in interpretAstS env ast
     in revAstOnDomainsFunS hasDt parameters0 revDtInterpret
 
   {-# INLINE revAstOnDomainsEval #-}
-  revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters mdt =
-    let env1 = foldr extendEnvDS EM.empty $ zip vars1 $ V.toList parameters
+  revAstOnDomainsEval ((varDt, vars), gradient, primal) parameters mdt =
+    let env = foldr extendEnvDS EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe 1 mdt
-        envDt = extendEnvS varDt dt env1
+        envDt = extendEnvS varDt dt env
         gradientDomain = interpretAstDomainsDummy envDt gradient
-        primalTensor = interpretAstPrimalS env1 primal
+        primalTensor = interpretAstPrimalS env primal
     in (gradientDomain, primalTensor)
 
 
@@ -201,7 +201,7 @@ revAstOnDomainsFun
   => Bool -> DomainsOD
   -> (Domains (ADValClown (AstDynamic PrimalSpan))
       -> Domains (AstDynamic FullSpan)
-      -> [AstDynamicVarName PrimalSpan AstRanked]
+      -> [AstDynamicVarName FullSpan AstRanked]
       -> ADVal (AstRanked PrimalSpan) r n)
   -> (ADAstArtifact6 AstRanked r n, Dual (AstRanked PrimalSpan) r n)
 {-# INLINE revAstOnDomainsFun #-}
@@ -209,20 +209,21 @@ revAstOnDomainsFun hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
-      !(!vars@(varDtId, vars1), asts1, astsPrimal1) =
-        funToAstAll parameters0 in
-  let domains = V.fromList asts1
-      domainsPrimal = V.fromList astsPrimal1
+      !(!varDtId, varsPrimal, astsPrimal, vars, asts) =
+        funToAstRev parameters0 in
+  let domains = V.fromList asts
+      domainsPrimal = V.fromList astsPrimal
       deltaInputs = generateDeltaInputs domainsPrimal
       varInputs = makeADInputs domainsPrimal deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
-  let astDt = AstVar (tshape primalBody) varDtId
+      !(D l primalBody deltaTopLevel) = f varInputs domains vars in
+  let varDt = AstVarName varDtId
+      astDt = AstVar (tshape primalBody) varDt
       mdt = if hasDt then Just astDt else Nothing
       !(!astBindings, !gradient) =
         reverseDervative (V.length parameters0) primalBody mdt deltaTopLevel
-  in ( ( vars
+  in ( ( (varDt, varsPrimal)
        , unletAstDomains6 astBindings l (dmkDomains gradient)
        , unletAst6 l primalBody )
      , deltaTopLevel )
@@ -232,7 +233,7 @@ revAstOnDomainsFunS
   => Bool -> DomainsOD
   -> (Domains (ADValClown (AstDynamic PrimalSpan))
       -> Domains (AstDynamic FullSpan)
-      -> [AstDynamicVarName PrimalSpan AstShaped]
+      -> [AstDynamicVarName FullSpan AstShaped]
       -> ADVal (AstShaped PrimalSpan) r sh)
   -> (ADAstArtifact6 AstShaped r sh, Dual (AstShaped PrimalSpan) r sh)
 {-# INLINE revAstOnDomainsFunS #-}
@@ -240,20 +241,21 @@ revAstOnDomainsFunS hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
-      !(!vars@(varDtId, vars1), asts1, astsPrimal1) =
-        funToAstAllS parameters0 in
-  let domains = V.fromList asts1
-      domainsPrimal = V.fromList astsPrimal1
+      !(!varDtId, varsPrimal, astsPrimal, vars, asts) =
+        funToAstRevS parameters0 in
+  let domains = V.fromList asts
+      domainsPrimal = V.fromList astsPrimal
       deltaInputs = generateDeltaInputs domainsPrimal
       varInputs = makeADInputs domainsPrimal deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D l primalBody deltaTopLevel) = f varInputs domains vars1 in
-  let astDt = AstVarS varDtId
+      !(D l primalBody deltaTopLevel) = f varInputs domains vars in
+  let varDt = AstVarName varDtId
+      astDt = AstVarS varDt
       mdt = if hasDt then Just astDt else Nothing
       !(!astBindings, !gradient) =
         reverseDervative (V.length parameters0) primalBody mdt deltaTopLevel
-  in ( ( vars
+  in ( ( (varDt, varsPrimal)
        , unletAstDomains6 astBindings l (dmkDomains gradient)
        , unletAst6S l primalBody )
      , deltaTopLevel )

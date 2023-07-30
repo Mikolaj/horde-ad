@@ -62,6 +62,9 @@ data AstEnvElem :: RankedTensorKind -> ShapedTensorKind -> Type where
 deriving instance (CRanked ranked Show, CShaped shaped Show)
                   => Show (AstEnvElem ranked shaped)
 
+-- An informal invariant: if s is FullSpan, ranked is dual numbers,
+-- and if s is PrimalSpan, ranked is their primal part.
+-- The same for all the function below.
 extendEnvR :: forall ranked shaped r n s.
               (KnownNat n, GoodScalar r)
            => AstVarName s AstRanked r n -> ranked r n

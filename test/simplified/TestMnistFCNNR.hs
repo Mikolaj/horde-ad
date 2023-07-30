@@ -26,7 +26,7 @@ import           Text.Printf
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstFreshId
-  (funToAstAllIO, funToAstIOR, funToAstR, resetVarCounter)
+  (funToAstIOR, funToAstR, funToAstRevIO, resetVarCounter)
 import HordeAd.Core.TensorADVal
 import HordeAd.External.OptimizerTools
 
@@ -195,8 +195,8 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (vars1, _, asts1) <- funToAstAllIO domainsInit
-       let doms = V.fromList asts1
+       (_, astsPrimal, vars, _) <- funToAstRevIO domainsInit
+       let domainsPrimal = V.fromList astsPrimal
        (varGlyph, _, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
@@ -204,7 +204,8 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                    widthHidden widthHidden2 (astGlyph, astLabel)
-                   (parseDomains @(AstDynamic PrimalSpan) valsInit doms)
+                   (parseDomains @(AstDynamic PrimalSpan)
+                                 valsInit domainsPrimal)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
@@ -212,14 +213,14 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> Domains (ADValClown OD.Array)
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
-                   let env1 = foldr extendEnvDR EM.empty
-                              $ zip vars1 $ V.toList varInputs
+                   let env = foldr extendEnvDR EM.empty
+                             $ zip vars $ V.toList varInputs
                        envMnist =
                          extendEnvR varGlyph
                            (tconst $ OR.fromVector [sizeMnistGlyphInt] glyph)
                          $ extendEnvR varLabel
                              (tconst $ OR.fromVector [sizeMnistLabelInt] label)
-                             env1
+                             env
                    in interpretAst envMnist ast
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res
@@ -521,8 +522,8 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (vars1, _, asts1) <- funToAstAllIO domainsInit
-       let doms = V.fromList asts1
+       (_, astsPrimal, vars, _) <- funToAstRevIO domainsInit
+       let domainsPrimal = V.fromList astsPrimal
        (varGlyph, _, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
@@ -530,7 +531,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
                    (astGlyph, astLabel) (parseDomains @(AstDynamic PrimalSpan)
-                   valsInit doms)
+                   valsInit domainsPrimal)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
@@ -538,14 +539,14 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
              let f :: MnistData r -> Domains (ADValClown OD.Array)
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
-                   let env1 = foldr extendEnvDR EM.empty
-                              $ zip vars1 $ V.toList varInputs
+                   let env = foldr extendEnvDR EM.empty
+                             $ zip vars $ V.toList varInputs
                        envMnist =
                          extendEnvR varGlyph
                            (tconst $ OR.fromVector [sizeMnistGlyphInt] glyph)
                          $ extendEnvR varLabel
                              (tconst $ OR.fromVector [sizeMnistLabelInt] label)
-                             env1
+                             env
                    in interpretAst envMnist ast
                  res = fst $ sgd gamma f chunk domains
                  trainScore = ftest chunk res

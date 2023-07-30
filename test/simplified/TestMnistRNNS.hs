@@ -24,7 +24,7 @@ import           Text.Printf
 
 import HordeAd
 import HordeAd.Core.Adaptor
-import HordeAd.Core.AstFreshId (funToAstAllIOS, funToAstIOS)
+import HordeAd.Core.AstFreshId (funToAstIOS, funToAstRevIOS)
 import HordeAd.Core.TensorADVal
 import HordeAd.External.OptimizerTools
 
@@ -181,9 +181,9 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (vars1, _, asts1) <- funToAstAllIOS domainsInit
+       (_, astsPrimal, vars, _) <- funToAstRevIOS domainsInit
        let testDataR = packBatchR testData
-           doms = V.fromList asts1
+           domainsPrimal = V.fromList astsPrimal
        (varGlyph, _, astGlyph) <-
          funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
        (varLabel, _, astLabel) <-
@@ -193,7 +193,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    width batch_size
                    ( sprimalPart @(AstShaped PrimalSpan) astGlyph
                    , sprimalPart @(AstShaped PrimalSpan) astLabel )
-                   (parseDomains @(AstDynamic PrimalSpan) valsInit doms)
+                   (parseDomains @(AstDynamic PrimalSpan)
+                                 valsInit domainsPrimal)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataS r])
                     -> IO (DomainsOD, StateAdam)
            runBatch !(!parameters, !stateAdam) (k, chunk) = do
@@ -201,10 +202,10 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    -> Domains (ADValClown OD.Array)
                    -> ADVal shaped r '[]
                  f (glyph, label) varInputs =
-                   let env1 = foldr extendEnvDS EM.empty
-                              $ zip vars1 $ V.toList varInputs
+                   let env = foldr extendEnvDS EM.empty
+                             $ zip vars $ V.toList varInputs
                        envMnist = extendEnvS varGlyph (sconst glyph)
-                                  $ extendEnvS varLabel (sconst label) env1
+                                  $ extendEnvS varLabel (sconst label) env
                    in interpretAstS envMnist ast
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
