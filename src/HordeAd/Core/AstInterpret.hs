@@ -310,10 +310,6 @@ interpretAst env = \case
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
         interpretAst env
           (AstLet var u (AstNm TimesOp [v, AstReplicate @m k s]))
-  AstNm TimesOp [v, u] ->
-    let v5 = interpretAst env v
-        u5 = interpretAst env u
-    in v5 * u5
   AstNm opCode args ->
     let args2 = interpretAst env <$> args
     in interpretAstNm opCode args2
