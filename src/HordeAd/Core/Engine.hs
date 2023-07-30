@@ -99,12 +99,6 @@ revDtMaybe f vals mdt =
 
 type Adaptable :: forall k. (AstSpanType -> TensorKind k) -> Constraint
 class Adaptable g where
-  revAstOnDomainsEval
-    :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => ADAstArtifact6 (g PrimalSpan) r y -> Domains OD.Array
-    -> Maybe (ConcreteOf g r y)
-    -> (Domains OD.Array, ConcreteOf g r y)
-
   revDtInit
     :: forall r y vals astvals.
        ( GoodScalar r, HasSingletonDict y
@@ -115,6 +109,12 @@ class Adaptable g where
     -> DomainsOD
     -> (ADAstArtifact6 (g PrimalSpan) r y, Dual (g PrimalSpan) r y)
 
+  revAstOnDomainsEval
+    :: forall r y. (GoodScalar r, HasSingletonDict y)
+    => ADAstArtifact6 (g PrimalSpan) r y -> Domains OD.Array
+    -> Maybe (ConcreteOf g r y)
+    -> (Domains OD.Array, ConcreteOf g r y)
+
 -- TODO: it's not clear if the instance should be of Clown OD.Array or of
 -- Domains OD.Array, for which we already have unletAstDomains6, etc.;
 -- let's wait until we have rev as a function of Tensor class in case
@@ -124,15 +124,6 @@ class Adaptable g where
 --  revDtInit = undefined
 
 instance Adaptable AstRanked where
-  {-# INLINE revAstOnDomainsEval #-}
-  revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters mdt =
-    let env1 = foldr extendEnvDR EM.empty $ zip vars1 $ V.toList parameters
-        dt = fromMaybe (treplicate0N (tshape primal) 1) mdt
-        envDt = extendEnvR varDt dt env1
-        gradientDomain = interpretAstDomainsDummy envDt gradient
-        primalTensor = interpretAstPrimal env1 primal
-    in (gradientDomain, primalTensor)
-
   revDtInit
     :: forall r y vals astvals.
        ( GoodScalar r, KnownNat y
@@ -154,16 +145,16 @@ instance Adaptable AstRanked where
           in interpretAst env1 ast
     in revAstOnDomainsFun hasDt parameters0 revDtInterpret
 
-instance Adaptable AstShaped where
   {-# INLINE revAstOnDomainsEval #-}
   revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters mdt =
-    let env1 = foldr extendEnvDS EM.empty $ zip vars1 $ V.toList parameters
-        dt = fromMaybe 1 mdt
-        envDt = extendEnvS varDt dt env1
+    let env1 = foldr extendEnvDR EM.empty $ zip vars1 $ V.toList parameters
+        dt = fromMaybe (treplicate0N (tshape primal) 1) mdt
+        envDt = extendEnvR varDt dt env1
         gradientDomain = interpretAstDomainsDummy envDt gradient
-        primalTensor = interpretAstPrimalS env1 primal
+        primalTensor = interpretAstPrimal env1 primal
     in (gradientDomain, primalTensor)
 
+instance Adaptable AstShaped where
   revDtInit
     :: forall r y vals astvals.
        ( GoodScalar r, OS.Shape y
@@ -185,6 +176,15 @@ instance Adaptable AstShaped where
           in interpretAstS env1 ast
     in revAstOnDomainsFunS hasDt parameters0 revDtInterpret
 
+  {-# INLINE revAstOnDomainsEval #-}
+  revAstOnDomainsEval ((varDt, vars1), gradient, primal) parameters mdt =
+    let env1 = foldr extendEnvDS EM.empty $ zip vars1 $ V.toList parameters
+        dt = fromMaybe 1 mdt
+        envDt = extendEnvS varDt dt env1
+        gradientDomain = interpretAstDomainsDummy envDt gradient
+        primalTensor = interpretAstPrimalS env1 primal
+    in (gradientDomain, primalTensor)
+
 
 -- * Lower level function related to reverse derivative adaptors
 
@@ -200,7 +200,7 @@ revDtFun
 revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
 revAstOnDomainsFun
-  :: forall r n. (KnownNat n, GoodScalar r)
+  :: forall r n. (GoodScalar r, KnownNat n)
   => Bool -> DomainsOD
   -> (Domains (ADValClown (AstDynamic PrimalSpan))
       -> Domains (AstDynamic FullSpan)
@@ -211,7 +211,8 @@ revAstOnDomainsFun
 {-# INLINE revAstOnDomainsFun #-}
 revAstOnDomainsFun hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
-      -- for pretty-printing and prevent sharing the impure values/effects.
+      -- for pretty-printing and prevent sharing the impure values/effects
+      -- in tests that reset the impure counters.
       !(!vars@(varDtId, vars1), asts1, astsPrimal1) =
         funToAstAll parameters0 in
   let domains = V.fromList asts1
@@ -231,7 +232,7 @@ revAstOnDomainsFun hasDt parameters0 f =
      , deltaTopLevel )
 
 revAstOnDomainsFunS
-  :: forall r sh. (OS.Shape sh, GoodScalar r)
+  :: forall r sh. (GoodScalar r, OS.Shape sh)
   => Bool -> DomainsOD
   -> (Domains (ADValClown (AstDynamic PrimalSpan))
       -> Domains (AstDynamic FullSpan)
@@ -242,7 +243,8 @@ revAstOnDomainsFunS
 {-# INLINE revAstOnDomainsFunS #-}
 revAstOnDomainsFunS hasDt parameters0 f =
   let -- Bangs and the compound function to fix the numbering of variables
-      -- for pretty-printing and prevent sharing the impure values/effects.
+      -- for pretty-printing and prevent sharing the impure values/effects
+      -- in tests that reset the impure counters.
       !(!vars@(varDtId, vars1), asts1, astsPrimal1) =
         funToAstAllS parameters0 in
   let domains = V.fromList asts1
@@ -267,7 +269,7 @@ revAstOnDomainsFunS hasDt parameters0 f =
 -- These work for f both ranked and shaped.
 crev
   :: forall r y f vals advals.
-     ( DualPart f, HasSingletonDict y, GoodScalar r
+     ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals, RandomDomains vals
@@ -278,7 +280,7 @@ crev f vals = crevDtMaybe f vals Nothing
 -- This version additionally takes the sensitivity parameter.
 crevDt
   :: forall r y f vals advals.
-     ( DualPart f, HasSingletonDict y, GoodScalar r
+     ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals, RandomDomains vals
@@ -288,7 +290,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall r y f vals advals.
-     ( DualPart f, HasSingletonDict y, GoodScalar r
+     ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals, RandomDomains vals
@@ -301,7 +303,7 @@ crevDtMaybe f vals dt =
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newcomers may have trouble understanding them.
 crevOnDomains
-  :: ( DualPart f, HasSingletonDict y, GoodScalar r
+  :: ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array )
   => Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
@@ -316,7 +318,7 @@ crevOnDomains dt f parameters =
 -- only at these values, both transposing and evaluating at the same time.
 -- These work for f both ranked and shaped.
 crevOnADInputs
-  :: ( DualPart f, HasSingletonDict y, GoodScalar r
+  :: ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array )
   => Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
@@ -341,7 +343,7 @@ crevOnADInputs mdt f inputs =
 -- It uses the same delta expressions as for gradients.
 cfwd
   :: forall r y f vals advals.
-     ( DualPart f, HasSingletonDict y, GoodScalar r
+     ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals
@@ -354,7 +356,7 @@ cfwd f x ds =
 
 -- The direction vector ds is taken as an extra argument.
 cfwdOnDomains
-  :: ( DualPart f, HasSingletonDict y, GoodScalar r
+  :: ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array )
   => DomainsOD
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
@@ -366,7 +368,7 @@ cfwdOnDomains parameters f ds =
   in cfwdOnADInputs inputs f ds
 
 cfwdOnADInputs
-  :: ( DualPart f, HasSingletonDict y, GoodScalar r
+  :: ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array )
   => Domains (DynamicOf (ADVal f))
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
