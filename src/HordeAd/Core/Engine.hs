@@ -9,6 +9,10 @@ module HordeAd.Core.Engine
   , Adaptable (..)
     -- * Lower level function related to reverse derivative adaptors
   , revDtFun, revAstOnDomainsFun
+    -- * Forward derivative adaptors
+  , fwd
+    -- * Lower level function related to forward derivative adaptors
+  , fwdDtFun, fwdAstOnDomainsFun
     -- * Old gradient adaptors, with constant and fixed inputs and dt
   , crev, crevDt, crevOnDomains, crevOnADInputs
     -- * Old derivative adaptors, with constant and fixed inputs
@@ -21,6 +25,7 @@ import Prelude
 
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
+import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
@@ -114,6 +119,22 @@ class Adaptable g where
     => ADAstArtifact6 g r y -> Domains OD.Array -> Maybe (ConcreteOf g r y)
     -> (Domains OD.Array, ConcreteOf g r y)
 
+  fwdDtInit
+    :: forall r y vals astvals.
+       ( GoodScalar r, HasSingletonDict y
+       , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
+    => (astvals -> g FullSpan r y) -> vals
+    -> AstEnv (ADVal (RankedOf (g PrimalSpan)))
+              (ADVal (ShapedOf (g PrimalSpan)))
+    -> DomainsOD
+    -> (AstArtifactFwd g r y, Dual (g PrimalSpan) r y)
+
+  fwdAstOnDomainsEval
+    :: forall r y. (GoodScalar r, HasSingletonDict y)
+    => AstArtifactFwd g r y -> Domains OD.Array -> Domains OD.Array
+    -> (ConcreteOf g r y, ConcreteOf g r y)
+
+
 -- TODO: it's not clear if the instance should be of Clown OD.Array or of
 -- Domains OD.Array, for which we already have unletAstDomains6, etc.;
 -- let's wait until we have rev as a function of Tensor class in case
@@ -152,6 +173,34 @@ instance Adaptable AstRanked where
         primalTensor = interpretAstPrimal env primal
     in (gradientDomain, primalTensor)
 
+  fwdDtInit
+    :: forall r y vals astvals.
+       ( GoodScalar r, HasSingletonDict y
+       , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
+    => (astvals -> AstRanked FullSpan r y) -> vals
+    -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
+    -> DomainsOD
+    -> (AstArtifactFwd AstRanked r y, Dual (AstRanked PrimalSpan) r y)
+  {-# INLINE fwdDtInit #-}
+  fwdDtInit f vals envInit parameters0 =
+    let revDtInterpret :: Domains (ADValClown (AstDynamic PrimalSpan))
+                       -> Domains (AstDynamic FullSpan)
+                       -> [AstDynamicVarName FullSpan AstRanked]
+                       -> ADVal (AstRanked PrimalSpan) r y
+        revDtInterpret varInputs domains vars =
+          let ast = f $ parseDomains vals domains
+              env = foldr extendEnvDR envInit $ zip vars $ V.toList varInputs
+          in interpretAst env ast
+    in fwdAstOnDomainsFun parameters0 revDtInterpret
+
+  {-# INLINE fwdAstOnDomainsEval #-}
+  fwdAstOnDomainsEval ((varDs, vars), derivative, primal) parameters ds =
+    let env = foldr extendEnvDR EM.empty $ zip vars $ V.toList parameters
+        envDs = foldr extendEnvDR env $ zip varDs $ V.toList ds
+        derivativeTensor = interpretAstPrimal envDs derivative
+        primalTensor = interpretAstPrimal @(Flip OR.Array) env primal
+    in (derivativeTensor, primalTensor)
+
 instance Adaptable AstShaped where
   revDtInit
     :: forall r y vals astvals.
@@ -181,6 +230,10 @@ instance Adaptable AstShaped where
         gradientDomain = interpretAstDomainsDummy envDt gradient
         primalTensor = interpretAstPrimalS env primal
     in (gradientDomain, primalTensor)
+
+  fwdDtInit = undefined  -- TODO
+
+  fwdAstOnDomainsEval = undefined  -- TODO
 
 
 -- * Lower level function related to reverse derivative adaptors
@@ -258,6 +311,66 @@ revAstOnDomainsFunS hasDt parameters0 f =
   in ( ( (varDt, varsPrimal)
        , unletAstDomains6 astBindings l (dmkDomains gradient)
        , unletAst6S l primalBody )
+     , deltaTopLevel )
+
+
+-- * Forward derivative adaptors
+
+-- This takes the sensitivity parameter, by convention.
+-- It uses the same delta expressions as for gradients.
+fwd
+  :: forall r y g vals astvals.
+     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains OD.Array vals
+     , vals ~ Value astvals )
+  => (astvals -> g FullSpan r y) -> vals -> vals
+  -> ConcreteOf g r y
+fwd f x ds =
+  let asts4 = fst $ fwdDtFun f x
+  in fst $ fwdAstOnDomainsEval asts4 (toDomains x) (toDomains ds)
+
+
+-- * Lower level function related to forward derivative adaptors
+
+fwdDtFun
+  :: forall r y g vals astvals.
+     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains OD.Array vals
+     , vals ~ Value astvals )
+  => (astvals -> g FullSpan r y) -> vals
+  -> (AstArtifactFwd g r y, Dual (g PrimalSpan) r y)
+{-# INLINE fwdDtFun #-}
+fwdDtFun f vals = fwdDtInit f vals EM.empty (toDomains vals)
+
+fwdAstOnDomainsFun
+  :: forall r n. (GoodScalar r, KnownNat n)
+  => DomainsOD
+  -> (Domains (ADValClown (AstDynamic PrimalSpan))
+      -> Domains (AstDynamic FullSpan)
+      -> [AstDynamicVarName FullSpan AstRanked]
+      -> ADVal (AstRanked PrimalSpan) r n)
+  -> (AstArtifactFwd AstRanked r n, Dual (AstRanked PrimalSpan) r n)
+{-# INLINE fwdAstOnDomainsFun #-}
+fwdAstOnDomainsFun parameters0 f =
+  let -- Bangs and the compound function to fix the numbering of variables
+      -- for pretty-printing and prevent sharing the impure values/effects
+      -- in tests that reset the impure counters.
+      !(!varsPrimalDs, astsPrimalDs, varsPrimal, astsPrimal, vars, asts) =
+        funToAstFwd parameters0 in
+  let domains = V.fromList asts
+      domainsPrimal = V.fromList astsPrimal
+      deltaInputs = generateDeltaInputs domainsPrimal
+      varInputs = makeADInputs domainsPrimal deltaInputs
+      -- Evaluate completely after terms constructed, to free memory
+      -- before gradientFromDelta allocates new memory and new FFI is started.
+      !(D l primalBody deltaTopLevel) = f varInputs domains vars in
+  let astDs = V.fromList astsPrimalDs
+      !derivative = forwardDerivative (V.length parameters0) deltaTopLevel astDs
+  in ( ( (varsPrimalDs, varsPrimal)
+       , unletAst6 l derivative
+       , unletAst6 l primalBody )
      , deltaTopLevel )
 
 
@@ -351,7 +464,6 @@ cfwd f x ds =
   let g inputs = f $ parseDomains ds inputs
   in fst $ cfwdOnDomains (toDomains x) g (toDomains ds)
 
--- The direction vector ds is taken as an extra argument.
 cfwdOnDomains
   :: ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array )

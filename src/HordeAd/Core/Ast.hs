@@ -12,7 +12,7 @@ module HordeAd.Core.Ast
     -- * More and less typed variables and type synonyms containing them
   , AstId, intToAstId
   , AstVarId, intToAstVarId, astIdToAstVarId, astVarIdToAstId, varNameToAstId
-  , ADAstArtifact6
+  , ADAstArtifact6, AstArtifactFwd
   , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * ASTs
   , AstRanked(..), AstShaped(..), AstDynamic(..), AstDomains(..)
@@ -188,10 +188,14 @@ data AstDynamicVarName s f where
                     => AstVarName s f r y -> AstDynamicVarName s f
 deriving instance Show (AstDynamicVarName s f)
 
--- The artifact from step 6) of our full pipeline.
+-- The reverse derivative artifact from step 6) of our full pipeline.
 type ADAstArtifact6 (f :: AstSpanType -> TensorKind k) r y =
   ( (AstVarName PrimalSpan f r y, [AstDynamicVarName PrimalSpan f])
   , AstDomains PrimalSpan, f PrimalSpan r y )
+
+type AstArtifactFwd (f :: AstSpanType -> TensorKind k) r y =
+  ( ([AstDynamicVarName PrimalSpan f], [AstDynamicVarName PrimalSpan f])
+  , f PrimalSpan r y, f PrimalSpan r y )
 
 type AstIndex n = Index n AstInt
 

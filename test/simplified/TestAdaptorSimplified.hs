@@ -87,11 +87,15 @@ testTrees =
   , testCase "2bar" testBar
   , testCase "2barS" testBarS
   , testCase "2bar2S" testBar2S
+  , testCase "2barCFwd" testBarCFwd
+  , testCase "2barFwd" testBarFwd
   , testCase "2baz old to force fooConstant" testBaz
   , testCase "2baz if repetition breaks things" testBaz
   , testCase "2baz again with renumbered terms" testBazRenumbered
   , testCase "2fooD T Double [1.1, 2.2, 3.3]" testFooD
   , testCase "2fooBuildDt" testFooBuildDt
+  , testCase "2fooBuildCFwd" testFooBuildCFwd
+  , testCase "2fooBuildFwd" testFooBuildFwd
   , testCase "2fooBuild" testFooBuild
   , testCase "2fooMap1" testFooMap1
   , testCase "2fooNoGoAst" testFooNoGoAst
@@ -99,12 +103,14 @@ testTrees =
   , testCase "2nestedBuildMap1" testNestedBuildMap1
   , testCase "2nestedSumBuild" testNestedSumBuild
   , testCase "2nestedBuildIndex" testNestedBuildIndex
-  , testCase "2barReluADValDt" testBarReluADValDt
-  , testCase "2barReluADVal" testBarReluADVal
-  , testCase "2barReluADVal3" testBarReluADVal3
-  , testCase "2barReluADValMaxDt" testBarReluADValMaxDt
-  , testCase "2barReluADValMax" testBarReluADValMax
-  , testCase "2barReluADValMax3" testBarReluADValMax3
+  , testCase "2barReluDt" testBarReluDt
+  , testCase "2barRelu" testBarRelu
+  , testCase "2barRelu3" testBarRelu3
+  , testCase "2barReluMaxDt" testBarReluMaxDt
+  , testCase "2barReluMax" testBarReluMax
+  , testCase "2barReluMax3" testBarReluMax3
+  , testCase "2barReluMax3CFwd" testBarReluMax3CFwd
+--  , testCase "2barReluMax3Fwd" testBarReluMax3Fwd
   , testCase "2barReluAst0" testBarReluAst0
   , testCase "2barReluAst1" testBarReluAst1
   , testCase "2konstReluAst" testReplicateReluAst
@@ -112,6 +118,8 @@ testTrees =
   , testCase "2F11" testF11
   , testCase "2F2" testF2
   , testCase "2F21" testF21
+  , testCase "2F2CFwd" testF2CFwd
+  , testCase "2F2Fwd" testF2Fwd
 --  , testCase "2F3" testF3
   , testCase "2braidedBuilds1" testBraidedBuilds1
   , testCase "2recycled1" testRecycled1
@@ -888,6 +896,18 @@ testBar2S =
     (3.1435239435581166,-1.1053869545195814)
     (rev (bar @(AstShaped FullSpan Double '[52, 2, 2, 1, 1, 3])) (1.1, 2.2))
 
+testBarCFwd :: Assertion
+testBarCFwd =
+  assertEqualUpToEpsilon 1e-9
+    9.327500345189534e-2
+    (cfwd (bar @(ADVal (Flip OR.Array) Double 0)) (1.1, 2.2) (0.1, 0.2))
+
+testBarFwd :: Assertion
+testBarFwd =
+  assertEqualUpToEpsilon 1e-9
+    9.327500345189534e-2
+    (fwd @Double @0 @AstRanked bar (1.1, 2.2) (0.1, 0.2))
+
 barADVal2 :: forall a. RealFloat a
           => (a, a, a) -> a
 barADVal2 (x,y,z) =
@@ -970,6 +990,18 @@ testFooBuildDt =
   assertEqualUpToEpsilon1 1e-5
     (OR.fromList [4] [-189890.46351219364,-233886.08744601303,-222532.22669716467,-206108.68889329425])
     (revDt @Double @1 fooBuild1 (Flip $ OR.fromList [4] [1.1, 2.2, 3.3, 4]) (Flip $ OR.constant [3] 42))
+
+testFooBuildCFwd :: Assertion
+testFooBuildCFwd =
+  assertEqualUpToEpsilon1 1e-5
+    (OR.fromList [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
+    (cfwd @Double @1 fooBuild1 (Flip $ OR.fromList [4] [1.1, 2.2, 3.3, 4]) (Flip $ OR.constant [4] 42))
+
+testFooBuildFwd :: Assertion
+testFooBuildFwd =
+  assertEqualUpToEpsilon1 1e-5
+    (OR.fromList [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
+    (fwd @Double @1 fooBuild1 (Flip $ OR.fromList [4] [1.1, 2.2, 3.3, 4]) (Flip $ OR.constant [4] 42))
 
 testFooBuild :: Assertion
 testFooBuild =
@@ -1104,20 +1136,20 @@ barRelu
   => ranked r n -> ranked r n
 barRelu x = relu $ bar (x, relu x)
 
-testBarReluADValDt :: Assertion
-testBarReluADValDt =
+testBarReluDt :: Assertion
+testBarReluDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
     (revDt @Double @0 @AstRanked barRelu (Flip $ OR.fromList [] [1.1]) 42.2)
 
-testBarReluADVal :: Assertion
-testBarReluADVal =
+testBarRelu :: Assertion
+testBarRelu =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [] [4.5309153191767395])
     (rev' @Double @0 barRelu (Flip $ OR.fromList [] [1.1]))
 
-testBarReluADVal3 :: Assertion
-testBarReluADVal3 =
+testBarRelu3 :: Assertion
+testBarRelu3 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
     (rev' @Double @3 barRelu (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
@@ -1127,23 +1159,42 @@ barReluMax
   => ranked r n -> ranked r n
 barReluMax x = reluMax $ bar (x, reluMax x)
 
-testBarReluADValMaxDt :: Assertion
-testBarReluADValMaxDt =
+testBarReluMaxDt :: Assertion
+testBarReluMaxDt =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [191.20462646925841])
     (revDt @Double @0 @AstRanked barReluMax (Flip $ OR.fromList [] [1.1]) 42.2)
 
-testBarReluADValMax :: Assertion
-testBarReluADValMax =
+testBarReluMax :: Assertion
+testBarReluMax =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [] [4.5309153191767395])
     (rev' @Double @0 barReluMax (Flip $ OR.fromList [] [1.1]))
 
-testBarReluADValMax3 :: Assertion
-testBarReluADValMax3 =
+testBarReluMax3 :: Assertion
+testBarReluMax3 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
     (rev' @Double @3 barReluMax (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
+
+testBarReluMax3CFwd :: Assertion
+testBarReluMax3CFwd =
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
+    (cfwd @Double @3 barReluMax (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2])
+                                (Flip $ OR.fromList [2, 1, 2]
+                                                    [0.1, 0.2, 0.3, 0.42]))
+{-
+-- The shape of FromListR[ZeroR] can't be determined in buildDerivative,
+-- so this needs to be instead converted to shaped tensors.
+testBarReluMax3Fwd :: Assertion
+testBarReluMax3Fwd =
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
+    (fwd @Double @3 barReluMax (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2])
+                               (Flip $ OR.fromList [2, 1, 2]
+                                                   [0.1, 0.2, 0.3, 0.42]))
+-}
 
 barReluAst
   :: forall n r.
@@ -1234,6 +1285,18 @@ testF21 =
   assertEqualUpToEpsilon' 1e-10
     470
     (rev' @Double @0 f2 1.1)
+
+testF2CFwd :: Assertion
+testF2CFwd =
+  assertEqualUpToEpsilon 1e-10
+    47
+    (cfwd @Double @0 f2 1.1 0.1)
+
+testF2Fwd :: Assertion
+testF2Fwd =
+  assertEqualUpToEpsilon 1e-10
+    47
+    (fwd @Double @0 @AstRanked f2 1.1 0.1)
 
 braidedBuilds :: forall ranked r.
                  (ADReady ranked, GoodScalar r, Differentiable r)

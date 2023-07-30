@@ -7,6 +7,7 @@ module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR
   , funToAstRevIO, funToAstRev, funToAstRevIOS, funToAstRevS
+  , funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIndexIO, funToAstIndex
   , funToAstIOS, funToAstS, astRegisterFunS, funToAstIndexIOS, funToAstIndexS
   , resetVarCounter
@@ -20,7 +21,7 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as OS
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
-import           Data.List (unzip4)
+import           Data.List (unzip4, unzip6)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
@@ -211,6 +212,49 @@ funToAstRevS parameters0 = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstId
   (varsPrimal, astsPrimal, vars, asts) <- funToAstRevIOS parameters0
   return (astIdToAstVarId freshId, varsPrimal, astsPrimal, vars, asts)
+
+funToAstFwdIO :: DomainsOD
+              -> IO ( [AstDynamicVarName PrimalSpan AstRanked]
+                    , [DynamicExists (AstDynamic PrimalSpan)]
+                    , [AstDynamicVarName PrimalSpan AstRanked]
+                    , [DynamicExists (AstDynamic PrimalSpan)]
+                    , [AstDynamicVarName FullSpan AstRanked]
+                    , [DynamicExists (AstDynamic FullSpan)] )
+{-# INLINE funToAstFwdIO #-}
+funToAstFwdIO parameters0 = do
+  let f (DynamicExists @r2 e) = do
+        let sh = OD.shapeL e
+        freshIdDs <- unsafeGetFreshAstId
+        let varIdDs :: AstVarId PrimalSpan
+            varIdDs = astIdToAstVarId freshIdDs
+        freshId <- unsafeGetFreshAstId
+        let varId :: AstVarId s
+            varId = astIdToAstVarId freshId
+        return $! OS.withShapeP sh $ \(Proxy :: Proxy sh) ->
+          case someNatVal $ toInteger $ length sh of
+            Just (SomeNat @n _) ->
+              let varE :: AstVarId s -> AstDynamicVarName s AstRanked
+                  varE v = AstDynamicVarName @Nat @sh @r2 (AstVarName v)
+                  dynE :: AstVarId s -> DynamicExists (AstDynamic s)
+                  dynE v = DynamicExists @r2
+                           $ AstRToD @n (AstVar (listShapeToShape sh)
+                                                (AstVarName v))
+              in ( varE varIdDs, dynE varIdDs
+                 , varE varId, dynE varId, varE varId, dynE varId )
+            Nothing -> error "funToAstFwdIO: impossible someNatVal error"
+  unzip6 <$> mapM f (V.toList parameters0)
+
+-- The AstVarName type with its parameter somehow prevents cse and crashes
+-- compared with a bare AstVarId, so let's keep it.
+funToAstFwd :: DomainsOD
+            -> ( [AstDynamicVarName PrimalSpan AstRanked]
+               , [DynamicExists (AstDynamic PrimalSpan)]
+               , [AstDynamicVarName PrimalSpan AstRanked]
+               , [DynamicExists (AstDynamic PrimalSpan)]
+               , [AstDynamicVarName FullSpan AstRanked]
+               , [DynamicExists (AstDynamic FullSpan)] )
+{-# NOINLINE funToAstFwd #-}
+funToAstFwd parameters0 = unsafePerformIO $ funToAstFwdIO parameters0
 
 funToAstIOI :: (AstInt -> t) -> IO (IntVarName, t)
 {-# INLINE funToAstIOI #-}
