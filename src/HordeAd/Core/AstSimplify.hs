@@ -847,7 +847,7 @@ astSliceLax i k v =
 astLet :: forall n m s s2 r r2.
           ( KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2
           , AstSpan s, AstSpan s2 )
-       => AstVarName s (AstRanked s) r n
+       => AstVarName s AstRanked r n
        -> AstRanked s r n -> AstRanked s2 r2 m
        -> AstRanked s2 r2 m
 astLet var u v | astIsSmall True u =
@@ -899,7 +899,7 @@ astLet var u v = Ast.AstLet var u v
 -- Normally, that's asymptotically worse than doing this
 -- in a global inlining pass, but we assume indexes expressions
 -- are short and nwe eed them simple ASAP.
-astLetInt :: AstVarName PrimalSpan (AstRanked PrimalSpan) Int64 0
+astLetInt :: AstVarName PrimalSpan AstRanked Int64 0
           -> AstRanked PrimalSpan Int64 0 -> AstRanked PrimalSpan Int64 0
           -> AstRanked PrimalSpan Int64 0
 astLetInt var u v | var `varNameInAst` v = astLet var u v
@@ -908,7 +908,7 @@ astLetInt _ _ v = v
 astLetS :: forall sh1 sh2 s s2 r r2.
            ( OS.Shape sh1, OS.Shape sh2, GoodScalar r, GoodScalar r2
            , AstSpan s, AstSpan s2 )
-        => AstVarName s (AstShaped s) r sh1
+        => AstVarName s AstShaped r sh1
         -> AstShaped s r sh1 -> AstShaped s2 r2 sh2
         -> AstShaped s2 r2 sh2
 astLetS var u v | astIsSmallS True u =
@@ -1592,7 +1592,7 @@ astDualPartS t = case t of
   Ast.AstCondS b a2 a3 -> astCondS b (astDualPartS a2) (astDualPartS a3)
 
 astDomainsLet :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-              => AstVarName s (AstRanked s) r n -> AstRanked s r n
+              => AstVarName s AstRanked r n -> AstRanked s r n
               -> AstDomains s
               -> AstDomains s
 astDomainsLet var u v | astIsSmall True u =
@@ -1600,7 +1600,7 @@ astDomainsLet var u v | astIsSmall True u =
 astDomainsLet var u v = Ast.AstDomainsLet var u v
 
 astDomainsLetS :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
-               => AstVarName s (AstShaped s) r sh
+               => AstVarName s AstShaped r sh
                -> AstShaped s r sh -> AstDomains s -> AstDomains s
 astDomainsLetS var u v | astIsSmallS True u =
   substituteAstDomains (SubstitutionPayloadShaped u) var v
@@ -2049,14 +2049,14 @@ data SubstitutionPayload s r =
 substituteAst :: forall n n2 s s2 r r2.
                  ( GoodScalar r, GoodScalar r2, KnownNat n
                  , AstSpan s, AstSpan s2 )
-              => SubstitutionPayload s2 r2 -> AstVarName s2 (AstRanked s2) r2 n2
+              => SubstitutionPayload s2 r2 -> AstVarName s2 AstRanked r2 n2
               -> AstRanked s r n
               -> AstRanked s r n
 substituteAst i (AstVarName var) v1 = fromMaybe v1 $ substitute1Ast i var v1
 
 substituteAstIndex
   :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarName s2 (AstRanked s2) r2 n2
+  => SubstitutionPayload s2 r2 -> AstVarName s2 AstRanked r2 n2
   -> AstIndex n
   -> AstIndex n
 substituteAstIndex i (AstVarName var) ix =
@@ -2086,7 +2086,7 @@ substituteAstS i (AstVarName var) v1 = fromMaybe v1 $ substitute1AstS i var v1
 
 substituteAstIndexS
   :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarName s2 (AstRanked s2) r2 n2
+  => SubstitutionPayload s2 r2 -> AstVarName s2 AstRanked r2 n2
   -> AstIndexS sh
   -> AstIndexS sh
 substituteAstIndexS i (AstVarName var) ix =

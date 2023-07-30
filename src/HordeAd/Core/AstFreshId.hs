@@ -98,8 +98,8 @@ astRegisterADShareS !r !l = unsafePerformIO $ do
 
 funToAstIOR :: forall n m s r r2. GoodScalar r
             => ShapeInt n -> (AstRanked s r n -> AstRanked s r2 m)
-            -> IO ( AstVarName s (AstRanked s) r n
-                  , AstDynamicVarName s (AstRanked s)
+            -> IO ( AstVarName s AstRanked r n
+                  , AstDynamicVarName s AstRanked
                   , AstRanked s r2 m )
 {-# INLINE funToAstIOR #-}
 funToAstIOR sh f = do
@@ -111,7 +111,7 @@ funToAstIOR sh f = do
 
 funToAstR :: GoodScalar r
           => ShapeInt n -> (AstRanked s r n -> AstRanked s r2 m)
-          -> (AstVarName s (AstRanked s) r n, AstRanked s r2 m)
+          -> (AstVarName s AstRanked r n, AstRanked s r2 m)
 {-# NOINLINE funToAstR #-}
 funToAstR sh f = unsafePerformIO $ do
   (var, _, ast) <- funToAstIOR sh f
@@ -119,8 +119,8 @@ funToAstR sh f = unsafePerformIO $ do
 
 funToAstIOS :: forall sh sh2 s r r2. (OS.Shape sh, GoodScalar r)
             => (AstShaped s r sh -> AstShaped s r2 sh2)
-            -> IO ( AstVarName s (AstShaped s) r sh
-                  , AstDynamicVarName s (AstShaped s)
+            -> IO ( AstVarName s AstShaped r sh
+                  , AstDynamicVarName s AstShaped
                   , AstShaped s r2 sh2 )
 {-# INLINE funToAstIOS #-}
 funToAstIOS f = do
@@ -131,14 +131,14 @@ funToAstIOS f = do
 
 funToAstS :: forall sh sh2 s r r2. (OS.Shape sh, GoodScalar r)
           => (AstShaped s r sh -> AstShaped s r2 sh2)
-          -> (AstVarName s (AstShaped s) r sh, AstShaped s r2 sh2)
+          -> (AstVarName s AstShaped r sh, AstShaped s r2 sh2)
 {-# NOINLINE funToAstS #-}
 funToAstS f = unsafePerformIO $ do
   (var, _, ast) <- funToAstIOS f
   return (var, ast)
 
 funToAstAllIO :: DomainsOD
-              -> IO ( [AstDynamicVarName PrimalSpan (AstRanked PrimalSpan)]
+              -> IO ( [AstDynamicVarName PrimalSpan AstRanked]
                     , [DynamicExists (AstDynamic FullSpan)]
                     , [DynamicExists (AstDynamic PrimalSpan)] )
 {-# INLINE funToAstAllIO #-}
@@ -163,7 +163,7 @@ funToAstAllIO parameters0 = do
 -- compared with a bare AstVarId, so let's keep it.
 funToAstAll :: DomainsOD
             -> ( ( AstVarName PrimalSpan f r y
-                 , [AstDynamicVarName PrimalSpan (AstRanked PrimalSpan)] )
+                 , [AstDynamicVarName PrimalSpan AstRanked] )
                , [DynamicExists (AstDynamic FullSpan)]
                , [DynamicExists (AstDynamic PrimalSpan)] )
 {-# NOINLINE funToAstAll #-}
@@ -173,7 +173,7 @@ funToAstAll parameters0 = unsafePerformIO $ do
   return ((varName, vars1), asts1, astsPrimal1)
 
 funToAstAllIOS :: DomainsOD
-               -> IO ( [AstDynamicVarName PrimalSpan (AstShaped PrimalSpan)]
+               -> IO ( [AstDynamicVarName PrimalSpan AstShaped]
                      , [DynamicExists (AstDynamic FullSpan)]
                      , [DynamicExists (AstDynamic PrimalSpan)] )
 {-# INLINE funToAstAllIOS #-}
@@ -194,7 +194,7 @@ funToAstAllIOS parameters0 = do
 -- compared with a bare AstVarId, so let's keep it.
 funToAstAllS :: DomainsOD
              -> ( ( AstVarName PrimalSpan f r y
-                  , [AstDynamicVarName PrimalSpan (AstShaped PrimalSpan)] )
+                  , [AstDynamicVarName PrimalSpan AstShaped] )
                 , [DynamicExists (AstDynamic FullSpan)]
                 , [DynamicExists (AstDynamic PrimalSpan)] )
 {-# NOINLINE funToAstAllS #-}

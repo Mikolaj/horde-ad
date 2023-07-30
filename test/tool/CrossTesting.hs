@@ -67,8 +67,7 @@ rev' f vals =
         -> (Domains (ADValClown (AstDynamic PrimalSpan))
         -> ADVal (AstRanked PrimalSpan) r2 n2)
         -> DomainsOD
-        -> ( ADAstArtifact6 (AstRanked PrimalSpan) r2 n2
-           , Dual (AstRanked PrimalSpan) r2 n2 )
+        -> (ADAstArtifact6 AstRanked r2 n2, Dual (AstRanked PrimalSpan) r2 n2)
       {-# INLINE revAstOnDomainsF #-}
       revAstOnDomainsF hasDt f2 parameters2  =
         revAstOnDomainsFun hasDt parameters2 (\varInputs _ _ -> f2 varInputs)

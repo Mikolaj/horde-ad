@@ -33,14 +33,14 @@ import           HordeAd.Util.SizedIndex
 -- * Inlining and simplification pass operations to be applied after unlet
 
 simplifyArtifact6 :: (GoodScalar r, KnownNat n)
-                  => ADAstArtifact6 (AstRanked PrimalSpan) r n
-                  -> ADAstArtifact6 (AstRanked PrimalSpan) r n
+                  => ADAstArtifact6 AstRanked r n
+                  -> ADAstArtifact6 AstRanked r n
 simplifyArtifact6 (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6 primal)
 
 simplifyArtifact6S :: (GoodScalar r, OS.Shape sh)
-                   => ADAstArtifact6 (AstShaped PrimalSpan) r sh
-                   -> ADAstArtifact6 (AstShaped PrimalSpan) r sh
+                   => ADAstArtifact6 AstShaped r sh
+                   -> ADAstArtifact6 AstShaped r sh
 simplifyArtifact6S (vars, gradient, primal) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6S primal)
 
