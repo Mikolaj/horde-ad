@@ -153,16 +153,8 @@ instance Adaptable AstRanked where
     -> DomainsOD
     -> (AstArtifactRev AstRanked r y, Dual (AstRanked PrimalSpan) r y)
   {-# INLINE revDtInit #-}
-  revDtInit hasDt f vals envInit parameters0 =
-    let revDtInterpret :: Domains (ADValClown (AstDynamic PrimalSpan))
-                       -> Domains (AstDynamic FullSpan)
-                       -> [AstDynamicVarName FullSpan AstRanked]
-                       -> ADVal (AstRanked PrimalSpan) r y
-        revDtInterpret varInputs domains vars =
-          let ast = f $ parseDomains vals domains
-              env = foldr extendEnvDR envInit $ zip vars $ V.toList varInputs
-          in interpretAst env ast
-    in revAstOnDomainsFun hasDt parameters0 revDtInterpret
+  revDtInit hasDt f vals envInit =
+    revAstOnDomainsFun hasDt (revDtInterpret f vals envInit)
 
   {-# INLINE revAstOnDomainsEval #-}
   revAstOnDomainsEval ((varDt, vars), gradient, primal) parameters mdt =
@@ -182,16 +174,8 @@ instance Adaptable AstRanked where
     -> DomainsOD
     -> (AstArtifactFwd AstRanked r y, Dual (AstRanked PrimalSpan) r y)
   {-# INLINE fwdDtInit #-}
-  fwdDtInit f vals envInit parameters0 =
-    let revDtInterpret :: Domains (ADValClown (AstDynamic PrimalSpan))
-                       -> Domains (AstDynamic FullSpan)
-                       -> [AstDynamicVarName FullSpan AstRanked]
-                       -> ADVal (AstRanked PrimalSpan) r y
-        revDtInterpret varInputs domains vars =
-          let ast = f $ parseDomains vals domains
-              env = foldr extendEnvDR envInit $ zip vars $ V.toList varInputs
-          in interpretAst env ast
-    in fwdAstOnDomainsFun parameters0 revDtInterpret
+  fwdDtInit f vals envInit =
+    fwdAstOnDomainsFun (revDtInterpret f vals envInit)
 
   {-# INLINE fwdAstOnDomainsEval #-}
   fwdAstOnDomainsEval ((varDs, vars), derivative, primal) parameters ds =
@@ -213,16 +197,8 @@ instance Adaptable AstShaped where
     -> DomainsOD
     -> (AstArtifactRev AstShaped r y, Dual (AstShaped PrimalSpan) r y)
   {-# INLINE revDtInit #-}
-  revDtInit hasDt f vals envInit parameters0 =
-    let revDtInterpret :: Domains (ADValClown (AstDynamic PrimalSpan))
-                       -> Domains (AstDynamic FullSpan)
-                       -> [AstDynamicVarName FullSpan AstShaped]
-                       -> ADVal (AstShaped PrimalSpan) r y
-        revDtInterpret varInputs domains vars =
-          let ast = f $ parseDomains vals domains
-              env = foldr extendEnvDS envInit $ zip vars $ V.toList varInputs
-          in interpretAstS env ast
-    in revAstOnDomainsFunS hasDt parameters0 revDtInterpret
+  revDtInit hasDt f vals envInit =
+    revAstOnDomainsFunS hasDt(revDtInterpretS f vals envInit)
 
   {-# INLINE revAstOnDomainsEval #-}
   revAstOnDomainsEval ((varDt, vars), gradient, primal) parameters mdt =
@@ -251,16 +227,47 @@ revDtFun
 {-# INLINE revDtFun #-}
 revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
+revDtInterpret
+  :: ( GoodScalar r, KnownNat y
+     , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
+  => (astvals -> AstRanked FullSpan r y)
+  -> vals
+  -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
+  -> Domains (ADValClown (AstDynamic PrimalSpan))
+  -> Domains (AstDynamic FullSpan)
+  -> [AstDynamicVarName FullSpan AstRanked]
+  -> ADVal (AstRanked PrimalSpan) r y
+revDtInterpret f vals envInit varInputs domains vars =
+  let ast = f $ parseDomains vals domains
+      env = foldr extendEnvDR envInit $ zip vars $ V.toList varInputs
+  in interpretAst env ast
+
+revDtInterpretS
+  :: ( GoodScalar r, OS.Shape y
+     , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
+  => (astvals -> AstShaped FullSpan r y)
+  -> vals
+  -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
+  -> Domains (ADValClown (AstDynamic PrimalSpan))
+  -> Domains (AstDynamic FullSpan)
+  -> [AstDynamicVarName FullSpan AstShaped]
+  -> ADVal (AstShaped PrimalSpan) r y
+revDtInterpretS f vals envInit varInputs domains vars =
+  let ast = f $ parseDomains vals domains
+      env = foldr extendEnvDS envInit $ zip vars $ V.toList varInputs
+  in interpretAstS env ast
+
 revAstOnDomainsFun
   :: forall r n. (GoodScalar r, KnownNat n)
-  => Bool -> DomainsOD
+  => Bool
   -> (Domains (ADValClown (AstDynamic PrimalSpan))
       -> Domains (AstDynamic FullSpan)
       -> [AstDynamicVarName FullSpan AstRanked]
       -> ADVal (AstRanked PrimalSpan) r n)
+  -> DomainsOD
   -> (AstArtifactRev AstRanked r n, Dual (AstRanked PrimalSpan) r n)
 {-# INLINE revAstOnDomainsFun #-}
-revAstOnDomainsFun hasDt parameters0 f =
+revAstOnDomainsFun hasDt f parameters0 =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
@@ -285,14 +292,15 @@ revAstOnDomainsFun hasDt parameters0 f =
 
 revAstOnDomainsFunS
   :: forall r sh. (GoodScalar r, OS.Shape sh)
-  => Bool -> DomainsOD
+  => Bool
   -> (Domains (ADValClown (AstDynamic PrimalSpan))
       -> Domains (AstDynamic FullSpan)
       -> [AstDynamicVarName FullSpan AstShaped]
       -> ADVal (AstShaped PrimalSpan) r sh)
+  -> DomainsOD
   -> (AstArtifactRev AstShaped r sh, Dual (AstShaped PrimalSpan) r sh)
 {-# INLINE revAstOnDomainsFunS #-}
-revAstOnDomainsFunS hasDt parameters0 f =
+revAstOnDomainsFunS hasDt f parameters0 =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
@@ -348,14 +356,14 @@ fwdDtFun f vals = fwdDtInit f vals EM.empty (toDomains vals)
 
 fwdAstOnDomainsFun
   :: forall r n. (GoodScalar r, KnownNat n)
-  => DomainsOD
-  -> (Domains (ADValClown (AstDynamic PrimalSpan))
+  => (Domains (ADValClown (AstDynamic PrimalSpan))
       -> Domains (AstDynamic FullSpan)
       -> [AstDynamicVarName FullSpan AstRanked]
       -> ADVal (AstRanked PrimalSpan) r n)
+  -> DomainsOD
   -> (AstArtifactFwd AstRanked r n, Dual (AstRanked PrimalSpan) r n)
 {-# INLINE fwdAstOnDomainsFun #-}
-fwdAstOnDomainsFun parameters0 f =
+fwdAstOnDomainsFun f parameters0 =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.

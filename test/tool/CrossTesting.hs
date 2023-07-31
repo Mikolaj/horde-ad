@@ -69,8 +69,8 @@ rev' f vals =
         -> DomainsOD
         -> (AstArtifactRev AstRanked r2 n2, Dual (AstRanked PrimalSpan) r2 n2)
       {-# INLINE revAstOnDomainsF #-}
-      revAstOnDomainsF hasDt f2 parameters2  =
-        revAstOnDomainsFun hasDt parameters2 (\varInputs _ _ -> f2 varInputs)
+      revAstOnDomainsF hasDt f2 =
+        revAstOnDomainsFun hasDt (\varInputs _ _ -> f2 varInputs)
       (advalGrad9, value9) =
         revAstOnDomainsEval (fst $ revAstOnDomainsF False g9 parameters)
                             parameters dt
