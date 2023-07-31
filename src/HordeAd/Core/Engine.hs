@@ -6,12 +6,13 @@
 module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
     rev, revDt
-  , Adaptable (..)
-    -- * Lower level function related to reverse derivative adaptors
-  , revDtFun, revAstOnDomainsFun
-    -- * Forward derivative adaptors
+    -- * Forward derivative adaptor
   , fwd
-    -- * Lower level function related to forward derivative adaptors
+    -- * Reverse and forward derivative adaptor class
+  , Adaptable (..)
+    -- * Lower level functions related to reverse derivative adaptors
+  , revDtFun, revAstOnDomainsFun
+    -- * Lower level functions related to forward derivative adaptors
   , fwdDtFun, fwdAstOnDomainsFun
     -- * Old gradient adaptors, with constant and fixed inputs and dt
   , crev, crevDt, crevOnDomains, crevOnADInputs
@@ -101,6 +102,26 @@ revDtMaybe f vals mdt =
   let asts4 = fst $ revDtFun (isJust mdt) f vals
   in parseDomains (toValue vals)
      $ fst $ revAstOnDomainsEval asts4 (toDomains vals) mdt
+
+
+-- * Forward derivative adaptor
+
+-- This takes the sensitivity parameter, by convention.
+-- It uses the same delta expressions as for gradients.
+fwd
+  :: forall r y g vals astvals.
+     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains OD.Array vals
+     , vals ~ Value astvals )
+  => (astvals -> g FullSpan r y) -> vals -> vals
+  -> ConcreteOf g r y
+fwd f x ds =
+  let asts4 = fst $ fwdDtFun f x
+  in fst $ fwdAstOnDomainsEval asts4 (toDomains x) (toDomains ds)
+
+
+-- * Reverse and forward derivative adaptor class
 
 type Adaptable :: forall k. (AstSpanType -> TensorKind k) -> Constraint
 class Adaptable g where
@@ -213,20 +234,6 @@ instance Adaptable AstShaped where
 
   fwdAstOnDomainsEval = undefined  -- TODO
 
-
--- * Lower level function related to reverse derivative adaptors
-
-revDtFun
-  :: forall r y g vals astvals.
-     ( Adaptable g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
-     , AdaptableDomains OD.Array vals
-     , vals ~ Value astvals )
-  => Bool -> (astvals -> g FullSpan r y) -> vals
-  -> (AstArtifactRev g r y, Dual (g PrimalSpan) r y)
-{-# INLINE revDtFun #-}
-revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
-
 revDtInterpret
   :: ( GoodScalar r, KnownNat y
      , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
@@ -256,6 +263,20 @@ revDtInterpretS f vals envInit varInputs domains vars =
   let ast = f $ parseDomains vals domains
       env = foldr extendEnvDS envInit $ zip vars $ V.toList varInputs
   in interpretAstS env ast
+
+
+-- * Lower level functions related to reverse derivative adaptors
+
+revDtFun
+  :: forall r y g vals astvals.
+     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains OD.Array vals
+     , vals ~ Value astvals )
+  => Bool -> (astvals -> g FullSpan r y) -> vals
+  -> (AstArtifactRev g r y, Dual (g PrimalSpan) r y)
+{-# INLINE revDtFun #-}
+revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
 revAstOnDomainsFun
   :: forall r n. (GoodScalar r, KnownNat n)
@@ -316,24 +337,7 @@ revAstOnDomainsFunS hasDt f parameters0 =
      , deltaTopLevel )
 
 
--- * Forward derivative adaptors
-
--- This takes the sensitivity parameter, by convention.
--- It uses the same delta expressions as for gradients.
-fwd
-  :: forall r y g vals astvals.
-     ( Adaptable g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
-     , AdaptableDomains OD.Array vals
-     , vals ~ Value astvals )
-  => (astvals -> g FullSpan r y) -> vals -> vals
-  -> ConcreteOf g r y
-fwd f x ds =
-  let asts4 = fst $ fwdDtFun f x
-  in fst $ fwdAstOnDomainsEval asts4 (toDomains x) (toDomains ds)
-
-
--- * Lower level function related to forward derivative adaptors
+-- * Lower level functions related to forward derivative adaptors
 
 fwdDtFun
   :: forall r y g vals astvals.
