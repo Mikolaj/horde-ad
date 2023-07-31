@@ -7,7 +7,7 @@ module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR
   , funToAstRevIO, funToAstRev, funToAstRevIOS, funToAstRevS
-  , funToAstFwdIO, funToAstFwd
+  , funToAstFwdIO, funToAstFwd, funToAstFwdIOS, funToAstFwdS
   , funToAstIOI, funToAstI, funToAstIndexIO, funToAstIndex
   , funToAstIOS, funToAstS, astRegisterFunS, funToAstIndexIOS, funToAstIndexS
   , resetVarCounter
@@ -263,6 +263,49 @@ funToAstFwd :: DomainsOD
                , Domains (AstDynamic FullSpan) )
 {-# NOINLINE funToAstFwd #-}
 funToAstFwd parameters0 = unsafePerformIO $ funToAstFwdIO parameters0
+
+funToAstFwdIOS :: DomainsOD
+               -> IO ( [AstDynamicVarName PrimalSpan AstShaped]
+                     , Domains (AstDynamic PrimalSpan)
+                     , [AstDynamicVarName PrimalSpan AstShaped]
+                     , Domains (AstDynamic PrimalSpan)
+                     , [AstDynamicVarName FullSpan AstShaped]
+                     , Domains (AstDynamic FullSpan) )
+{-# INLINE funToAstFwdIOS #-}
+funToAstFwdIOS parameters0 = do
+  let f (DynamicExists @r2 e) = do
+        let sh = OD.shapeL e
+        freshIdDs <- unsafeGetFreshAstId
+        let varIdDs :: AstVarId PrimalSpan
+            varIdDs = astIdToAstVarId freshIdDs
+        freshId <- unsafeGetFreshAstId
+        let varId :: AstVarId s
+            varId = astIdToAstVarId freshId
+        return $! OS.withShapeP sh $ \(Proxy :: Proxy sh) ->
+          let varE :: AstVarId s -> AstDynamicVarName s AstShaped
+              varE v = AstDynamicVarName @[Nat] @sh @r2 (AstVarName v)
+              dynE :: AstVarId s -> DynamicExists (AstDynamic s)
+              dynE v = DynamicExists @r2
+                       $ AstSToD (AstVarS @sh (AstVarName v))
+          in ( varE varIdDs, dynE varIdDs
+             , varE varId, dynE varId, varE varId, dynE varId )
+  (varsPrimalDs, astsPrimalDs, varsPrimal, astsPrimal, vars, asts)
+    <- unzip6 <$> mapM f (V.toList parameters0)
+  return ( varsPrimalDs, V.fromList astsPrimalDs
+         , varsPrimal, V.fromList astsPrimal
+         , vars, V.fromList asts )
+
+-- The AstVarName type with its parameter somehow prevents cse and crashes
+-- compared with a bare AstVarId, so let's keep it.
+funToAstFwdS :: DomainsOD
+             -> ( [AstDynamicVarName PrimalSpan AstShaped]
+                , Domains (AstDynamic PrimalSpan)
+                , [AstDynamicVarName PrimalSpan AstShaped]
+                , Domains (AstDynamic PrimalSpan)
+                , [AstDynamicVarName FullSpan AstShaped]
+                , Domains (AstDynamic FullSpan) )
+{-# NOINLINE funToAstFwdS #-}
+funToAstFwdS parameters0 = unsafePerformIO $ funToAstFwdIOS parameters0
 
 funToAstIOI :: (AstInt -> t) -> IO (IntVarName, t)
 {-# INLINE funToAstIOI #-}

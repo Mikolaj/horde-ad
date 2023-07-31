@@ -108,6 +108,10 @@ revDtMaybe f vals mdt =
 
 -- This takes the sensitivity parameter, by convention.
 -- It uses the same delta expressions as for gradients.
+--
+-- Warning: this fails often with ranked tensor due to inability
+-- to determine tensor shapes, see test testBarReluMax3Fwd.
+-- Shaped tensors work fine.
 fwd
   :: forall r y g vals astvals.
      ( Adaptable g, GoodScalar r, HasSingletonDict y
@@ -165,14 +169,6 @@ class Adaptable g where
 --  revDtInit = undefined
 
 instance Adaptable AstRanked where
-  revDtInit
-    :: forall r y vals astvals.
-       ( GoodScalar r, KnownNat y
-       , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
-    => Bool -> (astvals -> AstRanked FullSpan r y) -> vals
-    -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
-    -> DomainsOD
-    -> (AstArtifactRev AstRanked r y, Dual (AstRanked PrimalSpan) r y)
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit =
     revAstOnDomainsFun hasDt (revDtInterpret f vals envInit)
@@ -186,14 +182,6 @@ instance Adaptable AstRanked where
         primalTensor = interpretAstPrimal env primal
     in (gradientDomain, primalTensor)
 
-  fwdDtInit
-    :: forall r y vals astvals.
-       ( GoodScalar r, HasSingletonDict y
-       , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
-    => (astvals -> AstRanked FullSpan r y) -> vals
-    -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
-    -> DomainsOD
-    -> (AstArtifactFwd AstRanked r y, Dual (AstRanked PrimalSpan) r y)
   {-# INLINE fwdDtInit #-}
   fwdDtInit f vals envInit =
     fwdAstOnDomainsFun (revDtInterpret f vals envInit)
@@ -209,14 +197,6 @@ instance Adaptable AstRanked where
    else error "forward derivative input and sensitivity arguments should have same shapes"
 
 instance Adaptable AstShaped where
-  revDtInit
-    :: forall r y vals astvals.
-       ( GoodScalar r, OS.Shape y
-       , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
-    => Bool -> (astvals -> AstShaped FullSpan r y) -> vals
-    -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
-    -> DomainsOD
-    -> (AstArtifactRev AstShaped r y, Dual (AstShaped PrimalSpan) r y)
   {-# INLINE revDtInit #-}
   revDtInit hasDt f vals envInit =
     revAstOnDomainsFunS hasDt(revDtInterpretS f vals envInit)
@@ -230,9 +210,17 @@ instance Adaptable AstShaped where
         primalTensor = interpretAstPrimalS env primal
     in (gradientDomain, primalTensor)
 
-  fwdDtInit = undefined  -- TODO
+  {-# INLINE fwdDtInit #-}
+  fwdDtInit f vals envInit =
+    fwdAstOnDomainsFunS (revDtInterpretS f vals envInit)
 
-  fwdAstOnDomainsEval = undefined  -- TODO
+  {-# INLINE fwdAstOnDomainsEval #-}
+  fwdAstOnDomainsEval ((varDs, vars), derivative, primal) parameters ds =
+    let env = foldr extendEnvDS EM.empty $ zip vars $ V.toList parameters
+        envDs = foldr extendEnvDS env $ zip varDs $ V.toList ds
+        derivativeTensor = interpretAstPrimalS envDs derivative
+        primalTensor = interpretAstPrimalS @(Flip OR.Array) env primal
+    in (derivativeTensor, primalTensor)
 
 revDtInterpret
   :: ( GoodScalar r, KnownNat y
@@ -370,6 +358,28 @@ fwdAstOnDomainsFun f parameters0 =
   in ( ( (varsPrimalDs, varsPrimal)
        , unletAst6 l derivative
        , unletAst6 l primalBody )
+     , deltaTopLevel )
+
+fwdAstOnDomainsFunS
+  :: forall r sh. (GoodScalar r, OS.Shape sh)
+  => (Domains (ADValClown (AstDynamic PrimalSpan))
+      -> Domains (AstDynamic FullSpan)
+      -> [AstDynamicVarName FullSpan AstShaped]
+      -> ADVal (AstShaped PrimalSpan) r sh)
+  -> DomainsOD
+  -> (AstArtifactFwd AstShaped r sh, Dual (AstShaped PrimalSpan) r sh)
+{-# INLINE fwdAstOnDomainsFunS #-}
+fwdAstOnDomainsFunS f parameters0 =
+  let !(!varsPrimalDs, domainsDs, varsPrimal, domainsPrimal, vars, domains) =
+        funToAstFwdS parameters0 in
+  let deltaInputs = generateDeltaInputs domainsPrimal
+      varInputs = makeADInputs domainsPrimal deltaInputs
+      !(D l primalBody deltaTopLevel) = f varInputs domains vars in
+  let !derivative =
+        forwardDerivative (V.length parameters0) deltaTopLevel domainsDs
+  in ( ( (varsPrimalDs, varsPrimal)
+       , unletAst6S l derivative
+       , unletAst6S l primalBody )
      , deltaTopLevel )
 
 

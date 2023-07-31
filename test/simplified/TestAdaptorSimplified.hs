@@ -29,22 +29,28 @@ testTrees :: [TestTree]
 testTrees =
   [ testCase "2zero" testZero
   , testCase "2zeroS" testZeroS
-  , testCase "2fwdZeroS" testFwdZeroS
+  , testCase "2CFwdZeroS" testCFwdZeroS
+  , testCase "2FwdZeroS" testFwdZeroS
   , testCase "2zero2S" testZero2S
-  , testCase "2fwdZero2S" testFwdZero2S
+  , testCase "2CFwdZero2S" testCFwdZero2S
+  , testCase "2FwdZero2S" testFwdZero2S
   , testCase "2zero3S" testZero3S
-  , testCase "2fwdZero3S" testFwdZero3S
+  , testCase "2CFwdZero3S" testCFwdZero3S
+  , testCase "2FwdZero3S" testFwdZero3S
   , testCase "2zero4S" testZero4S
   , testCase "2zero5S" testZero5S
   , testCase "2zero6S" testZero6S
   , testCase "2zero7S" testZero7S
   , testCase "2zero8" testZero8
   , testCase "2zero9S" testZero9S
-  , testCase "2fwdZero9S" testFwdZero9S
+  , testCase "2CFwdZero9S" testCFwdZero9S
+  , testCase "2FwdZero9S" testFwdZero9S
   , testCase "2zero10S" testZero10S
-  , testCase "2fwdZero10S" testFwdZero10S
+  , testCase "2CFwdZero10S" testCFwdZero10S
+  , testCase "2FwdZero10S" testFwdZero10S
   , testCase "2zero11S" testZero11S
-  , testCase "2fwdZero11S" testFwdZero11S
+  , testCase "2CFwdZero11S" testCFwdZero11S
+  , testCase "2FwdZero11S" testFwdZero11S
   , testCase "2piecewiseLinearPP" testPiecewiseLinearPP
   , testCase "2piecewiseLinear2PP" testPiecewiseLinear2PP
   , testCase "2overleaf" testOverleaf
@@ -110,7 +116,7 @@ testTrees =
   , testCase "2barReluMax" testBarReluMax
   , testCase "2barReluMax3" testBarReluMax3
   , testCase "2barReluMax3CFwd" testBarReluMax3CFwd
---  , testCase "2barReluMax3Fwd" testBarReluMax3Fwd
+  , testCase "2barReluMax3Fwd" testBarReluMax3Fwd
   , testCase "2barReluAst0" testBarReluAst0
   , testCase "2barReluAst1" testBarReluAst1
   , testCase "2konstReluAst" testReplicateReluAst
@@ -146,13 +152,21 @@ testZeroS =
                f = const 3
            in f @(ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])) 42)
 
-testFwdZeroS :: Assertion
-testFwdZeroS =
+testCFwdZeroS :: Assertion
+testCFwdZeroS =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[0, 2, 4, 0, 1] [])
     (cfwd (let f :: Num a => a -> a
                f = const 3
            in f @(ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])) 42 41)
+
+testFwdZeroS :: Assertion
+testFwdZeroS =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (fwd (let f :: Num a => a -> a
+              f = const 3
+          in f @(AstShaped FullSpan Double '[0, 2, 4, 0, 1])) 42 41)
 
 testZero2S :: Assertion
 testZero2S =
@@ -163,11 +177,20 @@ testZero2S =
                f = id
            in f) 42)
 
+testCFwdZero2S :: Assertion
+testCFwdZero2S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[] [41])
+    (cfwd @Double @'[] @(Flip OS.Array)
+          (let f :: a -> a
+               f = id
+           in f) 42 41)
+
 testFwdZero2S :: Assertion
 testFwdZero2S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[] [41])
-    (cfwd @Double @'[] @(Flip OS.Array)
+    (fwd @Double @'[]
           (let f :: a -> a
                f = id
            in f) 42 41)
@@ -178,11 +201,17 @@ testZero3S =
     (Flip $ OS.fromList @'[33, 2] (replicate 66 3.6174114266850617))
     (crev (\x -> bar @(ADVal (Flip OS.Array) Double '[33, 2]) (x, x)) 1)
 
+testCFwdZero3S :: Assertion
+testCFwdZero3S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[33, 2] (replicate 66 3.9791525693535674))
+    (cfwd (\x -> bar @(ADVal (Flip OS.Array) Double '[33, 2]) (x, x)) 1 1.1)
+
 testFwdZero3S :: Assertion
 testFwdZero3S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[33, 2] (replicate 66 3.9791525693535674))
-    (cfwd (\x -> bar @(ADVal (Flip OS.Array) Double '[33, 2]) (x, x)) 1 1.1)
+    (fwd (\x -> bar @(AstShaped FullSpan Double '[33, 2]) (x, x)) 1 1.1)
 
 testZero4S :: Assertion
 testZero4S =
@@ -230,8 +259,8 @@ testZero9S =
                 @(ADVal (Flip OR.Array) Double 5))
           (treplicate0N [0, 2, 4, 0, 1] 42))
 
-testFwdZero9S :: Assertion
-testFwdZero9S =
+testCFwdZero9S :: Assertion
+testCFwdZero9S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[0, 2, 4, 0, 1] [])
     (cfwd (let f :: Num a => b -> a
@@ -239,6 +268,16 @@ testFwdZero9S =
            in f @(ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])
                 @(ADVal (Flip OR.Array) Double 5))
           42 41)
+
+testFwdZero9S :: Assertion
+testFwdZero9S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (fwd (let f :: Num a => b -> a
+              f = const 3
+          in f @(AstShaped FullSpan Double '[0, 2, 4, 0, 1])
+               @(AstRanked FullSpan Double 5))
+          (treplicate0N [0, 2, 4, 0, 1] 42) 41)
 
 testZero10S :: Assertion
 testZero10S =
@@ -251,14 +290,27 @@ testZero10S =
                    -> ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])
           (treplicate0N [0, 2, 4, 0, 1] 42, 21))
 
-testFwdZero10S :: Assertion
-testFwdZero10S =
+testCFwdZero10S :: Assertion
+testCFwdZero10S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OS.fromList @'[0, 2, 4, 0, 1] [])
     (cfwd (let f = const 3 . snd
            in f :: ( ADVal (Flip OR.Array) Double 5
                    , ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1] )
                    -> ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])
+          ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
+          , Flip $ OS.fromList @'[0, 2, 4, 0, 1] [] )
+          ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
+          , Flip $ OS.fromList @'[0, 2, 4, 0, 1] [] ))
+
+testFwdZero10S :: Assertion
+testFwdZero10S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OS.fromList @'[0, 2, 4, 0, 1] [])
+    (fwd  (let f = const 3 . snd
+           in f :: ( AstRanked FullSpan Double 5
+                   , AstShaped FullSpan Double '[0, 2, 4, 0, 1] )
+                   -> AstShaped FullSpan Double '[0, 2, 4, 0, 1])
           ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
           , Flip $ OS.fromList @'[0, 2, 4, 0, 1] [] )
           ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
@@ -275,14 +327,27 @@ testZero11S =
                    -> ADVal (Flip OR.Array) Double 5)
           (treplicate0N [0, 2, 4, 0, 1] 42, 21))
 
-testFwdZero11S :: Assertion
-testFwdZero11S =
+testCFwdZero11S :: Assertion
+testCFwdZero11S =
   assertEqualUpToEpsilon 1e-9
     (Flip $ OR.fromList [0, 2, 4, 0, 1] [])
     (cfwd (let f = const (treplicate0N [0, 2, 4, 0, 1] 3) . snd
            in f :: ( ADVal (Flip OR.Array) Double 5
                    , ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1] )
                    -> ADVal (Flip OR.Array) Double 5)
+          ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
+          , Flip $ OS.fromList @'[0, 2, 4, 0, 1] [] )
+          ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
+          , Flip $ OS.fromList @'[0, 2, 4, 0, 1] [] ))
+
+testFwdZero11S :: Assertion
+testFwdZero11S =
+  assertEqualUpToEpsilon 1e-9
+    (Flip $ OR.fromList [0, 2, 4, 0, 1] [])
+    (fwd  (let f = const (treplicate0N [0, 2, 4, 0, 1] 3) . snd
+           in f :: ( AstRanked FullSpan Double 5
+                   , AstShaped FullSpan Double '[0, 2, 4, 0, 1] )
+                   -> AstRanked FullSpan Double 5)
           ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
           , Flip $ OS.fromList @'[0, 2, 4, 0, 1] [] )
           ( Flip $ OR.fromList [0, 2, 4, 0, 1] []
@@ -1184,17 +1249,29 @@ testBarReluMax3CFwd =
     (cfwd @Double @3 barReluMax (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2])
                                 (Flip $ OR.fromList [2, 1, 2]
                                                     [0.1, 0.2, 0.3, 0.42]))
-{-
+
+reluMaxS :: forall shaped sh r.
+            (ADReadyS shaped, GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
+         => shaped r sh -> shaped r sh
+reluMaxS v = smap0N (maxF 0) v
+
+barReluMaxS
+  :: ( ADReadyS shaped, GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
+     , RealFloat (shaped r sh) )
+  => shaped r sh -> shaped r sh
+barReluMaxS x = reluMaxS $ bar (x, reluMaxS x)
+
 -- The shape of FromListR[ZeroR] can't be determined in buildDerivative,
 -- so this needs to be instead converted to shaped tensors.
 testBarReluMax3Fwd :: Assertion
 testBarReluMax3Fwd =
   assertEqualUpToEpsilon 1e-10
-    (Flip $ OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
-    (fwd @Double @3 barReluMax (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2])
-                               (Flip $ OR.fromList [2, 1, 2]
-                                                   [0.1, 0.2, 0.3, 0.42]))
--}
+    (Flip $ OS.fromList @'[2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
+    (fwd @Double @'[2, 1, 2]
+-- fails:         (sfromR . barReluMax . tfromS)
+         barReluMaxS
+           (Flip $ OS.fromList @'[2, 1, 2] [1.1, 2, 3, 4.2])
+           (Flip $ OS.fromList @'[2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
 barReluAst
   :: forall n r.
