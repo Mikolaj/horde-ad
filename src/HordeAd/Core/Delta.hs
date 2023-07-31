@@ -911,7 +911,7 @@ buildFinMaps s0 deltaDt =
         AppendR d k e -> case tshape c of
           n :$ _ -> let s2 = evalR sShared (tslice 0 k cShared) d
                     in evalR s2 (tslice k (n - k) cShared) e
-          ZS -> error "evalR: appending a 0-dimensional tensor"
+          ZS -> error "evalR: impossible pattern needlessly required"
         SliceR i n d len -> case tshape c of
           n' :$ rest ->
             assert (n' == n `blame` (n', n)) $
@@ -919,7 +919,7 @@ buildFinMaps s0 deltaDt =
                              , c
                              , tzero (len - i - n :$ rest) ])
                     d
-          ZS -> error "evalR: slicing a 0-dimensional tensor"
+          ZS -> error "evalR: impossible pattern needlessly required"
         ReverseR d -> evalR s (treverse c) d
         TransposeR perm d ->
           let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
