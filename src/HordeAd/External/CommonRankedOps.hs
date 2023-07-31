@@ -146,7 +146,8 @@ lossSoftMaxCrossEntropyR
   => PrimalOf ranked r n -> ranked r n -> ranked r 0
 lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
-  -- and is required by the QuickCheck test in TestMnistCNN.
+  -- and is required by QuickCheck tests to avoid NaNs, etc., for argument
+  -- values we don't fully control.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
   let softMaxU' =

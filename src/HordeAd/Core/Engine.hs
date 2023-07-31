@@ -1,6 +1,6 @@
--- | The implementation of reverse derivative and derivative calculation
--- for an objective function on values of complicated types (e.g., with
--- tuple domains) expressed using the tensor classes.
+-- | The implementation of reverse derivative and (forward) derivative
+-- calculation for an objective function on values of complicated
+-- types (e.g., with tuple domains) expressed using the tensor classes.
 -- Together with "HordeAd.Core.TensorClass", this forms the basic
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.Core.Engine
@@ -11,9 +11,9 @@ module HordeAd.Core.Engine
     -- * Reverse and forward derivative adaptor class
   , Adaptable (..)
     -- * Lower level functions related to reverse derivative adaptors
-  , revDtFun, revAstOnDomainsFun
+  , revDtFun, revAstOnDomainsFun, revAstOnDomainsFunS
     -- * Lower level functions related to forward derivative adaptors
-  , fwdDtFun, fwdAstOnDomainsFun
+  , fwdDtFun, fwdAstOnDomainsFun, fwdAstOnDomainsFunS
     -- * Old gradient adaptors, with constant and fixed inputs and dt
   , crev, crevDt, crevOnDomains, crevOnADInputs
     -- * Old derivative adaptors, with constant and fixed inputs
@@ -52,7 +52,10 @@ import HordeAd.Core.Types
 
 -- * Reverse derivative adaptors
 
--- These work for g of Adaptable class.
+-- VJP (vector-jacobian product) or Lop (left operations) are alternative
+-- names to @rev@, but newcomers may have trouble understanding them.
+
+-- | These work for any @g@ of Adaptable class.
 rev
   :: forall r y g vals astvals.
      ( Adaptable g, GoodScalar r, HasSingletonDict y
@@ -71,7 +74,7 @@ rev f vals = revDtMaybe f vals Nothing
   -> vals #-}
 -}
 
--- This version additionally takes the sensitivity parameter.
+-- | This version additionally takes the sensitivity parameter.
 revDt
   :: forall r y g vals astvals.
      ( Adaptable g, GoodScalar r, HasSingletonDict y
@@ -106,7 +109,7 @@ revDtMaybe f vals mdt =
 
 -- * Forward derivative adaptor
 
--- This takes the sensitivity parameter, by convention.
+-- | This takes the sensitivity parameter, by convention.
 -- It uses the same delta expressions as for gradients.
 --
 -- Warning: this fails often with ranked tensor due to inability
@@ -385,7 +388,10 @@ fwdAstOnDomainsFunS f parameters0 =
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt
 
--- These work for f both ranked and shaped.
+-- | The old versions that use the fixed input and @dt@ to compute gradient
+-- only at these values, both transposing and evaluating at the same time.
+--
+-- These work for @f@ both ranked and shaped.
 crev
   :: forall r y f vals advals.
      ( DualPart f, GoodScalar r, HasSingletonDict y
@@ -396,7 +402,7 @@ crev
   => (advals -> ADVal f r y) -> vals -> vals
 crev f vals = crevDtMaybe f vals Nothing
 
--- This version additionally takes the sensitivity parameter.
+-- | This version additionally takes the sensitivity parameter.
 crevDt
   :: forall r y f vals advals.
      ( DualPart f, GoodScalar r, HasSingletonDict y
@@ -419,8 +425,6 @@ crevDtMaybe f vals dt =
   let g inputs = f $ parseDomains vals inputs
   in parseDomains (toValue vals) $ fst $ crevOnDomains dt g (toDomains vals)
 
--- VJP (vector-jacobian product) or Lop (left operations) are alternative
--- names, but newcomers may have trouble understanding them.
 crevOnDomains
   :: ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array )
@@ -433,9 +437,6 @@ crevOnDomains dt f parameters =
       inputs = makeADInputs parameters deltaInputs
   in crevOnADInputs dt f inputs
 
--- The old versions that use the fixed input and dt to compute gradient
--- only at these values, both transposing and evaluating at the same time.
--- These work for f both ranked and shaped.
 crevOnADInputs
   :: ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array )
@@ -458,8 +459,7 @@ crevOnADInputs mdt f inputs =
 
 -- * Old derivative adaptors, with constant and fixed inputs
 
--- This takes the sensitivity parameter, by convention.
--- It uses the same delta expressions as for gradients.
+-- | This takes the sensitivity parameter, by convention.
 cfwd
   :: forall r y f vals advals.
      ( DualPart f, GoodScalar r, HasSingletonDict y
