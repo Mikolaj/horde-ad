@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
+-- | TODO: outdated, uses the old API
 module TestDescentSimple (testTrees) where
 
 import Prelude
@@ -8,94 +9,12 @@ import           Numeric.LinearAlgebra (Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd
 import EqEpsilon
+import HordeAd
 import Prop (fquad)
 
 testTrees :: [TestTree]
-testTrees = [ gdSimpleTests
-            , xorTests ]
-
-gdSimpleShow :: HasDelta r
-             => r
-             -> (ADInputs 'ADModeGradient r
-                 -> ADVal 'ADModeGradient r)
-             -> Vector r
-             -> Int
-             -> ([r], r)
-gdSimpleShow gamma f initVec n =
-  let res = domainsD0 $ gdSimple gamma f n (domainsFrom01 initVec V.empty)
-      (_, v) = revOnDomains 1 f (domainsFrom01 res V.empty)
-  in (V.toList res, v)
-
--- Catastrophic loss of sharing prevented.
-fblowup :: forall d. ADModeAndNum d Float
-        => ADInputs d Float -> ADVal d Float
-fblowup inputs =
-  let blowup :: Int -> ADVal d Float -> ADVal d Float
-      blowup 0 y = y
-      blowup n y =
-        let ysum = y + y
-            yscaled = 0.499999985 * ysum
-          -- without the scaling we'd get NaN at once
-        in blowup (pred n) yscaled
-      y0 = fquad inputs
-  in blowup 100 y0
-
--- Catastrophic loss of sharing prevented also with non-trivial multiplication.
-fblowupMult :: forall d. ADModeAndNum d Float
-            => Int -> ADInputs d Float -> ADVal d Float
-fblowupMult k inputs =
-  let blowup :: Int -> ADVal d Float -> ADVal d Float
-      blowup 0 y = y
-      blowup n y =
-        let ysum = y + y * y / (y - 0.000000001)
-            yscaled = sqrt $ 0.499999985 * 0.499999985 * ysum * ysum
-          -- without the scaling we'd get NaN at once
-        in blowup (pred n) yscaled
-      y0 = fquad inputs
-  in blowup k y0
-
-gdSimpleTests :: TestTree
-gdSimpleTests = testGroup "Simple gradient descent tests"
-  [ testCase "0.1 30" $ do
-      let res = gdSimpleShow 0.1 fquad (V.fromList [2, 3]) 30
-      res @?~ ([2.47588e-3,3.7138206e-3],5.00002 :: Float)
-  , testCase "0.01 30" $ do
-      let res = gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 30
-      res @?~ ([1.0909687,1.6364527],8.86819 :: Float)
-  , testCase "0.01 300" $ do
-      let res = gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 300
-      res @?~ ([4.665013e-3,6.9975173e-3],5.0000706 :: Float)
-  , testCase "0.01 300000" $ do
-      let res = gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 300000
-      res @?~ ([3.5e-44,3.5e-44],5.0 :: Float)
-  -- The (no) blowup tests.
-  , testCase "blowup 0.1 100" $ do
-      let res = gdSimpleShow 0.1 fblowup (V.fromList [2, 3]) 100
-      res @?~ ([4.0746778e-10,6.1120126e-10],4.9999523)
-  , testCase "blowup 0.01 100" $ do
-      let res = gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 100
-      res @?~ ([0.2652423,0.39786342],5.228601)
-  , testCase "blowup 0.01 10000" $ do
-      let res = gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 10000
-      res @?~ ([3.5e-44,3.5e-44],4.9999523)
-  , testCase "blowup 0.01 1000000" $ do
-      let res = gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 1000000
-      res @?~ ([3.5e-44,3.5e-44],4.9999523)
-  , testCase "blowupMult 0.01 100 10000" $ do
-      let res = gdSimpleShow 0.01 (fblowupMult 100) (V.fromList [2, 3]) 10000
-      res @?~ ([4.0746778e-10,6.1120126e-10],5)
-  , testCase "blowupMult 0.01 10000 100" $ do
-      let res = gdSimpleShow 0.01 (fblowupMult 10000) (V.fromList [2, 3]) 100
-      res @?~ ([0.26553953,0.3983091],5.2291613)
-  , testCase "blowupMult 0.01 10 1000000" $ do
-      let res = gdSimpleShow 0.01 (fblowupMult 10) (V.fromList [2, 3]) 1000000
-      res @?~ ([3.5e-44,3.5e-44],5)
-  , testCase "blowupMult 0.01 1000000 10" $ do
-      let res = gdSimpleShow 0.01 (fblowupMult 1000000) (V.fromList [2, 3]) 10
-      res @?~ ([1.6474582,2.4711874],13.820874)
-  ]
+testTrees = [ xorTests ]
 
 -- This, and other XOR nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,

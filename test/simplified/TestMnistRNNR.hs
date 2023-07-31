@@ -1,5 +1,13 @@
 -- | Tests of "MnistRnnRanked2" neural networks using a few different
 -- optimization pipelines.
+--
+-- *Not* LSTM.
+-- Doesn't train without Adam, regardless of whether mini-batch sgd. It does
+-- train with Adam, but only after very carefully tweaking initialization.
+-- This is extremely sensitive to initial parameters, more than to anything
+-- else. Probably, gradient is vanishing if parameters are initialized
+-- with a probability distribution that doesn't have the right variance. See
+-- https://stats.stackexchange.com/questions/301285/what-is-vanishing-gradient.
 module TestMnistRNNR
   ( testTrees
   ) where

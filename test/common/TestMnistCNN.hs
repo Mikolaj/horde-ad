@@ -2,6 +2,7 @@
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+-- | TODO: outdated, uses the old API
 module TestMnistCNN (testTrees, shortTestForCITrees) where
 
 import Prelude

@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, RankNTypes,
              TypeFamilies #-}
+-- | TODO: outdated, uses the old API
 module TestGradientSimple
   ( testTrees, finalCounter
   , sumElementsV, altSumElementsV, sinKonst, powKonst

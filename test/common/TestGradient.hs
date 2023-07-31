@@ -2,6 +2,7 @@
              RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+-- | TODO: outdated, uses the old API
 module TestGradient (testTrees) where
 
 import Prelude

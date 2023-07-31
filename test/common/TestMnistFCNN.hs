@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
+-- | TODO: outdated, uses the old API
 module TestMnistFCNN
   ( testTrees, shortTestForCITrees, mnistTestCase2T, mnistTestCase2D
   ) where
