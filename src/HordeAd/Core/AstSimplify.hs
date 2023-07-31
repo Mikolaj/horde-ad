@@ -893,6 +893,8 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
   else v
+astLet var u (Ast.AstLetADShare l v) =
+  Ast.AstLetADShare l $ Ast.AstLet var u v
 astLet var u v = Ast.AstLet var u v
 
 -- A special variant to bind integer expressions inside indexes.
@@ -954,6 +956,8 @@ astLetS var u v@(Ast.AstDualPartS (Ast.AstVarS var2)) =  -- a noop
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
   else v
+astLetS var u (Ast.AstLetADShareS l v) =
+  Ast.AstLetADShareS l $ Ast.AstLetS var u v
 astLetS var u v = Ast.AstLetS var u v
 
 astCond :: AstBool -> AstRanked s r n -> AstRanked s r n -> AstRanked s r n
@@ -1176,6 +1180,7 @@ astReplicateS :: forall n sh s r. (KnownNat n, OS.Shape sh, GoodScalar r)
               => AstShaped s r sh -> AstShaped s r (n ': sh)
 astReplicateS = \case
   Ast.AstConstantS v -> Ast.AstConstantS $ astReplicateS v
+  Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astReplicateS v
   Ast.AstTransposeS @perm @sh1 v ->
     let zsuccPerm = 0 : map succ (OS.shapeT @perm)
     in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccPerm) ->
@@ -1212,6 +1217,10 @@ astAppendS :: (KnownNat m, KnownNat n, OS.Shape sh, GoodScalar r, AstSpan s)
 astAppendS (AstConstS u) (AstConstS v) = AstConstS $ tappendS u v
 astAppendS (Ast.AstConstantS u) (Ast.AstConstantS v) =
   Ast.AstConstantS $ astAppendS u v
+astAppendS (Ast.AstLetADShareS l u) v =
+  Ast.AstLetADShareS l $ astAppendS u v
+astAppendS u (Ast.AstLetADShareS l v) =
+  Ast.AstLetADShareS l $ astAppendS u v
 astAppendS (Ast.AstFromListS l1) (Ast.AstFromListS l2) = astFromListS $ l1 ++ l2
 astAppendS (Ast.AstFromListS l1) (Ast.AstFromVectorS l2) =
   astFromListS $ l1 ++ V.toList l2
@@ -1276,6 +1285,7 @@ astReverseS :: forall n sh s r. (KnownNat n, OS.Shape sh, GoodScalar r)
             => AstShaped s r (n ': sh) -> AstShaped s r (n ': sh)
 astReverseS (AstConstS t) = AstConstS $ treverseS t
 astReverseS (Ast.AstConstantS v) = Ast.AstConstantS $ astReverseS v
+astReverseS (Ast.AstLetADShareS l v) = Ast.AstLetADShareS l $ astReverseS v
 astReverseS (Ast.AstFromListS l) = Ast.AstFromListS $ reverse l
 astReverseS (Ast.AstFromVectorS l) = Ast.AstFromVectorS $ V.reverse l
 astReverseS (Ast.AstReplicateS v) = Ast.AstReplicateS v
@@ -1451,6 +1461,8 @@ astRToS v = Ast.AstRToS v
 astFromDynamic :: forall n s r. KnownNat n
                => AstDynamic s r -> AstRanked s r n
 astFromDynamic (AstRToD Ast.AstIota) = error "astFromDynamic: dummy"
+astFromDynamic (AstRToD (Ast.AstLetADShare l v)) =
+  Ast.AstLetADShare l $ astFromDynamic (AstRToD v)
 astFromDynamic (AstRToD @n2 v) =
   case sameNat (Proxy @n) (Proxy @n2) of
     Just Refl -> v
@@ -1463,6 +1475,8 @@ astFromDynamic (AstSToD @sh2 v) =
 astFromDynamicS :: forall sh s r. OS.Shape sh
                 => AstDynamic s r -> AstShaped s r sh
 astFromDynamicS (AstSToD Ast.AstIotaS) = error "astFromDynamicS: dummy"
+astFromDynamicS (AstSToD (Ast.AstLetADShareS l v)) =
+  Ast.AstLetADShareS l $ astFromDynamicS (AstSToD v)
 astFromDynamicS (AstSToD @sh2 v) =
   case sameShape @sh @sh2 of
     Just Refl -> v

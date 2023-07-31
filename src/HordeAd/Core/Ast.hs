@@ -483,6 +483,9 @@ instance (Num (OR.Array n r), AstSpan s)
     AstSumOfList (AstConst v : lv ++ lu)
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
 
+  AstLetADShare l u + v = AstLetADShare l $ u + v
+  u + AstLetADShare l v = AstLetADShare l $ u + v
+
   AstConst u + AstSumOfList (AstConst v : lv) =
     AstSumOfList (AstConst (u + v) : lv)
   u + AstSumOfList (AstConst v : lv) = AstSumOfList (AstConst v : u : lv)
@@ -498,9 +501,16 @@ instance (Num (OR.Array n r), AstSpan s)
   u + v = AstSumOfList [u, v]
 
   AstConst u - AstConst v = AstConst (u - v)  -- common in indexing
+  AstLetADShare l u - v = AstLetADShare l $ u - v
+  u - AstLetADShare l v = AstLetADShare l $ u - v
   u - v = AstNm MinusOp [u, v]
+
   AstConst u * AstConst v = AstConst (u * v)  -- common in indexing
+  AstLetADShare l u * v = AstLetADShare l $ u * v
+  u * AstLetADShare l v = AstLetADShare l $ u * v
   u * v = AstNm TimesOp [u, v]
+
+  negate (AstLetADShare l u) = AstLetADShare l $ negate u
   negate u = AstNm NegateOp [u]
   abs v = AstNm AbsOp [v]
   signum v = AstNm SignumOp [v]
@@ -597,6 +607,9 @@ instance (Num (OS.Array sh r), AstSpan s)
     AstSumOfListS (AstConstS v : lv ++ lu)
   AstSumOfListS lu + AstSumOfListS lv = AstSumOfListS (lu ++ lv)
 
+  AstLetADShareS l u + v = AstLetADShareS l $ u + v
+  u + AstLetADShareS l v = AstLetADShareS l $ u + v
+
   AstConstS u + AstSumOfListS (AstConstS v : lv) =
     AstSumOfListS (AstConstS (u + v) : lv)
   u + AstSumOfListS (AstConstS v : lv) = AstSumOfListS (AstConstS v : u : lv)
@@ -612,9 +625,16 @@ instance (Num (OS.Array sh r), AstSpan s)
   u + v = AstSumOfListS [u, v]
 
   AstConstS u - AstConstS v = AstConstS (u - v)  -- common in indexing
+  AstLetADShareS l u - v = AstLetADShareS l $ u - v
+  u - AstLetADShareS l v = AstLetADShareS l $ u - v
   u - v = AstNmS MinusOp [u, v]
+
   AstConstS u * AstConstS v = AstConstS (u * v)  -- common in indexing
+  AstLetADShareS l u * v = AstLetADShareS l $ u * v
+  u * AstLetADShareS l v = AstLetADShareS l $ u * v
   u * v = AstNmS TimesOp [u, v]
+
+  negate (AstLetADShareS l u) = AstLetADShareS l $ negate u
   negate u = AstNmS NegateOp [u]
   abs v = AstNmS AbsOp [v]
   signum v = AstNmS SignumOp [v]
