@@ -271,11 +271,9 @@ revAstOnDomainsFun hasDt f parameters0 =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
-      !(!varDtId, varsPrimal, astsPrimal, vars, asts) =
+      !(!varDtId, varsPrimal, domainsPrimal, vars, domains) =
         funToAstRev parameters0 in
-  let domains = V.fromList asts
-      domainsPrimal = V.fromList astsPrimal
-      deltaInputs = generateDeltaInputs domainsPrimal
+  let deltaInputs = generateDeltaInputs domainsPrimal
       varInputs = makeADInputs domainsPrimal deltaInputs
       -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
@@ -301,17 +299,11 @@ revAstOnDomainsFunS
   -> (AstArtifactRev AstShaped r sh, Dual (AstShaped PrimalSpan) r sh)
 {-# INLINE revAstOnDomainsFunS #-}
 revAstOnDomainsFunS hasDt f parameters0 =
-  let -- Bangs and the compound function to fix the numbering of variables
-      -- for pretty-printing and prevent sharing the impure values/effects
-      -- in tests that reset the impure counters.
-      !(!varDtId, varsPrimal, astsPrimal, vars, asts) =
+  let -- in tests that reset the impure counters.
+      !(!varDtId, varsPrimal, domainsPrimal, vars, domains) =
         funToAstRevS parameters0 in
-  let domains = V.fromList asts
-      domainsPrimal = V.fromList astsPrimal
-      deltaInputs = generateDeltaInputs domainsPrimal
+  let deltaInputs = generateDeltaInputs domainsPrimal
       varInputs = makeADInputs domainsPrimal deltaInputs
-      -- Evaluate completely after terms constructed, to free memory
-      -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D l primalBody deltaTopLevel) = f varInputs domains vars in
   let varDt = AstVarName varDtId
       astDt = AstVarS varDt
@@ -364,20 +356,13 @@ fwdAstOnDomainsFun
   -> (AstArtifactFwd AstRanked r n, Dual (AstRanked PrimalSpan) r n)
 {-# INLINE fwdAstOnDomainsFun #-}
 fwdAstOnDomainsFun f parameters0 =
-  let -- Bangs and the compound function to fix the numbering of variables
-      -- for pretty-printing and prevent sharing the impure values/effects
-      -- in tests that reset the impure counters.
-      !(!varsPrimalDs, astsPrimalDs, varsPrimal, astsPrimal, vars, asts) =
+  let !(!varsPrimalDs, domainsDs, varsPrimal, domainsPrimal, vars, domains) =
         funToAstFwd parameters0 in
-  let domains = V.fromList asts
-      domainsPrimal = V.fromList astsPrimal
-      deltaInputs = generateDeltaInputs domainsPrimal
+  let deltaInputs = generateDeltaInputs domainsPrimal
       varInputs = makeADInputs domainsPrimal deltaInputs
-      -- Evaluate completely after terms constructed, to free memory
-      -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D l primalBody deltaTopLevel) = f varInputs domains vars in
-  let astDs = V.fromList astsPrimalDs
-      !derivative = forwardDerivative (V.length parameters0) deltaTopLevel astDs
+  let !derivative =
+        forwardDerivative (V.length parameters0) deltaTopLevel domainsDs
   in ( ( (varsPrimalDs, varsPrimal)
        , unletAst6 l derivative
        , unletAst6 l primalBody )

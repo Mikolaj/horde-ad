@@ -195,8 +195,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, astsPrimal, vars, _) <- funToAstRevIO domainsInit
-       let domainsPrimal = V.fromList astsPrimal
+       (_, domainsPrimal, vars, _) <- funToAstRevIO domainsInit
        (varGlyph, _, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
@@ -522,8 +521,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, astsPrimal, vars, _) <- funToAstRevIO domainsInit
-       let domainsPrimal = V.fromList astsPrimal
+       (_, domainsPrimal, vars, _) <- funToAstRevIO domainsInit
        (varGlyph, _, astGlyph) <-
          funToAstIOR (singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-

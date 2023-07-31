@@ -141,9 +141,9 @@ funToAstS f = unsafePerformIO $ do
 
 funToAstRevIO :: DomainsOD
               -> IO ( [AstDynamicVarName PrimalSpan AstRanked]
-                    , [DynamicExists (AstDynamic PrimalSpan)]
+                    , Domains (AstDynamic PrimalSpan)
                     , [AstDynamicVarName FullSpan AstRanked]
-                    , [DynamicExists (AstDynamic FullSpan)] )
+                    , Domains (AstDynamic FullSpan) )
 {-# INLINE funToAstRevIO #-}
 funToAstRevIO parameters0 = do
   let f (DynamicExists @r2 e) = do
@@ -162,16 +162,18 @@ funToAstRevIO parameters0 = do
                                               (AstVarName varId))
               in (varE, dynE, varE, dynE)
             Nothing -> error "funToAstRevIO: impossible someNatVal error"
-  unzip4 <$> mapM f (V.toList parameters0)
+  (varsPrimal, astsPrimal, vars, asts)
+    <- unzip4 <$> mapM f (V.toList parameters0)
+  return (varsPrimal, V.fromList astsPrimal, vars, V.fromList asts)
 
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
 funToAstRev :: DomainsOD
             -> ( AstVarId PrimalSpan
                , [AstDynamicVarName PrimalSpan AstRanked]
-               , [DynamicExists (AstDynamic PrimalSpan)]
+               , Domains (AstDynamic PrimalSpan)
                , [AstDynamicVarName FullSpan AstRanked]
-               , [DynamicExists (AstDynamic FullSpan)] )
+               , Domains (AstDynamic FullSpan) )
 {-# NOINLINE funToAstRev #-}
 funToAstRev parameters0 = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstId
@@ -180,9 +182,9 @@ funToAstRev parameters0 = unsafePerformIO $ do
 
 funToAstRevIOS :: DomainsOD
                -> IO ( [AstDynamicVarName PrimalSpan AstShaped]
-                     , [DynamicExists (AstDynamic PrimalSpan)]
+                     , Domains (AstDynamic PrimalSpan)
                      , [AstDynamicVarName FullSpan AstShaped]
-                     , [DynamicExists (AstDynamic FullSpan)] )
+                     , Domains (AstDynamic FullSpan) )
 {-# INLINE funToAstRevIOS #-}
 funToAstRevIOS parameters0 = do
   let f (DynamicExists @r2 e) = do
@@ -197,16 +199,18 @@ funToAstRevIOS parameters0 = do
               dynE = DynamicExists @r2
                      $ AstSToD (AstVarS @sh (AstVarName varId))
           in (varE, dynE, varE, dynE)
-  unzip4 <$> mapM f (V.toList parameters0)
+  (varsPrimal, astsPrimal, vars, asts)
+    <- unzip4 <$> mapM f (V.toList parameters0)
+  return (varsPrimal, V.fromList astsPrimal, vars, V.fromList asts)
 
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
 funToAstRevS :: DomainsOD
              -> ( AstVarId PrimalSpan
                 , [AstDynamicVarName PrimalSpan AstShaped]
-                , [DynamicExists (AstDynamic PrimalSpan)]
+                , Domains (AstDynamic PrimalSpan)
                 , [AstDynamicVarName FullSpan AstShaped]
-                , [DynamicExists (AstDynamic FullSpan)] )
+                , Domains (AstDynamic FullSpan) )
 {-# NOINLINE funToAstRevS #-}
 funToAstRevS parameters0 = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstId
@@ -215,11 +219,11 @@ funToAstRevS parameters0 = unsafePerformIO $ do
 
 funToAstFwdIO :: DomainsOD
               -> IO ( [AstDynamicVarName PrimalSpan AstRanked]
-                    , [DynamicExists (AstDynamic PrimalSpan)]
+                    , Domains (AstDynamic PrimalSpan)
                     , [AstDynamicVarName PrimalSpan AstRanked]
-                    , [DynamicExists (AstDynamic PrimalSpan)]
+                    , Domains (AstDynamic PrimalSpan)
                     , [AstDynamicVarName FullSpan AstRanked]
-                    , [DynamicExists (AstDynamic FullSpan)] )
+                    , Domains (AstDynamic FullSpan) )
 {-# INLINE funToAstFwdIO #-}
 funToAstFwdIO parameters0 = do
   let f (DynamicExists @r2 e) = do
@@ -242,17 +246,21 @@ funToAstFwdIO parameters0 = do
               in ( varE varIdDs, dynE varIdDs
                  , varE varId, dynE varId, varE varId, dynE varId )
             Nothing -> error "funToAstFwdIO: impossible someNatVal error"
-  unzip6 <$> mapM f (V.toList parameters0)
+  (varsPrimalDs, astsPrimalDs, varsPrimal, astsPrimal, vars, asts)
+    <- unzip6 <$> mapM f (V.toList parameters0)
+  return ( varsPrimalDs, V.fromList astsPrimalDs
+         , varsPrimal, V.fromList astsPrimal
+         , vars, V.fromList asts )
 
 -- The AstVarName type with its parameter somehow prevents cse and crashes
 -- compared with a bare AstVarId, so let's keep it.
 funToAstFwd :: DomainsOD
             -> ( [AstDynamicVarName PrimalSpan AstRanked]
-               , [DynamicExists (AstDynamic PrimalSpan)]
+               , Domains (AstDynamic PrimalSpan)
                , [AstDynamicVarName PrimalSpan AstRanked]
-               , [DynamicExists (AstDynamic PrimalSpan)]
+               , Domains (AstDynamic PrimalSpan)
                , [AstDynamicVarName FullSpan AstRanked]
-               , [DynamicExists (AstDynamic FullSpan)] )
+               , Domains (AstDynamic FullSpan) )
 {-# NOINLINE funToAstFwd #-}
 funToAstFwd parameters0 = unsafePerformIO $ funToAstFwdIO parameters0
 
