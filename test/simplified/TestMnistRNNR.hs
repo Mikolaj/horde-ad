@@ -80,7 +80,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
        let testDataR = packBatchR testData
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
-           runBatch !(!parameters, !stateAdam) (k, chunk) = do
+           runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r -> Domains (ADValClown OD.Array)
                    -> ADVal ranked r 0
                  f (glyphR, labelR) adinputs =
@@ -103,7 +103,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
              return res
        let runEpoch :: Int -> (DomainsOD, StateAdam) -> IO DomainsOD
            runEpoch n (params2, _) | n > epochs = return params2
-           runEpoch n !paramsStateAdam@(!_, !_) = do
+           runEpoch n paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
@@ -189,7 +189,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                                    valsInit domainsPrimal)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
-           runBatch !(!parameters, !stateAdam) (k, chunk) = do
+           runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r -> Domains (ADValClown OD.Array)
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
@@ -214,7 +214,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
              return res
        let runEpoch :: Int -> (DomainsOD, StateAdam) -> IO DomainsOD
            runEpoch n (params2, _) | n > epochs = return params2
-           runEpoch n !paramsStateAdam@(!_, !_) = do
+           runEpoch n paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
@@ -305,7 +305,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
            go :: [MnistDataBatchR r] -> (DomainsOD, StateAdam)
               -> (DomainsOD, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
-           go ((glyph, label) : rest) !(!parameters, !stateAdam) =
+           go ((glyph, label) : rest) (!parameters, !stateAdam) =
              let glyphD = DynamicExists $ dfromR @(Flip OR.Array) $ tconst glyph
                  labelD = DynamicExists $ dfromR @(Flip OR.Array) $ tconst label
                  parametersAndInput =
@@ -317,7 +317,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                                                 parameters gradientDomain)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
-           runBatch !(!parameters, !stateAdam) (k, chunk) = do
+           runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -334,7 +334,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
              return res
        let runEpoch :: Int -> (DomainsOD, StateAdam) -> IO DomainsOD
            runEpoch n (params2, _) | n > epochs = return params2
-           runEpoch n !paramsStateAdam@(!_, !_) = do
+           runEpoch n paramsStateAdam@(!_, !_) = do
              unless (width < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData

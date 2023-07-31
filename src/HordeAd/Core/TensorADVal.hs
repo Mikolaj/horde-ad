@@ -93,7 +93,7 @@ index :: forall ranked shaped m n r.
          , KnownNat m, KnownNat n, GoodScalar r )
       => ADVal ranked r (m + n) -> IndexOf ranked m
       -> ADVal ranked r n
-index !(D l u u') ix = dD l (tindex u ix) (IndexR u' ix (tshape u))
+index (D l u u') ix = dD l (tindex u ix) (IndexR u' ix (tshape u))
 
 fromList :: ( RankedTensor ranked, IsPrimal ranked r (1 + n)
             , Dual ranked ~ DeltaR ranked shaped
@@ -102,7 +102,7 @@ fromList :: ( RankedTensor ranked, IsPrimal ranked r (1 + n)
          -> ADVal ranked r (1 + n)
 fromList lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
-  dD (flattenADShare $ map ((\(D l _ _) -> l)) lu)
+  dD (flattenADShare $ map (\(D l _ _) -> l) lu)
      (tfromList $ map (\(D _ u _) -> u) lu)
      (FromListR $ map (\(D _ _ u') -> u') lu)
 
@@ -175,7 +175,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   tmaxIndex (D l u _) = dDnotShared l (tmaxIndex u) dZero
   tfloor (D l u _) = dDnotShared l (tfloor u) dZero
 
-  tindex v ix = index v ix
+  tindex = index
   tsum (D l u u') = dD l (tsum u) (SumR (tlength u) u')
   tsum0 (D l u u') = dD l (tsum0 u) (Sum0R (tshape u) u')
   tdot0 (D l1 ue u') (D l2 ve v') =
@@ -188,7 +188,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 
   tfromList = fromList
   tfromVector lu =
-    dD (flattenADShare $ map ((\(D l _ _) -> l)) $ V.toList lu)
+    dD (flattenADShare $ map (\(D l _ _) -> l) $ V.toList lu)
        (tfromVector $ V.map (\(D _ u _) -> u) lu)
        (FromVectorR $ V.map (\(D _ _ u') -> u') lu)
   treplicate k (D l u u') = dD l (treplicate k u) (ReplicateR k u')
@@ -256,7 +256,7 @@ fromListS :: forall n sh ranked shaped r.
            => [ADVal shaped r sh]
            -> ADVal shaped r (n ': sh)
 fromListS lu =
-  dD (flattenADShare $ map ((\(D l _ _) -> l)) lu)
+  dD (flattenADShare $ map (\(D l _ _) -> l) lu)
      (sfromList $ map (\(D _ u _) -> u) lu)
      (FromListS $ map (\(D _ _ u') -> u') lu)
 
@@ -329,7 +329,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   sfloor (D l u _) = dDnotShared l (sfloor u) dZero
 
   siota = constantADVal siota -- TODO: siotaBare may be needed
-  sindex v ix = indexS v ix
+  sindex = indexS
   ssum (D l u u') = dD l (ssum u) (SumS u')
   ssum0 (D l u u') = dD l (ssum0 u) (Sum0S u')
   sdot0 (D l1 ue u') (D l2 ve v') =
@@ -341,7 +341,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
 
   sfromList = fromListS
   sfromVector lu =
-    dD (flattenADShare $ map ((\(D l _ _) -> l)) $ V.toList lu)
+    dD (flattenADShare $ map (\(D l _ _) -> l) $ V.toList lu)
        (sfromVector $ V.map (\(D _ u _) -> u) lu)
        (FromVectorS $ V.map (\(D _ _ u') -> u') lu)
   sreplicate (D l u u') = dD l (sreplicate u) (ReplicateS u')

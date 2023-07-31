@@ -130,7 +130,7 @@ convMnistTestR batch_size (glyphR, labelR) evalAtTestParams =
                                batch_size input
         in evalAtTestParams nn
       outputs = map OR.toVector $ ORB.toList $ OR.unravel
-                $ OR.transpose [1, 0] $ outputR
+                $ OR.transpose [1, 0] outputR
       labels = map OR.toVector $ ORB.toList $ OR.unravel labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1

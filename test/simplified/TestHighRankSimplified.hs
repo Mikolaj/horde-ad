@@ -516,7 +516,7 @@ concatBuild2 :: (ADReady ranked, GoodScalar r, KnownNat n)
              => ranked r (1 + n) -> ranked r (3 + n)
 concatBuild2 r =
   tbuild1 5 (\i ->
-    tbuild1 2 (\j -> tmap0N (* (tfromIndex0 (maxF j (i `quot` (j + 1))))) r))
+    tbuild1 2 (\j -> tmap0N (* tfromIndex0 (maxF j (i `quot` (j + 1)))) r))
 
 testConcatBuild2 :: Assertion
 testConcatBuild2 =

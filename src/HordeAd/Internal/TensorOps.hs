@@ -210,7 +210,7 @@ tdot1InR t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
   else let lt = map OR.toVector $ ORB.toList $ OR.unravel t
            lu = map OR.toVector $ ORB.toList $ OR.unravel u
            l = zipWith (LA.<.>) lt lu
-       in OR.fromList [length l] $ l
+       in OR.fromList [length l] l
 
 tmatvecmulR
   :: Numeric r
@@ -468,7 +468,7 @@ tunScalarR = OR.unScalar
 
 tscaleByScalarR :: (Numeric r, KnownNat n)
                 => r -> OR.Array n r -> OR.Array n r
-tscaleByScalarR s v = liftVR (LA.scale s) v
+tscaleByScalarR s = liftVR (LA.scale s)
 
 toIndexOfR :: IndexInt n -> Index n (Flip OR.Array Int64 0)
 toIndexOfR ix = Flip . tscalarR <$> ix
@@ -635,7 +635,7 @@ tsumInS t = case OS.shapeL t of
   k2 : 0 : [] ->
     0  -- the shape is known from sh, so no ambiguity
 -}
-  k2 : k : [] -> case t of
+  [k2, k] -> case t of
     SS.A (SG.A (OI.T (s2 : _) o vt)) | V.length vt == 1 ->
       SS.A (SG.A (OI.T [s2] o (V.map (* fromIntegral k) vt)))
     _ -> let sh2 = [k2]
@@ -679,7 +679,7 @@ tdot1InS t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu))) =
   else let lt = map OS.toVector $ OSB.toList $ OS.unravel t
            lu = map OS.toVector $ OSB.toList $ OS.unravel u
            l = zipWith (LA.<.>) lt lu
-       in OS.fromList $ l
+       in OS.fromList l
 
 tmatvecmulS
   :: forall m n r. (Numeric r, KnownNat m, KnownNat n)
@@ -857,7 +857,7 @@ tgatherNS t f =
       l = gcastWith (unsafeCoerce Refl
                      :: sh :~: OS.Take p sh OS.++ OS.Drop p sh)
           $ [ OS.toVector
-              $ (t `tindexNS` f (ShapedList.fromLinearIdx sh2
+                (t `tindexNS` f (ShapedList.fromLinearIdx sh2
                                  $ ShapedList.shapedNat $ fromIntegral i)
                  :: OS.Array (OS.Drop p sh) r)
             | i <- [0 .. s - 1] ]
@@ -919,7 +919,7 @@ tunScalarS = OS.unScalar
 
 tscaleByScalarS :: (Numeric r, OS.Shape sh)
                 => r -> OS.Array sh r -> OS.Array sh r
-tscaleByScalarS s v = liftVS (LA.scale s) v
+tscaleByScalarS s = liftVS (LA.scale s)
 
 toIndexOfS :: IndexIntSh sh -> ShapedList sh (Flip OR.Array Int64 0)
 toIndexOfS ix = Flip . tscalarR <$> ix

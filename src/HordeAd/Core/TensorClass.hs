@@ -198,7 +198,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   tmap1 f u = tbuild1 (tlength u) (\i -> f (u ! [i]))
   tmap0N :: (GoodScalar r, GoodScalar r2, KnownNat n)
          => (ranked r 0 -> ranked r2 0) -> ranked r n -> ranked r2 n
-  tmap0N f v = tbuild (tshape v) (\ix -> f $ tindex0 v ix)
+  tmap0N f v = tbuild (tshape v) (f . tindex0 v)
   tzipWith :: ( GoodScalar r, GoodScalar r2, GoodScalar r3
               , KnownNat m, KnownNat n )
            => (ranked r n -> ranked r2 n -> ranked r3 n)
@@ -334,7 +334,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
           => shaped r sh1 -> IndexSh shaped sh1
           -> shaped r '[]
   sindex0 = gcastWith (unsafeCoerce Refl :: sh1 OS.++ '[] :~: sh1)
-            $ sindex
+              sindex
   ssum :: forall r n sh. (GoodScalar r, KnownNat n, OS.Shape sh)
        => shaped r (n ': sh) -> shaped r sh
   ssum0 :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
@@ -345,7 +345,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sdot0 t u = ssum (sflatten (t * u))
   smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
              => shaped r '[m, n] -> shaped r '[n] -> shaped r '[m]
-  smatvecmul m v = sbuild1 (\i -> sdot0 v (m !$ (consShaped i ZSH)))
+  smatvecmul m v = sbuild1 (\i -> sdot0 v (m !$ consShaped i ZSH))
   smatmul2 :: forall r n m p. (GoodScalar r, KnownNat n, KnownNat m, KnownNat p)
            => shaped r '[m, n] -> shaped r '[n, p] -> shaped r '[m, p]
   smatmul2 m1 m2 =
@@ -457,14 +457,14 @@ class ( Integral (IntOf shaped), CShaped shaped Num
            (GoodScalar r, GoodScalar r2, KnownNat n, OS.Shape sh)
         => (shaped r sh -> shaped r2 sh)
         -> shaped r (n ': sh) -> shaped r2 (n ': sh)
-  smap1 f u = sbuild1 (\i -> f (u !$ (consShaped i ZSH)))
+  smap1 f u = sbuild1 (\i -> f (u !$ consShaped i ZSH))
   smap0N :: forall r r2 sh.
             (GoodScalar r, GoodScalar r2, OS.Shape sh, KnownNat (OS.Rank sh))
          => (shaped r '[] -> shaped r2 '[]) -> shaped r sh -> shaped r2 sh
   smap0N f v =
     gcastWith (unsafeCoerce Refl :: OS.Drop (OS.Rank sh) sh :~: '[])
     $ gcastWith (unsafeCoerce Refl :: OS.Take (OS.Rank sh) sh :~: sh)
-    $ sbuild @shaped @r2 @(OS.Rank sh) (\ix -> f $ sindex0 v ix)
+    $ sbuild @shaped @r2 @(OS.Rank sh) (f . sindex0 v)
   szipWith :: forall r r2 r3 m sh.
               ( GoodScalar r, GoodScalar r2, GoodScalar r3
               , KnownNat m, OS.Shape sh
@@ -481,8 +481,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                , KnownNat n, OS.Shape sh )
             => (shaped r sh -> shaped r2 sh -> shaped r3 sh)
             -> shaped r (n ': sh) -> shaped r2 (n ': sh) -> shaped r3 (n ': sh)
-  szipWith1 f u v = sbuild1 (\i -> f (u !$ (consShaped i ZSH))
-                                     (v !$ (consShaped i ZSH)))
+  szipWith1 f u v = sbuild1 (\i -> f (u !$ consShaped i ZSH)
+                                     (v !$ consShaped i ZSH))
   szipWith0N :: forall r r2 r3 sh.
                 ( GoodScalar r, GoodScalar r2, GoodScalar r3
                 , OS.Shape sh, KnownNat (OS.Rank sh) )

@@ -64,9 +64,8 @@ tsumInR
   => OR.Array (1 + n) r -> OR.Array n r
 tsumInR t = case OR.shapeL t of
   [] -> error "tsumInR: null shape"
-  k2 : 0 : [] ->
-    OR.constant [k2] 0  -- the shape is known from sh, so no ambiguity
-  k2 : k : [] -> case t of
+  [k2, 0] -> OR.constant [k2] 0  -- the shape is known from sh, so no ambiguity
+  [k2, k] -> case t of
     RS.A (RG.A _ (OI.T (s2 : _) o vt)) | V.length vt == 1 ->
       RS.A (RG.A [k2] (OI.T [s2] o (V.map (* fromIntegral k) vt)))
     _ -> let sh2 = [k2]

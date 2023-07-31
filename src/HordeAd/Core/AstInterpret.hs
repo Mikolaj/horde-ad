@@ -518,7 +518,7 @@ interpretAst env = \case
   AstBuild1 k (var, v) ->
     tbuild1 k (interpretLambdaI interpretAst env (var, v))
       -- to be used only in tests
-  AstGather sh AstIota (vars, (i :. ZI)) ->
+  AstGather sh AstIota (vars, i :. ZI) ->
     tbuild sh (interpretLambdaIndex interpretAst env
                                     (vars, tfromIntegral i))
   AstGather sh v (vars, ix) ->
@@ -977,7 +977,7 @@ interpretAstS env = \case
   AstBuild1S (var, v) ->
     sbuild1 (interpretLambdaIS interpretAstS env (var, v))
       -- to be used only in tests
-  AstGatherS @sh2 AstIotaS (vars, (i :$: ZSH)) ->
+  AstGatherS @sh2 AstIotaS (vars, i :$: ZSH) ->
     gcastWith (unsafeCoerce Refl :: OS.Take (OS.Rank sh) sh :~: sh)
     $ gcastWith (unsafeCoerce Refl :: OS.Drop (OS.Rank sh) sh :~: '[])
     $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh)

@@ -88,7 +88,7 @@ instance IfF (AstShaped s) where
 
 instance AstSpan s
          => RankedTensor (AstRanked s) where
-  tlet a f = astLetFun a f
+  tlet = astLetFun
 
   tshape = shapeAst
   tminIndex = fromPrimal . AstMinIndex . astSpanPrimal
@@ -163,8 +163,8 @@ instance AstSpan s
 instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   tfromD = astFromDynamic
   tfromS = astSToR
-  dfromR t = AstRToD t
-  dfromS t = AstSToD t
+  dfromR = AstRToD
+  dfromS = AstSToD
   sfromR = astRToS
   sfromD = astFromDynamicS
   ddummy = AstRToD $ fromPrimal AstIota
@@ -261,7 +261,7 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 
 instance AstSpan s
          => ShapedTensor (AstShaped s) where
-  slet a f = astLetFunS a f
+  slet = astLetFunS
 
   sminIndex = fromPrimalS . AstMinIndexS . astSpanPrimalS
   smaxIndex = fromPrimalS . AstMaxIndexS . astSpanPrimalS

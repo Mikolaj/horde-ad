@@ -356,7 +356,7 @@ data UnletEnv = UnletEnv
   , unletADShare :: ADShare }
 
 emptyUnletEnv :: ADShare -> UnletEnv
-emptyUnletEnv l = UnletEnv ES.empty l
+emptyUnletEnv = UnletEnv ES.empty
 
 unletAstDomains6
   :: [(AstId, DynamicExists (AstDynamic PrimalSpan))] -> ADShare

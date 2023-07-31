@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE AllowAmbiguousTypes, TupleSections #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
@@ -42,6 +42,7 @@ module HordeAd.Core.AstSimplify
 import Prelude
 
 import           Control.Exception.Assert.Sugar
+import           Control.Monad (mapAndUnzipM)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
@@ -151,7 +152,7 @@ astReshapeAsGather shOut v = unsafePerformIO $ do
   let shIn = shapeAst v
       asts :: AstIndex p
       asts = let i = toLinearIdx @m @0 shOut ix
-             in fmap simplifyAst $ fromLinearIdx shIn i
+             in simplifyAst <$> fromLinearIdx shIn i
                   -- we generate these, so we simplify
   return $! astGatherR @m @0 shOut v (vars, asts)
 
@@ -421,7 +422,7 @@ shareIx ix f = unsafePerformIO $ do
       shareI i = do
         (varFresh, astVarFresh) <- funToAstIOI id
         return (Just (varFresh, i), astVarFresh)
-  (bindings, ix2) <- unzip <$> mapM shareI (indexToList ix)
+  (bindings, ix2) <- mapAndUnzipM shareI (indexToList ix)
   return $! foldr (uncurry Ast.AstLet) (f $ listToIndex ix2)
                                        (catMaybes bindings)
 
@@ -977,11 +978,11 @@ astCondS b v w = Ast.AstCondS b v w
 
 astSumOfList :: (KnownNat n, GoodScalar r, AstSpan s)
              => [AstRanked s r n] -> AstRanked s r n
-astSumOfList = foldr1 (+)
+astSumOfList = foldr1 (+)  -- @sum@ breaks
 
 astSumOfListS :: (OS.Shape sh, GoodScalar r, AstSpan s)
               => [AstShaped s r sh] -> AstShaped s r sh
-astSumOfListS = foldr1 (+)
+astSumOfListS = foldr1 (+)  -- @sum@ breaks
 
 astSum :: (KnownNat n, GoodScalar r)
        => AstRanked s r (1 + n) -> AstRanked s r n
@@ -2191,7 +2192,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstTranspose perm v -> astTranspose perm <$> substitute1Ast i var v
   Ast.AstReshape sh v -> astReshape sh <$> substitute1Ast i var v
   Ast.AstBuild1 k (var2, v) ->
-    Ast.AstBuild1 k . (\t -> (var2, t)) <$> substitute1Ast i var v
+    Ast.AstBuild1 k . (var2,) <$> substitute1Ast i var v
   Ast.AstGather sh v (vars, ix) ->
     case (substitute1Ast i var v, substitute1AstIndex i var ix) of
       (Nothing, Nothing) -> Nothing
@@ -2357,7 +2358,7 @@ substitute1AstS i var = \case
   Ast.AstTransposeS @perm v -> astTransposeS @perm <$> substitute1AstS i var v
   Ast.AstReshapeS v -> astReshapeS <$> substitute1AstS i var v
   Ast.AstBuild1S (var2, v) ->
-    Ast.AstBuild1S . (\t -> (var2, t)) <$> substitute1AstS i var v
+    Ast.AstBuild1S . (var2,) <$> substitute1AstS i var v
   Ast.AstGatherS v (vars, ix) ->
     case (substitute1AstS i var v, substitute1AstIndexS i var ix) of
       (Nothing, Nothing) -> Nothing

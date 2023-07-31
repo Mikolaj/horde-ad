@@ -70,7 +70,7 @@ instance AdaptableDomains dynamic a
 instance RandomDomains a
          => RandomDomains [a] where
   randomVals = undefined  -- TODO: split RandomDomains?
-  toValue as = map toValue as
+  toValue = map toValue
 
 instance ( AdaptableDomains dynamic a
          , AdaptableDomains dynamic b ) => AdaptableDomains dynamic (a, b) where

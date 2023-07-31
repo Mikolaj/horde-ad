@@ -591,7 +591,7 @@ printAstS cfg d = \case
   AstSumS v -> printPrefixOp printAstS cfg d "ssum" [v]
   AstScatterS v (vars, ix) ->
     showParen (d > 10)
-    $ showString ("sscatter ")
+    $ showString "sscatter "
       . printAstS cfg 11 v
       . showString " "
       . (showParen True
@@ -635,7 +635,7 @@ printAstS cfg d = \case
            . printAstS cfg 0 v)
   AstGatherS v (vars, ix) ->
     showParen (d > 10)
-    $ showString ("sgather ")
+    $ showString "sgather "
       . printAstS cfg 11 v
       . showString " "
       . (showParen True

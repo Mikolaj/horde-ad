@@ -84,7 +84,7 @@ common options
                       DefaultSignatures, PatternSynonyms, NoStarIsType,
                       DataKinds
   other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists,
-                      DerivingStrategies, DeriveAnyClass,
+                      DerivingStrategies, DeriveAnyClass, TupleSections,
                       UndecidableInstances, AllowAmbiguousTypes
   ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
   ghc-options:        -Wno-unticked-promoted-constructors -fprint-explicit-kinds

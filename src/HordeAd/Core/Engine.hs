@@ -453,7 +453,7 @@ crevOnADInputs mdt f inputs =
   let (astBindings, gradient) =
         reverseDervative (V.length inputs) v mdt deltaTopLevel
   in assert (null astBindings)
-     $ (gradient, v)
+       (gradient, v)
 
 
 -- * Old derivative adaptors, with constant and fixed inputs

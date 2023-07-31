@@ -116,7 +116,7 @@ intBindingRefresh var ix = unsafePerformIO $ do
   let ix2 = substituteAstIndex  -- cheap subst, because only a renaming
               (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
               var ix
-  return $! (varFresh, astVarFresh, ix2)
+  return (varFresh, astVarFresh, ix2)
 
 -- | The application @build1V k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, where it's known that
@@ -429,7 +429,7 @@ intBindingRefreshS var ix = unsafePerformIO $ do
   let ix2 = substituteAstIndexS  -- cheap subst, because only a renaming
               (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh)
               var ix
-  return $! (varFresh, astVarFresh, ix2)
+  return (varFresh, astVarFresh, ix2)
 
 build1VS
   :: forall k sh s r. (GoodScalar r, KnownNat k, OS.Shape sh, AstSpan s)

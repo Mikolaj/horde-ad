@@ -501,9 +501,9 @@ instance (Num (OR.Array n r), AstSpan s)
   u - v = AstNm MinusOp [u, v]
   AstConst u * AstConst v = AstConst (u * v)  -- common in indexing
   u * v = AstNm TimesOp [u, v]
-  negate (u) = AstNm NegateOp [u]
-  abs (v) = AstNm AbsOp [v]
-  signum (v) = AstNm SignumOp [v]
+  negate u = AstNm NegateOp [u]
+  abs v = AstNm AbsOp [v]
+  signum v = AstNm SignumOp [v]
   fromInteger = fromPrimal . AstConst . fromInteger
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
@@ -615,9 +615,9 @@ instance (Num (OS.Array sh r), AstSpan s)
   u - v = AstNmS MinusOp [u, v]
   AstConstS u * AstConstS v = AstConstS (u * v)  -- common in indexing
   u * v = AstNmS TimesOp [u, v]
-  negate (u) = AstNmS NegateOp [u]
-  abs (v) = AstNmS AbsOp [v]
-  signum (v) = AstNmS SignumOp [v]
+  negate u = AstNmS NegateOp [u]
+  abs v = AstNmS AbsOp [v]
+  signum v = AstNmS SignumOp [v]
   fromInteger = fromPrimalS . AstConstS . fromInteger
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules

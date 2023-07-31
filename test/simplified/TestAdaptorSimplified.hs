@@ -398,13 +398,13 @@ testOverleaf :: Assertion
 testOverleaf =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Double @1 [28] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @Double @0 overleaf (tfromList0N [28] (map (Flip . OR.scalar) $ [0 .. 27])))
+    (rev' @Double @0 overleaf (tfromList0N [28] (map (Flip . OR.scalar) [0 .. 27])))
 
 testOverleafInt64 :: Assertion
 testOverleafInt64 =
   assertEqualUpToEpsilon 1e-10
     (Flip $ OR.fromList @Int64 [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (crev @Int64 @0 overleaf (tfromList0N [28] (map (Flip . OR.scalar) $ [0 .. 27])))
+    (crev @Int64 @0 overleaf (tfromList0N [28] (map (Flip . OR.scalar) [0 .. 27])))
 
 testOverleafCInt :: Assertion
 testOverleafCInt =
@@ -416,7 +416,7 @@ testOverleafCIntToFloat :: Assertion
 testOverleafCIntToFloat =
   assertEqualUpToEpsilon 1e-10
     (Flip $ OR.fromList @Float @1 [28] (replicate 28 0.0))
-    (rev @Float @0 @AstRanked (tfromIntegral . overleaf @CInt . tfloor) (tfromList0N [28] (map (Flip . OR.scalar) $ [0 .. 27])))
+    (rev @Float @0 @AstRanked (tfromIntegral . overleaf @CInt . tfloor) (tfromList0N [28] (map (Flip . OR.scalar) [0 .. 27])))
 
 testOverleafInt64p :: Assertion
 testOverleafInt64p =
@@ -436,14 +436,14 @@ testOverleafCIntToFloatp =
     (OR.fromList @Float @1 [28] (replicate 28 0.0))
     (let f :: forall f. ADReady f => f Float 1 -> f Float 0
          f = tfromIntegral . overleaf @CInt . tfloor
-     in rev' @Float @0 f (tfromList0N [28] (map (Flip . OR.scalar) $ [0 .. 27])))
+     in rev' @Float @0 f (tfromList0N [28] (map (Flip . OR.scalar) [0 .. 27])))
 
 testOverleafPP :: Assertion
 testOverleafPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v"), (2, "i")]
-      fT :: (AstRanked FullSpan Double 1)
+      fT :: AstRanked FullSpan Double 1
          -> AstRanked FullSpan Double 0
       fT = overleaf
       (var3, ast3) = funToAstR [28] fT
@@ -784,7 +784,7 @@ testReluSimpler4S = do
 
 reluMax :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n)
         => ranked r n -> ranked r n
-reluMax v = tmap0N (maxF 0) v
+reluMax = tmap0N (maxF 0)
 
 testReluMax :: Assertion
 testReluMax = do
@@ -1167,7 +1167,7 @@ nestedSumBuild v0 = tlet v0 $ \v ->
   (tbuild1 13 (\ix ->
     tsum (tbuild1 4 (\ix2 ->
       flip tindex [ix2]
-        (tlet (tsum v) $ \tsumv -> tbuild1 5 (\ _ -> tsumv)
+        (tlet (tsum v) $ \tsumv -> tbuild1 5 (const tsumv)
          * tfromList
              [ tfromIndex0 ix
              , tbtf
@@ -1253,7 +1253,7 @@ testBarReluMax3CFwd =
 reluMaxS :: forall shaped sh r.
             (ADReadyS shaped, GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
          => shaped r sh -> shaped r sh
-reluMaxS v = smap0N (maxF 0) v
+reluMaxS = smap0N (maxF 0)
 
 barReluMaxS
   :: ( ADReadyS shaped, GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh)
@@ -1393,7 +1393,7 @@ recycled :: (ADReady ranked, GoodScalar r, Differentiable r)
          => ranked r 0 -> ranked r 5
 recycled r =
   tlet (nestedSumBuild (treplicate0N [7] r)) $ \nsb ->
-    tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ -> nsb
+    tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ const nsb
 
 testRecycled1 :: Assertion
 testRecycled1 =
@@ -1404,9 +1404,9 @@ testRecycled1 =
 concatBuild :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 2
 concatBuild r =
   tbuild1 7 (\i ->
-    tappend (tappend (tbuild1 5 (\_j -> r))
+    tappend (tappend (tbuild1 5 (const r))
                      (treplicate 1 (tfromIndex0 i)))
-            (tbuild1 13 (\_k -> r)))
+            (tbuild1 13 (const r)))
 
 testConcatBuild1 :: Assertion
 testConcatBuild1 =
