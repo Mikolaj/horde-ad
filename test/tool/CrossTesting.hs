@@ -39,15 +39,15 @@ assertEqualUpToEpsilon1
 assertEqualUpToEpsilon1 eps expected result =
   assertEqualUpToEpsilon eps expected (runFlip result)
 
-rev' :: forall r m n v g.
+rev' :: forall r m n v a.
         ( KnownNat n, KnownNat m, GoodScalar r
-        , v ~ Flip OR.Array r m, g ~ Flip OR.Array r n )
+        , v ~ Flip OR.Array r m, a ~ Flip OR.Array r n )
      => (forall f. ADReady f => f r n -> f r m)
-     -> g
-     -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g
+     -> a
+     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a
         , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
-        , g, g, g, g, g, g, g, g, g, g, g, g, g, g )
+        , a, a, a, a, a, a, a, a, a, a, a, a, a, a )
 rev' f vals =
   let value0 = f vals
       parameters = toDomains vals
@@ -61,8 +61,7 @@ rev' f vals =
          -> ADVal (AstRanked PrimalSpan) r m
       g9 inputs = f $ parseDomains vals inputs
       revAstOnDomainsF
-        :: forall r2 n2.
-           (KnownNat n2, GoodScalar r2)
+        :: forall r2 n2. (KnownNat n2, GoodScalar r2)
         => Bool
         -> (Domains (ADValClown (AstDynamic PrimalSpan))
         -> ADVal (AstRanked PrimalSpan) r2 n2)
@@ -129,12 +128,14 @@ rev' f vals =
         revAstOnDomainsEval artifactsGradAst parameters dt
       gradient2Ast = parseDomains vals astGradAst
       (astGradAstS, value2AstS) =
-        revAstOnDomainsEval (simplifyArtifactRev artifactsGradAst) parameters dt
+        revAstOnDomainsEval (simplifyArtifactRev artifactsGradAst)
+                            parameters dt
       gradient2AstS = parseDomains vals astGradAstS
       artifactsGradAstT =
         fst $ revAstOnDomainsF True (hAst id id id) parameters
       (astGradAstST, value2AstST) =
-        revAstOnDomainsEval (simplifyArtifactRev artifactsGradAstT) parameters dt
+        revAstOnDomainsEval (simplifyArtifactRev artifactsGradAstT)
+                            parameters dt
       gradient2AstST = parseDomains vals astGradAstST
       artifactsSimpleAst =
         fst $ revAstOnDomainsF False (hAst id id simplifyAst6) parameters
@@ -142,7 +143,8 @@ rev' f vals =
         revAstOnDomainsEval artifactsSimpleAst parameters dt
       gradient3Ast = parseDomains vals astSimpleAst
       (astSimpleAstS, value3AstS) =
-        revAstOnDomainsEval (simplifyArtifactRev artifactsSimpleAst) parameters dt
+        revAstOnDomainsEval (simplifyArtifactRev artifactsSimpleAst)
+                            parameters dt
       gradient3AstS = parseDomains vals astSimpleAstS
       artifactsGradAstUnSimp =
         fst $ revAstOnDomainsF False (hAst unAstNoSimplify AstNoSimplify id)
@@ -172,7 +174,8 @@ rev' f vals =
         revAstOnDomainsEval artifactsPrimalAst parameters dt
       gradient4Ast = parseDomains vals astPrimalAst
       (astPrimalAstS, value4AstS) =
-        revAstOnDomainsEval (simplifyArtifactRev artifactsPrimalAst) parameters dt
+        revAstOnDomainsEval (simplifyArtifactRev artifactsPrimalAst)
+                            parameters dt
       gradient4AstS = parseDomains vals astPrimalAstS
       artifactsPSimpleAst =
         fst $ revAstOnDomainsF False
@@ -200,15 +203,15 @@ rev' f vals =
      , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS )
 
 assertEqualUpToEpsilon'
-    :: ( v ~ Flip OR.Array r m, g ~ Flip OR.Array r n
-       , AssertEqualUpToEpsilon g, AssertEqualUpToEpsilon v
+    :: ( v ~ Flip OR.Array r m, a ~ Flip OR.Array r n
+       , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected value
-    -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g
+    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
-       , g, g, g, g, g, g, g, g, g, g, g, g, g, g )
+       , a, a, a, a, a, a, a, a, a, a, a, a, a, a )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
@@ -292,15 +295,15 @@ assertEqualUpToEpsilon'
   show (simplifyAst6 astSimp) @?= show astSimp
 
 assertEqualUpToEpsilonShort
-    :: ( v ~ Flip OR.Array r m, g ~ Flip OR.Array r n
-       , AssertEqualUpToEpsilon g, AssertEqualUpToEpsilon v
+    :: ( v ~ Flip OR.Array r m, a ~ Flip OR.Array r n
+       , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected value
-    -> ( v, v, v, v, v, v, v, v, g, g, g, g, g, g, g
+    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
-       , g, g, g, g, g, g, g, g, g, g, g, g, g, g )
+       , a, a, a, a, a, a, a, a, a, a, a, a, a, a )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShort
