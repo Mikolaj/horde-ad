@@ -1,6 +1,12 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
--- | Scalar-based implementation of fully connected neutral network
+-- | TODO: this is not yet ported to the simplified horde-ad API
+-- and it requires extra optimization to not be a complete disaster.
+-- It was already many times slower than vector or matrix-based FCNN
+-- with the old API, but now scalars are represented as rank 0 tensors,
+-- so it's going to be much worse.
+--
+-- Scalar-based implementation of fully connected neutral network
 -- for classification of MNIST digits. Sports 2 hidden layers.
 module MnistFcnnScalar where
 
