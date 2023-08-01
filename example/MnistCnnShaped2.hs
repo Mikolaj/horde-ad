@@ -17,6 +17,7 @@ import           GHC.TypeLits (type (*), type (+), type (<=), type Div)
 import           Numeric.LinearAlgebra (Vector)
 import           Unsafe.Coerce (unsafeCoerce)
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
@@ -139,16 +140,15 @@ convMnistTestS
   => SNat kh -> SNat kw
   -> SNat c_out
   -> SNat n_hidden -> SNat batch_size
+  -> ADCnnMnistParameters (RankedOf shaped) r
   -> MnistDataBatchS batch_size r
-  -> ((ADCnnMnistParametersShaped shaped h w kh kw c_out n_hidden r
-       -> shaped r '[SizeMnistLabel, batch_size])
-      -> OS.Array '[SizeMnistLabel, batch_size] r)
+  -> DomainsOD
   -> r
-convMnistTestS _ _ _ _ batch_size@SNat _ _
+convMnistTestS  _ _ _ _ batch_size@SNat _ _ _
   | sNatValue batch_size == (0 :: Int) = 0
 convMnistTestS kh@SNat kw@SNat
                c_out@SNat n_hidden@SNat batch_size@SNat
-               (glyphS, labelS) evalAtTestParams =
+               valsInit (glyphS, labelS) testParams =
   let input :: shaped r '[batch_size, 1, h, w]
       input = Flip $ OS.reshape glyphS
       outputS =
@@ -157,7 +157,7 @@ convMnistTestS kh@SNat kw@SNat
             nn = convMnistTwoS kh kw (SNat @h) (SNat @w)
                                c_out n_hidden batch_size
                                input
-        in evalAtTestParams nn
+        in runFlip $ nn $ parseDomains valsInit testParams
       outputs = map OS.toVector $ OSB.toList $ OS.unravel
                 $ OS.transpose @'[1, 0] $ outputS
       labels = map OS.toVector $ OSB.toList $ OS.unravel labelS
@@ -166,3 +166,16 @@ convMnistTestS kh@SNat kw@SNat
                                  | otherwise = 0
   in fromIntegral (sum (zipWith matchesLabels outputs labels))
      / sNatValue batch_size
+
+-- TODO: the toValue hack forces us to define also this type
+-- (because we use Value both for toDomains and for toValue
+-- to save on defining another type in almost the same way):
+type ADCnnMnistParameters (ranked :: RankedTensorKind) r =
+  ( ( ranked r 4
+    , ranked r 1 )
+  , ( ranked r 4
+    , ranked r 1 )
+  , ( ranked r 2
+    , ranked r 1 )
+  , ( ranked r 2
+    , ranked r 1 ) )

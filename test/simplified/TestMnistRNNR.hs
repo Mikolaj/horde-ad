@@ -74,9 +74,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                         , show (V.length domainsInit)
                         , show (sizeDomainsOD domainsInit) ]
       ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
-      ftest miniBatchSize' mnist testParams =
-        MnistRnnRanked2.rnnMnistTestR miniBatchSize' mnist
-          (\f -> runFlip $ f $ parseDomains valsInit testParams)
+      ftest = MnistRnnRanked2.rnnMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -169,9 +167,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                         , show (V.length domainsInit)
                         , show (sizeDomainsOD domainsInit) ]
       ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
-      ftest miniBatchSize' mnist testParams =
-        MnistRnnRanked2.rnnMnistTestR miniBatchSize' mnist
-          (\f -> runFlip $ f $ parseDomains valsInit testParams)
+      ftest = MnistRnnRanked2.rnnMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -281,9 +277,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                           , show (V.length domainsInit)
                           , show (sizeDomainsOD domainsInit) ]
         ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
-        ftest miniBatchSize' mnist testParams =
-          MnistRnnRanked2.rnnMnistTestR miniBatchSize' mnist
-            (\f -> runFlip $ f $ parseDomains valsInit testParams)
+        ftest = MnistRnnRanked2.rnnMnistTestR valsInit
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"

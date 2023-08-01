@@ -17,6 +17,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (*))
 import           Numeric.LinearAlgebra (Vector)
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
@@ -144,15 +145,12 @@ rnnMnistTestS
      , GoodScalar r )
   => SNat out_width
   -> SNat batch_size
+  -> ADRnnMnistParameters (RankedOf shaped) r
   -> MnistDataBatchS batch_size r
-  -> ((ADRnnMnistParametersShaped shaped h out_width r
-       -> shaped r '[SizeMnistLabel, batch_size])
-      -> OS.Array '[SizeMnistLabel, batch_size] r)
+  -> DomainsOD
   -> r
-{-# INLINE rnnMnistTestS #-}
-rnnMnistTestS out_width@SNat
-              batch_size@SNat
-              (glyphS, labelS) evalAtTestParams =
+rnnMnistTestS out_width@SNat batch_size@SNat
+              valsInit (glyphS, labelS) testParams =
   let xs = Flip $ OS.transpose @'[2, 1, 0] glyphS
       outputS =
         let nn :: ADRnnMnistParametersShaped shaped h out_width r
@@ -161,7 +159,7 @@ rnnMnistTestS out_width@SNat
                                batch_size
                                (SNat @h) (SNat @w)
                                xs
-        in evalAtTestParams nn
+        in runFlip $ nn $ parseDomains valsInit testParams
       outputs = map OS.toVector $ OSB.toList $ OS.unravel
                 $ OS.transpose @'[1, 0] outputS
       labels = map OS.toVector $ OSB.toList $ OS.unravel labelS
@@ -170,3 +168,16 @@ rnnMnistTestS out_width@SNat
                                  | otherwise = 0
   in fromIntegral (sum (zipWith matchesLabels outputs labels))
      / sNatValue batch_size
+
+-- TODO: the toValue hack forces us to define also these types
+-- (because we use Value both for toDomains and for toValue
+-- to save on defining another type in almost the same way):
+type ADRnnMnistParameters ranked r =
+  ( LayerWeigthsRNN ranked r
+  , LayerWeigthsRNN ranked r
+  , ( ranked r 2
+    , ranked r 1 ) )
+type LayerWeigthsRNN (ranked :: RankedTensorKind) r =
+  ( ranked r 2
+  , ranked r 2
+  , ranked r 1 )

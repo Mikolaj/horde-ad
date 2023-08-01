@@ -69,8 +69,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
         withSNat miniBatchSize' $ \bs@SNat ->
           let mnist = ( Data.Array.Convert.convert glyphs
                       , Data.Array.Convert.convert labels )
-          in MnistRnnShaped2.rnnMnistTestS width bs mnist
-               (\f -> runFlip $ f $ parseDomains vInit testParams)
+          in MnistRnnShaped2.rnnMnistTestS width bs vInit mnist testParams
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -171,8 +170,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
         withSNat miniBatchSize' $ \bs@SNat ->
           let mnist = ( Data.Array.Convert.convert glyphs
                       , Data.Array.Convert.convert labels )
-          in MnistRnnShaped2.rnnMnistTestS width bs mnist
-               (\f -> runFlip $ f $ parseDomains vInit testParams)
+          in MnistRnnShaped2.rnnMnistTestS width bs vInit mnist testParams
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -290,8 +288,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
           withSNat miniBatchSize' $ \bs@SNat ->
             let mnist = ( Data.Array.Convert.convert glyphs
                         , Data.Array.Convert.convert labels )
-            in MnistRnnShaped2.rnnMnistTestS width bs mnist
-                 (\f -> runFlip $ f $ parseDomains vInit testParams)
+            in MnistRnnShaped2.rnnMnistTestS width bs vInit mnist testParams
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"

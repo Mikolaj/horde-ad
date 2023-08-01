@@ -74,9 +74,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                         , show (V.length domainsInit)
                         , show (sizeDomainsOD domainsInit) ]
       ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
-      ftest miniBatchSize' mnist testParams =
-        MnistCnnRanked2.convMnistTestR miniBatchSize' mnist
-          (\f -> runFlip $ f $ parseDomains valsInit testParams)
+      ftest = MnistCnnRanked2.convMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -175,9 +173,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                         , show (V.length domainsInit)
                         , show (sizeDomainsOD domainsInit) ]
       ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
-      ftest miniBatchSize' mnist testParams =
-        MnistCnnRanked2.convMnistTestR miniBatchSize' mnist
-          (\f -> runFlip $ f $ parseDomains valsInit testParams)
+      ftest = MnistCnnRanked2.convMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -293,9 +289,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                           , show (V.length domainsInit)
                           , show (sizeDomainsOD domainsInit) ]
         ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
-        ftest miniBatchSize' mnist testParams =
-          MnistCnnRanked2.convMnistTestR miniBatchSize' mnist
-            (\f -> runFlip $ f $ parseDomains valsInit testParams)
+        ftest = MnistCnnRanked2.convMnistTestR valsInit
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"

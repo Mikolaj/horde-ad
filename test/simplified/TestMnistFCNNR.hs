@@ -85,10 +85,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                         , show (sum (map OD.size params1Init))
                         , show gamma ]
       ftest :: [MnistData r] -> DomainsOD -> r
-      ftest mnist testParams =
-        MnistFcnnRanked1.afcnnMnistTest1
-          widthHidden widthHidden2 mnist
-          (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
+      ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -184,10 +181,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                         , show (sum (map OD.size params1Init))
                         , show gamma ]
       ftest :: [MnistData r] -> DomainsOD -> r
-      ftest mnist testParams =
-        MnistFcnnRanked1.afcnnMnistTest1
-          widthHidden widthHidden2 mnist
-          (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
+      ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -300,10 +294,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                         , show (sum (map OD.size params1Init))
                         , show gamma ]
       ftest :: [MnistData r] -> DomainsOD -> r
-      ftest mnist testParams =
-        MnistFcnnRanked1.afcnnMnistTest1
-          widthHidden widthHidden2 mnist
-          (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
+      ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -421,9 +412,7 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
                         , show (sizeDomainsOD domainsInit)
                         , show gamma ]
       ftest :: [MnistData r] -> DomainsOD -> r
-      ftest mnist testParams =
-        MnistFcnnRanked2.afcnnMnistTest2 mnist
-          (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
+      ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -512,9 +501,7 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
                         , show (sizeDomainsOD domainsInit)
                         , show gamma ]
       ftest :: [MnistData r] -> DomainsOD -> r
-      ftest mnist testParams =
-        MnistFcnnRanked2.afcnnMnistTest2 mnist
-          (\f -> OR.toVector $ runFlip $ f $ parseDomains valsInit testParams)
+      ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -624,10 +611,7 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                           , show (sizeDomainsOD domainsInit)
                           , show gamma ]
         ftest :: [MnistData r] -> DomainsOD -> r
-        ftest mnist testParams =
-          MnistFcnnRanked2.afcnnMnistTest2 mnist
-            (\f -> OR.toVector $ runFlip $ f
-                   $ parseDomains valsInit testParams)
+        ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"

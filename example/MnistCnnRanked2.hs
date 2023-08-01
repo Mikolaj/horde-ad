@@ -12,6 +12,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (type (*), type (+), type Div)
 import           Numeric.LinearAlgebra (Vector)
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
@@ -112,14 +113,13 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 convMnistTestR
   :: forall ranked r.
      (ranked ~ Flip OR.Array, GoodScalar r, Differentiable r)
-  => Int
+  => ADCnnMnistParameters ranked r
+  -> Int
   -> MnistDataBatchR r
-  -> ((ADCnnMnistParameters ranked r
-       -> ranked r 2)  -- [SizeMnistLabel, batch_size]
-      -> OR.Array 2 r)  -- [SizeMnistLabel, batch_size]
+  -> DomainsOD
   -> r
-convMnistTestR 0 _ _ = 0
-convMnistTestR batch_size (glyphR, labelR) evalAtTestParams =
+convMnistTestR _ 0 _ _ = 0
+convMnistTestR valsInit batch_size (glyphR, labelR) testParams =
   let input =
         Flip $ OR.reshape [batch_size, 1, sizeMnistHeightInt, sizeMnistWidthInt]
                           glyphR
@@ -128,7 +128,7 @@ convMnistTestR batch_size (glyphR, labelR) evalAtTestParams =
                -> ranked r 2  -- [SizeMnistLabel, batch_size]
             nn = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
                                batch_size input
-        in evalAtTestParams nn
+        in runFlip $ nn $ parseDomains valsInit testParams
       outputs = map OR.toVector $ ORB.toList $ OR.unravel
                 $ OR.transpose [1, 0] outputR
       labels = map OR.toVector $ ORB.toList $ OR.unravel labelR

@@ -11,8 +11,8 @@ import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
-import           Numeric.LinearAlgebra (Vector)
 
+import HordeAd.Core.Adaptor
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
@@ -95,15 +95,13 @@ afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
 afcnnMnistTest1
   :: forall ranked r.
      (ranked ~ Flip OR.Array, GoodScalar r, Differentiable r)
-  => Int -> Int
+  => ADFcnnMnist1Parameters ranked r
+  -> Int -> Int
   -> [MnistData r]
-  -> ((ADFcnnMnist1Parameters ranked r
-       -> ranked r 1)
-      -> Vector r)
+  -> DomainsOD
   -> r
-{-# INLINE afcnnMnistTest1 #-}
-afcnnMnistTest1 _ _ [] _ = 0
-afcnnMnistTest1 widthHidden widthHidden2 dataList evalAtTestParams =
+afcnnMnistTest1 _ _ _ [] _ = 0
+afcnnMnistTest1 valsInit widthHidden widthHidden2 dataList testParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let glyph1 = tconst $ OR.fromVector [sizeMnistGlyphInt] glyph
@@ -111,7 +109,7 @@ afcnnMnistTest1 widthHidden widthHidden2 dataList evalAtTestParams =
                -> ranked r 1
             nn = inline afcnnMnist1 logistic softMax1
                                     widthHidden widthHidden2 glyph1
-            v = evalAtTestParams nn
+            v = OR.toVector $ runFlip $ nn $ parseDomains valsInit testParams
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)
