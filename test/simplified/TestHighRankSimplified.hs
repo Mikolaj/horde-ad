@@ -557,8 +557,8 @@ testConcatBuild3PP2 = do
   resetVarCounter
   let renames = IM.empty
       t = concatBuild3 @(AstRanked FullSpan) @Double
-  let (artifactRev, _) = revDtFun True t
-                                (Flip $ OR.fromList [3] [0.651,0.14,0.3414])
+  let (artifactRev, _) =
+        revArtifactAdapt True t (Flip $ OR.fromList [3] [0.651,0.14,0.3414])
   printGradient6Simple renames artifactRev
     @?= "\\dret v2 -> dmkDomains (fromList [dfromR tiota])"
   printPrimal6Simple renames artifactRev

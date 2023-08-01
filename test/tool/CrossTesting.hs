@@ -64,19 +64,15 @@ rev' f vals =
         :: forall r2 n2. (KnownNat n2, GoodScalar r2)
         => Bool
         -> (Domains (ADValClown (AstDynamic PrimalSpan))
-        -> ADVal (AstRanked PrimalSpan) r2 n2)
+            -> ADVal (AstRanked PrimalSpan) r2 n2)
         -> DomainsOD
         -> (AstArtifactRev AstRanked r2 n2, Dual (AstRanked PrimalSpan) r2 n2)
       {-# INLINE revAstOnDomainsF #-}
       revAstOnDomainsF hasDt f2 =
-        let forwardPassByApplication domainsPrimal _ _ =
-              let deltaInputs = generateDeltaInputs domainsPrimal
-                  varInputs = makeADInputs domainsPrimal deltaInputs
-              in f2 varInputs
-        in revAstOnDomainsFun hasDt forwardPassByApplication
+        revArtifactFromForwardPass hasDt (forwardPassByApplication f2)
       (advalGrad9, value9) =
-        revAstOnDomainsEval (fst $ revAstOnDomainsF False g9 parameters)
-                            parameters dt
+        revEvalArtifact (fst $ revAstOnDomainsF False g9 parameters)
+                        parameters dt
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady f1
         => (f1 r m -> AstRanked PrimalSpan r m)
@@ -129,68 +125,63 @@ rev' f vals =
       artifactsGradAst =
         fst $ revAstOnDomainsF False (hAst id id id) parameters
       (astGradAst, value2Ast) =
-        revAstOnDomainsEval artifactsGradAst parameters dt
+        revEvalArtifact artifactsGradAst parameters dt
       gradient2Ast = parseDomains vals astGradAst
       (astGradAstS, value2AstS) =
-        revAstOnDomainsEval (simplifyArtifactRev artifactsGradAst)
-                            parameters dt
+        revEvalArtifact (simplifyArtifactRev artifactsGradAst) parameters dt
       gradient2AstS = parseDomains vals astGradAstS
       artifactsGradAstT =
         fst $ revAstOnDomainsF True (hAst id id id) parameters
       (astGradAstST, value2AstST) =
-        revAstOnDomainsEval (simplifyArtifactRev artifactsGradAstT)
-                            parameters dt
+        revEvalArtifact (simplifyArtifactRev artifactsGradAstT) parameters dt
       gradient2AstST = parseDomains vals astGradAstST
       artifactsSimpleAst =
         fst $ revAstOnDomainsF False (hAst id id simplifyAst6) parameters
       (astSimpleAst, value3Ast) =
-        revAstOnDomainsEval artifactsSimpleAst parameters dt
+        revEvalArtifact artifactsSimpleAst parameters dt
       gradient3Ast = parseDomains vals astSimpleAst
       (astSimpleAstS, value3AstS) =
-        revAstOnDomainsEval (simplifyArtifactRev artifactsSimpleAst)
-                            parameters dt
+        revEvalArtifact (simplifyArtifactRev artifactsSimpleAst) parameters dt
       gradient3AstS = parseDomains vals astSimpleAstS
       artifactsGradAstUnSimp =
         fst $ revAstOnDomainsF False (hAst unAstNoSimplify AstNoSimplify id)
                                parameters
       (astGradAstUnSimp, value2AstUnSimp) =
-        revAstOnDomainsEval artifactsGradAstUnSimp parameters dt
+        revEvalArtifact artifactsGradAstUnSimp parameters dt
       gradient2AstUnSimp = parseDomains vals astGradAstUnSimp
       (astGradAstSUnSimp, value2AstSUnSimp) =
-        revAstOnDomainsEval (simplifyArtifactRev artifactsGradAstUnSimp)
-                            parameters dt
+        revEvalArtifact (simplifyArtifactRev artifactsGradAstUnSimp)
+                        parameters dt
       gradient2AstSUnSimp = parseDomains vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
         fst $ revAstOnDomainsF False
                                (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
                                parameters
       (astSimpleAstUnSimp, value3AstUnSimp) =
-        revAstOnDomainsEval artifactsSimpleAstUnSimp parameters dt
+        revEvalArtifact artifactsSimpleAstUnSimp parameters dt
       gradient3AstUnSimp = parseDomains vals astSimpleAstUnSimp
       (astSimpleAstSUnSimp, value3AstSUnSimp) =
-        revAstOnDomainsEval (simplifyArtifactRev artifactsSimpleAstUnSimp)
-                            parameters dt
+        revEvalArtifact (simplifyArtifactRev artifactsSimpleAstUnSimp)
+                        parameters dt
       gradient3AstSUnSimp = parseDomains vals astSimpleAstSUnSimp
       artifactsPrimalAst =
         fst $ revAstOnDomainsF False (hAst unAstNoVectorize AstNoVectorize id)
                                parameters
       (astPrimalAst, value4Ast) =
-        revAstOnDomainsEval artifactsPrimalAst parameters dt
+        revEvalArtifact artifactsPrimalAst parameters dt
       gradient4Ast = parseDomains vals astPrimalAst
       (astPrimalAstS, value4AstS) =
-        revAstOnDomainsEval (simplifyArtifactRev artifactsPrimalAst)
-                            parameters dt
+        revEvalArtifact (simplifyArtifactRev artifactsPrimalAst) parameters dt
       gradient4AstS = parseDomains vals astPrimalAstS
       artifactsPSimpleAst =
         fst $ revAstOnDomainsF False
                 (hAst unAstNoVectorize AstNoVectorize simplifyAst6)
                 parameters
       (astPSimpleAst, value5Ast) =
-        revAstOnDomainsEval artifactsPSimpleAst parameters dt
+        revEvalArtifact artifactsPSimpleAst parameters dt
       gradient5Ast = parseDomains vals astPSimpleAst
       (astPSimpleAstS, value5AstS) =
-        revAstOnDomainsEval (simplifyArtifactRev artifactsPSimpleAst)
-                            parameters dt
+        revEvalArtifact (simplifyArtifactRev artifactsPSimpleAst) parameters dt
       gradient5AstS = parseDomains vals astPSimpleAstS
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5

@@ -5,15 +5,17 @@
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
-    rev, revDt, revDtFun
+    rev, revDt, revArtifactAdapt
     -- * Forward derivative adaptors
-  , fwd, fwdDtFun
+  , fwd, fwdArtifactAdapt
     -- * Reverse and forward derivative stages class
   , DerivativeStages (..)
+  , forwardPassByInterpretation, forwardPassByInterpretationS
+  , forwardPassByApplication
     -- * Lower level functions related to reverse derivative stages
-  , revAstOnDomainsFun, revAstOnDomainsFunS
+  , revArtifactFromForwardPass, revArtifactFromForwardPassS
     -- * Lower level functions related to forward derivative stages
-  , fwdAstOnDomainsFun, fwdAstOnDomainsFunS
+  , fwdArtifactFromForwardPass, fwdArtifactFromForwardPassS
     -- * Old gradient adaptors, with constant and fixed inputs and dt
   , crev, crevDt, crevOnDomains, crevOnADInputs
     -- * Old derivative adaptors, with constant and fixed inputs
@@ -104,11 +106,11 @@ revDtMaybe
 revDtMaybe f vals mdt =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
-      artifact = fst $ revDtInit (isJust mdt) g EM.empty domainsOD
+      artifact = fst $ revProduceArtifact (isJust mdt) g EM.empty domainsOD
   in parseDomains (toValue vals)
-     $ fst $ revAstOnDomainsEval artifact domainsOD mdt
+     $ fst $ revEvalArtifact artifact domainsOD mdt
 
-revDtFun
+revArtifactAdapt
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
@@ -116,11 +118,10 @@ revDtFun
      , vals ~ Value astvals )
   => Bool -> (astvals -> g FullSpan r y) -> vals
   -> (AstArtifactRev g r y, Dual (g PrimalSpan) r y)
-{-# INLINE revDtFun #-}
-revDtFun hasDt f vals =
+revArtifactAdapt hasDt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
-  in revDtInit hasDt g EM.empty domainsOD
+  in revProduceArtifact hasDt g EM.empty domainsOD
 
 
 -- * Forward derivative adaptors
@@ -141,10 +142,10 @@ fwd
 fwd f x ds =
   let g domains = f $ parseDomains x domains
       domainsOD = toDomains x
-      artifact = fst $ fwdDtInit g EM.empty domainsOD
-  in fst $ fwdAstOnDomainsEval artifact domainsOD (toDomains ds)
+      artifact = fst $ fwdProduceArtifact g EM.empty domainsOD
+  in fst $ fwdEvalArtifact artifact domainsOD (toDomains ds)
 
-fwdDtFun
+fwdArtifactAdapt
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
@@ -152,18 +153,17 @@ fwdDtFun
      , vals ~ Value astvals )
   => (astvals -> g FullSpan r y) -> vals
   -> (AstArtifactFwd g r y, Dual (g PrimalSpan) r y)
-{-# INLINE fwdDtFun #-}
-fwdDtFun f vals =
+fwdArtifactAdapt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
-  in fwdDtInit g EM.empty domainsOD
+  in fwdProduceArtifact g EM.empty domainsOD
 
 
 -- * Reverse and forward derivative stages class
 
 type DerivativeStages :: forall k. (AstSpanType -> TensorKind k) -> Constraint
 class DerivativeStages g where
-  revDtInit
+  revProduceArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
     => Bool
     -> (Domains (AstDynamic FullSpan) -> g FullSpan r y)
@@ -172,12 +172,12 @@ class DerivativeStages g where
     -> DomainsOD
     -> (AstArtifactRev g r y, Dual (g PrimalSpan) r y)
 
-  revAstOnDomainsEval
+  revEvalArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
     => AstArtifactRev g r y -> DomainsOD -> Maybe (ConcreteOf g r y)
     -> (DomainsOD, ConcreteOf g r y)
 
-  fwdDtInit
+  fwdProduceArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
     => (Domains (AstDynamic FullSpan) -> g FullSpan r y)
     -> AstEnv (ADVal (RankedOf (g PrimalSpan)))
@@ -185,7 +185,7 @@ class DerivativeStages g where
     -> DomainsOD
     -> (AstArtifactFwd g r y, Dual (g PrimalSpan) r y)
 
-  fwdAstOnDomainsEval
+  fwdEvalArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
     => AstArtifactFwd g r y -> DomainsOD -> DomainsOD
     -> (ConcreteOf g r y, ConcreteOf g r y)
@@ -196,16 +196,16 @@ class DerivativeStages g where
 -- let's wait until we have rev as a function of Tensor class in case
 -- that affects rev and/or Delta
 --instance DerivativeStages @() (Clown OD.Array) where
---  revAstOnDomainsEval = undefined
---  revDtInit = undefined
+--  revEvalArtifact = undefined
+--  revProduceArtifact = undefined
 
 instance DerivativeStages AstRanked where
-  {-# INLINE revDtInit #-}
-  revDtInit hasDt g envInit =
-    revAstOnDomainsFun hasDt (forwardPassByInterpretation g envInit)
+  {-# INLINE revProduceArtifact #-}
+  revProduceArtifact hasDt g envInit =
+    revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
 
-  {-# INLINE revAstOnDomainsEval #-}
-  revAstOnDomainsEval ((varDt, vars), gradient, primal) parameters mdt =
+  {-# INLINE revEvalArtifact #-}
+  revEvalArtifact ((varDt, vars), gradient, primal) parameters mdt =
     let env = foldr extendEnvDR EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe (treplicate0N (tshape primal) 1) mdt
         envDt = extendEnvR varDt dt env
@@ -213,12 +213,12 @@ instance DerivativeStages AstRanked where
         primalTensor = interpretAstPrimal env primal
     in (gradientDomain, primalTensor)
 
-  {-# INLINE fwdDtInit #-}
-  fwdDtInit g envInit =
-    fwdAstOnDomainsFun (forwardPassByInterpretation g envInit)
+  {-# INLINE fwdProduceArtifact #-}
+  fwdProduceArtifact g envInit =
+    fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
 
-  {-# INLINE fwdAstOnDomainsEval #-}
-  fwdAstOnDomainsEval ((varDs, vars), derivative, primal) parameters ds =
+  {-# INLINE fwdEvalArtifact #-}
+  fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
     if sameShapesDomainsOD parameters ds then
       let env = foldr extendEnvDR EM.empty $ zip vars $ V.toList parameters
           envDs = foldr extendEnvDR env $ zip varDs $ V.toList ds
@@ -228,12 +228,12 @@ instance DerivativeStages AstRanked where
    else error "forward derivative input and sensitivity arguments should have same shapes"
 
 instance DerivativeStages AstShaped where
-  {-# INLINE revDtInit #-}
-  revDtInit hasDt g envInit =
-    revAstOnDomainsFunS hasDt (forwardPassByInterpretationS g envInit)
+  {-# INLINE revProduceArtifact #-}
+  revProduceArtifact hasDt g envInit =
+    revArtifactFromForwardPassS hasDt (forwardPassByInterpretationS g envInit)
 
-  {-# INLINE revAstOnDomainsEval #-}
-  revAstOnDomainsEval ((varDt, vars), gradient, primal) parameters mdt =
+  {-# INLINE revEvalArtifact #-}
+  revEvalArtifact ((varDt, vars), gradient, primal) parameters mdt =
     let env = foldr extendEnvDS EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe 1 mdt
         envDt = extendEnvS varDt dt env
@@ -241,12 +241,12 @@ instance DerivativeStages AstShaped where
         primalTensor = interpretAstPrimalS env primal
     in (gradientDomain, primalTensor)
 
-  {-# INLINE fwdDtInit #-}
-  fwdDtInit g envInit =
-    fwdAstOnDomainsFunS (forwardPassByInterpretationS g envInit)
+  {-# INLINE fwdProduceArtifact #-}
+  fwdProduceArtifact g envInit =
+    fwdArtifactFromForwardPassS (forwardPassByInterpretationS g envInit)
 
-  {-# INLINE fwdAstOnDomainsEval #-}
-  fwdAstOnDomainsEval ((varDs, vars), derivative, primal) parameters ds =
+  {-# INLINE fwdEvalArtifact #-}
+  fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
     let env = foldr extendEnvDS EM.empty $ zip vars $ V.toList parameters
         envDs = foldr extendEnvDS env $ zip varDs $ V.toList ds
         derivativeTensor = interpretAstPrimalS envDs derivative
@@ -285,10 +285,22 @@ forwardPassByInterpretationS g envInit domainsPrimal vars domains =
       env = foldr extendEnvDS envInit $ zip vars $ V.toList varInputs
   in interpretAstS env ast
 
+forwardPassByApplication
+  :: (Domains (ADValClown (AstDynamic PrimalSpan)) -> ADVal (g PrimalSpan) r y)
+  -> Domains (AstDynamic PrimalSpan)
+  -> [AstDynamicVarName FullSpan g]
+  -> Domains (AstDynamic FullSpan)
+  -> ADVal (g PrimalSpan) r y
+{-# INLINE forwardPassByApplication #-}
+forwardPassByApplication g domainsPrimal _ _ =
+  let deltaInputs = generateDeltaInputs domainsPrimal
+      varInputs = makeADInputs domainsPrimal deltaInputs
+  in g varInputs
+
 
 -- * Lower level functions related to reverse derivative stages
 
-revAstOnDomainsFun
+revArtifactFromForwardPass
   :: forall r n. (GoodScalar r, KnownNat n)
   => Bool
   -> (Domains (AstDynamic PrimalSpan)
@@ -297,8 +309,8 @@ revAstOnDomainsFun
       -> ADVal (AstRanked PrimalSpan) r n)
   -> DomainsOD
   -> (AstArtifactRev AstRanked r n, Dual (AstRanked PrimalSpan) r n)
-{-# INLINE revAstOnDomainsFun #-}
-revAstOnDomainsFun hasDt forwardPass parameters0 =
+{-# INLINE revArtifactFromForwardPass #-}
+revArtifactFromForwardPass hasDt forwardPass parameters0 =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
@@ -317,7 +329,7 @@ revAstOnDomainsFun hasDt forwardPass parameters0 =
        , unletAst6 l primalBody )
      , delta )
 
-revAstOnDomainsFunS
+revArtifactFromForwardPassS
   :: forall r sh. (GoodScalar r, OS.Shape sh)
   => Bool
   -> (Domains (AstDynamic PrimalSpan)
@@ -326,8 +338,8 @@ revAstOnDomainsFunS
       -> ADVal (AstShaped PrimalSpan) r sh)
   -> DomainsOD
   -> (AstArtifactRev AstShaped r sh, Dual (AstShaped PrimalSpan) r sh)
-{-# INLINE revAstOnDomainsFunS #-}
-revAstOnDomainsFunS hasDt forwardPass parameters0 =
+{-# INLINE revArtifactFromForwardPassS #-}
+revArtifactFromForwardPassS hasDt forwardPass parameters0 =
   let !(!varDtId, varsPrimal, domainsPrimal, vars, domains) =
         funToAstRevS parameters0 in
   let !(D l primalBody delta) = forwardPass domainsPrimal vars domains in
@@ -344,7 +356,7 @@ revAstOnDomainsFunS hasDt forwardPass parameters0 =
 
 -- * Lower level functions related to forward derivative stages
 
-fwdAstOnDomainsFun
+fwdArtifactFromForwardPass
   :: forall r n. (GoodScalar r, KnownNat n)
   => (Domains (AstDynamic PrimalSpan)
       -> [AstDynamicVarName FullSpan AstRanked]
@@ -352,8 +364,8 @@ fwdAstOnDomainsFun
       -> ADVal (AstRanked PrimalSpan) r n)
   -> DomainsOD
   -> (AstArtifactFwd AstRanked r n, Dual (AstRanked PrimalSpan) r n)
-{-# INLINE fwdAstOnDomainsFun #-}
-fwdAstOnDomainsFun forwardPass parameters0 =
+{-# INLINE fwdArtifactFromForwardPass #-}
+fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(!varsPrimalDs, domainsDs, varsPrimal, domainsPrimal, vars, domains) =
         funToAstFwd parameters0 in
   let !(D l primalBody delta) = forwardPass domainsPrimal vars domains in
@@ -364,7 +376,7 @@ fwdAstOnDomainsFun forwardPass parameters0 =
        , unletAst6 l primalBody )
      , delta )
 
-fwdAstOnDomainsFunS
+fwdArtifactFromForwardPassS
   :: forall r sh. (GoodScalar r, OS.Shape sh)
   => (Domains (AstDynamic PrimalSpan)
       -> [AstDynamicVarName FullSpan AstShaped]
@@ -372,8 +384,8 @@ fwdAstOnDomainsFunS
       -> ADVal (AstShaped PrimalSpan) r sh)
   -> DomainsOD
   -> (AstArtifactFwd AstShaped r sh, Dual (AstShaped PrimalSpan) r sh)
-{-# INLINE fwdAstOnDomainsFunS #-}
-fwdAstOnDomainsFunS forwardPass parameters0 =
+{-# INLINE fwdArtifactFromForwardPassS #-}
+fwdArtifactFromForwardPassS forwardPass parameters0 =
   let !(!varsPrimalDs, domainsDs, varsPrimal, domainsPrimal, vars, domains) =
         funToAstFwdS parameters0 in
   let !(D l primalBody delta) = forwardPass domainsPrimal vars domains  in
