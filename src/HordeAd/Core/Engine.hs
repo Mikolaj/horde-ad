@@ -8,11 +8,11 @@ module HordeAd.Core.Engine
     rev, revDt, revDtFun
     -- * Forward derivative adaptors
   , fwd, fwdDtFun
-    -- * Reverse and forward derivative adaptor class
-  , Adaptable (..)
-    -- * Lower level functions related to reverse derivative adaptors
+    -- * Reverse and forward derivative stages class
+  , DerivativeStages (..)
+    -- * Lower level functions related to reverse derivative stages
   , revAstOnDomainsFun, revAstOnDomainsFunS
-    -- * Lower level functions related to forward derivative adaptors
+    -- * Lower level functions related to forward derivative stages
   , fwdAstOnDomainsFun, fwdAstOnDomainsFunS
     -- * Old gradient adaptors, with constant and fixed inputs and dt
   , crev, crevDt, crevOnDomains, crevOnADInputs
@@ -55,10 +55,10 @@ import HordeAd.Core.Types
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names to @rev@, but newcomers may have trouble understanding them.
 
--- | These work for any @g@ of Adaptable class.
+-- | These work for any @g@ of DerivativeStages class.
 rev
   :: forall r y g vals astvals.
-     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
@@ -77,7 +77,7 @@ rev f vals = revDtMaybe f vals Nothing
 -- | This version additionally takes the sensitivity parameter.
 revDt
   :: forall r y g vals astvals.
-     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
@@ -95,7 +95,7 @@ revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revDtMaybe
   :: forall r y g vals astvals.
-     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , RandomDomains vals, vals ~ Value astvals )
@@ -110,7 +110,7 @@ revDtMaybe f vals mdt =
 
 revDtFun
   :: forall r y g vals astvals.
-     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
@@ -133,7 +133,7 @@ revDtFun hasDt f vals =
 -- Shaped tensors work fine.
 fwd
   :: forall r y g vals astvals.
-     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
@@ -146,7 +146,7 @@ fwd f x ds =
 
 fwdDtFun
   :: forall r y g vals astvals.
-     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
@@ -159,10 +159,10 @@ fwdDtFun f vals =
   in fwdDtInit g EM.empty domainsOD
 
 
--- * Reverse and forward derivative adaptor class
+-- * Reverse and forward derivative stages class
 
-type Adaptable :: forall k. (AstSpanType -> TensorKind k) -> Constraint
-class Adaptable g where
+type DerivativeStages :: forall k. (AstSpanType -> TensorKind k) -> Constraint
+class DerivativeStages g where
   revDtInit
     :: forall r y. (GoodScalar r, HasSingletonDict y)
     => Bool
@@ -195,11 +195,11 @@ class Adaptable g where
 -- DomainsOD, for which we already have unletAstDomains6, etc.;
 -- let's wait until we have rev as a function of Tensor class in case
 -- that affects rev and/or Delta
---instance Adaptable @() (Clown OD.Array) where
+--instance DerivativeStages @() (Clown OD.Array) where
 --  revAstOnDomainsEval = undefined
 --  revDtInit = undefined
 
-instance Adaptable AstRanked where
+instance DerivativeStages AstRanked where
   {-# INLINE revDtInit #-}
   revDtInit hasDt g envInit =
     revAstOnDomainsFun hasDt (revDtInterpret g envInit)
@@ -227,7 +227,7 @@ instance Adaptable AstRanked where
       in (derivativeTensor, primalTensor)
    else error "forward derivative input and sensitivity arguments should have same shapes"
 
-instance Adaptable AstShaped where
+instance DerivativeStages AstShaped where
   {-# INLINE revDtInit #-}
   revDtInit hasDt g envInit =
     revAstOnDomainsFunS hasDt (revDtInterpretS g envInit)
@@ -280,7 +280,7 @@ revDtInterpretS g envInit varInputs domains vars =
   in interpretAstS env ast
 
 
--- * Lower level functions related to reverse derivative adaptors
+-- * Lower level functions related to reverse derivative stages
 
 revAstOnDomainsFun
   :: forall r n. (GoodScalar r, KnownNat n)
@@ -341,7 +341,7 @@ revAstOnDomainsFunS hasDt f parameters0 =
      , deltaTopLevel )
 
 
--- * Lower level functions related to forward derivative adaptors
+-- * Lower level functions related to forward derivative stages
 
 fwdAstOnDomainsFun
   :: forall r n. (GoodScalar r, KnownNat n)
