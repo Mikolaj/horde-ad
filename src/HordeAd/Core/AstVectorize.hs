@@ -33,7 +33,7 @@ import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (trustMeThisIsAPermutation)
+  (MapSucc, trustMeThisIsAPermutation)
 import           HordeAd.Util.ShapedList (ShapedList (..))
 import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
@@ -518,6 +518,7 @@ build1VS (var, v00) =
     Ast.AstTransposeS @perm @sh1 v -> traceRule $
       let zsuccPerm = 0 : map succ (OS.shapeT @perm)
       in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccPerm) ->
+        gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccPerm) $
         gcastWith (unsafeCoerce Refl
                    :: OS.Permute zsuccPerm (k : sh1) :~: k : sh) $
         gcastWith (unsafeCoerce Refl

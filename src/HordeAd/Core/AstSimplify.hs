@@ -84,7 +84,7 @@ import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
-  (matchingRank, sameShape, trustMeThisIsAPermutation)
+  (MapSucc, matchingRank, sameShape, trustMeThisIsAPermutation)
 import           HordeAd.Internal.TensorOps
 import           HordeAd.Util.ShapedList (ShapedList (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
@@ -1184,7 +1184,7 @@ astReplicateS = \case
   Ast.AstTransposeS @perm @sh1 v ->
     let zsuccPerm = 0 : map succ (OS.shapeT @perm)
     in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccPerm) ->
---      gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccPerm) $
+      gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccPerm) $
       gcastWith (unsafeCoerce Refl
                  :: OS.Permute zsuccPerm (n : sh1) :~: n : sh) $
       gcastWith (unsafeCoerce Refl :: OS.Rank zsuccPerm :~: 1 + OS.Rank perm) $
