@@ -69,7 +69,11 @@ rev' f vals =
         -> (AstArtifactRev AstRanked r2 n2, Dual (AstRanked PrimalSpan) r2 n2)
       {-# INLINE revAstOnDomainsF #-}
       revAstOnDomainsF hasDt f2 =
-        revAstOnDomainsFun hasDt (\varInputs _ _ -> f2 varInputs)
+        let forwardPassByApplication domainsPrimal _ _ =
+              let deltaInputs = generateDeltaInputs domainsPrimal
+                  varInputs = makeADInputs domainsPrimal deltaInputs
+              in f2 varInputs
+        in revAstOnDomainsFun hasDt forwardPassByApplication
       (advalGrad9, value9) =
         revAstOnDomainsEval (fst $ revAstOnDomainsF False g9 parameters)
                             parameters dt
