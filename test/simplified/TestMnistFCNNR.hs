@@ -321,8 +321,9 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
                  widthHidden widthHidden2
                  (tconstant astGlyph, tconstant astLabel)
+           g domains = f $ parseDomains valsInit domains
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
-             revDtInit False f valsInit envInit domainsInit
+             revDtInit False g envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)
@@ -643,8 +644,9 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
                        EM.empty
            f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
                  (tconstant astGlyph, tconstant astLabel)
+           g domains = f $ parseDomains valsInit domains
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
-             revDtInit False f valsInit envInit domainsInit
+             revDtInit False g envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)

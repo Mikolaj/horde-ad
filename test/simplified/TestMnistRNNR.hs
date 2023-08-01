@@ -304,9 +304,10 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                        EM.empty
            f = MnistRnnRanked2.rnnMnistLossFusedR
                  miniBatchSize (astGlyph, astLabel)
+           g domains = f $ parseDomains valsInit domains
            (((varDtAgain, vars1Again), gradientRaw, primal), _) =
              revDtInit @Nat @AstRanked
-                       False f valsInit envInit domainsInit
+                       False g envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)

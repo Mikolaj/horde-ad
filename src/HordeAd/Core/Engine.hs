@@ -5,15 +5,15 @@
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
-    rev, revDt
-    -- * Forward derivative adaptor
-  , fwd
+    rev, revDt, revDtFun
+    -- * Forward derivative adaptors
+  , fwd, fwdDtFun
     -- * Reverse and forward derivative adaptor class
   , Adaptable (..)
     -- * Lower level functions related to reverse derivative adaptors
-  , revDtFun, revAstOnDomainsFun, revAstOnDomainsFunS
+  , revAstOnDomainsFun, revAstOnDomainsFunS
     -- * Lower level functions related to forward derivative adaptors
-  , fwdDtFun, fwdAstOnDomainsFun, fwdAstOnDomainsFunS
+  , fwdAstOnDomainsFun, fwdAstOnDomainsFunS
     -- * Old gradient adaptors, with constant and fixed inputs and dt
   , crev, crevDt, crevOnDomains, crevOnADInputs
     -- * Old derivative adaptors, with constant and fixed inputs
@@ -102,12 +102,28 @@ revDtMaybe
   => (astvals -> g FullSpan r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
-  let asts4 = fst $ revDtFun (isJust mdt) f vals
+  let g domains = f $ parseDomains vals domains
+      domainsOD = toDomains vals
+      artifact = fst $ revDtInit (isJust mdt) g EM.empty domainsOD
   in parseDomains (toValue vals)
-     $ fst $ revAstOnDomainsEval asts4 (toDomains vals) mdt
+     $ fst $ revAstOnDomainsEval artifact domainsOD mdt
+
+revDtFun
+  :: forall r y g vals astvals.
+     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains OD.Array vals
+     , vals ~ Value astvals )
+  => Bool -> (astvals -> g FullSpan r y) -> vals
+  -> (AstArtifactRev g r y, Dual (g PrimalSpan) r y)
+{-# INLINE revDtFun #-}
+revDtFun hasDt f vals =
+  let g domains = f $ parseDomains vals domains
+      domainsOD = toDomains vals
+  in revDtInit hasDt g EM.empty domainsOD
 
 
--- * Forward derivative adaptor
+-- * Forward derivative adaptors
 
 -- | This takes the sensitivity parameter, by convention.
 -- It uses the same delta expressions as for gradients.
@@ -121,11 +137,26 @@ fwd
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
-  => (astvals -> g FullSpan r y) -> vals -> vals
-  -> ConcreteOf g r y
+  => (astvals -> g FullSpan r y) -> vals -> vals -> ConcreteOf g r y
 fwd f x ds =
-  let asts4 = fst $ fwdDtFun f x
-  in fst $ fwdAstOnDomainsEval asts4 (toDomains x) (toDomains ds)
+  let g domains = f $ parseDomains x domains
+      domainsOD = toDomains x
+      artifact = fst $ fwdDtInit g EM.empty domainsOD
+  in fst $ fwdAstOnDomainsEval artifact domainsOD (toDomains ds)
+
+fwdDtFun
+  :: forall r y g vals astvals.
+     ( Adaptable g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains OD.Array vals
+     , vals ~ Value astvals )
+  => (astvals -> g FullSpan r y) -> vals
+  -> (AstArtifactFwd g r y, Dual (g PrimalSpan) r y)
+{-# INLINE fwdDtFun #-}
+fwdDtFun f vals =
+  let g domains = f $ parseDomains vals domains
+      domainsOD = toDomains vals
+  in fwdDtInit g EM.empty domainsOD
 
 
 -- * Reverse and forward derivative adaptor class
@@ -133,10 +164,9 @@ fwd f x ds =
 type Adaptable :: forall k. (AstSpanType -> TensorKind k) -> Constraint
 class Adaptable g where
   revDtInit
-    :: forall r y vals astvals.
-       ( GoodScalar r, HasSingletonDict y
-       , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
-    => Bool -> (astvals -> g FullSpan r y) -> vals
+    :: forall r y. (GoodScalar r, HasSingletonDict y)
+    => Bool
+    -> (Domains (AstDynamic FullSpan) -> g FullSpan r y)
     -> AstEnv (ADVal (RankedOf (g PrimalSpan)))
               (ADVal (ShapedOf (g PrimalSpan)))
     -> DomainsOD
@@ -148,10 +178,8 @@ class Adaptable g where
     -> (DomainsOD, ConcreteOf g r y)
 
   fwdDtInit
-    :: forall r y vals astvals.
-       ( GoodScalar r, HasSingletonDict y
-       , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
-    => (astvals -> g FullSpan r y) -> vals
+    :: forall r y. (GoodScalar r, HasSingletonDict y)
+    => (Domains (AstDynamic FullSpan) -> g FullSpan r y)
     -> AstEnv (ADVal (RankedOf (g PrimalSpan)))
               (ADVal (ShapedOf (g PrimalSpan)))
     -> DomainsOD
@@ -173,8 +201,8 @@ class Adaptable g where
 
 instance Adaptable AstRanked where
   {-# INLINE revDtInit #-}
-  revDtInit hasDt f vals envInit =
-    revAstOnDomainsFun hasDt (revDtInterpret f vals envInit)
+  revDtInit hasDt g envInit =
+    revAstOnDomainsFun hasDt (revDtInterpret g envInit)
 
   {-# INLINE revAstOnDomainsEval #-}
   revAstOnDomainsEval ((varDt, vars), gradient, primal) parameters mdt =
@@ -186,8 +214,8 @@ instance Adaptable AstRanked where
     in (gradientDomain, primalTensor)
 
   {-# INLINE fwdDtInit #-}
-  fwdDtInit f vals envInit =
-    fwdAstOnDomainsFun (revDtInterpret f vals envInit)
+  fwdDtInit g envInit =
+    fwdAstOnDomainsFun (revDtInterpret g envInit)
 
   {-# INLINE fwdAstOnDomainsEval #-}
   fwdAstOnDomainsEval ((varDs, vars), derivative, primal) parameters ds =
@@ -201,8 +229,8 @@ instance Adaptable AstRanked where
 
 instance Adaptable AstShaped where
   {-# INLINE revDtInit #-}
-  revDtInit hasDt f vals envInit =
-    revAstOnDomainsFunS hasDt(revDtInterpretS f vals envInit)
+  revDtInit hasDt g envInit =
+    revAstOnDomainsFunS hasDt (revDtInterpretS g envInit)
 
   {-# INLINE revAstOnDomainsEval #-}
   revAstOnDomainsEval ((varDt, vars), gradient, primal) parameters mdt =
@@ -214,8 +242,8 @@ instance Adaptable AstShaped where
     in (gradientDomain, primalTensor)
 
   {-# INLINE fwdDtInit #-}
-  fwdDtInit f vals envInit =
-    fwdAstOnDomainsFunS (revDtInterpretS f vals envInit)
+  fwdDtInit g envInit =
+    fwdAstOnDomainsFunS (revDtInterpretS g envInit)
 
   {-# INLINE fwdAstOnDomainsEval #-}
   fwdAstOnDomainsEval ((varDs, vars), derivative, primal) parameters ds =
@@ -226,48 +254,33 @@ instance Adaptable AstShaped where
     in (derivativeTensor, primalTensor)
 
 revDtInterpret
-  :: ( GoodScalar r, KnownNat y
-     , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
-  => (astvals -> AstRanked FullSpan r y)
-  -> vals
+  :: (GoodScalar r, KnownNat y)
+  => (Domains (AstDynamic FullSpan) -> AstRanked FullSpan r y)
   -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> Domains (ADValClown (AstDynamic PrimalSpan))
   -> Domains (AstDynamic FullSpan)
   -> [AstDynamicVarName FullSpan AstRanked]
   -> ADVal (AstRanked PrimalSpan) r y
-revDtInterpret f vals envInit varInputs domains vars =
-  let ast = f $ parseDomains vals domains
+revDtInterpret g envInit varInputs domains vars =
+  let ast = g domains
       env = foldr extendEnvDR envInit $ zip vars $ V.toList varInputs
   in interpretAst env ast
 
 revDtInterpretS
-  :: ( GoodScalar r, OS.Shape y
-     , AdaptableDomains (AstDynamic FullSpan) astvals, vals ~ Value astvals )
-  => (astvals -> AstShaped FullSpan r y)
-  -> vals
+  :: (GoodScalar r, OS.Shape y)
+  => (Domains (AstDynamic FullSpan) -> AstShaped FullSpan r y)
   -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> Domains (ADValClown (AstDynamic PrimalSpan))
   -> Domains (AstDynamic FullSpan)
   -> [AstDynamicVarName FullSpan AstShaped]
   -> ADVal (AstShaped PrimalSpan) r y
-revDtInterpretS f vals envInit varInputs domains vars =
-  let ast = f $ parseDomains vals domains
+revDtInterpretS g envInit varInputs domains vars =
+  let ast = g domains
       env = foldr extendEnvDS envInit $ zip vars $ V.toList varInputs
   in interpretAstS env ast
 
 
 -- * Lower level functions related to reverse derivative adaptors
-
-revDtFun
-  :: forall r y g vals astvals.
-     ( Adaptable g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
-     , AdaptableDomains OD.Array vals
-     , vals ~ Value astvals )
-  => Bool -> (astvals -> g FullSpan r y) -> vals
-  -> (AstArtifactRev g r y, Dual (g PrimalSpan) r y)
-{-# INLINE revDtFun #-}
-revDtFun hasDt f vals = revDtInit hasDt f vals EM.empty (toDomains vals)
 
 revAstOnDomainsFun
   :: forall r n. (GoodScalar r, KnownNat n)
@@ -329,17 +342,6 @@ revAstOnDomainsFunS hasDt f parameters0 =
 
 
 -- * Lower level functions related to forward derivative adaptors
-
-fwdDtFun
-  :: forall r y g vals astvals.
-     ( Adaptable g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
-     , AdaptableDomains OD.Array vals
-     , vals ~ Value astvals )
-  => (astvals -> g FullSpan r y) -> vals
-  -> (AstArtifactFwd g r y, Dual (g PrimalSpan) r y)
-{-# INLINE fwdDtFun #-}
-fwdDtFun f vals = fwdDtInit f vals EM.empty (toDomains vals)
 
 fwdAstOnDomainsFun
   :: forall r n. (GoodScalar r, KnownNat n)
