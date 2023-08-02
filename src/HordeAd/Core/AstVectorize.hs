@@ -169,16 +169,22 @@ build1V k (var, v00) =
     Ast.AstIota ->
       error "build1V: AstIota can't have free index variables"
 
-    Ast.AstNm opCode args -> traceRule $
-      Ast.AstNm opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
+    Ast.AstN1 opCode u -> traceRule $
+      Ast.AstN1 opCode (build1VOccurenceUnknown k (var, u))
+    Ast.AstN2 opCode u v -> traceRule $
+      Ast.AstN2 opCode (build1VOccurenceUnknown k (var, u))
+                       (build1VOccurenceUnknown k (var, v))
         -- we permit duplicated bindings, because they can't easily
         -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
-    Ast.AstOp opCode args -> traceRule $
-      Ast.AstOp opCode $ map (\v -> build1VOccurenceUnknown k (var, v)) args
-    Ast.AstOpIntegral opCode args -> traceRule $
-      Ast.AstOpIntegral opCode
-      $ map (\v -> build1VOccurenceUnknown k (var, v)) args
+    Ast.AstR1 opCode u -> traceRule $
+      Ast.AstR1 opCode (build1VOccurenceUnknown k (var, u))
+    Ast.AstR2 opCode u v -> traceRule $
+      Ast.AstR2 opCode (build1VOccurenceUnknown k (var, u))
+                       (build1VOccurenceUnknown k (var, v))
+    Ast.AstI2 opCode u v -> traceRule $
+      Ast.AstI2 opCode (build1VOccurenceUnknown k (var, u))
+                       (build1VOccurenceUnknown k (var, v))
     Ast.AstSumOfList args -> traceRule $
       Ast.AstSumOfList $ map (\v -> build1VOccurenceUnknown k (var, v)) args
 
@@ -470,16 +476,22 @@ build1VS (var, v00) =
     Ast.AstIotaS ->
       error "build1VS: AstIotaS can't have free index variables"
 
-    Ast.AstNmS opCode args -> traceRule $
-      Ast.AstNmS opCode $ map (\v -> build1VOccurenceUnknownS (var, v)) args
+    Ast.AstN1S opCode u -> traceRule $
+      Ast.AstN1S opCode (build1VOccurenceUnknownS (var, u))
+    Ast.AstN2S opCode u v -> traceRule $
+      Ast.AstN2S opCode (build1VOccurenceUnknownS (var, u))
+                        (build1VOccurenceUnknownS (var, v))
         -- we permit duplicated bindings, because they can't easily
-        -- be substituted into one another, unlike inside a let,
+        -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
-    Ast.AstOpS opCode args -> traceRule $
-      Ast.AstOpS opCode $ map (\v -> build1VOccurenceUnknownS (var, v)) args
-    Ast.AstOpIntegralS opCode args -> traceRule $
-      Ast.AstOpIntegralS opCode
-      $ map (\v -> build1VOccurenceUnknownS (var, v)) args
+    Ast.AstR1S opCode u -> traceRule $
+      Ast.AstR1S opCode (build1VOccurenceUnknownS (var, u))
+    Ast.AstR2S opCode u v -> traceRule $
+      Ast.AstR2S opCode (build1VOccurenceUnknownS (var, u))
+                        (build1VOccurenceUnknownS (var, v))
+    Ast.AstI2S opCode u v -> traceRule $
+      Ast.AstI2S opCode (build1VOccurenceUnknownS (var, u))
+                        (build1VOccurenceUnknownS (var, v))
     Ast.AstSumOfListS args -> traceRule $
       Ast.AstSumOfListS $ map (\v -> build1VOccurenceUnknownS (var, v)) args
 

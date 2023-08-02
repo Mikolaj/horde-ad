@@ -74,8 +74,8 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
   , AstDomains
-  , AstRanked (AstConst, AstNm, AstSumOfList)
-  , AstShaped (AstConstS, AstNmS, AstSumOfListS)
+  , AstRanked (AstConst, AstN1, AstN2, AstSumOfList)
+  , AstShaped (AstConstS, AstN1S, AstN2S, AstSumOfListS)
   )
 import           HordeAd.Core.Ast hiding
   (AstBool (..), AstDomains (..), AstRanked (..), AstShaped (..))
@@ -194,9 +194,11 @@ simplifyStepNonIndex t = case t of
   Ast.AstMaxIndex{} -> t
   Ast.AstFloor{} -> t
   Ast.AstIota -> t
-  AstNm{} -> t
-  Ast.AstOp{} -> t
-  Ast.AstOpIntegral{} -> t
+  AstN1{} -> t
+  AstN2{} -> t
+  Ast.AstR1{} -> t
+  Ast.AstR2{} -> t
+  Ast.AstI2{} -> t
   AstSumOfList l -> astSumOfList l
   Ast.AstIndex{} -> t
   Ast.AstSum v -> astSum v
@@ -291,12 +293,19 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     Just Refl -> fromIntegral i
     _ -> error "astIndex: AstIota: impossible pattern needlessly required"
   Ast.AstIota -> Ast.AstIndex v0 ix
-  AstNm opCode args ->
-    shareIx ix $ \ix2 -> AstNm opCode (map (`astIndexRec` ix2) args)
-  Ast.AstOp opCode args ->
-    shareIx ix $ \ix2 -> Ast.AstOp opCode (map (`astIndexRec` ix2) args)
-  Ast.AstOpIntegral opCode args ->
-    shareIx ix $ \ix2 -> Ast.AstOpIntegral opCode (map (`astIndexRec` ix2) args)
+  AstN1 opCode u ->
+    shareIx ix $ \ix2 -> AstN1 opCode (astIndexRec u ix2)
+  AstN2 opCode u v ->
+    shareIx ix $ \ix2 -> AstN2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
+  Ast.AstR1 opCode u ->
+    shareIx ix
+    $ \ix2 -> Ast.AstR1 opCode (astIndexRec u ix2)
+  Ast.AstR2 opCode u v ->
+    shareIx ix
+    $ \ix2 -> Ast.AstR2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
+  Ast.AstI2 opCode u v ->
+    shareIx ix
+    $ \ix2 -> Ast.AstI2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
   AstSumOfList args ->
     shareIx ix $ \ix2 -> astSumOfList (map (`astIndexRec` ix2) args)
   Ast.AstIndex v ix2 ->
@@ -540,21 +549,18 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
     Ast.AstIota ->  -- probably nothing can be simplified; a normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
-    AstNm opCode args | not (length args > 1 || all isVar args) ->
-      -- Going inside AstOp usually makes the term more expensive to interpret
-      -- and reverting this transformation requires comparing many arguments,
+    AstN1 opCode v | not (isVar v) ->
+      AstN1 opCode (astGatherRec sh4 v (vars4, ix4))
+    AstN1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    AstN2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+      -- Going inside AstN2 usually makes the term more expensive to interpret
+      -- and reverting this transformation requires comparing two arguments,
       -- so it's not practical.
-      AstNm opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
-    AstNm{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstOp opCode args | not (length args > 1 || all isVar args) ->
-      Ast.AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
-    Ast.AstOp{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstOpIntegral opCode args | not (length args > 1 || all isVar args) ->
-      Ast.AstOpIntegral
-        opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
-    Ast.AstOpIntegral{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    AstSumOfList args | not (length args > 1 || all isVar args) ->
-      astSumOfList (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
+    Ast.AstR1 opCode v | not (isVar v) ->
+      Ast.AstR1 opCode (astGatherRec sh4 v (vars4, ix4))
+    Ast.AstR1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstR2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstI2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     AstSumOfList{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstIndex v2 ix2 -> case (v2, ix2) of
       (Ast.AstFromList{}, i2 :. ZI) -> astGather sh4 v2 (vars4, i2 :. ix4)
@@ -1303,52 +1309,48 @@ astReverseS v = Ast.AstReverseS v
 -- if full simplification is required.
 astTranspose :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
              => Permutation -> AstRanked s r n -> AstRanked s r n
-astTranspose perm0 t0 = case (perm0, t0) of
-  ([], t) -> t
-  (perm, Ast.AstLet var u v) -> astLet var u (astTranspose perm v)
-  (perm, AstNm opCode args@[Ast.AstTranspose{}, _]) ->
-    AstNm opCode (map (astTranspose perm) args)
-  (perm, AstNm opCode args@[Ast.AstConstant Ast.AstTranspose{}, _]) ->
-    AstNm opCode (map (astTranspose perm) args)
-  (perm, AstNm opCode args@[_, Ast.AstTranspose{}]) ->
-    AstNm opCode (map (astTranspose perm) args)
-  (perm, AstNm opCode args@[_, Ast.AstConstant Ast.AstTranspose{}]) ->
-    AstNm opCode (map (astTranspose perm) args)
-  (perm, AstNm opCode args) | not (length args > 1 || all isVar args) ->
-    AstNm opCode (map (astTranspose perm) args)
-  (perm, Ast.AstOp opCode args@[Ast.AstTranspose{}, _]) ->
-    Ast.AstOp opCode (map (astTranspose perm) args)
-  (perm, Ast.AstOp opCode args@[Ast.AstConstant Ast.AstTranspose{}, _]) ->
-    Ast.AstOp opCode (map (astTranspose perm) args)
-  (perm, Ast.AstOp opCode args@[_, Ast.AstTranspose{}]) ->
-    Ast.AstOp opCode (map (astTranspose perm) args)
-  (perm, Ast.AstOp opCode args@[_, Ast.AstConstant Ast.AstTranspose{}]) ->
-    Ast.AstOp opCode (map (astTranspose perm) args)
-  (perm, Ast.AstOp opCode args) | not (length args > 1 || all isVar args) ->
-    Ast.AstOp opCode (map (astTranspose perm) args)
-  (perm, AstSumOfList args) | not (length args > 1 || all isVar args) ->
-    astSumOfList (map (astTranspose perm) args)
-  (perm, Ast.AstSum v) -> astSum $ astTranspose (0 : map succ perm) v
-  (perm, Ast.AstScatter @_ @_ @p sh v (vars, ix)) | length perm <= valueOf @p ->
+astTranspose perm = \case
+  t | null perm -> t
+  Ast.AstLet var u v -> astLet var u (astTranspose perm v)
+  AstN1 opCode u | not (isVar u) -> AstN1 opCode (astTranspose perm u)
+  AstN2 opCode u@Ast.AstTranspose{} v ->
+    AstN2 opCode (astTranspose perm u) (astTranspose perm v)
+  AstN2 opCode u@(Ast.AstConstant Ast.AstTranspose{}) v ->
+    AstN2 opCode (astTranspose perm u) (astTranspose perm v)
+  AstN2 opCode u v@Ast.AstTranspose{} ->
+    AstN2 opCode (astTranspose perm u) (astTranspose perm v)
+  AstN2 opCode u v@(Ast.AstConstant Ast.AstTranspose{}) ->
+    AstN2 opCode (astTranspose perm u) (astTranspose perm v)
+  Ast.AstR1 opCode u | not (isVar u) -> Ast.AstR1 opCode (astTranspose perm u)
+  Ast.AstR2 opCode u@Ast.AstTranspose{} v ->
+    Ast.AstR2 opCode (astTranspose perm u) (astTranspose perm v)
+  Ast.AstR2 opCode u@(Ast.AstConstant Ast.AstTranspose{}) v ->
+    Ast.AstR2 opCode (astTranspose perm u) (astTranspose perm v)
+  Ast.AstR2 opCode u v@Ast.AstTranspose{} ->
+    Ast.AstR2 opCode (astTranspose perm u) (astTranspose perm v)
+  Ast.AstR2 opCode u v@(Ast.AstConstant Ast.AstTranspose{}) ->
+    Ast.AstR2 opCode (astTranspose perm u) (astTranspose perm v)
+  Ast.AstSum v -> astSum $ astTranspose (0 : map succ perm) v
+  Ast.AstScatter @_ @_ @p sh v (vars, ix) | length perm <= valueOf @p ->
     astScatter (backpermutePrefixShape perm sh) v
                (vars, backpermutePrefixIndex perm ix)
-  (perm1, Ast.AstTranspose perm2 t) ->
+  Ast.AstTranspose perm2 t ->
     let perm2Matched =
           perm2
-          ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
-        perm = simplifyPermutation $ backpermutePrefixList perm1 perm2Matched
-    in astTranspose perm t
+          ++ take (length perm - length perm2) (drop (length perm2) [0 ..])
+        perm3 = simplifyPermutation $ backpermutePrefixList perm perm2Matched
+    in astTranspose perm3 t
       -- this rule can be disabled to test fusion of gathers
   -- Note that the following would be wrong, becuase transpose really
   -- changes the linearisation order, while reshape only modifies indexing:
   -- (perm, AstReshape sh v) -> astReshape (backpermutePrefixShape perm sh) v
-  (perm, Ast.AstGather @m sh v (vars, ix)) | length perm <= valueOf @m ->
+  Ast.AstGather @m sh v (vars, ix) | length perm <= valueOf @m ->
     astGatherR (backpermutePrefixShape perm sh) v
                (backpermutePrefixSized perm vars, ix)
-  (perm, AstConst t) -> AstConst $ ttransposeR perm t
-  (perm, Ast.AstConstant v) -> Ast.AstConstant $ astTranspose perm v
-  (perm, Ast.AstLetADShare l v) -> Ast.AstLetADShare l $ astTranspose perm v
-  (perm, u) -> Ast.AstTranspose perm u
+  AstConst t -> AstConst $ ttransposeR perm t
+  Ast.AstConstant v -> Ast.AstConstant $ astTranspose perm v
+  Ast.AstLetADShare l v -> Ast.AstLetADShare l $ astTranspose perm v
+  u -> Ast.AstTranspose perm u
 
 astTransposeS :: forall perm sh s r.
                  ( OS.Permutation perm, OS.Shape perm, OS.Shape sh
@@ -1364,46 +1366,37 @@ astTransposeS t = Ast.AstTransposeS @perm t  -- TODO
 -- if full simplification is required.
 astReshape :: forall p m s r. (KnownNat p, KnownNat m, GoodScalar r, AstSpan s)
            => ShapeInt m -> AstRanked s r p -> AstRanked s r m
-astReshape shOut (Ast.AstLet var u v) = astLet var u (astReshape shOut v)
-astReshape shOut (AstNm opCode args@[Ast.AstReshape{}, _]) =
-  AstNm opCode (map (astReshape shOut) args)
-astReshape shOut (AstNm opCode args@[Ast.AstConstant Ast.AstReshape{}, _]) =
-  AstNm opCode (map (astReshape shOut) args)
-astReshape shOut (AstNm opCode args@[_, Ast.AstReshape{}]) =
-  AstNm opCode (map (astReshape shOut) args)
-astReshape shOut (AstNm opCode args@[_, Ast.AstConstant Ast.AstReshape{}]) =
-  AstNm opCode (map (astReshape shOut) args)
-astReshape shOut (AstNm opCode args)
-  | not (length args > 1 || all isVar args) =
-      AstNm opCode (map (astReshape shOut) args)
-astReshape shOut (Ast.AstOp opCode args@[Ast.AstReshape{}, _]) =
-  Ast.AstOp opCode (map (astReshape shOut) args)
-astReshape shOut (Ast.AstOp opCode args@[Ast.AstConstant Ast.AstReshape{}, _]) =
-  Ast.AstOp opCode (map (astReshape shOut) args)
-astReshape shOut (Ast.AstOp opCode args@[_, Ast.AstConstant Ast.AstReshape{}]) =
-  Ast.AstOp opCode (map (astReshape shOut) args)
-astReshape shOut (Ast.AstOp opCode args@[_, Ast.AstReshape{}]) =
-  Ast.AstOp opCode (map (astReshape shOut) args)
-astReshape shOut (Ast.AstOp opCode args)
-  | not (length args > 1 || all isVar args) =
-      Ast.AstOp opCode (map (astReshape shOut) args)
-astReshape shOut (AstSumOfList args)
-  | not (length args > 1 || all isVar args) =
-      astSumOfList (map (astReshape shOut) args)
-astReshape shOut (Ast.AstReshape _ v) = astReshape shOut v
-  -- this rule can be disabled to test fusion of gathers
-astReshape shOut (AstConst t) =
-  AstConst $ OR.reshape (shapeToList shOut) t
-astReshape shOut (Ast.AstConstant v) = Ast.AstConstant $ astReshape shOut v
-astReshape shOut (Ast.AstLetADShare l v) =
-  Ast.AstLetADShare l $ astReshape shOut v
-astReshape shOut v =
-  let shIn = shapeAst v
-  in case sameNat (Proxy @p) (Proxy @m) of
-    Just Refl -> if shIn == shOut
-                 then v
-                 else Ast.AstReshape shOut v
-    _ -> Ast.AstReshape shOut v
+astReshape shOut = \case
+  Ast.AstLet var u v -> astLet var u (astReshape shOut v)
+  AstN1 opCode u | not (isVar u) -> AstN1 opCode (astReshape shOut u)
+  AstN2 opCode (Ast.AstReshape _ u) v ->
+    AstN2 opCode (astReshape shOut u) (astReshape shOut v)
+  AstN2 opCode (Ast.AstConstant (Ast.AstReshape _ u)) v ->
+    AstN2 opCode (astReshape shOut (Ast.AstConstant u)) (astReshape shOut v)
+  AstN2 opCode u (Ast.AstReshape _ v) ->
+    AstN2 opCode (astReshape shOut u) (astReshape shOut v)
+  AstN2 opCode u (Ast.AstConstant (Ast.AstReshape _ v)) ->
+    AstN2 opCode (astReshape shOut u) (astReshape shOut (Ast.AstConstant v))
+  Ast.AstR1 opCode u | not (isVar u) -> Ast.AstR1 opCode (astReshape shOut u)
+  Ast.AstR2 opCode (Ast.AstReshape _ u) v ->
+    Ast.AstR2 opCode (astReshape shOut u) (astReshape shOut v)
+  Ast.AstR2 opCode (Ast.AstConstant (Ast.AstReshape _ u)) v ->
+    Ast.AstR2 opCode (astReshape shOut (Ast.AstConstant u)) (astReshape shOut v)
+  Ast.AstR2 opCode u (Ast.AstReshape _ v) ->
+    Ast.AstR2 opCode (astReshape shOut u) (astReshape shOut v)
+  Ast.AstR2 opCode u (Ast.AstConstant (Ast.AstReshape _ v)) ->
+    Ast.AstR2 opCode (astReshape shOut u) (astReshape shOut (Ast.AstConstant v))
+  Ast.AstReshape _ v -> astReshape shOut v
+    -- this rule can be disabled to test fusion of gathers
+  AstConst t -> AstConst $ OR.reshape (shapeToList shOut) t
+  Ast.AstConstant v -> Ast.AstConstant $ astReshape shOut v
+  Ast.AstLetADShare l v -> Ast.AstLetADShare l $ astReshape shOut v
+  v -> let shIn = shapeAst v
+       in case sameNat (Proxy @p) (Proxy @m) of
+         Just Refl -> if shIn == shOut
+                      then v
+                      else Ast.AstReshape shOut v
+         _ -> Ast.AstReshape shOut v
 
 astReshapeS :: (OS.Shape sh, OS.Size sh ~ OS.Size sh2)
             => AstShaped s r sh -> AstShaped s r sh2
@@ -1491,10 +1484,11 @@ astPrimalPart :: (GoodScalar r, KnownNat n)
 astPrimalPart t = case t of
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
-  AstNm opCode args -> AstNm opCode (map astPrimalPart args)
-  Ast.AstOp opCode args -> Ast.AstOp opCode (map astPrimalPart args)
-  Ast.AstOpIntegral opCode args ->
-    Ast.AstOpIntegral opCode (map astPrimalPart args)
+  AstN1 opCode u -> AstN1 opCode (astPrimalPart u)
+  AstN2 opCode u v -> AstN2 opCode (astPrimalPart u) (astPrimalPart v)
+  Ast.AstR1 opCode u -> Ast.AstR1 opCode (astPrimalPart u)
+  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (astPrimalPart u) (astPrimalPart v)
+  Ast.AstI2 opCode u v -> Ast.AstI2 opCode (astPrimalPart u) (astPrimalPart v)
   AstSumOfList args -> astSumOfList (map astPrimalPart args)
   Ast.AstIndex v ix -> astIndexR (astPrimalPart v) ix
   Ast.AstSum v -> astSum (astPrimalPart v)
@@ -1521,10 +1515,13 @@ astPrimalPartS :: (OS.Shape sh, GoodScalar r)
 astPrimalPartS t = case t of
   Ast.AstVarS{} -> Ast.AstPrimalPartS t  -- the only normal form
   Ast.AstLetS var u v -> astLetS var u (astPrimalPartS v)
-  AstNmS opCode args -> AstNmS opCode (map astPrimalPartS args)
-  Ast.AstOpS opCode args -> Ast.AstOpS opCode (map astPrimalPartS args)
-  Ast.AstOpIntegralS opCode args ->
-    Ast.AstOpIntegralS opCode (map astPrimalPartS args)
+  AstN1S opCode u -> AstN1S opCode (astPrimalPartS u)
+  AstN2S opCode u v -> AstN2S opCode (astPrimalPartS u) (astPrimalPartS v)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPrimalPartS u)
+  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astPrimalPartS u)
+                                             (astPrimalPartS v)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (astPrimalPartS u)
+                                             (astPrimalPartS v)
   AstSumOfListS args -> astSumOfListS (map astPrimalPartS args)
   Ast.AstIndexS v ix -> Ast.AstIndexS (astPrimalPartS v) ix
   Ast.AstSumS v -> astSumS (astPrimalPartS v)
@@ -1553,9 +1550,11 @@ astDualPart :: (GoodScalar r, KnownNat n)
 astDualPart t = case t of
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstLet var u v -> astLet var u (astDualPart v)
-  AstNm{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
-  Ast.AstOp{} -> Ast.AstDualPart t
-  Ast.AstOpIntegral{} -> Ast.AstDualPart t
+  AstN1{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
+  AstN2{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
+  Ast.AstR1{} -> Ast.AstDualPart t
+  Ast.AstR2{} -> Ast.AstDualPart t
+  Ast.AstI2{} -> Ast.AstDualPart t
   AstSumOfList args -> astSumOfList (map astDualPart args)
   Ast.AstIndex v ix -> astIndexR (astDualPart v) ix
   Ast.AstSum v -> astSum (astDualPart v)
@@ -1582,9 +1581,11 @@ astDualPartS :: (OS.Shape sh, GoodScalar r)
 astDualPartS t = case t of
   Ast.AstVarS{} -> Ast.AstDualPartS t
   Ast.AstLetS var u v -> astLetS var u (astDualPartS v)
-  AstNmS{} -> Ast.AstDualPartS t
-  Ast.AstOpS{} -> Ast.AstDualPartS t
-  Ast.AstOpIntegralS{} -> Ast.AstDualPartS t
+  AstN1S{} -> Ast.AstDualPartS t
+  AstN2S{} -> Ast.AstDualPartS t
+  Ast.AstR1S{} -> Ast.AstDualPartS t
+  Ast.AstR2S{} -> Ast.AstDualPartS t
+  Ast.AstI2S{} -> Ast.AstDualPartS t
   AstSumOfListS args -> astSumOfListS (map astDualPartS args)
   Ast.AstIndexS v ix -> Ast.AstIndexS (astDualPartS v) ix
   Ast.AstSumS v -> astSumS (astDualPartS v)
@@ -1640,15 +1641,20 @@ simplifyAst t = case t of
   Ast.AstMaxIndex a -> Ast.AstMaxIndex (simplifyAst a)
   Ast.AstFloor a -> Ast.AstFloor (simplifyAst a)
   Ast.AstIota -> t
-  AstNm opCode args ->
-    case isRankedInt t of
-      Just Refl -> simplifyAstNumOp opCode (map simplifyAst args)
-      _ -> AstNm opCode (map simplifyAst args)
-  Ast.AstOp opCode args -> Ast.AstOp opCode (map simplifyAst args)
-  Ast.AstOpIntegral opCode args ->
-    case isRankedInt t of
-      Just Refl -> simplifyAstIntegralOp opCode (map simplifyAst args)
-      _ -> Ast.AstOpIntegral opCode (map simplifyAst args)
+  AstN1 opCode u ->
+    case isRankedInt u of
+      Just Refl -> simplifyAstNumOp1 opCode (simplifyAst u)
+      _ -> AstN1 opCode (simplifyAst u)
+  AstN2 opCode u v ->
+    case isRankedInt u of
+      Just Refl -> simplifyAstNumOp2 opCode (simplifyAst u) (simplifyAst v)
+      _ -> AstN2 opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstR1 opCode u -> Ast.AstR1 opCode (simplifyAst u)
+  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstI2 opCode u v ->
+    case isRankedInt u of
+      Just Refl -> simplifyAstIntegralOp2 opCode (simplifyAst u) (simplifyAst v)
+      _ -> Ast.AstI2 opCode (simplifyAst u) (simplifyAst v)
   AstSumOfList args ->
     case isRankedInt t of
       Just Refl -> foldr1 simplifyAstPlusOp (map simplifyAst args)
@@ -1673,12 +1679,11 @@ simplifyAst t = case t of
         -- no luck, let's try simplifying the argument
         case astTranspose perm2 (simplifyAst v2) of
           u@(Ast.AstTranspose _ Ast.AstVar{}) -> u  -- normal form
-          u@(Ast.AstTranspose _ (AstNm _ args))
-            | length args > 1 || all isVar args -> u  -- normal form
-          u@(Ast.AstTranspose _ (Ast.AstOp _ args))
-            | length args > 1 || all isVar args -> u
-          u@(Ast.AstTranspose _ (AstSumOfList args))
-            | length args > 1 || all isVar args -> u  -- normal form
+          u@(Ast.AstTranspose _ (AstN1 _ w)) | isVar w -> u  -- normal form
+          u@(Ast.AstTranspose _ AstN2{}) -> u  -- normal form
+          u@(Ast.AstTranspose _ (Ast.AstR1 _ w)) | isVar w -> u
+          u@(Ast.AstTranspose _ Ast.AstR2{}) -> u
+          u@(Ast.AstTranspose _ AstSumOfList{}) -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstScatter{}) -> u  -- normal form
           u@(Ast.AstTranspose _ Ast.AstReplicate{}) -> u  -- normal form
           Ast.AstTranspose perm3 v3 ->  -- not nf, let's express all as gather
@@ -1692,13 +1697,12 @@ simplifyAst t = case t of
       Ast.AstReshape sh2 v2 ->
         case astReshape sh2 (simplifyAst v2) of
           u@(Ast.AstReshape _ Ast.AstVar{}) -> u  -- normal form
-          u@(Ast.AstReshape _ (AstNm _ args))
-            | length args > 1 || all isVar args -> u
-              -- normal form, because gather doesn't go inside AstNm either
-          u@(Ast.AstReshape _ (Ast.AstOp _ args))
-            | length args > 1 || all isVar args -> u
-          u@(Ast.AstReshape _ (AstSumOfList args))
-            | length args > 1 || all isVar args -> u  -- normal form
+          u@(Ast.AstReshape _ (AstN1 _ w)) | isVar w -> u
+          u@(Ast.AstReshape _ AstN2{}) -> u
+              -- normal form, because gather doesn't go inside AstN2 either
+          u@(Ast.AstReshape _ (Ast.AstR1 _ w)) | isVar w -> u
+          u@(Ast.AstReshape _ Ast.AstR2{}) -> u
+          u@(Ast.AstReshape _ AstSumOfList{}) -> u  -- normal form
           u@(Ast.AstReshape _ Ast.AstScatter{}) -> u  -- normal form
           -- Not a normal form, because often AstReshape scan be eliminated:
           -- u@(Ast.AstReshape _ Ast.AstReplicate{}) -> u  -- normal form
@@ -1853,23 +1857,19 @@ simplifyAstPlusOp (AstConst u) v = addConstToList u [v]
 -- binary addition is used interspersed with other operations,
 -- so longer lists don't form and so these terms have a chance to be adjacent,
 -- especially that AstConst is guaranteed not to intervene.
-simplifyAstPlusOp (AstNm NegateOp [Ast.AstVar _ var])
+simplifyAstPlusOp (AstN1 NegateOp (Ast.AstVar _ var))
                   (Ast.AstVar _ var')
   | var == var' = 0
 simplifyAstPlusOp (Ast.AstVar _ var')
-                  (AstNm NegateOp [Ast.AstVar _ var])
+                  (AstN1 NegateOp (Ast.AstVar _ var))
   | var == var' = 0
 simplifyAstPlusOp
-  (Ast.AstOpIntegral RemOp [ AstNm NegateOp [Ast.AstVar _ var]
-                           , AstConst v ])
-  (Ast.AstOpIntegral RemOp [ Ast.AstVar _ var'
-                           , AstConst v' ])
+  (Ast.AstI2 RemOp (AstN1 NegateOp (Ast.AstVar _ var)) (AstConst v))
+  (Ast.AstI2 RemOp (Ast.AstVar _ var') (AstConst v'))
   | var == var' && v == v' = 0
 simplifyAstPlusOp
-  (Ast.AstOpIntegral RemOp [ Ast.AstVar _ var'
-                           , AstConst v' ])
-  (Ast.AstOpIntegral RemOp [ AstNm NegateOp [Ast.AstVar _ var]
-                           , AstConst v ])
+  (Ast.AstI2 RemOp (Ast.AstVar _ var') (AstConst v'))
+  (Ast.AstI2 RemOp (AstN1 NegateOp (Ast.AstVar _ var)) (AstConst v))
   | var == var' && v == v' = 0
 
 simplifyAstPlusOp u v = AstSumOfList [u, v]
@@ -1882,109 +1882,108 @@ addConstToList arr [i] =
 addConstToList arr l =
   if OR.allA (== 0) arr then AstSumOfList l else AstSumOfList (AstConst arr : l)
 
-simplifyAstNumOp :: OpCodeNum -> [AstRanked PrimalSpan Int64 0]
-                 -> AstRanked PrimalSpan Int64 0
-simplifyAstNumOp MinusOp [u, v] =
-  simplifyAstPlusOp u (simplifyAstNumOp NegateOp [v])
-simplifyAstNumOp TimesOp [AstConst u, AstConst v] = AstConst $ u * v
-simplifyAstNumOp TimesOp [AstConst 0, _v] = AstConst 0
-simplifyAstNumOp TimesOp [_u, AstConst 0] = AstConst 0
-simplifyAstNumOp TimesOp [AstConst 1, v] = v
-simplifyAstNumOp TimesOp [u, AstConst 1] = u
+simplifyAstNumOp1 :: OpCodeNum1
+                  -> AstRanked PrimalSpan Int64 0
+                  -> AstRanked PrimalSpan Int64 0
+simplifyAstNumOp1 NegateOp (AstConst u) = AstConst $ negate u
+simplifyAstNumOp1 NegateOp (AstSumOfList l) =
+  foldl1' simplifyAstPlusOp (map (simplifyAstNumOp1 NegateOp) l)
+simplifyAstNumOp1 NegateOp (AstN2 TimesOp (AstConst u) v) =
+  simplifyAstNumOp2 TimesOp (AstConst $ negate u) v
+    -- given a choice, prefer to negate a constant
+simplifyAstNumOp1 NegateOp (AstN2 TimesOp u v) =
+  simplifyAstNumOp2 TimesOp u (simplifyAstNumOp1 NegateOp v)
+simplifyAstNumOp1 NegateOp (AstN1 NegateOp u) = u
+simplifyAstNumOp1 NegateOp (AstN1 SignumOp u) =
+  simplifyAstNumOp1 SignumOp (simplifyAstNumOp1 NegateOp u)
+simplifyAstNumOp1 NegateOp (Ast.AstI2 QuotOp u v) =
+  simplifyAstIntegralOp2 QuotOp (simplifyAstNumOp1 NegateOp u) v
+    -- v is likely positive and let's keep it so
+simplifyAstNumOp1 NegateOp (Ast.AstI2 RemOp u v) =
+  simplifyAstIntegralOp2 RemOp (simplifyAstNumOp1 NegateOp u) v
+    -- v is likely positive and let's keep it so
+
+simplifyAstNumOp1 AbsOp (AstConst u) = AstConst $ abs u
+simplifyAstNumOp1 AbsOp (AstN1 AbsOp u) = AstN1 AbsOp u
+simplifyAstNumOp1 AbsOp (AstN1 NegateOp u) = simplifyAstNumOp1 AbsOp u
+simplifyAstNumOp1 SignumOp (AstConst u) = AstConst $ signum u
+simplifyAstNumOp1 SignumOp (AstN1 SignumOp u) = AstN1 SignumOp u
+simplifyAstNumOp1 SignumOp (AstN1 AbsOp u) =
+  simplifyAstNumOp1 AbsOp (AstN1 SignumOp u)
+
+simplifyAstNumOp1 opCode u = AstN1 opCode u
+
+simplifyAstNumOp2 :: OpCodeNum2
+                  -> AstRanked PrimalSpan Int64 0
+                  -> AstRanked PrimalSpan Int64 0
+                  -> AstRanked PrimalSpan Int64 0
+simplifyAstNumOp2 MinusOp u v =
+  simplifyAstPlusOp u (simplifyAstNumOp1 NegateOp v)
+simplifyAstNumOp2 TimesOp (AstConst u) (AstConst v) = AstConst $ u * v
+simplifyAstNumOp2 TimesOp (AstConst 0) _v = AstConst 0
+simplifyAstNumOp2 TimesOp _u (AstConst 0) = AstConst 0
+simplifyAstNumOp2 TimesOp (AstConst 1) v = v
+simplifyAstNumOp2 TimesOp u (AstConst 1) = u
 {- TODO: is it worth adding AstLet with a fresh variables
    to share w and so make these rules safe? Perhaps after we decide
    a normal form (e.g., a polynomial)?
-simplifyAstNumOp TimesOp [AstNm PlusOp [u, v], w] =
-  simplifyAstPlusOp [ simplifyAstNumOp TimesOp [u, w]
-                    , simplifyAstNumOp TimesOp [v, w] ]
-simplifyAstNumOp TimesOp [u, AstNm PlusOp [v, w]] =
-  simplifyAstPlusOp [ simplifyAstNumOp TimesOp [u, v]
-                    , simplifyAstNumOp TimesOp [u, w] ]
+simplifyAstNumOp TimesOp (AstN2 PlusOp (u, v), w) =
+  simplifyAstPlusOp ( simplifyAstNumOp TimesOp (u, w)
+                    , simplifyAstNumOp TimesOp (v, w) )
+simplifyAstNumOp TimesOp (u, AstN2 PlusOp (v, w)) =
+  simplifyAstPlusOp ( simplifyAstNumOp TimesOp (u, v)
+                    , simplifyAstNumOp TimesOp (u, w) )
 -}
-simplifyAstNumOp TimesOp [AstSumOfList l, w@AstConst{}] =
-  foldl1' simplifyAstPlusOp (map (\u -> simplifyAstNumOp TimesOp [u, w]) l)
-simplifyAstNumOp TimesOp [u@AstConst{}, AstSumOfList l] =
-  foldl1' simplifyAstPlusOp (map (\w -> simplifyAstNumOp TimesOp [u, w]) l)
+simplifyAstNumOp2 TimesOp (AstSumOfList l) w@AstConst{} =
+  foldl1' simplifyAstPlusOp (map (\u -> simplifyAstNumOp2 TimesOp u w) l)
+simplifyAstNumOp2 TimesOp (u@AstConst{}) (AstSumOfList l) =
+  foldl1' simplifyAstPlusOp (map (\w -> simplifyAstNumOp2 TimesOp u w) l)
 -- TODO: perhaps aim for a polynomial normal form? but that requires global
 -- inspection of the whole expression
-simplifyAstNumOp TimesOp [ AstConst u
-                         , AstNm TimesOp [AstConst v, w] ] =
-  simplifyAstNumOp TimesOp [AstConst $ u * v, w]
-simplifyAstNumOp TimesOp [u, AstConst n] =
-  simplifyAstNumOp TimesOp [AstConst n, u]
-simplifyAstNumOp TimesOp [AstNm TimesOp [u, v], w] =
-  simplifyAstNumOp TimesOp [u, simplifyAstNumOp TimesOp [v, w]]
+simplifyAstNumOp2 TimesOp (AstConst u) (AstN2 TimesOp (AstConst v) w) =
+  simplifyAstNumOp2 TimesOp (AstConst $ u * v) w
+simplifyAstNumOp2 TimesOp u (AstConst n) =
+  simplifyAstNumOp2 TimesOp (AstConst n) u
+simplifyAstNumOp2 TimesOp (AstN2 TimesOp u v) w =
+  simplifyAstNumOp2 TimesOp u (simplifyAstNumOp2 TimesOp v w)
 
 -- With static shapes, the second argument to QuotOp and RemOp
 -- is often a constant, which makes such rules worth including,
 -- since they are likely to fire. To help them fire, we avoid changing
 -- that constant, if possible, e.g., in rules for NegateOp.
-simplifyAstNumOp
-  TimesOp [ AstConst v
-          , Ast.AstOpIntegral QuotOp
-                              [Ast.AstVar sh var, AstConst v'] ] | v == v' =
-    simplifyAstNumOp MinusOp
-                     [ Ast.AstVar sh var
-                     , Ast.AstOpIntegral RemOp [Ast.AstVar sh var, AstConst v] ]
+simplifyAstNumOp2
+  TimesOp (AstConst v)
+          (Ast.AstI2 QuotOp (Ast.AstVar sh var) (AstConst v')) | v == v' =
+    simplifyAstNumOp2 MinusOp
+                      (Ast.AstVar sh var)
+                      (Ast.AstI2 RemOp (Ast.AstVar sh var) (AstConst v))
+simplifyAstNumOp2 opCode u v = AstN2 opCode u v
 
-simplifyAstNumOp NegateOp [AstConst u] = AstConst $ negate u
-simplifyAstNumOp NegateOp [AstSumOfList l] =
-  foldl1' simplifyAstPlusOp (map (simplifyAstNumOp NegateOp . (: [])) l)
-simplifyAstNumOp NegateOp [AstNm TimesOp [AstConst u, v]] =
-  simplifyAstNumOp TimesOp [AstConst $ negate u, v]
-    -- given a choice, prefer to negate a constant
-simplifyAstNumOp NegateOp [AstNm TimesOp [u, v]] =
-  simplifyAstNumOp TimesOp [u, simplifyAstNumOp NegateOp [v]]
-simplifyAstNumOp NegateOp [AstNm NegateOp [u]] = u
-simplifyAstNumOp NegateOp [AstNm SignumOp [u]] =
-  simplifyAstNumOp SignumOp [simplifyAstNumOp NegateOp [u]]
-simplifyAstNumOp NegateOp [Ast.AstOpIntegral QuotOp [AstConst u, v]] =
-  simplifyAstIntegralOp QuotOp [AstConst $ negate u, v]
-simplifyAstNumOp NegateOp [Ast.AstOpIntegral QuotOp [u, v]] =
-  simplifyAstIntegralOp QuotOp [simplifyAstNumOp NegateOp [u], v]
-simplifyAstNumOp NegateOp [Ast.AstOpIntegral RemOp [AstConst u, v]] =
-  simplifyAstIntegralOp RemOp [AstConst $ negate u, v]
-simplifyAstNumOp NegateOp [Ast.AstOpIntegral RemOp [u, v]] =
-  simplifyAstIntegralOp RemOp [simplifyAstNumOp NegateOp [u], v]
-
-simplifyAstNumOp AbsOp [AstConst u] = AstConst $ abs u
-simplifyAstNumOp AbsOp [AstNm AbsOp [u]] = AstNm AbsOp [u]
-simplifyAstNumOp AbsOp [AstNm NegateOp [u]] = simplifyAstNumOp AbsOp [u]
-simplifyAstNumOp SignumOp [AstConst u] = AstConst $ signum u
-simplifyAstNumOp SignumOp [AstNm SignumOp [u]] = AstNm SignumOp [u]
-simplifyAstNumOp SignumOp [AstNm AbsOp [u]] =
-  simplifyAstNumOp AbsOp [AstNm SignumOp [u]]
-
-simplifyAstNumOp opCode arg = AstNm opCode arg
-
-simplifyAstIntegralOp :: OpCodeIntegral -> [AstRanked PrimalSpan Int64 0]
-                      -> AstRanked PrimalSpan Int64 0
-simplifyAstIntegralOp QuotOp [AstConst u, AstConst v] = AstConst $ quot u v
-simplifyAstIntegralOp QuotOp [AstConst 0, _v] = AstConst 0
-simplifyAstIntegralOp QuotOp [u, AstConst 1] = u
-simplifyAstIntegralOp QuotOp [ Ast.AstOpIntegral RemOp [_u, AstConst v]
-                             , AstConst v' ]
+simplifyAstIntegralOp2 :: OpCodeIntegral2
+                       -> AstRanked PrimalSpan Int64 0
+                       -> AstRanked PrimalSpan Int64 0
+                       -> AstRanked PrimalSpan Int64 0
+simplifyAstIntegralOp2 QuotOp (AstConst u) (AstConst v) = AstConst $ quot u v
+simplifyAstIntegralOp2 QuotOp (AstConst 0) _v = AstConst 0
+simplifyAstIntegralOp2 QuotOp u (AstConst 1) = u
+simplifyAstIntegralOp2 QuotOp (Ast.AstI2 RemOp _u (AstConst v)) (AstConst v')
   | v' >= v && v >= 0 = 0
-simplifyAstIntegralOp QuotOp [Ast.AstOpIntegral QuotOp [u, v], w] =
-  simplifyAstIntegralOp QuotOp [u, simplifyAstNumOp TimesOp [v, w]]
-simplifyAstIntegralOp QuotOp [ Ast.AstNm TimesOp [AstConst u, v]
-                             , AstConst u' ]
+simplifyAstIntegralOp2 QuotOp (Ast.AstI2 QuotOp u v) w =
+  simplifyAstIntegralOp2 QuotOp u (simplifyAstNumOp2 TimesOp v w)
+simplifyAstIntegralOp2 QuotOp (Ast.AstN2 TimesOp (AstConst u) v) (AstConst u')
   | u == u' = v
 
-simplifyAstIntegralOp RemOp [AstConst u, AstConst v] = AstConst $ rem u v
-simplifyAstIntegralOp RemOp [AstConst 0, _v] = 0
-simplifyAstIntegralOp RemOp [_u, AstConst 1] = 0
-simplifyAstIntegralOp RemOp [ Ast.AstOpIntegral RemOp [u, AstConst v]
-                            , AstConst v']
-  | v' >= v && v >= 0 = Ast.AstOpIntegral RemOp [u, AstConst v]
-simplifyAstIntegralOp RemOp [ Ast.AstOpIntegral RemOp [u, AstConst v]
-                            , AstConst v']
-  | rem v v' == 0 && v > 0 = simplifyAstIntegralOp RemOp [u, AstConst v']
-simplifyAstIntegralOp RemOp [ AstNm TimesOp [AstConst u, _v]
-                            , AstConst u' ]
+simplifyAstIntegralOp2 RemOp (AstConst u) (AstConst v) = AstConst $ rem u v
+simplifyAstIntegralOp2 RemOp (AstConst 0) _v = 0
+simplifyAstIntegralOp2 RemOp _u (AstConst 1) = 0
+simplifyAstIntegralOp2 RemOp (Ast.AstI2 RemOp u (AstConst v)) (AstConst v')
+  | v' >= v && v >= 0 = Ast.AstI2 RemOp u (AstConst v)
+simplifyAstIntegralOp2 RemOp (Ast.AstI2 RemOp u (AstConst v)) (AstConst v')
+  | rem v v' == 0 && v > 0 = simplifyAstIntegralOp2 RemOp u (AstConst v')
+simplifyAstIntegralOp2 RemOp (AstN2 TimesOp (AstConst u) _v) (AstConst u')
   | rem u u' == 0 = 0
 
-simplifyAstIntegralOp opCode arg = Ast.AstOpIntegral opCode arg
+simplifyAstIntegralOp2 opCode u v = Ast.AstI2 opCode u v
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right.
@@ -2013,10 +2012,11 @@ simplifyAstS t = case t of
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAstS a)
   Ast.AstFloorS a -> Ast.AstFloorS (simplifyAstS a)
   Ast.AstIotaS -> t
-  AstNmS opCode args -> AstNmS opCode (map simplifyAstS args)
-  Ast.AstOpS opCode args -> Ast.AstOpS opCode (map simplifyAstS args)
-  Ast.AstOpIntegralS opCode args ->
-    Ast.AstOpIntegralS opCode (map simplifyAstS args)
+  AstN1S opCode u -> AstN1S opCode (simplifyAstS u)
+  AstN2S opCode u v -> AstN2S opCode (simplifyAstS u) (simplifyAstS v)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAstS u)
+  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAstS u) (simplifyAstS v)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAstS u) (simplifyAstS v)
   AstSumOfListS args -> astSumOfListS (map simplifyAstS args)
   Ast.AstIndexS v ix ->
     Ast.AstIndexS (simplifyAstS v) (fmap simplifyAst ix)  -- TODO
@@ -2149,25 +2149,36 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstMaxIndex a -> Ast.AstMaxIndex <$> substitute1Ast i var a
   Ast.AstFloor a -> Ast.AstFloor <$> substitute1Ast i var a
   Ast.AstIota -> Nothing
-  Ast.AstNm opCode args ->
-    let margs = map (substitute1Ast i var) args
-    in if any isJust margs
-       then Just $ case isRankedInt v1 of
-         Just Refl -> simplifyAstNumOp opCode $ zipWith fromMaybe args margs
-         _ -> Ast.AstNm opCode $ zipWith fromMaybe args margs
+  Ast.AstN1 opCode u ->
+    (\u2 -> case isRankedInt u2 of
+       Just Refl -> simplifyAstNumOp1 opCode u2
+       _ -> Ast.AstN1 opCode u2)
+    <$> substitute1Ast i var u
+  Ast.AstN2 opCode u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ case isRankedInt u of
+         Just Refl -> simplifyAstNumOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
+         _ -> Ast.AstN2 opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstOp opCode args ->
-    let margs = map (substitute1Ast i var) args
-    in if any isJust margs
-       then Just $ Ast.AstOp opCode $ zipWith fromMaybe args margs
+  Ast.AstR1 opCode u ->
+    (Ast.AstR1 opCode)
+    <$> substitute1Ast i var u
+  Ast.AstR2 opCode u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstR2 opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstOpIntegral opCode args ->
-    let margs = map (substitute1Ast i var) args
-    in if any isJust margs
-       then Just $ case isRankedInt v1 of
+  Ast.AstI2 opCode u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ case isRankedInt u of
          Just Refl ->
-           simplifyAstIntegralOp opCode $ zipWith fromMaybe args margs
-         _ -> Ast.AstOpIntegral opCode $ zipWith fromMaybe args margs
+           simplifyAstIntegralOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
+         _ -> Ast.AstI2 opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstSumOfList args ->
     let margs = map (substitute1Ast i var) args
@@ -2322,20 +2333,29 @@ substitute1AstS i var = \case
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1AstS i var a
   Ast.AstFloorS a -> Ast.AstFloorS <$> substitute1AstS i var a
   Ast.AstIotaS -> Nothing
-  Ast.AstNmS opCode args ->
-    let margs = map (substitute1AstS i var) args
-    in if any isJust margs
-       then Just $ Ast.AstNmS opCode $ zipWith fromMaybe args margs
+  Ast.AstN1S opCode u ->
+    (Ast.AstN1S opCode)
+    <$> substitute1AstS i var u
+  Ast.AstN2S opCode u v ->
+    let mu = substitute1AstS i var u
+        mv = substitute1AstS i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstN2S opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstOpS opCode args ->
-    let margs = map (substitute1AstS i var) args
-    in if any isJust margs
-       then Just $ Ast.AstOpS opCode $ zipWith fromMaybe args margs
+  Ast.AstR1S opCode u ->
+    (Ast.AstR1S opCode)
+    <$> substitute1AstS i var u
+  Ast.AstR2S opCode u v ->
+    let mu = substitute1AstS i var u
+        mv = substitute1AstS i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstR2S opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstOpIntegralS opCode args ->
-    let margs = map (substitute1AstS i var) args
-    in if any isJust margs
-       then Just $ Ast.AstOpIntegralS opCode $ zipWith fromMaybe args margs
+  Ast.AstI2S opCode u v ->
+    let mu = substitute1AstS i var u
+        mv = substitute1AstS i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstI2S opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstSumOfListS args ->
     let margs = map (substitute1AstS i var) args

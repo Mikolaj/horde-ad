@@ -50,15 +50,11 @@ shapeAst v1 = case v1 of
   AstMaxIndex a -> initShape $ shapeAst a
   AstFloor a -> shapeAst a
   AstIota -> singletonShape (maxBound :: Int)  -- ought to be enough
-  AstNm _opCode args -> case args of
-    [] -> error "shapeAst: AstNm with no arguments"
-    t : _ -> shapeAst t
-  AstOp _opCode args -> case args of
-    [] -> error "shapeAst: AstOp with no arguments"
-    t : _ -> shapeAst t
-  AstOpIntegral _opCode args -> case args of
-    [] -> error "shapeAst: AstOpIntegral with no arguments"
-    t : _ -> shapeAst t
+  AstN1 _opCode t -> shapeAst t
+  AstN2 _opCode t _ -> shapeAst t
+  AstR1 _opCode t -> shapeAst t
+  AstR2 _opCode t _ -> shapeAst t
+  AstI2 _opCode t _ -> shapeAst t
   AstSumOfList args -> case args of
     [] -> error "shapeAst: AstSumOfList with no arguments"
     t : _ -> shapeAst t
@@ -128,9 +124,11 @@ varInAst var = \case
   AstMaxIndex a -> varInAst var a
   AstFloor a -> varInAst var a
   AstIota -> False
-  AstNm _ l -> any (varInAst var) l
-  AstOp _ l -> any (varInAst var) l
-  AstOpIntegral _ l -> any (varInAst var) l
+  AstN1 _ t -> varInAst var t
+  AstN2 _ t u -> varInAst var t || varInAst var u
+  AstR1 _ t -> varInAst var t
+  AstR2 _ t u -> varInAst var t || varInAst var u
+  AstI2 _ t u -> varInAst var t || varInAst var u
   AstSumOfList l -> any (varInAst var) l
   AstIndex v ix -> varInAst var v || varInIndex var ix
   AstSum v -> varInAst var v
@@ -202,9 +200,11 @@ varInAstS var = \case
   AstMaxIndexS a -> varInAstS var a
   AstFloorS a -> varInAstS var a
   AstIotaS -> False
-  AstNmS _ l -> any (varInAstS var) l
-  AstOpS _ l -> any (varInAstS var) l
-  AstOpIntegralS _ l -> any (varInAstS var) l
+  AstN1S _ t -> varInAstS var t
+  AstN2S _ t u -> varInAstS var t || varInAstS var u
+  AstR1S _ t -> varInAstS var t
+  AstR2S _ t u -> varInAstS var t || varInAstS var u
+  AstI2S _ t u -> varInAstS var t || varInAstS var u
   AstSumOfListS l -> any (varInAstS var) l
   AstIndexS v ix -> varInAstS var v || varInIndexS var ix
   AstSumS v -> varInAstS var v

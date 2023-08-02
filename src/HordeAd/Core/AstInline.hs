@@ -110,15 +110,24 @@ inlineAst memo v0 = case v0 of
   Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ inlineAst memo a
   Ast.AstFloor a -> second Ast.AstFloor $ inlineAst memo a
   Ast.AstIota -> (memo, v0)
-  Ast.AstNm opCode args ->
-    let (memo2, args2) = mapAccumR inlineAst memo args
-    in (memo2, Ast.AstNm opCode args2)
-  Ast.AstOp opCode args ->
-    let (memo2, args2) = mapAccumR inlineAst memo args
-    in (memo2, Ast.AstOp opCode args2)
-  Ast.AstOpIntegral opCode args ->
-    let (memo2, args2) = mapAccumR inlineAst memo args
-    in (memo2, Ast.AstOpIntegral opCode args2)
+  Ast.AstN1 opCode u ->
+    let (memo2, u2) = inlineAst memo u
+    in (memo2, Ast.AstN1 opCode u2)
+  Ast.AstN2 opCode u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstN2 opCode u2 v3)
+  Ast.AstR1 opCode u ->
+    let (memo2, u2) = inlineAst memo u
+    in (memo2, Ast.AstR1 opCode u2)
+  Ast.AstR2 opCode u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstR2 opCode u2 v3)
+  Ast.AstI2 opCode u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstI2 opCode u2 v3)
   Ast.AstSumOfList args ->
     let (memo2, args2) = mapAccumR inlineAst memo args
     in (memo2, Ast.AstSumOfList args2)
@@ -278,15 +287,24 @@ inlineAstS memo v0 = case v0 of
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAstS memo a
   Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAstS memo a
   Ast.AstIotaS -> (memo, v0)
-  Ast.AstNmS opCode args ->
-    let (memo2, args2) = mapAccumR inlineAstS memo args
-    in (memo2, Ast.AstNmS opCode args2)
-  Ast.AstOpS opCode args ->
-    let (memo2, args2) = mapAccumR inlineAstS memo args
-    in (memo2, Ast.AstOpS opCode args2)
-  Ast.AstOpIntegralS opCode args ->
-    let (memo2, args2) = mapAccumR inlineAstS memo args
-    in (memo2, Ast.AstOpIntegralS opCode args2)
+  Ast.AstN1S opCode u ->
+    let (memo2, u2) = inlineAstS memo u
+    in (memo2, Ast.AstN1S opCode u2)
+  Ast.AstN2S opCode u v ->
+    let (memo2, u2) = inlineAstS memo u
+        (memo3, v3) = inlineAstS memo2 v
+    in (memo3, Ast.AstN2S opCode u2 v3)
+  Ast.AstR1S opCode u ->
+    let (memo2, u2) = inlineAstS memo u
+    in (memo2, Ast.AstR1S opCode u2)
+  Ast.AstR2S opCode u v ->
+    let (memo2, u2) = inlineAstS memo u
+        (memo3, v3) = inlineAstS memo2 v
+    in (memo3, Ast.AstR2S opCode u2 v3)
+  Ast.AstI2S opCode u v ->
+    let (memo2, u2) = inlineAstS memo u
+        (memo3, v3) = inlineAstS memo2 v
+    in (memo3, Ast.AstI2S opCode u2 v3)
   Ast.AstSumOfListS args ->
     let (memo2, args2) = mapAccumR inlineAstS memo args
     in (memo2, Ast.AstSumOfListS args2)
@@ -410,10 +428,11 @@ unletAst env t = case t of
   Ast.AstMaxIndex a -> Ast.AstMaxIndex $ unletAst env a
   Ast.AstFloor a -> Ast.AstFloor $ unletAst env a
   Ast.AstIota -> t
-  Ast.AstNm opCode args -> Ast.AstNm opCode (map (unletAst env) args)
-  Ast.AstOp opCode args -> Ast.AstOp opCode (map (unletAst env) args)
-  Ast.AstOpIntegral opCode args ->
-    Ast.AstOpIntegral opCode (map (unletAst env) args)
+  Ast.AstN1 opCode u -> Ast.AstN1 opCode (unletAst env u)
+  Ast.AstN2 opCode u v -> Ast.AstN2 opCode (unletAst env u) (unletAst env v)
+  Ast.AstR1 opCode u -> Ast.AstR1 opCode (unletAst env u)
+  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (unletAst env u) (unletAst env v)
+  Ast.AstI2 opCode u v -> Ast.AstI2 opCode (unletAst env u) (unletAst env v)
   Ast.AstSumOfList args -> Ast.AstSumOfList (map (unletAst env) args)
   Ast.AstIndex v ix ->
     Ast.AstIndex (unletAst env v) (fmap (unletAst env) ix)
@@ -513,10 +532,11 @@ unletAstS env t = case t of
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS $ unletAstS env a
   Ast.AstFloorS a -> Ast.AstFloorS $ unletAstS env a
   Ast.AstIotaS -> t
-  Ast.AstNmS opCode args -> Ast.AstNmS opCode (map (unletAstS env) args)
-  Ast.AstOpS opCode args -> Ast.AstOpS opCode (map (unletAstS env) args)
-  Ast.AstOpIntegralS opCode args ->
-    Ast.AstOpIntegralS opCode (map (unletAstS env) args)
+  Ast.AstN1S opCode u -> Ast.AstN1S opCode (unletAstS env u)
+  Ast.AstN2S opCode u v -> Ast.AstN2S opCode (unletAstS env u) (unletAstS env v)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (unletAstS env u)
+  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (unletAstS env u) (unletAstS env v)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (unletAstS env u) (unletAstS env v)
   Ast.AstSumOfListS args -> Ast.AstSumOfListS (map (unletAstS env) args)
   Ast.AstIndexS v ix ->
     Ast.AstIndexS (unletAstS env v) (fmap (unletAst env) ix)

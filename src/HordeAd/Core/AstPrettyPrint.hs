@@ -66,9 +66,11 @@ areAllArgsInts = \case
   AstMaxIndex{} -> False
   AstFloor{} -> False
   AstIota -> False
-  AstNm{} -> True  -- has to keep rank and scalar, so it's ints
-  AstOp{} -> True  -- has to keep rank and scalar
-  AstOpIntegral{} -> True  -- has to keep rank and scalar
+  AstN1{} -> True  -- has to keep rank and scalar, so it's ints
+  AstN2{} -> True  -- has to keep rank and scalar
+  AstR1{} -> True  -- has to keep rank and scalar
+  AstR2{} -> True  -- has to keep rank and scalar
+  AstI2{} -> True  -- has to keep rank and scalar
   AstSumOfList{} -> True  -- has to keep rank and scalar
   AstIndex{} -> False  -- the index arguments are taken care of via printAstInt
   AstSum{} -> False
@@ -237,9 +239,11 @@ printAstAux cfg d = \case
   AstFloor a ->
     printPrefixOp printAst cfg d "tfloor" [a]
   AstIota -> showString "tiota"
-  AstNm opCode args -> printAstNm printAst cfg d opCode args
-  AstOp opCode args -> printAstOp printAst cfg d opCode args
-  AstOpIntegral opCode args -> printAstOpIntegral printAst cfg d opCode args
+  AstN1 opCode u -> printAstN1 printAst cfg d opCode u
+  AstN2 opCode u v -> printAstN2 printAst cfg d opCode u v
+  AstR1 opCode u -> printAstR1 printAst cfg d opCode u
+  AstR2 opCode u v -> printAstR2 printAst cfg d opCode u v
+  AstI2 opCode u v -> printAstI2 printAst cfg d opCode u v
   AstSumOfList [] -> error "printAst: empty AstSumOfList"
   AstSumOfList (left : args) ->
     let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
@@ -432,50 +436,52 @@ printAstBool cfg d = \case
   AstRel opCode args -> printAstRelOp printAst cfg d opCode args
   AstRelS opCode args -> printAstRelOp printAstS cfg d opCode args
 
-printAstNm :: (PrintConfig -> Int -> a -> ShowS)
-              -> PrintConfig -> Int -> OpCodeNum -> [a] -> ShowS
-printAstNm pr cfg d opCode args = case (opCode, args) of
-  (MinusOp, [u, v]) -> printBinaryOp pr cfg d u (6, " - ") v
-  (TimesOp, [u, v]) -> printBinaryOp pr cfg d u (7, " * ") v
-  (NegateOp, [u]) -> printPrefixOp pr cfg d "negate" [u]
-  (AbsOp, [u]) -> printPrefixOp pr cfg d "abs" [u]
-  (SignumOp, [u]) -> printPrefixOp pr cfg d "signum" [u]
-  _ -> error $ "printAstNm: wrong number of arguments"
-               ++ show (opCode, length args)
+printAstN1 :: (PrintConfig -> Int -> a -> ShowS)
+           -> PrintConfig -> Int -> OpCodeNum1 -> a -> ShowS
+printAstN1 pr cfg d opCode u = case opCode of
+  NegateOp -> printPrefixOp pr cfg d "negate" [u]
+  AbsOp -> printPrefixOp pr cfg d "abs" [u]
+  SignumOp -> printPrefixOp pr cfg d "signum" [u]
 
-printAstOp :: (PrintConfig -> Int -> a -> ShowS)
-           -> PrintConfig -> Int -> OpCode -> [a] -> ShowS
-printAstOp pr cfg d opCode args = case (opCode, args) of
-  (DivideOp, [u, v]) -> printBinaryOp pr cfg d u (7, " / ") v
-  (RecipOp, [u]) -> printPrefixOp pr cfg d "recip" [u]
-  (ExpOp, [u]) -> printPrefixOp pr cfg d "exp" [u]
-  (LogOp, [u]) -> printPrefixOp pr cfg d "log" [u]
-  (SqrtOp, [u]) -> printPrefixOp pr cfg d "sqrt" [u]
-  (PowerOp, [u, v]) -> printBinaryOp pr cfg d u (8, " ** ") v
-  (LogBaseOp, [u, v]) -> printPrefixOp pr cfg d "logBase" [u, v]
-  (SinOp, [u]) -> printPrefixOp pr cfg d "sin" [u]
-  (CosOp, [u]) -> printPrefixOp pr cfg d "cos" [u]
-  (TanOp, [u]) -> printPrefixOp pr cfg d "tan" [u]
-  (AsinOp, [u]) -> printPrefixOp pr cfg d "asin" [u]
-  (AcosOp, [u]) -> printPrefixOp pr cfg d "acos" [u]
-  (AtanOp, [u]) -> printPrefixOp pr cfg d "atan" [u]
-  (SinhOp, [u]) -> printPrefixOp pr cfg d "sinh" [u]
-  (CoshOp, [u]) -> printPrefixOp pr cfg d "cosh" [u]
-  (TanhOp, [u]) -> printPrefixOp pr cfg d "tanh" [u]
-  (AsinhOp, [u]) -> printPrefixOp pr cfg d "asinh" [u]
-  (AcoshOp, [u]) -> printPrefixOp pr cfg d "acosh" [u]
-  (AtanhOp, [u]) -> printPrefixOp pr cfg d "atanh" [u]
-  (Atan2Op, [u, v]) -> printPrefixOp pr cfg d "atan2" [u, v]
-  _ -> error $ "printAstOp: wrong number of arguments"
-               ++ show (opCode, length args)
+printAstN2 :: (PrintConfig -> Int -> a -> ShowS)
+           -> PrintConfig -> Int -> OpCodeNum2 -> a -> a -> ShowS
+printAstN2 pr cfg d opCode u v = case opCode of
+  MinusOp -> printBinaryOp pr cfg d u (6, " - ") v
+  TimesOp -> printBinaryOp pr cfg d u (7, " * ") v
 
-printAstOpIntegral :: (PrintConfig -> Int -> a -> ShowS)
-                   -> PrintConfig -> Int -> OpCodeIntegral -> [a] -> ShowS
-printAstOpIntegral pr cfg d opCode args = case (opCode, args) of
-  (QuotOp, [u, v]) -> printPrefixOp pr cfg d "quot" [u, v]
-  (RemOp, [u, v]) -> printPrefixOp pr cfg d "rem" [u, v]
-  _ -> error $ "printAstOpIntegral: wrong number of arguments"
-               ++ show (opCode, length args)
+printAstR1 :: (PrintConfig -> Int -> a -> ShowS)
+           -> PrintConfig -> Int -> OpCode1 -> a -> ShowS
+printAstR1 pr cfg d opCode u = case opCode of
+  RecipOp -> printPrefixOp pr cfg d "recip" [u]
+  ExpOp -> printPrefixOp pr cfg d "exp" [u]
+  LogOp -> printPrefixOp pr cfg d "log" [u]
+  SqrtOp -> printPrefixOp pr cfg d "sqrt" [u]
+  SinOp -> printPrefixOp pr cfg d "sin" [u]
+  CosOp -> printPrefixOp pr cfg d "cos" [u]
+  TanOp -> printPrefixOp pr cfg d "tan" [u]
+  AsinOp -> printPrefixOp pr cfg d "asin" [u]
+  AcosOp -> printPrefixOp pr cfg d "acos" [u]
+  AtanOp -> printPrefixOp pr cfg d "atan" [u]
+  SinhOp -> printPrefixOp pr cfg d "sinh" [u]
+  CoshOp -> printPrefixOp pr cfg d "cosh" [u]
+  TanhOp -> printPrefixOp pr cfg d "tanh" [u]
+  AsinhOp -> printPrefixOp pr cfg d "asinh" [u]
+  AcoshOp -> printPrefixOp pr cfg d "acosh" [u]
+  AtanhOp -> printPrefixOp pr cfg d "atanh" [u]
+
+printAstR2 :: (PrintConfig -> Int -> a -> ShowS)
+           -> PrintConfig -> Int -> OpCode2 -> a -> a -> ShowS
+printAstR2 pr cfg d opCode u v = case opCode of
+  DivideOp -> printBinaryOp pr cfg d u (7, " / ") v
+  PowerOp -> printBinaryOp pr cfg d u (8, " ** ") v
+  LogBaseOp -> printPrefixOp pr cfg d "logBase" [u, v]
+  Atan2Op -> printPrefixOp pr cfg d "atan2" [u, v]
+
+printAstI2 :: (PrintConfig -> Int -> a -> ShowS)
+           -> PrintConfig -> Int -> OpCodeIntegral2 -> a -> a -> ShowS
+printAstI2 pr cfg d opCode u v = case opCode of
+  QuotOp -> printPrefixOp pr cfg d "quot" [u, v]
+  RemOp -> printPrefixOp pr cfg d "rem" [u, v]
 
 printPrefixOp :: (PrintConfig -> Int -> a -> ShowS)
               -> PrintConfig -> Int -> String -> [a]
@@ -574,9 +580,11 @@ printAstS cfg d = \case
   AstMaxIndexS a -> printPrefixOp printAstS cfg d "smaxIndex" [a]
   AstFloorS a ->  printPrefixOp printAstS cfg d "sfloor" [a]
   AstIotaS -> showString "siota"
-  AstNmS opCode args -> printAstNm printAstS cfg d opCode args
-  AstOpS opCode args -> printAstOp printAstS cfg d opCode args
-  AstOpIntegralS opCode args -> printAstOpIntegral printAstS cfg d opCode args
+  AstN1S opCode u -> printAstN1 printAstS cfg d opCode u
+  AstN2S opCode u v -> printAstN2 printAstS cfg d opCode u v
+  AstR1S opCode u -> printAstR1 printAstS cfg d opCode u
+  AstR2S opCode u v -> printAstR2 printAstS cfg d opCode u v
+  AstI2S opCode u v -> printAstI2 printAstS cfg d opCode u v
   AstSumOfListS [] -> error "printAst: empty AstSumOfList"
   AstSumOfListS (left : args) ->
     let rs = map (\arg -> showString " + " . printAstS cfg 7 arg) args

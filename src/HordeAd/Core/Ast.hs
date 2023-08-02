@@ -17,7 +17,8 @@ module HordeAd.Core.Ast
     -- * ASTs
   , AstRanked(..), AstShaped(..), AstDynamic(..), AstDomains(..)
   , AstVarName(..), AstDynamicVarName(..), AstBool(..)
-  , OpCode(..), OpCodeNum(..), OpCodeIntegral(..), OpCodeBool(..), OpCodeRel(..)
+  , OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
+  , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
     -- * Boolean definitions and instances
   , BoolOf, IfF(..), EqF(..), OrdF(..), minF, maxF
     -- * ADShare definition
@@ -236,12 +237,17 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
   AstIota :: AstRanked PrimalSpan r 1
 
   -- For the numeric classes:
-  AstNm :: OpCodeNum -> [AstRanked s r n] -> AstRanked s r n
-             -- name of the same length as AstOp for tests
-  AstOp :: Differentiable r
-        => OpCode -> [AstRanked s r n] -> AstRanked s r n
-  AstOpIntegral :: Integral r
-                => OpCodeIntegral -> [AstRanked s r n] -> AstRanked s r n
+  AstN1 :: OpCodeNum1 -> AstRanked s r n -> AstRanked s r n
+  AstN2 :: OpCodeNum2 -> AstRanked s r n -> AstRanked s r n
+        -> AstRanked s r n
+  AstR1 :: Differentiable r
+        => OpCode1 -> AstRanked s r n -> AstRanked s r n
+  AstR2 :: Differentiable r
+        => OpCode2 -> AstRanked s r n -> AstRanked s r n
+        -> AstRanked s r n
+  AstI2 :: Integral r
+        => OpCodeIntegral2 -> AstRanked s r n -> AstRanked s r n
+        -> AstRanked s r n
   AstSumOfList :: [AstRanked s r n] -> AstRanked s r n
 
   -- For the main part of the RankedTensor class:
@@ -329,11 +335,17 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
   AstIotaS :: forall n r. KnownNat n => AstShaped PrimalSpan r '[n]
 
   -- For the numeric classes:
-  AstNmS :: OpCodeNum -> [AstShaped s r sh] -> AstShaped s r sh
-  AstOpS :: Differentiable r
-         => OpCode -> [AstShaped s r sh] -> AstShaped s r sh
-  AstOpIntegralS :: Integral r
-                 => OpCodeIntegral -> [AstShaped s r sh] -> AstShaped s r sh
+  AstN1S :: OpCodeNum1 -> AstShaped s r sh -> AstShaped s r sh
+  AstN2S :: OpCodeNum2 -> AstShaped s r sh -> AstShaped s r sh
+         -> AstShaped s r sh
+  AstR1S :: Differentiable r
+         => OpCode1 -> AstShaped s r sh -> AstShaped s r sh
+  AstR2S :: Differentiable r
+         => OpCode2 -> AstShaped s r sh -> AstShaped s r sh
+         -> AstShaped s r sh
+  AstI2S :: Integral r
+         => OpCodeIntegral2 -> AstShaped s r sh -> AstShaped s r sh
+         -> AstShaped s r sh
   AstSumOfListS :: [AstShaped s r sh] -> AstShaped s r sh
 
   -- For the main part of the ShapedTensor class:
@@ -437,19 +449,28 @@ data AstBool where
           => OpCodeRel -> [AstShaped PrimalSpan r sh] -> AstBool
 deriving instance Show AstBool
 
-data OpCodeNum =
-    MinusOp | TimesOp | NegateOp | AbsOp | SignumOp
+data OpCodeNum1 =
+    NegateOp | AbsOp | SignumOp
  deriving Show
 
-data OpCode =
-    DivideOp | RecipOp
-  | ExpOp | LogOp | SqrtOp | PowerOp | LogBaseOp
+data OpCodeNum2 =
+    MinusOp | TimesOp
+ deriving Show
+
+data OpCode1 =
+    RecipOp
+  | ExpOp | LogOp | SqrtOp
   | SinOp | CosOp | TanOp | AsinOp | AcosOp | AtanOp
   | SinhOp | CoshOp | TanhOp | AsinhOp | AcoshOp | AtanhOp
+ deriving Show
+
+data OpCode2 =
+    DivideOp
+  | PowerOp | LogBaseOp
   | Atan2Op
  deriving Show
 
-data OpCodeIntegral =
+data OpCodeIntegral2 =
     QuotOp | RemOp
  deriving Show
 
@@ -503,17 +524,17 @@ instance (Num (OR.Array n r), AstSpan s)
   AstConst u - AstConst v = AstConst (u - v)  -- common in indexing
   AstLetADShare l u - v = AstLetADShare l $ u - v
   u - AstLetADShare l v = AstLetADShare l $ u - v
-  u - v = AstNm MinusOp [u, v]
+  u - v = AstN2 MinusOp u v
 
   AstConst u * AstConst v = AstConst (u * v)  -- common in indexing
   AstLetADShare l u * v = AstLetADShare l $ u * v
   u * AstLetADShare l v = AstLetADShare l $ u * v
-  u * v = AstNm TimesOp [u, v]
+  u * v = AstN2 TimesOp u v
 
   negate (AstLetADShare l u) = AstLetADShare l $ negate u
-  negate u = AstNm NegateOp [u]
-  abs v = AstNm AbsOp [v]
-  signum v = AstNm SignumOp [v]
+  negate u = AstN1 NegateOp u
+  abs v = AstN1 AbsOp v
+  signum v = AstN1 SignumOp v
   fromInteger = fromPrimal . AstConst . fromInteger
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
@@ -532,38 +553,38 @@ instance Enum r => Enum (AstRanked s r n) where
 -- they are going to work, but slowly.
 instance (Integral r, Integral (OR.Array n r), AstSpan s)
          => Integral (AstRanked s r n) where
-  quot u v = AstOpIntegral QuotOp [u, v]
-  rem u v = AstOpIntegral RemOp [u, v]
-  quotRem u v = (AstOpIntegral QuotOp [u, v], AstOpIntegral RemOp [u, v])
+  quot u v = AstI2 QuotOp u v
+  rem u v = AstI2 RemOp u v
+  quotRem u v = (AstI2 QuotOp u v, AstI2 RemOp u v)
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
 
 instance (Differentiable r, Fractional (OR.Array n r), AstSpan s)
          => Fractional (AstRanked s r n) where
-  u / v = AstOp DivideOp  [u, v]
-  recip v = AstOp RecipOp [v]
+  u / v = AstR2 DivideOp u v
+  recip v = AstR1 RecipOp v
   fromRational = fromPrimal . AstConst . fromRational
 
 instance (Differentiable r, Floating (OR.Array n r), AstSpan s)
          => Floating (AstRanked s r n) where
   pi = fromPrimal $ AstConst pi
-  exp u = AstOp ExpOp [u]
-  log u = AstOp LogOp [u]
-  sqrt u = AstOp SqrtOp [u]
-  u ** v = AstOp PowerOp [u, v]
-  logBase u v = AstOp LogBaseOp [u, v]
-  sin u = AstOp SinOp [u]
-  cos u = AstOp CosOp [u]
-  tan u = AstOp TanOp [u]
-  asin u = AstOp AsinOp [u]
-  acos u = AstOp AcosOp [u]
-  atan u = AstOp AtanOp [u]
-  sinh u = AstOp SinhOp [u]
-  cosh u = AstOp CoshOp [u]
-  tanh u = AstOp TanhOp [u]
-  asinh u = AstOp AsinhOp [u]
-  acosh u = AstOp AcoshOp [u]
-  atanh u = AstOp AtanhOp [u]
+  exp u = AstR1 ExpOp u
+  log u = AstR1 LogOp u
+  sqrt u = AstR1 SqrtOp u
+  u ** v = AstR2 PowerOp u v
+  logBase u v = AstR2 LogBaseOp u v
+  sin u = AstR1 SinOp u
+  cos u = AstR1 CosOp u
+  tan u = AstR1 TanOp u
+  asin u = AstR1 AsinOp u
+  acos u = AstR1 AcosOp u
+  atan u = AstR1 AtanOp u
+  sinh u = AstR1 SinhOp u
+  cosh u = AstR1 CoshOp u
+  tanh u = AstR1 TanhOp u
+  asinh u = AstR1 AsinhOp u
+  acosh u = AstR1 AcoshOp u
+  atanh u = AstR1 AtanhOp u
 
 instance (Differentiable r, RealFrac (OR.Array n r), AstSpan s)
          => RealFrac (AstRanked s r n) where
@@ -573,7 +594,7 @@ instance (Differentiable r, RealFrac (OR.Array n r), AstSpan s)
 
 instance (Differentiable r, RealFloat (OR.Array n r), AstSpan s)
          => RealFloat (AstRanked s r n) where
-  atan2 u v = AstOp Atan2Op [u, v]
+  atan2 u v = AstR2 Atan2Op u v
   -- We can be selective here and omit the other methods,
   -- most of which don't even have a differentiable codomain.
   floatRadix = undefined
@@ -627,17 +648,17 @@ instance (Num (OS.Array sh r), AstSpan s)
   AstConstS u - AstConstS v = AstConstS (u - v)  -- common in indexing
   AstLetADShareS l u - v = AstLetADShareS l $ u - v
   u - AstLetADShareS l v = AstLetADShareS l $ u - v
-  u - v = AstNmS MinusOp [u, v]
+  u - v = AstN2S MinusOp u v
 
   AstConstS u * AstConstS v = AstConstS (u * v)  -- common in indexing
   AstLetADShareS l u * v = AstLetADShareS l $ u * v
   u * AstLetADShareS l v = AstLetADShareS l $ u * v
-  u * v = AstNmS TimesOp [u, v]
+  u * v = AstN2S TimesOp u v
 
   negate (AstLetADShareS l u) = AstLetADShareS l $ negate u
-  negate u = AstNmS NegateOp [u]
-  abs v = AstNmS AbsOp [v]
-  signum v = AstNmS SignumOp [v]
+  negate u = AstN1S NegateOp u
+  abs v = AstN1S AbsOp v
+  signum v = AstN1S SignumOp v
   fromInteger = fromPrimalS . AstConstS . fromInteger
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
@@ -655,38 +676,38 @@ instance Enum r => Enum (AstShaped s r n) where
 -- they are going to work, but slowly.
 instance (Integral r, Integral (OS.Array sh r), AstSpan s)
          => Integral (AstShaped s r sh) where
-  quot u v = AstOpIntegralS QuotOp [u, v]
-  rem u v = AstOpIntegralS RemOp [u, v]
-  quotRem u v = (AstOpIntegralS QuotOp [u, v], AstOpIntegralS RemOp [u, v])
+  quot u v = AstI2S QuotOp u v
+  rem u v = AstI2S RemOp u v
+  quotRem u v = (AstI2S QuotOp u v, AstI2S RemOp u v)
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
 
 instance (Differentiable r, Fractional (OS.Array sh r), AstSpan s)
          => Fractional (AstShaped s r sh) where
-  u / v = AstOpS DivideOp  [u, v]
-  recip v = AstOpS RecipOp [v]
+  u / v = AstR2S DivideOp u v
+  recip v = AstR1S RecipOp v
   fromRational = fromPrimalS . AstConstS . fromRational
 
 instance (Differentiable r, Floating (OS.Array sh r), AstSpan s)
          => Floating (AstShaped s r sh) where
   pi = fromPrimalS $ AstConstS pi
-  exp u = AstOpS ExpOp [u]
-  log u = AstOpS LogOp [u]
-  sqrt u = AstOpS SqrtOp [u]
-  u ** v = AstOpS PowerOp [u, v]
-  logBase u v = AstOpS LogBaseOp [u, v]
-  sin u = AstOpS SinOp [u]
-  cos u = AstOpS CosOp [u]
-  tan u = AstOpS TanOp [u]
-  asin u = AstOpS AsinOp [u]
-  acos u = AstOpS AcosOp [u]
-  atan u = AstOpS AtanOp [u]
-  sinh u = AstOpS SinhOp [u]
-  cosh u = AstOpS CoshOp [u]
-  tanh u = AstOpS TanhOp [u]
-  asinh u = AstOpS AsinhOp [u]
-  acosh u = AstOpS AcoshOp [u]
-  atanh u = AstOpS AtanhOp [u]
+  exp u = AstR1S ExpOp u
+  log u = AstR1S LogOp u
+  sqrt u = AstR1S SqrtOp u
+  u ** v = AstR2S PowerOp u v
+  logBase u v = AstR2S LogBaseOp u v
+  sin u = AstR1S SinOp u
+  cos u = AstR1S CosOp u
+  tan u = AstR1S TanOp u
+  asin u = AstR1S AsinOp u
+  acos u = AstR1S AcosOp u
+  atan u = AstR1S AtanOp u
+  sinh u = AstR1S SinhOp u
+  cosh u = AstR1S CoshOp u
+  tanh u = AstR1S TanhOp u
+  asinh u = AstR1S AsinhOp u
+  acosh u = AstR1S AcoshOp u
+  atanh u = AstR1S AtanhOp u
 
 instance (Differentiable r, RealFrac (OS.Array sh r), AstSpan s)
          => RealFrac (AstShaped s r sh) where
@@ -696,7 +717,7 @@ instance (Differentiable r, RealFrac (OS.Array sh r), AstSpan s)
 
 instance (Differentiable r, RealFloat (OS.Array sh r), AstSpan s)
          => RealFloat (AstShaped s r sh) where
-  atan2 u v = AstOpS Atan2Op [u, v]
+  atan2 u v = AstR2S Atan2Op u v
   -- We can be selective here and omit the other methods,
   -- most of which don't even have a differentiable codomain.
   floatRadix = undefined
