@@ -385,6 +385,49 @@ deriving instance ( GoodScalar r0
                   , Show (IntOf shaped) )
                   => Show (DeltaD ranked shaped r0 '())
 
+shapeDelta :: forall ranked shaped r n. (KnownNat n, RankedTensor ranked)
+           => DeltaR ranked shaped r n -> ShapeInt n
+shapeDelta = \case
+  ZeroR -> undefined
+  InputR (InputId i) -> undefined
+  ScaleR _ d -> shapeDelta d
+  AddR d _ -> shapeDelta d
+  LetR _ d -> shapeDelta d
+  IndexR d _ _ -> dropShape (shapeDelta d)
+  SumR _ d -> tailShape (shapeDelta d)
+  Sum0R{} -> ZS
+  Dot0R{} -> ZS
+  ScatterR sh _ _ _ -> sh
+  FromListR l -> case l of
+    [] -> case sameNat (Proxy @n) (Proxy @1) of
+      Just Refl -> singletonShape 0  -- the only case where we can guess sh
+      _ -> error "shapeDelta: FromListR with no arguments"
+    d : _ -> length l :$ shapeDelta d
+  FromVectorR l -> case V.toList l of
+    [] -> case sameNat (Proxy @n) (Proxy @1) of
+      Just Refl -> singletonShape 0  -- the only case where we can guess sh
+      _ -> error "shapeDelta: FromListR with no arguments"
+    d : _ -> length l :$ shapeDelta d
+  ReplicateR n d -> n :$ shapeDelta d
+  AppendR x _ y -> case shapeDelta x of
+    ZS -> error "shapeDelta: impossible pattern needlessly required"
+    xi :$ xsh -> case shapeDelta y of
+      ZS -> error "shapeDelta: impossible pattern needlessly required"
+      yi :$ _ -> xi + yi :$ xsh
+  SliceR _ n d _ -> n :$ tailShape (shapeDelta d)
+  ReverseR d -> shapeDelta d
+  TransposeR perm d -> backpermutePrefixShape perm (shapeDelta d)
+  ReshapeR _ sh _ -> sh
+  BuildR n f -> n :$ shapeDelta (f 0)  -- fishy, but should not appear anyway
+  GatherR sh _ _ _  -> sh
+  CastR d -> shapeDelta d
+  DToR (RToD @n2 d) ->
+    case sameNat (Proxy @n) (Proxy @n2) of
+      Just Refl -> shapeDelta d
+      _ -> error "shapeDelta: different ranks in DToR(RToD)"
+  DToR (SToD @sh _) -> listShapeToShape $ OS.shapeT @sh
+  SToR @sh _ -> listShapeToShape $ OS.shapeT @sh
+
 
 -- * Delta expression identifiers
 

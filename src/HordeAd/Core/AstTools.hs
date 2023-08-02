@@ -41,7 +41,7 @@ import HordeAd.Util.SizedIndex
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
 shapeAst :: forall n s r. (KnownNat n, GoodScalar r)
          => AstRanked s r n -> ShapeInt n
-shapeAst v1 = case v1 of
+shapeAst = \case
   AstVar sh _var -> sh
   AstLet _ _ v -> shapeAst v
   AstLetADShare _ v-> shapeAst v
