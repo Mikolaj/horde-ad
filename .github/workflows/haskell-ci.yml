@@ -188,10 +188,10 @@ jobs:
       - name: tests
         run: |
           ln -s $GITHUB_WORKSPACE/source/samplesData ${PKGDIR_horde_ad}
-          if [ "${{ matrix.tests-short }}" ]; then
+          if [ "${{ matrix.tests-short }}" = true ]; then
             $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest -ftest_seq --test-options="-p Short_tests"
           else
-            $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedNNTest -ftest_seq --test-options="-p Neural_network_tests"
+            $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest -ftest_seq --test-options="-p Neural_network_tests"
           fi
 #      - name: prod benches
 #        if: ${{ false }}  # disable for now
