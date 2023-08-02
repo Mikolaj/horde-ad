@@ -266,7 +266,8 @@ deriving instance ( OS.Shape sh0, GoodScalar r0
 -- provides a different semantics.
 data DeltaR :: RankedTensorKind -> ShapedTensorKind
             -> RankedTensorKind where
-  ZeroR :: DeltaR ranked shaped r n
+  ZeroR :: ShapeInt n -> DeltaR ranked shaped r n
+    -- ^ the shape is required for @shapeDelta@ and forward derivative
   InputR :: InputId ranked -> DeltaR ranked shaped r n
   ScaleR :: ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
   AddR :: DeltaR ranked shaped r n -> DeltaR ranked shaped r n
@@ -388,7 +389,7 @@ deriving instance ( GoodScalar r0
 shapeDelta :: forall ranked shaped r n. (KnownNat n, RankedTensor ranked)
            => DeltaR ranked shaped r n -> ShapeInt n
 shapeDelta = \case
-  ZeroR -> undefined
+  ZeroR sh -> sh
   InputR (InputId i) -> undefined
   ScaleR _ d -> shapeDelta d
   AddR d _ -> shapeDelta d
@@ -855,7 +856,7 @@ buildFinMaps s0 deltaDt =
         -- but for a few constructors it's faster to inline @evalR@ instead.
         -- BTW, such an optimization doesn't really belong in the simplified
         -- horde-ad and no consistent benefit should be expected here.
-        Index0 ZeroR _ _ -> s  -- shortcut
+        Index0 ZeroR{} _ _ -> s  -- shortcut
         Index0 (InputR i) ixs' sh ->
           let ixs = indexToList ixs'
               f v = if isTensorDummy v
@@ -887,7 +888,7 @@ buildFinMaps s0 deltaDt =
       evalR !s !c = let (abShared, cShared) = tregister c (astBindings s)
                         sShared = s {astBindings = abShared}
                     in \case
-        ZeroR -> s
+        ZeroR{} -> s
         InputR i -> s {iMap = EM.adjust (raddDynamic c) i $ iMap s}
         ScaleR k d -> evalR s (k * c) d
         AddR d e -> evalR (evalR sShared cShared d) cShared e
@@ -923,7 +924,7 @@ buildFinMaps s0 deltaDt =
           -- in the cells of the gradient vectors that are the final
           -- result of the evaluation.
           assert (case d of
-                    ZeroR -> False
+                    ZeroR{} -> False
                     DToR{} -> False
                     LetR{} -> False  -- wasteful and nonsensical
                     _ -> True)
@@ -1138,10 +1139,7 @@ buildDerivative dimR deltaDt params = do
       evalR :: forall n r. (KnownNat n, GoodScalar r)
             => DeltaR ranked shaped r n -> ST s (ranked r n)
       evalR = \case
-        ZeroR -> case sameNat (Proxy @n) (Proxy @0) of
-          Just Refl -> return 0
-          Nothing -> error $ "buildDerivative: shape unknown at rank "
-                             ++ show (valueOf @n :: Int)
+        ZeroR sh -> return $ tzero sh
         InputR (InputId i) ->
           if i < dimR
           then case params V.! i of
@@ -1173,9 +1171,9 @@ buildDerivative dimR deltaDt params = do
 
         IndexR d ix _len -> (`tindex` ix) <$> evalR d
         SumR _ d -> tsum <$> evalR d
-        Sum0R _ ZeroR -> return 0
+        Sum0R _ ZeroR{} -> return 0
         Sum0R _ d -> tsum0 <$> evalR d
-        Dot0R _ ZeroR -> return 0
+        Dot0R _ ZeroR{} -> return 0
         Dot0R v d -> tdot0 v <$> evalR d
         ScatterR sh d f _shd ->  do
           t <- evalR d
@@ -1227,7 +1225,8 @@ buildDerivative dimR deltaDt params = do
   case deltaDt of
     DeltaDtS _dt deltaTopLevel ->
       flip DeltaDtS ZeroS <$> evalS deltaTopLevel
-    DeltaDtR _dt deltaTopLevel ->
-      flip DeltaDtR ZeroR <$> evalR deltaTopLevel
+    DeltaDtR @_ @n _dt deltaTopLevel ->
+      flip DeltaDtR (ZeroR $ listShapeToShape $ replicate (valueOf @n) 0)
+      <$> evalR deltaTopLevel
     DeltaDtD _dt deltaTopLevel ->
-      flip DeltaDtD (RToD @0 ZeroR) <$> evalD deltaTopLevel
+      flip DeltaDtD (SToD @'[] ZeroS) <$> evalD deltaTopLevel

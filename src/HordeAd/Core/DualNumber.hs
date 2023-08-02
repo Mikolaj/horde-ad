@@ -58,7 +58,7 @@ dDnotShared :: ADShare -> f r z -> Dual f r z -> ADVal f r z
 dDnotShared = D
 
 constantADVal :: IsPrimal f r z => f r z -> ADVal f r z
-constantADVal a = dDnotShared emptyADShare a dZero
+constantADVal a = dDnotShared emptyADShare a (dZeroOfShape a)
 
 
 -- * Auxiliary definitions
@@ -127,7 +127,7 @@ instance (Num (f r z), IsPrimal f r z) => Num (ADVal f r z) where
   negate (D l v v') = dD l (negate v) (dScale (intOfShape v (-1)) v')
   abs (D l ve v') = let !(!l2, v) = recordSharingPrimal ve l
                     in dD l2 (abs v) (dScale (signum v) v')
-  signum (D l v _) = dD l (signum v) dZero
+  signum (D l v _) = dD l (signum v) (dZeroOfShape v)
   fromInteger = constantADVal . fromInteger
 
 instance (Real (f r z), IsPrimal f r z) => Real (ADVal f r z) where
@@ -140,8 +140,10 @@ instance Enum (ADVal f r z) where  -- dummy, to satisfy Integral below
 
 instance (Integral (f r z), IsPrimal f r z)
          => Integral (ADVal f r z) where
-  quot (D l1 u _) (D l2 v _) = dD (l1 `mergeADShare` l2) (quot u v) dZero
-  rem (D l1 u _) (D l2 v _) = dD (l1 `mergeADShare` l2) (rem u v) dZero
+  quot (D l1 u _) (D l2 v _) =
+    dD (l1 `mergeADShare` l2) (quot u v) (dZeroOfShape u)
+  rem (D l1 u _) (D l2 v _) =
+    dD (l1 `mergeADShare` l2) (rem u v) (dZeroOfShape u)
   quotRem x y = (quot x y, rem x y)
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.

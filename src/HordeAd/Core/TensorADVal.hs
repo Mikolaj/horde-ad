@@ -171,9 +171,15 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   -- @l@ in the @D@ triple instead of in @u@ via @letWrap@.
   -- When, later on, these are to be treated as indexes, sprimalPart needs
   -- to be called, which moves @l@ to @u@ via @letWrap@.
-  tminIndex (D l u _) = dDnotShared l (tminIndex u) dZero
-  tmaxIndex (D l u _) = dDnotShared l (tmaxIndex u) dZero
-  tfloor (D l u _) = dDnotShared l (tfloor u) dZero
+  tminIndex (D l u _) =
+    let v = tminIndex u
+    in dDnotShared l v (dZeroOfShape v)
+  tmaxIndex (D l u _) =
+    let v = tmaxIndex u
+    in dDnotShared l v (dZeroOfShape v)
+  tfloor (D l u _) =
+    let v = tfloor u
+    in dDnotShared l v (dZeroOfShape v)
 
   tindex = index
   tsum (D l u u') = dD l (tsum u) (SumR (tlength u) u')
@@ -207,7 +213,9 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   tgather sh (D l u u') f =
     dD l (tgather sh u f) (GatherR sh u' f (tshape u))
   tcast (D l u u') = dD l (tcast u) (CastR u')
-  tfromIntegral (D l u _) = dDnotShared l (tfromIntegral u) dZero
+  tfromIntegral (D l u _) =
+    let v = tfromIntegral u
+    in dDnotShared l v (dZeroOfShape v)
   tconst t = constantADVal (tconst t)
 
   tsumOfList lu =
@@ -216,7 +224,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
        (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
   raddDynamic = undefined
 
-  tconstant t = let (l, r) = tletUnwrap t in dDnotShared l r dZero
+  tconstant t = let (l, r) = tletUnwrap t in dDnotShared l r (dZeroOfShape r)
   tprimalPart (D l u _) = tletWrap l u
   tdualPart (D l _ u') = Pair (Clown (Const l)) u'
   tD ast (Pair (Clown (Const l)) delta) =
@@ -324,9 +332,15 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   -- @l@ in the @D@ triple instead of in @u@ via @letWrap@.
   -- When, later on, these are to be treated as indexes, sprimalPart needs
   -- to be called, which moves @l@ to @u@ via @letWrap@.
-  sminIndex (D l u _) = dDnotShared l (sminIndex u) dZero
-  smaxIndex (D l u _) = dDnotShared l (smaxIndex u) dZero
-  sfloor (D l u _) = dDnotShared l (sfloor u) dZero
+  sminIndex (D l u _) =
+    let v = sminIndex u
+    in dDnotShared l v (dZeroOfShape v)
+  smaxIndex (D l u _) =
+    let v = smaxIndex u
+    in dDnotShared l v (dZeroOfShape v)
+  sfloor (D l u _) =
+    let v = sfloor u
+    in dDnotShared l v (dZeroOfShape v)
 
   siota = constantADVal siota -- TODO: siotaBare may be needed
   sindex = indexS
@@ -367,7 +381,9 @@ instance ( Dual shaped ~ DeltaS ranked shaped
                    -- element-wise (POPL) version
   sgather (D l u u') f = dD l (sgather u f) (GatherS u' f)
   scast (D l u u') = dD l (scast u) (CastS u')
-  sfromIntegral (D l u _) = dDnotShared l (sfromIntegral u) dZero
+  sfromIntegral (D l u _) =
+    let v = sfromIntegral u
+    in dDnotShared l v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
 
   ssumOfList lu =
@@ -376,7 +392,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
        (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
   saddDynamic = undefined
 
-  sconstant t = let (l, r) = sletUnwrap t in dDnotShared l r dZero
+  sconstant t = let (l, r) = sletUnwrap t in dDnotShared l r (dZeroOfShape t)
   sprimalPart (D l u _) = sletWrap l u
   sdualPart (D l _ u') = Pair (Clown (Const l)) u'
   sD ast (Pair (Clown (Const l)) delta) =

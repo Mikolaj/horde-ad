@@ -49,8 +49,11 @@ import HordeAd.Util.SizedIndex
 
 -- | The class states that @f r z@ type is the primal component
 -- of a dual number as exeplified by the operations.
+--
+-- The OfShape hacks are needed to recover shape from ranked tensors,
+-- in particular in case of numeric literals and also for forward derivative.
 class IsPrimal f r z where
-  dZero :: Dual f r z
+  dZeroOfShape :: f r z -> Dual f r z
   dScale :: f r z -> Dual f r z -> Dual f r z
   dAdd :: Dual f r z -> Dual f r z -> Dual f r z
   intOfShape :: f r z -> Int -> f r z
@@ -89,17 +92,17 @@ class IsPrimal f r z where
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
 instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
-  dZero = ZeroR
-  dScale _ ZeroR = ZeroR
+  dZeroOfShape tsh = ZeroR (tshape tsh)
+  dScale _ (ZeroR sh) = ZeroR sh
   dScale v u' = ScaleR v u'
-  dAdd ZeroR w = w
-  dAdd v ZeroR = v
+  dAdd ZeroR{} w = w
+  dAdd v ZeroR{} = v
   dAdd v w = AddR v w
   intOfShape tsh c =
     tconst $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
   recordSharingPrimal r l = (l, r)
   recordSharing d = case d of
-    ZeroR -> d
+    ZeroR{} -> d
     InputR{} -> d
     DToR{} -> d
     SToR{} -> d
@@ -107,17 +110,17 @@ instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
     _ -> wrapDeltaR d
 
 instance (GoodScalar r, KnownNat n) => IsPrimal (AstRanked PrimalSpan) r n where
-  dZero = ZeroR
-  dScale _ ZeroR = ZeroR
+  dZeroOfShape tsh = ZeroR (tshape tsh)
+  dScale _ (ZeroR sh) = ZeroR sh
   dScale v u' = ScaleR v u'
-  dAdd ZeroR w = w
-  dAdd v ZeroR = v
+  dAdd ZeroR{} w = w
+  dAdd v ZeroR{} = v
   dAdd v w = AddR v w
   intOfShape tsh c =
     tconst $ OR.constant (shapeToList $ tshape tsh) (fromIntegral c)
   recordSharingPrimal = astRegisterADShare
   recordSharing d = case d of
-    ZeroR -> d
+    ZeroR{} -> d
     InputR{} -> d
     DToR{} -> d
     SToR{} -> d
@@ -125,7 +128,7 @@ instance (GoodScalar r, KnownNat n) => IsPrimal (AstRanked PrimalSpan) r n where
     _ -> wrapDeltaR d
 
 instance (GoodScalar r, OS.Shape sh) => IsPrimal (Flip OS.Array) r sh where
-  dZero = ZeroS
+  dZeroOfShape _tsh = ZeroS
   dScale _ ZeroS = ZeroS
   dScale v u' = ScaleS v u'
   dAdd ZeroS w = w
@@ -144,7 +147,7 @@ instance (GoodScalar r, OS.Shape sh) => IsPrimal (Flip OS.Array) r sh where
 
 instance (GoodScalar r, OS.Shape sh)
          => IsPrimal (AstShaped PrimalSpan) r sh where
-  dZero = ZeroS
+  dZeroOfShape _tsh = ZeroS
   dScale _ ZeroS = ZeroS
   dScale v u' = ScaleS v u'
   dAdd ZeroS w = w

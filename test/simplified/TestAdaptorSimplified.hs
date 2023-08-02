@@ -116,7 +116,8 @@ testTrees =
   , testCase "2barReluMax" testBarReluMax
   , testCase "2barReluMax3" testBarReluMax3
   , testCase "2barReluMax3CFwd" testBarReluMax3CFwd
-  , testCase "2barReluMax3Fwd" testBarReluMax3Fwd
+  , testCase "2barReluMax3FwdS" testBarReluMax3FwdS
+  , testCase "2barReluMax3FwdR" testBarReluMax3FwdR
   , testCase "2barReluAst0" testBarReluAst0
   , testCase "2barReluAst1" testBarReluAst1
   , testCase "2konstReluAst" testReplicateReluAst
@@ -814,7 +815,7 @@ testReluMaxPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m2 -> tgather [3,4] (tfromList [treplicate 3 (treplicate 4 (tconst 0.0)), m2]) (\\[i7, i8] -> [ifF (tconst 0.0 >=. m2 ! [i7, i8]) 0 1, i7, i8])"
   show deltas
-    @?= "LetR 100000004 (GatherR [3,4] (LetR 100000003 (FromListR [ZeroR,InputR (InputId 0)])) <function> [2,3,4])"
+    @?= "LetR 100000004 (GatherR [3,4] (LetR 100000003 (FromListR [ZeroR [3,4],InputR (InputId 0)])) <function> [2,3,4])"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do
@@ -839,7 +840,7 @@ testReluMaxPP2 = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\v2 x3 -> tgather [5] (tfromList [treplicate 5 (tconst 0.0), v2 * treplicate 5 x3]) (\\[i6] -> [ifF (tconst 0.0 >=. v2 ! [i6] * x3) 0 1, i6])"
   show deltas
-    @?= "LetR 100000011 (GatherR [5] (LetR 100000010 (FromListR [ZeroR,LetR 100000009 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000008 (ReplicateR 5 (InputR (InputId 1))))))])) <function> [2,5])"
+    @?= "LetR 100000011 (GatherR [5] (LetR 100000010 (FromListR [ZeroR [5],LetR 100000009 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000008 (ReplicateR 5 (InputR (InputId 1))))))])) <function> [2,5])"
 
 testReluMax3 :: Assertion
 testReluMax3 = do
@@ -1246,9 +1247,9 @@ testBarReluMax3CFwd :: Assertion
 testBarReluMax3CFwd =
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
-    (cfwd @Double @3 barReluMax (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2])
-                                (Flip $ OR.fromList [2, 1, 2]
-                                                    [0.1, 0.2, 0.3, 0.42]))
+    (cfwd @Double @3 barReluMax
+                     (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2])
+                     (Flip $ OR.fromList [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
 reluMaxS :: forall shaped sh r.
             (ADReadyS shaped, GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
@@ -1261,17 +1262,25 @@ barReluMaxS
   => shaped r sh -> shaped r sh
 barReluMaxS x = reluMaxS $ bar (x, reluMaxS x)
 
--- The shape of FromListR[ZeroR] can't be determined in buildDerivative,
--- so this needs to be instead converted to shaped tensors.
-testBarReluMax3Fwd :: Assertion
-testBarReluMax3Fwd =
+-- Previously the shape of FromListR[ZeroR] couldn't be determined
+-- in buildDerivative, so this was needed. See below that it now works fine.
+testBarReluMax3FwdS :: Assertion
+testBarReluMax3FwdS =
   assertEqualUpToEpsilon 1e-10
     (Flip $ OS.fromList @'[2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
     (fwd @Double @'[2, 1, 2]
--- fails:         (sfromR . barReluMax . tfromS)
          barReluMaxS
-           (Flip $ OS.fromList @'[2, 1, 2] [1.1, 2, 3, 4.2])
-           (Flip $ OS.fromList @'[2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
+         (Flip $ OS.fromList @'[2, 1, 2] [1.1, 2, 3, 4.2])
+         (Flip $ OS.fromList @'[2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
+
+testBarReluMax3FwdR :: Assertion
+testBarReluMax3FwdR =
+  assertEqualUpToEpsilon1 1e-10
+    (OR.fromList [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
+    (fwd @Double @3
+         barReluMax
+         (Flip $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2])
+         (Flip $ OR.fromList [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
 barReluAst
   :: forall n r.
