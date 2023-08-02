@@ -430,6 +430,12 @@ shapeDelta = \case
   DToR (SToD @sh _) -> listShapeToShape $ OS.shapeT @sh
   SToR @sh _ -> listShapeToShape $ OS.shapeT @sh
 
+lengthDelta :: forall ranked shaped r n. (KnownNat n, RankedTensor ranked)
+            => DeltaR ranked shaped r (1 + n) -> Int
+lengthDelta d = case shapeDelta d of
+  ZS -> error "lengthDelta: impossible pattern needlessly required"
+  k :$ _ -> k
+
 
 -- * Delta expression identifiers
 
@@ -938,13 +944,14 @@ buildFinMaps s0 deltaDt =
                      , dMap = EM.insert n cs $ dMap s }
               _ -> error "buildFinMaps: corrupted nMap"
 
-        IndexR d ix sh -> evalR s (tscatter @ranked @r @0 sh c (const ix)) d
+        IndexR d ix _sh -> evalR s (tscatter @ranked @r @0
+                                             (shapeDelta d) c (const ix)) d
           -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
-        SumR n d -> evalR s (treplicate n c) d
-        Sum0R sh d -> evalR s (treplicate0N sh c) d
+        SumR _n d -> evalR s (treplicate (lengthDelta d) c) d
+        Sum0R _sh d -> evalR s (treplicate0N (shapeDelta d) c) d
         Dot0R v vd -> evalR s (v * treplicate0N (tshape v) c) vd
                      -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
-        ScatterR _sh d f shd -> evalR s (tgather shd c f) d
+        ScatterR _sh d f _shd -> evalR s (tgather (shapeDelta d) c f) d
 
         FromListR ld ->
           ifoldl' (\s2 i d2 ->
@@ -953,27 +960,28 @@ buildFinMaps s0 deltaDt =
           V.ifoldl' (\s2 i d2 ->
             evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) sShared ld
         ReplicateR _n d -> evalR s (tsum c) d
-        AppendR d k e -> case tshape c of
-          n :$ _ -> let s2 = evalR sShared (tslice 0 k cShared) d
+        AppendR d _k e -> case tshape c of
+          n :$ _ -> let k = lengthDelta d
+                        s2 = evalR sShared (tslice 0 k cShared) d
                     in evalR s2 (tslice k (n - k) cShared) e
           ZS -> error "evalR: impossible pattern needlessly required"
-        SliceR i n d len -> case tshape c of
+        SliceR i n d _len -> case tshape c of
           n' :$ rest ->
             assert (n' == n `blame` (n', n)) $
             evalR s (tconcat [ tzero (i :$ rest)
                              , c
-                             , tzero (len - i - n :$ rest) ])
+                             , tzero (lengthDelta d - i - n :$ rest) ])
                     d
           ZS -> error "evalR: impossible pattern needlessly required"
         ReverseR d -> evalR s (treverse c) d
         TransposeR perm d ->
           let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
           in evalR s (ttranspose perm_reversed c) d
-        ReshapeR sh _sh' d -> evalR s (treshape sh c) d
+        ReshapeR _sh _sh' d -> evalR s (treshape (shapeDelta d) c) d
         BuildR n f ->
           foldl' (\s2 i -> evalR s2 (tindex cShared (i :. ZI)) (f i))
                  sShared (fromIntegral <$> [0 .. n - 1])
-        GatherR _sh d f shd -> evalR s (tscatter shd c f) d
+        GatherR _sh d f _shd -> evalR s (tscatter (shapeDelta d) c f) d
         CastR d -> evalR s (tcast c) d
 
         DToR (RToD @n2 d) ->
