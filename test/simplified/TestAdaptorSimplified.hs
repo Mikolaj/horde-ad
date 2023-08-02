@@ -463,7 +463,7 @@ testOverleafPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= printPrimal6Pretty renames artifactRev
   show deltas
-    @?= "LetR 100000002 (SumR 50 (LetR 100000001 (GatherR [50] (InputR [28] (InputId 0)) <function> [28])))"
+    @?= "LetR 100000002 (SumR (LetR 100000001 (GatherR [50] (InputR [28] (InputId 0)) <function>)))"
 
 foo :: RealFloat a => (a, a, a) -> a
 foo (x, y, z) =
@@ -727,7 +727,7 @@ testReluSimplerPP4 = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m2 x3 -> let m9 = m2 * treplicate 3 (treplicate 4 x3) in tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i10, i11] -> [ifF (m9 ! [i10, i11] <=. tconst 0.0) 0 1]) * m9"
   show deltas
-    @?= "LetR 100000005 (ScaleR (AstVar [3,4] (AstVarId 100000012)) (LetR 100000003 (AddR (ScaleR (AstVar [3,4] (AstVarId 100000008)) (InputR [3,4] (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000002)) (LetR 100000002 (ReshapeR [12] [3,4] (LetR 100000001 (ReplicateR 12 (InputR [] (InputId 1))))))))))"
+    @?= "LetR 100000005 (ScaleR (AstVar [3,4] (AstVarId 100000012)) (LetR 100000003 (AddR (ScaleR (AstVar [3,4] (AstVarId 100000008)) (InputR [3,4] (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000002)) (LetR 100000002 (ReshapeR [3,4] (LetR 100000001 (ReplicateR 12 (InputR [] (InputId 1))))))))))"
 
 testReluSimpler4 :: Assertion
 testReluSimpler4 = do
@@ -816,7 +816,7 @@ testReluMaxPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m2 -> tgather [3,4] (tfromList [treplicate 3 (treplicate 4 (tconst 0.0)), m2]) (\\[i7, i8] -> [ifF (tconst 0.0 >=. m2 ! [i7, i8]) 0 1, i7, i8])"
   show deltas
-    @?= "LetR 100000004 (GatherR [3,4] (LetR 100000003 (FromListR [ZeroR [3,4],InputR [3,4] (InputId 0)])) <function> [2,3,4])"
+    @?= "LetR 100000004 (GatherR [3,4] (LetR 100000003 (FromListR [ZeroR [3,4],InputR [3,4] (InputId 0)])) <function>)"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do
@@ -841,7 +841,7 @@ testReluMaxPP2 = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\v2 x3 -> tgather [5] (tfromList [treplicate 5 (tconst 0.0), v2 * treplicate 5 x3]) (\\[i6] -> [ifF (tconst 0.0 >=. v2 ! [i6] * x3) 0 1, i6])"
   show deltas
-    @?= "LetR 100000011 (GatherR [5] (LetR 100000010 (FromListR [ZeroR [5],LetR 100000009 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000008 (ReplicateR 5 (InputR [] (InputId 1))))))])) <function> [2,5])"
+    @?= "LetR 100000011 (GatherR [5] (LetR 100000010 (FromListR [ZeroR [5],LetR 100000009 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000008 (ReplicateR 5 (InputR [] (InputId 1))))))])) <function>)"
 
 testReluMax3 :: Assertion
 testReluMax3 = do

@@ -278,19 +278,18 @@ data DeltaR :: RankedTensorKind -> ShapedTensorKind
 
   IndexR :: (KnownNat n, KnownNat m)
          => DeltaR ranked shaped r (m + n) -> IndexOf ranked m
-         -> ShapeInt (m + n) -> DeltaR ranked shaped r n
+         -> DeltaR ranked shaped r n
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. If index is out of bounds, the result is defined and is 0.
   SumR :: KnownNat n
-       => Int -> DeltaR ranked shaped r (1 + n) -> DeltaR ranked shaped r n
+       => DeltaR ranked shaped r (1 + n) -> DeltaR ranked shaped r n
   Sum0R :: KnownNat n
-       => ShapeInt n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r 0
+        => DeltaR ranked shaped r n -> DeltaR ranked shaped r 0
   Dot0R :: KnownNat n
-       => ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r 0
+        => ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r 0
   ScatterR :: (KnownNat m, KnownNat p, KnownNat n)
            => ShapeInt (p + n) -> DeltaR ranked shaped r (m + n)
            -> (IndexOf ranked m -> IndexOf ranked p)
-           -> ShapeInt (m + n)
            -> DeltaR ranked shaped r (p + n)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
@@ -310,21 +309,20 @@ data DeltaR :: RankedTensorKind -> ShapedTensorKind
               -> DeltaR ranked shaped r (1 + n)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   ReplicateR :: KnownNat n
-         => Int -> DeltaR ranked shaped r n -> DeltaR ranked shaped r (1 + n)
+             => Int -> DeltaR ranked shaped r n
+             -> DeltaR ranked shaped r (1 + n)
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendR :: KnownNat n
-          => DeltaR ranked shaped r (1 + n) -> Int
+          => DeltaR ranked shaped r (1 + n)
           -> DeltaR ranked shaped r (1 + n)
           -> DeltaR ranked shaped r (1 + n)
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
-    -- The integer argument is the outermost size of the first array.
   SliceR :: KnownNat n
-         => Int -> Int -> DeltaR ranked shaped r (1 + n) -> Int
+         => Int -> Int -> DeltaR ranked shaped r (1 + n)
          -> DeltaR ranked shaped r (1 + n)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
-    -- The last argument is the outermost size of the argument array.
   ReverseR :: KnownNat n
            => DeltaR ranked shaped r (1 + n) -> DeltaR ranked shaped r (1 + n)
     -- ^ Reverse elements of the outermost dimension.
@@ -333,9 +331,9 @@ data DeltaR :: RankedTensorKind -> ShapedTensorKind
              -> DeltaR ranked shaped r n
     -- ^ Transpose according to the permutation.
   ReshapeR :: (KnownNat n, KnownNat m)
-           => ShapeInt n -> ShapeInt m -> DeltaR ranked shaped r n
-          -> DeltaR ranked shaped r m
-    -- ^ Change the shape of the tensor from the first to the second.
+           => ShapeInt m -> DeltaR ranked shaped r n
+           -> DeltaR ranked shaped r m
+    -- ^ Change the shape of the tensor to the given one.
   BuildR :: KnownNat n
          => Int -> (IntOf ranked -> DeltaR ranked shaped r n)
          -> DeltaR ranked shaped r (1 + n)
@@ -344,7 +342,6 @@ data DeltaR :: RankedTensorKind -> ShapedTensorKind
   GatherR :: (KnownNat m, KnownNat p, KnownNat n)
           => ShapeInt (m + n) -> DeltaR ranked shaped r (p + n)
           -> (IndexOf ranked m -> IndexOf ranked p)
-          -> ShapeInt (p + n)
           -> DeltaR ranked shaped r (m + n)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
@@ -395,11 +392,11 @@ shapeDelta = \case
   ScaleR _ d -> shapeDelta d
   AddR d _ -> shapeDelta d
   LetR _ d -> shapeDelta d
-  IndexR d _ _ -> dropShape (shapeDelta d)
-  SumR _ d -> tailShape (shapeDelta d)
+  IndexR d _ -> dropShape (shapeDelta d)
+  SumR d -> tailShape (shapeDelta d)
   Sum0R{} -> ZS
   Dot0R{} -> ZS
-  ScatterR sh _ _ _ -> sh
+  ScatterR sh _ _ -> sh
   FromListR l -> case l of
     [] -> case sameNat (Proxy @n) (Proxy @1) of
       Just Refl -> singletonShape 0  -- the only case where we can guess sh
@@ -411,17 +408,17 @@ shapeDelta = \case
       _ -> error "shapeDelta: FromListR with no arguments"
     d : _ -> length l :$ shapeDelta d
   ReplicateR n d -> n :$ shapeDelta d
-  AppendR x _ y -> case shapeDelta x of
+  AppendR x y -> case shapeDelta x of
     ZS -> error "shapeDelta: impossible pattern needlessly required"
     xi :$ xsh -> case shapeDelta y of
       ZS -> error "shapeDelta: impossible pattern needlessly required"
       yi :$ _ -> xi + yi :$ xsh
-  SliceR _ n d _ -> n :$ tailShape (shapeDelta d)
+  SliceR _ n d -> n :$ tailShape (shapeDelta d)
   ReverseR d -> shapeDelta d
   TransposeR perm d -> backpermutePrefixShape perm (shapeDelta d)
-  ReshapeR _ sh _ -> sh
+  ReshapeR sh _ -> sh
   BuildR n f -> n :$ shapeDelta (f 0)  -- fishy, but should not appear anyway
-  GatherR sh _ _ _  -> sh
+  GatherR sh _ _ -> sh
   CastR d -> shapeDelta d
   DToR (RToD @n2 d) ->
     case sameNat (Proxy @n) (Proxy @n2) of
@@ -944,14 +941,14 @@ buildFinMaps s0 deltaDt =
                      , dMap = EM.insert n cs $ dMap s }
               _ -> error "buildFinMaps: corrupted nMap"
 
-        IndexR d ix _sh -> evalR s (tscatter @ranked @r @0
+        IndexR d ix -> evalR s (tscatter @ranked @r @0
                                              (shapeDelta d) c (const ix)) d
           -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
-        SumR _n d -> evalR s (treplicate (lengthDelta d) c) d
-        Sum0R _sh d -> evalR s (treplicate0N (shapeDelta d) c) d
+        SumR d -> evalR s (treplicate (lengthDelta d) c) d
+        Sum0R d -> evalR s (treplicate0N (shapeDelta d) c) d
         Dot0R v vd -> evalR s (v * treplicate0N (tshape v) c) vd
                      -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
-        ScatterR _sh d f _shd -> evalR s (tgather (shapeDelta d) c f) d
+        ScatterR _sh d f -> evalR s (tgather (shapeDelta d) c f) d
 
         FromListR ld ->
           ifoldl' (\s2 i d2 ->
@@ -960,12 +957,12 @@ buildFinMaps s0 deltaDt =
           V.ifoldl' (\s2 i d2 ->
             evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) sShared ld
         ReplicateR _n d -> evalR s (tsum c) d
-        AppendR d _k e -> case tshape c of
+        AppendR d e -> case tshape c of
           n :$ _ -> let k = lengthDelta d
                         s2 = evalR sShared (tslice 0 k cShared) d
                     in evalR s2 (tslice k (n - k) cShared) e
           ZS -> error "evalR: impossible pattern needlessly required"
-        SliceR i n d _len -> case tshape c of
+        SliceR i n d -> case tshape c of
           n' :$ rest ->
             assert (n' == n `blame` (n', n)) $
             evalR s (tconcat [ tzero (i :$ rest)
@@ -977,11 +974,11 @@ buildFinMaps s0 deltaDt =
         TransposeR perm d ->
           let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
           in evalR s (ttranspose perm_reversed c) d
-        ReshapeR _sh _sh' d -> evalR s (treshape (shapeDelta d) c) d
+        ReshapeR _sh d -> evalR s (treshape (shapeDelta d) c) d
         BuildR n f ->
           foldl' (\s2 i -> evalR s2 (tindex cShared (i :. ZI)) (f i))
                  sShared (fromIntegral <$> [0 .. n - 1])
-        GatherR _sh d f _shd -> evalR s (tscatter (shapeDelta d) c f) d
+        GatherR _sh d f -> evalR s (tscatter (shapeDelta d) c f) d
         CastR d -> evalR s (tcast c) d
 
         DToR (RToD @n2 d) ->
@@ -1178,13 +1175,13 @@ buildDerivative dimR deltaDt params = do
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
-        IndexR d ix _len -> (`tindex` ix) <$> evalR d
-        SumR _ d -> tsum <$> evalR d
-        Sum0R _ ZeroR{} -> return 0
-        Sum0R _ d -> tsum0 <$> evalR d
+        IndexR d ix -> (`tindex` ix) <$> evalR d
+        SumR d -> tsum <$> evalR d
+        Sum0R ZeroR{} -> return 0
+        Sum0R d -> tsum0 <$> evalR d
         Dot0R _ ZeroR{} -> return 0
         Dot0R v d -> tdot0 v <$> evalR d
-        ScatterR sh d f _shd ->  do
+        ScatterR sh d f ->  do
           t <- evalR d
           return $! tscatter sh t f
 
@@ -1197,15 +1194,15 @@ buildDerivative dimR deltaDt params = do
         ReplicateR n d -> do
           t <- evalR d
           return $! treplicate n t
-        AppendR d _k e -> liftM2 tappend (evalR d) (evalR e)
-        SliceR i n d _len -> tslice i n <$> evalR d
+        AppendR d e -> liftM2 tappend (evalR d) (evalR e)
+        SliceR i n d -> tslice i n <$> evalR d
         ReverseR d -> treverse <$> evalR d
         TransposeR perm d -> ttranspose perm <$> evalR d
-        ReshapeR _sh sh' d -> treshape sh' <$> evalR d
+        ReshapeR sh d -> treshape sh <$> evalR d
         BuildR n f -> do
           l <- mapM (evalR . f . fromIntegral) [0 .. n - 1]
           return $! tfromList l
-        GatherR sh d f _shd -> do
+        GatherR sh d f -> do
           t <- evalR d
           return $! tgather sh t f
         CastR d -> do
