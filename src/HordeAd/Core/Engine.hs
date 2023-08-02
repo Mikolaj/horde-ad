@@ -21,7 +21,7 @@ module HordeAd.Core.Engine
     -- * Old derivative adaptors, with constant and fixed inputs
   , cfwd, cfwdOnDomains, cfwdOnADInputs
     -- * Additional common mechanisms
-  , generateDeltaInputs, makeADInputs, shapedToRanked
+  , generateDeltaInputsOD, generateDeltaInputsAst, makeADInputs, shapedToRanked
   ) where
 
 import Prelude
@@ -51,6 +51,7 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Util.SizedIndex
 
 -- * Reverse derivative adaptors
 
@@ -263,7 +264,7 @@ forwardPassByInterpretation
   -> ADVal (AstRanked PrimalSpan) r n
 {-# INLINE forwardPassByInterpretation #-}
 forwardPassByInterpretation g envInit domainsPrimal vars domains =
-  let deltaInputs = generateDeltaInputs domainsPrimal
+  let deltaInputs = generateDeltaInputsAst domainsPrimal
       varInputs = makeADInputs domainsPrimal deltaInputs
       ast = g domains
       env = foldr extendEnvDR envInit $ zip vars $ V.toList varInputs
@@ -279,7 +280,7 @@ forwardPassByInterpretationS
   -> ADVal (AstShaped PrimalSpan) r sh
 {-# INLINE forwardPassByInterpretationS #-}
 forwardPassByInterpretationS g envInit domainsPrimal vars domains =
-  let deltaInputs = generateDeltaInputs domainsPrimal
+  let deltaInputs = generateDeltaInputsAst domainsPrimal
       varInputs = makeADInputs domainsPrimal deltaInputs
       ast = g domains
       env = foldr extendEnvDS envInit $ zip vars $ V.toList varInputs
@@ -293,7 +294,7 @@ forwardPassByApplication
   -> ADVal (g PrimalSpan) r y
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g domainsPrimal _ _ =
-  let deltaInputs = generateDeltaInputs domainsPrimal
+  let deltaInputs = generateDeltaInputsAst domainsPrimal
       varInputs = makeADInputs domainsPrimal deltaInputs
   in g varInputs
 
@@ -444,7 +445,7 @@ crevOnDomains
   -> DomainsOD
   -> (DomainsOD, f r y)
 crevOnDomains dt f parameters =
-  let deltaInputs = generateDeltaInputs parameters
+  let deltaInputs = generateDeltaInputsOD parameters
       inputs = makeADInputs parameters deltaInputs
   in crevOnADInputs dt f inputs
 
@@ -492,7 +493,7 @@ cfwdOnDomains
   -> DomainsOD
   -> (f r y, f r y)
 cfwdOnDomains parameters f ds =
-  let deltaInputs = generateDeltaInputs parameters
+  let deltaInputs = generateDeltaInputsOD parameters
       inputs = makeADInputs parameters deltaInputs
   in cfwdOnADInputs inputs f ds
 
@@ -514,23 +515,51 @@ cfwdOnADInputs inputs f ds =
 
 type DualClown dynamic = Flip (Dual (Clown dynamic)) '()
 
-generateDeltaInputs
+-- Actually, this is fully general, not only working for DomainsOD.
+generateDeltaInputsOD
   :: forall ranked shaped dynamic.
      ( dynamic ~ DynamicOf ranked, ConvertTensor ranked shaped
      , Dual (Clown dynamic) ~ DeltaD ranked shaped )
   => Domains dynamic
   -> Domains (DualClown dynamic)
-{-# INLINE generateDeltaInputs #-}
-generateDeltaInputs params =
+{-# INLINE generateDeltaInputsOD #-}
+generateDeltaInputsOD params =
   let arrayToInput :: Int
                    -> DynamicExists dynamic
                    -> DynamicExists (DualClown dynamic)
       arrayToInput i (DynamicExists @r t) =
-        case someNatVal $ toInteger $ length $ dshape @ranked t of
+        let shl = dshape @ranked t
+        in case someNatVal $ toInteger $ length shl of
           Just (SomeNat (_ :: Proxy n)) ->
-            DynamicExists $ Flip $ RToD $ InputR @ranked @shaped @r @n
-                                 $ toInputId i
+            let sh = listShapeToShape shl
+            in DynamicExists $ Flip $ RToD $ InputR @ranked @shaped @r @n
+                                                    sh (toInputId i)
           Nothing -> error "generateDeltaInputs: impossible someNatVal error"
+  in V.imap arrayToInput params
+{- TODO: this can't be specified without a proxy, so we inline instead
+{-# SPECIALIZE generateDeltaInputs
+  :: DomainsOD -> Data.Vector.Vector (Dual OD.Array Double) #-}
+-}
+
+-- This is preferred for AstDynamic, because it results in shorter terms.
+generateDeltaInputsAst
+  :: forall ranked shaped dynamic.
+     ( dynamic ~ AstDynamic PrimalSpan
+     , Dual (Clown dynamic) ~ DeltaD ranked shaped )
+  => Domains dynamic
+  -> Domains (DualClown dynamic)
+{-# INLINE generateDeltaInputsAst #-}
+generateDeltaInputsAst params =
+  let arrayToInput :: Int
+                   -> DynamicExists dynamic
+                   -> DynamicExists (DualClown dynamic)
+      arrayToInput i (DynamicExists @r d) = case d of
+        AstRToD @n w ->
+          DynamicExists $ Flip $ RToD $ InputR @ranked @shaped @r @n
+                                               (tshape w) (toInputId i)
+        AstSToD @sh _w ->
+          DynamicExists $ Flip $ SToD $ InputS @ranked @shaped @r @sh
+                                               (toInputId i)
   in V.imap arrayToInput params
 {- TODO: this can't be specified without a proxy, so we inline instead
 {-# SPECIALIZE generateDeltaInputs

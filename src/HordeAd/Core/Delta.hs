@@ -268,7 +268,8 @@ data DeltaR :: RankedTensorKind -> ShapedTensorKind
             -> RankedTensorKind where
   ZeroR :: ShapeInt n -> DeltaR ranked shaped r n
     -- ^ the shape is required for @shapeDelta@ and forward derivative
-  InputR :: InputId ranked -> DeltaR ranked shaped r n
+  InputR :: forall ranked shaped r n.
+            ShapeInt n -> InputId ranked -> DeltaR ranked shaped r n
   ScaleR :: ranked r n -> DeltaR ranked shaped r n -> DeltaR ranked shaped r n
   AddR :: DeltaR ranked shaped r n -> DeltaR ranked shaped r n
        -> DeltaR ranked shaped r n
@@ -390,7 +391,7 @@ shapeDelta :: forall ranked shaped r n. (KnownNat n, RankedTensor ranked)
            => DeltaR ranked shaped r n -> ShapeInt n
 shapeDelta = \case
   ZeroR sh -> sh
-  InputR (InputId i) -> undefined
+  InputR sh _ -> sh
   ScaleR _ d -> shapeDelta d
   AddR d _ -> shapeDelta d
   LetR _ d -> shapeDelta d
@@ -889,7 +890,7 @@ buildFinMaps s0 deltaDt =
                         sShared = s {astBindings = abShared}
                     in \case
         ZeroR{} -> s
-        InputR i -> s {iMap = EM.adjust (raddDynamic c) i $ iMap s}
+        InputR _ i -> s {iMap = EM.adjust (raddDynamic c) i $ iMap s}
         ScaleR k d -> evalR s (k * c) d
         AddR d e -> evalR (evalR sShared cShared d) cShared e
         LetR n d ->
@@ -1140,7 +1141,7 @@ buildDerivative dimR deltaDt params = do
             => DeltaR ranked shaped r n -> ST s (ranked r n)
       evalR = \case
         ZeroR sh -> return $ tzero sh
-        InputR (InputId i) ->
+        InputR _ (InputId i) ->
           if i < dimR
           then case params V.! i of
             DynamicExists @r2 e ->
