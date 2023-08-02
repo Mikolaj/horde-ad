@@ -117,6 +117,7 @@ testTrees =
   , testCase "2barReluMax3" testBarReluMax3
   , testCase "2barReluMax3CFwd" testBarReluMax3CFwd
   , testCase "2barReluMax3FwdS" testBarReluMax3FwdS
+  , testCase "2barReluMax3FwdFrom" testBarReluMax3FwdFrom
   , testCase "2barReluMax3FwdR" testBarReluMax3FwdR
   , testCase "2barReluAst0" testBarReluAst0
   , testCase "2barReluAst1" testBarReluAst1
@@ -1270,6 +1271,15 @@ testBarReluMax3FwdS =
     (Flip $ OS.fromList @'[2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
     (fwd @Double @'[2, 1, 2]
          barReluMaxS
+         (Flip $ OS.fromList @'[2, 1, 2] [1.1, 2, 3, 4.2])
+         (Flip $ OS.fromList @'[2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
+
+testBarReluMax3FwdFrom :: Assertion
+testBarReluMax3FwdFrom =
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OS.fromList @'[2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
+    (fwd @Double @'[2, 1, 2]
+         (sfromR . barReluMax . tfromS)
          (Flip $ OS.fromList @'[2, 1, 2] [1.1, 2, 3, 4.2])
          (Flip $ OS.fromList @'[2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 

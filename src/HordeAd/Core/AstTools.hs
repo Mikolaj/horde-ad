@@ -289,7 +289,7 @@ unwrapAstDomains = \case
   AstDomainsLet _ _ v -> unwrapAstDomains v
   AstDomainsLetS _ _ v -> unwrapAstDomains v
 
-bindsToLet :: forall n s r. (KnownNat n, AstSpan s)
+bindsToLet :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
            => AstRanked s r n -> [(AstId, DynamicExists (AstDynamic s))]
            -> AstRanked s r n
 {-# INLINE bindsToLet #-}  -- help list fusion
@@ -297,16 +297,16 @@ bindsToLet = foldl' bindToLet
  where
   bindToLet :: AstRanked s r n -> (AstId, DynamicExists (AstDynamic s))
             -> AstRanked s r n
-  bindToLet u (var, DynamicExists @_ @r2 d) = case d of
+  bindToLet u (var, DynamicExists d) = case d of
     AstRToD w -> AstLet (AstVarName $ astIdToAstVarId var) w u
-    AstSToD @sh w ->  -- rare or impossible, but let's implement it anyway:
-      let p = length $ OS.shapeT @sh
-      in case someNatVal $ toInteger p of
-        Just (SomeNat @p _proxy) ->
-          -- I can't use sameNat to compare the types, because no KnownNat!
-          gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: p) $
-          AstLet (AstVarName $ astIdToAstVarId var) (AstSToR w) u
-        Nothing -> error "bindsToLet: impossible someNatVal error"
+    AstSToD w ->
+      let sh = shapeToList $ shapeAst u
+      in if valueOf @n == length sh
+         then OS.withShapeP sh $ \(_proxy :: Proxy sh) ->
+           gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: n) $
+           AstSToR @sh
+           $ AstLetS (AstVarName $ astIdToAstVarId var) w (AstRToS u)
+         else error "bindsToLet: rank mismatch"
 
 bindsToLetS :: forall sh s r. (OS.Shape sh, AstSpan s)
             => AstShaped s r sh -> [(AstId, DynamicExists (AstDynamic s))]
@@ -316,14 +316,14 @@ bindsToLetS = foldl' bindToLetS
  where
   bindToLetS :: AstShaped s r sh -> (AstId, DynamicExists (AstDynamic s))
              -> AstShaped s r sh
-  bindToLetS u (var, DynamicExists @_ @r2 d) = case d of
-    AstRToD @n w ->  -- rare or impossible, but let's implement it anyway:
-      let sh = shapeToList $ shapeAst w
-      in if valueOf @n == length sh
-         then OS.withShapeP sh $ \(_proxy :: Proxy sh2) ->
-           gcastWith (unsafeCoerce Refl :: n :~: OS.Rank sh2)
-           $ AstLetS (AstVarName $ astIdToAstVarId var) (AstRToS @sh2 w) u
-         else error "bindsToLetS: rank mismatch"
+  bindToLetS u (var, DynamicExists d) = case d of
+    AstRToD w ->
+      let n = length $ OS.shapeT @sh
+      in case someNatVal $ toInteger n of
+        Just (SomeNat @n _proxy) ->
+          gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: n)
+          $ AstRToS $ AstLet (AstVarName $ astIdToAstVarId var) w (AstSToR u)
+        Nothing -> error "bindsToLetS: impossible someNatVal error"
     AstSToD w -> AstLetS (AstVarName $ astIdToAstVarId var) w u
 
 bindsToDomainsLet
