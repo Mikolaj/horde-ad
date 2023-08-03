@@ -18,7 +18,7 @@ import           Type.Reflection (typeRep)
 
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVD2)
-import HordeAd.Internal.TensorOps (isTensorDummy)
+import HordeAd.Internal.TensorOps (isTensorDummyD)
 
 updateWithGradient :: Double -> DomainsOD -> DomainsOD -> DomainsOD
 updateWithGradient gamma params gradient =
@@ -28,7 +28,7 @@ updateWithGradient gamma params gradient =
       updateR :: DynamicExists OD.Array -> DynamicExists OD.Array
               -> DynamicExists OD.Array
       updateR ei@(DynamicExists @r1 i) (DynamicExists @r2 r) =
-        if isTensorDummy r  -- eval didn't update it, would crash
+        if isTensorDummyD r  -- eval didn't update it, would crash
         then ei
         else ifDifferentiable @r1
           (case testEquality (typeRep @r1) (typeRep @r2) of
@@ -41,7 +41,7 @@ updateWithGradient gamma params gradient =
 gradientIsNil :: (Eq r, Numeric r) => DomainsOD -> Bool
 gradientIsNil (DomainsOD gradient0 gradientR) =
   V.all (== 0) gradient0
-  && V.all isTensorDummy gradientR
+  && V.all isTensorDummyD gradientR
 
 minimumGradient :: (Ord r, Numeric r) => DomainsOD -> r
 minimumGradient (DomainsOD gradient0 gradientR) =
@@ -152,7 +152,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                  , DynamicExists OD.Array )
       updateR emA@(DynamicExists @r1 mA) evA@(DynamicExists @r2 vA)
               ep@(DynamicExists @r3 p) (DynamicExists @r4 g) =
-        if isTensorDummy g  -- eval didn't update it
+        if isTensorDummyD g  -- eval didn't update it
         then (emA, evA, ep)
         else ifDifferentiable @r1
           (case ( testEquality (typeRep @r1) (typeRep @r2)

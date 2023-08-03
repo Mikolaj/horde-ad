@@ -440,7 +440,6 @@ instance ( Dual ranked ~ DeltaR ranked shaped
           _ -> error "rToS: different shapes in RToS(SToR)"
       dRToS d = RToS d
   ddummy = undefined
-  disDummy = undefined
   dshape = undefined
 
 

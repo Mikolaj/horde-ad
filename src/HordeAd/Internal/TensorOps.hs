@@ -54,17 +54,17 @@ import           HordeAd.Util.SizedIndex
 
 -- * Odds and ends
 
-dummyTensor :: Numeric r => OD.Array r
-dummyTensor =  -- an inconsistent tensor array
+dummyTensorD :: Numeric r => OD.Array r
+dummyTensorD =  -- an inconsistent tensor array
   Data.Array.Internal.DynamicS.A
   $ Data.Array.Internal.DynamicG.A []
   $ OI.T undefined (-1) V.empty
 
-isTensorDummy :: OD.Array r -> Bool
-isTensorDummy (Data.Array.Internal.DynamicS.A
-                 (Data.Array.Internal.DynamicG.A _
-                    (OI.T _ (-1) _))) = True
-isTensorDummy _ = False
+isTensorDummyD :: OD.Array r -> Bool
+isTensorDummyD (Data.Array.Internal.DynamicS.A
+                  (Data.Array.Internal.DynamicG.A _
+                     (OI.T _ (-1) _))) = True
+isTensorDummyD _ = False
 
 tindex0D :: Numeric r => OD.Array r -> [Int] -> r
 tindex0D (Data.Array.Internal.DynamicS.A

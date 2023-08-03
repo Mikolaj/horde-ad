@@ -13,13 +13,17 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
+import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
+import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 
+import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstSimplify
@@ -150,6 +154,27 @@ instance AstSpan s
   tD = astSpanD
   tScale s t = astDualPart $ AstConstant s * AstD (tzero (tshape s)) t
 
+instance ( GoodScalar r, KnownNat n
+         , RankedTensor (AstRanked s)
+         , ConvertTensor (AstRanked s) (AstShaped s) )
+         => AdaptableDomains (AstDynamic s) (AstRanked s r n) where
+  type Value (AstRanked s r n) = Flip OR.Array r n
+  toDomains = undefined
+  fromDomains aInit params = case V.uncons params of
+    Just (DynamicExists @r2 a, rest) ->
+      if isTensorDummyAst a then Just (tzero (tshape aInit), rest) else
+        case testEquality (typeRep @r) (typeRep @r2) of
+          Just Refl -> Just (tfromD a, rest)
+          _ -> error $ "fromDomains: type mismatch: "
+                       ++ show (typeRep @r) ++ " " ++ show (typeRep @r2)
+    Nothing -> Nothing
+
+isTensorDummyAst :: AstDynamic s r -> Bool
+isTensorDummyAst t = case t of
+  AstRToD AstIota -> True
+  AstSToD AstIotaS -> True
+  _ -> False
+
 instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   tfromD = astFromDynamic
   tfromS = astSToR
@@ -158,10 +183,6 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   sfromR = astRToS
   sfromD = astFromDynamicS
   ddummy = AstRToD $ fromPrimal AstIota
-  disDummy t = case t of
-    AstRToD AstIota -> True
-    AstSToD AstIotaS -> True
-    _ -> False
   dshape (AstRToD v) = shapeToList $ shapeAst v
   dshape (AstSToD @sh _) = OS.shapeT @sh
 
@@ -311,6 +332,20 @@ instance AstSpan s
   sdualPart = astSpanDualS
   sD = astSpanDS
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
+
+instance ( GoodScalar r, OS.Shape sh
+         , ShapedTensor (AstShaped s)
+         , ConvertTensor (AstRanked s) (AstShaped s) )
+         => AdaptableDomains (AstDynamic s) (AstShaped s r sh) where
+  type Value (AstShaped s r sh) = Flip OS.Array r sh
+  toDomains = undefined
+  fromDomains _aInit params = case V.uncons params of
+    Just (DynamicExists @r2 a, rest) ->
+      if isTensorDummyAst a then Just (0, rest) else
+        case testEquality (typeRep @r) (typeRep @r2) of
+          Just Refl -> Just (sfromD a, rest)
+          _ -> error "fromDomains: type mismatch"
+    Nothing -> Nothing
 
 astSpanPrimalS :: forall s r sh. (OS.Shape sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped PrimalSpan r sh

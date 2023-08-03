@@ -569,7 +569,6 @@ class ( DynamicOf ranked ~ DynamicOf shaped
   sfromD :: (GoodScalar r, OS.Shape sh)
          => DynamicOf shaped r -> shaped r sh
   ddummy :: Numeric r => DynamicOf ranked r
-  disDummy :: Numeric r => DynamicOf ranked r -> Bool
   dshape :: GoodScalar r => DynamicOf ranked r -> [Int]
 
 class DomainsTensor (ranked :: RankedTensorKind)
@@ -720,7 +719,7 @@ instance RankedTensor (Flip OR.Array) where
               => Flip OR.Array r n -> DynamicExists OD.Array
               -> DynamicExists OD.Array
   raddDynamic r (DynamicExists @r2 d) = DynamicExists $
-    if isTensorDummy d then dfromR r
+    if isTensorDummyD d then dfromR r
     else case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> dfromR r + d
       _ -> error "raddDynamic: type mismatch"
@@ -737,22 +736,7 @@ instance (GoodScalar r, KnownNat n)
   toDomains a = V.singleton $ DynamicExists $ dfromR a
   fromDomains aInit params = case V.uncons params of
     Just (DynamicExists @r2 a, rest) ->
-      if disDummy @(Flip OR.Array) a then Just (tzero (tshape aInit), rest) else
-        case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> Just (tfromD a, rest)
-          _ -> error $ "fromDomains: type mismatch: "
-                       ++ show (typeRep @r) ++ " " ++ show (typeRep @r2)
-    Nothing -> Nothing
-
-instance ( GoodScalar r, KnownNat n
-         , RankedTensor (AstRanked s)
-         , ConvertTensor (AstRanked s) (AstShaped s) )
-         => AdaptableDomains (AstDynamic s) (AstRanked s r n) where
-  type Value (AstRanked s r n) = Flip OR.Array r n
-  toDomains = undefined
-  fromDomains aInit params = case V.uncons params of
-    Just (DynamicExists @r2 a, rest) ->
-      if disDummy @(AstRanked s) a then Just (tzero (tshape aInit), rest) else
+      if isTensorDummyD a then Just (tzero (tshape aInit), rest) else
         case testEquality (typeRep @r) (typeRep @r2) of
           Just Refl -> Just (tfromD a, rest)
           _ -> error $ "fromDomains: type mismatch: "
@@ -844,7 +828,7 @@ instance ShapedTensor (Flip OS.Array) where
               => Flip OS.Array r sh -> DynamicExists OD.Array
               -> DynamicExists OD.Array
   saddDynamic r (DynamicExists @r2 d) = DynamicExists $
-    if isTensorDummy d then dfromS r
+    if isTensorDummyD d then dfromS r
     else case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> dfromS r + d
       _ -> error "saddDynamic: type mismatch"
@@ -861,21 +845,7 @@ instance (GoodScalar r, OS.Shape sh)
   toDomains a = V.singleton $ DynamicExists $ dfromS a
   fromDomains _aInit params = case V.uncons params of
     Just (DynamicExists @r2 a, rest) ->
-      if disDummy @(Flip OR.Array) a then Just (0, rest) else
-        case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> Just (sfromD a, rest)
-          _ -> error "fromDomains: type mismatch"
-    Nothing -> Nothing
-
-instance ( GoodScalar r, OS.Shape sh
-         , ShapedTensor (AstShaped s)
-         , ConvertTensor (AstRanked s) (AstShaped s) )
-         => AdaptableDomains (AstDynamic s) (AstShaped s r sh) where
-  type Value (AstShaped s r sh) = Flip OS.Array r sh
-  toDomains = undefined
-  fromDomains _aInit params = case V.uncons params of
-    Just (DynamicExists @r2 a, rest) ->
-      if disDummy @(AstRanked s) a then Just (0, rest) else
+      if isTensorDummyD a then Just (0, rest) else
         case testEquality (typeRep @r) (typeRep @r2) of
           Just Refl -> Just (sfromD a, rest)
           _ -> error "fromDomains: type mismatch"
@@ -920,6 +890,5 @@ instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   dfromS = Data.Array.Convert.convert . runFlip
   sfromR = Flip . Data.Array.Convert.convert . runFlip
   sfromD = Flip . Data.Array.Convert.convert
-  ddummy = dummyTensor
-  disDummy = isTensorDummy
+  ddummy = dummyTensorD
   dshape = OD.shapeL
