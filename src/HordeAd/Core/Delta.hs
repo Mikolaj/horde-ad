@@ -465,7 +465,7 @@ class DualPart (f :: TensorKind k) where
   forwardDerivative
     :: (HasSingletonDict y, GoodScalar r)
     => Int -> Dual f r y -> Domains (DynamicOf f)
-    -> f r y
+    -> ([(AstId, DynamicExists (DynamicOf f))], f r y)
 
 instance DualPart @() (Clown OD.Array) where
   type Dual (Clown OD.Array) = DeltaD (Flip OR.Array) (Flip OS.Array)
@@ -503,13 +503,14 @@ derivativeFromDeltaD
      ( GoodScalar r
      , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> DeltaD ranked shaped r y -> Domains (DynamicOf ranked)
-  -> Clown (DynamicOf ranked) r y
+  -> ( [(AstId, DynamicExists (DynamicOf ranked))]
+     , Clown (DynamicOf ranked) r y )
 derivativeFromDeltaD dim deltaTopLevel ds =
   case runST $ buildDerivative dim (DeltaDtD (dfromR @ranked @shaped @r @0 0)
                                              deltaTopLevel) ds of
-    DeltaDtD res _ -> Clown res
-    DeltaDtR{} -> error "derivativeFromDeltaD"
-    DeltaDtS{} -> error "derivativeFromDeltaD"
+    (l, DeltaDtD res _) -> (l, Clown res)
+    (_, DeltaDtR{}) -> error "derivativeFromDeltaD"
+    (_, DeltaDtS{}) -> error "derivativeFromDeltaD"
 
 instance DualPart @Nat (Flip OR.Array) where
   type Dual (Flip OR.Array) = DeltaR (Flip OR.Array) (Flip OS.Array)
@@ -552,15 +553,16 @@ derivativeFromDeltaR
        ( KnownNat n, GoodScalar r
        , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> DeltaR ranked shaped r n -> Domains (DynamicOf ranked)
-  -> ranked r n
+  -> ( [(AstId, DynamicExists (DynamicOf ranked))]
+     , ranked r n )
 derivativeFromDeltaR dim deltaTopLevel ds =
   let dummyZero = tzero $ listShapeToShape $ replicate (valueOf @n) 1
   in case runST $ buildDerivative dim (DeltaDtR dummyZero deltaTopLevel) ds of
-    DeltaDtR @_ @n2 res _ -> case sameNat (Proxy @n) (Proxy @n2) of
-      Just Refl -> res
+    (l, DeltaDtR @_ @n2 res _) -> case sameNat (Proxy @n) (Proxy @n2) of
+      Just Refl -> (l, res)
       _ -> error "derivativeFromDeltaR"
-    DeltaDtS{} -> error "derivativeFromDeltaR"
-    DeltaDtD{} -> error "derivativeFromDeltaR"
+    (_, DeltaDtS{}) -> error "derivativeFromDeltaR"
+    (_, DeltaDtD{}) -> error "derivativeFromDeltaR"
 
 instance DualPart @[Nat] (Flip OS.Array) where
   type Dual (Flip OS.Array) = DeltaS (Flip OR.Array) (Flip OS.Array)
@@ -602,14 +604,15 @@ derivativeFromDeltaS
      ( OS.Shape sh, GoodScalar r
      , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> DeltaS ranked shaped r sh -> Domains (DynamicOf shaped)
-  -> shaped r sh
+  -> ( [(AstId, DynamicExists (DynamicOf ranked))]
+     , shaped r sh )
 derivativeFromDeltaS dim deltaTopLevel ds =
   case runST $ buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
-    DeltaDtS @_ @sh2 res _ -> case sameShape @sh @sh2 of
-      Just Refl -> res
+    (l, DeltaDtS @_ @sh2 res _) -> case sameShape @sh @sh2 of
+      Just Refl -> (l, res)
       _ -> error "derivativeFromDeltaS"
-    DeltaDtR{} -> error "derivativeFromDeltaS"
-    DeltaDtD{} -> error "derivativeFromDeltaS"
+    (_, DeltaDtR{}) -> error "derivativeFromDeltaS"
+    (_, DeltaDtD{}) -> error "derivativeFromDeltaS"
 
 -- | The main input of the differentiation functions:
 -- the delta expression to be differentiated and the dt perturbation
@@ -1058,10 +1061,12 @@ buildDerivative
      ( GoodScalar r0, RankedTensor ranked, ShapedTensor shaped
      , ConvertTensor ranked shaped )
   => Int -> DeltaDt ranked shaped r0 -> Domains (DynamicOf ranked)
-  -> ST s (DeltaDt ranked shaped r0)
+  -> ST s ( [(AstId, DynamicExists (DynamicOf ranked))]
+          , DeltaDt ranked shaped r0 )
 buildDerivative dimR deltaDt params = do
   dMap <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
+  astBindings <- newSTRef []
   let evalR :: forall n r. (KnownNat n, GoodScalar r)
             => DeltaR ranked shaped r n -> ST s (ranked r n)
       evalR = \case
@@ -1087,12 +1092,15 @@ buildDerivative dimR deltaDt params = do
                     Just Refl -> return $! tfromD t
                     _ -> error "buildDerivative: type mismatch"
             Nothing -> do
-              c <- evalR d
+              cRaw <- evalR d
+              ab <- readSTRef astBindings
+              let (abShared, cShared) = tregister cRaw ab
+              writeSTRef astBindings abShared
               nmNew <- readSTRef nMap
-              dm <- readSTRef dMap
               writeSTRef nMap $! EM.insert n (DeltaBindingR d) nmNew
-              writeSTRef dMap $! EM.insert n (DynamicExists $ dfromR c) dm
-              return c
+              dm <- readSTRef dMap
+              writeSTRef dMap $! EM.insert n (DynamicExists $ dfromR cShared) dm
+              return cShared
             _ -> error "buildDerivative: corrupted nMap"
 
         IndexR d ix -> (`tindex` ix) <$> evalR d
@@ -1165,12 +1173,15 @@ buildDerivative dimR deltaDt params = do
                     Just Refl -> return $! sfromD t
                     _ -> error "buildDerivative: type mismatch"
             Nothing -> do
-              c <- evalS d
+              cRaw <- evalS d
+              ab <- readSTRef astBindings
+              let (abShared, cShared) = sregister cRaw ab
+              writeSTRef astBindings abShared
               nmNew <- readSTRef nMap
-              dm <- readSTRef dMap
               writeSTRef nMap $! EM.insert n (DeltaBindingS d) nmNew
-              writeSTRef dMap $! EM.insert n (DynamicExists $ dfromS c) dm
-              return c
+              dm <- readSTRef dMap
+              writeSTRef dMap $! EM.insert n (DynamicExists $ dfromS cShared) dm
+              return cShared
             _ -> error "buildDerivative: corrupted nMap"
 
         IndexS d ix -> (`sindex` ix) <$> evalS d
@@ -1231,10 +1242,19 @@ buildDerivative dimR deltaDt params = do
   -- A hack to fit both argument delta and, afterwards, the result in a type
   -- that does not reflect either.
   case deltaDt of
-    DeltaDtR @_ @n _dt deltaTopLevel ->
-      flip DeltaDtR (ZeroR $ listShapeToShape $ replicate (valueOf @n) 0)
-      <$> evalR deltaTopLevel
-    DeltaDtS _dt deltaTopLevel ->
-      flip DeltaDtS ZeroS <$> evalS deltaTopLevel
-    DeltaDtD _dt deltaTopLevel ->
-      flip DeltaDtD (SToD @'[] ZeroS) <$> evalD deltaTopLevel
+    DeltaDtR @_ @n _dt deltaTopLevel -> do
+      c <- evalR deltaTopLevel
+      ab <- readSTRef astBindings
+      return ( ab
+             , flip DeltaDtR (ZeroR $ listShapeToShape
+                              $ replicate (valueOf @n) 0) c )
+    DeltaDtS _dt deltaTopLevel -> do
+      c <- evalS deltaTopLevel
+      ab <- readSTRef astBindings
+      return ( ab
+             , flip DeltaDtS ZeroS c )
+    DeltaDtD _dt deltaTopLevel -> do
+      c <- evalD deltaTopLevel
+      ab <- readSTRef astBindings
+      return ( ab
+             , flip DeltaDtD (SToD @'[] ZeroS) c )

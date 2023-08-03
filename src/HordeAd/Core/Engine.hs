@@ -327,7 +327,7 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
         reverseDervative (V.length parameters0) primalBody mdt delta
   in ( ( (varDt, varsPrimal)
        , unletAstDomains6 astBindings l (dmkDomains gradient)
-       , unletAst6 l primalBody )
+       , unletAst6 [] l primalBody )
      , delta )
 
 revArtifactFromForwardPassS
@@ -351,7 +351,7 @@ revArtifactFromForwardPassS hasDt forwardPass parameters0 =
         reverseDervative (V.length parameters0) primalBody mdt delta
   in ( ( (varDt, varsPrimal)
        , unletAstDomains6 astBindings l (dmkDomains gradient)
-       , unletAst6S l primalBody )
+       , unletAst6S [] l primalBody )
      , delta )
 
 
@@ -370,11 +370,11 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(!varsPrimalDs, domainsDs, varsPrimal, domainsPrimal, vars, domains) =
         funToAstFwd parameters0 in
   let !(D l primalBody delta) = forwardPass domainsPrimal vars domains in
-  let !derivative =
+  let !(!astBindings, !derivative) =
         forwardDerivative (V.length parameters0) delta domainsDs
   in ( ( (varsPrimalDs, varsPrimal)
-       , unletAst6 l derivative
-       , unletAst6 l primalBody )
+       , unletAst6 astBindings l derivative
+       , unletAst6 []l primalBody )
      , delta )
 
 fwdArtifactFromForwardPassS
@@ -390,11 +390,11 @@ fwdArtifactFromForwardPassS forwardPass parameters0 =
   let !(!varsPrimalDs, domainsDs, varsPrimal, domainsPrimal, vars, domains) =
         funToAstFwdS parameters0 in
   let !(D l primalBody delta) = forwardPass domainsPrimal vars domains  in
-  let !derivative =
+  let !(!astBindings, !derivative) =
         forwardDerivative (V.length parameters0) delta domainsDs
   in ( ( (varsPrimalDs, varsPrimal)
-       , unletAst6S l derivative
-       , unletAst6S l primalBody )
+       , unletAst6S astBindings l derivative
+       , unletAst6S [] l primalBody )
      , delta )
 
 
@@ -507,8 +507,10 @@ cfwdOnADInputs
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
   let !(D _ v deltaTopLevel) = f inputs in
-  let derivative = forwardDerivative (V.length inputs) deltaTopLevel ds
-  in (derivative, v)
+  let (astBindings, derivative) =
+        forwardDerivative (V.length inputs) deltaTopLevel ds
+  in assert (null astBindings)
+       (derivative, v)
 
 
 -- * Additional common mechanisms
