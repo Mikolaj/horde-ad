@@ -1569,8 +1569,7 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   , testCase "blowupLet 1000" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [0.3333233334831686,-0.22221555565544573])
-        (rev' @Double @0 (fblowupLet 0 1000)
-                                   (Flip $ OR.fromList [2] [2, 3]))
+        (rev' @Double @0 (fblowupLet 0 1000) (Flip $ OR.fromList [2] [2, 3]))
   , testCase "blowupLet tbuild1" $ do
       assertEqualUpToEpsilonShort 1e-10
         (OR.fromList [2] [33.332333348316844,-22.221555565544556])

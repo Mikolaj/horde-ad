@@ -47,7 +47,8 @@ rev' :: forall r m n v a.
      -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a
         , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
-        , a, a, a, a, a, a, a, a, a, a, a, a, a, a )
+        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
+        , v, v )
 rev' f vals =
   let value0 = f vals
       parameters = toDomains vals
@@ -183,6 +184,8 @@ rev' f vals =
       (astPSimpleAstS, value5AstS) =
         revEvalArtifact (simplifyArtifactRev artifactsPSimpleAst) parameters dt
       gradient5AstS = parseDomains vals astPSimpleAstS
+      cderivative = cfwd f vals vals
+      derivative = fwd @r @m @AstRanked f vals vals
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
      , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp
@@ -195,7 +198,8 @@ rev' f vals =
      , gradient3Ast, gradient3AstS
      , gradient2AstUnSimp, gradient2AstSUnSimp
      , gradient3AstUnSimp, gradient3AstSUnSimp
-     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS )
+     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
+     , cderivative, derivative )
 
 assertEqualUpToEpsilon'
     :: ( v ~ Flip OR.Array r m, a ~ Flip OR.Array r n
@@ -206,7 +210,8 @@ assertEqualUpToEpsilon'
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
-       , a, a, a, a, a, a, a, a, a, a, a, a, a, a )
+       , a, a, a, a, a, a, a, a, a, a, a, a, a, a
+       , v, v )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
@@ -223,7 +228,8 @@ assertEqualUpToEpsilon'
     , gradient3Ast, gradient3AstS
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
-    , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS ) = do
+    , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
+    , cderivative, derivative ) = do
   let expected = Flip expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
@@ -285,6 +291,7 @@ assertEqualUpToEpsilon'
                                  errMargin expected gradient5AstS
   assertEqualUpToEpsilonWithMark "Val ADVal Ast" errMargin value0 value9
   assertEqualUpToEpsilonWithMark "Grad ADVal Ast" errMargin expected gradient9
+  assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
   -- No Eq instance, so let's compare the text.
   show (simplifyAst6 astVectSimp) @?= show astVectSimp
   show (simplifyAst6 astSimp) @?= show astSimp
@@ -298,7 +305,8 @@ assertEqualUpToEpsilonShort
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
-       , a, a, a, a, a, a, a, a, a, a, a, a, a, a )
+       , a, a, a, a, a, a, a, a, a, a, a, a, a, a
+       , v, v )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShort
@@ -315,7 +323,8 @@ assertEqualUpToEpsilonShort
     , gradient3Ast, gradient3AstS
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
-    , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS ) = do
+    , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS
+    , cderivative, derivative ) = do
   let expected = Flip expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
@@ -361,6 +370,7 @@ assertEqualUpToEpsilonShort
                                  errMargin expected gradient3AstUnSimp
   assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp S UnS"
                                  errMargin expected gradient3AstSUnSimp
+  assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
   -- No Eq instance, so let's compare the text.
   show (simplifyAst6 astVectSimp) @?= show astVectSimp
   show (simplifyAst6 astSimp) @?= show astSimp
