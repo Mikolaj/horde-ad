@@ -22,7 +22,7 @@ module HordeAd.Core.Ast
     -- * Boolean definitions and instances
   , BoolOf, IfF(..), EqF(..), OrdF(..), minF, maxF
     -- * ADShare definition
-  , ADShare
+  , AstBindings, ADShare
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare, varInADShare, nullADShare
     -- * The auxiliary AstNoVectorize and AstNoSimplify definitions, for tests
@@ -789,6 +789,8 @@ maxF u v = ifF (u >=. v) u v
 
 -- * ADShare definition
 
+type AstBindings f = [(AstId, DynamicExists (DynamicOf f))]
+
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
 unsafeGlobalCounter = unsafePerformIO (newCounter 0)
@@ -868,11 +870,11 @@ mergeADShare !s1 !s2 =
 -- The result type is not as expected. The result is as if assocsADShare
 -- was applied to the expected one.
 subtractADShare :: ADShare -> ADShare
-                -> [(AstId, DynamicExists (AstDynamic PrimalSpan))]
+                -> AstBindings (AstRanked PrimalSpan)
 {-# INLINE subtractADShare #-}  -- help list fusion
 subtractADShare !s1 !s2 =
   let subAD :: ADShare -> ADShare
-            -> [(AstId, DynamicExists (AstDynamic PrimalSpan))]
+            -> AstBindings (AstRanked PrimalSpan)
       subAD !l ADShareNil = assocsADShare l
       subAD ADShareNil _ = []
       subAD l1@(ADShareCons id1 key1 t1 rest1)
@@ -889,7 +891,7 @@ subtractADShare !s1 !s2 =
 flattenADShare :: [ADShare] -> ADShare
 flattenADShare = foldl' mergeADShare emptyADShare
 
-assocsADShare :: ADShare -> [(AstId, DynamicExists (AstDynamic PrimalSpan))]
+assocsADShare :: ADShare -> AstBindings (AstRanked PrimalSpan)
 {-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
 assocsADShare (ADShareCons _ key t rest) =

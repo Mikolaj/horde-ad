@@ -159,7 +159,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   tlet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
     in f (D l2 var2 u')
-      -- TODO: What about sharing u'?
+      -- u' doesn't need to be shared, because deltas are shared separately
 
   tshape (D _ u _) = tshape u
   -- This is very slow, but is fortunately not needed:
@@ -317,7 +317,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   slet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
     in f (D l2 var2 u')
-      -- TODO: What about sharing u'?
+      -- u' doesn't need to be shared, because deltas are shared separately
 
   -- This is very slow, but is fortunately not needed:
   -- tshape (D l u _) = tshape (tletWrap l u)
@@ -337,7 +337,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     let v = sfloor u
     in dDnotShared l v (dZeroOfShape v)
 
-  siota = constantADVal siota -- TODO: siotaBare may be needed
+  siota = constantADVal siota
   sindex = indexS
   ssum (D l u u') = dD l (ssum u) (SumS u')
   ssum0 (D l u u') = dD l (ssum0 u) (Sum0S u')

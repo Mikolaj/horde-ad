@@ -290,7 +290,7 @@ unwrapAstDomains = \case
   AstDomainsLetS _ _ v -> unwrapAstDomains v
 
 bindsToLet :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-           => AstRanked s r n -> [(AstId, DynamicExists (AstDynamic s))]
+           => AstRanked s r n -> AstBindings (AstRanked s)
            -> AstRanked s r n
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
@@ -309,7 +309,7 @@ bindsToLet = foldl' bindToLet
          else error "bindsToLet: rank mismatch"
 
 bindsToLetS :: forall sh s r. (OS.Shape sh, AstSpan s)
-            => AstShaped s r sh -> [(AstId, DynamicExists (AstDynamic s))]
+            => AstShaped s r sh -> AstBindings (AstRanked s)
             -> AstShaped s r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS
@@ -327,7 +327,7 @@ bindsToLetS = foldl' bindToLetS
     AstSToD w -> AstLetS (AstVarName $ astIdToAstVarId var) w u
 
 bindsToDomainsLet
-   :: AstDomains s -> [(AstId, DynamicExists (AstDynamic s))] -> AstDomains s
+   :: AstDomains s -> AstBindings (AstRanked s) -> AstDomains s
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
