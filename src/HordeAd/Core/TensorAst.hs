@@ -113,7 +113,6 @@ instance AstSpan s
   tcast = AstCast
   tfromIntegral = fromPrimal . AstFromIntegral . astSpanPrimal
 
-  tsumOfList = AstSumOfList
   tconst = fromPrimal . AstConst
   tletWrap l u = if nullADShare l then u
                  else fromPrimal $ AstLetADShare l (astSpanPrimal u)
@@ -276,7 +275,6 @@ instance AstSpan s
   scast = AstCastS
   sfromIntegral = fromPrimalS . AstFromIntegralS . astSpanPrimalS
 
-  ssumOfList = AstSumOfListS
   sconst = fromPrimalS . AstConstS
   sletWrap l u = if nullADShare l then u
                  else fromPrimalS $ AstLetADShareS l (astSpanPrimalS u)
@@ -484,7 +482,6 @@ instance AstSpan s
   tfromIntegral = AstNoVectorize . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoVectorize
 
-  tsumOfList = AstNoVectorize . AstSumOfList . map unAstNoVectorize
   tconst = AstNoVectorize . fromPrimal . AstConst
   raddDynamic = undefined
 
@@ -536,7 +533,6 @@ instance AstSpan s
   tfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoSimplify
 
-  tsumOfList = AstNoSimplify . AstSumOfList . map unAstNoSimplify
   tconst = AstNoSimplify . fromPrimal . AstConst
   raddDynamic = undefined
 

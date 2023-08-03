@@ -29,7 +29,6 @@ import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
-import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -235,10 +234,6 @@ class ( Integral (IntOf ranked), CRanked ranked Num
 
   -- ** No serviceable parts beyond this point ** --
 
-  tsumOfList :: (GoodScalar r, KnownNat n)
-             => [ranked r n] -> ranked r n  -- TODO: declare nonempty
-  tsumOfList [] = 0
-  tsumOfList l = foldl1' (+) l  -- avoid unknown shape of @0@ in @sum@
   tscaleByScalar :: (GoodScalar r, KnownNat n)
                  => ranked r 0 -> ranked r n -> ranked r n
   tscaleByScalar s v = v * treplicate0N (tshape v) s
@@ -515,9 +510,6 @@ class ( Integral (IntOf shaped), CShaped shaped Num
 
   -- ** No serviceable parts beyond this point ** --
 
-  ssumOfList :: (GoodScalar r, OS.Shape sh)
-             => [shaped r sh] -> shaped r sh  -- TODO: declare nonempty
-  ssumOfList = sum
   sscaleByScalar
     :: (GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh))
     => shaped r '[] -> shaped r sh -> shaped r sh

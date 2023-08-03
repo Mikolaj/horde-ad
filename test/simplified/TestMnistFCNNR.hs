@@ -372,7 +372,7 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
   , mnistTestCase2VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5 5000
                       (0.9108 :: Float)
   , mnistTestCase2VTO "VTO artificial 5 4 3 2 1" 5 4 3 2 1 4999
-                      (0.8636 :: Double)
+                      (0.7034 :: Double)
   , mnistTestCase2VTO "VTO 1 epoch, 0 batch" 1 0 300 100 0.02 5000
                       (1 :: Float)
   ]

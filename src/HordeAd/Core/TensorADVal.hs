@@ -21,7 +21,6 @@ import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Functor.Const
-import           Data.List (foldl1')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -218,10 +217,6 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     in dDnotShared l v (dZeroOfShape v)
   tconst t = constantADVal (tconst t)
 
-  tsumOfList lu =
-    dD (flattenADShare $ map (\(D l _ _) -> l) lu)
-       (tsumOfList $ map (\(D _ u _) -> u) lu)
-       (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
   raddDynamic = undefined
 
   tconstant t = let (l, r) = tletUnwrap t in dDnotShared l r (dZeroOfShape r)
@@ -386,10 +381,6 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     in dDnotShared l v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
 
-  ssumOfList lu =
-    dD (flattenADShare $ map (\(D l _ _) -> l) lu)
-       (ssumOfList $ map (\(D _ u _) -> u) lu)
-       (foldl1' dAdd $ map (\(D _ _ u') -> u') lu)
   saddDynamic = undefined
 
   sconstant t = let (l, r) = sletUnwrap t in dDnotShared l r (dZeroOfShape t)

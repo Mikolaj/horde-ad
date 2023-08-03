@@ -48,7 +48,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
 import           Data.Int (Int64)
-import           Data.List (dropWhileEnd, foldl1')
+import           Data.List (dropWhileEnd)
 import           Data.Maybe (catMaybes, fromMaybe, isJust)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -992,7 +992,7 @@ astSumOfList = foldr1 (+)  -- @sum@ breaks
 
 astSumOfListS :: (OS.Shape sh, GoodScalar r, AstSpan s)
               => [AstShaped s r sh] -> AstShaped s r sh
-astSumOfListS = foldr1 (+)  -- @sum@ breaks
+astSumOfListS = sum
 
 astSum :: (KnownNat n, GoodScalar r)
        => AstRanked s r (1 + n) -> AstRanked s r n
@@ -1887,7 +1887,7 @@ simplifyAstNumOp1 :: OpCodeNum1
                   -> AstRanked PrimalSpan Int64 0
 simplifyAstNumOp1 NegateOp (AstConst u) = AstConst $ negate u
 simplifyAstNumOp1 NegateOp (AstSumOfList l) =
-  foldl1' simplifyAstPlusOp (map (simplifyAstNumOp1 NegateOp) l)
+  foldr1 simplifyAstPlusOp (map (simplifyAstNumOp1 NegateOp) l)
 simplifyAstNumOp1 NegateOp (AstN2 TimesOp (AstConst u) v) =
   simplifyAstNumOp2 TimesOp (AstConst $ negate u) v
     -- given a choice, prefer to negate a constant
@@ -1935,9 +1935,9 @@ simplifyAstNumOp TimesOp (u, AstN2 PlusOp (v, w)) =
                     , simplifyAstNumOp TimesOp (u, w) )
 -}
 simplifyAstNumOp2 TimesOp (AstSumOfList l) w@AstConst{} =
-  foldl1' simplifyAstPlusOp (map (\u -> simplifyAstNumOp2 TimesOp u w) l)
+  foldr1 simplifyAstPlusOp (map (\u -> simplifyAstNumOp2 TimesOp u w) l)
 simplifyAstNumOp2 TimesOp (u@AstConst{}) (AstSumOfList l) =
-  foldl1' simplifyAstPlusOp (map (\w -> simplifyAstNumOp2 TimesOp u w) l)
+  foldr1 simplifyAstPlusOp (map (\w -> simplifyAstNumOp2 TimesOp u w) l)
 -- TODO: perhaps aim for a polynomial normal form? but that requires global
 -- inspection of the whole expression
 simplifyAstNumOp2 TimesOp (AstConst u) (AstN2 TimesOp (AstConst v) w) =
