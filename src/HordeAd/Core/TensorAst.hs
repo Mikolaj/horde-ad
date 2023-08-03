@@ -129,29 +129,20 @@ instance AstSpan s
   raddDynamic :: forall n r. (GoodScalar r, KnownNat n)
               => AstRanked s r n -> DynamicExists (AstDynamic s)
               -> DynamicExists (AstDynamic s)
-  raddDynamic r (DynamicExists @r2 d) = DynamicExists $
-    if disDummy @(AstRanked s) d then AstRToD r
-    else case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> case d of
-        AstRToD AstIota -> AstRToD r
-        AstRToD @n2 (AstSumOfList l) ->
-          case sameNat (Proxy @n) (Proxy @n2) of
-            Just Refl -> AstRToD (AstSumOfList (r : l))
-            _ -> error "raddDynamic: type mismatch"
-        AstRToD @n2 v ->
-          case sameNat (Proxy @n) (Proxy @n2) of
-            Just Refl -> AstRToD (AstSumOfList [r, v])
-            _ -> error "raddDynamic: type mismatch"
-        AstSToD AstIotaS -> AstRToD r
-        AstSToD @sh2 (AstSumOfListS l) ->
-          case matchingRank @sh2 @n of
-            Just Refl -> AstSToD (AstSumOfListS (astRToS r : l))
-            _ -> error "raddDynamic: type mismatch"
-        AstSToD @sh2 v ->
-          case matchingRank @sh2 @n of
-            Just Refl -> AstSToD (AstSumOfListS [astRToS r, v])
-            _ -> error "raddDynamic: type mismatch"
-      _ -> error "raddDynamic: type mismatch"
+  raddDynamic r (DynamicExists @r2 d) = DynamicExists @r $
+    case d of
+      AstRToD AstIota -> AstRToD r
+      AstRToD @n2 v ->
+        case ( sameNat (Proxy @n) (Proxy @n2)
+             , testEquality (typeRep @r) (typeRep @r2) ) of
+          (Just Refl, Just Refl) -> AstRToD (r + v)
+          _ -> error "raddDynamic: type mismatch"
+      AstSToD AstIotaS -> AstRToD r
+      AstSToD @sh2 v ->
+        case ( matchingRank @sh2 @n
+             , testEquality (typeRep @r) (typeRep @r2) ) of
+          (Just Refl, Just Refl) -> AstSToD (astRToS r + v)
+          _ -> error "raddDynamic: type mismatch"
   tregister = astRegisterFun
 
   tconstant = fromPrimal
@@ -301,29 +292,20 @@ instance AstSpan s
   saddDynamic :: forall sh r. (GoodScalar r, OS.Shape sh)
               => AstShaped s r sh -> DynamicExists (AstDynamic s)
               -> DynamicExists (AstDynamic s)
-  saddDynamic r (DynamicExists @r2 d) = DynamicExists $
-    if disDummy @(AstRanked s) d then AstSToD r
-    else case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> case d of
-        AstSToD AstIotaS -> AstSToD r
-        AstSToD @sh2 (AstSumOfListS l) ->
-          case sameShape @sh @sh2 of
-            Just Refl -> AstSToD (AstSumOfListS (r : l))
-            _ -> error "saddDynamic: type mismatch"
-        AstSToD @sh2 v ->
-          case sameShape @sh @sh2 of
-            Just Refl -> AstSToD (AstSumOfListS [r, v])
-            _ -> error "saddDynamic: type mismatch"
-        AstRToD AstIota -> AstSToD r
-        AstRToD @n2 (AstSumOfList l) ->
-          case matchingRank @sh @n2 of
-            Just Refl -> AstRToD (AstSumOfList (astSToR r : l))
-            _ -> error "saddDynamic: type mismatch"
-        AstRToD @n2 v ->
-          case matchingRank @sh @n2 of
-            Just Refl -> AstRToD (AstSumOfList [astSToR r, v])
-            _ -> error "saddDynamic: type mismatch"
-      _ -> error "saddDynamic: type mismatch"
+  saddDynamic r (DynamicExists @r2 d) = DynamicExists @r $
+    case d of
+      AstSToD AstIotaS -> AstSToD r
+      AstSToD @sh2 v ->
+        case ( sameShape @sh @sh2
+             , testEquality (typeRep @r) (typeRep @r2) ) of
+          (Just Refl, Just Refl) -> AstSToD (r + v)
+          _ -> error "saddDynamic: type mismatch"
+      AstRToD AstIota -> AstSToD r
+      AstRToD @n2 v ->
+        case ( matchingRank @sh @n2
+             , testEquality (typeRep @r) (typeRep @r2) ) of
+          (Just Refl, Just Refl) -> AstRToD (astSToR r + v)
+          _ -> error "saddDynamic: type mismatch"
   sregister = astRegisterFunS
 
   sconstant = fromPrimalS

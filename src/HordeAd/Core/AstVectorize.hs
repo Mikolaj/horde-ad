@@ -186,7 +186,7 @@ build1V k (var, v00) =
       Ast.AstI2 opCode (build1VOccurenceUnknown k (var, u))
                        (build1VOccurenceUnknown k (var, v))
     Ast.AstSumOfList args -> traceRule $
-      Ast.AstSumOfList $ map (\v -> build1VOccurenceUnknown k (var, v)) args
+      astSumOfList $ map (\v -> build1VOccurenceUnknown k (var, v)) args
 
     Ast.AstIndex v ix -> traceRule $
       build1VIndex k (var, v, ix)  -- @var@ is in @v@ or @ix@
@@ -493,7 +493,7 @@ build1VS (var, v00) =
       Ast.AstI2S opCode (build1VOccurenceUnknownS (var, u))
                         (build1VOccurenceUnknownS (var, v))
     Ast.AstSumOfListS args -> traceRule $
-      Ast.AstSumOfListS $ map (\v -> build1VOccurenceUnknownS (var, v)) args
+      astSumOfListS $ map (\v -> build1VOccurenceUnknownS (var, v)) args
 
     Ast.AstIndexS @sh1 v ix -> traceRule $
       gcastWith (unsafeCoerce Refl

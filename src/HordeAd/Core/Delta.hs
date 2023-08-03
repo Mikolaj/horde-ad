@@ -977,13 +977,13 @@ buildFinMaps s0 deltaDt =
           let ixs = indexToList ixs'
               f v = if isTensorDummy v
                     then treplicate0ND sh 0 `OD.update` [(ixs, c)]
-                    else v `OD.update` [(ixs, v `tindex0D` ixs + c)] -- tsumOfList
+                    else v `OD.update` [(ixs, v `tindex0D` ixs + c)]
           in s {iMap = EM.adjust f i $ iMap s}
         Index0 (LetR n d) ixs' sh ->
           let ixs = indexToList ixs'
           in case EM.lookup n $ nMap s of
             Just (DeltaBindingR _) ->
-              let f v = v `OD.update` [(ixs, v `tindex0D` ixs + c)] -- tsumOfList
+              let f v = v `OD.update` [(ixs, v `tindex0D` ixs + c)]
               in s {dMap = EM.adjust f n $ dMap s}
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,
@@ -1080,7 +1080,7 @@ buildDerivative dimR deltaDt params = do
                 _ -> error "buildDerivative: type mismatch"
           else error "buildDerivative': wrong index for an input"
         ScaleR k d -> (* k) <$> evalR d
-        AddR d e -> liftM2 (\u v -> tsumOfList [u, v]) (evalR d) (evalR e)
+        AddR d e -> liftM2 (+) (evalR d) (evalR e)
         LetR n d -> do
           nm <- readSTRef nMap
           case EM.lookup n nm of
@@ -1109,7 +1109,7 @@ buildDerivative dimR deltaDt params = do
         Sum0R d -> tsum0 <$> evalR d
         Dot0R _ ZeroR{} -> return 0
         Dot0R v d -> tdot0 v <$> evalR d
-        ScatterR sh d f ->  do
+        ScatterR sh d f -> do
           t <- evalR d
           return $! tscatter sh t f
 
@@ -1161,7 +1161,7 @@ buildDerivative dimR deltaDt params = do
                 _ -> error "buildDerivative: type mismatch"
           else error "buildDerivative: wrong index for an input"
         ScaleS k d -> (* k) <$> evalS d
-        AddS d e -> liftM2 (\u v -> ssumOfList [u, v]) (evalS d) (evalS e)
+        AddS d e -> liftM2 (+) (evalS d) (evalS e)
         LetS n d -> do
           nm <- readSTRef nMap
           case EM.lookup n nm of
@@ -1190,7 +1190,7 @@ buildDerivative dimR deltaDt params = do
         Sum0S d -> ssum0 <$> evalS d
         Dot0S _ ZeroS -> return 0
         Dot0S v d -> sdot0 v <$> evalS d
-        ScatterS d f ->  do
+        ScatterS d f -> do
           t <- evalS d
           return $! sscatter t f
 
