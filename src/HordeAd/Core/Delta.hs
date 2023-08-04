@@ -144,8 +144,7 @@ import           HordeAd.Util.SizedIndex
 -- as given in @buildDerivative@. Evaluating the terms backwards
 -- (transposing the represented linear map) in order to compute gradients
 -- provides a different semantics.
-data DeltaR :: RankedTensorKind -> ShapedTensorKind
-            -> RankedTensorKind where
+data DeltaR :: RankedTensorKind -> ShapedTensorKind -> RankedTensorKind where
   ZeroR :: ShapeInt n -> DeltaR ranked shaped r n
     -- ^ the shape is required for @shapeDelta@ and forward derivative
   InputR :: forall ranked shaped r n.
@@ -251,8 +250,7 @@ deriving instance ( GoodScalar r0
 
 -- | This is the grammar of delta-expressions that record derivatives
 -- of shaped tensors.
-data DeltaS :: RankedTensorKind -> ShapedTensorKind
-            -> ShapedTensorKind where
+data DeltaS :: RankedTensorKind -> ShapedTensorKind -> ShapedTensorKind where
   ZeroS :: DeltaS ranked shaped r sh
   InputS :: InputId ranked -> DeltaS ranked shaped r sh
   ScaleS :: shaped r sh -> DeltaS ranked shaped r sh

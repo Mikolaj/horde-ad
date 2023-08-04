@@ -48,7 +48,7 @@ rev' :: forall r m n v a.
         , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-        , v, v )
+        , a, v, v )
 rev' f vals =
   let value0 = f vals
       parameters = toDomains vals
@@ -199,19 +199,20 @@ rev' f vals =
      , gradient2AstUnSimp, gradient2AstSUnSimp
      , gradient3AstUnSimp, gradient3AstSUnSimp
      , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
-     , cderivative, derivative )
+     , vals, cderivative, derivative )
 
 assertEqualUpToEpsilon'
     :: ( v ~ Flip OR.Array r m, a ~ Flip OR.Array r n
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
-       , KnownNat m, GoodScalar r, HasCallStack)
+       , AssertEqualUpToEpsilon r
+       , KnownNat n, KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
-    -> OR.Array n r  -- ^ expected value
+    -> OR.Array n r  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , v, v )
+       , a, v, v )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
@@ -229,7 +230,7 @@ assertEqualUpToEpsilon'
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
-    , cderivative, derivative ) = do
+    , vals, cderivative, derivative ) = do
   let expected = Flip expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
@@ -292,6 +293,10 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Val ADVal Ast" errMargin value0 value9
   assertEqualUpToEpsilonWithMark "Grad ADVal Ast" errMargin expected gradient9
   assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
+  -- The formula for comparing derivative and gradient is due to @awf
+  -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
+  assertEqualUpToEpsilonWithMark "Forward vs reverse"
+                                 1e-5 (tsum0 derivative) (tdot0 expected vals)
   -- No Eq instance, so let's compare the text.
   show (simplifyAst6 astVectSimp) @?= show astVectSimp
   show (simplifyAst6 astSimp) @?= show astSimp
@@ -299,14 +304,15 @@ assertEqualUpToEpsilon'
 assertEqualUpToEpsilonShort
     :: ( v ~ Flip OR.Array r m, a ~ Flip OR.Array r n
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
-       , KnownNat m, GoodScalar r, HasCallStack)
+       , AssertEqualUpToEpsilon r
+       , KnownNat n, KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
-    -> OR.Array n r  -- ^ expected value
+    -> OR.Array n r  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , v, v )
+       , a, v, v )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShort
@@ -324,7 +330,7 @@ assertEqualUpToEpsilonShort
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS
-    , cderivative, derivative ) = do
+    , vals, cderivative, derivative ) = do
   let expected = Flip expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
@@ -371,6 +377,8 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp S UnS"
                                  errMargin expected gradient3AstSUnSimp
   assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
+  assertEqualUpToEpsilonWithMark "Forward vs reverse"
+                                 1e-5 (tsum0 derivative) (tdot0 expected vals)
   -- No Eq instance, so let's compare the text.
   show (simplifyAst6 astVectSimp) @?= show astVectSimp
   show (simplifyAst6 astSimp) @?= show astSimp
