@@ -16,9 +16,5 @@ main :: IO ()
 main =
   defaultMain
     [ bgroup100 allxs
-    , bgroup200 allxs
     , bgroup1000 allxs
-    , bgroup1e4 allxs
-    , bgroup1e5 allxs
-    , bgroup1e6 allxs
     ]

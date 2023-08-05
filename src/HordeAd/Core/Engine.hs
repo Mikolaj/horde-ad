@@ -438,7 +438,8 @@ crevDtMaybe f vals dt =
   in parseDomains (toValue vals) $ fst $ crevOnDomains dt g (toDomains vals)
 
 crevOnDomains
-  :: ( DualPart f, GoodScalar r, HasSingletonDict y
+  :: forall r y f.
+     ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array )
   => Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)

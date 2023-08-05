@@ -216,23 +216,23 @@ library benchCommonLibrary
     if flag(release)
       buildable: False
     else
-      buildable: False
+      buildable: True
 
-    exposed-modules:  BenchMnistTools
+    exposed-modules:
+-- BenchMnistTools
                       BenchProdTools
 
     hs-source-dirs:   bench/common
 
     build-depends:
-      , horde-ad:exampleLibrary
       , horde-ad:horde-ad-simplified
 
       , base
+      , bifunctors
       , criterion
       , deepseq
-      , hmatrix
-      , ilist
-      , random
+      , orthotope
+      , strict-containers
       , vector
 
 benchmark longProdBench
@@ -241,7 +241,7 @@ benchmark longProdBench
     if flag(release)
       buildable: False
     else
-      buildable: False
+      buildable: True
 
     type:             exitcode-stdio-1.0
 
@@ -263,7 +263,7 @@ benchmark shortProdForCI
     if flag(release)
       buildable: False
     else
-      buildable: False
+      buildable: True
 
     type:             exitcode-stdio-1.0
 

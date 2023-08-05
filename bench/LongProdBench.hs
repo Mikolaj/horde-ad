@@ -14,11 +14,8 @@ allxs = let xs = map (+ 0.55) $ randoms (mkStdGen 42)
 
 main :: IO ()
 main =
-  defaultMain
-    [ bgroup100 allxs
-    , bgroup200 allxs
-    , bgroup1000 allxs
-    , bgroup1e4 allxs
+  defaultMain  -- skips the tiny benchmarks
+    [ bgroup1e4 allxs
     , bgroup1e5 allxs
     , bgroup1e6 allxs
     , bgroup1e7 allxs
