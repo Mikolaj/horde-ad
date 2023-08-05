@@ -9,6 +9,7 @@ import Prelude
 import           Control.Exception (assert)
 import           Data.Kind (Type)
 import           Data.List (foldl')
+import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           System.Random
 
@@ -71,6 +72,25 @@ instance RandomDomains a
          => RandomDomains [a] where
   randomVals = undefined  -- TODO: split RandomDomains?
   toValue = map toValue
+
+instance AdaptableDomains dynamic a
+         => AdaptableDomains dynamic (Data.Vector.Vector a) where
+  type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
+  toDomains = V.concatMap toDomains
+  fromDomains lInit source =
+    let f (lAcc, restAcc) aInit =
+          case fromDomains aInit restAcc of
+            Just (a, rest) -> (V.snoc lAcc a, rest)
+              -- this snoc, if the vector is long, is very costly;
+              -- a solution might be to define Value to be a list
+            Nothing -> error "fromDomains [a]"
+        (l, restAll) = V.foldl' f (V.empty, source) lInit
+    in Just (l, restAll)
+
+instance RandomDomains a
+         => RandomDomains (Data.Vector.Vector a) where
+  randomVals = undefined
+  toValue = V.map toValue
 
 instance ( AdaptableDomains dynamic a
          , AdaptableDomains dynamic b ) => AdaptableDomains dynamic (a, b) where
