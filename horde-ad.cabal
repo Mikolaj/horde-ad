@@ -232,9 +232,11 @@ library benchCommonLibrary
       , bifunctors
       , criterion
       , deepseq
+      , enummapset
       , hmatrix
       , ilist
       , orthotope
+      , random
       , strict-containers
       , vector
 

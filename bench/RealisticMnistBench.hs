@@ -15,4 +15,7 @@ main = do
   let testData = shuffle (mkStdGen 42) testData0
   defaultMain
     [ mnistBGroup1VTA testData 4000
+    , mnistBGroup1VTO testData 4000
+    , mnistBGroup2VTA testData 4000
+    , mnistBGroup2VTO testData 4000
     ]

@@ -74,6 +74,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       emptyR = Flip $ OR.fromList [0] []
+      domainsInit = V.fromList $ map (DynamicExists @r) params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
@@ -122,8 +123,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (V.fromList
-                          $ map (DynamicExists @r) params1Init)
+       res <- runEpoch 1 domainsInit
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
@@ -232,7 +232,6 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
              let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
-                              -- 5000 times less data per batch
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 domainsInit
@@ -353,7 +352,6 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
              let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
-                              -- 5000 times less data per batch
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 domainsInit
@@ -551,7 +549,6 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
              let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
-                              -- 5000 times less data per batch
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 domainsInit
@@ -669,7 +666,6 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
              let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
-                              -- 5000 times less data per batch
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 domainsInit
