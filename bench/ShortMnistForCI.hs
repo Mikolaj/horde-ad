@@ -14,9 +14,5 @@ main = do
   testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
   let testData = shuffle (mkStdGen 42) testData0
   defaultMain
-    [ mnistTrainBGroup2 testData 40
-    , mnistTrainBGroup2000 testData 4
-    , mnistTrainBGroup2V testData 40
-    , mnistTrainBGroup2VA testData 40
-    , mnistTrainBGroup2L testData 40
+    [ mnistBGroup1VTA testData 40
     ]

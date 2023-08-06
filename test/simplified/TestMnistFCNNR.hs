@@ -27,7 +27,7 @@ import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstFreshId
   (funToAstIOR, funToAstR, funToAstRevIO, resetVarCounter)
-import HordeAd.Core.TensorADVal
+import HordeAd.Core.TensorADVal (ADValClown)
 import HordeAd.External.OptimizerTools
 
 import EqEpsilon
@@ -47,18 +47,18 @@ testTrees = [ tensorADValMnistTests
             ]
 
 
--- * Using vectors, which is rank 1
+-- * Using lists of vectors, which is rank 1
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
-mnistTestCase2VTA
+mnistTestCase1VTA
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
-mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
+mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
@@ -127,33 +127,33 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
-{-# SPECIALIZE mnistTestCase2VTA
+{-# SPECIALIZE mnistTestCase1VTA
   :: String
   -> Int -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree #-}
 
 tensorADValMnistTests :: TestTree
 tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
-  [ mnistTestCase2VTA "VTA 1 epoch, 1 batch" 1 1 300 100 0.02 5000
+  [ mnistTestCase1VTA "VTA 1 epoch, 1 batch" 1 1 300 100 0.02 5000
                       (0.16600000000000004 :: Double)
-  , mnistTestCase2VTA "VTA artificial 1 2 3 4 5" 1 2 3 4 5 5000
+  , mnistTestCase1VTA "VTA artificial 1 2 3 4 5" 1 2 3 4 5 5000
                       (0.8972 :: Float)
-  , mnistTestCase2VTA "VTA artificial 5 4 3 2 1" 5 4 3 2 1 4999
+  , mnistTestCase1VTA "VTA artificial 5 4 3 2 1" 5 4 3 2 1 4999
                       (0.8210999999999999 :: Double)
-  , mnistTestCase2VTA "VTA 1 epoch, 0 batch" 1 0 300 100 0.02 5000
+  , mnistTestCase1VTA "VTA 1 epoch, 0 batch" 1 0 300 100 0.02 5000
                       (1 :: Float)
   ]
 
 -- POPL differentiation, with Ast term defined and vectorized only once,
 -- but differentiated anew in each gradient descent iteration.
-mnistTestCase2VTI
+mnistTestCase1VTI
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
-mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
+mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
@@ -239,34 +239,34 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
-{-# SPECIALIZE mnistTestCase2VTI
+{-# SPECIALIZE mnistTestCase1VTI
   :: String
   -> Int -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree #-}
 
 tensorIntermediateMnistTests :: TestTree
 tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
-  [ mnistTestCase2VTI "VTI 1 epoch, 1 batch" 1 1 300 100 0.02 5000
+  [ mnistTestCase1VTI "VTI 1 epoch, 1 batch" 1 1 300 100 0.02 5000
                       (0.16479999999999995 :: Double)
-  , mnistTestCase2VTI "VTI artificial 1 2 3 4 5" 1 2 3 4 5 5000
+  , mnistTestCase1VTI "VTI artificial 1 2 3 4 5" 1 2 3 4 5 5000
                       (0.902 :: Float)
-  , mnistTestCase2VTI "VTI artificial 5 4 3 2 1" 5 4 3 2 1 4999
+  , mnistTestCase1VTI "VTI artificial 5 4 3 2 1" 5 4 3 2 1 4999
                       (0.7541 :: Double)
-  , mnistTestCase2VTI "VTI 1 epoch, 0 batch" 1 0 300 100 0.02 5000
+  , mnistTestCase1VTI "VTI 1 epoch, 0 batch" 1 0 300 100 0.02 5000
                       (1 :: Float)
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
-mnistTestCase2VTO
+mnistTestCase1VTO
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
-mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
+mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
@@ -360,20 +360,20 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
-{-# SPECIALIZE mnistTestCase2VTO
+{-# SPECIALIZE mnistTestCase1VTO
   :: String
   -> Int -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree #-}
 
 tensorADOnceMnistTests :: TestTree
 tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
-  [ mnistTestCase2VTO "VTO 1 epoch, 1 batch" 1 1 300 100 0.02 5000
+  [ mnistTestCase1VTO "VTO 1 epoch, 1 batch" 1 1 300 100 0.02 5000
                       (0.16479999999999995 :: Double)
-  , mnistTestCase2VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5 5000
+  , mnistTestCase1VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5 5000
                       (0.9108 :: Float)
-  , mnistTestCase2VTO "VTO artificial 5 4 3 2 1" 5 4 3 2 1 4999
+  , mnistTestCase1VTO "VTO artificial 5 4 3 2 1" 5 4 3 2 1 4999
                       (0.7034 :: Double)
-  , mnistTestCase2VTO "VTO 1 epoch, 0 batch" 1 0 300 100 0.02 5000
+  , mnistTestCase1VTO "VTO 1 epoch, 0 batch" 1 0 300 100 0.02 5000
                       (1 :: Float)
   ]
 
@@ -382,14 +382,14 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
-mnistTestCase2VT2A
+mnistTestCase2VTA
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
-mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
+mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
   let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
       valsInit =
@@ -452,33 +452,33 @@ mnistTestCase2VT2A prefix epochs maxBatches widthHidden widthHidden2
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
-{-# SPECIALIZE mnistTestCase2VT2A
+{-# SPECIALIZE mnistTestCase2VTA
   :: String
   -> Int -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree #-}
 
 tensorADValMnistTests2 :: TestTree
 tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
-  [ mnistTestCase2VT2A "VT2A 1 epoch, 1 batch" 1 1 300 100 0.02 5
+  [ mnistTestCase2VTA "VTA 1 epoch, 1 batch" 1 1 300 100 0.02 5
                        (0.8 :: Double)
-  , mnistTestCase2VT2A "VT2A artificial 1 2 3 4 5" 1 2 3 4 5 500
+  , mnistTestCase2VTA "VTA artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.89 :: Float)
-  , mnistTestCase2VT2A "VT2A artificial 5 4 3 2 1" 5 4 3 2 1 499
+  , mnistTestCase2VTA "VTA artificial 5 4 3 2 1" 5 4 3 2 1 499
                        (0.8361723446893787 :: Double)
-  , mnistTestCase2VT2A "VT2A 1 epoch, 0 batch" 1 0 300 100 0.02 500
+  , mnistTestCase2VTA "VTA 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
 
 -- POPL differentiation, with Ast term defined and vectorized only once,
 -- but differentiated anew in each gradient descent iteration.
-mnistTestCase2VT2I
+mnistTestCase2VTI
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
-mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
+mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
   let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
       valsInit =
@@ -558,34 +558,34 @@ mnistTestCase2VT2I prefix epochs maxBatches widthHidden widthHidden2
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
-{-# SPECIALIZE mnistTestCase2VT2I
+{-# SPECIALIZE mnistTestCase2VTI
   :: String
   -> Int -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree #-}
 
 tensorIntermediateMnistTests2 :: TestTree
 tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
-  [ mnistTestCase2VT2I "VT2I 1 epoch, 1 batch" 1 1 300 100 0.02 500
+  [ mnistTestCase2VTI "VTI 1 epoch, 1 batch" 1 1 300 100 0.02 500
                        (0.534 :: Double)
-  , mnistTestCase2VT2I "VT2I artificial 1 2 3 4 5" 1 2 3 4 5 500
+  , mnistTestCase2VTI "VTI artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.884 :: Float)
-  , mnistTestCase2VT2I "VT2I artificial 5 4 3 2 1" 5 4 3 2 1 499
+  , mnistTestCase2VTI "VTI artificial 5 4 3 2 1" 5 4 3 2 1 499
                        (0.7464929859719439 :: Double)
-  , mnistTestCase2VT2I "VT2I 1 epoch, 0 batch" 1 0 300 100 0.02 500
+  , mnistTestCase2VTI "VTI 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
-mnistTestCase2VT2O
+mnistTestCase2VTO
   :: forall ranked r.
      ( ranked ~ Flip OR.Array, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
-mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
+mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
  -- TODO: use withKnownNat when we no longer support GHC 9.4
  case someNatVal $ toInteger widthHidden of
@@ -676,20 +676,20 @@ mnistTestCase2VT2O prefix epochs maxBatches widthHidden widthHidden2
        let testErrorFinal = 1 - ftest testData res
        testErrorFinal @?~ expected
 
-{-# SPECIALIZE mnistTestCase2VT2O
+{-# SPECIALIZE mnistTestCase2VTO
   :: String
   -> Int -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree #-}
 
 tensorADOnceMnistTests2 :: TestTree
 tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
-  [ mnistTestCase2VT2O "VT2O 1 epoch, 1 batch" 1 1 300 100 0.02 500
+  [ mnistTestCase2VTO "VTO 1 epoch, 1 batch" 1 1 300 100 0.02 500
                        (0.534 :: Double)
-  , mnistTestCase2VT2O "VT2O artificial 1 2 3 4 5" 1 2 3 4 5 500
+  , mnistTestCase2VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.884 :: Float)
-  , mnistTestCase2VT2O "VT2O artificial 5 4 3 2 1" 5 4 3 2 1 499
+  , mnistTestCase2VTO "VTO artificial 5 4 3 2 1" 5 4 3 2 1 499
                        (0.7945891783567134 :: Double)
-  , mnistTestCase2VT2O "VT2O 1 epoch, 0 batch" 1 0 300 100 0.02 500
+  , mnistTestCase2VTO "VTO 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
 

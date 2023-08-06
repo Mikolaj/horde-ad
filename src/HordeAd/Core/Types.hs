@@ -19,6 +19,7 @@ module HordeAd.Core.Types
 
 import Prelude
 
+import           Control.DeepSeq (NFData (..))
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.Internal.Shape as OS
 import           Data.Boolean (Boolean (..))
@@ -46,7 +47,7 @@ type ShapedTensorKind = TensorKind [Nat]
 
 type GoodScalarConstraint r =
   ( Show r, Ord r, Numeric r, Num r, Num (Vector r), RowSum r, Typeable r
-  , IfDifferentiable r )
+  , IfDifferentiable r, NFData r )
 
 
 -- * Some fundamental constraints
@@ -90,6 +91,9 @@ data DynamicExists :: (Type -> Type) -> Type where
                 => dynamic r -> DynamicExists dynamic
 deriving instance (forall r. GoodScalar r => Show (dynamic r))
                   => Show (DynamicExists dynamic)
+instance (forall r. NFData r => NFData (dynamic r))
+         => NFData (DynamicExists dynamic) where
+  rnf (DynamicExists x) = rnf x
 
 -- When r is Ast, this is used for domains composed of variables only,
 -- to adapt them into more complex types and back again. This is not used
