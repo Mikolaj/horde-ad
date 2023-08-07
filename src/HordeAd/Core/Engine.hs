@@ -67,7 +67,7 @@ rev
      , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> g FullSpan r y) -> vals -> vals
 rev f vals = revDtMaybe f vals Nothing
-{- TODO: RULE left-hand side too complicated to desugar
+--{- TODO: RULE left-hand side too complicated to desugar
 {-# SPECIALIZE rev
   :: ( HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
@@ -75,7 +75,7 @@ rev f vals = revDtMaybe f vals Nothing
      , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> AstRanked FullSpan Double y) -> vals
   -> vals #-}
--}
+---}
 
 -- | This version additionally takes the sensitivity parameter.
 revDt
