@@ -64,7 +64,7 @@ rev
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
-     , RandomDomains vals, vals ~ Value astvals )
+     , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> g FullSpan r y) -> vals -> vals
 rev f vals = revDtMaybe f vals Nothing
 {- TODO: check with GHC 9.6.3: RULE left-hand side too complicated to desugar
@@ -72,7 +72,7 @@ rev f vals = revDtMaybe f vals Nothing
   :: ( HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
-     , RandomDomains vals, vals ~ Value astvals )
+     , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> AstRanked FullSpan Double y) -> vals
   -> vals #-}
 -}
@@ -83,7 +83,7 @@ revDt
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
-     , RandomDomains vals, vals ~ Value astvals )
+     , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> g FullSpan r y) -> vals -> ConcreteOf g r y -> vals
 revDt f vals dt = revDtMaybe f vals (Just dt)
 {- TODO: check with GHC 9.6.3: RULE left-hand side too complicated to desugar
@@ -91,7 +91,7 @@ revDt f vals dt = revDtMaybe f vals (Just dt)
   :: ( HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
-     , RandomDomains vals, vals ~ Value astvals )
+     , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> AstRanked FullSpan Double y) -> vals -> Flip OR.Array Double y
   -> vals #-}
 -}
@@ -101,14 +101,14 @@ revDtMaybe
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
-     , RandomDomains vals, vals ~ Value astvals )
+     , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> g FullSpan r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
       artifact = fst $ revProduceArtifact (isJust mdt) g EM.empty domainsOD
-  in parseDomains (toValue vals)
+  in parseDomains vals
      $ fst $ revEvalArtifact artifact domainsOD mdt
 
 revArtifactAdapt
@@ -409,8 +409,8 @@ crev
      ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains OD.Array vals, RandomDomains vals
-     , vals ~ Value advals )
+     , AdaptableDomains OD.Array vals
+     , vals ~ Value advals, Value vals ~ vals )
   => (advals -> ADVal f r y) -> vals -> vals
 crev f vals = crevDtMaybe f vals Nothing
 
@@ -420,8 +420,8 @@ crevDt
      ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains OD.Array vals, RandomDomains vals
-     , vals ~ Value advals )
+     , AdaptableDomains OD.Array vals
+     , vals ~ Value advals, Value vals ~ vals )
   => (advals -> ADVal f r y) -> vals -> f r y -> vals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
@@ -430,12 +430,12 @@ crevDtMaybe
      ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains OD.Array vals, RandomDomains vals
-     , vals ~ Value advals )
+     , AdaptableDomains OD.Array vals
+     , vals ~ Value advals, Value vals ~ vals )
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
 crevDtMaybe f vals dt =
   let g inputs = f $ parseDomains vals inputs
-  in parseDomains (toValue vals) $ fst $ crevOnDomains dt g (toDomains vals)
+  in parseDomains vals $ fst $ crevOnDomains dt g (toDomains vals)
 
 crevOnDomains
   :: forall r y f.
@@ -584,9 +584,9 @@ makeADInputs =
 
 shapedToRanked
   :: forall vals svals dynamic.
-     ( dynamic ~ OD.Array, Value svals ~ vals, Value vals ~ vals
+     ( dynamic ~ OD.Array, NoShape svals ~ vals, Value vals ~ vals
      , AdaptableDomains dynamic vals
-     , AdaptableDomains dynamic svals, RandomDomains svals )
+     , AdaptableDomains dynamic svals, ForgetShape svals )
   => svals -> vals
 shapedToRanked svals =
-  parseDomains @dynamic (toValue svals) $ toDomains @dynamic svals
+  parseDomains @dynamic (forgetShape svals) $ toDomains @dynamic svals

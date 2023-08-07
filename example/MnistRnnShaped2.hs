@@ -145,7 +145,7 @@ rnnMnistTestS
      , GoodScalar r )
   => SNat out_width
   -> SNat batch_size
-  -> ADRnnMnistParameters (RankedOf shaped) r
+  -> ADRnnMnistParametersShaped shaped h out_width r
   -> MnistDataBatchS batch_size r
   -> DomainsOD
   -> r
@@ -168,16 +168,3 @@ rnnMnistTestS out_width@SNat batch_size@SNat
                                  | otherwise = 0
   in fromIntegral (sum (zipWith matchesLabels outputs labels))
      / sNatValue batch_size
-
--- TODO: the toValue hack forces us to define also these types
--- (because we use Value both for toDomains and for toValue
--- to save on defining another type in almost the same way):
-type ADRnnMnistParameters ranked r =
-  ( LayerWeigthsRNN ranked r
-  , LayerWeigthsRNN ranked r
-  , ( ranked r 2
-    , ranked r 1 ) )
-type LayerWeigthsRNN (ranked :: RankedTensorKind) r =
-  ( ranked r 2
-  , ranked r 2
-  , ranked r 1 )

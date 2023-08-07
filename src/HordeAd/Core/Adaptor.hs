@@ -1,7 +1,7 @@
 -- | A general representation of the domains of objective functions
 -- that become the codomains of the reverse derivative functions.
 module HordeAd.Core.Adaptor
-  ( AdaptableDomains(..), parseDomains, RandomDomains(..)
+  ( AdaptableDomains(..), parseDomains, ForgetShape(..), RandomDomains(..)
   ) where
 
 import Prelude
@@ -42,12 +42,16 @@ parseDomains aInit domains =
     Just (vals, rest) -> assert (V.null rest) vals
     Nothing -> error "parseDomains: Nothing"
 
--- | A helper class for initial random parameters and for transforming
--- them from shaped to ranked forms.
+-- | A helper class for for converting all tensors inside a type
+-- from shaped to ranked.
+class ForgetShape vals where
+  type NoShape vals
+  forgetShape :: vals -> NoShape vals
+
+-- | A helper class for randomly generating initial parameters.
 class RandomDomains vals where
   randomVals :: forall g. RandomGen g
              => Double -> g -> (vals, g)
-  toValue :: vals -> Value vals
 
 
 -- * Basic Adaptor class instances
@@ -68,10 +72,10 @@ instance AdaptableDomains dynamic a
     -- >   let f = swap . flip fromDomains
     -- >   in swap $ mapAccumL f source lInit
 
-instance RandomDomains a
-         => RandomDomains [a] where
-  randomVals = undefined  -- TODO: split RandomDomains?
-  toValue = map toValue
+instance ForgetShape a
+         => ForgetShape [a] where
+  type NoShape [a] = [NoShape a]
+  forgetShape = map forgetShape
 
 instance AdaptableDomains dynamic a
          => AdaptableDomains dynamic (Data.Vector.Vector a) where
@@ -87,10 +91,10 @@ instance AdaptableDomains dynamic a
         (l, restAll) = V.foldl' f (V.empty, source) lInit
     in Just (l, restAll)
 
-instance RandomDomains a
-         => RandomDomains (Data.Vector.Vector a) where
-  randomVals = undefined
-  toValue = V.map toValue
+instance ForgetShape a
+         => ForgetShape (Data.Vector.Vector a) where
+  type NoShape (Data.Vector.Vector a) = Data.Vector.Vector (NoShape a)
+  forgetShape = V.map forgetShape
 
 instance ( AdaptableDomains dynamic a
          , AdaptableDomains dynamic b ) => AdaptableDomains dynamic (a, b) where
@@ -104,13 +108,17 @@ instance ( AdaptableDomains dynamic a
     (b, bRest) <- fromDomains bInit aRest
     return ((a, b), bRest)
 
+instance ( ForgetShape a
+         , ForgetShape b ) => ForgetShape (a, b) where
+  type NoShape (a, b) = (NoShape a, NoShape b)
+  forgetShape (a, b) = (forgetShape a, forgetShape b)
+
 instance ( RandomDomains a
          , RandomDomains b ) => RandomDomains (a, b) where
   randomVals range g =
     let (v1, g1) = randomVals range g
         (v2, g2) = randomVals range g1
     in ((v1, v2), g2)
-  toValue (a, b) = (toValue a, toValue b)
 
 instance ( AdaptableDomains dynamic a
          , AdaptableDomains dynamic b
@@ -128,6 +136,12 @@ instance ( AdaptableDomains dynamic a
     (c, cRest) <- fromDomains cInit bRest
     return ((a, b, c), cRest)
 
+instance ( ForgetShape a
+         , ForgetShape b
+         , ForgetShape c ) => ForgetShape (a, b, c) where
+  type NoShape (a, b, c) = (NoShape a, NoShape b, NoShape c)
+  forgetShape (a, b, c) = (forgetShape a, forgetShape b, forgetShape c)
+
 instance ( RandomDomains a
          , RandomDomains b
          , RandomDomains c ) => RandomDomains (a, b, c) where
@@ -136,7 +150,6 @@ instance ( RandomDomains a
         (v2, g2) = randomVals range g1
         (v3, g3) = randomVals range g2
     in ((v1, v2, v3), g3)
-  toValue (a, b, c) = (toValue a, toValue b, toValue c)
 
 instance ( AdaptableDomains dynamic a
          , AdaptableDomains dynamic b
@@ -157,6 +170,15 @@ instance ( AdaptableDomains dynamic a
     (d, dRest) <- fromDomains dInit cRest
     return ((a, b, c, d), dRest)
 
+instance ( ForgetShape a
+         , ForgetShape b
+         , ForgetShape c
+         , ForgetShape d ) => ForgetShape (a, b, c, d) where
+  type NoShape (a, b, c, d) =
+    (NoShape a, NoShape b, NoShape c, NoShape d)
+  forgetShape (a, b, c, d) =
+    (forgetShape a, forgetShape b, forgetShape c, forgetShape d)
+
 instance ( RandomDomains a
          , RandomDomains b
          , RandomDomains c
@@ -167,7 +189,51 @@ instance ( RandomDomains a
         (v3, g3) = randomVals range g2
         (v4, g4) = randomVals range g3
     in ((v1, v2, v3, v4), g4)
-  toValue (a, b, c, d) = (toValue a, toValue b, toValue c, toValue d)
+
+instance ( AdaptableDomains dynamic a
+         , AdaptableDomains dynamic b
+         , AdaptableDomains dynamic c
+         , AdaptableDomains dynamic d
+         , AdaptableDomains dynamic e )
+         => AdaptableDomains dynamic (a, b, c, d, e) where
+  type Value (a, b, c, d, e) = (Value a, Value b, Value c, Value d, Value e)
+  toDomains (a, b, c, d, e) =
+    let a1 = toDomains a
+        b1 = toDomains b
+        c1 = toDomains c
+        d1 = toDomains d
+        e1 = toDomains e
+    in V.concat [a1, b1, c1, d1, e1]
+  fromDomains (aInit, bInit, cInit, dInit, eInit) source = do
+    (a, aRest) <- fromDomains aInit source
+    (b, bRest) <- fromDomains bInit aRest
+    (c, cRest) <- fromDomains cInit bRest
+    (d, dRest) <- fromDomains dInit cRest
+    (e, eRest) <- fromDomains eInit dRest
+    return ((a, b, c, d, e), eRest)
+
+instance ( ForgetShape a
+         , ForgetShape b
+         , ForgetShape c
+         , ForgetShape d
+         , ForgetShape e ) => ForgetShape (a, b, c, d, e) where
+  type NoShape (a, b, c, d, e) =
+    (NoShape a, NoShape b, NoShape c, NoShape d, NoShape e)
+  forgetShape (a, b, c, d, e) =
+    (forgetShape a, forgetShape b, forgetShape c, forgetShape d, forgetShape e)
+
+instance ( RandomDomains a
+         , RandomDomains b
+         , RandomDomains c
+         , RandomDomains d
+         , RandomDomains e ) => RandomDomains (a, b, c, d, e) where
+  randomVals range g =
+    let (v1, g1) = randomVals range g
+        (v2, g2) = randomVals range g1
+        (v3, g3) = randomVals range g2
+        (v4, g4) = randomVals range g3
+        (v5, g5) = randomVals range g4
+    in ((v1, v2, v3, v4, v5), g5)
 
 instance ( AdaptableDomains dynamic a, AdaptableDomains dynamic b )
          => AdaptableDomains dynamic (Either a b) where
@@ -183,6 +249,13 @@ instance ( AdaptableDomains dynamic a, AdaptableDomains dynamic b )
                  Just (b2, rest) -> Just (Right b2, rest)
                  Nothing -> Nothing
 
+instance ( ForgetShape a
+         , ForgetShape b ) => ForgetShape (Either a b) where
+  type NoShape (Either a b) = Either (NoShape a) (NoShape b)
+  forgetShape e = case e of
+    Left a -> Left $ forgetShape a
+    Right b -> Right $ forgetShape b
+
 instance AdaptableDomains dynamic a
          => AdaptableDomains dynamic (Maybe a) where
   type Value (Maybe a) = Maybe (Value a)
@@ -194,3 +267,8 @@ instance AdaptableDomains dynamic a
     Just a -> case fromDomains a source of
                 Just (a2, rest) -> Just (Just a2, rest)
                 Nothing -> Nothing
+
+instance ForgetShape a
+         => ForgetShape (Maybe a) where
+  type NoShape (Maybe a) = Maybe (NoShape a)
+  forgetShape = fmap forgetShape

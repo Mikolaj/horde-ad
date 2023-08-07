@@ -140,7 +140,7 @@ convMnistTestS
   => SNat kh -> SNat kw
   -> SNat c_out
   -> SNat n_hidden -> SNat batch_size
-  -> ADCnnMnistParameters (RankedOf shaped) r
+  -> ADCnnMnistParametersShaped shaped h w kh kw c_out n_hidden r
   -> MnistDataBatchS batch_size r
   -> DomainsOD
   -> r
@@ -166,16 +166,3 @@ convMnistTestS kh@SNat kw@SNat
                                  | otherwise = 0
   in fromIntegral (sum (zipWith matchesLabels outputs labels))
      / sNatValue batch_size
-
--- TODO: the toValue hack forces us to define also this type
--- (because we use Value both for toDomains and for toValue
--- to save on defining another type in almost the same way):
-type ADCnnMnistParameters (ranked :: RankedTensorKind) r =
-  ( ( ranked r 4
-    , ranked r 1 )
-  , ( ranked r 4
-    , ranked r 1 )
-  , ( ranked r 2
-    , ranked r 1 )
-  , ( ranked r 2
-    , ranked r 1 ) )

@@ -743,9 +743,9 @@ instance (GoodScalar r, KnownNat n)
                        ++ show (typeRep @r) ++ " " ++ show (typeRep @r2)
     Nothing -> Nothing
 
-instance RandomDomains (Flip OR.Array r n) where
-  randomVals = undefined
-  toValue = id
+instance ForgetShape (Flip OR.Array r n) where
+  type NoShape (Flip OR.Array r n) = Flip OR.Array r n
+  forgetShape = id
 
 
 -- * Shaped tensor class instance for concrete arrays
@@ -841,7 +841,7 @@ instance ShapedTensor (Flip OS.Array) where
 
 instance (GoodScalar r, OS.Shape sh)
          => AdaptableDomains OD.Array (Flip OS.Array r sh) where
-  type Value (Flip OS.Array r sh) = Flip OR.Array r (OS.Rank sh) -- ! not shaped
+  type Value (Flip OS.Array r sh) = Flip OS.Array r sh
   toDomains a = V.singleton $ DynamicExists $ dfromS a
   fromDomains _aInit params = case V.uncons params of
     Just (DynamicExists @r2 a, rest) ->
@@ -850,6 +850,11 @@ instance (GoodScalar r, OS.Shape sh)
           Just Refl -> Just (sfromD a, rest)
           _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
+
+instance OS.Shape sh
+         => ForgetShape (Flip OS.Array r sh) where
+  type NoShape (Flip OS.Array r sh) = Flip OR.Array r (OS.Rank sh)  -- key case
+  forgetShape = Flip . Data.Array.Convert.convert . runFlip
 
 instance (OS.Shape sh, Numeric r, Fractional r, Random r, Num (Vector r))
          => RandomDomains (Flip OS.Array r sh) where
@@ -860,7 +865,6 @@ instance (OS.Shape sh, Numeric r, Fractional r, Random r, Num (Vector r))
         (g1, g2) = split g
         arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
     in (Flip arr, g2)
-  toValue = Flip . Data.Array.Convert.convert . runFlip
 
 {- TODO: requires IncoherentInstances no matter what pragma I stick in
 -- TODO2: benchmark this used for any scalar via @V.map realToFrac@

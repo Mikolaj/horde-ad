@@ -54,7 +54,6 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
   let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
                     shaped SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
-      vInit = toValue valsInit
       domainsInit = toDomains valsInit
       miniBatchSize = sNatValue batch_size
       name = prefix ++ ": "
@@ -69,7 +68,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
         withSNat miniBatchSize' $ \bs@SNat ->
           let mnist = ( Data.Array.Convert.convert glyphs
                       , Data.Array.Convert.convert labels )
-          in MnistRnnShaped2.rnnMnistTestS width bs vInit mnist testParams
+          in MnistRnnShaped2.rnnMnistTestS width bs valsInit mnist testParams
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -154,7 +153,6 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
   let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
                     shaped SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
-      vInit = toValue valsInit
       domainsInit = toDomains valsInit
       miniBatchSize = sNatValue batch_size
       name = prefix ++ ": "
@@ -170,7 +168,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
         withSNat miniBatchSize' $ \bs@SNat ->
           let mnist = ( Data.Array.Convert.convert glyphs
                       , Data.Array.Convert.convert labels )
-          in MnistRnnShaped2.rnnMnistTestS width bs vInit mnist testParams
+          in MnistRnnShaped2.rnnMnistTestS width bs valsInit mnist testParams
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -273,7 +271,6 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
     let valsInit :: MnistRnnShaped2.ADRnnMnistParametersShaped
                       shaped SizeMnistHeight width r
         valsInit = fst $ randomVals 0.4 (mkStdGen 44)
-        vInit = toValue valsInit
         domainsInit = toDomains valsInit
         miniBatchSize = sNatValue batch_size
         name = prefix ++ ": "
@@ -288,7 +285,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
           withSNat miniBatchSize' $ \bs@SNat ->
             let mnist = ( Data.Array.Convert.convert glyphs
                         , Data.Array.Convert.convert labels )
-            in MnistRnnShaped2.rnnMnistTestS width bs vInit mnist testParams
+            in MnistRnnShaped2.rnnMnistTestS width bs valsInit mnist testParams
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
