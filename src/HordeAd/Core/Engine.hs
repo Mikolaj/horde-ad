@@ -67,7 +67,7 @@ rev
      , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> g FullSpan r y) -> vals -> vals
 rev f vals = revDtMaybe f vals Nothing
-{- TODO: check with GHC 9.6.3: RULE left-hand side too complicated to desugar
+{- TODO: RULE left-hand side too complicated to desugar
 {-# SPECIALIZE rev
   :: ( HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
@@ -86,7 +86,7 @@ revDt
      , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> g FullSpan r y) -> vals -> ConcreteOf g r y -> vals
 revDt f vals dt = revDtMaybe f vals (Just dt)
-{- TODO: check with GHC 9.6.3: RULE left-hand side too complicated to desugar
+{- TODO: RULE left-hand side too complicated to desugar
 {-# SPECIALIZE revDt
   :: ( HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals

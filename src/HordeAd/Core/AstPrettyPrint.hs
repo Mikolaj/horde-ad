@@ -22,15 +22,17 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
 import           Data.List (intersperse)
+import           Data.Proxy (Proxy (Proxy))
 import           Data.Strict.IntMap (IntMap)
 import qualified Data.Strict.IntMap as IM
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat)
+import           GHC.TypeLits (KnownNat, Nat, sameNat)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
@@ -313,10 +315,10 @@ printAstAux cfg d = \case
   AstConst a ->
     showParen (d > 10)
     $ showString "tconst "
-      . if null (OR.shapeL a)
-        then shows $ head $ OR.toList a
-        else showParen True
-             $ shows a
+      . case sameNat (Proxy @n) (Proxy @0) of
+          Just Refl -> shows $ OR.unScalar a
+          _ -> showParen True
+               $ shows a
   AstSToR v -> printAstS cfg d v
   AstConstant a@AstConst{} -> printAst cfg d a
   AstConstant a -> printPrefixOp printAst cfg d "tconstant" [a]
@@ -658,10 +660,10 @@ printAstS cfg d = \case
   AstConstS a ->
     showParen (d > 10)
     $ showString "sconst "
-      . if null (OS.shapeT @sh)
-        then shows $ head $ OS.toList a
-        else showParen True
-             $ shows a
+      . case sameShape @sh @'[] of
+          Just Refl -> shows $ OS.unScalar a
+          _ -> showParen True
+               $ shows a
   AstRToS v -> printAst cfg d v
   AstConstantS a@AstConstS{} -> printAstS cfg d a
   AstConstantS a ->
