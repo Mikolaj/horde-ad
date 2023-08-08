@@ -10,7 +10,7 @@ import BenchProdTools
 
 allxs :: [Double]
 allxs = let xs = map (+ 0.55) $ randoms (mkStdGen 42)
-        in deepseq (take 50000000 xs) xs
+        in deepseq (take 10000000 xs) xs
 
 main :: IO ()
 main =
