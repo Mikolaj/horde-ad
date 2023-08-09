@@ -485,7 +485,7 @@ gradientDtD
   -> DeltaD ranked shaped r y
   -> ( AstBindings ranked
      , Domains (DynamicOf ranked) )
-gradientDtD dims value mdt deltaTopLevel =
+gradientDtD !dims !value !mdt !deltaTopLevel =
   let shl = dshape @ranked (runClown value)
       n = length shl
   in case someNatVal $ toInteger n of
@@ -503,7 +503,7 @@ derivativeFromDeltaD
   => Int -> DeltaD ranked shaped r y -> Domains (DynamicOf ranked)
   -> ( AstBindings ranked
      , Clown (DynamicOf ranked) r y )
-derivativeFromDeltaD dim deltaTopLevel ds =
+derivativeFromDeltaD !dim !deltaTopLevel !ds =
   case runST $ buildDerivative dim (DeltaDtD (dfromR @ranked @shaped @r @0 0)
                                              deltaTopLevel) ds of
     (l, DeltaDtD res _) -> (l, Clown res)
@@ -528,7 +528,7 @@ gradientDtR
   -> DeltaR ranked shaped r y
   -> ( AstBindings ranked
      , Domains (DynamicOf ranked) )
-gradientDtR dims value mdt deltaTopLevel =
+gradientDtR !dims value !mdt !deltaTopLevel =
   let dt = fromMaybe (treplicate0N (tshape value) 1) mdt
       deltaDt = DeltaDtR dt deltaTopLevel
   in gradientFromDelta dims deltaDt
@@ -580,7 +580,7 @@ gradientDtS
   => Int -> Maybe (shaped r y) -> DeltaS ranked shaped r y
   -> ( AstBindings ranked
      , Domains (DynamicOf shaped) )
-gradientDtS dims mdt deltaTopLevel =
+gradientDtS !dims !mdt !deltaTopLevel =
   let dt = fromMaybe 1 mdt
       deltaDt = DeltaDtS dt deltaTopLevel
   in gradientFromDelta dims deltaDt
@@ -604,7 +604,7 @@ derivativeFromDeltaS
   => Int -> DeltaS ranked shaped r sh -> Domains (DynamicOf shaped)
   -> ( AstBindings ranked
      , shaped r sh )
-derivativeFromDeltaS dim deltaTopLevel ds =
+derivativeFromDeltaS !dim !deltaTopLevel !ds =
   case runST $ buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
     (l, DeltaDtS @_ @sh2 res _) -> case sameShape @sh @sh2 of
       Just Refl -> (l, res)
@@ -725,7 +725,7 @@ gradientFromDelta
   => Int -> DeltaDt ranked shaped r
   -> ( AstBindings ranked
      , Domains (DynamicOf ranked) )
-gradientFromDelta dims deltaDt =
+gradientFromDelta !dims !deltaDt =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
   -- The former are initialized with dummy values so that it's cheap
@@ -745,7 +745,7 @@ gradientFromDelta dims deltaDt =
   in let -- Eval.
          EvalState{..} = buildFinMaps s0 deltaDt
          -- Extract results.
-         gradient = V.fromList $ EM.elems iMap
+         !gradient = V.fromList $ EM.elems iMap
      in (astBindings, gradient)
 {- TODO: no type application possible, so a (buggy?) warning is shown
 {-# SPECIALIZE gradientFromDelta
@@ -1244,17 +1244,17 @@ buildDerivative dimR deltaDt params = do
   case deltaDt of
     DeltaDtR @_ @n _dt deltaTopLevel -> do
       c <- evalR deltaTopLevel
+      let !cDelta = DeltaDtR c (ZeroR $ listShapeToShape
+                                $ replicate (valueOf @n) 0)
       ab <- readSTRef astBindings
-      return ( ab
-             , flip DeltaDtR (ZeroR $ listShapeToShape
-                              $ replicate (valueOf @n) 0) c )
+      return (ab, cDelta)
     DeltaDtS _dt deltaTopLevel -> do
       c <- evalS deltaTopLevel
+      let !cDelta = DeltaDtS c ZeroS
       ab <- readSTRef astBindings
-      return ( ab
-             , flip DeltaDtS ZeroS c )
+      return (ab, cDelta)
     DeltaDtD _dt deltaTopLevel -> do
       c <- evalD deltaTopLevel
+      let !cDelta = DeltaDtD c (SToD @'[] ZeroS)
       ab <- readSTRef astBindings
-      return ( ab
-             , flip DeltaDtD (SToD @'[] ZeroS) c )
+      return (ab, cDelta)

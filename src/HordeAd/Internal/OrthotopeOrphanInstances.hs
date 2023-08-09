@@ -41,7 +41,7 @@ liftVD
   :: (Numeric r1, Numeric r)
   => (Vector r1 -> Vector r)
   -> OD.Array r1 -> OD.Array r
-liftVD op t@(DS.A (DG.A sh oit)) =
+liftVD !op t@(DS.A (DG.A sh oit)) =
   if product sh >= V.length (OI.values oit)
   then DS.A $ DG.A sh $ oit {OI.values = op $ OI.values oit}
   else OD.fromVector sh $ op $ OD.toVector t
@@ -53,8 +53,8 @@ liftVD2
   :: (Numeric r, Show r)
   => (Vector r -> Vector r -> Vector r)
   -> OD.Array r -> OD.Array r -> OD.Array r
-liftVD2 op t@(DS.A (DG.A sh oit@(OI.T sst _ vt)))
-           u@(DS.A (DG.A shu oiu@(OI.T _ _ vu)))
+liftVD2 !op t@(DS.A (DG.A sh oit@(OI.T sst _ vt)))
+            u@(DS.A (DG.A shu oiu@(OI.T _ _ vu)))
         = assert (sh == shu `blame` (t, u)) $
   case (V.length vt, V.length vu) of
     (1, 1) ->
@@ -83,8 +83,8 @@ liftVD2NoAdapt
   :: (Numeric r, Show r)
   => (Vector r -> Vector r -> Vector r)
   -> OD.Array r -> OD.Array r -> OD.Array r
-liftVD2NoAdapt op t@(DS.A (DG.A sh oit@(OI.T sst _ vt)))
-                  u@(DS.A (DG.A shu oiu@(OI.T _ _ vu)))
+liftVD2NoAdapt !op t@(DS.A (DG.A sh oit@(OI.T sst _ vt)))
+                   u@(DS.A (DG.A shu oiu@(OI.T _ _ vu)))
                = assert (sh == shu `blame` (t, u)) $
   case (V.length vt, V.length vu) of
     (1, 1) ->
@@ -124,7 +124,7 @@ liftVR
   :: (Numeric r1, Numeric r, KnownNat n)
   => (Vector r1 -> Vector r)
   -> OR.Array n r1 -> OR.Array n r
-liftVR op t@(RS.A (RG.A sh oit)) =
+liftVR !op t@(RS.A (RG.A sh oit)) =
   if product sh >= V.length (OI.values oit)
   then RS.A $ RG.A sh $ oit {OI.values = op $ OI.values oit}
   else OR.fromVector sh $ op $ OR.toVector t
@@ -133,8 +133,8 @@ liftVR2
   :: (Numeric r, Show r, KnownNat n)
   => (Vector r -> Vector r -> Vector r)
   -> OR.Array n r -> OR.Array n r -> OR.Array n r
-liftVR2 op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
-           u@(RS.A (RG.A shu oiu@(OI.T _ _ vu)))
+liftVR2 !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
+            u@(RS.A (RG.A shu oiu@(OI.T _ _ vu)))
         = assert (sh == shu `blame` (t, u)) $
   case (V.length vt, V.length vu) of
     (1, 1) -> RS.A $ RG.A sh $ OI.T sst 0 $ vt `op` vu
@@ -158,8 +158,8 @@ liftVR2NoAdapt
   :: (Numeric r, Show r, KnownNat n)
   => (Vector r -> Vector r -> Vector r)
   -> OR.Array n r -> OR.Array n r -> OR.Array n r
-liftVR2NoAdapt op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
-                  u@(RS.A (RG.A shu oiu@(OI.T _ _ vu)))
+liftVR2NoAdapt !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
+                   u@(RS.A (RG.A shu oiu@(OI.T _ _ vu)))
                = assert (sh == shu `blame` (t, u)) $
   case (V.length vt, V.length vu) of
     (1, 1) -> RS.A $ RG.A sh $ OI.T sst 0 $ vt `op` vu
@@ -187,7 +187,7 @@ liftVS
   :: forall sh r1 r. (Numeric r1, Numeric r, OS.Shape sh)
   => (Vector r1 -> Vector r)
   -> OS.Array sh r1 -> OS.Array sh r
-liftVS op t@(SS.A (SG.A oit)) =
+liftVS !op t@(SS.A (SG.A oit)) =
   if OS.sizeT @sh >= V.length (OI.values oit)
   then SS.A $ SG.A $ oit {OI.values = op $ OI.values oit}
   else OS.fromVector $ op $ OS.toVector t
@@ -196,8 +196,8 @@ liftVS2
   :: forall sh r. (Numeric r, OS.Shape sh)
   => (Vector r -> Vector r -> Vector r)
   -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
-liftVS2 op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
-           u@(SS.A (SG.A oiu@(OI.T _ _ vu))) =
+liftVS2 !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
+            u@(SS.A (SG.A oiu@(OI.T _ _ vu))) =
   case (V.length vt, V.length vu) of
     (1, 1) -> SS.A $ SG.A $ OI.T sst 0 $ vt `op` vu
     (1, _) ->
@@ -220,8 +220,8 @@ liftVS2NoAdapt
   :: forall sh r. (Numeric r, OS.Shape sh)
   => (Vector r -> Vector r -> Vector r)
   -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
-liftVS2NoAdapt op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
-                  u@(SS.A (SG.A oiu@(OI.T _ _ vu))) =
+liftVS2NoAdapt !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
+                   u@(SS.A (SG.A oiu@(OI.T _ _ vu))) =
   case (V.length vt, V.length vu) of
     (1, 1) -> SS.A $ SG.A $ OI.T sst 0 $ vt `op` vu
     (1, _) ->

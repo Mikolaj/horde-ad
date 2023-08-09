@@ -464,7 +464,7 @@ crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D _ v deltaTopLevel) = f inputs in
-  let (astBindings, gradient) =
+  let (!astBindings, !gradient) =
         reverseDervative (V.length inputs) v mdt deltaTopLevel
   in assert (null astBindings)
        (gradient, v)
