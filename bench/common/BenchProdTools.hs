@@ -68,7 +68,7 @@ benchProd ~(_l, list, vec) =
 --                vec2 :: Data.Vector.Vector (Flip OR.Array Double 0)
 --                vec2 = V.fromList list2
 --            in vec2)
-    , bench "crev VecD" $
+    , bench "VecD crev" $
         let f :: DynamicExists OD.Array -> Flip OR.Array Double 0
             f = (\(DynamicExists @r2 d) ->
                    gcastWith (unsafeCoerce Refl :: r2 :~: Double) $
@@ -76,7 +76,7 @@ benchProd ~(_l, list, vec) =
         in nf (V.map f . fst
                . crevOnDomains @Double Nothing rankedVecDProd)
               (V.map (DynamicExists . dfromR) vec)
-    , bench "crev NoShare List" $ nf (crev rankedNoShareListProd) list
+    , bench "NoShare List crev" $ nf (crev rankedNoShareListProd) list
     ]
 
 rankedListProd :: (RankedTensor ranked, GoodScalar r)

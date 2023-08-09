@@ -116,7 +116,8 @@ instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (DynamicExists @r2 a, rest) ->
       case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> Just (dToR (runFlip a), rest)
+        Just Refl -> let !aR = dToR (runFlip a)
+                     in Just (aR, rest)
         _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
 
@@ -274,7 +275,8 @@ instance ( OS.Shape sh, GoodScalar r, dynamic ~ DynamicOf shaped
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (DynamicExists @r2 a, rest) ->
       case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> Just (dToS (runFlip a), rest)
+        Just Refl -> let !aS = dToS (runFlip a)
+                     in Just (aS, rest)
         _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
 
