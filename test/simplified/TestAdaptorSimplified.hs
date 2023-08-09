@@ -269,7 +269,7 @@ testCFwdZero9S =
                f = const 3
            in f @(ADVal (Flip OS.Array) Double '[0, 2, 4, 0, 1])
                 @(ADVal (Flip OR.Array) Double 5))
-          42 41)
+          (treplicate0N [0, 2, 4, 0, 1] 42) (treplicate0N [0, 2, 4, 0, 1] 41))
 
 testFwdZero9S :: Assertion
 testFwdZero9S =
