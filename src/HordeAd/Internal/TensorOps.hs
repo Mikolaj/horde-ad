@@ -58,7 +58,7 @@ dummyTensorD :: Numeric r => OD.Array r
 dummyTensorD =  -- an inconsistent tensor array
   Data.Array.Internal.DynamicS.A
   $ Data.Array.Internal.DynamicG.A []
-  $ OI.T undefined (-1) V.empty
+  $ OI.T [] (-1) V.empty
 
 isTensorDummyD :: OD.Array r -> Bool
 isTensorDummyD (Data.Array.Internal.DynamicS.A
