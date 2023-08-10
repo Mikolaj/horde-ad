@@ -69,7 +69,7 @@ extendEnvR :: forall ranked shaped r n s.
               (KnownNat n, GoodScalar r)
            => AstVarName s AstRanked r n -> ranked r n
            -> AstEnv ranked shaped -> AstEnv ranked shaped
-extendEnvR (AstVarName var) t =
+extendEnvR (AstVarName var) !t =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show var)
                    (astVarIdToAstId var) (AstEnvElemR t)
 
@@ -77,7 +77,7 @@ extendEnvS :: forall ranked shaped r sh s.
               (OS.Shape sh, GoodScalar r)
            => AstVarName s AstShaped r sh -> shaped r sh
            -> AstEnv ranked shaped -> AstEnv ranked shaped
-extendEnvS (AstVarName var) t =
+extendEnvS (AstVarName var) !t =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show var)
                    (astVarIdToAstId var) (AstEnvElemS t)
 
@@ -111,7 +111,7 @@ extendEnvI :: ( RankedTensor ranked
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
            => IntVarName -> IntOf ranked -> AstEnv ranked shaped
            -> AstEnv ranked shaped
-extendEnvI var i = extendEnvR var (tconstant i)
+extendEnvI var !i = extendEnvR var (tconstant i)
 
 extendEnvVars :: forall ranked shaped m.
                  ( RankedTensor ranked
@@ -119,7 +119,7 @@ extendEnvVars :: forall ranked shaped m.
               => AstVarList m -> IndexOf ranked m
               -> AstEnv ranked shaped
               -> AstEnv ranked shaped
-extendEnvVars vars ix env =
+extendEnvVars vars !ix !env =
   let assocs = zip (sizedListToList vars) (indexToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
@@ -129,7 +129,7 @@ extendEnvVarsS :: forall ranked shaped sh.
                => AstVarListS sh -> IndexSh ranked sh
                -> AstEnv ranked shaped
                -> AstEnv ranked shaped
-extendEnvVarsS vars ix env =
+extendEnvVarsS vars !ix !env =
   let assocs = zip (ShapedList.sizedListToList vars)
                    (ShapedList.sizedListToList ix)
   in foldr (uncurry extendEnvI) env assocs
@@ -146,7 +146,7 @@ interpretLambdaI
   -> IntOf ranked
   -> ranked r n
 {-# INLINE interpretLambdaI #-}
-interpretLambdaI f env (var, ast) =
+interpretLambdaI f !env !(!var, !ast) =
   \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIS
@@ -158,7 +158,7 @@ interpretLambdaIS
   -> IntSh ranked n
   -> shaped r sh
 {-# INLINE interpretLambdaIS #-}
-interpretLambdaIS f env (var, ast) =
+interpretLambdaIS f !env !(!var, ast) =
   \i -> f (extendEnvI var (ShapedList.unShapedNat i) env) ast
 
 interpretLambdaIndex
@@ -170,7 +170,7 @@ interpretLambdaIndex
   -> IndexOf ranked m
   -> ranked r n
 {-# INLINE interpretLambdaIndex #-}
-interpretLambdaIndex f env (vars, ast) =
+interpretLambdaIndex f !env !(!vars, !ast) =
   \ix -> f (extendEnvVars vars ix env) ast
 
 interpretLambdaIndexS
@@ -182,7 +182,7 @@ interpretLambdaIndexS
   -> IndexSh ranked sh2
   -> shaped r sh
 {-# INLINE interpretLambdaIndexS #-}
-interpretLambdaIndexS f env (vars, ast) =
+interpretLambdaIndexS f !env !(!vars, !ast) =
   \ix -> f (extendEnvVarsS vars ix env) ast
 
 interpretLambdaIndexToIndex
@@ -194,7 +194,7 @@ interpretLambdaIndexToIndex
   -> IndexOf ranked m
   -> IndexOf ranked n
 {-# INLINE interpretLambdaIndexToIndex #-}
-interpretLambdaIndexToIndex f env (vars, asts) =
+interpretLambdaIndexToIndex f !env !(!vars, !asts) =
   \ix -> f (extendEnvVars vars ix env) <$> asts
 
 interpretLambdaIndexToIndexS
@@ -206,7 +206,7 @@ interpretLambdaIndexToIndexS
   -> IndexSh ranked sh
   -> IndexSh ranked sh2
 {-# INLINE interpretLambdaIndexToIndexS #-}
-interpretLambdaIndexToIndexS f env (vars, asts) =
+interpretLambdaIndexToIndexS f !env !(!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
 
