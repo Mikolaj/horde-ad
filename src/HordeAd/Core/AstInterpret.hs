@@ -31,6 +31,7 @@ import           Data.Kind (Type)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -87,6 +88,8 @@ extendEnvDR :: forall ranked shaped s. ConvertTensor ranked shaped
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
 extendEnvDR (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) =
+  -- We don't need to manually pick a specialization for the existential
+  -- variable r2, because tfromD does not depend on r2.
   case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl ->
       let n = length $ OS.shapeT @sh
@@ -102,6 +105,8 @@ extendEnvDS :: ConvertTensor ranked shaped
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
 extendEnvDS (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) =
+  -- We don't need to manually pick a specialization for the existential
+  -- variable r2, because sfromD does not depend on r2.
   case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> gcastWith (unsafeCoerce Refl :: sh :~: y) $
                  extendEnvS var (sfromD d)
@@ -245,6 +250,29 @@ interpretAstDual env v1 = case v1 of
   AstDualPart t -> tdualPart $ interpretAst env t
   _ -> tdualPart $ interpretAst env v1
 
+interpretAstRuntimeSpecialized
+  :: forall ranked shaped n s r.
+     (KnownNat n, ADReadyBoth ranked shaped, GoodScalar r, AstSpan s)
+  => AstEnv ranked shaped
+  -> AstRanked s r n -> ranked r n
+interpretAstRuntimeSpecialized env t =
+  -- We dispatch on all expected underyling scalar types, which is
+  -- necessary to run the correct specialization of interpretAst
+  -- (in particular, all IfDifferentiable and RowSum instances should
+  -- be included), when unpacking an existential type.
+  -- If the scalar type is not on the list, performance suffers greatly.
+  -- TODO: can I pattern match on (typeRep @r) instead?
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> interpretAst @ranked @shaped @n @s @Double env t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> interpretAst @ranked @shaped @n @s @Float env t
+      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+        Just Refl -> interpretAst @ranked @shaped @n @s @Int64 env t
+        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+          Just Refl -> interpretAst @ranked @shaped @n @s @CInt env t
+          _ -> interpretAst env t
+                 -- the polymorpic case for an unexpected scalar
+
 interpretAst
   :: forall ranked shaped n s r.
      (KnownNat n, ADReadyBoth ranked shaped, GoodScalar r, AstSpan s)
@@ -262,7 +290,7 @@ interpretAst env = \case
                        ++ " in environment " ++ show env
   AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
-    let t = interpretAst env u
+    let t = interpretAstRuntimeSpecialized env u
         env2 w = extendEnvR var w env
     in tlet t (\w -> interpretAst (env2 w) v)
   AstLetADShare{} -> error "interpretAst: AstLetADShare"
@@ -563,6 +591,8 @@ interpretAst env = \case
     in tD t1 t2
   AstLetDomains vars l v ->
     let l2 = interpretAstDomains env l
+        -- We don't need to manually pick a specialization for the existential
+        -- variable r2, because the operations do not depend on r2.
         f (varId, DynamicExists @r2 d) =
           let sh2 = dshape @ranked d
           in OS.withShapeP sh2 $ \(Proxy :: Proxy sh2) ->
@@ -578,7 +608,8 @@ interpretAstDynamic
 interpretAstDynamic env = \case
   DynamicExists @r (AstRToD AstIota) ->
     DynamicExists $ ddummy @ranked @shaped @r
-  DynamicExists (AstRToD w) -> DynamicExists $ dfromR $ interpretAst env w
+  DynamicExists (AstRToD w) ->
+    DynamicExists $ dfromR $ interpretAstRuntimeSpecialized env w
   DynamicExists @r (AstSToD AstIotaS) ->
     DynamicExists $ ddummy @ranked @shaped @r
   DynamicExists (AstSToD w) -> DynamicExists $ dfromS $ interpretAstS env w
@@ -589,7 +620,7 @@ interpretAstDomains
 interpretAstDomains env = \case
   AstDomains l -> interpretAstDynamic env <$> l
   AstDomainsLet var u v ->
-    let t = interpretAst env u
+    let t = interpretAstRuntimeSpecialized env u
         env2 = extendEnvR var t env
     in interpretAstDomains env2 v
       -- TODO: preserve let, as in AstLet case
@@ -1007,6 +1038,8 @@ interpretAstS env = \case
     in sD t1 t2
   AstLetDomainsS vars l v ->
     let l2 = interpretAstDomains env l
+        -- We don't need to manually pick a specialization for the existential
+        -- variable r2, because the operations do not depend on r2.
         f (varId, DynamicExists @r2 d) =
           let sh2 = dshape @ranked d
           in OS.withShapeP sh2 $ \(Proxy :: Proxy sh2) ->
@@ -1138,6 +1171,37 @@ interpretAstS env = \case
   => AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstRanked DualSpan Int64 n
   -> DummyDual Int64 n #-}
+
+{-# SPECIALIZE interpretAstRuntimeSpecialized
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
+  -> AstRanked PrimalSpan r n
+  -> ADVal (Flip OR.Array) r n #-}
+{-# SPECIALIZE interpretAstRuntimeSpecialized
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
+  -> AstRanked PrimalSpan r n
+  -> ADVal (AstRanked PrimalSpan) r n #-}
+{-# SPECIALIZE interpretAstRuntimeSpecialized
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstRanked PrimalSpan r n
+  -> Flip OR.Array r n #-}
+{-# SPECIALIZE interpretAstRuntimeSpecialized
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
+  -> AstRanked FullSpan r n
+  -> ADVal (Flip OR.Array) r n #-}
+{-# SPECIALIZE interpretAstRuntimeSpecialized
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
+  -> AstRanked FullSpan r n
+  -> ADVal (AstRanked PrimalSpan) r n #-}
+{-# SPECIALIZE interpretAstRuntimeSpecialized
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstRanked FullSpan r n
+  -> Flip OR.Array r n #-}
 
 {-# SPECIALIZE interpretAst
   :: (KnownNat n, GoodScalar r)

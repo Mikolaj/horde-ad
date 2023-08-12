@@ -86,6 +86,8 @@ instance IfDifferentiable Float where
 
 -- * Type definitions for dynamic tensors and tensor collections
 
+-- Warning: r is an existential variable, a proper specialization needs
+-- to be picked explicitly at runtime.
 data DynamicExists :: (Type -> Type) -> Type where
   DynamicExists :: forall r dynamic. GoodScalar r
                 => dynamic r -> DynamicExists dynamic

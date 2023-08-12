@@ -183,6 +183,9 @@ instance Show (AstVarName s f r y) where
 -- then it needs to recover the shape argument for AstVar.
 --
 -- The explicit kind is required to compile with GHC 9.2.
+--
+-- A lot of the variables are existential, but there's no nesting,
+-- so no special care about picking specializations at runtime is needed.
 data AstDynamicVarName s f where
   AstDynamicVarName :: forall k sh r y s (f :: AstSpanType -> TensorKind k).
                        (OS.Shape sh, GoodScalar r)
@@ -216,18 +219,21 @@ type AstVarListS sh = ShapedList sh IntVarName
 -- especially after vectorization, and prevents static checking of shapes.
 data AstRanked :: AstSpanType -> RankedTensorKind where
   AstVar :: ShapeInt n -> AstVarName s AstRanked r n -> AstRanked s r n
+  -- The r variable is existential here, so a proper specialization needs
+  -- to be picked explicitly at runtime.
   AstLet :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
          => AstVarName s AstRanked r n -> AstRanked s r n
          -> AstRanked s2 r2 m
          -> AstRanked s2 r2 m
   AstLetADShare :: ADShare -> AstRanked PrimalSpan r n
                 -> AstRanked PrimalSpan r n
-   -- there are mixed local/global lets, because they can be identical
+   -- these are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
   AstCond :: AstBool
           -> AstRanked s r n -> AstRanked s r n -> AstRanked s r n
 
+  -- TODO: there are existential variables here, as well.
   AstMinIndex :: GoodScalar r
               => AstRanked PrimalSpan r (1 + n) -> AstRanked PrimalSpan r2 n
   AstMaxIndex :: GoodScalar r
@@ -286,6 +292,7 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
             -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
             -> AstRanked s r (m + n)
     -- out of bounds indexing is permitted
+  -- TODO: there are existential variables here, as well.
   AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2)
           => AstRanked s r1 n -> AstRanked s r2 n
   AstFromIntegral :: (GoodScalar r1, Integral r1)
@@ -318,7 +325,7 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
           -> AstShaped s2 r2 sh2
   AstLetADShareS :: ADShare -> AstShaped PrimalSpan r sh
                  -> AstShaped PrimalSpan r sh
-   -- there are mixed local/global lets, because they can be identical
+   -- these are mixed local/global lets, because they can be identical
    -- to the lets stored in the D constructor and so should not be inlined
    -- even in trivial cases until the transpose pass eliminates D
   AstCondS :: AstBool
@@ -430,6 +437,8 @@ deriving instance GoodScalar r => Show (AstDynamic s r)
 data AstDomains s where
   AstDomains :: Data.Vector.Vector (DynamicExists (AstDynamic s))
              -> AstDomains s
+  -- The r variable is existential here, so a proper specialization needs
+  -- to be picked explicitly at runtime.
   AstDomainsLet :: (KnownNat n, GoodScalar r)
                 => AstVarName s AstRanked r n
                 -> AstRanked s r n -> AstDomains s
@@ -443,6 +452,7 @@ deriving instance Show (AstDomains s)
 data AstBool where
   AstBoolOp :: OpCodeBool -> [AstBool] -> AstBool
   AstBoolConst :: Bool -> AstBool
+  -- TODO: there are existential variables here, as well.
   AstRel :: (KnownNat n, GoodScalar r)
          => OpCodeRel -> [AstRanked PrimalSpan r n] -> AstBool
   AstRelS :: (OS.Shape sh, GoodScalar r)
@@ -766,12 +776,14 @@ class Boolean (BoolOf f) => IfF (f :: TensorKind k) where
 
 infix 4 ==., /=.
 class Boolean (BoolOf f) => EqF (f :: TensorKind k) where
+  -- TODO: there are existential variables here, as well.
   (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
                => f r y -> f r y -> BoolOf f
   u /=. v = notB (u ==. v)
 
 infix 4 <., <=., >=., >.
 class Boolean (BoolOf f) => OrdF (f :: TensorKind k) where
+  -- TODO: there are existential variables here, as well.
   (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
                            => f r y -> f r y -> BoolOf f
   u >. v = v <. u
@@ -805,6 +817,10 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 -- in the presence of impurity for generating fresh variables.
 -- The first integer field permits something akin to pointer equality
 -- but with less false negatives, because it's stable.
+--
+-- The r variable is existential, but operations that depends on it instance
+-- are rarely called and relatively cheap, so no picking specializations
+-- at runtime is needed.
 data ADShare = ADShareNil
              | forall r. GoodScalar r
                => ADShareCons Int AstId (AstDynamic PrimalSpan r) ADShare
@@ -834,7 +850,8 @@ insertADShare !key !t !s =
           GT -> Just $ freshInsertADShare key t l2
   in fromMaybe s (insertAD s)
 
-freshInsertADShare :: GoodScalar r => AstId -> AstDynamic PrimalSpan r -> ADShare
+freshInsertADShare :: GoodScalar r
+                   => AstId -> AstDynamic PrimalSpan r -> ADShare
                    -> ADShare
 {-# NOINLINE freshInsertADShare #-}
 freshInsertADShare !key !t !s = unsafePerformIO $ do
