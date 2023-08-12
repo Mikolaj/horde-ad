@@ -9,7 +9,7 @@ module HordeAd.Core.AstInterpret
   ( -- * The environment and operations for extending it
     AstEnv, extendEnvS, extendEnvR, extendEnvDR, extendEnvDS
     -- * AST interpretation functions
-  , interpretAstPrimal, interpretAst, interpretAstDomainsDummy
+  , interpretAstPrimal, interpretAst, interpretAstDomains
   , interpretAstPrimalS, interpretAstS
   ) where
 
@@ -573,10 +573,14 @@ interpretAst env = \case
 
 interpretAstDynamic
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
-  => AstEnv ranked shaped -> DynamicExists (AstDynamic s)
-  -> DynamicExists (DynamicOf ranked)
+  => AstEnv ranked shaped
+  -> DynamicExists (AstDynamic s) -> DynamicExists (DynamicOf ranked)
 interpretAstDynamic env = \case
+  DynamicExists @r (AstRToD AstIota) ->
+    DynamicExists $ ddummy @ranked @shaped @r
   DynamicExists (AstRToD w) -> DynamicExists $ dfromR $ interpretAst env w
+  DynamicExists @r (AstSToD AstIotaS) ->
+    DynamicExists $ ddummy @ranked @shaped @r
   DynamicExists (AstSToD w) -> DynamicExists $ dfromS $ interpretAstS env w
 
 interpretAstDomains
@@ -608,34 +612,6 @@ interpretAstBool env = \case
   AstRelS opCodeRel args ->
     let args2 = interpretAstPrimalS env <$> args
     in interpretAstRelOp opCodeRel args2
-
-interpretAstDynamicDummy
-  :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
-  => AstEnv ranked shaped
-  -> DynamicExists (AstDynamic s) -> DynamicExists (DynamicOf ranked)
-interpretAstDynamicDummy env = \case
-  DynamicExists @r (AstRToD AstIota) ->
-    DynamicExists $ ddummy @ranked @shaped @r
-  DynamicExists (AstRToD w) -> DynamicExists $ dfromR $ interpretAst env w
-  DynamicExists @r (AstSToD AstIotaS) ->
-    DynamicExists $ ddummy @ranked @shaped @r
-  DynamicExists (AstSToD w) -> DynamicExists $ dfromS $ interpretAstS env w
-
-interpretAstDomainsDummy
-  :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
-  => AstEnv ranked shaped -> AstDomains s -> Domains (DynamicOf ranked)
-interpretAstDomainsDummy env = \case
-  AstDomains l -> interpretAstDynamicDummy env <$> l
-  AstDomainsLet var u v ->
-    let t = interpretAst env u
-        env2 = extendEnvR var t env
-    in interpretAstDomainsDummy env2 v
-      -- TODO: preserve let, as in AstLet case
-  AstDomainsLetS var u v ->
-    let t = interpretAstS env u
-        env2 = extendEnvS var t env
-    in interpretAstDomainsDummy env2 v
-      -- TODO: preserve let, as in AstLet case
 
 -- TODO: when the code again tests with GHC >= 9.6, check whether
 -- these INLINEs are still needed (removal causes 10% slowdown ATM).
@@ -1290,22 +1266,22 @@ interpretAstS env = \case
   -> AstBool
   -> (ADShare, Bool) #-}
 
-{-# SPECIALIZE interpretAstDynamicDummy
+{-# SPECIALIZE interpretAstDynamic
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
   -> DynamicExists (AstDynamic PrimalSpan)
   -> DynamicExists OD.Array #-}
 
-{-# SPECIALIZE interpretAstDomainsDummy
+{-# SPECIALIZE interpretAstDomains
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstDomains PrimalSpan
   -> DomainsOD #-}
 
-{-# SPECIALIZE interpretAstDynamicDummy
+{-# SPECIALIZE interpretAstDynamic
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
   -> DynamicExists (AstDynamic FullSpan)
   -> DynamicExists OD.Array #-}
 
-{-# SPECIALIZE interpretAstDomainsDummy
+{-# SPECIALIZE interpretAstDomains
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstDomains FullSpan
   -> DomainsOD #-}

@@ -210,7 +210,7 @@ instance DerivativeStages AstRanked where
     let env = foldr extendEnvDR EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe (treplicate0N (tshape primal) 1) mdt
         envDt = extendEnvR varDt dt env
-        gradientDomain = interpretAstDomainsDummy envDt gradient
+        gradientDomain = interpretAstDomains envDt gradient
         primalTensor = interpretAstPrimal env primal
     in (gradientDomain, primalTensor)
 
@@ -238,7 +238,7 @@ instance DerivativeStages AstShaped where
     let env = foldr extendEnvDS EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe 1 mdt
         envDt = extendEnvS varDt dt env
-        gradientDomain = interpretAstDomainsDummy envDt gradient
+        gradientDomain = interpretAstDomains envDt gradient
         primalTensor = interpretAstPrimalS env primal
     in (gradientDomain, primalTensor)
 
