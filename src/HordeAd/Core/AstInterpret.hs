@@ -1018,6 +1018,11 @@ interpretAstS env = \case
 
 
 {-# SPECIALIZE interpretAstPrimal
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
+  -> AstRanked PrimalSpan r n
+  -> Flip OR.Array r n #-}
+{-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstRanked PrimalSpan Double n
@@ -1033,6 +1038,11 @@ interpretAstS env = \case
   -> AstRanked PrimalSpan Int64 n
   -> Flip OR.Array Int64 n #-}
 {-# SPECIALIZE interpretAstPrimal
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
+  -> AstRanked PrimalSpan r n
+  -> AstRanked PrimalSpan r n #-}
+{-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked PrimalSpan Double n
@@ -1047,6 +1057,11 @@ interpretAstS env = \case
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked PrimalSpan Int64 n
   -> AstRanked PrimalSpan Int64 n #-}
+{-# SPECIALIZE interpretAstPrimal
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstRanked PrimalSpan r n
+  -> Flip OR.Array r n #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
@@ -1064,6 +1079,11 @@ interpretAstS env = \case
   -> Flip OR.Array Int64 n #-}
 
 {-# SPECIALIZE interpretAstDual
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
+  -> AstRanked DualSpan r n
+  -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array) (Flip OS.Array)) r n #-}
+{-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstRanked DualSpan Double n
@@ -1079,6 +1099,11 @@ interpretAstS env = \case
   -> AstRanked DualSpan Int64 n
   -> Product (Clown (Const ADShare)) (DeltaR (Flip OR.Array) (Flip OS.Array)) Int64 n #-}
 {-# SPECIALIZE interpretAstDual
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
+  -> AstRanked DualSpan r n
+  -> Product (Clown (Const ADShare)) (DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan)) r n #-}
+{-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked DualSpan Double n
@@ -1093,6 +1118,11 @@ interpretAstS env = \case
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked DualSpan Int64 n
   -> Product (Clown (Const ADShare)) (DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan)) Int64 n #-}
+{-# SPECIALIZE interpretAstDual
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstRanked DualSpan r n
+  -> DummyDual r n #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
@@ -1110,6 +1140,11 @@ interpretAstS env = \case
   -> DummyDual Int64 n #-}
 
 {-# SPECIALIZE interpretAst
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
+  -> AstRanked PrimalSpan r n
+  -> ADVal (Flip OR.Array) r n #-}
+{-# SPECIALIZE interpretAst
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstRanked PrimalSpan Double n
@@ -1125,6 +1160,11 @@ interpretAstS env = \case
   -> AstRanked PrimalSpan Int64 n
   -> ADVal (Flip OR.Array) Int64 n #-}
 {-# SPECIALIZE interpretAst
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
+  -> AstRanked PrimalSpan r n
+  -> ADVal (AstRanked PrimalSpan) r n #-}
+{-# SPECIALIZE interpretAst
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked PrimalSpan Double n
@@ -1139,6 +1179,11 @@ interpretAstS env = \case
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked PrimalSpan Int64 n
   -> ADVal (AstRanked PrimalSpan) Int64 n #-}
+{-# SPECIALIZE interpretAst
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstRanked PrimalSpan r n
+  -> Flip OR.Array r n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
@@ -1156,6 +1201,11 @@ interpretAstS env = \case
   -> Flip OR.Array Int64 n #-}
 
 {-# SPECIALIZE interpretAst
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
+  -> AstRanked FullSpan r n
+  -> ADVal (Flip OR.Array) r n #-}
+{-# SPECIALIZE interpretAst
   :: KnownNat n
   => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstRanked FullSpan Double n
@@ -1171,6 +1221,11 @@ interpretAstS env = \case
   -> AstRanked FullSpan Int64 n
   -> ADVal (Flip OR.Array) Int64 n #-}
 {-# SPECIALIZE interpretAst
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
+  -> AstRanked FullSpan r n
+  -> ADVal (AstRanked PrimalSpan) r n #-}
+{-# SPECIALIZE interpretAst
   :: KnownNat n
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked FullSpan Double n
@@ -1185,6 +1240,11 @@ interpretAstS env = \case
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstRanked FullSpan Int64 n
   -> ADVal (AstRanked PrimalSpan) Int64 n #-}
+{-# SPECIALIZE interpretAst
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstRanked FullSpan r n
+  -> Flip OR.Array r n #-}
 {-# SPECIALIZE interpretAst
   :: KnownNat n
   => AstEnv (Flip OR.Array) (Flip OS.Array)
@@ -1287,11 +1347,17 @@ interpretAstS env = \case
   -> DomainsOD #-}
 
 {-# SPECIALIZE interpretAstRelOp
+  :: (KnownNat n, GoodScalar r)
+     => OpCodeRel -> [Flip OR.Array r n] -> (ADShare, Bool) #-}
+{-# SPECIALIZE interpretAstRelOp
   :: KnownNat n => OpCodeRel -> [Flip OR.Array Double n] -> (ADShare, Bool) #-}
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n => OpCodeRel -> [Flip OR.Array Float n] -> (ADShare, Bool) #-}
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n => OpCodeRel -> [Flip OR.Array Int64 n] -> (ADShare, Bool) #-}
+{-# SPECIALIZE interpretAstRelOp
+  :: (KnownNat n, GoodScalar r)
+  => OpCodeRel -> [AstRanked PrimalSpan r n] -> (ADShare, AstBool) #-}
 {-# SPECIALIZE interpretAstRelOp
   :: KnownNat n
   => OpCodeRel -> [AstRanked PrimalSpan Double n] -> (ADShare, AstBool) #-}
