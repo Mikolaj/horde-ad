@@ -36,10 +36,11 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Constraint)
 import           Data.Maybe (fromMaybe, isJust)
 import           Data.Proxy (Proxy)
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
+import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import           Type.Reflection (typeRep)
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -59,6 +60,8 @@ import HordeAd.Util.SizedIndex
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names to @rev@, but newcomers may have trouble understanding them.
 
+{- TODO: this is temporarily replaced by a workaround needed for the SPECIALIZE
+   to work.
 -- | These work for any @g@ of DerivativeStages class.
 rev
   :: forall r y g vals astvals.
@@ -110,6 +113,55 @@ revDtMaybe f vals mdt =
       domainsOD = toDomains vals
       artifact = fst $ revProduceArtifact (isJust mdt) g EM.empty domainsOD
   in parseDomains vals
+     $ fst $ revEvalArtifact artifact domainsOD mdt
+-}
+
+-- | These work for any @g@ of DerivativeStages class.
+rev
+  :: forall r y g astvals.
+     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains OD.Array (Value astvals) )
+  => (astvals -> g FullSpan r y) -> Value astvals -> Value astvals
+rev f vals = revDtMaybe f vals Nothing
+{-# SPECIALIZE rev
+  :: ( HasSingletonDict y
+     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains OD.Array (Value astvals) )
+  => (astvals -> AstRanked FullSpan Double y) -> Value astvals
+  -> Value astvals #-}
+
+-- | This version additionally takes the sensitivity parameter.
+revDt
+  :: forall r y g astvals.
+     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains OD.Array (Value astvals) )
+  => (astvals -> g FullSpan r y) -> Value astvals -> ConcreteOf g r y
+  -> Value astvals
+revDt f vals dt = revDtMaybe f vals (Just dt)
+{-# SPECIALIZE revDt
+  :: ( HasSingletonDict y
+     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains OD.Array (Value astvals) )
+  => (astvals -> AstRanked FullSpan Double y) -> Value astvals
+  -> Flip OR.Array Double y
+  -> Value astvals #-}
+
+revDtMaybe
+  :: forall r y g vals astvals.
+     ( DerivativeStages g, GoodScalar r, HasSingletonDict y
+     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains OD.Array vals
+     , vals ~ Value astvals )
+  => (astvals -> g FullSpan r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
+{-# INLINE revDtMaybe #-}
+revDtMaybe f vals mdt =
+  let g domains = f $ parseDomains vals domains
+      domainsOD = toDomains vals
+      artifact = fst $ revProduceArtifact (isJust mdt) g EM.empty domainsOD
+  in gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $  -- !!!
+     parseDomains vals
      $ fst $ revEvalArtifact artifact domainsOD mdt
 
 revArtifactAdapt
