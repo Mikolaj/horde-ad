@@ -51,9 +51,9 @@ interpretAstPrimalRuntimeSpecialized
   -> AstRanked PrimalSpan r n -> PrimalOf ranked r n
 interpretAstPrimalRuntimeSpecialized env t =
   -- We dispatch on all expected underyling scalar types, which is
-  -- necessary to run the correct specialization of interpretAst
-  -- (in particular, all IfDifferentiable and RowSum instances should
-  -- be included), when unpacking an existential type.
+  -- necessary to run the correct specialization when unpacking
+  -- an existential type. All IfDifferentiable and RowSum instances should
+  -- be included in the list of expected underlying scalar types.
   -- If the scalar type is not on the list, performance suffers greatly.
   -- TODO: can I pattern match on (typeRep @r) instead?
   case testEquality (typeRep @r) (typeRep @Double) of

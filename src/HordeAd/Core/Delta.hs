@@ -58,6 +58,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
+import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
 import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
@@ -767,7 +768,29 @@ buildFinMaps s0 deltaDt =
   -- the second is the cotangent accumulator that will become an actual
   -- cotangent contribution when complete (see below for an explanation)
   -- and the third argument is the node to evaluate.
-  let evalR
+  let evalRRuntimeSpecialized
+        :: forall n r. (KnownNat n, GoodScalar r)
+        => EvalState ranked shaped
+        -> ranked r n -> DeltaR ranked shaped r n
+        -> EvalState ranked shaped
+      evalRRuntimeSpecialized !s !c =
+        -- We dispatch on all expected underyling scalar types, which is
+        -- necessary to run the correct specialization when unpacking
+        -- an existential type. All IfDifferentiable and RowSum instances should
+        -- be included in the list of expected underlying scalar types.
+        -- If the scalar type is not on the list, performance suffers greatly.
+        -- TODO: can I pattern match on (typeRep @r) instead?
+        case testEquality (typeRep @r) (typeRep @Double) of
+          Just Refl -> evalR @n @Double s c
+          _ -> case testEquality (typeRep @r) (typeRep @Float) of
+            Just Refl -> evalR @n @Float s c
+            _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+              Just Refl -> evalR @n @Int64 s c
+              _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+                Just Refl -> evalR @n @CInt s c
+                _ -> evalR s c
+                       -- the polymorpic case for an unexpected scalar
+      evalR
         :: forall n r. (KnownNat n, GoodScalar r)
         => EvalState ranked shaped
         -> ranked r n -> DeltaR ranked shaped r n
@@ -864,7 +887,7 @@ buildFinMaps s0 deltaDt =
           foldl' (\s2 i -> evalR s2 (tindex cShared (i :. ZI)) (f i))
                  sShared (fromIntegral <$> [0 .. n - 1])
         GatherR _sh d f -> evalR s (tscatter (shapeDelta d) c f) d
-        CastR d -> evalR s (tcast c) d
+        CastR d -> evalRRuntimeSpecialized s (tcast c) d
 
         DToR (RToD @n2 d) ->
           case sameNat (Proxy @n) (Proxy @n2) of
@@ -877,6 +900,21 @@ buildFinMaps s0 deltaDt =
         SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
         SToR d -> evalS s (sfromR c) d
 
+      evalSRuntimeSpecialized
+        :: forall sh r. (OS.Shape sh, GoodScalar r)
+        => EvalState ranked shaped
+        -> shaped r sh -> DeltaS ranked shaped r sh
+        -> EvalState ranked shaped
+      evalSRuntimeSpecialized !s !c =
+        case testEquality (typeRep @r) (typeRep @Double) of
+          Just Refl -> evalS @sh @Double s c
+          _ -> case testEquality (typeRep @r) (typeRep @Float) of
+            Just Refl -> evalS @sh @Float s c
+            _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+              Just Refl -> evalS @sh @Int64 s c
+              _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+                Just Refl -> evalS @sh @CInt s c
+                _ -> evalS s c
       evalS
         :: forall sh r. (OS.Shape sh, GoodScalar r)
         => EvalState ranked shaped
@@ -955,7 +993,7 @@ buildFinMaps s0 deltaDt =
                                  (f $ ShapedList.shapedNat i))
                  sShared (fromIntegral <$> [0 .. (valueOf @n :: Int) - 1])
         GatherS d f -> evalS s (sscatter c f) d
-        CastS d -> evalS s (scast c) d
+        CastS d -> evalSRuntimeSpecialized s (scast c) d
 
         DToS (SToD @sh2 d) ->
           case sameShape @sh @sh2 of
@@ -1020,13 +1058,13 @@ buildFinMaps s0 deltaDt =
                     DynamicExists @r2 e ->
                       case testEquality (typeRep @r1) (typeRep @r2) of
                         Just Refl -> let c = tfromD e
-                                     in evalR s2 c d
+                                     in evalRRuntimeSpecialized s2 c d
                         _ -> error "buildFinMaps: type mismatch"
                   DeltaBindingS @_ @r1 d -> case dMap EM.! n of
                     DynamicExists @r2 e ->
                       case testEquality (typeRep @r1) (typeRep @r2) of
                         Just Refl -> let c = sfromD e
-                                     in evalS s2 c d
+                                     in evalSRuntimeSpecialized s2 c d
                         _ -> error "buildFinMaps: type mismatch"
             in evalFromnMap s3
           Nothing -> s  -- loop ends
