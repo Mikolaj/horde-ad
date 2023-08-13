@@ -43,6 +43,7 @@ import           Type.Reflection (typeRep)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
+import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret

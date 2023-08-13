@@ -125,6 +125,7 @@ library horde-ad-simplified
     exposed-modules:  HordeAd
                       HordeAd.Core.Adaptor
                       HordeAd.Core.Ast
+                      HordeAd.Core.AstEnv
                       HordeAd.Core.AstFreshId
                       HordeAd.Core.AstInline
                       HordeAd.Core.AstInterpret

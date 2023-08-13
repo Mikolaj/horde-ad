@@ -18,6 +18,7 @@ import           System.Random
 
 import HordeAd
 import HordeAd.Core.Adaptor
+import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAstIOR)
 import HordeAd.Core.TensorADVal (ADValClown)
 import HordeAd.External.OptimizerTools
