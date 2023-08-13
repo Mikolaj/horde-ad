@@ -434,7 +434,7 @@ printAstDomains cfg d = \case
 printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
 printAstBool cfg d = \case
   AstBoolNot u -> printPrefixOp printAstBool cfg d "notB" [u]
-  AstBoolOp opCode args -> printAstBoolOp cfg d opCode args
+  AstB2 opCode arg1 arg2 -> printAstB2 cfg d opCode arg1 arg2
   AstBoolConst b -> showString $ if b then "true" else "false"
   AstRel opCode args -> printAstRelOp printAst cfg d opCode args
   AstRelS opCode args -> printAstRelOp printAstS cfg d opCode args
@@ -517,13 +517,11 @@ printBinaryOp pr cfg d left (prec, opstr) right =
     . showString opstr
     . pr cfg (prec + 1) right
 
-printAstBoolOp
-  :: PrintConfig -> Int -> OpCodeBool -> [AstBool] -> ShowS
-printAstBoolOp cfg d opCode args = case (opCode, args) of
-  (AndOp, [u, v]) -> printBinaryOp printAstBool cfg d u (3, " &&* ") v
-  (OrOp, [u, v]) -> printBinaryOp printAstBool cfg d u (2, " ||* ") v
-  _ -> error $ "printAstBoolOp: wrong number of arguments"
-               ++ show (opCode, length args)
+printAstB2
+  :: PrintConfig -> Int -> OpCodeBool -> AstBool -> AstBool -> ShowS
+printAstB2 cfg d opCode arg1 arg2 = case opCode of
+  AndOp -> printBinaryOp printAstBool cfg d arg1 (3, " &&* ") arg2
+  OrOp -> printBinaryOp printAstBool cfg d arg1 (2, " ||* ") arg2
 
 printAstRelOp :: (PrintConfig -> Int -> a -> ShowS)
               -> PrintConfig -> Int -> OpCodeRel -> [a]

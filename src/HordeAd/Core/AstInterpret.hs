@@ -461,9 +461,10 @@ interpretAstBool :: ADReadyBoth ranked shaped
                  => AstEnv ranked shaped -> AstBool -> BoolOf ranked
 interpretAstBool env = \case
   AstBoolNot arg -> notB $ interpretAstBool env arg
-  AstBoolOp opCodeBool args ->
-    let args2 = interpretAstBool env <$> args
-    in interpretAstBoolOp opCodeBool args2
+  AstB2 opCodeBool arg1 arg2 ->
+    let b1 = interpretAstBool env arg1
+        b2 = interpretAstBool env arg2
+    in interpretAstB2 opCodeBool b1 b2
   AstBoolConst a -> if a then true else false
   AstRel opCodeRel args ->
     let args2 = interpretAstPrimal env <$> args

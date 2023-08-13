@@ -1745,8 +1745,8 @@ simplifyAstBool :: AstBool -> AstBool
 simplifyAstBool t = case t of
   Ast.AstBoolNot (AstBoolConst b) -> AstBoolConst $ not b
   Ast.AstBoolNot arg -> Ast.AstBoolNot $ simplifyAstBool arg
-  Ast.AstBoolOp opCodeBool args ->
-    simplifyAstBoolOp opCodeBool (map simplifyAstBool args)
+  Ast.AstB2 opCodeBool arg1 arg2 ->
+    simplifyAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
   AstBoolConst{} -> t
   Ast.AstRel opCodeRel args ->
     simplifyRelOp opCodeRel (map simplifyAst args)
@@ -1989,16 +1989,16 @@ simplifyAstIntegralOp2 opCode u v = Ast.AstI2 opCode u v
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right.
-simplifyAstBoolOp :: OpCodeBool -> [AstBool] -> AstBool
-simplifyAstBoolOp AndOp [AstBoolConst True, b] = b
-simplifyAstBoolOp AndOp [AstBoolConst False, _b] = AstBoolConst False
-simplifyAstBoolOp AndOp [b, AstBoolConst True] = b
-simplifyAstBoolOp AndOp [_b, AstBoolConst False] = AstBoolConst False
-simplifyAstBoolOp OrOp [AstBoolConst True, _b] = AstBoolConst True
-simplifyAstBoolOp OrOp [AstBoolConst False, b] = b
-simplifyAstBoolOp OrOp [_b, AstBoolConst True] = AstBoolConst True
-simplifyAstBoolOp OrOp [b, AstBoolConst False] = b
-simplifyAstBoolOp opCodeBool arg = Ast.AstBoolOp opCodeBool arg
+simplifyAstB2 :: OpCodeBool -> AstBool -> AstBool -> AstBool
+simplifyAstB2 AndOp (AstBoolConst True) b = b
+simplifyAstB2 AndOp (AstBoolConst False) _b = AstBoolConst False
+simplifyAstB2 AndOp b (AstBoolConst True) = b
+simplifyAstB2 AndOp _b (AstBoolConst False) = AstBoolConst False
+simplifyAstB2 OrOp (AstBoolConst True) _b = AstBoolConst True
+simplifyAstB2 OrOp (AstBoolConst False) b = b
+simplifyAstB2 OrOp _b (AstBoolConst True) = AstBoolConst True
+simplifyAstB2 OrOp b (AstBoolConst False) = b
+simplifyAstB2 opCodeBool arg1 arg2 = Ast.AstB2 opCodeBool arg1 arg2
 
 simplifyAstS
   :: (OS.Shape sh, GoodScalar r, AstSpan s)
@@ -2285,10 +2285,12 @@ substitute1AstBool :: (GoodScalar r2, AstSpan s2)
 substitute1AstBool i var = \case
   Ast.AstBoolNot arg -> Ast.AstBoolNot <$> substitute1AstBool i var arg
     -- this can't be simplified, because constant boolean can't have variables
-  Ast.AstBoolOp opCodeBool args ->
-    let margs = map (substitute1AstBool i var) args
-    in if any isJust margs
-       then Just $ simplifyAstBoolOp opCodeBool $ zipWith fromMaybe args margs
+  Ast.AstB2 opCodeBool arg1 arg2 ->
+    let mb1 = substitute1AstBool i var arg1
+        mb2 = substitute1AstBool i var arg2
+    in if isJust mb1 || isJust mb2
+       then Just $ simplifyAstB2 opCodeBool (fromMaybe arg1 mb1)
+                                            (fromMaybe arg2 mb2)
        else Nothing
   Ast.AstBoolConst{} -> Nothing
   Ast.AstRel opCodeRel args ->

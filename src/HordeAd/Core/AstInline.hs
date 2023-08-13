@@ -237,9 +237,10 @@ inlineAstBool memo v0 = case v0 of
   Ast.AstBoolNot arg ->
     let (memo2, arg2) = inlineAstBool memo arg
     in (memo2, Ast.AstBoolNot arg2)
-  Ast.AstBoolOp opCodeBool args ->
-    let (memo2, args2) = mapAccumR inlineAstBool memo args
-    in (memo2, Ast.AstBoolOp opCodeBool args2)
+  Ast.AstB2 opCodeBool arg1 arg2 ->
+    let (memo1, b1) = inlineAstBool memo arg1
+        (memo2, b2) = inlineAstBool memo1 arg2
+    in (memo2, Ast.AstB2 opCodeBool b1 b2)
   Ast.AstBoolConst{} -> (memo, v0)
   Ast.AstRel @n opCodeRel args ->
     let (memo2, args2) =  mapAccumR inlineAst memo args
@@ -504,8 +505,8 @@ unletAstDomains env = \case
 unletAstBool :: UnletEnv -> AstBool -> AstBool
 unletAstBool env t = case t of
   Ast.AstBoolNot arg -> Ast.AstBoolNot $ unletAstBool env arg
-  Ast.AstBoolOp opCodeBool args ->
-    Ast.AstBoolOp opCodeBool (map (unletAstBool env) args)
+  Ast.AstB2 opCodeBool arg1 arg2 ->
+    Ast.AstB2 opCodeBool (unletAstBool env arg1) (unletAstBool env arg2)
   Ast.AstBoolConst{} -> t
   Ast.AstRel opCodeRel args ->
     Ast.AstRel opCodeRel (map (unletAst env) args)

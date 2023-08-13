@@ -451,7 +451,7 @@ deriving instance Show (AstDomains s)
 
 data AstBool where
   AstBoolNot :: AstBool -> AstBool
-  AstBoolOp :: OpCodeBool -> [AstBool] -> AstBool
+  AstB2 :: OpCodeBool -> AstBool -> AstBool -> AstBool
   AstBoolConst :: Bool -> AstBool
   -- TODO: there are existential variables here, as well.
   AstRel :: (KnownNat n, GoodScalar r)
@@ -751,8 +751,8 @@ instance Boolean AstBool where
   notB b = AstBoolNot b
   AstBoolConst b &&* AstBoolConst c = AstBoolConst $ b && c
                                         -- common in indexing
-  b &&* c = AstBoolOp AndOp [b, c]
-  b ||* c = AstBoolOp OrOp [b, c]
+  b &&* c = AstB2 AndOp b c
+  b ||* c = AstB2 OrOp b c
 
 
 -- * Boolean definitions and instances

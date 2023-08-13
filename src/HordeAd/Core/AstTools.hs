@@ -175,7 +175,7 @@ intIdInAstDynamic var = \case
 varInAstBool :: AstSpan s => AstVarId s -> AstBool -> Bool
 varInAstBool var = \case
   AstBoolNot b -> varInAstBool var b
-  AstBoolOp _ l -> any (varInAstBool var) l
+  AstB2 _ arg1 arg2 -> varInAstBool var arg1 || varInAstBool var arg2
   AstBoolConst{} -> False
   AstRel _ l -> any (varInAst var) l
   AstRelS _ l -> any (varInAstS var) l
