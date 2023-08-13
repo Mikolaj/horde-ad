@@ -460,6 +460,7 @@ interpretAstDomains env = \case
 interpretAstBool :: ADReadyBoth ranked shaped
                  => AstEnv ranked shaped -> AstBool -> BoolOf ranked
 interpretAstBool env = \case
+  AstBoolNot arg -> notB $ interpretAstBool env arg
   AstBoolOp opCodeBool args ->
     let args2 = interpretAstBool env <$> args
     in interpretAstBoolOp opCodeBool args2

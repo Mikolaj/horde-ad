@@ -1743,6 +1743,8 @@ simplifyAstDomains = \case
 
 simplifyAstBool :: AstBool -> AstBool
 simplifyAstBool t = case t of
+  Ast.AstBoolNot (AstBoolConst b) -> AstBoolConst $ not b
+  Ast.AstBoolNot arg -> Ast.AstBoolNot $ simplifyAstBool arg
   Ast.AstBoolOp opCodeBool args ->
     simplifyAstBoolOp opCodeBool (map simplifyAstBool args)
   AstBoolConst{} -> t
@@ -1988,7 +1990,6 @@ simplifyAstIntegralOp2 opCode u v = Ast.AstI2 opCode u v
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right.
 simplifyAstBoolOp :: OpCodeBool -> [AstBool] -> AstBool
-simplifyAstBoolOp NotOp [AstBoolConst b] = AstBoolConst $ not b
 simplifyAstBoolOp AndOp [AstBoolConst True, b] = b
 simplifyAstBoolOp AndOp [AstBoolConst False, _b] = AstBoolConst False
 simplifyAstBoolOp AndOp [b, AstBoolConst True] = b
@@ -2282,6 +2283,8 @@ substitute1AstBool :: (GoodScalar r2, AstSpan s2)
                    => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstBool
                    -> Maybe AstBool
 substitute1AstBool i var = \case
+  Ast.AstBoolNot arg -> Ast.AstBoolNot <$> substitute1AstBool i var arg
+    -- this can't be simplified, because constant boolean can't have variables
   Ast.AstBoolOp opCodeBool args ->
     let margs = map (substitute1AstBool i var) args
     in if any isJust margs

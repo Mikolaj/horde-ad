@@ -450,6 +450,7 @@ data AstDomains s where
 deriving instance Show (AstDomains s)
 
 data AstBool where
+  AstBoolNot :: AstBool -> AstBool
   AstBoolOp :: OpCodeBool -> [AstBool] -> AstBool
   AstBoolConst :: Bool -> AstBool
   -- TODO: there are existential variables here, as well.
@@ -485,7 +486,7 @@ data OpCodeIntegral2 =
  deriving Show
 
 data OpCodeBool =
-    NotOp | AndOp | OrOp
+    AndOp | OrOp
  deriving Show
 
 data OpCodeRel =
@@ -747,7 +748,7 @@ instance (Differentiable r, RealFloat (OS.Array sh r), AstSpan s)
 instance Boolean AstBool where
   true = AstBoolConst True
   false = AstBoolConst False
-  notB b = AstBoolOp NotOp [b]
+  notB b = AstBoolNot b
   AstBoolConst b &&* AstBoolConst c = AstBoolConst $ b && c
                                         -- common in indexing
   b &&* c = AstBoolOp AndOp [b, c]
