@@ -233,7 +233,7 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
   AstCond :: AstBool
           -> AstRanked s r n -> AstRanked s r n -> AstRanked s r n
 
-  -- TODO: there are existential variables here, as well.
+  -- There are existential variables here, as well.
   AstMinIndex :: GoodScalar r
               => AstRanked PrimalSpan r (1 + n) -> AstRanked PrimalSpan r2 n
   AstMaxIndex :: GoodScalar r
@@ -292,7 +292,7 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
             -> AstRanked s r (p + n) -> (AstVarList m, AstIndex p)
             -> AstRanked s r (m + n)
     -- out of bounds indexing is permitted
-  -- TODO: there are existential variables here, as well.
+  -- There are existential variables here, as well.
   AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2)
           => AstRanked s r1 n -> AstRanked s r2 n
   AstFromIntegral :: (GoodScalar r1, Integral r1)
@@ -435,6 +435,7 @@ data AstDynamic :: AstSpanType -> Type -> Type where
 deriving instance GoodScalar r => Show (AstDynamic s r)
 
 data AstDomains s where
+  -- There are existential variables inside DynamicExists here.
   AstDomains :: Data.Vector.Vector (DynamicExists (AstDynamic s))
              -> AstDomains s
   -- The r variable is existential here, so a proper specialization needs
@@ -453,7 +454,7 @@ data AstBool where
   AstBoolNot :: AstBool -> AstBool
   AstB2 :: OpCodeBool -> AstBool -> AstBool -> AstBool
   AstBoolConst :: Bool -> AstBool
-  -- TODO: there are existential variables here, as well.
+  -- There are existential variables here, as well.
   AstRel :: (KnownNat n, GoodScalar r)
          => OpCodeRel -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
          -> AstBool
@@ -779,14 +780,14 @@ class Boolean (BoolOf f) => IfF (f :: TensorKind k) where
 
 infix 4 ==., /=.
 class Boolean (BoolOf f) => EqF (f :: TensorKind k) where
-  -- TODO: there are existential variables here, as well.
+  -- The existential variables here are handled in instances, e.g., via AstRel.
   (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
                => f r y -> f r y -> BoolOf f
   u /=. v = notB (u ==. v)
 
 infix 4 <., <=., >=., >.
 class Boolean (BoolOf f) => OrdF (f :: TensorKind k) where
-  -- TODO: there are existential variables here, as well.
+  -- The existential variables here are handled in instances, e.g., via AstRel.
   (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
                            => f r y -> f r y -> BoolOf f
   u >. v = v <. u

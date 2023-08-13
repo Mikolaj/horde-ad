@@ -776,6 +776,8 @@ buildFinMaps s0 deltaDt =
                     in \case
         ZeroR{} -> s
         InputR _ i -> s {iMap = EM.adjust (raddDynamic c) i $ iMap s}
+          -- This and similar don't need to be runtime-specialized,
+          -- because the type of c determines the Num instance for (+).
         ScaleR k d -> evalR s (k * c) d
         AddR d e -> evalR (evalR sShared cShared d) cShared e
         LetR n d ->

@@ -44,6 +44,29 @@ import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 import HordeAd.Util.ShapedList (ShapedList (..))
 import HordeAd.Util.SizedIndex
 
+interpretAstPrimalRuntimeSpecialized
+  :: forall ranked shaped n r.
+     (KnownNat n, ADReadyBoth ranked shaped, GoodScalar r)
+  => AstEnv ranked shaped
+  -> AstRanked PrimalSpan r n -> PrimalOf ranked r n
+interpretAstPrimalRuntimeSpecialized env t =
+  -- We dispatch on all expected underyling scalar types, which is
+  -- necessary to run the correct specialization of interpretAst
+  -- (in particular, all IfDifferentiable and RowSum instances should
+  -- be included), when unpacking an existential type.
+  -- If the scalar type is not on the list, performance suffers greatly.
+  -- TODO: can I pattern match on (typeRep @r) instead?
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> interpretAstPrimal @ranked @shaped @n @Double env t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> interpretAstPrimal @ranked @shaped @n @Float env t
+      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+        Just Refl -> interpretAstPrimal @ranked @shaped @n @Int64 env t
+        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+          Just Refl -> interpretAstPrimal @ranked @shaped @n @CInt env t
+          _ -> interpretAstPrimal env t
+                 -- the polymorpic case for an unexpected scalar
+
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
 -- Either the environment has to be traversed to remove the dual parts or
 -- the dual part needs to be potentially needlessly computed.
@@ -83,12 +106,6 @@ interpretAstRuntimeSpecialized
   => AstEnv ranked shaped
   -> AstRanked s r n -> ranked r n
 interpretAstRuntimeSpecialized env t =
-  -- We dispatch on all expected underyling scalar types, which is
-  -- necessary to run the correct specialization of interpretAst
-  -- (in particular, all IfDifferentiable and RowSum instances should
-  -- be included), when unpacking an existential type.
-  -- If the scalar type is not on the list, performance suffers greatly.
-  -- TODO: can I pattern match on (typeRep @r) instead?
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAst @ranked @shaped @n @s @Double env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
@@ -98,7 +115,6 @@ interpretAstRuntimeSpecialized env t =
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> interpretAst @ranked @shaped @n @s @CInt env t
           _ -> interpretAst env t
-                 -- the polymorpic case for an unexpected scalar
 
 interpretAst
   :: forall ranked shaped n s r.
@@ -126,9 +142,12 @@ interpretAst env = \case
         t2 = interpretAst env a1
         t3 = interpretAst env a2
     in ifF b1 t2 t3
-  AstMinIndex v -> tminIndex $ tconstant $ interpretAstPrimal env v
-  AstMaxIndex v -> tmaxIndex $ tconstant $ interpretAstPrimal env v
-  AstFloor v -> tfloor $ tconstant $ interpretAstPrimal env v
+  AstMinIndex v ->
+    tminIndex $ tconstant $ interpretAstPrimalRuntimeSpecialized env v
+  AstMaxIndex v ->
+    tmaxIndex $ tconstant $ interpretAstPrimalRuntimeSpecialized env v
+  AstFloor v ->
+    tfloor $ tconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"
   {- TODO: revise when we handle GPUs. For now, this is done in TensorOps
      instead and that's fine, because for one-element carriers,
@@ -399,8 +418,9 @@ interpretAst env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstCast v -> tcast $ interpretAst env v
-  AstFromIntegral v -> tfromIntegral $ tconstant $ interpretAstPrimal env v
+  AstCast v -> tcast $ interpretAstRuntimeSpecialized env v
+  AstFromIntegral v ->
+    tfromIntegral $ tconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstConst a -> tconst a
   AstSToR v -> tfromS $ interpretAstS env v
   AstConstant a -> tconstant $ interpretAstPrimal env a
@@ -439,7 +459,8 @@ interpretAstDynamic env = \case
     DynamicExists $ dfromR $ interpretAstRuntimeSpecialized env w
   DynamicExists @r (AstSToD AstIotaS) ->
     DynamicExists $ ddummy @ranked @shaped @r
-  DynamicExists (AstSToD w) -> DynamicExists $ dfromS $ interpretAstS env w
+  DynamicExists (AstSToD w) ->
+    DynamicExists $ dfromS $ interpretAstSRuntimeSpecialized env w
 
 interpretAstDomains
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
@@ -452,7 +473,7 @@ interpretAstDomains env = \case
     in interpretAstDomains env2 v
       -- TODO: preserve let, as in AstLet case
   AstDomainsLetS var u v ->
-    let t = interpretAstS env u
+    let t = interpretAstSRuntimeSpecialized env u
         env2 = extendEnvS var t env
     in interpretAstDomains env2 v
       -- TODO: preserve let, as in AstLet case
@@ -467,13 +488,29 @@ interpretAstBool env = \case
     in interpretAstB2 opCodeBool b1 b2
   AstBoolConst a -> if a then true else false
   AstRel opCodeRel arg1 arg2 ->
-    let r1 = interpretAstPrimal env arg1
-        r2 = interpretAstPrimal env arg2
+    let r1 = interpretAstPrimalRuntimeSpecialized env arg1
+        r2 = interpretAstPrimalRuntimeSpecialized env arg2
     in interpretAstRelOp opCodeRel r1 r2
   AstRelS opCodeRel arg1 arg2 ->
-    let r1 = interpretAstPrimalS env arg1
-        r2 = interpretAstPrimalS env arg2
+    let r1 = interpretAstPrimalSRuntimeSpecialized env arg1
+        r2 = interpretAstPrimalSRuntimeSpecialized env arg2
     in interpretAstRelOp opCodeRel r1 r2
+
+interpretAstPrimalSRuntimeSpecialized
+  :: forall ranked shaped sh r.
+     (OS.Shape sh, ADReadyBoth ranked shaped, GoodScalar r)
+  => AstEnv ranked shaped
+  -> AstShaped PrimalSpan r sh -> PrimalOf shaped r sh
+interpretAstPrimalSRuntimeSpecialized env t =
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> interpretAstPrimalS @ranked @shaped @sh @Double env t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> interpretAstPrimalS @ranked @shaped @sh @Float env t
+      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+        Just Refl -> interpretAstPrimalS @ranked @shaped @sh @Int64 env t
+        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+          Just Refl -> interpretAstPrimalS @ranked @shaped @sh @CInt env t
+          _ -> interpretAstPrimalS env t
 
 interpretAstPrimalS
   :: forall ranked shaped sh r.
@@ -501,6 +538,22 @@ interpretAstDualS env v1 = case v1 of
   AstDualPartS t -> sdualPart $ interpretAstS env t
   _ -> sdualPart $ interpretAstS env v1
 
+interpretAstSRuntimeSpecialized
+  :: forall ranked shaped sh s r.
+     (OS.Shape sh, ADReadyBoth ranked shaped, GoodScalar r, AstSpan s)
+  => AstEnv ranked shaped
+  -> AstShaped s r sh -> shaped r sh
+interpretAstSRuntimeSpecialized env t =
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> interpretAstS @ranked @shaped @sh @s @Double env t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> interpretAstS @ranked @shaped @sh @s @Float env t
+      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+        Just Refl -> interpretAstS @ranked @shaped @sh @s @Int64 env t
+        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+          Just Refl -> interpretAstS @ranked @shaped @sh @s @CInt env t
+          _ -> interpretAstS env t
+
 interpretAstS
   :: forall ranked shaped sh s r.
      (OS.Shape sh, ADReadyBoth ranked shaped, GoodScalar r, AstSpan s)
@@ -517,7 +570,7 @@ interpretAstS env = \case
     Nothing -> error $ "interpretAstS: unknown variable " ++ show var
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
-    let t = interpretAstS env u
+    let t = interpretAstSRuntimeSpecialized env u
         env2 w = extendEnvS var w env
     in slet t (\w -> interpretAstS (env2 w) v)
   AstLetADShareS{} -> error "interpretAstS: AstLetADShare"
@@ -526,9 +579,12 @@ interpretAstS env = \case
         t2 = interpretAstS env a1
         t3 = interpretAstS env a2
     in ifF b1 t2 t3
-  AstMinIndexS v -> sminIndex $ sconstant $ interpretAstPrimalS env v
-  AstMaxIndexS v -> smaxIndex $ sconstant $ interpretAstPrimalS env v
-  AstFloorS v -> sfloor $ sconstant $ interpretAstPrimalS env v
+  AstMinIndexS v ->
+    sminIndex $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
+  AstMaxIndexS v ->
+    smaxIndex $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
+  AstFloorS v ->
+    sfloor $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
   AstIotaS -> siota
 {- TODO:
   AstN2 TimesOp [v, AstLet var u (AstReshape sh (AstReplicate @m k s))]
@@ -785,8 +841,9 @@ interpretAstS env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstCastS v -> scast $ interpretAstS env v
-  AstFromIntegralS v -> sfromIntegral $ sconstant $ interpretAstPrimalS env v
+  AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
+  AstFromIntegralS v ->
+    sfromIntegral $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
   AstConstS a -> sconst a
   AstRToS v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a
@@ -809,6 +866,29 @@ interpretAstS env = \case
     in interpretAstS env2 v
 
 
+
+
+-- There are no pragmas for shaped tensors, because most tests
+-- and benchmarks only use ranked tensors. I hope GHC learns to specialize
+-- without pragmas before they are definitely needed.
+-- The comparison of ranked and shaped benchmark results may give an indication
+-- of whether GHC completed its learning.
+
+{-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
+  -> AstRanked PrimalSpan r n
+  -> Flip OR.Array r n #-}
+{-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
+  -> AstRanked PrimalSpan r n
+  -> AstRanked PrimalSpan r n #-}
+{-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
+  :: (KnownNat n, GoodScalar r)
+  => AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstRanked PrimalSpan r n
+  -> Flip OR.Array r n #-}
 
 {-# SPECIALIZE interpretAstPrimal
   :: (KnownNat n, GoodScalar r)
