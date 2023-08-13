@@ -177,8 +177,8 @@ varInAstBool var = \case
   AstBoolNot b -> varInAstBool var b
   AstB2 _ arg1 arg2 -> varInAstBool var arg1 || varInAstBool var arg2
   AstBoolConst{} -> False
-  AstRel _ l -> any (varInAst var) l
-  AstRelS _ l -> any (varInAstS var) l
+  AstRel _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstRelS _ arg1 arg2 -> varInAstS var arg1 || varInAstS var arg2
 
 varInIndex :: AstSpan s => AstVarId s -> AstIndex n -> Bool
 varInIndex var = any (varInAst var)

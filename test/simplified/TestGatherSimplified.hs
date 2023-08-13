@@ -456,9 +456,9 @@ testScatterSimpPP1 = do
   length (show t1) @?= 290
   resetVarCounter
   let !t2 = scatter1 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 421
+  length (show t2) @?= 423
   length (show (simplifyAst6 @Float t1)) @?= 290
-  length (show (simplifyAst6 @Float t2)) @?= 421
+  length (show (simplifyAst6 @Float t2)) @?= 423
 
 scatterNested2 :: forall ranked r. (ADReady ranked, GoodScalar r)
               => ranked r 2 -> ranked r 2
@@ -519,12 +519,12 @@ testScatterSimpPP2 :: Assertion
 testScatterSimpPP2 = do
   resetVarCounter
   let !t1 = scatterNested2 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 1091
+  length (show t1) @?= 1101
   resetVarCounter
   let !t2 = scatter2 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 602
-  length (show (simplifyAst6 @Float t1)) @?= 1091
-  length (show (simplifyAst6 @Float t2)) @?= 602
+  length (show t2) @?= 606
+  length (show (simplifyAst6 @Float t1)) @?= 1101
+  length (show (simplifyAst6 @Float t2)) @?= 606
 
 scatterNested12 :: forall ranked r. (ADReady ranked, GoodScalar r)
                => ranked r 2 -> ranked r 2
@@ -587,9 +587,9 @@ testScatterSimpPP12 :: Assertion
 testScatterSimpPP12 = do
   resetVarCounter
   let !t1 = scatterNested12 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 925
+  length (show t1) @?= 933
   resetVarCounter
   let !t2 = scatter12 @(AstRanked PrimalSpan) $ AstVar [7, 2] (AstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 602
-  length (show (simplifyAst6 @Float t1)) @?= 925
-  length (show (simplifyAst6 @Float t2)) @?= 602
+  length (show t2) @?= 606
+  length (show (simplifyAst6 @Float t1)) @?= 933
+  length (show (simplifyAst6 @Float t2)) @?= 606

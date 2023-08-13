@@ -466,12 +466,14 @@ interpretAstBool env = \case
         b2 = interpretAstBool env arg2
     in interpretAstB2 opCodeBool b1 b2
   AstBoolConst a -> if a then true else false
-  AstRel opCodeRel args ->
-    let args2 = interpretAstPrimal env <$> args
-    in interpretAstRelOp opCodeRel args2
-  AstRelS opCodeRel args ->
-    let args2 = interpretAstPrimalS env <$> args
-    in interpretAstRelOp opCodeRel args2
+  AstRel opCodeRel arg1 arg2 ->
+    let r1 = interpretAstPrimal env arg1
+        r2 = interpretAstPrimal env arg2
+    in interpretAstRelOp opCodeRel r1 r2
+  AstRelS opCodeRel arg1 arg2 ->
+    let r1 = interpretAstPrimalS env arg1
+        r2 = interpretAstPrimalS env arg2
+    in interpretAstRelOp opCodeRel r1 r2
 
 interpretAstPrimalS
   :: forall ranked shaped sh r.

@@ -436,8 +436,8 @@ printAstBool cfg d = \case
   AstBoolNot u -> printPrefixOp printAstBool cfg d "notB" [u]
   AstB2 opCode arg1 arg2 -> printAstB2 cfg d opCode arg1 arg2
   AstBoolConst b -> showString $ if b then "true" else "false"
-  AstRel opCode args -> printAstRelOp printAst cfg d opCode args
-  AstRelS opCode args -> printAstRelOp printAstS cfg d opCode args
+  AstRel opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
+  AstRelS opCode arg1 arg2 -> printAstRelOp printAstS cfg d opCode arg1 arg2
 
 printAstN1 :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCodeNum1 -> a -> ShowS
@@ -524,18 +524,16 @@ printAstB2 cfg d opCode arg1 arg2 = case opCode of
   OrOp -> printBinaryOp printAstBool cfg d arg1 (2, " ||* ") arg2
 
 printAstRelOp :: (PrintConfig -> Int -> a -> ShowS)
-              -> PrintConfig -> Int -> OpCodeRel -> [a]
+              -> PrintConfig -> Int -> OpCodeRel -> a -> a
               -> ShowS
 {-# INLINE printAstRelOp #-}
-printAstRelOp pr cfg d opCode args = case (opCode, args) of
-  (EqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " ==. ") v
-  (NeqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " /=. ") v
-  (LeqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " <=. ") v
-  (GeqOp, [u, v]) -> printBinaryOp pr cfg d u (4, " >=. ") v
-  (LsOp, [u, v]) -> printBinaryOp pr cfg d u (4, " <. ") v
-  (GtOp, [u, v]) -> printBinaryOp pr cfg d u (4, " >. ") v
-  _ -> error $ "printAstRelOp: wrong number of arguments"
-               ++ show (opCode, length args)
+printAstRelOp pr cfg d opCode u v = case opCode of
+  EqOp -> printBinaryOp pr cfg d u (4, " ==. ") v
+  NeqOp -> printBinaryOp pr cfg d u (4, " /=. ") v
+  LeqOp -> printBinaryOp pr cfg d u (4, " <=. ") v
+  GeqOp -> printBinaryOp pr cfg d u (4, " >=. ") v
+  LsOp -> printBinaryOp pr cfg d u (4, " <. ") v
+  GtOp -> printBinaryOp pr cfg d u (4, " >. ") v
 
 printAstS :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
           => PrintConfig -> Int -> AstShaped s r sh -> ShowS

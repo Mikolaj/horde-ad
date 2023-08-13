@@ -242,12 +242,14 @@ inlineAstBool memo v0 = case v0 of
         (memo2, b2) = inlineAstBool memo1 arg2
     in (memo2, Ast.AstB2 opCodeBool b1 b2)
   Ast.AstBoolConst{} -> (memo, v0)
-  Ast.AstRel @n opCodeRel args ->
-    let (memo2, args2) =  mapAccumR inlineAst memo args
-    in (memo2, Ast.AstRel opCodeRel args2)
-  Ast.AstRelS @n opCodeRel args ->
-    let (memo2, args2) =  mapAccumR inlineAstS memo args
-    in (memo2, Ast.AstRelS opCodeRel args2)
+  Ast.AstRel @n opCodeRel arg1 arg2 ->
+    let (memo1, r1) = inlineAst memo arg1
+        (memo2, r2) = inlineAst memo1 arg2
+    in (memo2, Ast.AstRel opCodeRel r1 r2)
+  Ast.AstRelS @n opCodeRel arg1 arg2 ->
+    let (memo1, r1) = inlineAstS memo arg1
+        (memo2, r2) = inlineAstS memo1 arg2
+    in (memo2, Ast.AstRelS opCodeRel r1 r2)
 
 inlineAstS
   :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
@@ -508,10 +510,10 @@ unletAstBool env t = case t of
   Ast.AstB2 opCodeBool arg1 arg2 ->
     Ast.AstB2 opCodeBool (unletAstBool env arg1) (unletAstBool env arg2)
   Ast.AstBoolConst{} -> t
-  Ast.AstRel opCodeRel args ->
-    Ast.AstRel opCodeRel (map (unletAst env) args)
-  Ast.AstRelS opCodeRel args ->
-    Ast.AstRelS opCodeRel (map (unletAstS env) args)
+  Ast.AstRel opCodeRel arg1 arg2 ->
+    Ast.AstRel opCodeRel (unletAst env arg1) (unletAst env arg2)
+  Ast.AstRelS opCodeRel arg1 arg2 ->
+    Ast.AstRelS opCodeRel (unletAstS env arg1) (unletAstS env arg2)
 
 unletAstS
   :: (GoodScalar r, OS.Shape sh, AstSpan s)

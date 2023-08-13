@@ -41,22 +41,22 @@ import           HordeAd.Util.SizedIndex
 type instance SimpleBoolOf (AstRanked s) = AstBool
 
 instance AstSpan s => EqF (AstRanked s) where
-  v ==. u = (emptyADShare, AstRel EqOp [astSpanPrimal v, astSpanPrimal u])
-  v /=. u = (emptyADShare, AstRel NeqOp [astSpanPrimal v, astSpanPrimal u])
+  v ==. u = (emptyADShare, AstRel EqOp (astSpanPrimal v) (astSpanPrimal u))
+  v /=. u = (emptyADShare, AstRel NeqOp (astSpanPrimal v) (astSpanPrimal u))
 
 instance AstSpan s => OrdF (AstRanked s) where
   AstConst u <. AstConst v = (emptyADShare, AstBoolConst $ u < v)
     -- common in indexing
-  v <. u = (emptyADShare, AstRel LsOp [astSpanPrimal v, astSpanPrimal u])
+  v <. u = (emptyADShare, AstRel LsOp (astSpanPrimal v) (astSpanPrimal u))
   AstConst u <=. AstConst v = (emptyADShare, AstBoolConst $ u <= v)
     -- common in indexing
-  v <=. u = (emptyADShare, AstRel LeqOp [astSpanPrimal v, astSpanPrimal u])
+  v <=. u = (emptyADShare, AstRel LeqOp (astSpanPrimal v) (astSpanPrimal u))
   AstConst u >. AstConst v = (emptyADShare, AstBoolConst $ u > v)
     -- common in indexing
-  v >. u = (emptyADShare, AstRel GtOp [astSpanPrimal v, astSpanPrimal u])
+  v >. u = (emptyADShare, AstRel GtOp (astSpanPrimal v) (astSpanPrimal u))
   AstConst u >=. AstConst v = (emptyADShare, AstBoolConst $ u >= v)
     -- common in indexing
-  v >=. u = (emptyADShare, AstRel GeqOp [astSpanPrimal v, astSpanPrimal u])
+  v >=. u = (emptyADShare, AstRel GeqOp (astSpanPrimal v) (astSpanPrimal u))
 
 instance IfF (AstRanked s) where
   ifF (_, b) v w = astCond b v w
@@ -67,22 +67,22 @@ instance IfF (AstRanked s) where
 type instance SimpleBoolOf (AstShaped s) = AstBool
 
 instance AstSpan s => EqF (AstShaped s) where
-  v ==. u = (emptyADShare, AstRelS EqOp [astSpanPrimalS v, astSpanPrimalS u])
-  v /=. u = (emptyADShare, AstRelS NeqOp [astSpanPrimalS v, astSpanPrimalS u])
+  v ==. u = (emptyADShare, AstRelS EqOp (astSpanPrimalS v) (astSpanPrimalS u))
+  v /=. u = (emptyADShare, AstRelS NeqOp (astSpanPrimalS v) (astSpanPrimalS u))
 
 instance AstSpan s => OrdF (AstShaped s) where
   AstConstS u <. AstConstS v = (emptyADShare, AstBoolConst $ u < v)
     -- common in indexing
-  v <. u = (emptyADShare, AstRelS LsOp [astSpanPrimalS v, astSpanPrimalS u])
+  v <. u = (emptyADShare, AstRelS LsOp (astSpanPrimalS v) (astSpanPrimalS u))
   AstConstS u <=. AstConstS v = (emptyADShare, AstBoolConst $ u <= v)
     -- common in indexing
-  v <=. u = (emptyADShare, AstRelS LeqOp [astSpanPrimalS v, astSpanPrimalS u])
+  v <=. u = (emptyADShare, AstRelS LeqOp (astSpanPrimalS v) (astSpanPrimalS u))
   AstConstS u >. AstConstS v = (emptyADShare, AstBoolConst $ u > v)
     -- common in indexing
-  v >. u = (emptyADShare, AstRelS GtOp [astSpanPrimalS v, astSpanPrimalS u])
+  v >. u = (emptyADShare, AstRelS GtOp (astSpanPrimalS v) (astSpanPrimalS u))
   AstConstS u >=. AstConstS v = (emptyADShare, AstBoolConst $ u >= v)
     -- common in indexing
-  v >=. u = (emptyADShare, AstRelS GeqOp [astSpanPrimalS v, astSpanPrimalS u])
+  v >=. u = (emptyADShare, AstRelS GeqOp (astSpanPrimalS v) (astSpanPrimalS u))
 
 instance IfF (AstShaped s) where
   ifF (_, b) v w = astCondS b v w

@@ -1748,41 +1748,43 @@ simplifyAstBool t = case t of
   Ast.AstB2 opCodeBool arg1 arg2 ->
     simplifyAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
   AstBoolConst{} -> t
-  Ast.AstRel opCodeRel args ->
-    simplifyRelOp opCodeRel (map simplifyAst args)
+  Ast.AstRel opCodeRel arg1 arg2 ->
+    simplifyRelOp opCodeRel (simplifyAst arg1) (simplifyAst arg2)
       -- These expressions potentially represent large tensors that are
       -- expensive to compute even when constant so we simplify and ignore them,
       -- because computation should be done on GPU, not on CPU when simplifying;
       -- we'd need a flag to control how much we pre-compute.
       -- Anyway, because these tensors sometimes represent indexes,
       -- we simplify them a bit more than the shaped ones.
-  Ast.AstRelS opCodeRel args ->
-    Ast.AstRelS opCodeRel (map simplifyAstS args)
+  Ast.AstRelS opCodeRel arg1 arg2 ->
+    Ast.AstRelS opCodeRel (simplifyAstS arg1) (simplifyAstS arg2)
 
 -- TODO: when we have more tests, try to limit this rewrite
 -- (or only the first half) to Int64 at rank 0 and see if performance improves
 -- even more.
 simplifyRelOp :: (KnownNat n, GoodScalar r)
-              => OpCodeRel -> [AstRanked PrimalSpan r n] -> AstBool
-simplifyRelOp EqOp [AstConst u, AstConst v] = AstBoolConst $ u == v
-simplifyRelOp NeqOp [AstConst u, AstConst v] = AstBoolConst $ u /= v
-simplifyRelOp LeqOp [AstConst u, AstConst v] = AstBoolConst $ u <= v
-simplifyRelOp GeqOp [AstConst u, AstConst v] = AstBoolConst $ u >= v
-simplifyRelOp LsOp [AstConst u, AstConst v] = AstBoolConst $ u < v
-simplifyRelOp GtOp [AstConst u, AstConst v] = AstBoolConst $ u > v
-simplifyRelOp EqOp [Ast.AstVar _ u, Ast.AstVar _ v] | u == v =
+              => OpCodeRel
+              -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
+              -> AstBool
+simplifyRelOp EqOp (AstConst u) (AstConst v) = AstBoolConst $ u == v
+simplifyRelOp NeqOp (AstConst u) (AstConst v) = AstBoolConst $ u /= v
+simplifyRelOp LeqOp (AstConst u) (AstConst v) = AstBoolConst $ u <= v
+simplifyRelOp GeqOp (AstConst u) (AstConst v) = AstBoolConst $ u >= v
+simplifyRelOp LsOp (AstConst u) (AstConst v) = AstBoolConst $ u < v
+simplifyRelOp GtOp (AstConst u) (AstConst v) = AstBoolConst $ u > v
+simplifyRelOp EqOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst True
-simplifyRelOp LeqOp [Ast.AstVar _ u, Ast.AstVar _ v] | u == v =
+simplifyRelOp LeqOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst True
-simplifyRelOp GeqOp [Ast.AstVar _ u, Ast.AstVar _ v] | u == v =
+simplifyRelOp GeqOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst True
-simplifyRelOp NeqOp [Ast.AstVar _ u, Ast.AstVar _ v] | u == v =
+simplifyRelOp NeqOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst False
-simplifyRelOp LsOp [Ast.AstVar _ u, Ast.AstVar _ v] | u == v =
+simplifyRelOp LsOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst False
-simplifyRelOp GtOp [Ast.AstVar _ u, Ast.AstVar _ v] | u == v =
+simplifyRelOp GtOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst False
-simplifyRelOp opCodeRel arg = Ast.AstRel opCodeRel arg
+simplifyRelOp opCodeRel arg1 arg2 = Ast.AstRel opCodeRel arg1 arg2
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right
@@ -2293,15 +2295,19 @@ substitute1AstBool i var = \case
                                             (fromMaybe arg2 mb2)
        else Nothing
   Ast.AstBoolConst{} -> Nothing
-  Ast.AstRel opCodeRel args ->
-    let margs = map (substitute1Ast i var) args
-    in if any isJust margs
-       then Just $ simplifyRelOp opCodeRel $ zipWith fromMaybe args margs
+  Ast.AstRel opCodeRel arg1 arg2 ->
+    let mr1 = substitute1Ast i var arg1
+        mr2 = substitute1Ast i var arg2
+    in if isJust mr1 || isJust mr2
+       then Just $ simplifyRelOp opCodeRel (fromMaybe arg1 mr1)
+                                           (fromMaybe arg2 mr2)
        else Nothing
-  Ast.AstRelS opCodeRel args ->
-    let margs = map (substitute1AstS i var) args
-    in if any isJust margs
-       then Just $ Ast.AstRelS opCodeRel $ zipWith fromMaybe args margs
+  Ast.AstRelS opCodeRel arg1 arg2 ->
+    let mr1 = substitute1AstS i var arg1
+        mr2 = substitute1AstS i var arg2
+    in if isJust mr1 || isJust mr2
+       then Just $ Ast.AstRelS opCodeRel (fromMaybe arg1 mr1)
+                                         (fromMaybe arg2 mr2)
        else Nothing
 
 substitute1AstS :: forall sh s s2 r r2.

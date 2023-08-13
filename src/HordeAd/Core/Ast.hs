@@ -455,9 +455,11 @@ data AstBool where
   AstBoolConst :: Bool -> AstBool
   -- TODO: there are existential variables here, as well.
   AstRel :: (KnownNat n, GoodScalar r)
-         => OpCodeRel -> [AstRanked PrimalSpan r n] -> AstBool
+         => OpCodeRel -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
+         -> AstBool
   AstRelS :: (OS.Shape sh, GoodScalar r)
-          => OpCodeRel -> [AstShaped PrimalSpan r sh] -> AstBool
+          => OpCodeRel -> AstShaped PrimalSpan r sh -> AstShaped PrimalSpan r sh
+          -> AstBool
 deriving instance Show AstBool
 
 data OpCodeNum1 =
