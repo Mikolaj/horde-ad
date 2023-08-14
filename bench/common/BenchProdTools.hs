@@ -57,6 +57,8 @@ benchProd :: r ~ Double
 benchProd ~(_l, list, vec) =
     [ bench "crev List" $ nf (crev rankedListProd) list
     , bench "rev List" $ nf (rev @Double @0 @AstRanked rankedListProd) list
+    , bench "r crev List" $ nf (crev rankedListProdr) list
+    , bench "r rev List" $ nf (rev @Double @0 @AstRanked rankedListProdr) list
 -- commented out, because 5 times slower due to allocating a new vector
 -- for each multiplication in fromDomains
 --    , bench "crev Vec" $ nf (crev rankedVecProd) vec
@@ -82,6 +84,10 @@ benchProd ~(_l, list, vec) =
 rankedListProd :: (RankedTensor ranked, GoodScalar r)
                => [ranked r 0] -> ranked r 0
 rankedListProd = foldl1' (*)
+
+rankedListProdr :: (RankedTensor ranked, GoodScalar r)
+                => [ranked r 0] -> ranked r 0
+rankedListProdr = foldr1 (*)
 
 _rankedVecProd :: (RankedTensor ranked, GoodScalar r)
                => Data.Vector.Vector (ranked r 0) -> ranked r 0
