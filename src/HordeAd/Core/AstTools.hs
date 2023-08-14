@@ -298,7 +298,7 @@ bindsToLet = foldl' bindToLet
  where
   bindToLet :: AstRanked s r n -> (AstId, DynamicExists (AstDynamic s))
             -> AstRanked s r n
-  bindToLet u (var, DynamicExists d) = case d of
+  bindToLet !u (var, DynamicExists d) = case d of
     AstRToD w -> AstLet (AstVarName $ astIdToAstVarId var) w u
     AstSToD w ->
       let sh = shapeToList $ shapeAst u
@@ -317,7 +317,7 @@ bindsToLetS = foldl' bindToLetS
  where
   bindToLetS :: AstShaped s r sh -> (AstId, DynamicExists (AstDynamic s))
              -> AstShaped s r sh
-  bindToLetS u (var, DynamicExists d) = case d of
+  bindToLetS !u (var, DynamicExists d) = case d of
     AstRToD w ->
       let n = length $ OS.shapeT @sh
       in case someNatVal $ toInteger n of
@@ -332,6 +332,6 @@ bindsToDomainsLet
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
-  bindToDomainsLet u (var, DynamicExists d) = case d of
+  bindToDomainsLet !u (var, DynamicExists d) = case d of
     AstRToD w -> AstDomainsLet (AstVarName $ astIdToAstVarId var) w u
     AstSToD w -> AstDomainsLetS (AstVarName $ astIdToAstVarId var) w u

@@ -61,12 +61,13 @@ instance AdaptableDomains dynamic a
   type Value [a] = [Value a]
   toDomains = V.concat . map toDomains
   fromDomains lInit source =
-    let f (lAcc, restAcc) aInit =
+    let f (!lAcc, !restAcc) !aInit =
           case fromDomains aInit restAcc of
             Just (a, rest) -> (a : lAcc, rest)
             Nothing -> error "fromDomains [a]"
-        (l, restAll) = foldl' f ([], source) lInit
-    in Just (reverse l, restAll)
+        (l, !restAll) = foldl' f ([], source) lInit
+        !rl = reverse l
+    in Just (rl, restAll)
     -- is the following as performant? benchmark:
     -- > fromDomains lInit source =
     -- >   let f = swap . flip fromDomains
@@ -82,13 +83,13 @@ instance AdaptableDomains dynamic a
   type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
   toDomains = V.concatMap toDomains
   fromDomains lInit source =
-    let f (lAcc, restAcc) aInit =
+    let f (!lAcc, !restAcc) !aInit =
           case fromDomains aInit restAcc of
             Just (a, rest) -> (V.snoc lAcc a, rest)
               -- this snoc, if the vector is long, is very costly;
               -- a solution might be to define Value to be a list
             Nothing -> error "fromDomains [a]"
-        (l, restAll) = V.foldl' f (V.empty, source) lInit
+        (!l, !restAll) = V.foldl' f (V.empty, source) lInit
     in Just (l, restAll)
 
 instance ForgetShape a

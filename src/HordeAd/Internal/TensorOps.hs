@@ -104,7 +104,7 @@ updateNR arr upd =
   let RS.A (RG.A shRaw OI.T{offset, values}) = OR.normalize arr
       !_A = assert (offset == 0) ()
   in let sh = listShapeToShape shRaw
-         f t (ix, u) =
+         f !t (ix, u) =
            let v = OR.toVector u
                i = fromIntegral $ toLinearIdx @m @n sh ix
            in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
@@ -496,7 +496,7 @@ updateNS arr upd =
   let SS.A (SG.A OI.T{offset, values}) = OS.normalize arr
       !_A = assert (offset == 0) ()
   in let sh = ShapedList.shapeSh @sh
-         f t (ix, u) =
+         f !t (ix, u) =
            let v = OS.toVector u
                i = gcastWith (unsafeCoerce Refl
                               :: sh :~: OS.Take n sh OS.++ OS.Drop n sh)

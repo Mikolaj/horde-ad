@@ -72,7 +72,7 @@ ensureToplevelSharing (D l u u') = dD l u u'
 
 scaleNotShared :: (Num (f r z), IsPrimal f r z)
                => f r z -> ADVal f r z -> ADVal f r z
-scaleNotShared a (D l u u') = dDnotShared l (a * u) (dScale a u')
+scaleNotShared !a (D l u u') = dDnotShared l (a * u) (dScale a u')
 
 addNotShared :: (Num (f r z), IsPrimal f r z)
              => ADVal f r z -> ADVal f r z -> ADVal f r z

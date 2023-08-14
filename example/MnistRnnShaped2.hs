@@ -51,7 +51,7 @@ unrollLastS :: forall shaped state c w r n sh.
             -> (state -> shaped r (n ': sh) -> w -> (c, state))
 unrollLastS f s0 xs w =
   let g :: (c, state) -> shaped r sh -> (c, state)
-      g (_, s) x = f s x w
+      g (_, !s) x = f s x w
       projections :: [shaped r sh]
       projections = map (\i -> sindex xs (fromIntegral i :$: ZSH))
                         [0 .. (valueOf @n :: Int)- 1]

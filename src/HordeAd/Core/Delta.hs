@@ -859,10 +859,10 @@ buildFinMaps s0 deltaDt =
         ScatterR _sh d f -> evalR s (tgather (shapeDelta d) c f) d
 
         FromListR ld ->
-          ifoldl' (\s2 i d2 ->
+          ifoldl' (\ !s2 i d2 ->
             evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) sShared ld
         FromVectorR ld ->
-          V.ifoldl' (\s2 i d2 ->
+          V.ifoldl' (\ !s2 i d2 ->
             evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) sShared ld
         ReplicateR _n d -> evalR s (tsum c) d
         AppendR d e -> case tshape c of
@@ -884,7 +884,7 @@ buildFinMaps s0 deltaDt =
           in evalR s (ttranspose perm_reversed c) d
         ReshapeR _sh d -> evalR s (treshape (shapeDelta d) c) d
         BuildR n f ->
-          foldl' (\s2 i -> evalR s2 (tindex cShared (i :. ZI)) (f i))
+          foldl' (\ !s2 i -> evalR s2 (tindex cShared (i :. ZI)) (f i))
                  sShared (fromIntegral <$> [0 .. n - 1])
         GatherR _sh d f -> evalR s (tscatter (shapeDelta d) c f) d
         CastR d -> evalRRuntimeSpecialized s (tcast c) d
@@ -956,10 +956,10 @@ buildFinMaps s0 deltaDt =
         ScatterS d f -> evalS s (sgather c f) d
 
         FromListS ld ->
-          ifoldl' (\s2 i d2 ->
+          ifoldl' (\ !s2 i d2 ->
             evalS s2 (cShared !$ (fromIntegral i :$: ZSH)) d2) sShared ld
         FromVectorS ld ->
-          V.ifoldl' (\s2 i d2 ->
+          V.ifoldl' (\ !s2 i d2 ->
             evalS s2 (cShared !$ (fromIntegral i :$: ZSH)) d2) sShared ld
         ReplicateS d -> evalS s (ssum c) d
         AppendS @_ @_ @_ @m @n d e ->
@@ -989,7 +989,7 @@ buildFinMaps s0 deltaDt =
                     d
         ReshapeS d -> evalS s (sreshape c) d
         BuildS @_ @_ @_ @n f ->
-          foldl' (\s2 i -> evalS s2 (sindex cShared (i :$: ZSH))
+          foldl' (\ !s2 i -> evalS s2 (sindex cShared (i :$: ZSH))
                                  (f $ ShapedList.shapedNat i))
                  sShared (fromIntegral <$> [0 .. (valueOf @n :: Int) - 1])
         GatherS d f -> evalS s (sscatter c f) d

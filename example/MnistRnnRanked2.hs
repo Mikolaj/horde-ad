@@ -58,7 +58,7 @@ unrollLastR :: forall ranked state c w r n.
             -> (state -> ranked r (1 + n) -> w -> (c, state))
 unrollLastR f s0 xs w =
   let g :: (c, state) -> ranked r n -> (c, state)
-      g (_, s) x = f s x w
+      g (_, !s) x = f s x w
       projections :: [ranked r n]
       projections = case tshape xs of
         len :$ _ -> map (\i -> tindex xs (fromIntegral i :. ZI)) [0 .. len - 1]
