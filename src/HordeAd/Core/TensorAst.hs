@@ -164,7 +164,7 @@ instance ( GoodScalar r, KnownNat n
     Just (DynamicExists @r2 a, rest) ->
       if isTensorDummyAst a then Just (tzero (tshape aInit), rest) else
         case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> Just (tfromD a, rest)
+          Just Refl -> let !t = tfromD a in Just (t, rest)
           _ -> error $ "fromDomains: type mismatch: "
                        ++ show (typeRep @r) ++ " " ++ show (typeRep @r2)
     Nothing -> Nothing
@@ -343,7 +343,7 @@ instance ( GoodScalar r, OS.Shape sh
     Just (DynamicExists @r2 a, rest) ->
       if isTensorDummyAst a then Just (0, rest) else
         case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> Just (sfromD a, rest)
+          Just Refl -> let !t = sfromD a in Just (t, rest)
           _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
 

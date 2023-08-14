@@ -591,7 +591,7 @@ testReluPP = do
   printPrimal6Pretty renames artifactRev
     @?= "\\m2 -> let m8 = tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i6, i7] -> [ifF (m2 ! [i6, i7] <=. tconst 0.0) 0 1]) in m8 * m2"
   show deltas
-    @?= "LetR 100000002 (ScaleR (AstVar [3,4] (AstVarId 100000008)) (InputR [3,4] (InputId 0)))"
+    @?= "LetR 100000003 (ScaleR (AstVar [3,4] (AstVarId 100000008)) (InputR [3,4] (InputId 0)))"
 
 testReluPP2 :: Assertion
 testReluPP2 = do
@@ -608,15 +608,15 @@ testReluPP2 = do
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT2 (Flip $ OR.constant [5] 128, 42)
   printGradient6Pretty renames artifactRev
-    @?= "\\dret v2 x3 -> let v6 = tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifF ((let x9 = v2 ! [i5] in x9 * x3) <=. tconst 0.0) 0 1]) ; v7 = v2 * treplicate 5 x3 ; v8 = v6 * dret in (treplicate 5 x3 * v8, tsum (v2 * v8))"
+    @?= "\\dret v2 x3 -> let v7 = tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifF ((let x6 = v2 ! [i5] in x6 * x3) <=. tconst 0.0) 0 1]) ; v8 = v2 * treplicate 5 x3 ; v9 = v7 * dret in (treplicate 5 x3 * v9, tsum (v2 * v9))"
   printPrimal6Pretty renames artifactRev
-    @?= "\\v2 x3 -> let v6 = tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifF ((let x9 = v2 ! [i5] in x9 * x3) <=. tconst 0.0) 0 1]) ; v7 = v2 * treplicate 5 x3 in v6 * v7"
+    @?= "\\v2 x3 -> let v7 = tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifF ((let x6 = v2 ! [i5] in x6 * x3) <=. tconst 0.0) 0 1]) ; v8 = v2 * treplicate 5 x3 in v7 * v8"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\dret v2 x3 -> let v8 = tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifF (v2 ! [i5] * x3 <=. tconst 0.0) 0 1]) * dret in (treplicate 5 x3 * v8, tsum (v2 * v8))"
+    @?= "\\dret v2 x3 -> let v9 = tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifF (v2 ! [i5] * x3 <=. tconst 0.0) 0 1]) * dret in (treplicate 5 x3 * v9, tsum (v2 * v9))"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\v2 x3 -> tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifF (v2 ! [i5] * x3 <=. tconst 0.0) 0 1]) * (v2 * treplicate 5 x3)"
   show deltas
-    @?= "LetR 100000007 (ScaleR (AstVar [5] (AstVarId 100000006)) (LetR 100000006 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000005 (ReplicateR 5 (InputR [] (InputId 1))))))))"
+    @?= "LetR 100000009 (ScaleR (AstVar [5] (AstVarId 100000007)) (LetR 100000008 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000007 (ReplicateR 5 (InputR [] (InputId 1))))))))"
 
 testReluSimpler :: Assertion
 testReluSimpler = do
@@ -642,7 +642,7 @@ testReluSimplerPP = do
   printPrimal6Pretty renames artifactRev
     @?= "\\m2 -> let m8 = tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i6, i7] -> [ifF (m2 ! [i6, i7] <=. tconst 0.0) 0 1]) in m8 * m2"
   show deltas
-    @?= "LetR 100000002 (ScaleR (AstVar [3,4] (AstVarId 100000008)) (InputR [3,4] (InputId 0)))"
+    @?= "LetR 100000003 (ScaleR (AstVar [3,4] (AstVarId 100000008)) (InputR [3,4] (InputId 0)))"
 
 testReluSimplerPP2 :: Assertion
 testReluSimplerPP2 = do
@@ -667,7 +667,7 @@ testReluSimplerPP2 = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\v2 x3 -> let v6 = v2 * treplicate 5 x3 in tgather [5] (tconst (fromList [2] [0.0,1.0])) (\\[i7] -> [ifF (v6 ! [i7] <=. tconst 0.0) 0 1]) * v6"
   show deltas
-    @?= "LetR 100000007 (ScaleR (AstVar [5] (AstVarId 100000008)) (LetR 100000005 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000004 (ReplicateR 5 (InputR [] (InputId 1))))))))"
+    @?= "LetR 100000008 (ScaleR (AstVar [5] (AstVarId 100000008)) (LetR 100000005 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000004 (ReplicateR 5 (InputR [] (InputId 1))))))))"
 
 testReluSimplerPP3 :: Assertion
 testReluSimplerPP3 = do
@@ -692,7 +692,7 @@ testReluSimplerPP3 = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m2 x3 -> let m8 = m2 * treplicate 3 (treplicate 4 x3) in tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i9, i10] -> [ifF (m8 ! [i9, i10] <=. tconst 0.0) 0 1]) * m8"
   show deltas
-    @?= "LetR 100000013 (ScaleR (AstVar [3,4] (AstVarId 100000011)) (LetR 100000011 (AddR (ScaleR (AstReplicate 3 (AstReplicate 4 (AstVar [] (AstVarId 100000003)))) (InputR [3,4] (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000002)) (LetR 100000010 (ReplicateR 3 (LetR 100000009 (ReplicateR 4 (InputR [] (InputId 1))))))))))"
+    @?= "LetR 100000014 (ScaleR (AstVar [3,4] (AstVarId 100000011)) (LetR 100000011 (AddR (ScaleR (AstReplicate 3 (AstReplicate 4 (AstVar [] (AstVarId 100000003)))) (InputR [3,4] (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000002)) (LetR 100000010 (ReplicateR 3 (LetR 100000009 (ReplicateR 4 (InputR [] (InputId 1))))))))))"
 
 testReluSimpler3 :: Assertion
 testReluSimpler3 = do
@@ -728,7 +728,7 @@ testReluSimplerPP4 = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m2 x3 -> let m9 = m2 * treplicate 3 (treplicate 4 x3) in tgather [3,4] (tconst (fromList [2] [0.0,1.0])) (\\[i10, i11] -> [ifF (m9 ! [i10, i11] <=. tconst 0.0) 0 1]) * m9"
   show deltas
-    @?= "LetR 100000005 (ScaleR (AstVar [3,4] (AstVarId 100000012)) (LetR 100000003 (AddR (ScaleR (AstVar [3,4] (AstVarId 100000008)) (InputR [3,4] (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000002)) (LetR 100000002 (ReshapeR [3,4] (LetR 100000001 (ReplicateR 12 (InputR [] (InputId 1))))))))))"
+    @?= "LetR 100000006 (ScaleR (AstVar [3,4] (AstVarId 100000012)) (LetR 100000003 (AddR (ScaleR (AstVar [3,4] (AstVarId 100000008)) (InputR [3,4] (InputId 0))) (ScaleR (AstVar [3,4] (AstVarId 100000002)) (LetR 100000002 (ReshapeR [3,4] (LetR 100000001 (ReplicateR 12 (InputR [] (InputId 1))))))))))"
 
 testReluSimpler4 :: Assertion
 testReluSimpler4 = do
@@ -764,15 +764,15 @@ testReluSimplerPP4S2 = do
       reluT2 (t, r) = reluS (t * sreplicate0N r)
   let (artifactRev, deltas) = revArtifactAdapt True reluT2 (Flip $ OS.constant 128, 42)
   printGradient6PrettyS renames artifactRev
-    @?= "\\dret m2 x3 -> let m7 = sreshape (sreplicate x3) ; m8 = m2 * m7 ; m11 = sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m8 !$ [i9, i10] <=. sconst 0.0) 0 1]) ; m12 = m11 * dret in (m7 * m12, ssum (sreshape (m2 * m12)))"
+    @?= "\\dret m2 x3 -> let m7 = sreshape (sreplicate x3) ; m8 = m2 * m7 ; m12 = sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m8 !$ [i9, i10] <=. sconst 0.0) 0 1]) ; m13 = m12 * dret in (m7 * m13, ssum (sreshape (m2 * m13)))"
   printPrimal6PrettyS renames artifactRev
-    @?= "\\m2 x3 -> let m7 = sreshape (sreplicate x3) ; m8 = m2 * m7 ; m11 = sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m8 !$ [i9, i10] <=. sconst 0.0) 0 1]) in m11 * m8"
+    @?= "\\m2 x3 -> let m7 = sreshape (sreplicate x3) ; m8 = m2 * m7 ; m12 = sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m8 !$ [i9, i10] <=. sconst 0.0) 0 1]) in m12 * m8"
   printGradient6PrettyS renames (simplifyArtifactRevS artifactRev)
-    @?= "\\dret m2 x3 -> let m7 = sreshape (sreplicate x3) ; m12 = sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF ((m2 * m7) !$ [i9, i10] <=. sconst 0.0) 0 1]) * dret in (m7 * m12, ssum (sreshape (m2 * m12)))"
+    @?= "\\dret m2 x3 -> let m7 = sreshape (sreplicate x3) ; m13 = sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF ((m2 * m7) !$ [i9, i10] <=. sconst 0.0) 0 1]) * dret in (m7 * m13, ssum (sreshape (m2 * m13)))"
   printPrimal6PrettyS renames (simplifyArtifactRevS artifactRev)
     @?= "\\m2 x3 -> let m8 = m2 * sreshape (sreplicate x3) in sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m8 !$ [i9, i10] <=. sconst 0.0) 0 1]) * m8"
   show deltas
-    @?= "LetS 100000006 (ScaleS (AstVarS (AstVarId 100000011)) (LetS 100000003 (AddS (ScaleS (AstVarS (AstVarId 100000007)) (InputS (InputId 0))) (ScaleS (AstVarS (AstVarId 100000002)) (LetS 100000002 (ReshapeS (LetS 100000001 (ReplicateS (InputS (InputId 1))))))))))"
+    @?= "LetS 100000007 (ScaleS (AstVarS (AstVarId 100000012)) (LetS 100000003 (AddS (ScaleS (AstVarS (AstVarId 100000007)) (InputS (InputId 0))) (ScaleS (AstVarS (AstVarId 100000002)) (LetS 100000002 (ReshapeS (LetS 100000001 (ReplicateS (InputS (InputId 1))))))))))"
 
 testReluSimpler4S :: Assertion
 testReluSimpler4S = do
@@ -817,7 +817,7 @@ testReluMaxPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m2 -> tgather [3,4] (tfromList [treplicate 3 (treplicate 4 (tconst 0.0)), m2]) (\\[i7, i8] -> [ifF (tconst 0.0 >=. m2 ! [i7, i8]) 0 1, i7, i8])"
   show deltas
-    @?= "LetR 100000004 (GatherR [3,4] (LetR 100000003 (FromListR [ZeroR [3,4],InputR [3,4] (InputId 0)])) <function>)"
+    @?= "LetR 100000005 (GatherR [3,4] (LetR 100000003 (FromListR [ZeroR [3,4],InputR [3,4] (InputId 0)])) <function>)"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do
@@ -834,15 +834,15 @@ testReluMaxPP2 = do
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT2 (Flip $ OR.constant [5] 128, 42)
   printGradient6Pretty renames artifactRev
-    @?= "\\dret v2 x3 -> let m9 = tscatter [2,5] dret (\\[i7] -> [ifF (tconst 0.0 >=. (let x8 = v2 ! [i7] in x8 * x3)) 0 1, i7]) ; v10 = m9 ! [1] in (treplicate 5 x3 * v10, tsum (v2 * v10))"
+    @?= "\\dret v2 x3 -> let m10 = tscatter [2,5] dret (\\[i8] -> [ifF (tconst 0.0 >=. (let x9 = v2 ! [i8] in x9 * x3)) 0 1, i8]) ; v11 = m10 ! [1] in (treplicate 5 x3 * v11, tsum (v2 * v11))"
   printPrimal6Pretty renames artifactRev
-    @?= "\\v2 x3 -> tgather [5] (tfromList [treplicate 5 (tconst 0.0), v2 * treplicate 5 x3]) (\\[i6] -> [ifF (tconst 0.0 >=. (let x11 = v2 ! [i6] in x11 * x3)) 0 1, i6])"
+    @?= "\\v2 x3 -> tgather [5] (tfromList [treplicate 5 (tconst 0.0), v2 * treplicate 5 x3]) (\\[i6] -> [ifF (tconst 0.0 >=. (let x7 = v2 ! [i6] in x7 * x3)) 0 1, i6])"
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\dret v2 x3 -> let v10 = tscatter [2,5] dret (\\[i7] -> [ifF (tconst 0.0 >=. v2 ! [i7] * x3) 0 1, i7]) ! [1] in (treplicate 5 x3 * v10, tsum (v2 * v10))"
+    @?= "\\dret v2 x3 -> let v11 = tscatter [2,5] dret (\\[i8] -> [ifF (tconst 0.0 >=. v2 ! [i8] * x3) 0 1, i8]) ! [1] in (treplicate 5 x3 * v11, tsum (v2 * v11))"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\v2 x3 -> tgather [5] (tfromList [treplicate 5 (tconst 0.0), v2 * treplicate 5 x3]) (\\[i6] -> [ifF (tconst 0.0 >=. v2 ! [i6] * x3) 0 1, i6])"
   show deltas
-    @?= "LetR 100000011 (GatherR [5] (LetR 100000010 (FromListR [ZeroR [5],LetR 100000009 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000008 (ReplicateR 5 (InputR [] (InputId 1))))))])) <function>)"
+    @?= "LetR 100000013 (GatherR [5] (LetR 100000010 (FromListR [ZeroR [5],LetR 100000009 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000008 (ReplicateR 5 (InputR [] (InputId 1))))))])) <function>)"
 
 testReluMax3 :: Assertion
 testReluMax3 = do
