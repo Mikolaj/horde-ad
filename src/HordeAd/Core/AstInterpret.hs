@@ -49,7 +49,7 @@ interpretAstPrimalRuntimeSpecialized
      (KnownNat n, ADReadyBoth ranked shaped, GoodScalar r)
   => AstEnv ranked shaped
   -> AstRanked PrimalSpan r n -> PrimalOf ranked r n
-interpretAstPrimalRuntimeSpecialized env t =
+interpretAstPrimalRuntimeSpecialized !env t =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
   -- an existential type. All IfDifferentiable and RowSum instances should
@@ -79,7 +79,7 @@ interpretAstPrimal
      (KnownNat n, ADReadyBoth ranked shaped, GoodScalar r)
   => AstEnv ranked shaped
   -> AstRanked PrimalSpan r n -> PrimalOf ranked r n
-interpretAstPrimal env v1 = case v1 of
+interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimal env u
   AstPrimalPart (AstConstant u) -> interpretAstPrimal env u
   AstPrimalPart t -> tprimalPart $ interpretAst env t
@@ -95,7 +95,7 @@ interpretAstDual
      (KnownNat n, ADReadyBoth ranked shaped, GoodScalar r)
   => AstEnv ranked shaped
   -> AstRanked DualSpan r n -> DualOf ranked r n
-interpretAstDual env v1 = case v1 of
+interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
   AstDualPart t -> tdualPart $ interpretAst env t
   _ -> tdualPart $ interpretAst env v1
@@ -105,7 +105,7 @@ interpretAstRuntimeSpecialized
      (KnownNat n, ADReadyBoth ranked shaped, GoodScalar r, AstSpan s)
   => AstEnv ranked shaped
   -> AstRanked s r n -> ranked r n
-interpretAstRuntimeSpecialized env t =
+interpretAstRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAst @ranked @shaped @n @s @Double env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
@@ -121,7 +121,7 @@ interpretAst
      (KnownNat n, ADReadyBoth ranked shaped, GoodScalar r, AstSpan s)
   => AstEnv ranked shaped
   -> AstRanked s r n -> ranked r n
-interpretAst env = \case
+interpretAst !env = \case
   AstVar sh (AstVarName var) -> case EM.lookup (astVarIdToAstId var) env of
     Just (AstEnvElemR @n2 @r2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -452,7 +452,7 @@ interpretAstDynamic
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
   => AstEnv ranked shaped
   -> DynamicExists (AstDynamic s) -> DynamicExists (DynamicOf ranked)
-interpretAstDynamic env = \case
+interpretAstDynamic !env = \case
   DynamicExists @r (AstRToD AstIota) ->
     DynamicExists $ ddummy @ranked @shaped @r
   DynamicExists (AstRToD w) ->
@@ -465,7 +465,7 @@ interpretAstDynamic env = \case
 interpretAstDomains
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
   => AstEnv ranked shaped -> AstDomains s -> Domains (DynamicOf ranked)
-interpretAstDomains env = \case
+interpretAstDomains !env = \case
   AstDomains l -> interpretAstDynamic env <$> l
   AstDomainsLet var u v ->
     let t = interpretAstRuntimeSpecialized env u
@@ -480,7 +480,7 @@ interpretAstDomains env = \case
 
 interpretAstBool :: ADReadyBoth ranked shaped
                  => AstEnv ranked shaped -> AstBool -> BoolOf ranked
-interpretAstBool env = \case
+interpretAstBool !env = \case
   AstBoolNot arg -> notB $ interpretAstBool env arg
   AstB2 opCodeBool arg1 arg2 ->
     let b1 = interpretAstBool env arg1
@@ -501,7 +501,7 @@ interpretAstPrimalSRuntimeSpecialized
      (OS.Shape sh, ADReadyBoth ranked shaped, GoodScalar r)
   => AstEnv ranked shaped
   -> AstShaped PrimalSpan r sh -> PrimalOf shaped r sh
-interpretAstPrimalSRuntimeSpecialized env t =
+interpretAstPrimalSRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAstPrimalS @ranked @shaped @sh @Double env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
@@ -517,7 +517,7 @@ interpretAstPrimalS
      (OS.Shape sh, ADReadyBoth ranked shaped, GoodScalar r)
   => AstEnv ranked shaped
   -> AstShaped PrimalSpan r sh -> PrimalOf shaped r sh
-interpretAstPrimalS env v1 = case v1 of
+interpretAstPrimalS !env v1 = case v1 of
   AstPrimalPartS (AstDS u _) -> interpretAstPrimalS env u
   AstPrimalPartS (AstConstantS u) -> interpretAstPrimalS env u
   AstPrimalPartS t -> sprimalPart $ interpretAstS env t
@@ -533,7 +533,7 @@ interpretAstDualS
      (OS.Shape sh, ADReadyBoth ranked shaped, GoodScalar r)
   => AstEnv ranked shaped
   -> AstShaped DualSpan r sh -> DualOf shaped r sh
-interpretAstDualS env v1 = case v1 of
+interpretAstDualS !env v1 = case v1 of
   AstDualPartS (AstDS _ u') -> interpretAstDualS env u'
   AstDualPartS t -> sdualPart $ interpretAstS env t
   _ -> sdualPart $ interpretAstS env v1
@@ -543,7 +543,7 @@ interpretAstSRuntimeSpecialized
      (OS.Shape sh, ADReadyBoth ranked shaped, GoodScalar r, AstSpan s)
   => AstEnv ranked shaped
   -> AstShaped s r sh -> shaped r sh
-interpretAstSRuntimeSpecialized env t =
+interpretAstSRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAstS @ranked @shaped @sh @s @Double env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
@@ -559,7 +559,7 @@ interpretAstS
      (OS.Shape sh, ADReadyBoth ranked shaped, GoodScalar r, AstSpan s)
   => AstEnv ranked shaped
   -> AstShaped s r sh -> shaped r sh
-interpretAstS env = \case
+interpretAstS !env = \case
   AstVarS (AstVarName var) -> case EM.lookup (astVarIdToAstId var) env of
     Just (AstEnvElemS @sh2 @r2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of

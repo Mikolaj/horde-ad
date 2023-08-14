@@ -280,7 +280,7 @@ testFwdZero9S =
               f = const 3
           in f @(AstShaped FullSpan Double '[0, 2, 4, 0, 1])
                @(AstRanked FullSpan Double 5))
-          (treplicate0N [0, 2, 4, 0, 1] 42) 41)
+          (treplicate0N [0, 2, 4, 0, 1] 42) (treplicate0N [0, 2, 4, 0, 1] 41))
 
 testZero10S :: Assertion
 testZero10S =

@@ -54,24 +54,24 @@ extendEnvR :: forall ranked shaped r n s.
               (KnownNat n, GoodScalar r)
            => AstVarName s AstRanked r n -> ranked r n
            -> AstEnv ranked shaped -> AstEnv ranked shaped
-extendEnvR (AstVarName var) !t =
+extendEnvR (AstVarName var) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show var)
-                   (astVarIdToAstId var) (AstEnvElemR t)
+                   (astVarIdToAstId var) (AstEnvElemR t) env
 
 extendEnvS :: forall ranked shaped r sh s.
               (OS.Shape sh, GoodScalar r)
            => AstVarName s AstShaped r sh -> shaped r sh
            -> AstEnv ranked shaped -> AstEnv ranked shaped
-extendEnvS (AstVarName var) !t =
+extendEnvS (AstVarName var) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show var)
-                   (astVarIdToAstId var) (AstEnvElemS t)
+                   (astVarIdToAstId var) (AstEnvElemS t) env
 
 extendEnvDR :: forall ranked shaped s. ConvertTensor ranked shaped
             => ( AstDynamicVarName s AstRanked
                , DynamicExists (DynamicOf ranked) )
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
-extendEnvDR (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) =
+extendEnvDR (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) !env =
   -- We don't need to manually pick a specialization for the existential
   -- variable r2, because tfromD does not depend on r2.
   case testEquality (typeRep @r) (typeRep @r2) of
@@ -79,7 +79,7 @@ extendEnvDR (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) =
       let n = length $ OS.shapeT @sh
       in case someNatVal $ toInteger n of
         Just (SomeNat @n _) -> gcastWith (unsafeCoerce Refl :: n :~: y) $
-                               extendEnvR var (tfromD d)
+                               extendEnvR var (tfromD d) env
         Nothing -> error "extendEnvDR: impossible someNatVal error"
     _ -> error "extendEnvDR: type mismatch"
 
@@ -88,19 +88,19 @@ extendEnvDS :: ConvertTensor ranked shaped
                , DynamicExists (DynamicOf ranked) )
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
-extendEnvDS (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) =
+extendEnvDS (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) !env =
   -- We don't need to manually pick a specialization for the existential
   -- variable r2, because sfromD does not depend on r2.
   case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> gcastWith (unsafeCoerce Refl :: sh :~: y) $
-                 extendEnvS var (sfromD d)
+                 extendEnvS var (sfromD d) env
     _ -> error "extendEnvDS: type mismatch"
 
 extendEnvI :: ( RankedTensor ranked
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
            => IntVarName -> IntOf ranked -> AstEnv ranked shaped
            -> AstEnv ranked shaped
-extendEnvI var !i = extendEnvR var (tconstant i)
+extendEnvI var !i !env = extendEnvR var (tconstant i) env
 
 extendEnvVars :: forall ranked shaped m.
                  ( RankedTensor ranked
