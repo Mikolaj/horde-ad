@@ -1940,7 +1940,7 @@ simplifyAstNumOp TimesOp (u, AstN2 PlusOp (v, w)) =
 -}
 simplifyAstNumOp2 TimesOp (AstSumOfList l) w@AstConst{} =
   foldr1 simplifyAstPlusOp (map (\u -> simplifyAstNumOp2 TimesOp u w) l)
-simplifyAstNumOp2 TimesOp (u@AstConst{}) (AstSumOfList l) =
+simplifyAstNumOp2 TimesOp u@AstConst{} (AstSumOfList l) =
   foldr1 simplifyAstPlusOp (map (\w -> simplifyAstNumOp2 TimesOp u w) l)
 -- TODO: perhaps aim for a polynomial normal form? but that requires global
 -- inspection of the whole expression
@@ -2165,9 +2165,7 @@ substitute1Ast i var v1 = case v1 of
          Just Refl -> simplifyAstNumOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
          _ -> Ast.AstN2 opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstR1 opCode u ->
-    (Ast.AstR1 opCode)
-    <$> substitute1Ast i var u
+  Ast.AstR1 opCode u -> Ast.AstR1 opCode <$> substitute1Ast i var u
   Ast.AstR2 opCode u v ->
     let mu = substitute1Ast i var u
         mv = substitute1Ast i var v
@@ -2344,18 +2342,14 @@ substitute1AstS i var = \case
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1AstS i var a
   Ast.AstFloorS a -> Ast.AstFloorS <$> substitute1AstS i var a
   Ast.AstIotaS -> Nothing
-  Ast.AstN1S opCode u ->
-    (Ast.AstN1S opCode)
-    <$> substitute1AstS i var u
+  Ast.AstN1S opCode u -> Ast.AstN1S opCode  <$> substitute1AstS i var u
   Ast.AstN2S opCode u v ->
     let mu = substitute1AstS i var u
         mv = substitute1AstS i var v
     in if isJust mu || isJust mv
        then Just $ Ast.AstN2S opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstR1S opCode u ->
-    (Ast.AstR1S opCode)
-    <$> substitute1AstS i var u
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode <$> substitute1AstS i var u
   Ast.AstR2S opCode u v ->
     let mu = substitute1AstS i var u
         mv = substitute1AstS i var v

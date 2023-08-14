@@ -795,7 +795,7 @@ comparisonTests volume =
             fS adinputs =
               withSNat num_hidden  -- reverse order than args below
               $ withSNat depth
-              $ \(c_out@(SNat @c_out)) (n_hidden@(SNat @n_hidden)) ->
+              $ \c_out@(SNat @c_out) n_hidden@(SNat @n_hidden) ->
                   let valsInit
                         :: Value (ADConvMnistParameters 4 4 c_out n_hidden
                                                         'ADModeGradient r)

@@ -263,7 +263,7 @@ mnistBGroup2VTA xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer rank 2 VTA MNIST nn with samples: "
-          ++ show chunkLength) $
+          ++ show chunkLength)
     (if chunkLength <= 1000
      then
        [ mnistTestBench2VTA "30|10 " chunkLength xs 30 10  -- toy width

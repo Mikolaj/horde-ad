@@ -547,8 +547,8 @@ instance (Num (OR.Array n r), AstSpan s)
 
   negate (AstLetADShare l u) = AstLetADShare l $ negate u
   negate u = AstN1 NegateOp u
-  abs v = AstN1 AbsOp v
-  signum v = AstN1 SignumOp v
+  abs = AstN1 AbsOp
+  signum = AstN1 SignumOp
   fromInteger = fromPrimal . AstConst . fromInteger
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
@@ -567,8 +567,8 @@ instance Enum r => Enum (AstRanked s r n) where
 -- they are going to work, but slowly.
 instance (Integral r, Integral (OR.Array n r), AstSpan s)
          => Integral (AstRanked s r n) where
-  quot u v = AstI2 QuotOp u v
-  rem u v = AstI2 RemOp u v
+  quot = AstI2 QuotOp
+  rem = AstI2 RemOp
   quotRem u v = (AstI2 QuotOp u v, AstI2 RemOp u v)
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
@@ -576,29 +576,29 @@ instance (Integral r, Integral (OR.Array n r), AstSpan s)
 instance (Differentiable r, Fractional (OR.Array n r), AstSpan s)
          => Fractional (AstRanked s r n) where
   u / v = AstR2 DivideOp u v
-  recip v = AstR1 RecipOp v
+  recip = AstR1 RecipOp
   fromRational = fromPrimal . AstConst . fromRational
 
 instance (Differentiable r, Floating (OR.Array n r), AstSpan s)
          => Floating (AstRanked s r n) where
   pi = fromPrimal $ AstConst pi
-  exp u = AstR1 ExpOp u
-  log u = AstR1 LogOp u
-  sqrt u = AstR1 SqrtOp u
-  u ** v = AstR2 PowerOp u v
-  logBase u v = AstR2 LogBaseOp u v
-  sin u = AstR1 SinOp u
-  cos u = AstR1 CosOp u
-  tan u = AstR1 TanOp u
-  asin u = AstR1 AsinOp u
-  acos u = AstR1 AcosOp u
-  atan u = AstR1 AtanOp u
-  sinh u = AstR1 SinhOp u
-  cosh u = AstR1 CoshOp u
-  tanh u = AstR1 TanhOp u
-  asinh u = AstR1 AsinhOp u
-  acosh u = AstR1 AcoshOp u
-  atanh u = AstR1 AtanhOp u
+  exp = AstR1 ExpOp
+  log = AstR1 LogOp
+  sqrt = AstR1 SqrtOp
+  (**) = AstR2 PowerOp
+  logBase = AstR2 LogBaseOp
+  sin = AstR1 SinOp
+  cos = AstR1 CosOp
+  tan = AstR1 TanOp
+  asin = AstR1 AsinOp
+  acos = AstR1 AcosOp
+  atan = AstR1 AtanOp
+  sinh = AstR1 SinhOp
+  cosh = AstR1 CoshOp
+  tanh = AstR1 TanhOp
+  asinh = AstR1 AsinhOp
+  acosh = AstR1 AcoshOp
+  atanh = AstR1 AtanhOp
 
 instance (Differentiable r, RealFrac (OR.Array n r), AstSpan s)
          => RealFrac (AstRanked s r n) where
@@ -608,7 +608,7 @@ instance (Differentiable r, RealFrac (OR.Array n r), AstSpan s)
 
 instance (Differentiable r, RealFloat (OR.Array n r), AstSpan s)
          => RealFloat (AstRanked s r n) where
-  atan2 u v = AstR2 Atan2Op u v
+  atan2 = AstR2 Atan2Op
   -- We can be selective here and omit the other methods,
   -- most of which don't even have a differentiable codomain.
   floatRadix = undefined
@@ -671,8 +671,8 @@ instance (Num (OS.Array sh r), AstSpan s)
 
   negate (AstLetADShareS l u) = AstLetADShareS l $ negate u
   negate u = AstN1S NegateOp u
-  abs v = AstN1S AbsOp v
-  signum v = AstN1S SignumOp v
+  abs = AstN1S AbsOp
+  signum = AstN1S SignumOp
   fromInteger = fromPrimalS . AstConstS . fromInteger
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
@@ -690,8 +690,8 @@ instance Enum r => Enum (AstShaped s r n) where
 -- they are going to work, but slowly.
 instance (Integral r, Integral (OS.Array sh r), AstSpan s)
          => Integral (AstShaped s r sh) where
-  quot u v = AstI2S QuotOp u v
-  rem u v = AstI2S RemOp u v
+  quot = AstI2S QuotOp
+  rem = AstI2S RemOp
   quotRem u v = (AstI2S QuotOp u v, AstI2S RemOp u v)
   divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
@@ -699,29 +699,29 @@ instance (Integral r, Integral (OS.Array sh r), AstSpan s)
 instance (Differentiable r, Fractional (OS.Array sh r), AstSpan s)
          => Fractional (AstShaped s r sh) where
   u / v = AstR2S DivideOp u v
-  recip v = AstR1S RecipOp v
+  recip = AstR1S RecipOp
   fromRational = fromPrimalS . AstConstS . fromRational
 
 instance (Differentiable r, Floating (OS.Array sh r), AstSpan s)
          => Floating (AstShaped s r sh) where
   pi = fromPrimalS $ AstConstS pi
-  exp u = AstR1S ExpOp u
-  log u = AstR1S LogOp u
-  sqrt u = AstR1S SqrtOp u
-  u ** v = AstR2S PowerOp u v
-  logBase u v = AstR2S LogBaseOp u v
-  sin u = AstR1S SinOp u
-  cos u = AstR1S CosOp u
-  tan u = AstR1S TanOp u
-  asin u = AstR1S AsinOp u
-  acos u = AstR1S AcosOp u
-  atan u = AstR1S AtanOp u
-  sinh u = AstR1S SinhOp u
-  cosh u = AstR1S CoshOp u
-  tanh u = AstR1S TanhOp u
-  asinh u = AstR1S AsinhOp u
-  acosh u = AstR1S AcoshOp u
-  atanh u = AstR1S AtanhOp u
+  exp = AstR1S ExpOp
+  log = AstR1S LogOp
+  sqrt = AstR1S SqrtOp
+  (**) = AstR2S PowerOp
+  logBase = AstR2S LogBaseOp
+  sin = AstR1S SinOp
+  cos = AstR1S CosOp
+  tan = AstR1S TanOp
+  asin = AstR1S AsinOp
+  acos = AstR1S AcosOp
+  atan = AstR1S AtanOp
+  sinh = AstR1S SinhOp
+  cosh = AstR1S CoshOp
+  tanh = AstR1S TanhOp
+  asinh = AstR1S AsinhOp
+  acosh = AstR1S AcoshOp
+  atanh = AstR1S AtanhOp
 
 instance (Differentiable r, RealFrac (OS.Array sh r), AstSpan s)
          => RealFrac (AstShaped s r sh) where
@@ -731,7 +731,7 @@ instance (Differentiable r, RealFrac (OS.Array sh r), AstSpan s)
 
 instance (Differentiable r, RealFloat (OS.Array sh r), AstSpan s)
          => RealFloat (AstShaped s r sh) where
-  atan2 u v = AstR2S Atan2Op u v
+  atan2 = AstR2S Atan2Op
   -- We can be selective here and omit the other methods,
   -- most of which don't even have a differentiable codomain.
   floatRadix = undefined
@@ -751,7 +751,7 @@ instance (Differentiable r, RealFloat (OS.Array sh r), AstSpan s)
 instance Boolean AstBool where
   true = AstBoolConst True
   false = AstBoolConst False
-  notB b = AstBoolNot b
+  notB = AstBoolNot
   AstBoolConst b &&* AstBoolConst c = AstBoolConst $ b && c
                                         -- common in indexing
   b &&* c = AstB2 AndOp b c

@@ -59,7 +59,7 @@ instance AstSpan s => OrdF (AstRanked s) where
   v >=. u = (emptyADShare, AstRel GeqOp (astSpanPrimal v) (astSpanPrimal u))
 
 instance IfF (AstRanked s) where
-  ifF (_, b) v w = astCond b v w
+  ifF (_, b) = astCond b
 
 
 -- * Unlawful boolean instances of shaped AST; they are lawful modulo evaluation
@@ -85,7 +85,7 @@ instance AstSpan s => OrdF (AstShaped s) where
   v >=. u = (emptyADShare, AstRelS GeqOp (astSpanPrimalS v) (astSpanPrimalS u))
 
 instance IfF (AstShaped s) where
-  ifF (_, b) v w = astCondS b v w
+  ifF (_, b) = astCondS b
 
 
 -- * Ranked tensor AST instances

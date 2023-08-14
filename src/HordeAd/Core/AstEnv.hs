@@ -135,7 +135,7 @@ interpretLambdaI
   -> IntOf ranked
   -> ranked r n
 {-# INLINE interpretLambdaI #-}
-interpretLambdaI f !env !(!var, !ast) =
+interpretLambdaI f !env (!var, !ast) =
   \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIS
@@ -147,7 +147,7 @@ interpretLambdaIS
   -> IntSh ranked n
   -> shaped r sh
 {-# INLINE interpretLambdaIS #-}
-interpretLambdaIS f !env !(!var, ast) =
+interpretLambdaIS f !env (!var, ast) =
   \i -> f (extendEnvI var (ShapedList.unShapedNat i) env) ast
 
 interpretLambdaIndex
@@ -159,7 +159,7 @@ interpretLambdaIndex
   -> IndexOf ranked m
   -> ranked r n
 {-# INLINE interpretLambdaIndex #-}
-interpretLambdaIndex f !env !(!vars, !ast) =
+interpretLambdaIndex f !env (!vars, !ast) =
   \ix -> f (extendEnvVars vars ix env) ast
 
 interpretLambdaIndexS
@@ -171,7 +171,7 @@ interpretLambdaIndexS
   -> IndexSh ranked sh2
   -> shaped r sh
 {-# INLINE interpretLambdaIndexS #-}
-interpretLambdaIndexS f !env !(!vars, !ast) =
+interpretLambdaIndexS f !env (!vars, !ast) =
   \ix -> f (extendEnvVarsS vars ix env) ast
 
 interpretLambdaIndexToIndex
@@ -183,7 +183,7 @@ interpretLambdaIndexToIndex
   -> IndexOf ranked m
   -> IndexOf ranked n
 {-# INLINE interpretLambdaIndexToIndex #-}
-interpretLambdaIndexToIndex f !env !(!vars, !asts) =
+interpretLambdaIndexToIndex f !env (!vars, !asts) =
   \ix -> f (extendEnvVars vars ix env) <$> asts
 
 interpretLambdaIndexToIndexS
@@ -195,7 +195,7 @@ interpretLambdaIndexToIndexS
   -> IndexSh ranked sh
   -> IndexSh ranked sh2
 {-# INLINE interpretLambdaIndexToIndexS #-}
-interpretLambdaIndexToIndexS f !env !(!vars, !asts) =
+interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
 
