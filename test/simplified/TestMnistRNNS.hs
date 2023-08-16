@@ -306,7 +306,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
            f = MnistRnnShaped2.rnnMnistLossFusedS
                  width batch_size (astGlyph, astLabel)
            g domains = f $ parseDomains valsInit domains
-           (((varDtAgain, vars1Again), gradientRaw, primal), _) =
+           (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
              revProduceArtifact @[Nat] @AstShaped False g envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
@@ -320,7 +320,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
-                   fst $ revEvalArtifact (vars, gradient, primal)
+                   fst $ revEvalArtifact (vars, gradient, primal, sh)
                                          parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientDomain)

@@ -21,11 +21,8 @@ lowercase = map Data.Char.toLower
 -- Things that have shape
 ----------------------------------------------------------------------------
 
--- | Shape of the thing, typically a list of the sizes of its dimensions.
-type ShapeL = [Int]
-
 class HasShape a where
-  shapeL :: a -> ShapeL
+  shapeL :: a -> OD.ShapeL
 
 instance (VS.Storable a) => HasShape (VS.Vector a) where
   shapeL = (: []) . VS.length

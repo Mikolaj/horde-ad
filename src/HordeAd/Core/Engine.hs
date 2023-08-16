@@ -48,6 +48,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstTools
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorADVal
@@ -259,9 +260,9 @@ instance DerivativeStages AstRanked where
     revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
 
   {-# INLINE revEvalArtifact #-}
-  revEvalArtifact ((varDt, vars), gradient, primal) parameters mdt =
+  revEvalArtifact ((varDt, vars), gradient, primal, sh) parameters mdt =
     let env = foldr extendEnvDR EM.empty $ zip vars $ V.toList parameters
-        dt = fromMaybe (treplicate0N (tshape primal) 1) mdt
+        dt = fromMaybe (treplicate0N (listShapeToShape sh) 1) mdt
         envDt = extendEnvR varDt dt env
         gradientDomain = interpretAstDomains envDt gradient
         primalTensor = interpretAstPrimal env primal
@@ -287,7 +288,7 @@ instance DerivativeStages AstShaped where
     revArtifactFromForwardPassS hasDt (forwardPassByInterpretationS g envInit)
 
   {-# INLINE revEvalArtifact #-}
-  revEvalArtifact ((varDt, vars), gradient, primal) parameters mdt =
+  revEvalArtifact ((varDt, vars), gradient, primal, _) parameters mdt =
     let env = foldr extendEnvDS EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe 1 mdt
         envDt = extendEnvS varDt dt env
@@ -374,14 +375,20 @@ revArtifactFromForwardPass hasDt forwardPass parameters0 =
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D l primalBody delta) = forwardPass domainsPrimal vars domains in
   let varDt = AstVarName varDtId
-      astDt = AstVar (tshape primalBody) varDt
+      sh = shapeAst primalBody
+      astDt = AstVar sh varDt
       mdt = if hasDt then Just astDt else Nothing
       !(!astBindings, !gradient) =
         reverseDervative (V.length parameters0) primalBody mdt delta
   in ( ( (varDt, varsPrimal)
        , unletAstDomains6 astBindings l (dmkDomains gradient)
-       , unletAst6 [] l primalBody )
+       , unletAst6 [] l primalBody
+       , shapeToList sh )
      , delta )
+       -- storing sh computed from primalBody often saves the unletAst6
+       -- execution; we could store the whole primalBody, as we do in calls
+       -- to reverseDervative, but we can potentially free it earlier this way
+       -- (as soon as sh is forced or determined to be unneeded)
 
 revArtifactFromForwardPassS
   :: forall r sh. (GoodScalar r, OS.Shape sh)
@@ -404,7 +411,8 @@ revArtifactFromForwardPassS hasDt forwardPass parameters0 =
         reverseDervative (V.length parameters0) primalBody mdt delta
   in ( ( (varDt, varsPrimal)
        , unletAstDomains6 astBindings l (dmkDomains gradient)
-       , unletAst6S [] l primalBody )
+       , unletAst6S [] l primalBody
+       , OS.shapeT @sh )
      , delta )
 
 
@@ -612,7 +620,7 @@ generateDeltaInputsAst params =
       arrayToInput i (DynamicExists @r d) = case d of
         AstRToD @n w ->
           DynamicExists $ Flip $ RToD $ InputR @ranked @shaped @r @n
-                                               (tshape w) (toInputId i)
+                                               (shapeAst w) (toInputId i)
         AstSToD @sh _w ->
           DynamicExists $ Flip $ SToD $ InputS @ranked @shaped @r @sh
                                                (toInputId i)

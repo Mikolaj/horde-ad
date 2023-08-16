@@ -195,7 +195,7 @@ deriving instance Show (AstDynamicVarName s f)
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type AstArtifactRev (f :: AstSpanType -> TensorKind k) r y =
   ( (AstVarName PrimalSpan f r y, [AstDynamicVarName PrimalSpan f])
-  , AstDomains PrimalSpan, f PrimalSpan r y )
+  , AstDomains PrimalSpan, f PrimalSpan r y, OR.ShapeL )
 
 type AstArtifactFwd (f :: AstSpanType -> TensorKind k) r y =
   ( ([AstDynamicVarName PrimalSpan f], [AstDynamicVarName PrimalSpan f])

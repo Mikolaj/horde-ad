@@ -35,14 +35,14 @@ import           HordeAd.Util.SizedIndex
 simplifyArtifactRev :: (GoodScalar r, KnownNat n)
                   => AstArtifactRev AstRanked r n
                   -> AstArtifactRev AstRanked r n
-simplifyArtifactRev (vars, gradient, primal) =
-  (vars, simplifyAstDomains6 gradient, simplifyAst6 primal)
+simplifyArtifactRev (vars, gradient, primal, sh) =
+  (vars, simplifyAstDomains6 gradient, simplifyAst6 primal, sh)
 
 simplifyArtifactRevS :: (GoodScalar r, OS.Shape sh)
                    => AstArtifactRev AstShaped r sh
                    -> AstArtifactRev AstShaped r sh
-simplifyArtifactRevS (vars, gradient, primal) =
-  (vars, simplifyAstDomains6 gradient, simplifyAst6S primal)
+simplifyArtifactRevS (vars, gradient, primal, sh) =
+  (vars, simplifyAstDomains6 gradient, simplifyAst6S primal, sh)
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.

@@ -313,7 +313,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                  widthHidden widthHidden2
                  (tconstant astGlyph, tconstant astLabel)
            g domains = f $ parseDomains valsInit domains
-           (((varDtAgain, vars1Again), gradientRaw, primal), _) =
+           (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
              revProduceArtifact False g envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
@@ -329,7 +329,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
                    fst $ revEvalArtifact @Nat @AstRanked
-                                         (vars, gradient, primal)
+                                         (vars, gradient, primal, sh)
                                          parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientDomain)
        -- Mimic how backprop tests and display it, even though tests
@@ -627,7 +627,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
                  (tconstant astGlyph, tconstant astLabel)
            g domains = f $ parseDomains valsInit domains
-           (((varDtAgain, vars1Again), gradientRaw, primal), _) =
+           (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
              revProduceArtifact False g envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
@@ -643,7 +643,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
                    fst $ revEvalArtifact @Nat @AstRanked
-                                         (vars, gradient, primal)
+                                         (vars, gradient, primal, sh)
                                          parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientDomain)
        -- Mimic how backprop tests and display it, even though tests
