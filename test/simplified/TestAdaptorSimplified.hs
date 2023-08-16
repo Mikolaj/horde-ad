@@ -567,27 +567,27 @@ testFooLetPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\x y z -> let x7 = x * sin y in atan2 z x7 + z * x7"
 
-rankedListProd :: (RankedTensor ranked, GoodScalar r)
-               => [ranked r 0] -> ranked r 0
-rankedListProd = foldl1' (*)
+shapedListProd :: (ShapedTensor shaped, GoodScalar r)
+               => [shaped r '[]] -> shaped r '[]
+shapedListProd = foldl1' (*)
 
 testListProdPP :: Assertion
 testListProdPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
-      fT = rankedListProd
+      fT :: [AstShaped FullSpan Double '[]] -> AstShaped FullSpan Double '[]
+      fT = shapedListProd
   let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
-  printGradient6Simple renames artifactRev
-    @?= "\\dret x2 x3 x4 x5 -> rletToDomainsOf (x2 * x3) (\\x6 -> rletToDomainsOf (x6 * x4) (\\x7 -> rletToDomainsOf (x5 * dret) (\\x8 -> rletToDomainsOf (x4 * x8) (\\x9 -> dmkDomains (fromList [dfromR (x3 * x9), dfromR (x2 * x9), dfromR (x6 * x8), dfromR (x7 * dret)])))))"
-  printPrimal6Simple renames artifactRev
-    @?= "\\x2 x3 x4 x5 -> tlet (x2 * x3) (\\x6 -> tlet (x6 * x4) (\\x7 -> x7 * x5))"
-  printGradient6Pretty renames (simplifyArtifactRev artifactRev)
+  printGradient6SimpleS renames artifactRev
+    @?= "\\dret x2 x3 x4 x5 -> sletToDomainsOf (x2 * x3) (\\x6 -> sletToDomainsOf (x6 * x4) (\\x7 -> sletToDomainsOf (x5 * dret) (\\x8 -> sletToDomainsOf (x4 * x8) (\\x9 -> dmkDomains (fromList [dfromS (x3 * x9), dfromS (x2 * x9), dfromS (x6 * x8), dfromS (x7 * dret)])))))"
+  printPrimal6SimpleS renames artifactRev
+    @?= "\\x2 x3 x4 x5 -> slet (x2 * x3) (\\x6 -> slet (x6 * x4) (\\x7 -> x7 * x5))"
+  printGradient6PrettyS renames (simplifyArtifactRevS artifactRev)
     @?= "\\dret x2 x3 x4 x5 -> let x6 = x2 * x3 ; x8 = x5 * dret ; x9 = x4 * x8 in (x3 * x9, x2 * x9, x6 * x8, (x6 * x4) * dret)"
-  printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
+  printPrimal6PrettyS renames (simplifyArtifactRevS artifactRev)
     @?= "\\x2 x3 x4 x5 -> ((x2 * x3) * x4) * x5"
   show deltas
-    @?= "LetR 100000003 (AddR (ScaleR (AstVar [] (AstVarId 100000005)) (LetR 100000002 (AddR (ScaleR (AstVar [] (AstVarId 100000004)) (LetR 100000001 (AddR (ScaleR (AstVar [] (AstVarId 100000003)) (InputR [] (InputId 0))) (ScaleR (AstVar [] (AstVarId 100000002)) (InputR [] (InputId 1)))))) (ScaleR (AstVar [] (AstVarId 100000006)) (InputR [] (InputId 2)))))) (ScaleR (AstVar [] (AstVarId 100000007)) (InputR [] (InputId 3))))"
+    @?= "LetS 100000003 (AddS (ScaleS (AstVarS (AstVarId 100000005)) (LetS 100000002 (AddS (ScaleS (AstVarS (AstVarId 100000004)) (LetS 100000001 (AddS (ScaleS (AstVarS (AstVarId 100000003)) (InputS (InputId 0))) (ScaleS (AstVarS (AstVarId 100000002)) (InputS (InputId 1)))))) (ScaleS (AstVarS (AstVarId 100000006)) (InputS (InputId 2)))))) (ScaleS (AstVarS (AstVarId 100000007)) (InputS (InputId 3))))"
 
 rankedListProdr :: (RankedTensor ranked, GoodScalar r)
                 => [ranked r 0] -> ranked r 0
