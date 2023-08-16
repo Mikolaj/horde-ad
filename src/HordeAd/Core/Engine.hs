@@ -486,9 +486,9 @@ crevDtMaybe
      , AdaptableDomains OD.Array vals
      , vals ~ Value advals, Value vals ~ vals )
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
-crevDtMaybe f vals dt =
+crevDtMaybe f vals mdt =
   let g inputs = f $ parseDomains vals inputs
-  in parseDomains vals $ fst $ crevOnDomains dt g (toDomains vals)
+  in parseDomains vals $ fst $ crevOnDomains mdt g (toDomains vals)
 
 crevOnDomains
   :: forall r y f.
@@ -498,10 +498,10 @@ crevOnDomains
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
   -> DomainsOD
   -> (DomainsOD, f r y)
-crevOnDomains dt f parameters =
+crevOnDomains mdt f parameters =
   let deltaInputs = generateDeltaInputsOD parameters
       inputs = makeADInputs parameters deltaInputs
-  in crevOnADInputs dt f inputs
+  in crevOnADInputs mdt f inputs
 
 crevOnADInputs
   :: ( DualPart f, GoodScalar r, HasSingletonDict y

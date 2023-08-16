@@ -138,9 +138,9 @@ data DummyDual a (b :: k) = DummyDual
 -- * Generic types of integer indexes used in tensor operations
 
 -- This is used only in indexing and similar contexts.
--- If used as size or shape gives more expressiveness,
--- but leads to irregular tensors, especially after vectorization,
--- and prevents statically known shapes.
+-- If used as size or shape, it would give more expressiveness,
+-- but would lead to irregular tensors, especially after vectorization,
+-- and would prevent statically known shapes.
 type IntOf (f :: TensorKind k) = RankedOf (PrimalOf f) Int64 0
 
 -- | Thanks to the OverloadedLists mechanism, values of this type can be
