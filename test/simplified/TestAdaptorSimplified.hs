@@ -72,7 +72,10 @@ testTrees =
   , testCase "2fooLet" testFooLet
   , testCase "2fooLetPP" testFooLetPP
   , testCase "2listProdPP" testListProdPP
-  , testCase "2listProdPPR" testListProdPPR
+  , testCase "2listProdrPP" testListProdrPP
+  , testCase "2listProdrLongPP" testListProdrLongPP
+  , testCase "2listProd" testListProd
+  , testCase "2listProdr" testListProdr
   , testCase "2reluPP" testReluPP
   , testCase "2reluPP2" testReluPP2
   , testCase "2reluSimpler" testReluSimpler
@@ -593,8 +596,8 @@ rankedListProdr :: (RankedTensor ranked, GoodScalar r)
                 => [ranked r 0] -> ranked r 0
 rankedListProdr = foldr1 (*)
 
-testListProdPPR :: Assertion
-testListProdPPR = do
+testListProdrPP :: Assertion
+testListProdrPP = do
   resetVarCounter
   let renames = IM.empty
       fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
@@ -610,6 +613,35 @@ testListProdPPR = do
     @?= "\\x2 x3 x4 x5 -> x2 * (x3 * (x4 * x5))"
   show deltas
     @?= "LetR 100000006 (AddR (ScaleR (AstVar [] (AstVarId 100000007)) (InputR [] (InputId 0))) (ScaleR (AstVar [] (AstVarId 100000002)) (LetR 100000005 (AddR (ScaleR (AstVar [] (AstVarId 100000006)) (InputR [] (InputId 1))) (ScaleR (AstVar [] (AstVarId 100000003)) (LetR 100000004 (AddR (ScaleR (AstVar [] (AstVarId 100000005)) (InputR [] (InputId 2))) (ScaleR (AstVar [] (AstVarId 100000004)) (InputR [] (InputId 3))))))))))"
+
+testListProdrLongPP :: Assertion
+testListProdrLongPP = do
+  resetVarCounter
+  let renames = IM.empty
+      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT = rankedListProdr
+  let (artifactRev, _)=
+        revArtifactAdapt True fT [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+  printGradient6Simple renames artifactRev
+    @?= "\\dret x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> rletToDomainsOf (x13 * x14) (\\x15 -> rletToDomainsOf (x12 * x15) (\\x16 -> rletToDomainsOf (x11 * x16) (\\x17 -> rletToDomainsOf (x10 * x17) (\\x18 -> rletToDomainsOf (x9 * x18) (\\x19 -> rletToDomainsOf (x8 * x19) (\\x20 -> rletToDomainsOf (x7 * x20) (\\x21 -> rletToDomainsOf (x6 * x21) (\\x22 -> rletToDomainsOf (x5 * x22) (\\x23 -> rletToDomainsOf (x4 * x23) (\\x24 -> rletToDomainsOf (x3 * x24) (\\x25 -> rletToDomainsOf (x2 * dret) (\\x26 -> rletToDomainsOf (x3 * x26) (\\x27 -> rletToDomainsOf (x4 * x27) (\\x28 -> rletToDomainsOf (x5 * x28) (\\x29 -> rletToDomainsOf (x6 * x29) (\\x30 -> rletToDomainsOf (x7 * x30) (\\x31 -> rletToDomainsOf (x8 * x31) (\\x32 -> rletToDomainsOf (x9 * x32) (\\x33 -> rletToDomainsOf (x10 * x33) (\\x34 -> rletToDomainsOf (x11 * x34) (\\x35 -> rletToDomainsOf (x12 * x35) (\\x36 -> dmkDomains (fromList [dfromR (x25 * dret), dfromR (x24 * x26), dfromR (x23 * x27), dfromR (x22 * x28), dfromR (x21 * x29), dfromR (x20 * x30), dfromR (x19 * x31), dfromR (x18 * x32), dfromR (x17 * x33), dfromR (x16 * x34), dfromR (x15 * x35), dfromR (x14 * x36), dfromR (x13 * x36)])))))))))))))))))))))))"
+  printPrimal6Simple renames artifactRev
+    @?= "\\x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> tlet (x13 * x14) (\\x15 -> tlet (x12 * x15) (\\x16 -> tlet (x11 * x16) (\\x17 -> tlet (x10 * x17) (\\x18 -> tlet (x9 * x18) (\\x19 -> tlet (x8 * x19) (\\x20 -> tlet (x7 * x20) (\\x21 -> tlet (x6 * x21) (\\x22 -> tlet (x5 * x22) (\\x23 -> tlet (x4 * x23) (\\x24 -> tlet (x3 * x24) (\\x25 -> x2 * x25)))))))))))"
+  printGradient6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\dret x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> let x15 = x13 * x14 ; x16 = x12 * x15 ; x17 = x11 * x16 ; x18 = x10 * x17 ; x19 = x9 * x18 ; x20 = x8 * x19 ; x21 = x7 * x20 ; x22 = x6 * x21 ; x23 = x5 * x22 ; x24 = x4 * x23 ; x26 = x2 * dret ; x27 = x3 * x26 ; x28 = x4 * x27 ; x29 = x5 * x28 ; x30 = x6 * x29 ; x31 = x7 * x30 ; x32 = x8 * x31 ; x33 = x9 * x32 ; x34 = x10 * x33 ; x35 = x11 * x34 ; x36 = x12 * x35 in ((x3 * x24) * dret, x24 * x26, x23 * x27, x22 * x28, x21 * x29, x20 * x30, x19 * x31, x18 * x32, x17 * x33, x16 * x34, x15 * x35, x14 * x36, x13 * x36)"
+  printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 -> x2 * (x3 * (x4 * (x5 * (x6 * (x7 * (x8 * (x9 * (x10 * (x11 * (x12 * (x13 * x14)))))))))))"
+
+testListProd :: Assertion
+testListProd = do
+  assertEqualUpToEpsilon 1e-10
+    [24, 12, 8, 6]
+    (rev @Double @'[] @AstShaped shapedListProd [1, 2, 3, 4])
+
+testListProdr :: Assertion
+testListProdr = do
+  assertEqualUpToEpsilon 1e-10
+    [24, 12, 8, 6]
+    (rev @Double @0 @AstRanked rankedListProdr [1, 2, 3, 4])
 
 reluPrimal
   :: forall ranked n r.
