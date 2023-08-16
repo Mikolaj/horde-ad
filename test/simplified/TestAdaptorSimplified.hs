@@ -11,6 +11,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
+import           Data.List (foldl1')
 import qualified Data.Strict.IntMap as IM
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
@@ -70,6 +71,8 @@ testTrees =
   , testCase "2fooPP" testFooPP
   , testCase "2fooLet" testFooLet
   , testCase "2fooLetPP" testFooLetPP
+  , testCase "2listProdPP" testListProdPP
+  , testCase "2listProdPPR" testListProdPPR
   , testCase "2reluPP" testReluPP
   , testCase "2reluPP2" testReluPP2
   , testCase "2reluSimpler" testReluSimpler
@@ -563,6 +566,50 @@ testFooLetPP = do
     @?= "\\dret x y z -> let x6 = sin y ; x7 = x * x6 ; x8 = recip (z * z + x7 * x7) ; x9 = negate (z * x8) * dret + z * dret in (x6 * x9, cos y * (x * x9), (x7 * x8) * dret + x7 * dret)"
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\x y z -> let x7 = x * sin y in atan2 z x7 + z * x7"
+
+rankedListProd :: (RankedTensor ranked, GoodScalar r)
+               => [ranked r 0] -> ranked r 0
+rankedListProd = foldl1' (*)
+
+testListProdPP :: Assertion
+testListProdPP = do
+  resetVarCounter
+  let renames = IM.empty
+      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT = rankedListProd
+  let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
+  printGradient6Simple renames artifactRev
+    @?= "\\dret x2 x3 x4 x5 -> rletToDomainsOf (x2 * x3) (\\x6 -> rletToDomainsOf (x6 * x4) (\\x7 -> rletToDomainsOf (x5 * dret) (\\x8 -> rletToDomainsOf (x4 * x8) (\\x9 -> dmkDomains (fromList [dfromR (x3 * x9), dfromR (x2 * x9), dfromR (x6 * x8), dfromR (x7 * dret)])))))"
+  printPrimal6Simple renames artifactRev
+    @?= "\\x2 x3 x4 x5 -> tlet (x2 * x3) (\\x6 -> tlet (x6 * x4) (\\x7 -> x7 * x5))"
+  printGradient6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\dret x2 x3 x4 x5 -> let x6 = x2 * x3 ; x8 = x5 * dret ; x9 = x4 * x8 in (x3 * x9, x2 * x9, x6 * x8, (x6 * x4) * dret)"
+  printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\x2 x3 x4 x5 -> ((x2 * x3) * x4) * x5"
+  show deltas
+    @?= "LetR 100000003 (AddR (ScaleR (AstVar [] (AstVarId 100000005)) (LetR 100000002 (AddR (ScaleR (AstVar [] (AstVarId 100000004)) (LetR 100000001 (AddR (ScaleR (AstVar [] (AstVarId 100000003)) (InputR [] (InputId 0))) (ScaleR (AstVar [] (AstVarId 100000002)) (InputR [] (InputId 1)))))) (ScaleR (AstVar [] (AstVarId 100000006)) (InputR [] (InputId 2)))))) (ScaleR (AstVar [] (AstVarId 100000007)) (InputR [] (InputId 3))))"
+
+rankedListProdr :: (RankedTensor ranked, GoodScalar r)
+                => [ranked r 0] -> ranked r 0
+rankedListProdr = foldr1 (*)
+
+testListProdPPR :: Assertion
+testListProdPPR = do
+  resetVarCounter
+  let renames = IM.empty
+      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT = rankedListProdr
+  let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
+  printGradient6Simple renames artifactRev
+    @?= "\\dret x2 x3 x4 x5 -> rletToDomainsOf (x4 * x5) (\\x6 -> rletToDomainsOf (x3 * x6) (\\x7 -> rletToDomainsOf (x2 * dret) (\\x8 -> rletToDomainsOf (x3 * x8) (\\x9 -> dmkDomains (fromList [dfromR (x7 * dret), dfromR (x6 * x8), dfromR (x5 * x9), dfromR (x4 * x9)])))))"
+  printPrimal6Simple renames artifactRev
+    @?= "\\x2 x3 x4 x5 -> tlet (x4 * x5) (\\x6 -> tlet (x3 * x6) (\\x7 -> x2 * x7))"
+  printGradient6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\dret x2 x3 x4 x5 -> let x6 = x4 * x5 ; x8 = x2 * dret ; x9 = x3 * x8 in ((x3 * x6) * dret, x6 * x8, x5 * x9, x4 * x9)"
+  printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\x2 x3 x4 x5 -> x2 * (x3 * (x4 * x5))"
+  show deltas
+    @?= "LetR 100000006 (AddR (ScaleR (AstVar [] (AstVarId 100000007)) (InputR [] (InputId 0))) (ScaleR (AstVar [] (AstVarId 100000002)) (LetR 100000005 (AddR (ScaleR (AstVar [] (AstVarId 100000006)) (InputR [] (InputId 1))) (ScaleR (AstVar [] (AstVarId 100000003)) (LetR 100000004 (AddR (ScaleR (AstVar [] (AstVarId 100000005)) (InputR [] (InputId 2))) (ScaleR (AstVar [] (AstVarId 100000004)) (InputR [] (InputId 3))))))))))"
 
 reluPrimal
   :: forall ranked n r.
