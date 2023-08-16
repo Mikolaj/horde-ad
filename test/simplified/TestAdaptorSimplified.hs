@@ -573,7 +573,7 @@ rankedListProd = foldl1' (*)
 
 testListProdPP :: Assertion
 testListProdPP = do
-  resetVarCounter
+  resetVarCounter >> resetIdCounter
   let renames = IM.empty
       fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
       fT = rankedListProd
