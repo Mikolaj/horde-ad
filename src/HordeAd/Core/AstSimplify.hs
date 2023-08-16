@@ -1191,6 +1191,7 @@ astReplicateS = \case
     let zsuccPerm = 0 : map succ (OS.shapeT @perm)
     in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccPerm) ->
       gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccPerm) $
+        -- this one is needed for GHC >= 9.8 due to #23763
       gcastWith (unsafeCoerce Refl
                  :: OS.Permute zsuccPerm (n : sh1) :~: n : sh) $
       gcastWith (unsafeCoerce Refl :: OS.Rank zsuccPerm :~: 1 + OS.Rank perm) $

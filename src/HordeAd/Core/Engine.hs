@@ -62,7 +62,7 @@ import HordeAd.Util.SizedIndex
 -- names to @rev@, but newcomers may have trouble understanding them.
 
 {- TODO: this is temporarily replaced by a workaround needed for the SPECIALIZE
-   to work.
+   to work, #23798.
 -- | These work for any @g@ of DerivativeStages class.
 rev
   :: forall r y g vals astvals.

@@ -604,6 +604,8 @@ type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
 
 type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
 
+-- Here is in other places reflexive closure of type equalities is created
+-- manually (and not for all equalities) due to #23333.
 type ADReadyBoth ranked shaped =
   ( shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped
   , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
