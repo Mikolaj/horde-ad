@@ -131,7 +131,3 @@ instance RowSum CInt where
     c_row_sum_cInt (fromIntegral n) (fromIntegral k) ptr ptr2
   columnSum n k ptr ptr2 =
     c_column_sum_cInt (fromIntegral n) (fromIntegral k) ptr ptr2
-
-instance {-# OVERLAPPABLE #-} Numeric r => RowSum r where
-  rowSum = error "RowSum: TODO"
-  columnSum = error "RowSum: TODO"
