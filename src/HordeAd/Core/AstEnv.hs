@@ -15,11 +15,8 @@ module HordeAd.Core.AstEnv
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
-import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           Data.Int (Int64)
 import           Data.Kind (Type)
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
@@ -258,32 +255,10 @@ interpretAstB2 OrOp u v = u ||* v
 
 interpretAstRelOp :: (EqF f, OrdF f, GoodScalar r, HasSingletonDict y)
                   => OpCodeRel -> f r y -> f r y -> BoolOf f
+{-# INLINE interpretAstRelOp #-}
 interpretAstRelOp EqOp u v = u ==. v
 interpretAstRelOp NeqOp u v = u /=. v
 interpretAstRelOp LeqOp u v = u <=. v
 interpretAstRelOp GeqOp u v = u >=. v
 interpretAstRelOp LsOp u v = u <. v
 interpretAstRelOp GtOp u v = u >. v
-
-{-# SPECIALIZE interpretAstRelOp
-  :: (KnownNat n, GoodScalar r)
-     => OpCodeRel -> Flip OR.Array r n -> Flip OR.Array r n -> (ADShare, Bool) #-}
-{-# SPECIALIZE interpretAstRelOp
-  :: KnownNat n => OpCodeRel -> Flip OR.Array Double n -> Flip OR.Array Double n -> (ADShare, Bool) #-}
-{-# SPECIALIZE interpretAstRelOp
-  :: KnownNat n => OpCodeRel -> Flip OR.Array Float n -> Flip OR.Array Float n -> (ADShare, Bool) #-}
-{-# SPECIALIZE interpretAstRelOp
-  :: KnownNat n => OpCodeRel -> Flip OR.Array Int64 n -> Flip OR.Array Int64 n -> (ADShare, Bool) #-}
-{-# SPECIALIZE interpretAstRelOp
-  :: (KnownNat n, GoodScalar r)
-  => OpCodeRel -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n -> (ADShare, AstBool) #-}
-{-# SPECIALIZE interpretAstRelOp
-  :: KnownNat n
-  => OpCodeRel -> AstRanked PrimalSpan Double n -> AstRanked PrimalSpan Double n -> (ADShare, AstBool) #-}
-{-# SPECIALIZE interpretAstRelOp
-  :: KnownNat n
-  => OpCodeRel -> AstRanked PrimalSpan Float n -> AstRanked PrimalSpan Float n -> (ADShare, AstBool) #-}
-{-# SPECIALIZE interpretAstRelOp
-  :: KnownNat n
-  => OpCodeRel -> AstRanked PrimalSpan Int64 n -> AstRanked PrimalSpan Int64 n -> (ADShare, AstBool) #-}
--- FullSpan not needed, because relations are computed on primal parts

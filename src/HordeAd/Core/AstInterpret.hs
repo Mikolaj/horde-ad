@@ -459,6 +459,7 @@ interpretAstDynamic
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
   => AstEnv ranked shaped
   -> DynamicExists (AstDynamic s) -> DynamicExists (DynamicOf ranked)
+{-# INLINE interpretAstDynamic #-}
 interpretAstDynamic !env = \case
   DynamicExists @r (AstRToD AstIota) ->
     DynamicExists $ ddummy @ranked @shaped @r
@@ -1175,32 +1176,6 @@ interpretAstS !env = \case
   -> AstRanked FullSpan Int64 n
   -> Flip OR.Array Int64 n #-}
 
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
-  -> DynamicExists (AstDynamic PrimalSpan)
-  -> DynamicExists (ADValClown OD.Array) #-}
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
-  -> DynamicExists (AstDynamic PrimalSpan)
-  -> DynamicExists (ADValClown (AstDynamic PrimalSpan)) #-}
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (Flip OR.Array) (Flip OS.Array)
-  -> DynamicExists (AstDynamic PrimalSpan)
-  -> DynamicExists OD.Array #-}
-
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
-  -> DynamicExists (AstDynamic FullSpan)
-  -> DynamicExists (ADValClown OD.Array) #-}
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
-  -> DynamicExists (AstDynamic FullSpan)
-  -> DynamicExists (ADValClown (AstDynamic PrimalSpan)) #-}
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (Flip OR.Array) (Flip OS.Array)
-  -> DynamicExists (AstDynamic FullSpan)
-  -> DynamicExists OD.Array #-}
-
 {-# SPECIALIZE interpretAstDomains
   :: AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstDomains PrimalSpan
@@ -1213,7 +1188,6 @@ interpretAstS !env = \case
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstDomains PrimalSpan
   -> DomainsOD #-}
-
 {-# SPECIALIZE interpretAstDomains
   :: AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstDomains FullSpan
@@ -1222,6 +1196,14 @@ interpretAstS !env = \case
   :: AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstDomains FullSpan
   -> Domains (ADValClown (AstDynamic PrimalSpan)) #-}
+{-# SPECIALIZE interpretAstDomains
+  :: AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstDomains FullSpan
+  -> DomainsOD #-}
+{-# SPECIALIZE interpretAstDomains
+  :: AstEnv (Flip OR.Array) (Flip OS.Array)
+  -> AstDomains PrimalSpan
+  -> DomainsOD #-}
 {-# SPECIALIZE interpretAstDomains
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstDomains FullSpan
@@ -1239,23 +1221,3 @@ interpretAstS !env = \case
   :: AstEnv (Flip OR.Array) (Flip OS.Array)
   -> AstBool
   -> (ADShare, Bool) #-}
-
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (Flip OR.Array) (Flip OS.Array)
-  -> DynamicExists (AstDynamic PrimalSpan)
-  -> DynamicExists OD.Array #-}
-
-{-# SPECIALIZE interpretAstDomains
-  :: AstEnv (Flip OR.Array) (Flip OS.Array)
-  -> AstDomains PrimalSpan
-  -> DomainsOD #-}
-
-{-# SPECIALIZE interpretAstDynamic
-  :: AstEnv (Flip OR.Array) (Flip OS.Array)
-  -> DynamicExists (AstDynamic FullSpan)
-  -> DynamicExists OD.Array #-}
-
-{-# SPECIALIZE interpretAstDomains
-  :: AstEnv (Flip OR.Array) (Flip OS.Array)
-  -> AstDomains FullSpan
-  -> DomainsOD #-}
