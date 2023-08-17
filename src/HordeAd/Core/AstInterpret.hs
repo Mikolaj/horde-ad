@@ -867,6 +867,9 @@ interpretAstS !env = \case
 
 
 
+-- These and all other SPECIALIZE pragmas are needed due to the already
+-- mostly fixed issues #21286 and others, because we want to have
+-- reasonable performance on GHC 9.2 and 9.4 as well.
 
 -- There are no pragmas for shaped tensors, because most tests
 -- and benchmarks only use ranked tensors. I hope GHC learns to specialize
