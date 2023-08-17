@@ -89,14 +89,13 @@ common options
   ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
   ghc-options:        -Wno-unticked-promoted-constructors -fprint-explicit-kinds
   if impl(ghc >= 9.4)
+    ghc-options: -fworker-wrapper-cbv
+      -- this is supposedly risky, but prevents STG from creating thunks, #23848
     ghc-options:        -Wredundant-strictness-flags
   ghc-options:        -fno-ignore-asserts
 
   -- Disabling this breaks performance:
   ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200
-
-  ghc-options: -fworker-wrapper-cbv
-  -- this is supposedly risky, but prevents STG from creating thunks, #23848
 
   ghc-options:        -Wmissed-specialisations
 
