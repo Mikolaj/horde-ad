@@ -12,7 +12,10 @@ module HordeAd.Core.DualNumber
 
 import Prelude
 
-import Data.Kind (Type)
+import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
+import           Data.Kind (Type)
+import           GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Delta (Dual)
@@ -116,6 +119,13 @@ instance Ord (ADVal f r z) where
   (<=) = error "AST requires that OrdB be used instead"
 
 instance (Num (f r z), IsPrimal f r z) => Num (ADVal f r z) where
+  -- TODO: more of an experiment than a real workaround:
+  {-# SPECIALIZE instance Num (ADVal (Flip OR.Array) Double 0) #-}
+  {-# SPECIALIZE instance KnownNat n
+                          => Num (ADVal (Flip OR.Array) Double n) #-}
+  {-# SPECIALIZE instance Num (ADVal (AstRanked PrimalSpan) Double 0) #-}
+  {-# SPECIALIZE instance KnownNat n
+                          => Num (ADVal (AstRanked PrimalSpan) Double n) #-}
   D l1 u u' + D l2 v v' = dD (l1 `mergeADShare` l2) (u + v) (dAdd u' v')
   D l1 u u' - D l2 v v' =
     dD (l1 `mergeADShare` l2) (u - v) (dAdd u' (dScale (intOfShape v (-1)) v'))
