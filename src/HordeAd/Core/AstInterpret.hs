@@ -66,6 +66,14 @@ interpretAstPrimalRuntimeSpecialized !env t =
           Just Refl -> interpretAstPrimal @ranked @shaped @n @CInt env t
           _ -> error "an unexpected underlying scalar type"  -- catch absurd
 
+{- this fails to type-check (r not Double on the RHS of ->):
+import           Type.Reflection (pattern TypeRep, typeRep)
+  case typeRep @r of
+    TypeRep @Double -> interpretAstPrimal @ranked @shaped @n @Double env t
+and similarly this:
+    Con @Type @Double _ -> interpretAstPrimal @ranked @shaped @n @Double env t
+-}
+
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
 -- Either the environment has to be traversed to remove the dual parts or
 -- the dual part needs to be potentially needlessly computed.
