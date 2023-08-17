@@ -748,11 +748,10 @@ gradientFromDelta !dims !deltaDt =
          -- Extract results.
          !gradient = V.fromList $ EM.elems iMap
      in (astBindings, gradient)
-{- TODO: no type application possible, so a (buggy?) warning is shown
+-- The warnings in the following seems spurious. A GHC issue to be opened.
 {-# SPECIALIZE gradientFromDelta
   :: Int -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
   -> (AstBindings (Clown OD.Array), DomainsOD) #-}
--}
 {-# SPECIALIZE gradientFromDelta
   :: Int -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
   -> (AstBindings (AstRanked PrimalSpan), Domains (AstDynamic PrimalSpan)) #-}
