@@ -64,8 +64,7 @@ interpretAstPrimalRuntimeSpecialized !env t =
         Just Refl -> interpretAstPrimal @ranked @shaped @n @Int64 env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> interpretAstPrimal @ranked @shaped @n @CInt env t
-          _ -> interpretAstPrimal env t
-                 -- the polymorpic case for an unexpected scalar
+          _ -> error "an unexpected underlying scalar type"  -- catch absurd
 
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
 -- Either the environment has to be traversed to remove the dual parts or
@@ -114,7 +113,7 @@ interpretAstRuntimeSpecialized !env t =
         Just Refl -> interpretAst @ranked @shaped @n @s @Int64 env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> interpretAst @ranked @shaped @n @s @CInt env t
-          _ -> interpretAst env t
+          _ -> error "an unexpected underlying scalar type"
 
 interpretAst
   :: forall ranked shaped n s r.
@@ -510,7 +509,7 @@ interpretAstPrimalSRuntimeSpecialized !env t =
         Just Refl -> interpretAstPrimalS @ranked @shaped @sh @Int64 env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> interpretAstPrimalS @ranked @shaped @sh @CInt env t
-          _ -> interpretAstPrimalS env t
+          _ -> error "an unexpected underlying scalar type"
 
 interpretAstPrimalS
   :: forall ranked shaped sh r.
@@ -552,7 +551,7 @@ interpretAstSRuntimeSpecialized !env t =
         Just Refl -> interpretAstS @ranked @shaped @sh @s @Int64 env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> interpretAstS @ranked @shaped @sh @s @CInt env t
-          _ -> interpretAstS env t
+          _ -> error "an unexpected underlying scalar type"
 
 interpretAstS
   :: forall ranked shaped sh s r.

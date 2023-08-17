@@ -788,8 +788,7 @@ buildFinMaps s0 deltaDt =
               Just Refl -> evalR @n @Int64 s c
               _ -> case testEquality (typeRep @r) (typeRep @CInt) of
                 Just Refl -> evalR @n @CInt s c
-                _ -> evalR s c
-                       -- the polymorpic case for an unexpected scalar
+                _ -> error "an unexpected underlying scalar type"
       evalR
         :: forall n r. (KnownNat n, GoodScalar r)
         => EvalState ranked shaped
@@ -914,7 +913,7 @@ buildFinMaps s0 deltaDt =
               Just Refl -> evalS @sh @Int64 s c
               _ -> case testEquality (typeRep @r) (typeRep @CInt) of
                 Just Refl -> evalS @sh @CInt s c
-                _ -> evalS s c
+                _ -> error "an unexpected underlying scalar type"
       evalS
         :: forall sh r. (OS.Shape sh, GoodScalar r)
         => EvalState ranked shaped
