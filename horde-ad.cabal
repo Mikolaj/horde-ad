@@ -235,6 +235,7 @@ library benchCommonLibrary
       , enummapset
       , hmatrix
       , ilist
+      , inspection-testing
       , orthotope
       , random
       , strict-containers

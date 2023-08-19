@@ -1,5 +1,7 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+-- {-# OPTIONS_GHC -ddump-stranal #-}
 -- | A contrived benchmark: a product of a list of scalars.
 module BenchProdTools where
 
@@ -14,6 +16,8 @@ import           Data.List (foldl1')
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat)
+import           Test.Inspection
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd
@@ -55,10 +59,10 @@ benchProd :: r ~ Double
           => ([r], [Flip OR.Array r 0], Data.Vector.Vector (Flip OR.Array r 0))
           -> [Benchmark]
 benchProd ~(_l, list, vec) =
-    [ bench "crev List" $ nf (crev rankedListProd) list
-    , bench "rev List" $ nf (rev @Double @0 @AstRanked rankedListProd) list
-    , bench "r crev List" $ nf (crev rankedListProdr) list
-    , bench "r rev List" $ nf (rev @Double @0 @AstRanked rankedListProdr) list
+    [ bench "crev List" $ nf crevRankedListProd list
+    , bench "rev List" $ nf revRankedListProd list
+    , bench "r crev List" $ nf crevRankedListProdr list
+    , bench "r rev List" $ nf revRankedListProdr list
 -- commented out, because 5 times slower due to allocating a new vector
 -- for each multiplication in fromDomains
 --    , bench "crev Vec" $ nf (crev rankedVecProd) vec
@@ -85,9 +89,21 @@ rankedListProd :: (RankedTensor ranked, GoodScalar r)
                => [ranked r 0] -> ranked r 0
 rankedListProd = foldl1' (*)
 
+crevRankedListProd :: [Flip OR.Array Double 0] -> [Flip OR.Array Double 0]
+crevRankedListProd = crev rankedListProd
+
+revRankedListProd :: [Flip OR.Array Double 0] -> [Flip OR.Array Double 0]
+revRankedListProd = rev @Double @0 @AstRanked rankedListProd
+
 rankedListProdr :: (RankedTensor ranked, GoodScalar r)
                 => [ranked r 0] -> ranked r 0
 rankedListProdr = foldr1 (*)
+
+crevRankedListProdr :: [Flip OR.Array Double 0] -> [Flip OR.Array Double 0]
+crevRankedListProdr = crev rankedListProdr
+
+revRankedListProdr :: [Flip OR.Array Double 0] -> [Flip OR.Array Double 0]
+revRankedListProdr = rev @Double @0 @AstRanked rankedListProdr
 
 _rankedVecProd :: (RankedTensor ranked, GoodScalar r)
                => Data.Vector.Vector (ranked r 0) -> ranked r 0
@@ -121,3 +137,21 @@ _rankedNoShareVecProd :: GoodScalar r
                       => Data.Vector.Vector (ADVal (Flip OR.Array) r 0)
                       -> ADVal (Flip OR.Array) r 0
 _rankedNoShareVecProd = V.foldl1' multNotShared
+
+-- Note that it's not clear how recursive/transitive the check is.
+-- It probably depends on how much Core from other modules ends up
+-- being processed inside this module.
+--
+-- The GoodScalar occurences are when creating a value with this bound
+-- existential type, so it's intended, not a specialization failure.
+-- OTOH, KnownNat and AstSpan are tag types, so it's fine not to specialize
+-- for them.
+-- inspect $ hasNoTypeClassesExcept 'crevRankedListProd [''GoodScalar, ''KnownNat, ''AstSpan]
+-- inspect $ hasNoTypeClassesExcept 'revRankedListProd [''GoodScalar, ''KnownNat, ''AstSpan]
+-- inspect $ hasNoTypeClassesExcept 'crevRankedListProdr [''GoodScalar, ''KnownNat, ''AstSpan]
+-- inspect $ hasNoTypeClassesExcept 'revRankedListProdr [''GoodScalar, ''KnownNat, ''AstSpan]
+
+-- For now, we have lots of runaway type classes, so a dummy to prevent warnings:
+dummy :: ()
+dummy = ()
+inspect $ hasNoTypeClassesExcept 'dummy [''GoodScalar, ''KnownNat, ''AstSpan]
