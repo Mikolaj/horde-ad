@@ -428,9 +428,9 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
 deriving instance (GoodScalar r, OS.Shape sh) => Show (AstShaped s r sh)
 
 data AstDynamic :: AstSpanType -> Type -> Type where
-  AstRToD :: KnownNat n
+  AstRToD :: forall n r s. KnownNat n
           => AstRanked s r n -> AstDynamic s r
-  AstSToD :: OS.Shape sh
+  AstSToD :: forall sh r s. OS.Shape sh
           => AstShaped s r sh -> AstDynamic s r
 deriving instance GoodScalar r => Show (AstDynamic s r)
 

@@ -138,13 +138,13 @@ instance AstSpan s
       AstRToD @n2 v ->
         case ( sameNat (Proxy @n) (Proxy @n2)
              , testEquality (typeRep @r) (typeRep @r2) ) of
-          (Just Refl, Just Refl) -> AstRToD (r + v)
+          (Just Refl, Just Refl) -> AstRToD @n2 @r (r + v)
           _ -> error "raddDynamic: type mismatch"
       AstSToD AstIotaS -> AstRToD r
       AstSToD @sh2 v ->
         case ( matchingRank @sh2 @n
              , testEquality (typeRep @r) (typeRep @r2) ) of
-          (Just Refl, Just Refl) -> AstSToD (astRToS r + v)
+          (Just Refl, Just Refl) -> AstSToD @sh2 @r (astRToS r + v)
           _ -> error "raddDynamic: type mismatch"
   tregister = astRegisterFun
 
@@ -167,7 +167,8 @@ instance ( GoodScalar r, KnownNat n
     Just (DynamicExists @r2 a, rest) ->
       if isTensorDummyAst a then Just (tzero (tshape aInit), rest) else
         case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> let !t = tfromD a in Just (t, rest)
+          Just Refl -> let !t = tfromD @(AstRanked s) @(AstShaped s) @r a
+                       in Just (t, rest)
           _ -> error $ "fromDomains: type mismatch: "
                        ++ show (typeRep @r) ++ " " ++ show (typeRep @r2)
     Nothing -> Nothing
@@ -320,13 +321,13 @@ instance AstSpan s
       AstSToD @sh2 v ->
         case ( sameShape @sh @sh2
              , testEquality (typeRep @r) (typeRep @r2) ) of
-          (Just Refl, Just Refl) -> AstSToD (r + v)
+          (Just Refl, Just Refl) -> AstSToD @sh2 @r (r + v)
           _ -> error "saddDynamic: type mismatch"
       AstRToD AstIota -> AstSToD r
       AstRToD @n2 v ->
         case ( matchingRank @sh @n2
              , testEquality (typeRep @r) (typeRep @r2) ) of
-          (Just Refl, Just Refl) -> AstRToD (astSToR r + v)
+          (Just Refl, Just Refl) -> AstRToD @n2 @r (astSToR r + v)
           _ -> error "saddDynamic: type mismatch"
   sregister = astRegisterFunS
 
@@ -346,7 +347,8 @@ instance ( GoodScalar r, OS.Shape sh
     Just (DynamicExists @r2 a, rest) ->
       if isTensorDummyAst a then Just (0, rest) else
         case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> let !t = sfromD a in Just (t, rest)
+          Just Refl -> let !t = sfromD @(AstRanked s) @(AstShaped s) @r a
+                       in Just (t, rest)
           _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
 

@@ -1118,7 +1118,7 @@ buildDerivative dimR deltaDt params = do
           then case params V.! i of
             DynamicExists @r2 e ->
               case testEquality (typeRep @r) (typeRep @r2) of
-                Just Refl -> return $! tfromD e
+                Just Refl -> return $! tfromD @ranked @shaped @r e
                 _ -> error "buildDerivative: type mismatch"
           else error "buildDerivative': wrong index for an input"
         ScaleR k d -> (* k) <$> evalR d
@@ -1131,7 +1131,7 @@ buildDerivative dimR deltaDt params = do
               case dm EM.! n of
                 DynamicExists @r2 t ->
                   case testEquality (typeRep @r) (typeRep @r2) of
-                    Just Refl -> return $! tfromD t
+                    Just Refl -> return $! tfromD @ranked @shaped @r t
                     _ -> error "buildDerivative: type mismatch"
             Nothing -> do
               cRaw <- evalR d
@@ -1200,7 +1200,7 @@ buildDerivative dimR deltaDt params = do
           then case params V.! i of
             DynamicExists @r2 e ->
               case testEquality (typeRep @r) (typeRep @r2) of
-                Just Refl -> return $! sfromD e
+                Just Refl -> return $! sfromD @ranked @shaped @r e
                 _ -> error "buildDerivative: type mismatch"
           else error "buildDerivative: wrong index for an input"
         ScaleS k d -> (* k) <$> evalS d
@@ -1213,7 +1213,7 @@ buildDerivative dimR deltaDt params = do
               case dm EM.! n of
                 DynamicExists @r2 t ->
                   case testEquality (typeRep @r) (typeRep @r2) of
-                    Just Refl -> return $! sfromD t
+                    Just Refl -> return $! sfromD @ranked @shaped @r t
                     _ -> error "buildDerivative: type mismatch"
             Nothing -> do
               cRaw <- evalS d

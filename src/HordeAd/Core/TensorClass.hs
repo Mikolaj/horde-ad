@@ -723,7 +723,7 @@ instance RankedTensor (Flip OR.Array) where
   raddDynamic r (DynamicExists @r2 d) = DynamicExists $
     if isTensorDummyD d then dfromR r
     else case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> dfromR r + d
+      Just Refl -> dfromR @(Flip OR.Array) @(Flip OS.Array) @r r + d
       _ -> error "raddDynamic: type mismatch"
 
   tconstant = id
@@ -743,7 +743,7 @@ instance (GoodScalar r, KnownNat n)
     Just (DynamicExists @r2 a, rest) ->
       if isTensorDummyD a then Just (tzero (tshape aInit), rest) else
         case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> let !aR = tfromD a
+          Just Refl -> let !aR = tfromD @(Flip OR.Array) @(Flip OS.Array) @r a
                        in Just (aR, rest)
           _ -> error $ "fromDomains: type mismatch: "
                        ++ show (typeRep @r) ++ " " ++ show (typeRep @r2)
@@ -836,7 +836,7 @@ instance ShapedTensor (Flip OS.Array) where
   saddDynamic r (DynamicExists @r2 d) = DynamicExists $
     if isTensorDummyD d then dfromS r
     else case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> dfromS r + d
+      Just Refl -> dfromS @(Flip OR.Array) @(Flip OS.Array) @r r + d
       _ -> error "saddDynamic: type mismatch"
 
   sconstant = id
@@ -853,7 +853,7 @@ instance (GoodScalar r, OS.Shape sh)
     Just (DynamicExists @r2 a, rest) ->
       if isTensorDummyD a then Just (0, rest) else
         case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> let !aS = sfromD a
+          Just Refl -> let !aS = sfromD @(Flip OR.Array) @(Flip OS.Array) @r a
                        in Just (aS, rest)
           _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing

@@ -135,7 +135,7 @@ build1V k (var, v00) =
   in case v0 of
     Ast.AstVar _ var2 | fromEnum var2 == fromEnum var ->
       case isRankedInt v0 of
-        Just Refl -> fromPrimal $ astSlice 0 k Ast.AstIota
+        Just Refl -> fromPrimal @s @Int64 $ astSlice 0 k Ast.AstIota
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"

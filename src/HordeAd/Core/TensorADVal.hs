@@ -126,7 +126,7 @@ instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (DynamicExists @r2 a, rest) ->
       case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> let !aR = dToR (runFlip a)
+        Just Refl -> let !aR = dToR @r (runFlip a)
                      in Just (aR, rest)
         _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
@@ -167,7 +167,7 @@ instance AdaptableDomains dynamic a
     -- >   let f = swap . flip fromDomains
     -- >   in swap $ mapAccumL f source lInit
 
-dToR :: forall ranked shaped n r.
+dToR :: forall r ranked shaped n.
         ( ConvertTensor ranked shaped
         , Dual ranked ~ DeltaR ranked shaped
         , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped
@@ -321,12 +321,12 @@ instance ( OS.Shape sh, GoodScalar r, dynamic ~ DynamicOf shaped
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (DynamicExists @r2 a, rest) ->
       case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> let !aS = dToS (runFlip a)
+        Just Refl -> let !aS = dToS @r (runFlip a)
                      in Just (aS, rest)
         _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
 
-dToS :: forall ranked shaped sh r.
+dToS :: forall r ranked shaped sh.
         ( ConvertTensor ranked shaped
         , Dual shaped ~ DeltaS ranked shaped
         , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped

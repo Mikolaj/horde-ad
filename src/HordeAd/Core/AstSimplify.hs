@@ -884,7 +884,7 @@ astLet var u v@(Ast.AstPrimalPart (Ast.AstVar _ var2)) =  -- a common noop
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> astPrimalPart u
+        Just Refl -> astPrimalPart @r2 u
         _ -> error "astLet: type mismatch"
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
@@ -894,7 +894,7 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> astDualPart u
+        Just Refl -> astDualPart @r2 u
         _ -> error "astLet: type mismatch"
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
@@ -947,7 +947,7 @@ astLetS var u v@(Ast.AstPrimalPartS (Ast.AstVarS var2)) =  -- a common noop
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> astPrimalPartS u
+        Just Refl -> astPrimalPartS @r2 u
         _ -> error "astLetS: type mismatch"
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
@@ -957,7 +957,7 @@ astLetS var u v@(Ast.AstDualPartS (Ast.AstVarS var2)) =  -- a noop
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> astDualPartS u
+        Just Refl -> astDualPartS @r2 u
         _ -> error "astLetS: type mismatch"
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
@@ -1511,7 +1511,7 @@ astPrimalPart t = case t of
   Ast.AstLetDomains vars l v -> Ast.AstLetDomains vars l (astPrimalPart v)
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
 
-astPrimalPartS :: (OS.Shape sh, GoodScalar r)
+astPrimalPartS :: (GoodScalar r, OS.Shape sh)
                => AstShaped FullSpan r sh -> AstShaped PrimalSpan r sh
 astPrimalPartS t = case t of
   Ast.AstVarS{} -> Ast.AstPrimalPartS t  -- the only normal form
@@ -1577,7 +1577,7 @@ astDualPart t = case t of
   Ast.AstLetDomains vars l v -> Ast.AstLetDomains vars l (astDualPart v)
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
 
-astDualPartS :: (OS.Shape sh, GoodScalar r)
+astDualPartS :: (GoodScalar r, OS.Shape sh)
              => AstShaped FullSpan r sh -> AstShaped DualSpan r sh
 astDualPartS t = case t of
   Ast.AstVarS{} -> Ast.AstDualPartS t
