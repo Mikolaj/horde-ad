@@ -177,6 +177,13 @@ revArtifactAdapt hasDt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
   in revProduceArtifact hasDt g EM.empty domainsOD
+{-# SPECIALIZE revArtifactAdapt
+  :: ( HasSingletonDict y
+     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains OD.Array (Value astvals) )
+  => Bool -> (astvals -> AstRanked FullSpan Double y) -> Value astvals
+  -> ( AstArtifactRev AstRanked Double y
+     , Dual (AstRanked PrimalSpan) Double y ) #-}
 
 
 -- * Forward derivative adaptors

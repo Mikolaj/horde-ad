@@ -11,14 +11,15 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           GHC.TypeLits (KnownNat)
-import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.Delta (DualPart (..))
 import HordeAd.Core.DualNumber (ADVal)
 import HordeAd.Core.Engine
-import HordeAd.Core.TensorADVal
+import HordeAd.Core.TensorADVal (ADValClown)
 import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
+
+-- These functions have their SPECIALIZE pragmas in MnistData.
 
 -- | Stochastic Gradient Descent.
 sgd :: forall n r a. (KnownNat n, GoodScalar r)
@@ -38,14 +39,6 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
     in if null rest
        then (parametersNew, valueNew)
        else go rest parametersNew
-{-# SPECIALIZE sgd
-  :: Double
-  -> ((Vector Double, Vector Double)
-      -> Domains (ADValClown OD.Array)
-      -> ADVal (Flip OR.Array) Double 0)
-  -> [(Vector Double, Vector Double)]
-  -> DomainsOD
-  -> (DomainsOD, Flip OR.Array Double 0) #-}
 
 -- | An implementation of the Adam gradient descent.
 sgdAdam :: forall f r a y.

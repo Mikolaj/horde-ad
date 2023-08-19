@@ -8,10 +8,15 @@ import Prelude
 
 import           Control.Exception (assert)
 import           Data.Kind (Type)
-import           Data.List (foldl')
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           System.Random
+
+-- import qualified Data.Array.DynamicS as OD
+-- import qualified Data.Array.RankedS as OR
+-- import           Data.List (foldl')
+-- import HordeAd.Core.Ast
+-- import           GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.Types
 
@@ -56,8 +61,20 @@ class RandomDomains vals where
 
 -- * Basic Adaptor class instances
 
+{- This is temporarily moved to TensorADVal in order to specialize manually
 instance AdaptableDomains dynamic a
          => AdaptableDomains dynamic [a] where
+  {-# SPECIALIZE instance
+      (KnownNat n, AdaptableDomains OD.Array (OR.Array n Double))
+      => AdaptableDomains OD.Array
+                          [OR.Array n Double] #-}
+  {-# SPECIALIZE instance
+      ( KnownNat n, AstSpan s
+      , AdaptableDomains (AstDynamic s)
+                         (AstRanked s Double n) )
+      => AdaptableDomains (AstDynamic s)
+                          [AstRanked s Double n] #-}
+  -- TODO: Specialize to ADVal, too, which requires resolving a module dep loop
   type Value [a] = [Value a]
   toDomains = V.concat . map toDomains
   fromDomains lInit source =
@@ -72,6 +89,7 @@ instance AdaptableDomains dynamic a
     -- > fromDomains lInit source =
     -- >   let f = swap . flip fromDomains
     -- >   in swap $ mapAccumL f source lInit
+-}
 
 instance ForgetShape a
          => ForgetShape [a] where

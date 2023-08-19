@@ -13,6 +13,7 @@ module HordeAd.Core.TensorADVal
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
@@ -21,6 +22,7 @@ import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Functor.Const
+import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -111,6 +113,14 @@ instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
          , ConvertTensor ranked shaped )
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal ranked r n) where
+  {-# SPECIALIZE instance
+      KnownNat y
+      => AdaptableDomains (ADValClown OD.Array)
+                          (ADVal (Flip OR.Array) Double y) #-}
+  {-# SPECIALIZE instance
+      KnownNat y
+      => AdaptableDomains (ADValClown (AstDynamic PrimalSpan))
+                          (ADVal (AstRanked PrimalSpan) Double y) #-}
   type Value (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
@@ -120,6 +130,42 @@ instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
                      in Just (aR, rest)
         _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
+
+-- This is temporarily moved from Adaptor in order to specialize manually
+instance AdaptableDomains dynamic a
+         => AdaptableDomains dynamic [a] where
+  {-# SPECIALIZE instance
+      (KnownNat n, AdaptableDomains OD.Array (OR.Array n Double))
+      => AdaptableDomains OD.Array
+                          [OR.Array n Double] #-}
+  {-# SPECIALIZE instance
+      ( KnownNat n, AstSpan s
+      , AdaptableDomains (AstDynamic s)
+                         (AstRanked s Double n) )
+      => AdaptableDomains (AstDynamic s)
+                          [AstRanked s Double n] #-}
+  {-# SPECIALIZE instance
+      KnownNat n
+      => AdaptableDomains (ADValClown OD.Array)
+                          [ADVal (Flip OR.Array) Double n] #-}
+  {-# SPECIALIZE instance
+      KnownNat n
+      => AdaptableDomains (ADValClown (AstDynamic PrimalSpan))
+                          [ADVal (AstRanked PrimalSpan) Double n] #-}
+  type Value [a] = [Value a]
+  toDomains = V.concat . map toDomains
+  fromDomains lInit source =
+    let f (!lAcc, !restAcc) !aInit =
+          case fromDomains aInit restAcc of
+            Just (a, rest) -> (a : lAcc, rest)
+            Nothing -> error "fromDomains [a]"
+        (l, !restAll) = foldl' f ([], source) lInit
+        !rl = reverse l
+    in Just (rl, restAll)
+    -- is the following as performant? benchmark:
+    -- > fromDomains lInit source =
+    -- >   let f = swap . flip fromDomains
+    -- >   in swap $ mapAccumL f source lInit
 
 dToR :: forall ranked shaped n r.
         ( ConvertTensor ranked shaped

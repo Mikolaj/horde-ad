@@ -158,6 +158,9 @@ instance ( GoodScalar r, KnownNat n
          , RankedTensor (AstRanked s)
          , ConvertTensor (AstRanked s) (AstShaped s) )
          => AdaptableDomains (AstDynamic s) (AstRanked s r n) where
+  {-# SPECIALIZE instance
+      (KnownNat n, AstSpan s)
+      => AdaptableDomains (AstDynamic s) (AstRanked s Double n) #-}
   type Value (AstRanked s r n) = Flip OR.Array r n
   toDomains = undefined
   fromDomains aInit params = case V.uncons params of

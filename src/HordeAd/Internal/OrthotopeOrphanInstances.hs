@@ -257,7 +257,6 @@ instance (Num (Vector r), Numeric r, Show r) => Num (OD.Array r) where
 instance (Num (Vector r), KnownNat n, Numeric r, Show r)
          => Num (OR.Array n r) where
   -- TODO: more of an experiment than a real workaround:
-  {-# SPECIALIZE instance Num (OR.Array 0 Double) #-}
   {-# SPECIALIZE instance KnownNat n => Num (OR.Array n Double) #-}
   (+) = liftVR2 (+)
   (-) = liftVR2 (-)

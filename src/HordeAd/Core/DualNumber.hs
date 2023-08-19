@@ -120,10 +120,8 @@ instance Ord (ADVal f r z) where
 
 instance (Num (f r z), IsPrimal f r z) => Num (ADVal f r z) where
   -- TODO: more of an experiment than a real workaround:
-  {-# SPECIALIZE instance Num (ADVal (Flip OR.Array) Double 0) #-}
   {-# SPECIALIZE instance KnownNat n
                           => Num (ADVal (Flip OR.Array) Double n) #-}
-  {-# SPECIALIZE instance Num (ADVal (AstRanked PrimalSpan) Double 0) #-}
   {-# SPECIALIZE instance KnownNat n
                           => Num (ADVal (AstRanked PrimalSpan) Double n) #-}
   D l1 u u' + D l2 v v' = dD (l1 `mergeADShare` l2) (u + v) (dAdd u' v')

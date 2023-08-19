@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- | Parsing and pre-processing MNIST data.
 module MnistData where
 
@@ -6,11 +7,13 @@ import Prelude
 
 import           Codec.Compression.GZip (decompress)
 import           Control.Arrow (first)
+import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Flip
 import qualified Data.ByteString.Lazy as LBS
 import           Data.IDX
 import           Data.List (sortOn)
@@ -23,7 +26,9 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
-import HordeAd.Core.Types
+import HordeAd
+import HordeAd.Core.TensorADVal (ADValClown)
+import HordeAd.External.OptimizerTools
 
 type SizeMnistWidth = 28 :: Nat
 
@@ -170,3 +175,32 @@ chunksOf n = go where
   go [] = []
   go l = let (chunk, rest) = splitAt n l
          in chunk : go rest
+
+{-# SPECIALIZE sgd
+  :: KnownNat y
+  => Double
+  -> (MnistData Double
+      -> Domains (ADValClown OD.Array)
+      -> ADVal (Flip OR.Array) Double y)
+  -> [MnistData Double]
+  -> DomainsOD
+  -> (DomainsOD, Flip OR.Array Double y) #-}
+
+{-# SPECIALIZE sgdAdam
+  :: KnownNat y
+  => (MnistDataBatchR Double -> Domains (DynamicOf (ADVal (Flip OR.Array)))
+      -> ADVal (Flip OR.Array) Double y)
+  -> [MnistDataBatchR Double]
+  -> DomainsOD
+  -> StateAdam
+  -> (DomainsOD, StateAdam) #-}
+
+{-# SPECIALIZE sgdAdamArgs
+  :: KnownNat y
+  => ArgsAdam
+  -> (MnistDataBatchR Double -> Domains (DynamicOf (ADVal (Flip OR.Array)))
+      -> ADVal (Flip OR.Array) Double y)
+  -> [MnistDataBatchR Double]
+  -> DomainsOD
+  -> StateAdam
+  -> (DomainsOD, StateAdam) #-}

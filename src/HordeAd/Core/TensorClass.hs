@@ -734,6 +734,9 @@ instance RankedTensor (Flip OR.Array) where
 
 instance (GoodScalar r, KnownNat n)
          => AdaptableDomains OD.Array (Flip OR.Array r n) where
+  {-# SPECIALIZE instance
+      KnownNat n
+      => AdaptableDomains OD.Array (Flip OR.Array Double n) #-}
   type Value (Flip OR.Array r n) = Flip OR.Array r n
   toDomains a = V.singleton $ DynamicExists $ dfromR a
   fromDomains aInit params = case V.uncons params of

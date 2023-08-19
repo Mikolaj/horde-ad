@@ -33,16 +33,24 @@ import           HordeAd.Util.SizedIndex
 -- * Inlining and simplification pass operations to be applied after unlet
 
 simplifyArtifactRev :: (GoodScalar r, KnownNat n)
-                  => AstArtifactRev AstRanked r n
-                  -> AstArtifactRev AstRanked r n
+                    => AstArtifactRev AstRanked r n
+                    -> AstArtifactRev AstRanked r n
 simplifyArtifactRev (vars, gradient, primal, sh) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6 primal, sh)
+{-# SPECIALIZE simplifyArtifactRev
+  :: KnownNat n
+  => AstArtifactRev AstRanked Double n
+  -> AstArtifactRev AstRanked Double n #-}
 
 simplifyArtifactRevS :: (GoodScalar r, OS.Shape sh)
-                   => AstArtifactRev AstShaped r sh
-                   -> AstArtifactRev AstShaped r sh
+                     => AstArtifactRev AstShaped r sh
+                     -> AstArtifactRev AstShaped r sh
 simplifyArtifactRevS (vars, gradient, primal, sh) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6S primal, sh)
+{-# SPECIALIZE simplifyArtifactRevS
+  :: OS.Shape sh
+  => AstArtifactRev AstShaped Double sh
+  -> AstArtifactRev AstShaped Double sh #-}
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.
@@ -52,17 +60,25 @@ simplifyAst6
   :: (GoodScalar r, KnownNat n, AstSpan s)
   => AstRanked s r n -> AstRanked s r n
 simplifyAst6 = simplifyAst . snd . inlineAst EM.empty . simplifyAst
+{-# SPECIALIZE simplifyAst6
+  :: (KnownNat n, AstSpan s)
+  => AstRanked s Double n
+  -> AstRanked s Double n #-}
 
 simplifyAst6S
   :: (GoodScalar r, OS.Shape sh, AstSpan s)
   => AstShaped s r sh -> AstShaped s r sh
 simplifyAst6S = simplifyAstS . snd . inlineAstS EM.empty . simplifyAstS
+{-# SPECIALIZE simplifyAst6S
+  :: (OS.Shape sh, AstSpan s)
+  => AstShaped s Double sh
+  -> AstShaped s Double sh #-}
 
 simplifyAstDomains6
   :: AstSpan s => AstDomains s -> AstDomains s
 simplifyAstDomains6 =
   simplifyAstDomains . snd . inlineAstDomains EM.empty . simplifyAstDomains
-
+    -- no specialization possible except for the tag type s
 
 -- * The pass that inlines lets with the bottom-up strategy
 
