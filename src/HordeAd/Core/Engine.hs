@@ -461,6 +461,8 @@ fwdArtifactFromForwardPassS forwardPass parameters0 =
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt
 
+{- TODO: this is temporarily replaced by a workaround needed for the SPECIALIZE
+   to work, #23798.
 -- | The old versions that use the fixed input and @dt@ to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 --
@@ -494,7 +496,61 @@ crevDtMaybe
      , AdaptableDomains OD.Array vals
      , vals ~ Value advals, Value vals ~ vals )
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
+{-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
+  let g inputs = f $ parseDomains vals inputs
+  in parseDomains vals $ fst $ crevOnDomains mdt g (toDomains vals)
+-}
+
+-- | The old versions that use the fixed input and @dt@ to compute gradient
+-- only at these values, both transposing and evaluating at the same time.
+--
+-- These work for @f@ both ranked and shaped.
+crev
+  :: forall r y f advals.
+     ( DualPart f, GoodScalar r, HasSingletonDict y
+     , DynamicOf f ~ OD.Array
+     , AdaptableDomains (DynamicOf (ADVal f)) advals
+     , AdaptableDomains OD.Array (Value advals) )
+  => (advals -> ADVal f r y) -> Value advals -> Value advals
+crev f vals = crevDtMaybe f vals Nothing
+{-# SPECIALIZE crev
+  :: ( HasSingletonDict y
+     , AdaptableDomains (DynamicOf (ADVal (Flip OR.Array))) advals
+     , AdaptableDomains OD.Array (Value advals) )
+  => (advals -> ADVal (Flip OR.Array) Double y)
+  -> Value advals
+  -> Value advals #-}
+
+-- | This version additionally takes the sensitivity parameter.
+crevDt
+  :: forall r y f advals.
+     ( DualPart f, GoodScalar r, HasSingletonDict y
+     , DynamicOf f ~ OD.Array
+     , AdaptableDomains (DynamicOf (ADVal f)) advals
+     , AdaptableDomains OD.Array (Value advals) )
+  => (advals -> ADVal f r y) -> Value advals -> f r y -> Value advals
+crevDt f vals dt = crevDtMaybe f vals (Just dt)
+{-# SPECIALIZE crevDt
+  :: ( HasSingletonDict y
+     , AdaptableDomains (DynamicOf (ADVal (Flip OR.Array))) advals
+     , AdaptableDomains OD.Array (Value advals) )
+  => (advals -> ADVal (Flip OR.Array) Double y)
+  -> Value advals
+  -> Flip OR.Array Double y
+  -> Value advals #-}
+
+crevDtMaybe
+  :: forall r y f vals advals.
+     ( DualPart f, GoodScalar r, HasSingletonDict y
+     , DynamicOf f ~ OD.Array
+     , AdaptableDomains (DynamicOf (ADVal f)) advals
+     , AdaptableDomains OD.Array vals
+     , vals ~ Value advals )
+  => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
+{-# INLINE crevDtMaybe #-}
+crevDtMaybe f vals mdt =
+  gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $  -- !!!
   let g inputs = f $ parseDomains vals inputs
   in parseDomains vals $ fst $ crevOnDomains mdt g (toDomains vals)
 
@@ -510,6 +566,13 @@ crevOnDomains mdt f parameters =
   let deltaInputs = generateDeltaInputsOD parameters
       inputs = makeADInputs parameters deltaInputs
   in crevOnADInputs mdt f inputs
+{-# SPECIALIZE crevOnDomains
+  :: HasSingletonDict y
+  => Maybe (Flip OR.Array Double y)
+  -> (Domains (DynamicOf (ADVal (Flip OR.Array)))
+      -> ADVal (Flip OR.Array) Double y)
+  -> DomainsOD
+  -> (DomainsOD, Flip OR.Array Double y) #-}
 
 crevOnADInputs
   :: ( DualPart f, GoodScalar r, HasSingletonDict y
@@ -529,6 +592,13 @@ crevOnADInputs mdt f inputs =
         reverseDervative (V.length inputs) v mdt deltaTopLevel
   in assert (null astBindings)
        (gradient, v)
+{-# SPECIALIZE crevOnADInputs
+  :: HasSingletonDict y
+  => Maybe (Flip OR.Array Double y)
+  -> (Domains (DynamicOf (ADVal (Flip OR.Array)))
+      -> ADVal (Flip OR.Array) Double y)
+  -> Domains (DynamicOf (ADVal (Flip OR.Array)))
+  -> (DomainsOD, Flip OR.Array Double y) #-}
 
 
 -- * Old derivative adaptors, with constant and fixed inputs
