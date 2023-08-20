@@ -38,14 +38,14 @@ jobs:
             compilerVersion: 9.2.8
             allow-failure: false
             tests-short: false
-          - compiler: ghc-9.4.5
+          - compiler: ghc-9.4.6
             compilerKind: ghc
-            compilerVersion: 9.4.5
+            compilerVersion: 9.4.6
             allow-failure: false
             tests-short: true
-          - compiler: ghc-9.4.5-nn
+          - compiler: ghc-9.4.6-nn
             compilerKind: ghc
-            compilerVersion: 9.4.5
+            compilerVersion: 9.4.6
             allow-failure: false
             tests-short: false
       fail-fast: false
