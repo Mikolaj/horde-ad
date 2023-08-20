@@ -119,7 +119,10 @@ instance Ord (ADVal f r z) where
   (<=) = error "AST requires that OrdB be used instead"
 
 instance (Num (f r z), IsPrimal f r z) => Num (ADVal f r z) where
-  -- TODO: more of an experiment than a real workaround:
+  -- The 0 cases are needed to get GHC 9.6 to use the specialization
+  -- (only at rank 0, though; we'd need many more for common ranks and shapes).
+  {-# SPECIALIZE instance Num (ADVal (Flip OR.Array) Double 0) #-}
+  {-# SPECIALIZE instance Num (ADVal (AstRanked PrimalSpan) Double 0) #-}
   {-# SPECIALIZE instance KnownNat n
                           => Num (ADVal (Flip OR.Array) Double n) #-}
   {-# SPECIALIZE instance KnownNat n
@@ -157,6 +160,16 @@ instance (Integral (f r z), IsPrimal f r z)
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
 
 instance (Fractional (f r z), IsPrimal f r z) => Fractional (ADVal f r z) where
+  {-# SPECIALIZE instance
+      Fractional (ADVal (Flip OR.Array) Double 0) #-}
+  {-# SPECIALIZE instance
+      Fractional (ADVal (AstRanked PrimalSpan) Double 0) #-}
+  {-# SPECIALIZE instance
+      KnownNat n
+      => Fractional (ADVal (Flip OR.Array) Double n) #-}
+  {-# SPECIALIZE instance
+      KnownNat n
+      => Fractional (ADVal (AstRanked PrimalSpan) Double n) #-}
   D l1 ue u' / D l2 ve v' =
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
     let !(!l4, v) = recordSharingPrimal ve l3
@@ -169,6 +182,16 @@ instance (Fractional (f r z), IsPrimal f r z) => Fractional (ADVal f r z) where
   fromRational = constantADVal . fromRational
 
 instance (Floating (f r z), IsPrimal f r z) => Floating (ADVal f r z) where
+  {-# SPECIALIZE instance
+      Floating (ADVal (Flip OR.Array) Double 0) #-}
+  {-# SPECIALIZE instance
+      Floating (ADVal (AstRanked PrimalSpan) Double 0) #-}
+  {-# SPECIALIZE instance
+      KnownNat n
+      => Floating (ADVal (Flip OR.Array) Double n) #-}
+  {-# SPECIALIZE instance
+      KnownNat n
+      => Floating (ADVal (AstRanked PrimalSpan) Double n) #-}
   pi = constantADVal pi
   exp (D l ue u') = let !(!l2, expU) = recordSharingPrimal (exp ue) l
                     in dD l2 expU (dScale expU u')
@@ -220,6 +243,16 @@ instance (RealFrac (f r z), IsPrimal f r z) => RealFrac (ADVal f r z) where
     -- so we can't implement this (nor RealFracB from Boolean package).
 
 instance (RealFloat (f r z), IsPrimal f r z) => RealFloat (ADVal f r z) where
+  {-# SPECIALIZE instance
+      RealFloat (ADVal (Flip OR.Array) Double 0) #-}
+  {-# SPECIALIZE instance
+      RealFloat (ADVal (AstRanked PrimalSpan) Double 0) #-}
+  {-# SPECIALIZE instance
+      KnownNat n
+      => RealFloat (ADVal (Flip OR.Array) Double n) #-}
+  {-# SPECIALIZE instance
+      KnownNat n
+      => RealFloat (ADVal (AstRanked PrimalSpan) Double n) #-}
   atan2 (D l1 ue u') (D l2 ve v') =
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
     let !(!l4, v) = recordSharingPrimal ve l3 in
