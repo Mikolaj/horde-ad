@@ -4,14 +4,15 @@
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 -- | TODO: outdated, uses the old API
 module Disparity where
+
+import Prelude
+
 import qualified Data.Array.ShapedS as OS
 import           Data.List
-import qualified Foreign.Storable as F
+import           Data.Vector.Storable (Storable)
 import           GHC.TypeLits (KnownNat)
 import           HordeAd
-import           Prelude
 import qualified System.Random as R
-
 
 -- | Disparity cost volume.
 --
@@ -74,7 +75,7 @@ testCostVolume
 -- | Generate an array of random values for testing.
 random
  :: forall sh a
- .  (Num a, R.UniformRange a, F.Storable a, OS.Shape sh)
+ .  (Num a, R.UniformRange a, Storable a, OS.Shape sh)
  => Int -> OS.Array sh a
 random seed
  = let  xs = OS.fromList
