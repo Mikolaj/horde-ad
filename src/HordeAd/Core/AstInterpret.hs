@@ -55,7 +55,8 @@ interpretAstPrimalRuntimeSpecialized !env t =
   -- an existential type. All IfDifferentiable and RowSum instances should
   -- be included in the list of expected underlying scalar types.
   -- If the scalar type is not on the list, performance suffers greatly.
-  -- TODO: can I pattern match on (typeRep @r) instead?
+  -- TODO: once we drop GHC <= 9.4, use TypeRepOf to pattern match
+  -- instead of nesting conditionals
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAstPrimal @ranked @shaped @n @Double env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
@@ -65,14 +66,6 @@ interpretAstPrimalRuntimeSpecialized !env t =
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> interpretAstPrimal @ranked @shaped @n @CInt env t
           _ -> error "an unexpected underlying scalar type"  -- catch absurd
-
-{- this fails to type-check (r not Double on the RHS of ->):
-import           Type.Reflection (pattern TypeRep, typeRep)
-  case typeRep @r of
-    TypeRep @Double -> interpretAstPrimal @ranked @shaped @n @Double env t
-and similarly this:
-    Con @Type @Double _ -> interpretAstPrimal @ranked @shaped @n @Double env t
--}
 
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
 -- Either the environment has to be traversed to remove the dual parts or
