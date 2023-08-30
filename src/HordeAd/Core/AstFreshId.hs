@@ -14,16 +14,12 @@ import System.IO.Unsafe (unsafePerformIO)
 import HordeAd.Core.Ast
 import HordeAd.Core.Types
 
-astIsSmall :: forall n s r. KnownNat n
-           => Bool -> AstRanked s r n -> Bool
-{-# NOINLINE astIsSmall #-}
-astIsSmall relaxed !v = relaxed && astIsSmall relaxed v
+astIsSmall :: Bool -> AstRanked PrimalSpan Double 0 -> Bool
+astIsSmall relaxed !r = relaxed && astIsSmall relaxed r
 
 astRegisterFun
-  :: AstRanked PrimalSpan Double 0 -> [DynamicExists (AstDynamic PrimalSpan)]
-  -> [DynamicExists (AstDynamic PrimalSpan)]
-{-# NOINLINE astRegisterFun #-}
-astRegisterFun !r _ | astIsSmall True r = undefined
-astRegisterFun !r !l = unsafePerformIO $ do
-  let !d = DynamicExists $ AstRToD (r{-42-} :: AstRanked PrimalSpan Double 0)
-  return $! d : l
+  :: AstRanked PrimalSpan Double 0 -> [Int]
+  -> DynamicExists (AstDynamic PrimalSpan)
+astRegisterFun !r !_ | astIsSmall True r = undefined
+astRegisterFun !r !_ =
+  DynamicExists $ AstRToD (r :: AstRanked PrimalSpan Double 0)
