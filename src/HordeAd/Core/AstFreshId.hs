@@ -8,9 +8,6 @@ module HordeAd.Core.AstFreshId where
 
 import Prelude
 
-import GHC.TypeLits (KnownNat)
-import System.IO.Unsafe (unsafePerformIO)
-
 import HordeAd.Core.Ast
 import HordeAd.Core.Types
 
