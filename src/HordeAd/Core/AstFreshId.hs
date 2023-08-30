@@ -8,32 +8,22 @@ module HordeAd.Core.AstFreshId where
 
 import Prelude
 
-import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import GHC.TypeLits (KnownNat)
 import System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.AstTools
 import HordeAd.Core.Types
 
--- Impure but in the most trivial way (only ever incremented counter).
-unsafeAstVarCounter :: Counter
-{-# NOINLINE unsafeAstVarCounter #-}
-unsafeAstVarCounter = unsafePerformIO (newCounter 100000001)
-
-unsafeGetFreshAstId :: IO AstId
-{-# INLINE unsafeGetFreshAstId #-}
-unsafeGetFreshAstId =
-  intToAstId <$> atomicAddCounter_ unsafeAstVarCounter 1
+astIsSmall :: forall n s r. KnownNat n
+           => Bool -> AstRanked s r n -> Bool
+{-# NOINLINE astIsSmall #-}
+astIsSmall relaxed !v = relaxed && astIsSmall relaxed v
 
 astRegisterFun
-  :: (GoodScalar r, KnownNat n)
-  => AstRanked s r n -> AstBindings (AstRanked s)
-  -> (AstBindings (AstRanked s), AstRanked s r n)
+  :: AstRanked PrimalSpan Double 0 -> [DynamicExists (AstDynamic PrimalSpan)]
+  -> [DynamicExists (AstDynamic PrimalSpan)]
 {-# NOINLINE astRegisterFun #-}
-astRegisterFun !r !l | astIsSmall True r = (l, r)
+astRegisterFun !r _ | astIsSmall True r = undefined
 astRegisterFun !r !l = unsafePerformIO $ do
-  !freshId <- unsafeGetFreshAstId
-  let !r2 = AstVar (shapeAst r) $ AstVarName $ astIdToAstVarId freshId
-      !d = DynamicExists $ AstRToD r
-  return ((freshId, d) : l, r2)
+  let !d = DynamicExists $ AstRToD (r{-42-} :: AstRanked PrimalSpan Double 0)
+  return $! d : l
