@@ -61,21 +61,6 @@ source-repository head
   type:               git
   location:           git://github.com/Mikolaj/horde-ad.git
 
-flag with_expensive_assertions
-  description:        turn on expensive assertions of well-tested code
-  default:            False
-  manual:             True
-
-flag release
-  description:        remember to set before tagging for a release (to expose internal functions and types, disable tests that depend on not packaged data, etc.)
-  default:            False
-  manual:             True
-
-flag test_seq
-  description:        run the test suite in sequential mode
-  default:            False
-  manual:             True
-
 common options
   default-language:   GHC2021
   default-extensions: StrictData, GADTs, TypeFamilies,
@@ -88,66 +73,16 @@ common options
                       UndecidableInstances, AllowAmbiguousTypes
   ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
   ghc-options:        -Wno-unticked-promoted-constructors -fprint-explicit-kinds
-  if impl(ghc >= 9.4)
-    ghc-options:        -Wredundant-strictness-flags
-  ghc-options:        -fno-ignore-asserts
-
-  -- Disabling this breaks performance:
-  ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200
-
--- ghc-options: -fworker-wrapper-cbv  -- 10% speed up, but supposedly risky
--- TODO: benchmark on big examples and include if speed up is much higher
-
-  ghc-options:        -Wmissed-specialisations
-
-  if flag(with_expensive_assertions)
-    cpp-options:      -DWITH_EXPENSIVE_ASSERTIONS
-
-  if flag(release)
-    cpp-options:      -DEXPOSE_INTERNAL
-
-common exe-options
-  ghc-options:        -rtsopts
-  -- Make GC more predictable in benchmarks.
-  ghc-options:        "-with-rtsopts=-H1.5g -A0.75g -I0"
-
-common exe-options-test
-  ghc-options:        -rtsopts -threaded
-  if flag(test_seq)
-    ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0"
-  else
-    -- Beware, -with-rtsopts is not cumulative!
-    ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0 -N"
 
 library horde-ad-simplified
     import:           options
 
-    exposed-modules:  HordeAd
-                      HordeAd.Core.Adaptor
-                      HordeAd.Core.Ast
-                      HordeAd.Core.AstEnv
+    exposed-modules:  HordeAd.Core.Ast
                       HordeAd.Core.AstFreshId
-                      HordeAd.Core.AstInline
-                      HordeAd.Core.AstInterpret
-                      HordeAd.Core.AstPrettyPrint
-                      HordeAd.Core.AstSimplify
                       HordeAd.Core.AstTools
-                      HordeAd.Core.AstVectorize
-                      HordeAd.Core.Delta
-                      HordeAd.Core.DualClass
-                      HordeAd.Core.DualNumber
-                      HordeAd.Core.Engine
-                      HordeAd.Core.TensorADVal
-                      HordeAd.Core.TensorAst
-                      HordeAd.Core.TensorClass
                       HordeAd.Core.Types
-                      HordeAd.External.CommonRankedOps
-                      HordeAd.External.CommonShapedOps
-                      HordeAd.External.Optimizer
-                      HordeAd.External.OptimizerTools
                       HordeAd.Internal.OrthotopeOrphanInstances
                       HordeAd.Internal.TensorFFI
-                      HordeAd.Internal.TensorOps
                       HordeAd.Util.ShapedList
                       HordeAd.Util.SizedIndex
                       HordeAd.Util.SizedList
@@ -160,13 +95,10 @@ library horde-ad-simplified
       , bifunctors
       , Boolean
       , deepseq
-      , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , hmatrix
-      , ilist
       , orthotope >= 0.1.4.0
-      , random
       , strict-containers
       , unboxed-ref
       , vector
@@ -183,272 +115,3 @@ library horde-ad-simplified
         -- cargo-culting this one:
         if arch(x86_64)
             cc-options: -fPIC
-
-library exampleLibrary
-    import:           options
-
-    exposed-modules:  MnistData
-                      MnistCnnRanked2
-                      MnistCnnShaped2
-                      MnistFcnnRanked1
-                      MnistFcnnRanked2
-                      MnistRnnRanked2
-                      MnistRnnShaped2
-
-    hs-source-dirs:   example
-
-    build-depends:
-      , horde-ad:horde-ad-simplified
-
-      , base
-      , bifunctors
-      , bytestring
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-      , hmatrix
-      , mnist-idx
-      , orthotope
-      , random
-      , vector
-      , zlib
-
-library benchCommonLibrary
-    import:           options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    exposed-modules:  BenchMnistTools
-                      BenchProdTools
-
-    hs-source-dirs:   bench/common
-
-    build-depends:
-      , horde-ad:exampleLibrary
-      , horde-ad:horde-ad-simplified
-
-      , base
-      , bifunctors
-      , criterion
-      , deepseq
-      , enummapset
-      , hmatrix
-      , ilist
-      , orthotope
-      , random
-      , strict-containers
-      , vector
-
-benchmark longProdBench
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          LongProdBench.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-
-      , base
-      , criterion
-      , deepseq
-      , random
-
-benchmark shortProdForCI
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          ShortProdForCI.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-
-      , base
-      , criterion
-      , deepseq
-      , random
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-benchmark longMnistBench
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          LongMnistBench.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrary
-
-      , base
-      , criterion
-      , random
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-benchmark shortMnistForCI
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          ShortMnistForCI.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrary
-
-      , base
-      , criterion
-      , random
-
--- takes forever, so mostly to invoke with --benchmark-options='-n 1 +RTS -s'
-benchmark realisticMnistBench
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          RealisticMnistBench.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrary
-
-      , base
-      , criterion
-      , random
-
-library testToolLibrary
-    import:           options
-
-    exposed-modules:  CrossTesting
-                      EqEpsilon
-                      Shared
-
-    hs-source-dirs:   test/tool
-
-    build-depends:
-      , horde-ad:horde-ad-simplified
-
-      , base
-      , bifunctors
-      , enummapset
-      , hmatrix
-      , orthotope
-      , tasty >= 1.0
-      , tasty-hunit
-      , vector
-
-library testCommonLibrary
-    import:           options
-
-    exposed-modules:  TestAdaptorSimplified
-                      TestConvSimplified
-                      TestGatherSimplified
-                      TestHighRankSimplified
-                      TestMnistCNNR
-                      TestMnistFCNNR
-                      TestMnistRNNR
-                      TestMnistRNNS
-
-    hs-source-dirs:   test/simplified
-
-    -- Other library packages from which modules are imported.
-    build-depends:
-      , horde-ad:horde-ad-simplified
-      , horde-ad:exampleLibrary
-      , horde-ad:testToolLibrary
-
-      , assert-failure
-      , base
-      , bifunctors
-      , enummapset
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-      , hmatrix
-      , ilist
-      , orthotope
-      , random
-      , strict-containers
-      , tasty >= 1.0
-      , tasty-hunit
-      , vector
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-test-suite simplifiedOnlyTest
-    import:           options, exe-options-test
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-
-    main-is:          SimplifiedOnlyTest.hs
-
-    build-depends:
-      , horde-ad:testCommonLibrary
-      , horde-ad:testToolLibrary
-
-      , base
-      , tasty >= 1.0
-
--- These tests don't require any dataset, so can be enabled in the Hackage
--- package.
-test-suite minimalTest
-    import:           options, exe-options-test
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-
-    main-is:          MinimalTest.hs
-
-    build-depends:
-      , horde-ad:testCommonLibrary
-      , horde-ad:testToolLibrary
-
-      , base
-      , tasty >= 1.0
