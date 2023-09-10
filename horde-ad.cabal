@@ -173,34 +173,6 @@ library horde-ad-simplified
         if arch(x86_64)
             cc-options: -fPIC
 
-library exampleLibrary
-    import:           options
-
-    exposed-modules:  MnistData
-                      MnistCnnRanked2
-                      MnistCnnShaped2
-                      MnistFcnnRanked1
-                      MnistFcnnRanked2
-                      MnistRnnRanked2
-                      MnistRnnShaped2
-
-    hs-source-dirs:   example
-
-    build-depends:
-      , horde-ad:horde-ad-simplified
-
-      , base
-      , bifunctors
-      , bytestring
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-      , hmatrix
-      , mnist-idx
-      , orthotope
-      , random
-      , vector
-      , zlib
-
 library testToolLibrary
     import:           options
 
@@ -225,21 +197,13 @@ library testToolLibrary
 library testCommonLibrary
     import:           options
 
-    exposed-modules:  TestAdaptorSimplified
-                      TestConvSimplified
-                      TestGatherSimplified
-                      TestHighRankSimplified
-                      TestMnistCNNR
-                      TestMnistFCNNR
-                      TestMnistRNNR
-                      TestMnistRNNS
+    exposed-modules:  TestHighRankSimplified
 
     hs-source-dirs:   test/simplified
 
     -- Other library packages from which modules are imported.
     build-depends:
       , horde-ad:horde-ad-simplified
-      , horde-ad:exampleLibrary
       , horde-ad:testToolLibrary
 
       , assert-failure
@@ -272,24 +236,6 @@ test-suite simplifiedOnlyTest
     hs-source-dirs:   test
 
     main-is:          SimplifiedOnlyTest.hs
-
-    build-depends:
-      , horde-ad:testCommonLibrary
-      , horde-ad:testToolLibrary
-
-      , base
-      , tasty >= 1.0
-
--- These tests don't require any dataset, so can be enabled in the Hackage
--- package.
-test-suite minimalTest
-    import:           options, exe-options-test
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-
-    main-is:          MinimalTest.hs
 
     build-depends:
       , horde-ad:testCommonLibrary
