@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedLists #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | Assorted mostly high rank tensor tests.
 module TestHighRankSimplified (testTrees) where
 
@@ -23,7 +22,8 @@ testTrees =
   ]
 
 concatBuild2 :: forall n ranked r.
-                (ADReady ranked, GoodScalar r, KnownNat n)
+                ( ADReady ranked, GoodScalar r
+                , KnownNat (1 + n), KnownNat (1 + (1 + n)) )
              => ranked r (1 + n) -> ranked r (3 + n)
 concatBuild2 r =
   gcastWith (unsafeCoerce Refl :: 1 + (1 + (1 + n)) :~: 3 + n) $
