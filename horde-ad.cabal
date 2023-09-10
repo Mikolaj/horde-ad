@@ -206,20 +206,12 @@ library testCommonLibrary
       , horde-ad:horde-ad-simplified
       , horde-ad:testToolLibrary
 
-      , assert-failure
       , base
-      , bifunctors
-      , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
-      , hmatrix
-      , ilist
       , orthotope
-      , random
-      , strict-containers
       , tasty >= 1.0
       , tasty-hunit
-      , vector
 
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
