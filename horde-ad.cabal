@@ -208,7 +208,6 @@ library testCommonLibrary
 
       , base
       , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
       , orthotope
       , tasty >= 1.0
       , tasty-hunit
