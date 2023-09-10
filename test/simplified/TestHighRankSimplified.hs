@@ -7,20 +7,13 @@ module TestHighRankSimplified (testTrees) where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Flip
-import qualified Data.Strict.IntMap as IM
-import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
+import           GHC.TypeLits (KnownNat, type (+))
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import HordeAd.Core.AstFreshId (funToAstR, resetVarCounter)
 
 import CrossTesting
-import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees =
