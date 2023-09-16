@@ -32,6 +32,7 @@ import           Data.Bifunctor.Flip
 import           Data.Functor (void)
 import           Data.Int (Int64)
 import           Data.List (foldl')
+import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Map as M
 import qualified Data.Strict.Vector as Data.Vector
@@ -207,10 +208,19 @@ tdot1InR
 tdot1InR t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
   if V.length vt == 1 || V.length vu == 1
   then tsumInR (t * u)
-  else let lt = map OR.toVector $ ORB.toList $ OR.unravel t
-           lu = map OR.toVector $ ORB.toList $ OR.unravel u
+  else let lt = map OR.toVector $ tunravelToListR t
+           lu = map OR.toVector $ tunravelToListR u
            l = zipWith (LA.<.>) lt lu
        in OR.fromList [length l] l
+
+-- TODO: add these to orthotope, faster; factor out unravel through them
+-- and think if ravelFromList makes sense
+tunravelToListR :: Numeric r => OR.Array (1 + n) r -> [OR.Array n r]
+tunravelToListR = ORB.toList . OR.unravel
+
+tunravelToListS :: (Numeric r, KnownNat n, OS.Shape sh)
+                => OS.Array (n ': sh) r -> [OS.Array sh r]
+tunravelToListS = OSB.toList . OS.unravel
 
 tmatvecmulR
   :: Numeric r
@@ -287,12 +297,12 @@ tscatterZ1R :: (NumAndShow r, KnownNat p, KnownNat n)
 tscatterZ1R sh t f = case OR.shapeL t of
   0 : _ -> OR.constant (shapeToList sh) 0
   _ ->
-    V.sum $ V.imap (\i ti ->
+      sum $ imap (\i ti ->
                      let ix2 = f $ fromIntegral i
                      in if ixInBounds (indexToList ix2) (shapeToList sh)
                         then updateNR (treplicate0NR sh 0) [(ix2, ti)]
                         else treplicate0NR sh 0)
-          $ ORB.toVector $ OR.unravel t
+          $ tunravelToListR t
 
 tfromListR
   :: forall n r. (KnownNat n, Numeric r)
@@ -676,8 +686,8 @@ tdot1InS
 tdot1InS t@(SS.A (SG.A (OI.T _ _ vt))) u@(SS.A (SG.A (OI.T _ _ vu))) =
   if V.length vt == 1 || V.length vu == 1
   then tsumInS (t * u)
-  else let lt = map OS.toVector $ OSB.toList $ OS.unravel t
-           lu = map OS.toVector $ OSB.toList $ OS.unravel u
+  else let lt = map OS.toVector $ tunravelToListS t
+           lu = map OS.toVector $ tunravelToListS u
            l = zipWith (LA.<.>) lt lu
        in OS.fromList l
 
@@ -747,13 +757,13 @@ tscatterZ1S :: forall r n2 p sh.
             -> (Int64Sh n2 -> IndexIntSh (OS.Take p sh))
             -> OS.Array sh r
 tscatterZ1S t f =
-  V.sum $ V.imap (\i ti ->
+    sum $ imap (\i ti ->
                    let ix2 = f $ ShapedList.shapedNat $ fromIntegral i
                    in if ixInBounds (ShapedList.sizedListToList ix2)
                                     (OS.shapeT @sh)
                       then updateNS 0 [(ix2, ti)]
                       else 0)
-        $ OSB.toVector $ OS.unravel t
+        $ tunravelToListS t
 
 tfromListS
   :: forall n sh r. (Numeric r, KnownNat n, OS.Shape sh)

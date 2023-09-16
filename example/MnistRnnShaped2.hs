@@ -8,7 +8,6 @@ module MnistRnnShaped2 where
 import Prelude
 
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.List (foldl')
@@ -21,6 +20,7 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
+import HordeAd.Internal.TensorOps
 import HordeAd.Util.ShapedList (ShapedList (..))
 import MnistData
 
@@ -160,9 +160,9 @@ rnnMnistTestS out_width@SNat batch_size@SNat
                                (SNat @h) (SNat @w)
                                xs
         in runFlip $ nn $ parseDomains valsInit testParams
-      outputs = map OS.toVector $ OSB.toList $ OS.unravel
+      outputs = map OS.toVector $ tunravelToListS
                 $ OS.transpose @'[1, 0] outputS
-      labels = map OS.toVector $ OSB.toList $ OS.unravel labelS
+      labels = map OS.toVector $ tunravelToListS labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

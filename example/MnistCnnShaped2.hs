@@ -7,7 +7,6 @@ module MnistCnnShaped2 where
 
 import Prelude
 
-import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
@@ -21,6 +20,7 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
+import HordeAd.Internal.TensorOps
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
@@ -158,9 +158,9 @@ convMnistTestS kh@SNat kw@SNat
                                c_out n_hidden batch_size
                                input
         in runFlip $ nn $ parseDomains valsInit testParams
-      outputs = map OS.toVector $ OSB.toList $ OS.unravel
+      outputs = map OS.toVector $ tunravelToListS
                 $ OS.transpose @'[1, 0] $ outputS
-      labels = map OS.toVector $ OSB.toList $ OS.unravel labelS
+      labels = map OS.toVector $ tunravelToListS labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

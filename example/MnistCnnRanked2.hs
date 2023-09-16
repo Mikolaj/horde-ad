@@ -5,7 +5,6 @@ module MnistCnnRanked2 where
 
 import Prelude
 
-import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import qualified Data.Vector.Generic as V
@@ -16,6 +15,7 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
+import HordeAd.Internal.TensorOps
 import HordeAd.Util.SizedIndex
 import MnistData
 
@@ -129,9 +129,8 @@ convMnistTestR valsInit batch_size (glyphR, labelR) testParams =
             nn = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
                                batch_size input
         in runFlip $ nn $ parseDomains valsInit testParams
-      outputs = map OR.toVector $ ORB.toList $ OR.unravel
-                $ OR.transpose [1, 0] outputR
-      labels = map OR.toVector $ ORB.toList $ OR.unravel labelR
+      outputs = map OR.toVector $ tunravelToListR $ OR.transpose [1, 0] outputR
+      labels = map OR.toVector $ tunravelToListR labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
