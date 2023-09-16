@@ -20,6 +20,13 @@ import           GHC.TypeLits (KnownNat)
 import           Test.Inspection
 import           Unsafe.Coerce (unsafeCoerce)
 
+--import qualified Data.Array.ShapedS as OS
+--import           HordeAd.Internal.TensorFFI (RowSum)
+--import           Numeric.LinearAlgebra (Numeric)
+--import           Type.Reflection (Typeable)
+
+--import HordeAd.Core.Adaptor
+
 import HordeAd
 import HordeAd.Internal.TensorOps
 
@@ -138,20 +145,27 @@ _rankedNoShareVecProd :: GoodScalar r
                       -> ADVal (Flip OR.Array) r 0
 _rankedNoShareVecProd = V.foldl1' multNotShared
 
--- Note that it's not clear how recursive/transitive the check is.
--- It probably depends on how much Core from other modules ends up
--- being processed inside this module.
---
--- The GoodScalar occurences are when creating a value with this bound
--- existential type, so it's intended, not a specialization failure.
+
+-- Until new inspection-testing is released, this is commented out
+-- belowis a dummy to prevent warnings.
+{-
+-- The GoodScalar and it's component occurences are due to creating
+-- a value of an existential type that satisfies GoodScalar,
+-- so it's intended and not a specialization failure.
 -- OTOH, KnownNat and AstSpan are tag types, so it's fine not to specialize
 -- for them.
--- inspect $ hasNoTypeClassesExcept 'crevRankedListProd [''GoodScalar, ''KnownNat, ''AstSpan]
--- inspect $ hasNoTypeClassesExcept 'revRankedListProd [''GoodScalar, ''KnownNat, ''AstSpan]
--- inspect $ hasNoTypeClassesExcept 'crevRankedListProdr [''GoodScalar, ''KnownNat, ''AstSpan]
--- inspect $ hasNoTypeClassesExcept 'revRankedListProdr [''GoodScalar, ''KnownNat, ''AstSpan]
+-- The numeric type classes in two of the cases are needed due
+-- to the existential variables in AstRanked that show up, e.g., when
+-- pattern matching on that type, dictionaries seen in the datatype
+-- constructors.
+inspect $ hasNoTypeClassesExcept 'crevRankedListProd [''GoodScalar, ''KnownNat, ''OS.Shape, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''OD.Storable, ''AdaptableDomains, ''OS.Vector]
+inspect $ hasNoTypeClassesExcept 'revRankedListProd [''GoodScalar, ''KnownNat, ''OS.Shape, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''(~), ''OS.Permutation, ''OD.Storable, ''AdaptableDomains, ''OS.Vector]
+inspect $ hasNoTypeClassesExcept 'crevRankedListProdr [''GoodScalar, ''KnownNat, ''OS.Shape, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''OD.Storable, ''AdaptableDomains, ''OS.Vector]
+inspect $ hasNoTypeClassesExcept 'revRankedListProdr [''GoodScalar, ''KnownNat, ''OS.Shape, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''(~), ''OS.Permutation, ''OD.Storable, ''AdaptableDomains, ''OS.Vector]
 
--- For now, we have lots of runaway type classes, so a dummy to prevent warnings:
+-- OD.Storable is needed, for 9.4, only until new orthotope is released
+-}
+
 dummy :: ()
 dummy = ()
 inspect $ hasNoTypeClassesExcept 'dummy [''GoodScalar, ''KnownNat, ''AstSpan]
