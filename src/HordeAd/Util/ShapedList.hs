@@ -10,7 +10,7 @@
 module HordeAd.Util.ShapedList
   ( ShapedNat, shapedNat, unShapedNat
   , ShapeSh, shapeSh
-  , ShapedList(..), consShaped, unconsContShaped
+  , ShapedList(..), singletonShaped, consShaped, unconsContShaped
   , snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , backpermutePrefixSized, permutePrefixSized, backpermutePrefixList
@@ -81,6 +81,9 @@ instance OS.Shape sh => IsList (ShapedList sh i) where
   type Item (ShapedList sh i) = i
   fromList = listToSized
   toList = sizedListToList
+
+singletonShaped :: KnownNat n => i -> ShapedList '[n] i
+singletonShaped i = i :$: ZSH
 
 -- TODO: should we actually replace :$: with that in the external API?
 consShaped :: (KnownNat n, OS.Shape sh)

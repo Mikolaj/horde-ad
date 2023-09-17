@@ -147,6 +147,8 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   tfromVector0N :: (GoodScalar r, KnownNat n)
                 => ShapeInt n -> Data.Vector.Vector (ranked r 0) -> ranked r n
   tfromVector0N sh = treshape sh . tfromVector
+  tunravelToList :: (GoodScalar r, KnownNat n)
+                 => ranked r (1 + n) -> [ranked r n]
   treplicate :: (GoodScalar r, KnownNat n)
              => Int -> ranked r n -> ranked r (1 + n)
   treplicate0N :: (GoodScalar r, KnownNat n)
@@ -379,6 +381,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
                 => Data.Vector.Vector (shaped r '[])
                 -> shaped r sh
   sfromVector0N = sreshape @shaped @r @'[OS.Size sh] @sh . sfromVector
+  sunravelToList :: (GoodScalar r, KnownNat n, OS.Shape sh)
+                 => shaped r (n ': sh) -> [shaped r sh]
   sreplicate :: (GoodScalar r, KnownNat n, OS.Shape sh)
              => shaped r sh -> shaped r (n ': sh)
   sreplicate0N :: forall r sh.
@@ -694,6 +698,7 @@ instance RankedTensor (Flip OR.Array) where
   tfromList0N sh = Flip . tfromList0NR sh . map (tunScalarR . runFlip)
   tfromVector = Flip . tfromVectorR . V.map runFlip
   tfromVector0N sh = Flip . tfromVector0NR sh . V.map (tunScalarR . runFlip)
+  tunravelToList = map Flip . tunravelToListR . runFlip
   treplicate k = Flip . treplicateR k . runFlip
   treplicate0N sh = Flip . treplicate0NR sh . tunScalarR . runFlip
   tappend u v = Flip $ tappendR (runFlip u) (runFlip v)
@@ -805,6 +810,7 @@ instance ShapedTensor (Flip OS.Array) where
   sfromList0N = Flip . tfromList0NS . map (tunScalarS . runFlip)
   sfromVector = Flip . tfromVectorS . V.map runFlip
   sfromVector0N = Flip . tfromVector0NS . V.map (tunScalarS . runFlip)
+  sunravelToList = map Flip . tunravelToListS . runFlip
   sreplicate = Flip . treplicateS . runFlip
   sreplicate0N = Flip . treplicate0NS . tunScalarS . runFlip
   sappend u v = Flip $ tappendS (runFlip u) (runFlip v)

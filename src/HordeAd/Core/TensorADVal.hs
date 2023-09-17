@@ -23,6 +23,7 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Functor.Const
 import           Data.List (foldl')
+import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
@@ -38,7 +39,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
-import           HordeAd.Util.ShapedList (ShapedList (..))
+import           HordeAd.Util.ShapedList (ShapedList (..), singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 
@@ -243,6 +244,10 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     dD (flattenADShare $ map (\(D l _ _) -> l) $ V.toList lu)
        (tfromVector $ V.map (\(D _ u _) -> u) lu)
        (FromVectorR $ V.map (\(D _ _ u') -> u') lu)
+  tunravelToList (D l u u') =
+    let lu = tunravelToList u
+        f i ui = dD l ui (IndexR u' (singletonIndex $ fromIntegral i))
+    in imap f lu
   treplicate k (D l u u') = dD l (treplicate k u) (ReplicateR k u')
   tappend (D l1 u u') (D l2 v v') =
     dD (l1 `mergeADShare` l2) (tappend u v) (AppendR u' v')
@@ -401,6 +406,10 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     dD (flattenADShare $ map (\(D l _ _) -> l) $ V.toList lu)
        (sfromVector $ V.map (\(D _ u _) -> u) lu)
        (FromVectorS $ V.map (\(D _ _ u') -> u') lu)
+  sunravelToList (D l u u') =
+    let lu = sunravelToList u
+        f i ui = dD l ui (IndexS u' (singletonShaped $ fromIntegral i))
+    in imap f lu
   sreplicate (D l u u') = dD l (sreplicate u) (ReplicateS u')
   sappend (D l1 u u') (D l2 v v') =
     dD (l1 `mergeADShare` l2) (sappend u v) (AppendS u' v')

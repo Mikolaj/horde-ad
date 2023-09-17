@@ -69,10 +69,7 @@ tint64ToIndex1 :: forall n ranked.
                   , RankedTensor ranked, RankedTensor (PrimalOf ranked)
                   , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
                => ranked Int64 1 -> IndexOf ranked n
-tint64ToIndex1 v =
-  let t = tprimalPart v
-      l = map (tindex0 t . singletonIndex . fromIntegral) [0 .. tlength v - 1]
-  in listToIndex l
+tint64ToIndex1 v = listToIndex $ tunravelToList $ tprimalPart v
 
 tletIx :: ( KnownNat n, KnownNat m, GoodScalar r
           , RankedTensor ranked, RankedTensor (PrimalOf ranked)
@@ -214,7 +211,7 @@ slicez
 slicez shOut d ixBase =
   tbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
 
--- TODO: this makes tests unbearably slow
+-- TODO: this makes tests unbearably slow; does it still?
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
 indexz0Let
