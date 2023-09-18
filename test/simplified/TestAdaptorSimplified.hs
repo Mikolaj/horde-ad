@@ -96,6 +96,8 @@ testTrees =
   , testCase "2dot2PP" testDot2PP
   , testCase "2matvecmulPP" testMatvecmulPP
   , testCase "2matmul2PP" testMatmul2PP
+  , testCase "2matmul2FromMatvecmulPP" testMatmul2FromMatvecmulPP
+  , testCase "2matmul2PaperPP" testMatmul2PaperPP
   , testCase "2matmul2PPS" testMatmul2PPS
   , testCase "2bar" testBar
   , testCase "2barS" testBarS
@@ -984,6 +986,12 @@ testMatvecmulPP = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\m2 v3 -> tsum (ttranspose [1,0] (treplicate 2 v3 * m2))"
 
+-- The results in the three following tests are the same and the extra
+-- post factum simplification doesn't change the terms.
+sGradient6Pretty, sPrimal6Pretty :: String
+sGradient6Pretty = "\\dret m2 m3 -> (tsum (ttranspose [2,0,1] (treplicate 2 m3) * ttranspose [2,1,0] (treplicate 3 dret)), tsum (ttranspose [1,2,0] (treplicate 4 m2) * ttranspose [1,0] (treplicate 3 dret)))"
+sPrimal6Pretty = "\\m2 m3 -> tsum (ttranspose [2,1,0] (treplicate 4 m2) * ttranspose [1,0] (treplicate 2 m3))"
+
 testMatmul2PP :: Assertion
 testMatmul2PP = do
   resetVarCounter
@@ -994,13 +1002,53 @@ testMatmul2PP = do
                  ( Flip $ OR.fromList [2,3] [1 :: Double .. 6]
                  , Flip $ OR.fromList [3,4] [7 .. 18] )
   printGradient6Pretty renames artifactRev
-    @?= "\\dret m2 m3 -> (tsum (ttranspose [2,0,1] (treplicate 2 m3) * ttranspose [2,1,0] (treplicate 3 dret)), tsum (ttranspose [1,2,0] (treplicate 4 m2) * ttranspose [1,0] (treplicate 3 dret)))"
+    @?= sGradient6Pretty
   printPrimal6Pretty renames artifactRev
-    @?= "\\m2 m3 -> tsum (ttranspose [2,1,0] (treplicate 4 m2) * ttranspose [1,0] (treplicate 2 m3))"
+    @?= sPrimal6Pretty
   printGradient6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\dret m2 m3 -> (tsum (ttranspose [2,0,1] (treplicate 2 m3) * ttranspose [2,1,0] (treplicate 3 dret)), tsum (ttranspose [1,2,0] (treplicate 4 m2) * ttranspose [1,0] (treplicate 3 dret)))"
+    @?= sGradient6Pretty
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
-    @?= "\\m2 m3 -> tsum (ttranspose [2,1,0] (treplicate 4 m2) * ttranspose [1,0] (treplicate 2 m3))"
+    @?= sPrimal6Pretty
+
+testMatmul2FromMatvecmulPP :: Assertion
+testMatmul2FromMatvecmulPP = do
+  resetVarCounter
+  let renames = IM.empty
+      tmatmul2F :: (RankedTensor ranked, GoodScalar r)
+                => ranked r 2 -> ranked r 2 -> ranked r 2
+      tmatmul2F m1 m2 =
+        tbuild1 (tlength m1) (\i -> tmatvecmul (ttr m2) (m1 ! [i]))
+      (artifactRev, _) =
+        revArtifactAdapt @Double @2 @AstRanked
+                 True (uncurry tmatmul2F)
+                 ( Flip $ OR.fromList [2,3] [1 :: Double .. 6]
+                 , Flip $ OR.fromList [3,4] [7 .. 18] )
+  printGradient6Pretty renames artifactRev
+    @?= sGradient6Pretty
+  printPrimal6Pretty renames artifactRev
+    @?= sPrimal6Pretty
+
+testMatmul2PaperPP :: Assertion
+testMatmul2PaperPP = do
+  resetVarCounter
+  let renames = IM.empty
+      tmatmul2P :: (RankedTensor ranked, GoodScalar r)
+                => ranked r 2 -> ranked r 2 -> ranked r 2
+      tmatmul2P a b =
+        let k :$ m :$ _ = tshape a
+            _ :$ n :$ _ = tshape b
+        in tbuild1 k (\i ->
+             tbuild1 n (\j ->
+               tsum (tbuild1 m (\p -> a ! [i, p] * b ! [p, j]))))
+      (artifactRev, _) =
+        revArtifactAdapt @Double @2 @AstRanked
+                 True (uncurry tmatmul2P)
+                 ( Flip $ OR.fromList [2,3] [1 :: Double .. 6]
+                 , Flip $ OR.fromList [3,4] [7 .. 18] )
+  printGradient6Pretty renames artifactRev
+    @?= sGradient6Pretty
+  printPrimal6Pretty renames artifactRev
+    @?= sPrimal6Pretty
 
 testMatmul2PPS :: Assertion
 testMatmul2PPS = do
