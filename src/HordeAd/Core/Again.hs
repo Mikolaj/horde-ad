@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -31,6 +32,7 @@ import qualified Data.Array.ShapedS.MatMul
 import Data.Biapplicative ((<<*>>))
 import qualified Data.Biapplicative as B
 import Data.Functor.Identity (Identity (Identity), runIdentity)
+import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Kind (Type)
 import Data.List (foldl')
 import qualified Data.Monoid as Monoid
@@ -48,13 +50,16 @@ import Prelude
 class Known t where
   known :: t
 
-instance Known (a `IsScalarOf` a) where
+instance HM.Numeric a => Known (a `IsScalarOf` a) where
   known = SScalar
 
-instance Known (a `IsScalarOf` Vector a) where
+instance HM.Numeric a => Known (a `IsScalarOf` Vector a) where
   known = SVector
 
-instance (OS.Shape sh, Storable a) => Known (a `IsScalarOf` OS.Array sh a) where
+instance
+  (HM.Numeric a, OS.Shape sh, Storable a) =>
+  Known (a `IsScalarOf` OS.Array sh a)
+  where
   known = SShapedS
 
 knowIsScalarOf :: s `IsScalarOf` t -> (Known (s `IsScalarOf` t) => r) -> r
@@ -63,15 +68,20 @@ knowIsScalarOf s r = case s of
   SVector -> r
   SShapedS -> r
 
+-- At some point we'll replace the HM.Numeric constraint with
+-- something particular to our case.  Perhaps just even the ability to
+-- add!
 data IsScalarOf (s :: Type) (t :: Type) where
-  SScalar :: IsScalarOf s s
-  SVector :: IsScalarOf s (Vector s)
+  SScalar :: HM.Numeric s => IsScalarOf s s
+  SVector :: HM.Numeric s => IsScalarOf s (Vector s)
   -- I'm doubtful this Storable constraint is really needed.
   -- OS.toVector and OS.fromVector shouldn't require it.  See, for
   -- example,
   --
   -- https://github.com/tomjaguarpaw/orthotope/commit/10a65b60daa6b072093490275818afe0f8d38c09
-  SShapedS :: (OS.Shape sh, Storable s) => IsScalarOf s (OS.Array sh s)
+  SShapedS ::
+    (OS.Shape sh, Storable s, HM.Numeric s) =>
+    IsScalarOf s (OS.Array sh s)
 
 deriving instance Show (IsScalarOf s t)
 
@@ -130,12 +140,14 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
     DeltaF s dual s
 
 mapDeltaF ::
+  HM.Numeric s =>
   (forall tt. dual tt -> dual' tt) ->
   DeltaF s dual t ->
   DeltaF s dual' t
 mapDeltaF f = mapDeltaFG (\_ -> f)
 
 mapDeltaFG ::
+  HM.Numeric s =>
   (forall tt. s `IsScalarOf` tt -> dual tt -> dual' tt) ->
   DeltaF s dual t ->
   DeltaF s dual' t
@@ -413,21 +425,24 @@ useCompatibleOps =
 accumulate ::
   forall s t.
   Known (s `IsScalarOf` t) =>
-  HM.Numeric s =>
   DeltaId s t ->
   t ->
   DeltaMap s ->
   DeltaMap s
-accumulate di t =
-  deltaMapAlter
-    ( \case
-        Nothing -> Just t
-        Just t' -> case known @(s `IsScalarOf` t) of
-          SScalar -> Just (t + t')
-          SVector -> Just (t `HM.add` t')
-          SShapedS -> Just (t `addS` t')
-    )
-    di
+accumulate di t = deltaMapAlter (Just . accumulateMaybe @s t) di
+
+accumulateMaybe ::
+  forall s t. Known (s `IsScalarOf` t) => t -> Maybe t -> t
+accumulateMaybe t = \case
+  Nothing -> t
+  Just t' -> accumulate1 @s t t'
+
+accumulate1 ::
+  forall s t. Known (s `IsScalarOf` t) => t -> t -> t
+accumulate1 t t' = case known @(s `IsScalarOf` t) of
+  SScalar -> t + t'
+  SVector -> t `HM.add` t'
+  SShapedS -> t `addS` t'
 
 -- eval has the special property
 eval ::
@@ -635,6 +650,30 @@ dMultiArgForward (t, dt) (t', dt') f =
 dValue :: DualMonadValue s (D t (Unit s t)) -> t
 dValue = (\case D r _ -> r) . runIdentity . runDualMonadValue
 
+newtype DualMonadIO s a = DualMonadIO (IO a)
+  deriving newtype (Monad, Functor, Applicative)
+
+runDualMonadIO :: DualMonadIO s a -> IO a
+runDualMonadIO (DualMonadIO a) = a
+
+type DeltaIO :: Type -> Type -> Type
+data DeltaIO s t where
+  DeltaIO :: {accumulateIO :: t -> IO (), triggerIO :: IO ()} -> DeltaIO s t
+
+instance DualMonad DeltaIO DualMonadIO where
+  deltaLet = \(deltaIO :: DeltaIO s t) -> DualMonadIO $ do
+    ref <- newIORef Nothing
+    pure
+      ( DeltaIO
+          { accumulateIO = \t -> modifyIORef' ref (Just . accumulateMaybe @s t),
+            triggerIO = do
+              readIORef ref >>= \case
+                Nothing -> pure ()
+                Just r -> accumulateIO deltaIO r
+              triggerIO deltaIO
+          }
+      )
+
 newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
 
 instance B.Bifunctor (ArgAdaptor s) where
@@ -811,7 +850,7 @@ bar v = do
   foo x y
 
 foo ::
-  (DualMonad dual m, Num s, Ops s DeltaF dual) =>
+  (DualMonad dual m, HM.Numeric s, Ops s DeltaF dual) =>
   Dual (dual s) s ->
   Dual (dual s) s ->
   m s (Dual (dual s) s)
@@ -938,7 +977,7 @@ squaredDifference ::
 squaredDifference targ res = square $ res - constant targ
 
 (.+) ::
-  (DualMonad dual m, Num s, Ops s DeltaF dual) =>
+  (DualMonad dual m, HM.Numeric s, Ops s DeltaF dual) =>
   Dual (dual s) s ->
   Dual (dual s) s ->
   m s (Dual (dual s) s)
@@ -946,7 +985,7 @@ D x x' .+ D y y' =
   dLet $ D (x + y) (ops (Add0 x' y'))
 
 (.*) ::
-  (DualMonad dual m, Num s, Ops s DeltaF dual) =>
+  (DualMonad dual m, HM.Numeric s, Ops s DeltaF dual) =>
   Dual (dual s) s ->
   Dual (dual s) s ->
   m s (Dual (dual s) s)
@@ -979,7 +1018,7 @@ konstS ::
 konstS (D u u') = D (OS.constant u) (ops (KonstS u'))
 
 mkonstS ::
-  ( Storable s,
+  ( HM.Numeric s,
     OS.Shape sh,
     Ops s DeltaF dual,
     DualMonad dual m
@@ -1294,7 +1333,7 @@ testAgainForward =
     ++ testQuadSimpleForward
 
 quad ::
-  (DualMonad dual m, Num s, Ops s DeltaF dual) =>
+  (DualMonad dual m, HM.Numeric s, Ops s DeltaF dual) =>
   Dual (dual s) s ->
   Dual (dual s) s ->
   m s (Dual (dual s) s)
@@ -1305,7 +1344,7 @@ quad x y = do
   tmp .+ 5
 
 quadVariables ::
-  (DualMonad dual m, Num s, Ops s DeltaF dual) =>
+  (DualMonad dual m, HM.Numeric s, Ops s DeltaF dual) =>
   ( Data.Vector.Vector (Dual (dual s) s),
     Data.Vector.Vector (Dual (dual s) t2)
   ) ->
@@ -1434,7 +1473,7 @@ atanReadmeScalar ::
 atanReadmeScalar = sumElementsOfDualNumbers . atanReadmeVariables
 
 atanReadmeM ::
-  (DualMonad dual m, Ops s DeltaF dual, RealFloat s) =>
+  (DualMonad dual m, Ops s DeltaF dual, HM.Numeric s, RealFloat s) =>
   ( Data.Vector.Vector (Dual (dual s) s),
     Data.Vector.Vector (Dual (dual s) s)
   ) ->
