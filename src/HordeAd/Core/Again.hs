@@ -309,22 +309,22 @@ evalDeltaF f deltaF t = case deltaF of
 
 -- Somewhat annoying that we need this r parameter to satisfy
 -- functional dependencies.
-newtype MonoidMap m t = MonoidMap {unMonoidMap :: t -> m}
+newtype MonoidMap m s t = MonoidMap {unMonoidMap :: t -> m}
 
 -- A more abstract way of writing evalDeltaF
 evalDeltaFM ::
-  forall dual s m t.
+  forall dual s m t r.
   (HM.Numeric s, Monoid m) =>
-  (forall tt. dual tt -> MonoidMap m tt) ->
+  (forall tt. dual tt -> MonoidMap m r tt) ->
   DeltaF s dual t ->
-  MonoidMap m t
+  MonoidMap m r t
 evalDeltaFM f' = evalDeltaFM1 . mapDeltaF f'
 
 evalDeltaFM1 ::
-  forall s m t.
+  forall s m t r.
   (HM.Numeric s, Monoid m) =>
-  DeltaF s (MonoidMap m) t ->
-  MonoidMap m t
+  DeltaF s (MonoidMap m r) t ->
+  MonoidMap m r t
 evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
   Zero0 -> mempty
   Add0 de de' ->
@@ -358,7 +358,7 @@ evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
   where
     f = unMonoidMap
 
-instance (HM.Numeric r, Monoid m) => Ops (DeltaF r) (MonoidMap m) where
+instance (HM.Numeric r, Monoid m) => Ops (DeltaF r) (MonoidMap m r) where
   ops = evalDeltaFM1
 
 -- The correctness condition on Ops is that the two tuple components
@@ -384,16 +384,16 @@ compatibleOps ::
 compatibleOps f1 f2 mapp f = (\c -> f c . f1 c, \c -> f2 c . mapp f c)
 
 useCompatibleOps ::
-  forall s t.
+  forall s t r.
   HM.Numeric s =>
-  ( s `IsScalarOf` t -> DeltaF s (Concrete s) t -> MonoidMap (Monoid.Sum s) t,
-    s `IsScalarOf` t -> DeltaF s (Concrete s) t -> MonoidMap (Monoid.Sum s) t
+  ( s `IsScalarOf` t -> DeltaF s (Concrete s) t -> MonoidMap (Monoid.Sum s) s t,
+    s `IsScalarOf` t -> DeltaF s (Concrete s) t -> MonoidMap (Monoid.Sum s) s t
   )
 useCompatibleOps =
   compatibleOps
     @(DeltaF s)
     @(Concrete s)
-    @(MonoidMap (Monoid.Sum s))
+    @(MonoidMap (Monoid.Sum s) s)
     (\_ -> ops)
     (\_ -> ops)
     (\f _ -> mapDeltaFG f)
