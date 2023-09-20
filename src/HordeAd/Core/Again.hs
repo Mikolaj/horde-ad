@@ -160,7 +160,7 @@ mapDeltaFG f = \case
   ScalePointwiseS d a -> ScalePointwiseS (f known d) a
   SumElementsS d -> SumElementsS (f known d)
 
-data DeltaId (s :: Type) (t :: Type) where
+newtype DeltaId (s :: Type) (t :: Type) where
   DeltaId :: Int -> DeltaId s t
 
 deriving instance Eq (DeltaId s t)
