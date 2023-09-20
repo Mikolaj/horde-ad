@@ -43,7 +43,7 @@ import Prelude
 model ::
   forall s labels samples dim dual m.
   ( Numeric s,
-    Ops (DeltaF s) dual,
+    Ops s DeltaF dual,
     KnownNat labels,
     KnownNat samples,
     KnownNat dim,
@@ -55,11 +55,11 @@ model ::
   -- | Ground truth
   OS.Array [samples, labels] s ->
   -- | Linear layer
-  Dual dual (OS.Array [dim, labels] s) ->
+  Dual (dual s) (OS.Array [dim, labels] s) ->
   -- | Loss
-  m (Dual dual s)
+  m s (Dual (dual s) s)
 model data_ groundTruth layer = do
-  let predictions :: Dual dual (OS.Array [samples, labels] s)
+  let predictions :: Dual (dual s) (OS.Array [samples, labels] s)
       predictions = constS data_ `mulSDual` layer
 
   softMaxCrossEntropy predictions groundTruth
@@ -204,7 +204,7 @@ mlpPredict data_ (layer1, layer2, layer3) =
    in OS.reshape normalizedPrediction
 
 mlp ::
-  ( Ops (DeltaF s) dual,
+  ( Ops s DeltaF dual,
     Numeric s,
     Ord s,
     KnownNat labels,
@@ -213,12 +213,12 @@ mlp ::
     KnownNat hidden2,
     KnownNat dim
   ) =>
-  ( Dual dual (OS.Array [dim, hidden1] s),
-    Dual dual (OS.Array [hidden1, hidden2] s),
-    Dual dual (OS.Array [hidden2, labels] s)
+  ( Dual (dual s) (OS.Array [dim, hidden1] s),
+    Dual (dual s) (OS.Array [hidden1, hidden2] s),
+    Dual (dual s) (OS.Array [hidden2, labels] s)
   ) ->
-  Dual dual (OS.Array [samples, dim] s) ->
-  Dual dual (OS.Array [samples, labels] s)
+  Dual (dual s) (OS.Array [samples, dim] s) ->
+  Dual (dual s) (OS.Array [samples, labels] s)
 mlp (layer1, layer2, layer3) =
   (`mulSDual` layer3)
     . reluSDual
@@ -227,7 +227,7 @@ mlp (layer1, layer2, layer3) =
     . (`mulSDual` layer1)
 
 mlpTrain ::
-  ( Ops (DeltaF s) dual,
+  ( Ops s DeltaF dual,
     Numeric s,
     Ord s,
     KnownNat labels,
@@ -240,11 +240,11 @@ mlpTrain ::
   ) =>
   OS.Array [samples, dim] s ->
   OS.Array [samples, labels] s ->
-  ( Dual dual (OS.Array [dim, hidden1] s),
-    Dual dual (OS.Array [hidden1, hidden2] s),
-    Dual dual (OS.Array [hidden2, labels] s)
+  ( Dual (dual s) (OS.Array [dim, hidden1] s),
+    Dual (dual s) (OS.Array [hidden1, hidden2] s),
+    Dual (dual s) (OS.Array [hidden2, labels] s)
   ) ->
-  m (Dual dual s)
+  m s (Dual (dual s) s)
 mlpTrain data_ groundTruth layers = do
   let predictions = mlp layers (constS data_)
   softMaxCrossEntropy predictions groundTruth
