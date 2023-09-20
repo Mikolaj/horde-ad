@@ -731,21 +731,22 @@ instance Ops Double DeltaF (DeltaST st) where
 
 exampleST :: (Double, (Double, Double))
 exampleST = runDualMonadST $ do
-  r1 <- lift' (newSTRef 0)
-  r2 <- lift' (newSTRef 0)
-  D r (DeltaST acc) <- foo
-    (D 10 (DeltaST (\t -> modifySTRef' r1 (+ t))))
-    (D 20 (DeltaST (\t -> modifySTRef' r2 (+ t))))
+  (x1, r1) <- mkArg 10
+  (x2, r2) <- mkArg 20
+  D r (DeltaST acc) <- foo x1 x2
 
   lift' $ do
     acc 1
 
     pure $ do
-      x1 <- readSTRef r1
-      x2 <- readSTRef r2
-      pure (r, (x1, x2))
+      r1' <- r1
+      r2' <- r2
+      pure (r, (r1', r2'))
 
   where lift' = DualMonadST . lift
+        mkArg x = do
+          r <- lift' (newSTRef 0)
+          pure (D x (DeltaST (\t -> modifySTRef' r (+ t))), readSTRef r)
 
 newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
 
