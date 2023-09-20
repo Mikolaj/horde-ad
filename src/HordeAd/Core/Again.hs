@@ -350,35 +350,37 @@ evalDeltaFM1 ::
 evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
   Zero0 -> mempty
   Add0 de de' ->
-    f de t <> f de' t
-  Scale0 t' de -> f de (t' * t)
+    (f de <> f de') t
+  Scale0 t' de -> g de (t' *) t
   Index0 de i n ->
-    f
+    g
       de
-      (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n - 1]))
-  Dot1 de de' -> f de' (t `HM.scale` de)
-  Add1 de de' -> f de t <> f de' t
-  Scale1 s de -> f de (s `HM.scale` t)
-  Konst1 de _ -> f de (HM.sumElements t)
+      (\t' -> HM.fromList (map (\n' -> if n' == i then t' else 0) [0 .. n - 1]))
+      t
+  Dot1 de de' -> g de' (`HM.scale` de) t
+  Add1 de de' -> (f de <> f de') t
+  Scale1 s de -> g de (s `HM.scale`) t
+  Konst1 de _ -> g de HM.sumElements t
   ZeroS -> mempty
-  SumElements1 de n -> f de (HM.konst t n)
+  SumElements1 de n -> g de (\t' -> HM.konst t' n) t
   Seq1 des -> foldMap (uncurry f) (zip desl tl)
     where
       desl = Data.Vector.toList des
       tl = HM.toList t
-  AddS de de' -> f de t <> f de' t
-  NegateS d -> f d (OS.mapA negate t)
-  KonstS de -> f de (OS.sumA t)
+  AddS de de' -> (f de <> f de') t
+  NegateS d -> g d (OS.mapA negate) t
+  KonstS de -> g de OS.sumA t
   AppendS
     (de :: dual (OS.Array (k : rest) s))
     (de' :: dual (OS.Array (l : rest) s)) ->
       f de (OS.slice @'[ '(0, k)] t) <> f de' (OS.slice @'[ '(k, l)] t)
-  MulS1 de a -> f de (mulS t (transposeS a))
-  MulS2 a de -> f de (mulS (transposeS a) t)
-  ScalePointwiseS de a -> f de (OS.zipWithA (*) a t)
-  SumElementsS de -> f de (OS.constant t)
+  MulS1 de a -> g de (\t' -> mulS t' (transposeS a)) t
+  MulS2 a de -> g de (mulS (transposeS a)) t
+  ScalePointwiseS de a -> g de (OS.zipWithA (*) a) t
+  SumElementsS de -> g de OS.constant t
   where
     f = unMonoidMap
+    g d h t = f d (h t)
 
 -- Could implement evalDeltaFM1 in terms of this
 evalDeltaFMod ::
