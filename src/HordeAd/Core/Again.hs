@@ -347,37 +347,36 @@ evalDeltaFM1 ::
   (HM.Numeric s, Monoid m) =>
   DeltaF s (MonoidMap m r) t ->
   MonoidMap m r t
-evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
+evalDeltaFM1 deltaF = MonoidMap $ case deltaF of
   Zero0 -> mempty
   Add0 de de' ->
-    (f de <> f de') t
-  Scale0 t' de -> g de (t' *) t
+    f de <> f de'
+  Scale0 t' de -> g de (t' *)
   Index0 de i n ->
     g
       de
       (\t' -> HM.fromList (map (\n' -> if n' == i then t' else 0) [0 .. n - 1]))
-      t
-  Dot1 de de' -> g de' (`HM.scale` de) t
-  Add1 de de' -> (f de <> f de') t
-  Scale1 s de -> g de (s `HM.scale`) t
-  Konst1 de _ -> g de HM.sumElements t
+  Dot1 de de' -> g de' (`HM.scale` de)
+  Add1 de de' -> f de <> f de'
+  Scale1 s de -> g de (s `HM.scale`)
+  Konst1 de _ -> g de HM.sumElements
   ZeroS -> mempty
-  SumElements1 de n -> g de (\t' -> HM.konst t' n) t
-  Seq1 des -> foldMap (uncurry f) (zip desl tl)
-    where
-      desl = Data.Vector.toList des
-      tl = HM.toList t
-  AddS de de' -> (f de <> f de') t
-  NegateS d -> g d (OS.mapA negate) t
-  KonstS de -> g de OS.sumA t
+  SumElements1 de n -> g de (\t' -> HM.konst t' n)
+  Seq1 des -> \t ->
+    let desl = Data.Vector.toList des
+        tl = HM.toList t
+     in foldMap (uncurry f) (zip desl tl)
+  AddS de de' -> f de <> f de'
+  NegateS d -> g d (OS.mapA negate)
+  KonstS de -> g de OS.sumA
   AppendS
     (de :: dual (OS.Array (k : rest) s))
     (de' :: dual (OS.Array (l : rest) s)) ->
-      f de (OS.slice @'[ '(0, k)] t) <> f de' (OS.slice @'[ '(k, l)] t)
-  MulS1 de a -> g de (\t' -> mulS t' (transposeS a)) t
-  MulS2 a de -> g de (mulS (transposeS a)) t
-  ScalePointwiseS de a -> g de (OS.zipWithA (*) a) t
-  SumElementsS de -> g de OS.constant t
+      g de (OS.slice @'[ '(0, k)]) <> g de' (OS.slice @'[ '(k, l)])
+  MulS1 de a -> g de (\t' -> mulS t' (transposeS a))
+  MulS2 a de -> g de (mulS (transposeS a))
+  ScalePointwiseS de a -> g de (OS.zipWithA (*) a)
+  SumElementsS de -> g de OS.constant
   where
     f = unMonoidMap
     g d h t = f d (h t)
@@ -396,16 +395,17 @@ evalDeltaFMod mempty' (<>.) ($$) deltaF = case deltaF of
   Add0 de de' -> de <>. de'
   Scale0 t' de -> de $$ (t' *)
   Index0 de i n ->
-      de $$ \t -> HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n - 1])
+    de $$ \t -> HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n - 1])
   Dot1 de de' -> de' $$ (`HM.scale` de)
   Add1 de de' -> de <>. de'
   Scale1 s de -> de $$ (s `HM.scale`)
   Konst1 de _ -> de $$ HM.sumElements
   ZeroS -> mempty'
   SumElements1 de n -> de $$ (\t -> HM.konst t n)
-  Seq1 des -> -- TODO: Be better than foldl'
+  Seq1 des ->
+    -- TODO: Be better than foldl'
     -- TODO: Would be great if we didn't have to convert to list and then index!
-    foldl' (<>.) mempty' (fmap (\(i, desl1) -> desl1 $$ (\t -> HM.toList t !! i)) (zip [0..] desl))
+    foldl' (<>.) mempty' (fmap (\(i, desl1) -> desl1 $$ (\t -> HM.toList t !! i)) (zip [0 ..] desl))
     where
       desl = Data.Vector.toList des
   AddS de de' -> de <>. de'
@@ -730,8 +730,8 @@ exampleIO = do
   r1 <- newIORef (0 :: Double)
   r2 <- newIORef 0
   D r (DeltaIO acc go) <- case foo
-           (D 10 (DeltaIO (\t -> modifyIORef' r1 (+ t)) (pure ())))
-           (D 20 (DeltaIO (\t -> modifyIORef' r2 (+ t)) (pure ()))) of
+    (D 10 (DeltaIO (\t -> modifyIORef' r1 (+ t)) (pure ())))
+    (D 20 (DeltaIO (\t -> modifyIORef' r2 (+ t)) (pure ()))) of
     DualMonadIO io -> io
 
   acc 1
