@@ -380,6 +380,44 @@ evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
   where
     f = unMonoidMap
 
+-- Could implement evalDeltaFM1 in terms of this
+evalDeltaFMod ::
+  forall s t mod.
+  HM.Numeric s =>
+  (forall tt. mod tt) ->
+  (forall tt. mod tt -> mod tt -> mod tt) ->
+  (forall tt tt'. mod tt -> (tt' -> tt) -> mod tt') ->
+  DeltaF s mod t ->
+  mod t
+evalDeltaFMod mempty' (<>.) ($$) deltaF = case deltaF of
+  Zero0 -> mempty'
+  Add0 de de' -> de <>. de'
+  Scale0 t' de -> de $$ (t' *)
+  Index0 de i n ->
+      de $$ \t -> HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n - 1])
+  Dot1 de de' -> de' $$ (`HM.scale` de)
+  Add1 de de' -> de <>. de'
+  Scale1 s de -> de $$ (s `HM.scale`)
+  Konst1 de _ -> de $$ HM.sumElements
+  ZeroS -> mempty'
+  SumElements1 de n -> de $$ (\t -> HM.konst t n)
+  Seq1 des -> -- TODO: Be better than foldl'
+    -- TODO: Would be great if we didn't have to convert to list and then index!
+    foldl' (<>.) mempty' (fmap (\(i, desl1) -> desl1 $$ (\t -> HM.toList t !! i)) (zip [0..] desl))
+    where
+      desl = Data.Vector.toList des
+  AddS de de' -> de <>. de'
+  NegateS d -> d $$ OS.mapA negate
+  KonstS de -> de $$ OS.sumA
+  AppendS
+    (de :: dual (OS.Array (k : rest) s))
+    (de' :: dual (OS.Array (l : rest) s)) ->
+      (de $$ (OS.slice @'[ '(0, k)])) <>. (de' $$ (OS.slice @'[ '(k, l)]))
+  MulS1 de a -> de $$ (\t -> mulS t (transposeS a))
+  MulS2 a de -> de $$ mulS (transposeS a)
+  ScalePointwiseS de a -> de $$ OS.zipWithA (*) a
+  SumElementsS de -> de $$ OS.constant
+
 instance (HM.Numeric r, Monoid m) => Ops r DeltaF (MonoidMap m) where
   ops = evalDeltaFM1
 
@@ -660,6 +698,14 @@ type DeltaIO :: Type -> Type -> Type
 data DeltaIO s t where
   DeltaIO :: {accumulateIO :: t -> IO (), triggerIO :: IO ()} -> DeltaIO s t
 
+-- TODO: Just derive this?
+instance Semigroup (DeltaIO s t) where
+  DeltaIO acc1 go1 <> DeltaIO acc2 go2 = DeltaIO (acc1 <> acc2) (go1 <> go2)
+
+-- TODO: Just derive this?
+instance Monoid (DeltaIO s t) where
+  mempty = DeltaIO mempty mempty
+
 instance DualMonad DeltaIO DualMonadIO where
   deltaLet = \(deltaIO :: DeltaIO s t) -> DualMonadIO $ do
     ref <- newIORef Nothing
@@ -673,6 +719,26 @@ instance DualMonad DeltaIO DualMonadIO where
               triggerIO deltaIO
           }
       )
+
+instance Ops Double DeltaF DeltaIO where
+  ops = evalDeltaFMod mempty (<>) (\(DeltaIO acc go) f -> DeltaIO (acc . f) go)
+
+exampleIO :: IO (Double, (Double, Double))
+exampleIO = do
+  r1 <- newIORef (0 :: Double)
+  r2 <- newIORef 0
+  D r (DeltaIO acc go) <- case foo
+           (D 10 (DeltaIO (\t -> modifyIORef' r1 (+ t)) (pure ())))
+           (D 20 (DeltaIO (\t -> modifyIORef' r2 (+ t)) (pure ()))) of
+    DualMonadIO io -> io
+
+  acc 1
+  go
+
+  x1 <- readIORef r1
+  x2 <- readIORef r2
+
+  pure (r, (x1, x2))
 
 newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
 
