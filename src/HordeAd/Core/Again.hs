@@ -698,6 +698,8 @@ runDualMonadIO (DualMonadST a) = a
 
 type DeltaST :: Type -> Type -> Type -> Type
 data DeltaST st s t where
+  -- FiXME: This isn't right. The monad needs to keep a stack of
+  -- things to trigger.
   DeltaST :: {accumulateDelta :: t -> ST st (), triggerDelta :: ST st ()} -> DeltaST st s t
 
 -- TODO: Just derive this?
