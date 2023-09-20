@@ -18,6 +18,7 @@
 
 module HordeAd.Core.Again (module HordeAd.Core.Again) where
 
+import Control.Monad.ST (ST, runST)
 import Control.Monad.Trans.State
   ( State,
     StateT (StateT),
@@ -32,11 +33,11 @@ import qualified Data.Array.ShapedS.MatMul
 import Data.Biapplicative ((<<*>>))
 import qualified Data.Biapplicative as B
 import Data.Functor.Identity (Identity (Identity), runIdentity)
-import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Kind (Type)
 import Data.List (foldl')
 import qualified Data.Monoid as Monoid
 import Data.Proxy (Proxy (Proxy))
+import Data.STRef (modifySTRef', newSTRef, readSTRef)
 import qualified Data.Strict.Map as Map
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -689,55 +690,55 @@ dMultiArgForward (t, dt) (t', dt') f =
 dValue :: DualMonadValue s (D t (Unit s t)) -> t
 dValue = (\case D r _ -> r) . runIdentity . runDualMonadValue
 
-newtype DualMonadIO s a = DualMonadIO (IO a)
+newtype DualMonadST st s a = DualMonadST (ST st a)
   deriving newtype (Monad, Functor, Applicative)
 
-runDualMonadIO :: DualMonadIO s a -> IO a
-runDualMonadIO (DualMonadIO a) = a
+runDualMonadIO :: DualMonadST st s a -> ST st a
+runDualMonadIO (DualMonadST a) = a
 
-type DeltaIO :: Type -> Type -> Type
-data DeltaIO s t where
-  DeltaIO :: {accumulateIO :: t -> IO (), triggerIO :: IO ()} -> DeltaIO s t
-
--- TODO: Just derive this?
-instance Semigroup (DeltaIO s t) where
-  DeltaIO acc1 go1 <> DeltaIO acc2 go2 = DeltaIO (acc1 <> acc2) (go1 <> go2)
+type DeltaST :: Type -> Type -> Type -> Type
+data DeltaST st s t where
+  DeltaST :: {accumulateDelta :: t -> ST st (), triggerDelta :: ST st ()} -> DeltaST st s t
 
 -- TODO: Just derive this?
-instance Monoid (DeltaIO s t) where
-  mempty = DeltaIO mempty mempty
+instance Semigroup (DeltaST st s t) where
+  DeltaST acc1 go1 <> DeltaST acc2 go2 = DeltaST (acc1 <> acc2) (go1 <> go2)
 
-instance DualMonad DeltaIO DualMonadIO where
-  deltaLet = \(deltaIO :: DeltaIO s t) -> DualMonadIO $ do
-    ref <- newIORef Nothing
+-- TODO: Just derive this?
+instance Monoid (DeltaST st s t) where
+  mempty = DeltaST mempty mempty
+
+instance DualMonad (DeltaST st) (DualMonadST st) where
+  deltaLet = \(deltaST :: DeltaST st s t) -> DualMonadST $ do
+    ref <- newSTRef Nothing
     pure
-      ( DeltaIO
-          { accumulateIO = \t -> modifyIORef' ref (Just . accumulateMaybe @s t),
-            triggerIO = do
-              readIORef ref >>= \case
+      ( DeltaST
+          { accumulateDelta = \t -> modifySTRef' ref (Just . accumulateMaybe @s t),
+            triggerDelta = do
+              readSTRef ref >>= \case
                 Nothing -> pure ()
-                Just r -> accumulateIO deltaIO r
-              triggerIO deltaIO
+                Just r -> accumulateDelta deltaST r
+              triggerDelta deltaST
           }
       )
 
-instance Ops Double DeltaF DeltaIO where
-  ops = evalDeltaFMod mempty (<>) (\(DeltaIO acc go) f -> DeltaIO (acc . f) go)
+instance Ops Double DeltaF (DeltaST st) where
+  ops = evalDeltaFMod mempty (<>) (\(DeltaST acc go) f -> DeltaST (acc . f) go)
 
-exampleIO :: IO (Double, (Double, Double))
-exampleIO = do
-  r1 <- newIORef (0 :: Double)
-  r2 <- newIORef 0
-  D r (DeltaIO acc go) <- case foo
-    (D 10 (DeltaIO (\t -> modifyIORef' r1 (+ t)) (pure ())))
-    (D 20 (DeltaIO (\t -> modifyIORef' r2 (+ t)) (pure ()))) of
-    DualMonadIO io -> io
+exampleST :: (Double, (Double, Double))
+exampleST = runST $ do
+  r1 <- newSTRef (0 :: Double)
+  r2 <- newSTRef 0
+  D r (DeltaST acc go) <- case foo
+    (D 10 (DeltaST (\t -> modifySTRef' r1 (+ t)) (pure ())))
+    (D 20 (DeltaST (\t -> modifySTRef' r2 (+ t)) (pure ()))) of
+    DualMonadST io -> io
 
   acc 1
   go
 
-  x1 <- readIORef r1
-  x2 <- readIORef r2
+  x1 <- readSTRef r1
+  x2 <- readSTRef r2
 
   pure (r, (x1, x2))
 
