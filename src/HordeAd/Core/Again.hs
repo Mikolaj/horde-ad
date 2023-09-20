@@ -523,6 +523,15 @@ class
   where
   deltaLet :: Known (s `IsScalarOf` t) => dual s t -> m s (dual s t)
 
+dLet ::
+  forall (dual :: Type -> Type -> Type) t m s.
+  (DualMonad dual m, Known (IsScalarOf s t)) =>
+  Dual (dual s) t ->
+  m s (Dual (dual s) t)
+dLet (D x y) = do
+  y' <- deltaLet y
+  pure (D x y')
+
 fresh :: s `IsScalarOf` t -> DualMonadGradient s (DeltaId s t)
 fresh sd = DualMonadGradient $ do
   st <- get
@@ -625,15 +634,6 @@ dMultiArgForward (t, dt) (t', dt') f =
 
 dValue :: DualMonadValue s (D t (Unit s t)) -> t
 dValue = (\case D r _ -> r) . runIdentity . runDualMonadValue
-
-dLet ::
-  forall (dual :: Type -> Type -> Type) t m s.
-  (DualMonad dual m, Known (IsScalarOf s t)) =>
-  Dual (dual s) t ->
-  m s (Dual (dual s) t)
-dLet (D x y) = do
-  y' <- deltaLet y
-  pure (D x y')
 
 newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
 
