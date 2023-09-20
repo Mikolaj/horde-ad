@@ -318,8 +318,6 @@ evalDeltaF f deltaF t = case deltaF of
   ScalePointwiseS de a -> f de (OS.zipWithA (*) a t)
   SumElementsS de -> f de (OS.constant t)
 
--- Somewhat annoying that we need this r parameter to satisfy
--- functional dependencies.
 newtype MonoidMap m s t = MonoidMap {unMonoidMap :: t -> m}
 
 -- A more abstract way of writing evalDeltaF
