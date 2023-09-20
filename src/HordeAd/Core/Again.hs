@@ -48,9 +48,6 @@ import Prelude
 class Known t where
   known :: t
 
-knownDeltaId :: DeltaId s t -> s `IsScalarOf` t
-knownDeltaId DeltaId {} = known
-
 instance Known (a `IsScalarOf` a) where
   known = SScalar
 
@@ -164,7 +161,7 @@ mapDeltaFG f = \case
   SumElementsS d -> SumElementsS (f known d)
 
 data DeltaId (s :: Type) (t :: Type) where
-  DeltaId :: Known (s `IsScalarOf` t) => Int -> DeltaId s t
+  DeltaId :: Int -> DeltaId s t
 
 deriving instance Eq (DeltaId s t)
 
@@ -176,7 +173,11 @@ succDeltaId :: DeltaId s t -> DeltaId s t
 succDeltaId (DeltaId i) = DeltaId (i + 1)
 
 data DeltaBinding s where
-  DeltaBinding :: DeltaId s t -> Delta s t -> DeltaBinding s
+  DeltaBinding ::
+    Known (s `IsScalarOf` t) =>
+    DeltaId s t ->
+    Delta s t ->
+    DeltaBinding s
 
 data Delta (s :: Type) (t :: Type) where
   Delta :: DeltaF s (Delta s) t -> Delta s t
@@ -189,8 +190,9 @@ data DeltaMap s = DeltaMap
   }
   deriving (Show)
 
-singleton :: DeltaId s t -> t -> DeltaMap s
-singleton dId t = case knownDeltaId dId of
+singleton ::
+  forall s t. Known (s `IsScalarOf` t) => DeltaId s t -> t -> DeltaMap s
+singleton dId t = case known @(s `IsScalarOf` t) of
   SScalar -> DeltaMap (Map.singleton dId t) Map.empty Map.empty
   SVector -> DeltaMap Map.empty (Map.singleton dId t) Map.empty
   SShapedS -> DeltaMap Map.empty Map.empty (Map.singleton i (OS.toVector t))
@@ -198,10 +200,12 @@ singleton dId t = case knownDeltaId dId of
       DeltaId i = dId
 
 deltaMapLookup ::
+  forall s t.
+  Known (s `IsScalarOf` t) =>
   DeltaId s t ->
   DeltaMap s ->
   Maybe t
-deltaMapLookup dId m = case knownDeltaId dId of
+deltaMapLookup dId m = case known @(s `IsScalarOf` t) of
   SScalar -> Map.lookup dId (dmScalar m)
   SVector -> Map.lookup dId (dmVector m)
   SShapedS -> fmap OS.fromVector (Map.lookup i (dmShapedS m))
@@ -209,10 +213,12 @@ deltaMapLookup dId m = case knownDeltaId dId of
       DeltaId i = dId
 
 deltaMapDelete ::
+  forall s t.
+  Known (s `IsScalarOf` t) =>
   DeltaId s t ->
   DeltaMap s ->
   DeltaMap s
-deltaMapDelete dId (DeltaMap ms mv msh) = case knownDeltaId dId of
+deltaMapDelete dId (DeltaMap ms mv msh) = case known @(s `IsScalarOf` t) of
   SScalar -> DeltaMap (Map.delete dId ms) mv msh
   SVector -> DeltaMap ms (Map.delete dId mv) msh
   SShapedS -> DeltaMap ms mv (Map.delete i msh)
@@ -220,11 +226,13 @@ deltaMapDelete dId (DeltaMap ms mv msh) = case knownDeltaId dId of
       DeltaId i = dId
 
 deltaMapAlter ::
+  forall s t.
+  Known (s `IsScalarOf` t) =>
   (Maybe t -> Maybe t) ->
   DeltaId s t ->
   DeltaMap s ->
   DeltaMap s
-deltaMapAlter f di m = case knownDeltaId di of
+deltaMapAlter f di m = case known @(s `IsScalarOf` t) of
   SScalar -> m {dmScalar = Map.alter f di (dmScalar m)}
   SVector -> m {dmVector = Map.alter f di (dmVector m)}
   SShapedS ->
@@ -268,7 +276,13 @@ deltaMapAlter f di m = case knownDeltaId di of
 evalDeltaF ::
   forall s dual t deltaMap_s.
   HM.Numeric s =>
-  (forall tt. dual tt -> tt -> deltaMap_s -> deltaMap_s) ->
+  ( forall tt.
+    Known (s `IsScalarOf` tt) =>
+    dual tt ->
+    tt ->
+    deltaMap_s ->
+    deltaMap_s
+  ) ->
   DeltaF s dual t ->
   t ->
   deltaMap_s ->
@@ -398,6 +412,8 @@ useCompatibleOps =
 
 -- accumulate has the special property
 accumulate ::
+  forall s t.
+  Known (s `IsScalarOf` t) =>
   HM.Numeric s =>
   DeltaId s t ->
   t ->
@@ -407,7 +423,7 @@ accumulate di t =
   deltaMapAlter
     ( \case
         Nothing -> Just t
-        Just t' -> case knownDeltaId di of
+        Just t' -> case known @(s `IsScalarOf` t) of
           SScalar -> Just (t + t')
           SVector -> Just (t `HM.add` t')
           SShapedS -> Just (t `addS` t')
@@ -416,6 +432,8 @@ accumulate di t =
 
 -- eval has the special property
 eval ::
+  forall s t.
+  Known (s `IsScalarOf` t) =>
   HM.Numeric s =>
   Delta s t ->
   t ->
@@ -526,7 +544,8 @@ fresh sd = DualMonadGradient $ do
       put (st {deltaCounter2 = next})
       pure (DeltaId this)
 
-bind :: DeltaId s t -> Delta s t -> DualMonadGradient s ()
+bind ::
+  Known (s `IsScalarOf` t) => DeltaId s t -> Delta s t -> DualMonadGradient s ()
 bind dId delta =
   DualMonadGradient $
     modify
