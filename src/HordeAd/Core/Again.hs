@@ -19,10 +19,12 @@
 module HordeAd.Core.Again (module HordeAd.Core.Again) where
 
 import Control.Monad.ST (ST, runST)
+import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State
   ( State,
     StateT (StateT),
     evalState,
+    evalStateT,
     get,
     modify,
     put,
@@ -690,59 +692,67 @@ dMultiArgForward (t, dt) (t', dt') f =
 dValue :: DualMonadValue s (D t (Unit s t)) -> t
 dValue = (\case D r _ -> r) . runIdentity . runDualMonadValue
 
-newtype DualMonadST st s a = DualMonadST (ST st a)
+newtype DualMonadST st s a = DualMonadST (StateT [ST st ()] (ST st) a)
   deriving newtype (Monad, Functor, Applicative)
 
-runDualMonadIO :: DualMonadST st s a -> ST st a
-runDualMonadIO (DualMonadST a) = a
+runDualMonadST' :: DualMonadST st s a -> ST st a
+runDualMonadST' (DualMonadST a) = do
+  (r, s) <- flip evalStateT [] $ do r <- a; s <- get; pure (r, s)
+  sequence_ s
+  pure r
+
+runDualMonadST :: (forall st. DualMonadST st s (ST st a)) -> a
+runDualMonadST d = runST (do d' <- runDualMonadST' d; d')
 
 type DeltaST :: Type -> Type -> Type -> Type
 data DeltaST st s t where
-  -- FiXME: This isn't right. The monad needs to keep a stack of
-  -- things to trigger.
-  DeltaST :: {accumulateDelta :: t -> ST st (), triggerDelta :: ST st ()} -> DeltaST st s t
+  DeltaST :: {accumulateDelta :: t -> ST st ()} -> DeltaST st s t
 
 -- TODO: Just derive this?
 instance Semigroup (DeltaST st s t) where
-  DeltaST acc1 go1 <> DeltaST acc2 go2 = DeltaST (acc1 <> acc2) (go1 <> go2)
+  DeltaST acc1 <> DeltaST acc2 = DeltaST (acc1 <> acc2)
 
 -- TODO: Just derive this?
 instance Monoid (DeltaST st s t) where
-  mempty = DeltaST mempty mempty
+  mempty = DeltaST mempty
 
 instance DualMonad (DeltaST st) (DualMonadST st) where
   deltaLet = \(deltaST :: DeltaST st s t) -> DualMonadST $ do
-    ref <- newSTRef Nothing
+    ref <- lift (newSTRef Nothing)
+
+    modify
+      ( (:) $ do
+          readSTRef ref >>= \case
+            Nothing -> pure ()
+            Just r -> accumulateDelta deltaST r
+      )
+
     pure
       ( DeltaST
-          { accumulateDelta = \t -> modifySTRef' ref (Just . accumulateMaybe @s t),
-            triggerDelta = do
-              readSTRef ref >>= \case
-                Nothing -> pure ()
-                Just r -> accumulateDelta deltaST r
-              triggerDelta deltaST
+          { accumulateDelta = \t -> modifySTRef' ref (Just . accumulateMaybe @s t)
           }
       )
 
 instance Ops Double DeltaF (DeltaST st) where
-  ops = evalDeltaFMod mempty (<>) (\(DeltaST acc go) f -> DeltaST (acc . f) go)
+  ops = evalDeltaFMod mempty (<>) (\(DeltaST acc) f -> DeltaST (acc . f))
 
 exampleST :: (Double, (Double, Double))
-exampleST = runST $ do
-  r1 <- newSTRef (0 :: Double)
-  r2 <- newSTRef 0
-  D r (DeltaST acc go) <- case foo
-    (D 10 (DeltaST (\t -> modifySTRef' r1 (+ t)) (pure ())))
-    (D 20 (DeltaST (\t -> modifySTRef' r2 (+ t)) (pure ()))) of
-    DualMonadST io -> io
+exampleST = runDualMonadST $ do
+  r1 <- lift' (newSTRef 0)
+  r2 <- lift' (newSTRef 0)
+  D r (DeltaST acc) <- foo
+    (D 10 (DeltaST (\t -> modifySTRef' r1 (+ t))))
+    (D 20 (DeltaST (\t -> modifySTRef' r2 (+ t))))
 
-  acc 1
-  go
+  lift' $ do
+    acc 1
 
-  x1 <- readSTRef r1
-  x2 <- readSTRef r2
+    pure $ do
+      x1 <- readSTRef r1
+      x2 <- readSTRef r2
+      pure (r, (x1, x2))
 
-  pure (r, (x1, x2))
+  where lift' = DualMonadST . lift
 
 newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
 
