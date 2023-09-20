@@ -349,37 +349,36 @@ evalDeltaFM1 ::
   MonoidMap m r t
 evalDeltaFM1 deltaF = MonoidMap $ case deltaF of
   Zero0 -> mempty
-  Add0 de de' ->
-    f de <> f de'
-  Scale0 t' de -> g de (t' *)
+  Add0 de de' -> de <>. de'
+  Scale0 t' de -> de $$ (t' *)
   Index0 de i n ->
-    g
-      de
-      (\t' -> HM.fromList (map (\n' -> if n' == i then t' else 0) [0 .. n - 1]))
-  Dot1 de de' -> g de' (`HM.scale` de)
-  Add1 de de' -> f de <> f de'
-  Scale1 s de -> g de (s `HM.scale`)
-  Konst1 de _ -> g de HM.sumElements
+    de $$ \t -> HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n - 1])
+  Dot1 de de' -> de' $$ (`HM.scale` de)
+  Add1 de de' -> de <>. de'
+  Scale1 s de -> de $$ (s `HM.scale`)
+  Konst1 de _ -> de $$ HM.sumElements
   ZeroS -> mempty
-  SumElements1 de n -> g de (\t' -> HM.konst t' n)
+  SumElements1 de n -> de $$ (\t -> HM.konst t n)
   Seq1 des -> \t ->
     let desl = Data.Vector.toList des
         tl = HM.toList t
      in foldMap (uncurry f) (zip desl tl)
-  AddS de de' -> f de <> f de'
-  NegateS d -> g d (OS.mapA negate)
-  KonstS de -> g de OS.sumA
+  AddS de de' -> de <>. de'
+  NegateS d -> d $$ OS.mapA negate
+  KonstS de -> de $$ OS.sumA
   AppendS
     (de :: dual (OS.Array (k : rest) s))
     (de' :: dual (OS.Array (l : rest) s)) ->
-      g de (OS.slice @'[ '(0, k)]) <> g de' (OS.slice @'[ '(k, l)])
-  MulS1 de a -> g de (\t' -> mulS t' (transposeS a))
-  MulS2 a de -> g de (mulS (transposeS a))
-  ScalePointwiseS de a -> g de (OS.zipWithA (*) a)
-  SumElementsS de -> g de OS.constant
+      (de $$ OS.slice @'[ '(0, k)]) <> (de' $$ OS.slice @'[ '(k, l)])
+  MulS1 de a -> de $$ (\t -> mulS t (transposeS a))
+  MulS2 a de -> de $$ mulS (transposeS a)
+  ScalePointwiseS de a -> de $$ OS.zipWithA (*) a
+  SumElementsS de -> de $$ OS.constant
   where
     f = unMonoidMap
     g d h t = f d (h t)
+    ($$) = g
+    de1 <>. de2 = f de1 <> f de2
 
 -- Could implement evalDeltaFM1 in terms of this
 evalDeltaFMod ::
@@ -414,7 +413,7 @@ evalDeltaFMod mempty' (<>.) ($$) deltaF = case deltaF of
   AppendS
     (de :: dual (OS.Array (k : rest) s))
     (de' :: dual (OS.Array (l : rest) s)) ->
-      (de $$ (OS.slice @'[ '(0, k)])) <>. (de' $$ (OS.slice @'[ '(k, l)]))
+      (de $$ OS.slice @'[ '(0, k)]) <>. (de' $$ OS.slice @'[ '(k, l)])
   MulS1 de a -> de $$ (\t -> mulS t (transposeS a))
   MulS2 a de -> de $$ mulS (transposeS a)
   ScalePointwiseS de a -> de $$ OS.zipWithA (*) a
