@@ -176,12 +176,13 @@ data DeltaBinding s where
   DeltaBinding ::
     Known (s `IsScalarOf` t) =>
     DeltaId s t ->
-    Delta s t ->
+    Delta DeltaF s t ->
     DeltaBinding s
 
-data Delta (s :: Type) (t :: Type) where
-  Delta :: DeltaF s (Delta s) t -> Delta s t
-  Var :: DeltaId s t -> Delta s t
+type Delta :: (Type -> (Type -> Type) -> Type -> Type) -> Type -> Type -> Type
+data Delta df (s :: Type) (t :: Type) where
+  Delta :: df s (Delta df s) t -> Delta df s t
+  Var :: DeltaId s t -> Delta df s t
 
 data DeltaMap s = DeltaMap
   { dmScalar :: Map.Map (DeltaId s s) s,
@@ -433,7 +434,7 @@ eval ::
   forall s t.
   Known (s `IsScalarOf` t) =>
   HM.Numeric s =>
-  Delta s t ->
+  Delta DeltaF s t ->
   t ->
   DeltaMap s ->
   DeltaMap s
@@ -478,7 +479,7 @@ runDualMonadAdapt ::
   (HM.Numeric s, Known (IsScalarOf s t)) =>
   ArgAdaptor s arg dual ->
   t ->
-  (dual -> DualMonadGradient s (D t' (Delta s t))) ->
+  (dual -> DualMonadGradient s (D t' (Delta DeltaF s t))) ->
   (t', arg)
 runDualMonadAdapt aa g f =
   let (lookup', arg) = runArgAdaptor aa
@@ -489,7 +490,7 @@ runDualMonadAdapt aa g f =
 runDualMonadS ::
   (HM.Numeric s, Known (IsScalarOf s t)) =>
   t ->
-  DualMonadGradient s (D t' (Delta s t)) ->
+  DualMonadGradient s (D t' (Delta DeltaF s t)) ->
   (t', DeltaMap s)
 runDualMonadS g e =
   let ((t, dId), bs) = runDualMonadM $ do
@@ -501,7 +502,7 @@ runDualMonadS g e =
 runDualMonad ::
   (HM.Numeric s, Known (IsScalarOf s t)) =>
   t ->
-  DualMonadGradient s (D s (Delta s t)) ->
+  DualMonadGradient s (D s (Delta DeltaF s t)) ->
   (s, DeltaMap s)
 runDualMonad = runDualMonadS
 
@@ -543,7 +544,7 @@ fresh sd = DualMonadGradient $ do
       pure (DeltaId this)
 
 bind ::
-  Known (s `IsScalarOf` t) => DeltaId s t -> Delta s t -> DualMonadGradient s ()
+  Known (s `IsScalarOf` t) => DeltaId s t -> Delta DeltaF s t -> DualMonadGradient s ()
 bind dId delta =
   DualMonadGradient $
     modify
@@ -552,13 +553,13 @@ bind dId delta =
       )
 
 deltaLetId ::
-  Known (s `IsScalarOf` t) => Delta s t -> DualMonadGradient s (DeltaId s t)
+  Known (s `IsScalarOf` t) => Delta DeltaF s t -> DualMonadGradient s (DeltaId s t)
 deltaLetId delta = do
   dId <- fresh known
   bind dId delta
   pure dId
 
-instance DualMonad Delta DualMonadGradient where
+instance DualMonad (Delta DeltaF) DualMonadGradient where
   deltaLet delta = fmap Var (deltaLetId delta)
 
 type DualMonadValue :: Type -> Type -> Type
@@ -658,7 +659,7 @@ runArgAdaptor (ArgAdaptor s) = evalState s (-1)
 adaptArg ::
   Known (IsScalarOf s t) =>
   t ->
-  ArgAdaptor s t (Dual (Delta s) t)
+  ArgAdaptor s t (Dual (Delta DeltaF s) t)
 adaptArg t = ArgAdaptor $ do
   i <- get
   put (i - 1)
@@ -770,7 +771,7 @@ instance Ops r DeltaF Unit where
     ScalePointwiseS {} -> Unit
     SumElementsS {} -> Unit
 
-instance Ops r DeltaF Delta where
+instance Ops r DeltaF (Delta DeltaF) where
   ops = Delta
 
 baz ::
@@ -1242,7 +1243,7 @@ dSingleArg ::
   -- | Incoming gradient (usually r ~ Double and r = 1)
   r ->
   -- | Function to be differentiated
-  (Dual (Delta s) t -> DualMonadGradient s (Dual (Delta s) r)) ->
+  (Dual (Delta DeltaF s) t -> DualMonadGradient s (Dual (Delta DeltaF s) r)) ->
   -- | Result of original function, and its gradient
   (r, t)
 dSingleArg = runDualMonadAdapt . adaptArg
@@ -1255,8 +1256,8 @@ dDoubleArg ::
   ) =>
   (t1, t2) ->
   r ->
-  ( (D t1 (Delta s t1), Dual (Delta s) t2) ->
-    DualMonadGradient s (Dual (Delta s) r)
+  ( (D t1 (Delta DeltaF s t1), Dual (Delta DeltaF s) t2) ->
+    DualMonadGradient s (Dual (Delta DeltaF s) r)
   ) ->
   (r, (t1, t2))
 dDoubleArg (t1, t2) = runDualMonadAdapt (liftB2 (adaptArg t1) (adaptArg t2))
@@ -1270,10 +1271,10 @@ dMultiArg ::
   Data.Vector.Vector t1 ->
   Data.Vector.Vector t2 ->
   r ->
-  ( ( Data.Vector.Vector (Dual (Delta s) t1),
-      Data.Vector.Vector (Dual (Delta s) t2)
+  ( ( Data.Vector.Vector (Dual (Delta DeltaF s) t1),
+      Data.Vector.Vector (Dual (Delta DeltaF s) t2)
     ) ->
-    DualMonadGradient s (Dual (Delta s) r)
+    DualMonadGradient s (Dual (Delta DeltaF s) r)
   ) ->
   (r, (Data.Vector.Vector t1, Data.Vector.Vector t2))
 dMultiArg t1s t2s =
