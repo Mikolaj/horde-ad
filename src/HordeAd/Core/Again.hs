@@ -5,8 +5,10 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
@@ -58,7 +60,7 @@ instance Known (a `IsScalarOf` Vector a) where
 instance (OS.Shape sh, Storable a) => Known (a `IsScalarOf` OS.Array sh a) where
   known = SShapedS
 
-instance Known (Unit a) where
+instance Known (Unit s a) where
   known = Unit
 
 knowIsScalarOf :: s `IsScalarOf` t -> (Known (s `IsScalarOf` t) => r) -> r
@@ -182,33 +184,6 @@ data DeltaBinding s where
 data Delta (s :: Type) (t :: Type) where
   Delta :: DeltaF s (Delta s) t -> Delta s t
   Var :: DeltaId s t -> Delta s t
-
-knownDeltaF :: DeltaF s dual t -> s `IsScalarOf` t
-knownDeltaF = \case
-  Zero0 -> SScalar
-  Add0 {} -> SScalar
-  Scale0 {} -> SScalar
-  Index0 {} -> SScalar
-  Add1 {} -> SVector
-  Scale1 {} -> SVector
-  Konst1 {} -> SVector
-  Dot1 {} -> SScalar
-  SumElements1 {} -> SScalar
-  Seq1 {} -> SVector
-  AddS {} -> SShapedS
-  NegateS {} -> SShapedS
-  KonstS {} -> SShapedS
-  ZeroS {} -> SShapedS
-  AppendS {} -> SShapedS
-  MulS1 {} -> SShapedS
-  MulS2 {} -> SShapedS
-  ScalePointwiseS {} -> SShapedS
-  SumElementsS {} -> SScalar
-
-knownDelta :: Delta s t -> s `IsScalarOf` t
-knownDelta = \case
-  Delta df -> knownDeltaF df
-  Var di -> case di of (DeltaId _) -> known
 
 data DeltaMap s = DeltaMap
   { dmScalar :: Map.Map (DeltaId s s) s,
@@ -411,13 +386,13 @@ compatibleOps f1 f2 mapp f = (\c -> f c . f1 c, \c -> f2 c . mapp f c)
 useCompatibleOps ::
   forall s t.
   HM.Numeric s =>
-  ( s `IsScalarOf` t -> DeltaF s Concrete t -> MonoidMap (Monoid.Sum s) t,
-    s `IsScalarOf` t -> DeltaF s Concrete t -> MonoidMap (Monoid.Sum s) t
+  ( s `IsScalarOf` t -> DeltaF s (Concrete s) t -> MonoidMap (Monoid.Sum s) t,
+    s `IsScalarOf` t -> DeltaF s (Concrete s) t -> MonoidMap (Monoid.Sum s) t
   )
 useCompatibleOps =
   compatibleOps
     @(DeltaF s)
-    @Concrete
+    @(Concrete s)
     @(MonoidMap (Monoid.Sum s))
     (\_ -> ops)
     (\_ -> ops)
@@ -487,7 +462,7 @@ runDualMonadM m = runState (runDualMonadGradient m) initialState
         }
 
 runDualMonadAdapt ::
-  HM.Numeric s =>
+  (HM.Numeric s, Known (IsScalarOf s t)) =>
   ArgAdaptor s arg dual ->
   t ->
   (dual -> DualMonadGradient s (D t' (Delta s t))) ->
@@ -499,7 +474,7 @@ runDualMonadAdapt aa g f =
    in (t', lookup' dm)
 
 runDualMonadS ::
-  HM.Numeric s =>
+  (HM.Numeric s, Known (IsScalarOf s t)) =>
   t ->
   DualMonadGradient s (D t' (Delta s t)) ->
   (t', DeltaMap s)
@@ -511,7 +486,7 @@ runDualMonadS g e =
    in (t, runDelta (deltaBindings bs) (singleton dId g))
 
 runDualMonad ::
-  HM.Numeric s =>
+  (HM.Numeric s, Known (IsScalarOf s t)) =>
   t ->
   DualMonadGradient s (D s (Delta s t)) ->
   (s, DeltaMap s)
@@ -528,8 +503,11 @@ newtype DualMonadGradient s t = DualMonadGradient
   {runDualMonadGradient :: State (DeltaState s) t}
   deriving newtype (Monad, Functor, Applicative)
 
-class Monad m => DualMonad (dual :: Type -> Type) m where
-  deltaLet :: dual t -> m (dual t)
+class
+  (forall s. Monad (m s)) =>
+  DualMonad (dual :: Type -> Type -> Type) m
+  where
+  deltaLet :: Known (s `IsScalarOf` t) => dual s t -> m s (dual s t)
 
 fresh :: s `IsScalarOf` t -> DualMonadGradient s (DeltaId s t)
 fresh sd = DualMonadGradient $ do
@@ -559,28 +537,31 @@ bind dId delta =
           st {deltaBindings = DeltaBinding dId delta : deltaBindings st}
       )
 
-deltaLetId :: Delta s t -> DualMonadGradient s (DeltaId s t)
+deltaLetId ::
+  Known (s `IsScalarOf` t) => Delta s t -> DualMonadGradient s (DeltaId s t)
 deltaLetId delta = do
-  dId <- fresh (knownDelta delta)
+  dId <- fresh known
   bind dId delta
   pure dId
 
-instance DualMonad (Delta s) (DualMonadGradient s) where
+instance DualMonad Delta DualMonadGradient where
   deltaLet delta = fmap Var (deltaLetId delta)
 
-newtype DualMonadValue a = DualMonadValue
+type DualMonadValue :: Type -> Type -> Type
+newtype DualMonadValue s a = DualMonadValue
   {runDualMonadValue :: Identity a}
   deriving newtype (Monad, Functor, Applicative)
 
-data Unit (t :: Type) = Unit
+type Unit :: Type -> Type -> Type
+data Unit s t = Unit
 
 instance DualMonad Unit DualMonadValue where
   deltaLet = pure
 
-newtype DualMonadForward a = DualMonadForward (Identity a)
+newtype DualMonadForward s a = DualMonadForward (Identity a)
   deriving newtype (Monad, Functor, Applicative)
 
-runDualMonadForward :: DualMonadForward a -> a
+runDualMonadForward :: DualMonadForward s a -> a
 runDualMonadForward (DualMonadForward m) = runIdentity m
 
 instance DualMonad Concrete DualMonadForward where
@@ -589,8 +570,8 @@ instance DualMonad Concrete DualMonadForward where
 dSingleArgForward ::
   t ->
   t ->
-  ( Dual Concrete t ->
-    DualMonadForward (D r (Concrete r))
+  ( Dual (Concrete s) t ->
+    DualMonadForward s (D r (Concrete s r))
   ) ->
   (r, r)
 dSingleArgForward t t' f =
@@ -600,21 +581,21 @@ dSingleArgForward t t' f =
 dDoubleArgForward ::
   (t1, t2) ->
   (t1, t2) ->
-  ( (Dual Concrete t1, Dual Concrete t2) ->
-    DualMonadForward (D r (Concrete r))
+  ( (Dual (Concrete s) t1, Dual (Concrete s) t2) ->
+    DualMonadForward s (D r (Concrete s r))
   ) ->
   (r, r)
 dDoubleArgForward (t, t') (dt, dt') f =
-  let D r d = runDualMonadForward (f (D t (concrete dt), (D t' (concrete dt'))))
+  let D r d = runDualMonadForward (f (D t (concrete dt), D t' (concrete dt')))
    in (r, unConcrete d)
 
 dMultiArgForward ::
   (Data.Vector.Vector t, Data.Vector.Vector t) ->
   (Data.Vector.Vector t', Data.Vector.Vector t') ->
-  ( ( Data.Vector.Vector (D t (Concrete t)),
-      Data.Vector.Vector (D t' (Concrete t'))
+  ( ( Data.Vector.Vector (D t (Concrete s t)),
+      Data.Vector.Vector (D t' (Concrete s t'))
     ) ->
-    DualMonadForward (D r (Concrete r))
+    DualMonadForward s (D r (Concrete s r))
   ) ->
   (r, r)
 dMultiArgForward (t, dt) (t', dt') f =
@@ -627,23 +608,23 @@ dMultiArgForward (t, dt) (t', dt') f =
           )
    in (r, unConcrete d)
 
-dValue :: DualMonadValue (D t (Unit t)) -> t
+dValue :: DualMonadValue s (D t (Unit s t)) -> t
 dValue = (\case D r _ -> r) . runIdentity . runDualMonadValue
 
 dLetS ::
-  forall (dual :: Type -> Type) t m.
-  DualMonad dual m =>
-  Dual dual t ->
-  m (Dual dual t)
+  forall (dual :: Type -> Type -> Type) t m s.
+  (DualMonad dual m, Known (IsScalarOf s t)) =>
+  Dual (dual s) t ->
+  m s (Dual (dual s) t)
 dLetS (D x y) = do
   y' <- deltaLet y
   pure (D x y')
 
 dLet ::
-  forall dual t m.
-  DualMonad dual m =>
-  Dual dual t ->
-  m (Dual dual t)
+  forall dual t m s.
+  (DualMonad dual m, Known (IsScalarOf s t)) =>
+  Dual (dual s) t ->
+  m s (Dual (dual s) t)
 dLet = dLetS
 
 newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
@@ -724,13 +705,14 @@ type Dual dual t = D t (dual t)
 class Ops f dual where
   ops :: f dual t -> dual t
 
-newtype Concrete (t :: Type) where
-  C :: {unConcrete :: t} -> Concrete t
+type Concrete :: Type -> Type -> Type
+newtype Concrete s t where
+  C :: {unConcrete :: t} -> Concrete s t
 
-concrete :: t -> Concrete t
+concrete :: t -> Concrete s t
 concrete = C
 
-instance (Num r, HM.Numeric r) => Ops (DeltaF r) Concrete where
+instance (Num r, HM.Numeric r) => Ops (DeltaF r) (Concrete s) where
   ops = \case
     Zero0 -> C 0
     Add0 (C x1) (C x2) -> C (x1 + x2)
@@ -752,7 +734,7 @@ instance (Num r, HM.Numeric r) => Ops (DeltaF r) Concrete where
     ScalePointwiseS (C de) a -> C (OS.zipWithA (*) de a)
     SumElementsS (C de) -> C (OS.sumA de)
 
-instance Ops (DeltaF r) Unit where
+instance Ops (DeltaF r) (Unit s) where
   ops = \case
     Zero0 {} -> Unit
     Add0 {} -> Unit
@@ -778,7 +760,7 @@ instance r' ~ r => Ops (DeltaF r') (Delta r) where
   ops = Delta
 
 baz ::
-  ( Ops (DeltaF s) dual,
+  ( Ops (DeltaF s) (dual s),
     HM.Numeric s,
     KnownNat l,
     KnownNat n,
@@ -786,17 +768,17 @@ baz ::
     KnownNat p,
     Applicative dualMonadGradient
   ) =>
-  ( Dual dual (OS.Array '[m, n] s),
-    Dual dual (OS.Array '[n, p] s)
+  ( Dual (dual s) (OS.Array '[m, n] s),
+    Dual (dual s) (OS.Array '[n, p] s)
   ) ->
-  dualMonadGradient (Dual dual (OS.Array '[l, p] s))
+  dualMonadGradient (Dual (dual s) (OS.Array '[l, p] s))
 baz (x, y) = pure (konstS 2 `mulSDual` x `mulSDual` y)
 
 data ARecord a b c = ARecord a b c
 
 bazRecord ::
   ( Applicative f,
-    Ops (DeltaF s) dual,
+    Ops (DeltaF s) (dual s),
     HM.Numeric s,
     KnownNat l,
     KnownNat m,
@@ -805,26 +787,26 @@ bazRecord ::
     KnownNat q
   ) =>
   ARecord
-    (Dual dual (OS.Array '[m, n] s))
-    (Dual dual (OS.Array '[n, p] s))
-    (Dual dual (OS.Array '[p, q] s)) ->
-  f (Dual dual (OS.Array '[l, q] s))
+    (Dual (dual s) (OS.Array '[m, n] s))
+    (Dual (dual s) (OS.Array '[n, p] s))
+    (Dual (dual s) (OS.Array '[p, q] s)) ->
+  f (Dual (dual s) (OS.Array '[l, q] s))
 bazRecord (ARecord x y z) = pure (konstS 2 `mulSDual` x `mulSDual` y `mulSDual` z)
 
 bar ::
-  (HM.Numeric s, DualMonad dual m, Ops (DeltaF s) dual) =>
-  Dual dual (Vector s) ->
-  m (Dual dual s)
+  (HM.Numeric s, DualMonad dual m, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) (Vector s) ->
+  m s (Dual (dual s) s)
 bar v = do
   x <- index v 0
   y <- index v 1
   foo x y
 
 foo ::
-  (DualMonad dual m, Num s, Ops (DeltaF s) dual) =>
-  Dual dual s ->
-  Dual dual s ->
-  m (Dual dual s)
+  (DualMonad dual m, Num s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) s ->
+  Dual (dual s) s ->
+  m s (Dual (dual s) s)
 foo x y = do
   x2 <- x .* x
   x2y <- x2 .* y
@@ -948,161 +930,161 @@ squaredDifference ::
 squaredDifference targ res = square $ res - constant targ
 
 (.+) ::
-  (DualMonad dual m, Num s, Ops (DeltaF s) dual) =>
-  Dual dual s ->
-  Dual dual s ->
-  m (Dual dual s)
+  (DualMonad dual m, Num s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) s ->
+  Dual (dual s) s ->
+  m s (Dual (dual s) s)
 D x x' .+ D y y' =
   dLet $ D (x + y) (ops (Add0 x' y'))
 
 (.*) ::
-  (DualMonad dual m, Num s, Ops (DeltaF s) dual) =>
-  Dual dual s ->
-  Dual dual s ->
-  m (Dual dual s)
+  (DualMonad dual m, Num s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) s ->
+  Dual (dual s) s ->
+  m s (Dual (dual s) s)
 D x x' .* D y y' =
   dLet $ D (x * y) (ops (Add0 (ops (Scale0 y x')) (ops (Scale0 x y'))))
 
 index ::
-  (HM.Numeric s, Ops (DeltaF s) dual, DualMonad dual m) =>
-  Dual dual (Vector s) ->
+  (HM.Numeric s, Ops (DeltaF s) (dual s), DualMonad dual m) =>
+  Dual (dual s) (Vector s) ->
   Int ->
-  m (Dual dual s)
+  m s (Dual (dual s) s)
 index (D v v') i = dLet $ D (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
 
 sumElements ::
-  (HM.Numeric s, Ops (DeltaF s) dual) =>
-  Dual dual (Vector s) ->
-  Dual dual s
+  (HM.Numeric s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) (Vector s) ->
+  Dual (dual s) s
 sumElements (D u u') = D (HM.sumElements u) (dSumElements u' (HM.size u))
 
 sumElementsS ::
-  (HM.Numeric s, Ops (DeltaF s) dual, OS.Shape sh) =>
-  Dual dual (OS.Array sh s) ->
-  Dual dual s
+  (HM.Numeric s, Ops (DeltaF s) (dual s), OS.Shape sh) =>
+  Dual (dual s) (OS.Array sh s) ->
+  Dual (dual s) s
 sumElementsS (D u u') = D (OS.sumA u) (ops (SumElementsS u'))
 
 konstS ::
-  (Storable s, OS.Shape sh, Ops (DeltaF s) dual) =>
-  Dual dual s ->
-  Dual dual (OS.Array sh s)
+  (Storable s, OS.Shape sh, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) s ->
+  Dual (dual s) (OS.Array sh s)
 konstS (D u u') = D (OS.constant u) (ops (KonstS u'))
 
 mkonstS ::
   ( Storable s,
     OS.Shape sh,
-    Ops (DeltaF s) dual,
+    Ops (DeltaF s) (dual s),
     DualMonad dual m
   ) =>
-  Dual dual s ->
-  m (Dual dual (OS.Array sh s))
+  Dual (dual s) s ->
+  m s (Dual (dual s) (OS.Array sh s))
 mkonstS (D u u') = dLet $ D (OS.constant u) (ops (KonstS u'))
 
 mulSDual ::
-  (Ops (DeltaF s) dual, HM.Numeric s, KnownNat p, KnownNat m, KnownNat n) =>
-  Dual dual (OS.Array [m, n] s) ->
-  Dual dual (OS.Array [n, p] s) ->
-  Dual dual (OS.Array [m, p] s)
+  (Ops (DeltaF s) (dual s), HM.Numeric s, KnownNat p, KnownNat m, KnownNat n) =>
+  Dual (dual s) (OS.Array [m, n] s) ->
+  Dual (dual s) (OS.Array [n, p] s) ->
+  Dual (dual s) (OS.Array [m, p] s)
 mulSDual (D x dx) (D y dy) =
   D (mulS x y) (ops (AddS (ops (MulS1 dx y)) (ops (MulS2 x dy))))
 
 addSDual ::
   ( HM.Numeric s,
     OS.Shape sh,
-    Ops (DeltaF s) dual
+    Ops (DeltaF s) (dual s)
   ) =>
-  Dual dual (OS.Array sh s) ->
-  Dual dual (OS.Array sh s) ->
-  Dual dual (OS.Array sh s)
+  Dual (dual s) (OS.Array sh s) ->
+  Dual (dual s) (OS.Array sh s) ->
+  Dual (dual s) (OS.Array sh s)
 addSDual (D x dx) (D y dy) = D (addS x y) (ops (AddS dx dy))
 
 negateSDual ::
   ( Num s,
-    Ops (DeltaF s) dual,
+    Ops (DeltaF s) (dual s),
     OS.Shape sh,
     Storable s
   ) =>
-  Dual dual (OS.Array sh s) ->
-  Dual dual (OS.Array sh s)
+  Dual (dual s) (OS.Array sh s) ->
+  Dual (dual s) (OS.Array sh s)
 negateSDual (D x dx) = D (OS.mapA negate x) (ops (NegateS dx))
 
 minusSDual ::
-  (HM.Numeric s, OS.Shape sh, Ops (DeltaF s) dual) =>
-  Dual dual (OS.Array sh s) ->
-  Dual dual (OS.Array sh s) ->
-  Dual dual (OS.Array sh s)
+  (HM.Numeric s, OS.Shape sh, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) (OS.Array sh s) ->
+  Dual (dual s) (OS.Array sh s) ->
+  Dual (dual s) (OS.Array sh s)
 minusSDual x y = addSDual x (negateSDual y)
 
 reluSDual ::
   ( Num s,
     Ord s,
-    Ops (DeltaF s) dual,
+    Ops (DeltaF s) (dual s),
     OS.Shape sh,
     Storable s
   ) =>
-  Dual dual (OS.Array sh s) ->
-  Dual dual (OS.Array sh s)
+  Dual (dual s) (OS.Array sh s) ->
+  Dual (dual s) (OS.Array sh s)
 reluSDual (D x dx) =
   D
     (reluS x)
     (ops (ScalePointwiseS dx (OS.mapA (\s -> if s > 0 then 1 else 0) x)))
 
 expSDual ::
-  (Storable s, OS.Shape sh, Floating s, Ops (DeltaF s) dual) =>
-  Dual dual (OS.Array sh s) ->
-  Dual dual (OS.Array sh s)
+  (Storable s, OS.Shape sh, Floating s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) (OS.Array sh s) ->
+  Dual (dual s) (OS.Array sh s)
 expSDual (D x dx) =
   D exp_x (ops (ScalePointwiseS dx exp_x))
   where
     exp_x = OS.mapA exp x
 
 logSDual ::
-  (Storable s, OS.Shape sh, Floating s, Ops (DeltaF s) dual) =>
-  Dual dual (OS.Array sh s) ->
-  Dual dual (OS.Array sh s)
+  (Storable s, OS.Shape sh, Floating s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) (OS.Array sh s) ->
+  Dual (dual s) (OS.Array sh s)
 logSDual (D x dx) =
   D (OS.mapA log x) (ops (ScalePointwiseS dx (OS.mapA recip x)))
 
 logSumExpDual ::
   ( Floating s,
-    Ops (DeltaF s) dual,
+    Ops (DeltaF s) (dual s),
     HM.Numeric s,
     KnownNat m,
     KnownNat n
   ) =>
-  Dual dual (OS.Array '[m, n] s) ->
-  Dual dual (OS.Array '[m, 1] s)
+  Dual (dual s) (OS.Array '[m, n] s) ->
+  Dual (dual s) (OS.Array '[m, 1] s)
 logSumExpDual =
   logSDual . sumAcross . expSDual
 
 constS ::
-  (Ops (DeltaF s) dual, OS.Shape sh, Storable s) =>
+  (Ops (DeltaF s) (dual s), OS.Shape sh, Storable s) =>
   OS.Array sh s ->
-  Dual dual (OS.Array sh s)
+  Dual (dual s) (OS.Array sh s)
 constS x = D x (ops ZeroS)
 
 sumAcross ::
-  ( Ops (DeltaF s) dual,
+  ( Ops (DeltaF s) (dual s),
     HM.Numeric s,
     KnownNat m,
     KnownNat n
   ) =>
-  Dual dual (OS.Array '[m, n] s) ->
-  Dual dual (OS.Array '[m, 1] s)
+  Dual (dual s) (OS.Array '[m, n] s) ->
+  Dual (dual s) (OS.Array '[m, 1] s)
 sumAcross = (`mulSDual` constS (OS.constant 1))
 
 dotAcross ::
-  (Ops (DeltaF s) dual, HM.Numeric s, KnownNat m, KnownNat n) =>
-  Dual dual (OS.Array '[m, n] s) ->
-  Dual dual (OS.Array '[m, n] s) ->
-  Dual dual (OS.Array '[m, 1] s)
+  (Ops (DeltaF s) (dual s), HM.Numeric s, KnownNat m, KnownNat n) =>
+  Dual (dual s) (OS.Array '[m, n] s) ->
+  Dual (dual s) (OS.Array '[m, n] s) ->
+  Dual (dual s) (OS.Array '[m, 1] s)
 dotAcross x y = sumAcross (pointwiseMulSDual x y)
 
 pointwiseMulSDual ::
-  (Storable s, OS.Shape sh, Num s, Ops (DeltaF s) dual) =>
-  Dual dual (OS.Array sh s) ->
-  Dual dual (OS.Array sh s) ->
-  Dual dual (OS.Array sh s)
+  (Storable s, OS.Shape sh, Num s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) (OS.Array sh s) ->
+  Dual (dual s) (OS.Array sh s) ->
+  Dual (dual s) (OS.Array sh s)
 pointwiseMulSDual (D x dx) (D y dy) =
   D
     (OS.zipWithA (*) x y)
@@ -1111,17 +1093,17 @@ pointwiseMulSDual (D x dx) (D y dy) =
 softMaxCrossEntropy ::
   forall s dual labels samples m.
   ( Floating s,
-    Ops (DeltaF s) dual,
+    Ops (DeltaF s) (dual s),
     KnownNat labels,
     KnownNat samples,
     HM.Numeric s,
     DualMonad dual m
   ) =>
   -- | Log predicted probability
-  Dual dual (OS.Array [samples, labels] s) ->
+  Dual (dual s) (OS.Array [samples, labels] s) ->
   -- | One hot
   OS.Array [samples, labels] s ->
-  m (Dual dual s)
+  m s (Dual (dual s) s)
 softMaxCrossEntropy logProbs groundTruth = do
   r <- partialsoftMaxCrossEntropy logProbs groundTruth
   pure (sumElementsS r)
@@ -1129,24 +1111,24 @@ softMaxCrossEntropy logProbs groundTruth = do
 partialsoftMaxCrossEntropy ::
   forall s dual labels samples m.
   ( Floating s,
-    Ops (DeltaF s) dual,
+    Ops (DeltaF s) (dual s),
     KnownNat labels,
     KnownNat samples,
     HM.Numeric s,
     DualMonad dual m
   ) =>
   -- | Log predicted probability
-  Dual dual (OS.Array [samples, labels] s) ->
+  Dual (dual s) (OS.Array [samples, labels] s) ->
   -- | One hot
   OS.Array [samples, labels] s ->
-  m (Dual dual (OS.Array [samples, 1] s))
+  m s (Dual (dual s) (OS.Array [samples, 1] s))
 partialsoftMaxCrossEntropy logProbs' groundTruth = do
   logProbs <- dLet logProbs'
 
-  let totalLogProb :: Dual dual (OS.Array [samples, 1] s)
+  let totalLogProb :: Dual (dual s) (OS.Array [samples, 1] s)
       totalLogProb = logSumExpDual logProbs
 
-      crossEntropyComponents :: Dual dual (OS.Array [samples, 1] s)
+      crossEntropyComponents :: Dual (dual s) (OS.Array [samples, 1] s)
       crossEntropyComponents = logProbs `dotAcross` constS groundTruth
 
   pure (crossEntropyComponents `minusSDual` totalLogProb)
@@ -1240,7 +1222,7 @@ example3Forward2 =
   dSingleArgForward (HM.fromList [10, 20]) (HM.fromList [0, 1]) bar
 
 dSingleArg ::
-  (HM.Numeric s, Known (IsScalarOf s t)) =>
+  (HM.Numeric s, Known (IsScalarOf s t), Known (IsScalarOf s r)) =>
   -- | Primal argument
   t ->
   -- | Incoming gradient (usually r ~ Double and r = 1)
@@ -1254,7 +1236,8 @@ dSingleArg = runDualMonadAdapt . adaptArg
 dDoubleArg ::
   ( HM.Numeric s,
     Known (IsScalarOf s t1),
-    Known (IsScalarOf s t2)
+    Known (IsScalarOf s t2),
+    Known (IsScalarOf s r)
   ) =>
   (t1, t2) ->
   r ->
@@ -1267,7 +1250,8 @@ dDoubleArg (t1, t2) = runDualMonadAdapt (liftB2 (adaptArg t1) (adaptArg t2))
 dMultiArg ::
   ( HM.Numeric s,
     Known (IsScalarOf s t1),
-    Known (IsScalarOf s t2)
+    Known (IsScalarOf s t2),
+    Known (IsScalarOf s r)
   ) =>
   Data.Vector.Vector t1 ->
   Data.Vector.Vector t2 ->
@@ -1302,10 +1286,10 @@ testAgainForward =
     ++ testQuadSimpleForward
 
 quad ::
-  (DualMonad dual m, Num s, Ops (DeltaF s) dual) =>
-  Dual dual s ->
-  Dual dual s ->
-  m (Dual dual s)
+  (DualMonad dual m, Num s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) s ->
+  Dual (dual s) s ->
+  m s (Dual (dual s) s)
 quad x y = do
   x2 <- dLet $ square x
   y2 <- y .* y
@@ -1313,11 +1297,11 @@ quad x y = do
   tmp .+ 5
 
 quadVariables ::
-  (DualMonad dual m, Num s, Ops (DeltaF s) dual) =>
-  ( Data.Vector.Vector (Dual dual s),
-    Data.Vector.Vector (Dual dual t2)
+  (DualMonad dual m, Num s, Ops (DeltaF s) (dual s)) =>
+  ( Data.Vector.Vector (Dual (dual s) s),
+    Data.Vector.Vector (Dual (dual s) t2)
   ) ->
-  m (Dual dual s)
+  m s (Dual (dual s) s)
 quadVariables (xyzVector, _) = do
   let x = xyzVector V.! 0
       y = xyzVector V.! 1
@@ -1345,28 +1329,28 @@ testQuadSimpleForward =
       ]
 
 foldl'0 ::
-  (HM.Numeric s, Ops (DeltaF s) dual) =>
-  (Dual dual s -> Dual dual s -> Dual dual s) ->
-  Dual dual s ->
-  Dual dual (Vector s) ->
-  Dual dual s
+  (HM.Numeric s, Ops (DeltaF s) (dual s)) =>
+  (Dual (dual s) s -> Dual (dual s) s -> Dual (dual s) s) ->
+  Dual (dual s) s ->
+  Dual (dual s) (Vector s) ->
+  Dual (dual s) s
 foldl'0 f uu' (D v v') =
   let k = V.length v
       g !acc ix p = f (D p (ops (Index0 v' ix k))) acc
    in V.ifoldl' g uu' v
 
 altSumElements0 ::
-  (HM.Numeric s, Ops (DeltaF s) dual) =>
-  Dual dual (Vector s) ->
-  Dual dual s
+  (HM.Numeric s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) (Vector s) ->
+  Dual (dual s) s
 altSumElements0 = foldl'0 (+) 0
 
 vec_omit_scalarSum ::
-  (RealFloat s, Ops (DeltaF s) dual) =>
-  ( Data.Vector.Vector (Dual dual s),
-    Data.Vector.Vector (Dual dual t2)
+  (RealFloat s, Ops (DeltaF s) (dual s)) =>
+  ( Data.Vector.Vector (Dual (dual s) s),
+    Data.Vector.Vector (Dual (dual s) t2)
   ) ->
-  Dual dual s
+  Dual (dual s) s
 vec_omit_scalarSum (v, _) = V.foldl' (+) 0 v
 
 testThreeVariantsOfSumElement ::
@@ -1408,19 +1392,19 @@ atanReadmeOriginal x y z =
    in V.fromList [atan2 z w, z * x]
 
 atanReadmeD ::
-  (RealFloat s, Ops (DeltaF s) dual) =>
-  Dual dual s ->
-  Dual dual s ->
-  Dual dual s ->
-  Data.Vector.Vector (Dual dual s)
+  (RealFloat s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) s ->
+  Dual (dual s) s ->
+  Dual (dual s) s ->
+  Data.Vector.Vector (Dual (dual s) s)
 atanReadmeD x y z = atanReadmeOriginal x y z
 
 atanReadmeVariables ::
-  (RealFloat s, Ops (DeltaF s) dual) =>
-  ( Data.Vector.Vector (Dual dual s),
-    Data.Vector.Vector (D t2 (dual t2))
+  (RealFloat s, Ops (DeltaF s) (dual s)) =>
+  ( Data.Vector.Vector (Dual (dual s) s),
+    Data.Vector.Vector (Dual (dual t2) t2)
   ) ->
-  Data.Vector.Vector (Dual dual s)
+  Data.Vector.Vector (Dual (dual s) s)
 atanReadmeVariables (xyzVector, _) =
   let x = xyzVector V.! 0
       y = xyzVector V.! 1
@@ -1428,48 +1412,48 @@ atanReadmeVariables (xyzVector, _) =
    in atanReadmeOriginal x y z
 
 sumElementsOfDualNumbers ::
-  (Num s, Ops (DeltaF s) dual) =>
-  Data.Vector.Vector (Dual dual s) ->
-  Dual dual s
+  (Num s, Ops (DeltaF s) (dual s)) =>
+  Data.Vector.Vector (Dual (dual s) s) ->
+  Dual (dual s) s
 sumElementsOfDualNumbers = V.foldl' (+) 0
 
 atanReadmeScalar ::
-  (RealFloat s, Ops (DeltaF s) dual) =>
-  ( Data.Vector.Vector (Dual dual s),
-    Data.Vector.Vector (Dual dual t2)
+  (RealFloat s, Ops (DeltaF s) (dual s)) =>
+  ( Data.Vector.Vector (Dual (dual s) s),
+    Data.Vector.Vector (Dual (dual s) s)
   ) ->
-  Dual dual s
+  Dual (dual s) s
 atanReadmeScalar = sumElementsOfDualNumbers . atanReadmeVariables
 
 atanReadmeM ::
-  (DualMonad dual m, Ops (DeltaF s) dual, RealFloat s) =>
-  ( Data.Vector.Vector (Dual dual s),
-    Data.Vector.Vector (Dual dual t2)
+  (DualMonad dual m, Ops (DeltaF s) (dual s), RealFloat s) =>
+  ( Data.Vector.Vector (Dual (dual s) s),
+    Data.Vector.Vector (Dual (dual s) s)
   ) ->
-  m (Dual dual s)
+  m s (Dual (dual s) s)
 atanReadmeM = dLet . atanReadmeScalar
 
 indexNoM ::
-  (HM.Numeric s, Ops (DeltaF s) dual) =>
-  Dual dual (Vector s) ->
+  (HM.Numeric s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) (Vector s) ->
   Int ->
-  Dual dual s
+  Dual (dual s) s
 indexNoM (D v v') i =
   D (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
 
 seq1 ::
-  (HM.Numeric s, Ops (DeltaF s) dual) =>
-  Data.Vector.Vector (Dual dual s) ->
-  Dual dual (Vector s)
+  (HM.Numeric s, Ops (DeltaF s) (dual s)) =>
+  Data.Vector.Vector (Dual (dual s) s) ->
+  Dual (dual s) (Vector s)
 seq1 v =
   D
     (HM.fromList $ map (\(D x _) -> x) $ Data.Vector.toList v)
     (ops $ Seq1 $ fmap (\(D _ x) -> x) v)
 
 vatanReadmeM ::
-  (DualMonad dual m, HM.Numeric s, RealFloat s, Ops (DeltaF s) dual) =>
-  Dual dual (Vector s) ->
-  m (Dual dual s)
+  (DualMonad dual m, HM.Numeric s, RealFloat s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) (Vector s) ->
+  m s (Dual (dual s) s)
 vatanReadmeM xyzVector = do
   let x = indexNoM xyzVector 0
       y = indexNoM xyzVector 1
@@ -1482,10 +1466,10 @@ vatanReadmeM xyzVector = do
 infixr 8 <.>!!
 
 (<.>!!) ::
-  (HM.Numeric s, Ops (DeltaF s) dual) =>
-  Dual dual (Vector s) ->
+  (HM.Numeric s, Ops (DeltaF s) (dual s)) =>
+  Dual (dual s) (Vector s) ->
   Vector s ->
-  Dual dual s
+  Dual (dual s) s
 (<.>!!) (D u u') v = D (u HM.<.> v) (ops (Dot1 v u'))
 
 testTwoVariantsOfatanReadme ::
