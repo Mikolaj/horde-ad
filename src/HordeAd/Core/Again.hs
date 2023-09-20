@@ -60,9 +60,6 @@ instance Known (a `IsScalarOf` Vector a) where
 instance (OS.Shape sh, Storable a) => Known (a `IsScalarOf` OS.Array sh a) where
   known = SShapedS
 
-instance Known (Unit s a) where
-  known = Unit
-
 knowIsScalarOf :: s `IsScalarOf` t -> (Known (s `IsScalarOf` t) => r) -> r
 knowIsScalarOf s r = case s of
   SScalar -> r
