@@ -705,16 +705,9 @@ runDualMonadST :: (forall st. DualMonadST st s (ST st a)) -> a
 runDualMonadST d = runST (do d' <- runDualMonadST' d; d')
 
 type DeltaST :: Type -> Type -> Type -> Type
-data DeltaST st s t where
+newtype DeltaST st s t where
   DeltaST :: {accumulateDelta :: t -> ST st ()} -> DeltaST st s t
-
--- TODO: Just derive this?
-instance Semigroup (DeltaST st s t) where
-  DeltaST acc1 <> DeltaST acc2 = DeltaST (acc1 <> acc2)
-
--- TODO: Just derive this?
-instance Monoid (DeltaST st s t) where
-  mempty = DeltaST mempty
+  deriving newtype (Semigroup, Monoid)
 
 instance DualMonad (DeltaST st) (DualMonadST st) where
   deltaLet = \(deltaST :: DeltaST st s t) -> DualMonadST $ do
