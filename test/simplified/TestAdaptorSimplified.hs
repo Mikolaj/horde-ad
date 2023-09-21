@@ -76,6 +76,12 @@ testTrees =
   , testCase "2listProdrLongPP" testListProdrLongPP
   , testCase "2listProd" testListProd
   , testCase "2listProdr" testListProdr
+  , testCase "2listSumrPP" testListSumrPP
+  , testCase "2listSum2rPP" testListSum2rPP
+  , testCase "2listSum22rPP" testListSum22rPP
+  , testCase "2listSumk22rPP" testListSumk22rPP
+  , testCase "2listSum23rPP" testListSum23rPP
+  , testCase "223PP" test23PP
   , testCase "2reluPP" testReluPP
   , testCase "2reluPP2" testReluPP2
   , testCase "2reluSimpler" testReluSimpler
@@ -644,6 +650,118 @@ testListProdr = do
   assertEqualUpToEpsilon 1e-10
     [24, 12, 8, 6]
     (rev @Double @0 @AstRanked rankedListProdr [1, 2, 3, 4])
+
+rankedListSumr :: (RankedTensor ranked, GoodScalar r)
+                => [ranked r 0] -> ranked r 0
+rankedListSumr = foldr1 (+)
+
+testListSumrPP :: Assertion
+testListSumrPP = do
+  resetVarCounter >> resetIdCounter
+  let renames = IM.empty
+      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT = rankedListSumr
+  let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
+  printGradient6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\dret x2 x3 x4 x5 -> (dret, dret, dret, dret)"
+  printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\x2 x3 x4 x5 -> x2 + x3 + x4 + x5"
+  show deltas
+    @?= "LetR 100000003 (AddR (InputR [] (InputId 0)) (LetR 100000002 (AddR (InputR [] (InputId 1)) (LetR 100000001 (AddR (InputR [] (InputId 2)) (InputR [] (InputId 3)))))))"
+
+-- Note that the function is not associative, so foldr vs foldl matters.
+rankedListSum2r :: (RankedTensor ranked, GoodScalar r)
+                => [ranked r 0] -> ranked r 0
+rankedListSum2r = foldr1 (\x y -> x + 2 * y)
+
+testListSum2rPP :: Assertion
+testListSum2rPP = do
+  resetVarCounter >> resetIdCounter
+  let renames = IM.empty
+      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT = rankedListSum2r
+  let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
+  printGradient6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\dret x2 x3 x4 x5 -> let x8 = tconst 2.0 * dret ; x9 = tconst 2.0 * x8 in (dret, x8, x9, tconst 2.0 * x9)"
+  printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\x2 x3 x4 x5 -> x2 + tconst 2.0 * (x3 + tconst 2.0 * (x4 + tconst 2.0 * x5))"
+  show deltas
+    @?= "LetR 100000006 (AddR (InputR [] (InputId 0)) (LetR 100000005 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000004 (AddR (InputR [] (InputId 1)) (LetR 100000003 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000002 (AddR (InputR [] (InputId 2)) (LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 3)))))))))))))"
+
+rankedListSum22r :: (RankedTensor ranked, GoodScalar r)
+                 => [ranked r 0] -> ranked r 0
+rankedListSum22r = foldr1 (\x y -> 2 * x + 2 * y)
+
+testListSum22rPP :: Assertion
+testListSum22rPP = do
+  resetVarCounter >> resetIdCounter
+  let renames = IM.empty
+      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT = rankedListSum22r
+  let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
+  printGradient6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\dret x2 x3 x4 x5 -> let x8 = tconst 2.0 * dret ; x9 = tconst 2.0 * x8 in (tconst 2.0 * dret, tconst 2.0 * x8, tconst 2.0 * x9, tconst 2.0 * x9)"
+  printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\x2 x3 x4 x5 -> tconst 2.0 * x2 + tconst 2.0 * (tconst 2.0 * x3 + tconst 2.0 * (tconst 2.0 * x4 + tconst 2.0 * x5))"
+  show deltas
+    @?= "LetR 100000009 (AddR (LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 0)))) (LetR 100000008 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000007 (AddR (LetR 100000002 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 1)))) (LetR 100000006 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000005 (AddR (LetR 100000003 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 2)))) (LetR 100000004 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 3)))))))))))))"
+
+-- Note how this tlet did not change anything, in particular the sharing.
+rankedListSumk22r :: (RankedTensor ranked, GoodScalar r)
+                 => [ranked r 0] -> ranked r 0
+rankedListSumk22r = foldr1 (\x y -> tlet 2 (\k -> k * x + k * y))
+
+testListSumk22rPP :: Assertion
+testListSumk22rPP = do
+  resetVarCounter >> resetIdCounter
+  let renames = IM.empty
+      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT = rankedListSumk22r
+  let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
+  printGradient6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\dret x2 x3 x4 x5 -> let x8 = tconst 2.0 * dret ; x9 = tconst 2.0 * x8 in (tconst 2.0 * dret, tconst 2.0 * x8, tconst 2.0 * x9, tconst 2.0 * x9)"
+  printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\x2 x3 x4 x5 -> tconst 2.0 * x2 + tconst 2.0 * (tconst 2.0 * x3 + tconst 2.0 * (tconst 2.0 * x4 + tconst 2.0 * x5))"
+  show deltas
+    @?= "LetR 100000009 (AddR (LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 0)))) (LetR 100000008 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000007 (AddR (LetR 100000002 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 1)))) (LetR 100000006 (ScaleR (AstConst (fromList [] [2.0])) (LetR 100000005 (AddR (LetR 100000003 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 2)))) (LetR 100000004 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 3)))))))))))))"
+
+-- Note that the function is not associative, so foldr vs foldl matters.
+rankedListSum23r :: (RankedTensor ranked, GoodScalar r)
+                 => [ranked r 0] -> ranked r 0
+rankedListSum23r = foldr1 (\x y -> 2 * x + 3 * y)
+
+testListSum23rPP :: Assertion
+testListSum23rPP = do
+  resetVarCounter >> resetIdCounter
+  let renames = IM.empty
+      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT = rankedListSum23r
+  let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
+  printGradient6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\dret x2 x3 x4 x5 -> let x8 = tconst 3.0 * dret ; x9 = tconst 3.0 * x8 in (tconst 2.0 * dret, tconst 2.0 * x8, tconst 2.0 * x9, tconst 3.0 * x9)"
+  printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\x2 x3 x4 x5 -> tconst 2.0 * x2 + tconst 3.0 * (tconst 2.0 * x3 + tconst 3.0 * (tconst 2.0 * x4 + tconst 3.0 * x5))"
+  show deltas
+    @?= "LetR 100000009 (AddR (LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 0)))) (LetR 100000008 (ScaleR (AstConst (fromList [] [3.0])) (LetR 100000007 (AddR (LetR 100000002 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 1)))) (LetR 100000006 (ScaleR (AstConst (fromList [] [3.0])) (LetR 100000005 (AddR (LetR 100000003 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 2)))) (LetR 100000004 (ScaleR (AstConst (fromList [] [3.0])) (InputR [] (InputId 3)))))))))))))"
+
+ranked23 :: (RankedTensor ranked, GoodScalar r)
+         => (ranked r 0, ranked r 0) -> ranked r 0
+ranked23 = \(x, y) -> 2 * x + 3 * y
+
+test23PP :: Assertion
+test23PP = do
+  resetVarCounter >> resetIdCounter
+  let renames = IM.empty
+      fT :: (AstRanked FullSpan Double 0, AstRanked FullSpan Double 0)
+         -> AstRanked FullSpan Double 0
+      fT = ranked23
+  let (artifactRev, deltas)= revArtifactAdapt True fT (4, 5)
+  printGradient6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\dret x2 x3 -> (tconst 2.0 * dret, tconst 3.0 * dret)"
+  printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
+    @?= "\\x2 x3 -> tconst 2.0 * x2 + tconst 3.0 * x3"
+  show deltas
+    @?= "LetR 100000003 (AddR (LetR 100000001 (ScaleR (AstConst (fromList [] [2.0])) (InputR [] (InputId 0)))) (LetR 100000002 (ScaleR (AstConst (fromList [] [3.0])) (InputR [] (InputId 1)))))"
 
 reluPrimal
   :: forall ranked n r.
