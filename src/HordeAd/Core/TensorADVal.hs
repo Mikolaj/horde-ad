@@ -263,6 +263,9 @@ instance ( Dual ranked ~ DeltaR ranked shaped
                    -- element-wise (POPL) version
   tgather sh (D l u u') f =
     dD l (tgather sh u f) (GatherR sh u' f)
+      -- note how f is not interpreted as a function on dual numbers
+      -- but just on integers and so no cotangents for results of application
+      -- of f have to be computed and stored in contangent maps later on
   tcast (D l u u') = dD l (tcast u) (CastR u')
   tfromIntegral (D l u _) =
     let v = tfromIntegral u
@@ -498,25 +501,3 @@ instance ( Dual ranked ~ DeltaR ranked shaped
       dRToS d = RToS d
   ddummy = undefined
   dshape = undefined
-
-
--- Strangely, this variant slows down simplifiedOnlyTest 3 times. Perhaps
--- that's because k is very low and the f functions are simple enough.
---
--- This does not work any more, because the dual numbers produced by f
--- are not simplified to transform ADShare, which breaks some pipelines.
--- Even if they were, the sharing would most likely be missing
--- or redundant or both.
---
--- This may be a problem with gatherNClosure, too, as soon as we have
--- integer sharing and it's shared in the whole transpose result.
-_build1Closure
-  :: ( RankedTensor ranked, KnownNat n, GoodScalar r
-     , Dual ranked ~ DeltaR ranked shaped
-     , IsPrimal ranked r (1 + n) )
-  => Int -> (IntOf ranked -> ADVal ranked r n)
-  -> ADVal ranked r (1 + n)
-_build1Closure k f =  -- stores closures on tape
-  let g i = let D _ u _ = f i in u
-      h i = let D _ _ u' = f i in u'
-  in dD emptyADShare (tbuild1 k g) (BuildR k h)
