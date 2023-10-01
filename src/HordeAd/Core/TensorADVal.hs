@@ -95,7 +95,7 @@ index :: forall ranked shaped m n r.
          , KnownNat m, KnownNat n, GoodScalar r )
       => ADVal ranked r (m + n) -> IndexOf ranked m
       -> ADVal ranked r n
-index (D l u u') ix = dD l (tindex u ix) (IndexR u' ix)
+index (D l u u') ix = dD l (rindex u ix) (IndexR u' ix)
 
 fromList :: ( RankedTensor ranked, IsPrimal ranked r (1 + n)
             , Dual ranked ~ DeltaR ranked shaped
@@ -105,7 +105,7 @@ fromList :: ( RankedTensor ranked, IsPrimal ranked r (1 + n)
 fromList lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
   dD (flattenADShare $ map (\(D l _ _) -> l) lu)
-     (tfromList $ map (\(D _ u _) -> u) lu)
+     (rfromList $ map (\(D _ u _) -> u) lu)
      (FromListR $ map (\(D _ _ u') -> u') lu)
 
 instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
@@ -204,84 +204,84 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          , CRankedIP ranked IsPrimal
          , RankedTensor ranked )
          => RankedTensor (ADVal ranked) where
-  tlet (D l u u') f =
+  rlet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
     in f (D l2 var2 u')
       -- u' doesn't need to be shared, because deltas are shared separately
 
-  tshape (D _ u _) = tshape u
+  rshape (D _ u _) = rshape u
   -- This is very slow, but is fortunately not needed:
-  -- tshape (D l u _) = tshape (tletWrap l u)
+  -- rshape (D l u _) = rshape (rletWrap l u)
   --
   -- All underlying scalars supporting these operations
   -- result in empty delta expression, but it's still advantageous to store
   -- @l@ in the @D@ triple instead of in @u@ via @letWrap@.
   -- When, later on, these are to be treated as indexes, sprimalPart needs
   -- to be called, which moves @l@ to @u@ via @letWrap@.
-  tminIndex (D l u _) =
-    let v = tminIndex u
+  rminIndex (D l u _) =
+    let v = rminIndex u
     in dDnotShared l v (dZeroOfShape v)
-  tmaxIndex (D l u _) =
-    let v = tmaxIndex u
+  rmaxIndex (D l u _) =
+    let v = rmaxIndex u
     in dDnotShared l v (dZeroOfShape v)
-  tfloor (D l u _) =
-    let v = tfloor u
+  rfloor (D l u _) =
+    let v = rfloor u
     in dDnotShared l v (dZeroOfShape v)
 
-  tindex = index
-  tsum (D l u u') = dD l (tsum u) (SumR u')
-  tsum0 (D l u u') = dD l (tsum0 u) (Sum0R u')
-  tdot0 (D l1 ue u') (D l2 ve v') =
+  rindex = index
+  rsum (D l u u') = dD l (rsum u) (SumR u')
+  rsum0 (D l u u') = dD l (rsum0 u) (Sum0R u')
+  rdot0 (D l1 ue u') (D l2 ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
     let !(!l4, v) = recordSharingPrimal ve l3
-    in dD l4 (tdot0 u v) (dAdd (Dot0R v u') (Dot0R u v'))
-  tscatter sh (D l u u') f =
-    dD l (tscatter sh u f) (ScatterR sh u' f)
+    in dD l4 (rdot0 u v) (dAdd (Dot0R v u') (Dot0R u v'))
+  rscatter sh (D l u u') f =
+    dD l (rscatter sh u f) (ScatterR sh u' f)
 
-  tfromList = fromList
-  tfromVector lu =
+  rfromList = fromList
+  rfromVector lu =
     dD (flattenADShare $ map (\(D l _ _) -> l) $ V.toList lu)
-       (tfromVector $ V.map (\(D _ u _) -> u) lu)
+       (rfromVector $ V.map (\(D _ u _) -> u) lu)
        (FromVectorR $ V.map (\(D _ _ u') -> u') lu)
-  tunravelToList (D l u u') =
-    let lu = tunravelToList u
+  runravelToList (D l u u') =
+    let lu = runravelToList u
         f i ui = dD l ui (IndexR u' (singletonIndex $ fromIntegral i))
     in imap f lu
-  treplicate k (D l u u') = dD l (treplicate k u) (ReplicateR k u')
-  tappend (D l1 u u') (D l2 v v') =
-    dD (l1 `mergeADShare` l2) (tappend u v) (AppendR u' v')
-  tslice i n (D l u u') = dD l (tslice i n u) (SliceR i n u')
-  treverse (D l u u') = dD l (treverse u) (ReverseR u')
-  ttranspose perm (D l u u') = dD l (ttranspose perm u) (TransposeR perm u')
-  treshape :: forall n m r. (GoodScalar r, KnownNat n, KnownNat m)
+  rreplicate k (D l u u') = dD l (rreplicate k u) (ReplicateR k u')
+  rappend (D l1 u u') (D l2 v v') =
+    dD (l1 `mergeADShare` l2) (rappend u v) (AppendR u' v')
+  rslice i n (D l u u') = dD l (rslice i n u) (SliceR i n u')
+  rreverse (D l u u') = dD l (rreverse u) (ReverseR u')
+  rtranspose perm (D l u u') = dD l (rtranspose perm u) (TransposeR perm u')
+  rreshape :: forall n m r. (GoodScalar r, KnownNat n, KnownNat m)
            => ShapeInt m -> ADVal ranked r n -> ADVal ranked r m
-  treshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
-    Just Refl | sh == tshape u -> t
-    _ -> dD l (treshape sh u) (ReshapeR sh u')
-  tbuild1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
+  rreshape sh t@(D l u u') = case sameNat (Proxy @m) (Proxy @n) of
+    Just Refl | sh == rshape u -> t
+    _ -> dD l (rreshape sh u) (ReshapeR sh u')
+  rbuild1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
                    -- element-wise (POPL) version
-  tgather sh (D l u u') f =
-    dD l (tgather sh u f) (GatherR sh u' f)
+  rgather sh (D l u u') f =
+    dD l (rgather sh u f) (GatherR sh u' f)
       -- note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
       -- of f have to be computed and stored in contangent maps later on
-  tcast (D l u u') = dD l (tcast u) (CastR u')
-  tfromIntegral (D l u _) =
-    let v = tfromIntegral u
+  rcast (D l u u') = dD l (rcast u) (CastR u')
+  rfromIntegral (D l u _) =
+    let v = rfromIntegral u
     in dDnotShared l v (dZeroOfShape v)
-  tconst t = constantADVal (tconst t)
+  rconst t = constantADVal (rconst t)
 
   raddDynamic = undefined
 
-  tconstant t = let (l, r) = tletUnwrap t in dDnotShared l r (dZeroOfShape r)
-  tprimalPart (D l u _) = tletWrap l u
-  tdualPart (D l _ u') = Pair (Clown (Const l)) u'
-  tD ast (Pair (Clown (Const l)) delta) =
-    let (l2, r) = tletUnwrap ast
+  rconstant t = let (l, r) = rletUnwrap t in dDnotShared l r (dZeroOfShape r)
+  rprimalPart (D l u _) = rletWrap l u
+  rdualPart (D l _ u') = Pair (Clown (Const l)) u'
+  rD ast (Pair (Clown (Const l)) delta) =
+    let (l2, r) = rletUnwrap ast
     in dD (l `mergeADShare` l2) r delta
-  tScale ast (Pair  (Clown (Const l)) delta) =
-    let (l2, r) = tletUnwrap ast
+  rScale ast (Pair  (Clown (Const l)) delta) =
+    let (l2, r) = rletUnwrap ast
     in Pair (Clown (Const (l `mergeADShare` l2))) (dScale r delta)
 
 
@@ -376,7 +376,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
       -- u' doesn't need to be shared, because deltas are shared separately
 
   -- This is very slow, but is fortunately not needed:
-  -- tshape (D l u _) = tshape (tletWrap l u)
+  -- rshape (D l u _) = rshape (rletWrap l u)
   --
   -- All underlying scalars supporting these operations
   -- result in empty delta expression, but it's still advantageous to store

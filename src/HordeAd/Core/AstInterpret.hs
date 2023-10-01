@@ -82,13 +82,13 @@ interpretAstPrimal
 interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimal env u
   AstPrimalPart (AstConstant u) -> interpretAstPrimal env u
-  AstPrimalPart t -> tprimalPart $ interpretAst env t
+  AstPrimalPart t -> rprimalPart $ interpretAst env t
   AstCond b a1 a2 ->  -- this avoids multiple ifF expansions via ifB(ADVal)
     let b1 = interpretAstBool env b
         t2 = interpretAstPrimal env a1
         t3 = interpretAstPrimal env a2
     in ifF b1 t2 t3  -- this is ifF from PrimalOf ranked
-  _ -> tprimalPart $ interpretAst env v1
+  _ -> rprimalPart $ interpretAst env v1
 
 interpretAstDual
   :: forall ranked shaped n r.
@@ -97,8 +97,8 @@ interpretAstDual
   -> AstRanked DualSpan r n -> DualOf ranked r n
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
-  AstDualPart t -> tdualPart $ interpretAst env t
-  _ -> tdualPart $ interpretAst env v1
+  AstDualPart t -> rdualPart $ interpretAst env t
+  _ -> rdualPart $ interpretAst env v1
 
 interpretAstRuntimeSpecialized
   :: forall ranked shaped n s r.
@@ -125,7 +125,7 @@ interpretAst !env = \case
   AstVar sh (AstVarName var) -> case EM.lookup (astVarIdToAstId var) env of
     Just (AstEnvElemR @n2 @r2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> assert (tshape t == sh) t
+        Just Refl -> assert (rshape t == sh) t
         _ -> error "interpretAst: type mismatch"
       _ -> error "interpretAst: wrong shape in environment"
     Just{} -> error "interpretAst: wrong tensor kind in environment"
@@ -135,7 +135,7 @@ interpretAst !env = \case
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
         env2 w = extendEnvR var w env
-    in tlet t (\w -> interpretAst (env2 w) v)
+    in rlet t (\w -> interpretAst (env2 w) v)
   AstLetADShare{} -> error "interpretAst: AstLetADShare"
   AstCond b a1 a2 ->
     let b1 = interpretAstBool env b
@@ -143,11 +143,11 @@ interpretAst !env = \case
         t3 = interpretAst env a2
     in ifF b1 t2 t3
   AstMinIndex v ->
-    tminIndex $ tconstant $ interpretAstPrimalRuntimeSpecialized env v
+    rminIndex $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstMaxIndex v ->
-    tmaxIndex $ tconstant $ interpretAstPrimalRuntimeSpecialized env v
+    rmaxIndex $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstFloor v ->
-    tfloor $ tconstant $ interpretAstPrimalRuntimeSpecialized env v
+    rfloor $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"
   {- TODO: revise when we handle GPUs. For now, this is done in TensorOps
      instead and that's fine, because for one-element carriers,
@@ -206,11 +206,11 @@ interpretAst !env = \case
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid unknown shape of @0@ in @sum@
   AstIndex AstIota (i :. ZI) ->
-    tfromIntegral $ tconstant $ interpretAstPrimal env i
+    rfromIntegral $ rconstant $ interpretAstPrimal env i
   AstIndex v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
-    in tindex v2 ix3
+    in rindex v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
@@ -261,7 +261,7 @@ interpretAst !env = \case
         let interpretMatmul2 t1 u1 =
               let t2 = interpretAst env t1
                   u2 = interpretAst env u1
-              in tmatmul2 t2 u2
+              in rmatmul2 t2 u2
         in case (tperm, uperm) of
           ([2, 1, 0], [1, 0]) ->  -- tk and uk are fine due to perms matching
             interpretMatmul2 t u
@@ -282,41 +282,41 @@ interpretAst !env = \case
           -- The variants below emerge when the whole term is transposed.
           -- All overlap with variants above and the cheaper one is selected.
           ([2, 0, 1], [1, 2, 0]) ->
-            ttr $ interpretMatmul2 t u
+            rtr $ interpretMatmul2 t u
           ([1, 2, 0], [2, 0, 1]) ->
-            ttr $ interpretMatmul2 u t
+            rtr $ interpretMatmul2 u t
 --          ([2, 0, 1], [2, 1, 0]) ->
---            ttr $ interpretMatmul2 t (AstTranspose [1, 0] u)
+--            rtr $ interpretMatmul2 t (AstTranspose [1, 0] u)
 --          ([2, 1, 0], [2, 0, 1]) ->
---            ttr $ interpretMatmul2 u (AstTranspose [1, 0] t)
+--            rtr $ interpretMatmul2 u (AstTranspose [1, 0] t)
 --          ([1, 2, 0], [1, 0]) ->
---            ttr $ interpretMatmul2 (AstTranspose [1, 0] u) t
+--            rtr $ interpretMatmul2 (AstTranspose [1, 0] u) t
 --          ([1, 0], [2, 1, 0]) ->
 --            ttr
 --            $ interpretMatmul2 (AstTranspose [1, 0] t) (AstTranspose [1, 0] u)
 --          ([2, 1, 0], [1, 0]) ->
 --            ttr
 --            $ interpretMatmul2 (AstTranspose [1, 0] u) (AstTranspose [1, 0] t)
-          _ -> tsum $ interpretAst env v
+          _ -> rsum $ interpretAst env v
   AstSum (AstN2 TimesOp t u)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
-        in tdot0 t1 t2
+        in rdot0 t1 t2
           -- TODO: do as a term rewrite using an extended set of terms?
   AstSum (AstReshape _sh (AstN2 TimesOp t u))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
-        in tdot0 t1 t2
+        in rdot0 t1 t2
   AstSum (AstTranspose [1, 0] (AstN2 TimesOp t u))  -- TODO: generalize
     | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
-        in tdot1In t1 t2
+        in rdot1In t1 t2
   AstSum (AstTranspose [1, 0] t)  -- TODO: generalize
     | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
-        tsumIn $ interpretAst env t
+        rsumIn $ interpretAst env t
   AstSum (AstReshape sh (AstTranspose _ t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         interpretAst env (AstSum (AstReshape sh t))
@@ -325,70 +325,70 @@ interpretAst !env = \case
         interpretAst env (AstSum (AstReshape sh t))
   AstSum (AstReshape _sh (AstSum t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        tsum0 $ interpretAst env t
+        rsum0 $ interpretAst env t
   AstSum (AstSum t)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        tsum0 $ interpretAst env t
+        rsum0 $ interpretAst env t
           -- more cases are needed so perhaps we need AstSum0
   AstSum (AstReplicate k v) ->
-    tscaleByScalar (fromIntegral k) $ interpretAst env v
+    rscaleByScalar (fromIntegral k) $ interpretAst env v
   AstSum (AstLet var v t) -> interpretAst env (AstLet var v (AstSum t))
   AstSum (AstReshape sh (AstLet var v t)) ->
     interpretAst env (AstLet var v (AstSum (AstReshape sh t)))
   AstSum (AstReshape _sh t)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        tsum0 $ interpretAst env t
-  AstSum v -> tsum $ interpretAst env v
+        rsum0 $ interpretAst env t
+  AstSum v -> rsum $ interpretAst env v
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
     -- is cheaper, too
   AstScatter sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
-    in tscatter sh t1 f2
+    in rscatter sh t1 f2
   AstFromList l ->
     let l2 = interpretAst env <$> l
-    in tfromList l2
+    in rfromList l2
   AstFromVector l ->
     let l2 = V.map (interpretAst env) l
-    in tfromVector l2
+    in rfromVector l2
   AstReshape sh (AstReplicate @m _ s)
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let t1 = interpretAst env s
-        in treplicate0N sh t1
+        in rreplicate0N sh t1
   AstReshape sh (AstLet var v (AstReplicate k t)) ->
     interpretAst env (AstLet var v (AstReshape sh (AstReplicate k t)))
-  AstReplicate k v -> treplicate k (interpretAst env v)
+  AstReplicate k v -> rreplicate k (interpretAst env v)
   AstAppend x y ->
     let t1 = interpretAst env x
         t2 = interpretAst env y
-    in tappend t1 t2
+    in rappend t1 t2
   AstSlice i n AstIota ->
     interpretAst env
     $ AstConst $ OR.fromList [n] $ map fromIntegral [i .. i + n - 1]
-  AstSlice i n v -> tslice i n (interpretAst env v)
-  AstReverse v -> treverse (interpretAst env v)
-  AstTranspose perm v -> ttranspose perm $ interpretAst env v
-  AstReshape sh v -> treshape sh (interpretAst env v)
+  AstSlice i n v -> rslice i n (interpretAst env v)
+  AstReverse v -> rreverse (interpretAst env v)
+  AstTranspose perm v -> rtranspose perm $ interpretAst env v
+  AstReshape sh v -> rreshape sh (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.
   AstBuild1 k (var, AstSum (AstN2 TimesOp t (AstIndex
                                                u (AstIntVar var2 :. ZI))))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
-    , var == var2, k == tlength u ->
+    , var == var2, k == rlength u ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
-        in tmatvecmul t2 t1
+        in rmatvecmul t2 t1
   AstBuild1 k (var, AstSum
                       (AstReshape @p
                          _sh (AstN2 TimesOp t (AstIndex
                                                  u (AstIntVar var2 :. ZI)))))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
     , Just Refl <- sameNat (Proxy @p) (Proxy @1)
-    , var == var2, k == tlength u ->
+    , var == var2, k == rlength u ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
-        in tmatvecmul t2 t1
-  AstBuild1 0 (_, v) -> tfromList0N (0 :$ tshape v) []
+        in rmatvecmul t2 t1
+  AstBuild1 0 (_, v) -> rfromList0N (0 :$ rshape v) []
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
   -- not to concrete numbers (and so Primal a is not equal to a).
@@ -399,15 +399,15 @@ interpretAst !env = \case
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
   AstBuild1 k (var, v) ->
-    tbuild1 k (interpretLambdaI interpretAst env (var, v))
+    rbuild1 k (interpretLambdaI interpretAst env (var, v))
       -- to be used only in tests
   AstGather sh AstIota (vars, i :. ZI) ->
-    tbuild sh (interpretLambdaIndex interpretAst env
-                                    (vars, tfromIntegral i))
+    rbuild sh (interpretLambdaIndex interpretAst env
+                                    (vars, rfromIntegral i))
   AstGather sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
-    in tgather sh t1 f2
+    in rgather sh t1 f2
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
     -- TODO: currently we store the function on tape, because it doesn't
@@ -418,12 +418,12 @@ interpretAst !env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstCast v -> tcast $ interpretAstRuntimeSpecialized env v
+  AstCast v -> rcast $ interpretAstRuntimeSpecialized env v
   AstFromIntegral v ->
-    tfromIntegral $ tconstant $ interpretAstPrimalRuntimeSpecialized env v
-  AstConst a -> tconst a
+    rfromIntegral $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
+  AstConst a -> rconst a
   AstSToR v -> tfromS $ interpretAstS env v
-  AstConstant a -> tconstant $ interpretAstPrimal env a
+  AstConstant a -> rconstant $ interpretAstPrimal env a
   AstPrimalPart a -> interpretAst env a
     -- This is correct, because @s@ must be @PrimalSpan@ and so @ranked@ must
     -- be morally a primal part of the same AST interpreted with @FullSpan@
@@ -435,7 +435,7 @@ interpretAst !env = \case
   AstD u u' ->
     let t1 = interpretAstPrimal env u
         t2 = interpretAstDual env u'
-    in tD t1 t2
+    in rD t1 t2
   AstLetDomains vars l v ->
     let l2 = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
@@ -685,7 +685,7 @@ interpretAstS !env = \case
         let interpretMatmul2 t1 u1 =
               let t2 = interpretAst env t1
                   u2 = interpretAst env u1
-              in tmatmul2 t2 u2
+              in rmatmul2 t2 u2
         in case (tperm, uperm) of
           ([2, 1, 0], [1, 0]) ->  -- tk and uk are fine due to perms matching
             interpretMatmul2 t u
@@ -707,26 +707,26 @@ interpretAstS !env = \case
           ([1, 2, 0], [2, 0, 1]) ->
             ttr
             $ interpretMatmul2 u t
-          _ -> tsum $ interpretAst env v
+          _ -> rsum $ interpretAst env v
   AstSum (AstN2 TimesOp [t, u])
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
-        in tdot0 t1 t2
+        in rdot0 t1 t2
           -- TODO: do as a term rewrite using an extended set of terms?
   AstSum (AstReshape _sh (AstN2 TimesOp [t, u]))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
-        in tdot0 t1 t2
+        in rdot0 t1 t2
   AstSum (AstTranspose [1, 0] (AstN2 TimesOp [t, u]))  -- TODO: generalize
     | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
-        in tdot1In t1 t2
+        in rdot1In t1 t2
   AstSum (AstTranspose [1, 0] t)  -- TODO: generalize
     | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
-        tsumIn $ interpretAst env t
+        rsumIn $ interpretAst env t
   AstSum (AstReshape sh (AstTranspose _ t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         interpretAst env (AstSum (AstReshape sh t))
@@ -735,19 +735,19 @@ interpretAstS !env = \case
         interpretAst env (AstSum (AstReshape sh t))
   AstSum (AstReshape _sh (AstSum t))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        tsum0 $ interpretAst env t
+        rsum0 $ interpretAst env t
   AstSum (AstSum t)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        tsum0 $ interpretAst env t
+        rsum0 $ interpretAst env t
           -- more cases are needed so perhaps we need AstSum0
   AstSum (AstReplicate k v) ->
-    tscaleByScalar (fromIntegral k) $ interpretAst env v
+    rscaleByScalar (fromIntegral k) $ interpretAst env v
   AstSum (AstLet var v t) -> interpretAst env (AstLet var v (AstSum t))
   AstSum (AstReshape sh (AstLet var v t)) ->
     interpretAst env (AstLet var v (AstSum (AstReshape sh t)))
   AstSum (AstReshape _sh t)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        tsum0 $ interpretAst env t
+        rsum0 $ interpretAst env t
 -}
   AstSumS v -> ssum $ interpretAstS env v
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
@@ -767,7 +767,7 @@ interpretAstS !env = \case
   AstReshape sh (AstReplicate @m _ s)
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let t1 = interpretAst env s
-        in treplicate0N sh t1
+        in rreplicate0N sh t1
   AstReshape sh (AstLet var v (AstReplicate k t)) ->
     interpretAst env (AstLet var v (AstReshape sh (AstReplicate k t)))
 -}
@@ -790,21 +790,21 @@ interpretAstS !env = \case
   AstBuild1 k (var, AstSum (AstN2 TimesOp [t, AstIndex
                                                 u (AstIntVar var2 :. ZI)]))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
-    , var == var2, k == tlength u ->
+    , var == var2, k == rlength u ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
-        in tmatvecmul t2 t1
+        in rmatvecmul t2 t1
   AstBuild1 k (var, AstSum
                       (AstReshape @p
                          _sh (AstN2 TimesOp [t, AstIndex
                                                   u (AstIntVar var2 :. ZI)])))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
     , Just Refl <- sameNat (Proxy @p) (Proxy @1)
-    , var == var2, k == tlength u ->
+    , var == var2, k == rlength u ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
-        in tmatvecmul t2 t1
-  AstBuild1 0 (_, v) -> tfromList0N (0 :$ tshape v) []
+        in rmatvecmul t2 t1
+  AstBuild1 0 (_, v) -> rfromList0N (0 :$ rshape v) []
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
   -- not to concrete numbers (and so Primal a is not equal to a).

@@ -95,46 +95,46 @@ instance IfF (AstShaped s) where
 
 instance AstSpan s
          => RankedTensor (AstRanked s) where
-  tlet = astLetFun
+  rlet = astLetFun
 
-  tshape = shapeAst
-  tminIndex = fromPrimal . AstMinIndex . astSpanPrimal
-  tmaxIndex = fromPrimal . AstMaxIndex . astSpanPrimal
-  tfloor = fromPrimal . AstFloor . astSpanPrimal
+  rshape = shapeAst
+  rminIndex = fromPrimal . AstMinIndex . astSpanPrimal
+  rmaxIndex = fromPrimal . AstMaxIndex . astSpanPrimal
+  rfloor = fromPrimal . AstFloor . astSpanPrimal
 
-  tiota = fromPrimal AstIota
-  tindex = AstIndex
-  tsum = astSum
-  tscatter sh t f = astScatter sh t (funToAstIndex f)  -- introduces new vars
+  riota = fromPrimal AstIota
+  rindex = AstIndex
+  rsum = astSum
+  rscatter sh t f = astScatter sh t (funToAstIndex f)  -- introduces new vars
 
-  tfromList = AstFromList
-  tfromVector = AstFromVector
-  tunravelToList :: forall r n. KnownNat n
+  rfromList = AstFromList
+  rfromVector = AstFromVector
+  runravelToList :: forall r n. KnownNat n
                  => AstRanked s r (1 + n) -> [AstRanked s r n]
-  tunravelToList t =
+  runravelToList t =
     let f :: Int64 -> AstRanked s r n
         f i = AstIndex t (singletonIndex $ fromIntegral i)
     in map f [0 .. valueOf @n - 1]
-  treplicate = AstReplicate
-  tappend = AstAppend
-  tslice = AstSlice
-  treverse = AstReverse
-  ttranspose = astTranspose
-  treshape = astReshape
-  tbuild1 = astBuild1Vectorize
-  tgather sh t f = AstGather sh t (funToAstIndex f)  -- introduces new vars
-  tcast = AstCast
-  tfromIntegral = fromPrimal . AstFromIntegral . astSpanPrimal
+  rreplicate = AstReplicate
+  rappend = AstAppend
+  rslice = AstSlice
+  rreverse = AstReverse
+  rtranspose = astTranspose
+  rreshape = astReshape
+  rbuild1 = astBuild1Vectorize
+  rgather sh t f = AstGather sh t (funToAstIndex f)  -- introduces new vars
+  rcast = AstCast
+  rfromIntegral = fromPrimal . AstFromIntegral . astSpanPrimal
 
-  tconst = fromPrimal . AstConst
-  tletWrap l u = if nullADShare l then u
+  rconst = fromPrimal . AstConst
+  rletWrap l u = if nullADShare l then u
                  else fromPrimal $ AstLetADShare l (astSpanPrimal u)
     -- We can't use astLet here, because it may inline a let that is
     -- present at the top level of the dual number and so we'd lose
     -- sharing that is not visible in this restricted context.
     -- To make sure astLet is not used on these, we mark them with
     -- a special constructor that also makes comparing lets cheap.
-  tletUnwrap u = case u of
+  rletUnwrap u = case u of
     AstLetADShare l t -> (l, t)
     AstConstant (AstLetADShare l t) -> (l, AstConstant t)
     _ -> (emptyADShare, u)
@@ -155,13 +155,13 @@ instance AstSpan s
              , testEquality (typeRep @r) (typeRep @r2) ) of
           (Just Refl, Just Refl) -> AstSToD @sh2 @r (astRToS r + v)
           _ -> error "raddDynamic: type mismatch"
-  tregister = astRegisterFun
+  rregister = astRegisterFun
 
-  tconstant = fromPrimal
-  tprimalPart = astSpanPrimal
-  tdualPart = astSpanDual
-  tD = astSpanD
-  tScale s t = astDualPart $ AstConstant s * AstD (tzero (tshape s)) t
+  rconstant = fromPrimal
+  rprimalPart = astSpanPrimal
+  rdualPart = astSpanDual
+  rD = astSpanD
+  rScale s t = astDualPart $ AstConstant s * AstD (rzero (rshape s)) t
 
 instance ( GoodScalar r, KnownNat n
          , RankedTensor (AstRanked s)
@@ -174,7 +174,7 @@ instance ( GoodScalar r, KnownNat n
   toDomains = undefined
   fromDomains aInit params = case V.uncons params of
     Just (DynamicExists @r2 a, rest) ->
-      if isTensorDummyAst a then Just (tzero (tshape aInit), rest) else
+      if isTensorDummyAst a then Just (rzero (rshape aInit), rest) else
         case testEquality (typeRep @r) (typeRep @r2) of
           Just Refl -> let !t = tfromD @(AstRanked s) @(AstShaped s) @r a
                        in Just (t, rest)
@@ -501,50 +501,50 @@ deriving instance (RealFloat (AstShaped s r sh))
 
 instance AstSpan s
          => RankedTensor (AstNoVectorize s) where
-  tlet a f =
+  rlet a f =
     AstNoVectorize
     $ astLetFun (unAstNoVectorize a) (unAstNoVectorize . f . AstNoVectorize)
 
-  tshape = shapeAst . unAstNoVectorize
-  tminIndex = AstNoVectorize . fromPrimal . AstMinIndex
+  rshape = shapeAst . unAstNoVectorize
+  rminIndex = AstNoVectorize . fromPrimal . AstMinIndex
               . astSpanPrimal . unAstNoVectorize
-  tmaxIndex = AstNoVectorize . fromPrimal . AstMaxIndex
+  rmaxIndex = AstNoVectorize . fromPrimal . AstMaxIndex
               . astSpanPrimal . unAstNoVectorize
-  tfloor = AstNoVectorize . fromPrimal . AstFloor
+  rfloor = AstNoVectorize . fromPrimal . AstFloor
            . astSpanPrimal . unAstNoVectorize
 
-  tiota = AstNoVectorize . fromPrimal $ AstIota
-  tindex v ix = AstNoVectorize $ AstIndex (unAstNoVectorize v) ix
-  tsum = AstNoVectorize . astSum . unAstNoVectorize
-  tscatter sh t f = AstNoVectorize $ astScatter sh (unAstNoVectorize t)
+  riota = AstNoVectorize . fromPrimal $ AstIota
+  rindex v ix = AstNoVectorize $ AstIndex (unAstNoVectorize v) ix
+  rsum = AstNoVectorize . astSum . unAstNoVectorize
+  rscatter sh t f = AstNoVectorize $ astScatter sh (unAstNoVectorize t)
                     $ funToAstIndex f  -- this introduces new variable names
 
-  tfromList = AstNoVectorize . AstFromList . map unAstNoVectorize
-  tfromVector = AstNoVectorize . AstFromVector . V.map unAstNoVectorize
-  treplicate k = AstNoVectorize . AstReplicate k . unAstNoVectorize
-  tappend u v =
+  rfromList = AstNoVectorize . AstFromList . map unAstNoVectorize
+  rfromVector = AstNoVectorize . AstFromVector . V.map unAstNoVectorize
+  rreplicate k = AstNoVectorize . AstReplicate k . unAstNoVectorize
+  rappend u v =
     AstNoVectorize $ AstAppend (unAstNoVectorize u) (unAstNoVectorize v)
-  tslice i n = AstNoVectorize . AstSlice i n . unAstNoVectorize
-  treverse = AstNoVectorize . AstReverse . unAstNoVectorize
-  ttranspose perm = AstNoVectorize . astTranspose perm . unAstNoVectorize
-  treshape sh = AstNoVectorize . astReshape sh . unAstNoVectorize
-  tbuild1 k f = AstNoVectorize $ AstBuild1 k
+  rslice i n = AstNoVectorize . AstSlice i n . unAstNoVectorize
+  rreverse = AstNoVectorize . AstReverse . unAstNoVectorize
+  rtranspose perm = AstNoVectorize . astTranspose perm . unAstNoVectorize
+  rreshape sh = AstNoVectorize . astReshape sh . unAstNoVectorize
+  rbuild1 k f = AstNoVectorize $ AstBuild1 k
                 $ funToAstI  -- this introduces new variable names
                 $ unAstNoVectorize . f
-  tgather sh t f = AstNoVectorize $ AstGather sh (unAstNoVectorize t)
+  rgather sh t f = AstNoVectorize $ AstGather sh (unAstNoVectorize t)
                    $ funToAstIndex f  -- this introduces new variable names
-  tcast = AstNoVectorize . AstCast . unAstNoVectorize
-  tfromIntegral = AstNoVectorize . fromPrimal . AstFromIntegral
+  rcast = AstNoVectorize . AstCast . unAstNoVectorize
+  rfromIntegral = AstNoVectorize . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoVectorize
 
-  tconst = AstNoVectorize . fromPrimal . AstConst
+  rconst = AstNoVectorize . fromPrimal . AstConst
   raddDynamic = undefined
 
-  tconstant = AstNoVectorize . fromPrimal
-  tprimalPart = astSpanPrimal . unAstNoVectorize
-  tdualPart = astSpanDual . unAstNoVectorize
-  tD u u' = AstNoVectorize $ astSpanD u u'
-  tScale s t = astDualPart $ AstConstant s * AstD (tzero (tshape s)) t
+  rconstant = AstNoVectorize . fromPrimal
+  rprimalPart = astSpanPrimal . unAstNoVectorize
+  rdualPart = astSpanDual . unAstNoVectorize
+  rD u u' = AstNoVectorize $ astSpanD u u'
+  rScale s t = astDualPart $ AstConstant s * AstD (rzero (rshape s)) t
 
 instance AstSpan s
          => ShapedTensor (AstNoVectorizeS s) where
@@ -554,49 +554,49 @@ instance ConvertTensor (AstNoVectorize 'PrimalSpan)
 
 instance AstSpan s
          => RankedTensor (AstNoSimplify s) where
-  tlet a f =
+  rlet a f =
     AstNoSimplify
     $ astLetFunUnSimp (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)
 
-  tshape = shapeAst . unAstNoSimplify
-  tminIndex = AstNoSimplify . fromPrimal . AstMinIndex
+  rshape = shapeAst . unAstNoSimplify
+  rminIndex = AstNoSimplify . fromPrimal . AstMinIndex
               . astSpanPrimal . unAstNoSimplify
-  tmaxIndex = AstNoSimplify . fromPrimal . AstMaxIndex
+  rmaxIndex = AstNoSimplify . fromPrimal . AstMaxIndex
               . astSpanPrimal . unAstNoSimplify
-  tfloor = AstNoSimplify . fromPrimal . AstFloor
+  rfloor = AstNoSimplify . fromPrimal . AstFloor
            . astSpanPrimal . unAstNoSimplify
 
-  tiota = AstNoSimplify . fromPrimal $ AstIota
-  tindex v ix = AstNoSimplify $ AstIndex (unAstNoSimplify v) ix
-  tsum = AstNoSimplify . AstSum . unAstNoSimplify
-  tscatter sh t f = AstNoSimplify $ AstScatter sh (unAstNoSimplify t)
+  riota = AstNoSimplify . fromPrimal $ AstIota
+  rindex v ix = AstNoSimplify $ AstIndex (unAstNoSimplify v) ix
+  rsum = AstNoSimplify . AstSum . unAstNoSimplify
+  rscatter sh t f = AstNoSimplify $ AstScatter sh (unAstNoSimplify t)
                     $ funToAstIndex f  -- this introduces new variable names
 
-  tfromList = AstNoSimplify . AstFromList . map unAstNoSimplify
-  tfromVector = AstNoSimplify . AstFromVector . V.map unAstNoSimplify
-  treplicate k = AstNoSimplify . AstReplicate k . unAstNoSimplify
-  tappend u v =
+  rfromList = AstNoSimplify . AstFromList . map unAstNoSimplify
+  rfromVector = AstNoSimplify . AstFromVector . V.map unAstNoSimplify
+  rreplicate k = AstNoSimplify . AstReplicate k . unAstNoSimplify
+  rappend u v =
     AstNoSimplify $ AstAppend (unAstNoSimplify u) (unAstNoSimplify v)
-  tslice i n = AstNoSimplify . AstSlice i n . unAstNoSimplify
-  treverse = AstNoSimplify . AstReverse . unAstNoSimplify
-  ttranspose perm = AstNoSimplify . AstTranspose perm . unAstNoSimplify
-  treshape sh = AstNoSimplify . AstReshape sh . unAstNoSimplify
-  tbuild1 k f = AstNoSimplify $ astBuild1Vectorize k (unAstNoSimplify . f)
-  tgather sh t f = AstNoSimplify $ AstGather sh (unAstNoSimplify t)
+  rslice i n = AstNoSimplify . AstSlice i n . unAstNoSimplify
+  rreverse = AstNoSimplify . AstReverse . unAstNoSimplify
+  rtranspose perm = AstNoSimplify . AstTranspose perm . unAstNoSimplify
+  rreshape sh = AstNoSimplify . AstReshape sh . unAstNoSimplify
+  rbuild1 k f = AstNoSimplify $ astBuild1Vectorize k (unAstNoSimplify . f)
+  rgather sh t f = AstNoSimplify $ AstGather sh (unAstNoSimplify t)
                    $ funToAstIndex f  -- this introduces new variable names
-  tcast = AstNoSimplify . AstCast . unAstNoSimplify
-  tfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
+  rcast = AstNoSimplify . AstCast . unAstNoSimplify
+  rfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoSimplify
 
-  tconst = AstNoSimplify . fromPrimal . AstConst
+  rconst = AstNoSimplify . fromPrimal . AstConst
   raddDynamic = undefined
 
-  tconstant = AstNoSimplify . fromPrimal
+  rconstant = AstNoSimplify . fromPrimal
     -- exceptionally we do simplify AstConstant to avoid long boring chains
-  tprimalPart = astSpanPrimal . unAstNoSimplify
-  tdualPart = astSpanDual . unAstNoSimplify
-  tD u u' = AstNoSimplify $ astSpanD u u'
-  tScale s t = astDualPart $ AstConstant s * AstD (tzero (tshape s)) t
+  rprimalPart = astSpanPrimal . unAstNoSimplify
+  rdualPart = astSpanDual . unAstNoSimplify
+  rD u u' = AstNoSimplify $ astSpanD u u'
+  rScale s t = astDualPart $ AstConstant s * AstD (rzero (rshape s)) t
 
 astLetFunUnSimp :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
                 => AstRanked s r n -> (AstRanked s r n -> AstRanked s r2 m)

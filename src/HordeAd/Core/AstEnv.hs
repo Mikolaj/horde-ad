@@ -97,7 +97,7 @@ extendEnvI :: ( RankedTensor ranked
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
            => IntVarName -> IntOf ranked -> AstEnv ranked shaped
            -> AstEnv ranked shaped
-extendEnvI var !i !env = extendEnvR var (tconstant i) env
+extendEnvI var !i !env = extendEnvR var (rconstant i) env
 
 extendEnvVars :: forall ranked shaped m.
                  ( RankedTensor ranked

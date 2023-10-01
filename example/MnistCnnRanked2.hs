@@ -55,10 +55,10 @@ convMnistLayerR
   -> ranked r 1  -- [c_out]
   -> ranked r 4  -- [batch_size, c_out, h `Div` 2, w `Div` 2]
 convMnistLayerR ker input bias =
-  let (batch_size :$ _ :$ h :$ w :$ ZS) = tshape input
+  let (batch_size :$ _ :$ h :$ w :$ ZS) = rshape input
       yConv = conv2dUnpadded ker input
-      biasStretched = ttranspose [0, 3, 1, 2]
-                      $ treplicate batch_size $ treplicate h $ treplicate w bias
+      biasStretched = rtranspose [0, 3, 1, 2]
+                      $ rreplicate batch_size $ rreplicate h $ rreplicate w bias
       yRelu = relu $ yConv + biasStretched
   in maxPool2dUnpadded 2 2 yRelu
 
@@ -73,22 +73,22 @@ convMnistTwoR
 convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
               ( (ker1, bias1), (ker2, bias2)
               , (weightsDense, biasesDense), (weightsReadout, biasesReadout) ) =
-  let t1 = convMnistLayerR ker1 (tconstant input) bias1
+  let t1 = convMnistLayerR ker1 (rconstant input) bias1
       t2 = convMnistLayerR ker2 t1 bias2
              -- [ batch_size, c_out
              -- , SizeMnistHeight `Div` 4, SizeMnistWidth `Div` 2 ]
-      c_out = tlength bias1
-      m1 = treshape (batch_size
+      c_out = rlength bias1
+      m1 = rreshape (batch_size
                      :$ c_out * (sizeMnistHeightI `div` 4)
                               * (sizeMnistWidthI `div` 4)
                      :$ ZS)
                     t2
-      m2 = ttr m1
-      denseLayer = weightsDense `tmatmul2` m2
-                   + ttr (treplicate batch_size biasesDense)
+      m2 = rtr m1
+      denseLayer = weightsDense `rmatmul2` m2
+                   + rtr (rreplicate batch_size biasesDense)
       denseRelu = relu denseLayer
-  in weightsReadout `tmatmul2` denseRelu
-     + ttr (treplicate batch_size biasesReadout)
+  in weightsReadout `rmatmul2` denseRelu
+     + rtr (rreplicate batch_size biasesReadout)
 
 convMnistLossFusedR
   :: (ADReady ranked, GoodScalar r, Differentiable r)
@@ -98,7 +98,7 @@ convMnistLossFusedR
   -> ADCnnMnistParameters ranked r  -- kh kw c_out n_hidden
   -> ranked r 0
 convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
-  let input = treshape (batch_size
+  let input = rreshape (batch_size
                         :$ 1
                         :$ sizeMnistHeightInt
                         :$ sizeMnistWidthInt
@@ -106,9 +106,9 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
                        glyphR
       result = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
                              batch_size input adparameters
-      targets = ttr labelR
+      targets = rtr labelR
       loss = lossSoftMaxCrossEntropyR targets result
-  in tconstant (recip $ fromIntegral batch_size) * loss
+  in rconstant (recip $ fromIntegral batch_size) * loss
 
 convMnistTestR
   :: forall ranked r.

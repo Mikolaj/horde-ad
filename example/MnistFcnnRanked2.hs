@@ -59,12 +59,12 @@ afcnnMnist2 :: (ADReady ranked, GoodScalar r, Differentiable r)
             -> ranked r 1
 afcnnMnist2 factivationHidden factivationOutput
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
-  let !_A = assert (sizeMnistGlyphInt == tlength datum) ()
-      hiddenLayer1 = tmatvecmul hidden datum + bias
+  let !_A = assert (sizeMnistGlyphInt == rlength datum) ()
+      hiddenLayer1 = rmatvecmul hidden datum + bias
       nonlinearLayer1 = factivationHidden hiddenLayer1
-      hiddenLayer2 = tcast (tmatvecmul hidden2 (tcast nonlinearLayer1)) + bias2
+      hiddenLayer2 = rcast (rmatvecmul hidden2 (rcast nonlinearLayer1)) + bias2
       nonlinearLayer2 = factivationHidden hiddenLayer2
-      outputLayer = tmatvecmul readout nonlinearLayer2 + biasr
+      outputLayer = rmatvecmul readout nonlinearLayer2 + biasr
   in factivationOutput outputLayer
 
 -- | The neural network applied to concrete activation functions
@@ -82,8 +82,8 @@ afcnnMnistLoss2
   => MnistData r -> ADFcnnMnist2Parameters ranked r
   -> ranked r 0
 afcnnMnistLoss2 (datum, target) =
-  let datum1 = tconst $ OR.fromVector [sizeMnistGlyphInt] datum
-      target1 = tconst $ OR.fromVector [sizeMnistLabelInt] target
+  let datum1 = rconst $ OR.fromVector [sizeMnistGlyphInt] datum
+      target1 = rconst $ OR.fromVector [sizeMnistLabelInt] target
   in afcnnMnistLoss2TensorData (datum1, target1)
 
 -- | A function testing the neural network given testing set of inputs
@@ -99,7 +99,7 @@ afcnnMnistTest2 _ [] _ = 0
 afcnnMnistTest2 valsInit dataList testParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let glyph1 = tconst $ OR.fromVector [sizeMnistGlyphInt] glyph
+        let glyph1 = rconst $ OR.fromVector [sizeMnistGlyphInt] glyph
             nn :: ADFcnnMnist2Parameters ranked r
                -> ranked r 1
             nn = inline afcnnMnist2 logistic softMax1 glyph1

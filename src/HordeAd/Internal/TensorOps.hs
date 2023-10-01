@@ -371,7 +371,7 @@ treshapeR sh = OR.reshape (shapeToList sh)
 tbuildNR
   :: forall m n r.
      ShapeInt (m + n) -> (IndexInt m -> OR.Array n r) -> OR.Array (m + n) r
-tbuildNR = undefined  -- using tbuild definition instead
+tbuildNR = undefined  -- using rbuild definition instead
 -- TODO: use tbuild0R and tbuild1R whenever faster and possible;
 -- also consider generating a flat vector and reshaping at the end
 -- to save on creating the intermediate tensors, though that's

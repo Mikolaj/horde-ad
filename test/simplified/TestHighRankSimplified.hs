@@ -119,8 +119,8 @@ testFooD =
 fooBuild0 :: forall ranked r n. (ADReady ranked, GoodScalar r, KnownNat n)
           => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild0 v =
-  let r = tsum v
-  in tbuild1 2 $ const r
+  let r = rsum v
+  in rbuild1 2 $ const r
 
 testFooBuild0 :: Assertion
 testFooBuild0 =
@@ -132,9 +132,9 @@ fooBuildOut
   :: forall ranked r n. (ADReady ranked, GoodScalar r, KnownNat n)
   => ranked r (1 + n) -> ranked r (1 + n)
 fooBuildOut v =
-  tbuild1 2 $ \ix -> ifF (ix ==. 0)
-                         (tindex v [ix + 1])  -- index out of bounds; guarded
-                         (tsum v)
+  rbuild1 2 $ \ix -> ifF (ix ==. 0)
+                         (rindex v [ix + 1])  -- index out of bounds; guarded
+                         (rsum v)
 
 testFooBuildOut :: Assertion
 testFooBuildOut =
@@ -147,15 +147,15 @@ fooBuild2
      (ADReady ranked, GoodScalar r, KnownNat n, Floating (ranked r n), RealFloat r)
   => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild2 v =
-  tbuild1 2 $ \ix ->
-    ifF (ix - (tprimalPart . tfloor) (tsum0 @ranked @r @5
-                      $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001 >=. 0
-         &&* ix - (tprimalPart . tfloor) (tsum0 @ranked @r @5
-                          $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001 <=. 1)
-        (tindex v [ix - (tprimalPart . tfloor) (tsum0 @ranked @r @5
-                                $ treplicate0N [5,12,11,9,4] (tsum0 v)) - 10001])
+  rbuild1 2 $ \ix ->
+    ifF (ix - (rprimalPart . rfloor) (rsum0 @ranked @r @5
+                      $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001 >=. 0
+         &&* ix - (rprimalPart . rfloor) (rsum0 @ranked @r @5
+                          $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001 <=. 1)
+        (rindex v [ix - (rprimalPart . rfloor) (rsum0 @ranked @r @5
+                                $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001])
            -- index out of bounds; also fine
-        (sqrt $ abs $ tindex v [let rr = (ix - (tprimalPart . tfloor) (tsum0 v) - 10001) `rem` 2
+        (sqrt $ abs $ rindex v [let rr = (ix - (rprimalPart . rfloor) (rsum0 v) - 10001) `rem` 2
                                 in ifF (signum rr ==. negate (signum 2))
                                    (rr + 2)
                                    rr])
@@ -216,9 +216,9 @@ fooBuild3 :: forall ranked r n.
              ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
           => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild3 v =
-  tbuild1 22 $ \ix ->
-    bar ( treplicate0N (tailShape $ tshape v) 1
-        , tindex v [minF 1 (ix + 1)] )  -- index not out of bounds
+  rbuild1 22 $ \ix ->
+    bar ( rreplicate0N (tailShape $ rshape v) 1
+        , rindex v [minF 1 (ix + 1)] )  -- index not out of bounds
 
 testFooBuild3 :: Assertion
 testFooBuild3 =
@@ -230,13 +230,13 @@ fooBuild5 :: forall ranked r n.
              ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
           => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild5 v =
-  let r = tsum v
-      v' = treplicate0N (tailShape $ tshape v) $ tminimum $ tflatten v
-  in tbuild1 2 $ \ix ->
-       r * foo ( treplicate0N (tailShape $ tshape v) 3
-               , tscaleByScalar 5 r
+  let r = rsum v
+      v' = rreplicate0N (tailShape $ rshape v) $ rminimum $ rflatten v
+  in rbuild1 2 $ \ix ->
+       r * foo ( rreplicate0N (tailShape $ rshape v) 3
+               , rscaleByScalar 5 r
                , r * v')
-       + bar (r, tindex v [minF 1 (ix + 1)])  -- index not out of bounds
+       + bar (r, rindex v [minF 1 (ix + 1)])  -- index not out of bounds
 
 testFooBuildDt :: Assertion
 testFooBuildDt =
@@ -254,14 +254,14 @@ fooBuild1 :: forall ranked r n.
              ( ADReady ranked, GoodScalar r, KnownNat n, RealFloat (ranked r n) )
           => ranked r (1 + n) -> ranked r (1 + n)
 fooBuild1 v =
-  let r = tsum v
-      tk = treplicate0N (tailShape $ tshape v)
-      v' = tk $ tminimum $ tflatten v
-  in tbuild1 3 $ \ix ->
+  let r = rsum v
+      tk = rreplicate0N (tailShape $ rshape v)
+      v' = tk $ rminimum $ rflatten v
+  in rbuild1 3 $ \ix ->
        r * foo ( tk 3
                , tk 5 * r
                , r * v')
-       + bar (r, tindex v [minF 1 (ix + 1)])
+       + bar (r, rindex v [minF 1 (ix + 1)])
 
 testFooBuild1 :: Assertion
 testFooBuild1 =
@@ -272,8 +272,8 @@ testFooBuild1 =
 fooMap1 :: (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
         => ShapeInt (1 + n) -> ranked r 0 -> ranked r (1 + n)
 fooMap1 sh r =
-  let v = fooBuild1 $ treplicate0N sh (r * r)
-  in tmap0N (\x -> x * r + 5) v
+  let v = fooBuild1 $ rreplicate0N sh (r * r)
+  in rmap0N (\x -> x * r + 5) v
 
 testFooMap :: Assertion
 testFooMap =
@@ -293,17 +293,17 @@ fooNoGo :: forall ranked r n.
            ( ADReady ranked, GoodScalar r, KnownNat n, Differentiable r )
         => ranked r (1 + n) -> ranked r (1 + n)
 fooNoGo v =
-  let r = tsum v
-      r0 = tsum0 v
-      shTail = tailShape (tshape v)
-  in tbuild1 3 (\ix ->
-       bar ( treplicate0N shTail 3.14
-           , bar ( tconst (OR.constant (shapeToList shTail) 3.14)
-                 , tindex v [ix]) )
-       + ifF (tindex v (ix * 2 :. ZI) <=. treplicate0N shTail 0 &&* 6 >. abs ix)
-               r (treplicate0N shTail 5 * r))
-     / tslice 1 3 (tmap0N (\x -> ifF (x >. r0) r0 x) v)
-     * tbuild1 3 (const $ tconst $ OR.constant (shapeToList shTail) 1)
+  let r = rsum v
+      r0 = rsum0 v
+      shTail = tailShape (rshape v)
+  in rbuild1 3 (\ix ->
+       bar ( rreplicate0N shTail 3.14
+           , bar ( rconst (OR.constant (shapeToList shTail) 3.14)
+                 , rindex v [ix]) )
+       + ifF (rindex v (ix * 2 :. ZI) <=. rreplicate0N shTail 0 &&* 6 >. abs ix)
+               r (rreplicate0N shTail 5 * r))
+     / rslice 1 3 (rmap0N (\x -> ifF (x >. r0) r0 x) v)
+     * rbuild1 3 (const $ rconst $ OR.constant (shapeToList shTail) 1)
 
 testFooNoGo :: Assertion
 testFooNoGo =
@@ -316,23 +316,23 @@ testFooNoGo10 :: Assertion
 testFooNoGo10 =
   assertEqualUpToEpsilonShort 1e-10
     (OR.fromList [5, 3, 1, 2, 2, 1, 2, 2] [8.096867407436072e-8,9.973025492756426e-8,9.976696178938985e-8,5.614458707681111e-8,-1.8338500573636686e-7,-2.144970334428336e-7,7.354143606421902e-7,-1.8140041785503643e-7,8.096867407436072e-8,9.973025492756426e-8,9.976696178938985e-8,5.614458707681111e-8,-2.01381292700262e-7,-2.221588091014473e-7,7.354143606421902e-7,-1.9951065225263367e-7,1.7230532848112822e-7,4.5426218104870796e-7,1.430886696893587e-7,9.354993295163118e-7,-5.225515010723883e-7,1.019433073376504e-6,9.64067025472343e-6,-4.872227980305747e-6,8.089200625992941e-8,9.924319994964371e-8,1.092480101004153e-7,-2.8478802468285825e-7,9.641049518625974e-8,2.9624147815716037e-7,-1.950868158558337e-7,9.547754822865364e-8,4.5426218104870796e-7,4.5426218104870796e-7,4.5426218104870796e-7,4.5426218104870796e-7,-4.872227980305747e-6,-4.872227980305747e-6,-4.872227980305747e-6,-4.872227980305747e-6,9.361277121832246e-8,-4.872227980305747e-6,-4.872227980305747e-6,-4.872227980305747e-6,9.361277121832246e-8,9.361277121832246e-8,9.361277121832246e-8,9.361277121832246e-8,-5.488572216677945e-7,-1.8496203182958057e-7,-1.4603644180845103e-7,-1.2145268106051633e-7,-2.817402689957553e-7,-2.9913537180597976e-7,6.272804203945257e-7,-2.3697344464172694e-7,-5.488572216677945e-7,-1.8496203182958057e-7,-1.4603644180845103e-7,-1.2145268106051633e-7,-2.613973017956691e-7,-3.0013408634207794e-7,6.272804203945257e-7,-2.916736028401805e-7,-7.0114505846358575e-6,-4.303381366239431e-5,-4.897282418246382e-6,-1.710952247892854e-4,-4.2040039667393255e-5,-2.0204742564752248e-4,-1.7017980671040968e-2,-4.247008401789142e-3,-1.056090348050961e-6,-2.210187184450231e-6,-2.7842041329045203e-6,-1.0402806498987974e-5,-1.2967382896879757e-7,-1.9315601705070884e-5,-2.40087090725031e-7,-2.4419692405172046e-7,-4.303381366239431e-5,-4.303381366239431e-5,-4.303381366239431e-5,-4.303381366239431e-5,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-2.683138631810477e-7,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-2.683138631810477e-7,-2.683138631810477e-7,-2.683138631810477e-7,-2.683138631810477e-7,-5.488572216677945e-7,-1.8496203182958057e-7,-1.4603644180845103e-7,-1.2145268106051633e-7,-2.817402689957553e-7,-2.9913537180597976e-7,6.272804203945257e-7,-2.3697344464172694e-7,-5.488572216677945e-7,-1.8496203182958057e-7,-1.4603644180845103e-7,-1.2145268106051633e-7,-2.613973017956691e-7,-3.0013408634207794e-7,6.272804203945257e-7,-2.916736028401805e-7,-7.0114505846358575e-6,-4.303381366239431e-5,-4.897282418246382e-6,-1.710952247892854e-4,-4.2040039667393255e-5,-2.0204742564752248e-4,-1.7017980671040968e-2,-4.247008401789142e-3,-1.056090348050961e-6,-2.210187184450231e-6,-2.7842041329045203e-6,-1.0402806498987974e-5,-1.2967382896879757e-7,-1.9315601705070884e-5,-2.40087090725031e-7,-2.4419692405172046e-7,-4.303381366239431e-5,-4.303381366239431e-5,-4.303381366239431e-5,-4.303381366239431e-5,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-2.683138631810477e-7,-4.247008401789142e-3,-4.247008401789142e-3,-4.247008401789142e-3,-2.683138631810477e-7,-2.683138631810477e-7,-2.683138631810477e-7,-2.683138631810477e-7,-5.469529675653596e-7,-2.331458950045675e-7,-1.9907443163522408e-7,-1.4019078434680374e-7,-6.95091094132346e-8,-5.685763846730528e-8,-9.268594848659335e-8,-3.010367762029461e-8,-5.469529675653596e-7,-2.331458950045675e-7,-1.9907443163522408e-7,-1.4019078434680374e-7,-3.415394012988984e-8,-5.069973314807702e-8,-9.268594848659335e-8,-6.380451815099858e-8,-6.883755913116986e-6,-4.273807584344302e-5,-4.79037108793574e-6,-1.705307241188017e-4,-4.2267488166320864e-5,-2.0143642393829028e-4,-1.701262134129569e-2,-4.2496361738088365e-3,-1.0224785375169973e-6,-2.1427637177332083e-6,-2.705952143004936e-6,-1.0493018474305117e-5,-1.819666770962338e-7,-1.911089472080586e-5,-9.045482032374276e-8,-2.819821645880664e-7,-4.273807584344302e-5,-4.273807584344302e-5,-4.273807584344302e-5,-4.273807584344302e-5,-4.2496361738088365e-3,-4.2496361738088365e-3,-4.2496361738088365e-3,-4.2496361738088365e-3,-3.019273543907303e-7,-4.2496361738088365e-3,-4.2496361738088365e-3,-4.2496361738088365e-3,-3.019273543907303e-7,-3.019273543907303e-7,-3.019273543907303e-7,-3.019273543907303e-7,8.287292817679557e-8,5.154639175257732e-8,4.672897196261682e-8,3.740648379052369e-8,2.884615384615385e-8,2.7780699895840894e-8,1.5447991761071065e-8,2.546934916639589e-8,8.287292817679557e-8,5.154639175257732e-8,4.672897196261682e-8,3.740648379052369e-8,2.5862068965517245e-8,2.7275544092553562e-8,1.5447991761071065e-8,2.8358432436548274e-8,3.0000000000000004e-7,7.500000000000001e-7,2.5000000000000004e-7,1.5000000000000002e-6,-7.500000000000001e-7,1.6304347826086957e-6,1.5000000000000002e-5,-7.500000000000001e-6,1.1450381679389314e-7,1.6666666666666668e-7,1.8750000000000003e-7,-3.7500000000000006e-7,4.411764705882353e-8,5.00948462422186e-7,-4.545454545454546e-8,5.76923076923077e-8,7.500000000000001e-7,7.500000000000001e-7,7.500000000000001e-7,7.500000000000001e-7,-7.500000000000001e-6,-7.500000000000001e-6,-7.500000000000001e-6,-7.500000000000001e-6,5.999928000863991e-8,-7.500000000000001e-6,-7.500000000000001e-6,-7.500000000000001e-6,5.999928000863991e-8,5.999928000863991e-8,5.999928000863991e-8,5.999928000863991e-8])
-   (rev' @Double @8 (tmap0N (* 0.000000001) . fooNoGo) (tmap0N (* 0.01) $ treplicate 5 t48))
+   (rev' @Double @8 (rmap0N (* 0.000000001) . fooNoGo) (rmap0N (* 0.01) $ rreplicate 5 t48))
 
 nestedBuildMap :: forall ranked n r.
                   (ADReady ranked, GoodScalar r, n <= 6, KnownNat n, Differentiable r)
                => ranked r 0 -> ranked r (1 + n)
 nestedBuildMap r =
-  let w x = treplicate0N [4] x :: ranked r 1
-      v' = treplicate0N (177 :$ ZS) r
-      nestedMap x = tmap0N (x /) (w x)
-      variableLengthBuild iy = tbuild1 7 (\ix ->
-        tindex v' (ix + iy :. ZI))
+  let w x = rreplicate0N [4] x :: ranked r 1
+      v' = rreplicate0N (177 :$ ZS) r
+      nestedMap x = rmap0N (x /) (w x)
+      variableLengthBuild iy = rbuild1 7 (\ix ->
+        rindex v' (ix + iy :. ZI))
       doublyBuild =
-        tbuild1 3 (treplicate0N (takeShape @n @(6 - n)
+        rbuild1 3 (rreplicate0N (takeShape @n @(6 - n)
                              $ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ ZS)
-                   . tminimum . variableLengthBuild)
-  in tmap0N (\x -> x * tsum0
-                         (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
+                   . rminimum . variableLengthBuild)
+  in rmap0N (\x -> x * rsum0
+                         (rbuild1 3 (\ix -> bar (x, rindex v' [ix]))
                           + fooBuild1 (nestedMap x)
                           / fooMap1 [3] x)
             ) doublyBuild
@@ -370,13 +370,13 @@ nestedSumBuild
      (ADReady ranked, GoodScalar r, n <= 4, KnownNat n, Differentiable r)
   => ranked r n -> ranked r (2 + n)
 nestedSumBuild v =
-  tbuild1 13 $ \ix1 -> tbuild1 4 $ \ix2 ->
+  rbuild1 13 $ \ix1 -> rbuild1 4 $ \ix2 ->
     ifF (ix2 >. ix1)
-        (tmap0N ((* (-0.00000003)) . sqrt . abs)
-         $ nestedBuildMap (tsum0 v)
-           `tindex` (ix2 `rem` 3 :. minF 1 ix1 :. minF ix1 3 :. ZI))
+        (rmap0N ((* (-0.00000003)) . sqrt . abs)
+         $ nestedBuildMap (rsum0 v)
+           `rindex` (ix2 `rem` 3 :. minF 1 ix1 :. minF ix1 3 :. ZI))
         (nestedBuildMap 0.00042
-         `tindex` (ix2 `rem` 3 :. minF 1 ix1 :. minF ix1 3 :. ZI))
+         `rindex` (ix2 `rem` 3 :. minF 1 ix1 :. minF ix1 3 :. ZI))
 
 testNestedSumBuild1 :: Assertion
 testNestedSumBuild1 =
@@ -388,23 +388,23 @@ testNestedSumBuild5 :: Assertion
 testNestedSumBuild5 =
   assertEqualUpToEpsilonShort 1e-6
     (OR.fromList [1,2,2] [3.5330436757054903e-3,3.5330436757054903e-3,3.5330436757054903e-3,3.5330436757054903e-3])
-    (rev' @Double @5 nestedSumBuild (tsum $ tsum t16))
+    (rev' @Double @5 nestedSumBuild (rsum $ rsum t16))
 
 nestedSumBuildB :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n)
                 => ranked r (1 + n) -> ranked r 3
 nestedSumBuildB v =
-  tbuild @ranked @r @2 [13, 4, 2] $ \case
+  rbuild @ranked @r @2 [13, 4, 2] $ \case
     [ix, ix2] ->
-      flip tindex [ix2]
-        (tfromList
-             [ tbuild1 2 tfromIndex0
-             , tsum $ tbuild [9, 2] $ const $ tfromIndex0 ix
-             , tindex v (listToIndex @n
-                         $ replicate (trank v - 1)
+      flip rindex [ix2]
+        (rfromList
+             [ rbuild1 2 rfromIndex0
+             , rsum $ rbuild [9, 2] $ const $ rfromIndex0 ix
+             , rindex v (listToIndex @n
+                         $ replicate (rrank v - 1)
                              (maxF 0 $ minF 1 $ ix2 `quot` 2 + ix `quot` 4 - 1))
-             , tbuild1 2 (\_ -> tsum0 v)
-             , tsum (tbuild1 7 (\ix7 ->
-                 treplicate 2 (tfromIndex0 ix7)))
+             , rbuild1 2 (\_ -> rsum0 v)
+             , rsum (rbuild1 7 (\ix7 ->
+                 rreplicate 2 (rfromIndex0 ix7)))
              ])
     _ -> error "nestedSumBuildB: impossible pattern needlessly required"
 
@@ -412,12 +412,12 @@ testNestedSumBuildB :: Assertion
 testNestedSumBuildB =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2,3,2,2,2] [30.0,30.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,35.0,35.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0])
-    (rev' @Double @3 nestedSumBuildB (tsum $ tsum $ ttranspose [1, 4, 2, 0, 3] t48))
+    (rev' @Double @3 nestedSumBuildB (rsum $ rsum $ rtranspose [1, 4, 2, 0, 3] t48))
 
 nestedBuildIndex :: forall ranked r. (ADReady ranked, GoodScalar r)
                  => ranked r 5 -> ranked r 3
 nestedBuildIndex v =
-  tbuild1 2 $ \ix2 -> tindex (tbuild1 3 $ \ix3 -> tindex (tbuild1 3 $ \ix4 -> tindex v (ix4 `rem` 2:. ix2 :. 0 :. ZI)) [ix3]) (ix2 :. ZI)
+  rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 3 $ \ix4 -> rindex v (ix4 `rem` 2:. ix2 :. 0 :. ZI)) [ix3]) (ix2 :. ZI)
 
 testNestedBuildIndex :: Assertion
 testNestedBuildIndex =
@@ -428,7 +428,7 @@ testNestedBuildIndex =
 barRelu
   :: ( ADReady ranked, GoodScalar r, KnownNat n, Differentiable r )
   => ranked r n -> ranked r n
-barRelu x = let t = treplicate0N (tshape x) 0.001 * x
+barRelu x = let t = rreplicate0N (rshape x) 0.001 * x
             in relu $ bar (t, relu t)
 
 testBarReluADValDt :: Assertion
@@ -453,7 +453,7 @@ testBarReluADVal3 =
 barRelu10xSlower
   :: ( ADReady ranked, GoodScalar r, KnownNat n, Differentiable r )
   => ranked r n -> ranked r n
-barRelu10xSlower x = let t = tmap0N (* 0.001) x
+barRelu10xSlower x = let t = rmap0N (* 0.001) x
                      in relu $ bar (t, relu t)
 
 testReluSimpPP :: Assertion
@@ -479,15 +479,15 @@ testBarReluADVal320 =
 braidedBuilds :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
               => ranked r (1 + n) -> ranked r 2
 braidedBuilds r =
-  tbuild1 3 (\ix1 ->
-    tbuild1 4 (\ix2 -> tindex (tfromList
-      [tfromIndex0 ix2, 7, tsum0 (tslice 1 1 r), -0.2]) (ix1 :. ZI)))
+  rbuild1 3 (\ix1 ->
+    rbuild1 4 (\ix2 -> rindex (rfromList
+      [rfromIndex0 ix2, 7, rsum0 (rslice 1 1 r), -0.2]) (ix1 :. ZI)))
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [4] [0.0,4.0,0.0,0.0])
-    (rev' @Double @2 braidedBuilds (treplicate0N (4 :$ ZS) 3.4))
+    (rev' @Double @2 braidedBuilds (rreplicate0N (4 :$ ZS) 3.4))
 
 testBraidedBuilds1 :: Assertion
 testBraidedBuilds1 =
@@ -498,36 +498,36 @@ testBraidedBuilds1 =
 recycled :: (ADReady ranked, GoodScalar r, KnownNat n)
          => ranked r n -> ranked r 7
 recycled r =
-  tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ ->
-    nestedSumBuildB (treplicate 4 r)
+  rbuild1 2 $ \_ -> rbuild1 4 $ \_ -> rbuild1 2 $ \_ -> rbuild1 3 $ \_ ->
+    nestedSumBuildB (rreplicate 4 r)
 
 testRecycled :: Assertion
 testRecycled =
   assertEqualUpToEpsilon' 1e-6
-    (runFlip $ treplicate0N (2 :$ ZS) 5616)
-    (rev' @Double @7 recycled (treplicate0N [2] 1.0001))
+    (runFlip $ rreplicate0N (2 :$ ZS) 5616)
+    (rev' @Double @7 recycled (rreplicate0N [2] 1.0001))
 
 testRecycled1 :: Assertion
 testRecycled1 =
   assertEqualUpToEpsilon' 1e-6
-    (runFlip $ tfromList0N (5 :$ 4 :$ 2 :$ ZS) [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
-    (rev' @Double @7 recycled (treplicate0N [5, 4, 2] 0.0002))
+    (runFlip $ rfromList0N (5 :$ 4 :$ 2 :$ ZS) [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
+    (rev' @Double @7 recycled (rreplicate0N [5, 4, 2] 0.0002))
 
 concatBuild :: (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
             => ranked r (1 + n) -> ranked r (3 + n)
 concatBuild r =
-  tbuild1 7 (\i ->
-    tconcat [ tbuild1 5 (const r)
-            , tbuild1 1 (\j -> tmap0N (* tfromIndex0 (j - i)) r)
-            , tbuild1 11 (\j ->
-                tmap0N (* (tfromIndex0
+  rbuild1 7 (\i ->
+    rconcat [ rbuild1 5 (const r)
+            , rbuild1 1 (\j -> rmap0N (* rfromIndex0 (j - i)) r)
+            , rbuild1 11 (\j ->
+                rmap0N (* (rfromIndex0
                   (125 * (j `rem` (abs (signum i + abs i) + 1))
-                   + maxF j (i `quot` (j + 1)) * (tprimalPart . tfloor) (tsum0 r)
+                   + maxF j (i `quot` (j + 1)) * (rprimalPart . rfloor) (rsum0 r)
                    - ifF (r <=. r &&* i <. j)
-                         (tprimalPart $ tminIndex (tflatten r))
-                         ((tprimalPart . tfloor) $ tsum0 $ r ! ((i * j) `rem` 7 :. ZI))))) r)
-            , tbuild1 13 (\_k ->
-                tsum $ ttr $ treplicate (tlength r) (tslice 0 1 r)) ])
+                         (rprimalPart $ rminIndex (rflatten r))
+                         ((rprimalPart . rfloor) $ rsum0 $ r ! ((i * j) `rem` 7 :. ZI))))) r)
+            , rbuild1 13 (\_k ->
+                rsum $ rtr $ rreplicate (rlength r) (rslice 0 1 r)) ])
 
 testConcatBuild0 :: Assertion
 testConcatBuild0 =
@@ -540,13 +540,13 @@ testConcatBuild1 :: Assertion
 testConcatBuild1 =
   assertEqualUpToEpsilonShort 1e-10
     (OR.fromList [3,1,2,2,1,2,2] [1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3])
-    (rev' @Double @9 (concatBuild . tmap0N (* 1e-7)) t48)
+    (rev' @Double @9 (concatBuild . rmap0N (* 1e-7)) t48)
 
 concatBuild2 :: (ADReady ranked, GoodScalar r, KnownNat n)
              => ranked r (1 + n) -> ranked r (3 + n)
 concatBuild2 r =
-  tbuild1 5 (\i ->
-    tbuild1 2 (\j -> tmap0N (* tfromIndex0 (maxF j (i `quot` (j + 1)))) r))
+  rbuild1 5 (\i ->
+    rbuild1 2 (\j -> rmap0N (* rfromIndex0 (maxF j (i `quot` (j + 1)))) r))
 
 testConcatBuild2 :: Assertion
 testConcatBuild2 =
@@ -563,8 +563,8 @@ testConcatBuild22 =
 concatBuild3 :: (ADReady ranked, GoodScalar r)
              => ranked r 1 -> ranked r 2
 concatBuild3 _r =
-  tbuild1 5 (\i ->
-    tbuild1 2 (\j -> tfromIndex0 (maxF j (i `quot` (j + 1)))))
+  rbuild1 5 (\i ->
+    rbuild1 2 (\j -> rfromIndex0 (maxF j (i `quot` (j + 1)))))
 
 testConcatBuild3 :: Assertion
 testConcatBuild3 =
@@ -580,7 +580,7 @@ testConcatBuild3PP = do
       (var3, ast3) = funToAstR [3] t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\dret -> tconstant (tfromIntegral (tgather [5,2] (tfromList [treplicate 5 (tslice 0 2 tiota), quot (ttranspose [1,0] (treplicate 2 (tslice 0 5 tiota))) (treplicate 5 (treplicate 2 (tconst 1) + tslice 0 2 tiota))]) (\\[i5, i4] -> [ifF (i4 >=. quot i5 (1 + i4)) 0 1, i5, i4])))"
+    @?= "\\dret -> rconstant (rfromIntegral (rgather [5,2] (rfromList [rreplicate 5 (rslice 0 2 tiota), quot (rtranspose [1,0] (rreplicate 2 (rslice 0 5 tiota))) (rreplicate 5 (rreplicate 2 (rconst 1) + rslice 0 2 tiota))]) (\\[i5, i4] -> [ifF (i4 >=. quot i5 (1 + i4)) 0 1, i5, i4])))"
 
 testConcatBuild3PP2 :: Assertion
 testConcatBuild3PP2 = do
@@ -592,6 +592,6 @@ testConcatBuild3PP2 = do
   printGradient6Simple renames artifactRev
     @?= "\\dret v2 -> dmkDomains (fromList [dfromR tiota])"
   printPrimal6Simple renames artifactRev
-    @?= "\\v2 -> tfromIntegral (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (tconst (fromList [2] [0,1]) + treplicate 2 (tconst 1)))]) (\\[i7, i8] -> [ifF (i8 >=. quot i7 (1 + i8)) 0 1, i7, i8]))"
+    @?= "\\v2 -> rfromIntegral (rgather [5,2] (rfromList [rreplicate 5 (rconst (fromList [2] [0,1])), quot (rtranspose [1,0] (rreplicate 2 (rconst (fromList [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (fromList [2] [0,1]) + rreplicate 2 (rconst 1)))]) (\\[i7, i8] -> [ifF (i8 >=. quot i7 (1 + i8)) 0 1, i7, i8]))"
   printPrimal6Simple renames (simplifyArtifactRev artifactRev)
-    @?= "\\v2 -> tfromIntegral (tgather [5,2] (tfromList [treplicate 5 (tconst (fromList [2] [0,1])), quot (ttranspose [1,0] (treplicate 2 (tconst (fromList [5] [0,1,2,3,4])))) (treplicate 5 (tconst (fromList [2] [0,1]) + treplicate 2 (tconst 1)))]) (\\[i7, i8] -> [ifF (i8 >=. quot i7 (1 + i8)) 0 1, i7, i8]))"
+    @?= "\\v2 -> rfromIntegral (rgather [5,2] (rfromList [rreplicate 5 (rconst (fromList [2] [0,1])), quot (rtranspose [1,0] (rreplicate 2 (rconst (fromList [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (fromList [2] [0,1]) + rreplicate 2 (rconst 1)))]) (\\[i7, i8] -> [ifF (i8 >=. quot i7 (1 + i8)) 0 1, i7, i8]))"

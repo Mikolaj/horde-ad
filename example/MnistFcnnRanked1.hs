@@ -38,10 +38,10 @@ listMatmul1
   :: forall ranked r. (RankedTensor ranked, GoodScalar r)
   => ranked r 1 -> [ranked r 1]
   -> ranked r 1
-listMatmul1 x0 weights = tlet x0 $ \x ->
+listMatmul1 x0 weights = rlet x0 $ \x ->
   let f :: ranked r 1 -> ranked r 0
-      f v = v `tdot0` x
-  in tfromList $ map f weights
+      f v = v `rdot0` x
+  in rfromList $ map f weights
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.
@@ -59,7 +59,7 @@ afcnnMnist1 :: (ADReady ranked, GoodScalar r)
             -> ranked r 1
 afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
-  let !_A = assert (sizeMnistGlyphInt == tlength datum
+  let !_A = assert (sizeMnistGlyphInt == rlength datum
                     && length hidden == widthHidden
                     && length hidden2 == widthHidden2) ()
 -- TODO: disabled for tests:  && length readout == sizeMnistLabelInt) ()
@@ -86,8 +86,8 @@ afcnnMnistLoss1
   => Int -> Int -> MnistData r -> ADFcnnMnist1Parameters ranked r
   -> ranked r 0
 afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
-  let datum1 = tconst $ OR.fromVector [sizeMnistGlyphInt] datum
-      target1 = tconst $ OR.fromVector [sizeMnistLabelInt] target
+  let datum1 = rconst $ OR.fromVector [sizeMnistGlyphInt] datum
+      target1 = rconst $ OR.fromVector [sizeMnistLabelInt] target
   in afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum1, target1)
 
 -- | A function testing the neural network given testing set of inputs
@@ -104,7 +104,7 @@ afcnnMnistTest1 _ _ _ [] _ = 0
 afcnnMnistTest1 valsInit widthHidden widthHidden2 dataList testParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let glyph1 = tconst $ OR.fromVector [sizeMnistGlyphInt] glyph
+        let glyph1 = rconst $ OR.fromVector [sizeMnistGlyphInt] glyph
             nn :: ADFcnnMnist1Parameters ranked r
                -> ranked r 1
             nn = inline afcnnMnist1 logistic softMax1

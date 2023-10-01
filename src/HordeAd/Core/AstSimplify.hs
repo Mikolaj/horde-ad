@@ -677,7 +677,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       --
       -- Independently, we need to insert lets to each index element,
       -- bloating the term. TODO: would going via a rank 1 vector,
-      -- as in tletIx help or would we need to switch indexes to vector
+      -- as in rletIx help or would we need to switch indexes to vector
       -- altogether (terrible for user comfort, especially wrt typing).
       let substLet :: AstIndex m7 -> AstVarList m7 -> AstInt -> AstInt
           substLet ix vars i =
@@ -1030,7 +1030,7 @@ astScatter :: forall m n p s r.
 astScatter _sh v (Z, ZI) = v
 astScatter sh v (AstVarName var ::: vars, ix) | not $ var `varInIndex` ix =
   astScatter sh (astSum v) (vars, ix)
--- astScatter sh v (Z, ix) = update (tzero sh 0) ix v
+-- astScatter sh v (Z, ix) = update (rzero sh 0) ix v
 astScatter sh (Ast.AstConstant v) (vars, ix) =
   Ast.AstConstant $ astScatter sh v (vars, ix)
 astScatter sh (Ast.AstLetADShare l v) (vars, ix) =
@@ -1052,7 +1052,7 @@ astScatterS v (ZSH, ZSH) =
 -- astScatterS v (var :$: vars, ix) | not $ var `varInIndexS` ix =
 --   astScatterS (astSumS v) (vars, ix)
   -- TODO: ^^^
--- astScatterS v (Z, ix) = update (tzero sh 0) ix v
+-- astScatterS v (Z, ix) = update (rzero sh 0) ix v
 astScatterS (Ast.AstConstantS v) (vars, ix) =
   Ast.AstConstantS $ astScatterS v (vars, ix)
 astScatterS (Ast.AstLetADShareS l v) (vars, ix) =

@@ -65,7 +65,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
       ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
       ftest 0 _ _ = 0
       ftest miniBatchSize' (glyphs, labels) testParams =
-        assert (miniBatchSize' == tlength (Flip glyphs)) $
+        assert (miniBatchSize' == rlength (Flip glyphs)) $
         withSNat miniBatchSize' $ \bs@SNat ->
           let mnist = ( Data.Array.Convert.convert glyphs
                       , Data.Array.Convert.convert labels )
@@ -164,8 +164,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
       ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
       ftest 0 _ _ = 0
       ftest miniBatchSize' (glyphs, labels) testParams =
-        assert (miniBatchSize' == tlength (Flip glyphs)) $
-        assert (miniBatchSize' == tlength (Flip labels)) $
+        assert (miniBatchSize' == rlength (Flip glyphs)) $
+        assert (miniBatchSize' == rlength (Flip labels)) $
         withSNat miniBatchSize' $ \bs@SNat ->
           let mnist = ( Data.Array.Convert.convert glyphs
                       , Data.Array.Convert.convert labels )
@@ -282,7 +282,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
         ftest :: Int -> MnistDataBatchR r -> DomainsOD -> r
         ftest 0 _ _ = 0
         ftest miniBatchSize' (glyphs, labels) testParams =
-          assert (miniBatchSize' == tlength (Flip glyphs)) $
+          assert (miniBatchSize' == rlength (Flip glyphs)) $
           withSNat miniBatchSize' $ \bs@SNat ->
             let mnist = ( Data.Array.Convert.convert glyphs
                         , Data.Array.Convert.convert labels )

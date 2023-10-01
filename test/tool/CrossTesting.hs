@@ -83,7 +83,7 @@ rev' f vals =
         -> Domains (ADValClown OD.Array)
         -> ADVal (Flip OR.Array) r m
       h fx1 fx2 gx inputs =
-        let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
+        let (var, ast) = funToAstR (rshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseDomains vals inputs) EM.empty
         in interpretAst env (gx ast)
       (astGrad, value2) =
@@ -109,10 +109,10 @@ rev' f vals =
         crevOnDomains dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
                          parameters
       gradient5 = parseDomains vals astPSimple
-      astVectSimp = simplifyAst6 $ snd $ funToAstR (tshape vals) f
+      astVectSimp = simplifyAst6 $ snd $ funToAstR (rshape vals) f
       astSimp =
         simplifyAst6 $ simplifyAst6 $ snd  -- builds simplify with difficulty
-        $ funToAstR (tshape vals) (unAstNoVectorize . f . AstNoVectorize)
+        $ funToAstR (rshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1
            => (f1 r m -> AstRanked PrimalSpan r m)
@@ -121,7 +121,7 @@ rev' f vals =
            -> Domains (ADValClown (AstDynamic PrimalSpan))
            -> ADVal (AstRanked PrimalSpan) r m
       hAst fx1 fx2 gx inputs =
-        let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
+        let (var, ast) = funToAstR (rshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseDomains vals inputs) EM.empty
         in interpretAst env (gx ast)
       artifactsGradAst =
@@ -297,7 +297,7 @@ assertEqualUpToEpsilon'
   -- The formula for comparing derivative and gradient is due to @awf
   -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
   assertEqualUpToEpsilonWithMark "Forward vs reverse"
-                                 1e-5 (tsum0 derivative) (tdot0 expected vals)
+                                 1e-5 (rsum0 derivative) (rdot0 expected vals)
   -- No Eq instance, so let's compare the text.
   show (simplifyAst6 astVectSimp) @?= show astVectSimp
   show (simplifyAst6 astSimp) @?= show astSimp
@@ -379,7 +379,7 @@ assertEqualUpToEpsilonShort
                                  errMargin expected gradient3AstSUnSimp
   assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
   assertEqualUpToEpsilonWithMark "Forward vs reverse"
-                                 1e-5 (tsum0 derivative) (tdot0 expected vals)
+                                 1e-5 (rsum0 derivative) (rdot0 expected vals)
   -- No Eq instance, so let's compare the text.
   show (simplifyAst6 astVectSimp) @?= show astVectSimp
   show (simplifyAst6 astSimp) @?= show astSimp

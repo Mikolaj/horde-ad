@@ -92,14 +92,14 @@ class IsPrimal f r z where
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
 instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
-  dZeroOfShape tsh = ZeroR (tshape tsh)
+  dZeroOfShape tsh = ZeroR (rshape tsh)
   dScale _ (ZeroR sh) = ZeroR sh
   dScale v u' = ScaleR v u'
   dAdd ZeroR{} w = w
   dAdd v ZeroR{} = v
   dAdd v w = AddR v w
   intOfShape tsh c =
-    tconst $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
+    rconst $ OR.constant (OR.shapeL $ runFlip tsh) (fromIntegral c)
   recordSharingPrimal r l = (l, r)
   recordSharing d = case d of
     ZeroR{} -> d
@@ -110,14 +110,14 @@ instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
     _ -> wrapDeltaR d
 
 instance (GoodScalar r, KnownNat n) => IsPrimal (AstRanked PrimalSpan) r n where
-  dZeroOfShape tsh = ZeroR (tshape tsh)
+  dZeroOfShape tsh = ZeroR (rshape tsh)
   dScale _ (ZeroR sh) = ZeroR sh
   dScale v u' = ScaleR v u'
   dAdd ZeroR{} w = w
   dAdd v ZeroR{} = v
   dAdd v w = AddR v w
   intOfShape tsh c =
-    tconst $ OR.constant (shapeToList $ tshape tsh) (fromIntegral c)
+    rconst $ OR.constant (shapeToList $ rshape tsh) (fromIntegral c)
   recordSharingPrimal = astRegisterADShare
   recordSharing d = case d of
     ZeroR{} -> d

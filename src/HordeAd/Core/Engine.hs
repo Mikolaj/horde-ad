@@ -269,7 +269,7 @@ instance DerivativeStages AstRanked where
   {-# INLINE revEvalArtifact #-}
   revEvalArtifact ((varDt, vars), gradient, primal, sh) parameters mdt =
     let env = foldr extendEnvDR EM.empty $ zip vars $ V.toList parameters
-        dt = fromMaybe (treplicate0N (listShapeToShape sh) 1) mdt
+        dt = fromMaybe (rreplicate0N (listShapeToShape sh) 1) mdt
         envDt = extendEnvR varDt dt env
         gradientDomain = interpretAstDomains envDt gradient
         primalTensor = interpretAstPrimal env primal

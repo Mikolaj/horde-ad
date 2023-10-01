@@ -217,7 +217,7 @@ printAstAux cfg d = \case
               . core
     else
       showParen (d > 10)
-      $ showString "tlet "
+      $ showString "rlet "
         . printAst cfg 11 u0
         . showString " "
         . (showParen True
@@ -260,7 +260,7 @@ printAstAux cfg d = \case
   AstSum v -> printPrefixOp printAst cfg d "tsum" [v]
   AstScatter sh v (vars, ix) ->
     showParen (d > 10)
-    $ showString ("tscatter " ++ show sh ++ " ")
+    $ showString ("rscatter " ++ show sh ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -271,26 +271,26 @@ printAstAux cfg d = \case
            . showListWith (printAstInt cfg 0) (indexToList ix))
   AstFromList l ->
     showParen (d > 10)
-    $ showString "tfromList "
+    $ showString "rfromList "
       . showListWith (printAst cfg 0) l
   AstFromVector l ->
     showParen (d > 10)
-    $ showString "tfromVector "
+    $ showString "rfromVector "
       . (showParen True
          $ showString "fromList "
            . showListWith (printAst cfg 0) (V.toList l))
-  AstReplicate k v -> printPrefixOp printAst cfg d ("treplicate " ++ show k) [v]
+  AstReplicate k v -> printPrefixOp printAst cfg d ("rreplicate " ++ show k) [v]
   AstAppend x y -> printPrefixOp printAst cfg d "tappend" [x, y]
   AstSlice i n v -> printPrefixOp printAst cfg d
-                                  ("tslice " ++ show i ++ " " ++ show n) [v]
+                                  ("rslice " ++ show i ++ " " ++ show n) [v]
   AstReverse v -> printPrefixOp printAst cfg d "treverse" [v]
   AstTranspose perm v ->
-    printPrefixOp printAst cfg d ("ttranspose " ++ show perm) [v]
+    printPrefixOp printAst cfg d ("rtranspose " ++ show perm) [v]
   AstReshape sh v ->
-    printPrefixOp printAst cfg d ("treshape " ++ show sh) [v]
+    printPrefixOp printAst cfg d ("rreshape " ++ show sh) [v]
   AstBuild1 k (var, v) ->
     showParen (d > 10)
-    $ showString "tbuild1 "
+    $ showString "rbuild1 "
       . shows k
       . showString " "
       . (showParen True
@@ -300,7 +300,7 @@ printAstAux cfg d = \case
            . printAst cfg 0 v)
   AstGather sh v (vars, ix) ->
     showParen (d > 10)
-    $ showString ("tgather " ++ show sh ++ " ")
+    $ showString ("rgather " ++ show sh ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -314,7 +314,7 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d "tfromIntegral" [a]
   AstConst a ->
     showParen (d > 10)
-    $ showString "tconst "
+    $ showString "rconst "
       . case sameNat (Proxy @n) (Proxy @0) of
           Just Refl -> shows $ OR.unScalar a
           _ -> showParen True

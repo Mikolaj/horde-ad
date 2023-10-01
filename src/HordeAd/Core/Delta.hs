@@ -489,7 +489,7 @@ gradientDtD !dims !value !mdt !deltaTopLevel =
   in case someNatVal $ toInteger n of
     Just (SomeNat @n _proxy) ->
       let sh = listShapeToShape @n shl
-          dt = maybe (dfromR @ranked $ treplicate0N sh 1) runClown mdt
+          dt = maybe (dfromR @ranked $ rreplicate0N sh 1) runClown mdt
           deltaDt = DeltaDtD dt deltaTopLevel
       in gradientFromDelta dims deltaDt
     Nothing -> error "gradientDtD: impossible someNatVal error"
@@ -527,7 +527,7 @@ gradientDtR
   -> ( AstBindings ranked
      , Domains (DynamicOf ranked) )
 gradientDtR !dims value !mdt !deltaTopLevel =
-  let dt = fromMaybe (treplicate0N (tshape value) 1) mdt
+  let dt = fromMaybe (rreplicate0N (rshape value) 1) mdt
       deltaDt = DeltaDtR dt deltaTopLevel
   in gradientFromDelta dims deltaDt
 {-# SPECIALIZE gradientDtR
@@ -552,7 +552,7 @@ derivativeFromDeltaR
   -> ( AstBindings ranked
      , ranked r n )
 derivativeFromDeltaR dim deltaTopLevel ds =
-  let dummyZero = tzero $ listShapeToShape $ replicate (valueOf @n) 1
+  let dummyZero = rzero $ listShapeToShape $ replicate (valueOf @n) 1
   in case runST $ buildDerivative dim (DeltaDtR dummyZero deltaTopLevel) ds of
     (l, DeltaDtR @_ @n2 res _) -> case sameNat (Proxy @n) (Proxy @n2) of
       Just Refl -> (l, res)
@@ -790,7 +790,7 @@ buildFinMaps s0 deltaDt =
         => EvalState ranked shaped
         -> ranked r n -> DeltaR ranked shaped r n
         -> EvalState ranked shaped
-      evalR !s !c = let (abShared, cShared) = tregister c (astBindings s)
+      evalR !s !c = let (abShared, cShared) = rregister c (astBindings s)
                         sShared = s {astBindings = abShared}
                     in \case
         ZeroR{} -> s
@@ -844,42 +844,42 @@ buildFinMaps s0 deltaDt =
                      , dMap = EM.insert n cs $ dMap s }
               _ -> error "buildFinMaps: corrupted nMap"
 
-        IndexR d ix -> evalR s (tscatter @ranked @r @0
+        IndexR d ix -> evalR s (rscatter @ranked @r @0
                                              (shapeDelta d) c (const ix)) d
           -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
-        SumR d -> evalR s (treplicate (lengthDelta d) c) d
-        Sum0R d -> evalR s (treplicate0N (shapeDelta d) c) d
-        Dot0R v vd -> evalR s (v * treplicate0N (tshape v) c) vd
-                     -- too slow: evalR s (tmap0N (* (tscalar c)) v) vd
-        ScatterR _sh d f -> evalR s (tgather (shapeDelta d) c f) d
+        SumR d -> evalR s (rreplicate (lengthDelta d) c) d
+        Sum0R d -> evalR s (rreplicate0N (shapeDelta d) c) d
+        Dot0R v vd -> evalR s (v * rreplicate0N (rshape v) c) vd
+                     -- too slow: evalR s (rmap0N (* (tscalar c)) v) vd
+        ScatterR _sh d f -> evalR s (rgather (shapeDelta d) c f) d
 
         FromListR ld ->
           ifoldl' (\ !s2 i d2 ->
-            evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) sShared ld
+            evalR s2 (rindex cShared (fromIntegral i :. ZI)) d2) sShared ld
         FromVectorR ld ->
           V.ifoldl' (\ !s2 i d2 ->
-            evalR s2 (tindex cShared (fromIntegral i :. ZI)) d2) sShared ld
-        ReplicateR _n d -> evalR s (tsum c) d
-        AppendR d e -> case tshape c of
+            evalR s2 (rindex cShared (fromIntegral i :. ZI)) d2) sShared ld
+        ReplicateR _n d -> evalR s (rsum c) d
+        AppendR d e -> case rshape c of
           n :$ _ -> let k = lengthDelta d
-                        s2 = evalR sShared (tslice 0 k cShared) d
-                    in evalR s2 (tslice k (n - k) cShared) e
+                        s2 = evalR sShared (rslice 0 k cShared) d
+                    in evalR s2 (rslice k (n - k) cShared) e
           ZS -> error "evalR: impossible pattern needlessly required"
-        SliceR i n d -> case tshape c of
+        SliceR i n d -> case rshape c of
           n' :$ rest ->
             assert (n' == n `blame` (n', n)) $
-            evalR s (tconcat [ tzero (i :$ rest)
+            evalR s (rconcat [ rzero (i :$ rest)
                              , c
-                             , tzero (lengthDelta d - i - n :$ rest) ])
+                             , rzero (lengthDelta d - i - n :$ rest) ])
                     d
           ZS -> error "evalR: impossible pattern needlessly required"
-        ReverseR d -> evalR s (treverse c) d
+        ReverseR d -> evalR s (rreverse c) d
         TransposeR perm d ->
           let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
-          in evalR s (ttranspose perm_reversed c) d
-        ReshapeR _sh d -> evalR s (treshape (shapeDelta d) c) d
-        GatherR _sh d f -> evalR s (tscatter (shapeDelta d) c f) d
-        CastR d -> evalRRuntimeSpecialized s (tcast c) d
+          in evalR s (rtranspose perm_reversed c) d
+        ReshapeR _sh d -> evalR s (rreshape (shapeDelta d) c) d
+        GatherR _sh d f -> evalR s (rscatter (shapeDelta d) c f) d
+        CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
         DToR (RToD @n2 d) ->
           case sameNat (Proxy @n) (Proxy @n2) of
@@ -1007,13 +1007,13 @@ buildFinMaps s0 deltaDt =
           let ixs = indexToList ixs'
               f v = if isTensorDummy v
                     then treplicate0ND sh 0 `OD.update` [(ixs, c)]
-                    else v `OD.update` [(ixs, v `tindex0D` ixs + c)]
+                    else v `OD.update` [(ixs, v `rindex0D` ixs + c)]
           in s {iMap = EM.adjust f i $ iMap s}
         Index0 (LetR n d) ixs' sh ->
           let ixs = indexToList ixs'
           in case EM.lookup n $ nMap s of
             Just (DeltaBindingR _) ->
-              let f v = v `OD.update` [(ixs, v `tindex0D` ixs + c)]
+              let f v = v `OD.update` [(ixs, v `rindex0D` ixs + c)]
               in s {dMap = EM.adjust f n $ dMap s}
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,
@@ -1102,7 +1102,7 @@ buildDerivative dimR deltaDt params = do
         :: forall n r. (KnownNat n, GoodScalar r)
         => DeltaR ranked shaped r n -> ST s (ranked r n)
       evalR = \case
-        ZeroR sh -> return $ tzero sh
+        ZeroR sh -> return $ rzero sh
         InputR _ (InputId i) ->
           if i < dimR
           then case params V.! i of
@@ -1126,7 +1126,7 @@ buildDerivative dimR deltaDt params = do
             Nothing -> do
               cRaw <- evalR d
               ab <- readSTRef astBindings
-              let (abShared, cShared) = tregister cRaw ab
+              let (abShared, cShared) = rregister cRaw ab
               writeSTRef astBindings abShared
               nmNew <- readSTRef nMap
               writeSTRef nMap $! EM.insert n (DeltaBindingR d) nmNew
@@ -1135,36 +1135,36 @@ buildDerivative dimR deltaDt params = do
               return cShared
             _ -> error "buildDerivative: corrupted nMap"
 
-        IndexR d ix -> (`tindex` ix) <$> evalR d
-        SumR d -> tsum <$> evalR d
+        IndexR d ix -> (`rindex` ix) <$> evalR d
+        SumR d -> rsum <$> evalR d
         Sum0R ZeroR{} -> return 0
-        Sum0R d -> tsum0 <$> evalR d
+        Sum0R d -> rsum0 <$> evalR d
         Dot0R _ ZeroR{} -> return 0
-        Dot0R v d -> tdot0 v <$> evalR d
+        Dot0R v d -> rdot0 v <$> evalR d
         ScatterR sh d f -> do
           t <- evalR d
-          return $! tscatter sh t f
+          return $! rscatter sh t f
 
         FromListR lsd -> do
           l <- mapM evalR lsd
-          return $! tfromList l
+          return $! rfromList l
         FromVectorR lsd -> do
           l <- V.mapM evalR lsd
-          return $! tfromVector l
+          return $! rfromVector l
         ReplicateR n d -> do
           t <- evalR d
-          return $! treplicate n t
-        AppendR d e -> liftM2 tappend (evalR d) (evalR e)
-        SliceR i n d -> tslice i n <$> evalR d
-        ReverseR d -> treverse <$> evalR d
-        TransposeR perm d -> ttranspose perm <$> evalR d
-        ReshapeR sh d -> treshape sh <$> evalR d
+          return $! rreplicate n t
+        AppendR d e -> liftM2 rappend (evalR d) (evalR e)
+        SliceR i n d -> rslice i n <$> evalR d
+        ReverseR d -> rreverse <$> evalR d
+        TransposeR perm d -> rtranspose perm <$> evalR d
+        ReshapeR sh d -> rreshape sh <$> evalR d
         GatherR sh d f -> do
           t <- evalR d
-          return $! tgather sh t f
+          return $! rgather sh t f
         CastR d -> do
           t <- evalR d
-          return $! tcast t
+          return $! rcast t
 
         DToR (RToD @n2 d) ->
           case sameNat (Proxy @n) (Proxy @n2) of

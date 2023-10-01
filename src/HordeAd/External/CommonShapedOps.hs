@@ -62,14 +62,14 @@ sfromIndex1 :: forall r sh shaped.
                (ADReadyS shaped, GoodScalar r, KnownNat (OS.Rank sh))
             => IndexSh shaped sh -> shaped r '[OS.Rank sh]
 sfromIndex1 =
-  sfromIntegral . sconstant . sfromR . tfromList . ShapedList.sizedListToList
+  sfromIntegral . sconstant . sfromR . rfromList . ShapedList.sizedListToList
 
 sletIx :: forall r sh n shaped.
           (ADReadyS shaped, GoodScalar r, OS.Shape sh, KnownNat n)
        => IndexOf shaped n -> (IndexOf shaped n -> shaped r sh) -> shaped r sh
 sletIx ix0 f = slet (sfromR @(RankedOf shaped) @shaped @Int64 @'[n]
-                     $ tint64FromIndex1 ix0) $ \ixT ->
-                 f $ tint64ToIndex1 $ tfromS ixT
+                     $ rint64FromIndex1 ix0) $ \ixT ->
+                 f $ rint64ToIndex1 $ tfromS ixT
 
 scaleS :: forall shaped r sh.
           (OS.Shape sh, ADReadyS shaped, GoodScalar r)
@@ -94,7 +94,7 @@ logisticS :: forall shaped r sh.
              ( OS.Shape sh, ShapedTensor shaped, GoodScalar r
              , Floating (PrimalOf shaped r sh) )
           => shaped r sh -> shaped r sh
-logisticS d0 = slet d0 $ \d ->  -- used in tprimalPart and in sdualPart
+logisticS d0 = slet d0 $ \d ->  -- used in rprimalPart and in sdualPart
   let y0 = recip (1 + exp (- sprimalPart d))
   in slet (sconstant y0)  -- we don't have sletPrimal
      $ \y1 -> let y = sprimalPart y1
@@ -254,10 +254,10 @@ indexz0SLet d ix0 =
 --   returning zero for out of range indices.
 --
 -- Warning: this uses ix twice and within0 again uses it twice,
--- so this variant without tlet should be used only when it's known
+-- so this variant without rlet should be used only when it's known
 -- that ix is of small constant size (e.g., if it contains conditionals
 -- that compare big tensors or their minimal elements, it likely is not,
--- unless the tensors are under tlet and only variables representing them
+-- unless the tensors are under rlet and only variables representing them
 -- are used).
 indexz0S
   :: forall shOut sh shaped r.

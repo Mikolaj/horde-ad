@@ -139,12 +139,12 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
       funToAstIOR (singletonShape sizeMnistGlyphInt) id
     (varLabel, varLabelD, astLabel) <-
       funToAstIOR (singletonShape sizeMnistLabelInt) id
-    let envInit = extendEnvR varGlyph (tconstant astGlyph)
-                  $ extendEnvR varLabel (tconstant astLabel)
+    let envInit = extendEnvR varGlyph (rconstant astGlyph)
+                  $ extendEnvR varLabel (rconstant astLabel)
                   EM.empty
         f = MnistFcnnRanked1.afcnnMnistLoss1TensorData @(AstRanked FullSpan)
               widthHidden widthHidden2
-              (tconstant astGlyph, tconstant astLabel)
+              (rconstant astGlyph, rconstant astLabel)
         g domains = f $ parseDomains valsInit domains
         (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
           revProduceArtifact False g envInit domainsInit
@@ -313,11 +313,11 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
       funToAstIOR (singletonShape sizeMnistGlyphInt) id
     (varLabel, varLabelD, astLabel) <-
       funToAstIOR (singletonShape sizeMnistLabelInt) id
-    let envInit = extendEnvR varGlyph (tconstant astGlyph)
-                  $ extendEnvR varLabel (tconstant astLabel)
+    let envInit = extendEnvR varGlyph (rconstant astGlyph)
+                  $ extendEnvR varLabel (rconstant astLabel)
                   EM.empty
         f = MnistFcnnRanked2.afcnnMnistLoss2TensorData @(AstRanked FullSpan)
-              (tconstant astGlyph, tconstant astLabel)
+              (rconstant astGlyph, rconstant astLabel)
         g domains = f $ parseDomains valsInit domains
         (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
           revProduceArtifact False g envInit domainsInit
