@@ -580,7 +580,7 @@ testConcatBuild3PP = do
       (var3, ast3) = funToAstR [3] t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\dret -> rconstant (rfromIntegral (rgather [5,2] (rfromList [rreplicate 5 (rslice 0 2 tiota), quot (rtranspose [1,0] (rreplicate 2 (rslice 0 5 tiota))) (rreplicate 5 (rreplicate 2 (rconst 1) + rslice 0 2 tiota))]) (\\[i5, i4] -> [ifF (i4 >=. quot i5 (1 + i4)) 0 1, i5, i4])))"
+    @?= "\\dret -> rconstant (rfromIntegral (rgather [5,2] (rfromList [rreplicate 5 (rslice 0 2 riota), quot (rtranspose [1,0] (rreplicate 2 (rslice 0 5 riota))) (rreplicate 5 (rreplicate 2 (rconst 1) + rslice 0 2 riota))]) (\\[i5, i4] -> [ifF (i4 >=. quot i5 (1 + i4)) 0 1, i5, i4])))"
 
 testConcatBuild3PP2 :: Assertion
 testConcatBuild3PP2 = do
@@ -590,7 +590,7 @@ testConcatBuild3PP2 = do
   let (artifactRev, _) =
         revArtifactAdapt True t (Flip $ OR.fromList [3] [0.651,0.14,0.3414])
   printGradient6Simple renames artifactRev
-    @?= "\\dret v2 -> dmkDomains (fromList [dfromR tiota])"
+    @?= "\\dret v2 -> dmkDomains (fromList [dfromR riota])"
   printPrimal6Simple renames artifactRev
     @?= "\\v2 -> rfromIntegral (rgather [5,2] (rfromList [rreplicate 5 (rconst (fromList [2] [0,1])), quot (rtranspose [1,0] (rreplicate 2 (rconst (fromList [5] [0,1,2,3,4])))) (rreplicate 5 (rconst (fromList [2] [0,1]) + rreplicate 2 (rconst 1)))]) (\\[i7, i8] -> [ifF (i8 >=. quot i7 (1 + i8)) 0 1, i7, i8]))"
   printPrimal6Simple renames (simplifyArtifactRev artifactRev)
