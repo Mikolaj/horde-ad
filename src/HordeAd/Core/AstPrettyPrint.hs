@@ -235,12 +235,12 @@ printAstAux cfg d = \case
       . showString " "
       . printAst cfg 11 a2
   AstMinIndex a ->
-    printPrefixOp printAst cfg d "tminIndex" [a]
+    printPrefixOp printAst cfg d "rminIndex" [a]
   AstMaxIndex a ->
-    printPrefixOp printAst cfg d "tmaxIndex" [a]
+    printPrefixOp printAst cfg d "rmaxIndex" [a]
   AstFloor a ->
-    printPrefixOp printAst cfg d "tfloor" [a]
-  AstIota -> showString "tiota"
+    printPrefixOp printAst cfg d "rfloor" [a]
+  AstIota -> showString "riota"
   AstN1 opCode u -> printAstN1 printAst cfg d opCode u
   AstN2 opCode u v -> printAstN2 printAst cfg d opCode u v
   AstR1 opCode u -> printAstR1 printAst cfg d opCode u
@@ -257,7 +257,7 @@ printAstAux cfg d = \case
     $ printAst cfg 10 v
       . showString " ! "
       . showListWith (printAstInt cfg 0) (indexToList ix)
-  AstSum v -> printPrefixOp printAst cfg d "tsum" [v]
+  AstSum v -> printPrefixOp printAst cfg d "rsum" [v]
   AstScatter sh v (vars, ix) ->
     showParen (d > 10)
     $ showString ("rscatter " ++ show sh ++ " ")
@@ -280,10 +280,10 @@ printAstAux cfg d = \case
          $ showString "fromList "
            . showListWith (printAst cfg 0) (V.toList l))
   AstReplicate k v -> printPrefixOp printAst cfg d ("rreplicate " ++ show k) [v]
-  AstAppend x y -> printPrefixOp printAst cfg d "tappend" [x, y]
+  AstAppend x y -> printPrefixOp printAst cfg d "rappend" [x, y]
   AstSlice i n v -> printPrefixOp printAst cfg d
                                   ("rslice " ++ show i ++ " " ++ show n) [v]
-  AstReverse v -> printPrefixOp printAst cfg d "treverse" [v]
+  AstReverse v -> printPrefixOp printAst cfg d "rreverse" [v]
   AstTranspose perm v ->
     printPrefixOp printAst cfg d ("rtranspose " ++ show perm) [v]
   AstReshape sh v ->
@@ -309,9 +309,9 @@ printAstAux cfg d = \case
                           (sizedListToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (indexToList ix))
-  AstCast v -> printPrefixOp printAst cfg d "tcast" [v]
+  AstCast v -> printPrefixOp printAst cfg d "rcast" [v]
   AstFromIntegral a ->
-    printPrefixOp printAst cfg d "tfromIntegral" [a]
+    printPrefixOp printAst cfg d "rfromIntegral" [a]
   AstConst a ->
     showParen (d > 10)
     $ showString "rconst "
@@ -321,10 +321,10 @@ printAstAux cfg d = \case
                $ shows a
   AstSToR v -> printAstS cfg d v
   AstConstant a@AstConst{} -> printAst cfg d a
-  AstConstant a -> printPrefixOp printAst cfg d "tconstant" [a]
-  AstPrimalPart a -> printPrefixOp printAst cfg d "tprimalPart" [a]
-  AstDualPart a -> printPrefixOp printAst cfg d "tdualPart" [a]
-  AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "tD" u u'
+  AstConstant a -> printPrefixOp printAst cfg d "rconstant" [a]
+  AstPrimalPart a -> printPrefixOp printAst cfg d "rprimalPart" [a]
+  AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
+  AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
   AstLetDomains vars l v ->
     showParen (d > 10)
     $ showString "rletDomainsOf "
@@ -666,7 +666,7 @@ printAstS cfg d = \case
     printPrefixOp printAstS cfg d "sconstant" [a]
   AstPrimalPartS a -> printPrefixOp printAstS cfg d "sprimalPart" [a]
   AstDualPartS a -> printPrefixOp printAstS cfg d "sdualPart" [a]
-  AstDS u u' -> printPrefixBinaryOp printAstS printAstS cfg d "tDS" u u'
+  AstDS u u' -> printPrefixBinaryOp printAstS printAstS cfg d "sD" u u'
   AstLetDomainsS vars l v ->
     showParen (d > 10)
     $ showString "sletDomainsOf "
