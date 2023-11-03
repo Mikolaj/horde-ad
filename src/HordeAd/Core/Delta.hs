@@ -60,7 +60,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
-import           Data.List (foldl', sort)
+import           Data.List (sort)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
@@ -75,15 +75,14 @@ import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import           HordeAd.Core.Ast
-import           HordeAd.Core.TensorAst ()
-import           HordeAd.Core.TensorClass
-import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
+import HordeAd.Core.Ast
+import HordeAd.Core.TensorAst ()
+import HordeAd.Core.TensorClass
+import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape, trustMeThisIsAPermutation)
-import           HordeAd.Util.ShapedList (ShapedList (..))
-import qualified HordeAd.Util.ShapedList as ShapedList
-import           HordeAd.Util.SizedIndex
+import HordeAd.Util.ShapedList (ShapedList (..))
+import HordeAd.Util.SizedIndex
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -954,7 +953,7 @@ buildFinMaps s0 deltaDt =
           V.ifoldl' (\ !s2 i d2 ->
             evalS s2 (cShared !$ (fromIntegral i :$: ZSH)) d2) sShared ld
         ReplicateS d -> evalS s (ssum c) d
-        AppendS @_ @_ @_ @m @n d e ->
+        AppendS @_ @_ @_ @m d e ->
           let s2 = evalS sShared (sslice (Proxy @0) Proxy cShared) d
           in evalS s2 (sslice (Proxy @m) Proxy cShared) e
         SliceS @_ @_ @i d ->

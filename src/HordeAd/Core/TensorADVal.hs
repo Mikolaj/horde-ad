@@ -11,7 +11,7 @@ module HordeAd.Core.TensorADVal
   ( ADValClown
   ) where
 
-import Prelude
+import Prelude hiding (foldl')
 
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)

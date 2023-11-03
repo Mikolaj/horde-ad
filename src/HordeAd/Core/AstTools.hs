@@ -14,7 +14,7 @@ module HordeAd.Core.AstTools
   , unwrapAstDomains, bindsToLet, bindsToLetS, bindsToDomainsLet
   ) where
 
-import Prelude
+import Prelude hiding (foldl')
 
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR

@@ -258,11 +258,11 @@ inlineAstBool memo v0 = case v0 of
         (memo2, b2) = inlineAstBool memo1 arg2
     in (memo2, Ast.AstB2 opCodeBool b1 b2)
   Ast.AstBoolConst{} -> (memo, v0)
-  Ast.AstRel @n opCodeRel arg1 arg2 ->
+  Ast.AstRel opCodeRel arg1 arg2 ->
     let (memo1, r1) = inlineAst memo arg1
         (memo2, r2) = inlineAst memo1 arg2
     in (memo2, Ast.AstRel opCodeRel r1 r2)
-  Ast.AstRelS @n opCodeRel arg1 arg2 ->
+  Ast.AstRelS opCodeRel arg1 arg2 ->
     let (memo1, r1) = inlineAstS memo arg1
         (memo2, r2) = inlineAstS memo1 arg2
     in (memo2, Ast.AstRelS opCodeRel r1 r2)

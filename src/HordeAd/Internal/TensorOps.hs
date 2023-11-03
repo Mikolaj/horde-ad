@@ -9,7 +9,7 @@ module HordeAd.Internal.TensorOps
   , tsumR, tsum0R, tsumInR
   ) where
 
-import Prelude
+import Prelude hiding (foldl')
 
 import           Control.Arrow (first, second)
 import           Control.Exception.Assert.Sugar

@@ -30,7 +30,7 @@ module HordeAd.Core.Ast
   , AstNoSimplify(..), AstNoSimplifyS(..)
   ) where
 
-import Prelude
+import Prelude hiding (foldl')
 
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS

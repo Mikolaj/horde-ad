@@ -3,7 +3,7 @@
 -- for classification of MNIST digits. Sports 2 hidden layers.
 module MnistRnnRanked2 where
 
-import Prelude
+import Prelude hiding (foldl')
 
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip

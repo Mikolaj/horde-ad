@@ -5,7 +5,7 @@
 -- for classification of MNIST digits. Sports 2 hidden layers.
 module MnistRnnShaped2 where
 
-import Prelude
+import Prelude hiding (foldl')
 
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.ShapedS as OS
