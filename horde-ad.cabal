@@ -83,6 +83,8 @@ common options
                       RecordWildCards, MultiWayIf, LambdaCase,
                       DefaultSignatures, PatternSynonyms, NoStarIsType,
                       DataKinds
+  if impl(ghc >= 9.8)
+    default-extensions: TypeAbstractions
   other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists,
                       DerivingStrategies, DeriveAnyClass, TupleSections,
                       UndecidableInstances, AllowAmbiguousTypes
