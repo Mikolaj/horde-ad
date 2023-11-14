@@ -194,14 +194,15 @@ library testToolLibrary
       , tasty-hunit
       , vector
 
-library testCommonLibrary
-    import:           options
-
-    exposed-modules:  TestHighRankSimplified
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
+executable simplifiedOnlyTest
+    import:           options, exe-options-test
 
     hs-source-dirs:   test/simplified
 
-    -- Other library packages from which modules are imported.
+    main-is:          Main.hs
+
     build-depends:
       , horde-ad:horde-ad-simplified
       , horde-ad:testToolLibrary
@@ -209,30 +210,3 @@ library testCommonLibrary
       , base
       , bifunctors
       , orthotope
-      , tasty >= 1.0
-      , tasty-hunit
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-test-suite simplifiedOnlyTest
-    import:           options, exe-options-test
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-
-    main-is:          SimplifiedOnlyTest.hs
-
-    build-depends:
-      , horde-ad:testCommonLibrary
-      , horde-ad:testToolLibrary
-
-      , base
-      , bifunctors
-      , orthotope
-      , tasty >= 1.0
