@@ -23,13 +23,12 @@ import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
--- moving this to TestHighRankSimplified resolves the problem
-revShort :: forall r v a.
-        ( GoodScalar r
-        , v ~ Flip OR.Array r 9, a ~ Flip OR.Array r 7 )
+-- * moving this to TestHighRankSimplified resolves the problem
+-- * replacing 'r' with 'Double' resolves the problem
+revShort :: forall r. GoodScalar r
      => (forall f. ADReady f => f r 7 -> f r 9)
-     -> a
-     -> v
+     -> Flip OR.Array r 7
+     -> Flip OR.Array r 9
 revShort f vals =
   let parameters = toDomains vals
       dt = Nothing
