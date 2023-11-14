@@ -18,7 +18,7 @@ testTrees =
   ]
 
 concatBuild2 :: forall ranked r. ( ADReady ranked, GoodScalar r )
-             => ranked r 7 -> ranked r 9
+             => ranked r 15 -> ranked r 17
 concatBuild2 r =
   tbuild1 5 (\i ->
     tbuild1 2 (\j -> tmap0N (* tfromIndex0 (maxF j (i `quot` (j + 1)))) r))
