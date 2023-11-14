@@ -36,8 +36,8 @@ revShort f vals =
       (_, value2) = crevOnDomains dt h parameters
   in value2
 
-concatBuild2 :: forall ranked r. ( ADReady ranked, GoodScalar r )
-             => ranked r 15 -> ranked r 17
+concatBuild2 :: forall ranked. ADReady ranked
+             => ranked Double 15 -> ranked Double 17
 concatBuild2 r =
   tbuild1 5 (\i ->
     tbuild1 2 (\j -> tmap0N (* tfromIndex0 (maxF j (i `quot` (j + 1)))) r))
