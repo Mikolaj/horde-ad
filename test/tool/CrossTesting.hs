@@ -25,7 +25,7 @@ import HordeAd.Core.Types
 -- * moving this to TestHighRankSimplified resolves the problem
 -- * replacing 'r' with 'Double' resolves the problem
 revShort :: forall r. GoodScalar r
-     => (forall f. ADReady f => f r 7 -> f r 9)
+     => (AstRanked PrimalSpan r 7 -> AstRanked PrimalSpan r 9)
      -> Flip OR.Array r 7
      -> Flip OR.Array r 9
 revShort f vals =
@@ -33,7 +33,7 @@ revShort f vals =
       dt = Nothing
       h :: Domains (ADValClown OD.Array) -> ADVal (Flip OR.Array) r 9
       h inputs =
-        let (var, ast) = funToAstR (tshape vals) (f @(AstRanked PrimalSpan))
+        let (var, ast) = funToAstR (tshape vals) f
             env = extendEnvR var (parseDomains vals inputs) EM.empty
         in interpretAst env ast
       (_, value2) = crevOnDomains dt h parameters
