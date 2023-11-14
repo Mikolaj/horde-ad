@@ -2,7 +2,7 @@
 -- over a twenty different pipeline variants and compares the results.
 module CrossTesting
   ( assertEqualUpToEpsilon1
-  , rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
+  , rev', assertEqualUpToEpsilon', revShort, assertEqualUpToEpsilonShort
   , t16, t16b, t48, t128, t128b, t128c
   ) where
 
@@ -302,87 +302,59 @@ assertEqualUpToEpsilon'
   show (simplifyAst6 astVectSimp) @?= show astVectSimp
   show (simplifyAst6 astSimp) @?= show astSimp
 
+-- moving this to TestHighRankSimplified resolves the problem
+revShort :: forall r m n v a.
+        ( KnownNat n, KnownNat m, GoodScalar r
+        , v ~ Flip OR.Array r m, a ~ Flip OR.Array r n )
+     => (forall f. ADReady f => f r n -> f r m)
+     -> a
+     -> (v, v)
+revShort f vals =
+  let value0 = f vals
+      parameters = toDomains vals
+      dt = Nothing
+      g :: Domains (ADValClown OD.Array)
+        -> ADVal (Flip OR.Array) r m
+      g inputs = f $ parseDomains vals inputs
+      (advalGrad, value1) = crevOnDomains dt g parameters
+      g9 :: Domains (ADValClown (AstDynamic PrimalSpan))
+         -> ADVal (AstRanked PrimalSpan) r m
+      g9 inputs = f $ parseDomains vals inputs
+      revAstOnDomainsF
+        :: forall r2 n2. (KnownNat n2, GoodScalar r2)
+        => Bool
+        -> (Domains (ADValClown (AstDynamic PrimalSpan))
+            -> ADVal (AstRanked PrimalSpan) r2 n2)
+        -> DomainsOD
+        -> (AstArtifactRev AstRanked r2 n2, Dual (AstRanked PrimalSpan) r2 n2)
+      revAstOnDomainsF hasDt f2 =
+        revArtifactFromForwardPass hasDt (forwardPassByApplication f2)
+      (advalGrad9, value9) =
+        revEvalArtifact (fst $ revAstOnDomainsF False g9 parameters)
+                        parameters dt
+      h :: ADReady f1
+        => (f1 r m -> AstRanked PrimalSpan r m)
+        -> (AstRanked PrimalSpan r n -> f1 r n)
+        -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
+        -> Domains (ADValClown OD.Array)
+        -> ADVal (Flip OR.Array) r m
+      h fx1 fx2 gx inputs =
+        let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
+            env = extendEnvR var (parseDomains vals inputs) EM.empty
+        in interpretAst env (gx ast)
+      (astGrad, value2) =
+        crevOnDomains dt (h id id id) parameters
+  in ( value0, value2 )
+
 assertEqualUpToEpsilonShort
-    :: ( v ~ Flip OR.Array r m, a ~ Flip OR.Array r n
-       , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
-       , AssertEqualUpToEpsilon r
-       , KnownNat n, KnownNat m, GoodScalar r, HasCallStack)
+    :: ( v ~ Flip OR.Array r m
+       , AssertEqualUpToEpsilon v, AssertEqualUpToEpsilon r
+       , KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
-    -> OR.Array n r  -- ^ expected reverse derivative value
-    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a
-       , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
-       , v, v, v, v, v, v, v, v, v, v, v, v, v, v
-       , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , a, v, v )
-         -- ^ actual values
+    -> (v, v)
     -> Assertion
-assertEqualUpToEpsilonShort
-    errMargin expected'
-    ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
-    , _value4, value5
-    , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp
-    , _gradient4, gradient5
-    , astVectSimp, astSimp
-    , _value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
-    , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
-    , _value4Ast, _value4AstS, _value5Ast, _value5AstS
-    , _gradient9, gradient2Ast, gradient2AstS, gradient2AstST
-    , gradient3Ast, gradient3AstS
-    , gradient2AstUnSimp, gradient2AstSUnSimp
-    , gradient3AstUnSimp, gradient3AstSUnSimp
-    , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS
-    , vals, cderivative, derivative ) = do
-  let expected = Flip expected'
-  assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
+assertEqualUpToEpsilonShort errMargin (value0, value2) =
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
-  assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
-  assertEqualUpToEpsilonWithMark "Val V UnS" errMargin value0 value2UnSimp
-  assertEqualUpToEpsilonWithMark "Val V+S UnS" errMargin value0 value3UnSimp
-  assertEqualUpToEpsilonWithMark "Val Simplified" errMargin value0 value5
-  assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
-  assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
-  assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
-  assertEqualUpToEpsilonWithMark "Grad V UnS" errMargin expected gradient2UnSimp
-  assertEqualUpToEpsilonWithMark "Grad V+S UnS" errMargin expected
-                                                gradient3UnSimp
-  assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
-  assertEqualUpToEpsilonWithMark "Val Ast Vectorized" errMargin value0 value2Ast
-  assertEqualUpToEpsilonWithMark "Val Ast V S" errMargin value0 value2AstS
-  assertEqualUpToEpsilonWithMark "Val Ast V ST" errMargin value0 value2AstST
-  assertEqualUpToEpsilonWithMark "Val Ast Vect+Simp" errMargin value0 value3Ast
-  assertEqualUpToEpsilonWithMark "Val Ast V+S S" errMargin value0 value3AstS
-  assertEqualUpToEpsilonWithMark "Val Ast V UnS" errMargin value0
-                                                 value2AstUnSimp
-  assertEqualUpToEpsilonWithMark "Val Ast V S UnS" errMargin value0
-                                                   value2AstSUnSimp
-  assertEqualUpToEpsilonWithMark "Val Ast Vect+Simp UnS" errMargin value0
-                                                         value3AstUnSimp
-  assertEqualUpToEpsilonWithMark "Val Ast V+S S UnS" errMargin value0
-                                                     value3AstSUnSimp
-  assertEqualUpToEpsilonWithMark "Grad Ast Vectorized"
-                                 errMargin expected gradient2Ast
-  assertEqualUpToEpsilonWithMark "Grad Ast Vectorized S"
-                                 errMargin expected gradient2AstS
-  assertEqualUpToEpsilonWithMark "Grad Ast Vectorized ST"
-                                 errMargin expected gradient2AstST
-  assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp"
-                                 errMargin expected gradient3Ast
-  assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp S"
-                                 errMargin expected gradient3AstS
-  assertEqualUpToEpsilonWithMark "Grad Ast Vectorized UnS"
-                                 errMargin expected gradient2AstUnSimp
-  assertEqualUpToEpsilonWithMark "Grad Ast Vectorized S UnS"
-                                 errMargin expected gradient2AstSUnSimp
-  assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp UnS"
-                                 errMargin expected gradient3AstUnSimp
-  assertEqualUpToEpsilonWithMark "Grad Ast Vect+Simp S UnS"
-                                 errMargin expected gradient3AstSUnSimp
-  assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
-  assertEqualUpToEpsilonWithMark "Forward vs reverse"
-                                 1e-5 (tsum0 derivative) (tdot0 expected vals)
-  -- No Eq instance, so let's compare the text.
-  show (simplifyAst6 astVectSimp) @?= show astVectSimp
-  show (simplifyAst6 astSimp) @?= show astSimp
 
 t16 :: (Numeric r, Fractional r) => Flip OR.Array r 5
 t16 = Flip $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]

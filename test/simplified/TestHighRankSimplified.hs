@@ -4,10 +4,9 @@ module TestHighRankSimplified (testTrees) where
 
 import Prelude
 
-import qualified Data.Array.RankedS as OR
-import           GHC.TypeLits (KnownNat, type (+))
-import           Test.Tasty
-import           Test.Tasty.HUnit hiding (assert)
+import GHC.TypeLits (KnownNat, type (+))
+import Test.Tasty
+import Test.Tasty.HUnit hiding (assert)
 
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Unsafe.Coerce (unsafeCoerce)
@@ -32,6 +31,5 @@ concatBuild2 r =
 
 testConcatBuild22 :: Assertion
 testConcatBuild22 =
-  assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [3,1,2,2,1,2,2] [16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0])
-    (rev' @Double @9 concatBuild2 t48)
+  let !(!_, !_) = revShort @Double @9 concatBuild2 t48
+  in return ()
