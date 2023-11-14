@@ -95,7 +95,7 @@ common options
   ghc-options:        -fno-ignore-asserts
 
   -- Disabling this breaks performance:
-  ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200
+  ghc-options:        -fexpose-all-unfoldings -fsimpl-tick-factor=200
 
   ghc-options:        -Wmissed-specialisations
 
