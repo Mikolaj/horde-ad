@@ -24,6 +24,7 @@ import HordeAd.Core.Types
 
 -- * moving this to TestHighRankSimplified resolves the problem
 -- * replacing 'r' with 'Double' resolves the problem
+-- * with profiling on (cabal test simplifiedOnlyTest --enable-optimization -w ~/r/ghc.head/_build/stage1/bin/ghc --constraint="ghc-typelits-knownnat==0.7.10" --constraint="ghc-typelits-natnormalise==0.7.9" --test-options='+RTS -xc' --ghc-options=-fprof-auto-calls --enable-profiling) the test fails both with and without -fspecialise-aggressively, but no stack trace is printed in either case and that's because we get `Segmentation fault (core dumped)`
 revShort :: forall r. GoodScalar r
      => (AstRanked PrimalSpan r 15 -> AstRanked PrimalSpan r 17)
      -> Flip OR.Array r 15
