@@ -207,7 +207,6 @@ library testCommonLibrary
       , horde-ad:testToolLibrary
 
       , base
-      , orthotope
       , tasty >= 1.0
       , tasty-hunit
 

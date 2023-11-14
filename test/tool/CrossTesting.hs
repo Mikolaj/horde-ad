@@ -308,30 +308,10 @@ revShort :: forall r m n v a.
         , v ~ Flip OR.Array r m, a ~ Flip OR.Array r n )
      => (forall f. ADReady f => f r n -> f r m)
      -> a
-     -> (v, v)
+     -> v
 revShort f vals =
-  let value0 = f vals
-      parameters = toDomains vals
+  let parameters = toDomains vals
       dt = Nothing
-      g :: Domains (ADValClown OD.Array)
-        -> ADVal (Flip OR.Array) r m
-      g inputs = f $ parseDomains vals inputs
-      (advalGrad, value1) = crevOnDomains dt g parameters
-      g9 :: Domains (ADValClown (AstDynamic PrimalSpan))
-         -> ADVal (AstRanked PrimalSpan) r m
-      g9 inputs = f $ parseDomains vals inputs
-      revAstOnDomainsF
-        :: forall r2 n2. (KnownNat n2, GoodScalar r2)
-        => Bool
-        -> (Domains (ADValClown (AstDynamic PrimalSpan))
-            -> ADVal (AstRanked PrimalSpan) r2 n2)
-        -> DomainsOD
-        -> (AstArtifactRev AstRanked r2 n2, Dual (AstRanked PrimalSpan) r2 n2)
-      revAstOnDomainsF hasDt f2 =
-        revArtifactFromForwardPass hasDt (forwardPassByApplication f2)
-      (advalGrad9, value9) =
-        revEvalArtifact (fst $ revAstOnDomainsF False g9 parameters)
-                        parameters dt
       h :: ADReady f1
         => (f1 r m -> AstRanked PrimalSpan r m)
         -> (AstRanked PrimalSpan r n -> f1 r n)
@@ -342,14 +322,14 @@ revShort f vals =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseDomains vals inputs) EM.empty
         in interpretAst env (gx ast)
-      (astGrad, value2) =
+      (_, value2) =
         crevOnDomains dt (h id id id) parameters
-  in ( value0, value2 )
+  in value2
 
 assertEqualUpToEpsilonShort
     :: ( v ~ Flip OR.Array r m
-       , AssertEqualUpToEpsilon v, AssertEqualUpToEpsilon r
-       , KnownNat m, GoodScalar r, HasCallStack)
+       , AssertEqualUpToEpsilon v
+       , HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> (v, v)
     -> Assertion
