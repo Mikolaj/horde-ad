@@ -22,6 +22,4 @@ concatBuild2 r =
     tbuild1 2 (\j -> tmap0N (* tfromIndex0 (maxF j (i `quot` (j + 1)))) r))
 
 main :: IO ()
-main =
-  let !_ = revShort @Double concatBuild2 t48
-  in return ()
+main = print $ revShort @Double concatBuild2 t48

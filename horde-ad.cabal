@@ -199,7 +199,7 @@ library testToolLibrary
 executable simplifiedOnlyTest
     import:           options, exe-options-test
 
-    hs-source-dirs:   test/simplified
+    hs-source-dirs:   .
 
     main-is:          Main.hs
 
