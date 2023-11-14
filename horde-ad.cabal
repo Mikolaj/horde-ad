@@ -207,6 +207,8 @@ library testCommonLibrary
       , horde-ad:testToolLibrary
 
       , base
+      , bifunctors
+      , orthotope
       , tasty >= 1.0
       , tasty-hunit
 
@@ -231,4 +233,6 @@ test-suite simplifiedOnlyTest
       , horde-ad:testToolLibrary
 
       , base
+      , bifunctors
+      , orthotope
       , tasty >= 1.0
