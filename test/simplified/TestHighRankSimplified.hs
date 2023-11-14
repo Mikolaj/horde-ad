@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# OPTIONS_GHC -fspecialise-aggressively #-}
 -- | Assorted mostly high rank tensor tests.
 module TestHighRankSimplified (testTrees) where
 
