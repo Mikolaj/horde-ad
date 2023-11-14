@@ -314,7 +314,7 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
 -- the term @AstBuild1 k (var, AstIndex v ix)@, where it's unknown whether
 -- @var@ occurs in any of @v@, @ix@.
 --
--- We try to push indexing down as far as needed to eliminate any occurences
+-- We try to push indexing down as far as needed to eliminate any occurrences
 -- of @var@ from @v@ (but not necessarily from @ix@), which is enough
 -- to replace @AstBuild1@ with @AstGather@ and so complete
 -- the vectorization.

@@ -112,7 +112,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstCond b a2 a3 ->
     -- This is a place where our inlining may increase code size
     -- by enlarging both branches due to not considering number of syntactic
-    -- occurences, but only dynamic occurences. Tensor expressions
+    -- occurrences, but only dynamic occurrences. Tensor expressions
     -- in conditionals are problematic and special enough
     -- that we can let it be until problems are encountered in the wild.
     -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
@@ -295,7 +295,7 @@ inlineAstS memo v0 = case v0 of
   Ast.AstCondS b a2 a3 ->
     -- This is a place where our inlining may increase code size
     -- by enlarging both branches due to not considering number of syntactic
-    -- occurences, but only dynamic occurences. Tensor expressions
+    -- occurrences, but only dynamic occurrences. Tensor expressions
     -- in conditionals are problematic and special enough
     -- that we can let it be until problems are encountered in the wild.
     -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.

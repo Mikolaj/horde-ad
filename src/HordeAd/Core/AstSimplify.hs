@@ -253,7 +253,7 @@ astIndexStepS v ix = Ast.AstIndexS v ix  -- TODO
 -- If stepOnly is set, we reduce only as long as needed to reveal
 -- a non-indexing constructor or one of the normal forms (one-element
 -- indexing applied to AstFromList or AstFromVector or indexing
--- of a term with no possible occurences of Int variables). Otherwise,
+-- of a term with no possible occurrences of Int variables). Otherwise,
 -- we simplify exhaustively.
 --
 -- The v0 term is already at least one step simplified,

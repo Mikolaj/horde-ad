@@ -5,7 +5,7 @@
 module HordeAd.Core.AstTools
   ( -- * Shape calculation
     shapeAst, lengthAst
-    -- * Variable occurence detection
+    -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndex
   , varInAstS, varInIndexS, varNameInAst, varNameInAstS
     -- * Determining if a term is too small to require sharing
@@ -100,11 +100,11 @@ lengthAst v1 = case shapeAst v1 of
   k :$ _ -> k
 
 
--- * Variable occurence detection
+-- * Variable occurrence detection
 
 -- We assume no variable is shared between a binding and its nested binding
--- and nobody asks about occurences of variables that are bound.
--- This keeps the occurence checking code simple, because we never need
+-- and nobody asks about occurrences of variables that are bound.
+-- This keeps the occurrence checking code simple, because we never need
 -- to compare variables to any variable in the bindings.
 varInAst :: forall s s2 r n. (AstSpan s, AstSpan s2)
          => AstVarId s -> AstRanked s2 r n -> Bool

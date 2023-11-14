@@ -149,7 +149,7 @@ _rankedNoShareVecProd = V.foldl1' multNotShared
 -- Until new inspection-testing is released, this is commented out
 -- belowis a dummy to prevent warnings.
 {-
--- The GoodScalar and it's component occurences are due to creating
+-- The GoodScalar and it's component occurrences are due to creating
 -- a value of an existential type that satisfies GoodScalar,
 -- so it's intended and not a specialization failure.
 -- OTOH, KnownNat and AstSpan are tag types, so it's fine not to specialize
