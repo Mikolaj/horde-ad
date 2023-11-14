@@ -32,15 +32,12 @@ revShort :: forall r. GoodScalar r
 revShort f vals =
   let parameters = toDomains vals
       dt = Nothing
-      h :: (AstRanked PrimalSpan r 9 -> AstRanked PrimalSpan r 9)
-        -> Domains (ADValClown OD.Array)
-        -> ADVal (Flip OR.Array) r 9
-      h gx inputs =
-        let (var, ast) = funToAstR (tshape vals) f
+      h :: Domains (ADValClown OD.Array) -> ADVal (Flip OR.Array) r 9
+      h inputs =
+        let (var, ast :: AstRanked PrimalSpan r 9) = funToAstR (tshape vals) f
             env = extendEnvR var (parseDomains vals inputs) EM.empty
-        in interpretAst env (gx ast)
-      (_, value2) =
-        crevOnDomains dt (h id) parameters
+        in interpretAst env ast
+      (_, value2) = crevOnDomains dt h parameters
   in value2
 
 t48 :: (Numeric r, Fractional r) => Flip OR.Array r 7
