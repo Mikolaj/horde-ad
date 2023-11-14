@@ -25,10 +25,10 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
 -- moving this to TestHighRankSimplified resolves the problem
-revShort :: forall r m n v a.
-        ( KnownNat n, KnownNat m, GoodScalar r
-        , v ~ Flip OR.Array r m, a ~ Flip OR.Array r n )
-     => (forall f. ADReady f => f r n -> f r m)
+revShort :: forall r m v a.
+        ( KnownNat m, GoodScalar r
+        , v ~ Flip OR.Array r m, a ~ Flip OR.Array r 7 )
+     => (forall f. ADReady f => f r 7 -> f r m)
      -> a
      -> v
 revShort f vals =
@@ -36,7 +36,7 @@ revShort f vals =
       dt = Nothing
       h :: ADReady f1
         => (f1 r m -> AstRanked PrimalSpan r m)
-        -> (AstRanked PrimalSpan r n -> f1 r n)
+        -> (AstRanked PrimalSpan r 7 -> f1 r 7)
         -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
         -> Domains (ADValClown OD.Array)
         -> ADVal (Flip OR.Array) r m

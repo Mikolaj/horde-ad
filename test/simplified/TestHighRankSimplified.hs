@@ -5,12 +5,8 @@ module TestHighRankSimplified (testTrees) where
 
 import Prelude
 
-import GHC.TypeLits (KnownNat, type (+))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
-
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
-import Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd
 
@@ -21,12 +17,9 @@ testTrees =
   [ testCase "3concatBuild22" testConcatBuild22
   ]
 
-concatBuild2 :: forall n ranked r.
-                ( ADReady ranked, GoodScalar r
-                , KnownNat (1 + n), KnownNat (1 + (1 + n)) )
-             => ranked r (1 + n) -> ranked r (3 + n)
+concatBuild2 :: forall ranked r. ( ADReady ranked, GoodScalar r )
+             => ranked r 7 -> ranked r 9
 concatBuild2 r =
-  gcastWith (unsafeCoerce Refl :: 1 + (1 + (1 + n)) :~: 3 + n) $
   tbuild1 5 (\i ->
     tbuild1 2 (\j -> tmap0N (* tfromIndex0 (maxF j (i `quot` (j + 1)))) r))
 
