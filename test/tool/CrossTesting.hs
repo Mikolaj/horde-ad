@@ -10,7 +10,6 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric)
 
 import HordeAd.Core.Adaptor
@@ -25,21 +24,21 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
 -- moving this to TestHighRankSimplified resolves the problem
-revShort :: forall r m v a.
-        ( KnownNat m, GoodScalar r
-        , v ~ Flip OR.Array r m, a ~ Flip OR.Array r 7 )
-     => (forall f. ADReady f => f r 7 -> f r m)
+revShort :: forall r v a.
+        ( GoodScalar r
+        , v ~ Flip OR.Array r 9, a ~ Flip OR.Array r 7 )
+     => (forall f. ADReady f => f r 7 -> f r 9)
      -> a
      -> v
 revShort f vals =
   let parameters = toDomains vals
       dt = Nothing
       h :: ADReady f1
-        => (f1 r m -> AstRanked PrimalSpan r m)
+        => (f1 r 9 -> AstRanked PrimalSpan r 9)
         -> (AstRanked PrimalSpan r 7 -> f1 r 7)
-        -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
+        -> (AstRanked PrimalSpan r 9 -> AstRanked PrimalSpan r 9)
         -> Domains (ADValClown OD.Array)
-        -> ADVal (Flip OR.Array) r m
+        -> ADVal (Flip OR.Array) r 9
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseDomains vals inputs) EM.empty

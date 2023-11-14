@@ -25,5 +25,5 @@ concatBuild2 r =
 
 testConcatBuild22 :: Assertion
 testConcatBuild22 =
-  let !_ = revShort @Double @9 concatBuild2 t48
+  let !_ = revShort @Double concatBuild2 t48
   in return ()
