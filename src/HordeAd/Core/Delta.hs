@@ -85,6 +85,8 @@ import           HordeAd.Util.ShapedList (ShapedList (..))
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 
+import Debug.Trace
+
 -- * Abstract syntax trees of the delta expressions
 
 -- | TODO: This and most of other haddocks are out of date.
@@ -523,13 +525,13 @@ instance DualPart @Nat (AstRanked PrimalSpan) where
   forwardDerivative = derivativeFromDeltaR
 
 gradientDtR
-  :: ( KnownNat y, GoodScalar r
+  :: forall y r ranked shaped. ( KnownNat y, GoodScalar r
      , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
   => Int -> ranked r y -> Maybe (ranked r y)
   -> DeltaR ranked shaped r y
   -> ( AstBindings ranked
      , Domains (DynamicOf ranked) )
-gradientDtR !dims value !mdt !deltaTopLevel =
+gradientDtR !dims value !mdt !deltaTopLevel = traceShow ("gradientDtR", valueOf @y) $
   let dt = fromMaybe (treplicate0N (tshape value) 1) mdt
       deltaDt = DeltaDtR dt deltaTopLevel
   in gradientFromDelta dims deltaDt

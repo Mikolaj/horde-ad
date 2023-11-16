@@ -35,6 +35,8 @@ import           Numeric.LinearAlgebra.Devel (zipVectorWith)
 import           Type.Reflection (eqTypeRep, typeRep, (:~~:) (HRefl))
 import           Unsafe.Coerce (unsafeCoerce)
 
+import Debug.Trace
+
 -- * Numeric instances for tensors
 
 liftVD
@@ -130,12 +132,12 @@ liftVR !op t@(RS.A (RG.A sh oit)) =
   else OR.fromVector sh $ op $ OR.toVector t
 
 liftVR2
-  :: (Numeric r, Show r, KnownNat n)
+  :: forall r n. (Numeric r, Show r, KnownNat n)
   => (Vector r -> Vector r -> Vector r)
   -> OR.Array n r -> OR.Array n r -> OR.Array n r
 liftVR2 !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
             u@(RS.A (RG.A shu oiu@(OI.T _ _ vu)))
-        = assert (sh == shu `blame` (t, u)) $
+        = traceShow ("liftVR2", valueOf @n, t, u) $ assert (sh == shu `blame` (t, u)) $
   case (V.length vt, V.length vu) of
     (1, 1) -> RS.A $ RG.A sh $ OI.T sst 0 $ vt `op` vu
     (1, _) ->
