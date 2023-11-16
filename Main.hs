@@ -5,7 +5,6 @@ module Main (main) where
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
@@ -14,7 +13,8 @@ import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
-import HordeAd.Core.TensorADVal
+
+import Debug.Trace
 
 t48 :: Flip OR.Array Double 15
 t48 = Flip $ OR.fromList [3, 1, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
@@ -22,19 +22,16 @@ t48 = Flip $ OR.fromList [3, 1, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2] [18.1,29.
 revShort ::
      (AstRanked PrimalSpan Double 15 -> AstRanked PrimalSpan Double 17)
      -> Flip OR.Array Double 15
-     -> ()
+     -> ADVal (Flip OR.Array) Double 17
 revShort f vals =
-  let parameters = toDomains vals
-      dt = Nothing
-      h :: Domains (ADValClown OD.Array) -> ADVal (Flip OR.Array) Double 17
-      h inputs =
-        let (var, ast) = funToAstR (tshape vals) f
-            env = extendEnvR var (parseDomains vals inputs) EM.empty
-        in interpretAst env ast
-      deltaInputs = generateDeltaInputsOD parameters
-      inputs = makeADInputs parameters deltaInputs
-      !_ = h inputs
-  in ()
+  let !parameters = toDomains vals in
+  let !deltaInputs = traceShow ("parameters", parameters) $ generateDeltaInputsOD parameters in
+  let !inputs = traceShow ("deltaInputs", deltaInputs) $ makeADInputs parameters deltaInputs in
+  let !(!var, !ast) = traceShow ("inputs", inputs) $ funToAstR (tshape vals) f in
+  let !env = traceShow ("var", var) $ traceShow ("ast", ast) $ extendEnvR var (parseDomains vals inputs) EM.empty in
+  let adval :: ADVal (Flip OR.Array) Double 17
+      !adval = traceShow ("env", env) $ interpretAst env ast
+  in adval
 
 concatBuild2 :: AstRanked PrimalSpan Double 15 -> AstRanked PrimalSpan Double 17
 concatBuild2 r =
