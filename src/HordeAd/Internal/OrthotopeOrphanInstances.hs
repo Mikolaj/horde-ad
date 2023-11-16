@@ -155,7 +155,12 @@ liftVR2 !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
       then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
            $ RS.A $ RG.A sh $ oit {OI.values = vt `op` vu}
       else let v = OR.toVector t `op` OR.toVector u
-           in traceShow ("OR.fromVector", valueOf @n, sh, v) $ OR.fromVector @r @n sh v
+           in traceShow ("OR.fromVector", valueOf @n, sh, v)
+              $ OR.fromVector @r @n sh v
+-- this does not repro:
+--            $ RS.A $ RG.fromVector @n sh v
+-- but this is how OR.fromVector is defined (without the type application) at https://hackage.haskell.org/package/orthotope-0.1.2.0/docs/src/Data.Array.Internal.RankedS.html#fromVector
+
 
 liftVR2NoAdapt
   :: (Numeric r, Show r, KnownNat n)
