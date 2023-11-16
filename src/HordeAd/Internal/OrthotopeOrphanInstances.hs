@@ -148,13 +148,14 @@ liftVR2 !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
       if product sh >= V.length vt
       then RS.A $ RG.A sh $ oit {OI.values = vt `op` vu}
       else OR.fromVector sh $ OR.toVector t `op` vu
-    (_, _) -> traceShow ("liftVR2 _ _", valueOf @n, t, u) $
+    (_, _) -> traceShow ("liftVR2 _ _", valueOf @n, OR.rank t, OR.rank u, sh, shu, t, u) $
       if product sh >= V.length vt
          && product sh >= V.length vu
          && OI.strides oit == OI.strides oiu
       then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
            $ RS.A $ RG.A sh $ oit {OI.values = vt `op` vu}
-      else OR.fromVector sh $ OR.toVector t `op` OR.toVector u
+      else let v = OR.toVector t `op` OR.toVector u
+           in traceShow ("OR.fromVector", valueOf @n, sh, v) $ OR.fromVector @r @n sh v
 
 liftVR2NoAdapt
   :: (Numeric r, Show r, KnownNat n)
