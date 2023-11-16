@@ -22,7 +22,7 @@ t48 = Flip $ OR.fromList [3, 1, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2] [18.1,29.
 revShort ::
      (AstRanked PrimalSpan Double 15 -> AstRanked PrimalSpan Double 17)
      -> Flip OR.Array Double 15
-     -> Flip OR.Array Double 17
+     -> ()
 revShort f vals =
   let parameters = toDomains vals
       dt = Nothing
@@ -31,8 +31,10 @@ revShort f vals =
         let (var, ast) = funToAstR (tshape vals) f
             env = extendEnvR var (parseDomains vals inputs) EM.empty
         in interpretAst env ast
-      (_, value2) = crevOnDomains dt h parameters
-  in value2
+      deltaInputs = generateDeltaInputsOD parameters
+      inputs = makeADInputs parameters deltaInputs
+      !_ = h inputs
+  in ()
 
 concatBuild2 :: AstRanked PrimalSpan Double 15 -> AstRanked PrimalSpan Double 17
 concatBuild2 r =
