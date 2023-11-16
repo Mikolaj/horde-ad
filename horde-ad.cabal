@@ -61,21 +61,6 @@ source-repository head
   type:               git
   location:           git://github.com/Mikolaj/horde-ad.git
 
-flag with_expensive_assertions
-  description:        turn on expensive assertions of well-tested code
-  default:            False
-  manual:             True
-
-flag release
-  description:        remember to set before tagging for a release (to expose internal functions and types, disable tests that depend on not packaged data, etc.)
-  default:            False
-  manual:             True
-
-flag test_seq
-  description:        run the test suite in sequential mode
-  default:            False
-  manual:             True
-
 common options
   default-language:   GHC2021
   default-extensions: StrictData, GADTs, TypeFamilies,
@@ -99,11 +84,6 @@ common options
 
   ghc-options:        -Wmissed-specialisations
 
-  if flag(with_expensive_assertions)
-    cpp-options:      -DWITH_EXPENSIVE_ASSERTIONS
-
-  if flag(release)
-    cpp-options:      -DEXPOSE_INTERNAL
 
 common exe-options-test
   ghc-options:        -rtsopts
