@@ -137,7 +137,7 @@ liftVR2
   -> OR.Array n r -> OR.Array n r -> OR.Array n r
 liftVR2 !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
             u@(RS.A (RG.A shu oiu@(OI.T _ _ vu)))
-        = traceShow ("liftVR2", valueOf @n, t, u) $ assert (sh == shu `blame` (t, u)) $
+        = assert (sh == shu `blame` (t, u)) $
   case (V.length vt, V.length vu) of
     (1, 1) -> RS.A $ RG.A sh $ OI.T sst 0 $ vt `op` vu
     (1, _) ->
@@ -148,7 +148,7 @@ liftVR2 !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
       if product sh >= V.length vt
       then RS.A $ RG.A sh $ oit {OI.values = vt `op` vu}
       else OR.fromVector sh $ OR.toVector t `op` vu
-    (_, _) ->
+    (_, _) -> traceShow ("liftVR2 _ _", valueOf @n, t, u) $
       if product sh >= V.length vt
          && product sh >= V.length vu
          && OI.strides oit == OI.strides oiu
