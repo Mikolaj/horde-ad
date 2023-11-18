@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
-{-# OPTIONS_GHC -ddump-prep -dsuppress-all #-}
+-- {-# OPTIONS_GHC -ddump-prep -dsuppress-all #-}
+{-# OPTIONS_GHC -ddump-spec #-}
 {-# OPTIONS_GHC -fspecialise-aggressively #-}
 -- | Assorted mostly high rank tensor tests.
 module Main (main) where
