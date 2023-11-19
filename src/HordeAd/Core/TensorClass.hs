@@ -583,7 +583,7 @@ class DomainsTensor (ranked :: RankedTensorKind)
                     , domainsOf -> ranked shaped where
   dmkDomains :: Domains (DynamicOf ranked) -> domainsOf
   rletDomainsOf :: KnownNat n
-                => domainsOf -> (domainsOf -> ranked r n)-> ranked r n
+                => domainsOf -> (domainsOf -> ranked r n) -> ranked r n
   rletToDomainsOf :: (GoodScalar r, KnownNat n)
                   => ranked r n -> (ranked r n -> domainsOf) -> domainsOf
   sletDomainsOf :: OS.Shape sh

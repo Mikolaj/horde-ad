@@ -208,8 +208,6 @@ funToAstRevIOS parameters0 = do
       !ap = V.fromList asts
   return (varsPrimal, vp, vars, ap)
 
--- The AstVarName type with its parameter somehow prevents cse and crashes
--- compared with a bare AstVarId, so let's keep it.
 funToAstRevS :: DomainsOD
              -> ( AstVarId PrimalSpan
                 , [AstDynamicVarName PrimalSpan AstShaped]
@@ -309,8 +307,6 @@ funToAstFwdIOS parameters0 = do
       !va = V.fromList asts
   return (varsPrimalDs, vd, varsPrimal, vp, vars, va)
 
--- The AstVarName type with its parameter somehow prevents cse and crashes
--- compared with a bare AstVarId, so let's keep it.
 funToAstFwdS :: DomainsOD
              -> ( [AstDynamicVarName PrimalSpan AstShaped]
                 , Domains (AstDynamic PrimalSpan)
