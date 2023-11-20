@@ -374,7 +374,7 @@ interpretAst !env = \case
   AstBuild1 k (var, AstSum (AstN2 TimesOp t (AstIndex
                                                u (AstIntVar var2 :. ZI))))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
-    , var == var2, k == rlength u ->
+    , var == var2, k == lengthAst u ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rmatvecmul t2 t1
@@ -384,11 +384,11 @@ interpretAst !env = \case
                                                  u (AstIntVar var2 :. ZI)))))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
     , Just Refl <- sameNat (Proxy @p) (Proxy @1)
-    , var == var2, k == rlength u ->
+    , var == var2, k == lengthAst u ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rmatvecmul t2 t1
-  AstBuild1 0 (_, v) -> rfromList0N (0 :$ rshape v) []
+  AstBuild1 0 (_, v) -> rfromList0N (0 :$ shapeAst v) []
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
   -- not to concrete numbers (and so Primal a is not equal to a).
@@ -403,7 +403,7 @@ interpretAst !env = \case
       -- to be used only in tests
   AstGather sh AstIota (vars, i :. ZI) ->
     rbuild sh (interpretLambdaIndex interpretAst env
-                                    (vars, rfromIntegral i))
+                                    (vars, fromPrimal @s $ AstFromIntegral i))
   AstGather sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
@@ -790,7 +790,7 @@ interpretAstS !env = \case
   AstBuild1 k (var, AstSum (AstN2 TimesOp [t, AstIndex
                                                 u (AstIntVar var2 :. ZI)]))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
-    , var == var2, k == rlength u ->
+    , var == var2, k == lengthAst u ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rmatvecmul t2 t1
@@ -800,7 +800,7 @@ interpretAstS !env = \case
                                                   u (AstIntVar var2 :. ZI)])))
     | Just Refl <- sameNat (Proxy @n) (Proxy @1)
     , Just Refl <- sameNat (Proxy @p) (Proxy @1)
-    , var == var2, k == rlength u ->
+    , var == var2, k == lengthAst u ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rmatvecmul t2 t1
@@ -827,7 +827,7 @@ interpretAstS !env = \case
     $ sbuild @shaped @r @(OS.Rank sh)
              (interpretLambdaIndexS
                 interpretAstS env
-                (vars, sfromIntegral $ sfromR i))
+                (vars, fromPrimalS @s $ AstFromIntegralS $ AstRToS i))
   AstGatherS v (vars, ix) ->
     let t1 = interpretAstS env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
