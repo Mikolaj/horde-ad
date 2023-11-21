@@ -13,9 +13,8 @@ import           Data.Bifunctor.Flip
 import           GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.Delta (DualPart (..))
-import HordeAd.Core.DualNumber (ADVal)
+import HordeAd.Core.DualNumber (ADVal, ADValClown)
 import HordeAd.Core.Engine
-import HordeAd.Core.TensorADVal (ADValClown)
 import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
 

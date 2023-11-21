@@ -42,7 +42,7 @@ module HordeAd.Core.Delta
   , -- * Delta expression identifiers
     NodeId (..), InputId, toInputId
   , -- * Evaluation of the delta expressions
-    DualPart(..), DeltaDt (..)
+    DualPart(..), DeltaDt (..), DualClown
   ) where
 
 import Prelude
@@ -447,6 +447,8 @@ toInputId i = assert (i >= 0) $ InputId i
 
 
 -- * Evaluation of the delta expressions
+
+type DualClown dynamic = Flip (Dual (Clown dynamic)) '()
 
 type DualPart :: TensorKind k -> Constraint
 class DualPart (f :: TensorKind k) where

@@ -58,7 +58,7 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstTools
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
-import HordeAd.Core.TensorADVal
+import HordeAd.Core.TensorADVal ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedIndex
@@ -660,8 +660,6 @@ cfwdOnADInputs inputs f ds =
 
 
 -- * Additional common mechanisms
-
-type DualClown dynamic = Flip (Dual (Clown dynamic)) '()
 
 -- Actually, this is fully general, not only working for DomainsOD.
 generateDeltaInputsOD

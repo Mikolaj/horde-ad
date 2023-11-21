@@ -24,7 +24,6 @@ import HordeAd.Core.AstInline
 import HordeAd.Core.Delta (Dual)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 

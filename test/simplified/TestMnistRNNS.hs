@@ -26,7 +26,6 @@ import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAstIOS, funToAstRevIOS)
-import HordeAd.Core.TensorADVal
 import HordeAd.External.OptimizerTools
 
 import EqEpsilon

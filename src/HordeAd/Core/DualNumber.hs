@@ -4,7 +4,7 @@
 -- the safely impure "HordeAd.Core.DualClass".
 module HordeAd.Core.DualNumber
   ( -- * The main dual number type
-    ADVal, dD, pattern D, dDnotShared, constantADVal
+    ADVal, dD, pattern D, dDnotShared, constantADVal, ADValClown
     -- * Auxiliary definitions
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
@@ -13,6 +13,7 @@ module HordeAd.Core.DualNumber
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Kind (Type)
 import           GHC.TypeLits (KnownNat)
@@ -62,6 +63,8 @@ dDnotShared = D
 
 constantADVal :: IsPrimal f r z => f r z -> ADVal f r z
 constantADVal a = dDnotShared emptyADShare a (dZeroOfShape a)
+
+type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
 
 
 -- * Auxiliary definitions

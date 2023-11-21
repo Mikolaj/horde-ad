@@ -27,7 +27,6 @@ import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
 import HordeAd
-import HordeAd.Core.TensorADVal (ADValClown)
 import HordeAd.External.OptimizerTools
 
 type SizeMnistWidth = 28 :: Nat

@@ -8,7 +8,7 @@
 -- a middle layer such as "DualClass", separate instances are given
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
-  ( ADValClown
+  (
   ) where
 
 import Prelude hiding (foldl')
@@ -56,8 +56,6 @@ instance OrdF f => OrdF (ADVal f) where
   D l1 u _ <=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u <=. v)
   D l1 u _ >. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >. v)
   D l1 u _ >=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >=. v)
-
-type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
 
 type instance RankedOf (ADVal f) = ADVal (RankedOf f)
 
