@@ -21,7 +21,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
-import HordeAd.Core.AstInterpret
 import HordeAd.Core.Delta (Dual)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
