@@ -8,6 +8,7 @@ module HordeAd.Core.DualNumber
     -- * Auxiliary definitions
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
+  , DerivativeStages (..)
   ) where
 
 import Prelude
@@ -15,10 +16,11 @@ import Prelude
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
-import           Data.Kind (Type)
+import           Data.Kind (Constraint, Type)
 import           GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstEnv
 import HordeAd.Core.Delta (Dual)
 import HordeAd.Core.DualClass
 import HordeAd.Core.Types
@@ -106,6 +108,37 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
       then 0
       else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
 -}
+
+-- * Reverse and forward derivative stages instances
+
+type DerivativeStages :: forall k. TensorKind k -> Constraint
+class DerivativeStages g where
+  revProduceArtifact
+    :: forall r y. (GoodScalar r, HasSingletonDict y)
+    => Bool
+    -> (Domains (AstDynamic FullSpan) -> g r y)
+    -> AstEnv (ADVal (RankedOf (PrimalOf g)))
+              (ADVal (ShapedOf (PrimalOf g)))
+    -> DomainsOD
+    -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
+
+  revEvalArtifact
+    :: forall r y. (GoodScalar r, HasSingletonDict y)
+    => AstArtifactRev (PrimalOf g) r y -> DomainsOD -> Maybe (ConcreteOf g r y)
+    -> (DomainsOD, ConcreteOf g r y)
+
+  fwdProduceArtifact
+    :: forall r y. (GoodScalar r, HasSingletonDict y)
+    => (Domains (AstDynamic FullSpan) -> g r y)
+    -> AstEnv (ADVal (RankedOf (PrimalOf g)))
+              (ADVal (ShapedOf (PrimalOf g)))
+    -> DomainsOD
+    -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
+
+  fwdEvalArtifact
+    :: forall r y. (GoodScalar r, HasSingletonDict y)
+    => AstArtifactFwd (PrimalOf g) r y -> DomainsOD -> DomainsOD
+    -> (ConcreteOf g r y, ConcreteOf g r y)
 
 
 -- * Numeric instances for ADVal

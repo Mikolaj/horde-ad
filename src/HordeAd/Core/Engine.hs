@@ -40,7 +40,6 @@ import           Data.Bifunctor.Product
 import qualified Data.EnumMap.Strict as EM
 import           Data.Functor.Const
 import           Data.Int (Int64)
-import           Data.Kind (Constraint)
 import           Data.Maybe (fromMaybe, isJust)
 import           Data.Proxy (Proxy)
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -228,37 +227,7 @@ fwdArtifactAdapt f vals =
   in fwdProduceArtifact g EM.empty domainsOD
 
 
--- * Reverse and forward derivative stages class
-
-type DerivativeStages :: forall k. TensorKind k -> Constraint
-class DerivativeStages g where
-  revProduceArtifact
-    :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => Bool
-    -> (Domains (AstDynamic FullSpan) -> g r y)
-    -> AstEnv (ADVal (RankedOf (PrimalOf g)))
-              (ADVal (ShapedOf (PrimalOf g)))
-    -> DomainsOD
-    -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
-
-  revEvalArtifact
-    :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => AstArtifactRev (PrimalOf g) r y -> DomainsOD -> Maybe (ConcreteOf g r y)
-    -> (DomainsOD, ConcreteOf g r y)
-
-  fwdProduceArtifact
-    :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => (Domains (AstDynamic FullSpan) -> g r y)
-    -> AstEnv (ADVal (RankedOf (PrimalOf g)))
-              (ADVal (ShapedOf (PrimalOf g)))
-    -> DomainsOD
-    -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
-
-  fwdEvalArtifact
-    :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => AstArtifactFwd (PrimalOf g) r y -> DomainsOD -> DomainsOD
-    -> (ConcreteOf g r y, ConcreteOf g r y)
-
+-- * Reverse and forward derivative stages instances
 
 -- TODO: it's not clear if the instance should be of Clown OD.Array or of
 -- DomainsOD, for which we already have unletAstDomains6, etc.;
