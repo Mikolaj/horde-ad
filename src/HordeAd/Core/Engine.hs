@@ -179,7 +179,7 @@ revArtifactAdapt
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
   => Bool -> (astvals -> g FullSpan r y) -> vals
-  -> (AstArtifactRev g r y, Dual (g PrimalSpan) r y)
+  -> (AstArtifactRev (g PrimalSpan) r y, Dual (g PrimalSpan) r y)
 revArtifactAdapt hasDt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
@@ -189,7 +189,7 @@ revArtifactAdapt hasDt f vals =
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array (Value astvals) )
   => Bool -> (astvals -> AstRanked FullSpan Double y) -> Value astvals
-  -> ( AstArtifactRev AstRanked Double y
+  -> ( AstArtifactRev (AstRanked PrimalSpan) Double y
      , Dual (AstRanked PrimalSpan) Double y ) #-}
 
 
@@ -221,7 +221,7 @@ fwdArtifactAdapt
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
   => (astvals -> g FullSpan r y) -> vals
-  -> (AstArtifactFwd g r y, Dual (g PrimalSpan) r y)
+  -> (AstArtifactFwd (g PrimalSpan) r y, Dual (g PrimalSpan) r y)
 fwdArtifactAdapt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
@@ -239,11 +239,11 @@ class DerivativeStages g where
     -> AstEnv (ADVal (RankedOf (g PrimalSpan)))
               (ADVal (ShapedOf (g PrimalSpan)))
     -> DomainsOD
-    -> (AstArtifactRev g r y, Dual (g PrimalSpan) r y)
+    -> (AstArtifactRev (g PrimalSpan) r y, Dual (g PrimalSpan) r y)
 
   revEvalArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => AstArtifactRev g r y -> DomainsOD -> Maybe (ConcreteOf g r y)
+    => AstArtifactRev (g PrimalSpan) r y -> DomainsOD -> Maybe (ConcreteOf g r y)
     -> (DomainsOD, ConcreteOf g r y)
 
   fwdProduceArtifact
@@ -252,11 +252,11 @@ class DerivativeStages g where
     -> AstEnv (ADVal (RankedOf (g PrimalSpan)))
               (ADVal (ShapedOf (g PrimalSpan)))
     -> DomainsOD
-    -> (AstArtifactFwd g r y, Dual (g PrimalSpan) r y)
+    -> (AstArtifactFwd (g PrimalSpan) r y, Dual (g PrimalSpan) r y)
 
   fwdEvalArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => AstArtifactFwd g r y -> DomainsOD -> DomainsOD
+    => AstArtifactFwd (g PrimalSpan) r y -> DomainsOD -> DomainsOD
     -> (ConcreteOf g r y, ConcreteOf g r y)
 
 
@@ -377,7 +377,8 @@ revArtifactFromForwardPass
       -> Domains (AstDynamic FullSpan)
       -> ADVal (AstRanked PrimalSpan) r n)
   -> DomainsOD
-  -> (AstArtifactRev AstRanked r n, Dual (AstRanked PrimalSpan) r n)
+  -> ( AstArtifactRev (AstRanked PrimalSpan) r n
+     , Dual (AstRanked PrimalSpan) r n )
 {-# INLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass hasDt forwardPass parameters0 =
   let -- Bangs and the compound function to fix the numbering of variables
@@ -412,7 +413,8 @@ revArtifactFromForwardPassS
       -> Domains (AstDynamic FullSpan)
       -> ADVal (AstShaped PrimalSpan) r sh)
   -> DomainsOD
-  -> (AstArtifactRev AstShaped r sh, Dual (AstShaped PrimalSpan) r sh)
+  -> ( AstArtifactRev (AstShaped PrimalSpan) r sh
+     , Dual (AstShaped PrimalSpan) r sh )
 {-# INLINE revArtifactFromForwardPassS #-}
 revArtifactFromForwardPassS hasDt forwardPass parameters0 =
   let !(!varDtId, varsPrimal, domainsPrimal, vars, domains) =
@@ -439,7 +441,8 @@ fwdArtifactFromForwardPass
       -> Domains (AstDynamic FullSpan)
       -> ADVal (AstRanked PrimalSpan) r n)
   -> DomainsOD
-  -> (AstArtifactFwd AstRanked r n, Dual (AstRanked PrimalSpan) r n)
+  -> ( AstArtifactFwd (AstRanked PrimalSpan) r n
+     , Dual (AstRanked PrimalSpan) r n )
 {-# INLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass parameters0 =
   let !(!varsPrimalDs, domainsDs, varsPrimal, domainsPrimal, vars, domains) =
@@ -459,7 +462,8 @@ fwdArtifactFromForwardPassS
       -> Domains (AstDynamic FullSpan)
       -> ADVal (AstShaped PrimalSpan) r sh)
   -> DomainsOD
-  -> (AstArtifactFwd AstShaped r sh, Dual (AstShaped PrimalSpan) r sh)
+  -> ( AstArtifactFwd (AstShaped PrimalSpan) r sh
+     , Dual (AstShaped PrimalSpan) r sh )
 {-# INLINE fwdArtifactFromForwardPassS #-}
 fwdArtifactFromForwardPassS forwardPass parameters0 =
   let !(!varsPrimalDs, domainsDs, varsPrimal, domainsPrimal, vars, domains) =

@@ -66,7 +66,8 @@ rev' f vals =
         -> (Domains (ADValClown (AstDynamic PrimalSpan))
             -> ADVal (AstRanked PrimalSpan) r2 n2)
         -> DomainsOD
-        -> (AstArtifactRev AstRanked r2 n2, Dual (AstRanked PrimalSpan) r2 n2)
+        -> ( AstArtifactRev (AstRanked  PrimalSpan) r2 n2
+           , Dual (AstRanked PrimalSpan) r2 n2 )
       {-# INLINE revAstOnDomainsF #-}
       revAstOnDomainsF hasDt f2 =
         revArtifactFromForwardPass hasDt (forwardPassByApplication f2)

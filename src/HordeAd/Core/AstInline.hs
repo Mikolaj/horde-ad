@@ -33,24 +33,24 @@ import           HordeAd.Util.SizedIndex
 -- * Inlining and simplification pass operations to be applied after unlet
 
 simplifyArtifactRev :: (GoodScalar r, KnownNat n)
-                    => AstArtifactRev AstRanked r n
-                    -> AstArtifactRev AstRanked r n
+                    => AstArtifactRev (AstRanked PrimalSpan) r n
+                    -> AstArtifactRev (AstRanked PrimalSpan) r n
 simplifyArtifactRev (vars, gradient, primal, sh) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6 primal, sh)
 {-# SPECIALIZE simplifyArtifactRev
   :: KnownNat n
-  => AstArtifactRev AstRanked Double n
-  -> AstArtifactRev AstRanked Double n #-}
+  => AstArtifactRev (AstRanked PrimalSpan) Double n
+  -> AstArtifactRev (AstRanked PrimalSpan) Double n #-}
 
 simplifyArtifactRevS :: (GoodScalar r, OS.Shape sh)
-                     => AstArtifactRev AstShaped r sh
-                     -> AstArtifactRev AstShaped r sh
+                     => AstArtifactRev (AstShaped PrimalSpan) r sh
+                     -> AstArtifactRev (AstShaped PrimalSpan) r sh
 simplifyArtifactRevS (vars, gradient, primal, sh) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6S primal, sh)
 {-# SPECIALIZE simplifyArtifactRevS
   :: OS.Shape sh
-  => AstArtifactRev AstShaped Double sh
-  -> AstArtifactRev AstShaped Double sh #-}
+  => AstArtifactRev (AstShaped PrimalSpan) Double sh
+  -> AstArtifactRev (AstShaped PrimalSpan) Double sh #-}
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.
