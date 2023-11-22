@@ -106,16 +106,13 @@ lengthAst v1 = case shapeAst v1 of
 -- and nobody asks about occurrences of variables that are bound.
 -- This keeps the occurrence checking code simple, because we never need
 -- to compare variables to any variable in the bindings.
-varInAst :: forall s s2 r n. (AstSpan s, AstSpan s2)
-         => AstVarId s -> AstRanked s2 r n -> Bool
+varInAst :: forall s r n. AstSpan s
+         => AstVarId -> AstRanked s r n -> Bool
 varInAst var = \case
   AstVar _ var2 -> fromEnum var == fromEnum var2
-                   && case sameAstSpan @s @s2 of
-                        Just Refl -> True
-                        _ -> error "varInAst: wrong span"
   AstLet _var2 u v -> varInAst var u || varInAst var v
   AstLetADShare l v | Just Refl <- sameAstSpan @s @PrimalSpan ->
-    varInADShare intIdInAstDynamic (astVarIdToAstId var) l
+    varInADShare intIdInAstDynamic var l
     || varInAst var v
   AstLetADShare{} -> False
   AstCond b v w ->
@@ -153,26 +150,26 @@ varInAst var = \case
   AstD u u' -> varInAst var u || varInAst var u'
   AstLetDomains _vars l v -> varInAstDomains var l || varInAst var v
 
-varInAstDomains :: (AstSpan s, AstSpan s2)
-                => AstVarId s -> AstDomains s2 -> Bool
+varInAstDomains :: AstSpan s
+                => AstVarId -> AstDomains s -> Bool
 varInAstDomains var = \case
   AstDomains l -> let f (DynamicExists d) = varInAstDynamic var d
                   in any f l
   AstDomainsLet _var2 u v -> varInAst var u || varInAstDomains var v
   AstDomainsLetS _var2 u v -> varInAstS var u || varInAstDomains var v
 
-varInAstDynamic :: (AstSpan s, AstSpan s2)
-                   => AstVarId s -> AstDynamic s2 r -> Bool
+varInAstDynamic :: AstSpan s
+                => AstVarId -> AstDynamic s r -> Bool
 varInAstDynamic var = \case
   AstRToD t -> varInAst var t
   AstSToD t -> varInAstS var t
 
-intIdInAstDynamic :: AstSpan s => AstId -> AstDynamic s r -> Bool
+intIdInAstDynamic :: AstSpan s => AstVarId -> AstDynamic s r -> Bool
 intIdInAstDynamic var = \case
-  AstRToD t -> varInAst (astIdToAstVarId @PrimalSpan var) t
-  AstSToD t -> varInAstS (astIdToAstVarId @PrimalSpan var) t
+  AstRToD t -> varInAst var t
+  AstSToD t -> varInAstS var t
 
-varInAstBool :: AstSpan s => AstVarId s -> AstBool -> Bool
+varInAstBool :: AstVarId -> AstBool -> Bool
 varInAstBool var = \case
   AstBoolNot b -> varInAstBool var b
   AstB2 _ arg1 arg2 -> varInAstBool var arg1 || varInAstBool var arg2
@@ -180,19 +177,16 @@ varInAstBool var = \case
   AstRel _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
   AstRelS _ arg1 arg2 -> varInAstS var arg1 || varInAstS var arg2
 
-varInIndex :: AstSpan s => AstVarId s -> AstIndex n -> Bool
+varInIndex :: AstVarId -> AstIndex n -> Bool
 varInIndex var = any (varInAst var)
 
-varInAstS :: forall s s2 r sh. (AstSpan s, AstSpan s2)
-          => AstVarId s -> AstShaped s2 r sh -> Bool
+varInAstS :: forall s r sh. AstSpan s
+          => AstVarId -> AstShaped s r sh -> Bool
 varInAstS var = \case
   AstVarS var2 -> fromEnum var == fromEnum var2
-                  && case sameAstSpan @s @s2 of
-                       Just Refl -> True
-                       _ -> error "varInAst: wrong span"
   AstLetS _var2 u v -> varInAstS var u || varInAstS var v
   AstLetADShareS l v | Just Refl <- sameAstSpan @s @PrimalSpan ->
-    varInADShare intIdInAstDynamic (astVarIdToAstId var) l
+    varInADShare intIdInAstDynamic var l
     || varInAstS var v
   AstLetADShareS{} -> False
   AstCondS b v w ->
@@ -230,14 +224,14 @@ varInAstS var = \case
   AstDS u u' -> varInAstS var u || varInAstS var u'
   AstLetDomainsS _vars l v -> varInAstDomains var l || varInAstS var v
 
-varInIndexS :: AstSpan s => AstVarId s -> AstIndexS sh -> Bool
+varInIndexS :: AstVarId -> AstIndexS sh -> Bool
 varInIndexS var = any (varInAst var)
 
-varNameInAst :: (AstSpan s, AstSpan s2)
+varNameInAst :: AstSpan s2
              => AstVarName s f r n -> AstRanked s2 r2 n2 -> Bool
 varNameInAst (AstVarName var) = varInAst var
 
-varNameInAstS :: (AstSpan s, AstSpan s2)
+varNameInAstS :: AstSpan s2
               => AstVarName s f r sh -> AstShaped s2 r2 sh2 -> Bool
 varNameInAstS (AstVarName var) = varInAstS var
 
@@ -296,17 +290,16 @@ bindsToLet :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
  where
-  bindToLet :: AstRanked s r n -> (AstId, DynamicExists (AstDynamic s))
+  bindToLet :: AstRanked s r n -> (AstVarId, DynamicExists (AstDynamic s))
             -> AstRanked s r n
   bindToLet !u (var, DynamicExists d) = case d of
-    AstRToD w -> AstLet (AstVarName $ astIdToAstVarId var) w u
+    AstRToD w -> AstLet (AstVarName var) w u
     AstSToD w ->
       let sh = shapeToList $ shapeAst u
       in if valueOf @n == length sh
          then OS.withShapeP sh $ \(_proxy :: Proxy sh) ->
            gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: n) $
-           AstSToR @sh
-           $ AstLetS (AstVarName $ astIdToAstVarId var) w (AstRToS u)
+           AstSToR @sh $ AstLetS (AstVarName var) w (AstRToS u)
          else error "bindsToLet: rank mismatch"
 
 bindsToLetS :: forall sh s r. (OS.Shape sh, AstSpan s)
@@ -315,7 +308,7 @@ bindsToLetS :: forall sh s r. (OS.Shape sh, AstSpan s)
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS
  where
-  bindToLetS :: AstShaped s r sh -> (AstId, DynamicExists (AstDynamic s))
+  bindToLetS :: AstShaped s r sh -> (AstVarId, DynamicExists (AstDynamic s))
              -> AstShaped s r sh
   bindToLetS !u (var, DynamicExists d) = case d of
     AstRToD w ->
@@ -323,9 +316,9 @@ bindsToLetS = foldl' bindToLetS
       in case someNatVal $ toInteger n of
         Just (SomeNat @n _proxy) ->
           gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: n)
-          $ AstRToS $ AstLet (AstVarName $ astIdToAstVarId var) w (AstSToR u)
+          $ AstRToS $ AstLet (AstVarName var) w (AstSToR u)
         Nothing -> error "bindsToLetS: impossible someNatVal error"
-    AstSToD w -> AstLetS (AstVarName $ astIdToAstVarId var) w u
+    AstSToD w -> AstLetS (AstVarName var) w u
 
 bindsToDomainsLet
    :: AstDomains s -> AstBindings (AstRanked s) -> AstDomains s
@@ -333,5 +326,5 @@ bindsToDomainsLet
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
   bindToDomainsLet !u (var, DynamicExists d) = case d of
-    AstRToD w -> AstDomainsLet (AstVarName $ astIdToAstVarId var) w u
-    AstSToD w -> AstDomainsLetS (AstVarName $ astIdToAstVarId var) w u
+    AstRToD w -> AstDomainsLet (AstVarName var) w u
+    AstSToD w -> AstDomainsLetS (AstVarName var) w u

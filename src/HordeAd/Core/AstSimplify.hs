@@ -2122,7 +2122,7 @@ substituteAstIndexS i (AstVarName var) ix =
 substitute1Ast :: forall n s s2 r r2.
                   ( GoodScalar r, GoodScalar r2, KnownNat n
                   , AstSpan s, AstSpan s2 )
-               => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstRanked s r n
+               => SubstitutionPayload s2 r2 -> AstVarId -> AstRanked s r n
                -> Maybe (AstRanked s r n)
 substitute1Ast i var v1 = case v1 of
   Ast.AstVar sh var2 ->
@@ -2244,7 +2244,7 @@ substitute1Ast i var v1 = case v1 of
 
 substitute1AstIndex
   :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstIndex n
+  => SubstitutionPayload s2 r2 -> AstVarId -> AstIndex n
   -> Maybe (AstIndex n)
 substitute1AstIndex i var ix =
   let mix = fmap (substitute1Ast i var) ix
@@ -2254,7 +2254,7 @@ substitute1AstIndex i var ix =
 
 substitute1AstDynamic
   :: (GoodScalar r, GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstDynamic s r
+  => SubstitutionPayload s2 r2 -> AstVarId -> AstDynamic s r
   -> Maybe (AstDynamic s r)
 substitute1AstDynamic i var = \case
   Ast.AstRToD t -> Ast.AstRToD <$> substitute1Ast i var t
@@ -2262,7 +2262,7 @@ substitute1AstDynamic i var = \case
 
 substitute1AstDomains
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstDomains s
+  => SubstitutionPayload s2 r2 -> AstVarId -> AstDomains s
   -> Maybe (AstDomains s)
 substitute1AstDomains i var = \case
   Ast.AstDomains args ->
@@ -2281,7 +2281,7 @@ substitute1AstDomains i var = \case
       (mu, mv) -> Just $ astDomainsLetS var2 (fromMaybe u mu) (fromMaybe v mv)
 
 substitute1AstBool :: (GoodScalar r2, AstSpan s2)
-                   => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstBool
+                   => SubstitutionPayload s2 r2 -> AstVarId -> AstBool
                    -> Maybe AstBool
 substitute1AstBool i var = \case
   Ast.AstBoolNot arg -> Ast.AstBoolNot <$> substitute1AstBool i var arg
@@ -2312,7 +2312,7 @@ substitute1AstBool i var = \case
 substitute1AstS :: forall sh s s2 r r2.
                    ( GoodScalar r, GoodScalar r2, OS.Shape sh
                    , AstSpan s, AstSpan s2 )
-                => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstShaped s r sh
+                => SubstitutionPayload s2 r2 -> AstVarId -> AstShaped s r sh
                 -> Maybe (AstShaped s r sh)
 substitute1AstS i var = \case
   Ast.AstVarS var2 ->
@@ -2423,7 +2423,7 @@ substitute1AstS i var = \case
 
 substitute1AstIndexS
   :: (GoodScalar r2, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId s2 -> AstIndexS sh
+  => SubstitutionPayload s2 r2 -> AstVarId -> AstIndexS sh
   -> Maybe (AstIndexS sh)
 substitute1AstIndexS i var ix =
   let mix = fmap (substitute1Ast i var) ix

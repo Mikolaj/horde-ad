@@ -100,7 +100,7 @@ areAllArgsInts = \case
 
 -- * Pretty-print variables
 
-printAstVarId :: String -> PrintConfig -> AstVarId s -> ShowS
+printAstVarId :: String -> PrintConfig -> AstVarId -> ShowS
 printAstVarId prefix cfg var =
   let n = fromEnum var - 100000000
   in showString $ case IM.lookup n (varRenames cfg) of
@@ -161,7 +161,7 @@ printAstDynamicVarName renames
 
 printAstVarFromDomains
   :: forall s.
-     PrintConfig -> (AstVarId s, DynamicExists (AstDynamic s)) -> ShowS
+     PrintConfig -> (AstVarId, DynamicExists (AstDynamic s)) -> ShowS
 printAstVarFromDomains cfg (var, d) = case d of
   DynamicExists @r (AstRToD @n _) ->
     printAstVar cfg (AstVarName @Nat @s @AstRanked @r @n var)

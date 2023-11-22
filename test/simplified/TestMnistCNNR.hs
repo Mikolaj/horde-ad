@@ -27,7 +27,6 @@ import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAstIOR, funToAstRevIO, resetVarCounter)
-import HordeAd.Core.TensorADVal
 import HordeAd.External.OptimizerTools
 
 import EqEpsilon

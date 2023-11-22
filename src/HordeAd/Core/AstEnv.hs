@@ -33,7 +33,7 @@ import           HordeAd.Util.SizedList
 -- * The environment and operations for extending it
 
 -- | The environment that keeps variables values during interpretation
-type AstEnv ranked shaped = EM.EnumMap AstId (AstEnvElem ranked shaped)
+type AstEnv ranked shaped = EM.EnumMap AstVarId (AstEnvElem ranked shaped)
 
 data AstEnvElem :: RankedTensorKind -> ShapedTensorKind -> Type where
   AstEnvElemR :: (KnownNat n, GoodScalar r)
@@ -52,7 +52,7 @@ extendEnvR :: forall ranked shaped r n s.
            -> AstEnv ranked shaped -> AstEnv ranked shaped
 extendEnvR (AstVarName var) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show var)
-                   (astVarIdToAstId var) (AstEnvElemR t) env
+                   var (AstEnvElemR t) env
 
 extendEnvS :: forall ranked shaped r sh s.
               (OS.Shape sh, GoodScalar r)
@@ -60,7 +60,7 @@ extendEnvS :: forall ranked shaped r sh s.
            -> AstEnv ranked shaped -> AstEnv ranked shaped
 extendEnvS (AstVarName var) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show var)
-                   (astVarIdToAstId var) (AstEnvElemS t) env
+                   var (AstEnvElemS t) env
 
 extendEnvDR :: forall ranked shaped s. ConvertTensor ranked shaped
             => ( AstDynamicVarName s AstRanked

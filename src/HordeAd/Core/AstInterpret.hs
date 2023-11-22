@@ -119,7 +119,7 @@ interpretAst
   => AstEnv ranked shaped
   -> AstRanked s r n -> ranked r n
 interpretAst !env = \case
-  AstVar sh (AstVarName var) -> case EM.lookup (astVarIdToAstId var) env of
+  AstVar sh (AstVarName var) -> case EM.lookup var env of
     Just (AstEnvElemR @n2 @r2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (rshape t == sh) t
@@ -558,7 +558,7 @@ interpretAstS
   => AstEnv ranked shaped
   -> AstShaped s r sh -> shaped r sh
 interpretAstS !env = \case
-  AstVarS (AstVarName var) -> case EM.lookup (astVarIdToAstId var) env of
+  AstVarS (AstVarName var) -> case EM.lookup var env of
     Just (AstEnvElemS @sh2 @r2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> t

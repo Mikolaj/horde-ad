@@ -10,8 +10,7 @@ module HordeAd.Core.Ast
     -- * Assorted small definitions
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt, ConcreteOf
     -- * More and less typed variables and type synonyms containing them
-  , AstId, intToAstId
-  , AstVarId, intToAstVarId, astIdToAstVarId, astVarIdToAstId, varNameToAstId
+  , AstVarId, intToAstVarId, varNameToAstVarId
   , AstArtifactRev, AstArtifactFwd
   , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * ASTs
@@ -143,36 +142,27 @@ type family ConcreteOf f = result | result -> f where
 
 -- * More and less typed variables and type synonyms containing them
 
-newtype AstId = AstId Int
- deriving (Eq, Ord, Show, Enum)
-
-intToAstId :: Int -> AstId
-intToAstId = AstId
-
 -- We avoid adding a phantom type denoting the tensor functor,
 -- because it can't be easily compared (even fully applies) and so the phantom
 -- is useless. We don't add the underlying scalar nor the rank/shape,
--- because some collections differ in those to, e.g., domain,
--- e.g. in AstLetDomainsS.
-newtype AstVarId (s :: AstSpanType) = AstVarId Int
+-- because some collections differ in those too, e.g., domain,
+-- e.g. in AstLetDomainsS. We don't add a phantom span, because
+-- carrying around type constructors that need to be applied to span
+-- complicates the system greatly for moderate type safety gain
+-- and also such a high number of ID types induces many conversions.
+newtype AstVarId = AstVarId Int
  deriving (Eq, Ord, Show, Enum)
 
-intToAstVarId :: Int -> AstVarId s
+intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-astIdToAstVarId :: AstId -> AstVarId s
-astIdToAstVarId (AstId x) = AstVarId x
-
-astVarIdToAstId :: AstVarId s -> AstId
-astVarIdToAstId (AstVarId x) = AstId x
-
-varNameToAstId :: AstVarName s f r y -> AstId
-varNameToAstId (AstVarName var) = astVarIdToAstId var
+varNameToAstVarId :: AstVarName s f r y -> AstVarId
+varNameToAstVarId (AstVarName var) = var
 
 newtype AstVarName
           (s :: AstSpanType) (f :: AstSpanType -> TensorKind k)
           (r :: Type) (y :: k) =
-            AstVarName (AstVarId s)
+            AstVarName AstVarId
  deriving (Eq, Ord, Enum)
 
 instance Show (AstVarName s f r y) where
@@ -309,7 +299,7 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
   AstD :: AstRanked PrimalSpan r n -> AstRanked DualSpan r n
        -> AstRanked FullSpan r n
   AstLetDomains :: AstSpan s
-                => Data.Vector.Vector (AstVarId s) -> AstDomains s
+                => Data.Vector.Vector AstVarId -> AstDomains s
                 -> AstRanked s2 r n
                 -> AstRanked s2 r n
 
@@ -421,7 +411,7 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
   AstDS :: AstShaped PrimalSpan r sh -> AstShaped DualSpan r sh
         -> AstShaped FullSpan r sh
   AstLetDomainsS :: AstSpan s
-                 => Data.Vector.Vector (AstVarId s) -> AstDomains s
+                 => Data.Vector.Vector AstVarId -> AstDomains s
                  -> AstShaped s2 r sh
                  -> AstShaped s2 r sh
 
@@ -805,7 +795,7 @@ maxF u v = ifF (u >=. v) u v
 
 -- * ADShare definition
 
-type AstBindings f = [(AstId, DynamicExists (DynamicOf f))]
+type AstBindings f = [(AstVarId, DynamicExists (DynamicOf f))]
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -827,14 +817,14 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 -- at runtime is needed.
 data ADShare = ADShareNil
              | forall r. GoodScalar r
-               => ADShareCons Int AstId (AstDynamic PrimalSpan r) ADShare
+               => ADShareCons Int AstVarId (AstDynamic PrimalSpan r) ADShare
 deriving instance Show ADShare
 
 emptyADShare :: ADShare
 emptyADShare = ADShareNil
 
 insertADShare :: forall r. GoodScalar r
-              => AstId -> AstDynamic PrimalSpan r -> ADShare -> ADShare
+              => AstVarId -> AstDynamic PrimalSpan r -> ADShare -> ADShare
 insertADShare !key !t !s =
   -- The Maybe over-engineering ensures that we never refresh an id
   -- unnecessarily. In theory, when merging alternating equal lists
@@ -855,7 +845,7 @@ insertADShare !key !t !s =
   in fromMaybe s (insertAD s)
 
 freshInsertADShare :: GoodScalar r
-                   => AstId -> AstDynamic PrimalSpan r -> ADShare
+                   => AstVarId -> AstDynamic PrimalSpan r -> ADShare
                    -> ADShare
 {-# NOINLINE freshInsertADShare #-}
 freshInsertADShare !key !t !s = unsafePerformIO $ do
@@ -922,8 +912,8 @@ _lengthADShare :: Int -> ADShare -> Int
 _lengthADShare acc ADShareNil = acc
 _lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
 
-varInADShare :: (forall r. AstId -> AstDynamic PrimalSpan r -> Bool)
-                -> AstId -> ADShare
+varInADShare :: (forall r. AstVarId -> AstDynamic PrimalSpan r -> Bool)
+                -> AstVarId -> ADShare
                 -> Bool
 {-# INLINE varInADShare #-}
 varInADShare _ _ ADShareNil = False
