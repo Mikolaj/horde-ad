@@ -134,10 +134,10 @@ isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
 
 -- | The closed type family that assigns a concrete tensor type
 -- to its corresponding AST type.
-type ConcreteOf :: forall k. (AstSpanType -> TensorKind k) -> TensorKind k
+type ConcreteOf :: forall k. TensorKind k -> TensorKind k
 type family ConcreteOf f = result | result -> f where
-  ConcreteOf AstRanked = Flip OR.Array
-  ConcreteOf AstShaped = Flip OS.Array
+  ConcreteOf (AstRanked FullSpan) = Flip OR.Array
+  ConcreteOf (AstShaped FullSpan) = Flip OS.Array
 
 
 -- * More and less typed variables and type synonyms containing them

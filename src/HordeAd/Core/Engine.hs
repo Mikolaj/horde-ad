@@ -96,7 +96,7 @@ revDt
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Value vals ~ vals )
-  => (astvals -> g FullSpan r y) -> vals -> ConcreteOf g r y -> vals
+  => (astvals -> g FullSpan r y) -> vals -> ConcreteOf (g FullSpan) r y -> vals
 revDt f vals dt = revDtMaybe f vals (Just dt)
 {- TODO: RULE left-hand side too complicated to desugar
 {-# SPECIALIZE revDt
@@ -114,7 +114,7 @@ revDtMaybe
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Value vals ~ vals )
-  => (astvals -> g FullSpan r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
+  => (astvals -> g FullSpan r y) -> vals -> Maybe (ConcreteOf (g FullSpan) r y) -> vals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
   let g domains = f $ parseDomains vals domains
@@ -145,7 +145,7 @@ revDt
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array (Value astvals) )
-  => (astvals -> g FullSpan r y) -> Value astvals -> ConcreteOf g r y
+  => (astvals -> g FullSpan r y) -> Value astvals -> ConcreteOf (g FullSpan) r y
   -> Value astvals
 revDt f vals dt = revDtMaybe f vals (Just dt)
 {-# SPECIALIZE revDt
@@ -162,7 +162,7 @@ revDtMaybe
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
-  => (astvals -> g FullSpan r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
+  => (astvals -> g FullSpan r y) -> vals -> Maybe (ConcreteOf (g FullSpan) r y) -> vals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
   let g domains = f $ parseDomains vals domains
@@ -207,7 +207,7 @@ fwd
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
-  => (astvals -> g FullSpan r y) -> vals -> vals -> ConcreteOf g r y
+  => (astvals -> g FullSpan r y) -> vals -> vals -> ConcreteOf (g FullSpan) r y
 fwd f x ds =
   let g domains = f $ parseDomains x domains
       domainsOD = toDomains x
@@ -243,8 +243,8 @@ class DerivativeStages g where
 
   revEvalArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => AstArtifactRev (g PrimalSpan) r y -> DomainsOD -> Maybe (ConcreteOf g r y)
-    -> (DomainsOD, ConcreteOf g r y)
+    => AstArtifactRev (g PrimalSpan) r y -> DomainsOD -> Maybe (ConcreteOf (g FullSpan) r y)
+    -> (DomainsOD, ConcreteOf (g FullSpan) r y)
 
   fwdProduceArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
@@ -257,7 +257,7 @@ class DerivativeStages g where
   fwdEvalArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
     => AstArtifactFwd (g PrimalSpan) r y -> DomainsOD -> DomainsOD
-    -> (ConcreteOf g r y, ConcreteOf g r y)
+    -> (ConcreteOf (g FullSpan) r y, ConcreteOf (g FullSpan) r y)
 
 
 -- TODO: it's not clear if the instance should be of Clown OD.Array or of
