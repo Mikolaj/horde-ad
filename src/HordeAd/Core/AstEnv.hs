@@ -48,7 +48,7 @@ deriving instance (CRanked ranked Show, CShaped shaped Show)
 -- The same for all the function below.
 extendEnvR :: forall ranked shaped r n s.
               (KnownNat n, GoodScalar r)
-           => AstVarName s AstRanked r n -> ranked r n
+           => AstVarName (AstRanked s) r n -> ranked r n
            -> AstEnv ranked shaped -> AstEnv ranked shaped
 extendEnvR (AstVarName var) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show var)
@@ -56,14 +56,14 @@ extendEnvR (AstVarName var) !t !env =
 
 extendEnvS :: forall ranked shaped r sh s.
               (OS.Shape sh, GoodScalar r)
-           => AstVarName s AstShaped r sh -> shaped r sh
+           => AstVarName (AstShaped s) r sh -> shaped r sh
            -> AstEnv ranked shaped -> AstEnv ranked shaped
 extendEnvS (AstVarName var) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show var)
                    var (AstEnvElemS t) env
 
 extendEnvDR :: forall ranked shaped s. ConvertTensor ranked shaped
-            => ( AstDynamicVarName s AstRanked
+            => ( AstDynamicVarName (AstRanked s)
                , DynamicExists (DynamicOf ranked) )
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
@@ -80,7 +80,7 @@ extendEnvDR (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) !env =
     _ -> error "extendEnvDR: type mismatch"
 
 extendEnvDS :: ConvertTensor ranked shaped
-            => ( AstDynamicVarName s AstShaped
+            => ( AstDynamicVarName (AstShaped s)
                , DynamicExists (DynamicOf ranked) )
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped

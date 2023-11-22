@@ -327,7 +327,7 @@ forwardPassByInterpretation
   => (Domains (AstDynamic FullSpan) -> AstRanked FullSpan r n)
   -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> Domains (AstDynamic PrimalSpan)
-  -> [AstDynamicVarName FullSpan AstRanked]
+  -> [AstDynamicVarName (AstRanked FullSpan)]
   -> Domains (AstDynamic FullSpan)
   -> ADVal (AstRanked PrimalSpan) r n
 {-# INLINE forwardPassByInterpretation #-}
@@ -343,7 +343,7 @@ forwardPassByInterpretationS
   => (Domains (AstDynamic FullSpan) -> AstShaped FullSpan r sh)
   -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> Domains (AstDynamic PrimalSpan)
-  -> [AstDynamicVarName FullSpan AstShaped]
+  -> [AstDynamicVarName (AstShaped FullSpan)]
   -> Domains (AstDynamic FullSpan)
   -> ADVal (AstShaped PrimalSpan) r sh
 {-# INLINE forwardPassByInterpretationS #-}
@@ -357,7 +357,7 @@ forwardPassByInterpretationS g envInit domainsPrimal vars domains =
 forwardPassByApplication
   :: (Domains (ADValClown (AstDynamic PrimalSpan)) -> ADVal (g PrimalSpan) r y)
   -> Domains (AstDynamic PrimalSpan)
-  -> [AstDynamicVarName FullSpan g]
+  -> [AstDynamicVarName (g FullSpan)]
   -> Domains (AstDynamic FullSpan)
   -> ADVal (g PrimalSpan) r y
 {-# INLINE forwardPassByApplication #-}
@@ -373,7 +373,7 @@ revArtifactFromForwardPass
   :: forall r n. (GoodScalar r, KnownNat n)
   => Bool
   -> (Domains (AstDynamic PrimalSpan)
-      -> [AstDynamicVarName FullSpan AstRanked]
+      -> [AstDynamicVarName (AstRanked FullSpan)]
       -> Domains (AstDynamic FullSpan)
       -> ADVal (AstRanked PrimalSpan) r n)
   -> DomainsOD
@@ -408,7 +408,7 @@ revArtifactFromForwardPassS
   :: forall r sh. (GoodScalar r, OS.Shape sh)
   => Bool
   -> (Domains (AstDynamic PrimalSpan)
-      -> [AstDynamicVarName FullSpan AstShaped]
+      -> [AstDynamicVarName (AstShaped FullSpan)]
       -> Domains (AstDynamic FullSpan)
       -> ADVal (AstShaped PrimalSpan) r sh)
   -> DomainsOD
@@ -435,7 +435,7 @@ revArtifactFromForwardPassS hasDt forwardPass parameters0 =
 fwdArtifactFromForwardPass
   :: forall r n. (GoodScalar r, KnownNat n)
   => (Domains (AstDynamic PrimalSpan)
-      -> [AstDynamicVarName FullSpan AstRanked]
+      -> [AstDynamicVarName (AstRanked FullSpan)]
       -> Domains (AstDynamic FullSpan)
       -> ADVal (AstRanked PrimalSpan) r n)
   -> DomainsOD
@@ -455,7 +455,7 @@ fwdArtifactFromForwardPass forwardPass parameters0 =
 fwdArtifactFromForwardPassS
   :: forall r sh. (GoodScalar r, OS.Shape sh)
   => (Domains (AstDynamic PrimalSpan)
-      -> [AstDynamicVarName FullSpan AstShaped]
+      -> [AstDynamicVarName (AstShaped FullSpan)]
       -> Domains (AstDynamic FullSpan)
       -> ADVal (AstShaped PrimalSpan) r sh)
   -> DomainsOD

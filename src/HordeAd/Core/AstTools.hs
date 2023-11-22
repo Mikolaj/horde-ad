@@ -228,11 +228,11 @@ varInIndexS :: AstVarId -> AstIndexS sh -> Bool
 varInIndexS var = any (varInAst var)
 
 varNameInAst :: AstSpan s2
-             => AstVarName s f r n -> AstRanked s2 r2 n2 -> Bool
+             => AstVarName f r n -> AstRanked s2 r2 n2 -> Bool
 varNameInAst (AstVarName var) = varInAst var
 
 varNameInAstS :: AstSpan s2
-              => AstVarName s f r sh -> AstShaped s2 r2 sh2 -> Bool
+              => AstVarName f r sh -> AstShaped s2 r2 sh2 -> Bool
 varNameInAstS (AstVarName var) = varInAstS var
 
 

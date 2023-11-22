@@ -107,7 +107,7 @@ printAstVarId prefix cfg var =
     Just name | name /= "" -> name
     _ -> prefix ++ show n
 
-printAstVarN :: Int -> PrintConfig -> AstVarName s f r y -> ShowS
+printAstVarN :: Int -> PrintConfig -> AstVarName f r y -> ShowS
 printAstVarN n cfg (AstVarName var) =
   let prefix = case n of
         0 -> "x"
@@ -119,11 +119,11 @@ printAstVarN n cfg (AstVarName var) =
   in printAstVarId prefix cfg var
 
 printAstVar :: forall n s r. KnownNat n
-            => PrintConfig -> AstVarName s AstRanked r n -> ShowS
+            => PrintConfig -> AstVarName (AstRanked s) r n -> ShowS
 printAstVar = printAstVarN (valueOf @n)
 
 printAstVarS :: forall sh s r. OS.Shape sh
-             => PrintConfig -> AstVarName s AstShaped r sh -> ShowS
+             => PrintConfig -> AstVarName (AstShaped s) r sh -> ShowS
 printAstVarS = printAstVarN (length (OS.shapeT @sh))
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
@@ -131,7 +131,7 @@ printAstIntVar cfg (AstVarName var) = printAstVarId "i" cfg var
 
 printAstVarFromLet
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => AstRanked s r n -> PrintConfig -> AstVarName s AstRanked r n -> ShowS
+  => AstRanked s r n -> PrintConfig -> AstVarName (AstRanked s) r n -> ShowS
 printAstVarFromLet u cfg var =
   if representsIntIndex cfg && areAllArgsInts u
   then case isRankedInt u of
@@ -142,31 +142,31 @@ printAstVarFromLet u cfg var =
   else printAstVar cfg var
 
 printAstVarName :: KnownNat n
-                => IntMap String -> AstVarName s AstRanked r n
+                => IntMap String -> AstVarName (AstRanked s) r n
                 -> String
 printAstVarName renames var =
   printAstVar (defaulPrintConfig False renames) var ""
 
 printAstVarNameS :: OS.Shape sh
-                 => IntMap String -> AstVarName s AstShaped r sh
+                 => IntMap String -> AstVarName (AstShaped s) r sh
                  -> String
 printAstVarNameS renames var =
   printAstVarS (defaulPrintConfig False renames) var ""
 
-printAstDynamicVarName :: forall s f.
-                          IntMap String -> AstDynamicVarName s f -> String
+printAstDynamicVarName :: forall (s :: AstSpanType) f.
+                          IntMap String -> AstDynamicVarName (f s) -> String
 printAstDynamicVarName renames
                        (AstDynamicVarName @_ @sh @r (AstVarName var)) =
-  printAstVarNameS renames (AstVarName @[Nat] @s @AstShaped @r @sh var)
+  printAstVarNameS renames (AstVarName @[Nat] @(AstShaped s) @r @sh var)
 
 printAstVarFromDomains
   :: forall s.
      PrintConfig -> (AstVarId, DynamicExists (AstDynamic s)) -> ShowS
 printAstVarFromDomains cfg (var, d) = case d of
   DynamicExists @r (AstRToD @n _) ->
-    printAstVar cfg (AstVarName @Nat @s @AstRanked @r @n var)
+    printAstVar cfg (AstVarName @Nat @(AstRanked s) @r @n var)
   DynamicExists @r (AstSToD @sh _) ->
-    printAstVarS cfg (AstVarName @[Nat] @s @AstShaped @r @sh var)
+    printAstVarS cfg (AstVarName @[Nat] @(AstShaped s) @r @sh var)
 
 
 -- * General pretty-printing of AST terms

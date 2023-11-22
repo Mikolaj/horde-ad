@@ -118,7 +118,7 @@ type instance DualOf (AstShaped s) = AstShaped DualSpan
 -- integers in the indexes of tensor operations.
 type AstInt = AstRanked PrimalSpan Int64 0
 
-type IntVarName = AstVarName PrimalSpan AstRanked Int64 0
+type IntVarName = AstVarName (AstRanked PrimalSpan) Int64 0
 
 pattern AstIntVar :: IntVarName -> AstInt
 pattern AstIntVar var = AstVar ZS var
@@ -156,16 +156,14 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-varNameToAstVarId :: AstVarName s f r y -> AstVarId
+varNameToAstVarId :: AstVarName f r y -> AstVarId
 varNameToAstVarId (AstVarName var) = var
 
-newtype AstVarName
-          (s :: AstSpanType) (f :: AstSpanType -> TensorKind k)
-          (r :: Type) (y :: k) =
-            AstVarName AstVarId
+newtype AstVarName (f :: TensorKind k) (r :: Type) (y :: k) =
+   AstVarName AstVarId
  deriving (Eq, Ord, Enum)
 
-instance Show (AstVarName s f r y) where
+instance Show (AstVarName f r y) where
   showsPrec d (AstVarName var) =
     showsPrec d var  -- backward compatibility vs test results
 
@@ -176,19 +174,19 @@ instance Show (AstVarName s f r y) where
 --
 -- A lot of the variables are existential, but there's no nesting,
 -- so no special care about picking specializations at runtime is needed.
-data AstDynamicVarName s f where
-  AstDynamicVarName :: forall k sh r y s (f :: AstSpanType -> TensorKind k).
+data AstDynamicVarName f where
+  AstDynamicVarName :: forall k sh r y (f :: TensorKind k).
                        (OS.Shape sh, GoodScalar r)
-                    => AstVarName s f r y -> AstDynamicVarName s f
-deriving instance Show (AstDynamicVarName s f)
+                    => AstVarName f r y -> AstDynamicVarName f
+deriving instance Show (AstDynamicVarName f)
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type AstArtifactRev (f :: AstSpanType -> TensorKind k) r y =
-  ( (AstVarName PrimalSpan f r y, [AstDynamicVarName PrimalSpan f])
+  ( (AstVarName (f PrimalSpan) r y, [AstDynamicVarName (f PrimalSpan)])
   , AstDomains PrimalSpan, f PrimalSpan r y, OR.ShapeL )
 
 type AstArtifactFwd (f :: AstSpanType -> TensorKind k) r y =
-  ( ([AstDynamicVarName PrimalSpan f], [AstDynamicVarName PrimalSpan f])
+  ( ([AstDynamicVarName (f PrimalSpan)], [AstDynamicVarName (f PrimalSpan)])
   , f PrimalSpan r y, f PrimalSpan r y )
 
 type AstIndex n = Index n AstInt
@@ -208,11 +206,11 @@ type AstVarListS sh = ShapedList sh IntVarName
 -- more expressiveness, but leads to irregular tensors,
 -- especially after vectorization, and prevents static checking of shapes.
 data AstRanked :: AstSpanType -> RankedTensorKind where
-  AstVar :: ShapeInt n -> AstVarName s AstRanked r n -> AstRanked s r n
+  AstVar :: ShapeInt n -> AstVarName (AstRanked s) r n -> AstRanked s r n
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstLet :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
-         => AstVarName s AstRanked r n -> AstRanked s r n
+         => AstVarName (AstRanked s) r n -> AstRanked s r n
          -> AstRanked s2 r2 m
          -> AstRanked s2 r2 m
   AstLetADShare :: ADShare -> AstRanked PrimalSpan r n
@@ -308,9 +306,9 @@ deriving instance GoodScalar r => Show (AstRanked s r n)
 -- | AST for shaped tensors that are meant to be differentiated.
 data AstShaped :: AstSpanType -> ShapedTensorKind where
   -- To permit defining objective functions in Ast, not just constants:
-  AstVarS :: forall sh r s. AstVarName s AstShaped r sh -> AstShaped s r sh
+  AstVarS :: forall sh r s. AstVarName (AstShaped s) r sh -> AstShaped s r sh
   AstLetS :: (OS.Shape sh, OS.Shape sh2, GoodScalar r, AstSpan s)
-          => AstVarName s AstShaped r sh -> AstShaped s r sh
+          => AstVarName (AstShaped s) r sh -> AstShaped s r sh
           -> AstShaped s2 r2 sh2
           -> AstShaped s2 r2 sh2
   AstLetADShareS :: ADShare -> AstShaped PrimalSpan r sh
@@ -431,11 +429,11 @@ data AstDomains s where
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstDomainsLet :: (KnownNat n, GoodScalar r)
-                => AstVarName s AstRanked r n
+                => AstVarName (AstRanked s) r n
                 -> AstRanked s r n -> AstDomains s
                 -> AstDomains s
   AstDomainsLetS :: (OS.Shape sh, GoodScalar r)
-                 => AstVarName s AstShaped r sh
+                 => AstVarName (AstShaped s) r sh
                  -> AstShaped s r sh -> AstDomains s
                  -> AstDomains s
 deriving instance Show (AstDomains s)
