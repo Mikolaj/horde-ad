@@ -100,7 +100,7 @@ crevRankedListProd :: [Flip OR.Array Double 0] -> [Flip OR.Array Double 0]
 crevRankedListProd = crev rankedListProd
 
 revRankedListProd :: [Flip OR.Array Double 0] -> [Flip OR.Array Double 0]
-revRankedListProd = rev @Double @0 @AstRanked rankedListProd
+revRankedListProd = rev @Double @0 @(AstRanked FullSpan) rankedListProd
 
 rankedListProdr :: (RankedTensor ranked, GoodScalar r)
                 => [ranked r 0] -> ranked r 0
@@ -110,7 +110,7 @@ crevRankedListProdr :: [Flip OR.Array Double 0] -> [Flip OR.Array Double 0]
 crevRankedListProdr = crev rankedListProdr
 
 revRankedListProdr :: [Flip OR.Array Double 0] -> [Flip OR.Array Double 0]
-revRankedListProdr = rev @Double @0 @AstRanked rankedListProdr
+revRankedListProdr = rev @Double @0 @(AstRanked FullSpan) rankedListProdr
 
 _rankedVecProd :: (RankedTensor ranked, GoodScalar r)
                => Data.Vector.Vector (ranked r 0) -> ranked r 0

@@ -185,7 +185,7 @@ rev' f vals =
         revEvalArtifact (simplifyArtifactRev artifactsPSimpleAst) parameters dt
       gradient5AstS = parseDomains vals astPSimpleAstS
       cderivative = cfwd f vals vals
-      derivative = fwd @r @m @AstRanked f vals vals
+      derivative = fwd @r @m @(AstRanked FullSpan) f vals vals
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
      , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp

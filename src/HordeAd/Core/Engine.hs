@@ -77,7 +77,7 @@ rev
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Value vals ~ vals )
-  => (astvals -> g FullSpan r y) -> vals -> vals
+  => (astvals -> g r y) -> vals -> vals
 rev f vals = revDtMaybe f vals Nothing
 {- TODO: RULE left-hand side too complicated to desugar
 {-# SPECIALIZE rev
@@ -96,7 +96,7 @@ revDt
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Value vals ~ vals )
-  => (astvals -> g FullSpan r y) -> vals -> ConcreteOf (g FullSpan) r y -> vals
+  => (astvals -> g r y) -> vals -> ConcreteOf g r y -> vals
 revDt f vals dt = revDtMaybe f vals (Just dt)
 {- TODO: RULE left-hand side too complicated to desugar
 {-# SPECIALIZE revDt
@@ -114,7 +114,7 @@ revDtMaybe
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals, Value vals ~ vals )
-  => (astvals -> g FullSpan r y) -> vals -> Maybe (ConcreteOf (g FullSpan) r y) -> vals
+  => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g) r y) -> vals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
   let g domains = f $ parseDomains vals domains
@@ -130,7 +130,7 @@ rev
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array (Value astvals) )
-  => (astvals -> g FullSpan r y) -> Value astvals -> Value astvals
+  => (astvals -> g r y) -> Value astvals -> Value astvals
 rev f vals = revDtMaybe f vals Nothing
 {-# SPECIALIZE rev
   :: ( HasSingletonDict y
@@ -145,7 +145,7 @@ revDt
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array (Value astvals) )
-  => (astvals -> g FullSpan r y) -> Value astvals -> ConcreteOf (g FullSpan) r y
+  => (astvals -> g r y) -> Value astvals -> ConcreteOf g r y
   -> Value astvals
 revDt f vals dt = revDtMaybe f vals (Just dt)
 {-# SPECIALIZE revDt
@@ -162,7 +162,7 @@ revDtMaybe
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
-  => (astvals -> g FullSpan r y) -> vals -> Maybe (ConcreteOf (g FullSpan) r y) -> vals
+  => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals mdt =
   let g domains = f $ parseDomains vals domains
@@ -178,8 +178,8 @@ revArtifactAdapt
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
-  => Bool -> (astvals -> g FullSpan r y) -> vals
-  -> (AstArtifactRev (g PrimalSpan) r y, Dual (g PrimalSpan) r y)
+  => Bool -> (astvals -> g r y) -> vals
+  -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 revArtifactAdapt hasDt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
@@ -207,7 +207,7 @@ fwd
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
-  => (astvals -> g FullSpan r y) -> vals -> vals -> ConcreteOf (g FullSpan) r y
+  => (astvals -> g r y) -> vals -> vals -> ConcreteOf g r y
 fwd f x ds =
   let g domains = f $ parseDomains x domains
       domainsOD = toDomains x
@@ -220,8 +220,8 @@ fwdArtifactAdapt
      , AdaptableDomains (AstDynamic FullSpan) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
-  => (astvals -> g FullSpan r y) -> vals
-  -> (AstArtifactFwd (g PrimalSpan) r y, Dual (g PrimalSpan) r y)
+  => (astvals -> g r y) -> vals
+  -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
 fwdArtifactAdapt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
@@ -230,34 +230,34 @@ fwdArtifactAdapt f vals =
 
 -- * Reverse and forward derivative stages class
 
-type DerivativeStages :: forall k. (AstSpanType -> TensorKind k) -> Constraint
+type DerivativeStages :: forall k. TensorKind k -> Constraint
 class DerivativeStages g where
   revProduceArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
     => Bool
-    -> (Domains (AstDynamic FullSpan) -> g FullSpan r y)
-    -> AstEnv (ADVal (RankedOf (g PrimalSpan)))
-              (ADVal (ShapedOf (g PrimalSpan)))
+    -> (Domains (AstDynamic FullSpan) -> g r y)
+    -> AstEnv (ADVal (RankedOf (PrimalOf g)))
+              (ADVal (ShapedOf (PrimalOf g)))
     -> DomainsOD
-    -> (AstArtifactRev (g PrimalSpan) r y, Dual (g PrimalSpan) r y)
+    -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 
   revEvalArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => AstArtifactRev (g PrimalSpan) r y -> DomainsOD -> Maybe (ConcreteOf (g FullSpan) r y)
-    -> (DomainsOD, ConcreteOf (g FullSpan) r y)
+    => AstArtifactRev (PrimalOf g) r y -> DomainsOD -> Maybe (ConcreteOf g r y)
+    -> (DomainsOD, ConcreteOf g r y)
 
   fwdProduceArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => (Domains (AstDynamic FullSpan) -> g FullSpan r y)
-    -> AstEnv (ADVal (RankedOf (g PrimalSpan)))
-              (ADVal (ShapedOf (g PrimalSpan)))
+    => (Domains (AstDynamic FullSpan) -> g r y)
+    -> AstEnv (ADVal (RankedOf (PrimalOf g)))
+              (ADVal (ShapedOf (PrimalOf g)))
     -> DomainsOD
-    -> (AstArtifactFwd (g PrimalSpan) r y, Dual (g PrimalSpan) r y)
+    -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
 
   fwdEvalArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => AstArtifactFwd (g PrimalSpan) r y -> DomainsOD -> DomainsOD
-    -> (ConcreteOf (g FullSpan) r y, ConcreteOf (g FullSpan) r y)
+    => AstArtifactFwd (PrimalOf g) r y -> DomainsOD -> DomainsOD
+    -> (ConcreteOf g r y, ConcreteOf g r y)
 
 
 -- TODO: it's not clear if the instance should be of Clown OD.Array or of
@@ -268,7 +268,7 @@ class DerivativeStages g where
 --  revEvalArtifact = undefined
 --  revProduceArtifact = undefined
 
-instance DerivativeStages AstRanked where
+instance DerivativeStages (AstRanked FullSpan) where
   {-# INLINE revProduceArtifact #-}
   revProduceArtifact hasDt g envInit =
     revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
@@ -296,7 +296,7 @@ instance DerivativeStages AstRanked where
       in (derivativeTensor, primalTensor)
    else error "forward derivative input and sensitivity arguments should have same shapes"
 
-instance DerivativeStages AstShaped where
+instance DerivativeStages (AstShaped FullSpan) where
   {-# INLINE revProduceArtifact #-}
   revProduceArtifact hasDt g envInit =
     revArtifactFromForwardPassS hasDt (forwardPassByInterpretationS g envInit)
@@ -355,11 +355,11 @@ forwardPassByInterpretationS g envInit domainsPrimal vars domains =
   in interpretAstS env ast
 
 forwardPassByApplication
-  :: (Domains (ADValClown (AstDynamic PrimalSpan)) -> ADVal (g PrimalSpan) r y)
+  :: (Domains (ADValClown (AstDynamic PrimalSpan)) -> ADVal (PrimalOf g) r y)
   -> Domains (AstDynamic PrimalSpan)
-  -> [AstDynamicVarName (g FullSpan)]
+  -> [AstDynamicVarName g]
   -> Domains (AstDynamic FullSpan)
-  -> ADVal (g PrimalSpan) r y
+  -> ADVal (PrimalOf g) r y
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g domainsPrimal _ _ =
   let deltaInputs = generateDeltaInputsAst domainsPrimal

@@ -160,7 +160,7 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
               parametersAndInput =
                 V.concat [parameters, V.fromList [glyphD, labelD]]
               gradientDomain =
-                fst $ revEvalArtifact @Nat @AstRanked
+                fst $ revEvalArtifact @Nat @(AstRanked FullSpan)
                                       (vars, gradient, primal, sh)
                                       parametersAndInput Nothing
           in go rest (updateWithGradient gamma parameters gradientDomain)
@@ -333,7 +333,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
               parametersAndInput =
                 V.concat [parameters, V.fromList [glyphD, labelD]]
               gradientDomain =
-                fst $ revEvalArtifact @Nat @AstRanked
+                fst $ revEvalArtifact @Nat @(AstRanked FullSpan)
                                       (vars, gradient, primal, sh)
                                       parametersAndInput Nothing
           in go rest (updateWithGradient gamma parameters gradientDomain)
