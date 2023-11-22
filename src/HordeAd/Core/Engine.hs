@@ -127,7 +127,7 @@ revDtMaybe f vals mdt =
 rev
   :: forall r y g astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains (DynamicOf g) astvals
      , AdaptableDomains OD.Array (Value astvals) )
   => (astvals -> g r y) -> Value astvals -> Value astvals
 rev f vals = revDtMaybe f vals Nothing
@@ -142,7 +142,7 @@ rev f vals = revDtMaybe f vals Nothing
 revDt
   :: forall r y g astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains (DynamicOf g) astvals
      , AdaptableDomains OD.Array (Value astvals) )
   => (astvals -> g r y) -> Value astvals -> ConcreteOf g r y
   -> Value astvals
@@ -158,7 +158,7 @@ revDt f vals dt = revDtMaybe f vals (Just dt)
 revDtMaybe
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains (DynamicOf g) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
@@ -174,7 +174,7 @@ revDtMaybe f vals mdt =
 revArtifactAdapt
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains (DynamicOf g) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
   => Bool -> (astvals -> g r y) -> vals
@@ -203,7 +203,7 @@ revArtifactAdapt hasDt f vals =
 fwd
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains (DynamicOf g) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> vals -> ConcreteOf g r y
@@ -216,7 +216,7 @@ fwd f x ds =
 fwdArtifactAdapt
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
+     , AdaptableDomains (DynamicOf g) astvals
      , AdaptableDomains OD.Array vals
      , vals ~ Value astvals )
   => (astvals -> g r y) -> vals

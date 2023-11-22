@@ -116,7 +116,7 @@ class DerivativeStages g where
   revProduceArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
     => Bool
-    -> (Domains (AstDynamic FullSpan) -> g r y)
+    -> (Domains (DynamicOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
     -> DomainsOD
@@ -129,7 +129,7 @@ class DerivativeStages g where
 
   fwdProduceArtifact
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => (Domains (AstDynamic FullSpan) -> g r y)
+    => (Domains (DynamicOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
     -> DomainsOD
