@@ -113,30 +113,42 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
 
 type DerivativeStages :: forall k. TensorKind k -> Constraint
 class DerivativeStages g where
-  revProduceArtifact
-    :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => Bool
-    -> (Domains (DynamicOf g) -> g r y)
+  forwardPassByInterpretation
+    :: (GoodScalar r, HasSingletonDict y)
+    => (Domains (DynamicOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
+    -> Domains (DynamicOf (PrimalOf g))
+    -> [AstDynamicVarName g]
+    -> Domains (DynamicOf g)
+    -> ADVal (PrimalOf g) r y
+
+  revArtifactFromForwardPass
+    :: (GoodScalar r, HasSingletonDict y)
+    => Bool
+    -> (Domains (DynamicOf (PrimalOf g))
+        -> [AstDynamicVarName g]
+        -> Domains (DynamicOf g)
+        -> ADVal (PrimalOf g) r y)
     -> DomainsOD
     -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 
   revEvalArtifact
-    :: forall r y. (GoodScalar r, HasSingletonDict y)
+    :: (GoodScalar r, HasSingletonDict y)
     => AstArtifactRev (PrimalOf g) r y -> DomainsOD -> Maybe (ConcreteOf g r y)
     -> (DomainsOD, ConcreteOf g r y)
 
-  fwdProduceArtifact
+  fwdArtifactFromForwardPass
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => (Domains (DynamicOf g) -> g r y)
-    -> AstEnv (ADVal (RankedOf (PrimalOf g)))
-              (ADVal (ShapedOf (PrimalOf g)))
+    => (Domains (DynamicOf (PrimalOf g))
+        -> [AstDynamicVarName g]
+        -> Domains (DynamicOf g)
+        -> ADVal (PrimalOf g) r y)
     -> DomainsOD
     -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
 
   fwdEvalArtifact
-    :: forall r y. (GoodScalar r, HasSingletonDict y)
+    :: (GoodScalar r, HasSingletonDict y)
     => AstArtifactFwd (PrimalOf g) r y -> DomainsOD -> DomainsOD
     -> (ConcreteOf g r y, ConcreteOf g r y)
 

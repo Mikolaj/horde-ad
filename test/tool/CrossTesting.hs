@@ -12,7 +12,7 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           GHC.TypeLits (KnownNat)
+import           GHC.TypeLits (KnownNat, Nat)
 import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -70,7 +70,8 @@ rev' f vals =
            , Dual (AstRanked PrimalSpan) r2 n2 )
       {-# INLINE revAstOnDomainsF #-}
       revAstOnDomainsF hasDt f2 =
-        revArtifactFromForwardPass hasDt (forwardPassByApplication f2)
+        revArtifactFromForwardPass @Nat @(AstRanked FullSpan)
+                                   hasDt (forwardPassByApplication f2)
       (advalGrad9, value9) =
         revEvalArtifact (fst $ revAstOnDomainsF False g9 parameters)
                         parameters dt
