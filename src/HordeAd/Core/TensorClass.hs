@@ -268,7 +268,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
      => PrimalOf ranked r n -> DualOf ranked r n -> ranked r n
   rScale :: (GoodScalar r, KnownNat n)
          => PrimalOf ranked r n -> DualOf ranked r n -> DualOf ranked r n
-  -- TODO: we'd probably also need dZero, dIndex0 and all others;
+  -- TODO: we'd probably also need dZero, dIndex0 and all the others;
   -- basically DualOf a needs to have IsPrimal and HasRanks instances
   -- (and HasInputs?)
   -- TODO: if DualOf is supposed to be user-visible, we needed
@@ -575,28 +575,25 @@ class ( DynamicOf ranked ~ DynamicOf shaped
   ddummy :: Numeric r => DynamicOf ranked r
   dshape :: GoodScalar r => DynamicOf ranked r -> [Int]
 
-class DomainsTensor (ranked :: RankedTensorKind)
-                    (shaped :: ShapedTensorKind)
-                    | ranked -> shaped
-                    , shaped -> ranked where
-  type DomainsOf ranked shaped = result | result -> ranked shaped
-  dmkDomains :: Domains (DynamicOf ranked) -> DomainsOf ranked shaped
+class DomainsTensor (ranked :: RankedTensorKind) where
+  type DomainsOf ranked
+  dmkDomains :: Domains (DynamicOf ranked) -> DomainsOf ranked
   rletDomainsOf :: KnownNat n
-                => DomainsOf ranked shaped
-                -> (DomainsOf ranked shaped -> ranked r n)
+                => DomainsOf ranked
+                -> (DomainsOf ranked -> ranked r n)
                 -> ranked r n
   rletToDomainsOf :: (GoodScalar r, KnownNat n)
                   => ranked r n
-                  -> (ranked r n -> DomainsOf ranked shaped)
-                  -> DomainsOf ranked shaped
+                  -> (ranked r n -> DomainsOf ranked)
+                  -> DomainsOf ranked
   sletDomainsOf :: OS.Shape sh
-                => DomainsOf ranked shaped
-                -> (DomainsOf ranked shaped -> shaped r sh)
-                -> shaped r sh
+                => DomainsOf ranked
+                -> (DomainsOf ranked -> ShapedOf ranked r sh)
+                -> ShapedOf ranked r sh
   sletToDomainsOf :: (GoodScalar r, OS.Shape sh)
-                  => shaped r sh
-                  -> (shaped r sh -> DomainsOf ranked shaped)
-                  -> DomainsOf ranked shaped
+                  => ShapedOf ranked r sh
+                  -> (ShapedOf ranked r sh -> DomainsOf ranked)
+                  -> DomainsOf ranked
 
 
 -- * The giga-constraint

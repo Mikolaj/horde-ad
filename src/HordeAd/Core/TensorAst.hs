@@ -199,10 +199,10 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   dshape (AstRToD v) = shapeToList $ shapeAst v
   dshape (AstSToD @sh _) = OS.shapeT @sh
 
-instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
-  type DomainsOf (AstRanked s) (AstShaped s) = AstDomains s
+instance AstSpan s => DomainsTensor (AstRanked s) where
+  type DomainsOf (AstRanked s) = AstDomains s
   dmkDomains = AstDomains
-  -- The operations below, for this instance, are not used ATM.
+  -- The four operations below, for this instance, are not used ATM.
   -- They may be used once trev is a method of Tensor.
   rletDomainsOf = astLetDomainsFun
   rletToDomainsOf = astDomainsLetFun

@@ -424,8 +424,7 @@ deriving instance GoodScalar r => Show (AstDynamic s r)
 
 data AstDomains s where
   -- There are existential variables inside DynamicExists here.
-  AstDomains :: Data.Vector.Vector (DynamicExists (AstDynamic s))
-             -> AstDomains s
+  AstDomains :: Domains (AstDynamic s) -> AstDomains s
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstDomainsLet :: (KnownNat n, GoodScalar r)
