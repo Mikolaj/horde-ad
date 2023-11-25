@@ -577,19 +577,26 @@ class ( DynamicOf ranked ~ DynamicOf shaped
 
 class DomainsTensor (ranked :: RankedTensorKind)
                     (shaped :: ShapedTensorKind)
-                    (domainsOf :: Type)
-                    | ranked -> shaped domainsOf
-                    , shaped -> ranked domainsOf
-                    , domainsOf -> ranked shaped where
-  dmkDomains :: Domains (DynamicOf ranked) -> domainsOf
+                    | ranked -> shaped
+                    , shaped -> ranked where
+  type DomainsOf ranked shaped = result | result -> ranked shaped
+  dmkDomains :: Domains (DynamicOf ranked) -> DomainsOf ranked shaped
   rletDomainsOf :: KnownNat n
-                => domainsOf -> (domainsOf -> ranked r n) -> ranked r n
+                => DomainsOf ranked shaped
+                -> (DomainsOf ranked shaped -> ranked r n)
+                -> ranked r n
   rletToDomainsOf :: (GoodScalar r, KnownNat n)
-                  => ranked r n -> (ranked r n -> domainsOf) -> domainsOf
+                  => ranked r n
+                  -> (ranked r n -> DomainsOf ranked shaped)
+                  -> DomainsOf ranked shaped
   sletDomainsOf :: OS.Shape sh
-                => domainsOf -> (domainsOf -> shaped r sh) -> shaped r sh
+                => DomainsOf ranked shaped
+                -> (DomainsOf ranked shaped -> shaped r sh)
+                -> shaped r sh
   sletToDomainsOf :: (GoodScalar r, OS.Shape sh)
-                  => shaped r sh -> (shaped r sh -> domainsOf) -> domainsOf
+                  => shaped r sh
+                  -> (shaped r sh -> DomainsOf ranked shaped)
+                  -> DomainsOf ranked shaped
 
 
 -- * The giga-constraint
