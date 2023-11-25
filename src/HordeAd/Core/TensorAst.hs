@@ -188,27 +188,6 @@ isTensorDummyAst t = case t of
   AstSToD AstIotaS -> True
   _ -> False
 
-instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
-  tfromD = astFromDynamic
-  tfromS = astSToR
-  dfromR = AstRToD
-  dfromS = AstSToD
-  sfromR = astRToS
-  sfromD = astFromDynamicS
-  ddummy = AstRToD $ fromPrimal AstIota
-  dshape (AstRToD v) = shapeToList $ shapeAst v
-  dshape (AstSToD @sh _) = OS.shapeT @sh
-
-instance AstSpan s => DomainsTensor (AstRanked s) where
-  type DomainsOf (AstRanked s) = AstDomains s
-  dmkDomains = AstDomains
-  -- The four operations below, for this instance, are not used ATM.
-  -- They may be used once trev is a method of Tensor.
-  rletDomainsOf = astLetDomainsFun
-  rletToDomainsOf = astDomainsLetFun
-  sletDomainsOf = undefined
-  sletToDomainsOf = undefined
-
 astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
               => AstRanked s r n -> AstRanked PrimalSpan r n
 astSpanPrimal t | Just Refl <- sameAstSpan @s @PrimalSpan = t
@@ -407,6 +386,29 @@ astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r, AstSpan s)
                     -> AstShaped s r (n ': sh)
 astBuild1VectorizeS f =
   build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)
+
+-- * ConvertTensor and DomainsTensor instances
+
+instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
+  tfromD = astFromDynamic
+  tfromS = astSToR
+  dfromR = AstRToD
+  dfromS = AstSToD
+  sfromR = astRToS
+  sfromD = astFromDynamicS
+  ddummy = AstRToD $ fromPrimal AstIota
+  dshape (AstRToD v) = shapeToList $ shapeAst v
+  dshape (AstSToD @sh _) = OS.shapeT @sh
+
+instance AstSpan s => DomainsTensor (AstRanked s) where
+  type DomainsOf (AstRanked s) = AstDomains s
+  dmkDomains = AstDomains
+  -- The four operations below, for this instance, are not used ATM.
+  -- They may be used once trev is a method of Tensor.
+  rletDomainsOf = astLetDomainsFun
+  rletToDomainsOf = astDomainsLetFun
+  sletDomainsOf = undefined
+  sletToDomainsOf = undefined
 
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
