@@ -515,6 +515,7 @@ crev
   :: forall r y f advals.
      ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array
+     , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array (Value advals) )
   => (advals -> ADVal f r y) -> Value advals -> Value advals
@@ -530,10 +531,12 @@ crev f vals = crevDtMaybe f vals Nothing
 -- | This version additionally takes the sensitivity parameter.
 crevDt
   :: forall r y f advals.
-     ( DualPart f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ OD.Array
+     ( DynamicOf f ~ DynamicOf (RankedOf f)
+     , ConvertTensor (RankedOf f) (ShapedOf f)
+     , Dual (Clown (DynamicOf f)) ~ DeltaD (RankedOf f) (ShapedOf f)
+     , DualPart f, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains OD.Array (Value advals) )
+     , AdaptableDomains (DynamicOf f) (Value advals) )
   => (advals -> ADVal f r y) -> Value advals -> f r y -> Value advals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 {-# SPECIALIZE crevDt
@@ -547,10 +550,12 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall r y f vals advals.
-     ( DualPart f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ OD.Array
+     ( DynamicOf f ~ DynamicOf (RankedOf f)
+     , ConvertTensor (RankedOf f) (ShapedOf f)
+     , Dual (Clown (DynamicOf f)) ~ DeltaD (RankedOf f) (ShapedOf f)
+     , DualPart f, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (DynamicOf f) vals
      , vals ~ Value advals )
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
 {-# INLINE crevDtMaybe #-}
@@ -560,13 +565,14 @@ crevDtMaybe f vals mdt =
   in parseDomains vals $ fst $ crevOnDomains mdt g (toDomains vals)
 
 crevOnDomains
-  :: forall r y f.
-     ( DualPart f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ OD.Array )
+  :: ( DynamicOf f ~ DynamicOf (RankedOf f)
+     , ConvertTensor (RankedOf f) (ShapedOf f)
+     , Dual (Clown (DynamicOf f)) ~ DeltaD (RankedOf f) (ShapedOf f)
+     , DualPart f, GoodScalar r, HasSingletonDict y)
   => Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
-  -> DomainsOD
-  -> (DomainsOD, f r y)
+  -> Domains (DynamicOf f)
+  -> (Domains (DynamicOf f), f r y)
 crevOnDomains mdt f parameters =
   let deltaInputs = generateDeltaInputsOD parameters
       inputs = makeADInputs parameters deltaInputs
@@ -580,12 +586,11 @@ crevOnDomains mdt f parameters =
   -> (DomainsOD, Flip OR.Array Double y) #-}
 
 crevOnADInputs
-  :: ( DualPart f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ OD.Array )
+  :: (DualPart f, GoodScalar r, HasSingletonDict y)
   => Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
   -> Domains (DynamicOf (ADVal f))
-  -> (DomainsOD, f r y)
+  -> (Domains (DynamicOf f), f r y)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
@@ -613,6 +618,7 @@ cfwd
   :: forall r y f vals advals.
      ( DualPart f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array
+     , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array vals
      , vals ~ Value advals )
@@ -623,11 +629,14 @@ cfwd f x ds =
   in fst $ cfwdOnDomains (toDomains x) g (toDomains ds)
 
 cfwdOnDomains
-  :: ( DualPart f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ OD.Array )
-  => DomainsOD
+  :: forall r y f.
+     ( DynamicOf f ~ DynamicOf (RankedOf f)
+     , ConvertTensor (RankedOf f) (ShapedOf f)
+     , Dual (Clown (DynamicOf f)) ~ DeltaD (RankedOf f) (ShapedOf f)
+     , DualPart f, GoodScalar r, HasSingletonDict y)
+  => Domains (DynamicOf f)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
-  -> DomainsOD
+  -> Domains (DynamicOf f)
   -> (f r y, f r y)
 cfwdOnDomains parameters f ds =
   let deltaInputs = generateDeltaInputsOD parameters
@@ -635,11 +644,10 @@ cfwdOnDomains parameters f ds =
   in cfwdOnADInputs inputs f ds
 
 cfwdOnADInputs
-  :: ( DualPart f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ OD.Array )
+  :: (DualPart f, GoodScalar r, HasSingletonDict y)
   => Domains (DynamicOf (ADVal f))
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
-  -> DomainsOD
+  -> Domains (DynamicOf f)
   -> (f r y, f r y)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
