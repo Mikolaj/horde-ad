@@ -12,7 +12,7 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           GHC.TypeLits (KnownNat, Nat)
+import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -21,7 +21,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
-import HordeAd.Core.Delta (Dual)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorClass
@@ -60,20 +59,9 @@ rev' f vals =
       g9 :: Domains (ADValClown (AstDynamic PrimalSpan))
          -> ADVal (AstRanked PrimalSpan) r m
       g9 inputs = f $ parseDomains vals inputs
-      revAstOnDomainsF
-        :: forall r2 n2. (KnownNat n2, GoodScalar r2)
-        => Bool
-        -> (Domains (ADValClown (AstDynamic PrimalSpan))
-            -> ADVal (AstRanked PrimalSpan) r2 n2)
-        -> DomainsOD
-        -> ( AstArtifactRev (AstRanked  PrimalSpan) r2 n2
-           , Dual (AstRanked PrimalSpan) r2 n2 )
-      {-# INLINE revAstOnDomainsF #-}
-      revAstOnDomainsF hasDt f2 =
-        revArtifactFromForwardPass @Nat @(AstRanked FullSpan)
-                                   hasDt (forwardPassByApplication f2)
       (advalGrad9, value9) =
-        revEvalArtifact (fst $ revAstOnDomainsF False g9 parameters)
+        revEvalArtifact (fst $ revProduceArtifactWithoutInterpretation
+                                 False g9 parameters)
                         parameters dt
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady f1
@@ -125,7 +113,8 @@ rev' f vals =
             env = extendEnvR var (parseDomains vals inputs) EM.empty
         in interpretAst env (gx ast)
       artifactsGradAst =
-        fst $ revAstOnDomainsF False (hAst id id id) parameters
+        fst $ revProduceArtifactWithoutInterpretation
+                False (hAst id id id) parameters
       (astGradAst, value2Ast) =
         revEvalArtifact artifactsGradAst parameters dt
       gradient2Ast = parseDomains vals astGradAst
@@ -133,12 +122,14 @@ rev' f vals =
         revEvalArtifact (simplifyArtifactRev artifactsGradAst) parameters dt
       gradient2AstS = parseDomains vals astGradAstS
       artifactsGradAstT =
-        fst $ revAstOnDomainsF True (hAst id id id) parameters
+        fst $ revProduceArtifactWithoutInterpretation
+                True (hAst id id id) parameters
       (astGradAstST, value2AstST) =
         revEvalArtifact (simplifyArtifactRev artifactsGradAstT) parameters dt
       gradient2AstST = parseDomains vals astGradAstST
       artifactsSimpleAst =
-        fst $ revAstOnDomainsF False (hAst id id simplifyAst6) parameters
+        fst $ revProduceArtifactWithoutInterpretation
+                False (hAst id id simplifyAst6) parameters
       (astSimpleAst, value3Ast) =
         revEvalArtifact artifactsSimpleAst parameters dt
       gradient3Ast = parseDomains vals astSimpleAst
@@ -146,8 +137,8 @@ rev' f vals =
         revEvalArtifact (simplifyArtifactRev artifactsSimpleAst) parameters dt
       gradient3AstS = parseDomains vals astSimpleAstS
       artifactsGradAstUnSimp =
-        fst $ revAstOnDomainsF False (hAst unAstNoSimplify AstNoSimplify id)
-                               parameters
+        fst $ revProduceArtifactWithoutInterpretation
+                False (hAst unAstNoSimplify AstNoSimplify id) parameters
       (astGradAstUnSimp, value2AstUnSimp) =
         revEvalArtifact artifactsGradAstUnSimp parameters dt
       gradient2AstUnSimp = parseDomains vals astGradAstUnSimp
@@ -156,9 +147,9 @@ rev' f vals =
                         parameters dt
       gradient2AstSUnSimp = parseDomains vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
-        fst $ revAstOnDomainsF False
-                               (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
-                               parameters
+        fst $ revProduceArtifactWithoutInterpretation
+                False (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
+                parameters
       (astSimpleAstUnSimp, value3AstUnSimp) =
         revEvalArtifact artifactsSimpleAstUnSimp parameters dt
       gradient3AstUnSimp = parseDomains vals astSimpleAstUnSimp
@@ -167,8 +158,8 @@ rev' f vals =
                         parameters dt
       gradient3AstSUnSimp = parseDomains vals astSimpleAstSUnSimp
       artifactsPrimalAst =
-        fst $ revAstOnDomainsF False (hAst unAstNoVectorize AstNoVectorize id)
-                               parameters
+        fst $ revProduceArtifactWithoutInterpretation
+                False (hAst unAstNoVectorize AstNoVectorize id) parameters
       (astPrimalAst, value4Ast) =
         revEvalArtifact artifactsPrimalAst parameters dt
       gradient4Ast = parseDomains vals astPrimalAst
@@ -176,7 +167,8 @@ rev' f vals =
         revEvalArtifact (simplifyArtifactRev artifactsPrimalAst) parameters dt
       gradient4AstS = parseDomains vals astPrimalAstS
       artifactsPSimpleAst =
-        fst $ revAstOnDomainsF False
+        fst $ revProduceArtifactWithoutInterpretation
+                False
                 (hAst unAstNoVectorize AstNoVectorize simplifyAst6)
                 parameters
       (astPSimpleAst, value5Ast) =

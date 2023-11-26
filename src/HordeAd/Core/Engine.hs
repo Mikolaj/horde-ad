@@ -6,7 +6,8 @@
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
-    rev, revDt, revArtifactAdapt, revProduceArtifact
+    rev, revDt, revArtifactAdapt
+  , revProduceArtifact, revProduceArtifactWithoutInterpretation
     -- * Forward derivative adaptors
   , fwd, fwdArtifactAdapt, fwdProduceArtifact
     -- * Reverse and forward derivative stages class
@@ -38,7 +39,7 @@ import           Data.Maybe (fromMaybe, isJust)
 import           Data.Proxy (Proxy)
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
+import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
 import           Type.Reflection (Typeable, typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -189,13 +190,26 @@ revProduceArtifact
   :: (DerivativeStages g, GoodScalar r, HasSingletonDict y)
   => Bool
   -> (Domains (DynamicOf g) -> g r y)
-   -> AstEnv (ADVal (RankedOf (PrimalOf g)))
-             (ADVal (ShapedOf (PrimalOf g)))
-   -> DomainsOD
-   -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
+  -> AstEnv (ADVal (RankedOf (PrimalOf g)))
+            (ADVal (ShapedOf (PrimalOf g)))
+  -> DomainsOD
+  -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit =
   revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
+
+revProduceArtifactWithoutInterpretation
+  :: forall g r y.
+     ( g ~ AstRanked FullSpan  -- needed, because PrimalOf not injective
+     , DerivativeStages g, GoodScalar r, HasSingletonDict y )
+  => Bool
+  -> (Domains (ADValClown (DynamicOf (PrimalOf g)))
+      -> ADVal (PrimalOf g) r y)
+  -> DomainsOD
+  -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
+{-# INLINE revProduceArtifactWithoutInterpretation #-}
+revProduceArtifactWithoutInterpretation hasDt g =
+  revArtifactFromForwardPass @Nat @g hasDt (forwardPassByApplication g)
 
 
 -- * Forward derivative adaptors
@@ -233,12 +247,12 @@ fwdArtifactAdapt f vals =
   in fwdProduceArtifact g EM.empty domainsOD
 
 fwdProduceArtifact
-   :: (DerivativeStages g, GoodScalar r, HasSingletonDict y)
+  :: (DerivativeStages g, GoodScalar r, HasSingletonDict y)
   => (Domains (DynamicOf g) -> g r y)
   -> AstEnv (ADVal (RankedOf (PrimalOf g)))
             (ADVal (ShapedOf (PrimalOf g)))
-   -> DomainsOD
-   -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
+  -> DomainsOD
+  -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact g envInit =
   fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
@@ -431,13 +445,20 @@ instance DerivativeStages (AstShaped FullSpan) where
     in (derivativeTensor, primalTensor)
 
 forwardPassByApplication
-  :: (Domains (ADValClown (AstDynamic PrimalSpan)) -> ADVal (PrimalOf g) r y)
-  -> Domains (AstDynamic PrimalSpan)
+  :: forall g r y dynamic.
+     ( -- dynamic ~ DynamicOf (PrimalOf g)
+       -- , ConvertTensor (PrimalOf g) (ShapedOf (PrimalOf g))
+       dynamic ~ AstDynamic PrimalSpan  -- needed for generateDeltaInputsAst
+     , Dual (Clown dynamic) ~ DeltaD (PrimalOf g) (ShapedOf (PrimalOf g)) )
+  => (Domains (ADValClown (DynamicOf (PrimalOf g)))
+      -> ADVal (PrimalOf g) r y)
+  -> Domains (DynamicOf (PrimalOf g))
   -> [AstDynamicVarName g]
-  -> Domains (AstDynamic FullSpan)
+  -> Domains (DynamicOf g)
   -> ADVal (PrimalOf g) r y
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g domainsPrimal _ _ =
+--  let deltaInputs = generateDeltaInputsOD @(PrimalOf g) domainsPrimal
   let deltaInputs = generateDeltaInputsAst domainsPrimal
       varInputs = makeADInputs domainsPrimal deltaInputs
   in g varInputs
@@ -659,8 +680,8 @@ generateDeltaInputsOD params =
 
 -- This is preferred for AstDynamic, because it results in shorter terms.
 generateDeltaInputsAst
-  :: forall ranked shaped dynamic.
-     ( dynamic ~ AstDynamic PrimalSpan
+  :: forall ranked shaped dynamic s.
+     ( dynamic ~ AstDynamic s
      , Dual (Clown dynamic) ~ DeltaD ranked shaped )
   => Domains dynamic
   -> Domains (DualClown dynamic)
