@@ -43,31 +43,6 @@ import           HordeAd.Util.ShapedList (ShapedList (..), singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 
--- * Assorted instances
-
-type instance SimpleBoolOf (ADVal f) = SimpleBoolOf f
-
-instance EqF f => EqF (ADVal f) where
-  D l1 u _ ==. D l2 v _ = (l1 `mergeADShare` l2, snd $ u ==. v)
-  D l1 u _ /=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u /=. v)
-
-instance OrdF f => OrdF (ADVal f) where
-  D l1 u _ <. D l2 v _ = (l1 `mergeADShare` l2, snd $ u <. v)
-  D l1 u _ <=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u <=. v)
-  D l1 u _ >. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >. v)
-  D l1 u _ >=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >=. v)
-
-type instance RankedOf (ADVal f) = ADVal (RankedOf f)
-
-type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
-
-type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
-
-type instance PrimalOf (ADVal f) = f
-
-type instance DualOf (ADVal f) = Product (Clown (Const ADShare)) (Dual f)
-
-
 -- * Ranked tensor instances
 
 instance IfF (ADVal (Flip OR.Array)) where

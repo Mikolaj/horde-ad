@@ -9,21 +9,33 @@ module HordeAd.Core.DualNumber
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
   , DerivativeStages (..)
+  , crevOnADInputs, crevOnDomains, cfwdOnADInputs, cfwdOnDomains
+  , generateDeltaInputsOD, generateDeltaInputsAst, makeADInputs
   ) where
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
+import           Data.Bifunctor.Product
+import           Data.Functor.Const
 import           Data.Kind (Constraint, Type)
-import           GHC.TypeLits (KnownNat)
+import           Data.Proxy (Proxy)
+import           Data.Type.Equality (testEquality, (:~:) (Refl))
+import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
+import           Type.Reflection (typeRep)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
-import HordeAd.Core.Delta (Dual)
+import HordeAd.Core.AstTools
+import HordeAd.Core.Delta
 import HordeAd.Core.DualClass
+import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Util.SizedIndex
 
 -- * The main dual number type
 
@@ -69,6 +81,31 @@ constantADVal a = dDnotShared emptyADShare a (dZeroOfShape a)
 type ADValClown dynamic = Flip (ADVal (Clown dynamic)) '()
 
 
+-- * Assorted instances
+
+type instance SimpleBoolOf (ADVal f) = SimpleBoolOf f
+
+instance EqF f => EqF (ADVal f) where
+  D l1 u _ ==. D l2 v _ = (l1 `mergeADShare` l2, snd $ u ==. v)
+  D l1 u _ /=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u /=. v)
+
+instance OrdF f => OrdF (ADVal f) where
+  D l1 u _ <. D l2 v _ = (l1 `mergeADShare` l2, snd $ u <. v)
+  D l1 u _ <=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u <=. v)
+  D l1 u _ >. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >. v)
+  D l1 u _ >=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >=. v)
+
+type instance RankedOf (ADVal f) = ADVal (RankedOf f)
+
+type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
+
+type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
+
+type instance PrimalOf (ADVal f) = f
+
+type instance DualOf (ADVal f) = Product (Clown (Const ADShare)) (Dual f)
+
+
 -- * Auxiliary definitions
 
 -- | Add sharing information to the top level of a term, presumably
@@ -108,6 +145,133 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
       then 0
       else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
 -}
+
+crevOnADInputs
+  :: (DualPart f, GoodScalar r, HasSingletonDict y)
+  => Maybe (f r y)
+  -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
+  -> Domains (DynamicOf (ADVal f))
+  -> (Domains (DynamicOf f), f r y)
+-- The functions in which @revOnADInputs@ inlines are not inlined themselves
+-- in client code, so the bloat is limited.
+{-# INLINE crevOnADInputs #-}
+crevOnADInputs mdt f inputs =
+  let -- Evaluate completely after terms constructed, to free memory
+      -- before evaluation allocates new memory and new FFI is started.
+      !(D _ v deltaTopLevel) = f inputs in
+  let (!astBindings, !gradient) =
+        reverseDervative (V.length inputs) v mdt deltaTopLevel
+  in assert (null astBindings)
+       (gradient, v)
+
+crevOnDomains
+  :: forall r y f.
+     ( DynamicOf f ~ DynamicOf (RankedOf f)
+     , ConvertTensor (RankedOf f) (ShapedOf f)
+     , Dual (Clown (DynamicOf f)) ~ DeltaD (RankedOf f) (ShapedOf f)
+     , DualPart f, GoodScalar r, HasSingletonDict y)
+  => Maybe (f r y)
+  -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
+  -> Domains (DynamicOf f)
+  -> (Domains (DynamicOf f), f r y)
+crevOnDomains mdt f parameters =
+  let deltaInputs = generateDeltaInputsOD parameters
+      inputs = makeADInputs parameters deltaInputs
+  in crevOnADInputs mdt f inputs
+
+cfwdOnADInputs
+  :: (DualPart f, GoodScalar r, HasSingletonDict y)
+  => Domains (DynamicOf (ADVal f))
+  -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
+  -> Domains (DynamicOf f)
+  -> (f r y, f r y)
+{-# INLINE cfwdOnADInputs #-}
+cfwdOnADInputs inputs f ds =
+  let !(D _ v deltaTopLevel) = f inputs in
+  let (astBindings, derivative) =
+        forwardDerivative (V.length inputs) deltaTopLevel ds
+  in assert (null astBindings)
+       (derivative, v)
+
+cfwdOnDomains
+  :: forall r y f.
+     ( DynamicOf f ~ DynamicOf (RankedOf f)
+     , ConvertTensor (RankedOf f) (ShapedOf f)
+     , Dual (Clown (DynamicOf f)) ~ DeltaD (RankedOf f) (ShapedOf f)
+     , DualPart f, GoodScalar r, HasSingletonDict y)
+  => Domains (DynamicOf f)
+  -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
+  -> Domains (DynamicOf f)
+  -> (f r y, f r y)
+cfwdOnDomains parameters f ds =
+  let deltaInputs = generateDeltaInputsOD parameters
+      inputs = makeADInputs parameters deltaInputs
+  in cfwdOnADInputs inputs f ds
+
+-- Actually, this is fully general, not only working for DomainsOD.
+generateDeltaInputsOD
+  :: forall ranked shaped dynamic.
+     ( dynamic ~ DynamicOf ranked, ConvertTensor ranked shaped
+     , Dual (Clown dynamic) ~ DeltaD ranked shaped )
+  => Domains dynamic
+  -> Domains (DualClown dynamic)
+{-# INLINE generateDeltaInputsOD #-}
+generateDeltaInputsOD params =
+  let arrayToInput :: Int
+                   -> DynamicExists dynamic
+                   -> DynamicExists (DualClown dynamic)
+      arrayToInput i (DynamicExists @r t) =
+        let shl = dshape @ranked t
+        in case someNatVal $ toInteger $ length shl of
+          Just (SomeNat (_ :: Proxy n)) ->
+            let sh = listShapeToShape shl
+            in DynamicExists $ Flip $ RToD $ InputR @ranked @shaped @r @n
+                                                    sh (toInputId i)
+          Nothing -> error "generateDeltaInputs: impossible someNatVal error"
+  in V.imap arrayToInput params
+{- TODO: this can't be specified without a proxy, so we inline instead
+{-# SPECIALIZE generateDeltaInputs
+  :: DomainsOD -> Data.Vector.Vector (Dual OD.Array Double) #-}
+-}
+
+-- This is preferred for AstDynamic, because it results in shorter terms.
+generateDeltaInputsAst
+  :: forall ranked shaped dynamic s.
+     ( dynamic ~ AstDynamic s
+     , Dual (Clown dynamic) ~ DeltaD ranked shaped )
+  => Domains dynamic
+  -> Domains (DualClown dynamic)
+{-# INLINE generateDeltaInputsAst #-}
+generateDeltaInputsAst params =
+  let arrayToInput :: Int
+                   -> DynamicExists dynamic
+                   -> DynamicExists (DualClown dynamic)
+      arrayToInput i (DynamicExists @r d) = case d of
+        AstRToD @n w ->
+          DynamicExists $ Flip $ RToD $ InputR @ranked @shaped @r @n
+                                               (shapeAst w) (toInputId i)
+        AstSToD @sh _w ->
+          DynamicExists $ Flip $ SToD $ InputS @ranked @shaped @r @sh
+                                               (toInputId i)
+  in V.imap arrayToInput params
+{- TODO: this can't be specified without a proxy, so we inline instead
+{-# SPECIALIZE generateDeltaInputs
+  :: DomainsOD -> Data.Vector.Vector (Dual OD.Array Double) #-}
+-}
+
+makeADInputs
+  :: Domains dynamic
+  -> Domains (DualClown dynamic)
+  -> Domains (ADValClown dynamic)
+{-# INLINE makeADInputs #-}
+makeADInputs =
+  V.zipWith (\(DynamicExists @r p)
+              (DynamicExists @r2 d) ->
+    case testEquality (typeRep @r) (typeRep @r2) of
+      Just Refl -> DynamicExists
+                   $ Flip $ dDnotShared emptyADShare (Clown p) $ runFlip d
+      _ -> error "makeADInputs: type mismatch")
+
 
 -- * Reverse and forward derivative stages instances
 
