@@ -435,6 +435,11 @@ data AstDomains s where
                  => AstVarName (AstShaped s) r sh
                  -> AstShaped s r sh -> AstDomains s
                  -> AstDomains s
+  AstRev :: GoodScalar r
+         => (Data.Vector.Vector AstVarId, AstRanked s2 r n)
+         -> DomainsOD
+         -> AstDomains s
+         -> AstDomains s
 deriving instance Show (AstDomains s)
 
 data AstBool where

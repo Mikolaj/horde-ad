@@ -21,6 +21,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
+import           Data.Function ((&))
 import           Data.Functor.Const
 import           Data.List (foldl')
 import           Data.List.Index (imap)
@@ -427,14 +428,13 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     in Pair (Clown (Const (l `mergeADShare` l2))) (dScale r delta)
 
 
--- * ConvertTensor instance
+-- * ConvertTensor and DomainsTensor instances
 
 instance ( Dual ranked ~ DeltaR ranked shaped
          , Dual shaped ~ DeltaS ranked shaped
          , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped
          , ConvertTensor ranked shaped )
-         => ConvertTensor (ADVal ranked)
-                          (ADVal shaped) where
+         => ConvertTensor (ADVal ranked) (ADVal shaped) where
   tfromD = dToR . runFlip
   tfromS = sToR
    where
@@ -474,3 +474,23 @@ instance ( Dual ranked ~ DeltaR ranked shaped
       dRToS d = RToS d
   ddummy = undefined
   dshape = undefined
+
+instance ( DomainsTensor ranked, DualPart ranked
+         , ranked ~ RankedOf ranked
+         , ConvertTensor ranked (ShapedOf ranked)
+         , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked (ShapedOf ranked) )
+         => DomainsTensor (ADVal ranked) where
+  type DomainsOf (ADVal ranked) = Domains (DynamicOf (ADVal ranked))
+  dmkDomains = id
+  rletDomainsOf = (&)
+  rletToDomainsOf = (&)
+  sletDomainsOf = (&)
+  sletToDomainsOf = (&)
+
+  rrev :: (GoodScalar r, KnownNat n)
+       => (DomainsOf (ADVal ranked) -> ADVal ranked r n)
+       -> DomainsOD
+       -> Domains (DynamicOf ranked)
+       -> DomainsOf ranked
+  rrev f _parameters0 parameters =
+    dmkDomains @ranked $ fst $ crevOnDomains Nothing f parameters

@@ -410,6 +410,14 @@ instance AstSpan s => DomainsTensor (AstRanked s) where
   sletDomainsOf = undefined
   sletToDomainsOf = undefined
 
+  rrev :: GoodScalar r
+       => (Domains (AstDynamic s) -> AstRanked s r n)
+       -> DomainsOD
+       -> Domains (AstDynamic PrimalSpan)
+       -> AstDomains PrimalSpan
+  rrev f parameters0 domains =
+    AstRev (funToAstDomains f parameters0) parameters0 (AstDomains domains)
+
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
 

@@ -594,6 +594,20 @@ class DomainsTensor (ranked :: RankedTensorKind) where
                   => ShapedOf ranked r sh
                   -> (ShapedOf ranked r sh -> DomainsOf ranked)
                   -> DomainsOf ranked
+  -- The second argument is only used to determine tensor shapes
+  -- and the third has to have the same shapes as the second.
+  --
+  -- The function argument is fine if the instance is unknown, but if it's
+  -- known to be ADVal, one can put illegal InputR there. So we'd need
+  -- (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+  -- or (Data.Vector.Vector AstVarId, AstRanked s r n),
+  -- but the latter would incur a dependency on Ast.
+  -- For the same reason there is PrimalOf in the last argument.
+  rrev :: (GoodScalar r, KnownNat n)
+       => (Domains (DynamicOf ranked) -> ranked r n)
+       -> DomainsOD
+       -> Domains (DynamicOf (PrimalOf ranked))
+       -> DomainsOf (PrimalOf ranked)
 
 
 -- * The giga-constraint

@@ -198,7 +198,7 @@ cfwdOnDomains
      ( DynamicOf f ~ DynamicOf (RankedOf f)
      , ConvertTensor (RankedOf f) (ShapedOf f)
      , Dual (Clown (DynamicOf f)) ~ DeltaD (RankedOf f) (ShapedOf f)
-     , DualPart f, GoodScalar r, HasSingletonDict y)
+     , DualPart f, GoodScalar r, HasSingletonDict y )
   => Domains (DynamicOf f)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
   -> Domains (DynamicOf f)
