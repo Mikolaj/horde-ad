@@ -201,7 +201,7 @@ revProduceArtifactWithoutInterpretation
      ( g ~ AstRanked FullSpan  -- needed, because PrimalOf not injective
      , DerivativeStages g, GoodScalar r, HasSingletonDict y )
   => Bool
-  -> (Domains (ADValClown (DynamicOf (PrimalOf g)))
+  -> (Domains (DynamicOf (ADVal (PrimalOf g)))
       -> ADVal (PrimalOf g) r y)
   -> DomainsOD
   -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
@@ -448,7 +448,7 @@ forwardPassByApplication
        -- , ConvertTensor (PrimalOf g) (ShapedOf (PrimalOf g))
        dynamic ~ AstDynamic PrimalSpan  -- needed for generateDeltaInputsAst
      , Dual (Clown dynamic) ~ DeltaD (PrimalOf g) (ShapedOf (PrimalOf g)) )
-  => (Domains (ADValClown (DynamicOf (PrimalOf g)))
+  => (Domains (DynamicOf (ADVal (PrimalOf g)))
       -> ADVal (PrimalOf g) r y)
   -> Domains (DynamicOf (PrimalOf g))
   -> [AstDynamicVarName g]
@@ -1058,12 +1058,12 @@ shapedToRanked svals =
   :: AstSpan s
   => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstDomains s
-  -> Domains (ADValClown OD.Array) #-}
+  -> Domains (DynamicOf (ADVal (Flip OR.Array))) #-}
 {-# SPECIALIZE interpretAstDomains
   :: AstSpan s
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstDomains s
-  -> Domains (ADValClown (AstDynamic PrimalSpan)) #-}
+  -> Domains (DynamicOf (ADVal (AstRanked PrimalSpan))) #-}
 {-# SPECIALIZE interpretAstDomains
   :: AstSpan s
   => AstEnv (Flip OR.Array) (Flip OS.Array)

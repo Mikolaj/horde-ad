@@ -208,6 +208,8 @@ cfwdOnDomains parameters f ds =
       inputs = makeADInputs parameters deltaInputs
   in cfwdOnADInputs inputs f ds
 
+type DualClown dynamic = Flip (Dual (Clown dynamic)) '()
+
 -- Actually, this is fully general, not only working for DomainsOD.
 generateDeltaInputsOD
   :: forall ranked shaped dynamic.

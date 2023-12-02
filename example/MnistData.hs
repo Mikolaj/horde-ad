@@ -7,7 +7,6 @@ import Prelude
 
 import           Codec.Compression.GZip (decompress)
 import           Control.Arrow (first)
-import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
@@ -179,7 +178,7 @@ chunksOf n = go where
   :: KnownNat y
   => Double
   -> (MnistData Double
-      -> Domains (ADValClown OD.Array)
+      -> Domains (DynamicOf (ADVal (Flip OR.Array)))
       -> ADVal (Flip OR.Array) Double y)
   -> [MnistData Double]
   -> DomainsOD

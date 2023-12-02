@@ -49,7 +49,7 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
-      f :: MnistData r -> Domains (ADValClown OD.Array)
+      f :: MnistData r -> Domains (DynamicOf (ADVal ranked))
         -> ADVal ranked r 0
       f mnist adinputs =
         MnistFcnnRanked1.afcnnMnistLoss1
@@ -218,7 +218,7 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
       domainsInit = toDomains valsInit
-      f :: MnistData r -> Domains (ADValClown OD.Array)
+      f :: MnistData r -> Domains (DynamicOf (ADVal ranked))
         -> ADVal ranked r 0
       f mnist adinputs =
         MnistFcnnRanked2.afcnnMnistLoss2

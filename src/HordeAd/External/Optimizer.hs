@@ -22,7 +22,9 @@ import HordeAd.External.OptimizerTools
 -- | Stochastic Gradient Descent.
 sgd :: forall n r a. (KnownNat n, GoodScalar r)
     => Double
-    -> (a -> Domains (ADValClown OD.Array) -> ADVal (Flip OR.Array) r n)
+    -> (a
+        -> Domains (DynamicOf (ADVal (Flip OR.Array)))
+        -> ADVal (Flip OR.Array) r n)
     -> [a]  -- ^ training data
     -> DomainsOD  -- ^ initial parameters
     -> (DomainsOD, Flip OR.Array r n)
