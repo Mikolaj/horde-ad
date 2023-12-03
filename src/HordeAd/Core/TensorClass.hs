@@ -600,13 +600,13 @@ class DomainsTensor (ranked :: RankedTensorKind)
   -- and the third has to have the same shapes as the second.
   --
   -- The function argument needs to be quantified (or an AST term),
-  -- because otherwise in the ADVal instance one could put illegal InputR there.
-  -- For the same reason there is PrimalOf in the last argument.
+  -- because otherwise in the ADVal instance one could put an illegal
+  -- InputR there, confusing two levels of contangents.
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
-       -> Domains (DynamicOf (PrimalOf ranked))
-       -> DomainsOf (PrimalOf ranked)
+       -> Domains (DynamicOf ranked)
+       -> DomainsOf ranked
 
 
 -- * The giga-constraint
@@ -656,7 +656,11 @@ type ADReadySmall ranked shaped =
 
 type ADReadyBoth ranked shaped =
   ( ADReadySmall ranked shaped
-  , DomainsTensor ranked shaped
+-- TODO: this doesn't type-check and not because rrev uses it,
+-- but probably because ADVal instance of DomainsTensor uses ADReady
+-- at one more ADVal nesting level:
+--, DomainsTensor ranked shaped
+-- so we can't nest rrev right now
   , DomainsTensor (PrimalOf ranked) (PrimalOf shaped) )
 
 
