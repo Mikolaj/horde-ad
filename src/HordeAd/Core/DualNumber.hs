@@ -101,6 +101,8 @@ type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)
 
 type instance DynamicOf (ADVal f) = ADValClown (DynamicOf f)
 
+type instance DomainsOf (ADVal f) = Domains (DynamicOf (ADVal f))
+
 type instance PrimalOf (ADVal f) = f
 
 type instance DualOf (ADVal f) = Product (Clown (Const ADShare)) (Dual f)

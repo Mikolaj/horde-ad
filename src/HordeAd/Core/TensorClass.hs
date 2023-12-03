@@ -577,7 +577,6 @@ class ( DynamicOf ranked ~ DynamicOf shaped
   dshape :: GoodScalar r => DynamicOf ranked r -> [Int]
 
 class DomainsTensor (ranked :: RankedTensorKind) where
-  type DomainsOf ranked
   dmkDomains :: Domains (DynamicOf ranked) -> DomainsOf ranked
   rletDomainsOf :: KnownNat n
                 => DomainsOf ranked
@@ -670,6 +669,8 @@ type instance ShapedOf (Clown OD.Array) = Flip OS.Array
 
 type instance DynamicOf (Clown OD.Array) = OD.Array
 
+type instance DomainsOf (Clown OD.Array) = DomainsOD
+
 
 -- * Ranked tensor class instance for concrete arrays
 
@@ -693,6 +694,8 @@ type instance RankedOf (Flip OR.Array) = Flip OR.Array
 type instance ShapedOf (Flip OR.Array) = Flip OS.Array
 
 type instance DynamicOf (Flip OR.Array) = OD.Array
+
+type instance DomainsOf (Flip OR.Array) = DomainsOD
 
 type instance PrimalOf (Flip OR.Array) = Flip OR.Array
 
@@ -801,6 +804,8 @@ type instance RankedOf (Flip OS.Array) = Flip OR.Array
 type instance ShapedOf (Flip OS.Array) = Flip OS.Array
 
 type instance DynamicOf (Flip OS.Array) = OD.Array
+
+type instance DomainsOf (Flip OS.Array) = DomainsOD
 
 type instance PrimalOf (Flip OS.Array) = Flip OS.Array
 
@@ -931,7 +936,6 @@ instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   dshape = OD.shapeL
 
 instance DomainsTensor (Flip OR.Array) where
-  type DomainsOf (Flip OR.Array) = Domains (DynamicOf (Flip OR.Array))
   dmkDomains = id
   rletDomainsOf = (&)
   rletToDomainsOf = (&)

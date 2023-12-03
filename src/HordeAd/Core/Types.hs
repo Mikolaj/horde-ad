@@ -8,7 +8,7 @@ module HordeAd.Core.Types
     -- * Type definitions for dynamic tensors and tensor collections
   , DynamicExists(..), Domains, DomainsOD, sizeDomainsOD, sameShapesDomainsOD
     -- * Type families that tensors will belong to
-  , RankedOf, ShapedOf, DynamicOf, PrimalOf, DualOf, DummyDual(..)
+  , RankedOf, ShapedOf, DynamicOf, DomainsOf, PrimalOf, DualOf, DummyDual(..)
     -- * Generic types of indexes used in tensor operations
   , IntOf, IndexOf, IntSh, IndexSh
     -- * Generic types of booleans used in tensor operations
@@ -127,6 +127,8 @@ type family RankedOf (f :: TensorKind k) :: RankedTensorKind
 type family ShapedOf (f :: TensorKind k) :: ShapedTensorKind
 
 type family DynamicOf (f :: TensorKind k) :: Type -> Type
+
+type family DomainsOf (f :: TensorKind k) :: Type
 
 type family PrimalOf (f :: TensorKind k) :: TensorKind k
 

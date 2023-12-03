@@ -480,7 +480,6 @@ instance ( DomainsTensor ranked, DualPart ranked
          , ConvertTensor ranked (ShapedOf ranked)
          , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked (ShapedOf ranked) )
          => DomainsTensor (ADVal ranked) where
-  type DomainsOf (ADVal ranked) = Domains (DynamicOf (ADVal ranked))
   dmkDomains = id
   rletDomainsOf = (&)
   rletToDomainsOf = (&)

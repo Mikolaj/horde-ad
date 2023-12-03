@@ -98,16 +98,19 @@ sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
 type instance RankedOf (Clown (AstDynamic s)) = AstRanked s
 type instance ShapedOf (Clown (AstDynamic s)) = AstShaped s
 type instance DynamicOf (Clown (AstDynamic s)) = AstDynamic s
+type instance DomainsOf (Clown (AstDynamic s)) = AstDomains s
 
 type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
 type instance DynamicOf (AstRanked s) = AstDynamic s
+type instance DomainsOf (AstRanked s) = AstDomains s
 type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
 type instance DualOf (AstRanked s) = AstRanked DualSpan
 
 type instance RankedOf (AstShaped s) = AstRanked s
 type instance ShapedOf (AstShaped s) = AstShaped s
 type instance DynamicOf (AstShaped s) = AstDynamic s
+type instance DomainsOf (AstShaped s) = AstDomains s
 type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
 type instance DualOf (AstShaped s) = AstShaped DualSpan
 
