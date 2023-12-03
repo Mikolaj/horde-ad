@@ -139,7 +139,8 @@ lossSoftMaxCrossEntropyR
   :: forall ranked n r.
      ( RankedTensor ranked, RankedTensor (PrimalOf ranked), KnownNat n
      , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked
-     , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked, Differentiable r )
+     , RankedOf (PrimalOf (PrimalOf ranked)) ~ PrimalOf (PrimalOf ranked)
+     , Differentiable r )
   => PrimalOf ranked r n -> ranked r n -> ranked r 0
 lossSoftMaxCrossEntropyR target d' = rlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients

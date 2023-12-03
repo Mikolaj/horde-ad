@@ -91,7 +91,7 @@ convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
      + rtr (rreplicate batch_size biasesReadout)
 
 convMnistLossFusedR
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
+  :: (ADReady ranked, ADReady (PrimalOf ranked), GoodScalar r, Differentiable r)
   => Int
   -> ( PrimalOf ranked r 3  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
      , PrimalOf ranked r 2 )  -- [batch_size, SizeMnistLabel]

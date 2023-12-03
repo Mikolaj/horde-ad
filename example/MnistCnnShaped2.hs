@@ -110,7 +110,8 @@ convMnistLossFusedS
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
      , 1 <= kh
      , 1 <= kw
-     , ADReadyS shaped, GoodScalar r, Differentiable r )
+     , ADReadyS shaped, ADReadyS (PrimalOf shaped)
+     , GoodScalar r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat c_out
   -> SNat n_hidden -> SNat batch_size

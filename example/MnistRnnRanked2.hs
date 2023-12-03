@@ -114,7 +114,7 @@ rnnMnistZeroR batch_size xs
   _ -> error "rnnMnistZeroR: wrong shape"
 
 rnnMnistLossFusedR
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
+  :: (ADReady ranked, ADReady (PrimalOf ranked), GoodScalar r, Differentiable r)
   => Int
   -> (PrimalOf ranked r 3, PrimalOf ranked r 2)  -- batch_size
   -> ADRnnMnistParameters ranked r  -- SizeMnistHeight out_width

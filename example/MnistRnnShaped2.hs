@@ -119,7 +119,7 @@ rnnMnistZeroS out_width@SNat
 rnnMnistLossFusedS
   :: forall shaped h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth, Differentiable r
-     , ADReadyS shaped, GoodScalar r )
+     , ADReadyS shaped, ADReadyS (PrimalOf shaped), GoodScalar r )
   => SNat out_width
   -> SNat batch_size
   -> ( PrimalOf shaped r '[batch_size, h, w]

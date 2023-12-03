@@ -129,7 +129,8 @@ lossCrossEntropyVS targ res = negate $ log res `sdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyS
   :: forall shaped sh r.
-     ( ADReadyS shaped, GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh)
+     ( ADReadyS shaped, ADReadyS (PrimalOf shaped)
+     , GoodScalar r, OS.Shape sh, KnownNat (OS.Size sh)
      , Differentiable r )
   => PrimalOf shaped r sh -> shaped r sh -> shaped r '[]
 lossSoftMaxCrossEntropyS target d' = slet d' $ \d ->

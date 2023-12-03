@@ -652,10 +652,6 @@ type ADReadySmall ranked shaped =
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
   , YRanked ranked Int64 Integral, YShaped shaped Int64 Integral
-  , PrimalOf (PrimalOf ranked) ~ PrimalOf ranked
-  , PrimalOf ranked ~ PrimalOf (PrimalOf ranked)
-  , PrimalOf (PrimalOf shaped) ~ PrimalOf shaped
-  , PrimalOf shaped ~ PrimalOf (PrimalOf shaped)
   )
 
 type ADReadyBoth ranked shaped =
