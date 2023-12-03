@@ -27,6 +27,7 @@ import qualified Data.Array.Shape as OS
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
+import           Data.Function ((&))
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy (Proxy))
@@ -916,7 +917,7 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
 -}
 
 
--- * ConvertTensor instance for concrete arrays
+-- * ConvertTensor and DomainsTensor instances for concrete arrays
 
 instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   tfromD = Flip . Data.Array.Convert.convert
@@ -927,3 +928,13 @@ instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   sfromD = Flip . Data.Array.Convert.convert
   ddummy = dummyTensorD
   dshape = OD.shapeL
+
+instance DomainsTensor (Flip OR.Array) where
+  type DomainsOf (Flip OR.Array) = Domains (DynamicOf (Flip OR.Array))
+  dmkDomains = id
+  rletDomainsOf = (&)
+  rletToDomainsOf = (&)
+  sletDomainsOf = (&)
+  sletToDomainsOf = (&)
+
+  rrev = undefined  -- TODO?

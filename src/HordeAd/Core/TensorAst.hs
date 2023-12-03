@@ -562,6 +562,8 @@ instance AstSpan s
 instance ConvertTensor (AstNoVectorize 'PrimalSpan)
                        (AstNoVectorizeS 'PrimalSpan) where
 
+instance AstSpan s => DomainsTensor (AstNoVectorize s) where
+
 instance AstSpan s
          => RankedTensor (AstNoSimplify s) where
   rlet a f =
@@ -621,3 +623,5 @@ instance AstSpan s
 
 instance ConvertTensor (AstNoSimplify 'PrimalSpan)
                        (AstNoSimplifyS 'PrimalSpan) where
+
+instance AstSpan s => DomainsTensor (AstNoSimplify s) where
