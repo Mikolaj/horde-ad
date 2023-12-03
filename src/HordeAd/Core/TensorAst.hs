@@ -400,7 +400,7 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   dshape (AstRToD v) = shapeToList $ shapeAst v
   dshape (AstSToD @sh _) = OS.shapeT @sh
 
-instance AstSpan s => DomainsTensor (AstRanked s) where
+instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dmkDomains = AstDomains
   -- The four operations below, for this instance, are not used ATM.
   -- They may be used once trev is a method of Tensor.
@@ -410,12 +410,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) where
   sletToDomainsOf = undefined
 
   rrev :: GoodScalar r
-       => (Domains (AstDynamic s) -> AstRanked s r n)
+       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
        -> Domains (AstDynamic PrimalSpan)
        -> AstDomains PrimalSpan
   rrev f parameters0 domains =
-    AstRev (funToAstDomains f parameters0) parameters0 (AstDomains domains)
+    AstRev (funToAstDomains @PrimalSpan f parameters0)
+           parameters0 (AstDomains domains)
 
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
@@ -561,7 +562,7 @@ instance AstSpan s
 instance ConvertTensor (AstNoVectorize 'PrimalSpan)
                        (AstNoVectorizeS 'PrimalSpan) where
 
-instance AstSpan s => DomainsTensor (AstNoVectorize s) where
+instance DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
 
 instance AstSpan s
          => RankedTensor (AstNoSimplify s) where
@@ -623,4 +624,4 @@ instance AstSpan s
 instance ConvertTensor (AstNoSimplify 'PrimalSpan)
                        (AstNoSimplifyS 'PrimalSpan) where
 
-instance AstSpan s => DomainsTensor (AstNoSimplify s) where
+instance DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where

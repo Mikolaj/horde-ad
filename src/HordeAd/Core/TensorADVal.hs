@@ -475,11 +475,11 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   ddummy = undefined
   dshape = undefined
 
-instance ( DomainsTensor ranked, DualPart ranked
-         , ranked ~ RankedOf ranked
-         , ConvertTensor ranked (ShapedOf ranked)
-         , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked (ShapedOf ranked) )
-         => DomainsTensor (ADVal ranked) where
+instance ( ADReadySmall (ADVal ranked) (ADVal shaped)
+         , DomainsTensor ranked shaped
+         , DualPart ranked
+         , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped )
+         => DomainsTensor (ADVal ranked) (ADVal shaped) where
   dmkDomains = id
   rletDomainsOf = (&)
   rletToDomainsOf = (&)
@@ -487,9 +487,10 @@ instance ( DomainsTensor ranked, DualPart ranked
   sletToDomainsOf = (&)
 
   rrev :: (GoodScalar r, KnownNat n)
-       => (DomainsOf (ADVal ranked) -> ADVal ranked r n)
+       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
        -> Domains (DynamicOf ranked)
        -> DomainsOf ranked
   rrev f _parameters0 parameters =
-    dmkDomains @ranked $ fst $ crevOnDomains Nothing f parameters
+    dmkDomains @ranked $ fst
+    $ crevOnDomains Nothing (f @(ADVal ranked)) parameters

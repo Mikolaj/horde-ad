@@ -14,7 +14,7 @@ module HordeAd.Core.TensorClass
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), ConvertTensor(..), DomainsTensor(..)
     -- * The related constraints
-  , ADReady, ADReadyR, ADReadyS, ADReadyBoth, CRanked, CShaped
+  , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth, CRanked, CShaped
   ) where
 
 import Prelude
@@ -576,7 +576,9 @@ class ( DynamicOf ranked ~ DynamicOf shaped
   ddummy :: Numeric r => DynamicOf ranked r
   dshape :: GoodScalar r => DynamicOf ranked r -> [Int]
 
-class DomainsTensor (ranked :: RankedTensorKind) where
+class DomainsTensor (ranked :: RankedTensorKind)
+                    (shaped :: ShapedTensorKind)
+                    | ranked -> shaped, shaped -> ranked where
   dmkDomains :: Domains (DynamicOf ranked) -> DomainsOf ranked
   rletDomainsOf :: KnownNat n
                 => DomainsOf ranked
@@ -597,14 +599,11 @@ class DomainsTensor (ranked :: RankedTensorKind) where
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.
   --
-  -- The function argument is fine if the instance is unknown, but if it's
-  -- known to be ADVal, one can put illegal InputR there. So we'd need
-  -- (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
-  -- or (Data.Vector.Vector AstVarId, AstRanked s r n),
-  -- but the latter would incur a dependency on Ast.
+  -- The function argument needs to be quantified (or an AST term),
+  -- because otherwise in the ADVal instance one could put illegal InputR there.
   -- For the same reason there is PrimalOf in the last argument.
   rrev :: (GoodScalar r, KnownNat n)
-       => (Domains (DynamicOf ranked) -> ranked r n)
+       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
        -> Domains (DynamicOf (PrimalOf ranked))
        -> DomainsOf (PrimalOf ranked)
@@ -628,7 +627,7 @@ type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
 
 -- Here is in other places reflexive closure of type equalities is created
 -- manually (and not for all equalities) due to #23333.
-type ADReadyBoth ranked shaped =
+type ADReadySmall ranked shaped =
   ( shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped
   , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
   , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
@@ -650,7 +649,6 @@ type ADReadyBoth ranked shaped =
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , ConvertTensor ranked shaped
   , ConvertTensor (PrimalOf ranked) (PrimalOf shaped)
-  , DomainsTensor ranked, DomainsTensor (PrimalOf ranked)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
   , YRanked ranked Int64 Integral, YShaped shaped Int64 Integral
@@ -659,6 +657,11 @@ type ADReadyBoth ranked shaped =
   , PrimalOf (PrimalOf shaped) ~ PrimalOf shaped
   , PrimalOf shaped ~ PrimalOf (PrimalOf shaped)
   )
+
+type ADReadyBoth ranked shaped =
+  ( ADReadySmall ranked shaped
+  , DomainsTensor ranked shaped
+  , DomainsTensor (PrimalOf ranked) (PrimalOf shaped) )
 
 
 -- * Instances for concrete dynamic arrays
@@ -935,11 +938,11 @@ instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   ddummy = dummyTensorD
   dshape = OD.shapeL
 
-instance DomainsTensor (Flip OR.Array) where
+instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
   dmkDomains = id
   rletDomainsOf = (&)
   rletToDomainsOf = (&)
   sletDomainsOf = (&)
   sletToDomainsOf = (&)
 
-  rrev = undefined  -- TODO?
+  rrev _ = undefined  -- TODO?
