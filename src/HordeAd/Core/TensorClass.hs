@@ -651,6 +651,7 @@ type ADReadyBoth ranked shaped =
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , ConvertTensor ranked shaped
   , ConvertTensor (PrimalOf ranked) (PrimalOf shaped)
+  , DomainsTensor ranked, DomainsTensor (PrimalOf ranked)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
   , YRanked ranked Int64 Integral, YShaped shaped Int64 Integral
