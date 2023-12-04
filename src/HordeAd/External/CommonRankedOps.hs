@@ -138,7 +138,7 @@ lossCrossEntropyV targ res = negate $ log res `rdot0` targ
 lossSoftMaxCrossEntropyR
   :: forall ranked n r.
      ( RankedTensor ranked, RankedTensor (PrimalOf ranked), KnownNat n
-     , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked
+     , GoodScalar r
      , RankedOf (PrimalOf (PrimalOf ranked)) ~ PrimalOf (PrimalOf ranked)
      , Differentiable r )
   => PrimalOf ranked r n -> ranked r n -> ranked r 0
