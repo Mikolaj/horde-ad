@@ -74,10 +74,10 @@ rnnMnistLayerS SNat SNat SNat
 
 rnnMnistTwoS
   :: (ADReadyS shaped, GoodScalar r, Differentiable r)
-  => SNat out_width -> SNat batch_size -> SNat sizeMnistHeight
+  => SNat out_width -> SNat batch_size -> SNat sizeMnistH
   -> shaped r '[2 * out_width, batch_size]  -- initial state
-  -> PrimalOf shaped r '[sizeMnistHeight, batch_size]
-  -> ( LayerWeigthsRNNShaped shaped sizeMnistHeight out_width r
+  -> PrimalOf shaped r '[sizeMnistH, batch_size]
+  -> ( LayerWeigthsRNNShaped shaped sizeMnistH out_width r
      , LayerWeigthsRNNShaped shaped out_width out_width r )
   -> ( shaped r '[out_width, batch_size]
      , shaped r '[2 * out_width, batch_size] )  -- final state
@@ -103,9 +103,9 @@ rnnMnistZeroS
   :: (ADReadyS shaped, GoodScalar r, Differentiable r)
   => SNat out_width
   -> SNat batch_size
-  -> SNat sizeMnistHeight -> SNat sizeMnistWidth
-  -> PrimalOf shaped r '[sizeMnistWidth, sizeMnistHeight, batch_size]
-  -> ADRnnMnistParametersShaped shaped sizeMnistHeight out_width r
+  -> SNat sizeMnistH -> SNat sizeMnistW
+  -> PrimalOf shaped r '[sizeMnistW, sizeMnistH, batch_size]
+  -> ADRnnMnistParametersShaped shaped sizeMnistH out_width r
   -> shaped r '[SizeMnistLabel, batch_size]
 rnnMnistZeroS out_width@SNat
               batch_size@SNat

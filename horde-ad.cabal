@@ -88,7 +88,7 @@ common options
   other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists,
                       DerivingStrategies, DeriveAnyClass, TupleSections,
                       UndecidableInstances, AllowAmbiguousTypes
-  ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
+  ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages -Wterm-variable-capture
   ghc-options:        -Wno-unticked-promoted-constructors -fprint-explicit-kinds
   if impl(ghc >= 9.4)
     ghc-options: -fworker-wrapper-cbv

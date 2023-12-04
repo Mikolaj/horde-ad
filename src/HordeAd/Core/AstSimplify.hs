@@ -102,10 +102,10 @@ astTransposeAsGather
   => Permutation -> AstRanked s r n -> AstRanked s r n
 {-# NOINLINE astTransposeAsGather #-}
 astTransposeAsGather perm v = unsafePerformIO $ do
-  let p = length perm
-  case someNatVal $ toInteger p of
+  let pInt = length perm
+  case someNatVal $ toInteger pInt of
     Just (SomeNat (_proxy :: Proxy p)) -> do
-      (vars, ix) <- funToAstIndexIO p id
+      (vars, ix) <- funToAstIndexIO pInt id
       let asts :: AstIndex p
           asts = permutePrefixIndex perm ix
       return $! case cmpNat (Proxy @p) (Proxy @n) of
@@ -402,11 +402,11 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
       Nothing -> Ast.AstIndex v0 ix
   Ast.AstSToR @sh t ->
     let (takeSh, dropSh) = splitAt (valueOf @m) (OS.shapeT @sh)
-    in OS.withShapeP takeSh $ \(Proxy :: Proxy take) ->
-       OS.withShapeP dropSh $ \(Proxy :: Proxy drop) ->
-       gcastWith (unsafeCoerce Refl :: sh :~: take OS.++ drop) $
-       gcastWith (unsafeCoerce Refl :: OS.Rank drop :~: n) $
-       astSToR $ astIndexStepS @take @drop
+    in OS.withShapeP takeSh $ \(Proxy :: Proxy p_take) ->
+       OS.withShapeP dropSh $ \(Proxy :: Proxy p_drop) ->
+       gcastWith (unsafeCoerce Refl :: sh :~: p_take OS.++ p_drop) $
+       gcastWith (unsafeCoerce Refl :: OS.Rank p_drop :~: n) $
+       astSToR $ astIndexStepS @p_take @p_drop
                                t (ShapedList.listToSized $ indexToList ix)
   Ast.AstConstant v -> Ast.AstConstant $ astIndex v ix
   Ast.AstPrimalPart{} -> Ast.AstIndex v0 ix  -- must be a NF
@@ -706,13 +706,13 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstSToR @sh v ->
       let (takeSh, dropSh) = splitAt (valueOf @p') (OS.shapeT @sh)
-      in OS.withShapeP takeSh $ \(Proxy :: Proxy take) ->
-         OS.withShapeP dropSh $ \(Proxy :: Proxy drop) ->
-         gcastWith (unsafeCoerce Refl :: sh :~: take OS.++ drop) $
-         gcastWith (unsafeCoerce Refl :: take :~: OS.Take p' sh) $
-         gcastWith (unsafeCoerce Refl :: drop :~: OS.Drop p' sh) $
+      in OS.withShapeP takeSh $ \(Proxy :: Proxy p_take) ->
+         OS.withShapeP dropSh $ \(Proxy :: Proxy p_drop) ->
+         gcastWith (unsafeCoerce Refl :: sh :~: p_take OS.++ p_drop) $
+         gcastWith (unsafeCoerce Refl :: p_take :~: OS.Take p' sh) $
+         gcastWith (unsafeCoerce Refl :: p_drop :~: OS.Drop p' sh) $
          gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: m' + n') $
-         astSToR $ astGatherStepS @take @p' @sh v
+         astSToR $ astGatherStepS @p_take @p' @sh v
                      ( ShapedList.listToSized $ sizedListToList vars4
                      , ShapedList.listToSized $ indexToList ix4 )
     Ast.AstConstant v ->
@@ -1189,14 +1189,14 @@ astReplicateS = \case
   Ast.AstLetADShareS l v -> Ast.AstLetADShareS l $ astReplicateS v
   Ast.AstTransposeS @perm @sh1 v ->
     let zsuccPerm = 0 : map succ (OS.shapeT @perm)
-    in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccPerm) ->
-      gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccPerm) $
+    in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccP) ->
+      gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccP) $
         -- this one is needed for GHC >= 9.8 due to #23763
       gcastWith (unsafeCoerce Refl
-                 :: OS.Permute zsuccPerm (n : sh1) :~: n : sh) $
-      gcastWith (unsafeCoerce Refl :: OS.Rank zsuccPerm :~: 1 + OS.Rank perm) $
-      trustMeThisIsAPermutation @zsuccPerm
-      $ astTransposeS @zsuccPerm $ astReplicateS @n v
+                 :: OS.Permute zsuccP (n : sh1) :~: n : sh) $
+      gcastWith (unsafeCoerce Refl :: OS.Rank zsuccP :~: 1 + OS.Rank perm) $
+      trustMeThisIsAPermutation @zsuccP
+      $ astTransposeS @zsuccP $ astReplicateS @n v
   v -> Ast.AstReplicateS v
 
 astAppend :: (KnownNat n, GoodScalar r, AstSpan s)

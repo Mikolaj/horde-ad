@@ -529,15 +529,15 @@ build1VS (var, v00) =
       astTrS $ astReverseS $ astTrS $ build1VS (var, v)
     Ast.AstTransposeS @perm @sh1 v -> traceRule $
       let zsuccPerm = 0 : map succ (OS.shapeT @perm)
-      in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccPerm) ->
-        gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccPerm) $
+      in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccP) ->
+        gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccP) $
           -- this one is needed for GHC >= 9.8 due to #23763
         gcastWith (unsafeCoerce Refl
-                   :: OS.Permute zsuccPerm (k : sh1) :~: k : sh) $
+                   :: OS.Permute zsuccP (k : sh1) :~: k : sh) $
         gcastWith (unsafeCoerce Refl
-                   :: OS.Rank zsuccPerm :~: 1 + OS.Rank perm) $
-        trustMeThisIsAPermutation @zsuccPerm
-        $ astTransposeS @zsuccPerm $ build1VS @k (var, v)
+                   :: OS.Rank zsuccP :~: 1 + OS.Rank perm) $
+        trustMeThisIsAPermutation @zsuccP
+        $ astTransposeS @zsuccP $ build1VS @k (var, v)
     Ast.AstReshapeS @sh2 v -> traceRule $
       gcastWith (unsafeCoerce Refl
                  :: OS.Size (k ': sh) :~: OS.Size (k ': sh2)) $

@@ -196,8 +196,8 @@ listToSized [] = case OS.shapeT @sh of
 listToSized (i : is) = case OS.shapeT @sh of
   [] -> error $ "listToSized: input list too long; spurious "
                 ++ show (length (i : is))
-  n : rest -> OS.withShapeP rest $ \(_proxy :: Proxy rest) ->
-    case someNatVal $ toInteger n of
+  nInt : restList -> OS.withShapeP restList $ \(_proxy :: Proxy rest) ->
+    case someNatVal $ toInteger nInt of
       Just (SomeNat (_proxyN :: Proxy n)) ->
         -- rest ~ OS.Drop 1 sh
         let sh = listToSized @rest is

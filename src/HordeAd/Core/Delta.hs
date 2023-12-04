@@ -966,16 +966,16 @@ buildFinMaps s0 deltaDt =
           -- in the other direction? What if backend don't have it?
           let perm = OS.shapeT @perm
               permRev = map snd $ sort $ zip perm [0 .. length perm - 1]
-          in OS.withShapeP permRev $ \(_proxy :: Proxy permRev) ->
+          in OS.withShapeP permRev $ \(_proxy :: Proxy permR) ->
             gcastWith (unsafeCoerce Refl
-                       :: OS.Permute permRev sh :~: sh2)
+                       :: OS.Permute permR sh :~: sh2)
             $ gcastWith (unsafeCoerce Refl
                          :: OS.Rank sh :~: OS.Rank sh2)
             $ gcastWith (unsafeCoerce Refl
-                         :: OS.Rank permRev :~: OS.Rank perm)
+                         :: OS.Rank permR :~: OS.Rank perm)
             $ evalS s
-                    (trustMeThisIsAPermutation @permRev
-                       (stranspose (Proxy @permRev))
+                    (trustMeThisIsAPermutation @permR
+                       (stranspose (Proxy @permR))
                        c)
                     d
         ReshapeS d -> evalS s (sreshape c) d

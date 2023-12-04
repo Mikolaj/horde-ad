@@ -295,9 +295,9 @@ bindsToLet = foldl' bindToLet
   bindToLet !u (var, DynamicExists d) = case d of
     AstRToD w -> AstLet (AstVarName var) w u
     AstSToD w ->
-      let sh = shapeToList $ shapeAst u
-      in if valueOf @n == length sh
-         then OS.withShapeP sh $ \(_proxy :: Proxy sh) ->
+      let shList = shapeToList $ shapeAst u
+      in if valueOf @n == length shList
+         then OS.withShapeP shList $ \(_proxy :: Proxy sh) ->
            gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: n) $
            AstSToR @sh $ AstLetS (AstVarName var) w (AstRToS u)
          else error "bindsToLet: rank mismatch"

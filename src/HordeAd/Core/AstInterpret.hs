@@ -439,8 +439,8 @@ interpretAst !env = \case
         -- variable r2, because the operations do not depend on r2.
         f (varId, DynamicExists @r2 d) =
           let sh2 = dshape @ranked d
-          in OS.withShapeP sh2 $ \(Proxy :: Proxy sh2) ->
-            extendEnvS @ranked @shaped @r2 @sh2
+          in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
+            extendEnvS @ranked @shaped @r2 @p_sh2
                        (AstVarName varId) (sfromD d)
         env2 = V.foldr f env (V.zip vars l2)
     in interpretAst env2 v
@@ -857,8 +857,8 @@ interpretAstS !env = \case
         -- variable r2, because the operations do not depend on r2.
         f (varId, DynamicExists @r2 d) =
           let sh2 = dshape @ranked d
-          in OS.withShapeP sh2 $ \(Proxy :: Proxy sh2) ->
-            extendEnvS @ranked @shaped @r2 @sh2
+          in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
+            extendEnvS @ranked @shaped @r2 @p_sh2
                        (AstVarName varId) (sfromD d)
         env2 = V.foldr f env (V.zip vars l2)
     in interpretAstS env2 v
