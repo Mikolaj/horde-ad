@@ -369,7 +369,7 @@ deriving instance ( OS.Shape sh0, GoodScalar r0
                   , Show (IntOf shaped) )
                   => Show (DeltaS ranked shaped r0 sh0)
 
-type role DeltaD nominal nominal nominal nominal  -- TODO: why?
+type role DeltaD nominal nominal nominal nominal
 data DeltaD :: RankedTensorKind -> ShapedTensorKind
             -> TensorKind () where
   RToD :: forall n r ranked shaped. KnownNat n
@@ -512,14 +512,10 @@ derivativeFromDeltaD !dim !deltaTopLevel !ds =
     (_, DeltaDtR{}) -> error "derivativeFromDeltaD"
     (_, DeltaDtS{}) -> error "derivativeFromDeltaD"
 
-instance DualPart @Nat (Flip OR.Array) where
-  type Dual (Flip OR.Array) = DeltaR (Flip OR.Array) (Flip OS.Array)
-  reverseDervative = gradientDtR
-  forwardDerivative = derivativeFromDeltaR
-
-instance AstSpan s => DualPart @Nat (AstRanked s) where
-  type Dual (AstRanked s) =
-    DeltaR (AstRanked s) (AstShaped s)
+instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+         , ConvertTensor ranked (ShapedOf ranked) )
+         => DualPart @Nat ranked where
+  type Dual ranked = DeltaR ranked (ShapedOf ranked)
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
@@ -564,14 +560,10 @@ derivativeFromDeltaR dim deltaTopLevel ds =
     (_, DeltaDtS{}) -> error "derivativeFromDeltaR"
     (_, DeltaDtD{}) -> error "derivativeFromDeltaR"
 
-instance DualPart @[Nat] (Flip OS.Array) where
-  type Dual (Flip OS.Array) = DeltaS (Flip OR.Array) (Flip OS.Array)
-  reverseDervative dims _ = gradientDtS dims
-  forwardDerivative = derivativeFromDeltaS
-
-instance AstSpan s => DualPart @[Nat] (AstShaped s) where
-  type Dual (AstShaped s) =
-    DeltaS (AstRanked s) (AstShaped s)
+instance ( RankedTensor (RankedOf shaped), ShapedTensor shaped
+         , ConvertTensor (RankedOf shaped) shaped )
+         => DualPart @[Nat] shaped where
+  type Dual shaped = DeltaS (RankedOf shaped) shaped
   reverseDervative dims _ = gradientDtS dims
   forwardDerivative = derivativeFromDeltaS
 
