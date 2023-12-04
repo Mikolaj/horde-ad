@@ -171,7 +171,8 @@ crevOnDomains
   :: forall r y f.
      ( DynamicOf f ~ DynamicOf (RankedOf f)
      , ConvertTensor (RankedOf f) (ShapedOf f)
-     , Dual (Clown (DynamicOf f)) ~ DeltaD (RankedOf f) (ShapedOf f)
+     , Dual (Clown (DynamicOf f))
+       ~ DeltaD (Clown (DynamicOf f)) (RankedOf f) (ShapedOf f)
      , DualPart f, GoodScalar r, HasSingletonDict y)
   => Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
@@ -200,7 +201,8 @@ cfwdOnDomains
   :: forall r y f.
      ( DynamicOf f ~ DynamicOf (RankedOf f)
      , ConvertTensor (RankedOf f) (ShapedOf f)
-     , Dual (Clown (DynamicOf f)) ~ DeltaD (RankedOf f) (ShapedOf f)
+     , Dual (Clown (DynamicOf f))
+       ~ DeltaD (Clown (DynamicOf f)) (RankedOf f) (ShapedOf f)
      , DualPart f, GoodScalar r, HasSingletonDict y )
   => Domains (DynamicOf f)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
@@ -217,7 +219,7 @@ type DualClown dynamic = Flip (Dual (Clown dynamic)) '()
 generateDeltaInputsOD
   :: forall ranked shaped dynamic.
      ( dynamic ~ DynamicOf ranked, ConvertTensor ranked shaped
-     , Dual (Clown dynamic) ~ DeltaD ranked shaped )
+     , Dual (Clown dynamic) ~ DeltaD (Clown dynamic) ranked shaped )
   => Domains dynamic
   -> Domains (DualClown dynamic)
 {-# INLINE generateDeltaInputsOD #-}
@@ -243,7 +245,7 @@ generateDeltaInputsOD params =
 generateDeltaInputsAst
   :: forall ranked shaped dynamic s.
      ( dynamic ~ AstDynamic s
-     , Dual (Clown dynamic) ~ DeltaD ranked shaped )
+     , Dual (Clown dynamic) ~ DeltaD (Clown dynamic) ranked shaped )
   => Domains dynamic
   -> Domains (DualClown dynamic)
 {-# INLINE generateDeltaInputsAst #-}

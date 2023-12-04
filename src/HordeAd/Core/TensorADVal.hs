@@ -85,7 +85,7 @@ fromList lu =
 
 instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
          , Dual ranked ~ DeltaR ranked shaped
-         , Dual (Clown dynamic) ~ DeltaD ranked shaped
+         , Dual (Clown dynamic) ~ DeltaD (Clown dynamic) ranked shaped
          , ConvertTensor ranked shaped )
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal ranked r n) where
@@ -146,7 +146,8 @@ instance AdaptableDomains dynamic a
 dToR :: forall r ranked shaped n.
         ( ConvertTensor ranked shaped
         , Dual ranked ~ DeltaR ranked shaped
-        , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped
+        , Dual (Clown (DynamicOf ranked))
+          ~ DeltaD (Clown (DynamicOf ranked)) ranked shaped
         , KnownNat n, GoodScalar r )
       => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal ranked r n
 dToR (D l u u') = dDnotShared l (tfromD $ runClown u) (dDToR u')
@@ -299,7 +300,7 @@ fromListS lu =
 
 instance ( OS.Shape sh, GoodScalar r, dynamic ~ DynamicOf shaped
          , Dual shaped ~ DeltaS ranked shaped
-         , Dual (Clown dynamic) ~ DeltaD ranked shaped
+         , Dual (Clown dynamic) ~ DeltaD (Clown dynamic) ranked shaped
          , ConvertTensor ranked shaped )
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal shaped r sh) where
@@ -316,7 +317,8 @@ instance ( OS.Shape sh, GoodScalar r, dynamic ~ DynamicOf shaped
 dToS :: forall r ranked shaped sh.
         ( ConvertTensor ranked shaped
         , Dual shaped ~ DeltaS ranked shaped
-        , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped
+        , Dual (Clown (DynamicOf ranked))
+          ~ DeltaD (Clown (DynamicOf ranked)) ranked shaped
         , OS.Shape sh, GoodScalar r )
       => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal shaped r sh
 dToS (D l u u') = dDnotShared l (sfromD $ runClown u) (dDToS u')
@@ -440,7 +442,8 @@ instance ( Dual shaped ~ DeltaS ranked shaped
 
 instance ( Dual ranked ~ DeltaR ranked shaped
          , Dual shaped ~ DeltaS ranked shaped
-         , Dual (Clown (DynamicOf ranked)) ~ DeltaD ranked shaped
+         , Dual (Clown (DynamicOf ranked))
+           ~ DeltaD (Clown (DynamicOf ranked)) ranked shaped
          , ConvertTensor ranked shaped )
          => ConvertTensor (ADVal ranked) (ADVal shaped) where
   tfromD = dToR . runFlip
@@ -486,7 +489,8 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 instance ( ADReadyBoth (ADVal (ADVal ranked)) (ADVal (ADVal shaped))
          , DualPart (ADVal ranked)
          , Dual (Clown (DynamicOf (ADVal ranked)))
-           ~ DeltaD (ADVal ranked) (ADVal shaped) )
+           ~ DeltaD (Clown (DynamicOf (ADVal ranked)))
+                    (ADVal ranked) (ADVal shaped) )
          => DomainsTensor (ADVal ranked) (ADVal shaped) where
   dmkDomains = id
   rletDomainsOf = (&)

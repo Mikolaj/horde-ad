@@ -447,7 +447,8 @@ forwardPassByApplication
      ( -- dynamic ~ DynamicOf (PrimalOf g)
        -- , ConvertTensor (PrimalOf g) (ShapedOf (PrimalOf g))
        dynamic ~ AstDynamic PrimalSpan  -- needed for generateDeltaInputsAst
-     , Dual (Clown dynamic) ~ DeltaD (PrimalOf g) (ShapedOf (PrimalOf g)) )
+     , Dual (Clown dynamic)
+       ~ DeltaD (Clown dynamic) (PrimalOf g) (ShapedOf (PrimalOf g)) )
   => (Domains (DynamicOf (ADVal (PrimalOf g)))
       -> ADVal (PrimalOf g) r y)
   -> Domains (DynamicOf (PrimalOf g))
@@ -531,7 +532,8 @@ crevDt
   :: forall r y f advals.
      ( DynamicOf f ~ DynamicOf (RankedOf f)
      , ConvertTensor (RankedOf f) (ShapedOf f)
-     , Dual (Clown (DynamicOf f)) ~ DeltaD (RankedOf f) (ShapedOf f)
+     , Dual (Clown (DynamicOf f))
+       ~ DeltaD (Clown (DynamicOf f)) (RankedOf f) (ShapedOf f)
      , DualPart f, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains (DynamicOf f) (Value advals) )
@@ -550,7 +552,8 @@ crevDtMaybe
   :: forall r y f vals advals.
      ( DynamicOf f ~ DynamicOf (RankedOf f)
      , ConvertTensor (RankedOf f) (ShapedOf f)
-     , Dual (Clown (DynamicOf f)) ~ DeltaD (RankedOf f) (ShapedOf f)
+     , Dual (Clown (DynamicOf f))
+       ~ DeltaD (Clown (DynamicOf f)) (RankedOf f) (ShapedOf f)
      , DualPart f, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains (DynamicOf f) vals
