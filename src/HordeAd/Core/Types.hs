@@ -134,6 +134,7 @@ type family PrimalOf (f :: TensorKind k) :: TensorKind k
 
 type family DualOf (f :: TensorKind k) :: TensorKind k
 
+type DummyDual :: forall {k}. TensorKind k
 data DummyDual a (b :: k) = DummyDual
 
 

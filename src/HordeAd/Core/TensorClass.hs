@@ -53,6 +53,7 @@ import           HordeAd.Util.SizedIndex
 
 -- * Ranked tensor class definition
 
+type CRanked :: RankedTensorKind -> (Type -> Constraint) -> Constraint
 class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
       => CRanked ranked c where
 instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
@@ -278,6 +279,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
 
 -- * Shaped tensor class definition
 
+type CShaped :: ShapedTensorKind -> (Type -> Constraint) -> Constraint
 class (forall r30 y30. (OS.Shape y30, GoodScalar r30) => c (shaped r30 y30))
       => CShaped shaped c where
 instance
@@ -611,10 +613,12 @@ class DomainsTensor (ranked :: RankedTensorKind)
 
 -- * The giga-constraint
 
+type YRanked :: RankedTensorKind -> Type -> (Type -> Constraint) -> Constraint
 class (forall yc. KnownNat yc => c (f r yc)) => YRanked f r c where
 instance
       (forall yc. KnownNat yc => c (f r yc)) => YRanked f r c where
 
+type YShaped :: ShapedTensorKind -> Type -> (Type -> Constraint) -> Constraint
 class (forall yd. OS.Shape yd => c (f r yd)) => YShaped f r c where
 instance
       (forall yd. OS.Shape yd => c (f r yd)) => YShaped f r c where

@@ -34,6 +34,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
+import           Data.Kind (Constraint, Type)
 import           GHC.TypeLits (KnownNat)
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -51,6 +52,8 @@ import HordeAd.Util.SizedIndex
 --
 -- The OfShape hacks are needed to recover shape from ranked tensors,
 -- in particular in case of numeric literals and also for forward derivative.
+
+type IsPrimal :: TensorKind k -> Type -> k -> Constraint
 class IsPrimal f r z where
   dZeroOfShape :: f r z -> Dual f r z
   dScale :: f r z -> Dual f r z -> Dual f r z

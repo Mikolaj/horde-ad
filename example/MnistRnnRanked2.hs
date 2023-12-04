@@ -7,9 +7,10 @@ import Prelude hiding (foldl')
 
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
+import           Data.Kind (Type)
 import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.Adaptor
@@ -28,6 +29,7 @@ type ADRnnMnistParametersShaped (shaped :: ShapedTensorKind) width r =
   , ( shaped r '[SizeMnistLabel, width]
     , shaped r '[SizeMnistLabel] ) )
 
+type LayerWeigthsRNNShaped :: ShapedTensorKind -> Nat -> Nat -> Type -> Type
 type LayerWeigthsRNNShaped shaped in_width out_width r =
   ( shaped r '[out_width, in_width]   -- input weight
   , shaped r '[out_width, out_width]  -- state weight

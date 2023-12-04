@@ -88,13 +88,17 @@ common options
   other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists,
                       DerivingStrategies, DeriveAnyClass, TupleSections,
                       UndecidableInstances, AllowAmbiguousTypes
-  ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages -Wterm-variable-capture
+  ghc-options:        -Wall -Wcompat -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
   ghc-options:        -Wno-unticked-promoted-constructors -fprint-explicit-kinds
+  ghc-options:        -fno-ignore-asserts
+  if impl(ghc >= 9.2)
+    ghc-options: -Wredundant-bang-patterns -Woperator-whitespace
   if impl(ghc >= 9.4)
     ghc-options: -fworker-wrapper-cbv
       -- this is supposedly risky, but prevents STG from creating thunks, #23848
-    ghc-options:        -Wredundant-strictness-flags
-  ghc-options:        -fno-ignore-asserts
+                 -Wredundant-strictness-flags
+  if impl(ghc >= 9.8)
+      ghc-options: -Wterm-variable-capture -Wmissing-poly-kind-signatures
 
   -- Disabling this breaks performance:
   ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200 -fdicts-cheap -flate-dmd-anal -O2

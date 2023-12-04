@@ -10,10 +10,11 @@ import Prelude hiding (foldl')
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
+import           Data.Kind (Type)
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (*))
+import           GHC.TypeLits (KnownNat, Nat, type (*))
 import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.Adaptor
@@ -33,6 +34,7 @@ type ADRnnMnistParametersShaped
   , ( shaped r '[SizeMnistLabel, width]
     , shaped r '[SizeMnistLabel] ) )
 
+type LayerWeigthsRNNShaped :: ShapedTensorKind -> Nat -> Nat -> Type -> Type
 type LayerWeigthsRNNShaped shaped in_width out_width r =
   ( shaped r '[out_width, in_width]   -- input weight
   , shaped r '[out_width, out_width]  -- state weight

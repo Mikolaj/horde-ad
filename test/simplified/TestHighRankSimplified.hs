@@ -417,7 +417,7 @@ testNestedSumBuildB =
 nestedBuildIndex :: forall ranked r. (ADReady ranked, GoodScalar r)
                  => ranked r 5 -> ranked r 3
 nestedBuildIndex v =
-  rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 3 $ \ix4 -> rindex v (ix4 `rem` 2:. ix2 :. 0 :. ZI)) [ix3]) (ix2 :. ZI)
+  rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 3 $ \ix4 -> rindex v (ix4 `rem` 2 :. ix2 :. 0 :. ZI)) [ix3]) (ix2 :. ZI)
 
 testNestedBuildIndex :: Assertion
 testNestedBuildIndex =

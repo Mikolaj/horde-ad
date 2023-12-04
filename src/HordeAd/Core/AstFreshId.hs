@@ -61,7 +61,7 @@ astRegisterFun
   -> (AstBindings (AstRanked s), AstRanked s r n)
 {-# NOINLINE astRegisterFun #-}
 astRegisterFun !r !l | astIsSmall True r = (l, r)
-astRegisterFun !r !l = unsafePerformIO $ do
+astRegisterFun r l = unsafePerformIO $ do
   !freshId <- unsafeGetFreshAstVarId
   let !r2 = AstVar (shapeAst r) $ AstVarName freshId
       !d = DynamicExists $ AstRToD r
@@ -73,7 +73,7 @@ astRegisterFunS
   -> (AstBindings (AstRanked s), AstShaped s r sh)
 {-# NOINLINE astRegisterFunS #-}
 astRegisterFunS !r !l | astIsSmallS True r = (l, r)
-astRegisterFunS !r !l = unsafePerformIO $ do
+astRegisterFunS r l = unsafePerformIO $ do
   !freshId <- unsafeGetFreshAstVarId
   let !r2 = AstVarS $ AstVarName freshId
       !d = DynamicExists $ AstSToD r
@@ -84,7 +84,7 @@ astRegisterADShare :: (GoodScalar r, KnownNat n)
                    -> (ADShare, AstRanked PrimalSpan r n)
 {-# NOINLINE astRegisterADShare #-}
 astRegisterADShare !r !l | astIsSmall True r = (l, r)
-astRegisterADShare !r !l = unsafePerformIO $ do
+astRegisterADShare r l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !l2 = insertADShare freshId (AstRToD r) l
       !r2 = AstVar (shapeAst r) $ AstVarName freshId
@@ -95,7 +95,7 @@ astRegisterADShareS :: (GoodScalar r, OS.Shape sh)
                     -> (ADShare, AstShaped PrimalSpan r sh)
 {-# NOINLINE astRegisterADShareS #-}
 astRegisterADShareS !r !l | astIsSmallS True r = (l, r)
-astRegisterADShareS !r !l = unsafePerformIO $ do
+astRegisterADShareS r l = unsafePerformIO $ do
   freshId <- unsafeGetFreshAstVarId
   let !l2 = insertADShare freshId (AstSToD r) l
       !r2 = AstVarS $ AstVarName freshId

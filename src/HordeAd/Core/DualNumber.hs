@@ -430,13 +430,13 @@ instance (Floating (f r z), IsPrimal f r z) => Floating (ADVal f r z) where
                     in dD l3 (tan u) (dScale (recip (cosU * cosU)) u')
   asin (D l ue u') = let (l2, u) = recordSharingPrimal ue l
                      in dD l2 (asin u)
-                           (dScale (recip (sqrt (intOfShape u 1 - u*u))) u')
+                           (dScale (recip (sqrt (intOfShape u 1 - u * u))) u')
   acos (D l ue u') = let (l2, u) = recordSharingPrimal ue l
                      in dD l2 (acos u)
-                           (dScale (- recip (sqrt (intOfShape u 1 - u*u))) u')
+                           (dScale (- recip (sqrt (intOfShape u 1 - u * u))) u')
   atan (D l ue u') = let (l2, u) = recordSharingPrimal ue l
                      in dD l2 (atan u)
-                           (dScale (recip (intOfShape u 1 + u*u)) u')
+                           (dScale (recip (intOfShape u 1 + u * u)) u')
   sinh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
                      in dD l2 (sinh u) (dScale (cosh u) u')
   cosh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
@@ -445,13 +445,13 @@ instance (Floating (f r z), IsPrimal f r z) => Floating (ADVal f r z) where
                      in dD l2 y (dScale (intOfShape y 1 - y * y) u')
   asinh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
                       in dD l2 (asinh u)
-                            (dScale (recip (sqrt (intOfShape u 1 + u*u))) u')
+                            (dScale (recip (sqrt (intOfShape u 1 + u * u))) u')
   acosh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
                       in dD l2 (acosh u)
-                            (dScale (recip (sqrt (u*u - intOfShape u 1))) u')
+                            (dScale (recip (sqrt (u * u - intOfShape u 1))) u')
   atanh (D l ue u') = let (l2, u) = recordSharingPrimal ue l
                       in dD l2 (atanh u)
-                            (dScale (recip (intOfShape u 1 - u*u)) u')
+                            (dScale (recip (intOfShape u 1 - u * u)) u')
 
 instance (RealFrac (f r z), IsPrimal f r z) => RealFrac (ADVal f r z) where
   properFraction = undefined

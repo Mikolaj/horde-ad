@@ -177,6 +177,7 @@ instance Show (AstVarName f r y) where
 --
 -- A lot of the variables are existential, but there's no nesting,
 -- so no special care about picking specializations at runtime is needed.
+type AstDynamicVarName :: forall {k}. TensorKind k -> Type
 data AstDynamicVarName f where
   AstDynamicVarName :: forall k sh r y (f :: TensorKind k).
                        (OS.Shape sh, GoodScalar r)
@@ -755,6 +756,7 @@ instance Boolean AstBool where
 
 -- * Boolean definitions and instances
 
+type BoolOf :: forall {k}. TensorKind k -> Type
 type BoolOf f = (ADShare, SimpleBoolOf f)
 
 -- This and below is inspired by https://hackage.haskell.org/package/Boolean,
@@ -800,6 +802,7 @@ maxF u v = ifF (u >=. v) u v
 
 -- * ADShare definition
 
+type AstBindings :: forall {k}. TensorKind k -> Type
 type AstBindings f = [(AstVarId, DynamicExists (DynamicOf f))]
 
 unsafeGlobalCounter :: Counter
@@ -861,8 +864,8 @@ mergeADShare :: ADShare -> ADShare -> ADShare
 mergeADShare !s1 !s2 =
   let mergeAD :: ADShare -> ADShare -> Maybe ADShare
       mergeAD ADShareNil ADShareNil = Nothing
-      mergeAD !l ADShareNil = Just l
-      mergeAD ADShareNil !l = Just l
+      mergeAD l ADShareNil = Just l
+      mergeAD ADShareNil l = Just l
       mergeAD l1@(ADShareCons id1 key1 t1 rest1)
               l2@(ADShareCons id2 key2 t2 rest2) =
         if id1 == id2

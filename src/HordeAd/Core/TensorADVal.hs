@@ -23,12 +23,13 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Function ((&))
 import           Data.Functor.Const
+import           Data.Kind (Constraint, Type)
 import           Data.List (foldl')
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Adaptor
@@ -159,6 +160,10 @@ dToR (D l u u') = dDnotShared l (tfromD $ runClown u) (dDToR u')
       Just Refl -> SToR d
       _ -> error "dToR: different ranks in DToR(SToD)"
 
+
+type CRankedIP :: RankedTensorKind
+               -> (RankedTensorKind -> Type -> Nat -> Constraint)
+               -> Constraint
 class (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
       => CRankedIP ranked c where
 instance (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
@@ -325,6 +330,9 @@ dToS (D l u u') = dDnotShared l (sfromD $ runClown u) (dDToS u')
       Just Refl -> RToS d
       _ -> error "dToS: different ranks in DToS(RToD)"
 
+type CRankedIPSh :: ShapedTensorKind
+                 -> (ShapedTensorKind -> Type -> [Nat] -> Constraint)
+                 -> Constraint
 class (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
       => CRankedIPSh shaped c where
 instance (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
