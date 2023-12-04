@@ -96,6 +96,18 @@ instance OrdF f => OrdF (ADVal f) where
   D l1 u _ >. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >. v)
   D l1 u _ >=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >=. v)
 
+type instance RankedOf (Clown (ADValClown dynamic)) =
+  ADVal (RankedOf @() (Clown dynamic))
+
+type instance ShapedOf (Clown (ADValClown dynamic)) =
+  ADVal (ShapedOf @() (Clown dynamic))
+
+type instance DynamicOf (Clown (ADValClown dynamic)) =
+  ADValClown dynamic
+
+type instance DomainsOf (Clown (ADValClown dynamic)) =
+  Domains (ADValClown dynamic)
+
 type instance RankedOf (ADVal f) = ADVal (RankedOf f)
 
 type instance ShapedOf (ADVal f) = ADVal (ShapedOf f)

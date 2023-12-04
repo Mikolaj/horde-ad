@@ -668,18 +668,7 @@ type ADReadyBoth ranked shaped =
   , DomainsTensor (PrimalOf ranked) (PrimalOf shaped) )
 
 
--- * Instances for concrete dynamic arrays
-
-type instance RankedOf (Clown OD.Array) = Flip OR.Array
-
-type instance ShapedOf (Clown OD.Array) = Flip OS.Array
-
-type instance DynamicOf (Clown OD.Array) = OD.Array
-
-type instance DomainsOf (Clown OD.Array) = DomainsOD
-
-
--- * Ranked tensor class instance for concrete arrays
+-- * Instances for concrete arrays
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 
@@ -695,6 +684,14 @@ instance OrdF (Flip OR.Array) where
 
 instance IfF (Flip OR.Array) where
   ifF (_, b) v w = if b then v else w
+
+type instance RankedOf (Clown OD.Array) = Flip OR.Array
+
+type instance ShapedOf (Clown OD.Array) = Flip OS.Array
+
+type instance DynamicOf (Clown OD.Array) = OD.Array
+
+type instance DomainsOf (Clown OD.Array) = DomainsOD
 
 type instance RankedOf (Flip OR.Array) = Flip OR.Array
 
