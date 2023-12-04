@@ -2055,6 +2055,8 @@ simplifyAstS t = case t of
 -- | The term to substitute for a variable. Without this variant type,
 -- we'd need to duplicate the whole sibstitution code, one copy
 -- for each of the cases.
+type role SubstitutionPayload nominal nominal
+  -- r can't be representational due to AstRanked having it as nominal
 data SubstitutionPayload s r =
     forall n. KnownNat n
     => SubstitutionPayloadRanked (AstRanked s r n)

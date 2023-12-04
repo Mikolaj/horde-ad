@@ -82,7 +82,7 @@ common options
                       TypeFamilyDependencies, FunctionalDependencies,
                       RecordWildCards, MultiWayIf, LambdaCase,
                       DefaultSignatures, PatternSynonyms, NoStarIsType,
-                      DataKinds
+                      DataKinds, RoleAnnotations
   if impl(ghc >= 9.8)
     default-extensions: TypeAbstractions
   other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists,
@@ -98,7 +98,7 @@ common options
       -- this is supposedly risky, but prevents STG from creating thunks, #23848
                  -Wredundant-strictness-flags
   if impl(ghc >= 9.8)
-      ghc-options: -Wterm-variable-capture -Wmissing-poly-kind-signatures
+      ghc-options: -Wterm-variable-capture -Wmissing-poly-kind-signatures -Wmissing-role-annotations
 
   -- Disabling this breaks performance:
   ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200 -fdicts-cheap -flate-dmd-anal -O2

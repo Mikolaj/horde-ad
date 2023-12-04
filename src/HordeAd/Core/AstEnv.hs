@@ -35,6 +35,7 @@ import           HordeAd.Util.SizedList
 -- | The environment that keeps variables values during interpretation
 type AstEnv ranked shaped = EM.EnumMap AstVarId (AstEnvElem ranked shaped)
 
+type role AstEnvElem representational representational
 data AstEnvElem :: RankedTensorKind -> ShapedTensorKind -> Type where
   AstEnvElemR :: (KnownNat n, GoodScalar r)
               => ranked r n -> AstEnvElem ranked shaped

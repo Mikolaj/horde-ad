@@ -498,6 +498,7 @@ type family MapSucc (xs :: [Nat]) :: [Nat] where
   MapSucc '[] = '[]
   MapSucc (x ': xs) = 1 + x ': MapSucc xs
 
+type role Dict nominal
 data Dict c where
   Dict :: c => Dict c
 

@@ -162,6 +162,7 @@ intToAstVarId = AstVarId
 varNameToAstVarId :: AstVarName f r y -> AstVarId
 varNameToAstVarId (AstVarName var) = var
 
+type role AstVarName phantom phantom nominal
 newtype AstVarName (f :: TensorKind k) (r :: Type) (y :: k) =
    AstVarName AstVarId
  deriving (Eq, Ord, Enum)
@@ -177,6 +178,7 @@ instance Show (AstVarName f r y) where
 --
 -- A lot of the variables are existential, but there's no nesting,
 -- so no special care about picking specializations at runtime is needed.
+type role AstDynamicVarName phantom
 type AstDynamicVarName :: forall {k}. TensorKind k -> Type
 data AstDynamicVarName f where
   AstDynamicVarName :: forall k sh r y (f :: TensorKind k).
@@ -209,6 +211,8 @@ type AstVarListS sh = ShapedList sh IntVarName
 -- We use here @ShapeInt@ for simplicity. @Shape n AstInt@ gives
 -- more expressiveness, but leads to irregular tensors,
 -- especially after vectorization, and prevents static checking of shapes.
+type role AstRanked nominal nominal nominal
+  -- r has to be nominal, because type class arguments always are
 data AstRanked :: AstSpanType -> RankedTensorKind where
   AstVar :: ShapeInt n -> AstVarName (AstRanked s) r n -> AstRanked s r n
   -- The r variable is existential here, so a proper specialization needs
@@ -308,6 +312,7 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
 deriving instance GoodScalar r => Show (AstRanked s r n)
 
 -- | AST for shaped tensors that are meant to be differentiated.
+type role AstShaped nominal nominal nominal
 data AstShaped :: AstSpanType -> ShapedTensorKind where
   -- To permit defining objective functions in Ast, not just constants:
   AstVarS :: forall sh r s. AstVarName (AstShaped s) r sh -> AstShaped s r sh
@@ -419,6 +424,7 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
 
 deriving instance (GoodScalar r, OS.Shape sh) => Show (AstShaped s r sh)
 
+type role AstDynamic nominal nominal
 data AstDynamic :: AstSpanType -> Type -> Type where
   AstRToD :: forall n r s. KnownNat n
           => AstRanked s r n -> AstDynamic s r
@@ -426,6 +432,7 @@ data AstDynamic :: AstSpanType -> Type -> Type where
           => AstShaped s r sh -> AstDynamic s r
 deriving instance GoodScalar r => Show (AstDynamic s r)
 
+type role AstDomains nominal
 data AstDomains s where
   -- There are existential variables inside DynamicExists here.
   AstDomains :: Domains (AstDynamic s) -> AstDomains s
@@ -958,18 +965,22 @@ type instance DynamicOf (AstNoSimplifyS s) = AstDynamic s
 type instance PrimalOf (AstNoSimplifyS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoSimplifyS s) = AstShaped DualSpan
 
+type role AstNoVectorize nominal nominal nominal
 newtype AstNoVectorize s r n =
   AstNoVectorize {unAstNoVectorize :: AstRanked s r n}
 deriving instance GoodScalar r => Show (AstNoVectorize s r n)
 
+type role AstNoVectorizeS nominal nominal nominal
 newtype AstNoVectorizeS s r sh =
   AstNoVectorizeS {unAstNoVectorizeS :: AstShaped s r sh}
 deriving instance (GoodScalar r, OS.Shape sh) => Show (AstNoVectorizeS s r sh)
 
+type role AstNoSimplify nominal nominal nominal
 newtype AstNoSimplify s r n =
   AstNoSimplify {unAstNoSimplify :: AstRanked s r n}
 deriving instance GoodScalar r => Show (AstNoSimplify s r n)
 
+type role AstNoSimplifyS nominal nominal nominal
 newtype AstNoSimplifyS s r sh =
   AstNoSimplifyS {unAstNoSimplifyS :: AstShaped s r sh}
 deriving instance (GoodScalar r, OS.Shape sh) => Show (AstNoSimplifyS s r sh)

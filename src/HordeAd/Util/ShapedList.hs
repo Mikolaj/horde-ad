@@ -41,6 +41,7 @@ import qualified HordeAd.Util.SizedList as SizedList
 -- | The value of this type has to be positive and less than the @n@ bound.
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
+type role ShapedNat nominal representational
 newtype ShapedNat (n :: Nat) a = ShapedNat {unShapedNat :: a}
 
 -- TODO: actually check or wrap a check for later, based on a mechanism
@@ -58,6 +59,7 @@ shapeSh = listToSized $ OS.shapeT @sh
 
 -- | Strict lists indexed by shapes, that is, lists of the GHC @Nat@.
 infixr 3 :$:
+type role ShapedList nominal representational
 data ShapedList (sh :: [Nat]) i where
   ZSH :: ShapedList '[] i
   (:$:) :: (KnownNat n, OS.Shape sh)

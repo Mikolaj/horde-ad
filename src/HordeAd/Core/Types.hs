@@ -88,6 +88,7 @@ instance IfDifferentiable Float where
 
 -- Warning: r is an existential variable, a proper specialization needs
 -- to be picked explicitly at runtime.
+type role DynamicExists representational  -- TODO: safe enough?
 data DynamicExists :: (Type -> Type) -> Type where
   DynamicExists :: forall r dynamic. GoodScalar r
                 => dynamic r -> DynamicExists dynamic
@@ -134,8 +135,9 @@ type family PrimalOf (f :: TensorKind k) :: TensorKind k
 
 type family DualOf (f :: TensorKind k) :: TensorKind k
 
+type role DummyDual representational nominal
 type DummyDual :: forall {k}. TensorKind k
-data DummyDual a (b :: k) = DummyDual
+data DummyDual r (y :: k) = DummyDual
 
 
 -- * Generic types of integer indexes used in tensor operations
@@ -177,6 +179,7 @@ type family SimpleBoolOf (t :: k) :: Type
 -- TODO: Use SNat from base once we use GHC >= 9.6 exclusively.
 -- | Sizes of tensor dimensions, of batches, etc., packed for passing
 -- between functions as witnesses of type variable values.
+type role SNat nominal
 data SNat (n :: Nat) where
   SNat :: KnownNat n => SNat n
 

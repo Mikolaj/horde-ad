@@ -153,6 +153,7 @@ import HordeAd.Util.SizedIndex
 -- as given in @buildDerivative@. Evaluating the terms backwards
 -- (transposing the represented linear map) in order to compute gradients
 -- provides a different semantics.
+type role DeltaR nominal nominal nominal nominal
 data DeltaR :: RankedTensorKind -> ShapedTensorKind -> RankedTensorKind where
   ZeroR :: ShapeInt n -> DeltaR ranked shaped r n
     -- ^ the shape is required for @shapeDelta@ and forward derivative
@@ -254,6 +255,7 @@ deriving instance ( GoodScalar r0
 
 -- | This is the grammar of delta-expressions that record derivatives
 -- of shaped tensors.
+type role DeltaS nominal nominal nominal nominal  -- TODO: why?
 data DeltaS :: RankedTensorKind -> ShapedTensorKind -> ShapedTensorKind where
   ZeroS :: DeltaS ranked shaped r sh
   InputS :: InputId ranked -> DeltaS ranked shaped r sh
@@ -367,6 +369,7 @@ deriving instance ( OS.Shape sh0, GoodScalar r0
                   , Show (IntOf shaped) )
                   => Show (DeltaS ranked shaped r0 sh0)
 
+type role DeltaD nominal nominal nominal nominal  -- TODO: why?
 data DeltaD :: RankedTensorKind -> ShapedTensorKind
             -> TensorKind () where
   RToD :: forall n r ranked shaped. KnownNat n
@@ -433,10 +436,12 @@ lengthDelta d = case shapeDelta d of
 
 -- * Delta expression identifiers
 
+type role NodeId phantom
 newtype NodeId (f :: TensorKind k) = NodeId Int
  deriving newtype (Show, Enum)
    -- No Eq instance to limit hacks.
 
+type role InputId phantom
 newtype InputId (f :: TensorKind k) = InputId Int
  deriving (Show, Enum)
    -- No Eq instance to limit hacks outside this module.
@@ -613,6 +618,7 @@ derivativeFromDeltaS !dim !deltaTopLevel !ds =
 -- the delta expression to be differentiated and the dt perturbation
 -- (small change) of the objective function codomain, for which we compute
 -- the gradient.
+type role DeltaDt nominal nominal nominal  -- nominal due to DynamicOf family
 data DeltaDt :: RankedTensorKind -> ShapedTensorKind -> Type -> Type where
   DeltaDtR :: forall r n ranked shaped. KnownNat n
            => ranked r n -> DeltaR ranked shaped r n
@@ -636,6 +642,7 @@ data DeltaDt :: RankedTensorKind -> ShapedTensorKind -> Type -> Type where
 -- Data invariant:
 -- 1. keys nMap == keys dMap
 -- 2. key `member` dMap == nMap!key is DeltaBindingR
+type role EvalState nominal nominal
 data EvalState ranked shaped = EvalState
   { iMap        :: EM.EnumMap (InputId ranked)
                               (DynamicExists (DynamicOf ranked))
@@ -655,6 +662,7 @@ data EvalState ranked shaped = EvalState
 -- We can't evaluate them at once, because their other shared copies
 -- may still not be processed, so we'd not take advantage of the sharing
 -- and not take into account the whole summed context when finally evaluating.
+type role DeltaBinding nominal nominal
 data DeltaBinding :: RankedTensorKind -> ShapedTensorKind -> Type where
   DeltaBindingR :: forall n r ranked shaped. (KnownNat n, GoodScalar r)
                 => DeltaR ranked shaped r n -> DeltaBinding ranked shaped

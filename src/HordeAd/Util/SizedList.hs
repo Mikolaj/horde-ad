@@ -38,6 +38,7 @@ import           GHC.TypeLits
 -- at least) coerce the strict @SizedList@ to @[i]@, but not the other
 -- way around.
 infixr 3 :::
+type role SizedList nominal representational
 data SizedList (n :: Nat) i where
   Z :: SizedList 0 i
   (:::) :: KnownNat n

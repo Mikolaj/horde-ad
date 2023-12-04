@@ -51,6 +51,7 @@ import HordeAd.Util.SizedIndex
 -- in fact, AST terms. The @f r z@ value is the primal component,
 -- which is the normal, the basic value. The exact type of the dual component
 -- is determined by a definition of type family @Dual@ provided elsewhere.
+type role ADVal nominal nominal nominal
 data ADVal (f :: TensorKind k) (r :: Type) (z :: k) =
   D ADShare (f r z) (Dual f r z)
 

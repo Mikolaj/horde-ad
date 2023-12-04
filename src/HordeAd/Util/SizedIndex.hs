@@ -59,6 +59,7 @@ type ShapeInt n = Shape n Int
 -- until we we actually attempt projecting. In case that the values
 -- are terms, there is no absolute corrcetness criterion anyway,
 -- because the eventual integer value depends on a variable valuation.
+type role Index nominal representational
 newtype Index n i = Index (SizedList n i)
   deriving (Eq, Ord)
 
@@ -77,6 +78,7 @@ pattern i :. sh <- (unconsIndex -> Just (UnconsIndexRes sh i))
   where i :. (Index sh) = Index (i ::: sh)
 {-# COMPLETE ZI, (:.) #-}
 
+type role UnconsIndexRes representational nominal
 data UnconsIndexRes i n1 =
   forall n. n1 ~ (1 + n) => UnconsIndexRes (Index n i) i
 unconsIndex :: Index n1 i -> Maybe (UnconsIndexRes i n1)
@@ -175,6 +177,7 @@ sizedListToIndex = Index
 
 -- | The shape of an n-dimensional array represented as a sized list.
 -- The order of dimensions corresponds to that in @Index@.
+type role Shape nominal representational
 newtype Shape n i = Shape (SizedList n i)
   deriving Eq
 
@@ -189,15 +192,16 @@ pattern ZS = Shape Z
 infixr 3 :$
 pattern (:$) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
              => i -> Shape n i -> Shape n1 i
-pattern i :$ sh <- (unconsShape -> Just (UnconsShapeRes sh i))
+pattern i :$ sh <- (unconsShape -> Just (MkUnconsShapeRes sh i))
   where i :$ (Shape sh) = Shape (i ::: sh)
 {-# COMPLETE ZS, (:$) #-}
 
+type role UnconsShapeRes representational nominal
 data UnconsShapeRes i n1 =
-  forall n. n1 ~ (1 + n) => UnconsShapeRes (Shape n i) i
+  forall n. n1 ~ (1 + n) => MkUnconsShapeRes (Shape n i) i
 unconsShape :: Shape n1 i -> Maybe (UnconsShapeRes i n1)
 unconsShape (Shape sh) = case sh of
-  i ::: sh' -> Just (UnconsShapeRes (Shape sh') i)
+  i ::: sh' -> Just (MkUnconsShapeRes (Shape sh') i)
   Z -> Nothing
 
 deriving newtype instance Functor (Shape n)
