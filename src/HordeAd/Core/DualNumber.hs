@@ -27,6 +27,7 @@ import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import           Type.Reflection (typeRep)
+import qualified Data.Array.ShapedS as OS
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -119,6 +120,44 @@ type instance DomainsOf (ADVal f) = Domains (DynamicOf (ADVal f))
 type instance PrimalOf (ADVal f) = f
 
 type instance DualOf (ADVal f) = Product (Clown (Const ADShare)) (Dual f)
+
+instance (GoodScalar r, KnownNat n, RankedTensor (ADVal ranked))
+         => IsPrimal (ADVal ranked) r n where
+  dZeroOfShape tsh = ZeroR (rshape tsh)
+  dScale _ (ZeroR sh) = ZeroR sh
+  dScale v u' = ScaleR v u'
+  dAdd ZeroR{} w = w
+  dAdd v ZeroR{} = v
+  dAdd v w = AddR v w
+  intOfShape tsh c =
+    rconst $ OR.constant (shapeToList $ rshape tsh) (fromIntegral c)
+  recordSharingPrimal r l = (l, r)
+  recordSharing d = case d of
+    ZeroR{} -> d
+    InputR{} -> d
+    DToR{} -> d
+    SToR{} -> d
+    LetR{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaR d
+
+instance (GoodScalar r, OS.Shape sh, ShapedTensor (ADVal shaped))
+         => IsPrimal (ADVal shaped) r sh where
+  dZeroOfShape _tsh = ZeroS
+  dScale _ ZeroS = ZeroS
+  dScale v u' = ScaleS v u'
+  dAdd ZeroS w = w
+  dAdd v ZeroS = v
+  dAdd v w = AddS v w
+  intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
+    sconst $ fromIntegral c
+  recordSharingPrimal r l = (l, r)
+  recordSharing d = case d of
+    ZeroS -> d
+    InputS{} -> d
+    DToS{} -> d
+    RToS{} -> d
+    LetS{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaS d
 
 
 -- * Auxiliary definitions

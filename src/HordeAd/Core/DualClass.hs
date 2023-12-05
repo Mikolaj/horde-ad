@@ -24,7 +24,7 @@
 -- of the same shared terms is prohibitively expensive.
 module HordeAd.Core.DualClass
   ( IsPrimal(..)
-  , unsafeGetFreshId, resetIdCounter
+  , unsafeGetFreshId, resetIdCounter, wrapDeltaR, wrapDeltaS
   ) where
 
 import Prelude
