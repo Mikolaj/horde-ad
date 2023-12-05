@@ -97,6 +97,9 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   -- Typically scalar (rank 0) codomain or a generalization of such
   -- an operation, often a tensor reduction. A number suffix in the name
   -- may indicate the rank of the codomain, if bounded.
+
+  -- First index is for outermost dimension; empty index means identity,
+  -- index ouf of bounds produces zero (but beware of vectorization).
   rindex, (!) :: (GoodScalar r, KnownNat m, KnownNat n)
               => ranked r (m + n) -> IndexOf ranked m -> ranked r n
   infixl 9 !

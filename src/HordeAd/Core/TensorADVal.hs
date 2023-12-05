@@ -58,12 +58,6 @@ instance IfF (ADVal (AstRanked PrimalSpan)) where
                           (singletonIndex $ ifF (emptyADShare, b) 0 1)
     in D (l1 `mergeADShare` l2) u u'
 
--- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
--- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
--- dimension affected.
---
--- First index is for outermost dimension; empty index means identity,
--- index ouf of bounds produces zero (but beware of vectorization).
 index :: forall ranked shaped m n r.
          ( RankedTensor ranked, IsPrimal ranked r n
          , Dual ranked ~ DeltaR ranked shaped
@@ -179,8 +173,10 @@ instance (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
 -- in tests. None others are used anywhere.
 instance ( Dual ranked ~ DeltaR ranked shaped
          , DeltaR ranked shaped ~ Dual ranked
-         , PrimalOf ranked ~ ranked
-         , ranked ~ PrimalOf ranked
+         , RankedOf ranked ~ ranked
+         , ranked ~ RankedOf ranked
+         , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
+         , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
          , CRankedIP ranked IsPrimal
          , RankedTensor ranked )
          => RankedTensor (ADVal ranked) where
@@ -208,7 +204,10 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     let v = rfloor u
     in dDnotShared l v (dZeroOfShape v)
 
-  rindex = index
+  -- TODO: speed up by using tindex0R and dIndex0 if the codomain has rank 0
+  -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
+  -- dimension affected.
+  rindex d i = index d (rprimalPart <$> i)
   rsum (D l u u') = dD l (rsum u) (SumR u')
   rsum0 (D l u u') = dD l (rsum0 u) (Sum0R u')
   rdot0 (D l1 ue u') (D l2 ve v') =
@@ -217,7 +216,8 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     let !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (rdot0 u v) (dAdd (Dot0R v u') (Dot0R u v'))
   rscatter sh (D l u u') f =
-    dD l (rscatter sh u f) (ScatterR sh u' f)
+    let g x = rprimalPart <$> f (rconstant <$> x)
+    in dD l (rscatter sh u g) (ScatterR sh u' g)
 
   rfromList = fromList
   rfromVector lu =
@@ -242,7 +242,8 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   rbuild1 k f = fromList $ map (f . fromIntegral) [0 .. k - 1]
                    -- element-wise (POPL) version
   rgather sh (D l u u') f =
-    dD l (rgather sh u f) (GatherR sh u' f)
+    let g x = rprimalPart <$> f (rconstant <$> x)
+    in dD l (rgather sh u g) (GatherR sh u' g)
       -- note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
       -- of f have to be computed and stored in contangent maps later on
@@ -349,10 +350,10 @@ instance (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
 -- in tests. None others are used anywhere.
 instance ( Dual shaped ~ DeltaS ranked shaped
          , DeltaS ranked shaped ~ Dual shaped
-         , PrimalOf shaped ~ shaped
-         , shaped ~ PrimalOf shaped
+         , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
+         , PrimalOf ranked ~ RankedOf (PrimalOf shaped)
          , CRankedIPSh shaped IsPrimal
-         , ShapedTensor shaped )
+         , RankedTensor ranked, ShapedTensor shaped )
          => ShapedTensor (ADVal shaped) where
   slet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
@@ -378,7 +379,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     in dDnotShared l v (dZeroOfShape v)
 
   siota = constantADVal siota
-  sindex = indexS
+  sindex d i = indexS d (rprimalPart <$> i)
   ssum (D l u u') = dD l (ssum u) (SumS u')
   ssum0 (D l u u') = dD l (ssum0 u) (Sum0S u')
   sdot0 (D l1 ue u') (D l2 ve v') =
@@ -386,7 +387,9 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
     let !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (sdot0 u v) (dAdd (Dot0S v u') (Dot0S u v'))
-  sscatter (D l u u') f = dD l (sscatter u f) (ScatterS u' f)
+  sscatter (D l u u') f =
+    let g x = rprimalPart <$> f (rconstant <$> x)
+    in dD l (sscatter u g) (ScatterS u' g)
 
   sfromList = fromListS
   sfromVector lu =
@@ -418,7 +421,9 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   sbuild1 f = fromListS $ map (f . ShapedList.shapedNat)
                               [0 .. valueOf @n - 1]
                    -- element-wise (POPL) version
-  sgather (D l u u') f = dD l (sgather u f) (GatherS u' f)
+  sgather (D l u u') f =
+    let g x = rprimalPart <$> f (rconstant <$> x)
+    in dD l (sgather u g) (GatherS u' g)
   scast (D l u u') = dD l (scast u) (CastS u')
   sfromIntegral (D l u _) =
     let v = sfromIntegral u
