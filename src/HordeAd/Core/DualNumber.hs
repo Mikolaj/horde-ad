@@ -128,6 +128,7 @@ fromList lu =
 
 instance ( RankedTensor ranked, CRankedIP ranked IsPrimal
          , IfF (RankedOf (PrimalOf ranked))
+         , Boolean (SimpleBoolOf ranked)
          , SimpleBoolOf (RankedOf (PrimalOf ranked)) ~ SimpleBoolOf ranked )
          => IfF (ADVal ranked) where
   ifF (l1, b) v w =
@@ -162,6 +163,7 @@ fromListS lu =
 
 instance ( ShapedTensor shaped, CRankedIPSh shaped IsPrimal
          , IfF (RankedOf (PrimalOf shaped))
+         , Boolean (SimpleBoolOf shaped)
          , SimpleBoolOf (RankedOf (PrimalOf shaped)) ~ SimpleBoolOf shaped )
          => IfF (ADVal shaped) where
   ifF (l1, b) v w =
