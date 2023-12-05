@@ -1,4 +1,6 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Dual numbers and arithmetic operations on them. This is a part of
 -- the mid-level API of the horde-ad library, together with
 -- the safely impure "HordeAd.Core.DualClass".
@@ -6,6 +8,7 @@ module HordeAd.Core.DualNumber
   ( -- * The main dual number type
     ADVal, dD, pattern D, dDnotShared, constantADVal, ADValClown
     -- * Auxiliary definitions
+  , CRankedIP, indexPrimal, fromList, CRankedIPSh, indexPrimalS, fromListS
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
   , DerivativeStages (..)
@@ -17,6 +20,7 @@ import Prelude
 
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Shape as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
@@ -25,9 +29,9 @@ import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy)
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
+import           GHC.TypeLits
+  (KnownNat, Nat, SomeNat (..), someNatVal, type (+))
 import           Type.Reflection (typeRep)
-import qualified Data.Array.ShapedS as OS
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -36,6 +40,7 @@ import HordeAd.Core.Delta
 import HordeAd.Core.DualClass
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Util.ShapedList (singletonShaped)
 import HordeAd.Util.SizedIndex
 
 -- * The main dual number type
@@ -96,6 +101,81 @@ instance OrdF f => OrdF (ADVal f) where
   D l1 u _ <=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u <=. v)
   D l1 u _ >. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >. v)
   D l1 u _ >=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >=. v)
+
+type CRankedIP :: RankedTensorKind
+               -> (RankedTensorKind -> Type -> Nat -> Constraint)
+               -> Constraint
+class (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
+      => CRankedIP ranked c where
+instance (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
+         => CRankedIP ranked c where
+
+indexPrimal :: ( RankedTensor ranked, IsPrimal ranked r n
+               , KnownNat m, KnownNat n, GoodScalar r )
+            => ADVal ranked r (m + n) -> IndexOf ranked m
+            -> ADVal ranked r n
+indexPrimal (D l u u') ix = dD l (rindex u ix) (IndexR u' ix)
+
+fromList :: ( RankedTensor ranked, IsPrimal ranked r (1 + n)
+            , KnownNat n, GoodScalar r )
+         => [ADVal ranked r n]
+         -> ADVal ranked r (1 + n)
+fromList lu =
+  -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
+  dD (flattenADShare $ map (\(D l _ _) -> l) lu)
+     (rfromList $ map (\(D _ u _) -> u) lu)
+     (FromListR $ map (\(D _ _ u') -> u') lu)
+
+instance ( RankedTensor ranked, CRankedIP ranked IsPrimal
+         , IfF (RankedOf (PrimalOf ranked))
+         , SimpleBoolOf (RankedOf (PrimalOf ranked)) ~ SimpleBoolOf ranked )
+         => IfF (ADVal ranked) where
+  ifF (l1, b) v w =
+    let D l2 u u' = indexPrimal (fromList [v, w])
+                                (singletonIndex $ ifF (emptyADShare, b) 0 1)
+    in D (l1 `mergeADShare` l2) u u'
+
+type CRankedIPSh :: ShapedTensorKind
+                 -> (ShapedTensorKind -> Type -> [Nat] -> Constraint)
+                 -> Constraint
+class (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
+      => CRankedIPSh shaped c where
+instance (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
+         => CRankedIPSh shaped c where
+
+indexPrimalS :: ( ShapedTensor shaped, IsPrimal shaped r sh2
+                , OS.Shape sh1, OS.Shape sh2, OS.Shape (sh1 OS.++ sh2)
+                , GoodScalar r )
+             => ADVal shaped r (sh1 OS.++ sh2) -> IndexSh shaped sh1
+             -> ADVal shaped r sh2
+indexPrimalS (D l u u') ix = dD l (sindex u ix) (IndexS u' ix)
+
+fromListS :: forall n sh shaped r.
+             ( ShapedTensor shaped, IsPrimal shaped r (n ': sh)
+             , KnownNat n, OS.Shape sh, GoodScalar r )
+           => [ADVal shaped r sh]
+           -> ADVal shaped r (n ': sh)
+fromListS lu =
+  dD (flattenADShare $ map (\(D l _ _) -> l) lu)
+     (sfromList $ map (\(D _ u _) -> u) lu)
+     (FromListS $ map (\(D _ _ u') -> u') lu)
+
+instance ( ShapedTensor shaped, CRankedIPSh shaped IsPrimal
+         , IfF (RankedOf (PrimalOf shaped))
+         , SimpleBoolOf (RankedOf (PrimalOf shaped)) ~ SimpleBoolOf shaped )
+         => IfF (ADVal shaped) where
+  ifF (l1, b) v w =
+    let D l2 u u' = indexPrimalS (fromListS @2 [v, w])
+                                 (singletonShaped $ ifF (emptyADShare, b) 0 1)
+    in D (l1 `mergeADShare` l2) u u'
+
+{- TODO: use for speed-up, e.g,. by checking the type at runtime
+instance IfF (ADVal (Flip OR.Array)) where
+  ifF (_, b) v w = if b then v else w
+
+instance IfF (ADVal (Flip OS.Array)) where
+  ifF (_, b) v w = if b then v else w
+-}
 
 type instance RankedOf (Clown (ADValClown dynamic)) =
   ADVal (RankedOf @() (Clown dynamic))

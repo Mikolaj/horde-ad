@@ -1,4 +1,4 @@
-{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -23,13 +23,12 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Function ((&))
 import           Data.Functor.Const
-import           Data.Kind (Constraint, Type)
 import           Data.List (foldl')
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, sameNat)
 import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Adaptor
@@ -41,41 +40,11 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
-import           HordeAd.Util.ShapedList (ShapedList (..), singletonShaped)
+import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 
 -- * Ranked tensor instances
-
-instance IfF (ADVal (Flip OR.Array)) where
-  ifF (_, b) v w = if b then v else w
-
--- This requires the RankedTensor instance for ADVal, hence it must be
--- in this module.
-instance IfF (ADVal (AstRanked PrimalSpan)) where
-  ifF (l1, b) v w =
-    let D l2 u u' = index (fromList [v, w])
-                          (singletonIndex $ ifF (emptyADShare, b) 0 1)
-    in D (l1 `mergeADShare` l2) u u'
-
-index :: forall ranked shaped m n r.
-         ( RankedTensor ranked, IsPrimal ranked r n
-         , Dual ranked ~ DeltaR ranked shaped
-         , KnownNat m, KnownNat n, GoodScalar r )
-      => ADVal ranked r (m + n) -> IndexOf ranked m
-      -> ADVal ranked r n
-index (D l u u') ix = dD l (rindex u ix) (IndexR u' ix)
-
-fromList :: ( RankedTensor ranked, IsPrimal ranked r (1 + n)
-            , Dual ranked ~ DeltaR ranked shaped
-            , KnownNat n, GoodScalar r )
-         => [ADVal ranked r n]
-         -> ADVal ranked r (1 + n)
-fromList lu =
-  -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
-  dD (flattenADShare $ map (\(D l _ _) -> l) lu)
-     (rfromList $ map (\(D _ u _) -> u) lu)
-     (FromListR $ map (\(D _ _ u') -> u') lu)
 
 instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
          , Dual ranked ~ DeltaR ranked shaped
@@ -155,15 +124,6 @@ dToR (D l u u') = dDnotShared l (tfromD $ runClown u) (dDToR u')
       Just Refl -> SToR d
       _ -> error "dToR: different ranks in DToR(SToD)"
 
-
-type CRankedIP :: RankedTensorKind
-               -> (RankedTensorKind -> Type -> Nat -> Constraint)
-               -> Constraint
-class (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
-      => CRankedIP ranked c where
-instance (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
-         => CRankedIP ranked c where
-
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
 -- In any case, only the Ast instantiation of this instance
@@ -207,7 +167,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   -- TODO: speed up by using tindex0R and dIndex0 if the codomain has rank 0
   -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
   -- dimension affected.
-  rindex d i = index d (rprimalPart <$> i)
+  rindex d i = indexPrimal d (rprimalPart <$> i)
   rsum (D l u u') = dD l (rsum u) (SumR u')
   rsum0 (D l u u') = dD l (rsum0 u) (Sum0R u')
   rdot0 (D l1 ue u') (D l2 ve v') =
@@ -268,37 +228,6 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 
 -- * Shaped tensor instances
 
-instance IfF (ADVal (Flip OS.Array)) where
-  ifF (_, b) v w = if b then v else w
-
--- This requires the Tensor instance, hence the definitions must in this module.
-instance IfF (ADVal (AstShaped PrimalSpan)) where
-  ifF (l1, b) v w =
-    let D l2 u u' = indexS (fromListS @2 [v, w])
-                           (ifF (emptyADShare, b) 0 1 :$: ZSH)
-    in D (l1 `mergeADShare` l2) u u'
-
--- First index is for outermost dimension; empty index means identity,
--- index ouf of bounds produces zero (but beware of vectorization).
-indexS :: forall ranked shaped sh1 sh2 r.
-          ( ShapedTensor shaped, IsPrimal shaped r sh2
-          , Dual shaped ~ DeltaS ranked shaped
-          , OS.Shape sh1, OS.Shape sh2, OS.Shape (sh1 OS.++ sh2), GoodScalar r )
-       => ADVal shaped r (sh1 OS.++ sh2) -> IndexSh shaped sh1
-       -> ADVal shaped r sh2
-indexS (D l u u') ix = dD l (sindex u ix) (IndexS u' ix)
-
-fromListS :: forall n sh ranked shaped r.
-             ( ShapedTensor shaped, IsPrimal shaped r (n ': sh)
-             , Dual shaped ~ DeltaS ranked shaped
-             , KnownNat n, OS.Shape sh, GoodScalar r )
-           => [ADVal shaped r sh]
-           -> ADVal shaped r (n ': sh)
-fromListS lu =
-  dD (flattenADShare $ map (\(D l _ _) -> l) lu)
-     (sfromList $ map (\(D _ u _) -> u) lu)
-     (FromListS $ map (\(D _ _ u') -> u') lu)
-
 instance ( OS.Shape sh, GoodScalar r, dynamic ~ DynamicOf shaped
          , Dual shaped ~ DeltaS ranked shaped
          , Dual (Clown dynamic) ~ DeltaD (Clown dynamic) ranked shaped
@@ -332,14 +261,6 @@ dToS (D l u u') = dDnotShared l (sfromD $ runClown u) (dDToS u')
     case matchingRank @sh @n1 of
       Just Refl -> RToS d
       _ -> error "dToS: different ranks in DToS(RToD)"
-
-type CRankedIPSh :: ShapedTensorKind
-                 -> (ShapedTensorKind -> Type -> [Nat] -> Constraint)
-                 -> Constraint
-class (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
-      => CRankedIPSh shaped c where
-instance (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
-         => CRankedIPSh shaped c where
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
@@ -379,7 +300,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     in dDnotShared l v (dZeroOfShape v)
 
   siota = constantADVal siota
-  sindex d i = indexS d (rprimalPart <$> i)
+  sindex d i = indexPrimalS d (rprimalPart <$> i)
   ssum (D l u u') = dD l (ssum u) (SumS u')
   ssum0 (D l u u') = dD l (ssum0 u) (Sum0S u')
   sdot0 (D l1 ue u') (D l2 ve v') =
