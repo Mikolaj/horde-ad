@@ -412,8 +412,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   ddummy = undefined
   dshape = undefined
 
-instance ( ADReadyBoth (ADVal (ADVal ranked)) (ADVal (ADVal shaped))
-         , DualPart (ADVal ranked)
+instance ( ADReadySmall (ADVal ranked) (ADVal shaped)
          , Dual (Clown (DynamicOf (ADVal ranked)))
            ~ DeltaD (Clown (DynamicOf (ADVal ranked)))
                     (ADVal ranked) (ADVal shaped) )

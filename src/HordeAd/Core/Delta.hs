@@ -245,8 +245,9 @@ data DeltaR :: RankedTensorKind -> ShapedTensorKind -> RankedTensorKind where
        => DeltaS ranked shaped r sh
        -> DeltaR ranked shaped r (OS.Rank sh)
 
-deriving instance ( GoodScalar r0
-                  , (forall n r. GoodScalar r => Show (ranked r n))
+deriving instance ( KnownNat n0, GoodScalar r0
+                  , (forall nn2 rr. (KnownNat nn2, GoodScalar rr)
+                                    => Show (ranked rr nn2))
                   , (forall sh r. (OS.Shape sh, GoodScalar r)
                                   => Show (shaped r sh))
                   , Show (IntOf ranked)
@@ -362,7 +363,8 @@ data DeltaS :: RankedTensorKind -> ShapedTensorKind -> ShapedTensorKind where
        -> DeltaS ranked shaped r sh
 
 deriving instance ( OS.Shape sh0, GoodScalar r0
-                  , (forall n r. GoodScalar r => Show (ranked r n))
+                  , (forall nn3 rr. (KnownNat nn3, GoodScalar rr)
+                                    => Show (ranked rr nn3))
                   , (forall sh r. (OS.Shape sh, GoodScalar r)
                                   => Show (shaped r sh))
                   , Show (IntOf ranked)
@@ -380,7 +382,8 @@ data DeltaD :: TensorKind () -> RankedTensorKind -> ShapedTensorKind
        -> DeltaD (Clown (DynamicOf ranked)) ranked shaped r '()
 
 deriving instance ( GoodScalar r0
-                  , (forall n r. GoodScalar r => Show (ranked r n))
+                  , (forall nn4 rr. (KnownNat nn4, GoodScalar rr)
+                                    => Show (ranked rr nn4))
                   , (forall sh r. (OS.Shape sh, GoodScalar r)
                                   => Show (shaped r sh))
                   , Show (IntOf ranked)

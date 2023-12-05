@@ -663,11 +663,7 @@ type ADReadySmall ranked shaped =
 
 type ADReadyBoth ranked shaped =
   ( ADReadySmall ranked shaped
--- TODO: this doesn't type-check and not because rrev uses it,
--- but probably because ADVal instance of DomainsTensor uses ADReady
--- at one more ADVal nesting level:
---, DomainsTensor ranked shaped
--- so we can't nest rrev right now
+  , DomainsTensor ranked shaped
   , DomainsTensor (PrimalOf ranked) (PrimalOf shaped) )
 
 
