@@ -5,13 +5,13 @@
 -- | Interpretation of AST terms in an aribtrary @RankedTensor@
 -- and/or @ShapedTensor@ class instance.
 module HordeAd.Core.AstInterpret
-  ( interpretAstPrimal, interpretAst, interpretAstDomains
+  ( interpretAstPrimal, interpretAst
   , interpretAstPrimalS, interpretAstS
   -- * Exported only to specialize elsewhere (because transitive specialization may not work, possibly)
   , interpretAstPrimalRuntimeSpecialized, interpretAstPrimalSRuntimeSpecialized
   , interpretAstDual, interpretAstDualS
   , interpretAstRuntimeSpecialized, interpretAstSRuntimeSpecialized
-  , interpretAstBool
+  , interpretAstDomains, interpretAstBool
   ) where
 
 import Prelude
@@ -434,7 +434,7 @@ interpretAst !env = \case
         t2 = interpretAstDual env u'
     in rD t1 t2
   AstLetDomains vars l v ->
-    let l2 = interpretAstDomains env l
+    let lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
         -- variable r2, because the operations do not depend on r2.
         f (varId, DynamicExists @r2 d) =
@@ -442,8 +442,8 @@ interpretAst !env = \case
           in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
             extendEnvS @ranked @shaped @r2 @p_sh2
                        (AstVarName varId) (sfromD d)
-        env2 = V.foldr f env (V.zip vars l2)
-    in interpretAst env2 v
+        env2 lw = V.foldr f env (V.zip vars lw)
+    in rletDomainsOf lt (\lw -> interpretAst (env2 lw) v)
 
 interpretAstDynamic
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
@@ -462,19 +462,20 @@ interpretAstDynamic !env = \case
 
 interpretAstDomains
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
-  => AstEnv ranked shaped -> AstDomains s -> Domains (DynamicOf ranked)
+  => AstEnv ranked shaped -> AstDomains s -> DomainsOf ranked
 interpretAstDomains !env = \case
-  AstDomains l -> interpretAstDynamic env <$> l
+  AstDomains l ->
+    dmkDomains @ranked @shaped $ interpretAstDynamic @ranked env <$> l
   AstDomainsLet var u v ->
+    -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
-        env2 = extendEnvR var t env
-    in interpretAstDomains env2 v
-      -- TODO: preserve let, as in AstLet case
+        env2 w = extendEnvR var w env
+    in rletToDomainsOf t (\w -> interpretAstDomains (env2 w) v)
   AstDomainsLetS var u v ->
+    -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u
-        env2 = extendEnvS var t env
-    in interpretAstDomains env2 v
-      -- TODO: preserve let, as in AstLet case
+        env2 w = extendEnvS var w env
+    in sletToDomainsOf t (\w -> interpretAstDomains (env2 w) v)
 
 interpretAstBool :: ADReadyBoth ranked shaped
                  => AstEnv ranked shaped -> AstBool -> BoolOf ranked
@@ -852,7 +853,7 @@ interpretAstS !env = \case
         t2 = interpretAstDualS env u'
     in sD t1 t2
   AstLetDomainsS vars l v ->
-    let l2 = interpretAstDomains env l
+    let lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
         -- variable r2, because the operations do not depend on r2.
         f (varId, DynamicExists @r2 d) =
@@ -860,5 +861,5 @@ interpretAstS !env = \case
           in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
             extendEnvS @ranked @shaped @r2 @p_sh2
                        (AstVarName varId) (sfromD d)
-        env2 = V.foldr f env (V.zip vars l2)
-    in interpretAstS env2 v
+        env2 lw = V.foldr f env (V.zip vars lw)
+    in sletDomainsOf lt (\lw -> interpretAstS (env2 lw) v)

@@ -587,7 +587,7 @@ class DomainsTensor (ranked :: RankedTensorKind)
   dmkDomains :: Domains (DynamicOf ranked) -> DomainsOf ranked
   rletDomainsOf :: KnownNat n
                 => DomainsOf ranked
-                -> (DomainsOf ranked -> ranked r n)
+                -> (Domains (DynamicOf ranked) -> ranked r n)
                 -> ranked r n
   rletToDomainsOf :: (GoodScalar r, KnownNat n)
                   => ranked r n
@@ -595,11 +595,11 @@ class DomainsTensor (ranked :: RankedTensorKind)
                   -> DomainsOf ranked
   sletDomainsOf :: OS.Shape sh
                 => DomainsOf ranked
-                -> (DomainsOf ranked -> ShapedOf ranked r sh)
-                -> ShapedOf ranked r sh
+                -> (Domains (DynamicOf ranked) -> shaped r sh)
+                -> shaped r sh
   sletToDomainsOf :: (GoodScalar r, OS.Shape sh)
-                  => ShapedOf ranked r sh
-                  -> (ShapedOf ranked r sh -> DomainsOf ranked)
+                  => shaped r sh
+                  -> (shaped r sh -> DomainsOf ranked)
                   -> DomainsOf ranked
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.
