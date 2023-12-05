@@ -17,7 +17,7 @@ Justin Le, author of the https://github.com/mstksg/backprop library and the amaz
 Tom Smeding, who influenced the major implementation decisions of horde-ad and solved the hardest technical problems
 
 and other benefactors and contributors, in chronological order:
-Stanisław Findeisen, Cale Gibbard
+Stanisław Findeisen, Cale Gibbard, Well-Typed LLP
 
 
 Authors of files `t10k-images-idx3-ubyte.gz`, `t10k-labels-idx1-ubyte.gz`, `train-images-idx3-ubyte.gz`, `train-labels-idx1-ubyte.gz` from http://yann.lecun.com/exdb/mnist, copied into this repo into directory `samplesData/`, copyright (according to https://keras.io/api/datasets/mnist) Yann LeCun and Corinna Cortes for the MNIST dataset, which is a derivative work from original NIST datasets, copyright by their authors and made available under the terms of the Creative Commons Attribution-Share Alike 3.0 license.

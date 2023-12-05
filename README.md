@@ -206,7 +206,7 @@ of comments, unless too verbose.
 Copyright
 ---------
 
-Copyright 2023 Mikolaj Konarski and others (see git history)
+Copyright 2023 Mikolaj Konarski, Well-Typed LLP and others (see git history)
 
 License: BSD-3-Clause (see file LICENSE)
 

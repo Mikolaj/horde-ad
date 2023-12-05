@@ -38,7 +38,7 @@ license-file:       LICENSE
 author:             Mikolaj Konarski and others
 
 -- An email address to which users can send suggestions, bug reports, and patches.
-maintainer:         mikolaj.konarski@funktory.com
+maintainer:         mikolaj@well-typed.com
 
 category:           Machine Learning, Automatic Differentiation
 
