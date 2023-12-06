@@ -28,7 +28,6 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Function ((&))
-import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -616,16 +615,6 @@ class DomainsTensor (ranked :: RankedTensorKind)
 
 -- * The giga-constraint
 
-type YRanked :: RankedTensorKind -> Type -> (Type -> Constraint) -> Constraint
-class (forall yc. KnownNat yc => c (f r yc)) => YRanked f r c where
-instance
-      (forall yc. KnownNat yc => c (f r yc)) => YRanked f r c where
-
-type YShaped :: ShapedTensorKind -> Type -> (Type -> Constraint) -> Constraint
-class (forall yd. OS.Shape yd => c (f r yd)) => YShaped f r c where
-instance
-      (forall yd. OS.Shape yd => c (f r yd)) => YShaped f r c where
-
 type ADReady ranked = ADReadyR ranked  -- backward compatibility
 
 type ADReadyR ranked = ADReadyBoth ranked (ShapedOf ranked)
@@ -658,7 +647,6 @@ type ADReadySmall ranked shaped =
   , ConvertTensor (PrimalOf ranked) (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
-  , YRanked ranked Int64 Integral, YShaped shaped Int64 Integral
   )
 
 type ADReadyBoth ranked shaped =
