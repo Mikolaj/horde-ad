@@ -451,6 +451,9 @@ data AstDomains s where
          -> DomainsOD
          -> AstDomains s
          -> AstDomains s
+    -- ^ the function body can't have any free variables outside those
+    -- listed in the first component of the pair; this reflects
+    -- the quantification in 'rrev' and prevents cotangent confusion
 deriving instance Show (AstDomains s)
 
 data AstBool where

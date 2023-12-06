@@ -479,6 +479,8 @@ interpretAstDomains !env = \case
   AstRev @r @n (vars, ast) parameters0 parameters ->
     let g :: forall f. ADReady f => Domains (DynamicOf f) -> f r n
         g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
+          -- interpretation in empty environment makes sense only
+          -- if there are no free variables outside of those listed
         pars = interpretAstDomains env parameters
     in rrev @ranked g parameters0 pars
 

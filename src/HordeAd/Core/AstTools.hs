@@ -157,6 +157,8 @@ varInAstDomains var = \case
                   in any f l
   AstDomainsLet _var2 u v -> varInAst var u || varInAstDomains var v
   AstDomainsLetS _var2 u v -> varInAstS var u || varInAstDomains var v
+  AstRev _f _ p ->  -- _f has no non-bound variables
+    varInAstDomains var p
 
 varInAstDynamic :: AstSpan s
                 => AstVarId -> AstDynamic s r -> Bool
