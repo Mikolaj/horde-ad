@@ -23,7 +23,6 @@ import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.List (unzip4, unzip6)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
 import           System.IO.Unsafe (unsafePerformIO)
@@ -143,34 +142,36 @@ funToAstS f = unsafePerformIO $ do
 funToAstDomainsIO
   :: (Domains (AstDynamic s) -> AstRanked s r n)
   -> DomainsOD
-  -> IO ( Data.Vector.Vector AstVarId
-            -- TODO? [AstDynamicVarName (AstRanked PrimalSpan)]
+  -> IO ( [AstDynamicVarName (AstRanked s)]
         , AstRanked s r n )
 {-# INLINE funToAstDomainsIO #-}
 funToAstDomainsIO g parameters0 = do
   let f (DynamicExists @r2 e) = do
         let sh = OD.shapeL e
         freshId <- unsafeGetFreshAstVarId
-        return $!
+        return $! OS.withShapeP sh $ \(Proxy :: Proxy p_sh) ->
           case someNatVal $ toInteger $ length sh of
             Just (SomeNat @n _) ->
-              let dynE :: DynamicExists (AstDynamic s)
+              let varE :: AstDynamicVarName (AstRanked s)
+                  !varE = AstDynamicVarName @Nat @p_sh @r2 (AstVarName freshId)
+                  dynE :: DynamicExists (AstDynamic s)
                   !dynE = DynamicExists @r2
                           $ AstRToD @n (AstVar (listShapeToShape sh)
                                                (AstVarName freshId))
-              in (freshId, dynE)
-            Nothing -> error "funToAstRevIO: impossible someNatVal error"
+              in (varE, dynE)
+            Nothing -> error "funToAstDomainsIO: impossible someNatVal error"
   (!vars, !asts) <- V.unzip <$> V.mapM f parameters0
   let !x = g asts
-  return (vars, x)
+  return (V.toList vars, x)
 
 funToAstDomains
   :: (Domains (AstDynamic s) -> AstRanked s r n)
   -> DomainsOD
-  -> ( Data.Vector.Vector AstVarId
+  -> ( [AstDynamicVarName (AstRanked s)]
      , AstRanked s r n )
 {-# NOINLINE funToAstDomains #-}
-funToAstDomains g parameters0 = unsafePerformIO $ funToAstDomainsIO g parameters0
+funToAstDomains g parameters0 =
+  unsafePerformIO $ funToAstDomainsIO g parameters0
 
 funToAstRevIO :: DomainsOD
               -> IO ( [AstDynamicVarName (AstRanked PrimalSpan)]
