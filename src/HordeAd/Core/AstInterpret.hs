@@ -437,12 +437,13 @@ interpretAst !env = \case
     let lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
         -- variable r2, because the operations do not depend on r2.
-        f (varId, DynamicExists @r2 d) =
-          let sh2 = dshape @ranked d
-          in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
-            extendEnvS @ranked @shaped @r2 @p_sh2
-                       (AstVarName varId) (sfromD d)
-        env2 lw = V.foldr f env (V.zip vars lw)
+        f ( AstDynamicVarName @_ @sh2 @r2 (AstVarName varId)
+          , DynamicExists @r3 d ) =
+          case testEquality (typeRep @r2) (typeRep @r3) of
+            Just Refl -> extendEnvS @ranked @shaped @r2 @sh2
+                                    (AstVarName varId) (sfromD d)
+            _ -> error "interpretAstS: type mismatch"
+        env2 lw = foldr f env (zip vars (V.toList lw))
     in rletDomainsOf lt (\lw -> interpretAst (env2 lw) v)
 
 interpretAstDynamic
@@ -863,10 +864,11 @@ interpretAstS !env = \case
     let lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
         -- variable r2, because the operations do not depend on r2.
-        f (varId, DynamicExists @r2 d) =
-          let sh2 = dshape @ranked d
-          in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
-            extendEnvS @ranked @shaped @r2 @p_sh2
-                       (AstVarName varId) (sfromD d)
-        env2 lw = V.foldr f env (V.zip vars lw)
+        f ( AstDynamicVarName @_ @sh2 @r2 (AstVarName varId)
+          , DynamicExists @r3 d ) =
+          case testEquality (typeRep @r2) (typeRep @r3) of
+            Just Refl -> extendEnvS @ranked @shaped @r2 @sh2
+                                    (AstVarName varId) (sfromD d)
+            _ -> error "interpretAstS: type mismatch"
+        env2 lw = foldr f env (zip vars (V.toList lw))
     in sletDomainsOf lt (\lw -> interpretAstS (env2 lw) v)

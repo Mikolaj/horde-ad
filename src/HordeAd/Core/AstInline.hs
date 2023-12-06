@@ -490,7 +490,8 @@ unletAst env t = case t of
   Ast.AstD u u' -> Ast.AstD (unletAst env u) (unletAst env u')
   Ast.AstLetDomains vars l v ->
     let env2 = env {unletSet = unletSet env
-                               `ES.union` ES.fromList (V.toList vars)}
+                               `ES.union`
+                               ES.fromList (map dynamicVarNameToAstVarId vars)}
     in Ast.AstLetDomains vars (unletAstDomains env l) (unletAst env2 v)
 
 unletAstDynamic
@@ -594,5 +595,6 @@ unletAstS env t = case t of
   Ast.AstDS u u' -> Ast.AstDS (unletAstS env u) (unletAstS env u')
   Ast.AstLetDomainsS vars l v ->
     let env2 = env {unletSet = unletSet env
-                               `ES.union` ES.fromList (V.toList vars)}
+                               `ES.union`
+                               ES.fromList (map dynamicVarNameToAstVarId vars)}
     in Ast.AstLetDomainsS vars (unletAstDomains env l) (unletAstS env2 v)

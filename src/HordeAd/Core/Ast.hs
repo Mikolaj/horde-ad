@@ -10,7 +10,7 @@ module HordeAd.Core.Ast
     -- * Assorted small definitions
   , AstInt, IntVarName, pattern AstIntVar, isRankedInt, ConcreteOf
     -- * More and less typed variables and type synonyms containing them
-  , AstVarId, intToAstVarId, varNameToAstVarId
+  , AstVarId, intToAstVarId, varNameToAstVarId, dynamicVarNameToAstVarId
   , AstArtifactRev, AstArtifactFwd
   , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * ASTs
@@ -186,6 +186,9 @@ data AstDynamicVarName f where
                     => AstVarName f r y -> AstDynamicVarName f
 deriving instance Show (AstDynamicVarName f)
 
+dynamicVarNameToAstVarId :: AstDynamicVarName f -> AstVarId
+dynamicVarNameToAstVarId (AstDynamicVarName (AstVarName var)) = var
+
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type AstArtifactRev (f :: TensorKind k) r y =
   ( (AstVarName f r y, [AstDynamicVarName f])
@@ -305,7 +308,7 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
   AstD :: AstRanked PrimalSpan r n -> AstRanked DualSpan r n
        -> AstRanked FullSpan r n
   AstLetDomains :: AstSpan s
-                => Data.Vector.Vector AstVarId -> AstDomains s
+                => [AstDynamicVarName (AstShaped s)] -> AstDomains s
                 -> AstRanked s2 r n
                 -> AstRanked s2 r n
 
@@ -418,7 +421,7 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
   AstDS :: AstShaped PrimalSpan r sh -> AstShaped DualSpan r sh
         -> AstShaped FullSpan r sh
   AstLetDomainsS :: AstSpan s
-                 => Data.Vector.Vector AstVarId -> AstDomains s
+                 => [AstDynamicVarName (AstShaped s)] -> AstDomains s
                  -> AstShaped s2 r sh
                  -> AstShaped s2 r sh
 

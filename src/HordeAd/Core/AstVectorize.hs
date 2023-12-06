@@ -264,7 +264,8 @@ build1V k (var, v00) =
                 in substituteAst (SubstitutionPayloadRanked @s1 @r projection)
                                  (AstVarName var1)
               Nothing -> error "build1V: impossible someNatVal error"
-          v2 = V.foldr subst v (V.zip vars (unwrapAstDomains l))
+          v2 = foldr subst v (zip (map dynamicVarNameToAstVarId vars)
+                                  (V.toList $ unwrapAstDomains l))
       in Ast.AstLetDomains vars (build1VOccurenceUnknownDomains k (var, l))
                                 (build1VOccurenceUnknownRefresh k (var, v2))
 
@@ -583,7 +584,8 @@ build1VS (var, v00) =
                                 (Ast.AstIntVar var :$: ZSH)
             in substituteAstS (SubstitutionPayloadShaped @s1 @r projection)
                               (AstVarName var1)
-          v2 = V.foldr subst v (V.zip vars (unwrapAstDomains l))
+          v2 = foldr subst v (zip (map dynamicVarNameToAstVarId vars)
+                                  (V.toList $ unwrapAstDomains l))
       in Ast.AstLetDomainsS
            vars
            (build1VOccurenceUnknownDomains (valueOf @k) (var, l))

@@ -408,7 +408,7 @@ astLetDomainsFun a f =
         let (AstVarName var, ast) = funToAstS @sh2 id
         in (var, DynamicExists @r2 $ AstSToD ast)
       (vars, asts) = V.unzip $ V.map genVar (unwrapAstDomains a)
-  in AstLetDomains vars a (f asts)
+  in undefined  -- TODO: AstLetDomains vars a (f asts)
 
 astDomainsLetFun :: (KnownNat n, GoodScalar r, AstSpan s)
                  => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
@@ -434,7 +434,7 @@ astLetDomainsFunS a f =
         let (AstVarName var, ast) = funToAstS @sh2 id
         in (var, DynamicExists @r2 $ AstSToD ast)
       (vars, asts) = V.unzip $ V.map genVar (unwrapAstDomains a)
-  in AstLetDomainsS vars a (f asts)
+  in undefined  -- TODO: AstLetDomainsS vars a (f asts)
 
 astDomainsLetFunS :: (OS.Shape sh, GoodScalar r, AstSpan s)
                   => AstShaped s r sh -> (AstShaped s r sh -> AstDomains s)

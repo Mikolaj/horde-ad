@@ -159,15 +159,6 @@ printAstDynamicVarName renames
                        (AstDynamicVarName @_ @sh @r (AstVarName var)) =
   printAstVarNameS renames (AstVarName @[Nat] @(AstShaped s) @r @sh var)
 
-printAstVarFromDomains
-  :: forall s.
-     PrintConfig -> (AstVarId, DynamicExists (AstDynamic s)) -> ShowS
-printAstVarFromDomains cfg (var, d) = case d of
-  DynamicExists @r (AstRToD @n _) ->
-    printAstVar cfg (AstVarName @Nat @(AstRanked s) @r @n var)
-  DynamicExists @r (AstSToD @sh _) ->
-    printAstVarS cfg (AstVarName @[Nat] @(AstShaped s) @r @sh var)
-
 
 -- * General pretty-printing of AST terms
 
@@ -332,8 +323,8 @@ printAstAux cfg d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith (printAstVarFromDomains cfg)
-                          (V.toList $ V.zip vars (unwrapAstDomains l))
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) vars
            . showString " -> "
            . printAst cfg 0 v)
       -- TODO: this does not roundtrip yet
@@ -674,8 +665,8 @@ printAstS cfg d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith (printAstVarFromDomains cfg)
-                          (V.toList $ V.zip vars (unwrapAstDomains l))
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) vars
            . showString " -> "
            . printAstS cfg 0 v)
       -- TODO: this does not roundtrip yet
