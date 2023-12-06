@@ -385,7 +385,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   sletDomainsOf = astLetDomainsFunS
   sletToDomainsOf = astDomainsLetFunS
 
-  rrev :: GoodScalar r
+  rrev :: (KnownNat n, GoodScalar r)
        => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
        -> AstDomains s

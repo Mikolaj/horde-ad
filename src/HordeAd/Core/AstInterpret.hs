@@ -476,6 +476,11 @@ interpretAstDomains !env = \case
     let t = interpretAstSRuntimeSpecialized env u
         env2 w = extendEnvS var w env
     in sletToDomainsOf t (\w -> interpretAstDomains (env2 w) v)
+  AstRev @r @n (vars, ast) parameters0 parameters ->
+    let g :: forall f. ADReady f => Domains (DynamicOf f) -> f r n
+        g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
+        pars = interpretAstDomains env parameters
+    in rrev @ranked g parameters0 pars
 
 interpretAstBool :: ADReadyBoth ranked shaped
                  => AstEnv ranked shaped -> AstBool -> BoolOf ranked

@@ -446,7 +446,7 @@ data AstDomains s where
                  => AstVarName (AstShaped s) r sh
                  -> AstShaped s r sh -> AstDomains s
                  -> AstDomains s
-  AstRev :: GoodScalar r
+  AstRev :: (GoodScalar r, KnownNat n)
          => ([AstDynamicVarName (AstRanked s)], AstRanked s r n)
          -> DomainsOD
          -> AstDomains s

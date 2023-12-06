@@ -8,6 +8,7 @@ module HordeAd.Core.AstEnv
   , interpretLambdaI, interpretLambdaIS
   , interpretLambdaIndex, interpretLambdaIndexS
   , interpretLambdaIndexToIndex, interpretLambdaIndexToIndexS
+  , interpretLambdaDomains
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
   , interpretAstI2, interpretAstB2, interpretAstRelOp
@@ -19,6 +20,7 @@ import qualified Data.Array.Shape as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -120,6 +122,14 @@ extendEnvVarsS vars !ix !env =
                    (ShapedList.sizedListToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
+extendEnvPars :: forall ranked shaped s. ConvertTensor ranked shaped
+              => [AstDynamicVarName (AstRanked s)] -> Domains (DynamicOf ranked)
+              -> AstEnv ranked shaped
+              -> AstEnv ranked shaped
+extendEnvPars vars !pars !env =
+  let assocs = zip vars (V.toList pars)
+  in foldr extendEnvDR env assocs
+
 
 -- * The operations for interpreting binding (visible lambdas)
 
@@ -195,6 +205,16 @@ interpretLambdaIndexToIndexS
 interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
+interpretLambdaDomains
+  :: forall s ranked shaped r n. ConvertTensor ranked shaped
+  => (AstEnv ranked shaped -> AstRanked s r n -> ranked r n)
+  -> AstEnv ranked shaped
+  -> ([AstDynamicVarName (AstRanked s)], AstRanked s r n)
+  -> Domains (DynamicOf ranked)
+  -> ranked r n
+{-# INLINE interpretLambdaDomains #-}
+interpretLambdaDomains f !env (!vars, !ast) =
+  \pars -> f (extendEnvPars vars pars env) ast
 
 -- * Interpretation of arithmetic, boolean and relation operations
 
