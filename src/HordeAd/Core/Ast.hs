@@ -778,19 +778,19 @@ instance Boolean b => Boolean (ADShare, b) where
   (l1, b) &&* (l2, c) = (l1 `mergeADShare` l2, b &&* c)
   (l1, b) ||* (l2, c) = (l1 `mergeADShare` l2, b ||* c)
 
-class Boolean (BoolOf f) => IfF (f :: TensorKind k) where
+class Boolean (SimpleBoolOf f) => IfF (f :: TensorKind k) where
   ifF :: (GoodScalar r, HasSingletonDict y)
       => BoolOf f -> f r y -> f r y -> f r y
 
 infix 4 ==., /=.
-class Boolean (BoolOf f) => EqF (f :: TensorKind k) where
+class Boolean (SimpleBoolOf f) => EqF (f :: TensorKind k) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
   (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
                => f r y -> f r y -> BoolOf f
   u /=. v = notB (u ==. v)
 
 infix 4 <., <=., >=., >.
-class Boolean (BoolOf f) => OrdF (f :: TensorKind k) where
+class Boolean (SimpleBoolOf f) => OrdF (f :: TensorKind k) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
   (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
                            => f r y -> f r y -> BoolOf f
