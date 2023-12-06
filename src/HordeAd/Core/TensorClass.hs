@@ -585,7 +585,8 @@ class DomainsTensor (ranked :: RankedTensorKind)
                     | ranked -> shaped, shaped -> ranked where
   dmkDomains :: Domains (DynamicOf ranked) -> DomainsOf ranked
   rletDomainsOf :: KnownNat n
-                => DomainsOf ranked
+                => DomainsOD
+                -> DomainsOf ranked
                 -> (Domains (DynamicOf ranked) -> ranked r n)
                 -> ranked r n
   rletToDomainsOf :: (GoodScalar r, KnownNat n)
@@ -593,7 +594,8 @@ class DomainsTensor (ranked :: RankedTensorKind)
                   -> (ranked r n -> DomainsOf ranked)
                   -> DomainsOf ranked
   sletDomainsOf :: OS.Shape sh
-                => DomainsOf ranked
+                => DomainsOD
+                -> DomainsOf ranked
                 -> (Domains (DynamicOf ranked) -> shaped r sh)
                 -> shaped r sh
   sletToDomainsOf :: (GoodScalar r, OS.Shape sh)
@@ -928,9 +930,9 @@ instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
 
 instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
   dmkDomains = id
-  rletDomainsOf = (&)
+  rletDomainsOf _ = (&)
   rletToDomainsOf = (&)
-  sletDomainsOf = (&)
+  sletDomainsOf _ = (&)
   sletToDomainsOf = (&)
 
   rrev _ = undefined  -- TODO?

@@ -418,15 +418,14 @@ instance ( ADReadySmall (ADVal ranked) (ADVal shaped)
                     (ADVal ranked) (ADVal shaped) )
          => DomainsTensor (ADVal ranked) (ADVal shaped) where
   dmkDomains = id
-  rletDomainsOf = (&)
+  rletDomainsOf _ = (&)
   rletToDomainsOf = (&)
-  sletDomainsOf = (&)
+  sletDomainsOf _ = (&)
   sletToDomainsOf = (&)
-
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
-       -> Domains (DynamicOf (ADVal ranked))
+       -> DomainsOf (ADVal ranked)
        -> DomainsOf (ADVal ranked)
   rrev f _parameters0 parameters =
     fst $ crevOnDomains Nothing (f @(ADVal (ADVal ranked))) parameters

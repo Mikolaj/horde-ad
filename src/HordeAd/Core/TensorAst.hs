@@ -13,6 +13,7 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
@@ -22,7 +23,7 @@ import           Data.Int (Int64)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Adaptor
@@ -378,14 +379,11 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
 
 instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dmkDomains = AstDomains
-  -- The four operations below, for this instance, are not used ATM.
-  -- They may be used once trev is a method of Tensor.
   rletDomainsOf = astLetDomainsFun
   rletToDomainsOf = astDomainsLetFun
   sletDomainsOf = astLetDomainsFunS
   sletToDomainsOf = astDomainsLetFunS
-
-  rrev :: (KnownNat n, GoodScalar r)
+  rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
        -> AstDomains s
@@ -395,20 +393,20 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
 
 astLetDomainsFun
   :: forall m s r. AstSpan s
-  => AstDomains s -> (Domains (AstDynamic s) -> AstRanked s r m)
+  => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstRanked s r m)
   -> AstRanked s r m
-astLetDomainsFun a f =
-  let genVar :: DynamicExists (AstDynamic s)
-                -> (AstVarId, DynamicExists (AstDynamic s))
-      genVar (DynamicExists @r2 (AstRToD t)) =
-        let sh = shapeAst t
-            (AstVarName var, ast) = funToAstR sh id
-        in (var, DynamicExists @r2 $ AstRToD ast)
-      genVar (DynamicExists @r2 (AstSToD @sh2 _t)) =
-        let (AstVarName var, ast) = funToAstS @sh2 id
-        in (var, DynamicExists @r2 $ AstSToD ast)
-      (vars, asts) = V.unzip $ V.map genVar (unwrapAstDomains a)
-  in undefined  -- TODO: AstLetDomains vars a (f asts)
+astLetDomainsFun a0 a f =
+  let genVar :: DynamicExists OD.Array
+                -> ( AstDynamicVarName (AstShaped s)
+                   , DynamicExists (AstDynamic s) )
+      genVar (DynamicExists @r2 t) =
+        let sh2 = OD.shapeL t
+        in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
+          let (var, ast) = funToAstS @p_sh2 id
+          in ( AstDynamicVarName @[Nat] @p_sh2 @r2 var
+             , DynamicExists $ AstSToD ast )
+      (vars, asts) = unzip $ map genVar (V.toList a0)
+  in AstLetDomains vars a (f $ V.fromList asts)
 
 astDomainsLetFun :: (KnownNat n, GoodScalar r, AstSpan s)
                  => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
@@ -421,20 +419,20 @@ astDomainsLetFun a f =
 
 astLetDomainsFunS
   :: forall sh s r. AstSpan s
-  => AstDomains s -> (Domains (AstDynamic s) -> AstShaped s r sh)
+  => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstShaped s r sh)
   -> AstShaped s r sh
-astLetDomainsFunS a f =
-  let genVar :: DynamicExists (AstDynamic s)
-                -> (AstVarId, DynamicExists (AstDynamic s))
-      genVar (DynamicExists @r2 (AstRToD t)) =
-        let sh = shapeAst t
-            (AstVarName var, ast) = funToAstR sh id
-        in (var, DynamicExists @r2 $ AstRToD ast)
-      genVar (DynamicExists @r2 (AstSToD @sh2 _t)) =
-        let (AstVarName var, ast) = funToAstS @sh2 id
-        in (var, DynamicExists @r2 $ AstSToD ast)
-      (vars, asts) = V.unzip $ V.map genVar (unwrapAstDomains a)
-  in undefined  -- TODO: AstLetDomainsS vars a (f asts)
+astLetDomainsFunS a0 a f =
+  let genVar :: DynamicExists OD.Array
+                -> ( AstDynamicVarName (AstShaped s)
+                   , DynamicExists (AstDynamic s) )
+      genVar (DynamicExists @r2 t) =
+        let sh2 = OD.shapeL t
+        in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
+          let (var, ast) = funToAstS @p_sh2 id
+          in ( AstDynamicVarName @[Nat] @p_sh2 @r2 var
+             , DynamicExists $ AstSToD ast )
+      (vars, asts) = unzip $ map genVar (V.toList a0)
+  in AstLetDomainsS vars a (f $ V.fromList asts)
 
 astDomainsLetFunS :: (OS.Shape sh, GoodScalar r, AstSpan s)
                   => AstShaped s r sh -> (AstShaped s r sh -> AstDomains s)

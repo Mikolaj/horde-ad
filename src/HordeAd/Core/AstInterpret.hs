@@ -17,6 +17,7 @@ module HordeAd.Core.AstInterpret
 import Prelude
 
 import           Control.Exception.Assert.Sugar
+import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
@@ -434,7 +435,10 @@ interpretAst !env = \case
         t2 = interpretAstDual env u'
     in rD t1 t2
   AstLetDomains vars l v ->
-    let lt = interpretAstDomains env l
+    let odFromVar (AstDynamicVarName @_ @shD @rD _) =
+          DynamicExists $ OD.constant @rD (OS.shapeT @shD) 0
+        lt0 = V.fromList $ map odFromVar vars
+        lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
         -- variable r2, because the operations do not depend on r2.
         f ( AstDynamicVarName @_ @sh2 @r2 (AstVarName varId)
@@ -444,7 +448,7 @@ interpretAst !env = \case
                                     (AstVarName varId) (sfromD d)
             _ -> error "interpretAstS: type mismatch"
         env2 lw = foldr f env (zip vars (V.toList lw))
-    in rletDomainsOf lt (\lw -> interpretAst (env2 lw) v)
+    in rletDomainsOf lt0 lt (\lw -> interpretAst (env2 lw) v)
 
 interpretAstDynamic
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
@@ -861,7 +865,10 @@ interpretAstS !env = \case
         t2 = interpretAstDualS env u'
     in sD t1 t2
   AstLetDomainsS vars l v ->
-    let lt = interpretAstDomains env l
+    let odFromVar (AstDynamicVarName @_ @shD @rD _) =
+          DynamicExists $ OD.constant @rD (OS.shapeT @shD) 0
+        lt0 = V.fromList $ map odFromVar vars
+        lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
         -- variable r2, because the operations do not depend on r2.
         f ( AstDynamicVarName @_ @sh2 @r2 (AstVarName varId)
@@ -871,4 +878,4 @@ interpretAstS !env = \case
                                     (AstVarName varId) (sfromD d)
             _ -> error "interpretAstS: type mismatch"
         env2 lw = foldr f env (zip vars (V.toList lw))
-    in sletDomainsOf lt (\lw -> interpretAstS (env2 lw) v)
+    in sletDomainsOf lt0 lt (\lw -> interpretAstS (env2 lw) v)
