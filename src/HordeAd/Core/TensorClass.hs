@@ -609,7 +609,7 @@ class DomainsTensor (ranked :: RankedTensorKind)
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
-       -> Domains (DynamicOf ranked)
+       -> DomainsOf ranked
        -> DomainsOf ranked
 
 

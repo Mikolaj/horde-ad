@@ -388,11 +388,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   rrev :: GoodScalar r
        => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
-       -> Domains (AstDynamic s)
+       -> AstDomains s
        -> AstDomains s
   rrev f parameters0 domains =
-    AstRev (funToAstDomains f parameters0)
-           parameters0 (AstDomains domains)
+    AstRev (funToAstDomains f parameters0) parameters0 domains
 
 astLetDomainsFun
   :: forall m s r. AstSpan s
