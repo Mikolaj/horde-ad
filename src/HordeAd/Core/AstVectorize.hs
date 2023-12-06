@@ -246,28 +246,27 @@ build1V k (var, v00) =
                (build1VOccurenceUnknown k (var, u'))
     Ast.AstLetDomains @s1 vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
-      let subst (var1, DynamicExists (AstRToD u1)) =
-            let sh = shapeAst u1
-                projection =
-                  Ast.AstIndex (Ast.AstVar (k :$ sh) $ AstVarName var1)
-                               (Ast.AstIntVar var :. ZI)
-            in substituteAst (SubstitutionPayloadRanked @s1 @r projection)
-                             (AstVarName var1)
-          subst (var1, DynamicExists (AstSToD @sh1 _)) =
+      --
+      -- We lose the type information surrounding var1 twice: first,
+      -- because we create a variable with one more dimension,
+      -- again, because the original variables might have been marked
+      -- with AstShaped and here we require AstRanked.
+      let subst (AstDynamicVarName @_ @sh1 (AstVarName var1)) =
             let ls = OS.shapeT @sh1
             in case someNatVal $ toInteger (length ls) of
-              Just (SomeNat @n2 _proxy) ->
-                let sh = listShapeToShape @n2 ls
+              Just (SomeNat @n2 _) ->
+                let shV = listShapeToShape @n2 ls
                     projection =
-                      Ast.AstIndex (Ast.AstVar (k :$ sh) $ AstVarName var1)
+                      Ast.AstIndex (Ast.AstVar (k :$ shV) $ AstVarName var1)
                                    (Ast.AstIntVar var :. ZI)
                 in substituteAst (SubstitutionPayloadRanked @s1 @r projection)
                                  (AstVarName var1)
               Nothing -> error "build1V: impossible someNatVal error"
-          v2 = foldr subst v (zip (map dynamicVarNameToAstVarId vars)
-                                  (V.toList $ unwrapAstDomains l))
-      in Ast.AstLetDomains vars (build1VOccurenceUnknownDomains k (var, l))
-                                (build1VOccurenceUnknownRefresh k (var, v2))
+          v2 = foldr subst v vars
+      in Ast.AstLetDomains
+           vars (build1VOccurenceUnknownDomains k (var, l))
+                (build1VOccurenceUnknownRefresh k (var, v2))
+        -- TODO: comment why @r instead of @r1 from AstDynamicVarName
 
 build1VOccurenceUnknownDynamic
   :: AstSpan s
@@ -570,26 +569,17 @@ build1VS (var, v00) =
       Ast.AstDS (build1VOccurenceUnknownS (var, u))
                 (build1VOccurenceUnknownS (var, u'))
     Ast.AstLetDomainsS @s1 vars l v ->
-      -- Here substitution traverses @v@ term tree @length vars@ times.
-      let subst (var1, DynamicExists (AstRToD u1)) =
-            OS.withShapeP (shapeToList $ shapeAst u1) $ \(_ :: Proxy sh1) ->
+      -- See the AstLetDomains case for comments.
+      let subst (AstDynamicVarName @_ @sh1 (AstVarName var1)) =
             let projection =
                   Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
                                 (Ast.AstIntVar var :$: ZSH)
             in substituteAstS (SubstitutionPayloadShaped @s1 @r projection)
                               (AstVarName var1)
-          subst (var1, DynamicExists (AstSToD @sh1 _)) =
-            let projection =
-                  Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
-                                (Ast.AstIntVar var :$: ZSH)
-            in substituteAstS (SubstitutionPayloadShaped @s1 @r projection)
-                              (AstVarName var1)
-          v2 = foldr subst v (zip (map dynamicVarNameToAstVarId vars)
-                                  (V.toList $ unwrapAstDomains l))
+          v2 = foldr subst v vars
       in Ast.AstLetDomainsS
-           vars
-           (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
-           (build1VOccurenceUnknownRefreshS (var, v2))
+           vars (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
+                (build1VOccurenceUnknownRefreshS (var, v2))
 
 build1VIndexS
   :: forall k p sh s r.

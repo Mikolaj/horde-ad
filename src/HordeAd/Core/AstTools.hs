@@ -11,7 +11,7 @@ module HordeAd.Core.AstTools
     -- * Determining if a term is too small to require sharing
   , astIsSmall, astIsSmallS
     -- * Odds and ends
-  , unwrapAstDomains, bindsToLet, bindsToLetS, bindsToDomainsLet
+  , bindsToLet, bindsToLetS, bindsToDomainsLet
   ) where
 
 import Prelude hiding (foldl')
@@ -21,7 +21,6 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as OS
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
@@ -278,13 +277,6 @@ astIsSmallS relaxed = \case
 
 
 -- * Odds and ends
-
-unwrapAstDomains :: AstDomains s
-                 -> Data.Vector.Vector (DynamicExists (AstDynamic s))
-unwrapAstDomains = \case
-  AstDomains l -> l
-  AstDomainsLet _ _ v -> unwrapAstDomains v
-  AstDomainsLetS _ _ v -> unwrapAstDomains v
 
 bindsToLet :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
            => AstRanked s r n -> AstBindings (AstRanked s)
