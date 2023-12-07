@@ -80,6 +80,7 @@ simplifyAstDomains6 =
   simplifyAstDomains . snd . inlineAstDomains EM.empty . simplifyAstDomains
     -- no specialization possible except for the tag type s
 
+
 -- * The pass that inlines lets with the bottom-up strategy
 
 type AstMemo = EM.EnumMap AstVarId Int
@@ -94,7 +95,10 @@ inlineAst memo v0 = case v0 of
         f (Just count) = Just $ succ count
     in (EM.alter f var memo, v0)
   Ast.AstLet var u v ->
-    -- We assume there are no nested lets with the same variable.
+    -- We assume there are no nested lets with the same variable, hence
+    -- the delete and hence var couldn't appear in memo, so we can make
+    -- the recursive call for v with memo intact, to record extra occurences
+    -- of other variables without the costly summing of maps.
     let vv = varNameToAstVarId var
         (memo1, v2) = inlineAst memo v
         memo1NoVar = EM.delete vv memo1
@@ -247,6 +251,12 @@ inlineAstDomains memo v0 = case v0 of
                -- u is small, so the union is fast
            , substituteAstDomains (SubstitutionPayloadShaped u0) var v2 )
       _ -> (memo2, Ast.AstDomainsLetS var u2 v2)
+  Ast.AstRev (vars, v) l ->
+    -- No other free variables in v, so no outside lets can reach there,
+    -- so we don't need to pass the information from v upwards.
+    let (_, v2) = inlineAst EM.empty v
+        (memo2, l2) = inlineAstDomains memo l
+    in (memo2, Ast.AstRev (vars, v2) l2)
 
 inlineAstBool :: AstMemo -> AstBool -> (AstMemo, AstBool)
 inlineAstBool memo v0 = case v0 of
@@ -389,7 +399,7 @@ inlineAstS memo v0 = case v0 of
     in (memo2, Ast.AstLetDomainsS vars l2 v2)
 
 
--- * The unlet pass eliminating nested lets bottom-up
+-- * The unlet pass eliminating nested duplicated lets bottom-up
 
 data UnletEnv = UnletEnv
   { unletSet     :: ES.EnumSet AstVarId
@@ -519,6 +529,10 @@ unletAstDomains env = \case
        else let env2 = env {unletSet = ES.insert vv (unletSet env)}
             in Ast.AstDomainsLetS var (unletAstS env u)
                                       (unletAstDomains env2 v)
+  Ast.AstRev (vars, v) l ->
+    -- No other free variables in v, so no outside lets can reach there.
+    Ast.AstRev (vars, unletAst (emptyUnletEnv emptyADShare) v)
+               (unletAstDomains env l)
 
 unletAstBool :: UnletEnv -> AstBool -> AstBool
 unletAstBool env t = case t of
