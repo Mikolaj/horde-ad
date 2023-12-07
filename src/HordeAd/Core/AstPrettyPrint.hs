@@ -421,6 +421,17 @@ printAstDomains cfg d = \case
              . printAstVarS cfg var0
              . showString " -> "
              . printAstDomains cfg 0 v0)
+  AstRev (vars, v) parameters ->
+    showParen (d > 10)
+    $ showString "rrev "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) vars
+           . showString " -> "
+           . printAst cfg 0 v)
+      . showString " "
+      . printAstDomains cfg 0 parameters
 
 printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
 printAstBool cfg d = \case

@@ -1741,6 +1741,8 @@ simplifyAstDomains = \case
     astDomainsLet var (simplifyAst u) (simplifyAstDomains v)
   Ast.AstDomainsLetS var u v ->
     astDomainsLetS var (simplifyAstS u) (simplifyAstDomains v)
+  Ast.AstRev (vars, v) l ->
+    Ast.AstRev (vars, simplifyAst v) (simplifyAstDomains l)
 
 simplifyAstBool :: AstBool -> AstBool
 simplifyAstBool t = case t of
@@ -2281,6 +2283,9 @@ substitute1AstDomains i var = \case
     case (substitute1AstS i var u, substitute1AstDomains i var v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astDomainsLetS var2 (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstRev (vars, v) l ->
+    -- No other free variables in v and var is not among vars.
+    Ast.AstRev (vars, v) <$> substitute1AstDomains i var l
 
 substitute1AstBool :: (GoodScalar r2, AstSpan s2)
                    => SubstitutionPayload s2 r2 -> AstVarId -> AstBool
