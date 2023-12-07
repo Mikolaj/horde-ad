@@ -388,8 +388,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
        -> DomainsOD
        -> AstDomains s
        -> AstDomains s
-  rrev f parameters0 domains =
-    AstRev (funToAstDomains f parameters0) parameters0 domains
+  rrev f parameters0 domains = AstRev (funToAstDomains f parameters0) domains
 
 astLetDomainsFun
   :: forall m s r. AstSpan s

@@ -451,7 +451,6 @@ data AstDomains s where
                  -> AstDomains s
   AstRev :: (GoodScalar r, KnownNat n)
          => ([AstDynamicVarName (AstRanked s)], AstRanked s r n)
-         -> DomainsOD
          -> AstDomains s
          -> AstDomains s
     -- ^ the function body can't have any free variables outside those

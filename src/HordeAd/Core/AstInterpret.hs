@@ -481,11 +481,14 @@ interpretAstDomains !env = \case
     let t = interpretAstSRuntimeSpecialized env u
         env2 w = extendEnvS var w env
     in sletToDomainsOf t (\w -> interpretAstDomains (env2 w) v)
-  AstRev @r @n (vars, ast) parameters0 parameters ->
+  AstRev @r @n (vars, ast) parameters ->
     let g :: forall f. ADReady f => Domains (DynamicOf f) -> f r n
         g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
           -- interpretation in empty environment makes sense only
           -- if there are no free variables outside of those listed
+        odFromVar (AstDynamicVarName @_ @shD @rD _) =
+          DynamicExists $ OD.constant @rD (OS.shapeT @shD) 0
+        parameters0 = V.fromList $ map odFromVar vars
         pars = interpretAstDomains env parameters
     in rrev @ranked g parameters0 pars
 
