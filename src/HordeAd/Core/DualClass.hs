@@ -39,11 +39,9 @@ import           GHC.TypeLits (KnownNat)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.AstFreshId
 import HordeAd.Core.Delta
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Util.SizedIndex
 
 -- * The class and its instances
 
@@ -111,24 +109,6 @@ instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance (GoodScalar r, KnownNat n) => IsPrimal (AstRanked PrimalSpan) r n where
-  dZeroOfShape tsh = ZeroR (rshape tsh)
-  dScale _ (ZeroR sh) = ZeroR sh
-  dScale v u' = ScaleR v u'
-  dAdd ZeroR{} w = w
-  dAdd v ZeroR{} = v
-  dAdd v w = AddR v w
-  intOfShape tsh c =
-    rconst $ OR.constant (shapeToList $ rshape tsh) (fromIntegral c)
-  recordSharingPrimal = astRegisterADShare
-  recordSharing d = case d of
-    ZeroR{} -> d
-    InputR{} -> d
-    DToR{} -> d
-    SToR{} -> d
-    LetR{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDeltaR d
-
 instance (GoodScalar r, OS.Shape sh) => IsPrimal (Flip OS.Array) r sh where
   dZeroOfShape _tsh = ZeroS
   dScale _ ZeroS = ZeroS
@@ -139,25 +119,6 @@ instance (GoodScalar r, OS.Shape sh) => IsPrimal (Flip OS.Array) r sh where
   intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
     sconst $ fromIntegral c
   recordSharingPrimal r l = (l, r)
-  recordSharing d = case d of
-    ZeroS -> d
-    InputS{} -> d
-    DToS{} -> d
-    RToS{} -> d
-    LetS{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> wrapDeltaS d
-
-instance (GoodScalar r, OS.Shape sh)
-         => IsPrimal (AstShaped PrimalSpan) r sh where
-  dZeroOfShape _tsh = ZeroS
-  dScale _ ZeroS = ZeroS
-  dScale v u' = ScaleS v u'
-  dAdd ZeroS w = w
-  dAdd v ZeroS = v
-  dAdd v w = AddS v w
-  intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
-    sconst $ fromIntegral c
-  recordSharingPrimal = astRegisterADShareS
   recordSharing d = case d of
     ZeroS -> d
     InputS{} -> d

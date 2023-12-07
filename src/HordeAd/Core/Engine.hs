@@ -51,6 +51,7 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorADVal ()
+import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedIndex

@@ -56,10 +56,12 @@ instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
       KnownNat y
       => AdaptableDomains (ADValClown OD.Array)
                           (ADVal (Flip OR.Array) Double y) #-}
+{- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
       KnownNat y
       => AdaptableDomains (ADValClown (AstDynamic PrimalSpan))
                           (ADVal (AstRanked PrimalSpan) Double y) #-}
+-}
   type Value (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
@@ -87,10 +89,12 @@ instance AdaptableDomains dynamic a
       KnownNat n
       => AdaptableDomains (ADValClown OD.Array)
                           [ADVal (Flip OR.Array) Double n] #-}
+{- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
       KnownNat n
       => AdaptableDomains (ADValClown (AstDynamic PrimalSpan))
                           [ADVal (AstRanked PrimalSpan) Double n] #-}
+-}
   type Value [a] = [Value a]
   toDomains = V.concat . map toDomains
   fromDomains lInit source =

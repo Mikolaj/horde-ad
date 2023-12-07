@@ -76,7 +76,6 @@ import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.TensorAst ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
@@ -548,6 +547,7 @@ gradientDtR !dims value !mdt !deltaTopLevel =
   -> DeltaR (Flip OR.Array) (Flip OS.Array) Double y
   -> ( AstBindings (Flip OR.Array)
      , Domains (DynamicOf (Flip OR.Array)) ) #-}
+{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
   => Int -> AstRanked PrimalSpan Double y
@@ -555,6 +555,7 @@ gradientDtR !dims value !mdt !deltaTopLevel =
   -> DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double y
   -> ( AstBindings (AstRanked PrimalSpan)
      , Domains (DynamicOf (AstRanked PrimalSpan)) ) #-}
+-}
 
 derivativeFromDeltaR
   :: forall ranked shaped r n.
@@ -596,12 +597,14 @@ gradientDtS !dims !mdt !deltaTopLevel =
   -> DeltaS (Flip OR.Array) (Flip OS.Array) Double y
   -> ( AstBindings (Flip OS.Array)
      , Domains (DynamicOf (Flip OS.Array)) ) #-}
+{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtS
   :: OS.Shape y
   => Int -> Maybe (AstShaped PrimalSpan Double y)
   -> DeltaS (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double y
   -> ( AstBindings (AstShaped PrimalSpan)
      , Domains (DynamicOf (AstShaped PrimalSpan)) ) #-}
+-}
 
 derivativeFromDeltaS
   :: forall ranked shaped r sh.
@@ -761,9 +764,11 @@ gradientFromDelta !dims !deltaDt =
 {-# SPECIALIZE gradientFromDelta
   :: Int -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
   -> (AstBindings (Clown OD.Array), DomainsOD) #-}
+{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientFromDelta
   :: Int -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
   -> (AstBindings (AstRanked PrimalSpan), Domains (AstDynamic PrimalSpan)) #-}
+-}
 
 buildFinMaps
   :: forall ranked shaped r0.
@@ -1077,8 +1082,10 @@ buildFinMaps s0 deltaDt =
   in evalFromnMap s1
 {-# SPECIALIZE buildFinMaps
   :: EvalState (Flip OR.Array) (Flip OS.Array) -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) #-}
+{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE buildFinMaps
   :: EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double -> EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) #-}
+-}
 
 
 -- * Forward derivative computation from the delta expressions

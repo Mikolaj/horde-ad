@@ -32,6 +32,8 @@ import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstSimplify
 import           HordeAd.Core.AstTools
 import           HordeAd.Core.AstVectorize
+import           HordeAd.Core.Delta
+import           HordeAd.Core.DualClass
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
@@ -39,6 +41,46 @@ import           HordeAd.Internal.OrthotopeOrphanInstances
 import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
+
+-- * IsPrimal instances
+
+instance (GoodScalar r, KnownNat n) => IsPrimal (AstRanked PrimalSpan) r n where
+  dZeroOfShape tsh = ZeroR (rshape tsh)
+  dScale _ (ZeroR sh) = ZeroR sh
+  dScale v u' = ScaleR v u'
+  dAdd ZeroR{} w = w
+  dAdd v ZeroR{} = v
+  dAdd v w = AddR v w
+  intOfShape tsh c =
+    rconst $ OR.constant (shapeToList $ rshape tsh) (fromIntegral c)
+  recordSharingPrimal = astRegisterADShare
+  recordSharing d = case d of
+    ZeroR{} -> d
+    InputR{} -> d
+    DToR{} -> d
+    SToR{} -> d
+    LetR{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaR d
+
+instance (GoodScalar r, OS.Shape sh)
+         => IsPrimal (AstShaped PrimalSpan) r sh where
+  dZeroOfShape _tsh = ZeroS
+  dScale _ ZeroS = ZeroS
+  dScale v u' = ScaleS v u'
+  dAdd ZeroS w = w
+  dAdd v ZeroS = v
+  dAdd v w = AddS v w
+  intOfShape _tsh c =  -- this is not needed for OS, but OR needs it
+    sconst $ fromIntegral c
+  recordSharingPrimal = astRegisterADShareS
+  recordSharing d = case d of
+    ZeroS -> d
+    InputS{} -> d
+    DToS{} -> d
+    RToS{} -> d
+    LetS{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaS d
+
 
 -- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation
 
