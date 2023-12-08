@@ -192,11 +192,8 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistCnnRanked2.convMnistLossFusedR
-                   miniBatchSize
-                     ( rprimalPart @(AstRanked PrimalSpan) astGlyph
-                     , rprimalPart @(AstRanked PrimalSpan) astLabel )
-                     (parseDomains @(AstDynamic PrimalSpan)
-                                   valsInit domainsPrimal)
+                   miniBatchSize (astGlyph, astLabel)
+                   (parseDomains valsInit domainsPrimal)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
@@ -312,7 +309,8 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                  miniBatchSize (astGlyph, astLabel)
            g domains = f $ parseDomains valsInit domains
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-             revProduceArtifact @(AstRanked FullSpan) False g envInit domainsInit
+             revProduceArtifact @(AstRanked FullSpan)
+                                False g envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)

@@ -197,8 +197,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                    widthHidden widthHidden2 (astGlyph, astLabel)
-                   (parseDomains @(AstDynamic PrimalSpan)
-                                 valsInit domainsPrimal)
+                   (parseDomains valsInit domainsPrimal)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
@@ -514,8 +513,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
          funToAstIOR (singletonShape sizeMnistLabelInt) id
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
-                   (astGlyph, astLabel) (parseDomains @(AstDynamic PrimalSpan)
-                   valsInit domainsPrimal)
+                   (astGlyph, astLabel) (parseDomains valsInit domainsPrimal)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD

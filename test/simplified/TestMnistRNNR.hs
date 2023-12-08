@@ -186,11 +186,8 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
          funToAstIOR (miniBatchSize :$ sizeMnistLabelInt :$ ZS) id
        let ast :: AstRanked PrimalSpan r 0
            ast = MnistRnnRanked2.rnnMnistLossFusedR
-                   miniBatchSize
-                     ( rprimalPart @(AstRanked PrimalSpan) astGlyph
-                     , rprimalPart @(AstRanked PrimalSpan) astLabel )
-                     (parseDomains @(AstDynamic PrimalSpan)
-                                   valsInit domainsPrimal)
+                   miniBatchSize (astGlyph, astLabel)
+                   (parseDomains valsInit domainsPrimal)
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
@@ -300,7 +297,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                  miniBatchSize (astGlyph, astLabel)
            g domains = f $ parseDomains valsInit domains
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-             revProduceArtifact @(AstRanked FullSpan) False g envInit domainsInit
+             revProduceArtifact @(AstRanked FullSpan)
+                                False g envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)
