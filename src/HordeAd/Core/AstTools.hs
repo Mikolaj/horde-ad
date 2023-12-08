@@ -110,10 +110,7 @@ varInAst :: forall s r n. AstSpan s
 varInAst var = \case
   AstVar _ var2 -> fromEnum var == fromEnum var2
   AstLet _var2 u v -> varInAst var u || varInAst var v
-  AstLetADShare l v | Just Refl <- sameAstSpan @s @PrimalSpan ->
-    varInADShare intIdInAstDynamic var l
-    || varInAst var v
-  AstLetADShare{} -> False
+  AstLetADShare l v -> varInADShare intIdInAstDynamic var l || varInAst var v
   AstCond b v w ->
     varInAstBool var b || varInAst var v || varInAst var w
   AstMinIndex a -> varInAst var a
@@ -186,10 +183,7 @@ varInAstS :: forall s r sh. AstSpan s
 varInAstS var = \case
   AstVarS var2 -> fromEnum var == fromEnum var2
   AstLetS _var2 u v -> varInAstS var u || varInAstS var v
-  AstLetADShareS l v | Just Refl <- sameAstSpan @s @PrimalSpan ->
-    varInADShare intIdInAstDynamic var l
-    || varInAstS var v
-  AstLetADShareS{} -> False
+  AstLetADShareS l v -> varInADShare intIdInAstDynamic var l || varInAstS var v
   AstCondS b v w ->
     varInAstBool var b || varInAstS var v || varInAstS var w
   AstMinIndexS a -> varInAstS var a
