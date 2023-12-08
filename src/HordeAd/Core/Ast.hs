@@ -814,8 +814,8 @@ maxF u v = ifF (u >=. v) u v
 
 -- * ADShare definition
 
-type AstBindings :: forall {k}. TensorKind k -> Type
-type AstBindings f = [(AstVarId, DynamicExists (DynamicOf f))]
+type AstBindings :: (Type -> Type) -> Type
+type AstBindings dynamic = [(AstVarId, DynamicExists dynamic)]
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -901,11 +901,11 @@ mergeADShare !s1 !s2 =
 -- The result type is not as expected. The result is as if assocsADShare
 -- was applied to the expected one.
 subtractADShare :: ADShare -> ADShare
-                -> AstBindings (AstRanked PrimalSpan)
+                -> AstBindings (AstDynamic PrimalSpan)
 {-# INLINE subtractADShare #-}  -- help list fusion
 subtractADShare !s1 !s2 =
   let subAD :: ADShare -> ADShare
-            -> AstBindings (AstRanked PrimalSpan)
+            -> AstBindings (AstDynamic PrimalSpan)
       subAD !l ADShareNil = assocsADShare l
       subAD ADShareNil _ = []
       subAD l1@(ADShareCons id1 key1 t1 rest1)
@@ -922,7 +922,7 @@ subtractADShare !s1 !s2 =
 flattenADShare :: [ADShare] -> ADShare
 flattenADShare = foldl' mergeADShare emptyADShare
 
-assocsADShare :: ADShare -> AstBindings (AstRanked PrimalSpan)
+assocsADShare :: ADShare -> AstBindings (AstDynamic PrimalSpan)
 {-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
 assocsADShare (ADShareCons _ key t rest) =

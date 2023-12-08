@@ -279,7 +279,7 @@ astIsSmallS relaxed = \case
 -- * Odds and ends
 
 bindsToLet :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-           => AstRanked s r n -> AstBindings (AstRanked s)
+           => AstRanked s r n -> AstBindings (AstDynamic s)
            -> AstRanked s r n
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
@@ -297,7 +297,7 @@ bindsToLet = foldl' bindToLet
          else error "bindsToLet: rank mismatch"
 
 bindsToLetS :: forall sh s r. (OS.Shape sh, AstSpan s)
-            => AstShaped s r sh -> AstBindings (AstRanked s)
+            => AstShaped s r sh -> AstBindings (AstDynamic s)
             -> AstShaped s r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS
@@ -315,7 +315,7 @@ bindsToLetS = foldl' bindToLetS
     AstSToD w -> AstLetS (AstVarName var) w u
 
 bindsToDomainsLet
-   :: AstDomains s -> AstBindings (AstRanked s) -> AstDomains s
+   :: AstDomains s -> AstBindings (AstDynamic s) -> AstDomains s
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
