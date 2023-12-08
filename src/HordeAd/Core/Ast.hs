@@ -8,22 +8,18 @@ module HordeAd.Core.Ast
   ( -- * The AstSpan kind
     AstSpanType(..), AstSpan(..), astSpanT, sameAstSpan
     -- * Assorted small definitions
-  , AstInt, IntVarName, pattern AstIntVar, isRankedInt, ConcreteOf
+  , AstInt, IntVarName, pattern AstIntVar, isRankedInt, ConcreteOf, ADShare
     -- * More and less typed variables and type synonyms containing them
-  , AstVarId, intToAstVarId, varNameToAstVarId, dynamicVarNameToAstVarId
+  , AstVarName(..), varNameToAstVarId
+  , AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstArtifactRev, AstArtifactFwd
   , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * ASTs
   , AstRanked(..), AstShaped(..), AstDynamic(..), AstDomains(..)
-  , AstVarName(..), AstDynamicVarName(..), AstBool(..)
-  , OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
+  , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
     -- * Boolean definitions and instances
   , BoolOf, IfF(..), EqF(..), OrdF(..), minF, maxF
-    -- * ADShare definition
-  , AstBindings, ADShare
-  , emptyADShare, insertADShare, mergeADShare, subtractADShare
-  , flattenADShare, assocsADShare, varInADShare, nullADShare
     -- * The auxiliary AstNoVectorize and AstNoSimplify definitions, for tests
   , AstNoVectorize(..), AstNoVectorizeS(..)
   , AstNoSimplify(..), AstNoSimplifyS(..)
@@ -37,15 +33,11 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Int (Int64)
-import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
-import           Data.List (foldl')
-import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
-import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import HordeAd.Core.Types
@@ -142,25 +134,10 @@ type family ConcreteOf f = result | result -> f where
   ConcreteOf (AstRanked FullSpan) = Flip OR.Array
   ConcreteOf (AstShaped FullSpan) = Flip OS.Array
 
+type ADShare = ADShareD (AstDynamic PrimalSpan)
+
 
 -- * More and less typed variables and type synonyms containing them
-
--- We avoid adding a phantom type denoting the tensor functor,
--- because it can't be easily compared (even fully applies) and so the phantom
--- is useless. We don't add the underlying scalar nor the rank/shape,
--- because some collections differ in those too, e.g., domain,
--- e.g. in AstLetDomainsS. We don't add a phantom span, because
--- carrying around type constructors that need to be applied to span
--- complicates the system greatly for moderate type safety gain
--- and also such a high number of ID types induces many conversions.
-newtype AstVarId = AstVarId Int
- deriving (Eq, Ord, Show, Enum)
-
-intToAstVarId :: Int -> AstVarId
-intToAstVarId = AstVarId
-
-varNameToAstVarId :: AstVarName f r y -> AstVarId
-varNameToAstVarId (AstVarName var) = var
 
 type role AstVarName phantom phantom nominal
 newtype AstVarName (f :: TensorKind k) (r :: Type) (y :: k) =
@@ -170,6 +147,9 @@ newtype AstVarName (f :: TensorKind k) (r :: Type) (y :: k) =
 instance Show (AstVarName f r y) where
   showsPrec d (AstVarName var) =
     showsPrec d var  -- backward compatibility vs test results
+
+varNameToAstVarId :: AstVarName f r y -> AstVarId
+varNameToAstVarId (AstVarName var) = var
 
 -- This needs to carry sh regardless of f, even for AstRanked, because
 -- then it needs to recover the shape argument for AstVar.
@@ -810,141 +790,6 @@ minF u v = ifF (u <=. v) u v
 maxF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
      => f r y -> f r y -> f r y
 maxF u v = ifF (u >=. v) u v
-
-
--- * ADShare definition
-
-type AstBindings :: (Type -> Type) -> Type
-type AstBindings dynamic = [(AstVarId, DynamicExists dynamic)]
-
-unsafeGlobalCounter :: Counter
-{-# NOINLINE unsafeGlobalCounter #-}
-unsafeGlobalCounter = unsafePerformIO (newCounter 0)
-
-unsafeGetFreshId :: IO Int
-{-# INLINE unsafeGetFreshId #-}
-unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
-
--- Data invariant: the list is reverse-sorted wrt keys.
--- This permits not inspecting too long a prefix of the list, usually,
--- which is crucial for performance. The strictness is crucial for correctness
--- in the presence of impurity for generating fresh variables.
--- The first integer field permits something akin to pointer equality
--- but with less false negatives, because it's stable.
---
--- The r variable is existential, but operations that depends on it instance
--- are rarely called and relatively cheap, so no picking specializations
--- at runtime is needed.
-data ADShare = ADShareNil
-             | forall r. GoodScalar r
-               => ADShareCons Int AstVarId (AstDynamic PrimalSpan r) ADShare
-deriving instance Show ADShare
-
-emptyADShare :: ADShare
-emptyADShare = ADShareNil
-
-insertADShare :: forall r. GoodScalar r
-              => AstVarId -> AstDynamic PrimalSpan r -> ADShare -> ADShare
-insertADShare !key !t !s =
-  -- The Maybe over-engineering ensures that we never refresh an id
-  -- unnecessarily. In theory, when merging alternating equal lists
-  -- with different ids, this improves runtime from quadratic to linear,
-  -- but we apparently don't have such tests or they are too small,
-  -- so this causes a couple percent overhead instead.
-  let insertAD :: ADShare -> Maybe ADShare
-      insertAD ADShareNil = Just $ ADShareCons (- fromEnum key) key t ADShareNil
-      insertAD l2@(ADShareCons _id2 key2 t2 rest2) =
-        case compare key key2 of
-          EQ -> Nothing
-                  -- the lists only ever grow and only in fresh/unique way,
-                  -- so identical key means identical payload
-          LT -> case insertAD rest2 of
-            Nothing -> Nothing
-            Just l3 -> Just $ freshInsertADShare key2 t2 l3
-          GT -> Just $ freshInsertADShare key t l2
-  in fromMaybe s (insertAD s)
-
-freshInsertADShare :: GoodScalar r
-                   => AstVarId -> AstDynamic PrimalSpan r -> ADShare
-                   -> ADShare
-{-# NOINLINE freshInsertADShare #-}
-freshInsertADShare !key !t !s = unsafePerformIO $ do
-  id0 <- unsafeGetFreshId
-  return $! ADShareCons id0 key t s
-
-mergeADShare :: ADShare -> ADShare -> ADShare
-mergeADShare !s1 !s2 =
-  let mergeAD :: ADShare -> ADShare -> Maybe ADShare
-      mergeAD ADShareNil ADShareNil = Nothing
-      mergeAD l ADShareNil = Just l
-      mergeAD ADShareNil l = Just l
-      mergeAD l1@(ADShareCons id1 key1 t1 rest1)
-              l2@(ADShareCons id2 key2 t2 rest2) =
-        if id1 == id2
-        then -- This assert is quadratic, so can only be enabled when debugging:
-             -- assert (_lengthADShare l1 == _lengthADShare l2) $
-             Nothing
-               -- the lists only ever grow and only in fresh/unique way,
-               -- so an identical id means the rest is the same
-        else case compare key1 key2 of
-          EQ -> case mergeAD rest1 rest2 of
-             Nothing -> Nothing
-             Just l3 -> Just $ freshInsertADShare key2 t2 l3
-          LT -> case mergeAD l1 rest2 of
-             Nothing -> Just l2
-             Just l3 -> Just $ freshInsertADShare key2 t2 l3
-          GT -> case mergeAD rest1 l2 of
-             Nothing -> Just l1
-             Just l3 -> Just $ freshInsertADShare key1 t1 l3
-  in fromMaybe s1 (mergeAD s1 s2)
-
--- The result type is not as expected. The result is as if assocsADShare
--- was applied to the expected one.
-subtractADShare :: ADShare -> ADShare
-                -> AstBindings (AstDynamic PrimalSpan)
-{-# INLINE subtractADShare #-}  -- help list fusion
-subtractADShare !s1 !s2 =
-  let subAD :: ADShare -> ADShare
-            -> AstBindings (AstDynamic PrimalSpan)
-      subAD !l ADShareNil = assocsADShare l
-      subAD ADShareNil _ = []
-      subAD l1@(ADShareCons id1 key1 t1 rest1)
-            l2@(ADShareCons id2 key2 _ rest2) =
-        if id1 == id2
-        then []  -- the lists only ever grow and only in fresh/unique way,
-                 -- so an identical id means the rest is the same
-        else case compare key1 key2 of
-          EQ -> subAD rest1 rest2
-          LT -> subAD l1 rest2
-          GT -> (key1, DynamicExists t1) : subAD rest1 l2
-  in subAD s1 s2
-
-flattenADShare :: [ADShare] -> ADShare
-flattenADShare = foldl' mergeADShare emptyADShare
-
-assocsADShare :: ADShare -> AstBindings (AstDynamic PrimalSpan)
-{-# INLINE assocsADShare #-}  -- help list fusion
-assocsADShare ADShareNil = []
-assocsADShare (ADShareCons _ key t rest) =
-  (key, DynamicExists t) : assocsADShare rest
-
-_lengthADShare :: Int -> ADShare -> Int
-_lengthADShare acc ADShareNil = acc
-_lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
-
-varInADShare :: (forall r. AstVarId -> AstDynamic PrimalSpan r -> Bool)
-                -> AstVarId -> ADShare
-                -> Bool
-{-# INLINE varInADShare #-}
-varInADShare _ _ ADShareNil = False
-varInADShare varInAstDynamic var (ADShareCons _ _ d rest) =
-  varInAstDynamic var d || varInADShare varInAstDynamic var rest
-    -- TODO: for good Core, probably a local recursive 'go' is needed
-
-nullADShare :: ADShare -> Bool
-{-# INLINE nullADShare #-}
-nullADShare ADShareNil = True
-nullADShare ADShareCons{} = False
 
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify definitions, for tests
