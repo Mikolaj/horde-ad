@@ -421,14 +421,14 @@ data AstDomains s where
   AstDomains :: Domains (AstDynamic s) -> AstDomains s
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
-  AstDomainsLet :: (KnownNat n, GoodScalar r)
-                => AstVarName (AstRanked s) r n
-                -> AstRanked s r n -> AstDomains s
-                -> AstDomains s
-  AstDomainsLetS :: (OS.Shape sh, GoodScalar r)
-                 => AstVarName (AstShaped s) r sh
-                 -> AstShaped s r sh -> AstDomains s
-                 -> AstDomains s
+  AstDomainsLet :: (KnownNat n, GoodScalar r, AstSpan s)
+                => AstVarName (AstRanked s) r n -> AstRanked s r n
+                -> AstDomains s2
+                -> AstDomains s2
+  AstDomainsLetS :: (OS.Shape sh, GoodScalar r, AstSpan s)
+                 => AstVarName (AstShaped s) r sh -> AstShaped s r sh
+                 -> AstDomains s2
+                 -> AstDomains s2
   AstRev :: (GoodScalar r, KnownNat n)
          => ([AstDynamicVarName (AstRanked s)], AstRanked s r n)
          -> AstDomains s

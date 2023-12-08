@@ -287,24 +287,25 @@ build1VOccurenceUnknownDomains
 build1VOccurenceUnknownDomains k (var, v0) = case v0 of
   Ast.AstDomains l ->
     Ast.AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
-  Ast.AstDomainsLet @_ @r (AstVarName oldVar2) u v ->
+  Ast.AstDomainsLet @_ @r1 @s1 (AstVarName oldVar2) u v ->
     let var2 = AstVarName oldVar2  -- changed shape; TODO: shall we rename, too?
         sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                   (Ast.AstIntVar var :. ZI)
-        v2 = substituteAstDomains (SubstitutionPayloadRanked @s @r projection)
+        v2 = substituteAstDomains (SubstitutionPayloadRanked @s1 @r1 projection)
                                   var2 v
     in astDomainsLet var2 (build1VOccurenceUnknownRefresh k (var, u))
                           (build1VOccurenceUnknownDomains k (var, v2))
-  Ast.AstDomainsLetS @sh2 @r
+  Ast.AstDomainsLetS @sh2 @r1 @s1
                      (AstVarName oldVar2) u v -> case someNatVal
                                                       $ toInteger k of
     Just (SomeNat @k _proxy) ->
       let var2 = AstVarName oldVar2  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :$: ZSH)
-          v2 = substituteAstDomains (SubstitutionPayloadShaped @s @r projection)
-                                    var2 v
+          v2 = substituteAstDomains
+                 (SubstitutionPayloadShaped @s1 @r1 projection)
+                 var2 v
       in astDomainsLetS var2 (build1VOccurenceUnknownRefreshS @k (var, u))
                              (build1VOccurenceUnknownDomains k (var, v2))
     Nothing ->

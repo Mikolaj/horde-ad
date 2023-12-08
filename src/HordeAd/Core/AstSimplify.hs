@@ -1608,17 +1608,20 @@ astDualPartS t = case t of
   Ast.AstLetDomainsS vars l v -> Ast.AstLetDomainsS vars l (astDualPartS v)
   Ast.AstCondS b a2 a3 -> astCondS b (astDualPartS a2) (astDualPartS a3)
 
-astDomainsLet :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
+astDomainsLet :: forall n s s2 r.
+                 (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
               => AstVarName (AstRanked s) r n -> AstRanked s r n
-              -> AstDomains s
-              -> AstDomains s
+              -> AstDomains s2
+              -> AstDomains s2
 astDomainsLet var u v | astIsSmall True u =
   substituteAstDomains (SubstitutionPayloadRanked u) var v
 astDomainsLet var u v = Ast.AstDomainsLet var u v
 
-astDomainsLetS :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
-               => AstVarName (AstShaped s) r sh
-               -> AstShaped s r sh -> AstDomains s -> AstDomains s
+astDomainsLetS :: forall sh s s2 r.
+                  (GoodScalar r, OS.Shape sh, AstSpan s, AstSpan s2)
+               => AstVarName (AstShaped s) r sh -> AstShaped s r sh
+               -> AstDomains s2
+               -> AstDomains s2
 astDomainsLetS var u v | astIsSmallS True u =
   substituteAstDomains (SubstitutionPayloadShaped u) var v
 astDomainsLetS var u v = Ast.AstDomainsLetS var u v

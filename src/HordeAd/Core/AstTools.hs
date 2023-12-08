@@ -278,13 +278,14 @@ astIsSmallS relaxed = \case
 
 -- * Odds and ends
 
-bindsToLet :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-           => AstRanked s r n -> AstBindings (AstDynamic s)
+bindsToLet :: forall n s r. (KnownNat n, GoodScalar r)
+           => AstRanked s r n -> AstBindings (AstDynamic PrimalSpan)
            -> AstRanked s r n
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
  where
-  bindToLet :: AstRanked s r n -> (AstVarId, DynamicExists (AstDynamic s))
+  bindToLet :: AstRanked s r n
+            -> (AstVarId, DynamicExists (AstDynamic PrimalSpan))
             -> AstRanked s r n
   bindToLet !u (var, DynamicExists d) = case d of
     AstRToD w -> AstLet (AstVarName var) w u
@@ -296,13 +297,14 @@ bindsToLet = foldl' bindToLet
            AstSToR @sh $ AstLetS (AstVarName var) w (AstRToS u)
          else error "bindsToLet: rank mismatch"
 
-bindsToLetS :: forall sh s r. (OS.Shape sh, AstSpan s)
-            => AstShaped s r sh -> AstBindings (AstDynamic s)
+bindsToLetS :: forall sh s r. OS.Shape sh
+            => AstShaped s r sh -> AstBindings (AstDynamic PrimalSpan)
             -> AstShaped s r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS
  where
-  bindToLetS :: AstShaped s r sh -> (AstVarId, DynamicExists (AstDynamic s))
+  bindToLetS :: AstShaped s r sh
+             -> (AstVarId, DynamicExists (AstDynamic PrimalSpan))
              -> AstShaped s r sh
   bindToLetS !u (var, DynamicExists d) = case d of
     AstRToD w ->
@@ -315,7 +317,7 @@ bindsToLetS = foldl' bindToLetS
     AstSToD w -> AstLetS (AstVarName var) w u
 
 bindsToDomainsLet
-   :: AstDomains s -> AstBindings (AstDynamic s) -> AstDomains s
+   :: AstDomains s -> AstBindings (AstDynamic PrimalSpan) -> AstDomains s
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
