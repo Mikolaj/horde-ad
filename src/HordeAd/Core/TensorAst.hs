@@ -821,6 +821,8 @@ instance AstSpan s
                   . astSpanPrimal . unAstNoVectorize
 
   rconst = AstNoVectorize . fromPrimal . AstConst
+  rletDomainsIn a0 a f =
+    AstNoVectorize $ astLetDomainsInFun a0 a (unAstNoVectorize . f)
   raddDynamic = undefined
 
   rconstant = AstNoVectorize . fromPrimal
@@ -874,6 +876,8 @@ instance AstSpan s
                   . astSpanPrimal . unAstNoSimplify
 
   rconst = AstNoSimplify . fromPrimal . AstConst
+  rletDomainsIn a0 a f =
+    AstNoSimplify $ astLetDomainsInFun a0 a (unAstNoSimplify . f)
   raddDynamic = undefined
 
   rconstant = AstNoSimplify . fromPrimal
