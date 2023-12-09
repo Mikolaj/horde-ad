@@ -172,7 +172,7 @@ dynamicVarNameToAstVarId (AstDynamicVarName (AstVarName var)) = var
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type AstArtifactRev (f :: TensorKind k) r y =
   ( (AstVarName f r y, [AstDynamicVarName f])
-  , AstDomains PrimalSpan, f r y, OR.ShapeL )
+  , DomainsOf f, f r y, OR.ShapeL )
 
 type AstArtifactFwd (f :: TensorKind k) r y =
   ( ([AstDynamicVarName f], [AstDynamicVarName f])
