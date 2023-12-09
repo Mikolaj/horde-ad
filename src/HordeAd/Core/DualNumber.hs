@@ -437,6 +437,18 @@ class DerivativeStages g where
     -> DomainsOD
     -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 
+  revProduceArtifact
+    :: (GoodScalar r, HasSingletonDict y)
+    => Bool
+    -> (Domains (DynamicOf g) -> g r y)
+    -> AstEnv (ADVal (RankedOf (PrimalOf g)))
+              (ADVal (ShapedOf (PrimalOf g)))
+    -> DomainsOD
+    -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
+  {-# INLINE revProduceArtifact #-}
+  revProduceArtifact hasDt g envInit =
+    revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
+
   revEvalArtifact
     :: (GoodScalar r, HasSingletonDict y)
     => AstArtifactRev (PrimalOf g) r y -> DomainsOD -> Maybe (ConcreteOf g r y)

@@ -303,7 +303,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                  width batch_size (astGlyph, astLabel)
            g domains = f $ parseDomains valsInit domains
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-             revProduceArtifact @(AstShaped FullSpan)
+             revProduceArtifact @[Nat] @(AstShaped FullSpan)
                                 False g envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]

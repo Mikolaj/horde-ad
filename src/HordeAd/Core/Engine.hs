@@ -6,8 +6,7 @@
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
-    rev, revDt, revArtifactAdapt
-  , revProduceArtifact, revProduceArtifactWithoutInterpretation
+    rev, revDt, revArtifactAdapt, revProduceArtifactWithoutInterpretation
     -- * Forward derivative adaptors
   , fwd, fwdArtifactAdapt, fwdProduceArtifact
     -- * Reverse and forward derivative stages class
@@ -184,18 +183,6 @@ revArtifactAdapt hasDt f vals =
   => Bool -> (astvals -> AstRanked FullSpan Double y) -> Value astvals
   -> ( AstArtifactRev (AstRanked PrimalSpan) Double y
      , Dual (AstRanked PrimalSpan) Double y ) #-}
-
-revProduceArtifact
-  :: (DerivativeStages g, GoodScalar r, HasSingletonDict y)
-  => Bool
-  -> (Domains (DynamicOf g) -> g r y)
-  -> AstEnv (ADVal (RankedOf (PrimalOf g)))
-            (ADVal (ShapedOf (PrimalOf g)))
-  -> DomainsOD
-  -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
-{-# INLINE revProduceArtifact #-}
-revProduceArtifact hasDt g envInit =
-  revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
 
 revProduceArtifactWithoutInterpretation
   :: forall g r y.
