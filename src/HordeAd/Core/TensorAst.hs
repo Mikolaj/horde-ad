@@ -415,7 +415,7 @@ instance ( GoodScalar r, KnownNat n
     Just (DynamicExists @r2 a, rest) ->
       if isTensorDummyAst a then Just (rzero (rshape aInit), rest) else
         case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> let !t = tfromD @(AstRanked s) @(AstShaped s) @r a
+          Just Refl -> let !t = rfromD @(AstRanked s) @(AstShaped s) @r a
                        in Just (t, rest)
           _ -> error $ "fromDomains: type mismatch: "
                        ++ show (typeRep @r) ++ " " ++ show (typeRep @r2)
@@ -641,8 +641,8 @@ astBuild1VectorizeS f =
 -- * ConvertTensor and DomainsTensor instances
 
 instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
-  tfromD = astFromDynamic
-  tfromS = astSToR
+  rfromD = astFromDynamic
+  rfromS = astSToR
   dfromR = AstRToD
   dfromS = AstSToD
   sfromR = astRToS

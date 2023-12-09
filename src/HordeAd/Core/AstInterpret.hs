@@ -420,7 +420,7 @@ interpretAst !env = \case
   AstFromIntegral v ->
     rfromIntegral $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstConst a -> rconst a
-  AstSToR v -> tfromS $ interpretAstS env v
+  AstSToR v -> rfromS $ interpretAstS env v
   AstConstant a -> rconstant $ interpretAstPrimal env a
   AstPrimalPart a -> interpretAst env a
     -- This is correct, because @s@ must be @PrimalSpan@ and so @ranked@ must

@@ -85,7 +85,7 @@ benchProd ~(_l, list, vec) =
         let f :: DynamicExists OD.Array -> Flip OR.Array Double 0
             f = (\(DynamicExists @r2 d) ->
                    gcastWith (unsafeCoerce Refl :: r2 :~: Double) $
-                   tfromD d)
+                   rfromD d)
         in nf (V.map f . fst
                . crevOnDomains @Double Nothing rankedVecDProd)
               (V.map (DynamicExists . dfromR) vec)
@@ -133,7 +133,7 @@ rankedVecDProd :: forall r ranked.
                => Domains (DynamicOf ranked) -> ranked r 0
 rankedVecDProd = V.foldl' (\acc (DynamicExists @r2 d) ->
                              gcastWith (unsafeCoerce Refl :: r2 :~: r) $
-                             tfromD d * acc) 0
+                             rfromD d * acc) 0
 
 rankedNoShareListProd :: GoodScalar r
                       => [ADVal (Flip OR.Array) r 0]

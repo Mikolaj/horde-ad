@@ -117,7 +117,7 @@ dToR :: forall r ranked shaped n.
           ~ DeltaD (Clown (DynamicOf ranked)) ranked shaped
         , KnownNat n, GoodScalar r )
       => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal ranked r n
-dToR (D l u u') = dDnotShared l (tfromD $ runClown u) (dDToR u')
+dToR (D l u u') = dDnotShared l (rfromD $ runClown u) (dDToR u')
  where
   dDToR (RToD @n1 d) =
     case sameNat (Proxy @n1) (Proxy @n) of
@@ -378,12 +378,12 @@ instance ( Dual ranked ~ DeltaR ranked shaped
            ~ DeltaD (Clown (DynamicOf ranked)) ranked shaped
          , ConvertTensor ranked shaped )
          => ConvertTensor (ADVal ranked) (ADVal shaped) where
-  tfromD = dToR . runFlip
-  tfromS = sToR
+  rfromD = dToR . runFlip
+  rfromS = sToR
    where
     sToR :: forall r sh. (GoodScalar r, Sh.Shape sh)
          => ADVal shaped r sh -> ADVal ranked r (Sh.Rank sh)
-    sToR (D l u u') = dDnotShared l (tfromS u) (dSToR u')
+    sToR (D l u u') = dDnotShared l (rfromS u) (dSToR u')
      where
       dSToR (RToS d) = d  -- no information lost, so no checks
       dSToR d = SToR d

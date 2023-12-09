@@ -575,9 +575,9 @@ class ( DynamicOf ranked ~ DynamicOf shaped
       => ConvertTensor (ranked :: RankedTensorKind)
                        (shaped :: ShapedTensorKind)
                        | ranked -> shaped, shaped -> ranked where
-  tfromD :: (GoodScalar r, KnownNat n)
+  rfromD :: (GoodScalar r, KnownNat n)
          => DynamicOf ranked r -> ranked r n
-  tfromS :: (GoodScalar r, Sh.Shape sh)
+  rfromS :: (GoodScalar r, Sh.Shape sh)
          => shaped r sh -> ranked r (Sh.Rank sh)
   dfromR :: (GoodScalar r, KnownNat n)
          => ranked r n -> DynamicOf ranked r
@@ -767,7 +767,7 @@ instance (GoodScalar r, KnownNat n)
     Just (DynamicExists @r2 a, rest) ->
       if isTensorDummyD a then Just (rzero (rshape aInit), rest) else
         case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> let !aR = tfromD @(Flip OR.Array) @(Flip OS.Array) @r a
+          Just Refl -> let !aR = rfromD @(Flip OR.Array) @(Flip OS.Array) @r a
                        in Just (aR, rest)
           _ -> error $ "fromDomains: type mismatch: "
                        ++ show (typeRep @r) ++ " " ++ show (typeRep @r2)
@@ -925,8 +925,8 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
 -- The DomainsTensor instance requires ADVal instance, so it's given elsewhere.
 
 instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
-  tfromD = Flip . Data.Array.Convert.convert
-  tfromS = Flip . Data.Array.Convert.convert . runFlip
+  rfromD = Flip . Data.Array.Convert.convert
+  rfromS = Flip . Data.Array.Convert.convert . runFlip
   dfromR = Data.Array.Convert.convert . runFlip
   dfromS = Data.Array.Convert.convert . runFlip
   sfromR = Flip . Data.Array.Convert.convert . runFlip

@@ -34,7 +34,7 @@ sminIndexN :: ( ADReadyS shaped, GoodScalar r
 sminIndexN t =
   ShapedList.fromLinearIdx
     (sshape t)
-    (ShapedList.shapedNat $ tfromS $ sprimalPart $ sminIndex (sflatten t))
+    (ShapedList.shapedNat $ rfromS $ sprimalPart $ sminIndex (sflatten t))
 
 smaxIndexN :: ( ADReadyS shaped, GoodScalar r
               , Sh.Shape sh, KnownNat (Sh.Size sh) )
@@ -42,7 +42,7 @@ smaxIndexN :: ( ADReadyS shaped, GoodScalar r
 smaxIndexN t =
   ShapedList.fromLinearIdx
     (sshape t)
-    (ShapedList.shapedNat $ tfromS $ sprimalPart $ smaxIndex (sflatten t))
+    (ShapedList.shapedNat $ rfromS $ sprimalPart $ smaxIndex (sflatten t))
 
 sminimum :: forall r sh shaped.
             (ADReadyS shaped, GoodScalar r, Sh.Shape sh, KnownNat (Sh.Size sh))
@@ -69,7 +69,7 @@ sletIx :: forall r sh n shaped.
        => IndexOf shaped n -> (IndexOf shaped n -> shaped r sh) -> shaped r sh
 sletIx ix0 f = slet (sfromR @(RankedOf shaped) @shaped @Int64 @'[n]
                      $ rint64FromIndex1 ix0) $ \ixT ->
-                 f $ rint64ToIndex1 $ tfromS ixT
+                 f $ rint64ToIndex1 $ rfromS ixT
 
 scaleS :: forall shaped r sh.
           (Sh.Shape sh, ADReadyS shaped, GoodScalar r)

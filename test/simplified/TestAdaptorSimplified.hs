@@ -1584,7 +1584,7 @@ testBarReluMax3FwdFrom =
   assertEqualUpToEpsilon 1e-10
     (Flip $ OS.fromList @'[2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
     (fwd @Double @'[2, 1, 2]
-         (sfromR . barReluMax . tfromS)
+         (sfromR . barReluMax . rfromS)
          (Flip $ OS.fromList @'[2, 1, 2] [1.1, 2, 3, 4.2])
          (Flip $ OS.fromList @'[2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 

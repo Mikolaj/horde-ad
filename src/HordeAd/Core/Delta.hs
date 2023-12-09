@@ -1009,7 +1009,7 @@ buildFinMaps s0 deltaDt =
           case sameShape @sh @sh2 of
             Just Refl -> evalS s c d
             _ -> error "buildFinMaps: different shapes in RToS(SToR)"
-        RToS d -> evalR s (tfromS c) d
+        RToS d -> evalR s (rfromS c) d
 
 {-
         -- The general case is given as the last one below,
@@ -1048,7 +1048,7 @@ buildFinMaps s0 deltaDt =
         -> DeltaD (Clown (DynamicOf ranked)) ranked shaped r y
         -> EvalState ranked shaped
       evalD s !c = \case
-        RToD d -> evalR s (tfromD c) d
+        RToD d -> evalR s (rfromD c) d
         SToD d -> evalS s (sfromD c) d
 
       evalFromnMap :: EvalState ranked shaped -> EvalState ranked shaped
@@ -1060,7 +1060,7 @@ buildFinMaps s0 deltaDt =
                   DeltaBindingR @_ @r1 d -> case dMap EM.! n of
                     DynamicExists @r2 e ->
                       case testEquality (typeRep @r1) (typeRep @r2) of
-                        Just Refl -> let c = tfromD e
+                        Just Refl -> let c = rfromD e
                                      in evalRRuntimeSpecialized s2 c d
                         _ -> error "buildFinMaps: type mismatch"
                   DeltaBindingS @_ @r1 d -> case dMap EM.! n of
@@ -1125,7 +1125,7 @@ buildDerivative dimR deltaDt params = do
           then case params V.! i of
             DynamicExists @r2 e ->
               case testEquality (typeRep @r) (typeRep @r2) of
-                Just Refl -> return $! tfromD @ranked @shaped @r e
+                Just Refl -> return $! rfromD @ranked @shaped @r e
                 _ -> error "buildDerivative: type mismatch"
           else error "buildDerivative': wrong index for an input"
         ScaleR k d -> (* k) <$> evalR d
@@ -1138,7 +1138,7 @@ buildDerivative dimR deltaDt params = do
               case dm EM.! n of
                 DynamicExists @r2 t ->
                   case testEquality (typeRep @r) (typeRep @r2) of
-                    Just Refl -> return $! tfromD @ranked @shaped @r t
+                    Just Refl -> return $! rfromD @ranked @shaped @r t
                     _ -> error "buildDerivative: type mismatch"
             Nothing -> do
               cRaw <- evalR d
@@ -1192,7 +1192,7 @@ buildDerivative dimR deltaDt params = do
             Just Refl -> evalR (SToR d)
             _ -> error "buildDerivative: different ranks in DToR(SToD)"
         SToR (RToS d) -> evalR d  -- no information lost, so no checks
-        SToR d -> tfromS <$> evalS d
+        SToR d -> rfromS <$> evalS d
 
       evalS
         :: forall sh r. (Sh.Shape sh, GoodScalar r)
