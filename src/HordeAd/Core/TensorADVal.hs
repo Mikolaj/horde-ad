@@ -216,6 +216,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     let v = rfromIntegral u
     in dDnotShared l v (dZeroOfShape v)
   rconst t = constantADVal (rconst t)
+  rletDomainsOf _ = (&)
 
   raddDynamic = undefined
 
@@ -354,6 +355,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     let v = sfromIntegral u
     in dDnotShared l v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
+  sletDomainsOf _ = (&)
 
   saddDynamic = undefined
 
@@ -422,9 +424,7 @@ instance ( ADReadySmall (ADVal ranked) (ADVal shaped)
                     (ADVal ranked) (ADVal shaped) )
          => DomainsTensor (ADVal ranked) (ADVal shaped) where
   dmkDomains = id
-  rletDomainsOf _ = (&)
   rletToDomainsOf = (&)
-  sletDomainsOf _ = (&)
   sletToDomainsOf = (&)
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)

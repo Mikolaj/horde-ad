@@ -408,8 +408,7 @@ emptyUnletEnv :: ADShare -> UnletEnv
 emptyUnletEnv = UnletEnv ES.empty
 
 unletAstDomains6
-  :: AstBindings (AstDynamic PrimalSpan) -> ADShare
-  -> AstDomains PrimalSpan
+  :: AstBindings -> ADShare -> AstDomains PrimalSpan
   -> AstDomains PrimalSpan
 unletAstDomains6 astBindings l t =
   unletAstDomains (emptyUnletEnv l)
@@ -417,8 +416,7 @@ unletAstDomains6 astBindings l t =
 
 unletAst6
   :: (GoodScalar r, KnownNat n)
-  => AstBindings (AstDynamic PrimalSpan) -> ADShare
-  -> AstRanked PrimalSpan r n
+  => AstBindings -> ADShare -> AstRanked PrimalSpan r n
   -> AstRanked PrimalSpan r n
 unletAst6 astBindings l t =
   unletAst (emptyUnletEnv l)
@@ -426,8 +424,7 @@ unletAst6 astBindings l t =
 
 unletAst6S
   :: (GoodScalar r, OS.Shape sh)
-  => AstBindings (AstDynamic PrimalSpan) -> ADShare
-  -> AstShaped PrimalSpan r sh
+  => AstBindings -> ADShare -> AstShaped PrimalSpan r sh
   -> AstShaped PrimalSpan r sh
 unletAst6S astBindings l t =
   unletAstS (emptyUnletEnv l)

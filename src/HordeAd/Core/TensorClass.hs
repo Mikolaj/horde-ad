@@ -237,6 +237,11 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rzero :: (GoodScalar r, KnownNat n)
         => ShapeInt n -> ranked r n
   rzero sh = rreplicate0N sh 0
+  rletDomainsOf :: KnownNat n
+                => DomainsOD
+                -> DomainsOf ranked
+                -> (Domains (DynamicOf ranked) -> ranked r n)
+                -> ranked r n
 
   -- ** No serviceable parts beyond this point ** --
 
@@ -544,6 +549,11 @@ class ( Integral (IntOf shaped), CShaped shaped Num
             => shaped r sh -> AstBindingsD (DynamicOf shaped)
             -> (AstBindingsD (DynamicOf shaped), shaped r sh)
   sregister r l = (l, r)
+  sletDomainsOf :: OS.Shape sh
+                => DomainsOD
+                -> DomainsOf shaped
+                -> (Domains (DynamicOf shaped) -> shaped r sh)
+                -> shaped r sh
 
   -- Primal/dual things.
   sconstant :: (GoodScalar r, OS.Shape sh)
@@ -584,20 +594,10 @@ class DomainsTensor (ranked :: RankedTensorKind)
                     (shaped :: ShapedTensorKind)
                     | ranked -> shaped, shaped -> ranked where
   dmkDomains :: Domains (DynamicOf ranked) -> DomainsOf ranked
-  rletDomainsOf :: KnownNat n
-                => DomainsOD
-                -> DomainsOf ranked
-                -> (Domains (DynamicOf ranked) -> ranked r n)
-                -> ranked r n
   rletToDomainsOf :: (GoodScalar r, KnownNat n)
                   => ranked r n
                   -> (ranked r n -> DomainsOf ranked)
                   -> DomainsOf ranked
-  sletDomainsOf :: OS.Shape sh
-                => DomainsOD
-                -> DomainsOf ranked
-                -> (Domains (DynamicOf ranked) -> shaped r sh)
-                -> shaped r sh
   sletToDomainsOf :: (GoodScalar r, OS.Shape sh)
                   => shaped r sh
                   -> (shaped r sh -> DomainsOf ranked)
@@ -649,6 +649,8 @@ type ADReadySmall ranked shaped =
   , ConvertTensor (PrimalOf ranked) (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
+  , DomainsOf ranked ~ DomainsOf shaped
+  , DomainsOf shaped ~ DomainsOf ranked
   )
 
 type ADReadyBoth ranked shaped =
@@ -738,6 +740,7 @@ instance RankedTensor (Flip OR.Array) where
   rsumIn = Flip . tsumInR . runFlip
   rdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   rconst = Flip
+  rletDomainsOf _ = (&)
   raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
               => Flip OR.Array r n -> DynamicExists OD.Array
               -> DynamicExists OD.Array
@@ -854,6 +857,7 @@ instance ShapedTensor (Flip OS.Array) where
   ssumIn = Flip . tsumInS . runFlip
   sdot1In u v = Flip $ tdot1InS (runFlip u) (runFlip v)
   sconst = Flip
+  sletDomainsOf _ = (&)
   saddDynamic :: forall r sh. (GoodScalar r, OS.Shape sh)
               => Flip OS.Array r sh -> DynamicExists OD.Array
               -> DynamicExists OD.Array
@@ -930,9 +934,6 @@ instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
 
 instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
   dmkDomains = id
-  rletDomainsOf _ = (&)
   rletToDomainsOf = (&)
-  sletDomainsOf _ = (&)
   sletToDomainsOf = (&)
-
   rrev _ = undefined  -- TODO?

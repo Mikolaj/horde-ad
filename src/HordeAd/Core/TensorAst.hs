@@ -362,10 +362,12 @@ instance AstSpan s
   rgather sh t f = AstGather sh t (funToAstIndex f)  -- introduces new vars
   rcast = AstCast
   rfromIntegral = fromPrimal . AstFromIntegral . astSpanPrimal
-
   rconst = fromPrimal . AstConst
-  rletWrap l u = if nullADShare l then u
-                 else fromPrimal $ AstLetADShare l (astSpanPrimal u)
+  rletDomainsOf = astLetDomainsFun
+
+  rletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
+    if nullADShare l then u else AstLetADShare l u
+  rletWrap _ _ = error "rletWrap: wrong span"
     -- We can't use astLet here, because it may inline a let that is
     -- present at the top level of the dual number and so we'd lose
     -- sharing that is not visible in this restricted context.
@@ -424,6 +426,23 @@ isTensorDummyAst t = case t of
   AstRToD AstIota -> True
   AstSToD AstIotaS -> True
   _ -> False
+
+astLetDomainsFun
+  :: forall m s r. AstSpan s
+  => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstRanked s r m)
+  -> AstRanked s r m
+astLetDomainsFun a0 a f =
+  let genVar :: DynamicExists OD.Array
+                -> ( AstDynamicVarName (AstShaped s)
+                   , DynamicExists (AstDynamic s) )
+      genVar (DynamicExists @r2 t) =
+        let sh2 = OD.shapeL t
+        in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
+          let (var, ast) = funToAstS @p_sh2 id
+          in ( AstDynamicVarName @[Nat] @p_sh2 @r2 var
+             , DynamicExists $ AstSToD ast )
+      (vars, asts) = unzip $ map genVar (V.toList a0)
+  in AstLetDomains vars a (f $ V.fromList asts)
 
 astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
               => AstRanked s r n -> AstRanked PrimalSpan r n
@@ -505,10 +524,12 @@ instance AstSpan s
   sgather t f = AstGatherS t (funToAstIndexS f)  -- introduces new vars
   scast = AstCastS
   sfromIntegral = fromPrimalS . AstFromIntegralS . astSpanPrimalS
-
   sconst = fromPrimalS . AstConstS
-  sletWrap l u = if nullADShare l then u
-                 else fromPrimalS $ AstLetADShareS l (astSpanPrimalS u)
+  sletDomainsOf = astLetDomainsFunS
+
+  sletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
+    if nullADShare l then u else AstLetADShareS l u
+  sletWrap _ _ = error "sletWrap: wrong span"
     -- We can't use astLet here, because it may inline a let that is
     -- present at the top level of the dual number and so we'd lose
     -- sharing that is not visible in this restricted context.
@@ -557,6 +578,23 @@ instance ( GoodScalar r, OS.Shape sh
                        in Just (t, rest)
           _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
+
+astLetDomainsFunS
+  :: forall sh s r. AstSpan s
+  => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstShaped s r sh)
+  -> AstShaped s r sh
+astLetDomainsFunS a0 a f =
+  let genVar :: DynamicExists OD.Array
+                -> ( AstDynamicVarName (AstShaped s)
+                   , DynamicExists (AstDynamic s) )
+      genVar (DynamicExists @r2 t) =
+        let sh2 = OD.shapeL t
+        in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
+          let (var, ast) = funToAstS @p_sh2 id
+          in ( AstDynamicVarName @[Nat] @p_sh2 @r2 var
+             , DynamicExists $ AstSToD ast )
+      (vars, asts) = unzip $ map genVar (V.toList a0)
+  in AstLetDomainsS vars a (f $ V.fromList asts)
 
 astSpanPrimalS :: forall s r sh. (OS.Shape sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped PrimalSpan r sh
@@ -615,9 +653,7 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
 
 instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dmkDomains = AstDomains
-  rletDomainsOf = astLetDomainsFun
   rletToDomainsOf = astDomainsLetFun
-  sletDomainsOf = astLetDomainsFunS
   sletToDomainsOf = astDomainsLetFunS
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
@@ -638,23 +674,6 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
         -- are the same variables, but it's a very special case
 
-astLetDomainsFun
-  :: forall m s r. AstSpan s
-  => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstRanked s r m)
-  -> AstRanked s r m
-astLetDomainsFun a0 a f =
-  let genVar :: DynamicExists OD.Array
-                -> ( AstDynamicVarName (AstShaped s)
-                   , DynamicExists (AstDynamic s) )
-      genVar (DynamicExists @r2 t) =
-        let sh2 = OD.shapeL t
-        in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
-          let (var, ast) = funToAstS @p_sh2 id
-          in ( AstDynamicVarName @[Nat] @p_sh2 @r2 var
-             , DynamicExists $ AstSToD ast )
-      (vars, asts) = unzip $ map genVar (V.toList a0)
-  in AstLetDomains vars a (f $ V.fromList asts)
-
 astDomainsLetFun :: (KnownNat n, GoodScalar r, AstSpan s)
                  => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
                  -> AstDomains s
@@ -663,23 +682,6 @@ astDomainsLetFun a f =
   let sh = shapeAst a
       (var, ast) = funToAstR sh id
   in astDomainsLet var a (f ast)  -- safe, because subsitution ruled out above
-
-astLetDomainsFunS
-  :: forall sh s r. AstSpan s
-  => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstShaped s r sh)
-  -> AstShaped s r sh
-astLetDomainsFunS a0 a f =
-  let genVar :: DynamicExists OD.Array
-                -> ( AstDynamicVarName (AstShaped s)
-                   , DynamicExists (AstDynamic s) )
-      genVar (DynamicExists @r2 t) =
-        let sh2 = OD.shapeL t
-        in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
-          let (var, ast) = funToAstS @p_sh2 id
-          in ( AstDynamicVarName @[Nat] @p_sh2 @r2 var
-             , DynamicExists $ AstSToD ast )
-      (vars, asts) = unzip $ map genVar (V.toList a0)
-  in AstLetDomainsS vars a (f $ V.fromList asts)
 
 astDomainsLetFunS :: (OS.Shape sh, GoodScalar r, AstSpan s)
                   => AstShaped s r sh -> (AstShaped s r sh -> AstDomains s)
