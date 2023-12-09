@@ -258,8 +258,8 @@ class ( Integral (IntOf ranked), CRanked ranked Num
               => ranked r n -> DynamicExists (DynamicOf ranked)
               -> DynamicExists (DynamicOf ranked)
   rregister :: (GoodScalar r, KnownNat n)
-            => ranked r n -> AstBindings (DynamicOf ranked)
-            -> (AstBindings (DynamicOf ranked), ranked r n)
+            => ranked r n -> AstBindingsD (DynamicOf ranked)
+            -> (AstBindingsD (DynamicOf ranked), ranked r n)
   rregister r l = (l, r)
 
   -- Primal/dual things.
@@ -541,8 +541,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
               => shaped r sh -> DynamicExists (DynamicOf shaped)
               -> DynamicExists (DynamicOf shaped)
   sregister :: (GoodScalar r, OS.Shape sh)
-            => shaped r sh -> AstBindings (DynamicOf shaped)
-            -> (AstBindings (DynamicOf shaped), shaped r sh)
+            => shaped r sh -> AstBindingsD (DynamicOf shaped)
+            -> (AstBindingsD (DynamicOf shaped), shaped r sh)
   sregister r l = (l, r)
 
   -- Primal/dual things.

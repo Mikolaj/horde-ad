@@ -8,7 +8,8 @@ module HordeAd.Core.Ast
   ( -- * The AstSpan kind
     AstSpanType(..), AstSpan(..), astSpanT, sameAstSpan
     -- * Assorted small definitions
-  , AstInt, IntVarName, pattern AstIntVar, isRankedInt, ConcreteOf, ADShare
+  , AstInt, IntVarName, pattern AstIntVar, isRankedInt, ConcreteOf
+  , AstBindings, ADShare
     -- * More and less typed variables and type synonyms containing them
   , AstVarName(..), varNameToAstVarId
   , AstDynamicVarName(..), dynamicVarNameToAstVarId
@@ -134,6 +135,7 @@ type family ConcreteOf f = result | result -> f where
   ConcreteOf (AstRanked FullSpan) = Flip OR.Array
   ConcreteOf (AstShaped FullSpan) = Flip OS.Array
 
+type AstBindings = AstBindingsD (AstDynamic PrimalSpan)
 type ADShare = ADShareD (AstDynamic PrimalSpan)
 
 

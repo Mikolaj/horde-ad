@@ -17,7 +17,7 @@ module HordeAd.Core.Types
   , SNat(..), withSNat, sNatValue, proxyFromSNat
     -- * ADShare definition
   , AstVarId, intToAstVarId
-  , AstBindings, ADShareD
+  , AstBindingsD, ADShareD
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare, varInADShare, nullADShare
   ) where
@@ -221,8 +221,8 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-type AstBindings :: (Type -> Type) -> Type
-type AstBindings dynamic = [(AstVarId, DynamicExists dynamic)]
+type AstBindingsD :: (Type -> Type) -> Type
+type AstBindingsD dynamic = [(AstVarId, DynamicExists dynamic)]
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -308,10 +308,10 @@ mergeADShare !s1 !s2 =
 
 -- The result type is not as expected. The result is as if assocsADShare
 -- was applied to the expected one.
-subtractADShare :: ADShareD d -> ADShareD d -> AstBindings d
+subtractADShare :: ADShareD d -> ADShareD d -> AstBindingsD d
 {-# INLINE subtractADShare #-}  -- help list fusion
 subtractADShare !s1 !s2 =
-  let subAD :: ADShareD d -> ADShareD d -> AstBindings d
+  let subAD :: ADShareD d -> ADShareD d -> AstBindingsD d
       subAD !l ADShareNil = assocsADShare l
       subAD ADShareNil _ = []
       subAD l1@(ADShareCons id1 key1 t1 rest1)
@@ -328,7 +328,7 @@ subtractADShare !s1 !s2 =
 flattenADShare :: [ADShareD d] -> ADShareD d
 flattenADShare = foldl' mergeADShare emptyADShare
 
-assocsADShare :: ADShareD d -> AstBindings d
+assocsADShare :: ADShareD d -> AstBindingsD d
 {-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
 assocsADShare (ADShareCons _ key t rest) =
