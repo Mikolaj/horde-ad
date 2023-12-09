@@ -255,8 +255,7 @@ inlineAstDomains memo v0 = case v0 of
     -- No other free variables in v, so no outside lets can reach there,
     -- so we don't need to pass the information from v upwards.
     let (_, v2) = inlineAst EM.empty v
-        (memo2, l2) = inlineAstDomains memo l
-    in (memo2, Ast.AstRev (vars, v2) l2)
+    in second (Ast.AstRev (vars, v2)) (mapAccumR inlineAstDynamic memo l)
 
 inlineAstBool :: AstMemo -> AstBool -> (AstMemo, AstBool)
 inlineAstBool memo v0 = case v0 of
@@ -532,7 +531,7 @@ unletAstDomains env = \case
   Ast.AstRev (vars, v) l ->
     -- No other free variables in v, so no outside lets can reach there.
     Ast.AstRev (vars, unletAst (emptyUnletEnv emptyADShare) v)
-               (unletAstDomains env l)
+               (V.map (unletAstDynamic env) l)
 
 unletAstBool :: UnletEnv -> AstBool -> AstBool
 unletAstBool env t = case t of

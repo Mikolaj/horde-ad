@@ -354,21 +354,26 @@ printAstUnDynamic cfg d = \case
   AstRToD v -> printAst cfg d v
   AstSToD v -> printAstS cfg d v
 
+printDomainsAst :: forall s. AstSpan s
+                => PrintConfig -> Domains (AstDynamic s) -> ShowS
+printDomainsAst cfg l =
+  if prettifyLosingSharing cfg
+  then
+    showCollectionWith "(" ")" (\(DynamicExists e) ->
+                                  printAstUnDynamic cfg 0 e) (V.toList l)
+  else
+    showParen True
+      $ showString "fromList "
+        . showListWith (\(DynamicExists e) ->
+                          printAstDynamic cfg 0 e) (V.toList l)
+
 printAstDomains :: forall s. AstSpan s
                 => PrintConfig -> Int -> AstDomains s -> ShowS
 printAstDomains cfg d = \case
   AstDomains l ->
     if prettifyLosingSharing cfg
-    then
-      showCollectionWith "(" ")" (\(DynamicExists e) ->
-                                    printAstUnDynamic cfg 0 e) (V.toList l)
-    else
-      showParen (d > 10)
-      $ showString "dmkDomains "
-        . (showParen True
-           $ showString "fromList "
-             . showListWith (\(DynamicExists e) ->
-                               printAstDynamic cfg 0 e) (V.toList l))
+    then printDomainsAst cfg l
+    else showString "dmkDomains " . printDomainsAst cfg l
   t@(AstDomainsLet var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstDomains s -> ([(ShowS, ShowS)], ShowS)
@@ -431,7 +436,7 @@ printAstDomains cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
       . showString " "
-      . printAstDomains cfg 0 parameters
+      . printDomainsAst cfg parameters
 
 printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
 printAstBool cfg d = \case

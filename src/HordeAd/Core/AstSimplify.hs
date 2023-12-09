@@ -1745,7 +1745,7 @@ simplifyAstDomains = \case
   Ast.AstDomainsLetS var u v ->
     astDomainsLetS var (simplifyAstS u) (simplifyAstDomains v)
   Ast.AstRev (vars, v) l ->
-    Ast.AstRev (vars, simplifyAst v) (simplifyAstDomains l)
+    Ast.AstRev (vars, simplifyAst v) (V.map simplifyAstDynamic l)
 
 simplifyAstBool :: AstBool -> AstBool
 simplifyAstBool t = case t of
@@ -2286,9 +2286,14 @@ substitute1AstDomains i var = \case
     case (substitute1AstS i var u, substitute1AstDomains i var v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astDomainsLetS var2 (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstRev (vars, v) l ->
+  Ast.AstRev (vars, v) args ->
     -- No other free variables in v and var is not among vars.
-    Ast.AstRev (vars, v) <$> substitute1AstDomains i var l
+    Ast.AstRev (vars, v) <$>
+      let margs = V.map (\(DynamicExists d) ->
+                           DynamicExists <$> substitute1AstDynamic i var d) args
+      in if V.any isJust margs
+         then Just $ V.zipWith fromMaybe args margs
+         else Nothing
 
 substitute1AstBool :: (GoodScalar r2, AstSpan s2)
                    => SubstitutionPayload s2 r2 -> AstVarId -> AstBool

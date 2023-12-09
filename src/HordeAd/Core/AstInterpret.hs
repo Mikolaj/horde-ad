@@ -510,7 +510,7 @@ interpretAstDomains !env = \case
         odFromVar (AstDynamicVarName @_ @shD @rD _) =
           DynamicExists $ OD.constant @rD (OS.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
-        pars = interpretAstDomains env parameters
+        pars = interpretAstDynamic @ranked env <$> parameters
     in rrev @ranked g parameters0 pars
 
 interpretAstBool :: ADReadyBoth ranked shaped
