@@ -289,10 +289,10 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
   AstDualPart :: AstRanked FullSpan r n -> AstRanked DualSpan r n
   AstD :: AstRanked PrimalSpan r n -> AstRanked DualSpan r n
        -> AstRanked FullSpan r n
-  AstLetDomains :: AstSpan s
-                => [AstDynamicVarName (AstShaped s)] -> AstDomains s
-                -> AstRanked s2 r n
-                -> AstRanked s2 r n
+  AstLetDomainsIn :: AstSpan s
+                  => [AstDynamicVarName (AstShaped s)] -> AstDomains s
+                  -> AstRanked s2 r n
+                  -> AstRanked s2 r n
 
 deriving instance GoodScalar r => Show (AstRanked s r n)
 
@@ -402,10 +402,10 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
   AstDualPartS :: AstShaped FullSpan r sh -> AstShaped DualSpan r sh
   AstDS :: AstShaped PrimalSpan r sh -> AstShaped DualSpan r sh
         -> AstShaped FullSpan r sh
-  AstLetDomainsS :: AstSpan s
-                 => [AstDynamicVarName (AstShaped s)] -> AstDomains s
-                 -> AstShaped s2 r sh
-                 -> AstShaped s2 r sh
+  AstLetDomainsInS :: AstSpan s
+                   => [AstDynamicVarName (AstShaped s)] -> AstDomains s
+                   -> AstShaped s2 r sh
+                   -> AstShaped s2 r sh
 
 deriving instance (GoodScalar r, OS.Shape sh) => Show (AstShaped s r sh)
 
@@ -423,14 +423,14 @@ data AstDomains s where
   AstDomains :: Domains (AstDynamic s) -> AstDomains s
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
-  AstDomainsLet :: (KnownNat n, GoodScalar r, AstSpan s)
-                => AstVarName (AstRanked s) r n -> AstRanked s r n
-                -> AstDomains s2
-                -> AstDomains s2
-  AstDomainsLetS :: (OS.Shape sh, GoodScalar r, AstSpan s)
-                 => AstVarName (AstShaped s) r sh -> AstShaped s r sh
-                 -> AstDomains s2
-                 -> AstDomains s2
+  AstLetInDomains :: (KnownNat n, GoodScalar r, AstSpan s)
+                  => AstVarName (AstRanked s) r n -> AstRanked s r n
+                  -> AstDomains s2
+                  -> AstDomains s2
+  AstLetInDomainsS :: (OS.Shape sh, GoodScalar r, AstSpan s)
+                   => AstVarName (AstShaped s) r sh -> AstShaped s r sh
+                   -> AstDomains s2
+                   -> AstDomains s2
   AstRev :: (GoodScalar r, KnownNat n)
          => ([AstDynamicVarName (AstRanked s)], AstRanked s r n)
          -> Domains (AstDynamic s)

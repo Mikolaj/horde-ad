@@ -363,7 +363,7 @@ instance AstSpan s
   rcast = AstCast
   rfromIntegral = fromPrimal . AstFromIntegral . astSpanPrimal
   rconst = fromPrimal . AstConst
-  rletDomainsOf = astLetDomainsFun
+  rletDomainsIn = astLetDomainsInFun
 
   rletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
     if nullADShare l then u else AstLetADShare l u
@@ -427,11 +427,11 @@ isTensorDummyAst t = case t of
   AstSToD AstIotaS -> True
   _ -> False
 
-astLetDomainsFun
+astLetDomainsInFun
   :: forall m s r. AstSpan s
   => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstRanked s r m)
   -> AstRanked s r m
-astLetDomainsFun a0 a f =
+astLetDomainsInFun a0 a f =
   let genVar :: DynamicExists OD.Array
                 -> ( AstDynamicVarName (AstShaped s)
                    , DynamicExists (AstDynamic s) )
@@ -442,7 +442,7 @@ astLetDomainsFun a0 a f =
           in ( AstDynamicVarName @[Nat] @p_sh2 @r2 var
              , DynamicExists $ AstSToD ast )
       (vars, asts) = unzip $ map genVar (V.toList a0)
-  in AstLetDomains vars a (f $ V.fromList asts)
+  in AstLetDomainsIn vars a (f $ V.fromList asts)
 
 astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
               => AstRanked s r n -> AstRanked PrimalSpan r n
@@ -525,7 +525,7 @@ instance AstSpan s
   scast = AstCastS
   sfromIntegral = fromPrimalS . AstFromIntegralS . astSpanPrimalS
   sconst = fromPrimalS . AstConstS
-  sletDomainsOf = astLetDomainsFunS
+  sletDomainsIn = astLetDomainsInFunS
 
   sletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
     if nullADShare l then u else AstLetADShareS l u
@@ -579,11 +579,11 @@ instance ( GoodScalar r, OS.Shape sh
           _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
 
-astLetDomainsFunS
+astLetDomainsInFunS
   :: forall sh s r. AstSpan s
   => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstShaped s r sh)
   -> AstShaped s r sh
-astLetDomainsFunS a0 a f =
+astLetDomainsInFunS a0 a f =
   let genVar :: DynamicExists OD.Array
                 -> ( AstDynamicVarName (AstShaped s)
                    , DynamicExists (AstDynamic s) )
@@ -594,7 +594,7 @@ astLetDomainsFunS a0 a f =
           in ( AstDynamicVarName @[Nat] @p_sh2 @r2 var
              , DynamicExists $ AstSToD ast )
       (vars, asts) = unzip $ map genVar (V.toList a0)
-  in AstLetDomainsS vars a (f $ V.fromList asts)
+  in AstLetDomainsInS vars a (f $ V.fromList asts)
 
 astSpanPrimalS :: forall s r sh. (OS.Shape sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped PrimalSpan r sh
@@ -653,8 +653,8 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
 
 instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dmkDomains = AstDomains
-  rletToDomainsOf = astDomainsLetFun
-  sletToDomainsOf = astDomainsLetFunS
+  rletInDomains = astLetInDomainsFun
+  sletInDomains = astLetInDomainsFunS
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
@@ -674,22 +674,22 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
         -- are the same variables, but it's a very special case
 
-astDomainsLetFun :: (KnownNat n, GoodScalar r, AstSpan s)
-                 => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
-                 -> AstDomains s
-astDomainsLetFun a f | astIsSmall True a = f a
-astDomainsLetFun a f =
+astLetInDomainsFun :: (KnownNat n, GoodScalar r, AstSpan s)
+                   => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
+                   -> AstDomains s
+astLetInDomainsFun a f | astIsSmall True a = f a
+astLetInDomainsFun a f =
   let sh = shapeAst a
       (var, ast) = funToAstR sh id
-  in astDomainsLet var a (f ast)  -- safe, because subsitution ruled out above
+  in astLetInDomains var a (f ast)  -- safe because subsitution ruled out above
 
-astDomainsLetFunS :: (OS.Shape sh, GoodScalar r, AstSpan s)
-                  => AstShaped s r sh -> (AstShaped s r sh -> AstDomains s)
-                  -> AstDomains s
-astDomainsLetFunS a f | astIsSmallS True a = f a
-astDomainsLetFunS a f =
+astLetInDomainsFunS :: (OS.Shape sh, GoodScalar r, AstSpan s)
+                    => AstShaped s r sh -> (AstShaped s r sh -> AstDomains s)
+                    -> AstDomains s
+astLetInDomainsFunS a f | astIsSmallS True a = f a
+astLetInDomainsFunS a f =
   let (var, ast) = funToAstS id
-  in astDomainsLetS var a (f ast)  -- safe, because subsitution ruled out above
+  in astLetInDomainsS var a (f ast)  -- safe because subsitution ruled out above
 
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests

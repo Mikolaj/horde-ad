@@ -95,7 +95,7 @@ areAllArgsInts = \case
   AstPrimalPart{} -> False
   AstDualPart{} -> False
   AstD{} -> False  -- dual number
-  AstLetDomains{} -> True  -- too early to tell
+  AstLetDomainsIn{} -> True  -- too early to tell
 
 
 -- * Pretty-print variables
@@ -316,9 +316,9 @@ printAstAux cfg d = \case
   AstPrimalPart a -> printPrefixOp printAst cfg d "rprimalPart" [a]
   AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
   AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
-  AstLetDomains vars l v ->
+  AstLetDomainsIn vars l v ->
     showParen (d > 10)
-    $ showString "rletDomainsOf "
+    $ showString "rletDomainsIn "
       . printAstDomains cfg 11 l
       . showString " "
       . (showParen True
@@ -374,10 +374,10 @@ printAstDomains cfg d = \case
     if prettifyLosingSharing cfg
     then printDomainsAst cfg l
     else showString "dmkDomains " . printDomainsAst cfg l
-  t@(AstDomainsLet var0 u0 v0) ->
+  t@(AstLetInDomains var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstDomains s -> ([(ShowS, ShowS)], ShowS)
-             collect (AstDomainsLet var u v) =
+             collect (AstLetInDomains var u v) =
                let name = printAstVarFromLet u cfg var
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
@@ -392,7 +392,7 @@ printAstDomains cfg d = \case
               . core
     else
       showParen (d > 10)
-      $ showString "rletToDomainsOf "
+      $ showString "rletInDomains "
         . printAst cfg 11 u0
         . showString " "
         . (showParen True
@@ -400,10 +400,10 @@ printAstDomains cfg d = \case
              . printAstVarFromLet u0 cfg var0
              . showString " -> "
              . printAstDomains cfg 0 v0)
-  t@(AstDomainsLetS var0 u0 v0) ->
+  t@(AstLetInDomainsS var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstDomains s -> ([(ShowS, ShowS)], ShowS)
-             collect (AstDomainsLetS var u v) =
+             collect (AstLetInDomainsS var u v) =
                let name = printAstVarS cfg var
                    uPP = printAstS cfg 0 u
                    (rest, corePP) = collect v
@@ -418,7 +418,7 @@ printAstDomains cfg d = \case
               . core
     else
       showParen (d > 10)
-      $ showString "sletToDomainsOf "
+      $ showString "sletInDomains "
         . printAstS cfg 11 u0
         . showString " "
         . (showParen True
@@ -674,9 +674,9 @@ printAstS cfg d = \case
   AstPrimalPartS a -> printPrefixOp printAstS cfg d "sprimalPart" [a]
   AstDualPartS a -> printPrefixOp printAstS cfg d "sdualPart" [a]
   AstDS u u' -> printPrefixBinaryOp printAstS printAstS cfg d "sD" u u'
-  AstLetDomainsS vars l v ->
+  AstLetDomainsInS vars l v ->
     showParen (d > 10)
-    $ showString "sletDomainsOf "
+    $ showString "sletDomainsIn "
       . printAstDomains cfg 11 l
       . showString " "
       . (showParen True

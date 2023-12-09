@@ -244,7 +244,7 @@ build1V k (var, v00) =
     Ast.AstD u u' ->
       Ast.AstD (build1VOccurenceUnknown k (var, u))
                (build1VOccurenceUnknown k (var, u'))
-    Ast.AstLetDomains @s1 vars l v ->
+    Ast.AstLetDomainsIn @s1 vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
       --
       -- We lose the type information surrounding var1 twice: first,
@@ -263,7 +263,7 @@ build1V k (var, v00) =
                                  (AstVarName var1)
               Nothing -> error "build1V: impossible someNatVal error"
           v2 = foldr subst v vars
-      in Ast.AstLetDomains
+      in Ast.AstLetDomainsIn
            vars (build1VOccurenceUnknownDomains k (var, l))
                 (build1VOccurenceUnknownRefresh k (var, v2))
         -- TODO: comment why @r instead of @r1 from AstDynamicVarName
@@ -287,16 +287,16 @@ build1VOccurenceUnknownDomains
 build1VOccurenceUnknownDomains k (var, v0) = case v0 of
   Ast.AstDomains l ->
     Ast.AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
-  Ast.AstDomainsLet @_ @r1 @s1 (AstVarName oldVar2) u v ->
+  Ast.AstLetInDomains @_ @r1 @s1 (AstVarName oldVar2) u v ->
     let var2 = AstVarName oldVar2  -- changed shape; TODO: shall we rename, too?
         sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                   (Ast.AstIntVar var :. ZI)
         v2 = substituteAstDomains (SubstitutionPayloadRanked @s1 @r1 projection)
                                   var2 v
-    in astDomainsLet var2 (build1VOccurenceUnknownRefresh k (var, u))
-                          (build1VOccurenceUnknownDomains k (var, v2))
-  Ast.AstDomainsLetS @sh2 @r1 @s1
+    in astLetInDomains var2 (build1VOccurenceUnknownRefresh k (var, u))
+                            (build1VOccurenceUnknownDomains k (var, v2))
+  Ast.AstLetInDomainsS @sh2 @r1 @s1
                      (AstVarName oldVar2) u v -> case someNatVal
                                                       $ toInteger k of
     Just (SomeNat @k _proxy) ->
@@ -306,8 +306,8 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
           v2 = substituteAstDomains
                  (SubstitutionPayloadShaped @s1 @r1 projection)
                  var2 v
-      in astDomainsLetS var2 (build1VOccurenceUnknownRefreshS @k (var, u))
-                             (build1VOccurenceUnknownDomains k (var, v2))
+      in astLetInDomainsS var2 (build1VOccurenceUnknownRefreshS @k (var, u))
+                               (build1VOccurenceUnknownDomains k (var, v2))
     Nothing ->
       error "build1VOccurenceUnknownDomains: impossible someNatVal error"
   Ast.AstRev{} ->
@@ -571,8 +571,8 @@ build1VS (var, v00) =
     Ast.AstDS u u' ->
       Ast.AstDS (build1VOccurenceUnknownS (var, u))
                 (build1VOccurenceUnknownS (var, u'))
-    Ast.AstLetDomainsS @s1 vars l v ->
-      -- See the AstLetDomains case for comments.
+    Ast.AstLetDomainsInS @s1 vars l v ->
+      -- See the AstLetDomainsIn case for comments.
       let subst (AstDynamicVarName @_ @sh1 (AstVarName var1)) =
             let projection =
                   Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
@@ -580,7 +580,7 @@ build1VS (var, v00) =
             in substituteAstS (SubstitutionPayloadShaped @s1 @r projection)
                               (AstVarName var1)
           v2 = foldr subst v vars
-      in Ast.AstLetDomainsS
+      in Ast.AstLetDomainsInS
            vars (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
                 (build1VOccurenceUnknownRefreshS (var, v2))
 

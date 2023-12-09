@@ -455,7 +455,7 @@ interpretAst !env = \case
     let t1 = interpretAstPrimal env u
         t2 = interpretAstDual env u'
     in rD t1 t2
-  AstLetDomains vars l v ->
+  AstLetDomainsIn vars l v ->
     let odFromVar (AstDynamicVarName @_ @shD @rD _) =
           DynamicExists $ OD.constant @rD (OS.shapeT @shD) 0
         lt0 = V.fromList $ map odFromVar vars
@@ -469,7 +469,7 @@ interpretAst !env = \case
                                     (AstVarName varId) (sfromD d)
             _ -> error "interpretAstS: type mismatch"
         env2 lw = foldr f env (zip vars (V.toList lw))
-    in rletDomainsOf lt0 lt (\lw -> interpretAst (env2 lw) v)
+    in rletDomainsIn lt0 lt (\lw -> interpretAst (env2 lw) v)
 
 interpretAstDynamic
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
@@ -492,16 +492,16 @@ interpretAstDomains
 interpretAstDomains !env = \case
   AstDomains l ->
     dmkDomains @ranked @shaped $ interpretAstDynamic @ranked env <$> l
-  AstDomainsLet var u v ->
+  AstLetInDomains var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
         env2 w = extendEnvR var w env
-    in rletToDomainsOf t (\w -> interpretAstDomains (env2 w) v)
-  AstDomainsLetS var u v ->
+    in rletInDomains t (\w -> interpretAstDomains (env2 w) v)
+  AstLetInDomainsS var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u
         env2 w = extendEnvS var w env
-    in sletToDomainsOf t (\w -> interpretAstDomains (env2 w) v)
+    in sletInDomains t (\w -> interpretAstDomains (env2 w) v)
   AstRev @r @n (vars, ast) parameters ->
     let g :: forall f. ADReady f => Domains (DynamicOf f) -> f r n
         g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
@@ -888,7 +888,7 @@ interpretAstS !env = \case
     let t1 = interpretAstPrimalS env u
         t2 = interpretAstDualS env u'
     in sD t1 t2
-  AstLetDomainsS vars l v ->
+  AstLetDomainsInS vars l v ->
     let odFromVar (AstDynamicVarName @_ @shD @rD _) =
           DynamicExists $ OD.constant @rD (OS.shapeT @shD) 0
         lt0 = V.fromList $ map odFromVar vars
@@ -902,4 +902,4 @@ interpretAstS !env = \case
                                     (AstVarName varId) (sfromD d)
             _ -> error "interpretAstS: type mismatch"
         env2 lw = foldr f env (zip vars (V.toList lw))
-    in sletDomainsOf lt0 lt (\lw -> interpretAstS (env2 lw) v)
+    in sletDomainsIn lt0 lt (\lw -> interpretAstS (env2 lw) v)

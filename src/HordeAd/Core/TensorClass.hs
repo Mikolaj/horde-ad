@@ -237,7 +237,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rzero :: (GoodScalar r, KnownNat n)
         => ShapeInt n -> ranked r n
   rzero sh = rreplicate0N sh 0
-  rletDomainsOf :: KnownNat n
+  rletDomainsIn :: KnownNat n
                 => DomainsOD
                 -> DomainsOf ranked
                 -> (Domains (DynamicOf ranked) -> ranked r n)
@@ -549,7 +549,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
             => shaped r sh -> AstBindingsD (DynamicOf shaped)
             -> (AstBindingsD (DynamicOf shaped), shaped r sh)
   sregister r l = (l, r)
-  sletDomainsOf :: OS.Shape sh
+  sletDomainsIn :: OS.Shape sh
                 => DomainsOD
                 -> DomainsOf shaped
                 -> (Domains (DynamicOf shaped) -> shaped r sh)
@@ -594,14 +594,14 @@ class DomainsTensor (ranked :: RankedTensorKind)
                     (shaped :: ShapedTensorKind)
                     | ranked -> shaped, shaped -> ranked where
   dmkDomains :: Domains (DynamicOf ranked) -> DomainsOf ranked
-  rletToDomainsOf :: (GoodScalar r, KnownNat n)
-                  => ranked r n
-                  -> (ranked r n -> DomainsOf ranked)
-                  -> DomainsOf ranked
-  sletToDomainsOf :: (GoodScalar r, OS.Shape sh)
-                  => shaped r sh
-                  -> (shaped r sh -> DomainsOf ranked)
-                  -> DomainsOf ranked
+  rletInDomains :: (GoodScalar r, KnownNat n)
+                => ranked r n
+                -> (ranked r n -> DomainsOf ranked)
+                -> DomainsOf ranked
+  sletInDomains :: (GoodScalar r, OS.Shape sh)
+                => shaped r sh
+                -> (shaped r sh -> DomainsOf ranked)
+                -> DomainsOf ranked
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.
   --
@@ -740,7 +740,7 @@ instance RankedTensor (Flip OR.Array) where
   rsumIn = Flip . tsumInR . runFlip
   rdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   rconst = Flip
-  rletDomainsOf _ = (&)
+  rletDomainsIn _ = (&)
   raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
               => Flip OR.Array r n -> DynamicExists OD.Array
               -> DynamicExists OD.Array
@@ -857,7 +857,7 @@ instance ShapedTensor (Flip OS.Array) where
   ssumIn = Flip . tsumInS . runFlip
   sdot1In u v = Flip $ tdot1InS (runFlip u) (runFlip v)
   sconst = Flip
-  sletDomainsOf _ = (&)
+  sletDomainsIn _ = (&)
   saddDynamic :: forall r sh. (GoodScalar r, OS.Shape sh)
               => Flip OS.Array r sh -> DynamicExists OD.Array
               -> DynamicExists OD.Array
