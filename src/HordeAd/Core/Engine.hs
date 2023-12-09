@@ -192,6 +192,7 @@ revProduceArtifactWithoutInterpretation
 revProduceArtifactWithoutInterpretation hasDt g =
   revArtifactFromForwardPass @Nat @g hasDt (forwardPassByApplication g)
 
+-- The commented out version is more general, but less performant.
 forwardPassByApplication
   :: forall g r y dynamic.
      ( -- dynamic ~ DynamicOf (PrimalOf g)

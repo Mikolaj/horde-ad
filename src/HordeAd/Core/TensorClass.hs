@@ -920,7 +920,9 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
 -}
 
 
--- * ConvertTensor and DomainsTensor instances for concrete arrays
+-- * ConvertTensor instance for concrete arrays
+
+-- The DomainsTensor instance requires ADVal instance, so it's given elsewhere.
 
 instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   tfromD = Flip . Data.Array.Convert.convert
@@ -931,9 +933,3 @@ instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   sfromD = Flip . Data.Array.Convert.convert
   ddummy = dummyTensorD
   dshape = OD.shapeL
-
-instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
-  dmkDomains = id
-  rletToDomainsOf = (&)
-  sletToDomainsOf = (&)
-  rrev _ = undefined  -- TODO?

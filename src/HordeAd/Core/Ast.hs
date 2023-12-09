@@ -799,21 +799,25 @@ maxF u v = ifF (u >=. v) u v
 type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
 type instance DynamicOf (AstNoVectorize s) = AstDynamic s
+type instance DomainsOf (AstNoVectorize s) = AstDomains s
 type instance PrimalOf (AstNoVectorize s) = AstRanked PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstRanked DualSpan
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorizeS s) = AstNoVectorizeS s
 type instance DynamicOf (AstNoVectorizeS s) = AstDynamic s
+type instance DomainsOf (AstNoVectorizeS s) = AstDomains s
 type instance PrimalOf (AstNoVectorizeS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoVectorizeS s) = AstShaped DualSpan
 type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
 type instance DynamicOf (AstNoSimplify s) = AstDynamic s
+type instance DomainsOf (AstNoSimplify s) = AstDomains s
 type instance PrimalOf (AstNoSimplify s) = AstRanked PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstRanked DualSpan
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplifyS s) = AstNoSimplifyS s
 type instance DynamicOf (AstNoSimplifyS s) = AstDynamic s
+type instance DomainsOf (AstNoSimplifyS s) = AstDomains s
 type instance PrimalOf (AstNoSimplifyS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoSimplifyS s) = AstShaped DualSpan
 
