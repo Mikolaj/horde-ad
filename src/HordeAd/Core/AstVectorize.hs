@@ -310,6 +310,8 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
                              (build1VOccurenceUnknownDomains k (var, v2))
     Nothing ->
       error "build1VOccurenceUnknownDomains: impossible someNatVal error"
+  Ast.AstRev{} ->
+    error "build1VOccurenceUnknownDomains: impossible case of AstRev"
 
 -- | The application @build1VIndex k (var, v, ix)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndex v ix)@, where it's unknown whether

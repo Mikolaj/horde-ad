@@ -3,7 +3,8 @@
 -- | The environment and some helper operations for AST interpretation.
 module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
-    AstEnv, AstEnvElem(..), extendEnvS, extendEnvR, extendEnvDR, extendEnvDS
+    AstEnv, AstEnvElem(..)
+  , extendEnvS, extendEnvR, extendEnvDR, extendEnvDS, extendEnvPars
     -- * The operations for interpreting binding (visible lambdas)
   , interpretLambdaI, interpretLambdaIS
   , interpretLambdaIndex, interpretLambdaIndexS

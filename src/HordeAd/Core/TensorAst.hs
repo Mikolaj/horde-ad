@@ -624,7 +624,19 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
        -> DomainsOD
        -> Domains (AstDynamic s)
        -> AstDomains s
-  rrev f parameters0 domains = AstRev (funToAstDomains f parameters0) domains
+-- TODO: perhaps do this in the AstNoVectorize instance:
+--   rrev f parameters0 domains = AstRev (funToAstDomains f parameters0) domains
+  rrev f parameters0 =
+    let (((_varDt, vars), gradient, _primal, _sh), _delta) =
+          revProduceArtifact False (f @(AstRanked FullSpan))
+                             EM.empty parameters0
+    in \parameters ->
+      let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
+      in interpretAstDomains env gradient
+        -- this interpretation both substitutes parameters for the variables and
+        -- reinterpretes @PrimalSpan@ terms in @s@ terms;
+        -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
+        -- are the same variables, but it's a very special case
 
 astLetDomainsFun
   :: forall m s r. AstSpan s
