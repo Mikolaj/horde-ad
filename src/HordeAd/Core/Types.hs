@@ -26,7 +26,7 @@ import Prelude
 
 import           Control.DeepSeq (NFData (..))
 import qualified Data.Array.DynamicS as OD
-import qualified Data.Array.Internal.Shape as OS
+import qualified Data.Array.Shape as Sh
 import           Data.Boolean (Boolean (..))
 import           Data.Int (Int64)
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
@@ -71,7 +71,7 @@ type HasSingletonDict :: k -> Constraint
 type family HasSingletonDict (y :: k) where
   HasSingletonDict '() = ()
   HasSingletonDict n = KnownNat n
-  HasSingletonDict sh = OS.Shape sh
+  HasSingletonDict sh = Sh.Shape sh
 
 type Differentiable r = (RealFloat r, RealFloat (Vector r))
 

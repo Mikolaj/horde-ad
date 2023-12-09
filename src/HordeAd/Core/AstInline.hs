@@ -13,7 +13,7 @@ import Prelude
 
 import           Control.Arrow (second)
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape as OS
+import qualified Data.Array.Shape as Sh
 import qualified Data.EnumMap.Strict as EM
 import qualified Data.EnumSet as ES
 import           Data.List (mapAccumR)
@@ -42,13 +42,13 @@ simplifyArtifactRev (vars, gradient, primal, sh) =
   => AstArtifactRev (AstRanked PrimalSpan) Double n
   -> AstArtifactRev (AstRanked PrimalSpan) Double n #-}
 
-simplifyArtifactRevS :: (GoodScalar r, OS.Shape sh)
+simplifyArtifactRevS :: (GoodScalar r, Sh.Shape sh)
                      => AstArtifactRev (AstShaped PrimalSpan) r sh
                      -> AstArtifactRev (AstShaped PrimalSpan) r sh
 simplifyArtifactRevS (vars, gradient, primal, sh) =
   (vars, simplifyAstDomains6 gradient, simplifyAst6S primal, sh)
 {-# SPECIALIZE simplifyArtifactRevS
-  :: OS.Shape sh
+  :: Sh.Shape sh
   => AstArtifactRev (AstShaped PrimalSpan) Double sh
   -> AstArtifactRev (AstShaped PrimalSpan) Double sh #-}
 
@@ -66,11 +66,11 @@ simplifyAst6 = simplifyAst . snd . inlineAst EM.empty . simplifyAst
   -> AstRanked s Double n #-}
 
 simplifyAst6S
-  :: (GoodScalar r, OS.Shape sh, AstSpan s)
+  :: (GoodScalar r, Sh.Shape sh, AstSpan s)
   => AstShaped s r sh -> AstShaped s r sh
 simplifyAst6S = simplifyAstS . snd . inlineAstS EM.empty . simplifyAstS
 {-# SPECIALIZE simplifyAst6S
-  :: (OS.Shape sh, AstSpan s)
+  :: (Sh.Shape sh, AstSpan s)
   => AstShaped s Double sh
   -> AstShaped s Double sh #-}
 
@@ -277,7 +277,7 @@ inlineAstBool memo v0 = case v0 of
     in (memo2, Ast.AstRelS opCodeRel r1 r2)
 
 inlineAstS
-  :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
+  :: forall sh s r. (GoodScalar r, Sh.Shape sh, AstSpan s)
   => AstMemo
   -> AstShaped s r sh -> (AstMemo, AstShaped s r sh)
 inlineAstS memo v0 = case v0 of
@@ -349,7 +349,7 @@ inlineAstS memo v0 = case v0 of
     let (memo1, v2) = inlineAstS memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
                                   (ShapedList.sizedListToList ix)
-        count = OS.sizeT @sh
+        count = Sh.sizeT @sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToSized ix2))
   Ast.AstFromListS l ->
@@ -377,7 +377,7 @@ inlineAstS memo v0 = case v0 of
     let (memo1, v2) = inlineAstS memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
                                   (ShapedList.sizedListToList ix)
-        count = OS.sizeT @sh
+        count = Sh.sizeT @sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToSized ix2))
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAstS memo v
@@ -423,7 +423,7 @@ unletAst6 astBindings l t =
   $ bindsToLet (bindsToLet t astBindings) (assocsADShare l)
 
 unletAst6S
-  :: (GoodScalar r, OS.Shape sh)
+  :: (GoodScalar r, Sh.Shape sh)
   => AstBindings -> ADShare -> AstShaped PrimalSpan r sh
   -> AstShaped PrimalSpan r sh
 unletAst6S astBindings l t =
@@ -542,7 +542,7 @@ unletAstBool env t = case t of
     Ast.AstRelS opCodeRel (unletAstS env arg1) (unletAstS env arg2)
 
 unletAstS
-  :: (GoodScalar r, OS.Shape sh, AstSpan s)
+  :: (GoodScalar r, Sh.Shape sh, AstSpan s)
   => UnletEnv -> AstShaped s r sh -> AstShaped s r sh
 unletAstS env t = case t of
   Ast.AstVarS{} -> t

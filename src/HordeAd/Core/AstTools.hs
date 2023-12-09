@@ -18,7 +18,7 @@ import Prelude hiding (foldl')
 
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as OS
+import qualified Data.Array.Shape as Sh
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -85,7 +85,7 @@ shapeAst = \case
   AstCast t -> shapeAst t
   AstFromIntegral a -> shapeAst a
   AstConst a -> listShapeToShape $ OR.shapeL a
-  AstSToR @sh _ -> listShapeToShape $ OS.shapeT @sh
+  AstSToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
   AstConstant a -> shapeAst a
   AstPrimalPart a -> shapeAst a
   AstDualPart a -> shapeAst a
@@ -252,7 +252,7 @@ astIsSmall relaxed = \case
   AstDualPart v -> astIsSmall relaxed v
   _ -> False
 
-astIsSmallS :: forall sh s r. OS.Shape sh
+astIsSmallS :: forall sh s r. Sh.Shape sh
             => Bool -> AstShaped s r sh -> Bool
 astIsSmallS relaxed = \case
   AstVarS{} -> True
@@ -263,7 +263,7 @@ astIsSmallS relaxed = \case
     relaxed && astIsSmallS relaxed v  -- materialized via vector slice; cheap
   AstTransposeS v ->
     relaxed && astIsSmallS relaxed v  -- often cheap and often fuses
-  AstConstS{} -> null (OS.shapeT @sh)
+  AstConstS{} -> null (Sh.shapeT @sh)
   AstRToS v -> astIsSmall relaxed v
   AstConstantS v -> astIsSmallS relaxed v
   AstPrimalPartS v -> astIsSmallS relaxed v
@@ -286,12 +286,12 @@ bindsToLet = foldl' bindToLet
     AstSToD w ->
       let shList = shapeToList $ shapeAst u
       in if valueOf @n == length shList
-         then OS.withShapeP shList $ \(_proxy :: Proxy sh) ->
-           gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: n) $
+         then Sh.withShapeP shList $ \(_proxy :: Proxy sh) ->
+           gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
            AstSToR @sh $ AstLetS (AstVarName var) w (AstRToS u)
          else error "bindsToLet: rank mismatch"
 
-bindsToLetS :: forall sh s r. OS.Shape sh
+bindsToLetS :: forall sh s r. Sh.Shape sh
             => AstShaped s r sh -> AstBindings -> AstShaped s r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS
@@ -301,10 +301,10 @@ bindsToLetS = foldl' bindToLetS
              -> AstShaped s r sh
   bindToLetS !u (var, DynamicExists d) = case d of
     AstRToD w ->
-      let n = length $ OS.shapeT @sh
+      let n = length $ Sh.shapeT @sh
       in case someNatVal $ toInteger n of
         Just (SomeNat @n _proxy) ->
-          gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: n)
+          gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n)
           $ AstRToS $ AstLet (AstVarName var) w (AstSToR u)
         Nothing -> error "bindsToLetS: impossible someNatVal error"
     AstSToD w -> AstLetS (AstVarName var) w u

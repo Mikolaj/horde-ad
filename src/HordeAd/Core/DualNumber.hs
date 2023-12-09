@@ -20,7 +20,7 @@ import Prelude
 
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as OS
+import qualified Data.Array.Shape as Sh
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
@@ -139,21 +139,21 @@ instance ( RankedTensor ranked, CRankedIP ranked IsPrimal
 type CRankedIPSh :: ShapedTensorKind
                  -> (ShapedTensorKind -> Type -> [Nat] -> Constraint)
                  -> Constraint
-class (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
+class (forall r55 y. (GoodScalar r55, Sh.Shape y) => c shaped r55 y)
       => CRankedIPSh shaped c where
-instance (forall r55 y. (GoodScalar r55, OS.Shape y) => c shaped r55 y)
+instance (forall r55 y. (GoodScalar r55, Sh.Shape y) => c shaped r55 y)
          => CRankedIPSh shaped c where
 
 indexPrimalS :: ( ShapedTensor shaped, IsPrimal shaped r sh2
-                , OS.Shape sh1, OS.Shape sh2, OS.Shape (sh1 OS.++ sh2)
+                , Sh.Shape sh1, Sh.Shape sh2, Sh.Shape (sh1 Sh.++ sh2)
                 , GoodScalar r )
-             => ADVal shaped r (sh1 OS.++ sh2) -> IndexSh shaped sh1
+             => ADVal shaped r (sh1 Sh.++ sh2) -> IndexSh shaped sh1
              -> ADVal shaped r sh2
 indexPrimalS (D l u u') ix = dD l (sindex u ix) (IndexS u' ix)
 
 fromListS :: forall n sh shaped r.
              ( ShapedTensor shaped, IsPrimal shaped r (n ': sh)
-             , KnownNat n, OS.Shape sh, GoodScalar r )
+             , KnownNat n, Sh.Shape sh, GoodScalar r )
            => [ADVal shaped r sh]
            -> ADVal shaped r (n ': sh)
 fromListS lu =
@@ -222,7 +222,7 @@ instance (GoodScalar r, KnownNat n, RankedTensor (ADVal ranked))
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance (GoodScalar r, OS.Shape sh, ShapedTensor (ADVal shaped))
+instance (GoodScalar r, Sh.Shape sh, ShapedTensor (ADVal shaped))
          => IsPrimal (ADVal shaped) r sh where
   dZeroOfShape _tsh = ZeroS
   dScale _ ZeroS = ZeroS

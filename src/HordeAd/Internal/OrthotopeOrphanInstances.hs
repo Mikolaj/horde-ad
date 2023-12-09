@@ -18,10 +18,10 @@ import qualified Data.Array.Internal.DynamicG as DG
 import qualified Data.Array.Internal.DynamicS as DS
 import qualified Data.Array.Internal.RankedG as RG
 import qualified Data.Array.Internal.RankedS as RS
-import qualified Data.Array.Internal.Shape as OS
 import qualified Data.Array.Internal.ShapedG as SG
 import qualified Data.Array.Internal.ShapedS as SS
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
@@ -184,16 +184,16 @@ liftVR2NoAdapt !op t@(RS.A (RG.A sh oit@(OI.T sst _ vt)))
       else OR.fromVector sh $ OR.toVector t `op` OR.toVector u
 
 liftVS
-  :: forall sh r1 r. (Numeric r1, Numeric r, OS.Shape sh)
+  :: forall sh r1 r. (Numeric r1, Numeric r, Sh.Shape sh)
   => (Vector r1 -> Vector r)
   -> OS.Array sh r1 -> OS.Array sh r
 liftVS !op t@(SS.A (SG.A oit)) =
-  if OS.sizeT @sh >= V.length (OI.values oit)
+  if Sh.sizeT @sh >= V.length (OI.values oit)
   then SS.A $ SG.A $ oit {OI.values = op $ OI.values oit}
   else OS.fromVector $ op $ OS.toVector t
 
 liftVS2
-  :: forall sh r. (Numeric r, OS.Shape sh)
+  :: forall sh r. (Numeric r, Sh.Shape sh)
   => (Vector r -> Vector r -> Vector r)
   -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
 liftVS2 !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
@@ -201,23 +201,23 @@ liftVS2 !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
   case (V.length vt, V.length vu) of
     (1, 1) -> SS.A $ SG.A $ OI.T sst 0 $ vt `op` vu
     (1, _) ->
-      if OS.sizeT @sh >= V.length vu
+      if Sh.sizeT @sh >= V.length vu
       then SS.A $ SG.A $ oiu {OI.values = vt `op` vu}
       else OS.fromVector $ vt `op` OS.toVector u
     (_, 1) ->
-      if OS.sizeT @sh >= V.length vt
+      if Sh.sizeT @sh >= V.length vt
       then SS.A $ SG.A $ oit {OI.values = vt `op` vu}
       else OS.fromVector $ OS.toVector t `op` vu
     (_, _) ->
-      if OS.sizeT @sh >= V.length vt
-         && OS.sizeT @sh >= V.length vu
+      if Sh.sizeT @sh >= V.length vt
+         && Sh.sizeT @sh >= V.length vu
          && OI.strides oit == OI.strides oiu
       then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
            $ SS.A $ SG.A $ oit {OI.values = vt `op` vu}
       else OS.fromVector $ OS.toVector t `op` OS.toVector u
 
 liftVS2NoAdapt
-  :: forall sh r. (Numeric r, OS.Shape sh)
+  :: forall sh r. (Numeric r, Sh.Shape sh)
   => (Vector r -> Vector r -> Vector r)
   -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
 liftVS2NoAdapt !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
@@ -225,20 +225,20 @@ liftVS2NoAdapt !op t@(SS.A (SG.A oit@(OI.T sst _ vt)))
   case (V.length vt, V.length vu) of
     (1, 1) -> SS.A $ SG.A $ OI.T sst 0 $ vt `op` vu
     (1, _) ->
-      if OS.sizeT @sh >= V.length vu
+      if Sh.sizeT @sh >= V.length vu
       then SS.A $ SG.A
                 $ oiu {OI.values = LA.konst (vt V.! 0) (V.length vu) `op` vu}
       else let v = OS.toVector u
            in OS.fromVector $ LA.konst (vt V.! 0) (V.length v) `op` v
     (_, 1) ->
-      if OS.sizeT @sh >= V.length vt
+      if Sh.sizeT @sh >= V.length vt
       then SS.A $ SG.A
                 $ oit {OI.values = vt `op` LA.konst (vu V.! 0) (V.length vt)}
       else let v = OS.toVector t
            in OS.fromVector $ v `op` LA.konst (vu V.! 0) (V.length v)
     (_, _) ->
-      if OS.sizeT @sh >= V.length vt
-         && OS.sizeT @sh >= V.length vu
+      if Sh.sizeT @sh >= V.length vt
+         && Sh.sizeT @sh >= V.length vu
          && OI.strides oit == OI.strides oiu
       then assert (OI.offset oit == OI.offset oiu && V.length vt == V.length vu)
            $ SS.A $ SG.A $ oit {OI.values = vt `op` vu}
@@ -269,7 +269,7 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r)
     Nothing -> error $ "OR.fromInteger: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
 
-instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
+instance (Num (Vector r), Sh.Shape sh, Numeric r) => Num (OS.Array sh r) where
   (+) = liftVS2 (+)
   (-) = liftVS2 (-)
   (*) = liftVS2 (*)
@@ -299,7 +299,7 @@ instance Enum (OS.Array sh r) where  -- dummy, to satisfy Integral below
   toEnum = undefined
   fromEnum = undefined
 
-instance (Num (Vector r), Integral r, OS.Shape sh, Numeric r, Show r)
+instance (Num (Vector r), Integral r, Sh.Shape sh, Numeric r, Show r)
          => Integral (OS.Array sh r) where
   quot = liftVS2 quot
   rem = liftVS2 rem
@@ -310,7 +310,7 @@ instance (Num (Vector r), Integral r, OS.Shape sh, Numeric r, Show r)
   toInteger = case sameShape @sh @'[] of
     Just Refl -> toInteger . OS.unScalar
     _ -> error $ "OS.toInteger: shape not empty: "
-                 ++ show (OS.shapeT @sh)
+                 ++ show (Sh.shapeT @sh)
 
 instance (Num (Vector r), Numeric r, Show r, Fractional r)
          => Fractional (OD.Array r) where
@@ -327,7 +327,7 @@ instance (Num (Vector r), KnownNat n, Numeric r, Show r, Fractional r)
     Nothing -> error $ "OR.fromRational: shape unknown at rank "
                        ++ show (valueOf @n :: Int)
 
-instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
+instance (Num (Vector r), Sh.Shape sh, Numeric r, Fractional r)
          => Fractional (OS.Array sh r) where
   (/) = liftVS2 (/)
   recip = liftVS recip
@@ -375,7 +375,7 @@ instance (Floating (Vector r), KnownNat n, Numeric r, Show r, Floating r)
   acosh = liftVR acosh
   atanh = liftVR atanh
 
-instance (Floating (Vector r), OS.Shape sh, Numeric r, Floating r)
+instance (Floating (Vector r), Sh.Shape sh, Numeric r, Floating r)
          => Floating (OS.Array sh r) where
   pi = OS.constant pi
   exp = liftVS exp
@@ -404,7 +404,7 @@ instance (Real (Vector r), KnownNat n, Numeric r, Show r, Ord r)
          => Real (OR.Array n r) where
   toRational = undefined  -- TODO
 
-instance (Real (Vector r), OS.Shape sh, Numeric r, Ord r)
+instance (Real (Vector r), Sh.Shape sh, Numeric r, Ord r)
          => Real (OS.Array sh r) where
   toRational = undefined  -- TODO
 
@@ -419,7 +419,7 @@ instance ( RealFrac (Vector r), KnownNat n, Numeric r, Show r, Fractional r
          => RealFrac (OR.Array n r) where
   properFraction = error "OR.properFraction: can't be implemented"
 
-instance (RealFrac (Vector r), OS.Shape sh, Numeric r, Fractional r, Ord r)
+instance (RealFrac (Vector r), Sh.Shape sh, Numeric r, Fractional r, Ord r)
          => RealFrac (OS.Array sh r) where
   properFraction = error "OS.properFraction: can't be implemented"
 
@@ -452,7 +452,7 @@ instance ( RealFloat (Vector r), KnownNat n, Numeric r, Show r, Floating r
   isNegativeZero = undefined
   isIEEE = undefined
 
-instance (RealFloat (Vector r), OS.Shape sh, Numeric r, Floating r, Ord r)
+instance (RealFloat (Vector r), Sh.Shape sh, Numeric r, Floating r, Ord r)
          => RealFloat (OS.Array sh r) where
   atan2 = liftVS2NoAdapt atan2
   floatRadix = undefined  -- TODO (and below)
@@ -490,7 +490,7 @@ deriving instance RealFloat (f a b) => RealFloat (Flip f b a)
 instance Convert (OR.Array n a) (OD.Array a) where
   convert (RS.A (RG.A sh t)) = DS.A (DG.A sh t)
 
-instance (OS.Shape sh, OS.Rank sh ~ n)
+instance (Sh.Shape sh, Sh.Rank sh ~ n)
          => Convert (OS.Array sh a) (OR.Array n a) where
   convert (SS.A a@(SG.A t)) = RS.A (RG.A (SG.shapeL a) t)
 
@@ -509,16 +509,16 @@ trustMeThisIsAPermutation :: forall is r. (OS.Permutation is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
 
-sameShape :: forall sh1 sh2. (OS.Shape sh1, OS.Shape sh2) => Maybe (sh1 :~: sh2)
+sameShape :: forall sh1 sh2. (Sh.Shape sh1, Sh.Shape sh2) => Maybe (sh1 :~: sh2)
 sameShape = case eqTypeRep (typeRep @sh1) (typeRep @sh2) of
               Just HRefl -> Just Refl
               Nothing -> Nothing
 
-matchingRank :: forall sh1 n2. (OS.Shape sh1, KnownNat n2)
-             => Maybe (OS.Rank sh1 :~: n2)
+matchingRank :: forall sh1 n2. (Sh.Shape sh1, KnownNat n2)
+             => Maybe (Sh.Rank sh1 :~: n2)
 matchingRank =
-  if length (OS.shapeT @sh1) == valueOf @n2
-  then Just (unsafeCoerce Refl :: OS.Rank sh1 :~: n2)
+  if length (Sh.shapeT @sh1) == valueOf @n2
+  then Just (unsafeCoerce Refl :: Sh.Rank sh1 :~: n2)
   else Nothing
 
 instance Enum (Vector r) where  -- dummy, to satisfy Integral below

@@ -30,6 +30,7 @@ module HordeAd.Core.DualClass
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
@@ -109,7 +110,7 @@ instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance (GoodScalar r, OS.Shape sh) => IsPrimal (Flip OS.Array) r sh where
+instance (GoodScalar r, Sh.Shape sh) => IsPrimal (Flip OS.Array) r sh where
   dZeroOfShape _tsh = ZeroS
   dScale _ ZeroS = ZeroS
   dScale v u' = ScaleS v u'

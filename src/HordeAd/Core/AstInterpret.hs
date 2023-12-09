@@ -20,7 +20,7 @@ import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as OS
+import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
@@ -457,7 +457,7 @@ interpretAst !env = \case
     in rD t1 t2
   AstLetDomainsIn vars l v ->
     let odFromVar (AstDynamicVarName @_ @shD @rD _) =
-          DynamicExists $ OD.constant @rD (OS.shapeT @shD) 0
+          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         lt0 = V.fromList $ map odFromVar vars
         lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
@@ -508,7 +508,7 @@ interpretAstDomains !env = \case
           -- interpretation in empty environment makes sense only
           -- if there are no free variables outside of those listed
         odFromVar (AstDynamicVarName @_ @shD @rD _) =
-          DynamicExists $ OD.constant @rD (OS.shapeT @shD) 0
+          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
         pars = interpretAstDynamic @ranked env <$> parameters
     in rrev @ranked g parameters0 pars
@@ -533,7 +533,7 @@ interpretAstBool !env = \case
 
 interpretAstPrimalSRuntimeSpecialized
   :: forall ranked shaped sh r.
-     (OS.Shape sh, ADReadyBoth ranked shaped, Typeable r)
+     (Sh.Shape sh, ADReadyBoth ranked shaped, Typeable r)
   => AstEnv ranked shaped
   -> AstShaped PrimalSpan r sh -> PrimalOf shaped r sh
 interpretAstPrimalSRuntimeSpecialized !env t =
@@ -549,7 +549,7 @@ interpretAstPrimalSRuntimeSpecialized !env t =
 
 interpretAstPrimalS
   :: forall ranked shaped sh r.
-     (OS.Shape sh, ADReadyBoth ranked shaped, GoodScalar r)
+     (Sh.Shape sh, ADReadyBoth ranked shaped, GoodScalar r)
   => AstEnv ranked shaped
   -> AstShaped PrimalSpan r sh -> PrimalOf shaped r sh
 interpretAstPrimalS !env v1 = case v1 of
@@ -565,7 +565,7 @@ interpretAstPrimalS !env v1 = case v1 of
 
 interpretAstDualS
   :: forall ranked shaped sh r.
-     (OS.Shape sh, ADReadyBoth ranked shaped, GoodScalar r)
+     (Sh.Shape sh, ADReadyBoth ranked shaped, GoodScalar r)
   => AstEnv ranked shaped
   -> AstShaped DualSpan r sh -> DualOf shaped r sh
 interpretAstDualS !env v1 = case v1 of
@@ -575,7 +575,7 @@ interpretAstDualS !env v1 = case v1 of
 
 interpretAstSRuntimeSpecialized
   :: forall ranked shaped sh s r.
-     (OS.Shape sh, ADReadyBoth ranked shaped, Typeable r, AstSpan s)
+     (Sh.Shape sh, ADReadyBoth ranked shaped, Typeable r, AstSpan s)
   => AstEnv ranked shaped
   -> AstShaped s r sh -> shaped r sh
 interpretAstSRuntimeSpecialized !env t =
@@ -591,7 +591,7 @@ interpretAstSRuntimeSpecialized !env t =
 
 interpretAstS
   :: forall ranked shaped sh s r.
-     (OS.Shape sh, ADReadyBoth ranked shaped, GoodScalar r, AstSpan s)
+     (Sh.Shape sh, ADReadyBoth ranked shaped, GoodScalar r, AstSpan s)
   => AstEnv ranked shaped
   -> AstShaped s r sh -> shaped r sh
 interpretAstS !env = \case
@@ -853,12 +853,12 @@ interpretAstS !env = \case
     sbuild1 (interpretLambdaIS interpretAstS env (var, v))
       -- to be used only in tests
   AstGatherS @sh2 AstIotaS (vars, i :$: ZSH) ->
-    gcastWith (unsafeCoerce Refl :: OS.Take (OS.Rank sh) sh :~: sh)
-    $ gcastWith (unsafeCoerce Refl :: OS.Drop (OS.Rank sh) sh :~: '[])
+    gcastWith (unsafeCoerce Refl :: Sh.Take (Sh.Rank sh) sh :~: sh)
+    $ gcastWith (unsafeCoerce Refl :: Sh.Drop (Sh.Rank sh) sh :~: '[])
     $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh)
         -- transitivity of type equality doesn't work, by design,
         -- so this direct cast is needed instead of more basic laws
-    $ sbuild @shaped @r @(OS.Rank sh)
+    $ sbuild @shaped @r @(Sh.Rank sh)
              (interpretLambdaIndexS
                 interpretAstS env
                 (vars, fromPrimalS @s $ AstFromIntegralS $ AstRToS i))
@@ -890,7 +890,7 @@ interpretAstS !env = \case
     in sD t1 t2
   AstLetDomainsInS vars l v ->
     let odFromVar (AstDynamicVarName @_ @shD @rD _) =
-          DynamicExists $ OD.constant @rD (OS.shapeT @shD) 0
+          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         lt0 = V.fromList $ map odFromVar vars
         lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential

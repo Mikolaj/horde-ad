@@ -19,7 +19,7 @@ import Prelude
 
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as OS
+import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.List (intersperse)
 import           Data.Proxy (Proxy (Proxy))
@@ -122,9 +122,9 @@ printAstVar :: forall n s r. KnownNat n
             => PrintConfig -> AstVarName (AstRanked s) r n -> ShowS
 printAstVar = printAstVarN (valueOf @n)
 
-printAstVarS :: forall sh s r. OS.Shape sh
+printAstVarS :: forall sh s r. Sh.Shape sh
              => PrintConfig -> AstVarName (AstShaped s) r sh -> ShowS
-printAstVarS = printAstVarN (length (OS.shapeT @sh))
+printAstVarS = printAstVarN (length (Sh.shapeT @sh))
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
 printAstIntVar cfg (AstVarName var) = printAstVarId "i" cfg var
@@ -147,7 +147,7 @@ printAstVarName :: KnownNat n
 printAstVarName renames var =
   printAstVar (defaulPrintConfig False renames) var ""
 
-printAstVarNameS :: OS.Shape sh
+printAstVarNameS :: Sh.Shape sh
                  => IntMap String -> AstVarName (AstShaped s) r sh
                  -> String
 printAstVarNameS renames var =
@@ -542,7 +542,7 @@ printAstRelOp pr cfg d opCode u v = case opCode of
   LsOp -> printBinaryOp pr cfg d u (4, " <. ") v
   GtOp -> printBinaryOp pr cfg d u (4, " >. ") v
 
-printAstS :: forall sh s r. (GoodScalar r, OS.Shape sh, AstSpan s)
+printAstS :: forall sh s r. (GoodScalar r, Sh.Shape sh, AstSpan s)
           => PrintConfig -> Int -> AstShaped s r sh -> ShowS
 printAstS cfg d = \case
   AstVarS var -> printAstVarS cfg var
@@ -698,11 +698,11 @@ printAstPretty :: (GoodScalar r, KnownNat n, AstSpan s)
                => IntMap String -> AstRanked s r n -> String
 printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
 
-printAstSimpleS :: (GoodScalar r, OS.Shape sh, AstSpan s)
+printAstSimpleS :: (GoodScalar r, Sh.Shape sh, AstSpan s)
                 => IntMap String -> AstShaped s r sh -> String
 printAstSimpleS renames t = printAstS (defaulPrintConfig False renames) 0 t ""
 
-printAstPrettyS :: (GoodScalar r, OS.Shape sh, AstSpan s)
+printAstPrettyS :: (GoodScalar r, Sh.Shape sh, AstSpan s)
                 => IntMap String -> AstShaped s r sh -> String
 printAstPrettyS renames t = printAstS (defaulPrintConfig True renames) 0 t ""
 
@@ -752,7 +752,7 @@ printPrimal6Pretty renames ((_, vars1), _, primal, _) =
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstPretty renames primal
 
-printGradient6SimpleS :: OS.Shape sh
+printGradient6SimpleS :: Sh.Shape sh
                       => IntMap String
                       -> AstArtifactRev (AstShaped PrimalSpan) r sh
                       -> String
@@ -762,7 +762,7 @@ printGradient6SimpleS renames ((varDt, vars1), gradient, _, _) =
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstDomainsSimple renames gradient
 
-printGradient6PrettyS :: OS.Shape sh
+printGradient6PrettyS :: Sh.Shape sh
                       => IntMap String
                       -> AstArtifactRev (AstShaped PrimalSpan) r sh
                       -> String
@@ -772,7 +772,7 @@ printGradient6PrettyS renames ((varDt, vars1), gradient, _, _) =
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstDomainsPretty renames gradient
 
-printPrimal6SimpleS :: (GoodScalar r, OS.Shape sh)
+printPrimal6SimpleS :: (GoodScalar r, Sh.Shape sh)
                     => IntMap String
                     -> AstArtifactRev (AstShaped PrimalSpan) r sh
                     -> String
@@ -781,7 +781,7 @@ printPrimal6SimpleS renames ((_, vars1), _, primal, _) =
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstSimpleS renames primal
 
-printPrimal6PrettyS :: (GoodScalar r, OS.Shape sh)
+printPrimal6PrettyS :: (GoodScalar r, Sh.Shape sh)
                     => IntMap String
                     -> AstArtifactRev (AstShaped PrimalSpan) r sh
                     -> String

@@ -16,7 +16,7 @@ import Prelude
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as OS
+import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
@@ -69,7 +69,7 @@ instance (GoodScalar r, KnownNat n) => IsPrimal (AstRanked PrimalSpan) r n where
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
 
-instance (GoodScalar r, OS.Shape sh)
+instance (GoodScalar r, Sh.Shape sh)
          => IsPrimal (AstShaped PrimalSpan) r sh where
   dZeroOfShape _tsh = ZeroS
   dScale _ ZeroS = ZeroS
@@ -195,7 +195,7 @@ instance DerivativeStages (AstRanked FullSpan) where
 
 instance DerivativeStages (AstShaped FullSpan) where
   forwardPassByInterpretation
-    :: (GoodScalar r, OS.Shape sh)
+    :: (GoodScalar r, Sh.Shape sh)
     => (Domains (AstDynamic FullSpan) -> AstShaped FullSpan r sh)
     -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
     -> Domains (AstDynamic PrimalSpan)
@@ -211,7 +211,7 @@ instance DerivativeStages (AstShaped FullSpan) where
     in interpretAstS env ast
 
   revArtifactFromForwardPass
-    :: forall r sh. (GoodScalar r, OS.Shape sh)
+    :: forall r sh. (GoodScalar r, Sh.Shape sh)
     => Bool
     -> (Domains (AstDynamic PrimalSpan)
         -> [AstDynamicVarName (AstShaped FullSpan)]
@@ -234,7 +234,7 @@ instance DerivativeStages (AstShaped FullSpan) where
          , unletAstDomains6 astBindings l
                             (dmkDomains @(AstRanked PrimalSpan) gradient)
          , unletAst6S [] l primalBody
-         , OS.shapeT @sh )
+         , Sh.shapeT @sh )
        , delta )
 
   {-# INLINE revEvalArtifact #-}
@@ -247,7 +247,7 @@ instance DerivativeStages (AstShaped FullSpan) where
     in (gradientDomain, primalTensor)
 
   fwdArtifactFromForwardPass
-    :: forall r sh. (GoodScalar r, OS.Shape sh)
+    :: forall r sh. (GoodScalar r, Sh.Shape sh)
     => (Domains (AstDynamic PrimalSpan)
         -> [AstDynamicVarName (AstShaped FullSpan)]
         -> Domains (AstDynamic FullSpan)
@@ -437,7 +437,7 @@ astLetDomainsInFun a0 a f =
                    , DynamicExists (AstDynamic s) )
       genVar (DynamicExists @r2 t) =
         let sh2 = OD.shapeL t
-        in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
+        in Sh.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
           let (var, ast) = funToAstS @p_sh2 id
           in ( AstDynamicVarName @[Nat] @p_sh2 @r2 var
              , DynamicExists $ AstSToD ast )
@@ -508,7 +508,7 @@ instance AstSpan s
 
   sfromList = AstFromListS
   sfromVector = AstFromVectorS
-  sunravelToList :: forall r n sh. (KnownNat n, OS.Shape sh)
+  sunravelToList :: forall r n sh. (KnownNat n, Sh.Shape sh)
                  => AstShaped s r (n ': sh) -> [AstShaped s r sh]
   sunravelToList t =
     let f :: Int64 -> AstShaped s r sh
@@ -539,7 +539,7 @@ instance AstSpan s
     AstLetADShareS l t -> (l, t)
     AstConstantS (AstLetADShareS l t) -> (l, AstConstantS t)
     _ -> (emptyADShare, u)
-  saddDynamic :: forall sh r. (GoodScalar r, OS.Shape sh)
+  saddDynamic :: forall sh r. (GoodScalar r, Sh.Shape sh)
               => AstShaped s r sh -> DynamicExists (AstDynamic s)
               -> DynamicExists (AstDynamic s)
   saddDynamic r (DynamicExists @r2 d) = DynamicExists @r $
@@ -564,7 +564,7 @@ instance AstSpan s
   sD = astSpanDS
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
-instance ( GoodScalar r, OS.Shape sh
+instance ( GoodScalar r, Sh.Shape sh
          , ShapedTensor (AstShaped s)
          , ConvertTensor (AstRanked s) (AstShaped s) )
          => AdaptableDomains (AstDynamic s) (AstShaped s r sh) where
@@ -589,14 +589,14 @@ astLetDomainsInFunS a0 a f =
                    , DynamicExists (AstDynamic s) )
       genVar (DynamicExists @r2 t) =
         let sh2 = OD.shapeL t
-        in OS.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
+        in Sh.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) ->
           let (var, ast) = funToAstS @p_sh2 id
           in ( AstDynamicVarName @[Nat] @p_sh2 @r2 var
              , DynamicExists $ AstSToD ast )
       (vars, asts) = unzip $ map genVar (V.toList a0)
   in AstLetDomainsInS vars a (f $ V.fromList asts)
 
-astSpanPrimalS :: forall s r sh. (OS.Shape sh, GoodScalar r, AstSpan s)
+astSpanPrimalS :: forall s r sh. (Sh.Shape sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped PrimalSpan r sh
 astSpanPrimalS t | Just Refl <- sameAstSpan @s @PrimalSpan = t
 astSpanPrimalS _ | Just Refl <- sameAstSpan @s @DualSpan =
@@ -606,7 +606,7 @@ astSpanPrimalS _ | Just Refl <- sameAstSpan @s @DualSpan =
 astSpanPrimalS t | Just Refl <- sameAstSpan @s @FullSpan = astPrimalPartS t
 astSpanPrimalS _ = error "a spuriuos case for pattern match coverage"
 
-astSpanDualS :: forall s r sh. (OS.Shape sh, GoodScalar r, AstSpan s)
+astSpanDualS :: forall s r sh. (Sh.Shape sh, GoodScalar r, AstSpan s)
              => AstShaped s r sh -> AstShaped DualSpan r sh
 astSpanDualS t | Just Refl <- sameAstSpan @s @PrimalSpan =
   AstDualPartS $ AstConstantS t  -- this is nil; likely to happen
@@ -622,7 +622,7 @@ astSpanDS _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanDS u u' | Just Refl <- sameAstSpan @s @FullSpan = AstDS u u'
 astSpanDS _ _ = error "a spuriuos case for pattern match coverage"
 
-astLetFunS :: ( OS.Shape sh, OS.Shape sh2, GoodScalar r, GoodScalar r2
+astLetFunS :: ( Sh.Shape sh, Sh.Shape sh2, GoodScalar r, GoodScalar r2
               , AstSpan s )
           => AstShaped s r sh -> (AstShaped s r sh -> AstShaped s r2 sh2)
           -> AstShaped s r2 sh2
@@ -631,7 +631,7 @@ astLetFunS a f =
   let (var, ast) = funToAstS f
   in astLetS var a ast  -- safe, because subsitution ruled out above
 
-astBuild1VectorizeS :: (KnownNat n, OS.Shape sh, GoodScalar r, AstSpan s)
+astBuild1VectorizeS :: (KnownNat n, Sh.Shape sh, GoodScalar r, AstSpan s)
                     => (IntSh (AstShaped PrimalSpan) n -> AstShaped s r sh)
                     -> AstShaped s r (n ': sh)
 astBuild1VectorizeS f =
@@ -649,7 +649,7 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   sfromD = astFromDynamicS
   ddummy = AstRToD $ fromPrimal AstIota
   dshape (AstRToD v) = shapeToList $ shapeAst v
-  dshape (AstSToD @sh _) = OS.shapeT @sh
+  dshape (AstSToD @sh _) = Sh.shapeT @sh
 
 instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dmkDomains = AstDomains
@@ -683,7 +683,7 @@ astLetInDomainsFun a f =
       (var, ast) = funToAstR sh id
   in astLetInDomains var a (f ast)  -- safe because subsitution ruled out above
 
-astLetInDomainsFunS :: (OS.Shape sh, GoodScalar r, AstSpan s)
+astLetInDomainsFunS :: (Sh.Shape sh, GoodScalar r, AstSpan s)
                     => AstShaped s r sh -> (AstShaped s r sh -> AstDomains s)
                     -> AstDomains s
 astLetInDomainsFunS a f | astIsSmallS True a = f a

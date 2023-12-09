@@ -17,7 +17,7 @@ module HordeAd.Core.AstEnv
 
 import Prelude
 
-import qualified Data.Array.Shape as OS
+import qualified Data.Array.Shape as Sh
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -42,7 +42,7 @@ type role AstEnvElem representational representational
 data AstEnvElem :: RankedTensorKind -> ShapedTensorKind -> Type where
   AstEnvElemR :: (KnownNat n, GoodScalar r)
               => ranked r n -> AstEnvElem ranked shaped
-  AstEnvElemS :: (OS.Shape sh, GoodScalar r)
+  AstEnvElemS :: (Sh.Shape sh, GoodScalar r)
               => shaped r sh -> AstEnvElem ranked shaped
 deriving instance (CRanked ranked Show, CShaped shaped Show)
                   => Show (AstEnvElem ranked shaped)
@@ -59,7 +59,7 @@ extendEnvR (AstVarName var) !t !env =
                    var (AstEnvElemR t) env
 
 extendEnvS :: forall ranked shaped r sh s.
-              (OS.Shape sh, GoodScalar r)
+              (Sh.Shape sh, GoodScalar r)
            => AstVarName (AstShaped s) r sh -> shaped r sh
            -> AstEnv ranked shaped -> AstEnv ranked shaped
 extendEnvS (AstVarName var) !t !env =
@@ -76,7 +76,7 @@ extendEnvDR (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) !env =
   -- variable r2, because tfromD does not depend on r2.
   case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl ->
-      let n = length $ OS.shapeT @sh
+      let n = length $ Sh.shapeT @sh
       in case someNatVal $ toInteger n of
         Just (SomeNat @n _) -> gcastWith (unsafeCoerce Refl :: n :~: y) $
                                extendEnvR var (tfromD d) env

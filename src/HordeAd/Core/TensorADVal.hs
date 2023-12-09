@@ -16,7 +16,7 @@ import Prelude hiding (foldl')
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
-import qualified Data.Array.Shape as OS
+import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
@@ -233,7 +233,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 
 -- * Shaped tensor instances
 
-instance ( OS.Shape sh, GoodScalar r, dynamic ~ DynamicOf shaped
+instance ( Sh.Shape sh, GoodScalar r, dynamic ~ DynamicOf shaped
          , Dual shaped ~ DeltaS ranked shaped
          , Dual (Clown dynamic) ~ DeltaD (Clown dynamic) ranked shaped
          , ConvertTensor ranked shaped )
@@ -254,7 +254,7 @@ dToS :: forall r ranked shaped sh.
         , Dual shaped ~ DeltaS ranked shaped
         , Dual (Clown (DynamicOf ranked))
           ~ DeltaD (Clown (DynamicOf ranked)) ranked shaped
-        , OS.Shape sh, GoodScalar r )
+        , Sh.Shape sh, GoodScalar r )
       => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal shaped r sh
 dToS (D l u u') = dDnotShared l (sfromD $ runClown u) (dDToS u')
  where
@@ -335,13 +335,13 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   stranspose (perm_proxy :: Proxy perm) (D l u u') =
     dD l (stranspose perm_proxy u) (TransposeS @ranked @shaped @perm u')
   sreshape :: forall sh sh2 r.
-              ( GoodScalar r, OS.Shape sh, OS.Shape sh2
-              , OS.Size sh ~ OS.Size sh2 )
+              ( GoodScalar r, Sh.Shape sh, Sh.Shape sh2
+              , Sh.Size sh ~ Sh.Size sh2 )
            => ADVal shaped r sh -> ADVal shaped r sh2
   sreshape t@(D l u u') = case sameShape @sh2 @sh of
     Just Refl -> t
     _ -> dD l (sreshape u) (ReshapeS u')
-  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, OS.Shape sh)
+  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
           => (IntSh (ADVal shaped) n -> ADVal shaped r sh)
           -> ADVal shaped r (n ': sh)
   sbuild1 f = fromListS $ map (f . ShapedList.shapedNat)
@@ -381,8 +381,8 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   tfromD = dToR . runFlip
   tfromS = sToR
    where
-    sToR :: forall r sh. (GoodScalar r, OS.Shape sh)
-         => ADVal shaped r sh -> ADVal ranked r (OS.Rank sh)
+    sToR :: forall r sh. (GoodScalar r, Sh.Shape sh)
+         => ADVal shaped r sh -> ADVal ranked r (Sh.Rank sh)
     sToR (D l u u') = dDnotShared l (tfromS u) (dSToR u')
      where
       dSToR (RToS d) = d  -- no information lost, so no checks
@@ -397,7 +397,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
       dRToD d = RToD d
   dfromS = Flip . sToD
    where
-    sToD :: forall r sh. (GoodScalar r, OS.Shape sh)
+    sToD :: forall r sh. (GoodScalar r, Sh.Shape sh)
          => ADVal shaped r sh -> ADVal (Clown (DynamicOf ranked)) r '()
     sToD (D l u u') = dDnotShared l (Clown $ dfromS u) (dSToD u')
      where
@@ -406,8 +406,8 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   sfromD = dToS . runFlip
   sfromR = rToS
    where
-    rToS :: forall r sh. (GoodScalar r, OS.Shape sh, KnownNat (OS.Rank sh))
-         => ADVal ranked r (OS.Rank sh) -> ADVal shaped r sh
+    rToS :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
+         => ADVal ranked r (Sh.Rank sh) -> ADVal shaped r sh
     rToS (D l u u') = dDnotShared l (sfromR u) (dRToS u')
      where
       dRToS (SToR @sh1 d) =

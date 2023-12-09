@@ -11,7 +11,7 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import           Control.Monad (when)
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape as OS
+import qualified Data.Array.Shape as Sh
 import           Data.Int (Int64)
 import           Data.IORef
 import           Data.Proxy (Proxy)
@@ -252,7 +252,7 @@ build1V k (var, v00) =
       -- again, because the original variables might have been marked
       -- with AstShaped and here we require AstRanked.
       let subst (AstDynamicVarName @_ @sh1 (AstVarName var1)) =
-            let ls = OS.shapeT @sh1
+            let ls = Sh.shapeT @sh1
             in case someNatVal $ toInteger (length ls) of
               Just (SomeNat @n2 _) ->
                 let shV = listShapeToShape @n2 ls
@@ -371,7 +371,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
 
 -- | This works analogously to @build1Vectorize@m.
 build1VectorizeS
-  :: forall k sh s r. (GoodScalar r, KnownNat k, OS.Shape sh, AstSpan s)
+  :: forall k sh s r. (GoodScalar r, KnownNat k, Sh.Shape sh, AstSpan s)
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
 {-# NOINLINE build1VectorizeS #-}
 build1VectorizeS (var, v0) = unsafePerformIO $ do
@@ -395,23 +395,23 @@ build1VectorizeS (var, v0) = unsafePerformIO $ do
       ++ "\n"
   return endTerm
 
--- TODO: we avoid constraint KnownNat (OS.Rank sh) that would infect
+-- TODO: we avoid constraint KnownNat (Sh.Rank sh) that would infect
 -- a lot of AstShaped constructor and from there a lot of the codebase.
 -- This should be solved in a cleaner way.
 --
 -- This abbreviation is used a lot below.
-astTrS :: forall n m sh s r. (KnownNat n, KnownNat m, OS.Shape sh)
+astTrS :: forall n m sh s r. (KnownNat n, KnownNat m, Sh.Shape sh)
        => AstShaped s r (n ': m ': sh) -> AstShaped s r (m ': n ': sh)
 astTrS =
-  let p = length $ OS.shapeT @sh
+  let p = length $ Sh.shapeT @sh
   in case someNatVal $ toInteger p of
     Just (SomeNat @p _proxy) ->
-      gcastWith (unsafeCoerce Refl :: OS.Rank sh :~: p) $
+      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: p) $
       astTransposeS @'[1, 0]
     Nothing -> error "astTrS: impossible someNatVal error"
 
 build1VOccurenceUnknownS
-  :: forall k sh s r. (GoodScalar r, KnownNat k, OS.Shape sh, AstSpan s)
+  :: forall k sh s r. (GoodScalar r, KnownNat k, Sh.Shape sh, AstSpan s)
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
 build1VOccurenceUnknownS (var, v0) =
   let traceRule = mkTraceRuleS "build1VOccS" (Ast.AstBuild1S (var, v0)) v0 1
@@ -421,7 +421,7 @@ build1VOccurenceUnknownS (var, v0) =
        astReplicateS v0
 
 build1VOccurenceUnknownRefreshS
-  :: forall k sh s r. (GoodScalar r, KnownNat k, OS.Shape sh, AstSpan s)
+  :: forall k sh s r. (GoodScalar r, KnownNat k, Sh.Shape sh, AstSpan s)
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
 {-# NOINLINE build1VOccurenceUnknownRefreshS #-}
 build1VOccurenceUnknownRefreshS (var, v0) = unsafePerformIO $ do
@@ -441,7 +441,7 @@ intBindingRefreshS var ix = unsafePerformIO $ do
   return (varFresh, astVarFresh, ix2)
 
 build1VS
-  :: forall k sh s r. (GoodScalar r, KnownNat k, OS.Shape sh, AstSpan s)
+  :: forall k sh s r. (GoodScalar r, KnownNat k, Sh.Shape sh, AstSpan s)
   => (IntVarName, AstShaped s r sh) -> AstShaped s r (k ': sh)
 build1VS (var, v00) =
   let v0 = simplifyStepNonIndexS v00
@@ -500,17 +500,17 @@ build1VS (var, v00) =
 
     Ast.AstIndexS @sh1 v ix -> traceRule $
       gcastWith (unsafeCoerce Refl
-                 :: OS.Take (OS.Rank sh1) (sh1 OS.++ sh) :~: sh1) $
+                 :: Sh.Take (Sh.Rank sh1) (sh1 Sh.++ sh) :~: sh1) $
       gcastWith (unsafeCoerce Refl
-                 :: OS.Drop (OS.Rank sh1) (sh1 OS.++ sh) :~: sh) $
-      build1VIndexS @k @(OS.Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
+                 :: Sh.Drop (Sh.Rank sh1) (sh1 Sh.++ sh) :~: sh) $
+      build1VIndexS @k @(Sh.Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
     Ast.AstSumS v -> traceRule $
       astSumS $ astTrS $ build1VS (var, v)
     Ast.AstScatterS @sh2 @p @sh3 v (vars, ix) -> traceRule $
       gcastWith (unsafeCoerce Refl
-                 :: OS.Take (1 + p) (k : sh3) :~: (k : OS.Take p sh3)) $
+                 :: Sh.Take (1 + p) (k : sh3) :~: (k : Sh.Take p sh3)) $
       gcastWith (unsafeCoerce Refl
-                 :: OS.Drop (1 + p) (k : sh3) :~: OS.Drop p sh3) $
+                 :: Sh.Drop (1 + p) (k : sh3) :~: Sh.Drop p sh3) $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
       in astScatterS @(k ': sh2) @(1 + p)
                      (build1VOccurenceUnknownS (var, v))
@@ -531,26 +531,26 @@ build1VS (var, v00) =
     Ast.AstReverseS v -> traceRule $
       astTrS $ astReverseS $ astTrS $ build1VS (var, v)
     Ast.AstTransposeS @perm @sh1 v -> traceRule $
-      let zsuccPerm = 0 : map succ (OS.shapeT @perm)
-      in OS.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccP) ->
+      let zsuccPerm = 0 : map succ (Sh.shapeT @perm)
+      in Sh.withShapeP zsuccPerm $ \(_proxy :: Proxy zsuccP) ->
         gcastWith (unsafeCoerce Refl :: 0 ': MapSucc perm :~: zsuccP) $
           -- this one is needed for GHC >= 9.8 due to #23763
         gcastWith (unsafeCoerce Refl
-                   :: OS.Permute zsuccP (k : sh1) :~: k : sh) $
+                   :: Sh.Permute zsuccP (k : sh1) :~: k : sh) $
         gcastWith (unsafeCoerce Refl
-                   :: OS.Rank zsuccP :~: 1 + OS.Rank perm) $
+                   :: Sh.Rank zsuccP :~: 1 + Sh.Rank perm) $
         trustMeThisIsAPermutation @zsuccP
         $ astTransposeS @zsuccP $ build1VS @k (var, v)
     Ast.AstReshapeS @sh2 v -> traceRule $
       gcastWith (unsafeCoerce Refl
-                 :: OS.Size (k ': sh) :~: OS.Size (k ': sh2)) $
+                 :: Sh.Size (k ': sh) :~: Sh.Size (k ': sh2)) $
       astReshapeS $ build1VS (var, v)
     Ast.AstBuild1S{} -> error "build1VS: impossible case of AstBuild1S"
     Ast.AstGatherS @sh2 @p @sh3 v (vars, ix) -> traceRule $
       gcastWith (unsafeCoerce Refl
-                 :: OS.Take (1 + p) (k : sh3) :~: (k : OS.Take p sh3)) $
+                 :: Sh.Take (1 + p) (k : sh3) :~: (k : Sh.Take p sh3)) $
       gcastWith (unsafeCoerce Refl
-                 :: OS.Drop (1 + p) (k : sh3) :~: OS.Drop p sh3) $
+                 :: Sh.Drop (1 + p) (k : sh3) :~: Sh.Drop p sh3) $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
       in astGatherStepS @(k ': sh2) @(1 + p)
                         (build1VOccurenceUnknownS @k (var, v))
@@ -586,17 +586,17 @@ build1VS (var, v00) =
 
 build1VIndexS
   :: forall k p sh s r.
-     ( GoodScalar r, KnownNat k, OS.Shape sh
-     , OS.Shape (OS.Drop p (OS.Take p sh OS.++ OS.Drop p sh)), AstSpan s )
-  => (IntVarName, AstShaped s r sh, AstIndexS (OS.Take p sh))
-  -> AstShaped s r (k ': OS.Drop p sh)
+     ( GoodScalar r, KnownNat k, Sh.Shape sh
+     , Sh.Shape (Sh.Drop p (Sh.Take p sh Sh.++ Sh.Drop p sh)), AstSpan s )
+  => (IntVarName, AstShaped s r sh, AstIndexS (Sh.Take p sh))
+  -> AstShaped s r (k ': Sh.Drop p sh)
 build1VIndexS (var, v0, ZSH) =
   gcastWith (unsafeCoerce Refl :: p :~: 0)
     -- otherwise sh would need to be empty, but then Take gets stuck
     -- so the application of this function wouldn't type-check
   $ build1VOccurenceUnknownS (var, v0)
 build1VIndexS (var, v0, ix@(_ :$: _)) =
-  gcastWith (unsafeCoerce Refl :: sh :~: OS.Take p sh OS.++ OS.Drop p sh) $
+  gcastWith (unsafeCoerce Refl :: sh :~: Sh.Take p sh Sh.++ Sh.Drop p sh) $
   let vTrace = Ast.AstBuild1S (var, Ast.AstIndexS v0 ix)
       traceRule = mkTraceRuleS "build1VIndexS" vTrace v0 1
   in if varNameInAstS var v0
@@ -605,17 +605,17 @@ build1VIndexS (var, v0, ix@(_ :$: _)) =
          build1VOccurenceUnknownS (var, v1)
        v@(Ast.AstIndexS @sh1 v1 ix1) -> traceRule $
          gcastWith (unsafeCoerce Refl
-                    :: k ': sh1 :~: OS.Take (1 + OS.Rank sh1)
-                                            (k ': sh1 OS.++ OS.Drop p sh)) $
+                    :: k ': sh1 :~: Sh.Take (1 + Sh.Rank sh1)
+                                            (k ': sh1 Sh.++ Sh.Drop p sh)) $
          gcastWith (unsafeCoerce Refl
-                    :: OS.Drop p sh
-                       :~: OS.Drop (1 + OS.Rank sh1)
-                                   (k ': sh1 OS.++ OS.Drop p sh)) $
+                    :: Sh.Drop p sh
+                       :~: Sh.Drop (1 + Sh.Rank sh1)
+                                   (k ': sh1 Sh.++ Sh.Drop p sh)) $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
-             ruleD = astGatherStepS @'[k] @(1 + OS.Rank sh1)
+             ruleD = astGatherStepS @'[k] @(1 + Sh.Rank sh1)
                        (build1VS @k (var, v1))
                        (varFresh :$: ZSH, astVarFresh :$: ix2)
-             len = length $ OS.shapeT @sh1
+             len = length $ Sh.shapeT @sh1
          in if varNameInAstS var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromListS{} | len == 1 -> ruleD
@@ -687,7 +687,7 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   return $! to
 
 mkTraceRuleS :: forall sh sh2 s r.
-                (GoodScalar r, OS.Shape sh, OS.Shape sh2, AstSpan s)
+                (GoodScalar r, Sh.Shape sh, Sh.Shape sh2, AstSpan s)
              => String -> AstShaped s r sh -> AstShaped s r sh2 -> Int
              -> AstShaped s r sh -> AstShaped s r sh
 {-# NOINLINE mkTraceRuleS #-}
