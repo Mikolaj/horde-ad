@@ -424,12 +424,33 @@ interpretAst !env = \case
   AstConstant a -> rconstant $ interpretAstPrimal env a
   AstPrimalPart a -> interpretAst env a
     -- This is correct, because @s@ must be @PrimalSpan@ and so @ranked@ must
-    -- be morally a primal part of the same AST interpreted with @FullSpan@
-    -- and so the result is a primal part, despite the appearances.
+    -- be morally the primal part of a dual numbers type that is the codomain
+    -- of the interpretation of the same AST but marked with @FullSpan@.
+    -- Consequently, the result is a primal part, despite the appearances.
     -- This whole notation abuse is for user comfort (less @PrimalOf@
     -- in the tensor classes) and to avoid repeating the @interpretAst@ code
     -- in @interpretAstPrimal@. TODO: make this sane.
+    --
+    -- For example, if I'm interpreting @AstRanked PrimalSpan@ in
+    -- @AstRanked FullSpan@ (basically doing the forward pass
+    -- via interpretation), then @ranked@ is a primal part
+    -- of @ADVal (AstRanked FullSpan)@, even though @ADVal@ never appears
+    -- and @a@ could even be returned as is (but @AstPrimalPart@ never occurs
+    -- in terms created by AD, I think, so no point optimizing). What happens
+    -- is that the term gets flattened and the @FullSpan@ terms inside
+    -- @AstPrimalPart@ get merged with those created from @PrimalSpan@ terms
+    -- via interpretation. Which is as good as any semantics of forward
+    -- pass of a function that has dual numbers somewhere inside it.
+    -- An alternative semantics would remove the dual parts and use
+    -- the primal parts to reconstruct the dual in the simple way.
+    -- Probably doesn't matter, because none of this can be created by AD.
+    -- If we had an @AstRanked@ variant without the dual number constructors,
+    -- instead of the spans, the mixup would vanish.
   AstDualPart a -> interpretAst env a
+    -- This is correct, because @s@ must be @DualSpan@ and so @ranked@ must
+    -- be morally the dual part of a dual numbers type that is the codomain
+    -- of the interpretation of the same AST but marked with @FullSpan@.
+    -- Consequently, the result is a dual part, despite the appearances.
   AstD u u' ->
     let t1 = interpretAstPrimal env u
         t2 = interpretAstDual env u'
