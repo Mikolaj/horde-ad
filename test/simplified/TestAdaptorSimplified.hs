@@ -1956,12 +1956,13 @@ testFooRrev2 = do
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
+  resetVarCounter
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstPretty IM.empty a1
-    @?= "rletDomainsIn (let x13 = sin (rconst 2.2) ; x14 = rconst 1.1 * x13 ; x15 = recip (rconst 3.3 * rconst 3.3 + x14 * x14) ; x16 = sin (rconst 2.2) ; x17 = rconst 1.1 * x16 ; x18 = rreshape [] (rreplicate 1 (rconst 1.0)) ; x19 = rconst 3.3 * x18 ; x20 = negate (rconst 3.3 * x15) * x18 in (x13 * x20 + x16 * x19, cos (rconst 2.2) * (rconst 1.1 * x20) + cos (rconst 2.2) * (rconst 1.1 * x19), (x14 * x15) * x18 + x17 * x18)) (\\[x21, x21, x21] -> x21)"
+    @?= "rletDomainsIn (let x16 = sin (rconst 2.2) ; x17 = rconst 1.1 * x16 ; x18 = recip (rconst 3.3 * rconst 3.3 + x17 * x17) ; x19 = sin (rconst 2.2) ; x20 = rconst 1.1 * x19 ; x21 = rreshape [] (rreplicate 1 (rconst 1.0)) ; x22 = rconst 3.3 * x21 ; x23 = negate (rconst 3.3 * x18) * x21 in (x16 * x23 + x19 * x22, cos (rconst 2.2) * (rconst 1.1 * x23) + cos (rconst 2.2) * (rconst 1.1 * x22), (x17 * x18) * x21 + x20 * x21)) (\\[dret, x2, x3] -> dret)"
 
 testFooRrev4 :: Assertion
 testFooRrev4 = do
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple IM.empty a1
-    @?= "rletDomainsIn (rletInDomains (sin (rconst 2.2)) (\\x34 -> rletInDomains (rconst 1.1 * x34) (\\x35 -> rletInDomains (recip (rconst 3.3 * rconst 3.3 + x35 * x35)) (\\x36 -> rletInDomains (sin (rconst 2.2)) (\\x37 -> rletInDomains (rconst 1.1 * x37) (\\x38 -> rletInDomains (rreshape [] (rreplicate 1 (rconst 1.0))) (\\x39 -> rletInDomains (rconst 3.3 * x39) (\\x40 -> rletInDomains (negate (rconst 3.3 * x36) * x39) (\\x41 -> dmkDomains (fromList [dfromR (x34 * x41 + x37 * x40), dfromR (cos (rconst 2.2) * (rconst 1.1 * x41) + cos (rconst 2.2) * (rconst 1.1 * x40)), dfromR ((x35 * x36) * x39 + x38 * x39)])))))))))) (\\[x21, x21, x21] -> x21)"
+    @?= "rletDomainsIn (rletInDomains (sin (rconst 2.2)) (\\x39 -> rletInDomains (rconst 1.1 * x39) (\\x40 -> rletInDomains (recip (rconst 3.3 * rconst 3.3 + x40 * x40)) (\\x41 -> rletInDomains (sin (rconst 2.2)) (\\x42 -> rletInDomains (rconst 1.1 * x42) (\\x43 -> rletInDomains (rreshape [] (rreplicate 1 (rconst 1.0))) (\\x44 -> rletInDomains (rconst 3.3 * x44) (\\x45 -> rletInDomains (negate (rconst 3.3 * x41) * x44) (\\x46 -> dmkDomains (fromList [dfromR (x39 * x46 + x42 * x45), dfromR (cos (rconst 2.2) * (rconst 1.1 * x46) + cos (rconst 2.2) * (rconst 1.1 * x45)), dfromR ((x40 * x41) * x44 + x43 * x44)])))))))))) (\\[x24, x25, x26] -> x24)"
