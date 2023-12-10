@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 -- | Assorted rather low rank tensor tests.
 module TestAdaptorSimplified
   ( testTrees
@@ -6,6 +6,7 @@ module TestAdaptorSimplified
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
@@ -14,11 +15,14 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.List (foldl1')
 import qualified Data.Strict.IntMap as IM
+import           Data.Type.Equality (testEquality, (:~:) (Refl))
+import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
+import           Type.Reflection (typeRep)
 
 import HordeAd
 import HordeAd.Core.AstEnv
@@ -157,6 +161,10 @@ testTrees =
   , testCase "2blowupPP" fblowupPP
   , testCase "2blowupLetPP" fblowupLetPP
   , blowupTests
+  , testCase "2fooRrev" testFooRrev
+  , testCase "2fooRrev2" testFooRrev2
+  , testCase "2fooRrev3" testFooRrev3
+  , testCase "2fooRrev4" testFooRrev4
   ]
 
 testZero :: Assertion
@@ -1902,3 +1910,58 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
               (\intputs -> rbuild1 100 (\i -> fblowupMultLet i 50 intputs))
               (Flip $ OR.fromList [2] [0.2, 0.3]))
   ]
+
+fooRrev :: forall g a. (ADReady g, GoodScalar a, Differentiable a)
+        => (a, a, a) -> (g a 0, g a 0, g a 0)
+fooRrev (x, y, z) =
+  let fromDynamicExists :: forall f. ADReady f
+                        => DynamicExists (DynamicOf f) -> f a 0
+      fromDynamicExists (DynamicExists @r d)
+        | Just Refl <- testEquality (typeRep @r) (typeRep @a) = rfromD d
+        | otherwise = error "fromDynamicExists: type mismatch"
+      fromDoms :: forall f. ADReady f
+               => Domains (DynamicOf f) -> (f a 0, f a 0, f a 0)
+      fromDoms v = ( fromDynamicExists $ v V.! 0
+                   , fromDynamicExists $ v V.! 1
+                   , fromDynamicExists $ v V.! 2 )
+      fooDomains :: forall f. ADReady f
+                 => Domains (DynamicOf f) -> f a 0
+      fooDomains v = foo (fromDoms v)
+      toDynamicExists :: forall f. ADReady f => a -> DynamicExists (DynamicOf f)
+      toDynamicExists a =
+        DynamicExists $ dfromR $ rconst @f $ OR.scalar a
+      zero :: DynamicExists OD.Array
+      zero = toDynamicExists @(Flip OR.Array) (0 :: a)
+      shapes = V.fromList [zero, zero, zero]
+      domsOf =
+        rrev @g
+             fooDomains
+             shapes
+             (V.fromList $ map (toDynamicExists @g) [x, y, z])
+  in ( rletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 0)
+     , rletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 1)
+     , rletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 2) )
+
+testFooRrev :: Assertion
+testFooRrev = do
+  assertEqualUpToEpsilon 1e-10
+    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+    (fooRrev @(Flip OR.Array) @Double (1.1, 2.2, 3.3))
+
+testFooRrev2 :: Assertion
+testFooRrev2 = do
+  assertEqualUpToEpsilon 1e-10
+    (2.4396284, -1.9533751, 0.96548253)
+    (fooRrev @(Flip OR.Array) @Float (1.1, 2.2, 3.3))
+
+testFooRrev3 :: Assertion
+testFooRrev3 = do
+  let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
+  printAstPretty IM.empty a1
+    @?= "rletDomainsIn (let x13 = sin (rconst 2.2) ; x14 = rconst 1.1 * x13 ; x15 = recip (rconst 3.3 * rconst 3.3 + x14 * x14) ; x16 = sin (rconst 2.2) ; x17 = rconst 1.1 * x16 ; x18 = rreshape [] (rreplicate 1 (rconst 1.0)) ; x19 = rconst 3.3 * x18 ; x20 = negate (rconst 3.3 * x15) * x18 in (x13 * x20 + x16 * x19, cos (rconst 2.2) * (rconst 1.1 * x20) + cos (rconst 2.2) * (rconst 1.1 * x19), (x14 * x15) * x18 + x17 * x18)) (\\[x21, x21, x21] -> x21)"
+
+testFooRrev4 :: Assertion
+testFooRrev4 = do
+  let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
+  printAstSimple IM.empty a1
+    @?= "rletDomainsIn (rletInDomains (sin (rconst 2.2)) (\\x34 -> rletInDomains (rconst 1.1 * x34) (\\x35 -> rletInDomains (recip (rconst 3.3 * rconst 3.3 + x35 * x35)) (\\x36 -> rletInDomains (sin (rconst 2.2)) (\\x37 -> rletInDomains (rconst 1.1 * x37) (\\x38 -> rletInDomains (rreshape [] (rreplicate 1 (rconst 1.0))) (\\x39 -> rletInDomains (rconst 3.3 * x39) (\\x40 -> rletInDomains (negate (rconst 3.3 * x36) * x39) (\\x41 -> dmkDomains (fromList [dfromR (x34 * x41 + x37 * x40), dfromR (cos (rconst 2.2) * (rconst 1.1 * x41) + cos (rconst 2.2) * (rconst 1.1 * x40)), dfromR ((x35 * x36) * x39 + x38 * x39)])))))))))) (\\[x21, x21, x21] -> x21)"
