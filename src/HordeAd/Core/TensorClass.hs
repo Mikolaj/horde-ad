@@ -587,7 +587,8 @@ class ( DynamicOf ranked ~ DynamicOf shaped
          => ranked r (Sh.Rank sh) -> shaped r sh
   sfromD :: (GoodScalar r, Sh.Shape sh)
          => DynamicOf shaped r -> shaped r sh
-  ddummy :: Numeric r => DynamicOf ranked r
+  ddummy :: GoodScalar r => DynamicOf ranked r
+  dIsDummy :: DynamicOf ranked r -> Bool
   dshape :: GoodScalar r => DynamicOf ranked r -> [Int]
 
 class DomainsTensor (ranked :: RankedTensorKind)
@@ -745,7 +746,7 @@ instance RankedTensor (Flip OR.Array) where
               => Flip OR.Array r n -> DynamicExists OD.Array
               -> DynamicExists OD.Array
   raddDynamic r (DynamicExists @r2 d) = DynamicExists $
-    if isTensorDummyD d then dfromR r
+    if dIsDummy @(Flip OR.Array) d then dfromR r
     else case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> dfromR @(Flip OR.Array) @(Flip OS.Array) @r r + d
       _ -> error "raddDynamic: type mismatch"
@@ -862,7 +863,7 @@ instance ShapedTensor (Flip OS.Array) where
               => Flip OS.Array r sh -> DynamicExists OD.Array
               -> DynamicExists OD.Array
   saddDynamic r (DynamicExists @r2 d) = DynamicExists $
-    if isTensorDummyD d then dfromS r
+    if dIsDummy @(Flip OR.Array) d then dfromS r
     else case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> dfromS @(Flip OR.Array) @(Flip OS.Array) @r r + d
       _ -> error "saddDynamic: type mismatch"
@@ -932,4 +933,5 @@ instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   sfromR = Flip . Data.Array.Convert.convert . runFlip
   sfromD = Flip . Data.Array.Convert.convert
   ddummy = dummyTensorD
+  dIsDummy = isTensorDummyD
   dshape = OD.shapeL

@@ -165,6 +165,7 @@ testTrees =
   , testCase "2fooRrev2" testFooRrev2
   , testCase "2fooRrev3" testFooRrev3
   , testCase "2fooRrev4" testFooRrev4
+  , testCase "2fooRrev5" testFooRrev5
   ]
 
 testZero :: Assertion
@@ -1966,3 +1967,13 @@ testFooRrev4 = do
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple IM.empty a1
     @?= "rletDomainsIn (rletInDomains (sin (rconst 2.2)) (\\x39 -> rletInDomains (rconst 1.1 * x39) (\\x40 -> rletInDomains (recip (rconst 3.3 * rconst 3.3 + x40 * x40)) (\\x41 -> rletInDomains (sin (rconst 2.2)) (\\x42 -> rletInDomains (rconst 1.1 * x42) (\\x43 -> rletInDomains (rreshape [] (rreplicate 1 (rconst 1.0))) (\\x44 -> rletInDomains (rconst 3.3 * x44) (\\x45 -> rletInDomains (negate (rconst 3.3 * x41) * x44) (\\x46 -> dmkDomains (fromList [dfromR (x39 * x46 + x42 * x45), dfromR (cos (rconst 2.2) * (rconst 1.1 * x46) + cos (rconst 2.2) * (rconst 1.1 * x45)), dfromR ((x40 * x41) * x44 + x43 * x44)])))))))))) (\\[x24, x25, x26] -> x24)"
+
+testFooRrev5 :: Assertion
+testFooRrev5 = do
+  let f (D _ a _) =
+        let (a1, _, _) = fooRrev @(ADVal (Flip OR.Array)) @Double
+                                 (OR.unScalar (runFlip a), 2.2, 3.3)
+        in a1
+  assertEqualUpToEpsilon 1e-10
+    0
+    (crev f 42)

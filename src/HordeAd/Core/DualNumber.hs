@@ -241,6 +241,14 @@ instance (GoodScalar r, Sh.Shape sh, ShapedTensor (ADVal shaped))
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
+instance IsPrimal (Clown (ADValClown dynamic)) r '() where
+  dZeroOfShape  = undefined
+  dScale = undefined
+  dAdd = undefined
+  intOfShape = undefined
+  recordSharingPrimal = undefined
+  recordSharing  = undefined
+
 
 -- * Auxiliary definitions
 

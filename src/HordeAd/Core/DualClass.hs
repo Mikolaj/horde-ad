@@ -29,20 +29,23 @@ module HordeAd.Core.DualClass
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.Kind (Constraint, Type)
-import           GHC.TypeLits (KnownNat)
+import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Delta
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Util.SizedIndex
 
 -- * The class and its instances
 
@@ -127,6 +130,18 @@ instance (GoodScalar r, Sh.Shape sh) => IsPrimal (Flip OS.Array) r sh where
     RToS{} -> d
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
+
+instance GoodScalar r => IsPrimal (Clown OD.Array) r '() where
+  dZeroOfShape (Clown tsh) =
+    let shL = dshape @(Flip OR.Array) tsh
+    in case someNatVal $ toInteger $ length shL of
+      Just (SomeNat @n _) -> RToD @n (ZeroR (listShapeToShape shL))
+      Nothing -> error "dZeroOfShape: impossible someNatVal error"
+  dScale = undefined
+  dAdd = undefined
+  intOfShape = undefined
+  recordSharingPrimal = undefined
+  recordSharing  = undefined
 
 
 -- * Counter handling

@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -23,6 +23,7 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Function ((&))
 import           Data.Functor.Const
+import           Data.Kind (Constraint, Type)
 import           Data.List (foldl')
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
@@ -141,8 +142,15 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          , ranked ~ RankedOf ranked
          , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
          , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
+         , RankedOf shaped ~ ranked
+         , ranked ~ RankedOf shaped
+         , RankedOf @() (Clown  (DynamicOf ranked)) ~ ranked
+         , ranked ~ RankedOf @() (Clown (DynamicOf ranked))
+         , ShapedOf @() (Clown  (DynamicOf ranked)) ~ shaped
+         , shaped ~ ShapedOf @() (Clown  (DynamicOf ranked))
          , CRankedIP ranked IsPrimal
-         , RankedTensor ranked )
+         , CRankedIPU (Clown (DynamicOf ranked)) IsPrimal
+         , RankedTensor ranked, ConvertTensor ranked shaped )
          => RankedTensor (ADVal ranked) where
   rlet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
@@ -218,7 +226,16 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   rconst t = constantADVal (rconst t)
   rletDomainsIn _ = (&)
 
-  raddDynamic = undefined
+  raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
+              => ADVal ranked r n
+              -> DynamicExists (ADValClown (DynamicOf ranked))
+              -> DynamicExists (ADValClown (DynamicOf ranked))
+  raddDynamic r (DynamicExists
+                   @r2 d@(Flip (D _ (Clown dd) _))) = DynamicExists $
+    if dIsDummy @ranked dd then dfromR r
+    else case testEquality (typeRep @r) (typeRep @r2) of
+      Just Refl -> dfromR $ r + rfromD d
+      _ -> error "raddDynamic: type mismatch"
 
   rconstant t = let (l, r) = rletUnwrap t in dDnotShared l r (dZeroOfShape r)
   rprimalPart (D l u _) = rletWrap l u
@@ -278,8 +295,18 @@ instance ( Dual shaped ~ DeltaS ranked shaped
          , DeltaS ranked shaped ~ Dual shaped
          , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
          , PrimalOf ranked ~ RankedOf (PrimalOf shaped)
+         , DynamicOf ranked ~ DynamicOf shaped
+         , DynamicOf shaped ~ DynamicOf ranked
+         , ShapedOf ranked ~ shaped
+         , shaped ~ ShapedOf ranked
+         , RankedOf @() (Clown  (DynamicOf ranked)) ~ ranked
+         , ranked ~ RankedOf @() (Clown (DynamicOf ranked))
+         , ShapedOf @() (Clown  (DynamicOf ranked)) ~ shaped
+         , shaped ~ ShapedOf @() (Clown  (DynamicOf ranked))
          , CRankedIPSh shaped IsPrimal
-         , RankedTensor ranked, ShapedTensor shaped )
+         , CRankedIPU (Clown (DynamicOf ranked)) IsPrimal
+         , RankedTensor ranked, ShapedTensor shaped
+         , ConvertTensor ranked shaped )
          => ShapedTensor (ADVal shaped) where
   slet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
@@ -357,7 +384,16 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   sconst t = constantADVal (sconst t)
   sletDomainsIn _ = (&)
 
-  saddDynamic = undefined
+  saddDynamic :: forall r sh. (GoodScalar r, Sh.Shape sh)
+              => ADVal shaped r sh
+              -> DynamicExists (ADValClown (DynamicOf shaped))
+              -> DynamicExists (ADValClown (DynamicOf shaped))
+  saddDynamic r (DynamicExists
+                   @r2 d@(Flip (D _ (Clown dd) _))) = DynamicExists $
+    if dIsDummy @ranked dd then dfromS r
+    else case testEquality (typeRep @r) (typeRep @r2) of
+      Just Refl -> dfromS $ r + sfromD d
+      _ -> error "saddDynamic: type mismatch"
 
   sconstant t = let (l, r) = sletUnwrap t in dDnotShared l r (dZeroOfShape t)
   sprimalPart (D l u _) = sletWrap l u
@@ -372,11 +408,20 @@ instance ( Dual shaped ~ DeltaS ranked shaped
 
 -- * ConvertTensor and DomainsTensor instances
 
+type CRankedIPU :: TensorKind ()
+                -> (TensorKind () -> Type -> () -> Constraint)
+                -> Constraint
+class (forall r17. GoodScalar r17 => c ranked r17 '())
+      => CRankedIPU ranked c where
+instance (forall r17. GoodScalar r17 => c ranked r17 '())
+         => CRankedIPU ranked c where
+
 instance ( Dual ranked ~ DeltaR ranked shaped
          , Dual shaped ~ DeltaS ranked shaped
          , Dual (Clown (DynamicOf ranked))
            ~ DeltaD (Clown (DynamicOf ranked)) ranked shaped
-         , ConvertTensor ranked shaped )
+         , ConvertTensor ranked shaped
+         , CRankedIPU (Clown (DynamicOf ranked)) IsPrimal )
          => ConvertTensor (ADVal ranked) (ADVal shaped) where
   rfromD = dToR . runFlip
   rfromS = sToR
@@ -415,8 +460,9 @@ instance ( Dual ranked ~ DeltaR ranked shaped
           Just Refl -> d
           _ -> error "rToS: different shapes in RToS(SToR)"
       dRToS d = RToS d
-  ddummy = undefined
-  dshape = undefined
+  ddummy = Flip (constantADVal (Clown (ddummy @ranked)))
+  dIsDummy (Flip (D _ (Clown d) _)) = dIsDummy @ranked d
+  dshape (Flip (D _ u _)) = dshape @ranked (runClown u)
 
 instance ( ADReadySmall (ADVal ranked) (ADVal shaped)
          , Dual (Clown (DynamicOf (ADVal ranked)))

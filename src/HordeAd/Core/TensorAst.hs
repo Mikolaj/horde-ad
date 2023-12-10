@@ -18,6 +18,7 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
+import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
@@ -88,6 +89,14 @@ instance (GoodScalar r, Sh.Shape sh)
     RToS{} -> d
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
+
+instance IsPrimal (Clown (AstDynamic s)) r '() where
+  dZeroOfShape  = undefined
+  dScale = undefined
+  dAdd = undefined
+  intOfShape = undefined
+  recordSharingPrimal = undefined
+  recordSharing  = undefined
 
 
 -- * Reverse and forward derivative stages instances
@@ -650,6 +659,10 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   sfromR = astRToS
   sfromD = astFromDynamicS
   ddummy = AstRToD $ fromPrimal AstIota
+  dIsDummy (AstRToD AstIota) = True
+  dIsDummy (AstRToD (AstConstant AstIota)) = True
+  dIsDummy (AstRToD (AstDualPart (AstConstant AstIota))) = True
+  dIsDummy _ = False
   dshape (AstRToD v) = shapeToList $ shapeAst v
   dshape (AstSToD @sh _) = Sh.shapeT @sh
 
