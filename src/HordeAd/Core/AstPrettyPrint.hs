@@ -373,7 +373,8 @@ printAstDomains cfg d = \case
   AstDomains l ->
     if prettifyLosingSharing cfg
     then printDomainsAst cfg l
-    else showString "dmkDomains " . printDomainsAst cfg l
+    else showParen (d > 10)
+         $ showString "dmkDomains " . printDomainsAst cfg l
   t@(AstLetInDomains var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstDomains s -> ([(ShowS, ShowS)], ShowS)

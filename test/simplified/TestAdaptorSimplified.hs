@@ -163,9 +163,13 @@ testTrees =
   , blowupTests
   , testCase "2fooRrev" testFooRrev
   , testCase "2fooRrev2" testFooRrev2
+  , testCase "2fooRrevPP1" testFooRrevPP1
+  , testCase "2fooRrevPP2" testFooRrevPP2
   , testCase "2fooRrev3" testFooRrev3
-  , testCase "2fooRrev4" testFooRrev4
-  , testCase "2fooRrev5" testFooRrev5
+  , testCase "2Sin0Rrev" testSin0Rrev
+  , testCase "2Sin0RrevPP1" testSin0RrevPP1
+  , testCase "2Sin0RrevPP2" testSin0RrevPP2
+  , testCase "2Sin0Rrev2" testSin0Rrev2
   ]
 
 testZero :: Assertion
@@ -1955,25 +1959,78 @@ testFooRrev2 = do
     (2.4396284, -1.9533751, 0.96548253)
     (fooRrev @(Flip OR.Array) @Float (1.1, 2.2, 3.3))
 
-testFooRrev3 :: Assertion
-testFooRrev3 = do
+testFooRrevPP1 :: Assertion
+testFooRrevPP1 = do
   resetVarCounter
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstPretty IM.empty a1
     @?= "rletDomainsIn (let x16 = sin (rconst 2.2) ; x17 = rconst 1.1 * x16 ; x18 = recip (rconst 3.3 * rconst 3.3 + x17 * x17) ; x19 = sin (rconst 2.2) ; x20 = rconst 1.1 * x19 ; x21 = rreshape [] (rreplicate 1 (rconst 1.0)) ; x22 = rconst 3.3 * x21 ; x23 = negate (rconst 3.3 * x18) * x21 in (x16 * x23 + x19 * x22, cos (rconst 2.2) * (rconst 1.1 * x23) + cos (rconst 2.2) * (rconst 1.1 * x22), (x17 * x18) * x21 + x20 * x21)) (\\[dret, x2, x3] -> dret)"
 
-testFooRrev4 :: Assertion
-testFooRrev4 = do
+testFooRrevPP2 :: Assertion
+testFooRrevPP2 = do
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple IM.empty a1
     @?= "rletDomainsIn (rletInDomains (sin (rconst 2.2)) (\\x39 -> rletInDomains (rconst 1.1 * x39) (\\x40 -> rletInDomains (recip (rconst 3.3 * rconst 3.3 + x40 * x40)) (\\x41 -> rletInDomains (sin (rconst 2.2)) (\\x42 -> rletInDomains (rconst 1.1 * x42) (\\x43 -> rletInDomains (rreshape [] (rreplicate 1 (rconst 1.0))) (\\x44 -> rletInDomains (rconst 3.3 * x44) (\\x45 -> rletInDomains (negate (rconst 3.3 * x41) * x44) (\\x46 -> dmkDomains (fromList [dfromR (x39 * x46 + x42 * x45), dfromR (cos (rconst 2.2) * (rconst 1.1 * x46) + cos (rconst 2.2) * (rconst 1.1 * x45)), dfromR ((x40 * x41) * x44 + x43 * x44)])))))))))) (\\[x24, x25, x26] -> x24)"
 
-testFooRrev5 :: Assertion
-testFooRrev5 = do
+testFooRrev3 :: Assertion
+testFooRrev3 = do
   let f (D _ a _) =
         let (a1, _, _) = fooRrev @(ADVal (Flip OR.Array)) @Double
                                  (OR.unScalar (runFlip a), 2.2, 3.3)
         in a1
   assertEqualUpToEpsilon 1e-10
     0
-    (crev f 42)
+    (crev f 1.1)
+
+sin0Rrev :: forall g a. (ADReady g, GoodScalar a, Differentiable a)
+         => g a 0 -> g a 0
+sin0Rrev u =
+  let fromDynamicExists :: forall f. ADReady f
+                        => DynamicExists (DynamicOf f) -> f a 0
+      fromDynamicExists (DynamicExists @r d)
+        | Just Refl <- testEquality (typeRep @r) (typeRep @a) = rfromD d
+        | otherwise = error "fromDynamicExists: type mismatch"
+      fromDoms :: forall f. ADReady f
+               => Domains (DynamicOf f) -> f a 0
+      fromDoms v = fromDynamicExists $ v V.! 0
+      fooDomains :: forall f. ADReady f
+                 => Domains (DynamicOf f) -> f a 0
+      fooDomains v = sin (fromDoms v)
+      toDynamicExists :: forall f. ADReady f
+                      => f a 0 -> DynamicExists (DynamicOf f)
+      toDynamicExists a = DynamicExists $ dfromR a
+      zero :: DynamicExists OD.Array
+      zero = toDynamicExists @(Flip OR.Array) (0 :: Flip OR.Array a 0)
+      shapes = V.fromList [zero]
+      domsOf =
+        rrev @g
+             fooDomains
+             shapes
+             (V.fromList $ map (toDynamicExists @g) [u])
+  in rletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 0)
+
+testSin0Rrev :: Assertion
+testSin0Rrev = do
+  assertEqualUpToEpsilon 1e-10
+    0.4535961214255773
+    (sin0Rrev @(Flip OR.Array) @Double 1.1)
+
+testSin0RrevPP1 :: Assertion
+testSin0RrevPP1 = do
+  resetVarCounter
+  let a1 = sin0Rrev @(AstRanked FullSpan) @Double 1.1
+  printAstPretty IM.empty a1
+    @?= "rletDomainsIn (cos (rconst 1.1) * rreshape [] (rreplicate 1 (rconst 1.0))) (\\[dret] -> dret)"
+
+testSin0RrevPP2 :: Assertion
+testSin0RrevPP2 = do
+  let a1 = sin0Rrev @(AstRanked FullSpan) @Double 1.1
+  printAstSimple IM.empty a1
+    @?= "rletDomainsIn (dmkDomains (fromList [dfromR (cos (rconst 1.1) * rreshape [] (rreplicate 1 (rconst 1.0)))])) (\\[dret] -> dret)"
+
+testSin0Rrev2 :: Assertion
+testSin0Rrev2 = do
+  let f a = sin0Rrev @(ADVal (Flip OR.Array)) @Double a
+  assertEqualUpToEpsilon 1e-10
+    (-0.8912073600614354)
+    (crev f 1.1)
