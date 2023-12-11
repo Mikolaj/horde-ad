@@ -650,6 +650,7 @@ type ADReadySmall ranked shaped =
   , ConvertTensor (PrimalOf ranked) (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
+  , CDynamic (DynamicOf ranked) Show
   , DomainsOf ranked ~ DomainsOf shaped
   , DomainsOf shaped ~ DomainsOf ranked
   )
@@ -658,6 +659,12 @@ type ADReadyBoth ranked shaped =
   ( ADReadySmall ranked shaped
   , DomainsTensor ranked shaped
   , DomainsTensor (PrimalOf ranked) (PrimalOf shaped) )
+
+type CDynamic :: (Type -> Type) -> (Type -> Constraint) -> Constraint
+class (forall r20. GoodScalar r20 => c (dynamic r20))
+      => CDynamic dynamic c where
+instance (forall r20. GoodScalar r20 => c (dynamic r20))
+      => CDynamic dynamic c where
 
 
 -- * Instances for concrete arrays

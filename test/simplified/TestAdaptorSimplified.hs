@@ -34,7 +34,7 @@ import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees =
-  [ testCase "2zero" testZero
+  [ testCase "2zeroZ" testZeroZ
   , testCase "2zeroS" testZeroS
   , testCase "2CFwdZeroS" testCFwdZeroS
   , testCase "2FwdZeroS" testFwdZeroS
@@ -179,11 +179,13 @@ testTrees =
   , testCase "2Sin0Rrev5'" testSin0Rrev5'
   ]
 
-testZero :: Assertion
-testZero =
+testZeroZ :: Assertion
+testZeroZ =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Double @0 [] [0])
-    (rev' @Double @0 (const 3) 42)
+    (rev' @Double @0 (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+                          f = const 3
+                      in f) 42)
 
 testZeroS :: Assertion
 testZeroS =

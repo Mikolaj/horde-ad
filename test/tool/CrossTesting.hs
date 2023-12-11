@@ -46,7 +46,7 @@ rev' :: forall r m n v a.
         , v ~ Flip OR.Array r m, a ~ Flip OR.Array r n )
      => (forall f. ADReady f => f r n -> f r m)
      -> a
-     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a
+     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a
         , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
@@ -60,6 +60,7 @@ rev' f vals =
       g inputs = f $ parseDomains vals inputs
       (advalGrad, value1) = crevOnDomains dt g parameters
       gradient1 = parseDomains vals advalGrad
+      gradientRrev1 = rrev1 @(Flip OR.Array) @r @n @m f vals
       g9 :: Domains (ADValClown (AstDynamic PrimalSpan))
          -> ADVal (AstRanked PrimalSpan) r m
       g9 inputs = f $ parseDomains vals inputs
@@ -185,7 +186,8 @@ rev' f vals =
       derivative = fwd @r @m @(AstRanked FullSpan) f vals vals
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
-     , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp
+     , gradient1, gradientRrev1, gradient2, gradient3
+     , gradient2UnSimp, gradient3UnSimp
      , gradient4, gradient5
      , astVectSimp, astSimp
      , value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
@@ -205,7 +207,7 @@ assertEqualUpToEpsilon'
        , KnownNat n, KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
-    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a
+    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
@@ -216,7 +218,8 @@ assertEqualUpToEpsilon'
     errMargin expected'
     ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
     , value4, value5
-    , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp
+    , gradient1, gradientRrev1, gradient2, gradient3
+    , gradient2UnSimp, gradient3UnSimp
     , gradient4, gradient5
     , astVectSimp, astSimp
     , value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
@@ -237,6 +240,8 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Val NotVect" errMargin value0 value4
   assertEqualUpToEpsilonWithMark "Val Simplified" errMargin value0 value5
   assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
+  assertEqualUpToEpsilonWithMark "Grad ADVal rrev"
+                                 errMargin expected gradientRrev1
   assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
   assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
   assertEqualUpToEpsilonWithMark "Grad V UnS" errMargin expected gradient2UnSimp
@@ -305,7 +310,7 @@ assertEqualUpToEpsilonShort
        , KnownNat n, KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
-    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a
+    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
@@ -316,7 +321,8 @@ assertEqualUpToEpsilonShort
     errMargin expected'
     ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
     , _value4, value5
-    , gradient1, gradient2, gradient3, gradient2UnSimp, gradient3UnSimp
+    , gradient1, gradientRrev1, gradient2, gradient3
+    , gradient2UnSimp, gradient3UnSimp
     , _gradient4, gradient5
     , astVectSimp, astSimp
     , _value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
@@ -336,6 +342,8 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Val V+S UnS" errMargin value0 value3UnSimp
   assertEqualUpToEpsilonWithMark "Val Simplified" errMargin value0 value5
   assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
+  assertEqualUpToEpsilonWithMark "Grad ADVal rrev"
+                                 errMargin expected gradientRrev1
   assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
   assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
   assertEqualUpToEpsilonWithMark "Grad V UnS" errMargin expected gradient2UnSimp
@@ -398,16 +406,20 @@ t128b = Flip $ OR.reshape [4, 2, 4, 4] $ runFlip t128
 t128c :: (Numeric r, Fractional r) => Flip OR.Array r 4
 t128c = Flip $ OR.reshape [2, 2, 8, 4] $ runFlip t128
 
-rrev1 :: forall g r n m. (ADReady g, GoodScalar r, KnownNat n, KnownNat m)
-      => (forall f. ADReady f => f r n -> f r m) -> g r n -> g r n
+rrev1 :: forall g r n m r3.
+         (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
+      => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n
 rrev1 f u =
-  let fromDynamicExists :: forall f k. (ADReady f, KnownNat k)
-                        => DynamicExists (DynamicOf f) -> f r k
+  let fromDynamicExists :: forall f. ADReady f
+                        => DynamicExists (DynamicOf f) -> f r n
       fromDynamicExists (DynamicExists @r2 d)
+        | dIsDummy @f d = rzero (rshape u)
         | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = rfromD d
-        | otherwise = error "fromDynamicExists: type mismatch"
+        | otherwise =
+            error $ "fromDynamicExists type mismatch: "
+                     ++ show (typeRep @r2) ++ " /= " ++ show (typeRep @r)
       fDomains :: forall f. ADReady f
-               => Domains (DynamicOf f) -> f r m
+               => Domains (DynamicOf f) -> f r3 m
       fDomains v = f (fromDynamicExists $ v V.! 0)
       toDynamicExists :: forall f. ADReady f
                       => f r n -> DynamicExists (DynamicOf f)
