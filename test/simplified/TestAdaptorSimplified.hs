@@ -1989,55 +1989,28 @@ testFooRrev3 = do
     0
     (crev f 1.1)
 
-rrev00 :: forall g a. (ADReady g, GoodScalar a)
-       => (forall f. ADReady f => f a 0 -> f a 0) -> g a 0 -> g a 0
-rrev00 f u =
-  let fromDynamicExists :: forall f. ADReady f
-                        => DynamicExists (DynamicOf f) -> f a 0
-      fromDynamicExists (DynamicExists @r d)
-        | Just Refl <- testEquality (typeRep @r) (typeRep @a) = rfromD d
-        | otherwise = error "fromDynamicExists: type mismatch"
-      fromDoms :: forall f. ADReady f
-               => Domains (DynamicOf f) -> f a 0
-      fromDoms v = fromDynamicExists $ v V.! 0
-      fDomains :: forall f. ADReady f
-               => Domains (DynamicOf f) -> f a 0
-      fDomains v = f (fromDoms v)
-      toDynamicExists :: forall f. ADReady f
-                      => f a 0 -> DynamicExists (DynamicOf f)
-      toDynamicExists a = DynamicExists $ dfromR a
-      zero :: DynamicExists OD.Array
-      zero = toDynamicExists @(Flip OR.Array) (0 :: Flip OR.Array a 0)
-      shapes = V.fromList [zero]
-      domsOf =
-        rrev @g
-             fDomains
-             shapes
-             (V.fromList $ map (toDynamicExists @g) [u])
-  in rletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 0)
-
 testSin0Rrev :: Assertion
 testSin0Rrev = do
   assertEqualUpToEpsilon 1e-10
     0.4535961214255773
-    (rrev00 @(Flip OR.Array) @Double sin 1.1)
+    (rrev1 @(Flip OR.Array) @Double @0 @0 sin 1.1)
 
 testSin0RrevPP1 :: Assertion
 testSin0RrevPP1 = do
   resetVarCounter
-  let a1 = rrev00 @(AstRanked FullSpan) @Double sin 1.1
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 sin 1.1
   printAstPretty IM.empty a1
     @?= "rletDomainsIn (cos (rconst 1.1) * rreshape [] (rreplicate 1 (rconst 1.0))) (\\[dret] -> dret)"
 
 testSin0RrevPP2 :: Assertion
 testSin0RrevPP2 = do
-  let a1 = rrev00 @(AstRanked FullSpan) @Double sin 1.1
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 sin 1.1
   printAstSimple IM.empty a1
     @?= "rletDomainsIn (dmkDomains (fromList [dfromR (cos (rconst 1.1) * rreshape [] (rreplicate 1 (rconst 1.0)))])) (\\[dret] -> dret)"
 
 testSin0Rrev3 :: Assertion
 testSin0Rrev3 = do
-  let f = rrev00 @(ADVal (Flip OR.Array)) @Double sin
+  let f = rrev1 @(ADVal (Flip OR.Array)) @Double @0 @0 sin
   assertEqualUpToEpsilon 1e-10
     (-0.8912073600614354)
     (crev f 1.1)
@@ -2046,11 +2019,11 @@ testSin0Rrev4 :: Assertion
 testSin0Rrev4 = do
   assertEqualUpToEpsilon 1e-10
     0.8988770945225438
-    ((rrev00 sin . rrev00 @(Flip OR.Array) @Double sin) 1.1)
+    ((rrev1 sin . rrev1 @(Flip OR.Array) @Double @0 @0 sin) 1.1)
 
 testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
-  let a1 = (rrev00 sin . rrev00 @(AstRanked FullSpan) @Double sin) 1.1
+  let a1 = (rrev1 sin . rrev1 @(AstRanked FullSpan) @Double @0 @0 sin) 1.1
   printAstPretty IM.empty  (simplifyAst6 a1)
     @?= "rletDomainsIn (cos (rletDomainsIn (cos (rconst 1.1) * rconst 1.0) (\\[dret] -> dret)) * rconst 1.0) (\\[x4] -> x4)"
 
@@ -2058,11 +2031,11 @@ testSin0Rrev5 :: Assertion
 testSin0Rrev5 = do
   assertEqualUpToEpsilon 1e-10
     (-0.8912073600614354)
-    (rrev00 @(Flip OR.Array) @Double (rrev00 sin) 1.1)
+    (rrev1 @(Flip OR.Array) @Double @0 @0 (rrev1 sin) 1.1)
 
 testSin0RrevPP5 :: Assertion
 testSin0RrevPP5 = do
-  let a1 = rrev00 @(AstRanked FullSpan) @Double (rrev00 sin) 1.1
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @0 (rrev1 sin) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
     @?= "rletDomainsIn (negate (sin (rconst 1.1)) * (rconst 1.0 * rconst 1.0)) (\\[x7] -> x7)"
 
@@ -2070,16 +2043,16 @@ testSin0Rrev3' :: Assertion
 testSin0Rrev3' = do
   assertEqualUpToEpsilon' 1e-10
     (-0.8912073600614354 :: OR.Array 0 Double)
-    (rev' (rrev00 sin) 1.1)
+    (rev' (rrev1 sin) 1.1)
 
 testSin0Rrev4' :: Assertion
 testSin0Rrev4' = do
   assertEqualUpToEpsilon' 1e-10
     (0.39052780643689855 :: OR.Array 0 Double)
-    (rev' (rrev00 sin . rrev00 sin) 1.1)
+    (rev' (rrev1 sin . rrev1 sin) 1.1)
 
 testSin0Rrev5' :: Assertion
 testSin0Rrev5' = do
   assertEqualUpToEpsilon' 1e-10
     (-0.4535961214255773 :: OR.Array 0 Double)
-    (rev' (rrev00 (rrev00 sin)) 1.1)
+    (rev' (rrev1 (rrev1 sin)) 1.1)

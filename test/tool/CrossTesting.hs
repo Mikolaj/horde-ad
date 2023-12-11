@@ -4,6 +4,7 @@ module CrossTesting
   ( assertEqualUpToEpsilon1
   , rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , t16, t16b, t48, t128, t128b, t128c
+  , rrev1
   ) where
 
 import Prelude
@@ -12,9 +13,12 @@ import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
+import           Data.Type.Equality (testEquality, (:~:) (Refl))
+import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty.HUnit hiding (assert)
+import           Type.Reflection (typeRep)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -393,3 +397,23 @@ t128b = Flip $ OR.reshape [4, 2, 4, 4] $ runFlip t128
 
 t128c :: (Numeric r, Fractional r) => Flip OR.Array r 4
 t128c = Flip $ OR.reshape [2, 2, 8, 4] $ runFlip t128
+
+rrev1 :: forall g r n m. (ADReady g, GoodScalar r, KnownNat n, KnownNat m)
+      => (forall f. ADReady f => f r n -> f r m) -> g r n -> g r n
+rrev1 f u =
+  let fromDynamicExists :: forall f k. (ADReady f, KnownNat k)
+                        => DynamicExists (DynamicOf f) -> f r k
+      fromDynamicExists (DynamicExists @r2 d)
+        | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = rfromD d
+        | otherwise = error "fromDynamicExists: type mismatch"
+      fDomains :: forall f. ADReady f
+               => Domains (DynamicOf f) -> f r m
+      fDomains v = f (fromDynamicExists $ v V.! 0)
+      toDynamicExists :: forall f. ADReady f
+                      => f r n -> DynamicExists (DynamicOf f)
+      toDynamicExists a = DynamicExists $ dfromR a
+      zero :: DynamicExists OD.Array
+      zero = toDynamicExists @(Flip OR.Array) (0 :: Flip OR.Array r n)
+      shapes = V.fromList [zero]
+      domsOf = rrev @g fDomains shapes (V.singleton $ toDynamicExists @g u)
+  in rletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 0)
