@@ -447,6 +447,7 @@ astLetDomainsInFun
   :: forall m s r. AstSpan s
   => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstRanked s r m)
   -> AstRanked s r m
+{-# NOINLINE astLetDomainsInFun #-}
 astLetDomainsInFun a0 a f = unsafePerformIO $ do
   let genVar :: DynamicExists OD.Array
                 -> IO ( AstDynamicVarName (AstShaped s)
@@ -599,6 +600,7 @@ astLetDomainsInFunS
   :: forall sh s r. AstSpan s
   => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstShaped s r sh)
   -> AstShaped s r sh
+{-# NOINLINE astLetDomainsInFunS #-}
 astLetDomainsInFunS a0 a f = unsafePerformIO $ do
   let genVar :: DynamicExists OD.Array
                 -> IO ( AstDynamicVarName (AstShaped s)
