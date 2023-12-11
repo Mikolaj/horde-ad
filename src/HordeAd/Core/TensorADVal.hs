@@ -47,16 +47,20 @@ import           HordeAd.Util.SizedIndex
 
 -- * Ranked tensor instances
 
-instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
+instance ( KnownNat n, GoodScalar r
+         , dynamic ~ DynamicOf ranked, RankedOf shaped ~ ranked
          , Dual ranked ~ DeltaR ranked shaped
          , Dual (Clown dynamic) ~ DeltaD (Clown dynamic) ranked shaped
-         , ConvertTensor ranked shaped )
+         , RankedTensor (ADVal ranked), ConvertTensor ranked shaped
+         , CRankedIPU (Clown dynamic) IsPrimal )
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal ranked r n) where
+{- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance
       KnownNat y
       => AdaptableDomains (ADValClown OD.Array)
                           (ADVal (Flip OR.Array) Double y) #-}
+-}
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
       KnownNat y
@@ -65,12 +69,15 @@ instance ( KnownNat n, GoodScalar r, dynamic ~ DynamicOf ranked
 -}
   type Value (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
   toDomains = undefined
-  fromDomains _aInit inputs = case V.uncons inputs of
+  fromDomains aInit inputs = case V.uncons inputs of
     Just (DynamicExists @r2 a, rest) ->
-      case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> let !aR = dToR @r (runFlip a)
-                     in Just (aR, rest)
-        _ -> error "fromDomains: type mismatch"
+      if dIsDummy @(ADVal ranked) a
+      then Just (rzero (rshape aInit), rest)
+      else
+        case testEquality (typeRep @r) (typeRep @r2) of
+          Just Refl -> let !aR = dToR @r (runFlip a)
+                       in Just (aR, rest)
+          _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
 
 -- This is temporarily moved from Adaptor in order to specialize manually
@@ -86,10 +93,12 @@ instance AdaptableDomains dynamic a
                          (AstRanked s Double n) )
       => AdaptableDomains (AstDynamic s)
                           [AstRanked s Double n] #-}
+{- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance
       KnownNat n
       => AdaptableDomains (ADValClown OD.Array)
                           [ADVal (Flip OR.Array) Double n] #-}
+-}
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
       KnownNat n
@@ -250,20 +259,23 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 
 -- * Shaped tensor instances
 
-instance ( Sh.Shape sh, GoodScalar r, dynamic ~ DynamicOf shaped
+instance ( Sh.Shape sh, GoodScalar r
+         , dynamic ~ DynamicOf shaped, ShapedOf ranked ~ shaped
          , Dual shaped ~ DeltaS ranked shaped
          , Dual (Clown dynamic) ~ DeltaD (Clown dynamic) ranked shaped
-         , ConvertTensor ranked shaped )
+         , ShapedTensor (ADVal shaped), ConvertTensor ranked shaped
+         , CRankedIPU (Clown dynamic) IsPrimal )
          => AdaptableDomains (ADValClown dynamic)
                              (ADVal shaped r sh) where
   type Value (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
   toDomains = undefined
   fromDomains _aInit inputs = case V.uncons inputs of
     Just (DynamicExists @r2 a, rest) ->
-      case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> let !aS = dToS @r (runFlip a)
-                     in Just (aS, rest)
-        _ -> error "fromDomains: type mismatch"
+      if dIsDummy @(ADVal ranked) a then Just (0, rest) else
+        case testEquality (typeRep @r) (typeRep @r2) of
+          Just Refl -> let !aS = dToS @r (runFlip a)
+                       in Just (aS, rest)
+          _ -> error "fromDomains: type mismatch"
     Nothing -> Nothing
 
 dToS :: forall r ranked shaped sh.

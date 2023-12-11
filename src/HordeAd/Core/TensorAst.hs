@@ -397,13 +397,12 @@ instance AstSpan s
               -> DynamicExists (AstDynamic s)
   raddDynamic r (DynamicExists @r2 d) = DynamicExists @r $
     case d of
-      AstRToD AstIota -> AstRToD r
+      _ | isTensorDummyAst d -> AstRToD r
       AstRToD @n2 v ->
         case ( sameNat (Proxy @n) (Proxy @n2)
              , testEquality (typeRep @r) (typeRep @r2) ) of
           (Just Refl, Just Refl) -> AstRToD @n2 @r (r + v)
           _ -> error "raddDynamic: type mismatch"
-      AstSToD AstIotaS -> AstRToD r
       AstSToD @sh2 v ->
         case ( matchingRank @sh2 @n
              , testEquality (typeRep @r) (typeRep @r2) ) of
@@ -439,7 +438,11 @@ instance ( GoodScalar r, KnownNat n
 isTensorDummyAst :: AstDynamic s r -> Bool
 isTensorDummyAst t = case t of
   AstRToD AstIota -> True
+  AstRToD (AstConstant AstIota) -> True
+  AstRToD (AstDualPart (AstConstant AstIota)) -> True
   AstSToD AstIotaS -> True
+  AstSToD (AstConstantS AstIotaS) -> True
+  AstSToD (AstDualPartS (AstConstantS AstIotaS)) -> True
   _ -> False
 
 -- TODO: move the impure part to AstFreshId
@@ -666,10 +669,7 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
   sfromR = astRToS
   sfromD = astFromDynamicS
   ddummy = AstRToD $ fromPrimal AstIota
-  dIsDummy (AstRToD AstIota) = True
-  dIsDummy (AstRToD (AstConstant AstIota)) = True
-  dIsDummy (AstRToD (AstDualPart (AstConstant AstIota))) = True
-  dIsDummy _ = False
+  dIsDummy = isTensorDummyAst
   dshape (AstRToD v) = shapeToList $ shapeAst v
   dshape (AstSToD @sh _) = Sh.shapeT @sh
 
