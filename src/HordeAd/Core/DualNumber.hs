@@ -1,4 +1,5 @@
-{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Dual numbers and arithmetic operations on them. This is a part of
@@ -241,13 +242,21 @@ instance (GoodScalar r, Sh.Shape sh, ShapedTensor (ADVal shaped))
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
-instance IsPrimal (Clown (ADValClown dynamic)) r '() where
-  dZeroOfShape  = undefined
+instance ( GoodScalar r
+         , dynamic ~ DynamicOf (ShapedOf @() (Clown dynamic))
+         , ConvertTensor (RankedOf @() (Clown dynamic))
+                         (ShapedOf @() (Clown dynamic)) )
+         => IsPrimal (Clown (Flip (ADVal (Clown dynamic)) '())) r '() where
+  dZeroOfShape (Clown (Flip (D _ (Clown tsh) _))) =
+    let shL = dshape @(RankedOf @() (Clown dynamic)) tsh
+    in case someNatVal $ toInteger $ length shL of
+      Just (SomeNat @n _) -> RToD @n (ZeroR (listShapeToShape shL))
+      Nothing -> error "dZeroOfShape: impossible someNatVal error"
   dScale = undefined
   dAdd = undefined
   intOfShape = undefined
   recordSharingPrimal = undefined
-  recordSharing  = undefined
+  recordSharing = undefined
 
 
 -- * Auxiliary definitions

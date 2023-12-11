@@ -26,7 +26,8 @@ import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
+import           GHC.TypeLits
+  (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (typeRep)
 
@@ -90,13 +91,17 @@ instance (GoodScalar r, Sh.Shape sh)
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
 
-instance IsPrimal (Clown (AstDynamic s)) r '() where
-  dZeroOfShape  = undefined
+instance GoodScalar r => IsPrimal (Clown (AstDynamic PrimalSpan)) r '() where
+  dZeroOfShape (Clown tsh) =
+    let shL = dshape @(AstRanked PrimalSpan) tsh
+    in case someNatVal $ toInteger $ length shL of
+      Just (SomeNat @n _) -> RToD @n (ZeroR (listShapeToShape shL))
+      Nothing -> error "dZeroOfShape: impossible someNatVal error"
   dScale = undefined
   dAdd = undefined
   intOfShape = undefined
   recordSharingPrimal = undefined
-  recordSharing  = undefined
+  recordSharing = undefined
 
 
 -- * Reverse and forward derivative stages instances
@@ -846,16 +851,28 @@ instance AstSpan s
   rD u u' = AstNoVectorize $ astSpanD u u'
   rScale s t = astDualPart $ AstConstant s * AstD (rzero (rshape s)) t
 
-instance AstSpan s
-         => ShapedTensor (AstNoVectorizeS s) where
+instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
 
-instance ConvertTensor (AstNoVectorize 'PrimalSpan)
-                       (AstNoVectorizeS 'PrimalSpan) where
+instance AstSpan s => ConvertTensor (AstNoVectorize s) (AstNoVectorizeS s) where
+  rfromD = AstNoVectorize . rfromD @(AstRanked s)
+  rfromS = AstNoVectorize . rfromS @(AstRanked s) . unAstNoVectorizeS
+  dfromR = dfromR @(AstRanked s) . unAstNoVectorize
+  dfromS = dfromS @(AstRanked s) . unAstNoVectorizeS
+  sfromR = AstNoVectorizeS . sfromR @(AstRanked s) . unAstNoVectorize
+  sfromD = AstNoVectorizeS . sfromD @(AstRanked s)
+  ddummy = ddummy @(AstRanked s)
+  dIsDummy = dIsDummy @(AstRanked s)
+  dshape = dshape @(AstRanked s)
 
-instance DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
+instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
+  dmkDomains = dmkDomains @(AstRanked s)
+  rletInDomains u f =
+    rletInDomains @(AstRanked s) (unAstNoVectorize u) (f . AstNoVectorize)
+  sletInDomains u f =
+    sletInDomains @(AstRanked s) (unAstNoVectorizeS u) (f . AstNoVectorizeS)
+  rrev = rrev @(AstRanked s)
 
-instance AstSpan s
-         => RankedTensor (AstNoSimplify s) where
+instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rlet a f =
     AstNoSimplify
     $ astLetFunUnSimp (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)
@@ -910,10 +927,23 @@ astLetFunUnSimp a f =
       (var, ast) = funToAstR sh f
   in AstLet var a ast
 
-instance AstSpan s
-         => ShapedTensor (AstNoSimplifyS s) where
+instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
 
-instance ConvertTensor (AstNoSimplify 'PrimalSpan)
-                       (AstNoSimplifyS 'PrimalSpan) where
+instance AstSpan s => ConvertTensor (AstNoSimplify s) (AstNoSimplifyS s) where
+  rfromD = AstNoSimplify . rfromD @(AstRanked s)
+  rfromS = AstNoSimplify . rfromS @(AstRanked s) . unAstNoSimplifyS
+  dfromR = dfromR @(AstRanked s) . unAstNoSimplify
+  dfromS = dfromS @(AstRanked s) . unAstNoSimplifyS
+  sfromR = AstNoSimplifyS . sfromR @(AstRanked s) . unAstNoSimplify
+  sfromD = AstNoSimplifyS . sfromD @(AstRanked s)
+  ddummy = ddummy @(AstRanked s)
+  dIsDummy = dIsDummy @(AstRanked s)
+  dshape = dshape @(AstRanked s)
 
-instance DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
+instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
+  dmkDomains = dmkDomains @(AstRanked s)
+  rletInDomains u f =
+    rletInDomains @(AstRanked s) (unAstNoSimplify u) (f . AstNoSimplify)
+  sletInDomains u f =
+    sletInDomains @(AstRanked s) (unAstNoSimplifyS u) (f . AstNoSimplifyS)
+  rrev = rrev @(AstRanked s)

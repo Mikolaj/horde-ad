@@ -169,11 +169,14 @@ testTrees =
   , testCase "2Sin0Rrev" testSin0Rrev
   , testCase "2Sin0RrevPP1" testSin0RrevPP1
   , testCase "2Sin0RrevPP2" testSin0RrevPP2
-  , testCase "2Sin0Rrev2" testSin0Rrev2
   , testCase "2Sin0Rrev3" testSin0Rrev3
-  , testCase "2Sin0RrevPP3" testSin0RrevPP3
   , testCase "2Sin0Rrev4" testSin0Rrev4
   , testCase "2Sin0RrevPP4" testSin0RrevPP4
+  , testCase "2Sin0Rrev5" testSin0Rrev5
+  , testCase "2Sin0RrevPP5" testSin0RrevPP5
+  , testCase "2Sin0Rrev3'" testSin0Rrev3'
+  , testCase "2Sin0Rrev4'" testSin0Rrev4'
+  , testCase "2Sin0Rrev5'" testSin0Rrev5'
   ]
 
 testZero :: Assertion
@@ -1986,9 +1989,9 @@ testFooRrev3 = do
     0
     (crev f 1.1)
 
-sin0Rrev :: forall g a. (ADReady g, GoodScalar a)
-         => (forall f. ADReady f => f a 0 -> f a 0) -> g a 0 -> g a 0
-sin0Rrev f u =
+rrev00 :: forall g a. (ADReady g, GoodScalar a)
+       => (forall f. ADReady f => f a 0 -> f a 0) -> g a 0 -> g a 0
+rrev00 f u =
   let fromDynamicExists :: forall f. ADReady f
                         => DynamicExists (DynamicOf f) -> f a 0
       fromDynamicExists (DynamicExists @r d)
@@ -1997,9 +2000,9 @@ sin0Rrev f u =
       fromDoms :: forall f. ADReady f
                => Domains (DynamicOf f) -> f a 0
       fromDoms v = fromDynamicExists $ v V.! 0
-      fooDomains :: forall f. ADReady f
-                 => Domains (DynamicOf f) -> f a 0
-      fooDomains v = f (fromDoms v)
+      fDomains :: forall f. ADReady f
+               => Domains (DynamicOf f) -> f a 0
+      fDomains v = f (fromDoms v)
       toDynamicExists :: forall f. ADReady f
                       => f a 0 -> DynamicExists (DynamicOf f)
       toDynamicExists a = DynamicExists $ dfromR a
@@ -2008,7 +2011,7 @@ sin0Rrev f u =
       shapes = V.fromList [zero]
       domsOf =
         rrev @g
-             fooDomains
+             fDomains
              shapes
              (V.fromList $ map (toDynamicExists @g) [u])
   in rletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 0)
@@ -2017,48 +2020,66 @@ testSin0Rrev :: Assertion
 testSin0Rrev = do
   assertEqualUpToEpsilon 1e-10
     0.4535961214255773
-    (sin0Rrev @(Flip OR.Array) @Double sin 1.1)
+    (rrev00 @(Flip OR.Array) @Double sin 1.1)
 
 testSin0RrevPP1 :: Assertion
 testSin0RrevPP1 = do
   resetVarCounter
-  let a1 = sin0Rrev @(AstRanked FullSpan) @Double sin 1.1
+  let a1 = rrev00 @(AstRanked FullSpan) @Double sin 1.1
   printAstPretty IM.empty a1
     @?= "rletDomainsIn (cos (rconst 1.1) * rreshape [] (rreplicate 1 (rconst 1.0))) (\\[dret] -> dret)"
 
 testSin0RrevPP2 :: Assertion
 testSin0RrevPP2 = do
-  let a1 = sin0Rrev @(AstRanked FullSpan) @Double sin 1.1
+  let a1 = rrev00 @(AstRanked FullSpan) @Double sin 1.1
   printAstSimple IM.empty a1
     @?= "rletDomainsIn (dmkDomains (fromList [dfromR (cos (rconst 1.1) * rreshape [] (rreplicate 1 (rconst 1.0)))])) (\\[dret] -> dret)"
 
-testSin0Rrev2 :: Assertion
-testSin0Rrev2 = do
-  let f = sin0Rrev @(ADVal (Flip OR.Array)) @Double sin
+testSin0Rrev3 :: Assertion
+testSin0Rrev3 = do
+  let f = rrev00 @(ADVal (Flip OR.Array)) @Double sin
   assertEqualUpToEpsilon 1e-10
     (-0.8912073600614354)
     (crev f 1.1)
 
-testSin0Rrev3 :: Assertion
-testSin0Rrev3 = do
-  assertEqualUpToEpsilon 1e-10
-    0.8988770945225438
-    ((sin0Rrev sin . sin0Rrev @(Flip OR.Array) @Double sin) 1.1)
-
-testSin0RrevPP3 :: Assertion
-testSin0RrevPP3 = do
-  let a1 = (sin0Rrev sin . sin0Rrev @(AstRanked FullSpan) @Double sin) 1.1
-  printAstPretty IM.empty  (simplifyAst6 a1)
-    @?= "rletDomainsIn (cos (rletDomainsIn (cos (rconst 1.1) * rconst 1.0) (\\[dret] -> dret)) * rconst 1.0) (\\[x4] -> x4)"
-
 testSin0Rrev4 :: Assertion
 testSin0Rrev4 = do
   assertEqualUpToEpsilon 1e-10
-    (-0.8912073600614354)
-    (sin0Rrev @(Flip OR.Array) @Double (sin0Rrev sin) 1.1)
+    0.8988770945225438
+    ((rrev00 sin . rrev00 @(Flip OR.Array) @Double sin) 1.1)
 
 testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
-  let a1 = sin0Rrev @(AstRanked FullSpan) @Double (sin0Rrev sin) 1.1
+  let a1 = (rrev00 sin . rrev00 @(AstRanked FullSpan) @Double sin) 1.1
+  printAstPretty IM.empty  (simplifyAst6 a1)
+    @?= "rletDomainsIn (cos (rletDomainsIn (cos (rconst 1.1) * rconst 1.0) (\\[dret] -> dret)) * rconst 1.0) (\\[x4] -> x4)"
+
+testSin0Rrev5 :: Assertion
+testSin0Rrev5 = do
+  assertEqualUpToEpsilon 1e-10
+    (-0.8912073600614354)
+    (rrev00 @(Flip OR.Array) @Double (rrev00 sin) 1.1)
+
+testSin0RrevPP5 :: Assertion
+testSin0RrevPP5 = do
+  let a1 = rrev00 @(AstRanked FullSpan) @Double (rrev00 sin) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
     @?= "rletDomainsIn (negate (sin (rconst 1.1)) * (rconst 1.0 * rconst 1.0)) (\\[x7] -> x7)"
+
+testSin0Rrev3' :: Assertion
+testSin0Rrev3' = do
+  assertEqualUpToEpsilon' 1e-10
+    (-0.8912073600614354 :: OR.Array 0 Double)
+    (rev' (rrev00 sin) 1.1)
+
+testSin0Rrev4' :: Assertion
+testSin0Rrev4' = do
+  assertEqualUpToEpsilon' 1e-10
+    (0.39052780643689855 :: OR.Array 0 Double)
+    (rev' (rrev00 sin . rrev00 sin) 1.1)
+
+testSin0Rrev5' :: Assertion
+testSin0Rrev5' = do
+  assertEqualUpToEpsilon' 1e-10
+    (-0.4535961214255773 :: OR.Array 0 Double)
+    (rev' (rrev00 (rrev00 sin)) 1.1)
