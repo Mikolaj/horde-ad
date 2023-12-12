@@ -177,6 +177,18 @@ testTrees =
   , testCase "2Sin0Rrev3'" testSin0Rrev3'
   , testCase "2Sin0Rrev4'" testSin0Rrev4'
   , testCase "2Sin0Rrev5'" testSin0Rrev5'
+  , testCase "2Sin0Rfwd" testSin0Rfwd
+  , testCase "2Sin0RfwdPP1" testSin0RfwdPP1
+  , testCase "2Sin0Rfwd3" testSin0Rfwd3
+  , testCase "2Sin0Rfwd4" testSin0Rfwd4
+  , testCase "2Sin0RfwdPP4" testSin0RfwdPP4
+  , testCase "2Sin0Rfwd5" testSin0Rfwd5
+  , testCase "2Sin0RfwdPP5" testSin0RfwdPP5
+  , testCase "2Sin0Rfwd3'" testSin0Rfwd3'
+  , testCase "2Sin0Rfwd4'" testSin0Rfwd4'
+  , testCase "2Sin0Rfwd5'" testSin0Rfwd5'
+  , testCase "2Sin0Rrev5S" testSin0Rrev5S
+  , testCase "2Sin0RrevPP5S" testSin0RrevPP5S
   ]
 
 testZeroZ :: Assertion
@@ -2058,3 +2070,77 @@ testSin0Rrev5' = do
   assertEqualUpToEpsilon' 1e-10
     (-0.4535961214255773 :: OR.Array 0 Double)
     (rev' (rrev1 (rrev1 sin)) 1.1)
+
+testSin0Rfwd :: Assertion
+testSin0Rfwd = do
+  assertEqualUpToEpsilon 1e-10
+    0.4989557335681351
+    (rfwd1 @(Flip OR.Array) @Double @0 @0 sin 1.1)
+
+testSin0RfwdPP1 :: Assertion
+testSin0RfwdPP1 = do
+  resetVarCounter
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin 1.1
+  printAstPretty IM.empty a1
+    @?= "rconst 1.1 * cos (rconst 1.1)"
+
+testSin0Rfwd3 :: Assertion
+testSin0Rfwd3 = do
+  let f = rfwd1 @(ADVal (Flip OR.Array)) @Double @0 @0 sin
+  assertEqualUpToEpsilon 1e-10
+    (-0.5794051721062019)
+    (cfwd f 1.1 1.1)
+
+testSin0Rfwd4 :: Assertion
+testSin0Rfwd4 = do
+  assertEqualUpToEpsilon 1e-10
+    0.43812441332801516
+    ((rfwd1 sin . rfwd1 @(Flip OR.Array) @Double @0 @0 sin) 1.1)
+
+testSin0RfwdPP4 :: Assertion
+testSin0RfwdPP4 = do
+  let a1 = (rfwd1 sin . rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin) 1.1
+  printAstPretty IM.empty  (simplifyAst6 a1)
+    @?= "(rconst 1.1 * cos (rconst 1.1)) * cos (rconst 1.1 * cos (rconst 1.1))"
+
+testSin0Rfwd5 :: Assertion
+testSin0Rfwd5 = do
+  assertEqualUpToEpsilon 1e-10
+    (-0.5794051721062019)
+    (rfwd1 @(Flip OR.Array) @Double @0 @0 (rfwd1 sin) 1.1)
+
+testSin0RfwdPP5 :: Assertion
+testSin0RfwdPP5 = do
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 (rfwd1 sin) 1.1
+  printAstPretty IM.empty (simplifyAst6 a1)
+    @?= "rconst 1.1 * cos (rconst 1.1) + (rconst 1.1 * negate (sin (rconst 1.1))) * rconst 1.1"
+
+testSin0Rfwd3' :: Assertion
+testSin0Rfwd3' = do
+  assertEqualUpToEpsilon' 1e-10
+    (-0.5267319746420018 :: OR.Array 0 Double)
+    (rev' (rfwd1 sin) 1.1)
+
+testSin0Rfwd4' :: Assertion
+testSin0Rfwd4' = do
+  assertEqualUpToEpsilon' 1e-10
+    (-0.336754499012933 :: OR.Array 0 Double)
+    (rev' (rfwd1 sin . rfwd1 sin) 1.1)
+
+testSin0Rfwd5' :: Assertion
+testSin0Rfwd5' = do
+  assertEqualUpToEpsilon' 1e-10
+    (-3.036239473702109 :: OR.Array 0 Double)
+    (rev' (rfwd1 (rfwd1 sin)) 1.1)
+
+testSin0Rrev5S :: Assertion
+testSin0Rrev5S = do
+  assertEqualUpToEpsilon 1e-10
+    (-0.8912073600614354)
+    (srev1 @(Flip OS.Array) @Double @'[] @'[] (srev1 sin) 1.1)
+
+testSin0RrevPP5S :: Assertion
+testSin0RrevPP5S = do
+  let a1 = srev1 @(AstShaped FullSpan) @Double @'[] @'[] (srev1 sin) 1.1
+  printAstPrettyS IM.empty (simplifyAst6S a1)
+    @?= "sletDomainsIn (negate (sin (sconst 1.1)) * sconst 1.0) (\\[x645] -> x645)"

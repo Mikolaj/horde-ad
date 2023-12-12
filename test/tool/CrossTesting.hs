@@ -4,13 +4,15 @@ module CrossTesting
   ( assertEqualUpToEpsilon1
   , rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , t16, t16b, t48, t128, t128b, t128c
-  , rrev1
+  , rrev1, rfwd1, srev1
   ) where
 
 import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Shape as Sh
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
@@ -465,3 +467,52 @@ rrev1 f u =
       shapes = V.fromList [zero]
       domsOf = rrev @g fDomains shapes (V.singleton $ toDynamicExists @g u)
   in rletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 0)
+
+rfwd1 :: forall g r n m r3.
+         (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
+      => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r3 m
+rfwd1 f u =
+  let fromDynamicExists :: forall f. ADReady f
+                        => DynamicExists (DynamicOf f) -> f r n
+      fromDynamicExists (DynamicExists @r2 d)
+        | dIsDummy @f d = rzero (rshape u)
+        | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = rfromD d
+        | otherwise =
+            error $ "fromDynamicExists type mismatch: "
+                     ++ show (typeRep @r2) ++ " /= " ++ show (typeRep @r)
+      fDomains :: forall f. ADReady f
+               => Domains (DynamicOf f) -> f r3 m
+      fDomains v = f (fromDynamicExists $ v V.! 0)
+      toDynamicExists :: forall f. ADReady f
+                      => f r n -> DynamicExists (DynamicOf f)
+      toDynamicExists a = DynamicExists $ dfromR a
+      zero :: DynamicExists OD.Array
+      zero = toDynamicExists @(Flip OR.Array) (0 :: Flip OR.Array r n)
+      shapes = V.fromList [zero]
+  in rfwd @g fDomains shapes (V.singleton $ toDynamicExists @g u)
+                             (V.singleton $ toDynamicExists @g u)  -- simple
+
+srev1 :: forall g r sh sh2 r3.
+         (ADReadyS g, GoodScalar r, GoodScalar r3, Sh.Shape sh, Sh.Shape sh2)
+      => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh -> g r sh
+srev1 f u =
+  let fromDynamicExists :: forall f. ADReadyS f
+                        => DynamicExists (DynamicOf f) -> f r sh
+      fromDynamicExists (DynamicExists @r2 d)
+        | dIsDummy @(RankedOf f) d = 0
+        | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = sfromD d
+        | otherwise =
+            error $ "fromDynamicExists type mismatch: "
+                     ++ show (typeRep @r2) ++ " /= " ++ show (typeRep @r)
+      fDomains :: forall f. ADReadyS f
+               => Domains (DynamicOf f) -> f r3 sh2
+      fDomains v = f (fromDynamicExists $ v V.! 0)
+      toDynamicExists :: forall f. ADReadyS f
+                      => f r sh -> DynamicExists (DynamicOf f)
+      toDynamicExists a = DynamicExists $ dfromS a
+      zero :: DynamicExists OD.Array
+      zero = toDynamicExists @(Flip OS.Array) (0 :: Flip OS.Array r sh)
+      shapes = V.fromList [zero]
+      domsOf = srev @(RankedOf g)
+                    fDomains shapes (V.singleton $ toDynamicExists @g u)
+  in sletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 0)
