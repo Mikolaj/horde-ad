@@ -224,6 +224,7 @@ simplifyStepNonIndex t = case t of
   Ast.AstDualPart v -> astDualPart v
   Ast.AstD{} -> t
   Ast.AstLetDomainsIn{} -> t
+  Ast.AstFwd{} -> t
 
 simplifyStepNonIndexS
   :: ()
@@ -415,6 +416,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     shareIx ix $ \ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstLetDomainsIn vars l v ->
     Ast.AstLetDomainsIn vars l (astIndexRec v ix)
+  Ast.AstFwd{} -> Ast.AstIndex v0 ix
 
 -- TODO: compared to tletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
@@ -737,6 +739,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                   (astGatherRec sh4 u' (varsFresh, ix5))
     Ast.AstLetDomainsIn vars l v ->
       Ast.AstLetDomainsIn vars l (astGatherCase sh4 v (vars4, ix4))
+    Ast.AstFwd{} -> Ast.AstGather sh4 v4 (vars4, ix4)
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) -> Bool
@@ -1510,6 +1513,7 @@ astPrimalPart t = case t of
   Ast.AstD u _ -> u
   Ast.AstLetDomainsIn vars l v -> Ast.AstLetDomainsIn vars l (astPrimalPart v)
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
+  Ast.AstFwd{} -> Ast.AstPrimalPart t  -- the other only normal form
 
 astPrimalPartS :: (GoodScalar r, Sh.Shape sh)
                => AstShaped FullSpan r sh -> AstShaped PrimalSpan r sh
@@ -1541,8 +1545,10 @@ astPrimalPartS t = case t of
   Ast.AstRToS v -> astRToS $ astPrimalPart v
   Ast.AstConstantS v -> v
   Ast.AstDS u _ -> u
-  Ast.AstLetDomainsInS vars l v -> Ast.AstLetDomainsInS vars l (astPrimalPartS v)
+  Ast.AstLetDomainsInS vars l v ->
+    Ast.AstLetDomainsInS vars l (astPrimalPartS v)
   Ast.AstCondS b a2 a3 -> astCondS b (astPrimalPartS a2) (astPrimalPartS a3)
+  Ast.AstFwdS{} -> Ast.AstPrimalPartS t  -- the other only normal form
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
@@ -1576,6 +1582,7 @@ astDualPart t = case t of
   Ast.AstD _ u' -> u'
   Ast.AstLetDomainsIn vars l v -> Ast.AstLetDomainsIn vars l (astDualPart v)
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
+  Ast.AstFwd{} -> Ast.AstDualPart t
 
 astDualPartS :: (GoodScalar r, Sh.Shape sh)
              => AstShaped FullSpan r sh -> AstShaped DualSpan r sh
@@ -1607,6 +1614,7 @@ astDualPartS t = case t of
   Ast.AstDS _ u' -> u'
   Ast.AstLetDomainsInS vars l v -> Ast.AstLetDomainsInS vars l (astDualPartS v)
   Ast.AstCondS b a2 a3 -> astCondS b (astDualPartS a2) (astDualPartS a3)
+  Ast.AstFwdS{} -> Ast.AstDualPartS t
 
 astLetInDomains :: forall n s s2 r.
                    (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
@@ -1727,6 +1735,9 @@ simplifyAst t = case t of
   Ast.AstD u u' -> Ast.AstD (simplifyAst u) (simplifyAst u')
   Ast.AstLetDomainsIn vars l v ->
     Ast.AstLetDomainsIn vars (simplifyAstDomains l) (simplifyAst v)
+  Ast.AstFwd (var, v) l ds -> Ast.AstFwd (var, simplifyAst v)
+                                         (V.map simplifyAstDynamic l)
+                                         (V.map simplifyAstDynamic ds)
 
 simplifyAstDynamic
   :: AstSpan s
@@ -1744,8 +1755,16 @@ simplifyAstDomains = \case
     astLetInDomains var (simplifyAst u) (simplifyAstDomains v)
   Ast.AstLetInDomainsS var u v ->
     astLetInDomainsS var (simplifyAstS u) (simplifyAstDomains v)
-  Ast.AstRev (vars, v) l ->
-    Ast.AstRev (vars, simplifyAst v) (V.map simplifyAstDynamic l)
+  Ast.AstRev (vars, v) l -> Ast.AstRev (vars, simplifyAst v)
+                                       (V.map simplifyAstDynamic l)
+  Ast.AstRevDt (vars, v) l dt -> Ast.AstRevDt (vars, simplifyAst v)
+                                              (V.map simplifyAstDynamic l)
+                                              (simplifyAst dt)
+  Ast.AstRevS (vars, v) l -> Ast.AstRevS (vars, simplifyAstS v)
+                                         (V.map simplifyAstDynamic l)
+  Ast.AstRevDtS (vars, v) l dt -> Ast.AstRevDtS (vars, simplifyAstS v)
+                                                (V.map simplifyAstDynamic l)
+                                               (simplifyAstS dt)
 
 simplifyAstBool :: AstBool -> AstBool
 simplifyAstBool t = case t of
@@ -2053,6 +2072,9 @@ simplifyAstS t = case t of
   Ast.AstDS u u' -> Ast.AstDS (simplifyAstS u) (simplifyAstS u')
   Ast.AstLetDomainsInS vars l v ->
     Ast.AstLetDomainsInS vars (simplifyAstDomains l) (simplifyAstS v)
+  Ast.AstFwdS (var, v) l ds -> Ast.AstFwdS (var, simplifyAstS v)
+                                           (V.map simplifyAstDynamic l)
+                                           (V.map simplifyAstDynamic ds)
 
 
 -- * Substitution payload and adaptors for AstVarName
@@ -2248,6 +2270,21 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
         Just $ Ast.AstLetDomainsIn vars (fromMaybe l ml) (fromMaybe v mv)
+  Ast.AstFwd (vars, v) args ds ->
+    -- No other free variables in v and var is not among vars.
+    let margs = V.map (\(DynamicExists d) ->
+                         DynamicExists <$> substitute1AstDynamic i var d) args
+        marg = if V.any isJust margs
+               then Just $ V.zipWith fromMaybe args margs
+               else Nothing
+        mds = V.map (\(DynamicExists d) ->
+                         DynamicExists <$> substitute1AstDynamic i var d) ds
+        md = if V.any isJust mds
+             then Just $ V.zipWith fromMaybe ds mds
+             else Nothing
+    in case (marg, md) of
+      (Nothing, Nothing) -> Nothing
+      _ -> Just $ Ast.AstFwd (vars, v) (fromMaybe args marg) (fromMaybe ds md)
 
 substitute1AstIndex
   :: (GoodScalar r2, AstSpan s2)
@@ -2294,6 +2331,37 @@ substitute1AstDomains i var = \case
       in if V.any isJust margs
          then Just $ V.zipWith fromMaybe args margs
          else Nothing
+  Ast.AstRevDt (vars, v) args dt ->
+    -- No other free variables in v and var is not among vars.
+    let margs = V.map (\(DynamicExists d) ->
+                         DynamicExists <$> substitute1AstDynamic i var d) args
+        marg = if V.any isJust margs
+               then Just $ V.zipWith fromMaybe args margs
+               else Nothing
+        md = substitute1Ast i var dt
+    in case (marg, md) of
+      (Nothing, Nothing) -> Nothing
+      _ -> Just $ Ast.AstRevDt (vars, v) (fromMaybe args marg) (fromMaybe dt md)
+  Ast.AstRevS (vars, v) args ->
+    -- No other free variables in v and var is not among vars.
+    Ast.AstRevS (vars, v) <$>
+      let margs = V.map (\(DynamicExists d) ->
+                           DynamicExists <$> substitute1AstDynamic i var d) args
+      in if V.any isJust margs
+         then Just $ V.zipWith fromMaybe args margs
+         else Nothing
+  Ast.AstRevDtS (vars, v) args dt ->
+    -- No other free variables in v and var is not among vars.
+    let margs = V.map (\(DynamicExists d) ->
+                         DynamicExists <$> substitute1AstDynamic i var d) args
+        marg = if V.any isJust margs
+               then Just $ V.zipWith fromMaybe args margs
+               else Nothing
+        md = substitute1AstS i var dt
+    in case (marg, md) of
+      (Nothing, Nothing) -> Nothing
+      _ ->
+        Just $ Ast.AstRevDtS (vars, v) (fromMaybe args marg) (fromMaybe dt md)
 
 substitute1AstBool :: (GoodScalar r2, AstSpan s2)
                    => SubstitutionPayload s2 r2 -> AstVarId -> AstBool
@@ -2435,6 +2503,22 @@ substitute1AstS i var = \case
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
         Just $ Ast.AstLetDomainsInS vars (fromMaybe l ml) (fromMaybe v mv)
+  Ast.AstFwdS (vars, v) args ds ->
+    -- No other free variables in v and var is not among vars.
+    let margs = V.map (\(DynamicExists d) ->
+                         DynamicExists <$> substitute1AstDynamic i var d) args
+        marg = if V.any isJust margs
+               then Just $ V.zipWith fromMaybe args margs
+               else Nothing
+        mds = V.map (\(DynamicExists d) ->
+                         DynamicExists <$> substitute1AstDynamic i var d) ds
+        md = if V.any isJust mds
+             then Just $ V.zipWith fromMaybe ds mds
+             else Nothing
+    in case (marg, md) of
+      (Nothing, Nothing) -> Nothing
+      _ ->
+        Just $ Ast.AstFwdS (vars, v) (fromMaybe args marg) (fromMaybe ds md)
 
 substitute1AstIndexS
   :: (GoodScalar r2, AstSpan s2)

@@ -4,12 +4,13 @@
 module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
     AstEnv, AstEnvElem(..)
-  , extendEnvS, extendEnvR, extendEnvDR, extendEnvDS, extendEnvPars
+  , extendEnvS, extendEnvR, extendEnvDR, extendEnvDS
+  , extendEnvPars, extendEnvParsS
     -- * The operations for interpreting binding (visible lambdas)
   , interpretLambdaI, interpretLambdaIS
   , interpretLambdaIndex, interpretLambdaIndexS
   , interpretLambdaIndexToIndex, interpretLambdaIndexToIndexS
-  , interpretLambdaDomains
+  , interpretLambdaDomains, interpretLambdaDomainsS
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
   , interpretAstI2, interpretAstB2, interpretAstRelOp
@@ -131,6 +132,15 @@ extendEnvPars vars !pars !env =
   let assocs = zip vars (V.toList pars)
   in foldr extendEnvDR env assocs
 
+extendEnvParsS :: forall ranked shaped s. ConvertTensor ranked shaped
+               => [AstDynamicVarName (AstShaped s)]
+               -> Domains (DynamicOf ranked)
+               -> AstEnv ranked shaped
+               -> AstEnv ranked shaped
+extendEnvParsS vars !pars !env =
+  let assocs = zip vars (V.toList pars)
+  in foldr extendEnvDS env assocs
+
 
 -- * The operations for interpreting binding (visible lambdas)
 
@@ -216,6 +226,18 @@ interpretLambdaDomains
 {-# INLINE interpretLambdaDomains #-}
 interpretLambdaDomains f !env (!vars, !ast) =
   \pars -> f (extendEnvPars vars pars env) ast
+
+interpretLambdaDomainsS
+  :: forall s ranked shaped r sh. ConvertTensor ranked shaped
+  => (AstEnv ranked shaped -> AstShaped s r sh -> shaped r sh)
+  -> AstEnv ranked shaped
+  -> ([AstDynamicVarName (AstShaped s)], AstShaped s r sh)
+  -> Domains (DynamicOf ranked)
+  -> shaped r sh
+{-# INLINE interpretLambdaDomainsS #-}
+interpretLambdaDomainsS f !env (!vars, !ast) =
+  \pars -> f (extendEnvParsS vars pars env) ast
+
 
 -- * Interpretation of arithmetic, boolean and relation operations
 

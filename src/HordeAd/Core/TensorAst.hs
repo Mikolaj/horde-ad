@@ -693,6 +693,57 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         -- reinterpretes @PrimalSpan@ terms in @s@ terms;
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
         -- are the same variables, but it's a very special case
+  rrevDt :: (GoodScalar r, KnownNat n)
+         => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+         -> DomainsOD
+         -> Domains (AstDynamic s)
+         -> AstRanked s r n
+         -> AstDomains s
+  rrevDt f parameters0 =
+    let (((varDt, vars), gradient, _primal, _sh), _delta) =
+          revProduceArtifact True (f @(AstRanked FullSpan))
+                             EM.empty parameters0
+    in \parameters dt ->
+      let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
+          envDt = extendEnvR varDt dt env
+      in interpretAstDomains envDt gradient
+  rfwd :: (GoodScalar r, KnownNat n)
+       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+       -> DomainsOD
+       -> Domains (AstDynamic s)
+       -> Domains (AstDynamic s)
+       -> AstRanked s r n
+  rfwd f parameters0 =
+    let (((varsDt, vars), gradient, _primal), _delta) =
+          fwdProduceArtifact (f @(AstRanked FullSpan))
+                             EM.empty parameters0
+    in \parameters ds ->
+      let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
+          envDt = extendEnvPars @(AstRanked s) varsDt ds env
+      in interpretAst envDt gradient
+  srev f parameters0 =
+    let (((_varDt, vars), gradient, _primal, _sh), _delta) =
+          revProduceArtifact False (f @(AstShaped FullSpan))
+                             EM.empty parameters0
+    in \parameters ->
+      let env = extendEnvParsS @(AstRanked s) vars parameters EM.empty
+      in interpretAstDomains env gradient
+  srevDt f parameters0 =
+    let (((varDt, vars), gradient, _primal, _sh), _delta) =
+          revProduceArtifact True (f @(AstShaped FullSpan))
+                             EM.empty parameters0
+    in \parameters dt ->
+      let env = extendEnvParsS @(AstRanked s) vars parameters EM.empty
+          envDt = extendEnvS varDt dt env
+      in interpretAstDomains envDt gradient
+  sfwd f parameters0 =
+    let (((varsDt, vars), gradient, _primal), _delta) =
+          fwdProduceArtifact (f @(AstShaped FullSpan))
+                             EM.empty parameters0
+    in \parameters ds ->
+      let env = extendEnvParsS @(AstRanked s) vars parameters EM.empty
+          envDt = extendEnvParsS @(AstRanked s) varsDt ds env
+      in interpretAstS envDt gradient
 
 astLetInDomainsFun :: (KnownNat n, GoodScalar r, AstSpan s)
                    => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
@@ -871,6 +922,15 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   sletInDomains u f =
     sletInDomains @(AstRanked s) (unAstNoVectorizeS u) (f . AstNoVectorizeS)
   rrev f parameters0 domains = AstRev (funToAstDomains f parameters0) domains
+  rrevDt f parameters0 domains dt =
+    AstRevDt (funToAstDomains f parameters0) domains (unAstNoVectorize dt)
+  rfwd f parameters0 domains ds =
+    AstNoVectorize $ AstFwd (funToAstDomains f parameters0) domains ds
+  srev f parameters0 domains = AstRevS (funToAstDomainsS f parameters0) domains
+  srevDt f parameters0 domains dt =
+    AstRevDtS (funToAstDomainsS f parameters0) domains (unAstNoVectorizeS dt)
+  sfwd f parameters0 domains ds =
+    AstNoVectorizeS $ AstFwdS (funToAstDomainsS f parameters0) domains ds
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rlet a f =
@@ -947,3 +1007,12 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   sletInDomains u f =
     sletInDomains @(AstRanked s) (unAstNoSimplifyS u) (f . AstNoSimplifyS)
   rrev = rrev @(AstRanked s)
+  rrevDt f parameters0 domains dt =
+    rrevDt @(AstRanked s) f parameters0 domains (unAstNoSimplify dt)
+  rfwd f parameters0 domains ds =
+    AstNoSimplify $ rfwd @(AstRanked s) f parameters0 domains ds
+  srev = srev @(AstRanked s)
+  srevDt f parameters0 domains dt =
+    srevDt @(AstRanked s) f parameters0 domains (unAstNoSimplifyS dt)
+  sfwd f parameters0 domains ds =
+    AstNoSimplifyS $ sfwd @(AstRanked s) f parameters0 domains ds

@@ -96,6 +96,7 @@ areAllArgsInts = \case
   AstDualPart{} -> False
   AstD{} -> False  -- dual number
   AstLetDomainsIn{} -> True  -- too early to tell
+  AstFwd{} -> False
 
 
 -- * Pretty-print variables
@@ -328,6 +329,19 @@ printAstAux cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
       -- TODO: this does not roundtrip yet
+  AstFwd (vars, v) parameters ds ->
+    showParen (d > 10)
+    $ showString "rfwd "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) vars
+           . showString " -> "
+           . printAst cfg 0 v)
+      . showString " "
+      . printDomainsAst cfg parameters
+      . showString " "
+      . printDomainsAst cfg ds
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
@@ -438,6 +452,43 @@ printAstDomains cfg d = \case
            . printAst cfg 0 v)
       . showString " "
       . printDomainsAst cfg parameters
+  AstRevDt (vars, v) parameters dt ->
+    showParen (d > 10)
+    $ showString "rrevDt "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) vars
+           . showString " -> "
+           . printAst cfg 0 v)
+      . showString " "
+      . printDomainsAst cfg parameters
+      . showString " "
+      . printAst cfg 11 dt
+  AstRevS (vars, v) parameters ->
+    showParen (d > 10)
+    $ showString "srev "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) vars
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . printDomainsAst cfg parameters
+  AstRevDtS (vars, v) parameters dt ->
+    showParen (d > 10)
+    $ showString "srevDt "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) vars
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . printDomainsAst cfg parameters
+      . showString " "
+      . printAstS cfg 11 dt
 
 printAstBool :: PrintConfig -> Int -> AstBool -> ShowS
 printAstBool cfg d = \case
@@ -687,6 +738,19 @@ printAstS cfg d = \case
            . showString " -> "
            . printAstS cfg 0 v)
       -- TODO: this does not roundtrip yet
+  AstFwdS (vars, v) parameters ds ->
+    showParen (d > 10)
+    $ showString "sfwd "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) vars
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . printDomainsAst cfg parameters
+      . showString " "
+      . printDomainsAst cfg ds
 
 
 -- * User-friendly API for pretty-printing AST terms

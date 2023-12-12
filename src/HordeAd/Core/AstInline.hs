@@ -204,6 +204,11 @@ inlineAst memo v0 = case v0 of
     let (memo1, l2) = inlineAstDomains memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetDomainsIn vars l2 v2)
+  Ast.AstFwd (vars, v) l ds ->
+    let (_, v2) = inlineAst EM.empty v
+        (memo1, l1) = mapAccumR inlineAstDynamic memo l
+        (memo2, ds2) = mapAccumR inlineAstDynamic memo1 ds
+    in (memo2, Ast.AstFwd (vars, v2) l1 ds2)
 
 inlineAstDynamic
   :: AstSpan s
@@ -253,9 +258,22 @@ inlineAstDomains memo v0 = case v0 of
       _ -> (memo2, Ast.AstLetInDomainsS var u2 v2)
   Ast.AstRev (vars, v) l ->
     -- No other free variables in v, so no outside lets can reach there,
-    -- so we don't need to pass the information from v upwards.
+    -- so we don't need to pass the information from v upwards. Same below.
     let (_, v2) = inlineAst EM.empty v
     in second (Ast.AstRev (vars, v2)) (mapAccumR inlineAstDynamic memo l)
+  Ast.AstRevDt (vars, v) l dt ->
+    let (_, v2) = inlineAst EM.empty v
+        (memo1, l1) = mapAccumR inlineAstDynamic memo l
+        (memo2, dt2) = inlineAst memo1 dt
+    in (memo2, Ast.AstRevDt (vars, v2) l1 dt2)
+  Ast.AstRevS (vars, v) l ->
+    let (_, v2) = inlineAstS EM.empty v
+    in second (Ast.AstRevS (vars, v2)) (mapAccumR inlineAstDynamic memo l)
+  Ast.AstRevDtS (vars, v) l dt ->
+    let (_, v2) = inlineAstS EM.empty v
+        (memo1, l1) = mapAccumR inlineAstDynamic memo l
+        (memo2, dt2) = inlineAstS memo1 dt
+    in (memo2, Ast.AstRevDtS (vars, v2) l1 dt2)
 
 inlineAstBool :: AstMemo -> AstBool -> (AstMemo, AstBool)
 inlineAstBool memo v0 = case v0 of
@@ -396,6 +414,11 @@ inlineAstS memo v0 = case v0 of
     let (memo1, l2) = inlineAstDomains memo l
         (memo2, v2) = inlineAstS memo1 v
     in (memo2, Ast.AstLetDomainsInS vars l2 v2)
+  Ast.AstFwdS (vars, v) l ds ->
+    let (_, v2) = inlineAstS EM.empty v
+        (memo1, l1) = mapAccumR inlineAstDynamic memo l
+        (memo2, ds2) = mapAccumR inlineAstDynamic memo1 ds
+    in (memo2, Ast.AstFwdS (vars, v2) l1 ds2)
 
 
 -- * The unlet pass eliminating nested duplicated lets bottom-up
@@ -499,6 +522,11 @@ unletAst env t = case t of
                                `ES.union`
                                ES.fromList (map dynamicVarNameToAstVarId vars)}
     in Ast.AstLetDomainsIn vars (unletAstDomains env l) (unletAst env2 v)
+  Ast.AstFwd (vars, v) l ds ->
+    -- No other free variables in v, so no outside lets can reach there.
+    Ast.AstFwd (vars, unletAst (emptyUnletEnv emptyADShare) v)
+               (V.map (unletAstDynamic env) l)
+               (V.map (unletAstDynamic env) ds)
 
 unletAstDynamic
   :: AstSpan s
@@ -527,8 +555,20 @@ unletAstDomains env = \case
                                         (unletAstDomains env2 v)
   Ast.AstRev (vars, v) l ->
     -- No other free variables in v, so no outside lets can reach there.
+    -- The same below.
     Ast.AstRev (vars, unletAst (emptyUnletEnv emptyADShare) v)
                (V.map (unletAstDynamic env) l)
+  Ast.AstRevDt (vars, v) l dt ->
+    Ast.AstRevDt (vars, unletAst (emptyUnletEnv emptyADShare) v)
+                 (V.map (unletAstDynamic env) l)
+                 (unletAst env dt)
+  Ast.AstRevS (vars, v) l ->
+    Ast.AstRevS (vars, unletAstS (emptyUnletEnv emptyADShare) v)
+                (V.map (unletAstDynamic env) l)
+  Ast.AstRevDtS (vars, v) l dt ->
+    Ast.AstRevDtS (vars, unletAstS (emptyUnletEnv emptyADShare) v)
+                  (V.map (unletAstDynamic env) l)
+                  (unletAstS env dt)
 
 unletAstBool :: UnletEnv -> AstBool -> AstBool
 unletAstBool env t = case t of
@@ -608,3 +648,8 @@ unletAstS env t = case t of
                                `ES.union`
                                ES.fromList (map dynamicVarNameToAstVarId vars)}
     in Ast.AstLetDomainsInS vars (unletAstDomains env l) (unletAstS env2 v)
+  Ast.AstFwdS (vars, v) l ds ->
+    -- No other free variables in v, so no outside lets can reach there.
+    Ast.AstFwdS (vars, unletAstS (emptyUnletEnv emptyADShare) v)
+                (V.map (unletAstDynamic env) l)
+                (V.map (unletAstDynamic env) ds)

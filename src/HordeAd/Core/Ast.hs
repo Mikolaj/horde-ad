@@ -293,6 +293,11 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
                   => [AstDynamicVarName (AstShaped s)] -> AstDomains s
                   -> AstRanked s2 r n
                   -> AstRanked s2 r n
+  AstFwd :: (GoodScalar r, KnownNat n)
+         => ([AstDynamicVarName (AstRanked s)], AstRanked s r n)
+         -> Domains (AstDynamic s)
+         -> Domains (AstDynamic s)
+         -> AstRanked s r n
 
 deriving instance GoodScalar r => Show (AstRanked s r n)
 
@@ -406,6 +411,11 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
                    => [AstDynamicVarName (AstShaped s)] -> AstDomains s
                    -> AstShaped s2 r sh
                    -> AstShaped s2 r sh
+  AstFwdS :: (GoodScalar r, Sh.Shape sh)
+          => ([AstDynamicVarName (AstShaped s)], AstShaped s r sh)
+          -> Domains (AstDynamic s)
+          -> Domains (AstDynamic s)
+          -> AstShaped s r sh
 
 deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstShaped s r sh)
 
@@ -437,7 +447,23 @@ data AstDomains s where
          -> AstDomains s
     -- ^ the function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects
-    -- the quantification in 'rrev' and prevents cotangent confusion
+    -- the quantification in 'rrev' and prevents cotangent confusion;
+    -- the same holds for the similar operations below
+  AstRevDt :: (GoodScalar r, KnownNat n)
+           => ([AstDynamicVarName (AstRanked s)], AstRanked s r n)
+           -> Domains (AstDynamic s)
+           -> AstRanked s r n
+           -> AstDomains s
+  AstRevS :: (GoodScalar r, Sh.Shape sh)
+          => ([AstDynamicVarName (AstShaped s)], AstShaped s r sh)
+          -> Domains (AstDynamic s)
+          -> AstDomains s
+  AstRevDtS :: (GoodScalar r, Sh.Shape sh)
+            => ([AstDynamicVarName (AstShaped s)], AstShaped s r sh)
+            -> Domains (AstDynamic s)
+            -> AstShaped s r sh
+            -> AstDomains s
+
 deriving instance Show (AstDomains s)
 
 data AstBool where

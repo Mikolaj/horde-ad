@@ -470,6 +470,17 @@ interpretAst !env = \case
             _ -> error "interpretAstS: type mismatch"
         env2 lw = foldr f env (zip vars (V.toList lw))
     in rletDomainsIn lt0 lt (\lw -> interpretAst (env2 lw) v)
+  AstFwd (vars, ast) parameters ds ->
+    let g :: forall f. ADReady f => Domains (DynamicOf f) -> f r n
+        g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
+          -- interpretation in empty environment makes sense only
+          -- if there are no free variables outside of those listed
+        odFromVar (AstDynamicVarName @_ @shD @rD _) =
+          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
+        parameters0 = V.fromList $ map odFromVar vars
+        pars = interpretAstDynamic @ranked env <$> parameters
+        d = interpretAstDynamic @ranked env <$> ds
+    in rfwd @ranked g parameters0 pars d
 
 interpretAstDynamic
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
@@ -505,13 +516,40 @@ interpretAstDomains !env = \case
   AstRev @r @n (vars, ast) parameters ->
     let g :: forall f. ADReady f => Domains (DynamicOf f) -> f r n
         g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
-          -- interpretation in empty environment makes sense only
-          -- if there are no free variables outside of those listed
+          -- interpretation in empty environment; makes sense only
+          -- if there are no free variables outside of those listed;
+          -- the same below
         odFromVar (AstDynamicVarName @_ @shD @rD _) =
           DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
         pars = interpretAstDynamic @ranked env <$> parameters
     in rrev @ranked g parameters0 pars
+  AstRevDt @r @n (vars, ast) parameters dt ->
+    let g :: forall f. ADReady f => Domains (DynamicOf f) -> f r n
+        g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
+        odFromVar (AstDynamicVarName @_ @shD @rD _) =
+          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
+        parameters0 = V.fromList $ map odFromVar vars
+        pars = interpretAstDynamic @ranked env <$> parameters
+        d = interpretAst env dt
+    in rrevDt @ranked g parameters0 pars d
+  AstRevS @r @sh (vars, ast) parameters ->
+    let g :: forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh
+        g = interpretLambdaDomainsS interpretAstS EM.empty (vars, ast)
+        odFromVar (AstDynamicVarName @_ @shD @rD _) =
+          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
+        parameters0 = V.fromList $ map odFromVar vars
+        pars = interpretAstDynamic @ranked env <$> parameters
+    in srev @ranked g parameters0 pars
+  AstRevDtS @r @sh (vars, ast) parameters dt ->
+    let g :: forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh
+        g = interpretLambdaDomainsS interpretAstS EM.empty (vars, ast)
+        odFromVar (AstDynamicVarName @_ @shD @rD _) =
+          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
+        parameters0 = V.fromList $ map odFromVar vars
+        pars = interpretAstDynamic @ranked env <$> parameters
+        d = interpretAstS env dt
+    in srevDt @ranked g parameters0 pars d
 
 interpretAstBool :: ADReadyBoth ranked shaped
                  => AstEnv ranked shaped -> AstBool -> BoolOf ranked
@@ -903,3 +941,14 @@ interpretAstS !env = \case
             _ -> error "interpretAstS: type mismatch"
         env2 lw = foldr f env (zip vars (V.toList lw))
     in sletDomainsIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
+  AstFwdS (vars, ast) parameters ds ->
+    let g :: forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh
+        g = interpretLambdaDomainsS interpretAstS EM.empty (vars, ast)
+          -- interpretation in empty environment makes sense only
+          -- if there are no free variables outside of those listed
+        odFromVar (AstDynamicVarName @_ @shD @rD _) =
+          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
+        parameters0 = V.fromList $ map odFromVar vars
+        pars = interpretAstDynamic @ranked env <$> parameters
+        d = interpretAstDynamic @ranked env <$> ds
+    in sfwd @ranked g parameters0 pars d

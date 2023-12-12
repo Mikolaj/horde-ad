@@ -8,7 +8,7 @@ module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
     rev, revDt, revArtifactAdapt, revProduceArtifactWithoutInterpretation
     -- * Forward derivative adaptors
-  , fwd, fwdArtifactAdapt, fwdProduceArtifact
+  , fwd, fwdArtifactAdapt
     -- * Reverse and forward derivative stages class
   , forwardPassByApplication
     -- * Old gradient adaptors
@@ -247,17 +247,6 @@ fwdArtifactAdapt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
   in fwdProduceArtifact g EM.empty domainsOD
-
-fwdProduceArtifact
-  :: (DerivativeStages g, GoodScalar r, HasSingletonDict y)
-  => (Domains (DynamicOf g) -> g r y)
-  -> AstEnv (ADVal (RankedOf (PrimalOf g)))
-            (ADVal (ShapedOf (PrimalOf g)))
-  -> DomainsOD
-  -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
-{-# INLINE fwdProduceArtifact #-}
-fwdProduceArtifact g envInit =
-  fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
 
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt

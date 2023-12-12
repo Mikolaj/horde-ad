@@ -485,6 +485,17 @@ class DerivativeStages g where
     => AstArtifactFwd (PrimalOf g) r y -> DomainsOD -> DomainsOD
     -> (ConcreteOf g r y, ConcreteOf g r y)
 
+  fwdProduceArtifact
+    :: (DerivativeStages g, GoodScalar r, HasSingletonDict y)
+    => (Domains (DynamicOf g) -> g r y)
+    -> AstEnv (ADVal (RankedOf (PrimalOf g)))
+              (ADVal (ShapedOf (PrimalOf g)))
+    -> DomainsOD
+    -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
+  {-# INLINE fwdProduceArtifact #-}
+  fwdProduceArtifact g envInit =
+    fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
+
 
 -- * Numeric instances for ADVal
 

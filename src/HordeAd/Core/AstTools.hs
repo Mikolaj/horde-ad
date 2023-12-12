@@ -91,6 +91,7 @@ shapeAst = \case
   AstDualPart a -> shapeAst a
   AstD u _ -> shapeAst u
   AstLetDomainsIn _ _ v -> shapeAst v
+  AstFwd (_var, v) _l _ds -> shapeAst v
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, GoodScalar r) => AstRanked s r (1 + n) -> Int
@@ -145,6 +146,9 @@ varInAst var = \case
   AstDualPart a -> varInAst var a
   AstD u u' -> varInAst var u || varInAst var u'
   AstLetDomainsIn _vars l v -> varInAstDomains var l || varInAst var v
+  AstFwd _f l ds ->  -- _f has no non-bound variables
+    let f (DynamicExists d) = varInAstDynamic var d
+    in any f l || any f ds
 
 varInAstDomains :: AstSpan s
                 => AstVarId -> AstDomains s -> Bool
@@ -156,6 +160,15 @@ varInAstDomains var = \case
   AstRev _f l ->  -- _f has no non-bound variables
     let f (DynamicExists d) = varInAstDynamic var d
     in any f l
+  AstRevDt _f l dt ->  -- _f has no non-bound variables
+    let f (DynamicExists d) = varInAstDynamic var d
+    in any f l || varInAst var dt
+  AstRevS _f l ->  -- _f has no non-bound variables
+    let f (DynamicExists d) = varInAstDynamic var d
+    in any f l
+  AstRevDtS _f l dt ->  -- _f has no non-bound variables
+    let f (DynamicExists d) = varInAstDynamic var d
+    in any f l || varInAstS var dt
 
 varInAstDynamic :: AstSpan s
                 => AstVarId -> AstDynamic s r -> Bool
@@ -219,6 +232,9 @@ varInAstS var = \case
   AstDualPartS a -> varInAstS var a
   AstDS u u' -> varInAstS var u || varInAstS var u'
   AstLetDomainsInS _vars l v -> varInAstDomains var l || varInAstS var v
+  AstFwdS _f l ds ->  -- _f has no non-bound variables
+    let f (DynamicExists d) = varInAstDynamic var d
+    in any f l || any f ds
 
 varInIndexS :: AstVarId -> AstIndexS sh -> Bool
 varInIndexS var = any (varInAst var)

@@ -267,6 +267,8 @@ build1V k (var, v00) =
            vars (build1VOccurenceUnknownDomains k (var, l))
                 (build1VOccurenceUnknownRefresh k (var, v2))
         -- TODO: comment why @r instead of @r1 from AstDynamicVarName
+    Ast.AstFwd{} ->
+      error "build1V: impossible case of AstFwd"
 
 build1VOccurenceUnknownDynamic
   :: AstSpan s
@@ -312,6 +314,12 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
       error "build1VOccurenceUnknownDomains: impossible someNatVal error"
   Ast.AstRev{} ->
     error "build1VOccurenceUnknownDomains: impossible case of AstRev"
+  Ast.AstRevDt{} ->
+    error "build1VOccurenceUnknownDomains: impossible case of AstRevDt"
+  Ast.AstRevS{} ->
+    error "build1VOccurenceUnknownDomains: impossible case of AstRevS"
+  Ast.AstRevDtS{} ->
+    error "build1VOccurenceUnknownDomains: impossible case of AstRevDtS"
 
 -- | The application @build1VIndex k (var, v, ix)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndex v ix)@, where it's unknown whether
@@ -583,6 +591,8 @@ build1VS (var, v00) =
       in Ast.AstLetDomainsInS
            vars (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
                 (build1VOccurenceUnknownRefreshS (var, v2))
+    Ast.AstFwdS{} ->
+      error "build1V: impossible case of AstFwdS"
 
 build1VIndexS
   :: forall k p sh s r.

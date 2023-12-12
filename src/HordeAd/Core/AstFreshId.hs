@@ -5,7 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of it escapes.
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
-  , funToAstIOR, funToAstR, funToAstDomains
+  , funToAstIOR, funToAstR, funToAstDomains, funToAstDomainsS
   , funToAstRevIO, funToAstRev, funToAstRevIOS, funToAstRevS
   , funToAstFwdIO, funToAstFwd, funToAstFwdIOS, funToAstFwdS
   , funToAstIOI, funToAstI, funToAstIndexIO, funToAstIndex
@@ -172,6 +172,37 @@ funToAstDomains
 {-# NOINLINE funToAstDomains #-}
 funToAstDomains g parameters0 =
   unsafePerformIO $ funToAstDomainsIO g parameters0
+
+funToAstDomainsIOS
+  :: (Domains (AstDynamic s) -> AstShaped s r sh)
+  -> DomainsOD
+  -> IO ( [AstDynamicVarName (AstShaped s)]
+        , AstShaped s r sh )
+{-# INLINE funToAstDomainsIOS #-}
+funToAstDomainsIOS g parameters0 = do
+  let f (DynamicExists @r2 e) = do
+        let sh = OD.shapeL e
+        freshId <- unsafeGetFreshAstVarId
+        return $! Sh.withShapeP sh $ \(Proxy :: Proxy p_sh) ->
+          let varE :: AstDynamicVarName (AstShaped s)
+              !varE = AstDynamicVarName @[Nat] @p_sh @r2
+                                        (AstVarName freshId)
+              dynE :: DynamicExists (AstDynamic s)
+              !dynE = DynamicExists @r2
+                      $ AstSToD (AstVarS @p_sh (AstVarName freshId))
+          in (varE, dynE)
+  (!vars, !asts) <- V.unzip <$> V.mapM f parameters0
+  let !x = g asts
+  return (V.toList vars, x)
+
+funToAstDomainsS
+  :: (Domains (AstDynamic s) -> AstShaped s r sh)
+  -> DomainsOD
+  -> ( [AstDynamicVarName (AstShaped s)]
+     , AstShaped s r sh )
+{-# NOINLINE funToAstDomainsS #-}
+funToAstDomainsS g parameters0 =
+  unsafePerformIO $ funToAstDomainsIOS g parameters0
 
 funToAstRevIO :: DomainsOD
               -> IO ( [AstDynamicVarName (AstRanked PrimalSpan)]
