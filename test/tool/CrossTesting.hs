@@ -70,18 +70,15 @@ rev' f vals =
                         parameters dt
       gradient9 = parseDomains vals advalGrad9
       hGeneral
-        :: ( ADReady fgen, ADReady f1
-           , Value (fgen r n) ~ Flip OR.Array r n
-           , DomainsOf fgen ~ Domains (DynamicOf fgen)
-           , AdaptableDomains (DynamicOf fgen) (fgen r n) )
+        :: (ADReady fgen, ADReady f1)
         => (f1 r m -> AstRanked PrimalSpan r m)
         -> (AstRanked PrimalSpan r n -> f1 r n)
         -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
-        -> DomainsOf fgen
+        -> fgen r n
         -> fgen r m
       hGeneral fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (rshape vals) (fx1 . f . fx2)
-            env = extendEnvR var (parseDomains vals inputs) EM.empty
+            env = extendEnvR var inputs EM.empty
         in interpretAst env (gx ast)
       h :: ADReady f1
         => (f1 r m -> AstRanked PrimalSpan r m)
@@ -89,7 +86,8 @@ rev' f vals =
         -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
         -> Domains (ADValClown OD.Array)
         -> ADVal (Flip OR.Array) r m
-      h = hGeneral @(ADVal (Flip OR.Array))
+      h fx1 fx2 gx inputs =
+        hGeneral @(ADVal (Flip OR.Array)) fx1 fx2 gx (parseDomains vals inputs)
       (astGrad, value2) =
         crevOnDomains dt (h id id id) parameters
       gradient2 = parseDomains vals astGrad
@@ -124,7 +122,9 @@ rev' f vals =
            -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
            -> Domains (ADValClown (AstDynamic PrimalSpan))
            -> ADVal (AstRanked PrimalSpan) r m
-      hAst = hGeneral @(ADVal (AstRanked PrimalSpan))
+      hAst fx1 fx2 gx inputs
+        = hGeneral @(ADVal (AstRanked PrimalSpan))
+                   fx1 fx2 gx (parseDomains vals inputs)
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation
                 False (hAst id id id) parameters
