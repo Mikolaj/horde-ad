@@ -614,6 +614,35 @@ class DomainsTensor (ranked :: RankedTensorKind)
        -> DomainsOD
        -> Domains (DynamicOf ranked)
        -> DomainsOf ranked
+  rrevDt :: (GoodScalar r, KnownNat n)
+         => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+         -> DomainsOD
+         -> Domains (DynamicOf ranked)
+         -> ranked r n
+         -> DomainsOf ranked
+  rfwd :: (GoodScalar r, KnownNat n)
+       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+       -> DomainsOD
+       -> Domains (DynamicOf ranked)
+       -> Domains (DynamicOf ranked)
+       -> ranked r n
+  srev :: (GoodScalar r, Sh.Shape sh)
+       => (forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh)
+       -> DomainsOD
+       -> Domains (DynamicOf ranked)
+       -> DomainsOf ranked
+  srevDt :: (GoodScalar r, Sh.Shape sh)
+         => (forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh)
+         -> DomainsOD
+         -> Domains (DynamicOf ranked)
+         -> shaped r sh
+         -> DomainsOf ranked
+  sfwd :: (GoodScalar r, Sh.Shape sh)
+       => (forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh)
+       -> DomainsOD
+       -> Domains (DynamicOf ranked)
+       -> Domains (DynamicOf ranked)
+       -> shaped r sh
 
 
 -- * The giga-constraint

@@ -479,7 +479,8 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 instance ( ADReadySmall (ADVal ranked) (ADVal shaped)
          , Dual (Clown (DynamicOf (ADVal ranked)))
            ~ DeltaD (Clown (DynamicOf (ADVal ranked)))
-                    (ADVal ranked) (ADVal shaped) )
+                    (ADVal ranked) (ADVal shaped)
+         , ShapedOf shaped ~ shaped )
          => DomainsTensor (ADVal ranked) (ADVal shaped) where
   dmkDomains = id
   rletInDomains = (&)
@@ -491,6 +492,28 @@ instance ( ADReadySmall (ADVal ranked) (ADVal shaped)
        -> DomainsOf (ADVal ranked)
   rrev f _parameters0 parameters =
     fst $ crevOnDomains Nothing (f @(ADVal (ADVal ranked))) parameters
+  rrevDt :: (GoodScalar r, KnownNat n)
+         => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+         -> DomainsOD
+         -> DomainsOf (ADVal ranked)
+         -> ADVal ranked r n
+         -> DomainsOf (ADVal ranked)
+  rrevDt f _parameters0 parameters dt =
+    fst $ crevOnDomains (Just dt) (f @(ADVal (ADVal ranked))) parameters
+  rfwd :: (GoodScalar r, KnownNat n)
+       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+       -> DomainsOD
+       -> DomainsOf (ADVal ranked)
+       -> DomainsOf (ADVal ranked)
+       -> ADVal ranked r n
+  rfwd f _parameters0 parameters ds =
+    fst $ cfwdOnDomains parameters (f @(ADVal (ADVal ranked))) ds
+  srev f _parameters0 parameters =
+    fst $ crevOnDomains Nothing (f @(ADVal (ADVal shaped))) parameters
+  srevDt f _parameters0 parameters dt =
+    fst $ crevOnDomains (Just dt) (f @(ADVal (ADVal shaped))) parameters
+  sfwd f _parameters0 parameters ds =
+    fst $ cfwdOnDomains parameters (f @(ADVal (ADVal shaped))) ds
 
 
 -- * DomainsTensor instance for concrete arrays
@@ -506,3 +529,25 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
        -> DomainsOD
   rrev f _parameters0 parameters =
     fst $ crevOnDomains Nothing (f @(ADVal (Flip OR.Array))) parameters
+  rrevDt :: (GoodScalar r, KnownNat n)
+         => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+         -> DomainsOD
+         -> DomainsOD
+         -> Flip OR.Array r n
+         -> DomainsOD
+  rrevDt f _parameters0 parameters dt =
+    fst $ crevOnDomains (Just dt) (f @(ADVal (Flip OR.Array))) parameters
+  rfwd :: (GoodScalar r, KnownNat n)
+       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+       -> DomainsOD
+       -> DomainsOD
+       -> DomainsOD
+       -> Flip OR.Array r n
+  rfwd f _parameters0 parameters ds =
+    fst $ cfwdOnDomains parameters (f @(ADVal (Flip OR.Array))) ds
+  srev f _parameters0 parameters =
+    fst $ crevOnDomains Nothing (f @(ADVal (Flip OS.Array))) parameters
+  srevDt f _parameters0 parameters dt =
+    fst $ crevOnDomains (Just dt) (f @(ADVal (Flip OS.Array))) parameters
+  sfwd f _parameters0 parameters ds =
+    fst $ cfwdOnDomains parameters (f @(ADVal (Flip OS.Array))) ds
