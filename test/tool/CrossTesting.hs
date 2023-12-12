@@ -11,7 +11,6 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
-import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
@@ -26,10 +25,8 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
-import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
@@ -74,17 +71,14 @@ rev' f vals =
       gradient9 = parseDomains vals advalGrad9
       hGeneral
         :: ( ADReady fgen, ADReady f1
-           , RankedOf fgen ~ fgen
-           , RankedOf fgen ~ RankedOf @() (Clown (DynamicOf fgen))
-           , ShapedOf fgen ~ ShapedOf @() (Clown (DynamicOf fgen))
-           , CRankedIP fgen IsPrimal
-           , CRankedIPSh (ShapedOf fgen) IsPrimal
-           , CRankedIPU (Clown (DynamicOf fgen)) IsPrimal )
+           , Value (fgen r n) ~ Flip OR.Array r n
+           , DomainsOf fgen ~ Domains (DynamicOf fgen)
+           , AdaptableDomains (DynamicOf fgen) (fgen r n) )
         => (f1 r m -> AstRanked PrimalSpan r m)
         -> (AstRanked PrimalSpan r n -> f1 r n)
         -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
-        -> DomainsOf (ADVal fgen)
-        -> ADVal fgen r m
+        -> DomainsOf fgen
+        -> fgen r m
       hGeneral fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (rshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseDomains vals inputs) EM.empty
@@ -95,7 +89,7 @@ rev' f vals =
         -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
         -> Domains (ADValClown OD.Array)
         -> ADVal (Flip OR.Array) r m
-      h = hGeneral @(Flip OR.Array)
+      h = hGeneral @(ADVal (Flip OR.Array))
       (astGrad, value2) =
         crevOnDomains dt (h id id id) parameters
       gradient2 = parseDomains vals astGrad
@@ -130,7 +124,7 @@ rev' f vals =
            -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
            -> Domains (ADValClown (AstDynamic PrimalSpan))
            -> ADVal (AstRanked PrimalSpan) r m
-      hAst = hGeneral @(AstRanked PrimalSpan)
+      hAst = hGeneral @(ADVal (AstRanked PrimalSpan))
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation
                 False (hAst id id id) parameters
