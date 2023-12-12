@@ -8,7 +8,7 @@
 -- a middle layer such as "DualClass", separate instances are given
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
-  (
+  ( CRankedIP, CRankedIPSh, CRankedIPU
   ) where
 
 import Prelude hiding (foldl')
