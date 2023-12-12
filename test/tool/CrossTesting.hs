@@ -46,7 +46,7 @@ rev' :: forall r m n v a.
         , v ~ Flip OR.Array r m, a ~ Flip OR.Array r n )
      => (forall f. ADReady f => f r n -> f r m)
      -> a
-     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a
+     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
         , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
@@ -97,10 +97,16 @@ rev' f vals =
       (astGradUnSimp, value2UnSimp) =
         crevOnDomains dt (h unAstNoSimplify AstNoSimplify id) parameters
       gradient2UnSimp = parseDomains vals astGradUnSimp
+      gradientRrev2UnSimp =
+        rrev1 @(Flip OR.Array) @r @n @m
+              (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (astSimpleUnSimp, value3UnSimp) =
         crevOnDomains dt (h unAstNoSimplify AstNoSimplify simplifyAst6)
                       parameters
       gradient3UnSimp = parseDomains vals astSimpleUnSimp
+      gradientRrev3UnSimp =
+        rrev1 @(Flip OR.Array) @r @n @m
+              (hGeneral unAstNoSimplify AstNoSimplify simplifyAst6) vals
       (astPrimal, value4) =
         crevOnDomains dt (h unAstNoVectorize AstNoVectorize id)
                          parameters
@@ -200,7 +206,8 @@ rev' f vals =
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
      , gradient1, gradientRrev1, gradient2, gradient3
-     , gradient2UnSimp, gradient3UnSimp
+     , gradient2UnSimp, gradientRrev2UnSimp
+     , gradient3UnSimp, gradientRrev3UnSimp
      , gradient4, gradientRrev4, gradient5, gradientRrev5
      , astVectSimp, astSimp
      , value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
@@ -220,7 +227,7 @@ assertEqualUpToEpsilon'
        , KnownNat n, KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
-    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a
+    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
@@ -232,7 +239,8 @@ assertEqualUpToEpsilon'
     ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
     , value4, value5
     , gradient1, gradientRrev1, gradient2, gradient3
-    , gradient2UnSimp, gradient3UnSimp
+    , gradient2UnSimp, gradientRrev2UnSimp
+    , gradient3UnSimp, gradientRrev3UnSimp
     , gradient4, gradientRrev4, gradient5, gradientRrev5
     , astVectSimp, astSimp
     , value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
@@ -258,8 +266,12 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
   assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
   assertEqualUpToEpsilonWithMark "Grad V UnS" errMargin expected gradient2UnSimp
-  assertEqualUpToEpsilonWithMark "Grad V+S UnS" errMargin expected
-                                                gradient3UnSimp
+  assertEqualUpToEpsilonWithMark "Grad V UnS rrev"
+                                 errMargin expected gradientRrev2UnSimp
+  assertEqualUpToEpsilonWithMark "Grad V+S UnS"
+                                 errMargin expected gradient3UnSimp
+  assertEqualUpToEpsilonWithMark "Grad V+S UnS rrev"
+                                 errMargin expected gradientRrev3UnSimp
   assertEqualUpToEpsilonWithMark "Grad NotVect" errMargin expected gradient4
   assertEqualUpToEpsilonWithMark "Grad NotVect rrev"
                                  errMargin expected gradientRrev4
@@ -327,7 +339,7 @@ assertEqualUpToEpsilonShort
        , KnownNat n, KnownNat m, GoodScalar r, HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
-    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a
+    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
@@ -339,7 +351,8 @@ assertEqualUpToEpsilonShort
     ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
     , _value4, value5
     , gradient1, gradientRrev1, gradient2, gradient3
-    , gradient2UnSimp, gradient3UnSimp
+    , gradient2UnSimp, gradientRrev2UnSimp
+    , gradient3UnSimp, gradientRrev3UnSimp
     , _gradient4, _gradientRrev4, gradient5, gradientRrev5
     , astVectSimp, astSimp
     , _value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
@@ -364,8 +377,12 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
   assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
   assertEqualUpToEpsilonWithMark "Grad V UnS" errMargin expected gradient2UnSimp
-  assertEqualUpToEpsilonWithMark "Grad V+S UnS" errMargin expected
-                                                gradient3UnSimp
+  assertEqualUpToEpsilonWithMark "Grad V UnS rrev"
+                                 errMargin expected gradientRrev2UnSimp
+  assertEqualUpToEpsilonWithMark "Grad V+S UnS"
+                                 errMargin expected gradient3UnSimp
+  assertEqualUpToEpsilonWithMark "Grad V+S UnS rrev"
+                                 errMargin expected gradientRrev3UnSimp
   assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
   assertEqualUpToEpsilonWithMark "Grad Simplified rrev"
                                  errMargin expected gradientRrev5
