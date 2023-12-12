@@ -682,8 +682,6 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
        -> DomainsOD
        -> Domains (AstDynamic s)
        -> AstDomains s
--- TODO: perhaps do this in the AstNoVectorize instance:
---   rrev f parameters0 domains = AstRev (funToAstDomains f parameters0) domains
   rrev f parameters0 =
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact False (f @(AstRanked FullSpan))
@@ -872,7 +870,7 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     rletInDomains @(AstRanked s) (unAstNoVectorize u) (f . AstNoVectorize)
   sletInDomains u f =
     sletInDomains @(AstRanked s) (unAstNoVectorizeS u) (f . AstNoVectorizeS)
-  rrev = rrev @(AstRanked s)
+  rrev f parameters0 domains = AstRev (funToAstDomains f parameters0) domains
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rlet a f =
