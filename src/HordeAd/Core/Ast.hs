@@ -129,7 +129,10 @@ isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
                   _ -> Nothing
 
 -- | The closed type family that assigns a concrete tensor type
--- to its corresponding AST type.
+-- to its corresponding AST type. It could be replaced by @Value@,
+-- but it would prevent using a type signature for @DerivativeStages@
+-- (unless we accept mandatory kinds in type applications of @rev@, etc.)
+-- and some uses of @fwd@, etc., would require extra type applications.
 type ConcreteOf :: forall k. TensorKind k -> TensorKind k
 type family ConcreteOf f = result | result -> f where
   ConcreteOf (AstRanked FullSpan) = Flip OR.Array
