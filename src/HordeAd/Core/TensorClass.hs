@@ -618,13 +618,13 @@ class DomainsTensor (ranked :: RankedTensorKind)
          => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
          -> DomainsOD
          -> Domains (DynamicOf ranked)
-         -> ranked r n
+         -> ranked r n  -- ^ incoming cotangent (dt)
          -> DomainsOf ranked
   rfwd :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
        -> Domains (DynamicOf ranked)
-       -> Domains (DynamicOf ranked)
+       -> Domains (DynamicOf ranked)  -- ^ incoming tangent (ds)
        -> ranked r n
   srev :: (GoodScalar r, Sh.Shape sh)
        => (forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh)
@@ -643,6 +643,13 @@ class DomainsTensor (ranked :: RankedTensorKind)
        -> Domains (DynamicOf ranked)
        -> Domains (DynamicOf ranked)
        -> shaped r sh
+  -- The type mentions ADReady, so it's hard to put this into RankedTensor,
+  -- which doesn't know about ConvertTensor and DomainsTensor.
+  rfold :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
+        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+        -> ranked rn n  -- ^ initial value
+        -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
+        -> ranked rn n
 
 
 -- * The giga-constraint
@@ -778,6 +785,7 @@ instance RankedTensor (Flip OR.Array) where
   rdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   rconst = Flip
   rletDomainsIn _ = (&)
+
   raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
               => Flip OR.Array r n -> DynamicExists OD.Array
               -> DynamicExists OD.Array

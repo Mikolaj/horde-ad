@@ -29,7 +29,7 @@ import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat)
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Adaptor
@@ -41,6 +41,7 @@ import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (matchingRank, sameShape)
+import           HordeAd.Internal.TensorOps
 import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
@@ -476,7 +477,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   dIsDummy (Flip (D _ (Clown d) _)) = dIsDummy @ranked d
   dshape (Flip (D _ u _)) = dshape @ranked (runClown u)
 
-instance ( ADReadySmall (ADVal ranked) (ADVal shaped)
+instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          , Dual (Clown (DynamicOf (ADVal ranked)))
            ~ DeltaD (Clown (DynamicOf (ADVal ranked)))
                     (ADVal ranked) (ADVal shaped)
@@ -514,6 +515,30 @@ instance ( ADReadySmall (ADVal ranked) (ADVal shaped)
     fst $ crevOnDomains (Just dt) (f @(ADVal (ADVal shaped))) parameters
   sfwd f _parameters0 parameters ds =
     fst $ cfwdOnDomains parameters (f @(ADVal (ADVal shaped))) ds
+  rfold :: forall rn rm n m.
+           (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
+        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+        -> ADVal ranked rn n
+        -> ADVal ranked rm (1 + m)
+        -> ADVal ranked rn n
+  rfold f (D l1 x0 x0') (D l2 as as') =
+    let domsToPair :: forall f. ADReady f
+                   => Domains (DynamicOf f) -> (f rn n, f rm m)
+        domsToPair doms = case (doms V.! 0, doms V.! 1) of
+          (DynamicExists @rn2 ex, DynamicExists @rm2 ea)
+            | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2)
+            , Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
+              (rfromD ex, rfromD ea)
+          _ -> error "rfold: type mismatch"
+        g doms = uncurry (f @(ADVal ranked)) (domsToPair doms)
+        df dt (x, a) =
+          domsToPair $ fst
+          $ crevOnDomains (Just dt) g
+                          (V.fromList [ DynamicExists @rn (dfromR x)
+                                      , DynamicExists @rm (dfromR a) ])
+    in D (l1 `mergeADShare` l2)
+         (rfold @ranked f x0 as)
+         (FoldR f x0 as df x0' as')
 
 
 -- * DomainsTensor instance for concrete arrays
@@ -551,3 +576,11 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
     fst $ crevOnDomains (Just dt) (f @(ADVal (Flip OS.Array))) parameters
   sfwd f _parameters0 parameters ds =
     fst $ cfwdOnDomains parameters (f @(ADVal (Flip OS.Array))) ds
+  rfold :: GoodScalar rm
+        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+        -> Flip OR.Array rn n
+        -> Flip OR.Array rm (1 + m)
+        -> Flip OR.Array rn n
+  rfold f (Flip x0) (Flip as) =
+    let g x a = runFlip $ f @(Flip OR.Array) (Flip x) (Flip a)
+    in Flip $ foldl' g x0 (tunravelToListR as)

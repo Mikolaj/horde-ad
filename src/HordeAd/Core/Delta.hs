@@ -52,15 +52,15 @@ import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape as Sh
 import qualified Data.Array.RankedS as OR
+import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
-import           Data.List (sort)
+import           Data.List (foldl', mapAccumR, sort)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
@@ -233,6 +233,16 @@ data DeltaR :: RankedTensorKind -> ShapedTensorKind -> RankedTensorKind where
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
+  FoldR :: (GoodScalar rm, KnownNat m)
+        => (ranked rn n -> ranked rm m -> ranked rn n)
+        -> ranked rn n -> ranked rm (1 + m)
+        -> (ranked rn n -> (ranked rn n, ranked rm m)
+            -> (ranked rn n, ranked rm m))
+        -> DeltaR ranked shaped rn n
+        -> DeltaR ranked shaped rm (1 + m)
+        -> DeltaR ranked shaped rn n
+    -- ^ Fold over the outermost dimension of a tensor. The function,
+    -- in the first argument, should be strict in the accumulator.
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaR ranked shaped r1 n -> DeltaR ranked shaped r2 n
 
@@ -388,7 +398,8 @@ deriving instance ( GoodScalar r0
                   , Show (IntOf shaped) )
                   => Show (DeltaD clownDynamic ranked shaped r0 '())
 
-shapeDelta :: forall ranked shaped r n. (KnownNat n, RankedTensor ranked)
+shapeDelta :: forall ranked shaped r n.
+              (GoodScalar r, KnownNat n, RankedTensor ranked)
            => DeltaR ranked shaped r n -> ShapeInt n
 shapeDelta = \case
   ZeroR sh -> sh
@@ -422,6 +433,7 @@ shapeDelta = \case
   TransposeR perm d -> backpermutePrefixShape perm (shapeDelta d)
   ReshapeR sh _ -> sh
   GatherR sh _ _ -> sh
+  FoldR _f x0 _as _df _x0' _as' -> rshape x0
   CastR d -> shapeDelta d
   DToR (RToD @n2 d) ->
     case sameNat (Proxy @n) (Proxy @n2) of
@@ -430,7 +442,8 @@ shapeDelta = \case
   DToR (SToD @sh _) -> listShapeToShape $ Sh.shapeT @sh
   SToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
 
-lengthDelta :: forall ranked shaped r n. (KnownNat n, RankedTensor ranked)
+lengthDelta :: forall ranked shaped r n.
+               (GoodScalar r, KnownNat n, RankedTensor ranked)
             => DeltaR ranked shaped r (1 + n) -> Int
 lengthDelta d = case shapeDelta d of
   ZS -> error "lengthDelta: impossible pattern needlessly required"
@@ -893,6 +906,12 @@ buildFinMaps s0 deltaDt =
           in evalR s (rtranspose perm_reversed c) d
         ReshapeR _sh d -> evalR s (rreshape (shapeDelta d) c) d
         GatherR _sh d f -> evalR s (rscatter (shapeDelta d) c f) d
+        FoldR f x0 as df x0' as' ->
+          let las = runravelToList as
+              p = scanl f x0 las
+              (cx0, cas) = mapAccumR df cShared (zip (init p) las)
+              s2 = evalR sShared cx0 x0'
+          in evalR s2 (rfromList cas) as'
         CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
         DToR (RToD @n2 d) ->
@@ -1179,6 +1198,17 @@ buildDerivative dimR deltaDt params = do
         GatherR sh d f -> do
           t <- evalR d
           return $! rgather sh t f
+        FoldR f _x0 _as _df x0' as' -> do
+          cx0 <- evalR x0'
+          cas <- evalR as'
+          -- return $! rfold f cx0 cas
+          -- The above potentially uses an optimisation from the @ranked@
+          -- implementation of @rfold@, but it requires @DomainsTensor@,
+          -- which complicates everything and @f@ needs to be quantified,
+          -- which breaks the @Show@ instance of @DeltaR@.
+          -- In contrast, the below just unrolls the fold, which is probably
+          -- the fastest it can get in the forward derivative, anyway.
+          return $! foldl' f cx0 (runravelToList cas)
         CastR d -> do
           t <- evalR d
           return $! rcast t
