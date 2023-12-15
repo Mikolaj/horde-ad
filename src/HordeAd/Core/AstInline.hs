@@ -209,6 +209,18 @@ inlineAst memo v0 = case v0 of
         (memo1, l1) = mapAccumR inlineAstDynamic memo l
         (memo2, ds2) = mapAccumR inlineAstDynamic memo1 ds
     in (memo2, Ast.AstFwd (vars, v2) l1 ds2)
+  Ast.AstFold (nvar, mvar, v) x0 as ->
+    let (_, v2) = inlineAst EM.empty v
+        (memo1, x02) = inlineAst memo x0
+        (memo2, as2) = inlineAst memo1 as
+    in (memo2, Ast.AstFold (nvar, mvar, v2) x02 as2)
+  Ast.AstFoldRev (nvar, mvar, v) (varDt2, nvar2, mvar2, doms) x0 as ->
+    let (_, v2) = inlineAst EM.empty v
+        (_, doms2) = inlineAstDomains EM.empty doms
+        (memo1, x02) = inlineAst memo x0
+        (memo2, as2) = inlineAst memo1 as
+    in (memo2, Ast.AstFoldRev (nvar, mvar, v2)
+                              (varDt2, nvar2, mvar2, doms2) x02 as2)
 
 inlineAstDynamic
   :: AstSpan s
@@ -527,6 +539,16 @@ unletAst env t = case t of
     Ast.AstFwd (vars, unletAst (emptyUnletEnv emptyADShare) v)
                (V.map (unletAstDynamic env) l)
                (V.map (unletAstDynamic env) ds)
+  Ast.AstFold (nvar, mvar, v) x0 as ->
+    Ast.AstFold (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
+                (unletAst env x0)
+                (unletAst env as)
+  Ast.AstFoldRev (nvar, mvar, v) (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstFoldRev (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
+                   ( varDt2, nvar2, mvar2
+                   , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                   (unletAst env x0)
+                   (unletAst env as)
 
 unletAstDynamic
   :: AstSpan s

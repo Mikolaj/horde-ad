@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -683,6 +683,8 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
        -> Domains (AstDynamic s)
        -> AstDomains s
   rrev f parameters0 =
+    -- This computes the (AST of) derivative of f once and interprets it again
+    -- for each new @parmeters@, which is much better than computing anew.
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact False (f @(AstRanked FullSpan))
                              EM.empty parameters0
@@ -690,7 +692,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstDomains env gradient
         -- this interpretation both substitutes parameters for the variables and
-        -- reinterpretes @PrimalSpan@ terms in @s@ terms;
+        -- reinterprets @PrimalSpan@ terms in @s@ terms;
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
         -- are the same variables, but it's a very special case
   rrevDt :: (GoodScalar r, KnownNat n)
@@ -744,6 +746,57 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       let env = extendEnvParsS @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvParsS @(AstRanked s) varsDt ds env
       in interpretAstS envDt gradient
+  rfold :: forall rn rm n m.
+           (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
+        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+        -> AstRanked s rn n
+        -> AstRanked s rm (1 + m)
+        -> AstRanked s rn n
+  rfold f x0 as =
+    let domsToPair :: forall f. ADReady f
+                   => Domains (DynamicOf f) -> (f rn n, f rm m)
+        domsToPair doms = case (doms V.! 0, doms V.! 1) of
+          (DynamicExists @rn2 ex, DynamicExists @rm2 ea)
+            | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2)
+            , Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
+              (rfromD ex, rfromD ea)
+          _ -> error "rfold: type mismatch"
+        g :: Domains (DynamicOf (AstRanked FullSpan)) -> AstRanked FullSpan rn n
+        g doms = uncurry f (domsToPair doms)
+        shn = rshape x0
+        shm = tailShape $ rshape as
+        odFromSh :: forall rk k. GoodScalar rk
+                 => ShapeInt k -> DynamicExists OD.Array
+        odFromSh sh = DynamicExists @rk $ OD.constant (shapeToList sh) 0
+        parameters0 = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+    in -- This computes the (AST of) derivative of f once for each @x0@
+       -- and @as@, which is better than once for each @a@. We could compute
+       -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
+       -- can do that thanks to shapes being available from types.
+       case revProduceArtifact True g EM.empty parameters0 of
+      ( ( ( varDt
+          , [ AstDynamicVarName (AstVarName nid)
+            , AstDynamicVarName (AstVarName mid) ] )
+        , gradient, _primal, _sh), _delta ) ->
+          -- We could do a lot of type comparisons and then reuse the variables
+          -- from above, for a little more sanity check paranoid assurance,
+          -- but @HasSingletonDict@ would need to be added
+          -- to @AstDynamicVarName@, complicating also other code.
+          let (nvar, mvar) = (AstVarName nid, AstVarName mid)
+          in AstFoldRev (fun2ToAstR shn shm f)
+                        (varDt, nvar, mvar, gradient) x0 as
+      _ -> error "rfold: wrong variables"
+  rfoldRev :: forall rn rm n m.
+              (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
+           => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
+           -> AstRanked s rn n
+           -> AstRanked s rm (1 + m)
+           -> AstRanked s rn n
+  rfoldRev f df x0 as =
+    let shn = rshape x0
+        shm = tailShape $ rshape as
+    in AstFoldRev (fun2ToAstR shn shm f) (fun3ToAstR shn shm df) x0 as
 
 astLetInDomainsFun :: (KnownNat n, GoodScalar r, AstSpan s)
                    => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
@@ -931,6 +984,21 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstRevDtS (funToAstDomainsS f parameters0) domains (unAstNoVectorizeS dt)
   sfwd f parameters0 domains ds =
     AstNoVectorizeS $ AstFwdS (funToAstDomainsS f parameters0) domains ds
+  rfold f x0 as =
+    let shn = rshape (unAstNoVectorize x0)
+        shm = tailShape $ rshape (unAstNoVectorize as)
+    in AstNoVectorize
+       $ AstFold (fun2ToAstR shn shm f)
+                 (unAstNoVectorize x0)
+                 (unAstNoVectorize as)
+  rfoldRev f df x0 as =
+    let shn = rshape (unAstNoVectorize x0)
+        shm = tailShape $ rshape (unAstNoVectorize as)
+    in AstNoVectorize
+       $ AstFoldRev (fun2ToAstR shn shm f)
+                    (fun3ToAstR shn shm df)
+                    (unAstNoVectorize x0)
+                    (unAstNoVectorize as)
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rlet a f =
@@ -1016,3 +1084,9 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     srevDt @(AstRanked s) f parameters0 domains (unAstNoSimplifyS dt)
   sfwd f parameters0 domains ds =
     AstNoSimplifyS $ sfwd @(AstRanked s) f parameters0 domains ds
+  rfold f x0 as =
+    AstNoSimplify
+    $ rfold @(AstRanked s) f (unAstNoSimplify x0) (unAstNoSimplify as)
+  rfoldRev f df x0 as =
+    AstNoSimplify
+    $ rfoldRev @(AstRanked s) f df (unAstNoSimplify x0) (unAstNoSimplify as)

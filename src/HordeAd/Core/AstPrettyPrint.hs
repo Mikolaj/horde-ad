@@ -97,6 +97,8 @@ areAllArgsInts = \case
   AstD{} -> False  -- dual number
   AstLetDomainsIn{} -> True  -- too early to tell
   AstFwd{} -> False
+  AstFold{} -> False
+  AstFoldRev{} -> False
 
 
 -- * Pretty-print variables
@@ -342,6 +344,44 @@ printAstAux cfg d = \case
       . printDomainsAst cfg parameters
       . showString " "
       . printDomainsAst cfg ds
+  AstFold (nvar, mvar, v) x0 as ->
+    showParen (d > 10)
+    $ showString "rfold "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarName (varRenames cfg) nvar)
+           . showString " "
+           . showString (printAstVarName (varRenames cfg) mvar)
+           . showString " -> "
+           . printAst cfg 0 v)
+      . showString " "
+      . printAst cfg 11 x0
+      . showString " "
+      . printAst cfg 11 as
+  AstFoldRev (nvar, mvar, v) (varDt2, nvar2, mvar2, doms) x0 as ->
+    showParen (d > 10)
+    $ showString "rfold "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarName (varRenames cfg) nvar)
+           . showString " "
+           . showString (printAstVarName (varRenames cfg) mvar)
+           . showString " -> "
+           . printAst cfg 0 v)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarName (varRenames cfg) varDt2)
+           . showString " "
+           . showString (printAstVarName (varRenames cfg) nvar2)
+           . showString " "
+           . showString (printAstVarName (varRenames cfg) mvar2)
+           . showString " -> "
+           . printAstDomains cfg 0 doms)
+      . showString " "
+      . printAst cfg 11 x0
+      . showString " "
+      . printAst cfg 11 as
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS

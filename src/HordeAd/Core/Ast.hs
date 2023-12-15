@@ -301,6 +301,24 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
          -> Domains (AstDynamic s)
          -> Domains (AstDynamic s)
          -> AstRanked s r n
+  AstFold :: forall rn rm n m s. (GoodScalar rm, KnownNat m)
+          => ( AstVarName (AstRanked PrimalSpan) rn n
+             , AstVarName (AstRanked PrimalSpan) rm m
+             , AstRanked PrimalSpan rn n )
+          -> AstRanked s rn n
+          -> AstRanked s rm (1 + m)
+          -> AstRanked s rn n
+  AstFoldRev :: forall rn rm n m s. (GoodScalar rm, KnownNat m)
+             => ( AstVarName (AstRanked PrimalSpan) rn n
+                , AstVarName (AstRanked PrimalSpan) rm m
+                , AstRanked PrimalSpan rn n )
+             -> ( AstVarName (AstRanked PrimalSpan) rn n
+                , AstVarName (AstRanked PrimalSpan) rn n
+                , AstVarName (AstRanked PrimalSpan) rm m
+                , AstDomains PrimalSpan )
+             -> AstRanked s rn n
+             -> AstRanked s rm (1 + m)
+             -> AstRanked s rn n
 
 deriving instance GoodScalar r => Show (AstRanked s r n)
 
@@ -434,6 +452,10 @@ type role AstDomains nominal
 data AstDomains s where
   -- There are existential variables inside DynamicExists here.
   AstDomains :: Domains (AstDynamic s) -> AstDomains s
+  -- This operation is why we need AstDomains and so DomainsOf.
+  -- If we kept a vector of terms instead, we'd need to let-bind in each
+  -- of the terms separately, duplicating the let-bound term.
+  --
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
   AstLetInDomains :: (KnownNat n, GoodScalar r, AstSpan s)

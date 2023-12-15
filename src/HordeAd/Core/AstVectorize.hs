@@ -108,6 +108,16 @@ build1VOccurenceUnknownRefresh k (var, v0) = unsafePerformIO $ do
              (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
   return $! build1VOccurenceUnknown k (varFresh, v2)
 
+build1VOccurenceUnknownDomainsRefresh
+  :: forall s. AstSpan s
+  => Int -> (IntVarName, AstDomains s) -> AstDomains s
+{-# NOINLINE build1VOccurenceUnknownDomainsRefresh #-}
+build1VOccurenceUnknownDomainsRefresh k (var, v0) = unsafePerformIO $ do
+  (varFresh, astVarFresh) <- funToAstIOI id
+  let v2 = substituteAstDomains  -- cheap subst, because only a renaming
+             (SubstitutionPayloadRanked @PrimalSpan @Int64 astVarFresh) var v0
+  return $! build1VOccurenceUnknownDomains k (varFresh, v2)
+
 intBindingRefresh
   :: IntVarName -> AstIndex n -> (IntVarName, AstInt, AstIndex n)
 {-# NOINLINE intBindingRefresh #-}
@@ -269,6 +279,59 @@ build1V k (var, v00) =
         -- TODO: comment why @r instead of @r1 from AstDynamicVarName
     Ast.AstFwd{} ->
       error "build1V: impossible case of AstFwd"
+    Ast.AstFold (nvar, mvar, v) x0 as ->
+      let shn = shapeAst x0
+          shm = tailShape $ shapeAst as
+          subst :: forall n1 r1. (KnownNat n1, GoodScalar r1)
+                => ShapeInt n1 -> AstVarName (AstRanked PrimalSpan) r1 n1
+                -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
+          subst sh1 (AstVarName var1) =
+            let projection =
+                  Ast.AstIndex (Ast.AstVar (k :$ sh1) $ AstVarName var1)
+                               (Ast.AstIntVar var :. ZI)
+            in substituteAst (SubstitutionPayloadRanked @s @r1 projection)
+                             (AstVarName var1)
+      in Ast.AstFold
+           ( AstVarName $ varNameToAstVarId nvar
+           , AstVarName $ varNameToAstVarId mvar
+           , build1VOccurenceUnknownRefresh
+               k (var, subst shn nvar $ subst shm mvar v) )
+           (build1VOccurenceUnknown k (var, x0))
+           (astTr $ build1VOccurenceUnknown k (var, as))
+    Ast.AstFoldRev (nvar, mvar, v) (varDt2, nvar2, mvar2, doms) x0 as ->
+      let shn = shapeAst x0
+          shm = tailShape $ shapeAst as
+          subst :: forall n1 r1. (KnownNat n1, GoodScalar r1)
+                => ShapeInt n1 -> AstVarName (AstRanked PrimalSpan) r1 n1
+                -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
+          subst sh1 (AstVarName var1) =
+            let projection =
+                  Ast.AstIndex (Ast.AstVar (k :$ sh1) $ AstVarName var1)
+                               (Ast.AstIntVar var :. ZI)
+            in substituteAst (SubstitutionPayloadRanked @s @r1 projection)
+                             (AstVarName var1)
+          substDomains :: forall n1 r1. (KnownNat n1, GoodScalar r1)
+                       => ShapeInt n1 -> AstVarName (AstRanked PrimalSpan) r1 n1
+                       -> AstDomains PrimalSpan -> AstDomains PrimalSpan
+          substDomains sh1 (AstVarName var1) =
+            let projection =
+                  Ast.AstIndex (Ast.AstVar (k :$ sh1) $ AstVarName var1)
+                               (Ast.AstIntVar var :. ZI)
+            in substituteAstDomains
+                 (SubstitutionPayloadRanked @s @r1 projection)
+                 (AstVarName var1)
+      in Ast.AstFoldRev
+           ( AstVarName $ varNameToAstVarId nvar
+           , AstVarName $ varNameToAstVarId mvar
+           , build1VOccurenceUnknownRefresh
+               k (var, subst shn nvar $ subst shm mvar v) )
+           ( AstVarName $ varNameToAstVarId varDt2
+           , AstVarName $ varNameToAstVarId nvar2
+           , AstVarName $ varNameToAstVarId mvar2
+           , build1VOccurenceUnknownDomainsRefresh
+               k (var, substDomains shn nvar $ substDomains shm mvar doms) )
+           (build1VOccurenceUnknown k (var, x0))
+           (astTr $ build1VOccurenceUnknown k (var, as))
 
 build1VOccurenceUnknownDynamic
   :: AstSpan s

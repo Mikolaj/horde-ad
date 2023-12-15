@@ -11,6 +11,7 @@ module HordeAd.Core.AstEnv
   , interpretLambdaIndex, interpretLambdaIndexS
   , interpretLambdaIndexToIndex, interpretLambdaIndexToIndexS
   , interpretLambdaDomains, interpretLambdaDomainsS
+  , interpretLambda2, interpretLambda3
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
   , interpretAstI2, interpretAstB2, interpretAstRelOp
@@ -237,6 +238,40 @@ interpretLambdaDomainsS
 {-# INLINE interpretLambdaDomainsS #-}
 interpretLambdaDomainsS f !env (!vars, !ast) =
   \pars -> f (extendEnvParsS vars pars env) ast
+
+interpretLambda2
+  :: forall s ranked shaped rn rm n m.
+     (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
+  => (AstEnv ranked shaped -> AstRanked s rn n -> ranked rn n)
+  -> AstEnv ranked shaped
+  -> ( AstVarName (AstRanked s) rn n
+     , AstVarName (AstRanked s) rm m
+     , AstRanked s rn n )
+  -> ranked rn n -> ranked rm m
+  -> ranked rn n
+{-# INLINE interpretLambda2 #-}
+interpretLambda2 f !env (!varn, !varm, !ast) =
+  \x0 as -> let envE = extendEnvR varn x0
+                       $ extendEnvR varm as env
+            in f envE ast
+
+interpretLambda3
+  :: forall s ranked shaped rn rm n m.
+     (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
+  => (AstEnv ranked shaped -> AstDomains s -> DomainsOf ranked)
+  -> AstEnv ranked shaped
+  -> ( AstVarName (AstRanked s) rn n
+     , AstVarName (AstRanked s) rn n
+     , AstVarName (AstRanked s) rm m
+     , AstDomains s )
+  -> ranked rn n -> ranked rn n -> ranked rm m
+  -> DomainsOf ranked
+{-# INLINE interpretLambda3 #-}
+interpretLambda3 f !env (!varDt, !varn, !varm, !ast) =
+  \dt x0 as -> let envE = extendEnvR varDt dt
+                          $ extendEnvR varn x0
+                          $ extendEnvR varm as env
+               in f envE ast
 
 
 -- * Interpretation of arithmetic, boolean and relation operations
