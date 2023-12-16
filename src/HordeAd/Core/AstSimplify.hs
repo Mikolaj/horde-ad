@@ -328,7 +328,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
         else astIndex (astReplicate0N @(m1 + n) (unsafeCoerce sh) 0) rest1
   -- AstScatter sh v (vars2, ZI) ->
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
-  Ast.AstScatter{} ->  -- a normal form
+  Ast.AstScatter{} ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromList l | AstConst it <- i1 ->
     let i = fromIntegral $ OR.unScalar it
@@ -356,7 +356,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
                    (singletonIndex i1)
   Ast.AstReplicate _k v ->
     astIndex v rest1
-  Ast.AstAppend{} ->
+  Ast.AstAppend{} ->  -- normal form
     {- We can't do the following, because we can get, e.g., division
        by zero in the index in the counterfactual branch and sometimes
        all branches are materialized. Similarly for gather of append
@@ -419,8 +419,8 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstLetDomainsIn vars l v ->
     Ast.AstLetDomainsIn vars l (astIndexRec v ix)
   Ast.AstFwd{} -> Ast.AstIndex v0 ix
-  Ast.AstFold{} -> Ast.AstIndex v0 ix
-  Ast.AstFoldRev{} -> Ast.AstIndex v0 ix
+  Ast.AstFold{} -> Ast.AstIndex v0 ix  -- normal form
+  Ast.AstFoldRev{} -> Ast.AstIndex v0 ix  -- normal form
 
 -- TODO: compared to tletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
@@ -595,7 +595,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                          (vars4, rest4)
           else astGather sh4 (astReplicate0N @(p1' + n') (unsafeCoerce sh) 0)
                          (vars4, rest4)
-    Ast.AstScatter{} ->  -- a normal form
+    Ast.AstScatter{} ->  -- normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromList l | AstConst it <- i4 ->
       let i = fromIntegral $ OR.unScalar it
@@ -604,7 +604,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                         else astReplicate0N @(p1' + n')
                                             (dropShape $ shapeAst v4) 0)
                        (vars4, rest4)
-    Ast.AstFromList{} | gatherFromNF vars4 ix4 ->
+    Ast.AstFromList{} | gatherFromNF vars4 ix4 ->  -- normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromList l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
@@ -625,7 +625,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                         else astReplicate0N @(p1' + n')
                                             (dropShape $ shapeAst v4) 0)
                        (vars4, rest4)
-    Ast.AstFromVector{} | gatherFromNF vars4 ix4 ->
+    Ast.AstFromVector{} | gatherFromNF vars4 ix4 ->  -- normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromVector l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
@@ -640,7 +640,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           i5 = subst i4
      in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :. ixFresh)
     Ast.AstReplicate _k v -> astGather sh4 v (vars4, rest4)
-    Ast.AstAppend{} ->
+    Ast.AstAppend{} ->  -- normal form
       {- This is wrong, see astIndexROrStepOnly:
          We can't express append as gather, because AstFromList needs
          arguments of the same shape, so here we need to inline a lot of code.
@@ -744,8 +744,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstLetDomainsIn vars l v ->
       Ast.AstLetDomainsIn vars l (astGatherCase sh4 v (vars4, ix4))
     Ast.AstFwd{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstFold{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstFoldRev{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstFold{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
+    Ast.AstFoldRev{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) -> Bool

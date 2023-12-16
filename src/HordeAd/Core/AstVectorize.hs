@@ -430,6 +430,8 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
               Ast.AstFromVector{} | valueOf @p == (1 :: Int) -> ruleD
               Ast.AstScatter{} -> ruleD
               Ast.AstAppend{} -> ruleD
+              Ast.AstFold{} -> ruleD
+              Ast.AstFoldRev{} -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
             else build1VOccurenceUnknown k (var, v)  -- shortcut
        v -> traceRule $
