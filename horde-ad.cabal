@@ -90,7 +90,6 @@ common options
                       UndecidableInstances, AllowAmbiguousTypes
   ghc-options:        -Wall -Wcompat -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
   ghc-options:        -Wno-unticked-promoted-constructors -fprint-explicit-kinds
-  ghc-options:        -fno-ignore-asserts
   if impl(ghc >= 9.2)
     ghc-options: -Wredundant-bang-patterns -Woperator-whitespace
   if impl(ghc >= 9.4)
@@ -101,7 +100,9 @@ common options
       ghc-options: -Wterm-variable-capture -Wmissing-poly-kind-signatures -Wmissing-role-annotations
 
   -- Disabling this breaks performance:
-  ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200 -fdicts-cheap -flate-dmd-anal -O2
+  ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200
+  -- Disabling hurts performance to some extent:
+  -- ghc-options: -O2 -fdicts-cheap -flate-dmd-anal
 
   ghc-options:        -Wmissed-specialisations
 
@@ -110,6 +111,9 @@ common options
 
   if flag(release)
     cpp-options:      -DEXPOSE_INTERNAL
+
+  -- This needs to be after -O2.
+  ghc-options:        -fno-ignore-asserts
 
 common exe-options
   ghc-options:        -rtsopts
