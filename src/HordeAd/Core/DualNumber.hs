@@ -311,10 +311,10 @@ crevOnADInputs
 crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
-      !(D _ v deltaTopLevel) = f inputs in
+      !(D l v deltaTopLevel) = f inputs in
   let (!astBindings, !gradient) =
         reverseDervative (V.length inputs) v mdt deltaTopLevel
-  in assert (null astBindings)
+  in assert (nullADShare l && null astBindings)
        (gradient, v)
 
 crevOnDomains
@@ -341,10 +341,10 @@ cfwdOnADInputs
   -> (f r y, f r y)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
-  let !(D _ v deltaTopLevel) = f inputs in
+  let !(D l v deltaTopLevel) = f inputs in
   let (astBindings, derivative) =
         forwardDerivative (V.length inputs) deltaTopLevel ds
-  in assert (null astBindings)
+  in assert (nullADShare l && null astBindings)
        (derivative, v)
 
 cfwdOnDomains
