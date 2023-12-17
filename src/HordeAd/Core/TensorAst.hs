@@ -14,14 +14,12 @@ module HordeAd.Core.TensorAst
 import Prelude
 
 import qualified Data.Array.DynamicS as OD
-import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
@@ -361,12 +359,12 @@ instance AstSpan s
 
   rfromList = AstFromList
   rfromVector = AstFromVector
-  runravelToList :: forall r n. KnownNat n
+  runravelToList :: forall r n. (GoodScalar r, KnownNat n)
                  => AstRanked s r (1 + n) -> [AstRanked s r n]
   runravelToList t =
-    let f :: Int64 -> AstRanked s r n
+    let f :: Int -> AstRanked s r n
         f i = AstIndex t (singletonIndex $ fromIntegral i)
-    in map f [0 .. valueOf @n - 1]
+    in map f [0 .. rlength t - 1]
   rreplicate = AstReplicate
   rappend = AstAppend
   rslice = AstSlice
@@ -528,12 +526,12 @@ instance AstSpan s
 
   sfromList = AstFromListS
   sfromVector = AstFromVectorS
-  sunravelToList :: forall r n sh. (KnownNat n, Sh.Shape sh)
+  sunravelToList :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
                  => AstShaped s r (n ': sh) -> [AstShaped s r sh]
   sunravelToList t =
-    let f :: Int64 -> AstShaped s r sh
+    let f :: Int -> AstShaped s r sh
         f i = AstIndexS t (singletonShaped $ fromIntegral i)
-    in map f [0 .. valueOf @n - 1]
+    in map f [0 .. slength t - 1]
   sreplicate = AstReplicateS
   sappend = AstAppendS
   sslice (_ :: Proxy i) Proxy = AstSliceS @i
