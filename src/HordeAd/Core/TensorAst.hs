@@ -582,13 +582,12 @@ instance AstSpan s
               -> DynamicExists (AstDynamic s)
   saddDynamic r (DynamicExists @r2 d) = DynamicExists @r $
     case d of
-      AstSToD AstIotaS -> AstSToD r
+      _ | isTensorDummyAst d -> AstSToD r
       AstSToD @sh2 v ->
         case ( sameShape @sh @sh2
              , testEquality (typeRep @r) (typeRep @r2) ) of
           (Just Refl, Just Refl) -> AstSToD @sh2 @r (r + v)
           _ -> error "saddDynamic: type mismatch"
-      AstRToD AstIota -> AstSToD r
       AstRToD @n2 v ->
         case ( matchingRank @sh @n2
              , testEquality (typeRep @r) (typeRep @r2) ) of

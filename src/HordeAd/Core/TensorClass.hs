@@ -797,10 +797,10 @@ instance RankedTensor (Flip OR.Array) where
   raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
               => Flip OR.Array r n -> DynamicExists OD.Array
               -> DynamicExists OD.Array
-  raddDynamic r (DynamicExists @r2 d) = DynamicExists $
+  raddDynamic r (DynamicExists @r2 d) = DynamicExists @r $
     if dIsDummy @(Flip OR.Array) d then dfromR r
     else case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> dfromR @(Flip OR.Array) @(Flip OS.Array) @r r + d
+      Just Refl -> dfromR r + d
       _ -> error "raddDynamic: type mismatch"
 
   rconstant = id
@@ -914,10 +914,10 @@ instance ShapedTensor (Flip OS.Array) where
   saddDynamic :: forall r sh. (GoodScalar r, Sh.Shape sh)
               => Flip OS.Array r sh -> DynamicExists OD.Array
               -> DynamicExists OD.Array
-  saddDynamic r (DynamicExists @r2 d) = DynamicExists $
+  saddDynamic r (DynamicExists @r2 d) = DynamicExists @r $
     if dIsDummy @(Flip OR.Array) d then dfromS r
     else case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> dfromS @(Flip OR.Array) @(Flip OS.Array) @r r + d
+      Just Refl -> dfromS r + d
       _ -> error "saddDynamic: type mismatch"
 
   sconstant = id
