@@ -454,6 +454,12 @@ class DerivativeStages g where
     -> DomainsOD
     -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 
+  revUnletGradient
+    :: (GoodScalar r, HasSingletonDict y)
+    => ADShare -> PrimalOf g r y
+    -> AstBindingsD (DynamicOf (PrimalOf g)) -> Domains (DynamicOf (PrimalOf g))
+    -> (AstDomains PrimalSpan, PrimalOf g r y)
+
   revProduceArtifact
     :: (GoodScalar r, HasSingletonDict y)
     => Bool

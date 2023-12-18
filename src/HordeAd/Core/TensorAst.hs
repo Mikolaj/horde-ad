@@ -155,16 +155,26 @@ instance DerivativeStages (AstRanked FullSpan) where
         mdt = if hasDt then Just astDt else Nothing
         !(!astBindings, !gradient) =
           reverseDervative (V.length parameters0) primalBody mdt delta
-    in ( ( (varDt, varsPrimal)
-         , unletAstDomains6 astBindings l
-                            (dmkDomains @(AstRanked PrimalSpan) gradient)
-         , unletAst6 [] l primalBody
-         , shapeToList sh )
+        (unGradient, unPrimal) =
+          revUnletGradient @Nat @(AstRanked FullSpan)
+                           l primalBody astBindings gradient
+    in ( ((varDt, varsPrimal), unGradient, unPrimal, shapeToList sh)
        , delta )
          -- storing sh computed from primalBody often saves the unletAst6
          -- execution; we could store the whole primalBody, as we do in calls
          -- to reverseDervative, but we can potentially free it earlier this way
          -- (as soon as sh is forced or determined to be unneeded)
+
+  revUnletGradient
+    :: (GoodScalar r, KnownNat n)
+    => ADShare -> AstRanked PrimalSpan r n
+    -> AstBindings -> Domains (AstDynamic PrimalSpan)
+    -> (AstDomains PrimalSpan, AstRanked PrimalSpan r n)
+  {-# INLINE revUnletGradient #-}
+  revUnletGradient l primalBody astBindings gradient =
+    ( unletAstDomains6 astBindings l
+                       (dmkDomains @(AstRanked PrimalSpan) gradient)
+    , unletAst6 [] l primalBody )
 
   {-# INLINE revEvalArtifact #-}
   revEvalArtifact ((varDt, vars), gradient, primal, sh) parameters mdt =
@@ -243,12 +253,22 @@ instance DerivativeStages (AstShaped FullSpan) where
         mdt = if hasDt then Just astDt else Nothing
         !(!astBindings, !gradient) =
           reverseDervative (V.length parameters0) primalBody mdt delta
-    in ( ( (varDt, varsPrimal)
-         , unletAstDomains6 astBindings l
-                            (dmkDomains @(AstRanked PrimalSpan) gradient)
-         , unletAst6S [] l primalBody
-         , Sh.shapeT @sh )
+        (unGradient, unPrimal) =
+          revUnletGradient @[Nat] @(AstShaped FullSpan)
+                           l primalBody astBindings gradient
+    in ( ((varDt, varsPrimal), unGradient, unPrimal, Sh.shapeT @sh)
        , delta )
+
+  revUnletGradient
+    :: (GoodScalar r, Sh.Shape sh)
+    => ADShare -> AstShaped PrimalSpan r sh
+    -> AstBindings -> Domains (AstDynamic PrimalSpan)
+    -> (AstDomains PrimalSpan, AstShaped PrimalSpan r sh)
+  {-# INLINE revUnletGradient #-}
+  revUnletGradient l primalBody astBindings gradient =
+    ( unletAstDomains6 astBindings l
+                       (dmkDomains @(AstRanked PrimalSpan) gradient)
+    , unletAst6S [] l primalBody )
 
   {-# INLINE revEvalArtifact #-}
   revEvalArtifact ((varDt, vars), gradient, primal, _) parameters mdt =
