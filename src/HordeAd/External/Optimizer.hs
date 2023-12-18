@@ -14,6 +14,7 @@ import           GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.Delta (DualPart (..))
 import HordeAd.Core.DualNumber
+import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
 
@@ -42,7 +43,9 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 
 -- | An implementation of the Adam gradient descent.
 sgdAdam :: forall f r a y.
-           ( DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
+           ( DynamicOf f ~ DynamicOf (RankedOf f)
+           , ConvertTensor (RankedOf f) (ShapedOf f)
+           , DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
            , DynamicOf f ~ OD.Array, DomainsOf f ~ DomainsOD, Num (f r y) )
         => (a -> Domains (DynamicOf (ADVal f)) -> ADVal f r y)
         -> [a]
@@ -52,7 +55,9 @@ sgdAdam :: forall f r a y.
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs :: forall f r a y.
-               ( DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
+               ( DynamicOf f ~ DynamicOf (RankedOf f)
+               , ConvertTensor (RankedOf f) (ShapedOf f)
+               , DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
                , DynamicOf f ~ OD.Array, DomainsOf f ~ DomainsOD, Num (f r y) )
             => ArgsAdam
             -> (a -> Domains (DynamicOf (ADVal f)) -> ADVal f r y)

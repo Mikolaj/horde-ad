@@ -21,6 +21,7 @@ module HordeAd.Core.DualNumber
 import Prelude
 
 import           Control.Exception.Assert.Sugar
+import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
@@ -303,7 +304,9 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
 
 crevOnADInputs
   :: forall k (f :: TensorKind k) r y.
-     (DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
+     ( DynamicOf f ~ DynamicOf (RankedOf f)
+     , ConvertTensor (RankedOf f) (ShapedOf f)
+     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y )
   => Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
   -> Domains (DynamicOf (ADVal f))
@@ -315,8 +318,12 @@ crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D l v deltaTopLevel) = f inputs in
-  let (!astBindings, !gradient) =
-        reverseDervative (V.length inputs) v mdt deltaTopLevel
+  let dToZero :: DynamicExists (DynamicOf (ADVal f)) -> DynamicExists OD.Array
+      dToZero (DynamicExists @re (Flip (D _ (Clown d) _))) =
+        DynamicExists @re $ OD.constant (dshape @(RankedOf f) d) 0
+      parameters0 = V.map dToZero inputs
+      (!astBindings, !gradient) =
+        reverseDervative parameters0 v mdt deltaTopLevel
   in revUnletGradient @k @f l v astBindings gradient
 
 crevOnDomains

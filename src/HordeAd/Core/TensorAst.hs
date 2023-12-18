@@ -154,7 +154,7 @@ instance DerivativeStages (AstRanked FullSpan) where
         astDt = AstVar sh varDt
         mdt = if hasDt then Just astDt else Nothing
         !(!astBindings, !gradient) =
-          reverseDervative (V.length parameters0) primalBody mdt delta
+          reverseDervative parameters0 primalBody mdt delta
         (unGradient, unPrimal) =
           revUnletGradient l primalBody astBindings gradient
     in ( ((varDt, varsPrimal), unGradient, unPrimal, shapeToList sh)
@@ -252,7 +252,7 @@ instance DerivativeStages (AstShaped FullSpan) where
         astDt = AstVarS varDt
         mdt = if hasDt then Just astDt else Nothing
         !(!astBindings, !gradient) =
-          reverseDervative (V.length parameters0) primalBody mdt delta
+          reverseDervative parameters0 primalBody mdt delta
         (unGradient, unPrimal) =
           revUnletGradient l primalBody astBindings gradient
     in ( ((varDt, varsPrimal), unGradient, unPrimal, Sh.shapeT @sh)

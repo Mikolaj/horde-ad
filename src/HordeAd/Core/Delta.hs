@@ -476,7 +476,7 @@ class DualPart (f :: TensorKind k) where
   type Dual f = (result :: TensorKind k) | result -> f
   reverseDervative
     :: (HasSingletonDict y, GoodScalar r)
-    => Int -> f r y -> Maybe (f r y) -> Dual f r y
+    => DomainsOD -> f r y -> Maybe (f r y) -> Dual f r y
     -> (AstBindingsD (DynamicOf f), Domains (DynamicOf f))
   forwardDerivative
     :: (HasSingletonDict y, GoodScalar r)
@@ -500,13 +500,13 @@ gradientDtD
      ( clownDynamic ~ Clown (DynamicOf ranked)
      , GoodScalar r
      , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
-  => Int
+  => DomainsOD
   -> clownDynamic r y
   -> Maybe (clownDynamic r y)
   -> DeltaD clownDynamic ranked shaped r y
   -> ( AstBindingsD (DynamicOf ranked)
      , Domains (DynamicOf ranked) )
-gradientDtD !dims !value !mdt !deltaTopLevel =
+gradientDtD !parameters0 !value !mdt !deltaTopLevel =
   let shl = dshape @ranked (runClown value)
       n = length shl
   in case someNatVal $ toInteger n of
@@ -514,7 +514,7 @@ gradientDtD !dims !value !mdt !deltaTopLevel =
       let sh = listShapeToShape @n shl
           dt = maybe (dfromR @ranked $ rreplicate0N sh 1) runClown mdt
           deltaDt = DeltaDtD dt deltaTopLevel
-      in gradientFromDelta dims deltaDt
+      in gradientFromDelta parameters0 deltaDt
     Nothing -> error "gradientDtD: impossible someNatVal error"
 
 derivativeFromDeltaD
@@ -544,23 +544,23 @@ instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
 gradientDtR
   :: ( KnownNat y, GoodScalar r
      , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
-  => Int -> ranked r y -> Maybe (ranked r y) -> DeltaR ranked shaped r y
+  => DomainsOD -> ranked r y -> Maybe (ranked r y) -> DeltaR ranked shaped r y
   -> ( AstBindingsD (DynamicOf ranked)
      , Domains (DynamicOf ranked) )
-gradientDtR !dims value !mdt !deltaTopLevel =
+gradientDtR !parameters0 value !mdt !deltaTopLevel =
   let dt = fromMaybe (rreplicate0N (rshape value) 1) mdt
       deltaDt = DeltaDtR dt deltaTopLevel
-  in gradientFromDelta dims deltaDt
+  in gradientFromDelta parameters0 deltaDt
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
-  => Int -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
+  => DomainsOD -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
   -> DeltaR (Flip OR.Array) (Flip OS.Array) Double y
   -> ( AstBindingsD (DynamicOf (Flip OR.Array))
      , Domains (DynamicOf (Flip OR.Array)) ) #-}
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
-  => Int -> AstRanked PrimalSpan Double y
+  => DomainsOD -> AstRanked PrimalSpan Double y
   -> Maybe (AstRanked PrimalSpan Double y)
   -> DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double y
   -> ( AstBindingsD (DynamicOf (AstRanked PrimalSpan))
@@ -587,30 +587,30 @@ instance ( RankedTensor (RankedOf shaped), ShapedTensor shaped
          , ConvertTensor (RankedOf shaped) shaped )
          => DualPart @[Nat] shaped where
   type Dual shaped = DeltaS (RankedOf shaped) shaped
-  reverseDervative dims _ = gradientDtS dims
+  reverseDervative parameters0 _ = gradientDtS parameters0
   forwardDerivative = derivativeFromDeltaS
 
 gradientDtS
   :: forall ranked shaped r y.
      ( Sh.Shape y, GoodScalar r
      , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
-  => Int -> Maybe (shaped r y) -> DeltaS ranked shaped r y
+  => DomainsOD -> Maybe (shaped r y) -> DeltaS ranked shaped r y
   -> ( AstBindingsD (DynamicOf shaped)
      , Domains (DynamicOf shaped) )
-gradientDtS !dims !mdt !deltaTopLevel =
+gradientDtS !parameters0 !mdt !deltaTopLevel =
   let dt = fromMaybe 1 mdt
       deltaDt = DeltaDtS dt deltaTopLevel
-  in gradientFromDelta dims deltaDt
+  in gradientFromDelta parameters0 deltaDt
 {-# SPECIALIZE gradientDtS
   :: Sh.Shape y
-  => Int -> Maybe (Flip OS.Array Double y)
+  => DomainsOD -> Maybe (Flip OS.Array Double y)
   -> DeltaS (Flip OR.Array) (Flip OS.Array) Double y
   -> ( AstBindingsD (DynamicOf (Flip OS.Array))
      , Domains (DynamicOf (Flip OS.Array)) ) #-}
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtS
   :: Sh.Shape y
-  => Int -> Maybe (AstShaped PrimalSpan Double y)
+  => DomainsOD -> Maybe (AstShaped PrimalSpan Double y)
   -> DeltaS (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double y
   -> ( AstBindingsD (DynamicOf (AstShaped PrimalSpan))
      , Domains (DynamicOf (AstShaped PrimalSpan)) ) #-}
@@ -745,10 +745,10 @@ gradientFromDelta
   :: forall ranked shaped r.
       ( GoodScalar r, RankedTensor ranked, ShapedTensor shaped
       , ConvertTensor ranked shaped )
-  => Int -> DeltaDt ranked shaped r
+  => DomainsOD -> DeltaDt ranked shaped r
   -> ( AstBindingsD (DynamicOf ranked)
      , Domains (DynamicOf ranked) )
-gradientFromDelta !dims !deltaDt =
+gradientFromDelta !parameters0 !deltaDt =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
   -- The former are initialized with dummy values so that it's cheap
@@ -757,10 +757,12 @@ gradientFromDelta !dims !deltaDt =
   -- especially if never used in an iteration, and adding to such vectors
   -- and especially using them as cotangent accumulators is wasteful;
   -- additionally, it may not be easy to deduce the sizes of the vectors).
+  -- We take care to keep the scalar type of the dummy correct,
+  -- but a shape is not preserved in a dummy, so it's not shape-correct.
   let s0 =
-        let dummy = ddummy @ranked @shaped @CInt  -- any GoodScalar is fine
+        let f (DynamicExists @re _) = DynamicExists $ ddummy @ranked @shaped @re
             iMap = EM.fromDistinctAscList
-                   $ zip [toInputId 0 ..] (replicate dims (DynamicExists dummy))
+                   $ zip [toInputId 0 ..] $ map f $ V.toList parameters0
             dMap = EM.empty
             nMap = EM.empty
             astBindings = []
@@ -772,11 +774,11 @@ gradientFromDelta !dims !deltaDt =
      in (astBindings, gradient)
 -- The warnings in the following seems spurious. A GHC issue to be opened.
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
+  :: DomainsOD -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
   -> (AstBindingsD OD.Array, DomainsOD) #-}
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
+  :: DomainsOD -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
   -> (AstBindingsD (DynamicOf (AstRanked PrimalSpan)), Domains (AstDynamic PrimalSpan)) #-}
 -}
 
