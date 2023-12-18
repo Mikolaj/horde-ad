@@ -12,7 +12,8 @@ module HordeAd.Core.DualNumber
   , CRankedIP, indexPrimal, fromList, CRankedIPSh, indexPrimalS, fromListS
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , DerivativeStages (..)
+    -- * Reverse and forward derivative stages class and instances
+  , DerivativeStages (..), UnletGradient (..)
   , crevOnADInputs, crevOnDomains, cfwdOnADInputs, cfwdOnDomains
   , generateDeltaInputsOD, generateDeltaInputsAst, makeADInputs
   ) where
@@ -22,6 +23,7 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
+import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
@@ -430,7 +432,7 @@ makeADInputs =
       _ -> error "makeADInputs: type mismatch")
 
 
--- * Reverse and forward derivative stages instances
+-- * Reverse and forward derivative stages class and instances
 
 type DerivativeStages :: forall k. TensorKind k -> Constraint
 class DerivativeStages g where
@@ -453,12 +455,6 @@ class DerivativeStages g where
         -> ADVal (PrimalOf g) r y)
     -> DomainsOD
     -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
-
-  revUnletGradient
-    :: (GoodScalar r, HasSingletonDict y)
-    => ADShare -> PrimalOf g r y
-    -> AstBindingsD (DynamicOf (PrimalOf g)) -> Domains (DynamicOf (PrimalOf g))
-    -> (AstDomains PrimalSpan, PrimalOf g r y)
 
   revProduceArtifact
     :: (GoodScalar r, HasSingletonDict y)
@@ -501,6 +497,25 @@ class DerivativeStages g where
   {-# INLINE fwdProduceArtifact #-}
   fwdProduceArtifact g envInit =
     fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
+
+-- TODO: this is an ad-hoc class with an ad-hoc name
+type UnletGradient :: forall k. TensorKind k -> Constraint
+class UnletGradient g where
+  revUnletGradient
+    :: (GoodScalar r, HasSingletonDict y)
+    => ADShare -> PrimalOf g r y
+    -> AstBindingsD (DynamicOf (PrimalOf g)) -> Domains (DynamicOf (PrimalOf g))
+    -> (DomainsOf (PrimalOf g), PrimalOf g r y)
+
+instance UnletGradient (Flip OR.Array) where
+  revUnletGradient l primalBody astBindings gradient =
+    assert (nullADShare l && null astBindings)
+       (gradient, primalBody)
+
+instance UnletGradient (Flip OS.Array) where
+  revUnletGradient l primalBody astBindings gradient =
+    assert (nullADShare l && null astBindings)
+       (gradient, primalBody)
 
 
 -- * Numeric instances for ADVal
