@@ -503,9 +503,9 @@ type UnletGradient :: forall k. TensorKind k -> Constraint
 class UnletGradient g where
   revUnletGradient
     :: (GoodScalar r, HasSingletonDict y)
-    => ADShare -> PrimalOf g r y
-    -> AstBindingsD (DynamicOf (PrimalOf g)) -> Domains (DynamicOf (PrimalOf g))
-    -> (DomainsOf (PrimalOf g), PrimalOf g r y)
+    => ADShare -> g r y
+    -> AstBindingsD (DynamicOf g) -> Domains (DynamicOf g)
+    -> (DomainsOf g, g r y)
 
 instance UnletGradient (Flip OR.Array) where
   revUnletGradient l primalBody astBindings gradient =

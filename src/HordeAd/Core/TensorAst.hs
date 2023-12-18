@@ -156,8 +156,7 @@ instance DerivativeStages (AstRanked FullSpan) where
         !(!astBindings, !gradient) =
           reverseDervative (V.length parameters0) primalBody mdt delta
         (unGradient, unPrimal) =
-          revUnletGradient @Nat @(AstRanked FullSpan)
-                           l primalBody astBindings gradient
+          revUnletGradient l primalBody astBindings gradient
     in ( ((varDt, varsPrimal), unGradient, unPrimal, shapeToList sh)
        , delta )
          -- storing sh computed from primalBody often saves the unletAst6
@@ -205,7 +204,7 @@ instance DerivativeStages (AstRanked FullSpan) where
       in (derivativeTensor, primalTensor)
    else error "forward derivative input and sensitivity arguments should have same shapes"
 
-instance UnletGradient (AstRanked FullSpan) where
+instance UnletGradient (AstRanked PrimalSpan) where
   revUnletGradient
     :: (GoodScalar r, KnownNat n)
     => ADShare -> AstRanked PrimalSpan r n
@@ -255,8 +254,7 @@ instance DerivativeStages (AstShaped FullSpan) where
         !(!astBindings, !gradient) =
           reverseDervative (V.length parameters0) primalBody mdt delta
         (unGradient, unPrimal) =
-          revUnletGradient @[Nat] @(AstShaped FullSpan)
-                           l primalBody astBindings gradient
+          revUnletGradient l primalBody astBindings gradient
     in ( ((varDt, varsPrimal), unGradient, unPrimal, Sh.shapeT @sh)
        , delta )
 
@@ -298,7 +296,7 @@ instance DerivativeStages (AstShaped FullSpan) where
         primalTensor = interpretAstPrimalS @(Flip OR.Array) env primal
     in (derivativeTensor, primalTensor)
 
-instance UnletGradient (AstShaped FullSpan) where
+instance UnletGradient (AstShaped PrimalSpan) where
   revUnletGradient
     :: (GoodScalar r, Sh.Shape sh)
     => ADShare -> AstShaped PrimalSpan r sh
