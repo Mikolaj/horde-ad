@@ -485,6 +485,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          , ShapedOf shaped ~ shaped )
          => DomainsTensor (ADVal ranked) (ADVal shaped) where
   dmkDomains = id
+  dunDomains _ = id
   rletInDomains = (&)
   sletInDomains = (&)
   rrev :: (GoodScalar r, KnownNat n)
@@ -601,6 +602,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
 
 instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
   dmkDomains = id
+  dunDomains _ = id
   rletInDomains = (&)
   sletInDomains = (&)
   rrev :: (GoodScalar r, KnownNat n)

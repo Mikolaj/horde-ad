@@ -693,6 +693,23 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
 
 instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dmkDomains = AstDomains
+  dunDomains od domainsOf =
+    let f :: forall r n. (GoodScalar r, KnownNat n)
+          => Int -> Domains (AstDynamic s) -> AstRanked s r n
+        f i d = case d V.! i of
+          DynamicExists (AstRToD @n2 @r2 w)
+            | Just Refl <- testEquality (typeRep @r2) (typeRep @r)
+            , Just Refl <- sameNat (Proxy @n2) (Proxy @n) -> w
+          DynamicExists (AstSToD @sh2 @r2 w)
+            | Just Refl <- testEquality (typeRep @r2) (typeRep @r)
+            , Just Refl <- matchingRank @sh2 @n -> rfromS w
+          _ -> error "dunDomains: type mismatch with od"
+    in V.imap (\i (DynamicExists @r a) ->
+      case someNatVal $ toInteger $ length $ dshape @(Flip OR.Array) a of
+        Just (SomeNat @n _) ->
+          DynamicExists $ dfromR @(AstRanked s) @(AstShaped s) @r @n
+          $ rletDomainsIn @(AstRanked s) od domainsOf (f i)
+        Nothing -> error "dunDomains: impossible") od
   rletInDomains = astLetInDomainsFun
   sletInDomains = astLetInDomainsFunS
   rrev :: (GoodScalar r, KnownNat n)

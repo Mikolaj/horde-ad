@@ -595,6 +595,8 @@ class DomainsTensor (ranked :: RankedTensorKind)
                     (shaped :: ShapedTensorKind)
                     | ranked -> shaped, shaped -> ranked where
   dmkDomains :: Domains (DynamicOf ranked) -> DomainsOf ranked
+  dunDomains :: DomainsOD -> DomainsOf ranked -> Domains (DynamicOf ranked)
+    -- ^ Warning: this operation easily breaks sharing.
   rletInDomains :: (GoodScalar r, KnownNat n)
                 => ranked r n
                 -> (ranked r n -> DomainsOf ranked)
