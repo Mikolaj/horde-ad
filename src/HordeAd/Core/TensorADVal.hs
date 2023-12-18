@@ -534,12 +534,20 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
         domsToPair :: forall f. ADReady f
                    => Domains (DynamicOf f) -> (f rn n, f rm m)
-        domsToPair doms = case (doms V.! 0, doms V.! 1) of
-          (DynamicExists @rn2 ex, DynamicExists @rm2 ea)
-            | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2)
-            , Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
-              (rfromD ex, rfromD ea)
-          _ -> error "rfold: type mismatch"
+        domsToPair doms =
+          let d0 = case doms V.! 0 of
+                DynamicExists d | dIsDummy @f d -> rzero shn
+                DynamicExists @rn2 ex
+                  | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2) ->
+                    rfromD ex
+                _ -> error "rfold: type mismatch"
+              d1 = case doms V.! 1 of
+                DynamicExists d | dIsDummy @f d -> rzero shm
+                DynamicExists @rm2 ex
+                  | Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
+                    rfromD ex
+                _ -> error "rfold: type mismatch"
+          in (d0, d1)
         g :: Domains (DynamicOf (ADVal ranked)) -> ADVal ranked rn n
         g doms = uncurry (f @(ADVal ranked)) (domsToPair doms)
         -- This computes the derivative of f again for each new @x@ and @a@
@@ -588,6 +596,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           in ( rletDomainsIn
                  domsOD res
                  (\doms -> case doms V.! 0 of
+                   DynamicExists d | dIsDummy @ranked d -> rzero shn
                    DynamicExists @rn2 ex
                      | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2) ->
                        rfromD ex
@@ -595,6 +604,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
              , rletDomainsIn
                  domsOD res
                  (\doms -> case doms V.! 1 of
+                   DynamicExists d | dIsDummy @ranked d -> rzero shm
                    DynamicExists @rm2 ea
                      | Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
                        rfromD ea
