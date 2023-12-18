@@ -298,8 +298,9 @@ crevDtMaybe f vals mdt =
 -- These work for @f@ both ranked and shaped.
 crev
   :: forall r y f advals.
-     ( DualPart f, GoodScalar r, HasSingletonDict y
+     ( DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array
+     , DomainsOf f ~ Domains (DynamicOf f)
      , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains OD.Array (Value advals) )
@@ -320,7 +321,8 @@ crevDt
      , ConvertTensor (RankedOf f) (ShapedOf f)
      , Dual (Clown (DynamicOf f))
        ~ DeltaD (Clown (DynamicOf f)) (RankedOf f) (ShapedOf f)
-     , DualPart f, GoodScalar r, HasSingletonDict y
+     , DomainsOf f ~ Domains (DynamicOf f)
+     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains (DynamicOf f) (Value advals) )
   => (advals -> ADVal f r y) -> Value advals -> f r y -> Value advals
@@ -340,7 +342,8 @@ crevDtMaybe
      , ConvertTensor (RankedOf f) (ShapedOf f)
      , Dual (Clown (DynamicOf f))
        ~ DeltaD (Clown (DynamicOf f)) (RankedOf f) (ShapedOf f)
-     , DualPart f, GoodScalar r, HasSingletonDict y
+     , DomainsOf f ~ Domains (DynamicOf f)
+     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , AdaptableDomains (DynamicOf (ADVal f)) advals
      , AdaptableDomains (DynamicOf f) vals
      , vals ~ Value advals )

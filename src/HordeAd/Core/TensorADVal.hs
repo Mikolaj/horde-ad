@@ -479,6 +479,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   dshape (Flip (D _ u _)) = dshape @ranked (runClown u)
 
 instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
+         , UnletGradient ranked
          , Dual (Clown (DynamicOf (ADVal ranked)))
            ~ DeltaD (Clown (DynamicOf (ADVal ranked)))
                     (ADVal ranked) (ADVal shaped)
@@ -525,7 +526,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         -> ADVal ranked rm (1 + m)
         -> ADVal ranked rn n
   rfold f (D l1 x0 x0') (D l2 as as') =
-    let domsToPair :: forall f. ADReady f
+    let shn = rshape x0
+        shm = tailShape $ rshape as
+        odFromSh :: forall rk k. GoodScalar rk
+                 => ShapeInt k -> DynamicExists OD.Array
+        odFromSh sh = DynamicExists @rk $ OD.constant (shapeToList sh) 0
+        domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+        domsToPair :: forall f. ADReady f
                    => Domains (DynamicOf f) -> (f rn n, f rm m)
         domsToPair doms = case (doms V.! 0, doms V.! 1) of
           (DynamicExists @rn2 ex, DynamicExists @rm2 ea)
@@ -547,7 +554,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         df :: ranked rn n -> (ranked rn n, ranked rm m)
            -> (ranked rn n, ranked rm m)
         df dt (x, a) =
-          domsToPair $ fst
+          domsToPair $ dunDomains @ranked domsOD $ fst
           $ crevOnDomains (Just dt) g
                           (V.fromList [ DynamicExists @rn (dfromR x)
                                       , DynamicExists @rm (dfromR a) ])

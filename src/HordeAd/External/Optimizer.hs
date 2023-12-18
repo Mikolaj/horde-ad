@@ -42,8 +42,8 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 
 -- | An implementation of the Adam gradient descent.
 sgdAdam :: forall f r a y.
-           ( DualPart f, HasSingletonDict y, GoodScalar r
-           , DynamicOf f ~ OD.Array, Num (f r y) )
+           ( DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
+           , DynamicOf f ~ OD.Array, DomainsOf f ~ DomainsOD, Num (f r y) )
         => (a -> Domains (DynamicOf (ADVal f)) -> ADVal f r y)
         -> [a]
         -> DomainsOD
@@ -52,8 +52,8 @@ sgdAdam :: forall f r a y.
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs :: forall f r a y.
-               ( DualPart f, HasSingletonDict y, GoodScalar r
-               , DynamicOf f ~ OD.Array, Num (f r y) )
+               ( DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
+               , DynamicOf f ~ OD.Array, DomainsOf f ~ DomainsOD, Num (f r y) )
             => ArgsAdam
             -> (a -> Domains (DynamicOf (ADVal f)) -> ADVal f r y)
             -> [a]

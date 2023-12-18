@@ -302,11 +302,12 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
 -}
 
 crevOnADInputs
-  :: (DualPart f, GoodScalar r, HasSingletonDict y)
+  :: forall k (f :: TensorKind k) r y.
+     (DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
   => Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
   -> Domains (DynamicOf (ADVal f))
-  -> (Domains (DynamicOf f), f r y)
+  -> (DomainsOf f, f r y)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
@@ -316,8 +317,7 @@ crevOnADInputs mdt f inputs =
       !(D l v deltaTopLevel) = f inputs in
   let (!astBindings, !gradient) =
         reverseDervative (V.length inputs) v mdt deltaTopLevel
-  in assert (nullADShare l && null astBindings)
-       (gradient, v)
+  in revUnletGradient @k @f l v astBindings gradient
 
 crevOnDomains
   :: forall r y f.
@@ -325,11 +325,11 @@ crevOnDomains
      , ConvertTensor (RankedOf f) (ShapedOf f)
      , Dual (Clown (DynamicOf f))
        ~ DeltaD (Clown (DynamicOf f)) (RankedOf f) (ShapedOf f)
-     , DualPart f, GoodScalar r, HasSingletonDict y)
+     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
   => Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
   -> Domains (DynamicOf f)
-  -> (Domains (DynamicOf f), f r y)
+  -> (DomainsOf f, f r y)
 crevOnDomains mdt f parameters =
   let deltaInputs = generateDeltaInputsOD parameters
       inputs = makeADInputs parameters deltaInputs
@@ -506,6 +506,11 @@ class UnletGradient g where
     => ADShare -> g r y
     -> AstBindingsD (DynamicOf g) -> Domains (DynamicOf g)
     -> (DomainsOf g, g r y)
+
+instance UnletGradient (ADVal f) where
+  revUnletGradient l primalBody astBindings gradient =
+    assert (nullADShare l && null astBindings)
+       (gradient, primalBody)
 
 instance UnletGradient (Flip OR.Array) where
   revUnletGradient l primalBody astBindings gradient =
