@@ -154,7 +154,7 @@ revDtMaybe
 revDtMaybe f vals mdt =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
-      artifact = fst $ revProduceArtifact (isJust mdt) g EM.empty domainsOD
+      artifact = fst $ revProduceArtifact True (isJust mdt) g EM.empty domainsOD
   in gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $  -- !!!
      parseDomains vals
      $ fst $ revEvalArtifact artifact domainsOD mdt
@@ -170,7 +170,7 @@ revArtifactAdapt
 revArtifactAdapt hasDt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
-  in revProduceArtifact hasDt g EM.empty domainsOD
+  in revProduceArtifact True hasDt g EM.empty domainsOD
 {-# SPECIALIZE revArtifactAdapt
   :: ( HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
@@ -190,7 +190,7 @@ revProduceArtifactWithoutInterpretation
   -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt g =
-  revArtifactFromForwardPass @Nat @g hasDt (forwardPassByApplication g)
+  revArtifactFromForwardPass @Nat @g True hasDt (forwardPassByApplication g)
 
 -- The commented out version is more general, but less performant.
 forwardPassByApplication
@@ -352,11 +352,11 @@ crevDtMaybe
 crevDtMaybe f vals mdt =
   gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $  -- !!!
   let g inputs = f $ parseDomains vals inputs
-  in parseDomains vals $ fst $ crevOnDomains mdt g (toDomains vals)
+  in parseDomains vals $ fst $ crevOnDomains True mdt g (toDomains vals)
 
 {-# SPECIALIZE crevOnDomains
   :: HasSingletonDict y
-  => Maybe (Flip OR.Array Double y)
+  => Bool -> Maybe (Flip OR.Array Double y)
   -> (Domains (DynamicOf (ADVal (Flip OR.Array)))
       -> ADVal (Flip OR.Array) Double y)
   -> DomainsOD
@@ -364,7 +364,7 @@ crevDtMaybe f vals mdt =
 
 {-# SPECIALIZE crevOnADInputs
   :: HasSingletonDict y
-  => Maybe (Flip OR.Array Double y)
+  => Bool -> Maybe (Flip OR.Array Double y)
   -> (Domains (DynamicOf (ADVal (Flip OR.Array)))
       -> ADVal (Flip OR.Array) Double y)
   -> Domains (DynamicOf (ADVal (Flip OR.Array)))

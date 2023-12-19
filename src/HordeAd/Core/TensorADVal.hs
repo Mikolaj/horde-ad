@@ -496,7 +496,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
        -> DomainsOf (ADVal ranked)
   rrev f _parameters0 parameters =
     -- This computes the derivative of f again for each new @parmeters@.
-    fst $ crevOnDomains Nothing (f @(ADVal (ADVal ranked))) parameters
+    fst $ crevOnDomains False Nothing (f @(ADVal (ADVal ranked))) parameters
   rrevDt :: (GoodScalar r, KnownNat n)
          => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
          -> DomainsOD
@@ -504,7 +504,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> ADVal ranked r n
          -> DomainsOf (ADVal ranked)
   rrevDt f _parameters0 parameters dt =
-    fst $ crevOnDomains (Just dt) (f @(ADVal (ADVal ranked))) parameters
+    fst $ crevOnDomains False (Just dt) (f @(ADVal (ADVal ranked))) parameters
   rfwd :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
@@ -514,9 +514,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rfwd f _parameters0 parameters ds =
     fst $ cfwdOnDomains parameters (f @(ADVal (ADVal ranked))) ds
   srev f _parameters0 parameters =
-    fst $ crevOnDomains Nothing (f @(ADVal (ADVal shaped))) parameters
+    fst $ crevOnDomains False Nothing (f @(ADVal (ADVal shaped))) parameters
   srevDt f _parameters0 parameters dt =
-    fst $ crevOnDomains (Just dt) (f @(ADVal (ADVal shaped))) parameters
+    fst $ crevOnDomains False (Just dt) (f @(ADVal (ADVal shaped))) parameters
   sfwd f _parameters0 parameters ds =
     fst $ cfwdOnDomains parameters (f @(ADVal (ADVal shaped))) ds
   rfold :: forall rn rm n m.
@@ -536,13 +536,11 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                    => Domains (DynamicOf f) -> (f rn n, f rm m)
         domsToPair doms =
           let d0 = case doms V.! 0 of
-                DynamicExists d | dIsDummy @f d -> rzero shn
                 DynamicExists @rn2 ex
                   | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2) ->
                     rfromD ex
                 _ -> error "rfold: type mismatch"
               d1 = case doms V.! 1 of
-                DynamicExists d | dIsDummy @f d -> rzero shm
                 DynamicExists @rm2 ex
                   | Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
                     rfromD ex
@@ -563,7 +561,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> (ranked rn n, ranked rm m)
         df dt (x, a) =
           domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains (Just dt) g
+          $ crevOnDomains False (Just dt) g
                           (V.fromList [ DynamicExists @rn (dfromR x)
                                       , DynamicExists @rm (dfromR a) ])
     in D (l1 `mergeADShare` l2)
@@ -596,7 +594,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           in ( rletDomainsIn
                  domsOD res
                  (\doms -> case doms V.! 0 of
-                   DynamicExists d | dIsDummy @ranked d -> rzero shn
                    DynamicExists @rn2 ex
                      | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2) ->
                        rfromD ex
@@ -604,7 +601,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
              , rletDomainsIn
                  domsOD res
                  (\doms -> case doms V.! 1 of
-                   DynamicExists d | dIsDummy @ranked d -> rzero shm
                    DynamicExists @rm2 ea
                      | Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
                        rfromD ea
@@ -628,7 +624,7 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
        -> DomainsOD
        -> DomainsOD
   rrev f _parameters0 parameters =
-    fst $ crevOnDomains Nothing (f @(ADVal (Flip OR.Array))) parameters
+    fst $ crevOnDomains False Nothing (f @(ADVal (Flip OR.Array))) parameters
   rrevDt :: (GoodScalar r, KnownNat n)
          => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
          -> DomainsOD
@@ -636,7 +632,7 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
          -> Flip OR.Array r n
          -> DomainsOD
   rrevDt f _parameters0 parameters dt =
-    fst $ crevOnDomains (Just dt) (f @(ADVal (Flip OR.Array))) parameters
+    fst $ crevOnDomains False (Just dt) (f @(ADVal (Flip OR.Array))) parameters
   rfwd :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
        -> DomainsOD
@@ -646,9 +642,9 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
   rfwd f _parameters0 parameters ds =
     fst $ cfwdOnDomains parameters (f @(ADVal (Flip OR.Array))) ds
   srev f _parameters0 parameters =
-    fst $ crevOnDomains Nothing (f @(ADVal (Flip OS.Array))) parameters
+    fst $ crevOnDomains False Nothing (f @(ADVal (Flip OS.Array))) parameters
   srevDt f _parameters0 parameters dt =
-    fst $ crevOnDomains (Just dt) (f @(ADVal (Flip OS.Array))) parameters
+    fst $ crevOnDomains False (Just dt) (f @(ADVal (Flip OS.Array))) parameters
   sfwd f _parameters0 parameters ds =
     fst $ cfwdOnDomains parameters (f @(ADVal (Flip OS.Array))) ds
   rfold :: GoodScalar rm

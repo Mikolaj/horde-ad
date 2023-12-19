@@ -131,7 +131,7 @@ instance DerivativeStages (AstRanked FullSpan) where
 
   revArtifactFromForwardPass
     :: forall r n. (GoodScalar r, KnownNat n)
-    => Bool
+    => Bool -> Bool
     -> (Domains (AstDynamic PrimalSpan)
         -> [AstDynamicVarName (AstRanked FullSpan)]
         -> Domains (AstDynamic FullSpan)
@@ -140,7 +140,7 @@ instance DerivativeStages (AstRanked FullSpan) where
     -> ( AstArtifactRev (AstRanked PrimalSpan) r n
        , Dual (AstRanked PrimalSpan) r n )
   {-# INLINE revArtifactFromForwardPass #-}
-  revArtifactFromForwardPass hasDt forwardPass parameters0 =
+  revArtifactFromForwardPass useDummies hasDt forwardPass parameters0 =
     let -- Bangs and the compound function to fix the numbering of variables
         -- for pretty-printing and prevent sharing the impure values/effects
         -- in tests that reset the impure counters.
@@ -154,7 +154,7 @@ instance DerivativeStages (AstRanked FullSpan) where
         astDt = AstVar sh varDt
         mdt = if hasDt then Just astDt else Nothing
         !(!astBindings, !gradient) =
-          reverseDervative parameters0 primalBody mdt delta
+          reverseDervative useDummies parameters0 primalBody mdt delta
         unGradient = unletGradient @Nat @(AstRanked PrimalSpan)
                                  l astBindings gradient
         unPrimal = unletValue l [] primalBody
@@ -238,7 +238,7 @@ instance DerivativeStages (AstShaped FullSpan) where
 
   revArtifactFromForwardPass
     :: forall r sh. (GoodScalar r, Sh.Shape sh)
-    => Bool
+    => Bool -> Bool
     -> (Domains (AstDynamic PrimalSpan)
         -> [AstDynamicVarName (AstShaped FullSpan)]
         -> Domains (AstDynamic FullSpan)
@@ -247,7 +247,7 @@ instance DerivativeStages (AstShaped FullSpan) where
     -> ( AstArtifactRev (AstShaped PrimalSpan) r sh
        , Dual (AstShaped PrimalSpan) r sh )
   {-# INLINE revArtifactFromForwardPass #-}
-  revArtifactFromForwardPass hasDt forwardPass parameters0 =
+  revArtifactFromForwardPass useDummies hasDt forwardPass parameters0 =
     let !(!varDtId, varsPrimal, domainsPrimal, vars, domains) =
           funToAstRevS parameters0 in
     let !(D l primalBody delta) = forwardPass domainsPrimal vars domains in
@@ -255,7 +255,7 @@ instance DerivativeStages (AstShaped FullSpan) where
         astDt = AstVarS varDt
         mdt = if hasDt then Just astDt else Nothing
         !(!astBindings, !gradient) =
-          reverseDervative parameters0 primalBody mdt delta
+          reverseDervative useDummies parameters0 primalBody mdt delta
         unGradient = unletGradient @[Nat] @(AstShaped PrimalSpan)
                                  l astBindings gradient
         unPrimal = unletValue l [] primalBody
@@ -726,7 +726,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new @parmeters@, which is much better than computing anew.
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact False (f @(AstRanked FullSpan))
+          revProduceArtifact True False (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters ->
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
@@ -743,7 +743,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
          -> AstDomains s
   rrevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact True (f @(AstRanked FullSpan))
+          revProduceArtifact True True (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters dt ->
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
@@ -765,14 +765,14 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       in interpretAst envDt gradient
   srev f parameters0 =
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact False (f @(AstShaped FullSpan))
+          revProduceArtifact True False (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters ->
       let env = extendEnvParsS @(AstRanked s) vars parameters EM.empty
       in interpretAstDomains env gradient
   srevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact True (f @(AstShaped FullSpan))
+          revProduceArtifact True True (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters dt ->
       let env = extendEnvParsS @(AstRanked s) vars parameters EM.empty
@@ -813,7 +813,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
        -- and @as@, which is better than once for each @a@. We could compute
        -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
        -- can do that thanks to shapes being available from types.
-       case revProduceArtifact True g EM.empty parameters0 of
+       case revProduceArtifact False True g EM.empty parameters0 of
       ( ( ( varDt
           , [ AstDynamicVarName (AstVarName nid)
             , AstDynamicVarName (AstVarName mid) ] )

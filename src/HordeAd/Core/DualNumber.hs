@@ -307,14 +307,14 @@ crevOnADInputs
      ( DynamicOf f ~ DynamicOf (RankedOf f)
      , ConvertTensor (RankedOf f) (ShapedOf f)
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y )
-  => Maybe (f r y)
+  => Bool -> Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
   -> Domains (DynamicOf (ADVal f))
   -> (DomainsOf f, f r y)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
-crevOnADInputs mdt f inputs =
+crevOnADInputs useDummies mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D l v deltaTopLevel) = f inputs in
@@ -323,7 +323,7 @@ crevOnADInputs mdt f inputs =
         DynamicExists @re $ OD.constant (dshape @(RankedOf f) d) 0
       parameters0 = V.map dToZero inputs
       (!astBindings, !gradient) =
-        reverseDervative parameters0 v mdt deltaTopLevel
+        reverseDervative useDummies parameters0 v mdt deltaTopLevel
   in (unletGradient @k @f l astBindings gradient, unletValue l [] v)
 
 crevOnDomains
@@ -333,14 +333,14 @@ crevOnDomains
      , Dual (Clown (DynamicOf f))
        ~ DeltaD (Clown (DynamicOf f)) (RankedOf f) (ShapedOf f)
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
-  => Maybe (f r y)
+  => Bool -> Maybe (f r y)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
   -> Domains (DynamicOf f)
   -> (DomainsOf f, f r y)
-crevOnDomains mdt f parameters =
+crevOnDomains useDummies mdt f parameters =
   let deltaInputs = generateDeltaInputsOD parameters
       inputs = makeADInputs parameters deltaInputs
-  in crevOnADInputs mdt f inputs
+  in crevOnADInputs useDummies mdt f inputs
 
 cfwdOnADInputs
   :: (DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
@@ -454,7 +454,7 @@ class DerivativeStages g where
 
   revArtifactFromForwardPass
     :: (GoodScalar r, HasSingletonDict y)
-    => Bool
+    => Bool -> Bool
     -> (Domains (DynamicOf (PrimalOf g))
         -> [AstDynamicVarName g]
         -> Domains (DynamicOf g)
@@ -464,15 +464,16 @@ class DerivativeStages g where
 
   revProduceArtifact
     :: (GoodScalar r, HasSingletonDict y)
-    => Bool
+    => Bool -> Bool
     -> (Domains (DynamicOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
     -> DomainsOD
     -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
   {-# INLINE revProduceArtifact #-}
-  revProduceArtifact hasDt g envInit =
-    revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
+  revProduceArtifact useDummies hasDt g envInit =
+    revArtifactFromForwardPass useDummies hasDt
+                               (forwardPassByInterpretation g envInit)
 
   revEvalArtifact
     :: (GoodScalar r, HasSingletonDict y)

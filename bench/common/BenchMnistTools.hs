@@ -146,7 +146,7 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
               (rconstant astGlyph, rconstant astLabel)
         g domains = f $ parseDomains valsInit domains
         (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-          revProduceArtifact False g envInit domainsInit
+          revProduceArtifact True False g envInit domainsInit
         gradient = simplifyAstDomains6 gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
         vars = (varDtAgain, vars1AndInputAgain)
@@ -319,7 +319,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
               (rconstant astGlyph, rconstant astLabel)
         g domains = f $ parseDomains valsInit domains
         (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-          revProduceArtifact False g envInit domainsInit
+          revProduceArtifact True False g envInit domainsInit
         gradient = simplifyAstDomains6 gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
         vars = (varDtAgain, vars1AndInputAgain)
