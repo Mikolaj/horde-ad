@@ -376,7 +376,7 @@ crevDtMaybe f vals mdt =
 -- | This takes the sensitivity parameter, by convention.
 cfwd
   :: forall r y f vals advals.
-     ( DualPart f, GoodScalar r, HasSingletonDict y
+     ( DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , DynamicOf f ~ OD.Array
      , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals

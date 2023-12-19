@@ -157,7 +157,7 @@ instance DerivativeStages (AstRanked FullSpan) where
           reverseDervative parameters0 primalBody mdt delta
         unGradient = unletGradient @Nat @(AstRanked PrimalSpan)
                                  l astBindings gradient
-        unPrimal = unletValue l primalBody
+        unPrimal = unletValue l [] primalBody
     in ( ((varDt, varsPrimal), unGradient, unPrimal, shapeToList sh)
        , delta )
          -- storing sh computed from primalBody often saves the unletAst6
@@ -190,9 +190,9 @@ instance DerivativeStages (AstRanked FullSpan) where
     let !(D l primalBody delta) = forwardPass domainsPrimal vars domains in
     let !(!astBindings, !derivative) =
           forwardDerivative (V.length parameters0) delta domainsDs
-    in ( ( (varsPrimalDs, varsPrimal)
-         , unletAst6 astBindings l derivative
-         , unletAst6 []l primalBody )
+        unDerivative = unletValue l astBindings derivative
+        unPrimal = unletValue l [] primalBody
+    in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
        , delta )
 
   {-# INLINE fwdEvalArtifact #-}
@@ -214,10 +214,10 @@ instance UnletGradient (AstRanked PrimalSpan) where
                      (dmkDomains @(AstRanked PrimalSpan) gradient)
   unletValue
     :: (GoodScalar r, KnownNat n)
-    => ADShare -> AstRanked PrimalSpan r n
+    => ADShare -> AstBindings -> AstRanked PrimalSpan r n
     -> AstRanked PrimalSpan r n
-  unletValue l primalBody =
-    unletAst6 [] l primalBody
+  unletValue l astBindings primalBody =
+    unletAst6 astBindings l primalBody
 
 instance DerivativeStages (AstShaped FullSpan) where
   forwardPassByInterpretation
@@ -258,7 +258,7 @@ instance DerivativeStages (AstShaped FullSpan) where
           reverseDervative parameters0 primalBody mdt delta
         unGradient = unletGradient @[Nat] @(AstShaped PrimalSpan)
                                  l astBindings gradient
-        unPrimal = unletValue l primalBody
+        unPrimal = unletValue l [] primalBody
     in ( ((varDt, varsPrimal), unGradient, unPrimal, Sh.shapeT @sh)
        , delta )
 
@@ -287,9 +287,9 @@ instance DerivativeStages (AstShaped FullSpan) where
     let !(D l primalBody delta) = forwardPass domainsPrimal vars domains  in
     let !(!astBindings, !derivative) =
           forwardDerivative (V.length parameters0) delta domainsDs
-    in ( ( (varsPrimalDs, varsPrimal)
-         , unletAst6S astBindings l derivative
-         , unletAst6S [] l primalBody )
+        unDerivative = unletValue l astBindings derivative
+        unPrimal = unletValue l [] primalBody
+    in ( ((varsPrimalDs, varsPrimal), unDerivative, unPrimal)
        , delta )
 
   {-# INLINE fwdEvalArtifact #-}
@@ -309,10 +309,10 @@ instance UnletGradient (AstShaped PrimalSpan) where
                      (dmkDomains @(AstRanked PrimalSpan) gradient)
   unletValue
     :: (GoodScalar r,  Sh.Shape sh)
-    => ADShare -> AstShaped PrimalSpan r sh
+    => ADShare -> AstBindings -> AstShaped PrimalSpan r sh
     -> AstShaped PrimalSpan r sh
-  unletValue l primalBody =
-    unletAst6S [] l primalBody
+  unletValue l astBindings primalBody =
+   unletAst6S astBindings l primalBody
 
 
 -- * Unlawful boolean instances of ranked AST; they are lawful modulo evaluation

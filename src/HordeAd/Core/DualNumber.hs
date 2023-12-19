@@ -324,7 +324,7 @@ crevOnADInputs mdt f inputs =
       parameters0 = V.map dToZero inputs
       (!astBindings, !gradient) =
         reverseDervative parameters0 v mdt deltaTopLevel
-  in (unletGradient @k @f l astBindings gradient, unletValue l v)
+  in (unletGradient @k @f l astBindings gradient, unletValue l [] v)
 
 crevOnDomains
   :: forall r y f.
@@ -343,7 +343,7 @@ crevOnDomains mdt f parameters =
   in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
-  :: (DualPart f, GoodScalar r, HasSingletonDict y)
+  :: (DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
   => Domains (DynamicOf (ADVal f))
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
   -> Domains (DynamicOf f)
@@ -353,8 +353,7 @@ cfwdOnADInputs inputs f ds =
   let !(D l v deltaTopLevel) = f inputs in
   let (astBindings, derivative) =
         forwardDerivative (V.length inputs) deltaTopLevel ds
-  in assert (nullADShare l && null astBindings)
-       (derivative, v)
+  in (unletValue l astBindings derivative, unletValue l [] v)
 
 cfwdOnDomains
   :: forall r y f.
@@ -362,7 +361,7 @@ cfwdOnDomains
      , ConvertTensor (RankedOf f) (ShapedOf f)
      , Dual (Clown (DynamicOf f))
        ~ DeltaD (Clown (DynamicOf f)) (RankedOf f) (ShapedOf f)
-     , DualPart f, GoodScalar r, HasSingletonDict y )
+     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y )
   => Domains (DynamicOf f)
   -> (Domains (DynamicOf (ADVal f)) -> ADVal f r y)
   -> Domains (DynamicOf f)
@@ -513,26 +512,26 @@ class UnletGradient g where
     -> DomainsOf g
   unletValue
     :: (GoodScalar r, HasSingletonDict y)
-    => ADShare -> g r y
+    => ADShare -> AstBindingsD (DynamicOf g) -> g r y
     -> g r y
 
 instance UnletGradient (ADVal f) where
   unletGradient l astBindings gradient =
     assert (nullADShare l && null astBindings) gradient
-  unletValue l primalBody =
-    assert (nullADShare l) primalBody
+  unletValue l astBindings primalBody =
+    assert (nullADShare l && null astBindings) primalBody
 
 instance UnletGradient (Flip OR.Array) where
   unletGradient l astBindings gradient =
     assert (nullADShare l && null astBindings) gradient
-  unletValue l primalBody =
-    assert (nullADShare l) primalBody
+  unletValue l astBindings primalBody =
+    assert (nullADShare l && null astBindings) primalBody
 
 instance UnletGradient (Flip OS.Array) where
   unletGradient l astBindings gradient =
     assert (nullADShare l && null astBindings) gradient
-  unletValue l primalBody =
-    assert (nullADShare l) primalBody
+  unletValue l astBindings primalBody =
+    assert (nullADShare l && null astBindings) primalBody
 
 
 -- * Numeric instances for ADVal
