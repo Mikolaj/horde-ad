@@ -98,7 +98,7 @@ areAllArgsInts = \case
   AstLetDomainsIn{} -> True  -- too early to tell
   AstFwd{} -> False
   AstFold{} -> False
-  AstFoldRev{} -> False
+  AstFoldDer{} -> False
 
 
 -- * Pretty-print variables
@@ -358,9 +358,10 @@ printAstAux cfg d = \case
       . printAst cfg 11 x0
       . showString " "
       . printAst cfg 11 as
-  AstFoldRev (nvar, mvar, v) (varDt2, nvar2, mvar2, doms) x0 as ->
+  AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                             (varDt2, nvar2, mvar2, doms) x0 as ->
     showParen (d > 10)
-    $ showString "rfold "
+    $ showString "rfoldDer "
       . (showParen True
          $ showString "\\"
            . showString (printAstVarName (varRenames cfg) nvar)
@@ -368,6 +369,18 @@ printAstAux cfg d = \case
            . showString (printAstVarName (varRenames cfg) mvar)
            . showString " -> "
            . printAst cfg 0 v)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarName (varRenames cfg) varDx)
+           . showString " "
+           . showString (printAstVarName (varRenames cfg) varDa)
+           . showString " "
+           . showString (printAstVarName (varRenames cfg) varn1)
+           . showString " "
+           . showString (printAstVarName (varRenames cfg) varm1)
+           . showString " -> "
+           . printAst cfg 0 ast1)
       . showString " "
       . (showParen True
          $ showString "\\"

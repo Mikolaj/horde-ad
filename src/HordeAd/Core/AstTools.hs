@@ -93,7 +93,7 @@ shapeAst = \case
   AstLetDomainsIn _ _ v -> shapeAst v
   AstFwd (_var, v) _l _ds -> shapeAst v
   AstFold _f x0 _as -> shapeAst x0
-  AstFoldRev _f _df x0 _as -> shapeAst x0
+  AstFoldDer _f _df _rf x0 _as -> shapeAst x0
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, GoodScalar r) => AstRanked s r (1 + n) -> Int
@@ -152,7 +152,7 @@ varInAst var = \case
     let f (DynamicExists d) = varInAstDynamic var d
     in any f l || any f ds
   AstFold _f x0 as -> varInAst var x0 || varInAst var as
-  AstFoldRev _f _df x0 as -> varInAst var x0 || varInAst var as
+  AstFoldDer _f _df _rf x0 as -> varInAst var x0 || varInAst var as
 
 varInAstDomains :: AstSpan s
                 => AstVarId -> AstDomains s -> Bool

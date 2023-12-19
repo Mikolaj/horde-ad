@@ -226,7 +226,7 @@ simplifyStepNonIndex t = case t of
   Ast.AstLetDomainsIn{} -> t
   Ast.AstFwd{} -> t
   Ast.AstFold{} -> t
-  Ast.AstFoldRev{} -> t
+  Ast.AstFoldDer{} -> t
 
 simplifyStepNonIndexS
   :: ()
@@ -420,7 +420,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
     Ast.AstLetDomainsIn vars l (astIndexRec v ix)
   Ast.AstFwd{} -> Ast.AstIndex v0 ix
   Ast.AstFold{} -> Ast.AstIndex v0 ix  -- normal form
-  Ast.AstFoldRev{} -> Ast.AstIndex v0 ix  -- normal form
+  Ast.AstFoldDer{} -> Ast.AstIndex v0 ix  -- normal form
 
 -- TODO: compared to tletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
@@ -745,7 +745,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       Ast.AstLetDomainsIn vars l (astGatherCase sh4 v (vars4, ix4))
     Ast.AstFwd{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFold{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
-    Ast.AstFoldRev{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
+    Ast.AstFoldDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) -> Bool
@@ -1521,7 +1521,7 @@ astPrimalPart t = case t of
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstFwd{} -> Ast.AstPrimalPart t  -- the other only normal form
   Ast.AstFold{} -> Ast.AstPrimalPart t
-  Ast.AstFoldRev{} -> Ast.AstPrimalPart t
+  Ast.AstFoldDer{} -> Ast.AstPrimalPart t
 
 astPrimalPartS :: (GoodScalar r, Sh.Shape sh)
                => AstShaped FullSpan r sh -> AstShaped PrimalSpan r sh
@@ -1592,7 +1592,7 @@ astDualPart t = case t of
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstFwd{} -> Ast.AstDualPart t
   Ast.AstFold{} -> Ast.AstDualPart t
-  Ast.AstFoldRev{} -> Ast.AstDualPart t
+  Ast.AstFoldDer{} -> Ast.AstDualPart t
 
 astDualPartS :: (GoodScalar r, Sh.Shape sh)
              => AstShaped FullSpan r sh -> AstShaped DualSpan r sh
@@ -1750,8 +1750,10 @@ simplifyAst t = case t of
                                          (V.map simplifyAstDynamic ds)
   Ast.AstFold (nvar, mvar, v) x0 as ->
     Ast.AstFold (nvar, mvar, simplifyAst v) (simplifyAst x0) (simplifyAst as)
-  Ast.AstFoldRev (nvar, mvar, v) (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstFoldRev (nvar, mvar, simplifyAst v)
+  Ast.AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                 (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstFoldDer (nvar, mvar, simplifyAst v)
+                   (varDx, varDa, varn1, varm1, simplifyAst ast1)
                    (varDt2, nvar2, mvar2, simplifyAstDomains doms)
                    (simplifyAst x0) (simplifyAst as)
 
@@ -2305,11 +2307,11 @@ substitute1Ast i var v1 = case v1 of
     case (substitute1Ast i var x0, substitute1Ast i var as) of
       (Nothing, Nothing) -> Nothing
       (mx0, mas) -> Just $ Ast.AstFold f (fromMaybe x0 mx0) (fromMaybe as mas)
-  Ast.AstFoldRev f df x0 as ->
+  Ast.AstFoldDer f df dr x0 as ->
     case (substitute1Ast i var x0, substitute1Ast i var as) of
       (Nothing, Nothing) -> Nothing
       (mx0, mas) ->
-        Just $ Ast.AstFoldRev f df (fromMaybe x0 mx0) (fromMaybe as mas)
+        Just $ Ast.AstFoldDer f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
 
 substitute1AstIndex
   :: (GoodScalar r2, AstSpan s2)

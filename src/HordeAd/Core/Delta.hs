@@ -236,6 +236,8 @@ data DeltaR :: RankedTensorKind -> ShapedTensorKind -> RankedTensorKind where
   FoldR :: (GoodScalar rm, KnownNat m)
         => (ranked rn n -> ranked rm m -> ranked rn n)
         -> ranked rn n -> ranked rm (1 + m)
+        -> (ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
+            -> ranked rn n)
         -> (ranked rn n -> (ranked rn n, ranked rm m)
             -> (ranked rn n, ranked rm m))
         -> DeltaR ranked shaped rn n
@@ -433,7 +435,7 @@ shapeDelta = \case
   TransposeR perm d -> backpermutePrefixShape perm (shapeDelta d)
   ReshapeR sh _ -> sh
   GatherR sh _ _ -> sh
-  FoldR _f x0 _as _df _x0' _as' -> rshape x0
+  FoldR _f x0 _as _df _rf _x0' _as' -> rshape x0
   CastR d -> shapeDelta d
   DToR (RToD @n2 d) ->
     case sameNat (Proxy @n) (Proxy @n2) of
@@ -926,10 +928,10 @@ buildFinMaps s0 deltaDt =
           in evalR s (rtranspose perm_reversed c) d
         ReshapeR _sh d -> evalR s (rreshape (shapeDelta d) c) d
         GatherR _sh d f -> evalR s (rscatter (shapeDelta d) c f) d
-        FoldR f x0 as df x0' as' ->
+        FoldR f x0 as _df rf x0' as' ->
           let las = runravelToList as
               p = scanl f x0 las
-              (cx0, cas) = mapAccumR df cShared (zip (init p) las)
+              (cx0, cas) = mapAccumR rf cShared (zip (init p) las)
               s2 = evalR sShared cx0 x0'
           in evalR s2 (rfromList cas) as'
         CastR d -> evalRRuntimeSpecialized s (rcast c) d
@@ -1218,17 +1220,13 @@ buildDerivative dimR deltaDt params = do
         GatherR sh d f -> do
           t <- evalR d
           return $! rgather sh t f
-        FoldR f _x0 _as _df x0' as' -> do
+        FoldR f x0 as df _rf x0' as' -> do
           cx0 <- evalR x0'
           cas <- evalR as'
-          -- return $! rfold f cx0 cas
-          -- The above potentially uses an optimisation from the @ranked@
-          -- implementation of @rfold@, but it requires @DomainsTensor@,
-          -- which complicates everything and @f@ needs to be quantified,
-          -- which breaks the @Show@ instance of @DeltaR@.
-          -- In contrast, the below just unrolls the fold, which is probably
-          -- the fastest it can get in the forward derivative, anyway.
-          return $! foldl' f cx0 (runravelToList cas)
+          let lcas = runravelToList cas
+              las = runravelToList as
+              p = scanl f x0 las
+          return $! foldl' df cx0 (zip3 lcas (init p) las)
         CastR d -> do
           t <- evalR d
           return $! rcast t

@@ -467,7 +467,7 @@ interpretAst !env = \case
           case testEquality (typeRep @r2) (typeRep @r3) of
             Just Refl -> extendEnvS @ranked @shaped @r2 @sh2
                                     (AstVarName varId) (sfromD d)
-            _ -> error "interpretAstS: type mismatch"
+            _ -> error "interpretAst: type mismatch"
         env2 lw = foldr f env (zip vars (V.toList lw))
     in rletDomainsIn lt0 lt (\lw -> interpretAst (env2 lw) v)
   AstFwd (vars, ast) parameters ds ->
@@ -491,15 +491,18 @@ interpretAst !env = \case
         x0i = interpretAst @ranked env x0
         asi = interpretAst @ranked env as
     in rfold @ranked g x0i asi
-  AstFoldRev @_ @rm @_ @m f df x0 as ->
-    let g :: forall f. ADReady f => f r n -> f rm m -> f r n
-        g = interpretLambda2 interpretAst EM.empty f
-        h :: forall f. ADReady f
-          => f r n -> f r n -> f rm m -> DomainsOf f
-        h = interpretLambda3 interpretAstDomains EM.empty df
+  AstFoldDer @_ @rm @_ @m f0 df0 rf0 x0 as ->
+    let f :: forall f. ADReady f => f r n -> f rm m -> f r n
+        f = interpretLambda2 interpretAst EM.empty f0
+        df :: forall f. ADReady f
+           => f r n -> f rm m -> f r n -> f rm m -> f r n
+        df = interpretLambda4 interpretAst EM.empty df0
+        rf :: forall f. ADReady f
+           => f r n -> f r n -> f rm m -> DomainsOf f
+        rf = interpretLambda3 interpretAstDomains EM.empty rf0
         x0i = interpretAst @ranked env x0
         asi = interpretAst @ranked env as
-    in rfoldRev @ranked g h x0i asi
+    in rfoldDer @ranked f df rf x0i asi
 
 interpretAstDynamic
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)

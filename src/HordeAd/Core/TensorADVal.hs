@@ -550,31 +550,42 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         g doms = uncurry (f @(ADVal ranked)) (domsToPair doms)
         -- This computes the derivative of f again for each new @x@ and @a@
         -- (not even once for @as@, but for each @a@ separately).
-        -- Note that this function, and similarly @f@ instantiated
+        -- Note that this function, and similarly @rf and @f@ instantiated
         -- and passed to FoldR, is not a function on dual numbers.
         -- Consequently, any dual number operations inserted there by the user
         -- are flattened away (which is represented in AST by @PrimalSpan@).
         -- TODO: what if the dual numbers are nested?
         -- TODO: do the dual number ops in f affect what df is computed? add
         -- a comment explaining that and tests that exemplify that
-        df :: ranked rn n -> (ranked rn n, ranked rm m)
+        df :: ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
+           -> ranked rn n
+        df cx (ca, x, a) =
+          fst $ cfwdOnDomains
+                  (V.fromList [ DynamicExists @rn (dfromR x)
+                              , DynamicExists @rm (dfromR a) ])
+                  g
+                  (V.fromList [ DynamicExists @rn (dfromR cx)
+                              , DynamicExists @rm (dfromR ca) ])
+        rf :: ranked rn n -> (ranked rn n, ranked rm m)
            -> (ranked rn n, ranked rm m)
-        df dt (x, a) =
+        rf dt (x, a) =
           domsToPair $ dunDomains @ranked domsOD $ fst
           $ crevOnDomains False (Just dt) g
                           (V.fromList [ DynamicExists @rn (dfromR x)
                                       , DynamicExists @rm (dfromR a) ])
     in D (l1 `mergeADShare` l2)
          (rfold @ranked f x0 as)
-         (FoldR f x0 as df x0' as')
-  rfoldRev :: forall rn rm n m.
+         (FoldR f x0 as df rf x0' as')
+  rfoldDer :: forall rn rm n m.
               (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+           -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
+                                   -> f rn n)
            -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
            -> ADVal ranked rn n
            -> ADVal ranked rm (1 + m)
            -> ADVal ranked rn n
-  rfoldRev f df (D l1 x0 x0') (D l2 as as') =
+  rfoldDer f df0 rf0 (D l1 x0 x0') (D l2 as as') =
     -- This potentially duplicates some AST terms, but we do this here,
     -- in the context of sharing information, so let's hope all big things
     -- are shared. If not, we'd need to extend @rregister@ to also work
@@ -585,30 +596,33 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                  => ShapeInt k -> DynamicExists OD.Array
         odFromSh sh = DynamicExists @rk $ OD.constant (shapeToList sh) 0
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
-        -- Note that this function, and similarly @f@ instantiated
+        -- Note that this function, and similarly @f@ and @rf@ instantiated
         -- and passed to FoldR, is not a function on dual numbers.
-        h :: ranked rn n -> (ranked rn n, ranked rm m)
-          -> (ranked rn n, ranked rm m)
-        h dt (x, a) =
-          let res = df dt x a  -- non-explicit sharing, so helps little
+        df :: ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
+           -> ranked rn n
+        df cx (ca, x, a) = df0 cx ca x a
+        rf :: ranked rn n -> (ranked rn n, ranked rm m)
+           -> (ranked rn n, ranked rm m)
+        rf cx (x, a) =
+          let res = rf0 cx x a  -- non-explicit sharing, so helps little
           in ( rletDomainsIn
                  domsOD res
                  (\doms -> case doms V.! 0 of
                    DynamicExists @rn2 ex
                      | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2) ->
                        rfromD ex
-                   _ -> error "rfoldRev: type mismatch")
+                   _ -> error "rfoldDer: type mismatch")
              , rletDomainsIn
                  domsOD res
                  (\doms -> case doms V.! 1 of
                    DynamicExists @rm2 ea
                      | Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
                        rfromD ea
-                   _ -> error "rfoldRev: type mismatch")
+                   _ -> error "rfoldDer: type mismatch")
              )
     in D (l1 `mergeADShare` l2)
          (rfold @ranked f x0 as)
-         (FoldR f x0 as h x0' as')
+         (FoldR f x0 as df rf x0' as')
 
 
 -- * DomainsTensor instance for concrete arrays
@@ -655,10 +669,12 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
   rfold f (Flip x0) (Flip as) =
     let g x a = runFlip $ f @(Flip OR.Array) (Flip x) (Flip a)
     in Flip $ foldl' g x0 (tunravelToListR as)
-  rfoldRev :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
+  rfoldDer :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+           -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
+                                   -> f rn n)
            -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
            -> Flip OR.Array rn n
            -> Flip OR.Array rm (1 + m)
            -> Flip OR.Array rn n
-  rfoldRev f _df (Flip x0) (Flip as) = rfold f (Flip x0) (Flip as)
+  rfoldDer f _df _dr (Flip x0) (Flip as) = rfold f (Flip x0) (Flip as)

@@ -214,12 +214,15 @@ inlineAst memo v0 = case v0 of
         (memo1, x02) = inlineAst memo x0
         (memo2, as2) = inlineAst memo1 as
     in (memo2, Ast.AstFold (nvar, mvar, v2) x02 as2)
-  Ast.AstFoldRev (nvar, mvar, v) (varDt2, nvar2, mvar2, doms) x0 as ->
+  Ast.AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                 (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAst EM.empty v
         (_, doms2) = inlineAstDomains EM.empty doms
+        (_, ast2) = inlineAst EM.empty ast1
         (memo1, x02) = inlineAst memo x0
         (memo2, as2) = inlineAst memo1 as
-    in (memo2, Ast.AstFoldRev (nvar, mvar, v2)
+    in (memo2, Ast.AstFoldDer (nvar, mvar, v2)
+                              (varDx, varDa, varn1, varm1, ast2)
                               (varDt2, nvar2, mvar2, doms2) x02 as2)
 
 inlineAstDynamic
@@ -543,8 +546,11 @@ unletAst env t = case t of
     Ast.AstFold (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
                 (unletAst env x0)
                 (unletAst env as)
-  Ast.AstFoldRev (nvar, mvar, v) (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstFoldRev (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
+  Ast.AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                 (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstFoldDer (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
+                   ( varDx, varDa, varn1, varm1
+                   , unletAst (emptyUnletEnv emptyADShare) ast1 )
                    ( varDt2, nvar2, mvar2
                    , unletAstDomains (emptyUnletEnv emptyADShare) doms )
                    (unletAst env x0)

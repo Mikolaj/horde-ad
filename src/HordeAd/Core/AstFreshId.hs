@@ -6,7 +6,7 @@
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR, fun2ToAstR, fun2ToAstS, fun3ToAstR, fun3ToAstS
-  , funToAstDomains, funToAstDomainsS
+  , fun4ToAstR, fun4ToAstS, funToAstDomains, funToAstDomainsS
   , funToAstRevIO, funToAstRev, funToAstRevIOS, funToAstRevS
   , funToAstFwdIO, funToAstFwd, funToAstFwdIOS, funToAstFwdS
   , funToAstIOI, funToAstI, funToAstIndexIO, funToAstIndex
@@ -229,6 +229,68 @@ fun3ToAstS :: (AstShaped s rn shn -> AstShaped s rn shn -> AstShaped s rm shm
               , AstDomains s )
 {-# NOINLINE fun3ToAstS #-}
 fun3ToAstS f = unsafePerformIO $ fun3ToAstIOS f
+
+fun4ToAstIOR :: ShapeInt n
+             -> ShapeInt m
+             -> (AstRanked s rn n -> AstRanked s rm m
+                 -> AstRanked s rn n -> AstRanked s rm m
+                 -> AstRanked s rn n)
+             -> IO ( AstVarName (AstRanked s) rn n
+                   , AstVarName (AstRanked s) rm m
+                   , AstVarName (AstRanked s) rn n
+                   , AstVarName (AstRanked s) rm m
+                   , AstRanked s rn n )
+{-# INLINE fun4ToAstIOR #-}
+fun4ToAstIOR shn shm f = do
+  nvarName <- unsafeGetFreshAstVarName
+  mvarName <- unsafeGetFreshAstVarName
+  nvarName2 <- unsafeGetFreshAstVarName
+  mvarName2 <- unsafeGetFreshAstVarName
+  let !x = f (AstVar shn nvarName) (AstVar shm mvarName)
+             (AstVar shn nvarName2) (AstVar shm mvarName2)
+  return (nvarName, mvarName, nvarName2, mvarName2, x)
+
+fun4ToAstR :: ShapeInt n
+           -> ShapeInt m
+           -> (AstRanked s rn n -> AstRanked s rm m
+               -> AstRanked s rn n -> AstRanked s rm m
+               -> AstRanked s rn n)
+           -> ( AstVarName (AstRanked s) rn n
+              , AstVarName (AstRanked s) rm m
+              , AstVarName (AstRanked s) rn n
+              , AstVarName (AstRanked s) rm m
+              , AstRanked s rn n )
+{-# NOINLINE fun4ToAstR #-}
+fun4ToAstR shn shm f = unsafePerformIO $ fun4ToAstIOR shn shm f
+
+fun4ToAstIOS :: (AstShaped s rn shn -> AstShaped s rm shm
+                 -> AstShaped s rn shn -> AstShaped s rm shm
+                 -> AstRanked s rn n)
+             -> IO ( AstVarName (AstShaped s) rn shn
+                   , AstVarName (AstShaped s) rm shm
+                   , AstVarName (AstShaped s) rn shn
+                   , AstVarName (AstShaped s) rm shm
+                   , AstRanked s rn n )
+{-# INLINE fun4ToAstIOS #-}
+fun4ToAstIOS f = do
+  nvarName <- unsafeGetFreshAstVarName
+  mvarName <- unsafeGetFreshAstVarName
+  nvarName2 <- unsafeGetFreshAstVarName
+  mvarName2 <- unsafeGetFreshAstVarName
+  let !x = f (AstVarS nvarName) (AstVarS mvarName)
+             (AstVarS nvarName2) (AstVarS mvarName2)
+  return (nvarName, mvarName, nvarName2, mvarName2, x)
+
+fun4ToAstS :: (AstShaped s rn shn -> AstShaped s rm shm
+               -> AstShaped s rn shn -> AstShaped s rm shm
+               -> AstRanked s rn n)
+           -> ( AstVarName (AstShaped s) rn shn
+              , AstVarName (AstShaped s) rm shm
+              , AstVarName (AstShaped s) rn shn
+              , AstVarName (AstShaped s) rm shm
+              , AstRanked s rn n )
+{-# NOINLINE fun4ToAstS #-}
+fun4ToAstS f = unsafePerformIO $ fun4ToAstIOS f
 
 funToAstDomainsIO
   :: (Domains (AstDynamic s) -> AstRanked s r n)

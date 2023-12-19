@@ -308,8 +308,13 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
           -> AstRanked s rn n
           -> AstRanked s rm (1 + m)
           -> AstRanked s rn n
-  AstFoldRev :: forall rn rm n m s. (GoodScalar rm, KnownNat m)
+  AstFoldDer :: forall rn rm n m s. (GoodScalar rm, KnownNat m)
              => ( AstVarName (AstRanked PrimalSpan) rn n
+                , AstVarName (AstRanked PrimalSpan) rm m
+                , AstRanked PrimalSpan rn n )
+             -> ( AstVarName (AstRanked PrimalSpan) rn n
+                , AstVarName (AstRanked PrimalSpan) rm m
+                , AstVarName (AstRanked PrimalSpan) rn n
                 , AstVarName (AstRanked PrimalSpan) rm m
                 , AstRanked PrimalSpan rn n )
              -> ( AstVarName (AstRanked PrimalSpan) rn n

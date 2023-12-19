@@ -298,7 +298,8 @@ build1V k (var, v00) =
                k (var, subst shn nvar $ subst shm mvar v) )
            (build1VOccurenceUnknown k (var, x0))
            (astTr $ build1VOccurenceUnknown k (var, as))
-    Ast.AstFoldRev (nvar, mvar, v) (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                   (varDt2, nvar2, mvar2, doms) x0 as ->
       let shn = shapeAst x0
           shm = tailShape $ shapeAst as
           subst :: forall n1 r1. (KnownNat n1, GoodScalar r1)
@@ -320,11 +321,18 @@ build1V k (var, v00) =
             in substituteAstDomains
                  (SubstitutionPayloadRanked @s @r1 projection)
                  (AstVarName var1)
-      in Ast.AstFoldRev
+      in Ast.AstFoldDer
            ( AstVarName $ varNameToAstVarId nvar
            , AstVarName $ varNameToAstVarId mvar
            , build1VOccurenceUnknownRefresh
                k (var, subst shn nvar $ subst shm mvar v) )
+           ( AstVarName $ varNameToAstVarId varDx
+           , AstVarName $ varNameToAstVarId varDa
+           , AstVarName $ varNameToAstVarId varn1
+           , AstVarName $ varNameToAstVarId varm1
+           , build1VOccurenceUnknownRefresh
+               k (var, subst shn varDx $ subst shm varDa
+                       $ subst shn varn1 $ subst shm varm1 ast1) )
            ( AstVarName $ varNameToAstVarId varDt2
            , AstVarName $ varNameToAstVarId nvar2
            , AstVarName $ varNameToAstVarId mvar2
@@ -431,7 +439,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
               Ast.AstScatter{} -> ruleD
               Ast.AstAppend{} -> ruleD
               Ast.AstFold{} -> ruleD
-              Ast.AstFoldRev{} -> ruleD
+              Ast.AstFoldDer{} -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
             else build1VOccurenceUnknown k (var, v)  -- shortcut
        v -> traceRule $

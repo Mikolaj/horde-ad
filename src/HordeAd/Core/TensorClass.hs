@@ -652,8 +652,10 @@ class DomainsTensor (ranked :: RankedTensorKind)
         -> ranked rn n  -- ^ initial value
         -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
         -> ranked rn n
-  rfoldRev :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
+  rfoldDer :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+           -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
+                                   -> f rn n)
            -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
            -> ranked rn n  -- ^ initial value
            -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
@@ -694,7 +696,7 @@ type ADReadySmall ranked shaped =
   , ConvertTensor (PrimalOf ranked) (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
-  , CDynamic (DynamicOf ranked) Show
+  , CDynamic (DynamicOf ranked) Show, Show (DomainsOf ranked)
   , DomainsOf ranked ~ DomainsOf shaped
   , DomainsOf shaped ~ DomainsOf ranked
   )
