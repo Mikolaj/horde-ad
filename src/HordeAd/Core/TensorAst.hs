@@ -216,7 +216,7 @@ instance UnletGradient (AstRanked PrimalSpan) where
     :: (GoodScalar r, KnownNat n)
     => ADShare -> AstBindings -> AstRanked PrimalSpan r n
     -> AstRanked PrimalSpan r n
-  unletValue l astBindings primalBody =
+  unletValue l astBindings primalBody = undefined $
     unletAst6 astBindings l primalBody
 
 instance DerivativeStages (AstShaped FullSpan) where
