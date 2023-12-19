@@ -324,7 +324,7 @@ crevOnADInputs mdt f inputs =
       parameters0 = V.map dToZero inputs
       (!astBindings, !gradient) =
         reverseDervative parameters0 v mdt deltaTopLevel
-  in revUnletGradient @k @f l v astBindings gradient
+  in (unletGradient @k @f l astBindings gradient, unletValue l v)
 
 crevOnDomains
   :: forall r y f.
@@ -508,26 +508,31 @@ class DerivativeStages g where
 -- TODO: this is an ad-hoc class with an ad-hoc name
 type UnletGradient :: forall k. TensorKind k -> Constraint
 class UnletGradient g where
-  revUnletGradient
+  unletGradient
+    :: ADShare -> AstBindingsD (DynamicOf g) -> Domains (DynamicOf g)
+    -> DomainsOf g
+  unletValue
     :: (GoodScalar r, HasSingletonDict y)
     => ADShare -> g r y
-    -> AstBindingsD (DynamicOf g) -> Domains (DynamicOf g)
-    -> (DomainsOf g, g r y)
+    -> g r y
 
 instance UnletGradient (ADVal f) where
-  revUnletGradient l primalBody astBindings gradient =
-    assert (nullADShare l && null astBindings)
-       (gradient, primalBody)
+  unletGradient l astBindings gradient =
+    assert (nullADShare l && null astBindings) gradient
+  unletValue l primalBody =
+    assert (nullADShare l) primalBody
 
 instance UnletGradient (Flip OR.Array) where
-  revUnletGradient l primalBody astBindings gradient =
-    assert (nullADShare l && null astBindings)
-       (gradient, primalBody)
+  unletGradient l astBindings gradient =
+    assert (nullADShare l && null astBindings) gradient
+  unletValue l primalBody =
+    assert (nullADShare l) primalBody
 
 instance UnletGradient (Flip OS.Array) where
-  revUnletGradient l primalBody astBindings gradient =
-    assert (nullADShare l && null astBindings)
-       (gradient, primalBody)
+  unletGradient l astBindings gradient =
+    assert (nullADShare l && null astBindings) gradient
+  unletValue l primalBody =
+    assert (nullADShare l) primalBody
 
 
 -- * Numeric instances for ADVal
