@@ -189,11 +189,13 @@ testTrees =
   , testCase "2Sin0Rfwd5'" testSin0Rfwd5'
   , testCase "2Sin0Rrev5S" testSin0Rrev5S
   , testCase "2Sin0RrevPP5S" testSin0RrevPP5S
--- TODO:  , testCase "2Sin0Fold0" testSin0Fold0
+  , testCase "2Sin0Fold0" testSin0Fold0
   , testCase "2Sin0Fold1" testSin0Fold1
   , testCase "2Sin0Fold2" testSin0Fold2
   , testCase "2Sin0FoldForComparison" testSin0FoldForComparison
   , testCase "2Sin0Fold3" testSin0Fold3
+  , testCase "2Sin0Fold4" testSin0Fold4
+  , testCase "2Sin0Fold5" testSin0Fold5
   ]
 
 testZeroZ :: Assertion
@@ -2149,22 +2151,23 @@ testSin0RrevPP5S = do
   let a1 = srev1 @(AstShaped FullSpan) @Double @'[] @'[] (srev1 sin) 1.1
   printAstPrettyS IM.empty (simplifyAst6S a1)
     @?= "sletDomainsIn (negate (sin (sconst 1.1)) * sconst 1.0) (\\[x645] -> x645)"
-{-
+
 testSin0Fold0 :: Assertion
 testSin0Fold0 = do
   assertEqualUpToEpsilon' 1e-10
-    (0.4535961214255773 :: OR.Array 0 Double)
+    (1.0 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f x0 = rfold (\x _a -> sin x)
                             x0 (rzero @f @Double (0 :$ ZS))
            in f) 1.1)
--}
+
 testSin0Fold1 :: Assertion
 testSin0Fold1 = do
   assertEqualUpToEpsilon' 1e-10
     (0.4535961214255773 :: OR.Array 0 Double)
     (rev' (\x0 -> rfold (\x _a -> sin x)
                         x0 (rconst (OR.constant @Double @1 [1] 42))) 1.1)
+
 testSin0Fold2 :: Assertion
 testSin0Fold2 = do
   assertEqualUpToEpsilon' 1e-10
@@ -2175,8 +2178,8 @@ testSin0Fold2 = do
 testSin0FoldForComparison :: Assertion
 testSin0FoldForComparison = do
   assertEqualUpToEpsilon' 1e-10
-    (0.20309666724857006 :: OR.Array 0 Double)
-    (rev' (sin . sin . sin) 1.1)
+    (0.12389721944941383 :: OR.Array 0 Double)
+    (rev' (sin . sin . sin . sin . sin) 1.1)
 
 testSin0Fold3 :: Assertion
 testSin0Fold3 = do
@@ -2184,3 +2187,21 @@ testSin0Fold3 = do
     (0.4535961214255773 :: OR.Array 0 Double)
     (rev' (\a0 -> rfold (\_x a -> sin a)
                         84 (rreplicate 3 a0)) 1.1)
+
+testSin0Fold4 :: Assertion
+testSin0Fold4 = do
+  assertEqualUpToEpsilon' 1e-10
+    (-0.7053476446727861 :: OR.Array 0 Double)
+    (rev' (\a0 -> rfold (\x a -> atan2 (sin x) (sin a))
+                        (2 * a0) (rreplicate 3 a0)) 1.1)
+
+testSin0Fold5 :: Assertion
+testSin0Fold5 = do
+  assertEqualUpToEpsilon' 1e-10
+    (1.2992412552109085 :: OR.Array 0 Double)
+    (rev' (\a0 -> rfold (\x a -> rsum
+                                 $ atan2 (sin $ rreplicate 5 x)
+                                         (rsum $ sin $ rsum
+                                          $ rtr $ rreplicate 7 a))
+                        (2 * a0)
+                        (rreplicate 3 (rreplicate 2 (rreplicate 5 a0)))) 1.1)

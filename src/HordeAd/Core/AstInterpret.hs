@@ -123,7 +123,8 @@ interpretAst !env = \case
   AstVar sh (AstVarName var) -> case EM.lookup var env of
     Just (AstEnvElemR @n2 @r2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-        Just Refl -> assert (rshape t == sh) t
+        Just Refl -> assert (rshape t == sh
+                             `blame` (rshape t, sh, var, env)) t
         _ -> error "interpretAst: type mismatch"
       _ -> error "interpretAst: wrong shape in environment"
     Just{} -> error "interpretAst: wrong tensor kind in environment"

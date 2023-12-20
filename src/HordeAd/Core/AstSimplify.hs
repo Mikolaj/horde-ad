@@ -1782,7 +1782,7 @@ simplifyAstDomains = \case
                                          (V.map simplifyAstDynamic l)
   Ast.AstRevDtS (vars, v) l dt -> Ast.AstRevDtS (vars, simplifyAstS v)
                                                 (V.map simplifyAstDynamic l)
-                                               (simplifyAstS dt)
+                                                (simplifyAstS dt)
 
 simplifyAstBool :: AstBool -> AstBool
 simplifyAstBool t = case t of

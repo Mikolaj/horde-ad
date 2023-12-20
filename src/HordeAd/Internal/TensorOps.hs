@@ -216,11 +216,15 @@ tdot1InR t@(RS.A (RG.A _ (OI.T _ _ vt))) u@(RS.A (RG.A _ (OI.T _ _ vu))) =
 -- TODO: add these to orthotope, faster; factor out unravel through them
 -- and think if ravelFromList makes sense
 tunravelToListR :: Numeric r => OR.Array (1 + n) r -> [OR.Array n r]
-tunravelToListR = ORB.toList . OR.unravel
+tunravelToListR t = case OR.shapeL t of
+  0 : _ -> []
+  _ -> ORB.toList $ OR.unravel t
 
 tunravelToListS :: (Numeric r, KnownNat n, Sh.Shape sh)
                 => OS.Array (n ': sh) r -> [OS.Array sh r]
-tunravelToListS = OSB.toList . OS.unravel
+tunravelToListS t = case OS.shapeL t of
+  0 : _ -> []
+  _ -> OSB.toList $ OS.unravel t
 
 tmatvecmulR
   :: Numeric r
