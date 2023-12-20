@@ -24,7 +24,7 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
+import           GHC.TypeLits (KnownNat)
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -78,11 +78,9 @@ extendEnvDR (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) !env =
   -- variable r2, because rfromD does not depend on r2.
   case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl ->
-      let n = length $ Sh.shapeT @sh
-      in case someNatVal $ toInteger n of
-        Just (SomeNat @n _) -> gcastWith (unsafeCoerce Refl :: n :~: y) $
-                               extendEnvR var (rfromD d) env
-        Nothing -> error "extendEnvDR: impossible someNatVal error"
+      withListShape (Sh.shapeT @sh) $ \ (_ :: Shape n Int) ->
+        gcastWith (unsafeCoerce Refl :: n :~: y) $
+        extendEnvR var (rfromD d) env
     _ -> error "extendEnvDR: type mismatch"
 
 extendEnvDS :: ConvertTensor ranked shaped

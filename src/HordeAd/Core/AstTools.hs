@@ -23,8 +23,7 @@ import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
-  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
@@ -321,12 +320,9 @@ bindsToLetS = foldl' bindToLetS
              -> AstShaped s r sh
   bindToLetS !u (var, DynamicExists d) = case d of
     AstRToD w ->
-      let n = length $ Sh.shapeT @sh
-      in case someNatVal $ toInteger n of
-        Just (SomeNat @n _proxy) ->
-          gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n)
-          $ AstRToS $ AstLet (AstVarName var) w (AstSToR u)
-        Nothing -> error "bindsToLetS: impossible someNatVal error"
+      withListShape (Sh.shapeT @sh) $ \ (_ :: Shape n Int) ->
+        gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n)
+        $ AstRToS $ AstLet (AstVarName var) w (AstSToR u)
     AstSToD w -> AstLetS (AstVarName var) w u
 
 bindsToDomainsLet

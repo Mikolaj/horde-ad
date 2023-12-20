@@ -17,7 +17,7 @@ module HordeAd.Util.SizedIndex
   , singletonShape, appendShape, tailShape, takeShape, dropShape
   , splitAt_Shape, lastShape, initShape, lengthShape, sizeShape, flattenShape
   , backpermutePrefixShape
-  , listShapeToShape, shapeToList
+  , listShapeToShape, withListShape, shapeToList
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx, zeroOf
   ) where
@@ -259,6 +259,12 @@ backpermutePrefixShape p (Shape is) = Shape $ backpermutePrefixSized p is
 -- Warning: do not pass a list of strides to this function.
 listShapeToShape :: KnownNat n => [i] -> Shape n i
 listShapeToShape = Shape . listToSized
+
+withListShape :: [i] -> (forall n. KnownNat n => Shape n i -> a) -> a
+withListShape shList f =
+  case someNatVal $ toInteger (length shList) of
+    Just (SomeNat @n _) -> f $ listShapeToShape @n shList
+    _ -> error "listToShape: impossible someNatVal error"
 
 shapeToList :: Shape n i -> [i]
 shapeToList (Shape l) = sizedListToList l

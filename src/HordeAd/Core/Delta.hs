@@ -69,8 +69,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
-import           GHC.TypeLits
-  (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
+import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
 import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -509,15 +508,10 @@ gradientDtD
   -> ( AstBindingsD (DynamicOf ranked)
      , Domains (DynamicOf ranked) )
 gradientDtD useDummies !parameters0 !value !mdt !deltaTopLevel =
-  let shl = dshape @ranked (runClown value)
-      n = length shl
-  in case someNatVal $ toInteger n of
-    Just (SomeNat @n _proxy) ->
-      let sh = listShapeToShape @n shl
-          dt = maybe (dfromR @ranked $ rreplicate0N sh 1) runClown mdt
-          deltaDt = DeltaDtD dt deltaTopLevel
-      in gradientFromDelta useDummies parameters0 deltaDt
-    Nothing -> error "gradientDtD: impossible someNatVal error"
+  withListShape (dshape @ranked (runClown value)) $ \sh ->
+    let dt = maybe (dfromR @ranked $ rreplicate0N sh 1) runClown mdt
+        deltaDt = DeltaDtD dt deltaTopLevel
+    in gradientFromDelta useDummies parameters0 deltaDt
 
 derivativeFromDeltaD
   :: forall clownDynamic ranked shaped r (y :: ()).
@@ -772,15 +766,8 @@ gradientFromDelta useDummies !parameters0 !deltaDt =
               else let f :: DynamicExists OD.Array
                          -> DynamicExists (DynamicOf ranked)
                        f (DynamicExists @re d) =
-                         let shl = dshape @(Flip OR.Array) d
-                             n = length shl
-                         in case someNatVal $ toInteger n of
-                           Just (SomeNat @n _proxy) ->
-                             let sh = listShapeToShape @n shl
-                             in DynamicExists $ dfromR $ rzero @ranked @re sh
-                           Nothing ->
-                             error
-                               "gradientFromDelta: impossible someNatVal error"
+                         withListShape (dshape @(Flip OR.Array) d) $ \sh ->
+                           DynamicExists $ dfromR $ rzero @ranked @re sh
                    in EM.fromDistinctAscList
                       $ zip [toInputId 0 ..] $ map f $ V.toList parameters0
             dMap = EM.empty

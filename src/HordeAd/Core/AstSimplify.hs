@@ -104,7 +104,7 @@ astTransposeAsGather
 astTransposeAsGather perm v = unsafePerformIO $ do
   let pInt = length perm
   case someNatVal $ toInteger pInt of
-    Just (SomeNat (_proxy :: Proxy p)) -> do
+    Just (SomeNat @p _) -> do
       (vars, ix) <- funToAstIndexIO pInt id
       let asts :: AstIndex p
           asts = permutePrefixIndex perm ix

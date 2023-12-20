@@ -262,16 +262,12 @@ build1V k (var, v00) =
       -- again, because the original variables might have been marked
       -- with AstShaped and here we require AstRanked.
       let subst (AstDynamicVarName @_ @sh1 (AstVarName var1)) =
-            let ls = Sh.shapeT @sh1
-            in case someNatVal $ toInteger (length ls) of
-              Just (SomeNat @n2 _) ->
-                let shV = listShapeToShape @n2 ls
-                    projection =
-                      Ast.AstIndex (Ast.AstVar (k :$ shV) $ AstVarName var1)
-                                   (Ast.AstIntVar var :. ZI)
-                in substituteAst (SubstitutionPayloadRanked @s1 @r projection)
-                                 (AstVarName var1)
-              Nothing -> error "build1V: impossible someNatVal error"
+            withListShape (Sh.shapeT @sh1) $ \shV ->
+              let projection =
+                    Ast.AstIndex (Ast.AstVar (k :$ shV) $ AstVarName var1)
+                                 (Ast.AstIntVar var :. ZI)
+              in substituteAst (SubstitutionPayloadRanked @s1 @r projection)
+                               (AstVarName var1)
           v2 = foldr subst v vars
       in Ast.AstLetDomainsIn
            vars (build1VOccurenceUnknownDomains k (var, l))
@@ -370,8 +366,7 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
     in astLetInDomains var2 (build1VOccurenceUnknownRefresh k (var, u))
                             (build1VOccurenceUnknownDomains k (var, v2))
   Ast.AstLetInDomainsS @sh2 @r1 @s1
-                     (AstVarName oldVar2) u v -> case someNatVal
-                                                      $ toInteger k of
+   (AstVarName oldVar2) u v -> case someNatVal $ toInteger k of
     Just (SomeNat @k _proxy) ->
       let var2 = AstVarName oldVar2  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
@@ -484,12 +479,9 @@ build1VectorizeS (var, v0) = unsafePerformIO $ do
 astTrS :: forall n m sh s r. (KnownNat n, KnownNat m, Sh.Shape sh)
        => AstShaped s r (n ': m ': sh) -> AstShaped s r (m ': n ': sh)
 astTrS =
-  let p = length $ Sh.shapeT @sh
-  in case someNatVal $ toInteger p of
-    Just (SomeNat @p _proxy) ->
-      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: p) $
-      astTransposeS @'[1, 0]
-    Nothing -> error "astTrS: impossible someNatVal error"
+  withListShape (Sh.shapeT @sh) $ \ (_ :: Shape p Int) ->
+    gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: p) $
+    astTransposeS @'[1, 0]
 
 build1VOccurenceUnknownS
   :: forall k sh s r. (GoodScalar r, KnownNat k, Sh.Shape sh, AstSpan s)

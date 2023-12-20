@@ -30,11 +30,9 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Functor.Const
 import           Data.Kind (Constraint, Type)
-import           Data.Proxy (Proxy)
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
-  (KnownNat, Nat, SomeNat (..), someNatVal, type (+))
+import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Type.Reflection (typeRep)
 
 import HordeAd.Core.Ast
@@ -251,10 +249,9 @@ instance ( GoodScalar r
                          (ShapedOf @() (Clown dynamic)) )
          => IsPrimal (Clown (Flip (ADVal (Clown dynamic)) '())) r '() where
   dZeroOfShape (Clown (Flip (D _ (Clown tsh) _))) =
-    let shL = dshape @(RankedOf @() (Clown dynamic)) tsh
-    in case someNatVal $ toInteger $ length shL of
-      Just (SomeNat @n _) -> RToD @n (ZeroR (listShapeToShape shL))
-      Nothing -> error "dZeroOfShape: impossible someNatVal error"
+    withListShape (dshape @(RankedOf @() (Clown dynamic)) tsh)
+    $ \ (sh :: Shape n Int) ->
+      RToD @n (ZeroR sh)
   dScale = undefined
   dAdd = undefined
   intOfShape = undefined
@@ -386,13 +383,9 @@ generateDeltaInputsOD params =
                    -> DynamicExists dynamic
                    -> DynamicExists (DualClown dynamic)
       arrayToInput i (DynamicExists @r t) =
-        let shl = dshape @ranked t
-        in case someNatVal $ toInteger $ length shl of
-          Just (SomeNat (_ :: Proxy n)) ->
-            let sh = listShapeToShape shl
-            in DynamicExists $ Flip $ RToD $ InputR @ranked @shaped @r @n
-                                                    sh (toInputId i)
-          Nothing -> error "generateDeltaInputs: impossible someNatVal error"
+        withListShape (dshape @ranked t) $ \ (sh :: Shape n Int) ->
+          DynamicExists $ Flip $ RToD $ InputR @ranked @shaped @r @n
+                                               sh (toInputId i)
   in V.imap arrayToInput params
 {- TODO: this can't be specified without a proxy, so we inline instead
 {-# SPECIALIZE generateDeltaInputs

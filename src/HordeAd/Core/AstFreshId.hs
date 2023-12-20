@@ -25,7 +25,7 @@ import           Data.IORef.Unboxed
 import           Data.List (unzip4, unzip6)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
+import           GHC.TypeLits (KnownNat, Nat)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import           HordeAd.Core.Ast
@@ -303,16 +303,14 @@ funToAstDomainsIO g parameters0 = do
         let sh = OD.shapeL e
         freshId <- unsafeGetFreshAstVarId
         return $! Sh.withShapeP sh $ \(Proxy :: Proxy p_sh) ->
-          case someNatVal $ toInteger $ length sh of
-            Just (SomeNat @n _) ->
-              let varE :: AstDynamicVarName (AstRanked s)
-                  !varE = AstDynamicVarName @Nat @p_sh @r2 (AstVarName freshId)
-                  dynE :: DynamicExists (AstDynamic s)
-                  !dynE = DynamicExists @r2
-                          $ AstRToD @n (AstVar (listShapeToShape sh)
-                                               (AstVarName freshId))
-              in (varE, dynE)
-            Nothing -> error "funToAstDomainsIO: impossible someNatVal error"
+          withListShape sh $ \ (_ :: Shape n Int) ->
+            let varE :: AstDynamicVarName (AstRanked s)
+                !varE = AstDynamicVarName @Nat @p_sh @r2 (AstVarName freshId)
+                dynE :: DynamicExists (AstDynamic s)
+                !dynE = DynamicExists @r2
+                        $ AstRToD @n (AstVar (listShapeToShape sh)
+                                             (AstVarName freshId))
+            in (varE, dynE)
   (!vars, !asts) <- V.unzip <$> V.mapM f parameters0
   let !x = g asts
   return (V.toList vars, x)
@@ -368,16 +366,14 @@ funToAstRevIO parameters0 = do
         let sh = OD.shapeL e
         freshId <- unsafeGetFreshAstVarId
         return $! Sh.withShapeP sh $ \(Proxy :: Proxy p_sh) ->
-          case someNatVal $ toInteger $ length sh of
-            Just (SomeNat @n _) ->
-              let varE :: AstDynamicVarName (AstRanked s)
-                  !varE = AstDynamicVarName @Nat @p_sh @r2 (AstVarName freshId)
-                  dynE :: DynamicExists (AstDynamic s)
-                  !dynE = DynamicExists @r2
-                          $ AstRToD @n (AstVar (listShapeToShape sh)
-                                               (AstVarName freshId))
-              in (varE, dynE, varE, dynE)
-            Nothing -> error "funToAstRevIO: impossible someNatVal error"
+          withListShape sh $ \ (_ :: Shape n Int) ->
+            let varE :: AstDynamicVarName (AstRanked s)
+                !varE = AstDynamicVarName @Nat @p_sh @r2 (AstVarName freshId)
+                dynE :: DynamicExists (AstDynamic s)
+                !dynE = DynamicExists @r2
+                        $ AstRToD @n (AstVar (listShapeToShape sh)
+                                             (AstVarName freshId))
+            in (varE, dynE, varE, dynE)
   (!varsPrimal, !astsPrimal, !vars, !asts)
     <- unzip4 <$> mapM f (V.toList parameters0)
   let !vp = V.fromList astsPrimal
@@ -447,22 +443,20 @@ funToAstFwdIO parameters0 = do
         freshIdDs <- unsafeGetFreshAstVarId
         freshId <- unsafeGetFreshAstVarId
         return $! Sh.withShapeP sh $ \(Proxy :: Proxy p_sh) ->
-          case someNatVal $ toInteger $ length sh of
-            Just (SomeNat @n _) ->
-              let varE :: AstVarId -> AstDynamicVarName (AstRanked s)
-                  varE v = AstDynamicVarName @Nat @p_sh @r2 (AstVarName v)
-                  dynE :: AstVarId -> DynamicExists (AstDynamic s)
-                  dynE v = DynamicExists @r2
-                           $ AstRToD @n (AstVar (listShapeToShape sh)
-                                                (AstVarName v))
-                  !vd = varE freshIdDs
-                  !dd = dynE freshIdDs
-                  vi :: AstDynamicVarName (AstRanked s)
-                  !vi = varE freshId
-                  di :: DynamicExists (AstDynamic s)
-                  !di = dynE freshId
-              in (vd, dd, vi, di, vi, di)
-            Nothing -> error "funToAstFwdIO: impossible someNatVal error"
+          withListShape sh $ \ (_ :: Shape n Int) ->
+            let varE :: AstVarId -> AstDynamicVarName (AstRanked s)
+                varE v = AstDynamicVarName @Nat @p_sh @r2 (AstVarName v)
+                dynE :: AstVarId -> DynamicExists (AstDynamic s)
+                dynE v = DynamicExists @r2
+                         $ AstRToD @n (AstVar (listShapeToShape sh)
+                                              (AstVarName v))
+                !vd = varE freshIdDs
+                !dd = dynE freshIdDs
+                vi :: AstDynamicVarName (AstRanked s)
+                !vi = varE freshId
+                di :: DynamicExists (AstDynamic s)
+                !di = dynE freshId
+            in (vd, dd, vi, di, vi, di)
   (!varsPrimalDs, !astsPrimalDs, !varsPrimal, !astsPrimal, !vars, !asts)
     <- unzip6 <$> mapM f (V.toList parameters0)
   let !vd = V.fromList astsPrimalDs

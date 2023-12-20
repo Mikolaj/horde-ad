@@ -24,8 +24,7 @@ import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
-  (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+))
+import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
 import           Type.Reflection (typeRep)
 
@@ -91,10 +90,9 @@ instance (GoodScalar r, Sh.Shape sh)
 
 instance GoodScalar r => IsPrimal (Clown (AstDynamic PrimalSpan)) r '() where
   dZeroOfShape (Clown tsh) =
-    let shL = dshape @(AstRanked PrimalSpan) tsh
-    in case someNatVal $ toInteger $ length shL of
-      Just (SomeNat @n _) -> RToD @n (ZeroR (listShapeToShape shL))
-      Nothing -> error "dZeroOfShape: impossible someNatVal error"
+    withListShape (dshape @(AstRanked PrimalSpan) tsh)
+    $ \ (sh :: Shape n Int) ->
+      RToD @n (ZeroR sh)
   dScale = undefined
   dAdd = undefined
   intOfShape = undefined
@@ -710,11 +708,9 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             , Just Refl <- matchingRank @sh2 @n -> rfromS w
           _ -> error "dunDomains: type mismatch with od"
     in V.imap (\i (DynamicExists @r a) ->
-      case someNatVal $ toInteger $ length $ dshape @(Flip OR.Array) a of
-        Just (SomeNat @n _) ->
-          DynamicExists $ dfromR @(AstRanked s) @(AstShaped s) @r @n
-          $ rletDomainsIn @(AstRanked s) od domainsOf (f i)
-        Nothing -> error "dunDomains: impossible") od
+      withListShape (dshape @(Flip OR.Array) a) $ \ (_ :: Shape n Int) ->
+        DynamicExists $ dfromR @(AstRanked s) @(AstShaped s) @r @n
+        $ rletDomainsIn @(AstRanked s) od domainsOf (f i)) od
   rletInDomains = astLetInDomainsFun
   sletInDomains = astLetInDomainsFunS
   rrev :: (GoodScalar r, KnownNat n)

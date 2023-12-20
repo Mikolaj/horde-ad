@@ -38,7 +38,7 @@ import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.Kind (Constraint, Type)
-import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal)
+import           GHC.TypeLits (KnownNat)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
@@ -133,10 +133,8 @@ instance (GoodScalar r, Sh.Shape sh) => IsPrimal (Flip OS.Array) r sh where
 
 instance GoodScalar r => IsPrimal (Clown OD.Array) r '() where
   dZeroOfShape (Clown tsh) =
-    let shL = dshape @(Flip OR.Array) tsh
-    in case someNatVal $ toInteger $ length shL of
-      Just (SomeNat @n _) -> RToD @n (ZeroR (listShapeToShape shL))
-      Nothing -> error "dZeroOfShape: impossible someNatVal error"
+    withListShape (dshape @(Flip OR.Array) tsh) $ \ (sh :: Shape n Int) ->
+      RToD @n (ZeroR sh)
   dScale = undefined
   dAdd = undefined
   intOfShape = undefined
