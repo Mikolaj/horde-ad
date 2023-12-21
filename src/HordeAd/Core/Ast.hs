@@ -442,6 +442,30 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
           -> Domains (AstDynamic s)
           -> Domains (AstDynamic s)
           -> AstShaped s r sh
+  AstFoldS :: forall rn rm sh shm k s. (GoodScalar rm, Sh.Shape shm, KnownNat k)
+           => ( AstVarName (AstShaped PrimalSpan) rn sh
+              , AstVarName (AstShaped PrimalSpan) rm shm
+              , AstShaped PrimalSpan rn sh )
+           -> AstShaped s rn sh
+           -> AstShaped s rm (k ': shm)
+           -> AstShaped s rn sh
+  AstFoldDerS :: forall rn rm sh shm k s.
+                 (GoodScalar rm, Sh.Shape shm, KnownNat k)
+              => ( AstVarName (AstShaped PrimalSpan) rn sh
+                 , AstVarName (AstShaped PrimalSpan) rm shm
+                 , AstShaped PrimalSpan rn sh )
+              -> ( AstVarName (AstShaped PrimalSpan) rn sh
+                 , AstVarName (AstShaped PrimalSpan) rm shm
+                 , AstVarName (AstShaped PrimalSpan) rn sh
+                 , AstVarName (AstShaped PrimalSpan) rm shm
+                 , AstShaped PrimalSpan rn sh )
+              -> ( AstVarName (AstShaped PrimalSpan) rn sh
+                 , AstVarName (AstShaped PrimalSpan) rn sh
+                 , AstVarName (AstShaped PrimalSpan) rm shm
+                 , AstDomains PrimalSpan )
+              -> AstShaped s rn sh
+              -> AstShaped s rm (k ': shm)
+              -> AstShaped s rn sh
 
 deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstShaped s r sh)
 

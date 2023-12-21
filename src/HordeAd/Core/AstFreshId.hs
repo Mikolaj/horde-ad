@@ -265,12 +265,12 @@ fun4ToAstR shn shm f = unsafePerformIO $ fun4ToAstIOR shn shm f
 
 fun4ToAstIOS :: (AstShaped s rn shn -> AstShaped s rm shm
                  -> AstShaped s rn shn -> AstShaped s rm shm
-                 -> AstRanked s rn n)
+                 -> AstShaped s rn shn)
              -> IO ( AstVarName (AstShaped s) rn shn
                    , AstVarName (AstShaped s) rm shm
                    , AstVarName (AstShaped s) rn shn
                    , AstVarName (AstShaped s) rm shm
-                   , AstRanked s rn n )
+                   , AstShaped s rn shn )
 {-# INLINE fun4ToAstIOS #-}
 fun4ToAstIOS f = do
   nvarName <- unsafeGetFreshAstVarName
@@ -283,12 +283,12 @@ fun4ToAstIOS f = do
 
 fun4ToAstS :: (AstShaped s rn shn -> AstShaped s rm shm
                -> AstShaped s rn shn -> AstShaped s rm shm
-               -> AstRanked s rn n)
+               -> AstShaped s rn shn)
            -> ( AstVarName (AstShaped s) rn shn
               , AstVarName (AstShaped s) rm shm
               , AstVarName (AstShaped s) rn shn
               , AstVarName (AstShaped s) rm shm
-              , AstRanked s rn n )
+              , AstShaped s rn shn )
 {-# NOINLINE fun4ToAstS #-}
 fun4ToAstS f = unsafePerformIO $ fun4ToAstIOS f
 

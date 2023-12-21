@@ -434,6 +434,21 @@ inlineAstS memo v0 = case v0 of
         (memo1, l1) = mapAccumR inlineAstDynamic memo l
         (memo2, ds2) = mapAccumR inlineAstDynamic memo1 ds
     in (memo2, Ast.AstFwdS (vars, v2) l1 ds2)
+  Ast.AstFoldS (nvar, mvar, v) x0 as ->
+    let (_, v2) = inlineAstS EM.empty v
+        (memo1, x02) = inlineAstS memo x0
+        (memo2, as2) = inlineAstS memo1 as
+    in (memo2, Ast.AstFoldS (nvar, mvar, v2) x02 as2)
+  Ast.AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                  (varDt2, nvar2, mvar2, doms) x0 as ->
+    let (_, v2) = inlineAstS EM.empty v
+        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, ast2) = inlineAstS EM.empty ast1
+        (memo1, x02) = inlineAstS memo x0
+        (memo2, as2) = inlineAstS memo1 as
+    in (memo2, Ast.AstFoldDerS (nvar, mvar, v2)
+                               (varDx, varDa, varn1, varm1, ast2)
+                               (varDt2, nvar2, mvar2, doms2) x02 as2)
 
 
 -- * The unlet pass eliminating nested duplicated lets bottom-up
@@ -681,3 +696,16 @@ unletAstS env t = case t of
     Ast.AstFwdS (vars, unletAstS (emptyUnletEnv emptyADShare) v)
                 (V.map (unletAstDynamic env) l)
                 (V.map (unletAstDynamic env) ds)
+  Ast.AstFoldS (nvar, mvar, v) x0 as ->
+    Ast.AstFoldS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
+                 (unletAstS env x0)
+                 (unletAstS env as)
+  Ast.AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                  (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstFoldDerS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
+                    ( varDx, varDa, varn1, varm1
+                    , unletAstS (emptyUnletEnv emptyADShare) ast1 )
+                    ( varDt2, nvar2, mvar2
+                    , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                    (unletAstS env x0)
+                    (unletAstS env as)

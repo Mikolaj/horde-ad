@@ -361,6 +361,16 @@ data DeltaS :: RankedTensorKind -> ShapedTensorKind -> ShapedTensorKind where
     -- The semantics of the operation permits index out of bounds
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
+  FoldS :: (GoodScalar rm, Sh.Shape shm, KnownNat k)
+        => (shaped rn sh -> shaped rm shm -> shaped rn sh)
+        -> shaped rn sh -> shaped rm (k ': shm)
+        -> (shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
+            -> shaped rn sh)
+        -> (shaped rn sh -> (shaped rn sh, shaped rm shm)
+            -> (shaped rn sh, shaped rm shm))
+        -> DeltaS ranked shaped rn sh
+        -> DeltaS ranked shaped rm (k ': shm)
+        -> DeltaS ranked shaped rn sh
   CastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaS ranked shaped r1 sh -> DeltaS ranked shaped r2 sh
 
@@ -1023,6 +1033,12 @@ buildFinMaps s0 deltaDt =
                     d
         ReshapeS d -> evalS s (sreshape c) d
         GatherS d f -> evalS s (sscatter c f) d
+        FoldS f x0 as _df rf x0' as' ->
+          let las = sunravelToList as
+              p = scanl f x0 las
+              (cx0, cas) = mapAccumR rf cShared (zip (init p) las)
+              s2 = evalS sShared cx0 x0'
+          in evalS s2 (sfromList cas) as'
         CastS d -> evalSRuntimeSpecialized s (scast c) d
 
         DToS (SToD @sh2 d) ->
@@ -1293,6 +1309,13 @@ buildDerivative dimR deltaDt params = do
         GatherS d f -> do
           t <- evalS d
           return $! sgather t f
+        FoldS f x0 as df _rf x0' as' -> do
+          cx0 <- evalS x0'
+          cas <- evalS as'
+          let lcas = sunravelToList cas
+              las = sunravelToList as
+              p = scanl f x0 las
+          return $! foldl' df cx0 (zip3 lcas (init p) las)
         CastS d -> do
           t <- evalS d
           return $! scast t

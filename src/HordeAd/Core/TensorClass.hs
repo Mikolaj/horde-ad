@@ -660,7 +660,22 @@ class DomainsTensor (ranked :: RankedTensorKind)
            -> ranked rn n  -- ^ initial value
            -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
            -> ranked rn n
-
+  sfold :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
+        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+        -> shaped rn sh  -- ^ initial value
+        -> shaped rm (k ': shm)  -- ^ iteration is over the outermost dimension
+        -> shaped rn sh
+  sfoldDer :: ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
+              , KnownNat k )
+           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+           -> (forall f. ADReadyS f
+               => f rn sh -> f rm shm -> f rn sh -> f rm shm
+               -> f rn sh)
+           -> (forall f. ADReadyS f
+               => f rn sh -> f rn sh -> f rm shm -> DomainsOf f)
+           -> shaped rn sh  -- ^ initial value
+           -> shaped rm (k ': shm)  -- ^ iteration over the outermost dimension
+           -> shaped rn sh
 
 -- * The giga-constraint
 

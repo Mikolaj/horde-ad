@@ -847,6 +847,64 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         shm = tailShape $ rshape as
     in AstFoldDer (fun2ToAstR shn shm f) (fun4ToAstR shn shm df)
                                          (fun3ToAstR shn shm rf) x0 as
+  sfold :: forall rn rm sh shm k.
+           (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
+        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+        -> AstShaped s rn sh
+        -> AstShaped s rm (k ': shm)
+        -> AstShaped s rn sh
+  sfold f x0 as =
+    let domsToPair :: forall f. ADReadyS f
+                   => Domains (DynamicOf f) -> (f rn sh, f rm shm)
+        domsToPair doms = case (doms V.! 0, doms V.! 1) of
+          (DynamicExists @rn2 ex, DynamicExists @rm2 ea)
+            | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2)
+            , Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
+              (sfromD ex, sfromD ea)
+          _ -> error "sfold: type mismatch"
+        g :: Domains (DynamicOf (AstShaped FullSpan))
+          -> AstShaped FullSpan rn sh
+        g doms = uncurry f (domsToPair doms)
+        odFromSh :: forall rk sh1. (GoodScalar rk, Sh.Shape sh1)
+                 => DynamicExists OD.Array
+        odFromSh = DynamicExists @rk $ OD.constant (Sh.shapeT @sh1) 0
+        domsOD = V.fromList [odFromSh @rn @sh, odFromSh @rm @shm]
+    in case revProduceArtifact False True g EM.empty domsOD of
+      ( ( ( varDt
+          , [ AstDynamicVarName (AstVarName nid)
+            , AstDynamicVarName (AstVarName mid) ] )
+        , gradient, _primal, _sh), _delta ) ->
+        case fwdProduceArtifact g EM.empty domsOD of
+          ( ( ( [ AstDynamicVarName (AstVarName nid1)
+                , AstDynamicVarName (AstVarName mid1) ]
+              , [ AstDynamicVarName (AstVarName nid2)
+                , AstDynamicVarName (AstVarName mid2) ] )
+            , derivative, _primal), _delta ) ->
+            -- We could do lots of type comparisons and then reuse the variables
+            -- from above, for a little more sanity check paranoid assurance,
+            -- but @HasSingletonDict@ would need to be added
+            -- to @AstDynamicVarName@, complicating also other code.
+            let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
+                (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
+                (nvar, mvar) = (AstVarName nid, AstVarName mid)
+            in AstFoldDerS (fun2ToAstS f)
+                           (nvar1, mvar1, nvar2, mvar2, derivative)
+                           (varDt, nvar, mvar, gradient)
+                           x0 as
+          _ -> error "sfold: wrong variables"
+      _ -> error "sfold: wrong variables"
+  sfoldDer :: forall rn rm sh shm k. (GoodScalar rm, Sh.Shape shm, KnownNat k)
+           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+           -> (forall f. ADReadyS f
+               => f rn sh -> f rm shm -> f rn sh -> f rm shm
+               -> f rn sh)
+           -> (forall f. ADReadyS f
+               => f rn sh -> f rn sh -> f rm shm -> DomainsOf f)
+           -> AstShaped s rn sh
+           -> AstShaped s rm (k ': shm)
+           -> AstShaped s rn sh
+  sfoldDer f df rf x0 as =
+    AstFoldDerS (fun2ToAstS f) (fun4ToAstS df) (fun3ToAstS rf) x0 as
 
 astLetInDomainsFun :: (KnownNat n, GoodScalar r, AstSpan s)
                    => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
@@ -1050,6 +1108,18 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
                     (fun3ToAstR shn shm rf)
                     (unAstNoVectorize x0)
                     (unAstNoVectorize as)
+  sfold f x0 as =
+    AstNoVectorizeS
+    $ AstFoldS (fun2ToAstS f)
+               (unAstNoVectorizeS x0)
+               (unAstNoVectorizeS as)
+  sfoldDer f df rf x0 as =
+    AstNoVectorizeS
+    $ AstFoldDerS (fun2ToAstS f)
+                  (fun4ToAstS df)
+                  (fun3ToAstS rf)
+                  (unAstNoVectorizeS x0)
+                  (unAstNoVectorizeS as)
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rlet a f =
@@ -1141,3 +1211,10 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rfoldDer f df rf x0 as =
     AstNoSimplify
     $ rfoldDer @(AstRanked s) f df rf (unAstNoSimplify x0) (unAstNoSimplify as)
+  sfold f x0 as =
+    AstNoSimplifyS
+    $ sfold @(AstRanked s) f (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
+  sfoldDer f df rf x0 as =
+    AstNoSimplifyS
+    $ sfoldDer @(AstRanked s)
+               f df rf (unAstNoSimplifyS x0) (unAstNoSimplifyS as)

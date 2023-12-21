@@ -639,7 +639,49 @@ build1VS (var, v00) =
            vars (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
                 (build1VOccurenceUnknownRefreshS (var, v2))
     Ast.AstFwdS{} ->
-      error "build1V: impossible case of AstFwdS"
+      error "build1VS: impossible case of AstFwdS"
+    Ast.AstFoldS{} ->
+      error "build1VS: impossible case of AstFoldS"
+    Ast.AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                    (varDt2, nvar2, mvar2, doms) x0 as ->
+      let subst :: forall sh1 r1. (Sh.Shape sh1, GoodScalar r1)
+                => AstVarName (AstShaped PrimalSpan) r1 sh1
+                -> AstShaped PrimalSpan r sh -> AstShaped PrimalSpan r sh
+          subst (AstVarName var1) =
+            let projection =
+                  Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
+                                (Ast.AstIntVar var :$: ZSH)
+            in substituteAstS (SubstitutionPayloadShaped @s @r1 projection)
+                              (AstVarName var1)
+          substDomains :: forall sh1 r1. (Sh.Shape sh1, GoodScalar r1)
+                       => AstVarName (AstShaped PrimalSpan) r1 sh1
+                       -> AstDomains PrimalSpan -> AstDomains PrimalSpan
+          substDomains (AstVarName var1) =
+            let projection =
+                  Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
+                                (Ast.AstIntVar var :$: ZSH)
+            in substituteAstDomains
+                 (SubstitutionPayloadShaped @s @r1 projection)
+                 (AstVarName var1)
+      in Ast.AstFoldDerS
+           ( AstVarName $ varNameToAstVarId nvar
+           , AstVarName $ varNameToAstVarId mvar
+           , build1VOccurenceUnknownRefreshS
+               (var, subst nvar $ subst mvar v) )
+           ( AstVarName $ varNameToAstVarId varDx
+           , AstVarName $ varNameToAstVarId varDa
+           , AstVarName $ varNameToAstVarId varn1
+           , AstVarName $ varNameToAstVarId varm1
+           , build1VOccurenceUnknownRefreshS
+               (var, subst varDx $ subst varDa
+                     $ subst varn1 $ subst varm1 ast1) )
+           ( AstVarName $ varNameToAstVarId varDt2
+           , AstVarName $ varNameToAstVarId nvar2
+           , AstVarName $ varNameToAstVarId mvar2
+           , build1VOccurenceUnknownDomainsRefresh
+               (valueOf @k) (var, substDomains nvar $ substDomains mvar doms) )
+           (build1VOccurenceUnknownS (var, x0))
+           (astTrS $ build1VOccurenceUnknownS @k (var, as))
 
 build1VIndexS
   :: forall k p sh s r.
@@ -679,6 +721,7 @@ build1VIndexS (var, v0, ix@(_ :$: _)) =
               Ast.AstFromVectorS{} | len == 1 -> ruleD
               Ast.AstScatterS{} -> ruleD
               Ast.AstAppendS{} -> ruleD
+              Ast.AstFoldDerS{} -> ruleD
               _ -> build1VOccurenceUnknownS (var, v)  -- not a normal form
             else build1VOccurenceUnknownS (var, v)  -- shortcut
        v -> traceRule $

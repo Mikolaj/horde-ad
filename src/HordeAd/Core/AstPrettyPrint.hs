@@ -804,6 +804,57 @@ printAstS cfg d = \case
       . printDomainsAst cfg parameters
       . showString " "
       . printDomainsAst cfg ds
+  AstFoldS (nvar, mvar, v) x0 as ->
+    showParen (d > 10)
+    $ showString "sfold "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) nvar)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) mvar)
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printAstS cfg 11 as
+  AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                              (varDt2, nvar2, mvar2, doms) x0 as ->
+    showParen (d > 10)
+    $ showString "sfoldDer "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) nvar)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) mvar)
+           . showString " -> "
+           . printAstS cfg 0 v)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) varDx)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) varDa)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) varn1)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) varm1)
+           . showString " -> "
+           . printAstS cfg 0 ast1)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarNameS (varRenames cfg) varDt2)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) nvar2)
+           . showString " "
+           . showString (printAstVarNameS (varRenames cfg) mvar2)
+           . showString " -> "
+           . printAstDomains cfg 0 doms)
+      . showString " "
+      . printAstS cfg 11 x0
+      . showString " "
+      . printAstS cfg 11 as
 
 
 -- * User-friendly API for pretty-printing AST terms

@@ -238,6 +238,8 @@ varInAstS var = \case
   AstFwdS _f l ds ->  -- _f has no non-bound variables
     let f (DynamicExists d) = varInAstDynamic var d
     in any f l || any f ds
+  AstFoldS _f x0 as -> varInAstS var x0 || varInAstS var as
+  AstFoldDerS _f _df _rf x0 as -> varInAstS var x0 || varInAstS var as
 
 varInIndexS :: AstVarId -> AstIndexS sh -> Bool
 varInIndexS var = any (varInAst var)

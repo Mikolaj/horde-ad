@@ -479,7 +479,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   dshape (Flip (D _ u _)) = dshape @ranked (runClown u)
 
 instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
-         , UnletGradient ranked
+         , UnletGradient ranked, UnletGradient shaped
          , Dual (Clown (DynamicOf (ADVal ranked)))
            ~ DeltaD (Clown (DynamicOf (ADVal ranked)))
                     (ADVal ranked) (ADVal shaped)
@@ -623,6 +623,96 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     in D (l1 `mergeADShare` l2)
          (rfold @ranked f x0 as)
          (FoldR f x0 as df rf x0' as')
+  sfold :: forall rn rm sh shm k.
+           (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
+        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+        -> ADVal shaped rn sh
+        -> ADVal shaped rm (k ': shm)
+        -> ADVal shaped rn sh
+  sfold f (D l1 x0 x0') (D l2 as as') =
+    let odFromSh :: forall rk sh1. (GoodScalar rk, Sh.Shape sh1)
+                 => DynamicExists OD.Array
+        odFromSh = DynamicExists @rk $ OD.constant (Sh.shapeT @sh1) 0
+        domsOD = V.fromList [odFromSh @rn @sh, odFromSh @rm @shm]
+        domsToPair :: forall f. ADReadyS f
+                   => Domains (DynamicOf f) -> (f rn sh, f rm shm)
+        domsToPair doms =
+          let d0 = case doms V.! 0 of
+                DynamicExists @rn2 ex
+                  | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2) ->
+                    sfromD ex
+                _ -> error "rfold: type mismatch"
+              d1 = case doms V.! 1 of
+                DynamicExists @rm2 ex
+                  | Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
+                    sfromD ex
+                _ -> error "rfold: type mismatch"
+          in (d0, d1)
+        g :: Domains (DynamicOf (ADVal shaped)) -> ADVal shaped rn sh
+        g doms = uncurry (f @(ADVal shaped)) (domsToPair doms)
+        df :: shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
+           -> shaped rn sh
+        df cx (ca, x, a) =
+          fst $ cfwdOnDomains
+                  (V.fromList [ DynamicExists @rn (dfromS x)
+                              , DynamicExists @rm (dfromS a) ])
+                  g
+                  (V.fromList [ DynamicExists @rn (dfromS cx)
+                              , DynamicExists @rm (dfromS ca) ])
+        rf :: shaped rn sh -> (shaped rn sh, shaped rm shm)
+           -> (shaped rn sh, shaped rm shm)
+        rf dt (x, a) =
+          domsToPair $ dunDomains @ranked domsOD $ fst
+          $ crevOnDomains False (Just dt) g
+                          (V.fromList [ DynamicExists @rn (dfromS x)
+                                      , DynamicExists @rm (dfromS a) ])
+    in D (l1 `mergeADShare` l2)
+         (sfold @ranked f x0 as)
+         (FoldS f x0 as df rf x0' as')
+  sfoldDer :: forall rn rm sh shm k.
+              ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
+              , KnownNat k )
+           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+           -> (forall f. ADReadyS f
+               => f rn sh -> f rm shm -> f rn sh -> f rm shm
+               -> f rn sh)
+           -> (forall f. ADReadyS f
+               => f rn sh -> f rn sh -> f rm shm -> DomainsOf f)
+           -> ADVal shaped rn sh
+           -> ADVal shaped rm (k ': shm)
+           -> ADVal shaped rn sh
+  sfoldDer f df0 rf0 (D l1 x0 x0') (D l2 as as') =
+    let odFromSh :: forall rk sh1. (GoodScalar rk, Sh.Shape sh1)
+                 => DynamicExists OD.Array
+        odFromSh = DynamicExists @rk $ OD.constant (Sh.shapeT @sh1) 0
+        domsOD = V.fromList [odFromSh @rn @sh, odFromSh @rm @shm]
+        -- Note that this function, and similarly @f@ and @rf@ instantiated
+        -- and passed to FoldR, is not a function on dual numbers.
+        df :: shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
+           -> shaped rn sh
+        df cx (ca, x, a) = df0 cx ca x a
+        rf :: shaped rn sh -> (shaped rn sh, shaped rm shm)
+           -> (shaped rn sh, shaped rm shm)
+        rf cx (x, a) =
+          let res = rf0 cx x a  -- non-explicit sharing, so helps little
+          in ( sletDomainsIn
+                 domsOD res
+                 (\doms -> case doms V.! 0 of
+                   DynamicExists @rn2 ex
+                     | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2) ->
+                       sfromD ex
+                   _ -> error "rfoldDer: type mismatch")
+             , sletDomainsIn
+                 domsOD res
+                 (\doms -> case doms V.! 1 of
+                   DynamicExists @rm2 ea
+                     | Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
+                       sfromD ea
+                   _ -> error "rfoldDer: type mismatch")
+             )
+    in D (l1 `mergeADShare` l2)
+         (sfold @ranked f x0 as)
+         (FoldS f x0 as df rf x0' as')
 
 
 -- * DomainsTensor instance for concrete arrays
@@ -678,3 +768,23 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
            -> Flip OR.Array rm (1 + m)
            -> Flip OR.Array rn n
   rfoldDer f _df _dr (Flip x0) (Flip as) = rfold f (Flip x0) (Flip as)
+  sfold :: (GoodScalar rm, Sh.Shape shm, KnownNat k)
+        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+        -> Flip OS.Array rn sh
+        -> Flip OS.Array rm (k ': shm)
+        -> Flip OS.Array rn sh
+  sfold f (Flip x0) (Flip as) =
+    let g x a = runFlip $ f @(Flip OS.Array) (Flip x) (Flip a)
+    in Flip $ foldl' g x0 (tunravelToListS as)
+  sfoldDer :: ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
+              , KnownNat k )
+           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+           -> (forall f. ADReadyS f
+               => f rn sh -> f rm shm -> f rn sh -> f rm shm
+               -> f rn sh)
+           -> (forall f. ADReadyS f
+               => f rn sh -> f rn sh -> f rm shm -> DomainsOf f)
+           -> Flip OS.Array rn sh
+           -> Flip OS.Array rm (k ': shm)
+           -> Flip OS.Array rn sh
+  sfoldDer f _df _dr (Flip x0) (Flip as) = sfold f (Flip x0) (Flip as)

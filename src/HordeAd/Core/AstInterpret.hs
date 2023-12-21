@@ -975,3 +975,25 @@ interpretAstS !env = \case
         pars = interpretAstDynamic @ranked env <$> parameters
         d = interpretAstDynamic @ranked env <$> ds
     in sfwd @ranked g parameters0 pars d
+  AstFoldS @_ @rm @_ @shm f x0 as ->
+    let g :: forall f. ADReadyS f => f r sh -> f rm shm -> f r sh
+        g = interpretLambda2S interpretAstS EM.empty f
+          -- Interpretation in empty environment --- makes sense only
+          -- if there are no free variables outside of those listed.
+          -- Note that @f@ is in @PrimalSpan@, but this does not affect
+          -- the interpretation, only what term can be built.
+        x0i = interpretAstS @ranked env x0
+        asi = interpretAstS @ranked env as
+    in sfold @ranked g x0i asi
+  AstFoldDerS @_ @rm @_ @shm f0 df0 rf0 x0 as ->
+    let f :: forall f. ADReadyS f => f r sh -> f rm shm -> f r sh
+        f = interpretLambda2S interpretAstS EM.empty f0
+        df :: forall f. ADReadyS f
+           => f r sh -> f rm shm -> f r sh -> f rm shm -> f r sh
+        df = interpretLambda4S interpretAstS EM.empty df0
+        rf :: forall f. ADReadyS f
+           => f r sh -> f r sh -> f rm shm -> DomainsOf f
+        rf = interpretLambda3S interpretAstDomains EM.empty rf0
+        x0i = interpretAstS @ranked env x0
+        asi = interpretAstS @ranked env as
+    in sfoldDer @ranked f df rf x0i asi

@@ -11,7 +11,9 @@ module HordeAd.Core.AstEnv
   , interpretLambdaIndex, interpretLambdaIndexS
   , interpretLambdaIndexToIndex, interpretLambdaIndexToIndexS
   , interpretLambdaDomains, interpretLambdaDomainsS
-  , interpretLambda2, interpretLambda3, interpretLambda4
+  , interpretLambda2, interpretLambda2S
+  , interpretLambda3, interpretLambda3S
+  , interpretLambda4, interpretLambda4S
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
   , interpretAstI2, interpretAstB2, interpretAstRelOp
@@ -253,6 +255,22 @@ interpretLambda2 f !env (!varn, !varm, !ast) =
                        $ extendEnvR varm as env
             in f envE ast
 
+interpretLambda2S
+  :: forall s ranked shaped rn rm sh shm.
+     (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm)
+  => (AstEnv ranked shaped -> AstShaped s rn sh -> shaped rn sh)
+  -> AstEnv ranked shaped
+  -> ( AstVarName (AstShaped s) rn sh
+     , AstVarName (AstShaped s) rm shm
+     , AstShaped s rn sh )
+  -> shaped rn sh -> shaped rm shm
+  -> shaped rn sh
+{-# INLINE interpretLambda2S #-}
+interpretLambda2S f !env (!varn, !varm, !ast) =
+  \x0 as -> let envE = extendEnvS varn x0
+                       $ extendEnvS varm as env
+            in f envE ast
+
 interpretLambda3
   :: forall s ranked shaped rn rm n m.
      (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
@@ -269,6 +287,24 @@ interpretLambda3 f !env (!varDt, !varn, !varm, !ast) =
   \cx x0 as -> let envE = extendEnvR varDt cx
                           $ extendEnvR varn x0
                           $ extendEnvR varm as env
+               in f envE ast
+
+interpretLambda3S
+  :: forall s ranked shaped rn rm sh shm.
+     (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm)
+  => (AstEnv ranked shaped -> AstDomains s -> DomainsOf ranked)
+  -> AstEnv ranked shaped
+  -> ( AstVarName (AstShaped s) rn sh
+     , AstVarName (AstShaped s) rn sh
+     , AstVarName (AstShaped s) rm shm
+     , AstDomains s )
+  -> shaped rn sh -> shaped rn sh -> shaped rm shm
+  -> DomainsOf ranked
+{-# INLINE interpretLambda3S #-}
+interpretLambda3S f !env (!varDt, !varn, !varm, !ast) =
+  \cx x0 as -> let envE = extendEnvS varDt cx
+                          $ extendEnvS varn x0
+                          $ extendEnvS varm as env
                in f envE ast
 
 interpretLambda4
@@ -289,6 +325,26 @@ interpretLambda4 f !env (!varDx, !varDa, !varn, !varm, !ast) =
                              $ extendEnvR varDa ca
                              $ extendEnvR varn x0
                              $ extendEnvR varm as env
+                  in f envE ast
+
+interpretLambda4S
+  :: forall s ranked shaped rn rm sh shm.
+     (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm)
+  => (AstEnv ranked shaped -> AstShaped s rn sh -> shaped rn sh)
+  -> AstEnv ranked shaped
+  -> ( AstVarName (AstShaped s) rn sh
+     , AstVarName (AstShaped s) rm shm
+     , AstVarName (AstShaped s) rn sh
+     , AstVarName (AstShaped s) rm shm
+     , AstShaped s rn sh )
+  -> shaped rn sh -> shaped rm shm -> shaped rn sh -> shaped rm shm
+  -> shaped rn sh
+{-# INLINE interpretLambda4S #-}
+interpretLambda4S f !env (!varDx, !varDa, !varn, !varm, !ast) =
+  \cx ca x0 as -> let envE = extendEnvS varDx cx
+                             $ extendEnvS varDa ca
+                             $ extendEnvS varn x0
+                             $ extendEnvS varm as env
                   in f envE ast
 
 
