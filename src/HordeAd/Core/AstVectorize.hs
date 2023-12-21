@@ -275,25 +275,8 @@ build1V k (var, v00) =
         -- TODO: comment why @r instead of @r1 from AstDynamicVarName
     Ast.AstFwd{} ->
       error "build1V: impossible case of AstFwd"
-    Ast.AstFold (nvar, mvar, v) x0 as ->
-      let shn = shapeAst x0
-          shm = tailShape $ shapeAst as
-          subst :: forall n1 r1. (KnownNat n1, GoodScalar r1)
-                => ShapeInt n1 -> AstVarName (AstRanked PrimalSpan) r1 n1
-                -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
-          subst sh1 (AstVarName var1) =
-            let projection =
-                  Ast.AstIndex (Ast.AstVar (k :$ sh1) $ AstVarName var1)
-                               (Ast.AstIntVar var :. ZI)
-            in substituteAst (SubstitutionPayloadRanked @s @r1 projection)
-                             (AstVarName var1)
-      in Ast.AstFold
-           ( AstVarName $ varNameToAstVarId nvar
-           , AstVarName $ varNameToAstVarId mvar
-           , build1VOccurenceUnknownRefresh
-               k (var, subst shn nvar $ subst shm mvar v) )
-           (build1VOccurenceUnknown k (var, x0))
-           (astTr $ build1VOccurenceUnknown k (var, as))
+    Ast.AstFold{} ->
+      error "build1V: impossible case of AstFold"
     Ast.AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                    (varDt2, nvar2, mvar2, doms) x0 as ->
       let shn = shapeAst x0
@@ -433,7 +416,6 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
               Ast.AstFromVector{} | valueOf @p == (1 :: Int) -> ruleD
               Ast.AstScatter{} -> ruleD
               Ast.AstAppend{} -> ruleD
-              Ast.AstFold{} -> ruleD
               Ast.AstFoldDer{} -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
             else build1VOccurenceUnknown k (var, v)  -- shortcut
