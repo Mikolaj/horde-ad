@@ -710,17 +710,19 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFromIntegral v -> astFromIntegral $ astGather sh4 v (vars4, ix4)
     AstConst{} ->  -- free variables possible, so can't compute the tensor
       Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstSToR @sh v ->
+    Ast.AstSToR{} {- @sh v -} -> Ast.AstGather sh4 v4 (vars4, ix4)
+      -- TODO: this is broken
+      {-
       let (takeSh, dropSh) = splitAt (valueOf @p') (Sh.shapeT @sh)
       in Sh.withShapeP takeSh $ \(Proxy :: Proxy p_take) ->
          Sh.withShapeP dropSh $ \(Proxy :: Proxy p_drop) ->
          gcastWith (unsafeCoerce Refl :: sh :~: p_take Sh.++ p_drop) $
          gcastWith (unsafeCoerce Refl :: p_take :~: Sh.Take p' sh) $
          gcastWith (unsafeCoerce Refl :: p_drop :~: Sh.Drop p' sh) $
-         gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: m' + n') $
-         astSToR $ astGatherStepS @p_take @p' @sh v
+         gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: p' + n') $
+         astSToR $ astGatherStepS @_ @p' @sh v
                      ( ShapedList.listToSized $ sizedListToList vars4
-                     , ShapedList.listToSized $ indexToList ix4 )
+                     , ShapedList.listToSized $ indexToList ix4 ) -}
     Ast.AstConstant v ->
       Ast.AstConstant
       $ (if stepOnly then astGatherStep else astGatherR) sh4 v (vars4, ix4)

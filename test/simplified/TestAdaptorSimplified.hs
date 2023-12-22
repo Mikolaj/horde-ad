@@ -196,6 +196,9 @@ testTrees =
   , testCase "2Sin0Fold3" testSin0Fold3
   , testCase "2Sin0Fold4" testSin0Fold4
   , testCase "2Sin0Fold5" testSin0Fold5
+  , testCase "2Sin0Fold6" testSin0Fold6
+  , testCase "2Sin0Fold7" testSin0Fold7
+  , testCase "2Sin0Fold8" testSin0Fold8
   , testCase "2Sin0Fold0S" testSin0Fold0S
   , testCase "2Sin0Fold1S" testSin0Fold1S
   , testCase "2Sin0Fold2S" testSin0Fold2S
@@ -2215,6 +2218,35 @@ testSin0Fold5 = do
                                           $ rtr $ rreplicate 7 a))
                         (2 * a0)
                         (rreplicate 3 (rreplicate 2 (rreplicate 5 a0)))) 1.1)
+
+testSin0Fold6 :: Assertion
+testSin0Fold6 = do
+  assertEqualUpToEpsilon' 1e-10
+    (6 :: OR.Array 0 Double)
+    (rev' (\a0 -> rfold (\x a -> rtr
+                                 $ rtr x + rreplicate 1 (rreplicate 2 a))
+                        (rreplicate 2 (rreplicate 1 a0))
+                        (rreplicate 2 a0)) 1.1)
+
+testSin0Fold7 :: Assertion
+testSin0Fold7 = do
+  assertEqualUpToEpsilon' 1e-10
+    (250 :: OR.Array 0 Double)
+    (rev' (\a0 -> rfold (\x _a -> rtr $ rreplicate 5
+                                  $ (rsum (rtr x)))
+                        (rreplicate 2 (rreplicate 5 a0))
+                        (rreplicate 2 a0)) 1.1)
+
+testSin0Fold8 :: Assertion
+testSin0Fold8 = do
+  assertEqualUpToEpsilon' 1e-10
+    (-2.200311410593445 :: OR.Array 0 Double)
+    (rev' (\a0 -> rfold (\x a -> rtr $ rreplicate 5
+                                 $ atan2 (rsum (rtr $ sin x))
+                                         (rreplicate 2
+                                          $ sin (rsum $ rreplicate 7 a)))
+                        (rreplicate 2 (rreplicate 5 (2 * a0)))
+                        (rreplicate 3 a0)) 1.1)
 
 testSin0Fold0S :: Assertion
 testSin0Fold0S = do
