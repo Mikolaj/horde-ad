@@ -203,6 +203,9 @@ testTrees =
   , testCase "2Sin0Fold3S" testSin0Fold3S
   , testCase "2Sin0Fold4S" testSin0Fold4S
   , testCase "2Sin0Fold5S" testSin0Fold5S
+  , testCase "2Sin0Fold6S" testSin0Fold6S
+  , testCase "2Sin0Fold7S" testSin0Fold7S
+  , testCase "2Sin0Fold8S" testSin0Fold8S
   ]
 
 testZeroZ :: Assertion
@@ -2288,4 +2291,43 @@ testSin0Fold5S = do
                         (sreplicate @f @3
                                     (sreplicate @f @2
                                                 (sreplicate @f @5 a0)))
+           in rfromS . f . sfromR) 1.1)
+
+testSin0Fold6S :: Assertion
+testSin0Fold6S = do
+  assertEqualUpToEpsilon' 1e-10
+    (6 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 1]
+               f a0 = sfold @_ @f @Double @Double @'[2, 1] @'[] @2
+                        (\x a -> str
+                                 $ str x + sreplicate @_ @1
+                                                      (sreplicate @_ @2 a))
+                        (sreplicate @_ @2 (sreplicate @_ @1 a0))
+                        (sreplicate @_ @2 a0)
+           in rfromS . f . sfromR) 1.1)
+
+testSin0Fold7S :: Assertion
+testSin0Fold7S = do
+  assertEqualUpToEpsilon' 1e-10
+    (250 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
+               f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @2
+                        (\x _a -> str $ sreplicate @_ @5
+                                  $ (ssum (str x)))
+                        (sreplicate @_ @2 (sreplicate @_ @5 a0))
+                        (sreplicate @_ @2 a0)
+           in rfromS . f . sfromR) 1.1)
+
+testSin0Fold8S :: Assertion
+testSin0Fold8S = do
+  assertEqualUpToEpsilon' 1e-10
+    (-2.200311410593445 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
+               f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
+                        (\x a -> str $ sreplicate @_ @5
+                                 $ atan2 (ssum (str $ sin x))
+                                         (sreplicate @_ @2
+                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                        (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
+                        (sreplicate @_ @3 a0)
            in rfromS . f . sfromR) 1.1)
