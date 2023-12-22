@@ -196,6 +196,13 @@ testTrees =
   , testCase "2Sin0Fold3" testSin0Fold3
   , testCase "2Sin0Fold4" testSin0Fold4
   , testCase "2Sin0Fold5" testSin0Fold5
+  , testCase "2Sin0Fold0S" testSin0Fold0S
+  , testCase "2Sin0Fold1S" testSin0Fold1S
+  , testCase "2Sin0Fold2S" testSin0Fold2S
+  , testCase "2Sin0FoldForComparisonS" testSin0FoldForComparisonS
+  , testCase "2Sin0Fold3S" testSin0Fold3S
+  , testCase "2Sin0Fold4S" testSin0Fold4S
+  , testCase "2Sin0Fold5S" testSin0Fold5S
   ]
 
 testZeroZ :: Assertion
@@ -2205,3 +2212,80 @@ testSin0Fold5 = do
                                           $ rtr $ rreplicate 7 a))
                         (2 * a0)
                         (rreplicate 3 (rreplicate 2 (rreplicate 5 a0)))) 1.1)
+
+testSin0Fold0S :: Assertion
+testSin0Fold0S = do
+  assertEqualUpToEpsilon' 1e-10
+    (1.0 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f x0 = sfold @_ @f @Double @Double @'[] @'[] @0
+                            (\x _a -> sin x)
+                            x0 0
+           in rfromS . f . sfromR) 1.1)
+
+testSin0Fold1S :: Assertion
+testSin0Fold1S = do
+  assertEqualUpToEpsilon' 1e-10
+    (0.4535961214255773 :: OR.Array 0 Double)
+    (rev' ((let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+                f x0 = sfold (let g :: forall f2. ADReadyS f2
+                                   => f2 Double '[] -> f2 Double '[]
+                                   -> f2 Double '[]
+                                  g x _a = sin x
+                              in g)
+                        x0 (sconst (OS.constant @'[1] 42))
+            in rfromS . f . sfromR)) 1.1)
+
+testSin0Fold2S :: Assertion
+testSin0Fold2S = do
+  assertEqualUpToEpsilon' 1e-10
+    (0.12389721944941383 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f x0 = sfold (\x _a -> sin x)
+                        x0 (sconst (OS.constant @'[5] @Double 42))
+           in rfromS . f . sfromR) 1.1)
+
+testSin0FoldForComparisonS :: Assertion
+testSin0FoldForComparisonS = do
+  assertEqualUpToEpsilon' 1e-10
+    (0.12389721944941383 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f = sin . sin . sin . sin . sin
+          in rfromS . f . sfromR) 1.1)
+
+testSin0Fold3S :: Assertion
+testSin0Fold3S = do
+  assertEqualUpToEpsilon' 1e-10
+    (0.4535961214255773 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (\_x a -> sin a)
+                        84 (sreplicate @f @3 a0)
+           in rfromS . f . sfromR) 1.1)
+
+testSin0Fold4S :: Assertion
+testSin0Fold4S = do
+  assertEqualUpToEpsilon' 1e-10
+    (-0.7053476446727861 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (\x a -> atan2 (sin x) (sin a))
+                        (2 * a0) (sreplicate @f @3 a0)
+           in rfromS . f . sfromR) 1.1)
+
+testSin0Fold5S :: Assertion
+testSin0Fold5S = do
+  assertEqualUpToEpsilon' 1e-10
+    (1.2992412552109085 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (let g :: forall f2. ADReadyS f2
+                                   => f2 Double '[] -> f2 Double '[2, 5]
+                                   -> f2 Double '[]
+                                 g x a = ssum
+                                   $ atan2 (sin $ sreplicate @f2 @5 x)
+                                         (ssum $ sin $ ssum
+                                          $ str $ sreplicate @f2 @7 a)
+                             in g)
+                        (2 * a0)
+                        (sreplicate @f @3
+                                    (sreplicate @f @2
+                                                (sreplicate @f @5 a0)))
+           in rfromS . f . sfromR) 1.1)
