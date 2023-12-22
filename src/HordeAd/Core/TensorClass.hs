@@ -356,8 +356,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   smatmul2 :: forall r n m p. (GoodScalar r, KnownNat n, KnownNat m, KnownNat p)
            => shaped r '[m, n] -> shaped r '[n, p] -> shaped r '[m, p]
   smatmul2 m1 m2 =
-    ssum (stranspose (Proxy @'[2, 1, 0]) (sreplicate @shaped @r @p m1)
-          * stranspose (Proxy @'[1, 0]) (sreplicate @shaped @r @m m2))
+    ssum (stranspose (Proxy @'[2, 1, 0]) (sreplicate @shaped @p m1)
+          * stranspose (Proxy @'[1, 0]) (sreplicate @shaped @m m2))
   sscatter
     :: forall r sh2 p sh.
        ( GoodScalar r, Sh.Shape sh2, Sh.Shape sh, Sh.Shape (Sh.Take p sh)
@@ -393,13 +393,13 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sfromVector0N = sreshape @shaped @r @'[Sh.Size sh] @sh . sfromVector
   sunravelToList :: (GoodScalar r, KnownNat n, Sh.Shape sh)
                  => shaped r (n ': sh) -> [shaped r sh]
-  sreplicate :: (GoodScalar r, KnownNat n, Sh.Shape sh)
+  sreplicate :: (KnownNat n, Sh.Shape sh, GoodScalar r)
              => shaped r sh -> shaped r (n ': sh)
   sreplicate0N :: forall r sh.
                   (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Size sh))
                => shaped r '[] -> shaped r sh
   sreplicate0N = sreshape @shaped @r @'[Sh.Size sh] @sh
-                 . sreplicate @shaped @r @(Sh.Size sh)
+                 . sreplicate @shaped @(Sh.Size sh)
   sappend :: (GoodScalar r, KnownNat m, KnownNat n, Sh.Shape sh)
           => shaped r (m ': sh) -> shaped r (n ': sh)
           -> shaped r ((m + n) ': sh)
