@@ -28,7 +28,7 @@ import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat, sameNat)
+import           GHC.TypeLits (KnownNat, Nat, sameNat)
 import           Type.Reflection (Typeable, typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -464,12 +464,21 @@ interpretAst !env = \case
         lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
         -- variable r2, because the operations do not depend on r2.
-        f ( AstDynamicVarName @_ @r2 @sh2 (AstVarName varId)
-          , DynamicExists @r3 d ) =
-          case testEquality (typeRep @r2) (typeRep @r3) of
-            Just Refl -> extendEnvS @ranked @shaped @r2 @sh2
-                                    (AstVarName varId) (sfromD d)
-            _ -> error "interpretAst: type mismatch"
+        f :: (AstDynamicVarName f1, DynamicExists (DynamicOf ranked))
+          -> AstEnv ranked shaped -> AstEnv ranked shaped
+        f ( AstDynamicVarName @k @r2 @sh2 @y (AstVarName varId)
+          , DynamicExists @r3 d )
+          | Just Refl <- testEquality (typeRep @r2) (typeRep @r3) =
+            case testEquality (typeRep @k) (typeRep @Nat) of
+              Just Refl ->
+                extendEnvR @ranked @shaped @r2 @y
+                           (AstVarName varId) (rfromD d)
+              _ -> case testEquality (typeRep @k) (typeRep @[Nat]) of
+                Just Refl ->
+                  extendEnvS @ranked @shaped @r2 @y
+                             (AstVarName varId) (sfromD d)
+                _ -> error "interpretAst: impossible kind"
+        f _ = error "interpretAst: type mismatch"
         env2 lw = foldr f env (zip vars (V.toList lw))
     in rletDomainsIn lt0 lt (\lw -> interpretAst (env2 lw) v)
   AstFwd (vars, ast) parameters ds ->
@@ -965,12 +974,21 @@ interpretAstS !env = \case
         lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
         -- variable r2, because the operations do not depend on r2.
-        f ( AstDynamicVarName @_ @r2 @sh2 (AstVarName varId)
-          , DynamicExists @r3 d ) =
-          case testEquality (typeRep @r2) (typeRep @r3) of
-            Just Refl -> extendEnvS @ranked @shaped @r2 @sh2
-                                    (AstVarName varId) (sfromD d)
-            _ -> error "interpretAstS: type mismatch"
+        f :: (AstDynamicVarName f1, DynamicExists (DynamicOf ranked))
+          -> AstEnv ranked shaped -> AstEnv ranked shaped
+        f ( AstDynamicVarName @k @r2 @sh2 @y (AstVarName varId)
+          , DynamicExists @r3 d )
+          | Just Refl <- testEquality (typeRep @r2) (typeRep @r3) =
+            case testEquality (typeRep @k) (typeRep @Nat) of
+              Just Refl ->
+                extendEnvR @ranked @shaped @r2 @y
+                           (AstVarName varId) (rfromD d)
+              _ -> case testEquality (typeRep @k) (typeRep @[Nat]) of
+                Just Refl ->
+                  extendEnvS @ranked @shaped @r2 @y
+                             (AstVarName varId) (sfromD d)
+                _ -> error "interpretAstS: impossible kind"
+        f _ = error "interpretAstS: type mismatch"
         env2 lw = foldr f env (zip vars (V.toList lw))
     in sletDomainsIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
   AstFwdS (vars, ast) parameters ds ->
