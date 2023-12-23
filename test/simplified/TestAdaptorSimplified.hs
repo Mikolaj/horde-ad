@@ -209,6 +209,17 @@ testTrees =
   , testCase "2Sin0Fold6S" testSin0Fold6S
   , testCase "2Sin0Fold7S" testSin0Fold7S
   , testCase "2Sin0Fold8S" testSin0Fold8S
+  , testCase "2Sin0Fold8rev" testSin0Fold8rev
+  , testCase "2Sin0Fold8rev2" testSin0Fold8rev2
+  , testCase "2Sin0Fold8Srev" testSin0Fold8Srev
+  , testCase "2Sin0Fold8Srev2" testSin0Fold8Srev2
+  , testCase "2Sin0Fold18SrevPP" testSin0Fold18SrevPP
+  , testCase "2Sin0Fold8fwd" testSin0Fold8fwd
+  , testCase "2Sin0Fold8fwd2" testSin0Fold8fwd2
+  , testCase "2Sin0Fold8Sfwd" testSin0Fold8Sfwd
+  , testCase "2Sin0Fold8Sfwd2" testSin0Fold8Sfwd2
+  , testCase "2Sin0Fold5Sfwd" testSin0Fold5Sfwd
+  , testCase "2Sin0Fold5Sfwds" testSin0Fold5Sfwds
   ]
 
 testZeroZ :: Assertion
@@ -2058,7 +2069,7 @@ testSin0Rrev4 = do
 testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
   let a1 = (rrev1 sin . rrev1 @(AstRanked FullSpan) @Double @0 @0 sin) 1.1
-  printAstPretty IM.empty  (simplifyAst6 a1)
+  printAstPretty IM.empty (simplifyAst6 a1)
     @?= "rletDomainsIn (cos (rletDomainsIn (cos (rconst 1.1) * rconst 1.0) (\\[dret] -> dret)) * rconst 1.0) (\\[x4] -> x4)"
 
 testSin0Rrev5 :: Assertion
@@ -2363,3 +2374,169 @@ testSin0Fold8S = do
                         (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
                         (sreplicate @_ @3 a0)
            in rfromS . f . sfromR) 1.1)
+
+testSin0Fold8rev :: Assertion
+testSin0Fold8rev = do
+  assertEqualUpToEpsilon 1e-10
+    (-2.200311410593445 :: Flip OR.Array Double 0)
+    (rrev1 @(Flip OR.Array) @Double @0 @2
+       (\a0 -> rfold (\x a -> rtr $ rreplicate 5
+                                 $ atan2 (rsum (rtr $ sin x))
+                                         (rreplicate 2
+                                          $ sin (rsum $ rreplicate 7 a)))
+                        (rreplicate 2 (rreplicate 5 (2 * a0)))
+                        (rreplicate 3 a0)) 1.1)
+
+testSin0Fold8rev2 :: Assertion
+testSin0Fold8rev2 = do
+  let h = rrev1 @(ADVal (Flip OR.Array)) @Double @0 @2
+        (\a0 -> rfold (\x a -> rtr $ rreplicate 5
+                                 $ atan2 (rsum (rtr $ sin x))
+                                         (rreplicate 2
+                                          $ sin (rsum $ rreplicate 7 a)))
+                        (rreplicate 2 (rreplicate 5 (2 * a0)))
+                        (rreplicate 3 a0))
+  assertEqualUpToEpsilon 1e-10
+    98.72666469795736
+    (crev h 1.1)
+
+testSin0Fold8Srev :: Assertion
+testSin0Fold8Srev = do
+  assertEqualUpToEpsilon 1e-10
+    (-2.200311410593445 :: Flip OR.Array Double 0)
+    (rrev1 (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
+                f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
+                        (\x a -> str $ sreplicate @_ @5
+                                 $ atan2 (ssum (str $ sin x))
+                                         (sreplicate @_ @2
+                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                        (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
+                        (sreplicate @_ @3 a0)
+            in rfromS . f . sfromR) 1.1)
+
+testSin0Fold8Srev2 :: Assertion
+testSin0Fold8Srev2 = do
+  let h = srev1 @(ADVal (Flip OS.Array))
+                (let f :: forall f. ADReadyS f
+                       => f Double '[] -> f Double '[2, 5]
+                     f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
+                        (\x a -> str $ sreplicate @_ @5
+                                 $ atan2 (ssum (str $ sin x))
+                                         (sreplicate @_ @2
+                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                        (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
+                        (sreplicate @_ @3 a0)
+                 in f)
+  assertEqualUpToEpsilon 1e-10
+    98.72666469795736
+    (crev h 1.1)
+
+testSin0Fold18SrevPP :: Assertion
+testSin0Fold18SrevPP = do
+  resetVarCounter
+  let a1 = rrev1 @(AstRanked FullSpan)
+           (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
+                f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @2
+                        (\x a -> str $ sreplicate @_ @5
+                                 $ atan2 (ssum (str $ sin x))
+                                         (sreplicate @_ @2
+                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                        (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
+                        (sreplicate @_ @2 a0)
+            in rfromS . f . sfromR) 1.1
+  printAstPretty IM.empty (simplifyAst6 a1)
+    @?= "rletDomainsIn (sconst 2.0 * ssum (ssum (sletDomainsIn (let x68 = ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])) ; v69 = ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1)))))) ; v70 = sreplicate (sin x68) ; v71 = recip (v69 * v69 + sconst (fromList @[2] [0.0,0.0]) + v70 * v70 + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0])) ; v79 = ssum (stranspose (sletDomainsIn (let x74 = ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [1])) ; v75 = ssum (stranspose (sin (stranspose (sreplicate (atan2 (ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1))))))) (sreplicate (sin (ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])))))))))) ; v76 = sreplicate (sin x74) ; v77 = recip (v75 * v75 + sconst (fromList @[2] [0.0,0.0]) + v76 * v76 + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0])) ; v78 = sconstant (ssum (stranspose (rreplicate 2 (rreplicate 5 (rconst 1.0))))) in (cos (stranspose (sreplicate (atan2 (ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1))))))) (sreplicate (sin (ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])))))))) * stranspose (sreplicate ((v76 * v77) * v78)) + rconstant (rreplicate 2 (rreplicate 5 (rconst 0.0))), ssum (sreplicate (cos x74 * ssum (negate (v75 * v77) * v78))) + rconst 0.0)) (\\[m72, x73] -> m72))) in (cos (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1)))) * stranspose (sreplicate ((v70 * v71) * v79)) + rconstant (rreplicate 2 (rreplicate 5 (rconst 0.0))), ssum (sreplicate (cos x68 * ssum (negate (v69 * v71) * v79))) + rconst 0.0)) (\\[m66, x67] -> m66))) + ssum (sfromList [sletDomainsIn (let x90 = ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])) ; v91 = ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1)))))) ; v92 = sreplicate (sin x90) ; v93 = recip (v91 * v91 + sconst (fromList @[2] [0.0,0.0]) + v92 * v92 + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0])) ; v101 = ssum (stranspose (sletDomainsIn (let x96 = ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [1])) ; v97 = ssum (stranspose (sin (stranspose (sreplicate (atan2 (ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1))))))) (sreplicate (sin (ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])))))))))) ; v98 = sreplicate (sin x96) ; v99 = recip (v97 * v97 + sconst (fromList @[2] [0.0,0.0]) + v98 * v98 + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0])) ; v100 = sconstant (ssum (stranspose (rreplicate 2 (rreplicate 5 (rconst 1.0))))) in (cos (stranspose (sreplicate (atan2 (ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1))))))) (sreplicate (sin (ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])))))))) * stranspose (sreplicate ((v98 * v99) * v100)) + rconstant (rreplicate 2 (rreplicate 5 (rconst 0.0))), ssum (sreplicate (cos x96 * ssum (negate (v97 * v99) * v100))) + rconst 0.0)) (\\[m94, x95] -> m94))) in (cos (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1)))) * stranspose (sreplicate ((v92 * v93) * v101)) + rconstant (rreplicate 2 (rreplicate 5 (rconst 0.0))), ssum (sreplicate (cos x90 * ssum (negate (v91 * v93) * v101))) + rconst 0.0)) (\\[m88, x89] -> x89), sletDomainsIn (let x110 = ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [1])) ; v111 = ssum (stranspose (sin (stranspose (sreplicate (atan2 (ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1))))))) (sreplicate (sin (ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])))))))))) ; v112 = sreplicate (sin x110) ; v113 = recip (v111 * v111 + sconst (fromList @[2] [0.0,0.0]) + v112 * v112 + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0])) ; v114 = sconstant (ssum (stranspose (rreplicate 2 (rreplicate 5 (rconst 1.0))))) in (cos (stranspose (sreplicate (atan2 (ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1))))))) (sreplicate (sin (ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])))))))) * stranspose (sreplicate ((v112 * v113) * v114)) + rconstant (rreplicate 2 (rreplicate 5 (rconst 0.0))), ssum (sreplicate (cos x110 * ssum (negate (v111 * v113) * v114))) + rconst 0.0)) (\\[m108, x109] -> x109)])) (\\[dret] -> dret)"
+
+testSin0Fold8fwd :: Assertion
+testSin0Fold8fwd = do
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.constant [2, 5] (-0.242034255165279))
+    (rfwd1 @(Flip OR.Array) @Double @0 @2
+       (\a0 -> rfold (\x a -> rtr $ rreplicate 5
+                                 $ atan2 (rsum (rtr $ sin x))
+                                         (rreplicate 2
+                                          $ sin (rsum $ rreplicate 7 a)))
+                        (rreplicate 2 (rreplicate 5 (2 * a0)))
+                        (rreplicate 3 a0)) 1.1)
+
+testSin0Fold8fwd2 :: Assertion
+testSin0Fold8fwd2 = do
+  let h = rfwd1 @(ADVal (Flip OR.Array)) @Double @0 @2
+        (\a0 -> rfold (\x a -> rtr $ rreplicate 5
+                                 $ atan2 (rsum (rtr $ sin x))
+                                         (rreplicate 2
+                                          $ sin (rsum $ rreplicate 7 a)))
+                        (rreplicate 2 (rreplicate 5 (2 * a0)))
+                        (rreplicate 3 a0))
+  assertEqualUpToEpsilon 1e-10
+    106.39901975715969
+    (crev h 1.1)
+
+testSin0Fold8Sfwd :: Assertion
+testSin0Fold8Sfwd = do
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.constant [2, 5] (-0.242034255165279))
+    (rfwd1 (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
+                f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
+                        (\x a -> str $ sreplicate @_ @5
+                                 $ atan2 (ssum (str $ sin x))
+                                         (sreplicate @_ @2
+                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                        (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
+                        (sreplicate @_ @3 a0)
+            in rfromS . f . sfromR) 1.1)
+
+testSin0Fold8Sfwd2 :: Assertion
+testSin0Fold8Sfwd2 = do
+  let h = rfwd1 @(ADVal (Flip OR.Array))
+                (let f :: forall f. ADReadyS f
+                       => f Double '[] -> f Double '[2, 5]
+                     f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @3
+                        (\x a -> str $ sreplicate @_ @5
+                                 $ atan2 (ssum (str $ sin x))
+                                         (sreplicate @_ @2
+                                          $ sin (ssum $ sreplicate @_ @7 a)))
+                        (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
+                        (sreplicate @_ @3 a0)
+                 in rfromS . f . sfromR)
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.constant [2, 5] 11.703892173287567)
+    (cfwd h 1.1 1.1)
+
+testSin0Fold5Sfwd :: Assertion
+testSin0Fold5Sfwd = do
+  assertEqualUpToEpsilon 1e-10
+    1.4291653807319993
+    (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (let g :: forall f2. ADReadyS f2
+                                   => f2 Double '[] -> f2 Double '[2, 5]
+                                   -> f2 Double '[]
+                                 g x a = ssum
+                                   $ atan2 (sin $ sreplicate @f2 @5 x)
+                                         (ssum $ sin $ ssum
+                                          $ str $ sreplicate @f2 @7 a)
+                             in g)
+                        (2 * a0)
+                        (sreplicate @f @3
+                                    (sreplicate @f @2
+                                                (sreplicate @f @5 a0)))
+           in rfromS . f . sfromR) 1.1 1.1)
+
+testSin0Fold5Sfwds :: Assertion
+testSin0Fold5Sfwds = do
+  assertEqualUpToEpsilon 1e-10
+    1.4291653807319993
+    (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (let g :: forall f2. ADReadyS f2
+                                   => f2 Double '[] -> f2 Double '[2, 5]
+                                   -> f2 Double '[]
+                                 g x a = ssum
+                                   $ atan2 (sin $ sreplicate @f2 @5 x)
+                                         (ssum $ sin $ ssum
+                                          $ str $ sreplicate @f2 @7 a)
+                             in g)
+                        (2 * a0)
+                        (sreplicate @f @3
+                                    (sreplicate @f @2
+                                                (sreplicate @f @5 a0)))
+           in f) 1.1 1.1)
