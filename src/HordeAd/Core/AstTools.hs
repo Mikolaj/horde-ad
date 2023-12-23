@@ -112,7 +112,7 @@ varInAst :: forall s r n. AstSpan s
 varInAst var = \case
   AstVar _ var2 -> fromEnum var == fromEnum var2
   AstLet _var2 u v -> varInAst var u || varInAst var v
-  AstLetADShare l v -> varInADShare intIdInAstDynamic var l || varInAst var v
+  AstLetADShare l v -> varInADShare varInAstDynamic var l || varInAst var v
   AstCond b v w ->
     varInAstBool var b || varInAst var v || varInAst var w
   AstMinIndex a -> varInAst var a
@@ -179,11 +179,6 @@ varInAstDynamic var = \case
   AstRToD t -> varInAst var t
   AstSToD t -> varInAstS var t
 
-intIdInAstDynamic :: AstSpan s => AstVarId -> AstDynamic s r -> Bool
-intIdInAstDynamic var = \case
-  AstRToD t -> varInAst var t
-  AstSToD t -> varInAstS var t
-
 varInAstBool :: AstVarId -> AstBool -> Bool
 varInAstBool var = \case
   AstBoolNot b -> varInAstBool var b
@@ -200,7 +195,7 @@ varInAstS :: forall s r sh. AstSpan s
 varInAstS var = \case
   AstVarS var2 -> fromEnum var == fromEnum var2
   AstLetS _var2 u v -> varInAstS var u || varInAstS var v
-  AstLetADShareS l v -> varInADShare intIdInAstDynamic var l || varInAstS var v
+  AstLetADShareS l v -> varInADShare varInAstDynamic var l || varInAstS var v
   AstCondS b v w ->
     varInAstBool var b || varInAstS var v || varInAstS var w
   AstMinIndexS a -> varInAstS var a
