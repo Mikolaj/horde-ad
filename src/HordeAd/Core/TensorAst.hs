@@ -480,7 +480,7 @@ astLetDomainsInFun a0 a f = unsafePerformIO $ do
         let sh2 = OD.shapeL t
         Sh.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) -> do
           (var, _, ast) <- funToAstIOS @p_sh2 id
-          return ( AstDynamicVarName @[Nat] @p_sh2 @r2 var
+          return ( AstDynamicVarName @[Nat] @r2 @p_sh2 var
                  , DynamicExists $ AstSToD ast )
   (vars, asts) <- unzip <$> mapM genVar (V.toList a0)
   return $! AstLetDomainsIn vars a (f $ V.fromList asts)
@@ -632,7 +632,7 @@ astLetDomainsInFunS a0 a f = unsafePerformIO $ do
         let sh2 = OD.shapeL t
         Sh.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) -> do
           (var, _, ast) <- funToAstIOS @p_sh2 id
-          return ( AstDynamicVarName @[Nat] @p_sh2 @r2 var
+          return ( AstDynamicVarName @[Nat] @r2 @p_sh2 var
                  , DynamicExists $ AstSToD ast )
   (vars, asts) <- unzip <$> mapM genVar (V.toList a0)
   return $! AstLetDomainsInS vars a (f $ V.fromList asts)

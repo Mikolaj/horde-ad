@@ -166,8 +166,9 @@ varNameToAstVarId (AstVarName var) = var
 type role AstDynamicVarName phantom
 type AstDynamicVarName :: forall {k}. TensorKind k -> Type
 data AstDynamicVarName f where
-  AstDynamicVarName :: forall k sh r y (f :: TensorKind k).
-                       (Sh.Shape sh, GoodScalar r)
+  AstDynamicVarName :: forall k r sh (y :: k) (f :: TensorKind k).
+                       ( Typeable k, GoodScalar r
+                       , Sh.Shape sh, HasSingletonDict y )
                     => AstVarName f r y -> AstDynamicVarName f
 deriving instance Show (AstDynamicVarName f)
 

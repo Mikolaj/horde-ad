@@ -24,11 +24,10 @@ import Prelude
 import qualified Data.Array.Shape as Sh
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
-import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Type.Reflection (typeRep)
-import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.TensorClass
@@ -75,14 +74,11 @@ extendEnvDR :: forall ranked shaped s. ConvertTensor ranked shaped
                , DynamicExists (DynamicOf ranked) )
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
-extendEnvDR (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) !env =
+extendEnvDR (AstDynamicVarName @_ @r @sh @n var, DynamicExists @r2 d) !env =
   -- We don't need to manually pick a specialization for the existential
   -- variable r2, because rfromD does not depend on r2.
   case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl ->
-      withListShape (Sh.shapeT @sh) $ \ (_ :: Shape n Int) ->
-        gcastWith (unsafeCoerce Refl :: n :~: y) $
-        extendEnvR var (rfromD d) env
+    Just Refl -> extendEnvR var (rfromD d) env
     _ -> error "extendEnvDR: type mismatch"
 
 extendEnvDS :: ConvertTensor ranked shaped
@@ -90,12 +86,11 @@ extendEnvDS :: ConvertTensor ranked shaped
                , DynamicExists (DynamicOf ranked) )
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
-extendEnvDS (AstDynamicVarName @_ @sh @r @y var, DynamicExists @r2 d) !env =
+extendEnvDS (AstDynamicVarName @_ @r @sh @sh2 var, DynamicExists @r2 d) !env =
   -- We don't need to manually pick a specialization for the existential
   -- variable r2, because sfromD does not depend on r2.
   case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> gcastWith (unsafeCoerce Refl :: sh :~: y) $
-                 extendEnvS var (sfromD d) env
+    Just Refl -> extendEnvS var (sfromD d) env
     _ -> error "extendEnvDS: type mismatch"
 
 extendEnvI :: ( RankedTensor ranked

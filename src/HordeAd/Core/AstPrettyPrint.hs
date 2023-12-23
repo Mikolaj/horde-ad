@@ -159,7 +159,7 @@ printAstVarNameS renames var =
 printAstDynamicVarName :: forall (s :: AstSpanType) f.
                           IntMap String -> AstDynamicVarName (f s) -> String
 printAstDynamicVarName renames
-                       (AstDynamicVarName @_ @sh @r (AstVarName var)) =
+                       (AstDynamicVarName @_ @r @sh (AstVarName var)) =
   printAstVarNameS renames (AstVarName @[Nat] @(AstShaped s) @r @sh var)
 
 

@@ -261,7 +261,7 @@ build1V k (var, v00) =
       -- because we create a variable with one more dimension,
       -- again, because the original variables might have been marked
       -- with AstShaped and here we require AstRanked.
-      let subst (AstDynamicVarName @_ @sh1 (AstVarName var1)) =
+      let subst (AstDynamicVarName @_ @_ @sh1 (AstVarName var1)) =
             withListShape (Sh.shapeT @sh1) $ \shV ->
               let projection =
                     Ast.AstIndex (Ast.AstVar (k :$ shV) $ AstVarName var1)
@@ -628,7 +628,7 @@ build1VS (var, v00) =
                 (build1VOccurenceUnknownS (var, u'))
     Ast.AstLetDomainsInS @s1 vars l v ->
       -- See the AstLetDomainsIn case for comments.
-      let subst (AstDynamicVarName @_ @sh1 (AstVarName var1)) =
+      let subst (AstDynamicVarName @_ @_ @sh1 (AstVarName var1)) =
             let projection =
                   Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
                                 (Ast.AstIntVar var :$: ZSH)
