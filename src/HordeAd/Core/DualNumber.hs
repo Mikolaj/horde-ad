@@ -447,7 +447,8 @@ class DerivativeStages g where
 
   revArtifactFromForwardPass
     :: (GoodScalar r, HasSingletonDict y)
-    => Bool -> Bool
+    => TensorFunctor g
+    -> Bool -> Bool
     -> (Domains (DynamicOf (PrimalOf g))
         -> [AstDynamicVarName g]
         -> Domains (DynamicOf g)
@@ -457,15 +458,15 @@ class DerivativeStages g where
 
   revProduceArtifact
     :: (GoodScalar r, HasSingletonDict y)
-    => Bool -> Bool
+    => TensorFunctor g -> Bool -> Bool
     -> (Domains (DynamicOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
     -> DomainsOD
     -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
   {-# INLINE revProduceArtifact #-}
-  revProduceArtifact useDummies hasDt g envInit =
-    revArtifactFromForwardPass useDummies hasDt
+  revProduceArtifact tf useDummies hasDt g envInit =
+    revArtifactFromForwardPass tf useDummies hasDt
                                (forwardPassByInterpretation g envInit)
 
   revEvalArtifact
@@ -475,7 +476,8 @@ class DerivativeStages g where
 
   fwdArtifactFromForwardPass
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => (Domains (DynamicOf (PrimalOf g))
+    => TensorFunctor g
+    -> (Domains (DynamicOf (PrimalOf g))
         -> [AstDynamicVarName g]
         -> Domains (DynamicOf g)
         -> ADVal (PrimalOf g) r y)
@@ -489,14 +491,14 @@ class DerivativeStages g where
 
   fwdProduceArtifact
     :: (DerivativeStages g, GoodScalar r, HasSingletonDict y)
-    => (Domains (DynamicOf g) -> g r y)
+    => TensorFunctor g -> (Domains (DynamicOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
     -> DomainsOD
     -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
   {-# INLINE fwdProduceArtifact #-}
-  fwdProduceArtifact g envInit =
-    fwdArtifactFromForwardPass (forwardPassByInterpretation g envInit)
+  fwdProduceArtifact tf g envInit =
+    fwdArtifactFromForwardPass tf (forwardPassByInterpretation g envInit)
 
 -- TODO: this is an ad-hoc class with an ad-hoc name
 type UnletGradient :: forall k. TensorKind k -> Constraint

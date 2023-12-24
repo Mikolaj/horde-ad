@@ -154,7 +154,8 @@ revDtMaybe
 revDtMaybe f vals mdt =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
-      artifact = fst $ revProduceArtifact True (isJust mdt) g EM.empty domainsOD
+      artifact = fst $ revProduceArtifact TensorFunctor
+                                          True (isJust mdt) g EM.empty domainsOD
   in gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $  -- !!!
      parseDomains vals
      $ fst $ revEvalArtifact artifact domainsOD mdt
@@ -170,7 +171,7 @@ revArtifactAdapt
 revArtifactAdapt hasDt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
-  in revProduceArtifact True hasDt g EM.empty domainsOD
+  in revProduceArtifact TensorFunctor True hasDt g EM.empty domainsOD
 {-# SPECIALIZE revArtifactAdapt
   :: ( HasSingletonDict y
      , AdaptableDomains (AstDynamic FullSpan) astvals
@@ -183,14 +184,15 @@ revProduceArtifactWithoutInterpretation
   :: forall g r y.
      ( g ~ AstRanked FullSpan  -- needed, because PrimalOf not injective
      , DerivativeStages g, GoodScalar r, HasSingletonDict y )
-  => Bool
+  => TensorFunctor g -> Bool
   -> (Domains (DynamicOf (ADVal (PrimalOf g)))
       -> ADVal (PrimalOf g) r y)
   -> DomainsOD
   -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
-revProduceArtifactWithoutInterpretation hasDt g =
-  revArtifactFromForwardPass @Nat @g True hasDt (forwardPassByApplication g)
+revProduceArtifactWithoutInterpretation tf hasDt g =
+  revArtifactFromForwardPass
+    @Nat @g TensorFunctor True hasDt (forwardPassByApplication tf g)
 
 -- The commented out version is more general, but less performant.
 forwardPassByApplication
@@ -200,14 +202,15 @@ forwardPassByApplication
        dynamic ~ AstDynamic PrimalSpan  -- needed for generateDeltaInputsAst
      , Dual (Clown dynamic)
        ~ DeltaD (Clown dynamic) (PrimalOf g) (ShapedOf (PrimalOf g)) )
-  => (Domains (DynamicOf (ADVal (PrimalOf g)))
+  => TensorFunctor g
+  -> (Domains (DynamicOf (ADVal (PrimalOf g)))
       -> ADVal (PrimalOf g) r y)
   -> Domains (DynamicOf (PrimalOf g))
   -> [AstDynamicVarName g]
   -> Domains (DynamicOf g)
   -> ADVal (PrimalOf g) r y
 {-# INLINE forwardPassByApplication #-}
-forwardPassByApplication g domainsPrimal _ _ =
+forwardPassByApplication _ g domainsPrimal _ _ =
 --  let deltaInputs = generateDeltaInputsOD @(PrimalOf g) domainsPrimal
   let deltaInputs = generateDeltaInputsAst domainsPrimal
       varInputs = makeADInputs domainsPrimal deltaInputs
@@ -232,7 +235,7 @@ fwd
 fwd f x ds =
   let g domains = f $ parseDomains x domains
       domainsOD = toDomains x
-      artifact = fst $ fwdProduceArtifact g EM.empty domainsOD
+      artifact = fst $ fwdProduceArtifact TensorFunctor g EM.empty domainsOD
   in fst $ fwdEvalArtifact artifact domainsOD (toDomains ds)
 
 fwdArtifactAdapt
@@ -246,7 +249,7 @@ fwdArtifactAdapt
 fwdArtifactAdapt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
-  in fwdProduceArtifact g EM.empty domainsOD
+  in fwdProduceArtifact TensorFunctor g EM.empty domainsOD
 
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt
