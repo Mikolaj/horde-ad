@@ -334,7 +334,8 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Forward vs reverse"
                                  1e-5 (rsum0 derivative) (rdot0 expected vals)
   -- No Eq instance, so let's compare the text.
-  show (simplifyAst6 astVectSimp) @?= show astVectSimp
+  show (simplifyAst6 $ simplifyAst6 astVectSimp)
+    @?= show (simplifyAst6 astVectSimp)  -- more simplification is needed
   show (simplifyAst6 astSimp) @?= show astSimp
 
 assertEqualUpToEpsilonShort

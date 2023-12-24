@@ -237,7 +237,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rzero :: (GoodScalar r, KnownNat n)
         => ShapeInt n -> ranked r n
   rzero sh = rreplicate0N sh 0
-  rletDomainsIn :: KnownNat n
+  rletDomainsIn :: (KnownNat n, GoodScalar r)
                 => DomainsOD
                 -> DomainsOf ranked
                 -> (Domains (DynamicOf ranked) -> ranked r n)

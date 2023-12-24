@@ -468,7 +468,7 @@ isTensorDummyAst t = case t of
 
 -- TODO: move the impure part to AstFreshId
 astLetDomainsInFun
-  :: forall n s r. (AstSpan s, KnownNat n)
+  :: forall n s r. (AstSpan s, GoodScalar r, KnownNat n)
   => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstRanked s r n)
   -> AstRanked s r n
 {-# NOINLINE astLetDomainsInFun #-}

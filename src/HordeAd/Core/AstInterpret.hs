@@ -38,7 +38,7 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
+import HordeAd.Internal.OrthotopeOrphanInstances (matchingRank, sameShape)
 import HordeAd.Util.ShapedList (ShapedList (..))
 import HordeAd.Util.SizedIndex
 
@@ -127,7 +127,19 @@ interpretAst !env = \case
                              `blame` (sh, rshape t, var, t, env)) t
         _ -> error "interpretAst: type mismatch"
       _ -> error "interpretAst: wrong shape in environment"
-    Just{} -> error "interpretAst: wrong tensor kind in environment"
+    -- To impose such checks, we'd need to switch from OD tensors
+    -- to existential OR/OS tensors so that we can inspect
+    -- which it is and then seed Delta evaluation maps with that.
+    -- Just{} -> error "interpretAst: wrong tensor kind in environment"
+    Just (AstEnvElemS @sh2 @r2 t) -> case shapeToList sh == Sh.shapeT @sh2 of
+      True -> case matchingRank @sh2 @n of
+        Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+          Just Refl -> rfromS @_ @_ @r2 @sh2 t
+          _ -> error "interpretAst: type mismatch"
+        _ -> error "interpretAst: wrong rank"
+      False -> error $ "interpretAst: wrong shape in environment"
+                         `showFailure`
+                         (sh, Sh.shapeT @sh2, var, t, env)
     Nothing -> error $ "interpretAst: unknown variable " ++ show var
                        ++ " in environment " ++ show env
   AstLet var u v ->
@@ -679,7 +691,17 @@ interpretAstS !env = \case
       Nothing -> error $ "interpretAstS: wrong shape in environment"
                          `showFailure`
                          (Sh.shapeT @sh, Sh.shapeT @sh2, var, t, env)
-    Just{} -> error "interpretAstS: wrong tensor kind in environment"
+    -- To impose such checks, we'd need to switch from OD tensors
+    -- to existential OR/OS tensors so that we can inspect
+    -- which it is and then seed Delta evaluation maps with that.
+    -- Just{} -> error "interpretAstS: wrong tensor kind in environment"
+    Just (AstEnvElemR @n2 @r2 t) -> case matchingRank @sh @n2 of
+      Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+        Just Refl -> assert (Sh.shapeT @sh == shapeToList (rshape t)
+                             `blame` (Sh.shapeT @sh, rshape t, var, t, env))
+                     $ sfromR @_ @_ @r2 @sh t
+        _ -> error "interpretAstS: type mismatch"
+      _ -> error "interpretAstS: wrong shape in environment"
     Nothing -> error $ "interpretAstS: unknown variable " ++ show var
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.

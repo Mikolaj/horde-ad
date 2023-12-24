@@ -1651,18 +1651,70 @@ astLetInDomainsS var u v | astIsSmallS True u =
 astLetInDomainsS var u v = Ast.AstLetInDomainsS var u v
 
 astLetDomainsIn
-  :: forall n s s2 r. (AstSpan s, KnownNat n)
+  :: forall n s s2 r. (AstSpan s, GoodScalar r, KnownNat n)
   => [AstDynamicVarName] -> AstDomains s
   -> AstRanked s2 r n
   -> AstRanked s2 r n
-astLetDomainsIn vars l v = Ast.AstLetDomainsIn vars l v
+astLetDomainsIn vars l v =
+  let sh = shapeAst v
+  in Sh.withShapeP (shapeToList sh) $ \proxy -> case proxy of
+    Proxy @sh | Just Refl <- matchingRank @sh @n -> case l of
+      Ast.AstDomains l3 ->  -- TODO: other cases: collect AstLetInDomains
+        let f :: (AstDynamicVarName, DynamicExists (AstDynamic s))
+              -> AstRanked s2 r n
+              -> AstRanked s2 r n
+            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+              , DynamicExists @r4 (Ast.AstRToD @n4 v3) )
+              acc
+              | Just Refl <- matchingRank @sh3 @n4
+              -- To impose such checks, we'd need to switch from OD tensors
+              -- to existential OR/OS tensors so that we can inspect
+              -- which it is and then seed Delta evaluation maps with that.
+              -- , Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
+              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
+                Ast.AstLet (AstVarName varId) v3 acc
+            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+              , DynamicExists @r4 (Ast.AstSToD @sh4 v3) )
+              acc
+              | Just Refl <- sameShape @sh3 @sh4
+              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
+                Ast.AstSToR @sh
+                $ Ast.AstLetS (AstVarName varId) v3 $ Ast.AstRToS acc
+            f _ _ = error "astLetDomainsIn: corrupted arguments"
+        in foldr f v (zip vars (V.toList l3))
+      _ -> Ast.AstLetDomainsIn vars l v
+    _ -> error "astLetDomainsIn: wrong rank of the argument"
 
 astLetDomainsInS
   :: forall sh s s2 r. (AstSpan s, Sh.Shape sh)
   => [AstDynamicVarName] -> AstDomains s
   -> AstShaped s2 r sh
   -> AstShaped s2 r sh
-astLetDomainsInS vars l v = Ast.AstLetDomainsInS vars l v
+astLetDomainsInS vars l v =
+  case someNatVal $ toInteger (length (Sh.shapeT @sh)) of
+    Just (SomeNat @n _) -> gcastWith (unsafeCoerce Refl :: n :~: Sh.Rank sh)
+                           $ case l of
+      Ast.AstDomains l3 ->  -- TODO: other cases: collect AstLetInDomainsS
+        let f :: (AstDynamicVarName, DynamicExists (AstDynamic s))
+              -> AstShaped s2 r sh
+              -> AstShaped s2 r sh
+            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+              , DynamicExists @r4 (Ast.AstRToD @n4 v3) )
+              acc
+              | Just Refl <- matchingRank @sh3 @n4
+              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
+                Ast.AstRToS @sh
+                $ Ast.AstLet (AstVarName varId) v3 $ Ast.AstSToR acc
+            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+              , DynamicExists @r4 (Ast.AstSToD @sh4 v3) )
+              acc
+              | Just Refl <- sameShape @sh3 @sh4
+              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
+                Ast.AstLetS (AstVarName varId) v3 acc
+            f _ _ = error "astLetDomainsInS: corrupted arguments"
+        in foldr f v (zip vars (V.toList l3))
+      _ -> Ast.AstLetDomainsInS vars l v
+    _ -> error "astLetDomainsInS: impossible someNatVal"
 
 
 -- * The simplifying bottom-up pass
@@ -2211,7 +2263,19 @@ substitute1Ast i var v1 = case v1 of
             _ -> error "substitute1Ast: scalar"
           _ -> error "substitute1Ast: rank"
         _ -> error "substitute1Ast: span"
-      _ -> error "substitute1Ast: type"
+      -- To impose such checks, we'd need to switch from OD tensors
+      -- to existential OR/OS tensors so that we can inspect
+      -- which it is and then seed Delta evaluation maps with that.
+      -- _ -> error "substitute1Ast: type"
+      SubstitutionPayloadShaped @_ @_ @sh2 t -> case sameAstSpan @s @s2 of
+        Just Refl -> case shapeToList sh == Sh.shapeT @sh2 of
+          True -> case matchingRank @sh2 @n of
+            Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+              Just Refl -> Just $ astSToR t
+              _ -> error "substitute1Ast: scalar"
+            _ -> error "substitute1Ast: rank"
+          False -> error "substitute1Ast: shape"
+        _ -> error "substitute1Ast: span"
     else Nothing
   Ast.AstLet var2 u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
@@ -2464,7 +2528,18 @@ substitute1AstS i var = \case
             _ -> error "substitute1AstS: scalar"
           _ -> error "substitute1AstS: shape"
         _ -> error "substitute1Ast: span"
-      _ -> error "substitute1AstS: type"
+      -- To impose such checks, we'd need to switch from OD tensors
+      -- to existential OR/OS tensors so that we can inspect
+      -- which it is and then seed Delta evaluation maps with that.
+      -- _ -> error "substitute1AstS: type"
+      SubstitutionPayloadRanked @_ @_ @m t -> case sameAstSpan @s @s2 of
+        Just Refl -> case matchingRank @sh @m of
+          Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+            Just Refl -> assert (Sh.shapeT @sh == shapeToList (shapeAst t))
+                         $ Just $ astRToS t
+            _ -> error "substitute1Ast: scalar"
+          _ -> error "substitute1Ast: rank"
+        _ -> error "substitute1Ast: span"
     else Nothing
   Ast.AstLetS var2 u v ->
     case (substitute1AstS i var u, substitute1AstS i var v) of
