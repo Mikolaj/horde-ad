@@ -14,7 +14,7 @@ module HordeAd.Core.TensorClass
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), ConvertTensor(..), DomainsTensor(..)
     -- * The related constraints
-  , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth, CRanked, CShaped
+  , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
   ) where
 
 import Prelude
@@ -51,12 +51,6 @@ import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 
 -- * Ranked tensor class definition
-
-type CRanked :: RankedTensorKind -> (Type -> Constraint) -> Constraint
-class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
-      => CRanked ranked c where
-instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
-         => CRanked ranked c where
 
 type TensorSupports :: (Type -> Constraint) -> TensorKind k -> Constraint
 type TensorSupports c f =
@@ -285,13 +279,6 @@ class ( Integral (IntOf ranked), CRanked ranked Num
 
 
 -- * Shaped tensor class definition
-
-type CShaped :: ShapedTensorKind -> (Type -> Constraint) -> Constraint
-class (forall r30 y30. (Sh.Shape y30, GoodScalar r30) => c (shaped r30 y30))
-      => CShaped shaped c where
-instance
-      (forall r30 y30. (Sh.Shape y30, GoodScalar r30) => c (shaped r30 y30))
-      => CShaped shaped c where
 
 class ( Integral (IntOf shaped), CShaped shaped Num
       , TensorSupports RealFloat shaped, TensorSupports Integral shaped )

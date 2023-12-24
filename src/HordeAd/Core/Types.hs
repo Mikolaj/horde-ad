@@ -6,7 +6,8 @@ module HordeAd.Core.Types
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type definitions for dynamic tensors and tensor collections
-  , DynamicExists(..), Domains, DomainsOD, sizeDomainsOD, sameShapesDomainsOD
+  , DynamicExists(..), DynamicTensor(..), CRanked, CShaped
+  , Domains, DomainsOD, sizeDomainsOD, sameShapesDomainsOD
     -- * Type families that tensors will belong to
   , RankedOf, ShapedOf, DynamicOf, DomainsOf, PrimalOf, DualOf, DummyDual(..)
     -- * Generic types of indexes used in tensor operations
@@ -100,7 +101,7 @@ instance IfDifferentiable Float where
 
 -- Warning: r is an existential variable, a proper specialization needs
 -- to be picked explicitly at runtime.
-type role DynamicExists representational  -- TODO: safe enough?
+type role DynamicExists representational
 data DynamicExists :: (Type -> Type) -> Type where
   DynamicExists :: forall r dynamic. GoodScalar r
                 => dynamic r -> DynamicExists dynamic
@@ -109,6 +110,43 @@ deriving instance (forall r. GoodScalar r => Show (dynamic r))
 instance (forall r. NFData r => NFData (dynamic r))
          => NFData (DynamicExists dynamic) where
   rnf (DynamicExists x) = rnf x
+
+-- Warning: r is an existential variable, a proper specialization needs
+-- to be picked explicitly at runtime.
+type role DynamicTensor nominal
+data DynamicTensor (ranked :: RankedTensorKind) where
+  DynamicRanked :: forall r n ranked. (GoodScalar r, KnownNat n)
+                => ranked r n -> DynamicTensor ranked
+  DynamicShaped :: forall r sh ranked. (GoodScalar r, Sh.Shape sh)
+                => ShapedOf ranked r sh -> DynamicTensor ranked
+  DynamicRankedDummy :: forall r sh ranked. (GoodScalar r, Sh.Shape sh)
+                     => Proxy r -> Proxy sh -> DynamicTensor ranked
+  DynamicShapedDummy :: forall r sh ranked. (GoodScalar r, Sh.Shape sh)
+                     => Proxy r -> Proxy sh -> DynamicTensor ranked
+
+deriving instance
+  (CRanked ranked Show, CShaped (ShapedOf ranked) Show)
+  => Show (DynamicTensor ranked)
+
+instance (CRanked ranked NFData, CShaped (ShapedOf ranked) NFData)
+         => NFData (DynamicTensor ranked) where
+  rnf (DynamicRanked x) = rnf x
+  rnf (DynamicShaped x) = rnf x
+  rnf (DynamicRankedDummy{}) = ()
+  rnf (DynamicShapedDummy{}) = ()
+
+type CRanked :: RankedTensorKind -> (Type -> Constraint) -> Constraint
+class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
+      => CRanked ranked c where
+instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
+         => CRanked ranked c where
+
+type CShaped :: ShapedTensorKind -> (Type -> Constraint) -> Constraint
+class (forall r30 y30. (Sh.Shape y30, GoodScalar r30) => c (shaped r30 y30))
+      => CShaped shaped c where
+instance
+      (forall r30 y30. (Sh.Shape y30, GoodScalar r30) => c (shaped r30 y30))
+      => CShaped shaped c where
 
 -- When r is Ast, this is used for domains composed of variables only,
 -- to adapt them into more complex types and back again. This is not used
