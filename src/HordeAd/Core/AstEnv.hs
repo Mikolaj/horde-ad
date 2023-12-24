@@ -26,7 +26,7 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat)
+import           GHC.TypeLits (KnownNat, Nat)
 import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Ast
@@ -69,29 +69,35 @@ extendEnvS (AstVarName var) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show var)
                    var (AstEnvElemS t) env
 
-extendEnvDR :: forall ranked shaped s. ConvertTensor ranked shaped
-            => ( AstDynamicVarName (AstRanked s)
-               , DynamicExists (DynamicOf ranked) )
+extendEnvDR :: forall ranked shaped. ConvertTensor ranked shaped
+            => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
-extendEnvDR (AstDynamicVarName @_ @r @sh @n var, DynamicExists @r2 d) !env =
-  -- We don't need to manually pick a specialization for the existential
-  -- variable r2, because rfromD does not depend on r2.
-  case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> extendEnvR var (rfromD d) env
-    _ -> error "extendEnvDR: type mismatch"
+extendEnvDR ( AstDynamicVarName @k @r @sh @n (AstVarName var)
+            , DynamicExists @r2 d )
+            !env
+  | Just Refl <- testEquality (typeRep @k) (typeRep @Nat) =
+    -- We don't need to manually pick a specialization for the existential
+    -- variable r2, because rfromD does not depend on r2.
+    case testEquality (typeRep @r) (typeRep @r2) of
+      Just Refl -> extendEnvR @_ @_ @_ @n (AstVarName var) (rfromD d) env
+      _ -> error "extendEnvDR: type mismatch"
+extendEnvDR _ _ = error "extendEnvDR: kind mismatch"
 
 extendEnvDS :: ConvertTensor ranked shaped
-            => ( AstDynamicVarName (AstShaped s)
-               , DynamicExists (DynamicOf ranked) )
+            => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
             -> AstEnv ranked shaped
             -> AstEnv ranked shaped
-extendEnvDS (AstDynamicVarName @_ @r @sh @sh2 var, DynamicExists @r2 d) !env =
-  -- We don't need to manually pick a specialization for the existential
-  -- variable r2, because sfromD does not depend on r2.
-  case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> extendEnvS var (sfromD d) env
-    _ -> error "extendEnvDS: type mismatch"
+extendEnvDS ( AstDynamicVarName @k @r @sh @sh2 (AstVarName var)
+            , DynamicExists @r2 d )
+            !env
+  | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat]) =
+    -- We don't need to manually pick a specialization for the existential
+    -- variable r2, because sfromD does not depend on r2.
+    case testEquality (typeRep @r) (typeRep @r2) of
+      Just Refl -> extendEnvS @_ @_ @_ @sh (AstVarName var) (sfromD d) env
+      _ -> error "extendEnvDS: type mismatch"
+extendEnvDS _ _ = error "extendEnvDS: kind mismatch"
 
 extendEnvI :: ( RankedTensor ranked
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
@@ -120,16 +126,16 @@ extendEnvVarsS vars !ix !env =
                    (ShapedList.sizedListToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
-extendEnvPars :: forall ranked shaped s. ConvertTensor ranked shaped
-              => [AstDynamicVarName (AstRanked s)] -> Domains (DynamicOf ranked)
+extendEnvPars :: forall ranked shaped. ConvertTensor ranked shaped
+              => [AstDynamicVarName] -> Domains (DynamicOf ranked)
               -> AstEnv ranked shaped
               -> AstEnv ranked shaped
 extendEnvPars vars !pars !env =
   let assocs = zip vars (V.toList pars)
   in foldr extendEnvDR env assocs
 
-extendEnvParsS :: forall ranked shaped s. ConvertTensor ranked shaped
-               => [AstDynamicVarName (AstShaped s)]
+extendEnvParsS :: forall ranked shaped. ConvertTensor ranked shaped
+               => [AstDynamicVarName]
                -> Domains (DynamicOf ranked)
                -> AstEnv ranked shaped
                -> AstEnv ranked shaped
@@ -216,7 +222,7 @@ interpretLambdaDomains
   :: forall s ranked shaped r n. ConvertTensor ranked shaped
   => (AstEnv ranked shaped -> AstRanked s r n -> ranked r n)
   -> AstEnv ranked shaped
-  -> ([AstDynamicVarName (AstRanked s)], AstRanked s r n)
+  -> ([AstDynamicVarName], AstRanked s r n)
   -> Domains (DynamicOf ranked)
   -> ranked r n
 {-# INLINE interpretLambdaDomains #-}
@@ -227,7 +233,7 @@ interpretLambdaDomainsS
   :: forall s ranked shaped r sh. ConvertTensor ranked shaped
   => (AstEnv ranked shaped -> AstShaped s r sh -> shaped r sh)
   -> AstEnv ranked shaped
-  -> ([AstDynamicVarName (AstShaped s)], AstShaped s r sh)
+  -> ([AstDynamicVarName], AstShaped s r sh)
   -> Domains (DynamicOf ranked)
   -> shaped r sh
 {-# INLINE interpretLambdaDomainsS #-}

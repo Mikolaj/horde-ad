@@ -163,25 +163,23 @@ varNameToAstVarId (AstVarName var) = var
 --
 -- A lot of the variables are existential, but there's no nesting,
 -- so no special care about picking specializations at runtime is needed.
-type role AstDynamicVarName phantom
-type AstDynamicVarName :: forall {k}. TensorKind k -> Type
-data AstDynamicVarName f where
+data AstDynamicVarName where
   AstDynamicVarName :: forall k r sh (y :: k) (f :: TensorKind k).
                        ( Typeable k, GoodScalar r
                        , Sh.Shape sh, HasSingletonDict y )
-                    => AstVarName f r y -> AstDynamicVarName f
-deriving instance Show (AstDynamicVarName f)
+                    => AstVarName f r y -> AstDynamicVarName
+deriving instance Show AstDynamicVarName
 
-dynamicVarNameToAstVarId :: AstDynamicVarName f -> AstVarId
+dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
 dynamicVarNameToAstVarId (AstDynamicVarName (AstVarName var)) = var
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type AstArtifactRev (f :: TensorKind k) r y =
-  ( (AstVarName f r y, [AstDynamicVarName f])
+  ( (AstVarName f r y, [AstDynamicVarName])
   , DomainsOf f, f r y, OR.ShapeL )
 
 type AstArtifactFwd (f :: TensorKind k) r y =
-  ( ([AstDynamicVarName f], [AstDynamicVarName f])
+  ( ([AstDynamicVarName], [AstDynamicVarName])
   , f r y, f r y )
 
 type AstIndex n = Index n AstInt
@@ -294,11 +292,11 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
   AstD :: AstRanked PrimalSpan r n -> AstRanked DualSpan r n
        -> AstRanked FullSpan r n
   AstLetDomainsIn :: AstSpan s
-                  => [AstDynamicVarName (AstRanked s)] -> AstDomains s
+                  => [AstDynamicVarName] -> AstDomains s
                   -> AstRanked s2 r n
                   -> AstRanked s2 r n
   AstFwd :: (GoodScalar r, KnownNat n)
-         => ([AstDynamicVarName (AstRanked s)], AstRanked s r n)
+         => ([AstDynamicVarName], AstRanked s r n)
          -> Domains (AstDynamic s)
          -> Domains (AstDynamic s)
          -> AstRanked s r n
@@ -435,11 +433,11 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
   AstDS :: AstShaped PrimalSpan r sh -> AstShaped DualSpan r sh
         -> AstShaped FullSpan r sh
   AstLetDomainsInS :: AstSpan s
-                   => [AstDynamicVarName (AstShaped s)] -> AstDomains s
+                   => [AstDynamicVarName] -> AstDomains s
                    -> AstShaped s2 r sh
                    -> AstShaped s2 r sh
   AstFwdS :: (GoodScalar r, Sh.Shape sh)
-          => ([AstDynamicVarName (AstShaped s)], AstShaped s r sh)
+          => ([AstDynamicVarName], AstShaped s r sh)
           -> Domains (AstDynamic s)
           -> Domains (AstDynamic s)
           -> AstShaped s r sh
@@ -497,7 +495,7 @@ data AstDomains s where
                    -> AstDomains s2
                    -> AstDomains s2
   AstRev :: (GoodScalar r, KnownNat n)
-         => ([AstDynamicVarName (AstRanked s)], AstRanked s r n)
+         => ([AstDynamicVarName], AstRanked s r n)
          -> Domains (AstDynamic s)
          -> AstDomains s
     -- ^ the function body can't have any free variables outside those
@@ -505,16 +503,16 @@ data AstDomains s where
     -- the quantification in 'rrev' and prevents cotangent confusion;
     -- the same holds for the similar operations below
   AstRevDt :: (GoodScalar r, KnownNat n)
-           => ([AstDynamicVarName (AstRanked s)], AstRanked s r n)
+           => ([AstDynamicVarName], AstRanked s r n)
            -> Domains (AstDynamic s)
            -> AstRanked s r n
            -> AstDomains s
   AstRevS :: (GoodScalar r, Sh.Shape sh)
-          => ([AstDynamicVarName (AstShaped s)], AstShaped s r sh)
+          => ([AstDynamicVarName], AstShaped s r sh)
           -> Domains (AstDynamic s)
           -> AstDomains s
   AstRevDtS :: (GoodScalar r, Sh.Shape sh)
-            => ([AstDynamicVarName (AstShaped s)], AstShaped s r sh)
+            => ([AstDynamicVarName], AstShaped s r sh)
             -> Domains (AstDynamic s)
             -> AstShaped s r sh
             -> AstDomains s

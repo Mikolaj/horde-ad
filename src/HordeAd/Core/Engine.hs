@@ -206,7 +206,7 @@ forwardPassByApplication
   -> (Domains (DynamicOf (ADVal (PrimalOf g)))
       -> ADVal (PrimalOf g) r y)
   -> Domains (DynamicOf (PrimalOf g))
-  -> [AstDynamicVarName g]
+  -> [AstDynamicVarName]
   -> Domains (DynamicOf g)
   -> ADVal (PrimalOf g) r y
 {-# INLINE forwardPassByApplication #-}

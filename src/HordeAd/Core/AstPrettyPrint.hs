@@ -156,11 +156,10 @@ printAstVarNameS :: Sh.Shape sh
 printAstVarNameS renames var =
   printAstVarS (defaulPrintConfig False renames) var ""
 
-printAstDynamicVarName :: forall (s :: AstSpanType) f.
-                          IntMap String -> AstDynamicVarName (f s) -> String
+printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarName renames
                        (AstDynamicVarName @_ @r @sh (AstVarName var)) =
-  printAstVarNameS renames (AstVarName @[Nat] @(AstShaped s) @r @sh var)
+  printAstVarNameS renames (AstVarName @[Nat] @_ @r @sh var)
 
 
 -- * General pretty-printing of AST terms

@@ -441,7 +441,7 @@ class DerivativeStages g where
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
     -> Domains (DynamicOf (PrimalOf g))
-    -> [AstDynamicVarName g]
+    -> [AstDynamicVarName]
     -> Domains (DynamicOf g)
     -> ADVal (PrimalOf g) r y
 
@@ -450,7 +450,7 @@ class DerivativeStages g where
     => TensorFunctor g
     -> Bool -> Bool
     -> (Domains (DynamicOf (PrimalOf g))
-        -> [AstDynamicVarName g]
+        -> [AstDynamicVarName]
         -> Domains (DynamicOf g)
         -> ADVal (PrimalOf g) r y)
     -> DomainsOD
@@ -478,7 +478,7 @@ class DerivativeStages g where
     :: forall r y. (GoodScalar r, HasSingletonDict y)
     => TensorFunctor g
     -> (Domains (DynamicOf (PrimalOf g))
-        -> [AstDynamicVarName g]
+        -> [AstDynamicVarName]
         -> Domains (DynamicOf g)
         -> ADVal (PrimalOf g) r y)
     -> DomainsOD

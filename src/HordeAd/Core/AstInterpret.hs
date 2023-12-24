@@ -457,14 +457,14 @@ interpretAst !env = \case
         t2 = interpretAstDual env u'
     in rD t1 t2
   AstLetDomainsIn vars l v ->
-    let odFromVar :: AstDynamicVarName f1 -> DynamicExists OD.Array
+    let odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
         odFromVar (AstDynamicVarName @_ @rD @shD _) =
           DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         lt0 = V.fromList $ map odFromVar vars
         lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
         -- variable r2, because the operations do not depend on r2.
-        f :: (AstDynamicVarName f1, DynamicExists (DynamicOf ranked))
+        f :: (AstDynamicVarName, DynamicExists (DynamicOf ranked))
           -> AstEnv ranked shaped -> AstEnv ranked shaped
         f ( AstDynamicVarName @k @r2 @sh2 @y (AstVarName varId)
           , DynamicExists @r3 d )
@@ -486,7 +486,7 @@ interpretAst !env = \case
         g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
           -- interpretation in empty environment makes sense only
           -- if there are no free variables outside of those listed
-        odFromVar :: AstDynamicVarName f -> DynamicExists OD.Array
+        odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
         odFromVar (AstDynamicVarName @_ @rD @shD _) =
           DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
@@ -553,7 +553,7 @@ interpretAstDomains !env = \case
           -- interpretation in empty environment; makes sense only
           -- if there are no free variables outside of those listed;
           -- the same below
-        odFromVar :: AstDynamicVarName f -> DynamicExists OD.Array
+        odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
         odFromVar (AstDynamicVarName @_ @rD @shD _) =
           DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
@@ -562,7 +562,7 @@ interpretAstDomains !env = \case
   AstRevDt @r @n (vars, ast) parameters dt ->
     let g :: forall f. ADReady f => Domains (DynamicOf f) -> f r n
         g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
-        odFromVar :: AstDynamicVarName f -> DynamicExists OD.Array
+        odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
         odFromVar (AstDynamicVarName @_ @rD @shD _) =
           DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
@@ -572,7 +572,7 @@ interpretAstDomains !env = \case
   AstRevS @r @sh (vars, ast) parameters ->
     let g :: forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh
         g = interpretLambdaDomainsS interpretAstS EM.empty (vars, ast)
-        odFromVar :: AstDynamicVarName f -> DynamicExists OD.Array
+        odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
         odFromVar (AstDynamicVarName @_ @rD @shD _) =
           DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
@@ -581,7 +581,7 @@ interpretAstDomains !env = \case
   AstRevDtS @r @sh (vars, ast) parameters dt ->
     let g :: forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh
         g = interpretLambdaDomainsS interpretAstS EM.empty (vars, ast)
-        odFromVar :: AstDynamicVarName f -> DynamicExists OD.Array
+        odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
         odFromVar (AstDynamicVarName @_ @rD @shD _) =
           DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
@@ -967,14 +967,14 @@ interpretAstS !env = \case
         t2 = interpretAstDualS env u'
     in sD t1 t2
   AstLetDomainsInS vars l v ->
-    let odFromVar :: AstDynamicVarName f1 -> DynamicExists OD.Array
+    let odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
         odFromVar (AstDynamicVarName @_ @rD @shD _) =
           DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         lt0 = V.fromList $ map odFromVar vars
         lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
         -- variable r2, because the operations do not depend on r2.
-        f :: (AstDynamicVarName f1, DynamicExists (DynamicOf ranked))
+        f :: (AstDynamicVarName, DynamicExists (DynamicOf ranked))
           -> AstEnv ranked shaped -> AstEnv ranked shaped
         f ( AstDynamicVarName @k @r2 @sh2 @y (AstVarName varId)
           , DynamicExists @r3 d )
@@ -996,7 +996,7 @@ interpretAstS !env = \case
         g = interpretLambdaDomainsS interpretAstS EM.empty (vars, ast)
           -- interpretation in empty environment makes sense only
           -- if there are no free variables outside of those listed
-        odFromVar :: AstDynamicVarName f -> DynamicExists OD.Array
+        odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
         odFromVar (AstDynamicVarName @_ @rD @shD _) =
           DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars

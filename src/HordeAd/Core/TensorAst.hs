@@ -115,7 +115,7 @@ instance DerivativeStages (AstRanked FullSpan) where
     => (Domains (AstDynamic FullSpan) -> AstRanked FullSpan r n)
     -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
     -> Domains (AstDynamic PrimalSpan)
-    -> [AstDynamicVarName (AstRanked FullSpan)]
+    -> [AstDynamicVarName]
     -> Domains (AstDynamic FullSpan)
     -> ADVal (AstRanked PrimalSpan) r n
   {-# INLINE forwardPassByInterpretation #-}
@@ -130,7 +130,7 @@ instance DerivativeStages (AstRanked FullSpan) where
     :: forall r n. (GoodScalar r, KnownNat n)
     => TensorFunctor (AstRanked FullSpan) -> Bool -> Bool
     -> (Domains (AstDynamic PrimalSpan)
-        -> [AstDynamicVarName (AstRanked FullSpan)]
+        -> [AstDynamicVarName]
         -> Domains (AstDynamic FullSpan)
         -> ADVal (AstRanked PrimalSpan) r n)
     -> DomainsOD
@@ -174,7 +174,7 @@ instance DerivativeStages (AstRanked FullSpan) where
   fwdArtifactFromForwardPass
     :: forall r n. (GoodScalar r, KnownNat n)
     => TensorFunctor (AstRanked FullSpan) -> (Domains (AstDynamic PrimalSpan)
-        -> [AstDynamicVarName (AstRanked FullSpan)]
+        -> [AstDynamicVarName]
         -> Domains (AstDynamic FullSpan)
         -> ADVal (AstRanked PrimalSpan) r n)
     -> DomainsOD
@@ -222,7 +222,7 @@ instance DerivativeStages (AstShaped FullSpan) where
     => (Domains (AstDynamic FullSpan) -> AstShaped FullSpan r sh)
     -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
     -> Domains (AstDynamic PrimalSpan)
-    -> [AstDynamicVarName (AstShaped FullSpan)]
+    -> [AstDynamicVarName]
     -> Domains (AstDynamic FullSpan)
     -> ADVal (AstShaped PrimalSpan) r sh
   {-# INLINE forwardPassByInterpretation #-}
@@ -237,7 +237,7 @@ instance DerivativeStages (AstShaped FullSpan) where
     :: forall r sh. (GoodScalar r, Sh.Shape sh)
     => TensorFunctor (AstShaped FullSpan) -> Bool -> Bool
     -> (Domains (AstDynamic PrimalSpan)
-        -> [AstDynamicVarName (AstShaped FullSpan)]
+        -> [AstDynamicVarName]
         -> Domains (AstDynamic FullSpan)
         -> ADVal (AstShaped PrimalSpan) r sh)
     -> DomainsOD
@@ -271,7 +271,7 @@ instance DerivativeStages (AstShaped FullSpan) where
   fwdArtifactFromForwardPass
     :: forall r sh. (GoodScalar r, Sh.Shape sh)
     => TensorFunctor (AstShaped FullSpan) -> (Domains (AstDynamic PrimalSpan)
-        -> [AstDynamicVarName (AstShaped FullSpan)]
+        -> [AstDynamicVarName]
         -> Domains (AstDynamic FullSpan)
         -> ADVal (AstShaped PrimalSpan) r sh)
     -> DomainsOD
@@ -474,8 +474,7 @@ astLetDomainsInFun
 {-# NOINLINE astLetDomainsInFun #-}
 astLetDomainsInFun a0 a f = unsafePerformIO $ do
   let genVar :: DynamicExists OD.Array
-                -> IO ( AstDynamicVarName (AstRanked s)
-                      , DynamicExists (AstDynamic s) )
+                -> IO (AstDynamicVarName, DynamicExists (AstDynamic s))
       genVar (DynamicExists @r2 t) = do
         let sh2 = OD.shapeL t
         Sh.withShapeP sh2 $ \(Proxy @p_sh2) ->
@@ -627,8 +626,7 @@ astLetDomainsInFunS
 {-# NOINLINE astLetDomainsInFunS #-}
 astLetDomainsInFunS a0 a f = unsafePerformIO $ do
   let genVar :: DynamicExists OD.Array
-                -> IO ( AstDynamicVarName (AstShaped s)
-                      , DynamicExists (AstDynamic s) )
+                -> IO (AstDynamicVarName, DynamicExists (AstDynamic s))
       genVar (DynamicExists @r2 t) = do
         let sh2 = OD.shapeL t
         Sh.withShapeP sh2 $ \(Proxy @p_sh2) -> do

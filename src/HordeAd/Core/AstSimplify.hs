@@ -1652,14 +1652,14 @@ astLetInDomainsS var u v = Ast.AstLetInDomainsS var u v
 
 astLetDomainsIn
   :: forall n s s2 r. (AstSpan s, KnownNat n)
-  => [AstDynamicVarName (AstRanked s)] -> AstDomains s
+  => [AstDynamicVarName] -> AstDomains s
   -> AstRanked s2 r n
   -> AstRanked s2 r n
 astLetDomainsIn vars l v = Ast.AstLetDomainsIn vars l v
 
 astLetDomainsInS
   :: forall sh s s2 r. (AstSpan s, Sh.Shape sh)
-  => [AstDynamicVarName (AstShaped s)] -> AstDomains s
+  => [AstDynamicVarName] -> AstDomains s
   -> AstShaped s2 r sh
   -> AstShaped s2 r sh
 astLetDomainsInS vars l v = Ast.AstLetDomainsInS vars l v
