@@ -468,22 +468,23 @@ isTensorDummyAst t = case t of
 
 -- TODO: move the impure part to AstFreshId
 astLetDomainsInFun
-  :: forall m s r. AstSpan s
-  => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstRanked s r m)
-  -> AstRanked s r m
+  :: forall n s r. (AstSpan s, KnownNat n)
+  => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstRanked s r n)
+  -> AstRanked s r n
 {-# NOINLINE astLetDomainsInFun #-}
 astLetDomainsInFun a0 a f = unsafePerformIO $ do
   let genVar :: DynamicExists OD.Array
-                -> IO ( AstDynamicVarName (AstShaped s)
+                -> IO ( AstDynamicVarName (AstRanked s)
                       , DynamicExists (AstDynamic s) )
       genVar (DynamicExists @r2 t) = do
         let sh2 = OD.shapeL t
-        Sh.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) -> do
-          (var, _, ast) <- funToAstIOS @p_sh2 id
-          return ( AstDynamicVarName @[Nat] @r2 @p_sh2 var
-                 , DynamicExists $ AstSToD ast )
+        Sh.withShapeP sh2 $ \(Proxy @p_sh2) ->
+          withListShape sh2 $ \ (sh3 :: Shape n3 Int) -> do
+            (var, _, ast) <- funToAstIOR @n3 sh3 id
+            return ( AstDynamicVarName @Nat @r2 @p_sh2 var
+                   , DynamicExists $ AstRToD ast )
   (vars, asts) <- unzip <$> mapM genVar (V.toList a0)
-  return $! AstLetDomainsIn vars a (f $ V.fromList asts)
+  return $! astLetDomainsIn vars a (f $ V.fromList asts)
 
 astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
               => AstRanked s r n -> AstRanked PrimalSpan r n
@@ -620,7 +621,7 @@ instance ( GoodScalar r, Sh.Shape sh
     Nothing -> Nothing
 
 astLetDomainsInFunS
-  :: forall sh s r. AstSpan s
+  :: forall sh s r. (AstSpan s, Sh.Shape sh)
   => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstShaped s r sh)
   -> AstShaped s r sh
 {-# NOINLINE astLetDomainsInFunS #-}
@@ -630,12 +631,12 @@ astLetDomainsInFunS a0 a f = unsafePerformIO $ do
                       , DynamicExists (AstDynamic s) )
       genVar (DynamicExists @r2 t) = do
         let sh2 = OD.shapeL t
-        Sh.withShapeP sh2 $ \(Proxy :: Proxy p_sh2) -> do
+        Sh.withShapeP sh2 $ \(Proxy @p_sh2) -> do
           (var, _, ast) <- funToAstIOS @p_sh2 id
           return ( AstDynamicVarName @[Nat] @r2 @p_sh2 var
                  , DynamicExists $ AstSToD ast )
   (vars, asts) <- unzip <$> mapM genVar (V.toList a0)
-  return $! AstLetDomainsInS vars a (f $ V.fromList asts)
+  return $! astLetDomainsInS vars a (f $ V.fromList asts)
 
 astSpanPrimalS :: forall s r sh. (Sh.Shape sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped PrimalSpan r sh

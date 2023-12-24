@@ -294,7 +294,7 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
   AstD :: AstRanked PrimalSpan r n -> AstRanked DualSpan r n
        -> AstRanked FullSpan r n
   AstLetDomainsIn :: AstSpan s
-                  => [AstDynamicVarName (AstShaped s)] -> AstDomains s
+                  => [AstDynamicVarName (AstRanked s)] -> AstDomains s
                   -> AstRanked s2 r n
                   -> AstRanked s2 r n
   AstFwd :: (GoodScalar r, KnownNat n)

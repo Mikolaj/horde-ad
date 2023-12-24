@@ -30,7 +30,7 @@ module HordeAd.Core.AstSimplify
   , astCast, astCastS, astFromIntegral, astFromIntegralS
   , astSToR, astRToS, astFromDynamic, astFromDynamicS
   , astPrimalPart, astPrimalPartS, astDualPart, astDualPartS
-  , astLetInDomains, astLetInDomainsS
+  , astLetDomainsIn, astLetDomainsInS, astLetInDomains, astLetInDomainsS
     -- * The simplifying bottom-up pass
   , simplifyAst, simplifyAstDomains, simplifyAstS
     -- * Substitution payload and adaptors for AstVarName
@@ -417,7 +417,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstD u u' ->
     shareIx ix $ \ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstLetDomainsIn vars l v ->
-    Ast.AstLetDomainsIn vars l (astIndexRec v ix)
+    astLetDomainsIn vars l (astIndexRec v ix)
   Ast.AstFwd{} -> Ast.AstIndex v0 ix
   Ast.AstFold{} -> Ast.AstIndex v0 ix  -- normal form
   Ast.AstFoldDer{} -> Ast.AstIndex v0 ix  -- normal form
@@ -744,7 +744,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       in Ast.AstD (astGatherRec sh4 u (vars4, ix4))
                   (astGatherRec sh4 u' (varsFresh, ix5))
     Ast.AstLetDomainsIn vars l v ->
-      Ast.AstLetDomainsIn vars l (astGatherCase sh4 v (vars4, ix4))
+      astLetDomainsIn vars l (astGatherCase sh4 v (vars4, ix4))
     Ast.AstFwd{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFold{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
     Ast.AstFoldDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
@@ -1519,7 +1519,7 @@ astPrimalPart t = case t of
   Ast.AstSToR v -> astSToR $ astPrimalPartS v
   Ast.AstConstant v -> v
   Ast.AstD u _ -> u
-  Ast.AstLetDomainsIn vars l v -> Ast.AstLetDomainsIn vars l (astPrimalPart v)
+  Ast.AstLetDomainsIn vars l v -> astLetDomainsIn vars l (astPrimalPart v)
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstFwd{} -> Ast.AstPrimalPart t  -- the other only normal form
   Ast.AstFold{} -> Ast.AstPrimalPart t
@@ -1556,7 +1556,7 @@ astPrimalPartS t = case t of
   Ast.AstConstantS v -> v
   Ast.AstDS u _ -> u
   Ast.AstLetDomainsInS vars l v ->
-    Ast.AstLetDomainsInS vars l (astPrimalPartS v)
+    astLetDomainsInS vars l (astPrimalPartS v)
   Ast.AstCondS b a2 a3 -> astCondS b (astPrimalPartS a2) (astPrimalPartS a3)
   Ast.AstFwdS{} -> Ast.AstPrimalPartS t  -- the other only normal form
   Ast.AstFoldS{} -> Ast.AstPrimalPartS t
@@ -1592,7 +1592,7 @@ astDualPart t = case t of
   Ast.AstSToR v -> astSToR $ astDualPartS v
   Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
-  Ast.AstLetDomainsIn vars l v -> Ast.AstLetDomainsIn vars l (astDualPart v)
+  Ast.AstLetDomainsIn vars l v -> astLetDomainsIn vars l (astDualPart v)
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstFwd{} -> Ast.AstDualPart t
   Ast.AstFold{} -> Ast.AstDualPart t
@@ -1626,7 +1626,7 @@ astDualPartS t = case t of
   Ast.AstRToS v -> astRToS $ astDualPart v
   Ast.AstConstantS{}  -> Ast.AstDualPartS t  -- this equals nil (not primal 0)
   Ast.AstDS _ u' -> u'
-  Ast.AstLetDomainsInS vars l v -> Ast.AstLetDomainsInS vars l (astDualPartS v)
+  Ast.AstLetDomainsInS vars l v -> astLetDomainsInS vars l (astDualPartS v)
   Ast.AstCondS b a2 a3 -> astCondS b (astDualPartS a2) (astDualPartS a3)
   Ast.AstFwdS{} -> Ast.AstDualPartS t
   Ast.AstFoldS{} -> Ast.AstDualPartS t
@@ -1649,6 +1649,20 @@ astLetInDomainsS :: forall sh s s2 r.
 astLetInDomainsS var u v | astIsSmallS True u =
   substituteAstDomains (SubstitutionPayloadShaped u) var v
 astLetInDomainsS var u v = Ast.AstLetInDomainsS var u v
+
+astLetDomainsIn
+  :: forall n s s2 r. (AstSpan s, KnownNat n)
+  => [AstDynamicVarName (AstRanked s)] -> AstDomains s
+  -> AstRanked s2 r n
+  -> AstRanked s2 r n
+astLetDomainsIn vars l v = Ast.AstLetDomainsIn vars l v
+
+astLetDomainsInS
+  :: forall sh s s2 r. (AstSpan s, Sh.Shape sh)
+  => [AstDynamicVarName (AstShaped s)] -> AstDomains s
+  -> AstShaped s2 r sh
+  -> AstShaped s2 r sh
+astLetDomainsInS vars l v = Ast.AstLetDomainsInS vars l v
 
 
 -- * The simplifying bottom-up pass
@@ -1750,7 +1764,7 @@ simplifyAst t = case t of
   Ast.AstDualPart v -> astDualPart (simplifyAst v)
   Ast.AstD u u' -> Ast.AstD (simplifyAst u) (simplifyAst u')
   Ast.AstLetDomainsIn vars l v ->
-    Ast.AstLetDomainsIn vars (simplifyAstDomains l) (simplifyAst v)
+    astLetDomainsIn vars (simplifyAstDomains l) (simplifyAst v)
   Ast.AstFwd (var, v) l ds -> Ast.AstFwd (var, simplifyAst v)
                                          (V.map simplifyAstDynamic l)
                                          (V.map simplifyAstDynamic ds)
@@ -2095,7 +2109,7 @@ simplifyAstS t = case t of
   Ast.AstDualPartS v -> astDualPartS (simplifyAstS v)
   Ast.AstDS u u' -> Ast.AstDS (simplifyAstS u) (simplifyAstS u')
   Ast.AstLetDomainsInS vars l v ->
-    Ast.AstLetDomainsInS vars (simplifyAstDomains l) (simplifyAstS v)
+    astLetDomainsInS vars (simplifyAstDomains l) (simplifyAstS v)
   Ast.AstFwdS (var, v) l ds -> Ast.AstFwdS (var, simplifyAstS v)
                                            (V.map simplifyAstDynamic l)
                                            (V.map simplifyAstDynamic ds)
@@ -2302,7 +2316,7 @@ substitute1Ast i var v1 = case v1 of
     case (substitute1AstDomains i var l, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
-        Just $ Ast.AstLetDomainsIn vars (fromMaybe l ml) (fromMaybe v mv)
+        Just $ astLetDomainsIn vars (fromMaybe l ml) (fromMaybe v mv)
   Ast.AstFwd f args ds ->
     -- No other free variables in v and var is not among vars.
     let margs = V.map (\(DynamicExists d) ->
@@ -2544,7 +2558,7 @@ substitute1AstS i var = \case
     case (substitute1AstDomains i var l, substitute1AstS i var v) of
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
-        Just $ Ast.AstLetDomainsInS vars (fromMaybe l ml) (fromMaybe v mv)
+        Just $ astLetDomainsInS vars (fromMaybe l ml) (fromMaybe v mv)
   Ast.AstFwdS (vars, v) args ds ->
     -- No other free variables in v and var is not among vars.
     let margs = V.map (\(DynamicExists d) ->

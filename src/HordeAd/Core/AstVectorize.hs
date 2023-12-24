@@ -269,7 +269,7 @@ build1V k (var, v00) =
               in substituteAst (SubstitutionPayloadRanked @s1 @r projection)
                                (AstVarName var1)
           v2 = foldr subst v vars
-      in Ast.AstLetDomainsIn
+      in astLetDomainsIn
            vars (build1VOccurenceUnknownDomains k (var, l))
                 (build1VOccurenceUnknownRefresh k (var, v2))
         -- TODO: comment why @r instead of @r1 from AstDynamicVarName
@@ -635,7 +635,7 @@ build1VS (var, v00) =
             in substituteAstS (SubstitutionPayloadShaped @s1 @r projection)
                               (AstVarName var1)
           v2 = foldr subst v vars
-      in Ast.AstLetDomainsInS
+      in astLetDomainsInS
            vars (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
                 (build1VOccurenceUnknownRefreshS (var, v2))
     Ast.AstFwdS{} ->
