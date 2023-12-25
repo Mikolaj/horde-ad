@@ -4,8 +4,7 @@
 module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
     AstEnv, AstEnvElem(..)
-  , extendEnvS, extendEnvR, extendEnvDR, extendEnvDS
-  , extendEnvPars, extendEnvParsS
+  , extendEnvS, extendEnvR, extendEnvD, extendEnvPars
     -- * The operations for interpreting binding (visible lambdas)
   , interpretLambdaI, interpretLambdaIS
   , interpretLambdaIndex, interpretLambdaIndexS
@@ -69,35 +68,29 @@ extendEnvS (AstVarName var) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show var)
                    var (AstEnvElemS t) env
 
-extendEnvDR :: forall ranked shaped. ConvertTensor ranked shaped
-            => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
-            -> AstEnv ranked shaped
-            -> AstEnv ranked shaped
-extendEnvDR ( AstDynamicVarName @k @r @sh @n (AstVarName var)
-            , DynamicExists @r2 d )
-            !env
+extendEnvD :: forall ranked shaped. ConvertTensor ranked shaped
+           => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
+           -> AstEnv ranked shaped
+           -> AstEnv ranked shaped
+extendEnvD ( AstDynamicVarName @k @r @sh @n (AstVarName var)
+           , DynamicExists @r2 d )
+           !env
   | Just Refl <- testEquality (typeRep @k) (typeRep @Nat) =
     -- We don't need to manually pick a specialization for the existential
     -- variable r2, because rfromD does not depend on r2.
     case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> extendEnvR @_ @_ @_ @n (AstVarName var) (rfromD d) env
-      _ -> error "extendEnvDR: type mismatch"
-extendEnvDR _ _ = error "extendEnvDR: kind mismatch"
-
-extendEnvDS :: ConvertTensor ranked shaped
-            => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
-            -> AstEnv ranked shaped
-            -> AstEnv ranked shaped
-extendEnvDS ( AstDynamicVarName @k @r @sh @sh2 (AstVarName var)
-            , DynamicExists @r2 d )
-            !env
+      _ -> error "extendEnvD: type mismatch"
+extendEnvD ( AstDynamicVarName @k @r @sh @sh2 (AstVarName var)
+           , DynamicExists @r2 d )
+           env
   | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat]) =
     -- We don't need to manually pick a specialization for the existential
     -- variable r2, because sfromD does not depend on r2.
     case testEquality (typeRep @r) (typeRep @r2) of
       Just Refl -> extendEnvS @_ @_ @_ @sh (AstVarName var) (sfromD d) env
-      _ -> error "extendEnvDS: type mismatch"
-extendEnvDS _ _ = error "extendEnvDS: kind mismatch"
+      _ -> error "extendEnvD: type mismatch"
+extendEnvD _ _ = error "extendEnvD: kind mismatch"
 
 extendEnvI :: ( RankedTensor ranked
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
@@ -132,16 +125,7 @@ extendEnvPars :: forall ranked shaped. ConvertTensor ranked shaped
               -> AstEnv ranked shaped
 extendEnvPars vars !pars !env =
   let assocs = zip vars (V.toList pars)
-  in foldr extendEnvDR env assocs
-
-extendEnvParsS :: forall ranked shaped. ConvertTensor ranked shaped
-               => [AstDynamicVarName]
-               -> Domains (DynamicOf ranked)
-               -> AstEnv ranked shaped
-               -> AstEnv ranked shaped
-extendEnvParsS vars !pars !env =
-  let assocs = zip vars (V.toList pars)
-  in foldr extendEnvDS env assocs
+  in foldr extendEnvD env assocs
 
 
 -- * The operations for interpreting binding (visible lambdas)
@@ -238,7 +222,7 @@ interpretLambdaDomainsS
   -> shaped r sh
 {-# INLINE interpretLambdaDomainsS #-}
 interpretLambdaDomainsS f !env (!vars, !ast) =
-  \pars -> f (extendEnvParsS vars pars env) ast
+  \pars -> f (extendEnvPars vars pars env) ast
 
 interpretLambda2
   :: forall s ranked shaped rn rm n m.

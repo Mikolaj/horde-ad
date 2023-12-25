@@ -123,7 +123,7 @@ instance DerivativeStages (AstRanked FullSpan) where
     let deltaInputs = generateDeltaInputsAst domainsPrimal
         varInputs = makeADInputs domainsPrimal deltaInputs
         ast = g domains
-        env = foldr extendEnvDR envInit $ zip vars $ V.toList varInputs
+        env = foldr extendEnvD envInit $ zip vars $ V.toList varInputs
     in interpretAst env ast
 
   revArtifactFromForwardPass
@@ -164,7 +164,7 @@ instance DerivativeStages (AstRanked FullSpan) where
 
   {-# INLINE revEvalArtifact #-}
   revEvalArtifact ((varDt, vars), gradient, primal, sh) parameters mdt =
-    let env = foldr extendEnvDR EM.empty $ zip vars $ V.toList parameters
+    let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe (rreplicate0N (listShapeToShape sh) 1) mdt
         envDt = extendEnvR varDt dt env
         gradientDomain = interpretAstDomains envDt gradient
@@ -195,8 +195,8 @@ instance DerivativeStages (AstRanked FullSpan) where
   {-# INLINE fwdEvalArtifact #-}
   fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
     if sameShapesDomainsOD parameters ds then
-      let env = foldr extendEnvDR EM.empty $ zip vars $ V.toList parameters
-          envDs = foldr extendEnvDR env $ zip varDs $ V.toList ds
+      let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
+          envDs = foldr extendEnvD env $ zip varDs $ V.toList ds
           derivativeTensor = interpretAstPrimal envDs derivative
           primalTensor = interpretAstPrimal @(Flip OR.Array) env primal
       in (derivativeTensor, primalTensor)
@@ -230,7 +230,7 @@ instance DerivativeStages (AstShaped FullSpan) where
     let deltaInputs = generateDeltaInputsAst domainsPrimal
         varInputs = makeADInputs domainsPrimal deltaInputs
         ast = g domains
-        env = foldr extendEnvDS envInit $ zip vars $ V.toList varInputs
+        env = foldr extendEnvD envInit $ zip vars $ V.toList varInputs
     in interpretAstS env ast
 
   revArtifactFromForwardPass
@@ -246,7 +246,7 @@ instance DerivativeStages (AstShaped FullSpan) where
   {-# INLINE revArtifactFromForwardPass #-}
   revArtifactFromForwardPass _ useDummies hasDt forwardPass parameters0 =
     let !(!varDtId, varsPrimal, domainsPrimal, vars, domains) =
-          funToAstRevS parameters0 in
+          funToAstRev parameters0 in
     let !(D l primalBody delta) = forwardPass domainsPrimal vars domains in
     let varDt = AstVarName varDtId
         astDt = AstVarS varDt
@@ -261,7 +261,7 @@ instance DerivativeStages (AstShaped FullSpan) where
 
   {-# INLINE revEvalArtifact #-}
   revEvalArtifact ((varDt, vars), gradient, primal, _) parameters mdt =
-    let env = foldr extendEnvDS EM.empty $ zip vars $ V.toList parameters
+    let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
         dt = fromMaybe 1 mdt
         envDt = extendEnvS varDt dt env
         gradientDomain = interpretAstDomains envDt gradient
@@ -280,7 +280,7 @@ instance DerivativeStages (AstShaped FullSpan) where
   {-# INLINE fwdArtifactFromForwardPass #-}
   fwdArtifactFromForwardPass _ forwardPass parameters0 =
     let !(!varsPrimalDs, domainsDs, varsPrimal, domainsPrimal, vars, domains) =
-          funToAstFwdS parameters0 in
+          funToAstFwd parameters0 in
     let !(D l primalBody delta) = forwardPass domainsPrimal vars domains  in
     let !(!astBindings, !derivative) =
           forwardDerivative (V.length parameters0) delta domainsDs
@@ -291,8 +291,8 @@ instance DerivativeStages (AstShaped FullSpan) where
 
   {-# INLINE fwdEvalArtifact #-}
   fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
-    let env = foldr extendEnvDS EM.empty $ zip vars $ V.toList parameters
-        envDs = foldr extendEnvDS env $ zip varDs $ V.toList ds
+    let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
+        envDs = foldr extendEnvD env $ zip varDs $ V.toList ds
         derivativeTensor = interpretAstPrimalS envDs derivative
         primalTensor = interpretAstPrimalS @(Flip OR.Array) env primal
     in (derivativeTensor, primalTensor)
@@ -762,14 +762,14 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
           revProduceArtifact TensorFunctor True False (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters ->
-      let env = extendEnvParsS @(AstRanked s) vars parameters EM.empty
+      let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstDomains env gradient
   srevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorFunctor True True (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters dt ->
-      let env = extendEnvParsS @(AstRanked s) vars parameters EM.empty
+      let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvS varDt dt env
       in interpretAstDomains envDt gradient
   sfwd f parameters0 =
@@ -777,8 +777,8 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
           fwdProduceArtifact TensorFunctor (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters ds ->
-      let env = extendEnvParsS @(AstRanked s) vars parameters EM.empty
-          envDt = extendEnvParsS @(AstRanked s) varsDt ds env
+      let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
+          envDt = extendEnvPars @(AstRanked s) varsDt ds env
       in interpretAstS envDt derivative
   rfold :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)

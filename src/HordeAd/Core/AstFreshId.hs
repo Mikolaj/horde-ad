@@ -7,8 +7,7 @@ module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR, fun2ToAstR, fun2ToAstS, fun3ToAstR, fun3ToAstS
   , fun4ToAstR, fun4ToAstS, funToAstDomains, funToAstDomainsS
-  , funToAstRevIO, funToAstRev, funToAstRevIOS, funToAstRevS
-  , funToAstFwdIO, funToAstFwd, funToAstFwdIOS, funToAstFwdS
+  , funToAstRevIO, funToAstRev, funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIndexIO, funToAstIndex
   , funToAstIOS, funToAstS, astRegisterFunS, funToAstIndexIOS, funToAstIndexS
   , resetVarCounter
@@ -387,41 +386,6 @@ funToAstRev parameters0 = unsafePerformIO $ do
   (!varsPrimal, !astsPrimal, !vars, !asts) <- funToAstRevIO parameters0
   return (freshId, varsPrimal, astsPrimal, vars, asts)
 
-funToAstRevIOS :: DomainsOD
-               -> IO ( [AstDynamicVarName]
-                     , Domains (AstDynamic PrimalSpan)
-                     , [AstDynamicVarName]
-                     , Domains (AstDynamic FullSpan) )
-{-# INLINE funToAstRevIOS #-}
-funToAstRevIOS parameters0 = do
-  let f (DynamicExists @r2 e) = do
-        let sh = OD.shapeL e
-        freshId <- unsafeGetFreshAstVarId
-        return $! Sh.withShapeP sh $ \(Proxy :: Proxy p_sh) ->
-          let !varE = AstDynamicVarName @[Nat] @r2 @p_sh @p_sh
-                                        (AstVarName freshId)
-              dynE :: DynamicExists (AstDynamic s)
-              !dynE = DynamicExists @r2
-                      $ AstSToD (AstVarS @p_sh (AstVarName freshId))
-          in (varE, dynE, varE, dynE)
-  (!varsPrimal, !astsPrimal, !vars, !asts)
-    <- unzip4 <$> mapM f (V.toList parameters0)
-  let !vp = V.fromList astsPrimal
-      !ap = V.fromList asts
-  return (varsPrimal, vp, vars, ap)
-
-funToAstRevS :: DomainsOD
-             -> ( AstVarId
-                , [AstDynamicVarName]
-                , Domains (AstDynamic PrimalSpan)
-                , [AstDynamicVarName]
-                , Domains (AstDynamic FullSpan) )
-{-# NOINLINE funToAstRevS #-}
-funToAstRevS parameters0 = unsafePerformIO $ do
-  freshId <- unsafeGetFreshAstVarId
-  (!varsPrimal, !astsPrimal, !vars, !asts) <- funToAstRevIOS parameters0
-  return (freshId, varsPrimal, astsPrimal, vars, asts)
-
 funToAstFwdIO :: DomainsOD
               -> IO ( [AstDynamicVarName]
                     , Domains (AstDynamic PrimalSpan)
@@ -467,48 +431,6 @@ funToAstFwd :: DomainsOD
                , Domains (AstDynamic FullSpan) )
 {-# NOINLINE funToAstFwd #-}
 funToAstFwd parameters0 = unsafePerformIO $ funToAstFwdIO parameters0
-
-funToAstFwdIOS :: DomainsOD
-               -> IO ( [AstDynamicVarName]
-                     , Domains (AstDynamic PrimalSpan)
-                     , [AstDynamicVarName]
-                     , Domains (AstDynamic PrimalSpan)
-                     , [AstDynamicVarName]
-                     , Domains (AstDynamic FullSpan) )
-{-# INLINE funToAstFwdIOS #-}
-funToAstFwdIOS parameters0 = do
-  let f (DynamicExists @r2 e) = do
-        let sh = OD.shapeL e
-        freshIdDs <- unsafeGetFreshAstVarId
-        freshId <- unsafeGetFreshAstVarId
-        return $! Sh.withShapeP sh $ \(Proxy :: Proxy p_sh) ->
-          let varE :: AstVarId -> AstDynamicVarName
-              varE v = AstDynamicVarName @[Nat] @r2 @p_sh @p_sh (AstVarName v)
-              dynE :: AstVarId -> DynamicExists (AstDynamic s)
-              dynE v = DynamicExists @r2
-                       $ AstSToD (AstVarS @p_sh (AstVarName v))
-              !vd = varE freshIdDs
-              !dd = dynE freshIdDs
-              !vi = varE freshId
-              di :: DynamicExists (AstDynamic s)
-              !di = dynE freshId
-          in (vd, dd, vi, di, vi, di)
-  (!varsPrimalDs, !astsPrimalDs, !varsPrimal, !astsPrimal, !vars, !asts)
-    <- unzip6 <$> mapM f (V.toList parameters0)
-  let !vd = V.fromList astsPrimalDs
-      !vp = V.fromList astsPrimal
-      !va = V.fromList asts
-  return (varsPrimalDs, vd, varsPrimal, vp, vars, va)
-
-funToAstFwdS :: DomainsOD
-             -> ( [AstDynamicVarName]
-                , Domains (AstDynamic PrimalSpan)
-                , [AstDynamicVarName]
-                , Domains (AstDynamic PrimalSpan)
-                , [AstDynamicVarName]
-                , Domains (AstDynamic FullSpan) )
-{-# NOINLINE funToAstFwdS #-}
-funToAstFwdS parameters0 = unsafePerformIO $ funToAstFwdIOS parameters0
 
 funToAstIOI :: (AstInt -> t) -> IO (IntVarName, t)
 {-# INLINE funToAstIOI #-}

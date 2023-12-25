@@ -25,7 +25,7 @@ import           Text.Printf
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
-import HordeAd.Core.AstFreshId (funToAstIOS, funToAstRevIOS)
+import HordeAd.Core.AstFreshId (funToAstIOS, funToAstRevIO)
 import HordeAd.External.OptimizerTools
 
 import EqEpsilon
@@ -177,7 +177,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, domainsPrimal, vars, _) <- funToAstRevIOS domainsInit
+       (_, domainsPrimal, vars, _) <- funToAstRevIO domainsInit
        let testDataR = packBatchR testData
        (varGlyph, _, astGlyph) <-
          funToAstIOS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-} id
@@ -194,7 +194,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    -> Domains (ADValClown OD.Array)
                    -> ADVal shaped r '[]
                  f (glyph, label) varInputs =
-                   let env = foldr extendEnvDS EM.empty
+                   let env = foldr extendEnvD EM.empty
                              $ zip vars $ V.toList varInputs
                        envMnist = extendEnvS varGlyph (sconst glyph)
                                   $ extendEnvS varLabel (sconst label) env

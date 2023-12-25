@@ -659,7 +659,7 @@ testListProdPP = do
       fT = shapedListProd
   let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
   printGradient6SimpleS renames artifactRev
-    @?= "\\dret x2 x3 x4 x5 -> sletInDomains (x2 * x3) (\\x6 -> sletInDomains (x6 * x4) (\\x7 -> sletInDomains (x5 * dret) (\\x8 -> sletInDomains (x4 * x8) (\\x9 -> dmkDomains (fromList [dfromS (x3 * x9), dfromS (x2 * x9), dfromS (x6 * x8), dfromS (x7 * dret)])))))"
+    @?= "\\dret x2 x3 x4 x5 -> sletInDomains (x2 * x3) (\\x6 -> sletInDomains (x6 * x4) (\\x7 -> sletInDomains (x5 * dret) (\\x8 -> sletInDomains (x4 * x8) (\\x9 -> dmkDomains (fromList [dfromR (x3 * x9), dfromR (x2 * x9), dfromR (x6 * x8), dfromR (x7 * dret)])))))"
   printPrimal6SimpleS renames artifactRev
     @?= "\\x2 x3 x4 x5 -> slet (x2 * x3) (\\x6 -> slet (x6 * x4) (\\x7 -> x7 * x5))"
   printGradient6PrettyS renames (simplifyArtifactRevS artifactRev)
@@ -667,7 +667,7 @@ testListProdPP = do
   printPrimal6PrettyS renames (simplifyArtifactRevS artifactRev)
     @?= "\\x2 x3 x4 x5 -> ((x2 * x3) * x4) * x5"
   show deltas
-    @?= "LetS 100000003 (AddS (ScaleS (AstVarS (AstVarId 100000005)) (LetS 100000002 (AddS (ScaleS (AstVarS (AstVarId 100000004)) (LetS 100000001 (AddS (ScaleS (AstVarS (AstVarId 100000003)) (InputS (InputId 0))) (ScaleS (AstVarS (AstVarId 100000002)) (InputS (InputId 1)))))) (ScaleS (AstVarS (AstVarId 100000006)) (InputS (InputId 2)))))) (ScaleS (AstVarS (AstVarId 100000007)) (InputS (InputId 3))))"
+    @?= "LetS 100000003 (AddS (ScaleS (AstRToS (AstVar [] (AstVarId 100000005))) (LetS 100000002 (AddS (ScaleS (AstRToS (AstVar [] (AstVarId 100000004))) (LetS 100000001 (AddS (ScaleS (AstRToS (AstVar [] (AstVarId 100000003))) (RToS (InputR [] (InputId 0)))) (ScaleS (AstRToS (AstVar [] (AstVarId 100000002))) (RToS (InputR [] (InputId 1))))))) (ScaleS (AstVarS (AstVarId 100000006)) (RToS (InputR [] (InputId 2))))))) (ScaleS (AstVarS (AstVarId 100000007)) (RToS (InputR [] (InputId 3)))))"
 
 rankedListProdr :: (RankedTensor ranked, GoodScalar r)
                 => [ranked r 0] -> ranked r 0
@@ -1095,7 +1095,7 @@ testReluSimplerPP4S2 = do
   printPrimal6PrettyS renames (simplifyArtifactRevS artifactRev)
     @?= "\\m2 x3 -> let m8 = m2 * sreshape (sreplicate x3) in sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m8 !$ [i9, i10] <=. sconst 0.0) 0 1]) * m8"
   show deltas
-    @?= "LetS 100000007 (ScaleS (AstVarS (AstVarId 100000012)) (LetS 100000003 (AddS (ScaleS (AstVarS (AstVarId 100000007)) (InputS (InputId 0))) (ScaleS (AstVarS (AstVarId 100000002)) (LetS 100000002 (ReshapeS (LetS 100000001 (ReplicateS (InputS (InputId 1))))))))))"
+    @?= "LetS 100000007 (ScaleS (AstVarS (AstVarId 100000012)) (LetS 100000003 (AddS (ScaleS (AstVarS (AstVarId 100000007)) (RToS (InputR [3,4] (InputId 0)))) (ScaleS (AstRToS (AstVar [3,4] (AstVarId 100000002))) (LetS 100000002 (ReshapeS (LetS 100000001 (ReplicateS (RToS (InputR [] (InputId 1)))))))))))"
 
 testReluSimpler4S :: Assertion
 testReluSimpler4S = do
