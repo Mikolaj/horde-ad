@@ -356,7 +356,6 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   dIsDummy DynamicRankedDummy{} = True
   dIsDummy DynamicShapedDummy{} = True
   dIsDummy _ = False
-  dshape = shapeDynamic
 
 instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          , UnletGradient ranked, UnletGradient shaped

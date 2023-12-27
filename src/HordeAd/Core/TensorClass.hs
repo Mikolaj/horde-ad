@@ -17,7 +17,7 @@ module HordeAd.Core.TensorClass
     -- * The related constraints
   , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
     -- * Concrete array instances auxiliary definitions
-  , DomainsOD, sizeDomainsOD, sameShapesDomainsOD, shapeDynamic
+  , DomainsOD, sizeDomainsOD, sameShapesDomainsOD
   , odFromVar, odFromSh, odFromShS, fromDomainsR, fromDomainsS
   ) where
 
@@ -611,7 +611,6 @@ class ConvertTensor (ranked :: RankedTensorType)
   sfromR :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
          => ranked r (Sh.Rank sh) -> shaped r sh
   dIsDummy :: DynamicTensor ranked -> Bool
-  dshape :: GoodScalar r => DynamicTensor ranked -> [Int]
 
 rfromD :: forall ranked r n.
           ( ShapedTensor (ShapedOf ranked)
@@ -1100,4 +1099,3 @@ instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   dIsDummy DynamicRankedDummy{} = True
   dIsDummy DynamicShapedDummy{} = True
   dIsDummy _ = False
-  dshape = shapeDynamic
