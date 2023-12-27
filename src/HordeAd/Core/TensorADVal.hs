@@ -350,9 +350,6 @@ instance ( Dual ranked ~ DeltaR ranked shaped
           Just Refl -> d
           _ -> error "rToS: different shapes in RToS(SToR)"
       dRToS d = RToS d
-  dIsDummy DynamicRankedDummy{} = True
-  dIsDummy DynamicShapedDummy{} = True
-  dIsDummy _ = False
 
 instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          , UnletGradient ranked, UnletGradient shaped

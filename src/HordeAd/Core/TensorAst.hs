@@ -618,9 +618,6 @@ astBuild1VectorizeS f =
 instance ConvertTensor (AstRanked s) (AstShaped s) where
   rfromS = astSToR
   sfromR = astRToS
-  dIsDummy DynamicRankedDummy{} = True
-  dIsDummy DynamicShapedDummy{} = True
-  dIsDummy _ = False
 
 instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dmkDomains = AstDomains
@@ -1028,9 +1025,6 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
 instance ConvertTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   rfromS = AstNoVectorize . rfromS @(AstRanked s) . unAstNoVectorizeS
   sfromR = AstNoVectorizeS . sfromR @(AstRanked s) . unAstNoVectorize
-  dIsDummy DynamicRankedDummy{} = True
-  dIsDummy DynamicShapedDummy{} = True
-  dIsDummy _ = False
 
 instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dmkDomains domains = dmkDomains @(AstRanked s) (unNoVectorizeDomains domains)
@@ -1216,9 +1210,6 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
 instance ConvertTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rfromS = AstNoSimplify . rfromS @(AstRanked s) . unAstNoSimplifyS
   sfromR = AstNoSimplifyS . sfromR @(AstRanked s) . unAstNoSimplify
-  dIsDummy DynamicRankedDummy{} = True
-  dIsDummy DynamicShapedDummy{} = True
-  dIsDummy _ = False
 
 instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dmkDomains domains = dmkDomains @(AstRanked s) (unNoSimplifyDomains domains)

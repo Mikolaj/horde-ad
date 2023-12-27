@@ -606,7 +606,6 @@ class ConvertTensor (ranked :: RankedTensorType)
          => shaped r sh -> ranked r (Sh.Rank sh)
   sfromR :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
          => ranked r (Sh.Rank sh) -> shaped r sh
-  dIsDummy :: DynamicTensor ranked -> Bool
 
 rfromD :: forall ranked r n.
           ( ShapedTensor (ShapedOf ranked)
@@ -1090,6 +1089,3 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
 instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
   rfromS = Flip . Data.Array.Convert.convert . runFlip
   sfromR = Flip . Data.Array.Convert.convert . runFlip
-  dIsDummy DynamicRankedDummy{} = True
-  dIsDummy DynamicShapedDummy{} = True
-  dIsDummy _ = False
