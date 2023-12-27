@@ -239,21 +239,6 @@ build1V k (var, v00) =
     Ast.AstConst{} ->
       error "build1V: AstConst can't have free index variables"
 
-    Ast.AstSToR @sh1 v -> case someNatVal $ toInteger k of
-      Just (SomeNat @k _proxy) ->
-        Ast.AstSToR @(k ': sh1) $ build1VS (var, v)
-      Nothing ->
-        error "build1V: impossible someNatVal error"
-
-    Ast.AstConstant v -> traceRule $
-      Ast.AstConstant $ build1V k (var, v)
-    Ast.AstPrimalPart v -> traceRule $
-      Ast.AstPrimalPart $ build1V k (var, v)
-    Ast.AstDualPart v -> traceRule $
-      Ast.AstDualPart $ build1V k (var, v)
-    Ast.AstD u u' ->
-      Ast.AstD (build1VOccurenceUnknown k (var, u))
-               (build1VOccurenceUnknown k (var, u'))
     Ast.AstLetDomainsIn @s1 vars l v ->
       -- Here substitution traverses @v@ term tree @length vars@ times.
       --
@@ -274,6 +259,21 @@ build1V k (var, v00) =
            vars (build1VOccurenceUnknownDomains k (var, l))
                 (build1VOccurenceUnknownRefresh k (var, v2))
         -- TODO: comment why @r instead of @r1 from AstDynamicVarName
+    Ast.AstSToR @sh1 v -> case someNatVal $ toInteger k of
+      Just (SomeNat @k _proxy) ->
+        Ast.AstSToR @(k ': sh1) $ build1VS (var, v)
+      Nothing ->
+        error "build1V: impossible someNatVal error"
+
+    Ast.AstConstant v -> traceRule $
+      Ast.AstConstant $ build1V k (var, v)
+    Ast.AstPrimalPart v -> traceRule $
+      Ast.AstPrimalPart $ build1V k (var, v)
+    Ast.AstDualPart v -> traceRule $
+      Ast.AstDualPart $ build1V k (var, v)
+    Ast.AstD u u' ->
+      Ast.AstD (build1VOccurenceUnknown k (var, u))
+               (build1VOccurenceUnknown k (var, u'))
     Ast.AstFwd{} ->
       error "build1V: impossible case of AstFwd"
     Ast.AstFold{} ->
@@ -618,17 +618,6 @@ build1VS (var, v00) =
     Ast.AstConstS{} ->
       error "build1VS: AstConstS can't have free index variables"
 
-    Ast.AstRToS v -> Ast.AstRToS $ build1V (valueOf @k) (var, v)
-
-    Ast.AstConstantS v -> traceRule $
-      Ast.AstConstantS $ build1VS (var, v)
-    Ast.AstPrimalPartS v -> traceRule $
-      Ast.AstPrimalPartS $ build1VS (var, v)
-    Ast.AstDualPartS v -> traceRule $
-      Ast.AstDualPartS $ build1VS (var, v)
-    Ast.AstDS u u' ->
-      Ast.AstDS (build1VOccurenceUnknownS (var, u))
-                (build1VOccurenceUnknownS (var, u'))
     Ast.AstLetDomainsInS @s1 vars l v ->
       -- See the AstLetDomainsIn case for comments.
       let subst (AstDynamicVarName @_ @_ @sh1 varId) =
@@ -641,6 +630,17 @@ build1VS (var, v00) =
       in astLetDomainsInS
            vars (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
                 (build1VOccurenceUnknownRefreshS (var, v2))
+    Ast.AstRToS v -> Ast.AstRToS $ build1V (valueOf @k) (var, v)
+
+    Ast.AstConstantS v -> traceRule $
+      Ast.AstConstantS $ build1VS (var, v)
+    Ast.AstPrimalPartS v -> traceRule $
+      Ast.AstPrimalPartS $ build1VS (var, v)
+    Ast.AstDualPartS v -> traceRule $
+      Ast.AstDualPartS $ build1VS (var, v)
+    Ast.AstDS u u' ->
+      Ast.AstDS (build1VOccurenceUnknownS (var, u))
+                (build1VOccurenceUnknownS (var, u'))
     Ast.AstFwdS{} ->
       error "build1VS: impossible case of AstFwdS"
     Ast.AstFoldS{} ->

@@ -86,12 +86,12 @@ shapeAst = \case
   AstCast t -> shapeAst t
   AstFromIntegral a -> shapeAst a
   AstConst a -> listShapeToShape $ OR.shapeL a
+  AstLetDomainsIn _ _ v -> shapeAst v
   AstSToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
   AstConstant a -> shapeAst a
   AstPrimalPart a -> shapeAst a
   AstDualPart a -> shapeAst a
   AstD u _ -> shapeAst u
-  AstLetDomainsIn _ _ v -> shapeAst v
   AstFwd (_var, v) _l _ds -> shapeAst v
   AstFold _f x0 _as -> shapeAst x0
   AstFoldDer _f _df _rf x0 _as -> shapeAst x0
@@ -143,12 +143,12 @@ varInAst var = \case
   AstCast t -> varInAst var t
   AstFromIntegral t -> varInAst var t
   AstConst{} -> False
+  AstLetDomainsIn _vars l v -> varInAstDomains var l || varInAst var v
   AstSToR v -> varInAstS var v
   AstConstant v -> varInAst var v
   AstPrimalPart a -> varInAst var a
   AstDualPart a -> varInAst var a
   AstD u u' -> varInAst var u || varInAst var u'
-  AstLetDomainsIn _vars l v -> varInAstDomains var l || varInAst var v
   AstFwd _f l ds ->  -- _f has no non-bound variables
     let f = varInAstDynamic var
     in any f l || any f ds
@@ -225,12 +225,12 @@ varInAstS var = \case
   AstCastS t -> varInAstS var t
   AstFromIntegralS a -> varInAstS var a
   AstConstS{} -> False
+  AstLetDomainsInS _vars l v -> varInAstDomains var l || varInAstS var v
   AstRToS v -> varInAst var v
   AstConstantS v -> varInAstS var v
   AstPrimalPartS a -> varInAstS var a
   AstDualPartS a -> varInAstS var a
   AstDS u u' -> varInAstS var u || varInAstS var u'
-  AstLetDomainsInS _vars l v -> varInAstDomains var l || varInAstS var v
   AstFwdS _f l ds ->  -- _f has no non-bound variables
     let f = varInAstDynamic var
     in any f l || any f ds

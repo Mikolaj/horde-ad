@@ -238,11 +238,6 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
                 => ranked r1 n -> ranked r2 n
   rconst :: (GoodScalar r, KnownNat n) => OR.Array n r -> ranked r n
-  -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
-  -- at any rank greater than zero.
-  rzero :: (GoodScalar r, KnownNat n)
-        => ShapeInt n -> ranked r n
-  rzero sh = rreplicate0N sh 0
   rletDomainsIn :: (KnownNat n, GoodScalar r)
                 => DomainsOD
                 -> DomainsOf ranked
@@ -250,6 +245,11 @@ class ( Integral (IntOf ranked), CRanked ranked Num
                 -> ranked r n
   rfromS :: (GoodScalar r, Sh.Shape sh)
          => ShapedOf ranked r sh -> ranked r (Sh.Rank sh)
+  -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
+  -- at any rank greater than zero.
+  rzero :: (GoodScalar r, KnownNat n)
+        => ShapeInt n -> ranked r n
+  rzero sh = rreplicate0N sh 0
 
   -- ** No serviceable parts beyond this point ** --
 
@@ -555,6 +555,11 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, Sh.Shape sh)
                 => shaped r1 sh -> shaped r2 sh
   sconst :: (GoodScalar r, Sh.Shape sh) => OS.Array sh r -> shaped r sh
+  sletDomainsIn :: Sh.Shape sh
+                => DomainsOD
+                -> DomainsOf shaped
+                -> (Domains (RankedOf shaped) -> shaped r sh)
+                -> shaped r sh
   sfromR :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
          => RankedOf shaped r (Sh.Rank sh) -> shaped r sh
 
@@ -582,11 +587,6 @@ class ( Integral (IntOf shaped), CShaped shaped Num
             => shaped r sh -> AstBindingsD (RankedOf shaped)
             -> (AstBindingsD (RankedOf shaped), shaped r sh)
   sregister r l = (l, r)
-  sletDomainsIn :: Sh.Shape sh
-                => DomainsOD
-                -> DomainsOf shaped
-                -> (Domains (RankedOf shaped) -> shaped r sh)
-                -> shaped r sh
 
   -- Primal/dual things.
   sconstant :: (GoodScalar r, Sh.Shape sh)
@@ -924,14 +924,14 @@ instance RankedTensor (Flip OR.Array) where
                                        (fromIndexOfR . f . Flip . tscalarR)
   rcast = Flip . tcastR . runFlip
   rfromIntegral = Flip . tfromIntegralR . runFlip
+  rconst = Flip
+  rletDomainsIn _ = (&)
+  rfromS = Flip . Data.Array.Convert.convert . runFlip
 
   rscaleByScalar s v =
     Flip $ tscaleByScalarR (tunScalarR $ runFlip s) (runFlip v)
   rsumIn = Flip . tsumInR . runFlip
   rdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
-  rconst = Flip
-  rletDomainsIn _ = (&)
-  rfromS = Flip . Data.Array.Convert.convert . runFlip
 
   rconstant = id
   rprimalPart = id
@@ -1021,14 +1021,14 @@ instance ShapedTensor (Flip OS.Array) where
                                     . tscalarR . unShapedNat)
   scast = Flip . tcastS . runFlip
   sfromIntegral = Flip . tfromIntegralS . runFlip
+  sconst = Flip
+  sletDomainsIn _ = (&)
+  sfromR = Flip . Data.Array.Convert.convert . runFlip
 
   sscaleByScalar s v =
     Flip $ tscaleByScalarS (tunScalarS $ runFlip s) (runFlip v)
   ssumIn = Flip . tsumInS . runFlip
   sdot1In u v = Flip $ tdot1InS (runFlip u) (runFlip v)
-  sconst = Flip
-  sletDomainsIn _ = (&)
-  sfromR = Flip . Data.Array.Convert.convert . runFlip
 
   sconstant = id
   sprimalPart = id

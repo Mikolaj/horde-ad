@@ -911,7 +911,6 @@ instance AstSpan s
   rlet a f =
     AstNoVectorize
     $ astLetFun (unAstNoVectorize a) (unAstNoVectorize . f . AstNoVectorize)
-
   rshape = shapeAst . unAstNoVectorize
   rminIndex = AstNoVectorize . fromPrimal . AstMinIndex
               . astSpanPrimal . unAstNoVectorize
@@ -919,13 +918,11 @@ instance AstSpan s
               . astSpanPrimal . unAstNoVectorize
   rfloor = AstNoVectorize . fromPrimal . AstFloor
            . astSpanPrimal . unAstNoVectorize
-
   riota = AstNoVectorize . fromPrimal $ AstIota
   rindex v ix = AstNoVectorize $ AstIndex (unAstNoVectorize v) ix
   rsum = AstNoVectorize . astSum . unAstNoVectorize
   rscatter sh t f = AstNoVectorize $ astScatter sh (unAstNoVectorize t)
                     $ funToAstIndex f  -- this introduces new variable names
-
   rfromList = AstNoVectorize . AstFromList . map unAstNoVectorize
   rfromVector = AstNoVectorize . AstFromVector . V.map unAstNoVectorize
   runravelToList :: forall r n. (GoodScalar r, KnownNat n)
@@ -949,12 +946,11 @@ instance AstSpan s
   rcast = AstNoVectorize . AstCast . unAstNoVectorize
   rfromIntegral = AstNoVectorize . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoVectorize
-  rfromS = AstNoVectorize . rfromS @(AstRanked s) . unAstNoVectorizeS
-
   rconst = AstNoVectorize . fromPrimal . AstConst
   rletDomainsIn a0 a f =
     AstNoVectorize $ astLetDomainsInFun
                        a0 a (unAstNoVectorize . f . noVectorizeDomains)
+  rfromS = AstNoVectorize . rfromS @(AstRanked s) . unAstNoVectorizeS
 
   rconstant = AstNoVectorize . fromPrimal
   rprimalPart = astSpanPrimal . unAstNoVectorize
@@ -966,20 +962,17 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   slet a f =
     AstNoVectorizeS
     $ astLetFunS (unAstNoVectorizeS a) (unAstNoVectorizeS . f . AstNoVectorizeS)
-
   sminIndex = AstNoVectorizeS . fromPrimalS . AstMinIndexS
               . astSpanPrimalS . unAstNoVectorizeS
   smaxIndex = AstNoVectorizeS . fromPrimalS . AstMaxIndexS
               . astSpanPrimalS . unAstNoVectorizeS
   sfloor = AstNoVectorizeS . fromPrimalS . AstFloorS
            . astSpanPrimalS . unAstNoVectorizeS
-
   siota = AstNoVectorizeS . fromPrimalS $ AstIotaS
   sindex v ix = AstNoVectorizeS $ AstIndexS (unAstNoVectorizeS v) ix
   ssum = AstNoVectorizeS . astSumS . unAstNoVectorizeS
   sscatter t f = AstNoVectorizeS $ astScatterS (unAstNoVectorizeS t)
                  $ funToAstIndexS f  -- this introduces new variable names
-
   sfromList = AstNoVectorizeS . AstFromListS . map unAstNoVectorizeS
   sfromVector = AstNoVectorizeS . AstFromVectorS . V.map unAstNoVectorizeS
   sunravelToList :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
@@ -994,7 +987,6 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sslice (_ :: Proxy i) Proxy =
     AstNoVectorizeS . AstSliceS @i . unAstNoVectorizeS
   sreverse = AstNoVectorizeS . AstReverseS . unAstNoVectorizeS
-
   stranspose (_ :: Proxy perm) =
     AstNoVectorizeS . astTransposeS @perm . unAstNoVectorizeS
   sreshape = AstNoVectorizeS . astReshapeS . unAstNoVectorizeS
@@ -1006,7 +998,6 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   scast = AstNoVectorizeS . AstCastS . unAstNoVectorizeS
   sfromIntegral = AstNoVectorizeS . fromPrimalS . AstFromIntegralS
                   . astSpanPrimalS . unAstNoVectorizeS
-
   sconst = AstNoVectorizeS . fromPrimalS . AstConstS
   sletDomainsIn a0 a f =
     AstNoVectorizeS $ astLetDomainsInFunS
@@ -1081,7 +1072,6 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rlet a f =
     AstNoSimplify
     $ astLetFunUnSimp (unAstNoSimplify a) (unAstNoSimplify . f . AstNoSimplify)
-
   rshape = shapeAst . unAstNoSimplify
   rminIndex = AstNoSimplify . fromPrimal . AstMinIndex
               . astSpanPrimal . unAstNoSimplify
@@ -1089,13 +1079,11 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
               . astSpanPrimal . unAstNoSimplify
   rfloor = AstNoSimplify . fromPrimal . AstFloor
            . astSpanPrimal . unAstNoSimplify
-
   riota = AstNoSimplify . fromPrimal $ AstIota
   rindex v ix = AstNoSimplify $ AstIndex (unAstNoSimplify v) ix
   rsum = AstNoSimplify . AstSum . unAstNoSimplify
   rscatter sh t f = AstNoSimplify $ AstScatter sh (unAstNoSimplify t)
                     $ funToAstIndex f  -- this introduces new variable names
-
   rfromList = AstNoSimplify . AstFromList . map unAstNoSimplify
   rfromVector = AstNoSimplify . AstFromVector . V.map unAstNoSimplify
   runravelToList :: forall r n. (GoodScalar r, KnownNat n)
@@ -1117,7 +1105,6 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rcast = AstNoSimplify . AstCast . unAstNoSimplify
   rfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoSimplify
-
   rconst = AstNoSimplify . fromPrimal . AstConst
   rletDomainsIn a0 a f =
     AstNoSimplify $ astLetDomainsInFun
@@ -1152,20 +1139,17 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
     AstNoSimplifyS
     $ astLetFunUnSimpS (unAstNoSimplifyS a)
                        (unAstNoSimplifyS . f . AstNoSimplifyS)
-
   sminIndex = AstNoSimplifyS . fromPrimalS . AstMinIndexS
               . astSpanPrimalS . unAstNoSimplifyS
   smaxIndex = AstNoSimplifyS . fromPrimalS . AstMaxIndexS
               . astSpanPrimalS . unAstNoSimplifyS
   sfloor = AstNoSimplifyS . fromPrimalS . AstFloorS
            . astSpanPrimalS . unAstNoSimplifyS
-
   siota = AstNoSimplifyS . fromPrimalS $ AstIotaS
   sindex v ix = AstNoSimplifyS $ AstIndexS (unAstNoSimplifyS v) ix
   ssum = AstNoSimplifyS . AstSumS . unAstNoSimplifyS
   sscatter t f = AstNoSimplifyS $ AstScatterS (unAstNoSimplifyS t)
                  $ funToAstIndexS f  -- this introduces new variable names
-
   sfromList = AstNoSimplifyS . AstFromListS . map unAstNoSimplifyS
   sfromVector = AstNoSimplifyS . AstFromVectorS . V.map unAstNoSimplifyS
   sunravelToList :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
@@ -1179,7 +1163,6 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
     AstNoSimplifyS $ AstAppendS (unAstNoSimplifyS u) (unAstNoSimplifyS v)
   sslice (_ :: Proxy i) Proxy = AstNoSimplifyS . AstSliceS @i . unAstNoSimplifyS
   sreverse = AstNoSimplifyS . AstReverseS . unAstNoSimplifyS
-
   stranspose (_ :: Proxy perm) =
     AstNoSimplifyS . AstTransposeS @perm . unAstNoSimplifyS
   sreshape = AstNoSimplifyS . AstReshapeS . unAstNoSimplifyS
@@ -1189,7 +1172,6 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   scast = AstNoSimplifyS . AstCastS . unAstNoSimplifyS
   sfromIntegral = AstNoSimplifyS . fromPrimalS . AstFromIntegralS
                   . astSpanPrimalS . unAstNoSimplifyS
-
   sconst = AstNoSimplifyS . fromPrimalS . AstConstS
   sletDomainsIn a0 a f =
     AstNoSimplifyS $ astLetDomainsInFunS

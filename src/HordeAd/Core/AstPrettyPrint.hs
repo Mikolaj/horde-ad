@@ -90,12 +90,12 @@ areAllArgsInts = \case
   AstCast{} -> False
   AstFromIntegral{} -> True
   AstConst{} -> True
+  AstLetDomainsIn{} -> True  -- too early to tell
   AstSToR{} -> False
   AstConstant{} -> True  -- the argument is emphatically a primal number; fine
   AstPrimalPart{} -> False
   AstDualPart{} -> False
   AstD{} -> False  -- dual number
-  AstLetDomainsIn{} -> True  -- too early to tell
   AstFwd{} -> False
   AstFold{} -> False
   AstFoldDer{} -> False
@@ -311,12 +311,6 @@ printAstAux cfg d = \case
           Just Refl -> shows $ OR.unScalar a
           _ -> showParen True
                $ shows a
-  AstSToR v -> printAstS cfg d v
-  AstConstant a@AstConst{} -> printAst cfg d a
-  AstConstant a -> printPrefixOp printAst cfg d "rconstant" [a]
-  AstPrimalPart a -> printPrefixOp printAst cfg d "rprimalPart" [a]
-  AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
-  AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
   AstLetDomainsIn vars l v ->
     showParen (d > 10)
     $ showString "rletDomainsIn "
@@ -329,6 +323,12 @@ printAstAux cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
       -- TODO: this does not roundtrip yet
+  AstSToR v -> printAstS cfg d v
+  AstConstant a@AstConst{} -> printAst cfg d a
+  AstConstant a -> printPrefixOp printAst cfg d "rconstant" [a]
+  AstPrimalPart a -> printPrefixOp printAst cfg d "rprimalPart" [a]
+  AstDualPart a -> printPrefixOp printAst cfg d "rdualPart" [a]
+  AstD u u' -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
   AstFwd (vars, v) parameters ds ->
     showParen (d > 10)
     $ showString "rfwd "
@@ -772,13 +772,6 @@ printAstS cfg d = \case
           Just Refl -> shows $ OS.unScalar a
           _ -> showParen True
                $ shows a
-  AstRToS v -> printAst cfg d v
-  AstConstantS a@AstConstS{} -> printAstS cfg d a
-  AstConstantS a ->
-    printPrefixOp printAstS cfg d "sconstant" [a]
-  AstPrimalPartS a -> printPrefixOp printAstS cfg d "sprimalPart" [a]
-  AstDualPartS a -> printPrefixOp printAstS cfg d "sdualPart" [a]
-  AstDS u u' -> printPrefixBinaryOp printAstS printAstS cfg d "sD" u u'
   AstLetDomainsInS vars l v ->
     showParen (d > 10)
     $ showString "sletDomainsIn "
@@ -791,6 +784,13 @@ printAstS cfg d = \case
            . showString " -> "
            . printAstS cfg 0 v)
       -- TODO: this does not roundtrip yet
+  AstRToS v -> printAst cfg d v
+  AstConstantS a@AstConstS{} -> printAstS cfg d a
+  AstConstantS a ->
+    printPrefixOp printAstS cfg d "sconstant" [a]
+  AstPrimalPartS a -> printPrefixOp printAstS cfg d "sprimalPart" [a]
+  AstDualPartS a -> printPrefixOp printAstS cfg d "sdualPart" [a]
+  AstDS u u' -> printPrefixBinaryOp printAstS printAstS cfg d "sD" u u'
   AstFwdS (vars, v) parameters ds ->
     showParen (d > 10)
     $ showString "sfwd "

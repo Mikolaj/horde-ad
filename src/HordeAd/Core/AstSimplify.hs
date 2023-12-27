@@ -217,12 +217,12 @@ simplifyStepNonIndex t = case t of
   Ast.AstCast v -> astCast v
   Ast.AstFromIntegral v -> astFromIntegral v
   AstConst{} -> t
+  Ast.AstLetDomainsIn{} -> t
   Ast.AstSToR v -> astSToR v
   Ast.AstConstant{} -> t
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
   Ast.AstDualPart v -> astDualPart v
   Ast.AstD{} -> t
-  Ast.AstLetDomainsIn{} -> t
   Ast.AstFwd{} -> t
   Ast.AstFold{} -> t
   Ast.AstFoldDer{} -> t
@@ -402,6 +402,8 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
                     $ map OR.unScalar ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndex v0 ix
+  Ast.AstLetDomainsIn vars l v ->
+    astLetDomainsIn vars l (astIndexRec v ix)
   Ast.AstSToR @sh t ->
     let (takeSh, dropSh) = splitAt (valueOf @m) (Sh.shapeT @sh)
     in Sh.withShapeP takeSh $ \(Proxy :: Proxy p_take) ->
@@ -415,8 +417,6 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstDualPart{} -> Ast.AstIndex v0 ix
   Ast.AstD u u' ->
     shareIx ix $ \ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
-  Ast.AstLetDomainsIn vars l v ->
-    astLetDomainsIn vars l (astIndexRec v ix)
   Ast.AstFwd{} -> Ast.AstIndex v0 ix
   Ast.AstFold{} -> Ast.AstIndex v0 ix  -- normal form
   Ast.AstFoldDer{} -> Ast.AstIndex v0 ix  -- normal form
@@ -709,6 +709,8 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFromIntegral v -> astFromIntegral $ astGather sh4 v (vars4, ix4)
     AstConst{} ->  -- free variables possible, so can't compute the tensor
       Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstLetDomainsIn vars l v ->
+      astLetDomainsIn vars l (astGatherCase sh4 v (vars4, ix4))
     Ast.AstSToR{} {- @sh v -} -> Ast.AstGather sh4 v4 (vars4, ix4)
       -- TODO: this is broken
       {-
@@ -742,8 +744,6 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
           ix5 = fmap subst ix4
       in Ast.AstD (astGatherRec sh4 u (vars4, ix4))
                   (astGatherRec sh4 u' (varsFresh, ix5))
-    Ast.AstLetDomainsIn vars l v ->
-      astLetDomainsIn vars l (astGatherCase sh4 v (vars4, ix4))
     Ast.AstFwd{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFold{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
     Ast.AstFoldDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
@@ -1487,10 +1487,10 @@ astPrimalPart t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astPrimalPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astPrimalPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astPrimalPart v
+  Ast.AstLetDomainsIn vars l v -> astLetDomainsIn vars l (astPrimalPart v)
   Ast.AstSToR v -> astSToR $ astPrimalPartS v
   Ast.AstConstant v -> v
   Ast.AstD u _ -> u
-  Ast.AstLetDomainsIn vars l v -> astLetDomainsIn vars l (astPrimalPart v)
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstFwd{} -> Ast.AstPrimalPart t  -- the other only normal form
   Ast.AstFold{} -> Ast.AstPrimalPart t
@@ -1523,11 +1523,11 @@ astPrimalPartS t = case t of
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astPrimalPartS v)
   Ast.AstGatherS v (vars, ix) -> astGatherS (astPrimalPartS v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astPrimalPartS v
+  Ast.AstLetDomainsInS vars l v ->
+    astLetDomainsInS vars l (astPrimalPartS v)
   Ast.AstRToS v -> astRToS $ astPrimalPart v
   Ast.AstConstantS v -> v
   Ast.AstDS u _ -> u
-  Ast.AstLetDomainsInS vars l v ->
-    astLetDomainsInS vars l (astPrimalPartS v)
   Ast.AstCondS b a2 a3 -> astCondS b (astPrimalPartS a2) (astPrimalPartS a3)
   Ast.AstFwdS{} -> Ast.AstPrimalPartS t  -- the other only normal form
   Ast.AstFoldS{} -> Ast.AstPrimalPartS t
@@ -1560,10 +1560,10 @@ astDualPart t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astDualPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astDualPart v) (vars, ix)
   Ast.AstCast v -> astCast $ astDualPart v
+  Ast.AstLetDomainsIn vars l v -> astLetDomainsIn vars l (astDualPart v)
   Ast.AstSToR v -> astSToR $ astDualPartS v
   Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
-  Ast.AstLetDomainsIn vars l v -> astLetDomainsIn vars l (astDualPart v)
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstFwd{} -> Ast.AstDualPart t
   Ast.AstFold{} -> Ast.AstDualPart t
@@ -1594,10 +1594,10 @@ astDualPartS t = case t of
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astDualPartS v)
   Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPartS v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astDualPartS v
+  Ast.AstLetDomainsInS vars l v -> astLetDomainsInS vars l (astDualPartS v)
   Ast.AstRToS v -> astRToS $ astDualPart v
   Ast.AstConstantS{}  -> Ast.AstDualPartS t  -- this equals nil (not primal 0)
   Ast.AstDS _ u' -> u'
-  Ast.AstLetDomainsInS vars l v -> astLetDomainsInS vars l (astDualPartS v)
   Ast.AstCondS b a2 a3 -> astCondS b (astDualPartS a2) (astDualPartS a3)
   Ast.AstFwdS{} -> Ast.AstDualPartS t
   Ast.AstFoldS{} -> Ast.AstDualPartS t
@@ -1822,13 +1822,13 @@ simplifyAst t = case t of
   Ast.AstCast v -> astCast $ simplifyAst v
   Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
   AstConst{} -> t
+  Ast.AstLetDomainsIn vars l v ->
+    astLetDomainsIn vars (simplifyAstDomains l) (simplifyAst v)
   Ast.AstSToR v -> astSToR $ simplifyAstS v
   Ast.AstConstant v -> Ast.AstConstant (simplifyAst v)
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
   Ast.AstDualPart v -> astDualPart (simplifyAst v)
   Ast.AstD u u' -> Ast.AstD (simplifyAst u) (simplifyAst u')
-  Ast.AstLetDomainsIn vars l v ->
-    astLetDomainsIn vars (simplifyAstDomains l) (simplifyAst v)
   Ast.AstFwd (var, v) l ds -> Ast.AstFwd (var, simplifyAst v)
                                          (V.map simplifyAstDynamic l)
                                          (V.map simplifyAstDynamic ds)
@@ -2169,13 +2169,13 @@ simplifyAstS t = case t of
   Ast.AstCastS v -> astCastS $ simplifyAstS v
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAstS v
   AstConstS{} -> t
+  Ast.AstLetDomainsInS vars l v ->
+    astLetDomainsInS vars (simplifyAstDomains l) (simplifyAstS v)
   Ast.AstRToS v -> astRToS $ simplifyAst v
   Ast.AstConstantS v -> Ast.AstConstantS (simplifyAstS v)
   Ast.AstPrimalPartS v -> astPrimalPartS (simplifyAstS v)
   Ast.AstDualPartS v -> astDualPartS (simplifyAstS v)
   Ast.AstDS u u' -> Ast.AstDS (simplifyAstS u) (simplifyAstS u')
-  Ast.AstLetDomainsInS vars l v ->
-    astLetDomainsInS vars (simplifyAstDomains l) (simplifyAstS v)
   Ast.AstFwdS (var, v) l ds -> Ast.AstFwdS (var, simplifyAstS v)
                                            (V.map simplifyAstDynamic l)
                                            (V.map simplifyAstDynamic ds)
@@ -2383,6 +2383,11 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstCast v -> astCast <$> substitute1Ast i var v
   Ast.AstFromIntegral v -> astFromIntegral <$> substitute1Ast i var v
   Ast.AstConst{} -> Nothing
+  Ast.AstLetDomainsIn vars l v ->
+    case (substitute1AstDomains i var l, substitute1Ast i var v) of
+      (Nothing, Nothing) -> Nothing
+      (ml, mv) ->
+        Just $ astLetDomainsIn vars (fromMaybe l ml) (fromMaybe v mv)
   Ast.AstSToR v -> astSToR <$> substitute1AstS i var v
   Ast.AstConstant a -> Ast.AstConstant <$> substitute1Ast i var a
   Ast.AstPrimalPart a -> astPrimalPart <$> substitute1Ast i var a
@@ -2391,11 +2396,6 @@ substitute1Ast i var v1 = case v1 of
     case (substitute1Ast i var x, substitute1Ast i var y) of
       (Nothing, Nothing) -> Nothing
       (mx, my) -> Just $ Ast.AstD (fromMaybe x mx) (fromMaybe y my)
-  Ast.AstLetDomainsIn vars l v ->
-    case (substitute1AstDomains i var l, substitute1Ast i var v) of
-      (Nothing, Nothing) -> Nothing
-      (ml, mv) ->
-        Just $ astLetDomainsIn vars (fromMaybe l ml) (fromMaybe v mv)
   Ast.AstFwd f args ds ->
     -- No other free variables in v and var is not among vars.
     let margs = V.map (substitute1AstDynamic i var) args
@@ -2631,6 +2631,11 @@ substitute1AstS i var = \case
   Ast.AstCastS v -> astCastS <$> substitute1AstS i var v
   Ast.AstFromIntegralS a -> astFromIntegralS <$> substitute1AstS i var a
   Ast.AstConstS{} -> Nothing
+  Ast.AstLetDomainsInS vars l v ->
+    case (substitute1AstDomains i var l, substitute1AstS i var v) of
+      (Nothing, Nothing) -> Nothing
+      (ml, mv) ->
+        Just $ astLetDomainsInS vars (fromMaybe l ml) (fromMaybe v mv)
   Ast.AstRToS v -> astRToS <$> substitute1Ast i var v
   Ast.AstConstantS a -> Ast.AstConstantS <$> substitute1AstS i var a
   Ast.AstPrimalPartS a -> astPrimalPartS <$> substitute1AstS i var a
@@ -2639,11 +2644,6 @@ substitute1AstS i var = \case
     case (substitute1AstS i var x, substitute1AstS i var y) of
       (Nothing, Nothing) -> Nothing
       (mx, my) -> Just $ Ast.AstDS (fromMaybe x mx) (fromMaybe y my)
-  Ast.AstLetDomainsInS vars l v ->
-    case (substitute1AstDomains i var l, substitute1AstS i var v) of
-      (Nothing, Nothing) -> Nothing
-      (ml, mv) ->
-        Just $ astLetDomainsInS vars (fromMaybe l ml) (fromMaybe v mv)
   Ast.AstFwdS (vars, v) args ds ->
     -- No other free variables in v and var is not among vars.
     let margs = V.map (substitute1AstDynamic i var) args

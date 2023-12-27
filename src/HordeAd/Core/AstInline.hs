@@ -192,6 +192,10 @@ inlineAst memo v0 = case v0 of
   Ast.AstCast v -> second Ast.AstCast $ inlineAst memo v
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ inlineAst memo v
   Ast.AstConst{} -> (memo, v0)
+  Ast.AstLetDomainsIn vars l v ->  -- TODO: actually inline
+    let (memo1, l2) = inlineAstDomains memo l
+        (memo2, v2) = inlineAst memo1 v
+    in (memo2, Ast.AstLetDomainsIn vars l2 v2)
   Ast.AstSToR v -> second Ast.AstSToR $ inlineAstS memo v
   Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
@@ -200,10 +204,6 @@ inlineAst memo v0 = case v0 of
     let (memo1, t1) = inlineAst memo u
         (memo2, t2) = inlineAst memo1 u'
     in (memo2, Ast.AstD t1 t2)
-  Ast.AstLetDomainsIn vars l v ->  -- TODO: actually inline
-    let (memo1, l2) = inlineAstDomains memo l
-        (memo2, v2) = inlineAst memo1 v
-    in (memo2, Ast.AstLetDomainsIn vars l2 v2)
   Ast.AstFwd (vars, v) l ds ->
     let (_, v2) = inlineAst EM.empty v
         (memo1, l1) = mapAccumR inlineAstDynamic memo l
@@ -417,6 +417,10 @@ inlineAstS memo v0 = case v0 of
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ inlineAstS memo v
   Ast.AstConstS{} -> (memo, v0)
+  Ast.AstLetDomainsInS vars l v ->  -- TODO: actually inline
+    let (memo1, l2) = inlineAstDomains memo l
+        (memo2, v2) = inlineAstS memo1 v
+    in (memo2, Ast.AstLetDomainsInS vars l2 v2)
   Ast.AstRToS v -> second Ast.AstRToS $ inlineAst memo v
   Ast.AstConstantS a -> second Ast.AstConstantS $ inlineAstS memo a
   Ast.AstPrimalPartS a -> second Ast.AstPrimalPartS $ inlineAstS memo a
@@ -425,10 +429,6 @@ inlineAstS memo v0 = case v0 of
     let (memo1, t1) = inlineAstS memo u
         (memo2, t2) = inlineAstS memo1 u'
     in (memo2, Ast.AstDS t1 t2)
-  Ast.AstLetDomainsInS vars l v ->  -- TODO: actually inline
-    let (memo1, l2) = inlineAstDomains memo l
-        (memo2, v2) = inlineAstS memo1 v
-    in (memo2, Ast.AstLetDomainsInS vars l2 v2)
   Ast.AstFwdS (vars, v) l ds ->
     let (_, v2) = inlineAstS EM.empty v
         (memo1, l1) = mapAccumR inlineAstDynamic memo l
@@ -542,16 +542,16 @@ unletAst env t = case t of
   Ast.AstCast v -> Ast.AstCast (unletAst env v)
   Ast.AstFromIntegral v -> Ast.AstFromIntegral (unletAst env v)
   Ast.AstConst{} -> t
-  Ast.AstSToR v -> Ast.AstSToR (unletAstS env v)
-  Ast.AstConstant v -> Ast.AstConstant (unletAst env v)
-  Ast.AstPrimalPart v -> Ast.AstPrimalPart (unletAst env v)
-  Ast.AstDualPart v -> Ast.AstDualPart (unletAst env v)
-  Ast.AstD u u' -> Ast.AstD (unletAst env u) (unletAst env u')
   Ast.AstLetDomainsIn vars l v ->
     let env2 = env {unletSet = unletSet env
                                `ES.union`
                                ES.fromList (map dynamicVarNameToAstVarId vars)}
     in Ast.AstLetDomainsIn vars (unletAstDomains env l) (unletAst env2 v)
+  Ast.AstSToR v -> Ast.AstSToR (unletAstS env v)
+  Ast.AstConstant v -> Ast.AstConstant (unletAst env v)
+  Ast.AstPrimalPart v -> Ast.AstPrimalPart (unletAst env v)
+  Ast.AstDualPart v -> Ast.AstDualPart (unletAst env v)
+  Ast.AstD u u' -> Ast.AstD (unletAst env u) (unletAst env u')
   Ast.AstFwd (vars, v) l ds ->
     -- No other free variables in v, so no outside lets can reach there.
     Ast.AstFwd (vars, unletAst (emptyUnletEnv emptyADShare) v)
@@ -683,16 +683,16 @@ unletAstS env t = case t of
   Ast.AstCastS v -> Ast.AstCastS (unletAstS env v)
   Ast.AstFromIntegralS v -> Ast.AstFromIntegralS (unletAstS env v)
   Ast.AstConstS{} -> t
-  Ast.AstRToS v -> Ast.AstRToS (unletAst env v)
-  Ast.AstConstantS v -> Ast.AstConstantS (unletAstS env v)
-  Ast.AstPrimalPartS v -> Ast.AstPrimalPartS (unletAstS env v)
-  Ast.AstDualPartS v -> Ast.AstDualPartS (unletAstS env v)
-  Ast.AstDS u u' -> Ast.AstDS (unletAstS env u) (unletAstS env u')
   Ast.AstLetDomainsInS vars l v ->
     let env2 = env {unletSet = unletSet env
                                `ES.union`
                                ES.fromList (map dynamicVarNameToAstVarId vars)}
     in Ast.AstLetDomainsInS vars (unletAstDomains env l) (unletAstS env2 v)
+  Ast.AstRToS v -> Ast.AstRToS (unletAst env v)
+  Ast.AstConstantS v -> Ast.AstConstantS (unletAstS env v)
+  Ast.AstPrimalPartS v -> Ast.AstPrimalPartS (unletAstS env v)
+  Ast.AstDualPartS v -> Ast.AstDualPartS (unletAstS env v)
+  Ast.AstDS u u' -> Ast.AstDS (unletAstS env u) (unletAstS env u')
   Ast.AstFwdS (vars, v) l ds ->
     -- No other free variables in v, so no outside lets can reach there.
     Ast.AstFwdS (vars, unletAstS (emptyUnletEnv emptyADShare) v)

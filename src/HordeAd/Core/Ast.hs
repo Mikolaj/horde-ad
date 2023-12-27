@@ -270,7 +270,10 @@ data AstRanked :: AstSpanType -> RankedTensorType where
   AstFromIntegral :: (GoodScalar r1, Integral r1)
                   => AstRanked PrimalSpan r1 n -> AstRanked PrimalSpan r2 n
   AstConst :: OR.Array n r -> AstRanked PrimalSpan r n
-
+  AstLetDomainsIn :: AstSpan s
+                  => [AstDynamicVarName] -> AstDomains s
+                  -> AstRanked s2 r n
+                  -> AstRanked s2 r n
   AstSToR :: Sh.Shape sh
           => AstShaped s r sh -> AstRanked s r (Sh.Rank sh)
 
@@ -280,10 +283,6 @@ data AstRanked :: AstSpanType -> RankedTensorType where
   AstDualPart :: AstRanked FullSpan r n -> AstRanked DualSpan r n
   AstD :: AstRanked PrimalSpan r n -> AstRanked DualSpan r n
        -> AstRanked FullSpan r n
-  AstLetDomainsIn :: AstSpan s
-                  => [AstDynamicVarName] -> AstDomains s
-                  -> AstRanked s2 r n
-                  -> AstRanked s2 r n
   AstFwd :: (GoodScalar r, KnownNat n)
          => ([AstDynamicVarName], AstRanked s r n)
          -> Domains (AstRanked s)
@@ -411,7 +410,10 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstFromIntegralS :: (GoodScalar r1, Integral r1)
                    => AstShaped PrimalSpan r1 sh -> AstShaped PrimalSpan r2 sh
   AstConstS :: OS.Array sh r -> AstShaped PrimalSpan r sh
-
+  AstLetDomainsInS :: AstSpan s
+                   => [AstDynamicVarName] -> AstDomains s
+                   -> AstShaped s2 r sh
+                   -> AstShaped s2 r sh
   AstRToS :: (Sh.Shape sh, KnownNat (Sh.Rank sh))
           => AstRanked s r (Sh.Rank sh) -> AstShaped s r sh
 
@@ -421,10 +423,6 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
   AstDualPartS :: AstShaped FullSpan r sh -> AstShaped DualSpan r sh
   AstDS :: AstShaped PrimalSpan r sh -> AstShaped DualSpan r sh
         -> AstShaped FullSpan r sh
-  AstLetDomainsInS :: AstSpan s
-                   => [AstDynamicVarName] -> AstDomains s
-                   -> AstShaped s2 r sh
-                   -> AstShaped s2 r sh
   AstFwdS :: (GoodScalar r, Sh.Shape sh)
           => ([AstDynamicVarName], AstShaped s r sh)
           -> Domains (AstRanked s)
