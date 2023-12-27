@@ -90,10 +90,10 @@ inlineAst
   => AstMemo
   -> AstRanked s r n -> (AstMemo, AstRanked s r n)
 inlineAst memo v0 = case v0 of
-  Ast.AstVar _ (AstVarName var) ->
+  Ast.AstVar _ (AstVarName varId) ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
-    in (EM.alter f var memo, v0)
+    in (EM.alter f varId memo, v0)
   Ast.AstLet var u v ->
     -- We assume there are no nested lets with the same variable, hence
     -- the delete and hence var couldn't appear in memo, so we can make
@@ -314,10 +314,10 @@ inlineAstS
   => AstMemo
   -> AstShaped s r sh -> (AstMemo, AstShaped s r sh)
 inlineAstS memo v0 = case v0 of
-  Ast.AstVarS (AstVarName var) ->
+  Ast.AstVarS (AstVarName varId) ->
     let f Nothing = Just 1
         f (Just count) = Just $ succ count
-    in (EM.alter f var memo, v0)
+    in (EM.alter f varId memo, v0)
   Ast.AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
     let vv = varNameToAstVarId var

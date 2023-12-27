@@ -142,11 +142,11 @@ newtype AstVarName (f :: TensorKind k) (r :: Type) (y :: k) =
  deriving (Eq, Ord, Enum)
 
 instance Show (AstVarName f r y) where
-  showsPrec d (AstVarName var) =
-    showsPrec d var  -- backward compatibility vs test results
+  showsPrec d (AstVarName varId) =
+    showsPrec d varId  -- backward compatibility vs test results
 
 varNameToAstVarId :: AstVarName f r y -> AstVarId
-varNameToAstVarId (AstVarName var) = var
+varNameToAstVarId (AstVarName varId) = varId
 
 -- This can't be replaced by AstVarId. because in some places it's used
 -- to record the kind, scalar and shape of arguments in a domain.
@@ -160,7 +160,7 @@ data AstDynamicVarName where
 deriving instance Show AstDynamicVarName
 
 dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
-dynamicVarNameToAstVarId (AstDynamicVarName var) = var
+dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type AstArtifactRev (f :: TensorKind k) r y =

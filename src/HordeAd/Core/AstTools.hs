@@ -242,11 +242,11 @@ varInIndexS var = any (varInAst var)
 
 varNameInAst :: AstSpan s2
              => AstVarName f r n -> AstRanked s2 r2 n2 -> Bool
-varNameInAst (AstVarName var) = varInAst var
+varNameInAst (AstVarName varId) = varInAst varId
 
 varNameInAstS :: AstSpan s2
               => AstVarName f r sh -> AstShaped s2 r2 sh2 -> Bool
-varNameInAstS (AstVarName var) = varInAstS var
+varNameInAstS (AstVarName varId) = varInAstS varId
 
 
 -- * Determining if a term is too small to require sharing
@@ -298,21 +298,21 @@ bindsToLet = foldl' bindToLet
   bindToLet :: AstRanked s r n
             -> (AstVarId, AstDynamic PrimalSpan)
             -> AstRanked s r n
-  bindToLet !u (var, d) =
+  bindToLet !u (varId, d) =
     let convertShaped :: (GoodScalar r2, Sh.Shape sh2)
                       => AstShaped PrimalSpan r2 sh2 -> AstRanked s r n
         convertShaped t =
           Sh.withShapeP (shapeToList $ shapeAst u) $ \proxy -> case proxy of
             Proxy @sh | Just Refl <- matchingRank @sh @n ->
-              AstSToR @sh $ AstLetS (AstVarName var) t (AstRToS u)
+              AstSToR @sh $ AstLetS (AstVarName varId) t (AstRToS u)
             _ -> error "bindToLet: wrong rank"
     in case d of
-      DynamicRanked w -> AstLet (AstVarName var) w u
+      DynamicRanked w -> AstLet (AstVarName varId) w u
       DynamicShaped w -> convertShaped w
       DynamicRankedDummy @r2 @sh2 _ _ ->
         withListShape (Sh.shapeT @sh2) $ \(_ :: Shape n3 Int) ->
           gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh2) $
-          AstLet @n3 @n @r2 @s (AstVarName var) (AstSToR @sh2 @s @r2 0) u
+          AstLet @n3 @n @r2 @s (AstVarName varId) (AstSToR @sh2 @s @r2 0) u
       DynamicShapedDummy @r2 @sh2 _ _ -> convertShaped @r2 @sh2 0
 
 bindsToLetS :: forall sh s r. (AstSpan s, Sh.Shape sh)
@@ -323,22 +323,22 @@ bindsToLetS = foldl' bindToLetS
   bindToLetS :: AstShaped s r sh
              -> (AstVarId, AstDynamic PrimalSpan)
              -> AstShaped s r sh
-  bindToLetS !u (var, d) = case d of
+  bindToLetS !u (varId, d) = case d of
     DynamicRanked w ->
       withListShape (Sh.shapeT @sh) $ \sh -> case sh of
         (_ :: Shape n Int) | Just Refl <- matchingRank @sh @n ->
-          AstRToS $ AstLet (AstVarName var) w (AstSToR u)
+          AstRToS $ AstLet (AstVarName varId) w (AstSToR u)
         _ -> error "bindToLetS: wrong rank"
-    DynamicShaped w -> AstLetS (AstVarName var) w u
+    DynamicShaped w -> AstLetS (AstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ ->
       withListShape (Sh.shapeT @sh2) $ \(_ :: Shape n3 Int) ->
         gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh2) $
         withListShape (Sh.shapeT @sh) $ \(_ :: Shape m Int) ->
           gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh) $
           AstRToS $ AstLet @n3 @m @r2 @s
-                           (AstVarName var) (AstSToR @sh2 @s @r2 0) (AstSToR u)
+                      (AstVarName varId) (AstSToR @sh2 @s @r2 0) (AstSToR u)
     DynamicShapedDummy @r2 @sh2 _ _ ->
-      AstLetS @sh2 @sh @r2 @s (AstVarName var) 0 u
+      AstLetS @sh2 @sh @r2 @s (AstVarName varId) 0 u
 
 bindsToDomainsLet
    :: forall s. AstSpan s
@@ -346,12 +346,12 @@ bindsToDomainsLet
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
-  bindToDomainsLet !u (var, d) = case d of
-    DynamicRanked w -> AstLetInDomains (AstVarName var) w u
-    DynamicShaped w -> AstLetInDomainsS (AstVarName var) w u
+  bindToDomainsLet !u (varId, d) = case d of
+    DynamicRanked w -> AstLetInDomains (AstVarName varId) w u
+    DynamicShaped w -> AstLetInDomainsS (AstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ ->
       withListShape (Sh.shapeT @sh2) $ \(_ :: Shape n Int) ->
         gcastWith (unsafeCoerce Refl :: n :~: Sh.Rank sh2) $
-        AstLetInDomains @n @r2 @s (AstVarName var) (AstSToR @sh2 @s @r2 0) u
+        AstLetInDomains @n @r2 @s (AstVarName varId) (AstSToR @sh2 @s @r2 0) u
     DynamicShapedDummy @r2 @sh2 _ _ ->
-      AstLetInDomainsS @sh2 @r2 @s (AstVarName var) 0 u
+      AstLetInDomainsS @sh2 @r2 @s (AstVarName varId) 0 u

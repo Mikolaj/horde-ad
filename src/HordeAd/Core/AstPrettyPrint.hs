@@ -111,7 +111,7 @@ printAstVarId prefix cfg var =
     _ -> prefix ++ show n
 
 printAstVarN :: Int -> PrintConfig -> AstVarName f r y -> ShowS
-printAstVarN n cfg (AstVarName var) =
+printAstVarN n cfg (AstVarName varId) =
   let prefix = case n of
         0 -> "x"
         1 -> "v"
@@ -119,7 +119,7 @@ printAstVarN n cfg (AstVarName var) =
         3 -> "t"
         4 -> "u"
         _ -> "w"
-  in printAstVarId prefix cfg var
+  in printAstVarId prefix cfg varId
 
 printAstVar :: forall n s r. KnownNat n
             => PrintConfig -> AstVarName (AstRanked s) r n -> ShowS
@@ -130,7 +130,7 @@ printAstVarS :: forall sh s r. Sh.Shape sh
 printAstVarS = printAstVarN (length (Sh.shapeT @sh))
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
-printAstIntVar cfg (AstVarName var) = printAstVarId "i" cfg var
+printAstIntVar cfg (AstVarName varId) = printAstVarId "i" cfg varId
 
 printAstVarFromLet
   :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
@@ -157,8 +157,8 @@ printAstVarNameS renames var =
   printAstVarS (defaulPrintConfig False renames) var ""
 
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
-printAstDynamicVarName renames (AstDynamicVarName @_ @r @sh var) =
-  printAstVarNameS renames (AstVarName @[Nat] @_ @r @sh var)
+printAstDynamicVarName renames (AstDynamicVarName @_ @r @sh varId) =
+  printAstVarNameS renames (AstVarName @[Nat] @_ @r @sh varId)
 
 
 -- * General pretty-printing of AST terms

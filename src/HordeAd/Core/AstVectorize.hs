@@ -149,8 +149,8 @@ build1V k (var, v00) =
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
-    Ast.AstLet @_ @_ @r1 @s1 (AstVarName oldVar2) u v ->
-      let var2 = AstVarName oldVar2  -- changed shape; TODO: shall we rename?
+    Ast.AstLet @_ @_ @r1 @s1 (AstVarName oldVarId) u v ->
+      let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                     (Ast.AstIntVar var :. ZI)
@@ -261,13 +261,14 @@ build1V k (var, v00) =
       -- because we create a variable with one more dimension,
       -- again, because the original variables might have been marked
       -- with AstShaped and here we require AstRanked.
-      let subst (AstDynamicVarName @_ @_ @sh1 var1) =
+      let subst (AstDynamicVarName @_ @_ @sh1 varId) =
             withListShape (Sh.shapeT @sh1) $ \shV ->
-              let projection =
-                    Ast.AstIndex (Ast.AstVar (k :$ shV) $ AstVarName var1)
+              let var2 = AstVarName varId
+                  projection =
+                    Ast.AstIndex (Ast.AstVar (k :$ shV) var2)
                                  (Ast.AstIntVar var :. ZI)
               in substituteAst (SubstitutionPayloadRanked @s1 @r projection)
-                               (AstVarName var1)
+                               var2
           v2 = foldr subst v vars
       in astLetDomainsIn
            vars (build1VOccurenceUnknownDomains k (var, l))
@@ -284,22 +285,22 @@ build1V k (var, v00) =
           subst :: forall n1 r1. (KnownNat n1, GoodScalar r1)
                 => ShapeInt n1 -> AstVarName (AstRanked PrimalSpan) r1 n1
                 -> AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
-          subst sh1 (AstVarName var1) =
-            let projection =
-                  Ast.AstIndex (Ast.AstVar (k :$ sh1) $ AstVarName var1)
+          subst sh1 (AstVarName varId) =
+            let var2 = AstVarName varId
+                projection =
+                  Ast.AstIndex (Ast.AstVar (k :$ sh1) var2)
                                (Ast.AstIntVar var :. ZI)
-            in substituteAst (SubstitutionPayloadRanked @s @r1 projection)
-                             (AstVarName var1)
+            in substituteAst (SubstitutionPayloadRanked @s @r1 projection) var2
           substDomains :: forall n1 r1. (KnownNat n1, GoodScalar r1)
                        => ShapeInt n1 -> AstVarName (AstRanked PrimalSpan) r1 n1
                        -> AstDomains PrimalSpan -> AstDomains PrimalSpan
-          substDomains sh1 (AstVarName var1) =
-            let projection =
-                  Ast.AstIndex (Ast.AstVar (k :$ sh1) $ AstVarName var1)
+          substDomains sh1 (AstVarName varId) =
+            let var2 = AstVarName varId
+                projection =
+                  Ast.AstIndex (Ast.AstVar (k :$ sh1) var2)
                                (Ast.AstIntVar var :. ZI)
             in substituteAstDomains
-                 (SubstitutionPayloadRanked @s @r1 projection)
-                 (AstVarName var1)
+                 (SubstitutionPayloadRanked @s @r1 projection) var2
       in Ast.AstFoldDer
            ( AstVarName $ varNameToAstVarId nvar
            , AstVarName $ varNameToAstVarId mvar
@@ -342,8 +343,8 @@ build1VOccurenceUnknownDomains
 build1VOccurenceUnknownDomains k (var, v0) = case v0 of
   Ast.AstDomains l ->
     Ast.AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
-  Ast.AstLetInDomains @_ @r1 @s1 (AstVarName oldVar2) u v ->
-    let var2 = AstVarName oldVar2  -- changed shape; TODO: shall we rename, too?
+  Ast.AstLetInDomains @_ @r1 @s1 (AstVarName oldVarId) u v ->
+    let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
         sh = shapeAst u
         projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
                                   (Ast.AstIntVar var :. ZI)
@@ -352,14 +353,13 @@ build1VOccurenceUnknownDomains k (var, v0) = case v0 of
     in astLetInDomains var2 (build1VOccurenceUnknownRefresh k (var, u))
                             (build1VOccurenceUnknownDomains k (var, v2))
   Ast.AstLetInDomainsS @sh2 @r1 @s1
-   (AstVarName oldVar2) u v -> case someNatVal $ toInteger k of
+   (AstVarName oldVarId) u v -> case someNatVal $ toInteger k of
     Just (SomeNat @k _proxy) ->
-      let var2 = AstVarName oldVar2  -- changed shape; TODO: shall we rename?
+      let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh2) var2)
                                      (Ast.AstIntVar var :$: ZSH)
           v2 = substituteAstDomains
-                 (SubstitutionPayloadShaped @s1 @r1 projection)
-                 var2 v
+                 (SubstitutionPayloadShaped @s1 @r1 projection) var2 v
       in astLetInDomainsS var2 (build1VOccurenceUnknownRefreshS @k (var, u))
                                (build1VOccurenceUnknownDomains k (var, v2))
     Nothing ->
@@ -512,8 +512,8 @@ build1VS (var, v00) =
   in case v0 of
     Ast.AstVarS{} ->
       error "build1VS: AstVarS can't contain free index variables"
-    Ast.AstLetS @sh1 @_ @r1 @s1 (AstVarName oldVar2) u v ->
-      let var2 = AstVarName oldVar2  -- changed shape; TODO: shall we rename?
+    Ast.AstLetS @sh1 @_ @r1 @s1 (AstVarName oldVarId) u v ->
+      let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                                      (Ast.AstIntVar var :$: ZSH)
           v2 = substituteAstS (SubstitutionPayloadShaped @s1 @r1 projection)
@@ -631,12 +631,12 @@ build1VS (var, v00) =
                 (build1VOccurenceUnknownS (var, u'))
     Ast.AstLetDomainsInS @s1 vars l v ->
       -- See the AstLetDomainsIn case for comments.
-      let subst (AstDynamicVarName @_ @_ @sh1 var1) =
-            let projection =
-                  Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
+      let subst (AstDynamicVarName @_ @_ @sh1 varId) =
+            let var2 = AstVarName varId
+                projection =
+                  Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                                 (Ast.AstIntVar var :$: ZSH)
-            in substituteAstS (SubstitutionPayloadShaped @s1 @r projection)
-                              (AstVarName var1)
+            in substituteAstS (SubstitutionPayloadShaped @s1 @r projection) var2
           v2 = foldr subst v vars
       in astLetDomainsInS
            vars (build1VOccurenceUnknownDomains (valueOf @k) (var, l))
@@ -650,22 +650,22 @@ build1VS (var, v00) =
       let subst :: forall sh1 r1. (Sh.Shape sh1, GoodScalar r1)
                 => AstVarName (AstShaped PrimalSpan) r1 sh1
                 -> AstShaped PrimalSpan r sh -> AstShaped PrimalSpan r sh
-          subst (AstVarName var1) =
-            let projection =
-                  Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
+          subst (AstVarName varId) =
+            let var2 = AstVarName varId
+                projection =
+                  Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                                 (Ast.AstIntVar var :$: ZSH)
-            in substituteAstS (SubstitutionPayloadShaped @s @r1 projection)
-                              (AstVarName var1)
+            in substituteAstS (SubstitutionPayloadShaped @s @r1 projection) var2
           substDomains :: forall sh1 r1. (Sh.Shape sh1, GoodScalar r1)
                        => AstVarName (AstShaped PrimalSpan) r1 sh1
                        -> AstDomains PrimalSpan -> AstDomains PrimalSpan
-          substDomains (AstVarName var1) =
-            let projection =
-                  Ast.AstIndexS (Ast.AstVarS @(k ': sh1) $ AstVarName var1)
+          substDomains (AstVarName varId) =
+            let var2 = AstVarName varId
+                projection =
+                  Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                                 (Ast.AstIntVar var :$: ZSH)
             in substituteAstDomains
-                 (SubstitutionPayloadShaped @s @r1 projection)
-                 (AstVarName var1)
+                 (SubstitutionPayloadShaped @s @r1 projection) var2
       in Ast.AstFoldDerS
            ( AstVarName $ varNameToAstVarId nvar
            , AstVarName $ varNameToAstVarId mvar

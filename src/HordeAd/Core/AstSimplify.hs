@@ -485,7 +485,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
               ++ show (vars0, v0)
     (_, (Z, _)) -> astIndex v0 ix0
     (sh, (_, ZI)) -> astReplicateN sh v0
-    (k :$ sh', (AstVarName var ::: vars, i1 :. rest1)) ->
+    (k :$ sh', (AstVarName varId ::: vars, i1 :. rest1)) ->
       if | not (any (`varNameInAst` i1) vars0) ->
            astGatherROrStepOnly stepOnly sh0 (astIndex v0 (i1 :. ZI))
                                 (vars0, rest1)
@@ -499,7 +499,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
                  _ -> error "impossible pattern needlessly required"
              _ -> False
            -> astGatherROrStepOnly stepOnly sh0 v0 (varsN, restN)
-         | varInIndex var ix0 ->
+         | varInIndex varId ix0 ->
            astGatherCase sh0 v0 (vars0, ix0)
          | otherwise ->
            astReplicate k (astGatherROrStepOnly stepOnly sh' v0 (vars, ix0))
@@ -1038,7 +1038,7 @@ astScatter :: forall m n p s r.
            -> (AstVarList m, AstIndex p)
            -> AstRanked s r (p + n)
 astScatter _sh v (Z, ZI) = v
-astScatter sh v (AstVarName var ::: vars, ix) | not $ var `varInIndex` ix =
+astScatter sh v (AstVarName varId ::: vars, ix) | not $ varId `varInIndex` ix =
   astScatter sh (astSum v) (vars, ix)
 -- astScatter sh v (Z, ix) = update (rzero sh 0) ix v
 astScatter sh (Ast.AstConstant v) (vars, ix) =
@@ -2213,29 +2213,29 @@ substituteAst :: forall n n2 s s2 r r2.
               => SubstitutionPayload s2 r2 -> AstVarName (AstRanked s2) r2 n2
               -> AstRanked s r n
               -> AstRanked s r n
-substituteAst i (AstVarName var) v1 = fromMaybe v1 $ substitute1Ast i var v1
+substituteAst i (AstVarName varId) v1 = fromMaybe v1 $ substitute1Ast i varId v1
 
 substituteAstIndex
   :: (GoodScalar r2, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarName (AstRanked s2) r2 n2
   -> AstIndex n
   -> AstIndex n
-substituteAstIndex i (AstVarName var) ix =
-  fromMaybe ix $ substitute1AstIndex i var ix
+substituteAstIndex i (AstVarName varId) ix =
+  fromMaybe ix $ substitute1AstIndex i varId ix
 
 substituteAstDomains
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 y -> AstDomains s
   -> AstDomains s
-substituteAstDomains i (AstVarName var) v1 =
-  fromMaybe v1 $ substitute1AstDomains i var v1
+substituteAstDomains i (AstVarName varId) v1 =
+  fromMaybe v1 $ substitute1AstDomains i varId v1
 
 substituteAstBool :: (GoodScalar r2, AstSpan s2)
                   => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 y
                   -> AstBool
                   -> AstBool
-substituteAstBool i (AstVarName var) b1 =
-  fromMaybe b1 $ substitute1AstBool i var b1
+substituteAstBool i (AstVarName varId) b1 =
+  fromMaybe b1 $ substitute1AstBool i varId b1
 
 substituteAstS :: forall sh sh2 s2 s r r2 f.
                   ( GoodScalar r, GoodScalar r2, Sh.Shape sh
@@ -2243,15 +2243,16 @@ substituteAstS :: forall sh sh2 s2 s r r2 f.
                => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 sh2
                -> AstShaped s r sh
                -> AstShaped s r sh
-substituteAstS i (AstVarName var) v1 = fromMaybe v1 $ substitute1AstS i var v1
+substituteAstS i (AstVarName varId) v1 =
+  fromMaybe v1 $ substitute1AstS i varId v1
 
 substituteAstIndexS
   :: (GoodScalar r2, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarName (AstRanked s2) r2 n2
   -> AstIndexS sh
   -> AstIndexS sh
-substituteAstIndexS i (AstVarName var) ix =
-  fromMaybe ix $ substitute1AstIndexS i var ix
+substituteAstIndexS i (AstVarName varId) ix =
+  fromMaybe ix $ substitute1AstIndexS i varId ix
 
 
 -- * Substitution workers

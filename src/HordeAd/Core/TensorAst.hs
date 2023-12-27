@@ -426,12 +426,12 @@ astLetDomainsInFun a0 a f = unsafePerformIO $ do
       genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
         let sh2 = Sh.shapeT @sh2
         withListShape sh2 $ \ (sh3 :: Shape n2 Int) -> do
-          (AstVarName var, _, ast) <- funToAstIOR @n2 @_ @_ @r2 sh3 id
-          return ( AstDynamicVarName @Nat @r2 @sh2 var
+          (AstVarName varId, _, ast) <- funToAstIOR @n2 @_ @_ @r2 sh3 id
+          return ( AstDynamicVarName @Nat @r2 @sh2 varId
                  , DynamicRanked ast )
       genVar (DynamicShapedDummy @r2 @sh2 _ _) = do
-        (AstVarName var, _, ast) <- funToAstIOS @sh2 @_ @_ @r2 id
-        return ( AstDynamicVarName @[Nat] @r2 @sh2 var
+        (AstVarName varId, _, ast) <- funToAstIOS @sh2 @_ @_ @r2 id
+        return ( AstDynamicVarName @[Nat] @r2 @sh2 varId
                , DynamicShaped ast )
       genVar _ = error "genVar: unexpected OD value"
   (vars, asts) <- unzip <$> mapM genVar (V.toList a0)
@@ -560,12 +560,12 @@ astLetDomainsInFunS a0 a f = unsafePerformIO $ do
       genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
         let sh2 = Sh.shapeT @sh2
         withListShape sh2 $ \ (sh3 :: Shape n2 Int) -> do
-          (AstVarName var, _, ast) <- funToAstIOR @n2 @_ @_ @r2 sh3 id
-          return ( AstDynamicVarName @Nat @r2 @sh2 var
+          (AstVarName varId, _, ast) <- funToAstIOR @n2 @_ @_ @r2 sh3 id
+          return ( AstDynamicVarName @Nat @r2 @sh2 varId
                  , DynamicRanked ast )
       genVar (DynamicShapedDummy @r2 @sh2 _ _) = do
-        (AstVarName var, _, ast) <- funToAstIOS @sh2 @_ @_ @r2 id
-        return ( AstDynamicVarName @[Nat] @r2 @sh2 var
+        (AstVarName varId, _, ast) <- funToAstIOS @sh2 @_ @_ @r2 id
+        return ( AstDynamicVarName @[Nat] @r2 @sh2 varId
                , DynamicShaped ast )
       genVar _ = error "genVar: unexpected OD value"
   (vars, asts) <- unzip <$> mapM genVar (V.toList a0)

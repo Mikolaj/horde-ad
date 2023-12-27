@@ -119,11 +119,11 @@ interpretAst
   => AstEnv ranked shaped
   -> AstRanked s r n -> ranked r n
 interpretAst !env = \case
-  AstVar sh (AstVarName var) -> case EM.lookup var env of
+  AstVar sh (AstVarName varId) -> case EM.lookup varId env of
     Just (AstEnvElemR @n2 @r2 t) -> case sameNat (Proxy @n2) (Proxy @n) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (rshape t == sh
-                             `blame` (sh, rshape t, var, t, env)) t
+                             `blame` (sh, rshape t, varId, t, env)) t
         _ -> error "interpretAst: type mismatch"
       _ -> error "interpretAst: wrong shape in environment"
     -- To impose such checks, we'd need to switch from OD tensors
@@ -138,8 +138,8 @@ interpretAst !env = \case
         _ -> error "interpretAst: wrong rank"
       False -> error $ "interpretAst: wrong shape in environment"
                          `showFailure`
-                         (sh, Sh.shapeT @sh2, var, t, env)
-    Nothing -> error $ "interpretAst: unknown variable " ++ show var
+                         (sh, Sh.shapeT @sh2, varId, t, env)
+    Nothing -> error $ "interpretAst: unknown variable " ++ show varId
                        ++ " in environment " ++ show env
   AstLet var u v ->
     -- We assume there are no nested lets with the same variable.
@@ -672,14 +672,14 @@ interpretAstS
   => AstEnv ranked shaped
   -> AstShaped s r sh -> shaped r sh
 interpretAstS !env = \case
-  AstVarS (AstVarName var) -> case EM.lookup var env of
+  AstVarS (AstVarName varId) -> case EM.lookup varId env of
     Just (AstEnvElemS @sh2 @r2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> t
         _ -> error "interpretAstS: type mismatch"
       Nothing -> error $ "interpretAstS: wrong shape in environment"
                          `showFailure`
-                         (Sh.shapeT @sh, Sh.shapeT @sh2, var, t, env)
+                         (Sh.shapeT @sh, Sh.shapeT @sh2, varId, t, env)
     -- To impose such checks, we'd need to switch from OD tensors
     -- to existential OR/OS tensors so that we can inspect
     -- which it is and then seed Delta evaluation maps with that.
@@ -687,11 +687,11 @@ interpretAstS !env = \case
     Just (AstEnvElemR @n2 @r2 t) -> case matchingRank @sh @n2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (Sh.shapeT @sh == shapeToList (rshape t)
-                             `blame` (Sh.shapeT @sh, rshape t, var, t, env))
+                             `blame` (Sh.shapeT @sh, rshape t, varId, t, env))
                      $ sfromR @_ @_ @r2 @sh t
         _ -> error "interpretAstS: type mismatch"
       _ -> error "interpretAstS: wrong shape in environment"
-    Nothing -> error $ "interpretAstS: unknown variable " ++ show var
+    Nothing -> error $ "interpretAstS: unknown variable " ++ show varId
   AstLetS var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstSRuntimeSpecialized env u
