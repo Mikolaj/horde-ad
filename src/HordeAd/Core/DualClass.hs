@@ -52,7 +52,7 @@ import HordeAd.Core.Types
 -- The OfShape hacks are needed to recover shape from ranked tensors,
 -- in particular in case of numeric literals and also for forward derivative.
 
-type IsPrimal :: TensorKind k -> Type -> k -> Constraint
+type IsPrimal :: TensorKind ty -> Type -> ty -> Constraint
 class IsPrimal f r z where
   dZeroOfShape :: f r z -> Dual f r z
   dScale :: f r z -> Dual f r z -> Dual f r z

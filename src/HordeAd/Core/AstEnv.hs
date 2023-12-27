@@ -76,8 +76,8 @@ extendEnvD :: forall ranked shaped.
            => (AstDynamicVarName, DynamicTensor ranked)
            -> AstEnv ranked shaped
            -> AstEnv ranked shaped
-extendEnvD (AstDynamicVarName @k @r @sh varId, d) !env
-  | Just Refl <- testEquality (typeRep @k) (typeRep @Nat) = case d of
+extendEnvD (AstDynamicVarName @ty @r @sh varId, d) !env
+  | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) = case d of
     DynamicRanked @r2 @n2 t -> case matchingRank @sh @n2 of
       Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
         Just Refl -> extendEnvR (AstVarName varId) t env
@@ -91,8 +91,8 @@ extendEnvD (AstDynamicVarName @k @r @sh varId, d) !env
         _ -> error "extendEnvD: type mismatch"
       _ -> error "extendEnvD: rank mismatch"
     DynamicShapedDummy{} -> error "extendEnvD: ranked from shaped"
-extendEnvD (AstDynamicVarName @k @r @sh varId, d) env
-  | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat]) = case d of
+extendEnvD (AstDynamicVarName @ty @r @sh varId, d) env
+  | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) = case d of
     DynamicRanked{} -> error "extendEnvD: shaped from ranked"
     DynamicShaped @r2 @sh2 t -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of

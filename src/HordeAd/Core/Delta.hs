@@ -434,12 +434,12 @@ type instance ShapedOf (DeltaR ranked shaped) = DeltaS ranked shaped
 -- * Delta expression identifiers
 
 type role NodeId phantom
-newtype NodeId (f :: TensorKind k) = NodeId Int
+newtype NodeId (f :: TensorKind ty) = NodeId Int
  deriving newtype (Show, Enum)
    -- No Eq instance to limit hacks.
 
 type role InputId phantom
-newtype InputId (f :: TensorKind k) = InputId Int
+newtype InputId (f :: TensorKind ty) = InputId Int
  deriving (Show, Enum)
    -- No Eq instance to limit hacks outside this module.
 
@@ -450,11 +450,11 @@ toInputId i = assert (i >= 0) $ InputId i
 
 -- * Evaluation of the delta expressions
 
-type DualPart :: TensorKind k -> Constraint
-class DualPart (f :: TensorKind k) where
+type DualPart :: TensorKind ty -> Constraint
+class DualPart (f :: TensorKind ty) where
   -- | The type family that to each basic differentiable type
   -- assigns its delta expression type.
-  type Dual f = (result :: TensorKind k) | result -> f
+  type Dual f = (result :: TensorKind ty) | result -> f
   reverseDervative
     :: (HasSingletonDict y, GoodScalar r)
     => Bool -> DomainsOD -> f r y -> Maybe (f r y) -> Dual f r y

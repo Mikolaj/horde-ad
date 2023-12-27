@@ -64,7 +64,7 @@ import           HordeAd.Util.SizedIndex
 
 -- * Ranked tensor class definition
 
-type TensorSupports :: (Type -> Constraint) -> TensorKind k -> Constraint
+type TensorSupports :: (Type -> Constraint) -> TensorKind ty -> Constraint
 type TensorSupports c f =
   forall r y. (GoodScalar r, HasSingletonDict y)
               => (c r, c (Vector r)) => c (f r y)
@@ -815,8 +815,8 @@ sameShapesDomainsOD v1 v2 =
   in V.and $ V.zipWith sameExShape v1 v2
 
 odFromVar :: AstDynamicVarName -> DynamicTensor (Flip OR.Array)
-odFromVar (AstDynamicVarName @k @rD @shD _) =
-  case testEquality (typeRep @k) (typeRep @Nat) of
+odFromVar (AstDynamicVarName @ty @rD @shD _) =
+  case testEquality (typeRep @ty) (typeRep @Nat) of
     Just Refl -> DynamicRankedDummy @rD @shD Proxy Proxy
     _ -> DynamicShapedDummy @rD @shD Proxy Proxy
 

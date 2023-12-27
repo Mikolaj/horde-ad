@@ -60,7 +60,7 @@ import HordeAd.Util.SizedIndex
 -- which is the normal, the basic value. The exact type of the dual component
 -- is determined by a definition of type family @Dual@ provided elsewhere.
 type role ADVal nominal nominal nominal
-data ADVal (f :: TensorKind k) (r :: Type) (z :: k) =
+data ADVal (f :: TensorKind ty) (r :: Type) (z :: ty) =
   D ADShare (f r z) (Dual f r z)
 
 deriving instance (Show (f r z), Show (Dual f r z))
@@ -279,7 +279,7 @@ zeroParameters =
   in V.map f
 
 crevOnADInputs
-  :: forall k (f :: TensorKind k) r y.
+  :: forall ty (f :: TensorKind ty) r y.
      ( RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
   => Bool -> Maybe (f r y)
@@ -296,7 +296,7 @@ crevOnADInputs useDummies mdt f inputs =
   let parameters0 = zeroParameters inputs
       (!astBindings, !gradient) =
         reverseDervative useDummies parameters0 v mdt deltaTopLevel
-  in (unletGradient @k @f l astBindings gradient, unletValue l [] v)
+  in (unletGradient @ty @f l astBindings gradient, unletValue l [] v)
 
 crevOnDomains
   :: forall r y f.
@@ -388,7 +388,7 @@ makeADInputs =
 
 -- * Reverse and forward derivative stages class and instances
 
-type DerivativeStages :: forall k. TensorKind k -> Constraint
+type DerivativeStages :: TensorKind ty -> Constraint
 class DerivativeStages g where
   forwardPassByInterpretation
     :: (GoodScalar r, HasSingletonDict y)
@@ -456,7 +456,7 @@ class DerivativeStages g where
     fwdArtifactFromForwardPass tf (forwardPassByInterpretation g envInit)
 
 -- TODO: this is an ad-hoc class with an ad-hoc name
-type UnletGradient :: forall k. TensorKind k -> Constraint
+type UnletGradient :: TensorKind ty -> Constraint
 class UnletGradient g where
   unletGradient
     :: ADShare -> AstBindingsD (RankedOf g) -> Domains (RankedOf g)

@@ -46,14 +46,14 @@ import HordeAd.Util.SizedIndex
 
 -- * Kinds of the functors that determine the structure of a tensor type
 
-type TensorKind k = Type -> k -> Type
+type TensorKind ty = Type -> ty -> Type
 
 type RankedTensorKind = TensorKind Nat
 
 type ShapedTensorKind = TensorKind [Nat]
 
 type role TensorFunctor nominal
-data TensorFunctor (g :: TensorKind k) = TensorFunctor
+data TensorFunctor (g :: TensorKind ty) = TensorFunctor
 
 type GoodScalarConstraint r =
   ( Show r, Ord r, Numeric r, Num r, Num (Vector r), RowSum r, Typeable r
@@ -68,8 +68,8 @@ type GoodScalarConstraint r =
 class GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
 
-type HasSingletonDict :: k -> Constraint
-type family HasSingletonDict (y :: k) where
+type HasSingletonDict :: ty -> Constraint
+type family HasSingletonDict (y :: ty) where
   HasSingletonDict '() = ()
   HasSingletonDict n = KnownNat n
   HasSingletonDict sh = Sh.Shape sh
@@ -150,20 +150,20 @@ type Domains ranked = Data.Vector.Vector (DynamicTensor ranked)
 
 -- * Type families that tensors will belong to
 
--- k is intended to be Nat or [Nat] (or nothing, if we support scalars)
-type family RankedOf (f :: TensorKind k) :: RankedTensorKind
+-- ty is intended to be Nat or [Nat] (or nothing, if we support scalars)
+type family RankedOf (f :: TensorKind ty) :: RankedTensorKind
 
-type family ShapedOf (f :: TensorKind k) :: ShapedTensorKind
+type family ShapedOf (f :: TensorKind ty) :: ShapedTensorKind
 
-type family DomainsOf (f :: TensorKind k) :: Type
+type family DomainsOf (f :: TensorKind ty) :: Type
 
-type family PrimalOf (f :: TensorKind k) :: TensorKind k
+type family PrimalOf (f :: TensorKind ty) :: TensorKind ty
 
-type family DualOf (f :: TensorKind k) :: TensorKind k
+type family DualOf (f :: TensorKind ty) :: TensorKind ty
 
 type role DummyDual representational nominal
-type DummyDual :: forall {k}. TensorKind k
-data DummyDual r (y :: k) = DummyDual
+type DummyDual :: TensorKind ty
+data DummyDual r (y :: ty) = DummyDual
 
 
 -- * Generic types of integer indexes used in tensor operations
@@ -172,7 +172,7 @@ data DummyDual r (y :: k) = DummyDual
 -- If used as size or shape, it would give more expressiveness,
 -- but would lead to irregular tensors, especially after vectorization,
 -- and would prevent statically known shapes.
-type IntOf (f :: TensorKind k) = RankedOf (PrimalOf f) Int64 0
+type IntOf (f :: TensorKind ty) = RankedOf (PrimalOf f) Int64 0
 
 -- | Thanks to the OverloadedLists mechanism, values of this type can be
 -- written using the normal list notation. However, such values, if not
@@ -180,24 +180,24 @@ type IntOf (f :: TensorKind k) = RankedOf (PrimalOf f) Int64 0
 -- of the list until runtime. That means that some errors are hidden
 -- and also extra type applications may be needed to satisfy the compiler.
 -- Therefore, there is a real trade-off between @[2]@ and @(2 :. ZI).
-type IndexOf (f :: TensorKind k) n = Index n (IntOf f)
+type IndexOf (f :: TensorKind ty) n = Index n (IntOf f)
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The value of this type has to be positive and less than the @n@ bound.
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
-type IntSh (f :: TensorKind k) (n :: Nat) = ShapedNat n (IntOf f)
+type IntSh (f :: TensorKind ty) (n :: Nat) = ShapedNat n (IntOf f)
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The values of this type are bounded by the shape.
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
-type IndexSh (f :: TensorKind k) (sh :: [Nat]) = ShapedList sh (IntOf f)
+type IndexSh (f :: TensorKind ty) (sh :: [Nat]) = ShapedList sh (IntOf f)
 
 
 -- * Generic types of booleans used in tensor operations
 
-type family SimpleBoolOf (t :: k) :: Type
+type family SimpleBoolOf (t :: ty) :: Type
 
 
 -- * Definitions to help express and manipulate type-level natural numbers

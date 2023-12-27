@@ -125,7 +125,7 @@ isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
 -- but it would prevent using a type signature for @DerivativeStages@
 -- (unless we accept mandatory kinds in type applications of @rev@, etc.)
 -- and some uses of @fwd@, etc., would require extra type applications.
-type ConcreteOf :: forall k. TensorKind k -> TensorKind k
+type ConcreteOf :: TensorKind ty -> TensorKind ty
 type family ConcreteOf f = result | result -> f where
   ConcreteOf (AstRanked FullSpan) = Flip OR.Array
   ConcreteOf (AstShaped FullSpan) = Flip OS.Array
@@ -137,7 +137,7 @@ type ADShare = ADShareD (AstRanked PrimalSpan)
 -- * More and less typed variables and type synonyms containing them
 
 type role AstVarName phantom phantom nominal
-newtype AstVarName (f :: TensorKind k) (r :: Type) (y :: k) =
+newtype AstVarName (f :: TensorKind ty) (r :: Type) (y :: ty) =
   AstVarName AstVarId
  deriving (Eq, Ord, Enum)
 
@@ -154,8 +154,8 @@ varNameToAstVarId (AstVarName varId) = varId
 -- A lot of the variables are existential, but there's no nesting,
 -- so no special care about picking specializations at runtime is needed.
 data AstDynamicVarName where
-  AstDynamicVarName :: forall (k :: Type) r sh.
-                       (Typeable k, GoodScalar r, Sh.Shape sh)
+  AstDynamicVarName :: forall (ty :: Type) r sh.
+                       (Typeable ty, GoodScalar r, Sh.Shape sh)
                     => AstVarId -> AstDynamicVarName
 deriving instance Show AstDynamicVarName
 
@@ -163,11 +163,11 @@ dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
 dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
-type AstArtifactRev (f :: TensorKind k) r y =
+type AstArtifactRev (f :: TensorKind ty) r y =
   ( (AstVarName f r y, [AstDynamicVarName])
   , DomainsOf f, f r y, OR.ShapeL )
 
-type AstArtifactFwd (f :: TensorKind k) r y =
+type AstArtifactFwd (f :: TensorKind ty) r y =
   ( ([AstDynamicVarName], [AstDynamicVarName])
   , f r y, f r y )
 
@@ -812,7 +812,7 @@ instance Boolean AstBool where
 
 -- * Boolean definitions and instances
 
-type BoolOf :: forall {k}. TensorKind k -> Type
+type BoolOf :: TensorKind ty -> Type
 type BoolOf f = (ADShare, SimpleBoolOf f)
 
 -- This and below is inspired by https://hackage.haskell.org/package/Boolean,
@@ -827,19 +827,19 @@ instance Boolean b => Boolean (ADShare, b) where
   (l1, b) &&* (l2, c) = (l1 `mergeADShare` l2, b &&* c)
   (l1, b) ||* (l2, c) = (l1 `mergeADShare` l2, b ||* c)
 
-class Boolean (SimpleBoolOf f) => IfF (f :: TensorKind k) where
+class Boolean (SimpleBoolOf f) => IfF (f :: TensorKind ty) where
   ifF :: (GoodScalar r, HasSingletonDict y)
       => BoolOf f -> f r y -> f r y -> f r y
 
 infix 4 ==., /=.
-class Boolean (SimpleBoolOf f) => EqF (f :: TensorKind k) where
+class Boolean (SimpleBoolOf f) => EqF (f :: TensorKind ty) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
   (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
                => f r y -> f r y -> BoolOf f
   u /=. v = notB (u ==. v)
 
 infix 4 <., <=., >=., >.
-class Boolean (SimpleBoolOf f) => OrdF (f :: TensorKind k) where
+class Boolean (SimpleBoolOf f) => OrdF (f :: TensorKind ty) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
   (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
                            => f r y -> f r y -> BoolOf f
