@@ -88,7 +88,7 @@ benchProd ~(_l, list, vec) =
                    rfromD d)
         in nf (V.map f . fst
                . crevOnDomains @Double Nothing rankedVecDProd)
-              (V.map (DynamicExists . dfromR) vec)
+              (V.map (DynamicExists . DynamicRanked) vec)
     , bench "NoShare List crev" $ nf (crev rankedNoShareListProd) list
     ]
 

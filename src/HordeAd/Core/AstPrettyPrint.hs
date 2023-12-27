@@ -410,10 +410,10 @@ showCollectionWith start end showx (x:xs) s = start ++ showx x (showl xs)
 printAstDynamic :: AstSpan s
                 => PrintConfig -> Int -> AstDynamic s -> ShowS
 printAstDynamic cfg d = \case
-  DynamicRanked v -> printPrefixOp printAst cfg d "dfromR" [v]
-  DynamicShaped v -> printPrefixOp printAstS cfg d "dfromS" [v]
-  DynamicRankedDummy{} -> showString "dfromR 0"
-  DynamicShapedDummy{} -> showString "dfromS 0"
+  DynamicRanked v -> printPrefixOp printAst cfg d "DynamicRanked" [v]
+  DynamicShaped v -> printPrefixOp printAstS cfg d "DynamicShaped" [v]
+  DynamicRankedDummy{} -> showString "DynamicRanked 0"
+  DynamicShapedDummy{} -> showString "DynamicShaped 0"
 
 printAstUnDynamic :: AstSpan s
                   => PrintConfig -> Int -> AstDynamic s -> ShowS

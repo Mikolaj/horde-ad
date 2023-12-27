@@ -329,7 +329,6 @@ instance ( Dual shaped ~ DeltaS ranked shaped
 
 instance ( Dual ranked ~ DeltaR ranked shaped
          , Dual shaped ~ DeltaS ranked shaped
-         , RankedTensor (ADVal ranked), ShapedTensor (ADVal shaped)
          , ConvertTensor ranked shaped )
          => ConvertTensor (ADVal ranked) (ADVal shaped) where
   rfromS = sToR
@@ -340,8 +339,6 @@ instance ( Dual ranked ~ DeltaR ranked shaped
      where
       dSToR (RToS d) = d  -- no information lost, so no checks
       dSToR d = SToR d
-  dfromR = DynamicRanked
-  dfromS = DynamicShaped
   sfromR = rToS
    where
     rToS :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
@@ -422,13 +419,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         df :: ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
            -> ranked rn n
         df cx (ca, x, a) =
-          fst $ cfwdOnDomains (V.fromList [dfromR x, dfromR a])
-                              g (V.fromList [dfromR cx, dfromR ca])
+          fst $ cfwdOnDomains (V.fromList [DynamicRanked x, DynamicRanked a])
+                              g (V.fromList [DynamicRanked cx, DynamicRanked ca])
         rf :: ranked rn n -> (ranked rn n, ranked rm m)
            -> (ranked rn n, ranked rm m)
         rf dt (x, a) =
           domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains (Just dt) g (V.fromList [dfromR x, dfromR a])
+          $ crevOnDomains (Just dt) g (V.fromList [DynamicRanked x, DynamicRanked a])
     in D (l1 `mergeADShare` l2)
          (rfold @ranked f x0 as)
          (FoldR f x0 as df rf x0' as')
@@ -484,13 +481,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         df :: shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
            -> shaped rn sh
         df cx (ca, x, a) =
-          fst $ cfwdOnDomains (V.fromList [dfromS x, dfromS a])
-                              g (V.fromList [dfromS cx, dfromS ca])
+          fst $ cfwdOnDomains (V.fromList [DynamicShaped x, DynamicShaped a])
+                              g (V.fromList [DynamicShaped cx, DynamicShaped ca])
         rf :: shaped rn sh -> (shaped rn sh, shaped rm shm)
            -> (shaped rn sh, shaped rm shm)
         rf dt (x, a) =
           domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains (Just dt) g (V.fromList [dfromS x, dfromS a])
+          $ crevOnDomains (Just dt) g (V.fromList [DynamicShaped x, DynamicShaped a])
     in D (l1 `mergeADShare` l2)
          (sfold @ranked f x0 as)
          (FoldS f x0 as df rf x0' as')
