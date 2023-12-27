@@ -594,13 +594,13 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
           :: MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                (Flip OS.Array) widthHidden widthHidden2 r
         valsInitShaped = fst $ randomVals 1 (mkStdGen 44)
-        domainsInit = toDomains valsInitShaped  -- == toDomains valsInit
         valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
         valsInit =
           -- This almost works and I wouldn't need forgetShape,
           -- but there is nowhere to get aInit from.
           --   parseDomains aInit domainsInit
           forgetShape valsInitShaped
+        domainsInit = toDomains valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show widthHidden, show widthHidden2

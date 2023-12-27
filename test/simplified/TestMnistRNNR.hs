@@ -264,9 +264,9 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
     let valsInitShaped
           :: MnistRnnRanked2.ADRnnMnistParametersShaped (Flip OS.Array) width r
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
-        domainsInit = toDomains valsInitShaped  -- == toDomains valsInit
         valsInit :: MnistRnnRanked2.ADRnnMnistParameters ranked r
         valsInit = forgetShape valsInitShaped
+        domainsInit = toDomains valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show width, show miniBatchSize

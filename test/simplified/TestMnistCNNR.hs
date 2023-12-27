@@ -275,9 +275,9 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                (Flip OS.Array) SizeMnistHeight SizeMnistWidth
                kh kw c_out n_hidden r
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
-        domainsInit = toDomains valsInitShaped  -- == toDomains valsInit
         valsInit :: MnistCnnRanked2.ADCnnMnistParameters ranked r
         valsInit = forgetShape valsInitShaped
+        domainsInit = toDomains valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show kh, show kw, show c_out, show n_hidden
