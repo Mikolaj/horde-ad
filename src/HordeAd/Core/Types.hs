@@ -129,7 +129,7 @@ type CRanked :: RankedTensorType -> (Type -> Constraint) -> Constraint
 class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
       => CRanked ranked c where
 instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
-         => CRanked ranked c where
+      => CRanked ranked c where
 
 type CShaped :: ShapedTensorType -> (Type -> Constraint) -> Constraint
 class (forall r30 y30. (Sh.Shape y30, GoodScalar r30) => c (shaped r30 y30))

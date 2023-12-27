@@ -5,7 +5,6 @@ module BenchMnistTools where
 import Prelude
 
 import           Criterion.Main
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
@@ -38,18 +37,18 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
                     gamma = do
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
-        imap (\i nPV -> OD.fromVector [nPV]
+        imap (\i nPV -> DynamicRanked @r @1 $ Flip $ OR.fromVector [nPV]
                         $ V.map realToFrac
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList $ map (DynamicExists @r) params1Init
+      domainsInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
-      f :: MnistData r -> Domains (DynamicOf (ADVal ranked))
+      f :: MnistData r -> Domains (ADVal ranked)
         -> ADVal ranked r 0
       f mnist adinputs =
         MnistFcnnRanked1.afcnnMnistLoss1
@@ -59,7 +58,7 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
       grad c = fst $ sgd gamma f c domainsInit
       name = extraPrefix
              ++ unwords [ "v" ++ show (length nParams1)
-                        , "m0" ++ " =" ++ show (sum (map OD.size params1Init)) ]
+                        , "m0" ++ " =" ++ show (sizeDomainsOD domainsInit) ]
   bench name $ nf grad chunk
 
 mnistTestBench1VTA :: forall ranked r. (ranked ~ Flip OR.Array, r ~ Double)
@@ -68,13 +67,13 @@ mnistTestBench1VTA :: forall ranked r. (ranked ~ Flip OR.Array, r ~ Double)
 mnistTestBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
-        imap (\i nPV -> OD.fromVector [nPV]
+        imap (\i nPV -> DynamicRanked @r @1 $ Flip $ OR.fromVector [nPV]
                         $ V.map realToFrac
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList $ map (DynamicExists @r) params1Init
+      domainsInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
@@ -85,7 +84,7 @@ mnistTestBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
       score c = ftest c domainsInit
       name = "test " ++ extraPrefix
              ++ unwords [ "v" ++ show (length nParams1)
-                        , "m0" ++ " =" ++ show (sum (map OD.size params1Init)) ]
+                        , "m0" ++ " =" ++ show (sizeDomainsOD domainsInit) ]
   bench name $ whnf score chunk
 
 mnistBGroup1VTA :: [MnistData Double] -> Int -> Benchmark
@@ -119,20 +118,20 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
                     gamma = do
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
-        imap (\i nPV -> OD.fromVector [nPV]
+        imap (\i nPV -> DynamicRanked @r @1 $ Flip $ OR.fromVector [nPV]
                         $ V.map realToFrac
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList $ map (DynamicExists @r) params1Init
+      domainsInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
       name = extraPrefix
              ++ unwords [ "v" ++ show (length nParams1)
-                        , "m0" ++ " =" ++ show (sum (map OD.size params1Init)) ]
+                        , "m0" ++ " =" ++ show (sizeDomainsOD domainsInit) ]
   bench name $ nfIO $ do
     (varGlyph, varGlyphD, astGlyph) <-
       funToAstIOR (singletonShape sizeMnistGlyphInt) id
@@ -146,17 +145,17 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
               (rconstant astGlyph, rconstant astLabel)
         g domains = f $ parseDomains valsInit domains
         (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-          revProduceArtifact True False g envInit domainsInit
+          revProduceArtifact TensorToken False g envInit domainsInit
         gradient = simplifyAstDomains6 gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
         vars = (varDtAgain, vars1AndInputAgain)
         go :: [MnistData r] -> DomainsOD -> DomainsOD
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
-          let glyphD = DynamicExists
-                       $ OD.fromVector [sizeMnistGlyphInt] glyph
-              labelD = DynamicExists
-                       $ OD.fromVector [sizeMnistLabelInt] label
+          let glyphD = DynamicRanked @r @1
+                       $ Flip $ OR.fromVector [sizeMnistGlyphInt] glyph
+              labelD = DynamicRanked @r @1
+                       $ Flip $ OR.fromVector [sizeMnistLabelInt] label
               parametersAndInput =
                 V.concat [parameters, V.fromList [glyphD, labelD]]
               gradientDomain =
@@ -218,7 +217,7 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
       domainsInit = toDomains valsInit
-      f :: MnistData r -> Domains (DynamicOf (ADVal ranked))
+      f :: MnistData r -> Domains (ADVal ranked)
         -> ADVal ranked r 0
       f mnist adinputs =
         MnistFcnnRanked2.afcnnMnistLoss2
@@ -319,17 +318,17 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
               (rconstant astGlyph, rconstant astLabel)
         g domains = f $ parseDomains valsInit domains
         (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
-          revProduceArtifact True False g envInit domainsInit
+          revProduceArtifact TensorToken False g envInit domainsInit
         gradient = simplifyAstDomains6 gradientRaw
         vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
         vars = (varDtAgain, vars1AndInputAgain)
         go :: [MnistData r] -> DomainsOD -> DomainsOD
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
-          let glyphD = DynamicExists
-                       $ OD.fromVector [sizeMnistGlyphInt] glyph
-              labelD = DynamicExists
-                       $ OD.fromVector [sizeMnistLabelInt] label
+          let glyphD = DynamicRanked @r @1
+                       $ Flip $ OR.fromVector [sizeMnistGlyphInt] glyph
+              labelD = DynamicRanked @r @1
+                       $ Flip $ OR.fromVector [sizeMnistLabelInt] label
               parametersAndInput =
                 V.concat [parameters, V.fromList [glyphD, labelD]]
               gradientDomain =

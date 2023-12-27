@@ -7,9 +7,7 @@ module BenchProdTools where
 
 import Prelude
 
-import           Control.DeepSeq (NFData)
 import           Criterion.Main
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           Data.List (foldl1')
@@ -24,13 +22,12 @@ import           Unsafe.Coerce (unsafeCoerce)
 --import           HordeAd.Internal.TensorFFI (RowSum)
 --import           Numeric.LinearAlgebra (Numeric)
 --import           Type.Reflection (Typeable)
+--import           Control.DeepSeq (NFData)
 
 --import HordeAd.Core.Adaptor
 
 import HordeAd
 import HordeAd.Internal.TensorOps
-
-deriving instance NFData (f a b) => NFData (Flip f b a)
 
 bgroup100, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 bgroup100 = envProd 100 $ \args -> bgroup "100" $ benchProd args
@@ -82,13 +79,15 @@ benchProd ~(_l, list, vec) =
 --                vec2 = V.fromList list2
 --            in vec2)
     , bench "VecD crev" $
-        let f :: DynamicExists OD.Array -> Flip OR.Array Double 0
-            f = (\(DynamicExists @r2 d) ->
-                   gcastWith (unsafeCoerce Refl :: r2 :~: Double) $
-                   rfromD d)
+        let f :: DynamicTensor (Flip OR.Array) -> Flip OR.Array Double 0
+            f (DynamicRanked @r2 @n2 d) =
+                 gcastWith (unsafeCoerce Refl :: r2 :~: Double) $
+                 gcastWith (unsafeCoerce Refl :: n2 :~: 0) $
+                 d
+            f _ = error "benchProd: wrong type"
         in nf (V.map f . fst
                . crevOnDomains @Double Nothing rankedVecDProd)
-              (V.map (DynamicExists . DynamicRanked) vec)
+              (V.map DynamicRanked vec)
     , bench "NoShare List crev" $ nf (crev rankedNoShareListProd) list
     ]
 
@@ -128,12 +127,15 @@ _rankedVecProd = V.foldl1' (*)
 -- and use these instead of rank 0 tensors, but it's probably better
 -- to add fold on tensors instead.
 rankedVecDProd :: forall r ranked.
-                  ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
-                  , GoodScalar r )
-               => Domains (DynamicOf ranked) -> ranked r 0
-rankedVecDProd = V.foldl' (\acc (DynamicExists @r2 d) ->
-                             gcastWith (unsafeCoerce Refl :: r2 :~: r) $
-                             rfromD d * acc) 0
+                  (RankedTensor ranked, GoodScalar r)
+               => Domains ranked -> ranked r 0
+rankedVecDProd =
+  let f acc (DynamicRanked @r2 @n2 d) =
+        gcastWith (unsafeCoerce Refl :: r2 :~: r) $
+        gcastWith (unsafeCoerce Refl :: n2 :~: 0) $
+        d * acc
+      f _ _ = error "rankedVecDProd: wrong type"
+  in V.foldl' f 0
 
 rankedNoShareListProd :: GoodScalar r
                       => [ADVal (Flip OR.Array) r 0]

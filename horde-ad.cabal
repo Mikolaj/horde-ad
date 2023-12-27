@@ -241,7 +241,6 @@ library benchCommonLibrary
       , base
       , bifunctors
       , criterion
-      , deepseq
       , enummapset
       , hmatrix
       , ilist

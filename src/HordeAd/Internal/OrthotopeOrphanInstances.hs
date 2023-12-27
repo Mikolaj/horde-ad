@@ -8,6 +8,7 @@ module HordeAd.Internal.OrthotopeOrphanInstances
 
 import Prelude
 
+import           Control.DeepSeq (NFData)
 import           Control.Exception.Assert.Sugar
 import           Data.Array.Convert (Convert)
 import qualified Data.Array.Convert
@@ -481,6 +482,8 @@ deriving instance Real (f a b) => Real (Flip f b a)
 deriving instance RealFrac (f a b) => RealFrac (Flip f b a)
 
 deriving instance RealFloat (f a b) => RealFloat (Flip f b a)
+
+deriving instance NFData (f a b) => NFData (Flip f b a)
 
 
 -- * Assorted orphans and additions
