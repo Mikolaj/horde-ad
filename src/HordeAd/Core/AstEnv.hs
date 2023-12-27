@@ -81,14 +81,14 @@ extendEnvD (AstDynamicVarName @ty @r @sh varId, d) !env
     DynamicRanked @r2 @n2 t -> case matchingRank @sh @n2 of
       Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
         Just Refl -> extendEnvR (AstVarName varId) t env
-        _ -> error "extendEnvD: type mismatch"
+        _ -> error "extendEnvD: scalar mismatch"
       _ -> error "extendEnvD: rank mismatch"
     DynamicShaped{} -> error "extendEnvD: ranked from shaped"
     DynamicRankedDummy @r2 @sh2 _ _ -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
         Just Refl -> withListShape (Sh.shapeT @sh2) $ \sh3 ->
           extendEnvR @_ @_ @r (AstVarName varId) (rzero sh3) env
-        _ -> error "extendEnvD: type mismatch"
+        _ -> error "extendEnvD: scalar mismatch"
       _ -> error "extendEnvD: rank mismatch"
     DynamicShapedDummy{} -> error "extendEnvD: ranked from shaped"
 extendEnvD (AstDynamicVarName @ty @r @sh varId, d) env
@@ -97,15 +97,15 @@ extendEnvD (AstDynamicVarName @ty @r @sh varId, d) env
     DynamicShaped @r2 @sh2 t -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
         Just Refl -> extendEnvS (AstVarName varId) t env
-        _ -> error "extendEnvD: type mismatch"
+        _ -> error "extendEnvD: scalar mismatch"
       _ -> error "extendEnvD: shape mismatch"
     DynamicRankedDummy{} -> error "extendEnvD: shaped from ranked"
     DynamicShapedDummy @r2 @sh2 _ _ -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
         Just Refl -> extendEnvS @_ @_ @r @sh (AstVarName varId) 0 env
-        _ -> error "extendEnvD: type mismatch"
+        _ -> error "extendEnvD: scalar mismatch"
       _ -> error "extendEnvD: shape mismatch"
-extendEnvD _ _ = error "extendEnvD: unexpected kind"
+extendEnvD _ _ = error "extendEnvD: unexpected type"
 
 extendEnvI :: ( RankedTensor ranked
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )

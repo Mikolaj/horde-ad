@@ -875,7 +875,7 @@ astLet var u v@(Ast.AstVar _ var2) =
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> u
-        _ -> error "astLet: type mismatch"
+        _ -> error "astLet: scalar mismatch"
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
   else v
@@ -885,7 +885,7 @@ astLet var u v@(Ast.AstConstant (Ast.AstVar _ var2)) =  -- a common noop
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> Ast.AstConstant u
-        _ -> error "astLet: type mismatch"
+        _ -> error "astLet: scalar mismatch"
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
   else v
@@ -895,7 +895,7 @@ astLet var u v@(Ast.AstPrimalPart (Ast.AstVar _ var2)) =  -- a common noop
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> astPrimalPart @r2 u
-        _ -> error "astLet: type mismatch"
+        _ -> error "astLet: scalar mismatch"
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
   else v
@@ -905,7 +905,7 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
     Just Refl -> case sameNat (Proxy @n) (Proxy @m) of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> astDualPart @r2 u
-        _ -> error "astLet: type mismatch"
+        _ -> error "astLet: scalar mismatch"
       _ -> error "astLet: rank mismatch"
     _ -> error "astLet: span mismatch"
   else v
@@ -938,7 +938,7 @@ astLetS var u v@(Ast.AstVarS var2) =
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> u
-        _ -> error "astLetS: type mismatch"
+        _ -> error "astLetS: scalar mismatch"
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
   else v
@@ -948,7 +948,7 @@ astLetS var u v@(Ast.AstConstantS (Ast.AstVarS var2)) =  -- a common noop
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> Ast.AstConstantS u
-        _ -> error "astLetS: type mismatch"
+        _ -> error "astLetS: scalar mismatch"
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
   else v
@@ -958,7 +958,7 @@ astLetS var u v@(Ast.AstPrimalPartS (Ast.AstVarS var2)) =  -- a common noop
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> astPrimalPartS @r2 u
-        _ -> error "astLetS: type mismatch"
+        _ -> error "astLetS: scalar mismatch"
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
   else v
@@ -968,7 +968,7 @@ astLetS var u v@(Ast.AstDualPartS (Ast.AstVarS var2)) =  -- a noop
     Just Refl -> case sameShape @sh1 @sh2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> astDualPartS @r2 u
-        _ -> error "astLetS: type mismatch"
+        _ -> error "astLetS: scalar mismatch"
       _ -> error "astLetS: shape mismatch"
     _ -> error "astLetS: span mismatch"
   else v

@@ -124,17 +124,17 @@ interpretAst !env = \case
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (rshape t == sh
                              `blame` (sh, rshape t, varId, t, env)) t
-        _ -> error "interpretAst: type mismatch"
+        _ -> error "interpretAst: scalar mismatch"
       _ -> error "interpretAst: wrong shape in environment"
     -- To impose such checks, we'd need to switch from OD tensors
     -- to existential OR/OS tensors so that we can inspect
     -- which it is and then seed Delta evaluation maps with that.
-    -- Just{} -> error "interpretAst: wrong tensor kind in environment"
+    -- Just{} -> error "interpretAst: wrong tensor type in environment"
     Just (AstEnvElemS @sh2 @r2 t) -> case shapeToList sh == Sh.shapeT @sh2 of
       True -> case matchingRank @sh2 @n of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
           Just Refl -> rfromS @_ @r2 @sh2 t
-          _ -> error "interpretAst: type mismatch"
+          _ -> error "interpretAst: scalar mismatch"
         _ -> error "interpretAst: wrong rank"
       False -> error $ "interpretAst: wrong shape in environment"
                          `showFailure`
@@ -461,7 +461,7 @@ interpretAst !env = \case
             , Just Refl <- sameShape @sh3 @sh2
             , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
               extendEnvS @ranked @shaped @r2 @sh2 (AstVarName varId) 0
-          _ -> error "interpretAst: impossible kind"
+          _ -> error "interpretAst: impossible type"
         env2 lw = foldr f env (zip vars (V.toList lw))
     in rletDomainsIn lt0 lt (\lw -> interpretAst (env2 lw) v)
   AstSToR v -> rfromS $ interpretAstS env v
@@ -676,20 +676,20 @@ interpretAstS !env = \case
     Just (AstEnvElemS @sh2 @r2 t) -> case sameShape @sh2 @sh of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> t
-        _ -> error "interpretAstS: type mismatch"
+        _ -> error "interpretAstS: scalar mismatch"
       Nothing -> error $ "interpretAstS: wrong shape in environment"
                          `showFailure`
                          (Sh.shapeT @sh, Sh.shapeT @sh2, varId, t, env)
     -- To impose such checks, we'd need to switch from OD tensors
     -- to existential OR/OS tensors so that we can inspect
     -- which it is and then seed Delta evaluation maps with that.
-    -- Just{} -> error "interpretAstS: wrong tensor kind in environment"
+    -- Just{} -> error "interpretAstS: wrong tensor type in environment"
     Just (AstEnvElemR @n2 @r2 t) -> case matchingRank @sh @n2 of
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (Sh.shapeT @sh == shapeToList (rshape t)
                              `blame` (Sh.shapeT @sh, rshape t, varId, t, env))
                      $ sfromR @_ @r2 @sh t
-        _ -> error "interpretAstS: type mismatch"
+        _ -> error "interpretAstS: scalar mismatch"
       _ -> error "interpretAstS: wrong shape in environment"
     Nothing -> error $ "interpretAstS: unknown variable " ++ show varId
   AstLetS var u v ->
@@ -998,7 +998,7 @@ interpretAstS !env = \case
             , Just Refl <- sameShape @sh3 @sh2
             , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
               extendEnvS @ranked @shaped @r2 @sh2 (AstVarName varId) 0
-          _ -> error "interpretAstS: impossible kind"
+          _ -> error "interpretAstS: impossible type"
         env2 lw = foldr f env (zip vars (V.toList lw))
     in sletDomainsIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
   AstRToS v -> sfromR $ interpretAst env v

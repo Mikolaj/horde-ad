@@ -296,13 +296,13 @@ raddDynamic r (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2)
                                                        (Proxy @n) of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> DynamicRanked @r $ r + t
-    _ -> error "raddDynamic: type mismatch"
+    _ -> error "raddDynamic: scalar mismatch"
   _ -> error "raddDynamic: rank mismatch"
 raddDynamic _ DynamicShaped{} = error "raddDynamic: DynamicShaped"
 raddDynamic r (DynamicRankedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
   Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
     Just Refl -> DynamicRanked (r :: ranked r2 (Sh.Rank sh2))
-    _ -> error "raddDynamic: type mismatch"
+    _ -> error "raddDynamic: scalar mismatch"
   _ -> error "raddDynamic: rank mismatch"
 raddDynamic _ DynamicShapedDummy{} = error "raddDynamic: DynamicShapedDummy"
 
@@ -315,13 +315,13 @@ saddDynamic _ DynamicRanked{} = error "saddDynamic: DynamicRanked"
 saddDynamic r (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
     Just Refl -> DynamicShaped @r $ r + t
-    _ -> error "saddDynamic: type mismatch"
+    _ -> error "saddDynamic: scalar mismatch"
   _ -> error "saddDynamic: shape mismatch"
 saddDynamic _ DynamicRankedDummy{} = error "saddDynamic: DynamicRankedDummy"
 saddDynamic r (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
     Just Refl -> DynamicShaped (r :: shaped r2 sh2)
-    _ -> error "saddDynamic: type mismatch"
+    _ -> error "saddDynamic: scalar mismatch"
   _ -> error "saddDynamic: shape mismatch"
 
 
@@ -607,13 +607,13 @@ rfromD :: forall ranked r n.
 rfromD (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2) (Proxy @n) of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> t
-    _ -> error "rfromD: type mismatch"
+    _ -> error "rfromD: scalar mismatch"
   _ -> error "rfromD: rank mismatch"
 rfromD DynamicShaped{} = error "rfromD: unexpected DynamicShaped"
 rfromD (DynamicRankedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> rfromS @_ @r2 @sh2 0
-    _ -> error "rfromD: type mismatch"
+    _ -> error "rfromD: scalar mismatch"
   _ -> error "rfromD: rank mismatch"
 rfromD DynamicShapedDummy{} = error "rfromD: unexpected DynamicShapedDummy"
 
@@ -626,7 +626,7 @@ sfromD DynamicRanked{} = error "sfromD: unexpected DynamicRanked"
 sfromD (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> t
-    _ -> error "sfromD: type mismatch"
+    _ -> error "sfromD: scalar mismatch"
   _ -> error "sfromD: shape mismatch"
 sfromD DynamicRankedDummy{} = error "sfromD: unexpected DynamicRankedDummy"
 sfromD DynamicShapedDummy{} = 0
@@ -813,7 +813,7 @@ fromDomainsR params = case V.uncons params of
                                                        (Proxy @n) of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
       Just Refl -> Just (t, rest)
-      _ -> error $ "fromDomainsR: type mismatch in "
+      _ -> error $ "fromDomainsR: scalar mismatch in "
                    ++ show (typeRep @r2, typeRep @r)
     _ -> error "fromDomainsR: rank mismatch"
   Just (DynamicShaped{}, _) -> error "fromDomainsR: ranked from shaped"
@@ -822,7 +822,7 @@ fromDomainsR params = case V.uncons params of
       Just Refl ->
          let sh2 = listShapeToShape (Sh.shapeT @sh2)
          in Just (rzero sh2 :: ranked r2 (Sh.Rank sh2), rest)
-      _ -> error "fromDomainsR: type mismatch"
+      _ -> error "fromDomainsR: scalar mismatch"
     _ -> error "fromDomainsR: shape mismatch"
   Just (DynamicShapedDummy{}, _) -> error "fromDomainsR: ranked from shaped"
   Nothing -> Nothing
@@ -837,7 +837,7 @@ fromDomainsS params = case V.uncons params of
   Just (DynamicShaped @r2 @sh2 t, rest) -> case sameShape @sh2 @sh of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
       Just Refl -> Just (t, rest)
-      _ -> error "fromDomainsS: type mismatch"
+      _ -> error "fromDomainsS: scalar mismatch"
     _ -> error "fromDomainsS: shape mismatch"
   Just (DynamicRankedDummy{}, _) -> error "fromDomainsS: shaped from ranked"
   Just (DynamicShapedDummy @r2 @sh2 _ _, rest) -> case sameShape @sh2 @sh of
@@ -845,7 +845,7 @@ fromDomainsS params = case V.uncons params of
       Just Refl ->
         -- The dummy gets removed, so we verify its types before it does.
         Just (0 :: shaped r2 sh2, rest)
-      _ -> error "fromDomainsS: type mismatch"
+      _ -> error "fromDomainsS: scalar mismatch"
     _ -> error "fromDomainsS: shape mismatch"
   Nothing -> Nothing
 

@@ -993,7 +993,7 @@ buildFinMaps s0 deltaDt =
                       Just Refl -> case testEquality (typeRep @r1)
                                                      (typeRep @r2) of
                         Just Refl -> evalRRuntimeSpecialized s2 c d
-                        _ -> error "buildFinMaps: type mismatch"
+                        _ -> error "buildFinMaps: scalar mismatch"
                       _ -> error "buildFinMaps: rank mismatch"
                     DynamicShaped{} ->
                       error "evalFromnMap: DynamicShaped"
@@ -1008,7 +1008,7 @@ buildFinMaps s0 deltaDt =
                       Just Refl -> case testEquality (typeRep @r1)
                                                      (typeRep @r2) of
                         Just Refl -> evalSRuntimeSpecialized s2 c d
-                        _ -> error "buildFinMaps: type mismatch"
+                        _ -> error "buildFinMaps: scalar mismatch"
                       _ -> error "buildFinMaps: shape mismatch"
                     DynamicRankedDummy{} ->
                       error "evalFromnMap: DynamicRankedDummy"
@@ -1069,7 +1069,7 @@ buildDerivative dimR deltaDt params = do
             DynamicRanked @r2 @n2 e -> case sameNat (Proxy @n2) (Proxy @n) of
               Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
                 Just Refl -> return e
-                _ -> error "buildDerivative: type mismatch"
+                _ -> error "buildDerivative: scalar mismatch"
               _ -> error "buildDerivative: rank mismatch"
             DynamicShaped{} -> error "buildDerivative: DynamicShaped"
             DynamicRankedDummy{} -> error "buildDerivative: DynamicRankedDummy"
@@ -1087,7 +1087,7 @@ buildDerivative dimR deltaDt params = do
                                                         (Proxy @n) of
                   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
                     Just Refl -> return e
-                    _ -> error "buildDerivative: type mismatch"
+                    _ -> error "buildDerivative: scalar mismatch"
                   _ -> error "buildDerivative: rank mismatch"
                 DynamicShaped{} -> error "buildDerivative: DynamicShaped"
                 DynamicRankedDummy{} ->
@@ -1159,7 +1159,7 @@ buildDerivative dimR deltaDt params = do
             DynamicShaped @r2 @sh2 e -> case sameShape @sh2 @sh of
               Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
                 Just Refl -> return e
-                _ -> error "buildDerivative: type mismatch"
+                _ -> error "buildDerivative: scalar mismatch"
               _ -> error "buildDerivative: shape mismatch"
             DynamicRankedDummy{} -> error "buildDerivative: DynamicRankedDummy"
             DynamicShapedDummy{} -> error "buildDerivative: DynamicShapedDummy"
@@ -1176,7 +1176,7 @@ buildDerivative dimR deltaDt params = do
                 DynamicShaped @r2 @sh2 e -> case sameShape @sh2 @sh of
                   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
                     Just Refl -> return e
-                    _ -> error "buildDerivative: type mismatch"
+                    _ -> error "buildDerivative: scalar mismatch"
                   _ -> error "buildDerivative: shape mismatch"
                 DynamicRankedDummy{} ->
                   error "buildDerivative: DynamicRankedDummy"

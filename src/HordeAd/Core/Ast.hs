@@ -149,7 +149,7 @@ varNameToAstVarId :: AstVarName f r y -> AstVarId
 varNameToAstVarId (AstVarName varId) = varId
 
 -- This can't be replaced by AstVarId. because in some places it's used
--- to record the kind, scalar and shape of arguments in a domain.
+-- to record the type, scalar and shape of arguments in a domain.
 --
 -- A lot of the variables are existential, but there's no nesting,
 -- so no special care about picking specializations at runtime is needed.

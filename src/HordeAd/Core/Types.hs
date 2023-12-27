@@ -1,5 +1,5 @@
 {-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
--- | Some fundamental kinds, type families and types.
+-- | Some fundamental type families and types.
 module HordeAd.Core.Types
   ( -- * Kinds of the functors that determine the structure of a tensor type
     TensorType, RankedTensorType, ShapedTensorType, TensorToken(..)
@@ -44,7 +44,7 @@ import HordeAd.Internal.TensorFFI
 import HordeAd.Util.ShapedList (ShapedList, ShapedNat)
 import HordeAd.Util.SizedIndex
 
--- * Kinds of the functors that determine the structure of a tensor type
+-- * Types of types of tensors
 
 type TensorType ty = Type -> ty -> Type
 
