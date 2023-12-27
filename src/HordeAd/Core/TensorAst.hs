@@ -422,7 +422,7 @@ astLetDomainsInFun
 {-# NOINLINE astLetDomainsInFun #-}
 astLetDomainsInFun a0 a f = unsafePerformIO $ do
   let genVar :: DynamicTensor (Flip OR.Array)
-             -> IO (AstDynamicVarName, DynamicTensor (AstRanked s))
+             -> IO (AstDynamicVarName, AstDynamic s)
       genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
         let sh2 = Sh.shapeT @sh2
         withListShape sh2 $ \ (sh3 :: Shape n2 Int) -> do
@@ -556,7 +556,7 @@ astLetDomainsInFunS
 {-# NOINLINE astLetDomainsInFunS #-}
 astLetDomainsInFunS a0 a f = unsafePerformIO $ do
   let genVar :: DynamicTensor (Flip OR.Array)
-             -> IO (AstDynamicVarName, DynamicTensor (AstRanked s))
+             -> IO (AstDynamicVarName, AstDynamic s)
       genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
         let sh2 = Sh.shapeT @sh2
         withListShape sh2 $ \ (sh3 :: Shape n2 Int) -> do
@@ -628,7 +628,7 @@ instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
 instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dmkDomains = AstDomains
   dunDomains od domainsOf =
-    let f :: Int -> DynamicTensor (Flip OR.Array) -> DynamicTensor (AstRanked s)
+    let f :: Int -> DynamicTensor (Flip OR.Array) -> AstDynamic s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListShape (Sh.shapeT @sh) $ \(_ :: Shape n Int) ->

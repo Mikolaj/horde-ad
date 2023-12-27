@@ -495,8 +495,8 @@ gradientDtR !parameters0 value !mdt !deltaTopLevel =
   => DomainsOD -> AstRanked PrimalSpan Double y
   -> Maybe (AstRanked PrimalSpan Double y)
   -> DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double y
-  -> ( AstBindingsD (DynamicTensor (AstRanked PrimalSpan))
-     , Domains (DynamicTensor (AstRanked PrimalSpan)) ) #-}
+  -> ( AstBindingsD (AstRanked PrimalSpan)
+     , Domains (AstRanked PrimalSpan) ) #-}
 -}
 
 derivativeFromDeltaR
@@ -714,7 +714,7 @@ gradientFromDelta !parameters0 !deltaDt =
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientFromDelta
   :: DomainsOD -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
-  -> (AstBindingsD (DynamicTensor (AstRanked PrimalSpan)), Domains (AstDynamic PrimalSpan)) #-}
+  -> (AstBindingsD (AstRanked PrimalSpan), Domains (AstDynamic PrimalSpan)) #-}
 -}
 
 buildFinMaps
