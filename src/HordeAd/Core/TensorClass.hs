@@ -609,38 +609,26 @@ rfromD (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2) (Proxy @n) of
     Just Refl -> t
     _ -> error "rfromD: type mismatch"
   _ -> error "rfromD: rank mismatch"
-rfromD (DynamicShaped @r2 @sh2 t) = case matchingRank @sh2 @n of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> rfromS t
-    _ -> error "rfromD: type mismatch"
-  _ -> error "rfromD: rank mismatch"
+rfromD DynamicShaped{} = error "rfromD: unexpected DynamicShaped"
 rfromD (DynamicRankedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> rfromS @_ @r2 @sh2 0
     _ -> error "rfromD: type mismatch"
   _ -> error "rfromD: rank mismatch"
-rfromD (DynamicShapedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> rfromS @ranked @r2 @sh2 0
-    _ -> error "rfromD: type mismatch"
-  _ -> error "rfromD: rank mismatch"
+rfromD DynamicShapedDummy{} = error "rfromD: unexpected DynamicShapedDummy"
 
 sfromD :: forall shaped r sh.
           ( ShapedTensor shaped
           , GoodScalar r, Sh.Shape sh
           , ShapedOf (RankedOf shaped) ~ shaped )
        => DynamicTensor (RankedOf shaped) -> shaped r sh
-sfromD (DynamicRanked @r2 @n2 t) = case matchingRank @sh @n2 of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> sfromR t
-    _ -> error "sfromD: type mismatch"
-  _ -> error "sfromD: rank mismatch"
+sfromD DynamicRanked{} = error "sfromD: unexpected DynamicRanked"
 sfromD (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> t
     _ -> error "sfromD: type mismatch"
   _ -> error "sfromD: shape mismatch"
-sfromD DynamicRankedDummy{} = 0
+sfromD DynamicRankedDummy{} = error "sfromD: unexpected DynamicRankedDummy"
 sfromD DynamicShapedDummy{} = 0
 
 

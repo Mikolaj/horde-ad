@@ -338,7 +338,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   sD ast (Pair (Clown (Const l)) delta) =
     let (l2, r) = sletUnwrap ast
     in dD (l `mergeADShare` l2) r delta
-  sScale ast (Pair  (Clown (Const l)) delta) =
+  sScale ast (Pair (Clown (Const l)) delta) =
     let (l2, r) = sletUnwrap ast
     in Pair (Clown (Const (l `mergeADShare` l2))) (dScale r delta)
 
@@ -411,12 +411,14 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> ranked rn n
         df cx (ca, x, a) =
           fst $ cfwdOnDomains (V.fromList [DynamicRanked x, DynamicRanked a])
-                              g (V.fromList [DynamicRanked cx, DynamicRanked ca])
+                              g
+                              (V.fromList [DynamicRanked cx, DynamicRanked ca])
         rf :: ranked rn n -> (ranked rn n, ranked rm m)
            -> (ranked rn n, ranked rm m)
         rf dt (x, a) =
           domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains (Just dt) g (V.fromList [DynamicRanked x, DynamicRanked a])
+          $ crevOnDomains (Just dt) g
+                          (V.fromList [DynamicRanked x, DynamicRanked a])
     in D (l1 `mergeADShare` l2)
          (rfold @ranked f x0 as)
          (FoldR f x0 as df rf x0' as')
@@ -437,6 +439,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     let shn = rshape x0
         shm = tailShape $ rshape as
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+        domsToPair :: forall f. ADReady f
+                   => Domains f -> (f rn n, f rm m)
+        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
         -- Note that this function, and similarly @f@ and @rf@ instantiated
         -- and passed to FoldR, is not a function on dual numbers.
         df :: ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
@@ -444,15 +449,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         df cx (ca, x, a) = df0 cx ca x a
         rf :: ranked rn n -> (ranked rn n, ranked rm m)
            -> (ranked rn n, ranked rm m)
-        rf cx (x, a) =
-          let res = rf0 cx x a  -- non-explicit sharing, so helps little
-          in ( rletDomainsIn
-                 domsOD res
-                 (\doms -> rfromD $ doms V.! 0)
-             , rletDomainsIn
-                 domsOD res
-                 (\doms -> rfromD $ doms V.! 1)
-             )
+        rf cx (x, a) =  -- TODO: add explicit sharing
+          domsToPair $ dunDomains domsOD $ rf0 cx x a
     in D (l1 `mergeADShare` l2)
          (rfold @ranked f x0 as)
          (FoldR f x0 as df rf x0' as')
@@ -473,12 +471,14 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> shaped rn sh
         df cx (ca, x, a) =
           fst $ cfwdOnDomains (V.fromList [DynamicShaped x, DynamicShaped a])
-                              g (V.fromList [DynamicShaped cx, DynamicShaped ca])
+                              g
+                              (V.fromList [DynamicShaped cx, DynamicShaped ca])
         rf :: shaped rn sh -> (shaped rn sh, shaped rm shm)
            -> (shaped rn sh, shaped rm shm)
         rf dt (x, a) =
           domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains (Just dt) g (V.fromList [DynamicShaped x, DynamicShaped a])
+          $ crevOnDomains (Just dt) g
+                          (V.fromList [DynamicShaped x, DynamicShaped a])
     in D (l1 `mergeADShare` l2)
          (sfold @ranked f x0 as)
          (FoldS f x0 as df rf x0' as')
@@ -496,6 +496,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> ADVal shaped rn sh
   sfoldDer f df0 rf0 (D l1 x0 x0') (D l2 as as') =
     let domsOD = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
+        domsToPair :: forall f. ADReadyS f
+                   => Domains (RankedOf f) -> (f rn sh, f rm shm)
+        domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
         -- Note that this function, and similarly @f@ and @rf@ instantiated
         -- and passed to FoldR, is not a function on dual numbers.
         df :: shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
@@ -504,14 +507,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         rf :: shaped rn sh -> (shaped rn sh, shaped rm shm)
            -> (shaped rn sh, shaped rm shm)
         rf cx (x, a) =
-          let res = rf0 cx x a  -- non-explicit sharing, so helps little
-          in ( sletDomainsIn
-                 domsOD res
-                 (\doms -> sfromD $ doms V.! 0)
-             , sletDomainsIn
-                 domsOD res
-                 (\doms -> sfromD $ doms V.! 1)
-             )
+          domsToPair $ dunDomains domsOD $ rf0 cx x a
     in D (l1 `mergeADShare` l2)
          (sfold @ranked f x0 as)
          (FoldS f x0 as df rf x0' as')

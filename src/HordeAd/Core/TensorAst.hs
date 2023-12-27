@@ -83,14 +83,6 @@ instance (GoodScalar r, Sh.Shape sh)
 
 -- * Reverse and forward derivative stages instances
 
--- TODO: it's not clear if the instance should be of Clown OD.Array or of
--- DomainsOD, for which we already have unletAstDomains6, etc.;
--- let's wait until we have rev as a function of Tensor class in case
--- that affects rev and/or Delta
---instance DerivativeStages @() (Clown OD.Array) where
---  revEvalArtifact = undefined
---  revProduceArtifact = undefined
-
 instance DerivativeStages (AstRanked FullSpan) where
   forwardPassByInterpretation
     :: (GoodScalar r, KnownNat n)
@@ -155,7 +147,8 @@ instance DerivativeStages (AstRanked FullSpan) where
 
   fwdArtifactFromForwardPass
     :: forall r n. (GoodScalar r, KnownNat n)
-    => TensorToken (AstRanked FullSpan) -> (Domains (AstRanked PrimalSpan)
+    => TensorToken (AstRanked FullSpan)
+    -> (Domains (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
         -> Domains (AstRanked FullSpan)
         -> ADVal (AstRanked PrimalSpan) r n)
@@ -252,7 +245,8 @@ instance DerivativeStages (AstShaped FullSpan) where
 
   fwdArtifactFromForwardPass
     :: forall r sh. (GoodScalar r, Sh.Shape sh)
-    => TensorToken (AstShaped FullSpan) -> (Domains (AstRanked PrimalSpan)
+    => TensorToken (AstShaped FullSpan)
+    -> (Domains (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
         -> Domains (AstRanked FullSpan)
         -> ADVal (AstShaped PrimalSpan) r sh)
