@@ -56,7 +56,7 @@ rev' f vals =
       g :: Domains (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r m
       g inputs = f $ parseDomains vals inputs
-      (advalGrad, value1) = crevOnDomains True dt g parameters
+      (advalGrad, value1) = crevOnDomains dt g parameters
       gradient1 = parseDomains vals advalGrad
       gradientRrev1 = rrev1 @(Flip OR.Array) @r @n @m f vals
       g9 :: Domains (ADVal (AstRanked PrimalSpan))
@@ -87,26 +87,26 @@ rev' f vals =
       h fx1 fx2 gx inputs =
         hGeneral @(ADVal (Flip OR.Array)) fx1 fx2 gx (parseDomains vals inputs)
       (astGrad, value2) =
-        crevOnDomains True dt (h id id id) parameters
+        crevOnDomains dt (h id id id) parameters
       gradient2 = parseDomains vals astGrad
       (astSimple, value3) =
-        crevOnDomains True dt (h id id simplifyAst6) parameters
+        crevOnDomains dt (h id id simplifyAst6) parameters
       gradient3 = parseDomains vals astSimple
       (astGradUnSimp, value2UnSimp) =
-        crevOnDomains True dt (h unAstNoSimplify AstNoSimplify id) parameters
+        crevOnDomains dt (h unAstNoSimplify AstNoSimplify id) parameters
       gradient2UnSimp = parseDomains vals astGradUnSimp
       gradientRrev2UnSimp =
         rrev1 @(Flip OR.Array) @r @n @m
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (astSimpleUnSimp, value3UnSimp) =
-        crevOnDomains True dt (h unAstNoSimplify AstNoSimplify simplifyAst6)
+        crevOnDomains dt (h unAstNoSimplify AstNoSimplify simplifyAst6)
                       parameters
       gradient3UnSimp = parseDomains vals astSimpleUnSimp
       gradientRrev3UnSimp =
         rrev1 @(Flip OR.Array) @r @n @m
               (hGeneral unAstNoSimplify AstNoSimplify simplifyAst6) vals
       (astPrimal, value4) =
-        crevOnDomains True dt (h unAstNoVectorize AstNoVectorize id)
+        crevOnDomains dt (h unAstNoVectorize AstNoVectorize id)
                       parameters
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
@@ -114,7 +114,7 @@ rev' f vals =
       gradientRrev4 = rrev1 @(Flip OR.Array) @r @n @m
                             (hGeneral unAstNoVectorize AstNoVectorize id) vals
       (astPSimple, value5) =
-        crevOnDomains True dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
+        crevOnDomains dt (h unAstNoVectorize AstNoVectorize simplifyAst6)
                       parameters
       gradient5 = parseDomains vals astPSimple
       gradientRrev5 =

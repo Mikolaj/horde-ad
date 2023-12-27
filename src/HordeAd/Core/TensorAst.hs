@@ -110,7 +110,7 @@ instance DerivativeStages (AstRanked FullSpan) where
 
   revArtifactFromForwardPass
     :: forall r n. (GoodScalar r, KnownNat n)
-    => TensorToken (AstRanked FullSpan) -> Bool -> Bool
+    => TensorToken (AstRanked FullSpan) -> Bool
     -> (Domains (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
         -> Domains (AstRanked FullSpan)
@@ -119,7 +119,7 @@ instance DerivativeStages (AstRanked FullSpan) where
     -> ( AstArtifactRev (AstRanked PrimalSpan) r n
        , Dual (AstRanked PrimalSpan) r n )
   {-# INLINE revArtifactFromForwardPass #-}
-  revArtifactFromForwardPass _ useDummies hasDt forwardPass parameters0 =
+  revArtifactFromForwardPass _ hasDt forwardPass parameters0 =
     let -- Bangs and the compound function to fix the numbering of variables
         -- for pretty-printing and prevent sharing the impure values/effects
         -- in tests that reset the impure counters.
@@ -133,7 +133,7 @@ instance DerivativeStages (AstRanked FullSpan) where
         astDt = AstVar sh varDt
         mdt = if hasDt then Just astDt else Nothing
         !(!astBindings, !gradient) =
-          reverseDervative useDummies parameters0 primalBody mdt delta
+          reverseDervative parameters0 primalBody mdt delta
         unGradient = unletGradient @Nat @(AstRanked PrimalSpan)
                                  l astBindings gradient
         unPrimal = unletValue l [] primalBody
@@ -217,7 +217,7 @@ instance DerivativeStages (AstShaped FullSpan) where
 
   revArtifactFromForwardPass
     :: forall r sh. (GoodScalar r, Sh.Shape sh)
-    => TensorToken (AstShaped FullSpan) -> Bool -> Bool
+    => TensorToken (AstShaped FullSpan) -> Bool
     -> (Domains (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
         -> Domains (AstRanked FullSpan)
@@ -226,7 +226,7 @@ instance DerivativeStages (AstShaped FullSpan) where
     -> ( AstArtifactRev (AstShaped PrimalSpan) r sh
        , Dual (AstShaped PrimalSpan) r sh )
   {-# INLINE revArtifactFromForwardPass #-}
-  revArtifactFromForwardPass _ useDummies hasDt forwardPass parameters0 =
+  revArtifactFromForwardPass _ hasDt forwardPass parameters0 =
     let !(!varDtId, varsPrimal, domainsPrimal, vars, domains) =
           funToAstRev parameters0 in
     let !(D l primalBody delta) = forwardPass domainsPrimal vars domains in
@@ -234,7 +234,7 @@ instance DerivativeStages (AstShaped FullSpan) where
         astDt = AstVarS varDt
         mdt = if hasDt then Just astDt else Nothing
         !(!astBindings, !gradient) =
-          reverseDervative useDummies parameters0 primalBody mdt delta
+          reverseDervative parameters0 primalBody mdt delta
         unGradient = unletGradient @[Nat] @(AstShaped PrimalSpan)
                                  l astBindings gradient
         unPrimal = unletValue l [] primalBody
@@ -650,7 +650,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new @parmeters@, which is much better than computing anew.
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact TensorToken True False (f @(AstRanked FullSpan))
+          revProduceArtifact TensorToken False (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters ->
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
@@ -667,7 +667,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
          -> AstDomains s
   rrevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact TensorToken True True (f @(AstRanked FullSpan))
+          revProduceArtifact TensorToken True (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters dt ->
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
@@ -689,14 +689,14 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       in interpretAst envDt derivative
   srev f parameters0 =
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact TensorToken True False (f @(AstShaped FullSpan))
+          revProduceArtifact TensorToken False (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters ->
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstDomains env gradient
   srevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact TensorToken True True (f @(AstShaped FullSpan))
+          revProduceArtifact TensorToken True (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters dt ->
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
@@ -728,8 +728,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
        -- and @as@, which is better than once for each @a@. We could compute
        -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
        -- can do that thanks to shapes being available from types.
-       case revProduceArtifact TensorToken
-                               False True g EM.empty parameters0 of
+       case revProduceArtifact TensorToken True g EM.empty parameters0 of
       ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
         , gradient, _primal, _sh), _delta ) ->
         case fwdProduceArtifact TensorToken g EM.empty parameters0 of
@@ -776,7 +775,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
         domsOD = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
-    in case revProduceArtifact TensorToken False True g EM.empty domsOD of
+    in case revProduceArtifact TensorToken True g EM.empty domsOD of
       ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
         , gradient, _primal, _sh), _delta ) ->
         case fwdProduceArtifact TensorToken g EM.empty domsOD of

@@ -282,20 +282,20 @@ crevOnADInputs
   :: forall ty (f :: TensorType ty) r y.
      ( RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
-  => Bool -> Maybe (f r y)
+  => Maybe (f r y)
   -> (Domains (ADVal (RankedOf f)) -> ADVal f r y)
   -> Domains (ADVal (RankedOf f))
   -> (DomainsOf (RankedOf f), f r y)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
-crevOnADInputs useDummies mdt f inputs =
+crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D l v deltaTopLevel) = f inputs in
   let parameters0 = zeroParameters inputs
       (!astBindings, !gradient) =
-        reverseDervative useDummies parameters0 v mdt deltaTopLevel
+        reverseDervative parameters0 v mdt deltaTopLevel
   in (unletGradient @ty @f l astBindings gradient, unletValue l [] v)
 
 crevOnDomains
@@ -303,14 +303,14 @@ crevOnDomains
      ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , RankedOf (ShapedOf f) ~ RankedOf f, ShapedOf (RankedOf f) ~ ShapedOf f )
-  => Bool -> Maybe (f r y)
+  => Maybe (f r y)
   -> (Domains (ADVal (RankedOf f)) -> ADVal f r y)
   -> Domains (RankedOf f)
   -> (DomainsOf (RankedOf f), f r y)
-crevOnDomains useDummies mdt f parameters =
+crevOnDomains mdt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
-  in crevOnADInputs useDummies mdt f inputs
+  in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
   :: (DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
@@ -403,7 +403,7 @@ class DerivativeStages g where
   revArtifactFromForwardPass
     :: (GoodScalar r, HasSingletonDict y)
     => TensorToken g
-    -> Bool -> Bool
+    -> Bool
     -> (Domains (RankedOf (PrimalOf g))
         -> [AstDynamicVarName]
         -> Domains (RankedOf g)
@@ -413,16 +413,15 @@ class DerivativeStages g where
 
   revProduceArtifact
     :: (GoodScalar r, HasSingletonDict y)
-    => TensorToken g -> Bool -> Bool
+    => TensorToken g -> Bool
     -> (Domains (RankedOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
     -> DomainsOD
     -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
   {-# INLINE revProduceArtifact #-}
-  revProduceArtifact tf useDummies hasDt g envInit =
-    revArtifactFromForwardPass tf useDummies hasDt
-                               (forwardPassByInterpretation g envInit)
+  revProduceArtifact tf hasDt g envInit =
+    revArtifactFromForwardPass tf hasDt (forwardPassByInterpretation g envInit)
 
   revEvalArtifact
     :: (GoodScalar r, HasSingletonDict y)

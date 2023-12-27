@@ -374,7 +374,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
        -> DomainsOf (ADVal ranked)
   rrev f _parameters0 parameters =
     -- This computes the derivative of f again for each new @parmeters@.
-    fst $ crevOnDomains False Nothing (f @(ADVal (ADVal ranked))) parameters
+    fst $ crevOnDomains Nothing (f @(ADVal (ADVal ranked))) parameters
   rrevDt :: (GoodScalar r, KnownNat n)
          => (forall f. ADReady f => Domains f -> f r n)
          -> DomainsOD
@@ -382,7 +382,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> ADVal ranked r n
          -> DomainsOf (ADVal ranked)
   rrevDt f _parameters0 parameters dt =
-    fst $ crevOnDomains False (Just dt) (f @(ADVal (ADVal ranked))) parameters
+    fst $ crevOnDomains (Just dt) (f @(ADVal (ADVal ranked))) parameters
   rfwd :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
@@ -392,9 +392,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rfwd f _parameters0 parameters ds =
     fst $ cfwdOnDomains parameters (f @(ADVal (ADVal ranked))) ds
   srev f _parameters0 parameters =
-    fst $ crevOnDomains False Nothing (f @(ADVal (ADVal shaped))) parameters
+    fst $ crevOnDomains Nothing (f @(ADVal (ADVal shaped))) parameters
   srevDt f _parameters0 parameters dt =
-    fst $ crevOnDomains False (Just dt) (f @(ADVal (ADVal shaped))) parameters
+    fst $ crevOnDomains (Just dt) (f @(ADVal (ADVal shaped))) parameters
   sfwd f _parameters0 parameters ds =
     fst $ cfwdOnDomains parameters (f @(ADVal (ADVal shaped))) ds
   rfold :: forall rn rm n m.
@@ -430,7 +430,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> (ranked rn n, ranked rm m)
         rf dt (x, a) =
           domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains False (Just dt) g (V.fromList [dfromR x, dfromR a])
+          $ crevOnDomains (Just dt) g (V.fromList [dfromR x, dfromR a])
     in D (l1 `mergeADShare` l2)
          (rfold @ranked f x0 as)
          (FoldR f x0 as df rf x0' as')
@@ -492,7 +492,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> (shaped rn sh, shaped rm shm)
         rf dt (x, a) =
           domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains False (Just dt) g (V.fromList [dfromS x, dfromS a])
+          $ crevOnDomains (Just dt) g (V.fromList [dfromS x, dfromS a])
     in D (l1 `mergeADShare` l2)
          (sfold @ranked f x0 as)
          (FoldS f x0 as df rf x0' as')
@@ -544,7 +544,7 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
        -> DomainsOD
        -> DomainsOD
   rrev f _parameters0 parameters =
-    fst $ crevOnDomains False Nothing (f @(ADVal (Flip OR.Array))) parameters
+    fst $ crevOnDomains Nothing (f @(ADVal (Flip OR.Array))) parameters
   rrevDt :: (GoodScalar r, KnownNat n)
          => (forall f. ADReady f => Domains f -> f r n)
          -> DomainsOD
@@ -552,7 +552,7 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
          -> Flip OR.Array r n
          -> DomainsOD
   rrevDt f _parameters0 parameters dt =
-    fst $ crevOnDomains False (Just dt) (f @(ADVal (Flip OR.Array))) parameters
+    fst $ crevOnDomains (Just dt) (f @(ADVal (Flip OR.Array))) parameters
   rfwd :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
@@ -562,9 +562,9 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
   rfwd f _parameters0 parameters ds =
     fst $ cfwdOnDomains parameters (f @(ADVal (Flip OR.Array))) ds
   srev f _parameters0 parameters =
-    fst $ crevOnDomains False Nothing (f @(ADVal (Flip OS.Array))) parameters
+    fst $ crevOnDomains Nothing (f @(ADVal (Flip OS.Array))) parameters
   srevDt f _parameters0 parameters dt =
-    fst $ crevOnDomains False (Just dt) (f @(ADVal (Flip OS.Array))) parameters
+    fst $ crevOnDomains (Just dt) (f @(ADVal (Flip OS.Array))) parameters
   sfwd f _parameters0 parameters ds =
     fst $ cfwdOnDomains parameters (f @(ADVal (Flip OS.Array))) ds
   rfold :: GoodScalar rm

@@ -35,7 +35,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   go [] parameters = (parameters, 0)
   go (a : rest) !parameters =
     let inputs = makeADInputs parameters deltaInputs
-        (gradients, valueNew) = crevOnADInputs True (Just 1) (f a) inputs
+        (gradients, valueNew) = crevOnADInputs (Just 1) (f a) inputs
         parametersNew = updateWithGradient gamma parameters gradients
     in if null rest
        then (parametersNew, valueNew)
@@ -73,7 +73,7 @@ sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =
     let inputs = makeADInputs parameters deltaInputs
-        gradients = fst $ crevOnADInputs True (Just 1) (f a) inputs
+        gradients = fst $ crevOnADInputs (Just 1) (f a) inputs
         (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew

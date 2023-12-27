@@ -457,7 +457,7 @@ class DualPart (f :: TensorType ty) where
   type Dual f = (result :: TensorType ty) | result -> f
   reverseDervative
     :: (HasSingletonDict y, GoodScalar r)
-    => Bool -> DomainsOD -> f r y -> Maybe (f r y) -> Dual f r y
+    => DomainsOD -> f r y -> Maybe (f r y) -> Dual f r y
     -> (AstBindingsD (RankedOf f), Domains (RankedOf f))
   forwardDerivative
     :: (HasSingletonDict y, GoodScalar r)
@@ -477,22 +477,22 @@ gradientDtR
   :: ( KnownNat y, GoodScalar r
      , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped
      , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
-  => Bool -> DomainsOD
+  => DomainsOD
   -> ranked r y -> Maybe (ranked r y) -> DeltaR ranked shaped r y
   -> (AstBindingsD ranked, Domains ranked)
-gradientDtR useDummies !parameters0 value !mdt !deltaTopLevel =
+gradientDtR !parameters0 value !mdt !deltaTopLevel =
   let dt = fromMaybe (rreplicate0N (rshape value) 1) mdt
       deltaDt = DeltaDtR dt deltaTopLevel
-  in gradientFromDelta useDummies parameters0 deltaDt
+  in gradientFromDelta parameters0 deltaDt
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
-  => Bool -> DomainsOD -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
+  => DomainsOD -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
   -> DeltaR (Flip OR.Array) (Flip OS.Array) Double y
   -> (AstBindingsD (Flip OR.Array), Domains (Flip OR.Array) ) #-}
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
-  => Bool -> DomainsOD -> AstRanked PrimalSpan Double y
+  => DomainsOD -> AstRanked PrimalSpan Double y
   -> Maybe (AstRanked PrimalSpan Double y)
   -> DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double y
   -> ( AstBindingsD (DynamicTensor (AstRanked PrimalSpan))
@@ -519,7 +519,7 @@ instance ( RankedTensor (RankedOf shaped), ShapedTensor shaped
          , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
          => DualPart @[Nat] shaped where
   type Dual shaped = DeltaS (RankedOf shaped) shaped
-  reverseDervative useDummies parameters0 _ = gradientDtS useDummies parameters0
+  reverseDervative parameters0 _ = gradientDtS parameters0
   forwardDerivative = derivativeFromDeltaS
 
 gradientDtS
@@ -527,22 +527,22 @@ gradientDtS
      ( Sh.Shape y, GoodScalar r
      , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped
      , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
-  => Bool -> DomainsOD
+  => DomainsOD
   -> Maybe (shaped r y) -> DeltaS ranked shaped r y
   -> (AstBindingsD ranked, Domains ranked)
-gradientDtS useDummies !parameters0 !mdt !deltaTopLevel =
+gradientDtS !parameters0 !mdt !deltaTopLevel =
   let dt = fromMaybe 1 mdt
       deltaDt = DeltaDtS dt deltaTopLevel
-  in gradientFromDelta useDummies parameters0 deltaDt
+  in gradientFromDelta parameters0 deltaDt
 {-# SPECIALIZE gradientDtS
   :: Sh.Shape y
-  => Bool -> DomainsOD -> Maybe (Flip OS.Array Double y)
+  => DomainsOD -> Maybe (Flip OS.Array Double y)
   -> DeltaS (Flip OR.Array) (Flip OS.Array) Double y
   -> (AstBindingsD (Flip OR.Array), Domains (Flip OR.Array)) #-}
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtS
   :: Sh.Shape y
-  => Bool -> DomainsOD -> Maybe (AstShaped PrimalSpan Double y)
+  => DomainsOD -> Maybe (AstShaped PrimalSpan Double y)
   -> DeltaS (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double y
   -> ( AstBindingsD (DynamicTensor (AstShaped PrimalSpan))
      , Domains (DynamicTensor (AstShaped PrimalSpan)) ) #-}
@@ -672,9 +672,9 @@ gradientFromDelta
      ( GoodScalar r, RankedTensor ranked, ShapedTensor shaped
      , ConvertTensor ranked shaped
      , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
-  => Bool -> DomainsOD -> DeltaDt ranked shaped r
+  => DomainsOD -> DeltaDt ranked shaped r
   -> (AstBindingsD ranked, Domains ranked)
-gradientFromDelta useDummies !parameters0 !deltaDt =
+gradientFromDelta !parameters0 !deltaDt =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
   -- The former are usually initialized with dummy values so that it's cheap
@@ -709,11 +709,11 @@ gradientFromDelta useDummies !parameters0 !deltaDt =
      in (astBindings, gradient)
 -- The warnings in the following seems spurious. A GHC issue to be opened.
 {-# SPECIALIZE gradientFromDelta
-  :: Bool -> DomainsOD -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
+  :: DomainsOD -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
   -> (AstBindingsD (Flip OR.Array), DomainsOD) #-}
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientFromDelta
-  :: Bool -> DomainsOD -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
+  :: DomainsOD -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
   -> (AstBindingsD (DynamicTensor (AstRanked PrimalSpan)), Domains (AstDynamic PrimalSpan)) #-}
 -}
 

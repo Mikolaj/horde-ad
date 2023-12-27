@@ -309,7 +309,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
            g domains = f $ parseDomains valsInit domains
            (((varDtAgain, vars1Again), gradientRaw, primal, sh), _) =
              revProduceArtifact @Nat @(AstRanked FullSpan)
-                                TensorToken True False g envInit domainsInit
+                                TensorToken False g envInit domainsInit
            gradient = simplifyAstDomains6 gradientRaw
            vars1AndInputAgain = vars1Again ++ [varGlyphD, varLabelD]
            vars = (varDtAgain, vars1AndInputAgain)

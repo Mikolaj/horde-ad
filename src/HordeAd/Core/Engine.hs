@@ -152,7 +152,7 @@ revDtMaybe f vals mdt =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
       artifact = fst $ revProduceArtifact TensorToken
-                                          True (isJust mdt) g EM.empty domainsOD
+                                          (isJust mdt) g EM.empty domainsOD
   in gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $  -- !!!
      parseDomains vals
      $ fst $ revEvalArtifact artifact domainsOD mdt
@@ -168,7 +168,7 @@ revArtifactAdapt
 revArtifactAdapt hasDt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
-  in revProduceArtifact TensorToken True hasDt g EM.empty domainsOD
+  in revProduceArtifact TensorToken hasDt g EM.empty domainsOD
 {-# SPECIALIZE revArtifactAdapt
   :: ( HasSingletonDict y
      , AdaptableDomains (AstRanked FullSpan) astvals
@@ -189,7 +189,7 @@ revProduceArtifactWithoutInterpretation
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation tf hasDt g =
   revArtifactFromForwardPass
-    @Nat @g TensorToken True hasDt (forwardPassByApplication tf g)
+    @Nat @g TensorToken hasDt (forwardPassByApplication tf g)
 
 forwardPassByApplication
   :: forall g r y.
@@ -344,18 +344,18 @@ crevDtMaybe f vals mdt =
   gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $  -- !!!
   let g inputs = f $ parseDomains vals inputs
   in parseDomains vals
-     $ fst $ crevOnDomains True mdt g (toDomains vals)
+     $ fst $ crevOnDomains mdt g (toDomains vals)
 
 {-# SPECIALIZE crevOnDomains
   :: HasSingletonDict y
-  => Bool -> Maybe (Flip OR.Array Double y)
+  => Maybe (Flip OR.Array Double y)
   -> (Domains (ADVal (Flip OR.Array)) -> ADVal (Flip OR.Array) Double y)
   -> DomainsOD
   -> (DomainsOD, Flip OR.Array Double y) #-}
 
 {-# SPECIALIZE crevOnADInputs
   :: HasSingletonDict y
-  => Bool -> Maybe (Flip OR.Array Double y)
+  => Maybe (Flip OR.Array Double y)
   -> (Domains (ADVal (Flip OR.Array)) -> ADVal (Flip OR.Array) Double y)
   -> Domains (ADVal (Flip OR.Array))
   -> (DomainsOD, Flip OR.Array Double y) #-}
