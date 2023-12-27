@@ -188,7 +188,7 @@ softMax1S d =
 -- would be necessary even without vectorization.
 conv2dUnpaddedS
   :: forall nCoutK nCinpK nKh nKw nImgs nCinpA nAh nAw
-            (shaped :: ShapedTensorKind) r shB shK1.
+            (shaped :: ShapedTensorType) r shB shK1.
      ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh, KnownNat nKw
      , KnownNat nImgs, KnownNat nAh, KnownNat nAw
      , ADReadyS shaped, GoodScalar r

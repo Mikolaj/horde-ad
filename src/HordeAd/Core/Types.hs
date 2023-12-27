@@ -2,7 +2,7 @@
 -- | Some fundamental kinds, type families and types.
 module HordeAd.Core.Types
   ( -- * Kinds of the functors that determine the structure of a tensor type
-    TensorKind, RankedTensorKind, ShapedTensorKind, TensorFunctor(..)
+    TensorType, RankedTensorType, ShapedTensorType, TensorToken(..)
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type definitions for dynamic tensors and tensor collections
@@ -46,14 +46,14 @@ import HordeAd.Util.SizedIndex
 
 -- * Kinds of the functors that determine the structure of a tensor type
 
-type TensorKind ty = Type -> ty -> Type
+type TensorType ty = Type -> ty -> Type
 
-type RankedTensorKind = TensorKind Nat
+type RankedTensorType = TensorType Nat
 
-type ShapedTensorKind = TensorKind [Nat]
+type ShapedTensorType = TensorType [Nat]
 
-type role TensorFunctor nominal
-data TensorFunctor (g :: TensorKind ty) = TensorFunctor
+type role TensorToken nominal
+data TensorToken (g :: TensorType ty) = TensorToken
 
 type GoodScalarConstraint r =
   ( Show r, Ord r, Numeric r, Num r, Num (Vector r), RowSum r, Typeable r
@@ -104,7 +104,7 @@ instance IfDifferentiable Float where
 -- Warning: r is an existential variable, a proper specialization needs
 -- to be picked explicitly at runtime.
 type role DynamicTensor nominal
-data DynamicTensor (ranked :: RankedTensorKind) where
+data DynamicTensor (ranked :: RankedTensorType) where
   DynamicRanked :: (GoodScalar r, KnownNat n)
                 => ranked r n -> DynamicTensor ranked
   DynamicShaped :: (GoodScalar r, Sh.Shape sh)
@@ -125,13 +125,13 @@ instance (CRanked ranked NFData, CShaped (ShapedOf ranked) NFData)
   rnf (DynamicRankedDummy{}) = ()
   rnf (DynamicShapedDummy{}) = ()
 
-type CRanked :: RankedTensorKind -> (Type -> Constraint) -> Constraint
+type CRanked :: RankedTensorType -> (Type -> Constraint) -> Constraint
 class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
       => CRanked ranked c where
 instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
          => CRanked ranked c where
 
-type CShaped :: ShapedTensorKind -> (Type -> Constraint) -> Constraint
+type CShaped :: ShapedTensorType -> (Type -> Constraint) -> Constraint
 class (forall r30 y30. (Sh.Shape y30, GoodScalar r30) => c (shaped r30 y30))
       => CShaped shaped c where
 instance
@@ -151,18 +151,18 @@ type Domains ranked = Data.Vector.Vector (DynamicTensor ranked)
 -- * Type families that tensors will belong to
 
 -- ty is intended to be Nat or [Nat] (or nothing, if we support scalars)
-type family RankedOf (f :: TensorKind ty) :: RankedTensorKind
+type family RankedOf (f :: TensorType ty) :: RankedTensorType
 
-type family ShapedOf (f :: TensorKind ty) :: ShapedTensorKind
+type family ShapedOf (f :: TensorType ty) :: ShapedTensorType
 
-type family DomainsOf (f :: TensorKind ty) :: Type
+type family DomainsOf (f :: TensorType ty) :: Type
 
-type family PrimalOf (f :: TensorKind ty) :: TensorKind ty
+type family PrimalOf (f :: TensorType ty) :: TensorType ty
 
-type family DualOf (f :: TensorKind ty) :: TensorKind ty
+type family DualOf (f :: TensorType ty) :: TensorType ty
 
 type role DummyDual representational nominal
-type DummyDual :: TensorKind ty
+type DummyDual :: TensorType ty
 data DummyDual r (y :: ty) = DummyDual
 
 
@@ -172,7 +172,7 @@ data DummyDual r (y :: ty) = DummyDual
 -- If used as size or shape, it would give more expressiveness,
 -- but would lead to irregular tensors, especially after vectorization,
 -- and would prevent statically known shapes.
-type IntOf (f :: TensorKind ty) = RankedOf (PrimalOf f) Int64 0
+type IntOf (f :: TensorType ty) = RankedOf (PrimalOf f) Int64 0
 
 -- | Thanks to the OverloadedLists mechanism, values of this type can be
 -- written using the normal list notation. However, such values, if not
@@ -180,19 +180,19 @@ type IntOf (f :: TensorKind ty) = RankedOf (PrimalOf f) Int64 0
 -- of the list until runtime. That means that some errors are hidden
 -- and also extra type applications may be needed to satisfy the compiler.
 -- Therefore, there is a real trade-off between @[2]@ and @(2 :. ZI).
-type IndexOf (f :: TensorKind ty) n = Index n (IntOf f)
+type IndexOf (f :: TensorType ty) n = Index n (IntOf f)
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The value of this type has to be positive and less than the @n@ bound.
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
-type IntSh (f :: TensorKind ty) (n :: Nat) = ShapedNat n (IntOf f)
+type IntSh (f :: TensorType ty) (n :: Nat) = ShapedNat n (IntOf f)
 
 -- TODO: ensure this is checked (runtime-checked, if necessary):
 -- | The values of this type are bounded by the shape.
 -- If the values are terms, this is relative to environment
 -- and up to evaluation.
-type IndexSh (f :: TensorKind ty) (sh :: [Nat]) = ShapedList sh (IntOf f)
+type IndexSh (f :: TensorType ty) (sh :: [Nat]) = ShapedList sh (IntOf f)
 
 
 -- * Generic types of booleans used in tensor operations
@@ -238,7 +238,7 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-type AstBindingsD (ranked :: RankedTensorKind) =
+type AstBindingsD (ranked :: RankedTensorType) =
   [(AstVarId, DynamicTensor ranked)]
 
 unsafeGlobalCounter :: Counter
@@ -260,7 +260,7 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 -- are rarely called and relatively cheap, so no picking specializations
 -- at runtime is needed.
 type role ADShareD nominal
-type ADShareD :: RankedTensorKind -> Type
+type ADShareD :: RankedTensorType -> Type
 data ADShareD ranked =
     ADShareNil
   | ADShareCons Int AstVarId (DynamicTensor ranked) (ADShareD ranked)

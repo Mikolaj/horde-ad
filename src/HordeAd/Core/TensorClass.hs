@@ -64,7 +64,7 @@ import           HordeAd.Util.SizedIndex
 
 -- * Ranked tensor class definition
 
-type TensorSupports :: (Type -> Constraint) -> TensorKind ty -> Constraint
+type TensorSupports :: (Type -> Constraint) -> TensorType ty -> Constraint
 type TensorSupports c f =
   forall r y. (GoodScalar r, HasSingletonDict y)
               => (c r, c (Vector r)) => c (f r y)
@@ -73,7 +73,7 @@ type TensorSupports c f =
 -- but also a mathematical tensor, sporting numeric operations.
 class ( Integral (IntOf ranked), CRanked ranked Num
       , TensorSupports RealFloat ranked, TensorSupports Integral ranked )
-      => RankedTensor (ranked :: RankedTensorKind) where
+      => RankedTensor (ranked :: RankedTensorType) where
 
   rlet :: (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
        => ranked r n -> (ranked r n -> ranked r2 m)
@@ -327,7 +327,7 @@ saddDynamic r (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
 
 class ( Integral (IntOf shaped), CShaped shaped Num
       , TensorSupports RealFloat shaped, TensorSupports Integral shaped )
-      => ShapedTensor (shaped :: ShapedTensorKind) where
+      => ShapedTensor (shaped :: ShapedTensorType) where
 
   slet :: (Sh.Shape sh, Sh.Shape sh2, GoodScalar r, GoodScalar r2)
        => shaped r sh -> (shaped r sh -> shaped r2 sh2)
@@ -599,8 +599,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
 
 -- * ConvertTensor and DomainsTensor class definitions
 
-class ConvertTensor (ranked :: RankedTensorKind)
-                    (shaped :: ShapedTensorKind)
+class ConvertTensor (ranked :: RankedTensorType)
+                    (shaped :: ShapedTensorType)
                     | ranked -> shaped, shaped -> ranked where
   rfromS :: (GoodScalar r, Sh.Shape sh)
          => shaped r sh -> ranked r (Sh.Rank sh)
@@ -657,8 +657,8 @@ sfromD (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
 sfromD DynamicRankedDummy{} = 0
 sfromD DynamicShapedDummy{} = 0
 
-class DomainsTensor (ranked :: RankedTensorKind)
-                    (shaped :: ShapedTensorKind)
+class DomainsTensor (ranked :: RankedTensorType)
+                    (shaped :: ShapedTensorType)
                     | ranked -> shaped, shaped -> ranked where
   dmkDomains :: Domains ranked -> DomainsOf ranked
   dunDomains :: DomainsOD -> DomainsOf ranked -> Domains ranked

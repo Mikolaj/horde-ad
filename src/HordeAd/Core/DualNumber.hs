@@ -60,7 +60,7 @@ import HordeAd.Util.SizedIndex
 -- which is the normal, the basic value. The exact type of the dual component
 -- is determined by a definition of type family @Dual@ provided elsewhere.
 type role ADVal nominal nominal nominal
-data ADVal (f :: TensorKind ty) (r :: Type) (z :: ty) =
+data ADVal (f :: TensorType ty) (r :: Type) (z :: ty) =
   D ADShare (f r z) (Dual f r z)
 
 deriving instance (Show (f r z), Show (Dual f r z))
@@ -102,8 +102,8 @@ instance OrdF f => OrdF (ADVal f) where
   D l1 u _ >. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >. v)
   D l1 u _ >=. D l2 v _ = (l1 `mergeADShare` l2, snd $ u >=. v)
 
-type CRankedIP :: RankedTensorKind
-               -> (RankedTensorKind -> Type -> Nat -> Constraint)
+type CRankedIP :: RankedTensorType
+               -> (RankedTensorType -> Type -> Nat -> Constraint)
                -> Constraint
 class (forall r15 y. (KnownNat y, GoodScalar r15) => c ranked r15 y)
       => CRankedIP ranked c where
@@ -136,8 +136,8 @@ instance ( RankedTensor ranked, CRankedIP ranked IsPrimal
                                 (singletonIndex $ ifF (emptyADShare, b) 0 1)
     in D (l1 `mergeADShare` l2) u u'
 
-type CRankedIPSh :: ShapedTensorKind
-                 -> (ShapedTensorKind -> Type -> [Nat] -> Constraint)
+type CRankedIPSh :: ShapedTensorType
+                 -> (ShapedTensorType -> Type -> [Nat] -> Constraint)
                  -> Constraint
 class (forall r55 y. (GoodScalar r55, Sh.Shape y) => c shaped r55 y)
       => CRankedIPSh shaped c where
@@ -279,7 +279,7 @@ zeroParameters =
   in V.map f
 
 crevOnADInputs
-  :: forall ty (f :: TensorKind ty) r y.
+  :: forall ty (f :: TensorType ty) r y.
      ( RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y)
   => Bool -> Maybe (f r y)
@@ -388,7 +388,7 @@ makeADInputs =
 
 -- * Reverse and forward derivative stages class and instances
 
-type DerivativeStages :: TensorKind ty -> Constraint
+type DerivativeStages :: TensorType ty -> Constraint
 class DerivativeStages g where
   forwardPassByInterpretation
     :: (GoodScalar r, HasSingletonDict y)
@@ -402,7 +402,7 @@ class DerivativeStages g where
 
   revArtifactFromForwardPass
     :: (GoodScalar r, HasSingletonDict y)
-    => TensorFunctor g
+    => TensorToken g
     -> Bool -> Bool
     -> (Domains (RankedOf (PrimalOf g))
         -> [AstDynamicVarName]
@@ -413,7 +413,7 @@ class DerivativeStages g where
 
   revProduceArtifact
     :: (GoodScalar r, HasSingletonDict y)
-    => TensorFunctor g -> Bool -> Bool
+    => TensorToken g -> Bool -> Bool
     -> (Domains (RankedOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
@@ -431,7 +431,7 @@ class DerivativeStages g where
 
   fwdArtifactFromForwardPass
     :: forall r y. (GoodScalar r, HasSingletonDict y)
-    => TensorFunctor g
+    => TensorToken g
     -> (Domains (RankedOf (PrimalOf g))
         -> [AstDynamicVarName]
         -> Domains (RankedOf g)
@@ -446,7 +446,7 @@ class DerivativeStages g where
 
   fwdProduceArtifact
     :: (DerivativeStages g, GoodScalar r, HasSingletonDict y)
-    => TensorFunctor g -> (Domains (RankedOf g) -> g r y)
+    => TensorToken g -> (Domains (RankedOf g) -> g r y)
     -> AstEnv (ADVal (RankedOf (PrimalOf g)))
               (ADVal (ShapedOf (PrimalOf g)))
     -> DomainsOD
@@ -456,7 +456,7 @@ class DerivativeStages g where
     fwdArtifactFromForwardPass tf (forwardPassByInterpretation g envInit)
 
 -- TODO: this is an ad-hoc class with an ad-hoc name
-type UnletGradient :: TensorKind ty -> Constraint
+type UnletGradient :: TensorType ty -> Constraint
 class UnletGradient g where
   unletGradient
     :: ADShare -> AstBindingsD (RankedOf g) -> Domains (RankedOf g)

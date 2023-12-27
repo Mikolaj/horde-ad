@@ -149,7 +149,7 @@ import HordeAd.Util.SizedIndex
 -- (transposing the represented linear map) in order to compute gradients
 -- provides a different semantics.
 type role DeltaR nominal nominal nominal nominal
-data DeltaR :: RankedTensorKind -> ShapedTensorKind -> RankedTensorKind where
+data DeltaR :: RankedTensorType -> ShapedTensorType -> RankedTensorType where
   ZeroR :: ShapeInt n -> DeltaR ranked shaped r n
     -- ^ the shape is required for @shapeDelta@ and forward derivative
   InputR :: forall ranked shaped r n.
@@ -260,7 +260,7 @@ deriving instance ( KnownNat n0, GoodScalar r0
 -- | This is the grammar of delta-expressions that record derivatives
 -- of shaped tensors.
 type role DeltaS nominal nominal nominal nominal  -- TODO: why?
-data DeltaS :: RankedTensorKind -> ShapedTensorKind -> ShapedTensorKind where
+data DeltaS :: RankedTensorType -> ShapedTensorType -> ShapedTensorType where
   ZeroS :: DeltaS ranked shaped r sh
   InputS :: InputId ranked -> DeltaS ranked shaped r sh
   ScaleS :: shaped r sh -> DeltaS ranked shaped r sh
@@ -434,12 +434,12 @@ type instance ShapedOf (DeltaR ranked shaped) = DeltaS ranked shaped
 -- * Delta expression identifiers
 
 type role NodeId phantom
-newtype NodeId (f :: TensorKind ty) = NodeId Int
+newtype NodeId (f :: TensorType ty) = NodeId Int
  deriving newtype (Show, Enum)
    -- No Eq instance to limit hacks.
 
 type role InputId phantom
-newtype InputId (f :: TensorKind ty) = InputId Int
+newtype InputId (f :: TensorType ty) = InputId Int
  deriving (Show, Enum)
    -- No Eq instance to limit hacks outside this module.
 
@@ -450,11 +450,11 @@ toInputId i = assert (i >= 0) $ InputId i
 
 -- * Evaluation of the delta expressions
 
-type DualPart :: TensorKind ty -> Constraint
-class DualPart (f :: TensorKind ty) where
+type DualPart :: TensorType ty -> Constraint
+class DualPart (f :: TensorType ty) where
   -- | The type family that to each basic differentiable type
   -- assigns its delta expression type.
-  type Dual f = (result :: TensorKind ty) | result -> f
+  type Dual f = (result :: TensorType ty) | result -> f
   reverseDervative
     :: (HasSingletonDict y, GoodScalar r)
     => Bool -> DomainsOD -> f r y -> Maybe (f r y) -> Dual f r y
@@ -567,7 +567,7 @@ derivativeFromDeltaS !dim !deltaTopLevel !ds =
 -- (small change) of the objective function codomain, for which we compute
 -- the gradient.
 type role DeltaDt nominal nominal nominal
-data DeltaDt :: RankedTensorKind -> ShapedTensorKind -> Type -> Type where
+data DeltaDt :: RankedTensorType -> ShapedTensorType -> Type -> Type where
   DeltaDtR :: forall r n ranked shaped. KnownNat n
            => ranked r n -> DeltaR ranked shaped r n
            -> DeltaDt ranked shaped r
@@ -607,7 +607,7 @@ data EvalState ranked shaped = EvalState
 -- may still not be processed, so we'd not take advantage of the sharing
 -- and not take into account the whole summed context when finally evaluating.
 type role DeltaBinding nominal nominal
-data DeltaBinding :: RankedTensorKind -> ShapedTensorKind -> Type where
+data DeltaBinding :: RankedTensorType -> ShapedTensorType -> Type where
   DeltaBindingR :: forall n r ranked shaped. (KnownNat n, GoodScalar r)
                 => DeltaR ranked shaped r n -> DeltaBinding ranked shaped
   DeltaBindingS :: forall sh r ranked shaped. (Sh.Shape sh, GoodScalar r)

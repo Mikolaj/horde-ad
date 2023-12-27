@@ -125,7 +125,7 @@ isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
 -- but it would prevent using a type signature for @DerivativeStages@
 -- (unless we accept mandatory kinds in type applications of @rev@, etc.)
 -- and some uses of @fwd@, etc., would require extra type applications.
-type ConcreteOf :: TensorKind ty -> TensorKind ty
+type ConcreteOf :: TensorType ty -> TensorType ty
 type family ConcreteOf f = result | result -> f where
   ConcreteOf (AstRanked FullSpan) = Flip OR.Array
   ConcreteOf (AstShaped FullSpan) = Flip OS.Array
@@ -137,7 +137,7 @@ type ADShare = ADShareD (AstRanked PrimalSpan)
 -- * More and less typed variables and type synonyms containing them
 
 type role AstVarName phantom phantom nominal
-newtype AstVarName (f :: TensorKind ty) (r :: Type) (y :: ty) =
+newtype AstVarName (f :: TensorType ty) (r :: Type) (y :: ty) =
   AstVarName AstVarId
  deriving (Eq, Ord, Enum)
 
@@ -163,11 +163,11 @@ dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
 dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
-type AstArtifactRev (f :: TensorKind ty) r y =
+type AstArtifactRev (f :: TensorType ty) r y =
   ( (AstVarName f r y, [AstDynamicVarName])
   , DomainsOf f, f r y, OR.ShapeL )
 
-type AstArtifactFwd (f :: TensorKind ty) r y =
+type AstArtifactFwd (f :: TensorType ty) r y =
   ( ([AstDynamicVarName], [AstDynamicVarName])
   , f r y, f r y )
 
@@ -189,7 +189,7 @@ type AstVarListS sh = ShapedList sh IntVarName
 -- especially after vectorization, and prevents static checking of shapes.
 type role AstRanked nominal nominal nominal
   -- r has to be nominal, because type class arguments always are
-data AstRanked :: AstSpanType -> RankedTensorKind where
+data AstRanked :: AstSpanType -> RankedTensorType where
   AstVar :: ShapeInt n -> AstVarName (AstRanked s) r n -> AstRanked s r n
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
@@ -317,7 +317,7 @@ deriving instance GoodScalar r => Show (AstRanked s r n)
 
 -- | AST for shaped tensors that are meant to be differentiated.
 type role AstShaped nominal nominal nominal
-data AstShaped :: AstSpanType -> ShapedTensorKind where
+data AstShaped :: AstSpanType -> ShapedTensorType where
   -- To permit defining objective functions in Ast, not just constants:
   AstVarS :: forall sh r s. AstVarName (AstShaped s) r sh -> AstShaped s r sh
   AstLetS :: (Sh.Shape sh, Sh.Shape sh2, GoodScalar r, AstSpan s)
@@ -812,7 +812,7 @@ instance Boolean AstBool where
 
 -- * Boolean definitions and instances
 
-type BoolOf :: TensorKind ty -> Type
+type BoolOf :: TensorType ty -> Type
 type BoolOf f = (ADShare, SimpleBoolOf f)
 
 -- This and below is inspired by https://hackage.haskell.org/package/Boolean,
@@ -827,19 +827,19 @@ instance Boolean b => Boolean (ADShare, b) where
   (l1, b) &&* (l2, c) = (l1 `mergeADShare` l2, b &&* c)
   (l1, b) ||* (l2, c) = (l1 `mergeADShare` l2, b ||* c)
 
-class Boolean (SimpleBoolOf f) => IfF (f :: TensorKind ty) where
+class Boolean (SimpleBoolOf f) => IfF (f :: TensorType ty) where
   ifF :: (GoodScalar r, HasSingletonDict y)
       => BoolOf f -> f r y -> f r y -> f r y
 
 infix 4 ==., /=.
-class Boolean (SimpleBoolOf f) => EqF (f :: TensorKind ty) where
+class Boolean (SimpleBoolOf f) => EqF (f :: TensorType ty) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
   (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
                => f r y -> f r y -> BoolOf f
   u /=. v = notB (u ==. v)
 
 infix 4 <., <=., >=., >.
-class Boolean (SimpleBoolOf f) => OrdF (f :: TensorKind ty) where
+class Boolean (SimpleBoolOf f) => OrdF (f :: TensorType ty) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
   (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
                            => f r y -> f r y -> BoolOf f

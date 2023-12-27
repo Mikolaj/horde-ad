@@ -30,7 +30,7 @@ import MnistData
 -- @kh@ denotes kernel height minus one and analogously @kw@ is kernel
 -- width minus one.
 type ADCnnMnistParametersShaped
-       (shaped :: ShapedTensorKind) h w kh kw c_out n_hidden r =
+       (shaped :: ShapedTensorType) h w kh kw c_out n_hidden r =
   ( ( shaped r '[c_out, 1, kh + 1, kw + 1]
     , shaped r '[c_out] )
   , ( shaped r '[c_out, c_out, kh + 1, kw + 1]

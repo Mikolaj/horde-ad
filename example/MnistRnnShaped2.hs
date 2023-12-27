@@ -29,13 +29,13 @@ import MnistData
 -- | The differentiable type of all trainable parameters of this nn.
 -- Shaped version, statically checking all dimension widths.
 type ADRnnMnistParametersShaped
-       (shaped :: ShapedTensorKind) sizeMnistHeight width r =
+       (shaped :: ShapedTensorType) sizeMnistHeight width r =
   ( LayerWeigthsRNNShaped shaped sizeMnistHeight width r
   , LayerWeigthsRNNShaped shaped width width r
   , ( shaped r '[SizeMnistLabel, width]
     , shaped r '[SizeMnistLabel] ) )
 
-type LayerWeigthsRNNShaped :: ShapedTensorKind -> Nat -> Nat -> Type -> Type
+type LayerWeigthsRNNShaped :: ShapedTensorType -> Nat -> Nat -> Type -> Type
 type LayerWeigthsRNNShaped shaped in_width out_width r =
   ( shaped r '[out_width, in_width]   -- input weight
   , shaped r '[out_width, out_width]  -- state weight

@@ -25,7 +25,7 @@ afcnnMnistLen1 widthHidden widthHidden2 =
   ++ replicate sizeMnistLabelInt widthHidden2 ++ [sizeMnistLabelInt]
 
 -- | The differentiable type of all trainable parameters of this nn.
-type ADFcnnMnist1Parameters (ranked :: RankedTensorKind) r =
+type ADFcnnMnist1Parameters (ranked :: RankedTensorType) r =
   ( ( [ranked r 1]  -- ^ @widthHidden@ copies, length @sizeMnistGlyphInt@
     , ranked r 1 )  -- ^ length @widthHidden@
   , ( [ranked r 1]  -- ^ @widthHidden2@ copies, length @widthHidden@

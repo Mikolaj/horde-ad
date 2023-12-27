@@ -22,7 +22,7 @@ import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
 -- Shaped version, statically checking all dimension widths.
-type ADFcnnMnist2ParametersShaped (shaped :: ShapedTensorKind)
+type ADFcnnMnist2ParametersShaped (shaped :: ShapedTensorType)
                                   (widthHidden :: Nat)
                                   (widthHidden2 :: Nat)
                                   (r :: Type) =
@@ -35,7 +35,7 @@ type ADFcnnMnist2ParametersShaped (shaped :: ShapedTensorKind)
   )
 
 -- | The differentiable type of all trainable parameters of this nn.
-type ADFcnnMnist2Parameters (ranked :: RankedTensorKind) r =
+type ADFcnnMnist2Parameters (ranked :: RankedTensorType) r =
   ( ( ranked r 2
     , ranked r 1 )
   , ( ranked Float 2

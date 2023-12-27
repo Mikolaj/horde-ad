@@ -64,7 +64,7 @@ rev' f vals =
       g9 inputs = f $ parseDomains vals inputs
       (advalGrad9, value9) =
         revEvalArtifact (fst $ revProduceArtifactWithoutInterpretation
-                                 TensorFunctor False g9 parameters)
+                                 TensorToken False g9 parameters)
                         parameters dt
       gradient9 = parseDomains vals advalGrad9
       hGeneral
@@ -136,7 +136,7 @@ rev' f vals =
                    fx1 fx2 gx (parseDomains vals inputs)
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation
-                TensorFunctor False (hAst id id id) parameters
+                TensorToken False (hAst id id id) parameters
       (astGradAst, value2Ast) =
         revEvalArtifact artifactsGradAst parameters dt
       gradient2Ast = parseDomains vals astGradAst
@@ -145,13 +145,13 @@ rev' f vals =
       gradient2AstS = parseDomains vals astGradAstS
       artifactsGradAstT =
         fst $ revProduceArtifactWithoutInterpretation
-                TensorFunctor True (hAst id id id) parameters
+                TensorToken True (hAst id id id) parameters
       (astGradAstST, value2AstST) =
         revEvalArtifact (simplifyArtifactRev artifactsGradAstT) parameters dt
       gradient2AstST = parseDomains vals astGradAstST
       artifactsSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                TensorFunctor False (hAst id id simplifyAst6) parameters
+                TensorToken False (hAst id id simplifyAst6) parameters
       (astSimpleAst, value3Ast) =
         revEvalArtifact artifactsSimpleAst parameters dt
       gradient3Ast = parseDomains vals astSimpleAst
@@ -160,7 +160,7 @@ rev' f vals =
       gradient3AstS = parseDomains vals astSimpleAstS
       artifactsGradAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
-                TensorFunctor False
+                TensorToken False
                 (hAst unAstNoSimplify AstNoSimplify id) parameters
       (astGradAstUnSimp, value2AstUnSimp) =
         revEvalArtifact artifactsGradAstUnSimp parameters dt
@@ -171,7 +171,7 @@ rev' f vals =
       gradient2AstSUnSimp = parseDomains vals astGradAstSUnSimp
       artifactsSimpleAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
-                TensorFunctor False
+                TensorToken False
                 (hAst unAstNoSimplify AstNoSimplify simplifyAst6)
                 parameters
       (astSimpleAstUnSimp, value3AstUnSimp) =
@@ -183,7 +183,7 @@ rev' f vals =
       gradient3AstSUnSimp = parseDomains vals astSimpleAstSUnSimp
       artifactsPrimalAst =
         fst $ revProduceArtifactWithoutInterpretation
-                TensorFunctor False
+                TensorToken False
                 (hAst unAstNoVectorize AstNoVectorize id) parameters
       (astPrimalAst, value4Ast) =
         revEvalArtifact artifactsPrimalAst parameters dt
@@ -193,7 +193,7 @@ rev' f vals =
       gradient4AstS = parseDomains vals astPrimalAstS
       artifactsPSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                TensorFunctor False
+                TensorToken False
                 (hAst unAstNoVectorize AstNoVectorize simplifyAst6)
                 parameters
       (astPSimpleAst, value5Ast) =

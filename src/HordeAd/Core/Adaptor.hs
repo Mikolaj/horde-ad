@@ -22,7 +22,7 @@ import HordeAd.Core.Types
 -- * Adaptor classes
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-class AdaptableDomains (ranked :: RankedTensorKind) vals where
+class AdaptableDomains (ranked :: RankedTensorType) vals where
   type Value vals  -- ^ a helper type, with the same general shape,
                    -- but possibly more concrete, e.g., arrays instead of terms
   toDomains :: vals -> Domains ranked

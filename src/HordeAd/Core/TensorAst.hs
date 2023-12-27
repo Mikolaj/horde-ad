@@ -110,7 +110,7 @@ instance DerivativeStages (AstRanked FullSpan) where
 
   revArtifactFromForwardPass
     :: forall r n. (GoodScalar r, KnownNat n)
-    => TensorFunctor (AstRanked FullSpan) -> Bool -> Bool
+    => TensorToken (AstRanked FullSpan) -> Bool -> Bool
     -> (Domains (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
         -> Domains (AstRanked FullSpan)
@@ -155,7 +155,7 @@ instance DerivativeStages (AstRanked FullSpan) where
 
   fwdArtifactFromForwardPass
     :: forall r n. (GoodScalar r, KnownNat n)
-    => TensorFunctor (AstRanked FullSpan) -> (Domains (AstRanked PrimalSpan)
+    => TensorToken (AstRanked FullSpan) -> (Domains (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
         -> Domains (AstRanked FullSpan)
         -> ADVal (AstRanked PrimalSpan) r n)
@@ -217,7 +217,7 @@ instance DerivativeStages (AstShaped FullSpan) where
 
   revArtifactFromForwardPass
     :: forall r sh. (GoodScalar r, Sh.Shape sh)
-    => TensorFunctor (AstShaped FullSpan) -> Bool -> Bool
+    => TensorToken (AstShaped FullSpan) -> Bool -> Bool
     -> (Domains (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
         -> Domains (AstRanked FullSpan)
@@ -252,7 +252,7 @@ instance DerivativeStages (AstShaped FullSpan) where
 
   fwdArtifactFromForwardPass
     :: forall r sh. (GoodScalar r, Sh.Shape sh)
-    => TensorFunctor (AstShaped FullSpan) -> (Domains (AstRanked PrimalSpan)
+    => TensorToken (AstShaped FullSpan) -> (Domains (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
         -> Domains (AstRanked FullSpan)
         -> ADVal (AstShaped PrimalSpan) r sh)
@@ -650,7 +650,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new @parmeters@, which is much better than computing anew.
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact TensorFunctor True False (f @(AstRanked FullSpan))
+          revProduceArtifact TensorToken True False (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters ->
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
@@ -667,7 +667,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
          -> AstDomains s
   rrevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact TensorFunctor True True (f @(AstRanked FullSpan))
+          revProduceArtifact TensorToken True True (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters dt ->
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
@@ -681,7 +681,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
        -> AstRanked s r n
   rfwd f parameters0 =
     let (((varsDt, vars), derivative, _primal), _delta) =
-          fwdProduceArtifact TensorFunctor (f @(AstRanked FullSpan))
+          fwdProduceArtifact TensorToken (f @(AstRanked FullSpan))
                              EM.empty parameters0
     in \parameters ds ->
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
@@ -689,14 +689,14 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       in interpretAst envDt derivative
   srev f parameters0 =
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact TensorFunctor True False (f @(AstShaped FullSpan))
+          revProduceArtifact TensorToken True False (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters ->
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstDomains env gradient
   srevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
-          revProduceArtifact TensorFunctor True True (f @(AstShaped FullSpan))
+          revProduceArtifact TensorToken True True (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters dt ->
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
@@ -704,7 +704,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
       in interpretAstDomains envDt gradient
   sfwd f parameters0 =
     let (((varsDt, vars), derivative, _primal), _delta) =
-          fwdProduceArtifact TensorFunctor (f @(AstShaped FullSpan))
+          fwdProduceArtifact TensorToken (f @(AstShaped FullSpan))
                              EM.empty parameters0
     in \parameters ds ->
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
@@ -728,11 +728,11 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
        -- and @as@, which is better than once for each @a@. We could compute
        -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
        -- can do that thanks to shapes being available from types.
-       case revProduceArtifact TensorFunctor
+       case revProduceArtifact TensorToken
                                False True g EM.empty parameters0 of
       ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
         , gradient, _primal, _sh), _delta ) ->
-        case fwdProduceArtifact TensorFunctor g EM.empty parameters0 of
+        case fwdProduceArtifact TensorToken g EM.empty parameters0 of
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->
@@ -776,10 +776,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
         domsOD = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
-    in case revProduceArtifact TensorFunctor False True g EM.empty domsOD of
+    in case revProduceArtifact TensorToken False True g EM.empty domsOD of
       ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
         , gradient, _primal, _sh), _delta ) ->
-        case fwdProduceArtifact TensorFunctor g EM.empty domsOD of
+        case fwdProduceArtifact TensorToken g EM.empty domsOD of
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->

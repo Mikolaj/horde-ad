@@ -43,7 +43,7 @@ import           HordeAd.Util.SizedList
 type AstEnv ranked shaped = EM.EnumMap AstVarId (AstEnvElem ranked shaped)
 
 type role AstEnvElem representational representational
-data AstEnvElem :: RankedTensorKind -> ShapedTensorKind -> Type where
+data AstEnvElem :: RankedTensorType -> ShapedTensorType -> Type where
   AstEnvElemR :: (KnownNat n, GoodScalar r)
               => ranked r n -> AstEnvElem ranked shaped
   AstEnvElemS :: (Sh.Shape sh, GoodScalar r)

@@ -151,7 +151,7 @@ revDtMaybe
 revDtMaybe f vals mdt =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
-      artifact = fst $ revProduceArtifact TensorFunctor
+      artifact = fst $ revProduceArtifact TensorToken
                                           True (isJust mdt) g EM.empty domainsOD
   in gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $  -- !!!
      parseDomains vals
@@ -168,7 +168,7 @@ revArtifactAdapt
 revArtifactAdapt hasDt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
-  in revProduceArtifact TensorFunctor True hasDt g EM.empty domainsOD
+  in revProduceArtifact TensorToken True hasDt g EM.empty domainsOD
 {-# SPECIALIZE revArtifactAdapt
   :: ( HasSingletonDict y
      , AdaptableDomains (AstRanked FullSpan) astvals
@@ -181,7 +181,7 @@ revProduceArtifactWithoutInterpretation
   :: forall g r y.
      ( g ~ AstRanked FullSpan  -- needed, because PrimalOf not injective
      , DerivativeStages g, GoodScalar r, HasSingletonDict y )
-  => TensorFunctor g -> Bool
+  => TensorToken g -> Bool
   -> (Domains (ADVal (RankedOf (PrimalOf g)))
       -> ADVal (PrimalOf g) r y)
   -> DomainsOD
@@ -189,14 +189,14 @@ revProduceArtifactWithoutInterpretation
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation tf hasDt g =
   revArtifactFromForwardPass
-    @Nat @g TensorFunctor True hasDt (forwardPassByApplication tf g)
+    @Nat @g TensorToken True hasDt (forwardPassByApplication tf g)
 
 forwardPassByApplication
   :: forall g r y.
      ( RankedTensor (RankedOf (PrimalOf g))
      , ShapedOf (RankedOf (PrimalOf g)) ~ ShapedOf (PrimalOf g)
      , RankedOf (ShapedOf (PrimalOf g)) ~ RankedOf (PrimalOf g) )
-  => TensorFunctor g
+  => TensorToken g
   -> (Domains (ADVal (RankedOf (PrimalOf g)))
       -> ADVal (PrimalOf g) r y)
   -> Domains (RankedOf (PrimalOf g))
@@ -228,7 +228,7 @@ fwd
 fwd f x ds =
   let g domains = f $ parseDomains x domains
       domainsOD = toDomains x
-      artifact = fst $ fwdProduceArtifact TensorFunctor g EM.empty domainsOD
+      artifact = fst $ fwdProduceArtifact TensorToken g EM.empty domainsOD
   in fst $ fwdEvalArtifact artifact domainsOD (toDomains ds)
 
 fwdArtifactAdapt
@@ -242,7 +242,7 @@ fwdArtifactAdapt
 fwdArtifactAdapt f vals =
   let g domains = f $ parseDomains vals domains
       domainsOD = toDomains vals
-  in fwdProduceArtifact TensorFunctor g EM.empty domainsOD
+  in fwdProduceArtifact TensorToken g EM.empty domainsOD
 
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt
