@@ -287,8 +287,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
 raddDynamic :: forall ranked r n.
-               ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
-               , GoodScalar r, KnownNat n )
+               (RankedTensor ranked, GoodScalar r, KnownNat n)
             => ranked r n -> DynamicTensor ranked
             -> DynamicTensor ranked
 raddDynamic r (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2)
@@ -306,8 +305,7 @@ raddDynamic r (DynamicRankedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
 raddDynamic _ DynamicShapedDummy{} = error "raddDynamic: DynamicShapedDummy"
 
 saddDynamic :: forall shaped sh r.
-               ( ShapedTensor shaped, ConvertTensor (RankedOf shaped) shaped
-               , GoodScalar r, Sh.Shape sh
+               ( ShapedTensor shaped, GoodScalar r, Sh.Shape sh
                , ShapedOf (RankedOf shaped) ~ shaped )
             => shaped r sh -> DynamicTensor (RankedOf shaped)
             -> DynamicTensor (RankedOf shaped)
