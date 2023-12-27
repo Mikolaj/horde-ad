@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
+{-# LANGUAGE OverloadedLists #-}
 -- | Assorted rather low rank tensor tests.
 module TestAdaptorSimplified
   ( testTrees
