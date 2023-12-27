@@ -28,24 +28,24 @@ jobs:
     strategy:
       matrix:
         include:
-          - compiler: ghc-9.2.8
+          - compiler: ghc-9.8.1
             compilerKind: ghc
-            compilerVersion: 9.2.8
+            compilerVersion: 9.8.1
             allow-failure: false
             tests-short: true
-          - compiler: ghc-9.2.8-nn
+          - compiler: ghc-9.8.1-nn
             compilerKind: ghc
-            compilerVersion: 9.2.8
+            compilerVersion: 9.8.1
             allow-failure: false
             tests-short: false
-#          - compiler: ghc-9.4.6
-#            compilerKind: ghc
-#            compilerVersion: 9.4.6
-#            allow-failure: false
-#            tests-short: true
-          - compiler: ghc-9.4.6-nn
+          - compiler: ghc-9.6.3
             compilerKind: ghc
-            compilerVersion: 9.4.6
+            compilerVersion: 9.6.3
+            allow-failure: false
+            tests-short: true
+          - compiler: ghc-9.6.3-nn
+            compilerKind: ghc
+            compilerVersion: 9.6.3
             allow-failure: false
             tests-short: false
       fail-fast: false
