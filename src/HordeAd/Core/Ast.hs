@@ -138,7 +138,7 @@ type ADShare = ADShareD (AstRanked PrimalSpan)
 
 type role AstVarName phantom phantom nominal
 newtype AstVarName (f :: TensorKind k) (r :: Type) (y :: k) =
-   AstVarName AstVarId
+  AstVarName AstVarId
  deriving (Eq, Ord, Enum)
 
 instance Show (AstVarName f r y) where
@@ -148,22 +148,19 @@ instance Show (AstVarName f r y) where
 varNameToAstVarId :: AstVarName f r y -> AstVarId
 varNameToAstVarId (AstVarName var) = var
 
--- This needs to carry sh regardless of f, even for AstRanked, because
--- then it needs to recover the shape argument for AstVar.
---
--- The explicit kind is required to compile with GHC 9.2.
+-- This can't be replaced by AstVarId. because in some places it's used
+-- to record the kind, scalar and shape of arguments in a domain.
 --
 -- A lot of the variables are existential, but there's no nesting,
 -- so no special care about picking specializations at runtime is needed.
 data AstDynamicVarName where
-  AstDynamicVarName :: forall k r sh (y :: k) (f :: TensorKind k).
-                       ( Typeable k, GoodScalar r
-                       , Sh.Shape sh, HasSingletonDict y )
-                    => AstVarName f r y -> AstDynamicVarName
+  AstDynamicVarName :: forall (k :: Type) r sh.
+                       (Typeable k, GoodScalar r, Sh.Shape sh)
+                    => AstVarId -> AstDynamicVarName
 deriving instance Show AstDynamicVarName
 
 dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
-dynamicVarNameToAstVarId (AstDynamicVarName (AstVarName var)) = var
+dynamicVarNameToAstVarId (AstDynamicVarName var) = var
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type AstArtifactRev (f :: TensorKind k) r y =

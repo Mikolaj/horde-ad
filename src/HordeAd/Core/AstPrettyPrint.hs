@@ -157,8 +157,7 @@ printAstVarNameS renames var =
   printAstVarS (defaulPrintConfig False renames) var ""
 
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
-printAstDynamicVarName renames
-                       (AstDynamicVarName @_ @r @sh (AstVarName var)) =
+printAstDynamicVarName renames (AstDynamicVarName @_ @r @sh var) =
   printAstVarNameS renames (AstVarName @[Nat] @_ @r @sh var)
 
 

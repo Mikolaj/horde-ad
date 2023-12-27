@@ -474,24 +474,23 @@ interpretAst !env = \case
         -- variable r2, because the operations do not depend on r2.
         f :: (AstDynamicVarName, DynamicTensor ranked)
           -> AstEnv ranked shaped -> AstEnv ranked shaped
-        f (AstDynamicVarName @k @r2 @sh2 @y (AstVarName varId), d) = case d of
+        f (AstDynamicVarName @k @r2 @sh2 varId, d) = case d of
           DynamicRanked @r3 @n3 u
             | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
-            , Just Refl <- sameNat (Proxy @n3) (Proxy @y)
+            , Just Refl <- matchingRank @sh2 @n3
             , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              extendEnvR @ranked @shaped @r2 @y (AstVarName varId) u
+              extendEnvR (AstVarName varId) u
           DynamicShaped @r3 @sh3 u
             | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
             , Just Refl <- sameShape @sh3 @sh2
             , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              extendEnvS @ranked @shaped @r2 @sh2 (AstVarName varId) u
+              extendEnvS (AstVarName varId) u
           DynamicRankedDummy @r3 @sh3 _ _
             | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
             , Just Refl <- sameShape @sh3 @sh2
             , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              let sh2 = listShapeToShape (Sh.shapeT @sh2)
-              in extendEnvR @ranked @shaped @r2 @y (AstVarName varId)
-                 $ rzero sh2
+              withListShape (Sh.shapeT @sh2) $ \sh4 ->
+              extendEnvR @ranked @shaped @r2 (AstVarName varId) $ rzero sh4
           DynamicShapedDummy @r3 @sh3 _ _
             | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
             , Just Refl <- sameShape @sh3 @sh2
@@ -985,24 +984,23 @@ interpretAstS !env = \case
         -- variable r2, because the operations do not depend on r2.
         f :: (AstDynamicVarName, DynamicTensor ranked)
           -> AstEnv ranked shaped -> AstEnv ranked shaped
-        f (AstDynamicVarName @k @r2 @sh2 @y (AstVarName varId), d) = case d of
+        f (AstDynamicVarName @k @r2 @sh2 varId, d) = case d of
           DynamicRanked @r3 @n3 u
             | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
-            , Just Refl <- sameNat (Proxy @n3) (Proxy @y)
+            , Just Refl <- matchingRank @sh2 @n3
             , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              extendEnvR @ranked @shaped @r2 @y (AstVarName varId) u
+              extendEnvR (AstVarName varId) u
           DynamicShaped @r3 @sh3 u
             | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
             , Just Refl <- sameShape @sh3 @sh2
             , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              extendEnvS @ranked @shaped @r2 @sh2 (AstVarName varId) u
+              extendEnvS (AstVarName varId) u
           DynamicRankedDummy @r3 @sh3 _ _
             | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
             , Just Refl <- sameShape @sh3 @sh2
             , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              let sh2 = listShapeToShape (Sh.shapeT @sh2)
-              in extendEnvR @ranked @shaped @r2 @y (AstVarName varId)
-                 $ rzero sh2
+              withListShape (Sh.shapeT @sh2) $ \sh4 ->
+              extendEnvR @ranked @shaped @r2 (AstVarName varId) $ rzero sh4
           DynamicShapedDummy @r3 @sh3 _ _
             | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
             , Just Refl <- sameShape @sh3 @sh2

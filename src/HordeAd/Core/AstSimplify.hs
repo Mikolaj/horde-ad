@@ -1634,7 +1634,7 @@ astLetDomainsIn vars l v =
         let f :: (AstDynamicVarName, AstDynamic s)
               -> AstRanked s2 r n
               -> AstRanked s2 r n
-            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 varId
               , DynamicRanked @r4 @n4 v3 )
               acc
               | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
@@ -1645,7 +1645,7 @@ astLetDomainsIn vars l v =
               -- , Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstLet (AstVarName varId) v3 acc
-            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 varId
               , DynamicShaped @r4 @sh4 v3 )
               acc
               | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
@@ -1653,7 +1653,7 @@ astLetDomainsIn vars l v =
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstSToR @sh
                 $ Ast.AstLetS (AstVarName varId) v3 $ Ast.AstRToS acc
-            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 varId
               , DynamicRankedDummy @r4 @sh4 _ _ )
               acc
               | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
@@ -1663,7 +1663,7 @@ astLetDomainsIn vars l v =
                   gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
                   Ast.AstLet @m
                              (AstVarName varId) (Ast.AstSToR @sh3 @s @r3 0) acc
-            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 varId
               , DynamicShapedDummy @r4 @sh4 _ _ )
               acc
               | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
@@ -1690,7 +1690,7 @@ astLetDomainsInS vars l v =
         let f :: (AstDynamicVarName, AstDynamic s)
               -> AstShaped s2 r sh
               -> AstShaped s2 r sh
-            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 varId
               , DynamicRanked @r4 @n4 v3 )
               acc
               | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
@@ -1698,14 +1698,14 @@ astLetDomainsInS vars l v =
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstRToS @sh
                 $ Ast.AstLet (AstVarName varId) v3 $ Ast.AstSToR acc
-            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 varId
               , DynamicShaped @r4 @sh4 v3 )
               acc
               | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
               , Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstLetS (AstVarName varId) v3 acc
-            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 varId
               , DynamicRankedDummy @r4 @sh4 _ _ )
               acc
               | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
@@ -1716,7 +1716,7 @@ astLetDomainsInS vars l v =
                   Ast.AstRToS @sh
                   $ Ast.AstLet @m (AstVarName varId) (Ast.AstSToR @sh3 @s @r3 0)
                   $ Ast.AstSToR acc
-            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 varId
               , DynamicShapedDummy @r4 @sh4 _ _ )
               acc
               | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])

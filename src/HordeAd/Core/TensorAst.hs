@@ -426,11 +426,11 @@ astLetDomainsInFun a0 a f = unsafePerformIO $ do
       genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
         let sh2 = Sh.shapeT @sh2
         withListShape sh2 $ \ (sh3 :: Shape n2 Int) -> do
-          (var, _, ast) <- funToAstIOR @n2 sh3 id
+          (AstVarName var, _, ast) <- funToAstIOR @n2 @_ @_ @r2 sh3 id
           return ( AstDynamicVarName @Nat @r2 @sh2 var
                  , DynamicRanked ast )
       genVar (DynamicShapedDummy @r2 @sh2 _ _) = do
-        (var, _, ast) <- funToAstIOS @sh2 id
+        (AstVarName var, _, ast) <- funToAstIOS @sh2 @_ @_ @r2 id
         return ( AstDynamicVarName @[Nat] @r2 @sh2 var
                , DynamicShaped ast )
       genVar _ = error "genVar: unexpected OD value"
@@ -560,11 +560,11 @@ astLetDomainsInFunS a0 a f = unsafePerformIO $ do
       genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
         let sh2 = Sh.shapeT @sh2
         withListShape sh2 $ \ (sh3 :: Shape n2 Int) -> do
-          (var, _, ast) <- funToAstIOR @n2 sh3 id
+          (AstVarName var, _, ast) <- funToAstIOR @n2 @_ @_ @r2 sh3 id
           return ( AstDynamicVarName @Nat @r2 @sh2 var
                  , DynamicRanked ast )
       genVar (DynamicShapedDummy @r2 @sh2 _ _) = do
-        (var, _, ast) <- funToAstIOS @sh2 id
+        (AstVarName var, _, ast) <- funToAstIOS @sh2 @_ @_ @r2 id
         return ( AstDynamicVarName @[Nat] @r2 @sh2 var
                , DynamicShaped ast )
       genVar _ = error "genVar: unexpected OD value"
@@ -730,15 +730,11 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
        -- can do that thanks to shapes being available from types.
        case revProduceArtifact TensorFunctor
                                False True g EM.empty parameters0 of
-      ( ( ( varDt
-          , [ AstDynamicVarName (AstVarName nid)
-            , AstDynamicVarName (AstVarName mid) ] )
+      ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
         , gradient, _primal, _sh), _delta ) ->
         case fwdProduceArtifact TensorFunctor g EM.empty parameters0 of
-          ( ( ( [ AstDynamicVarName (AstVarName nid1)
-                , AstDynamicVarName (AstVarName mid1) ]
-              , [ AstDynamicVarName (AstVarName nid2)
-                , AstDynamicVarName (AstVarName mid2) ] )
+          ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
+              , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->
             -- We could do lots of type comparisons and then reuse the variables
             -- from above, for a little more sanity check paranoid assurance,
@@ -781,15 +777,11 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         g doms = uncurry f (domsToPair doms)
         domsOD = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
     in case revProduceArtifact TensorFunctor False True g EM.empty domsOD of
-      ( ( ( varDt
-          , [ AstDynamicVarName (AstVarName nid)
-            , AstDynamicVarName (AstVarName mid) ] )
+      ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
         , gradient, _primal, _sh), _delta ) ->
         case fwdProduceArtifact TensorFunctor g EM.empty domsOD of
-          ( ( ( [ AstDynamicVarName (AstVarName nid1)
-                , AstDynamicVarName (AstVarName mid1) ]
-              , [ AstDynamicVarName (AstVarName nid2)
-                , AstDynamicVarName (AstVarName mid2) ] )
+          ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
+              , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->
             -- We could do lots of type comparisons and then reuse the variables
             -- from above, for a little more sanity check paranoid assurance,

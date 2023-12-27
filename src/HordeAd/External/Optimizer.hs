@@ -44,7 +44,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 -- | An implementation of the Adam gradient descent.
 sgdAdam
   :: forall f r a y.
-     ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
+     ( RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
      , RankedOf f ~ Flip OR.Array, Num (f r y))
   => (a -> Domains (ADVal (RankedOf f)) -> ADVal f r y)
@@ -56,7 +56,7 @@ sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs
   :: forall f r a y.
-     ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
+     ( RankedTensor (ADVal (RankedOf f))
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , RankedOf f ~ Flip OR.Array, Num (f r y) )
   => ArgsAdam
