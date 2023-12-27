@@ -16,7 +16,7 @@ module HordeAd.Core.Ast
   , AstArtifactRev, AstArtifactFwd
   , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * ASTs
-  , AstRanked(..), AstShaped(..), AstDynamic(..), AstDomains(..)
+  , AstRanked(..), AstShaped(..), AstDynamic, AstDomains(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
     -- * Boolean definitions and instances
@@ -31,7 +31,6 @@ import Prelude hiding (foldl')
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Int (Int64)
 import           Data.Kind (Type)
@@ -88,21 +87,14 @@ sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
 
 -- * Basic type family instances
 
-type instance RankedOf (Clown (AstDynamic s)) = AstRanked s
-type instance ShapedOf (Clown (AstDynamic s)) = AstShaped s
-type instance DynamicOf (Clown (AstDynamic s)) = AstDynamic s
-type instance DomainsOf (Clown (AstDynamic s)) = AstDomains s
-
 type instance RankedOf (AstRanked s) = AstRanked s
 type instance ShapedOf (AstRanked s) = AstShaped s
-type instance DynamicOf (AstRanked s) = AstDynamic s
 type instance DomainsOf (AstRanked s) = AstDomains s
 type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
 type instance DualOf (AstRanked s) = AstRanked DualSpan
 
 type instance RankedOf (AstShaped s) = AstRanked s
 type instance ShapedOf (AstShaped s) = AstShaped s
-type instance DynamicOf (AstShaped s) = AstDynamic s
 type instance DomainsOf (AstShaped s) = AstDomains s
 type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
 type instance DualOf (AstShaped s) = AstShaped DualSpan
@@ -138,8 +130,8 @@ type family ConcreteOf f = result | result -> f where
   ConcreteOf (AstRanked FullSpan) = Flip OR.Array
   ConcreteOf (AstShaped FullSpan) = Flip OS.Array
 
-type AstBindings = AstBindingsD (AstDynamic PrimalSpan)
-type ADShare = ADShareD (AstDynamic PrimalSpan)
+type AstBindings = AstBindingsD (AstRanked PrimalSpan)
+type ADShare = ADShareD (AstRanked PrimalSpan)
 
 
 -- * More and less typed variables and type synonyms containing them
@@ -297,8 +289,8 @@ data AstRanked :: AstSpanType -> RankedTensorKind where
                   -> AstRanked s2 r n
   AstFwd :: (GoodScalar r, KnownNat n)
          => ([AstDynamicVarName], AstRanked s r n)
-         -> Domains (AstDynamic s)
-         -> Domains (AstDynamic s)
+         -> Domains (AstRanked s)
+         -> Domains (AstRanked s)
          -> AstRanked s r n
   AstFold :: forall rn rm n m s. (GoodScalar rm, KnownNat m)
           => ( AstVarName (AstRanked PrimalSpan) rn n
@@ -438,8 +430,8 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
                    -> AstShaped s2 r sh
   AstFwdS :: (GoodScalar r, Sh.Shape sh)
           => ([AstDynamicVarName], AstShaped s r sh)
-          -> Domains (AstDynamic s)
-          -> Domains (AstDynamic s)
+          -> Domains (AstRanked s)
+          -> Domains (AstRanked s)
           -> AstShaped s r sh
   AstFoldS :: forall rn rm sh shm k s. (GoodScalar rm, Sh.Shape shm, KnownNat k)
            => ( AstVarName (AstShaped PrimalSpan) rn sh
@@ -468,18 +460,12 @@ data AstShaped :: AstSpanType -> ShapedTensorKind where
 
 deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstShaped s r sh)
 
-type role AstDynamic nominal nominal
-data AstDynamic :: AstSpanType -> Type -> Type where
-  AstRToD :: forall n r s. KnownNat n
-          => AstRanked s r n -> AstDynamic s r
-  AstSToD :: forall sh r s. Sh.Shape sh
-          => AstShaped s r sh -> AstDynamic s r
-deriving instance GoodScalar r => Show (AstDynamic s r)
+type AstDynamic (s :: AstSpanType) = DynamicTensor (AstRanked s)
 
 type role AstDomains nominal
 data AstDomains s where
   -- There are existential variables inside DynamicExists here.
-  AstDomains :: Domains (AstDynamic s) -> AstDomains s
+  AstDomains :: Domains (AstRanked s) -> AstDomains s
   -- This operation is why we need AstDomains and so DomainsOf.
   -- If we kept a vector of terms instead, we'd need to let-bind in each
   -- of the terms separately, duplicating the let-bound term.
@@ -496,7 +482,7 @@ data AstDomains s where
                    -> AstDomains s2
   AstRev :: (GoodScalar r, KnownNat n)
          => ([AstDynamicVarName], AstRanked s r n)
-         -> Domains (AstDynamic s)
+         -> Domains (AstRanked s)
          -> AstDomains s
     -- ^ the function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects
@@ -504,16 +490,16 @@ data AstDomains s where
     -- the same holds for the similar operations below
   AstRevDt :: (GoodScalar r, KnownNat n)
            => ([AstDynamicVarName], AstRanked s r n)
-           -> Domains (AstDynamic s)
+           -> Domains (AstRanked s)
            -> AstRanked s r n
            -> AstDomains s
   AstRevS :: (GoodScalar r, Sh.Shape sh)
           => ([AstDynamicVarName], AstShaped s r sh)
-          -> Domains (AstDynamic s)
+          -> Domains (AstRanked s)
           -> AstDomains s
   AstRevDtS :: (GoodScalar r, Sh.Shape sh)
             => ([AstDynamicVarName], AstShaped s r sh)
-            -> Domains (AstDynamic s)
+            -> Domains (AstRanked s)
             -> AstShaped s r sh
             -> AstDomains s
 
@@ -877,25 +863,21 @@ maxF u v = ifF (u >=. v) u v
 
 type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
-type instance DynamicOf (AstNoVectorize s) = AstDynamic s
 type instance DomainsOf (AstNoVectorize s) = AstDomains s
 type instance PrimalOf (AstNoVectorize s) = AstRanked PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstRanked DualSpan
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorizeS s) = AstNoVectorizeS s
-type instance DynamicOf (AstNoVectorizeS s) = AstDynamic s
 type instance DomainsOf (AstNoVectorizeS s) = AstDomains s
 type instance PrimalOf (AstNoVectorizeS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoVectorizeS s) = AstShaped DualSpan
 type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
-type instance DynamicOf (AstNoSimplify s) = AstDynamic s
 type instance DomainsOf (AstNoSimplify s) = AstDomains s
 type instance PrimalOf (AstNoSimplify s) = AstRanked PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstRanked DualSpan
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplifyS s) = AstNoSimplifyS s
-type instance DynamicOf (AstNoSimplifyS s) = AstDynamic s
 type instance DomainsOf (AstNoSimplifyS s) = AstDomains s
 type instance PrimalOf (AstNoSimplifyS s) = AstShaped PrimalSpan
 type instance DualOf (AstNoSimplifyS s) = AstShaped DualSpan

@@ -38,7 +38,7 @@
 -- to understand.
 module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    DeltaR (..), DeltaS (..), DeltaD (..)
+    DeltaR (..), DeltaS (..)
   , -- * Delta expression identifiers
     NodeId (..), InputId, toInputId
   , -- * Evaluation of the delta expressions
@@ -50,12 +50,10 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
-import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
@@ -77,7 +75,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (matchingRank, sameShape, trustMeThisIsAPermutation)
+  (sameShape, trustMeThisIsAPermutation)
 import HordeAd.Util.ShapedList (ShapedList (..))
 import HordeAd.Util.SizedIndex
 
@@ -246,10 +244,6 @@ data DeltaR :: RankedTensorKind -> ShapedTensorKind -> RankedTensorKind where
     -- in the first argument, should be strict in the accumulator.
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaR ranked shaped r1 n -> DeltaR ranked shaped r2 n
-
-  DToR :: forall n r ranked shaped.
-          DeltaD (Clown (DynamicOf ranked)) ranked shaped r '()
-       -> DeltaR ranked shaped r n
   SToR :: forall sh r ranked shaped. Sh.Shape sh
        => DeltaS ranked shaped r sh
        -> DeltaR ranked shaped r (Sh.Rank sh)
@@ -373,10 +367,6 @@ data DeltaS :: RankedTensorKind -> ShapedTensorKind -> ShapedTensorKind where
         -> DeltaS ranked shaped rn sh
   CastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaS ranked shaped r1 sh -> DeltaS ranked shaped r2 sh
-
-  DToS :: forall sh r ranked shaped.
-          DeltaD (Clown (DynamicOf ranked)) ranked shaped r '()
-       -> DeltaS ranked shaped r sh
   RToS :: forall sh r ranked shaped. KnownNat (Sh.Rank sh)
        => DeltaR ranked shaped r (Sh.Rank sh)
        -> DeltaS ranked shaped r sh
@@ -389,25 +379,6 @@ deriving instance ( Sh.Shape sh0, GoodScalar r0
                   , Show (IntOf ranked)
                   , Show (IntOf shaped) )
                   => Show (DeltaS ranked shaped r0 sh0)
-
-type role DeltaD nominal nominal nominal nominal nominal
-data DeltaD :: TensorKind () -> RankedTensorKind -> ShapedTensorKind
-            -> TensorKind () where
-  RToD :: forall n r ranked shaped. KnownNat n
-       => DeltaR ranked shaped r n
-       -> DeltaD (Clown (DynamicOf ranked)) ranked shaped r '()
-  SToD :: forall sh r ranked shaped. Sh.Shape sh
-       => DeltaS ranked shaped r sh
-       -> DeltaD (Clown (DynamicOf ranked)) ranked shaped r '()
-
-deriving instance ( GoodScalar r0
-                  , (forall nn4 rr. (KnownNat nn4, GoodScalar rr)
-                                    => Show (ranked rr nn4))
-                  , (forall sh r. (Sh.Shape sh, GoodScalar r)
-                                  => Show (shaped r sh))
-                  , Show (IntOf ranked)
-                  , Show (IntOf shaped) )
-                  => Show (DeltaD clownDynamic ranked shaped r0 '())
 
 shapeDelta :: forall ranked shaped r n.
               (GoodScalar r, KnownNat n, RankedTensor ranked)
@@ -446,11 +417,6 @@ shapeDelta = \case
   GatherR sh _ _ -> sh
   FoldR _f x0 _as _df _rf _x0' _as' -> rshape x0
   CastR d -> shapeDelta d
-  DToR (RToD @n2 d) ->
-    case sameNat (Proxy @n) (Proxy @n2) of
-      Just Refl -> shapeDelta d
-      _ -> error "shapeDelta: different ranks in DToR(RToD)"
-  DToR (SToD @sh _) -> listShapeToShape $ Sh.shapeT @sh
   SToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
 
 lengthDelta :: forall ranked shaped r n.
@@ -459,6 +425,10 @@ lengthDelta :: forall ranked shaped r n.
 lengthDelta d = case shapeDelta d of
   ZS -> error "lengthDelta: impossible pattern needlessly required"
   k :$ _ -> k
+
+type instance RankedOf (DeltaS ranked shaped) = DeltaR ranked shaped
+
+type instance ShapedOf (DeltaR ranked shaped) = DeltaS ranked shaped
 
 
 -- * Delta expression identifiers
@@ -488,60 +458,16 @@ class DualPart (f :: TensorKind k) where
   reverseDervative
     :: (HasSingletonDict y, GoodScalar r)
     => Bool -> DomainsOD -> f r y -> Maybe (f r y) -> Dual f r y
-    -> (AstBindingsD (DynamicOf f), Domains (DynamicOf f))
+    -> (AstBindingsD (RankedOf f), Domains (RankedOf f))
   forwardDerivative
     :: (HasSingletonDict y, GoodScalar r)
-    => Int -> Dual f r y -> Domains (DynamicOf f)
-    -> (AstBindingsD (DynamicOf f), f r y)
-
--- clownDynamic is, e.g., Clown OD.Array or Clown (AstDynamic s)
-instance ( clownDynamic ~ Clown (DynamicOf (RankedOf clownDynamic))
-         , clownDynamic ~ Clown (DynamicOf clownDynamic)
-         , RankedTensor (RankedOf clownDynamic)
-         , ShapedTensor (ShapedOf clownDynamic)
-         , ConvertTensor (RankedOf clownDynamic) (ShapedOf clownDynamic) )
-         => DualPart @() clownDynamic where
-  type Dual clownDynamic =
-    DeltaD clownDynamic (RankedOf clownDynamic) (ShapedOf clownDynamic)
-  reverseDervative = gradientDtD
-  forwardDerivative = derivativeFromDeltaD
-
-gradientDtD
-  :: forall clownDynamic ranked shaped r (y :: ()).
-     ( clownDynamic ~ Clown (DynamicOf ranked)
-     , GoodScalar r
-     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
-  => Bool -> DomainsOD
-  -> clownDynamic r y
-  -> Maybe (clownDynamic r y)
-  -> DeltaD clownDynamic ranked shaped r y
-  -> ( AstBindingsD (DynamicOf ranked)
-     , Domains (DynamicOf ranked) )
-gradientDtD useDummies !parameters0 !value !mdt !deltaTopLevel =
-  withListShape (dshape @ranked (runClown value)) $ \sh ->
-    let dt = maybe (dfromR @ranked $ rreplicate0N sh 1) runClown mdt
-        deltaDt = DeltaDtD dt deltaTopLevel
-    in gradientFromDelta useDummies parameters0 deltaDt
-
-derivativeFromDeltaD
-  :: forall clownDynamic ranked shaped r (y :: ()).
-     ( clownDynamic ~ Clown (DynamicOf ranked)
-     , GoodScalar r
-     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
-  => Int
-  -> DeltaD clownDynamic ranked shaped r y
-  -> Domains (DynamicOf ranked)
-  -> ( AstBindingsD (DynamicOf ranked)
-     , clownDynamic r y )
-derivativeFromDeltaD !dim !deltaTopLevel !ds =
-  case runST $ buildDerivative dim (DeltaDtD (dfromR @ranked @shaped @r @0 0)
-                                             deltaTopLevel) ds of
-    (l, DeltaDtD res _) -> (l, Clown res)
-    (_, DeltaDtR{}) -> error "derivativeFromDeltaD"
-    (_, DeltaDtS{}) -> error "derivativeFromDeltaD"
+    => Int -> Dual f r y -> Domains (RankedOf f)
+    -> (AstBindingsD (RankedOf f), f r y)
 
 instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-         , ConvertTensor ranked (ShapedOf ranked) )
+         , ConvertTensor ranked (ShapedOf ranked)
+         , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked
+         , RankedOf ranked ~ ranked )
          => DualPart @Nat ranked where
   type Dual ranked = DeltaR ranked (ShapedOf ranked)
   reverseDervative = gradientDtR
@@ -549,11 +475,11 @@ instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
 
 gradientDtR
   :: ( KnownNat y, GoodScalar r
-     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
+     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped
+     , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => Bool -> DomainsOD
   -> ranked r y -> Maybe (ranked r y) -> DeltaR ranked shaped r y
-  -> ( AstBindingsD (DynamicOf ranked)
-     , Domains (DynamicOf ranked) )
+  -> (AstBindingsD ranked, Domains ranked)
 gradientDtR useDummies !parameters0 value !mdt !deltaTopLevel =
   let dt = fromMaybe (rreplicate0N (rshape value) 1) mdt
       deltaDt = DeltaDtR dt deltaTopLevel
@@ -562,25 +488,24 @@ gradientDtR useDummies !parameters0 value !mdt !deltaTopLevel =
   :: KnownNat y
   => Bool -> DomainsOD -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
   -> DeltaR (Flip OR.Array) (Flip OS.Array) Double y
-  -> ( AstBindingsD (DynamicOf (Flip OR.Array))
-     , Domains (DynamicOf (Flip OR.Array)) ) #-}
+  -> (AstBindingsD (Flip OR.Array), Domains (Flip OR.Array) ) #-}
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
   => Bool -> DomainsOD -> AstRanked PrimalSpan Double y
   -> Maybe (AstRanked PrimalSpan Double y)
   -> DeltaR (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double y
-  -> ( AstBindingsD (DynamicOf (AstRanked PrimalSpan))
-     , Domains (DynamicOf (AstRanked PrimalSpan)) ) #-}
+  -> ( AstBindingsD (DynamicTensor (AstRanked PrimalSpan))
+     , Domains (DynamicTensor (AstRanked PrimalSpan)) ) #-}
 -}
 
 derivativeFromDeltaR
   :: forall ranked shaped r n.
-       ( KnownNat n, GoodScalar r
-       , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
-  => Int -> DeltaR ranked shaped r n -> Domains (DynamicOf ranked)
-  -> ( AstBindingsD (DynamicOf ranked)
-     , ranked r n )
+     ( KnownNat n, GoodScalar r
+     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped
+     , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
+  => Int -> DeltaR ranked shaped r n -> Domains ranked
+  -> (AstBindingsD ranked, ranked r n)
 derivativeFromDeltaR dim deltaTopLevel ds =
   let dummyZero = rzero $ listShapeToShape $ replicate (valueOf @n) 1
   in case runST $ buildDerivative dim (DeltaDtR dummyZero deltaTopLevel) ds of
@@ -588,10 +513,10 @@ derivativeFromDeltaR dim deltaTopLevel ds =
       Just Refl -> (l, res)
       _ -> error "derivativeFromDeltaR"
     (_, DeltaDtS{}) -> error "derivativeFromDeltaR"
-    (_, DeltaDtD{}) -> error "derivativeFromDeltaR"
 
 instance ( RankedTensor (RankedOf shaped), ShapedTensor shaped
-         , ConvertTensor (RankedOf shaped) shaped )
+         , ConvertTensor (RankedOf shaped) shaped
+         , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
          => DualPart @[Nat] shaped where
   type Dual shaped = DeltaS (RankedOf shaped) shaped
   reverseDervative useDummies parameters0 _ = gradientDtS useDummies parameters0
@@ -600,11 +525,11 @@ instance ( RankedTensor (RankedOf shaped), ShapedTensor shaped
 gradientDtS
   :: forall ranked shaped r y.
      ( Sh.Shape y, GoodScalar r
-     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
+     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped
+     , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => Bool -> DomainsOD
   -> Maybe (shaped r y) -> DeltaS ranked shaped r y
-  -> ( AstBindingsD (DynamicOf shaped)
-     , Domains (DynamicOf shaped) )
+  -> (AstBindingsD ranked, Domains ranked)
 gradientDtS useDummies !parameters0 !mdt !deltaTopLevel =
   let dt = fromMaybe 1 mdt
       deltaDt = DeltaDtS dt deltaTopLevel
@@ -613,47 +538,41 @@ gradientDtS useDummies !parameters0 !mdt !deltaTopLevel =
   :: Sh.Shape y
   => Bool -> DomainsOD -> Maybe (Flip OS.Array Double y)
   -> DeltaS (Flip OR.Array) (Flip OS.Array) Double y
-  -> ( AstBindingsD (DynamicOf (Flip OS.Array))
-     , Domains (DynamicOf (Flip OS.Array)) ) #-}
+  -> (AstBindingsD (Flip OR.Array), Domains (Flip OR.Array)) #-}
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtS
   :: Sh.Shape y
   => Bool -> DomainsOD -> Maybe (AstShaped PrimalSpan Double y)
   -> DeltaS (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double y
-  -> ( AstBindingsD (DynamicOf (AstShaped PrimalSpan))
-     , Domains (DynamicOf (AstShaped PrimalSpan)) ) #-}
+  -> ( AstBindingsD (DynamicTensor (AstShaped PrimalSpan))
+     , Domains (DynamicTensor (AstShaped PrimalSpan)) ) #-}
 -}
 
 derivativeFromDeltaS
   :: forall ranked shaped r sh.
      ( Sh.Shape sh, GoodScalar r
-     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped )
-  => Int -> DeltaS ranked shaped r sh -> Domains (DynamicOf shaped)
-  -> ( AstBindingsD (DynamicOf shaped)
-     , shaped r sh )
+     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped
+     , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
+  => Int -> DeltaS ranked shaped r sh -> Domains ranked
+  -> (AstBindingsD ranked, shaped r sh)
 derivativeFromDeltaS !dim !deltaTopLevel !ds =
   case runST $ buildDerivative dim (DeltaDtS 0 deltaTopLevel) ds of
     (l, DeltaDtS @_ @sh2 res _) -> case sameShape @sh @sh2 of
       Just Refl -> (l, res)
       _ -> error "derivativeFromDeltaS"
     (_, DeltaDtR{}) -> error "derivativeFromDeltaS"
-    (_, DeltaDtD{}) -> error "derivativeFromDeltaS"
 
 -- | The main input of the differentiation functions:
 -- the delta expression to be differentiated and the dt perturbation
 -- (small change) of the objective function codomain, for which we compute
 -- the gradient.
-type role DeltaDt nominal nominal nominal  -- nominal due to DynamicOf family
+type role DeltaDt nominal nominal nominal
 data DeltaDt :: RankedTensorKind -> ShapedTensorKind -> Type -> Type where
   DeltaDtR :: forall r n ranked shaped. KnownNat n
            => ranked r n -> DeltaR ranked shaped r n
            -> DeltaDt ranked shaped r
   DeltaDtS :: forall r sh ranked shaped. Sh.Shape sh
            => shaped r sh -> DeltaS ranked shaped r sh
-           -> DeltaDt ranked shaped r
-  DeltaDtD :: forall r (y :: ()) ranked shaped.
-              DynamicOf ranked r
-           -> DeltaD (Clown (DynamicOf ranked)) ranked shaped r y
            -> DeltaDt ranked shaped r
 
 
@@ -670,18 +589,17 @@ data DeltaDt :: RankedTensorKind -> ShapedTensorKind -> Type -> Type where
 -- 2. key `member` dMap == nMap!key is DeltaBindingR
 type role EvalState nominal nominal
 data EvalState ranked shaped = EvalState
-  { iMap        :: EM.EnumMap (InputId ranked)
-                              (DynamicExists (DynamicOf ranked))
+  { iMap        :: EM.EnumMap (InputId ranked) (DynamicTensor ranked)
       -- ^ eventually, cotangents of objective function inputs
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap        :: EM.EnumMap (NodeId ranked) (DynamicExists (DynamicOf ranked))
+  , dMap        :: EM.EnumMap (NodeId ranked) (DynamicTensor ranked)
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
   , nMap        :: EM.EnumMap (NodeId ranked) (DeltaBinding ranked shaped)
       -- ^ nodes left to be evaluated
-  , astBindings :: AstBindingsD (DynamicOf ranked)
+  , astBindings :: AstBindingsD ranked
   }
 
 -- | Nodes left to be evaluated.
@@ -751,11 +669,11 @@ data DeltaBinding :: RankedTensorKind -> ShapedTensorKind -> Type where
 -- value (usually set to @1@) is given in the @DeltaDt ranked r@ parameter.
 gradientFromDelta
   :: forall ranked shaped r.
-      ( GoodScalar r, RankedTensor ranked, ShapedTensor shaped
-      , ConvertTensor ranked shaped )
+     ( GoodScalar r, RankedTensor ranked, ShapedTensor shaped
+     , ConvertTensor ranked shaped
+     , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => Bool -> DomainsOD -> DeltaDt ranked shaped r
-  -> ( AstBindingsD (DynamicOf ranked)
-     , Domains (DynamicOf ranked) )
+  -> (AstBindingsD ranked, Domains ranked)
 gradientFromDelta useDummies !parameters0 !deltaDt =
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
@@ -768,18 +686,18 @@ gradientFromDelta useDummies !parameters0 !deltaDt =
   -- but a shape is not preserved in a dummy, so it's not shape-correct.
   let s0 =
         let iMap =
-              if useDummies
-              then let f (DynamicExists @re _) =
-                         DynamicExists $ ddummy @ranked @shaped @re
-                   in EM.fromDistinctAscList
-                      $ zip [toInputId 0 ..] $ map f $ V.toList parameters0
-              else let f :: DynamicExists OD.Array
-                         -> DynamicExists (DynamicOf ranked)
-                       f (DynamicExists @re d) =
-                         withListShape (dshape @(Flip OR.Array) d) $ \sh ->
-                           DynamicExists $ dfromR $ rzero @ranked @re sh
-                   in EM.fromDistinctAscList
-                      $ zip [toInputId 0 ..] $ map f $ V.toList parameters0
+              -- The first two cases are permitted for when the normal main
+              -- parameters are used as parameters0.
+              let f (DynamicRanked @r2 @n2 t) =
+                    let sh = rshape @(Flip OR.Array) t
+                    in Sh.withShapeP (shapeToList sh) $ \(Proxy @sh2) ->
+                      DynamicRankedDummy @r2 @sh2 Proxy Proxy
+                  f (DynamicShaped @r2 @sh2 _) =
+                    DynamicShapedDummy @r2 @sh2 Proxy Proxy
+                  f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+                  f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+              in EM.fromDistinctAscList
+                 $ zip [toInputId 0 ..] $ map f $ V.toList parameters0
             dMap = EM.empty
             nMap = EM.empty
             astBindings = []
@@ -792,17 +710,18 @@ gradientFromDelta useDummies !parameters0 !deltaDt =
 -- The warnings in the following seems spurious. A GHC issue to be opened.
 {-# SPECIALIZE gradientFromDelta
   :: Bool -> DomainsOD -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
-  -> (AstBindingsD OD.Array, DomainsOD) #-}
+  -> (AstBindingsD (Flip OR.Array), DomainsOD) #-}
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientFromDelta
   :: Bool -> DomainsOD -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
-  -> (AstBindingsD (DynamicOf (AstRanked PrimalSpan)), Domains (AstDynamic PrimalSpan)) #-}
+  -> (AstBindingsD (DynamicTensor (AstRanked PrimalSpan)), Domains (AstDynamic PrimalSpan)) #-}
 -}
 
 buildFinMaps
   :: forall ranked shaped r0.
      ( GoodScalar r0, RankedTensor ranked, ShapedTensor shaped
-     , ConvertTensor ranked shaped )
+     , ConvertTensor ranked shaped
+     , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => EvalState ranked shaped -> DeltaDt ranked shaped r0
   -> EvalState ranked shaped
 buildFinMaps s0 deltaDt =
@@ -878,14 +797,13 @@ buildFinMaps s0 deltaDt =
           -- result of the evaluation.
           assert (case d of
                     ZeroR{} -> False
-                    DToR{} -> False
                     LetR{} -> False  -- wasteful and nonsensical
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBindingR _) ->
                 s {dMap = EM.adjust (raddDynamic c) n $ dMap s}
               Nothing ->
-                let cs = DynamicExists $ dfromR c
+                let cs = DynamicRanked c
                 in s { nMap = EM.insert n (DeltaBindingR d) $ nMap s
                      , dMap = EM.insert n cs $ dMap s }
               _ -> error "buildFinMaps: corrupted nMap"
@@ -933,14 +851,6 @@ buildFinMaps s0 deltaDt =
           in evalR s2 (rfromList cas) as'
         CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
-        DToR (RToD @n2 d) ->
-          case sameNat (Proxy @n) (Proxy @n2) of
-            Just Refl -> evalR s c d
-            _ -> error "buildFinMaps: different ranks in DToR(RToD)"
-        DToR (SToD @sh2 d) ->
-          case matchingRank @sh2 @n of
-            Just Refl -> evalR s c (SToR d)
-            _ -> error "buildFinMaps: different ranks in DToR(SToD)"
         SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
         SToR d -> evalS s (sfromR c) d
 
@@ -974,14 +884,13 @@ buildFinMaps s0 deltaDt =
         LetS n d ->
           assert (case d of
                     ZeroS -> False
-                    DToS{} -> False
                     LetS{} -> False  -- wasteful and nonsensical
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBindingS _) ->
                 s {dMap = EM.adjust (saddDynamic c) n $ dMap s}
               Nothing ->
-                let cs = DynamicExists $ dfromS c
+                let cs = DynamicShaped c
                 in s { nMap = EM.insert n (DeltaBindingS d) $ nMap s
                      , dMap = EM.insert n cs $ dMap s }
               _ -> error "buildFinMaps: corrupted nMap"
@@ -1019,7 +928,7 @@ buildFinMaps s0 deltaDt =
           -- in the other direction? What if backend don't have it?
           let perm = Sh.shapeT @perm
               permRev = map snd $ sort $ zip perm [0 .. length perm - 1]
-          in Sh.withShapeP permRev $ \(_proxy :: Proxy permR) ->
+          in Sh.withShapeP permRev $ \(Proxy @permR) ->
             gcastWith (unsafeCoerce Refl
                        :: Sh.Permute permR sh :~: sh2)
             $ gcastWith (unsafeCoerce Refl
@@ -1040,15 +949,6 @@ buildFinMaps s0 deltaDt =
               s2 = evalS sShared cx0 x0'
           in evalS s2 (sfromList cas) as'
         CastS d -> evalSRuntimeSpecialized s (scast c) d
-
-        DToS (SToD @sh2 d) ->
-          case sameShape @sh @sh2 of
-            Just Refl -> evalS s c d
-            _ -> error "buildFinMaps: different shapes in DToS(SToD)"
-        DToS (RToD @n2 d) ->
-          case matchingRank @sh @n2 of
-            Just Refl -> evalS s c (RToS d)
-            _ -> error "buildFinMaps: different ranks in DToS(RToD)"
         RToS (SToR @sh2 d) ->
           case sameShape @sh @sh2 of
             Just Refl -> evalS s c d
@@ -1085,39 +985,43 @@ buildFinMaps s0 deltaDt =
             _ -> error "buildFinMaps: corrupted nMap"
 -}
 
-      evalD
-        :: GoodScalar r
-        => EvalState ranked shaped
-        -> DynamicOf ranked r
-        -> DeltaD (Clown (DynamicOf ranked)) ranked shaped r y
-        -> EvalState ranked shaped
-      evalD s !c = \case
-        RToD d -> evalR s (rfromD c) d
-        SToD d -> evalS s (sfromD c) d
-
       evalFromnMap :: EvalState ranked shaped -> EvalState ranked shaped
       evalFromnMap s@EvalState{nMap, dMap} =
         case EM.maxViewWithKey nMap of
           Just ((n, b), nMap2) ->
             let s2 = s {nMap = nMap2}
                 s3 = case b of
-                  DeltaBindingR @_ @r1 d -> case dMap EM.! n of
-                    DynamicExists @r2 e ->
-                      case testEquality (typeRep @r1) (typeRep @r2) of
-                        Just Refl -> let c = rfromD e
-                                     in evalRRuntimeSpecialized s2 c d
+                  DeltaBindingR @n1 @r1 d -> case dMap EM.! n of
+                    DynamicRanked @r2 @n2 c -> case sameNat (Proxy @n2)
+                                                            (Proxy @n1) of
+                      Just Refl -> case testEquality (typeRep @r1)
+                                                     (typeRep @r2) of
+                        Just Refl -> evalRRuntimeSpecialized s2 c d
                         _ -> error "buildFinMaps: type mismatch"
-                  DeltaBindingS @_ @r1 d -> case dMap EM.! n of
-                    DynamicExists @r2 e ->
-                      case testEquality (typeRep @r1) (typeRep @r2) of
-                        Just Refl -> let c = sfromD e
-                                     in evalSRuntimeSpecialized s2 c d
+                      _ -> error "buildFinMaps: rank mismatch"
+                    DynamicShaped{} ->
+                      error "evalFromnMap: DynamicShaped"
+                    DynamicRankedDummy{} ->
+                      error "evalFromnMap: DynamicRankedDummy"
+                    DynamicShapedDummy{} ->
+                      error "evalFromnMap: DynamicShapedDummy"
+                  DeltaBindingS @sh1 @r1 d -> case dMap EM.! n of
+                    DynamicRanked{} ->
+                      error "evalFromnMap: DynamicRanked"
+                    DynamicShaped @r2 @sh2 c -> case sameShape @sh2 @sh1 of
+                      Just Refl -> case testEquality (typeRep @r1)
+                                                     (typeRep @r2) of
+                        Just Refl -> evalSRuntimeSpecialized s2 c d
                         _ -> error "buildFinMaps: type mismatch"
+                      _ -> error "buildFinMaps: shape mismatch"
+                    DynamicRankedDummy{} ->
+                      error "evalFromnMap: DynamicRankedDummy"
+                    DynamicShapedDummy{} ->
+                      error "evalFromnMap: DynamicShapedDummy"
             in evalFromnMap s3
           Nothing -> s  -- loop ends
 
       s1 = case deltaDt of
-        DeltaDtD dt deltaTopLevel -> evalD s0 dt deltaTopLevel
         DeltaDtR dt deltaTopLevel -> evalR s0 dt deltaTopLevel
         DeltaDtS dt deltaTopLevel -> evalS s0 dt deltaTopLevel
   in evalFromnMap s1
@@ -1151,10 +1055,10 @@ buildFinMaps s0 deltaDt =
 buildDerivative
   :: forall ranked shaped r0 s.
      ( GoodScalar r0, RankedTensor ranked, ShapedTensor shaped
-     , ConvertTensor ranked shaped )
-  => Int -> DeltaDt ranked shaped r0 -> Domains (DynamicOf ranked)
-  -> ST s ( AstBindingsD (DynamicOf ranked)
-          , DeltaDt ranked shaped r0 )
+     , ConvertTensor ranked shaped
+     , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
+  => Int -> DeltaDt ranked shaped r0 -> Domains ranked
+  -> ST s (AstBindingsD ranked, DeltaDt ranked shaped r0)
 buildDerivative dimR deltaDt params = do
   dMap <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
@@ -1167,10 +1071,14 @@ buildDerivative dimR deltaDt params = do
         InputR _ (InputId i) ->
           if i < dimR
           then case params V.! i of
-            DynamicExists @r2 e ->
-              case testEquality (typeRep @r) (typeRep @r2) of
-                Just Refl -> return $! rfromD @ranked @shaped @r e
+            DynamicRanked @r2 @n2 e -> case sameNat (Proxy @n2) (Proxy @n) of
+              Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+                Just Refl -> return e
                 _ -> error "buildDerivative: type mismatch"
+              _ -> error "buildDerivative: rank mismatch"
+            DynamicShaped{} -> error "buildDerivative: DynamicShaped"
+            DynamicRankedDummy{} -> error "buildDerivative: DynamicRankedDummy"
+            DynamicShapedDummy{} -> error "buildDerivative: DynamicShapedDummy"
           else error "buildDerivative': wrong index for an input"
         ScaleR k d -> (* k) <$> evalR d
         AddR d e -> liftM2 (+) (evalR d) (evalR e)
@@ -1180,10 +1088,17 @@ buildDerivative dimR deltaDt params = do
             Just (DeltaBindingR _) -> do
               dm <- readSTRef dMap
               case dm EM.! n of
-                DynamicExists @r2 t ->
-                  case testEquality (typeRep @r) (typeRep @r2) of
-                    Just Refl -> return $! rfromD @ranked @shaped @r t
+                DynamicRanked @r2 @n2 e -> case sameNat (Proxy @n2)
+                                                        (Proxy @n) of
+                  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+                    Just Refl -> return e
                     _ -> error "buildDerivative: type mismatch"
+                  _ -> error "buildDerivative: rank mismatch"
+                DynamicShaped{} -> error "buildDerivative: DynamicShaped"
+                DynamicRankedDummy{} ->
+                  error "buildDerivative: DynamicRankedDummy"
+                DynamicShapedDummy{} ->
+                  error "buildDerivative: DynamicShapedDummy"
             Nothing -> do
               cRaw <- evalR d
               ab <- readSTRef astBindings
@@ -1192,7 +1107,7 @@ buildDerivative dimR deltaDt params = do
               nmNew <- readSTRef nMap
               writeSTRef nMap $! EM.insert n (DeltaBindingR d) nmNew
               dm <- readSTRef dMap
-              writeSTRef dMap $! EM.insert n (DynamicExists $ dfromR cShared) dm
+              writeSTRef dMap $! EM.insert n (DynamicRanked cShared) dm
               return cShared
             _ -> error "buildDerivative: corrupted nMap"
 
@@ -1234,14 +1149,6 @@ buildDerivative dimR deltaDt params = do
           t <- evalR d
           return $! rcast t
 
-        DToR (RToD @n2 d) ->
-          case sameNat (Proxy @n) (Proxy @n2) of
-            Just Refl -> evalR d
-            _ -> error "buildDerivative: different ranks in DToR(RToD)"
-        DToR (SToD @sh2 d) ->
-          case matchingRank @sh2 @n of
-            Just Refl -> evalR (SToR d)
-            _ -> error "buildDerivative: different ranks in DToR(SToD)"
         SToR (RToS d) -> evalR d  -- no information lost, so no checks
         SToR d -> rfromS <$> evalS d
 
@@ -1253,10 +1160,14 @@ buildDerivative dimR deltaDt params = do
         InputS (InputId i) ->
           if i < dimR
           then case params V.! i of
-            DynamicExists @r2 e ->
-              case testEquality (typeRep @r) (typeRep @r2) of
-                Just Refl -> return $! sfromD @ranked @shaped @r e
+            DynamicRanked{} -> error "buildDerivative: DynamicRanked"
+            DynamicShaped @r2 @sh2 e -> case sameShape @sh2 @sh of
+              Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+                Just Refl -> return e
                 _ -> error "buildDerivative: type mismatch"
+              _ -> error "buildDerivative: shape mismatch"
+            DynamicRankedDummy{} -> error "buildDerivative: DynamicRankedDummy"
+            DynamicShapedDummy{} -> error "buildDerivative: DynamicShapedDummy"
           else error "buildDerivative: wrong index for an input"
         ScaleS k d -> (* k) <$> evalS d
         AddS d e -> liftM2 (+) (evalS d) (evalS e)
@@ -1266,10 +1177,16 @@ buildDerivative dimR deltaDt params = do
             Just (DeltaBindingS _) -> do
               dm <- readSTRef dMap
               case dm EM.! n of
-                DynamicExists @r2 t ->
-                  case testEquality (typeRep @r) (typeRep @r2) of
-                    Just Refl -> return $! sfromD @ranked @shaped @r t
+                DynamicRanked{} -> error "buildDerivative: DynamicRanked"
+                DynamicShaped @r2 @sh2 e -> case sameShape @sh2 @sh of
+                  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+                    Just Refl -> return e
                     _ -> error "buildDerivative: type mismatch"
+                  _ -> error "buildDerivative: shape mismatch"
+                DynamicRankedDummy{} ->
+                  error "buildDerivative: DynamicRankedDummy"
+                DynamicShapedDummy{} ->
+                  error "buildDerivative: DynamicShapedDummy"
             Nothing -> do
               cRaw <- evalS d
               ab <- readSTRef astBindings
@@ -1278,7 +1195,7 @@ buildDerivative dimR deltaDt params = do
               nmNew <- readSTRef nMap
               writeSTRef nMap $! EM.insert n (DeltaBindingS d) nmNew
               dm <- readSTRef dMap
-              writeSTRef dMap $! EM.insert n (DynamicExists $ dfromS cShared) dm
+              writeSTRef dMap $! EM.insert n (DynamicShaped cShared) dm
               return cShared
             _ -> error "buildDerivative: corrupted nMap"
 
@@ -1320,27 +1237,11 @@ buildDerivative dimR deltaDt params = do
           t <- evalS d
           return $! scast t
 
-        DToS (SToD @sh2 d) ->
-          case sameShape @sh @sh2 of
-            Just Refl -> evalS d
-            _ -> error "buildDerivative: different ranks in DToR(RToD)"
-        DToS (RToD @n2 d) ->
-          case matchingRank @sh @n2 of
-            Just Refl -> evalS (RToS d)
-            _ -> error "buildDerivative: different ranks in DToR(SToD)"
         RToS (SToR @sh2 d) ->
           case sameShape @sh @sh2 of
             Just Refl -> evalS d
             _ -> error "buildDerivative: different shapes in RToS(SToR)"
         RToS d -> sfromR <$> evalR d
-
-      evalD
-        :: GoodScalar r
-        => DeltaD (Clown (DynamicOf ranked)) ranked shaped r y
-        -> ST s (DynamicOf ranked r)
-      evalD = \case
-        RToD d -> dfromR <$> evalR d
-        SToD d -> dfromS <$> evalS d
 
   -- A hack to fit both argument delta and, afterwards, the result in a type
   -- that does not reflect either.
@@ -1354,10 +1255,5 @@ buildDerivative dimR deltaDt params = do
     DeltaDtS _dt deltaTopLevel -> do
       c <- evalS deltaTopLevel
       let !cDelta = DeltaDtS c ZeroS
-      ab <- readSTRef astBindings
-      return (ab, cDelta)
-    DeltaDtD _dt deltaTopLevel -> do
-      c <- evalD deltaTopLevel
-      let !cDelta = DeltaDtD c (SToD @'[] ZeroS)
       ab <- readSTRef astBindings
       return (ab, cDelta)

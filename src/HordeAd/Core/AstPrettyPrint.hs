@@ -408,30 +408,32 @@ showCollectionWith start end showx (x:xs) s = start ++ showx x (showl xs)
   showl []     = end ++ s
   showl (y:ys) = ", " ++ showx y (showl ys)
 
-printAstDynamic :: (GoodScalar r, AstSpan s)
-                => PrintConfig -> Int -> AstDynamic s r -> ShowS
+printAstDynamic :: AstSpan s
+                => PrintConfig -> Int -> AstDynamic s -> ShowS
 printAstDynamic cfg d = \case
-  AstRToD v -> printPrefixOp printAst cfg d "dfromR" [v]
-  AstSToD v -> printPrefixOp printAstS cfg d "dfromS" [v]
+  DynamicRanked v -> printPrefixOp printAst cfg d "dfromR" [v]
+  DynamicShaped v -> printPrefixOp printAstS cfg d "dfromS" [v]
+  DynamicRankedDummy{} -> showString "dfromR 0"
+  DynamicShapedDummy{} -> showString "dfromS 0"
 
-printAstUnDynamic :: (GoodScalar r, AstSpan s)
-                  => PrintConfig -> Int -> AstDynamic s r -> ShowS
+printAstUnDynamic :: AstSpan s
+                  => PrintConfig -> Int -> AstDynamic s -> ShowS
 printAstUnDynamic cfg d = \case
-  AstRToD v -> printAst cfg d v
-  AstSToD v -> printAstS cfg d v
+  DynamicRanked v -> printAst cfg d v
+  DynamicShaped v -> printAstS cfg d v
+  DynamicRankedDummy{} -> showString "0"
+  DynamicShapedDummy{} -> showString "0"
 
 printDomainsAst :: forall s. AstSpan s
-                => PrintConfig -> Domains (AstDynamic s) -> ShowS
+                => PrintConfig -> Domains (AstRanked s) -> ShowS
 printDomainsAst cfg l =
   if prettifyLosingSharing cfg
   then
-    showCollectionWith "(" ")" (\(DynamicExists e) ->
-                                  printAstUnDynamic cfg 0 e) (V.toList l)
+    showCollectionWith "(" ")" (\e -> printAstUnDynamic cfg 0 e) (V.toList l)
   else
     showParen True
       $ showString "fromList "
-        . showListWith (\(DynamicExists e) ->
-                          printAstDynamic cfg 0 e) (V.toList l)
+        . showListWith (\e -> printAstDynamic cfg 0 e) (V.toList l)
 
 printAstDomains :: forall s. AstSpan s
                 => PrintConfig -> Int -> AstDomains s -> ShowS

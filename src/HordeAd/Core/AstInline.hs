@@ -227,13 +227,13 @@ inlineAst memo v0 = case v0 of
 
 inlineAstDynamic
   :: AstSpan s
-  => AstMemo -> DynamicExists (AstDynamic s)
-  -> (AstMemo, DynamicExists (AstDynamic s))
+  => AstMemo -> AstDynamic s
+  -> (AstMemo, AstDynamic s)
 inlineAstDynamic memo = \case
-  DynamicExists (AstRToD w) ->
-    second (DynamicExists . AstRToD) $ inlineAst memo w
-  DynamicExists (AstSToD w) ->
-    second (DynamicExists . AstSToD) $ inlineAstS memo w
+  DynamicRanked w -> second DynamicRanked $ inlineAst memo w
+  DynamicShaped w -> second DynamicShaped $ inlineAstS memo w
+  u@DynamicRankedDummy{} -> (memo, u)
+  u@DynamicShapedDummy{} -> (memo, u)
 
 inlineAstDomains
   :: AstSpan s
@@ -573,10 +573,12 @@ unletAst env t = case t of
 
 unletAstDynamic
   :: AstSpan s
-  => UnletEnv -> DynamicExists (AstDynamic s) -> DynamicExists (AstDynamic s)
+  => UnletEnv -> AstDynamic s -> AstDynamic s
 unletAstDynamic env = \case
-  DynamicExists (AstRToD u) -> DynamicExists $ AstRToD $ unletAst env u
-  DynamicExists (AstSToD u) -> DynamicExists $ AstSToD $ unletAstS env u
+  DynamicRanked u -> DynamicRanked $ unletAst env u
+  DynamicShaped u -> DynamicShaped $ unletAstS env u
+  u@DynamicRankedDummy{} -> u
+  u@DynamicShapedDummy{} -> u
 
 unletAstDomains
   :: AstSpan s => UnletEnv -> AstDomains s -> AstDomains s

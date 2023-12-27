@@ -7,13 +7,13 @@ module HordeAd.External.Optimizer
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import           Data.Bifunctor.Flip
 import           GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.Delta (DualPart (..))
 import HordeAd.Core.DualNumber
+import HordeAd.Core.TensorADVal ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
@@ -24,13 +24,13 @@ import HordeAd.External.OptimizerTools
 sgd :: forall n r a. (KnownNat n, GoodScalar r)
     => Double
     -> (a
-        -> Domains (DynamicOf (ADVal (Flip OR.Array)))
+        -> Domains (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r n)
     -> [a]  -- ^ training data
     -> DomainsOD  -- ^ initial parameters
     -> (DomainsOD, Flip OR.Array r n)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
-  deltaInputs = generateDeltaInputsOD @(Flip OR.Array) parameters0
+  deltaInputs = generateDeltaInputs @(Flip OR.Array) parameters0
   go :: [a] -> DomainsOD -> (DomainsOD, Flip OR.Array r n)
   go [] parameters = (parameters, 0)
   go (a : rest) !parameters =
@@ -42,33 +42,33 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
        else go rest parametersNew
 
 -- | An implementation of the Adam gradient descent.
-sgdAdam :: forall f r a y.
-           ( DynamicOf f ~ DynamicOf (RankedOf f)
-           , ConvertTensor (RankedOf f) (ShapedOf f)
-           , DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
-           , DynamicOf f ~ OD.Array, DomainsOf f ~ DomainsOD, Num (f r y) )
-        => (a -> Domains (DynamicOf (ADVal f)) -> ADVal f r y)
-        -> [a]
-        -> DomainsOD
-        -> StateAdam
-        -> (DomainsOD, StateAdam)
+sgdAdam
+  :: forall f r a y.
+     ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
+     , DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
+     , RankedOf f ~ Flip OR.Array, Num (f r y))
+  => (a -> Domains (ADVal (RankedOf f)) -> ADVal f r y)
+  -> [a]
+  -> DomainsOD
+  -> StateAdam
+  -> (DomainsOD, StateAdam)
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
-sgdAdamArgs :: forall f r a y.
-               ( DynamicOf f ~ DynamicOf (RankedOf f)
-               , ConvertTensor (RankedOf f) (ShapedOf f)
-               , DualPart f, UnletGradient f, HasSingletonDict y, GoodScalar r
-               , DynamicOf f ~ OD.Array, DomainsOf f ~ DomainsOD, Num (f r y) )
-            => ArgsAdam
-            -> (a -> Domains (DynamicOf (ADVal f)) -> ADVal f r y)
-            -> [a]
-            -> DomainsOD
-            -> StateAdam
-            -> (DomainsOD, StateAdam)
+sgdAdamArgs
+  :: forall f r a y.
+     ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
+     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
+     , RankedOf f ~ Flip OR.Array, Num (f r y) )
+  => ArgsAdam
+  -> (a -> Domains (ADVal (RankedOf f)) -> ADVal f r y)
+  -> [a]
+  -> DomainsOD
+  -> StateAdam
+  -> (DomainsOD, StateAdam)
 sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
-  deltaInputs = generateDeltaInputsOD parameters0
+  deltaInputs = generateDeltaInputs parameters0
   go :: [a] -> DomainsOD -> StateAdam -> (DomainsOD, StateAdam)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =

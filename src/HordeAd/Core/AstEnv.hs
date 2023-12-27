@@ -23,14 +23,17 @@ import Prelude
 import qualified Data.Array.Shape as Sh
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
+import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat)
+import           GHC.TypeLits (KnownNat, Nat, sameNat)
 import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (matchingRank, sameShape)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 import           HordeAd.Util.SizedList
@@ -68,29 +71,43 @@ extendEnvS (AstVarName var) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show var)
                    var (AstEnvElemS t) env
 
-extendEnvD :: forall ranked shaped. ConvertTensor ranked shaped
-           => (AstDynamicVarName, DynamicExists (DynamicOf ranked))
+extendEnvD :: forall ranked shaped.
+              ( RankedTensor ranked, ShapedTensor shaped
+              , shaped ~ ShapedOf ranked )
+           => (AstDynamicVarName, DynamicTensor ranked)
            -> AstEnv ranked shaped
            -> AstEnv ranked shaped
-extendEnvD ( AstDynamicVarName @k @r @sh @n (AstVarName var)
-           , DynamicExists @r2 d )
-           !env
-  | Just Refl <- testEquality (typeRep @k) (typeRep @Nat) =
-    -- We don't need to manually pick a specialization for the existential
-    -- variable r2, because rfromD does not depend on r2.
-    case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> extendEnvR @_ @_ @_ @n (AstVarName var) (rfromD d) env
-      _ -> error "extendEnvD: type mismatch"
-extendEnvD ( AstDynamicVarName @k @r @sh @sh2 (AstVarName var)
-           , DynamicExists @r2 d )
-           env
-  | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat]) =
-    -- We don't need to manually pick a specialization for the existential
-    -- variable r2, because sfromD does not depend on r2.
-    case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> extendEnvS @_ @_ @_ @sh (AstVarName var) (sfromD d) env
-      _ -> error "extendEnvD: type mismatch"
-extendEnvD _ _ = error "extendEnvD: kind mismatch"
+extendEnvD (AstDynamicVarName @k @r @sh @n (AstVarName var), d) !env
+  | Just Refl <- testEquality (typeRep @k) (typeRep @Nat) = case d of
+    DynamicRanked @r2 @n2 t -> case sameNat (Proxy @n2) (Proxy @n) of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+        Just Refl -> extendEnvR @_ @_ @_ @n (AstVarName var) t env
+        _ -> error "extendEnvD: type mismatch"
+      _ -> error "extendEnvD: rank mismatch"
+    DynamicShaped{} -> error "extendEnvD: ranked from shaped"
+    DynamicRankedDummy @r2 @sh2 _ _ -> case matchingRank @sh2 @n of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+        Just Refl ->
+          let sh2 = listShapeToShape (Sh.shapeT @sh2)
+          in extendEnvR @_ @_ @r @n (AstVarName var) (rzero sh2) env
+        _ -> error "extendEnvD: type mismatch"
+      _ -> error "extendEnvD: rank mismatch"
+    DynamicShapedDummy{} -> error "extendEnvD: ranked from shaped"
+extendEnvD (AstDynamicVarName @k @r @sh (AstVarName var), d) env
+  | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat]) = case d of
+    DynamicRanked{} -> error "extendEnvD: shaped from ranked"
+    DynamicShaped @r2 @sh2 t -> case sameShape @sh2 @sh of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+        Just Refl -> extendEnvS @_ @_ @_ @sh (AstVarName var) t env
+        _ -> error "extendEnvD: type mismatch"
+      _ -> error "extendEnvD: shape mismatch"
+    DynamicRankedDummy{} -> error "extendEnvD: shaped from ranked"
+    DynamicShapedDummy @r2 @sh2 _ _ -> case sameShape @sh2 @sh of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+        Just Refl -> extendEnvS @_ @_ @r @sh (AstVarName var) 0 env
+        _ -> error "extendEnvD: type mismatch"
+      _ -> error "extendEnvD: shape mismatch"
+extendEnvD _ _ = error "extendEnvD: unexpected kind"
 
 extendEnvI :: ( RankedTensor ranked
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
@@ -119,8 +136,10 @@ extendEnvVarsS vars !ix !env =
                    (ShapedList.sizedListToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
-extendEnvPars :: forall ranked shaped. ConvertTensor ranked shaped
-              => [AstDynamicVarName] -> Domains (DynamicOf ranked)
+extendEnvPars :: forall ranked shaped.
+                 ( RankedTensor ranked, ShapedTensor shaped
+                 , shaped ~ ShapedOf ranked )
+              => [AstDynamicVarName] -> Domains ranked
               -> AstEnv ranked shaped
               -> AstEnv ranked shaped
 extendEnvPars vars !pars !env =
@@ -203,22 +222,26 @@ interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
 interpretLambdaDomains
-  :: forall s ranked shaped r n. ConvertTensor ranked shaped
+  :: forall s ranked shaped r n.
+     ( RankedTensor ranked, ShapedTensor shaped
+     , shaped ~ ShapedOf ranked )
   => (AstEnv ranked shaped -> AstRanked s r n -> ranked r n)
   -> AstEnv ranked shaped
   -> ([AstDynamicVarName], AstRanked s r n)
-  -> Domains (DynamicOf ranked)
+  -> Domains ranked
   -> ranked r n
 {-# INLINE interpretLambdaDomains #-}
 interpretLambdaDomains f !env (!vars, !ast) =
   \pars -> f (extendEnvPars vars pars env) ast
 
 interpretLambdaDomainsS
-  :: forall s ranked shaped r sh. ConvertTensor ranked shaped
+  :: forall s ranked shaped r sh.
+     ( RankedTensor ranked, ShapedTensor shaped
+     , shaped ~ ShapedOf ranked )
   => (AstEnv ranked shaped -> AstShaped s r sh -> shaped r sh)
   -> AstEnv ranked shaped
   -> ([AstDynamicVarName], AstShaped s r sh)
-  -> Domains (DynamicOf ranked)
+  -> Domains ranked
   -> shaped r sh
 {-# INLINE interpretLambdaDomainsS #-}
 interpretLambdaDomainsS f !env (!vars, !ast) =

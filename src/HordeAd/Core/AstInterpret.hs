@@ -17,7 +17,6 @@ module HordeAd.Core.AstInterpret
 import Prelude
 
 import           Control.Exception.Assert.Sugar
-import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
@@ -469,38 +468,43 @@ interpretAst !env = \case
         t2 = interpretAstDual env u'
     in rD t1 t2
   AstLetDomainsIn vars l v ->
-    let odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
-        odFromVar (AstDynamicVarName @_ @rD @shD _) =
-          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
-        lt0 = V.fromList $ map odFromVar vars
+    let lt0 = V.fromList $ map odFromVar vars
         lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
         -- variable r2, because the operations do not depend on r2.
-        f :: (AstDynamicVarName, DynamicExists (DynamicOf ranked))
+        f :: (AstDynamicVarName, DynamicTensor ranked)
           -> AstEnv ranked shaped -> AstEnv ranked shaped
-        f ( AstDynamicVarName @k @r2 @sh2 @y (AstVarName varId)
-          , DynamicExists @r3 d )
-          | Just Refl <- testEquality (typeRep @r2) (typeRep @r3) =
-            case testEquality (typeRep @k) (typeRep @Nat) of
-              Just Refl ->
-                extendEnvR @ranked @shaped @r2 @y
-                           (AstVarName varId) (rfromD d)
-              _ -> case testEquality (typeRep @k) (typeRep @[Nat]) of
-                Just Refl ->
-                  extendEnvS @ranked @shaped @r2 @y
-                             (AstVarName varId) (sfromD d)
-                _ -> error "interpretAst: impossible kind"
-        f _ = error "interpretAst: type mismatch"
+        f (AstDynamicVarName @k @r2 @sh2 @y (AstVarName varId), d) = case d of
+          DynamicRanked @r3 @n3 u
+            | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
+            , Just Refl <- sameNat (Proxy @n3) (Proxy @y)
+            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
+              extendEnvR @ranked @shaped @r2 @y (AstVarName varId) u
+          DynamicShaped @r3 @sh3 u
+            | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
+            , Just Refl <- sameShape @sh3 @sh2
+            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
+              extendEnvS @ranked @shaped @r2 @sh2 (AstVarName varId) u
+          DynamicRankedDummy @r3 @sh3 _ _
+            | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
+            , Just Refl <- sameShape @sh3 @sh2
+            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
+              let sh2 = listShapeToShape (Sh.shapeT @sh2)
+              in extendEnvR @ranked @shaped @r2 @y (AstVarName varId)
+                 $ rzero sh2
+          DynamicShapedDummy @r3 @sh3 _ _
+            | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
+            , Just Refl <- sameShape @sh3 @sh2
+            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
+              extendEnvS @ranked @shaped @r2 @sh2 (AstVarName varId) 0
+          _ -> error "interpretAst: impossible kind"
         env2 lw = foldr f env (zip vars (V.toList lw))
     in rletDomainsIn lt0 lt (\lw -> interpretAst (env2 lw) v)
   AstFwd (vars, ast) parameters ds ->
-    let g :: forall f. ADReady f => Domains (DynamicOf f) -> f r n
+    let g :: forall f. ADReady f => Domains f -> f r n
         g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
           -- interpretation in empty environment makes sense only
           -- if there are no free variables outside of those listed
-        odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
-        odFromVar (AstDynamicVarName @_ @rD @shD _) =
-          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
         pars = interpretAstDynamic @ranked env <$> parameters
         d = interpretAstDynamic @ranked env <$> ds
@@ -531,17 +535,15 @@ interpretAst !env = \case
 interpretAstDynamic
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
   => AstEnv ranked shaped
-  -> DynamicExists (AstDynamic s) -> DynamicExists (DynamicOf ranked)
+  -> AstDynamic s -> DynamicTensor ranked
 {-# INLINE interpretAstDynamic #-}
 interpretAstDynamic !env = \case
-  DynamicExists @r (AstRToD AstIota) ->
-    DynamicExists $ ddummy @ranked @shaped @r
-  DynamicExists (AstRToD w) ->
-    DynamicExists $ dfromR $ interpretAstRuntimeSpecialized env w
-  DynamicExists @r (AstSToD AstIotaS) ->
-    DynamicExists $ ddummy @ranked @shaped @r
-  DynamicExists (AstSToD w) ->
-    DynamicExists $ dfromS $ interpretAstSRuntimeSpecialized env w
+  DynamicRanked w ->
+    DynamicRanked $ interpretAstRuntimeSpecialized env w
+  DynamicShaped w ->
+    DynamicShaped $ interpretAstSRuntimeSpecialized env w
+  DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
+  DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
 interpretAstDomains
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
@@ -560,42 +562,30 @@ interpretAstDomains !env = \case
         env2 w = extendEnvS var w env
     in sletInDomains t (\w -> interpretAstDomains (env2 w) v)
   AstRev @r @n (vars, ast) parameters ->
-    let g :: forall f. ADReady f => Domains (DynamicOf f) -> f r n
+    let g :: forall f. ADReady f => Domains f -> f r n
         g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
           -- interpretation in empty environment; makes sense only
           -- if there are no free variables outside of those listed;
           -- the same below
-        odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
-        odFromVar (AstDynamicVarName @_ @rD @shD _) =
-          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
         pars = interpretAstDynamic @ranked env <$> parameters
     in rrev @ranked g parameters0 pars
   AstRevDt @r @n (vars, ast) parameters dt ->
-    let g :: forall f. ADReady f => Domains (DynamicOf f) -> f r n
+    let g :: forall f. ADReady f => Domains f -> f r n
         g = interpretLambdaDomains interpretAst EM.empty (vars, ast)
-        odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
-        odFromVar (AstDynamicVarName @_ @rD @shD _) =
-          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
         pars = interpretAstDynamic @ranked env <$> parameters
         d = interpretAst env dt
     in rrevDt @ranked g parameters0 pars d
   AstRevS @r @sh (vars, ast) parameters ->
-    let g :: forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh
+    let g :: forall f. ADReadyS f => Domains (RankedOf f) -> f r sh
         g = interpretLambdaDomainsS interpretAstS EM.empty (vars, ast)
-        odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
-        odFromVar (AstDynamicVarName @_ @rD @shD _) =
-          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
         pars = interpretAstDynamic @ranked env <$> parameters
     in srev @ranked g parameters0 pars
   AstRevDtS @r @sh (vars, ast) parameters dt ->
-    let g :: forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh
+    let g :: forall f. ADReadyS f => Domains (RankedOf f) -> f r sh
         g = interpretLambdaDomainsS interpretAstS EM.empty (vars, ast)
-        odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
-        odFromVar (AstDynamicVarName @_ @rD @shD _) =
-          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
         pars = interpretAstDynamic @ranked env <$> parameters
         d = interpretAstS env dt
@@ -989,38 +979,43 @@ interpretAstS !env = \case
         t2 = interpretAstDualS env u'
     in sD t1 t2
   AstLetDomainsInS vars l v ->
-    let odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
-        odFromVar (AstDynamicVarName @_ @rD @shD _) =
-          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
-        lt0 = V.fromList $ map odFromVar vars
+    let lt0 = V.fromList $ map odFromVar vars
         lt = interpretAstDomains env l
         -- We don't need to manually pick a specialization for the existential
         -- variable r2, because the operations do not depend on r2.
-        f :: (AstDynamicVarName, DynamicExists (DynamicOf ranked))
+        f :: (AstDynamicVarName, DynamicTensor ranked)
           -> AstEnv ranked shaped -> AstEnv ranked shaped
-        f ( AstDynamicVarName @k @r2 @sh2 @y (AstVarName varId)
-          , DynamicExists @r3 d )
-          | Just Refl <- testEquality (typeRep @r2) (typeRep @r3) =
-            case testEquality (typeRep @k) (typeRep @Nat) of
-              Just Refl ->
-                extendEnvR @ranked @shaped @r2 @y
-                           (AstVarName varId) (rfromD d)
-              _ -> case testEquality (typeRep @k) (typeRep @[Nat]) of
-                Just Refl ->
-                  extendEnvS @ranked @shaped @r2 @y
-                             (AstVarName varId) (sfromD d)
-                _ -> error "interpretAstS: impossible kind"
-        f _ = error "interpretAstS: type mismatch"
+        f (AstDynamicVarName @k @r2 @sh2 @y (AstVarName varId), d) = case d of
+          DynamicRanked @r3 @n3 u
+            | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
+            , Just Refl <- sameNat (Proxy @n3) (Proxy @y)
+            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
+              extendEnvR @ranked @shaped @r2 @y (AstVarName varId) u
+          DynamicShaped @r3 @sh3 u
+            | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
+            , Just Refl <- sameShape @sh3 @sh2
+            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
+              extendEnvS @ranked @shaped @r2 @sh2 (AstVarName varId) u
+          DynamicRankedDummy @r3 @sh3 _ _
+            | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
+            , Just Refl <- sameShape @sh3 @sh2
+            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
+              let sh2 = listShapeToShape (Sh.shapeT @sh2)
+              in extendEnvR @ranked @shaped @r2 @y (AstVarName varId)
+                 $ rzero sh2
+          DynamicShapedDummy @r3 @sh3 _ _
+            | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
+            , Just Refl <- sameShape @sh3 @sh2
+            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
+              extendEnvS @ranked @shaped @r2 @sh2 (AstVarName varId) 0
+          _ -> error "interpretAstS: impossible kind"
         env2 lw = foldr f env (zip vars (V.toList lw))
     in sletDomainsIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
   AstFwdS (vars, ast) parameters ds ->
-    let g :: forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh
+    let g :: forall f. ADReadyS f => Domains (RankedOf f) -> f r sh
         g = interpretLambdaDomainsS interpretAstS EM.empty (vars, ast)
           -- interpretation in empty environment makes sense only
           -- if there are no free variables outside of those listed
-        odFromVar :: AstDynamicVarName -> DynamicExists OD.Array
-        odFromVar (AstDynamicVarName @_ @rD @shD _) =
-          DynamicExists $ OD.constant @rD (Sh.shapeT @shD) 0
         parameters0 = V.fromList $ map odFromVar vars
         pars = interpretAstDynamic @ranked env <$> parameters
         d = interpretAstDynamic @ranked env <$> ds

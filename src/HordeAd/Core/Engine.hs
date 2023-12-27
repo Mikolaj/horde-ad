@@ -15,15 +15,12 @@ module HordeAd.Core.Engine
   , crev, crevDt
     -- * Old derivative adaptors
   , cfwd
-    -- * Additional common mechanisms
-  , shapedToRanked
     -- * Re-exported for tests
   , interpretAst
   ) where
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
@@ -61,16 +58,16 @@ import HordeAd.Core.Types
 rev
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (AstRanked FullSpan) astvals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> g r y) -> vals -> vals
 rev f vals = revDtMaybe f vals Nothing
 {- TODO: RULE left-hand side too complicated to desugar
 {-# SPECIALIZE rev
   :: ( HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (AstRanked FullSpan) astvals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> AstRanked FullSpan Double y) -> vals
   -> vals #-}
@@ -80,16 +77,16 @@ rev f vals = revDtMaybe f vals Nothing
 revDt
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (AstRanked FullSpan) astvals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> g r y) -> vals -> ConcreteOf g r y -> vals
 revDt f vals dt = revDtMaybe f vals (Just dt)
 {- TODO: RULE left-hand side too complicated to desugar
 {-# SPECIALIZE revDt
   :: ( HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (AstRanked FullSpan) astvals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> AstRanked FullSpan Double y) -> vals -> Flip OR.Array Double y
   -> vals #-}
@@ -98,8 +95,8 @@ revDt f vals dt = revDtMaybe f vals (Just dt)
 revDtMaybe
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (AstRanked FullSpan) astvals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals, Value vals ~ vals )
   => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g) r y) -> vals
 {-# INLINE revDtMaybe #-}
@@ -115,14 +112,14 @@ revDtMaybe f vals mdt =
 rev
   :: forall r y g astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (DynamicOf g) astvals
-     , AdaptableDomains OD.Array (Value astvals) )
+     , AdaptableDomains (RankedOf g) astvals
+     , AdaptableDomains (Flip OR.Array) (Value astvals) )
   => (astvals -> g r y) -> Value astvals -> Value astvals
 rev f vals = revDtMaybe f vals Nothing
 {-# SPECIALIZE rev
   :: ( HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
-     , AdaptableDomains OD.Array (Value astvals) )
+     , AdaptableDomains (AstRanked FullSpan) astvals
+     , AdaptableDomains (Flip OR.Array) (Value astvals) )
   => (astvals -> AstRanked FullSpan Double y) -> Value astvals
   -> Value astvals #-}
 
@@ -130,15 +127,15 @@ rev f vals = revDtMaybe f vals Nothing
 revDt
   :: forall r y g astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (DynamicOf g) astvals
-     , AdaptableDomains OD.Array (Value astvals) )
+     , AdaptableDomains (RankedOf g) astvals
+     , AdaptableDomains (Flip OR.Array) (Value astvals) )
   => (astvals -> g r y) -> Value astvals -> ConcreteOf g r y
   -> Value astvals
 revDt f vals dt = revDtMaybe f vals (Just dt)
 {-# SPECIALIZE revDt
   :: ( HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
-     , AdaptableDomains OD.Array (Value astvals) )
+     , AdaptableDomains (AstRanked FullSpan) astvals
+     , AdaptableDomains (Flip OR.Array) (Value astvals) )
   => (astvals -> AstRanked FullSpan Double y) -> Value astvals
   -> Flip OR.Array Double y
   -> Value astvals #-}
@@ -146,8 +143,8 @@ revDt f vals dt = revDtMaybe f vals (Just dt)
 revDtMaybe
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (DynamicOf g) astvals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (RankedOf g) astvals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> Maybe (ConcreteOf g r y) -> vals
 {-# INLINE revDtMaybe #-}
@@ -163,8 +160,8 @@ revDtMaybe f vals mdt =
 revArtifactAdapt
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (DynamicOf g) astvals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (RankedOf g) astvals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals )
   => Bool -> (astvals -> g r y) -> vals
   -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
@@ -174,8 +171,8 @@ revArtifactAdapt hasDt f vals =
   in revProduceArtifact TensorFunctor True hasDt g EM.empty domainsOD
 {-# SPECIALIZE revArtifactAdapt
   :: ( HasSingletonDict y
-     , AdaptableDomains (AstDynamic FullSpan) astvals
-     , AdaptableDomains OD.Array (Value astvals) )
+     , AdaptableDomains (AstRanked FullSpan) astvals
+     , AdaptableDomains (Flip OR.Array) (Value astvals) )
   => Bool -> (astvals -> AstRanked FullSpan Double y) -> Value astvals
   -> ( AstArtifactRev (AstRanked PrimalSpan) Double y
      , Dual (AstRanked PrimalSpan) Double y ) #-}
@@ -185,7 +182,7 @@ revProduceArtifactWithoutInterpretation
      ( g ~ AstRanked FullSpan  -- needed, because PrimalOf not injective
      , DerivativeStages g, GoodScalar r, HasSingletonDict y )
   => TensorFunctor g -> Bool
-  -> (Domains (DynamicOf (ADVal (PrimalOf g)))
+  -> (Domains (ADVal (RankedOf (PrimalOf g)))
       -> ADVal (PrimalOf g) r y)
   -> DomainsOD
   -> (AstArtifactRev (PrimalOf g) r y, Dual (PrimalOf g) r y)
@@ -194,25 +191,21 @@ revProduceArtifactWithoutInterpretation tf hasDt g =
   revArtifactFromForwardPass
     @Nat @g TensorFunctor True hasDt (forwardPassByApplication tf g)
 
--- The commented out version is more general, but less performant.
 forwardPassByApplication
-  :: forall g r y dynamic.
-     ( -- dynamic ~ DynamicOf (PrimalOf g)
-       -- , ConvertTensor (PrimalOf g) (ShapedOf (PrimalOf g))
-       dynamic ~ AstDynamic PrimalSpan  -- needed for generateDeltaInputsAst
-     , Dual (Clown dynamic)
-       ~ DeltaD (Clown dynamic) (PrimalOf g) (ShapedOf (PrimalOf g)) )
+  :: forall g r y.
+     ( RankedTensor (RankedOf (PrimalOf g))
+     , ShapedOf (RankedOf (PrimalOf g)) ~ ShapedOf (PrimalOf g)
+     , RankedOf (ShapedOf (PrimalOf g)) ~ RankedOf (PrimalOf g) )
   => TensorFunctor g
-  -> (Domains (DynamicOf (ADVal (PrimalOf g)))
+  -> (Domains (ADVal (RankedOf (PrimalOf g)))
       -> ADVal (PrimalOf g) r y)
-  -> Domains (DynamicOf (PrimalOf g))
+  -> Domains (RankedOf (PrimalOf g))
   -> [AstDynamicVarName]
-  -> Domains (DynamicOf g)
+  -> Domains (RankedOf g)
   -> ADVal (PrimalOf g) r y
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication _ g domainsPrimal _ _ =
---  let deltaInputs = generateDeltaInputsOD @(PrimalOf g) domainsPrimal
-  let deltaInputs = generateDeltaInputsAst domainsPrimal
+  let deltaInputs = generateDeltaInputs domainsPrimal
       varInputs = makeADInputs domainsPrimal deltaInputs
   in g varInputs
 
@@ -228,8 +221,8 @@ forwardPassByApplication _ g domainsPrimal _ _ =
 fwd
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (DynamicOf g) astvals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (RankedOf g) astvals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals )
   => (astvals -> g r y) -> vals -> vals -> ConcreteOf g r y
 fwd f x ds =
@@ -241,8 +234,8 @@ fwd f x ds =
 fwdArtifactAdapt
   :: forall r y g vals astvals.
      ( DerivativeStages g, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (DynamicOf g) astvals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (RankedOf g) astvals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value astvals )
   => (astvals -> g r y) -> vals
   -> (AstArtifactFwd (PrimalOf g) r y, Dual (PrimalOf g) r y)
@@ -263,9 +256,8 @@ fwdArtifactAdapt f vals =
 crev
   :: forall r y f vals advals.
      ( DualPart f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ OD.Array
      , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value advals, Value vals ~ vals )
   => (advals -> ADVal f r y) -> vals -> vals
 crev f vals = crevDtMaybe f vals Nothing
@@ -274,9 +266,9 @@ crev f vals = crevDtMaybe f vals Nothing
 crevDt
   :: forall r y f vals advals.
      ( DualPart f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ OD.Array
+     , DynamicOf f ~ (Flip OR.Array)
      , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value advals, Value vals ~ vals )
   => (advals -> ADVal f r y) -> vals -> f r y -> vals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
@@ -284,9 +276,9 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 crevDtMaybe
   :: forall r y f vals advals.
      ( DualPart f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ OD.Array
+     , DynamicOf f ~ (Flip OR.Array)
      , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value advals, Value vals ~ vals )
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
 {-# INLINE crevDtMaybe #-}
@@ -302,17 +294,15 @@ crevDtMaybe f vals mdt =
 crev
   :: forall r y f advals.
      ( DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ OD.Array
-     , DomainsOf f ~ Domains (DynamicOf f)
      , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
-     , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains OD.Array (Value advals) )
+     , AdaptableDomains (ADVal (RankedOf f)) advals
+     , AdaptableDomains (Flip OR.Array) (Value advals) )
   => (advals -> ADVal f r y) -> Value advals -> Value advals
 crev f vals = crevDtMaybe f vals Nothing
 {-# SPECIALIZE crev
   :: ( HasSingletonDict y
-     , AdaptableDomains (DynamicOf (ADVal (Flip OR.Array))) advals
-     , AdaptableDomains OD.Array (Value advals) )
+     , AdaptableDomains (ADVal (Flip OR.Array)) advals
+     , AdaptableDomains (Flip OR.Array) (Value advals) )
   => (advals -> ADVal (Flip OR.Array) Double y)
   -> Value advals
   -> Value advals #-}
@@ -320,20 +310,19 @@ crev f vals = crevDtMaybe f vals Nothing
 -- | This version additionally takes the sensitivity parameter.
 crevDt
   :: forall r y f advals.
-     ( DynamicOf f ~ DynamicOf (RankedOf f)
-     , ConvertTensor (RankedOf f) (ShapedOf f)
-     , Dual (Clown (DynamicOf f))
-       ~ DeltaD (Clown (DynamicOf f)) (RankedOf f) (ShapedOf f)
-     , DomainsOf f ~ Domains (DynamicOf f)
+     ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
+     , RankedOf (ShapedOf f) ~ RankedOf f
+     , ShapedOf (RankedOf f) ~ ShapedOf f
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains (DynamicOf f) (Value advals) )
+     , DomainsOf (RankedOf f) ~ Domains (RankedOf f)
+     , AdaptableDomains (ADVal (RankedOf f)) advals
+     , AdaptableDomains (RankedOf f) (Value advals) )
   => (advals -> ADVal f r y) -> Value advals -> f r y -> Value advals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
 {-# SPECIALIZE crevDt
   :: ( HasSingletonDict y
-     , AdaptableDomains (DynamicOf (ADVal (Flip OR.Array))) advals
-     , AdaptableDomains OD.Array (Value advals) )
+     , AdaptableDomains (ADVal (Flip OR.Array)) advals
+     , AdaptableDomains (Flip OR.Array) (Value advals) )
   => (advals -> ADVal (Flip OR.Array) Double y)
   -> Value advals
   -> Flip OR.Array Double y
@@ -341,36 +330,34 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall r y f vals advals.
-     ( DynamicOf f ~ DynamicOf (RankedOf f)
-     , ConvertTensor (RankedOf f) (ShapedOf f)
-     , Dual (Clown (DynamicOf f))
-       ~ DeltaD (Clown (DynamicOf f)) (RankedOf f) (ShapedOf f)
-     , DomainsOf f ~ Domains (DynamicOf f)
+     ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
+     , RankedOf (ShapedOf f) ~ RankedOf f
+     , ShapedOf (RankedOf f) ~ ShapedOf f
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
-     , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains (DynamicOf f) vals
+     , DomainsOf (RankedOf f) ~ Domains (RankedOf f)
+     , AdaptableDomains (ADVal (RankedOf f)) advals
+     , AdaptableDomains (RankedOf f) vals
      , vals ~ Value advals )
   => (advals -> ADVal f r y) -> vals -> Maybe (f r y) -> vals
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
   gcastWith (unsafeCoerce Refl :: Value vals :~: vals) $  -- !!!
   let g inputs = f $ parseDomains vals inputs
-  in parseDomains vals $ fst $ crevOnDomains True mdt g (toDomains vals)
+  in parseDomains vals
+     $ fst $ crevOnDomains True mdt g (toDomains vals)
 
 {-# SPECIALIZE crevOnDomains
   :: HasSingletonDict y
   => Bool -> Maybe (Flip OR.Array Double y)
-  -> (Domains (DynamicOf (ADVal (Flip OR.Array)))
-      -> ADVal (Flip OR.Array) Double y)
+  -> (Domains (ADVal (Flip OR.Array)) -> ADVal (Flip OR.Array) Double y)
   -> DomainsOD
   -> (DomainsOD, Flip OR.Array Double y) #-}
 
 {-# SPECIALIZE crevOnADInputs
   :: HasSingletonDict y
   => Bool -> Maybe (Flip OR.Array Double y)
-  -> (Domains (DynamicOf (ADVal (Flip OR.Array)))
-      -> ADVal (Flip OR.Array) Double y)
-  -> Domains (DynamicOf (ADVal (Flip OR.Array)))
+  -> (Domains (ADVal (Flip OR.Array)) -> ADVal (Flip OR.Array) Double y)
+  -> Domains (ADVal (Flip OR.Array))
   -> (DomainsOD, Flip OR.Array Double y) #-}
 
 
@@ -380,10 +367,9 @@ crevDtMaybe f vals mdt =
 cfwd
   :: forall r y f vals advals.
      ( DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
-     , DynamicOf f ~ OD.Array
      , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
-     , AdaptableDomains (DynamicOf (ADVal f)) advals
-     , AdaptableDomains OD.Array vals
+     , AdaptableDomains (ADVal (RankedOf f)) advals
+     , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value advals )
   => (advals -> ADVal f r y) -> vals -> vals
   -> f r y
@@ -391,17 +377,6 @@ cfwd f x ds =
   let g inputs = f $ parseDomains ds inputs
   in fst $ cfwdOnDomains (toDomains x) g (toDomains ds)
 
-
--- * Additional common mechanisms
-
-shapedToRanked
-  :: forall vals svals dynamic.
-     ( dynamic ~ OD.Array, NoShape svals ~ vals, Value vals ~ vals
-     , AdaptableDomains dynamic vals
-     , AdaptableDomains dynamic svals, ForgetShape svals )
-  => svals -> vals
-shapedToRanked svals =
-  parseDomains @dynamic (forgetShape svals) $ toDomains @dynamic svals
 
 
 
@@ -853,12 +828,12 @@ shapedToRanked svals =
   :: AstSpan s
   => AstEnv (ADVal (Flip OR.Array)) (ADVal (Flip OS.Array))
   -> AstDomains s
-  -> Domains (DynamicOf (ADVal (Flip OR.Array))) #-}
+  -> Domains (ADVal (Flip OR.Array)) #-}
 {-# SPECIALIZE interpretAstDomains
   :: AstSpan s
   => AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
   -> AstDomains s
-  -> Domains (DynamicOf (ADVal (AstRanked PrimalSpan))) #-}
+  -> Domains (ADVal (AstRanked PrimalSpan)) #-}
 {-# SPECIALIZE interpretAstDomains
   :: AstSpan s
   => AstEnv (Flip OR.Array) (Flip OS.Array)

@@ -7,7 +7,6 @@ module TestMnistFCNNR
 import Prelude
 
 import           Control.Monad (foldM, unless)
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
@@ -62,11 +61,12 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
-        imap (\i nPV -> OD.fromVector [nPV]
-                        $ V.map realToFrac
-                        $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
-                          - LA.scalar 0.5)
-             nParams1
+        imap (\i nPV ->
+          DynamicRanked @r @1 $ Flip $ OR.fromVector [nPV]
+          $ V.map realToFrac
+          $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
+            - LA.scalar 0.5)
+          nParams1
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -74,7 +74,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList $ map (DynamicExists @r) params1Init
+      domainsInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
@@ -83,7 +83,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show (length params1Init)
-                        , show (sum (map OD.size params1Init))
+                        , show (sizeDomainsOD domainsInit)
                         , show gamma ]
       ftest :: [MnistData r] -> DomainsOD -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
@@ -98,7 +98,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (ADValClown OD.Array)
+             let f :: MnistData r -> Domains (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
                  f mnist adinputs =
                    MnistFcnnRanked1.afcnnMnistLoss1
@@ -157,13 +157,14 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
-        imap (\i nPV -> OD.fromVector [nPV]
-                        $ V.map realToFrac
-                        $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
-                          - LA.scalar 0.5)
-             nParams1
+        imap (\i nPV ->
+          DynamicRanked @r @1 $ Flip $ OR.fromVector [nPV]
+          $ V.map realToFrac
+          $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
+            - LA.scalar 0.5)
+          nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList $ map (DynamicExists @r) params1Init
+      domainsInit = V.fromList params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -178,7 +179,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show (length params1Init)
-                        , show (sum (map OD.size params1Init))
+                        , show (sizeDomainsOD domainsInit)
                         , show gamma ]
       ftest :: [MnistData r] -> DomainsOD -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
@@ -202,7 +203,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (ADValClown OD.Array)
+             let f :: MnistData r -> Domains (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD EM.empty
@@ -268,13 +269,14 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
-        imap (\i nPV -> OD.fromVector [nPV]
-                        $ V.map realToFrac
-                        $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
-                          - LA.scalar 0.5)
-             nParams1
+        imap (\i nPV ->
+          DynamicRanked @r @1 $ Flip $ OR.fromVector [nPV]
+          $ V.map realToFrac
+          $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
+            - LA.scalar 0.5)
+          nParams1
       emptyR = Flip $ OR.fromList [0] []
-      domainsInit = V.fromList $ map (DynamicExists @r) params1Init
+      domainsInit = V.fromList params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
@@ -289,7 +291,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show (length params1Init)
-                        , show (sum (map OD.size params1Init))
+                        , show (sizeDomainsOD domainsInit)
                         , show gamma ]
       ftest :: [MnistData r] -> DomainsOD -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
@@ -319,10 +321,10 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
            go :: [MnistData r] -> DomainsOD -> DomainsOD
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
-             let glyphD = DynamicExists
-                          $ OD.fromVector [sizeMnistGlyphInt] glyph
-                 labelD = DynamicExists
-                          $ OD.fromVector [sizeMnistLabelInt] label
+             let glyphD = DynamicRanked @r @1
+                          $ Flip $ OR.fromVector [sizeMnistGlyphInt] glyph
+                 labelD = DynamicRanked @r @1
+                          $ Flip $ OR.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
@@ -394,7 +396,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
           Just (SomeNat @widthHidden _) ->
             case someNatVal $ toInteger widthHidden2 of
               Just (SomeNat @widthHidden2 _) ->
-                shapedToRanked $ fst
+                forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         (Flip OS.Array) widthHidden widthHidden2 r)
@@ -421,7 +423,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (ADValClown OD.Array)
+             let f :: MnistData r -> Domains (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
                  f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
@@ -456,13 +458,13 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
 
 tensorADValMnistTests2 :: TestTree
 tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
-  [ mnistTestCase2VTA "VTA 1 epoch, 1 batch" 1 1 300 100 0.02 5
+  [ mnistTestCase2VTA "VTA2 1 epoch, 1 batch" 1 1 300 100 0.02 5
                        (0.8 :: Double)
-  , mnistTestCase2VTA "VTA artificial 1 2 3 4 5" 1 2 3 4 5 500
+  , mnistTestCase2VTA "VTA2 artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.89 :: Float)
-  , mnistTestCase2VTA "VTA artificial 5 4 3 2 1" 5 4 3 2 1 499
+  , mnistTestCase2VTA "VTA2 artificial 5 4 3 2 1" 5 4 3 2 1 499
                        (0.8361723446893787 :: Double)
-  , mnistTestCase2VTA "VTA 1 epoch, 0 batch" 1 0 300 100 0.02 500
+  , mnistTestCase2VTA "VTA2 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
 
@@ -485,7 +487,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
             case someNatVal $ toInteger widthHidden2 of
               Nothing -> error "impossible someNatVal error"
               Just (SomeNat @widthHidden2 _) ->
-                shapedToRanked $ fst
+                forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         (Flip OS.Array) widthHidden widthHidden2 r)
@@ -518,7 +520,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: DomainsOD -> (Int, [MnistData r]) -> IO DomainsOD
            runBatch !domains (k, chunk) = do
-             let f :: MnistData r -> Domains (ADValClown OD.Array)
+             let f :: MnistData r -> Domains (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD EM.empty
@@ -560,13 +562,13 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
 
 tensorIntermediateMnistTests2 :: TestTree
 tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
-  [ mnistTestCase2VTI "VTI 1 epoch, 1 batch" 1 1 300 100 0.02 500
+  [ mnistTestCase2VTI "VTI2 1 epoch, 1 batch" 1 1 300 100 0.02 500
                        (0.534 :: Double)
-  , mnistTestCase2VTI "VTI artificial 1 2 3 4 5" 1 2 3 4 5 500
+  , mnistTestCase2VTI "VTI2 artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.884 :: Float)
-  , mnistTestCase2VTI "VTI artificial 5 4 3 2 1" 5 4 3 2 1 499
+  , mnistTestCase2VTI "VTI2 artificial 5 4 3 2 1" 5 4 3 2 1 499
                        (0.7464929859719439 :: Double)
-  , mnistTestCase2VTI "VTI 1 epoch, 0 batch" 1 0 300 100 0.02 500
+  , mnistTestCase2VTI "VTI2 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
 
@@ -595,10 +597,10 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
         domainsInit = toDomains valsInitShaped  -- == toDomains valsInit
         valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
         valsInit =
-          -- This almost works and I wouldn't need shapedToRanked,
+          -- This almost works and I wouldn't need forgetShape,
           -- but there is nowhere to get aInit from.
           --   parseDomains aInit domainsInit
-          shapedToRanked valsInitShaped
+          forgetShape valsInitShaped
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show widthHidden, show widthHidden2
@@ -632,10 +634,10 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            go :: [MnistData r] -> DomainsOD -> DomainsOD
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
-             let glyphD = DynamicExists
-                          $ OD.fromVector [sizeMnistGlyphInt] glyph
-                 labelD = DynamicExists
-                          $ OD.fromVector [sizeMnistLabelInt] label
+             let glyphD = DynamicRanked @r @1
+                          $ Flip $ OR.fromVector [sizeMnistGlyphInt] glyph
+                 labelD = DynamicRanked @r @1
+                          $ Flip $ OR.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
@@ -677,13 +679,13 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
 
 tensorADOnceMnistTests2 :: TestTree
 tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
-  [ mnistTestCase2VTO "VTO 1 epoch, 1 batch" 1 1 300 100 0.02 500
+  [ mnistTestCase2VTO "VTO2 1 epoch, 1 batch" 1 1 300 100 0.02 500
                        (0.534 :: Double)
-  , mnistTestCase2VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5 500
+  , mnistTestCase2VTO "VTO2 artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.884 :: Float)
-  , mnistTestCase2VTO "VTO artificial 5 4 3 2 1" 5 4 3 2 1 499
+  , mnistTestCase2VTO "VTO2 artificial 5 4 3 2 1" 5 4 3 2 1 499
                        (0.7945891783567134 :: Double)
-  , mnistTestCase2VTO "VTO 1 epoch, 0 batch" 1 0 300 100 0.02 500
+  , mnistTestCase2VTO "VTO2 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
 

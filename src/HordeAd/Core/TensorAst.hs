@@ -12,20 +12,17 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
-import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
@@ -42,8 +39,6 @@ import           HordeAd.Core.DualNumber
 import           HordeAd.Core.TensorADVal ()
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
-  (matchingRank, sameShape)
 import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
@@ -63,7 +58,6 @@ instance (GoodScalar r, KnownNat n) => IsPrimal (AstRanked PrimalSpan) r n where
   recordSharing d = case d of
     ZeroR{} -> d
     InputR{} -> d
-    DToR{} -> d
     SToR{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
@@ -82,21 +76,9 @@ instance (GoodScalar r, Sh.Shape sh)
   recordSharing d = case d of
     ZeroS -> d
     InputS{} -> d
-    DToS{} -> d
     RToS{} -> d
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
-
-instance GoodScalar r => IsPrimal (Clown (AstDynamic PrimalSpan)) r '() where
-  dZeroOfShape (Clown tsh) =
-    withListShape (dshape @(AstRanked PrimalSpan) tsh)
-    $ \ (sh :: Shape n Int) ->
-      RToD @n (ZeroR sh)
-  dScale = undefined
-  dAdd = undefined
-  intOfShape = undefined
-  recordSharingPrimal = undefined
-  recordSharing = undefined
 
 
 -- * Reverse and forward derivative stages instances
@@ -112,15 +94,15 @@ instance GoodScalar r => IsPrimal (Clown (AstDynamic PrimalSpan)) r '() where
 instance DerivativeStages (AstRanked FullSpan) where
   forwardPassByInterpretation
     :: (GoodScalar r, KnownNat n)
-    => (Domains (AstDynamic FullSpan) -> AstRanked FullSpan r n)
+    => (Domains (AstRanked FullSpan) -> AstRanked FullSpan r n)
     -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
-    -> Domains (AstDynamic PrimalSpan)
+    -> Domains (AstRanked PrimalSpan)
     -> [AstDynamicVarName]
-    -> Domains (AstDynamic FullSpan)
+    -> Domains (AstRanked FullSpan)
     -> ADVal (AstRanked PrimalSpan) r n
   {-# INLINE forwardPassByInterpretation #-}
   forwardPassByInterpretation g envInit domainsPrimal vars domains =
-    let deltaInputs = generateDeltaInputsAst domainsPrimal
+    let deltaInputs = generateDeltaInputs domainsPrimal
         varInputs = makeADInputs domainsPrimal deltaInputs
         ast = g domains
         env = foldr extendEnvD envInit $ zip vars $ V.toList varInputs
@@ -129,9 +111,9 @@ instance DerivativeStages (AstRanked FullSpan) where
   revArtifactFromForwardPass
     :: forall r n. (GoodScalar r, KnownNat n)
     => TensorFunctor (AstRanked FullSpan) -> Bool -> Bool
-    -> (Domains (AstDynamic PrimalSpan)
+    -> (Domains (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
-        -> Domains (AstDynamic FullSpan)
+        -> Domains (AstRanked FullSpan)
         -> ADVal (AstRanked PrimalSpan) r n)
     -> DomainsOD
     -> ( AstArtifactRev (AstRanked PrimalSpan) r n
@@ -173,9 +155,9 @@ instance DerivativeStages (AstRanked FullSpan) where
 
   fwdArtifactFromForwardPass
     :: forall r n. (GoodScalar r, KnownNat n)
-    => TensorFunctor (AstRanked FullSpan) -> (Domains (AstDynamic PrimalSpan)
+    => TensorFunctor (AstRanked FullSpan) -> (Domains (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
-        -> Domains (AstDynamic FullSpan)
+        -> Domains (AstRanked FullSpan)
         -> ADVal (AstRanked PrimalSpan) r n)
     -> DomainsOD
     -> ( AstArtifactFwd (AstRanked PrimalSpan) r n
@@ -204,7 +186,7 @@ instance DerivativeStages (AstRanked FullSpan) where
 
 instance UnletGradient (AstRanked PrimalSpan) where
   unletGradient
-    :: ADShare -> AstBindings -> Domains (AstDynamic PrimalSpan)
+    :: ADShare -> AstBindings -> Domains (AstRanked PrimalSpan)
     -> AstDomains PrimalSpan
   unletGradient l astBindings gradient =
     unletAstDomains6 astBindings l
@@ -219,15 +201,15 @@ instance UnletGradient (AstRanked PrimalSpan) where
 instance DerivativeStages (AstShaped FullSpan) where
   forwardPassByInterpretation
     :: (GoodScalar r, Sh.Shape sh)
-    => (Domains (AstDynamic FullSpan) -> AstShaped FullSpan r sh)
+    => (Domains (AstRanked FullSpan) -> AstShaped FullSpan r sh)
     -> AstEnv (ADVal (AstRanked PrimalSpan)) (ADVal (AstShaped PrimalSpan))
-    -> Domains (AstDynamic PrimalSpan)
+    -> Domains (AstRanked PrimalSpan)
     -> [AstDynamicVarName]
-    -> Domains (AstDynamic FullSpan)
+    -> Domains (AstRanked FullSpan)
     -> ADVal (AstShaped PrimalSpan) r sh
   {-# INLINE forwardPassByInterpretation #-}
   forwardPassByInterpretation g envInit domainsPrimal vars domains =
-    let deltaInputs = generateDeltaInputsAst domainsPrimal
+    let deltaInputs = generateDeltaInputs domainsPrimal
         varInputs = makeADInputs domainsPrimal deltaInputs
         ast = g domains
         env = foldr extendEnvD envInit $ zip vars $ V.toList varInputs
@@ -236,9 +218,9 @@ instance DerivativeStages (AstShaped FullSpan) where
   revArtifactFromForwardPass
     :: forall r sh. (GoodScalar r, Sh.Shape sh)
     => TensorFunctor (AstShaped FullSpan) -> Bool -> Bool
-    -> (Domains (AstDynamic PrimalSpan)
+    -> (Domains (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
-        -> Domains (AstDynamic FullSpan)
+        -> Domains (AstRanked FullSpan)
         -> ADVal (AstShaped PrimalSpan) r sh)
     -> DomainsOD
     -> ( AstArtifactRev (AstShaped PrimalSpan) r sh
@@ -270,9 +252,9 @@ instance DerivativeStages (AstShaped FullSpan) where
 
   fwdArtifactFromForwardPass
     :: forall r sh. (GoodScalar r, Sh.Shape sh)
-    => TensorFunctor (AstShaped FullSpan) -> (Domains (AstDynamic PrimalSpan)
+    => TensorFunctor (AstShaped FullSpan) -> (Domains (AstRanked PrimalSpan)
         -> [AstDynamicVarName]
-        -> Domains (AstDynamic FullSpan)
+        -> Domains (AstRanked FullSpan)
         -> ADVal (AstShaped PrimalSpan) r sh)
     -> DomainsOD
     -> ( AstArtifactFwd (AstShaped PrimalSpan) r sh
@@ -299,7 +281,7 @@ instance DerivativeStages (AstShaped FullSpan) where
 
 instance UnletGradient (AstShaped PrimalSpan) where
   unletGradient
-    :: ADShare -> AstBindings -> Domains (AstDynamic PrimalSpan)
+    :: ADShare -> AstBindings -> Domains (AstRanked PrimalSpan)
     -> AstDomains PrimalSpan
   unletGradient l astBindings gradient =
     unletAstDomains6 astBindings l
@@ -413,22 +395,6 @@ instance AstSpan s
     AstLetADShare l t -> (l, t)
     AstConstant (AstLetADShare l t) -> (l, AstConstant t)
     _ -> (emptyADShare, u)
-  raddDynamic :: forall n r. (GoodScalar r, KnownNat n)
-              => AstRanked s r n -> DynamicExists (AstDynamic s)
-              -> DynamicExists (AstDynamic s)
-  raddDynamic r (DynamicExists @r2 d) = DynamicExists @r $
-    case d of
-      _ | isTensorDummyAst d -> AstRToD r
-      AstRToD @n2 v ->
-        case ( sameNat (Proxy @n) (Proxy @n2)
-             , testEquality (typeRep @r) (typeRep @r2) ) of
-          (Just Refl, Just Refl) -> AstRToD @n2 @r (r + v)
-          _ -> error "raddDynamic: type mismatch"
-      AstSToD @sh2 v ->
-        case ( matchingRank @sh2 @n
-             , testEquality (typeRep @r) (typeRep @r2) ) of
-          (Just Refl, Just Refl) -> AstSToD @sh2 @r (astRToS r + v)
-          _ -> error "raddDynamic: type mismatch"
   rregister = astRegisterFun
 
   rconstant = fromPrimal
@@ -440,48 +406,34 @@ instance AstSpan s
 instance ( GoodScalar r, KnownNat n
          , RankedTensor (AstRanked s)
          , ConvertTensor (AstRanked s) (AstShaped s) )
-         => AdaptableDomains (AstDynamic s) (AstRanked s r n) where
+         => AdaptableDomains (AstRanked s) (AstRanked s r n) where
   {-# SPECIALIZE instance
       (KnownNat n, AstSpan s)
-      => AdaptableDomains (AstDynamic s) (AstRanked s Double n) #-}
+      => AdaptableDomains (AstRanked s) (AstRanked s Double n) #-}
   type Value (AstRanked s r n) = Flip OR.Array r n
   toDomains = undefined
-  fromDomains aInit params = case V.uncons params of
-    Just (DynamicExists @r2 a, rest) ->
-      if isTensorDummyAst a then Just (rzero (rshape aInit), rest) else
-        case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> let !t = rfromD @(AstRanked s) @(AstShaped s) @r a
-                       in Just (t, rest)
-          _ -> error $ "fromDomains: type mismatch: "
-                       ++ show (typeRep @r) ++ " " ++ show (typeRep @r2)
-    Nothing -> Nothing
-
-isTensorDummyAst :: AstDynamic s r -> Bool
-isTensorDummyAst t = case t of
-  AstRToD AstIota -> True
-  AstRToD (AstConstant AstIota) -> True
-  AstRToD (AstDualPart (AstConstant AstIota)) -> True
-  AstSToD AstIotaS -> True
-  AstSToD (AstConstantS AstIotaS) -> True
-  AstSToD (AstDualPartS (AstConstantS AstIotaS)) -> True
-  _ -> False
+  fromDomains _aInit params = fromDomainsR @r @n params
 
 -- TODO: move the impure part to AstFreshId
 astLetDomainsInFun
   :: forall n s r. (AstSpan s, GoodScalar r, KnownNat n)
-  => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstRanked s r n)
+  => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstRanked s r n)
   -> AstRanked s r n
 {-# NOINLINE astLetDomainsInFun #-}
 astLetDomainsInFun a0 a f = unsafePerformIO $ do
-  let genVar :: DynamicExists OD.Array
-                -> IO (AstDynamicVarName, DynamicExists (AstDynamic s))
-      genVar (DynamicExists @r2 t) = do
-        let sh2 = OD.shapeL t
-        Sh.withShapeP sh2 $ \(Proxy @p_sh2) ->
-          withListShape sh2 $ \ (sh3 :: Shape n3 Int) -> do
-            (var, _, ast) <- funToAstIOR @n3 sh3 id
-            return ( AstDynamicVarName @Nat @r2 @p_sh2 var
-                   , DynamicExists $ AstRToD ast )
+  let genVar :: DynamicTensor (Flip OR.Array)
+             -> IO (AstDynamicVarName, DynamicTensor (AstRanked s))
+      genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
+        let sh2 = Sh.shapeT @sh2
+        withListShape sh2 $ \ (sh3 :: Shape n2 Int) -> do
+          (var, _, ast) <- funToAstIOR @n2 sh3 id
+          return ( AstDynamicVarName @Nat @r2 @sh2 var
+                 , DynamicRanked ast )
+      genVar (DynamicShapedDummy @r2 @sh2 _ _) = do
+        (var, _, ast) <- funToAstIOS @sh2 id
+        return ( AstDynamicVarName @[Nat] @r2 @sh2 var
+               , DynamicShaped ast )
+      genVar _ = error "genVar: unexpected OD value"
   (vars, asts) <- unzip <$> mapM genVar (V.toList a0)
   return $! astLetDomainsIn vars a (f $ V.fromList asts)
 
@@ -580,22 +532,6 @@ instance AstSpan s
     AstLetADShareS l t -> (l, t)
     AstConstantS (AstLetADShareS l t) -> (l, AstConstantS t)
     _ -> (emptyADShare, u)
-  saddDynamic :: forall sh r. (GoodScalar r, Sh.Shape sh)
-              => AstShaped s r sh -> DynamicExists (AstDynamic s)
-              -> DynamicExists (AstDynamic s)
-  saddDynamic r (DynamicExists @r2 d) = DynamicExists @r $
-    case d of
-      _ | isTensorDummyAst d -> AstSToD r
-      AstSToD @sh2 v ->
-        case ( sameShape @sh @sh2
-             , testEquality (typeRep @r) (typeRep @r2) ) of
-          (Just Refl, Just Refl) -> AstSToD @sh2 @r (r + v)
-          _ -> error "saddDynamic: type mismatch"
-      AstRToD @n2 v ->
-        case ( matchingRank @sh @n2
-             , testEquality (typeRep @r) (typeRep @r2) ) of
-          (Just Refl, Just Refl) -> AstRToD @n2 @r (astSToR r + v)
-          _ -> error "saddDynamic: type mismatch"
   sregister = astRegisterFunS
 
   sconstant = fromPrimalS
@@ -607,32 +543,31 @@ instance AstSpan s
 instance ( GoodScalar r, Sh.Shape sh
          , ShapedTensor (AstShaped s)
          , ConvertTensor (AstRanked s) (AstShaped s) )
-         => AdaptableDomains (AstDynamic s) (AstShaped s r sh) where
+         => AdaptableDomains (AstRanked s) (AstShaped s r sh) where
   type Value (AstShaped s r sh) = Flip OS.Array r sh
   toDomains = undefined
-  fromDomains _aInit params = case V.uncons params of
-    Just (DynamicExists @r2 a, rest) ->
-      if isTensorDummyAst a then Just (0, rest) else
-        case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> let !t = sfromD @(AstRanked s) @(AstShaped s) @r a
-                       in Just (t, rest)
-          _ -> error "fromDomains: type mismatch"
-    Nothing -> Nothing
+  fromDomains _aInit params = fromDomainsS @r @sh params
 
+-- TODO: dedup with astLetDomainsInFun
 astLetDomainsInFunS
   :: forall sh s r. (AstSpan s, Sh.Shape sh)
-  => DomainsOD -> AstDomains s -> (Domains (AstDynamic s) -> AstShaped s r sh)
+  => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstShaped s r sh)
   -> AstShaped s r sh
 {-# NOINLINE astLetDomainsInFunS #-}
 astLetDomainsInFunS a0 a f = unsafePerformIO $ do
-  let genVar :: DynamicExists OD.Array
-                -> IO (AstDynamicVarName, DynamicExists (AstDynamic s))
-      genVar (DynamicExists @r2 t) = do
-        let sh2 = OD.shapeL t
-        Sh.withShapeP sh2 $ \(Proxy @p_sh2) -> do
-          (var, _, ast) <- funToAstIOS @p_sh2 id
-          return ( AstDynamicVarName @[Nat] @r2 @p_sh2 var
-                 , DynamicExists $ AstSToD ast )
+  let genVar :: DynamicTensor (Flip OR.Array)
+             -> IO (AstDynamicVarName, DynamicTensor (AstRanked s))
+      genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
+        let sh2 = Sh.shapeT @sh2
+        withListShape sh2 $ \ (sh3 :: Shape n2 Int) -> do
+          (var, _, ast) <- funToAstIOR @n2 sh3 id
+          return ( AstDynamicVarName @Nat @r2 @sh2 var
+                 , DynamicRanked ast )
+      genVar (DynamicShapedDummy @r2 @sh2 _ _) = do
+        (var, _, ast) <- funToAstIOS @sh2 id
+        return ( AstDynamicVarName @[Nat] @r2 @sh2 var
+               , DynamicShaped ast )
+      genVar _ = error "genVar: unexpected OD value"
   (vars, asts) <- unzip <$> mapM genVar (V.toList a0)
   return $! astLetDomainsInS vars a (f $ V.fromList asts)
 
@@ -681,40 +616,35 @@ astBuild1VectorizeS f =
 -- * ConvertTensor and DomainsTensor instances
 
 instance AstSpan s => ConvertTensor (AstRanked s) (AstShaped s) where
-  rfromD = astFromDynamic
   rfromS = astSToR
-  dfromR = AstRToD
-  dfromS = AstSToD
+  dfromR = DynamicRanked
+  dfromS = DynamicShaped
   sfromR = astRToS
-  sfromD = astFromDynamicS
-  ddummy = AstRToD $ fromPrimal AstIota
-  dIsDummy = isTensorDummyAst
-  dshape (AstRToD v) = shapeToList $ shapeAst v
-  dshape (AstSToD @sh _) = Sh.shapeT @sh
+  dIsDummy DynamicRankedDummy{} = True
+  dIsDummy DynamicShapedDummy{} = True
+  dIsDummy _ = False
+  dshape = shapeDynamic
 
 instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dmkDomains = AstDomains
   dunDomains od domainsOf =
-    let f :: forall r n. (GoodScalar r, KnownNat n)
-          => Int -> Domains (AstDynamic s) -> AstRanked s r n
-        f i d = case d V.! i of
-          DynamicExists (AstRToD @n2 @r2 w)
-            | Just Refl <- testEquality (typeRep @r2) (typeRep @r)
-            , Just Refl <- sameNat (Proxy @n2) (Proxy @n) -> w
-          DynamicExists (AstSToD @sh2 @r2 w)
-            | Just Refl <- testEquality (typeRep @r2) (typeRep @r)
-            , Just Refl <- matchingRank @sh2 @n -> rfromS w
-          _ -> error "dunDomains: type mismatch with od"
-    in V.imap (\i (DynamicExists @r a) ->
-      withListShape (dshape @(Flip OR.Array) a) $ \ (_ :: Shape n Int) ->
-        DynamicExists $ dfromR @(AstRanked s) @(AstShaped s) @r @n
-        $ rletDomainsIn @(AstRanked s) od domainsOf (f i)) od
+    let f :: Int -> DynamicTensor (Flip OR.Array) -> DynamicTensor (AstRanked s)
+        f i = \case
+          DynamicRankedDummy @r @sh _ _ ->
+            withListShape (Sh.shapeT @sh) $ \(_ :: Shape n Int) ->
+              DynamicRanked @r @n
+              $ rletDomainsIn @(AstRanked s) od domainsOf (rfromD . (V.! i))
+          DynamicShapedDummy @r @sh _ _ ->
+            DynamicShaped @r @sh
+            $ sletDomainsIn @(AstShaped s) od domainsOf (sfromD . (V.! i))
+          _ -> error "dunDomains: unexpected OD value"
+    in V.imap f od
   rletInDomains = astLetInDomainsFun
   sletInDomains = astLetInDomainsFunS
   rrev :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+       => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
-       -> Domains (AstDynamic s)
+       -> Domains (AstRanked s)
        -> AstDomains s
   rrev f parameters0 =
     -- This computes the (AST of) derivative of f once and interprets it again
@@ -730,9 +660,9 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         -- we could shortcut when @s@ is @PrimalSpan@ and @parameters@
         -- are the same variables, but it's a very special case
   rrevDt :: (GoodScalar r, KnownNat n)
-         => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+         => (forall f. ADReady f => Domains f -> f r n)
          -> DomainsOD
-         -> Domains (AstDynamic s)
+         -> Domains (AstRanked s)
          -> AstRanked s r n
          -> AstDomains s
   rrevDt f parameters0 =
@@ -744,10 +674,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
           envDt = extendEnvR varDt dt env
       in interpretAstDomains envDt gradient
   rfwd :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+       => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
-       -> Domains (AstDynamic s)
-       -> Domains (AstDynamic s)
+       -> Domains (AstRanked s)
+       -> Domains (AstRanked s)
        -> AstRanked s r n
   rfwd f parameters0 =
     let (((varsDt, vars), derivative, _primal), _delta) =
@@ -787,21 +717,12 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         -> AstRanked s rm (1 + m)
         -> AstRanked s rn n
   rfold f x0 as =
-    let domsToPair :: forall f. ADReady f
-                   => Domains (DynamicOf f) -> (f rn n, f rm m)
-        domsToPair doms = case (doms V.! 0, doms V.! 1) of
-          (DynamicExists @rn2 ex, DynamicExists @rm2 ea)
-            | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2)
-            , Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
-              (rfromD ex, rfromD ea)
-          _ -> error "rfold: type mismatch"
-        g :: Domains (DynamicOf (AstRanked FullSpan)) -> AstRanked FullSpan rn n
+    let domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
+        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+        g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
         g doms = uncurry f (domsToPair doms)
         shn = rshape x0
         shm = tailShape $ rshape as
-        odFromSh :: forall rk k. GoodScalar rk
-                 => ShapeInt k -> DynamicExists OD.Array
-        odFromSh sh = DynamicExists @rk $ OD.constant (shapeToList sh) 0
         parameters0 = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
     in -- This computes the (AST of) derivative of f once for each @x0@
        -- and @as@, which is better than once for each @a@. We could compute
@@ -854,20 +775,11 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         -> AstShaped s rn sh
   sfold f x0 as =
     let domsToPair :: forall f. ADReadyS f
-                   => Domains (DynamicOf f) -> (f rn sh, f rm shm)
-        domsToPair doms = case (doms V.! 0, doms V.! 1) of
-          (DynamicExists @rn2 ex, DynamicExists @rm2 ea)
-            | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2)
-            , Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
-              (sfromD ex, sfromD ea)
-          _ -> error "sfold: type mismatch"
-        g :: Domains (DynamicOf (AstShaped FullSpan))
-          -> AstShaped FullSpan rn sh
+                   => Domains (RankedOf f) -> (f rn sh, f rm shm)
+        domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
+        g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
-        odFromSh :: forall rk sh1. (GoodScalar rk, Sh.Shape sh1)
-                 => DynamicExists OD.Array
-        odFromSh = DynamicExists @rk $ OD.constant (Sh.shapeT @sh1) 0
-        domsOD = V.fromList [odFromSh @rn @sh, odFromSh @rm @shm]
+        domsOD = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
     in case revProduceArtifact TensorFunctor False True g EM.empty domsOD of
       ( ( ( varDt
           , [ AstDynamicVarName (AstVarName nid)
@@ -1059,8 +971,8 @@ instance AstSpan s
 
   rconst = AstNoVectorize . fromPrimal . AstConst
   rletDomainsIn a0 a f =
-    AstNoVectorize $ astLetDomainsInFun a0 a (unAstNoVectorize . f)
-  raddDynamic = undefined
+    AstNoVectorize $ astLetDomainsInFun
+                       a0 a (unAstNoVectorize . f . noVectorizeDomains)
 
   rconstant = AstNoVectorize . fromPrimal
   rprimalPart = astSpanPrimal . unAstNoVectorize
@@ -1115,8 +1027,8 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
 
   sconst = AstNoVectorizeS . fromPrimalS . AstConstS
   sletDomainsIn a0 a f =
-    AstNoVectorizeS $ astLetDomainsInFunS a0 a (unAstNoVectorizeS . f)
-  saddDynamic = undefined
+    AstNoVectorizeS $ astLetDomainsInFunS
+                        a0 a (unAstNoVectorizeS . f . noVectorizeDomains)
 
   sconstant = AstNoVectorizeS . fromPrimalS
     -- exceptionally we do simplify AstConstant to avoid long boring chains
@@ -1126,61 +1038,71 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
 instance AstSpan s => ConvertTensor (AstNoVectorize s) (AstNoVectorizeS s) where
-  rfromD = AstNoVectorize . rfromD @(AstRanked s)
   rfromS = AstNoVectorize . rfromS @(AstRanked s) . unAstNoVectorizeS
-  dfromR = dfromR @(AstRanked s) . unAstNoVectorize
-  dfromS = dfromS @(AstRanked s) . unAstNoVectorizeS
+  dfromR = DynamicRanked
+  dfromS = DynamicShaped
   sfromR = AstNoVectorizeS . sfromR @(AstRanked s) . unAstNoVectorize
-  sfromD = AstNoVectorizeS . sfromD @(AstRanked s)
-  ddummy = ddummy @(AstRanked s)
-  dIsDummy = dIsDummy @(AstRanked s)
-  dshape = dshape @(AstRanked s)
+  dIsDummy DynamicRankedDummy{} = True
+  dIsDummy DynamicShapedDummy{} = True
+  dIsDummy _ = False
+  dshape = shapeDynamic
 
 instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
-  dmkDomains = dmkDomains @(AstRanked s)
-  dunDomains = dunDomains @(AstRanked s)
+  dmkDomains domains = dmkDomains @(AstRanked s) (unNoVectorizeDomains domains)
+  dunDomains parameters0 doms =
+    noVectorizeDomains $ dunDomains @(AstRanked s) parameters0 doms
   rletInDomains u f =
     rletInDomains @(AstRanked s) (unAstNoVectorize u) (f . AstNoVectorize)
   sletInDomains u f =
     sletInDomains @(AstRanked s) (unAstNoVectorizeS u) (f . AstNoVectorizeS)
-  rrev f parameters0 domains = AstRev (funToAstDomains f parameters0) domains
+  rrev f parameters0 domains =
+    rrev @(AstRanked s) f parameters0 (unNoVectorizeDomains domains)
   rrevDt f parameters0 domains dt =
-    AstRevDt (funToAstDomains f parameters0) domains (unAstNoVectorize dt)
+    rrevDt @(AstRanked s) f parameters0
+           (unNoVectorizeDomains domains) (unAstNoVectorize dt)
   rfwd f parameters0 domains ds =
-    AstNoVectorize $ AstFwd (funToAstDomains f parameters0) domains ds
-  srev f parameters0 domains = AstRevS (funToAstDomainsS f parameters0) domains
+    AstNoVectorize
+    $ rfwd @(AstRanked s) f parameters0
+           (unNoVectorizeDomains domains) (unNoVectorizeDomains ds)
+  srev f parameters0 domains =
+    srev @(AstRanked s) f parameters0 (unNoVectorizeDomains domains)
   srevDt f parameters0 domains dt =
-    AstRevDtS (funToAstDomainsS f parameters0) domains (unAstNoVectorizeS dt)
+    srevDt @(AstRanked s) f parameters0
+           (unNoVectorizeDomains domains) (unAstNoVectorizeS dt)
   sfwd f parameters0 domains ds =
-    AstNoVectorizeS $ AstFwdS (funToAstDomainsS f parameters0) domains ds
+    AstNoVectorizeS
+    $ sfwd @(AstRanked s) f parameters0
+           (unNoVectorizeDomains domains) (unNoVectorizeDomains ds)
   rfold f x0 as =
-    let shn = rshape (unAstNoVectorize x0)
-        shm = tailShape $ rshape (unAstNoVectorize as)
-    in AstNoVectorize
-       $ AstFold (fun2ToAstR shn shm f)
-                 (unAstNoVectorize x0)
-                 (unAstNoVectorize as)
+    AstNoVectorize
+    $ rfold @(AstRanked s) f (unAstNoVectorize x0) (unAstNoVectorize as)
   rfoldDer f df rf x0 as =
-    let shn = rshape (unAstNoVectorize x0)
-        shm = tailShape $ rshape (unAstNoVectorize as)
-    in AstNoVectorize
-       $ AstFoldDer (fun2ToAstR shn shm f)
-                    (fun4ToAstR shn shm df)
-                    (fun3ToAstR shn shm rf)
-                    (unAstNoVectorize x0)
-                    (unAstNoVectorize as)
+    AstNoVectorize
+    $ rfoldDer @(AstRanked s)
+               f df rf (unAstNoVectorize x0) (unAstNoVectorize as)
   sfold f x0 as =
     AstNoVectorizeS
-    $ AstFoldS (fun2ToAstS f)
-               (unAstNoVectorizeS x0)
-               (unAstNoVectorizeS as)
+    $ sfold @(AstRanked s) f (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
   sfoldDer f df rf x0 as =
     AstNoVectorizeS
-    $ AstFoldDerS (fun2ToAstS f)
-                  (fun4ToAstS df)
-                  (fun3ToAstS rf)
-                  (unAstNoVectorizeS x0)
-                  (unAstNoVectorizeS as)
+    $ sfoldDer @(AstRanked s)
+               f df rf (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
+
+unNoVectorizeDomains :: Domains (AstNoVectorize s) -> Domains (AstRanked s)
+unNoVectorizeDomains =
+  let f (DynamicRanked (AstNoVectorize t)) = DynamicRanked t
+      f (DynamicShaped (AstNoVectorizeS t)) = DynamicShaped t
+      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+  in V.map f
+
+noVectorizeDomains :: Domains (AstRanked s) -> Domains (AstNoVectorize s)
+noVectorizeDomains =
+  let f (DynamicRanked t) = DynamicRanked $ AstNoVectorize t
+      f (DynamicShaped t) = DynamicShaped $ AstNoVectorizeS t
+      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+  in V.map f
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rlet a f =
@@ -1225,8 +1147,8 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
 
   rconst = AstNoSimplify . fromPrimal . AstConst
   rletDomainsIn a0 a f =
-    AstNoSimplify $ astLetDomainsInFun a0 a (unAstNoSimplify . f)
-  raddDynamic = undefined
+    AstNoSimplify $ astLetDomainsInFun
+                      a0 a (unAstNoSimplify . f . noSimplifyDomains)
 
   rconstant = AstNoSimplify . fromPrimal
     -- exceptionally we do simplify AstConstant to avoid long boring chains
@@ -1296,8 +1218,8 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
 
   sconst = AstNoSimplifyS . fromPrimalS . AstConstS
   sletDomainsIn a0 a f =
-    AstNoSimplifyS $ astLetDomainsInFunS a0 a (unAstNoSimplifyS . f)
-  saddDynamic = undefined
+    AstNoSimplifyS $ astLetDomainsInFunS
+                       a0 a (unAstNoSimplifyS . f . noSimplifyDomains)
 
   sconstant = AstNoSimplifyS . fromPrimalS
     -- exceptionally we do simplify AstConstant to avoid long boring chains
@@ -1307,33 +1229,39 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
 instance AstSpan s => ConvertTensor (AstNoSimplify s) (AstNoSimplifyS s) where
-  rfromD = AstNoSimplify . rfromD @(AstRanked s)
   rfromS = AstNoSimplify . rfromS @(AstRanked s) . unAstNoSimplifyS
-  dfromR = dfromR @(AstRanked s) . unAstNoSimplify
-  dfromS = dfromS @(AstRanked s) . unAstNoSimplifyS
+  dfromR = DynamicRanked
+  dfromS = DynamicShaped
   sfromR = AstNoSimplifyS . sfromR @(AstRanked s) . unAstNoSimplify
-  sfromD = AstNoSimplifyS . sfromD @(AstRanked s)
-  ddummy = ddummy @(AstRanked s)
-  dIsDummy = dIsDummy @(AstRanked s)
-  dshape = dshape @(AstRanked s)
+  dIsDummy DynamicRankedDummy{} = True
+  dIsDummy DynamicShapedDummy{} = True
+  dIsDummy _ = False
+  dshape = shapeDynamic
 
 instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
-  dmkDomains = dmkDomains @(AstRanked s)
-  dunDomains = dunDomains @(AstRanked s)
+  dmkDomains domains = dmkDomains @(AstRanked s) (unNoSimplifyDomains domains)
+  dunDomains parameters0 doms =
+    noSimplifyDomains $ dunDomains @(AstRanked s) parameters0 doms
   rletInDomains u f =
     rletInDomains @(AstRanked s) (unAstNoSimplify u) (f . AstNoSimplify)
   sletInDomains u f =
     sletInDomains @(AstRanked s) (unAstNoSimplifyS u) (f . AstNoSimplifyS)
-  rrev = rrev @(AstRanked s)
+  rrev f parameters0 domains =
+    rrev @(AstRanked s) f parameters0 (unNoSimplifyDomains domains)
   rrevDt f parameters0 domains dt =
-    rrevDt @(AstRanked s) f parameters0 domains (unAstNoSimplify dt)
+    rrevDt @(AstRanked s) f parameters0
+           (unNoSimplifyDomains domains) (unAstNoSimplify dt)
   rfwd f parameters0 domains ds =
-    AstNoSimplify $ rfwd @(AstRanked s) f parameters0 domains ds
-  srev = srev @(AstRanked s)
+    AstNoSimplify $ rfwd @(AstRanked s) f parameters0
+                         (unNoSimplifyDomains domains) (unNoSimplifyDomains ds)
+  srev f parameters0 domains =
+    srev @(AstRanked s) f parameters0 (unNoSimplifyDomains domains)
   srevDt f parameters0 domains dt =
-    srevDt @(AstRanked s) f parameters0 domains (unAstNoSimplifyS dt)
+    srevDt @(AstRanked s) f parameters0
+           (unNoSimplifyDomains domains) (unAstNoSimplifyS dt)
   sfwd f parameters0 domains ds =
-    AstNoSimplifyS $ sfwd @(AstRanked s) f parameters0 domains ds
+    AstNoSimplifyS $ sfwd @(AstRanked s) f parameters0
+                          (unNoSimplifyDomains domains) (unNoSimplifyDomains ds)
   rfold f x0 as =
     AstNoSimplify
     $ rfold @(AstRanked s) f (unAstNoSimplify x0) (unAstNoSimplify as)
@@ -1347,3 +1275,19 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     AstNoSimplifyS
     $ sfoldDer @(AstRanked s)
                f df rf (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
+
+unNoSimplifyDomains :: Domains (AstNoSimplify s) -> Domains (AstRanked s)
+unNoSimplifyDomains =
+  let f (DynamicRanked (AstNoSimplify t)) = DynamicRanked t
+      f (DynamicShaped (AstNoSimplifyS t)) = DynamicShaped t
+      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+  in V.map f
+
+noSimplifyDomains :: Domains (AstRanked s) -> Domains (AstNoSimplify s)
+noSimplifyDomains =
+  let f (DynamicRanked t) = DynamicRanked $ AstNoSimplify t
+      f (DynamicShaped t) = DynamicShaped $ AstNoSimplifyS t
+      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+  in V.map f

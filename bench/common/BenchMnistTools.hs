@@ -210,7 +210,7 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
           Just (SomeNat @widthHidden _) ->
             case someNatVal $ toInteger widthHidden2 of
               Just (SomeNat @widthHidden2 _) ->
-                shapedToRanked $ fst
+                forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         (Flip OS.Array) widthHidden widthHidden2 r)
@@ -240,7 +240,7 @@ mnistTestBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
           Just (SomeNat @widthHidden _) ->
             case someNatVal $ toInteger widthHidden2 of
               Just (SomeNat @widthHidden2 _) ->
-                shapedToRanked $ fst
+                forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         (Flip OS.Array) widthHidden widthHidden2 r)
@@ -296,7 +296,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
           Just (SomeNat @widthHidden _) ->
             case someNatVal $ toInteger widthHidden2 of
               Just (SomeNat @widthHidden2 _) ->
-                shapedToRanked $ fst
+                forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         (Flip OS.Array) widthHidden widthHidden2 r)

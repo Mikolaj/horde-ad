@@ -178,7 +178,7 @@ chunksOf n = go where
   :: KnownNat y
   => Double
   -> (MnistData Double
-      -> Domains (DynamicOf (ADVal (Flip OR.Array)))
+      -> Domains (ADVal (Flip OR.Array))
       -> ADVal (Flip OR.Array) Double y)
   -> [MnistData Double]
   -> DomainsOD
@@ -186,7 +186,7 @@ chunksOf n = go where
 
 {-# SPECIALIZE sgdAdam
   :: KnownNat y
-  => (MnistDataBatchR Double -> Domains (DynamicOf (ADVal (Flip OR.Array)))
+  => (MnistDataBatchR Double -> Domains (ADVal (Flip OR.Array))
       -> ADVal (Flip OR.Array) Double y)
   -> [MnistDataBatchR Double]
   -> DomainsOD
@@ -196,7 +196,7 @@ chunksOf n = go where
 {-# SPECIALIZE sgdAdamArgs
   :: KnownNat y
   => ArgsAdam
-  -> (MnistDataBatchR Double -> Domains (DynamicOf (ADVal (Flip OR.Array)))
+  -> (MnistDataBatchR Double -> Domains (ADVal (Flip OR.Array))
       -> ADVal (Flip OR.Array) Double y)
   -> [MnistDataBatchR Double]
   -> DomainsOD

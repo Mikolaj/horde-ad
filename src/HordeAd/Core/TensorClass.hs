@@ -13,19 +13,21 @@ module HordeAd.Core.TensorClass
     ShapeInt, ShapeSh
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), ConvertTensor(..), DomainsTensor(..)
+  , raddDynamic, saddDynamic, rfromD, sfromD
     -- * The related constraints
   , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
+    -- * Concrete array instances auxiliary definitions
+  , DomainsOD, sizeDomainsOD, sameShapesDomainsOD, shapeDynamic
+  , odFromVar, odFromSh, odFromShS, fromDomainsR, fromDomainsS
   ) where
 
 import Prelude
 
 import qualified Data.Array.Convert
-import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.Function ((&))
 import           Data.Kind (Constraint, Type)
@@ -34,7 +36,15 @@ import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
-  (KnownNat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
+  ( KnownNat
+  , Nat
+  , OrderingI (..)
+  , cmpNat
+  , sameNat
+  , type (+)
+  , type (-)
+  , type (<=)
+  )
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
@@ -44,6 +54,8 @@ import           Unsafe.Coerce (unsafeCoerce)
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
 import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances
+  (matchingRank, sameShape)
 import           HordeAd.Internal.TensorOps
 import           HordeAd.Util.ShapedList
   (ShapeSh, ShapedList (..), consShaped, shapedNat, unShapedNat)
@@ -234,7 +246,7 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rletDomainsIn :: (KnownNat n, GoodScalar r)
                 => DomainsOD
                 -> DomainsOf ranked
-                -> (Domains (DynamicOf ranked) -> ranked r n)
+                -> (Domains ranked -> ranked r n)
                 -> ranked r n
 
   -- ** No serviceable parts beyond this point ** --
@@ -253,12 +265,9 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   rletWrap _l u = u
   rletUnwrap :: ranked r n -> (ADShare, ranked r n)
   rletUnwrap u = (emptyADShare, u)
-  raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
-              => ranked r n -> DynamicExists (DynamicOf ranked)
-              -> DynamicExists (DynamicOf ranked)
   rregister :: (GoodScalar r, KnownNat n)
-            => ranked r n -> AstBindingsD (DynamicOf ranked)
-            -> (AstBindingsD (DynamicOf ranked), ranked r n)
+            => ranked r n -> AstBindingsD ranked
+            -> (AstBindingsD ranked, ranked r n)
   rregister r l = (l, r)
 
   -- Primal/dual things.
@@ -276,6 +285,33 @@ class ( Integral (IntOf ranked), CRanked ranked Num
   -- (and HasInputs?)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
+
+raddDynamic :: forall ranked r n.
+               ( RankedTensor ranked, ConvertTensor ranked (ShapedOf ranked)
+               , GoodScalar r, KnownNat n )
+            => ranked r n -> DynamicTensor ranked
+            -> DynamicTensor ranked
+raddDynamic r (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2)
+                                                       (Proxy @n) of
+  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> DynamicRanked @r $ r + t
+    _ -> error "raddDynamic: type mismatch"
+  _ -> error "raddDynamic: rank mismatch"
+raddDynamic r (DynamicShaped @r2 @sh2 t) = case matchingRank @sh2 @n of
+  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+    Just Refl -> DynamicRanked @r $ r + rfromS t
+    _ -> error "raddDynamic: type mismatch"
+  _ -> error "raddDynamic: rank mismatch"
+raddDynamic r (DynamicRankedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
+  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+    Just Refl -> DynamicRanked (r :: ranked r2 (Sh.Rank sh2))
+    _ -> error "raddDynamic: type mismatch"
+  _ -> error "raddDynamic: rank mismatch"
+raddDynamic r (DynamicShapedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
+  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+    Just Refl -> DynamicRanked (r :: ranked r2 (Sh.Rank sh2))
+    _ -> error "raddDynamic: type mismatch"
+  _ -> error "raddDynamic: rank mismatch"
 
 
 -- * Shaped tensor class definition
@@ -529,17 +565,14 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sletWrap _l u = u
   sletUnwrap :: shaped r sh -> (ADShare, shaped r sh)
   sletUnwrap u = (emptyADShare, u)
-  saddDynamic :: forall sh r. (GoodScalar r, Sh.Shape sh)
-              => shaped r sh -> DynamicExists (DynamicOf shaped)
-              -> DynamicExists (DynamicOf shaped)
   sregister :: (GoodScalar r, Sh.Shape sh)
-            => shaped r sh -> AstBindingsD (DynamicOf shaped)
-            -> (AstBindingsD (DynamicOf shaped), shaped r sh)
+            => shaped r sh -> AstBindingsD (RankedOf shaped)
+            -> (AstBindingsD (RankedOf shaped), shaped r sh)
   sregister r l = (l, r)
   sletDomainsIn :: Sh.Shape sh
                 => DomainsOD
                 -> DomainsOf shaped
-                -> (Domains (DynamicOf shaped) -> shaped r sh)
+                -> (Domains (RankedOf shaped) -> shaped r sh)
                 -> shaped r sh
 
   -- Primal/dual things.
@@ -554,35 +587,99 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sScale :: (GoodScalar r, Sh.Shape sh)
          => PrimalOf shaped r sh -> DualOf shaped r sh -> DualOf shaped r sh
 
+saddDynamic :: forall shaped sh r.
+               ( ShapedTensor shaped, ConvertTensor (RankedOf shaped) shaped
+               , GoodScalar r, Sh.Shape sh
+               , ShapedOf (RankedOf shaped) ~ shaped )
+            => shaped r sh -> DynamicTensor (RankedOf shaped)
+            -> DynamicTensor (RankedOf shaped)
+saddDynamic r (DynamicRanked @r2 @n2 t) = case matchingRank @sh @n2 of
+  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> DynamicShaped @r $ r + sfromR t
+    _ -> error "saddDynamic: type mismatch"
+  _ -> error "saddDynamic: rank mismatch"
+saddDynamic r (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
+  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+    Just Refl -> DynamicShaped @r $ r + t
+    _ -> error "saddDynamic: type mismatch"
+  _ -> error "saddDynamic: shape mismatch"
+saddDynamic r (DynamicRankedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
+  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+    Just Refl -> DynamicShaped (r :: shaped r2 sh2)
+    _ -> error "saddDynamic: type mismatch"
+  _ -> error "saddDynamic: shape mismatch"
+saddDynamic r (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
+  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+    Just Refl -> DynamicShaped (r :: shaped r2 sh2)
+    _ -> error "saddDynamic: type mismatch"
+  _ -> error "saddDynamic: shape mismatch"
+
 
 -- * ConvertTensor and DomainsTensor class definitions
 
-class ( DynamicOf ranked ~ DynamicOf shaped
-      , DynamicOf shaped ~ DynamicOf ranked )
-      => ConvertTensor (ranked :: RankedTensorKind)
-                       (shaped :: ShapedTensorKind)
-                       | ranked -> shaped, shaped -> ranked where
-  rfromD :: (GoodScalar r, KnownNat n)
-         => DynamicOf ranked r -> ranked r n
+class ConvertTensor (ranked :: RankedTensorKind)
+                    (shaped :: ShapedTensorKind)
+                    | ranked -> shaped, shaped -> ranked where
   rfromS :: (GoodScalar r, Sh.Shape sh)
          => shaped r sh -> ranked r (Sh.Rank sh)
   dfromR :: (GoodScalar r, KnownNat n)
-         => ranked r n -> DynamicOf ranked r
+         => ranked r n -> DynamicTensor ranked
   dfromS :: (GoodScalar r, Sh.Shape sh)
-         => shaped r sh -> DynamicOf shaped r
+         => shaped r sh -> DynamicTensor ranked
   sfromR :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
          => ranked r (Sh.Rank sh) -> shaped r sh
-  sfromD :: (GoodScalar r, Sh.Shape sh)
-         => DynamicOf shaped r -> shaped r sh
-  ddummy :: GoodScalar r => DynamicOf ranked r
-  dIsDummy :: DynamicOf ranked r -> Bool
-  dshape :: GoodScalar r => DynamicOf ranked r -> [Int]
+  dIsDummy :: DynamicTensor ranked -> Bool
+  dshape :: GoodScalar r => DynamicTensor ranked -> [Int]
+
+rfromD :: forall ranked r n.
+          ( ShapedTensor (ShapedOf ranked)
+          , ConvertTensor ranked (ShapedOf ranked)
+          , GoodScalar r, KnownNat n )
+       => DynamicTensor ranked -> ranked r n
+rfromD (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2) (Proxy @n) of
+  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> t
+    _ -> error "rfromD: type mismatch"
+  _ -> error "rfromD: rank mismatch"
+rfromD (DynamicShaped @r2 @sh2 t) = case matchingRank @sh2 @n of
+  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> rfromS t
+    _ -> error "rfromD: type mismatch"
+  _ -> error "rfromD: rank mismatch"
+rfromD (DynamicRankedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
+  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> rfromS @_ @_ @r2 @sh2 0
+    _ -> error "rfromD: type mismatch"
+  _ -> error "rfromD: rank mismatch"
+rfromD (DynamicShapedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
+  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> rfromS @ranked @_ @r2 @sh2 0
+    _ -> error "rfromD: type mismatch"
+  _ -> error "rfromD: rank mismatch"
+
+sfromD :: forall shaped r sh.
+          ( ShapedTensor shaped, ConvertTensor (RankedOf shaped) shaped
+          , GoodScalar r, Sh.Shape sh
+          , ShapedOf (RankedOf shaped) ~ shaped )
+       => DynamicTensor (RankedOf shaped) -> shaped r sh
+sfromD (DynamicRanked @r2 @n2 t) = case matchingRank @sh @n2 of
+  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> sfromR t
+    _ -> error "sfromD: type mismatch"
+  _ -> error "sfromD: rank mismatch"
+sfromD (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
+  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
+    Just Refl -> t
+    _ -> error "sfromD: type mismatch"
+  _ -> error "sfromD: shape mismatch"
+sfromD DynamicRankedDummy{} = 0
+sfromD DynamicShapedDummy{} = 0
 
 class DomainsTensor (ranked :: RankedTensorKind)
                     (shaped :: ShapedTensorKind)
                     | ranked -> shaped, shaped -> ranked where
-  dmkDomains :: Domains (DynamicOf ranked) -> DomainsOf ranked
-  dunDomains :: DomainsOD -> DomainsOf ranked -> Domains (DynamicOf ranked)
+  dmkDomains :: Domains ranked -> DomainsOf ranked
+  dunDomains :: DomainsOD -> DomainsOf ranked -> Domains ranked
     -- ^ Warning: this operation easily breaks sharing.
   rletInDomains :: (GoodScalar r, KnownNat n)
                 => ranked r n
@@ -599,38 +696,38 @@ class DomainsTensor (ranked :: RankedTensorKind)
   -- because otherwise in the ADVal instance one could put an illegal
   -- InputR there, confusing two levels of contangents.
   rrev :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+       => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
-       -> Domains (DynamicOf ranked)
+       -> Domains ranked
        -> DomainsOf ranked
   rrevDt :: (GoodScalar r, KnownNat n)
-         => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+         => (forall f. ADReady f => Domains f -> f r n)
          -> DomainsOD
-         -> Domains (DynamicOf ranked)
+         -> Domains ranked
          -> ranked r n  -- ^ incoming cotangent (dt)
          -> DomainsOf ranked
   rfwd :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+       => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
-       -> Domains (DynamicOf ranked)
-       -> Domains (DynamicOf ranked)  -- ^ incoming tangent (ds)
+       -> Domains ranked
+       -> Domains ranked  -- ^ incoming tangent (ds)
        -> ranked r n
   srev :: (GoodScalar r, Sh.Shape sh)
-       => (forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh)
+       => (forall f. ADReadyS f => Domains (RankedOf f) -> f r sh)
        -> DomainsOD
-       -> Domains (DynamicOf ranked)
+       -> Domains ranked
        -> DomainsOf ranked
   srevDt :: (GoodScalar r, Sh.Shape sh)
-         => (forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh)
+         => (forall f. ADReadyS f => Domains (RankedOf f) -> f r sh)
          -> DomainsOD
-         -> Domains (DynamicOf ranked)
+         -> Domains ranked
          -> shaped r sh
          -> DomainsOf ranked
   sfwd :: (GoodScalar r, Sh.Shape sh)
-       => (forall f. ADReadyS f => Domains (DynamicOf f) -> f r sh)
+       => (forall f. ADReadyS f => Domains (RankedOf f) -> f r sh)
        -> DomainsOD
-       -> Domains (DynamicOf ranked)
-       -> Domains (DynamicOf ranked)
+       -> Domains ranked
+       -> Domains ranked
        -> shaped r sh
   -- The type mentions ADReady, so it's hard to put this into RankedTensor,
   -- which doesn't know about ConvertTensor and DomainsTensor.
@@ -698,7 +795,6 @@ type ADReadySmall ranked shaped =
   , ConvertTensor (PrimalOf ranked) (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
-  , CDynamic (DynamicOf ranked) Show, Show (DomainsOf ranked)
   , DomainsOf ranked ~ DomainsOf shaped
   , DomainsOf shaped ~ DomainsOf ranked
   )
@@ -708,14 +804,91 @@ type ADReadyBoth ranked shaped =
   , DomainsTensor ranked shaped
   , DomainsTensor (PrimalOf ranked) (PrimalOf shaped) )
 
-type CDynamic :: (Type -> Type) -> (Type -> Constraint) -> Constraint
-class (forall r20. GoodScalar r20 => c (dynamic r20))
-      => CDynamic dynamic c where
-instance (forall r20. GoodScalar r20 => c (dynamic r20))
-      => CDynamic dynamic c where
-
 
 -- * Instances for concrete arrays
+
+type DomainsOD = Domains (Flip OR.Array)
+
+sizeDomainsOD :: DomainsOD -> Int
+sizeDomainsOD = let f (DynamicRanked (Flip t)) = OR.size t
+                    f (DynamicShaped (Flip t)) = OS.size t
+                    f (DynamicRankedDummy _ proxy_sh) = Sh.sizeP proxy_sh
+                    f (DynamicShapedDummy _ proxy_sh) = Sh.sizeP proxy_sh
+                in V.sum . V.map f
+
+shapeDynamic :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+             => DynamicTensor ranked -> [Int]
+shapeDynamic (DynamicRanked t) = shapeToList $ rshape t
+shapeDynamic (DynamicShaped t) = ShapedList.sizedListToList $ sshape t
+shapeDynamic (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
+shapeDynamic (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
+
+-- TODO: also check scalars are same
+sameShapesDomainsOD :: DomainsOD -> DomainsOD -> Bool
+sameShapesDomainsOD v1 v2 =
+  let sameExShape t u =
+        shapeDynamic @(Flip OR.Array) t == shapeDynamic @(Flip OR.Array) u
+  in V.and $ V.zipWith sameExShape v1 v2
+
+odFromVar :: AstDynamicVarName -> DynamicTensor (Flip OR.Array)
+odFromVar (AstDynamicVarName @k @rD @shD _) =
+  case testEquality (typeRep @k) (typeRep @Nat) of
+    Just Refl -> DynamicRankedDummy @rD @shD Proxy Proxy
+    _ -> DynamicShapedDummy @rD @shD Proxy Proxy
+
+odFromSh :: forall r n. GoodScalar r
+         => ShapeInt n -> DynamicTensor (Flip OR.Array)
+odFromSh sh = Sh.withShapeP (shapeToList sh) $ \proxySh ->
+              DynamicRankedDummy (Proxy @r) proxySh
+
+odFromShS :: forall r sh. (GoodScalar r, Sh.Shape sh)
+          => DynamicTensor (Flip OR.Array)
+odFromShS = DynamicShapedDummy @r @sh Proxy Proxy
+
+fromDomainsR :: forall r n ranked.
+                (RankedTensor ranked, GoodScalar r, KnownNat n)
+             => Domains ranked
+             -> Maybe (ranked r n, Domains ranked)
+fromDomainsR params = case V.uncons params of
+  Just (DynamicRanked @r2 @n2 t, rest) -> case sameNat (Proxy @n2)
+                                                       (Proxy @n) of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl -> Just (t, rest)
+      _ -> error $ "fromDomainsR: type mismatch in "
+                   ++ show (typeRep @r2, typeRep @r)
+    _ -> error "fromDomainsR: rank mismatch"
+  Just (DynamicShaped{}, _) -> error "fromDomainsR: ranked from shaped"
+  Just (DynamicRankedDummy @r2 @sh2 _ _, rest) -> case matchingRank @sh2 @n of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl ->
+         let sh2 = listShapeToShape (Sh.shapeT @sh2)
+         in Just (rzero sh2 :: ranked r2 (Sh.Rank sh2), rest)
+      _ -> error "fromDomainsR: type mismatch"
+    _ -> error "fromDomainsR: shape mismatch"
+  Just (DynamicShapedDummy{}, _) -> error "fromDomainsR: ranked from shaped"
+  Nothing -> Nothing
+
+fromDomainsS :: forall r sh shaped
+              . ( ShapedTensor shaped, GoodScalar r, Sh.Shape sh
+                , ShapedOf (RankedOf shaped) ~ shaped )
+             => Domains (RankedOf shaped)
+             -> Maybe (shaped r sh,  Domains (RankedOf shaped))
+fromDomainsS params = case V.uncons params of
+  Just (DynamicRanked{}, _) -> error "fromDomainsS: shaped from ranked"
+  Just (DynamicShaped @r2 @sh2 t, rest) -> case sameShape @sh2 @sh of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl -> Just (t, rest)
+      _ -> error "fromDomainsS: type mismatch"
+    _ -> error "fromDomainsS: shape mismatch"
+  Just (DynamicRankedDummy{}, _) -> error "fromDomainsS: shaped from ranked"
+  Just (DynamicShapedDummy @r2 @sh2 _ _, rest) -> case sameShape @sh2 @sh of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl ->
+        -- The dummy gets removed, so we verify its types before it does.
+        Just (0 :: shaped r2 sh2, rest)
+      _ -> error "fromDomainsS: type mismatch"
+    _ -> error "fromDomainsS: shape mismatch"
+  Nothing -> Nothing
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 
@@ -732,19 +905,9 @@ instance OrdF (Flip OR.Array) where
 instance IfF (Flip OR.Array) where
   ifF (_, b) v w = if b then v else w
 
-type instance RankedOf (Clown OD.Array) = Flip OR.Array
-
-type instance ShapedOf (Clown OD.Array) = Flip OS.Array
-
-type instance DynamicOf (Clown OD.Array) = OD.Array
-
-type instance DomainsOf (Clown OD.Array) = DomainsOD
-
 type instance RankedOf (Flip OR.Array) = Flip OR.Array
 
 type instance ShapedOf (Flip OR.Array) = Flip OS.Array
-
-type instance DynamicOf (Flip OR.Array) = OD.Array
 
 type instance DomainsOf (Flip OR.Array) = DomainsOD
 
@@ -798,15 +961,6 @@ instance RankedTensor (Flip OR.Array) where
   rconst = Flip
   rletDomainsIn _ = (&)
 
-  raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
-              => Flip OR.Array r n -> DynamicExists OD.Array
-              -> DynamicExists OD.Array
-  raddDynamic r (DynamicExists @r2 d) = DynamicExists @r $
-    if dIsDummy @(Flip OR.Array) d then dfromR r
-    else case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> dfromR r + d
-      _ -> error "raddDynamic: type mismatch"
-
   rconstant = id
   rprimalPart = id
   rdualPart _ = DummyDual
@@ -814,21 +968,13 @@ instance RankedTensor (Flip OR.Array) where
   rScale _ _ = DummyDual
 
 instance (GoodScalar r, KnownNat n)
-         => AdaptableDomains OD.Array (Flip OR.Array r n) where
+         => AdaptableDomains (Flip OR.Array) (Flip OR.Array r n) where
   {-# SPECIALIZE instance
       KnownNat n
-      => AdaptableDomains OD.Array (Flip OR.Array Double n) #-}
+      => AdaptableDomains (Flip OR.Array) (Flip OR.Array Double n) #-}
   type Value (Flip OR.Array r n) = Flip OR.Array r n
-  toDomains a = V.singleton $ DynamicExists $ dfromR a
-  fromDomains aInit params = case V.uncons params of
-    Just (DynamicExists @r2 a, rest) ->
-      if isTensorDummyD a then Just (rzero (rshape aInit), rest) else
-        case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> let !aR = rfromD @(Flip OR.Array) @(Flip OS.Array) @r a
-                       in Just (aR, rest)
-          _ -> error $ "fromDomains: type mismatch: "
-                       ++ show (typeRep @r) ++ " " ++ show (typeRep @r2)
-    Nothing -> Nothing
+  toDomains = V.singleton . DynamicRanked
+  fromDomains _aInit params = fromDomainsR @r @n params
 
 instance ForgetShape (Flip OR.Array r n) where
   type NoShape (Flip OR.Array r n) = Flip OR.Array r n
@@ -855,8 +1001,6 @@ instance IfF (Flip OS.Array) where
 type instance RankedOf (Flip OS.Array) = Flip OR.Array
 
 type instance ShapedOf (Flip OS.Array) = Flip OS.Array
-
-type instance DynamicOf (Flip OS.Array) = OD.Array
 
 type instance DomainsOf (Flip OS.Array) = DomainsOD
 
@@ -915,14 +1059,6 @@ instance ShapedTensor (Flip OS.Array) where
   sdot1In u v = Flip $ tdot1InS (runFlip u) (runFlip v)
   sconst = Flip
   sletDomainsIn _ = (&)
-  saddDynamic :: forall r sh. (GoodScalar r, Sh.Shape sh)
-              => Flip OS.Array r sh -> DynamicExists OD.Array
-              -> DynamicExists OD.Array
-  saddDynamic r (DynamicExists @r2 d) = DynamicExists @r $
-    if dIsDummy @(Flip OR.Array) d then dfromS r
-    else case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> dfromS r + d
-      _ -> error "saddDynamic: type mismatch"
 
   sconstant = id
   sprimalPart = id
@@ -931,17 +1067,10 @@ instance ShapedTensor (Flip OS.Array) where
   sScale _ _ = DummyDual
 
 instance (GoodScalar r, Sh.Shape sh)
-         => AdaptableDomains OD.Array (Flip OS.Array r sh) where
+         => AdaptableDomains (Flip OR.Array) (Flip OS.Array r sh) where
   type Value (Flip OS.Array r sh) = Flip OS.Array r sh
-  toDomains a = V.singleton $ DynamicExists $ dfromS a
-  fromDomains _aInit params = case V.uncons params of
-    Just (DynamicExists @r2 a, rest) ->
-      if isTensorDummyD a then Just (0, rest) else
-        case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> let !aS = sfromD @(Flip OR.Array) @(Flip OS.Array) @r a
-                       in Just (aS, rest)
-          _ -> error "fromDomains: type mismatch"
-    Nothing -> Nothing
+  toDomains = V.singleton . DynamicShaped
+  fromDomains _aInit params = fromDomainsS @r @sh @(Flip OS.Array) params
 
 instance Sh.Shape sh
          => ForgetShape (Flip OS.Array r sh) where
@@ -982,12 +1111,11 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
 -- The DomainsTensor instance requires ADVal instance, so it's given elsewhere.
 
 instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
-  rfromD = Flip . Data.Array.Convert.convert
   rfromS = Flip . Data.Array.Convert.convert . runFlip
-  dfromR = Data.Array.Convert.convert . runFlip
-  dfromS = Data.Array.Convert.convert . runFlip
+  dfromR = DynamicRanked
+  dfromS = DynamicShaped
   sfromR = Flip . Data.Array.Convert.convert . runFlip
-  sfromD = Flip . Data.Array.Convert.convert
-  ddummy = dummyTensorD
-  dIsDummy = isTensorDummyD
-  dshape = OD.shapeL
+  dIsDummy DynamicRankedDummy{} = True
+  dIsDummy DynamicShapedDummy{} = True
+  dIsDummy _ = False
+  dshape = shapeDynamic

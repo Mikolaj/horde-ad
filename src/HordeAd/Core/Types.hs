@@ -6,10 +6,9 @@ module HordeAd.Core.Types
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
     -- * Type definitions for dynamic tensors and tensor collections
-  , DynamicExists(..), DynamicTensor(..), CRanked, CShaped
-  , Domains, DomainsOD, sizeDomainsOD, sameShapesDomainsOD
+  , DynamicTensor(..), CRanked, CShaped, Domains
     -- * Type families that tensors will belong to
-  , RankedOf, ShapedOf, DynamicOf, DomainsOf, PrimalOf, DualOf, DummyDual(..)
+  , RankedOf, ShapedOf, DomainsOf, PrimalOf, DualOf, DummyDual(..)
     -- * Generic types of indexes used in tensor operations
   , IntOf, IndexOf, IntSh, IndexSh
     -- * Generic types of booleans used in tensor operations
@@ -26,7 +25,6 @@ module HordeAd.Core.Types
 import Prelude
 
 import           Control.DeepSeq (NFData (..))
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.Shape as Sh
 import           Data.Boolean (Boolean (..))
 import           Data.Int (Int64)
@@ -36,7 +34,6 @@ import           Data.List (foldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), natVal, someNatVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
@@ -99,29 +96,22 @@ instance IfDifferentiable Float where
 
 -- * Type definitions for dynamic tensors and tensor collections
 
--- Warning: r is an existential variable, a proper specialization needs
--- to be picked explicitly at runtime.
-type role DynamicExists representational
-data DynamicExists :: (Type -> Type) -> Type where
-  DynamicExists :: forall r dynamic. GoodScalar r
-                => dynamic r -> DynamicExists dynamic
-deriving instance (forall r. GoodScalar r => Show (dynamic r))
-                  => Show (DynamicExists dynamic)
-instance (forall r. NFData r => NFData (dynamic r))
-         => NFData (DynamicExists dynamic) where
-  rnf (DynamicExists x) = rnf x
-
+-- For thousands of tensor parameters, orthotope's dynamic tensors
+-- are faster than the datatype below and the special dummy values are faster
+-- than ordinary zero values. However, the library has become complex enough
+-- that simplicity is the bottlenet, not speed.
+--
 -- Warning: r is an existential variable, a proper specialization needs
 -- to be picked explicitly at runtime.
 type role DynamicTensor nominal
 data DynamicTensor (ranked :: RankedTensorKind) where
-  DynamicRanked :: forall r n ranked. (GoodScalar r, KnownNat n)
+  DynamicRanked :: (GoodScalar r, KnownNat n)
                 => ranked r n -> DynamicTensor ranked
-  DynamicShaped :: forall r sh ranked. (GoodScalar r, Sh.Shape sh)
+  DynamicShaped :: (GoodScalar r, Sh.Shape sh)
                 => ShapedOf ranked r sh -> DynamicTensor ranked
-  DynamicRankedDummy :: forall r sh ranked. (GoodScalar r, Sh.Shape sh)
+  DynamicRankedDummy :: (GoodScalar r, Sh.Shape sh)
                      => Proxy r -> Proxy sh -> DynamicTensor ranked
-  DynamicShapedDummy :: forall r sh ranked. (GoodScalar r, Sh.Shape sh)
+  DynamicShapedDummy :: (GoodScalar r, Sh.Shape sh)
                      => Proxy r -> Proxy sh -> DynamicTensor ranked
 
 deriving instance
@@ -155,19 +145,7 @@ instance
 -- DomainsOf is used for that and the only reasons DomainsOf exists
 -- is to prevent mixing up the two (and complicating the definition
 -- below with errors in the AstDomainsLet case).
-type Domains dynamic = Data.Vector.Vector (DynamicExists dynamic)
-
-type DomainsOD = Domains OD.Array
-
-sizeDomainsOD :: DomainsOD -> Int
-sizeDomainsOD d = let f (DynamicExists t) = OD.size t
-                  in V.sum (V.map f d)
-
-sameShapesDomainsOD :: DomainsOD -> DomainsOD -> Bool
-sameShapesDomainsOD v1 v2 =
-  let sameExShape (DynamicExists arr1, DynamicExists arr2) =
-        OD.shapeL arr1 == OD.shapeL arr2
-  in V.all sameExShape $ V.zip v1 v2
+type Domains ranked = Data.Vector.Vector (DynamicTensor ranked)
 
 
 -- * Type families that tensors will belong to
@@ -176,8 +154,6 @@ sameShapesDomainsOD v1 v2 =
 type family RankedOf (f :: TensorKind k) :: RankedTensorKind
 
 type family ShapedOf (f :: TensorKind k) :: ShapedTensorKind
-
-type family DynamicOf (f :: TensorKind k) :: Type -> Type
 
 type family DomainsOf (f :: TensorKind k) :: Type
 
@@ -262,8 +238,8 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-type AstBindingsD :: (Type -> Type) -> Type
-type AstBindingsD dynamic = [(AstVarId, DynamicExists dynamic)]
+type AstBindingsD (ranked :: RankedTensorKind) =
+  [(AstVarId, DynamicTensor ranked)]
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -284,17 +260,18 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 -- are rarely called and relatively cheap, so no picking specializations
 -- at runtime is needed.
 type role ADShareD nominal
-type ADShareD :: (Type -> Type) -> Type
-data ADShareD d = ADShareNil
-                | forall r. GoodScalar r
-                  => ADShareCons Int AstVarId (d r) (ADShareD d)
-deriving instance (forall r. GoodScalar r => Show (d r)) => Show (ADShareD d)
+type ADShareD :: RankedTensorKind -> Type
+data ADShareD ranked =
+    ADShareNil
+  | ADShareCons Int AstVarId (DynamicTensor ranked) (ADShareD ranked)
+deriving instance (CRanked ranked Show, CShaped (ShapedOf ranked) Show)
+                  => Show (ADShareD ranked)
 
 emptyADShare :: ADShareD d
 emptyADShare = ADShareNil
 
-insertADShare :: forall r d. GoodScalar r
-              => AstVarId -> d r -> ADShareD d -> ADShareD d
+insertADShare :: forall d.
+                 AstVarId -> DynamicTensor d -> ADShareD d -> ADShareD d
 insertADShare !key !t !s =
   -- The Maybe over-engineering ensures that we never refresh an id
   -- unnecessarily. In theory, when merging alternating equal lists
@@ -314,8 +291,7 @@ insertADShare !key !t !s =
           GT -> Just $ freshInsertADShare key t l2
   in fromMaybe s (insertAD s)
 
-freshInsertADShare :: GoodScalar r
-                   => AstVarId -> d r -> ADShareD d -> ADShareD d
+freshInsertADShare :: AstVarId -> DynamicTensor d -> ADShareD d -> ADShareD d
 {-# NOINLINE freshInsertADShare #-}
 freshInsertADShare !key !t !s = unsafePerformIO $ do
   id0 <- unsafeGetFreshId
@@ -363,7 +339,7 @@ subtractADShare !s1 !s2 =
         else case compare key1 key2 of
           EQ -> subAD rest1 rest2
           LT -> subAD l1 rest2
-          GT -> (key1, DynamicExists t1) : subAD rest1 l2
+          GT -> (key1, t1) : subAD rest1 l2
   in subAD s1 s2
 
 flattenADShare :: [ADShareD d] -> ADShareD d
@@ -372,14 +348,13 @@ flattenADShare = foldl' mergeADShare emptyADShare
 assocsADShare :: ADShareD d -> AstBindingsD d
 {-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
-assocsADShare (ADShareCons _ key t rest) =
-  (key, DynamicExists t) : assocsADShare rest
+assocsADShare (ADShareCons _ key t rest) = (key, t) : assocsADShare rest
 
 _lengthADShare :: Int -> ADShareD d -> Int
 _lengthADShare acc ADShareNil = acc
 _lengthADShare acc (ADShareCons _ _ _ rest) = _lengthADShare (acc + 1) rest
 
-varInADShare :: (forall r. AstVarId -> d r -> Bool)
+varInADShare :: (AstVarId -> DynamicTensor d -> Bool)
                 -> AstVarId -> ADShareD d
                 -> Bool
 {-# INLINE varInADShare #-}

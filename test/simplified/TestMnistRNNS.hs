@@ -9,7 +9,6 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import           Control.Monad (foldM, unless)
 import qualified Data.Array.Convert
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
@@ -82,7 +81,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                     -> IO (DomainsOD, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchS batch_size r
-                   -> Domains (ADValClown OD.Array)
+                   -> Domains (ADVal (Flip OR.Array))
                    -> ADVal shaped r '[]
                  f (glyphS, labelS) adinputs =
                    MnistRnnShaped2.rnnMnistLossFusedS
@@ -130,11 +129,11 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
 tensorADValMnistTestsRNNSA :: TestTree
 tensorADValMnistTestsRNNSA = testGroup "RNNS ADVal MNIST tests"
   [ mnistTestCaseRNNSA "RNNSA 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 50
-                       (0.8200000000000001 :: Double)
+                       (0.8933333 :: Double)
   , mnistTestCaseRNNSA "RNNSA artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
-                       (0.8933333 :: Float)
+                       (0.9 :: Float)
   , mnistTestCaseRNNSA "RNNSA artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
-                       (0.8928571428571429 :: Double)
+                       (0.9336734693877551 :: Double)
   , mnistTestCaseRNNSA "RNNSA 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
                        (1.0 :: Float)
   ]
@@ -191,7 +190,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                     -> IO (DomainsOD, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchS batch_size r
-                   -> Domains (ADValClown OD.Array)
+                   -> Domains (ADVal (Flip OR.Array))
                    -> ADVal shaped r '[]
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD EM.empty
@@ -312,8 +311,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
               -> (DomainsOD, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = DynamicExists $ dfromS @(Flip OR.Array) $ sconst glyph
-                 labelD = DynamicExists $ dfromS @(Flip OR.Array) $ sconst label
+             let glyphD = DynamicShaped $ sconst glyph
+                 labelD = DynamicShaped $ sconst label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =

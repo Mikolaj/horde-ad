@@ -9,12 +9,11 @@
 -- a middle layer such as "DualClass", separate instances are given
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
-  ( CRankedIP, CRankedIPSh, CRankedIPU
+  ( CRankedIP, CRankedIPSh
   ) where
 
 import Prelude hiding (foldl')
 
-import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
@@ -24,14 +23,12 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Function ((&))
 import           Data.Functor.Const
-import           Data.Kind (Constraint, Type)
 import           Data.List (foldl')
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, sameNat, type (+))
-import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Adaptor
 import           HordeAd.Core.Ast
@@ -40,8 +37,7 @@ import           HordeAd.Core.DualClass
 import           HordeAd.Core.DualNumber
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
-import           HordeAd.Internal.OrthotopeOrphanInstances
-  (matchingRank, sameShape)
+import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
 import           HordeAd.Internal.TensorOps
 import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
@@ -50,12 +46,10 @@ import           HordeAd.Util.SizedIndex
 -- * Ranked tensor instances
 
 instance ( KnownNat n, GoodScalar r
-         , dynamic ~ DynamicOf ranked, RankedOf shaped ~ ranked
+         , RankedOf shaped ~ ranked
          , Dual ranked ~ DeltaR ranked shaped
-         , Dual (Clown dynamic) ~ DeltaD (Clown dynamic) ranked shaped
-         , RankedTensor (ADVal ranked), ConvertTensor ranked shaped
-         , CRankedIPU (Clown dynamic) IsPrimal )
-         => AdaptableDomains (ADValClown dynamic)
+         , RankedTensor (ADVal ranked), ConvertTensor ranked shaped )
+         => AdaptableDomains (ADVal ranked)
                              (ADVal ranked r n) where
 {- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance
@@ -71,29 +65,20 @@ instance ( KnownNat n, GoodScalar r
 -}
   type Value (ADVal ranked r n) = Flip OR.Array r n  -- ! not Value(ranked)
   toDomains = undefined
-  fromDomains aInit inputs = case V.uncons inputs of
-    Just (DynamicExists @r2 a, rest) ->
-      if dIsDummy @(ADVal ranked) a
-      then Just (rzero (rshape aInit), rest)
-      else
-        case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> let !aR = dToR @r (runFlip a)
-                       in Just (aR, rest)
-          _ -> error "fromDomains: type mismatch"
-    Nothing -> Nothing
+  fromDomains _aInit params = fromDomainsR @r @n params
 
 -- This is temporarily moved from Adaptor in order to specialize manually
-instance AdaptableDomains dynamic a
-         => AdaptableDomains dynamic [a] where
+instance AdaptableDomains ranked a
+         => AdaptableDomains ranked [a] where
   {-# SPECIALIZE instance
-      (KnownNat n, AdaptableDomains OD.Array (OR.Array n Double))
-      => AdaptableDomains OD.Array
+      (KnownNat n, AdaptableDomains (Flip OR.Array) (OR.Array n Double))
+      => AdaptableDomains (Flip OR.Array)
                           [OR.Array n Double] #-}
   {-# SPECIALIZE instance
       ( KnownNat n, AstSpan s
-      , AdaptableDomains (AstDynamic s)
+      , AdaptableDomains (AstRanked s)
                          (AstRanked s Double n) )
-      => AdaptableDomains (AstDynamic s)
+      => AdaptableDomains (AstRanked s)
                           [AstRanked s Double n] #-}
 {- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance
@@ -122,24 +107,6 @@ instance AdaptableDomains dynamic a
     -- >   let f = swap . flip fromDomains
     -- >   in swap $ mapAccumL f source lInit
 
-dToR :: forall r ranked shaped n.
-        ( ConvertTensor ranked shaped
-        , Dual ranked ~ DeltaR ranked shaped
-        , Dual (Clown (DynamicOf ranked))
-          ~ DeltaD (Clown (DynamicOf ranked)) ranked shaped
-        , KnownNat n, GoodScalar r )
-      => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal ranked r n
-dToR (D l u u') = dDnotShared l (rfromD $ runClown u) (dDToR u')
- where
-  dDToR (RToD @n1 d) =
-    case sameNat (Proxy @n1) (Proxy @n) of
-      Just Refl -> d
-      _ -> error "dToR: different ranks in DToR(RToD)"
-  dDToR (SToD @sh1 d) =
-    case matchingRank @sh1 @n of
-      Just Refl -> SToR d
-      _ -> error "dToR: different ranks in DToR(SToD)"
-
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
 -- In any case, only the Ast instantiation of this instance
@@ -155,12 +122,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
          , RankedOf shaped ~ ranked
          , ranked ~ RankedOf shaped
-         , RankedOf @() (Clown  (DynamicOf ranked)) ~ ranked
-         , ranked ~ RankedOf @() (Clown (DynamicOf ranked))
-         , ShapedOf @() (Clown  (DynamicOf ranked)) ~ shaped
-         , shaped ~ ShapedOf @() (Clown  (DynamicOf ranked))
          , CRankedIP ranked IsPrimal
-         , CRankedIPU (Clown (DynamicOf ranked)) IsPrimal
          , RankedTensor ranked, ConvertTensor ranked shaped )
          => RankedTensor (ADVal ranked) where
   rlet (D l u u') f =
@@ -237,17 +199,6 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   rconst t = constantADVal (rconst t)
   rletDomainsIn _ = (&)
 
-  raddDynamic :: forall r n. (GoodScalar r, KnownNat n)
-              => ADVal ranked r n
-              -> DynamicExists (ADValClown (DynamicOf ranked))
-              -> DynamicExists (ADValClown (DynamicOf ranked))
-  raddDynamic r (DynamicExists
-                   @r2 d@(Flip (D _ (Clown dd) _))) = DynamicExists $
-    if dIsDummy @ranked dd then dfromR r
-    else case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> dfromR $ r + rfromD d
-      _ -> error "raddDynamic: type mismatch"
-
   rconstant t = let (l, r) = rletUnwrap t in dDnotShared l r (dZeroOfShape r)
   rprimalPart (D l u _) = rletWrap l u
   rdualPart (D l _ u') = Pair (Clown (Const l)) u'
@@ -262,41 +213,14 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 -- * Shaped tensor instances
 
 instance ( Sh.Shape sh, GoodScalar r
-         , dynamic ~ DynamicOf shaped, ShapedOf ranked ~ shaped
+         , ShapedOf ranked ~ shaped
          , Dual shaped ~ DeltaS ranked shaped
-         , Dual (Clown dynamic) ~ DeltaD (Clown dynamic) ranked shaped
-         , ShapedTensor (ADVal shaped), ConvertTensor ranked shaped
-         , CRankedIPU (Clown dynamic) IsPrimal )
-         => AdaptableDomains (ADValClown dynamic)
+         , ShapedTensor (ADVal shaped), ConvertTensor ranked shaped )
+         => AdaptableDomains (ADVal ranked)
                              (ADVal shaped r sh) where
   type Value (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
   toDomains = undefined
-  fromDomains _aInit inputs = case V.uncons inputs of
-    Just (DynamicExists @r2 a, rest) ->
-      if dIsDummy @(ADVal ranked) a then Just (0, rest) else
-        case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> let !aS = dToS @r (runFlip a)
-                       in Just (aS, rest)
-          _ -> error "fromDomains: type mismatch"
-    Nothing -> Nothing
-
-dToS :: forall r ranked shaped sh.
-        ( ConvertTensor ranked shaped
-        , Dual shaped ~ DeltaS ranked shaped
-        , Dual (Clown (DynamicOf ranked))
-          ~ DeltaD (Clown (DynamicOf ranked)) ranked shaped
-        , Sh.Shape sh, GoodScalar r )
-      => ADVal (Clown (DynamicOf ranked)) r '() -> ADVal shaped r sh
-dToS (D l u u') = dDnotShared l (sfromD $ runClown u) (dDToS u')
- where
-  dDToS (SToD @sh1 d) =
-    case sameShape @sh1 @sh of
-      Just Refl -> d
-      _ -> error "dToS: different ranks in DToS(SToD)"
-  dDToS (RToD @n1 d) =
-    case matchingRank @sh @n1 of
-      Just Refl -> RToS d
-      _ -> error "dToS: different ranks in DToS(RToD)"
+  fromDomains _aInit params = fromDomainsS @r @sh params
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
@@ -309,16 +233,9 @@ instance ( Dual shaped ~ DeltaS ranked shaped
          , DeltaS ranked shaped ~ Dual shaped
          , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
          , PrimalOf ranked ~ RankedOf (PrimalOf shaped)
-         , DynamicOf ranked ~ DynamicOf shaped
-         , DynamicOf shaped ~ DynamicOf ranked
          , ShapedOf ranked ~ shaped
          , shaped ~ ShapedOf ranked
-         , RankedOf @() (Clown  (DynamicOf ranked)) ~ ranked
-         , ranked ~ RankedOf @() (Clown (DynamicOf ranked))
-         , ShapedOf @() (Clown  (DynamicOf ranked)) ~ shaped
-         , shaped ~ ShapedOf @() (Clown  (DynamicOf ranked))
          , CRankedIPSh shaped IsPrimal
-         , CRankedIPU (Clown (DynamicOf ranked)) IsPrimal
          , RankedTensor ranked, ShapedTensor shaped
          , ConvertTensor ranked shaped )
          => ShapedTensor (ADVal shaped) where
@@ -398,17 +315,6 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   sconst t = constantADVal (sconst t)
   sletDomainsIn _ = (&)
 
-  saddDynamic :: forall r sh. (GoodScalar r, Sh.Shape sh)
-              => ADVal shaped r sh
-              -> DynamicExists (ADValClown (DynamicOf shaped))
-              -> DynamicExists (ADValClown (DynamicOf shaped))
-  saddDynamic r (DynamicExists
-                   @r2 d@(Flip (D _ (Clown dd) _))) = DynamicExists $
-    if dIsDummy @ranked dd then dfromS r
-    else case testEquality (typeRep @r) (typeRep @r2) of
-      Just Refl -> dfromS $ r + sfromD d
-      _ -> error "saddDynamic: type mismatch"
-
   sconstant t = let (l, r) = sletUnwrap t in dDnotShared l r (dZeroOfShape t)
   sprimalPart (D l u _) = sletWrap l u
   sdualPart (D l _ u') = Pair (Clown (Const l)) u'
@@ -422,22 +328,11 @@ instance ( Dual shaped ~ DeltaS ranked shaped
 
 -- * ConvertTensor and DomainsTensor instances
 
-type CRankedIPU :: TensorKind ()
-                -> (TensorKind () -> Type -> () -> Constraint)
-                -> Constraint
-class (forall r17. GoodScalar r17 => c ranked r17 '())
-      => CRankedIPU ranked c where
-instance (forall r17. GoodScalar r17 => c ranked r17 '())
-         => CRankedIPU ranked c where
-
 instance ( Dual ranked ~ DeltaR ranked shaped
          , Dual shaped ~ DeltaS ranked shaped
-         , Dual (Clown (DynamicOf ranked))
-           ~ DeltaD (Clown (DynamicOf ranked)) ranked shaped
-         , ConvertTensor ranked shaped
-         , CRankedIPU (Clown (DynamicOf ranked)) IsPrimal )
+         , RankedTensor (ADVal ranked), ShapedTensor (ADVal shaped)
+         , ConvertTensor ranked shaped )
          => ConvertTensor (ADVal ranked) (ADVal shaped) where
-  rfromD = dToR . runFlip
   rfromS = sToR
    where
     sToR :: forall r sh. (GoodScalar r, Sh.Shape sh)
@@ -446,23 +341,8 @@ instance ( Dual ranked ~ DeltaR ranked shaped
      where
       dSToR (RToS d) = d  -- no information lost, so no checks
       dSToR d = SToR d
-  dfromR = Flip . rToD
-   where
-    rToD :: forall r n. (GoodScalar r, KnownNat n)
-         => ADVal ranked r n -> ADVal (Clown (DynamicOf ranked)) r '()
-    rToD (D l u u') = dDnotShared l (Clown $ dfromR u) (dRToD u')
-     where
-      dRToD (DToR d) = d  -- no information lost, so no checks
-      dRToD d = RToD d
-  dfromS = Flip . sToD
-   where
-    sToD :: forall r sh. (GoodScalar r, Sh.Shape sh)
-         => ADVal shaped r sh -> ADVal (Clown (DynamicOf ranked)) r '()
-    sToD (D l u u') = dDnotShared l (Clown $ dfromS u) (dSToD u')
-     where
-      dSToD (DToS d) = d  -- no information lost, so no checks
-      dSToD d = SToD d
-  sfromD = dToS . runFlip
+  dfromR = DynamicRanked
+  dfromS = DynamicShaped
   sfromR = rToS
    where
     rToS :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
@@ -474,15 +354,13 @@ instance ( Dual ranked ~ DeltaR ranked shaped
           Just Refl -> d
           _ -> error "rToS: different shapes in RToS(SToR)"
       dRToS d = RToS d
-  ddummy = Flip (constantADVal (Clown (ddummy @ranked)))
-  dIsDummy (Flip (D _ (Clown d) _)) = dIsDummy @ranked d
-  dshape (Flip (D _ u _)) = dshape @ranked (runClown u)
+  dIsDummy DynamicRankedDummy{} = True
+  dIsDummy DynamicShapedDummy{} = True
+  dIsDummy _ = False
+  dshape = shapeDynamic
 
 instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          , UnletGradient ranked, UnletGradient shaped
-         , Dual (Clown (DynamicOf (ADVal ranked)))
-           ~ DeltaD (Clown (DynamicOf (ADVal ranked)))
-                    (ADVal ranked) (ADVal shaped)
          , ShapedOf shaped ~ shaped )
          => DomainsTensor (ADVal ranked) (ADVal shaped) where
   dmkDomains = id
@@ -490,7 +368,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rletInDomains = (&)
   sletInDomains = (&)
   rrev :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+       => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
        -> DomainsOf (ADVal ranked)
        -> DomainsOf (ADVal ranked)
@@ -498,7 +376,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     -- This computes the derivative of f again for each new @parmeters@.
     fst $ crevOnDomains False Nothing (f @(ADVal (ADVal ranked))) parameters
   rrevDt :: (GoodScalar r, KnownNat n)
-         => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+         => (forall f. ADReady f => Domains f -> f r n)
          -> DomainsOD
          -> DomainsOf (ADVal ranked)
          -> ADVal ranked r n
@@ -506,7 +384,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rrevDt f _parameters0 parameters dt =
     fst $ crevOnDomains False (Just dt) (f @(ADVal (ADVal ranked))) parameters
   rfwd :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+       => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
        -> DomainsOf (ADVal ranked)
        -> DomainsOf (ADVal ranked)
@@ -528,25 +406,11 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rfold f (D l1 x0 x0') (D l2 as as') =
     let shn = rshape x0
         shm = tailShape $ rshape as
-        odFromSh :: forall rk k. GoodScalar rk
-                 => ShapeInt k -> DynamicExists OD.Array
-        odFromSh sh = DynamicExists @rk $ OD.constant (shapeToList sh) 0
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
         domsToPair :: forall f. ADReady f
-                   => Domains (DynamicOf f) -> (f rn n, f rm m)
-        domsToPair doms =
-          let d0 = case doms V.! 0 of
-                DynamicExists @rn2 ex
-                  | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2) ->
-                    rfromD ex
-                _ -> error "rfold: type mismatch"
-              d1 = case doms V.! 1 of
-                DynamicExists @rm2 ex
-                  | Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
-                    rfromD ex
-                _ -> error "rfold: type mismatch"
-          in (d0, d1)
-        g :: Domains (DynamicOf (ADVal ranked)) -> ADVal ranked rn n
+                   => Domains f -> (f rn n, f rm m)
+        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+        g :: Domains (ADVal ranked) -> ADVal ranked rn n
         g doms = uncurry (f @(ADVal ranked)) (domsToPair doms)
         -- This computes the derivative of f again for each new @x@ and @a@
         -- (not even once for @as@, but for each @a@ separately).
@@ -560,19 +424,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         df :: ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
            -> ranked rn n
         df cx (ca, x, a) =
-          fst $ cfwdOnDomains
-                  (V.fromList [ DynamicExists @rn (dfromR x)
-                              , DynamicExists @rm (dfromR a) ])
-                  g
-                  (V.fromList [ DynamicExists @rn (dfromR cx)
-                              , DynamicExists @rm (dfromR ca) ])
+          fst $ cfwdOnDomains (V.fromList [dfromR x, dfromR a])
+                              g (V.fromList [dfromR cx, dfromR ca])
         rf :: ranked rn n -> (ranked rn n, ranked rm m)
            -> (ranked rn n, ranked rm m)
         rf dt (x, a) =
           domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains False (Just dt) g
-                          (V.fromList [ DynamicExists @rn (dfromR x)
-                                      , DynamicExists @rm (dfromR a) ])
+          $ crevOnDomains False (Just dt) g (V.fromList [dfromR x, dfromR a])
     in D (l1 `mergeADShare` l2)
          (rfold @ranked f x0 as)
          (FoldR f x0 as df rf x0' as')
@@ -592,9 +450,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     -- on @DomainsOf f@.
     let shn = rshape x0
         shm = tailShape $ rshape as
-        odFromSh :: forall rk k. GoodScalar rk
-                 => ShapeInt k -> DynamicExists OD.Array
-        odFromSh sh = DynamicExists @rk $ OD.constant (shapeToList sh) 0
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
         -- Note that this function, and similarly @f@ and @rf@ instantiated
         -- and passed to FoldR, is not a function on dual numbers.
@@ -607,18 +462,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           let res = rf0 cx x a  -- non-explicit sharing, so helps little
           in ( rletDomainsIn
                  domsOD res
-                 (\doms -> case doms V.! 0 of
-                   DynamicExists @rn2 ex
-                     | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2) ->
-                       rfromD ex
-                   _ -> error "rfoldDer: type mismatch")
+                 (\doms -> rfromD $ doms V.! 0)
              , rletDomainsIn
                  domsOD res
-                 (\doms -> case doms V.! 1 of
-                   DynamicExists @rm2 ea
-                     | Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
-                       rfromD ea
-                   _ -> error "rfoldDer: type mismatch")
+                 (\doms -> rfromD $ doms V.! 1)
              )
     in D (l1 `mergeADShare` l2)
          (rfold @ranked f x0 as)
@@ -630,42 +477,22 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         -> ADVal shaped rm (k ': shm)
         -> ADVal shaped rn sh
   sfold f (D l1 x0 x0') (D l2 as as') =
-    let odFromSh :: forall rk sh1. (GoodScalar rk, Sh.Shape sh1)
-                 => DynamicExists OD.Array
-        odFromSh = DynamicExists @rk $ OD.constant (Sh.shapeT @sh1) 0
-        domsOD = V.fromList [odFromSh @rn @sh, odFromSh @rm @shm]
+    let domsOD = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
         domsToPair :: forall f. ADReadyS f
-                   => Domains (DynamicOf f) -> (f rn sh, f rm shm)
-        domsToPair doms =
-          let d0 = case doms V.! 0 of
-                DynamicExists @rn2 ex
-                  | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2) ->
-                    sfromD ex
-                _ -> error "rfold: type mismatch"
-              d1 = case doms V.! 1 of
-                DynamicExists @rm2 ex
-                  | Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
-                    sfromD ex
-                _ -> error "rfold: type mismatch"
-          in (d0, d1)
-        g :: Domains (DynamicOf (ADVal shaped)) -> ADVal shaped rn sh
+                   => Domains (RankedOf f) -> (f rn sh, f rm shm)
+        domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
+        g :: Domains (ADVal (RankedOf shaped)) -> ADVal shaped rn sh
         g doms = uncurry (f @(ADVal shaped)) (domsToPair doms)
         df :: shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
            -> shaped rn sh
         df cx (ca, x, a) =
-          fst $ cfwdOnDomains
-                  (V.fromList [ DynamicExists @rn (dfromS x)
-                              , DynamicExists @rm (dfromS a) ])
-                  g
-                  (V.fromList [ DynamicExists @rn (dfromS cx)
-                              , DynamicExists @rm (dfromS ca) ])
+          fst $ cfwdOnDomains (V.fromList [dfromS x, dfromS a])
+                              g (V.fromList [dfromS cx, dfromS ca])
         rf :: shaped rn sh -> (shaped rn sh, shaped rm shm)
            -> (shaped rn sh, shaped rm shm)
         rf dt (x, a) =
           domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains False (Just dt) g
-                          (V.fromList [ DynamicExists @rn (dfromS x)
-                                      , DynamicExists @rm (dfromS a) ])
+          $ crevOnDomains False (Just dt) g (V.fromList [dfromS x, dfromS a])
     in D (l1 `mergeADShare` l2)
          (sfold @ranked f x0 as)
          (FoldS f x0 as df rf x0' as')
@@ -682,10 +509,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> ADVal shaped rm (k ': shm)
            -> ADVal shaped rn sh
   sfoldDer f df0 rf0 (D l1 x0 x0') (D l2 as as') =
-    let odFromSh :: forall rk sh1. (GoodScalar rk, Sh.Shape sh1)
-                 => DynamicExists OD.Array
-        odFromSh = DynamicExists @rk $ OD.constant (Sh.shapeT @sh1) 0
-        domsOD = V.fromList [odFromSh @rn @sh, odFromSh @rm @shm]
+    let domsOD = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
         -- Note that this function, and similarly @f@ and @rf@ instantiated
         -- and passed to FoldR, is not a function on dual numbers.
         df :: shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
@@ -697,18 +521,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           let res = rf0 cx x a  -- non-explicit sharing, so helps little
           in ( sletDomainsIn
                  domsOD res
-                 (\doms -> case doms V.! 0 of
-                   DynamicExists @rn2 ex
-                     | Just Refl <- testEquality (typeRep @rn) (typeRep @rn2) ->
-                       sfromD ex
-                   _ -> error "rfoldDer: type mismatch")
+                 (\doms -> sfromD $ doms V.! 0)
              , sletDomainsIn
                  domsOD res
-                 (\doms -> case doms V.! 1 of
-                   DynamicExists @rm2 ea
-                     | Just Refl <- testEquality (typeRep @rm) (typeRep @rm2) ->
-                       sfromD ea
-                   _ -> error "rfoldDer: type mismatch")
+                 (\doms -> sfromD $ doms V.! 1)
              )
     in D (l1 `mergeADShare` l2)
          (sfold @ranked f x0 as)
@@ -723,14 +539,14 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
   rletInDomains = (&)
   sletInDomains = (&)
   rrev :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+       => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
        -> DomainsOD
        -> DomainsOD
   rrev f _parameters0 parameters =
     fst $ crevOnDomains False Nothing (f @(ADVal (Flip OR.Array))) parameters
   rrevDt :: (GoodScalar r, KnownNat n)
-         => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+         => (forall f. ADReady f => Domains f -> f r n)
          -> DomainsOD
          -> DomainsOD
          -> Flip OR.Array r n
@@ -738,7 +554,7 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
   rrevDt f _parameters0 parameters dt =
     fst $ crevOnDomains False (Just dt) (f @(ADVal (Flip OR.Array))) parameters
   rfwd :: (GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => Domains (DynamicOf f) -> f r n)
+       => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
        -> DomainsOD
        -> DomainsOD

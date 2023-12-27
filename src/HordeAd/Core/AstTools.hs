@@ -27,7 +27,9 @@ import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (matchingRank)
 import HordeAd.Util.SizedIndex
 
 -- * Shape calculation
@@ -148,7 +150,7 @@ varInAst var = \case
   AstD u u' -> varInAst var u || varInAst var u'
   AstLetDomainsIn _vars l v -> varInAstDomains var l || varInAst var v
   AstFwd _f l ds ->  -- _f has no non-bound variables
-    let f (DynamicExists d) = varInAstDynamic var d
+    let f = varInAstDynamic var
     in any f l || any f ds
   AstFold _f x0 as -> varInAst var x0 || varInAst var as
   AstFoldDer _f _df _rf x0 as -> varInAst var x0 || varInAst var as
@@ -156,28 +158,27 @@ varInAst var = \case
 varInAstDomains :: AstSpan s
                 => AstVarId -> AstDomains s -> Bool
 varInAstDomains var = \case
-  AstDomains l -> let f (DynamicExists d) = varInAstDynamic var d
-                  in any f l
+  AstDomains l -> any (varInAstDynamic var) l
   AstLetInDomains _var2 u v -> varInAst var u || varInAstDomains var v
   AstLetInDomainsS _var2 u v -> varInAstS var u || varInAstDomains var v
   AstRev _f l ->  -- _f has no non-bound variables
-    let f (DynamicExists d) = varInAstDynamic var d
-    in any f l
+    any (varInAstDynamic var) l
   AstRevDt _f l dt ->  -- _f has no non-bound variables
-    let f (DynamicExists d) = varInAstDynamic var d
+    let f = varInAstDynamic var
     in any f l || varInAst var dt
   AstRevS _f l ->  -- _f has no non-bound variables
-    let f (DynamicExists d) = varInAstDynamic var d
-    in any f l
+    any (varInAstDynamic var) l
   AstRevDtS _f l dt ->  -- _f has no non-bound variables
-    let f (DynamicExists d) = varInAstDynamic var d
+    let f = varInAstDynamic var
     in any f l || varInAstS var dt
 
 varInAstDynamic :: AstSpan s
-                => AstVarId -> AstDynamic s r -> Bool
+                => AstVarId -> AstDynamic s -> Bool
 varInAstDynamic var = \case
-  AstRToD t -> varInAst var t
-  AstSToD t -> varInAstS var t
+  DynamicRanked t -> varInAst var t
+  DynamicShaped t -> varInAstS var t
+  DynamicRankedDummy{} -> False
+  DynamicShapedDummy{} -> False
 
 varInAstBool :: AstVarId -> AstBool -> Bool
 varInAstBool var = \case
@@ -231,7 +232,7 @@ varInAstS var = \case
   AstDS u u' -> varInAstS var u || varInAstS var u'
   AstLetDomainsInS _vars l v -> varInAstDomains var l || varInAstS var v
   AstFwdS _f l ds ->  -- _f has no non-bound variables
-    let f (DynamicExists d) = varInAstDynamic var d
+    let f = varInAstDynamic var
     in any f l || any f ds
   AstFoldS _f x0 as -> varInAstS var x0 || varInAstS var as
   AstFoldDerS _f _df _rf x0 as -> varInAstS var x0 || varInAstS var as
@@ -289,44 +290,68 @@ astIsSmallS relaxed = \case
 
 -- * Odds and ends
 
-bindsToLet :: forall n s r. (KnownNat n, GoodScalar r)
+bindsToLet :: forall n s r. (AstSpan s, KnownNat n, GoodScalar r)
            => AstRanked s r n -> AstBindings -> AstRanked s r n
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet = foldl' bindToLet
  where
   bindToLet :: AstRanked s r n
-            -> (AstVarId, DynamicExists (AstDynamic PrimalSpan))
+            -> (AstVarId, AstDynamic PrimalSpan)
             -> AstRanked s r n
-  bindToLet !u (var, DynamicExists d) = case d of
-    AstRToD w -> AstLet (AstVarName var) w u
-    AstSToD w ->
-      let shList = shapeToList $ shapeAst u
-      in if valueOf @n == length shList
-         then Sh.withShapeP shList $ \(_proxy :: Proxy sh) ->
-           gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n) $
-           AstSToR @sh $ AstLetS (AstVarName var) w (AstRToS u)
-         else error "bindsToLet: rank mismatch"
+  bindToLet !u (var, d) =
+    let convertShaped :: (GoodScalar r2, Sh.Shape sh2)
+                      => AstShaped PrimalSpan r2 sh2 -> AstRanked s r n
+        convertShaped t =
+          Sh.withShapeP (shapeToList $ shapeAst u) $ \proxy -> case proxy of
+            Proxy @sh | Just Refl <- matchingRank @sh @n ->
+              AstSToR @sh $ AstLetS (AstVarName var) t (AstRToS u)
+            _ -> error "bindToLet: wrong rank"
+    in case d of
+      DynamicRanked w -> AstLet (AstVarName var) w u
+      DynamicShaped w -> convertShaped w
+      DynamicRankedDummy @r2 @sh2 _ _ ->
+        withListShape (Sh.shapeT @sh2) $ \(_ :: Shape n3 Int) ->
+          gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh2) $
+          AstLet @n3 @n @r2 @s (AstVarName var) (AstSToR @sh2 @s @r2 0) u
+      DynamicShapedDummy @r2 @sh2 _ _ -> convertShaped @r2 @sh2 0
 
-bindsToLetS :: forall sh s r. Sh.Shape sh
+bindsToLetS :: forall sh s r. (AstSpan s, Sh.Shape sh)
             => AstShaped s r sh -> AstBindings -> AstShaped s r sh
 {-# INLINE bindsToLetS #-}  -- help list fusion
 bindsToLetS = foldl' bindToLetS
  where
   bindToLetS :: AstShaped s r sh
-             -> (AstVarId, DynamicExists (AstDynamic PrimalSpan))
+             -> (AstVarId, AstDynamic PrimalSpan)
              -> AstShaped s r sh
-  bindToLetS !u (var, DynamicExists d) = case d of
-    AstRToD w ->
-      withListShape (Sh.shapeT @sh) $ \ (_ :: Shape n Int) ->
-        gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: n)
-        $ AstRToS $ AstLet (AstVarName var) w (AstSToR u)
-    AstSToD w -> AstLetS (AstVarName var) w u
+  bindToLetS !u (var, d) = case d of
+    DynamicRanked w ->
+      withListShape (Sh.shapeT @sh) $ \sh -> case sh of
+        (_ :: Shape n Int) | Just Refl <- matchingRank @sh @n ->
+          AstRToS $ AstLet (AstVarName var) w (AstSToR u)
+        _ -> error "bindToLetS: wrong rank"
+    DynamicShaped w -> AstLetS (AstVarName var) w u
+    DynamicRankedDummy @r2 @sh2 _ _ ->
+      withListShape (Sh.shapeT @sh2) $ \(_ :: Shape n3 Int) ->
+        gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh2) $
+        withListShape (Sh.shapeT @sh) $ \(_ :: Shape m Int) ->
+          gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh) $
+          AstRToS $ AstLet @n3 @m @r2 @s
+                           (AstVarName var) (AstSToR @sh2 @s @r2 0) (AstSToR u)
+    DynamicShapedDummy @r2 @sh2 _ _ ->
+      AstLetS @sh2 @sh @r2 @s (AstVarName var) 0 u
 
 bindsToDomainsLet
-   :: AstDomains s -> AstBindings -> AstDomains s
+   :: forall s. AstSpan s
+   => AstDomains s -> AstBindings -> AstDomains s
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
-  bindToDomainsLet !u (var, DynamicExists d) = case d of
-    AstRToD w -> AstLetInDomains (AstVarName var) w u
-    AstSToD w -> AstLetInDomainsS (AstVarName var) w u
+  bindToDomainsLet !u (var, d) = case d of
+    DynamicRanked w -> AstLetInDomains (AstVarName var) w u
+    DynamicShaped w -> AstLetInDomainsS (AstVarName var) w u
+    DynamicRankedDummy @r2 @sh2 _ _ ->
+      withListShape (Sh.shapeT @sh2) $ \(_ :: Shape n Int) ->
+        gcastWith (unsafeCoerce Refl :: n :~: Sh.Rank sh2) $
+        AstLetInDomains @n @r2 @s (AstVarName var) (AstSToR @sh2 @s @r2 0) u
+    DynamicShapedDummy @r2 @sh2 _ _ ->
+      AstLetInDomainsS @sh2 @r2 @s (AstVarName var) 0 u

@@ -9,18 +9,14 @@ module CrossTesting
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
-import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty.HUnit hiding (assert)
-import           Type.Reflection (typeRep)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -57,13 +53,13 @@ rev' f vals =
   let value0 = f vals
       parameters = toDomains vals
       dt = Nothing
-      g :: Domains (ADValClown OD.Array)
+      g :: Domains (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r m
       g inputs = f $ parseDomains vals inputs
       (advalGrad, value1) = crevOnDomains True dt g parameters
       gradient1 = parseDomains vals advalGrad
       gradientRrev1 = rrev1 @(Flip OR.Array) @r @n @m f vals
-      g9 :: Domains (ADValClown (AstDynamic PrimalSpan))
+      g9 :: Domains (ADVal (AstRanked PrimalSpan))
          -> ADVal (AstRanked PrimalSpan) r m
       g9 inputs = f $ parseDomains vals inputs
       (advalGrad9, value9) =
@@ -86,7 +82,7 @@ rev' f vals =
         => (f1 r m -> AstRanked PrimalSpan r m)
         -> (AstRanked PrimalSpan r n -> f1 r n)
         -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
-        -> Domains (ADValClown OD.Array)
+        -> Domains (ADVal (Flip OR.Array))
         -> ADVal (Flip OR.Array) r m
       h fx1 fx2 gx inputs =
         hGeneral @(ADVal (Flip OR.Array)) fx1 fx2 gx (parseDomains vals inputs)
@@ -133,7 +129,7 @@ rev' f vals =
            => (f1 r m -> AstRanked PrimalSpan r m)
            -> (AstRanked PrimalSpan r n -> f1 r n)
            -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
-           -> Domains (ADValClown (AstDynamic PrimalSpan))
+           -> Domains (ADVal (AstRanked PrimalSpan))
            -> ADVal (AstRanked PrimalSpan) r m
       hAst fx1 fx2 gx inputs
         = hGeneral @(ADVal (AstRanked PrimalSpan))
@@ -452,71 +448,35 @@ rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
       => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n
 rrev1 f u =
-  let fromDynamicExists :: forall f. ADReady f
-                        => DynamicExists (DynamicOf f) -> f r n
-      fromDynamicExists (DynamicExists @r2 d)
-        | dIsDummy @f d = rzero (rshape u)
-        | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = rfromD d
-        | otherwise =
-            error $ "fromDynamicExists type mismatch: "
-                     ++ show (typeRep @r2) ++ " /= " ++ show (typeRep @r)
-      fDomains :: forall f. ADReady f
-               => Domains (DynamicOf f) -> f r3 m
-      fDomains v = f (fromDynamicExists $ v V.! 0)
-      toDynamicExists :: forall f. ADReady f
-                      => f r n -> DynamicExists (DynamicOf f)
-      toDynamicExists a = DynamicExists $ dfromR a
-      zero :: DynamicExists OD.Array
-      zero = toDynamicExists @(Flip OR.Array) (0 :: Flip OR.Array r n)
+  let fDomains :: forall f. ADReady f => Domains f -> f r3 m
+      fDomains v = f (rfromD $ v V.! 0)
+      sh = rshape u
+      zero = odFromSh @r @n sh
       shapes = V.fromList [zero]
-      domsOf = rrev @g fDomains shapes (V.singleton $ toDynamicExists @g u)
-  in rletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 0)
+      domsOf = rrev @g fDomains shapes (V.singleton $ DynamicRanked u)
+  in rletDomainsIn shapes domsOf (\v -> rfromD $ v V.! 0)
 
 rfwd1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
       => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r3 m
 rfwd1 f u =
-  let fromDynamicExists :: forall f. ADReady f
-                        => DynamicExists (DynamicOf f) -> f r n
-      fromDynamicExists (DynamicExists @r2 d)
-        | dIsDummy @f d = rzero (rshape u)
-        | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = rfromD d
-        | otherwise =
-            error $ "fromDynamicExists type mismatch: "
-                     ++ show (typeRep @r2) ++ " /= " ++ show (typeRep @r)
-      fDomains :: forall f. ADReady f
-               => Domains (DynamicOf f) -> f r3 m
-      fDomains v = f (fromDynamicExists $ v V.! 0)
-      toDynamicExists :: forall f. ADReady f
-                      => f r n -> DynamicExists (DynamicOf f)
-      toDynamicExists a = DynamicExists $ dfromR a
-      zero :: DynamicExists OD.Array
-      zero = toDynamicExists @(Flip OR.Array) (0 :: Flip OR.Array r n)
+  let fDomains :: forall f. ADReady f => Domains f -> f r3 m
+      fDomains v = f (rfromD $ v V.! 0)
+      sh = rshape u
+      zero = odFromSh @r @n sh
       shapes = V.fromList [zero]
-  in rfwd @g fDomains shapes (V.singleton $ toDynamicExists @g u)
-                             (V.singleton $ toDynamicExists @g u)  -- simple
+  in rfwd @g fDomains shapes (V.singleton $ DynamicRanked u)
+                             (V.singleton $ DynamicRanked u)  -- simple
 
 srev1 :: forall g r sh sh2 r3.
          (ADReadyS g, GoodScalar r, GoodScalar r3, Sh.Shape sh, Sh.Shape sh2)
       => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh -> g r sh
 srev1 f u =
-  let fromDynamicExists :: forall f. ADReadyS f
-                        => DynamicExists (DynamicOf f) -> f r sh
-      fromDynamicExists (DynamicExists @r2 d)
-        | dIsDummy @(RankedOf f) d = 0
-        | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = sfromD d
-        | otherwise =
-            error $ "fromDynamicExists type mismatch: "
-                     ++ show (typeRep @r2) ++ " /= " ++ show (typeRep @r)
-      fDomains :: forall f. ADReadyS f
-               => Domains (DynamicOf f) -> f r3 sh2
-      fDomains v = f (fromDynamicExists $ v V.! 0)
-      toDynamicExists :: forall f. ADReadyS f
-                      => f r sh -> DynamicExists (DynamicOf f)
-      toDynamicExists a = DynamicExists $ dfromS a
-      zero :: DynamicExists OD.Array
-      zero = toDynamicExists @(Flip OS.Array) (0 :: Flip OS.Array r sh)
+  let fDomains :: forall f. ADReadyS f
+               => Domains (RankedOf f) -> f r3 sh2
+      fDomains v = f (sfromD $ v V.! 0)
+      zero = odFromShS @r @sh
       shapes = V.fromList [zero]
       domsOf = srev @(RankedOf g)
-                    fDomains shapes (V.singleton $ toDynamicExists @g u)
-  in sletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 0)
+                    fDomains shapes (V.singleton $ DynamicShaped u)
+  in sletDomainsIn shapes domsOf (\v -> sfromD $ v V.! 0)

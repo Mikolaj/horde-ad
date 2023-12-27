@@ -9,7 +9,6 @@ module TestMnistCNNR
 import Prelude
 
 import           Control.Monad (foldM, unless)
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
@@ -60,7 +59,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
              , someNatVal $ toInteger n_hidden ) of
           ( Just (SomeNat @kh _), Just (SomeNat @kw _)
            ,Just (SomeNat @c_out _), Just (SomeNat @n_hidden _) ) ->
-            shapedToRanked $ fst
+            forgetShape $ fst
             $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
                              (Flip OS.Array) SizeMnistHeight SizeMnistWidth
                              kh kw c_out n_hidden r)
@@ -87,7 +86,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> Domains (ADValClown OD.Array)
+             let f :: MnistDataBatchR r -> Domains (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
@@ -159,7 +158,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
              , someNatVal $ toInteger n_hidden ) of
           ( Just (SomeNat @kh _), Just (SomeNat @kw _)
            ,Just (SomeNat @c_out _), Just (SomeNat @n_hidden _) ) ->
-            shapedToRanked $ fst
+            forgetShape $ fst
             $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
                              (Flip OS.Array) SizeMnistHeight SizeMnistWidth
                              kh kw c_out n_hidden r)
@@ -197,7 +196,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> Domains (ADValClown OD.Array)
+             let f :: MnistDataBatchR r -> Domains (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD EM.empty
@@ -278,7 +277,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         domainsInit = toDomains valsInitShaped  -- == toDomains valsInit
         valsInit :: MnistCnnRanked2.ADCnnMnistParameters ranked r
-        valsInit = shapedToRanked valsInitShaped
+        valsInit = forgetShape valsInitShaped
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show kh, show kw, show c_out, show n_hidden
@@ -318,8 +317,8 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
               -> (DomainsOD, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = DynamicExists $ dfromR @(Flip OR.Array) $ rconst glyph
-                 labelD = DynamicExists $ dfromR @(Flip OR.Array) $ rconst label
+             let glyphD = DynamicRanked $ rconst glyph
+                 labelD = DynamicRanked $ rconst label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =
@@ -398,7 +397,7 @@ testCNNOPP = do
                    $ AstReplicate sizeMnistHeightI 7
       valsInit :: MnistCnnRanked2.ADCnnMnistParameters (Flip OR.Array) Double
       valsInit =
-        shapedToRanked $ fst
+        forgetShape $ fst
         $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
                          (Flip OS.Array) 4 4  -- see sizeMnistWidthI, etc.
                          1 1 1 1 Double)

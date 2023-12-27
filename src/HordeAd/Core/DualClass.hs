@@ -29,11 +29,9 @@ module HordeAd.Core.DualClass
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
-import           Data.Bifunctor.Clown
 import           Data.Bifunctor.Flip
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
@@ -45,7 +43,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.Delta
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Util.SizedIndex
 
 -- * The class and its instances
 
@@ -108,7 +105,6 @@ instance (GoodScalar r, KnownNat n) => IsPrimal (Flip OR.Array) r n where
   recordSharing d = case d of
     ZeroR{} -> d
     InputR{} -> d
-    DToR{} -> d
     SToR{} -> d
     LetR{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaR d
@@ -126,20 +122,9 @@ instance (GoodScalar r, Sh.Shape sh) => IsPrimal (Flip OS.Array) r sh where
   recordSharing d = case d of
     ZeroS -> d
     InputS{} -> d
-    DToS{} -> d
     RToS{} -> d
     LetS{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDeltaS d
-
-instance GoodScalar r => IsPrimal (Clown OD.Array) r '() where
-  dZeroOfShape (Clown tsh) =
-    withListShape (dshape @(Flip OR.Array) tsh) $ \ (sh :: Shape n Int) ->
-      RToD @n (ZeroR sh)
-  dScale = undefined
-  dAdd = undefined
-  intOfShape = undefined
-  recordSharingPrimal = undefined
-  recordSharing  = undefined
 
 
 -- * Counter handling

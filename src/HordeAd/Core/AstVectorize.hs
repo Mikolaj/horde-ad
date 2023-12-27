@@ -321,17 +321,20 @@ build1V k (var, v00) =
            (astTr $ build1VOccurenceUnknown k (var, as))
 
 build1VOccurenceUnknownDynamic
-  :: AstSpan s
-  => Int -> (IntVarName, DynamicExists (AstDynamic s))
-  -> DynamicExists (AstDynamic s)
+  :: forall s. AstSpan s
+  => Int -> (IntVarName, AstDynamic s) -> AstDynamic s
 build1VOccurenceUnknownDynamic k (var, d) = case d of
-  DynamicExists (AstRToD u) ->
-    DynamicExists $ AstRToD $ build1VOccurenceUnknown k (var, u)
-  DynamicExists (AstSToD u) -> case someNatVal $ toInteger k of
+  DynamicRanked u -> DynamicRanked $ build1VOccurenceUnknown k (var, u)
+  DynamicShaped u -> case someNatVal $ toInteger k of
     Just (SomeNat @k _proxy) ->
-      DynamicExists $ AstSToD $ build1VOccurenceUnknownS @k (var, u)
+      DynamicShaped $ build1VOccurenceUnknownS @k (var, u)
     Nothing ->
       error "build1VOccurenceUnknownDynamic: impossible someNatVal error"
+  DynamicRankedDummy @r @sh _ _ ->
+    withListShape (Sh.shapeT @sh) $ \(_ :: Shape n3 Int) ->
+      gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh) $
+      DynamicRanked @r (Ast.AstSToR @sh @s @r 0)
+  DynamicShapedDummy @r @sh _ _ -> DynamicShaped @r @sh 0
 
 build1VOccurenceUnknownDomains
   :: forall s. AstSpan s

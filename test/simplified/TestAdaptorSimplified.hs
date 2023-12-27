@@ -6,7 +6,6 @@ module TestAdaptorSimplified
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
@@ -15,14 +14,12 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.List (foldl1')
 import qualified Data.Strict.IntMap as IM
-import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
-import           Type.Reflection (typeRep)
 
 import HordeAd
 import HordeAd.Core.AstEnv
@@ -659,7 +656,7 @@ testListProdPP = do
       fT = shapedListProd
   let (artifactRev, deltas)= revArtifactAdapt True fT [1, 2, 3, 4]
   printGradient6SimpleS renames artifactRev
-    @?= "\\dret x2 x3 x4 x5 -> sletInDomains (x2 * x3) (\\x6 -> sletInDomains (x6 * x4) (\\x7 -> sletInDomains (x5 * dret) (\\x8 -> sletInDomains (x4 * x8) (\\x9 -> dmkDomains (fromList [dfromR (x3 * x9), dfromR (x2 * x9), dfromR (x6 * x8), dfromR (x7 * dret)])))))"
+    @?= "\\dret x2 x3 x4 x5 -> sletInDomains (x2 * x3) (\\x6 -> sletInDomains (x6 * x4) (\\x7 -> sletInDomains (x5 * dret) (\\x8 -> sletInDomains (x4 * x8) (\\x9 -> dmkDomains (fromList [dfromS (x3 * x9), dfromS (x2 * x9), dfromS (x6 * x8), dfromS (x7 * dret)])))))"
   printPrimal6SimpleS renames artifactRev
     @?= "\\x2 x3 x4 x5 -> slet (x2 * x3) (\\x6 -> slet (x6 * x4) (\\x7 -> x7 * x5))"
   printGradient6PrettyS renames (simplifyArtifactRevS artifactRev)
@@ -667,7 +664,7 @@ testListProdPP = do
   printPrimal6PrettyS renames (simplifyArtifactRevS artifactRev)
     @?= "\\x2 x3 x4 x5 -> ((x2 * x3) * x4) * x5"
   show deltas
-    @?= "LetS 100000003 (AddS (ScaleS (AstRToS (AstVar [] (AstVarId 100000005))) (LetS 100000002 (AddS (ScaleS (AstRToS (AstVar [] (AstVarId 100000004))) (LetS 100000001 (AddS (ScaleS (AstRToS (AstVar [] (AstVarId 100000003))) (RToS (InputR [] (InputId 0)))) (ScaleS (AstRToS (AstVar [] (AstVarId 100000002))) (RToS (InputR [] (InputId 1))))))) (ScaleS (AstVarS (AstVarId 100000006)) (RToS (InputR [] (InputId 2))))))) (ScaleS (AstVarS (AstVarId 100000007)) (RToS (InputR [] (InputId 3)))))"
+    @?= "LetS 100000003 (AddS (ScaleS (AstVarS (AstVarId 100000005)) (LetS 100000002 (AddS (ScaleS (AstVarS (AstVarId 100000004)) (LetS 100000001 (AddS (ScaleS (AstVarS (AstVarId 100000003)) (InputS (InputId 0))) (ScaleS (AstVarS (AstVarId 100000002)) (InputS (InputId 1)))))) (ScaleS (AstVarS (AstVarId 100000006)) (InputS (InputId 2)))))) (ScaleS (AstVarS (AstVarId 100000007)) (InputS (InputId 3))))"
 
 rankedListProdr :: (RankedTensor ranked, GoodScalar r)
                 => [ranked r 0] -> ranked r 0
@@ -939,7 +936,7 @@ testReluPP2 = do
   printPrimal6Pretty renames (simplifyArtifactRev artifactRev)
     @?= "\\v2 x3 -> rgather [5] (rconst (fromList [2] [0.0,1.0])) (\\[i5] -> [ifF (v2 ! [i5] * x3 <=. rconst 0.0) 0 1]) * (v2 * rreplicate 5 x3)"
   show deltas
-    @?= "LetR 100000009 (ScaleR (AstVar [5] (AstVarId 100000007)) (LetR 100000005 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000004 (ReplicateR 5 (InputR [] (InputId 1))))))))"
+    @?= "LetR 100000009 (ScaleR (AstVar [5] (AstVarId 100000007)) (LetR 100000008 (AddR (ScaleR (AstReplicate 5 (AstVar [] (AstVarId 100000003))) (InputR [5] (InputId 0))) (ScaleR (AstVar [5] (AstVarId 100000002)) (LetR 100000007 (ReplicateR 5 (InputR [] (InputId 1))))))))"
 
 testReluSimpler :: Assertion
 testReluSimpler = do
@@ -1095,7 +1092,7 @@ testReluSimplerPP4S2 = do
   printPrimal6PrettyS renames (simplifyArtifactRevS artifactRev)
     @?= "\\m2 x3 -> let m8 = m2 * sreshape (sreplicate x3) in sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m8 !$ [i9, i10] <=. sconst 0.0) 0 1]) * m8"
   show deltas
-    @?= "LetS 100000007 (ScaleS (AstVarS (AstVarId 100000012)) (LetS 100000003 (AddS (ScaleS (AstVarS (AstVarId 100000007)) (RToS (InputR [3,4] (InputId 0)))) (ScaleS (AstRToS (AstVar [3,4] (AstVarId 100000002))) (LetS 100000002 (ReshapeS (LetS 100000001 (ReplicateS (RToS (InputR [] (InputId 1)))))))))))"
+    @?= "LetS 100000007 (ScaleS (AstVarS (AstVarId 100000012)) (LetS 100000003 (AddS (ScaleS (AstVarS (AstVarId 100000007)) (InputS (InputId 0))) (ScaleS (AstVarS (AstVarId 100000002)) (LetS 100000002 (ReshapeS (LetS 100000001 (ReplicateS (InputS (InputId 1))))))))))"
 
 testReluSimpler4S :: Assertion
 testReluSimpler4S = do
@@ -1971,33 +1968,19 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
 fooRrev :: forall g a. (ADReady g, GoodScalar a, Differentiable a)
         => (a, a, a) -> (g a 0, g a 0, g a 0)
 fooRrev (x, y, z) =
-  let fromDynamicExists :: forall f. ADReady f
-                        => DynamicExists (DynamicOf f) -> f a 0
-      fromDynamicExists (DynamicExists @r d)
-        | Just Refl <- testEquality (typeRep @r) (typeRep @a) = rfromD d
-        | otherwise = error "fromDynamicExists: type mismatch"
-      fromDoms :: forall f. ADReady f
-               => Domains (DynamicOf f) -> (f a 0, f a 0, f a 0)
-      fromDoms v = ( fromDynamicExists $ v V.! 0
-                   , fromDynamicExists $ v V.! 1
-                   , fromDynamicExists $ v V.! 2 )
-      fooDomains :: forall f. ADReady f
-                 => Domains (DynamicOf f) -> f a 0
-      fooDomains v = foo (fromDoms v)
-      toDynamicExists :: forall f. ADReady f => a -> DynamicExists (DynamicOf f)
-      toDynamicExists a =
-        DynamicExists $ dfromR $ rconst @f $ OR.scalar a
-      zero :: DynamicExists OD.Array
-      zero = toDynamicExists @(Flip OR.Array) (0 :: a)
+  let fDomains :: forall f. ADReady f => Domains f -> f a 0
+      fDomains v = foo (rfromD $ v V.! 0, rfromD $ v V.! 1, rfromD $ v V.! 2)
+      sh = []
+      zero = odFromSh @a @0 sh
       shapes = V.fromList [zero, zero, zero]
-      domsOf =
-        rrev @g
-             fooDomains
-             shapes
-             (V.fromList $ map (toDynamicExists @g) [x, y, z])
-  in ( rletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 0)
-     , rletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 1)
-     , rletDomainsIn shapes domsOf (\v -> fromDynamicExists $ v V.! 2) )
+      domsOf = rrev @g fDomains shapes
+                    (V.fromList
+                     $ [ DynamicRanked $ rconst @g $ OR.scalar x
+                       , DynamicRanked $ rconst @g $ OR.scalar y
+                       , DynamicRanked $ rconst @g $ OR.scalar z ])
+  in ( rletDomainsIn shapes domsOf (\v -> rfromD $ v V.! 0)
+     , rletDomainsIn shapes domsOf (\v -> rfromD $ v V.! 1)
+     , rletDomainsIn shapes domsOf (\v -> rfromD $ v V.! 2) )
 
 testFooRrev :: Assertion
 testFooRrev = do
@@ -2022,7 +2005,7 @@ testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple IM.empty a1
-    @?= "rletDomainsIn (rletInDomains (sin (rconst 2.2)) (\\x39 -> rletInDomains (rconst 1.1 * x39) (\\x40 -> rletInDomains (recip (rconst 3.3 * rconst 3.3 + x40 * x40)) (\\x41 -> rletInDomains (sin (rconst 2.2)) (\\x42 -> rletInDomains (rconst 1.1 * x42) (\\x43 -> rletInDomains (rreshape [] (rreplicate 1 (rconst 1.0))) (\\x44 -> rletInDomains (rconst 3.3 * x44) (\\x45 -> rletInDomains (negate (rconst 3.3 * x41) * x44) (\\x46 -> dmkDomains (fromList [dfromR (x39 * x46 + x42 * x45), dfromR (cos (rconst 2.2) * (rconst 1.1 * x46) + cos (rconst 2.2) * (rconst 1.1 * x45)), dfromR ((x40 * x41) * x44 + x43 * x44)])))))))))) (\\[x24, x25, x26] -> x24)"
+    @?= "rletDomainsIn (rletInDomains (sin (rconst 2.2)) (\\x27 -> rletInDomains (rconst 1.1 * x27) (\\x28 -> rletInDomains (recip (rconst 3.3 * rconst 3.3 + x28 * x28)) (\\x29 -> rletInDomains (sin (rconst 2.2)) (\\x30 -> rletInDomains (rconst 1.1 * x30) (\\x31 -> rletInDomains (rreshape [] (rreplicate 1 (rconst 1.0))) (\\x32 -> rletInDomains (rconst 3.3 * x32) (\\x33 -> rletInDomains (negate (rconst 3.3 * x29) * x32) (\\x34 -> dmkDomains (fromList [dfromR (x27 * x34 + x30 * x33), dfromR (cos (rconst 2.2) * (rconst 1.1 * x34) + cos (rconst 2.2) * (rconst 1.1 * x33)), dfromR ((x28 * x29) * x32 + x31 * x32)])))))))))) (\\[x24, x25, x26] -> x24)"
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do

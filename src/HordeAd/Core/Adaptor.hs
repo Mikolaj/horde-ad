@@ -7,7 +7,6 @@ module HordeAd.Core.Adaptor
 import Prelude
 
 import           Control.Exception (assert)
-import           Data.Kind (Type)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           System.Random
@@ -23,14 +22,14 @@ import HordeAd.Core.Types
 -- * Adaptor classes
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-class AdaptableDomains (dynamic :: Type -> Type) vals where
+class AdaptableDomains (ranked :: RankedTensorKind) vals where
   type Value vals  -- ^ a helper type, with the same general shape,
                    -- but possibly more concrete, e.g., arrays instead of terms
-  toDomains :: vals -> Domains dynamic
+  toDomains :: vals -> Domains ranked
     -- ^ represent a value of the domain of objective function
     -- in a canonical, much less typed way common to all possible types
-  fromDomains :: Value vals -> Domains dynamic
-              -> Maybe (vals, Domains dynamic)
+  fromDomains :: Value vals -> Domains ranked
+              -> Maybe (vals, Domains ranked)
     -- ^ recovers a value of the domain of objective function
     -- from its canonical representation, using the general shape
     -- recorded in a value of a more concrete type; the remainder
@@ -40,8 +39,8 @@ class AdaptableDomains (dynamic :: Type -> Type) vals where
 -- there is no remainder. This is the main call of the recursive
 -- procedure where @fromDomains@ calls itself for sub-values.
 parseDomains
-  :: AdaptableDomains dynamic vals
-  => Value vals -> Domains dynamic -> vals
+  :: AdaptableDomains ranked vals
+  => Value vals -> Domains ranked -> vals
 parseDomains aInit domains =
   case fromDomains aInit domains of
     Just (vals, rest) -> assert (V.null rest) vals
@@ -62,8 +61,8 @@ class RandomDomains vals where
 -- * Basic Adaptor class instances
 
 {- This is temporarily moved to TensorADVal in order to specialize manually
-instance AdaptableDomains dynamic a
-         => AdaptableDomains dynamic [a] where
+instance AdaptableDomains ranked a
+         => AdaptableDomains ranked [a] where
   {-# SPECIALIZE instance
       (KnownNat n, AdaptableDomains OD.Array (OR.Array n Double))
       => AdaptableDomains OD.Array
@@ -96,8 +95,8 @@ instance ForgetShape a
   type NoShape [a] = [NoShape a]
   forgetShape = map forgetShape
 
-instance AdaptableDomains dynamic a
-         => AdaptableDomains dynamic (Data.Vector.Vector a) where
+instance AdaptableDomains ranked a
+         => AdaptableDomains ranked (Data.Vector.Vector a) where
   type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
   toDomains = V.concatMap toDomains
   fromDomains lInit source =
@@ -115,8 +114,8 @@ instance ForgetShape a
   type NoShape (Data.Vector.Vector a) = Data.Vector.Vector (NoShape a)
   forgetShape = V.map forgetShape
 
-instance ( AdaptableDomains dynamic a
-         , AdaptableDomains dynamic b ) => AdaptableDomains dynamic (a, b) where
+instance ( AdaptableDomains ranked a
+         , AdaptableDomains ranked b ) => AdaptableDomains ranked (a, b) where
   type Value (a, b) = (Value a, Value b)
   toDomains (a, b) =
     let a1 = toDomains a
@@ -139,10 +138,10 @@ instance ( RandomDomains a
         (v2, g2) = randomVals range g1
     in ((v1, v2), g2)
 
-instance ( AdaptableDomains dynamic a
-         , AdaptableDomains dynamic b
-         , AdaptableDomains dynamic c )
-         => AdaptableDomains dynamic (a, b, c) where
+instance ( AdaptableDomains ranked a
+         , AdaptableDomains ranked b
+         , AdaptableDomains ranked c )
+         => AdaptableDomains ranked (a, b, c) where
   type Value (a, b, c) = (Value a, Value b, Value c)
   toDomains (a, b, c) =
     let a1 = toDomains a
@@ -170,11 +169,11 @@ instance ( RandomDomains a
         (v3, g3) = randomVals range g2
     in ((v1, v2, v3), g3)
 
-instance ( AdaptableDomains dynamic a
-         , AdaptableDomains dynamic b
-         , AdaptableDomains dynamic c
-         , AdaptableDomains dynamic d )
-         => AdaptableDomains dynamic (a, b, c, d) where
+instance ( AdaptableDomains ranked a
+         , AdaptableDomains ranked b
+         , AdaptableDomains ranked c
+         , AdaptableDomains ranked d )
+         => AdaptableDomains ranked (a, b, c, d) where
   type Value (a, b, c, d) = (Value a, Value b, Value c, Value d)
   toDomains (a, b, c, d) =
     let a1 = toDomains a
@@ -209,12 +208,12 @@ instance ( RandomDomains a
         (v4, g4) = randomVals range g3
     in ((v1, v2, v3, v4), g4)
 
-instance ( AdaptableDomains dynamic a
-         , AdaptableDomains dynamic b
-         , AdaptableDomains dynamic c
-         , AdaptableDomains dynamic d
-         , AdaptableDomains dynamic e )
-         => AdaptableDomains dynamic (a, b, c, d, e) where
+instance ( AdaptableDomains ranked a
+         , AdaptableDomains ranked b
+         , AdaptableDomains ranked c
+         , AdaptableDomains ranked d
+         , AdaptableDomains ranked e )
+         => AdaptableDomains ranked (a, b, c, d, e) where
   type Value (a, b, c, d, e) = (Value a, Value b, Value c, Value d, Value e)
   toDomains (a, b, c, d, e) =
     let a1 = toDomains a
@@ -254,8 +253,8 @@ instance ( RandomDomains a
         (v5, g5) = randomVals range g4
     in ((v1, v2, v3, v4, v5), g5)
 
-instance ( AdaptableDomains dynamic a, AdaptableDomains dynamic b )
-         => AdaptableDomains dynamic (Either a b) where
+instance ( AdaptableDomains ranked a, AdaptableDomains ranked b )
+         => AdaptableDomains ranked (Either a b) where
   type Value (Either a b) = Either (Value a) (Value b)
   toDomains e = case e of
     Left a -> toDomains a
@@ -275,8 +274,8 @@ instance ( ForgetShape a
     Left a -> Left $ forgetShape a
     Right b -> Right $ forgetShape b
 
-instance AdaptableDomains dynamic a
-         => AdaptableDomains dynamic (Maybe a) where
+instance AdaptableDomains ranked a
+         => AdaptableDomains ranked (Maybe a) where
   type Value (Maybe a) = Maybe (Value a)
   toDomains e = case e of
     Nothing -> V.concat []

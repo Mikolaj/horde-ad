@@ -15,7 +15,6 @@ module TestMnistRNNR
 import Prelude
 
 import           Control.Monad (foldM, unless)
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
@@ -63,7 +62,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
         case someNatVal $ toInteger width of
           Nothing -> error "impossible someNatVal error"
           Just (SomeNat @width _) ->
-            shapedToRanked $ fst
+            forgetShape $ fst
             $ randomVals @(MnistRnnRanked2.ADRnnMnistParametersShaped
                              (Flip OS.Array) width r)
                 0.4 (mkStdGen 44)
@@ -87,7 +86,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> Domains (ADValClown OD.Array)
+             let f :: MnistDataBatchR r -> Domains (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
                  f (glyphR, labelR) adinputs =
                    MnistRnnRanked2.rnnMnistLossFusedR
@@ -156,7 +155,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
         case someNatVal $ toInteger width of
           Nothing -> error "impossible someNatVal error"
           Just (SomeNat @width _) ->
-            shapedToRanked $ fst
+            forgetShape $ fst
             $ randomVals @(MnistRnnRanked2.ADRnnMnistParametersShaped
                              (Flip OS.Array) width r)
                 0.4 (mkStdGen 44)
@@ -191,7 +190,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
            runBatch :: (DomainsOD, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (DomainsOD, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> Domains (ADValClown OD.Array)
+             let f :: MnistDataBatchR r -> Domains (ADVal (Flip OR.Array))
                    -> ADVal ranked r 0
                  f (glyph, label) varInputs =
                    let env = foldr extendEnvD EM.empty
@@ -267,7 +266,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         domainsInit = toDomains valsInitShaped  -- == toDomains valsInit
         valsInit :: MnistRnnRanked2.ADRnnMnistParameters ranked r
-        valsInit = shapedToRanked valsInitShaped
+        valsInit = forgetShape valsInitShaped
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show width, show miniBatchSize
@@ -306,8 +305,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
               -> (DomainsOD, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = DynamicExists $ dfromR @(Flip OR.Array) $ rconst glyph
-                 labelD = DynamicExists $ dfromR @(Flip OR.Array) $ rconst label
+             let glyphD = DynamicRanked $ rconst glyph
+                 labelD = DynamicRanked $ rconst label
                  parametersAndInput =
                    V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientDomain =

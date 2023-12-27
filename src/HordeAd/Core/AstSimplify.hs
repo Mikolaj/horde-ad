@@ -27,8 +27,7 @@ module HordeAd.Core.AstSimplify
   , astReplicate, astReplicateS, astAppend, astAppendS, astSlice, astSliceS
   , astReverse, astReverseS
   , astTranspose, astTransposeS, astReshape, astReshapeS
-  , astCast, astCastS, astFromIntegral, astFromIntegralS
-  , astSToR, astRToS, astFromDynamic, astFromDynamicS
+  , astCast, astCastS, astFromIntegral, astFromIntegralS, astSToR, astRToS
   , astPrimalPart, astPrimalPartS, astDualPart, astDualPartS
   , astLetDomainsIn, astLetDomainsInS, astLetInDomains, astLetInDomainsS
     -- * The simplifying bottom-up pass
@@ -1463,34 +1462,6 @@ astRToS (Ast.AstSToR @sh1 v) =
     _ -> error "astRToS: different ranks in RToS(SToR)"
 astRToS v = Ast.AstRToS v
 
-astFromDynamic :: forall n s r. KnownNat n
-               => AstDynamic s r -> AstRanked s r n
-astFromDynamic (AstRToD Ast.AstIota) = error "astFromDynamic: dummy"
-astFromDynamic (AstRToD (Ast.AstLetADShare l v)) =
-  Ast.AstLetADShare l $ astFromDynamic (AstRToD v)
-astFromDynamic (AstRToD @n2 v) =
-  case sameNat (Proxy @n) (Proxy @n2) of
-    Just Refl -> v
-    _ -> error "astFromDynamic: different rank expected and uncovered"
-astFromDynamic (AstSToD @sh2 v) =
-  case matchingRank @sh2 @n of
-    Just Refl -> astSToR v
-    _ -> error "astFromDynamic: different rank expected and uncovered"
-
-astFromDynamicS :: forall sh s r. Sh.Shape sh
-                => AstDynamic s r -> AstShaped s r sh
-astFromDynamicS (AstSToD Ast.AstIotaS) = error "astFromDynamicS: dummy"
-astFromDynamicS (AstSToD (Ast.AstLetADShareS l v)) =
-  Ast.AstLetADShareS l $ astFromDynamicS (AstSToD v)
-astFromDynamicS (AstSToD @sh2 v) =
-  case sameShape @sh @sh2 of
-    Just Refl -> v
-    _ -> error "astFromDynamicS: different shape expected and uncovered"
-astFromDynamicS (AstRToD @n2 v) =
-  case matchingRank @sh @n2 of
-    Just Refl -> astRToS v
-    _ -> error "astFromDynamicS: different rank expected and uncovered"
-
 astPrimalPart :: (GoodScalar r, KnownNat n)
               => AstRanked FullSpan r n -> AstRanked PrimalSpan r n
 astPrimalPart t = case t of
@@ -1660,11 +1631,11 @@ astLetDomainsIn vars l v =
   in Sh.withShapeP (shapeToList sh) $ \proxy -> case proxy of
     Proxy @sh | Just Refl <- matchingRank @sh @n -> case l of
       Ast.AstDomains l3 ->  -- TODO: other cases: collect AstLetInDomains
-        let f :: (AstDynamicVarName, DynamicExists (AstDynamic s))
+        let f :: (AstDynamicVarName, AstDynamic s)
               -> AstRanked s2 r n
               -> AstRanked s2 r n
             f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
-              , DynamicExists @r4 (Ast.AstRToD @n4 v3) )
+              , DynamicRanked @r4 @n4 v3 )
               acc
               | Just Refl <- matchingRank @sh3 @n4
               -- To impose such checks, we'd need to switch from OD tensors
@@ -1674,12 +1645,29 @@ astLetDomainsIn vars l v =
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstLet (AstVarName varId) v3 acc
             f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
-              , DynamicExists @r4 (Ast.AstSToD @sh4 v3) )
+              , DynamicShaped @r4 @sh4 v3 )
               acc
               | Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstSToR @sh
                 $ Ast.AstLetS (AstVarName varId) v3 $ Ast.AstRToS acc
+            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+              , DynamicRankedDummy @r4 @sh4 _ _ )
+              acc
+              | Just Refl <- sameShape @sh3 @sh4
+              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
+                withListShape (Sh.shapeT @sh3) $ \(_ :: Shape m Int) ->
+                  gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
+                  Ast.AstLet @m
+                             (AstVarName varId) (Ast.AstSToR @sh3 @s @r3 0) acc
+            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+              , DynamicShapedDummy @r4 @sh4 _ _ )
+              acc
+              | Just Refl <- sameShape @sh3 @sh4
+              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
+                Ast.AstSToR
+                $ Ast.AstLetS @sh4 @sh @r4 @s @s2 (AstVarName varId) 0
+                $ Ast.AstRToS acc
             f _ _ = error "astLetDomainsIn: corrupted arguments"
         in foldr f v (zip vars (V.toList l3))
       _ -> Ast.AstLetDomainsIn vars l v
@@ -1695,22 +1683,38 @@ astLetDomainsInS vars l v =
     Just (SomeNat @n _) -> gcastWith (unsafeCoerce Refl :: n :~: Sh.Rank sh)
                            $ case l of
       Ast.AstDomains l3 ->  -- TODO: other cases: collect AstLetInDomainsS
-        let f :: (AstDynamicVarName, DynamicExists (AstDynamic s))
+        let f :: (AstDynamicVarName, AstDynamic s)
               -> AstShaped s2 r sh
               -> AstShaped s2 r sh
             f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
-              , DynamicExists @r4 (Ast.AstRToD @n4 v3) )
+              , DynamicRanked @r4 @n4 v3 )
               acc
               | Just Refl <- matchingRank @sh3 @n4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstRToS @sh
                 $ Ast.AstLet (AstVarName varId) v3 $ Ast.AstSToR acc
             f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
-              , DynamicExists @r4 (Ast.AstSToD @sh4 v3) )
+              , DynamicShaped @r4 @sh4 v3 )
               acc
               | Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstLetS (AstVarName varId) v3 acc
+            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+              , DynamicRankedDummy @r4 @sh4 _ _ )
+              acc
+              | Just Refl <- sameShape @sh3 @sh4
+              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
+                withListShape (Sh.shapeT @sh3) $ \(_ :: Shape m Int) ->
+                  gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
+                  Ast.AstRToS @sh
+                  $ Ast.AstLet @m (AstVarName varId) (Ast.AstSToR @sh3 @s @r3 0)
+                  $ Ast.AstSToR acc
+            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+              , DynamicShapedDummy @r4 @sh4 _ _ )
+              acc
+              | Just Refl <- sameShape @sh3 @sh4
+              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
+                Ast.AstLetS @sh4 @sh @r4 @s @s2 (AstVarName varId) 0 acc
             f _ _ = error "astLetDomainsInS: corrupted arguments"
         in foldr f v (zip vars (V.toList l3))
       _ -> Ast.AstLetDomainsInS vars l v
@@ -1831,11 +1835,13 @@ simplifyAst t = case t of
 
 simplifyAstDynamic
   :: AstSpan s
-  => DynamicExists (AstDynamic s) -> DynamicExists (AstDynamic s)
-simplifyAstDynamic (DynamicExists (AstRToD u)) =
-  DynamicExists $ AstRToD $ simplifyAst u
-simplifyAstDynamic (DynamicExists (AstSToD u)) =
-  DynamicExists $ AstSToD $ simplifyAstS u
+  => AstDynamic s -> AstDynamic s
+simplifyAstDynamic (DynamicRanked u) =
+  DynamicRanked $ simplifyAst u
+simplifyAstDynamic (DynamicShaped u) =
+  DynamicShaped $ simplifyAstS u
+simplifyAstDynamic u@DynamicRankedDummy{} = u
+simplifyAstDynamic u@DynamicShapedDummy{} = u
 
 simplifyAstDomains
   :: AstSpan s => AstDomains s -> AstDomains s
@@ -2383,13 +2389,11 @@ substitute1Ast i var v1 = case v1 of
         Just $ astLetDomainsIn vars (fromMaybe l ml) (fromMaybe v mv)
   Ast.AstFwd f args ds ->
     -- No other free variables in v and var is not among vars.
-    let margs = V.map (\(DynamicExists d) ->
-                         DynamicExists <$> substitute1AstDynamic i var d) args
+    let margs = V.map (substitute1AstDynamic i var) args
         marg = if V.any isJust margs
                then Just $ V.zipWith fromMaybe args margs
                else Nothing
-        mds = V.map (\(DynamicExists d) ->
-                         DynamicExists <$> substitute1AstDynamic i var d) ds
+        mds = V.map (substitute1AstDynamic i var) ds
         md = if V.any isJust mds
              then Just $ V.zipWith fromMaybe ds mds
              else Nothing
@@ -2417,12 +2421,14 @@ substitute1AstIndex i var ix =
      else Nothing
 
 substitute1AstDynamic
-  :: (GoodScalar r, GoodScalar r2, AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 r2 -> AstVarId -> AstDynamic s r
-  -> Maybe (AstDynamic s r)
+  :: (GoodScalar r2, AstSpan s, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarId -> AstDynamic s
+  -> Maybe (AstDynamic s)
 substitute1AstDynamic i var = \case
-  Ast.AstRToD t -> Ast.AstRToD <$> substitute1Ast i var t
-  Ast.AstSToD t -> Ast.AstSToD <$> substitute1AstS i var t
+  DynamicRanked t -> DynamicRanked <$> substitute1Ast i var t
+  DynamicShaped t -> DynamicShaped <$> substitute1AstS i var t
+  DynamicRankedDummy{} -> Nothing
+  DynamicShapedDummy{} -> Nothing
 
 substitute1AstDomains
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
@@ -2430,8 +2436,7 @@ substitute1AstDomains
   -> Maybe (AstDomains s)
 substitute1AstDomains i var = \case
   Ast.AstDomains args ->
-    let margs = V.map (\(DynamicExists d) ->
-                         DynamicExists <$> substitute1AstDynamic i var d) args
+    let margs = V.map (substitute1AstDynamic i var) args
     in if V.any isJust margs
        then Just $ Ast.AstDomains $ V.zipWith fromMaybe args margs
        else Nothing
@@ -2446,15 +2451,13 @@ substitute1AstDomains i var = \case
   Ast.AstRev (vars, v) args ->
     -- No other free variables in v and var is not among vars.
     Ast.AstRev (vars, v) <$>
-      let margs = V.map (\(DynamicExists d) ->
-                           DynamicExists <$> substitute1AstDynamic i var d) args
+      let margs = V.map (substitute1AstDynamic i var) args
       in if V.any isJust margs
          then Just $ V.zipWith fromMaybe args margs
          else Nothing
   Ast.AstRevDt (vars, v) args dt ->
     -- No other free variables in v and var is not among vars.
-    let margs = V.map (\(DynamicExists d) ->
-                         DynamicExists <$> substitute1AstDynamic i var d) args
+    let margs = V.map (substitute1AstDynamic i var) args
         marg = if V.any isJust margs
                then Just $ V.zipWith fromMaybe args margs
                else Nothing
@@ -2465,15 +2468,13 @@ substitute1AstDomains i var = \case
   Ast.AstRevS (vars, v) args ->
     -- No other free variables in v and var is not among vars.
     Ast.AstRevS (vars, v) <$>
-      let margs = V.map (\(DynamicExists d) ->
-                           DynamicExists <$> substitute1AstDynamic i var d) args
+      let margs = V.map (substitute1AstDynamic i var) args
       in if V.any isJust margs
          then Just $ V.zipWith fromMaybe args margs
          else Nothing
   Ast.AstRevDtS (vars, v) args dt ->
     -- No other free variables in v and var is not among vars.
-    let margs = V.map (\(DynamicExists d) ->
-                         DynamicExists <$> substitute1AstDynamic i var d) args
+    let margs = V.map (substitute1AstDynamic i var) args
         marg = if V.any isJust margs
                then Just $ V.zipWith fromMaybe args margs
                else Nothing
@@ -2636,13 +2637,11 @@ substitute1AstS i var = \case
         Just $ astLetDomainsInS vars (fromMaybe l ml) (fromMaybe v mv)
   Ast.AstFwdS (vars, v) args ds ->
     -- No other free variables in v and var is not among vars.
-    let margs = V.map (\(DynamicExists d) ->
-                         DynamicExists <$> substitute1AstDynamic i var d) args
+    let margs = V.map (substitute1AstDynamic i var) args
         marg = if V.any isJust margs
                then Just $ V.zipWith fromMaybe args margs
                else Nothing
-        mds = V.map (\(DynamicExists d) ->
-                         DynamicExists <$> substitute1AstDynamic i var d) ds
+        mds = V.map (substitute1AstDynamic i var) ds
         md = if V.any isJust mds
              then Just $ V.zipWith fromMaybe ds mds
              else Nothing

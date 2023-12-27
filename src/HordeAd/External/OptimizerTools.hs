@@ -9,32 +9,49 @@ module HordeAd.External.OptimizerTools
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
+import qualified Data.Array.RankedS as OR
+import           Data.Bifunctor.Flip
+import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat, sameNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Type.Reflection (typeRep)
 
+import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (liftVD2)
-import HordeAd.Internal.TensorOps (isTensorDummyD)
+import HordeAd.Internal.OrthotopeOrphanInstances
 
 updateWithGradient :: Double -> DomainsOD -> DomainsOD -> DomainsOD
 updateWithGradient gamma params gradient =
   let updateVector :: (Numeric r, Fractional r, Num (Vector r))
                    => Vector r -> Vector r -> Vector r
       updateVector i r = i - LA.scale (realToFrac gamma) r
-      updateR :: DynamicExists OD.Array -> DynamicExists OD.Array
-              -> DynamicExists OD.Array
-      updateR ei@(DynamicExists @r1 i) (DynamicExists @r2 r) =
-        if isTensorDummyD r  -- eval didn't update it, would crash
-        then ei
-        else ifDifferentiable @r1
-          (case testEquality (typeRep @r1) (typeRep @r2) of
-             Just Refl -> DynamicExists $ liftVD2 updateVector i r
-             _ -> error "updateWithGradient: type mismatch")
-          ei
+      updateR :: DynamicTensor (Flip OR.Array) -> DynamicTensor (Flip OR.Array)
+              -> DynamicTensor (Flip OR.Array)
+      updateR i r = case (i, r) of
+        (DynamicRanked @r1 @n1 t1, DynamicRanked @r2 @n2 t2) ->
+          ifDifferentiable @r1
+            (case sameNat (Proxy @n1) (Proxy @n2) of
+               Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
+                 Just Refl ->
+                   DynamicRanked $ Flip
+                   $ liftVR2 updateVector (runFlip t1) (runFlip t2)
+                 _ -> error "updateWithGradient: scalar mismatch"
+               _ -> error "updateWithGradient: rank mismatch")
+          i
+        (DynamicShaped @r1 @sh1 t1, DynamicShaped @r2 @sh2 t2) ->
+          ifDifferentiable @r1
+            (case sameShape @sh1 @sh2 of
+               Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
+                 Just Refl ->
+                   DynamicShaped $ Flip
+                   $ liftVS2 updateVector (runFlip t1) (runFlip t2)
+                 _ -> error "updateWithGradient: scalar mismatch"
+               _ -> error "updateWithGradient: rank mismatch")
+          i
+        _ -> i   -- eval didn't update the gradient, save on computation
   in V.zipWith updateR params gradient
 
 {-
@@ -47,13 +64,13 @@ minimumGradient :: (Ord r, Numeric r) => DomainsOD -> r
 minimumGradient (DomainsOD gradient0 gradientR) =
   min (if V.null gradient0 then 0 else LA.minElement gradient0)
       (if V.null gradientR then 0
-       else V.minimum (V.map OD.minimumA gradientR))
+       else V.minimum (V.map OR.minimumA gradientR))
 
 maximumGradient :: (Ord r, Numeric r) => DomainsOD -> r
 maximumGradient (DomainsOD gradient0 gradientR) =
   max (if V.null gradient0 then 0 else LA.maxElement gradient0)
       (if V.null gradientR then 0
-       else V.maximum (V.map OD.maximumA gradientR))
+       else V.maximum (V.map OR.maximumA gradientR))
 -}
 
 data ArgsAdam = ArgsAdam
@@ -81,10 +98,14 @@ data StateAdam = StateAdam
 
 -- The arguments are just sample params0, for dimensions.
 zeroParameters :: DomainsOD -> DomainsOD
-zeroParameters params =
-  V.map (\(DynamicExists @r a) -> DynamicExists @r
-                                  $ OD.constant (OD.shapeL a) 0)
-        params
+zeroParameters =
+  let f (DynamicRanked @r @n t) =
+        let sh = rshape @(Flip OR.Array) t
+        in DynamicRanked @r @n $ rzero @(Flip OR.Array) sh
+      f (DynamicShaped @r @sh _) = DynamicShaped @r @sh 0
+      f DynamicRankedDummy{} = error "zeroParameters: unexpected value"
+      f DynamicShapedDummy{} = error "zeroParameters: unexpected value"
+  in V.map f
 
 initialStateAdam :: DomainsOD -> StateAdam
 initialStateAdam parameters0 =
@@ -95,28 +116,28 @@ initialStateAdam parameters0 =
        , vAdam = zeroP
        }
 
--- TOOD: make sure this is not worse that OD.zipWith3A when transposing
+-- TOOD: make sure this is not worse that OR.zipWith3A when transposing
 -- between each application or that we never encounter such situations
 --
 -- | Application of a vector function on the flattened arrays elements.
 liftArray43 :: ( Numeric a, Numeric b, Numeric c, Numeric d
-               , Numeric x, Numeric y, Numeric z )
+               , Numeric x, Numeric y, Numeric z, KnownNat n )
             => (Vector a -> Vector b -> Vector c -> Vector d
                 -> (Vector x, Vector y, Vector z))
-            -> OD.Array a -> OD.Array b -> OD.Array c -> OD.Array d
-            -> (OD.Array x, OD.Array y, OD.Array z)
+            -> OR.Array n a -> OR.Array n b -> OR.Array n c -> OR.Array n d
+            -> (OR.Array n x, OR.Array n y, OR.Array n z)
 liftArray43 f m1 m2 m3 m4 =
-  let sz = OD.shapeL m1
-  in if sz == OD.shapeL m2 && sz == OD.shapeL m3 && sz == OD.shapeL m4
-     then let (vx, vy, vz) = f (OD.toVector m1) (OD.toVector m2)
-                               (OD.toVector m3) (OD.toVector m4)
-          in ( OD.fromVector sz vx
-             , OD.fromVector sz vy
-             , OD.fromVector sz vz
+  let sz = OR.shapeL m1
+  in if sz == OR.shapeL m2 && sz == OR.shapeL m3 && sz == OR.shapeL m4
+     then let (vx, vy, vz) = f (OR.toVector m1) (OR.toVector m2)
+                               (OR.toVector m3) (OR.toVector m4)
+          in ( OR.fromVector sz vx
+             , OR.fromVector sz vy
+             , OR.fromVector sz vz
              )
      else error
           $ "nonconformant arrays in liftArray43: "
-            ++ show (OD.shapeL m1, OD.shapeL m2, OD.shapeL m3, OD.shapeL m4)
+            ++ show (OR.shapeL m1, OR.shapeL m2, OR.shapeL m3, OR.shapeL m4)
 
 updateWithGradientAdam
   :: ArgsAdam -> StateAdam -> DomainsOD -> DomainsOD
@@ -145,24 +166,32 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                  / (sqrt vANew + LA.scalar (realToFrac epsilon)) )
                       -- the @scalar@ is safe here;
                       -- @addConstant@ would be better, but it's not exposed
-      updateR :: DynamicExists OD.Array -> DynamicExists OD.Array
-              -> DynamicExists OD.Array -> DynamicExists OD.Array
-              -> ( DynamicExists OD.Array
-                 , DynamicExists OD.Array
-                 , DynamicExists OD.Array )
-      updateR emA@(DynamicExists @r1 mA) evA@(DynamicExists @r2 vA)
-              ep@(DynamicExists @r3 p) (DynamicExists @r4 g) =
-        if isTensorDummyD g  -- eval didn't update it
-        then (emA, evA, ep)
-        else ifDifferentiable @r1
-          (case ( testEquality (typeRep @r1) (typeRep @r2)
-                , testEquality (typeRep @r2) (typeRep @r3)
-                , testEquality (typeRep @r3) (typeRep @r4) ) of
-             (Just Refl, Just Refl, Just Refl) ->
-               let (od1, od2, od3) = liftArray43 updateVector mA vA p g
-               in (DynamicExists od1, DynamicExists od2, DynamicExists od3)
+      updateR :: DynamicTensor (Flip OR.Array) -> DynamicTensor (Flip OR.Array)
+              -> DynamicTensor (Flip OR.Array) -> DynamicTensor (Flip OR.Array)
+              -> ( DynamicTensor (Flip OR.Array)
+                 , DynamicTensor (Flip OR.Array)
+                 , DynamicTensor (Flip OR.Array) )
+      updateR emA@(DynamicRanked @r1 @n1 mA) evA@(DynamicRanked @r2 @n2 vA)
+              ep@(DynamicRanked @r3 @n3 p) (DynamicRanked @r4 @n4 g) =
+        ifDifferentiable @r1
+          (case ( sameNat (Proxy @n1) (Proxy @n2)
+                , sameNat (Proxy @n1) (Proxy @n3)
+                , sameNat (Proxy @n1) (Proxy @n4)
+                , testEquality (typeRep @r1) (typeRep @r2)
+                , testEquality (typeRep @r1) (typeRep @r3)
+                , testEquality (typeRep @r1) (typeRep @r4) ) of
+             ( Just Refl, Just Refl, Just Refl
+              ,Just Refl, Just Refl, Just Refl ) ->
+               let (od1, od2, od3) =
+                     liftArray43 updateVector (runFlip mA) (runFlip vA)
+                                              (runFlip p) (runFlip g)
+               in ( DynamicRanked $ Flip od1
+                  , DynamicRanked $ Flip od2
+                  , DynamicRanked $ Flip od3 )
              _ -> error "updateWithGradientAdam: type mismatch")
           (emA, evA, ep)
+      updateR emA evA ep _ =
+        (emA, evA, ep)  -- eval didn't update the gradient, save on computation
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         V.unzip3 $ V.zipWith4 updateR mAdamR vAdamR paramsR gradientR
   in ( paramsRNew
