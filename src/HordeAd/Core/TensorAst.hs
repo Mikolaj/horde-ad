@@ -382,6 +382,7 @@ instance AstSpan s
   rfromIntegral = fromPrimal . AstFromIntegral . astSpanPrimal
   rconst = fromPrimal . AstConst
   rletDomainsIn = astLetDomainsInFun
+  rfromS = astSToR
 
   rletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
     if nullADShare l then u else AstLetADShare l u
@@ -404,8 +405,7 @@ instance AstSpan s
   rScale s t = astDualPart $ AstConstant s * AstD (rzero (rshape s)) t
 
 instance ( GoodScalar r, KnownNat n
-         , RankedTensor (AstRanked s)
-         , ConvertTensor (AstRanked s) (AstShaped s) )
+         , RankedTensor (AstRanked s) )
          => AdaptableDomains (AstRanked s) (AstRanked s r n) where
   {-# SPECIALIZE instance
       (KnownNat n, AstSpan s)
@@ -519,6 +519,7 @@ instance AstSpan s
   sfromIntegral = fromPrimalS . AstFromIntegralS . astSpanPrimalS
   sconst = fromPrimalS . AstConstS
   sletDomainsIn = astLetDomainsInFunS
+  sfromR = astRToS
 
   sletWrap l u | Just Refl <- sameAstSpan @s @PrimalSpan =
     if nullADShare l then u else AstLetADShareS l u
@@ -541,8 +542,7 @@ instance AstSpan s
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
 
 instance ( GoodScalar r, Sh.Shape sh
-         , ShapedTensor (AstShaped s)
-         , ConvertTensor (AstRanked s) (AstShaped s) )
+         , ShapedTensor (AstShaped s) )
          => AdaptableDomains (AstRanked s) (AstShaped s r sh) where
   type Value (AstShaped s r sh) = Flip OS.Array r sh
   toDomains = undefined
@@ -613,11 +613,7 @@ astBuild1VectorizeS f =
   build1VectorizeS $ funToAstI (f . ShapedList.shapedNat)
 
 
--- * ConvertTensor and DomainsTensor instances
-
-instance ConvertTensor (AstRanked s) (AstShaped s) where
-  rfromS = astSToR
-  sfromR = astRToS
+-- * DomainsTensor instance
 
 instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dmkDomains = AstDomains
@@ -953,6 +949,7 @@ instance AstSpan s
   rcast = AstNoVectorize . AstCast . unAstNoVectorize
   rfromIntegral = AstNoVectorize . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoVectorize
+  rfromS = AstNoVectorize . rfromS @(AstRanked s) . unAstNoVectorizeS
 
   rconst = AstNoVectorize . fromPrimal . AstConst
   rletDomainsIn a0 a f =
@@ -1014,6 +1011,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sletDomainsIn a0 a f =
     AstNoVectorizeS $ astLetDomainsInFunS
                         a0 a (unAstNoVectorizeS . f . noVectorizeDomains)
+  sfromR = AstNoVectorizeS . sfromR @(AstShaped s) . unAstNoVectorize
 
   sconstant = AstNoVectorizeS . fromPrimalS
     -- exceptionally we do simplify AstConstant to avoid long boring chains
@@ -1021,10 +1019,6 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sdualPart = astSpanDualS . unAstNoVectorizeS
   sD u u' = AstNoVectorizeS $ astSpanDS u u'
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
-
-instance ConvertTensor (AstNoVectorize s) (AstNoVectorizeS s) where
-  rfromS = AstNoVectorize . rfromS @(AstRanked s) . unAstNoVectorizeS
-  sfromR = AstNoVectorizeS . sfromR @(AstRanked s) . unAstNoVectorize
 
 instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dmkDomains domains = dmkDomains @(AstRanked s) (unNoVectorizeDomains domains)
@@ -1128,6 +1122,7 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rletDomainsIn a0 a f =
     AstNoSimplify $ astLetDomainsInFun
                       a0 a (unAstNoSimplify . f . noSimplifyDomains)
+  rfromS = AstNoSimplify . rfromS @(AstRanked s) . unAstNoSimplifyS
 
   rconstant = AstNoSimplify . fromPrimal
     -- exceptionally we do simplify AstConstant to avoid long boring chains
@@ -1199,6 +1194,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sletDomainsIn a0 a f =
     AstNoSimplifyS $ astLetDomainsInFunS
                        a0 a (unAstNoSimplifyS . f . noSimplifyDomains)
+  sfromR = AstNoSimplifyS . sfromR @(AstShaped s) . unAstNoSimplify
 
   sconstant = AstNoSimplifyS . fromPrimalS
     -- exceptionally we do simplify AstConstant to avoid long boring chains
@@ -1206,10 +1202,6 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sdualPart = astSpanDualS . unAstNoSimplifyS
   sD u u' = AstNoSimplifyS $ astSpanDS u u'
   sScale s t = astDualPartS $ AstConstantS s * AstDS 0 t
-
-instance ConvertTensor (AstNoSimplify s) (AstNoSimplifyS s) where
-  rfromS = AstNoSimplify . rfromS @(AstRanked s) . unAstNoSimplifyS
-  sfromR = AstNoSimplifyS . sfromR @(AstRanked s) . unAstNoSimplify
 
 instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dmkDomains domains = dmkDomains @(AstRanked s) (unNoSimplifyDomains domains)

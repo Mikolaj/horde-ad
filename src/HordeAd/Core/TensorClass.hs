@@ -12,7 +12,7 @@ module HordeAd.Core.TensorClass
   ( -- * Re-exports
     ShapeInt, ShapeSh
     -- * The tensor classes
-  , RankedTensor(..), ShapedTensor(..), ConvertTensor(..), DomainsTensor(..)
+  , RankedTensor(..), ShapedTensor(..), DomainsTensor(..)
   , raddDynamic, saddDynamic, rfromD, sfromD
     -- * The related constraints
   , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
@@ -248,6 +248,8 @@ class ( Integral (IntOf ranked), CRanked ranked Num
                 -> DomainsOf ranked
                 -> (Domains ranked -> ranked r n)
                 -> ranked r n
+  rfromS :: (GoodScalar r, Sh.Shape sh)
+         => ShapedOf ranked r sh -> ranked r (Sh.Rank sh)
 
   -- ** No serviceable parts beyond this point ** --
 
@@ -553,6 +555,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, Sh.Shape sh)
                 => shaped r1 sh -> shaped r2 sh
   sconst :: (GoodScalar r, Sh.Shape sh) => OS.Array sh r -> shaped r sh
+  sfromR :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
+         => RankedOf shaped r (Sh.Rank sh) -> shaped r sh
 
   -- ** No serviceable parts beyond this point ** --
 
@@ -596,20 +600,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sScale :: (GoodScalar r, Sh.Shape sh)
          => PrimalOf shaped r sh -> DualOf shaped r sh -> DualOf shaped r sh
 
-
--- * ConvertTensor and DomainsTensor class definitions
-
-class ConvertTensor (ranked :: RankedTensorType)
-                    (shaped :: ShapedTensorType)
-                    | ranked -> shaped, shaped -> ranked where
-  rfromS :: (GoodScalar r, Sh.Shape sh)
-         => shaped r sh -> ranked r (Sh.Rank sh)
-  sfromR :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
-         => ranked r (Sh.Rank sh) -> shaped r sh
-
 rfromD :: forall ranked r n.
-          ( ShapedTensor (ShapedOf ranked)
-          , ConvertTensor ranked (ShapedOf ranked)
+          ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
           , GoodScalar r, KnownNat n )
        => DynamicTensor ranked -> ranked r n
 rfromD (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2) (Proxy @n) of
@@ -624,17 +616,17 @@ rfromD (DynamicShaped @r2 @sh2 t) = case matchingRank @sh2 @n of
   _ -> error "rfromD: rank mismatch"
 rfromD (DynamicRankedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> rfromS @_ @_ @r2 @sh2 0
+    Just Refl -> rfromS @_ @r2 @sh2 0
     _ -> error "rfromD: type mismatch"
   _ -> error "rfromD: rank mismatch"
 rfromD (DynamicShapedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> rfromS @ranked @_ @r2 @sh2 0
+    Just Refl -> rfromS @ranked @r2 @sh2 0
     _ -> error "rfromD: type mismatch"
   _ -> error "rfromD: rank mismatch"
 
 sfromD :: forall shaped r sh.
-          ( ShapedTensor shaped, ConvertTensor (RankedOf shaped) shaped
+          ( ShapedTensor shaped
           , GoodScalar r, Sh.Shape sh
           , ShapedOf (RankedOf shaped) ~ shaped )
        => DynamicTensor (RankedOf shaped) -> shaped r sh
@@ -650,6 +642,9 @@ sfromD (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
   _ -> error "sfromD: shape mismatch"
 sfromD DynamicRankedDummy{} = 0
 sfromD DynamicShapedDummy{} = 0
+
+
+-- * DomainsTensor class definition
 
 class DomainsTensor (ranked :: RankedTensorType)
                     (shaped :: ShapedTensorType)
@@ -705,8 +700,8 @@ class DomainsTensor (ranked :: RankedTensorType)
        -> Domains ranked
        -> Domains ranked
        -> shaped r sh
-  -- The type mentions ADReady, so it's hard to put this into RankedTensor,
-  -- which doesn't know about ConvertTensor and DomainsTensor.
+  -- The type mentions ADReady, so it's awkward to put this into RankedTensor,
+  -- which doesn't know about DomainsTensor.
   rfold :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
         -> ranked rn n  -- ^ initial value
@@ -767,8 +762,6 @@ type ADReadySmall ranked shaped =
   , OrdF ranked, OrdF shaped, OrdF (PrimalOf ranked), OrdF (PrimalOf shaped)
   , RankedTensor ranked, RankedTensor (PrimalOf ranked)
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
-  , ConvertTensor ranked shaped
-  , ConvertTensor (PrimalOf ranked) (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
   , DomainsOf ranked ~ DomainsOf shaped
@@ -782,6 +775,8 @@ type ADReadyBoth ranked shaped =
 
 
 -- * Instances for concrete arrays
+
+-- The DomainsTensor instance requires ADVal instance, so it's given elsewhere.
 
 type DomainsOD = Domains (Flip OR.Array)
 
@@ -936,6 +931,7 @@ instance RankedTensor (Flip OR.Array) where
   rdot1In u v = Flip $ tdot1InR (runFlip u) (runFlip v)
   rconst = Flip
   rletDomainsIn _ = (&)
+  rfromS = Flip . Data.Array.Convert.convert . runFlip
 
   rconstant = id
   rprimalPart = id
@@ -955,9 +951,6 @@ instance (GoodScalar r, KnownNat n)
 instance ForgetShape (Flip OR.Array r n) where
   type NoShape (Flip OR.Array r n) = Flip OR.Array r n
   forgetShape = id
-
-
--- * Shaped tensor class instance for concrete arrays
 
 type instance SimpleBoolOf (Flip OS.Array) = Bool
 
@@ -1035,6 +1028,7 @@ instance ShapedTensor (Flip OS.Array) where
   sdot1In u v = Flip $ tdot1InS (runFlip u) (runFlip v)
   sconst = Flip
   sletDomainsIn _ = (&)
+  sfromR = Flip . Data.Array.Convert.convert . runFlip
 
   sconstant = id
   sprimalPart = id
@@ -1080,12 +1074,3 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
         arr = OR.fromVector $ createRandomVector (OR.sizeP (Proxy @n)) i
     in (arr, g2)
 -}
-
-
--- * ConvertTensor instance for concrete arrays
-
--- The DomainsTensor instance requires ADVal instance, so it's given elsewhere.
-
-instance ConvertTensor (Flip OR.Array) (Flip OS.Array) where
-  rfromS = Flip . Data.Array.Convert.convert . runFlip
-  sfromR = Flip . Data.Array.Convert.convert . runFlip

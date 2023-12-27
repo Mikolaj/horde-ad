@@ -133,7 +133,7 @@ interpretAst !env = \case
     Just (AstEnvElemS @sh2 @r2 t) -> case shapeToList sh == Sh.shapeT @sh2 of
       True -> case matchingRank @sh2 @n of
         Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-          Just Refl -> rfromS @_ @_ @r2 @sh2 t
+          Just Refl -> rfromS @_ @r2 @sh2 t
           _ -> error "interpretAst: type mismatch"
         _ -> error "interpretAst: wrong rank"
       False -> error $ "interpretAst: wrong shape in environment"
@@ -688,7 +688,7 @@ interpretAstS !env = \case
       Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
         Just Refl -> assert (Sh.shapeT @sh == shapeToList (rshape t)
                              `blame` (Sh.shapeT @sh, rshape t, varId, t, env))
-                     $ sfromR @_ @_ @r2 @sh t
+                     $ sfromR @_ @r2 @sh t
         _ -> error "interpretAstS: type mismatch"
       _ -> error "interpretAstS: wrong shape in environment"
     Nothing -> error $ "interpretAstS: unknown variable " ++ show varId

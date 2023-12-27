@@ -67,9 +67,9 @@ sfromIndex1 =
 sletIx :: forall r sh n shaped.
           (ADReadyS shaped, GoodScalar r, Sh.Shape sh, KnownNat n)
        => IndexOf shaped n -> (IndexOf shaped n -> shaped r sh) -> shaped r sh
-sletIx ix0 f = slet (sfromR @(RankedOf shaped) @shaped @Int64 @'[n]
+sletIx ix0 f = slet (sfromR @shaped @Int64 @'[n]
                      $ rint64FromIndex1 ix0) $ \ixT ->
-                 f $ rint64ToIndex1 $ rfromS ixT
+                 f $ rint64ToIndex1 $ rfromS @(RankedOf shaped) ixT
 
 scaleS :: forall shaped r sh.
           (Sh.Shape sh, ADReadyS shaped, GoodScalar r)

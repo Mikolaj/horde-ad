@@ -47,7 +47,7 @@ import           HordeAd.Util.SizedIndex
 instance ( KnownNat n, GoodScalar r
          , RankedOf shaped ~ ranked
          , Dual ranked ~ DeltaR ranked shaped
-         , RankedTensor (ADVal ranked), ConvertTensor ranked shaped )
+         , RankedTensor (ADVal ranked) )
          => AdaptableDomains (ADVal ranked)
                              (ADVal ranked r n) where
 {- TODO: RULE left-hand side too complicated to desugar
@@ -122,7 +122,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
          , RankedOf shaped ~ ranked
          , ranked ~ RankedOf shaped
          , CRankedIP ranked IsPrimal
-         , RankedTensor ranked, ConvertTensor ranked shaped )
+         , RankedTensor ranked )
          => RankedTensor (ADVal ranked) where
   rlet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
@@ -197,6 +197,14 @@ instance ( Dual ranked ~ DeltaR ranked shaped
     in dDnotShared l v (dZeroOfShape v)
   rconst t = constantADVal (rconst t)
   rletDomainsIn _ = (&)
+  rfromS = sToR
+   where
+    sToR :: forall r sh. (GoodScalar r, Sh.Shape sh)
+         => ADVal shaped r sh -> ADVal ranked r (Sh.Rank sh)
+    sToR (D l u u') = dDnotShared l (rfromS u) (dSToR u')
+     where
+      dSToR (RToS d) = d  -- no information lost, so no checks
+      dSToR d = SToR d
 
   rconstant t = let (l, r) = rletUnwrap t in dDnotShared l r (dZeroOfShape r)
   rprimalPart (D l u _) = rletWrap l u
@@ -214,7 +222,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 instance ( Sh.Shape sh, GoodScalar r
          , ShapedOf ranked ~ shaped
          , Dual shaped ~ DeltaS ranked shaped
-         , ShapedTensor (ADVal shaped), ConvertTensor ranked shaped )
+         , ShapedTensor (ADVal shaped) )
          => AdaptableDomains (ADVal ranked)
                              (ADVal shaped r sh) where
   type Value (ADVal shaped r sh) = Flip OS.Array r sh   -- ! not Value(shaped)
@@ -235,8 +243,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
          , ShapedOf ranked ~ shaped
          , shaped ~ ShapedOf ranked
          , CRankedIPSh shaped IsPrimal
-         , RankedTensor ranked, ShapedTensor shaped
-         , ConvertTensor ranked shaped )
+         , RankedTensor ranked, ShapedTensor shaped )
          => ShapedTensor (ADVal shaped) where
   slet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
@@ -313,6 +320,17 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     in dDnotShared l v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
   sletDomainsIn _ = (&)
+  sfromR = rToS
+   where
+    rToS :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
+         => ADVal ranked r (Sh.Rank sh) -> ADVal shaped r sh
+    rToS (D l u u') = dDnotShared l (sfromR u) (dRToS u')
+     where
+      dRToS (SToR @sh1 d) =
+        case sameShape @sh1 @sh of
+          Just Refl -> d
+          _ -> error "rToS: different shapes in RToS(SToR)"
+      dRToS d = RToS d
 
   sconstant t = let (l, r) = sletUnwrap t in dDnotShared l r (dZeroOfShape t)
   sprimalPart (D l u _) = sletWrap l u
@@ -325,31 +343,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     in Pair (Clown (Const (l `mergeADShare` l2))) (dScale r delta)
 
 
--- * ConvertTensor and DomainsTensor instances
-
-instance ( Dual ranked ~ DeltaR ranked shaped
-         , Dual shaped ~ DeltaS ranked shaped
-         , ConvertTensor ranked shaped )
-         => ConvertTensor (ADVal ranked) (ADVal shaped) where
-  rfromS = sToR
-   where
-    sToR :: forall r sh. (GoodScalar r, Sh.Shape sh)
-         => ADVal shaped r sh -> ADVal ranked r (Sh.Rank sh)
-    sToR (D l u u') = dDnotShared l (rfromS u) (dSToR u')
-     where
-      dSToR (RToS d) = d  -- no information lost, so no checks
-      dSToR d = SToR d
-  sfromR = rToS
-   where
-    rToS :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
-         => ADVal ranked r (Sh.Rank sh) -> ADVal shaped r sh
-    rToS (D l u u') = dDnotShared l (sfromR u) (dRToS u')
-     where
-      dRToS (SToR @sh1 d) =
-        case sameShape @sh1 @sh of
-          Just Refl -> d
-          _ -> error "rToS: different shapes in RToS(SToR)"
-      dRToS d = RToS d
+-- * DomainsTensor instance
 
 instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          , UnletGradient ranked, UnletGradient shaped

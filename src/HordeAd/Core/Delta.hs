@@ -465,7 +465,6 @@ class DualPart (f :: TensorType ty) where
     -> (AstBindingsD (RankedOf f), f r y)
 
 instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-         , ConvertTensor ranked (ShapedOf ranked)
          , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked
          , RankedOf ranked ~ ranked )
          => DualPart @Nat ranked where
@@ -475,7 +474,7 @@ instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
 
 gradientDtR
   :: ( KnownNat y, GoodScalar r
-     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped
+     , RankedTensor ranked, ShapedTensor shaped
      , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => DomainsOD
   -> ranked r y -> Maybe (ranked r y) -> DeltaR ranked shaped r y
@@ -502,7 +501,7 @@ gradientDtR !parameters0 value !mdt !deltaTopLevel =
 derivativeFromDeltaR
   :: forall ranked shaped r n.
      ( KnownNat n, GoodScalar r
-     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped
+     , RankedTensor ranked, ShapedTensor shaped
      , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => Int -> DeltaR ranked shaped r n -> Domains ranked
   -> (AstBindingsD ranked, ranked r n)
@@ -515,7 +514,6 @@ derivativeFromDeltaR dim deltaTopLevel ds =
     (_, DeltaDtS{}) -> error "derivativeFromDeltaR"
 
 instance ( RankedTensor (RankedOf shaped), ShapedTensor shaped
-         , ConvertTensor (RankedOf shaped) shaped
          , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
          => DualPart @[Nat] shaped where
   type Dual shaped = DeltaS (RankedOf shaped) shaped
@@ -525,7 +523,7 @@ instance ( RankedTensor (RankedOf shaped), ShapedTensor shaped
 gradientDtS
   :: forall ranked shaped r y.
      ( Sh.Shape y, GoodScalar r
-     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped
+     , RankedTensor ranked, ShapedTensor shaped
      , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => DomainsOD
   -> Maybe (shaped r y) -> DeltaS ranked shaped r y
@@ -551,7 +549,7 @@ gradientDtS !parameters0 !mdt !deltaTopLevel =
 derivativeFromDeltaS
   :: forall ranked shaped r sh.
      ( Sh.Shape sh, GoodScalar r
-     , RankedTensor ranked, ShapedTensor shaped, ConvertTensor ranked shaped
+     , RankedTensor ranked, ShapedTensor shaped
      , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => Int -> DeltaS ranked shaped r sh -> Domains ranked
   -> (AstBindingsD ranked, shaped r sh)
@@ -670,7 +668,6 @@ data DeltaBinding :: RankedTensorType -> ShapedTensorType -> Type where
 gradientFromDelta
   :: forall ranked shaped r.
      ( GoodScalar r, RankedTensor ranked, ShapedTensor shaped
-     , ConvertTensor ranked shaped
      , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => DomainsOD -> DeltaDt ranked shaped r
   -> (AstBindingsD ranked, Domains ranked)
@@ -720,7 +717,6 @@ gradientFromDelta !parameters0 !deltaDt =
 buildFinMaps
   :: forall ranked shaped r0.
      ( GoodScalar r0, RankedTensor ranked, ShapedTensor shaped
-     , ConvertTensor ranked shaped
      , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => EvalState ranked shaped -> DeltaDt ranked shaped r0
   -> EvalState ranked shaped
@@ -1055,7 +1051,6 @@ buildFinMaps s0 deltaDt =
 buildDerivative
   :: forall ranked shaped r0 s.
      ( GoodScalar r0, RankedTensor ranked, ShapedTensor shaped
-     , ConvertTensor ranked shaped
      , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => Int -> DeltaDt ranked shaped r0 -> Domains ranked
   -> ST s (AstBindingsD ranked, DeltaDt ranked shaped r0)
