@@ -1634,36 +1634,40 @@ astLetDomainsIn vars l v =
         let f :: (AstDynamicVarName, AstDynamic s)
               -> AstRanked s2 r n
               -> AstRanked s2 r n
-            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
               , DynamicRanked @r4 @n4 v3 )
               acc
-              | Just Refl <- matchingRank @sh3 @n4
+              | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
+              , Just Refl <- matchingRank @sh3 @n4
               -- To impose such checks, we'd need to switch from OD tensors
               -- to existential OR/OS tensors so that we can inspect
               -- which it is and then seed Delta evaluation maps with that.
               -- , Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstLet (AstVarName varId) v3 acc
-            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
               , DynamicShaped @r4 @sh4 v3 )
               acc
-              | Just Refl <- sameShape @sh3 @sh4
+              | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
+              , Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstSToR @sh
                 $ Ast.AstLetS (AstVarName varId) v3 $ Ast.AstRToS acc
-            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
               , DynamicRankedDummy @r4 @sh4 _ _ )
               acc
-              | Just Refl <- sameShape @sh3 @sh4
+              | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
+              , Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 withListShape (Sh.shapeT @sh3) $ \(_ :: Shape m Int) ->
                   gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
                   Ast.AstLet @m
                              (AstVarName varId) (Ast.AstSToR @sh3 @s @r3 0) acc
-            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
               , DynamicShapedDummy @r4 @sh4 _ _ )
               acc
-              | Just Refl <- sameShape @sh3 @sh4
+              | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
+              , Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstSToR
                 $ Ast.AstLetS @sh4 @sh @r4 @s @s2 (AstVarName varId) 0
@@ -1686,33 +1690,37 @@ astLetDomainsInS vars l v =
         let f :: (AstDynamicVarName, AstDynamic s)
               -> AstShaped s2 r sh
               -> AstShaped s2 r sh
-            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
               , DynamicRanked @r4 @n4 v3 )
               acc
-              | Just Refl <- matchingRank @sh3 @n4
+              | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
+              , Just Refl <- matchingRank @sh3 @n4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstRToS @sh
                 $ Ast.AstLet (AstVarName varId) v3 $ Ast.AstSToR acc
-            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
               , DynamicShaped @r4 @sh4 v3 )
               acc
-              | Just Refl <- sameShape @sh3 @sh4
+              | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
+              , Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstLetS (AstVarName varId) v3 acc
-            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
               , DynamicRankedDummy @r4 @sh4 _ _ )
               acc
-              | Just Refl <- sameShape @sh3 @sh4
+              | Just Refl <- testEquality (typeRep @k) (typeRep @Nat)
+              , Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 withListShape (Sh.shapeT @sh3) $ \(_ :: Shape m Int) ->
                   gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
                   Ast.AstRToS @sh
                   $ Ast.AstLet @m (AstVarName varId) (Ast.AstSToR @sh3 @s @r3 0)
                   $ Ast.AstSToR acc
-            f ( AstDynamicVarName @_ @r3 @sh3 (AstVarName varId)
+            f ( AstDynamicVarName @k @r3 @sh3 (AstVarName varId)
               , DynamicShapedDummy @r4 @sh4 _ _ )
               acc
-              | Just Refl <- sameShape @sh3 @sh4
+              | Just Refl <- testEquality (typeRep @k) (typeRep @[Nat])
+              , Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstLetS @sh4 @sh @r4 @s @s2 (AstVarName varId) 0 acc
             f _ _ = error "astLetDomainsInS: corrupted arguments"
