@@ -58,7 +58,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
-import           Data.List (foldl', mapAccumR, sort)
+import           Data.List (foldl', mapAccumR, scanl', sort)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
@@ -240,6 +240,16 @@ data DeltaR :: RankedTensorType -> ShapedTensorType -> RankedTensorType where
         -> DeltaR ranked shaped rn n
         -> DeltaR ranked shaped rm (1 + m)
         -> DeltaR ranked shaped rn n
+  ScanR :: (GoodScalar rm, KnownNat m)
+        => (ranked rn n -> ranked rm m -> ranked rn n)
+        -> ranked rn n -> ranked rm (1 + m)
+        -> (ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
+            -> ranked rn n)
+        -> (ranked rn n -> (ranked rn n, ranked rm m)
+            -> (ranked rn n, ranked rm m))
+        -> DeltaR ranked shaped rn n
+        -> DeltaR ranked shaped rm (1 + m)
+        -> DeltaR ranked shaped rn (1 + n)
     -- ^ Fold over the outermost dimension of a tensor. The function,
     -- in the first argument, should be strict in the accumulator.
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
@@ -416,6 +426,7 @@ shapeDelta = \case
   ReshapeR sh _ -> sh
   GatherR sh _ _ -> sh
   FoldR _f x0 _as _df _rf _x0' _as' -> rshape x0
+  ScanR _f x0 as _df _rf _x0' _as' -> rlength as :$ rshape x0
   CastR d -> shapeDelta d
   SToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
 
@@ -840,15 +851,29 @@ buildFinMaps s0 deltaDt =
         ReshapeR _sh d -> evalR s (rreshape (shapeDelta d) c) d
         GatherR _sh d f -> evalR s (rscatter (shapeDelta d) c f) d
         FoldR @rm @m f x0 as _df rf x0' as' ->
-          let las :: [ranked rm m]
+          let p :: [ranked r n]
+              p = scanl' f x0 las
+              las :: [ranked rm m]
               las = runravelToList as
-              p :: [ranked r n]
-              p = scanl f x0 las
               rg :: ranked r n
                  -> [(ranked r n, ranked rm m)]
                  -> (ranked r n, [ranked rm m])
               rg = mapAccumR rf
               (cx0, cas) = rg cShared (zip (init p) las)
+              s2 = evalR sShared cx0 x0'
+          in evalR s2 (rfromList cas) as'
+        ScanR @rm @m @_ @_ @n1 f x0 as _df rf x0' as' ->  -- n1 ~ n - 1
+          let cxs :: [ranked r n1]
+              cxs = runravelToList cShared
+              p :: [ranked r n1]
+              p = scanl' f x0 las
+              las :: [ranked rm m]
+              las = runravelToList as
+              rg :: ranked r n1
+                 -> [(ranked r n1, ranked r n1, ranked rm m)]
+                 -> (ranked r n1, [ranked rm m])
+              rg = mapAccumR $ \cr (cx, x, a) -> rf (cr + cx) (x, a)
+              (cx0, cas) = rg (rzero $ rshape x0) (zip3 cxs (init p) las)
               s2 = evalR sShared cx0 x0'
           in evalR s2 (rfromList cas) as'
         CastR d -> evalRRuntimeSpecialized s (rcast c) d
@@ -946,7 +971,7 @@ buildFinMaps s0 deltaDt =
         GatherS d f -> evalS s (sscatter c f) d
         FoldS f x0 as _df rf x0' as' ->
           let las = sunravelToList as
-              p = scanl f x0 las
+              p = scanl' f x0 las
               (cx0, cas) = mapAccumR rf cShared (zip (init p) las)
               s2 = evalS sShared cx0 x0'
           in evalS s2 (sfromList cas) as'
@@ -1144,8 +1169,15 @@ buildDerivative dimR deltaDt params = do
           cas <- evalR as'
           let lcas = runravelToList cas
               las = runravelToList as
-              p = scanl f x0 las
+              p = scanl' f x0 las
           return $! foldl' df cx0 (zip3 lcas (init p) las)
+        ScanR f x0 as df _rf x0' as' -> do
+          cx0 <- evalR x0'
+          cas <- evalR as'
+          let lcas = runravelToList cas
+              las = runravelToList as
+              p = scanl' f x0 las
+          return $! rfromList $ scanl' df cx0 (zip3 lcas (init p) las)
         CastR d -> do
           t <- evalR d
           return $! rcast t
@@ -1232,7 +1264,7 @@ buildDerivative dimR deltaDt params = do
           cas <- evalS as'
           let lcas = sunravelToList cas
               las = sunravelToList as
-              p = scanl f x0 las
+              p = scanl' f x0 las
           return $! foldl' df cx0 (zip3 lcas (init p) las)
         CastS d -> do
           t <- evalS d
