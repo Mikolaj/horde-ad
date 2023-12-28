@@ -223,6 +223,55 @@ class ( Integral (IntOf ranked), CRanked ranked Num
              => (ranked r 0 -> ranked r2 0 -> ranked r3 0)
              -> ranked r n -> ranked r2 n -> ranked r3 n
   rzipWith0N f u v = rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix))
+  rzipWith3 :: ( GoodScalar r, GoodScalar r2, GoodScalar r3, GoodScalar r4
+               , KnownNat m, KnownNat n )
+            => (ranked r n -> ranked r2 n -> ranked r3 n -> ranked r4 n)
+            -> ranked r (m + n) -> ranked r2 (m + n) -> ranked r3 (m + n)
+            -> ranked r4 (m + n)
+  rzipWith3 f u v w = rbuild (rshape v) (\ix -> f (u ! ix) (v ! ix) (w ! ix))
+  rzipWith31 :: ( GoodScalar r, GoodScalar r2, GoodScalar r3, GoodScalar r4
+                , KnownNat n )
+             => (ranked r n -> ranked r2 n -> ranked r3 n -> ranked r4 n)
+             -> ranked r (1 + n) -> ranked r2 (1 + n) -> ranked r3 (1 + n)
+             -> ranked r4 (1 + n)
+  rzipWith31 f u v w =
+    rbuild1 (rlength u) (\i -> f (u ! [i]) (v ! [i]) (w ! [i]))
+  rzipWith30N :: ( GoodScalar r, GoodScalar r2, GoodScalar r3, GoodScalar r4
+                 , KnownNat n )
+              => (ranked r 0 -> ranked r2 0 -> ranked r3 0 -> ranked r4 0)
+              -> ranked r n -> ranked r2 n -> ranked r3 n -> ranked r4 n
+  rzipWith30N f u v w =
+    rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix) (rindex0 w ix))
+  rzipWith4 :: ( GoodScalar r, GoodScalar r2, GoodScalar r3, GoodScalar r4
+               , GoodScalar r5
+               , KnownNat m, KnownNat n )
+            => (ranked r n -> ranked r2 n -> ranked r3 n -> ranked r4 n
+                -> ranked r5 n)
+            -> ranked r (m + n) -> ranked r2 (m + n) -> ranked r3 (m + n)
+            -> ranked r4 (m + n)
+            -> ranked r5 (m + n)
+  rzipWith4 f u v w x =
+    rbuild (rshape v) (\ix -> f (u ! ix) (v ! ix) (w ! ix) (x ! ix))
+  rzipWith41 :: ( GoodScalar r, GoodScalar r2, GoodScalar r3, GoodScalar r4
+                , GoodScalar r5
+                , KnownNat n )
+             => (ranked r n -> ranked r2 n -> ranked r3 n -> ranked r4 n
+                 -> ranked r5 n)
+             -> ranked r (1 + n) -> ranked r2 (1 + n) -> ranked r3 (1 + n)
+             -> ranked r4 (1 + n)
+             -> ranked r5 (1 + n)
+  rzipWith41 f u v w x =
+    rbuild1 (rlength u) (\i -> f (u ! [i]) (v ! [i]) (w ! [i]) (x ! [i]))
+  rzipWith40N :: ( GoodScalar r, GoodScalar r2, GoodScalar r3, GoodScalar r4
+                 , GoodScalar r5
+                 , KnownNat n )
+              => (ranked r 0 -> ranked r2 0 -> ranked r3 0 -> ranked r4 0
+                  -> ranked r5 0)
+              -> ranked r n -> ranked r2 n -> ranked r3 n -> ranked r4 n
+              -> ranked r5 n
+  rzipWith40N f u v w x =
+    rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix) (rindex0 w ix)
+                                (rindex0 x ix))
   rgather :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
           => ShapeInt (m + n) -> ranked r (p + n)
           -> (IndexOf ranked m -> IndexOf ranked p)
