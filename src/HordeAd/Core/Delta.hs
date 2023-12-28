@@ -839,10 +839,16 @@ buildFinMaps s0 deltaDt =
           in evalR s (rtranspose perm_reversed c) d
         ReshapeR _sh d -> evalR s (rreshape (shapeDelta d) c) d
         GatherR _sh d f -> evalR s (rscatter (shapeDelta d) c f) d
-        FoldR f x0 as _df rf x0' as' ->
-          let las = runravelToList as
+        FoldR @rm @m f x0 as _df rf x0' as' ->
+          let las :: [ranked rm m]
+              las = runravelToList as
+              p :: [ranked r n]
               p = scanl f x0 las
-              (cx0, cas) = mapAccumR rf cShared (zip (init p) las)
+              rg :: ranked r n
+                 -> [(ranked r n, ranked rm m)]
+                 -> (ranked r n, [ranked rm m])
+              rg = mapAccumR rf
+              (cx0, cas) = rg cShared (zip (init p) las)
               s2 = evalR sShared cx0 x0'
           in evalR s2 (rfromList cas) as'
         CastR d -> evalRRuntimeSpecialized s (rcast c) d
