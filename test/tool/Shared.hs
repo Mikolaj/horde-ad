@@ -5,7 +5,6 @@ module Shared
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
@@ -23,13 +22,10 @@ lowercase = map Data.Char.toLower
 ----------------------------------------------------------------------------
 
 class HasShape a where
-  shapeL :: a -> OD.ShapeL
+  shapeL :: a -> OR.ShapeL
 
 instance (VS.Storable a) => HasShape (VS.Vector a) where
   shapeL = (: []) . VS.length
-
-instance HasShape (OD.Array a) where
-  shapeL = OD.shapeL
 
 instance HasShape (Flip OR.Array a n) where
   shapeL = OR.shapeL . runFlip
@@ -52,9 +48,6 @@ class Linearizable a b | a -> b where
 
 instance (VS.Storable a) => Linearizable (VS.Vector a) a where
   linearize = VS.toList
-
-instance (VS.Storable a) => Linearizable (OD.Array a) a where
-  linearize = OD.toList
 
 instance (VS.Storable a, Sh.Shape sh)
          => Linearizable (OS.Array sh a) a where

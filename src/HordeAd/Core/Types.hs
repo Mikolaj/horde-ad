@@ -99,7 +99,8 @@ instance IfDifferentiable Float where
 -- For thousands of tensor parameters, orthotope's dynamic tensors
 -- are faster than the datatype below and the special dummy values are faster
 -- than ordinary zero values. However, the library has become complex enough
--- that simplicity is the bottlenet, not speed.
+-- that simplicity is the bottlenet, not speed, so we compromise,
+-- keeping dummy values, but removing dynamic tensors.
 --
 -- Warning: r is an existential variable, a proper specialization needs
 -- to be picked explicitly at runtime.

@@ -212,7 +212,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   rD ast (Pair (Clown (Const l)) delta) =
     let (l2, r) = rletUnwrap ast
     in dD (l `mergeADShare` l2) r delta
-  rScale ast (Pair  (Clown (Const l)) delta) =
+  rScale ast (Pair (Clown (Const l)) delta) =
     let (l2, r) = rletUnwrap ast
     in Pair (Clown (Const (l `mergeADShare` l2))) (dScale r delta)
 

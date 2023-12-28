@@ -11,14 +11,10 @@ module HordeAd.Internal.TensorOps
 
 import Prelude hiding (foldl')
 
-import           Control.Arrow (first, second)
+import           Control.Arrow (second)
 import           Control.Exception.Assert.Sugar
-import qualified Data.Array.Convert
-import qualified Data.Array.DynamicS as OD
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Internal as OI
-import qualified Data.Array.Internal.DynamicG
-import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.Internal.RankedG as RG
 import qualified Data.Array.Internal.RankedS as RS
 import qualified Data.Array.Internal.ShapedG as SG
@@ -53,47 +49,13 @@ import           HordeAd.Util.ShapedList (ShapedList (..), ShapedNat)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
 
--- * Odds and ends
-
-dummyTensorD :: Numeric r => OD.Array r
-dummyTensorD =  -- an inconsistent tensor array
-  Data.Array.Internal.DynamicS.A
-  $ Data.Array.Internal.DynamicG.A []
-  $ OI.T [] (-1) V.empty
-
-isTensorDummyD :: OD.Array r -> Bool
-isTensorDummyD (Data.Array.Internal.DynamicS.A
-                  (Data.Array.Internal.DynamicG.A _
-                     (OI.T _ (-1) _))) = True
-isTensorDummyD _ = False
-
-tindex0D :: Numeric r => OD.Array r -> [Int] -> r
-tindex0D (Data.Array.Internal.DynamicS.A
-            (Data.Array.Internal.DynamicG.A _
-               OI.T{..})) is =
-  values V.! (offset + sum (zipWith (*) is strides))
-    -- TODO: tests are needed to verify if order of dimensions is right
-
-treplicate0ND
-  :: Numeric r
-  => ShapeInt n -> r -> OD.Array r
-treplicate0ND sh = OD.constant (shapeToList sh)
+-- * Ranked tensor operations
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
 type NumAndShow r = (Numeric r, Show r, Num (Vector r))
 
-
--- * Ranked tensor operations
-
 type IndexInt n = Index n Int64
-
--- There is no OR.update, so we convert.
-updateR :: (Numeric a, KnownNat n)
-        => OR.Array n a -> [(IndexInt n, a)] -> OR.Array n a
-updateR arr upd = Data.Array.Convert.convert
-                  $ OD.update (Data.Array.Convert.convert arr)
-                  $ map (first (map fromIntegral . indexToList)) upd
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see

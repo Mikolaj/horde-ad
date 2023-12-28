@@ -148,8 +148,8 @@ _rankedNoShareVecProd :: GoodScalar r
 _rankedNoShareVecProd = V.foldl1' multNotShared
 
 
--- Until new inspection-testing is released, this is commented out
--- belowis a dummy to prevent warnings.
+-- Until new inspection-testing is released, this is commented out.
+-- Below is a dummy to prevent warnings.
 {-
 -- The GoodScalar and it's component occurrences are due to creating
 -- a value of an existential type that satisfies GoodScalar,
