@@ -59,7 +59,7 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
 import           Data.List
-  (foldl', mapAccumR, scanl', sort, zip4, zipWith4, zipWith5)
+  (foldl', mapAccumR, scanl', sort, transpose, zip4, zipWith4, zipWith5)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
@@ -68,15 +68,16 @@ import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
+import           GHC.TypeLits
+  (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
 import           Text.Show.Functions ()
-import           Type.Reflection (typeRep)
+import           Type.Reflection (TypeRep, typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (sameShape, trustMeThisIsAPermutation)
+  (matchingRank, sameShape, trustMeThisIsAPermutation)
 import HordeAd.Util.ShapedList (ShapedList (..))
 import HordeAd.Util.SizedIndex
 
@@ -263,6 +264,15 @@ data DeltaR :: RankedTensorType -> ShapedTensorType -> RankedTensorType where
          -> DeltaR ranked shaped rm (1 + m)
          -> DeltaR ranked shaped rp (1 + p)
          -> DeltaR ranked shaped rn (1 + n)
+  ScanDR :: (ranked rn n -> Domains ranked -> ranked rn n)
+         -> ranked rn n -> Domains ranked  -- one rank higher
+         -> (ranked rn n -> (Domains ranked, ranked rn n, Domains ranked)
+             -> ranked rn n)
+         -> (ranked rn n -> (ranked rn n, Domains ranked)
+             -> (ranked rn n, Domains ranked))
+         -> DeltaR ranked shaped rn n
+         -> Domains (DeltaR ranked shaped)  -- one rank higher
+         -> DeltaR ranked shaped rn (1 + n)
     -- ^ Fold over the outermost dimension of a tensor. The function,
     -- in the first argument, should be strict in the accumulator.
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
@@ -272,12 +282,11 @@ data DeltaR :: RankedTensorType -> ShapedTensorType -> RankedTensorType where
        -> DeltaR ranked shaped r (Sh.Rank sh)
 
 deriving instance ( KnownNat n0, GoodScalar r0
-                  , (forall nn2 rr. (KnownNat nn2, GoodScalar rr)
-                                    => Show (ranked rr nn2))
-                  , (forall sh r. (Sh.Shape sh, GoodScalar r)
-                                  => Show (shaped r sh))
                   , Show (IntOf ranked)
-                  , Show (IntOf shaped) )
+                  , Show (IntOf shaped)
+                  , CRanked ranked Show
+                  , CShaped (ShapedOf ranked) Show
+                  , CShaped shaped Show )
                   => Show (DeltaR ranked shaped r0 n0)
 
 -- | This is the grammar of delta-expressions that record derivatives
@@ -395,16 +404,16 @@ data DeltaS :: RankedTensorType -> ShapedTensorType -> ShapedTensorType where
        -> DeltaS ranked shaped r sh
 
 deriving instance ( Sh.Shape sh0, GoodScalar r0
-                  , (forall nn3 rr. (KnownNat nn3, GoodScalar rr)
-                                    => Show (ranked rr nn3))
-                  , (forall sh r. (Sh.Shape sh, GoodScalar r)
-                                  => Show (shaped r sh))
                   , Show (IntOf ranked)
-                  , Show (IntOf shaped) )
+                  , Show (IntOf shaped)
+                  , CRanked ranked Show
+                  , CShaped (ShapedOf ranked) Show
+                  , CShaped shaped Show )
                   => Show (DeltaS ranked shaped r0 sh0)
 
 shapeDelta :: forall ranked shaped r n.
-              (GoodScalar r, KnownNat n, RankedTensor ranked)
+              ( GoodScalar r, KnownNat n, shaped ~ ShapedOf ranked
+              , RankedTensor ranked, ShapedTensor shaped )
            => DeltaR ranked shaped r n -> ShapeInt n
 shapeDelta = \case
   ZeroR sh -> sh
@@ -441,11 +450,15 @@ shapeDelta = \case
   FoldR _f x0 _as _df _rf _x0' _as' -> rshape x0
   ScanR _f x0 as _df _rf _x0' _as' -> rlength as :$ rshape x0
   Scan2R _f x0 as _bs _df _rf _x0' _as' _bs' -> rlength as :$ rshape x0
+  ScanDR _f x0 as _df _rf _x0' _as' -> case V.unsnoc as of
+    Nothing -> error "shapeDelta: empty domains"
+    Just (_, d) -> length (shapeDynamic d) :$ rshape x0
   CastR d -> shapeDelta d
   SToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
 
 lengthDelta :: forall ranked shaped r n.
-               (GoodScalar r, KnownNat n, RankedTensor ranked)
+               ( GoodScalar r, KnownNat n, shaped ~ ShapedOf ranked
+               , RankedTensor ranked, ShapedTensor shaped )
             => DeltaR ranked shaped r (1 + n) -> Int
 lengthDelta d = case shapeDelta d of
   ZS -> error "lengthDelta: impossible pattern needlessly required"
@@ -941,6 +954,93 @@ buildFinMaps s0 deltaDt =
               s2 = evalR sShared (crs !! 0) x0'
               s3 = evalR s2 (rfromList cas) as'
           in evalR s3 (rfromList cbs) bs'
+        ScanDR @_ @_ @n1 f x0 as _df rf x0' as' ->  -- n1 ~ n - 1
+          let cxs :: [ranked r n1]
+              cxs = runravelToList cShared
+              ps :: [ranked r n1]
+              ps = scanl' f x0 las
+              unravelDynamicRanked
+                :: DynamicTensor ranked -> [DynamicTensor ranked]
+              unravelDynamicRanked (DynamicRanked @rp @p t) =
+                case someNatVal $ valueOf @p - 1 of
+                  Just (SomeNat @p1 _) ->
+                    gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
+                    map (DynamicRanked @rp @p1) $ runravelToList t
+                  Nothing -> error "unravelDynamicRanked: scalars in domain"
+              unravelDynamicRanked DynamicShaped{} =
+                error "unravelDynamicRanked: DynamicShaped"
+              unravelDynamicRanked (DynamicRankedDummy @rp @sh _ _) =
+                withListShape (Sh.shapeT @sh) $ \(sh :: Shape p Int) ->
+                  case someNatVal $ valueOf @p - 1 of
+                    Just (SomeNat @p1 _) ->
+                      gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
+                      map (DynamicRanked @rp @p1) $ runravelToList (rzero sh)
+                    Nothing -> error "unravelDynamicRanked: scalars in domain"
+              unravelDynamicRanked DynamicShapedDummy{} =
+                error "unravelDynamicRanked: DynamicShapedDummy"
+              unravelDomains
+                :: Domains ranked  -- each tensor has outermost dimension size p
+                -> [Domains ranked]  -- p domains; each tensor of one rank lower
+              unravelDomains = map V.fromList . transpose
+                               . map unravelDynamicRanked . V.toList
+              ravelDynamicRanked  -- the inverse of unravelDynamicRanked
+                :: [DynamicTensor ranked] -> DynamicTensor ranked
+              ravelDynamicRanked ld = case ld of
+                [] -> error "ravelDynamicRanked: empty list"
+                d : _ -> case ( someNatVal
+                                $ toInteger (length $ shapeDynamic d)
+                              , scalarDynamic d ) of
+                  (Just (SomeNat @p1 _), typeReprp :: TypeRep rp) ->
+                    let g :: DynamicTensor ranked -> ranked rp p1
+                        g (DynamicRanked @rq @q t)
+                          | Just Refl <- sameNat (Proxy @q) (Proxy @p1)
+                          , Just Refl <- testEquality (typeRep @rq)
+                                                      typeReprp = t
+                        g DynamicShaped{} =
+                          error "ravelDynamicRanked: DynamicShaped"
+                        g (DynamicRankedDummy @rq @sh _ _)
+                          | Just Refl <- matchingRank @sh @p1
+                          , Just Refl <- testEquality (typeRep @rq)
+                                                      typeReprp =
+                            withListShape (Sh.shapeT @sh)
+                            $ \(sh :: ShapeInt q1) ->
+                                case sameNat (Proxy @q1) (Proxy @p1) of
+                                  Just Refl -> rzero sh
+                                  Nothing ->
+                                    error "ravelDynamicRanked: wrong rank"
+                        g DynamicShapedDummy{} =
+                          error "ravelDynamicRanked: DynamicShapedDummy"
+                        g _ = error "ravelDynamicRanked: wrong scalar or rank"
+                    in DynamicRanked @r $ rfromList $ map g ld
+                  _ -> error "ravelDynamicRanked: impossible someNatVal"
+              ravelDomains  -- the inverse of unravelDomains
+                :: [Domains ranked]
+                -> Domains ranked
+              ravelDomains = V.fromList . map ravelDynamicRanked
+                             . transpose . map V.toList
+              las :: [Domains ranked]
+              las = unravelDomains as
+              crs :: [ranked r n1]
+              crs = scanr (\(cx, x, a) cr -> fst $ rf (cr + cx) (x, a))
+                          (rzero $ rshape x0) (zip3 cxs (init ps) las)
+              rg :: [ranked r n1] -> [ranked r n1] -> [ranked r n1]
+                 -> [Domains ranked]
+                 -> [Domains ranked]
+              rg = zipWith4 (\cr cx x a -> snd $ rf (cr + cx) (x, a))
+              cas = rg (drop 1 crs) cxs (init ps) las
+              s2 = evalR sShared (crs !! 0) x0'
+              evalRDynamicRanked
+                :: EvalState ranked shaped
+                -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked shaped))
+                -> EvalState ranked shaped
+              evalRDynamicRanked s3 ( DynamicRanked @rp @p t
+                                    , DynamicRanked @rq @q d )
+                | Just Refl <- sameNat (Proxy @q) (Proxy @p)
+                , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
+                    evalR s3 t d
+              evalRDynamicRanked _ _ =
+                error "evalRDynamicRanked: unexpected constructor"
+          in V.foldl' evalRDynamicRanked s2 $ V.zip (ravelDomains cas) as'
         CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
         SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
@@ -1244,6 +1344,7 @@ buildDerivative dimR deltaDt params = do
               p = scanl' f x0 las
           return $! rfromList $ scanl' df cx0 (zip3 lcas (init p) las)
         Scan2R{} -> undefined
+        ScanDR{} -> undefined
         CastR d -> do
           t <- evalR d
           return $! rcast t

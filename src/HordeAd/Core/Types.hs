@@ -139,6 +139,8 @@ instance
       (forall r30 y30. (Sh.Shape y30, GoodScalar r30) => c (shaped r30 y30))
       => CShaped shaped c where
 
+-- Data invariant: the vector is non-empty.
+--
 -- When r is Ast, this is used for domains composed of variables only,
 -- to adapt them into more complex types and back again. This is not used
 -- for vectors of large terms, since they'd share values, so we'd need

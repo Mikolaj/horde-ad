@@ -17,7 +17,7 @@ module HordeAd.Core.TensorClass
     -- * The related constraints
   , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
     -- * Concrete array instances auxiliary definitions
-  , DomainsOD, sizeDomainsOD, sameShapesDomainsOD
+  , DomainsOD, sizeDomainsOD, scalarDynamic, shapeDynamic, sameShapesDomainsOD
   , odFromVar, odFromSh, odFromShS, fromDomainsR, fromDomainsS
   ) where
 
@@ -48,7 +48,7 @@ import           GHC.TypeLits
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
-import           Type.Reflection (typeRep)
+import           Type.Reflection (TypeRep, Typeable, typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
@@ -823,6 +823,18 @@ sizeDomainsOD = let f (DynamicRanked (Flip t)) = OR.size t
                     f (DynamicRankedDummy _ proxy_sh) = Sh.sizeP proxy_sh
                     f (DynamicShapedDummy _ proxy_sh) = Sh.sizeP proxy_sh
                 in V.sum . V.map f
+
+scalarDynamic :: forall (r :: Type) ranked. Typeable r
+              => DynamicTensor ranked -> TypeRep r
+scalarDynamic (DynamicRanked @r2 _)
+  | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = typeRep
+scalarDynamic (DynamicShaped @r2 _)
+  | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = typeRep
+scalarDynamic (DynamicRankedDummy @r2 _ _)
+  | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = typeRep
+scalarDynamic (DynamicShapedDummy @r2 _ _)
+  | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = typeRep
+scalarDynamic _ = error "scalarDynamic: type mismatch"
 
 shapeDynamic :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
              => DynamicTensor ranked -> [Int]
