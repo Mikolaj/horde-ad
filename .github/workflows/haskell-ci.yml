@@ -164,7 +164,7 @@ jobs:
           cat cabal.project.local
       - name: dump install plan
         run: |
-          $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH --dry-run all
+          $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH --dry-run --allow-newer all
           cabal-plan
       - name: cache
         uses: actions/cache@v3
@@ -174,33 +174,33 @@ jobs:
           restore-keys: ${{ runner.os }}-${{ matrix.compiler }}-
       - name: install dependencies
         run: |
-          $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks --dependencies-only -j2 all
-          $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH --dependencies-only -j2 all
+          $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks --dependencies-only -j2 --allow-newer all
+          $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH --dependencies-only -j2 --allow-newer all
 #      - name: build w/o tests
 #        run: |
-#          $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks all
+#          $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks --allow-newer all
       - name: build
         run: |
-          $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH all --write-ghc-environment-files=always
+          $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH --allow-newer all --write-ghc-environment-files=always
       - name: minimalTest
         run: |
-          $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH minimalTest --test-options='-p "! /PP/"'
+          $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH minimalTest --allow-newer --test-options='-p "! /PP/"'
       - name: tests
         run: |
           ln -s $GITHUB_WORKSPACE/source/samplesData ${PKGDIR_horde_ad}
           if [ "${{ matrix.tests-short }}" = true ]; then
-            $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest -ftest_seq --test-options="-p Short_tests"
+            $CABAL v2-test --allow-newer $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest -ftest_seq --test-options="-p Short_tests"
           else
-            $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest -ftest_seq --test-options="-p Neural_network_tests"
+            $CABAL v2-test --allow-newer $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest -ftest_seq --test-options="-p Neural_network_tests"
           fi
 #      - name: prod benches
 #        if: ${{ false }}  # disable for now
 #        run: |
-#          $CABAL v2-bench $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortProdForCI
+#          $CABAL v2-bench --allow-newer $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortProdForCI
 #      - name: mnist benches
 #        if: ${{ false }}  # disable for now
 #        run: |
-#          $CABAL v2-bench $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortMnistForCI
+#          $CABAL v2-bench --allow-newer $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortMnistForCI
       - name: cabal check
         if: matrix.tests-short
         run: |
@@ -213,4 +213,4 @@ jobs:
 #      - name: unconstrained build
 #        run: |
 #          rm -f cabal.project.local
-#          $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks all
+#          $CABAL v2-build --allow-newer $ARG_COMPILER --disable-tests --disable-benchmarks all
