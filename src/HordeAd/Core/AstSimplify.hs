@@ -1659,7 +1659,7 @@ astLetDomainsIn vars l v =
               | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
               , Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                withListShape (Sh.shapeT @sh3) $ \(_ :: Shape m Int) ->
+                withListShape (Sh.shapeT @sh3) $ \(_ :: ShapeInt m) ->
                   gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
                   Ast.AstLet @m
                              (AstVarName varId) (Ast.AstSToR @sh3 @s @r3 0) acc
@@ -1711,7 +1711,7 @@ astLetDomainsInS vars l v =
               | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
               , Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                withListShape (Sh.shapeT @sh3) $ \(_ :: Shape m Int) ->
+                withListShape (Sh.shapeT @sh3) $ \(_ :: ShapeInt m) ->
                   gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
                   Ast.AstRToS @sh
                   $ Ast.AstLet @m (AstVarName varId) (Ast.AstSToR @sh3 @s @r3 0)

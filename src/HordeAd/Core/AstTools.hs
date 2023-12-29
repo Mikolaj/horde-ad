@@ -310,7 +310,7 @@ bindsToLet = foldl' bindToLet
       DynamicRanked w -> AstLet (AstVarName varId) w u
       DynamicShaped w -> convertShaped w
       DynamicRankedDummy @r2 @sh2 _ _ ->
-        withListShape (Sh.shapeT @sh2) $ \(_ :: Shape n3 Int) ->
+        withListShape (Sh.shapeT @sh2) $ \(_ :: ShapeInt n3) ->
           gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh2) $
           AstLet @n3 @n @r2 @s (AstVarName varId) (AstSToR @sh2 @s @r2 0) u
       DynamicShapedDummy @r2 @sh2 _ _ -> convertShaped @r2 @sh2 0
@@ -326,14 +326,14 @@ bindsToLetS = foldl' bindToLetS
   bindToLetS !u (varId, d) = case d of
     DynamicRanked w ->
       withListShape (Sh.shapeT @sh) $ \sh -> case sh of
-        (_ :: Shape n Int) | Just Refl <- matchingRank @sh @n ->
+        (_ :: ShapeInt n) | Just Refl <- matchingRank @sh @n ->
           AstRToS $ AstLet (AstVarName varId) w (AstSToR u)
         _ -> error "bindToLetS: wrong rank"
     DynamicShaped w -> AstLetS (AstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ ->
-      withListShape (Sh.shapeT @sh2) $ \(_ :: Shape n3 Int) ->
+      withListShape (Sh.shapeT @sh2) $ \(_ :: ShapeInt n3) ->
         gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh2) $
-        withListShape (Sh.shapeT @sh) $ \(_ :: Shape m Int) ->
+        withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt m) ->
           gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh) $
           AstRToS $ AstLet @n3 @m @r2 @s
                       (AstVarName varId) (AstSToR @sh2 @s @r2 0) (AstSToR u)
@@ -350,7 +350,7 @@ bindsToDomainsLet = foldl' bindToDomainsLet
     DynamicRanked w -> AstLetInDomains (AstVarName varId) w u
     DynamicShaped w -> AstLetInDomainsS (AstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ ->
-      withListShape (Sh.shapeT @sh2) $ \(_ :: Shape n Int) ->
+      withListShape (Sh.shapeT @sh2) $ \(_ :: ShapeInt n) ->
         gcastWith (unsafeCoerce Refl :: n :~: Sh.Rank sh2) $
         AstLetInDomains @n @r2 @s (AstVarName varId) (AstSToR @sh2 @s @r2 0) u
     DynamicShapedDummy @r2 @sh2 _ _ ->

@@ -970,7 +970,7 @@ buildFinMaps s0 deltaDt =
               unravelDynamicRanked DynamicShaped{} =
                 error "unravelDynamicRanked: DynamicShaped"
               unravelDynamicRanked (DynamicRankedDummy @rp @sh _ _) =
-                withListShape (Sh.shapeT @sh) $ \(sh :: Shape p Int) ->
+                withListShape (Sh.shapeT @sh) $ \(sh :: ShapeInt p) ->
                   case someNatVal $ valueOf @p - 1 of
                     Just (SomeNat @p1 _) ->
                       gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $

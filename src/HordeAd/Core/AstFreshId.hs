@@ -322,7 +322,7 @@ funToAstDomainsIO g parameters0 = do
       f (DynamicRankedDummy @r2 @sh2 _ _) = do
         let sh3 = Sh.shapeT @sh2
         freshId <- unsafeGetFreshAstVarId
-        return $! withListShape sh3 $ \ (sh4 :: Shape n2 Int) ->
+        return $! withListShape sh3 $ \ (sh4 :: ShapeInt n2) ->
           let !varE = AstDynamicVarName @Nat @r2 @sh2 freshId
               dynE :: AstDynamic s
               !dynE = DynamicRanked @r2 @n2 (AstVar sh4 (AstVarName freshId))
@@ -374,7 +374,7 @@ funToAstRevIO parameters0 = do
       f (DynamicRankedDummy @r @sh _ _) = do
         let sh2 = Sh.shapeT @sh
         freshId <- unsafeGetFreshAstVarId
-        return $! withListShape sh2 $ \ (sh :: Shape n Int) ->
+        return $! withListShape sh2 $ \ (sh :: ShapeInt n) ->
           let !varE = AstDynamicVarName @Nat @r @sh freshId
               dynE :: AstDynamic s
               !dynE = DynamicRanked @r @n (AstVar sh (AstVarName freshId))
@@ -454,7 +454,7 @@ funToAstFwdIO parameters0 = do
         let sh2 = Sh.shapeT @sh
         freshIdDs <- unsafeGetFreshAstVarId
         freshId <- unsafeGetFreshAstVarId
-        return $! withListShape sh2 $ \ (sh :: Shape n Int) ->
+        return $! withListShape sh2 $ \ (sh :: ShapeInt n) ->
           let varE :: AstVarId -> AstDynamicVarName
               varE varId = AstDynamicVarName @Nat @r @sh varId
               dynE :: AstVarId -> AstDynamic s

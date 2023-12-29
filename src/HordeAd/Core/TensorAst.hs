@@ -419,7 +419,7 @@ astLetDomainsInFun a0 a f = unsafePerformIO $ do
              -> IO (AstDynamicVarName, AstDynamic s)
       genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
         let sh2 = Sh.shapeT @sh2
-        withListShape sh2 $ \ (sh3 :: Shape n2 Int) -> do
+        withListShape sh2 $ \ (sh3 :: ShapeInt n2) -> do
           (AstVarName varId, _, ast) <- funToAstIOR @n2 @_ @_ @r2 sh3 id
           return ( AstDynamicVarName @Nat @r2 @sh2 varId
                  , DynamicRanked ast )
@@ -553,7 +553,7 @@ astLetDomainsInFunS a0 a f = unsafePerformIO $ do
              -> IO (AstDynamicVarName, AstDynamic s)
       genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
         let sh2 = Sh.shapeT @sh2
-        withListShape sh2 $ \ (sh3 :: Shape n2 Int) -> do
+        withListShape sh2 $ \ (sh3 :: ShapeInt n2) -> do
           (AstVarName varId, _, ast) <- funToAstIOR @n2 @_ @_ @r2 sh3 id
           return ( AstDynamicVarName @Nat @r2 @sh2 varId
                  , DynamicRanked ast )
@@ -615,7 +615,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let f :: Int -> DynamicTensor (Flip OR.Array) -> AstDynamic s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
-            withListShape (Sh.shapeT @sh) $ \(_ :: Shape n Int) ->
+            withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n) ->
               DynamicRanked @r @n
               $ rletDomainsIn @(AstRanked s) od domainsOf (rfromD . (V.! i))
           DynamicShapedDummy @r @sh _ _ ->

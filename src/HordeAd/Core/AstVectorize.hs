@@ -332,7 +332,7 @@ build1VOccurenceUnknownDynamic k (var, d) = case d of
     Nothing ->
       error "build1VOccurenceUnknownDynamic: impossible someNatVal error"
   DynamicRankedDummy @r @sh _ _ ->
-    withListShape (Sh.shapeT @sh) $ \(_ :: Shape n3 Int) ->
+    withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n3) ->
       gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh) $
       DynamicRanked @r (Ast.AstSToR @sh @s @r 0)
   DynamicShapedDummy @r @sh _ _ -> DynamicShaped @r @sh 0
@@ -464,7 +464,7 @@ build1VectorizeS (var, v0) = unsafePerformIO $ do
 astTrS :: forall n m sh s r. (KnownNat n, KnownNat m, Sh.Shape sh)
        => AstShaped s r (n ': m ': sh) -> AstShaped s r (m ': n ': sh)
 astTrS =
-  withListShape (Sh.shapeT @sh) $ \ (_ :: Shape p Int) ->
+  withListShape (Sh.shapeT @sh) $ \ (_ :: ShapeInt p) ->
     gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: p) $
     astTransposeS @'[1, 0]
 
