@@ -414,7 +414,7 @@ astLetDomainsInFun
   => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstRanked s r n)
   -> AstRanked s r n
 {-# NOINLINE astLetDomainsInFun #-}
-astLetDomainsInFun a0 a f = unsafePerformIO $ do
+astLetDomainsInFun a0 a f = unsafePerformIO $ do  -- the id causes trouble
   let genVar :: DynamicTensor (Flip OR.Array)
              -> IO (AstDynamicVarName, AstDynamic s)
       genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
@@ -548,7 +548,7 @@ astLetDomainsInFunS
   => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstShaped s r sh)
   -> AstShaped s r sh
 {-# NOINLINE astLetDomainsInFunS #-}
-astLetDomainsInFunS a0 a f = unsafePerformIO $ do
+astLetDomainsInFunS a0 a f = unsafePerformIO $ do  -- the id causes trouble
   let genVar :: DynamicTensor (Flip OR.Array)
              -> IO (AstDynamicVarName, AstDynamic s)
       genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
@@ -795,19 +795,23 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
 astLetInDomainsFun :: (KnownNat n, GoodScalar r, AstSpan s)
                    => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
                    -> AstDomains s
+{-# NOINLINE astLetInDomainsFun #-}
 astLetInDomainsFun a f | astIsSmall True a = f a
-astLetInDomainsFun a f =
+astLetInDomainsFun a f = unsafePerformIO $ do  -- the id causes trouble
   let sh = shapeAst a
-      (var, ast) = funToAstR sh id
-  in astLetInDomains var a (f ast)  -- safe because subsitution ruled out above
+  (!var, _, !ast) <- funToAstIOR sh id
+  return $! astLetInDomains var a (f ast)
+              -- safe because subsitution ruled out above
 
 astLetInDomainsFunS :: (Sh.Shape sh, GoodScalar r, AstSpan s)
                     => AstShaped s r sh -> (AstShaped s r sh -> AstDomains s)
                     -> AstDomains s
+{-# NOINLINE astLetInDomainsFunS #-}
 astLetInDomainsFunS a f | astIsSmallS True a = f a
-astLetInDomainsFunS a f =
-  let (var, ast) = funToAstS id
-  in astLetInDomainsS var a (f ast)  -- safe because subsitution ruled out above
+astLetInDomainsFunS a f = unsafePerformIO $ do  -- the id causes trouble
+  (!var, _, !ast) <- funToAstIOS id
+  return $! astLetInDomainsS var a (f ast)
+              -- safe because subsitution ruled out above
 
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests

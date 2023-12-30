@@ -210,6 +210,7 @@ testTrees =
   , testCase "2Sin0Fold8rev2" testSin0Fold8rev2
   , testCase "2Sin0Fold8Srev" testSin0Fold8Srev
   , testCase "2Sin0Fold8Srev2" testSin0Fold8Srev2
+  , testCase "2Sin0Fold182SrevPP" testSin0Fold182SrevPP
   , testCase "2Sin0Fold18SrevPP" testSin0Fold18SrevPP
   , testCase "2Sin0Fold8fwd" testSin0Fold8fwd
   , testCase "2Sin0Fold8fwd2" testSin0Fold8fwd2
@@ -2416,6 +2417,21 @@ testSin0Fold8Srev2 = do
   assertEqualUpToEpsilon 1e-10
     98.72666469795736
     (crev h 1.1)
+
+testSin0Fold182SrevPP :: Assertion
+testSin0Fold182SrevPP = do
+  resetVarCounter
+  let a1 = rrev1 @(AstRanked FullSpan)
+           (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[5]
+                f a0 = sfold @_ @f @Double @Double @'[5] @'[] @1
+                        (\_x a -> atan2 (sreplicate @_ @5 a)
+                                        (sreplicate @_ @5
+                                         $ sin (ssum $ sreplicate @_ @7 a)))
+                        (sreplicate @_ @5 a0)
+                        (sreplicate @_ @1 a0)
+            in rfromS . f . sfromR) 1.1
+  printAstPretty IM.empty a1
+    @?= "let dret = ssum (sletDomainsIn (let x49 = ssum (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0])) ; v50 = sreplicate (sin x49) ; v51 = recip (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) + v50 * v50 + sconst (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sconst (fromList @[5] [0.0,0.0,0.0,0.0,0.0])) in (0, ssum ((v50 * v51) * rreplicate 5 (rconst 1.0)) + ssum (sreplicate (cos x49 * ssum (negate (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * v51) * rreplicate 5 (rconst 1.0)))) + sconst 0.0 + sconst 0.0)) (\\[v47, x48] -> v47)) + ssum (sfromList [sletDomainsIn (let x54 = ssum (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0])) ; v55 = sreplicate (sin x54) ; v56 = recip (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) + v55 * v55 + sconst (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sconst (fromList @[5] [0.0,0.0,0.0,0.0,0.0])) in (0, ssum ((v55 * v56) * rreplicate 5 (rconst 1.0)) + ssum (sreplicate (cos x54 * ssum (negate (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * v56) * rreplicate 5 (rconst 1.0)))) + sconst 0.0 + sconst 0.0)) (\\[v52, x53] -> x53)]) in dret"
 
 testSin0Fold18SrevPP :: Assertion
 testSin0Fold18SrevPP = do
