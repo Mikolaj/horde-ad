@@ -192,10 +192,7 @@ revProduceArtifactWithoutInterpretation tf hasDt g =
     @Nat @g TensorToken hasDt (forwardPassByApplication tf g)
 
 forwardPassByApplication
-  :: forall g r y.
-     ( RankedTensor (RankedOf (PrimalOf g))
-     , ShapedOf (RankedOf (PrimalOf g)) ~ ShapedOf (PrimalOf g)
-     , RankedOf (ShapedOf (PrimalOf g)) ~ RankedOf (PrimalOf g) )
+  :: forall g r y. RankedTensor (RankedOf (PrimalOf g))
   => TensorToken g
   -> (Domains (ADVal (RankedOf (PrimalOf g)))
       -> ADVal (PrimalOf g) r y)
@@ -294,7 +291,7 @@ crevDtMaybe f vals mdt =
 crev
   :: forall r y f advals.
      ( DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
-     , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
+     , RankedOf f ~ Flip OR.Array
      , AdaptableDomains (ADVal (RankedOf f)) advals
      , AdaptableDomains (Flip OR.Array) (Value advals) )
   => (advals -> ADVal f r y) -> Value advals -> Value advals
@@ -311,8 +308,6 @@ crev f vals = crevDtMaybe f vals Nothing
 crevDt
   :: forall r y f advals.
      ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
-     , RankedOf (ShapedOf f) ~ RankedOf f
-     , ShapedOf (RankedOf f) ~ ShapedOf f
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , DomainsOf (RankedOf f) ~ Domains (RankedOf f)
      , AdaptableDomains (ADVal (RankedOf f)) advals
@@ -331,8 +326,6 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 crevDtMaybe
   :: forall r y f vals advals.
      ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
-     , RankedOf (ShapedOf f) ~ RankedOf f
-     , ShapedOf (RankedOf f) ~ ShapedOf f
      , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
      , DomainsOf (RankedOf f) ~ Domains (RankedOf f)
      , AdaptableDomains (ADVal (RankedOf f)) advals
@@ -367,7 +360,7 @@ crevDtMaybe f vals mdt =
 cfwd
   :: forall r y f vals advals.
      ( DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
-     , RankedOf f ~ Flip OR.Array, ShapedOf f ~ Flip OS.Array
+     , RankedOf f ~ Flip OR.Array
      , AdaptableDomains (ADVal (RankedOf f)) advals
      , AdaptableDomains (Flip OR.Array) vals
      , vals ~ Value advals )

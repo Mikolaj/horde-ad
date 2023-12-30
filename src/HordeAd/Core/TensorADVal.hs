@@ -45,8 +45,6 @@ import           HordeAd.Util.SizedIndex
 -- * Ranked tensor instances
 
 instance ( KnownNat n, GoodScalar r
-         , RankedOf shaped ~ ranked
-         , Dual ranked ~ DeltaR ranked shaped
          , RankedTensor (ADVal ranked) )
          => AdaptableDomains (ADVal ranked)
                              (ADVal ranked r n) where
@@ -113,14 +111,13 @@ instance AdaptableDomains ranked a
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance ( Dual ranked ~ DeltaR ranked shaped
-         , DeltaR ranked shaped ~ Dual ranked
+instance ( Dual ranked ~ DeltaR ranked
+         , DeltaR ranked ~ Dual ranked
+         , RankedOf (ShapedOf ranked) ~ ranked
          , RankedOf ranked ~ ranked
          , ranked ~ RankedOf ranked
          , RankedOf (PrimalOf ranked) ~ PrimalOf ranked
          , PrimalOf ranked ~ RankedOf (PrimalOf ranked)
-         , RankedOf shaped ~ ranked
-         , ranked ~ RankedOf shaped
          , CRankedIP ranked IsPrimal
          , RankedTensor ranked )
          => RankedTensor (ADVal ranked) where
@@ -200,7 +197,7 @@ instance ( Dual ranked ~ DeltaR ranked shaped
   rfromS = sToR
    where
     sToR :: forall r sh. (GoodScalar r, Sh.Shape sh)
-         => ADVal shaped r sh -> ADVal ranked r (Sh.Rank sh)
+         => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (Sh.Rank sh)
     sToR (D l u u') = dDnotShared l (rfromS u) (dSToR u')
      where
       dSToR (RToS d) = d  -- no information lost, so no checks
@@ -220,8 +217,8 @@ instance ( Dual ranked ~ DeltaR ranked shaped
 -- * Shaped tensor instances
 
 instance ( Sh.Shape sh, GoodScalar r
-         , ShapedOf ranked ~ shaped
-         , Dual shaped ~ DeltaS ranked shaped
+         , ranked ~ RankedOf shaped, ShapedOf ranked ~ shaped
+         , Dual shaped ~ DeltaS shaped
          , ShapedTensor (ADVal shaped) )
          => AdaptableDomains (ADVal ranked)
                              (ADVal shaped r sh) where
@@ -236,14 +233,14 @@ instance ( Sh.Shape sh, GoodScalar r
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance ( Dual shaped ~ DeltaS ranked shaped
-         , DeltaS ranked shaped ~ Dual shaped
-         , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
-         , PrimalOf ranked ~ RankedOf (PrimalOf shaped)
-         , ShapedOf ranked ~ shaped
-         , shaped ~ ShapedOf ranked
+instance ( Dual shaped ~ DeltaS shaped
+         , DeltaS shaped ~ Dual shaped
+         , RankedOf (PrimalOf shaped) ~ PrimalOf (RankedOf shaped)
+         , PrimalOf (RankedOf shaped) ~ RankedOf (PrimalOf shaped)
+         , ShapedOf (RankedOf shaped) ~ shaped
+         , shaped ~ ShapedOf (RankedOf shaped)
          , CRankedIPSh shaped IsPrimal
-         , RankedTensor ranked, ShapedTensor shaped )
+         , RankedTensor (RankedOf shaped), ShapedTensor shaped )
          => ShapedTensor (ADVal shaped) where
   slet (D l u u') f =
     let !(!l2, var2) = recordSharingPrimal u l
@@ -294,10 +291,10 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   sappend (D l1 u u') (D l2 v v') =
     dD (l1 `mergeADShare` l2) (sappend u v) (AppendS u' v')
   sslice (i_proxy :: Proxy i) n_proxy (D l u u') =
-    dD l (sslice i_proxy n_proxy u) (SliceS @ranked @shaped @i u')
+    dD l (sslice i_proxy n_proxy u) (SliceS @shaped @i u')
   sreverse (D l u u') = dD l (sreverse u) (ReverseS u')
   stranspose (perm_proxy :: Proxy perm) (D l u u') =
-    dD l (stranspose perm_proxy u) (TransposeS @ranked @shaped @perm u')
+    dD l (stranspose perm_proxy u) (TransposeS @shaped @perm u')
   sreshape :: forall sh sh2 r.
               ( GoodScalar r, Sh.Shape sh, Sh.Shape sh2
               , Sh.Size sh ~ Sh.Size sh2 )
@@ -323,7 +320,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   sfromR = rToS
    where
     rToS :: forall r sh. (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
-         => ADVal ranked r (Sh.Rank sh) -> ADVal shaped r sh
+         => ADVal (RankedOf shaped) r (Sh.Rank sh) -> ADVal shaped r sh
     rToS (D l u u') = dDnotShared l (sfromR u) (dRToS u')
      where
       dRToS (SToR @sh1 d) =
@@ -346,8 +343,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
 -- * DomainsTensor instance
 
 instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
-         , UnletGradient ranked, UnletGradient shaped
-         , ShapedOf shaped ~ shaped )
+         , UnletGradient ranked, UnletGradient shaped )
          => DomainsTensor (ADVal ranked) (ADVal shaped) where
   dmkDomains = id
   dunDomains _ = id

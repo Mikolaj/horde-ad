@@ -301,8 +301,7 @@ crevOnADInputs mdt f inputs =
 crevOnDomains
   :: forall r y f.
      ( RankedTensor (RankedOf f), RankedTensor (ADVal (RankedOf f))
-     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
-     , RankedOf (ShapedOf f) ~ RankedOf f, ShapedOf (RankedOf f) ~ ShapedOf f )
+     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y )
   => Maybe (f r y)
   -> (Domains (ADVal (RankedOf f)) -> ADVal f r y)
   -> Domains (RankedOf f)
@@ -328,8 +327,7 @@ cfwdOnADInputs inputs f ds =
 cfwdOnDomains
   :: forall r y f.
      ( RankedTensor (RankedOf f)
-     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y
-     , RankedOf (ShapedOf f) ~ RankedOf f, ShapedOf (RankedOf f) ~ ShapedOf f )
+     , DualPart f, UnletGradient f, GoodScalar r, HasSingletonDict y )
   => Domains (RankedOf f)
   -> (Domains (ADVal (RankedOf f)) -> ADVal f r y)
   -> Domains (RankedOf f)
@@ -350,15 +348,15 @@ generateDeltaInputs =
       f i (DynamicRanked @r @n t) =
         case rshape t of
           (sh :: ShapeInt n2) | Just Refl <- sameNat (Proxy @n) (Proxy @n2) ->
-            DynamicRanked $ InputR @ranked @shaped @r @n sh (toInputId i)
+            DynamicRanked $ InputR @ranked @r @n sh (toInputId i)
           _ -> error "generateDeltaInputs: wrong rank"
       f i (DynamicShaped @r @sh _) =
-        DynamicShaped $ InputS @ranked @shaped @r @sh (toInputId i)
+        DynamicShaped $ InputS @shaped @r @sh (toInputId i)
       f i (DynamicRankedDummy @r @sh _ _) =
         withListShape (Sh.shapeT @sh) $ \(sh :: ShapeInt n) ->
-          DynamicRanked $ InputR @ranked @shaped @r @n sh (toInputId i)
+          DynamicRanked $ InputR @ranked @r @n sh (toInputId i)
       f i (DynamicShapedDummy @r @sh _ _) =
-        DynamicShaped $ InputS @ranked @shaped @r @sh (toInputId i)
+        DynamicShaped $ InputS @shaped @r @sh (toInputId i)
   in V.imap f
 {- TODO: this can't be specified without a proxy, so we inline instead
 {-# SPECIALIZE generateDeltaInputs
@@ -366,8 +364,7 @@ generateDeltaInputs =
 -}
 
 makeADInputs
-  :: forall ranked. ShapedOf (Dual ranked) ~ Dual (ShapedOf ranked)
-  => Domains ranked
+  :: Domains ranked
   -> Domains (Dual ranked)
   -> Domains (ADVal ranked)
 {-# INLINE makeADInputs #-}

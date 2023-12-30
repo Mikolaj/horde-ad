@@ -161,13 +161,13 @@ resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
 -- Tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
-wrapDeltaR :: DeltaR ranked shaped r n -> DeltaR ranked shaped r n
+wrapDeltaR :: DeltaR ranked r n -> DeltaR ranked r n
 {-# NOINLINE wrapDeltaR #-}
 wrapDeltaR !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! LetR (NodeId n) d
 
-wrapDeltaS :: DeltaS ranked shaped r sh -> DeltaS ranked shaped r sh
+wrapDeltaS :: DeltaS shaped r sh -> DeltaS shaped r sh
 {-# NOINLINE wrapDeltaS #-}
 wrapDeltaS !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
