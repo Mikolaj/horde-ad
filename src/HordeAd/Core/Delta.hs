@@ -59,7 +59,7 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
 import           Data.List
-  (foldl', mapAccumR, scanl', sort, transpose, zip4, zipWith4, zipWith5)
+  (foldl', mapAccumR, scanl', sort, transpose, zipWith4)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
@@ -242,6 +242,8 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
         -> DeltaR ranked rn n
         -> DeltaR ranked rm (1 + m)
         -> DeltaR ranked rn n
+    -- ^ Fold over the outermost dimension of a tensor. The function,
+    -- in the first argument, should be strict in the accumulator.
   ScanR :: (GoodScalar rm, KnownNat m)
         => (ranked rn n -> ranked rm m -> ranked rn n)
         -> ranked rn n -> ranked rm (1 + m)
@@ -252,7 +254,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
         -> DeltaR ranked rn n
         -> DeltaR ranked rm (1 + m)
         -> DeltaR ranked rn (1 + n)
-  Scan2R :: (GoodScalar rm, KnownNat m, GoodScalar rp, KnownNat p)
+{-Scan2R :: (GoodScalar rm, KnownNat m, GoodScalar rp, KnownNat p)
          => (ranked rn n -> (ranked rm m, ranked rp p) -> ranked rn n)
          -> ranked rn n -> ranked rm (1 + m) -> ranked rp (1 + p)
          -> (ranked rn n -> ( ranked rm m, ranked rp p, ranked rn n
@@ -263,7 +265,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> DeltaR ranked rn n
          -> DeltaR ranked rm (1 + m)
          -> DeltaR ranked rp (1 + p)
-         -> DeltaR ranked rn (1 + n)
+         -> DeltaR ranked rn (1 + n) -}
   ScanDR :: (ranked rn n -> Domains ranked -> ranked rn n)
          -> ranked rn n -> Domains ranked  -- one rank higher
          -> (ranked rn n -> (Domains ranked, ranked rn n, Domains ranked)
@@ -273,8 +275,6 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> DeltaR ranked rn n
          -> Domains (DeltaR ranked)  -- one rank higher
          -> DeltaR ranked rn (1 + n)
-    -- ^ Fold over the outermost dimension of a tensor. The function,
-    -- in the first argument, should be strict in the accumulator.
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaR ranked r1 n -> DeltaR ranked r2 n
   SToR :: forall sh r ranked. Sh.Shape sh
@@ -455,7 +455,6 @@ shapeDelta = \case
   GatherR sh _ _ -> sh
   FoldR _f x0 _as _df _rf _x0' _as' -> rshape x0
   ScanR _f x0 as _df _rf _x0' _as' -> rlength as :$ rshape x0
-  Scan2R _f x0 as _bs _df _rf _x0' _as' _bs' -> rlength as :$ rshape x0
   ScanDR _f x0 as _df _rf _x0' _as' -> case V.unsnoc as of
     Nothing -> error "shapeDelta: empty domains"
     Just (_, d) -> length (shapeDynamic d) :$ rshape x0
@@ -935,7 +934,7 @@ buildFinMaps s0 deltaDt =
               cas = rg (drop 1 crs) cxs (init p) las
               s2 = evalR sShared (crs !! 0) x0'
           in evalR s2 (rfromList cas) as'
-        Scan2R @rm @m @rp @p @_ @_ @n1 f x0 as bs _df rf x0' as' bs' ->
+{-      Scan2R @rm @m @rp @p @_ @_ @n1 f x0 as bs _df rf x0' as' bs' ->
           let cxs :: [ranked r n1]
               cxs = runravelToList cShared
               p :: [ranked r n1]
@@ -954,7 +953,7 @@ buildFinMaps s0 deltaDt =
               (cas, cbs) = unzip $ rg (drop 1 crs) cxs (init p) las lbs
               s2 = evalR sShared (crs !! 0) x0'
               s3 = evalR s2 (rfromList cas) as'
-          in evalR s3 (rfromList cbs) bs'
+          in evalR s3 (rfromList cbs) bs' -}
         ScanDR @_ @_ @n1 f x0 as _df rf x0' as' ->  -- n1 ~ n - 1
           let cxs :: [ranked r n1]
               cxs = runravelToList cShared
@@ -1344,8 +1343,44 @@ buildDerivative dimR deltaDt params = do
               las = runravelToList as
               p = scanl' f x0 las
           return $! rfromList $ scanl' df cx0 (zip3 lcas (init p) las)
-        Scan2R{} -> undefined
-        ScanDR{} -> undefined
+        ScanDR f x0 as df _rf x0' as' -> do
+          cx0 <- evalR x0'
+          let evalRDynamicRanked
+                :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
+              evalRDynamicRanked (DynamicRanked @rq @q d) = do
+                t <- evalR d
+                return $! DynamicRanked t
+              evalRDynamicRanked _ =
+                error "evalRDynamicRanked: unexpected constructor"
+          cas <- V.mapM evalRDynamicRanked as'
+          let unravelDynamicRanked
+                :: DynamicTensor ranked -> [DynamicTensor ranked]
+              unravelDynamicRanked (DynamicRanked @rp @p t) =
+                case someNatVal $ valueOf @p - 1 of
+                  Just (SomeNat @p1 _) ->
+                    gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
+                    map (DynamicRanked @rp @p1) $ runravelToList t
+                  Nothing -> error "unravelDynamicRanked: scalars in domain"
+              unravelDynamicRanked DynamicShaped{} =
+                error "unravelDynamicRanked: DynamicShaped"
+              unravelDynamicRanked (DynamicRankedDummy @rp @sh _ _) =
+                withListShape (Sh.shapeT @sh) $ \(sh :: ShapeInt p) ->
+                  case someNatVal $ valueOf @p - 1 of
+                    Just (SomeNat @p1 _) ->
+                      gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
+                      map (DynamicRanked @rp @p1) $ runravelToList (rzero sh)
+                    Nothing -> error "unravelDynamicRanked: scalars in domain"
+              unravelDynamicRanked DynamicShapedDummy{} =
+                error "unravelDynamicRanked: DynamicShapedDummy"
+              unravelDomains
+                :: Domains ranked  -- each tensor has outermost dimension size p
+                -> [Domains ranked]  -- p domains; each tensor of one rank lower
+              unravelDomains = map V.fromList . transpose
+                               . map unravelDynamicRanked . V.toList
+          let lcas = unravelDomains cas
+              las = unravelDomains as
+              p = scanl' f x0 las
+          return $! rfromList $ scanl' df cx0 (zip3 lcas (init p) las)
         CastR d -> do
           t <- evalR d
           return $! rcast t
