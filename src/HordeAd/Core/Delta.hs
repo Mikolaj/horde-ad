@@ -1117,7 +1117,7 @@ buildFinMaps s0 deltaDt =
           -- Reversing the permutation at the type level would be too hard,
           -- so we unsafeCoerce, knowing that it's safe in this case.
           -- TODO: instead add a tensor operation that permutes
-          -- in the other direction? What if backend don't have it?
+          -- in the other direction? What if the backend doesn't have it?
           let perm = Sh.shapeT @perm
               permRev = map snd $ sort $ zip perm [0 .. length perm - 1]
           in Sh.withShapeP permRev $ \(Proxy @permR) ->

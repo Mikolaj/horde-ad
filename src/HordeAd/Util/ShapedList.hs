@@ -192,7 +192,8 @@ sizedListCompare f (i :$: idx) (j :$: idx') =
 listToSized :: forall sh i. Sh.Shape sh
             => [i] -> ShapedList sh i
 listToSized [] = case Sh.shapeT @sh of
-  [] -> unsafeCoerce ZSH
+  [] -> gcastWith (unsafeCoerce Refl :: sh :~: '[])
+        ZSH
   _ -> error $ "listToSized: input list too short; missing "
                ++ show (Sh.sizeT @sh :: Int)
 listToSized (i : is) = case Sh.shapeT @sh of

@@ -315,16 +315,20 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstSum v ->  -- almost neutral; transposition is likely to fuse away
     let perm3 = backpermCycle $ valueOf @m + 1
     in astSum $ astIndex (astTranspose perm3 v) ix
-  Ast.AstScatter (_ :$ sh) v (vars, AstIntVar var5 :. ix2)
+  Ast.AstScatter @_ @n7 (_ :$ sh)
+                 v (vars, AstIntVar var5 :. (ix2 :: AstIndex p71))
     | AstIntVar var6 <- i1, var6 == var5 ->
-        astIndex (unsafeCoerce $ astScatter sh v (vars, ix2)) rest1
-  Ast.AstScatter (_ :$ sh) v (vars, AstConst i5 :. ix2)
+        gcastWith (unsafeCoerce Refl :: m1 + n :~: p71 + n7) $
+        astIndex (astScatter sh v (vars, ix2)) rest1
+  Ast.AstScatter @_ @n7 (_ :$ sh)
+                 v (vars, AstConst i5 :. (ix2 :: AstIndex p71))
     | AstConst i6 <- i1 ->
+        gcastWith (unsafeCoerce Refl :: m1 + n :~: p71 + n7) $
         if i6 == i5
-        then astIndex (unsafeCoerce $ astScatter sh v (vars, ix2)) rest1
+        then astIndex (astScatter sh v (vars, ix2)) rest1
           -- see analogous code in astGatherCase for how a million
           -- type applications is still not enough to make it type-check
-        else astIndex (astReplicate0N @(m1 + n) (unsafeCoerce sh) 0) rest1
+        else astIndex (astReplicate0N @(m1 + n) sh 0) rest1
   -- AstScatter sh v (vars2, ZI) ->
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
   Ast.AstScatter{} ->  -- normal form
@@ -384,10 +388,11 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstBuild1 _n2 (var2, v) ->
     astIndex (astLet var2 i1 v) rest1
   Ast.AstGather _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
-  Ast.AstGather (_ :$ sh') v (var2 ::: vars, ix2) ->
+  Ast.AstGather @_ @n7 (_ :$ sh') v (var2 ::: (vars :: AstVarList m71), ix2) ->
     let w :: AstRanked s r (m1 + n)
-        w = unsafeCoerce $ astGather sh' v (vars, ix2)
-    in astLet var2 i1 $ astIndex @m1 @n w rest1
+        w = gcastWith (unsafeCoerce Refl :: m1 + n :~: m71 + n7) $
+            astGather sh' v (vars, ix2)
+    in astLet var2 i1 $ astIndex w rest1
   Ast.AstGather{} ->
     error "astIndex: AstGather: impossible pattern needlessly required"
   Ast.AstCast t -> astCast $ astIndexROrStepOnly stepOnly t ix
@@ -580,20 +585,19 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       in astSum $ astTransposeAsGather perm4  -- TODO: inline and simplify less
          $ astGather sh5 (astTransposeAsGather perm3 v) (vars4, ix4)
              -- TODO: why is simplification not idempotent without AsGather?
-    Ast.AstScatter (_ :$ sh) v (vars, AstIntVar var5 :. ix2)
+    Ast.AstScatter @_ @n7 (_ :$ sh)
+                   v (vars, AstIntVar var5 :. (ix2 :: AstIndex p71))
       | AstIntVar var6 <- i4, var6 == var5 ->
-          astGather sh4 (unsafeCoerce $ astScatter sh v (vars, ix2))
+          gcastWith (unsafeCoerce Refl :: p1' + n' :~: p71 + n7) $
+          astGather sh4 (astScatter sh v (vars, ix2))
                         (vars4, rest4)
-    Ast.AstScatter @m4 @n4 (_ :$ sh) v (vars, AstConst i5
-                                              :. (ix2 :: AstIndex p1))
+    Ast.AstScatter @_ @n7 (_ :$ sh)
+                   v (vars, AstConst i5 :. (ix2 :: AstIndex p71))
       | AstConst i6 <- i4 ->
+          gcastWith (unsafeCoerce Refl :: p1' + n' :~: p71 + n7) $
           if i6 == i5
-          then astGather @m' @n' @p1' sh4
-                         (unsafeCoerce
-                          $ astScatter @m4 @n4 @p1 sh v (vars, ix2))
-                         (vars4, rest4)
-          else astGather sh4 (astReplicate0N @(p1' + n') (unsafeCoerce sh) 0)
-                         (vars4, rest4)
+          then astGather sh4 (astScatter sh v (vars, ix2)) (vars4, rest4)
+          else astGather sh4 (astReplicate0N sh 0) (vars4, rest4)
     Ast.AstScatter{} ->  -- normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromList l | AstConst it <- i4 ->
