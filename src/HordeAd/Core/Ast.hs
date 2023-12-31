@@ -311,6 +311,52 @@ data AstRanked :: AstSpanType -> RankedTensorType where
              -> AstRanked s rn n
              -> AstRanked s rm (1 + m)
              -> AstRanked s rn n
+  AstScan :: forall rn rm n m s. (GoodScalar rm, KnownNat m)
+          => ( AstVarName (AstRanked PrimalSpan) rn n
+             , AstVarName (AstRanked PrimalSpan) rm m
+             , AstRanked PrimalSpan rn n )
+          -> AstRanked s rn n
+          -> AstRanked s rm (1 + m)
+          -> AstRanked s rn (1 + n)
+  AstScanDer :: forall rn rm n m s. (GoodScalar rm, KnownNat m)
+             => ( AstVarName (AstRanked PrimalSpan) rn n
+                , AstVarName (AstRanked PrimalSpan) rm m
+                , AstRanked PrimalSpan rn n )
+             -> ( AstVarName (AstRanked PrimalSpan) rn n
+                , AstVarName (AstRanked PrimalSpan) rm m
+                , AstVarName (AstRanked PrimalSpan) rn n
+                , AstVarName (AstRanked PrimalSpan) rm m
+                , AstRanked PrimalSpan rn n )
+             -> ( AstVarName (AstRanked PrimalSpan) rn n
+                , AstVarName (AstRanked PrimalSpan) rn n
+                , AstVarName (AstRanked PrimalSpan) rm m
+                , AstDomains PrimalSpan )
+             -> AstRanked s rn n
+             -> AstRanked s rm (1 + m)
+             -> AstRanked s rn (1 + n)
+  AstScanD :: forall rn n s.
+              ( AstVarName (AstRanked PrimalSpan) rn n
+              , [AstDynamicVarName]
+              , AstRanked PrimalSpan rn n )
+           -> AstRanked s rn n
+           -> Domains (AstRanked s)  -- one rank higher than above
+           -> AstRanked s rn (1 + n)
+  AstScanDDer :: forall rn n s.
+                 ( AstVarName (AstRanked PrimalSpan) rn n
+                 , [AstDynamicVarName]
+                 , AstRanked PrimalSpan rn n )
+              -> ( AstVarName (AstRanked PrimalSpan) rn n
+                 , [AstDynamicVarName]
+                 , AstVarName (AstRanked PrimalSpan) rn n
+                 , [AstDynamicVarName]
+                 , AstRanked PrimalSpan rn n )
+              -> ( AstVarName (AstRanked PrimalSpan) rn n
+                 , AstVarName (AstRanked PrimalSpan) rn n
+                 , [AstDynamicVarName]
+                 , AstDomains PrimalSpan )
+              -> AstRanked s rn n
+              -> Domains (AstRanked s)  -- one rank higher than above
+              -> AstRanked s rn (1 + n)
 
 deriving instance GoodScalar r => Show (AstRanked s r n)
 

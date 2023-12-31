@@ -10,9 +10,9 @@ module HordeAd.Core.AstEnv
   , interpretLambdaIndex, interpretLambdaIndexS
   , interpretLambdaIndexToIndex, interpretLambdaIndexToIndexS
   , interpretLambdaDomains, interpretLambdaDomainsS
-  , interpretLambda2, interpretLambda2S
-  , interpretLambda3, interpretLambda3S
-  , interpretLambda4, interpretLambda4S
+  , interpretLambda2, interpretLambda2S, interpretLambda2D, interpretLambda2DS
+  , interpretLambda3, interpretLambda3S, interpretLambda3D, interpretLambda3DS
+  , interpretLambda4, interpretLambda4S, interpretLambda4D, interpretLambda4DS
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
   , interpretAstI2, interpretAstB2, interpretAstRelOp
@@ -277,6 +277,40 @@ interpretLambda2S f !env (!varn, !varm, !ast) =
                        $ extendEnvS varm as env
             in f envE ast
 
+interpretLambda2D
+  :: forall s ranked shaped rn n.
+     ( GoodScalar rn, KnownNat n, RankedTensor ranked, ShapedTensor shaped
+     , shaped ~ ShapedOf ranked )
+  => (AstEnv ranked shaped -> AstRanked s rn n -> ranked rn n)
+  -> AstEnv ranked shaped
+  -> ( AstVarName (AstRanked s) rn n
+     , [AstDynamicVarName]
+     , AstRanked s rn n )
+  -> ranked rn n -> Domains ranked
+  -> ranked rn n
+{-# INLINE interpretLambda2D #-}
+interpretLambda2D f !env (!varn, !varm, !ast) =
+  \x0 as -> let envE = extendEnvR varn x0
+                       $ extendEnvPars varm as env
+            in f envE ast
+
+interpretLambda2DS
+  :: forall s ranked shaped rn sh.
+     ( GoodScalar rn, Sh.Shape sh, RankedTensor ranked, ShapedTensor shaped
+     , shaped ~ ShapedOf ranked )
+  => (AstEnv ranked shaped -> AstShaped s rn sh -> shaped rn sh)
+  -> AstEnv ranked shaped
+  -> ( AstVarName (AstShaped s) rn sh
+     , [AstDynamicVarName]
+     , AstShaped s rn sh )
+  -> shaped rn sh -> Domains ranked
+  -> shaped rn sh
+{-# INLINE interpretLambda2DS #-}
+interpretLambda2DS f !env (!varn, !varm, !ast) =
+  \x0 as -> let envE = extendEnvS varn x0
+                       $ extendEnvPars varm as env
+            in f envE ast
+
 interpretLambda3
   :: forall s ranked shaped rn rm n m.
      (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
@@ -311,6 +345,44 @@ interpretLambda3S f !env (!varDt, !varn, !varm, !ast) =
   \cx x0 as -> let envE = extendEnvS varDt cx
                           $ extendEnvS varn x0
                           $ extendEnvS varm as env
+               in f envE ast
+
+interpretLambda3D
+  :: forall s ranked shaped rn n.
+     ( GoodScalar rn, KnownNat n, RankedTensor ranked, ShapedTensor shaped
+     , shaped ~ ShapedOf ranked )
+  => (AstEnv ranked shaped -> AstDomains s -> DomainsOf ranked)
+  -> AstEnv ranked shaped
+  -> ( AstVarName (AstRanked s) rn n
+     , AstVarName (AstRanked s) rn n
+     , [AstDynamicVarName]
+     , AstDomains s )
+  -> ranked rn n -> ranked rn n -> Domains ranked
+  -> DomainsOf ranked
+{-# INLINE interpretLambda3D #-}
+interpretLambda3D f !env (!varDt, !varn, !varm, !ast) =
+  \cx x0 as -> let envE = extendEnvR varDt cx
+                          $ extendEnvR varn x0
+                          $ extendEnvPars varm as env
+               in f envE ast
+
+interpretLambda3DS
+  :: forall s ranked shaped rn sh.
+     ( GoodScalar rn, Sh.Shape sh, RankedTensor ranked, ShapedTensor shaped
+     , shaped ~ ShapedOf ranked )
+  => (AstEnv ranked shaped -> AstDomains s -> DomainsOf ranked)
+  -> AstEnv ranked shaped
+  -> ( AstVarName (AstShaped s) rn sh
+     , AstVarName (AstShaped s) rn sh
+     , [AstDynamicVarName]
+     , AstDomains s )
+  -> shaped rn sh -> shaped rn sh -> Domains ranked
+  -> DomainsOf ranked
+{-# INLINE interpretLambda3DS #-}
+interpretLambda3DS f !env (!varDt, !varn, !varm, !ast) =
+  \cx x0 as -> let envE = extendEnvS varDt cx
+                          $ extendEnvS varn x0
+                          $ extendEnvPars varm as env
                in f envE ast
 
 interpretLambda4
@@ -351,6 +423,48 @@ interpretLambda4S f !env (!varDx, !varDa, !varn, !varm, !ast) =
                              $ extendEnvS varDa ca
                              $ extendEnvS varn x0
                              $ extendEnvS varm as env
+                  in f envE ast
+
+interpretLambda4D
+  :: forall s ranked shaped rn n.
+     ( GoodScalar rn, KnownNat n, RankedTensor ranked, ShapedTensor shaped
+     , shaped ~ ShapedOf ranked )
+  => (AstEnv ranked shaped -> AstRanked s rn n -> ranked rn n)
+  -> AstEnv ranked shaped
+  -> ( AstVarName (AstRanked s) rn n
+     , [AstDynamicVarName]
+     , AstVarName (AstRanked s) rn n
+     , [AstDynamicVarName]
+     , AstRanked s rn n )
+  -> ranked rn n -> Domains ranked -> ranked rn n -> Domains ranked
+  -> ranked rn n
+{-# INLINE interpretLambda4D #-}
+interpretLambda4D f !env (!varDx, !varDa, !varn, !varm, !ast) =
+  \cx ca x0 as -> let envE = extendEnvR varDx cx
+                             $ extendEnvPars varDa ca
+                             $ extendEnvR varn x0
+                             $ extendEnvPars varm as env
+                  in f envE ast
+
+interpretLambda4DS
+  :: forall s ranked shaped rn sh.
+     ( GoodScalar rn, Sh.Shape sh, RankedTensor ranked, ShapedTensor shaped
+     , shaped ~ ShapedOf ranked )
+  => (AstEnv ranked shaped -> AstShaped s rn sh -> shaped rn sh)
+  -> AstEnv ranked shaped
+  -> ( AstVarName (AstShaped s) rn sh
+     , [AstDynamicVarName]
+     , AstVarName (AstShaped s) rn sh
+     , [AstDynamicVarName]
+     , AstShaped s rn sh )
+  -> shaped rn sh -> Domains ranked -> shaped rn sh -> Domains ranked
+  -> shaped rn sh
+{-# INLINE interpretLambda4DS #-}
+interpretLambda4DS f !env (!varDx, !varDa, !varn, !varm, !ast) =
+  \cx ca x0 as -> let envE = extendEnvS varDx cx
+                             $ extendEnvPars varDa ca
+                             $ extendEnvS varn x0
+                             $ extendEnvPars varm as env
                   in f envE ast
 
 

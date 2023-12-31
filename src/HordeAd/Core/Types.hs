@@ -345,6 +345,7 @@ subtractADShare !s1 !s2 =
           GT -> (key1, t1) : subAD rest1 l2
   in subAD s1 s2
 
+-- TODO: rename to concat? make it a monoid?
 flattenADShare :: [ADShareD d] -> ADShareD d
 flattenADShare = foldl' mergeADShare emptyADShare
 

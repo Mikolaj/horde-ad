@@ -22,7 +22,7 @@ import           Data.Bifunctor.Flip
 import           Data.Bifunctor.Product
 import           Data.Function ((&))
 import           Data.Functor.Const
-import           Data.List (foldl')
+import           Data.List (foldl', scanl')
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
@@ -37,7 +37,6 @@ import           HordeAd.Core.DualNumber
 import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances (sameShape)
-import           HordeAd.Internal.TensorOps
 import           HordeAd.Util.ShapedList (singletonShaped)
 import qualified HordeAd.Util.ShapedList as ShapedList
 import           HordeAd.Util.SizedIndex
@@ -450,6 +449,119 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     in D (l1 `mergeADShare` l2)
          (rfold @ranked f x0 as)
          (FoldR f x0 as df rf x0' as')
+  rscan :: forall rn rm n m.
+           (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
+        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+        -> ADVal ranked rn n
+        -> ADVal ranked rm (1 + m)
+        -> ADVal ranked rn (1 + n)
+  rscan f (D l1 x0 x0') (D l2 as as') =
+    let shn = rshape x0
+        shm = tailShape $ rshape as
+        domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+        domsToPair :: forall f. ADReady f
+                   => Domains f -> (f rn n, f rm m)
+        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+        g :: Domains (ADVal ranked) -> ADVal ranked rn n
+        g doms = uncurry (f @(ADVal ranked)) (domsToPair doms)
+        df :: ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
+           -> ranked rn n
+        df cx (ca, x, a) =
+          fst $ cfwdOnDomains (V.fromList [DynamicRanked x, DynamicRanked a])
+                              g
+                              (V.fromList [DynamicRanked cx, DynamicRanked ca])
+        rf :: ranked rn n -> (ranked rn n, ranked rm m)
+           -> (ranked rn n, ranked rm m)
+        rf dt (x, a) =
+          domsToPair $ dunDomains @ranked domsOD $ fst
+          $ crevOnDomains (Just dt) g
+                          (V.fromList [DynamicRanked x, DynamicRanked a])
+    in D (l1 `mergeADShare` l2)
+         (rscan @ranked f x0 as)
+         (ScanR f x0 as df rf x0' as')
+  rscanDer :: forall rn rm n m.
+              (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
+           => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+           -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
+                                   -> f rn n)
+           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
+           -> ADVal ranked rn n
+           -> ADVal ranked rm (1 + m)
+           -> ADVal ranked rn (1 + n)
+  rscanDer f df0 rf0 (D l1 x0 x0') (D l2 as as') =
+    let shn = rshape x0
+        shm = tailShape $ rshape as
+        domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+        domsToPair :: forall f. ADReady f
+                   => Domains f -> (f rn n, f rm m)
+        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+        df :: ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
+           -> ranked rn n
+        df cx (ca, x, a) = df0 cx ca x a
+        rf :: ranked rn n -> (ranked rn n, ranked rm m)
+           -> (ranked rn n, ranked rm m)
+        rf cx (x, a) =  -- TODO: add explicit sharing
+          domsToPair $ dunDomains domsOD $ rf0 cx x a
+    in D (l1 `mergeADShare` l2)
+         (rscan @ranked f x0 as)
+         (ScanR f x0 as df rf x0' as')
+  rscanD :: forall rn n. (GoodScalar rn, KnownNat n)
+         => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
+         -> DomainsOD
+         -> ADVal ranked rn n
+         -> Domains (ADVal ranked)
+         -> ADVal ranked rn (1 + n)
+  rscanD f od (D l1 x0 x0') asD =
+    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+        shn = rshape x0
+        domsOD = V.cons (odFromSh @rn shn) od
+        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+        g :: Domains (ADVal ranked) -> ADVal ranked rn n
+        g doms = uncurry (f @(ADVal ranked)) (domsToPair doms)
+        df :: ranked rn n -> (Domains ranked, ranked rn n, Domains ranked)
+           -> ranked rn n
+        df cx (ca, x, a) =
+          fst $ cfwdOnDomains (V.cons (DynamicRanked x) a)
+                              g
+                              (V.cons (DynamicRanked cx) ca)
+        rf :: (ranked rn n -> (ranked rn n, Domains ranked)
+           -> (ranked rn n, Domains ranked))
+        rf dt (x, a) =
+          domsToPair $ dunDomains @ranked domsOD $ fst
+          $ crevOnDomains (Just dt) g
+                          (V.cons (DynamicRanked x) a)
+    in D (flattenADShare $ l1 : V.toList ll2)
+         (rscanD @ranked f od x0 as)
+         (ScanDR f x0 as df rf x0' as')
+  rscanDDer :: forall rn n. (GoodScalar rn, KnownNat n)
+            => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
+            -> (forall f. ADReady f
+                => f rn n -> Domains f -> f rn n -> Domains f
+                -> f rn n)
+            -> (forall f. ADReady f
+                => f rn n -> f rn n -> Domains f
+                -> DomainsOf f)
+            -> DomainsOD
+            -> ADVal ranked rn n
+            -> Domains (ADVal ranked)
+            -> ADVal ranked rn (1 + n)
+  rscanDDer f df0 rf0 od (D l1 x0 x0') asD =
+    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+        shn = rshape x0
+        domsOD = V.cons (odFromSh @rn shn) od
+        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+        df :: ranked rn n -> (Domains ranked, ranked rn n, Domains ranked)
+           -> ranked rn n
+        df cx (ca, x, a) = df0 cx ca x a
+        rf :: ranked rn n -> (ranked rn n, Domains ranked)
+           -> (ranked rn n, Domains ranked)
+        rf cx (x, a) =  -- TODO: add explicit sharing
+          domsToPair $ dunDomains domsOD $ rf0 cx x a
+    in D (flattenADShare $ l1 : V.toList ll2)
+         (rscanD @ranked f od x0 as)
+         (ScanDR f x0 as df rf x0' as')
   sfold :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -508,6 +620,17 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          (sfold @ranked f x0 as)
          (FoldS f x0 as df rf x0' as')
 
+unADValDomains :: DynamicTensor (ADVal f)
+               -> (ADShare, DynamicTensor f, DynamicTensor (Dual f))
+unADValDomains (DynamicRanked (D l t t')) =
+  (l, DynamicRanked t, DynamicRanked t')
+unADValDomains (DynamicShaped (D l t t')) =
+  (l, DynamicShaped t, DynamicShaped t')
+unADValDomains (DynamicRankedDummy p1 p2) =
+  (emptyADShare, DynamicRankedDummy p1 p2, DynamicRankedDummy p1 p2)
+unADValDomains (DynamicShapedDummy p1 p2) =
+  (emptyADShare, DynamicShapedDummy p1 p2, DynamicShapedDummy p1 p2)
+
 
 -- * DomainsTensor instance for concrete arrays
 
@@ -545,14 +668,12 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
     fst $ crevOnDomains (Just dt) (f @(ADVal (Flip OS.Array))) parameters
   sfwd f _parameters0 parameters ds =
     fst $ cfwdOnDomains parameters (f @(ADVal (Flip OS.Array))) ds
-  rfold :: GoodScalar rm
+  rfold :: (GoodScalar rm, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
         -> Flip OR.Array rn n
         -> Flip OR.Array rm (1 + m)
         -> Flip OR.Array rn n
-  rfold f (Flip x0) (Flip as) =
-    let g x a = runFlip $ f @(Flip OR.Array) (Flip x) (Flip a)
-    in Flip $ foldl' g x0 (tunravelToListR as)
+  rfold f x0 as = foldl' f x0 (runravelToList as)
   rfoldDer :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
            -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
@@ -561,15 +682,17 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
            -> Flip OR.Array rn n
            -> Flip OR.Array rm (1 + m)
            -> Flip OR.Array rn n
-  rfoldDer f _df _dr (Flip x0) (Flip as) = rfold f (Flip x0) (Flip as)
+  rfoldDer f _df _rf x0 as = rfold f x0 as
+  rscan f x0 as = rfromList $ scanl' f x0 (runravelToList as)
+  rscanDer f _df _rf x0 as = rscan f x0 as
+  rscanD f _od x0 as = rfromList $ scanl' f x0 (unravelDomains as)
+  rscanDDer f _df _rf od x0 as = rscanD f od x0 as
   sfold :: (GoodScalar rm, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
         -> Flip OS.Array rn sh
         -> Flip OS.Array rm (k ': shm)
         -> Flip OS.Array rn sh
-  sfold f (Flip x0) (Flip as) =
-    let g x a = runFlip $ f @(Flip OS.Array) (Flip x) (Flip a)
-    in Flip $ foldl' g x0 (tunravelToListS as)
+  sfold f x0 as = foldl' f x0 (sunravelToList as)
   sfoldDer :: ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
               , KnownNat k )
            => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -581,4 +704,4 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
            -> Flip OS.Array rn sh
            -> Flip OS.Array rm (k ': shm)
            -> Flip OS.Array rn sh
-  sfoldDer f _df _dr (Flip x0) (Flip as) = sfold f (Flip x0) (Flip as)
+  sfoldDer f _df _dr x0 as = sfold f x0 as

@@ -756,6 +756,37 @@ class DomainsTensor (ranked :: RankedTensorType)
            -> ranked rn n  -- ^ initial value
            -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
            -> ranked rn n
+  rscan :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
+        => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+        -> ranked rn n
+        -> ranked rm (1 + m)
+        -> ranked rn (1 + n)
+  rscanDer :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
+           => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
+           -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
+                                   -> f rn n)
+           -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
+           -> ranked rn n
+           -> ranked rm (1 + m)
+           -> ranked rn (1 + n)
+  rscanD :: (GoodScalar rn, KnownNat n)
+         => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
+         -> DomainsOD
+         -> ranked rn n
+         -> Domains ranked
+         -> ranked rn (1 + n)
+  rscanDDer :: (GoodScalar rn, KnownNat n)
+            => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
+            -> (forall f. ADReady f
+                => f rn n -> Domains f -> f rn n -> Domains f
+                -> f rn n)
+            -> (forall f. ADReady f
+                => f rn n -> f rn n -> Domains f
+                -> DomainsOf f)
+            -> DomainsOD
+            -> ranked rn n
+            -> Domains ranked
+            -> ranked rn (1 + n)
   sfold :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
         -> shaped rn sh  -- ^ initial value

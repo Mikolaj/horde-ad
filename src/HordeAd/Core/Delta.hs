@@ -265,7 +265,8 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> DeltaR ranked rp (1 + p)
          -> DeltaR ranked rn (1 + n) -}
   ScanDR :: (ranked rn n -> Domains ranked -> ranked rn n)
-         -> ranked rn n -> Domains ranked  -- one rank higher
+         -> ranked rn n
+         -> Domains ranked  -- one rank higher than the Domains above
          -> (ranked rn n -> (Domains ranked, ranked rn n, Domains ranked)
              -> ranked rn n)
          -> (ranked rn n -> (ranked rn n, Domains ranked)
