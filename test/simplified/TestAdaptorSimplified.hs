@@ -211,7 +211,7 @@ testTrees =
   , testCase "2Sin0Fold8Srev" testSin0Fold8Srev
   , testCase "2Sin0Fold8Srev2" testSin0Fold8Srev2
   , testCase "2Sin0Fold182SrevPP" testSin0Fold182SrevPP
-  , testCase "2Sin0Fold18SrevPP" testSin0Fold18SrevPP
+  , testCase "2Sin0Fold18Srev" testSin0Fold18Srev
   , testCase "2Sin0Fold8fwd" testSin0Fold8fwd
   , testCase "2Sin0Fold8fwd2" testSin0Fold8fwd2
   , testCase "2Sin0Fold8Sfwd" testSin0Fold8Sfwd
@@ -2117,7 +2117,7 @@ testSin0Rfwd4 = do
 testSin0RfwdPP4 :: Assertion
 testSin0RfwdPP4 = do
   let a1 = (rfwd1 sin . rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin) 1.1
-  printAstPretty IM.empty  (simplifyAst6 a1)
+  printAstPretty IM.empty (simplifyAst6 a1)
     @?= "(rconst 1.1 * cos (rconst 1.1)) * cos (rconst 1.1 * cos (rconst 1.1))"
 
 testSin0Rfwd5 :: Assertion
@@ -2433,11 +2433,11 @@ testSin0Fold182SrevPP = do
   printAstPretty IM.empty a1
     @?= "let dret = ssum (sletDomainsIn (let x49 = ssum (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0])) ; v50 = sreplicate (sin x49) ; v51 = recip (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) + v50 * v50 + sconst (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sconst (fromList @[5] [0.0,0.0,0.0,0.0,0.0])) in (0, ssum ((v50 * v51) * rreplicate 5 (rconst 1.0)) + ssum (sreplicate (cos x49 * ssum (negate (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * v51) * rreplicate 5 (rconst 1.0)))) + sconst 0.0 + sconst 0.0)) (\\[v47, x48] -> v47)) + ssum (sfromList [sletDomainsIn (let x54 = ssum (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0])) ; v55 = sreplicate (sin x54) ; v56 = recip (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) + v55 * v55 + sconst (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sconst (fromList @[5] [0.0,0.0,0.0,0.0,0.0])) in (0, ssum ((v55 * v56) * rreplicate 5 (rconst 1.0)) + ssum (sreplicate (cos x54 * ssum (negate (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * v56) * rreplicate 5 (rconst 1.0)))) + sconst 0.0 + sconst 0.0)) (\\[v52, x53] -> x53)]) in dret"
 
-testSin0Fold18SrevPP :: Assertion
-testSin0Fold18SrevPP = do
-  resetVarCounter
-  let a1 = rrev1 @(AstRanked FullSpan)
-           (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
+testSin0Fold18Srev :: Assertion
+testSin0Fold18Srev = do
+  assertEqualUpToEpsilon 1e-10
+    (-2.4026418024701366 :: Flip OR.Array Double 0)
+    (rrev1 (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2, 5]
                 f a0 = sfold @_ @f @Double @Double @'[2, 5] @'[] @2
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2 (ssum (str $ sin x))
@@ -2445,9 +2445,7 @@ testSin0Fold18SrevPP = do
                                           $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @2 (sreplicate @_ @5 (2 * a0)))
                         (sreplicate @_ @2 a0)
-            in rfromS . f . sfromR) 1.1
-  printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "sconst 2.0 * ssum (ssum (sletDomainsIn (let x72 = ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])) ; v73 = ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1)))))) ; v74 = sreplicate (sin x72) ; v75 = recip (v73 * v73 + sconst (fromList @[2] [0.0,0.0]) + v74 * v74 + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0])) ; v83 = ssum (stranspose (sletDomainsIn (let x78 = ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [1])) ; v79 = ssum (stranspose (sin (stranspose (sreplicate (atan2 (ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1))))))) (sreplicate (sin (ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])))))))))) ; v80 = sreplicate (sin x78) ; v81 = recip (v79 * v79 + sconst (fromList @[2] [0.0,0.0]) + v80 * v80 + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0])) ; v82 = sconstant (ssum (stranspose (rreplicate 2 (rreplicate 5 (rconst 1.0))))) in (cos (stranspose (sreplicate (atan2 (ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1))))))) (sreplicate (sin (ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])))))))) * stranspose (sreplicate ((v80 * v81) * v82)), ssum (sreplicate (cos x78 * ssum (negate (v79 * v81) * v82))))) (\\[m76, x77] -> m76))) in (cos (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1)))) * stranspose (sreplicate ((v74 * v75) * v83)), ssum (sreplicate (cos x72 * ssum (negate (v73 * v75) * v83))))) (\\[m70, x71] -> m70))) + ssum (sfromList [sletDomainsIn (let x88 = ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])) ; v89 = ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1)))))) ; v90 = sreplicate (sin x88) ; v91 = recip (v89 * v89 + sconst (fromList @[2] [0.0,0.0]) + v90 * v90 + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0])) ; v99 = ssum (stranspose (sletDomainsIn (let x94 = ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [1])) ; v95 = ssum (stranspose (sin (stranspose (sreplicate (atan2 (ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1))))))) (sreplicate (sin (ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])))))))))) ; v96 = sreplicate (sin x94) ; v97 = recip (v95 * v95 + sconst (fromList @[2] [0.0,0.0]) + v96 * v96 + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0])) ; v98 = sconstant (ssum (stranspose (rreplicate 2 (rreplicate 5 (rconst 1.0))))) in (cos (stranspose (sreplicate (atan2 (ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1))))))) (sreplicate (sin (ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])))))))) * stranspose (sreplicate ((v96 * v97) * v98)), ssum (sreplicate (cos x94 * ssum (negate (v95 * v97) * v98))))) (\\[m92, x93] -> m92))) in (cos (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1)))) * stranspose (sreplicate ((v90 * v91) * v99)), ssum (sreplicate (cos x88 * ssum (negate (v89 * v91) * v99))))) (\\[m86, x87] -> x87), sletDomainsIn (let x102 = ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [1])) ; v103 = ssum (stranspose (sin (stranspose (sreplicate (atan2 (ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1))))))) (sreplicate (sin (ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])))))))))) ; v104 = sreplicate (sin x102) ; v105 = recip (v103 * v103 + sconst (fromList @[2] [0.0,0.0]) + v104 * v104 + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0]) + sconst (fromList @[2] [0.0,0.0])) ; v106 = sconstant (ssum (stranspose (rreplicate 2 (rreplicate 5 (rconst 1.0))))) in (cos (stranspose (sreplicate (atan2 (ssum (stranspose (sin (sreplicate (sreplicate (sconst 2.0 * sconstant (rconst 1.1))))))) (sreplicate (sin (ssum (sreplicate (sconstant (sreplicate (rconst 1.1)) !$ [0])))))))) * stranspose (sreplicate ((v104 * v105) * v106)), ssum (sreplicate (cos x102 * ssum (negate (v103 * v105) * v106))))) (\\[m100, x101] -> x101)])"
+            in rfromS . f . sfromR) 1.1)
 
 testSin0Fold8fwd :: Assertion
 testSin0Fold8fwd = do
