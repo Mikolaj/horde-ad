@@ -385,6 +385,11 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         -> ADVal ranked rm (1 + m)
         -> ADVal ranked rn n
   rfold f (D l1 x0 x0') (D l2 as as') =
+    -- This can't call rfoldDer, because UnletGradient constraint is needed
+    -- in the computed derivatives, while rfoldDer gets derivatives with
+    -- looser constraints thanks to interpreting terms in arbitrary algebras.
+    -- If the refactoring is really needed, e.g., to avoid computing derivatives
+    -- for each nested level of ADVal, we can add UnletGradient to ADReady.
     let shn = rshape x0
         shm = tailShape $ rshape as
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
@@ -434,20 +439,19 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     let shn = rshape x0
         shm = tailShape $ rshape as
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
-        domsToPair :: forall f. ADReady f
-                   => Domains f -> (f rn n, f rm m)
+        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
         -- Note that this function, and similarly @f@ and @rf@ instantiated
         -- and passed to FoldR, is not a function on dual numbers.
-        df :: ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
-           -> ranked rn n
+        df :: forall f. ADReady f
+           => f rn n -> (f rm m, f rn n, f rm m) -> f rn n
         df cx (ca, x, a) = df0 cx ca x a
-        rf :: ranked rn n -> (ranked rn n, ranked rm m)
-           -> (ranked rn n, ranked rm m)
-        rf cx (x, a) =  -- TODO: add explicit sharing
-          domsToPair $ dunDomains domsOD $ rf0 cx x a
+        rf :: forall f. ADReady f
+           => f rn n -> (f rn n, f rm m) -> (f rn n, f rm m)
+        rf cx (x, a) = domsToPair $ dunDomains domsOD $ rf0 cx x a
+          -- TODO: add explicit sharing
     in D (l1 `mergeADShare` l2)
-         (rfold @ranked f x0 as)
+         (rfoldDer @ranked f df0 rf0 x0 as)
          (FoldR f x0 as df rf x0' as')
   rscan :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
@@ -459,8 +463,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     let shn = rshape x0
         shm = tailShape $ rshape as
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
-        domsToPair :: forall f. ADReady f
-                   => Domains f -> (f rn n, f rm m)
+        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
         g doms = uncurry (f @(ADVal ranked)) (domsToPair doms)
@@ -492,18 +495,16 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     let shn = rshape x0
         shm = tailShape $ rshape as
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
-        domsToPair :: forall f. ADReady f
-                   => Domains f -> (f rn n, f rm m)
+        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-        df :: ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
-           -> ranked rn n
+        df :: forall f. ADReady f
+           => f rn n -> (f rm m, f rn n, f rm m) -> f rn n
         df cx (ca, x, a) = df0 cx ca x a
-        rf :: ranked rn n -> (ranked rn n, ranked rm m)
-           -> (ranked rn n, ranked rm m)
-        rf cx (x, a) =  -- TODO: add explicit sharing
-          domsToPair $ dunDomains domsOD $ rf0 cx x a
+        rf :: forall f. ADReady f
+           => f rn n -> (f rn n, f rm m) -> (f rn n, f rm m)
+        rf cx (x, a) = domsToPair $ dunDomains domsOD $ rf0 cx x a
     in D (l1 `mergeADShare` l2)
-         (rscan @ranked f x0 as)
+         (rscanDer @ranked f df0 rf0 x0 as)
          (ScanR f x0 as df rf x0' as')
   rscanD :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
@@ -552,15 +553,14 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         domsOD = V.cons (odFromSh @rn shn) od
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-        df :: ranked rn n -> (Domains ranked, ranked rn n, Domains ranked)
-           -> ranked rn n
+        df :: forall f. ADReady f
+           => f rn n -> (Domains f, f rn n, Domains f) -> f rn n
         df cx (ca, x, a) = df0 cx ca x a
-        rf :: ranked rn n -> (ranked rn n, Domains ranked)
-           -> (ranked rn n, Domains ranked)
-        rf cx (x, a) =  -- TODO: add explicit sharing
-          domsToPair $ dunDomains domsOD $ rf0 cx x a
+        rf :: forall f. ADReady f
+           => f rn n -> (f rn n, Domains f) -> (f rn n, Domains f)
+        rf cx (x, a) = domsToPair $ dunDomains domsOD $ rf0 cx x a
     in D (flattenADShare $ l1 : V.toList ll2)
-         (rscanD @ranked f od x0 as)
+         (rscanDDer @ranked f df0 rf0 od x0 as)
          (ScanDR f x0 as df rf x0' as')
   sfold :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
@@ -607,17 +607,14 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         domsToPair :: forall f. ADReadyS f
                    => Domains (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        -- Note that this function, and similarly @f@ and @rf@ instantiated
-        -- and passed to FoldR, is not a function on dual numbers.
-        df :: shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
-           -> shaped rn sh
+        df :: forall f. ADReadyS f
+           => f rn sh -> (f rm shm, f rn sh, f rm shm) -> f rn sh
         df cx (ca, x, a) = df0 cx ca x a
-        rf :: shaped rn sh -> (shaped rn sh, shaped rm shm)
-           -> (shaped rn sh, shaped rm shm)
-        rf cx (x, a) =
-          domsToPair $ dunDomains domsOD $ rf0 cx x a
+        rf :: forall f. ADReadyS f
+           => f rn sh -> (f rn sh, f rm shm) -> (f rn sh, f rm shm)
+        rf cx (x, a) = domsToPair $ dunDomains domsOD $ rf0 cx x a
     in D (l1 `mergeADShare` l2)
-         (sfold @ranked f x0 as)
+         (sfoldDer @ranked f df0 rf0 x0 as)
          (FoldS f x0 as df rf x0' as')
 
 unADValDomains :: DynamicTensor (ADVal f)
