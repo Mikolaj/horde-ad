@@ -209,7 +209,7 @@ jobs:
       - name: haddock
         if: matrix.tests-short
         run: |
-          $CABAL v2-haddock --disable-documentation $ARG_COMPILER --with-haddock $HADDOCK $ARG_TESTS $ARG_BENCH all
+          $CABAL v2-haddock --allow-newer --disable-documentation $ARG_COMPILER --with-haddock $HADDOCK $ARG_TESTS $ARG_BENCH all
 #      - name: unconstrained build
 #        run: |
 #          rm -f cabal.project.local
