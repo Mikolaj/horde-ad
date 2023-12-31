@@ -17,8 +17,9 @@ module HordeAd.Core.TensorClass
     -- * The related constraints
   , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
     -- * Concrete array instances auxiliary definitions
-  , DomainsOD, sizeDomainsOD, scalarDynamic, shapeDynamic, sameShapesDomainsOD
+  , DomainsOD, sizeDomainsOD, shapeDynamic, sameShapesDomainsOD
   , odFromVar, odFromSh, odFromShS, fromDomainsR, fromDomainsS
+  , unravelDomains, ravelDomains
   ) where
 
 import Prelude
@@ -31,6 +32,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Function ((&))
 import           Data.Kind (Constraint, Type)
+import           Data.List (transpose)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -39,8 +41,10 @@ import           GHC.TypeLits
   ( KnownNat
   , Nat
   , OrderingI (..)
+  , SomeNat (..)
   , cmpNat
   , sameNat
+  , someNatVal
   , type (+)
   , type (-)
   , type (<=)
@@ -48,7 +52,7 @@ import           GHC.TypeLits
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
-import           Type.Reflection (TypeRep, Typeable, typeRep)
+import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import           HordeAd.Core.Adaptor
@@ -824,17 +828,16 @@ sizeDomainsOD = let f (DynamicRanked (Flip t)) = OR.size t
                     f (DynamicShapedDummy _ proxy_sh) = Sh.sizeP proxy_sh
                 in V.sum . V.map f
 
-scalarDynamic :: forall (r :: Type) ranked. Typeable r
-              => DynamicTensor ranked -> TypeRep r
-scalarDynamic (DynamicRanked @r2 _)
-  | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = typeRep
-scalarDynamic (DynamicShaped @r2 _)
-  | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = typeRep
-scalarDynamic (DynamicRankedDummy @r2 _ _)
-  | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = typeRep
-scalarDynamic (DynamicShapedDummy @r2 _ _)
-  | Just Refl <- testEquality (typeRep @r2) (typeRep @r) = typeRep
-scalarDynamic _ = error "scalarDynamic: type mismatch"
+type role DynamicScalar representational
+data DynamicScalar (ranked :: RankedTensorType) where
+  DynamicScalar :: GoodScalar r
+                => Proxy r -> DynamicScalar ranked
+
+scalarDynamic :: DynamicTensor ranked -> DynamicScalar ranked
+scalarDynamic (DynamicRanked @r2 _) = DynamicScalar @r2 Proxy
+scalarDynamic (DynamicShaped @r2 _) = DynamicScalar @r2 Proxy
+scalarDynamic (DynamicRankedDummy @r2 _ _) = DynamicScalar @r2 Proxy
+scalarDynamic (DynamicShapedDummy @r2 _ _) = DynamicScalar @r2 Proxy
 
 shapeDynamic :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
              => DynamicTensor ranked -> [Int]
@@ -909,6 +912,72 @@ fromDomainsS params = case V.uncons params of
       _ -> error "fromDomainsS: scalar mismatch"
     _ -> error "fromDomainsS: shape mismatch"
   Nothing -> Nothing
+
+unravelDynamicRanked
+  :: forall ranked. RankedTensor ranked
+  => DynamicTensor ranked -> [DynamicTensor ranked]
+unravelDynamicRanked (DynamicRanked @rp @p t) =
+  case someNatVal $ valueOf @p - 1 of
+    Just (SomeNat @p1 _) ->
+      gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
+      map (DynamicRanked @rp @p1) $ runravelToList t
+    Nothing -> error "unravelDynamicRanked: scalars in domain"
+unravelDynamicRanked DynamicShaped{} =
+  error "unravelDynamicRanked: DynamicShaped"
+unravelDynamicRanked (DynamicRankedDummy @rp @sh _ _) =
+  withListShape (Sh.shapeT @sh) $ \(sh :: ShapeInt p) ->
+    case someNatVal $ valueOf @p - 1 of
+      Just (SomeNat @p1 _) ->
+        gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
+        map (DynamicRanked @rp @p1) $ runravelToList (rzero sh)
+      Nothing -> error "unravelDynamicRanked: scalars in domain"
+unravelDynamicRanked DynamicShapedDummy{} =
+  error "unravelDynamicRanked: DynamicShapedDummy"
+
+unravelDomains
+  :: forall ranked. RankedTensor ranked
+  => Domains ranked  -- each tensor has outermost dimension size p
+  -> [Domains ranked]  -- p domains; each tensor of one rank lower
+unravelDomains = map V.fromList . transpose
+                 . map unravelDynamicRanked . V.toList
+
+ravelDynamicRanked  -- the inverse of unravelDynamicRanked
+  :: forall ranked. (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+  => [DynamicTensor ranked] -> DynamicTensor ranked
+ravelDynamicRanked ld = case ld of
+  [] -> error "ravelDynamicRanked: empty list"
+  d : _ -> case ( someNatVal
+                  $ toInteger (length $ shapeDynamic d)
+                , scalarDynamic d ) of
+    (Just (SomeNat @p1 _), DynamicScalar @rp _) ->
+      let g :: DynamicTensor ranked -> ranked rp p1
+          g (DynamicRanked @rq @q t)
+            | Just Refl <- sameNat (Proxy @q) (Proxy @p1)
+            , Just Refl <- testEquality (typeRep @rq)
+                                        (typeRep @rp) = t
+          g DynamicShaped{} =
+            error "ravelDynamicRanked: DynamicShaped"
+          g (DynamicRankedDummy @rq @sh _ _)
+            | Just Refl <- matchingRank @sh @p1
+            , Just Refl <- testEquality (typeRep @rq)
+                                        (typeRep @rp) =
+              withListShape (Sh.shapeT @sh)
+              $ \(sh :: ShapeInt q1) ->
+                  case sameNat (Proxy @q1) (Proxy @p1) of
+                    Just Refl -> rzero @ranked sh
+                    Nothing ->
+                      error "ravelDynamicRanked: wrong rank"
+          g DynamicShapedDummy{} =
+            error "ravelDynamicRanked: DynamicShapedDummy"
+          g _ = error "ravelDynamicRanked: wrong scalar or rank"
+      in DynamicRanked @rp $ rfromList $ map g ld
+    _ -> error "ravelDynamicRanked: impossible someNatVal"
+
+ravelDomains  -- the inverse of unravelDomains
+  :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+  => [Domains ranked] -> Domains ranked
+ravelDomains = V.fromList . map ravelDynamicRanked
+               . transpose . map V.toList
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 
