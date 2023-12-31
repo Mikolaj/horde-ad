@@ -17,6 +17,7 @@ import qualified TestMnistCNNR
 import qualified TestMnistFCNNR
 import qualified TestMnistRNNR
 import qualified TestMnistRNNS
+import qualified TestRevFwdFold
 
 main :: IO ()
 main = do
@@ -36,7 +37,8 @@ tests =
         (TestGatherSimplified.testTrees
          ++ TestHighRankSimplified.testTrees
          ++ TestConvSimplified.testTrees
-         ++ TestAdaptorSimplified.testTrees)
+         ++ TestAdaptorSimplified.testTrees
+         ++ TestRevFwdFold.testTrees)
     , testGroup "Neural_network_tests"
         (TestMnistFCNNR.testTrees
          ++ TestMnistCNNR.testTrees

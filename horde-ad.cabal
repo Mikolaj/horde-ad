@@ -397,6 +397,7 @@ library testCommonLibrary
                       TestMnistFCNNR
                       TestMnistRNNR
                       TestMnistRNNS
+                      TestRevFwdFold
 
     hs-source-dirs:   test/simplified
 
