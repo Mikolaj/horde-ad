@@ -870,10 +870,10 @@ scalarDynamic (DynamicShaped @r2 _) = DynamicScalar @r2 Proxy
 scalarDynamic (DynamicRankedDummy @r2 _ _) = DynamicScalar @r2 Proxy
 scalarDynamic (DynamicShapedDummy @r2 _ _) = DynamicScalar @r2 Proxy
 
-shapeDynamic :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+shapeDynamic :: RankedTensor ranked
              => DynamicTensor ranked -> [Int]
 shapeDynamic (DynamicRanked t) = shapeToList $ rshape t
-shapeDynamic (DynamicShaped t) = ShapedList.sizedListToList $ sshape t
+shapeDynamic (DynamicShaped @_ @sh _) = Sh.shapeT @sh
 shapeDynamic (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
 shapeDynamic (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
 
@@ -973,7 +973,7 @@ unravelDomains = map V.fromList . transpose
                  . map unravelDynamicRanked . V.toList
 
 ravelDynamicRanked  -- the inverse of unravelDynamicRanked
-  :: forall ranked. (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+  :: forall ranked. RankedTensor ranked
   => [DynamicTensor ranked] -> DynamicTensor ranked
 ravelDynamicRanked ld = case ld of
   [] -> error "ravelDynamicRanked: empty list"
@@ -1005,7 +1005,7 @@ ravelDynamicRanked ld = case ld of
     _ -> error "ravelDynamicRanked: impossible someNatVal"
 
 ravelDomains  -- the inverse of unravelDomains
-  :: (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
+  :: RankedTensor ranked
   => [Domains ranked] -> Domains ranked
 ravelDomains = V.fromList . map ravelDynamicRanked
                . transpose . map V.toList

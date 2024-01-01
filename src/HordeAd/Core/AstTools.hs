@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 -- | An assortment of operations working on AST of the code to be differentiated
 -- or resulting from the differentiation.
@@ -95,12 +96,30 @@ shapeAst = \case
   AstFwd (_var, v) _l _ds -> shapeAst v
   AstFold _f x0 _as -> shapeAst x0
   AstFoldDer _f _df _rf x0 _as -> shapeAst x0
+  AstScan _f x0 as -> lengthAst as + 1 :$ shapeAst x0
+  AstScanDer _f _df _rf x0 as -> lengthAst as + 1 :$ shapeAst x0
+  AstScanD _f x0 as ->
+    let len = case V.uncons as of
+          Nothing -> 0
+          Just (a, _) -> length (shapeDynamicAst a)
+    in len + 1 :$ shapeAst x0
+  AstScanDDer _f _df _rf x0 as ->
+    let len = case V.uncons as of
+          Nothing -> 0
+          Just (a, _) -> length (shapeDynamicAst a)
+    in len + 1 :$ shapeAst x0
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, GoodScalar r) => AstRanked s r (1 + n) -> Int
 lengthAst v1 = case shapeAst v1 of
   ZS -> error "lengthAst: impossible pattern needlessly required"
   k :$ _ -> k
+
+shapeDynamicAst :: DynamicTensor (AstRanked s) -> [Int]
+shapeDynamicAst (DynamicRanked t) = shapeToList $ shapeAst t
+shapeDynamicAst (DynamicShaped @_ @sh _) = Sh.shapeT @sh
+shapeDynamicAst (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
+shapeDynamicAst (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
 
 
 -- * Variable occurrence detection
@@ -154,6 +173,11 @@ varInAst var = \case
     in any f l || any f ds
   AstFold _f x0 as -> varInAst var x0 || varInAst var as
   AstFoldDer _f _df _rf x0 as -> varInAst var x0 || varInAst var as
+  AstScan _f x0 as -> varInAst var x0 || varInAst var as
+  AstScanDer _f _df _rf x0 as -> varInAst var x0 || varInAst var as
+  AstScanD _f x0 as -> varInAst var x0 || any (varInAstDynamic var) as
+  AstScanDDer _f _df _rf x0 as ->
+    varInAst var x0 || any (varInAstDynamic var) as
 
 varInAstDomains :: AstSpan s
                 => AstVarId -> AstDomains s -> Bool

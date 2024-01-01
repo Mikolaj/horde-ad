@@ -34,8 +34,8 @@ module HordeAd.Core.AstSimplify
   , simplifyAst, simplifyAstDomains, simplifyAstS
     -- * Substitution payload and adaptors for AstVarName
   , SubstitutionPayload(..)
-  , substituteAst, substituteAstIndex, substituteAstDomains
-  , substituteAstBool, substituteAstS, substituteAstIndexS
+  , substituteAst, substituteAstIndex, substituteAstDynamic
+  , substituteAstDomains, substituteAstBool, substituteAstS, substituteAstIndexS
   ) where
 
 import Prelude
@@ -226,6 +226,10 @@ simplifyStepNonIndex t = case t of
   Ast.AstFwd{} -> t
   Ast.AstFold{} -> t
   Ast.AstFoldDer{} -> t
+  Ast.AstScan{} -> t
+  Ast.AstScanDer{} -> t
+  Ast.AstScanD{} -> t
+  Ast.AstScanDDer{} -> t
 
 simplifyStepNonIndexS
   :: ()
@@ -425,6 +429,11 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstFwd{} -> Ast.AstIndex v0 ix
   Ast.AstFold{} -> Ast.AstIndex v0 ix  -- normal form
   Ast.AstFoldDer{} -> Ast.AstIndex v0 ix  -- normal form
+  Ast.AstScan{} -> Ast.AstIndex v0 ix  -- normal form
+  Ast.AstScanDer{} -> Ast.AstIndex v0 ix  -- normal form
+  Ast.AstScanD{} -> Ast.AstIndex v0 ix  -- normal form
+  Ast.AstScanDDer{} -> Ast.AstIndex v0 ix  -- normal form
+    -- TODO: when index is constant, rewrite to fold of slice
 
 -- TODO: compared to tletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
@@ -751,6 +760,10 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstFwd{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFold{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
     Ast.AstFoldDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
+    Ast.AstScan{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
+    Ast.AstScanDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
+    Ast.AstScanD{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
+    Ast.AstScanDDer{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- normal form
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) -> Bool
@@ -1499,6 +1512,10 @@ astPrimalPart t = case t of
   Ast.AstFwd{} -> Ast.AstPrimalPart t  -- the other only normal form
   Ast.AstFold{} -> Ast.AstPrimalPart t
   Ast.AstFoldDer{} -> Ast.AstPrimalPart t
+  Ast.AstScan{} -> Ast.AstPrimalPart t
+  Ast.AstScanDer{} -> Ast.AstPrimalPart t
+  Ast.AstScanD{} -> Ast.AstPrimalPart t
+  Ast.AstScanDDer{} -> Ast.AstPrimalPart t
 
 astPrimalPartS :: (GoodScalar r, Sh.Shape sh)
                => AstShaped FullSpan r sh -> AstShaped PrimalSpan r sh
@@ -1572,6 +1589,10 @@ astDualPart t = case t of
   Ast.AstFwd{} -> Ast.AstDualPart t
   Ast.AstFold{} -> Ast.AstDualPart t
   Ast.AstFoldDer{} -> Ast.AstDualPart t
+  Ast.AstScan{} -> Ast.AstDualPart t
+  Ast.AstScanDer{} -> Ast.AstDualPart t
+  Ast.AstScanD{} -> Ast.AstDualPart t
+  Ast.AstScanDDer{} -> Ast.AstDualPart t
 
 astDualPartS :: (GoodScalar r, Sh.Shape sh)
              => AstShaped FullSpan r sh -> AstShaped DualSpan r sh
@@ -1844,6 +1865,23 @@ simplifyAst t = case t of
                    (varDx, varDa, varn1, varm1, simplifyAst ast1)
                    (varDt2, nvar2, mvar2, simplifyAstDomains doms)
                    (simplifyAst x0) (simplifyAst as)
+  Ast.AstScan (nvar, mvar, v) x0 as ->
+    Ast.AstScan (nvar, mvar, simplifyAst v) (simplifyAst x0) (simplifyAst as)
+  Ast.AstScanDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                 (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstScanDer (nvar, mvar, simplifyAst v)
+                   (varDx, varDa, varn1, varm1, simplifyAst ast1)
+                   (varDt2, nvar2, mvar2, simplifyAstDomains doms)
+                   (simplifyAst x0) (simplifyAst as)
+  Ast.AstScanD (nvar, mvar, v) x0 as ->
+    Ast.AstScanD (nvar, mvar, simplifyAst v) (simplifyAst x0)
+                 (V.map simplifyAstDynamic as)
+  Ast.AstScanDDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                  (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstScanDDer (nvar, mvar, simplifyAst v)
+                    (varDx, varDa, varn1, varm1, simplifyAst ast1)
+                    (varDt2, nvar2, mvar2, simplifyAstDomains doms)
+                    (simplifyAst x0) (V.map simplifyAstDynamic as)
 
 simplifyAstDynamic
   :: AstSpan s
@@ -2227,6 +2265,13 @@ substituteAstIndex
 substituteAstIndex i (AstVarName varId) ix =
   fromMaybe ix $ substitute1AstIndex i varId ix
 
+substituteAstDynamic
+  :: (GoodScalar r2, AstSpan s, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 y -> AstDynamic s
+  -> AstDynamic s
+substituteAstDynamic i (AstVarName varId) v1 =
+  fromMaybe v1 $ substitute1AstDynamic i varId v1
+
 substituteAstDomains
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
   => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 y -> AstDomains s
@@ -2422,6 +2467,24 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mx0, mas) ->
         Just $ Ast.AstFoldDer f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstScan f x0 as ->
+    case (substitute1Ast i var x0, substitute1Ast i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) -> Just $ Ast.AstScan f (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstScanDer f df dr x0 as ->
+    case (substitute1Ast i var x0, substitute1Ast i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstScanDer f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstScanD f x0 as ->
+    case (substitute1Ast i var x0, substitute1Domains i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) -> Just $ Ast.AstScanD f (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstScanDDer f df dr x0 as ->
+    case (substitute1Ast i var x0, substitute1Domains i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstScanDDer f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
 
 substitute1AstIndex
   :: (GoodScalar r2, AstSpan s2)
@@ -2442,6 +2505,16 @@ substitute1AstDynamic i var = \case
   DynamicShaped t -> DynamicShaped <$> substitute1AstS i var t
   DynamicRankedDummy{} -> Nothing
   DynamicShapedDummy{} -> Nothing
+
+substitute1Domains
+  :: (GoodScalar r2, AstSpan s, AstSpan s2)
+  => SubstitutionPayload s2 r2 -> AstVarId -> Domains (AstRanked s)
+  -> Maybe (Domains (AstRanked s))
+substitute1Domains i var args =
+  let margs = V.map (substitute1AstDynamic i var) args
+  in if V.any isJust margs
+     then Just $ V.zipWith fromMaybe args margs
+     else Nothing
 
 substitute1AstDomains
   :: (GoodScalar r2, AstSpan s, AstSpan s2)
