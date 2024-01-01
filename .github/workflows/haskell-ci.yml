@@ -178,29 +178,29 @@ jobs:
           $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH --dependencies-only -j2 --allow-newer all
 #      - name: build w/o tests
 #        run: |
-#          $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks --allow-newer all
+#          $CABAL v2-build $ARG_COMPILER --disable-tests --disable-benchmarks --allow-newer -j1 all
       - name: build
         run: |
-          $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH --allow-newer all --write-ghc-environment-files=always
+          $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH --allow-newer -j1 all --write-ghc-environment-files=always
       - name: minimalTest
         run: |
-          $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH minimalTest --allow-newer --test-options='-p "! /PP/"'
+          $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH minimalTest --allow-newer -j1 --test-options='-p "! /PP/"'
       - name: tests
         run: |
           ln -s $GITHUB_WORKSPACE/source/samplesData ${PKGDIR_horde_ad}
           if [ "${{ matrix.tests-short }}" = true ]; then
-            $CABAL v2-test --allow-newer $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest -ftest_seq --test-options="-p Short_tests"
+            $CABAL v2-test --allow-newer -j1 $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest -ftest_seq --test-options="-p Short_tests"
           else
-            $CABAL v2-test --allow-newer $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest -ftest_seq --test-options="-p Neural_network_tests"
+            $CABAL v2-test --allow-newer -j1 $ARG_COMPILER $ARG_TESTS $ARG_BENCH simplifiedOnlyTest -ftest_seq --test-options="-p Neural_network_tests"
           fi
 #      - name: prod benches
 #        if: ${{ false }}  # disable for now
 #        run: |
-#          $CABAL v2-bench --allow-newer $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortProdForCI
+#          $CABAL v2-bench --allow-newer -j1 $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortProdForCI
 #      - name: mnist benches
 #        if: ${{ false }}  # disable for now
 #        run: |
-#          $CABAL v2-bench --allow-newer $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortMnistForCI
+#          $CABAL v2-bench --allow-newer -j1 $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortMnistForCI
       - name: cabal check
         if: matrix.tests-short
         run: |
@@ -209,8 +209,8 @@ jobs:
       - name: haddock
         if: matrix.tests-short
         run: |
-          $CABAL v2-haddock --allow-newer --disable-documentation $ARG_COMPILER --with-haddock $HADDOCK $ARG_TESTS $ARG_BENCH all
+          $CABAL v2-haddock --allow-newer -j1 --disable-documentation $ARG_COMPILER --with-haddock $HADDOCK $ARG_TESTS $ARG_BENCH all
 #      - name: unconstrained build
 #        run: |
 #          rm -f cabal.project.local
-#          $CABAL v2-build --allow-newer $ARG_COMPILER --disable-tests --disable-benchmarks all
+#          $CABAL v2-build --allow-newer -j1 $ARG_COMPILER --disable-tests --disable-benchmarks all
