@@ -917,9 +917,10 @@ buildFinMaps s0 deltaDt =
                  -> [(ranked r n1, ranked r n1, ranked rm m)]
                  -> (ranked r n1, [ranked rm m])
               rg = mapAccumR $ \cr (cx, x, a) -> rf (cr + cx) (x, a)
-              (cx0, cas) = rg (rzero $ rshape x0) (zip3 cxs (init p) las)
+              (cx0, cas) = assert (length cxs == length p) $
+                           rg (cxs !! 0) (zip3 (drop 1 cxs) (init p) las)
               s2 = evalR sShared cx0 x0'
-          in evalR s2 (rfromList cas) as' -}
+          in evalR s2 (rfromList cas) as'
         ScanR @rm @m @_ @_ @n1 f x0 as _df rf x0' as' ->  -- n1 ~ n - 1
           let cxs :: [ranked r n1]
               cxs = runravelToList cShared
@@ -929,14 +930,25 @@ buildFinMaps s0 deltaDt =
               las = runravelToList as
               crs :: [ranked r n1]
               crs = scanr (\(cx, x, a) cr -> fst $ rf (cr + cx) (x, a))
-                          (rzero $ rshape x0) (zip3 cxs (init p) las)
+                          (cxs !! 0) (zip3 (drop 1 cxs) (init p) las)
               rg :: [ranked r n1] -> [ranked r n1] -> [ranked r n1]
                  -> [ranked rm m]
                  -> [ranked rm m]
               rg = zipWith4 (\cr cx x a -> snd $ rf (cr + cx) (x, a))
-              cas = rg (drop 1 crs) cxs (init p) las
+              cas = rg (drop 1 crs) (drop 1 cxs) (init p) las
               s2 = evalR sShared (crs !! 0) x0'
-          in evalR s2 (rfromList cas) as'
+          in evalR s2 (rfromList cas) as' -}
+        ScanR f x0 as _df rf x0' as' ->
+          let g (asPrefix, as'Prefix) = FoldR f x0 asPrefix _df rf x0' as'Prefix
+              -- starting from 0 would be better, but I'm
+              -- getting "tfromListR: shape ambiguity, no arguments"
+              initsViaSlice t = map (\k -> rslice @ranked 0 k t)
+                                    [1..rlength t]
+              initsViaSliceD t = map (\k -> SliceR 0 k t)
+                                     [1..lengthDelta @ranked t]
+              d = FromListR
+                  $ x0' : map g (zip (initsViaSlice as) (initsViaSliceD as'))
+          in evalR s c d
 {-      Scan2R @rm @m @rp @p @_ @_ @n1 f x0 as bs _df rf x0' as' bs' ->
           let cxs :: [ranked r n1]
               cxs = runravelToList cShared
@@ -1286,7 +1298,8 @@ buildDerivative dimR deltaDt params = do
           let lcas = runravelToList cas
               las = runravelToList as
               p = scanl' f x0 las
-          return $! rfromList $ scanl' df cx0 (zip3 lcas (init p) las)
+          return $! rfromList $ assert (length lcas == length las) $
+                                scanl' df cx0 (zip3 lcas (init p) las)
         ScanDR f x0 as df _rf x0' as' -> do
           cx0 <- evalR x0'
           let evalRDynamicRanked

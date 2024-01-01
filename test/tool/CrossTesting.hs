@@ -327,8 +327,8 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
   -- The formula for comparing derivative and gradient is due to @awf
   -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
-  assertEqualUpToEpsilonWithMark "Forward vs reverse"
-                                 1e-5 (rsum0 derivative) (rdot0 expected vals)
+  assertEqualUpToEpsilonWithMark "Reverse vs forward"
+                                 1e-5 (rdot0 expected vals) (rsum0 derivative)
   -- No Eq instance, so let's compare the text.
   show (simplifyAst6 $ simplifyAst6 astVectSimp)
     @?= show (simplifyAst6 astVectSimp)  -- more simplification is needed
