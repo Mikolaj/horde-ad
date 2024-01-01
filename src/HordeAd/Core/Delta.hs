@@ -850,12 +850,16 @@ buildFinMaps s0 deltaDt =
                      -- too slow: evalR s (rmap0N (* (tscalar c)) v) vd
         ScatterR _sh d f -> evalR s (rgather (shapeDelta d) c f) d
 
-        FromListR ld ->
-          ifoldl' (\ !s2 i d2 ->
-            evalR s2 (rindex cShared (fromIntegral i :. ZI)) d2) sShared ld
-        FromVectorR ld ->
-          V.ifoldl' (\ !s2 i d2 ->
-            evalR s2 (rindex cShared (fromIntegral i :. ZI)) d2) sShared ld
+        FromListR @n1 ld ->
+          let cxs :: [ranked r n1]
+              cxs = runravelToList cShared
+          in foldl' (\ !s2 (cx, d2) -> evalR s2 cx d2) sShared
+             $ zip cxs ld
+        FromVectorR @n1 ld ->
+          let cxs :: [ranked r n1]
+              cxs = runravelToList cShared
+          in foldl' (\ !s2 (cx, d2) -> evalR s2 cx d2) sShared
+             $ zip cxs (V.toList ld)
         ReplicateR _n d -> evalR s (rsum c) d
         AppendR d e -> case rshape c of
           n :$ _ -> let k = lengthDelta d
