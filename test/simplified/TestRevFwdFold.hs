@@ -97,6 +97,16 @@ testTrees =
   , testCase "4Sin0Scan1RevPP" testSin0Scan1RevPP
   , testCase "4Sin0Scan1RevPPForComparison" testSin0Scan1RevPPForComparison
   , testCase "4Sin0ScanFwdPP" testSin0ScanFwdPP
+  , testCase "4Sin0Scan1Rev2PP" testSin0Scan1Rev2PP
+  , testCase "4Sin0Scan1Rev2PPForComparison" testSin0Scan1Rev2PPForComparison
+  , testCase "4Sin0ScanFwd2PP" testSin0ScanFwd2PP
+  , testCase "4Sin0Scan1Rev2" testSin0Scan1Rev2
+  , testCase "4Sin0Scan1Rev2ForComparison" testSin0Scan1Rev2ForComparison
+  , testCase "4Sin0Scan1Rev3PP" testSin0Scan1Rev3PP
+  , testCase "4Sin0Scan1Rev3PPForComparison" testSin0Scan1Rev3PPForComparison
+  , testCase "4Sin0ScanFwd3PP" testSin0ScanFwd3PP
+  , testCase "4Sin0Scan1Rev3" testSin0Scan1Rev3
+  , testCase "4Sin0Scan1Rev3ForComparison" testSin0Scan1Rev3ForComparison
   , testCase "4Sin0Scan0fwd" testSin0Scan0fwd
   , testCase "4Sin0Scan1fwd" testSin0Scan1fwd
   , testCase "4Sin0Scan1FwdForComparison" testSin0Scan1FwdForComparison
@@ -831,6 +841,84 @@ testSin0ScanFwdPP = do
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
     @?= "rfromList [rconst 1.1, rconst 1.1 * cos (rconst 1.1), (rconst 1.1 * cos (rconst 1.1)) * cos (sin (rconst 1.1))]"
+
+testSin0Scan1Rev2PP :: Assertion
+testSin0Scan1Rev2PP = do
+  resetVarCounter
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rscan (\x a -> sin x - a) x0
+                           (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
+  printAstPretty IM.empty (simplifyAst6 a1)
+    @?= "cos (rconst 1.1) * (cos (sin (rconst 1.1) - rconst 5.0) * rconst 1.0) + cos (rconst 1.1) * rconst 1.0 + rconst 1.0"
+
+testSin0Scan1Rev2PPForComparison :: Assertion
+testSin0Scan1Rev2PPForComparison = do
+  resetVarCounter
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0]) 1.1
+  printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 a1)
+    @?= "cos (rconst 1.1) * (cos (sin (rconst 1.1) - rconst 5.0) * rconst 1.0) + cos (rconst 1.1) * rconst 1.0 + rconst 1.0"
+
+testSin0ScanFwd2PP :: Assertion
+testSin0ScanFwd2PP = do
+  resetVarCounter
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rscan (\x a -> sin x - a) x0
+                           (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
+  printAstPretty IM.empty (simplifyAst6 a1)
+    @?= "rfromList [rconst 1.1, rconst 1.1 * cos (rconst 1.1) + rconst 0.0 * rconst -1.0, (rconst 1.1 * cos (rconst 1.1) + rconst 0.0 * rconst -1.0) * cos (sin (rconst 1.1) - rconst 5.0) + rconst 0.0 * rconst -1.0]"
+
+testSin0Scan1Rev2 :: Assertion
+testSin0Scan1Rev2 = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [] [1.1961317861865948] :: OR.Array 0 Double)
+    (rev' (\x0 -> rscan (\x a -> sin x - a) x0
+                    (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1)
+
+testSin0Scan1Rev2ForComparison :: Assertion
+testSin0Scan1Rev2ForComparison = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [] [1.1961317861865948] :: OR.Array 0 Double)
+    (rev' (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0]) 1.1)
+
+testSin0Scan1Rev3PP :: Assertion
+testSin0Scan1Rev3PP = do
+  resetVarCounter
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rscan (\x a -> sin x - a) x0
+                           (rfromList [x0 * 5, x0 * 7])) 1.1
+  printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
+    @?= "rletDomainsIn (let v51 = rappend (rconstant (rreplicate 0 (rconst 0.0))) (rappend (rfromList [rconst -1.0 * (cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) * rconst 1.0), rconst -1.0 * rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0)))) + rappend (rconstant (rreplicate 0 (rconst 0.0))) (rappend (rreplicate 1 (rconst -1.0 * rconst 1.0)) (rconstant (rreplicate 1 (rconst 0.0)))) in (rconst 5.0 * v51 ! [0] + rconst 7.0 * v51 ! [1] + cos (rconst 1.1) * (cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) * rconst 1.0) + cos (rconst 1.1) * rconst 1.0 + rconst 1.0)) (\\[dret] -> dret)"
+
+testSin0Scan1Rev3PPForComparison :: Assertion
+testSin0Scan1Rev3PPForComparison = do
+  resetVarCounter
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rfromList [sin (sin x0 - x0 * 5) - x0 * 7, sin x0 - x0 * 5, x0]) 1.1
+  printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
+    @?= "rletDomainsIn (let x11 = cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) * rconst 1.0 in (cos (rconst 1.1) * x11 + rconst 5.0 * (rconst -1.0 * x11) + rconst 7.0 * (rconst -1.0 * rconst 1.0) + cos (rconst 1.1) * rconst 1.0 + rconst 5.0 * (rconst -1.0 * rconst 1.0) + rconst 1.0)) (\\[dret] -> dret)"
+
+testSin0ScanFwd3PP :: Assertion
+testSin0ScanFwd3PP = do
+  resetVarCounter
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rscan (\x a -> sin x - a) x0
+                           (rfromList [x0 * 5, x0 * 7])) 1.1
+  printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
+    @?= "let v30 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0] in rfromList [rconst 1.1, rconst 1.1 * cos (rconst 1.1) + v30 ! [0] * rconst -1.0, (rconst 1.1 * cos (rconst 1.1) + v30 ! [0] * rconst -1.0) * cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) + v30 ! [1] * rconst -1.0]"
+
+testSin0Scan1Rev3 :: Assertion
+testSin0Scan1Rev3 = do
+  assertEqualUpToEpsilon' 1e-5
+    (OR.fromList [] [-10.076255083995068] :: OR.Array 0 Double)
+    (rev' (\x0 -> rscan (\x a -> sin x - a) x0
+                           (rfromList [x0 * 5, x0 * 7])) 1.1)
+
+testSin0Scan1Rev3ForComparison :: Assertion
+testSin0Scan1Rev3ForComparison = do
+  assertEqualUpToEpsilon' 1e-5
+    (OR.fromList [] [-10.076255083995068] :: OR.Array 0 Double)
+    (rev' (\x0 -> rfromList [sin (sin x0 - x0 * 5) - x0 * 7, sin x0 - x0 * 5, x0]) 1.1)
 
 testSin0Scan0fwd :: Assertion
 testSin0Scan0fwd = do
