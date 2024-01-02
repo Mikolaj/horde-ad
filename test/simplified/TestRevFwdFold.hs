@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestRevFwdFold
   ( testTrees
   ) where
@@ -10,6 +12,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat, type (+))
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -112,6 +115,9 @@ testTrees =
   , testCase "4Sin0Scan1FwdForComparison" testSin0Scan1FwdForComparison
   , testCase "4Sin0Scan8fwd" testSin0Scan8fwd
   , testCase "4Sin0Scan8fwd2" testSin0Scan8fwd2
+  , testCase "4SinUnitriangular0PP" testUnitriangular0PP
+  , testCase "4SinUnitriangular1PP" testUnitriangular1PP
+  , testCase "4SinUnitriangular2PP" testUnitriangular2PP
   ]
 
 foo :: RealFloat a => (a, a, a) -> a
@@ -823,7 +829,7 @@ testSin0Scan1RevPP = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "cos (rconst 1.1) * (cos (sin (rconst 1.1)) * rconst 1.0) + cos (rconst 1.1) * rconst 1.0 + rconst 1.0"
+    @?= "cos (rconst 1.1) * (cos (sin (rconst 1.1)) * rconst 1.0) + rconst 1.0 + cos (rconst 1.1) * rconst 1.0"
 
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
@@ -849,7 +855,7 @@ testSin0Scan1Rev2PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "cos (rconst 1.1) * (cos (sin (rconst 1.1) - rconst 5.0) * rconst 1.0) + cos (rconst 1.1) * rconst 1.0 + rconst 1.0"
+    @?= "cos (rconst 1.1) * (cos (sin (rconst 1.1) - rconst 5.0) * rconst 1.0) + rconst 1.0 + cos (rconst 1.1) * rconst 1.0"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
@@ -888,7 +894,7 @@ testSin0Scan1Rev3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
-    @?= "rletDomainsIn (let v43 = rappend (rfromList [rconst -1.0 * (cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) * rconst 1.0), rconst -1.0 * rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) + rappend (rreplicate 1 (rconst -1.0 * rconst 1.0)) (rconstant (rreplicate 1 (rconst 0.0))) in (rconst 5.0 * v43 ! [0] + rconst 7.0 * v43 ! [1] + cos (rconst 1.1) * (cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) * rconst 1.0) + cos (rconst 1.1) * rconst 1.0 + rconst 1.0)) (\\[dret] -> dret)"
+    @?= "rletDomainsIn (let v43 = rappend (rfromList [rconst -1.0 * (cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) * rconst 1.0), rconst -1.0 * rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) + rappend (rreplicate 1 (rconst -1.0 * rconst 1.0)) (rconstant (rreplicate 1 (rconst 0.0))) + rconstant (rreplicate 2 (rconst 0.0)) in (rconst 5.0 * v43 ! [0] + rconst 7.0 * v43 ! [1] + cos (rconst 1.1) * (cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) * rconst 1.0) + rconst 1.0 + cos (rconst 1.1) * rconst 1.0)) (\\[dret] -> dret)"
 
 testSin0Scan1Rev3PPForComparison :: Assertion
 testSin0Scan1Rev3PPForComparison = do
@@ -970,3 +976,46 @@ testSin0Scan8fwd2 = do
   assertEqualUpToEpsilon 1e-10
     (Flip $ OR.fromList [] [324.086730481586])
     (crev h 1.1)
+
+testUnitriangular0PP :: Assertion
+testUnitriangular0PP = do
+  resetVarCounter
+  let k = 1000000
+      a1 = rbuild1 @(AstRanked FullSpan) @Double @1 k
+           $ \i -> rbuild1 k
+           $ \j -> ifF (i <=. j) 0 1
+  printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
+    @?= "rconstant (rgather [1000000,1000000] (rconst (fromList [2] [0.0,1.0])) (\\[i3, i2] -> [ifF (i3 <=. i2) 0 1]))"
+
+unitriangular1 :: (KnownNat k, GoodScalar rk, ADReady ranked)
+               => Int -> ShapeInt k -> ranked rk (2 + k)
+unitriangular1 k sh =
+  rbuild1 k $ \i ->
+    rbuild1 k $ \j ->
+      ifF (i <=. j) (rreplicate0N sh 0) (rreplicate0N sh 1)
+
+testUnitriangular1PP :: Assertion
+testUnitriangular1PP = do
+  resetVarCounter
+  let sh = 200 :$ 300 :$ 600 :$ ZS
+      k = 1000000
+      a1 = unitriangular1 @3 @Double @(AstRanked FullSpan) k sh
+  printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
+    @?= "rconstant (rgather [1000000,1000000,200,300,600] (rfromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 (rconst 0.0))))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 (rconst 1.0)))))]) (\\[i5, i6] -> [ifF (i5 <=. i6) 0 1, i5, i6]))"
+
+unitriangular2 :: (KnownNat k, GoodScalar rk, ADReady ranked)
+               => Int -> ShapeInt k -> ranked rk (2 + k)
+unitriangular2 k sh =
+  rgather @_ @_ @_ @_ @1 (k :$ k :$ sh)
+          (rfromList [ rreplicate0N sh 0
+                     , rreplicate0N sh 1 ])
+          (\(i :. j :. ZI) -> (ifF (i <. j) 0 1) :. ZI)
+
+testUnitriangular2PP :: Assertion
+testUnitriangular2PP = do
+  resetVarCounter
+  let sh = 200 :$ 300 :$ 600 :$ ZS
+      k = 1000000
+      a1 = unitriangular2 @3 @Double @(AstRanked FullSpan) k sh
+  printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
+    @?= "rconstant (rgather [1000000,1000000,200,300,600] (rfromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 (rconst 0.0))))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 (rconst 1.0)))))]) (\\[i9, i10] -> [ifF (i9 <. i10) 0 1, i9, i10]))"

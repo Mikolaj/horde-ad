@@ -920,38 +920,41 @@ buildFinMaps s0 deltaDt =
                   $ x0' : map g (zip (initsViaSlice as) (initsViaSliceD as'))
           in evalR s c d -}
         ScanR @rm @m @_ @_ @n1 f x0 as _df rf x0' as' -> case rshape as of
-          len :$ rest ->
-            let las0 :: [ranked rm m]
+          width :$ shm ->
+            let !_A1 = assert (length lp == width + 1) ()
+                !_A2 = assert (rlength as == width) ()
+                !_A3 = assert (rlength cShared == width + 1) ()
+                las0 :: [ranked rm m]
                 las0 = runravelToList as
-                !_A1 = assert (length las0 == len) ()
-                p0 :: [ranked r n1]
-                p0 = scanl' f x0 las0
-                  -- TODO: take p0 from primal component and explicitly share
-                !_A2 = assert (length p0 == len + 1) ()
-                !_A3 = assert (rlength cShared == len + 1) ()
-                -- TODO: The type of g makes it unsuitable for rfold,
-                -- so the AST result is linear in rlenght of as, not in size
-                -- of the as/as' terms. So not even linear in AST trace size,
-                -- but in number of cells of trace. So this is still unrolling
-                -- though not vs number of iterations, but size of arguments.
-                g :: EvalState ranked shaped -> Int -> EvalState ranked shaped
-                g !sg k =
-                  let p = take k p0
+                lp :: [ranked r n1]
+                lp = scanl' f x0 las0
+                  -- TODO: take lp from primal component and explicitly share
+                g1 :: Int -> [ranked r n1]
+                g1 k =
+                  let p = take k lp
                       las = take k las0
                       cx = cShared ! (fromIntegral k :. ZI)
-                      padding = rzero (len - k :$ rest)
                       crs :: [ranked r n1]
                       crs = scanr (\(x, a) cr -> fst $ rf cr (x, a))
                                   cx (zip p las)
+                  in crs
+                g1s = map g1 [1..width]
+                crsum = foldl' (+) (cShared ! (0 :. ZI)) (map (!! 0) g1s)
+                g2 :: ranked rm (1 + m) -> Int -> ranked rm (1 + m)
+                g2 !acc k =
+                  let p = take k lp
+                      las = take k las0
+                      padding = rzero (width - k :$ shm)
                       rg :: [ranked r n1] -> [ranked r n1] -> [ranked rm m]
                          -> [ranked rm m]
                       rg = zipWith3 (\cr x a -> snd $ rf cr (x, a))
-                      cas = rg (drop 1 crs) p las
-                      sg2 = evalR sg (crs !! 0) x0'
+                      cas = rg (drop 1 $ g1s !! (k - 1)) p las
                       c22 = rappend (rfromList cas) padding
-                  in evalR sg2 c22 as'
-                s2 = evalR sShared (cShared ! (0 :. ZI)) x0'
-            in foldl' g s2 [1..len]  -- meta fold, not rfold ever! :(
+                  in c22 + acc
+                c22sum = foldl' g2 (rzero (rshape as)) [1..width]
+                s2 = evalR sShared crsum x0'
+                s3 = evalR s2 c22sum as'
+            in s3
           ZS -> error "evalR: impossible pattern needlessly required"
 -- The following won't work, because i in slice needs to be statically knownn.
 -- Indeed, vectorization would break down due to this i, even if baked
