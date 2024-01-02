@@ -96,10 +96,10 @@ testTrees =
   , testCase "4Sin0Scan8rev2" testSin0Scan8rev2
   , testCase "4Sin0Scan1RevPP" testSin0Scan1RevPP
   , testCase "4Sin0Scan1RevPPForComparison" testSin0Scan1RevPPForComparison
+  , testCase "4Sin0ScanFwdPP" testSin0ScanFwdPP
   , testCase "4Sin0Scan0fwd" testSin0Scan0fwd
   , testCase "4Sin0Scan1fwd" testSin0Scan1fwd
   , testCase "4Sin0Scan1FwdForComparison" testSin0Scan1FwdForComparison
-  , testCase "4Sin0ScanFwdPP" testSin0ScanFwdPP
   , testCase "4Sin0Scan8fwd" testSin0Scan8fwd
   , testCase "4Sin0Scan8fwd2" testSin0Scan8fwd2
   ]
@@ -811,17 +811,26 @@ testSin0Scan1RevPP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
-                           (rconst (OR.constant @Double @1 [1] 42))) 1.1
+                           (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "cos (rconst 1.1) * rconst 1.0 + rconst 1.0"
+    @?= "cos (rconst 1.1) * (cos (sin (rconst 1.1)) * rconst 1.0) + cos (rconst 1.1) * rconst 1.0 + rconst 1.0"
 
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
-                 (\x0 -> rfromList [x0, sin x0]) 1.1
+                 (\x0 -> rfromList [sin (sin x0), sin x0, x0]) 1.1
+  printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 a1)
+    @?= "cos (rconst 1.1) * (cos (sin (rconst 1.1)) * rconst 1.0) + cos (rconst 1.1) * rconst 1.0 + rconst 1.0"
+
+testSin0ScanFwdPP :: Assertion
+testSin0ScanFwdPP = do
+  resetVarCounter
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rscan (\x _a -> sin x) x0
+                           (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "cos (rconst 1.1) * rconst 1.0 + rconst 1.0"
+    @?= "rfromList [rconst 1.1, rconst 1.1 * cos (rconst 1.1), (rconst 1.1 * cos (rconst 1.1)) * cos (sin (rconst 1.1))]"
 
 testSin0Scan0fwd :: Assertion
 testSin0Scan0fwd = do
@@ -848,15 +857,6 @@ testSin0Scan1FwdForComparison = do
     (Flip $ OR.fromList [2] [1.1,0.4989557335681351])
     (rfwd1 @(Flip OR.Array) @Double @0 @1
     (\x0 -> rfromList [x0, sin x0]) 1.1)
-
-testSin0ScanFwdPP :: Assertion
-testSin0ScanFwdPP = do
-  resetVarCounter
-  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
-                 (\x0 -> rscan (\x _a -> sin x) x0
-                           (rconst (OR.constant @Double @1 [1] 42))) 1.1
-  printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "rfromList [rconst 1.1, rconst 1.1 * cos (rconst 1.1)]"
 
 testSin0Scan8fwd :: Assertion
 testSin0Scan8fwd = do
