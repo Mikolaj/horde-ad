@@ -881,10 +881,10 @@ buildFinMaps s0 deltaDt =
         ReshapeR _sh d -> evalR s (rreshape (shapeDelta d) c) d
         GatherR _sh d f -> evalR s (rscatter (shapeDelta d) c f) d
 {-      FoldR @rm @m f x0 as _df rf x0' as' ->
-          let p :: [ranked r n]
-              p = scanl' f x0 las
-              las :: [ranked rm m]
+          let las :: [ranked rm m]
               las = runravelToList as
+              p :: [ranked r n]
+              p = scanl' f x0 las
               rg :: ranked r n
                  -> [(ranked r n, ranked rm m)]
                  -> (ranked r n, [ranked rm m])
@@ -893,10 +893,10 @@ buildFinMaps s0 deltaDt =
               s2 = evalR sShared cx0 x0'
           in evalR s2 (rfromList cas) as' -}
         FoldR @rm @m f x0 as _df rf x0' as' ->
-          let p :: [ranked r n]
-              p = scanl' f x0 las
-              las :: [ranked rm m]
+          let las :: [ranked rm m]
               las = runravelToList as
+              p :: [ranked r n]
+              p = scanl' f x0 las
               crs :: [ranked r n]
               crs = scanr (\(x, a) cr -> fst $ rf cr (x, a))
                           cShared (zip (init p) las)
@@ -906,39 +906,7 @@ buildFinMaps s0 deltaDt =
               cas = rg (drop 1 crs) (init p) las
               s2 = evalR sShared (crs !! 0) x0'
           in evalR s2 (rfromList cas) as'
-{-      ScanR @rm @m @_ @_ @n1 f x0 as _df rf x0' as' ->  -- n1 ~ n - 1
-          let cxs :: [ranked r n1]
-              cxs = runravelToList cShared
-              p :: [ranked r n1]
-              p = scanl' f x0 las
-              las :: [ranked rm m]
-              las = runravelToList as
-              rg :: ranked r n1
-                 -> [(ranked r n1, ranked r n1, ranked rm m)]
-                 -> (ranked r n1, [ranked rm m])
-              rg = mapAccumR $ \cr (cx, x, a) -> rf (cr + cx) (x, a)
-              (cx0, cas) = assert (length cxs == length p) $
-                           rg (cxs !! 0) (zip3 (drop 1 cxs) (init p) las)
-              s2 = evalR sShared cx0 x0'
-          in evalR s2 (rfromList cas) as'
-        ScanR @rm @m @_ @_ @n1 f x0 as _df rf x0' as' ->  -- n1 ~ n - 1
-          let cxs :: [ranked r n1]
-              cxs = runravelToList cShared
-              p :: [ranked r n1]
-              p = scanl' f x0 las
-              las :: [ranked rm m]
-              las = runravelToList as
-              crs :: [ranked r n1]
-              crs = scanr (\(cx, x, a) cr -> fst $ rf (cr + cx) (x, a))
-                          (cxs !! 0) (zip3 (drop 1 cxs) (init p) las)
-              rg :: [ranked r n1] -> [ranked r n1] -> [ranked r n1]
-                 -> [ranked rm m]
-                 -> [ranked rm m]
-              rg = zipWith4 (\cr cx x a -> snd $ rf (cr + cx) (x, a))
-              cas = rg (drop 1 crs) (drop 1 cxs) (init p) las
-              s2 = evalR sShared (crs !! 0) x0'
-          in evalR s2 (rfromList cas) as' -}
-        ScanR f x0 as _df rf x0' as' ->
+{-      ScanR f x0 as _df rf x0' as' ->
           let g (asPrefix, as'Prefix) = FoldR f x0 asPrefix _df rf x0' as'Prefix
               -- starting from 0 would be better, but I'm
               -- getting "tfromListR: shape ambiguity, no arguments"
@@ -948,7 +916,41 @@ buildFinMaps s0 deltaDt =
                                      [1..lengthDelta @ranked t]
               d = FromListR
                   $ x0' : map g (zip (initsViaSlice as) (initsViaSliceD as'))
-          in evalR s c d
+          in evalR s c d -}
+        ScanR @rm @m @_ @_ @n1 f x0 as _df rf x0' as' -> case rshape as of
+          len :$ rest ->
+            let las0 :: [ranked rm m]
+                las0 = runravelToList as
+                !_A1 = assert (length las0 == len) ()
+                p0 :: [ranked r n1]
+                p0 = scanl' f x0 las0
+                !_A2 = assert (length p0 == len + 1) ()
+                !_A3 = assert (rlength cShared == len + 1) ()
+                -- TODO: The type of g makes it unsuitable for rfold,
+                -- so the AST result is linear in rlenght of as, not in size
+                -- of the as/as' terms. So not even linear in AST trace size,
+                -- but in number of cells of trace. So this is still unrolling
+                -- though not vs number of iterations, but size of arguments.
+                g :: EvalState ranked shaped -> Int -> EvalState ranked shaped
+                g !sg k =
+                  let p = take k p0
+                      las = take k las0
+                      cx = cShared ! (fromIntegral k :. ZI)
+                      padding = rzero (len - k :$ rest)
+                      crs :: [ranked r n1]
+                      crs = scanr (\(x, a) cr -> fst $ rf cr (x, a))
+                                  cx (zip p las)
+                      rg :: [ranked r n1] -> [ranked r n1] -> [ranked rm m]
+                         -> [ranked rm m]
+                      rg = zipWith3 (\cr x a -> snd $ rf cr (x, a))
+                      cas = rg (drop 1 crs) p las
+                      sg2 = evalR sg (crs !! 0) x0'
+                      c22 = rappend (rfromList cas) padding
+                  in evalR sg2 c22 as'
+                s2 = evalR sShared (cShared ! (0 :. ZI)) x0'
+            in foldl' g s2 [1..len]  -- meta fold, not rfold ever! :(
+          ZS -> error "evalR: impossible pattern needlessly required"
+{- TODO: wrong: -}
 {-      Scan2R @rm @m @rp @p @_ @_ @n1 f x0 as bs _df rf x0' as' bs' ->
           let cxs :: [ranked r n1]
               cxs = runravelToList cShared
@@ -969,6 +971,7 @@ buildFinMaps s0 deltaDt =
               s2 = evalR sShared (crs !! 0) x0'
               s3 = evalR s2 (rfromList cas) as'
           in evalR s3 (rfromList cbs) bs' -}
+{- TODO: wrong: -}
         ScanDR @_ @_ @n1 f x0 as _df rf x0' as' ->  -- n1 ~ n - 1
           let cxs :: [ranked r n1]
               cxs = runravelToList cShared
