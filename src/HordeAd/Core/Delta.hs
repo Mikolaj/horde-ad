@@ -897,6 +897,8 @@ buildFinMaps s0 deltaDt =
               las = runravelToList as
               p :: [ranked r n]
               p = scanl' f x0 las
+                -- TODO: get this as arg of FoldR, explicitly sharing
+                -- the last element with the primal
               crs :: [ranked r n]
               crs = scanr (\(x, a) cr -> fst $ rf cr (x, a))
                           cShared (zip (init p) las)
@@ -924,6 +926,7 @@ buildFinMaps s0 deltaDt =
                 !_A1 = assert (length las0 == len) ()
                 p0 :: [ranked r n1]
                 p0 = scanl' f x0 las0
+                  -- TODO: take p0 from primal component and explicitly share
                 !_A2 = assert (length p0 == len + 1) ()
                 !_A3 = assert (rlength cShared == len + 1) ()
                 -- TODO: The type of g makes it unsuitable for rfold,
@@ -950,6 +953,10 @@ buildFinMaps s0 deltaDt =
                 s2 = evalR sShared (cShared ! (0 :. ZI)) x0'
             in foldl' g s2 [1..len]  -- meta fold, not rfold ever! :(
           ZS -> error "evalR: impossible pattern needlessly required"
+-- The following won't work, because i in slice needs to be statically knownn.
+-- Indeed, vectorization would break down due to this i, even if baked
+-- into the semantics of rfold, etc.
+-- rscan f x0 as = rbuild1 (rlength as + 1) $ \i -> rfold f x0 (rslice 0 i as)
 {- TODO: wrong: -}
 {-      Scan2R @rm @m @rp @p @_ @_ @n1 f x0 as bs _df rf x0' as' bs' ->
           let cxs :: [ranked r n1]
