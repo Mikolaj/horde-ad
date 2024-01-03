@@ -473,7 +473,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rscan f (D l1 x0 x0') (D l2 as as') =
     let shn = rshape x0
         _ws :: (Int, ShapeInt m)
-        _ws@(width, shm) = case rshape as of
+        _ws@(_, shm) = case rshape as of
           hd :$ tl -> (hd, tl)
           _ -> error "rfoldDer: impossible pattern needlessly required"
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
@@ -510,7 +510,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rscanDer f df0 rf0 (D l1 x0 x0') (D l2 as as') =
     let shn = rshape x0
         _ws :: (Int, ShapeInt m)
-        _ws@(width, shm) = case rshape as of
+        _ws@(_, shm) = case rshape as of
           hd :$ tl -> (hd, tl)
           _ -> error "rfoldDer: impossible pattern needlessly required"
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]

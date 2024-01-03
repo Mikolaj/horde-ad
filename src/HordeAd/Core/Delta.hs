@@ -501,6 +501,7 @@ class DualPart (f :: TensorType ty) where
     -> (AstBindingsD (RankedOf f), f r y)
 
 instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+         , DomainsTensor ranked (ShapedOf ranked)
          , RankedOf (ShapedOf ranked) ~ ranked, RankedOf ranked ~ ranked )
          => DualPart @Nat ranked where
   type Dual ranked = DeltaR ranked
@@ -510,6 +511,7 @@ instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
 gradientDtR
   :: ( KnownNat y, GoodScalar r
      , RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+     , DomainsTensor ranked (ShapedOf ranked)
      , RankedOf (ShapedOf ranked) ~ ranked )
   => DomainsOD
   -> ranked r y -> Maybe (ranked r y) -> DeltaR ranked r y
@@ -518,12 +520,12 @@ gradientDtR !parameters0 value !mdt !deltaTopLevel =
   let dt = fromMaybe (rreplicate0N (rshape value) 1) mdt
       deltaDt = DeltaDtR dt deltaTopLevel
   in gradientFromDelta parameters0 deltaDt
+{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
   => DomainsOD -> Flip OR.Array Double y -> Maybe (Flip OR.Array Double y)
   -> DeltaR (Flip OR.Array) Double y
   -> (AstBindingsD (Flip OR.Array), Domains (Flip OR.Array) ) #-}
-{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtR
   :: KnownNat y
   => DomainsOD -> AstRanked PrimalSpan Double y
@@ -549,6 +551,7 @@ derivativeFromDeltaR dim deltaTopLevel ds =
     (_, DeltaDtS{}) -> error "derivativeFromDeltaR"
 
 instance ( RankedTensor (RankedOf shaped), ShapedTensor shaped
+         , DomainsTensor (RankedOf shaped) shaped
          , ShapedOf (RankedOf shaped) ~ shaped )
          => DualPart @[Nat] shaped where
   type Dual shaped = DeltaS shaped
@@ -559,6 +562,7 @@ gradientDtS
   :: forall shaped r y.
      ( Sh.Shape y, GoodScalar r
      , RankedTensor (RankedOf shaped), ShapedTensor shaped
+     , DomainsTensor (RankedOf shaped) shaped
      , ShapedOf (RankedOf shaped) ~ shaped )
   => DomainsOD
   -> Maybe (shaped r y) -> DeltaS shaped r y
@@ -567,12 +571,12 @@ gradientDtS !parameters0 !mdt !deltaTopLevel =
   let dt = fromMaybe 1 mdt
       deltaDt = DeltaDtS dt deltaTopLevel
   in gradientFromDelta parameters0 deltaDt
+{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtS
   :: Sh.Shape y
   => DomainsOD -> Maybe (Flip OS.Array Double y)
   -> DeltaS (Flip OS.Array) Double y
   -> (AstBindingsD (Flip OR.Array), Domains (Flip OR.Array)) #-}
-{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientDtS
   :: Sh.Shape y
   => DomainsOD -> Maybe (AstShaped PrimalSpan Double y)
@@ -702,7 +706,8 @@ data DeltaBinding :: RankedTensorType -> ShapedTensorType -> Type where
 -- value (usually set to @1@) is given in the @DeltaDt ranked r@ parameter.
 gradientFromDelta
   :: forall ranked shaped r.
-     ( GoodScalar r, RankedTensor ranked, ShapedTensor shaped
+     ( GoodScalar r
+     , RankedTensor ranked, ShapedTensor shaped, DomainsTensor ranked shaped
      , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => DomainsOD -> DeltaDt ranked shaped r
   -> (AstBindingsD ranked, Domains ranked)
@@ -740,10 +745,10 @@ gradientFromDelta !parameters0 !deltaDt =
          !gradient = V.fromList $ EM.elems iMap
      in (astBindings, gradient)
 -- The warnings in the following seems spurious. A GHC issue to be opened.
+{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientFromDelta
   :: DomainsOD -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double
   -> (AstBindingsD (Flip OR.Array), DomainsOD) #-}
-{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE gradientFromDelta
   :: DomainsOD -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double
   -> (AstBindingsD (AstRanked PrimalSpan), Domains (AstDynamic PrimalSpan)) #-}
@@ -751,7 +756,8 @@ gradientFromDelta !parameters0 !deltaDt =
 
 buildFinMaps
   :: forall ranked shaped r0.
-     ( GoodScalar r0, RankedTensor ranked, ShapedTensor shaped
+     ( GoodScalar r0
+     , RankedTensor ranked, ShapedTensor shaped, DomainsTensor ranked shaped
      , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
   => EvalState ranked shaped -> DeltaDt ranked shaped r0
   -> EvalState ranked shaped
@@ -909,44 +915,52 @@ buildFinMaps s0 deltaDt =
               -- starting from 0 would be better, but I'm
               -- getting "tfromListR: shape ambiguity, no arguments"
               initsViaSlice t = map (\k -> rslice @ranked 0 k t)
-                                    [1..rlength t]
+                                    [1 .. rlength t]
               initsViaSliceD t = map (\k -> SliceR 0 k t)
-                                     [1..lengthDelta @ranked t]
+                                     [1 .. lengthDelta @ranked t]
               d = FromListR
                   $ x0' : map g (zip (initsViaSlice as) (initsViaSliceD as'))
           in evalR s c d -}
         ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
+          0 :$ _ -> evalR sShared (cShared ! (0 :. ZI)) x0'
           width :$ shm ->
             let !_A1 = assert (rlength p == width + 1) ()
                 !_A2 = assert (rlength as == width) ()
                 !_A3 = assert (rlength cShared == width + 1) ()
+                shn = shapeDelta x0'
                 lp0 :: [ranked r n1]
                 lp0 = runravelToList p
                 las0 :: [ranked rm m]
                 las0 = runravelToList as
-                g1 :: Int -> [ranked r n1]
+                g1 :: Int -> ranked r (1 + n1)
                 g1 k =
-                  let lp = take k lp0
-                      las = take k las0
-                      cx = cShared ! (fromIntegral k :. ZI)
-                      crs :: [ranked r n1]
-                      crs = scanr (\(x, a) cr -> fst $ rf cr (x, a))
-                                  cx (zip lp las)
-                  in crs
-                g1s = map g1 [1..width]
-                crsum = foldl' (+) (cShared ! (0 :. ZI)) (map (!! 0) g1s)
-                g2 :: ranked rm (1 + m) -> Int -> ranked rm (1 + m)
-                g2 !acc k =
-                  let lp = take k lp0
-                      las = take k las0
-                      padding = rzero (width - k :$ shm)
-                      rg :: [ranked r n1] -> [ranked r n1] -> [ranked rm m]
+                  let cx = cShared ! (fromIntegral k :. ZI)
+                      -- is = rfromList $ map fromIntegral [0 .. k - 1]
+                      is = [0 .. k - 1]
+                      -- TODO: this won't work as rscan, because p and as
+                      -- are free variables (type ranked, not any f)
+                      rf1 = scanl' (\cr i ->
+                              fst $ rf cr ( p ! (fromIntegral k
+                                                 - 1 - fromIntegral i :. ZI)
+                                          , as ! (fromIntegral k
+                                                  - 1 - fromIntegral i :. ZI)
+                                          )
+                              ) cx is
+                      rf1r = rreverse $ rfromList rf1
+                      padding = rzero (width - k :$ shn)
+                  in rappend rf1r padding
+                g1s = map g1 [1 .. width]
+                crsum = foldl' (+) (cShared ! (0 :. ZI)) (map (! (0 :. ZI)) g1s)
+                g2 :: Int -> ranked rm (1 + m)
+                g2 k =
+                  let rg :: [ranked r n1] -> [ranked r n1] -> [ranked rm m]
                          -> [ranked rm m]
                       rg = zipWith3 (\cr x a -> snd $ rf cr (x, a))
-                      cas = rg (drop 1 $ g1s !! (k - 1)) lp las
-                      c22 = rappend (rfromList cas) padding
-                  in c22 + acc
-                c22sum = foldl' g2 (rzero (rshape as)) [1..width]
+                      cas = rg (drop 1 $ runravelToList $ g1s !! (k - 1))
+                               (take k lp0) las0
+                      padding = rzero (width - k :$ shm)
+                  in rappend (rfromList cas) padding
+                c22sum = rsum $ rfromList $ map g2 [1 .. width]
                 s2 = evalR sShared crsum x0'
                 s3 = evalR s2 c22sum as'
             in s3
@@ -1181,9 +1195,9 @@ buildFinMaps s0 deltaDt =
         DeltaDtR dt deltaTopLevel -> evalR s0 dt deltaTopLevel
         DeltaDtS dt deltaTopLevel -> evalS s0 dt deltaTopLevel
   in evalFromnMap s1
+{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE buildFinMaps
   :: EvalState (Flip OR.Array) (Flip OS.Array) -> DeltaDt (Flip OR.Array) (Flip OS.Array) Double -> EvalState (Flip OR.Array) (Flip OS.Array) #-}
-{- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE buildFinMaps
   :: EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) -> DeltaDt (AstRanked PrimalSpan) (AstShaped PrimalSpan) Double -> EvalState (AstRanked PrimalSpan) (AstShaped PrimalSpan) #-}
 -}
