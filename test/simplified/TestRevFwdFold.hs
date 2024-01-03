@@ -829,7 +829,7 @@ testSin0Scan1RevPP = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "cos (rconst 1.1) * (cos (sin (rconst 1.1)) * rconst 1.0) + rconst 1.0 + cos (rconst 1.1) * rconst 1.0"
+    @?= "rletDomainsIn (let v46 = rscanDer (\\x37 x38 -> sin x37) (\\x39 x40 x41 x42 -> x39 * cos x41) (\\x43 x44 x45 -> (cos x44 * x43, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in (cos (v46 ! [0]) * (cos (v46 ! [1]) * rconst 1.0) + rconst 1.0 + cos (v46 ! [0]) * rconst 1.0)) (\\[dret] -> dret)"
 
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
@@ -846,7 +846,7 @@ testSin0ScanFwdPP = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "rfromList [rconst 1.1, rconst 1.1 * cos (rconst 1.1), (rconst 1.1 * cos (rconst 1.1)) * cos (sin (rconst 1.1))]"
+    @?= "let v33 = rscanDer (\\x24 x25 -> sin x24) (\\x26 x27 x28 x29 -> x26 * cos x28) (\\x30 x31 x32 -> (cos x31 * x30, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in rfromList [rconst 1.1, rconst 1.1 * cos (v33 ! [0]), (rconst 1.1 * cos (v33 ! [0])) * cos (v33 ! [1])]"
 
 testSin0Scan1Rev2PP :: Assertion
 testSin0Scan1Rev2PP = do
@@ -855,7 +855,7 @@ testSin0Scan1Rev2PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "cos (rconst 1.1) * (cos (sin (rconst 1.1) - rconst 5.0) * rconst 1.0) + rconst 1.0 + cos (rconst 1.1) * rconst 1.0"
+    @?= "rletDomainsIn (let v49 = rscanDer (\\x39 x40 -> sin x39 - x40) (\\x41 x42 x43 x44 -> x41 * cos x43 + x42 * rconst -1.0) (\\x46 x47 x48 -> (cos x47 * x46, rconst -1.0 * x46)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in (cos (v49 ! [0]) * (cos (v49 ! [1]) * rconst 1.0) + rconst 1.0 + cos (v49 ! [0]) * rconst 1.0)) (\\[dret] -> dret)"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
@@ -872,7 +872,7 @@ testSin0ScanFwd2PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "rfromList [rconst 1.1, rconst 1.1 * cos (rconst 1.1) + rconst 0.0 * rconst -1.0, (rconst 1.1 * cos (rconst 1.1) + rconst 0.0 * rconst -1.0) * cos (sin (rconst 1.1) - rconst 5.0) + rconst 0.0 * rconst -1.0]"
+    @?= "let v36 = rscanDer (\\x26 x27 -> sin x26 - x27) (\\x28 x29 x30 x31 -> x28 * cos x30 + x29 * rconst -1.0) (\\x33 x34 x35 -> (cos x34 * x33, rconst -1.0 * x33)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in rfromList [rconst 1.1, rconst 1.1 * cos (v36 ! [0]) + rconst 0.0 * rconst -1.0, (rconst 1.1 * cos (v36 ! [0]) + rconst 0.0 * rconst -1.0) * cos (v36 ! [1]) + rconst 0.0 * rconst -1.0]"
 
 testSin0Scan1Rev2 :: Assertion
 testSin0Scan1Rev2 = do
@@ -894,7 +894,7 @@ testSin0Scan1Rev3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
-    @?= "rletDomainsIn (let v43 = rappend (rfromList [rconst -1.0 * (cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) * rconst 1.0), rconst -1.0 * rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) + rappend (rreplicate 1 (rconst -1.0 * rconst 1.0)) (rconstant (rreplicate 1 (rconst 0.0))) + rconstant (rreplicate 2 (rconst 0.0)) in (rconst 5.0 * v43 ! [0] + rconst 7.0 * v43 ! [1] + cos (rconst 1.1) * (cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) * rconst 1.0) + rconst 1.0 + cos (rconst 1.1) * rconst 1.0)) (\\[dret] -> dret)"
+    @?= "rletDomainsIn (let v54 = rscanDer (\\x44 x45 -> sin x44 - x45) (\\x46 x47 x48 x49 -> x46 * cos x48 + x47 * rconst -1.0) (\\x51 x52 x53 -> (cos x52 * x51, rconst -1.0 * x51)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v55 = rappend (rfromList [rconst -1.0 * (cos (v54 ! [1]) * rconst 1.0), rconst -1.0 * rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) + rappend (rreplicate 1 (rconst -1.0 * rconst 1.0)) (rconstant (rreplicate 1 (rconst 0.0))) + rconstant (rreplicate 2 (rconst 0.0)) in (rconst 5.0 * v55 ! [0] + rconst 7.0 * v55 ! [1] + cos (v54 ! [0]) * (cos (v54 ! [1]) * rconst 1.0) + rconst 1.0 + cos (v54 ! [0]) * rconst 1.0)) (\\[dret] -> dret)"
 
 testSin0Scan1Rev3PPForComparison :: Assertion
 testSin0Scan1Rev3PPForComparison = do
@@ -911,7 +911,7 @@ testSin0ScanFwd3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
-    @?= "let v30 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0] in rfromList [rconst 1.1, rconst 1.1 * cos (rconst 1.1) + v30 ! [0] * rconst -1.0, (rconst 1.1 * cos (rconst 1.1) + v30 ! [0] * rconst -1.0) * cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) + v30 ! [1] * rconst -1.0]"
+    @?= "let v39 = rscanDer (\\x29 x30 -> sin x29 - x30) (\\x31 x32 x33 x34 -> x31 * cos x33 + x32 * rconst -1.0) (\\x36 x37 x38 -> (cos x37 * x36, rconst -1.0 * x36)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v42 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0] in rfromList [rconst 1.1, rconst 1.1 * cos (v39 ! [0]) + v42 ! [0] * rconst -1.0, (rconst 1.1 * cos (v39 ! [0]) + v42 ! [0] * rconst -1.0) * cos (v39 ! [1]) + v42 ! [1] * rconst -1.0]"
 
 testSin0Scan1Rev3 :: Assertion
 testSin0Scan1Rev3 = do

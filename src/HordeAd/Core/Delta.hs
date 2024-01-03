@@ -231,8 +231,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
   FoldR :: (GoodScalar rm, KnownNat m)
-        => (ranked rn n -> ranked rm m -> ranked rn n)
-        -> ranked rn n -> ranked rm (1 + m)
+        => ranked rn (1 + n) -> ranked rm (1 + m)
         -> (ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
             -> ranked rn n)
         -> (ranked rn n -> (ranked rn n, ranked rm m)
@@ -243,8 +242,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
     -- ^ Fold over the outermost dimension of a tensor. The function,
     -- in the first argument, should be strict in the accumulator.
   ScanR :: (GoodScalar rm, KnownNat m)
-        => (ranked rn n -> ranked rm m -> ranked rn n)
-        -> ranked rn n -> ranked rm (1 + m)
+        => ranked rn (1 + n) -> ranked rm (1 + m)
         -> (ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
             -> ranked rn n)
         -> (ranked rn n -> (ranked rn n, ranked rm m)
@@ -452,8 +450,8 @@ shapeDelta = \case
   TransposeR perm d -> backpermutePrefixShape perm (shapeDelta d)
   ReshapeR sh _ -> sh
   GatherR sh _ _ -> sh
-  FoldR _f x0 _as _df _rf _x0' _as' -> rshape x0
-  ScanR _f x0 as _df _rf _x0' _as' -> rlength as :$ rshape x0
+  FoldR _p _as _df _rf x0' _as' -> shapeDelta x0'
+  ScanR p _as _df _rf _x0' _as' -> rshape p
   ScanDR _f x0 as _df _rf _x0' _as' -> case V.unsnoc as of
     Nothing -> error "shapeDelta: empty domains"
     Just (_, d) -> length (shapeDynamic d) :$ rshape x0
@@ -892,20 +890,18 @@ buildFinMaps s0 deltaDt =
               (cx0, cas) = rg cShared (zip (init p) las)
               s2 = evalR sShared cx0 x0'
           in evalR s2 (rfromList cas) as' -}
-        FoldR @rm @m f x0 as _df rf x0' as' ->
-          let las :: [ranked rm m]
+        FoldR @rm @m p as _df rf x0' as' ->
+          let lp :: [ranked r n]
+              lp = runravelToList p
+              las :: [ranked rm m]
               las = runravelToList as
-              p :: [ranked r n]
-              p = scanl' f x0 las
-                -- TODO: get this as arg of FoldR, explicitly sharing
-                -- the last element with the primal
               crs :: [ranked r n]
               crs = scanr (\(x, a) cr -> fst $ rf cr (x, a))
-                          cShared (zip (init p) las)
+                          cShared (zip (init lp) las)
               rg :: [ranked r n] -> [ranked r n] -> [ranked rm m]
                  -> [ranked rm m]
               rg = zipWith3 (\cr x a -> snd $ rf cr (x, a))
-              cas = rg (drop 1 crs) (init p) las
+              cas = rg (drop 1 crs) (init lp) las
               s2 = evalR sShared (crs !! 0) x0'
           in evalR s2 (rfromList cas) as'
 {-      ScanR f x0 as _df rf x0' as' ->
@@ -919,36 +915,35 @@ buildFinMaps s0 deltaDt =
               d = FromListR
                   $ x0' : map g (zip (initsViaSlice as) (initsViaSliceD as'))
           in evalR s c d -}
-        ScanR @rm @m @_ @_ @n1 f x0 as _df rf x0' as' -> case rshape as of
+        ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
           width :$ shm ->
-            let !_A1 = assert (length lp == width + 1) ()
+            let !_A1 = assert (rlength p == width + 1) ()
                 !_A2 = assert (rlength as == width) ()
                 !_A3 = assert (rlength cShared == width + 1) ()
+                lp0 :: [ranked r n1]
+                lp0 = runravelToList p
                 las0 :: [ranked rm m]
                 las0 = runravelToList as
-                lp :: [ranked r n1]
-                lp = scanl' f x0 las0
-                  -- TODO: take lp from primal component and explicitly share
                 g1 :: Int -> [ranked r n1]
                 g1 k =
-                  let p = take k lp
+                  let lp = take k lp0
                       las = take k las0
                       cx = cShared ! (fromIntegral k :. ZI)
                       crs :: [ranked r n1]
                       crs = scanr (\(x, a) cr -> fst $ rf cr (x, a))
-                                  cx (zip p las)
+                                  cx (zip lp las)
                   in crs
                 g1s = map g1 [1..width]
                 crsum = foldl' (+) (cShared ! (0 :. ZI)) (map (!! 0) g1s)
                 g2 :: ranked rm (1 + m) -> Int -> ranked rm (1 + m)
                 g2 !acc k =
-                  let p = take k lp
+                  let lp = take k lp0
                       las = take k las0
                       padding = rzero (width - k :$ shm)
                       rg :: [ranked r n1] -> [ranked r n1] -> [ranked rm m]
                          -> [ranked rm m]
                       rg = zipWith3 (\cr x a -> snd $ rf cr (x, a))
-                      cas = rg (drop 1 $ g1s !! (k - 1)) p las
+                      cas = rg (drop 1 $ g1s !! (k - 1)) lp las
                       c22 = rappend (rfromList cas) padding
                   in c22 + acc
                 c22sum = foldl' g2 (rzero (rshape as)) [1..width]
@@ -1298,21 +1293,21 @@ buildDerivative dimR deltaDt params = do
         GatherR sh d f -> do
           t <- evalR d
           return $! rgather sh t f
-        FoldR f x0 as df _rf x0' as' -> do
+        FoldR p as df _rf x0' as' -> do
           cx0 <- evalR x0'
           cas <- evalR as'
           let lcas = runravelToList cas
               las = runravelToList as
-              p = scanl' f x0 las
-          return $! foldl' df cx0 (zip3 lcas (init p) las)
-        ScanR f x0 as df _rf x0' as' -> do
+              lp = runravelToList p
+          return $! foldl' df cx0 (zip3 lcas (init lp) las)
+        ScanR p as df _rf x0' as' -> do
           cx0 <- evalR x0'
           cas <- evalR as'
           let lcas = runravelToList cas
               las = runravelToList as
-              p = scanl' f x0 las
+              lp = runravelToList p
           return $! rfromList $ assert (length lcas == length las) $
-                                scanl' df cx0 (zip3 lcas (init p) las)
+                                scanl' df cx0 (zip3 lcas (init lp) las)
         ScanDR f x0 as df _rf x0' as' -> do
           cx0 <- evalR x0'
           let evalRDynamicRanked

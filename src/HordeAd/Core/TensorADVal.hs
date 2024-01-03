@@ -342,6 +342,7 @@ instance ( Dual shaped ~ DeltaS shaped
 -- * DomainsTensor instance
 
 instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
+         , CRankedIP ranked IsPrimal
          , UnletGradient ranked, UnletGradient shaped )
          => DomainsTensor (ADVal ranked) (ADVal shaped) where
   dmkDomains = id
@@ -391,7 +392,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     -- If the refactoring is really needed, e.g., to avoid computing derivatives
     -- for each nested level of ADVal, we can add UnletGradient to ADReady.
     let shn = rshape x0
-        shm = tailShape $ rshape as
+        _ws :: (Int, ShapeInt m)
+        _ws@(width, shm) = case rshape as of
+          hd :$ tl -> (hd, tl)
+          _ -> error "rfold: impossible pattern needlessly required"
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
         domsToPair :: forall f. ADReady f
                    => Domains f -> (f rn n, f rm m)
@@ -419,9 +423,11 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           domsToPair $ dunDomains @ranked domsOD $ fst
           $ crevOnDomains (Just dt) g
                           (V.fromList [DynamicRanked x, DynamicRanked a])
-    in D (l1 `mergeADShare` l2)
-         (rfold @ranked f x0 as)
-         (FoldR f x0 as df rf x0' as')
+        p :: ranked rn (1 + n)
+        p = rscan f x0 as
+        (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
+    in D l3 (pShared ! (fromIntegral width :. ZI))
+            (FoldR pShared as df rf x0' as')
   rfoldDer :: forall rn rm n m.
               (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -437,7 +443,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     -- are shared. If not, we'd need to extend @rregister@ to also work
     -- on @DomainsOf f@.
     let shn = rshape x0
-        shm = tailShape $ rshape as
+        _ws :: (Int, ShapeInt m)
+        _ws@(width, shm) = case rshape as of
+          hd :$ tl -> (hd, tl)
+          _ -> error "rfoldDer: impossible pattern needlessly required"
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
@@ -450,9 +459,11 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            => f rn n -> (f rn n, f rm m) -> (f rn n, f rm m)
         rf cx (x, a) = domsToPair $ dunDomains domsOD $ rf0 cx x a
           -- TODO: add explicit sharing
-    in D (l1 `mergeADShare` l2)
-         (rfoldDer @ranked f df0 rf0 x0 as)
-         (FoldR f x0 as df rf x0' as')
+        p :: ranked rn (1 + n)
+        p = rscanDer f df0 rf0 x0 as
+        (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
+    in D l3 (pShared ! (fromIntegral width :. ZI))
+            (FoldR pShared as df rf x0' as')
   rscan :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -461,7 +472,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         -> ADVal ranked rn (1 + n)
   rscan f (D l1 x0 x0') (D l2 as as') =
     let shn = rshape x0
-        shm = tailShape $ rshape as
+        _ws :: (Int, ShapeInt m)
+        _ws@(width, shm) = case rshape as of
+          hd :$ tl -> (hd, tl)
+          _ -> error "rfoldDer: impossible pattern needlessly required"
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
@@ -479,9 +493,11 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           domsToPair $ dunDomains @ranked domsOD $ fst
           $ crevOnDomains (Just dt) g
                           (V.fromList [DynamicRanked x, DynamicRanked a])
-    in D (l1 `mergeADShare` l2)
-         (rscan @ranked f x0 as)
-         (ScanR f x0 as df rf x0' as')
+        p :: ranked rn (1 + n)
+        p = rscan f x0 as
+        (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
+    in D l3 pShared
+            (ScanR pShared as df rf x0' as')
   rscanDer :: forall rn rm n m.
               (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -493,7 +509,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> ADVal ranked rn (1 + n)
   rscanDer f df0 rf0 (D l1 x0 x0') (D l2 as as') =
     let shn = rshape x0
-        shm = tailShape $ rshape as
+        _ws :: (Int, ShapeInt m)
+        _ws@(width, shm) = case rshape as of
+          hd :$ tl -> (hd, tl)
+          _ -> error "rfoldDer: impossible pattern needlessly required"
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
@@ -503,9 +522,11 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         rf :: forall f. ADReady f
            => f rn n -> (f rn n, f rm m) -> (f rn n, f rm m)
         rf cx (x, a) = domsToPair $ dunDomains domsOD $ rf0 cx x a
-    in D (l1 `mergeADShare` l2)
-         (rscanDer @ranked f df0 rf0 x0 as)
-         (ScanR f x0 as df rf x0' as')
+        p :: ranked rn (1 + n)
+        p = rscanDer f df0 rf0 x0 as
+        (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
+    in D l3 pShared
+            (ScanR pShared as df rf x0' as')
   rscanD :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
          -> DomainsOD
