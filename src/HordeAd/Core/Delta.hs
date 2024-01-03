@@ -920,7 +920,43 @@ buildFinMaps s0 deltaDt =
                                      [1 .. lengthDelta @ranked t]
               d = FromListR
                   $ x0' : map g (zip (initsViaSlice as) (initsViaSliceD as'))
-          in evalR s c d -}
+          in evalR s c d
+        ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
+          0 :$ _ -> evalR sShared (cShared ! (0 :. ZI)) x0'
+          width :$ shm ->
+            let !_A1 = assert (rlength p == width + 1) ()
+                !_A2 = assert (rlength as == width) ()
+                !_A3 = assert (rlength cShared == width + 1) ()
+                lp0 :: [ranked r n1]
+                lp0 = runravelToList p
+                las0 :: [ranked rm m]
+                las0 = runravelToList as
+                g1 :: Int -> [ranked r n1]
+                g1 k =
+                  let lp = take k lp0
+                      las = take k las0
+                      cx = cShared ! (fromIntegral k :. ZI)
+                      crs :: [ranked r n1]
+                      crs = scanr (\(x, a) cr -> fst $ rf cr (x, a))
+                                  cx (zip lp las)
+                  in crs
+                g1s = map g1 [1..width]
+                g1sum = foldl' (+) (cShared ! (0 :. ZI)) (map (!! 0) g1s)
+                g2 :: Int -> ranked rm (1 + m)
+                g2 k =
+                  let lp = take k lp0
+                      las = take k las0
+                      rg :: [ranked r n1] -> [ranked r n1] -> [ranked rm m]
+                         -> [ranked rm m]
+                      rg = zipWith3 (\cr x a -> snd $ rf cr (x, a))
+                      cas = rg (drop 1 $ g1s !! (k - 1)) lp las
+                      padding = rzero (width - k :$ shm)
+                  in rappend (rfromList cas) padding
+                g2s = map g2 [1..width]
+                g2sum = rsum $ rfromList g2s
+                s2 = evalR sShared g1sum x0'
+            in evalR s2 g2sum as'
+          ZS -> error "evalR: impossible pattern needlessly required" -}
         ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
           0 :$ _ -> evalR sShared (cShared ! (0 :. ZI)) x0'
           width :$ shm ->
@@ -928,42 +964,39 @@ buildFinMaps s0 deltaDt =
                 !_A2 = assert (rlength as == width) ()
                 !_A3 = assert (rlength cShared == width + 1) ()
                 shn = shapeDelta x0'
-                lp0 :: [ranked r n1]
-                lp0 = runravelToList p
-                las0 :: [ranked rm m]
-                las0 = runravelToList as
+                -- The domain must be @Int@ due to rslice and so can't be
+                -- @IndexOf ranked 0@ for rbuild nor @ranked Int 0@ for rmap.
                 g1 :: Int -> ranked r (1 + n1)
                 g1 k =
                   let cx = cShared ! (fromIntegral k :. ZI)
-                      -- is = rfromList $ map fromIntegral [0 .. k - 1]
-                      is = [0 .. k - 1]
-                      -- TODO: this won't work as rscan, because p and as
-                      -- are free variables (type ranked, not any f)
-                      rf1 = scanl' (\cr i ->
-                              fst $ rf cr ( p ! (fromIntegral k
-                                                 - 1 - fromIntegral i :. ZI)
-                                          , as ! (fromIntegral k
-                                                  - 1 - fromIntegral i :. ZI)
-                                          )
-                              ) cx is
+                      lp = rreverse $ rslice 0 k p
+                      las = rreverse $ rslice 0 k as
+                      rf1 = scanl' (\cr pas -> fst $ rf cr pas)  -- TODO: rscanD
+                                   cx (zip (runravelToList lp)
+                                           (runravelToList las))
                       rf1r = rreverse $ rfromList rf1
                       padding = rzero (width - k :$ shn)
                   in rappend rf1r padding
-                g1s = map g1 [1 .. width]
-                crsum = foldl' (+) (cShared ! (0 :. ZI)) (map (! (0 :. ZI)) g1s)
+                g1s = map g1 [1 .. width]  -- can't be rmap nor rbuild
+                g1t = rfromList g1s
+                g1sum = cShared ! (0 :. ZI) + rsum (rtr g1t ! (0 :. ZI))
                 g2 :: Int -> ranked rm (1 + m)
                 g2 k =
-                  let rg :: [ranked r n1] -> [ranked r n1] -> [ranked rm m]
+                  let rf11 = rslice 1 k $ g1t ! (fromIntegral k - 1 :. ZI)
+                      lp = rslice 0 k p
+                      las = rslice 0 k as
+                      -- TODO: use rzipWith31, but n1 and m are not equal!
+                      rg :: [ranked r n1] -> [ranked r n1] -> [ranked rm m]
                          -> [ranked rm m]
                       rg = zipWith3 (\cr x a -> snd $ rf cr (x, a))
-                      cas = rg (drop 1 $ runravelToList $ g1s !! (k - 1))
-                               (take k lp0) las0
+                      cas = rg (runravelToList rf11)
+                               (runravelToList lp) (runravelToList las)
                       padding = rzero (width - k :$ shm)
                   in rappend (rfromList cas) padding
-                c22sum = rsum $ rfromList $ map g2 [1 .. width]
-                s2 = evalR sShared crsum x0'
-                s3 = evalR s2 c22sum as'
-            in s3
+                g2s = map g2 [1..width]
+                g2sum = rsum $ rfromList g2s
+                s2 = evalR sShared g1sum x0'
+            in evalR s2 g2sum as'
           ZS -> error "evalR: impossible pattern needlessly required"
 -- The following won't work, because i in slice needs to be statically knownn.
 -- Indeed, vectorization would break down due to this i, even if baked

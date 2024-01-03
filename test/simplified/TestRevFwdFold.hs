@@ -829,7 +829,7 @@ testSin0Scan1RevPP = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "rletDomainsIn (let v46 = rscanDer (\\x37 x38 -> sin x37) (\\x39 x40 x41 x42 -> x39 * cos x41) (\\x43 x44 x45 -> (cos x44 * x43, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in (cos (v46 ! [0]) * (cos (v46 ! [1]) * rconst 1.0) + rconst 1.0 + cos (v46 ! [0]) * rconst 1.0)) (\\[dret] -> dret)"
+    @?= "rletDomainsIn (let v34 = rscanDer (\\x25 x26 -> sin x25) (\\x27 x28 x29 x30 -> x27 * cos x29) (\\x31 x32 x33 -> (cos x32 * x31, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in (rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v34 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v34 ! [0]) * (cos (v34 ! [1]) * rconst 1.0), cos (v34 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i55] -> [i55, i55])))) (\\[dret] -> dret)"
 
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
@@ -855,7 +855,7 @@ testSin0Scan1Rev2PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "rletDomainsIn (let v49 = rscanDer (\\x39 x40 -> sin x39 - x40) (\\x41 x42 x43 x44 -> x41 * cos x43 + x42 * rconst -1.0) (\\x46 x47 x48 -> (cos x47 * x46, rconst -1.0 * x46)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in (cos (v49 ! [0]) * (cos (v49 ! [1]) * rconst 1.0) + rconst 1.0 + cos (v49 ! [0]) * rconst 1.0)) (\\[dret] -> dret)"
+    @?= "rletDomainsIn (let v37 = rscanDer (\\x27 x28 -> sin x27 - x28) (\\x29 x30 x31 x32 -> x29 * cos x31 + x30 * rconst -1.0) (\\x34 x35 x36 -> (cos x35 * x34, rconst -1.0 * x34)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in (rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v37 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v37 ! [0]) * (cos (v37 ! [1]) * rconst 1.0), cos (v37 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i64] -> [i64, i64])))) (\\[dret] -> dret)"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
@@ -894,7 +894,7 @@ testSin0Scan1Rev3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
-    @?= "rletDomainsIn (let v54 = rscanDer (\\x44 x45 -> sin x44 - x45) (\\x46 x47 x48 x49 -> x46 * cos x48 + x47 * rconst -1.0) (\\x51 x52 x53 -> (cos x52 * x51, rconst -1.0 * x51)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v55 = rsum (rfromList [rappend (rreplicate 1 (rconst -1.0 * rconst 1.0)) (rconstant (rreplicate 1 (rconst 0.0))), rappend (rfromList [rconst -1.0 * (cos (v54 ! [1]) * rconst 1.0), rconst -1.0 * rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0)))]) in (rconst 5.0 * v55 ! [0] + rconst 7.0 * v55 ! [1] + cos (v54 ! [0]) * (cos (v54 ! [1]) * rconst 1.0) + rconst 1.0 + cos (v54 ! [0]) * rconst 1.0)) (\\[dret] -> dret)"
+    @?= "rletDomainsIn (let v46 = rscanDer (\\x36 x37 -> sin x36 - x37) (\\x38 x39 x40 x41 -> x38 * cos x40 + x39 * rconst -1.0) (\\x43 x44 x45 -> (cos x44 * x43, rconst -1.0 * x43)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v47 = rsum (rfromList [rappend (rreplicate 1 (rconst -1.0 * rconst 1.0)) (rconstant (rreplicate 1 (rconst 0.0))), rappend (rfromList [rconst -1.0 * (cos (v46 ! [1]) * rconst 1.0), rconst -1.0 * rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0)))]) in (rconst 5.0 * v47 ! [0] + rconst 7.0 * v47 ! [1] + rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v46 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v46 ! [0]) * (cos (v46 ! [1]) * rconst 1.0), cos (v46 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i76] -> [i76, i76])))) (\\[dret] -> dret)"
 
 testSin0Scan1Rev3PPForComparison :: Assertion
 testSin0Scan1Rev3PPForComparison = do
