@@ -815,9 +815,9 @@ tmap0NS f = OS.mapA (tunScalarS . f . tscalarS)
             -- bad type: liftVS . LA.cmap
 
 tzipWith0NS
-  :: (Numeric r, Numeric r2, Numeric r3, Sh.Shape sh)
-  => (OS.Array '[] r -> OS.Array '[] r2 -> OS.Array '[] r3)
-  -> OS.Array sh r -> OS.Array sh r2 -> OS.Array sh r3
+  :: (Numeric r1, Numeric r2, Numeric r, Sh.Shape sh)
+  => (OS.Array '[] r1 -> OS.Array '[] r2 -> OS.Array '[] r)
+  -> OS.Array sh r1 -> OS.Array sh r2 -> OS.Array sh r
 tzipWith0NS f = OS.zipWithA (\x y -> tunScalarS $ f (tscalarS x) (tscalarS y))
                 -- bad type: liftVS2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
