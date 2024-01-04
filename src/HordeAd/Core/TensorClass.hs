@@ -897,10 +897,11 @@ rankDynamic (DynamicRankedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
 rankDynamic (DynamicShapedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
 
 -- TODO: also check scalars are same
-sameShapesDomainsOD :: DomainsOD -> DomainsOD -> Bool
+sameShapesDomainsOD :: forall f g. (RankedTensor f, RankedTensor g)
+                    => Domains f -> Domains g -> Bool
 sameShapesDomainsOD v1 v2 =
   let sameExShape t u =
-        shapeDynamic @(Flip OR.Array) t == shapeDynamic @(Flip OR.Array) u
+        shapeDynamic @f t == shapeDynamic @g u
   in V.and $ V.zipWith sameExShape v1 v2
 
 odFromVar :: AstDynamicVarName -> DynamicTensor (Flip OR.Array)

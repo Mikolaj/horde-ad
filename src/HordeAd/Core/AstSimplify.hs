@@ -2258,10 +2258,10 @@ data SubstitutionPayload s r =
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
-substituteAst :: forall n n2 s s2 r r2.
+substituteAst :: forall n n2 s s2 r r2 f.
                  ( GoodScalar r, GoodScalar r2, KnownNat n
                  , AstSpan s, AstSpan s2 )
-              => SubstitutionPayload s2 r2 -> AstVarName (AstRanked s2) r2 n2
+              => SubstitutionPayload s2 r2 -> AstVarName (f s2) r2 n2
               -> AstRanked s r n
               -> AstRanked s r n
 substituteAst i (AstVarName varId) v1 = fromMaybe v1 $ substitute1Ast i varId v1

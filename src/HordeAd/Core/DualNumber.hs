@@ -21,6 +21,7 @@ module HordeAd.Core.DualNumber
 import Prelude
 
 import           Control.Exception.Assert.Sugar
+import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
@@ -156,7 +157,7 @@ fromListS :: forall n sh shaped r.
              , KnownNat n, Sh.Shape sh, GoodScalar r )
            => [ADVal shaped r sh]
            -> ADVal shaped r (n ': sh)
-fromListS lu =
+fromListS lu = assert (length lu == valueOf @n) $
   dD (flattenADShare $ map (\(D l _ _) -> l) lu)
      (sfromList $ map (\(D _ u _) -> u) lu)
      (FromListS $ map (\(D _ _ u') -> u') lu)

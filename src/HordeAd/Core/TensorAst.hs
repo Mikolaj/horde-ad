@@ -12,6 +12,7 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
 import qualified Data.Array.ShapedS as OS
@@ -636,7 +637,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters ->
+    in \parameters -> assert (sameShapesDomainsOD parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstDomains env gradient
         -- this interpretation both substitutes parameters for the variables and
@@ -653,7 +654,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters dt ->
+    in \parameters dt -> assert (sameShapesDomainsOD parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvR varDt dt env
       in interpretAstDomains envDt gradient
@@ -667,7 +668,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters ds ->
+    in \parameters ds -> assert (sameShapesDomainsOD parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvPars @(AstRanked s) varsDt ds env
       in interpretAst envDt derivative
@@ -675,14 +676,14 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters ->
+    in \parameters -> assert (sameShapesDomainsOD parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstDomains env gradient
   srevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters dt ->
+    in \parameters dt -> assert (sameShapesDomainsOD parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvS varDt dt env
       in interpretAstDomains envDt gradient
@@ -690,7 +691,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters ds ->
+    in \parameters ds -> assert (sameShapesDomainsOD parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvPars @(AstRanked s) varsDt ds env
       in interpretAstS envDt derivative

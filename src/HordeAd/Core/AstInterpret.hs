@@ -1017,7 +1017,7 @@ interpretAstS !env = \case
         -- variable r2, because the operations do not depend on r2.
         f :: (AstDynamicVarName, DynamicTensor ranked)
           -> AstEnv ranked shaped -> AstEnv ranked shaped
-        f (AstDynamicVarName @ty @r2 @sh2 varId, d) = case d of
+        f vd@(AstDynamicVarName @ty @r2 @sh2 varId, d) = case d of
           DynamicRanked @r3 @n3 u
             | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
             , Just Refl <- matchingRank @sh2 @n3
@@ -1039,7 +1039,10 @@ interpretAstS !env = \case
             , Just Refl <- sameShape @sh3 @sh2
             , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
               extendEnvS @ranked @shaped @r2 @sh2 (AstVarName varId) 0
-          _ -> error "interpretAstS: impossible type"
+          _ -> error $ "interpretAstS: impossible type"
+                       `showFailure`
+                       ( vd, typeRep @ty, typeRep @r2, Sh.shapeT @sh2
+                       , scalarDynamic d, shapeDynamic d )
         env2 lw = foldr f env (zip vars (V.toList lw))
     in sletDomainsIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
   AstRToS v -> sfromR $ interpretAst env v
