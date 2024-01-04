@@ -17,7 +17,8 @@ module HordeAd.Core.TensorClass
     -- * The related constraints
   , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
     -- * Concrete array instances auxiliary definitions
-  , DomainsOD, sizeDomainsOD, shapeDynamic, sameShapesDomainsOD
+  , DomainsOD, sizeDomainsOD, scalarDynamic, shapeDynamic, rankDynamic
+  , sameShapesDomainsOD
   , odFromVar, odFromSh, odFromShS, fromDomainsR, fromDomainsS
   , unravelDomains, ravelDomains
   ) where
@@ -872,6 +873,10 @@ data DynamicScalar (ranked :: RankedTensorType) where
   DynamicScalar :: GoodScalar r
                 => Proxy r -> DynamicScalar ranked
 
+instance Show (DynamicScalar ranked) where
+  showsPrec d (DynamicScalar (Proxy @t)) =
+    showsPrec d (typeRep @t)  -- abuse for better error messages
+
 scalarDynamic :: DynamicTensor ranked -> DynamicScalar ranked
 scalarDynamic (DynamicRanked @r2 _) = DynamicScalar @r2 Proxy
 scalarDynamic (DynamicShaped @r2 _) = DynamicScalar @r2 Proxy
@@ -884,6 +889,12 @@ shapeDynamic (DynamicRanked t) = shapeToList $ rshape t
 shapeDynamic (DynamicShaped @_ @sh _) = Sh.shapeT @sh
 shapeDynamic (DynamicRankedDummy _ proxy_sh) = Sh.shapeP proxy_sh
 shapeDynamic (DynamicShapedDummy _ proxy_sh) = Sh.shapeP proxy_sh
+
+rankDynamic :: DynamicTensor ranked -> Int
+rankDynamic (DynamicRanked @_ @n _) = valueOf @n
+rankDynamic (DynamicShaped @_ @sh _) = length $ Sh.shapeT @sh
+rankDynamic (DynamicRankedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
+rankDynamic (DynamicShapedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
 
 -- TODO: also check scalars are same
 sameShapesDomainsOD :: DomainsOD -> DomainsOD -> Bool

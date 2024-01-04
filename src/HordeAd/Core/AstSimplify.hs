@@ -81,6 +81,7 @@ import           HordeAd.Core.Ast hiding
 import qualified HordeAd.Core.Ast as Ast
 import           HordeAd.Core.AstFreshId
 import           HordeAd.Core.AstTools
+import           HordeAd.Core.TensorClass
 import           HordeAd.Core.Types
 import           HordeAd.Internal.OrthotopeOrphanInstances
   (MapSucc, matchingRank, sameShape, trustMeThisIsAPermutation)
@@ -1697,7 +1698,11 @@ astLetDomainsIn vars l v =
                 Ast.AstSToR
                 $ Ast.AstLetS @sh4 @sh @r4 @s @s2 (AstVarName varId) 0
                 $ Ast.AstRToS acc
-            f _ _ = error "astLetDomainsIn: corrupted arguments"
+            f vd@(AstDynamicVarName @ty @r3 @sh3 _, d) _ =
+              error $ "astLetDomainsIn: corrupted arguments"
+                      `showFailure`
+                      ( vd, typeRep @ty, typeRep @r3, Sh.shapeT @sh3
+                      , scalarDynamic d, rankDynamic d )
         in foldr f v (zip vars (V.toList l3))
       _ -> Ast.AstLetDomainsIn vars l v
     _ -> error "astLetDomainsIn: wrong rank of the argument"
@@ -1748,7 +1753,11 @@ astLetDomainsInS vars l v =
               , Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstLetS @sh4 @sh @r4 @s @s2 (AstVarName varId) 0 acc
-            f _ _ = error "astLetDomainsInS: corrupted arguments"
+            f vd@(AstDynamicVarName @ty @r3 @sh3 _, d) _ =
+              error $ "astLetDomainsInS: corrupted arguments"
+                      `showFailure`
+                      ( vd, typeRep @ty, typeRep @r3, Sh.shapeT @sh3
+                      , scalarDynamic d, rankDynamic d )
         in foldr f v (zip vars (V.toList l3))
       _ -> Ast.AstLetDomainsInS vars l v
     _ -> error "astLetDomainsInS: impossible someNatVal"
