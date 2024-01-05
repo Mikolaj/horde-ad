@@ -4,7 +4,7 @@
 -- from the differentiation.
 module HordeAd.Core.AstPrettyPrint
   ( -- * Pretty-print variables
-    printAstVarName, printAstVarNameS
+    printAstVarName, printAstVarNameS, printAstDynamicVarName
     -- * User-friendly API for pretty-printing AST terms
   , printAstSimple, printAstPretty
   , printAstSimpleS, printAstPrettyS
@@ -28,6 +28,7 @@ import qualified Data.Strict.IntMap as IM
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, sameNat)
+import           Type.Reflection (typeRep)
 
 import           HordeAd.Core.Ast
 import           HordeAd.Core.AstTools
@@ -160,9 +161,16 @@ printAstVarNameS :: Sh.Shape sh
 printAstVarNameS renames var =
   printAstVarS (defaulPrintConfig False renames) var ""
 
-printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
-printAstDynamicVarName renames (AstDynamicVarName @_ @r @sh varId) =
+printAstDynamicVarNameBrief :: IntMap String -> AstDynamicVarName -> String
+printAstDynamicVarNameBrief renames (AstDynamicVarName @ty @r @sh varId) =
   printAstVarNameS renames (AstVarName @[Nat] @_ @r @sh varId)
+
+printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
+printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh varId) =
+  printAstDynamicVarNameBrief renames var
+  ++ " @" ++ show (typeRep @ty)
+  ++ " @" ++ show (typeRep @r)
+  ++ " @" ++ show (Sh.shapeT @sh)
 
 
 -- * General pretty-printing of AST terms
@@ -876,9 +884,9 @@ printAstS cfg d = \case
   AstCastS v -> printPrefixOp printAstS cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAstS cfg d "sfromIntegral" [a]
-  AstConstS a ->
+  AstConstS @sh2 a ->
     showParen (d > 10)
-    $ showString "sconst "
+    $ showString ("sconst @" ++ show (Sh.shapeT @sh2) ++ " ")
       . case sameShape @sh @'[] of
           Just Refl -> shows $ OS.unScalar a
           _ -> showParen True
@@ -1000,7 +1008,7 @@ printGradient6Simple :: KnownNat n
                      -> String
 printGradient6Simple renames ((varDt, vars1), gradient, _, _) =
   let varsPP = printAstVarName renames varDt
-               : map (printAstDynamicVarName renames) vars1
+               : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstDomainsSimple renames gradient
 
@@ -1010,7 +1018,7 @@ printGradient6Pretty :: KnownNat n
                      -> String
 printGradient6Pretty renames ((varDt, vars1), gradient, _, _) =
   let varsPP = printAstVarName renames varDt
-               : map (printAstDynamicVarName renames) vars1
+               : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstDomainsPretty renames gradient
 
@@ -1019,7 +1027,7 @@ printPrimal6Simple :: (GoodScalar r, KnownNat n)
                    -> AstArtifactRev (AstRanked PrimalSpan) r n
                    -> String
 printPrimal6Simple renames ((_, vars1), _, primal, _) =
-  let varsPP = map (printAstDynamicVarName renames) vars1
+  let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstSimple renames primal
 
@@ -1028,7 +1036,7 @@ printPrimal6Pretty :: (GoodScalar r, KnownNat n)
                    -> AstArtifactRev (AstRanked PrimalSpan) r n
                    -> String
 printPrimal6Pretty renames ((_, vars1), _, primal, _) =
-  let varsPP = map (printAstDynamicVarName renames) vars1
+  let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstPretty renames primal
 
@@ -1038,7 +1046,7 @@ printGradient6SimpleS :: Sh.Shape sh
                       -> String
 printGradient6SimpleS renames ((varDt, vars1), gradient, _, _) =
   let varsPP = printAstVarNameS renames varDt
-               : map (printAstDynamicVarName renames) vars1
+               : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstDomainsSimple renames gradient
 
@@ -1048,7 +1056,7 @@ printGradient6PrettyS :: Sh.Shape sh
                       -> String
 printGradient6PrettyS renames ((varDt, vars1), gradient, _, _) =
   let varsPP = printAstVarNameS renames varDt
-               : map (printAstDynamicVarName renames) vars1
+               : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstDomainsPretty renames gradient
 
@@ -1057,7 +1065,7 @@ printPrimal6SimpleS :: (GoodScalar r, Sh.Shape sh)
                     -> AstArtifactRev (AstShaped PrimalSpan) r sh
                     -> String
 printPrimal6SimpleS renames ((_, vars1), _, primal, _) =
-  let varsPP = map (printAstDynamicVarName renames) vars1
+  let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstSimpleS renames primal
 
@@ -1066,6 +1074,6 @@ printPrimal6PrettyS :: (GoodScalar r, Sh.Shape sh)
                     -> AstArtifactRev (AstShaped PrimalSpan) r sh
                     -> String
 printPrimal6PrettyS renames ((_, vars1), _, primal, _) =
-  let varsPP = map (printAstDynamicVarName renames) vars1
+  let varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstPrettyS renames primal

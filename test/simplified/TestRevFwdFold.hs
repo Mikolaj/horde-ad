@@ -159,13 +159,13 @@ testFooRrevPP1 = do
   resetVarCounter
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstPretty IM.empty a1
-    @?= "rletDomainsIn (let x16 = sin (rconst 2.2) ; x17 = rconst 1.1 * x16 ; x18 = recip (rconst 3.3 * rconst 3.3 + x17 * x17) ; x19 = sin (rconst 2.2) ; x20 = rconst 1.1 * x19 ; x21 = rreshape [] (rreplicate 1 (rconst 1.0)) ; x22 = rconst 3.3 * x21 ; x23 = negate (rconst 3.3 * x18) * x21 in (x16 * x23 + x19 * x22, cos (rconst 2.2) * (rconst 1.1 * x23) + cos (rconst 2.2) * (rconst 1.1 * x22), (x17 * x18) * x21 + x20 * x21)) (\\[dret, x2, x3] -> dret)"
+    @?= "rletDomainsIn (let x16 = sin (rconst 2.2) ; x17 = rconst 1.1 * x16 ; x18 = recip (rconst 3.3 * rconst 3.3 + x17 * x17) ; x19 = sin (rconst 2.2) ; x20 = rconst 1.1 * x19 ; x21 = rreshape [] (rreplicate 1 (rconst 1.0)) ; x22 = rconst 3.3 * x21 ; x23 = negate (rconst 3.3 * x18) * x21 in (x16 * x23 + x19 * x22, cos (rconst 2.2) * (rconst 1.1 * x23) + cos (rconst 2.2) * (rconst 1.1 * x22), (x17 * x18) * x21 + x20 * x21)) (\\[dret @Natural @Double @[], x2 @Natural @Double @[], x3 @Natural @Double @[]] -> dret)"
 
 testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple IM.empty a1
-    @?= "rletDomainsIn (rletInDomains (sin (rconst 2.2)) (\\x27 -> rletInDomains (rconst 1.1 * x27) (\\x28 -> rletInDomains (recip (rconst 3.3 * rconst 3.3 + x28 * x28)) (\\x29 -> rletInDomains (sin (rconst 2.2)) (\\x30 -> rletInDomains (rconst 1.1 * x30) (\\x31 -> rletInDomains (rreshape [] (rreplicate 1 (rconst 1.0))) (\\x32 -> rletInDomains (rconst 3.3 * x32) (\\x33 -> rletInDomains (negate (rconst 3.3 * x29) * x32) (\\x34 -> dmkDomains (fromList [DynamicRanked (x27 * x34 + x30 * x33), DynamicRanked (cos (rconst 2.2) * (rconst 1.1 * x34) + cos (rconst 2.2) * (rconst 1.1 * x33)), DynamicRanked ((x28 * x29) * x32 + x31 * x32)])))))))))) (\\[x24, x25, x26] -> x24)"
+    @?= "rletDomainsIn (rletInDomains (sin (rconst 2.2)) (\\x39 -> rletInDomains (rconst 1.1 * x39) (\\x40 -> rletInDomains (recip (rconst 3.3 * rconst 3.3 + x40 * x40)) (\\x41 -> rletInDomains (sin (rconst 2.2)) (\\x42 -> rletInDomains (rconst 1.1 * x42) (\\x43 -> rletInDomains (rreshape [] (rreplicate 1 (rconst 1.0))) (\\x44 -> rletInDomains (rconst 3.3 * x44) (\\x45 -> rletInDomains (negate (rconst 3.3 * x41) * x44) (\\x46 -> dmkDomains (fromList [DynamicRanked (x39 * x46 + x42 * x45), DynamicRanked (cos (rconst 2.2) * (rconst 1.1 * x46) + cos (rconst 2.2) * (rconst 1.1 * x45)), DynamicRanked ((x40 * x41) * x44 + x43 * x44)])))))))))) (\\[x24 @Natural @Double @[], x25 @Natural @Double @[], x26 @Natural @Double @[]] -> x24)"
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
@@ -320,7 +320,7 @@ testSin0RrevPP5S = do
   resetVarCounter
   let a1 = srev1 @(AstShaped FullSpan) @Double @'[] @'[] (srev1 sin) 1.1
   printAstPrettyS IM.empty (simplifyAst6S a1)
-    @?= "let dret = negate (sin (sconst 1.1)) * sconst 1.0 in dret"
+    @?= "let dret = negate (sin (sconst @[] 1.1)) * sconst @[] 1.0 in dret"
 
 testSin0Fold0 :: Assertion
 testSin0Fold0 = do
@@ -598,7 +598,7 @@ testSin0Fold182SrevPP = do
                         (sreplicate @_ @1 a0)
             in rfromS . f . sfromR) 1.1
   printAstPretty IM.empty a1
-    @?= "let dret = ssum (sletDomainsIn (let x49 = ssum (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0])) ; v50 = sreplicate (sin x49) ; v51 = recip (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) + v50 * v50 + sconst (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sconst (fromList @[5] [0.0,0.0,0.0,0.0,0.0])) in (0, ssum ((v50 * v51) * rreplicate 5 (rconst 1.0)) + ssum (sreplicate (cos x49 * ssum (negate (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * v51) * rreplicate 5 (rconst 1.0)))) + sconst 0.0 + sconst 0.0)) (\\[v47, x48] -> v47)) + ssum (sfromList [sletDomainsIn (let x54 = ssum (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0])) ; v55 = sreplicate (sin x54) ; v56 = recip (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) + v55 * v55 + sconst (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sconst (fromList @[5] [0.0,0.0,0.0,0.0,0.0])) in (0, ssum ((v55 * v56) * rreplicate 5 (rconst 1.0)) + ssum (sreplicate (cos x54 * ssum (negate (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * v56) * rreplicate 5 (rconst 1.0)))) + sconst 0.0 + sconst 0.0)) (\\[v52, x53] -> x53)]) in dret"
+    @?= "let dret = ssum (sletDomainsIn (let x49 = ssum (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0])) ; v50 = sreplicate (sin x49) ; v51 = recip (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) + v50 * v50 + sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0])) in (0, ssum ((v50 * v51) * rreplicate 5 (rconst 1.0)) + ssum (sreplicate (cos x49 * ssum (negate (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * v51) * rreplicate 5 (rconst 1.0)))) + sconst @[] 0.0 + sconst @[] 0.0)) (\\[v47 @[Natural] @Double @[5], x48 @[Natural] @Double @[]] -> v47)) + ssum (sfromList [sletDomainsIn (let x54 = ssum (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0])) ; v55 = sreplicate (sin x54) ; v56 = recip (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) + v55 * v55 + sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0])) in (0, ssum ((v55 * v56) * rreplicate 5 (rconst 1.0)) + ssum (sreplicate (cos x54 * ssum (negate (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) * v56) * rreplicate 5 (rconst 1.0)))) + sconst @[] 0.0 + sconst @[] 0.0)) (\\[v52 @[Natural] @Double @[5], x53 @[Natural] @Double @[]] -> x53)]) in dret"
 
 testSin0Fold18Srev :: Assertion
 testSin0Fold18Srev = do
@@ -829,7 +829,7 @@ testSin0Scan1RevPP = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "rletDomainsIn (let v34 = rscanDer (\\x25 x26 -> sin x25) (\\x27 x28 x29 x30 -> x27 * cos x29) (\\x31 x32 x33 -> (cos x32 * x31, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in (rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v34 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v34 ! [0]) * (cos (v34 ! [1]) * rconst 1.0), cos (v34 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i55] -> [i55, i55])))) (\\[dret] -> dret)"
+    @?= "rletDomainsIn (let v34 = rscanDer (\\x25 x26 -> sin x25) (\\x27 x28 x29 x30 -> x27 * cos x29) (\\x31 x32 x33 -> (cos x32 * x31, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in (rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v34 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v34 ! [0]) * (cos (v34 ! [1]) * rconst 1.0), cos (v34 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i55] -> [i55, i55])))) (\\[dret @Natural @Double @[]] -> dret)"
 
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
@@ -855,7 +855,7 @@ testSin0Scan1Rev2PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "rletDomainsIn (let v37 = rscanDer (\\x27 x28 -> sin x27 - x28) (\\x29 x30 x31 x32 -> x29 * cos x31 + x30 * rconst -1.0) (\\x34 x35 x36 -> (cos x35 * x34, rconst -1.0 * x34)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in (rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v37 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v37 ! [0]) * (cos (v37 ! [1]) * rconst 1.0), cos (v37 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i64] -> [i64, i64])))) (\\[dret] -> dret)"
+    @?= "rletDomainsIn (let v37 = rscanDer (\\x27 x28 -> sin x27 - x28) (\\x29 x30 x31 x32 -> x29 * cos x31 + x30 * rconst -1.0) (\\x34 x35 x36 -> (cos x35 * x34, rconst -1.0 * x34)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in (rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v37 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v37 ! [0]) * (cos (v37 ! [1]) * rconst 1.0), cos (v37 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i64] -> [i64, i64])))) (\\[dret @Natural @Double @[]] -> dret)"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
@@ -894,7 +894,7 @@ testSin0Scan1Rev3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
-    @?= "rletDomainsIn (let v46 = rscanDer (\\x36 x37 -> sin x36 - x37) (\\x38 x39 x40 x41 -> x38 * cos x40 + x39 * rconst -1.0) (\\x43 x44 x45 -> (cos x44 * x43, rconst -1.0 * x43)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v47 = rsum (rfromList [rappend (rreplicate 1 (rconst -1.0 * rconst 1.0)) (rconstant (rreplicate 1 (rconst 0.0))), rappend (rfromList [rconst -1.0 * (cos (v46 ! [1]) * rconst 1.0), rconst -1.0 * rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0)))]) in (rconst 5.0 * v47 ! [0] + rconst 7.0 * v47 ! [1] + rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v46 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v46 ! [0]) * (cos (v46 ! [1]) * rconst 1.0), cos (v46 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i76] -> [i76, i76])))) (\\[dret] -> dret)"
+    @?= "rletDomainsIn (let v46 = rscanDer (\\x36 x37 -> sin x36 - x37) (\\x38 x39 x40 x41 -> x38 * cos x40 + x39 * rconst -1.0) (\\x43 x44 x45 -> (cos x44 * x43, rconst -1.0 * x43)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v47 = rsum (rfromList [rappend (rreplicate 1 (rconst -1.0 * rconst 1.0)) (rconstant (rreplicate 1 (rconst 0.0))), rappend (rfromList [rconst -1.0 * (cos (v46 ! [1]) * rconst 1.0), rconst -1.0 * rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0)))]) in (rconst 5.0 * v47 ! [0] + rconst 7.0 * v47 ! [1] + rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v46 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v46 ! [0]) * (cos (v46 ! [1]) * rconst 1.0), cos (v46 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i76] -> [i76, i76])))) (\\[dret @Natural @Double @[]] -> dret)"
 
 testSin0Scan1Rev3PPForComparison :: Assertion
 testSin0Scan1Rev3PPForComparison = do
@@ -902,7 +902,7 @@ testSin0Scan1Rev3PPForComparison = do
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rfromList [sin (sin x0 - x0 * 5) - x0 * 7, sin x0 - x0 * 5, x0]) 1.1
   printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
-    @?= "rletDomainsIn (let x11 = cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) * rconst 1.0 in (cos (rconst 1.1) * x11 + rconst 5.0 * (rconst -1.0 * x11) + rconst 7.0 * (rconst -1.0 * rconst 1.0) + cos (rconst 1.1) * rconst 1.0 + rconst 5.0 * (rconst -1.0 * rconst 1.0) + rconst 1.0)) (\\[dret] -> dret)"
+    @?= "rletDomainsIn (let x11 = cos (sin (rconst 1.1) - rconst 1.1 * rconst 5.0) * rconst 1.0 in (cos (rconst 1.1) * x11 + rconst 5.0 * (rconst -1.0 * x11) + rconst 7.0 * (rconst -1.0 * rconst 1.0) + cos (rconst 1.1) * rconst 1.0 + rconst 5.0 * (rconst -1.0 * rconst 1.0) + rconst 1.0)) (\\[dret @Natural @Double @[]] -> dret)"
 
 testSin0ScanFwd3PP :: Assertion
 testSin0ScanFwd3PP = do

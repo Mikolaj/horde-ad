@@ -1011,7 +1011,7 @@ testReluSimplerPP4S = do
       (var3, ast3) = funToAstS (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarNameS renamesNull var3
        ++ " -> " ++ printAstSimpleS renamesNull ast3
-    @?= "\\v1 -> slet (v1 * sreshape (sreplicate (sconst 7.0))) (\\i2 -> sconstant (sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i5, i4] -> [i5, ifF (sprimalPart i2 !$ [i5, i4] <=. sconst 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> slet (v1 * sreshape (sreplicate (sconst @[] 7.0))) (\\i2 -> sconstant (sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i5, i4] -> [i5, ifF (sprimalPart i2 !$ [i5, i4] <=. sconst @[] 0.0) 0 1])) * i2)"
 
 testReluSimplerPP4S2 :: Assertion
 testReluSimplerPP4S2 = do
@@ -1024,7 +1024,7 @@ testReluSimplerPP4S2 = do
       reluT2 (t, r) = reluS (t * sreplicate0N r)
   let (artifactRev, deltas) = revArtifactAdapt True reluT2 (Flip $ OS.constant 128, 42)
   printGradient6PrettyS renames artifactRev
-    @?= "\\dret m2 x3 -> let m7 = sreshape (sreplicate x3) ; m8 = m2 * m7 ; m12 = sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m8 !$ [i9, i10] <=. sconst 0.0) 0 1]) ; m13 = m12 * dret in (m7 * m13, ssum (sreshape (m2 * m13)))"
+    @?= "\\dret m2 x3 -> let m7 = sreshape (sreplicate x3) ; m8 = m2 * m7 ; m12 = sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m8 !$ [i9, i10] <=. sconst @[] 0.0) 0 1]) ; m13 = m12 * dret in (m7 * m13, ssum (sreshape (m2 * m13)))"
   printPrimal6PrettyS renames artifactRev
     @?= "\\m2 x3 -> let m7 = sreshape (sreplicate x3) ; m8 = m2 * m7 ; m12 = sgather (sreplicate (sconst (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m8 !$ [i9, i10] <=. sconst 0.0) 0 1]) in m12 * m8"
   printGradient6PrettyS renames (simplifyArtifactRevS artifactRev)
