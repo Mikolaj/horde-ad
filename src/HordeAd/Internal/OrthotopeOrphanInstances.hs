@@ -25,6 +25,7 @@ import           Data.Bifunctor.Flip
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
+import           GHC.Stack
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
@@ -205,8 +206,10 @@ instance (Num (Vector r), Sh.Shape sh, Numeric r) => Num (OS.Array sh r) where
   fromInteger = OS.constant . fromInteger
 
 instance Enum (OR.Array n r) where  -- dummy, to satisfy Integral below
-  toEnum = undefined
-  fromEnum = undefined
+  toEnum :: HasCallStack => Int -> a
+  toEnum _ = error "toEnum: undefined for OR.Array"
+  fromEnum :: HasCallStack => a -> Int
+  fromEnum _ = error "fromEnum: undefined for OR.Array"
 
 instance (Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
          => Integral (OR.Array n r) where
@@ -222,8 +225,10 @@ instance (Num (Vector r), Integral r, KnownNat n, Numeric r, Show r)
                  ++ show (valueOf @n :: Int)
 
 instance Enum (OS.Array sh r) where  -- dummy, to satisfy Integral below
-  toEnum = undefined
-  fromEnum = undefined
+  toEnum :: HasCallStack => Int -> a
+  toEnum _ = error "toEnum: undefined for OS.Array"
+  fromEnum :: HasCallStack => a -> Int
+  fromEnum _ = error "fromEnum: undefined for OS.Array"
 
 instance (Num (Vector r), Integral r, Sh.Shape sh, Numeric r, Show r)
          => Integral (OS.Array sh r) where

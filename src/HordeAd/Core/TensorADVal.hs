@@ -304,8 +304,8 @@ instance ( Dual shaped ~ DeltaS shaped
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, Sh.Shape sh)
           => (IntSh (ADVal shaped) n -> ADVal shaped r sh)
           -> ADVal shaped r (n ': sh)
-  sbuild1 f = fromListS $ map (f . ShapedList.shapedNat)
-                              [0 .. valueOf @n - 1]
+  sbuild1 f = fromListS $ map (f . ShapedList.shapedNat . fromIntegral)
+                              [0 :: Int .. valueOf @n - 1]
                    -- element-wise (POPL) version
   sgather (D l u u') f =
     let g x = rprimalPart <$> f (rconstant <$> x)
