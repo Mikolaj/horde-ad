@@ -979,6 +979,10 @@ buildFinMaps s0 deltaDt =
                 shn = shapeDelta x0'
                 -- The domain must be @Int@ due to rslice and so can't be
                 -- @IndexOf ranked 0@ for rbuild nor @ranked Int 0@ for rmap.
+                -- We can't fold nor scan over g1/g2, because it's not closed.
+                -- We can't multiply by a unitriangular matrix instead of
+                -- using slice, because rf can have a constant component
+                -- and then it gets summed over the zero area of the matrix.
                 g1 :: Int -> ranked r (1 + n1)
                 g1 k =
                   let cx = cShared ! (fromIntegral k :. ZI)
@@ -990,7 +994,7 @@ buildFinMaps s0 deltaDt =
                       rf1r = rreverse $ rfromList rf1
                       padding = rzero (width - k :$ shn)
                   in rappend rf1r padding
-                g1s = map g1 [1 .. width]  -- can't be rmap nor rbuild
+                g1s = map g1 [1 .. width]  -- can't be rmap nor rbuild nor rscan
                 g1t = rfromList g1s
                 g1sum = cShared ! (0 :. ZI) + rsum (rtr g1t ! (0 :. ZI))
                 g2 :: Int -> ranked rm (1 + m)
@@ -998,15 +1002,14 @@ buildFinMaps s0 deltaDt =
                   let rf11 = rslice 1 k $ g1t ! (fromIntegral k - 1 :. ZI)
                       lp = rslice 0 k p
                       las = rslice 0 k as
-                      -- TODO: use rzipWith31, but n1 and m are not equal!
-                      rg :: [ranked r n1] -> [ranked r n1] -> [ranked rm m]
-                         -> [ranked rm m]
-                      rg = zipWith3 (\cr x a -> snd $ rf cr (x, a))
-                      cas = rg (runravelToList rf11)
-                               (runravelToList lp) (runravelToList las)
+                      rg :: ranked r (1 + n1) -> ranked r (1 + n1)
+                         -> ranked rm (1 + m)
+                         -> ranked rm (1 + m)
+                      rg = rzipWith31 (\cr x a -> snd $ rf cr (x, a))
+                      cas = rg rf11 lp las
                       padding = rzero (width - k :$ shm)
-                  in rappend (rfromList cas) padding
-                g2s = map g2 [1..width]
+                  in rappend cas padding
+                g2s = map g2 [1..width]  -- can't be rmap nor rbuild nor rscan
                 g2sum = rsum $ rfromList g2s
                 s2 = evalR sShared g1sum x0'
             in evalR s2 g2sum as'
