@@ -58,7 +58,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
-import           Data.List (foldl', mapAccumR, scanl', sort, zipWith4)
+import           Data.List (foldl', scanl', sort, zipWith4)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
@@ -387,6 +387,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
   FoldS :: (GoodScalar rm, Sh.Shape shm, KnownNat k)
         => (shaped rn sh -> shaped rm shm -> shaped rn sh)
         -> shaped rn sh -> shaped rm (k ': shm)
+--        => shaped rn (k ': sh) -> shaped rm (k ': shm)
         -> (shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
             -> shaped rn sh)
         -> (shaped rn sh -> (shaped rn sh, shaped rm shm)
@@ -884,16 +885,14 @@ buildFinMaps s0 deltaDt =
           in evalR s (rtranspose perm_reversed c) d
         ReshapeR _sh d -> evalR s (rreshape (shapeDelta d) c) d
         GatherR _sh d f -> evalR s (rscatter (shapeDelta d) c f) d
-{-      FoldR @rm @m f x0 as _df rf x0' as' ->
+{-      FoldR @rm @m p as _df rf x0' as' ->
           let las :: [ranked rm m]
               las = runravelToList as
-              p :: [ranked r n]
-              p = scanl' f x0 las
               rg :: ranked r n
                  -> [(ranked r n, ranked rm m)]
                  -> (ranked r n, [ranked rm m])
               rg = mapAccumR rf
-              (cx0, cas) = rg cShared (zip (init p) las)
+              (cx0, cas) = rg cShared (zip (init $ runravelToList p) las)
               s2 = evalR sShared cx0 x0'
           in evalR s2 (rfromList cas) as' -}
         FoldR @rm @m p as _df rf x0' as' ->
@@ -961,7 +960,6 @@ buildFinMaps s0 deltaDt =
           0 :$ _ -> evalR sShared (cShared ! (0 :. ZI)) x0'
           width :$ shm ->
             let !_A1 = assert (rlength p == width + 1) ()
-                !_A2 = assert (rlength as == width) ()
                 !_A3 = assert (rlength cShared == width + 1) ()
                 shn = shapeDelta x0'
                 -- The domain must be @Int@ due to rslice and so can't be
@@ -1145,12 +1143,30 @@ buildFinMaps s0 deltaDt =
                     d
         ReshapeS d -> evalS s (sreshape c) d
         GatherS d f -> evalS s (sscatter c f) d
-        FoldS f x0 as _df rf x0' as' ->
+{-      FoldS f x0 as _df rf x0' as' ->
           let las = sunravelToList as
               p = scanl' f x0 las
               (cx0, cas) = mapAccumR rf cShared (zip (init p) las)
               s2 = evalS sShared cx0 x0'
-          in evalS s2 (sfromList cas) as'
+          in evalS s2 (sfromList cas) as' -}
+        FoldS @rm @shm @k f x0 as _df rf x0' as' ->
+          let width = Proxy @k
+              p = sfromList @_ @_ @(1 + k) $ scanl' f x0 $ sunravelToList as
+              crs :: shaped r (1 + k ': sh)
+              crs = sfromList
+                    $ scanr (\(x, a) cr -> fst $ rf cr (x, a))
+                            cShared (zip (sunravelToList
+                                          $ sslice (Proxy @0) width p)
+                                         (sunravelToList as))
+              rg :: shaped r (k ': sh) -> shaped r (k ': sh)
+                 -> shaped rm (k ': shm)
+                 -> shaped rm (k ': shm)
+              rg = szipWith31 (\cr x a -> snd $ rf cr (x, a))
+              cas = rg (sslice @_ @_ @_ @_ @0 (Proxy @1) width crs)
+                       (sslice (Proxy @0) width p)
+                       as
+              s2 = evalS sShared (crs !$ (0 :$: ZSH)) x0'
+          in evalS s2 cas as'
         CastS d -> evalSRuntimeSpecialized s (scast c) d
         RToS (SToR @sh2 d) ->
           case sameShape @sh @sh2 of
