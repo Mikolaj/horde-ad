@@ -13,7 +13,7 @@ module HordeAd.Core.TensorClass
     ShapeInt, ShapeSh
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), DomainsTensor(..)
-  , raddDynamic, saddDynamic, rfromD, sfromD
+  , raddDynamic, saddDynamic, sumDynamicRanked, rfromD, sfromD
     -- * The related constraints
   , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
     -- * Concrete array instances auxiliary definitions
@@ -33,7 +33,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Function ((&))
 import           Data.Kind (Constraint, Type)
-import           Data.List (transpose)
+import           Data.List (foldl', transpose)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -381,6 +381,19 @@ saddDynamic r (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
     Just Refl -> r :: shaped r2 sh2
     _ -> error "saddDynamic: scalar mismatch"
   _ -> error "saddDynamic: shape mismatch"
+
+sumDynamicRanked :: RankedTensor ranked
+                 => [DynamicTensor ranked] -> DynamicTensor ranked
+sumDynamicRanked [] = error "sumDynamicRanked: empty list"
+sumDynamicRanked (DynamicRanked t : ds) =
+  DynamicRanked $ foldl' raddDynamic t ds
+sumDynamicRanked (DynamicShaped{} : _) =
+  error "sumDynamicRanked: DynamicShaped"
+sumDynamicRanked (DynamicRankedDummy @r @sh _ _ : ds) =
+  withListShape (Sh.shapeT @sh) $ \sh1 ->
+    DynamicRanked @r $ foldl' raddDynamic (rzero sh1) ds
+sumDynamicRanked (DynamicShapedDummy{} : _) =
+  error "sumDynamicRanked: DynamicShapedDummy"
 
 
 -- * Shaped tensor class definition

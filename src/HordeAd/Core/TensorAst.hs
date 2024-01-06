@@ -812,21 +812,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         g doms = uncurry f (domsToPair doms)
         shn = rshape x0
         parameters0 = V.cons (odFromSh @rn shn) od
-    in -- This computes the (AST of) derivative of f once for each @x0@
-       -- and @as@, which is better than once for each @a@. We could compute
-       -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
-       -- can do that thanks to shapes being available from types.
-       case revProduceArtifact TensorToken True g EM.empty parameters0 of
+    in case revProduceArtifact TensorToken True g EM.empty parameters0 of
       ( ( (varDt, AstDynamicVarName nid : mdyns)
         , gradient, _primal, _sh), _delta ) ->
         case fwdProduceArtifact TensorToken g EM.empty parameters0 of
           ( ( ( AstDynamicVarName nid1 : mdyns1
               , AstDynamicVarName nid2 : mdyns2 )
             , derivative, _primal), _delta ) ->
-            -- We could do lots of type comparisons and then reuse the variables
-            -- from above, for a little more sanity check paranoid assurance,
-            -- but @HasSingletonDict@ would need to be added
-            -- to @AstDynamicVarName@, complicating also other code.
             let nvar1 = AstVarName nid1
                 nvar2 = AstVarName nid2
                 nvar = AstVarName nid

@@ -58,7 +58,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
-import           Data.List (foldl', scanl', sort, zipWith4)
+import           Data.List (foldl', scanl', sort, transpose)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
@@ -250,20 +250,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
         -> DeltaR ranked rn n
         -> DeltaR ranked rm (1 + m)
         -> DeltaR ranked rn (1 + n)
-{-Scan2R :: (GoodScalar rm, KnownNat m, GoodScalar rp, KnownNat p)
-         => (ranked rn n -> (ranked rm m, ranked rp p) -> ranked rn n)
-         -> ranked rn n -> ranked rm (1 + m) -> ranked rp (1 + p)
-         -> (ranked rn n -> ( ranked rm m, ranked rp p, ranked rn n
-                            , ranked rm m, ranked rp p )
-             -> ranked rn n)
-         -> (ranked rn n -> (ranked rn n, ranked rm m, ranked rp p)
-             -> (ranked rn n, (ranked rm m, ranked rp p)))
-         -> DeltaR ranked rn n
-         -> DeltaR ranked rm (1 + m)
-         -> DeltaR ranked rp (1 + p)
-         -> DeltaR ranked rn (1 + n) -}
-  ScanDR :: (ranked rn n -> Domains ranked -> ranked rn n)
-         -> ranked rn n
+  ScanDR :: ranked rn (1 + n)
          -> Domains ranked  -- one rank higher than the Domains above
          -> (ranked rn n -> (Domains ranked, ranked rn n, Domains ranked)
              -> ranked rn n)
@@ -453,9 +440,7 @@ shapeDelta = \case
   GatherR sh _ _ -> sh
   FoldR _p _as _df _rf x0' _as' -> shapeDelta x0'
   ScanR p _as _df _rf _x0' _as' -> rshape p
-  ScanDR _f x0 as _df _rf _x0' _as' -> case V.unsnoc as of
-    Nothing -> error "shapeDelta: empty domains"
-    Just (_, d) -> length (shapeDynamic d) :$ rshape x0
+  ScanDR p _as _df _rf _x0' _as' -> rshape p
   CastR d -> shapeDelta d
   SToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
 
@@ -936,45 +921,13 @@ buildFinMaps s0 deltaDt =
                                      [1 .. lengthDelta @ranked t]
               d = FromListR
                   $ x0' : map g (zip (initsViaSlice as) (initsViaSliceD as'))
-          in evalR s c d
+          in evalR s c d -}
+-- The following won't work, because i in slice needs to be statically knownn.
+-- Indeed, vectorization would break down due to this i, even if baked
+-- into the semantics of rfold, etc.
+-- rscan f x0 as = rbuild1 (rlength as + 1) $ \i -> rfold f x0 (rslice 0 i as)
         ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
-          0 :$ _ -> evalR sShared (cShared ! (0 :. ZI)) x0'
-          width :$ shm ->
-            let !_A1 = assert (rlength p == width + 1) ()
-                !_A2 = assert (rlength as == width) ()
-                !_A3 = assert (rlength cShared == width + 1) ()
-                lp0 :: [ranked r n1]
-                lp0 = runravelToList p
-                las0 :: [ranked rm m]
-                las0 = runravelToList as
-                g1 :: Int -> [ranked r n1]
-                g1 k =
-                  let lp = take k lp0
-                      las = take k las0
-                      cx = cShared ! (fromIntegral k :. ZI)
-                      crs :: [ranked r n1]
-                      crs = scanr (\(x, a) cr -> fst $ rf cr (x, a))
-                                  cx (zip lp las)
-                  in crs
-                g1s = map g1 [1..width]
-                g1sum = foldl' (+) (cShared ! (0 :. ZI)) (map (!! 0) g1s)
-                g2 :: Int -> ranked rm (1 + m)
-                g2 k =
-                  let lp = take k lp0
-                      las = take k las0
-                      rg :: [ranked r n1] -> [ranked r n1] -> [ranked rm m]
-                         -> [ranked rm m]
-                      rg = zipWith3 (\cr x a -> snd $ rf cr (x, a))
-                      cas = rg (drop 1 $ g1s !! (k - 1)) lp las
-                      padding = rzero (width - k :$ shm)
-                  in rappend (rfromList cas) padding
-                g2s = map g2 [1..width]
-                g2sum = rsum $ rfromList g2s
-                s2 = evalR sShared g1sum x0'
-            in evalR s2 g2sum as'
-          ZS -> error "evalR: impossible pattern needlessly required" -}
-        ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
-          0 :$ _ -> evalR sShared (cShared ! (0 :. ZI)) x0'
+          0 :$ _ -> evalR s (c ! (0 :. ZI)) x0'
           width :$ shm ->
             let !_A1 = assert (rlength p == width + 1) ()
                 !_A3 = assert (rlength cShared == width + 1) ()
@@ -1016,60 +969,80 @@ buildFinMaps s0 deltaDt =
                 s2 = evalR sShared g1sum x0'
             in evalR s2 g2sum as'
           ZS -> error "evalR: impossible pattern needlessly required"
--- The following won't work, because i in slice needs to be statically knownn.
--- Indeed, vectorization would break down due to this i, even if baked
--- into the semantics of rfold, etc.
--- rscan f x0 as = rbuild1 (rlength as + 1) $ \i -> rfold f x0 (rslice 0 i as)
-{- TODO: wrong: -}
-{-      Scan2R @rm @m @rp @p @_ @_ @n1 f x0 as bs _df rf x0' as' bs' ->
-          let cxs :: [ranked r n1]
-              cxs = runravelToList cShared
-              p :: [ranked r n1]
-              p = scanl' f x0 (zip las lbs)
-              las :: [ranked rm m]
-              las = runravelToList as
-              lbs :: [ranked rp p]
-              lbs = runravelToList bs
-              crs :: [ranked r n1]
-              crs = scanr (\(cx, x, a, b) cr -> fst $ rf (cr + cx) (x, a, b))
-                          (rzero $ rshape x0) (zip4 cxs (init p) las lbs)
-              rg :: [ranked r n1] -> [ranked r n1] -> [ranked r n1]
-                 -> [ranked rm m] -> [ranked rp p]
-                 -> [(ranked rm m, ranked rp p)]
-              rg = zipWith5 (\cr cx x a b -> snd $ rf (cr + cx) (x, a, b))
-              (cas, cbs) = unzip $ rg (drop 1 crs) cxs (init p) las lbs
-              s2 = evalR sShared (crs !! 0) x0'
-              s3 = evalR s2 (rfromList cas) as'
-          in evalR s3 (rfromList cbs) bs' -}
-{- TODO: wrong: -}
-        ScanDR @_ @_ @n1 f x0 as _df rf x0' as' ->  -- n1 ~ n - 1
-          let cxs :: [ranked r n1]
-              cxs = runravelToList cShared
-              ps :: [ranked r n1]
-              ps = scanl' f x0 las
-              las :: [Domains ranked]
-              las = unravelDomains as
-              crs :: [ranked r n1]
-              crs = scanr (\(cx, x, a) cr -> fst $ rf (cr + cx) (x, a))
-                          (rzero $ rshape x0) (zip3 cxs (init ps) las)
-              rg :: [ranked r n1] -> [ranked r n1] -> [ranked r n1]
-                 -> [Domains ranked]
-                 -> [Domains ranked]
-              rg = zipWith4 (\cr cx x a -> snd $ rf (cr + cx) (x, a))
-              cas = rg (drop 1 crs) cxs (init ps) las
-              s2 = evalR sShared (crs !! 0) x0'
-              evalRDynamicRanked
-                :: EvalState ranked shaped
-                -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
-                -> EvalState ranked shaped
-              evalRDynamicRanked s3 ( DynamicRanked @rp @p t
-                                    , DynamicRanked @rq @q d )
-                | Just Refl <- sameNat (Proxy @q) (Proxy @p)
-                , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
-                    evalR s3 t d
-              evalRDynamicRanked _ _ =
-                error "evalRDynamicRanked: unexpected constructor"
-          in V.foldl' evalRDynamicRanked s2 $ V.zip (ravelDomains cas) as'
+        ScanDR @_ @_ @n1 p as _df rf x0' as' -> case V.unsnoc as of
+          Nothing -> error "evalR: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "evalR: wrong rank of argument"
+            0 : _ -> evalR s (c ! (0 :. ZI)) x0'
+            width : _ ->
+              let !_A1 = assert (rlength p == width + 1) ()
+                  !_A3 = assert (rlength cShared == width + 1) ()
+                  shn = shapeDelta x0'
+                  mapDomainsRanked
+                    :: (forall rq q. (GoodScalar rq, KnownNat q)
+                        => ranked rq (1 + q) -> ranked rq (1 + q))
+                    -> Domains ranked -> Domains ranked
+                  mapDomainsRanked f = V.map (mapRanked f)
+                  mapRanked
+                    :: (forall rq q. (GoodScalar rq, KnownNat q)
+                        => ranked rq (1 + q) -> ranked rq (1 + q))
+                    -> DynamicTensor ranked -> DynamicTensor ranked
+                  mapRanked f (DynamicRanked t) = case rshape t of
+                    ZS -> error "mapRanked: rank 0"
+                    _ :$ _ -> DynamicRanked $ f t
+                  mapRanked _ _ = error "mapRanked: not DynamicRanked"
+                  g1 :: Int -> ranked r (1 + n1)
+                  g1 k =
+                    let cx = cShared ! (fromIntegral k :. ZI)
+                        lp = rreverse $ rslice 0 k p
+                        las :: Domains ranked
+                        las = mapDomainsRanked (rreverse . rslice 0 k) as
+                        rf1 = scanl' (\cr pas -> fst $ rf cr pas)  -- rscanD
+                                     cx (zip (runravelToList lp)
+                                             (unravelDomains las))
+                        rf1r = rreverse $ rfromList rf1
+                        padding = rzero (width - k :$ shn)
+                    in rappend rf1r padding
+                  g1s = map g1 [1 .. width]  -- can't be rmap, rbuild nor rscan
+                  g1t = rfromList g1s
+                  g1sum = cShared ! (0 :. ZI) + rsum (rtr g1t ! (0 :. ZI))
+                  g2 :: Int -> Domains ranked  -- 1 + m
+                  g2 k =
+                    let rf11 = rslice 1 k $ g1t ! (fromIntegral k - 1 :. ZI)
+                        lp = rslice 0 k p
+                        las :: Domains ranked  -- 1 + m
+                        las = mapDomainsRanked (rslice 0 k) as
+                        rg :: [ranked r n1] -> [ranked r n1]
+                           -> [Domains ranked]  -- [m]
+                           -> [Domains ranked]  -- [m]
+                        rg = zipWith3 (\cr x a -> snd $ rf cr (x, a))
+                          -- TODO: make this rzipWith31 (rzipWithDomains31?)
+                        cas = rg (runravelToList rf11)
+                                 (runravelToList lp)
+                                 (unravelDomains las)
+                        padRanked (DynamicRanked t) = case rshape t of
+                          ZS -> error "padRanked: wrong shape"
+                          kk :$ shm -> assert (kk == k) $
+                            let padding = rzero (width - k :$ shm)
+                            in DynamicRanked $ rappend t padding
+                        padRanked _ = error "padRanked: not DynamicRanked"
+                    in V.map padRanked (ravelDomains cas)
+                  g2s = map g2 [1..width]  -- can't be rmap nor rbuild nor rscan
+                  g2sum = V.fromList $ map sumDynamicRanked
+                          $ transpose $ map V.toList g2s
+                  s2 = evalR sShared g1sum x0'
+                  evalRDynamicRanked
+                    :: EvalState ranked shaped
+                    -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
+                    -> EvalState ranked shaped
+                  evalRDynamicRanked s3 ( DynamicRanked @rp @p t2
+                                        , DynamicRanked @rq @q d2 )
+                    | Just Refl <- sameNat (Proxy @q) (Proxy @p)
+                    , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
+                        evalR s3 t2 d2
+                  evalRDynamicRanked _ _ =
+                    error "evalRDynamicRanked: unexpected constructor"
+              in V.foldl' evalRDynamicRanked s2 $ V.zip g2sum as'
         CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
         SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
@@ -1392,7 +1365,7 @@ buildDerivative dimR deltaDt params = do
               lp = runravelToList p
           return $! rfromList $ assert (length lcas == length las) $
                                 scanl' df cx0 (zip3 lcas (init lp) las)
-        ScanDR f x0 as df _rf x0' as' -> do
+        ScanDR p as df _rf x0' as' -> do
           cx0 <- evalR x0'
           let evalRDynamicRanked
                 :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
@@ -1404,8 +1377,8 @@ buildDerivative dimR deltaDt params = do
           cas <- V.mapM evalRDynamicRanked as'
           let lcas = unravelDomains cas
               las = unravelDomains as
-              p = scanl' f x0 las
-          return $! rfromList $ scanl' df cx0 (zip3 lcas (init p) las)
+              lp = runravelToList p
+          return $! rfromList $ scanl' df cx0 (zip3 lcas (init lp) las)
         CastR d -> do
           t <- evalR d
           return $! rcast t
