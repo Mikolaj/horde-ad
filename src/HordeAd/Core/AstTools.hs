@@ -101,12 +101,16 @@ shapeAst = \case
   AstScanD _f x0 as ->
     let len = case V.uncons as of
           Nothing -> 0
-          Just (a, _) -> length (shapeDynamicAst a)
+          Just (a, _) -> case shapeDynamicAst a of
+            [] -> error "shapeAst: no scan arguments"
+            k : _ -> k
     in len + 1 :$ shapeAst x0
   AstScanDDer _f _df _rf x0 as ->
     let len = case V.uncons as of
           Nothing -> 0
-          Just (a, _) -> length (shapeDynamicAst a)
+          Just (a, _) -> case shapeDynamicAst a of
+            [] -> error "shapeAst: no scan arguments"
+            k : _ -> k
     in len + 1 :$ shapeAst x0
 
 -- Length of the outermost dimension.
