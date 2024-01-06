@@ -10,6 +10,7 @@ import Prelude
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
+import           Data.Int (Int64)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
@@ -118,6 +119,30 @@ testTrees =
   , testCase "4SinUnitriangular0PP" testUnitriangular0PP
   , testCase "4SinUnitriangular1PP" testUnitriangular1PP
   , testCase "4SinUnitriangular2PP" testUnitriangular2PP
+  , testCase "4Sin0ScanD0" testSin0ScanD0
+  , testCase "4Sin0ScanD1" testSin0ScanD1
+  , testCase "4Sin0ScanD2" testSin0ScanD2
+  , testCase "4Sin0ScanD3" testSin0ScanD3
+  , testCase "4Sin0ScanD4" testSin0ScanD4
+  , testCase "4Sin0ScanD5" testSin0ScanD5
+  , testCase "4Sin0ScanD51" testSin0ScanD51
+  , testCase "4Sin0ScanD6" testSin0ScanD6
+  , testCase "4Sin0ScanD7" testSin0ScanD7
+  , testCase "4Sin0ScanD8" testSin0ScanD8
+  , testCase "4Sin0ScanD8rev" testSin0ScanD8rev
+  , testCase "4Sin0ScanD8rev2" testSin0ScanD8rev2
+  , testCase "4Sin0ScanD1RevPP" testSin0ScanD1RevPP
+  , testCase "4Sin0ScanDFwdPP" testSin0ScanDFwdPP
+  , testCase "4Sin0ScanD1Rev2PP" testSin0ScanD1Rev2PP
+  , testCase "4Sin0ScanDFwd2PP" testSin0ScanDFwd2PP
+  , testCase "4Sin0ScanD1Rev2" testSin0ScanD1Rev2
+  , testCase "4Sin0ScanD1Rev3PP" testSin0ScanD1Rev3PP
+  , testCase "4Sin0ScanDFwd3PP" testSin0ScanDFwd3PP
+  , testCase "4Sin0ScanD1Rev3" testSin0ScanD1Rev3
+  , testCase "4Sin0ScanD0fwd" testSin0ScanD0fwd
+  , testCase "4Sin0ScanD1fwd" testSin0ScanD1fwd
+  , testCase "4Sin0ScanD8fwd" testSin0ScanD8fwd
+  , testCase "4Sin0ScanD8fwd2" testSin0ScanD8fwd2
   ]
 
 foo :: RealFloat a => (a, a, a) -> a
@@ -1019,3 +1044,323 @@ testUnitriangular2PP = do
       a1 = unitriangular2 @3 @Double @(AstRanked FullSpan) k sh
   printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
     @?= "rconstant (rgather [1000000,1000000,200,300,600] (rfromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 (rconst 0.0))))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 (rconst 1.0)))))]) (\\[i9, i10] -> [ifF (i9 <. i10) 0 1, i9, i10]))"
+
+testSin0ScanD0 :: Assertion
+testSin0ScanD0 = do
+  assertEqualUpToEpsilon' 1e-10
+    1
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 1
+               f x0 = rscanD (\x _a -> sin x)
+                             (V.fromList [odFromSh @Double ZS])
+                             x0 (V.singleton $ DynamicRanked
+                                 $ rzero @f @Double (0 :$ ZS))
+           in f) 1.1)
+
+testSin0ScanD1 :: Assertion
+testSin0ScanD1 = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1,1,1,1,1] [1.4535961214255773] :: OR.Array 5 Double)
+    (rev' (\x0 -> rscanD (\x _a -> sin x)
+                         (V.fromList [odFromSh @Double ZS])
+                         x0 (V.singleton $ DynamicRanked
+                             $ rconst (OR.constant @Double @1 [1] 42)))
+          (rreplicate0N [1,1,1,1,1] 1.1))
+
+testSin0ScanD2 :: Assertion
+testSin0ScanD2 = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1,1,1,1,1] [2.2207726343670955] :: OR.Array 5 Double)
+    (rev' (\x0 -> rscanD (\x _a -> sin x)
+                         (V.fromList [odFromSh @Double ZS])
+                         x0 (V.singleton $ DynamicRanked
+                             $ rconst (OR.constant @Double @1 [5] 42)))
+          (rreplicate0N [1,1,1,1,1] 1.1))
+
+testSin0ScanD3 :: Assertion
+testSin0ScanD3 = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1,1,1,1,1] [1.360788364276732] :: OR.Array 5 Double)
+    (rev' (\a0 -> rscanD (\_x a -> sin $ fromDynamicRanked @Double @5 (a V.! 0))
+                         (V.fromList [odFromSh @Double
+                                        (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)])
+                         (rreplicate0N [1,1,1,1,1] 84)
+                         (V.fromList
+                            [ DynamicRanked
+                              $ rreplicate 3 a0
+                            , DynamicRanked
+                              $ rconst (OR.constant @Double @6
+                                          [3, 4, 5, 6, 7, 8] 32) ]))
+                         (rreplicate0N [1,1,1,1,1] 1.1))
+
+testSin0ScanD4 :: Assertion
+testSin0ScanD4 = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1,1,1,1,1] [-0.4458209450295252] :: OR.Array 5 Double)
+    (rev' (\a0 -> rscanD (\x a -> atan2 (sin x)
+                                        (sin $ fromDynamicRanked (a V.! 0)))
+                         (V.fromList [odFromSh @Double
+                                        (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)])
+                         (rreplicate0N [1,1,1,1,1] 2 * a0)
+                         (V.singleton $ DynamicRanked
+                          $ rreplicate 3 a0)) (rreplicate0N [1,1,1,1,1] 1.1))
+
+testSin0ScanD5 :: Assertion
+testSin0ScanD5 = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1,1,1,1] [4.126141830000979] :: OR.Array 4 Double)
+    (rev' (\a0 -> rscanD (\x a -> rsum
+                                 $ atan2 (sin $ rreplicate 5 x)
+                                         (rsum $ sin $ rsum
+                                          $ rtr $ rreplicate 7
+                                          $ fromDynamicRanked (a V.! 0)))
+                         (V.fromList [ odFromSh @Double
+                                         (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
+                                     , odFromSh @Double
+                                         (8 :$ 3 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS) ])
+                         (rreplicate0N [1,1,1,1] 2 * a0)
+                         (V.fromList
+                            [ DynamicRanked
+                              $ rreplicate 3 (rreplicate 2 (rreplicate 5 a0))
+                            , DynamicRanked
+                              $ rreplicate 3 (rreplicate 8 (rreplicate 3 a0)) ]
+                         ))
+          (rreplicate0N [1,1,1,1] 1.1))
+
+testSin0ScanD51 :: Assertion
+testSin0ScanD51 = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1,1,1,1] [319.68688158967257] :: OR.Array 4 Double)
+    (rev' (\a0 -> rscanD (\x a -> rsum
+                                 $ atan2 (sin $ rreplicate 5 x)
+                                         (rsum $ sin $ rsum
+                                          $ rtr $ rreplicate 7
+                                          $ rreplicate 2 $ rreplicate 5
+                                          $ rsum $ rsum
+                                          $ fromDynamicRanked (a V.! 1)))
+                         (V.fromList [ odFromSh @Double
+                                         (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
+                                     , odFromSh @Double
+                                         (8 :$ 3 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS) ])
+                         (rreplicate0N [1,1,1,1] 2 * a0)
+                         (V.fromList
+                            [ DynamicRanked
+                              $ rreplicate 3 (rreplicate 2 (rreplicate 5 a0))
+                            , DynamicRanked
+                              $ rreplicate 3 (rreplicate 8 (rreplicate 3 a0)) ]
+                         ))
+          (rreplicate0N [1,1,1,1] 1.1))
+
+testSin0ScanD6 :: Assertion
+testSin0ScanD6 = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1,1] [12] :: OR.Array 2 Double)
+    (rev' (\a0 -> rscanD (\x a -> rtr
+                                 $ rtr x + rreplicate 1
+                                             (rreplicate 2
+                                                (fromDynamicRanked (a V.! 0))))
+                         (V.fromList [odFromSh @Double (1 :$ 1 :$ ZS)])
+                         (rreplicate 2 (rreplicate 1 a0))
+                         (V.singleton $ DynamicRanked
+                          $ rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
+
+testSin0ScanD7 :: Assertion
+testSin0ScanD7 = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1,1] [310] :: OR.Array 2 Double)
+    (rev' (\a0 -> rscanD (\x _a -> rtr $ rreplicate 5
+                                   $ (rsum (rtr x)))
+                         (V.fromList [odFromSh @Double (1 :$ 1 :$ ZS)])
+                         (rreplicate 2 (rreplicate 5 a0))
+                         (V.singleton $ DynamicRanked
+                          $ rreplicate 2 a0)) (rreplicate0N [1,1] 1.1))
+
+testSin0ScanD8 :: Assertion
+testSin0ScanD8 = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1,1,1] [9.532987357352765] :: OR.Array 3 Double)
+    (rev' (\a0 -> rscanD (\x a -> rtr $ rreplicate 5
+                                 $ atan2 (rsum (rtr $ sin x))
+                                         (rreplicate 2
+                                          $ sin (fromDynamicRanked $ (V.! 0)
+                                                 $ mapDomainsRanked
+                                                     (rsum . rreplicate 7) a)))
+                       (V.fromList [odFromSh @Double (1 :$ 1 :$ 1 :$ ZS)])
+                       (rreplicate 2 (rreplicate 5
+                                        (rreplicate0N [1,1,1] 2 * a0)))
+                       (V.singleton $ DynamicRanked $ rreplicate 3 a0))
+                       (rreplicate0N [1,1,1] 1.1))
+
+testSin0ScanD8rev :: Assertion
+testSin0ScanD8rev = do
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.fromList [] [9.53298735735276])
+    (rrev1 @(Flip OR.Array) @Double @0 @3
+       (\a0 -> rscanD (\x a -> rtr $ rreplicate 5
+                                 $ atan2 (rsum (rtr $ sin x))
+                                         (rreplicate 2
+                                          $ sin (fromDynamicRanked $ (V.! 0)
+                                                 $ mapDomainsRanked
+                                                     (rsum . rreplicate 7) a)))
+                       (V.fromList [odFromSh @Int64 ZS])
+                       (rreplicate 2 (rreplicate 5 (2 * a0)))
+                       (V.singleton $ DynamicRanked $ rreplicate 3 a0)) 1.1)
+
+testSin0ScanD8rev2 :: Assertion
+testSin0ScanD8rev2 = do
+  let h = rrev1 @(ADVal (Flip OR.Array)) @Double @0 @3
+        (\a0 -> rscanD (\x a -> rtr $ rreplicate 5
+                                 $ atan2 (rsum (rtr $ sin x))
+                                         (rreplicate 2
+                                          $ sin (fromDynamicRanked $ (V.! 0)
+                                                 $ mapDomainsRanked10 rsum
+                                                 $ mapDomainsRanked01
+                                                     (rreplicate 7) a)))
+                       (V.fromList [odFromSh @Int64 ZS])
+                       (rreplicate 2 (rreplicate 5 (2 * a0)))
+                       (V.singleton $ DynamicRanked $ rreplicate 3 a0))
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.fromList [] [285.9579482947575])
+    (crev h 1.1)
+
+testSin0ScanD1RevPP :: Assertion
+testSin0ScanD1RevPP = do
+  resetVarCounter
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rscanD (\x _a -> sin x)
+                           (V.fromList [odFromSh @Double ZS])
+                           x0 (V.singleton $ DynamicRanked
+                               $ rconst (OR.constant @Double @1 [2] 42))) 1.1
+  printAstPretty IM.empty (simplifyAst6 a1)
+    @?= "rletDomainsIn (let v50 = rscanDDer (\\x41 [x42 @Natural @Double @[]] -> sin x41) (\\x43 [x44 @Natural @Double @[]] x45 [x46 @Natural @Double @[]] -> x43 * cos x45) (\\x47 x48 [x49 @Natural @Double @[]] -> (cos x48 * x47, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in (rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v50 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v50 ! [0]) * (cos (v50 ! [1]) * rconst 1.0), cos (v50 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i67] -> [i67, i67])))) (\\[dret @Natural @Double @[]] -> dret)"
+
+testSin0ScanDFwdPP :: Assertion
+testSin0ScanDFwdPP = do
+  resetVarCounter
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rscanD (\x _a -> sin x)
+                           (V.fromList [odFromSh @Double ZS])
+                           x0 (V.singleton $ DynamicRanked
+                               $ rconst (OR.constant @Double @1 [2] 42))) 1.1
+  printAstPretty IM.empty (simplifyAst6 a1)
+    @?= "let v33 = rscanDDer (\\x24 [x25 @Natural @Double @[]] -> sin x24) (\\x26 [x27 @Natural @Double @[]] x28 [x29 @Natural @Double @[]] -> x26 * cos x28) (\\x30 x31 [x32 @Natural @Double @[]] -> (cos x31 * x30, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in rfromList [rconst 1.1, rconst 1.1 * cos (v33 ! [0]), (rconst 1.1 * cos (v33 ! [0])) * cos (v33 ! [1])]"
+
+testSin0ScanD1Rev2PP :: Assertion
+testSin0ScanD1Rev2PP = do
+  resetVarCounter
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rscanD (\x a -> sin x - fromDynamicRanked (a V.! 0))
+                         (V.fromList [odFromSh @Double ZS])
+                         x0 (V.singleton $ DynamicRanked
+                             $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
+  printAstPretty IM.empty (simplifyAst6 a1)
+    @?= "rletDomainsIn (let v53 = rscanDDer (\\x43 [x44 @Natural @Double @[]] -> sin x43 - x44) (\\x45 [x46 @Natural @Double @[]] x47 [x48 @Natural @Double @[]] -> x45 * cos x47 + x46 * rconst -1.0) (\\x50 x51 [x52 @Natural @Double @[]] -> (cos x51 * x50, rconst -1.0 * x50)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in (rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v53 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v53 ! [0]) * (cos (v53 ! [1]) * rconst 1.0), cos (v53 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i76] -> [i76, i76])))) (\\[dret @Natural @Double @[]] -> dret)"
+
+testSin0ScanDFwd2PP :: Assertion
+testSin0ScanDFwd2PP = do
+  resetVarCounter
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rscanD (\x a -> sin x - fromDynamicRanked (a V.! 0))
+                         (V.fromList [odFromSh @Double ZS])
+                         x0 (V.singleton $ DynamicRanked
+                         $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
+  printAstPretty IM.empty (simplifyAst6 a1)
+    @?= "let v36 = rscanDDer (\\x26 [x27 @Natural @Double @[]] -> sin x26 - x27) (\\x28 [x29 @Natural @Double @[]] x30 [x31 @Natural @Double @[]] -> x28 * cos x30 + x29 * rconst -1.0) (\\x33 x34 [x35 @Natural @Double @[]] -> (cos x34 * x33, rconst -1.0 * x33)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in rfromList [rconst 1.1, rconst 1.1 * cos (v36 ! [0]) + rconst 0.0 * rconst -1.0, (rconst 1.1 * cos (v36 ! [0]) + rconst 0.0 * rconst -1.0) * cos (v36 ! [1]) + rconst 0.0 * rconst -1.0]"
+
+testSin0ScanD1Rev2 :: Assertion
+testSin0ScanD1Rev2 = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [] [1.1961317861865948] :: OR.Array 0 Double)
+    (rev' (\x0 -> rscanD (\x a -> sin x - fromDynamicRanked (a V.! 0))
+                         (V.fromList [odFromSh @Double ZS])
+                         x0 (V.singleton $ DynamicRanked
+                         $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1)
+
+testSin0ScanD1Rev3PP :: Assertion
+testSin0ScanD1Rev3PP = do
+  resetVarCounter
+  let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rscanD (\x a -> sin x - fromDynamicRanked (a V.! 0))
+                                (V.fromList [odFromSh @Double ZS])
+                                x0 (V.singleton $ DynamicRanked
+                                    $ rfromList [x0 * 5, x0 * 7])) 1.1
+  printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
+    @?= "rletDomainsIn (let v54 = rscanDDer (\\x44 [x45 @Natural @Double @[]] -> sin x44 - x45) (\\x46 [x47 @Natural @Double @[]] x48 [x49 @Natural @Double @[]] -> x46 * cos x48 + x47 * rconst -1.0) (\\x51 x52 [x53 @Natural @Double @[]] -> (cos x52 * x51, rconst -1.0 * x51)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v55 = rappend (rreplicate 1 (rconst -1.0 * rconst 1.0)) (rconstant (rreplicate 1 (rconst 0.0))) + rappend (rfromList [rconst -1.0 * (cos (v54 ! [1]) * rconst 1.0), rconst -1.0 * rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) in (rconst 5.0 * v55 ! [0] + rconst 7.0 * v55 ! [1] + rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v54 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v54 ! [0]) * (cos (v54 ! [1]) * rconst 1.0), cos (v54 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i106] -> [i106, i106])))) (\\[dret @Natural @Double @[]] -> dret)"
+
+testSin0ScanDFwd3PP :: Assertion
+testSin0ScanDFwd3PP = do
+  resetVarCounter
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
+                 (\x0 -> rscanD (\x a -> sin x - fromDynamicRanked (a V.! 0))
+                                (V.fromList [odFromSh @Double ZS])
+                                x0 (V.singleton $ DynamicRanked
+                                    $ rfromList [x0 * 5, x0 * 7])) 1.1
+  printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
+    @?= "let v39 = rscanDDer (\\x29 [x30 @Natural @Double @[]] -> sin x29 - x30) (\\x31 [x32 @Natural @Double @[]] x33 [x34 @Natural @Double @[]] -> x31 * cos x33 + x32 * rconst -1.0) (\\x36 x37 [x38 @Natural @Double @[]] -> (cos x37 * x36, rconst -1.0 * x36)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v42 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0] in rfromList [rconst 1.1, rconst 1.1 * cos (v39 ! [0]) + v42 ! [0] * rconst -1.0, (rconst 1.1 * cos (v39 ! [0]) + v42 ! [0] * rconst -1.0) * cos (v39 ! [1]) + v42 ! [1] * rconst -1.0]"
+
+testSin0ScanD1Rev3 :: Assertion
+testSin0ScanD1Rev3 = do
+  assertEqualUpToEpsilon' 1e-5
+    (OR.fromList [] [-10.076255083995068] :: OR.Array 0 Double)
+    (rev' (\x0 -> rscanD (\x a -> sin x - fromDynamicRanked (a V.! 0))
+                         (V.fromList [odFromSh @Double ZS])
+                         x0 (V.singleton $ DynamicRanked
+                             $ rfromList [x0 * 5, x0 * 7])) 1.1)
+
+testSin0ScanD0fwd :: Assertion
+testSin0ScanD0fwd = do
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.fromList [1] [1.1])
+    (rfwd1 @(Flip OR.Array) @Double @0 @1
+    (let f :: forall f. ADReady f => f Double 0 -> f Double 1
+         f x0 = rscanD (\x _a -> sin x)
+                       (V.fromList [odFromSh @Float ZS])
+                       x0 (V.singleton $ DynamicRanked
+                           $ rzero @f @Double (0 :$ ZS))
+     in f) 1.1)
+
+testSin0ScanD1fwd :: Assertion
+testSin0ScanD1fwd = do
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.fromList [2] [1.1,0.4989557335681351])
+    (rfwd1 @(Flip OR.Array) @Double @0 @1
+    (\x0 -> rscanD (\x _a -> sin x)
+                   (V.fromList [ odFromSh @Float ZS
+                               , odFromSh @Float (3 :$ 4 :$ ZS)])
+                   x0 (V.fromList
+                         [ DynamicRanked
+                           $ rconst (OR.constant @Double @1 [1] 42)
+                         , DynamicRanked
+                           $ rconst (OR.constant @Double @3 [1, 3, 4] 32) ]))
+          1.1)
+
+testSin0ScanD8fwd :: Assertion
+testSin0ScanD8fwd = do
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.fromList [4,2,5] [2.2,2.2,2.2,2.2,2.2,2.2,2.2,2.2,2.2,2.2,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.6450465372542022,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.2642905982717151,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279,-0.242034255165279])
+    (rfwd1 @(Flip OR.Array) @Double @0 @3
+       (\a0 -> rscanD (\x a -> rtr $ rreplicate 5
+                                 $ atan2 (rsum (rtr $ sin x))
+                                         (rreplicate 2
+                                          $ sin (fromDynamicRanked $ (V.! 0)
+                                                 $ mapDomainsRanked
+                                                     (rsum . rreplicate 7) a)))
+                      (V.fromList [odFromSh @Float ZS])
+                      (rreplicate 2 (rreplicate 5 (2 * a0)))
+                      (V.singleton $ DynamicRanked $ rreplicate 3 a0)) 1.1)
+
+testSin0ScanD8fwd2 :: Assertion
+testSin0ScanD8fwd2 = do
+  let h = rfwd1 @(ADVal (Flip OR.Array)) @Double @0 @3
+        (\a0 -> rscanD (\x a -> rtr $ rreplicate 5
+                                 $ atan2 (rsum (rtr $ sin x))
+                                         (rreplicate 2
+                                          $ sin (fromDynamicRanked $ (V.! 0)
+                                                 $ mapDomainsRanked10 rsum
+                                                 $ mapDomainsRanked01
+                                                     (rreplicate 7) a)))
+                       (V.fromList [odFromSh @Int64 ZS])
+                       (rreplicate 2 (rreplicate 5 (2 * a0)))
+                       (V.singleton $ DynamicRanked $ rreplicate 3 a0))
+  assertEqualUpToEpsilon 1e-10
+    (Flip $ OR.fromList [] [324.086730481586])
+    (crev h 1.1)

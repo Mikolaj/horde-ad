@@ -21,6 +21,9 @@ module HordeAd.Core.TensorClass
   , sameShapesDomainsOD
   , odFromVar, odFromSh, odFromShS, fromDomainsR, fromDomainsS
   , unravelDomains, ravelDomains
+  , mapDomainsRanked, mapDomainsRanked01, mapDomainsRanked10, mapDomainsRanked11
+  , mapRanked, mapRanked01, mapRanked10, mapRanked11
+  , fromDynamicRanked
   ) where
 
 import Prelude
@@ -834,9 +837,9 @@ class DomainsTensor (ranked :: RankedTensorType)
            -> ranked rn (1 + n)
   rscanD :: (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
-         -> DomainsOD
+         -> DomainsOD  -- shapes of the Domains above, not below
          -> ranked rn n
-         -> Domains ranked
+         -> Domains ranked  -- one rank higher than above
          -> ranked rn (1 + n)
   rscanDDer :: (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
@@ -1083,6 +1086,100 @@ ravelDomains  -- the inverse of unravelDomains
   => [Domains ranked] -> Domains ranked
 ravelDomains = V.fromList . map ravelDynamicRanked
                . transpose . map V.toList
+
+mapDomainsRanked
+  :: RankedTensor ranked
+  => (forall rq q. (GoodScalar rq, KnownNat q)
+      => ranked rq q -> ranked rq q)
+  -> Domains ranked -> Domains ranked
+mapDomainsRanked f = V.map (mapRanked f)
+
+mapRanked
+  :: RankedTensor ranked
+  => (forall rq q. (GoodScalar rq, KnownNat q)
+      => ranked rq q -> ranked rq q)
+  -> DynamicTensor ranked -> DynamicTensor ranked
+mapRanked f (DynamicRanked t) = DynamicRanked $ f t
+mapRanked _ DynamicShaped{} = error "mapRanked: DynamicShaped"
+mapRanked f (DynamicRankedDummy @r @sh _ _) =
+  withListShape (Sh.shapeT @sh) $ \sh1 ->
+    DynamicRanked @r $ f (rzero sh1)
+mapRanked _ DynamicShapedDummy{} = error "mapRanked: DynamicShapedDummy"
+
+-- Hindler-Milner polymorphism is not great for existential types programming.
+mapDomainsRanked01
+  :: RankedTensor ranked
+  => (forall rq q. (GoodScalar rq, KnownNat q)
+      => ranked rq q -> ranked rq (1 + q))
+  -> Domains ranked -> Domains ranked
+mapDomainsRanked01 f = V.map (mapRanked01 f)
+
+mapRanked01
+  :: RankedTensor ranked
+  => (forall rq q. (GoodScalar rq, KnownNat q)
+      => ranked rq q -> ranked rq (1 + q))
+  -> DynamicTensor ranked -> DynamicTensor ranked
+mapRanked01 f (DynamicRanked t) = DynamicRanked $ f t
+mapRanked01 _ DynamicShaped{} = error "mapRanked01: DynamicShaped"
+mapRanked01 f (DynamicRankedDummy @r @sh _ _) =
+  withListShape (Sh.shapeT @sh) $ \sh1 ->
+    DynamicRanked @r $ f (rzero sh1)
+mapRanked01 _ DynamicShapedDummy{} = error "mapRanked01: DynamicShapedDummy"
+
+mapDomainsRanked10
+  :: RankedTensor ranked
+  => (forall rq q. (GoodScalar rq, KnownNat q)
+      => ranked rq (1 + q) -> ranked rq q)
+  -> Domains ranked -> Domains ranked
+mapDomainsRanked10 f = V.map (mapRanked10 f)
+
+mapRanked10
+  :: RankedTensor ranked
+  => (forall rq q. (GoodScalar rq, KnownNat q)
+      => ranked rq (1 + q) -> ranked rq q)
+  -> DynamicTensor ranked -> DynamicTensor ranked
+mapRanked10 f (DynamicRanked t) = case rshape t of
+  ZS -> error "mapRanked10: rank 0"
+  _ :$ _ -> DynamicRanked $ f t
+mapRanked10 _ _ = error "mapRanked10: not DynamicRanked"
+
+mapDomainsRanked11
+  :: RankedTensor ranked
+  => (forall rq q. (GoodScalar rq, KnownNat q)
+      => ranked rq (1 + q) -> ranked rq (1 + q))
+  -> Domains ranked -> Domains ranked
+mapDomainsRanked11 f = V.map (mapRanked11 f)
+
+mapRanked11
+  :: RankedTensor ranked
+  => (forall rq q. (GoodScalar rq, KnownNat q)
+      => ranked rq (1 + q) -> ranked rq (1 + q))
+  -> DynamicTensor ranked -> DynamicTensor ranked
+mapRanked11 f (DynamicRanked t) = case rshape t of
+  ZS -> error "mapRanked11: rank 0"
+  _ :$ _ -> DynamicRanked $ f t
+mapRanked11 _ _ = error "mapRanked11: not DynamicRanked"
+
+fromDynamicRanked :: forall r n ranked.
+                     (RankedTensor ranked, GoodScalar r, KnownNat n)
+                  => DynamicTensor ranked -> ranked r n
+fromDynamicRanked (DynamicRanked @r2 @n2 t) =
+  case sameNat (Proxy @n2) (Proxy @n) of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl -> t
+      _ -> error "fromDynamicRanked: scalar mismatch"
+    _ -> error "fromDynamicRanked: rank mismatch"
+fromDynamicRanked DynamicShaped{} =
+  error "fromDynamicRanked: DynamicShaped"
+fromDynamicRanked (DynamicRankedDummy @r2 @sh2 _ _) =
+  withListShape (Sh.shapeT @sh2) $ \(sh1 :: ShapeInt n2) ->
+    case sameNat (Proxy @n2) (Proxy @n) of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+        Just Refl -> rzero sh1
+        _ -> error "fromDynamicRanked: scalar mismatch"
+      _ -> error "fromDynamicRanked: rank mismatch"
+fromDynamicRanked DynamicShapedDummy{} =
+  error "fromDynamicRanked: DynamicShapedDummy"
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 

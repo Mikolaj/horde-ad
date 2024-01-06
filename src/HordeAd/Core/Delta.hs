@@ -930,7 +930,7 @@ buildFinMaps s0 deltaDt =
           0 :$ _ -> evalR s (c ! (0 :. ZI)) x0'
           width :$ shm ->
             let !_A1 = assert (rlength p == width + 1) ()
-                !_A3 = assert (rlength cShared == width + 1) ()
+                !_A2 = assert (rlength cShared == width + 1) ()
                 shn = shapeDelta x0'
                 -- The domain must be @Int@ due to rslice and so can't be
                 -- @IndexOf ranked 0@ for rbuild nor @ranked Int 0@ for rmap.
@@ -976,27 +976,14 @@ buildFinMaps s0 deltaDt =
             0 : _ -> evalR s (c ! (0 :. ZI)) x0'
             width : _ ->
               let !_A1 = assert (rlength p == width + 1) ()
-                  !_A3 = assert (rlength cShared == width + 1) ()
+                  !_A2 = assert (rlength cShared == width + 1) ()
                   shn = shapeDelta x0'
-                  mapDomainsRanked
-                    :: (forall rq q. (GoodScalar rq, KnownNat q)
-                        => ranked rq (1 + q) -> ranked rq (1 + q))
-                    -> Domains ranked -> Domains ranked
-                  mapDomainsRanked f = V.map (mapRanked f)
-                  mapRanked
-                    :: (forall rq q. (GoodScalar rq, KnownNat q)
-                        => ranked rq (1 + q) -> ranked rq (1 + q))
-                    -> DynamicTensor ranked -> DynamicTensor ranked
-                  mapRanked f (DynamicRanked t) = case rshape t of
-                    ZS -> error "mapRanked: rank 0"
-                    _ :$ _ -> DynamicRanked $ f t
-                  mapRanked _ _ = error "mapRanked: not DynamicRanked"
                   g1 :: Int -> ranked r (1 + n1)
                   g1 k =
                     let cx = cShared ! (fromIntegral k :. ZI)
                         lp = rreverse $ rslice 0 k p
                         las :: Domains ranked
-                        las = mapDomainsRanked (rreverse . rslice 0 k) as
+                        las = mapDomainsRanked11 (rreverse . rslice 0 k) as
                         rf1 = scanl' (\cr pas -> fst $ rf cr pas)  -- rscanD
                                      cx (zip (runravelToList lp)
                                              (unravelDomains las))
@@ -1011,7 +998,7 @@ buildFinMaps s0 deltaDt =
                     let rf11 = rslice 1 k $ g1t ! (fromIntegral k - 1 :. ZI)
                         lp = rslice 0 k p
                         las :: Domains ranked  -- 1 + m
-                        las = mapDomainsRanked (rslice 0 k) as
+                        las = mapDomainsRanked11 (rslice 0 k) as
                         rg :: [ranked r n1] -> [ranked r n1]
                            -> [Domains ranked]  -- [m]
                            -> [Domains ranked]  -- [m]
