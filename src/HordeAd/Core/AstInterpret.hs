@@ -536,8 +536,8 @@ interpretAst !env = \case
   AstScan @_ @rm @n1 @m f x0 as ->
     let g :: forall f. ADReady f => f r n1 -> f rm m -> f r n1
         g = interpretLambda2 interpretAst EM.empty f
-        x0i = interpretAst @ranked env x0
-        asi = interpretAst @ranked env as
+        x0i = interpretAst env x0
+        asi = interpretAst env as
     in rscan g x0i asi
   AstScanDer @_ @rm @n1 @m f0 df0 rf0 x0 as ->
     let f :: forall f. ADReady f => f r n1 -> f rm m -> f r n1
@@ -548,15 +548,15 @@ interpretAst !env = \case
         rf :: forall f. ADReady f
            => f r n1 -> f r n1 -> f rm m -> DomainsOf f
         rf = interpretLambda3 interpretAstDomains EM.empty rf0
-        x0i = interpretAst @ranked env x0
-        asi = interpretAst @ranked env as
+        x0i = interpretAst env x0
+        asi = interpretAst env as
     in rscanDer f df rf x0i asi
   AstScanD @_ @n1 f@(_, vars, _) x0 as ->
     let g :: forall f. ADReady f => f r n1 -> Domains f -> f r n1
         g = interpretLambda2D interpretAst EM.empty f
         od = V.fromList $ map odFromVar vars
-        x0i = interpretAst @ranked env x0
-        asi = interpretAstDynamic @ranked env <$> as
+        x0i = interpretAst env x0
+        asi = interpretAstDynamic env <$> as
     in rscanD g od x0i asi
   AstScanDDer @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
     let f :: forall f. ADReady f => f r n1 -> Domains f -> f r n1
@@ -568,9 +568,9 @@ interpretAst !env = \case
            => f r n1 -> f r n1 -> Domains f -> DomainsOf f
         rf = interpretLambda3D interpretAstDomains EM.empty rf0
         od = V.fromList $ map odFromVar vars
-        x0i = interpretAst @ranked env x0
-        asi = interpretAstDynamic @ranked env <$> as
-    in rscanDDer @_ @_ @r @n1 f df rf od x0i asi
+        x0i = interpretAst env x0
+        asi = interpretAstDynamic env <$> as
+    in rscanDDer f df rf od x0i asi
 
 interpretAstDynamic
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
