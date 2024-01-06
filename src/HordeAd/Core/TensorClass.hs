@@ -350,18 +350,17 @@ class ( Integral (IntOf ranked), CRanked ranked Num
 
 raddDynamic :: forall ranked r n.
                (RankedTensor ranked, GoodScalar r, KnownNat n)
-            => ranked r n -> DynamicTensor ranked
-            -> DynamicTensor ranked
+            => ranked r n -> DynamicTensor ranked -> ranked r n
 raddDynamic r (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2)
                                                        (Proxy @n) of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> DynamicRanked @r $ r + t
+    Just Refl -> r + t
     _ -> error "raddDynamic: scalar mismatch"
   _ -> error "raddDynamic: rank mismatch"
 raddDynamic _ DynamicShaped{} = error "raddDynamic: DynamicShaped"
 raddDynamic r (DynamicRankedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
   Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> DynamicRanked (r :: ranked r2 (Sh.Rank sh2))
+    Just Refl -> r :: ranked r2 (Sh.Rank sh2)
     _ -> error "raddDynamic: scalar mismatch"
   _ -> error "raddDynamic: rank mismatch"
 raddDynamic _ DynamicShapedDummy{} = error "raddDynamic: DynamicShapedDummy"
@@ -369,18 +368,17 @@ raddDynamic _ DynamicShapedDummy{} = error "raddDynamic: DynamicShapedDummy"
 saddDynamic :: forall shaped sh r.
                ( ShapedTensor shaped, GoodScalar r, Sh.Shape sh
                , ShapedOf (RankedOf shaped) ~ shaped )
-            => shaped r sh -> DynamicTensor (RankedOf shaped)
-            -> DynamicTensor (RankedOf shaped)
+            => shaped r sh -> DynamicTensor (RankedOf shaped) -> shaped r sh
 saddDynamic _ DynamicRanked{} = error "saddDynamic: DynamicRanked"
 saddDynamic r (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> DynamicShaped @r $ r + t
+    Just Refl -> r + t
     _ -> error "saddDynamic: scalar mismatch"
   _ -> error "saddDynamic: shape mismatch"
 saddDynamic _ DynamicRankedDummy{} = error "saddDynamic: DynamicRankedDummy"
 saddDynamic r (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> DynamicShaped (r :: shaped r2 sh2)
+    Just Refl -> r :: shaped r2 sh2
     _ -> error "saddDynamic: scalar mismatch"
   _ -> error "saddDynamic: shape mismatch"
 

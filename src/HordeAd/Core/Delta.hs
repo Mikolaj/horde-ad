@@ -797,7 +797,8 @@ buildFinMaps s0 deltaDt =
                         sShared = s {astBindings = abShared}
                     in \case
         ZeroR{} -> s
-        InputR _ i -> s {iMap = EM.adjust (raddDynamic c) i $ iMap s}
+        InputR _ i -> s {iMap = EM.adjust (DynamicRanked . raddDynamic c) i
+                                $ iMap s}
           -- This and similar don't need to be runtime-specialized,
           -- because the type of c determines the Num instance for (+).
         ScaleR k d -> evalR s (k * c) d
@@ -839,7 +840,8 @@ buildFinMaps s0 deltaDt =
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBindingR _) ->
-                s {dMap = EM.adjust (raddDynamic c) n $ dMap s}
+                s {dMap = EM.adjust (DynamicRanked
+                                     . raddDynamic c) n $ dMap s}
               Nothing ->
                 let cs = DynamicRanked c
                 in s { nMap = EM.insert n (DeltaBindingR d) $ nMap s
@@ -1097,7 +1099,8 @@ buildFinMaps s0 deltaDt =
                         sShared = s {astBindings = abShared}
                     in \case
         ZeroS -> s
-        InputS i -> s {iMap = EM.adjust (saddDynamic c) i $ iMap s}
+        InputS i -> s {iMap = EM.adjust (DynamicShaped . saddDynamic c) i
+                              $ iMap s}
         ScaleS k d -> evalS s (k * c) d
         AddS d e -> evalS (evalS sShared cShared d) cShared e
         LetS n d ->
@@ -1107,7 +1110,7 @@ buildFinMaps s0 deltaDt =
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBindingS _) ->
-                s {dMap = EM.adjust (saddDynamic c) n $ dMap s}
+                s {dMap = EM.adjust (DynamicShaped . saddDynamic c) n $ dMap s}
               Nothing ->
                 let cs = DynamicShaped c
                 in s { nMap = EM.insert n (DeltaBindingS d) $ nMap s
