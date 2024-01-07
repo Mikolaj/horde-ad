@@ -800,14 +800,14 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     in AstScanDer (fun2ToAstR shn shm f) (fun4ToAstR shn shm df)
                                          (fun3ToAstR shn shm rf) x0 as
   rscanD :: forall rn n. (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
+         => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
          -> DomainsOD
          -> AstRanked s rn n
          -> Domains (AstRanked s)
          -> AstRanked s rn (1 + n)
   rscanD f od x0 as =
-    let domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
-        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+    let domsToPair :: forall f. ADReady f => Domains f -> (f rn n, DomainsOf f)
+        domsToPair doms = (rfromD $ doms V.! 0, dmkDomains $ V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
         g doms = uncurry f (domsToPair doms)
         shn = rshape x0
@@ -829,12 +829,12 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
           _ -> error "rscanD: wrong variables"
       _ -> error "rscanD: wrong variables"
   rscanDDer :: forall rn n. (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
+            => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> Domains f -> f rn n -> Domains f
+                => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
                 -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> f rn n -> Domains f
+                => f rn n -> f rn n -> DomainsOf f
                 -> DomainsOf f)
             -> DomainsOD
             -> AstRanked s rn n

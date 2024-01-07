@@ -187,7 +187,8 @@ fun2ToAstS :: (AstShaped s rn shn -> AstShaped s rm shm -> AstShaped s rn shn)
 fun2ToAstS f = unsafePerformIO $ fun2ToAstIOS f
 
 fun2DToAstIOR :: ShapeInt n
-              -> (AstRanked s rn n -> Domains (AstRanked s) -> AstRanked s rn n)
+              -> (AstRanked s rn n -> DomainsOf (AstRanked s)
+              -> AstRanked s rn n)
               -> DomainsOD
               -> IO ( AstVarName (AstRanked s) rn n
                     , [AstDynamicVarName]
@@ -196,11 +197,12 @@ fun2DToAstIOR :: ShapeInt n
 fun2DToAstIOR shn f od = do
   nvarName <- unsafeGetFreshAstVarName
   (!vars, !asts) <- V.unzip <$> V.mapM dynamicToVar od
-  let !x = f (AstVar shn nvarName) asts
+  let !x = f (AstVar shn nvarName) (AstDomains asts)
   return (nvarName, V.toList vars, x)
 
 fun2DToAstR :: ShapeInt n
-            -> (AstRanked s rn n -> Domains (AstRanked s) -> AstRanked s rn n)
+            -> (AstRanked s rn n -> DomainsOf (AstRanked s)
+            -> AstRanked s rn n)
             -> DomainsOD
             -> ( AstVarName (AstRanked s) rn n
                , [AstDynamicVarName]
@@ -208,7 +210,7 @@ fun2DToAstR :: ShapeInt n
 {-# NOINLINE fun2DToAstR #-}
 fun2DToAstR shn f od = unsafePerformIO $ fun2DToAstIOR shn f od
 
-fun2DToAstIOS :: (AstShaped s rn shn -> Domains (AstRanked s)
+fun2DToAstIOS :: (AstShaped s rn shn -> DomainsOf (AstRanked s)
                   -> AstShaped s rn shn)
               -> DomainsOD
               -> IO ( AstVarName (AstShaped s) rn shn
@@ -218,10 +220,10 @@ fun2DToAstIOS :: (AstShaped s rn shn -> Domains (AstRanked s)
 fun2DToAstIOS f od = do
   nvarName <- unsafeGetFreshAstVarName
   (!vars, !asts) <- V.unzip <$> V.mapM dynamicToVar od
-  let !x = f (AstVarS nvarName) asts
+  let !x = f (AstVarS nvarName) (AstDomains asts)
   return (nvarName, V.toList vars, x)
 
-fun2DToAstS :: (AstShaped s rn shn -> Domains (AstRanked s)
+fun2DToAstS :: (AstShaped s rn shn -> DomainsOf (AstRanked s)
                 -> AstShaped s rn shn)
             -> DomainsOD
             -> ( AstVarName (AstShaped s) rn shn
@@ -281,7 +283,8 @@ fun3ToAstS :: (AstShaped s rn shn -> AstShaped s rn shn -> AstShaped s rm shm
 fun3ToAstS f = unsafePerformIO $ fun3ToAstIOS f
 
 fun3DToAstIOR :: ShapeInt n
-              -> (AstRanked s rn n -> AstRanked s rn n -> Domains (AstRanked s)
+              -> (AstRanked s rn n -> AstRanked s rn n
+                  -> DomainsOf (AstRanked s)
                   -> AstDomains s)
               -> DomainsOD
               -> IO ( AstVarName (AstRanked s) rn n
@@ -293,11 +296,11 @@ fun3DToAstIOR shn f od = do
   nvarName <- unsafeGetFreshAstVarName
   nvarName2 <- unsafeGetFreshAstVarName
   (!vars, !asts) <- V.unzip <$> V.mapM dynamicToVar od
-  let !x = f (AstVar shn nvarName) (AstVar shn nvarName2) asts
+  let !x = f (AstVar shn nvarName) (AstVar shn nvarName2) (AstDomains asts)
   return (nvarName, nvarName2, V.toList vars, x)
 
 fun3DToAstR :: ShapeInt n
-            -> (AstRanked s rn n -> AstRanked s rn n -> Domains (AstRanked s)
+            -> (AstRanked s rn n -> AstRanked s rn n -> DomainsOf (AstRanked s)
                 -> AstDomains s)
             -> DomainsOD
             -> ( AstVarName (AstRanked s) rn n
@@ -308,7 +311,7 @@ fun3DToAstR :: ShapeInt n
 fun3DToAstR shn f od = unsafePerformIO $ fun3DToAstIOR shn f od
 
 fun3DToAstIOS :: (AstShaped s rn shn -> AstShaped s rn shn
-                  -> Domains (AstRanked s)
+                  -> DomainsOf (AstRanked s)
                   -> AstDomains s)
               -> DomainsOD
               -> IO ( AstVarName (AstShaped s) rn shn
@@ -320,11 +323,11 @@ fun3DToAstIOS f od = do
   nvarName <- unsafeGetFreshAstVarName
   nvarName2 <- unsafeGetFreshAstVarName
   (!vars, !asts) <- V.unzip <$> V.mapM dynamicToVar od
-  let !x = f (AstVarS nvarName) (AstVarS nvarName2) asts
+  let !x = f (AstVarS nvarName) (AstVarS nvarName2) (AstDomains asts)
   return (nvarName, nvarName2, V.toList vars, x)
 
 fun3DToAstS :: (AstShaped s rn shn -> AstShaped s rn shn
-                -> Domains (AstRanked s)
+                -> DomainsOf (AstRanked s)
                 -> AstDomains s)
             -> DomainsOD
             -> ( AstVarName (AstShaped s) rn shn
@@ -397,8 +400,8 @@ fun4ToAstS :: (AstShaped s rn shn -> AstShaped s rm shm
 fun4ToAstS f = unsafePerformIO $ fun4ToAstIOS f
 
 fun4DToAstIOR :: ShapeInt n
-              -> (AstRanked s rn n -> Domains (AstRanked s)
-                  -> AstRanked s rn n -> Domains (AstRanked s)
+              -> (AstRanked s rn n -> DomainsOf (AstRanked s)
+                  -> AstRanked s rn n -> DomainsOf (AstRanked s)
                   -> AstRanked s rn n)
               -> DomainsOD
               -> IO ( AstVarName (AstRanked s) rn n
@@ -412,13 +415,13 @@ fun4DToAstIOR shn f od = do
   (!vars, !asts) <- V.unzip <$> V.mapM dynamicToVar od
   nvarName2 <- unsafeGetFreshAstVarName
   (!vars2, !asts2) <- V.unzip <$> V.mapM dynamicToVar od
-  let !x = f (AstVar shn nvarName) asts
-             (AstVar shn nvarName2) asts2
+  let !x = f (AstVar shn nvarName) (AstDomains asts)
+             (AstVar shn nvarName2) (AstDomains asts2)
   return (nvarName, V.toList vars, nvarName2, V.toList vars2, x)
 
 fun4DToAstR :: ShapeInt n
-            -> (AstRanked s rn n -> Domains (AstRanked s)
-                -> AstRanked s rn n -> Domains (AstRanked s)
+            -> (AstRanked s rn n -> DomainsOf (AstRanked s)
+                -> AstRanked s rn n -> DomainsOf (AstRanked s)
                 -> AstRanked s rn n)
             -> DomainsOD
             -> ( AstVarName (AstRanked s) rn n
@@ -429,8 +432,8 @@ fun4DToAstR :: ShapeInt n
 {-# NOINLINE fun4DToAstR #-}
 fun4DToAstR shn f od = unsafePerformIO $ fun4DToAstIOR shn f od
 
-fun4DToAstIOS :: (AstShaped s rn shn -> Domains (AstRanked s)
-                  -> AstShaped s rn shn -> Domains (AstRanked s)
+fun4DToAstIOS :: (AstShaped s rn shn -> DomainsOf (AstRanked s)
+                  -> AstShaped s rn shn -> DomainsOf (AstRanked s)
                   -> AstShaped s rn shn)
               -> DomainsOD
               -> IO ( AstVarName (AstShaped s) rn shn
@@ -444,12 +447,12 @@ fun4DToAstIOS f od = do
   (!vars, !asts) <- V.unzip <$> V.mapM dynamicToVar od
   nvarName2 <- unsafeGetFreshAstVarName
   (!vars2, !asts2) <- V.unzip <$> V.mapM dynamicToVar od
-  let !x = f (AstVarS nvarName) asts
-             (AstVarS nvarName2) asts2
+  let !x = f (AstVarS nvarName) (AstDomains asts)
+             (AstVarS nvarName2) (AstDomains asts2)
   return (nvarName, V.toList vars, nvarName2, V.toList vars2, x)
 
-fun4DToAstS :: (AstShaped s rn shn -> Domains (AstRanked s)
-                -> AstShaped s rn shn -> Domains (AstRanked s)
+fun4DToAstS :: (AstShaped s rn shn -> DomainsOf (AstRanked s)
+                -> AstShaped s rn shn -> DomainsOf (AstRanked s)
                 -> AstShaped s rn shn)
             -> DomainsOD
             -> ( AstVarName (AstShaped s) rn shn

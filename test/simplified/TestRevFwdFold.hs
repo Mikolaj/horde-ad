@@ -1080,7 +1080,8 @@ testSin0ScanD3 :: Assertion
 testSin0ScanD3 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [1.360788364276732] :: OR.Array 5 Double)
-    (rev' (\a0 -> rscanD (\_x a -> sin $ rfromD @Double @5 (a V.! 0))
+    (rev' (\a0 -> rscanD (\_x a -> sin $ rfromD @Double @5 (dunDomains (V.fromList [odFromSh @Double
+                                                                                    (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)]) a V.! 0))
                          (V.fromList [odFromSh @Double
                                         (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)])
                          (rreplicate0N [1,1,1,1,1] 84)
@@ -1097,7 +1098,8 @@ testSin0ScanD4 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [-0.4458209450295252] :: OR.Array 5 Double)
     (rev' (\a0 -> rscanD (\x a -> atan2 (sin x)
-                                        (sin $ rfromD (a V.! 0)))
+                                        (sin $ rfromD (dunDomains (V.fromList [odFromSh @Double
+                                                                               (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)]) a V.! 0)))
                          (V.fromList [odFromSh @Double
                                         (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)])
                          (rreplicate0N [1,1,1,1,1] 2 * a0)
@@ -1112,7 +1114,10 @@ testSin0ScanD5 = do
                                  $ atan2 (sin $ rreplicate 5 x)
                                          (rsum $ sin $ rsum
                                           $ rtr $ rreplicate 7
-                                          $ rfromD (a V.! 0)))
+                                          $ rfromD (dunDomains (V.fromList [ odFromSh @Double
+                                                                             (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
+                                                                           , odFromSh @Double
+                                                                             (8 :$ 3 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS) ]) a V.! 0)))
                          (V.fromList [ odFromSh @Double
                                          (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
                                      , odFromSh @Double
@@ -1136,7 +1141,10 @@ testSin0ScanD51 = do
                                           $ rtr $ rreplicate 7
                                           $ rreplicate 2 $ rreplicate 5
                                           $ rsum $ rsum
-                                          $ rfromD (a V.! 1)))
+                                          $ rfromD (dunDomains (V.fromList [ odFromSh @Double
+                                                                             (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
+                                                                           , odFromSh @Double
+                                                                             (8 :$ 3 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS) ]) a V.! 1)))
                          (V.fromList [ odFromSh @Double
                                          (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
                                      , odFromSh @Double
@@ -1157,7 +1165,7 @@ testSin0ScanD6 = do
     (rev' (\a0 -> rscanD (\x a -> rtr
                                  $ rtr x + rreplicate 1
                                              (rreplicate 2
-                                                (rfromD (a V.! 0))))
+                                                (rfromD (dunDomains (V.fromList [odFromSh @Double (1 :$ 1 :$ ZS)]) a V.! 0))))
                          (V.fromList [odFromSh @Double (1 :$ 1 :$ ZS)])
                          (rreplicate 2 (rreplicate 1 a0))
                          (V.singleton $ DynamicRanked
@@ -1183,7 +1191,8 @@ testSin0ScanD8 = do
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapDomainsRanked
-                                                     (rsum . rreplicate 7) a)))
+                                                     (rsum . rreplicate 7)
+                                                     (dunDomains (V.fromList [odFromSh @Double (1 :$ 1 :$ 1 :$ ZS)]) a))))
                        (V.fromList [odFromSh @Double (1 :$ 1 :$ 1 :$ ZS)])
                        (rreplicate 2 (rreplicate 5
                                         (rreplicate0N [1,1,1] 2 * a0)))
@@ -1200,7 +1209,8 @@ testSin0ScanD8rev = do
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapDomainsRanked
-                                                     (rsum . rreplicate 7) a)))
+                                                     (rsum . rreplicate 7)
+                                                     (dunDomains (V.fromList [odFromSh @Int64 ZS]) a))))
                        (V.fromList [odFromSh @Int64 ZS])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0)) 1.1)
@@ -1214,7 +1224,8 @@ testSin0ScanD8rev2 = do
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapDomainsRanked10 rsum
                                                  $ mapDomainsRanked01
-                                                     (rreplicate 7) a)))
+                                                     (rreplicate 7)
+                                                     (dunDomains (V.fromList [odFromSh @Int64 ZS]) a))))
                        (V.fromList [odFromSh @Int64 ZS])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
@@ -1231,7 +1242,7 @@ testSin0ScanD1RevPP = do
                            x0 (V.singleton $ DynamicRanked
                                $ rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "rletDomainsIn (let v50 = rscanDDer (\\x41 [x42 @Natural @Double @[]] -> sin x41) (\\x43 [x44 @Natural @Double @[]] x45 [x46 @Natural @Double @[]] -> x43 * cos x45) (\\x47 x48 [x49 @Natural @Double @[]] -> (cos x48 * x47, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in (rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v50 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v50 ! [0]) * (cos (v50 ! [1]) * rconst 1.0), cos (v50 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i67] -> [i67, i67])))) (\\[dret @Natural @Double @[]] -> dret)"
+    @?= "rletDomainsIn (let v62 = rscanDDer (\\x49 [x50 @Natural @Double @[]] -> sin x49) (\\x52 [x53 @Natural @Double @[]] x54 [x55 @Natural @Double @[]] -> x52 * cos x54) (\\x58 x59 [x60 @Natural @Double @[]] -> (cos x59 * x58, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in (rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v62 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v62 ! [0]) * (cos (v62 ! [1]) * rconst 1.0), cos (v62 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i81] -> [i81, i81])))) (\\[dret @Natural @Double @[]] -> dret)"
 
 testSin0ScanDFwdPP :: Assertion
 testSin0ScanDFwdPP = do
@@ -1242,35 +1253,35 @@ testSin0ScanDFwdPP = do
                            x0 (V.singleton $ DynamicRanked
                                $ rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v33 = rscanDDer (\\x24 [x25 @Natural @Double @[]] -> sin x24) (\\x26 [x27 @Natural @Double @[]] x28 [x29 @Natural @Double @[]] -> x26 * cos x28) (\\x30 x31 [x32 @Natural @Double @[]] -> (cos x31 * x30, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in rfromList [rconst 1.1, rconst 1.1 * cos (v33 ! [0]), (rconst 1.1 * cos (v33 ! [0])) * cos (v33 ! [1])]"
+    @?= "let v41 = rscanDDer (\\x28 [x29 @Natural @Double @[]] -> sin x28) (\\x31 [x32 @Natural @Double @[]] x33 [x34 @Natural @Double @[]] -> x31 * cos x33) (\\x37 x38 [x39 @Natural @Double @[]] -> (cos x38 * x37, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in rfromList [rconst 1.1, rconst 1.1 * cos (v41 ! [0]), (rconst 1.1 * cos (v41 ! [0])) * cos (v41 ! [1])]"
 
 testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
-                 (\x0 -> rscanD (\x a -> sin x - rfromD (a V.! 0))
+                 (\x0 -> rscanD (\x a -> sin x - rfromD (dunDomains (V.fromList [odFromSh @Double ZS]) a V.! 0))
                          (V.fromList [odFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "rletDomainsIn (let v53 = rscanDDer (\\x43 [x44 @Natural @Double @[]] -> sin x43 - x44) (\\x45 [x46 @Natural @Double @[]] x47 [x48 @Natural @Double @[]] -> x45 * cos x47 + x46 * rconst -1.0) (\\x50 x51 [x52 @Natural @Double @[]] -> (cos x51 * x50, rconst -1.0 * x50)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in (rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v53 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v53 ! [0]) * (cos (v53 ! [1]) * rconst 1.0), cos (v53 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i76] -> [i76, i76])))) (\\[dret @Natural @Double @[]] -> dret)"
+    @?= "rletDomainsIn (let v71 = rscanDDer (\\x55 [x56 @Natural @Double @[]] -> sin x55 - x56) (\\x59 [x60 @Natural @Double @[]] x61 [x62 @Natural @Double @[]] -> x59 * cos x61 + x60 * rconst -1.0) (\\x67 x68 [x69 @Natural @Double @[]] -> (cos x68 * x67, rconst -1.0 * x67)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in (rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v71 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v71 ! [0]) * (cos (v71 ! [1]) * rconst 1.0), cos (v71 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i96] -> [i96, i96])))) (\\[dret @Natural @Double @[]] -> dret)"
 
 testSin0ScanDFwd2PP :: Assertion
 testSin0ScanDFwd2PP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
-                 (\x0 -> rscanD (\x a -> sin x - rfromD (a V.! 0))
+                 (\x0 -> rscanD (\x a -> sin x - rfromD (dunDomains (V.fromList [odFromSh @Double ZS]) a V.! 0))
                          (V.fromList [odFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v36 = rscanDDer (\\x26 [x27 @Natural @Double @[]] -> sin x26 - x27) (\\x28 [x29 @Natural @Double @[]] x30 [x31 @Natural @Double @[]] -> x28 * cos x30 + x29 * rconst -1.0) (\\x33 x34 [x35 @Natural @Double @[]] -> (cos x34 * x33, rconst -1.0 * x33)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in rfromList [rconst 1.1, rconst 1.1 * cos (v36 ! [0]) + rconst 0.0 * rconst -1.0, (rconst 1.1 * cos (v36 ! [0]) + rconst 0.0 * rconst -1.0) * cos (v36 ! [1]) + rconst 0.0 * rconst -1.0]"
+    @?= "let v50 = rscanDDer (\\x34 [x35 @Natural @Double @[]] -> sin x34 - x35) (\\x38 [x39 @Natural @Double @[]] x40 [x41 @Natural @Double @[]] -> x38 * cos x40 + x39 * rconst -1.0) (\\x46 x47 [x48 @Natural @Double @[]] -> (cos x47 * x46, rconst -1.0 * x46)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in rfromList [rconst 1.1, rconst 1.1 * cos (v50 ! [0]) + rconst 0.0 * rconst -1.0, (rconst 1.1 * cos (v50 ! [0]) + rconst 0.0 * rconst -1.0) * cos (v50 ! [1]) + rconst 0.0 * rconst -1.0]"
 
 testSin0ScanD1Rev2 :: Assertion
 testSin0ScanD1Rev2 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [] [1.1961317861865948] :: OR.Array 0 Double)
-    (rev' (\x0 -> rscanD (\x a -> sin x - rfromD (a V.! 0))
+    (rev' (\x0 -> rscanD (\x a -> sin x - rfromD (dunDomains (V.fromList [odFromSh @Double ZS]) a V.! 0))
                          (V.fromList [odFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1)
@@ -1279,29 +1290,29 @@ testSin0ScanD1Rev3PP :: Assertion
 testSin0ScanD1Rev3PP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
-                 (\x0 -> rscanD (\x a -> sin x - rfromD (a V.! 0))
+                 (\x0 -> rscanD (\x a -> sin x - rfromD (dunDomains (V.fromList [odFromSh @Double ZS]) a V.! 0))
                                 (V.fromList [odFromSh @Double ZS])
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
-    @?= "rletDomainsIn (let v54 = rscanDDer (\\x44 [x45 @Natural @Double @[]] -> sin x44 - x45) (\\x46 [x47 @Natural @Double @[]] x48 [x49 @Natural @Double @[]] -> x46 * cos x48 + x47 * rconst -1.0) (\\x51 x52 [x53 @Natural @Double @[]] -> (cos x52 * x51, rconst -1.0 * x51)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v55 = rappend (rreplicate 1 (rconst -1.0 * rconst 1.0)) (rconstant (rreplicate 1 (rconst 0.0))) + rappend (rfromList [rconst -1.0 * (cos (v54 ! [1]) * rconst 1.0), rconst -1.0 * rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) in (rconst 5.0 * v55 ! [0] + rconst 7.0 * v55 ! [1] + rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v54 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v54 ! [0]) * (cos (v54 ! [1]) * rconst 1.0), cos (v54 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i106] -> [i106, i106])))) (\\[dret @Natural @Double @[]] -> dret)"
+    @?= "rletDomainsIn (let v72 = rscanDDer (\\x56 [x57 @Natural @Double @[]] -> sin x56 - x57) (\\x60 [x61 @Natural @Double @[]] x62 [x63 @Natural @Double @[]] -> x60 * cos x62 + x61 * rconst -1.0) (\\x68 x69 [x70 @Natural @Double @[]] -> (cos x69 * x68, rconst -1.0 * x68)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v73 = rappend (rreplicate 1 (rconst -1.0 * rconst 1.0)) (rconstant (rreplicate 1 (rconst 0.0))) + rappend (rfromList [rconst -1.0 * (cos (v72 ! [1]) * rconst 1.0), rconst -1.0 * rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) in (rconst 5.0 * v73 ! [0] + rconst 7.0 * v73 ! [1] + rconst 1.0 + rsum (rgather [2] (rfromList [rreplicate 2 (rappend (rfromList [cos (v72 ! [0]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 1 (rconst 0.0))) ! [0]), rreplicate 2 (rappend (rfromList [cos (v72 ! [0]) * (cos (v72 ! [1]) * rconst 1.0), cos (v72 ! [1]) * rconst 1.0, rconst 1.0]) (rconstant (rreplicate 0 (rconst 0.0))) ! [0])]) (\\[i126] -> [i126, i126])))) (\\[dret @Natural @Double @[]] -> dret)"
 
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
-                 (\x0 -> rscanD (\x a -> sin x - rfromD (a V.! 0))
+                 (\x0 -> rscanD (\x a -> sin x - rfromD (dunDomains (V.fromList [odFromSh @Double ZS]) a V.! 0))
                                 (V.fromList [odFromSh @Double ZS])
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
-    @?= "let v39 = rscanDDer (\\x29 [x30 @Natural @Double @[]] -> sin x29 - x30) (\\x31 [x32 @Natural @Double @[]] x33 [x34 @Natural @Double @[]] -> x31 * cos x33 + x32 * rconst -1.0) (\\x36 x37 [x38 @Natural @Double @[]] -> (cos x37 * x36, rconst -1.0 * x36)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v42 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0] in rfromList [rconst 1.1, rconst 1.1 * cos (v39 ! [0]) + v42 ! [0] * rconst -1.0, (rconst 1.1 * cos (v39 ! [0]) + v42 ! [0] * rconst -1.0) * cos (v39 ! [1]) + v42 ! [1] * rconst -1.0]"
+    @?= "let v53 = rscanDDer (\\x37 [x38 @Natural @Double @[]] -> sin x37 - x38) (\\x41 [x42 @Natural @Double @[]] x43 [x44 @Natural @Double @[]] -> x41 * cos x43 + x42 * rconst -1.0) (\\x49 x50 [x51 @Natural @Double @[]] -> (cos x50 * x49, rconst -1.0 * x49)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v56 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0] in rfromList [rconst 1.1, rconst 1.1 * cos (v53 ! [0]) + v56 ! [0] * rconst -1.0, (rconst 1.1 * cos (v53 ! [0]) + v56 ! [0] * rconst -1.0) * cos (v53 ! [1]) + v56 ! [1] * rconst -1.0]"
 
 testSin0ScanD1Rev3 :: Assertion
 testSin0ScanD1Rev3 = do
   assertEqualUpToEpsilon' 1e-5
     (OR.fromList [] [-10.076255083995068] :: OR.Array 0 Double)
-    (rev' (\x0 -> rscanD (\x a -> sin x - rfromD (a V.! 0))
+    (rev' (\x0 -> rscanD (\x a -> sin x - rfromD (dunDomains (V.fromList [odFromSh @Double ZS]) a V.! 0))
                          (V.fromList [odFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                              $ rfromList [x0 * 5, x0 * 7])) 1.1)
@@ -1343,7 +1354,8 @@ testSin0ScanD8fwd = do
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapDomainsRanked
-                                                     (rsum . rreplicate 7) a)))
+                                                     (rsum . rreplicate 7)
+                                                     (dunDomains (V.fromList [odFromSh @Float ZS]) a))))
                       (V.fromList [odFromSh @Float ZS])
                       (rreplicate 2 (rreplicate 5 (2 * a0)))
                       (V.singleton $ DynamicRanked $ rreplicate 3 a0)) 1.1)
@@ -1357,7 +1369,8 @@ testSin0ScanD8fwd2 = do
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapDomainsRanked10 rsum
                                                  $ mapDomainsRanked01
-                                                     (rreplicate 7) a)))
+                                                     (rreplicate 7)
+                                                     (dunDomains (V.fromList [odFromSh @Int64 ZS]) a))))
                        (V.fromList [odFromSh @Int64 ZS])
                        (rreplicate 2 (rreplicate 5 (2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))

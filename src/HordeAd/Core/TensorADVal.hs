@@ -515,67 +515,53 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     in D l3 pShared
             (ScanR pShared as df rf x0' as')
   rscanD :: forall rn n. (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
+         => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
          -> DomainsOD
          -> ADVal ranked rn n
          -> Domains (ADVal ranked)
          -> ADVal ranked rn (1 + n)
   rscanD f od (D l1 x0 x0') asD =
     let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
-        shn = rshape x0
-        domsOD = V.cons (odFromSh @rn shn) od
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
-        g doms = uncurry (f @(ADVal ranked)) (domsToPair doms)
-        df :: ranked rn n -> (Domains ranked, ranked rn n, Domains ranked)
+        g doms = uncurry f (domsToPair $ dunDomains od doms)
+        df :: ranked rn n -> DomainsOf ranked -> ranked rn n -> DomainsOf ranked
            -> ranked rn n
-        df cx (ca, x, a) =
-          fst $ cfwdOnDomains (V.cons (DynamicRanked x) a)
+        df cx ca x a =
+          fst $ cfwdOnDomains (V.cons (DynamicRanked x) $ dunDomains od a)
                               g
-                              (V.cons (DynamicRanked cx) ca)
-        rf :: (ranked rn n -> (ranked rn n, Domains ranked)
-           -> (ranked rn n, Domains ranked))
-        rf dt (x, a) =
-          domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains (Just dt) g
-                          (V.cons (DynamicRanked x) a)
+                              (V.cons (DynamicRanked cx) $ dunDomains od ca)
+        rf :: ranked rn n -> ranked rn n -> DomainsOf ranked -> DomainsOf ranked
+        rf dt x a =
+          fst $ crevOnDomains (Just dt) g
+                              (V.cons (DynamicRanked x) $ dunDomains od a)
         p :: ranked rn (1 + n)
         p = rscanD f od x0 as
         (l3, pShared) =
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
     in D l3 pShared
-         (ScanDR pShared as df rf x0' as')
+         (ScanDR od pShared as df rf x0' as')
   rscanDDer :: forall rn n. (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
+            => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> Domains f -> f rn n -> Domains f
+                => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
                 -> f rn n)
             -> (forall f. ADReady f
-                => f rn n -> f rn n -> Domains f
+                => f rn n -> f rn n -> DomainsOf f
                 -> DomainsOf f)
             -> DomainsOD
             -> ADVal ranked rn n
             -> Domains (ADVal ranked)
             -> ADVal ranked rn (1 + n)
-  rscanDDer f df0 rf0 od (D l1 x0 x0') asD =
+  rscanDDer f df rf od (D l1 x0 x0') asD =
     let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
-        shn = rshape x0
-        domsOD = V.cons (odFromSh @rn shn) od
-        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
-        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
-        df :: forall f. ADReady f
-           => f rn n -> (Domains f, f rn n, Domains f) -> f rn n
-        df cx (ca, x, a) = df0 cx ca x a
-        rf :: forall f. ADReady f
-           => f rn n -> (f rn n, Domains f) -> (f rn n, Domains f)
-        rf cx (x, a) = domsToPair $ dunDomains domsOD $ rf0 cx x a
         p :: ranked rn (1 + n)
-        p = rscanDDer f df0 rf0 od x0 as
+        p = rscanDDer f df rf od x0 as
         (l3, pShared) =
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
     in D l3 pShared
-         (ScanDR pShared as df rf x0' as')
+         (ScanDR od pShared as df rf x0' as')
   sfold :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)

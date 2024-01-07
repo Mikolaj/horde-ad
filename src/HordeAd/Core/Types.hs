@@ -139,6 +139,11 @@ instance
       (forall r30 y30. (Sh.Shape y30, GoodScalar r30) => c (shaped r30 y30))
       => CShaped shaped c where
 
+-- This is a heterogeneous vector, used for our tuples that need to have
+-- the same type regardless of their arity and component types,
+-- to be represented by terms with sane typing, to be taken as arguments
+-- of functions that operate on all such tuples, etc.
+--
 -- Data invariant: the vector is non-empty.
 --
 -- When r is Ast, this is used for domains composed of variables only,
