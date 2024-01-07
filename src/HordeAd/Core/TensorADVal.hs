@@ -427,7 +427,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p = rscan f x0 as
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
     in D l3 (pShared ! (fromIntegral width :. ZI))
-            (FoldR pShared as df rf x0' as')
+            (FoldRC pShared as df rf x0' as')
   rfoldDer :: forall rn rm n m.
               (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -437,30 +437,17 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> ADVal ranked rn n
            -> ADVal ranked rm (1 + m)
            -> ADVal ranked rn n
-  rfoldDer f df0 rf0 (D l1 x0 x0') (D l2 as as') =
+  rfoldDer f df rf (D l1 x0 x0') (D l2 as as') =
     -- This potentially duplicates some AST terms, but we do this here,
     -- in the context of sharing information, so let's hope all big things
     -- are shared. If not, we'd need to extend @rregister@ to also work
     -- on @DomainsOf f@.
-    let shn = rshape x0
-        _ws :: (Int, ShapeInt m)
-        _ws@(width, shm) = case rshape as of
+    let _ws :: (Int, ShapeInt m)
+        _ws@(width, _shm) = case rshape as of
           hd :$ tl -> (hd, tl)
           _ -> error "rfoldDer: impossible pattern needlessly required"
-        domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
-        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
-        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-        -- Note that this function, and similarly @f@ and @rf@ instantiated
-        -- and passed to FoldR, is not a function on dual numbers.
-        df :: forall f. ADReady f
-           => f rn n -> (f rm m, f rn n, f rm m) -> f rn n
-        df cx (ca, x, a) = df0 cx ca x a
-        rf :: forall f. ADReady f
-           => f rn n -> (f rn n, f rm m) -> (f rn n, f rm m)
-        rf cx (x, a) = domsToPair $ dunDomains domsOD $ rf0 cx x a
-          -- TODO: add explicit sharing
         p :: ranked rn (1 + n)
-        p = rscanDer f df0 rf0 x0 as
+        p = rscanDer f df rf x0 as
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
     in D l3 (pShared ! (fromIntegral width :. ZI))
             (FoldR pShared as df rf x0' as')

@@ -232,15 +232,22 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
     -- TODO: this is a haddock for Gather1; fix.
   FoldR :: (GoodScalar rm, KnownNat m)
         => ranked rn (1 + n) -> ranked rm (1 + m)
-        -> (ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
-            -> ranked rn n)
-        -> (ranked rn n -> (ranked rn n, ranked rm m)
-            -> (ranked rn n, ranked rm m))
+        -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
+                                -> f rn n)
+        -> (forall f. ADReady f => f rn n -> f rn n -> f rm m -> DomainsOf f)
         -> DeltaR ranked rn n
         -> DeltaR ranked rm (1 + m)
         -> DeltaR ranked rn n
-    -- ^ Fold over the outermost dimension of a tensor. The function,
-    -- in the first argument, should be strict in the accumulator.
+    -- ^ Fold over the outermost dimension of a tensor.
+  FoldRC :: (GoodScalar rm, KnownNat m)
+         => ranked rn (1 + n) -> ranked rm (1 + m)
+         -> (ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
+             -> ranked rn n)
+         -> (ranked rn n -> (ranked rn n, ranked rm m)
+             -> (ranked rn n, ranked rm m))
+         -> DeltaR ranked rn n
+         -> DeltaR ranked rm (1 + m)
+         -> DeltaR ranked rn n
   ScanR :: (GoodScalar rm, KnownNat m)
         => ranked rn (1 + n) -> ranked rm (1 + m)
         -> (ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
@@ -265,6 +272,10 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
        => DeltaS (ShapedOf ranked) r sh
        -> DeltaR ranked r (Sh.Rank sh)
 
+instance Show (DeltaR ranked r n) where
+  showsPrec d _ = showsPrec d "DeltaR TODO"
+
+{- TODO:
 deriving instance ( KnownNat n0, GoodScalar r0
                   , Show (IntOf ranked)
                   , Show (IntOf (ShapedOf ranked))
@@ -272,6 +283,7 @@ deriving instance ( KnownNat n0, GoodScalar r0
                   , CShaped (ShapedOf ranked) Show
                   , CShaped (DeltaS (ShapedOf ranked)) Show )
                   => Show (DeltaR ranked r0 n0)
+-}
 
 -- | This is the grammar of delta-expressions that record derivatives
 -- of shaped tensors.
@@ -439,6 +451,7 @@ shapeDelta = \case
   ReshapeR sh _ -> sh
   GatherR sh _ _ -> sh
   FoldR _p _as _df _rf x0' _as' -> shapeDelta x0'
+  FoldRC _p _as _df _rf x0' _as' -> shapeDelta x0'
   ScanR p _as _df _rf _x0' _as' -> rshape p
   ScanDR p _as _df _rf _x0' _as' -> rshape p
   CastR d -> shapeDelta d
@@ -854,7 +867,28 @@ buildFinMaps s0 deltaDt =
           in evalR s (rtranspose perm_reversed c) d
         ReshapeR _sh d -> evalR s (rreshape (shapeDelta d) c) d
         GatherR _sh d f -> evalR s (rscatter (shapeDelta d) c f) d
-{-      FoldR @rm @m p as _df rf x0' as' ->
+        FoldR @rm @m p as _df rf x0' as' -> case rshape as of
+          width :$ shm ->
+            let !_A1 = assert (rlength p == width + 1) ()
+                shn = shapeDelta x0'
+                od = V.fromList [odFromSh @r shn, odFromSh @rm shm]
+                domsToPair :: DomainsOf ranked -> (ranked r n, ranked rm m)
+                domsToPair doms =
+                  ( rletDomainsIn od doms (rfromD . (V.! 0))
+                  , rletDomainsIn od doms (rfromD . (V.! 1)) )
+                crs :: [ranked r n]
+                crs = scanr (\(x, a) cr -> fst $ domsToPair $ rf cr x a)
+                            cShared (zip (runravelToList $ rslice 0 width p)
+                                         (runravelToList as))
+                rg :: ranked r (1 + n) -> ranked r (1 + n)
+                   -> ranked rm (1 + m)
+                   -> ranked rm (1 + m)
+                rg = rzipWith31 (\cr x a -> snd $ domsToPair $ rf cr x a)
+                cas = rg (rslice 1 width $ rfromList crs) (rslice 0 width p) as
+                s2 = evalR sShared (crs !! 0) x0'
+            in evalR s2 cas as'
+          ZS -> error "evalR: impossible pattern needlessly required"
+{-      FoldRC @rm @m p as _df rf x0' as' ->
           let las :: [ranked rm m]
               las = runravelToList as
               rg :: ranked r n
@@ -864,7 +898,7 @@ buildFinMaps s0 deltaDt =
               (cx0, cas) = rg cShared (zip (init $ runravelToList p) las)
               s2 = evalR sShared cx0 x0'
           in evalR s2 (rfromList cas) as'
-        FoldR @rm @m p as _df rf x0' as' ->
+        FoldRC @rm @m p as _df rf x0' as' ->
           let lp :: [ranked r n]
               lp = runravelToList p
               las :: [ranked rm m]
@@ -878,7 +912,7 @@ buildFinMaps s0 deltaDt =
               cas = rg (drop 1 crs) (init lp) las
               s2 = evalR sShared (crs !! 0) x0'
           in evalR s2 (rfromList cas) as' -}
-        FoldR @rm @m p as _df rf x0' as' -> case rshape as of
+        FoldRC @rm @m p as _df rf x0' as' -> case rshape as of
           width :$ _shm ->
             let !_A1 = assert (rlength p == width + 1) ()
                 crs :: [ranked r n]
@@ -1319,6 +1353,14 @@ buildDerivative dimR deltaDt params = do
           t <- evalR d
           return $! rgather sh t f
         FoldR p as df _rf x0' as' -> do
+          cx0 <- evalR x0'
+          cas <- evalR as'
+          let lcas = runravelToList cas
+              las = runravelToList as
+              lp = runravelToList p
+          return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
+                           cx0 (zip3 lcas (init lp) las)
+        FoldRC p as df _rf x0' as' -> do
           cx0 <- evalR x0'
           cas <- evalR as'
           let lcas = runravelToList cas
