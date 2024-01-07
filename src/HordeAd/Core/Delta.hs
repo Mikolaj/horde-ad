@@ -486,19 +486,14 @@ class DualPart (f :: TensorType ty) where
     => Int -> Dual f r y -> Domains (RankedOf f)
     -> (AstBindingsD (RankedOf f), f r y)
 
-instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-         , DomainsTensor ranked (ShapedOf ranked)
-         , RankedOf (ShapedOf ranked) ~ ranked, RankedOf ranked ~ ranked )
+instance (ADReady ranked, RankedOf ranked ~ ranked)
          => DualPart @Nat ranked where
   type Dual ranked = DeltaR ranked
   reverseDervative = gradientDtR
   forwardDerivative = derivativeFromDeltaR
 
 gradientDtR
-  :: ( KnownNat y, GoodScalar r
-     , RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-     , DomainsTensor ranked (ShapedOf ranked)
-     , RankedOf (ShapedOf ranked) ~ ranked )
+  :: (KnownNat y, GoodScalar r, ADReady ranked)
   => DomainsOD
   -> ranked r y -> Maybe (ranked r y) -> DeltaR ranked r y
   -> (AstBindingsD ranked, Domains ranked)
@@ -523,9 +518,7 @@ gradientDtR !parameters0 value !mdt !deltaTopLevel =
 
 derivativeFromDeltaR
   :: forall ranked r n.
-     ( KnownNat n, GoodScalar r
-     , RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-     , RankedOf (ShapedOf ranked) ~ ranked )
+     (KnownNat n, GoodScalar r, ADReady ranked)
   => Int -> DeltaR ranked r n -> Domains ranked
   -> (AstBindingsD ranked, ranked r n)
 derivativeFromDeltaR dim deltaTopLevel ds =
@@ -536,9 +529,7 @@ derivativeFromDeltaR dim deltaTopLevel ds =
       _ -> error "derivativeFromDeltaR"
     (_, DeltaDtS{}) -> error "derivativeFromDeltaR"
 
-instance ( RankedTensor (RankedOf shaped), ShapedTensor shaped
-         , DomainsTensor (RankedOf shaped) shaped
-         , ShapedOf (RankedOf shaped) ~ shaped )
+instance ADReadyS shaped
          => DualPart @[Nat] shaped where
   type Dual shaped = DeltaS shaped
   reverseDervative parameters0 _ = gradientDtS parameters0
@@ -546,10 +537,7 @@ instance ( RankedTensor (RankedOf shaped), ShapedTensor shaped
 
 gradientDtS
   :: forall shaped r y.
-     ( Sh.Shape y, GoodScalar r
-     , RankedTensor (RankedOf shaped), ShapedTensor shaped
-     , DomainsTensor (RankedOf shaped) shaped
-     , ShapedOf (RankedOf shaped) ~ shaped )
+     (Sh.Shape y, GoodScalar r, ADReadyS shaped)
   => DomainsOD
   -> Maybe (shaped r y) -> DeltaS shaped r y
   -> (AstBindingsD (RankedOf shaped), Domains (RankedOf shaped))
@@ -573,9 +561,7 @@ gradientDtS !parameters0 !mdt !deltaTopLevel =
 
 derivativeFromDeltaS
   :: forall shaped r sh.
-     ( Sh.Shape sh, GoodScalar r
-     , RankedTensor (RankedOf shaped), ShapedTensor shaped
-     , ShapedOf (RankedOf shaped) ~ shaped )
+     (Sh.Shape sh, GoodScalar r, ADReadyS shaped)
   => Int -> DeltaS shaped r sh -> Domains (RankedOf shaped)
   -> (AstBindingsD (RankedOf shaped), shaped r sh)
 derivativeFromDeltaS !dim !deltaTopLevel !ds =
@@ -692,9 +678,7 @@ data DeltaBinding :: RankedTensorType -> ShapedTensorType -> Type where
 -- value (usually set to @1@) is given in the @DeltaDt ranked r@ parameter.
 gradientFromDelta
   :: forall ranked shaped r.
-     ( GoodScalar r
-     , RankedTensor ranked, ShapedTensor shaped, DomainsTensor ranked shaped
-     , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
+     ( GoodScalar r, ADReady ranked, shaped ~ ShapedOf ranked)
   => DomainsOD -> DeltaDt ranked shaped r
   -> (AstBindingsD ranked, Domains ranked)
 gradientFromDelta !parameters0 !deltaDt =
@@ -742,9 +726,7 @@ gradientFromDelta !parameters0 !deltaDt =
 
 buildFinMaps
   :: forall ranked shaped r0.
-     ( GoodScalar r0
-     , RankedTensor ranked, ShapedTensor shaped, DomainsTensor ranked shaped
-     , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
+     (GoodScalar r0, ADReady ranked, shaped ~ ShapedOf ranked)
   => EvalState ranked shaped -> DeltaDt ranked shaped r0
   -> EvalState ranked shaped
 buildFinMaps s0 deltaDt =
@@ -1254,8 +1236,7 @@ buildFinMaps s0 deltaDt =
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
   :: forall ranked shaped r0 s.
-     ( GoodScalar r0, RankedTensor ranked, ShapedTensor shaped
-     , ShapedOf ranked ~ shaped, RankedOf shaped ~ ranked )
+     (GoodScalar r0, ADReady ranked, shaped ~ ShapedOf ranked)
   => Int -> DeltaDt ranked shaped r0 -> Domains ranked
   -> ST s (AstBindingsD ranked, DeltaDt ranked shaped r0)
 buildDerivative dimR deltaDt params = do

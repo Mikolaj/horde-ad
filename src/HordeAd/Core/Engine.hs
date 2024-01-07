@@ -296,13 +296,14 @@ crev
      , AdaptableDomains (Flip OR.Array) (Value advals) )
   => (advals -> ADVal f r y) -> Value advals -> Value advals
 crev f vals = crevDtMaybe f vals Nothing
+{- TODO: RULE left-hand side too complicated to desugar
 {-# SPECIALIZE crev
   :: ( HasSingletonDict y
      , AdaptableDomains (ADVal (Flip OR.Array)) advals
      , AdaptableDomains (Flip OR.Array) (Value advals) )
   => (advals -> ADVal (Flip OR.Array) Double y)
   -> Value advals
-  -> Value advals #-}
+  -> Value advals #-} -}
 
 -- | This version additionally takes the sensitivity parameter.
 crevDt
@@ -314,6 +315,7 @@ crevDt
      , AdaptableDomains (RankedOf f) (Value advals) )
   => (advals -> ADVal f r y) -> Value advals -> f r y -> Value advals
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
+{- TODO: RULE left-hand side too complicated to desugar
 {-# SPECIALIZE crevDt
   :: ( HasSingletonDict y
      , AdaptableDomains (ADVal (Flip OR.Array)) advals
@@ -321,7 +323,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
   => (advals -> ADVal (Flip OR.Array) Double y)
   -> Value advals
   -> Flip OR.Array Double y
-  -> Value advals #-}
+  -> Value advals #-} -}
 
 crevDtMaybe
   :: forall r y f vals advals.
