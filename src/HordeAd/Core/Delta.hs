@@ -957,36 +957,42 @@ buildFinMaps s0 deltaDt =
                 g1 :: Int -> ranked r (1 + n1)
                 g1 k =
                   let cx = cShared ! (fromIntegral k :. ZI)
-                      lp = rreverse $ rslice 0 k p
-                      las = rreverse $ rslice 0 k as
-                      rf1 = scanl' (\cr (x, a) -> fst $ domsToPair
-                                                  $ dunDomains domsOD
-                                                  $ rf cr x a)  -- rscanD
-                                   cx (zip (runravelToList lp)
-                                           (runravelToList las))
-                      rf1r = rreverse $ rfromList rf1
+                      rf1 =
+                        rscanD (\cr doms' ->
+                                  rletDomainsIn domsOD doms' $ \doms ->
+                                    let (x, a) = domsToPair doms
+                                    in rletDomainsIn
+                                         domsOD (rf cr x a) $ \rfRes ->
+                                           fst $ domsToPair rfRes)
+                               domsOD
+                               cx
+                               (V.fromList
+                                  [ DynamicRanked $ rreverse $ rslice 0 k p
+                                  , DynamicRanked $ rreverse $ rslice 0 k as ])
                       padding = rzero (width - k :$ shn)
-                  in rappend rf1r padding
+                  in rappend (rreverse rf1) padding
                 g1s = map g1 [1 .. width]  -- can't be rmap nor rbuild nor rscan
                 g1t = rfromList g1s
-                g1sum = cShared ! (0 :. ZI) + rsum (rtr g1t ! (0 :. ZI))
+                (abShared2, g1tShared) = rregister g1t (astBindings sShared)
+                sShared2 = sShared {astBindings = abShared2}
+                g1sum = cShared ! (0 :. ZI) + rsum (rtr g1tShared ! (0 :. ZI))
                 g2 :: Int -> ranked rm (1 + m)
                 g2 k =
-                  let rf11 = rslice 1 k $ g1t ! (fromIntegral k - 1 :. ZI)
+                  let rf11 = rslice 1 k $ g1tShared ! (fromIntegral k - 1 :. ZI)
                       lp = rslice 0 k p
                       las = rslice 0 k as
                       rg :: ranked r (1 + n1) -> ranked r (1 + n1)
                          -> ranked rm (1 + m)
                          -> ranked rm (1 + m)
-                      rg = rzipWith31 (\cr x a -> snd $ domsToPair
-                                                  $ dunDomains domsOD
-                                                  $ rf cr x a)
+                      rg = rzipWith31 (\cr x a ->
+                             rletDomainsIn domsOD (rf cr x a) $ \rfRes ->
+                                snd $ domsToPair rfRes)
                       cas = rg rf11 lp las
                       padding = rzero (width - k :$ shm)
                   in rappend cas padding
                 g2s = map g2 [1..width]  -- can't be rmap nor rbuild nor rscan
                 g2sum = rsum $ rfromList g2s
-                s2 = evalR sShared g1sum x0'
+                s2 = evalR sShared2 g1sum x0'
             in evalR s2 g2sum as'
           ZS -> error "evalR: impossible pattern needlessly required"
 -- The following won't work, because i in slice needs to be statically knownn.
@@ -1023,9 +1029,10 @@ buildFinMaps s0 deltaDt =
                         lp = rreverse $ rslice 0 k p
                         las :: Domains ranked
                         las = mapDomainsRanked11 (rreverse . rslice 0 k) as
+                        -- TODO: use rscanD (possible; mess around with domains)
                         rf1 = scanl' (\cr (x, a) -> fst $ domsToPair
                                                     $ dunDomains domsOD2
-                                                    $ rf cr x a)  -- rscanD
+                                                    $ rf cr x a)
                                      cx (zip (runravelToList lp)
                                              (map dmkDomains
                                               $ unravelDomains las))
@@ -1041,13 +1048,13 @@ buildFinMaps s0 deltaDt =
                         lp = rslice 0 k p
                         las :: Domains ranked  -- 1 + m
                         las = mapDomainsRanked11 (rslice 0 k) as
+                        -- TODO: use rzipWith31 (rzipWithDomains31?)
                         rg :: [ranked r n1] -> [ranked r n1]
                            -> [DomainsOf ranked]  -- [m]
                            -> [Domains ranked]  -- [m]
                         rg = zipWith3 (\cr x a -> snd $ domsToPair
                                                   $ dunDomains domsOD2
                                                   $ rf cr x a)
-                          -- TODO: make this rzipWith31 (rzipWithDomains31?)
                         cas = rg (runravelToList rf11)
                                  (runravelToList lp)
                                  (map dmkDomains $ unravelDomains las)
