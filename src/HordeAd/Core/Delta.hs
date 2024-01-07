@@ -58,7 +58,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
-import           Data.List (foldl', scanl', sort, transpose)
+import           Data.List (foldl', mapAccumR, scanl', sort, transpose)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
@@ -905,7 +905,9 @@ buildFinMaps s0 deltaDt =
                 s2 = evalR sShared2 (crsShared ! (0 :. ZI)) x0'
             in evalR s2 cas as'
           ZS -> error "evalR: impossible pattern needlessly required"
-{-      FoldRC @rm @m p as _df rf x0' as' ->
+        FoldRC @rm @m p as _df rf x0' as' ->
+          -- No sharing attempted, because this constructor is usually used
+          -- for non-symbolic derivatives.
           let las :: [ranked rm m]
               las = runravelToList as
               rg :: ranked r n
@@ -915,35 +917,6 @@ buildFinMaps s0 deltaDt =
               (cx0, cas) = rg cShared (zip (init $ runravelToList p) las)
               s2 = evalR sShared cx0 x0'
           in evalR s2 (rfromList cas) as'
-        FoldRC @rm @m p as _df rf x0' as' ->
-          let lp :: [ranked r n]
-              lp = runravelToList p
-              las :: [ranked rm m]
-              las = runravelToList as
-              crs :: [ranked r n]
-              crs = scanr (\(x, a) cr -> fst $ rf cr (x, a))
-                          cShared (zip (init lp) las)
-              rg :: [ranked r n] -> [ranked r n] -> [ranked rm m]
-                 -> [ranked rm m]
-              rg = zipWith3 (\cr x a -> snd $ rf cr (x, a))
-              cas = rg (drop 1 crs) (init lp) las
-              s2 = evalR sShared (crs !! 0) x0'
-          in evalR s2 (rfromList cas) as' -}
-        FoldRC @rm @m p as _df rf x0' as' -> case rshape as of
-          width :$ _shm ->
-            let !_A1 = assert (rlength p == width + 1) ()
-                crs :: [ranked r n]
-                crs = scanr (\(x, a) cr -> fst $ rf cr (x, a))
-                            cShared (zip (runravelToList $ rslice 0 width p)
-                                         (runravelToList as))
-                rg :: ranked r (1 + n) -> ranked r (1 + n)
-                   -> ranked rm (1 + m)
-                   -> ranked rm (1 + m)
-                rg = rzipWith31 (\cr x a -> snd $ rf cr (x, a))
-                cas = rg (rslice 1 width $ rfromList crs) (rslice 0 width p) as
-                s2 = evalR sShared (crs !! 0) x0'
-            in evalR s2 cas as'
-          ZS -> error "evalR: impossible pattern needlessly required"
 {-      ScanR f x0 as _df rf x0' as' ->
           let g (asPrefix, as'Prefix) = FoldR f x0 asPrefix _df rf x0' as'Prefix
               -- starting from 0 would be better, but I'm
