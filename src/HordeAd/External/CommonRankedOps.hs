@@ -106,7 +106,7 @@ logistic :: forall ranked r n.
 logistic d0 = rlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let sh = rshape d
       y0 = recip (rreplicate0N sh 1 + exp (- rprimalPart @ranked d))
-  in rlet (rconstant @ranked y0)  -- we don't have tletPrimal
+  in rlet (rconstant @ranked y0)  -- we don't have rletPrimal
      $ \y1 -> let y = rprimalPart @ranked y1
               in rD y (rScale @ranked (y * (rreplicate0N sh 1 - y))
                        $ rdualPart @ranked d)

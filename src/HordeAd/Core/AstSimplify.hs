@@ -436,9 +436,9 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstScanDDer{} -> Ast.AstIndex v0 ix  -- normal form
     -- TODO: when index is constant, rewrite to fold of slice
 
--- TODO: compared to tletIx, it adds many lets, not one, but does not
+-- TODO: compared to rletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
--- so it's probably more efficient. Use this instead of tletIx/sletIx
+-- so it's probably more efficient. Use this instead of rletIx/sletIx
 -- or design something even better.
 shareIx :: (KnownNat n, KnownNat m)
         => AstIndex n -> (AstIndex n -> AstRanked s r m) -> AstRanked s r m
@@ -621,7 +621,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromList l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
-      -- because it needs to be in scope of vars4, so we can't use tlet.
+      -- because it needs to be in scope of vars4, so we can't use rlet.
       let f v = astGatherRec sh4 v (vars4, rest4)
           (varsFresh, ixFresh) = funToAstIndex @m' id
           -- This subst doesn't currently break sharing, because it's a rename.
@@ -642,7 +642,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromVector l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
-      -- because it needs to be in scope of vars4, so we can't use tlet.
+      -- because it needs to be in scope of vars4, so we can't use rlet.
       let f v = astGatherRec sh4 v (vars4, rest4)
           (varsFresh, ixFresh) = funToAstIndex @m' id
           -- This subst doesn't currently break sharing, because it's a rename.
@@ -692,7 +692,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
       -- Term ix4 is duplicated without sharing and we can't help it,
-      -- because it needs to be in scope of vars4, so we can't use tlet.
+      -- because it needs to be in scope of vars4, so we can't use rlet.
       --
       -- Independently, we need to insert lets to each index element,
       -- bloating the term. TODO: would going via a rank 1 vector,
@@ -745,7 +745,7 @@ astGatherROrStepOnly stepOnly sh0 v0 (vars0, ix0) =
     Ast.AstDualPart{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstD u u' ->
       -- Term ix4 is duplicated without sharing and we can't help it,
-      -- because it needs to be in scope of vars4, so we can't use tlet.
+      -- because it needs to be in scope of vars4, so we can't use rlet.
       -- Also, the sharing would be dissolved by the substitution, anyway,
       -- and the same subsitution would be unsound with sharing.
       let (varsFresh, ixFresh) = funToAstIndex @m' id
@@ -1997,7 +1997,7 @@ simplifyRelOp opCodeRel arg1 arg2 = Ast.AstRel opCodeRel arg1 arg2
 -- or that would duplicate a non-constant term, as well as most rules
 -- informed by inequalities, expressed via max or min, such as
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
--- We could use sharing via @tlet@ when terms are duplicated, but it's
+-- We could use sharing via @rlet@ when terms are duplicated, but it's
 -- unclear if the term bloat is worth it.
 simplifyAstPlusOp :: AstRanked PrimalSpan Int64 0
                   -> AstRanked PrimalSpan Int64 0

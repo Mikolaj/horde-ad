@@ -869,30 +869,39 @@ buildFinMaps s0 deltaDt =
         GatherR _sh d f -> evalR s (rscatter (shapeDelta d) c f) d
         FoldR @rm @m p as _df rf x0' as' -> case rshape as of
           width :$ shm ->
+            -- The call @rf cr x a@ is not shared here, but it's repeated
+            -- just two times, so it's fine unless folds are nested badly,
+            -- but then we have worse problems.
             let !_A1 = assert (rlength p == width + 1) ()
                 shn = shapeDelta x0'
                 domsToPair :: ADReady f => Domains f -> (f r n, f rm m)
                 domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
                 domsOD = V.fromList [odFromSh @r shn, odFromSh @rm shm]
-                domsOfToPair :: ADReady f => DomainsOf f -> (f r n, f rm m)
-                domsOfToPair doms =
-                  ( rletDomainsIn domsOD doms (rfromD . (V.! 0))
-                  , rletDomainsIn domsOD doms (rfromD . (V.! 1)) )
                 crs :: ranked r (1 + n)
                 crs = rreverse
-                      $ rscanD (\cr doms -> let (x, a) = domsToPair doms
-                                            in fst $ domsOfToPair $ rf cr x a)
+                      $ rscanD (\cr doms ->
+-- TODO:                           rletDomainsIn domsOD doms' $ \doms ->
+                                     let (x, a) = domsToPair doms
+                                     in rletDomainsIn
+                                          domsOD (rf cr x a) $ \rfRes ->
+                                            fst $ domsToPair rfRes)
                                domsOD
                                cShared
                                (V.fromList
                                   [ DynamicRanked $ rreverse $ rslice 0 width p
                                   , DynamicRanked $ rreverse as ])
+                -- We can't share crs via rlet, etc., because it appears
+                -- in two different calls to evalR.
+                (abShared2, crsShared) = rregister crs (astBindings sShared)
+                sShared2 = sShared {astBindings = abShared2}
                 rg :: ranked r (1 + n) -> ranked r (1 + n)
                    -> ranked rm (1 + m)
                    -> ranked rm (1 + m)
-                rg = rzipWith31 (\cr x a -> snd $ domsOfToPair $ rf cr x a)
-                cas = rg (rslice 1 width crs) (rslice 0 width p) as
-                s2 = evalR sShared (crs ! (0 :. ZI)) x0'
+                rg = rzipWith31 (\cr x a ->
+                                   rletDomainsIn domsOD (rf cr x a) $ \rfRes ->
+                                     snd $ domsToPair rfRes)
+                cas = rg (rslice 1 width crsShared) (rslice 0 width p) as
+                s2 = evalR sShared2 (crsShared ! (0 :. ZI)) x0'
             in evalR s2 cas as'
           ZS -> error "evalR: impossible pattern needlessly required"
 {-      FoldRC @rm @m p as _df rf x0' as' ->

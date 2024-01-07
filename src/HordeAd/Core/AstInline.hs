@@ -534,7 +534,7 @@ unletAst env t = case t of
             in Ast.AstLet var (unletAst env u) (unletAst env2 v)
   Ast.AstLetADShare l v ->
     let lassocs = subtractADShare l $ unletADShare env
-          -- potentially prevents quadratic cost induced by tletWrap
+          -- potentially prevents quadratic cost induced by rletWrap
           -- duplicating the global ADShare; may induce overhead when
           -- the same lets are verified for removal twice, in subtractADShare
           -- and via unletAst, but if many lets can be eliminated,
@@ -701,7 +701,7 @@ unletAstS env t = case t of
             in Ast.AstLetS var (unletAstS env u) (unletAstS env2 v)
   Ast.AstLetADShareS l v ->
     let lassocs = subtractADShare l $ unletADShare env
-          -- potentially prevents quadratic cost induced by tletWrap
+          -- potentially prevents quadratic cost induced by rletWrap
           -- duplicating the global ADShare; may induce overhead when
           -- the same lets are verified for removal twice, in subtractADShare
           -- and via unletAst, but if many lets can be eliminated,
