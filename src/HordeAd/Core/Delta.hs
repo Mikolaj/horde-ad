@@ -1029,22 +1029,27 @@ buildFinMaps s0 deltaDt =
                         lp = rreverse $ rslice 0 k p
                         las :: Domains ranked
                         las = mapDomainsRanked11 (rreverse . rslice 0 k) as
-                        -- TODO: use rscanD (possible; mess around with domains)
-                        rf1 = scanl' (\cr (x, a) -> fst $ domsToPair
-                                                    $ dunDomains domsOD2
-                                                    $ rf cr x a)
-                                     cx (zip (runravelToList lp)
-                                             (map dmkDomains
-                                              $ unravelDomains las))
-                        rf1r = rreverse $ rfromList rf1
+                        rf1 = rscanD (\cr doms' ->
+                                rletDomainsIn domsOD2 doms' $ \doms ->
+                                  let (x, a) = domsToPair doms
+                                  in rletDomainsIn
+                                       domsOD2
+                                       (rf cr x (dmkDomains a)) $ \rfRes ->
+                                         fst $ domsToPair rfRes)
+                                     domsOD2 cx
+                                     (V.cons (DynamicRanked lp) las)
+                        rf1r = rreverse rf1
                         padding = rzero (width - k :$ shn)
                     in rappend rf1r padding
                   g1s = map g1 [1 .. width]  -- can't be rmap, rbuild nor rscan
                   g1t = rfromList g1s
-                  g1sum = cShared ! (0 :. ZI) + rsum (rtr g1t ! (0 :. ZI))
+                  (abShared2, g1tShared) = rregister g1t (astBindings sShared)
+                  sShared2 = sShared {astBindings = abShared2}
+                  g1sum = cShared ! (0 :. ZI) + rsum (rtr g1tShared ! (0 :. ZI))
                   g2 :: Int -> Domains ranked  -- 1 + m
                   g2 k =
-                    let rf11 = rslice 1 k $ g1t ! (fromIntegral k - 1 :. ZI)
+                    let rf11 = rslice 1 k
+                               $ g1tShared ! (fromIntegral k - 1 :. ZI)
                         lp = rslice 0 k p
                         las :: Domains ranked  -- 1 + m
                         las = mapDomainsRanked11 (rslice 0 k) as
@@ -1070,7 +1075,7 @@ buildFinMaps s0 deltaDt =
                   g2s = map g2 [1..width]  -- can't be rmap nor rbuild nor rscan
                   g2sum = V.fromList $ map sumDynamicRanked
                           $ transpose $ map V.toList g2s
-                  s2 = evalR sShared g1sum x0'
+                  s2 = evalR sShared2 g1sum x0'
                   evalRDynamicRanked
                     :: EvalState ranked shaped
                     -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
