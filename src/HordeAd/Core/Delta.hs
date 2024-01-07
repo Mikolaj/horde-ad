@@ -871,21 +871,28 @@ buildFinMaps s0 deltaDt =
           width :$ shm ->
             let !_A1 = assert (rlength p == width + 1) ()
                 shn = shapeDelta x0'
-                od = V.fromList [odFromSh @r shn, odFromSh @rm shm]
-                domsToPair :: DomainsOf ranked -> (ranked r n, ranked rm m)
-                domsToPair doms =
-                  ( rletDomainsIn od doms (rfromD . (V.! 0))
-                  , rletDomainsIn od doms (rfromD . (V.! 1)) )
-                crs :: [ranked r n]
-                crs = scanr (\(x, a) cr -> fst $ domsToPair $ rf cr x a)
-                            cShared (zip (runravelToList $ rslice 0 width p)
-                                         (runravelToList as))
+                domsToPair :: ADReady f => Domains f -> (f r n, f rm m)
+                domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+                domsOD = V.fromList [odFromSh @r shn, odFromSh @rm shm]
+                domsOfToPair :: ADReady f => DomainsOf f -> (f r n, f rm m)
+                domsOfToPair doms =
+                  ( rletDomainsIn domsOD doms (rfromD . (V.! 0))
+                  , rletDomainsIn domsOD doms (rfromD . (V.! 1)) )
+                crs :: ranked r (1 + n)
+                crs = rreverse
+                      $ rscanD (\cr doms -> let (x, a) = domsToPair doms
+                                            in fst $ domsOfToPair $ rf cr x a)
+                               domsOD
+                               cShared
+                               (V.fromList
+                                  [ DynamicRanked $ rreverse $ rslice 0 width p
+                                  , DynamicRanked $ rreverse as ])
                 rg :: ranked r (1 + n) -> ranked r (1 + n)
                    -> ranked rm (1 + m)
                    -> ranked rm (1 + m)
-                rg = rzipWith31 (\cr x a -> snd $ domsToPair $ rf cr x a)
-                cas = rg (rslice 1 width $ rfromList crs) (rslice 0 width p) as
-                s2 = evalR sShared (crs !! 0) x0'
+                rg = rzipWith31 (\cr x a -> snd $ domsOfToPair $ rf cr x a)
+                cas = rg (rslice 1 width crs) (rslice 0 width p) as
+                s2 = evalR sShared (crs ! (0 :. ZI)) x0'
             in evalR s2 cas as'
           ZS -> error "evalR: impossible pattern needlessly required"
 {-      FoldRC @rm @m p as _df rf x0' as' ->
