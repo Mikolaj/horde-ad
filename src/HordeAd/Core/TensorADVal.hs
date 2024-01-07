@@ -401,7 +401,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                    => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
-        g doms = uncurry (f @(ADVal ranked)) (domsToPair doms)
+        g doms = uncurry f (domsToPair doms)
         -- This computes the derivative of f again for each new @x@ and @a@
         -- (not even once for @as@, but for each @a@ separately).
         -- Note that this function, and similarly @rf and @f@ instantiated
@@ -467,7 +467,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
-        g doms = uncurry (f @(ADVal ranked)) (domsToPair doms)
+        g doms = uncurry f (domsToPair doms)
         df :: ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
            -> ranked rn n
         df cx (ca, x, a) =
@@ -484,7 +484,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p = rscan f x0 as
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
     in D l3 pShared
-            (ScanR pShared as df rf x0' as')
+            (ScanRC pShared as df rf x0' as')
   rscanDer :: forall rn rm n m.
               (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -494,23 +494,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> ADVal ranked rn n
            -> ADVal ranked rm (1 + m)
            -> ADVal ranked rn (1 + n)
-  rscanDer f df0 rf0 (D l1 x0 x0') (D l2 as as') =
-    let shn = rshape x0
-        _ws :: (Int, ShapeInt m)
-        _ws@(_, shm) = case rshape as of
-          hd :$ tl -> (hd, tl)
-          _ -> error "rfoldDer: impossible pattern needlessly required"
-        domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
-        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
-        domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-        df :: forall f. ADReady f
-           => f rn n -> (f rm m, f rn n, f rm m) -> f rn n
-        df cx (ca, x, a) = df0 cx ca x a
-        rf :: forall f. ADReady f
-           => f rn n -> (f rn n, f rm m) -> (f rn n, f rm m)
-        rf cx (x, a) = domsToPair $ dunDomains domsOD $ rf0 cx x a
-        p :: ranked rn (1 + n)
-        p = rscanDer f df0 rf0 x0 as
+  rscanDer f df rf (D l1 x0 x0') (D l2 as as') =
+    let p :: ranked rn (1 + n)
+        p = rscanDer f df rf x0 as
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
     in D l3 pShared
             (ScanR pShared as df rf x0' as')
@@ -525,7 +511,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
-        g doms = uncurry f (domsToPair $ dunDomains od doms)
+        g doms = uncurry f (domsToPair doms)
         df :: ranked rn n -> DomainsOf ranked -> ranked rn n -> DomainsOf ranked
            -> ranked rn n
         df cx ca x a =
@@ -541,7 +527,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         (l3, pShared) =
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
     in D l3 pShared
-         (ScanDR od pShared as df rf x0' as')
+         (ScanDRC od pShared as df rf x0' as')
   rscanDDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
             -> (forall f. ADReady f
@@ -574,7 +560,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                    => Domains (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
         g :: Domains (ADVal (RankedOf shaped)) -> ADVal shaped rn sh
-        g doms = uncurry (f @(ADVal shaped)) (domsToPair doms)
+        g doms = uncurry f (domsToPair doms)
         df :: shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
            -> shaped rn sh
         df cx (ca, x, a) =
