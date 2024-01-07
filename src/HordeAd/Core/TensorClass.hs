@@ -23,7 +23,6 @@ module HordeAd.Core.TensorClass
   , unravelDomains, ravelDomains
   , mapDomainsRanked, mapDomainsRanked01, mapDomainsRanked10, mapDomainsRanked11
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
-  , fromDynamicRanked
   ) where
 
 import Prelude
@@ -715,9 +714,8 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sScale :: (GoodScalar r, Sh.Shape sh)
          => PrimalOf shaped r sh -> DualOf shaped r sh -> DualOf shaped r sh
 
-rfromD :: forall ranked r n.
-          ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-          , GoodScalar r, KnownNat n )
+rfromD :: forall r n ranked.
+          (RankedTensor ranked, GoodScalar r, KnownNat n)
        => DynamicTensor ranked -> ranked r n
 rfromD (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2) (Proxy @n) of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
@@ -725,14 +723,16 @@ rfromD (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2) (Proxy @n) of
     _ -> error "rfromD: scalar mismatch"
   _ -> error "rfromD: rank mismatch"
 rfromD DynamicShaped{} = error "rfromD: unexpected DynamicShaped"
-rfromD (DynamicRankedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> rfromS @_ @r2 @sh2 0
-    _ -> error "rfromD: scalar mismatch"
-  _ -> error "rfromD: rank mismatch"
+rfromD (DynamicRankedDummy @r2 @sh2 _ _) =
+  withListShape (Sh.shapeT @sh2) $ \(sh1 :: ShapeInt n2) ->
+    case sameNat (Proxy @n2) (Proxy @n) of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+        Just Refl -> rzero sh1
+        _ -> error "rfrom: scalar mismatch"
+      _ -> error "rfromD: rank mismatch"
 rfromD DynamicShapedDummy{} = error "rfromD: unexpected DynamicShapedDummy"
 
-sfromD :: forall shaped r sh.
+sfromD :: forall r sh shaped.
           ( ShapedTensor shaped
           , GoodScalar r, Sh.Shape sh
           , ShapedOf (RankedOf shaped) ~ shaped )
@@ -1159,27 +1159,6 @@ mapRanked11 f (DynamicRanked t) = case rshape t of
   ZS -> error "mapRanked11: rank 0"
   _ :$ _ -> DynamicRanked $ f t
 mapRanked11 _ _ = error "mapRanked11: not DynamicRanked"
-
-fromDynamicRanked :: forall r n ranked.
-                     (RankedTensor ranked, GoodScalar r, KnownNat n)
-                  => DynamicTensor ranked -> ranked r n
-fromDynamicRanked (DynamicRanked @r2 @n2 t) =
-  case sameNat (Proxy @n2) (Proxy @n) of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> t
-      _ -> error "fromDynamicRanked: scalar mismatch"
-    _ -> error "fromDynamicRanked: rank mismatch"
-fromDynamicRanked DynamicShaped{} =
-  error "fromDynamicRanked: DynamicShaped"
-fromDynamicRanked (DynamicRankedDummy @r2 @sh2 _ _) =
-  withListShape (Sh.shapeT @sh2) $ \(sh1 :: ShapeInt n2) ->
-    case sameNat (Proxy @n2) (Proxy @n) of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> rzero sh1
-        _ -> error "fromDynamicRanked: scalar mismatch"
-      _ -> error "fromDynamicRanked: rank mismatch"
-fromDynamicRanked DynamicShapedDummy{} =
-  error "fromDynamicRanked: DynamicShapedDummy"
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 

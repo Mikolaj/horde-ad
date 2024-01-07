@@ -1080,7 +1080,7 @@ testSin0ScanD3 :: Assertion
 testSin0ScanD3 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [1.360788364276732] :: OR.Array 5 Double)
-    (rev' (\a0 -> rscanD (\_x a -> sin $ fromDynamicRanked @Double @5 (a V.! 0))
+    (rev' (\a0 -> rscanD (\_x a -> sin $ rfromD @Double @5 (a V.! 0))
                          (V.fromList [odFromSh @Double
                                         (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)])
                          (rreplicate0N [1,1,1,1,1] 84)
@@ -1097,7 +1097,7 @@ testSin0ScanD4 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [-0.4458209450295252] :: OR.Array 5 Double)
     (rev' (\a0 -> rscanD (\x a -> atan2 (sin x)
-                                        (sin $ fromDynamicRanked (a V.! 0)))
+                                        (sin $ rfromD (a V.! 0)))
                          (V.fromList [odFromSh @Double
                                         (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)])
                          (rreplicate0N [1,1,1,1,1] 2 * a0)
@@ -1112,7 +1112,7 @@ testSin0ScanD5 = do
                                  $ atan2 (sin $ rreplicate 5 x)
                                          (rsum $ sin $ rsum
                                           $ rtr $ rreplicate 7
-                                          $ fromDynamicRanked (a V.! 0)))
+                                          $ rfromD (a V.! 0)))
                          (V.fromList [ odFromSh @Double
                                          (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
                                      , odFromSh @Double
@@ -1136,7 +1136,7 @@ testSin0ScanD51 = do
                                           $ rtr $ rreplicate 7
                                           $ rreplicate 2 $ rreplicate 5
                                           $ rsum $ rsum
-                                          $ fromDynamicRanked (a V.! 1)))
+                                          $ rfromD (a V.! 1)))
                          (V.fromList [ odFromSh @Double
                                          (2 :$ 5 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
                                      , odFromSh @Double
@@ -1157,7 +1157,7 @@ testSin0ScanD6 = do
     (rev' (\a0 -> rscanD (\x a -> rtr
                                  $ rtr x + rreplicate 1
                                              (rreplicate 2
-                                                (fromDynamicRanked (a V.! 0))))
+                                                (rfromD (a V.! 0))))
                          (V.fromList [odFromSh @Double (1 :$ 1 :$ ZS)])
                          (rreplicate 2 (rreplicate 1 a0))
                          (V.singleton $ DynamicRanked
@@ -1181,7 +1181,7 @@ testSin0ScanD8 = do
     (rev' (\a0 -> rscanD (\x a -> rtr $ rreplicate 5
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
-                                          $ sin (fromDynamicRanked $ (V.! 0)
+                                          $ sin (rfromD $ (V.! 0)
                                                  $ mapDomainsRanked
                                                      (rsum . rreplicate 7) a)))
                        (V.fromList [odFromSh @Double (1 :$ 1 :$ 1 :$ ZS)])
@@ -1198,7 +1198,7 @@ testSin0ScanD8rev = do
        (\a0 -> rscanD (\x a -> rtr $ rreplicate 5
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
-                                          $ sin (fromDynamicRanked $ (V.! 0)
+                                          $ sin (rfromD $ (V.! 0)
                                                  $ mapDomainsRanked
                                                      (rsum . rreplicate 7) a)))
                        (V.fromList [odFromSh @Int64 ZS])
@@ -1211,7 +1211,7 @@ testSin0ScanD8rev2 = do
         (\a0 -> rscanD (\x a -> rtr $ rreplicate 5
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
-                                          $ sin (fromDynamicRanked $ (V.! 0)
+                                          $ sin (rfromD $ (V.! 0)
                                                  $ mapDomainsRanked10 rsum
                                                  $ mapDomainsRanked01
                                                      (rreplicate 7) a)))
@@ -1248,7 +1248,7 @@ testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
-                 (\x0 -> rscanD (\x a -> sin x - fromDynamicRanked (a V.! 0))
+                 (\x0 -> rscanD (\x a -> sin x - rfromD (a V.! 0))
                          (V.fromList [odFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
@@ -1259,7 +1259,7 @@ testSin0ScanDFwd2PP :: Assertion
 testSin0ScanDFwd2PP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
-                 (\x0 -> rscanD (\x a -> sin x - fromDynamicRanked (a V.! 0))
+                 (\x0 -> rscanD (\x a -> sin x - rfromD (a V.! 0))
                          (V.fromList [odFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
@@ -1270,7 +1270,7 @@ testSin0ScanD1Rev2 :: Assertion
 testSin0ScanD1Rev2 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [] [1.1961317861865948] :: OR.Array 0 Double)
-    (rev' (\x0 -> rscanD (\x a -> sin x - fromDynamicRanked (a V.! 0))
+    (rev' (\x0 -> rscanD (\x a -> sin x - rfromD (a V.! 0))
                          (V.fromList [odFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1)
@@ -1279,7 +1279,7 @@ testSin0ScanD1Rev3PP :: Assertion
 testSin0ScanD1Rev3PP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
-                 (\x0 -> rscanD (\x a -> sin x - fromDynamicRanked (a V.! 0))
+                 (\x0 -> rscanD (\x a -> sin x - rfromD (a V.! 0))
                                 (V.fromList [odFromSh @Double ZS])
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * 5, x0 * 7])) 1.1
@@ -1290,7 +1290,7 @@ testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
-                 (\x0 -> rscanD (\x a -> sin x - fromDynamicRanked (a V.! 0))
+                 (\x0 -> rscanD (\x a -> sin x - rfromD (a V.! 0))
                                 (V.fromList [odFromSh @Double ZS])
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * 5, x0 * 7])) 1.1
@@ -1301,7 +1301,7 @@ testSin0ScanD1Rev3 :: Assertion
 testSin0ScanD1Rev3 = do
   assertEqualUpToEpsilon' 1e-5
     (OR.fromList [] [-10.076255083995068] :: OR.Array 0 Double)
-    (rev' (\x0 -> rscanD (\x a -> sin x - fromDynamicRanked (a V.! 0))
+    (rev' (\x0 -> rscanD (\x a -> sin x - rfromD (a V.! 0))
                          (V.fromList [odFromSh @Double ZS])
                          x0 (V.singleton $ DynamicRanked
                              $ rfromList [x0 * 5, x0 * 7])) 1.1)
@@ -1341,7 +1341,7 @@ testSin0ScanD8fwd = do
        (\a0 -> rscanD (\x a -> rtr $ rreplicate 5
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
-                                          $ sin (fromDynamicRanked $ (V.! 0)
+                                          $ sin (rfromD $ (V.! 0)
                                                  $ mapDomainsRanked
                                                      (rsum . rreplicate 7) a)))
                       (V.fromList [odFromSh @Float ZS])
@@ -1354,7 +1354,7 @@ testSin0ScanD8fwd2 = do
         (\a0 -> rscanD (\x a -> rtr $ rreplicate 5
                                  $ atan2 (rsum (rtr $ sin x))
                                          (rreplicate 2
-                                          $ sin (fromDynamicRanked $ (V.! 0)
+                                          $ sin (rfromD $ (V.! 0)
                                                  $ mapDomainsRanked10 rsum
                                                  $ mapDomainsRanked01
                                                      (rreplicate 7) a)))

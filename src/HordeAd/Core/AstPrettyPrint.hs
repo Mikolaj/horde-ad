@@ -166,7 +166,7 @@ printAstDynamicVarNameBrief renames (AstDynamicVarName @ty @r @sh varId) =
   printAstVarNameS renames (AstVarName @[Nat] @_ @r @sh varId)
 
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
-printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh varId) =
+printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =
   printAstDynamicVarNameBrief renames var
   ++ " @" ++ show (typeRep @ty)
   ++ " @" ++ show (typeRep @r)
