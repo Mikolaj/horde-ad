@@ -69,6 +69,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
+import           GHC.Show (showSpace)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
 import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
@@ -298,10 +299,8 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
        => DeltaS (ShapedOf ranked) r sh
        -> DeltaR ranked r (Sh.Rank sh)
 
-instance Show (DeltaR ranked r n) where
-  showsPrec d _ = showsPrec d "DeltaR TODO"
-
-{- TODO:
+{- Fails due to @forall f@. Replaced by a manually fixed version at the end
+   of this file.
 deriving instance ( KnownNat n0, GoodScalar r0
                   , Show (IntOf ranked)
                   , Show (IntOf (ShapedOf ranked))
@@ -1687,3 +1686,391 @@ buildDerivative dimR deltaDt params = do
       let !cDelta = DeltaDtS c ZeroS
       ab <- readSTRef astBindings
       return (ab, cDelta)
+
+
+-- * Manually fixed Show intances
+
+instance (KnownNat n0,
+          GoodScalar r0,
+          Show (IntOf @Nat ranked),
+          Show
+            (IntOf
+               @[Nat]
+               (ShapedOf @Nat ranked)),
+          CRanked ranked Show,
+          CShaped
+            (ShapedOf @Nat ranked)
+            Show,
+          CShaped
+            (DeltaS
+               (ShapedOf @Nat ranked))
+            Show) =>
+         Show (DeltaR ranked r0 n0) where
+  showsPrec a_adiH (ZeroR b1_adiI)
+    = showParen
+        (a_adiH >= 11)
+        ((.)
+           (showString "ZeroR ") (showsPrec 11 b1_adiI))
+  showsPrec
+    a_adiJ
+    (InputR b1_adiK b2_adiL)
+    = showParen
+        (a_adiJ >= 11)
+        ((.)
+           (showString "InputR ")
+           ((.)
+              (showsPrec 11 b1_adiK)
+              ((.) showSpace (showsPrec 11 b2_adiL))))
+  showsPrec
+    a_adiM
+    (ScaleR b1_adiN b2_adiO)
+    = showParen
+        (a_adiM >= 11)
+        ((.)
+           (showString "ScaleR ")
+           ((.)
+              (showsPrec 11 b1_adiN)
+              ((.) showSpace (showsPrec 11 b2_adiO))))
+  showsPrec a_adiP (AddR b1_adiQ b2_adiR)
+    = showParen
+        (a_adiP >= 11)
+        ((.)
+           (showString "AddR ")
+           ((.)
+              (showsPrec 11 b1_adiQ)
+              ((.) showSpace (showsPrec 11 b2_adiR))))
+  showsPrec a_adiS (LetR b1_adiT b2_adiU)
+    = showParen
+        (a_adiS >= 11)
+        ((.)
+           (showString "LetR ")
+           ((.)
+              (showsPrec 11 b1_adiT)
+              ((.) showSpace (showsPrec 11 b2_adiU))))
+  showsPrec
+    a_adiV
+    (IndexR b1_adiW b2_adiX)
+    = showParen
+        (a_adiV >= 11)
+        ((.)
+           (showString "IndexR ")
+           ((.)
+              (showsPrec 11 b1_adiW)
+              ((.) showSpace (showsPrec 11 b2_adiX))))
+  showsPrec a_adiY (SumR b1_adiZ)
+    = showParen
+        (a_adiY >= 11)
+        ((.)
+           (showString "SumR ") (showsPrec 11 b1_adiZ))
+  showsPrec a_adj0 (Sum0R b1_adj1)
+    = showParen
+        (a_adj0 >= 11)
+        ((.)
+           (showString "Sum0R ") (showsPrec 11 b1_adj1))
+  showsPrec
+    a_adj2
+    (Dot0R b1_adj3 b2_adj4)
+    = showParen
+        (a_adj2 >= 11)
+        ((.)
+           (showString "Dot0R ")
+           ((.)
+              (showsPrec 11 b1_adj3)
+              ((.) showSpace (showsPrec 11 b2_adj4))))
+  showsPrec
+    a_adj5
+    (ScatterR b1_adj6 b2_adj7 b3_adj8)
+    = showParen
+        (a_adj5 >= 11)
+        ((.)
+           (showString "ScatterR ")
+           ((.)
+              (showsPrec 11 b1_adj6)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_adj7)
+                    ((.)
+                       showSpace (showsPrec 11 b3_adj8))))))
+  showsPrec a_adj9 (FromListR b1_adja)
+    = showParen
+        (a_adj9 >= 11)
+        ((.)
+           (showString "FromListR ") (showsPrec 11 b1_adja))
+  showsPrec a_adjb (FromVectorR b1_adjc)
+    = showParen
+        (a_adjb >= 11)
+        ((.)
+           (showString "FromVectorR ")
+           (showsPrec 11 b1_adjc))
+  showsPrec
+    a_adjd
+    (ReplicateR b1_adje b2_adjf)
+    = showParen
+        (a_adjd >= 11)
+        ((.)
+           (showString "ReplicateR ")
+           ((.)
+              (showsPrec 11 b1_adje)
+              ((.) showSpace (showsPrec 11 b2_adjf))))
+  showsPrec
+    a_adjg
+    (AppendR b1_adjh b2_adji)
+    = showParen
+        (a_adjg >= 11)
+        ((.)
+           (showString "AppendR ")
+           ((.)
+              (showsPrec 11 b1_adjh)
+              ((.) showSpace (showsPrec 11 b2_adji))))
+  showsPrec
+    a_adjj
+    (SliceR b1_adjk b2_adjl b3_adjm)
+    = showParen
+        (a_adjj >= 11)
+        ((.)
+           (showString "SliceR ")
+           ((.)
+              (showsPrec 11 b1_adjk)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_adjl)
+                    ((.)
+                       showSpace (showsPrec 11 b3_adjm))))))
+  showsPrec a_adjn (ReverseR b1_adjo)
+    = showParen
+        (a_adjn >= 11)
+        ((.)
+           (showString "ReverseR ") (showsPrec 11 b1_adjo))
+  showsPrec
+    a_adjp
+    (TransposeR b1_adjq b2_adjr)
+    = showParen
+        (a_adjp >= 11)
+        ((.)
+           (showString "TransposeR ")
+           ((.)
+              (showsPrec 11 b1_adjq)
+              ((.) showSpace (showsPrec 11 b2_adjr))))
+  showsPrec
+    a_adjs
+    (ReshapeR b1_adjt b2_adju)
+    = showParen
+        (a_adjs >= 11)
+        ((.)
+           (showString "ReshapeR ")
+           ((.)
+              (showsPrec 11 b1_adjt)
+              ((.) showSpace (showsPrec 11 b2_adju))))
+  showsPrec
+    a_adjv
+    (GatherR b1_adjw b2_adjx b3_adjy)
+    = showParen
+        (a_adjv >= 11)
+        ((.)
+           (showString "GatherR ")
+           ((.)
+              (showsPrec 11 b1_adjw)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_adjx)
+                    ((.)
+                       showSpace (showsPrec 11 b3_adjy))))))
+  showsPrec
+    a_adjz
+    (FoldR b1_adjA b2_adjB _b3_adjC _b4_adjD b5_adjE
+                              b6_adjF)
+    = showParen
+        (a_adjz >= 11)
+        ((.)
+           (showString "FoldR ")
+           ((.)
+              (showsPrec 11 b1_adjA)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_adjB)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showString "<forall function>")
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showString "<forall function>")
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showsPrec 11 b5_adjE)
+                                      ((.)
+                                         showSpace
+                                         (showsPrec 11 b6_adjF))))))))))))
+  showsPrec
+    a_adjG
+    (FoldRC b1_adjH b2_adjI b3_adjJ b4_adjK b5_adjL
+                               b6_adjM)
+    = showParen
+        (a_adjG >= 11)
+        ((.)
+           (showString "FoldRC ")
+           ((.)
+              (showsPrec 11 b1_adjH)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_adjI)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showsPrec 11 b3_adjJ)
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showsPrec 11 b4_adjK)
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showsPrec 11 b5_adjL)
+                                      ((.)
+                                         showSpace
+                                         (showsPrec 11 b6_adjM))))))))))))
+  showsPrec
+    a_adjN
+    (FoldDR b1_adjO b2_adjP b3_adjQ _b4_adjR _b5_adjS
+                               b6_adjT b7_adjU)
+    = showParen
+        (a_adjN >= 11)
+        ((.)
+           (showString "FoldDR ")
+           ((.)
+              (showsPrec 11 b1_adjO)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_adjP)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showsPrec 11 b3_adjQ)
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showString "<forall function>")
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showString "<forall function>")
+                                      ((.)
+                                         showSpace
+                                         ((.)
+                                            (showsPrec 11 b6_adjT)
+                                            ((.)
+                                               showSpace
+                                               (showsPrec 11 b7_adjU))))))))))))))
+  showsPrec
+    a_adjV
+    (FoldDRC b1_adjW b2_adjX b3_adjY b4_adjZ b5_adk0
+                                b6_adk1 b7_adk2)
+    = showParen
+        (a_adjV >= 11)
+        ((.)
+           (showString "FoldDRC ")
+           ((.)
+              (showsPrec 11 b1_adjW)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_adjX)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showsPrec 11 b3_adjY)
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showsPrec 11 b4_adjZ)
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showsPrec 11 b5_adk0)
+                                      ((.)
+                                         showSpace
+                                         ((.)
+                                            (showsPrec 11 b6_adk1)
+                                            ((.)
+                                               showSpace
+                                               (showsPrec 11 b7_adk2))))))))))))))
+  showsPrec
+    a_adk3
+    (ScanR b1_adk4 b2_adk5 _b3_adk6 _b4_adk7 b5_adk8
+                              b6_adk9)
+    = showParen
+        (a_adk3 >= 11)
+        ((.)
+           (showString "ScanR ")
+           ((.)
+              (showsPrec 11 b1_adk4)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_adk5)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showString "<forall function>")
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showString "<forall function>")
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showsPrec 11 b5_adk8)
+                                      ((.)
+                                         showSpace
+                                         (showsPrec 11 b6_adk9))))))))))))
+  showsPrec
+    a_adka
+    (ScanDR b1_adkb b2_adkc b3_adkd _b4_adke _b5_adkf
+                               b6_adkg b7_adkh)
+    = showParen
+        (a_adka >= 11)
+        ((.)
+           (showString "ScanDR ")
+           ((.)
+              (showsPrec 11 b1_adkb)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_adkc)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showsPrec 11 b3_adkd)
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showString "<forall function>")
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showString "<forall function>")
+                                      ((.)
+                                         showSpace
+                                         ((.)
+                                            (showsPrec 11 b6_adkg)
+                                            ((.)
+                                               showSpace
+                                               (showsPrec 11 b7_adkh))))))))))))))
+  showsPrec a_adki (CastR b1_adkj)
+    = showParen
+        (a_adki >= 11)
+        ((.)
+           (showString "CastR ") (showsPrec 11 b1_adkj))
+  showsPrec a_adkk (SToR b1_adkl)
+    = showParen
+        (a_adkk >= 11)
+        ((.)
+           (showString "SToR ") (showsPrec 11 b1_adkl))
