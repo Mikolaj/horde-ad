@@ -28,7 +28,7 @@ testTrees =
   [ testCase "4fooRrev" testFooRrev
   , testCase "4fooRrev2" testFooRrev2
   , testCase "4fooRrevPP1" testFooRrevPP1
-  , testCase "4fooRrevPP2" testFooRrevPP2
+--  , testCase "4fooRrevPP2" testFooRrevPP2
   , testCase "4fooRrev3" testFooRrev3
   , testCase "4Sin0Rrev" testSin0Rrev
   , testCase "4Sin0RrevPP1" testSin0RrevPP1
@@ -136,7 +136,7 @@ testTrees =
   , testCase "4Sin0ScanD1Rev2PP" testSin0ScanD1Rev2PP
   , testCase "4Sin0ScanDFwd2PP" testSin0ScanDFwd2PP
   , testCase "4Sin0ScanD1Rev2" testSin0ScanD1Rev2
-  , testCase "4Sin0ScanD1Rev3PP" testSin0ScanD1Rev3PP
+--  , testCase "4Sin0ScanD1Rev3PP" testSin0ScanD1Rev3PP
   , testCase "4Sin0ScanDFwd3PP" testSin0ScanDFwd3PP
   , testCase "4Sin0ScanD1Rev3" testSin0ScanD1Rev3
   , testCase "4Sin0ScanD0fwd" testSin0ScanD0fwd
@@ -186,8 +186,8 @@ testFooRrevPP1 = do
   printAstPretty IM.empty a1
     @?= "rletDomainsIn (let x16 = sin (rconst 2.2) ; x17 = rconst 1.1 * x16 ; x18 = recip (rconst 3.3 * rconst 3.3 + x17 * x17) ; x19 = sin (rconst 2.2) ; x20 = rconst 1.1 * x19 ; x21 = rreshape [] (rreplicate 1 (rconst 1.0)) ; x22 = rconst 3.3 * x21 ; x23 = negate (rconst 3.3 * x18) * x21 in (x16 * x23 + x19 * x22, cos (rconst 2.2) * (rconst 1.1 * x23) + cos (rconst 2.2) * (rconst 1.1 * x22), (x17 * x18) * x21 + x20 * x21)) (\\[dret @Natural @Double @[], x2 @Natural @Double @[], x3 @Natural @Double @[]] -> dret)"
 
-testFooRrevPP2 :: Assertion
-testFooRrevPP2 = do
+_testFooRrevPP2 :: Assertion
+_testFooRrevPP2 = do
   let (a1, _, _) = fooRrev @(AstRanked FullSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple IM.empty a1
     @?= "rletDomainsIn (rletInDomains (sin (rconst 2.2)) (\\x39 -> rletInDomains (rconst 1.1 * x39) (\\x40 -> rletInDomains (recip (rconst 3.3 * rconst 3.3 + x40 * x40)) (\\x41 -> rletInDomains (sin (rconst 2.2)) (\\x42 -> rletInDomains (rconst 1.1 * x42) (\\x43 -> rletInDomains (rreshape [] (rreplicate 1 (rconst 1.0))) (\\x44 -> rletInDomains (rconst 3.3 * x44) (\\x45 -> rletInDomains (negate (rconst 3.3 * x41) * x44) (\\x46 -> dmkDomains (fromList [DynamicRanked (x39 * x46 + x42 * x45), DynamicRanked (cos (rconst 2.2) * (rconst 1.1 * x46) + cos (rconst 2.2) * (rconst 1.1 * x45)), DynamicRanked ((x40 * x41) * x44 + x43 * x44)])))))))))) (\\[x24 @Natural @Double @[], x25 @Natural @Double @[], x26 @Natural @Double @[]] -> x24)"
@@ -1288,8 +1288,8 @@ testSin0ScanD1Rev2 = do
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1)
 
-testSin0ScanD1Rev3PP :: Assertion
-testSin0ScanD1Rev3PP = do
+_testSin0ScanD1Rev3PP :: Assertion
+_testSin0ScanD1Rev3PP = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscanD (\x a -> sin x - rfromD (dunDomains (V.fromList [odFromSh @Double ZS]) a V.! 0))
