@@ -13,6 +13,7 @@ module HordeAd.Core.TensorADVal
 
 import Prelude hiding (foldl')
 
+import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.Shape as Sh
@@ -458,7 +459,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> Domains (ADVal ranked)
          -> ADVal ranked rn n
   rfoldD f od (D l1 x0 x0') asD =
-    let width = case V.unsnoc as of
+    let domsLen = V.length od
+        !_A = assert (V.length asD == domsLen
+                      `blame` (V.length asD, domsLen)) ()
+        width = case V.unsnoc as of
           Nothing -> error "rfoldD: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
             [] -> error "rfoldD: wrong rank of argument"
@@ -497,7 +501,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> Domains (ADVal ranked)
             -> ADVal ranked rn n
   rfoldDDer f df rf od (D l1 x0 x0') asD =
-    let width = case V.unsnoc as of
+    let domsLen = V.length od
+        !_A = assert (V.length asD == domsLen
+                      `blame` (V.length asD, domsLen)) ()
+        width = case V.unsnoc as of
           Nothing -> error "rfoldDDer: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
             [] -> error "rfoldDDer: wrong rank of argument"
@@ -578,7 +585,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> Domains (ADVal ranked)
          -> ADVal ranked rn (1 + n)
   rscanD f od (D l1 x0 x0') asD =
-    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    let domsLen = V.length od
+        !_A = assert (V.length asD == domsLen
+                      `blame` (V.length asD, domsLen)) ()
+        (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
@@ -623,7 +633,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> Domains (ADVal ranked)
             -> ADVal ranked rn (1 + n)
   rscanDDer f df rf od (D l1 x0 x0') asD =
-    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    let domsLen = V.length od
+        !_A = assert (V.length asD == domsLen
+                      `blame` (V.length asD, domsLen)) ()
+        (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         p :: ranked rn (1 + n)
         p = rscanDDer f df rf od x0 as
         (l3, pShared) =

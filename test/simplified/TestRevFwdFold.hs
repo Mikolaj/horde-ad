@@ -871,7 +871,7 @@ testSin0ScanFwdPP = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v33 = rscanDer (\\x24 x25 -> sin x24) (\\x26 x27 x28 x29 -> x26 * cos x28) (\\x30 x31 x32 -> (cos x31 * x30, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in rfromList [rconst 1.1, rconst 1.1 * cos (v33 ! [0]), (rconst 1.1 * cos (v33 ! [0])) * cos (v33 ! [1])]"
+    @?= "rscanDDer (\\x67 [x68 @Natural @Double @[], x69 @Natural @Double @[], x70 @Natural @Double @[]] -> x67 * cos x69) (\\x83 [x84 @Natural @Double @[], x85 @Natural @Double @[], x86 @Natural @Double @[]] x87 [x88 @Natural @Double @[], x89 @Natural @Double @[], x90 @Natural @Double @[]] -> x83 * cos x89 + (x85 * negate (sin x89)) * x87) (\\x112 x113 [x114 @Natural @Double @[], x115 @Natural @Double @[], x116 @Natural @Double @[]] -> (cos x115 * x112, 0, negate (sin x115) * (x113 * x112), 0)) (rconst 1.1) (rconstant (rreplicate 2 (rconst 0.0)), rslice 0 2 (rscanDer (\\x57 x58 -> sin x57) (\\x59 x60 x61 x62 -> x59 * cos x61) (\\x63 x64 x65 -> (cos x64 * x63, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0]))), rconst (fromList [2] [42.0,42.0]))"
 
 testSin0Scan1Rev2PP :: Assertion
 testSin0Scan1Rev2PP = do
@@ -897,7 +897,7 @@ testSin0ScanFwd2PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v36 = rscanDer (\\x26 x27 -> sin x26 - x27) (\\x28 x29 x30 x31 -> x28 * cos x30 + x29 * rconst -1.0) (\\x33 x34 x35 -> (cos x34 * x33, rconst -1.0 * x33)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in rfromList [rconst 1.1, rconst 1.1 * cos (v36 ! [0]) + rconst 0.0 * rconst -1.0, (rconst 1.1 * cos (v36 ! [0]) + rconst 0.0 * rconst -1.0) * cos (v36 ! [1]) + rconst 0.0 * rconst -1.0]"
+    @?= "rscanDDer (\\x77 [x78 @Natural @Double @[], x79 @Natural @Double @[], x80 @Natural @Double @[]] -> x77 * cos x79 + x78 * rconst -1.0) (\\x94 [x95 @Natural @Double @[], x96 @Natural @Double @[], x97 @Natural @Double @[]] x98 [x99 @Natural @Double @[], x100 @Natural @Double @[], x101 @Natural @Double @[]] -> x95 * rconst -1.0 + x94 * cos x100 + (x96 * negate (sin x100)) * x98) (\\x126 x127 [x128 @Natural @Double @[], x129 @Natural @Double @[], x130 @Natural @Double @[]] -> (cos x129 * x126, rconst -1.0 * x126, negate (sin x129) * (x127 * x126), 0)) (rconst 1.1) (rconstant (rreplicate 2 (rconst 0.0)), rslice 0 2 (rscanDer (\\x66 x67 -> sin x66 - x67) (\\x68 x69 x70 x71 -> x68 * cos x70 + x69 * rconst -1.0) (\\x73 x74 x75 -> (cos x74 * x73, rconst -1.0 * x73)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0]))), rconst (fromList [2] [5.0,7.0]))"
 
 testSin0Scan1Rev2 :: Assertion
 testSin0Scan1Rev2 = do
@@ -936,7 +936,7 @@ testSin0ScanFwd3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
-    @?= "let v39 = rscanDer (\\x29 x30 -> sin x29 - x30) (\\x31 x32 x33 x34 -> x31 * cos x33 + x32 * rconst -1.0) (\\x36 x37 x38 -> (cos x37 * x36, rconst -1.0 * x36)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v42 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0] in rfromList [rconst 1.1, rconst 1.1 * cos (v39 ! [0]) + v42 ! [0] * rconst -1.0, (rconst 1.1 * cos (v39 ! [0]) + v42 ! [0] * rconst -1.0) * cos (v39 ! [1]) + v42 ! [1] * rconst -1.0]"
+    @?= "rscanDDer (\\x83 [x84 @Natural @Double @[], x85 @Natural @Double @[], x86 @Natural @Double @[]] -> x83 * cos x85 + x84 * rconst -1.0) (\\x100 [x101 @Natural @Double @[], x102 @Natural @Double @[], x103 @Natural @Double @[]] x104 [x105 @Natural @Double @[], x106 @Natural @Double @[], x107 @Natural @Double @[]] -> x101 * rconst -1.0 + x100 * cos x106 + (x102 * negate (sin x106)) * x104) (\\x132 x133 [x134 @Natural @Double @[], x135 @Natural @Double @[], x136 @Natural @Double @[]] -> (cos x135 * x132, rconst -1.0 * x132, negate (sin x135) * (x133 * x132), 0)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0], rslice 0 2 (rscanDer (\\x69 x70 -> sin x69 - x70) (\\x71 x72 x73 x74 -> x71 * cos x73 + x72 * rconst -1.0) (\\x76 x77 x78 -> (cos x77 * x76, rconst -1.0 * x76)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0])), rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0])"
 
 testSin0Scan1Rev3 :: Assertion
 testSin0Scan1Rev3 = do
@@ -1080,10 +1080,12 @@ testSin0ScanD3 :: Assertion
 testSin0ScanD3 = do
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,1,1,1,1] [1.360788364276732] :: OR.Array 5 Double)
-    (rev' (\a0 -> rscanD (\_x a -> sin $ rfromD @Double @5 (dunDomains (V.fromList [odFromSh @Double
-                                                                                    (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)]) a V.! 0))
-                         (V.fromList [odFromSh @Double
-                                        (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)])
+    (rev' (\a0 -> rscanD (\_x a ->
+                            sin $ rfromD @Double @5
+                                    (dunDomains (V.fromList [ odFromSh @Double (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
+                                     , odFromSh @Double (4 :$ 5 :$ 6 :$ 7 :$ 8 :$ ZS) ]) a V.! 0))
+                         (V.fromList [ odFromSh @Double (1 :$ 1 :$ 1 :$ 1 :$ 1 :$ ZS)
+                                     , odFromSh @Double (4 :$ 5 :$ 6 :$ 7 :$ 8 :$ ZS) ])
                          (rreplicate0N [1,1,1,1,1] 84)
                          (V.fromList
                             [ DynamicRanked
@@ -1253,7 +1255,7 @@ testSin0ScanDFwdPP = do
                            x0 (V.singleton $ DynamicRanked
                                $ rconst (OR.constant @Double @1 [2] 42))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v41 = rscanDDer (\\x28 [x29 @Natural @Double @[]] -> sin x28) (\\x31 [x32 @Natural @Double @[]] x33 [x34 @Natural @Double @[]] -> x31 * cos x33) (\\x37 x38 [x39 @Natural @Double @[]] -> (cos x38 * x37, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0])) in rfromList [rconst 1.1, rconst 1.1 * cos (v41 ! [0]), (rconst 1.1 * cos (v41 ! [0])) * cos (v41 ! [1])]"
+    @?= "rscanDDer (\\x81 [x82 @Natural @Double @[], x83 @Natural @Double @[], x84 @Natural @Double @[]] -> x81 * cos x83) (\\x97 [x98 @Natural @Double @[], x99 @Natural @Double @[], x100 @Natural @Double @[]] x101 [x102 @Natural @Double @[], x103 @Natural @Double @[], x104 @Natural @Double @[]] -> x97 * cos x103 + (x99 * negate (sin x103)) * x101) (\\x126 x127 [x128 @Natural @Double @[], x129 @Natural @Double @[], x130 @Natural @Double @[]] -> (cos x129 * x126, 0, negate (sin x129) * (x127 * x126), 0)) (rconst 1.1) (rconstant (rreplicate 2 (rconst 0.0)), rslice 0 2 (rscanDDer (\\x67 [x68 @Natural @Double @[]] -> sin x67) (\\x70 [x71 @Natural @Double @[]] x72 [x73 @Natural @Double @[]] -> x70 * cos x72) (\\x76 x77 [x78 @Natural @Double @[]] -> (cos x77 * x76, 0)) (rconst 1.1) (rconst (fromList [2] [42.0,42.0]))), rconst (fromList [2] [42.0,42.0]))"
 
 testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
@@ -1275,7 +1277,7 @@ testSin0ScanDFwd2PP = do
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (OR.fromList @Double @1 [2] [5, 7]))) 1.1
   printAstPretty IM.empty (simplifyAst6 a1)
-    @?= "let v50 = rscanDDer (\\x34 [x35 @Natural @Double @[]] -> sin x34 - x35) (\\x38 [x39 @Natural @Double @[]] x40 [x41 @Natural @Double @[]] -> x38 * cos x40 + x39 * rconst -1.0) (\\x46 x47 [x48 @Natural @Double @[]] -> (cos x47 * x46, rconst -1.0 * x46)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0])) in rfromList [rconst 1.1, rconst 1.1 * cos (v50 ! [0]) + rconst 0.0 * rconst -1.0, (rconst 1.1 * cos (v50 ! [0]) + rconst 0.0 * rconst -1.0) * cos (v50 ! [1]) + rconst 0.0 * rconst -1.0]"
+    @?= "rscanDDer (\\x97 [x98 @Natural @Double @[], x99 @Natural @Double @[], x100 @Natural @Double @[]] -> x97 * cos x99 + x98 * rconst -1.0) (\\x114 [x115 @Natural @Double @[], x116 @Natural @Double @[], x117 @Natural @Double @[]] x118 [x119 @Natural @Double @[], x120 @Natural @Double @[], x121 @Natural @Double @[]] -> x115 * rconst -1.0 + x114 * cos x120 + (x116 * negate (sin x120)) * x118) (\\x146 x147 [x148 @Natural @Double @[], x149 @Natural @Double @[], x150 @Natural @Double @[]] -> (cos x149 * x146, rconst -1.0 * x146, negate (sin x149) * (x147 * x146), 0)) (rconst 1.1) (rconstant (rreplicate 2 (rconst 0.0)), rslice 0 2 (rscanDDer (\\x80 [x81 @Natural @Double @[]] -> sin x80 - x81) (\\x84 [x85 @Natural @Double @[]] x86 [x87 @Natural @Double @[]] -> x84 * cos x86 + x85 * rconst -1.0) (\\x92 x93 [x94 @Natural @Double @[]] -> (cos x93 * x92, rconst -1.0 * x92)) (rconst 1.1) (rconst (fromList [2] [5.0,7.0]))), rconst (fromList [2] [5.0,7.0]))"
 
 testSin0ScanD1Rev2 :: Assertion
 testSin0ScanD1Rev2 = do
@@ -1306,7 +1308,7 @@ testSin0ScanDFwd3PP = do
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * 5, x0 * 7])) 1.1
   printAstPretty IM.empty (simplifyAst6 $ simplifyAst6 $ simplifyAst6 a1)
-    @?= "let v53 = rscanDDer (\\x37 [x38 @Natural @Double @[]] -> sin x37 - x38) (\\x41 [x42 @Natural @Double @[]] x43 [x44 @Natural @Double @[]] -> x41 * cos x43 + x42 * rconst -1.0) (\\x49 x50 [x51 @Natural @Double @[]] -> (cos x50 * x49, rconst -1.0 * x49)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0]) ; v56 = rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0] in rfromList [rconst 1.1, rconst 1.1 * cos (v53 ! [0]) + v56 ! [0] * rconst -1.0, (rconst 1.1 * cos (v53 ! [0]) + v56 ! [0] * rconst -1.0) * cos (v53 ! [1]) + v56 ! [1] * rconst -1.0]"
+    @?= "rscanDDer (\\x103 [x104 @Natural @Double @[], x105 @Natural @Double @[], x106 @Natural @Double @[]] -> x103 * cos x105 + x104 * rconst -1.0) (\\x120 [x121 @Natural @Double @[], x122 @Natural @Double @[], x123 @Natural @Double @[]] x124 [x125 @Natural @Double @[], x126 @Natural @Double @[], x127 @Natural @Double @[]] -> x121 * rconst -1.0 + x120 * cos x126 + (x122 * negate (sin x126)) * x124) (\\x152 x153 [x154 @Natural @Double @[], x155 @Natural @Double @[], x156 @Natural @Double @[]] -> (cos x155 * x152, rconst -1.0 * x152, negate (sin x155) * (x153 * x152), 0)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0], rslice 0 2 (rscanDDer (\\x83 [x84 @Natural @Double @[]] -> sin x83 - x84) (\\x87 [x88 @Natural @Double @[]] x89 [x90 @Natural @Double @[]] -> x87 * cos x89 + x88 * rconst -1.0) (\\x95 x96 [x97 @Natural @Double @[]] -> (cos x96 * x95, rconst -1.0 * x95)) (rconst 1.1) (rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0])), rfromList [rconst 1.1 * rconst 5.0, rconst 1.1 * rconst 7.0])"
 
 testSin0ScanD1Rev3 :: Assertion
 testSin0ScanD1Rev3 = do

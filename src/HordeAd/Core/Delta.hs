@@ -1495,14 +1495,28 @@ buildDerivative dimR deltaDt params = do
               las = runravelToList as
               lp = runravelToList p
           return $! foldl' df cx0 (zip3 lcas (init lp) las)
-        FoldDR _domsOD p as df _rf x0' as' -> do
+        FoldDR domsOD p as df _rf x0' as' -> do
+          let width = rlength p - 1
+              domsLen = V.length domsOD
+              shn = shapeDelta x0'
           cx0 <- evalR x0'
           cas <- V.mapM evalRDynamicRanked as'
-          let lcas = map dmkDomains $ unravelDomains cas
-              las = map dmkDomains $ unravelDomains as
-              lp = runravelToList p
-          return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
-                           cx0 (zip3 lcas (init lp) las)
+          let domsTo3 :: ADReady f
+                      => Domains f -> (Domains f, f r n, Domains f)
+              domsTo3 doms = ( V.take domsLen doms
+                             , rfromD $ doms V.! domsLen
+                             , V.drop (domsLen + 1) doms )
+              domsOD2 = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
+          return $! rfoldD (\cx doms' ->
+                               rletDomainsIn domsOD2 doms' $ \doms ->
+                                 let (ca, x, a) = domsTo3 doms
+                                 in df cx (dmkDomains ca) x (dmkDomains a))
+                           domsOD2
+                           cx0
+                           (V.concat [ cas
+                                     , V.singleton
+                                         (DynamicRanked $ rslice 0 width p)
+                                     , as ])
         FoldDRC _domsOD p as df _rf x0' as' -> do
           cx0 <- evalR x0'
           cas <- V.mapM evalRDynamicRanked as'
@@ -1511,23 +1525,52 @@ buildDerivative dimR deltaDt params = do
               lp = runravelToList p
           return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
                            cx0 (zip3 lcas (init lp) las)
-        ScanR p as df _rf x0' as' -> do
-          cx0 <- evalR x0'
-          cas <- evalR as'
-          let lcas = runravelToList cas
-              las = runravelToList as
-              lp = runravelToList p
-          return $! rfromList $ assert (length lcas == length las) $
-                                scanl' (\cx (ca, x, a) -> df cx ca x a)
-                                       cx0 (zip3 lcas (init lp) las)
-        ScanDR _domsOD p as df _rf x0' as' -> do
+        ScanR @rm @m @_ @_ @n1 p as df _rf x0' as' -> case rshape as of
+          width :$ shm -> do
+            let !_A1 = assert (rlength p == width + 1) ()
+                shn = shapeDelta x0'
+            cx0 <- evalR x0'
+            cas <- evalR as'
+            let domsTo3 :: ADReady f => Domains f -> (f rm m, f r n1, f rm m)
+                domsTo3 doms = ( rfromD $ doms V.! 0
+                               , rfromD $ doms V.! 1
+                               , rfromD $ doms V.! 2 )
+                domsOD =
+                  V.fromList
+                    [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
+            return $! rscanD (\cx doms' ->
+                                 rletDomainsIn domsOD doms' $ \doms ->
+                                   let (ca, x, a) = domsTo3 doms
+                                   in df cx ca x a)
+                             domsOD
+                             cx0
+                             (V.fromList
+                                [ DynamicRanked cas
+                                , DynamicRanked $ rslice 0 width p
+                                , DynamicRanked as ])
+          ZS -> error "evalR: impossible pattern needlessly required"
+        ScanDR @_ @_ @n1 domsOD p as df _rf x0' as' -> do
+          let width = rlength p - 1
+              domsLen = V.length domsOD
+              shn = shapeDelta x0'
           cx0 <- evalR x0'
           cas <- V.mapM evalRDynamicRanked as'
-          let lcas = map dmkDomains $ unravelDomains cas
-              las = map dmkDomains $ unravelDomains as
-              lp = runravelToList p
-          return $! rfromList $ scanl' (\cx (ca, x, a) -> df cx ca x a)
-                                       cx0 (zip3 lcas (init lp) las)
+          let domsTo3 :: ADReady f
+                      => Domains f -> (Domains f, f r n1, Domains f)
+              domsTo3 doms = ( V.take domsLen doms
+                             , rfromD $ doms V.! domsLen
+                             , V.drop (domsLen + 1) doms )
+              domsOD2 = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
+          return $! rscanD (\cx doms' ->
+                               rletDomainsIn domsOD2 doms' $ \doms ->
+                                 let (ca, x, a) = domsTo3 doms
+                                 in df cx (dmkDomains ca) x (dmkDomains a))
+                           domsOD2
+                           cx0
+                           (V.concat [ cas
+                                     , V.singleton
+                                         (DynamicRanked $ rslice 0 width p)
+                                     , as ])
         CastR d -> do
           t <- evalR d
           return $! rcast t
