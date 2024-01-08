@@ -318,42 +318,10 @@ build1V k (var, v00) =
      case someNatVal $ toInteger k of
       Just (SomeNat @k3 _) ->
        let shn = shapeAst x0
-           substProjDynamicDomains :: AstDomains PrimalSpan
-                                   -> AstDynamicVarName
-                                   -> (AstDomains PrimalSpan, AstDynamicVarName)
-           substProjDynamicDomains v3 (AstDynamicVarName @ty @r3 @sh3 varId)
-             | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
-               ( withListShape (Sh.shapeT @sh3) $ \sh1 ->
-                   substProjDomains @_ @r3 @s k var sh1 (AstVarName varId) v3
-               , AstDynamicVarName @ty @r3 @(k3 ': sh3) varId )
-           substProjDynamicDomains _ _ =
-             error "substProjDynamicDomains: unexpected type"
-           substProjVarsDomains :: [AstDynamicVarName]
-                                -> AstDomains PrimalSpan
-                                -> (AstDomains PrimalSpan, [AstDynamicVarName])
-           substProjVarsDomains vars v3 =
-             mapAccumR substProjDynamicDomains v3 vars
            (vOut, mvarsOut) = substProjVars @k3 var mvars v
            (ast1Out, varsDaOut) = substProjVars @k3 var varsDa ast1
            (ast1Out2, varsm1Out) = substProjVars @k3 var varsm1 ast1Out
-           (domsOut, mvars2Out) = substProjVarsDomains mvars2 doms
-           astTrDynamicRanked :: DynamicTensor (AstRanked s)
-                              -> DynamicTensor (AstRanked s)
-           astTrDynamicRanked t@(DynamicRanked @_ @n3 u) =
-             case cmpNat (Proxy @2) (Proxy @n3) of
-               EQI -> DynamicRanked $ astTr @(n3 - 2) u
-               LTI -> DynamicRanked $ astTr @(n3 - 2) u
-               _ -> t
-           astTrDynamicRanked DynamicShaped{} =
-             error "astTrDynamicRanked:DynamicShaped"
-           astTrDynamicRanked (DynamicRankedDummy p1 (Proxy @sh3)) =
-             let permute10 (m0 : m1 : ms) = m1 : m0 : ms
-                 permute10 ms = ms
-                 sh3Permuted = permute10 $ Sh.shapeT @sh3
-             in Sh.withShapeP sh3Permuted $ \proxy ->
-                  DynamicRankedDummy p1 proxy
-           astTrDynamicRanked DynamicShapedDummy{} =
-             error "astTrDynamicRanked:DynamicShapedDummy"
+           (domsOut, mvars2Out) = substProjVarsDomains @k3 var mvars2 doms
        in Ast.AstFoldDDer
             ( AstVarName $ varNameToAstVarId nvar
             , mvarsOut
@@ -414,42 +382,10 @@ build1V k (var, v00) =
      case someNatVal $ toInteger k of
       Just (SomeNat @k3 _) ->
        let shn = shapeAst x0
-           substProjDynamicDomains :: AstDomains PrimalSpan
-                                   -> AstDynamicVarName
-                                   -> (AstDomains PrimalSpan, AstDynamicVarName)
-           substProjDynamicDomains v3 (AstDynamicVarName @ty @r3 @sh3 varId)
-             | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
-               ( withListShape (Sh.shapeT @sh3) $ \sh1 ->
-                   substProjDomains @_ @r3 @s k var sh1 (AstVarName varId) v3
-               , AstDynamicVarName @ty @r3 @(k3 ': sh3) varId )
-           substProjDynamicDomains _ _ =
-             error "substProjDynamicDomains: unexpected type"
-           substProjVarsDomains :: [AstDynamicVarName]
-                                -> AstDomains PrimalSpan
-                                -> (AstDomains PrimalSpan, [AstDynamicVarName])
-           substProjVarsDomains vars v3 =
-             mapAccumR substProjDynamicDomains v3 vars
            (vOut, mvarsOut) = substProjVars @k3 var mvars v
            (ast1Out, varsDaOut) = substProjVars @k3 var varsDa ast1
            (ast1Out2, varsm1Out) = substProjVars @k3 var varsm1 ast1Out
-           (domsOut, mvars2Out) = substProjVarsDomains mvars2 doms
-           astTrDynamicRanked :: DynamicTensor (AstRanked s)
-                              -> DynamicTensor (AstRanked s)
-           astTrDynamicRanked t@(DynamicRanked @_ @n3 u) =
-             case cmpNat (Proxy @2) (Proxy @n3) of
-               EQI -> DynamicRanked $ astTr @(n3 - 2) u
-               LTI -> DynamicRanked $ astTr @(n3 - 2) u
-               _ -> t
-           astTrDynamicRanked DynamicShaped{} =
-             error "astTrDynamicRanked:DynamicShaped"
-           astTrDynamicRanked (DynamicRankedDummy p1 (Proxy @sh3)) =
-             let permute10 (m0 : m1 : ms) = m1 : m0 : ms
-                 permute10 ms = ms
-                 sh3Permuted = permute10 $ Sh.shapeT @sh3
-             in Sh.withShapeP sh3Permuted $ \proxy ->
-                  DynamicRankedDummy p1 proxy
-           astTrDynamicRanked DynamicShapedDummy{} =
-             error "astTrDynamicRanked:DynamicShapedDummy"
+           (domsOut, mvars2Out) = substProjVarsDomains @k3 var mvars2 doms
        in astTr
           $ Ast.AstScanDDer
             ( AstVarName $ varNameToAstVarId nvar
@@ -600,6 +536,43 @@ substProjVarsS :: forall k sh r s.
                -> AstShaped s r sh
                -> (AstShaped s r sh, [AstDynamicVarName])
 substProjVarsS var vars v3 = mapAccumR (substProjDynamicS @k var) v3 vars
+
+substProjDynamicDomains :: forall k s. (KnownNat k, AstSpan s)
+                        => IntVarName -> AstDomains s -> AstDynamicVarName
+                        -> (AstDomains s, AstDynamicVarName)
+substProjDynamicDomains var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
+  | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
+    ( withListShape (Sh.shapeT @sh3) $ \sh1 ->
+        substProjDomains @_ @r3 @s (valueOf @k) var sh1 (AstVarName varId) v3
+    , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
+substProjDynamicDomains _ _ _ =
+  error "substProjDynamicDomains: unexpected type"
+
+substProjVarsDomains :: forall k s. (KnownNat k, AstSpan s)
+                     => IntVarName -> [AstDynamicVarName]
+                     -> AstDomains s
+                     -> (AstDomains s, [AstDynamicVarName])
+substProjVarsDomains var vars v3 =
+  mapAccumR (substProjDynamicDomains @k var) v3 vars
+
+astTrDynamicRanked :: AstSpan s
+                   => DynamicTensor (AstRanked s)
+                   -> DynamicTensor (AstRanked s)
+astTrDynamicRanked t@(DynamicRanked @_ @n3 u) =
+  case cmpNat (Proxy @2) (Proxy @n3) of
+    EQI -> DynamicRanked $ astTr @(n3 - 2) u
+    LTI -> DynamicRanked $ astTr @(n3 - 2) u
+    _ -> t
+astTrDynamicRanked DynamicShaped{} =
+  error "astTrDynamicRanked:DynamicShaped"
+astTrDynamicRanked (DynamicRankedDummy p1 (Proxy @sh3)) =
+  let permute10 (m0 : m1 : ms) = m1 : m0 : ms
+      permute10 ms = ms
+      sh3Permuted = permute10 $ Sh.shapeT @sh3
+  in Sh.withShapeP sh3Permuted $ \proxy ->
+       DynamicRankedDummy p1 proxy
+astTrDynamicRanked DynamicShapedDummy{} =
+  error "astTrDynamicRanked:DynamicShapedDummy"
 
 build1VOccurenceUnknownDynamic
   :: forall s. AstSpan s
