@@ -915,20 +915,21 @@ buildFinMaps s0 deltaDt =
                 shn = shapeDelta x0'
                 domsToPair :: ADReady f => Domains f -> (f r n, f rm m)
                 domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-                domsOD = V.fromList [odFromSh @r shn, odFromSh @rm shm]
-                crs :: ranked r (1 + n)
-                crs = rreverse
-                      $ rscanD (\cr doms' ->
-                                   rletDomainsIn domsOD doms' $ \doms ->
-                                     let (x, a) = domsToPair doms
-                                     in rletDomainsIn
-                                          domsOD (rf cr x a) $ \rfRes ->
-                                            fst $ domsToPair rfRes)
-                               domsOD
-                               cShared
-                               (V.fromList
-                                  [ DynamicRanked $ rreverse $ rslice 0 width p
-                                  , DynamicRanked $ rreverse as ])
+                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
+                crsr :: ranked r (1 + n)
+                crsr =
+                  rscanD (\cr doms' ->
+                            rletDomainsIn domsF doms' $ \doms ->
+                              let (x, a) = domsToPair doms
+                              in rletDomainsIn
+                                   domsF (rf cr x a) $ \rfRes ->
+                                     fst $ domsToPair rfRes)
+                         domsF
+                         cShared  -- not duplicated directly, but just in case
+                         (V.fromList
+                            [ DynamicRanked $ rreverse $ rslice 0 width p
+                            , DynamicRanked $ rreverse as ])
+                crs = rreverse crsr
                 -- We can't share crs via rlet, etc., because it appears
                 -- in two different calls to evalR.
                 (abShared2, crsShared) = rregister crs (astBindings sShared)
@@ -937,7 +938,7 @@ buildFinMaps s0 deltaDt =
                    -> ranked rm (1 + m)
                    -> ranked rm (1 + m)
                 rg = rzipWith31 (\cr x a ->
-                                   rletDomainsIn domsOD (rf cr x a) $ \rfRes ->
+                                   rletDomainsIn domsF (rf cr x a) $ \rfRes ->
                                      snd $ domsToPair rfRes)
                 cas = rg (rslice 1 width crsShared) (rslice 0 width p) as
                 s2 = evalR sShared2 (crsShared ! (0 :. ZI)) x0'
@@ -963,32 +964,33 @@ buildFinMaps s0 deltaDt =
             width : _shm ->
               let !_A1 = assert (rlength p == width + 1) ()
                   shn = shapeDelta x0'
-                  domsOD2 = V.cons (odFromSh @r shn) domsOD
+                  domsF = V.cons (odFromSh @r shn) domsOD
                   domsToPair :: forall f. ADReady f
                              => Domains f -> (f r n, Domains f)
                   domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
                   lp = rreverse p
                   las :: Domains ranked
                   las = mapDomainsRanked11 rreverse as
-                  crs :: ranked r (1 + n)
-                  crs = rreverse
-                        $ rscanD (\cr doms' ->
-                            rletDomainsIn domsOD2 doms' $ \doms ->
-                              let (x, a) = domsToPair doms
-                              in rletDomainsIn
-                                   domsOD2
-                                   (rf cr x (dmkDomains a)) $ \rfRes ->
-                                     fst $ domsToPair rfRes)
-                                 domsOD2 cShared  -- TODO: Shared needed?
-                                 (V.cons (DynamicRanked lp) las)
+                  crsr :: ranked r (1 + n)
+                  crsr =
+                    rscanD (\cr doms' ->
+                      rletDomainsIn domsF doms' $ \doms ->
+                        let (x, a) = domsToPair doms
+                        in rletDomainsIn
+                             domsF (rf cr x (dmkDomains a)) $ \rfRes ->
+                               fst $ domsToPair rfRes)
+                           domsF
+                           cShared  -- not duplicated directly, but just in case
+                           (V.cons (DynamicRanked lp) las)
+                  crs = rreverse crsr
                   (abShared2, crsShared) = rregister crs (astBindings sShared)
                   sShared2 = sShared {astBindings = abShared2}
                   rg :: [ranked r n] -> [ranked r n]
                      -> [DomainsOf ranked]  -- [m]
                      -> [Domains ranked]  -- [m]
-                  rg = zipWith3 (\cr x a -> snd $ domsToPair
-                                            $ dunDomains domsOD2
-                                            $ rf cr x a)
+                  rg = zipWith3 (\cr x a ->
+                                   snd $ domsToPair $ dunDomains domsF
+                                   $ rf cr x a)
                   cas = ravelDomains
                         $ rg (runravelToList $ rslice 1 width crsShared)
                              (runravelToList $ rslice 0 width p)
@@ -996,16 +998,18 @@ buildFinMaps s0 deltaDt =
                   s2 = evalR sShared2 (crsShared ! (0 :. ZI)) x0'
               in V.foldl' evalRDynamicRanked s2 $ V.zip cas as'
         FoldDRC @rm @m domsOD p as _df rf x0' as' ->
+          -- No sharing attempted, because this constructor is usually used
+          -- for non-symbolic derivatives.
           let shn = shapeDelta x0'
-              domsOD2 = V.cons (odFromSh @r shn) domsOD
+              domsF = V.cons (odFromSh @r shn) domsOD
               domsToPair :: forall f. ADReady f
                          => Domains f -> (f r n, Domains f)
               domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
               rg :: ranked r n
                  -> [(ranked r n, DomainsOf ranked)]
                  -> (ranked r n, [Domains ranked])
-              rg = mapAccumR (\cx (x, a) -> domsToPair $ dunDomains domsOD2
-                                            $ rf cx x a)
+              rg = mapAccumR (\cx (x, a) ->
+                                domsToPair $ dunDomains domsF $ rf cx x a)
               (cx0, cas) = rg cShared
                               (zip (init $ runravelToList p)
                                    (map dmkDomains $ unravelDomains as))
@@ -1019,7 +1023,7 @@ buildFinMaps s0 deltaDt =
                 shn = shapeDelta x0'
                 domsToPair :: ADReady f => Domains f -> (f r n1, f rm m)
                 domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-                domsOD = V.fromList [odFromSh @r shn, odFromSh @rm shm]
+                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
                 -- The domain must be @Int@ due to rslice and so can't be
                 -- @IndexOf ranked 0@ for rbuild nor @ranked Int 0@ for rmap.
                 -- We can't fold nor scan over g1/g2, because it's not closed.
@@ -1031,12 +1035,12 @@ buildFinMaps s0 deltaDt =
                   let cx = cShared ! (fromIntegral k :. ZI)
                       rf1 =
                         rscanD (\cr doms' ->
-                                  rletDomainsIn domsOD doms' $ \doms ->
+                                  rletDomainsIn domsF doms' $ \doms ->
                                     let (x, a) = domsToPair doms
                                     in rletDomainsIn
-                                         domsOD (rf cr x a) $ \rfRes ->
+                                         domsF (rf cr x a) $ \rfRes ->
                                            fst $ domsToPair rfRes)
-                               domsOD
+                               domsF
                                cx
                                (V.fromList
                                   [ DynamicRanked $ rreverse $ rslice 0 k p
@@ -1057,7 +1061,7 @@ buildFinMaps s0 deltaDt =
                          -> ranked rm (1 + m)
                          -> ranked rm (1 + m)
                       rg = rzipWith31 (\cr x a ->
-                             rletDomainsIn domsOD (rf cr x a) $ \rfRes ->
+                             rletDomainsIn domsF (rf cr x a) $ \rfRes ->
                                 snd $ domsToPair rfRes)
                       cas = rg rf11 lp las
                       padding = rzero (width - k :$ shm)
@@ -1076,7 +1080,7 @@ buildFinMaps s0 deltaDt =
               let !_A1 = assert (rlength p == width + 1) ()
                   !_A2 = assert (rlength cShared == width + 1) ()
                   shn = shapeDelta x0'
-                  domsOD2 = V.cons (odFromSh @r shn) domsOD
+                  domsF = V.cons (odFromSh @r shn) domsOD
                   domsToPair :: forall f. ADReady f
                              => Domains f -> (f r n1, Domains f)
                   domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
@@ -1086,18 +1090,18 @@ buildFinMaps s0 deltaDt =
                         lp = rreverse $ rslice 0 k p
                         las :: Domains ranked
                         las = mapDomainsRanked11 (rreverse . rslice 0 k) as
-                        rf1 = rscanD (\cr doms' ->
-                                rletDomainsIn domsOD2 doms' $ \doms ->
-                                  let (x, a) = domsToPair doms
-                                  in rletDomainsIn
-                                       domsOD2
-                                       (rf cr x (dmkDomains a)) $ \rfRes ->
-                                         fst $ domsToPair rfRes)
-                                     domsOD2 cx
-                                     (V.cons (DynamicRanked lp) las)
-                        rf1r = rreverse rf1
+                        rf1 =
+                          rscanD (\cr doms' ->
+                                    rletDomainsIn domsF doms' $ \doms ->
+                                      let (x, a) = domsToPair doms
+                                      in rletDomainsIn
+                                           domsF
+                                           (rf cr x (dmkDomains a)) $ \rfRes ->
+                                             fst $ domsToPair rfRes)
+                                 domsF cx
+                                 (V.cons (DynamicRanked lp) las)
                         padding = rzero (width - k :$ shn)
-                    in rappend rf1r padding
+                    in rappend (rreverse rf1) padding
                   g1s = map g1 [1 .. width]  -- can't be rmap, rbuild nor rscan
                   g1t = rfromList g1s
                   (abShared2, g1tShared) = rregister g1t (astBindings sShared)
@@ -1114,9 +1118,9 @@ buildFinMaps s0 deltaDt =
                         rg :: [ranked r n1] -> [ranked r n1]
                            -> [DomainsOf ranked]  -- [m]
                            -> [Domains ranked]  -- [m]
-                        rg = zipWith3 (\cr x a -> snd $ domsToPair
-                                                  $ dunDomains domsOD2
-                                                  $ rf cr x a)
+                        rg = zipWith3 (\cr x a ->
+                                         snd $ domsToPair $ dunDomains domsF
+                                         $ rf cr x a)
                         cas = rg (runravelToList rf11)
                                  (runravelToList lp)
                                  (map dmkDomains $ unravelDomains las)
@@ -1474,14 +1478,14 @@ buildDerivative dimR deltaDt params = do
                 domsTo3 doms = ( rfromD $ doms V.! 0
                                , rfromD $ doms V.! 1
                                , rfromD $ doms V.! 2 )
-                domsOD =
+                domsF =
                   V.fromList
                     [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
             return $! rfoldD (\cx doms' ->
-                                 rletDomainsIn domsOD doms' $ \doms ->
-                                   let (ca, x, a) = domsTo3 doms
-                                   in df cx ca x a)
-                             domsOD
+                                rletDomainsIn domsF doms' $ \doms ->
+                                  let (ca, x, a) = domsTo3 doms
+                                  in df cx ca x a)
+                             domsF
                              cx0
                              (V.fromList
                                 [ DynamicRanked cas
@@ -1506,12 +1510,12 @@ buildDerivative dimR deltaDt params = do
               domsTo3 doms = ( V.take domsLen doms
                              , rfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
-              domsOD2 = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
+              domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
           return $! rfoldD (\cx doms' ->
-                               rletDomainsIn domsOD2 doms' $ \doms ->
-                                 let (ca, x, a) = domsTo3 doms
-                                 in df cx (dmkDomains ca) x (dmkDomains a))
-                           domsOD2
+                              rletDomainsIn domsF doms' $ \doms ->
+                                let (ca, x, a) = domsTo3 doms
+                                in df cx (dmkDomains ca) x (dmkDomains a))
+                           domsF
                            cx0
                            (V.concat [ cas
                                      , V.singleton
@@ -1535,14 +1539,14 @@ buildDerivative dimR deltaDt params = do
                 domsTo3 doms = ( rfromD $ doms V.! 0
                                , rfromD $ doms V.! 1
                                , rfromD $ doms V.! 2 )
-                domsOD =
+                domsF =
                   V.fromList
                     [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
             return $! rscanD (\cx doms' ->
-                                 rletDomainsIn domsOD doms' $ \doms ->
-                                   let (ca, x, a) = domsTo3 doms
-                                   in df cx ca x a)
-                             domsOD
+                                rletDomainsIn domsF doms' $ \doms ->
+                                  let (ca, x, a) = domsTo3 doms
+                                  in df cx ca x a)
+                             domsF
                              cx0
                              (V.fromList
                                 [ DynamicRanked cas
@@ -1560,12 +1564,12 @@ buildDerivative dimR deltaDt params = do
               domsTo3 doms = ( V.take domsLen doms
                              , rfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
-              domsOD2 = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
+              domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
           return $! rscanD (\cx doms' ->
-                               rletDomainsIn domsOD2 doms' $ \doms ->
-                                 let (ca, x, a) = domsTo3 doms
-                                 in df cx (dmkDomains ca) x (dmkDomains a))
-                           domsOD2
+                              rletDomainsIn domsF doms' $ \doms ->
+                                let (ca, x, a) = domsTo3 doms
+                                in df cx (dmkDomains ca) x (dmkDomains a))
+                           domsF
                            cx0
                            (V.concat [ cas
                                      , V.singleton

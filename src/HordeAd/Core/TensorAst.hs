@@ -612,18 +612,18 @@ astBuild1VectorizeS f =
 
 instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dmkDomains = AstDomains
-  dunDomains od domainsOf =
+  dunDomains domsOD domainsOf =
     let f :: Int -> DynamicTensor (Flip OR.Array) -> AstDynamic s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt n) ->
               DynamicRanked @r @n
-              $ rletDomainsIn @(AstRanked s) od domainsOf (rfromD . (V.! i))
+              $ rletDomainsIn @(AstRanked s) domsOD domainsOf (rfromD . (V.! i))
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh
-            $ sletDomainsIn @(AstShaped s) od domainsOf (sfromD . (V.! i))
+            $ sletDomainsIn @(AstShaped s) domsOD domainsOf (sfromD . (V.! i))
           _ -> error "dunDomains: unexpected OD value"
-    in V.imap f od
+    in V.imap f domsOD
   rletInDomains = astLetInDomainsFun
   sletInDomains = astLetInDomainsFunS
   rrev :: (GoodScalar r, KnownNat n)
@@ -708,15 +708,15 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         g doms = uncurry f (domsToPair doms)
         shn = rshape x0
         shm = tailShape $ rshape as
-        parameters0 = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+        domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
     in -- This computes the (AST of) derivative of f once for each @x0@
        -- and @as@, which is better than once for each @a@. We could compute
        -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
        -- can do that thanks to shapes being available from types.
-       case revProduceArtifact TensorToken True g EM.empty parameters0 of
+       case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
         , gradient, _primal, _sh), _delta ) ->
-        case fwdProduceArtifact TensorToken g EM.empty parameters0 of
+        case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->
@@ -746,31 +746,31 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let shn = rshape x0
         shm = tailShape $ rshape as
     in AstFoldDer (fun2ToAstR shn shm f) (fun4ToAstR shn shm df)
-                                         (fun3ToAstR shn shm rf) x0 as
+                  (fun3ToAstR shn shm rf) x0 as
   rfoldD :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
          -> DomainsOD
          -> AstRanked s rn n
          -> Domains (AstRanked s)
          -> AstRanked s rn n
-  rfoldD f od x0 as =
+  rfoldD f domsOD x0 as =
     let domsToPair :: forall f. ADReady f => Domains f -> (f rn n, DomainsOf f)
         domsToPair doms = (rfromD $ doms V.! 0, dmkDomains $ V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
         g doms = uncurry f (domsToPair doms)
         shn = rshape x0
-        parameters0 = V.cons (odFromSh @rn shn) od
-    in case revProduceArtifact TensorToken True g EM.empty parameters0 of
+        domsF = V.cons (odFromSh @rn shn) domsOD
+    in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, AstDynamicVarName nid : mdyns)
         , gradient, _primal, _sh), _delta ) ->
-        case fwdProduceArtifact TensorToken g EM.empty parameters0 of
+        case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( AstDynamicVarName nid1 : mdyns1
               , AstDynamicVarName nid2 : mdyns2 )
             , derivative, _primal), _delta ) ->
             let nvar1 = AstVarName nid1
                 nvar2 = AstVarName nid2
                 nvar = AstVarName nid
-            in AstFoldDDer (fun2DToAstR shn f od)
+            in AstFoldDDer (fun2DToAstR shn f domsOD)
                            (nvar1, mdyns1, nvar2, mdyns2, derivative)
                            (varDt, nvar, mdyns, gradient)
                            x0 as
@@ -788,10 +788,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             -> AstRanked s rn n
             -> Domains (AstRanked s)
             -> AstRanked s rn n
-  rfoldDDer f df rf od x0 as =
+  rfoldDDer f df rf domsOD x0 as =
     let shn = rshape x0
-    in AstFoldDDer (fun2DToAstR shn f od) (fun4DToAstR shn df od)
-                                          (fun3DToAstR shn rf od) x0 as
+    in AstFoldDDer (fun2DToAstR shn f domsOD) (fun4DToAstR shn df domsOD)
+                   (fun3DToAstR shn rf domsOD) x0 as
   rscan :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -805,15 +805,15 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         g doms = uncurry f (domsToPair doms)
         shn = rshape x0
         shm = tailShape $ rshape as
-        parameters0 = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+        domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
     in -- This computes the (AST of) derivative of f once for each @x0@
        -- and @as@, which is better than once for each @a@. We could compute
        -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
        -- can do that thanks to shapes being available from types.
-       case revProduceArtifact TensorToken True g EM.empty parameters0 of
+       case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
         , gradient, _primal, _sh), _delta ) ->
-        case fwdProduceArtifact TensorToken g EM.empty parameters0 of
+        case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->
@@ -843,31 +843,31 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let shn = rshape x0
         shm = tailShape $ rshape as
     in AstScanDer (fun2ToAstR shn shm f) (fun4ToAstR shn shm df)
-                                         (fun3ToAstR shn shm rf) x0 as
+                  (fun3ToAstR shn shm rf) x0 as
   rscanD :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
          -> DomainsOD
          -> AstRanked s rn n
          -> Domains (AstRanked s)
          -> AstRanked s rn (1 + n)
-  rscanD f od x0 as =
+  rscanD f domsOD x0 as =
     let domsToPair :: forall f. ADReady f => Domains f -> (f rn n, DomainsOf f)
         domsToPair doms = (rfromD $ doms V.! 0, dmkDomains $ V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
         g doms = uncurry f (domsToPair doms)
         shn = rshape x0
-        parameters0 = V.cons (odFromSh @rn shn) od
-    in case revProduceArtifact TensorToken True g EM.empty parameters0 of
+        domsF = V.cons (odFromSh @rn shn) domsOD
+    in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, AstDynamicVarName nid : mdyns)
         , gradient, _primal, _sh), _delta ) ->
-        case fwdProduceArtifact TensorToken g EM.empty parameters0 of
+        case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( AstDynamicVarName nid1 : mdyns1
               , AstDynamicVarName nid2 : mdyns2 )
             , derivative, _primal), _delta ) ->
             let nvar1 = AstVarName nid1
                 nvar2 = AstVarName nid2
                 nvar = AstVarName nid
-            in AstScanDDer (fun2DToAstR shn f od)
+            in AstScanDDer (fun2DToAstR shn f domsOD)
                            (nvar1, mdyns1, nvar2, mdyns2, derivative)
                            (varDt, nvar, mdyns, gradient)
                            x0 as
@@ -885,10 +885,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             -> AstRanked s rn n
             -> Domains (AstRanked s)
             -> AstRanked s rn (1 + n)
-  rscanDDer f df rf od x0 as =
+  rscanDDer f df rf domsOD x0 as =
     let shn = rshape x0
-    in AstScanDDer (fun2DToAstR shn f od) (fun4DToAstR shn df od)
-                                          (fun3DToAstR shn rf od) x0 as
+    in AstScanDDer (fun2DToAstR shn f domsOD) (fun4DToAstR shn df domsOD)
+                   (fun3DToAstR shn rf domsOD) x0 as
   sfold :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -901,11 +901,11 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
         g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
-        domsOD = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
-    in case revProduceArtifact TensorToken True g EM.empty domsOD of
+        domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
+    in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
         , gradient, _primal, _sh), _delta ) ->
-        case fwdProduceArtifact TensorToken g EM.empty domsOD of
+        case fwdProduceArtifact TensorToken g EM.empty domsF of
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->
@@ -1185,13 +1185,14 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorize
     $ rfoldDer @(AstRanked s)
                f df rf (unAstNoVectorize x0) (unAstNoVectorize as)
-  rfoldD f od x0 as =
+  rfoldD f domsOD x0 as =
     AstNoVectorize
-    $ rfoldD @(AstRanked s) f od (unAstNoVectorize x0) (unNoVectorizeDomains as)
-  rfoldDDer f df rf od x0 as =
+    $ rfoldD @(AstRanked s) f domsOD (unAstNoVectorize x0)
+                                     (unNoVectorizeDomains as)
+  rfoldDDer f df rf domsOD x0 as =
     AstNoVectorize
     $ rfoldDDer @(AstRanked s)
-                f df rf od (unAstNoVectorize x0) (unNoVectorizeDomains as)
+                f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeDomains as)
   rscan f x0 as =
     AstNoVectorize
     $ rscan @(AstRanked s) f (unAstNoVectorize x0) (unAstNoVectorize as)
@@ -1199,13 +1200,14 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorize
     $ rscanDer @(AstRanked s)
                f df rf (unAstNoVectorize x0) (unAstNoVectorize as)
-  rscanD f od x0 as =
+  rscanD f domsOD x0 as =
     AstNoVectorize
-    $ rscanD @(AstRanked s) f od (unAstNoVectorize x0) (unNoVectorizeDomains as)
-  rscanDDer f df rf od x0 as =
+    $ rscanD @(AstRanked s) f domsOD (unAstNoVectorize x0)
+                                     (unNoVectorizeDomains as)
+  rscanDDer f df rf domsOD x0 as =
     AstNoVectorize
     $ rscanDDer @(AstRanked s)
-                f df rf od (unAstNoVectorize x0) (unNoVectorizeDomains as)
+                f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeDomains as)
   sfold f x0 as =
     AstNoVectorizeS
     $ sfold @(AstRanked s) f (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
@@ -1377,26 +1379,28 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rfoldDer f df rf x0 as =
     AstNoSimplify
     $ rfoldDer @(AstRanked s) f df rf (unAstNoSimplify x0) (unAstNoSimplify as)
-  rfoldD f od x0 as =
+  rfoldD f domsOD x0 as =
     AstNoSimplify
-    $ rfoldD @(AstRanked s) f od (unAstNoSimplify x0) (unNoSimplifyDomains as)
-  rfoldDDer f df rf od x0 as =
+    $ rfoldD @(AstRanked s) f domsOD (unAstNoSimplify x0)
+                                     (unNoSimplifyDomains as)
+  rfoldDDer f df rf domsOD x0 as =
     AstNoSimplify
     $ rfoldDDer @(AstRanked s)
-                f df rf od (unAstNoSimplify x0) (unNoSimplifyDomains as)
+                f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyDomains as)
   rscan f x0 as =
     AstNoSimplify
     $ rscan @(AstRanked s) f (unAstNoSimplify x0) (unAstNoSimplify as)
   rscanDer f df rf x0 as =
     AstNoSimplify
     $ rscanDer @(AstRanked s) f df rf (unAstNoSimplify x0) (unAstNoSimplify as)
-  rscanD f od x0 as =
+  rscanD f domsOD x0 as =
     AstNoSimplify
-    $ rscanD @(AstRanked s) f od (unAstNoSimplify x0) (unNoSimplifyDomains as)
-  rscanDDer f df rf od x0 as =
+    $ rscanD @(AstRanked s) f domsOD (unAstNoSimplify x0)
+                                     (unNoSimplifyDomains as)
+  rscanDDer f df rf domsOD x0 as =
     AstNoSimplify
     $ rscanDDer @(AstRanked s)
-                f df rf od (unAstNoSimplify x0) (unNoSimplifyDomains as)
+                f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyDomains as)
   sfold f x0 as =
     AstNoSimplifyS
     $ sfold @(AstRanked s) f (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
