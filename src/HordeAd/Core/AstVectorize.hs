@@ -310,6 +310,71 @@ build1V k (var, v00) =
                        $ substProjDomains k var shm mvar doms) )
            (build1VOccurenceUnknown k (var, x0))
            (astTr $ build1VOccurenceUnknown k (var, as))
+    Ast.AstFoldD{} ->
+      error "build1V: impossible case of AstFoldD"
+    Ast.AstFoldDDer @_ @n2
+                    (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
+                                     (varDt2, nvar2, mvars2, doms) x0 as ->
+     case someNatVal $ toInteger k of
+      Just (SomeNat @k3 _) ->
+       let shn = shapeAst x0
+           substProjDynamicDomains :: AstDomains PrimalSpan
+                                   -> AstDynamicVarName
+                                   -> (AstDomains PrimalSpan, AstDynamicVarName)
+           substProjDynamicDomains v3 (AstDynamicVarName @ty @r3 @sh3 varId)
+             | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
+               ( withListShape (Sh.shapeT @sh3) $ \sh1 ->
+                   substProjDomains @_ @r3 @s k var sh1 (AstVarName varId) v3
+               , AstDynamicVarName @ty @r3 @(k3 ': sh3) varId )
+           substProjDynamicDomains _ _ =
+             error "substProjDynamicDomains: unexpected type"
+           substProjVarsDomains :: [AstDynamicVarName]
+                                -> AstDomains PrimalSpan
+                                -> (AstDomains PrimalSpan, [AstDynamicVarName])
+           substProjVarsDomains vars v3 =
+             mapAccumR substProjDynamicDomains v3 vars
+           (vOut, mvarsOut) = substProjVars @k3 var mvars v
+           (ast1Out, varsDaOut) = substProjVars @k3 var varsDa ast1
+           (ast1Out2, varsm1Out) = substProjVars @k3 var varsm1 ast1Out
+           (domsOut, mvars2Out) = substProjVarsDomains mvars2 doms
+           astTrDynamicRanked :: DynamicTensor (AstRanked s)
+                              -> DynamicTensor (AstRanked s)
+           astTrDynamicRanked t@(DynamicRanked @_ @n3 u) =
+             case cmpNat (Proxy @2) (Proxy @n3) of
+               EQI -> DynamicRanked $ astTr @(n3 - 2) u
+               LTI -> DynamicRanked $ astTr @(n3 - 2) u
+               _ -> t
+           astTrDynamicRanked DynamicShaped{} =
+             error "astTrDynamicRanked:DynamicShaped"
+           astTrDynamicRanked (DynamicRankedDummy p1 (Proxy @sh3)) =
+             let permute10 (m0 : m1 : ms) = m1 : m0 : ms
+                 permute10 ms = ms
+                 sh3Permuted = permute10 $ Sh.shapeT @sh3
+             in Sh.withShapeP sh3Permuted $ \proxy ->
+                  DynamicRankedDummy p1 proxy
+           astTrDynamicRanked DynamicShapedDummy{} =
+             error "astTrDynamicRanked:DynamicShapedDummy"
+       in Ast.AstFoldDDer
+            ( AstVarName $ varNameToAstVarId nvar
+            , mvarsOut
+            , build1VOccurenceUnknownRefresh
+                k (var, substProjRanked k var shn nvar vOut) )
+            ( AstVarName $ varNameToAstVarId varDx
+            , varsDaOut
+            , AstVarName $ varNameToAstVarId varn1
+            , varsm1Out
+            , build1VOccurenceUnknownRefresh
+                k (var, substProjRanked k var shn varDx
+                        $ substProjRanked k var shn varn1 ast1Out2) )
+            ( AstVarName $ varNameToAstVarId varDt2
+            , AstVarName $ varNameToAstVarId nvar2
+            , mvars2Out
+            , build1VOccurenceUnknownAstDomainsRefresh
+                k (var, substProjDomains k var shn nvar domsOut) )
+            (build1VOccurenceUnknown k (var, x0))
+            (V.map (\u -> astTrDynamicRanked
+                          $ build1VOccurenceUnknownDynamic k (var, u)) as)
+      _ -> error "build1V: impossible someNatVal"
     Ast.AstScan{} ->
       error "build1V: impossible case of AstScan"
     Ast.AstScanDer @_ @_ @n2
@@ -641,6 +706,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
               Ast.AstScatter{} -> ruleD
               Ast.AstAppend{} -> ruleD
               Ast.AstFoldDer{} -> ruleD
+              Ast.AstFoldDDer{} -> ruleD
               Ast.AstScanDer{} -> ruleD
               Ast.AstScanDDer{} -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form

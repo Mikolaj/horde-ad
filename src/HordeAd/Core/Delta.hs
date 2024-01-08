@@ -248,6 +248,28 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> DeltaR ranked rn n
          -> DeltaR ranked rm (1 + m)
          -> DeltaR ranked rn n
+  FoldDR :: DomainsOD
+         -> ranked rn (1 + n)
+         -> Domains ranked  -- one rank higher than the Domains above
+         -> (forall f. ADReady f
+             => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
+             -> f rn n)
+         -> (forall f. ADReady f
+             => f rn n -> f rn n -> DomainsOf f
+             -> DomainsOf f)
+         -> DeltaR ranked rn n
+         -> Domains (DeltaR ranked)  -- one rank higher
+         -> DeltaR ranked rn n
+  FoldDRC :: DomainsOD
+          -> ranked rn (1 + n)
+          -> Domains ranked
+          -> (ranked rn n -> DomainsOf ranked -> ranked rn n -> DomainsOf ranked
+              -> ranked rn n)
+          -> (ranked rn n -> ranked rn n -> DomainsOf ranked
+              -> DomainsOf ranked)
+          -> DeltaR ranked rn n
+          -> Domains (DeltaR ranked)
+          -> DeltaR ranked rn n
   ScanR :: (GoodScalar rm, KnownNat m)
         => ranked rn (1 + n) -> ranked rm (1 + m)
         -> (forall f. ADReady f => f rn n -> f rm m -> f rn n -> f rm m
@@ -473,6 +495,8 @@ shapeDelta = \case
   GatherR sh _ _ -> sh
   FoldR _p _as _df _rf x0' _as' -> shapeDelta x0'
   FoldRC _p _as _df _rf x0' _as' -> shapeDelta x0'
+  FoldDR _domsOD _p _as _df _rf x0' _as' -> shapeDelta x0'
+  FoldDRC _domsOD _p _as _df _rf x0' _as' -> shapeDelta x0'
   ScanR p _as _df _rf _x0' _as' -> rshape p
   ScanRC p _as _df _rf _x0' _as' -> rshape p
   ScanDR _domsOD p _as _df _rf _x0' _as' -> rshape p
@@ -939,6 +963,84 @@ buildFinMaps s0 deltaDt =
               (cx0, cas) = rg cShared (zip (init $ runravelToList p) las)
               s2 = evalR sShared cx0 x0'
           in evalR s2 (rfromList cas) as'
+        FoldDR @rm @m domsOD p as _df rf x0' as' -> case V.unsnoc as of
+          Nothing -> error "evalR: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "evalR: wrong rank of argument"
+            0 : _ -> evalR s c x0'  -- TODO: needed?
+            width : _shm ->
+              let !_A1 = assert (rlength p == width + 1) ()
+                  shn = shapeDelta x0'
+                  domsOD2 = V.cons (odFromSh @r shn) domsOD
+                  domsToPair :: forall f. ADReady f
+                             => Domains f -> (f r n, Domains f)
+                  domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+                  lp = rreverse p
+                  las :: Domains ranked
+                  las = mapDomainsRanked11 rreverse as
+                  crs :: ranked r (1 + n)
+                  crs = rreverse
+                        $ rscanD (\cr doms' ->
+                            rletDomainsIn domsOD2 doms' $ \doms ->
+                              let (x, a) = domsToPair doms
+                              in rletDomainsIn
+                                   domsOD2
+                                   (rf cr x (dmkDomains a)) $ \rfRes ->
+                                     fst $ domsToPair rfRes)
+                                 domsOD2 cShared  -- TODO: Shared needed?
+                                 (V.cons (DynamicRanked lp) las)
+                  (abShared2, crsShared) = rregister crs (astBindings sShared)
+                  sShared2 = sShared {astBindings = abShared2}
+                  rg :: [ranked r n] -> [ranked r n]
+                     -> [DomainsOf ranked]  -- [m]
+                     -> [Domains ranked]  -- [m]
+                  rg = zipWith3 (\cr x a -> snd $ domsToPair
+                                            $ dunDomains domsOD2
+                                            $ rf cr x a)
+                  cas = ravelDomains
+                        $ rg (runravelToList $ rslice 1 width crsShared)
+                             (runravelToList $ rslice 0 width p)
+                             (map dmkDomains $ unravelDomains as)
+                  s2 = evalR sShared2 (crsShared ! (0 :. ZI)) x0'
+                  evalRDynamicRanked
+                    :: EvalState ranked shaped
+                    -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
+                    -> EvalState ranked shaped
+                  evalRDynamicRanked s3 ( DynamicRanked @rp @p t2
+                                        , DynamicRanked @rq @q d2 )
+                    | Just Refl <- sameNat (Proxy @q) (Proxy @p)
+                    , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
+                        evalR s3 t2 d2
+                  evalRDynamicRanked _ _ =
+                    error "evalRDynamicRanked: unexpected constructor"
+              in V.foldl' evalRDynamicRanked s2 $ V.zip cas as'
+        FoldDRC @rm @m domsOD p as _df rf x0' as' ->
+          let shn = shapeDelta x0'
+              domsOD2 = V.cons (odFromSh @r shn) domsOD
+              domsToPair :: forall f. ADReady f
+                         => Domains f -> (f r n, Domains f)
+              domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+              rg :: ranked r n
+                 -> [(ranked r n, DomainsOf ranked)]
+                 -> (ranked r n, [Domains ranked])
+              rg = mapAccumR (\cx (x, a) -> domsToPair $ dunDomains domsOD2
+                                            $ rf cx x a)
+              (cx0, cas) = rg cShared
+                              (zip (init $ runravelToList p)
+                                   (map dmkDomains $ unravelDomains as))
+              s2 = evalR sShared cx0 x0'
+              evalRDynamicRanked
+                :: EvalState ranked shaped
+                -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
+                -> EvalState ranked shaped
+              evalRDynamicRanked s3 ( DynamicRanked @rp @p t2
+                                    , DynamicRanked @rq @q d2 )
+                | Just Refl <- sameNat (Proxy @q) (Proxy @p)
+                , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
+                    evalR s3 t2 d2
+              evalRDynamicRanked _ _ =
+                error "evalRDynamicRanked: unexpected constructor"
+          in V.foldl' evalRDynamicRanked s2 $ V.zip (ravelDomains cas) as'
         ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
           0 :$ _ -> evalR s (c ! (0 :. ZI)) x0'
           width :$ shm ->
@@ -1467,14 +1569,30 @@ buildDerivative dimR deltaDt params = do
         GatherR sh d f -> do
           t <- evalR d
           return $! rgather sh t f
-        FoldR p as df _rf x0' as' -> do
-          cx0 <- evalR x0'
-          cas <- evalR as'
-          let lcas = runravelToList cas
-              las = runravelToList as
-              lp = runravelToList p
-          return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
-                           cx0 (zip3 lcas (init lp) las)
+        FoldR @rm @m p as df _rf x0' as' -> case rshape as of
+          width :$ shm -> do
+            let !_A1 = assert (rlength p == width + 1) ()
+                shn = shapeDelta x0'
+            cx0 <- evalR x0'
+            cas <- evalR as'
+            let domsTo3 :: ADReady f => Domains f -> (f rm m, f r n, f rm m)
+                domsTo3 doms = ( rfromD $ doms V.! 0
+                               , rfromD $ doms V.! 1
+                               , rfromD $ doms V.! 2 )
+                domsOD =
+                  V.fromList
+                    [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
+            return $! rfoldD (\cx doms' ->
+                                 rletDomainsIn domsOD doms' $ \doms ->
+                                   let (ca, x, a) = domsTo3 doms
+                                   in df cx ca x a)
+                             domsOD
+                             cx0
+                             (V.fromList
+                                [ DynamicRanked cas
+                                , DynamicRanked $ rslice 0 width p
+                                , DynamicRanked as ])
+          ZS -> error "evalR: impossible pattern needlessly required"
         FoldRC p as df _rf x0' as' -> do
           cx0 <- evalR x0'
           cas <- evalR as'
@@ -1482,6 +1600,36 @@ buildDerivative dimR deltaDt params = do
               las = runravelToList as
               lp = runravelToList p
           return $! foldl' df cx0 (zip3 lcas (init lp) las)
+        FoldDR _domsOD p as df _rf x0' as' -> do
+          cx0 <- evalR x0'
+          let evalRDynamicRanked
+                :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
+              evalRDynamicRanked (DynamicRanked @rq @q d) = do
+                t <- evalR d
+                return $! DynamicRanked t
+              evalRDynamicRanked _ =
+                error "evalRDynamicRanked: unexpected constructor"
+          cas <- V.mapM evalRDynamicRanked as'
+          let lcas = map dmkDomains $ unravelDomains cas
+              las = map dmkDomains $ unravelDomains as
+              lp = runravelToList p
+          return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
+                           cx0 (zip3 lcas (init lp) las)
+        FoldDRC _domsOD p as df _rf x0' as' -> do
+          cx0 <- evalR x0'
+          let evalRDynamicRanked
+                :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
+              evalRDynamicRanked (DynamicRanked @rq @q d) = do
+                t <- evalR d
+                return $! DynamicRanked t
+              evalRDynamicRanked _ =
+                error "evalRDynamicRanked: unexpected constructor"
+          cas <- V.mapM evalRDynamicRanked as'
+          let lcas = map dmkDomains $ unravelDomains cas
+              las = map dmkDomains $ unravelDomains as
+              lp = runravelToList p
+          return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
+                           cx0 (zip3 lcas (init lp) las)
         ScanR p as df _rf x0' as' -> do
           cx0 <- evalR x0'
           cas <- evalR as'

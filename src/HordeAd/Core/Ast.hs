@@ -311,6 +311,29 @@ data AstRanked :: AstSpanType -> RankedTensorType where
              -> AstRanked s rn n
              -> AstRanked s rm (1 + m)
              -> AstRanked s rn n
+  AstFoldD :: forall rn n s. KnownNat n
+           => ( AstVarName (AstRanked PrimalSpan) rn n
+              , [AstDynamicVarName]
+              , AstRanked PrimalSpan rn n )
+           -> AstRanked s rn n
+           -> Domains (AstRanked s)  -- one rank higher than above
+           -> AstRanked s rn n
+  AstFoldDDer :: forall rn n s. KnownNat n
+              => ( AstVarName (AstRanked PrimalSpan) rn n
+                 , [AstDynamicVarName]
+                 , AstRanked PrimalSpan rn n )
+              -> ( AstVarName (AstRanked PrimalSpan) rn n
+                 , [AstDynamicVarName]
+                 , AstVarName (AstRanked PrimalSpan) rn n
+                 , [AstDynamicVarName]
+                 , AstRanked PrimalSpan rn n )
+              -> ( AstVarName (AstRanked PrimalSpan) rn n
+                 , AstVarName (AstRanked PrimalSpan) rn n
+                 , [AstDynamicVarName]
+                 , AstDomains PrimalSpan )
+              -> AstRanked s rn n
+              -> Domains (AstRanked s)  -- one rank higher than above
+              -> AstRanked s rn n
   AstScan :: forall rn rm n m s. (GoodScalar rm, KnownNat m, KnownNat n)
           => ( AstVarName (AstRanked PrimalSpan) rn n
              , AstVarName (AstRanked PrimalSpan) rm m

@@ -451,6 +451,64 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
     in D l3 (pShared ! (fromIntegral width :. ZI))
             (FoldR pShared as df rf x0' as')
+  rfoldD :: forall rn n. (GoodScalar rn, KnownNat n)
+         => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
+         -> DomainsOD
+         -> ADVal ranked rn n
+         -> Domains (ADVal ranked)
+         -> ADVal ranked rn n
+  rfoldD f od (D l1 x0 x0') asD =
+    let width = case V.unsnoc as of
+          Nothing -> error "rfoldD: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "rfoldD: wrong rank of argument"
+            w : _shm -> w
+        (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+        g :: Domains (ADVal ranked) -> ADVal ranked rn n
+        g doms = uncurry f (domsToPair doms)
+        df :: ranked rn n -> DomainsOf ranked -> ranked rn n -> DomainsOf ranked
+           -> ranked rn n
+        df cx ca x a =
+          fst $ cfwdOnDomains (V.cons (DynamicRanked x) $ dunDomains od a)
+                              g
+                              (V.cons (DynamicRanked cx) $ dunDomains od ca)
+        rf :: ranked rn n -> ranked rn n -> DomainsOf ranked -> DomainsOf ranked
+        rf dt x a =
+          fst $ crevOnDomains (Just dt) g
+                              (V.cons (DynamicRanked x) $ dunDomains od a)
+        p :: ranked rn (1 + n)
+        p = rscanD f od x0 as
+        (l3, pShared) =
+          recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
+    in D l3 (pShared ! (fromIntegral width :. ZI))
+         (FoldDRC od pShared as df rf x0' as')
+  rfoldDDer :: forall rn n. (GoodScalar rn, KnownNat n)
+            => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
+            -> (forall f. ADReady f
+                => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
+                -> f rn n)
+            -> (forall f. ADReady f
+                => f rn n -> f rn n -> DomainsOf f
+                -> DomainsOf f)
+            -> DomainsOD
+            -> ADVal ranked rn n
+            -> Domains (ADVal ranked)
+            -> ADVal ranked rn n
+  rfoldDDer f df rf od (D l1 x0 x0') asD =
+    let width = case V.unsnoc as of
+          Nothing -> error "rfoldDDer: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "rfoldDDer: wrong rank of argument"
+            w : _shm -> w
+        (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+        p :: ranked rn (1 + n)
+        p = rscanDDer f df rf od x0 as
+        (l3, pShared) =
+          recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
+    in D l3 (pShared ! (fromIntegral width :. ZI))
+         (FoldDR od pShared as df rf x0' as')
   rscan :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -666,6 +724,8 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
            -> Flip OR.Array rm (1 + m)
            -> Flip OR.Array rn n
   rfoldDer f _df _rf x0 as = rfold f x0 as
+  rfoldD f _od x0 as = foldl' f x0 (unravelDomains as)
+  rfoldDDer f _df _rf od x0 as = rfoldD f od x0 as
   rscan f x0 as = rfromList $ scanl' f x0 (runravelToList as)
   rscanDer f _df _rf x0 as = rscan f x0 as
   rscanD f _od x0 as = rfromList $ scanl' f x0 (unravelDomains as)

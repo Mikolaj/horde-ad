@@ -822,6 +822,24 @@ class DomainsTensor (ranked :: RankedTensorType)
            -> ranked rn n  -- ^ initial value
            -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
            -> ranked rn n
+  rfoldD :: (GoodScalar rn, KnownNat n)
+         => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
+         -> DomainsOD  -- shapes of the Domains above, not below
+         -> ranked rn n
+         -> Domains ranked  -- one rank higher than above
+         -> ranked rn n
+  rfoldDDer :: (GoodScalar rn, KnownNat n)
+            => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
+            -> (forall f. ADReady f
+                => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
+                -> f rn n)
+            -> (forall f. ADReady f
+                => f rn n -> f rn n -> DomainsOf f
+                -> DomainsOf f)
+            -> DomainsOD
+            -> ranked rn n
+            -> Domains ranked
+            -> ranked rn n
   rscan :: (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
         -> ranked rn n

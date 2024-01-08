@@ -100,6 +100,8 @@ areAllArgsInts = \case
   AstFwd{} -> False
   AstFold{} -> False
   AstFoldDer{} -> False
+  AstFoldD{} -> False
+  AstFoldDDer{} -> False
   AstScan{} -> False
   AstScanDer{} -> False
   AstScanD{} -> False
@@ -405,6 +407,62 @@ printAstAux cfg d = \case
       . printAst cfg 11 x0
       . showString " "
       . printAst cfg 11 as
+  AstFoldD (nvar, mvars, v) x0 as ->
+    showParen (d > 10)
+    $ showString "rfoldD "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarName (varRenames cfg) nvar)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) mvars
+           . showString " -> "
+           . printAst cfg 0 v)
+      . showString " "
+      . printAst cfg 11 x0
+      . showString " "
+      . printDomainsAst cfg as
+  AstFoldDDer (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
+                               (varDt2, nvar2, mvars2, doms) x0 as ->
+    showParen (d > 10)
+    $ showString "rfoldDDer "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarName (varRenames cfg) nvar)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) mvars
+           . showString " -> "
+           . printAst cfg 0 v)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarName (varRenames cfg) varDx)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) varsDa
+           . showString " "
+           . showString (printAstVarName (varRenames cfg) varn1)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) varsm1
+           . showString " -> "
+           . printAst cfg 0 ast1)
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showString (printAstVarName (varRenames cfg) varDt2)
+           . showString " "
+           . showString (printAstVarName (varRenames cfg) nvar2)
+           . showString " "
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) mvars2
+           . showString " -> "
+           . printAstDomains cfg 0 doms)
+      . showString " "
+      . printAst cfg 11 x0
+      . showString " "
+      . printDomainsAst cfg as
   AstScan (nvar, mvar, v) x0 as ->
     showParen (d > 10)
     $ showString "rscan "

@@ -224,6 +224,21 @@ inlineAst memo v0 = case v0 of
     in (memo2, Ast.AstFoldDer (nvar, mvar, v2)
                               (varDx, varDa, varn1, varm1, ast2)
                               (varDt2, nvar2, mvar2, doms2) x02 as2)
+  Ast.AstFoldD (nvar, mvar, v) x0 as ->
+    let (_, v2) = inlineAst EM.empty v
+        (memo1, x02) = inlineAst memo x0
+        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
+    in (memo2, Ast.AstFoldD (nvar, mvar, v2) x02 as2)
+  Ast.AstFoldDDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                  (varDt2, nvar2, mvar2, doms) x0 as ->
+    let (_, v2) = inlineAst EM.empty v
+        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, ast2) = inlineAst EM.empty ast1
+        (memo1, x02) = inlineAst memo x0
+        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
+    in (memo2, Ast.AstFoldDDer (nvar, mvar, v2)
+                               (varDx, varDa, varn1, varm1, ast2)
+                               (varDt2, nvar2, mvar2, doms2) x02 as2)
   Ast.AstScan (nvar, mvar, v) x0 as ->
     let (_, v2) = inlineAst EM.empty v
         (memo1, x02) = inlineAst memo x0
@@ -600,6 +615,19 @@ unletAst env t = case t of
                    , unletAstDomains (emptyUnletEnv emptyADShare) doms )
                    (unletAst env x0)
                    (unletAst env as)
+  Ast.AstFoldD (nvar, mvar, v) x0 as ->
+    Ast.AstFoldD (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
+                 (unletAst env x0)
+                 (V.map (unletAstDynamic env) as)
+  Ast.AstFoldDDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                  (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstFoldDDer (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
+                    ( varDx, varDa, varn1, varm1
+                    , unletAst (emptyUnletEnv emptyADShare) ast1 )
+                    ( varDt2, nvar2, mvar2
+                    , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                    (unletAst env x0)
+                    (V.map (unletAstDynamic env) as)
   Ast.AstScan (nvar, mvar, v) x0 as ->
     Ast.AstScan (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
                 (unletAst env x0)

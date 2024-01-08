@@ -533,6 +533,27 @@ interpretAst !env = \case
         x0i = interpretAst @ranked env x0
         asi = interpretAst @ranked env as
     in rfoldDer @ranked f df rf x0i asi
+  AstFoldD @_ @n1 f@(_, vars, _) x0 as ->
+    let g :: forall f. ADReady f => f r n1 -> DomainsOf f -> f r n1
+        g = interpretLambda2D interpretAst EM.empty f
+          -- TODO: interpretLambda2D, and others, breaks sharing!
+        od = V.fromList $ map odFromVar vars
+        x0i = interpretAst env x0
+        asi = interpretAstDynamic env <$> as
+    in rfoldD g od x0i asi
+  AstFoldDDer @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
+    let f :: forall f. ADReady f => f r n1 -> DomainsOf f -> f r n1
+        f = interpretLambda2D interpretAst EM.empty f0
+        df :: forall f. ADReady f
+           => f r n1 -> DomainsOf f -> f r n1 -> DomainsOf f -> f r n1
+        df = interpretLambda4D interpretAst EM.empty df0
+        rf :: forall f. ADReady f
+           => f r n1 -> f r n1 -> DomainsOf f -> DomainsOf f
+        rf = interpretLambda3D interpretAstDomains EM.empty rf0
+        od = V.fromList $ map odFromVar vars
+        x0i = interpretAst env x0
+        asi = interpretAstDynamic env <$> as
+    in rfoldDDer f df rf od x0i asi
   AstScan @_ @rm @n1 @m f x0 as ->
     let g :: forall f. ADReady f => f r n1 -> f rm m -> f r n1
         g = interpretLambda2 interpretAst EM.empty f
