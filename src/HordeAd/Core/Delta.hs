@@ -43,6 +43,8 @@ module HordeAd.Core.Delta
     NodeId (..), InputId, toInputId
   , -- * Evaluation of the delta expressions
     DualPart(..), DeltaDt (..)
+  , -- * Miscellaneous
+    mapDomainsDeltaR11
   ) where
 
 import Prelude
@@ -278,15 +280,6 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
         -> DeltaR ranked rn n
         -> DeltaR ranked rm (1 + m)
         -> DeltaR ranked rn (1 + n)
-  ScanRC :: (GoodScalar rm, KnownNat m)
-         => ranked rn (1 + n) -> ranked rm (1 + m)
-         -> (ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
-             -> ranked rn n)
-         -> (ranked rn n -> (ranked rn n, ranked rm m)
-             -> (ranked rn n, ranked rm m))
-         -> DeltaR ranked rn n
-         -> DeltaR ranked rm (1 + m)
-         -> DeltaR ranked rn (1 + n)
   ScanDR :: DomainsOD
          -> ranked rn (1 + n)
          -> Domains ranked  -- one rank higher than the Domains above
@@ -299,16 +292,6 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> DeltaR ranked rn n
          -> Domains (DeltaR ranked)  -- one rank higher
          -> DeltaR ranked rn (1 + n)
-  ScanDRC :: DomainsOD
-          -> ranked rn (1 + n)
-          -> Domains ranked  -- one rank higher than the Domains above
-          -> (ranked rn n -> DomainsOf ranked -> ranked rn n -> DomainsOf ranked
-              -> ranked rn n)
-          -> (ranked rn n -> ranked rn n -> DomainsOf ranked
-              -> DomainsOf ranked)
-          -> DeltaR ranked rn n
-          -> Domains (DeltaR ranked)  -- one rank higher
-          -> DeltaR ranked rn (1 + n)
   CastR :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaR ranked r1 n -> DeltaR ranked r2 n
   SToR :: forall sh r ranked. Sh.Shape sh
@@ -498,9 +481,7 @@ shapeDelta = \case
   FoldDR _domsOD _p _as _df _rf x0' _as' -> shapeDelta x0'
   FoldDRC _domsOD _p _as _df _rf x0' _as' -> shapeDelta x0'
   ScanR p _as _df _rf _x0' _as' -> rshape p
-  ScanRC p _as _df _rf _x0' _as' -> rshape p
   ScanDR _domsOD p _as _df _rf _x0' _as' -> rshape p
-  ScanDRC _domsOD p _as _df _rf _x0' _as' -> rshape p
   CastR d -> shapeDelta d
   SToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
 
@@ -1086,20 +1067,6 @@ buildFinMaps s0 deltaDt =
                 s2 = evalR sShared2 g1sum x0'
             in evalR s2 g2sum as'
           ZS -> error "evalR: impossible pattern needlessly required"
--- The following won't work, because i in slice needs to be statically knownn.
--- Indeed, vectorization would break down due to this i, even if baked
--- into the semantics of rfold, etc.
--- rscan f x0 as = rbuild1 (rlength as + 1) $ \i -> rfold f x0 (rslice 0 i as)
-        ScanRC p as _df rf x0' as' ->
-          let width = rlength p - 1
-              g (asPrefix, as'Prefix) = FoldRC p asPrefix _df rf x0' as'Prefix
-              -- starting from 0 would be better, but I'm
-              -- getting "tfromListR: shape ambiguity, no arguments"
-              initsViaSlice t = map (\k -> rslice @ranked 0 k t) [1 .. width]
-              initsViaSliceD d = map (\k -> SliceR 0 k d) [1 .. width]
-              d2 = FromListR
-                   $ x0' : map g (zip (initsViaSlice as) (initsViaSliceD as'))
-          in evalR s c d2
         ScanDR @_ @_ @n1 domsOD p as _df rf x0' as' -> case V.unsnoc as of
           Nothing -> error "evalR: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -1167,19 +1134,6 @@ buildFinMaps s0 deltaDt =
                           $ transpose $ map V.toList g2s
                   s2 = evalR sShared2 g1sum x0'
               in V.foldl' evalRDynamicRanked s2 $ V.zip g2sum as'
-        ScanDRC domsOD p as _df rf x0' as' ->
-          let width = rlength p - 1
-              g (asPrefix, as'Prefix) =
-                FoldDRC domsOD p asPrefix _df rf x0' as'Prefix
-              initsViaSlice tdoms =
-                map (\k -> mapDomainsRanked11 (rslice @ranked 0 k) tdoms)
-                    [1 .. width]
-              initsViaSliceD ddoms =
-                map (\k -> mapDomainsDeltaR11 (SliceR 0 k) ddoms)
-                    [1 .. width]
-              d2 = FromListR
-                   $ x0' : map g (zip (initsViaSlice as) (initsViaSliceD as'))
-          in evalR s c d2
         CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
         SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
@@ -1566,23 +1520,7 @@ buildDerivative dimR deltaDt params = do
           return $! rfromList $ assert (length lcas == length las) $
                                 scanl' (\cx (ca, x, a) -> df cx ca x a)
                                        cx0 (zip3 lcas (init lp) las)
-        ScanRC p as df _rf x0' as' -> do
-          cx0 <- evalR x0'
-          cas <- evalR as'
-          let lcas = runravelToList cas
-              las = runravelToList as
-              lp = runravelToList p
-          return $! rfromList $ assert (length lcas == length las) $
-                                scanl' df cx0 (zip3 lcas (init lp) las)
         ScanDR _domsOD p as df _rf x0' as' -> do
-          cx0 <- evalR x0'
-          cas <- V.mapM evalRDynamicRanked as'
-          let lcas = map dmkDomains $ unravelDomains cas
-              las = map dmkDomains $ unravelDomains as
-              lp = runravelToList p
-          return $! rfromList $ scanl' (\cx (ca, x, a) -> df cx ca x a)
-                                       cx0 (zip3 lcas (init lp) las)
-        ScanDRC _domsOD p as df _rf x0' as' -> do
           cx0 <- evalR x0'
           cas <- V.mapM evalRDynamicRanked as'
           let lcas = map dmkDomains $ unravelDomains cas

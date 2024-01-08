@@ -518,7 +518,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rscan f (D l1 x0 x0') (D l2 as as') =
     let shn = rshape x0
         _ws :: (Int, ShapeInt m)
-        _ws@(_, shm) = case rshape as of
+        _ws@(width, shm) = case rshape as of
           hd :$ tl -> (hd, tl)
           _ -> error "rfoldDer: impossible pattern needlessly required"
         domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
@@ -541,8 +541,21 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p :: ranked rn (1 + n)
         p = rscan f x0 as
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
-    in D l3 pShared
-            (ScanRC pShared as df rf x0' as')
+        -- The following sugar won't work, because i in slice needs
+        -- to be statically known. Indeed, vectorization would break down
+        -- due to this i, even if baked into the semantics of rfold, etc.
+        -- rscan f x0 as = rbuild1 (rlength as + 1)
+        --                 $ \i -> rfold f x0 (rslice 0 i as)
+        scanAsFold =
+          let h (asPrefix, as'Prefix) =
+                FoldRC pShared asPrefix df rf x0' as'Prefix
+              -- starting from 0 would be better, but I'm
+              -- getting "tfromListR: shape ambiguity, no arguments"
+              initsViaSlice t = map (\k -> rslice @ranked 0 k t) [1 .. width]
+              initsViaSliceD d = map (\k -> SliceR 0 k d) [1 .. width]
+          in FromListR
+             $ x0' : map h (zip (initsViaSlice as) (initsViaSliceD as'))
+    in D l3 pShared scanAsFold
   rscanDer :: forall rn rm n m.
               (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
            => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -584,8 +597,19 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         p = rscanD f od x0 as
         (l3, pShared) =
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
-    in D l3 pShared
-         (ScanDRC od pShared as df rf x0' as')
+        width = rlength p - 1
+        scanAsFold =
+          let h (asPrefix, as'Prefix) =
+                FoldDRC od pShared asPrefix df rf x0' as'Prefix
+              initsViaSlice tdoms =
+                map (\k -> mapDomainsRanked11 (rslice @ranked 0 k) tdoms)
+                    [1 .. width]
+              initsViaSliceD ddoms =
+                map (\k -> mapDomainsDeltaR11 (SliceR 0 k) ddoms)
+                    [1 .. width]
+          in FromListR
+             $ x0' : map h (zip (initsViaSlice as) (initsViaSliceD as'))
+    in D l3 pShared scanAsFold
   rscanDDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
             -> (forall f. ADReady f
