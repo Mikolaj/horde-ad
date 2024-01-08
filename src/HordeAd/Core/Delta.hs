@@ -815,6 +815,17 @@ buildFinMaps s0 deltaDt =
               _ -> case testEquality (typeRep @r) (typeRep @CInt) of
                 Just Refl -> evalR @n @CInt s c
                 _ -> error "an unexpected underlying scalar type"
+      evalRDynamicRanked
+        :: EvalState ranked shaped
+        -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
+        -> EvalState ranked shaped
+      evalRDynamicRanked s3 ( DynamicRanked @rp @p t2
+                            , DynamicRanked @rq @q d2 )
+        | Just Refl <- sameNat (Proxy @q) (Proxy @p)
+        , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
+            evalR s3 t2 d2
+      evalRDynamicRanked _ _ =
+        error "evalRDynamicRanked: unexpected constructor"
       evalR
         :: forall n r. (KnownNat n, GoodScalar r)
         => EvalState ranked shaped
@@ -1002,17 +1013,6 @@ buildFinMaps s0 deltaDt =
                              (runravelToList $ rslice 0 width p)
                              (map dmkDomains $ unravelDomains as)
                   s2 = evalR sShared2 (crsShared ! (0 :. ZI)) x0'
-                  evalRDynamicRanked
-                    :: EvalState ranked shaped
-                    -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
-                    -> EvalState ranked shaped
-                  evalRDynamicRanked s3 ( DynamicRanked @rp @p t2
-                                        , DynamicRanked @rq @q d2 )
-                    | Just Refl <- sameNat (Proxy @q) (Proxy @p)
-                    , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
-                        evalR s3 t2 d2
-                  evalRDynamicRanked _ _ =
-                    error "evalRDynamicRanked: unexpected constructor"
               in V.foldl' evalRDynamicRanked s2 $ V.zip cas as'
         FoldDRC @rm @m domsOD p as _df rf x0' as' ->
           let shn = shapeDelta x0'
@@ -1029,17 +1029,6 @@ buildFinMaps s0 deltaDt =
                               (zip (init $ runravelToList p)
                                    (map dmkDomains $ unravelDomains as))
               s2 = evalR sShared cx0 x0'
-              evalRDynamicRanked
-                :: EvalState ranked shaped
-                -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
-                -> EvalState ranked shaped
-              evalRDynamicRanked s3 ( DynamicRanked @rp @p t2
-                                    , DynamicRanked @rq @q d2 )
-                | Just Refl <- sameNat (Proxy @q) (Proxy @p)
-                , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
-                    evalR s3 t2 d2
-              evalRDynamicRanked _ _ =
-                error "evalRDynamicRanked: unexpected constructor"
           in V.foldl' evalRDynamicRanked s2 $ V.zip (ravelDomains cas) as'
         ScanR @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
           0 :$ _ -> evalR s (c ! (0 :. ZI)) x0'
@@ -1178,17 +1167,6 @@ buildFinMaps s0 deltaDt =
                   g2sum = V.fromList $ map sumDynamicRanked
                           $ transpose $ map V.toList g2s
                   s2 = evalR sShared2 g1sum x0'
-                  evalRDynamicRanked
-                    :: EvalState ranked shaped
-                    -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
-                    -> EvalState ranked shaped
-                  evalRDynamicRanked s3 ( DynamicRanked @rp @p t2
-                                        , DynamicRanked @rq @q d2 )
-                    | Just Refl <- sameNat (Proxy @q) (Proxy @p)
-                    , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
-                        evalR s3 t2 d2
-                  evalRDynamicRanked _ _ =
-                    error "evalRDynamicRanked: unexpected constructor"
               in V.foldl' evalRDynamicRanked s2 $ V.zip g2sum as'
         -- TODO: simplify since sharing is not needed here. Use rfoldD?
         ScanDRC @_ @_ @n1 domsOD p as _df rf x0' as' -> case V.unsnoc as of
@@ -1251,17 +1229,6 @@ buildFinMaps s0 deltaDt =
                   g2sum = V.fromList $ map sumDynamicRanked
                           $ transpose $ map V.toList g2s
                   s2 = evalR sShared g1sum x0'
-                  evalRDynamicRanked
-                    :: EvalState ranked shaped
-                    -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
-                    -> EvalState ranked shaped
-                  evalRDynamicRanked s3 ( DynamicRanked @rp @p t2
-                                        , DynamicRanked @rq @q d2 )
-                    | Just Refl <- sameNat (Proxy @q) (Proxy @p)
-                    , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
-                        evalR s3 t2 d2
-                  evalRDynamicRanked _ _ =
-                    error "evalRDynamicRanked: unexpected constructor"
               in V.foldl' evalRDynamicRanked s2 $ V.zip g2sum as'
         CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
@@ -1494,7 +1461,14 @@ buildDerivative dimR deltaDt params = do
   dMap <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
   astBindings <- newSTRef []
-  let evalR
+  let evalRDynamicRanked
+        :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
+      evalRDynamicRanked (DynamicRanked @rq @q d) = do
+        t <- evalR d
+        return $! DynamicRanked t
+      evalRDynamicRanked _ =
+        error "evalRDynamicRanked: unexpected constructor"
+      evalR
         :: forall n r. (KnownNat n, GoodScalar r)
         => DeltaR ranked r n -> ST s (ranked r n)
       evalR = \case
@@ -1602,13 +1576,6 @@ buildDerivative dimR deltaDt params = do
           return $! foldl' df cx0 (zip3 lcas (init lp) las)
         FoldDR _domsOD p as df _rf x0' as' -> do
           cx0 <- evalR x0'
-          let evalRDynamicRanked
-                :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
-              evalRDynamicRanked (DynamicRanked @rq @q d) = do
-                t <- evalR d
-                return $! DynamicRanked t
-              evalRDynamicRanked _ =
-                error "evalRDynamicRanked: unexpected constructor"
           cas <- V.mapM evalRDynamicRanked as'
           let lcas = map dmkDomains $ unravelDomains cas
               las = map dmkDomains $ unravelDomains as
@@ -1617,13 +1584,6 @@ buildDerivative dimR deltaDt params = do
                            cx0 (zip3 lcas (init lp) las)
         FoldDRC _domsOD p as df _rf x0' as' -> do
           cx0 <- evalR x0'
-          let evalRDynamicRanked
-                :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
-              evalRDynamicRanked (DynamicRanked @rq @q d) = do
-                t <- evalR d
-                return $! DynamicRanked t
-              evalRDynamicRanked _ =
-                error "evalRDynamicRanked: unexpected constructor"
           cas <- V.mapM evalRDynamicRanked as'
           let lcas = map dmkDomains $ unravelDomains cas
               las = map dmkDomains $ unravelDomains as
@@ -1649,13 +1609,6 @@ buildDerivative dimR deltaDt params = do
                                 scanl' df cx0 (zip3 lcas (init lp) las)
         ScanDR _domsOD p as df _rf x0' as' -> do
           cx0 <- evalR x0'
-          let evalRDynamicRanked
-                :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
-              evalRDynamicRanked (DynamicRanked @rq @q d) = do
-                t <- evalR d
-                return $! DynamicRanked t
-              evalRDynamicRanked _ =
-                error "evalRDynamicRanked: unexpected constructor"
           cas <- V.mapM evalRDynamicRanked as'
           let lcas = map dmkDomains $ unravelDomains cas
               las = map dmkDomains $ unravelDomains as
@@ -1664,13 +1617,6 @@ buildDerivative dimR deltaDt params = do
                                        cx0 (zip3 lcas (init lp) las)
         ScanDRC _domsOD p as df _rf x0' as' -> do
           cx0 <- evalR x0'
-          let evalRDynamicRanked
-                :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
-              evalRDynamicRanked (DynamicRanked @rq @q d) = do
-                t <- evalR d
-                return $! DynamicRanked t
-              evalRDynamicRanked _ =
-                error "evalRDynamicRanked: unexpected constructor"
           cas <- V.mapM evalRDynamicRanked as'
           let lcas = map dmkDomains $ unravelDomains cas
               las = map dmkDomains $ unravelDomains as
