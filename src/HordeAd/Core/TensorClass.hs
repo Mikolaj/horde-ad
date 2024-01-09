@@ -873,8 +873,8 @@ class DomainsTensor (ranked :: RankedTensorType)
             -> ranked rn (1 + n)
   sfold :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-        -> shaped rn sh  -- ^ initial value
-        -> shaped rm (k ': shm)  -- ^ iteration is over the outermost dimension
+        -> shaped rn sh
+        -> shaped rm (k ': shm)
         -> shaped rn sh
   sfoldDer :: ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
               , KnownNat k )
@@ -883,10 +883,69 @@ class DomainsTensor (ranked :: RankedTensorType)
                => f rn sh -> f rm shm -> f rn sh -> f rm shm
                -> f rn sh)
            -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> DomainsOf f)
-           -> shaped rn sh  -- ^ initial value
-           -> shaped rm (k ': shm)  -- ^ iteration over the outermost dimension
+               => f rn sh -> f rn sh -> f rm shm -> DomainsOf (RankedOf f))
            -> shaped rn sh
+           -> shaped rm (k ': shm)
+           -> shaped rn sh
+  sfoldD :: (GoodScalar rn, Sh.Shape sh)
+         => (forall f. ADReadyS f
+             => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+         -> DomainsOD
+         -> shaped rn sh
+         -> Domains (RankedOf shaped)
+         -> shaped rn sh
+  sfoldDDer :: (GoodScalar rn, Sh.Shape sh)
+            => (forall f. ADReadyS f
+                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+            -> (forall f. ADReadyS f
+                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh
+                -> DomainsOf (RankedOf f)
+                -> f rn sh)
+            -> (forall f. ADReadyS f
+                => f rn sh -> f rn sh -> DomainsOf (RankedOf f)
+                -> DomainsOf (RankedOf f))
+            -> DomainsOD
+            -> shaped rn sh
+            -> Domains (RankedOf shaped)
+            -> shaped rn sh
+  sscan :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
+        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+        -> shaped rn sh
+        -> shaped rm (k ': shm)
+        -> shaped rn (k ': sh)
+  sscanDer :: ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
+              , KnownNat k )
+           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+           -> (forall f. ADReadyS f
+               => f rn sh -> f rm shm -> f rn sh -> f rm shm
+               -> f rn sh)
+           -> (forall f. ADReadyS f
+               => f rn sh -> f rn sh -> f rm shm -> DomainsOf (RankedOf f))
+           -> shaped rn sh
+           -> shaped rm (k ': shm)
+           -> shaped rn (k ': sh)
+  sscanD :: (GoodScalar rn, Sh.Shape sh)
+         => (forall f. ADReadyS f
+             => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+         -> DomainsOD
+         -> shaped rn sh
+         -> Domains (RankedOf shaped)
+         -> shaped rn (k ': sh)
+  sscanDDer :: (GoodScalar rn, Sh.Shape sh)
+            => (forall f. ADReadyS f
+                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+            -> (forall f. ADReadyS f
+                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh
+                -> DomainsOf (RankedOf f)
+                -> f rn sh)
+            -> (forall f. ADReadyS f
+                => f rn sh -> f rn sh -> DomainsOf (RankedOf f)
+                -> DomainsOf (RankedOf f))
+            -> DomainsOD
+            -> shaped rn sh
+            -> Domains (RankedOf shaped)
+            -> shaped rn (k ': sh)
+
 
 -- * The giga-constraint
 

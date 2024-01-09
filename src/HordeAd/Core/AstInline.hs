@@ -494,6 +494,51 @@ inlineAstS memo v0 = case v0 of
     in (memo2, Ast.AstFoldDerS (nvar, mvar, v2)
                                (varDx, varDa, varn1, varm1, ast2)
                                (varDt2, nvar2, mvar2, doms2) x02 as2)
+  Ast.AstFoldDS (nvar, mvar, v) x0 as ->
+    let (_, v2) = inlineAstS EM.empty v
+        (memo1, x02) = inlineAstS memo x0
+        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
+    in (memo2, Ast.AstFoldDS (nvar, mvar, v2) x02 as2)
+  Ast.AstFoldDDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                   (varDt2, nvar2, mvar2, doms) x0 as ->
+    let (_, v2) = inlineAstS EM.empty v
+        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, ast2) = inlineAstS EM.empty ast1
+        (memo1, x02) = inlineAstS memo x0
+        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
+    in (memo2, Ast.AstFoldDDerS (nvar, mvar, v2)
+                                (varDx, varDa, varn1, varm1, ast2)
+                                (varDt2, nvar2, mvar2, doms2) x02 as2)
+  Ast.AstScanS (nvar, mvar, v) x0 as ->
+    let (_, v2) = inlineAstS EM.empty v
+        (memo1, x02) = inlineAstS memo x0
+        (memo2, as2) = inlineAstS memo1 as
+    in (memo2, Ast.AstScanS (nvar, mvar, v2) x02 as2)
+  Ast.AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                  (varDt2, nvar2, mvar2, doms) x0 as ->
+    let (_, v2) = inlineAstS EM.empty v
+        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, ast2) = inlineAstS EM.empty ast1
+        (memo1, x02) = inlineAstS memo x0
+        (memo2, as2) = inlineAstS memo1 as
+    in (memo2, Ast.AstScanDerS (nvar, mvar, v2)
+                               (varDx, varDa, varn1, varm1, ast2)
+                               (varDt2, nvar2, mvar2, doms2) x02 as2)
+  Ast.AstScanDS (nvar, mvar, v) x0 as ->
+    let (_, v2) = inlineAstS EM.empty v
+        (memo1, x02) = inlineAstS memo x0
+        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
+    in (memo2, Ast.AstScanDS (nvar, mvar, v2) x02 as2)
+  Ast.AstScanDDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                   (varDt2, nvar2, mvar2, doms) x0 as ->
+    let (_, v2) = inlineAstS EM.empty v
+        (_, doms2) = inlineAstDomains EM.empty doms
+        (_, ast2) = inlineAstS EM.empty ast1
+        (memo1, x02) = inlineAstS memo x0
+        (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
+    in (memo2, Ast.AstScanDDerS (nvar, mvar, v2)
+                                (varDx, varDa, varn1, varm1, ast2)
+                                (varDt2, nvar2, mvar2, doms2) x02 as2)
 
 
 -- * The unlet pass eliminating nested duplicated lets bottom-up
@@ -795,3 +840,42 @@ unletAstS env t = case t of
                     , unletAstDomains (emptyUnletEnv emptyADShare) doms )
                     (unletAstS env x0)
                     (unletAstS env as)
+  Ast.AstFoldDS (nvar, mvar, v) x0 as ->
+    Ast.AstFoldDS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
+                  (unletAstS env x0)
+                  (V.map (unletAstDynamic env) as)
+  Ast.AstFoldDDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                   (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstFoldDDerS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
+                     ( varDx, varDa, varn1, varm1
+                     , unletAstS (emptyUnletEnv emptyADShare) ast1 )
+                     ( varDt2, nvar2, mvar2
+                     , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                     (unletAstS env x0)
+                     (V.map (unletAstDynamic env) as)
+  Ast.AstScanS (nvar, mvar, v) x0 as ->
+    Ast.AstScanS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
+                 (unletAstS env x0)
+                 (unletAstS env as)
+  Ast.AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                  (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstScanDerS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
+                    ( varDx, varDa, varn1, varm1
+                    , unletAstS (emptyUnletEnv emptyADShare) ast1 )
+                    ( varDt2, nvar2, mvar2
+                    , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                    (unletAstS env x0)
+                    (unletAstS env as)
+  Ast.AstScanDS (nvar, mvar, v) x0 as ->
+    Ast.AstScanDS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
+                  (unletAstS env x0)
+                  (V.map (unletAstDynamic env) as)
+  Ast.AstScanDDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                   (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstScanDDerS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
+                     ( varDx, varDa, varn1, varm1
+                     , unletAstS (emptyUnletEnv emptyADShare) ast1 )
+                     ( varDt2, nvar2, mvar2
+                     , unletAstDomains (emptyUnletEnv emptyADShare) doms )
+                     (unletAstS env x0)
+                     (V.map (unletAstDynamic env) as)
