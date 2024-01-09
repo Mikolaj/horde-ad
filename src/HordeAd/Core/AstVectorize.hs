@@ -558,21 +558,52 @@ substProjVarsDomains var vars v3 =
 astTrDynamicRanked :: AstSpan s
                    => DynamicTensor (AstRanked s)
                    -> DynamicTensor (AstRanked s)
-astTrDynamicRanked t@(DynamicRanked @_ @n3 u) =
-  case cmpNat (Proxy @2) (Proxy @n3) of
-    EQI -> DynamicRanked $ astTr @(n3 - 2) u
-    LTI -> DynamicRanked $ astTr @(n3 - 2) u
+astTrDynamicRanked t@(DynamicRanked @_ @n1 u) =
+  case cmpNat (Proxy @2) (Proxy @n1) of
+    EQI -> DynamicRanked $ astTr @(n1 - 2) u
+    LTI -> DynamicRanked $ astTr @(n1 - 2) u
     _ -> t
 astTrDynamicRanked DynamicShaped{} =
-  error "astTrDynamicRanked:DynamicShaped"
-astTrDynamicRanked (DynamicRankedDummy p1 (Proxy @sh3)) =
+  error "astTrDynamicRanked: DynamicShaped"
+astTrDynamicRanked (DynamicRankedDummy p1 (Proxy @sh1)) =
   let permute10 (m0 : m1 : ms) = m1 : m0 : ms
       permute10 ms = ms
-      sh3Permuted = permute10 $ Sh.shapeT @sh3
-  in Sh.withShapeP sh3Permuted $ \proxy ->
+      sh1Permuted = permute10 $ Sh.shapeT @sh1
+  in Sh.withShapeP sh1Permuted $ \proxy ->
        DynamicRankedDummy p1 proxy
 astTrDynamicRanked DynamicShapedDummy{} =
-  error "astTrDynamicRanked:DynamicShapedDummy"
+  error "astTrDynamicRanked: DynamicShapedDummy"
+
+astTrDynamicShaped :: DynamicTensor (AstRanked s)
+                   -> DynamicTensor (AstRanked s)
+astTrDynamicShaped DynamicRanked{} =
+  error "astTrDynamicShaped: DynamicRanked"
+astTrDynamicShaped t@(DynamicShaped @_ @sh u) =
+  let sh1 = Sh.shapeT @sh
+      permute10 (m0 : m1 : ms) = m1 : m0 : ms
+      permute10 ms = ms
+      sh1Permuted = permute10 sh1
+  in Sh.withShapeP sh1Permuted $ \(Proxy @shPermuted) ->
+       withListShape sh1 $ \ (_ :: ShapeInt p) ->
+         gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: p) $
+         case cmpNat (Proxy @2) (Proxy @(Sh.Rank sh)) of
+           EQI -> case astTransposeS @'[1, 0] u of
+             (w :: AstShaped s4 r4 sh4) ->
+               gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
+               DynamicShaped w
+           LTI -> case astTransposeS @'[1, 0] u of
+             (w :: AstShaped s4 r4 sh4) ->
+               gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
+               DynamicShaped w
+           _ -> t
+astTrDynamicShaped DynamicRankedDummy{} =
+  error "astTrDynamicShaped: DynamicRankedDummy"
+astTrDynamicShaped (DynamicShapedDummy p1 (Proxy @sh1)) =
+  let permute10 (m0 : m1 : ms) = m1 : m0 : ms
+      permute10 ms = ms
+      sh1Permuted = permute10 $ Sh.shapeT @sh1
+  in Sh.withShapeP sh1Permuted $ \proxy ->
+       DynamicShapedDummy p1 proxy
 
 build1VOccurenceUnknownDynamic
   :: forall s. AstSpan s
@@ -927,6 +958,96 @@ build1VS (var, v00) =
                   $ substProjDomainsS @k var mvar doms) )
         (build1VOccurenceUnknownS (var, x0))
         (astTrS $ build1VOccurenceUnknownS @k (var, as))
+    Ast.AstFoldDS{} ->
+      error "build1VS: impossible case of AstFoldDS"
+    Ast.AstFoldDDerS @_ @shn
+                     (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
+                                      (varDt2, nvar2, mvars2, doms) x0 as ->
+       let (vOut, mvarsOut) = substProjVarsS @k var mvars v
+           (ast1Out, varsDaOut) = substProjVarsS @k var varsDa ast1
+           (ast1Out2, varsm1Out) = substProjVarsS @k var varsm1 ast1Out
+           (domsOut, mvars2Out) = substProjVarsDomains @k var mvars2 doms
+       in Ast.AstFoldDDerS
+            ( AstVarName $ varNameToAstVarId nvar
+            , mvarsOut
+            , build1VOccurenceUnknownRefreshS
+                @k (var, substProjShapedS @k @shn var nvar vOut) )
+            ( AstVarName $ varNameToAstVarId varDx
+            , varsDaOut
+            , AstVarName $ varNameToAstVarId varn1
+            , varsm1Out
+            , build1VOccurenceUnknownRefreshS
+                @k (var, substProjShapedS @k @shn var varDx
+                         $ substProjShapedS @k @shn var varn1 ast1Out2) )
+            ( AstVarName $ varNameToAstVarId varDt2
+            , AstVarName $ varNameToAstVarId nvar2
+            , mvars2Out
+            , build1VOccurenceUnknownAstDomainsRefresh
+                (valueOf @k) (var, substProjDomainsS @k @shn var nvar domsOut) )
+            (build1VOccurenceUnknownS @k (var, x0))
+            (V.map (\u -> astTrDynamicShaped
+                          $ build1VOccurenceUnknownDynamic (valueOf @k)
+                                                           (var, u)) as)
+    Ast.AstScanS{} ->
+      error "build1VS: impossible case of AstScanS"
+    Ast.AstScanDerS @_ @_ @shn @shm @k5
+                    (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                    (varDt2, nvar2, mvar2, doms) x0 as ->
+      astTrS
+      $ Ast.AstScanDerS
+           ( AstVarName $ varNameToAstVarId nvar
+           , AstVarName $ varNameToAstVarId mvar
+           , build1VOccurenceUnknownRefreshS
+               @k (var, substProjShapedS @k @shn var nvar
+                        $ substProjShapedS @k @shm var mvar v) )
+           ( AstVarName $ varNameToAstVarId varDx
+           , AstVarName $ varNameToAstVarId varDa
+           , AstVarName $ varNameToAstVarId varn1
+           , AstVarName $ varNameToAstVarId varm1
+           , build1VOccurenceUnknownRefreshS
+               @k (var, substProjShapedS @k @shn var varDx
+                        $ substProjShapedS @k @shm var varDa
+                        $ substProjShapedS @k @shn var varn1
+                        $ substProjShapedS @k @shm var varm1 ast1) )
+           ( AstVarName $ varNameToAstVarId varDt2
+           , AstVarName $ varNameToAstVarId nvar2
+           , AstVarName $ varNameToAstVarId mvar2
+           , build1VOccurenceUnknownAstDomainsRefresh
+               (valueOf @k) (var, substProjDomainsS @k @shn var nvar
+                                  $ substProjDomainsS @k @shm var mvar doms) )
+           (build1VOccurenceUnknownS @k (var, x0))
+           (astTrS $ build1VOccurenceUnknownS @k (var, as))
+    Ast.AstScanDS{} ->
+      error "build1VS: impossible case of AstScanDS"
+    Ast.AstScanDDerS @_ @shn @k5
+                     (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
+                                      (varDt2, nvar2, mvars2, doms) x0 as ->
+       let (vOut, mvarsOut) = substProjVarsS @k var mvars v
+           (ast1Out, varsDaOut) = substProjVarsS @k var varsDa ast1
+           (ast1Out2, varsm1Out) = substProjVarsS @k var varsm1 ast1Out
+           (domsOut, mvars2Out) = substProjVarsDomains @k var mvars2 doms
+       in astTrS
+          $ Ast.AstScanDDerS
+            ( AstVarName $ varNameToAstVarId nvar
+            , mvarsOut
+            , build1VOccurenceUnknownRefreshS
+                @k (var, substProjShapedS @k @shn var nvar vOut) )
+            ( AstVarName $ varNameToAstVarId varDx
+            , varsDaOut
+            , AstVarName $ varNameToAstVarId varn1
+            , varsm1Out
+            , build1VOccurenceUnknownRefreshS
+                @k (var, substProjShapedS @k @shn var varDx
+                         $ substProjShapedS @k @shn var varn1 ast1Out2) )
+            ( AstVarName $ varNameToAstVarId varDt2
+            , AstVarName $ varNameToAstVarId nvar2
+            , mvars2Out
+            , build1VOccurenceUnknownAstDomainsRefresh
+                (valueOf @k) (var, substProjDomainsS @k @shn var nvar domsOut) )
+            (build1VOccurenceUnknownS @k (var, x0))
+            (V.map (\u -> astTrDynamicRanked
+                          $ build1VOccurenceUnknownDynamic (valueOf @k)
+                                                           (var, u)) as)
 
 build1VIndexS
   :: forall k p sh s r.
@@ -967,6 +1088,9 @@ build1VIndexS (var, v0, ix@(_ :$: _)) =
               Ast.AstScatterS{} -> ruleD
               Ast.AstAppendS{} -> ruleD
               Ast.AstFoldDerS{} -> ruleD
+              Ast.AstFoldDDerS{} -> ruleD
+              Ast.AstScanDerS{} -> ruleD
+              Ast.AstScanDDerS{} -> ruleD
               _ -> build1VOccurenceUnknownS (var, v)  -- not a normal form
             else build1VOccurenceUnknownS (var, v)  -- shortcut
        v -> traceRule $

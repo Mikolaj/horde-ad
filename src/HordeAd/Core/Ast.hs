@@ -521,6 +521,77 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
               -> AstShaped s rn sh
               -> AstShaped s rm (k ': shm)
               -> AstShaped s rn sh
+  AstFoldDS :: forall rn sh s. Sh.Shape sh
+            => ( AstVarName (AstShaped PrimalSpan) rn sh
+               , [AstDynamicVarName]
+               , AstShaped PrimalSpan rn sh )
+            -> AstShaped s rn sh
+            -> Domains (AstRanked s)  -- one rank higher than above
+            -> AstShaped s rn sh
+  AstFoldDDerS :: forall rn sh s. Sh.Shape sh
+               => ( AstVarName (AstShaped PrimalSpan) rn sh
+                  , [AstDynamicVarName]
+                  , AstShaped PrimalSpan rn sh )
+               -> ( AstVarName (AstShaped PrimalSpan) rn sh
+                  , [AstDynamicVarName]
+                  , AstVarName (AstShaped PrimalSpan) rn sh
+                  , [AstDynamicVarName]
+                  , AstShaped PrimalSpan rn sh )
+               -> ( AstVarName (AstShaped PrimalSpan) rn sh
+                  , AstVarName (AstShaped PrimalSpan) rn sh
+                  , [AstDynamicVarName]
+                  , AstDomains PrimalSpan )
+               -> AstShaped s rn sh
+               -> Domains (AstRanked s)  -- one rank higher than above
+               -> AstShaped s rn sh
+  AstScanS :: forall rn rm sh shm k s.
+              (GoodScalar rm, Sh.Shape shm, Sh.Shape sh, KnownNat k)
+           => ( AstVarName (AstShaped PrimalSpan) rn sh
+              , AstVarName (AstShaped PrimalSpan) rm shm
+              , AstShaped PrimalSpan rn sh )
+           -> AstShaped s rn sh
+           -> AstShaped s rm (k ': shm)
+           -> AstShaped s rn (1 + k ': sh)
+  AstScanDerS :: forall rn rm sh shm k s.
+                 (GoodScalar rm, Sh.Shape shm, Sh.Shape sh, KnownNat k)
+              => ( AstVarName (AstShaped PrimalSpan) rn sh
+                 , AstVarName (AstShaped PrimalSpan) rm shm
+                 , AstShaped PrimalSpan rn sh )
+              -> ( AstVarName (AstShaped PrimalSpan) rn sh
+                 , AstVarName (AstShaped PrimalSpan) rm shm
+                 , AstVarName (AstShaped PrimalSpan) rn sh
+                 , AstVarName (AstShaped PrimalSpan) rm shm
+                 , AstShaped PrimalSpan rn sh )
+              -> ( AstVarName (AstShaped PrimalSpan) rn sh
+                 , AstVarName (AstShaped PrimalSpan) rn sh
+                 , AstVarName (AstShaped PrimalSpan) rm shm
+                 , AstDomains PrimalSpan )
+              -> AstShaped s rn sh
+              -> AstShaped s rm (k ': shm)
+              -> AstShaped s rn (1 + k ': sh)
+  AstScanDS :: forall rn sh k s. (Sh.Shape sh, KnownNat k)
+            => ( AstVarName (AstShaped PrimalSpan) rn sh
+               , [AstDynamicVarName]
+               , AstShaped PrimalSpan rn sh )
+            -> AstShaped s rn sh
+            -> Domains (AstRanked s)  -- one rank higher than above
+            -> AstShaped s rn (1 + k ': sh)
+  AstScanDDerS :: forall rn sh k s. (Sh.Shape sh, KnownNat k)
+               => ( AstVarName (AstShaped PrimalSpan) rn sh
+                  , [AstDynamicVarName]
+                  , AstShaped PrimalSpan rn sh )
+               -> ( AstVarName (AstShaped PrimalSpan) rn sh
+                  , [AstDynamicVarName]
+                  , AstVarName (AstShaped PrimalSpan) rn sh
+                  , [AstDynamicVarName]
+                  , AstShaped PrimalSpan rn sh )
+               -> ( AstVarName (AstShaped PrimalSpan) rn sh
+                  , AstVarName (AstShaped PrimalSpan) rn sh
+                  , [AstDynamicVarName]
+                  , AstDomains PrimalSpan )
+               -> AstShaped s rn sh
+               -> Domains (AstRanked s)  -- one rank higher than above
+               -> AstShaped s rn (1 + k ': sh)
 
 deriving instance (GoodScalar r, Sh.Shape sh) => Show (AstShaped s r sh)
 

@@ -269,6 +269,14 @@ varInAstS var = \case
     in any f l || any f ds
   AstFoldS _f x0 as -> varInAstS var x0 || varInAstS var as
   AstFoldDerS _f _df _rf x0 as -> varInAstS var x0 || varInAstS var as
+  AstFoldDS _f x0 as -> varInAstS var x0 || any (varInAstDynamic var) as
+  AstFoldDDerS _f _df _rf x0 as ->
+    varInAstS var x0 || any (varInAstDynamic var) as
+  AstScanS _f x0 as -> varInAstS var x0 || varInAstS var as
+  AstScanDerS _f _df _rf x0 as -> varInAstS var x0 || varInAstS var as
+  AstScanDS _f x0 as -> varInAstS var x0 || any (varInAstDynamic var) as
+  AstScanDDerS _f _df _rf x0 as ->
+    varInAstS var x0 || any (varInAstDynamic var) as
 
 varInIndexS :: AstVarId -> AstIndexS sh -> Bool
 varInIndexS var = any (varInAst var)

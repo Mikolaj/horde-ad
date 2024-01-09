@@ -1562,6 +1562,12 @@ astPrimalPartS t = case t of
   Ast.AstFwdS{} -> Ast.AstPrimalPartS t  -- the other only normal form
   Ast.AstFoldS{} -> Ast.AstPrimalPartS t
   Ast.AstFoldDerS{} -> Ast.AstPrimalPartS t
+  Ast.AstFoldDS{} -> Ast.AstPrimalPartS t
+  Ast.AstFoldDDerS{} -> Ast.AstPrimalPartS t
+  Ast.AstScanS{} -> Ast.AstPrimalPartS t
+  Ast.AstScanDerS{} -> Ast.AstPrimalPartS t
+  Ast.AstScanDS{} -> Ast.AstPrimalPartS t
+  Ast.AstScanDDerS{} -> Ast.AstPrimalPartS t
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
@@ -1638,6 +1644,12 @@ astDualPartS t = case t of
   Ast.AstFwdS{} -> Ast.AstDualPartS t
   Ast.AstFoldS{} -> Ast.AstDualPartS t
   Ast.AstFoldDerS{} -> Ast.AstDualPartS t
+  Ast.AstFoldDS{} -> Ast.AstDualPartS t
+  Ast.AstFoldDDerS{} -> Ast.AstDualPartS t
+  Ast.AstScanS{} -> Ast.AstDualPartS t
+  Ast.AstScanDerS{} -> Ast.AstDualPartS t
+  Ast.AstScanDS{} -> Ast.AstDualPartS t
+  Ast.AstScanDDerS{} -> Ast.AstDualPartS t
 
 astLetInDomains :: forall n s s2 r.
                    (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
@@ -2258,6 +2270,33 @@ simplifyAstS t = case t of
                     (varDx, varDa, varn1, varm1, simplifyAstS ast1)
                     (varDt2, nvar2, mvar2, simplifyAstDomains doms)
                     (simplifyAstS x0) (simplifyAstS as)
+  Ast.AstFoldDS (nvar, mvar, v) x0 as ->
+    Ast.AstFoldDS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
+                  (V.map simplifyAstDynamic as)
+  Ast.AstFoldDDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                   (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstFoldDDerS (nvar, mvar, simplifyAstS v)
+                     (varDx, varDa, varn1, varm1, simplifyAstS ast1)
+                     (varDt2, nvar2, mvar2, simplifyAstDomains doms)
+                     (simplifyAstS x0) (V.map simplifyAstDynamic as)
+  Ast.AstScanS (nvar, mvar, v) x0 as ->
+    Ast.AstScanS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
+                 (simplifyAstS as)
+  Ast.AstScanDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                  (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstScanDerS (nvar, mvar, simplifyAstS v)
+                    (varDx, varDa, varn1, varm1, simplifyAstS ast1)
+                    (varDt2, nvar2, mvar2, simplifyAstDomains doms)
+                    (simplifyAstS x0) (simplifyAstS as)
+  Ast.AstScanDS (nvar, mvar, v) x0 as ->
+    Ast.AstScanDS (nvar, mvar, simplifyAstS v) (simplifyAstS x0)
+                  (V.map simplifyAstDynamic as)
+  Ast.AstScanDDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+                                   (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstScanDDerS (nvar, mvar, simplifyAstS v)
+                     (varDx, varDa, varn1, varm1, simplifyAstS ast1)
+                     (varDt2, nvar2, mvar2, simplifyAstDomains doms)
+                     (simplifyAstS x0) (V.map simplifyAstDynamic as)
 
 
 -- * Substitution payload and adaptors for AstVarName
@@ -2781,6 +2820,33 @@ substitute1AstS i var = \case
       (Nothing, Nothing) -> Nothing
       (mx0, mas) ->
         Just $ Ast.AstFoldDerS f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstFoldDS f x0 as ->
+    case (substitute1AstS i var x0, substitute1Domains i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) -> Just $ Ast.AstFoldDS f (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstFoldDDerS f df dr x0 as ->
+    case (substitute1AstS i var x0, substitute1Domains i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstFoldDDerS f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstScanS f x0 as ->
+    case (substitute1AstS i var x0, substitute1AstS i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) -> Just $ Ast.AstScanS f (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstScanDerS f df dr x0 as ->
+    case (substitute1AstS i var x0, substitute1AstS i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstScanDerS f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstScanDS f x0 as ->
+    case (substitute1AstS i var x0, substitute1Domains i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) -> Just $ Ast.AstScanDS f (fromMaybe x0 mx0) (fromMaybe as mas)
+  Ast.AstScanDDerS f df dr x0 as ->
+    case (substitute1AstS i var x0, substitute1Domains i var as) of
+      (Nothing, Nothing) -> Nothing
+      (mx0, mas) ->
+        Just $ Ast.AstScanDDerS f df dr (fromMaybe x0 mx0) (fromMaybe as mas)
 
 substitute1AstIndexS
   :: (GoodScalar r2, AstSpan s2)

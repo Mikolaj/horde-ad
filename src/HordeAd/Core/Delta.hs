@@ -44,7 +44,7 @@ module HordeAd.Core.Delta
   , -- * Evaluation of the delta expressions
     DualPart(..), DeltaDt (..)
   , -- * Miscellaneous
-    mapDomainsDeltaR11
+    mapDomainsDeltaR11, mapDomainsDeltaS11kk
   ) where
 
 import Prelude
@@ -60,7 +60,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
-import           Data.List (foldl', mapAccumR, scanl', sort, transpose)
+import           Data.List (foldl', mapAccumR, sort, transpose)
 import           Data.List.Index (ifoldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
@@ -75,12 +75,13 @@ import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 
-import HordeAd.Core.TensorClass
-import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances
+import           HordeAd.Core.TensorClass
+import           HordeAd.Core.Types
+import           HordeAd.Internal.OrthotopeOrphanInstances
   (sameShape, trustMeThisIsAPermutation)
-import HordeAd.Util.ShapedList (ShapedList (..))
-import HordeAd.Util.SizedIndex
+import           HordeAd.Util.ShapedList (ShapedList (..))
+import qualified HordeAd.Util.ShapedList as ShapedList
+import           HordeAd.Util.SizedIndex
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -409,9 +410,16 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
   FoldS :: (GoodScalar rm, Sh.Shape shm, KnownNat k)
-        => (shaped rn sh -> shaped rm shm -> shaped rn sh)
-        -> shaped rn sh -> shaped rm (k ': shm)
---        => shaped rn (k ': sh) -> shaped rm (k ': shm)
+        => shaped rn (1 + k ': sh) -> shaped rm (k ': shm)
+        -> (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh -> f rm shm
+                                 -> f rn sh)
+        -> (forall f. ADReadyS f => f rn sh -> f rn sh -> f rm shm
+                                 -> DomainsOf (RankedOf f))
+        -> DeltaS shaped rn sh
+        -> DeltaS shaped rm (k ': shm)
+        -> DeltaS shaped rn sh
+  FoldSC :: (GoodScalar rm, Sh.Shape shm, KnownNat k)
+        => shaped rn (1 + k ': sh) -> shaped rm (k ': shm)
         -> (shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
             -> shaped rn sh)
         -> (shaped rn sh -> (shaped rn sh, shaped rm shm)
@@ -419,12 +427,63 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> DeltaS shaped rn sh
         -> DeltaS shaped rm (k ': shm)
         -> DeltaS shaped rn sh
+  FoldDS :: KnownNat k
+         => DomainsOD
+         -> shaped rn (k ': sh)
+         -> Domains (RankedOf shaped)  -- one rank higher than the Domains above
+         -> (forall f. ADReadyS f
+             => f rn sh -> DomainsOf (RankedOf f) -> f rn sh
+             -> DomainsOf (RankedOf f)
+             -> f rn sh)
+         -> (forall f. ADReadyS f
+             => f rn sh -> f rn sh -> DomainsOf (RankedOf f)
+             -> DomainsOf (RankedOf f))
+         -> DeltaS shaped rn sh
+         -> Domains (DeltaR (RankedOf shaped))
+         -> DeltaS shaped rn sh
+  FoldDSC :: KnownNat k
+          => DomainsOD
+          -> shaped rn (k ': sh)
+          -> Domains (RankedOf shaped)
+          -> (shaped rn sh -> DomainsOf (RankedOf shaped) -> shaped rn sh
+              -> DomainsOf (RankedOf shaped)
+              -> shaped rn sh)
+          -> (shaped rn sh -> shaped rn sh -> DomainsOf (RankedOf shaped)
+              -> DomainsOf (RankedOf shaped))
+          -> DeltaS shaped rn sh
+          -> Domains (DeltaR (RankedOf shaped))
+          -> DeltaS shaped rn sh
+  ScanS :: (GoodScalar rm, Sh.Shape shm, KnownNat k, Sh.Shape sh)
+        => shaped rn (1 + k ': sh) -> shaped rm (k ': shm)
+        -> (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh -> f rm shm
+                                 -> f rn sh)
+        -> (forall f. ADReadyS f => f rn sh -> f rn sh -> f rm shm
+                                 -> DomainsOf (RankedOf f))
+        -> DeltaS shaped rn sh
+        -> DeltaS shaped rm (k ': shm)
+        -> DeltaS shaped rn (1 + k ': sh)
+  ScanDS :: (Sh.Shape sh, KnownNat k)
+         => DomainsOD
+         -> shaped rn (k ': sh)
+         -> Domains (RankedOf shaped)  -- one rank higher than the Domains above
+         -> (forall f. ADReadyS f
+             => f rn sh -> DomainsOf (RankedOf f) -> f rn sh
+             -> DomainsOf (RankedOf f)
+             -> f rn sh)
+         -> (forall f. ADReadyS f
+             => f rn sh -> f rn sh -> DomainsOf (RankedOf f)
+             -> DomainsOf (RankedOf f))
+         -> DeltaS shaped rn sh
+         -> Domains (DeltaR (RankedOf shaped))
+         -> DeltaS shaped rn (1 + k ': sh)
   CastS :: (GoodScalar r1, RealFrac r1, RealFrac r2)
         => DeltaS shaped r1 sh -> DeltaS shaped r2 sh
   RToS :: forall sh r shaped. KnownNat (Sh.Rank sh)
        => DeltaR (RankedOf shaped) r (Sh.Rank sh)
        -> DeltaS shaped r sh
 
+{- Fails due to @forall f@. Replaced by a manually fixed version at the end
+   of this file.
 deriving instance ( Sh.Shape sh0, GoodScalar r0
                   , Show (IntOf (RankedOf shaped))
                   , Show (IntOf shaped)
@@ -432,6 +491,7 @@ deriving instance ( Sh.Shape sh0, GoodScalar r0
                   , CShaped shaped Show
                   , CRanked (DeltaR (RankedOf shaped)) Show )
                   => Show (DeltaS shaped r0 sh0)
+-}
 
 -- This is needed for the Show instances due to Domains (Delta...)
 -- referring to ShapedOf (Delta..).
@@ -806,6 +866,17 @@ buildFinMaps s0 deltaDt =
             evalR s3 t2 d2
       evalRDynamicRanked _ _ =
         error "evalRDynamicRanked: unexpected constructor"
+      evalSDynamicShaped
+        :: EvalState ranked shaped
+        -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
+        -> EvalState ranked shaped
+      evalSDynamicShaped s3 ( DynamicShaped @rp @shp t2
+                            , DynamicShaped @rq @shq d2 )
+        | Just Refl <- sameShape @shq @shp
+        , Just Refl <- testEquality (typeRep @rp) (typeRep @rq) =
+            evalS s3 t2 d2
+      evalSDynamicShaped _ _ =
+        error "evalSDynamicShaped: unexpected constructor"
       evalR
         :: forall n r. (KnownNat n, GoodScalar r)
         => EvalState ranked shaped
@@ -1231,30 +1302,244 @@ buildFinMaps s0 deltaDt =
                     d
         ReshapeS d -> evalS s (sreshape c) d
         GatherS d f -> evalS s (sscatter c f) d
-{-      FoldS f x0 as _df rf x0' as' ->
-          let las = sunravelToList as
-              p = scanl' f x0 las
-              (cx0, cas) = mapAccumR rf cShared (zip (init p) las)
+{-
+        FoldS @rm @m p as _df rf x0' as' -> case rshape as of
+          width :$ shm ->
+            -- The call @rf cr x a@ is not shared here, but it's repeated
+            -- just two times, so it's fine unless folds are nested badly,
+            -- but then we have worse problems.
+            let !_A1 = assert (rlength p == width + 1) ()
+                shn = shapeDelta x0'
+                domsToPair :: ADReady f => Domains f -> (f r sh, f rm shm)
+                domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
+                crsr :: shaped r (1 + n)
+                crsr =
+                  rscanD (\cr doms' ->
+                            rletDomainsIn domsF doms' $ \doms ->
+                              let (x, a) = domsToPair doms
+                              in rletDomainsIn
+                                   domsF (rf cr x a) $ \rfRes ->
+                                     fst $ domsToPair rfRes)
+                         domsF
+                         cShared  -- not duplicated directly, but just in case
+                         (V.fromList
+                            [ DynamicRanked $ rreverse $ rslice 0 width p
+                            , DynamicRanked $ rreverse as ])
+                crs = rreverse crsr
+                -- We can't share crs via rlet, etc., because it appears
+                -- in two different calls to evalR.
+                (abShared2, crsShared) = rregister crs (astBindings sShared)
+                sShared2 = sShared {astBindings = abShared2}
+                rg :: shaped r (1 + n) -> shaped r (1 + n)
+                   -> shaped rm (1 + m)
+                   -> shaped rm (1 + m)
+                rg = rzipWith31 (\cr x a ->
+                                   rletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                                     snd $ domsToPair rfRes)
+                cas = rg (rslice 1 width crsShared) (rslice 0 width p) as
+                s2 = evalR sShared2 (crsShared ! (0 :. ZI)) x0'
+            in evalR s2 cas as'
+          ZS -> error "evalR: impossible pattern needlessly required"
+-}
+        FoldSC @rm @shm p as _df rf x0' as' ->
+          -- No sharing attempted, because this constructor is usually used
+          -- for shon-symbolic derivatives.
+          let las :: [shaped rm shm]
+              las = sunravelToList as
+              rg :: shaped r sh
+                 -> [(shaped r sh, shaped rm shm)]
+                 -> (shaped r sh, [shaped rm shm])
+              rg = mapAccumR rf
+              (cx0, cas) = rg cShared (zip (init $ sunravelToList p) las)
               s2 = evalS sShared cx0 x0'
-          in evalS s2 (sfromList cas) as' -}
-        FoldS @rm @shm @k f x0 as _df rf x0' as' ->
-          let width = Proxy @k
-              p = sfromList @_ @_ @(1 + k) $ scanl' f x0 $ sunravelToList as
-              crs :: shaped r (1 + k ': sh)
-              crs = sfromList
-                    $ scanr (\(x, a) cr -> fst $ rf cr (x, a))
-                            cShared (zip (sunravelToList
-                                          $ sslice (Proxy @0) width p)
-                                         (sunravelToList as))
-              rg :: shaped r (k ': sh) -> shaped r (k ': sh)
-                 -> shaped rm (k ': shm)
-                 -> shaped rm (k ': shm)
-              rg = szipWith31 (\cr x a -> snd $ rf cr (x, a))
-              cas = rg (sslice @_ @_ @_ @_ @0 (Proxy @1) width crs)
-                       (sslice (Proxy @0) width p)
-                       as
-              s2 = evalS sShared (crs !$ (0 :$: ZSH)) x0'
-          in evalS s2 cas as'
+          in evalS s2 (sfromList cas) as'
+{-
+        FoldDS @rm @m domsOD p as _df rf x0' as' -> case V.unsnoc as of
+          Nothing -> error "evalR: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "evalR: wrong rank of argument"
+            0 : _ -> evalR s c x0'  -- TODO: needed?
+            width : _shm ->
+              let !_A1 = assert (rlength p == width + 1) ()
+                  shn = shapeDelta x0'
+                  domsF = V.cons (odFromSh @r shn) domsOD
+                  domsToPair :: forall f. ADReady f
+                             => Domains f -> (f r sh, Domains f)
+                  domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+                  lp = rreverse p
+                  las :: Domains shaped
+                  las = mapDomainsRanked11 rreverse as
+                  crsr :: shaped r (1 + n)
+                  crsr =
+                    rscanD (\cr doms' ->
+                      rletDomainsIn domsF doms' $ \doms ->
+                        let (x, a) = domsToPair doms
+                        in rletDomainsIn
+                             domsF (rf cr x (dmkDomains a)) $ \rfRes ->
+                               fst $ domsToPair rfRes)
+                           domsF
+                           cShared  -- not duplicated directly, but just in case
+                           (V.cons (DynamicRanked lp) las)
+                  crs = rreverse crsr
+                  (abShared2, crsShared) = rregister crs (astBindings sShared)
+                  sShared2 = sShared {astBindings = abShared2}
+                  rg :: [shaped r sh] -> [shaped r sh]
+                     -> [DomainsOf shaped]  -- [m]
+                     -> [Domains shaped]  -- [m]
+                  rg = zipWith3 (\cr x a ->
+                                   snd $ domsToPair $ dunDomains domsF
+                                   $ rf cr x a)
+                  cas = ravelDomains
+                        $ rg (runravelToList $ rslice 1 width crsShared)
+                             (runravelToList $ rslice 0 width p)
+                             (map dmkDomains $ unravelDomains as)
+                  s2 = evalR sShared2 (crsShared ! (0 :. ZI)) x0'
+              in V.foldl' evalRDynamicRanked s2 $ V.zip cas as'
+-}
+        FoldDSC @rm @shm domsOD p as _df rf x0' as' ->
+          -- No sharing attempted, because this constructor is usually used
+          -- for shon-symbolic derivatives.
+          let domsF = V.cons (odFromShS @r @sh) domsOD
+              domsToPair :: forall f. ADReadyS f
+                         => Domains (RankedOf f)
+                         -> (f r sh, Domains (RankedOf f))
+              domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
+              rg :: shaped r sh
+                 -> [(shaped r sh, DomainsOf (RankedOf shaped))]
+                 -> (shaped r sh, [Domains (RankedOf shaped)])
+              rg = mapAccumR (\cx (x, a) ->
+                                domsToPair $ dunDomains domsF $ rf cx x a)
+              (cx0, cas) = rg cShared
+                              (zip (init $ sunravelToList p)
+                                   (map dmkDomains $ unravelDomains as))
+              s2 = evalS sShared cx0 x0'
+          in V.foldl' evalSDynamicShaped s2 $ V.zip (ravelDomains cas) as'
+{-
+        ScanS @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
+          0 :$ _ -> evalR s (c ! (0 :. ZI)) x0'
+          width :$ shm ->
+            let !_A1 = assert (rlength p == width + 1) ()
+                !_A2 = assert (rlength cShared == width + 1) ()
+                shn = shapeDelta x0'
+                domsToPair :: ADReady f => Domains f -> (f r sh1, f rm shm)
+                domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
+                -- The domain must be @Int@ due to rslice and so can't be
+                -- @IndexOf shaped 0@ for rbuild nor @shaped Int 0@ for rmap.
+                -- We can't fold nor scan over g1/g2, because it's not closed.
+                -- We can't multiply by a unitriangular matrix instead of
+                -- using slice, because rf can have a constant component
+                -- and then it gets summed over the zero area of the matrix.
+                g1 :: Int -> shaped r (1 + n1)
+                g1 k =
+                  let cx = cShared ! (fromIntegral k :. ZI)
+                      rf1 =
+                        rscanD (\cr doms' ->
+                                  rletDomainsIn domsF doms' $ \doms ->
+                                    let (x, a) = domsToPair doms
+                                    in rletDomainsIn
+                                         domsF (rf cr x a) $ \rfRes ->
+                                           fst $ domsToPair rfRes)
+                               domsF
+                               cx
+                               (V.fromList
+                                  [ DynamicRanked $ rreverse $ rslice 0 k p
+                                  , DynamicRanked $ rreverse $ rslice 0 k as ])
+                      padding = rzero (width - k :$ shn)
+                  in rappend (rreverse rf1) padding
+                g1s = map g1 [1 .. width]  -- can't be rmap nor rbuild nor rscan
+                g1t = rfromList g1s
+                (abShared2, g1tShared) = rregister g1t (astBindings sShared)
+                sShared2 = sShared {astBindings = abShared2}
+                g1sum = cShared ! (0 :. ZI) + rsum (rtr g1tShared ! (0 :. ZI))
+                g2 :: Int -> shaped rm (1 + m)
+                g2 k =
+                  let rf11 = rslice 1 k $ g1tShared ! (fromIntegral k - 1 :. ZI)
+                      lp = rslice 0 k p
+                      las = rslice 0 k as
+                      rg :: shaped r (1 + n1) -> shaped r (1 + n1)
+                         -> shaped rm (1 + m)
+                         -> shaped rm (1 + m)
+                      rg = rzipWith31 (\cr x a ->
+                             rletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                                snd $ domsToPair rfRes)
+                      cas = rg rf11 lp las
+                      padding = rzero (width - k :$ shm)
+                  in rappend cas padding
+                g2s = map g2 [1..width]  -- can't be rmap nor rbuild nor rscan
+                g2sum = rsum $ rfromList g2s
+                s2 = evalR sShared2 g1sum x0'
+            in evalR s2 g2sum as'
+          ZS -> error "evalR: impossible pattern needlessly required"
+        ScanDS @_ @_ @n1 domsOD p as _df rf x0' as' -> case V.unsnoc as of
+          Nothing -> error "evalR: can't determine argument width"
+          Just (_, d) -> case shapeDynamic d of
+            [] -> error "evalR: wrong rank of argument"
+            0 : _ -> evalR s (c ! (0 :. ZI)) x0'
+            width : _ ->
+              let !_A1 = assert (rlength p == width + 1) ()
+                  !_A2 = assert (rlength cShared == width + 1) ()
+                  shn = shapeDelta x0'
+                  domsF = V.cons (odFromSh @r shn) domsOD
+                  domsToPair :: forall f. ADReady f
+                             => Domains f -> (f r sh1, Domains f)
+                  domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+                  g1 :: Int -> shaped r (1 + n1)
+                  g1 k =
+                    let cx = cShared ! (fromIntegral k :. ZI)
+                        lp = rreverse $ rslice 0 k p
+                        las :: Domains shaped
+                        las = mapDomainsRanked11 (rreverse . rslice 0 k) as
+                        rf1 =
+                          rscanD (\cr doms' ->
+                                    rletDomainsIn domsF doms' $ \doms ->
+                                      let (x, a) = domsToPair doms
+                                      in rletDomainsIn
+                                           domsF
+                                           (rf cr x (dmkDomains a)) $ \rfRes ->
+                                             fst $ domsToPair rfRes)
+                                 domsF cx
+                                 (V.cons (DynamicRanked lp) las)
+                        padding = rzero (width - k :$ shn)
+                    in rappend (rreverse rf1) padding
+                  g1s = map g1 [1 .. width]  -- can't be rmap, rbuild nor rscan
+                  g1t = rfromList g1s
+                  (abShared2, g1tShared) = rregister g1t (astBindings sShared)
+                  sShared2 = sShared {astBindings = abShared2}
+                  g1sum = cShared ! (0 :. ZI) + rsum (rtr g1tShared ! (0 :. ZI))
+                  g2 :: Int -> Domains shaped  -- 1 + m
+                  g2 k =
+                    let rf11 = rslice 1 k
+                               $ g1tShared ! (fromIntegral k - 1 :. ZI)
+                        lp = rslice 0 k p
+                        las :: Domains shaped  -- 1 + m
+                        las = mapDomainsRanked11 (rslice 0 k) as
+                        -- TODO: use rzipWith31 (rzipWithDomains31?)
+                        rg :: [shaped r sh1] -> [shaped r sh1]
+                           -> [DomainsOf shaped]  -- [m]
+                           -> [Domains shaped]  -- [m]
+                        rg = zipWith3 (\cr x a ->
+                                         snd $ domsToPair $ dunDomains domsF
+                                         $ rf cr x a)
+                        cas = rg (runravelToList rf11)
+                                 (runravelToList lp)
+                                 (map dmkDomains $ unravelDomains las)
+                        padRanked :: DynamicTensor shaped
+                                  -> DynamicTensor shaped
+                        padRanked (DynamicRanked t) = case rshape t of
+                          ZS -> error "padRanked: wrong shape"
+                          kk :$ shm -> assert (kk == k) $
+                            let padding = rzero (width - k :$ shm)
+                            in DynamicRanked $ rappend t padding
+                        padRanked _ = error "padRanked: not DynamicRanked"
+                    in V.map padRanked (ravelDomains cas)
+                  g2s = map g2 [1..width]  -- can't be rmap nor rbuild nor rscan
+                  g2sum = V.fromList $ map sumDynamicRanked
+                          $ transpose $ map V.toList g2s
+                  s2 = evalR sShared2 g1sum x0'
+              in V.foldl' evalRDynamicRanked s2 $ V.zip g2sum as'
+-}
         CastS d -> evalSRuntimeSpecialized s (scast c) d
         RToS (SToR @sh2 d) ->
           case sameShape @sh @sh2 of
@@ -1356,6 +1641,28 @@ mapDeltaR11 f (DynamicRanked t) = case shapeDelta t of
   _ :$ _ -> DynamicRanked $ f t
 mapDeltaR11 _ _ = error "mapDeltaR11: not DynamicRanked"
 
+mapDomainsDeltaS11kk
+  :: forall k k1 shaped.
+     (ShapedOf (RankedOf shaped) ~ shaped, KnownNat k, KnownNat k1)
+  => (forall rq shq. (GoodScalar rq, Sh.Shape shq)
+      => DeltaS shaped rq (k ': shq) -> DeltaS shaped rq (k1 ': shq))
+  -> Domains (DeltaR (RankedOf shaped)) -> Domains (DeltaR (RankedOf shaped))
+mapDomainsDeltaS11kk f = V.map (mapDeltaS11kk f)
+
+mapDeltaS11kk
+  :: forall k k1 shaped.
+     (ShapedOf (RankedOf shaped) ~ shaped, KnownNat k, KnownNat k1)
+  => (forall rq shq. (GoodScalar rq, Sh.Shape shq)
+      => DeltaS shaped rq (k ': shq) -> DeltaS shaped rq (k1 ': shq))
+  -> DynamicTensor (DeltaR (RankedOf shaped))
+  -> DynamicTensor (DeltaR (RankedOf shaped))
+mapDeltaS11kk f (DynamicShaped @_ @sh t) = case ShapedList.shapeSh @sh of
+  ZSH -> error "mapDeltaS11kk: rank 0"
+  (:$:) @n _ _ -> case sameNat (Proxy @n) (Proxy @k) of
+    Just Refl -> DynamicShaped $ f t
+    Nothing -> error "mapDeltaS11kk: wrong width"
+mapDeltaS11kk _ _ = error "mapDeltaS11kk: not DynamicRanked"
+
 
 -- * Forward derivative computation from the delta expressions
 
@@ -1392,6 +1699,13 @@ buildDerivative dimR deltaDt params = do
         return $! DynamicRanked t
       evalRDynamicRanked _ =
         error "evalRDynamicRanked: unexpected constructor"
+      evalSDynamicShaped
+        :: DynamicTensor (DeltaR ranked) -> ST s (DynamicTensor ranked)
+      evalSDynamicShaped (DynamicShaped @rq @shq d) = do
+        t <- evalS d
+        return $! DynamicShaped t
+      evalSDynamicShaped _ =
+        error "evalSDynamicShaped: unexpected constructor"
       evalR
         :: forall n r. (KnownNat n, GoodScalar r)
         => DeltaR ranked r n -> ST s (ranked r n)
@@ -1655,13 +1969,119 @@ buildDerivative dimR deltaDt params = do
         GatherS d f -> do
           t <- evalS d
           return $! sgather t f
-        FoldS f x0 as df _rf x0' as' -> do
+{-
+        FoldS @rm @m p as df _rf x0' as' -> case rshape as of
+          width :$ shm -> do
+            let !_A1 = assert (rlength p == width + 1) ()
+                shn = shapeDelta x0'
+            cx0 <- evalR x0'
+            cas <- evalR as'
+            let domsTo3 :: ADReady f => Domains f -> (f rm shm, f r sh, f rm shm)
+                domsTo3 doms = ( rfromD $ doms V.! 0
+                               , rfromD $ doms V.! 1
+                               , rfromD $ doms V.! 2 )
+                domsF =
+                  V.fromList
+                    [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
+            return $! rfoldD (\cx doms' ->
+                                rletDomainsIn domsF doms' $ \doms ->
+                                  let (ca, x, a) = domsTo3 doms
+                                  in df cx ca x a)
+                             domsF
+                             cx0
+                             (V.fromList
+                                [ DynamicShaped cas
+                                , DynamicShaped $ rslice 0 width p
+                                , DynamicShaped as ])
+          ZS -> error "evalR: impossible pattern needlessly required"
+-}
+        FoldSC p as df _rf x0' as' -> do
           cx0 <- evalS x0'
           cas <- evalS as'
           let lcas = sunravelToList cas
               las = sunravelToList as
-              p = scanl' f x0 las
-          return $! foldl' df cx0 (zip3 lcas (init p) las)
+              lp = sunravelToList p
+          return $! foldl' df cx0 (zip3 lcas (init lp) las)
+{-
+        FoldDS domsOD p as df _rf x0' as' -> do
+          let width = rlength p - 1
+              domsLen = V.length domsOD
+              shn = shapeDelta x0'
+          cx0 <- evalR x0'
+          cas <- V.mapM evalSDynamicShaped as'
+          let domsTo3 :: ADReady f
+                      => Domains f -> (Domains f, f r sh, Domains f)
+              domsTo3 doms = ( V.take domsLen doms
+                             , rfromD $ doms V.! domsLen
+                             , V.drop (domsLen + 1) doms )
+              domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
+          return $! rfoldD (\cx doms' ->
+                              rletDomainsIn domsF doms' $ \doms ->
+                                let (ca, x, a) = domsTo3 doms
+                                in df cx (dmkDomains ca) x (dmkDomains a))
+                           domsF
+                           cx0
+                           (V.concat [ cas
+                                     , V.singleton
+                                         (DynamicShaped $ rslice 0 width p)
+                                     , as ])
+-}
+        FoldDSC _domsOD p as df _rf x0' as' -> do
+          cx0 <- evalS x0'
+          cas <- V.mapM evalSDynamicShaped as'
+          let lcas = map dmkDomains $ unravelDomains cas
+              las = map dmkDomains $ unravelDomains as
+              lp = sunravelToList p
+          return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
+                           cx0 (zip3 lcas (init lp) las)
+{-
+        ScanS @rm @m @_ @_ @n1 p as df _rf x0' as' -> case rshape as of
+          width :$ shm -> do
+            let !_A1 = assert (rlength p == width + 1) ()
+                shn = shapeDelta x0'
+            cx0 <- evalR x0'
+            cas <- evalR as'
+            let domsTo3 :: ADReady f => Domains f -> (f rm shm, f r sh1, f rm shm)
+                domsTo3 doms = ( rfromD $ doms V.! 0
+                               , rfromD $ doms V.! 1
+                               , rfromD $ doms V.! 2 )
+                domsF =
+                  V.fromList
+                    [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
+            return $! rscanD (\cx doms' ->
+                                rletDomainsIn domsF doms' $ \doms ->
+                                  let (ca, x, a) = domsTo3 doms
+                                  in df cx ca x a)
+                             domsF
+                             cx0
+                             (V.fromList
+                                [ DynamicShaped cas
+                                , DynamicShaped $ rslice 0 width p
+                                , DynamicShaped as ])
+          ZS -> error "evalR: impossible pattern needlessly required"
+        ScanDS @_ @_ @n1 domsOD p as df _rf x0' as' -> do
+          let width = rlength p - 1
+              domsLen = V.length domsOD
+              shn = shapeDelta x0'
+          cx0 <- evalR x0'
+          cas <- V.mapM evalSDynamicShaped as'
+          let domsTo3 :: ADReady f
+                      => Domains f -> (Domains f, f r sh1, Domains f)
+              domsTo3 doms = ( V.take domsLen doms
+                             , rfromD $ doms V.! domsLen
+                             , V.drop (domsLen + 1) doms )
+              domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
+          return $! rscanD (\cx doms' ->
+                              rletDomainsIn domsF doms' $ \doms ->
+                                let (ca, x, a) = domsTo3 doms
+                                in df cx (dmkDomains ca) x (dmkDomains a))
+                           domsF
+                           cx0
+                           (V.concat [ cas
+                                     , V.singleton
+                                         (DynamicShaped $ rslice 0 width p)
+                                     , as ])
+-}
         CastS d -> do
           t <- evalS d
           return $! scast t
@@ -2074,3 +2494,349 @@ instance (KnownNat n0,
         (a_adkk >= 11)
         ((.)
            (showString "SToR ") (showsPrec 11 b1_adkl))
+
+instance (ShapedOf (RankedOf shaped) ~ shaped,
+          Sh.Shape sh0,
+          GoodScalar r0,
+          Show
+            (IntOf
+               @Nat
+               (RankedOf @[Nat] shaped)),
+          Show
+            (IntOf @[Nat] shaped),
+          CRanked
+            (RankedOf @[Nat] shaped)
+            Show,
+          CShaped shaped Show,
+          CRanked
+            (DeltaR
+               (RankedOf @[Nat] shaped))
+            Show) =>
+         Show (DeltaS shaped r0 sh0) where
+  showsPrec _ ZeroS
+    = showString "ZeroS"
+  showsPrec a_adtF (InputS b1_adtG)
+    = showParen
+        (a_adtF >= 11)
+        ((.)
+           (showString "InputS ") (showsPrec 11 b1_adtG))
+  showsPrec
+    a_adtH
+    (ScaleS b1_adtI b2_adtJ)
+    = showParen
+        (a_adtH >= 11)
+        ((.)
+           (showString "ScaleS ")
+           ((.)
+              (showsPrec 11 b1_adtI)
+              ((.) showSpace (showsPrec 11 b2_adtJ))))
+  showsPrec a_adtK (AddS b1_adtL b2_adtM)
+    = showParen
+        (a_adtK >= 11)
+        ((.)
+           (showString "AddS ")
+           ((.)
+              (showsPrec 11 b1_adtL)
+              ((.) showSpace (showsPrec 11 b2_adtM))))
+  showsPrec a_adtN (LetS b1_adtO b2_adtP)
+    = showParen
+        (a_adtN >= 11)
+        ((.)
+           (showString "LetS ")
+           ((.)
+              (showsPrec 11 b1_adtO)
+              ((.) showSpace (showsPrec 11 b2_adtP))))
+  showsPrec
+    a_adtQ
+    (IndexS b1_adtR b2_adtS)
+    = showParen
+        (a_adtQ >= 11)
+        ((.)
+           (showString "IndexS ")
+           ((.)
+              (showsPrec 11 b1_adtR)
+              ((.) showSpace (showsPrec 11 b2_adtS))))
+  showsPrec a_adtT (SumS b1_adtU)
+    = showParen
+        (a_adtT >= 11)
+        ((.)
+           (showString "SumS ") (showsPrec 11 b1_adtU))
+  showsPrec a_adtV (Sum0S b1_adtW)
+    = showParen
+        (a_adtV >= 11)
+        ((.)
+           (showString "Sum0S ") (showsPrec 11 b1_adtW))
+  showsPrec
+    a_adtX
+    (Dot0S b1_adtY b2_adtZ)
+    = showParen
+        (a_adtX >= 11)
+        ((.)
+           (showString "Dot0S ")
+           ((.)
+              (showsPrec 11 b1_adtY)
+              ((.) showSpace (showsPrec 11 b2_adtZ))))
+  showsPrec
+    a_adu0
+    (ScatterS b1_adu1 b2_adu2)
+    = showParen
+        (a_adu0 >= 11)
+        ((.)
+           (showString "ScatterS ")
+           ((.)
+              (showsPrec 11 b1_adu1)
+              ((.) showSpace (showsPrec 11 b2_adu2))))
+  showsPrec a_adu3 (FromListS b1_adu4)
+    = showParen
+        (a_adu3 >= 11)
+        ((.)
+           (showString "FromListS ") (showsPrec 11 b1_adu4))
+  showsPrec a_adu5 (FromVectorS b1_adu6)
+    = showParen
+        (a_adu5 >= 11)
+        ((.)
+           (showString "FromVectorS ")
+           (showsPrec 11 b1_adu6))
+  showsPrec a_adu7 (ReplicateS b1_adu8)
+    = showParen
+        (a_adu7 >= 11)
+        ((.)
+           (showString "ReplicateS ")
+           (showsPrec 11 b1_adu8))
+  showsPrec
+    a_adu9
+    (AppendS b1_adua b2_adub)
+    = showParen
+        (a_adu9 >= 11)
+        ((.)
+           (showString "AppendS ")
+           ((.)
+              (showsPrec 11 b1_adua)
+              ((.) showSpace (showsPrec 11 b2_adub))))
+  showsPrec a_aduc (SliceS b1_adud)
+    = showParen
+        (a_aduc >= 11)
+        ((.)
+           (showString "SliceS ") (showsPrec 11 b1_adud))
+  showsPrec a_adue (ReverseS b1_aduf)
+    = showParen
+        (a_adue >= 11)
+        ((.)
+           (showString "ReverseS ") (showsPrec 11 b1_aduf))
+  showsPrec a_adug (TransposeS b1_aduh)
+    = showParen
+        (a_adug >= 11)
+        ((.)
+           (showString "TransposeS ")
+           (showsPrec 11 b1_aduh))
+  showsPrec a_adui (ReshapeS b1_aduj)
+    = showParen
+        (a_adui >= 11)
+        ((.)
+           (showString "ReshapeS ") (showsPrec 11 b1_aduj))
+  showsPrec
+    a_aduk
+    (GatherS b1_adul b2_adum)
+    = showParen
+        (a_aduk >= 11)
+        ((.)
+           (showString "GatherS ")
+           ((.)
+              (showsPrec 11 b1_adul)
+              ((.) showSpace (showsPrec 11 b2_adum))))
+  showsPrec
+    a_adun
+    (FoldS b1_aduo b2_adup _b3_aduq _b4_adur b5_adus
+                              b6_adut)
+    = showParen
+        (a_adun >= 11)
+        ((.)
+           (showString "FoldS ")
+           ((.)
+              (showsPrec 11 b1_aduo)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_adup)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showString "<forall function>")
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showString "<forall function>")
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showsPrec 11 b5_adus)
+                                      ((.)
+                                         showSpace
+                                         (showsPrec 11 b6_adut))))))))))))
+  showsPrec
+    a_aduu
+    (FoldSC b1_aduv b2_aduw b3_adux b4_aduy b5_aduz
+                               b6_aduA)
+    = showParen
+        (a_aduu >= 11)
+        ((.)
+           (showString "FoldSC ")
+           ((.)
+              (showsPrec 11 b1_aduv)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_aduw)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showsPrec 11 b3_adux)
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showsPrec 11 b4_aduy)
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showsPrec 11 b5_aduz)
+                                      ((.)
+                                         showSpace
+                                         (showsPrec 11 b6_aduA))))))))))))
+  showsPrec
+    a_aduB
+    (FoldDS b1_aduC b2_aduD b3_aduE _b4_aduF _b5_aduG
+                               b6_aduH b7_aduI)
+    = showParen
+        (a_aduB >= 11)
+        ((.)
+           (showString "FoldDS ")
+           ((.)
+              (showsPrec 11 b1_aduC)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_aduD)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showsPrec 11 b3_aduE)
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showString "<forall function>")
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showString "<forall function>")
+                                      ((.)
+                                         showSpace
+                                         ((.)
+                                            (showsPrec 11 b6_aduH)
+                                            ((.)
+                                               showSpace
+                                               (showsPrec 11 b7_aduI))))))))))))))
+  showsPrec
+    a_aduJ
+    (FoldDSC b1_aduK b2_aduL b3_aduM b4_aduN b5_aduO
+                                b6_aduP b7_aduQ)
+    = showParen
+        (a_aduJ >= 11)
+        ((.)
+           (showString "FoldDSC ")
+           ((.)
+              (showsPrec 11 b1_aduK)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_aduL)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showsPrec 11 b3_aduM)
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showsPrec 11 b4_aduN)
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showsPrec 11 b5_aduO)
+                                      ((.)
+                                         showSpace
+                                         ((.)
+                                            (showsPrec 11 b6_aduP)
+                                            ((.)
+                                               showSpace
+                                               (showsPrec 11 b7_aduQ))))))))))))))
+  showsPrec
+    a_aduR
+    (ScanS b1_aduS b2_aduT _b3_aduU _b4_aduV b5_aduW
+                              b6_aduX)
+    = showParen
+        (a_aduR >= 11)
+        ((.)
+           (showString "ScanS ")
+           ((.)
+              (showsPrec 11 b1_aduS)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_aduT)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showString "<forall function>")
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showString "<forall function>")
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showsPrec 11 b5_aduW)
+                                      ((.)
+                                         showSpace
+                                         (showsPrec 11 b6_aduX))))))))))))
+  showsPrec
+    a_aduY
+    (ScanDS b1_aduZ b2_adv0 b3_adv1 _b4_adv2 _b5_adv3
+                               b6_adv4 b7_adv5)
+    = showParen
+        (a_aduY >= 11)
+        ((.)
+           (showString "ScanDS ")
+           ((.)
+              (showsPrec 11 b1_aduZ)
+              ((.)
+                 showSpace
+                 ((.)
+                    (showsPrec 11 b2_adv0)
+                    ((.)
+                       showSpace
+                       ((.)
+                          (showsPrec 11 b3_adv1)
+                          ((.)
+                             showSpace
+                             ((.)
+                                (showString "<forall function>")
+                                ((.)
+                                   showSpace
+                                   ((.)
+                                      (showString "<forall function>")
+                                      ((.)
+                                         showSpace
+                                         ((.)
+                                            (showsPrec 11 b6_adv4)
+                                            ((.)
+                                               showSpace
+                                               (showsPrec 11 b7_adv5))))))))))))))
+  showsPrec a_adv6 (CastS b1_adv7)
+    = showParen
+        (a_adv6 >= 11)
+        ((.)
+           (showString "CastS ") (showsPrec 11 b1_adv7))
+  showsPrec a_adv8 (RToS b1_adv9)
+    = showParen
+        (a_adv8 >= 11)
+        ((.)
+           (showString "RToS ") (showsPrec 11 b1_adv9))

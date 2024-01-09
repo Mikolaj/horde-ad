@@ -22,6 +22,7 @@ module HordeAd.Core.TensorClass
   , odFromVar, odFromSh, odFromShS, fromDomainsR, fromDomainsS
   , unravelDomains, ravelDomains
   , mapDomainsRanked, mapDomainsRanked01, mapDomainsRanked10, mapDomainsRanked11
+  , mapDomainsShaped11, mapDomainsShaped11kk
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
   ) where
 
@@ -873,8 +874,8 @@ class DomainsTensor (ranked :: RankedTensorType)
             -> ranked rn (1 + n)
   sfold :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
-        -> shaped rn sh  -- ^ initial value
-        -> shaped rm (k ': shm)  -- ^ iteration is over the outermost dimension
+        -> shaped rn sh
+        -> shaped rm (k ': shm)
         -> shaped rn sh
   sfoldDer :: ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
               , KnownNat k )
@@ -883,10 +884,69 @@ class DomainsTensor (ranked :: RankedTensorType)
                => f rn sh -> f rm shm -> f rn sh -> f rm shm
                -> f rn sh)
            -> (forall f. ADReadyS f
-               => f rn sh -> f rn sh -> f rm shm -> DomainsOf f)
-           -> shaped rn sh  -- ^ initial value
-           -> shaped rm (k ': shm)  -- ^ iteration over the outermost dimension
+               => f rn sh -> f rn sh -> f rm shm -> DomainsOf (RankedOf f))
            -> shaped rn sh
+           -> shaped rm (k ': shm)
+           -> shaped rn sh
+  sfoldD :: (GoodScalar rn, Sh.Shape sh)
+         => (forall f. ADReadyS f
+             => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+         -> DomainsOD
+         -> shaped rn sh
+         -> Domains (RankedOf shaped)
+         -> shaped rn sh
+  sfoldDDer :: (GoodScalar rn, Sh.Shape sh)
+            => (forall f. ADReadyS f
+                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+            -> (forall f. ADReadyS f
+                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh
+                -> DomainsOf (RankedOf f)
+                -> f rn sh)
+            -> (forall f. ADReadyS f
+                => f rn sh -> f rn sh -> DomainsOf (RankedOf f)
+                -> DomainsOf (RankedOf f))
+            -> DomainsOD
+            -> shaped rn sh
+            -> Domains (RankedOf shaped)
+            -> shaped rn sh
+  sscan :: (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
+        => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+        -> shaped rn sh
+        -> shaped rm (k ': shm)
+        -> shaped rn (1 + k ': sh)
+  sscanDer :: ( GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm
+              , KnownNat k )
+           => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
+           -> (forall f. ADReadyS f
+               => f rn sh -> f rm shm -> f rn sh -> f rm shm
+               -> f rn sh)
+           -> (forall f. ADReadyS f
+               => f rn sh -> f rn sh -> f rm shm -> DomainsOf (RankedOf f))
+           -> shaped rn sh
+           -> shaped rm (k ': shm)
+           -> shaped rn (1 + k ': sh)
+  sscanD :: (GoodScalar rn, Sh.Shape sh, KnownNat k)
+         => (forall f. ADReadyS f
+             => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+         -> DomainsOD
+         -> shaped rn sh
+         -> Domains (RankedOf shaped)
+         -> shaped rn (1 + k ': sh)
+  sscanDDer :: (GoodScalar rn, Sh.Shape sh, KnownNat k)
+            => (forall f. ADReadyS f
+                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
+            -> (forall f. ADReadyS f
+                => f rn sh -> DomainsOf (RankedOf f) -> f rn sh
+                -> DomainsOf (RankedOf f)
+                -> f rn sh)
+            -> (forall f. ADReadyS f
+                => f rn sh -> f rn sh -> DomainsOf (RankedOf f)
+                -> DomainsOf (RankedOf f))
+            -> DomainsOD
+            -> shaped rn sh
+            -> Domains (RankedOf shaped)
+            -> shaped rn (1 + k ': sh)
+
 
 -- * The giga-constraint
 
@@ -1177,6 +1237,46 @@ mapRanked11 f (DynamicRanked t) = case rshape t of
   ZS -> error "mapRanked11: rank 0"
   _ :$ _ -> DynamicRanked $ f t
 mapRanked11 _ _ = error "mapRanked11: not DynamicRanked"
+
+mapDomainsShaped11
+  :: (ShapedTensor shaped, ShapedOf (RankedOf shaped) ~ shaped)
+  => (forall rq kq shq. (GoodScalar rq, Sh.Shape shq, KnownNat kq)
+      => shaped rq (kq ': shq) -> shaped rq (kq ': shq))
+  -> Domains (RankedOf shaped) -> Domains (RankedOf shaped)
+mapDomainsShaped11 f = V.map (mapShaped11 f)
+
+mapShaped11
+  :: (ShapedTensor shaped, ShapedOf (RankedOf shaped) ~ shaped)
+  => (forall rq kq shq. (GoodScalar rq, Sh.Shape shq, KnownNat kq)
+      => shaped rq (kq ': shq) -> shaped rq (kq ': shq))
+  -> DynamicTensor (RankedOf shaped) -> DynamicTensor (RankedOf shaped)
+mapShaped11 f (DynamicShaped @r t) = case sshape t of
+  ZSH -> error "mapShaped11: rank 0"
+  _ :$: _ -> DynamicShaped $ f t
+mapShaped11 _ _ = error "mapShaped11: not DynamicShaped"
+
+mapDomainsShaped11kk
+  :: forall k k1 shaped.
+     ( ShapedTensor shaped, ShapedOf (RankedOf shaped) ~ shaped
+     , KnownNat k, KnownNat k1 )
+  => (forall rq shq. (GoodScalar rq, Sh.Shape shq)
+      => shaped rq (k ': shq) -> shaped rq (k1 ': shq))
+  -> Domains (RankedOf shaped) -> Domains (RankedOf shaped)
+mapDomainsShaped11kk f = V.map (mapShaped11kk f)
+
+mapShaped11kk
+  :: forall k k1 shaped.
+     ( ShapedTensor shaped, ShapedOf (RankedOf shaped) ~ shaped
+     , KnownNat k, KnownNat k1 )
+  => (forall rq shq. (GoodScalar rq, Sh.Shape shq)
+      => shaped rq (k ': shq) -> shaped rq (k1 ': shq))
+  -> DynamicTensor (RankedOf shaped) -> DynamicTensor (RankedOf shaped)
+mapShaped11kk f (DynamicShaped @r t) = case sshape t of
+  ZSH -> error "mapShaped11kk: rank 0"
+  (:$:) @n _ _ -> case sameNat (Proxy @n) (Proxy @k) of
+    Just Refl -> DynamicShaped $ f t
+    Nothing -> error "mapShaped11kk: wrong width"
+mapShaped11kk _ _ = error "mapShaped11kk: not DynamicShaped"
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 
