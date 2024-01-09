@@ -125,7 +125,9 @@ interpretAst !env = \case
         Just Refl -> assert (rshape t == sh
                              `blame` (sh, rshape t, varId, t, env)) t
         _ -> error "interpretAst: scalar mismatch"
-      _ -> error "interpretAst: wrong shape in environment"
+      _ -> error $ "interpretAst: wrong rank in environment"
+                   `showFailure`
+                   (valueOf @n :: Int, valueOf @n2 :: Int, varId, t, env)
     -- To impose such checks, we'd need to switch from OD tensors
     -- to existential OR/OS tensors so that we can inspect
     -- which it is and then seed Delta evaluation maps with that.

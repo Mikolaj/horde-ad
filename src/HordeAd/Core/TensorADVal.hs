@@ -557,14 +557,16 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         -- rscan f x0 as = rbuild1 (rlength as + 1)
         --                 $ \i -> rfold f x0 (rslice 0 i as)
         scanAsFold =
-          let h (asPrefix, as'Prefix) =
-                FoldRC pShared asPrefix df rf x0' as'Prefix
+          let h (pPrefix, asPrefix, as'Prefix) =
+                FoldRC pPrefix asPrefix df rf x0' as'Prefix
               -- starting from 0 would be better, but I'm
               -- getting "tfromListR: shape ambiguity, no arguments"
+              initsViaSliceP = map (\k -> rslice @ranked 0 (1 + k) pShared)
+                                   [1 .. width]
               initsViaSlice = map (\k -> rslice @ranked 0 k as) [1 .. width]
               initsViaSliceD = map (\k -> SliceR 0 k as') [1 .. width]
           in FromListR
-             $ x0' : map h (zip initsViaSlice initsViaSliceD)
+             $ x0' : map h (zip3 initsViaSliceP initsViaSlice initsViaSliceD)
     in D l3 pShared scanAsFold
   rscanDer :: forall rn rm n m.
               (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
@@ -612,8 +614,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
         width = rlength p - 1
         scanAsFold =
-          let h (asPrefix, as'Prefix) =
-                FoldDRC domsOD pShared asPrefix df rf x0' as'Prefix
+          let h (pPrefix, asPrefix, as'Prefix) =
+                FoldDRC domsOD pPrefix asPrefix df rf x0' as'Prefix
+              initsViaSliceP = map (\k -> rslice @ranked 0 (1 + k) pShared)
+                                   [1 .. width]
               initsViaSlice =
                 map (\k -> mapDomainsRanked11 (rslice @ranked 0 k) as)
                     [1 .. width]
@@ -621,7 +625,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                 map (\k -> mapDomainsDeltaR11 (SliceR 0 k) as')
                     [1 .. width]
           in FromListR
-             $ x0' : map h (zip initsViaSlice initsViaSliceD)
+             $ x0' : map h (zip3 initsViaSliceP initsViaSlice initsViaSliceD)
     in D l3 pShared scanAsFold
   rscanDDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
