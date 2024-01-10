@@ -11,6 +11,7 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.Bifunctor.Flip
 import           Data.Int (Int64)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
@@ -143,6 +144,10 @@ testTrees =
   , testCase "4Sin0ScanD1fwd" testSin0ScanD1fwd
   , testCase "4Sin0ScanD8fwd" testSin0ScanD8fwd
   , testCase "4Sin0ScanD8fwd2" testSin0ScanD8fwd2
+  , testCase "4Sin0FoldNestedS1" testSin0FoldNestedS1
+  , testCase "4Sin0FoldNestedS2" testSin0FoldNestedS2
+  , testCase "4Sin0FoldNestedS3" testSin0FoldNestedS3
+  , testCase "4Sin0FoldNestedS4" testSin0FoldNestedS4
   ]
 
 foo :: RealFloat a => (a, a, a) -> a
@@ -1379,3 +1384,66 @@ testSin0ScanD8fwd2 = do
   assertEqualUpToEpsilon 1e-10
     (Flip $ OR.fromList [] [324.086730481586])
     (crev h 1.1)
+
+testSin0FoldNestedS1 :: Assertion
+testSin0FoldNestedS1 = do
+  assertEqualUpToEpsilon' 1e-10
+    (2.0504979297616553e-43 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (\x a ->
+                        sfold (\x2 a2 -> 0.7 * x2 * a2)
+                              a (sreplicate @_ @7 x))
+                            a0 (sreplicate @_ @3 a0)
+           in rfromS . f . sfromR) 1.1)
+
+testSin0FoldNestedS2 :: Assertion
+testSin0FoldNestedS2 = do
+  assertEqualUpToEpsilon' 1e-10
+    (3.175389686661287e-207 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (\x a ->
+                        sfold (\x2 a2 ->
+                          sfold (\x3 a3 -> 0.7 * x3 * a3)
+                                a2 (sreplicate @_ @4 x2))
+                              a (sreplicate @_ @3 x))
+                            a0 (sreplicate @_ @2 a0)
+           in rfromS . f . sfromR) 1.1)
+
+testSin0FoldNestedS3 :: Assertion
+testSin0FoldNestedS3 = do
+  assertEqualUpToEpsilon' 1e-10
+    (1.9292299290000023e-7 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (\x a ->
+                        sfold (\x2 a2 ->
+                          sfold (\x3 a3 ->
+                            sfold (\x4 a4 ->
+                              sfold (\x5 a5 -> 0.1 * x5 * a5)
+                                    a4 (sreplicate @_ @2 x4))
+                                  a3 (sreplicate @_ @1 x3))
+                                a2 (sreplicate @_ @2 x2))
+                              a (sreplicate @_ @1 x))
+                            a0 (sreplicate @_ @2 a0)
+           in rfromS . f . sfromR) 1.1)
+
+testSin0FoldNestedS4 :: Assertion
+testSin0FoldNestedS4 = do
+  assertEqualUpToEpsilon' 1e-10
+    (-0.20775612781643243 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[3]
+               f a0 = sfold (\x a -> atan2
+                                       (sscan (+) (ssum x)
+                                          (sscan (*) 2
+                                                 (sreplicate @_ @1 a)))
+                                       (sscan (\x1 a1 ->
+                                          sfold (\x2 a2 ->
+                                            sfold (\x3 a3 ->
+                                                     0.001 * (x3 * a3 - x3))
+                                                  a2 (sscan (+) x2
+                                                        (sreplicate @_ @3 a2)))
+                                                x1 (sreplicate @_ @1 a1))
+                                              a (sscan (-) 0
+                                                   (sslice (Proxy @0)
+                                                           (Proxy @1) x))))
+                            (sreplicate @_ @3 $ 2 * a0) (sreplicate @_ @2 a0)
+           in rfromS . f . sfromR) 1.1)
