@@ -1028,7 +1028,7 @@ testReluSimplerPP4S2 = do
   printPrimal6PrettyS renames artifactRev
     @?= "\\m2 x3 -> let m7 = sreshape (sreplicate x3) ; m8 = m2 * m7 ; m12 = sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m8 !$ [i9, i10] <=. sconst @[] 0.0) 0 1]) in m12 * m8"
   printGradient6PrettyS renames (simplifyArtifactRevS artifactRev)
-    @?= "\\dret m2 x3 -> let m7 = sreshape (sreplicate x3) ; m13 = sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF ((m2 * m7) !$ [i9, i10] <=. sconst @[] 0.0) 0 1]) * dret in (m7 * m13, ssum (sreshape (m2 * m13)))"
+    @?= "\\dret m2 x3 -> let m7 = sreshape (sreplicate x3) ; m13 = sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m2 !$ [i9, i10] * m7 !$ [i9, i10] <=. sconst @[] 0.0) 0 1]) * dret in (m7 * m13, ssum (sreshape (m2 * m13)))"
   printPrimal6PrettyS renames (simplifyArtifactRevS artifactRev)
     @?= "\\m2 x3 -> let m8 = m2 * sreshape (sreplicate x3) in sgather (sreplicate (sconst @[2] (fromList @[2] [0.0,1.0]))) (\\[i9, i10] -> [i9, ifF (m8 !$ [i9, i10] <=. sconst @[] 0.0) 0 1]) * m8"
   show deltas

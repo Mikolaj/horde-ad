@@ -720,10 +720,6 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->
-            -- We could do lots of type comparisons and then reuse the variables
-            -- from above, for a little more sanity check paranoid assurance,
-            -- but @HasSingletonDict@ would need to be added
-            -- to @AstDynamicVarName@, complicating also other code.
             let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
                 (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
                 (nvar, mvar) = (AstVarName nid, AstVarName mid)
@@ -817,10 +813,6 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->
-            -- We could do lots of type comparisons and then reuse the variables
-            -- from above, for a little more sanity check paranoid assurance,
-            -- but @HasSingletonDict@ would need to be added
-            -- to @AstDynamicVarName@, complicating also other code.
             let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
                 (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
                 (nvar, mvar) = (AstVarName nid, AstVarName mid)
@@ -909,10 +901,6 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->
-            -- We could do lots of type comparisons and then reuse the variables
-            -- from above, for a little more sanity check paranoid assurance,
-            -- but @HasSingletonDict@ would need to be added
-            -- to @AstDynamicVarName@, complicating also other code.
             let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
                 (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
                 (nvar, mvar) = (AstVarName nid, AstVarName mid)
@@ -1003,10 +991,6 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
           ( ( ( [AstDynamicVarName nid1, AstDynamicVarName mid1]
               , [AstDynamicVarName nid2, AstDynamicVarName mid2] )
             , derivative, _primal), _delta ) ->
-            -- We could do lots of type comparisons and then reuse the variables
-            -- from above, for a little more sanity check paranoid assurance,
-            -- but @HasSingletonDict@ would need to be added
-            -- to @AstDynamicVarName@, complicating also other code.
             let (nvar1, mvar1) = (AstVarName nid1, AstVarName mid1)
                 (nvar2, mvar2) = (AstVarName nid2, AstVarName mid2)
                 (nvar, mvar) = (AstVarName nid, AstVarName mid)

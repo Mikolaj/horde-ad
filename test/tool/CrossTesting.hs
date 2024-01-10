@@ -4,7 +4,7 @@ module CrossTesting
   ( assertEqualUpToEpsilon1
   , rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , t16, t16b, t48, t128, t128b, t128c
-  , rrev1, rfwd1, srev1
+  , rrev1, rfwd1, srev1, sfwd1
   ) where
 
 import Prelude
@@ -480,3 +480,15 @@ srev1 f u =
       domsOf = srev @(RankedOf g)
                     fDomains shapes (V.singleton $ DynamicShaped u)
   in sletDomainsIn shapes domsOf (\v -> sfromD $ v V.! 0)
+
+sfwd1 :: forall g r sh sh2 r3.
+         (ADReadyS g, GoodScalar r, GoodScalar r3, Sh.Shape sh, Sh.Shape sh2)
+      => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh -> g r3 sh2
+sfwd1 f u =
+  let fDomains :: forall f. ADReadyS f
+               => Domains (RankedOf f) -> f r3 sh2
+      fDomains v = f (sfromD $ v V.! 0)
+      zero = odFromShS @r @sh
+      shapes = V.fromList [zero]
+  in sfwd @(RankedOf g) fDomains shapes (V.singleton $ DynamicShaped u)
+                                        (V.singleton $ DynamicShaped u)

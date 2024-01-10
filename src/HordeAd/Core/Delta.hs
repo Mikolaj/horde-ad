@@ -429,7 +429,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> DeltaS shaped rn sh
   FoldDS :: KnownNat k
          => DomainsOD
-         -> shaped rn (k ': sh)
+         -> shaped rn (1 + k ': sh)
          -> Domains (RankedOf shaped)  -- one rank higher than the Domains above
          -> (forall f. ADReadyS f
              => f rn sh -> DomainsOf (RankedOf f) -> f rn sh
@@ -443,7 +443,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
          -> DeltaS shaped rn sh
   FoldDSC :: KnownNat k
           => DomainsOD
-          -> shaped rn (k ': sh)
+          -> shaped rn (1 + k ': sh)
           -> Domains (RankedOf shaped)
           -> (shaped rn sh -> DomainsOf (RankedOf shaped) -> shaped rn sh
               -> DomainsOf (RankedOf shaped)
@@ -464,7 +464,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> DeltaS shaped rn (1 + k ': sh)
   ScanDS :: (Sh.Shape sh, KnownNat k)
          => DomainsOD
-         -> shaped rn (k ': sh)
+         -> shaped rn (1 + k ': sh)
          -> Domains (RankedOf shaped)  -- one rank higher than the Domains above
          -> (forall f. ADReadyS f
              => f rn sh -> DomainsOf (RankedOf f) -> f rn sh
@@ -1302,46 +1302,41 @@ buildFinMaps s0 deltaDt =
                     d
         ReshapeS d -> evalS s (sreshape c) d
         GatherS d f -> evalS s (sscatter c f) d
-{-
-        FoldS @rm @m p as _df rf x0' as' -> case rshape as of
-          width :$ shm ->
-            -- The call @rf cr x a@ is not shared here, but it's repeated
-            -- just two times, so it's fine unless folds are nested badly,
-            -- but then we have worse problems.
-            let !_A1 = assert (rlength p == width + 1) ()
-                shn = shapeDelta x0'
-                domsToPair :: ADReady f => Domains f -> (f r sh, f rm shm)
-                domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
-                crsr :: shaped r (1 + n)
-                crsr =
-                  rscanD (\cr doms' ->
-                            rletDomainsIn domsF doms' $ \doms ->
-                              let (x, a) = domsToPair doms
-                              in rletDomainsIn
-                                   domsF (rf cr x a) $ \rfRes ->
-                                     fst $ domsToPair rfRes)
-                         domsF
-                         cShared  -- not duplicated directly, but just in case
-                         (V.fromList
-                            [ DynamicRanked $ rreverse $ rslice 0 width p
-                            , DynamicRanked $ rreverse as ])
-                crs = rreverse crsr
-                -- We can't share crs via rlet, etc., because it appears
-                -- in two different calls to evalR.
-                (abShared2, crsShared) = rregister crs (astBindings sShared)
-                sShared2 = sShared {astBindings = abShared2}
-                rg :: shaped r (1 + n) -> shaped r (1 + n)
-                   -> shaped rm (1 + m)
-                   -> shaped rm (1 + m)
-                rg = rzipWith31 (\cr x a ->
-                                   rletDomainsIn domsF (rf cr x a) $ \rfRes ->
-                                     snd $ domsToPair rfRes)
-                cas = rg (rslice 1 width crsShared) (rslice 0 width p) as
-                s2 = evalR sShared2 (crsShared ! (0 :. ZI)) x0'
-            in evalR s2 cas as'
-          ZS -> error "evalR: impossible pattern needlessly required"
--}
+        FoldS @rm @shm @k p as _df rf x0' as' ->
+          let domsToPair :: ADReadyS f
+                         => Domains (RankedOf f) -> (f r sh, f rm shm)
+              domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
+              domsF = V.fromList [odFromShS @r @sh, odFromShS @rm @shm]
+              crsr :: shaped r (1 + k ': sh)
+              crsr =
+                sscanD (\cr doms' ->
+                          sletDomainsIn domsF doms' $ \doms ->
+                            let (x, a) = domsToPair doms
+                            in sletDomainsIn
+                                 domsF (rf cr x a) $ \rfRes ->
+                                   fst $ domsToPair rfRes)
+                       domsF
+                       cShared  -- not duplicated directly, but just in case
+                       (V.fromList
+                          [ DynamicShaped $ sreverse
+                            $ sslice @_ @_ @_ @_ @1
+                                     (Proxy @0) (Proxy @k) p
+                          , DynamicShaped $ sreverse as ])
+              crs = sreverse crsr
+              (abShared2, crsShared) = sregister crs (astBindings sShared)
+              sShared2 = sShared {astBindings = abShared2}
+              rg :: shaped r (k ': sh) -> shaped r (k ': sh)
+                 -> shaped rm (k ': shm)
+                 -> shaped rm (k ': shm)
+              rg = szipWith31 (\cr x a ->
+                                 sletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                                   snd $ domsToPair rfRes)
+              cas = rg (sslice @_ @_ @_ @_ @0
+                               (Proxy @1) (Proxy @k) crsShared)
+                       (sslice @_ @_ @_ @_ @1
+                               (Proxy @0) (Proxy @k) p) as
+              s2 = evalS sShared2 (crsShared !$ (0 :$: ZSH)) x0'
+          in evalS s2 cas as'
         FoldSC @rm @shm p as _df rf x0' as' ->
           -- No sharing attempted, because this constructor is usually used
           -- for shon-symbolic derivatives.
@@ -1969,32 +1964,27 @@ buildDerivative dimR deltaDt params = do
         GatherS d f -> do
           t <- evalS d
           return $! sgather t f
-{-
-        FoldS @rm @m p as df _rf x0' as' -> case rshape as of
-          width :$ shm -> do
-            let !_A1 = assert (rlength p == width + 1) ()
-                shn = shapeDelta x0'
-            cx0 <- evalR x0'
-            cas <- evalR as'
-            let domsTo3 :: ADReady f => Domains f -> (f rm shm, f r sh, f rm shm)
-                domsTo3 doms = ( rfromD $ doms V.! 0
-                               , rfromD $ doms V.! 1
-                               , rfromD $ doms V.! 2 )
-                domsF =
-                  V.fromList
-                    [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
-            return $! rfoldD (\cx doms' ->
-                                rletDomainsIn domsF doms' $ \doms ->
-                                  let (ca, x, a) = domsTo3 doms
-                                  in df cx ca x a)
-                             domsF
-                             cx0
-                             (V.fromList
-                                [ DynamicShaped cas
-                                , DynamicShaped $ rslice 0 width p
-                                , DynamicShaped as ])
-          ZS -> error "evalR: impossible pattern needlessly required"
--}
+        FoldS @rm @shm @k p as df _rf x0' as' -> do
+          cx0 <- evalS x0'
+          cas <- evalS as'
+          let domsTo3 :: ADReadyS f
+                      => Domains (RankedOf f) -> (f rm shm, f r sh, f rm shm)
+              domsTo3 doms = ( sfromD $ doms V.! 0
+                             , sfromD $ doms V.! 1
+                             , sfromD $ doms V.! 2 )
+              domsF =
+                V.fromList
+                  [odFromShS @rm @shm, odFromShS @r @sh, odFromShS @rm @shm]
+          return $! sfoldD (\cx doms' ->
+                              sletDomainsIn domsF doms' $ \doms ->
+                                let (ca, x, a) = domsTo3 doms
+                                in df cx ca x a)
+                           domsF
+                           cx0
+                           (V.fromList
+                              [ DynamicShaped cas
+                              , DynamicShaped $ sslice (Proxy @0) (Proxy @k) p
+                              , DynamicShaped as ])
         FoldSC p as df _rf x0' as' -> do
           cx0 <- evalS x0'
           cas <- evalS as'

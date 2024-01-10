@@ -5,6 +5,7 @@
 module HordeAd.Core.AstPrettyPrint
   ( -- * Pretty-print variables
     printAstVarName, printAstVarNameS, printAstDynamicVarName
+  , printAstIntVarName
     -- * User-friendly API for pretty-printing AST terms
   , printAstSimple, printAstPretty
   , printAstSimpleS, printAstPrettyS
@@ -150,6 +151,10 @@ printAstVarFromLet u cfg var =
     _ ->  -- the heuristics failed
       printAstVar cfg var
   else printAstVar cfg var
+
+printAstIntVarName :: IntMap String -> IntVarName -> String
+printAstIntVarName renames var =
+  printAstIntVar (defaulPrintConfig False renames) var ""
 
 printAstVarName :: KnownNat n
                 => IntMap String -> AstVarName (AstRanked s) r n

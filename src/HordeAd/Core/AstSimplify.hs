@@ -252,12 +252,22 @@ astIndexStep
 astIndexStep v ix = astIndexROrStepOnly True (simplifyStepNonIndex v)
                                              (fmap simplifyAst ix)
 
-astIndexStepS
+astIndexS
   :: forall sh1 sh2 s r.
-     (Sh.Shape sh1, Sh.Shape sh2, Sh.Shape (sh1 Sh.++ sh2))
+     ( Sh.Shape sh1, Sh.Shape sh2, Sh.Shape (sh1 Sh.++ sh2)
+     , GoodScalar r, AstSpan s )
   => AstShaped s r (sh1 Sh.++ sh2) -> AstIndexS sh1
   -> AstShaped s r sh2
-astIndexStepS v ix = Ast.AstIndexS v ix  -- TODO
+astIndexS = astIndexSOrStepOnly False
+
+astIndexStepS
+  :: forall sh1 sh2 s r.
+     ( Sh.Shape sh1, Sh.Shape sh2, Sh.Shape (sh1 Sh.++ sh2)
+     , GoodScalar r, AstSpan s )
+  => AstShaped s r (sh1 Sh.++ sh2) -> AstIndexS sh1
+  -> AstShaped s r sh2
+astIndexStepS v ix = astIndexSOrStepOnly True (simplifyStepNonIndexS v)
+                                              (fmap simplifyAst ix)
 
 -- If stepOnly is set, we reduce only as long as needed to reveal
 -- a non-indexing constructor or one of the normal forms (one-element
@@ -298,9 +308,7 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexROrStepOnly stepOnly v ix
   Ast.AstMaxIndex v -> Ast.AstMaxIndex $ astIndexROrStepOnly stepOnly v ix
   Ast.AstFloor v -> Ast.AstFloor $ astIndexROrStepOnly stepOnly v ix
-  Ast.AstIota | AstConst i <- i1 -> case sameNat (Proxy @m) (Proxy @1) of
-    Just Refl -> fromIntegral i
-    _ -> error "astIndex: AstIota: impossible pattern needlessly required"
+  Ast.AstIota | AstConst i <- i1 -> fromIntegral i
   Ast.AstIota -> Ast.AstIndex v0 ix
   AstN1 opCode u ->
     shareIx ix $ \ix2 -> AstN1 opCode (astIndexRec u ix2)
@@ -440,6 +448,195 @@ astIndexROrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1)) =
   Ast.AstScanDDer{} -> Ast.AstIndex v0 ix  -- normal form
     -- TODO: when index is constant, rewrite to fold of slice
 
+astIndexSOrStepOnly
+  :: forall shm shn s r.
+     ( Sh.Shape shm, Sh.Shape shn, Sh.Shape (shm Sh.++ shn)
+     , GoodScalar r, AstSpan s )
+  => Bool -> AstShaped s r (shm Sh.++ shn) -> AstIndexS shm
+  -> AstShaped s r shn
+astIndexSOrStepOnly stepOnly (Ast.AstIndexS v ix) ZSH =
+  astIndexSOrStepOnly stepOnly v ix
+astIndexSOrStepOnly _ v0 ZSH = v0
+astIndexSOrStepOnly stepOnly v0 ix@((:$:) @in1 i1 (rest1 :: AstIndexS shm1)) =
+  let astIndexRec, astIndex
+        :: forall shm' shn' s'.
+           ( Sh.Shape shm', Sh.Shape shn', Sh.Shape (shm' Sh.++ shn')
+           , AstSpan s' )
+        => AstShaped s' r (shm' Sh.++ shn') -> AstIndexS shm'
+        -> AstShaped s' r shn'
+      astIndexRec vRec ZSH = vRec
+      astIndexRec vRec ixRec =
+        if stepOnly then Ast.AstIndexS vRec ixRec else astIndexS vRec ixRec
+      astIndex = if stepOnly then astIndexStepS else astIndexS
+      astGather
+        :: forall shm' shn' p'.
+           ( Sh.Shape shm', Sh.Shape shn'
+           , Sh.Shape (Sh.Take p' shm'), Sh.Shape (Sh.Drop p' shm') )
+        => AstShaped s r shm'
+        -> (AstVarListS shn', AstIndexS (Sh.Take p' shm'))
+        -> AstShaped s r (shn' Sh.++ Sh.Drop p' shm')
+      astGather = if stepOnly then astGatherStepS else astGatherS
+ in case v0 of
+  Ast.AstVarS{} -> Ast.AstIndexS v0 ix
+  Ast.AstLetS var u v -> astLetS var u (astIndexRec v ix)
+  Ast.AstLetADShareS{} -> error "astIndexROrStepOnlyS: AstLetADShareS"
+  Ast.AstCondS b v w ->
+    shareIxS ix $ \ix2 -> astCondS b (astIndexRec v ix2) (astIndexRec w ix2)
+  Ast.AstMinIndexS _v -> Ast.AstIndexS v0 ix  -- "TODO" -- Ast.AstMinIndexS $ astIndexSOrStepOnly stepOnly v ix
+  Ast.AstMaxIndexS _v -> Ast.AstIndexS v0 ix  -- "TODO" -- Ast.AstMaxIndexS $ astIndexSOrStepOnly stepOnly v ix
+  Ast.AstFloorS v -> Ast.AstFloorS $ astIndexSOrStepOnly stepOnly v ix
+  Ast.AstIotaS | AstConst i <- i1 -> fromIntegral i
+  Ast.AstIotaS -> Ast.AstIndexS v0 ix
+  AstN1S opCode u ->
+    shareIxS ix $ \ix2 -> AstN1S opCode (astIndexRec u ix2)
+  AstN2S opCode u v ->
+    shareIxS ix $ \ix2 -> AstN2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
+  Ast.AstR1S opCode u ->
+    shareIxS ix
+    $ \ix2 -> Ast.AstR1S opCode (astIndexRec u ix2)
+  Ast.AstR2S opCode u v ->
+    shareIxS ix
+    $ \ix2 -> Ast.AstR2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
+  Ast.AstI2S opCode u v ->
+    shareIxS ix
+    $ \ix2 -> Ast.AstI2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
+  AstSumOfListS args ->
+    shareIxS ix $ \ix2 -> astSumOfListS (map (`astIndexRec` ix2) args)
+  Ast.AstIndexS v (ix2 :: AstIndexS sh4) ->
+    gcastWith (unsafeCoerce Refl
+               :: (sh4 Sh.++ shm) Sh.++ shn :~: sh4 Sh.++ (shm Sh.++ shn)) $
+    Sh.withShapeP (Sh.shapeT @sh4 ++ Sh.shapeT @shm) $ \(Proxy @sh41) ->
+      gcastWith (unsafeCoerce Refl :: sh4 Sh.++ shm :~: sh41) $
+      astIndexS v (ShapedList.appendSized ix2 ix)
+  Ast.AstSumS _v -> Ast.AstIndexS v0 ix  -- "TODO"
+--    let perm3 = backpermCycle $ valueOf @m + 1
+--    in astSumS $ astIndex (astTransposeS perm3 v) ix
+--  Ast.AstScatterS @sh2 @p7 @sh7
+--                  v (vars, AstIntVar var5 :$: (ix2 :: AstIndexS p71))
+--    | AstIntVar var6 <- i1, var6 == var5 ->
+--        gcastWith (unsafeCoerce Refl
+--                   :: shm1 Sh.++ shn :~: p71 Sh.++ Sh.Drop p7 sh7) $
+--        astIndex (astScatterS @_ @_ @sh7 v (vars, ix2)) rest1
+--  Ast.AstScatter @_ @n7 (_ :$ sh)
+--                 v (vars, AstConst i5 :. (ix2 :: AstIndex p71))
+--    | AstConst i6 <- i1 ->
+--        gcastWith (unsafeCoerce Refl :: m1 + n :~: p71 + n7) $
+--        if i6 == i5
+--        then astIndex (astScatter sh v (vars, ix2)) rest1
+          -- see analogous code in astGatherCase for how a million
+          -- type applications is still not enough to make it type-check
+--        else astIndex (astReplicate0N @(m1 + n) sh 0) rest1
+  -- AstScatter sh v (vars2, ZI) ->
+  --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
+  Ast.AstScatterS{} ->  -- normal form
+    Ast.AstIndexS v0 ix
+  Ast.AstFromListS l | AstConst it <- i1 ->
+    let i = fromIntegral $ OR.unScalar it
+    in astIndex (if 0 <= i && i < length l
+                 then l !! i
+                 else astReplicate0NS @(shm1 Sh.++ shn) 0) rest1
+
+  Ast.AstFromListS{} | ZSH <- rest1 ->  -- normal form
+    Ast.AstIndexS v0 ix
+  Ast.AstFromListS l ->
+    shareIxS rest1 $ \ix2 ->
+      Ast.AstIndexS @'[in1] @shn (astFromListS $ map (`astIndexRec` ix2) l)
+                    (ShapedList.singletonShaped i1)
+  Ast.AstFromVectorS l | AstConst it <- i1 ->
+    let i = fromIntegral $ OR.unScalar it
+    in astIndex (if 0 <= i && i < V.length l
+                 then l V.! i
+                 else astReplicate0NS @(shm1 Sh.++ shn) 0) rest1
+  Ast.AstFromVectorS{} | ZSH <- rest1 ->  -- normal form
+    Ast.AstIndexS v0 ix
+  Ast.AstFromVectorS l ->
+    shareIxS rest1 $ \ix2 ->
+      Ast.AstIndexS @'[in1] @shn (astFromVectorS $ V.map (`astIndexRec` ix2) l)
+                    (ShapedList.singletonShaped i1)
+  Ast.AstReplicateS v ->
+    astIndex v rest1
+  Ast.AstAppendS{} ->  -- normal form
+    {- We can't do the following, because we can get, e.g., division
+       by zero in the index in the counterfactual branch and sometimes
+       all branches are materialized. Similarly for gather of append
+       and see the TODO there.
+    let vlen = AstConst $ lengthAst v
+        ix2 = simplifyAst (AstIntOp MinusIntOp [i1, vlen]) :. rest1
+    in case simplifyAstBool $ AstRelInt LsOp [i1, vlen] of
+      AstBoolConst b -> if b then astIndex v ix else astIndex w ix2
+      bExpr -> astCond bExpr (astIndexRec v ix) (astIndexRec w ix2)
+    -}
+    Ast.AstIndexS v0 ix
+  Ast.AstSliceS  @i v ->
+    let ii = simplifyAst (i1 + fromIntegral (valueOf @i :: Int))
+      -- we generate this index, so we simplify on the spot
+    in astIndex v (ii :$: rest1)
+  Ast.AstReverseS v ->
+    let iRev = simplifyAst (fromIntegral (valueOf @in1 - 1 :: Int) - i1)
+      -- we generate this index, so we simplify on the spot
+    in astIndex v (iRev :$: rest1)
+--  Ast.AstTranspose perm v | valueOf @m >= length perm ->
+--    astIndex v (permutePrefixIndex perm ix)
+  Ast.AstTransposeS @perm _v -> Ast.AstIndexS v0 ix  -- "TODO"
+--    astIndex (astTransposeAsGather perm v) ix
+  Ast.AstReshapeS @sh _v -> Ast.AstIndexS v0 ix  -- "TODO"
+--    astIndex (astReshapeAsGather sh v) ix
+  Ast.AstBuild1S (var2, v) ->
+    withListShape (Sh.shapeT @shm1 ++ Sh.shapeT @shn) $ \(_ :: ShapeInt n) ->
+      gcastWith (unsafeCoerce Refl :: Sh.Rank (shm1 Sh.++ shn) :~: n) $
+      astIndex (astRToS @(shm1 Sh.++ shn) $ astLet var2 i1 $ astSToR v) rest1
+  Ast.AstGatherS @_ @p @sh v (ZSH, ix2) ->
+    Sh.withShapeP (Sh.shapeT @(Sh.Take p sh) ++ Sh.shapeT @shm)
+    $ \(Proxy @sh1n) ->
+      gcastWith (unsafeCoerce Refl :: (Sh.Take p sh Sh.++ shm :~: sh1n)) $
+      gcastWith (unsafeCoerce Refl :: Sh.Take p sh Sh.++ shm Sh.++ shn :~: sh) $
+        -- TODO: why is this needed? if it's true (it is), GHC should know it
+      astIndex v (ShapedList.appendSized ix2 ix)
+  Ast.AstGatherS v (var2 :$: (vars :: AstVarListS shm71), ix2) ->
+    withListShape (Sh.shapeT @shn) $ \(_ :: ShapeInt n) ->
+      gcastWith (unsafeCoerce Refl :: Sh.Rank shn :~: n) $
+      Sh.withShapeP (Sh.shapeT @shm1 ++ Sh.shapeT @shn) $ \(Proxy @sh1n) ->
+        gcastWith (unsafeCoerce Refl :: shm1 Sh.++ shn :~: sh1n) $
+        let w :: AstShaped s r (shm1 Sh.++ shn)
+            w = astGather v (vars, ix2)
+        in astRToS $ astLet var2 i1 $ astSToR $ astIndexS @shm1 @shn w rest1
+  Ast.AstCastS t -> astCastS $ astIndexSOrStepOnly stepOnly t ix
+  Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexSOrStepOnly stepOnly v ix
+  AstConstS t ->
+    let unConst :: AstRanked PrimalSpan Int64 0 -> Maybe [OR.Array 0 Int64]
+                -> Maybe [OR.Array 0 Int64]
+        unConst (AstConst i) (Just l) = Just $ i : l
+        unConst _ _ = Nothing
+    in case foldr unConst (Just []) ix of
+      Just ixInt -> AstConstS $ tindexZS t $ ShapedList.listToSized @shm
+                    $ map OR.unScalar ixInt
+        -- TODO: we'd need mapM for Index to keep this rank-typed
+      Nothing -> Ast.AstIndexS v0 ix
+  Ast.AstLetDomainsInS vars l v ->
+    astLetDomainsInS vars l (astIndexRec v ix)
+  Ast.AstRToS @sh t ->
+    withListShape (Sh.shapeT @shm1) $ \(_ :: ShapeInt m1) ->
+      gcastWith (unsafeCoerce Refl :: Sh.Rank shm1 :~: m1) $
+      withListShape (Sh.shapeT @shn) $ \(_ :: ShapeInt n) ->
+        gcastWith (unsafeCoerce Refl :: Sh.Rank shn :~: n) $
+        gcastWith (unsafeCoerce Refl
+                   :: Sh.Rank shn + Sh.Rank shm1 :~: Sh.Rank (shm1 Sh.++ shn)) $
+        astRToS $ astIndexStep t (ShapedList.shapedListToIndex ix)
+  Ast.AstConstantS v -> Ast.AstConstantS $ astIndex v ix
+  Ast.AstPrimalPartS{} -> Ast.AstIndexS v0 ix  -- must be a NF
+  Ast.AstDualPartS{} -> Ast.AstIndexS v0 ix
+  Ast.AstDS u u' ->
+    shareIxS ix $ \ix2 -> Ast.AstDS (astIndexRec u ix2) (astIndexRec u' ix2)
+  Ast.AstFwdS{} -> Ast.AstIndexS v0 ix
+  Ast.AstFoldS{} -> Ast.AstIndexS v0 ix  -- normal form
+  Ast.AstFoldDerS{} -> Ast.AstIndexS v0 ix  -- normal form
+  Ast.AstFoldDS{} -> Ast.AstIndexS v0 ix  -- normal form
+  Ast.AstFoldDDerS{} -> Ast.AstIndexS v0 ix  -- normal form
+  Ast.AstScanS{} -> Ast.AstIndexS v0 ix  -- normal form
+  Ast.AstScanDerS{} -> Ast.AstIndexS v0 ix  -- normal form
+  Ast.AstScanDS{} -> Ast.AstIndexS v0 ix  -- normal form
+  Ast.AstScanDDerS{} -> Ast.AstIndexS v0 ix  -- normal form
+
 -- TODO: compared to rletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
 -- so it's probably more efficient. Use this instead of rletIx/sletIx
@@ -458,6 +655,13 @@ shareIx ix f = unsafePerformIO $ do
   (bindings, ix2) <- mapAndUnzipM shareI (indexToList ix)
   return $! foldr (uncurry Ast.AstLet) (f $ listToIndex ix2)
                                        (catMaybes bindings)
+
+shareIxS :: -- (Sh.Shape shn, Sh.Shape shm)
+            AstIndexS shn -> (AstIndexS shn -> AstShaped s r shm)
+         -> AstShaped s r shm
+{-# NOINLINE shareIxS #-}
+shareIxS ix f = f ix
+  -- TODO (Ast.AstLetS is not general enough, we'd need to convert)
 
 astGatherR
   :: forall m n p s r.
@@ -1215,6 +1419,14 @@ astReplicate0N sh =
       go ZS v = v
       go (k :$ sh') v = astReplicate k $ go sh' v
   in go sh
+
+astReplicate0NS :: forall shn s r. (Sh.Shape shn, GoodScalar r)
+                => AstShaped s r '[] -> AstShaped s r shn
+astReplicate0NS =
+  let go :: ShapedList sh' Int -> AstShaped s r '[] -> AstShaped s r sh'
+      go ZSH v = v
+      go (_ :$: sh') v = astReplicateS $ go sh' v
+  in go (ShapedList.shapeSh @shn)
 
 astReplicateS :: forall n sh s r. (KnownNat n, Sh.Shape sh, GoodScalar r)
               => AstShaped s r sh -> AstShaped s r (n ': sh)

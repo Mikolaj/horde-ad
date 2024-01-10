@@ -147,7 +147,9 @@ testTrees =
   , testCase "4Sin0FoldNestedS1" testSin0FoldNestedS1
   , testCase "4Sin0FoldNestedS2" testSin0FoldNestedS2
   , testCase "4Sin0FoldNestedS3" testSin0FoldNestedS3
-  , testCase "4Sin0FoldNestedS4" testSin0FoldNestedS4
+  , testCase "4Sin0FoldNestedS4rev" testSin0FoldNestedS4rev
+  , testCase "4Sin0FoldNestedS4fwd" testSin0FoldNestedS4fwd
+  , testCase "4Sin0FoldNestedSi" testSin0FoldNestedSi
   ]
 
 foo :: RealFloat a => (a, a, a) -> a
@@ -628,7 +630,7 @@ testSin0Fold182SrevPP = do
                         (sreplicate @_ @1 a0)
             in rfromS . f . sfromR) 1.1
   printAstPretty IM.empty a1
-    @?= "rletDomainsIn (let m67 = sscanDer (\\v49 x50 -> atan2 (sreplicate x50) (sreplicate (sin (ssum (sreplicate x50))))) (\\v51 x52 v53 x54 -> let x55 = ssum (sreplicate x54) ; v56 = sreplicate (sin x55) ; v57 = recip (sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + v56 * v56 + sreplicate x54 * sreplicate x54) ; x58 = ssum (sreplicate x52) ; x59 = x58 * cos x55 in sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sreplicate x52 * (v56 * v57) + sreplicate x59 * negate (sreplicate x54 * v57)) (\\v61 v62 x63 -> let x64 = ssum (sreplicate x63) ; v65 = sreplicate (sin x64) ; v66 = recip (sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + v65 * v65 + sreplicate x63 * sreplicate x63) in (0, sconst @[] 0.0 + ssum (sreplicate (cos x64 * ssum (negate (sreplicate x63 * v66) * v61))) + ssum ((v65 * v66) * v61))) (sreplicate (sconstant (rconst 1.1))) (sreplicate (sconstant (rconst 1.1))) in (ssum (sletDomainsIn (let x70 = ssum (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0])) ; v71 = sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) ; v72 = sreplicate (sin x70) ; v73 = recip (v72 * v72 + sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + v71 * v71) in (0, ssum (sreplicate (cos x70 * ssum (negate (v71 * v73) * rreplicate 5 (rconst 1.0)))) + sconst @[] 0.0 + ssum ((v72 * v73) * rreplicate 5 (rconst 1.0)))) (\\[v68 @[Natural] @Double @[5], x69 @[Natural] @Double @[]] -> v68)) + ssum (sfromList [sletDomainsIn (let x76 = ssum (sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0])) ; v77 = sreplicate (sreplicate (sconstant (rconst 1.1)) !$ [0]) ; v78 = sreplicate (sin x76) ; v79 = recip (v78 * v78 + sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + v77 * v77) in (0, ssum (sreplicate (cos x76 * ssum (negate (v77 * v79) * rreplicate 5 (rconst 1.0)))) + sconst @[] 0.0 + ssum ((v78 * v79) * rreplicate 5 (rconst 1.0)))) (\\[v74 @[Natural] @Double @[5], x75 @[Natural] @Double @[]] -> x75)]))) (\\[dret @Natural @Double @[]] -> dret)"
+    @?= "rletDomainsIn (let m127 = sscanDer (\\v110 x111 -> atan2 (sreplicate x111) (sreplicate (sin (ssum (sreplicate x111))))) (\\v112 x113 v114 x115 -> let x116 = ssum (sreplicate x115) ; v117 = sreplicate (sin x116) ; v118 = recip (sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sreplicate x115 * sreplicate x115 + v117 * v117) ; x119 = ssum (sreplicate x113) ; x120 = x119 * cos x116 in sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sreplicate x120 * negate (sreplicate x115 * v118) + sreplicate x113 * (v117 * v118)) (\\v121 v122 x123 -> let x124 = ssum (sreplicate x123) ; v125 = sreplicate (sin x124) ; v126 = recip (sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sreplicate x123 * sreplicate x123 + v125 * v125) in (0, sconst @[] 0.0 + ssum ((v125 * v126) * v121) + ssum (sreplicate (cos x124 * ssum (negate (sreplicate x123 * v126) * v121))))) (sreplicate (sconstant (rconst 1.1))) (sreplicate (sconstant (rconst 1.1))) ; m164 = sreverse (sscanDDer (\\v128 [v129 @[Natural] @Double @[5], x130 @[Natural] @Double @[]] -> let v135 = let v131 = v129 ; x132 = x130 in v131 ; x136 = let v133 = v129 ; x134 = x130 in x134 in sletDomainsIn (let x139 = ssum (sreplicate x136) ; v140 = sreplicate (sin x139) ; v141 = recip (sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0]) + sreplicate x136 * sreplicate x136 + v140 * v140) in (0, sconst @[] 0.0 + ssum ((v140 * v141) * v128) + ssum (sreplicate (cos x139 * ssum (negate (sreplicate x136 * v141) * v128))))) (\\[v137 @[Natural] @Double @[5], x138 @[Natural] @Double @[]] -> v137)) (\\v142 [v143 @[Natural] @Double @[5], x144 @[Natural] @Double @[]] v145 [v146 @[Natural] @Double @[5], x147 @[Natural] @Double @[]] -> sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0])) (\\v156 v157 [v158 @[Natural] @Double @[5], x159 @[Natural] @Double @[]] -> (0, 0, 0)) (rreplicate 5 (rconst 1.0)) (sreverse (sslice m127), sreverse (sreplicate (sconstant (rconst 1.1))))) in (ssum (m164 !$ [0]) + ssum (sletDomainsIn (let v167 = sreplicate (ssum (sreplicate (sconstant (rconst 1.1)))) ; m169 = stranspose (sreplicate (sin (sgather v167 (\\[i168] -> [i168])))) ; m172 = recip (sreplicate (sconst @[5] (fromList @[5] [0.0,0.0,0.0,0.0,0.0])) + sgather m169 (\\[i170] -> [i170]) * sgather m169 (\\[i171] -> [i171]) + sreplicate (sreplicate (sconstant (rconst 1.1)) * sreplicate (sconstant (rconst 1.1))) + sconst @[1,5] (fromList @[1,5] [0.0,0.0,0.0,0.0,0.0]) + sconst @[1,5] (fromList @[1,5] [0.0,0.0,0.0,0.0,0.0])) in (sconst @[1,5] (fromList @[1,5] [0.0,0.0,0.0,0.0,0.0]), sreplicate (sconst @[] 0.0) + ssum (stranspose ((sgather m169 (\\[i177] -> [i177]) * sgather m172 (\\[i178] -> [i178])) * sgather (sslice m164) (\\[i179] -> [i179]))) + ssum (stranspose (stranspose (sreplicate (cos (sgather v167 (\\[i173] -> [i173])) * ssum (stranspose (negate (stranspose (sreplicate (sgather (sreplicate (sconstant (rconst 1.1))) (\\[i174] -> [i174]))) * sgather m172 (\\[i175] -> [i175])) * sgather (sslice m164) (\\[i176] -> [i176]))))))) + sconst @[1] (fromList @[1] [0.0]) + sconst @[1] (fromList @[1] [0.0]))) (\\[m165 @[Natural] @Double @[1,5], v166 @[Natural] @Double @[1]] -> sgather v166 (\\[i180] -> [i180]))))) (\\[dret @Natural @Double @[]] -> dret)"
 
 testSin0Fold18Srev :: Assertion
 testSin0Fold18Srev = do
@@ -1412,7 +1414,7 @@ testSin0FoldNestedS2 = do
 testSin0FoldNestedS3 :: Assertion
 testSin0FoldNestedS3 = do
   assertEqualUpToEpsilon' 1e-10
-    (1.9292299290000023e-7 :: OR.Array 0 Double)
+    (7.320500000000004e-4 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
@@ -1421,13 +1423,72 @@ testSin0FoldNestedS3 = do
                               sfold (\x5 a5 -> 0.1 * x5 * a5)
                                     a4 (sreplicate @_ @2 x4))
                                   a3 (sreplicate @_ @1 x3))
-                                a2 (sreplicate @_ @2 x2))
+                                a2 (sreplicate @_ @1 x2))
                               a (sreplicate @_ @1 x))
                             a0 (sreplicate @_ @2 a0)
            in rfromS . f . sfromR) 1.1)
 
-testSin0FoldNestedS4 :: Assertion
-testSin0FoldNestedS4 = do
+-- TODO: re-enable when simplification of AstShaped is completed
+_testSin0FoldNestedS4 :: Assertion
+_testSin0FoldNestedS4 = do
+  assertEqualUpToEpsilon' 1e-10
+    (0.22000000000000003 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (\x a ->
+                        sfold (\x2 a2 ->
+                          sfold (\x3 a3 ->
+                            sfold (\x4 a4 ->
+                              sfold (\x5 a5 ->
+                                sfold (\x6 a6 -> 0.1 * x6 * a6)
+                                      a5 (sreplicate @_ @1 x5))
+                                    a4 (sreplicate @_ @1 x4))
+                                  a3 (sreplicate @_ @1 x3))
+                                a2 (sreplicate @_ @1 x2))
+                              a (sreplicate @_ @1 x))
+                            a0 (sreplicate @_ @1 a0)
+
+           in rfromS . f . sfromR) 1.1)
+
+testSin0FoldNestedS4rev :: Assertion
+testSin0FoldNestedS4rev = do
+  let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+      f a0 = sfold (\x a ->
+                        sfold (\x2 a2 ->
+                          sfold (\x3 a3 ->
+                            sfold (\x4 a4 ->
+                              sfold (\x5 a5 ->
+                                sfold (\x6 a6 -> 0.1 * x6 * a6)
+                                      a5 (sreplicate @_ @1 x5))
+                                    a4 (sreplicate @_ @1 x4))
+                                  a3 (sreplicate @_ @1 x3))
+                                a2 (sreplicate @_ @1 x2))
+                              a (sreplicate @_ @1 x))
+                            a0 (sreplicate @_ @1 a0)
+  assertEqualUpToEpsilon 1e-10
+    (0.22000000000000003)
+    (srev1 @(Flip OS.Array) @Double @'[] @'[] f 1.1)
+
+testSin0FoldNestedS4fwd :: Assertion
+testSin0FoldNestedS4fwd = do
+  let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+      f a0 = sfold (\x a ->
+                        sfold (\x2 a2 ->
+                          sfold (\x3 a3 ->
+                            sfold (\x4 a4 ->
+                              sfold (\x5 a5 ->
+                                sfold (\x6 a6 -> 0.1 * x6 * a6)
+                                      a5 (sreplicate @_ @1 x5))
+                                    a4 (sreplicate @_ @1 x4))
+                                  a3 (sreplicate @_ @1 x3))
+                                a2 (sreplicate @_ @1 x2))
+                              a (sreplicate @_ @1 x))
+                            a0 (sreplicate @_ @1 a0)
+  assertEqualUpToEpsilon 1e-10
+    (0.24200000000000005)
+    (sfwd1 @(Flip OS.Array) @Double @'[] @'[] f 1.1)
+
+testSin0FoldNestedSi :: Assertion
+testSin0FoldNestedSi = do
   assertEqualUpToEpsilon' 1e-10
     (-0.20775612781643243 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[3]

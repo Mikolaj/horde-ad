@@ -276,15 +276,16 @@ build1V k (var, v00) =
       Ast.AstPrimalPart $ build1V k (var, v)
     Ast.AstDualPart v -> traceRule $
       Ast.AstDualPart $ build1V k (var, v)
-    Ast.AstD u u' ->
+    Ast.AstD u u' -> traceRule $
       Ast.AstD (build1VOccurenceUnknown k (var, u))
                (build1VOccurenceUnknown k (var, u'))
     Ast.AstFwd{} ->
       error "build1V: impossible case of AstFwd"
     Ast.AstFold{} ->
       error "build1V: impossible case of AstFold"
-    Ast.AstFoldDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                   (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstFoldDer (nvar, mvar, v)
+                   (varDx, varDa, varn1, varm1, ast1)
+                   (varDt2, nvar2, mvar2, doms) x0 as -> traceRule $
       let shn = shapeAst x0
           shm = tailShape $ shapeAst as
       in Ast.AstFoldDer
@@ -306,15 +307,17 @@ build1V k (var, v00) =
            , AstVarName $ varNameToAstVarId nvar2
            , AstVarName $ varNameToAstVarId mvar2
            , build1VOccurenceUnknownAstDomainsRefresh
-               k (var, substProjDomains k var shn nvar
-                       $ substProjDomains k var shm mvar doms) )
+               k (var, substProjDomains k var shn varDt2
+                       $ substProjDomains k var shn nvar2
+                       $ substProjDomains k var shm mvar2 doms) )
            (build1VOccurenceUnknown k (var, x0))
            (astTr $ build1VOccurenceUnknown k (var, as))
     Ast.AstFoldD{} ->
       error "build1V: impossible case of AstFoldD"
     Ast.AstFoldDDer @_ @n2
-                    (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
-                                     (varDt2, nvar2, mvars2, doms) x0 as ->
+                    (nvar, mvars, v)
+                    (varDx, varsDa, varn1, varsm1, ast1)
+                    (varDt2, nvar2, mvars2, doms) x0 as -> traceRule $
      case someNatVal $ toInteger k of
       Just (SomeNat @k3 _) ->
        let shn = shapeAst x0
@@ -338,7 +341,8 @@ build1V k (var, v00) =
             , AstVarName $ varNameToAstVarId nvar2
             , mvars2Out
             , build1VOccurenceUnknownAstDomainsRefresh
-                k (var, substProjDomains k var shn nvar domsOut) )
+                k (var, substProjDomains k var shn varDt2
+                        $ substProjDomains k var shn nvar2 domsOut) )
             (build1VOccurenceUnknown k (var, x0))
             (V.map (\u -> astTrDynamicRanked
                           $ build1VOccurenceUnknownDynamic k (var, u)) as)
@@ -346,8 +350,9 @@ build1V k (var, v00) =
     Ast.AstScan{} ->
       error "build1V: impossible case of AstScan"
     Ast.AstScanDer @_ @_ @n2
-                   (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                   (varDt2, nvar2, mvar2, doms) x0 as ->
+                   (nvar, mvar, v)
+                   (varDx, varDa, varn1, varm1, ast1)
+                   (varDt2, nvar2, mvar2, doms) x0 as -> traceRule $
       let shn = shapeAst x0
           shm = tailShape $ shapeAst as
       in astTr
@@ -370,15 +375,17 @@ build1V k (var, v00) =
            , AstVarName $ varNameToAstVarId nvar2
            , AstVarName $ varNameToAstVarId mvar2
            , build1VOccurenceUnknownAstDomainsRefresh
-               k (var, substProjDomains k var shn nvar
-                       $ substProjDomains k var shm mvar doms) )
+               k (var, substProjDomains k var shn varDt2
+                       $ substProjDomains k var shn nvar2
+                       $ substProjDomains k var shm mvar2 doms) )
            (build1VOccurenceUnknown k (var, x0))
            (astTr $ build1VOccurenceUnknown k (var, as))
     Ast.AstScanD{} ->
       error "build1V: impossible case of AstScanD"
     Ast.AstScanDDer @_ @n2
-                    (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
-                                     (varDt2, nvar2, mvars2, doms) x0 as ->
+                    (nvar, mvars, v)
+                    (varDx, varsDa, varn1, varsm1, ast1)
+                    (varDt2, nvar2, mvars2, doms) x0 as -> traceRule $
      case someNatVal $ toInteger k of
       Just (SomeNat @k3 _) ->
        let shn = shapeAst x0
@@ -403,7 +410,8 @@ build1V k (var, v00) =
             , AstVarName $ varNameToAstVarId nvar2
             , mvars2Out
             , build1VOccurenceUnknownAstDomainsRefresh
-                k (var, substProjDomains k var shn nvar domsOut) )
+                k (var, substProjDomains k var shn varDt2
+                        $ substProjDomains k var shn nvar2 domsOut) )
             (build1VOccurenceUnknown k (var, x0))
             (V.map (\u -> astTrDynamicRanked
                           $ build1VOccurenceUnknownDynamic k (var, u)) as)
@@ -545,6 +553,10 @@ substProjDynamicDomains var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
     ( withListShape (Sh.shapeT @sh3) $ \sh1 ->
         substProjDomains @_ @r3 @s (valueOf @k) var sh1 (AstVarName varId) v3
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
+substProjDynamicDomains var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
+  | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) =
+    ( substProjDomainsS @k @sh3 @r3 @s var (AstVarName varId) v3
+    , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamicDomains _ _ _ =
   error "substProjDynamicDomains: unexpected type"
 
@@ -630,7 +642,9 @@ build1VOccurenceUnknownDynamic k (var, d) = case d of
 build1VOccurenceUnknownDomains
   :: forall s. AstSpan s
   => Int -> (IntVarName, AstDomains s) -> AstDomains s
-build1VOccurenceUnknownDomains k (var, v0) = case v0 of
+build1VOccurenceUnknownDomains k (var, v0) =
+ let traceRule = mkTraceRuleDomain v0 k var
+ in traceRule $ case v0 of
   Ast.AstDomains l ->
     Ast.AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
   Ast.AstLetInDomains @_ @r1 @s1 var1@(AstVarName oldVarId) u v ->
@@ -925,15 +939,16 @@ build1VS (var, v00) =
       Ast.AstPrimalPartS $ build1VS (var, v)
     Ast.AstDualPartS v -> traceRule $
       Ast.AstDualPartS $ build1VS (var, v)
-    Ast.AstDS u u' ->
+    Ast.AstDS u u' -> traceRule $
       Ast.AstDS (build1VOccurenceUnknownS (var, u))
                 (build1VOccurenceUnknownS (var, u'))
     Ast.AstFwdS{} ->
       error "build1VS: impossible case of AstFwdS"
     Ast.AstFoldS{} ->
       error "build1VS: impossible case of AstFoldS"
-    Ast.AstFoldDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                    (varDt2, nvar2, mvar2, doms) x0 as ->
+    Ast.AstFoldDerS (nvar, mvar, v)
+                    (varDx, varDa, varn1, varm1, ast1)
+                    (varDt2, nvar2, mvar2, doms) x0 as -> traceRule $
       Ast.AstFoldDerS
         ( AstVarName $ varNameToAstVarId nvar
         , AstVarName $ varNameToAstVarId mvar
@@ -954,15 +969,17 @@ build1VS (var, v00) =
         , AstVarName $ varNameToAstVarId mvar2
         , build1VOccurenceUnknownAstDomainsRefresh
             (valueOf @k)
-            (var, substProjDomainsS @k var nvar
-                  $ substProjDomainsS @k var mvar doms) )
+            (var, substProjDomainsS @k var varDt2
+                  $ substProjDomainsS @k var nvar2
+                  $ substProjDomainsS @k var mvar2 doms) )
         (build1VOccurenceUnknownS (var, x0))
         (astTrS $ build1VOccurenceUnknownS @k (var, as))
     Ast.AstFoldDS{} ->
       error "build1VS: impossible case of AstFoldDS"
     Ast.AstFoldDDerS @_ @shn
-                     (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
-                                      (varDt2, nvar2, mvars2, doms) x0 as ->
+                     (nvar, mvars, v)
+                     (varDx, varsDa, varn1, varsm1, ast1)
+                     (varDt2, nvar2, mvars2, doms) x0 as -> traceRule $
        let (vOut, mvarsOut) = substProjVarsS @k var mvars v
            (ast1Out, varsDaOut) = substProjVarsS @k var varsDa ast1
            (ast1Out2, varsm1Out) = substProjVarsS @k var varsm1 ast1Out
@@ -983,7 +1000,9 @@ build1VS (var, v00) =
             , AstVarName $ varNameToAstVarId nvar2
             , mvars2Out
             , build1VOccurenceUnknownAstDomainsRefresh
-                (valueOf @k) (var, substProjDomainsS @k @shn var nvar domsOut) )
+                (valueOf @k)
+                (var, substProjDomainsS @k var varDt2
+                      $ substProjDomainsS @k @shn var nvar2 domsOut) )
             (build1VOccurenceUnknownS @k (var, x0))
             (V.map (\u -> astTrDynamicShaped
                           $ build1VOccurenceUnknownDynamic (valueOf @k)
@@ -991,8 +1010,9 @@ build1VS (var, v00) =
     Ast.AstScanS{} ->
       error "build1VS: impossible case of AstScanS"
     Ast.AstScanDerS @_ @_ @shn @shm @k5
-                    (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
-                                    (varDt2, nvar2, mvar2, doms) x0 as ->
+                    (nvar, mvar, v)
+                    (varDx, varDa, varn1, varm1, ast1)
+                    (varDt2, nvar2, mvar2, doms) x0 as -> traceRule $
       astTrS
       $ Ast.AstScanDerS
            ( AstVarName $ varNameToAstVarId nvar
@@ -1013,15 +1033,17 @@ build1VS (var, v00) =
            , AstVarName $ varNameToAstVarId nvar2
            , AstVarName $ varNameToAstVarId mvar2
            , build1VOccurenceUnknownAstDomainsRefresh
-               (valueOf @k) (var, substProjDomainsS @k @shn var nvar
-                                  $ substProjDomainsS @k @shm var mvar doms) )
+               (valueOf @k) (var, substProjDomainsS @k @shn var varDt2
+                                  $ substProjDomainsS @k @shn var nvar2
+                                  $ substProjDomainsS @k @shm var mvar2 doms) )
            (build1VOccurenceUnknownS @k (var, x0))
            (astTrS $ build1VOccurenceUnknownS @k (var, as))
     Ast.AstScanDS{} ->
       error "build1VS: impossible case of AstScanDS"
     Ast.AstScanDDerS @_ @shn @k5
-                     (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
-                                      (varDt2, nvar2, mvars2, doms) x0 as ->
+                     (nvar, mvars, v)
+                     (varDx, varsDa, varn1, varsm1, ast1)
+                     (varDt2, nvar2, mvars2, doms) x0 as -> traceRule $
        let (vOut, mvarsOut) = substProjVarsS @k var mvars v
            (ast1Out, varsDaOut) = substProjVarsS @k var varsDa ast1
            (ast1Out2, varsm1Out) = substProjVarsS @k var varsm1 ast1Out
@@ -1043,9 +1065,11 @@ build1VS (var, v00) =
             , AstVarName $ varNameToAstVarId nvar2
             , mvars2Out
             , build1VOccurenceUnknownAstDomainsRefresh
-                (valueOf @k) (var, substProjDomainsS @k @shn var nvar domsOut) )
+                (valueOf @k)
+                (var, substProjDomainsS @k @shn var varDt2
+                      $ substProjDomainsS @k @shn var nvar2 domsOut) )
             (build1VOccurenceUnknownS @k (var, x0))
-            (V.map (\u -> astTrDynamicRanked
+            (V.map (\u -> astTrDynamicShaped
                           $ build1VOccurenceUnknownDynamic (valueOf @k)
                                                            (var, u)) as)
 
@@ -1091,6 +1115,12 @@ build1VIndexS (var, v0, ix@(_ :$: _)) =
               Ast.AstFoldDDerS{} -> ruleD
               Ast.AstScanDerS{} -> ruleD
               Ast.AstScanDDerS{} -> ruleD
+              -- TODO: these are not implemented and so need ruleD:
+              Ast.AstMinIndexS{} -> ruleD
+              Ast.AstMaxIndexS{} -> ruleD
+              Ast.AstSumS{} -> ruleD
+              Ast.AstTransposeS{} -> ruleD
+              Ast.AstReshapeS{} -> ruleD
               _ -> build1VOccurenceUnknownS (var, v)  -- not a normal form
             else build1VOccurenceUnknownS (var, v)  -- shortcut
        v -> traceRule $
@@ -1180,6 +1210,32 @@ mkTraceRuleS prefix from caseAnalysed nwords to = unsafePerformIO $ do
                             ++ " sends " ++ padString width stringFrom
                             ++ " to " ++ padString width stringTo
     modifyIORef' traceNestingLevel pred
+  return $! to
+
+mkTraceRuleDomain :: AstSpan s
+                  => AstDomains s -> Int -> IntVarName -> AstDomains s
+                  -> AstDomains s
+{-# NOINLINE mkTraceRuleDomain #-}
+mkTraceRuleDomain from k var to = unsafePerformIO $ do
+  enabled <- readIORef traceRuleEnabledRef
+  let width = traceWidth
+      renames = IM.fromList [(1, ""), (2, "")]
+      ruleName = "build1VDomains"
+      ruleNamePadded = take 20 $ ruleName ++ repeat ' '
+  when enabled $ do
+    nestingLevel <- readIORef traceNestingLevel
+    modifyIORef' traceNestingLevel succ
+    let paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
+    let !stringFrom = printAstDomainsSimple renames from
+    let !stringTo = printAstDomainsSimple renames to
+    hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
+                            ++ " sends "
+                            ++ padString width
+                                 ("build " ++ show k ++ " ("
+                                  ++ printAstIntVarName renames var ++ ") "
+                                  ++  stringFrom)
+                            ++ " to " ++ padString width stringTo
+  modifyIORef' traceNestingLevel pred
   return $! to
 
 hPutStrLnFlush :: Handle -> String -> IO ()

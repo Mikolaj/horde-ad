@@ -1099,35 +1099,37 @@ fromDomainsS params = case V.uncons params of
     _ -> error "fromDomainsS: shape mismatch"
   Nothing -> Nothing
 
-unravelDynamicRanked
-  :: forall ranked. RankedTensor ranked
+unravelDynamic
+  :: forall ranked. (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
   => DynamicTensor ranked -> [DynamicTensor ranked]
-unravelDynamicRanked (DynamicRanked @rp @p t) =
+unravelDynamic (DynamicRanked @rp @p t) =
   case someNatVal $ valueOf @p - 1 of
     Just (SomeNat @p1 _) ->
       gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
       map (DynamicRanked @rp @p1) $ runravelToList t
-    Nothing -> error "unravelDynamicRanked: scalars in domain"
-unravelDynamicRanked DynamicShaped{} =
-  error "unravelDynamicRanked: DynamicShaped"
-unravelDynamicRanked (DynamicRankedDummy @rp @sh _ _) =
+    Nothing -> error "unravelDynamic: rank 0"
+unravelDynamic (DynamicShaped @rp @sh t) = case ShapedList.shapeSh @sh of
+  ZSH -> error "unravelDynamic: rank 0"
+  _ :$: _ -> map DynamicShaped $ sunravelToList t
+unravelDynamic (DynamicRankedDummy @rp @sh _ _) =
   withListShape (Sh.shapeT @sh) $ \(sh :: ShapeInt p) ->
     case someNatVal $ valueOf @p - 1 of
       Just (SomeNat @p1 _) ->
         gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
         map (DynamicRanked @rp @p1) $ runravelToList (rzero sh)
-      Nothing -> error "unravelDynamicRanked: scalars in domain"
-unravelDynamicRanked DynamicShapedDummy{} =
-  error "unravelDynamicRanked: DynamicShapedDummy"
+      Nothing -> error "unravelDynamic: rank 0"
+unravelDynamic (DynamicShapedDummy @rp @sh _ _) = case ShapedList.shapeSh @sh of
+  ZSH -> error "unravelDynamic: rank 0"
+  _ :$: _ -> map DynamicShaped $ sunravelToList (0 :: ShapedOf ranked rp sh)
 
 unravelDomains
-  :: forall ranked. RankedTensor ranked
+  :: forall ranked. (RankedTensor ranked, ShapedTensor (ShapedOf ranked))
   => Domains ranked  -- each tensor has outermost dimension size p
   -> [Domains ranked]  -- p domains; each tensor of one rank lower
 unravelDomains = map V.fromList . transpose
-                 . map unravelDynamicRanked . V.toList
+                 . map unravelDynamic . V.toList
 
-ravelDynamicRanked  -- the inverse of unravelDynamicRanked
+ravelDynamicRanked
   :: forall ranked. RankedTensor ranked
   => [DynamicTensor ranked] -> DynamicTensor ranked
 ravelDynamicRanked ld = case ld of
@@ -1143,11 +1145,11 @@ ravelDynamicRanked ld = case ld of
                                         (typeRep @rp) = t
           g DynamicShaped{} =
             error "ravelDynamicRanked: DynamicShaped"
-          g (DynamicRankedDummy @rq @sh _ _)
-            | Just Refl <- matchingRank @sh @p1
+          g (DynamicRankedDummy @rq @shq _ _)
+            | Just Refl <- matchingRank @shq @p1
             , Just Refl <- testEquality (typeRep @rq)
                                         (typeRep @rp) =
-              withListShape (Sh.shapeT @sh)
+              withListShape (Sh.shapeT @shq)
               $ \(sh :: ShapeInt q1) ->
                   case sameNat (Proxy @q1) (Proxy @p1) of
                     Just Refl -> rzero @ranked sh
@@ -1156,13 +1158,55 @@ ravelDynamicRanked ld = case ld of
           g DynamicShapedDummy{} =
             error "ravelDynamicRanked: DynamicShapedDummy"
           g _ = error "ravelDynamicRanked: wrong scalar or rank"
-      in DynamicRanked @rp $ rfromList $ map g ld
+      in DynamicRanked $ rfromList $ map g ld
     _ -> error "ravelDynamicRanked: impossible someNatVal"
 
+ravelDynamicShaped
+  :: forall shaped.
+     ( RankedTensor (RankedOf shaped), ShapedTensor shaped
+     , ShapedOf (RankedOf shaped) ~ shaped )
+  => [DynamicTensor (RankedOf shaped)] -> DynamicTensor (RankedOf shaped)
+ravelDynamicShaped ld = case ld of
+  [] -> error "ravelDynamicShaped: empty list"
+  d : _ ->
+    let shD = shapeDynamic d
+    in Sh.withShapeP shD
+       $ \(Proxy @shp) -> case ( someNatVal $ toInteger $ length ld
+                               , scalarDynamic d ) of
+      (Just (SomeNat @p1 _), DynamicScalar @rp _) ->
+        let g :: DynamicTensor (RankedOf shaped) -> shaped rp shp
+            g DynamicRanked{} =
+              error "ravelDynamicShaped: DynamicRanked"
+            g (DynamicShaped @rq @shq t)
+              | Just Refl <- sameShape @shq @shp
+              , Just Refl <- testEquality (typeRep @rq)
+                                          (typeRep @rp) = t
+            g DynamicRankedDummy{} =
+              error "ravelDynamicShaped: DynamicRankedDummy"
+            g (DynamicShapedDummy @rq @shq _ _)
+              | Just Refl <- sameShape @shq @shp
+              , Just Refl <- testEquality (typeRep @rq)
+                                          (typeRep @rp) = 0
+            g _ = error "ravelDynamicShaped: wrong scalar or rank"
+        in DynamicShaped $ sfromList @_ @_ @p1 $ map g ld
+      _ -> error "ravelDynamicShaped: impossible someNatVal"
+
+ravelDynamic
+  :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+     , RankedOf (ShapedOf ranked) ~ ranked )
+  => [DynamicTensor ranked] -> DynamicTensor ranked
+ravelDynamic ld = case ld of
+  [] -> error "ravelDynamic: empty list"
+  DynamicRanked{} : _ -> ravelDynamicRanked ld
+  DynamicShaped{} : _ -> ravelDynamicShaped ld
+  DynamicRankedDummy{} : _ -> ravelDynamicRanked ld
+  DynamicShapedDummy{} : _ -> ravelDynamicShaped ld
+
 ravelDomains  -- the inverse of unravelDomains
-  :: RankedTensor ranked
+  :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+     , RankedOf (ShapedOf ranked) ~ ranked )
   => [Domains ranked] -> Domains ranked
-ravelDomains = V.fromList . map ravelDynamicRanked
+ravelDomains = V.fromList . map ravelDynamic
                . transpose . map V.toList
 
 mapDomainsRanked

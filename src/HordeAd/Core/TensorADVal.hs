@@ -446,12 +446,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     -- in the context of sharing information, so let's hope all big things
     -- are shared. If not, we'd need to extend @rregister@ to also work
     -- on @DomainsOf f@.
-    let _ws :: (Int, ShapeInt m)
-        _ws@(width, _shm) = case rshape as of
-          hd :$ tl -> (hd, tl)
-          _ -> error "rfoldDer: impossible pattern needlessly required"
-        p :: ranked rn (1 + n)
+    let p :: ranked rn (1 + n)
         p = rscanDer f df rf x0 as
+        width = rlength p - 1
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
     in D l3 (pShared ! (fromIntegral width :. ZI))
             (FoldR pShared as df rf x0' as')
@@ -465,11 +462,6 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     let domsLen = V.length domsOD
         !_A = assert (V.length asD == domsLen
                       `blame` (V.length asD, domsLen)) ()
-        width = case V.unsnoc as of
-          Nothing -> error "rfoldD: can't determine argument width"
-          Just (_, d) -> case shapeDynamic d of
-            [] -> error "rfoldD: wrong rank of argument"
-            w : _shm -> w
         (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
@@ -487,6 +479,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                               (V.cons (DynamicRanked x) $ dunDomains domsOD a)
         p :: ranked rn (1 + n)
         p = rscanD f domsOD x0 as
+        width = rlength p - 1
         (l3, pShared) =
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
     in D l3 (pShared ! (fromIntegral width :. ZI))
@@ -507,14 +500,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     let domsLen = V.length domsOD
         !_A = assert (V.length asD == domsLen
                       `blame` (V.length asD, domsLen)) ()
-        width = case V.unsnoc as of
-          Nothing -> error "rfoldDDer: can't determine argument width"
-          Just (_, d) -> case shapeDynamic d of
-            [] -> error "rfoldDDer: wrong rank of argument"
-            w : _shm -> w
         (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         p :: ranked rn (1 + n)
         p = rscanDDer f df rf domsOD x0 as
+        width = rlength p - 1
         (l3, pShared) =
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
     in D l3 (pShared ! (fromIntegral width :. ZI))
@@ -693,21 +682,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> ADVal shaped rn sh
            -> ADVal shaped rm (k ': shm)
            -> ADVal shaped rn sh
-  sfoldDer f _df0 _rf0 (D l1 x0 x0') (D l2 as as') = sfold f (D l1 x0 x0') (D l2 as as') {-
-    let domsOD = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
-        domsToPair :: forall f. ADReadyS f
-                   => Domains (RankedOf f) -> (f rn sh, f rm shm)
-        domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-        df :: forall f. ADReadyS f
-           => f rn sh -> (f rm shm, f rn sh, f rm shm) -> f rn sh
-        df cx (ca, x, a) = df0 cx ca x a
-        rf :: forall f. ADReadyS f
-           => f rn sh -> (f rn sh, f rm shm) -> (f rn sh, f rm shm)
-        rf cx (x, a) = domsToPair $ dunDomains domsOD $ rf0 cx x a
-    in D (l1 `mergeADShare` l2)
-         (sfoldDer @ranked f df0 rf0 x0 as)
-         (FoldS f x0 as df rf x0' as')
--}
+  sfoldDer f df rf (D l1 x0 x0') (D l2 as as') =
+    let p :: shaped rn (1 + k ': sh)
+        p = sscanDer f df rf x0 as
+        width = slength p - 1
+        (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
+    in D l3 (pShared !$ (fromIntegral width :$: ZSH))
+            (FoldS pShared as df rf x0' as')
   sfoldD :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
          => (forall f. ADReadyS f
              => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
