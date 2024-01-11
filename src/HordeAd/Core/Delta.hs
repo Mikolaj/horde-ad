@@ -70,7 +70,18 @@ import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
 import           GHC.Show (showSpace)
-import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
+import           GHC.TypeLits
+  ( KnownNat
+  , Nat
+  , OrderingI (..)
+  , SomeNat (..)
+  , cmpNat
+  , sameNat
+  , someNatVal
+  , type (+)
+  , type (-)
+  , type (<=)
+  )
 import           Text.Show.Functions ()
 import           Type.Reflection (typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -1136,7 +1147,7 @@ buildFinMaps s0 deltaDt =
                       cas = rg rf11 lp las
                       padding = rzero (width - k :$ shm)
                   in rappend cas padding
-                g2s = map g2 [1..width]  -- can't be rmap nor rbuild nor rscan
+                g2s = map g2 [1 .. width]  -- can't be rmap nor rbuild nor rscan
                 g2sum = rsum $ rfromList g2s
                 s2 = evalR sShared2 g1sum x0'
             in evalR s2 g2sum as'
@@ -1203,7 +1214,7 @@ buildFinMaps s0 deltaDt =
                             in DynamicRanked $ rappend t padding
                         padRanked _ = error "padRanked: not DynamicRanked"
                     in V.map padRanked (ravelDomains cas)
-                  g2s = map g2 [1..width]  -- can't be rmap nor rbuild nor rscan
+                  g2s = map g2 [1 .. width]  -- can't be rmap, rbuild nor rscan
                   g2sum = V.fromList $ map sumDynamicRanked
                           $ transpose $ map V.toList g2s
                   s2 = evalR sShared2 g1sum x0'
@@ -1334,7 +1345,8 @@ buildFinMaps s0 deltaDt =
               cas = rg (sslice @_ @_ @_ @_ @0
                                (Proxy @1) (Proxy @k) crsShared)
                        (sslice @_ @_ @_ @_ @1
-                               (Proxy @0) (Proxy @k) p) as
+                               (Proxy @0) (Proxy @k) p)
+                       as
               s2 = evalS sShared2 (crsShared !$ (0 :$: ZSH)) x0'
           in evalS s2 cas as'
         FoldSC @rm @shm p as _df rf x0' as' ->
@@ -1410,64 +1422,80 @@ buildFinMaps s0 deltaDt =
                                    (map dmkDomains $ unravelDomains as))
               s2 = evalS sShared cx0 x0'
           in V.foldl' evalSDynamicShaped s2 $ V.zip (ravelDomains cas) as'
-{-
-        ScanS @rm @m @_ @_ @n1 p as _df rf x0' as' -> case rshape as of
-          0 :$ _ -> evalR s (c ! (0 :. ZI)) x0'
-          width :$ shm ->
-            let !_A1 = assert (rlength p == width + 1) ()
-                !_A2 = assert (rlength cShared == width + 1) ()
-                shn = shapeDelta x0'
-                domsToPair :: ADReady f => Domains f -> (f r sh1, f rm shm)
-                domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
-                -- The domain must be @Int@ due to rslice and so can't be
-                -- @IndexOf shaped 0@ for rbuild nor @shaped Int 0@ for rmap.
-                -- We can't fold nor scan over g1/g2, because it's not closed.
-                -- We can't multiply by a unitriangular matrix instead of
-                -- using slice, because rf can have a constant component
-                -- and then it gets summed over the zero area of the matrix.
-                g1 :: Int -> shaped r (1 + n1)
-                g1 k =
-                  let cx = cShared ! (fromIntegral k :. ZI)
-                      rf1 =
-                        rscanD (\cr doms' ->
-                                  rletDomainsIn domsF doms' $ \doms ->
-                                    let (x, a) = domsToPair doms
-                                    in rletDomainsIn
-                                         domsF (rf cr x a) $ \rfRes ->
-                                           fst $ domsToPair rfRes)
-                               domsF
-                               cx
-                               (V.fromList
-                                  [ DynamicRanked $ rreverse $ rslice 0 k p
-                                  , DynamicRanked $ rreverse $ rslice 0 k as ])
-                      padding = rzero (width - k :$ shn)
-                  in rappend (rreverse rf1) padding
-                g1s = map g1 [1 .. width]  -- can't be rmap nor rbuild nor rscan
-                g1t = rfromList g1s
-                (abShared2, g1tShared) = rregister g1t (astBindings sShared)
-                sShared2 = sShared {astBindings = abShared2}
-                g1sum = cShared ! (0 :. ZI) + rsum (rtr g1tShared ! (0 :. ZI))
-                g2 :: Int -> shaped rm (1 + m)
-                g2 k =
-                  let rf11 = rslice 1 k $ g1tShared ! (fromIntegral k - 1 :. ZI)
-                      lp = rslice 0 k p
-                      las = rslice 0 k as
-                      rg :: shaped r (1 + n1) -> shaped r (1 + n1)
-                         -> shaped rm (1 + m)
-                         -> shaped rm (1 + m)
-                      rg = rzipWith31 (\cr x a ->
-                             rletDomainsIn domsF (rf cr x a) $ \rfRes ->
-                                snd $ domsToPair rfRes)
-                      cas = rg rf11 lp las
-                      padding = rzero (width - k :$ shm)
-                  in rappend cas padding
-                g2s = map g2 [1..width]  -- can't be rmap nor rbuild nor rscan
-                g2sum = rsum $ rfromList g2s
-                s2 = evalR sShared2 g1sum x0'
-            in evalR s2 g2sum as'
-          ZS -> error "evalR: impossible pattern needlessly required"
-        ScanDS @_ @_ @n1 domsOD p as _df rf x0' as' -> case V.unsnoc as of
+        ScanS @rm @shm @k3 @sh1 p as _df rf x0' as' ->
+          let domsToPair :: ADReadyS f
+                         => Domains (RankedOf f) -> (f r sh1, f rm shm)
+              domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
+              domsF :: DomainsOD
+              domsF = V.fromList [odFromShS @r @sh1, odFromShS @rm @shm]
+              g1 :: Int -> shaped r (1 + k3 ': sh1)
+              g1 k = case someNatVal $ toInteger k of
+                Just (SomeNat @k _) -> case cmpNat (Proxy @k) (Proxy @k3) of
+                  LTI -> gCmp1 @k
+                  EQI -> gCmp1 @k
+                  GTI -> error "evalS: impossible GTI"
+                _ -> error "evalS: impossible someNatVal"
+              gCmp1 :: forall k. (KnownNat k, k <= k3)
+                    => shaped r (1 + k3 ': sh1)
+              gCmp1 =
+                let cx = cShared !$ (valueOf @k :$: ZSH)
+                    rf1 :: shaped r (1 + k ': sh1)
+                    rf1 =
+                      sscanD (\cr doms' ->
+                                sletDomainsIn domsF doms' $ \doms ->
+                                  let (x, a) = domsToPair doms
+                                  in sletDomainsIn
+                                       domsF (rf cr x a) $ \rfRes ->
+                                         fst $ domsToPair rfRes)
+                             domsF
+                             cx
+                             (V.fromList
+                                [ DynamicShaped $ sreverse
+                                  $ sslice @_ @_ @_ @_ @(1 + k3 - k)
+                                           (Proxy @0) (Proxy @k) p
+                                , DynamicShaped $ sreverse
+                                  $ sslice @_ @_ @_ @_ @(k3 - k)
+                                           (Proxy @0) (Proxy @k) as ])
+                in sappend @_ @_ @(1 + k) @(k3 - k) (sreverse rf1) 0
+              g1s = map g1 [1 .. valueOf @k3]
+              g1t = sfromList @_ @_ @k3 g1s
+              (abShared2, g1tShared) = sregister g1t (astBindings sShared)
+              sShared2 = sShared {astBindings = abShared2}
+              g1sum = withListShape (Sh.shapeT @sh1) $ \(_ :: ShapeInt n1) ->
+                        gcastWith (unsafeCoerce Refl :: Sh.Rank sh1 :~: n1) $
+                        cShared !$ (0 :$: ZSH)
+                        + ssum (str g1tShared !$ (0 :$: ZSH))
+              g2 :: Int -> shaped rm (k3 ': shm)
+              g2 k = case someNatVal $ toInteger k of
+                Just (SomeNat @k _) -> case cmpNat (Proxy @k) (Proxy @k3) of
+                  LTI -> gCmp2 @k
+                  EQI -> gCmp2 @k
+                  GTI -> error "evalS: impossible GTI"
+                _ -> error "evalS: impossible someNatVal"
+              gCmp2 ::forall k. (KnownNat k, k <= k3)
+                    => shaped rm (k3 ': shm)
+              gCmp2 =
+                let rf11 = sslice @_ @_ @_ @_ @(k3 - k)
+                                  (Proxy @1) (Proxy @k)
+                           $ g1tShared
+                             !$ (fromIntegral (valueOf @k - 1 :: Int) :$: ZSH)
+                    lp = sslice @_ @_ @_ @_ @(1 + k3 - k)
+                                (Proxy @0) (Proxy @k) p
+                    las = sslice @_ @_ @_ @_ @(k3 - k)
+                                (Proxy @0) (Proxy @k) as
+                    rg :: shaped r (k ': sh1) -> shaped r (k ': sh1)
+                       -> shaped rm (k ': shm)
+                       -> shaped rm (k ': shm)
+                    rg = szipWith31 (\cr x a ->
+                           sletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                              snd $ domsToPair rfRes)
+                    cas = rg rf11 lp las
+                in sappend cas 0
+              g2s = map g2 [1 .. valueOf @k3]
+              g2sum = ssum $ sfromList @_ @_ @k3 g2s
+              s2 = evalS sShared2 g1sum x0'
+          in evalS s2 g2sum as'
+{-        ScanDS @_ @_ @n1 domsOD p as _df rf x0' as' -> case V.unsnoc as of
           Nothing -> error "evalR: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
             [] -> error "evalR: wrong rank of argument"
@@ -1529,7 +1557,7 @@ buildFinMaps s0 deltaDt =
                             in DynamicRanked $ rappend t padding
                         padRanked _ = error "padRanked: not DynamicRanked"
                     in V.map padRanked (ravelDomains cas)
-                  g2s = map g2 [1..width]  -- can't be rmap nor rbuild nor rscan
+                  g2s = map g2 [1 .. width]  -- can't be rmap nor rbuild nor rscan
                   g2sum = V.fromList $ map sumDynamicRanked
                           $ transpose $ map V.toList g2s
                   s2 = evalR sShared2 g1sum x0'
@@ -2024,31 +2052,28 @@ buildDerivative dimR deltaDt params = do
               lp = sunravelToList p
           return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
                            cx0 (zip3 lcas (init lp) las)
+        ScanS @rm @shm @k @sh1 p as df _rf x0' as' -> do
+          cx0 <- evalS x0'
+          cas <- evalS as'
+          let domsTo3 :: ADReadyS f
+                      => Domains (RankedOf f) -> (f rm shm, f r sh1, f rm shm)
+              domsTo3 doms = ( sfromD $ doms V.! 0
+                             , sfromD $ doms V.! 1
+                             , sfromD $ doms V.! 2 )
+              domsF =
+                V.fromList
+                  [odFromShS @rm @shm, odFromShS @r @sh1, odFromShS @rm @shm]
+          return $! sscanD (\cx doms' ->
+                              sletDomainsIn domsF doms' $ \doms ->
+                                let (ca, x, a) = domsTo3 doms
+                                in df cx ca x a)
+                           domsF
+                           cx0
+                           (V.fromList
+                              [ DynamicShaped cas
+                              , DynamicShaped $ sslice (Proxy @0) (Proxy @k) p
+                              , DynamicShaped as ])
 {-
-        ScanS @rm @m @_ @_ @n1 p as df _rf x0' as' -> case rshape as of
-          width :$ shm -> do
-            let !_A1 = assert (rlength p == width + 1) ()
-                shn = shapeDelta x0'
-            cx0 <- evalR x0'
-            cas <- evalR as'
-            let domsTo3 :: ADReady f => Domains f -> (f rm shm, f r sh1, f rm shm)
-                domsTo3 doms = ( rfromD $ doms V.! 0
-                               , rfromD $ doms V.! 1
-                               , rfromD $ doms V.! 2 )
-                domsF =
-                  V.fromList
-                    [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
-            return $! rscanD (\cx doms' ->
-                                rletDomainsIn domsF doms' $ \doms ->
-                                  let (ca, x, a) = domsTo3 doms
-                                  in df cx ca x a)
-                             domsF
-                             cx0
-                             (V.fromList
-                                [ DynamicShaped cas
-                                , DynamicShaped $ rslice 0 width p
-                                , DynamicShaped as ])
-          ZS -> error "evalR: impossible pattern needlessly required"
         ScanDS @_ @_ @n1 domsOD p as df _rf x0' as' -> do
           let width = rlength p - 1
               domsLen = V.length domsOD

@@ -824,13 +824,12 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
            -> ADVal shaped rn sh
            -> ADVal shaped rm (k ': shm)
            -> ADVal shaped rn (1 + k ': sh)
-  sscanDer f _df _rf (D l1 x0 x0') (D l2 as as') = sscan f (D l1 x0 x0') (D l2 as as') {-
-    let p :: ranked rn (1 + n)
-        p = rscanDer f df rf x0 as
+  sscanDer f df rf (D l1 x0 x0') (D l2 as as') =
+    let p :: shaped rn (1 + k ': sh)
+        p = sscanDer f df rf x0 as
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
     in D l3 pShared
-            (ScanR pShared as df rf x0' as')
--}
+            (ScanS pShared as df rf x0' as')
   sscanD :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
          => (forall f. ADReadyS f
              => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
