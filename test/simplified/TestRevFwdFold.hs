@@ -127,6 +127,7 @@ testTrees =
   , testCase "4Sin0ScanD4" testSin0ScanD4
   , testCase "4Sin0ScanD5" testSin0ScanD5
   , testCase "4Sin0ScanD51" testSin0ScanD51
+  , testCase "4Sin0ScanD51S" testSin0ScanD51S
   , testCase "4Sin0ScanD6" testSin0ScanD6
   , testCase "4Sin0ScanD7" testSin0ScanD7
   , testCase "4Sin0ScanD8" testSin0ScanD8
@@ -1167,6 +1168,42 @@ testSin0ScanD51 = do
                               $ rreplicate 3 (rreplicate 8 (rreplicate 3 a0)) ]
                          ))
           (rreplicate0N [1,1,1,1] 1.1))
+
+testSin0ScanD51S :: Assertion
+testSin0ScanD51S = do
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1,1,1,1] [319.68688158967257] :: OR.Array 4 Double)
+    (rev' (let f :: forall f. ADReadyS f
+                 => f Double '[1,1,1,1] -> f Double '[4,1,1,1,1]
+               f a0 =
+                 sscanD
+                   (let g :: forall f2. ADReadyS f2
+                          => f2 Double '[1,1,1,1] -> DomainsOf (RankedOf f2)
+                          -> f2 Double '[1,1,1,1]
+                        g x a =
+                          ssum
+                          $ atan2 (sin $ sreplicate @f2 @5 x)
+                                  (ssum $ sin $ ssum
+                                   $ str $ sreplicate @f2 @7
+                                   $ sreplicate @f2 @2 $ sreplicate @f2 @5
+                                   $ ssum @_ @_ @3 $ ssum @_ @_ @8
+                                   $ sfromD (dunDomains (V.fromList [ odFromShS @Double
+                                                                             @'[2, 5, 1, 1, 1, 1]
+                                                                           , odFromShS @Double
+                                                                             @'[8, 3, 1, 1, 1, 1] ]) a V.! 1))
+                    in g)
+                   (V.fromList [ odFromShS @Double
+                                                                             @'[2, 5, 1, 1, 1, 1]
+                                                                           , odFromShS @Double
+                                                                             @'[8, 3, 1, 1, 1, 1] ])
+                   (sreplicate0N @_ @_ @[1,1,1,1] 2 * a0)
+                   (V.fromList
+                      [ DynamicShaped
+                        $ sreplicate @f @3 (sreplicate @f @2 (sreplicate @f @5 a0))
+                      , DynamicShaped
+                        $ sreplicate @f @3 (sreplicate @f @8 (sreplicate @f @3 a0)) ]
+                   )
+           in rfromS . f . sfromR) (rreplicate0N [1,1,1,1] 1.1))
 
 testSin0ScanD6 :: Assertion
 testSin0ScanD6 = do

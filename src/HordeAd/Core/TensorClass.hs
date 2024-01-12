@@ -757,13 +757,13 @@ sfromD (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> t
     _ -> error "sfromD: scalar mismatch"
-  _ -> error "sfromD: shape mismatch"
+  _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
 sfromD DynamicRankedDummy{} = error "sfromD: unexpected DynamicRankedDummy"
 sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
   Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
     Just Refl -> 0
     _ -> error "sfromD: scalar mismatch"
-  _ -> error "sfromD: shape mismatch"
+  _ -> error $ "sfromD: shape mismatch " ++ show (Sh.shapeT @sh2, Sh.shapeT @sh)
 
 
 -- * DomainsTensor class definition
