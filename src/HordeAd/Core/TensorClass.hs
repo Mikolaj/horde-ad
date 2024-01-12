@@ -13,7 +13,7 @@ module HordeAd.Core.TensorClass
     ShapeInt, ShapeSh
     -- * The tensor classes
   , RankedTensor(..), ShapedTensor(..), DomainsTensor(..)
-  , raddDynamic, saddDynamic, sumDynamicRanked, rfromD, sfromD
+  , raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, rfromD, sfromD
     -- * The related constraints
   , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
     -- * Concrete array instances auxiliary definitions
@@ -397,6 +397,20 @@ sumDynamicRanked (DynamicRankedDummy @r @sh _ _ : ds) =
     DynamicRanked @r $ foldl' raddDynamic (rzero sh1) ds
 sumDynamicRanked (DynamicShapedDummy{} : _) =
   error "sumDynamicRanked: DynamicShapedDummy"
+
+sumDynamicShaped :: ( ShapedTensor shaped
+                    , ShapedOf (RankedOf shaped) ~ shaped )
+                 => [DynamicTensor (RankedOf shaped)]
+                 -> DynamicTensor (RankedOf shaped)
+sumDynamicShaped [] = error "sumDynamicShaped: empty list"
+sumDynamicShaped (DynamicRanked{} : _) =
+  error "sumDynamicShaped: DynamicRanked"
+sumDynamicShaped (DynamicShaped t : ds) =
+  DynamicShaped $ foldl' saddDynamic t ds
+sumDynamicShaped (DynamicRankedDummy{} : _) =
+  error "sumDynamicShaped: DynamicRankedDummy"
+sumDynamicShaped (DynamicShapedDummy @r @sh _ _ : ds) =
+  DynamicShaped @r @sh $ foldl' saddDynamic 0 ds
 
 
 -- * Shaped tensor class definition

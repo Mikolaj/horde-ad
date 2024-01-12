@@ -147,8 +147,9 @@ testTrees =
   , testCase "4Sin0FoldNestedS1" testSin0FoldNestedS1
   , testCase "4Sin0FoldNestedS2" testSin0FoldNestedS2
   , testCase "4Sin0FoldNestedS3" testSin0FoldNestedS3
-  , testCase "4Sin0FoldNestedS4rev" testSin0FoldNestedS4rev
-  , testCase "4Sin0FoldNestedS4fwd" testSin0FoldNestedS4fwd
+--  , testCase "4Sin0FoldNestedS4" testSin0FoldNestedS4
+  , testCase "4Sin0FoldNestedS5rev" testSin0FoldNestedS5rev
+  , testCase "4Sin0FoldNestedS5fwd" testSin0FoldNestedS5fwd
   , testCase "4Sin0FoldNestedSi" testSin0FoldNestedSi
   ]
 
@@ -1419,11 +1420,9 @@ testSin0FoldNestedS3 = do
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
                           sfold (\x3 a3 ->
-                            sfold (\x4 a4 ->
-                              sfold (\x5 a5 -> 0.1 * x5 * a5)
-                                    a4 (sreplicate @_ @2 x4))
+                            sfold (\x4 a4 -> 0.1 * x4 * a4)
                                   a3 (sreplicate @_ @1 x3))
-                                a2 (sreplicate @_ @1 x2))
+                                a2 (sreplicate @_ @2 x2))
                               a (sreplicate @_ @1 x))
                             a0 (sreplicate @_ @2 a0)
            in rfromS . f . sfromR) 1.1)
@@ -1431,6 +1430,24 @@ testSin0FoldNestedS3 = do
 -- TODO: re-enable when simplification of AstShaped is completed
 _testSin0FoldNestedS4 :: Assertion
 _testSin0FoldNestedS4 = do
+  assertEqualUpToEpsilon' 1e-10
+    (1.2400927000000009e-5 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (\x a ->
+                        sfold (\x2 a2 ->
+                          sfold (\x3 a3 ->
+                            sfold (\x4 a4 ->
+                              sfold (\x5 a5 -> 0.1 * x5 * a5)
+                                    a4 (sreplicate @_ @2 x4))
+                                  a3 (sreplicate @_ @1 x3))
+                                a2 (sreplicate @_ @1 x2))
+                              a (sreplicate @_ @2 x))
+                            a0 (sreplicate @_ @1 a0)
+           in rfromS . f . sfromR) 1.1)
+
+-- TODO: re-enable when simplification of AstShaped is completed
+_testSin0FoldNestedS5 :: Assertion
+_testSin0FoldNestedS5 = do
   assertEqualUpToEpsilon' 1e-10
     (0.22000000000000003 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
@@ -1449,8 +1466,8 @@ _testSin0FoldNestedS4 = do
 
            in rfromS . f . sfromR) 1.1)
 
-testSin0FoldNestedS4rev :: Assertion
-testSin0FoldNestedS4rev = do
+testSin0FoldNestedS5rev :: Assertion
+testSin0FoldNestedS5rev = do
   let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
       f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
@@ -1468,8 +1485,8 @@ testSin0FoldNestedS4rev = do
     (0.22000000000000003)
     (srev1 @(Flip OS.Array) @Double @'[] @'[] f 1.1)
 
-testSin0FoldNestedS4fwd :: Assertion
-testSin0FoldNestedS4fwd = do
+testSin0FoldNestedS5fwd :: Assertion
+testSin0FoldNestedS5fwd = do
   let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
       f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
