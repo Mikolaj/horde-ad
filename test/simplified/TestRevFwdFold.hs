@@ -152,6 +152,14 @@ testTrees =
   , testCase "4Sin0FoldNestedS5rev" testSin0FoldNestedS5rev
   , testCase "4Sin0FoldNestedS5fwd" testSin0FoldNestedS5fwd
   , testCase "4Sin0FoldNestedSi" testSin0FoldNestedSi
+  , testCase "4Sin0FoldNestedR1" testSin0FoldNestedR1
+  , testCase "4Sin0FoldNestedR2" testSin0FoldNestedR2
+  , testCase "4Sin0FoldNestedR3" testSin0FoldNestedR3
+--  , testCase "4Sin0FoldNestedR4" testSin0FoldNestedR4
+--  , testCase "4Sin0FoldNestedR41" testSin0FoldNestedR41
+--  , testCase "4Sin0FoldNestedR40" testSin0FoldNestedR40
+--  , testCase "4Sin0FoldNestedR400" testSin0FoldNestedR400
+  , testCase "4Sin0FoldNestedRi" testSin0FoldNestedRi
   ]
 
 foo :: RealFloat a => (a, a, a) -> a
@@ -1563,3 +1571,134 @@ testSin0FoldNestedSi = do
                                                            (Proxy @1) x))))
                             (sreplicate @_ @3 $ 2 * a0) (sreplicate @_ @2 a0)
            in rfromS . f . sfromR) 1.1)
+
+testSin0FoldNestedR1 :: Assertion
+testSin0FoldNestedR1 = do
+  assertEqualUpToEpsilon' 1e-10
+    (2.0504979297616553e-43 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+               f a0 = rfold (\x a ->
+                        rfold (\x2 a2 -> 0.7 * x2 * a2)
+                              a (rreplicate 7 x))
+                            a0 (rreplicate 3 a0)
+           in f) 1.1)
+
+testSin0FoldNestedR2 :: Assertion
+testSin0FoldNestedR2 = do
+  assertEqualUpToEpsilon' 1e-10
+    (3.175389686661287e-207 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+               f a0 = rfold (\x a ->
+                        rfold (\x2 a2 ->
+                          rfold (\x3 a3 -> 0.7 * x3 * a3)
+                                a2 (rreplicate 4 x2))
+                              a (rreplicate 3 x))
+                            a0 (rreplicate 2 a0)
+           in f) 1.1)
+
+testSin0FoldNestedR3 :: Assertion
+testSin0FoldNestedR3 = do
+  assertEqualUpToEpsilon' 1e-10
+    (7.320500000000004e-4 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+               f a0 = rfold (\x a ->
+                        rfold (\x2 a2 ->
+                          rfold (\x3 a3 ->
+                            rfold (\x4 a4 -> 0.1 * x4 * a4)
+                                  a3 (rreplicate 1 x3))
+                                a2 (rreplicate 2 x2))
+                              a (rreplicate 1 x))
+                            a0 (rreplicate 2 a0)
+           in f) 1.1)
+
+-- TODO: re-enable when simplification of AstRanked is completed
+_testSin0FoldNestedR4 :: Assertion
+_testSin0FoldNestedR4 = do
+  assertEqualUpToEpsilon' 1e-10
+    (1.2400927000000009e-5 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+               f a0 = rfold (\x a ->
+                        rfold (\x2 a2 ->
+                          rfold (\x3 a3 ->
+                            rfold (\x4 a4 ->
+                              rfold (\x5 a5 -> 0.1 * x5 * a5)
+                                    a4 (rreplicate 2 x4))
+                                  a3 (rreplicate 1 x3))
+                                a2 (rreplicate 1 x2))
+                              a (rreplicate 2 x))
+                            a0 (rreplicate 1 a0)
+           in f) 1.1)
+
+-- TODO: re-enable when simplification of AstRanked is completed
+_testSin0FoldNestedR41 :: Assertion
+_testSin0FoldNestedR41 = do
+  assertEqualUpToEpsilon' 1e-10
+    (0.22000000000000003 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+               f a0 = rfold (\x a ->
+                        rfold (\x2 a2 ->
+                          rfold (\x3 a3 ->
+                            rfold (\x4 a4 ->
+                              rfold (\x5 a5 -> 0.1 * x5 * a5)
+                                    a4 (rreplicate 1 x4))
+                                  a3 (rreplicate 1 x3))
+                                a2 (rreplicate 1 x2))
+                              a (rreplicate 1 x))
+                            a0 (rreplicate 1 a0)
+           in f) 1.1)
+
+-- TODO: re-enable when simplification of AstRanked is completed
+_testSin0FoldNestedR40 :: Assertion
+_testSin0FoldNestedR40 = do
+  assertEqualUpToEpsilon' 1e-10
+    (1.0 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+               f a0 = rfold (\x a ->
+                        rfold (\x2 a2 ->
+                          rfold (\x3 a3 ->
+                            rfold (\x4 a4 ->
+                              rfold (\x5 a5 -> 0.1 * x5 * a5)
+                                    a4 (rreplicate 0 x4))
+                                  a3 (rreplicate 0 x3))
+                                a2 (rreplicate 0 x2))
+                              a (rreplicate 0 x))
+                            a0 (rreplicate 0 a0)
+           in f) 1.1)
+
+-- TODO: re-enable when anything is slightly improved (200s optimized ATM)
+_testSin0FoldNestedR400 :: Assertion
+_testSin0FoldNestedR400 = do
+  assertEqualUpToEpsilon' 1e-10
+    (1.0 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+               f a0 = rfold (\x a ->
+                        rfold (\x2 a2 ->
+                          rfold (\x3 a3 ->
+                            rfold (\x4 a4 ->
+                              rfold (\_x5 _a5 -> 0)
+                                    a4 (rreplicate 0 x4))
+                                  a3 (rreplicate 0 x3))
+                                a2 (rreplicate 0 x2))
+                              a (rreplicate 0 x))
+                            a0 (rreplicate 0 a0)
+           in f) 1.1)
+
+testSin0FoldNestedRi :: Assertion
+testSin0FoldNestedRi = do
+  assertEqualUpToEpsilon' 1e-10
+    (-0.20775612781643243 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 1
+               f a0 = rfold (\x a -> atan2
+                                       (rscan (+) (rsum x)
+                                          (rscan (*) 2
+                                                 (rreplicate 1 a)))
+                                       (rscan (\x1 a1 ->
+                                          rfold (\x2 a2 ->
+                                            rfold (\x3 a3 ->
+                                                     0.001 * (x3 * a3 - x3))
+                                                  a2 (rscan (+) x2
+                                                            (rreplicate 3 a2)))
+                                                x1 (rreplicate 1 a1))
+                                              a (rscan (-) 0 (rslice 0 1 x))))
+                            (rreplicate 3 $ 2 * a0) (rreplicate 2 a0)
+           in f) 1.1)
