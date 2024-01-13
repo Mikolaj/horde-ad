@@ -146,6 +146,8 @@ testTrees =
   , testCase "4Sin0ScanD8fwd" testSin0ScanD8fwd
   , testCase "4Sin0ScanD8fwd2" testSin0ScanD8fwd2
   , testCase "4Sin0FoldNestedS1" testSin0FoldNestedS1
+  , testCase "4Sin0FoldNestedS1FwdFwd" testSin0FoldNestedS1FwdFwd
+  , testCase "4Sin0FoldNestedS1RevRev" testSin0FoldNestedS1RevRev
   , testCase "4Sin0FoldNestedS2" testSin0FoldNestedS2
   , testCase "4Sin0FoldNestedS3" testSin0FoldNestedS3
 --  , testCase "4Sin0FoldNestedS4" testSin0FoldNestedS4
@@ -153,6 +155,7 @@ testTrees =
   , testCase "4Sin0FoldNestedS5fwd" testSin0FoldNestedS5fwd
   , testCase "4Sin0FoldNestedSi" testSin0FoldNestedSi
   , testCase "4Sin0FoldNestedR1" testSin0FoldNestedR1
+  , testCase "4Sin0FoldNestedR1RevFwd" testSin0FoldNestedR1RevFwd
   , testCase "4Sin0FoldNestedR2" testSin0FoldNestedR2
   , testCase "4Sin0FoldNestedR3" testSin0FoldNestedR3
 --  , testCase "4Sin0FoldNestedR4" testSin0FoldNestedR4
@@ -1444,6 +1447,30 @@ testSin0FoldNestedS1 = do
                             a0 (sreplicate @_ @3 a0)
            in rfromS . f . sfromR) 1.1)
 
+testSin0FoldNestedS1FwdFwd :: Assertion
+testSin0FoldNestedS1FwdFwd = do
+  assertEqualUpToEpsilon' 1e-10
+    (2.0504979297616553e-43 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (\x a ->
+                        sfold (\x2 a2 ->
+                                 x2 * sfwd1 (sfwd1 (\b2 -> 0.7 * b2)) a2)
+                              a (sreplicate @_ @7 x))
+                            a0 (sreplicate @_ @3 a0)
+           in rfwd1 $ rfromS . sfwd1 f . sfromR) 1.1)
+
+testSin0FoldNestedS1RevRev :: Assertion
+testSin0FoldNestedS1RevRev = do
+  assertEqualUpToEpsilon' 1e-10
+    (2.0504979297616553e-43 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+               f a0 = sfold (\x a ->
+                        sfold (\x2 a2 ->
+                                 x2 * srev1 (srev1 (\b2 -> 0.7 * b2)) a2)
+                              a (sreplicate @_ @7 x))
+                            a0 (sreplicate @_ @3 a0)
+           in rrev1 $ rfromS . srev1 f . sfromR) 1.1)
+
 testSin0FoldNestedS2 :: Assertion
 testSin0FoldNestedS2 = do
   assertEqualUpToEpsilon' 1e-10
@@ -1582,6 +1609,18 @@ testSin0FoldNestedR1 = do
                             a0 (rreplicate 3 a0)
            in f) 1.1)
 
+testSin0FoldNestedR1RevFwd :: Assertion
+testSin0FoldNestedR1RevFwd = do
+  assertEqualUpToEpsilon' 1e-10
+    (3.175389686661287e-207 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+               f a0 = rfold (\x a ->
+                        rfold (\x2 a2 ->
+                                 x2 * rfwd1 (rrev1 (\b2 -> 0.7 * b2)) a2)
+                              a (rreplicate 4 x))
+                            a0 (rreplicate 2 a0)
+           in rrev1 $ rfwd1 f) 1.1)
+
 testSin0FoldNestedR2 :: Assertion
 testSin0FoldNestedR2 = do
   assertEqualUpToEpsilon' 1e-10
@@ -1594,6 +1633,22 @@ testSin0FoldNestedR2 = do
                               a (rreplicate 3 x))
                             a0 (rreplicate 2 a0)
            in f) 1.1)
+
+-- TODO: re-enable when simplification of AstRanked is completed
+_testSin0FoldNestedR2RevFwd :: Assertion
+_testSin0FoldNestedR2RevFwd = do
+  assertEqualUpToEpsilon' 1e-10
+    (3.175389686661287e-207 :: OR.Array 0 Double)
+    (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+               f a0 = rfold (\x a ->
+                        rfold (\x2 a2 ->
+                          rfold (\x3 a3 ->
+                                   x3 * rrev1 (rfwd1 (rrev1 (\b3 ->
+                                                               0.7 * b3))) a3)
+                                a2 (rreplicate 4 x2))
+                              a (rreplicate 3 x))
+                            a0 (rreplicate 2 a0)
+           in rfwd1 $ rrev1 $ rfwd1 f) 1.1)
 
 testSin0FoldNestedR3 :: Assertion
 testSin0FoldNestedR3 = do
