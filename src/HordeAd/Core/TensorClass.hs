@@ -684,7 +684,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, Sh.Shape sh)
                 => shaped r1 sh -> shaped r2 sh
   sconst :: (GoodScalar r, Sh.Shape sh) => OS.Array sh r -> shaped r sh
-  sletDomainsIn :: Sh.Shape sh
+  sletDomainsIn :: (Sh.Shape sh, GoodScalar r)
                 => DomainsOD
                 -> DomainsOf shaped
                 -> (Domains (RankedOf shaped) -> shaped r sh)

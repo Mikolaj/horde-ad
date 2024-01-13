@@ -411,7 +411,7 @@ instance ( GoodScalar r, KnownNat n
 
 -- TODO: move the impure part to AstFreshId
 astLetDomainsInFun
-  :: forall n s r. (AstSpan s, GoodScalar r, KnownNat n)
+  :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
   => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstRanked s r n)
   -> AstRanked s r n
 {-# NOINLINE astLetDomainsInFun #-}
@@ -545,7 +545,7 @@ instance ( GoodScalar r, Sh.Shape sh
 
 -- TODO: dedup with astLetDomainsInFun
 astLetDomainsInFunS
-  :: forall sh s r. (AstSpan s, Sh.Shape sh)
+  :: forall sh s r. (Sh.Shape sh, GoodScalar r, AstSpan s)
   => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstShaped s r sh)
   -> AstShaped s r sh
 {-# NOINLINE astLetDomainsInFunS #-}
