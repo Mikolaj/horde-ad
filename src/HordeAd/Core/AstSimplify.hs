@@ -1087,9 +1087,9 @@ astSliceLax i k v =
 -}
 
 
--- * The simplifying combinators, one for most AST constructors
+-- * The simplifying combinators, one for each AST constructor
 
-astLet :: forall n m s s2 r r2.
+astLet :: forall n m r r2 s s2.
           ( KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2
           , AstSpan s, AstSpan s2 )
        => AstVarName (AstRanked s) r n
@@ -1152,7 +1152,7 @@ astLetInt :: AstVarName (AstRanked PrimalSpan) Int64 0
 astLetInt var u v | var `varNameInAst` v = astLet var u v
 astLetInt _ _ v = v
 
-astLetS :: forall sh1 sh2 s s2 r r2.
+astLetS :: forall sh1 sh2 r r2 s s2.
            ( Sh.Shape sh1, Sh.Shape sh2, GoodScalar r, GoodScalar r2
            , AstSpan s, AstSpan s2 )
         => AstVarName (AstShaped s) r sh1
@@ -1930,7 +1930,7 @@ astLetDomainsIn vars l v =
               , Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 Ast.AstSToR
-                $ Ast.AstLetS @sh4 @sh @r4 @s @s2 (AstVarName varId) 0
+                $ Ast.AstLetS @sh4 @sh @r4 @_ @s @s2 (AstVarName varId) 0
                 $ Ast.AstRToS acc
             f vd@(AstDynamicVarName @ty @r3 @sh3 _, d) _ =
               error $ "astLetDomainsIn: corrupted arguments"
@@ -1986,7 +1986,7 @@ astLetDomainsInS vars l v =
               | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
               , Just Refl <- sameShape @sh3 @sh4
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                Ast.AstLetS @sh4 @sh @r4 @s @s2 (AstVarName varId) 0 acc
+                Ast.AstLetS @sh4 @sh @r4 @_ @s @s2 (AstVarName varId) 0 acc
             f vd@(AstDynamicVarName @ty @r3 @sh3 _, d) _ =
               error $ "astLetDomainsInS: corrupted arguments"
                       `showFailure`

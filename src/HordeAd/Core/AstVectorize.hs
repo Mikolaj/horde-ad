@@ -161,7 +161,7 @@ build1V k (var, v00) =
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"
-    Ast.AstLet @_ @_ @r1 @s1 var1@(AstVarName oldVarId) u v ->
+    Ast.AstLet @_ @_ @r1 @_ @s1 var1@(AstVarName oldVarId) u v ->
       let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           sh = shapeAst u
           projection = Ast.AstIndex (Ast.AstVar (k :$ sh) var2)
@@ -819,7 +819,7 @@ build1VS (var, v00) =
   in case v0 of
     Ast.AstVarS{} ->
       error "build1VS: AstVarS can't contain free index variables"
-    Ast.AstLetS @sh1 @_ @r1 @s1 var1@(AstVarName oldVarId) u v ->
+    Ast.AstLetS @sh1 @_ @r1 @_ @s1 var1@(AstVarName oldVarId) u v ->
       let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
           projection = Ast.AstIndexS (Ast.AstVarS @(k ': sh1) var2)
                                      (Ast.AstIntVar var :$: ZSH)

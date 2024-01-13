@@ -193,7 +193,8 @@ data AstRanked :: AstSpanType -> RankedTensorType where
   AstVar :: ShapeInt n -> AstVarName (AstRanked s) r n -> AstRanked s r n
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
-  AstLet :: (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
+  AstLet :: forall n m r r2 s s2.
+            (KnownNat n, KnownNat m, GoodScalar r, AstSpan s)
          => AstVarName (AstRanked s) r n -> AstRanked s r n
          -> AstRanked s2 r2 m
          -> AstRanked s2 r2 m
@@ -388,8 +389,9 @@ type role AstShaped nominal nominal nominal
 data AstShaped :: AstSpanType -> ShapedTensorType where
   -- To permit defining objective functions in Ast, not just constants:
   AstVarS :: forall sh r s. AstVarName (AstShaped s) r sh -> AstShaped s r sh
-  AstLetS :: (Sh.Shape sh, Sh.Shape sh2, GoodScalar r, AstSpan s)
-          => AstVarName (AstShaped s) r sh -> AstShaped s r sh
+  AstLetS :: forall sh1 sh2 r r2 s s2.
+             (Sh.Shape sh1, Sh.Shape sh2, GoodScalar r, AstSpan s)
+          => AstVarName (AstShaped s) r sh1 -> AstShaped s r sh1
           -> AstShaped s2 r2 sh2
           -> AstShaped s2 r2 sh2
   AstLetADShareS :: ADShare -> AstShaped PrimalSpan r sh

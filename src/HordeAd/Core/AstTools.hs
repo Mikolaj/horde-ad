@@ -353,7 +353,7 @@ bindsToLet = foldl' bindToLet
       DynamicRankedDummy @r2 @sh2 _ _ ->
         withListShape (Sh.shapeT @sh2) $ \(_ :: ShapeInt n3) ->
           gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh2) $
-          AstLet @n3 @n @r2 @s (AstVarName varId) (AstSToR @sh2 @s @r2 0) u
+          AstLet @n3 @n @r2 @_ @s (AstVarName varId) (AstSToR @sh2 @s @r2 0) u
       DynamicShapedDummy @r2 @sh2 _ _ -> convertShaped @r2 @sh2 0
 
 bindsToLetS :: forall sh s r. (AstSpan s, Sh.Shape sh)
@@ -376,10 +376,10 @@ bindsToLetS = foldl' bindToLetS
         gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh2) $
         withListShape (Sh.shapeT @sh) $ \(_ :: ShapeInt m) ->
           gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh) $
-          AstRToS $ AstLet @n3 @m @r2 @s
+          AstRToS $ AstLet @n3 @m @r2 @_ @s
                       (AstVarName varId) (AstSToR @sh2 @s @r2 0) (AstSToR u)
     DynamicShapedDummy @r2 @sh2 _ _ ->
-      AstLetS @sh2 @sh @r2 @s (AstVarName varId) 0 u
+      AstLetS @sh2 @sh @r2 @_ @s (AstVarName varId) 0 u
 
 bindsToDomainsLet
    :: forall s. AstSpan s
