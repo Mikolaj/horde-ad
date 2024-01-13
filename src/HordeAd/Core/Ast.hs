@@ -312,14 +312,14 @@ data AstRanked :: AstSpanType -> RankedTensorType where
              -> AstRanked s rn n
              -> AstRanked s rm (1 + m)
              -> AstRanked s rn n
-  AstFoldD :: forall rn n s. KnownNat n
+  AstFoldZip :: forall rn n s. KnownNat n
            => ( AstVarName (AstRanked PrimalSpan) rn n
               , [AstDynamicVarName]
               , AstRanked PrimalSpan rn n )
            -> AstRanked s rn n
            -> Domains (AstRanked s)  -- one rank higher than above
            -> AstRanked s rn n
-  AstFoldDDer :: forall rn n s. KnownNat n
+  AstFoldZipDer :: forall rn n s. KnownNat n
               => ( AstVarName (AstRanked PrimalSpan) rn n
                  , [AstDynamicVarName]
                  , AstRanked PrimalSpan rn n )
@@ -358,14 +358,14 @@ data AstRanked :: AstSpanType -> RankedTensorType where
              -> AstRanked s rn n
              -> AstRanked s rm (1 + m)
              -> AstRanked s rn (1 + n)
-  AstScanD :: forall rn n s. KnownNat n
+  AstScanZip :: forall rn n s. KnownNat n
            => ( AstVarName (AstRanked PrimalSpan) rn n
               , [AstDynamicVarName]
               , AstRanked PrimalSpan rn n )
            -> AstRanked s rn n
            -> Domains (AstRanked s)  -- one rank higher than above
            -> AstRanked s rn (1 + n)
-  AstScanDDer :: forall rn n s. KnownNat n
+  AstScanZipDer :: forall rn n s. KnownNat n
               => ( AstVarName (AstRanked PrimalSpan) rn n
                  , [AstDynamicVarName]
                  , AstRanked PrimalSpan rn n )
@@ -523,14 +523,14 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
               -> AstShaped s rn sh
               -> AstShaped s rm (k ': shm)
               -> AstShaped s rn sh
-  AstFoldDS :: forall rn sh s. Sh.Shape sh
+  AstFoldZipS :: forall rn sh s. Sh.Shape sh
             => ( AstVarName (AstShaped PrimalSpan) rn sh
                , [AstDynamicVarName]
                , AstShaped PrimalSpan rn sh )
             -> AstShaped s rn sh
             -> Domains (AstRanked s)  -- one rank higher than above
             -> AstShaped s rn sh
-  AstFoldDDerS :: forall rn sh s. Sh.Shape sh
+  AstFoldZipDerS :: forall rn sh s. Sh.Shape sh
                => ( AstVarName (AstShaped PrimalSpan) rn sh
                   , [AstDynamicVarName]
                   , AstShaped PrimalSpan rn sh )
@@ -571,14 +571,14 @@ data AstShaped :: AstSpanType -> ShapedTensorType where
               -> AstShaped s rn sh
               -> AstShaped s rm (k ': shm)
               -> AstShaped s rn (1 + k ': sh)
-  AstScanDS :: forall rn sh k s. (Sh.Shape sh, KnownNat k)
+  AstScanZipS :: forall rn sh k s. (Sh.Shape sh, KnownNat k)
             => ( AstVarName (AstShaped PrimalSpan) rn sh
                , [AstDynamicVarName]
                , AstShaped PrimalSpan rn sh )
             -> AstShaped s rn sh
             -> Domains (AstRanked s)  -- one rank higher than above
             -> AstShaped s rn (1 + k ': sh)
-  AstScanDDerS :: forall rn sh k s. (Sh.Shape sh, KnownNat k)
+  AstScanZipDerS :: forall rn sh k s. (Sh.Shape sh, KnownNat k)
                => ( AstVarName (AstShaped PrimalSpan) rn sh
                   , [AstDynamicVarName]
                   , AstShaped PrimalSpan rn sh )

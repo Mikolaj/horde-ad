@@ -96,18 +96,18 @@ shapeAst = \case
   AstFwd (_var, v) _l _ds -> shapeAst v
   AstFold _f x0 _as -> shapeAst x0
   AstFoldDer _f _df _rf x0 _as -> shapeAst x0
-  AstFoldD _f x0 _as -> shapeAst x0
-  AstFoldDDer _f _df _rf x0 _as -> shapeAst x0
+  AstFoldZip _f x0 _as -> shapeAst x0
+  AstFoldZipDer _f _df _rf x0 _as -> shapeAst x0
   AstScan _f x0 as -> lengthAst as + 1 :$ shapeAst x0
   AstScanDer _f _df _rf x0 as -> lengthAst as + 1 :$ shapeAst x0
-  AstScanD _f x0 as ->
+  AstScanZip _f x0 as ->
     let len = case V.uncons as of
           Nothing -> 0
           Just (a, _) -> case shapeDynamicAst a of
             [] -> error "shapeAst: no scan arguments"
             k : _ -> k
     in len + 1 :$ shapeAst x0
-  AstScanDDer _f _df _rf x0 as ->
+  AstScanZipDer _f _df _rf x0 as ->
     let len = case V.uncons as of
           Nothing -> 0
           Just (a, _) -> case shapeDynamicAst a of
@@ -179,13 +179,13 @@ varInAst var = \case
     in any f l || any f ds
   AstFold _f x0 as -> varInAst var x0 || varInAst var as
   AstFoldDer _f _df _rf x0 as -> varInAst var x0 || varInAst var as
-  AstFoldD _f x0 as -> varInAst var x0 || any (varInAstDynamic var) as
-  AstFoldDDer _f _df _rf x0 as ->
+  AstFoldZip _f x0 as -> varInAst var x0 || any (varInAstDynamic var) as
+  AstFoldZipDer _f _df _rf x0 as ->
     varInAst var x0 || any (varInAstDynamic var) as
   AstScan _f x0 as -> varInAst var x0 || varInAst var as
   AstScanDer _f _df _rf x0 as -> varInAst var x0 || varInAst var as
-  AstScanD _f x0 as -> varInAst var x0 || any (varInAstDynamic var) as
-  AstScanDDer _f _df _rf x0 as ->
+  AstScanZip _f x0 as -> varInAst var x0 || any (varInAstDynamic var) as
+  AstScanZipDer _f _df _rf x0 as ->
     varInAst var x0 || any (varInAstDynamic var) as
 
 varInAstDomains :: AstSpan s
@@ -269,13 +269,13 @@ varInAstS var = \case
     in any f l || any f ds
   AstFoldS _f x0 as -> varInAstS var x0 || varInAstS var as
   AstFoldDerS _f _df _rf x0 as -> varInAstS var x0 || varInAstS var as
-  AstFoldDS _f x0 as -> varInAstS var x0 || any (varInAstDynamic var) as
-  AstFoldDDerS _f _df _rf x0 as ->
+  AstFoldZipS _f x0 as -> varInAstS var x0 || any (varInAstDynamic var) as
+  AstFoldZipDerS _f _df _rf x0 as ->
     varInAstS var x0 || any (varInAstDynamic var) as
   AstScanS _f x0 as -> varInAstS var x0 || varInAstS var as
   AstScanDerS _f _df _rf x0 as -> varInAstS var x0 || varInAstS var as
-  AstScanDS _f x0 as -> varInAstS var x0 || any (varInAstDynamic var) as
-  AstScanDDerS _f _df _rf x0 as ->
+  AstScanZipS _f x0 as -> varInAstS var x0 || any (varInAstDynamic var) as
+  AstScanZipDerS _f _df _rf x0 as ->
     varInAstS var x0 || any (varInAstDynamic var) as
 
 varInIndexS :: AstVarId -> AstIndexS sh -> Bool

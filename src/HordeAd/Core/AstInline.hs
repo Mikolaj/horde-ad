@@ -224,19 +224,19 @@ inlineAst memo v0 = case v0 of
     in (memo2, Ast.AstFoldDer (nvar, mvar, v2)
                               (varDx, varDa, varn1, varm1, ast2)
                               (varDt2, nvar2, mvar2, doms2) x02 as2)
-  Ast.AstFoldD (nvar, mvar, v) x0 as ->
+  Ast.AstFoldZip (nvar, mvar, v) x0 as ->
     let (_, v2) = inlineAst EM.empty v
         (memo1, x02) = inlineAst memo x0
         (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstFoldD (nvar, mvar, v2) x02 as2)
-  Ast.AstFoldDDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+    in (memo2, Ast.AstFoldZip (nvar, mvar, v2) x02 as2)
+  Ast.AstFoldZipDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                   (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAst EM.empty v
         (_, doms2) = inlineAstDomains EM.empty doms
         (_, ast2) = inlineAst EM.empty ast1
         (memo1, x02) = inlineAst memo x0
         (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstFoldDDer (nvar, mvar, v2)
+    in (memo2, Ast.AstFoldZipDer (nvar, mvar, v2)
                                (varDx, varDa, varn1, varm1, ast2)
                                (varDt2, nvar2, mvar2, doms2) x02 as2)
   Ast.AstScan (nvar, mvar, v) x0 as ->
@@ -254,19 +254,19 @@ inlineAst memo v0 = case v0 of
     in (memo2, Ast.AstScanDer (nvar, mvar, v2)
                               (varDx, varDa, varn1, varm1, ast2)
                               (varDt2, nvar2, mvar2, doms2) x02 as2)
-  Ast.AstScanD (nvar, mvar, v) x0 as ->
+  Ast.AstScanZip (nvar, mvar, v) x0 as ->
     let (_, v2) = inlineAst EM.empty v
         (memo1, x02) = inlineAst memo x0
         (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstScanD (nvar, mvar, v2) x02 as2)
-  Ast.AstScanDDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+    in (memo2, Ast.AstScanZip (nvar, mvar, v2) x02 as2)
+  Ast.AstScanZipDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                   (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAst EM.empty v
         (_, doms2) = inlineAstDomains EM.empty doms
         (_, ast2) = inlineAst EM.empty ast1
         (memo1, x02) = inlineAst memo x0
         (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstScanDDer (nvar, mvar, v2)
+    in (memo2, Ast.AstScanZipDer (nvar, mvar, v2)
                                (varDx, varDa, varn1, varm1, ast2)
                                (varDt2, nvar2, mvar2, doms2) x02 as2)
 
@@ -494,19 +494,19 @@ inlineAstS memo v0 = case v0 of
     in (memo2, Ast.AstFoldDerS (nvar, mvar, v2)
                                (varDx, varDa, varn1, varm1, ast2)
                                (varDt2, nvar2, mvar2, doms2) x02 as2)
-  Ast.AstFoldDS (nvar, mvar, v) x0 as ->
+  Ast.AstFoldZipS (nvar, mvar, v) x0 as ->
     let (_, v2) = inlineAstS EM.empty v
         (memo1, x02) = inlineAstS memo x0
         (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstFoldDS (nvar, mvar, v2) x02 as2)
-  Ast.AstFoldDDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+    in (memo2, Ast.AstFoldZipS (nvar, mvar, v2) x02 as2)
+  Ast.AstFoldZipDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                    (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAstS EM.empty v
         (_, doms2) = inlineAstDomains EM.empty doms
         (_, ast2) = inlineAstS EM.empty ast1
         (memo1, x02) = inlineAstS memo x0
         (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstFoldDDerS (nvar, mvar, v2)
+    in (memo2, Ast.AstFoldZipDerS (nvar, mvar, v2)
                                 (varDx, varDa, varn1, varm1, ast2)
                                 (varDt2, nvar2, mvar2, doms2) x02 as2)
   Ast.AstScanS (nvar, mvar, v) x0 as ->
@@ -524,19 +524,19 @@ inlineAstS memo v0 = case v0 of
     in (memo2, Ast.AstScanDerS (nvar, mvar, v2)
                                (varDx, varDa, varn1, varm1, ast2)
                                (varDt2, nvar2, mvar2, doms2) x02 as2)
-  Ast.AstScanDS (nvar, mvar, v) x0 as ->
+  Ast.AstScanZipS (nvar, mvar, v) x0 as ->
     let (_, v2) = inlineAstS EM.empty v
         (memo1, x02) = inlineAstS memo x0
         (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstScanDS (nvar, mvar, v2) x02 as2)
-  Ast.AstScanDDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+    in (memo2, Ast.AstScanZipS (nvar, mvar, v2) x02 as2)
+  Ast.AstScanZipDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                    (varDt2, nvar2, mvar2, doms) x0 as ->
     let (_, v2) = inlineAstS EM.empty v
         (_, doms2) = inlineAstDomains EM.empty doms
         (_, ast2) = inlineAstS EM.empty ast1
         (memo1, x02) = inlineAstS memo x0
         (memo2, as2) = mapAccumR inlineAstDynamic memo1 as
-    in (memo2, Ast.AstScanDDerS (nvar, mvar, v2)
+    in (memo2, Ast.AstScanZipDerS (nvar, mvar, v2)
                                 (varDx, varDa, varn1, varm1, ast2)
                                 (varDt2, nvar2, mvar2, doms2) x02 as2)
 
@@ -660,13 +660,13 @@ unletAst env t = case t of
                    , unletAstDomains (emptyUnletEnv emptyADShare) doms )
                    (unletAst env x0)
                    (unletAst env as)
-  Ast.AstFoldD (nvar, mvar, v) x0 as ->
-    Ast.AstFoldD (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
+  Ast.AstFoldZip (nvar, mvar, v) x0 as ->
+    Ast.AstFoldZip (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
                  (unletAst env x0)
                  (V.map (unletAstDynamic env) as)
-  Ast.AstFoldDDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+  Ast.AstFoldZipDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                   (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstFoldDDer (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
+    Ast.AstFoldZipDer (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
                     ( varDx, varDa, varn1, varm1
                     , unletAst (emptyUnletEnv emptyADShare) ast1 )
                     ( varDt2, nvar2, mvar2
@@ -686,13 +686,13 @@ unletAst env t = case t of
                    , unletAstDomains (emptyUnletEnv emptyADShare) doms )
                    (unletAst env x0)
                    (unletAst env as)
-  Ast.AstScanD (nvar, mvar, v) x0 as ->
-    Ast.AstScanD (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
+  Ast.AstScanZip (nvar, mvar, v) x0 as ->
+    Ast.AstScanZip (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
                  (unletAst env x0)
                  (V.map (unletAstDynamic env) as)
-  Ast.AstScanDDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+  Ast.AstScanZipDer (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                   (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstScanDDer (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
+    Ast.AstScanZipDer (nvar, mvar, unletAst (emptyUnletEnv emptyADShare) v)
                     ( varDx, varDa, varn1, varm1
                     , unletAst (emptyUnletEnv emptyADShare) ast1 )
                     ( varDt2, nvar2, mvar2
@@ -840,13 +840,13 @@ unletAstS env t = case t of
                     , unletAstDomains (emptyUnletEnv emptyADShare) doms )
                     (unletAstS env x0)
                     (unletAstS env as)
-  Ast.AstFoldDS (nvar, mvar, v) x0 as ->
-    Ast.AstFoldDS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
+  Ast.AstFoldZipS (nvar, mvar, v) x0 as ->
+    Ast.AstFoldZipS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
                   (unletAstS env x0)
                   (V.map (unletAstDynamic env) as)
-  Ast.AstFoldDDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+  Ast.AstFoldZipDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                    (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstFoldDDerS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
+    Ast.AstFoldZipDerS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
                      ( varDx, varDa, varn1, varm1
                      , unletAstS (emptyUnletEnv emptyADShare) ast1 )
                      ( varDt2, nvar2, mvar2
@@ -866,13 +866,13 @@ unletAstS env t = case t of
                     , unletAstDomains (emptyUnletEnv emptyADShare) doms )
                     (unletAstS env x0)
                     (unletAstS env as)
-  Ast.AstScanDS (nvar, mvar, v) x0 as ->
-    Ast.AstScanDS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
+  Ast.AstScanZipS (nvar, mvar, v) x0 as ->
+    Ast.AstScanZipS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
                   (unletAstS env x0)
                   (V.map (unletAstDynamic env) as)
-  Ast.AstScanDDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
+  Ast.AstScanZipDerS (nvar, mvar, v) (varDx, varDa, varn1, varm1, ast1)
                                    (varDt2, nvar2, mvar2, doms) x0 as ->
-    Ast.AstScanDDerS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
+    Ast.AstScanZipDerS (nvar, mvar, unletAstS (emptyUnletEnv emptyADShare) v)
                      ( varDx, varDa, varn1, varm1
                      , unletAstS (emptyUnletEnv emptyADShare) ast1 )
                      ( varDt2, nvar2, mvar2

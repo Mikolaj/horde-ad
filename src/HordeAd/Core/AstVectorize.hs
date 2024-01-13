@@ -312,9 +312,9 @@ build1V k (var, v00) =
                        $ substProjDomains k var shm mvar2 doms) )
            (build1VOccurenceUnknown k (var, x0))
            (astTr $ build1VOccurenceUnknown k (var, as))
-    Ast.AstFoldD{} ->
+    Ast.AstFoldZip{} ->
       error "build1V: impossible case of AstFoldD"
-    Ast.AstFoldDDer @_ @n2
+    Ast.AstFoldZipDer @_ @n2
                     (nvar, mvars, v)
                     (varDx, varsDa, varn1, varsm1, ast1)
                     (varDt2, nvar2, mvars2, doms) x0 as -> traceRule $
@@ -325,7 +325,7 @@ build1V k (var, v00) =
            (ast1Out, varsDaOut) = substProjVars @k3 var varsDa ast1
            (ast1Out2, varsm1Out) = substProjVars @k3 var varsm1 ast1Out
            (domsOut, mvars2Out) = substProjVarsDomains @k3 var mvars2 doms
-       in Ast.AstFoldDDer
+       in Ast.AstFoldZipDer
             ( AstVarName $ varNameToAstVarId nvar
             , mvarsOut
             , build1VOccurenceUnknownRefresh
@@ -380,9 +380,9 @@ build1V k (var, v00) =
                        $ substProjDomains k var shm mvar2 doms) )
            (build1VOccurenceUnknown k (var, x0))
            (astTr $ build1VOccurenceUnknown k (var, as))
-    Ast.AstScanD{} ->
+    Ast.AstScanZip{} ->
       error "build1V: impossible case of AstScanD"
-    Ast.AstScanDDer @_ @n2
+    Ast.AstScanZipDer @_ @n2
                     (nvar, mvars, v)
                     (varDx, varsDa, varn1, varsm1, ast1)
                     (varDt2, nvar2, mvars2, doms) x0 as -> traceRule $
@@ -394,7 +394,7 @@ build1V k (var, v00) =
            (ast1Out2, varsm1Out) = substProjVars @k3 var varsm1 ast1Out
            (domsOut, mvars2Out) = substProjVarsDomains @k3 var mvars2 doms
        in astTr
-          $ Ast.AstScanDDer
+          $ Ast.AstScanZipDer
             ( AstVarName $ varNameToAstVarId nvar
             , mvarsOut
             , build1VOccurenceUnknownRefresh
@@ -724,9 +724,9 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
               Ast.AstScatter{} -> ruleD
               Ast.AstAppend{} -> ruleD
               Ast.AstFoldDer{} -> ruleD
-              Ast.AstFoldDDer{} -> ruleD
+              Ast.AstFoldZipDer{} -> ruleD
               Ast.AstScanDer{} -> ruleD
-              Ast.AstScanDDer{} -> ruleD
+              Ast.AstScanZipDer{} -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
             else build1VOccurenceUnknown k (var, v)  -- shortcut
        v -> traceRule $
@@ -974,9 +974,9 @@ build1VS (var, v00) =
                   $ substProjDomainsS @k var mvar2 doms) )
         (build1VOccurenceUnknownS (var, x0))
         (astTrS $ build1VOccurenceUnknownS @k (var, as))
-    Ast.AstFoldDS{} ->
-      error "build1VS: impossible case of AstFoldDS"
-    Ast.AstFoldDDerS @_ @shn
+    Ast.AstFoldZipS{} ->
+      error "build1VS: impossible case of AstFoldZipS"
+    Ast.AstFoldZipDerS @_ @shn
                      (nvar, mvars, v)
                      (varDx, varsDa, varn1, varsm1, ast1)
                      (varDt2, nvar2, mvars2, doms) x0 as -> traceRule $
@@ -984,7 +984,7 @@ build1VS (var, v00) =
            (ast1Out, varsDaOut) = substProjVarsS @k var varsDa ast1
            (ast1Out2, varsm1Out) = substProjVarsS @k var varsm1 ast1Out
            (domsOut, mvars2Out) = substProjVarsDomains @k var mvars2 doms
-       in Ast.AstFoldDDerS
+       in Ast.AstFoldZipDerS
             ( AstVarName $ varNameToAstVarId nvar
             , mvarsOut
             , build1VOccurenceUnknownRefreshS
@@ -1038,9 +1038,9 @@ build1VS (var, v00) =
                                   $ substProjDomainsS @k @shm var mvar2 doms) )
            (build1VOccurenceUnknownS @k (var, x0))
            (astTrS $ build1VOccurenceUnknownS @k (var, as))
-    Ast.AstScanDS{} ->
-      error "build1VS: impossible case of AstScanDS"
-    Ast.AstScanDDerS @_ @shn @k5
+    Ast.AstScanZipS{} ->
+      error "build1VS: impossible case of AstScanZipS"
+    Ast.AstScanZipDerS @_ @shn @k5
                      (nvar, mvars, v)
                      (varDx, varsDa, varn1, varsm1, ast1)
                      (varDt2, nvar2, mvars2, doms) x0 as -> traceRule $
@@ -1049,7 +1049,7 @@ build1VS (var, v00) =
            (ast1Out2, varsm1Out) = substProjVarsS @k var varsm1 ast1Out
            (domsOut, mvars2Out) = substProjVarsDomains @k var mvars2 doms
        in astTrS
-          $ Ast.AstScanDDerS
+          $ Ast.AstScanZipDerS
             ( AstVarName $ varNameToAstVarId nvar
             , mvarsOut
             , build1VOccurenceUnknownRefreshS
@@ -1112,9 +1112,9 @@ build1VIndexS (var, v0, ix@(_ :$: _)) =
               Ast.AstScatterS{} -> ruleD
               Ast.AstAppendS{} -> ruleD
               Ast.AstFoldDerS{} -> ruleD
-              Ast.AstFoldDDerS{} -> ruleD
+              Ast.AstFoldZipDerS{} -> ruleD
               Ast.AstScanDerS{} -> ruleD
-              Ast.AstScanDDerS{} -> ruleD
+              Ast.AstScanZipDerS{} -> ruleD
               -- TODO: these are not implemented and so need ruleD:
               Ast.AstMinIndexS{} -> ruleD
               Ast.AstMaxIndexS{} -> ruleD

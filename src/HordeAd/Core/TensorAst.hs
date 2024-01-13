@@ -743,13 +743,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         shm = tailShape $ rshape as
     in AstFoldDer (fun2ToAstR shn shm f) (fun4ToAstR shn shm df)
                   (fun3ToAstR shn shm rf) x0 as
-  rfoldD :: forall rn n. (GoodScalar rn, KnownNat n)
+  rfoldZip :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
          -> DomainsOD
          -> AstRanked s rn n
          -> Domains (AstRanked s)
          -> AstRanked s rn n
-  rfoldD f domsOD x0 as =
+  rfoldZip f domsOD x0 as =
     let domsToPair :: forall f. ADReady f => Domains f -> (f rn n, DomainsOf f)
         domsToPair doms = (rfromD $ doms V.! 0, dmkDomains $ V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
@@ -766,13 +766,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             let nvar1 = AstVarName nid1
                 nvar2 = AstVarName nid2
                 nvar = AstVarName nid
-            in AstFoldDDer (fun2DToAstR shn f domsOD)
+            in AstFoldZipDer (fun2DToAstR shn f domsOD)
                            (nvar1, mdyns1, nvar2, mdyns2, derivative)
                            (varDt, nvar, mdyns, gradient)
                            x0 as
           _ -> error "rfoldD: wrong variables"
       _ -> error "rfoldD: wrong variables"
-  rfoldDDer :: forall rn n. (GoodScalar rn, KnownNat n)
+  rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
             -> (forall f. ADReady f
                 => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
@@ -784,9 +784,9 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             -> AstRanked s rn n
             -> Domains (AstRanked s)
             -> AstRanked s rn n
-  rfoldDDer f df rf domsOD x0 as =
+  rfoldZipDer f df rf domsOD x0 as =
     let shn = rshape x0
-    in AstFoldDDer (fun2DToAstR shn f domsOD) (fun4DToAstR shn df domsOD)
+    in AstFoldZipDer (fun2DToAstR shn f domsOD) (fun4DToAstR shn df domsOD)
                    (fun3DToAstR shn rf domsOD) x0 as
   rscan :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
@@ -836,13 +836,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         shm = tailShape $ rshape as
     in AstScanDer (fun2ToAstR shn shm f) (fun4ToAstR shn shm df)
                   (fun3ToAstR shn shm rf) x0 as
-  rscanD :: forall rn n. (GoodScalar rn, KnownNat n)
+  rscanZip :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
          -> DomainsOD
          -> AstRanked s rn n
          -> Domains (AstRanked s)
          -> AstRanked s rn (1 + n)
-  rscanD f domsOD x0 as =
+  rscanZip f domsOD x0 as =
     let domsToPair :: forall f. ADReady f => Domains f -> (f rn n, DomainsOf f)
         domsToPair doms = (rfromD $ doms V.! 0, dmkDomains $ V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
@@ -859,13 +859,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             let nvar1 = AstVarName nid1
                 nvar2 = AstVarName nid2
                 nvar = AstVarName nid
-            in AstScanDDer (fun2DToAstR shn f domsOD)
+            in AstScanZipDer (fun2DToAstR shn f domsOD)
                            (nvar1, mdyns1, nvar2, mdyns2, derivative)
                            (varDt, nvar, mdyns, gradient)
                            x0 as
           _ -> error "rscanD: wrong variables"
       _ -> error "rscanD: wrong variables"
-  rscanDDer :: forall rn n. (GoodScalar rn, KnownNat n)
+  rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
             -> (forall f. ADReady f
                 => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
@@ -877,9 +877,9 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             -> AstRanked s rn n
             -> Domains (AstRanked s)
             -> AstRanked s rn (1 + n)
-  rscanDDer f df rf domsOD x0 as =
+  rscanZipDer f df rf domsOD x0 as =
     let shn = rshape x0
-    in AstScanDDer (fun2DToAstR shn f domsOD) (fun4DToAstR shn df domsOD)
+    in AstScanZipDer (fun2DToAstR shn f domsOD) (fun4DToAstR shn df domsOD)
                    (fun3DToAstR shn rf domsOD) x0 as
   sfold :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
@@ -922,14 +922,14 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
            -> AstShaped s rn sh
   sfoldDer f df rf x0 as =
     AstFoldDerS (fun2ToAstS f) (fun4ToAstS df) (fun3ToAstS rf) x0 as
-  sfoldD :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
+  sfoldZip :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
          => (forall f. ADReadyS f
              => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
          -> DomainsOD
          -> AstShaped s rn sh
          -> Domains (AstRanked s)
          -> AstShaped s rn sh
-  sfoldD f domsOD x0 as =
+  sfoldZip f domsOD x0 as =
     let domsToPair :: forall f. ADReadyS f
                       => Domains (RankedOf f)
                       -> (f rn sh, DomainsOf (RankedOf f))
@@ -947,13 +947,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             let nvar1 = AstVarName nid1
                 nvar2 = AstVarName nid2
                 nvar = AstVarName nid
-            in AstFoldDDerS (fun2DToAstS @_ @_ @sh f domsOD)
+            in AstFoldZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
                             (nvar1, mdyns1, nvar2, mdyns2, derivative)
                             (varDt, nvar, mdyns, gradient)
                             x0 as
           _ -> error "sfoldD: wrong variables"
       _ -> error "sfoldD: wrong variables"
-  sfoldDDer :: forall rn sh. Sh.Shape sh
+  sfoldZipDer :: forall rn sh. Sh.Shape sh
             => (forall f. ADReadyS f
                 => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
@@ -967,8 +967,8 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             -> AstShaped s rn sh
             -> Domains (AstRanked s)
             -> AstShaped s rn sh
-  sfoldDDer f df rf domsOD x0 as =
-    AstFoldDDerS (fun2DToAstS @_ @_ @sh f domsOD)
+  sfoldZipDer f df rf domsOD x0 as =
+    AstFoldZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
                  (fun4DToAstS @_ @_ @sh df domsOD)
                  (fun3DToAstS @_ @_ @sh rf domsOD) x0 as
   sscan :: forall rn rm sh shm k.
@@ -1015,14 +1015,14 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     AstScanDerS (fun2ToAstS @_ @_ @sh f)
                 (fun4ToAstS @_ @_ @sh df)
                 (fun3ToAstS @_ @_ @sh rf) x0 as
-  sscanD :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+  sscanZip :: forall k rn sh. (GoodScalar rn, Sh.Shape sh, KnownNat k)
          => (forall f. ADReadyS f
              => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
          -> DomainsOD
          -> AstShaped s rn sh
          -> Domains (AstRanked s)
          -> AstShaped s rn (1 + k ': sh)
-  sscanD f domsOD x0 as =
+  sscanZip f domsOD x0 as =
     let domsToPair :: forall f. ADReadyS f
                       => Domains (RankedOf f)
                       -> (f rn sh, DomainsOf (RankedOf f))
@@ -1040,13 +1040,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             let nvar1 = AstVarName nid1
                 nvar2 = AstVarName nid2
                 nvar = AstVarName nid
-            in AstScanDDerS (fun2DToAstS @_ @_ @sh f domsOD)
+            in AstScanZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
                             (nvar1, mdyns1, nvar2, mdyns2, derivative)
                             (varDt, nvar, mdyns, gradient)
                             x0 as
           _ -> error "sscanD: wrong variables"
       _ -> error "sscanD: wrong variables"
-  sscanDDer :: forall k rn sh. (Sh.Shape sh, KnownNat k)
+  sscanZipDer :: forall k rn sh. (Sh.Shape sh, KnownNat k)
             => (forall f. ADReadyS f
                 => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
@@ -1060,8 +1060,8 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             -> AstShaped s rn sh
             -> Domains (AstRanked s)
             -> AstShaped s rn (1 + k ': sh)
-  sscanDDer f df rf domsOD x0 as =
-    AstScanDDerS (fun2DToAstS @_ @_ @sh f domsOD)
+  sscanZipDer f df rf domsOD x0 as =
+    AstScanZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
                  (fun4DToAstS @_ @_ @sh df domsOD)
                  (fun3DToAstS @_ @_ @sh rf domsOD) x0 as
 
@@ -1315,13 +1315,13 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorize
     $ rfoldDer @(AstRanked s)
                f df rf (unAstNoVectorize x0) (unAstNoVectorize as)
-  rfoldD f domsOD x0 as =
+  rfoldZip f domsOD x0 as =
     AstNoVectorize
-    $ rfoldD @(AstRanked s) f domsOD (unAstNoVectorize x0)
+    $ rfoldZip @(AstRanked s) f domsOD (unAstNoVectorize x0)
                                      (unNoVectorizeDomains as)
-  rfoldDDer f df rf domsOD x0 as =
+  rfoldZipDer f df rf domsOD x0 as =
     AstNoVectorize
-    $ rfoldDDer @(AstRanked s)
+    $ rfoldZipDer @(AstRanked s)
                 f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeDomains as)
   rscan f x0 as =
     AstNoVectorize
@@ -1330,13 +1330,13 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorize
     $ rscanDer @(AstRanked s)
                f df rf (unAstNoVectorize x0) (unAstNoVectorize as)
-  rscanD f domsOD x0 as =
+  rscanZip f domsOD x0 as =
     AstNoVectorize
-    $ rscanD @(AstRanked s) f domsOD (unAstNoVectorize x0)
+    $ rscanZip @(AstRanked s) f domsOD (unAstNoVectorize x0)
                                      (unNoVectorizeDomains as)
-  rscanDDer f df rf domsOD x0 as =
+  rscanZipDer f df rf domsOD x0 as =
     AstNoVectorize
-    $ rscanDDer @(AstRanked s)
+    $ rscanZipDer @(AstRanked s)
                 f df rf domsOD (unAstNoVectorize x0) (unNoVectorizeDomains as)
   sfold f x0 as =
     AstNoVectorizeS
@@ -1345,13 +1345,13 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorizeS
     $ sfoldDer @(AstRanked s)
                f df rf (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
-  sfoldD f domsOD x0 as =
+  sfoldZip f domsOD x0 as =
     AstNoVectorizeS
-    $ sfoldD @(AstRanked s) f domsOD (unAstNoVectorizeS x0)
+    $ sfoldZip @(AstRanked s) f domsOD (unAstNoVectorizeS x0)
                                      (unNoVectorizeDomains as)
-  sfoldDDer f df rf domsOD x0 as =
+  sfoldZipDer f df rf domsOD x0 as =
     AstNoVectorizeS
-    $ sfoldDDer @(AstRanked s)
+    $ sfoldZipDer @(AstRanked s)
                 f df rf domsOD (unAstNoVectorizeS x0) (unNoVectorizeDomains as)
   sscan f x0 as =
     AstNoVectorizeS
@@ -1360,13 +1360,13 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     AstNoVectorizeS
     $ sscanDer @(AstRanked s)
                f df rf (unAstNoVectorizeS x0) (unAstNoVectorizeS as)
-  sscanD f domsOD x0 as =
+  sscanZip f domsOD x0 as =
     AstNoVectorizeS
-    $ sscanD @(AstRanked s) f domsOD (unAstNoVectorizeS x0)
+    $ sscanZip @(AstRanked s) f domsOD (unAstNoVectorizeS x0)
                                      (unNoVectorizeDomains as)
-  sscanDDer f df rf domsOD x0 as =
+  sscanZipDer f df rf domsOD x0 as =
     AstNoVectorizeS
-    $ sscanDDer @(AstRanked s)
+    $ sscanZipDer @(AstRanked s)
                 f df rf domsOD (unAstNoVectorizeS x0) (unNoVectorizeDomains as)
 
 unNoVectorizeDomains :: Domains (AstNoVectorize s) -> Domains (AstRanked s)
@@ -1532,13 +1532,13 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rfoldDer f df rf x0 as =
     AstNoSimplify
     $ rfoldDer @(AstRanked s) f df rf (unAstNoSimplify x0) (unAstNoSimplify as)
-  rfoldD f domsOD x0 as =
+  rfoldZip f domsOD x0 as =
     AstNoSimplify
-    $ rfoldD @(AstRanked s) f domsOD (unAstNoSimplify x0)
+    $ rfoldZip @(AstRanked s) f domsOD (unAstNoSimplify x0)
                                      (unNoSimplifyDomains as)
-  rfoldDDer f df rf domsOD x0 as =
+  rfoldZipDer f df rf domsOD x0 as =
     AstNoSimplify
-    $ rfoldDDer @(AstRanked s)
+    $ rfoldZipDer @(AstRanked s)
                 f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyDomains as)
   rscan f x0 as =
     AstNoSimplify
@@ -1546,13 +1546,13 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   rscanDer f df rf x0 as =
     AstNoSimplify
     $ rscanDer @(AstRanked s) f df rf (unAstNoSimplify x0) (unAstNoSimplify as)
-  rscanD f domsOD x0 as =
+  rscanZip f domsOD x0 as =
     AstNoSimplify
-    $ rscanD @(AstRanked s) f domsOD (unAstNoSimplify x0)
+    $ rscanZip @(AstRanked s) f domsOD (unAstNoSimplify x0)
                                      (unNoSimplifyDomains as)
-  rscanDDer f df rf domsOD x0 as =
+  rscanZipDer f df rf domsOD x0 as =
     AstNoSimplify
-    $ rscanDDer @(AstRanked s)
+    $ rscanZipDer @(AstRanked s)
                 f df rf domsOD (unAstNoSimplify x0) (unNoSimplifyDomains as)
   sfold f x0 as =
     AstNoSimplifyS
@@ -1561,13 +1561,13 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     AstNoSimplifyS
     $ sfoldDer @(AstRanked s)
                f df rf (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
-  sfoldD f domsOD x0 as =
+  sfoldZip f domsOD x0 as =
     AstNoSimplifyS
-    $ sfoldD @(AstRanked s) f domsOD (unAstNoSimplifyS x0)
+    $ sfoldZip @(AstRanked s) f domsOD (unAstNoSimplifyS x0)
                                      (unNoSimplifyDomains as)
-  sfoldDDer f df rf domsOD x0 as =
+  sfoldZipDer f df rf domsOD x0 as =
     AstNoSimplifyS
-    $ sfoldDDer @(AstRanked s)
+    $ sfoldZipDer @(AstRanked s)
                 f df rf domsOD (unAstNoSimplifyS x0) (unNoSimplifyDomains as)
   sscan f x0 as =
     AstNoSimplifyS
@@ -1576,13 +1576,13 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     AstNoSimplifyS
     $ sscanDer @(AstRanked s)
                f df rf (unAstNoSimplifyS x0) (unAstNoSimplifyS as)
-  sscanD f domsOD x0 as =
+  sscanZip f domsOD x0 as =
     AstNoSimplifyS
-    $ sscanD @(AstRanked s) f domsOD (unAstNoSimplifyS x0)
+    $ sscanZip @(AstRanked s) f domsOD (unAstNoSimplifyS x0)
                                      (unNoSimplifyDomains as)
-  sscanDDer f df rf domsOD x0 as =
+  sscanZipDer f df rf domsOD x0 as =
     AstNoSimplifyS
-    $ sscanDDer @(AstRanked s)
+    $ sscanZipDer @(AstRanked s)
                 f df rf domsOD (unAstNoSimplifyS x0) (unNoSimplifyDomains as)
 
 unNoSimplifyDomains :: Domains (AstNoSimplify s) -> Domains (AstRanked s)

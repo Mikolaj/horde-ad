@@ -263,7 +263,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> DeltaR ranked rn n
          -> DeltaR ranked rm (1 + m)
          -> DeltaR ranked rn n
-  FoldDR :: DomainsOD
+  FoldZipR :: DomainsOD
          -> ranked rn (1 + n)
          -> Domains ranked  -- one rank higher than the Domains above
          -> (forall f. ADReady f
@@ -275,7 +275,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
          -> DeltaR ranked rn n
          -> Domains (DeltaR ranked)  -- one rank higher
          -> DeltaR ranked rn n
-  FoldDRC :: DomainsOD
+  FoldZipRC :: DomainsOD
           -> ranked rn (1 + n)
           -> Domains ranked
           -> (ranked rn n -> DomainsOf ranked -> ranked rn n -> DomainsOf ranked
@@ -293,7 +293,7 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
         -> DeltaR ranked rn n
         -> DeltaR ranked rm (1 + m)
         -> DeltaR ranked rn (1 + n)
-  ScanDR :: DomainsOD
+  ScanZipR :: DomainsOD
          -> ranked rn (1 + n)
          -> Domains ranked  -- one rank higher than the Domains above
          -> (forall f. ADReady f
@@ -438,7 +438,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> DeltaS shaped rn sh
         -> DeltaS shaped rm (k ': shm)
         -> DeltaS shaped rn sh
-  FoldDS :: KnownNat k
+  FoldZipS :: KnownNat k
          => DomainsOD
          -> shaped rn (1 + k ': sh)
          -> Domains (RankedOf shaped)  -- one rank higher than the Domains above
@@ -452,7 +452,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
          -> DeltaS shaped rn sh
          -> Domains (DeltaR (RankedOf shaped))
          -> DeltaS shaped rn sh
-  FoldDSC :: KnownNat k
+  FoldZipSC :: KnownNat k
           => DomainsOD
           -> shaped rn (1 + k ': sh)
           -> Domains (RankedOf shaped)
@@ -473,7 +473,7 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> DeltaS shaped rn sh
         -> DeltaS shaped rm (k ': shm)
         -> DeltaS shaped rn (1 + k ': sh)
-  ScanDS :: (Sh.Shape sh, KnownNat k)
+  ScanZipS :: (Sh.Shape sh, KnownNat k)
          => DomainsOD
          -> shaped rn (1 + k ': sh)
          -> Domains (RankedOf shaped)  -- one rank higher than the Domains above
@@ -548,10 +548,10 @@ shapeDelta = \case
   GatherR sh _ _ -> sh
   FoldR _p _as _df _rf x0' _as' -> shapeDelta x0'
   FoldRC _p _as _df _rf x0' _as' -> shapeDelta x0'
-  FoldDR _domsOD _p _as _df _rf x0' _as' -> shapeDelta x0'
-  FoldDRC _domsOD _p _as _df _rf x0' _as' -> shapeDelta x0'
+  FoldZipR _domsOD _p _as _df _rf x0' _as' -> shapeDelta x0'
+  FoldZipRC _domsOD _p _as _df _rf x0' _as' -> shapeDelta x0'
   ScanR p _as _df _rf _x0' _as' -> rshape p
-  ScanDR _domsOD p _as _df _rf _x0' _as' -> rshape p
+  ScanZipR _domsOD p _as _df _rf _x0' _as' -> rshape p
   CastR d -> shapeDelta d
   SToR @sh _ -> listShapeToShape $ Sh.shapeT @sh
 
@@ -999,7 +999,7 @@ buildFinMaps s0 deltaDt =
                 domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
                 crsr :: ranked r (1 + n)
                 crsr =
-                  rscanD (\cr doms' ->
+                  rscanZip (\cr doms' ->
                             rletDomainsIn domsF doms' $ \doms ->
                               let (x, a) = domsToPair doms
                               in rletDomainsIn
@@ -1037,7 +1037,7 @@ buildFinMaps s0 deltaDt =
               (cx0, cas) = rg cShared (zip (init $ runravelToList p) las)
               s2 = evalR sShared cx0 x0'
           in evalR s2 (rfromList cas) as'
-        FoldDR @rm @m domsOD p as _df rf x0' as' -> case V.unsnoc as of
+        FoldZipR @rm @m domsOD p as _df rf x0' as' -> case V.unsnoc as of
           Nothing -> error "evalR: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
             [] -> error "evalR: wrong rank of argument"
@@ -1054,7 +1054,7 @@ buildFinMaps s0 deltaDt =
                   las = mapDomainsRanked11 rreverse as
                   crsr :: ranked r (1 + n)
                   crsr =
-                    rscanD (\cr doms' ->
+                    rscanZip (\cr doms' ->
                       rletDomainsIn domsF doms' $ \doms ->
                         let (x, a) = domsToPair doms
                         in rletDomainsIn
@@ -1078,7 +1078,7 @@ buildFinMaps s0 deltaDt =
                              (map dmkDomains $ unravelDomains as)
                   s2 = evalR sShared2 (crsShared ! (0 :. ZI)) x0'
               in V.foldl' evalRDynamicRanked s2 $ V.zip cas as'
-        FoldDRC @rm @m domsOD p as _df rf x0' as' ->
+        FoldZipRC @rm @m domsOD p as _df rf x0' as' ->
           -- No sharing attempted, because this constructor is usually used
           -- for non-symbolic derivatives.
           let shn = shapeDelta x0'
@@ -1115,7 +1115,7 @@ buildFinMaps s0 deltaDt =
                 g1 k =
                   let cx = cShared ! (fromIntegral k :. ZI)
                       rf1 =
-                        rscanD (\cr doms' ->
+                        rscanZip (\cr doms' ->
                                   rletDomainsIn domsF doms' $ \doms ->
                                     let (x, a) = domsToPair doms
                                     in rletDomainsIn
@@ -1152,7 +1152,7 @@ buildFinMaps s0 deltaDt =
                 s2 = evalR sShared2 g1sum x0'
             in evalR s2 g2sum as'
           ZS -> error "evalR: impossible pattern needlessly required"
-        ScanDR @_ @_ @n1 domsOD p as _df rf x0' as' -> case V.unsnoc as of
+        ScanZipR @_ @_ @n1 domsOD p as _df rf x0' as' -> case V.unsnoc as of
           Nothing -> error "evalR: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
             [] -> error "evalR: wrong rank of argument"
@@ -1172,7 +1172,7 @@ buildFinMaps s0 deltaDt =
                         las :: Domains ranked
                         las = mapDomainsRanked11 (rreverse . rslice 0 k) as
                         rf1 =
-                          rscanD (\cr doms' ->
+                          rscanZip (\cr doms' ->
                                     rletDomainsIn domsF doms' $ \doms ->
                                       let (x, a) = domsToPair doms
                                       in rletDomainsIn
@@ -1320,7 +1320,7 @@ buildFinMaps s0 deltaDt =
               domsF = V.fromList [odFromShS @r @sh, odFromShS @rm @shm]
               crsr :: shaped r (1 + k ': sh)
               crsr =
-                sscanD (\cr doms' ->
+                sscanZip (\cr doms' ->
                           sletDomainsIn domsF doms' $ \doms ->
                             let (x, a) = domsToPair doms
                             in sletDomainsIn
@@ -1361,7 +1361,7 @@ buildFinMaps s0 deltaDt =
               (cx0, cas) = rg cShared (zip (init $ sunravelToList p) las)
               s2 = evalS sShared cx0 x0'
           in evalS s2 (sfromList cas) as'
-        FoldDS @k3 domsOD p as _df rf x0' as' -> case V.unsnoc as of
+        FoldZipS @k3 domsOD p as _df rf x0' as' -> case V.unsnoc as of
           Nothing -> error "evalS: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
             [] -> error "evalS: wrong rank of argument"
@@ -1379,7 +1379,7 @@ buildFinMaps s0 deltaDt =
                   las = mapDomainsShaped11 sreverse as
                   crsr :: shaped r (1 + k3 ': sh)
                   crsr =
-                    sscanD (\cr doms' ->
+                    sscanZip (\cr doms' ->
                       sletDomainsIn domsF doms' $ \doms ->
                         let (x, a) = domsToPair doms
                         in sletDomainsIn
@@ -1405,7 +1405,7 @@ buildFinMaps s0 deltaDt =
                              (map dmkDomains $ unravelDomains as)
                   s2 = evalS sShared2 (crsShared !$ (0 :$: ZSH)) x0'
               in V.foldl' evalSDynamicShaped s2 $ V.zip cas as'
-        FoldDSC @rm @shm domsOD p as _df rf x0' as' ->
+        FoldZipSC @rm @shm domsOD p as _df rf x0' as' ->
           -- No sharing attempted, because this constructor is usually used
           -- for shon-symbolic derivatives.
           let domsF = V.cons (odFromShS @r @sh) domsOD
@@ -1446,7 +1446,7 @@ buildFinMaps s0 deltaDt =
                                             (Proxy @0) (Proxy @k) as
                     rf1 :: shaped r (1 + k ': sh1)
                     rf1 =
-                      sscanD (\cr doms' ->
+                      sscanZip (\cr doms' ->
                                 sletDomainsIn domsF doms' $ \doms ->
                                   let (x, a) = domsToPair doms
                                   in sletDomainsIn
@@ -1496,7 +1496,7 @@ buildFinMaps s0 deltaDt =
               g2sum = ssum $ sfromList @_ @_ @k3 g2s
               s2 = evalS sShared2 g1sum x0'
           in evalS s2 g2sum as'
-        ScanDS @sh1 @k3 domsOD p as _df rf x0' as' ->
+        ScanZipS @sh1 @k3 domsOD p as _df rf x0' as' ->
           let domsF = V.cons (odFromShS @r @sh1) domsOD
               domsToPair :: forall f. ADReadyS f
                          => Domains (RankedOf f)
@@ -1521,7 +1521,7 @@ buildFinMaps s0 deltaDt =
                                                (Proxy @0) (Proxy @k)) as
                     rf1 :: shaped r (1 + k ': sh1)
                     rf1 =
-                      sscanD (\cr doms' ->
+                      sscanZip (\cr doms' ->
                                 sletDomainsIn domsF doms' $ \doms ->
                                   let (x, a) = domsToPair doms
                                   in sletDomainsIn
@@ -1833,7 +1833,7 @@ buildDerivative dimR deltaDt params = do
                 domsF =
                   V.fromList
                     [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
-            return $! rfoldD (\cx doms' ->
+            return $! rfoldZip (\cx doms' ->
                                 rletDomainsIn domsF doms' $ \doms ->
                                   let (ca, x, a) = domsTo3 doms
                                   in df cx ca x a)
@@ -1851,7 +1851,7 @@ buildDerivative dimR deltaDt params = do
               las = runravelToList as
               lp = runravelToList p
           return $! foldl' df cx0 (zip3 lcas (init lp) las)
-        FoldDR domsOD p as df _rf x0' as' -> do
+        FoldZipR domsOD p as df _rf x0' as' -> do
           let width = rlength p - 1
               domsLen = V.length domsOD
               shn = shapeDelta x0'
@@ -1863,7 +1863,7 @@ buildDerivative dimR deltaDt params = do
                              , rfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
               domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
-          return $! rfoldD (\cx doms' ->
+          return $! rfoldZip (\cx doms' ->
                               rletDomainsIn domsF doms' $ \doms ->
                                 let (ca, x, a) = domsTo3 doms
                                 in df cx (dmkDomains ca) x (dmkDomains a))
@@ -1873,7 +1873,7 @@ buildDerivative dimR deltaDt params = do
                                      , V.singleton
                                          (DynamicRanked $ rslice 0 width p)
                                      , as ])
-        FoldDRC _domsOD p as df _rf x0' as' -> do
+        FoldZipRC _domsOD p as df _rf x0' as' -> do
           cx0 <- evalR x0'
           cas <- V.mapM evalRDynamicRanked as'
           let lcas = map dmkDomains $ unravelDomains cas
@@ -1894,7 +1894,7 @@ buildDerivative dimR deltaDt params = do
                 domsF =
                   V.fromList
                     [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
-            return $! rscanD (\cx doms' ->
+            return $! rscanZip (\cx doms' ->
                                 rletDomainsIn domsF doms' $ \doms ->
                                   let (ca, x, a) = domsTo3 doms
                                   in df cx ca x a)
@@ -1905,7 +1905,7 @@ buildDerivative dimR deltaDt params = do
                                 , DynamicRanked $ rslice 0 width p
                                 , DynamicRanked as ])
           ZS -> error "evalR: impossible pattern needlessly required"
-        ScanDR @_ @_ @n1 domsOD p as df _rf x0' as' -> do
+        ScanZipR @_ @_ @n1 domsOD p as df _rf x0' as' -> do
           let width = rlength p - 1
               domsLen = V.length domsOD
               shn = shapeDelta x0'
@@ -1917,7 +1917,7 @@ buildDerivative dimR deltaDt params = do
                              , rfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
               domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
-          return $! rscanD (\cx doms' ->
+          return $! rscanZip (\cx doms' ->
                               rletDomainsIn domsF doms' $ \doms ->
                                 let (ca, x, a) = domsTo3 doms
                                 in df cx (dmkDomains ca) x (dmkDomains a))
@@ -2019,7 +2019,7 @@ buildDerivative dimR deltaDt params = do
               domsF =
                 V.fromList
                   [odFromShS @rm @shm, odFromShS @r @sh, odFromShS @rm @shm]
-          return $! sfoldD (\cx doms' ->
+          return $! sfoldZip (\cx doms' ->
                               sletDomainsIn domsF doms' $ \doms ->
                                 let (ca, x, a) = domsTo3 doms
                                 in df cx ca x a)
@@ -2036,7 +2036,7 @@ buildDerivative dimR deltaDt params = do
               las = sunravelToList as
               lp = sunravelToList p
           return $! foldl' df cx0 (zip3 lcas (init lp) las)
-        FoldDS @k3 domsOD p as df _rf x0' as' -> do
+        FoldZipS @k3 domsOD p as df _rf x0' as' -> do
           let domsLen = V.length domsOD
           cx0 <- evalS x0'
           cas <- V.mapM evalSDynamicShaped as'
@@ -2047,7 +2047,7 @@ buildDerivative dimR deltaDt params = do
                              , sfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
               domsF = V.concat [domsOD, V.singleton (odFromShS @r @sh), domsOD]
-          return $! sfoldD (\cx doms' ->
+          return $! sfoldZip (\cx doms' ->
                               sletDomainsIn domsF doms' $ \doms ->
                                 let (ca, x, a) = domsTo3 doms
                                 in df cx (dmkDomains ca) x (dmkDomains a))
@@ -2058,7 +2058,7 @@ buildDerivative dimR deltaDt params = do
                                          (DynamicShaped
                                           $ sslice (Proxy @0) (Proxy @k3) p)
                                      , as ])
-        FoldDSC _domsOD p as df _rf x0' as' -> do
+        FoldZipSC _domsOD p as df _rf x0' as' -> do
           cx0 <- evalS x0'
           cas <- V.mapM evalSDynamicShaped as'
           let lcas = map dmkDomains $ unravelDomains cas
@@ -2077,7 +2077,7 @@ buildDerivative dimR deltaDt params = do
               domsF =
                 V.fromList
                   [odFromShS @rm @shm, odFromShS @r @sh1, odFromShS @rm @shm]
-          return $! sscanD (\cx doms' ->
+          return $! sscanZip (\cx doms' ->
                               sletDomainsIn domsF doms' $ \doms ->
                                 let (ca, x, a) = domsTo3 doms
                                 in df cx ca x a)
@@ -2087,7 +2087,7 @@ buildDerivative dimR deltaDt params = do
                               [ DynamicShaped cas
                               , DynamicShaped $ sslice (Proxy @0) (Proxy @k) p
                               , DynamicShaped as ])
-        ScanDS @sh1 @k3 domsOD p as df _rf x0' as' -> do
+        ScanZipS @sh1 @k3 domsOD p as df _rf x0' as' -> do
           let domsLen = V.length domsOD
           cx0 <- evalS x0'
           cas <- V.mapM evalSDynamicShaped as'
@@ -2098,7 +2098,7 @@ buildDerivative dimR deltaDt params = do
                              , sfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
               domsF = V.concat [domsOD, V.singleton (odFromShS @r @sh1), domsOD]
-          return $! sscanD (\cx doms' ->
+          return $! sscanZip (\cx doms' ->
                               sletDomainsIn domsF doms' $ \doms ->
                                 let (ca, x, a) = domsTo3 doms
                                 in df cx (dmkDomains ca) x (dmkDomains a))
@@ -2385,12 +2385,12 @@ instance (KnownNat n0,
                                          (showsPrec 11 b6_adjM))))))))))))
   showsPrec
     a_adjN
-    (FoldDR b1_adjO b2_adjP b3_adjQ _b4_adjR _b5_adjS
+    (FoldZipR b1_adjO b2_adjP b3_adjQ _b4_adjR _b5_adjS
                                b6_adjT b7_adjU)
     = showParen
         (a_adjN >= 11)
         ((.)
-           (showString "FoldDR ")
+           (showString "FoldZipR ")
            ((.)
               (showsPrec 11 b1_adjO)
               ((.)
@@ -2418,12 +2418,12 @@ instance (KnownNat n0,
                                                (showsPrec 11 b7_adjU))))))))))))))
   showsPrec
     a_adjV
-    (FoldDRC b1_adjW b2_adjX b3_adjY b4_adjZ b5_adk0
+    (FoldZipRC b1_adjW b2_adjX b3_adjY b4_adjZ b5_adk0
                                 b6_adk1 b7_adk2)
     = showParen
         (a_adjV >= 11)
         ((.)
-           (showString "FoldDRC ")
+           (showString "FoldZipRC ")
            ((.)
               (showsPrec 11 b1_adjW)
               ((.)
@@ -2480,12 +2480,12 @@ instance (KnownNat n0,
                                          (showsPrec 11 b6_adk9))))))))))))
   showsPrec
     a_adka
-    (ScanDR b1_adkb b2_adkc b3_adkd _b4_adke _b5_adkf
+    (ScanZipR b1_adkb b2_adkc b3_adkd _b4_adke _b5_adkf
                                b6_adkg b7_adkh)
     = showParen
         (a_adka >= 11)
         ((.)
-           (showString "ScanDR ")
+           (showString "ScanZipR ")
            ((.)
               (showsPrec 11 b1_adkb)
               ((.)
@@ -2731,12 +2731,12 @@ instance (ShapedOf (RankedOf shaped) ~ shaped,
                                          (showsPrec 11 b6_aduA))))))))))))
   showsPrec
     a_aduB
-    (FoldDS b1_aduC b2_aduD b3_aduE _b4_aduF _b5_aduG
+    (FoldZipS b1_aduC b2_aduD b3_aduE _b4_aduF _b5_aduG
                                b6_aduH b7_aduI)
     = showParen
         (a_aduB >= 11)
         ((.)
-           (showString "FoldDS ")
+           (showString "FoldZipS ")
            ((.)
               (showsPrec 11 b1_aduC)
               ((.)
@@ -2764,12 +2764,12 @@ instance (ShapedOf (RankedOf shaped) ~ shaped,
                                                (showsPrec 11 b7_aduI))))))))))))))
   showsPrec
     a_aduJ
-    (FoldDSC b1_aduK b2_aduL b3_aduM b4_aduN b5_aduO
+    (FoldZipSC b1_aduK b2_aduL b3_aduM b4_aduN b5_aduO
                                 b6_aduP b7_aduQ)
     = showParen
         (a_aduJ >= 11)
         ((.)
-           (showString "FoldDSC ")
+           (showString "FoldZipSC ")
            ((.)
               (showsPrec 11 b1_aduK)
               ((.)
@@ -2826,12 +2826,12 @@ instance (ShapedOf (RankedOf shaped) ~ shaped,
                                          (showsPrec 11 b6_aduX))))))))))))
   showsPrec
     a_aduY
-    (ScanDS b1_aduZ b2_adv0 b3_adv1 _b4_adv2 _b5_adv3
+    (ScanZipS b1_aduZ b2_adv0 b3_adv1 _b4_adv2 _b5_adv3
                                b6_adv4 b7_adv5)
     = showParen
         (a_aduY >= 11)
         ((.)
-           (showString "ScanDS ")
+           (showString "ScanZipS ")
            ((.)
               (showsPrec 11 b1_aduZ)
               ((.)

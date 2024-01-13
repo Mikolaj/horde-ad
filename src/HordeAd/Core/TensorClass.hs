@@ -837,13 +837,13 @@ class DomainsTensor (ranked :: RankedTensorType)
            -> ranked rn n  -- ^ initial value
            -> ranked rm (1 + m)  -- ^ iteration is over the outermost dimension
            -> ranked rn n
-  rfoldD :: (GoodScalar rn, KnownNat n)
+  rfoldZip :: (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
          -> DomainsOD  -- shapes of the Domains above, not below
          -> ranked rn n
          -> Domains ranked  -- one rank higher than above
          -> ranked rn n
-  rfoldDDer :: (GoodScalar rn, KnownNat n)
+  rfoldZipDer :: (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
             -> (forall f. ADReady f
                 => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
@@ -868,13 +868,13 @@ class DomainsTensor (ranked :: RankedTensorType)
            -> ranked rn n
            -> ranked rm (1 + m)
            -> ranked rn (1 + n)
-  rscanD :: (GoodScalar rn, KnownNat n)
+  rscanZip :: (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
          -> DomainsOD  -- shapes of the Domains above, not below
          -> ranked rn n
          -> Domains ranked  -- one rank higher than above
          -> ranked rn (1 + n)
-  rscanDDer :: (GoodScalar rn, KnownNat n)
+  rscanZipDer :: (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
             -> (forall f. ADReady f
                 => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
@@ -902,14 +902,14 @@ class DomainsTensor (ranked :: RankedTensorType)
            -> shaped rn sh
            -> shaped rm (k ': shm)
            -> shaped rn sh
-  sfoldD :: (GoodScalar rn, Sh.Shape sh)
+  sfoldZip :: (GoodScalar rn, Sh.Shape sh)
          => (forall f. ADReadyS f
              => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
          -> DomainsOD
          -> shaped rn sh
          -> Domains (RankedOf shaped)
          -> shaped rn sh
-  sfoldDDer :: (GoodScalar rn, Sh.Shape sh)
+  sfoldZipDer :: (GoodScalar rn, Sh.Shape sh)
             => (forall f. ADReadyS f
                 => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
@@ -939,14 +939,14 @@ class DomainsTensor (ranked :: RankedTensorType)
            -> shaped rn sh
            -> shaped rm (k ': shm)
            -> shaped rn (1 + k ': sh)
-  sscanD :: (GoodScalar rn, Sh.Shape sh, KnownNat k)
+  sscanZip :: (GoodScalar rn, Sh.Shape sh, KnownNat k)
          => (forall f. ADReadyS f
              => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
          -> DomainsOD
          -> shaped rn sh
          -> Domains (RankedOf shaped)
          -> shaped rn (1 + k ': sh)
-  sscanDDer :: (GoodScalar rn, Sh.Shape sh, KnownNat k)
+  sscanZipDer :: (GoodScalar rn, Sh.Shape sh, KnownNat k)
             => (forall f. ADReadyS f
                 => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f

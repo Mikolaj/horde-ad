@@ -101,12 +101,12 @@ areAllArgsInts = \case
   AstFwd{} -> False
   AstFold{} -> False
   AstFoldDer{} -> False
-  AstFoldD{} -> False
-  AstFoldDDer{} -> False
+  AstFoldZip{} -> False
+  AstFoldZipDer{} -> False
   AstScan{} -> False
   AstScanDer{} -> False
-  AstScanD{} -> False
-  AstScanDDer{} -> False
+  AstScanZip{} -> False
+  AstScanZipDer{} -> False
 
 
 -- * Pretty-print variables
@@ -412,9 +412,9 @@ printAstAux cfg d = \case
       . printAst cfg 11 x0
       . showString " "
       . printAst cfg 11 as
-  AstFoldD (nvar, mvars, v) x0 as ->
+  AstFoldZip (nvar, mvars, v) x0 as ->
     showParen (d > 10)
-    $ showString "rfoldD "
+    $ showString "rfoldZip "
       . (showParen True
          $ showString "\\"
            . showString (printAstVarName (varRenames cfg) nvar)
@@ -427,10 +427,10 @@ printAstAux cfg d = \case
       . printAst cfg 11 x0
       . showString " "
       . printDomainsAst cfg as
-  AstFoldDDer (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
+  AstFoldZipDer (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                (varDt2, nvar2, mvars2, doms) x0 as ->
     showParen (d > 10)
-    $ showString "rfoldDDer "
+    $ showString "rfoldZipDer "
       . (showParen True
          $ showString "\\"
            . showString (printAstVarName (varRenames cfg) nvar)
@@ -519,9 +519,9 @@ printAstAux cfg d = \case
       . printAst cfg 11 x0
       . showString " "
       . printAst cfg 11 as
-  AstScanD (nvar, mvars, v) x0 as ->
+  AstScanZip (nvar, mvars, v) x0 as ->
     showParen (d > 10)
-    $ showString "rscanD "
+    $ showString "rscanZip "
       . (showParen True
          $ showString "\\"
            . showString (printAstVarName (varRenames cfg) nvar)
@@ -534,10 +534,10 @@ printAstAux cfg d = \case
       . printAst cfg 11 x0
       . showString " "
       . printDomainsAst cfg as
-  AstScanDDer (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
+  AstScanZipDer (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                (varDt2, nvar2, mvars2, doms) x0 as ->
     showParen (d > 10)
-    $ showString "rscanDDer "
+    $ showString "rscanZipDer "
       . (showParen True
          $ showString "\\"
            . showString (printAstVarName (varRenames cfg) nvar)
@@ -1037,9 +1037,9 @@ printAstS cfg d = \case
       . printAstS cfg 11 x0
       . showString " "
       . printAstS cfg 11 as
-  AstFoldDS (nvar, mvars, v) x0 as ->
+  AstFoldZipS (nvar, mvars, v) x0 as ->
     showParen (d > 10)
-    $ showString "sfoldD "
+    $ showString "sfoldZip "
       . (showParen True
          $ showString "\\"
            . showString (printAstVarNameS (varRenames cfg) nvar)
@@ -1052,10 +1052,10 @@ printAstS cfg d = \case
       . printAstS cfg 11 x0
       . showString " "
       . printDomainsAst cfg as
-  AstFoldDDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
+  AstFoldZipDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                 (varDt2, nvar2, mvars2, doms) x0 as ->
     showParen (d > 10)
-    $ showString "sfoldDDer "
+    $ showString "sfoldZipDer "
       . (showParen True
          $ showString "\\"
            . showString (printAstVarNameS (varRenames cfg) nvar)
@@ -1144,9 +1144,9 @@ printAstS cfg d = \case
       . printAstS cfg 11 x0
       . showString " "
       . printAstS cfg 11 as
-  AstScanDS (nvar, mvars, v) x0 as ->
+  AstScanZipS (nvar, mvars, v) x0 as ->
     showParen (d > 10)
-    $ showString "sscanD "
+    $ showString "sscanZip "
       . (showParen True
          $ showString "\\"
            . showString (printAstVarNameS (varRenames cfg) nvar)
@@ -1159,10 +1159,10 @@ printAstS cfg d = \case
       . printAstS cfg 11 x0
       . showString " "
       . printDomainsAst cfg as
-  AstScanDDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
+  AstScanZipDerS (nvar, mvars, v) (varDx, varsDa, varn1, varsm1, ast1)
                                 (varDt2, nvar2, mvars2, doms) x0 as ->
     showParen (d > 10)
-    $ showString "sscanDDer "
+    $ showString "sscanZipDer "
       . (showParen True
          $ showString "\\"
            . showString (printAstVarNameS (varRenames cfg) nvar)

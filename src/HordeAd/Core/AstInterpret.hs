@@ -535,15 +535,15 @@ interpretAst !env = \case
         x0i = interpretAst @ranked env x0
         asi = interpretAst @ranked env as
     in rfoldDer @ranked f df rf x0i asi
-  AstFoldD @_ @n1 f@(_, vars, _) x0 as ->
+  AstFoldZip @_ @n1 f@(_, vars, _) x0 as ->
     let g :: forall f. ADReady f => f r n1 -> DomainsOf f -> f r n1
         g = interpretLambda2D interpretAst EM.empty f
           -- TODO: interpretLambda2D, and others, breaks sharing!
         od = V.fromList $ map odFromVar vars
         x0i = interpretAst env x0
         asi = interpretAstDynamic env <$> as
-    in rfoldD g od x0i asi
-  AstFoldDDer @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
+    in rfoldZip g od x0i asi
+  AstFoldZipDer @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
     let f :: forall f. ADReady f => f r n1 -> DomainsOf f -> f r n1
         f = interpretLambda2D interpretAst EM.empty f0
         df :: forall f. ADReady f
@@ -555,7 +555,7 @@ interpretAst !env = \case
         od = V.fromList $ map odFromVar vars
         x0i = interpretAst env x0
         asi = interpretAstDynamic env <$> as
-    in rfoldDDer f df rf od x0i asi
+    in rfoldZipDer f df rf od x0i asi
   AstScan @_ @rm @n1 @m f x0 as ->
     let g :: forall f. ADReady f => f r n1 -> f rm m -> f r n1
         g = interpretLambda2 interpretAst EM.empty f
@@ -574,15 +574,15 @@ interpretAst !env = \case
         x0i = interpretAst env x0
         asi = interpretAst env as
     in rscanDer f df rf x0i asi
-  AstScanD @_ @n1 f@(_, vars, _) x0 as ->
+  AstScanZip @_ @n1 f@(_, vars, _) x0 as ->
     let g :: forall f. ADReady f => f r n1 -> DomainsOf f -> f r n1
         g = interpretLambda2D interpretAst EM.empty f
           -- TODO: interpretLambda2D, and others, breaks sharing!
         od = V.fromList $ map odFromVar vars
         x0i = interpretAst env x0
         asi = interpretAstDynamic env <$> as
-    in rscanD g od x0i asi
-  AstScanDDer @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
+    in rscanZip g od x0i asi
+  AstScanZipDer @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
     let f :: forall f. ADReady f => f r n1 -> DomainsOf f -> f r n1
         f = interpretLambda2D interpretAst EM.empty f0
         df :: forall f. ADReady f
@@ -594,7 +594,7 @@ interpretAst !env = \case
         od = V.fromList $ map odFromVar vars
         x0i = interpretAst env x0
         asi = interpretAstDynamic env <$> as
-    in rscanDDer f df rf od x0i asi
+    in rscanZipDer f df rf od x0i asi
 
 interpretAstDynamic
   :: forall ranked shaped s. (ADReadyBoth ranked shaped, AstSpan s)
@@ -1108,15 +1108,15 @@ interpretAstS !env = \case
         x0i = interpretAstS @ranked env x0
         asi = interpretAstS @ranked env as
     in sfoldDer @ranked f df rf x0i asi
-  AstFoldDS @_ @n1 f@(_, vars, _) x0 as ->
+  AstFoldZipS @_ @n1 f@(_, vars, _) x0 as ->
     let g :: forall f. ADReadyS f => f r n1 -> DomainsOf f -> f r n1
         g = interpretLambda2DS interpretAstS EM.empty f
           -- TODO: interpretLambda2DS, and others, breaks sharing!
         od = V.fromList $ map odFromVar vars
         x0i = interpretAstS env x0
         asi = interpretAstDynamic env <$> as
-    in sfoldD g od x0i asi
-  AstFoldDDerS @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
+    in sfoldZip g od x0i asi
+  AstFoldZipDerS @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
     let f :: forall f. ADReadyS f => f r n1 -> DomainsOf f -> f r n1
         f = interpretLambda2DS interpretAstS EM.empty f0
         df :: forall f. ADReadyS f
@@ -1128,7 +1128,7 @@ interpretAstS !env = \case
         od = V.fromList $ map odFromVar vars
         x0i = interpretAstS env x0
         asi = interpretAstDynamic env <$> as
-    in sfoldDDer f df rf od x0i asi
+    in sfoldZipDer f df rf od x0i asi
   AstScanS @_ @rm @n1 @m f x0 as ->
     let g :: forall f. ADReadyS f => f r n1 -> f rm m -> f r n1
         g = interpretLambda2S interpretAstS EM.empty f
@@ -1147,15 +1147,15 @@ interpretAstS !env = \case
         x0i = interpretAstS env x0
         asi = interpretAstS env as
     in sscanDer f df rf x0i asi
-  AstScanDS @_ @n1 f@(_, vars, _) x0 as ->
+  AstScanZipS @_ @n1 f@(_, vars, _) x0 as ->
     let g :: forall f. ADReadyS f => f r n1 -> DomainsOf f -> f r n1
         g = interpretLambda2DS interpretAstS EM.empty f
           -- TODO: interpretLambda2DS, and others, breaks sharing!
         od = V.fromList $ map odFromVar vars
         x0i = interpretAstS env x0
         asi = interpretAstDynamic env <$> as
-    in sscanD g od x0i asi
-  AstScanDDerS @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
+    in sscanZip g od x0i asi
+  AstScanZipDerS @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
     let f :: forall f. ADReadyS f => f r n1 -> DomainsOf f -> f r n1
         f = interpretLambda2DS interpretAstS EM.empty f0
         df :: forall f. ADReadyS f
@@ -1167,4 +1167,4 @@ interpretAstS !env = \case
         od = V.fromList $ map odFromVar vars
         x0i = interpretAstS env x0
         asi = interpretAstDynamic env <$> as
-    in sscanDDer f df rf od x0i asi
+    in sscanZipDer f df rf od x0i asi

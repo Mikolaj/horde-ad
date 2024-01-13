@@ -452,13 +452,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
     in D l3 (pShared ! (fromIntegral width :. ZI))
             (FoldR pShared as df rf x0' as')
-  rfoldD :: forall rn n. (GoodScalar rn, KnownNat n)
+  rfoldZip :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
          -> DomainsOD
          -> ADVal ranked rn n
          -> Domains (ADVal ranked)
          -> ADVal ranked rn n
-  rfoldD f domsOD (D l1 x0 x0') asD =
+  rfoldZip f domsOD (D l1 x0 x0') asD =
     let domsLen = V.length domsOD
         !_A = assert (V.length asD == domsLen
                       `blame` (V.length asD, domsLen)) ()
@@ -478,13 +478,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           fst $ crevOnDomains (Just dt) g
                               (V.cons (DynamicRanked x) $ dunDomains domsOD a)
         p :: ranked rn (1 + n)
-        p = rscanD f domsOD x0 as
+        p = rscanZip f domsOD x0 as
         width = rlength p - 1
         (l3, pShared) =
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
     in D l3 (pShared ! (fromIntegral width :. ZI))
-         (FoldDRC domsOD pShared as df rf x0' as')
-  rfoldDDer :: forall rn n. (GoodScalar rn, KnownNat n)
+         (FoldZipRC domsOD pShared as df rf x0' as')
+  rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
             -> (forall f. ADReady f
                 => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
@@ -496,18 +496,18 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> ADVal ranked rn n
             -> Domains (ADVal ranked)
             -> ADVal ranked rn n
-  rfoldDDer f df rf domsOD (D l1 x0 x0') asD =
+  rfoldZipDer f df rf domsOD (D l1 x0 x0') asD =
     let domsLen = V.length domsOD
         !_A = assert (V.length asD == domsLen
                       `blame` (V.length asD, domsLen)) ()
         (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         p :: ranked rn (1 + n)
-        p = rscanDDer f df rf domsOD x0 as
+        p = rscanZipDer f df rf domsOD x0 as
         width = rlength p - 1
         (l3, pShared) =
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
     in D l3 (pShared ! (fromIntegral width :. ZI))
-         (FoldDR domsOD pShared as df rf x0' as')
+         (FoldZipR domsOD pShared as df rf x0' as')
   rscan :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -572,13 +572,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
     in D l3 pShared
             (ScanR pShared as df rf x0' as')
-  rscanD :: forall rn n. (GoodScalar rn, KnownNat n)
+  rscanZip :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
          -> DomainsOD
          -> ADVal ranked rn n
          -> Domains (ADVal ranked)
          -> ADVal ranked rn (1 + n)
-  rscanD f domsOD (D l1 x0 x0') asD =
+  rscanZip f domsOD (D l1 x0 x0') asD =
     let domsLen = V.length domsOD
         !_A = assert (V.length asD == domsLen
                       `blame` (V.length asD, domsLen)) ()
@@ -598,13 +598,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           fst $ crevOnDomains (Just dt) g
                               (V.cons (DynamicRanked x) $ dunDomains domsOD a)
         p :: ranked rn (1 + n)
-        p = rscanD f domsOD x0 as
+        p = rscanZip f domsOD x0 as
         (l3, pShared) =
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
         width = rlength p - 1
         scanAsFold =
           let h (pPrefix, asPrefix, as'Prefix) =
-                FoldDRC domsOD pPrefix asPrefix df rf x0' as'Prefix
+                FoldZipRC domsOD pPrefix asPrefix df rf x0' as'Prefix
               initsViaSliceP = map (\k -> rslice @ranked 0 (1 + k) pShared)
                                    [1 .. width]
               initsViaSlice =
@@ -616,7 +616,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           in FromListR
              $ x0' : map h (zip3 initsViaSliceP initsViaSlice initsViaSliceD)
     in D l3 pShared scanAsFold
-  rscanDDer :: forall rn n. (GoodScalar rn, KnownNat n)
+  rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
             => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
             -> (forall f. ADReady f
                 => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
@@ -628,17 +628,17 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> ADVal ranked rn n
             -> Domains (ADVal ranked)
             -> ADVal ranked rn (1 + n)
-  rscanDDer f df rf domsOD (D l1 x0 x0') asD =
+  rscanZipDer f df rf domsOD (D l1 x0 x0') asD =
     let domsLen = V.length domsOD
         !_A = assert (V.length asD == domsLen
                       `blame` (V.length asD, domsLen)) ()
         (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         p :: ranked rn (1 + n)
-        p = rscanDDer f df rf domsOD x0 as
+        p = rscanZipDer f df rf domsOD x0 as
         (l3, pShared) =
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
     in D l3 pShared
-         (ScanDR domsOD pShared as df rf x0' as')
+         (ScanZipR domsOD pShared as df rf x0' as')
   sfold :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -689,14 +689,14 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
     in D l3 (pShared !$ (fromIntegral width :$: ZSH))
             (FoldS pShared as df rf x0' as')
-  sfoldD :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
+  sfoldZip :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
          => (forall f. ADReadyS f
              => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
          -> DomainsOD
          -> ADVal shaped rn sh
          -> Domains (ADVal (RankedOf shaped))
          -> ADVal shaped rn sh
-  sfoldD f domsOD (D l1 x0 x0') asD =
+  sfoldZip f domsOD (D l1 x0 x0') asD =
     let domsLen = V.length domsOD
         !_A = assert (V.length asD == domsLen
                       `blame` (V.length asD, domsLen)) ()
@@ -726,13 +726,13 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
         let p :: shaped rn (1 + k ': sh)
-            p = sscanD f domsOD x0 as
+            p = sscanZip f domsOD x0 as
             (l3, pShared) =
               recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
         in D l3 (pShared !$ (fromIntegral width :$: ZSH))
-                (FoldDSC domsOD pShared as df rf x0' as')
+                (FoldZipSC domsOD pShared as df rf x0' as')
       _ -> error "sfoldD: impossible someNatVal"
-  sfoldDDer :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
+  sfoldZipDer :: forall rn sh. (GoodScalar rn, Sh.Shape sh)
             => (forall f. ADReadyS f
                 => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
@@ -746,25 +746,25 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> ADVal shaped rn sh
             -> Domains (ADVal (RankedOf shaped))
             -> ADVal shaped rn sh
-  sfoldDDer f df rf domsOD (D l1 x0 x0') asD =
+  sfoldZipDer f df rf domsOD (D l1 x0 x0') asD =
     let domsLen = V.length domsOD
         !_A = assert (V.length asD == domsLen
                       `blame` (V.length asD, domsLen)) ()
         (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         width = case V.unsnoc as of
-          Nothing -> error "sfoldDDer: can't determine argument width"
+          Nothing -> error "sfoldZipDer: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
-            [] -> error "sfoldDDer: wrong rank of argument"
+            [] -> error "sfoldZipDer: wrong rank of argument"
             w : _shm -> w
     in case someNatVal $ toInteger width of
       Just (SomeNat @k _) ->
         let p :: shaped rn (1 + k ': sh)
-            p = sscanD f domsOD x0 as
+            p = sscanZip f domsOD x0 as
             (l3, pShared) =
               recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
         in D l3 (pShared !$ (fromIntegral width :$: ZSH))
-                (FoldDS domsOD pShared as df rf x0' as')
-      _ -> error "sfoldDDer: impossible someNatVal"
+                (FoldZipS domsOD pShared as df rf x0' as')
+      _ -> error "sfoldZipDer: impossible someNatVal"
   sscan :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -832,14 +832,14 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
     in D l3 pShared
             (ScanS pShared as df rf x0' as')
-  sscanD :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+  sscanZip :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
          => (forall f. ADReadyS f
              => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
          -> DomainsOD
          -> ADVal shaped rn sh
          -> Domains (ADVal (RankedOf shaped))
          -> ADVal shaped rn (1 + k ': sh)
-  sscanD f domsOD (D l1 x0 x0') asD =
+  sscanZip f domsOD (D l1 x0 x0') asD =
     let domsLen = V.length domsOD
         !_A = assert (V.length asD == domsLen
                       `blame` (V.length asD, domsLen)) ()
@@ -863,7 +863,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           fst $ crevOnDomains (Just dt) g
                               (V.cons (DynamicShaped x) $ dunDomains domsOD a)
         p :: shaped rn (1 + k ': sh)
-        p = sscanD f domsOD x0 as
+        p = sscanZip f domsOD x0 as
         (l3, pShared) =
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
         width = slength p - 1
@@ -873,7 +873,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                 -> Domains (DeltaR (RankedOf shaped))
                 -> DeltaS shaped rn sh
               h pPrefix asPrefix as'Prefix =
-                FoldDSC domsOD pPrefix asPrefix df rf x0' as'Prefix
+                FoldZipSC domsOD pPrefix asPrefix df rf x0' as'Prefix
               initsViaSlice :: Int -> DeltaS shaped rn sh
               initsViaSlice k = case someNatVal $ toInteger k of
                 Just (SomeNat @k1 _) ->
@@ -889,7 +889,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
           in FromListS
              $ x0' : map initsViaSlice [1 .. width]
     in D l3 pShared scanAsFold
-  sscanDDer :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
+  sscanZipDer :: forall rn sh k. (GoodScalar rn, Sh.Shape sh, KnownNat k)
             => (forall f. ADReadyS f
                 => f rn sh -> DomainsOf (RankedOf f) -> f rn sh)
             -> (forall f. ADReadyS f
@@ -903,17 +903,17 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> ADVal shaped rn sh
             -> Domains (ADVal (RankedOf shaped))
             -> ADVal shaped rn (1 + k ': sh)
-  sscanDDer f df rf domsOD (D l1 x0 x0') asD =
+  sscanZipDer f df rf domsOD (D l1 x0 x0') asD =
     let domsLen = V.length domsOD
         !_A = assert (V.length asD == domsLen
                       `blame` (V.length asD, domsLen)) ()
         (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         p :: shaped rn (1 + k ': sh)
-        p = sscanDDer f df rf domsOD x0 as
+        p = sscanZipDer f df rf domsOD x0 as
         (l3, pShared) =
           recordSharingPrimal p (flattenADShare $ l1 : V.toList ll2)
     in D l3 pShared
-            (ScanDS domsOD pShared as df rf x0' as')
+            (ScanZipS domsOD pShared as df rf x0' as')
 
 unADValDomains :: DynamicTensor (ADVal f)
                -> (ADShare, DynamicTensor f, DynamicTensor (Dual f))
@@ -978,12 +978,12 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
            -> Flip OR.Array rm (1 + m)
            -> Flip OR.Array rn n
   rfoldDer f _df _rf x0 as = rfold f x0 as
-  rfoldD f _od x0 as = foldl' f x0 (unravelDomains as)
-  rfoldDDer f _df _rf od x0 as = rfoldD f od x0 as
+  rfoldZip f _od x0 as = foldl' f x0 (unravelDomains as)
+  rfoldZipDer f _df _rf od x0 as = rfoldZip f od x0 as
   rscan f x0 as = rfromList $ scanl' f x0 (runravelToList as)
   rscanDer f _df _rf x0 as = rscan f x0 as
-  rscanD f _od x0 as = rfromList $ scanl' f x0 (unravelDomains as)
-  rscanDDer f _df _rf od x0 as = rscanD f od x0 as
+  rscanZip f _od x0 as = rfromList $ scanl' f x0 (unravelDomains as)
+  rscanZipDer f _df _rf od x0 as = rscanZip f od x0 as
   sfold :: (GoodScalar rm, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
         -> Flip OS.Array rn sh
@@ -1002,9 +1002,9 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
            -> Flip OS.Array rm (k ': shm)
            -> Flip OS.Array rn sh
   sfoldDer f _df _dr x0 as = sfold f x0 as
-  sfoldD f _od x0 as = foldl' f x0 (unravelDomains as)
-  sfoldDDer f _df _rf od x0 as = sfoldD f od x0 as
+  sfoldZip f _od x0 as = foldl' f x0 (unravelDomains as)
+  sfoldZipDer f _df _rf od x0 as = sfoldZip f od x0 as
   sscan f x0 as = sfromList $ scanl' f x0 (sunravelToList as)
   sscanDer f _df _rf x0 as = sscan f x0 as
-  sscanD f _od x0 as = sfromList $ scanl' f x0 (unravelDomains as)
-  sscanDDer f _df _rf od x0 as = sscanD f od x0 as
+  sscanZip f _od x0 as = sfromList $ scanl' f x0 (unravelDomains as)
+  sscanZipDer f _df _rf od x0 as = sscanZip f od x0 as
