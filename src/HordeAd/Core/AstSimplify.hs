@@ -1890,7 +1890,7 @@ astLetDomainsIn vars l v =
   let sh = shapeAst v
   in Sh.withShapeP (shapeToList sh) $ \proxy -> case proxy of
     Proxy @sh | Just Refl <- matchingRank @sh @n -> case l of
-      Ast.AstDomains l3 ->  -- TODO: other cases: collect AstLetInDomains
+      Ast.AstDomains l3 ->
         let f :: (AstDynamicVarName, AstDynamic s)
               -> AstRanked s2 r n
               -> AstRanked s2 r n
@@ -1899,10 +1899,6 @@ astLetDomainsIn vars l v =
               acc
               | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
               , Just Refl <- matchingRank @sh3 @n4
-              -- To impose such checks, we'd need to switch from OD tensors
-              -- to existential OR/OS tensors so that we can inspect
-              -- which it is and then seed Delta evaluation maps with that.
-              -- , Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
               , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
                 astLet (AstVarName varId) v3 acc
             f ( AstDynamicVarName @ty @r3 @sh3 varId
@@ -1937,6 +1933,12 @@ astLetDomainsIn vars l v =
                       ( vd, typeRep @ty, typeRep @r3, Sh.shapeT @sh3
                       , scalarDynamic d, rankDynamic d )
         in foldr f v (zip vars (V.toList l3))
+      Ast.AstLetInDomains var2 u2 d2 ->
+        astLet var2 u2
+        $ astLetDomainsIn vars d2 v
+      Ast.AstLetInDomainsS @sh3 var2 u2 d2 ->
+        astSToR $ astLetS var2 u2 $ astRToS @sh
+        $ astLetDomainsIn vars d2 v
       _ -> Ast.AstLetDomainsIn vars l v
     _ -> error "astLetDomainsIn: wrong rank of the argument"
 
@@ -1949,7 +1951,7 @@ astLetDomainsInS vars l v =
   case someNatVal $ toInteger (length (Sh.shapeT @sh)) of
     Just (SomeNat @n _) -> gcastWith (unsafeCoerce Refl :: n :~: Sh.Rank sh)
                            $ case l of
-      Ast.AstDomains l3 ->  -- TODO: other cases: collect AstLetInDomainsS
+      Ast.AstDomains l3 ->
         let f :: (AstDynamicVarName, AstDynamic s)
               -> AstShaped s2 r sh
               -> AstShaped s2 r sh
@@ -1992,6 +1994,12 @@ astLetDomainsInS vars l v =
                       ( vd, typeRep @ty, typeRep @r3, Sh.shapeT @sh3
                       , scalarDynamic d, rankDynamic d )
         in foldr f v (zip vars (V.toList l3))
+      Ast.AstLetInDomains var2 u2 d2 ->
+        astRToS $ astLet var2 u2 $ astSToR
+        $ astLetDomainsInS vars d2 v
+      Ast.AstLetInDomainsS @sh3 var2 u2 d2 ->
+        astLetS var2 u2
+        $ astLetDomainsInS vars d2 v
       _ -> Ast.AstLetDomainsInS vars l v
     _ -> error "astLetDomainsInS: impossible someNatVal"
 
