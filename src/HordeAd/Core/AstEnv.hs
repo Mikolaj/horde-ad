@@ -144,18 +144,6 @@ extendEnvPars vars !pars !env =
   let assocs = zip vars (V.toList pars)
   in foldr extendEnvD env assocs
 
-extendEnvParsOf :: forall ranked shaped.
-                   ( RankedTensor ranked, ShapedTensor shaped
-                   , DomainsTensor ranked shaped
-                   , shaped ~ ShapedOf ranked )
-                => [AstDynamicVarName] -> DomainsOf ranked
-                -> AstEnv ranked shaped
-                -> AstEnv ranked shaped
-extendEnvParsOf vars !pars !env =
-  let assocs =
-        zip vars (V.toList $ dunDomains (V.fromList $ map odFromVar vars) pars)
-  in foldr extendEnvD env assocs
-
 
 -- * The operations for interpreting binding (visible lambdas)
 
@@ -373,10 +361,11 @@ interpretLambda3D
   -> DomainsOf ranked
 {-# INLINE interpretLambda3D #-}
 interpretLambda3D f !env (!varDt, !varn, !varm, !ast) =
-  \cx x0 as -> let envE = extendEnvR varDt cx
-                          $ extendEnvR varn x0
-                          $ extendEnvParsOf varm as env
-               in f envE ast
+  \cx x0 as -> let lt0 = V.fromList $ map odFromVar varm
+                   envE = extendEnvR varDt cx
+                          $ extendEnvR varn x0 env
+               in dletDomainsInDomains lt0 as (\lw ->
+                    f (extendEnvPars varm lw envE) ast)
 
 interpretLambda3DS
   :: forall s ranked shaped rn sh.
@@ -392,10 +381,11 @@ interpretLambda3DS
   -> DomainsOf ranked
 {-# INLINE interpretLambda3DS #-}
 interpretLambda3DS f !env (!varDt, !varn, !varm, !ast) =
-  \cx x0 as -> let envE = extendEnvS varDt cx
-                          $ extendEnvS varn x0
-                          $ extendEnvParsOf varm as env
-               in f envE ast
+  \cx x0 as -> let lt0 = V.fromList $ map odFromVar varm
+                   envE = extendEnvS varDt cx
+                          $ extendEnvS varn x0 env
+               in dletDomainsInDomains lt0 as (\lw ->
+                    f (extendEnvPars varm lw envE) ast)
 
 interpretLambda4
   :: forall s ranked shaped rn rm n m.

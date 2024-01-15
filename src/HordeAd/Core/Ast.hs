@@ -609,6 +609,11 @@ data AstDomains s where
   --
   -- The r variable is existential here, so a proper specialization needs
   -- to be picked explicitly at runtime.
+  AstLetDomainsInDomains
+    :: AstSpan s
+    => [AstDynamicVarName] -> AstDomains s
+    -> AstDomains s2
+    -> AstDomains s2
   AstLetInDomains :: (KnownNat n, GoodScalar r, AstSpan s)
                   => AstVarName (AstRanked s) r n -> AstRanked s r n
                   -> AstDomains s2

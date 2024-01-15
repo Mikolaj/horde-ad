@@ -251,7 +251,7 @@ build1V k (var, v00) =
     Ast.AstConst{} ->
       error "build1V: AstConst can't have free index variables"
 
-    Ast.AstLetDomainsIn @s1 vars1 l v -> case someNatVal $ toInteger k of
+    Ast.AstLetDomainsIn vars1 l v -> case someNatVal $ toInteger k of
       Just (SomeNat @k3 _) ->
         -- Here substitution traverses @v@ term tree @length vars@ times.
         --
@@ -647,6 +647,13 @@ build1VOccurenceUnknownDomains k (var, v0) =
  in traceRule $ case v0 of
   Ast.AstDomains l ->
     Ast.AstDomains $ V.map (\u -> build1VOccurenceUnknownDynamic k (var, u)) l
+  Ast.AstLetDomainsInDomains vars1 u v -> case someNatVal $ toInteger k of
+      Just (SomeNat @k3 _) ->
+        let (vOut, varsOut) = substProjVarsDomains @k3 var vars1 v
+        in astLetDomainsInDomains
+             varsOut (build1VOccurenceUnknownDomains k (var, u))
+                     (build1VOccurenceUnknownAstDomainsRefresh k (var, vOut))
+      _ -> error "build1VOccurenceUnknownDomains: impossible someNatVal"
   Ast.AstLetInDomains @_ @r1 @s1 var1@(AstVarName oldVarId) u v ->
     let var2 = AstVarName oldVarId  -- changed shape; TODO: shall we rename?
         sh = shapeAst u
@@ -654,8 +661,9 @@ build1VOccurenceUnknownDomains k (var, v0) =
                                   (Ast.AstIntVar var :. ZI)
         v2 = substituteAstDomains
                (SubstitutionPayloadRanked @s1 @r1 projection) var1 v
-    in astLetInDomains var2 (build1VOccurenceUnknownRefresh k (var, u))
-                            (build1VOccurenceUnknownDomains k (var, v2))
+    in astLetInDomains var2 (build1VOccurenceUnknown k (var, u))
+                            (build1VOccurenceUnknownAstDomainsRefresh
+                               k (var, v2))
   Ast.AstLetInDomainsS @sh2 @r1 @s1
    var1@(AstVarName oldVarId) u v -> case someNatVal $ toInteger k of
     Just (SomeNat @k _proxy) ->
@@ -664,8 +672,9 @@ build1VOccurenceUnknownDomains k (var, v0) =
                                      (Ast.AstIntVar var :$: ZSH)
           v2 = substituteAstDomains
                  (SubstitutionPayloadShaped @s1 @r1 projection) var1 v
-      in astLetInDomainsS var2 (build1VOccurenceUnknownRefreshS @k (var, u))
-                               (build1VOccurenceUnknownDomains k (var, v2))
+      in astLetInDomainsS var2 (build1VOccurenceUnknownS @k (var, u))
+                               (build1VOccurenceUnknownAstDomainsRefresh
+                                  k (var, v2))
     Nothing ->
       error "build1VOccurenceUnknownDomains: impossible someNatVal error"
   Ast.AstRev{} ->
@@ -925,7 +934,7 @@ build1VS (var, v00) =
     Ast.AstConstS{} ->
       error "build1VS: AstConstS can't have free index variables"
 
-    Ast.AstLetDomainsInS @s1 vars1 l v ->
+    Ast.AstLetDomainsInS vars1 l v ->
       -- See the AstLetDomainsIn case for comments.
       let (vOut, varsOut) = substProjVarsS @k var vars1 v
       in astLetDomainsInS

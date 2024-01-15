@@ -286,6 +286,10 @@ inlineAstDomains
 inlineAstDomains memo v0 = case v0 of
   Ast.AstDomains l ->
     second Ast.AstDomains $ mapAccumR inlineAstDynamic memo l
+  Ast.AstLetDomainsInDomains vars u v ->  -- TODO: actually inline
+    let (memo1, u2) = inlineAstDomains memo u
+        (memo2, v2) = inlineAstDomains memo1 v
+    in (memo2, Ast.AstLetDomainsInDomains vars u2 v2)
   Ast.AstLetInDomains var u v ->
     -- We assume there are no nested lets with the same variable.
     let vv = varNameToAstVarId var
@@ -713,6 +717,12 @@ unletAstDomains
   :: AstSpan s => UnletEnv -> AstDomains s -> AstDomains s
 unletAstDomains env = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic env) l
+  Ast.AstLetDomainsInDomains vars u v ->  -- TODO: actually unlet?
+    let env2 = env {unletSet = unletSet env
+                               `ES.union`
+                               ES.fromList (map dynamicVarNameToAstVarId vars)}
+    in Ast.AstLetDomainsInDomains
+         vars (unletAstDomains env u) (unletAstDomains env2 v)
   Ast.AstLetInDomains var u v ->
     let vv = varNameToAstVarId var
     in if vv `ES.member` unletSet env

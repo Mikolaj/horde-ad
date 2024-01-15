@@ -29,7 +29,8 @@ module HordeAd.Core.AstSimplify
   , astTranspose, astTransposeS, astReshape, astReshapeS
   , astCast, astCastS, astFromIntegral, astFromIntegralS, astSToR, astRToS
   , astPrimalPart, astPrimalPartS, astDualPart, astDualPartS
-  , astLetDomainsIn, astLetDomainsInS, astLetInDomains, astLetInDomainsS
+  , astLetDomainsIn, astLetDomainsInS
+  , astLetDomainsInDomains, astLetInDomains, astLetInDomainsS
     -- * The simplifying bottom-up pass
   , simplifyAst, simplifyAstDomains, simplifyAstS
     -- * Substitution payload and adaptors for AstVarName
@@ -1863,7 +1864,64 @@ astDualPartS t = case t of
   Ast.AstScanZipS{} -> Ast.AstDualPartS t
   Ast.AstScanZipDerS{} -> Ast.AstDualPartS t
 
-astLetInDomains :: forall n s s2 r.
+astLetDomainsInDomains
+  :: forall s s2. (AstSpan s, AstSpan s2)
+  => [AstDynamicVarName] -> AstDomains s
+  -> AstDomains s2
+  -> AstDomains s2
+astLetDomainsInDomains vars u v =
+  case u of
+      Ast.AstDomains l3 ->
+        let f :: (AstDynamicVarName, AstDynamic s)
+              -> AstDomains s2
+              -> AstDomains s2
+            f ( AstDynamicVarName @ty @r3 @sh3 varId
+              , DynamicRanked @r4 @n4 v3 )
+              acc
+              | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
+              , Just Refl <- matchingRank @sh3 @n4
+              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
+                astLetInDomains (AstVarName varId) v3 acc
+            f ( AstDynamicVarName @ty @r3 @sh3 varId
+              , DynamicShaped @r4 @sh4 v3 )
+              acc
+              | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
+              , Just Refl <- sameShape @sh3 @sh4
+              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
+                astLetInDomainsS (AstVarName varId) v3 acc
+            f ( AstDynamicVarName @ty @r3 @sh3 varId
+              , DynamicRankedDummy @r4 @sh4 _ _ )
+              acc
+              | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
+              , Just Refl <- sameShape @sh3 @sh4
+              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
+                withListShape (Sh.shapeT @sh3) $ \(_ :: ShapeInt m) ->
+                  gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
+                  astLetInDomains @m
+                                  (AstVarName varId) (astSToR @sh3 @s @r3 0) acc
+            f ( AstDynamicVarName @ty @r3 @sh3 varId
+              , DynamicShapedDummy @r4 @sh4 _ _ )
+              acc
+              | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
+              , Just Refl <- sameShape @sh3 @sh4
+              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
+                astLetInDomainsS @sh4 @r4 @s2 (AstVarName varId) 0 acc
+            f vd@(AstDynamicVarName @ty @r3 @sh3 _, d) _ =
+              error $ "astLetDomainsIn: corrupted arguments"
+                      `showFailure`
+                      ( vd, typeRep @ty, typeRep @r3, Sh.shapeT @sh3
+                      , scalarDynamic d, rankDynamic d )
+        in foldr f v (zip vars (V.toList l3))
+      Ast.AstLetDomainsInDomains{} -> Ast.AstLetDomainsInDomains vars u v
+      Ast.AstLetInDomains var2 u2 d2 ->
+        astLetInDomains var2 u2
+        $ astLetDomainsInDomains vars d2 v
+      Ast.AstLetInDomainsS @sh3 var2 u2 d2 ->
+        astLetInDomainsS var2 u2
+        $ astLetDomainsInDomains vars d2 v
+      _ -> Ast.AstLetDomainsInDomains vars u v
+
+astLetInDomains :: forall n r s s2.
                    (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
                 => AstVarName (AstRanked s) r n -> AstRanked s r n
                 -> AstDomains s2
@@ -1872,7 +1930,7 @@ astLetInDomains var u v | astIsSmall True u =
   substituteAstDomains (SubstitutionPayloadRanked u) var v
 astLetInDomains var u v = Ast.AstLetInDomains var u v
 
-astLetInDomainsS :: forall sh s s2 r.
+astLetInDomainsS :: forall sh r s s2.
                     (GoodScalar r, Sh.Shape sh, AstSpan s, AstSpan s2)
                  => AstVarName (AstShaped s) r sh -> AstShaped s r sh
                  -> AstDomains s2
@@ -1882,7 +1940,7 @@ astLetInDomainsS var u v | astIsSmallS True u =
 astLetInDomainsS var u v = Ast.AstLetInDomainsS var u v
 
 astLetDomainsIn
-  :: forall n s s2 r. (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
+  :: forall n r s s2. (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
   => [AstDynamicVarName] -> AstDomains s
   -> AstRanked s2 r n
   -> AstRanked s2 r n
@@ -1933,6 +1991,9 @@ astLetDomainsIn vars l v =
                       ( vd, typeRep @ty, typeRep @r3, Sh.shapeT @sh3
                       , scalarDynamic d, rankDynamic d )
         in foldr f v (zip vars (V.toList l3))
+      Ast.AstLetDomainsInDomains vars2 d1 d2 ->
+        astLetDomainsIn vars2 d1
+        $ astLetDomainsIn vars d2 v
       Ast.AstLetInDomains var2 u2 d2 ->
         astLet var2 u2
         $ astLetDomainsIn vars d2 v
@@ -1943,7 +2004,7 @@ astLetDomainsIn vars l v =
     _ -> error "astLetDomainsIn: wrong rank of the argument"
 
 astLetDomainsInS
-  :: forall sh s s2 r. (Sh.Shape sh, GoodScalar r, AstSpan s, AstSpan s2)
+  :: forall sh r s s2. (Sh.Shape sh, GoodScalar r, AstSpan s, AstSpan s2)
   => [AstDynamicVarName] -> AstDomains s
   -> AstShaped s2 r sh
   -> AstShaped s2 r sh
@@ -1994,6 +2055,9 @@ astLetDomainsInS vars l v =
                       ( vd, typeRep @ty, typeRep @r3, Sh.shapeT @sh3
                       , scalarDynamic d, rankDynamic d )
         in foldr f v (zip vars (V.toList l3))
+      Ast.AstLetDomainsInDomains vars2 d1 d2 ->
+        astLetDomainsInS vars2 d1
+        $ astLetDomainsInS vars d2 v
       Ast.AstLetInDomains var2 u2 d2 ->
         astRToS $ astLet var2 u2 $ astSToR
         $ astLetDomainsInS vars d2 v
@@ -2156,6 +2220,8 @@ simplifyAstDomains
   :: AstSpan s => AstDomains s -> AstDomains s
 simplifyAstDomains = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map simplifyAstDynamic l
+  Ast.AstLetDomainsInDomains vars u v ->
+    astLetDomainsInDomains vars (simplifyAstDomains u) (simplifyAstDomains v)
   Ast.AstLetInDomains var u v ->
     astLetInDomains var (simplifyAst u) (simplifyAstDomains v)
   Ast.AstLetInDomainsS var u v ->
@@ -2821,6 +2887,12 @@ substitute1AstDomains i var = \case
     in if V.any isJust margs
        then Just $ Ast.AstDomains $ V.zipWith fromMaybe args margs
        else Nothing
+  Ast.AstLetDomainsInDomains vars2 u v ->
+    case ( substitute1AstDomains i var u
+         , substitute1AstDomains i var v ) of
+      (Nothing, Nothing) -> Nothing
+      (mu, mv) ->
+        Just $ astLetDomainsInDomains vars2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstLetInDomains var2 u v ->
     case (substitute1Ast i var u, substitute1AstDomains i var v) of
       (Nothing, Nothing) -> Nothing

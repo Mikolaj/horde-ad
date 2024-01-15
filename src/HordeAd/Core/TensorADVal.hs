@@ -352,6 +352,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          => DomainsTensor (ADVal ranked) (ADVal shaped) where
   dmkDomains = id
   dunDomains _ = id
+  dletDomainsInDomains _ = (&)
   rletInDomains = (&)
   sletInDomains = (&)
   rrev :: (GoodScalar r, KnownNat n)
@@ -933,6 +934,7 @@ unADValDomains (DynamicShapedDummy p1 p2) =
 instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
   dmkDomains = id
   dunDomains _ = id
+  dletDomainsInDomains _ = (&)
   rletInDomains = (&)
   sletInDomains = (&)
   rrev :: (GoodScalar r, KnownNat n)

@@ -613,6 +613,11 @@ interpretAstDomains
 interpretAstDomains !env = \case
   AstDomains l ->
     dmkDomains @ranked @shaped $ interpretAstDynamic @ranked env <$> l
+  AstLetDomainsInDomains vars u v ->
+    let t0 = V.fromList $ map odFromVar vars
+        t = interpretAstDomains env u
+        env2 w = extendEnvPars vars w env
+    in dletDomainsInDomains t0 t (\w -> interpretAstDomains (env2 w) v)
   AstLetInDomains var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u

@@ -192,6 +192,8 @@ varInAstDomains :: AstSpan s
                 => AstVarId -> AstDomains s -> Bool
 varInAstDomains var = \case
   AstDomains l -> any (varInAstDynamic var) l
+  AstLetDomainsInDomains _vars2 u v ->
+    varInAstDomains var u || varInAstDomains var v
   AstLetInDomains _var2 u v -> varInAst var u || varInAstDomains var v
   AstLetInDomainsS _var2 u v -> varInAstS var u || varInAstDomains var v
   AstRev _f l ->  -- _f has no non-bound variables

@@ -624,6 +624,17 @@ printAstDomains cfg d = \case
     then printDomainsAst cfg l
     else showParen (d > 10)
          $ showString "dmkDomains " . printDomainsAst cfg l
+  AstLetDomainsInDomains vars0 u0 v0 ->
+    showParen (d > 10)
+    $ showString "dletDomainsInDomains "
+      . printAstDomains cfg 11 u0
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . showListWith (showString
+                           . printAstDynamicVarName (varRenames cfg)) vars0
+           . showString " -> "
+           . printAstDomains cfg 0 v0)
   t@(AstLetInDomains var0 u0 v0) ->
     if prettifyLosingSharing cfg
     then let collect :: AstDomains s -> ([(ShowS, ShowS)], ShowS)

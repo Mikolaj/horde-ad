@@ -774,6 +774,11 @@ class DomainsTensor (ranked :: RankedTensorType)
   dmkDomains :: Domains ranked -> DomainsOf ranked
   dunDomains :: DomainsOD -> DomainsOf ranked -> Domains ranked
     -- ^ Warning: this operation easily breaks sharing.
+  dletDomainsInDomains
+    :: DomainsOD
+    -> DomainsOf ranked
+    -> (Domains ranked -> DomainsOf ranked)
+    -> DomainsOf ranked
   rletInDomains :: (GoodScalar r, KnownNat n)
                 => ranked r n
                 -> (ranked r n -> DomainsOf ranked)

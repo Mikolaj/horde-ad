@@ -624,6 +624,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             $ sletDomainsIn @(AstShaped s) domsOD domainsOf (sfromD . (V.! i))
           _ -> error "dunDomains: unexpected OD value"
     in V.imap f domsOD
+  dletDomainsInDomains = astLetDomainsInDomainsFun
   rletInDomains = astLetInDomainsFun
   sletInDomains = astLetInDomainsFunS
   rrev :: (GoodScalar r, KnownNat n)
@@ -1065,6 +1066,28 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
                  (fun4DToAstS @_ @_ @sh df domsOD)
                  (fun3DToAstS @_ @_ @sh rf domsOD) x0 as
 
+astLetDomainsInDomainsFun
+  :: AstSpan s
+  => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstDomains s)
+  -> AstDomains s
+{-# NOINLINE astLetDomainsInDomainsFun #-}
+astLetDomainsInDomainsFun a0 a f = unsafePerformIO $ do  -- ids cause trouble
+  let genVar :: DynamicTensor (Flip OR.Array)
+             -> IO (AstDynamicVarName, AstDynamic s)
+      genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
+        let sh2 = Sh.shapeT @sh2
+        withListShape sh2 $ \ (sh3 :: ShapeInt n2) -> do
+          (AstVarName varId, _, ast) <- funToAstIOR @n2 @_ @_ @r2 sh3 id
+          return ( AstDynamicVarName @Nat @r2 @sh2 varId
+                 , DynamicRanked ast )
+      genVar (DynamicShapedDummy @r2 @sh2 _ _) = do
+        (AstVarName varId, _, ast) <- funToAstIOS @sh2 @_ @_ @r2 id
+        return ( AstDynamicVarName @[Nat] @r2 @sh2 varId
+               , DynamicShaped ast )
+      genVar _ = error "genVar: unexpected OD value"
+  (vars, asts) <- unzip <$> mapM genVar (V.toList a0)
+  return $! astLetDomainsInDomains vars a (f $ V.fromList asts)
+
 astLetInDomainsFun :: (KnownNat n, GoodScalar r, AstSpan s)
                    => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
                    -> AstDomains s
@@ -1286,6 +1309,8 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dmkDomains domains = dmkDomains @(AstRanked s) (unNoVectorizeDomains domains)
   dunDomains parameters0 doms =
     noVectorizeDomains $ dunDomains @(AstRanked s) parameters0 doms
+  dletDomainsInDomains a0 a f =
+    astLetDomainsInDomainsFun a0 a (f . noVectorizeDomains)
   rletInDomains u f =
     rletInDomains @(AstRanked s) (unAstNoVectorize u) (f . AstNoVectorize)
   sletInDomains u f =
@@ -1506,6 +1531,8 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dmkDomains domains = dmkDomains @(AstRanked s) (unNoSimplifyDomains domains)
   dunDomains parameters0 doms =
     noSimplifyDomains $ dunDomains @(AstRanked s) parameters0 doms
+  dletDomainsInDomains a0 a f =
+    astLetDomainsInDomainsFun a0 a (f . noSimplifyDomains)
   rletInDomains u f =
     rletInDomains @(AstRanked s) (unAstNoSimplify u) (f . AstNoSimplify)
   sletInDomains u f =
