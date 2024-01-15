@@ -20,6 +20,7 @@ module HordeAd.Core.AstEnv
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import qualified Data.Array.Shape as Sh
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
@@ -70,42 +71,36 @@ extendEnvS (AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show varId)
                    varId (AstEnvElemS t) env
 
-extendEnvD :: forall ranked shaped.
-              ( RankedTensor ranked, ShapedTensor shaped
-              , shaped ~ ShapedOf ranked )
+extendEnvD :: forall ranked shaped. ADReadyBoth ranked shaped
            => (AstDynamicVarName, DynamicTensor ranked)
            -> AstEnv ranked shaped
            -> AstEnv ranked shaped
-extendEnvD (AstDynamicVarName @ty @r @sh varId, d) !env
-  | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) = case d of
-    DynamicRanked @r2 @n2 t -> case matchingRank @sh @n2 of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> extendEnvR (AstVarName varId) t env
-        _ -> error "extendEnvD: scalar mismatch"
-      _ -> error "extendEnvD: rank mismatch"
-    DynamicShaped{} -> error "extendEnvD: ranked from shaped"
-    DynamicRankedDummy @r2 @sh2 _ _ -> case sameShape @sh2 @sh of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> withListShape (Sh.shapeT @sh2) $ \sh3 ->
-          extendEnvR @_ @_ @r (AstVarName varId) (rzero sh3) env
-        _ -> error "extendEnvD: scalar mismatch"
-      _ -> error "extendEnvD: rank mismatch"
-    DynamicShapedDummy{} -> error "extendEnvD: ranked from shaped"
-extendEnvD (AstDynamicVarName @ty @r @sh varId, d) env
-  | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) = case d of
-    DynamicRanked{} -> error "extendEnvD: shaped from ranked"
-    DynamicShaped @r2 @sh2 t -> case sameShape @sh2 @sh of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> extendEnvS (AstVarName varId) t env
-        _ -> error "extendEnvD: scalar mismatch"
-      _ -> error "extendEnvD: shape mismatch"
-    DynamicRankedDummy{} -> error "extendEnvD: shaped from ranked"
-    DynamicShapedDummy @r2 @sh2 _ _ -> case sameShape @sh2 @sh of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> extendEnvS @_ @_ @r @sh (AstVarName varId) 0 env
-        _ -> error "extendEnvD: scalar mismatch"
-      _ -> error "extendEnvD: shape mismatch"
-extendEnvD _ _ = error "extendEnvD: unexpected type"
+extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
+  DynamicRanked @r3 @n3 u
+    | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
+    , Just Refl <- matchingRank @sh @n3
+    , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
+      extendEnvR (AstVarName varId) u env
+  DynamicShaped @r3 @sh3 u
+    | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
+    , Just Refl <- sameShape @sh3 @sh
+    , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
+      extendEnvS (AstVarName varId) u env
+  DynamicRankedDummy @r3 @sh3 _ _
+    | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
+    , Just Refl <- sameShape @sh3 @sh
+    , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
+      withListShape (Sh.shapeT @sh) $ \sh4 ->
+      extendEnvR @ranked @shaped @r (AstVarName varId) (rzero sh4) env
+  DynamicShapedDummy @r3 @sh3 _ _
+    | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
+    , Just Refl <- sameShape @sh3 @sh
+    , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
+      extendEnvS @ranked @shaped @r @sh (AstVarName varId) 0 env
+  _ -> error $ "extendEnvD: impossible type"
+               `showFailure`
+               ( vd, typeRep @ty, typeRep @r, Sh.shapeT @sh
+               , scalarDynamic d, shapeDynamic d )
 
 extendEnvI :: ( RankedTensor ranked
               , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
@@ -134,9 +129,7 @@ extendEnvVarsS vars !ix !env =
                    (ShapedList.sizedListToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
-extendEnvPars :: forall ranked shaped.
-                 ( RankedTensor ranked, ShapedTensor shaped
-                 , shaped ~ ShapedOf ranked )
+extendEnvPars :: forall ranked shaped. ADReadyBoth ranked shaped
               => [AstDynamicVarName] -> Domains ranked
               -> AstEnv ranked shaped
               -> AstEnv ranked shaped
@@ -220,9 +213,7 @@ interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
 interpretLambdaDomains
-  :: forall s ranked shaped r n.
-     ( RankedTensor ranked, ShapedTensor shaped
-     , shaped ~ ShapedOf ranked )
+  :: forall s ranked shaped r n. ADReadyBoth ranked shaped
   => (AstEnv ranked shaped -> AstRanked s r n -> ranked r n)
   -> AstEnv ranked shaped
   -> ([AstDynamicVarName], AstRanked s r n)
@@ -233,9 +224,7 @@ interpretLambdaDomains f !env (!vars, !ast) =
   \pars -> f (extendEnvPars vars pars env) ast
 
 interpretLambdaDomainsS
-  :: forall s ranked shaped r sh.
-     ( RankedTensor ranked, ShapedTensor shaped
-     , shaped ~ ShapedOf ranked )
+  :: forall s ranked shaped r sh. ADReadyBoth ranked shaped
   => (AstEnv ranked shaped -> AstShaped s r sh -> shaped r sh)
   -> AstEnv ranked shaped
   -> ([AstDynamicVarName], AstShaped s r sh)
@@ -279,8 +268,7 @@ interpretLambda2S f !env (!varn, !varm, !ast) =
 
 interpretLambda2D
   :: forall s ranked shaped rn n.
-     ( GoodScalar rn, KnownNat n, RankedTensor ranked, ShapedTensor shaped
-     , shaped ~ ShapedOf ranked )
+     (GoodScalar rn, KnownNat n, ADReadyBoth ranked shaped)
   => (AstEnv ranked shaped -> AstRanked s rn n -> ranked rn n)
   -> AstEnv ranked shaped
   -> ( AstVarName (AstRanked s) rn n
@@ -296,8 +284,7 @@ interpretLambda2D f !env (!varn, !varm, !ast) =
 
 interpretLambda2DS
   :: forall s ranked shaped rn sh.
-     ( GoodScalar rn, Sh.Shape sh, RankedTensor ranked, ShapedTensor shaped
-     , shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked )
+     (GoodScalar rn, Sh.Shape sh, ADReadyBoth ranked shaped)
   => (AstEnv ranked shaped -> AstShaped s rn sh -> shaped rn sh)
   -> AstEnv ranked shaped
   -> ( AstVarName (AstShaped s) rn sh
@@ -349,8 +336,7 @@ interpretLambda3S f !env (!varDt, !varn, !varm, !ast) =
 
 interpretLambda3D
   :: forall s ranked shaped rn n.
-     ( GoodScalar rn, KnownNat n, RankedTensor ranked, ShapedTensor shaped
-     , DomainsTensor ranked shaped, shaped ~ ShapedOf ranked )
+     (GoodScalar rn, KnownNat n, ADReadyBoth ranked shaped)
   => (AstEnv ranked shaped -> AstDomains s -> DomainsOf ranked)
   -> AstEnv ranked shaped
   -> ( AstVarName (AstRanked s) rn n
@@ -369,8 +355,7 @@ interpretLambda3D f !env (!varDt, !varn, !varm, !ast) =
 
 interpretLambda3DS
   :: forall s ranked shaped rn sh.
-     ( GoodScalar rn, Sh.Shape sh, RankedTensor ranked, ShapedTensor shaped
-     , DomainsTensor ranked shaped, shaped ~ ShapedOf ranked )
+     (GoodScalar rn, Sh.Shape sh, ADReadyBoth ranked shaped)
   => (AstEnv ranked shaped -> AstDomains s -> DomainsOf ranked)
   -> AstEnv ranked shaped
   -> ( AstVarName (AstShaped s) rn sh
@@ -429,8 +414,7 @@ interpretLambda4S f !env (!varDx, !varDa, !varn, !varm, !ast) =
 
 interpretLambda4D
   :: forall s ranked shaped rn n.
-     ( GoodScalar rn, KnownNat n, RankedTensor ranked, ShapedTensor shaped
-     , shaped ~ ShapedOf ranked )
+     (GoodScalar rn, KnownNat n, ADReadyBoth ranked shaped)
   => (AstEnv ranked shaped -> AstRanked s rn n -> ranked rn n)
   -> AstEnv ranked shaped
   -> ( AstVarName (AstRanked s) rn n
@@ -453,8 +437,7 @@ interpretLambda4D f !env (!varDx, !varDa, !varn, !varm, !ast) =
 
 interpretLambda4DS
   :: forall s ranked shaped rn sh.
-     ( GoodScalar rn, Sh.Shape sh, RankedTensor ranked, ShapedTensor shaped
-     , shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked )
+     (GoodScalar rn, Sh.Shape sh, ADReadyBoth ranked shaped)
   => (AstEnv ranked shaped -> AstShaped s rn sh -> shaped rn sh)
   -> AstEnv ranked shaped
   -> ( AstVarName (AstShaped s) rn sh
