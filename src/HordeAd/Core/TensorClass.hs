@@ -686,7 +686,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
   sconst :: (GoodScalar r, Sh.Shape sh) => OS.Array sh r -> shaped r sh
   sletDomainsIn :: (Sh.Shape sh, GoodScalar r)
                 => DomainsOD
-                -> DomainsOf shaped
+                -> DomainsOf (RankedOf shaped)
                 -> (Domains (RankedOf shaped) -> shaped r sh)
                 -> shaped r sh
   sfromR :: (GoodScalar r, Sh.Shape sh, KnownNat (Sh.Rank sh))
@@ -994,8 +994,6 @@ type ADReadySmall ranked shaped =
   , ShapedTensor shaped, ShapedTensor (PrimalOf shaped)
   , CRanked ranked Show, CRanked (PrimalOf ranked) Show
   , CShaped shaped Show, CShaped (PrimalOf shaped) Show
-  , DomainsOf ranked ~ DomainsOf shaped
-  , DomainsOf shaped ~ DomainsOf ranked
   )
 
 type ADReadyBoth ranked shaped =

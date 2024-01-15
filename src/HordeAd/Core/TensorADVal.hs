@@ -242,6 +242,7 @@ instance ( Dual shaped ~ DeltaS shaped
          , PrimalOf (RankedOf shaped) ~ RankedOf (PrimalOf shaped)
          , ShapedOf (RankedOf shaped) ~ shaped
          , shaped ~ ShapedOf (RankedOf shaped)
+         , RankedOf (RankedOf shaped) ~ (RankedOf shaped)
          , CRankedIPSh shaped IsPrimal
          , RankedTensor (RankedOf shaped), ShapedTensor shaped )
          => ShapedTensor (ADVal shaped) where

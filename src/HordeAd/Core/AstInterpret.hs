@@ -1103,13 +1103,13 @@ interpretAstS !env = \case
            => f r sh -> f rm shm -> f r sh -> f rm shm -> f r sh
         df = interpretLambda4S interpretAstS EM.empty df0
         rf :: forall f. ADReadyS f
-           => f r sh -> f r sh -> f rm shm -> DomainsOf f
+           => f r sh -> f r sh -> f rm shm -> DomainsOf (RankedOf f)
         rf = interpretLambda3S interpretAstDomains EM.empty rf0
         x0i = interpretAstS @ranked env x0
         asi = interpretAstS @ranked env as
     in sfoldDer @ranked f df rf x0i asi
   AstFoldZipS @_ @n1 f@(_, vars, _) x0 as ->
-    let g :: forall f. ADReadyS f => f r n1 -> DomainsOf f -> f r n1
+    let g :: forall f. ADReadyS f => f r n1 -> DomainsOf (RankedOf f) -> f r n1
         g = interpretLambda2DS interpretAstS EM.empty f
           -- TODO: interpretLambda2DS, and others, breaks sharing!
         od = V.fromList $ map odFromVar vars
@@ -1117,13 +1117,16 @@ interpretAstS !env = \case
         asi = interpretAstDynamic env <$> as
     in sfoldZip g od x0i asi
   AstFoldZipDerS @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
-    let f :: forall f. ADReadyS f => f r n1 -> DomainsOf f -> f r n1
+    let f :: forall f. ADReadyS f => f r n1 -> DomainsOf (RankedOf f) -> f r n1
         f = interpretLambda2DS interpretAstS EM.empty f0
         df :: forall f. ADReadyS f
-           => f r n1 -> DomainsOf f -> f r n1 -> DomainsOf f -> f r n1
+           => f r n1 -> DomainsOf (RankedOf f) -> f r n1
+           -> DomainsOf (RankedOf f)
+           -> f r n1
         df = interpretLambda4DS interpretAstS EM.empty df0
         rf :: forall f. ADReadyS f
-           => f r n1 -> f r n1 -> DomainsOf f -> DomainsOf f
+           => f r n1 -> f r n1 -> DomainsOf (RankedOf f)
+           -> DomainsOf (RankedOf f)
         rf = interpretLambda3DS interpretAstDomains EM.empty rf0
         od = V.fromList $ map odFromVar vars
         x0i = interpretAstS env x0
@@ -1142,13 +1145,13 @@ interpretAstS !env = \case
            => f r n1 -> f rm m -> f r n1 -> f rm m -> f r n1
         df = interpretLambda4S interpretAstS EM.empty df0
         rf :: forall f. ADReadyS f
-           => f r n1 -> f r n1 -> f rm m -> DomainsOf f
+           => f r n1 -> f r n1 -> f rm m -> DomainsOf (RankedOf f)
         rf = interpretLambda3S interpretAstDomains EM.empty rf0
         x0i = interpretAstS env x0
         asi = interpretAstS env as
     in sscanDer f df rf x0i asi
   AstScanZipS @_ @n1 f@(_, vars, _) x0 as ->
-    let g :: forall f. ADReadyS f => f r n1 -> DomainsOf f -> f r n1
+    let g :: forall f. ADReadyS f => f r n1 -> DomainsOf (RankedOf f) -> f r n1
         g = interpretLambda2DS interpretAstS EM.empty f
           -- TODO: interpretLambda2DS, and others, breaks sharing!
         od = V.fromList $ map odFromVar vars
@@ -1156,13 +1159,16 @@ interpretAstS !env = \case
         asi = interpretAstDynamic env <$> as
     in sscanZip g od x0i asi
   AstScanZipDerS @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
-    let f :: forall f. ADReadyS f => f r n1 -> DomainsOf f -> f r n1
+    let f :: forall f. ADReadyS f => f r n1 -> DomainsOf (RankedOf f) -> f r n1
         f = interpretLambda2DS interpretAstS EM.empty f0
         df :: forall f. ADReadyS f
-           => f r n1 -> DomainsOf f -> f r n1 -> DomainsOf f -> f r n1
+           => f r n1 -> DomainsOf (RankedOf f) -> f r n1
+           -> DomainsOf (RankedOf f)
+           -> f r n1
         df = interpretLambda4DS interpretAstS EM.empty df0
         rf :: forall f. ADReadyS f
-           => f r n1 -> f r n1 -> DomainsOf f -> DomainsOf f
+           => f r n1 -> f r n1 -> DomainsOf (RankedOf f)
+           -> DomainsOf (RankedOf f)
         rf = interpretLambda3DS interpretAstDomains EM.empty rf0
         od = V.fromList $ map odFromVar vars
         x0i = interpretAstS env x0
