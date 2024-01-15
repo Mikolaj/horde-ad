@@ -27,7 +27,7 @@ import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)
-import           GHC.TypeLits (KnownNat, Nat, sameNat)
+import           GHC.TypeLits (KnownNat, sameNat)
 import           Type.Reflection (Typeable, typeRep)
 import           Unsafe.Coerce (unsafeCoerce)
 

@@ -192,7 +192,8 @@ inlineAst memo v0 = case v0 of
   Ast.AstCast v -> second Ast.AstCast $ inlineAst memo v
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ inlineAst memo v
   Ast.AstConst{} -> (memo, v0)
-  Ast.AstLetDomainsIn vars l v ->  -- TODO: actually inline
+  Ast.AstLetDomainsIn vars l v ->
+    -- We don't inline, but elsewhere try to reduce to constructors that we do.
     let (memo1, l2) = inlineAstDomains memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetDomainsIn vars l2 v2)
@@ -286,7 +287,8 @@ inlineAstDomains
 inlineAstDomains memo v0 = case v0 of
   Ast.AstDomains l ->
     second Ast.AstDomains $ mapAccumR inlineAstDynamic memo l
-  Ast.AstLetDomainsInDomains vars u v ->  -- TODO: actually inline
+  Ast.AstLetDomainsInDomains vars u v ->
+    -- We don't inline, but elsewhere try to reduce to constructors that we do.
     let (memo1, u2) = inlineAstDomains memo u
         (memo2, v2) = inlineAstDomains memo1 v
     in (memo2, Ast.AstLetDomainsInDomains vars u2 v2)
@@ -466,7 +468,8 @@ inlineAstS memo v0 = case v0 of
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ inlineAstS memo v
   Ast.AstConstS{} -> (memo, v0)
-  Ast.AstLetDomainsInS vars l v ->  -- TODO: actually inline
+  Ast.AstLetDomainsInS vars l v ->
+    -- We don't inline, but elsewhere try to reduce to constructors that we do.
     let (memo1, l2) = inlineAstDomains memo l
         (memo2, v2) = inlineAstS memo1 v
     in (memo2, Ast.AstLetDomainsInS vars l2 v2)
@@ -637,6 +640,7 @@ unletAst env t = case t of
   Ast.AstFromIntegral v -> Ast.AstFromIntegral (unletAst env v)
   Ast.AstConst{} -> t
   Ast.AstLetDomainsIn vars l v ->
+    -- We don't unlet, but elsewhere try to reduce to constructors that we do.
     let env2 = env {unletSet = unletSet env
                                `ES.union`
                                ES.fromList (map dynamicVarNameToAstVarId vars)}
@@ -717,7 +721,8 @@ unletAstDomains
   :: AstSpan s => UnletEnv -> AstDomains s -> AstDomains s
 unletAstDomains env = \case
   Ast.AstDomains l -> Ast.AstDomains $ V.map (unletAstDynamic env) l
-  Ast.AstLetDomainsInDomains vars u v ->  -- TODO: actually unlet?
+  Ast.AstLetDomainsInDomains vars u v ->
+    -- We don't unlet, but elsewhere try to reduce to constructors that we do.
     let env2 = env {unletSet = unletSet env
                                `ES.union`
                                ES.fromList (map dynamicVarNameToAstVarId vars)}
@@ -823,6 +828,7 @@ unletAstS env t = case t of
   Ast.AstFromIntegralS v -> Ast.AstFromIntegralS (unletAstS env v)
   Ast.AstConstS{} -> t
   Ast.AstLetDomainsInS vars l v ->
+    -- We don't unlet, but elsewhere try to reduce to constructors that we do.
     let env2 = env {unletSet = unletSet env
                                `ES.union`
                                ES.fromList (map dynamicVarNameToAstVarId vars)}

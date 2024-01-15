@@ -1090,6 +1090,7 @@ astSliceLax i k v =
 
 -- * The simplifying combinators, one for each AST constructor
 
+-- Inlining works for this constructor, so we don't try to eliminate it.
 astLet :: forall n m r r2 s s2.
           ( KnownNat m, KnownNat n, GoodScalar r, GoodScalar r2
           , AstSpan s, AstSpan s2 )
@@ -1153,6 +1154,7 @@ astLetInt :: AstVarName (AstRanked PrimalSpan) Int64 0
 astLetInt var u v | var `varNameInAst` v = astLet var u v
 astLetInt _ _ v = v
 
+-- Inlining works for this constructor, so we don't try to eliminate it.
 astLetS :: forall sh1 sh2 r r2 s s2.
            ( Sh.Shape sh1, Sh.Shape sh2, GoodScalar r, GoodScalar r2
            , AstSpan s, AstSpan s2 )
@@ -1864,6 +1866,8 @@ astDualPartS t = case t of
   Ast.AstScanZipS{} -> Ast.AstDualPartS t
   Ast.AstScanZipDerS{} -> Ast.AstDualPartS t
 
+-- Inlining doesn't work for this constructor, so we try to reduce it
+-- to one for which it does.
 astLetDomainsInDomains
   :: forall s s2. (AstSpan s, AstSpan s2)
   => [AstDynamicVarName] -> AstDomains s
@@ -1872,46 +1876,8 @@ astLetDomainsInDomains
 astLetDomainsInDomains vars u v =
   case u of
       Ast.AstDomains l3 ->
-        let f :: (AstDynamicVarName, AstDynamic s)
-              -> AstDomains s2
-              -> AstDomains s2
-            f ( AstDynamicVarName @ty @r3 @sh3 varId
-              , DynamicRanked @r4 @n4 v3 )
-              acc
-              | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-              , Just Refl <- matchingRank @sh3 @n4
-              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                astLetInDomains (AstVarName varId) v3 acc
-            f ( AstDynamicVarName @ty @r3 @sh3 varId
-              , DynamicShaped @r4 @sh4 v3 )
-              acc
-              | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-              , Just Refl <- sameShape @sh3 @sh4
-              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                astLetInDomainsS (AstVarName varId) v3 acc
-            f ( AstDynamicVarName @ty @r3 @sh3 varId
-              , DynamicRankedDummy @r4 @sh4 _ _ )
-              acc
-              | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-              , Just Refl <- sameShape @sh3 @sh4
-              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                withListShape (Sh.shapeT @sh3) $ \(_ :: ShapeInt m) ->
-                  gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
-                  astLetInDomains @m
-                                  (AstVarName varId) (astSToR @sh3 @s @r3 0) acc
-            f ( AstDynamicVarName @ty @r3 @sh3 varId
-              , DynamicShapedDummy @r4 @sh4 _ _ )
-              acc
-              | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-              , Just Refl <- sameShape @sh3 @sh4
-              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                astLetInDomainsS @sh4 @r4 @s2 (AstVarName varId) 0 acc
-            f vd@(AstDynamicVarName @ty @r3 @sh3 _, d) _ =
-              error $ "astLetDomainsIn: corrupted arguments"
-                      `showFailure`
-                      ( vd, typeRep @ty, typeRep @r3, Sh.shapeT @sh3
-                      , scalarDynamic d, rankDynamic d )
-        in foldr f v (zip vars (V.toList l3))
+        foldr (mapRankedShaped astLetInDomains astLetInDomainsS)
+              v (zip vars (V.toList l3))
       Ast.AstLetDomainsInDomains{} -> Ast.AstLetDomainsInDomains vars u v
       Ast.AstLetInDomains var2 u2 d2 ->
         astLetInDomains var2 u2
@@ -1921,6 +1887,48 @@ astLetDomainsInDomains vars u v =
         $ astLetDomainsInDomains vars d2 v
       _ -> Ast.AstLetDomainsInDomains vars u v
 
+mapRankedShaped
+  :: AstSpan s
+  => (forall n r. (KnownNat n, GoodScalar r)
+      => AstVarName (AstRanked s) r n -> AstRanked s r n -> acc
+      -> acc)
+  -> (forall sh r. (Sh.Shape sh, GoodScalar r)
+      => AstVarName (AstShaped s) r sh -> AstShaped s r sh -> acc
+      -> acc)
+  -> (AstDynamicVarName, AstDynamic s)
+  -> acc
+  -> acc
+{-# INLINE mapRankedShaped #-}
+mapRankedShaped fRanked fShaped
+                vd@(AstDynamicVarName @ty @r3 @sh3 varId, d) acc = case d of
+  DynamicRanked @r4 @n4 v3
+    | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
+    , Just Refl <- matchingRank @sh3 @n4
+    , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
+        fRanked (AstVarName varId) v3 acc
+  DynamicShaped @r4 @sh4 v3
+    | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
+    , Just Refl <- sameShape @sh3 @sh4
+    , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
+        fShaped (AstVarName varId) v3 acc
+  DynamicRankedDummy @r4 @sh4 _ _
+    | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
+    , Just Refl <- sameShape @sh3 @sh4
+    , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
+        withListShape (Sh.shapeT @sh3) $ \(_ :: ShapeInt m) ->
+          gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
+          fRanked @m (AstVarName varId) (astSToR @sh3 @_ @r3 0) acc
+  DynamicShapedDummy @r4 @sh4 _ _
+    | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
+    , Just Refl <- sameShape @sh3 @sh4
+    , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
+        fShaped @sh4 @r4 (AstVarName varId) 0 acc
+  _ -> error $ "mapRankedShaped: corrupted arguments"
+               `showFailure`
+               ( vd, typeRep @ty, typeRep @r3, Sh.shapeT @sh3
+               , scalarDynamic d, rankDynamic d )
+
+-- Inlining works for this constructor, so we don't try to eliminate it.
 astLetInDomains :: forall n r s s2.
                    (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
                 => AstVarName (AstRanked s) r n -> AstRanked s r n
@@ -1930,6 +1938,7 @@ astLetInDomains var u v | astIsSmall True u =
   substituteAstDomains (SubstitutionPayloadRanked u) var v
 astLetInDomains var u v = Ast.AstLetInDomains var u v
 
+-- Inlining works for this constructor, so we don't try to eliminate it.
 astLetInDomainsS :: forall sh r s s2.
                     (GoodScalar r, Sh.Shape sh, AstSpan s, AstSpan s2)
                  => AstVarName (AstShaped s) r sh -> AstShaped s r sh
@@ -1939,6 +1948,8 @@ astLetInDomainsS var u v | astIsSmallS True u =
   substituteAstDomains (SubstitutionPayloadShaped u) var v
 astLetInDomainsS var u v = Ast.AstLetInDomainsS var u v
 
+-- Inlining doesn't work for this constructor, so we try to reduce it
+-- to one for which it does.
 astLetDomainsIn
   :: forall n r s s2. (KnownNat n, GoodScalar r, AstSpan s, AstSpan s2)
   => [AstDynamicVarName] -> AstDomains s
@@ -1949,48 +1960,12 @@ astLetDomainsIn vars l v =
   in Sh.withShapeP (shapeToList sh) $ \proxy -> case proxy of
     Proxy @sh | Just Refl <- matchingRank @sh @n -> case l of
       Ast.AstDomains l3 ->
-        let f :: (AstDynamicVarName, AstDynamic s)
+        let f :: forall sh1 r1. (Sh.Shape sh1, GoodScalar r1)
+              => AstVarName (AstShaped s) r1 sh1 -> AstShaped s r1 sh1
               -> AstRanked s2 r n
               -> AstRanked s2 r n
-            f ( AstDynamicVarName @ty @r3 @sh3 varId
-              , DynamicRanked @r4 @n4 v3 )
-              acc
-              | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-              , Just Refl <- matchingRank @sh3 @n4
-              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                astLet (AstVarName varId) v3 acc
-            f ( AstDynamicVarName @ty @r3 @sh3 varId
-              , DynamicShaped @r4 @sh4 v3 )
-              acc
-              | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-              , Just Refl <- sameShape @sh3 @sh4
-              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                astSToR @sh
-                $ astLetS (AstVarName varId) v3 $ astRToS acc
-            f ( AstDynamicVarName @ty @r3 @sh3 varId
-              , DynamicRankedDummy @r4 @sh4 _ _ )
-              acc
-              | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-              , Just Refl <- sameShape @sh3 @sh4
-              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                withListShape (Sh.shapeT @sh3) $ \(_ :: ShapeInt m) ->
-                  gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
-                  astLet @m (AstVarName varId) (astSToR @sh3 @s @r3 0) acc
-            f ( AstDynamicVarName @ty @r3 @sh3 varId
-              , DynamicShapedDummy @r4 @sh4 _ _ )
-              acc
-              | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-              , Just Refl <- sameShape @sh3 @sh4
-              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                astSToR
-                $ astLetS @sh4 @sh @r4 @_ @s @s2 (AstVarName varId) 0
-                $ astRToS acc
-            f vd@(AstDynamicVarName @ty @r3 @sh3 _, d) _ =
-              error $ "astLetDomainsIn: corrupted arguments"
-                      `showFailure`
-                      ( vd, typeRep @ty, typeRep @r3, Sh.shapeT @sh3
-                      , scalarDynamic d, rankDynamic d )
-        in foldr f v (zip vars (V.toList l3))
+            f var t acc = astSToR @sh $ astLetS var t $ astRToS acc
+        in foldr (mapRankedShaped astLet f) v (zip vars (V.toList l3))
       Ast.AstLetDomainsInDomains vars2 d1 d2 ->
         astLetDomainsIn vars2 d1
         $ astLetDomainsIn vars d2 v
@@ -2003,6 +1978,8 @@ astLetDomainsIn vars l v =
       _ -> Ast.AstLetDomainsIn vars l v
     _ -> error "astLetDomainsIn: wrong rank of the argument"
 
+-- Inlining doesn't work for this constructor, so we try to reduce it
+-- to one for which it does.
 astLetDomainsInS
   :: forall sh r s s2. (Sh.Shape sh, GoodScalar r, AstSpan s, AstSpan s2)
   => [AstDynamicVarName] -> AstDomains s
@@ -2013,48 +1990,12 @@ astLetDomainsInS vars l v =
     Just (SomeNat @n _) -> gcastWith (unsafeCoerce Refl :: n :~: Sh.Rank sh)
                            $ case l of
       Ast.AstDomains l3 ->
-        let f :: (AstDynamicVarName, AstDynamic s)
+        let f :: forall n1 r1. (KnownNat n1, GoodScalar r1)
+              => AstVarName (AstRanked s) r1 n1 -> AstRanked s r1 n1
               -> AstShaped s2 r sh
               -> AstShaped s2 r sh
-            f ( AstDynamicVarName @ty @r3 @sh3 varId
-              , DynamicRanked @r4 @n4 v3 )
-              acc
-              | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-              , Just Refl <- matchingRank @sh3 @n4
-              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                astRToS @sh
-                $ astLet (AstVarName varId) v3 $ astSToR acc
-            f ( AstDynamicVarName @ty @r3 @sh3 varId
-              , DynamicShaped @r4 @sh4 v3 )
-              acc
-              | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-              , Just Refl <- sameShape @sh3 @sh4
-              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                astLetS (AstVarName varId) v3 acc
-            f ( AstDynamicVarName @ty @r3 @sh3 varId
-              , DynamicRankedDummy @r4 @sh4 _ _ )
-              acc
-              | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-              , Just Refl <- sameShape @sh3 @sh4
-              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                withListShape (Sh.shapeT @sh3) $ \(_ :: ShapeInt m) ->
-                  gcastWith (unsafeCoerce Refl :: m :~: Sh.Rank sh3) $
-                  astRToS @sh
-                  $ astLet @m (AstVarName varId) (astSToR @sh3 @s @r3 0)
-                  $ astSToR acc
-            f ( AstDynamicVarName @ty @r3 @sh3 varId
-              , DynamicShapedDummy @r4 @sh4 _ _ )
-              acc
-              | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-              , Just Refl <- sameShape @sh3 @sh4
-              , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) =
-                astLetS @sh4 @sh @r4 @_ @s @s2 (AstVarName varId) 0 acc
-            f vd@(AstDynamicVarName @ty @r3 @sh3 _, d) _ =
-              error $ "astLetDomainsInS: corrupted arguments"
-                      `showFailure`
-                      ( vd, typeRep @ty, typeRep @r3, Sh.shapeT @sh3
-                      , scalarDynamic d, rankDynamic d )
-        in foldr f v (zip vars (V.toList l3))
+            f var t acc = astRToS $ astLet var t $ astSToR acc
+        in foldr (mapRankedShaped f astLetS) v (zip vars (V.toList l3))
       Ast.AstLetDomainsInDomains vars2 d1 d2 ->
         astLetDomainsInS vars2 d1
         $ astLetDomainsInS vars d2 v
