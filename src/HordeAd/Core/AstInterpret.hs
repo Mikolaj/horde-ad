@@ -538,7 +538,6 @@ interpretAst !env = \case
   AstFoldZip @_ @n1 f@(_, vars, _) x0 as ->
     let g :: forall f. ADReady f => f r n1 -> DomainsOf f -> f r n1
         g = interpretLambda2D interpretAst EM.empty f
-          -- TODO: interpretLambda2D, and others, breaks sharing!
         od = V.fromList $ map odFromVar vars
         x0i = interpretAst env x0
         asi = interpretAstDynamic env <$> as
@@ -577,7 +576,6 @@ interpretAst !env = \case
   AstScanZip @_ @n1 f@(_, vars, _) x0 as ->
     let g :: forall f. ADReady f => f r n1 -> DomainsOf f -> f r n1
         g = interpretLambda2D interpretAst EM.empty f
-          -- TODO: interpretLambda2D, and others, breaks sharing!
         od = V.fromList $ map odFromVar vars
         x0i = interpretAst env x0
         asi = interpretAstDynamic env <$> as
@@ -1111,7 +1109,6 @@ interpretAstS !env = \case
   AstFoldZipS @_ @n1 f@(_, vars, _) x0 as ->
     let g :: forall f. ADReadyS f => f r n1 -> DomainsOf (RankedOf f) -> f r n1
         g = interpretLambda2DS interpretAstS EM.empty f
-          -- TODO: interpretLambda2DS, and others, breaks sharing!
         od = V.fromList $ map odFromVar vars
         x0i = interpretAstS env x0
         asi = interpretAstDynamic env <$> as
@@ -1153,7 +1150,6 @@ interpretAstS !env = \case
   AstScanZipS @_ @n1 f@(_, vars, _) x0 as ->
     let g :: forall f. ADReadyS f => f r n1 -> DomainsOf (RankedOf f) -> f r n1
         g = interpretLambda2DS interpretAstS EM.empty f
-          -- TODO: interpretLambda2DS, and others, breaks sharing!
         od = V.fromList $ map odFromVar vars
         x0i = interpretAstS env x0
         asi = interpretAstDynamic env <$> as

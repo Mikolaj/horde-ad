@@ -292,7 +292,7 @@ interpretLambda2S f !env (!varn, !varm, !ast) =
 interpretLambda2D
   :: forall s ranked shaped rn n.
      ( GoodScalar rn, KnownNat n, RankedTensor ranked, ShapedTensor shaped
-     , DomainsTensor ranked shaped, shaped ~ ShapedOf ranked )
+     , shaped ~ ShapedOf ranked )
   => (AstEnv ranked shaped -> AstRanked s rn n -> ranked rn n)
   -> AstEnv ranked shaped
   -> ( AstVarName (AstRanked s) rn n
@@ -302,14 +302,14 @@ interpretLambda2D
   -> ranked rn n
 {-# INLINE interpretLambda2D #-}
 interpretLambda2D f !env (!varn, !varm, !ast) =
-  \x0 as -> let envE = extendEnvR varn x0
-                       $ extendEnvParsOf varm as env
-            in f envE ast
+  \x0 as -> let lt0 = V.fromList $ map odFromVar varm
+                envE = extendEnvR varn x0 env
+            in rletDomainsIn lt0 as (\lw -> f (extendEnvPars varm lw envE) ast)
 
 interpretLambda2DS
   :: forall s ranked shaped rn sh.
      ( GoodScalar rn, Sh.Shape sh, RankedTensor ranked, ShapedTensor shaped
-     , DomainsTensor ranked shaped, shaped ~ ShapedOf ranked )
+     , shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked )
   => (AstEnv ranked shaped -> AstShaped s rn sh -> shaped rn sh)
   -> AstEnv ranked shaped
   -> ( AstVarName (AstShaped s) rn sh
@@ -319,9 +319,9 @@ interpretLambda2DS
   -> shaped rn sh
 {-# INLINE interpretLambda2DS #-}
 interpretLambda2DS f !env (!varn, !varm, !ast) =
-  \x0 as -> let envE = extendEnvS varn x0
-                       $ extendEnvParsOf varm as env
-            in f envE ast
+  \x0 as -> let lt0 = V.fromList $ map odFromVar varm
+                envE = extendEnvS varn x0 env
+            in sletDomainsIn lt0 as (\lw -> f (extendEnvPars varm lw envE) ast)
 
 interpretLambda3
   :: forall s ranked shaped rn rm n m.
@@ -440,7 +440,7 @@ interpretLambda4S f !env (!varDx, !varDa, !varn, !varm, !ast) =
 interpretLambda4D
   :: forall s ranked shaped rn n.
      ( GoodScalar rn, KnownNat n, RankedTensor ranked, ShapedTensor shaped
-     , DomainsTensor ranked shaped, shaped ~ ShapedOf ranked )
+     , shaped ~ ShapedOf ranked )
   => (AstEnv ranked shaped -> AstRanked s rn n -> ranked rn n)
   -> AstEnv ranked shaped
   -> ( AstVarName (AstRanked s) rn n
@@ -452,16 +452,19 @@ interpretLambda4D
   -> ranked rn n
 {-# INLINE interpretLambda4D #-}
 interpretLambda4D f !env (!varDx, !varDa, !varn, !varm, !ast) =
-  \cx ca x0 as -> let envE = extendEnvR varDx cx
-                             $ extendEnvParsOf varDa ca
-                             $ extendEnvR varn x0
-                             $ extendEnvParsOf varm as env
-                  in f envE ast
+  \cx ca x0 as -> let ls0 = V.fromList $ map odFromVar varDa
+                      lt0 = V.fromList $ map odFromVar varm
+                      envE = extendEnvR varDx cx
+                             $ extendEnvR varn x0 env
+                  in rletDomainsIn ls0 ca (\lws ->
+                       rletDomainsIn lt0 as (\lwt ->
+                         f (extendEnvPars varDa lws
+                            $ extendEnvPars varm lwt envE) ast))
 
 interpretLambda4DS
   :: forall s ranked shaped rn sh.
      ( GoodScalar rn, Sh.Shape sh, RankedTensor ranked, ShapedTensor shaped
-     , DomainsTensor ranked shaped, shaped ~ ShapedOf ranked )
+     , shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked )
   => (AstEnv ranked shaped -> AstShaped s rn sh -> shaped rn sh)
   -> AstEnv ranked shaped
   -> ( AstVarName (AstShaped s) rn sh
@@ -473,11 +476,14 @@ interpretLambda4DS
   -> shaped rn sh
 {-# INLINE interpretLambda4DS #-}
 interpretLambda4DS f !env (!varDx, !varDa, !varn, !varm, !ast) =
-  \cx ca x0 as -> let envE = extendEnvS varDx cx
-                             $ extendEnvParsOf varDa ca
-                             $ extendEnvS varn x0
-                             $ extendEnvParsOf varm as env
-                  in f envE ast
+  \cx ca x0 as -> let ls0 = V.fromList $ map odFromVar varDa
+                      lt0 = V.fromList $ map odFromVar varm
+                      envE = extendEnvS varDx cx
+                             $ extendEnvS varn x0 env
+                  in sletDomainsIn ls0 ca (\lws ->
+                       sletDomainsIn lt0 as (\lwt ->
+                         f (extendEnvPars varDa lws
+                            $ extendEnvPars varm lwt envE) ast))
 
 
 -- * Interpretation of arithmetic, boolean and relation operations
