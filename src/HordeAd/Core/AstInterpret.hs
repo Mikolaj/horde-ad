@@ -437,37 +437,7 @@ interpretAst !env = \case
   AstLetDomainsIn vars l v ->
     let lt0 = V.fromList $ map odFromVar vars
         lt = interpretAstDomains env l
-        -- We don't need to manually pick a specialization for the existential
-        -- variable r2, because the operations do not depend on r2.
-        f :: (AstDynamicVarName, DynamicTensor ranked)
-          -> AstEnv ranked shaped -> AstEnv ranked shaped
-        f vd@(AstDynamicVarName @ty @r2 @sh2 varId, d) = case d of
-          DynamicRanked @r3 @n3 u
-            | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-            , Just Refl <- matchingRank @sh2 @n3
-            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              extendEnvR (AstVarName varId) u
-          DynamicShaped @r3 @sh3 u
-            | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-            , Just Refl <- sameShape @sh3 @sh2
-            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              extendEnvS (AstVarName varId) u
-          DynamicRankedDummy @r3 @sh3 _ _
-            | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-            , Just Refl <- sameShape @sh3 @sh2
-            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              withListShape (Sh.shapeT @sh2) $ \sh4 ->
-              extendEnvR @ranked @shaped @r2 (AstVarName varId) $ rzero sh4
-          DynamicShapedDummy @r3 @sh3 _ _
-            | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-            , Just Refl <- sameShape @sh3 @sh2
-            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              extendEnvS @ranked @shaped @r2 @sh2 (AstVarName varId) 0
-          _ -> error $ "interpretAst: impossible type"
-                       `showFailure`
-                       ( vd, typeRep @ty, typeRep @r2, Sh.shapeT @sh2
-                       , scalarDynamic d, shapeDynamic d )
-        env2 lw = foldr f env (zip vars (V.toList lw))
+        env2 lw = extendEnvPars vars lw env
     in rletDomainsIn lt0 lt (\lw -> interpretAst (env2 lw) v)
   AstSToR v -> rfromS $ interpretAstS env v
   AstConstant a -> rconstant $ interpretAstPrimal env a
@@ -1040,37 +1010,7 @@ interpretAstS !env = \case
   AstLetDomainsInS vars l v ->
     let lt0 = V.fromList $ map odFromVar vars
         lt = interpretAstDomains env l
-        -- We don't need to manually pick a specialization for the existential
-        -- variable r2, because the operations do not depend on r2.
-        f :: (AstDynamicVarName, DynamicTensor ranked)
-          -> AstEnv ranked shaped -> AstEnv ranked shaped
-        f vd@(AstDynamicVarName @ty @r2 @sh2 varId, d) = case d of
-          DynamicRanked @r3 @n3 u
-            | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-            , Just Refl <- matchingRank @sh2 @n3
-            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              extendEnvR (AstVarName varId) u
-          DynamicShaped @r3 @sh3 u
-            | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-            , Just Refl <- sameShape @sh3 @sh2
-            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              extendEnvS (AstVarName varId) u
-          DynamicRankedDummy @r3 @sh3 _ _
-            | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-            , Just Refl <- sameShape @sh3 @sh2
-            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              withListShape (Sh.shapeT @sh2) $ \sh4 ->
-              extendEnvR @ranked @shaped @r2 (AstVarName varId) $ rzero sh4
-          DynamicShapedDummy @r3 @sh3 _ _
-            | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-            , Just Refl <- sameShape @sh3 @sh2
-            , Just Refl <- testEquality (typeRep @r2) (typeRep @r3) ->
-              extendEnvS @ranked @shaped @r2 @sh2 (AstVarName varId) 0
-          _ -> error $ "interpretAstS: impossible type"
-                       `showFailure`
-                       ( vd, typeRep @ty, typeRep @r2, Sh.shapeT @sh2
-                       , scalarDynamic d, shapeDynamic d )
-        env2 lw = foldr f env (zip vars (V.toList lw))
+        env2 lw = extendEnvPars vars lw env
     in sletDomainsIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
   AstRToS v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a

@@ -71,6 +71,8 @@ extendEnvS (AstVarName varId) !t !env =
   EM.insertWithKey (\_ _ _ -> error $ "extendEnvS: duplicate " ++ show varId)
                    varId (AstEnvElemS t) env
 
+-- We don't need to manually pick a specialization for the existential
+-- variable r2, because the operations do not depend on r2.
 extendEnvD :: forall ranked shaped. ADReadyBoth ranked shaped
            => (AstDynamicVarName, DynamicTensor ranked)
            -> AstEnv ranked shaped
