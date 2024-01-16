@@ -12,7 +12,6 @@ module HordeAd.Core.Ast
   , AstBindings, ADShare
     -- * More and less typed variables and type synonyms containing them
   , AstVarName(..), varNameToAstVarId
-  , AstDynamicVarName(..), dynamicVarNameToAstVarId
   , AstArtifactRev, AstArtifactFwd
   , AstIndex, AstVarList, AstIndexS, AstVarListS
     -- * ASTs
@@ -147,20 +146,6 @@ instance Show (AstVarName f r y) where
 
 varNameToAstVarId :: AstVarName f r y -> AstVarId
 varNameToAstVarId (AstVarName varId) = varId
-
--- This can't be replaced by AstVarId. because in some places it's used
--- to record the type, scalar and shape of arguments in a domain.
---
--- A lot of the variables are existential, but there's no nesting,
--- so no special care about picking specializations at runtime is needed.
-data AstDynamicVarName where
-  AstDynamicVarName :: forall (ty :: Type) r sh.
-                       (Typeable ty, GoodScalar r, Sh.Shape sh)
-                    => AstVarId -> AstDynamicVarName
-deriving instance Show AstDynamicVarName
-
-dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
-dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type AstArtifactRev (f :: TensorType ty) r y =

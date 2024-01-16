@@ -340,9 +340,9 @@ bindsToLet :: forall n s r. (AstSpan s, KnownNat n, GoodScalar r)
 bindsToLet = foldl' bindToLet
  where
   bindToLet :: AstRanked s r n
-            -> (AstVarId, AstDynamic PrimalSpan)
+            -> AstBindingsCase (AstRanked PrimalSpan)
             -> AstRanked s r n
-  bindToLet !u (varId, d) =
+  bindToLet !u (AstBindingsSimple varId d) =
     let convertShaped :: (GoodScalar r2, Sh.Shape sh2)
                       => AstShaped PrimalSpan r2 sh2 -> AstRanked s r n
         convertShaped t =
@@ -358,6 +358,8 @@ bindsToLet = foldl' bindToLet
           gcastWith (unsafeCoerce Refl :: n3 :~: Sh.Rank sh2) $
           AstLet @n3 @n @r2 @_ @s (AstVarName varId) (AstSToR @sh2 @s @r2 0) u
       DynamicShapedDummy @r2 @sh2 _ _ -> convertShaped @r2 @sh2 0
+  bindToLet u (AstBindingsDomains lids d) =
+    AstLetDomainsIn lids d u
 
 bindsToLetS :: forall sh s r. (AstSpan s, Sh.Shape sh)
             => AstShaped s r sh -> AstBindings -> AstShaped s r sh
@@ -365,9 +367,9 @@ bindsToLetS :: forall sh s r. (AstSpan s, Sh.Shape sh)
 bindsToLetS = foldl' bindToLetS
  where
   bindToLetS :: AstShaped s r sh
-             -> (AstVarId, AstDynamic PrimalSpan)
+             -> AstBindingsCase (AstRanked PrimalSpan)
              -> AstShaped s r sh
-  bindToLetS !u (varId, d) = case d of
+  bindToLetS !u (AstBindingsSimple varId d) = case d of
     DynamicRanked w ->
       withListShape (Sh.shapeT @sh) $ \sh -> case sh of
         (_ :: ShapeInt n) | Just Refl <- matchingRank @sh @n ->
@@ -383,6 +385,8 @@ bindsToLetS = foldl' bindToLetS
                       (AstVarName varId) (AstSToR @sh2 @s @r2 0) (AstSToR u)
     DynamicShapedDummy @r2 @sh2 _ _ ->
       AstLetS @sh2 @sh @r2 @_ @s (AstVarName varId) 0 u
+  bindToLetS u (AstBindingsDomains lids d) =
+    AstLetDomainsInS lids d u
 
 bindsToDomainsLet
    :: forall s. AstSpan s
@@ -390,7 +394,7 @@ bindsToDomainsLet
 {-# INLINE bindsToDomainsLet #-}   -- help list fusion
 bindsToDomainsLet = foldl' bindToDomainsLet
  where
-  bindToDomainsLet !u (varId, d) = case d of
+  bindToDomainsLet !u (AstBindingsSimple varId d) = case d of
     DynamicRanked w -> AstLetInDomains (AstVarName varId) w u
     DynamicShaped w -> AstLetInDomainsS (AstVarName varId) w u
     DynamicRankedDummy @r2 @sh2 _ _ ->
@@ -399,3 +403,5 @@ bindsToDomainsLet = foldl' bindToDomainsLet
         AstLetInDomains @n @r2 @s (AstVarName varId) (AstSToR @sh2 @s @r2 0) u
     DynamicShapedDummy @r2 @sh2 _ _ ->
       AstLetInDomainsS @sh2 @r2 @s (AstVarName varId) 0 u
+  bindToDomainsLet u (AstBindingsDomains lids d) =
+    AstLetDomainsInDomains lids d u

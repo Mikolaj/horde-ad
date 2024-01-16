@@ -69,7 +69,7 @@ astRegisterFun r l = unsafePerformIO $ do
   !freshId <- unsafeGetFreshAstVarId
   let !r2 = AstVar (shapeAst r) $ AstVarName freshId
       !d = DynamicRanked r
-  return ((freshId, d) : l, r2)
+  return (AstBindingsSimple freshId d : l, r2)
 
 astRegisterFunS
   :: (Sh.Shape sh, GoodScalar r)
@@ -81,7 +81,7 @@ astRegisterFunS r l = unsafePerformIO $ do
   !freshId <- unsafeGetFreshAstVarId
   let !r2 = AstVarS $ AstVarName freshId
       !d = DynamicShaped r
-  return ((freshId, d) : l, r2)
+  return (AstBindingsSimple freshId d : l, r2)
 
 astRegisterADShare :: (GoodScalar r, KnownNat n)
                    => AstRanked PrimalSpan r n -> ADShare

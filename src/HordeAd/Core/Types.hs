@@ -1,4 +1,5 @@
-{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
+             UndecidableInstances #-}
 -- | Some fundamental type families and types.
 module HordeAd.Core.Types
   ( -- * Kinds of the functors that determine the structure of a tensor type
@@ -16,8 +17,8 @@ module HordeAd.Core.Types
     -- * Definitions to help express and manipulate type-level natural numbers
   , SNat(..), withSNat, sNatValue, proxyFromSNat
     -- * ADShare definition
-  , AstVarId, intToAstVarId
-  , AstBindingsD, ADShareD
+  , AstVarId, intToAstVarId, AstDynamicVarName(..), dynamicVarNameToAstVarId
+  , AstBindingsCase(..), AstBindingsD, ADShareD
   , emptyADShare, insertADShare, mergeADShare, subtractADShare
   , flattenADShare, assocsADShare, varInADShare, nullADShare
   ) where
@@ -246,8 +247,26 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-type AstBindingsD (ranked :: RankedTensorType) =
-  [(AstVarId, DynamicTensor ranked)]
+-- This can't be replaced by AstVarId. because in some places it's used
+-- to record the type, scalar and shape of arguments in a domain.
+--
+-- A lot of the variables are existential, but there's no nesting,
+-- so no special care about picking specializations at runtime is needed.
+data AstDynamicVarName where
+  AstDynamicVarName :: forall (ty :: Type) r sh.
+                       (Typeable ty, GoodScalar r, Sh.Shape sh)
+                    => AstVarId -> AstDynamicVarName
+deriving instance Show AstDynamicVarName
+
+dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
+dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
+
+type role AstBindingsCase nominal
+data AstBindingsCase ranked =
+    AstBindingsSimple AstVarId (DynamicTensor ranked)
+  | AstBindingsDomains [AstDynamicVarName] (DomainsOf ranked)
+
+type AstBindingsD (ranked :: RankedTensorType) = [AstBindingsCase ranked]
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -347,7 +366,7 @@ subtractADShare !s1 !s2 =
         else case compare key1 key2 of
           EQ -> subAD rest1 rest2
           LT -> subAD l1 rest2
-          GT -> (key1, t1) : subAD rest1 l2
+          GT -> AstBindingsSimple key1 t1 : subAD rest1 l2
   in subAD s1 s2
 
 -- TODO: rename to concat? make it a monoid?
@@ -357,7 +376,8 @@ flattenADShare = foldl' mergeADShare emptyADShare
 assocsADShare :: ADShareD d -> AstBindingsD d
 {-# INLINE assocsADShare #-}  -- help list fusion
 assocsADShare ADShareNil = []
-assocsADShare (ADShareCons _ key t rest) = (key, t) : assocsADShare rest
+assocsADShare (ADShareCons _ key t rest) =
+  AstBindingsSimple key t : assocsADShare rest
 
 _lengthADShare :: Int -> ADShareD d -> Int
 _lengthADShare acc ADShareNil = acc
