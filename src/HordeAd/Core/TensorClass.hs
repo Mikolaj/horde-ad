@@ -787,6 +787,8 @@ class DomainsTensor (ranked :: RankedTensorType)
                 => shaped r sh
                 -> (shaped r sh -> DomainsOf ranked)
                 -> DomainsOf ranked
+  dregister :: DomainsOD -> DomainsOf ranked -> AstBindingsD ranked
+            -> (AstBindingsD ranked, Domains ranked)
   dbuild1 :: Int  -- k
           -> (IntOf ranked -> DomainsOf ranked)  -- sh
           -> DomainsOf ranked  -- k ': sh
