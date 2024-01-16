@@ -19,7 +19,7 @@ module HordeAd.Core.TensorClass
     -- * Concrete array instances auxiliary definitions
   , DomainsOD, sizeDomainsOD, scalarDynamic, shapeDynamic, rankDynamic
   , domainsMatch
-  , odFromVar, odFromSh, odFromShS, fromDomainsR, fromDomainsS
+  , odFromVar, odFromSh, odFromShS, odFromDynamic, fromDomainsR, fromDomainsS
   , unravelDomains, ravelDomains
   , mapDomainsRanked, mapDomainsRanked01, mapDomainsRanked10, mapDomainsRanked11
   , mapDomainsShaped11, mapDomainsShaped11kk
@@ -1102,6 +1102,20 @@ odFromSh sh = Sh.withShapeP (shapeToList sh) $ \proxySh ->
 odFromShS :: forall r sh. (GoodScalar r, Sh.Shape sh)
           => DynamicTensor (Flip OR.Array)
 odFromShS = DynamicShapedDummy @r @sh Proxy Proxy
+
+-- This is useful for when the normal main parameters to an objective
+-- function are used to generate the parameter template
+-- as well as when generating dummy zero parameters based on a template.
+odFromDynamic :: forall ranked ranked2. RankedTensor ranked
+              => DynamicTensor ranked -> DynamicTensor ranked2
+odFromDynamic (DynamicRanked @r2 @n2 t) =
+  let sh = rshape @ranked t
+  in Sh.withShapeP (shapeToList sh) $ \(Proxy @sh2) ->
+    DynamicRankedDummy @r2 @sh2 Proxy Proxy
+odFromDynamic (DynamicShaped @r2 @sh2 _) =
+  DynamicShapedDummy @r2 @sh2 Proxy Proxy
+odFromDynamic (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+odFromDynamic (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
 
 fromDomainsR :: forall r n ranked.
                 (RankedTensor ranked, GoodScalar r, KnownNat n)

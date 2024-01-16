@@ -96,20 +96,9 @@ data StateAdam = StateAdam
   , vAdam :: DomainsOD
   }
 
--- The arguments are just sample params0, for dimensions.
-zeroParameters :: DomainsOD -> DomainsOD
-zeroParameters =
-  let f (DynamicRanked @r @n t) =
-        let sh = rshape @(Flip OR.Array) t
-        in DynamicRanked @r @n $ rzero @(Flip OR.Array) sh
-      f (DynamicShaped @r @sh _) = DynamicShaped @r @sh 0
-      f DynamicRankedDummy{} = error "zeroParameters: unexpected value"
-      f DynamicShapedDummy{} = error "zeroParameters: unexpected value"
-  in V.map f
-
 initialStateAdam :: DomainsOD -> StateAdam
 initialStateAdam parameters0 =
-  let zeroP = zeroParameters parameters0
+  let zeroP = V.map odFromDynamic parameters0
   in StateAdam
        { tAdam = 0
        , mAdam = zeroP

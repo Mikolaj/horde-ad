@@ -267,18 +267,6 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
       else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
 -}
 
-zeroParameters :: forall ranked. RankedTensor ranked
-               => Domains ranked -> DomainsOD
-zeroParameters =
-  let f (DynamicRanked @r @n t) =
-        let sh = rshape @ranked t
-        in Sh.withShapeP (shapeToList sh) $ \(Proxy @sh) ->
-          DynamicRankedDummy @r @sh Proxy Proxy
-      f (DynamicShaped @r @sh _) = DynamicShapedDummy @r @sh Proxy Proxy
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
-
 crevOnADInputs
   :: forall ty (f :: TensorType ty) r y.
      ( RankedTensor (ADVal (RankedOf f))
@@ -294,7 +282,7 @@ crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D l v deltaTopLevel) = f inputs in
-  let parameters0 = zeroParameters inputs
+  let parameters0 = V.map odFromDynamic inputs
       (!astBindings, !gradient) =
         reverseDervative parameters0 v mdt deltaTopLevel
   in (unletGradient @ty @f l astBindings gradient, unletValue l [] v)
