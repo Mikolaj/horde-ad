@@ -5,7 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of it escapes.
 module HordeAd.Core.AstFreshId
   ( astRegisterFun, astRegisterFunS, astRegisterADShare, astRegisterADShareS
-  , funToAstIOR, funToAstR
+  , funToAstIOR, funToAstR, fun1DToAstR
   , fun2ToAstR, fun2ToAstS, fun2DToAstR, fun2DToAstS
   , fun3ToAstR, fun3ToAstS, fun3DToAstR, fun3DToAstS
   , fun4ToAstR, fun4ToAstS, fun4DToAstR, fun4DToAstS
@@ -146,6 +146,21 @@ funToAstS f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIOS f
   return (var, ast)
 
+fun1DToAstIOR :: (Domains (AstRanked s) -> a)
+              -> DomainsOD
+              -> IO ([AstDynamicVarName], a)
+{-# INLINE fun1DToAstIOR #-}
+fun1DToAstIOR f od = do
+  (!vars, !asts) <- V.unzip <$> V.mapM dynamicToVar od
+  let !x = f asts
+  return (V.toList vars, x)
+
+fun1DToAstR :: (Domains (AstRanked s) -> a)
+              -> DomainsOD
+              -> ([AstDynamicVarName], a)
+{-# NOINLINE fun1DToAstR #-}
+fun1DToAstR f od = unsafePerformIO $ fun1DToAstIOR f od
+
 fun2ToAstIOR :: ShapeInt n
              -> ShapeInt m
              -> (AstRanked s rn n -> AstRanked s rm m -> AstRanked s rn n)
@@ -188,7 +203,7 @@ fun2ToAstS f = unsafePerformIO $ fun2ToAstIOS f
 
 fun2DToAstIOR :: ShapeInt n
               -> (AstRanked s rn n -> DomainsOf (AstRanked s)
-              -> AstRanked s rn n)
+                  -> AstRanked s rn n)
               -> DomainsOD
               -> IO ( AstVarName (AstRanked s) rn n
                     , [AstDynamicVarName]
@@ -202,7 +217,7 @@ fun2DToAstIOR shn f od = do
 
 fun2DToAstR :: ShapeInt n
             -> (AstRanked s rn n -> DomainsOf (AstRanked s)
-            -> AstRanked s rn n)
+                -> AstRanked s rn n)
             -> DomainsOD
             -> ( AstVarName (AstRanked s) rn n
                , [AstDynamicVarName]

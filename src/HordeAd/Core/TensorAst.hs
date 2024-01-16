@@ -409,28 +409,14 @@ instance ( GoodScalar r, KnownNat n
   toDomains = undefined
   fromDomains _aInit params = fromDomainsR @r @n params
 
--- TODO: move the impure part to AstFreshId
 astLetDomainsInFun
   :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
   => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstRanked s r n)
   -> AstRanked s r n
-{-# NOINLINE astLetDomainsInFun #-}
-astLetDomainsInFun a0 a f = unsafePerformIO $ do  -- the id causes trouble
-  let genVar :: DynamicTensor (Flip OR.Array)
-             -> IO (AstDynamicVarName, AstDynamic s)
-      genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
-        let sh2 = Sh.shapeT @sh2
-        withListShape sh2 $ \ (sh3 :: ShapeInt n2) -> do
-          (AstVarName varId, _, ast) <- funToAstIOR @n2 @_ @_ @r2 sh3 id
-          return ( AstDynamicVarName @Nat @r2 @sh2 varId
-                 , DynamicRanked ast )
-      genVar (DynamicShapedDummy @r2 @sh2 _ _) = do
-        (AstVarName varId, _, ast) <- funToAstIOS @sh2 @_ @_ @r2 id
-        return ( AstDynamicVarName @[Nat] @r2 @sh2 varId
-               , DynamicShaped ast )
-      genVar _ = error "genVar: unexpected OD value"
-  (vars, asts) <- unzip <$> mapM genVar (V.toList a0)
-  return $! astLetDomainsIn vars a (f $ V.fromList asts)
+{-# INLINE astLetDomainsInFun #-}
+astLetDomainsInFun a0 a f =
+  let (vars, b) = fun1DToAstR f a0
+  in astLetDomainsIn vars a b
 
 astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
               => AstRanked s r n -> AstRanked PrimalSpan r n
@@ -543,28 +529,14 @@ instance ( GoodScalar r, Sh.Shape sh
   toDomains = undefined
   fromDomains _aInit params = fromDomainsS @r @sh params
 
--- TODO: dedup with astLetDomainsInFun
 astLetDomainsInFunS
   :: forall sh s r. (Sh.Shape sh, GoodScalar r, AstSpan s)
   => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstShaped s r sh)
   -> AstShaped s r sh
-{-# NOINLINE astLetDomainsInFunS #-}
-astLetDomainsInFunS a0 a f = unsafePerformIO $ do  -- the id causes trouble
-  let genVar :: DynamicTensor (Flip OR.Array)
-             -> IO (AstDynamicVarName, AstDynamic s)
-      genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
-        let sh2 = Sh.shapeT @sh2
-        withListShape sh2 $ \ (sh3 :: ShapeInt n2) -> do
-          (AstVarName varId, _, ast) <- funToAstIOR @n2 @_ @_ @r2 sh3 id
-          return ( AstDynamicVarName @Nat @r2 @sh2 varId
-                 , DynamicRanked ast )
-      genVar (DynamicShapedDummy @r2 @sh2 _ _) = do
-        (AstVarName varId, _, ast) <- funToAstIOS @sh2 @_ @_ @r2 id
-        return ( AstDynamicVarName @[Nat] @r2 @sh2 varId
-               , DynamicShaped ast )
-      genVar _ = error "genVar: unexpected OD value"
-  (vars, asts) <- unzip <$> mapM genVar (V.toList a0)
-  return $! astLetDomainsInS vars a (f $ V.fromList asts)
+{-# INLINE astLetDomainsInFunS #-}
+astLetDomainsInFunS a0 a f =
+  let (vars, b) = fun1DToAstR f a0
+  in astLetDomainsInS vars a b
 
 astSpanPrimalS :: forall s r sh. (Sh.Shape sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped PrimalSpan r sh
@@ -1071,23 +1043,10 @@ astLetDomainsInDomainsFun
   :: AstSpan s
   => DomainsOD -> AstDomains s -> (Domains (AstRanked s) -> AstDomains s)
   -> AstDomains s
-{-# NOINLINE astLetDomainsInDomainsFun #-}
-astLetDomainsInDomainsFun a0 a f = unsafePerformIO $ do  -- ids cause trouble
-  let genVar :: DynamicTensor (Flip OR.Array)
-             -> IO (AstDynamicVarName, AstDynamic s)
-      genVar (DynamicRankedDummy @r2 @sh2 _ _) = do
-        let sh2 = Sh.shapeT @sh2
-        withListShape sh2 $ \ (sh3 :: ShapeInt n2) -> do
-          (AstVarName varId, _, ast) <- funToAstIOR @n2 @_ @_ @r2 sh3 id
-          return ( AstDynamicVarName @Nat @r2 @sh2 varId
-                 , DynamicRanked ast )
-      genVar (DynamicShapedDummy @r2 @sh2 _ _) = do
-        (AstVarName varId, _, ast) <- funToAstIOS @sh2 @_ @_ @r2 id
-        return ( AstDynamicVarName @[Nat] @r2 @sh2 varId
-               , DynamicShaped ast )
-      genVar _ = error "genVar: unexpected OD value"
-  (vars, asts) <- unzip <$> mapM genVar (V.toList a0)
-  return $! astLetDomainsInDomains vars a (f $ V.fromList asts)
+{-# INLINE astLetDomainsInDomainsFun #-}
+astLetDomainsInDomainsFun a0 a f =
+  let (vars, b) = fun1DToAstR f a0
+  in astLetDomainsInDomains vars a b
 
 astLetInDomainsFun :: (KnownNat n, GoodScalar r, AstSpan s)
                    => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
