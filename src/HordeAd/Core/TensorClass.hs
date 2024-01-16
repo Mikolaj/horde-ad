@@ -790,6 +790,21 @@ class DomainsTensor (ranked :: RankedTensorType)
   dbuild1 :: Int  -- k
           -> (IntOf ranked -> DomainsOf ranked)  -- sh
           -> DomainsOf ranked  -- k ': sh
+  dzipWith1 :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+               , RankedOf (PrimalOf (ShapedOf ranked))
+                 ~ RankedOf (PrimalOf ranked) )
+            => (Domains ranked -> DomainsOf ranked)
+                 -- ^ both domains can have arbitrary tensors in them
+            -> Domains ranked -> DomainsOf ranked
+                 -- ^ each domain has the same tensor shapes and scalar types
+                 -- as its corresponding domain above, except for the extra
+                 -- outermost dimension, which needs to be same in each tensor
+                 -- from either of the domains; the domains can't be empty
+  dzipWith1 f u = case V.unsnoc u of
+    Nothing -> error "dzipWith1: can't determine argument width"
+    Just (_, d) -> case shapeDynamic d of
+      [] -> error "dzipWith1: wrong rank of argument"
+      width : _ -> dbuild1 @ranked width (\i -> f (index1Domains u i))
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.
   --
@@ -1341,6 +1356,32 @@ mapShaped11kk f (DynamicShaped @r t) = case sshape t of
     Just Refl -> DynamicShaped $ f t
     Nothing -> error "mapShaped11kk: wrong width"
 mapShaped11kk _ _ = error "mapShaped11kk: not DynamicShaped"
+
+index1Domains :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+                 , RankedOf (PrimalOf (ShapedOf ranked))
+                   ~ RankedOf (PrimalOf ranked) )
+              => Domains ranked -> IntOf ranked -> Domains ranked
+index1Domains u i = V.map (`index1Dynamic` i) u
+
+index1Dynamic :: ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+                 , RankedOf (PrimalOf (ShapedOf ranked))
+                   ~ RankedOf (PrimalOf ranked) )
+              => DynamicTensor ranked -> IntOf ranked -> DynamicTensor ranked
+index1Dynamic u i = case u of
+  DynamicRanked t -> case rshape t of
+    ZS -> error "index1Dynamic: rank 0"
+    _ :$ _ -> DynamicRanked $ t ! singletonIndex i
+  DynamicShaped t -> case sshape t of
+    ZSH -> error "index1Dynamic: rank 0"
+    _ :$: _ -> DynamicShaped $ t !$ ShapedList.singletonShaped i
+  DynamicRankedDummy @r @sh _ _ -> case ShapedList.shapeSh @sh of
+    ZSH -> error "index1Dynamic: rank 0"
+    (:$:) @_ @sh2 _ _ ->
+      withListShape (Sh.shapeT @sh2) $ \(sh1 :: ShapeInt n1) ->
+        DynamicRanked @r @n1 $ rzero sh1
+  DynamicShapedDummy @r @sh _ _ -> case ShapedList.shapeSh @sh of
+    ZSH -> error "index1Dynamic: rank 0"
+    (:$:) @_ @sh2 _ _ -> DynamicShaped @r @sh2 0
 
 type instance SimpleBoolOf (Flip OR.Array) = Bool
 

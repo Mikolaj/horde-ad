@@ -901,6 +901,9 @@ buildFinMaps s0 deltaDt =
                                 $ iMap s}
           -- This and similar don't need to be runtime-specialized,
           -- because the type of c determines the Num instance for (+).
+          -- Note that we can't express sharing by inserting Let constructors
+          -- into iMap, because often sharing needs to work across many
+          -- iMap keys. That's why global sharing is used, via rregister.
         ScaleR k d -> evalR s (k * c) d
         AddR d e -> evalR (evalR sShared cShared d) cShared e
         LetR n d ->
