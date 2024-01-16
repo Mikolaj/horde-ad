@@ -196,6 +196,7 @@ varInAstDomains var = \case
     varInAstDomains var u || varInAstDomains var v
   AstLetInDomains _var2 u v -> varInAst var u || varInAstDomains var v
   AstLetInDomainsS _var2 u v -> varInAstS var u || varInAstDomains var v
+  AstBuildDomains1 _ (_var2, v) -> varInAstDomains var v
   AstRev _f l ->  -- _f has no non-bound variables
     any (varInAstDynamic var) l
   AstRevDt _f l dt ->  -- _f has no non-bound variables

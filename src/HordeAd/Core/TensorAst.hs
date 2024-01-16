@@ -627,6 +627,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   dletDomainsInDomains = astLetDomainsInDomainsFun
   rletInDomains = astLetInDomainsFun
   sletInDomains = astLetInDomainsFunS
+  dbuild1 = astBuildDomains1Vectorize
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
@@ -1109,6 +1110,11 @@ astLetInDomainsFunS a f = unsafePerformIO $ do  -- the id causes trouble
   return $! astLetInDomainsS var a (f ast)
               -- safe because subsitution ruled out above
 
+astBuildDomains1Vectorize
+  :: AstSpan s
+  => Int -> (AstInt -> AstDomains s) -> AstDomains s
+astBuildDomains1Vectorize k f = build1VectorizeDomains k $ funToAstI f
+
 
 -- * The auxiliary AstNoVectorize and AstNoSimplify instances, for tests
 
@@ -1315,6 +1321,7 @@ instance AstSpan s => DomainsTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     rletInDomains @(AstRanked s) (unAstNoVectorize u) (f . AstNoVectorize)
   sletInDomains u f =
     sletInDomains @(AstRanked s) (unAstNoVectorizeS u) (f . AstNoVectorizeS)
+  dbuild1 k f = AstBuildDomains1 k $ funToAstI f
   rrev f parameters0 domains =
     rrev @(AstRanked s) f parameters0 (unNoVectorizeDomains domains)
   rrevDt f parameters0 domains dt =
@@ -1537,6 +1544,7 @@ instance AstSpan s => DomainsTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     rletInDomains @(AstRanked s) (unAstNoSimplify u) (f . AstNoSimplify)
   sletInDomains u f =
     sletInDomains @(AstRanked s) (unAstNoSimplifyS u) (f . AstNoSimplifyS)
+  dbuild1 = astBuildDomains1Vectorize
   rrev f parameters0 domains =
     rrev @(AstRanked s) f parameters0 (unNoSimplifyDomains domains)
   rrevDt f parameters0 domains dt =

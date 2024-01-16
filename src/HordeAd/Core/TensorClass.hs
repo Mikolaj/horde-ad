@@ -787,6 +787,9 @@ class DomainsTensor (ranked :: RankedTensorType)
                 => shaped r sh
                 -> (shaped r sh -> DomainsOf ranked)
                 -> DomainsOf ranked
+  dbuild1 :: Int  -- k
+          -> (IntOf ranked -> DomainsOf ranked)  -- sh
+          -> DomainsOf ranked  -- k ': sh
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.
   --

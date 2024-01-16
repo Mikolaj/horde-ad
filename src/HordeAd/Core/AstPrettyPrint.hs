@@ -687,6 +687,16 @@ printAstDomains cfg d = \case
              . printAstVarS cfg var0
              . showString " -> "
              . printAstDomains cfg 0 v0)
+  AstBuildDomains1 k (var, v) ->
+    showParen (d > 10)
+    $ showString "dbuild1 "
+      . shows k
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . printAstIntVar cfg var
+           . showString " -> "
+           . printAstDomains cfg 0 v)
   AstRev (vars, v) parameters ->
     showParen (d > 10)
     $ showString "rrev "

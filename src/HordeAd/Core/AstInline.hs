@@ -322,6 +322,10 @@ inlineAstDomains memo v0 = case v0 of
                -- u is small, so the union is fast
            , substituteAstDomains (SubstitutionPayloadShaped u0) var v2 )
       _ -> (memo2, Ast.AstLetInDomainsS var u2 v2)
+  Ast.AstBuildDomains1 k (var, v) ->
+    let (memoV0, v2) = inlineAstDomains EM.empty v
+        memo1 = EM.unionWith (\c1 c0 -> c1 + k * c0) memo memoV0
+    in (memo1, Ast.AstBuildDomains1 k (var, v2))
   Ast.AstRev (vars, v) l ->
     -- No other free variables in v, so no outside lets can reach there,
     -- so we don't need to pass the information from v upwards. Same below.
@@ -742,6 +746,8 @@ unletAstDomains env = \case
        else let env2 = env {unletSet = ES.insert vv (unletSet env)}
             in Ast.AstLetInDomainsS var (unletAstS env u)
                                         (unletAstDomains env2 v)
+  Ast.AstBuildDomains1 k (var, v) ->
+    Ast.AstBuildDomains1 k (var, unletAstDomains env v)
   Ast.AstRev (vars, v) l ->
     -- No other free variables in v, so no outside lets can reach there.
     -- The same below.

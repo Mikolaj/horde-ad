@@ -6,7 +6,7 @@ module HordeAd.Core.AstEnv
     AstEnv, AstEnvElem(..)
   , extendEnvS, extendEnvR, extendEnvD, extendEnvPars
     -- * The operations for interpreting binding (visible lambdas)
-  , interpretLambdaI, interpretLambdaIS
+  , interpretLambdaI, interpretLambdaIS, interpretLambdaIDomains
   , interpretLambdaIndex, interpretLambdaIndexS
   , interpretLambdaIndexToIndex, interpretLambdaIndexToIndexS
   , interpretLambdaDomains, interpretLambdaDomainsS
@@ -144,8 +144,7 @@ extendEnvPars vars !pars !env =
 
 interpretLambdaI
   :: forall ranked shaped n s r.
-     ( RankedTensor ranked
-     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
   => (AstEnv ranked shaped -> AstRanked s r n -> ranked r n)
   -> AstEnv ranked shaped -> (IntVarName, AstRanked s r n)
   -> IntOf ranked
@@ -156,8 +155,7 @@ interpretLambdaI f !env (!var, !ast) =
 
 interpretLambdaIS
   :: forall ranked shaped sh n s r.
-     ( RankedTensor ranked
-     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
   => (AstEnv ranked shaped -> AstShaped s r sh -> shaped r sh)
   -> AstEnv ranked shaped -> (IntVarName, AstShaped s r sh)
   -> IntSh ranked n
@@ -166,10 +164,20 @@ interpretLambdaIS
 interpretLambdaIS f !env (!var, ast) =
   \i -> f (extendEnvI var (ShapedList.unShapedNat i) env) ast
 
+interpretLambdaIDomains
+  :: forall ranked shaped s.
+     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
+  => (AstEnv ranked shaped -> AstDomains s -> DomainsOf ranked)
+  -> AstEnv ranked shaped -> (IntVarName, AstDomains s)
+  -> IntOf ranked
+  -> DomainsOf ranked
+{-# INLINE interpretLambdaIDomains #-}
+interpretLambdaIDomains f !env (!var, !ast) =
+  \i -> f (extendEnvI var i env) ast
+
 interpretLambdaIndex
   :: forall ranked shaped s r m n.
-     ( RankedTensor ranked
-     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
   => (AstEnv ranked shaped -> AstRanked s r n -> ranked r n)
   -> AstEnv ranked shaped -> (AstVarList m, AstRanked s r n)
   -> IndexOf ranked m
@@ -180,8 +188,7 @@ interpretLambdaIndex f !env (!vars, !ast) =
 
 interpretLambdaIndexS
   :: forall sh sh2 ranked shaped s r.
-     ( RankedTensor ranked
-     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
   => (AstEnv ranked shaped -> AstShaped s r sh -> shaped r sh)
   -> AstEnv ranked shaped -> (AstVarListS sh2, AstShaped s r sh)
   -> IndexSh ranked sh2
@@ -192,8 +199,7 @@ interpretLambdaIndexS f !env (!vars, !ast) =
 
 interpretLambdaIndexToIndex
   :: forall ranked shaped m n.
-     ( RankedTensor ranked
-     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
   => (AstEnv ranked shaped -> AstInt -> IntOf ranked)
   -> AstEnv ranked shaped -> (AstVarList m, AstIndex n)
   -> IndexOf ranked m
@@ -204,8 +210,7 @@ interpretLambdaIndexToIndex f !env (!vars, !asts) =
 
 interpretLambdaIndexToIndexS
   :: forall ranked shaped sh sh2.
-     ( RankedTensor ranked
-     , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
   => (AstEnv ranked shaped -> AstInt -> IntOf ranked)
   -> AstEnv ranked shaped -> (AstVarListS sh, AstIndexS sh2)
   -> IndexSh ranked sh

@@ -869,8 +869,7 @@ build1VectorizeDomains
 build1VectorizeDomains k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
-      startTerm :: AstDomains s
-      startTerm = Ast.AstDomains V.empty  -- TODO: AstBuildDomains1 k (var, v0)
+      startTerm = Ast.AstBuildDomains1 k (var, v0)
       renames = IM.fromList [(1, ""), (2, "")]
   when enabled $ do
     writeIORef traceNestingLevel 0
@@ -926,6 +925,8 @@ build1VOccurenceUnknownDomains k (var, v0) =
                                   k (var, v2))
     Nothing ->
       error "build1VOccurenceUnknownDomains: impossible someNatVal error"
+  Ast.AstBuildDomains1{} ->
+    error "build1VOccurenceUnknownDomains: impossible case of AstBuildDomains1"
   Ast.AstRev{} ->
     error "build1VOccurenceUnknownDomains: impossible case of AstRev"
   Ast.AstRevDt{} ->

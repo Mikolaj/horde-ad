@@ -4,7 +4,7 @@
 -- the impurity, though some functions are in IO and they are used
 -- with @unsafePerformIO@ outside, so some of it escapes.
 module HordeAd.Core.AstFreshId
-  ( astRegisterFun, astRegisterADShare, astRegisterADShareS
+  ( astRegisterFun, astRegisterFunS, astRegisterADShare, astRegisterADShareS
   , funToAstIOR, funToAstR
   , fun2ToAstR, fun2ToAstS, fun2DToAstR, fun2DToAstS
   , fun3ToAstR, fun3ToAstS, fun3DToAstR, fun3DToAstS
@@ -12,7 +12,7 @@ module HordeAd.Core.AstFreshId
   , funToAstDomains
   , funToAstRevIO, funToAstRev, funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIndexIO, funToAstIndex
-  , funToAstIOS, funToAstS, astRegisterFunS, funToAstIndexIOS, funToAstIndexS
+  , funToAstIOS, funToAstS, funToAstIndexIOS, funToAstIndexS
   , resetVarCounter
   ) where
 

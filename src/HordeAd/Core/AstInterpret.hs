@@ -598,6 +598,8 @@ interpretAstDomains !env = \case
     let t = interpretAstSRuntimeSpecialized env u
         env2 w = extendEnvS var w env
     in sletInDomains t (\w -> interpretAstDomains (env2 w) v)
+  AstBuildDomains1 k (var, v) ->
+    dbuild1 @ranked k (interpretLambdaIDomains interpretAstDomains env (var, v))
   AstRev @r @n (vars, ast) parameters ->
     let g :: forall f. ADReady f => Domains f -> f r n
         g = interpretLambdaDomains interpretAst EM.empty (vars, ast)

@@ -2167,6 +2167,8 @@ simplifyAstDomains = \case
     astLetInDomains var (simplifyAst u) (simplifyAstDomains v)
   Ast.AstLetInDomainsS var u v ->
     astLetInDomainsS var (simplifyAstS u) (simplifyAstDomains v)
+  Ast.AstBuildDomains1 k (var, v) ->
+    Ast.AstBuildDomains1 k (var, simplifyAstDomains v)
   Ast.AstRev (vars, v) l -> Ast.AstRev (vars, simplifyAst v)
                                        (V.map simplifyAstDynamic l)
   Ast.AstRevDt (vars, v) l dt -> Ast.AstRevDt (vars, simplifyAst v)
@@ -2842,6 +2844,8 @@ substitute1AstDomains i var = \case
     case (substitute1AstS i var u, substitute1AstDomains i var v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLetInDomainsS var2 (fromMaybe u mu) (fromMaybe v mv)
+  Ast.AstBuildDomains1 k (var2, v) ->
+    Ast.AstBuildDomains1 k . (var2,) <$> substitute1AstDomains i var v
   Ast.AstRev (vars, v) args ->
     -- No other free variables in v and var is not among vars.
     Ast.AstRev (vars, v) <$>
