@@ -601,19 +601,18 @@ type AstDynamic (s :: AstSpanType) = DynamicTensor (AstRanked s)
 
 type role AstDomains nominal
 data AstDomains s where
-  -- There are existential variables inside DynamicExists here.
+  -- There are existential variables inside DynamicTensor here.
   AstDomains :: Domains (AstRanked s) -> AstDomains s
-  -- This operation is why we need AstDomains and so DomainsOf.
+  -- The operations below is why we need AstDomains and so DomainsOf.
   -- If we kept a vector of terms instead, we'd need to let-bind in each
   -- of the terms separately, duplicating the let-bound term.
-  --
-  -- The r variable is existential here, so a proper specialization needs
-  -- to be picked explicitly at runtime.
   AstLetDomainsInDomains
     :: AstSpan s
     => [AstDynamicVarName] -> AstDomains s
     -> AstDomains s2
     -> AstDomains s2
+  -- The r variable is existential here, so a proper specialization needs
+  -- to be picked explicitly at runtime.
   AstLetInDomains :: (KnownNat n, GoodScalar r, AstSpan s)
                   => AstVarName (AstRanked s) r n -> AstRanked s r n
                   -> AstDomains s2

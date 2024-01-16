@@ -121,7 +121,7 @@ _rankedVecProd = V.foldl1' (*)
 -- minuscule operation that is benig performed.
 --
 -- Speeding up this one would require adding an extra API to Delta
--- that assumes a single r and so doesn't use DynamicExists.
+-- that assumes a single r and so doesn't use DynamicTensor.
 -- Then we could try not converting to dynamic tensors.
 -- Eventually, we could add another Delta GADT only for scalars
 -- and use these instead of rank 0 tensors, but it's probably better

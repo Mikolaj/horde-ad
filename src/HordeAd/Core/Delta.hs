@@ -990,8 +990,14 @@ buildFinMaps s0 deltaDt =
         FoldR @rm @m p as _df rf x0' as' -> case rshape as of
           width :$ shm ->
             -- The call @rf cr x a@ is not shared here, but it's repeated
-            -- just two times, so it's fine unless folds are nested badly,
-            -- but then we have worse problems.
+            -- just two times, so it's fine unless folds are nested.
+            -- TODO: remove the double call by implementing rmapAccumR,
+            -- which however requires DeltaDomains, which is yet another
+            -- can of worms. Unless we can express Delta for rmapAccumR
+            -- as a composition of that for rscan and rzipwith, but then
+            -- we probably reintroduce the double call, just one level lower.
+            -- BTW, DeltaDomains may enable taking derivatives of objective
+            -- functions with codomains other than a single tensor.
             let !_A1 = assert (rlength p == width + 1) ()
                 shn = shapeDelta x0'
                 domsToPair :: ADReady f => Domains f -> (f r n, f rm m)
