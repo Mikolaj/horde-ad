@@ -356,7 +356,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
   rletInDomains = (&)
   sletInDomains = (&)
   dregister _ r l = (l, r)
-  dbuild1 k f = ravelDomains $ map f [0 .. fromIntegral k - 1]
+  dbuild1 k f = ravelDomains $ map (f . fromIntegral) [0 .. k - 1]
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
@@ -932,7 +932,7 @@ instance DomainsTensor (Flip OR.Array) (Flip OS.Array) where
   rletInDomains = (&)
   sletInDomains = (&)
   dregister _ r l = (l, r)
-  dbuild1 k f = ravelDomains $ map f [0 .. fromIntegral k - 1]
+  dbuild1 k f = ravelDomains $ map (f . fromIntegral) [0 .. k - 1]
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains f -> f r n)
        -> DomainsOD
