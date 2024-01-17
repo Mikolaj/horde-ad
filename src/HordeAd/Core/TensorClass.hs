@@ -18,12 +18,13 @@ module HordeAd.Core.TensorClass
   , ADReady, ADReadyR, ADReadyS, ADReadySmall, ADReadyBoth
     -- * Concrete array instances auxiliary definitions
   , DomainsOD, sizeDomainsOD, scalarDynamic, shapeDynamic, rankDynamic
-  , sameShapesDomainsOD
+  , domainsMatch
   , odFromVar, odFromSh, odFromShS, fromDomainsR, fromDomainsS
   , unravelDomains, ravelDomains
   , mapDomainsRanked, mapDomainsRanked01, mapDomainsRanked10, mapDomainsRanked11
   , mapDomainsShaped11, mapDomainsShaped11kk
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
+  , index1Domains
   ) where
 
 import Prelude
@@ -37,6 +38,7 @@ import           Data.Bifunctor.Flip
 import           Data.Function ((&))
 import           Data.Kind (Constraint, Type)
 import           Data.List (foldl', transpose)
+import           Data.Maybe (isJust)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -1068,13 +1070,23 @@ rankDynamic (DynamicShaped @_ @sh _) = length $ Sh.shapeT @sh
 rankDynamic (DynamicRankedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
 rankDynamic (DynamicShapedDummy _ proxy_sh) = length $ Sh.shapeP proxy_sh
 
--- TODO: also check scalars are same
-sameShapesDomainsOD :: forall f g. (RankedTensor f, RankedTensor g)
-                    => Domains f -> Domains g -> Bool
-sameShapesDomainsOD v1 v2 =
-  let sameExShape t u =
-        shapeDynamic @f t == shapeDynamic @g u
-  in V.and $ V.zipWith sameExShape v1 v2
+isRankedDynamic :: DynamicTensor ranked -> Bool
+isRankedDynamic DynamicRanked{} = True
+isRankedDynamic DynamicShaped{} = False
+isRankedDynamic DynamicRankedDummy{} = True
+isRankedDynamic DynamicShapedDummy{} = False
+
+domainsMatch :: forall f g. (RankedTensor f, RankedTensor g)
+             => Domains f -> Domains g -> Bool
+domainsMatch v1 v2 =
+  let dynamicMatch :: DynamicTensor f -> DynamicTensor g -> Bool
+      dynamicMatch t u = case (scalarDynamic @f t, scalarDynamic @g u) of
+        (DynamicScalar @ru _, DynamicScalar @rt _) ->
+          isJust (testEquality (typeRep @rt) (typeRep @ru))
+          && shapeDynamic @f t == shapeDynamic @g u
+          && isRankedDynamic @f t == isRankedDynamic @g u
+  in V.length v1 == V.length v2
+     && and (V.zipWith dynamicMatch v1 v2)
 
 odFromVar :: AstDynamicVarName -> DynamicTensor (Flip OR.Array)
 odFromVar (AstDynamicVarName @ty @rD @shD _) =

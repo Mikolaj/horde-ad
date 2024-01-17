@@ -170,13 +170,13 @@ instance DerivativeStages (AstRanked FullSpan) where
 
   {-# INLINE fwdEvalArtifact #-}
   fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
-    if sameShapesDomainsOD parameters ds then
+    if domainsMatch parameters ds then
       let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
           envDs = foldr extendEnvD env $ zip varDs $ V.toList ds
           derivativeTensor = interpretAstPrimal envDs derivative
           primalTensor = interpretAstPrimal @(Flip OR.Array) env primal
       in (derivativeTensor, primalTensor)
-   else error "forward derivative input and sensitivity arguments should have same shapes"
+   else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 
 instance UnletGradient (AstRanked PrimalSpan) where
   unletGradient
@@ -268,11 +268,13 @@ instance DerivativeStages (AstShaped FullSpan) where
 
   {-# INLINE fwdEvalArtifact #-}
   fwdEvalArtifact ((varDs, vars), derivative, primal) parameters ds =
-    let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
-        envDs = foldr extendEnvD env $ zip varDs $ V.toList ds
-        derivativeTensor = interpretAstPrimalS envDs derivative
-        primalTensor = interpretAstPrimalS @(Flip OR.Array) env primal
-    in (derivativeTensor, primalTensor)
+    if domainsMatch parameters ds then
+      let env = foldr extendEnvD EM.empty $ zip vars $ V.toList parameters
+          envDs = foldr extendEnvD env $ zip varDs $ V.toList ds
+          derivativeTensor = interpretAstPrimalS envDs derivative
+          primalTensor = interpretAstPrimalS @(Flip OR.Array) env primal
+      in (derivativeTensor, primalTensor)
+   else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 
 instance UnletGradient (AstShaped PrimalSpan) where
   unletGradient
@@ -614,7 +616,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters -> assert (sameShapesDomainsOD parameters0 parameters) $
+    in \parameters -> assert (domainsMatch parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstDomains env gradient
         -- this interpretation both substitutes parameters for the variables and
@@ -631,7 +633,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters dt -> assert (sameShapesDomainsOD parameters0 parameters) $
+    in \parameters dt -> assert (domainsMatch parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvR varDt dt env
       in interpretAstDomains envDt gradient
@@ -645,7 +647,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstRanked FullSpan))
                              EM.empty parameters0
-    in \parameters ds -> assert (sameShapesDomainsOD parameters0 parameters) $
+    in \parameters ds -> assert (domainsMatch parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvPars @(AstRanked s) varsDt ds env
       in interpretAst envDt derivative
@@ -653,14 +655,14 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let (((_varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken False (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters -> assert (sameShapesDomainsOD parameters0 parameters) $
+    in \parameters -> assert (domainsMatch parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
       in interpretAstDomains env gradient
   srevDt f parameters0 =
     let (((varDt, vars), gradient, _primal, _sh), _delta) =
           revProduceArtifact TensorToken True (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters dt -> assert (sameShapesDomainsOD parameters0 parameters) $
+    in \parameters dt -> assert (domainsMatch parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvS varDt dt env
       in interpretAstDomains envDt gradient
@@ -668,7 +670,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     let (((varsDt, vars), derivative, _primal), _delta) =
           fwdProduceArtifact TensorToken (f @(AstShaped FullSpan))
                              EM.empty parameters0
-    in \parameters ds -> assert (sameShapesDomainsOD parameters0 parameters) $
+    in \parameters ds -> assert (domainsMatch parameters0 parameters) $
       let env = extendEnvPars @(AstRanked s) vars parameters EM.empty
           envDt = extendEnvPars @(AstRanked s) varsDt ds env
       in interpretAstS envDt derivative
