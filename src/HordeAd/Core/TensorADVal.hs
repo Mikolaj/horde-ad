@@ -404,7 +404,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         _ws@(width, shm) = case rshape as of
           hd :$ tl -> (hd, tl)
           _ -> error "rfold: impossible pattern needlessly required"
-        domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+        domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
         domsToPair :: forall f. ADReady f
                    => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
@@ -428,8 +428,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         rf :: ranked rn n -> (ranked rn n, ranked rm m)
            -> (ranked rn n, ranked rm m)
         rf dt (x, a) =
-          domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains (Just dt) g
+          domsToPair $ dunDomains @ranked domsF $ fst
+          $ crevOnDomains (Just dt)
+                          g
                           (V.fromList [DynamicRanked x, DynamicRanked a])
         p :: ranked rn (1 + n)
         p = rscan f x0 as
@@ -463,10 +464,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> Domains (ADVal ranked)
          -> ADVal ranked rn n
   rfoldZip f domsOD (D l1 x0 x0') asD =
-    let domsLen = V.length domsOD
-        !_A = assert (V.length asD == domsLen
-                      `blame` (V.length asD, domsLen)) ()
-        (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    assert (domainsMatch domsOD (index1Domains asD 0)) $
+    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
@@ -479,7 +478,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                               (V.cons (DynamicRanked cx) $ dunDomains domsOD ca)
         rf :: ranked rn n -> ranked rn n -> DomainsOf ranked -> DomainsOf ranked
         rf dt x a =
-          fst $ crevOnDomains (Just dt) g
+          fst $ crevOnDomains (Just dt)
+                              g
                               (V.cons (DynamicRanked x) $ dunDomains domsOD a)
         p :: ranked rn (1 + n)
         p = rscanZip f domsOD x0 as
@@ -501,10 +501,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> Domains (ADVal ranked)
             -> ADVal ranked rn n
   rfoldZipDer f df rf domsOD (D l1 x0 x0') asD =
-    let domsLen = V.length domsOD
-        !_A = assert (V.length asD == domsLen
-                      `blame` (V.length asD, domsLen)) ()
-        (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    assert (domainsMatch domsOD (index1Domains asD 0)) $
+    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         p :: ranked rn (1 + n)
         p = rscanZipDer f df rf domsOD x0 as
         width = rlength p - 1
@@ -524,7 +522,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         _ws@(width, shm) = case rshape as of
           hd :$ tl -> (hd, tl)
           _ -> error "rfoldDer: impossible pattern needlessly required"
-        domsOD = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+        domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
@@ -538,8 +536,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         rf :: ranked rn n -> (ranked rn n, ranked rm m)
            -> (ranked rn n, ranked rm m)
         rf dt (x, a) =
-          domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains (Just dt) g
+          domsToPair $ dunDomains @ranked domsF $ fst
+          $ crevOnDomains (Just dt)
+                          g
                           (V.fromList [DynamicRanked x, DynamicRanked a])
         p :: ranked rn (1 + n)
         p = rscan f x0 as
@@ -583,10 +582,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> Domains (ADVal ranked)
          -> ADVal ranked rn (1 + n)
   rscanZip f domsOD (D l1 x0 x0') asD =
-    let domsLen = V.length domsOD
-        !_A = assert (V.length asD == domsLen
-                      `blame` (V.length asD, domsLen)) ()
-        (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    assert (domainsMatch domsOD (index1Domains asD 0)) $
+    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
         domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
@@ -599,7 +596,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
                               (V.cons (DynamicRanked cx) $ dunDomains domsOD ca)
         rf :: ranked rn n -> ranked rn n -> DomainsOf ranked -> DomainsOf ranked
         rf dt x a =
-          fst $ crevOnDomains (Just dt) g
+          fst $ crevOnDomains (Just dt)
+                              g
                               (V.cons (DynamicRanked x) $ dunDomains domsOD a)
         p :: ranked rn (1 + n)
         p = rscanZip f domsOD x0 as
@@ -633,10 +631,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> Domains (ADVal ranked)
             -> ADVal ranked rn (1 + n)
   rscanZipDer f df rf domsOD (D l1 x0 x0') asD =
-    let domsLen = V.length domsOD
-        !_A = assert (V.length asD == domsLen
-                      `blame` (V.length asD, domsLen)) ()
-        (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    assert (domainsMatch domsOD (index1Domains asD 0)) $
+    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         p :: ranked rn (1 + n)
         p = rscanZipDer f df rf domsOD x0 as
         (l3, pShared) =
@@ -650,7 +646,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         -> ADVal shaped rm (k ': shm)
         -> ADVal shaped rn sh
   sfold f (D l1 x0 x0') (D l2 as as') =
-    let domsOD = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
+    let domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
         domsToPair :: forall f. ADReadyS f
                    => Domains (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
@@ -665,8 +661,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         rf :: shaped rn sh -> (shaped rn sh, shaped rm shm)
            -> (shaped rn sh, shaped rm shm)
         rf dt (x, a) =
-          domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains (Just dt) g
+          domsToPair $ dunDomains @ranked domsF $ fst
+          $ crevOnDomains (Just dt)
+                          g
                           (V.fromList [DynamicShaped x, DynamicShaped a])
         p :: shaped rn (1 + k ': sh)
         p = sscan f x0 as
@@ -701,10 +698,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> Domains (ADVal (RankedOf shaped))
          -> ADVal shaped rn sh
   sfoldZip f domsOD (D l1 x0 x0') asD =
-    let domsLen = V.length domsOD
-        !_A = assert (V.length asD == domsLen
-                      `blame` (V.length asD, domsLen)) ()
-        (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    assert (domainsMatch domsOD (index1Domains asD 0)) $
+    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReadyS f
                       => Domains (RankedOf f) -> (f rn sh, Domains (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
@@ -720,8 +715,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         rf :: shaped rn sh -> shaped rn sh -> DomainsOf ranked
            -> DomainsOf ranked
         rf dt x a =
-          fst $ crevOnDomains (Just dt) g
-                              (V.cons (DynamicShaped x) $ dunDomains domsOD a)
+          fst $ crevOnDomains (Just dt)
+                              g
+                             (V.cons (DynamicShaped x) $ dunDomains domsOD a)
         width = case V.unsnoc as of
           Nothing -> error "sfoldD: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -751,10 +747,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> Domains (ADVal (RankedOf shaped))
             -> ADVal shaped rn sh
   sfoldZipDer f df rf domsOD (D l1 x0 x0') asD =
-    let domsLen = V.length domsOD
-        !_A = assert (V.length asD == domsLen
-                      `blame` (V.length asD, domsLen)) ()
-        (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    assert (domainsMatch domsOD (index1Domains asD 0)) $
+    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         width = case V.unsnoc as of
           Nothing -> error "sfoldZipDer: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -776,7 +770,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         -> ADVal shaped rm (k ': shm)
         -> ADVal shaped rn (1 + k ': sh)
   sscan f (D l1 x0 x0') (D l2 as as') =
-    let domsOD = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
+    let domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
         domsToPair :: forall f. ADReadyS f
                    => Domains (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
@@ -791,8 +785,9 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         rf :: shaped rn sh -> (shaped rn sh, shaped rm shm)
            -> (shaped rn sh, shaped rm shm)
         rf dt (x, a) =
-          domsToPair $ dunDomains @ranked domsOD $ fst
-          $ crevOnDomains (Just dt) g
+          domsToPair $ dunDomains @ranked domsF $ fst
+          $ crevOnDomains (Just dt)
+                          g
                           (V.fromList [DynamicShaped x, DynamicShaped a])
         p :: shaped rn (1 + k ': sh)
         p = sscan f x0 as
@@ -844,10 +839,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
          -> Domains (ADVal (RankedOf shaped))
          -> ADVal shaped rn (1 + k ': sh)
   sscanZip f domsOD (D l1 x0 x0') asD =
-    let domsLen = V.length domsOD
-        !_A = assert (V.length asD == domsLen
-                      `blame` (V.length asD, domsLen)) ()
-        (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    assert (domainsMatch domsOD (index1Domains asD 0)) $
+    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         domsToPair :: forall f. ADReadyS f
                       => Domains (RankedOf f)
                       -> (f rn sh, Domains (RankedOf f))
@@ -864,7 +857,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         rf :: shaped rn sh -> shaped rn sh -> DomainsOf ranked
            -> DomainsOf ranked
         rf dt x a =
-          fst $ crevOnDomains (Just dt) g
+          fst $ crevOnDomains (Just dt)
+                              g
                               (V.cons (DynamicShaped x) $ dunDomains domsOD a)
         p :: shaped rn (1 + k ': sh)
         p = sscanZip f domsOD x0 as
@@ -908,10 +902,8 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
             -> Domains (ADVal (RankedOf shaped))
             -> ADVal shaped rn (1 + k ': sh)
   sscanZipDer f df rf domsOD (D l1 x0 x0') asD =
-    let domsLen = V.length domsOD
-        !_A = assert (V.length asD == domsLen
-                      `blame` (V.length asD, domsLen)) ()
-        (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
+    assert (domainsMatch domsOD (index1Domains asD 0)) $
+    let (ll2, as, as') = V.unzip3 $ V.map unADValDomains asD
         p :: shaped rn (1 + k ': sh)
         p = sscanZipDer f df rf domsOD x0 as
         (l3, pShared) =

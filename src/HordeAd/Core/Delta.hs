@@ -1003,9 +1003,9 @@ buildFinMaps s0 deltaDt =
             -- functions with codomains other than a single tensor.
             let !_A1 = assert (rlength p == width + 1) ()
                 shn = shapeDelta x0'
+                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
                 domsToPair :: ADReady f => Domains f -> (f r n, f rm m)
                 domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
                 crsr :: ranked r (1 + n)
                 crsr =
                   rscanZip (\cr doms' ->
@@ -1111,9 +1111,9 @@ buildFinMaps s0 deltaDt =
             let !_A1 = assert (rlength p == width + 1) ()
                 !_A2 = assert (rlength cShared == width + 1) ()
                 shn = shapeDelta x0'
+                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
                 domsToPair :: ADReady f => Domains f -> (f r n1, f rm m)
                 domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
-                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
                 -- The domain must be @Int@ due to rslice and so can't be
                 -- @IndexOf ranked 0@ for rbuild nor @ranked Int 0@ for rmap.
                 -- We can't fold nor scan over g1/g2, because it's not closed.
@@ -1323,10 +1323,10 @@ buildFinMaps s0 deltaDt =
         ReshapeS d -> evalS s (sreshape c) d
         GatherS d f -> evalS s (sscatter c f) d
         FoldS @rm @shm @k p as _df rf x0' as' ->
-          let domsToPair :: ADReadyS f
+          let domsF = V.fromList [odFromShS @r @sh, odFromShS @rm @shm]
+              domsToPair :: ADReadyS f
                          => Domains (RankedOf f) -> (f r sh, f rm shm)
               domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-              domsF = V.fromList [odFromShS @r @sh, odFromShS @rm @shm]
               crsr :: shaped r (1 + k ': sh)
               crsr =
                 sscanZip (\cr doms' ->
@@ -1360,7 +1360,7 @@ buildFinMaps s0 deltaDt =
           in evalS s2 cas as'
         FoldSC @rm @shm p as _df rf x0' as' ->
           -- No sharing attempted, because this constructor is usually used
-          -- for shon-symbolic derivatives.
+          -- for non-symbolic derivatives.
           let las :: [shaped rm shm]
               las = sunravelToList as
               rg :: shaped r sh
@@ -1416,7 +1416,7 @@ buildFinMaps s0 deltaDt =
               in V.foldl' evalSDynamicShaped s2 $ V.zip cas as'
         FoldZipSC @rm @shm domsOD p as _df rf x0' as' ->
           -- No sharing attempted, because this constructor is usually used
-          -- for shon-symbolic derivatives.
+          -- for non-symbolic derivatives.
           let domsF = V.cons (odFromShS @r @sh) domsOD
               domsToPair :: forall f. ADReadyS f
                          => Domains (RankedOf f)
@@ -1433,11 +1433,11 @@ buildFinMaps s0 deltaDt =
               s2 = evalS sShared cx0 x0'
           in V.foldl' evalSDynamicShaped s2 $ V.zip (ravelDomains cas) as'
         ScanS @rm @shm @k3 @sh1 p as _df rf x0' as' ->
-          let domsToPair :: ADReadyS f
+          let domsF :: DomainsOD
+              domsF = V.fromList [odFromShS @r @sh1, odFromShS @rm @shm]
+              domsToPair :: ADReadyS f
                          => Domains (RankedOf f) -> (f r sh1, f rm shm)
               domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-              domsF :: DomainsOD
-              domsF = V.fromList [odFromShS @r @sh1, odFromShS @rm @shm]
               g1 :: Int -> shaped r (1 + k3 ': sh1)
               g1 k = case someNatVal $ toInteger k of
                 Just (SomeNat @k _) -> case cmpNat (Proxy @k) (Proxy @k3) of
@@ -1835,13 +1835,13 @@ buildDerivative dimR deltaDt params = do
                 shn = shapeDelta x0'
             cx0 <- evalR x0'
             cas <- evalR as'
-            let domsTo3 :: ADReady f => Domains f -> (f rm m, f r n, f rm m)
+            let domsF =
+                  V.fromList
+                    [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
+                domsTo3 :: ADReady f => Domains f -> (f rm m, f r n, f rm m)
                 domsTo3 doms = ( rfromD $ doms V.! 0
                                , rfromD $ doms V.! 1
                                , rfromD $ doms V.! 2 )
-                domsF =
-                  V.fromList
-                    [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
             return $! rfoldZip (\cx doms' ->
                                 rletDomainsIn domsF doms' $ \doms ->
                                   let (ca, x, a) = domsTo3 doms
@@ -1866,12 +1866,12 @@ buildDerivative dimR deltaDt params = do
               shn = shapeDelta x0'
           cx0 <- evalR x0'
           cas <- V.mapM evalRDynamicRanked as'
-          let domsTo3 :: ADReady f
+          let domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
+              domsTo3 :: ADReady f
                       => Domains f -> (Domains f, f r n, Domains f)
               domsTo3 doms = ( V.take domsLen doms
                              , rfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
-              domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
           return $! rfoldZip (\cx doms' ->
                               rletDomainsIn domsF doms' $ \doms ->
                                 let (ca, x, a) = domsTo3 doms
@@ -1896,13 +1896,13 @@ buildDerivative dimR deltaDt params = do
                 shn = shapeDelta x0'
             cx0 <- evalR x0'
             cas <- evalR as'
-            let domsTo3 :: ADReady f => Domains f -> (f rm m, f r n1, f rm m)
+            let domsF =
+                  V.fromList
+                    [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
+                domsTo3 :: ADReady f => Domains f -> (f rm m, f r n1, f rm m)
                 domsTo3 doms = ( rfromD $ doms V.! 0
                                , rfromD $ doms V.! 1
                                , rfromD $ doms V.! 2 )
-                domsF =
-                  V.fromList
-                    [odFromSh @rm shm, odFromSh @r shn, odFromSh @rm shm]
             return $! rscanZip (\cx doms' ->
                                 rletDomainsIn domsF doms' $ \doms ->
                                   let (ca, x, a) = domsTo3 doms
@@ -1920,12 +1920,12 @@ buildDerivative dimR deltaDt params = do
               shn = shapeDelta x0'
           cx0 <- evalR x0'
           cas <- V.mapM evalRDynamicRanked as'
-          let domsTo3 :: ADReady f
+          let domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
+              domsTo3 :: ADReady f
                       => Domains f -> (Domains f, f r n1, Domains f)
               domsTo3 doms = ( V.take domsLen doms
                              , rfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
-              domsF = V.concat [domsOD, V.singleton (odFromSh @r shn), domsOD]
           return $! rscanZip (\cx doms' ->
                               rletDomainsIn domsF doms' $ \doms ->
                                 let (ca, x, a) = domsTo3 doms
@@ -2020,14 +2020,14 @@ buildDerivative dimR deltaDt params = do
         FoldS @rm @shm @k p as df _rf x0' as' -> do
           cx0 <- evalS x0'
           cas <- evalS as'
-          let domsTo3 :: ADReadyS f
+          let domsF =
+                V.fromList
+                  [odFromShS @rm @shm, odFromShS @r @sh, odFromShS @rm @shm]
+              domsTo3 :: ADReadyS f
                       => Domains (RankedOf f) -> (f rm shm, f r sh, f rm shm)
               domsTo3 doms = ( sfromD $ doms V.! 0
                              , sfromD $ doms V.! 1
                              , sfromD $ doms V.! 2 )
-              domsF =
-                V.fromList
-                  [odFromShS @rm @shm, odFromShS @r @sh, odFromShS @rm @shm]
           return $! sfoldZip (\cx doms' ->
                               sletDomainsIn domsF doms' $ \doms ->
                                 let (ca, x, a) = domsTo3 doms
@@ -2049,13 +2049,13 @@ buildDerivative dimR deltaDt params = do
           let domsLen = V.length domsOD
           cx0 <- evalS x0'
           cas <- V.mapM evalSDynamicShaped as'
-          let domsTo3 :: ADReadyS f
+          let domsF = V.concat [domsOD, V.singleton (odFromShS @r @sh), domsOD]
+              domsTo3 :: ADReadyS f
                       => Domains (RankedOf f)
                       -> (Domains (RankedOf f), f r sh, Domains (RankedOf f))
               domsTo3 doms = ( V.take domsLen doms
                              , sfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
-              domsF = V.concat [domsOD, V.singleton (odFromShS @r @sh), domsOD]
           return $! sfoldZip (\cx doms' ->
                               sletDomainsIn domsF doms' $ \doms ->
                                 let (ca, x, a) = domsTo3 doms
@@ -2078,14 +2078,14 @@ buildDerivative dimR deltaDt params = do
         ScanS @rm @shm @k @sh1 p as df _rf x0' as' -> do
           cx0 <- evalS x0'
           cas <- evalS as'
-          let domsTo3 :: ADReadyS f
+          let domsF =
+                V.fromList
+                  [odFromShS @rm @shm, odFromShS @r @sh1, odFromShS @rm @shm]
+              domsTo3 :: ADReadyS f
                       => Domains (RankedOf f) -> (f rm shm, f r sh1, f rm shm)
               domsTo3 doms = ( sfromD $ doms V.! 0
                              , sfromD $ doms V.! 1
                              , sfromD $ doms V.! 2 )
-              domsF =
-                V.fromList
-                  [odFromShS @rm @shm, odFromShS @r @sh1, odFromShS @rm @shm]
           return $! sscanZip (\cx doms' ->
                               sletDomainsIn domsF doms' $ \doms ->
                                 let (ca, x, a) = domsTo3 doms
@@ -2100,13 +2100,13 @@ buildDerivative dimR deltaDt params = do
           let domsLen = V.length domsOD
           cx0 <- evalS x0'
           cas <- V.mapM evalSDynamicShaped as'
-          let domsTo3 :: ADReadyS f
+          let domsF = V.concat [domsOD, V.singleton (odFromShS @r @sh1), domsOD]
+              domsTo3 :: ADReadyS f
                       => Domains (RankedOf f)
                       -> (Domains (RankedOf f), f r sh1, Domains (RankedOf f))
               domsTo3 doms = ( V.take domsLen doms
                              , sfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
-              domsF = V.concat [domsOD, V.singleton (odFromShS @r @sh1), domsOD]
           return $! sscanZip (\cx doms' ->
                               sletDomainsIn domsF doms' $ \doms ->
                                 let (ca, x, a) = domsTo3 doms

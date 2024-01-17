@@ -438,7 +438,8 @@ interpretAst !env = \case
     let lt0 = V.fromList $ map odFromVar vars
         lt = interpretAstDomains env l
         env2 lw = extendEnvPars vars lw env
-    in rletDomainsIn lt0 lt (\lw -> interpretAst (env2 lw) v)
+    in rletDomainsIn lt0 lt (\lw -> assert (domainsMatch lt0 lw) $
+                                    interpretAst (env2 lw) v)
   AstSToR v -> rfromS $ interpretAstS env v
   AstConstant a -> rconstant $ interpretAstPrimal env a
   AstPrimalPart a -> interpretAst env a
@@ -587,7 +588,8 @@ interpretAstDomains !env = \case
     let t0 = V.fromList $ map odFromVar vars
         t = interpretAstDomains env u
         env2 w = extendEnvPars vars w env
-    in dletDomainsInDomains t0 t (\w -> interpretAstDomains (env2 w) v)
+    in dletDomainsInDomains t0 t (\w -> assert (domainsMatch t0 w) $
+                                        interpretAstDomains (env2 w) v)
   AstLetInDomains var u v ->
     -- We assume there are no nested lets with the same variable.
     let t = interpretAstRuntimeSpecialized env u
@@ -1013,7 +1015,8 @@ interpretAstS !env = \case
     let lt0 = V.fromList $ map odFromVar vars
         lt = interpretAstDomains env l
         env2 lw = extendEnvPars vars lw env
-    in sletDomainsIn lt0 lt (\lw -> interpretAstS (env2 lw) v)
+    in sletDomainsIn lt0 lt (\lw -> assert (domainsMatch lt0 lw) $
+                                    interpretAstS (env2 lw) v)
   AstRToS v -> sfromR $ interpretAst env v
   AstConstantS a -> sconstant $ interpretAstPrimalS env a
   AstPrimalPartS a -> interpretAstS env a

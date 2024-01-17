@@ -681,13 +681,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         -> AstRanked s rm (1 + m)
         -> AstRanked s rn n
   rfold f x0 as =
-    let domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
+    let shn = rshape x0
+        shm = tailShape $ rshape as
+        domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
         g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
         g doms = uncurry f (domsToPair doms)
-        shn = rshape x0
-        shm = tailShape $ rshape as
-        domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
     in -- This computes the (AST of) derivative of f once for each @x0@
        -- and @as@, which is better than once for each @a@. We could compute
        -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
@@ -729,12 +729,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
          -> Domains (AstRanked s)
          -> AstRanked s rn n
   rfoldZip f domsOD x0 as =
-    let domsToPair :: forall f. ADReady f => Domains f -> (f rn n, DomainsOf f)
+    assert (domainsMatch domsOD (index1Domains as 0)) $
+    let shn = rshape x0
+        domsF = V.cons (odFromSh @rn shn) domsOD
+        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, DomainsOf f)
         domsToPair doms = (rfromD $ doms V.! 0, dmkDomains $ V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
         g doms = uncurry f (domsToPair doms)
-        shn = rshape x0
-        domsF = V.cons (odFromSh @rn shn) domsOD
     in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, AstDynamicVarName nid : mdyns)
         , gradient, _primal, _sh), _delta ) ->
@@ -746,9 +747,9 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
                 nvar2 = AstVarName nid2
                 nvar = AstVarName nid
             in AstFoldZipDer (fun2DToAstR shn f domsOD)
-                           (nvar1, mdyns1, nvar2, mdyns2, derivative)
-                           (varDt, nvar, mdyns, gradient)
-                           x0 as
+                             (nvar1, mdyns1, nvar2, mdyns2, derivative)
+                             (varDt, nvar, mdyns, gradient)
+                             x0 as
           _ -> error "rfoldD: wrong variables"
       _ -> error "rfoldD: wrong variables"
   rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
@@ -764,9 +765,11 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             -> Domains (AstRanked s)
             -> AstRanked s rn n
   rfoldZipDer f df rf domsOD x0 as =
+    assert (domainsMatch domsOD (index1Domains as 0)) $
     let shn = rshape x0
-    in AstFoldZipDer (fun2DToAstR shn f domsOD) (fun4DToAstR shn df domsOD)
-                   (fun3DToAstR shn rf domsOD) x0 as
+    in AstFoldZipDer (fun2DToAstR shn f domsOD)
+                     (fun4DToAstR shn df domsOD)
+                     (fun3DToAstR shn rf domsOD) x0 as
   rscan :: forall rn rm n m.
            (GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
@@ -774,13 +777,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         -> AstRanked s rm (1 + m)
         -> AstRanked s rn (1 + n)
   rscan f x0 as =
-    let domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
+    let shn = rshape x0
+        shm = tailShape $ rshape as
+        domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
+        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
         g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
         g doms = uncurry f (domsToPair doms)
-        shn = rshape x0
-        shm = tailShape $ rshape as
-        domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
     in -- This computes the (AST of) derivative of f once for each @x0@
        -- and @as@, which is better than once for each @a@. We could compute
        -- it once per @f@ if we took shapes as arguments. The @sfold@ operation
@@ -813,7 +816,8 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   rscanDer f df rf x0 as =
     let shn = rshape x0
         shm = tailShape $ rshape as
-    in AstScanDer (fun2ToAstR shn shm f) (fun4ToAstR shn shm df)
+    in AstScanDer (fun2ToAstR shn shm f)
+                  (fun4ToAstR shn shm df)
                   (fun3ToAstR shn shm rf) x0 as
   rscanZip :: forall rn n. (GoodScalar rn, KnownNat n)
          => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
@@ -822,12 +826,13 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
          -> Domains (AstRanked s)
          -> AstRanked s rn (1 + n)
   rscanZip f domsOD x0 as =
-    let domsToPair :: forall f. ADReady f => Domains f -> (f rn n, DomainsOf f)
+    assert (domainsMatch domsOD (index1Domains as 0)) $
+    let shn = rshape x0
+        domsF = V.cons (odFromSh @rn shn) domsOD
+        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, DomainsOf f)
         domsToPair doms = (rfromD $ doms V.! 0, dmkDomains $ V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
         g doms = uncurry f (domsToPair doms)
-        shn = rshape x0
-        domsF = V.cons (odFromSh @rn shn) domsOD
     in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, AstDynamicVarName nid : mdyns)
         , gradient, _primal, _sh), _delta ) ->
@@ -839,9 +844,9 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
                 nvar2 = AstVarName nid2
                 nvar = AstVarName nid
             in AstScanZipDer (fun2DToAstR shn f domsOD)
-                           (nvar1, mdyns1, nvar2, mdyns2, derivative)
-                           (varDt, nvar, mdyns, gradient)
-                           x0 as
+                             (nvar1, mdyns1, nvar2, mdyns2, derivative)
+                             (varDt, nvar, mdyns, gradient)
+                             x0 as
           _ -> error "rscanD: wrong variables"
       _ -> error "rscanD: wrong variables"
   rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
@@ -857,9 +862,11 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             -> Domains (AstRanked s)
             -> AstRanked s rn (1 + n)
   rscanZipDer f df rf domsOD x0 as =
+    assert (domainsMatch domsOD (index1Domains as 0)) $
     let shn = rshape x0
-    in AstScanZipDer (fun2DToAstR shn f domsOD) (fun4DToAstR shn df domsOD)
-                   (fun3DToAstR shn rf domsOD) x0 as
+    in AstScanZipDer (fun2DToAstR shn f domsOD)
+                     (fun4DToAstR shn df domsOD)
+                     (fun3DToAstR shn rf domsOD) x0 as
   sfold :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -867,12 +874,12 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         -> AstShaped s rm (k ': shm)
         -> AstShaped s rn sh
   sfold f x0 as =
-    let domsToPair :: forall f. ADReadyS f
+    let domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
+        domsToPair :: forall f. ADReadyS f
                    => Domains (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
         g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
-        domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
     in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
         , gradient, _primal, _sh), _delta ) ->
@@ -909,13 +916,14 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
          -> Domains (AstRanked s)
          -> AstShaped s rn sh
   sfoldZip f domsOD x0 as =
-    let domsToPair :: forall f. ADReadyS f
+    assert (domainsMatch domsOD (index1Domains as 0)) $
+    let domsF = V.cons (odFromShS @rn @sh) domsOD
+        domsToPair :: forall f. ADReadyS f
                       => Domains (RankedOf f)
                       -> (f rn sh, DomainsOf (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, dmkDomains $ V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
-        domsF = V.cons (odFromShS @rn @sh) domsOD
     in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, AstDynamicVarName nid : mdyns)
         , gradient, _primal, _sh), _delta ) ->
@@ -927,9 +935,9 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
                 nvar2 = AstVarName nid2
                 nvar = AstVarName nid
             in AstFoldZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
-                            (nvar1, mdyns1, nvar2, mdyns2, derivative)
-                            (varDt, nvar, mdyns, gradient)
-                            x0 as
+                              (nvar1, mdyns1, nvar2, mdyns2, derivative)
+                              (varDt, nvar, mdyns, gradient)
+                              x0 as
           _ -> error "sfoldD: wrong variables"
       _ -> error "sfoldD: wrong variables"
   sfoldZipDer :: forall rn sh. Sh.Shape sh
@@ -947,9 +955,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             -> Domains (AstRanked s)
             -> AstShaped s rn sh
   sfoldZipDer f df rf domsOD x0 as =
+    assert (domainsMatch domsOD (index1Domains as 0)) $
     AstFoldZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
-                 (fun4DToAstS @_ @_ @sh df domsOD)
-                 (fun3DToAstS @_ @_ @sh rf domsOD) x0 as
+                   (fun4DToAstS @_ @_ @sh df domsOD)
+                   (fun3DToAstS @_ @_ @sh rf domsOD) x0 as
   sscan :: forall rn rm sh shm k.
            (GoodScalar rn, GoodScalar rm, Sh.Shape sh, Sh.Shape shm, KnownNat k)
         => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
@@ -957,12 +966,12 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
         -> AstShaped s rm (k ': shm)
         -> AstShaped s rn (1 + k ': sh)
   sscan f x0 as =
-    let domsToPair :: forall f. ADReadyS f
+    let domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
+        domsToPair :: forall f. ADReadyS f
                    => Domains (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
         g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
-        domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
     in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, [AstDynamicVarName nid, AstDynamicVarName mid])
         , gradient, _primal, _sh), _delta ) ->
@@ -1002,13 +1011,14 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
          -> Domains (AstRanked s)
          -> AstShaped s rn (1 + k ': sh)
   sscanZip f domsOD x0 as =
-    let domsToPair :: forall f. ADReadyS f
+    assert (domainsMatch domsOD (index1Domains as 0)) $
+    let domsF = V.cons (odFromShS @rn @sh) domsOD
+        domsToPair :: forall f. ADReadyS f
                       => Domains (RankedOf f)
                       -> (f rn sh, DomainsOf (RankedOf f))
         domsToPair doms = (sfromD $ doms V.! 0, dmkDomains $ V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstShaped FullSpan rn sh
         g doms = uncurry f (domsToPair doms)
-        domsF = V.cons (odFromShS @rn @sh) domsOD
     in case revProduceArtifact TensorToken True g EM.empty domsF of
       ( ( (varDt, AstDynamicVarName nid : mdyns)
         , gradient, _primal, _sh), _delta ) ->
@@ -1020,9 +1030,9 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
                 nvar2 = AstVarName nid2
                 nvar = AstVarName nid
             in AstScanZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
-                            (nvar1, mdyns1, nvar2, mdyns2, derivative)
-                            (varDt, nvar, mdyns, gradient)
-                            x0 as
+                              (nvar1, mdyns1, nvar2, mdyns2, derivative)
+                              (varDt, nvar, mdyns, gradient)
+                              x0 as
           _ -> error "sscanD: wrong variables"
       _ -> error "sscanD: wrong variables"
   sscanZipDer :: forall k rn sh. (Sh.Shape sh, KnownNat k)
@@ -1040,9 +1050,10 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
             -> Domains (AstRanked s)
             -> AstShaped s rn (1 + k ': sh)
   sscanZipDer f df rf domsOD x0 as =
+    assert (domainsMatch domsOD (index1Domains as 0)) $
     AstScanZipDerS (fun2DToAstS @_ @_ @sh f domsOD)
-                 (fun4DToAstS @_ @_ @sh df domsOD)
-                 (fun3DToAstS @_ @_ @sh rf domsOD) x0 as
+                   (fun4DToAstS @_ @_ @sh df domsOD)
+                   (fun3DToAstS @_ @_ @sh rf domsOD) x0 as
 
 astLetDomainsInDomainsFun
   :: AstSpan s
