@@ -417,8 +417,7 @@ astLetDomainsInFun
   -> AstRanked s r n
 {-# INLINE astLetDomainsInFun #-}
 astLetDomainsInFun a0 a f =
-  let (vars, b) = fun1DToAstR f a0
-  in astLetDomainsIn vars a b
+  fun1DToAst a0 $ \vars asts -> astLetDomainsIn vars a (f asts)
 
 astSpanPrimal :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
               => AstRanked s r n -> AstRanked PrimalSpan r n
@@ -537,8 +536,7 @@ astLetDomainsInFunS
   -> AstShaped s r sh
 {-# INLINE astLetDomainsInFunS #-}
 astLetDomainsInFunS a0 a f =
-  let (vars, b) = fun1DToAstR f a0
-  in astLetDomainsInS vars a b
+  fun1DToAst a0 $ \vars asts -> astLetDomainsInS vars a (f asts)
 
 astSpanPrimalS :: forall s r sh. (Sh.Shape sh, GoodScalar r, AstSpan s)
                => AstShaped s r sh -> AstShaped PrimalSpan r sh
@@ -602,8 +600,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
   rletInDomains = astLetInDomainsFun
   sletInDomains = astLetInDomainsFunS
   dregister domsOD r l =
-    let (vars, b) = fun1DToAstR id domsOD
-    in (AstBindingsDomains vars r : l, b)
+    fun1DToAst domsOD $ \vars asts -> (AstBindingsDomains vars r : l, asts)
   dbuild1 = astBuildDomains1Vectorize
   rrev :: (GoodScalar r, KnownNat n)
        => (forall f. ADReady f => Domains f -> f r n)
@@ -1061,8 +1058,7 @@ astLetDomainsInDomainsFun
   -> AstDomains s
 {-# INLINE astLetDomainsInDomainsFun #-}
 astLetDomainsInDomainsFun a0 a f =
-  let (vars, b) = fun1DToAstR f a0
-  in astLetDomainsInDomains vars a b
+  fun1DToAst a0 $ \vars asts -> astLetDomainsInDomains vars a (f asts)
 
 astLetInDomainsFun :: (KnownNat n, GoodScalar r, AstSpan s)
                    => AstRanked s r n -> (AstRanked s r n -> AstDomains s)
