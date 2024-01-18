@@ -1095,7 +1095,7 @@ buildFinMaps s0 deltaDt =
                     dzipWith1 (\doms ->
                                  let (cr, x, a) = domsTo3 doms
                                  in dletDomainsInDomains @ranked
-                                      domsF (rf @ranked cr x a) $ \rfRes ->
+                                      domsF (rf cr x a) $ \rfRes ->
                                         snd $ domsToPair rfRes)
                               (V.cons (DynamicRanked cr2)
                                $ V.cons (DynamicRanked x2) a2)
@@ -1120,6 +1120,12 @@ buildFinMaps s0 deltaDt =
                  -> (ranked r n, [Domains ranked])
               rg = mapAccumR (\cx (x, a) ->
                                 domsToPair $ dunDomains domsF $ rf cx x a)
+                -- We can't replace dunDomains with
+                --              dletDomainsInDomains @ranked
+                --                domsF (rf cx x a) $ \rfRes ->
+                --                  domsToPair rfRes)
+                -- because dletDomainsInDomains can't handle a pair result.
+                -- Maybe we could add a variant that can, but it's ad-hoc.
               (cx0, cas) = rg cShared
                               (zip (init $ runravelToList p)
                                    (map dmkDomains $ unravelDomains as))
@@ -1190,50 +1196,66 @@ buildFinMaps s0 deltaDt =
               let !_A1 = assert (rlength p == width + 1) ()
                   !_A2 = assert (rlength cShared == width + 1) ()
                   shn = shapeDelta x0'
-                  domsF = V.cons (odFromSh @r shn) domsOD
+                  odShn = odFromSh @r shn
+                  domsF = V.cons odShn domsOD
                   domsToPair :: forall f. ADReady f
-                             => Domains f -> (f r n1, Domains f)
-                  domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
+                             => Domains f -> (f r n1, DomainsOf f)
+                  domsToPair doms =
+                    (rfromD $ doms V.! 0, dmkDomains $ V.tail doms)
+                  domsTo3 :: ADReady f
+                          => Domains f -> (f r n1, f r n1, DomainsOf f)
+                  domsTo3 doms = ( rfromD $ doms V.! 0
+                                 , rfromD $ doms V.! 1
+                                 , dmkDomains $ V.drop 2 doms )
                   g1 :: Int -> ranked r (1 + n1)
                   g1 k =
                     let cx = cShared ! (fromIntegral k :. ZI)
                         lp = rreverse $ rslice 0 k p
                         las :: Domains ranked
                         las = mapDomainsRanked11 (rreverse . rslice 0 k) as
+                        rf1 :: ranked r (1 + n1)
                         rf1 =
-                          rscanZip (\cr doms' ->
-                                    rletDomainsIn domsF doms' $ \doms ->
-                                      let (x, a) = domsToPair doms
-                                      in rletDomainsIn
-                                           domsF
-                                           (rf cr x (dmkDomains a)) $ \rfRes ->
-                                             fst $ domsToPair rfRes)
-                                 domsF cx
-                                 (V.cons (DynamicRanked lp) las)
+                          rscanZip
+                            (\cr doms' ->
+                              rletDomainsIn domsF doms' $ \doms ->
+                                let (x, a) = domsToPair doms
+                                in rletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                                     fst $ domsToPair rfRes)
+                            domsF
+                            cx
+                            (V.cons (DynamicRanked lp) las)
                         padding = rzero (width - k :$ shn)
                     in rappend (rreverse rf1) padding
                   g1s = map g1 [1 .. width]  -- can't be rmap, rbuild nor rscan
-                  g1t = rfromList g1s
-                  (abShared2, g1tShared) = rregister g1t (astBindings sShared)
-                  sShared2 = sShared {astBindings = abShared2}
-                  g1sum = cShared ! (0 :. ZI) + rsum (rtr g1tShared ! (0 :. ZI))
-                  g2 :: Int -> Domains ranked  -- 1 + m
-                  g2 k =
-                    let rf11 = rslice 1 k
-                               $ g1tShared ! (fromIntegral k - 1 :. ZI)
+                  g1tUnshared = rfromList g1s
+                  (abShared2, g1t) = rregister g1tUnshared (astBindings sShared)
+                  s2 = sShared {astBindings = abShared2}
+                  g1sum = cShared ! (0 :. ZI) + rsum (rtr g1t ! (0 :. ZI))
+                  g2 :: EvalState ranked shaped
+                     -> Int
+                     -> (EvalState ranked shaped, Domains ranked)  -- 1 + m
+                  g2 sg2 k =
+                    let rf11 =
+                          rslice 1 k $ g1t ! (fromIntegral k - 1 :. ZI)
                         lp = rslice 0 k p
                         las :: Domains ranked  -- 1 + m
                         las = mapDomainsRanked11 (rslice 0 k) as
-                        -- TODO: use rzipWith31 (rzipWithDomains31?)
-                        rg :: [ranked r n1] -> [ranked r n1]
-                           -> [DomainsOf ranked]  -- [m]
-                           -> [Domains ranked]  -- [m]
-                        rg = zipWith3 (\cr x a ->
-                                         snd $ domsToPair $ dunDomains domsF
-                                         $ rf cr x a)
-                        cas = rg (runravelToList rf11)
-                                 (runravelToList lp)
-                                 (map dmkDomains $ unravelDomains las)
+                        rg :: ranked r (1 + n1) -> ranked r (1 + n1)
+                           -> Domains ranked
+                           -> DomainsOf ranked
+                        rg cr2 x2 a2 =
+                          dzipWith1 (\doms ->
+                                       let (cr, x, a) = domsTo3 doms
+                                       in dletDomainsInDomains @ranked
+                                            domsF (rf cr x a) $ \rfRes ->
+                                              snd $ domsToPair rfRes)
+                                    (V.cons (DynamicRanked cr2)
+                                     $ V.cons (DynamicRanked x2) a2)
+                        casUnshared = rg rf11 lp las
+                        domsG = V.map odFromDynamic las
+                        (abShared4, cas) =
+                          dregister domsG casUnshared (astBindings sg2)
+                        sg3 = sg2 {astBindings = abShared4}
                         padRanked :: DynamicTensor ranked
                                   -> DynamicTensor ranked
                         padRanked (DynamicRanked t) = case rshape t of
@@ -1242,12 +1264,12 @@ buildFinMaps s0 deltaDt =
                             let padding = rzero (width - k :$ shm)
                             in DynamicRanked $ rappend t padding
                         padRanked _ = error "padRanked: not DynamicRanked"
-                    in V.map padRanked (ravelDomains cas)
-                  g2s = map g2 [1 .. width]  -- can't be rmap, rbuild nor rscan
+                    in (sg3, V.map padRanked cas)
+                  (s3, g2s) = mapAccumR g2 s2 [1 .. width]
                   g2sum = V.fromList $ map sumDynamicRanked
                           $ transpose $ map V.toList g2s
-                  s2 = evalR sShared2 g1sum x0'
-              in V.foldl' evalRDynamicRanked s2 $ V.zip g2sum as'
+                  s4 = evalR s3 g1sum x0'
+              in V.foldl' evalRDynamicRanked s4 $ V.zip g2sum as'
         CastR d -> evalRRuntimeSpecialized s (rcast c) d
 
         SToR (RToS d) -> evalR s c d  -- no information lost, so no checks
@@ -1436,7 +1458,7 @@ buildFinMaps s0 deltaDt =
                     dzipWith1 (\doms ->
                                  let (cr, x, a) = domsTo3 doms
                                  in dletDomainsInDomains @ranked
-                                      domsF (rf @shaped cr x a) $ \rfRes ->
+                                      domsF (rf cr x a) $ \rfRes ->
                                         snd $ domsToPair rfRes)
                               (V.cons (DynamicShaped cr2)
                                $ V.cons (DynamicShaped x2) a2)
@@ -1542,11 +1564,19 @@ buildFinMaps s0 deltaDt =
               s2 = evalS sShared2 g1sum x0'
           in evalS s2 g2sum as'
         ScanZipS @sh1 @k3 domsOD p as _df rf x0' as' ->
-          let domsF = V.cons (odFromShS @r @sh1) domsOD
+          let odShn = odFromShS @r @sh1
+              domsF = V.cons odShn domsOD
               domsToPair :: forall f. ADReadyS f
                          => Domains (RankedOf f)
-                         -> (f r sh1, Domains (RankedOf f))
-              domsToPair doms = (sfromD $ doms V.! 0, V.tail doms)
+                         -> (f r sh1, DomainsOf (RankedOf f))
+              domsToPair doms =
+                (sfromD $ doms V.! 0, dmkDomains $ V.tail doms)
+              domsTo3 :: ADReadyS f
+                      => Domains (RankedOf f)
+                      -> (f r sh1, f r sh1, DomainsOf (RankedOf f))
+              domsTo3 doms = ( sfromD $ doms V.! 0
+                             , sfromD $ doms V.! 1
+                             , dmkDomains $ V.drop 2 doms )
               g1 :: Int -> shaped r (1 + k3 ': sh1)
               g1 k = case someNatVal $ toInteger k of
                 Just (SomeNat @k _) -> case cmpNat (Proxy @k) (Proxy @k3) of
@@ -1566,64 +1596,73 @@ buildFinMaps s0 deltaDt =
                                                (Proxy @0) (Proxy @k)) as
                     rf1 :: shaped r (1 + k ': sh1)
                     rf1 =
-                      sscanZip (\cr doms' ->
-                                sletDomainsIn domsF doms' $ \doms ->
-                                  let (x, a) = domsToPair doms
-                                  in sletDomainsIn
-                                       domsF (rf cr x (dmkDomains a))
-                                       $ \rfRes ->
-                                         fst $ domsToPair rfRes)
-                             domsF
-                             cx
-                             (V.cons (DynamicShaped lp) las)
+                      sscanZip
+                        (\cr doms' ->
+                          sletDomainsIn domsF doms' $ \doms ->
+                            let (x, a) = domsToPair doms
+                            in sletDomainsIn domsF (rf cr x a) $ \rfRes ->
+                                 fst $ domsToPair rfRes)
+                        domsF
+                        cx
+                        (V.cons (DynamicShaped lp) las)
                 in sappend @_ @_ @(1 + k) @(k3 - k) (sreverse rf1) 0
               g1s = map g1 [1 .. valueOf @k3]
-              g1t = sfromList @_ @_ @k3 g1s
-              (abShared2, g1tShared) = sregister g1t (astBindings sShared)
-              sShared2 = sShared {astBindings = abShared2}
+              g1tUnshared = sfromList @_ @_ @k3 g1s
+              (abShared2, g1t) = sregister g1tUnshared (astBindings sShared)
+              s2 = sShared {astBindings = abShared2}
               g1sum = withListShape (Sh.shapeT @sh1) $ \(_ :: ShapeInt n1) ->
                         gcastWith (unsafeCoerce Refl :: Sh.Rank sh1 :~: n1) $
                         cShared !$ (0 :$: ZSH)
-                        + ssum (str g1tShared !$ (0 :$: ZSH))
-              g2 :: Int -> Domains ranked  -- k3 ': shm
-              g2 k = case someNatVal $ toInteger k of
+                        + ssum (str g1t !$ (0 :$: ZSH))
+              g2 :: EvalState ranked shaped
+                 -> Int
+                 -> (EvalState ranked shaped, Domains ranked)  -- k3 ': shm
+              g2 sg2 k = case someNatVal $ toInteger k of
                 Just (SomeNat @k _) -> case cmpNat (Proxy @k) (Proxy @k3) of
-                  LTI -> gCmp2 @k
-                  EQI -> gCmp2 @k
+                  LTI -> gCmp2 @k sg2
+                  EQI -> gCmp2 @k sg2
                   GTI -> error "evalS: impossible GTI"
                 _ -> error "evalS: impossible someNatVal"
               gCmp2 :: forall k. (KnownNat k, k <= k3)
-                    => Domains ranked  -- k3 ': shm
-              gCmp2 =
-                let rf11 = sslice @_ @_ @_ @_ @(k3 - k)
-                                  (Proxy @1) (Proxy @k)
-                           $ g1tShared
-                             !$ (fromIntegral (valueOf @k - 1 :: Int) :$: ZSH)
+                    => EvalState ranked shaped
+                    -> (EvalState ranked shaped, Domains ranked)  -- k3 ': shm
+              gCmp2 sg2 =
+                let rf11 =
+                      sslice @_ @_ @_ @_ @(k3 - k)
+                             (Proxy @1) (Proxy @k)
+                        $ g1t !$ (fromIntegral (valueOf @k - 1 :: Int) :$: ZSH)
                     lp = sslice @_ @_ @_ @_ @(1 + k3 - k)
                                 (Proxy @0) (Proxy @k) p
                     las = mapDomainsShaped11kk @k3
                             (sslice @_ @_ @_ @_ @(k3 - k)
                                     (Proxy @0) (Proxy @k)) as
-                    rg :: [shaped r sh1] -> [shaped r sh1]
-                       -> [DomainsOf ranked]
-                       -> [Domains ranked]
-                    rg = zipWith3 (\cr x a ->
-                                     snd $ domsToPair $ dunDomains domsF
-                                     $ rf cr x a)
-                    cas = rg (sunravelToList rf11)
-                             (sunravelToList lp)
-                             (map dmkDomains $ unravelDomains las)
+                    rg :: shaped r (k ': sh1) -> shaped r (k ': sh1)
+                       -> Domains ranked
+                       -> DomainsOf ranked
+                    rg cr2 x2 a2 =
+                      dzipWith1 (\doms ->
+                                   let (cr, x, a) = domsTo3 doms
+                                   in dletDomainsInDomains @ranked
+                                        domsF (rf cr x a) $ \rfRes ->
+                                          snd $ domsToPair rfRes)
+                                (V.cons (DynamicShaped cr2)
+                                 $ V.cons (DynamicShaped x2) a2)
+                    casUnshared = rg rf11 lp las
+                    domsG = V.map odFromDynamic las
+                    (abShared4, cas) =
+                      dregister domsG casUnshared (astBindings sg2)
+                    sg3 = sg2 {astBindings = abShared4}
                     padShaped :: forall shq rq.
                                  (Sh.Shape shq, GoodScalar rq)
                               => shaped rq (k ': shq)
                               -> shaped rq (k3 ': shq)
                     padShaped t = sappend @_ @_ @k @(k3 - k) t 0
-                in mapDomainsShaped11kk @k padShaped (ravelDomains cas)
-              g2s = map g2 [1 .. valueOf @k3]
+                in (sg3, mapDomainsShaped11kk @k padShaped cas)
+              (s3, g2s) = mapAccumR g2 s2 [1 .. valueOf @k3]
               g2sum = V.fromList $ map sumDynamicShaped
                       $ transpose $ map V.toList g2s
-              s2 = evalS sShared2 g1sum x0'
-          in V.foldl' evalSDynamicShaped s2 $ V.zip g2sum as'
+              s4 = evalS s3 g1sum x0'
+          in V.foldl' evalSDynamicShaped s4 $ V.zip g2sum as'
         CastS d -> evalSRuntimeSpecialized s (scast c) d
         RToS (SToR @sh2 d) ->
           case sameShape @sh @sh2 of
