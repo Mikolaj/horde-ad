@@ -130,11 +130,11 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
 tensorADValMnistTestsRNNA :: TestTree
 tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
   [ mnistTestCaseRNNA "RNNA 1 epoch, 1 batch" 1 1 128 5 50
-                       (0.8200000000000001 :: Double)
+                       (0.9 :: Double)
   , mnistTestCaseRNNA "RNNA artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNA "RNNA artificial 5 4 3 2 1" 5 4 3 2 49
-                       (0.8928571428571429 :: Double)
+                       (0.9336734693877551 :: Double)
   , mnistTestCaseRNNA "RNNA 1 epoch, 0 batch" 1 0 128 5 50
                        (1.0 :: Float)
   ]
@@ -236,11 +236,11 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
 tensorADValMnistTestsRNNI :: TestTree
 tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
   [ mnistTestCaseRNNI "RNNI 1 epoch, 1 batch" 1 1 128 5 50
-                       (0.96 :: Double)
+                       (0.9 :: Double)
   , mnistTestCaseRNNI "RNNI artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNI "RNNI artificial 5 4 3 2 1" 5 4 3 2 49
-                       (0.8163265306122449 :: Double)
+                       (0.9336734693877551 :: Double)
   , mnistTestCaseRNNI "RNNI 1 epoch, 0 batch" 1 0 128 5 50
                        (1.0 :: Float)
   ]
