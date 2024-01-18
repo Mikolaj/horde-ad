@@ -254,10 +254,10 @@ data DeltaR :: RankedTensorType -> RankedTensorType where
     -- ^ Fold over the outermost dimension of a tensor.
   FoldRC :: (GoodScalar rm, KnownNat m)
          => ranked rn (1 + n) -> ranked rm (1 + m)
-         -> (ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
+         -> (ranked rn n -> ranked rm m -> ranked rn n -> ranked rm m
              -> ranked rn n)
-         -> (ranked rn n -> (ranked rn n, ranked rm m)
-             -> (ranked rn n, ranked rm m))
+         -> (ranked rn n -> ranked rn n -> ranked rm m
+             -> DomainsOf ranked)
          -> DeltaR ranked rn n
          -> DeltaR ranked rm (1 + m)
          -> DeltaR ranked rn n
@@ -429,10 +429,10 @@ data DeltaS :: ShapedTensorType -> ShapedTensorType where
         -> DeltaS shaped rn sh
   FoldSC :: (GoodScalar rm, Sh.Shape shm, KnownNat k)
         => shaped rn (1 + k ': sh) -> shaped rm (k ': shm)
-        -> (shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
+        -> (shaped rn sh -> shaped rm shm -> shaped rn sh -> shaped rm shm
             -> shaped rn sh)
-        -> (shaped rn sh -> (shaped rn sh, shaped rm shm)
-            -> (shaped rn sh, shaped rm shm))
+        -> (shaped rn sh -> shaped rn sh -> shaped rm shm
+            -> DomainsOf (RankedOf shaped))
         -> DeltaS shaped rn sh
         -> DeltaS shaped rm (k ': shm)
         -> DeltaS shaped rn sh
@@ -1039,18 +1039,29 @@ buildFinMaps s0 deltaDt =
                 s2 = evalR sShared2 (crsShared ! (0 :. ZI)) x0'
             in evalR s2 cas as'
           ZS -> error "evalR: impossible pattern needlessly required"
-        FoldRC @rm @m p as _df rf x0' as' ->
-          -- No sharing attempted, because this constructor is usually used
-          -- for non-symbolic derivatives.
-          let las :: [ranked rm m]
-              las = runravelToList as
-              rg :: ranked r n
-                 -> [(ranked r n, ranked rm m)]
-                 -> (ranked r n, [ranked rm m])
-              rg = mapAccumR rf
-              (cx0, cas) = rg cShared (zip (init $ runravelToList p) las)
-              s2 = evalR sShared cx0 x0'
-          in evalR s2 (rfromList cas) as'
+        FoldRC @rm @m p as _df rf x0' as' -> case rshape as of
+          _width :$ shm ->
+            -- No sharing attempted, because this constructor is usually used
+            -- for non-symbolic derivatives.
+            let shn = shapeDelta x0'
+                domsF = V.fromList [odFromSh @r shn, odFromSh @rm shm]
+                domsToPair :: ADReady f => Domains f -> (f r n, f rm m)
+                domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
+                rg :: ranked r n
+                   -> [(ranked r n, ranked rm m)]
+                   -> (ranked r n, [ranked rm m])
+                rg = mapAccumR (\cx (x, a) ->
+                                  domsToPair $ dunDomains domsF $ rf cx x a)
+                  -- We can't replace dunDomains with
+                  --              dletDomainsInDomains @ranked
+                  --                domsF (rf cx x a) $ \rfRes ->
+                  --                  domsToPair rfRes)
+                  -- because dletDomainsInDomains can't handle a pair result.
+                  -- Maybe we could add variants that can, but it's ad-hoc.
+                (cx0, cas) = rg cShared (zip (init $ runravelToList p)
+                                             (runravelToList as))
+                s2 = evalR sShared cx0 x0'
+            in evalR s2 (rfromList cas) as'
         FoldZipR @rm @m domsOD p as _df rf x0' as' -> case V.unsnoc as of
           Nothing -> error "evalR: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -1120,12 +1131,6 @@ buildFinMaps s0 deltaDt =
                  -> (ranked r n, [Domains ranked])
               rg = mapAccumR (\cx (x, a) ->
                                 domsToPair $ dunDomains domsF $ rf cx x a)
-                -- We can't replace dunDomains with
-                --              dletDomainsInDomains @ranked
-                --                domsF (rf cx x a) $ \rfRes ->
-                --                  domsToPair rfRes)
-                -- because dletDomainsInDomains can't handle a pair result.
-                -- Maybe we could add a variant that can, but it's ad-hoc.
               (cx0, cas) = rg cShared
                               (zip (init $ runravelToList p)
                                    (map dmkDomains $ unravelDomains as))
@@ -1403,13 +1408,17 @@ buildFinMaps s0 deltaDt =
         FoldSC @rm @shm p as _df rf x0' as' ->
           -- No sharing attempted, because this constructor is usually used
           -- for non-symbolic derivatives.
-          let las :: [shaped rm shm]
-              las = sunravelToList as
+          let domsF = V.fromList [odFromShS @r @sh, odFromShS @rm @shm]
+              domsToPair :: ADReadyS f
+                         => Domains (RankedOf f) -> (f r sh, f rm shm)
+              domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
               rg :: shaped r sh
                  -> [(shaped r sh, shaped rm shm)]
                  -> (shaped r sh, [shaped rm shm])
-              rg = mapAccumR rf
-              (cx0, cas) = rg cShared (zip (init $ sunravelToList p) las)
+              rg = mapAccumR (\cx (x, a) ->
+                                domsToPair $ dunDomains domsF $ rf cx x a)
+              (cx0, cas) = rg cShared (zip (init $ sunravelToList p)
+                                           (sunravelToList as))
               s2 = evalS sShared cx0 x0'
           in evalS s2 (sfromList cas) as'
         FoldZipS @k3 domsOD p as _df rf x0' as' -> case V.unsnoc as of
@@ -1934,7 +1943,8 @@ buildDerivative dimR deltaDt params = do
           let lcas = runravelToList cas
               las = runravelToList as
               lp = runravelToList p
-          return $! foldl' df cx0 (zip3 lcas (init lp) las)
+          return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
+                           cx0 (zip3 lcas (init lp) las)
         FoldZipR domsOD p as df _rf x0' as' -> do
           let width = rlength p - 1
               domsLen = V.length domsOD
@@ -2119,7 +2129,8 @@ buildDerivative dimR deltaDt params = do
           let lcas = sunravelToList cas
               las = sunravelToList as
               lp = sunravelToList p
-          return $! foldl' df cx0 (zip3 lcas (init lp) las)
+          return $! foldl' (\cx (ca, x, a) -> df cx ca x a)
+                           cx0 (zip3 lcas (init lp) las)
         FoldZipS @k3 domsOD p as df _rf x0' as' -> do
           let domsLen = V.length domsOD
           cx0 <- evalS x0'

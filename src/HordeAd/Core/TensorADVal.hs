@@ -399,12 +399,10 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     -- looser constraints thanks to interpreting terms in arbitrary algebras.
     -- If the refactoring is really needed, e.g., to avoid computing derivatives
     -- for each nested level of ADVal, we can add UnletGradient to ADReady.
-    let shn = rshape x0
-        _ws :: (Int, ShapeInt m)
-        _ws@(width, shm) = case rshape as of
+    let _ws :: (Int, ShapeInt m)
+        _ws@(width, _shm) = case rshape as of
           hd :$ tl -> (hd, tl)
           _ -> error "rfold: impossible pattern needlessly required"
-        domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
         domsToPair :: forall f. ADReady f
                    => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
@@ -419,19 +417,18 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         -- TODO: what if the dual numbers are nested?
         -- TODO: do the dual number ops in f affect what df is computed? add
         -- a comment explaining that and tests that exemplify that
-        df :: ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
+        df :: ranked rn n -> ranked rm m -> ranked rn n -> ranked rm m
            -> ranked rn n
-        df cx (ca, x, a) =
+        df cx ca x a =
           fst $ cfwdOnDomains (V.fromList [DynamicRanked x, DynamicRanked a])
                               g
                               (V.fromList [DynamicRanked cx, DynamicRanked ca])
-        rf :: ranked rn n -> (ranked rn n, ranked rm m)
-           -> (ranked rn n, ranked rm m)
-        rf dt (x, a) =
-          domsToPair $ dunDomains @ranked domsF $ fst
-          $ crevOnDomains (Just dt)
-                          g
-                          (V.fromList [DynamicRanked x, DynamicRanked a])
+        rf :: ranked rn n -> ranked rn n -> ranked rm m
+           -> DomainsOf ranked
+        rf dt x a =
+          fst $ crevOnDomains (Just dt)
+                              g
+                              (V.fromList [DynamicRanked x, DynamicRanked a])
         p :: ranked rn (1 + n)
         p = rscan f x0 as
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
@@ -517,29 +514,26 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         -> ADVal ranked rm (1 + m)
         -> ADVal ranked rn (1 + n)
   rscan f (D l1 x0 x0') (D l2 as as') =
-    let shn = rshape x0
-        _ws :: (Int, ShapeInt m)
-        _ws@(width, shm) = case rshape as of
+    let _ws :: (Int, ShapeInt m)
+        _ws@(width, _shm) = case rshape as of
           hd :$ tl -> (hd, tl)
           _ -> error "rfoldDer: impossible pattern needlessly required"
-        domsF = V.fromList [odFromSh @rn shn, odFromSh @rm shm]
         domsToPair :: forall f. ADReady f => Domains f -> (f rn n, f rm m)
         domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
         g :: Domains (ADVal ranked) -> ADVal ranked rn n
         g doms = uncurry f (domsToPair doms)
-        df :: ranked rn n -> (ranked rm m, ranked rn n, ranked rm m)
+        df :: ranked rn n -> ranked rm m -> ranked rn n -> ranked rm m
            -> ranked rn n
-        df cx (ca, x, a) =
+        df cx ca x a =
           fst $ cfwdOnDomains (V.fromList [DynamicRanked x, DynamicRanked a])
                               g
                               (V.fromList [DynamicRanked cx, DynamicRanked ca])
-        rf :: ranked rn n -> (ranked rn n, ranked rm m)
-           -> (ranked rn n, ranked rm m)
-        rf dt (x, a) =
-          domsToPair $ dunDomains @ranked domsF $ fst
-          $ crevOnDomains (Just dt)
-                          g
-                          (V.fromList [DynamicRanked x, DynamicRanked a])
+        rf :: ranked rn n -> ranked rn n -> ranked rm m
+           -> DomainsOf ranked
+        rf dt x a =
+          fst $ crevOnDomains (Just dt)
+                              g
+                              (V.fromList [DynamicRanked x, DynamicRanked a])
         p :: ranked rn (1 + n)
         p = rscan f x0 as
         (l3, pShared) = recordSharingPrimal p (l1 `mergeADShare` l2)
@@ -646,25 +640,23 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         -> ADVal shaped rm (k ': shm)
         -> ADVal shaped rn sh
   sfold f (D l1 x0 x0') (D l2 as as') =
-    let domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
-        domsToPair :: forall f. ADReadyS f
+    let domsToPair :: forall f. ADReadyS f
                    => Domains (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
         g :: Domains (ADVal (RankedOf shaped)) -> ADVal shaped rn sh
         g doms = uncurry f (domsToPair doms)
-        df :: shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
+        df :: shaped rn sh -> shaped rm shm -> shaped rn sh -> shaped rm shm
            -> shaped rn sh
-        df cx (ca, x, a) =
+        df cx ca x a =
           fst $ cfwdOnDomains (V.fromList [DynamicShaped x, DynamicShaped a])
                               g
                               (V.fromList [DynamicShaped cx, DynamicShaped ca])
-        rf :: shaped rn sh -> (shaped rn sh, shaped rm shm)
-           -> (shaped rn sh, shaped rm shm)
-        rf dt (x, a) =
-          domsToPair $ dunDomains @ranked domsF $ fst
-          $ crevOnDomains (Just dt)
-                          g
-                          (V.fromList [DynamicShaped x, DynamicShaped a])
+        rf :: shaped rn sh -> shaped rn sh -> shaped rm shm
+           -> DomainsOf ranked
+        rf dt x a =
+          fst $ crevOnDomains (Just dt)
+                              g
+                              (V.fromList [DynamicShaped x, DynamicShaped a])
         p :: shaped rn (1 + k ': sh)
         p = sscan f x0 as
         width = slength p - 1
@@ -717,7 +709,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         rf dt x a =
           fst $ crevOnDomains (Just dt)
                               g
-                             (V.cons (DynamicShaped x) $ dunDomains domsOD a)
+                              (V.cons (DynamicShaped x) $ dunDomains domsOD a)
         width = case V.unsnoc as of
           Nothing -> error "sfoldD: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -770,25 +762,23 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
         -> ADVal shaped rm (k ': shm)
         -> ADVal shaped rn (1 + k ': sh)
   sscan f (D l1 x0 x0') (D l2 as as') =
-    let domsF = V.fromList [odFromShS @rn @sh, odFromShS @rm @shm]
-        domsToPair :: forall f. ADReadyS f
+    let domsToPair :: forall f. ADReadyS f
                    => Domains (RankedOf f) -> (f rn sh, f rm shm)
         domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
         g :: Domains (ADVal (RankedOf shaped)) -> ADVal shaped rn sh
         g doms = uncurry f (domsToPair doms)
-        df :: shaped rn sh -> (shaped rm shm, shaped rn sh, shaped rm shm)
+        df :: shaped rn sh -> shaped rm shm -> shaped rn sh -> shaped rm shm
            -> shaped rn sh
-        df cx (ca, x, a) =
+        df cx ca x a =
           fst $ cfwdOnDomains (V.fromList [DynamicShaped x, DynamicShaped a])
                               g
                               (V.fromList [DynamicShaped cx, DynamicShaped ca])
-        rf :: shaped rn sh -> (shaped rn sh, shaped rm shm)
-           -> (shaped rn sh, shaped rm shm)
-        rf dt (x, a) =
-          domsToPair $ dunDomains @ranked domsF $ fst
-          $ crevOnDomains (Just dt)
-                          g
-                          (V.fromList [DynamicShaped x, DynamicShaped a])
+        rf :: shaped rn sh -> shaped rn sh -> shaped rm shm
+           -> DomainsOf ranked
+        rf dt x a =
+          fst $ crevOnDomains (Just dt)
+                              g
+                              (V.fromList [DynamicShaped x, DynamicShaped a])
         p :: shaped rn (1 + k ': sh)
         p = sscan f x0 as
         width = slength p - 1
