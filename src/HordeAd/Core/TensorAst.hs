@@ -720,7 +720,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     in AstFoldDer (fun2ToAstR shn shm f) (fun4ToAstR shn shm df)
                   (fun3ToAstR shn shm rf) x0 as
   rfoldZip :: forall rn n. (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
+         => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
          -> DomainsOD
          -> AstRanked s rn n
          -> Domains (AstRanked s)
@@ -729,8 +729,8 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     assert (domainsMatch domsOD (index1Domains as 0)) $
     let shn = rshape x0
         domsF = V.cons (odFromSh @rn shn) domsOD
-        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, DomainsOf f)
-        domsToPair doms = (rfromD $ doms V.! 0, dmkDomains $ V.tail doms)
+        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
         g doms = uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
@@ -750,7 +750,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
           _ -> error "rfoldD: wrong variables"
       _ -> error "rfoldD: wrong variables"
   rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
+            => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
             -> (forall f. ADReady f
                 => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
                 -> f rn n)
@@ -817,7 +817,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
                   (fun4ToAstR shn shm df)
                   (fun3ToAstR shn shm rf) x0 as
   rscanZip :: forall rn n. (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
+         => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
          -> DomainsOD
          -> AstRanked s rn n
          -> Domains (AstRanked s)
@@ -826,8 +826,8 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
     assert (domainsMatch domsOD (index1Domains as 0)) $
     let shn = rshape x0
         domsF = V.cons (odFromSh @rn shn) domsOD
-        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, DomainsOf f)
-        domsToPair doms = (rfromD $ doms V.! 0, dmkDomains $ V.tail doms)
+        domsToPair :: forall f. ADReady f => Domains f -> (f rn n, Domains f)
+        domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
         g :: Domains (AstRanked FullSpan) -> AstRanked FullSpan rn n
         g doms = uncurry f (domsToPair doms)
     in case revProduceArtifact TensorToken True g EM.empty domsF of
@@ -847,7 +847,7 @@ instance AstSpan s => DomainsTensor (AstRanked s) (AstShaped s) where
           _ -> error "rscanD: wrong variables"
       _ -> error "rscanD: wrong variables"
   rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
+            => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
             -> (forall f. ADReady f
                 => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
                 -> f rn n)

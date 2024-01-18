@@ -1013,8 +1013,7 @@ buildFinMaps s0 deltaDt =
                 domsToPair doms = (rfromD $ doms V.! 0, rfromD $ doms V.! 1)
                 crsr :: ranked r (1 + n)
                 crsr =
-                  rscanZip (\cr doms' ->
-                            rletDomainsIn domsF doms' $ \doms ->
+                  rscanZip (\cr doms ->
                               let (x, a) = domsToPair doms
                               in rletDomainsIn
                                    domsF (rf cr x a) $ \rfRes ->
@@ -1062,6 +1061,7 @@ buildFinMaps s0 deltaDt =
                                              (runravelToList as))
                 s2 = evalR sShared cx0 x0'
             in evalR s2 (rfromList cas) as'
+          ZS -> error "evalR: impossible pattern needlessly required"
         FoldZipR @rm @m domsOD p as _df rf x0' as' -> case V.unsnoc as of
           Nothing -> error "evalR: can't determine argument width"
           Just (_, d) -> case shapeDynamic d of
@@ -1088,8 +1088,7 @@ buildFinMaps s0 deltaDt =
                   crsr :: ranked r (1 + n)
                   crsr =
                     rscanZip
-                      (\cr doms' ->
-                        rletDomainsIn domsF doms' $ \doms ->
+                      (\cr doms ->
                           let (x, a) = domsToPair doms
                           in rletDomainsIn domsF (rf cr x a) $ \rfRes ->
                                fst $ domsToPair rfRes)
@@ -1155,8 +1154,7 @@ buildFinMaps s0 deltaDt =
                 g1 k =
                   let cx = cShared ! (fromIntegral k :. ZI)
                       rf1 =
-                        rscanZip (\cr doms' ->
-                                  rletDomainsIn domsF doms' $ \doms ->
+                        rscanZip (\cr doms ->
                                     let (x, a) = domsToPair doms
                                     in rletDomainsIn
                                          domsF (rf cr x a) $ \rfRes ->
@@ -1221,8 +1219,7 @@ buildFinMaps s0 deltaDt =
                         rf1 :: ranked r (1 + n1)
                         rf1 =
                           rscanZip
-                            (\cr doms' ->
-                              rletDomainsIn domsF doms' $ \doms ->
+                            (\cr doms ->
                                 let (x, a) = domsToPair doms
                                 in rletDomainsIn domsF (rf cr x a) $ \rfRes ->
                                      fst $ domsToPair rfRes)
@@ -1926,8 +1923,7 @@ buildDerivative dimR deltaDt params = do
                 domsTo3 doms = ( rfromD $ doms V.! 0
                                , rfromD $ doms V.! 1
                                , rfromD $ doms V.! 2 )
-            return $! rfoldZip (\cx doms' ->
-                                rletDomainsIn domsF doms' $ \doms ->
+            return $! rfoldZip (\cx doms ->
                                   let (ca, x, a) = domsTo3 doms
                                   in df cx ca x a)
                              domsF
@@ -1957,8 +1953,7 @@ buildDerivative dimR deltaDt params = do
               domsTo3 doms = ( V.take domsLen doms
                              , rfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
-          return $! rfoldZip (\cx doms' ->
-                              rletDomainsIn domsF doms' $ \doms ->
+          return $! rfoldZip (\cx doms ->
                                 let (ca, x, a) = domsTo3 doms
                                 in df cx (dmkDomains ca) x (dmkDomains a))
                            domsF
@@ -1988,8 +1983,7 @@ buildDerivative dimR deltaDt params = do
                 domsTo3 doms = ( rfromD $ doms V.! 0
                                , rfromD $ doms V.! 1
                                , rfromD $ doms V.! 2 )
-            return $! rscanZip (\cx doms' ->
-                                rletDomainsIn domsF doms' $ \doms ->
+            return $! rscanZip (\cx doms ->
                                   let (ca, x, a) = domsTo3 doms
                                   in df cx ca x a)
                              domsF
@@ -2011,8 +2005,7 @@ buildDerivative dimR deltaDt params = do
               domsTo3 doms = ( V.take domsLen doms
                              , rfromD $ doms V.! domsLen
                              , V.drop (domsLen + 1) doms )
-          return $! rscanZip (\cx doms' ->
-                              rletDomainsIn domsF doms' $ \doms ->
+          return $! rscanZip (\cx doms ->
                                 let (ca, x, a) = domsTo3 doms
                                 in df cx (dmkDomains ca) x (dmkDomains a))
                            domsF

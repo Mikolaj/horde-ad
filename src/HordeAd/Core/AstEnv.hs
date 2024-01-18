@@ -281,13 +281,12 @@ interpretLambda2D
   -> ( AstVarName (AstRanked s) rn n
      , [AstDynamicVarName]
      , AstRanked s rn n )
-  -> ranked rn n -> DomainsOf ranked
+  -> ranked rn n -> Domains ranked
   -> ranked rn n
 {-# INLINE interpretLambda2D #-}
 interpretLambda2D f !env (!varn, !varm, !ast) =
-  \x0 as -> let lt0 = V.fromList $ map odFromVar varm
-                envE = extendEnvR varn x0 env
-            in rletDomainsIn lt0 as (\lw -> f (extendEnvPars varm lw envE) ast)
+  \x0 as -> let envE = extendEnvR varn x0 env
+            in f (extendEnvPars varm as envE) ast
 
 interpretLambda2DS
   :: forall s ranked shaped rn sh.

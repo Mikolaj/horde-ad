@@ -455,7 +455,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     in D l3 (pShared ! (fromIntegral width :. ZI))
             (FoldR pShared as df rf x0' as')
   rfoldZip :: forall rn n. (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
+         => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
          -> DomainsOD
          -> ADVal ranked rn n
          -> Domains (ADVal ranked)
@@ -486,7 +486,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     in D l3 (pShared ! (fromIntegral width :. ZI))
          (FoldZipRC domsOD pShared as df rf x0' as')
   rfoldZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
+            => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
             -> (forall f. ADReady f
                 => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
                 -> f rn n)
@@ -570,7 +570,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
     in D l3 pShared
             (ScanR pShared as df rf x0' as')
   rscanZip :: forall rn n. (GoodScalar rn, KnownNat n)
-         => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
+         => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
          -> DomainsOD
          -> ADVal ranked rn n
          -> Domains (ADVal ranked)
@@ -613,7 +613,7 @@ instance ( ADReady ranked, ADReadySmall (ADVal ranked) (ADVal shaped)
              $ x0' : map h (zip3 initsViaSliceP initsViaSlice initsViaSliceD)
     in D l3 pShared scanAsFold
   rscanZipDer :: forall rn n. (GoodScalar rn, KnownNat n)
-            => (forall f. ADReady f => f rn n -> DomainsOf f -> f rn n)
+            => (forall f. ADReady f => f rn n -> Domains f -> f rn n)
             -> (forall f. ADReady f
                 => f rn n -> DomainsOf f -> f rn n -> DomainsOf f
                 -> f rn n)

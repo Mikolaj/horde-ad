@@ -507,14 +507,14 @@ interpretAst !env = \case
         asi = interpretAst @ranked env as
     in rfoldDer @ranked f df rf x0i asi
   AstFoldZip @_ @n1 f@(_, vars, _) x0 as ->
-    let g :: forall f. ADReady f => f r n1 -> DomainsOf f -> f r n1
+    let g :: forall f. ADReady f => f r n1 -> Domains f -> f r n1
         g = interpretLambda2D interpretAst EM.empty f
         od = V.fromList $ map odFromVar vars
         x0i = interpretAst env x0
         asi = interpretAstDynamic env <$> as
     in rfoldZip g od x0i asi
   AstFoldZipDer @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
-    let f :: forall f. ADReady f => f r n1 -> DomainsOf f -> f r n1
+    let f :: forall f. ADReady f => f r n1 -> Domains f -> f r n1
         f = interpretLambda2D interpretAst EM.empty f0
         df :: forall f. ADReady f
            => f r n1 -> DomainsOf f -> f r n1 -> DomainsOf f -> f r n1
@@ -545,14 +545,14 @@ interpretAst !env = \case
         asi = interpretAst env as
     in rscanDer f df rf x0i asi
   AstScanZip @_ @n1 f@(_, vars, _) x0 as ->
-    let g :: forall f. ADReady f => f r n1 -> DomainsOf f -> f r n1
+    let g :: forall f. ADReady f => f r n1 -> Domains f -> f r n1
         g = interpretLambda2D interpretAst EM.empty f
         od = V.fromList $ map odFromVar vars
         x0i = interpretAst env x0
         asi = interpretAstDynamic env <$> as
     in rscanZip g od x0i asi
   AstScanZipDer @_ @n1 f0@(_, vars, _) df0 rf0 x0 as ->
-    let f :: forall f. ADReady f => f r n1 -> DomainsOf f -> f r n1
+    let f :: forall f. ADReady f => f r n1 -> Domains f -> f r n1
         f = interpretLambda2D interpretAst EM.empty f0
         df :: forall f. ADReady f
            => f r n1 -> DomainsOf f -> f r n1 -> DomainsOf f -> f r n1
